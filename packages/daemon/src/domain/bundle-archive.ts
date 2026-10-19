@@ -16,13 +16,13 @@ import { verifyIntegrity, type IntegrityFsOps } from "./bundle-integrity.js";
 import { parseLegacyBundleManifest as parseBundleManifest, normalizeLegacyBundleManifest as normalizeBundleManifest } from "./bundle-types.js";
 
 /**
- * Pack a staging directory into a .rigbundle archive (deterministic tar.gz).
+ * Pack a staging directory into a .softwareteambundle archive (deterministic tar.gz).
  * Writes sibling .sha256 digest file.
  * @returns SHA-256 hex digest of the archive
  */
 export async function pack(stagingDir: string, outputPath: string): Promise<string> {
-  if (!outputPath.endsWith(".rigbundle")) {
-    throw new Error("Output path must end with .rigbundle");
+  if (!outputPath.endsWith(".softwareteambundle")) {
+    throw new Error("Output path must end with .softwareteambundle");
   }
 
   const outDir = nodePath.dirname(outputPath);
@@ -104,7 +104,7 @@ export async function collectUnsafeArchiveEntries(archivePath: string): Promise<
 }
 
 /**
- * Unpack a .rigbundle archive to a directory.
+ * Unpack a .softwareteambundle archive to a directory.
  * Requires sibling .sha256 digest file. Verifies archive integrity before extraction.
  * Rejects symlinks, hardlinks, path traversal, and absolute paths.
  * Runs content integrity verification after extraction.

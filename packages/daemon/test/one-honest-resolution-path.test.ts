@@ -4,7 +4,7 @@ import { decodeTime } from "ulid";
 import type Database from "better-sqlite3";
 import { TmuxAdapter } from "../src/adapters/tmux.js";
 import type { ExecFn } from "../src/adapters/tmux.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SessionTransport } from "../src/domain/session-transport.js";
 import { EventBus } from "../src/domain/event-bus.js";
@@ -24,14 +24,14 @@ import { createFullTestDb } from "./helpers/test-app.js";
 // isTmuxTransportAbsentError):
 const NO_SERVER = () => new Error("no server running on /private/tmp/tmux-501/default");
 const SOCKET_GONE = () => new Error("error connecting to /private/tmp/tmux-501/default (No such file or directory)");
-const SESSION_GONE = () => new Error("can't find session: dev-impl@my-rig");
+const SESSION_GONE = () => new Error("can't find session: dev-impl@my-software-team");
 const PERMISSION = () => new Error("permission denied");
 
 const failingExec = (make: () => Error): ExecFn => async () => {
   throw make();
 };
 
-const SEAT = "dev-impl@my-rig";
+const SEAT = "dev-impl@my-software-team";
 
 describe("adapter gate: probeSession classifies instead of collapsing", () => {
   it("no-server → transport answer, not absence", async () => {
@@ -75,12 +75,12 @@ describe("adapter gate: probeSession classifies instead of collapsing", () => {
 
 describe("one path at the verbs: send and capture surface the transport outcome", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
   });
 
@@ -89,12 +89,12 @@ describe("one path at the verbs: send and capture surface the transport outcome"
   });
 
   function seedSeat() {
-    const rig = rigRepo.createRig("my-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("my-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { role: "worker", runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, SEAT);
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateBinding(node.id, { tmuxSession: SEAT, tmuxPane: "%5" });
-    return { rig, node, session };
+    return { softwareTeam, node, session };
   }
 
   function transportOver(make: () => Error, now?: () => Date): SessionTransport {
@@ -102,7 +102,7 @@ describe("one path at the verbs: send and capture surface the transport outcome"
     // shape, not a stubbed error at the seam under test.
     return new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: new TmuxAdapter(failingExec(make)),
       now,
@@ -226,13 +226,13 @@ describe("one path at the verbs: send and capture surface the transport outcome"
 
 describe("cold-start preserved: boot reconciliation still detaches under a dead server (mini-req 2)", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let eventBus: EventBus;
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     eventBus = new EventBus(db);
   });
@@ -242,48 +242,48 @@ describe("cold-start preserved: boot reconciliation still detaches under a dead 
   });
 
   function seedRunningSession() {
-    const rig = rigRepo.createRig("my-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("my-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { role: "worker", runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, SEAT);
     sessionRegistry.updateStatus(session.id, "running");
-    return { rig, node, session };
+    return { softwareTeam, node, session };
   }
 
   it("no-server: stale rows are detached, not errored", async () => {
-    const { rig } = seedRunningSession();
+    const { softwareTeam } = seedRunningSession();
     const reconciler = new Reconciler({
       db,
       sessionRegistry,
       eventBus,
       tmuxAdapter: new TmuxAdapter(failingExec(NO_SERVER)),
     });
-    const result = await reconciler.reconcile(rig.id);
+    const result = await reconciler.reconcile(softwareTeam.id);
     expect(result.detached).toBe(1);
     expect(result.errors).toEqual([]);
   });
 
   it("socket-gone: stale rows are detached, not errored", async () => {
-    const { rig } = seedRunningSession();
+    const { softwareTeam } = seedRunningSession();
     const reconciler = new Reconciler({
       db,
       sessionRegistry,
       eventBus,
       tmuxAdapter: new TmuxAdapter(failingExec(SOCKET_GONE)),
     });
-    const result = await reconciler.reconcile(rig.id);
+    const result = await reconciler.reconcile(softwareTeam.id);
     expect(result.detached).toBe(1);
     expect(result.errors).toEqual([]);
   });
 
   it("permission denied stays fail-closed: errored, never detached", async () => {
-    const { rig } = seedRunningSession();
+    const { softwareTeam } = seedRunningSession();
     const reconciler = new Reconciler({
       db,
       sessionRegistry,
       eventBus,
       tmuxAdapter: new TmuxAdapter(failingExec(PERMISSION)),
     });
-    const result = await reconciler.reconcile(rig.id);
+    const result = await reconciler.reconcile(softwareTeam.id);
     expect(result.detached).toBe(0);
     expect(result.errors).toHaveLength(1);
   });

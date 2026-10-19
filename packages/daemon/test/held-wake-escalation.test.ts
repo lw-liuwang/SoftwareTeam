@@ -7,7 +7,7 @@ import { it, expect, vi, afterEach } from "vitest";
 import { Hono } from "hono";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { AgentActivityStore } from "../src/domain/agent-activity-store.js";
 import { EventBus } from "../src/domain/event-bus.js";
@@ -15,7 +15,7 @@ import { SessionTransport } from "../src/domain/session-transport.js";
 import { SeatActivityService } from "../src/domain/seat-activity-service.js";
 import { activityRoutes } from "../src/routes/activity.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
-import { makeParkedOwnerConsumerPolicy, makeRigAnchor, PARKED_OWNER_POLICY_NAME, REFUSED_PREFIX } from "../src/domain/policies/parked-owner-consumer.js";
+import { makeParkedOwnerConsumerPolicy, makeSoftwareTeamAnchor, PARKED_OWNER_POLICY_NAME, REFUSED_PREFIX } from "../src/domain/policies/parked-owner-consumer.js";
 import { runWakeLadderTick, makePromptStateReader, classifyPromptAfterRefusal, queueRecoveryOwnsWake } from "../src/domain/queue-wake-ladder.js";
 
 const databases: Database.Database[] = [];
@@ -23,8 +23,8 @@ afterEach(() => { for (const db of databases.splice(0)) db.close(); });
 
 function fixture(runtime = "claude-code", permissionPromptReader?: (sessionName: string) => Promise<boolean | null>) {
   const db = createFullTestDb(); databases.push(db);
-  const rigRepo = new RigRepository(db), sessionRegistry = new SessionRegistry(db), bus = new EventBus(db);
-  const rig = rigRepo.createRig("r1001"), node = rigRepo.addNode(rig.id, "worker.a", { role: "worker", runtime });
+  const softwareTeamRepo = new SoftwareTeamRepository(db), sessionRegistry = new SessionRegistry(db), bus = new EventBus(db);
+  const softwareTeam = softwareTeamRepo.createSoftwareTeam("r1001"), node = softwareTeamRepo.addNode(softwareTeam.id, "worker.a", { role: "worker", runtime });
   const name = "worker-a@r1001", session = sessionRegistry.registerSession(node.id, name);
   sessionRegistry.updateStatus(session.id, "running"); sessionRegistry.updateBinding(node.id, { tmuxSession: name });
   const generation = sessionRegistry.currentOccupantTenure(node.id)!.generationUuid;
@@ -58,11 +58,11 @@ function fixture(runtime = "claude-code", permissionPromptReader?: (sessionName:
   app.route("/activity", activityRoutes);
   async function hook(event: string, subtype: string | null, ageMs: number, turnId?: string) {
     const r = await app.request("/activity/hooks", { method: "POST", headers: { "content-type": "application/json",
-      "x-openrig-activity-token": "local-fixture-token" }, body: JSON.stringify({ runtime, sessionName: name,
+      "x-softwareteam-activity-token": "local-fixture-token" }, body: JSON.stringify({ runtime, sessionName: name,
         generation, hookEvent: event, subtype, turnId, occurredAt: new Date(now().getTime() - ageMs).toISOString() }) });
     expect(r.status).toBe(200);
   }
-  const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux as never, agentActivityStore: store,
+  const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux as never, agentActivityStore: store,
     now, sleep: async () => undefined, activityEndpointFile: () => null });
   // The production composition (index.ts): the oracle first, then the gate's retained-hook evidence.
   const readPromptState = makePromptStateReader({ db,
@@ -75,14 +75,14 @@ function fixture(runtime = "claude-code", permissionPromptReader?: (sessionName:
 
 async function refuseAndClimb(f: ReturnType<typeof fixture>, oracleAlone?: "unknown" | "blocked") {
   await f.oracle().pollAllRunningTmuxSeats(f.db);
-  const repo = new QueueRepository(f.db, f.bus, { validateRig: () => true });
+  const repo = new QueueRepository(f.db, f.bus, { validateSoftwareTeam: () => true });
   const row = await repo.create({ sourceSession: "planner@r1001", destinationSession: f.name,
     body: "finish synthetic assigned work", summary: "synthetic obligation", nudge: false });
   repo.claim({ qitemId: row.qitemId, destinationSession: f.name });
   const history: Array<Record<string, unknown>> = [];
   const policy = makeParkedOwnerConsumerPolicy({
     // The parked diagnosis is not under test; the refusal and what follows it are.
-    diagnoseRig: () => ({ seats: [{ sessionName: f.name, parked: true,
+    diagnoseSoftwareTeam: () => ({ seats: [{ sessionName: f.name, parked: true,
       activity: { value: "idle-at-prompt", needsInput: { count: 0, reason: null } },
       obligations: { items: [{ qitemId: row.qitemId, state: "in-progress", summary: row.summary }], held: [] } }] }),
     history: { listForJob: () => history as never, countForJob: () => history.length },
@@ -92,7 +92,7 @@ async function refuseAndClimb(f: ReturnType<typeof fixture>, oracleAlone?: "unkn
       recoveryOwnsWake: (id) => queueRecoveryOwnsWake(f.db, repo.getById(id)),
     },
   });
-  const job = { jobId: "fixture-job", policy: PARKED_OWNER_POLICY_NAME, target: { session: makeRigAnchor("r1001") }, context: {} };
+  const job = { jobId: "fixture-job", policy: PARKED_OWNER_POLICY_NAME, target: { session: makeSoftwareTeamAnchor("r1001") }, context: {} };
   const wake = await policy.evaluate(job as never);
   expect(wake.action).toBe("send");
   const sent = await f.transport.send(f.name, "synthetic assigned-work wake");

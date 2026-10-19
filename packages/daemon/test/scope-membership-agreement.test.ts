@@ -36,7 +36,7 @@ function insertQitem(
 ): void {
   db.prepare(
     `INSERT INTO queue_items (qitem_id, ts_created, ts_updated, source_session, destination_session, state, priority, tier, tags, body, summary)
-     VALUES (?, ?, ?, 'src@rig', ?, ?, 'high', ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, 'src@software-team', ?, ?, 'high', ?, ?, ?, ?)`,
   ).run(
     opts.id,
     NOW,
@@ -74,19 +74,19 @@ describe("scope-membership agreement (VM-003 + VM-004 class-killer)", () => {
 
   function seedFixture(): void {
     // --- members of slice:target ---
-    insertQitem(db, { id: "qc", dest: "alice@rig", tags: ["mission:relx", "slice:target"] }); // clean
-    insertQitem(db, { id: "ql", dest: "bob@rig", tags: ["mission:relx,slice:target"] }); // comma-legacy (VM-003)
+    insertQitem(db, { id: "qc", dest: "alice@software-team", tags: ["mission:relx", "slice:target"] }); // clean
+    insertQitem(db, { id: "ql", dest: "bob@software-team", tags: ["mission:relx,slice:target"] }); // comma-legacy (VM-003)
     // --- NEGATIVES (must be excluded everywhere) ---
-    insertQitem(db, { id: "qsuf", dest: "carol@rig", tags: ["slice:target-extra"] }); // suffix over-match
-    insertQitem(db, { id: "qsib", dest: "dave@rig", tags: ["slice:sibling"] }); // sibling
-    insertQitem(db, { id: "qbody", dest: "erin@rig", tags: [], body: "work on target here" }); // body-mention only
+    insertQitem(db, { id: "qsuf", dest: "carol@software-team", tags: ["slice:target-extra"] }); // suffix over-match
+    insertQitem(db, { id: "qsib", dest: "dave@software-team", tags: ["slice:sibling"] }); // sibling
+    insertQitem(db, { id: "qbody", dest: "erin@software-team", tags: [], body: "work on target here" }); // body-mention only
     // --- mission-direct (C3) ---
-    insertQitem(db, { id: "qmis", dest: "frank@rig", tags: ["mission:relx"] });
+    insertQitem(db, { id: "qmis", dest: "frank@software-team", tags: ["mission:relx"] });
     // --- human-gate rows for attentionForTag agreement ---
-    insertQitem(db, { id: "qhg_member", dest: "grace@rig", tags: ["mission:relx,slice:target"], tier: "human-gate" });
-    insertQitem(db, { id: "qhg_non", dest: "heidi@rig", tags: ["slice:target-extra"], tier: "human-gate" });
+    insertQitem(db, { id: "qhg_member", dest: "grace@software-team", tags: ["mission:relx,slice:target"], tier: "human-gate" });
+    insertQitem(db, { id: "qhg_non", dest: "heidi@software-team", tags: ["slice:target-extra"], tier: "human-gate" });
     // --- legacy zero-typed corpus (substring tier must still run) ---
-    insertQitem(db, { id: "qleg", dest: "ivan@rig", tags: [], body: "legacyonly rollout notes" });
+    insertQitem(db, { id: "qleg", dest: "ivan@software-team", tags: [], body: "legacyonly rollout notes" });
   }
 
   function makeIndexerAndGatherer() {
@@ -113,12 +113,12 @@ describe("scope-membership agreement (VM-003 + VM-004 class-killer)", () => {
     const { gatherer } = makeIndexerAndGatherer();
     const band = gatherer.composeAgents("slice:target");
     const sessions = new Set((band?.rows ?? []).map((r) => r.sessionName));
-    expect(sessions.has("alice@rig")).toBe(true); // clean
-    expect(sessions.has("bob@rig")).toBe(true); // comma-legacy (VM-003 fix)
-    expect(sessions.has("carol@rig")).toBe(false); // suffix
-    expect(sessions.has("dave@rig")).toBe(false); // sibling
-    expect(sessions.has("erin@rig")).toBe(false); // body-mention
-    expect(sessions.has("frank@rig")).toBe(false); // mission-only -> not in slice band
+    expect(sessions.has("alice@software-team")).toBe(true); // clean
+    expect(sessions.has("bob@software-team")).toBe(true); // comma-legacy (VM-003 fix)
+    expect(sessions.has("carol@software-team")).toBe(false); // suffix
+    expect(sessions.has("dave@software-team")).toBe(false); // sibling
+    expect(sessions.has("erin@software-team")).toBe(false); // body-mention
+    expect(sessions.has("frank@software-team")).toBe(false); // mission-only -> not in slice band
   });
 
   it("hasActiveQitem AGREES with the band (phase/band coherence pin)", () => {
@@ -146,8 +146,8 @@ describe("scope-membership agreement (VM-003 + VM-004 class-killer)", () => {
     const { gatherer } = makeIndexerAndGatherer();
     const band = gatherer.composeAgents("mission:relx");
     const sessions = new Set((band?.rows ?? []).map((r) => r.sessionName));
-    expect(sessions.has("frank@rig")).toBe(true); // mission:relx-tagged, no slice tag (C3 fix)
-    expect(sessions.has("alice@rig")).toBe(true); // slice member still present via union
+    expect(sessions.has("frank@software-team")).toBe(true); // mission:relx-tagged, no slice tag (C3 fix)
+    expect(sessions.has("alice@software-team")).toBe(true); // slice member still present via union
   });
 
   it("mission attention excludes rows carrying a slice tag (d2 excludeTagPrefix, comma-legacy aware)", () => {
@@ -190,7 +190,7 @@ describe("scope-membership byte-identity carve (clean corpus, zero regression)",
   });
 
   it("a clean single-member slice band matches the pinned pre-change literal", () => {
-    insertQitem(db, { id: "qc", dest: "alice@rig", tags: ["mission:relx", "slice:target"] });
+    insertQitem(db, { id: "qc", dest: "alice@software-team", tags: ["mission:relx", "slice:target"] });
     const indexer = new SliceIndexer({ slicesRoot: missionsRoot, additionalSliceRoots: [], dogfoodEvidenceRoot: null, db });
     const gatherer = new ReviewGatherer({ db, indexer, gitRepoPath: null, now: () => NOW });
     const band = gatherer.composeAgents("slice:target");
@@ -206,7 +206,7 @@ describe("scope-membership byte-identity carve (clean corpus, zero regression)",
           holdsCount: 1,
           lastTransitionIso: NOW,
           exception: null,
-          sessionName: "alice@rig",
+          sessionName: "alice@software-team",
           slices: ["target"],
         },
       ],
@@ -254,7 +254,7 @@ describe("scope-membership B1/B2/P2 blocker regressions (fixback)", () => {
 
   it("§3.9 B1: zero-typed body-only row shows in the DISPLAY tier but NOT the SIGNAL tier (phase/band agree)", () => {
     // legacyonly has zero typed slice: rows; one ACTIVE body-mention-only qitem.
-    insertQitem(db, { id: "q-body-legacy", dest: "leg@rig", tags: [], body: "advance the legacyonly rollout" });
+    insertQitem(db, { id: "q-body-legacy", dest: "leg@software-team", tags: [], body: "advance the legacyonly rollout" });
     const { indexer, gatherer } = harness();
     // DISPLAY tier (queue-tab qitemIds): the legacy substring fallback keeps it.
     const rec = indexer.get("legacyonly")!;
@@ -276,12 +276,12 @@ describe("scope-membership B1/B2/P2 blocker regressions (fixback)", () => {
     // Decoys FIRST (they'd fill a pre-confirmation LIMIT-500 window and hide the true row at 302036aa).
     const seedDecoys = db.transaction((n: number) => {
       for (let i = 0; i < n; i++) {
-        insertQitem(db, { id: `q-decoy-${String(i).padStart(3, "0")}`, dest: "decoy@rig", tags: ["slice:target-extra"] });
+        insertQitem(db, { id: `q-decoy-${String(i).padStart(3, "0")}`, dest: "decoy@software-team", tags: ["slice:target-extra"] });
       }
     });
     seedDecoys(550);
-    insertQitem(db, { id: "q-true-target", dest: "truebuilder@rig", tags: ["slice:target"] });
-    insertQitem(db, { id: "q-body-target", dest: "bodyer@rig", tags: [], body: "notes about target here" });
+    insertQitem(db, { id: "q-true-target", dest: "truebuilder@software-team", tags: ["slice:target"] });
+    insertQitem(db, { id: "q-body-target", dest: "bodyer@software-team", tags: [], body: "notes about target here" });
     const { indexer, gatherer } = harness();
     const ids = new Set(indexer.get("target")?.qitemIds ?? []);
     expect(ids.has("q-true-target")).toBe(true); // retained despite the storm (no truncation before confirm)
@@ -291,14 +291,14 @@ describe("scope-membership B1/B2/P2 blocker regressions (fixback)", () => {
     const active = (gatherer as unknown as { hasActiveQitem(n: string): boolean }).hasActiveQitem("target");
     expect(active).toBe(true);
     const sessions = new Set((gatherer.composeAgents("slice:target")?.rows ?? []).map((r) => r.sessionName));
-    expect(sessions.has("truebuilder@rig")).toBe(true);
-    expect(sessions.has("decoy@rig")).toBe(false);
-    expect(sessions.has("bodyer@rig")).toBe(false);
+    expect(sessions.has("truebuilder@software-team")).toBe(true);
+    expect(sessions.has("decoy@software-team")).toBe(false);
+    expect(sessions.has("bodyer@software-team")).toBe(false);
   });
 
   it("§3.10a P2 tie-vector: two confirmable rows sharing one ts_created — deterministic id-DESC order across re-runs", () => {
-    insertQitem(db, { id: "qtie-a", dest: "a@rig", tags: ["slice:tie-slice"] });
-    insertQitem(db, { id: "qtie-b", dest: "b@rig", tags: ["slice:tie-slice"] }); // same ts_created (NOW)
+    insertQitem(db, { id: "qtie-a", dest: "a@software-team", tags: ["slice:tie-slice"] });
+    insertQitem(db, { id: "qtie-b", dest: "b@software-team", tags: ["slice:tie-slice"] }); // same ts_created (NOW)
     const { indexer } = harness();
     const mq = indexer as unknown as { matchQitems(s: string, r: string | null, m: string | null): string[] };
     const first = mq.matchQitems("tie-slice", null, "relx");
@@ -345,14 +345,14 @@ describe("slice: tag by frontmatter id or directory name (every membership consu
   }
 
   function seed(): void {
-    insertQitem(db, { id: "q-id", dest: "alice@rig", tags: ["mission:cus", "slice:CUS.1.1"] });
-    insertQitem(db, { id: "q-dir", dest: "bob@rig", tags: ["mission:cus", "slice:01-custody"] });
-    insertQitem(db, { id: "q-both", dest: "carol@rig", tags: ["mission:cus", "slice:CUS.1.1", "slice:01-custody"] });
-    insertQitem(db, { id: "q-sib", dest: "dave@rig", tags: ["mission:cus", "slice:CUS.1.2"] });
-    insertQitem(db, { id: "q-suffix", dest: "erin@rig", tags: ["slice:CUS.1.1-x"] });
-    insertQitem(db, { id: "q-mission", dest: "frank@rig", tags: ["mission:cus"] });
-    insertQitem(db, { id: "q-hg-id", dest: "grace@rig", tags: ["slice:CUS.1.1"], tier: "human-gate" });
-    insertQitem(db, { id: "q-hg-suffix", dest: "heidi@rig", tags: ["slice:CUS.1.1-x"], tier: "human-gate" });
+    insertQitem(db, { id: "q-id", dest: "alice@software-team", tags: ["mission:cus", "slice:CUS.1.1"] });
+    insertQitem(db, { id: "q-dir", dest: "bob@software-team", tags: ["mission:cus", "slice:01-custody"] });
+    insertQitem(db, { id: "q-both", dest: "carol@software-team", tags: ["mission:cus", "slice:CUS.1.1", "slice:01-custody"] });
+    insertQitem(db, { id: "q-sib", dest: "dave@software-team", tags: ["mission:cus", "slice:CUS.1.2"] });
+    insertQitem(db, { id: "q-suffix", dest: "erin@software-team", tags: ["slice:CUS.1.1-x"] });
+    insertQitem(db, { id: "q-mission", dest: "frank@software-team", tags: ["mission:cus"] });
+    insertQitem(db, { id: "q-hg-id", dest: "grace@software-team", tags: ["slice:CUS.1.1"], tier: "human-gate" });
+    insertQitem(db, { id: "q-hg-suffix", dest: "heidi@software-team", tags: ["slice:CUS.1.1-x"], tier: "human-gate" });
   }
 
   it("the Queue tab lists a row tagged by id, by dir, or by both once each, and not a sibling's or a suffix", () => {
@@ -368,14 +368,14 @@ describe("slice: tag by frontmatter id or directory name (every membership consu
 
   it("an id-only typed row makes its mission modern, so a zero-typed sibling does not inherit mission-only rows", () => {
     // Only slice 01 has a typed row, tagged by id. Slice 02 has none.
-    insertQitem(db, { id: "q-id", dest: "alice@rig", tags: ["mission:cus", "slice:CUS.1.1"] });
-    insertQitem(db, { id: "q-mission", dest: "frank@rig", tags: ["mission:cus"] });
+    insertQitem(db, { id: "q-id", dest: "alice@software-team", tags: ["mission:cus", "slice:CUS.1.1"] });
+    insertQitem(db, { id: "q-mission", dest: "frank@software-team", tags: ["mission:cus"] });
     expect(harness().indexer.get("02-other")!.qitemIds).not.toContain("q-mission");
   });
 
   it("a tag that is another slice's directory name is never read as this slice's id", () => {
     writeIdSlice("cus", "03-odd", "02-other");
-    insertQitem(db, { id: "q-dir-of-sibling", dest: "ivan@rig", tags: ["slice:02-other"] });
+    insertQitem(db, { id: "q-dir-of-sibling", dest: "ivan@software-team", tags: ["slice:02-other"] });
     const { indexer } = harness();
     expect(indexer.get("02-other")!.qitemIds).toEqual(["q-dir-of-sibling"]);
     expect(indexer.get("03-odd")!.qitemIds).not.toContain("q-dir-of-sibling");
@@ -386,8 +386,8 @@ describe("slice: tag by frontmatter id or directory name (every membership consu
     writeIdSlice("m1", "01-a", "X.1.1");
     writeIdSlice("m2", "01-b", "X.1.1");
     writeIdSlice("m1", "02-c", "X.1.2");
-    insertQitem(db, { id: "q-m2", dest: "alice@rig", tags: ["mission:m2", "slice:X.1.1"] });
-    insertQitem(db, { id: "q-m1", dest: "bob@rig", tags: ["mission:m1"] });
+    insertQitem(db, { id: "q-m2", dest: "alice@software-team", tags: ["mission:m2", "slice:X.1.1"] });
+    insertQitem(db, { id: "q-m1", dest: "bob@software-team", tags: ["mission:m1"] });
     const { indexer, gatherer } = harness();
     expect(indexer.sliceTagKeys("01-a")).toEqual(["01-a"]);
     expect(indexer.sliceTagKeys("01-b")).toEqual(["01-b"]);
@@ -397,17 +397,17 @@ describe("slice: tag by frontmatter id or directory name (every membership consu
     expect(indexer.get("02-c")!.qitemIds).toContain("q-m1");
     const sessions = (scope: `slice:${string}` | `mission:${string}`) =>
       new Set((gatherer.composeAgents(scope)?.rows ?? []).map((r) => r.sessionName));
-    expect(sessions("slice:01-a").has("alice@rig")).toBe(false);
-    expect(sessions("mission:m1").has("alice@rig")).toBe(false);
-    expect(sessions("mission:m1").has("bob@rig")).toBe(true);
+    expect(sessions("slice:01-a").has("alice@software-team")).toBe(false);
+    expect(sessions("mission:m1").has("alice@software-team")).toBe(false);
+    expect(sessions("mission:m1").has("bob@software-team")).toBe(true);
   });
 
   it("a mission-scoped indexer (the project-mode route builds one) still sees an id shared with another mission", () => {
     writeIdSlice("m1", "01-a", "X.1.1");
     writeIdSlice("m2", "01-b", "X.1.1");
     writeIdSlice("m1", "02-c", "X.1.2");
-    insertQitem(db, { id: "q-m2", dest: "alice@rig", tags: ["mission:m2", "slice:X.1.1"] });
-    insertQitem(db, { id: "q-m1", dest: "bob@rig", tags: ["mission:m1"] });
+    insertQitem(db, { id: "q-m2", dest: "alice@software-team", tags: ["mission:m2", "slice:X.1.1"] });
+    insertQitem(db, { id: "q-m1", dest: "bob@software-team", tags: ["mission:m1"] });
     const indexer = new SliceIndexer({ slicesRoot: missionsRoot, additionalSliceRoots: [], dogfoodEvidenceRoot: null, db, missionId: "m1" });
     expect(indexer.sliceTagKeys("01-a")).toEqual(["01-a"]);
     expect(indexer.get("01-a")!.qitemIds).toEqual(["q-m1"]);
@@ -417,7 +417,7 @@ describe("slice: tag by frontmatter id or directory name (every membership consu
   it("a mission-scoped indexer does not read an id as an alias when another mission has a directory of that name", () => {
     writeIdSlice("m1", "01-a", "02-b");
     writeIdSlice("m2", "02-b", "X.2.2");
-    insertQitem(db, { id: "q-dir", dest: "alice@rig", tags: ["slice:02-b"] });
+    insertQitem(db, { id: "q-dir", dest: "alice@software-team", tags: ["slice:02-b"] });
     const indexer = new SliceIndexer({ slicesRoot: missionsRoot, additionalSliceRoots: [], dogfoodEvidenceRoot: null, db, missionId: "m1" });
     expect(indexer.sliceTagKeys("01-a")).toEqual(["01-a"]);
     expect(indexer.get("01-a")!.qitemIds).not.toContain("q-dir");
@@ -426,8 +426,8 @@ describe("slice: tag by frontmatter id or directory name (every membership consu
   it("an id shared by same-named slices in two missions is no alias, though directory dedupe shows only one of them", () => {
     writeIdSlice("m1", "01-a", "X.1.1");
     writeIdSlice("m2", "01-a", "X.1.1");
-    insertQitem(db, { id: "q-m2", dest: "alice@rig", tags: ["mission:m2", "slice:X.1.1"] });
-    insertQitem(db, { id: "q-m1", dest: "bob@rig", tags: ["mission:m1"] });
+    insertQitem(db, { id: "q-m2", dest: "alice@software-team", tags: ["mission:m2", "slice:X.1.1"] });
+    insertQitem(db, { id: "q-m1", dest: "bob@software-team", tags: ["mission:m1"] });
     const { indexer } = harness();
     expect(indexer.sliceTagKeys("01-a")).toEqual(["01-a"]);
     expect(indexer.get("01-a")!.qitemIds).not.toContain("q-m2");
@@ -437,7 +437,7 @@ describe("slice: tag by frontmatter id or directory name (every membership consu
     const second = path.join(cleanup, "second");
     fs.mkdirSync(path.join(second, "cus", "slices", "01-custody"), { recursive: true });
     fs.writeFileSync(path.join(second, "cus", "slices", "01-custody", "SPEC.md"), "---\nid: CUS.1.1\nstatus: active\n---\n# dup\n");
-    insertQitem(db, { id: "q-id", dest: "alice@rig", tags: ["mission:cus", "slice:CUS.1.1"] });
+    insertQitem(db, { id: "q-id", dest: "alice@software-team", tags: ["mission:cus", "slice:CUS.1.1"] });
     const indexer = new SliceIndexer({ slicesRoot: missionsRoot, additionalSliceRoots: [second], dogfoodEvidenceRoot: null, db });
     expect(indexer.sliceTagKeys("01-custody")).toEqual(["01-custody", "CUS.1.1"]);
     expect(indexer.get("01-custody")!.qitemIds).toEqual(["q-id"]);
@@ -446,11 +446,11 @@ describe("slice: tag by frontmatter id or directory name (every membership consu
   it("the agents band holds a seat for an id-tagged row, a dir-tagged row and a both-tagged row", () => {
     seed();
     const sessions = new Set((harness().gatherer.composeAgents("slice:01-custody")?.rows ?? []).map((r) => r.sessionName));
-    expect(sessions).toEqual(new Set(["alice@rig", "bob@rig", "carol@rig", "grace@rig"]));
+    expect(sessions).toEqual(new Set(["alice@software-team", "bob@software-team", "carol@software-team", "grace@software-team"]));
   });
 
   it("the phase signal sees active work that is tagged only by id", () => {
-    insertQitem(db, { id: "q-id", dest: "alice@rig", tags: ["mission:cus", "slice:CUS.1.1"] });
+    insertQitem(db, { id: "q-id", dest: "alice@software-team", tags: ["mission:cus", "slice:CUS.1.1"] });
     const { gatherer } = harness();
     expect((gatherer as unknown as { hasActiveQitem(n: string): boolean }).hasActiveQitem("01-custody")).toBe(true);
     expect((gatherer as unknown as { hasActiveQitem(n: string): boolean }).hasActiveQitem("02-other")).toBe(false);

@@ -15,7 +15,7 @@ let home: string;
 let errors: string[];
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "daemon-start-port-"));
-  vi.stubEnv("OPENRIG_HOME", home);
+  vi.stubEnv("SOFTWARETEAM_HOME", home);
   errors = [];
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => { errors.push(args.join(" ")); });

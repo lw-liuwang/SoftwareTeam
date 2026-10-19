@@ -7,7 +7,7 @@ import fs from "node:fs";
 import nodePath from "node:path";
 import { fileURLToPath } from "node:url";
 import { stampFields } from "./build-info.js";
-import type { RigRepository } from "./domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "./domain/software-team-repository.js";
 import type { SessionRegistry } from "./domain/session-registry.js";
 import type { DaemonLifecycleStore } from "./domain/daemon-lifecycle-store.js";
 import type { EventBus } from "./domain/event-bus.js";
@@ -18,9 +18,9 @@ import type { CmuxAdapter } from "./adapters/cmux.js";
 import type { SnapshotCapture } from "./domain/snapshot-capture.js";
 import type { SnapshotRepository } from "./domain/snapshot-repository.js";
 import type { RestoreOrchestrator } from "./domain/restore-orchestrator.js";
-import type { RigSpecExporter } from "./domain/rigspec-exporter.js";
-import type { RigSpecPreflight } from "./domain/rigspec-preflight.js";
-import type { RigInstantiator, PodRigInstantiator } from "./domain/rigspec-instantiator.js";
+import type { SoftwareTeamSpecExporter } from "./domain/software-team-spec-exporter.js";
+import type { SoftwareTeamSpecPreflight } from "./domain/software-team-spec-preflight.js";
+import type { SoftwareTeamInstantiator, PodSoftwareTeamInstantiator } from "./domain/software-team-spec-instantiator.js";
 import type { PodBundleSourceResolver } from "./domain/bundle-source-resolver.js";
 import type { PackageRepository } from "./domain/package-repository.js";
 import type { InstallRepository } from "./domain/install-repository.js";
@@ -32,12 +32,12 @@ import type { DiscoveryCoordinator } from "./domain/discovery-coordinator.js";
 import type { DiscoveryRepository } from "./domain/discovery-repository.js";
 import type { ClaimService } from "./domain/claim-service.js";
 import type { SelfAttachService } from "./domain/self-attach-service.js";
-import { rigsRoutes } from "./routes/rigs.js";
+import { softwareTeamsRoutes } from "./routes/software-teams.js";
 import { sessionsRoutes, nodesRoutes, sessionAdminRoutes } from "./routes/sessions.js";
 import { adaptersRoutes } from "./routes/adapters.js";
 import { eventsRoute } from "./routes/events.js";
 import { snapshotsRoutes, restoreRoutes } from "./routes/snapshots.js";
-import { handleExportYaml, handleExportJson, rigspecImportRoutes } from "./routes/rigspec.js";
+import { handleExportYaml, handleExportJson, softwareTeamSpecImportRoutes } from "./routes/software-team-spec.js";
 import { packagesRoutes } from "./routes/packages.js";
 import { bootstrapRoutes } from "./routes/bootstrap.js";
 import { discoveryRoutes } from "./routes/discovery.js";
@@ -48,7 +48,7 @@ import { agentsRoutes } from "./routes/agents.js";
 import { psRoutes } from "./routes/ps.js";
 import type { PsProjectionService } from "./domain/ps-projection.js";
 import type { UpCommandRouter } from "./domain/up-command-router.js";
-import type { RigTeardownOrchestrator } from "./domain/rig-teardown.js";
+import type { SoftwareTeamTeardownOrchestrator } from "./domain/software-team-teardown.js";
 import { upRoutes } from "./routes/up.js";
 import { infoRoutes } from "./routes/info.js";
 import { downRoutes } from "./routes/down.js";
@@ -104,10 +104,10 @@ import { workflowRoutes } from "./routes/workflow.js";
 import { missionControlRoutes } from "./routes/mission-control.js";
 import { slicesRoutes } from "./routes/slices.js";
 import { reviewRoutes } from "./routes/review.js";
-import { rigModeRoutes } from "./routes/rig-mode.js";
+import { softwareTeamModeRoutes } from "./routes/software-team-mode.js";
 import { missionsRoutes } from "./routes/missions.js";
-import { rigCmuxRoutes } from "./routes/rig-cmux.js";
-import { terminalRoutes, rigTerminalRoutes } from "./routes/terminal.js";
+import { softwareTeamCmuxRoutes } from "./routes/software-team-cmux.js";
+import { terminalRoutes, softwareTeamTerminalRoutes } from "./routes/terminal.js";
 import { CmuxLayoutService } from "./domain/cmux-layout-service.js";
 import { getNodeInventory } from "./domain/node-inventory.js";
 import { filesRoutes } from "./routes/files.js";
@@ -139,7 +139,7 @@ import type { WatchdogPolicyEngine } from "./domain/watchdog-policy-engine.js";
 import type { WatchdogScheduler } from "./domain/watchdog-scheduler.js";
 import type { WorkflowRuntime } from "./domain/workflow-runtime.js";
 import { envRoutes } from "./routes/env.js";
-import type { RigLifecycleService } from "./domain/rig-lifecycle-service.js";
+import type { SoftwareTeamLifecycleService } from "./domain/software-team-lifecycle-service.js";
 import { seatRoutes } from "./routes/seat.js";
 import { createRouteTimingMiddleware } from "./domain/route-timing-recorder.js";
 import { browserBoundary, type BrowserBoundaryOptions } from "./middleware/browser-boundary.js";
@@ -148,14 +148,14 @@ export interface AppDeps {
   proofSourceWatch?: import("./domain/proof/source-watch.js").ProofSourceWatch;
   /** S20 — effective bind plan for the health surface (absent = legacy body). */
   bindPlan?: { mode: "explicit" | "default"; hosts: string[]; tailscaleDetected: boolean; ignoredRoutingHost?: string };
-  rigRepo: RigRepository;
+  softwareTeamRepo: SoftwareTeamRepository;
   sessionRegistry: SessionRegistry;
   /** P7 — daemon lifecycle record store + this boot's epoch (heartbeat + clean-shutdown). */
   daemonLifecycleStore: DaemonLifecycleStore;
   daemonBootEpoch: string;
   eventBus: EventBus;
   nodeLauncher: NodeLauncher;
-  /** Seat-scoped explicit fresh launch composes the same startup owner as rig launch. */
+  /** Seat-scoped explicit fresh launch composes the same startup owner as SoftwareTeam launch. */
   startupOrchestrator?: import("./domain/startup-orchestrator.js").StartupOrchestrator;
   tmuxAdapter: TmuxAdapter;
   /** OPR.0.4.6.02 S1 — the shared tmux option-defaults applier, exposed to
@@ -169,9 +169,9 @@ export interface AppDeps {
   restoreOrchestrator: RestoreOrchestrator;
   // OPR.0.4.3.20 FR-4 — for refresh-before-serialize on the manual snapshot route.
   resumeMetadataRefresher?: import("./domain/resume-metadata-refresher.js").ResumeMetadataRefresher;
-  rigSpecExporter: RigSpecExporter;
-  rigSpecPreflight: RigSpecPreflight;
-  rigInstantiator: RigInstantiator;
+  softwareTeamSpecExporter: SoftwareTeamSpecExporter;
+  softwareTeamSpecPreflight: SoftwareTeamSpecPreflight;
+  softwareTeamInstantiator: SoftwareTeamInstantiator;
   packageRepo: PackageRepository;
   installRepo: InstallRepository;
   installEngine: InstallEngine;
@@ -182,8 +182,8 @@ export interface AppDeps {
   discoveryRepo: DiscoveryRepository;
   claimService: ClaimService;
   selfAttachService?: SelfAttachService;
-  rigExpansionService?: import("./domain/rig-expansion-service.js").RigExpansionService;
-  rigLifecycleService?: RigLifecycleService;
+  softwareTeamExpansionService?: import("./domain/software-team-expansion-service.js").SoftwareTeamExpansionService;
+  softwareTeamLifecycleService?: SoftwareTeamLifecycleService;
   /**
    * Slice 15 — Seat-activity service (terminal-active primitive). The
    * daemon owns one instance and wires it into PsProjectionService and
@@ -197,8 +197,8 @@ export interface AppDeps {
   seatIdentityReconciler?: import("./domain/seat-identity-reconciler.js").SeatIdentityReconciler;
   psProjectionService: PsProjectionService;
   upRouter: UpCommandRouter;
-  teardownOrchestrator: RigTeardownOrchestrator;
-  podInstantiator: PodRigInstantiator;
+  teardownOrchestrator: SoftwareTeamTeardownOrchestrator;
+  podInstantiator: PodSoftwareTeamInstantiator;
   podBundleSourceResolver: PodBundleSourceResolver | null;
   runtimeAdapters?: Record<string, import("./domain/runtime-adapter.js").RuntimeAdapter>;
   transcriptStore?: TranscriptStore;
@@ -312,14 +312,14 @@ export interface AppDeps {
   pluginDiscoveryService?: PluginDiscoveryService;
   /**
    * Slice 28 Checkpoint C-3 — skill-library discovery service.
-   * Consolidates workspace + openrig-managed skill sources; resolves
+   * Consolidates workspace + softwareteam-managed skill sources; resolves
    * shared-skills via daemon install path (independent of operator's
-   * OPENRIG_FILES_ALLOWLIST). Read-only; no SQL. SC-29 #11.
+   * SOFTWARETEAM_FILES_ALLOWLIST). Read-only; no SQL. SC-29 #11.
    */
   skillLibraryDiscoveryService?: SkillLibraryDiscoveryService;
   /** Workflows in Spec Library v0 — active workflow lens persistence. */
   activeLensStore?: import("./domain/active-lens-store.js").ActiveLensStore;
-  /** Rig Context / Composable Context Injection v0 (PL-014) — context_packs library service. */
+  /** SoftwareTeam Context / Composable Context Injection v0 (PL-014) — context_packs library service. */
   contextPackLibrary?: import("./domain/context-packs/context-pack-library-service.js").ContextPackLibraryService;
   /** Fork Primitive + Starter Agent Images v0 (PL-016) — agent_images library service. */
   agentImageLibrary?: import("./domain/agent-images/agent-image-library-service.js").AgentImageLibraryService;
@@ -358,16 +358,16 @@ export interface AppDeps {
   serviceOrchestrator?: import("./domain/service-orchestrator.js").ServiceOrchestrator;
   composeAdapter?: import("./adapters/compose-services-adapter.js").ComposeServicesAdapter;
   uiDistDir?: string | null;
-  /** V0.3.1 slice 05 kernel-rig-as-default — forward-fix #3 architectural.
+  /** V0.3.1 slice 05 kernel-software-team-as-default — forward-fix #3 architectural.
    *  Tracker exposed via GET /api/kernel/status. Optional because tests
    *  + custom daemon compositions may construct AppDeps without auto-
    *  booting the kernel; the route returns 503 with a clear message
    *  when the tracker isn't wired. */
   kernelBootTracker?: import("./domain/kernel-boot-tracker.js").KernelBootTracker;
   /** Slice 09 (OPR.0.3.2.9) — operator-context-mode bindings store.
-   *  Optional: when absent, the rig-policy routes return 503. */
-  rigModeStore?: import("./domain/rig-mode/rig-mode-store.js").RigModeStore;
-  operatingPosture?: import("./domain/rig-mode/operating-posture.js").OperatingPostureService;
+   *  Optional: when absent, the software-team-policy routes return 503. */
+  softwareTeamModeStore?: import("./domain/software-team-mode/software-team-mode-store.js").SoftwareTeamModeStore;
+  operatingPosture?: import("./domain/software-team-mode/operating-posture.js").OperatingPostureService;
   /**
    * OPR.0.4.3.21 — daemon event-loop health monitor. Optional: when absent
    * (e.g. direct-construction test harnesses) `/healthz` keeps its exact
@@ -383,7 +383,7 @@ export interface AppDeps {
    */
   routeTimingRecorder?: import("./domain/route-timing-recorder.js").RouteTimingRecorder;
   /**
-   * OPR.0.4.3.04 — OpenRig identity/activity env stamped onto a successor
+   * OPR.0.4.3.04 — SoftwareTeam identity/activity env stamped onto a successor
    * tmux session created by the seat-handover full-cycle composer, mirroring
    * the env NodeLauncher uses at launch. Optional; the three core identity
    * vars are always derived internally by the composer.
@@ -409,7 +409,7 @@ function resolveDefaultUiDistDir(): string {
 }
 
 export const WEB_UI_OFF_MESSAGE =
-  "The OpenRig web UI is off. To turn it on, run `rig config set ui.enabled true`, then stop and start the daemon (`rig daemon stop`, `rig daemon start`).\n";
+  "The SoftwareTeam web UI is off. To turn it on, run `SoftwareTeam config set ui.enabled true`, then stop and start the daemon (`SoftwareTeam daemon stop`, `SoftwareTeam daemon start`).\n";
 
 function safeResolveUiPath(uiDistDir: string, requestPath: string): string | null {
   const relativePath = requestPath.replace(/^\/+/, "") || "index.html";
@@ -442,55 +442,55 @@ function isUiAssetRequestPath(requestPath: string): boolean {
 
 export function createApp(deps: AppDeps): Hono {
   // Hard runtime invariant: all domain services must share the same db handle.
-  if (deps.rigRepo.db !== deps.eventBus.db) {
-    throw new Error("createApp: rigRepo and eventBus must share the same db handle");
+  if (deps.softwareTeamRepo.db !== deps.eventBus.db) {
+    throw new Error("createApp: softwareTeamRepo and eventBus must share the same db handle");
   }
-  if (deps.rigRepo.db !== deps.sessionRegistry.db) {
-    throw new Error("createApp: rigRepo and sessionRegistry must share the same db handle");
+  if (deps.softwareTeamRepo.db !== deps.sessionRegistry.db) {
+    throw new Error("createApp: softwareTeamRepo and sessionRegistry must share the same db handle");
   }
-  if (deps.rigRepo.db !== deps.snapshotRepo.db) {
+  if (deps.softwareTeamRepo.db !== deps.snapshotRepo.db) {
     throw new Error("createApp: snapshotRepo must share the same db handle");
   }
-  if (deps.rigRepo.db !== deps.snapshotCapture.db) {
+  if (deps.softwareTeamRepo.db !== deps.snapshotCapture.db) {
     throw new Error("createApp: snapshotCapture must share the same db handle");
   }
-  if (deps.rigRepo.db !== deps.restoreOrchestrator.db) {
+  if (deps.softwareTeamRepo.db !== deps.restoreOrchestrator.db) {
     throw new Error("createApp: restoreOrchestrator must share the same db handle");
   }
-  if (deps.rigRepo.db !== deps.rigSpecExporter.db) {
-    throw new Error("createApp: rigSpecExporter must share the same db handle");
+  if (deps.softwareTeamRepo.db !== deps.softwareTeamSpecExporter.db) {
+    throw new Error("createApp: softwareTeamSpecExporter must share the same db handle");
   }
-  if (deps.rigRepo.db !== deps.rigSpecPreflight.db) {
-    throw new Error("createApp: rigSpecPreflight must share the same db handle");
+  if (deps.softwareTeamRepo.db !== deps.softwareTeamSpecPreflight.db) {
+    throw new Error("createApp: softwareTeamSpecPreflight must share the same db handle");
   }
-  if (deps.rigRepo.db !== deps.rigInstantiator.db) {
-    throw new Error("createApp: rigInstantiator must share the same db handle");
+  if (deps.softwareTeamRepo.db !== deps.softwareTeamInstantiator.db) {
+    throw new Error("createApp: softwareTeamInstantiator must share the same db handle");
   }
-  if (deps.rigRepo.db !== deps.packageRepo.db) {
+  if (deps.softwareTeamRepo.db !== deps.packageRepo.db) {
     throw new Error("createApp: packageRepo must share the same db handle");
   }
-  if (deps.rigRepo.db !== deps.installRepo.db) {
+  if (deps.softwareTeamRepo.db !== deps.installRepo.db) {
     throw new Error("createApp: installRepo must share the same db handle");
   }
-  if (deps.rigRepo.db !== deps.bootstrapRepo.db) {
+  if (deps.softwareTeamRepo.db !== deps.bootstrapRepo.db) {
     throw new Error("createApp: bootstrapRepo must share the same db handle");
   }
-  if (deps.rigRepo.db !== deps.discoveryRepo.db) {
+  if (deps.softwareTeamRepo.db !== deps.discoveryRepo.db) {
     throw new Error("createApp: discoveryRepo must share the same db handle");
   }
-  if (deps.rigRepo.db !== deps.claimService.db) {
+  if (deps.softwareTeamRepo.db !== deps.claimService.db) {
     throw new Error("createApp: claimService must share the same db handle");
   }
-  if (deps.selfAttachService && deps.rigRepo.db !== deps.selfAttachService.db) {
+  if (deps.selfAttachService && deps.softwareTeamRepo.db !== deps.selfAttachService.db) {
     throw new Error("createApp: selfAttachService must share the same db handle");
   }
-  if (deps.rigRepo.db !== deps.psProjectionService.db) {
+  if (deps.softwareTeamRepo.db !== deps.psProjectionService.db) {
     throw new Error("createApp: psProjectionService must share the same db handle");
   }
-  if (deps.rigRepo.db !== deps.teardownOrchestrator.db) {
+  if (deps.softwareTeamRepo.db !== deps.teardownOrchestrator.db) {
     throw new Error("createApp: teardownOrchestrator must share the same db handle");
   }
-  if (deps.rigRepo.db !== deps.podInstantiator.db) {
+  if (deps.softwareTeamRepo.db !== deps.podInstantiator.db) {
     throw new Error("createApp: podInstantiator must share the same db handle");
   }
 
@@ -500,11 +500,11 @@ export function createApp(deps: AppDeps): Hono {
   app.use("*", trackJsonBodyParseErrors);
   app.onError(jsonBodyErrorHandler);
   const permissionDriftObserver = deps.permissionDriftObserver
-    ?? new PermissionDriftObserver({ db: deps.rigRepo.db });
+    ?? new PermissionDriftObserver({ db: deps.softwareTeamRepo.db });
 
   // Inject dependencies into context for all routes
   app.use("*", async (c, next) => {
-    c.set("rigRepo" as never, deps.rigRepo);
+    c.set("softwareTeamRepo" as never, deps.softwareTeamRepo);
     c.set("sessionRegistry" as never, deps.sessionRegistry);
     c.set("eventBus" as never, deps.eventBus);
     c.set("nodeLauncher" as never, deps.nodeLauncher);
@@ -516,23 +516,23 @@ export function createApp(deps: AppDeps): Hono {
     c.set("cmuxAdapter" as never, deps.cmuxAdapter);
     // S10 — the in-daemon gateway subsystem handle (health surface + dispatch seam).
     c.set("gatewaySubsystem" as never, deps.gatewaySubsystem);
-    // Slice 24 — per-rig CMUX workspace launcher wiring.
+    // Slice 24 — per-softwareTeam CMUX workspace launcher wiring.
     c.set(
       "cmuxLayoutService" as never,
       new CmuxLayoutService(deps.cmuxAdapter),
     );
     c.set(
       "nodeInventoryFn" as never,
-      (rigId: string) => getNodeInventory(deps.rigRepo.db, rigId),
+      (softwareTeamId: string) => getNodeInventory(deps.softwareTeamRepo.db, softwareTeamId),
     );
     c.set("snapshotCapture" as never, deps.snapshotCapture);
     c.set("snapshotRepo" as never, deps.snapshotRepo);
     c.set("providerService" as never, deps.providerService);
     c.set("restoreOrchestrator" as never, deps.restoreOrchestrator);
     c.set("resumeMetadataRefresher" as never, deps.resumeMetadataRefresher);
-    c.set("rigSpecExporter" as never, deps.rigSpecExporter);
-    c.set("rigSpecPreflight" as never, deps.rigSpecPreflight);
-    c.set("rigInstantiator" as never, deps.rigInstantiator);
+    c.set("softwareTeamSpecExporter" as never, deps.softwareTeamSpecExporter);
+    c.set("softwareTeamSpecPreflight" as never, deps.softwareTeamSpecPreflight);
+    c.set("softwareTeamInstantiator" as never, deps.softwareTeamInstantiator);
     c.set("packageRepo" as never, deps.packageRepo);
     c.set("installRepo" as never, deps.installRepo);
     c.set("installEngine" as never, deps.installEngine);
@@ -543,8 +543,8 @@ export function createApp(deps: AppDeps): Hono {
     c.set("discoveryRepo" as never, deps.discoveryRepo);
     c.set("claimService" as never, deps.claimService);
     c.set("selfAttachService" as never, deps.selfAttachService);
-    c.set("rigExpansionService" as never, deps.rigExpansionService);
-    c.set("rigLifecycleService" as never, deps.rigLifecycleService);
+    c.set("softwareTeamExpansionService" as never, deps.softwareTeamExpansionService);
+    c.set("softwareTeamLifecycleService" as never, deps.softwareTeamLifecycleService);
     c.set("psProjectionService" as never, deps.psProjectionService);
     c.set("upRouter" as never, deps.upRouter);
     c.set("teardownOrchestrator" as never, deps.teardownOrchestrator);
@@ -613,7 +613,7 @@ export function createApp(deps: AppDeps): Hono {
     c.set("agentActivityStore" as never, deps.agentActivityStore);
     c.set("seatAttentionReconciler" as never, deps.seatAttentionReconciler);
     // Slice 15 — wire seatActivityService into request context so the
-    // /api/rigs/:id/nodes route can enrich entries with terminalActive +
+    // /api/software-teams/:id/nodes route can enrich entries with terminalActive +
     // hasAssignedWork via attachTerminalActivityAndWork.
     c.set("seatActivityService" as never, deps.seatActivityService);
     c.set("seatStructuralActivityService" as never, deps.seatStructuralActivityService);
@@ -621,15 +621,15 @@ export function createApp(deps: AppDeps): Hono {
     c.set("serviceOrchestrator" as never, deps.serviceOrchestrator);
     c.set("composeAdapter" as never, deps.composeAdapter);
     c.set("kernelBootTracker" as never, deps.kernelBootTracker);
-    c.set("rigModeStore" as never, deps.rigModeStore);
+    c.set("softwareTeamModeStore" as never, deps.softwareTeamModeStore);
     c.set("operatingPosture" as never, deps.operatingPosture);
-    c.set("db" as never, deps.rigRepo.db);
+    c.set("db" as never, deps.softwareTeamRepo.db);
     c.set("terminalBearerToken" as never, deps.terminalBearerToken ?? null);
     await next();
   });
 
   // OPR.0.4.3.21 — ONE request-duration middleware for the expensive topology
-  // routes (rigs summary/graph, nodes, ps). Registered only when a recorder is
+  // routes (softwareTeams summary/graph, nodes, ps). Registered only when a recorder is
   // wired (production); the internal expensiveRouteLabel gate makes it a no-op
   // for every other path, so cheap routes pay nothing.
   if (deps.routeTimingRecorder) {
@@ -648,8 +648,8 @@ export function createApp(deps: AppDeps): Hono {
   app.use("/api/*", browserBoundary({
     webUiEnabled: deps.webUiEnabled === true,
     bearerTokens: [deps.terminalBearerToken, deps.missionControlBearerToken],
-    allowedOrigins: process.env.OPENRIG_ALLOWED_ORIGINS,
-    allowedHosts: process.env.OPENRIG_ALLOWED_HOSTS,
+    allowedOrigins: process.env.SOFTWARETEAM_ALLOWED_ORIGINS,
+    allowedHosts: process.env.SOFTWARETEAM_ALLOWED_HOSTS,
     discoverSelfNames: deps.selfNameDiscovery,
     onDecision: deps.browserBoundaryObserver,
   }));
@@ -704,11 +704,14 @@ export function createApp(deps: AppDeps): Hono {
     // floor (escalation view + daemon-health); same additive contract.
     const wakeLadder = deps.wakeLadderStatus ? { wakeLadder: deps.wakeLadderStatus.snapshot() } : {};
     if (!monitor) {
-      return c.json({ status: "ok", pid: process.pid, ...stamp, ...selfHost, ...slowOperations, ...bind, ...stuckSweep, ...wakeLadder });
+      return c.json({ status: "ok", product: "SoftwareTeam", artifactSha256: process.env.SOFTWARETEAM_ARTIFACT_SHA256, instanceHome: process.env.SOFTWARETEAM_HOME, pid: process.pid, ...stamp, ...selfHost, ...slowOperations, ...bind, ...stuckSweep, ...wakeLadder });
     }
     const eventLoop = monitor.snapshot();
     return c.json({
       status: "ok",
+      product: "SoftwareTeam",
+      artifactSha256: process.env.SOFTWARETEAM_ARTIFACT_SHA256,
+      instanceHome: process.env.SOFTWARETEAM_HOME,
       pid: process.pid,
       ...stamp,
       ...selfHost,
@@ -721,20 +724,20 @@ export function createApp(deps: AppDeps): Hono {
     });
   });
 
-  app.route("/api/rigs", rigsRoutes);
-  app.route("/api/rigs/:rigId/sessions", sessionsRoutes);
-  // Slice 24 — per-rig CMUX workspace launcher.
-  app.route("/api/rigs/:rigId/cmux", rigCmuxRoutes);
-  app.route("/api/rigs/:rigId/nodes", nodesRoutes);
+  app.route("/api/software-teams", softwareTeamsRoutes);
+  app.route("/api/software-teams/:softwareTeamId/sessions", sessionsRoutes);
+  // Slice 24 — per-softwareTeam CMUX workspace launcher.
+  app.route("/api/software-teams/:softwareTeamId/cmux", softwareTeamCmuxRoutes);
+  app.route("/api/software-teams/:softwareTeamId/nodes", nodesRoutes);
   app.route("/api/sessions", sessionAdminRoutes);
   app.route("/api/adapters", adaptersRoutes);
   app.route("/api/events", eventsRoute);
-  app.route("/api/rigs/:rigId/snapshots", snapshotsRoutes);
-  app.route("/api/rigs/:rigId/restore", restoreRoutes);
+  app.route("/api/software-teams/:softwareTeamId/snapshots", snapshotsRoutes);
+  app.route("/api/software-teams/:softwareTeamId/restore", restoreRoutes);
   app.route("/api/crash-cart", crashCartRoutes);
-  app.route("/api/rigs/import", rigspecImportRoutes);
-  app.get("/api/rigs/:rigId/spec", handleExportYaml);
-  app.get("/api/rigs/:rigId/spec.json", handleExportJson);
+  app.route("/api/software-teams/import", softwareTeamSpecImportRoutes);
+  app.get("/api/software-teams/:softwareTeamId/spec", handleExportYaml);
+  app.get("/api/software-teams/:softwareTeamId/spec.json", handleExportJson);
   app.route("/api/packages", packagesRoutes);
   app.route("/api/agents", agentsRoutes);
   app.route("/api/bootstrap", bootstrapRoutes);
@@ -781,7 +784,7 @@ export function createApp(deps: AppDeps): Hono {
   // is not set in context until the collection/service seam (C) wires it (until then -> 503).
   app.route("/api/provider", providerRoutes());
   app.route("/api/seat", seatRoutes);
-  app.route("/api/rigs/:rigId/chat", chatRoutes());
+  app.route("/api/software-teams/:softwareTeamId/chat", chatRoutes());
   app.route("/api/stream", streamRoutes());
   app.route("/api/queue", queueRoutes());
   app.route("/api/workspace", workspaceRoutes());
@@ -805,11 +808,11 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api/slices", slicesRoutes());
   // Living Notes Packet 2 (OPR.0.4.4.20) — composed-review read contract.
   app.route("/api/review", reviewRoutes());
-  // OPR.0.4.6.02 C3 — the canonical non-rig-scoped terminal composer + the
-  // rig-scoped thin alias (composes view=rig:<rigId>, delegates to the same
+  // OPR.0.4.6.02 C3 — the canonical non-software-team-scoped terminal composer + the
+  // software-team-scoped thin alias (composes view=software-team:<softwareTeamId>, delegates to the same
   // TerminalService; arch R1 / guard b1).
   app.route("/api/terminal", terminalRoutes());
-  app.route("/api/rigs/:rigId/terminal", rigTerminalRoutes);
+  app.route("/api/software-teams/:softwareTeamId/terminal", softwareTeamTerminalRoutes);
   // V0.3.1 slice 12 walk-item 1 — mission scope data layer
   // (aggregated mission metadata + slices filter; pairs with
   // useScopeMarkdown for README / PROGRESS content via /api/files/read).
@@ -821,7 +824,7 @@ export function createApp(deps: AppDeps): Hono {
   // SCOPES VIEW (d64d2f5c): the store-direct TUI read.
   app.route("/api/scopes", scopesRoutes());
   // 51-08 A3 — usage series + top-N burn over usage_samples (one projection, CLI+HTTP).
-  app.route("/api/telemetry", telemetryRoutes({ db: () => deps.rigRepo.db,
+  app.route("/api/telemetry", telemetryRoutes({ db: () => deps.softwareTeamRepo.db,
     source: { hostId: getSelfHostId(), bootEpoch: deps.daemonBootEpoch ?? null } }));
   // OPR.0.4.4.19 FR-9 — scope approve: frontmatter stamp + audit row.
   app.route("/api/scope/approve", scopeApproveRoutes());
@@ -834,13 +837,13 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api/health-diagnosis", healthDiagnosisRoutes());
   // S10 — gateway subsystem admin (slack enable/disable with the seeding rule preserved).
   app.route("/api/gateway", gatewayRoutes());
-  app.route("/api/rigs/:rigId/env", envRoutes());
+  app.route("/api/software-teams/:softwareTeamId/env", envRoutes());
   app.route("/api/restore-check", restoreCheckRoutes);
-  // Slice 09 (OPR.0.3.2.9) — rig-policy bindings (operator context mode).
+  // Slice 09 (OPR.0.3.2.9) — software-team-policy bindings (operator context mode).
   // Same operator-bearer posture as mission-control; HG-SAFE preserved.
   app.route(
-    "/api/rig-mode",
-    rigModeRoutes({ bearerToken: deps.missionControlBearerToken ?? null }),
+    "/api/software-team-mode",
+    softwareTeamModeRoutes({ bearerToken: deps.missionControlBearerToken ?? null }),
   );
 
   app.all("/api/*", async (c, next) => {
@@ -860,7 +863,7 @@ export function createApp(deps: AppDeps): Hono {
     }
 
     if (deps.webUiEnabled !== true) {
-      c.header("X-OpenRig-Web-UI", "off");
+      c.header("X-SoftwareTeam-Web-UI", "off");
       return c.text(WEB_UI_OFF_MESSAGE, 404);
     }
 
@@ -879,7 +882,7 @@ export function createApp(deps: AppDeps): Hono {
 
     const indexHtml = fs.readFileSync(uiIndexPath, "utf-8");
     const tokenScript = deps.terminalBearerToken
-      ? `<script>if(!window.localStorage.getItem("openrig.terminalBearerToken"))window.localStorage.setItem("openrig.terminalBearerToken",${JSON.stringify(deps.terminalBearerToken)})</script>`
+      ? `<script>if(!window.localStorage.getItem("softwareteam.terminalBearerToken"))window.localStorage.setItem("softwareteam.terminalBearerToken",${JSON.stringify(deps.terminalBearerToken)})</script>`
       : "";
     const injected = tokenScript ? indexHtml.replace("</head>", `${tokenScript}</head>`) : indexHtml;
     return c.html(injected);

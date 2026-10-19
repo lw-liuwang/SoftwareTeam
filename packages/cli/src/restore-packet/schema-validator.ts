@@ -4,7 +4,7 @@
 // Per M1 contract § 8 + IMPL § M2 line 167:
 // - generator-side: emit-time self-check against the schema before atomic
 //   rename of the packet directory.
-// - operator-side: M3 `rig restore-packet validate <packet-dir>` runs this
+// - operator-side: M3 `SoftwareTeam restore-packet validate <packet-dir>` runs this
 //   validator and surfaces per-field violations.
 //
 // Validator returns a ValidationResult with `valid` and a per-field error
@@ -41,17 +41,17 @@ export interface ValidationResult {
 // lockstep; the drift-catcher test enforces equivalence.
 export const RESTORE_SUMMARY_SCHEMA: Record<string, unknown> = {
   $schema: "http://json-schema.org/draft-07/schema#",
-  $id: "https://openrig.dev/schemas/restore-summary.schema.json",
+  $id: "https://github.com/lw-liuwang/SoftwareTeam/schemas/restore-summary.schema.json",
   title: "Restore Packet Summary",
   description:
     "Machine-readable metadata for a cross-runtime restore packet per the v0 paper standard.",
   type: "object",
   required: [
     "source_session_id",
-    "source_rig",
+    "source_software_team",
     "source_runtime",
     "source_cwd",
-    "target_rig",
+    "target_software_team",
     "target_runtime",
     "target_workspace_root",
     "default_target_repo",
@@ -71,13 +71,13 @@ export const RESTORE_SUMMARY_SCHEMA: Record<string, unknown> = {
   ],
   properties: {
     source_session_id: { type: "string", minLength: 1 },
-    source_rig: { type: "string", minLength: 1 },
+    source_software_team: { type: "string", minLength: 1 },
     source_runtime: {
       type: "string",
       enum: ["claude-code", "codex", "terminal", "external"],
     },
     source_cwd: { type: "string", pattern: "^/" },
-    target_rig: { type: "string", minLength: 1 },
+    target_software_team: { type: "string", minLength: 1 },
     target_runtime: {
       type: "string",
       enum: ["claude-code", "codex", "terminal", "external"],
@@ -179,14 +179,14 @@ export const RESTORE_SUMMARY_SCHEMA: Record<string, unknown> = {
         enum: ["reasoning_records", "raw_tool_outputs", "function_call_output", "redacted_secrets"],
       },
     },
-    redaction_policy_id: { type: "string", enum: ["velocity-v1", "openrig-v0"] },
+    redaction_policy_id: { type: "string", enum: ["velocity-v1", "softwareteam-v0"] },
     source_trust_ranking: {
       type: "array",
       items: {
         type: "string",
         enum: [
-          "rig_whoami",
-          "target_rigspec",
+          "software_team_whoami",
+          "target_software_team_spec",
           "bounded_latest_transcript",
           "full_transcript",
           "touched_files",

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type Database from "better-sqlite3";
-import type { RigRepository } from "../domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "../domain/software-team-repository.js";
 import type { TranscriptIngestHealth, TranscriptStore } from "../domain/transcript-store.js";
 import type { TmuxAdapter } from "../adapters/tmux.js";
 import { startTmuxTranscriptCapture } from "../domain/transcript-capture.js";
@@ -12,7 +12,7 @@ interface SessionRow {
 }
 
 interface NodeRow {
-  rig_id: string;
+  software_team_id: string;
   runtime: string | null;
 }
 
@@ -25,15 +25,15 @@ const CAPTURE_WARMUP_MS = 150;
 
 /** `ended`: the session was stopped or cleaned, so no capture runs for it any more. */
 interface SessionResolution {
-  rigName: string;
+  softwareTeamName: string;
   nodeId: string;
   runtime: string | null;
   ended: boolean;
 }
 
-function resolveSessionToRig(
+function resolveSessionToSoftwareTeam(
   db: Database.Database,
-  rigRepo: RigRepository,
+  softwareTeamRepo: SoftwareTeamRepository,
   sessionName: string,
 ): SessionResolution | { error: string; status: number } {
   // Find ALL sessions with this name to detect ambiguity
@@ -43,43 +43,43 @@ function resolveSessionToRig(
 
   if (sessionRows.length === 0) {
     return {
-      error: `Session '${sessionName}' not found. Check session names with: rig ps --nodes`,
+      error: `Session '${sessionName}' not found. Check session names with: SoftwareTeam ps --nodes`,
       status: 404,
     };
   }
 
-  // Collect distinct rig names for all matching sessions
-  const rigNames = new Set<string>();
+  // Collect distinct softwareTeam names for all matching sessions
+  const softwareTeamNames = new Set<string>();
   for (const row of sessionRows) {
     const nodeRow = db
-      .prepare("SELECT rig_id, runtime FROM nodes WHERE id = ?")
+      .prepare("SELECT software_team_id, runtime FROM nodes WHERE id = ?")
       .get(row.node_id) as NodeRow | undefined;
     if (nodeRow) {
-      const rig = rigRepo.getRig(nodeRow.rig_id);
-      if (rig) rigNames.add(rig.rig.name);
+      const softwareTeam = softwareTeamRepo.getSoftwareTeam(nodeRow.software_team_id);
+      if (softwareTeam) softwareTeamNames.add(softwareTeam.softwareTeam.name);
     }
   }
 
-  if (rigNames.size === 0) {
+  if (softwareTeamNames.size === 0) {
     return {
-      error: `Session '${sessionName}' not found. Check session names with: rig ps --nodes`,
+      error: `Session '${sessionName}' not found. Check session names with: SoftwareTeam ps --nodes`,
       status: 404,
     };
   }
 
-  if (rigNames.size > 1) {
-    const names = Array.from(rigNames).join(", ");
+  if (softwareTeamNames.size > 1) {
+    const names = Array.from(softwareTeamNames).join(", ");
     return {
-      error: `Session '${sessionName}' is ambiguous — found in rigs: ${names}. Use a unique session name or specify the rig.`,
+      error: `Session '${sessionName}' is ambiguous — found in softwareTeams: ${names}. Use a unique session name or specify the softwareTeam.`,
       status: 409,
     };
   }
 
   const selectedNode = db
-    .prepare("SELECT rig_id, runtime FROM nodes WHERE id = ?")
+    .prepare("SELECT software_team_id, runtime FROM nodes WHERE id = ?")
     .get(sessionRows[0]!.node_id) as NodeRow;
   return {
-    rigName: rigNames.values().next().value!,
+    softwareTeamName: softwareTeamNames.values().next().value!,
     nodeId: sessionRows[0]!.node_id,
     runtime: selectedNode.runtime,
     ended: sessionRows[0]!.status === "exited",
@@ -90,7 +90,7 @@ async function tryStartCaptureForSession(
   db: Database.Database,
   transcriptStore: TranscriptStore,
   tmuxAdapter: TmuxAdapter | undefined,
-  rigName: string,
+  softwareTeamName: string,
   nodeId: string,
   sessionName: string,
 ): Promise<boolean> {
@@ -100,7 +100,7 @@ async function tryStartCaptureForSession(
   if (!binding) return false;
   if ((binding.attachment_type ?? "tmux") !== "tmux") return false;
   if (!binding.tmux_session || binding.tmux_session !== sessionName) return false;
-  const result = await startTmuxTranscriptCapture(tmuxAdapter, transcriptStore, rigName, sessionName);
+  const result = await startTmuxTranscriptCapture(tmuxAdapter, transcriptStore, softwareTeamName, sessionName);
   return result.started;
 }
 
@@ -113,7 +113,7 @@ async function ensureTranscriptIngest(
   resolution: SessionResolution,
   sessionName: string,
 ): Promise<{ health: RouteIngestHealth; started: boolean }> {
-  let health = transcriptStore.getIngestHealth(resolution.rigName, sessionName);
+  let health = transcriptStore.getIngestHealth(resolution.softwareTeamName, sessionName);
   // An ended session's capture stopped with it, however recent its saved file.
   if (resolution.ended && health.state === "live") health = { ...health, state: "degraded", reason: "capture_stale" };
   let started = false;
@@ -122,13 +122,13 @@ async function ensureTranscriptIngest(
       db,
       transcriptStore,
       tmuxAdapter,
-      resolution.rigName,
+      resolution.softwareTeamName,
       resolution.nodeId,
       sessionName,
     );
     if (started) {
       await new Promise((resolve) => setTimeout(resolve, CAPTURE_WARMUP_MS));
-      health = transcriptStore.getIngestHealth(resolution.rigName, sessionName);
+      health = transcriptStore.getIngestHealth(resolution.softwareTeamName, sessionName);
     }
   }
   return { health: { ...health, runtime: resolution.runtime }, started };
@@ -146,7 +146,7 @@ function transcriptIngestError(sessionName: string, health: RouteIngestHealth, s
     if (started) {
       return `No transcript for '${sessionName}' yet (${runtime}). Transcript capture was missing and has been started now. Retry after the session emits new output.`;
     }
-    return `No transcript for '${sessionName}' (${runtime}; ingest unavailable: ${health.reason}). Transcripts start automatically on next rig up.`;
+    return `No transcript for '${sessionName}' (${runtime}; ingest unavailable: ${health.reason}). Transcripts start automatically on next SoftwareTeam up.`;
   }
   return `Transcript ingest degraded for '${sessionName}' (${runtime}; state=${health.state}; reason=${health.reason}). Do not conclude the session was quiet from this transcript.`;
 }
@@ -157,7 +157,7 @@ export function transcriptRoutes(): Hono {
   router.get("/:session/tail", async (c) => {
     const transcriptStore = c.get("transcriptStore" as never) as TranscriptStore;
     const db = c.get("db" as never) as Database.Database;
-    const rigRepo = c.get("rigRepo" as never) as RigRepository;
+    const softwareTeamRepo = c.get("softwareTeamRepo" as never) as SoftwareTeamRepository;
     const tmuxAdapter = c.get("tmuxAdapter" as never) as TmuxAdapter | undefined;
     const sessionName = c.req.param("session");
     const rawLines = parseInt(c.req.query("lines") ?? "50", 10);
@@ -165,12 +165,12 @@ export function transcriptRoutes(): Hono {
 
     if (!transcriptStore?.enabled) {
       return c.json(
-        { error: "Transcripts are disabled. Enable with: rig config set transcripts.enabled true" },
+        { error: "Transcripts are disabled. Enable with: SoftwareTeam config set transcripts.enabled true" },
         404,
       );
     }
 
-    const resolution = resolveSessionToRig(db, rigRepo, sessionName);
+    const resolution = resolveSessionToSoftwareTeam(db, softwareTeamRepo, sessionName);
     if ("error" in resolution) {
       return c.json({ error: resolution.error }, resolution.status as 404);
     }
@@ -186,7 +186,7 @@ export function transcriptRoutes(): Hono {
       );
     }
 
-    const content = transcriptStore.readTail(resolution.rigName, sessionName, lines);
+    const content = transcriptStore.readTail(resolution.softwareTeamName, sessionName, lines);
     if (content === null || content === "") {
       const emptyHealth: RouteIngestHealth = {
         ...ingestHealth,
@@ -205,7 +205,7 @@ export function transcriptRoutes(): Hono {
   router.get("/:session/grep", async (c) => {
     const transcriptStore = c.get("transcriptStore" as never) as TranscriptStore;
     const db = c.get("db" as never) as Database.Database;
-    const rigRepo = c.get("rigRepo" as never) as RigRepository;
+    const softwareTeamRepo = c.get("softwareTeamRepo" as never) as SoftwareTeamRepository;
     const tmuxAdapter = c.get("tmuxAdapter" as never) as TmuxAdapter | undefined;
     const sessionName = c.req.param("session");
     const pattern = c.req.query("pattern");
@@ -226,12 +226,12 @@ export function transcriptRoutes(): Hono {
 
     if (!transcriptStore?.enabled) {
       return c.json(
-        { error: "Transcripts are disabled. Enable with: rig config set transcripts.enabled true" },
+        { error: "Transcripts are disabled. Enable with: SoftwareTeam config set transcripts.enabled true" },
         404,
       );
     }
 
-    const resolution = resolveSessionToRig(db, rigRepo, sessionName);
+    const resolution = resolveSessionToSoftwareTeam(db, softwareTeamRepo, sessionName);
     if ("error" in resolution) {
       return c.json({ error: resolution.error }, resolution.status as 404);
     }
@@ -247,7 +247,7 @@ export function transcriptRoutes(): Hono {
       );
     }
 
-    const matches = transcriptStore.grep(resolution.rigName, sessionName, pattern);
+    const matches = transcriptStore.grep(resolution.softwareTeamName, sessionName, pattern);
     if (matches === null) {
       return c.json({ error: transcriptIngestError(sessionName, ingestHealth), ingestHealth }, 503);
     }
@@ -262,7 +262,7 @@ export function transcriptRoutes(): Hono {
   // tail/grep posture (open route, daemon-local trust boundary). No
   // session-scoped auth is enforced because no caller-identity primitive
   // exists in the daemon today. Route-level redaction (M1 contract § 4 /
-  // openrig-v0 policy) is the protective primitive — credential-shaped
+  // softwareteam-v0 policy) is the protective primitive — credential-shaped
   // patterns are scrubbed from the wire payload BEFORE serialization.
   //
   // A future slice may layer a coherent transcript-read auth policy
@@ -271,18 +271,18 @@ export function transcriptRoutes(): Hono {
   router.get("/:session/full", async (c) => {
     const transcriptStore = c.get("transcriptStore" as never) as TranscriptStore;
     const db = c.get("db" as never) as Database.Database;
-    const rigRepo = c.get("rigRepo" as never) as RigRepository;
+    const softwareTeamRepo = c.get("softwareTeamRepo" as never) as SoftwareTeamRepository;
     const tmuxAdapter = c.get("tmuxAdapter" as never) as TmuxAdapter | undefined;
     const sessionName = c.req.param("session");
 
     if (!transcriptStore?.enabled) {
       return c.json(
-        { error: "Transcripts are disabled. Enable with: rig config set transcripts.enabled true" },
+        { error: "Transcripts are disabled. Enable with: SoftwareTeam config set transcripts.enabled true" },
         404,
       );
     }
 
-    const resolution = resolveSessionToRig(db, rigRepo, sessionName);
+    const resolution = resolveSessionToSoftwareTeam(db, softwareTeamRepo, sessionName);
     if ("error" in resolution) {
       return c.json({ error: resolution.error }, resolution.status as 404);
     }
@@ -298,7 +298,7 @@ export function transcriptRoutes(): Hono {
       );
     }
 
-    const raw = transcriptStore.readFull(resolution.rigName, sessionName);
+    const raw = transcriptStore.readFull(resolution.softwareTeamName, sessionName);
     if (raw === null || raw === "") {
       const emptyHealth: RouteIngestHealth = { ...ingestHealth, state: "degraded", reason: "capture_empty" };
       return c.json({ error: transcriptIngestError(sessionName, emptyHealth), ingestHealth: emptyHealth }, 503);

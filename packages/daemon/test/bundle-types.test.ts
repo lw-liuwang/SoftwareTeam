@@ -17,14 +17,14 @@ const VALID_RAW = {
   name: "my-bundle",
   version: "0.1.0",
   created_at: "2026-03-26T00:00:00Z",
-  rig_spec: "rig.yaml",
+  software_team_spec: "software-team.yaml",
   packages: [
     { name: "review-kit", version: "0.1.0", path: "packages/review-kit", original_source: "github:example/review-kit@v1" },
   ],
   integrity: {
     algorithm: "sha256",
     files: {
-      "rig.yaml": "a".repeat(64),
+      "software-team.yaml": "a".repeat(64),
       "packages/review-kit/package.yaml": "b".repeat(64),
     },
   },
@@ -62,12 +62,12 @@ describe("Bundle types", () => {
     expect(result.errors.some((e) => e.includes("files"))).toBe(true);
   });
 
-  // T4: Missing rig_spec rejected
-  it("missing rig_spec path rejected", () => {
-    const raw = { ...VALID_RAW, rig_spec: undefined };
+  // T4: Missing software_team_spec rejected
+  it("missing software_team_spec path rejected", () => {
+    const raw = { ...VALID_RAW, software_team_spec: undefined };
     const result = validateBundleManifest(raw);
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.includes("rig_spec"))).toBe(true);
+    expect(result.errors.some((e) => e.includes("software_team_spec"))).toBe(true);
   });
 
   // T5: Empty packages rejected
@@ -85,13 +85,13 @@ describe("Bundle types", () => {
       name: "test-bundle",
       version: "1.0.0",
       createdAt: "2026-03-26T00:00:00Z",
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       packages: [
         { name: "pkg-a", version: "1.0.0", path: "packages/pkg-a", originalSource: "local:./pkg-a" },
       ],
       integrity: {
         algorithm: "sha256",
-        files: { "rig.yaml": "c".repeat(64), "packages/pkg-a/package.yaml": "d".repeat(64) },
+        files: { "software-team.yaml": "c".repeat(64), "packages/pkg-a/package.yaml": "d".repeat(64) },
       },
     };
 
@@ -103,12 +103,12 @@ describe("Bundle types", () => {
     const normalized = normalizeBundleManifest(parsed);
     expect(normalized.name).toBe("test-bundle");
     expect(normalized.packages).toHaveLength(1);
-    expect(normalized.integrity?.files["rig.yaml"]).toBe("c".repeat(64));
+    expect(normalized.integrity?.files["software-team.yaml"]).toBe("c".repeat(64));
   });
 
-  // T7: Absolute rig_spec path rejected
-  it("absolute rig_spec path rejected", () => {
-    const raw = { ...VALID_RAW, rig_spec: "/etc/passwd" };
+  // T7: Absolute software_team_spec path rejected
+  it("absolute software_team_spec path rejected", () => {
+    const raw = { ...VALID_RAW, software_team_spec: "/etc/passwd" };
     const result = validateBundleManifest(raw);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes("safe relative path"))).toBe(true);
@@ -130,9 +130,9 @@ describe("Bundle types", () => {
     expect(result.errors.some((e) => e.includes("safe relative path"))).toBe(true);
   });
 
-  // T10: ./rig.yaml rejected (dot segment)
-  it("dot segment in rig_spec rejected", () => {
-    const raw = { ...VALID_RAW, rig_spec: "./rig.yaml" };
+  // T10: ./software-team.yaml rejected (dot segment)
+  it("dot segment in software_team_spec rejected", () => {
+    const raw = { ...VALID_RAW, software_team_spec: "./software-team.yaml" };
     const result = validateBundleManifest(raw);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes("safe relative path"))).toBe(true);
@@ -160,9 +160,9 @@ describe("Bundle types", () => {
       provenance: {
         created_at: "2026-05-18T00:00:00Z",
         source_host: "test-host.local",
-        author_session: "velocity-driver@openrig-velocity",
-        source_rig_id: "01KQEQPN4MQJN0DHBM5CQ0N8D7",
-        source_rig_name: "openrig-velocity",
+        author_session: "velocity-driver@softwareteam-velocity",
+        source_software_team_id: "01KQEQPN4MQJN0DHBM5CQ0N8D7",
+        source_software_team_name: "softwareteam-velocity",
         daemon_version: "0.3.2",
         cli_version: "0.3.2",
         notes: "Test bundle for Item 1",
@@ -205,7 +205,7 @@ describe("Bundle types", () => {
     const provenance: BundleProvenance = {
       createdAt: "2026-05-18T12:00:00Z",
       sourceHost: "rt-host",
-      authorSession: "velocity-driver@openrig-velocity",
+      authorSession: "velocity-driver@softwareteam-velocity",
       daemonVersion: "0.3.2",
       cliVersion: "0.3.2",
       notes: "round-trip fixture",
@@ -215,13 +215,13 @@ describe("Bundle types", () => {
       name: "rt-bundle",
       version: "1.0.0",
       createdAt: "2026-05-18T12:00:00Z",
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       packages: [
         { name: "pkg", version: "1.0.0", path: "packages/pkg", originalSource: "local:./pkg" },
       ],
       integrity: {
         algorithm: "sha256",
-        files: { "rig.yaml": "e".repeat(64), "packages/pkg/package.yaml": "f".repeat(64) },
+        files: { "software-team.yaml": "e".repeat(64), "packages/pkg/package.yaml": "f".repeat(64) },
       },
       provenance,
     };
@@ -238,7 +238,7 @@ describe("Bundle types", () => {
     const normalized = normalizeBundleManifest(parsed);
     expect(normalized.provenance).toBeDefined();
     expect(normalized.provenance?.sourceHost).toBe("rt-host");
-    expect(normalized.provenance?.authorSession).toBe("velocity-driver@openrig-velocity");
+    expect(normalized.provenance?.authorSession).toBe("velocity-driver@softwareteam-velocity");
     expect(normalized.provenance?.daemonVersion).toBe("0.3.2");
     expect(normalized.provenance?.cliVersion).toBe("0.3.2");
     expect(normalized.provenance?.notes).toBe("round-trip fixture");
@@ -251,7 +251,7 @@ describe("Bundle types", () => {
       name: "no-prov",
       version: "1.0.0",
       createdAt: "2026-05-18T00:00:00Z",
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       packages: [{ name: "pkg", version: "1.0", path: "packages/pkg", originalSource: "local:./pkg" }],
     };
     const yaml = serializeBundleManifest(manifest);
@@ -329,11 +329,11 @@ describe("Bundle types", () => {
       name: "rt-compat",
       version: "1.0.0",
       createdAt: "2026-05-18T12:00:00Z",
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       packages: [{ name: "pkg", version: "1.0.0", path: "packages/pkg", originalSource: "local:./pkg" }],
       integrity: {
         algorithm: "sha256",
-        files: { "rig.yaml": "1".repeat(64), "packages/pkg/package.yaml": "2".repeat(64) },
+        files: { "software-team.yaml": "1".repeat(64), "packages/pkg/package.yaml": "2".repeat(64) },
       },
       compatibility,
     };
@@ -360,7 +360,7 @@ describe("Bundle types", () => {
       name: "no-compat",
       version: "1.0.0",
       createdAt: "2026-05-18T00:00:00Z",
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       packages: [{ name: "pkg", version: "1.0", path: "packages/pkg", originalSource: "local:./pkg" }],
     };
     const yaml = serializeBundleManifest(manifest);
@@ -412,11 +412,11 @@ describe("Bundle types", () => {
       name: "rt-skills",
       version: "1.0.0",
       createdAt: "2026-05-18T12:00:00Z",
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       packages: [{ name: "pkg", version: "1.0.0", path: "packages/pkg", originalSource: "local:./pkg" }],
       integrity: {
         algorithm: "sha256",
-        files: { "rig.yaml": "9".repeat(64), "packages/pkg/package.yaml": "a".repeat(64) },
+        files: { "software-team.yaml": "9".repeat(64), "packages/pkg/package.yaml": "a".repeat(64) },
       },
       skills: ["skills/foo/SKILL.md", "skills/bar/SKILL.md"],
     };
@@ -437,7 +437,7 @@ describe("Bundle types", () => {
       name: "no-skills",
       version: "1.0.0",
       createdAt: "2026-05-18T00:00:00Z",
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       packages: [{ name: "pkg", version: "1.0", path: "packages/pkg", originalSource: "local:./pkg" }],
     };
     const yaml = serializeBundleManifest(manifest);
@@ -505,11 +505,11 @@ describe("Bundle types", () => {
       name: "rt-plugins",
       version: "1.0.0",
       createdAt: "2026-05-18T12:00:00Z",
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       packages: [{ name: "pkg", version: "1.0.0", path: "packages/pkg", originalSource: "local:./pkg" }],
       integrity: {
         algorithm: "sha256",
-        files: { "rig.yaml": "5".repeat(64), "packages/pkg/package.yaml": "6".repeat(64) },
+        files: { "software-team.yaml": "5".repeat(64), "packages/pkg/package.yaml": "6".repeat(64) },
       },
       plugins,
     };
@@ -531,7 +531,7 @@ describe("Bundle types", () => {
       name: "no-plugins",
       version: "1.0.0",
       createdAt: "2026-05-18T00:00:00Z",
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       packages: [{ name: "pkg", version: "1.0", path: "packages/pkg", originalSource: "local:./pkg" }],
     };
     const yaml = serializeBundleManifest(manifest);
@@ -583,11 +583,11 @@ describe("Bundle types", () => {
       name: "rt-workflow-specs",
       version: "1.0.0",
       createdAt: "2026-05-18T12:00:00Z",
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       packages: [{ name: "pkg", version: "1.0.0", path: "packages/pkg", originalSource: "local:./pkg" }],
       integrity: {
         algorithm: "sha256",
-        files: { "rig.yaml": "7".repeat(64), "packages/pkg/package.yaml": "8".repeat(64) },
+        files: { "software-team.yaml": "7".repeat(64), "packages/pkg/package.yaml": "8".repeat(64) },
       },
       workflowSpecs: ["workflows/onboarding.yaml", "workflows/release.yaml"],
     };
@@ -608,7 +608,7 @@ describe("Bundle types", () => {
       name: "no-workflow-specs",
       version: "1.0.0",
       createdAt: "2026-05-18T00:00:00Z",
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       packages: [{ name: "pkg", version: "1.0", path: "packages/pkg", originalSource: "local:./pkg" }],
     };
     const yaml = serializeBundleManifest(manifest);
@@ -660,11 +660,11 @@ describe("Bundle types", () => {
       name: "rt-context-packs",
       version: "1.0.0",
       createdAt: "2026-05-18T12:00:00Z",
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       packages: [{ name: "pkg", version: "1.0.0", path: "packages/pkg", originalSource: "local:./pkg" }],
       integrity: {
         algorithm: "sha256",
-        files: { "rig.yaml": "c".repeat(64), "packages/pkg/package.yaml": "d".repeat(64) },
+        files: { "software-team.yaml": "c".repeat(64), "packages/pkg/package.yaml": "d".repeat(64) },
       },
       contextPacks: ["context-packs/intent/manifest.yaml", "context-packs/persona/manifest.yaml"],
     };
@@ -685,7 +685,7 @@ describe("Bundle types", () => {
       name: "no-context-packs",
       version: "1.0.0",
       createdAt: "2026-05-18T00:00:00Z",
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       packages: [{ name: "pkg", version: "1.0", path: "packages/pkg", originalSource: "local:./pkg" }],
     };
     const yaml = serializeBundleManifest(manifest);
@@ -737,11 +737,11 @@ describe("Bundle types", () => {
       name: "rt-agent-images",
       version: "1.0.0",
       createdAt: "2026-05-18T12:00:00Z",
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       packages: [{ name: "pkg", version: "1.0.0", path: "packages/pkg", originalSource: "local:./pkg" }],
       integrity: {
         algorithm: "sha256",
-        files: { "rig.yaml": "e".repeat(64), "packages/pkg/package.yaml": "f".repeat(64) },
+        files: { "software-team.yaml": "e".repeat(64), "packages/pkg/package.yaml": "f".repeat(64) },
       },
       agentImages: ["agent-images/seat-a", "agent-images/seat-b"],
     };
@@ -762,7 +762,7 @@ describe("Bundle types", () => {
       name: "no-agent-images",
       version: "1.0.0",
       createdAt: "2026-05-18T00:00:00Z",
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       packages: [{ name: "pkg", version: "1.0", path: "packages/pkg", originalSource: "local:./pkg" }],
     };
     const yaml = serializeBundleManifest(manifest);
@@ -784,7 +784,7 @@ describe("Bundle types", () => {
   });
 
   it("project block with a simple id and a safe relative path passes validation", () => {
-    const raw = { ...VALID_RAW, project: { id: "openrig", path: "project" } };
+    const raw = { ...VALID_RAW, project: { id: "softwareteam", path: "project" } };
     const result = validateBundleManifest(raw);
     expect(result.valid).toBe(true);
     expect(result.errors).toHaveLength(0);
@@ -805,17 +805,17 @@ describe("Bundle types", () => {
   });
 
   it("project.path that escapes the bundle root rejected", () => {
-    const raw = { ...VALID_RAW, project: { id: "openrig", path: "../../outside" } };
+    const raw = { ...VALID_RAW, project: { id: "softwareteam", path: "../../outside" } };
     const result = validateBundleManifest(raw);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes("project.path"))).toBe(true);
   });
 
   it("project.path that is absolute or backslash-separated rejected", () => {
-    const absolute = validateBundleManifest({ ...VALID_RAW, project: { id: "openrig", path: "/etc" } });
+    const absolute = validateBundleManifest({ ...VALID_RAW, project: { id: "softwareteam", path: "/etc" } });
     expect(absolute.valid).toBe(false);
     expect(absolute.errors.some((e) => e.includes("project.path"))).toBe(true);
-    const backslash = validateBundleManifest({ ...VALID_RAW, project: { id: "openrig", path: "a\\b" } });
+    const backslash = validateBundleManifest({ ...VALID_RAW, project: { id: "softwareteam", path: "a\\b" } });
     expect(backslash.valid).toBe(false);
     expect(backslash.errors.some((e) => e.includes("project.path"))).toBe(true);
   });
@@ -823,7 +823,7 @@ describe("Bundle types", () => {
 
 describe("isRelativeSafePath", () => {
   it("accepts simple relative paths including names with dots", () => {
-    expect(isRelativeSafePath("rig.yaml")).toBe(true);
+    expect(isRelativeSafePath("software-team.yaml")).toBe(true);
     expect(isRelativeSafePath("packages/review-kit/package.yaml")).toBe(true);
     expect(isRelativeSafePath("packages/my-package.v2")).toBe(true);
     expect(isRelativeSafePath("skills/deep..review/SKILL.md")).toBe(true);

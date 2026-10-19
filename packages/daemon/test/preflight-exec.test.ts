@@ -5,9 +5,9 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { runtimeProbeFailure, runtimeVersionProbeCwd } from "../src/adapters/preflight-exec.js";
-import { verifyOmpRuntimeAvailable, verifyPiRuntimeAvailable } from "../src/domain/rigspec-preflight.js";
+import { verifyOmpRuntimeAvailable, verifyPiRuntimeAvailable } from "../src/domain/software-team-spec-preflight.js";
 import { ProbeTimeoutError, RUNTIME_PROBE_TIMEOUT_MS } from "../src/adapters/bounded-probe-exec.js";
-import type { RigSpec } from "../src/domain/types.js";
+import type { SoftwareTeamSpec } from "../src/domain/types.js";
 
 const roots: string[] = [];
 afterAll(() => { for (const root of roots) fs.rmSync(root, { recursive: true, force: true }); });
@@ -15,10 +15,10 @@ afterAll(() => { for (const root of roots) fs.rmSync(root, { recursive: true, fo
 function probe(mode: string, runtime = "pi") {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "runtime-probe-"));
   roots.push(root);
-  for (const name of ["home", "openrig", "codex", "tmp", "seat", "bin", "empty-bin", "rig/agents/impl"]) {
+  for (const name of ["home", "softwareteam", "codex", "tmp", "seat", "bin", "empty-bin", "software-team/agents/impl"]) {
     fs.mkdirSync(path.join(root, name), { recursive: true });
   }
-  fs.writeFileSync(path.join(root, "rig/agents/impl/agent.yaml"),
+  fs.writeFileSync(path.join(root, "software-team/agents/impl/agent.yaml"),
     'name: impl\nversion: "1.0.0"\nresources:\n  skills: []\nprofiles:\n  default:\n    uses:\n      skills: []\n');
   // Mirrors the relevant Pi startup behaviour: getcwd before handling --version.
   // No real runtime, session or provider is invoked.
@@ -31,7 +31,7 @@ function probe(mode: string, runtime = "pi") {
     path.join(import.meta.dirname, "fixtures/runtime-probe-cwd.ts"), root, mode, runtime,
   ], {
     cwd: root, encoding: "utf8", timeout: 20_000,
-    env: { PATH: process.env.PATH, HOME: path.join(root, "home"), OPENRIG_HOME: path.join(root, "openrig"),
+    env: { PATH: process.env.PATH, HOME: path.join(root, "home"), SOFTWARETEAM_HOME: path.join(root, "softwareteam"),
       CODEX_HOME: path.join(root, "codex"), TMPDIR: path.join(root, "tmp") },
   });
   expect(child.error).toBeUndefined();
@@ -43,9 +43,9 @@ describe("runtime version preflight cwd", () => {
   it.each(["0.73.1", "pi 0.73.1"])("reports an old Pi version before launch (%s)", async output => {
     const warnings: string[] = [];
     const exec = vi.fn().mockResolvedValue(output);
-    const spec = { pods: [{ members: [{ runtime: "pi" }] }] } as RigSpec;
+    const spec = { pods: [{ members: [{ runtime: "pi" }] }] } as SoftwareTeamSpec;
     expect(await verifyPiRuntimeAvailable(spec, exec, warnings)).toEqual([]);
-    expect(warnings.join("\n")).toContain("older than OpenRig's tested baseline");
+    expect(warnings.join("\n")).toContain("older than SoftwareTeam's tested baseline");
     expect(warnings.join("\n")).toContain("npm install -g @earendil-works/pi-coding-agent");
     expect(exec.mock.calls).toEqual([["pi --version"]]);
   });
@@ -53,24 +53,24 @@ describe("runtime version preflight cwd", () => {
   it("keeps an unknown Pi probe nonfatal without changing another runtime", async () => {
     const warnings: string[] = [];
     const exec = vi.fn().mockRejectedValue(Object.assign(new Error("private-output"), { code: "ETIMEDOUT" }));
-    const spec = { pods: [{ members: [{ runtime: "pi" }] }] } as RigSpec;
+    const spec = { pods: [{ members: [{ runtime: "pi" }] }] } as SoftwareTeamSpec;
     expect(await verifyPiRuntimeAvailable(spec, exec, warnings)).toEqual([]);
     expect(warnings.join("\n")).toContain("version unknown");
     expect(warnings.join("\n")).not.toContain("private-output");
     exec.mockClear();
-    expect(await verifyPiRuntimeAvailable({ pods: [{ members: [{ runtime: "omp" }] }] } as RigSpec, exec, [])).toEqual([]);
+    expect(await verifyPiRuntimeAvailable({ pods: [{ members: [{ runtime: "omp" }] }] } as SoftwareTeamSpec, exec, [])).toEqual([]);
     expect(exec).not.toHaveBeenCalled();
   });
 
   it("names the check and the limit for an OMP version check that hit it, without 'not available' or the install hint", async () => {
     const exec = vi.fn().mockRejectedValue(new ProbeTimeoutError("omp --version", RUNTIME_PROBE_TIMEOUT_MS));
-    const spec = { pods: [{ members: [{ runtime: "omp" }] }] } as RigSpec;
+    const spec = { pods: [{ members: [{ runtime: "omp" }] }] } as SoftwareTeamSpec;
     expect(await verifyOmpRuntimeAvailable(spec, exec)).toEqual(["`omp --version` didn't answer within 30 s"]);
   });
 
   it("keeps the OMP install hint when the check failed some other way", async () => {
     const exec = vi.fn().mockRejectedValue(Object.assign(new Error("x"), { code: "ENOENT" }));
-    const spec = { pods: [{ members: [{ runtime: "omp" }] }] } as RigSpec;
+    const spec = { pods: [{ members: [{ runtime: "omp" }] }] } as SoftwareTeamSpec;
     const [error] = await verifyOmpRuntimeAvailable(spec, exec);
     expect(error).toContain("not available");
     expect(error).toContain("install Oh My Pi");
@@ -79,7 +79,7 @@ describe("runtime version preflight cwd", () => {
   it("keeps a Pi version check that hit the limit a warning, with the same message", async () => {
     const warnings: string[] = [];
     const exec = vi.fn().mockRejectedValue(new ProbeTimeoutError("pi --version", RUNTIME_PROBE_TIMEOUT_MS));
-    const spec = { pods: [{ members: [{ runtime: "pi" }] }] } as RigSpec;
+    const spec = { pods: [{ members: [{ runtime: "pi" }] }] } as SoftwareTeamSpec;
     expect(await verifyPiRuntimeAvailable(spec, exec, warnings)).toEqual([]);
     expect(warnings).toEqual(["`pi --version` didn't answer within 30 s"]);
   });
@@ -94,7 +94,7 @@ describe("runtime version preflight cwd", () => {
   it("leaves Codex profile probes and injected executors intact", async () => {
     expect(runtimeVersionProbeCwd("codex -p fixture mcp list")).toBeUndefined();
     const exec = vi.fn().mockResolvedValue("synthetic");
-    const spec = { pods: [{ members: [{ runtime: "pi" }] }] } as RigSpec;
+    const spec = { pods: [{ members: [{ runtime: "pi" }] }] } as SoftwareTeamSpec;
     expect(await verifyPiRuntimeAvailable(spec, exec)).toEqual([]);
     expect(exec.mock.calls).toEqual([["pi --version"]]);
   });
@@ -161,7 +161,7 @@ describe("runtime version preflight cwd", () => {
     });
     const detail = runtimeProbeFailure(failure);
     expect(detail).toBe("exit status 1; working-directory lookup failed");
-    const spec = { pods: [{ members: [{ runtime: "pi" }] }] } as RigSpec;
+    const spec = { pods: [{ members: [{ runtime: "pi" }] }] } as SoftwareTeamSpec;
     const warnings: string[] = [];
     const errors = await verifyPiRuntimeAvailable(spec, async () => { throw failure; }, warnings);
     expect(errors).toEqual([]);

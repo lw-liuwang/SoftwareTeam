@@ -1,7 +1,7 @@
 // Token / Context Usage Surface v0 (PL-012) — fleet-wide context view.
 //
-// Fetches /api/ps then per-rig /api/rigs/:id/nodes (matching how
-// rig ps --nodes -A assembles the cross-rig list — daemon API, unaffected
+// Fetches /api/ps then per-softwareTeam /api/software-teams/:id/nodes (matching how
+// SoftwareTeam ps --nodes -A assembles the cross-softwareTeam list — daemon API, unaffected
 // by the v0.4.4 CLI default flip), enriches each node with
 // the existing contextUsage block, and projects a flat per-seat list
 // for the /context dashboard.
@@ -14,8 +14,8 @@ import type { NodeInventoryEntry } from "./useNodeInventory.js";
 export type ContextTier = "critical" | "warning" | "low" | "unknown";
 
 export interface FleetSeat {
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   logicalId: string;
   canonicalSessionName: string | null;
   runtime: string | null;
@@ -30,7 +30,7 @@ export interface FleetSummary {
   total: number;
   byTier: Record<ContextTier, number>;
   byRuntime: Record<string, number>;
-  byRig: Array<{ rigId: string; rigName: string; count: number }>;
+  bySoftwareTeam: Array<{ softwareTeamId: string; softwareTeamName: string; count: number }>;
 }
 
 export interface FleetData {
@@ -45,21 +45,21 @@ export function deriveContextTier(percent: number | null | undefined, availabili
   return "low";
 }
 
-interface PsRig {
-  rigId: string;
+interface PsSoftwareTeam {
+  softwareTeamId: string;
   name: string;
-  rigName?: string;
+  softwareTeamName?: string;
 }
 
 async function fetchFleet(): Promise<FleetData> {
   const psRes = await fetch("/api/ps");
   if (!psRes.ok) throw new Error(`HTTP ${psRes.status} from /api/ps`);
-  const rigs = (await psRes.json()) as PsRig[];
+  const softwareTeams = (await psRes.json()) as PsSoftwareTeam[];
 
   const seats: FleetSeat[] = [];
-  for (const rig of rigs) {
-    const rigName = rig.rigName ?? rig.name;
-    const nodesRes = await fetch(`/api/rigs/${encodeURIComponent(rig.rigId)}/nodes`);
+  for (const softwareTeam of softwareTeams) {
+    const softwareTeamName = softwareTeam.softwareTeamName ?? softwareTeam.name;
+    const nodesRes = await fetch(`/api/software-teams/${encodeURIComponent(softwareTeam.softwareTeamId)}/nodes`);
     if (!nodesRes.ok) continue;
     const nodes = (await nodesRes.json()) as NodeInventoryEntry[];
     for (const n of nodes) {
@@ -68,8 +68,8 @@ async function fetchFleet(): Promise<FleetData> {
       const availability = ctx?.availability ?? "unknown";
       const fresh = ctx?.fresh ?? false;
       seats.push({
-        rigId: rig.rigId,
-        rigName,
+        softwareTeamId: softwareTeam.softwareTeamId,
+        softwareTeamName,
         logicalId: n.logicalId,
         canonicalSessionName: n.canonicalSessionName,
         runtime: n.runtime,
@@ -84,20 +84,20 @@ async function fetchFleet(): Promise<FleetData> {
 
   const byTier: Record<ContextTier, number> = { critical: 0, warning: 0, low: 0, unknown: 0 };
   const byRuntime: Record<string, number> = {};
-  const byRigCount = new Map<string, { rigName: string; count: number }>();
+  const bySoftwareTeamCount = new Map<string, { softwareTeamName: string; count: number }>();
   for (const s of seats) {
     byTier[s.tier]++;
     const rt = s.runtime ?? "unknown";
     byRuntime[rt] = (byRuntime[rt] ?? 0) + 1;
-    const existing = byRigCount.get(s.rigId);
+    const existing = bySoftwareTeamCount.get(s.softwareTeamId);
     if (existing) existing.count++;
-    else byRigCount.set(s.rigId, { rigName: s.rigName, count: 1 });
+    else bySoftwareTeamCount.set(s.softwareTeamId, { softwareTeamName: s.softwareTeamName, count: 1 });
   }
-  const byRig = Array.from(byRigCount.entries()).map(([rigId, v]) => ({ rigId, rigName: v.rigName, count: v.count }));
+  const bySoftwareTeam = Array.from(bySoftwareTeamCount.entries()).map(([softwareTeamId, v]) => ({ softwareTeamId, softwareTeamName: v.softwareTeamName, count: v.count }));
 
   return {
     seats,
-    summary: { total: seats.length, byTier, byRuntime, byRig },
+    summary: { total: seats.length, byTier, byRuntime, bySoftwareTeam },
   };
 }
 

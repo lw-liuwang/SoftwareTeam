@@ -61,15 +61,15 @@ export function computeExpectedAnswer(challengeId: string, contractHash: string)
  * startup text was read.
  */
 export const STARTUP_PROOF_INSTRUCTION_LINE =
-  "OpenRig, which launched this seat: please read your startup text above and run the startup-proof command from its orientation challenge.";
+  "SoftwareTeam, which launched this seat: please read your startup text above and run the startup-proof command from its orientation challenge.";
 
 function buildProofSubmissionCommand(challengeId: string, expectedAnswer: string): string {
-  return `rig startup-proof submit --challenge-id ${challengeId} --answer ${expectedAnswer}`;
+  return `SoftwareTeam startup-proof submit --challenge-id ${challengeId} --answer ${expectedAnswer}`;
 }
 
 function buildPromptBlock(challengeId: string, expectedAnswer: string): string {
   return [
-    "--- OpenRig startup orientation challenge ---",
+    "--- SoftwareTeam startup orientation challenge ---",
     `challengeId: ${challengeId}`,
     "After you have read your startup contract (all the files/identity above),",
     "prove you oriented by submitting an authenticated startup_proof with EXACTLY:",
@@ -89,7 +89,7 @@ function buildPromptBlock(challengeId: string, expectedAnswer: string): string {
  */
 export function issueStartupChallenge(
   eventBus: EventBus,
-  input: { rigId: string; nodeId: string; contractSource: string },
+  input: { softwareTeamId: string; nodeId: string; contractSource: string },
 ): IssuedChallenge {
   const challengeId = randomBytes(16).toString("hex");
   const contractHash = computeContractHash(input.contractSource);
@@ -97,7 +97,7 @@ export function issueStartupChallenge(
 
   eventBus.emit({
     type: "node.startup_challenged",
-    rigId: input.rigId,
+    softwareTeamId: input.softwareTeamId,
     nodeId: input.nodeId,
     challengeId,
     contractHash,
@@ -115,7 +115,7 @@ export interface StartupProofInput {
 }
 
 export type StartupProofResult =
-  | { ok: true; nodeId: string; rigId: string; challengeId: string }
+  | { ok: true; nodeId: string; softwareTeamId: string; challengeId: string }
   | { ok: false; code: ProofRejectReason; error: string };
 
 interface ChallengeRow {
@@ -137,7 +137,7 @@ export function verifyStartupProof(
   const { store, eventBus } = deps;
   const db = store.db;
 
-  // (a) IDENTITY — resolve {sessionId,nodeId,rigId}; an unknown identity is
+  // (a) IDENTITY — resolve {sessionId,nodeId,softwareTeamId}; an unknown identity is
   // rejected and NO node-scoped state is projected (we cannot attribute an
   // event to an unknown node).
   const resolved = store.resolveSession({ sessionName: input.sessionName, nodeId: input.nodeId, runtime: input.runtime });
@@ -181,7 +181,7 @@ export function verifyStartupProof(
   const emitRejected = (reason: ProofRejectReason) => {
     eventBus.emit({
       type: "node.startup_proof_rejected",
-      rigId: resolved.rigId,
+      softwareTeamId: resolved.softwareTeamId,
       nodeId: resolved.nodeId,
       challengeId: input.challengeId ?? null,
       reason,
@@ -211,14 +211,14 @@ export function verifyStartupProof(
 
   eventBus.emit({
     type: "node.startup_proof_verified",
-    rigId: resolved.rigId,
+    softwareTeamId: resolved.softwareTeamId,
     nodeId: resolved.nodeId,
     sessionId: resolved.sessionId,
     challengeId: current.challengeId,
     contractHash: current.contractHash,
   });
 
-  return { ok: true, nodeId: resolved.nodeId, rigId: resolved.rigId, challengeId: current.challengeId };
+  return { ok: true, nodeId: resolved.nodeId, softwareTeamId: resolved.softwareTeamId, challengeId: current.challengeId };
 }
 
 /**

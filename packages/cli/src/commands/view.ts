@@ -5,7 +5,7 @@ import { realDeps } from "./daemon.js";
 import type { StatusDeps } from "./status.js";
 
 /**
- * `rig view` — coordination primitive L5 (view) commands (PL-004 Phase B).
+ * `softwareTeam view` — coordination primitive L5 (view) commands (PL-004 Phase B).
  *
  * Backed by `/api/views`. 7 built-in views (recently-active, founder,
  * pod-load, escalations, held, activity, pickup) + custom view registration.
@@ -60,15 +60,15 @@ export function viewCommand(depsOverride?: ViewDeps): Command {
     .description(
       "Run a view (built-in or custom). Built-in views: recently-active, founder, pod-load, escalations, held, activity, pickup",
     )
-    .option("--rig <rig>", "Filter by rig name (matches destination_session OR source_session @<rig>)")
+    .option("--software-team <softwareTeam>", "Filter by SoftwareTeam name (matches destination_session OR source_session @<softwareTeam>)")
     .option("--limit <n>", "Result row limit", "100")
     .option("--mission <id>", "Mission scope for the execution view (defaults to the newest release-* mission)")
     .option("--project <name>", "Project scope for the execution view")
     .option("--json", "JSON output for agents")
-    .action(async (viewName: string, opts: { rig?: string; limit: string; mission?: string; project?: string; json?: boolean }) => {
+    .action(async (viewName: string, opts: { softwareTeam?: string; limit: string; mission?: string; project?: string; json?: boolean }) => {
       const deps = getDeps();
       const params = new URLSearchParams();
-      if (opts.rig) params.set("rig", opts.rig);
+      if (opts.softwareTeam) params.set("softwareTeam", opts.softwareTeam);
       if (opts.limit) params.set("limit", opts.limit);
       if (opts.mission) params.set("mission", opts.mission);
       if (opts.project) params.set("project", opts.project);

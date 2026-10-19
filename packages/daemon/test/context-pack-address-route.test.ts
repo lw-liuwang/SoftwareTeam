@@ -1,4 +1,4 @@
-// OPR.0.5.3.5 Atom 4c — the ADDRESS-serving route: `name#H2/H3` through the rig
+// OPR.0.5.3.5 Atom 4c — the ADDRESS-serving route: `name#H2/H3` through the softwareTeam
 // context ref grammar (mini-req 6 / Q4). The daemon owns the WHOLE resolution —
 // longest-prefix pack match, file within the pack, span within the file — so the
 // CLI get verb and any future consumer share one resolver home. The addressable

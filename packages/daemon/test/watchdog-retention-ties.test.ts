@@ -34,22 +34,22 @@ describe("watchdog retention timestamp ties", () => {
   });
 
   function register() {
-    return jobs.register({ policy: "periodic-reminder", targetSession: "worker@rig",
-      registeredBySession: "ops@rig", intervalSeconds: 60,
+    return jobs.register({ policy: "periodic-reminder", targetSession: "worker@software-team",
+      registeredBySession: "ops@software-team", intervalSeconds: 60,
       specYaml: "policy: periodic-reminder\nmessage: owned reminder\n" });
   }
 
   it("retains the boundary pair produced by a real transcript binding and delivery", async () => {
     const transcript = join(dir, "owned.jsonl");
     writeFileSync(transcript, "owned transcript bytes");
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('rig', 'rig')").run();
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES ('node', 'rig', 'worker')").run();
-    db.prepare("INSERT INTO sessions (id, node_id, session_name) VALUES ('session', 'node', 'worker@rig')").run();
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('softwareTeam', 'softwareTeam')").run();
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES ('node', 'softwareTeam', 'worker')").run();
+    db.prepare("INSERT INTO sessions (id, node_id, session_name) VALUES ('session', 'node', 'worker@software-team')").run();
     db.prepare(`INSERT INTO occupant_tenures (id, node_id, generation_ordinal, generation_uuid, kind, boot_at)
       VALUES ('tenure', 'node', 1, 'generation', 'initial', '2026-08-28T09:00:00.000Z')`).run();
     db.prepare(`INSERT INTO context_usage (node_id, session_id, session_name, availability, transcript_path, sampled_at)
-      VALUES ('node', 'session', 'worker@rig', 'known', ?, '2026-08-28T09:00:01.000Z')`).run(transcript);
-    const job = jobs.register({ policy: "context-usage-threshold", targetSession: "worker@rig",
+      VALUES ('node', 'session', 'worker@software-team', 'known', ?, '2026-08-28T09:00:01.000Z')`).run(transcript);
+    const job = jobs.register({ policy: "context-usage-threshold", targetSession: "worker@software-team",
       registeredBySession: "daemon@kernel", intervalSeconds: 60, thresholdBytes: 8,
       watchedFilePath: null,
       specYaml: "policy: context-usage-threshold\ngenerated_by: continuity-policy-materializer\ncontinuity_mode: managed-compaction\nmessage: owned wake\n" });
@@ -58,7 +58,7 @@ describe("watchdog retention timestamp ties", () => {
       eventBus: new EventBus(db), now: () => new Date(old), resolveTargetGeneration: () => "generation",
       deliver: async request => { deliveries.push(request.targetSession); return { status: "ok" }; } });
     await engine.evaluate(job);
-    expect(deliveries).toEqual(["worker@rig"]);
+    expect(deliveries).toEqual(["worker@software-team"]);
     const pair = history.listForJob(job.jobId);
     expect(pair).toHaveLength(2);
     expect(pair.map(row => row.evaluatedAt)).toEqual([old, old]);

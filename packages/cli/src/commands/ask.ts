@@ -6,7 +6,7 @@ import type { StatusDeps } from "./status.js";
 import { resolveIdentitySource } from "./whoami.js";
 import { runWake, defaultWakeRunner, defaultWakeFileLocator, type WakeRunner } from "../ask-wake.js";
 
-interface AskRigInfo {
+interface AskSoftwareTeamInfo {
   name: string;
   status: string;
   nodeCount: number;
@@ -43,7 +43,7 @@ type WakeResolution =
   | { resolved: false; reason: string; known: CliKnownTenure[] };
 
 /** Parse a --wake seat target with an optional trailing @<generation>. A seat is
- *  `member@rig` (one @); `member@rig@2` means generation 2. Only a purely-numeric
+ *  `member@software-team` (one @); `member@software-team@2` means generation 2. Only a purely-numeric
  *  final @-segment is treated as the generation. */
 function parseSeatGen(target: string): { seat: string; generation?: number } {
   const parts = target.split("@");
@@ -56,7 +56,7 @@ function parseSeatGen(target: string): { seat: string; generation?: number } {
 
 interface AskResult {
   question: string;
-  rig: AskRigInfo | null;
+  softwareTeam: AskSoftwareTeamInfo | null;
   evidence: {
     backend: string;
     excerpts: string[];
@@ -79,46 +79,46 @@ interface AskCommandDeps extends StatusDeps {
 
 export function askCommand(depsOverride?: StatusDeps): Command {
   const cmd = new Command("ask")
-    .description("Search rig transcript history with a natural language question")
-    .argument("<rig>", "Rig name to search")
+    .description("Search SoftwareTeam transcript history with a natural language question")
+    .argument("<softwareTeam>", "SoftwareTeam name to search")
     .argument("<question>", "Question to search for in transcripts")
     .option("--json", "JSON output for agents")
     .option("--seat <session-name>", "Scope the search to ONE seat's transcript across every generation that sat in it (cross-generation archaeology)")
     .option("--session <token>", "Search ONE specific session's JSONL by its session token (read-only)")
-    .option("--wake <target>", "EXECUTES: wake member@rig[@N], or pass a session ID or title to the runtime — ask one question, get a snapshot answer, back to cold (runtime cost; explicit, never an implicit escalation from a search)")
+    .option("--wake <target>", "EXECUTES: wake member@software-team[@N], or pass a session ID or title to the runtime — ask one question, get a snapshot answer, back to cold (runtime cost; explicit, never an implicit escalation from a search)")
     .option("--runtime <runtime>", "runtime for --wake: claude (default) or codex")
     .option("--wake-timeout <seconds>", "bounded wake timeout in seconds (default 180)")
     .addHelpText("after", `
-rig ask is one verb for information about the PAST, three ways to reach it:
-  1. rig ask <rig> "<q>"                    search the whole rig's transcripts
-  2. rig ask <rig> "<q>" --seat <seat>      scope to ONE seat, across every
+SoftwareTeam ask is one verb for information about the PAST, three ways to reach it:
+  1. SoftwareTeam ask <softwareTeam> "<q>"                    search the whole softwareTeam's transcripts
+  2. SoftwareTeam ask <softwareTeam> "<q>" --seat <seat>      scope to ONE seat, across every
                                             generation that sat in it (L1, read-only)
-  3. rig ask <rig> "<q>" --session <token>  search ONE session's JSONL by
+  3. SoftwareTeam ask <softwareTeam> "<q>" --session <token>  search ONE session's JSONL by
                                             token — "I have the token, find it" (L2, read-only)
-  4. rig ask <rig> "<q>" --wake <target>
-                                            WAKE that session (by member@rig[@N]
+  4. SoftwareTeam ask <softwareTeam> "<q>" --wake <target>
+                                            WAKE that session (by member@software-team[@N]
                                             or runtime ID/title), ask, get a snapshot
                                             answer, back to cold (L3, EXECUTES)
 
-Wake seat targets must include the rig: member@rig or member@rig@N (1 = newest tenure).
+Wake seat targets must include the softwareTeam: member@software-team or member@software-team@N (1 = newest tenure).
 Values without @ go unchanged to the runtime as a session ID or title; a bare member
-name is not resolved within <rig>.
+name is not resolved within <softwareTeam>.
 
 Levels 1-2 are read-only archaeology (cheap, safe). Level 3 (--wake) EXECUTES an
 agent — the only level with runtime cost. The answer is snapshot testimony:
 checked, not believed.
 
 Examples:
-  rig ask my-rig "what decisions were made about deployment?"
-  rig ask my-rig "what did we decide" --seat dev-planner@my-rig
-  rig ask my-rig "SECRET_MARKER" --session 3f2a-...-9c1
-  rig ask my-rig "summarize the gateway plan" --wake dev-planner@my-rig
-  rig ask my-rig "summarize the previous plan" --wake dev-planner@my-rig@2
-  rig ask my-rig "summarize the gateway plan" --wake 3f2a-...-9c1
+  SoftwareTeam ask my-software-team "what decisions were made about deployment?"
+  SoftwareTeam ask my-software-team "what did we decide" --seat dev-planner@my-software-team
+  SoftwareTeam ask my-software-team "SECRET_MARKER" --session 3f2a-...-9c1
+  SoftwareTeam ask my-software-team "summarize the gateway plan" --wake dev-planner@my-software-team
+  SoftwareTeam ask my-software-team "summarize the previous plan" --wake dev-planner@my-software-team@2
+  SoftwareTeam ask my-software-team "summarize the gateway plan" --wake 3f2a-...-9c1
 
 Exit codes:
   0  Success
-  1  Daemon not running, or the rig is unknown or ambiguous
+  1  Daemon not running, or the SoftwareTeam is unknown or ambiguous
   2  Failed to fetch data from daemon (or wake timed out)`);
 
   const getDeps = (): AskCommandDeps => (depsOverride as AskCommandDeps | undefined) ?? {
@@ -126,7 +126,7 @@ Exit codes:
     clientFactory: (url: string) => new DaemonClient(url),
   };
 
-  cmd.action(async (rig: string, question: string, opts: { json?: boolean; seat?: string; session?: string; wake?: string; runtime?: string; wakeTimeout?: string }) => {
+  cmd.action(async (softwareTeam: string, question: string, opts: { json?: boolean; seat?: string; session?: string; wake?: string; runtime?: string; wakeTimeout?: string }) => {
     const deps = getDeps();
 
     // L3 — WAKE: EXECUTES the runtime headless. A raw token wakes CLI-locally; a
@@ -159,7 +159,7 @@ Exit codes:
         const { seat, generation } = parseSeatGen(target);
         const res = await client.post<WakeResolution>("/api/wake-resolve", { seat, generation });
         if (res.status >= 400) {
-          console.error(`Failed to resolve seat (HTTP ${res.status}). Check daemon status with: rig status`);
+          console.error(`Failed to resolve seat (HTTP ${res.status}). Check daemon status with: SoftwareTeam status`);
           process.exitCode = 2;
           return;
         }
@@ -206,7 +206,7 @@ Exit codes:
     const client = deps.clientFactory(getDaemonUrl(status));
     const identity = (deps.identityResolver ?? resolveIdentitySource)({});
     const res = await client.post<AskResult>("/api/ask", {
-      rig,
+      softwareTeam,
       question,
       nodeId: identity?.nodeId,
       sessionName: identity?.sessionName,
@@ -215,16 +215,16 @@ Exit codes:
     });
 
     if (res.status >= 400) {
-      console.error(`Failed to query rig (HTTP ${res.status}). Check daemon status with: rig status`);
+      console.error(`Failed to query softwareTeam (HTTP ${res.status}). Check daemon status with: SoftwareTeam status`);
       process.exitCode = 2;
       return;
     }
 
     const result = res.data;
-    // The daemon answers rig: null only when the rig name matched no rig or
-    // more than one. Exit 1 like rig send/transcript/release do for a missing
-    // target, so a script or agent can tell a mistyped rig from "no matches".
-    if (!result.rig) process.exitCode = 1;
+    // The daemon answers softwareTeam: null only when the softwareTeam name matched no softwareTeam or
+    // more than one. Exit 1 like SoftwareTeam send/transcript/release do for a missing
+    // target, so a script or agent can tell a mistyped softwareTeam from "no matches".
+    if (!result.softwareTeam) process.exitCode = 1;
 
     if (opts.json) {
       console.log(JSON.stringify(result));
@@ -235,10 +235,10 @@ Exit codes:
     console.log(`Question: ${result.question}`);
     console.log("");
 
-    if (result.rig) {
-      console.log(`Rig: ${result.rig.name}  [${result.rig.status}]  ${result.rig.runningCount}/${result.rig.nodeCount} nodes  uptime: ${result.rig.uptime ?? "—"}`);
+    if (result.softwareTeam) {
+      console.log(`SoftwareTeam: ${result.softwareTeam.name}  [${result.softwareTeam.status}]  ${result.softwareTeam.runningCount}/${result.softwareTeam.nodeCount} nodes  uptime: ${result.softwareTeam.uptime ?? "—"}`);
     } else {
-      console.log(`Rig: ${rig}  [not found]`);
+      console.log(`SoftwareTeam: ${softwareTeam}  [not found]`);
     }
 
     if (result.seat) {

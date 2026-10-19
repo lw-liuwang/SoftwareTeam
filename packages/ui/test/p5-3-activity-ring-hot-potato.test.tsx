@@ -11,7 +11,7 @@ import { HybridAgentNode } from "../src/components/topology/HybridTopologyNodes.
 import { computeTerminalPopoverPosition } from "../src/components/topology/TerminalPreviewPopover.js";
 import { fallbackActivityCardState, getActivityCardClasses } from "../src/components/topology/activity-card-visuals.js";
 import {
-  HOT_POTATO_WITHIN_RIG_DURATION_MS,
+  HOT_POTATO_WITHIN_SOFTWARE_TEAM_DURATION_MS,
   type HotPotatoPacket,
 } from "../src/lib/topology-activity.js";
 
@@ -20,15 +20,15 @@ function packet(): HotPotatoPacket {
     id: "packet-1",
     eventType: "queue.created",
     qitemId: "q1",
-    sourceSession: "orch.lead@rig",
-    targetSession: "dev.driver@rig",
+    sourceSession: "orch.lead@software-team",
+    targetSession: "dev.driver@software-team",
     sourceNodeId: "orch.lead",
     targetNodeId: "dev.driver",
-    sourceRigId: "rig-1",
-    targetRigId: "rig-1",
-    crossRig: false,
+    sourceSoftwareTeamId: "software-team-1",
+    targetSoftwareTeamId: "software-team-1",
+    crossSoftwareTeam: false,
     createdAt: Date.now(),
-    durationMs: HOT_POTATO_WITHIN_RIG_DURATION_MS,
+    durationMs: HOT_POTATO_WITHIN_SOFTWARE_TEAM_DURATION_MS,
   };
 }
 
@@ -49,7 +49,7 @@ function edgeProps(reducedMotion: boolean) {
     data: {
       hotPotatoPacket: packet(),
       hotPotatoReducedMotion: reducedMotion,
-      hotPotatoCrossRig: false,
+      hotPotatoCrossSoftwareTeam: false,
     },
     style: {},
     selected: false,
@@ -160,7 +160,7 @@ describe("P5.3 ActivityRing and HotPotatoEdge", () => {
           contextFresh: true,
           contextTotalInputTokens: 200_000,
           contextTotalOutputTokens: 19_000,
-          canonicalSessionName: "velocity-driver@openrig-velocity",
+          canonicalSessionName: "velocity-driver@softwareteam-velocity",
         }}
       />,
     );
@@ -177,7 +177,7 @@ describe("P5.3 ActivityRing and HotPotatoEdge", () => {
       }
       if (url.includes("/api/sessions/")) {
         return new Response(JSON.stringify({
-          sessionName: "velocity-driver@openrig-velocity",
+          sessionName: "velocity-driver@softwareteam-velocity",
           content: "latest terminal line",
           lines: 1,
           capturedAt: "2026-05-07T08:00:00Z",
@@ -195,8 +195,8 @@ describe("P5.3 ActivityRing and HotPotatoEdge", () => {
             runtime: "claude-code",
             model: null,
             status: "running",
-            rigId: "rig-1",
-            canonicalSessionName: "velocity-driver@openrig-velocity",
+            softwareTeamId: "software-team-1",
+            canonicalSessionName: "velocity-driver@softwareteam-velocity",
           }}
         />
         <HybridAgentNode
@@ -206,8 +206,8 @@ describe("P5.3 ActivityRing and HotPotatoEdge", () => {
             runtime: "codex",
             model: null,
             status: "running",
-            rigId: "rig-1",
-            canonicalSessionName: "velocity-guard@openrig-velocity",
+            softwareTeamId: "software-team-1",
+            canonicalSessionName: "velocity-guard@softwareteam-velocity",
           }}
         />
       </>,
@@ -220,7 +220,7 @@ describe("P5.3 ActivityRing and HotPotatoEdge", () => {
     // opens on the STATIC preview; a click upgrades THAT terminal to live.
     fireEvent.click(await screen.findByTestId("hybrid-driver-static"));
     await waitFor(() => {
-      expect(screen.getByTestId("focused-terminal-velocity-driver@openrig-velocity")).toBeTruthy();
+      expect(screen.getByTestId("focused-terminal-velocity-driver@softwareteam-velocity")).toBeTruthy();
     });
     const driverPopover = screen.getByTestId("hybrid-driver-terminal-popover");
     expect(driverPopover.parentElement).toBe(document.body);
@@ -290,11 +290,11 @@ describe("P5.3 ActivityRing and HotPotatoEdge", () => {
 
   it("source scan keeps activity and packet layers production-reachable", () => {
     const srcRoot = path.resolve(__dirname, "../src");
-    const host = readFileSync(path.join(srcRoot, "components/topology/HostMultiRigGraph.tsx"), "utf8");
-    const rigGraph = readFileSync(path.join(srcRoot, "components/RigGraph.tsx"), "utf8");
-    const rigNode = readFileSync(path.join(srcRoot, "components/RigNode.tsx"), "utf8");
+    const host = readFileSync(path.join(srcRoot, "components/topology/HostMultiSoftwareTeamGraph.tsx"), "utf8");
+    const softwareTeamGraph = readFileSync(path.join(srcRoot, "components/SoftwareTeamGraph.tsx"), "utf8");
+    const softwareTeamNode = readFileSync(path.join(srcRoot, "components/SoftwareTeamNode.tsx"), "utf8");
     const hybridNodes = readFileSync(path.join(srcRoot, "components/topology/HybridTopologyNodes.tsx"), "utf8");
-    const rigGroupNode = readFileSync(path.join(srcRoot, "components/topology/RigGroupNode.tsx"), "utf8");
+    const softwareTeamGroupNode = readFileSync(path.join(srcRoot, "components/topology/SoftwareTeamGroupNode.tsx"), "utf8");
     const terminalPopover = readFileSync(path.join(srcRoot, "components/topology/TerminalPreviewPopover.tsx"), "utf8");
     const activityCards = readFileSync(path.join(srcRoot, "components/topology/activity-card-visuals.ts"), "utf8");
     const table = readFileSync(path.join(srcRoot, "components/topology/TopologyTableView.tsx"), "utf8");
@@ -308,15 +308,15 @@ describe("P5.3 ActivityRing and HotPotatoEdge", () => {
     expect(host).toMatch(/applyHotPotatoEdges/);
     expect(host).toMatch(/terminalActive: data\?\.terminalActive/);
     expect(host).toMatch(/edgeTypes=\{edgeTypes\}/);
-    expect(rigGraph).toMatch(/useTopologyActivity/);
-    expect(rigGraph).toMatch(/applyHotPotatoEdges/);
-    expect(rigGraph).toMatch(/terminalActive: data\?\.terminalActive/);
-    expect(rigGraph).toMatch(/edgeTypes=\{edgeTypes\}/);
+    expect(softwareTeamGraph).toMatch(/useTopologyActivity/);
+    expect(softwareTeamGraph).toMatch(/applyHotPotatoEdges/);
+    expect(softwareTeamGraph).toMatch(/terminalActive: data\?\.terminalActive/);
+    expect(softwareTeamGraph).toMatch(/edgeTypes=\{edgeTypes\}/);
     expect(hybridNodes).toMatch(/ActivityRing/);
     expect(hybridNodes).toMatch(/getActivityCardClasses/);
     expect(hybridNodes).toMatch(/TerminalPreviewPopover/);
-    expect(rigNode).toMatch(/getActivityCardClasses/);
-    expect(rigNode).toMatch(/TerminalPreviewPopover/);
+    expect(softwareTeamNode).toMatch(/getActivityCardClasses/);
+    expect(softwareTeamNode).toMatch(/TerminalPreviewPopover/);
     expect(terminalPopover).toMatch(/FocusedTerminal/);
     expect(terminalPopover).toMatch(/createPortal/);
     expect(terminalPopover).toMatch(/document\.body/);
@@ -328,18 +328,18 @@ describe("P5.3 ActivityRing and HotPotatoEdge", () => {
     expect(terminalPopover).not.toMatch(/absolute left-full/);
     expect(terminalPopover).not.toMatch(/terminal preview/);
     expect(terminalPopover).not.toMatch(/terminal-close/);
-    expect(rigGroupNode).toMatch(/bg-surface-lowest\/40/);
-    expect(rigGroupNode).toMatch(/hover:bg-surface-lowest\/50/);
-    expect(rigGroupNode).toMatch(/backdrop-blur-\[8px\]/);
-    expect(rigGroupNode).not.toMatch(/bg-white\/\[0\.14\]/);
-    expect(rigGroupNode).not.toMatch(/hover:bg-white\/60/);
+    expect(softwareTeamGroupNode).toMatch(/bg-surface-lowest\/40/);
+    expect(softwareTeamGroupNode).toMatch(/hover:bg-surface-lowest\/50/);
+    expect(softwareTeamGroupNode).toMatch(/backdrop-blur-\[8px\]/);
+    expect(softwareTeamGroupNode).not.toMatch(/bg-white\/\[0\.14\]/);
+    expect(softwareTeamGroupNode).not.toMatch(/hover:bg-white\/60/);
     expect(hybridNodes).toMatch(/bg-surface-lowest\/40/);
     expect(hybridNodes).toMatch(/backdrop-blur-\[8px\]/);
     expect(hybridNodes).toMatch(/bg-background\/25/);
     expect(activityCards).toMatch(/activity-card-active/);
     expect(css).toMatch(/background-color: rgba\(255, 255, 255, 0\.72\)/);
     expect(css).not.toMatch(/background-color: rgba\(255, 255, 255, 0\.96\)/);
-    expect(rigGraph).toMatch(/activityRing/);
+    expect(softwareTeamGraph).toMatch(/activityRing/);
     expect(table).toMatch(/ActivityRing/);
     expect(table).toMatch(/terminalActive: n\.terminalActive/);
     expect(table).toMatch(/terminalActive: row\.terminalActive/);
@@ -353,9 +353,9 @@ describe("P5.3 ActivityRing and HotPotatoEdge", () => {
     expect(ring).not.toMatch(/StatusPip/);
     expect(edge).toMatch(/animateMotion/);
     expect(activity).toMatch(/TOPOLOGY_NODE_ACTIVITY_TTL_MS/);
-    expect(activity).toMatch(/HYBRID_CROSS_RIG_STROKE_DASH/);
-    expect(activity).not.toMatch(/HOT_POTATO_CROSS_RIG_STROKE_DASH/);
-    expect(hybridLayout).toContain('export const HYBRID_CROSS_RIG_STROKE_DASH = "6 7"');
+    expect(activity).toMatch(/HYBRID_CROSS_SOFTWARE_TEAM_STROKE_DASH/);
+    expect(activity).not.toMatch(/HOT_POTATO_CROSS_SOFTWARE_TEAM_STROKE_DASH/);
+    expect(hybridLayout).toContain('export const HYBRID_CROSS_SOFTWARE_TEAM_STROKE_DASH = "6 7"');
     const sourceFiles = [activity, hybridLayout];
     expect(sourceFiles.join("\n").match(/"6 7"/g) ?? []).toHaveLength(1);
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
@@ -363,6 +363,6 @@ describe("P5.3 ActivityRing and HotPotatoEdge", () => {
     expect(css).toMatch(/activity-card-active/);
     expect(css).toMatch(/activity-card-target-flash/);
     expect(edge).toMatch(/non-scaling-stroke/);
-    expect(css).toMatch(/rig-activity-frame-pulse/);
+    expect(css).toMatch(/software-team-activity-frame-pulse/);
   });
 });

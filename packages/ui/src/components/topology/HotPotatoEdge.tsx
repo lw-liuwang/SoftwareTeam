@@ -27,9 +27,9 @@ export function HotPotatoEdge({
   });
   const edgeData = (data ?? {}) as HotPotatoEdgeData;
   const packet = edgeData.hotPotatoPacket ?? null;
-  const crossRig = edgeData.hotPotatoCrossRig ?? false;
+  const crossSoftwareTeam = edgeData.hotPotatoCrossSoftwareTeam ?? false;
   const reducedMotion = edgeData.hotPotatoReducedMotion ?? false;
-  const strokeWidth = packet ? (crossRig ? 1.25 : 2.25) : style?.strokeWidth;
+  const strokeWidth = packet ? (crossSoftwareTeam ? 1.25 : 2.25) : style?.strokeWidth;
 
   return (
     <>
@@ -50,11 +50,11 @@ export function HotPotatoEdge({
             data-reduced-motion="true"
             cx={targetX}
             cy={targetY}
-            r={crossRig ? 5 : 6.5}
+            r={crossSoftwareTeam ? 5 : 6.5}
             stroke="rgba(255,255,255,0.88)"
-            strokeWidth={crossRig ? 1.75 : 2.25}
+            strokeWidth={crossSoftwareTeam ? 1.75 : 2.25}
             vectorEffect="non-scaling-stroke"
-            className={crossRig ? "fill-outline" : "fill-emerald-600"}
+            className={crossSoftwareTeam ? "fill-outline" : "fill-emerald-600"}
           />
         ) : (
           <>
@@ -66,23 +66,23 @@ export function HotPotatoEdge({
               data-testid={`hot-potato-flow-${packet.id}`}
               d={edgePath}
               fill="none"
-              stroke={crossRig ? "#a8a29e" : "#10b981"}
-              strokeWidth={crossRig ? 1.5 : 2.5}
+              stroke={crossSoftwareTeam ? "#a8a29e" : "#10b981"}
+              strokeWidth={crossSoftwareTeam ? 1.5 : 2.5}
               strokeLinecap="round"
-              strokeDasharray={crossRig ? "1 12" : "2 11"}
+              strokeDasharray={crossSoftwareTeam ? "1 12" : "2 11"}
               vectorEffect="non-scaling-stroke"
-              className={crossRig ? "hot-potato-flow hot-potato-flow-cross" : "hot-potato-flow"}
+              className={crossSoftwareTeam ? "hot-potato-flow hot-potato-flow-cross" : "hot-potato-flow"}
             />
             {/* The lead pulse — the head of the handoff travelling the edge. */}
             <circle
               key={packet.id}
               data-testid={`hot-potato-packet-${packet.id}`}
               data-reduced-motion="false"
-              r={crossRig ? 5 : 6.5}
+              r={crossSoftwareTeam ? 5 : 6.5}
               stroke="rgba(255,255,255,0.88)"
-              strokeWidth={crossRig ? 1.75 : 2.25}
+              strokeWidth={crossSoftwareTeam ? 1.75 : 2.25}
               vectorEffect="non-scaling-stroke"
-              className={crossRig ? "fill-outline hot-potato-packet-cross" : "fill-emerald-600 hot-potato-packet"}
+              className={crossSoftwareTeam ? "fill-outline hot-potato-packet-cross" : "fill-emerald-600 hot-potato-packet"}
             >
               <animateMotion
                 dur={`${packet.durationMs}ms`}

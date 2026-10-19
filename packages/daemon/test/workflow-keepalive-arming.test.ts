@@ -52,10 +52,10 @@ const SPEC = `workflow:
   roles:
     worker:
       preferred_targets:
-        - worker@rig
+        - worker@software-team
     next:
       preferred_targets:
-        - next@rig
+        - next@software-team
   steps:
     - id: work
       actor_role: worker
@@ -95,8 +95,8 @@ describe("FR-3: keepalive auto-arm in-txn + disarm", () => {
       workflowSpecJsonSchema,
     ]);
     const bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
@@ -123,13 +123,13 @@ describe("FR-3: keepalive auto-arm in-txn + disarm", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "arming walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const job = findArmedKeepaliveJob(watchdogRepo, inst.instance.instanceId);
     expect(job).not.toBeNull();
     expect(job!.policy).toBe("workflow-keepalive");
     expect(job!.state).toBe("active");
-    expect(job!.targetSession).toBe("worker@rig");
+    expect(job!.targetSession).toBe("worker@software-team");
     expect(job!.intervalSeconds).toBe(WORKFLOW_KEEPALIVE_AUTO_INTERVAL_SECONDS);
     expect(job!.specYaml).toContain(`workflow_instance_id: ${inst.instance.instanceId}`);
     expect(job!.specYaml).toContain("deadline_gated: true");
@@ -140,13 +140,13 @@ describe("FR-3: keepalive auto-arm in-txn + disarm", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "one job walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const projected = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "handoff",
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
     });
     // Still exactly one active job for the instance.
     expect(
@@ -159,7 +159,7 @@ describe("FR-3: keepalive auto-arm in-txn + disarm", () => {
       instanceId: inst.instance.instanceId,
       currentPacketId: projected.nextQitemId!,
       exit: "done",
-      actorSession: "next@rig",
+      actorSession: "next@software-team",
     });
     expect(findArmedKeepaliveJob(watchdogRepo, inst.instance.instanceId)).toBeNull();
     const all = watchdogRepo
@@ -174,7 +174,7 @@ describe("FR-3: keepalive auto-arm in-txn + disarm", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "heal walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     // Simulate a pre-WF-1 instance: kill the auto-armed job out-of-band.
     const armed = findArmedKeepaliveJob(watchdogRepo, inst.instance.instanceId)!;
@@ -185,18 +185,18 @@ describe("FR-3: keepalive auto-arm in-txn + disarm", () => {
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "handoff",
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
     });
     // Healed: a fresh active job exists again.
     const healed = findArmedKeepaliveJob(watchdogRepo, inst.instance.instanceId);
     expect(healed).not.toBeNull();
-    expect(healed!.targetSession).toBe("next@rig");
+    expect(healed!.targetSession).toBe("next@software-team");
 
     await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: projected.nextQitemId!,
       exit: "failed",
-      actorSession: "next@rig",
+      actorSession: "next@software-team",
     });
     expect(findArmedKeepaliveJob(watchdogRepo, inst.instance.instanceId)).toBeNull();
     const terminalJob = watchdogRepo
@@ -209,13 +209,13 @@ describe("FR-3: keepalive auto-arm in-txn + disarm", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "waiting walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "waiting",
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       blockedOn: "external-gate-x",
     });
     expect(findArmedKeepaliveJob(watchdogRepo, inst.instance.instanceId)).not.toBeNull();
@@ -225,7 +225,7 @@ describe("FR-3: keepalive auto-arm in-txn + disarm", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "rollback walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     // Make this look like a pre-WF-1 instance so the handoff would arm.
     const armed = findArmedKeepaliveJob(watchdogRepo, inst.instance.instanceId)!;
@@ -239,7 +239,7 @@ describe("FR-3: keepalive auto-arm in-txn + disarm", () => {
         instanceId: inst.instance.instanceId,
         currentPacketId: inst.entryQitemId,
         exit: "handoff",
-        actorSession: "worker@rig",
+        actorSession: "worker@software-team",
       }),
     ).rejects.toThrow("injected-mid-txn-failure");
 
@@ -272,8 +272,8 @@ describe("FR-3/FR-2: the deadline-gated keepalive policy behavior", () => {
       workflowSpecJsonSchema,
     ]);
     const bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
@@ -299,7 +299,7 @@ describe("FR-3/FR-2: the deadline-gated keepalive policy behavior", () => {
     return {
       jobId: "job-test",
       policy: "workflow-keepalive",
-      target: { session: "fallback@rig" },
+      target: { session: "fallback@software-team" },
       intervalSeconds: 900,
       activeWakeIntervalSeconds: null,
       scanIntervalSeconds: null,
@@ -309,7 +309,7 @@ describe("FR-3/FR-2: the deadline-gated keepalive policy behavior", () => {
       },
       lastEvaluationAt: null,
       lastFireAt: null,
-      registeredBySession: "ops@rig",
+      registeredBySession: "ops@software-team",
       registeredAt: new Date().toISOString(),
     };
   }
@@ -318,7 +318,7 @@ describe("FR-3/FR-2: the deadline-gated keepalive policy behavior", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "quiet walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const policy = makeWorkflowKeepalivePolicy({ db });
     const evaluation = await policy.evaluate(jobFor(inst.instance.instanceId, true));
@@ -330,7 +330,7 @@ describe("FR-3/FR-2: the deadline-gated keepalive policy behavior", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "stuck walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     // Age the entry packet past the never-claimed threshold.
     const past = new Date(
@@ -345,7 +345,7 @@ describe("FR-3/FR-2: the deadline-gated keepalive policy behavior", () => {
     const evaluation = await policy.evaluate(jobFor(inst.instance.instanceId, true));
     expect(evaluation.action).toBe("send");
     if (evaluation.action !== "send") throw new Error("unreachable");
-    expect(evaluation.target.session).toBe("worker@rig");
+    expect(evaluation.target.session).toBe("worker@software-team");
     expect(evaluation.message).toContain("Workflow deadline:");
     expect(evaluation.message).toContain(inst.entryQitemId);
     expect(evaluation.message).toContain("--full");
@@ -360,7 +360,7 @@ describe("FR-3/FR-2: the deadline-gated keepalive policy behavior", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "parity walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const policy = makeWorkflowKeepalivePolicy({ db });
     const evaluation = await policy.evaluate(jobFor(inst.instance.instanceId, false));

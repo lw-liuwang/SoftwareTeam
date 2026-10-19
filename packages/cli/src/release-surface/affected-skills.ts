@@ -10,8 +10,8 @@
 //
 // Join grammar - ADVISOR-RATIFIED (qitem-20260608235706-64ba9ef2; see the slice
 // governance-watch.md SHARP WATCH #1):
-//  - Skill tokens are stored WITHOUT the `rig ` prefix, in 13.1's command-path
-//    grammar (`scope slice create`, `queue create`). We strip a leading `rig `
+//  - Skill tokens are stored WITHOUT the `softwareTeam ` prefix, in 13.1's command-path
+//    grammar (`scope slice create`, `queue create`). We strip a leading `softwareTeam `
 //    defensively so a skill written either way still matches.
 //  - Changed-surface set: per `added_commands`, `{name}` plus `{name + " " +
 //    each subcommand}`; per `added_flags`, `{command}` plus `{command + " " +
@@ -30,12 +30,12 @@ import { parse } from "yaml";
 import type { SurfaceDiff } from "./surface-diff.js";
 
 /**
- * Split a command token into path segments, stripping a leading `rig ` and
- * collapsing internal whitespace. `"rig scope slice create"` -> `["scope",
+ * Split a command token into path segments, stripping a leading `softwareTeam ` and
+ * collapsing internal whitespace. `"SoftwareTeam scope slice create"` -> `["scope",
  * "slice", "create"]`; `"queue create"` -> `["queue", "create"]`.
  */
 export function toSegments(token: string): string[] {
-  const stripped = token.trim().replace(/^rig\s+/, "");
+  const stripped = token.trim().replace(/^SoftwareTeam\s+/, "");
   return stripped.split(/\s+/).filter((segment) => segment.length > 0);
 }
 

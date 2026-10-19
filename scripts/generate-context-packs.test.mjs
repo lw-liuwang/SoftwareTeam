@@ -16,7 +16,7 @@ const { ContextPackLibraryService } = await import(distUrl("context-pack-library
 const { assembleBundle } = await import(distUrl("bundle-assembler.js"));
 const { EXCLUDES } = await import(pathToFileURL(join(HERE, "mirror-skills.mjs")).href);
 const REAL_SKILLS = join(REPO, "packages/daemon/specs/agents/shared/skills");
-const REAL_PLUGIN_SKILLS = join(REPO, "packages/daemon/assets/plugins/openrig-core/skills");
+const REAL_PLUGIN_SKILLS = join(REPO, "packages/daemon/assets/plugins/softwareteam-core/skills");
 const REAL_STATIC_PACKS = join(REPO, "packages/daemon/context-packs-src");
 
 // Independent computation of the mirror's exclude-only ship set on a real tree —
@@ -47,17 +47,17 @@ function skill(root, rel, { name, description, files }) {
 function run(source, out, args = []) {
   return execFileSync("node", [GEN, ...args], {
     encoding: "utf8",
-    env: { ...process.env, OPENRIG_SKILLS_SOURCE: source, OPENRIG_PACKS_OUT: out, OPENRIG_PACKAGE_VERSION: "0.5.3" },
+    env: { ...process.env, SOFTWARETEAM_SKILLS_SOURCE: source, SOFTWARETEAM_PACKS_OUT: out, SOFTWARETEAM_PACKAGE_VERSION: "0.5.3" },
   });
 }
 
 function runProduction(out, args = []) {
   const env = { ...process.env };
-  delete env.OPENRIG_SKILLS_SOURCE;
-  delete env.OPENRIG_STATIC_PACKS_SOURCE;
+  delete env.SOFTWARETEAM_SKILLS_SOURCE;
+  delete env.SOFTWARETEAM_STATIC_PACKS_SOURCE;
   return execFileSync("node", [GEN, ...args], {
     encoding: "utf8",
-    env: { ...env, OPENRIG_PACKS_OUT: out, OPENRIG_PACKAGE_VERSION: "0.5.3" },
+    env: { ...env, SOFTWARETEAM_PACKS_OUT: out, SOFTWARETEAM_PACKAGE_VERSION: "0.5.3" },
   });
 }
 
@@ -256,7 +256,7 @@ test("PRODUCTION PUBLIC PLUGIN-ONLY: mission-slice-sop catalogs once and helper 
 
     for (const [skillName, helper] of [
       ["loading-addressable-markdown", "scripts/resolve-markdown.mjs"],
-      ["openrig-operating-model", "scripts/compose.py"],
+      ["softwareteam-operating-model", "scripts/compose.py"],
     ]) {
       assert.deepEqual(
         readFileSync(join(out, "skills", skillName, helper)),
@@ -279,10 +279,10 @@ function runWithStatic(source, staticSource, out, args = []) {
     encoding: "utf8",
     env: {
       ...process.env,
-      OPENRIG_SKILLS_SOURCE: source,
-      OPENRIG_STATIC_PACKS_SOURCE: staticSource,
-      OPENRIG_PACKS_OUT: out,
-      OPENRIG_PACKAGE_VERSION: "0.5.3",
+      SOFTWARETEAM_SKILLS_SOURCE: source,
+      SOFTWARETEAM_STATIC_PACKS_SOURCE: staticSource,
+      SOFTWARETEAM_PACKS_OUT: out,
+      SOFTWARETEAM_PACKAGE_VERSION: "0.5.3",
     },
   });
 }
@@ -358,11 +358,11 @@ function expectStaticLeakFailure(base, mutate, label) {
   assert.ok(failed, `${label}: must fail the build`);
 }
 
-test("STATIC PACK LEAK GUARD runs the FULL committed authority: charged term, path prefix, AND seat/rig identity each FAIL THE BUILD", () => {
+test("STATIC PACK LEAK GUARD runs the FULL committed authority: charged term, path prefix, AND seat/SoftwareTeam identity each FAIL THE BUILD", () => {
   for (const [label, content] of [
     ["charged term", "# A\n\nalpha body for the founder\n"],
-    ["internal path prefix", "# A\n\nsee openrig-work/skills for the library\n"],
-    ["instance seat/rig identity", "# A\n\nroute it to dev50@v-openrig-build when done\n"],
+    ["internal path prefix", "# A\n\nsee softwareteam-work/skills for the library\n"],
+    ["instance seat/SoftwareTeam identity", "# A\n\nroute it to dev50@v-softwareteam-build when done\n"],
   ]) {
     const base = mkdtempSync(join(tmpdir(), "s05-leak-"));
     try {
@@ -378,7 +378,7 @@ test("STATIC PACK SIDECARS are part of the leak boundary regardless of suffix", 
   try {
     expectStaticLeakFailure(
       base,
-      (dir) => writeFileSync(join(dir, "PROVENANCE.yaml"), "source: openrig-work/rigs/private\n"),
+      (dir) => writeFileSync(join(dir, "PROVENANCE.yaml"), "source: softwareteam-work/software-teams/private\n"),
       "renamed provenance sidecar",
     );
   } finally {
@@ -396,7 +396,7 @@ test("STATIC SOURCE provenance sidecars cannot hide beside, rather than inside, 
     staticWorldPack(staticSrc, "world/install");
     writeFileSync(
       join(staticSrc, "PROVENANCE-world-install.yaml"),
-      "source: openrig-work/rigs/private\n",
+      "source: softwareteam-work/software-teams/private\n",
     );
 
     let failure;
@@ -408,7 +408,7 @@ test("STATIC SOURCE provenance sidecars cannot hide beside, rather than inside, 
     assert.ok(failure, "a root-level provenance sidecar must be inside the scanned boundary");
     assert.equal(failure.status, 1);
     assert.match(String(failure.stderr), /PROVENANCE-world-install\.yaml/);
-    assert.match(String(failure.stderr), /openrig-work\//i);
+    assert.match(String(failure.stderr), /softwareteam-work\//i);
     assert.ok(!existsSync(out), "no projection may be written after provenance refusal");
   } finally {
     rmSync(base, { recursive: true, force: true });
@@ -587,7 +587,7 @@ async function addressRouteOver(packsRoot) {
   app.route("/api/context-packs", contextPacksRoutes());
   return app;
 }
-const taughtAddresses = (text) => [...text.matchAll(/`rig context get (reference\/[^`\s]+)`/g)].map((m) => m[1]);
+const taughtAddresses = (text) => [...text.matchAll(/`SoftwareTeam context get (reference\/[^`\s]+)`/g)].map((m) => m[1]);
 async function unresolvedAddresses(app, addresses) {
   const failures = [];
   for (const address of addresses) {
@@ -603,8 +603,8 @@ test("HELP ADDRESSES: every guide address taught in help.md resolves through the
     runProduction(out);
     const helpSource = readFileSync(join(REPO, "docs/reference/help.md"), "utf8");
     const refDir = join(out, "reference");
-    assert.deepEqual(readdirSync(refDir).sort(), ["getting-started.md", "instance-layout.md", "manifest.yaml", "rig-spec.md", "whats-new.md"]);
-    for (const f of ["getting-started.md", "instance-layout.md", "rig-spec.md", "whats-new.md"]) {
+    assert.deepEqual(readdirSync(refDir).sort(), ["getting-started.md", "instance-layout.md", "manifest.yaml", "software-team-spec.md", "whats-new.md"]);
+    for (const f of ["getting-started.md", "instance-layout.md", "software-team-spec.md", "whats-new.md"]) {
       assert.ok(!lstatSync(join(refDir, f)).isSymbolicLink(), `${f} ships as a real file`);
       assert.equal(readFileSync(join(refDir, f), "utf8"), readFileSync(join(REPO, "docs/reference", f), "utf8"));
     }
@@ -615,7 +615,7 @@ test("HELP ADDRESSES: every guide address taught in help.md resolves through the
       "reference/getting-started.md#incomplete-setup-and-restart",
       "reference/getting-started.md#open-the-kernel-conversations",
       "reference/instance-layout.md",
-      "reference/rig-spec.md",
+      "reference/software-team-spec.md",
       "reference/whats-new.md",
     ]);
     assert.deepEqual(await unresolvedAddresses(app, addresses), []);
@@ -625,13 +625,13 @@ test("HELP ADDRESSES: every guide address taught in help.md resolves through the
     assert.match(section.text, /^## Incomplete setup and restart/);
     assert.ok(!section.text.includes("## Kernel framing"), "a section address returns that section, not the file");
     const whole = await (await app.request(
-      `/api/context-packs/library/resolve-address?address=${encodeURIComponent("reference/rig-spec.md")}`,
+      `/api/context-packs/library/resolve-address?address=${encodeURIComponent("reference/software-team-spec.md")}`,
     )).json();
-    assert.equal(whole.text, readFileSync(join(REPO, "docs/reference/rig-spec.md"), "utf8"));
+    assert.equal(whole.text, readFileSync(join(REPO, "docs/reference/software-team-spec.md"), "utf8"));
     const preview = await (await app.request(`/api/context-packs/library/by-ref/preview?ref=help`)).json();
     assert.deepEqual(preview.files.map((f) => f.path ?? f), ["help.md"]);
     assert.ok(preview.bundleText.includes("# Help your user get unstuck"));
-    for (const manual of ["# Getting started: one useful change", "# OpenRig Instance Layout", "# RigSpec Reference", "# What changed in OpenRig"]) {
+    for (const manual of ["# Getting started: one useful change", "# SoftwareTeam Instance Layout", "# SoftwareTeamSpec Reference", "# What changed in SoftwareTeam"]) {
       assert.ok(!preview.bundleText.includes(manual), `a help read must not include '${manual}'`);
     }
   } finally {
@@ -649,9 +649,9 @@ test("HELP ADDRESSES: the checker fails when a taught address has no target", as
     writeFileSync(join(packsRoot, "reference/getting-started.md"), "# G\n\n## Incomplete setup and restart\nbody\n");
     const app = await addressRouteOver(packsRoot);
     const failures = await unresolvedAddresses(app, taughtAddresses(
-      "`rig context get reference/getting-started.md#incomplete-setup-and-restart` and `rig context get reference/rig-spec.md`",
+      "`SoftwareTeam context get reference/getting-started.md#incomplete-setup-and-restart` and `SoftwareTeam context get reference/software-team-spec.md`",
     ));
-    assert.deepEqual(failures.map((f) => f.address), ["reference/rig-spec.md"]);
+    assert.deepEqual(failures.map((f) => f.address), ["reference/software-team-spec.md"]);
   } finally {
     rmSync(base, { recursive: true, force: true });
   }
@@ -669,11 +669,11 @@ test("HELP FALLBACK PATHS: source links resolve, and the installed path matches 
   assert.match(buildPackage, /cp -r "\$REPO_ROOT\/docs\/reference\/"\* "\$CLI_DIR\/daemon\/docs\/reference\/"/);
   const fallbacks = [
     "docs/reference/help.md",
-    "packages/daemon/assets/guidance/openrig-start.md",
-    "packages/daemon/assets/plugins/openrig-core/skills/openrig-skills/SKILL.md",
+    "packages/daemon/assets/guidance/softwareteam-start.md",
+    "packages/daemon/assets/plugins/softwareteam-core/skills/softwareteam-skills/SKILL.md",
   ].map((p) => readFileSync(join(REPO, p), "utf8").replace(/\s+/g, " "));
   for (const text of fallbacks) {
-    assert.ok(text.includes("`daemon/docs/reference/help.md` inside the installed `@openrig/cli` package"));
+    assert.ok(text.includes("`daemon/docs/reference/help.md` inside the installed `@softwareteam/cli` package"));
     assert.ok(!text.includes("read `docs/reference/help.md` in the installed package"));
     assert.ok(!text.includes("open `docs/reference/help.md` in the installed package"));
   }

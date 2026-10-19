@@ -34,7 +34,7 @@ describe("ProjectClassifier (PL-004 Phase B; L2 classifier write path)", () => {
   function seedStreamItem(streamItemId: string): void {
     streamStore.emit({
       streamItemId,
-      sourceSession: "discovery@rig",
+      sourceSession: "discovery@software-team",
       body: `body for ${streamItemId}`,
     });
   }
@@ -53,18 +53,18 @@ describe("ProjectClassifier (PL-004 Phase B; L2 classifier write path)", () => {
   afterEach(() => db.close());
 
   it("classify with valid lease creates project_classifications row + emits project.classified", () => {
-    leaseMgr.acquire("alice@rig");
+    leaseMgr.acquire("alice@software-team");
     seedStreamItem("stream-1");
     const proj = classifier.classify({
       streamItemId: "stream-1",
-      classifierSession: "alice@rig",
+      classifierSession: "alice@software-team",
       leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
       classificationType: "idea",
-      classificationDestination: "planning@rig",
+      classificationDestination: "planning@software-team",
     });
     expect(proj.projectId).toMatch(/^[0-9A-Z]{26}$/); // ULID shape
     expect(proj.streamItemId).toBe("stream-1");
-    expect(proj.classifierSession).toBe("alice@rig");
+    expect(proj.classifierSession).toBe("alice@software-team");
     expect(proj.classificationType).toBe("idea");
     expect(captured.some((e) => e.type === "project.classified")).toBe(true);
   });
@@ -73,28 +73,28 @@ describe("ProjectClassifier (PL-004 Phase B; L2 classifier write path)", () => {
     seedStreamItem("stream-1");
     expect(() => classifier.classify({
       streamItemId: "stream-1",
-      classifierSession: "alice@rig",
+      classifierSession: "alice@software-team",
       leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
     })).toThrow(ClassifierLeaseError);
   });
 
   it("classify by non-holder throws lease_held", () => {
-    leaseMgr.acquire("alice@rig");
+    leaseMgr.acquire("alice@software-team");
     seedStreamItem("stream-1");
     expect(() => classifier.classify({
       streamItemId: "stream-1",
-      classifierSession: "bob@rig",
+      classifierSession: "bob@software-team",
       leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
-    })).toThrow(/lease_held|alice@rig/);
+    })).toThrow(/lease_held|alice@software-team/);
   });
 
   it("R1 BLOCKER 1: classify of nonexistent stream_item_id throws unknown_stream_item (no FK violation surfaced)", () => {
-    leaseMgr.acquire("alice@rig");
+    leaseMgr.acquire("alice@software-team");
     // No seed: stream_items has no row for "nonexistent-stream".
     try {
       classifier.classify({
         streamItemId: "nonexistent-stream",
-        classifierSession: "alice@rig",
+        classifierSession: "alice@software-team",
         leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
         classificationType: "idea",
       });
@@ -118,29 +118,29 @@ describe("ProjectClassifier (PL-004 Phase B; L2 classifier write path)", () => {
         `INSERT INTO project_classifications (
           project_id, stream_item_id, classifier_session, ts_projected
         ) VALUES (?, ?, ?, ?)`
-      ).run("proj-bypass", "nonexistent-via-bypass", "alice@rig", "2026-05-03T00:00:00Z");
+      ).run("proj-bypass", "nonexistent-via-bypass", "alice@software-team", "2026-05-03T00:00:00Z");
     }).toThrow(/FOREIGN KEY constraint failed/);
   });
 
   it("classify is idempotent on stream_item_id (re-projection → idempotency_violation 409)", () => {
-    leaseMgr.acquire("alice@rig");
+    leaseMgr.acquire("alice@software-team");
     seedStreamItem("stream-1");
     classifier.classify({
       streamItemId: "stream-1",
-      classifierSession: "alice@rig",
+      classifierSession: "alice@software-team",
       leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
       classificationType: "idea",
     });
     expect(() => classifier.classify({
       streamItemId: "stream-1",
-      classifierSession: "alice@rig",
+      classifierSession: "alice@software-team",
       leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
       classificationType: "bug",
     })).toThrow(ProjectClassifierError);
     try {
       classifier.classify({
         streamItemId: "stream-1",
-        classifierSession: "alice@rig",
+        classifierSession: "alice@software-team",
         leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
         classificationType: "bug",
       });
@@ -150,21 +150,21 @@ describe("ProjectClassifier (PL-004 Phase B; L2 classifier write path)", () => {
   });
 
   it("first classification's classifier_session is preserved on re-projection attempts", () => {
-    leaseMgr.acquire("alice@rig");
+    leaseMgr.acquire("alice@software-team");
     seedStreamItem("stream-1");
     const first = classifier.classify({
       streamItemId: "stream-1",
-      classifierSession: "alice@rig",
+      classifierSession: "alice@software-team",
       leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
       classificationType: "idea",
     });
     // Reclaim + new lease + same session can also re-attempt — still rejected.
-    leaseMgr.reclaim("operator@rig");
-    leaseMgr.acquire("bob@rig");
+    leaseMgr.reclaim("operator@software-team");
+    leaseMgr.acquire("bob@software-team");
     try {
       classifier.classify({
         streamItemId: "stream-1",
-        classifierSession: "bob@rig",
+        classifierSession: "bob@software-team",
         leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
         classificationType: "feature-request",
       });
@@ -175,23 +175,23 @@ describe("ProjectClassifier (PL-004 Phase B; L2 classifier write path)", () => {
     }
     const lookup = classifier.getByStreamItemId("stream-1");
     expect(lookup?.projectId).toBe(first.projectId);
-    expect(lookup?.classifierSession).toBe("alice@rig"); // first wins
+    expect(lookup?.classifierSession).toBe("alice@software-team"); // first wins
     expect(lookup?.classificationType).toBe("idea");
   });
 
   it("classify accepts all 6 classification fields + action; null when unset", () => {
-    leaseMgr.acquire("alice@rig");
+    leaseMgr.acquire("alice@software-team");
     seedStreamItem("stream-full");
     seedStreamItem("stream-minimal");
     const full = classifier.classify({
       streamItemId: "stream-full",
-      classifierSession: "alice@rig",
+      classifierSession: "alice@software-team",
       leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
       classificationType: "idea",
       classificationUrgency: "high",
       classificationMaturity: "ratified",
       classificationConfidence: "high",
-      classificationDestination: "planning@rig",
+      classificationDestination: "planning@software-team",
       action: "create",
     });
     expect(full.classificationUrgency).toBe("high");
@@ -201,7 +201,7 @@ describe("ProjectClassifier (PL-004 Phase B; L2 classifier write path)", () => {
 
     const minimal = classifier.classify({
       streamItemId: "stream-minimal",
-      classifierSession: "alice@rig",
+      classifierSession: "alice@software-team",
       leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
     });
     expect(minimal.classificationType).toBeNull();
@@ -210,29 +210,29 @@ describe("ProjectClassifier (PL-004 Phase B; L2 classifier write path)", () => {
   });
 
   it("list filters by classifierSession + classificationDestination", () => {
-    leaseMgr.acquire("alice@rig");
+    leaseMgr.acquire("alice@software-team");
     seedStreamItem("s1");
     seedStreamItem("s2");
     seedStreamItem("s3");
     classifier.classify({
       streamItemId: "s1",
-      classifierSession: "alice@rig",
+      classifierSession: "alice@software-team",
       leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
-      classificationDestination: "planning@rig",
+      classificationDestination: "planning@software-team",
     });
     classifier.classify({
       streamItemId: "s2",
-      classifierSession: "alice@rig",
+      classifierSession: "alice@software-team",
       leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
-      classificationDestination: "delivery@rig",
+      classificationDestination: "delivery@software-team",
     });
     classifier.classify({
       streamItemId: "s3",
-      classifierSession: "alice@rig",
+      classifierSession: "alice@software-team",
       leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
-      classificationDestination: "planning@rig",
+      classificationDestination: "planning@software-team",
     });
-    const planning = classifier.list({ classificationDestination: "planning@rig" });
+    const planning = classifier.list({ classificationDestination: "planning@software-team" });
     expect(planning).toHaveLength(2);
   });
 });

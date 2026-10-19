@@ -80,10 +80,10 @@ export function formatCrossHostFailure(
     case "permission-gate":
       return `ssh to host=${hostId} (target=${target}) hit a permission/auth gate: ${oneLine(result.sshStderr)}. ${result.hint ?? ""}`.trim();
     case "remote-daemon-unreachable":
-      return `remote rig command on host=${hostId} could not reach the remote daemon (exit=${result.remoteExitCode}): ${oneLine(result.stderr || result.stdout)}. Start the daemon on the remote with 'ssh ${target} rig daemon start'.`;
+      return `remote SoftwareTeam command on host=${hostId} could not reach the remote daemon (exit=${result.remoteExitCode}): ${oneLine(result.stderr || result.stdout)}. Start the daemon on the remote with 'ssh ${target} SoftwareTeam daemon start'.`;
     case "remote-command-not-found":
     case "remote-command-failed":
-      return `remote rig command on host=${hostId} failed (exit=${result.remoteExitCode}): ${oneLine(result.stderr || result.stdout)}`;
+      return `remote SoftwareTeam command on host=${hostId} failed (exit=${result.remoteExitCode}): ${oneLine(result.stderr || result.stdout)}`;
   }
 }
 

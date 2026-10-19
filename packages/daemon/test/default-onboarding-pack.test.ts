@@ -55,7 +55,7 @@ describe("default onboarding pack", () => {
       /~\//,
       /\b(?:localhost|127\.0\.0\.1):\d+\b/,
       /\b20\d{2}[-/]\d{1,2}[-/]\d{1,2}\b/,
-      /\b\d+\s+(?:files?|directories|seats?|rigs?|pods?|lines?|bytes?|kib|kb|tokens?)\b/i,
+      /\b\d+\s+(?:files?|directories|seats?|softwareTeams?|pods?|lines?|bytes?|kib|kb|tokens?)\b/i,
       /\bthis (?:box|instance|vm|machine|host)\b/i,
       /(?:shared-docs\/|missions\/|<corpus>)/i,
     ];
@@ -65,17 +65,17 @@ describe("default onboarding pack", () => {
   it("discovers an optional world pack without naming a dead default", () => {
     const text = packText();
     const stepTwo = readFileSync(PACK_PATHS[1]!, "utf8");
-    expect(text).toContain("rig context list");
-    expect(text).toContain("rig context profile <world-pack-ref> --situation fresh");
+    expect(text).toContain("SoftwareTeam context list");
+    expect(text).toContain("SoftwareTeam context profile <world-pack-ref> --situation fresh");
     expect(text).toContain("complete default mental model");
     expect(text).not.toContain("world/install");
-    expect(stepTwo).toContain("rig context get onboarding-width");
-    expect(stepTwo).toContain("rig context get world-example");
+    expect(stepTwo).toContain("SoftwareTeam context get onboarding-width");
+    expect(stepTwo).toContain("SoftwareTeam context get world-example");
     expect(stepTwo).toContain("public-what-you-can-do.md");
     expect(stepTwo).toContain("public-reference-material.md");
     expect(stepTwo).not.toContain("Read the sibling files");
-    expect(text).toContain("forming-an-openrig-mental-model");
-    expect(text).toContain("openrig-operating-model");
+    expect(text).toContain("forming-an-softwareteam-mental-model");
+    expect(text).toContain("softwareteam-operating-model");
 
     const [capabilities, sources] = PUBLIC_REFERENCE_PATHS.map((path) => readFileSync(path, "utf8"));
     expect(capabilities).toContain("# What you can do here");
@@ -88,8 +88,8 @@ describe("default onboarding pack", () => {
     expect(sources).not.toContain("Everything above is this box. The corpus");
 
     const canonPaths = [
-      resolve(DAEMON_ROOT, "assets/plugins/openrig-core/skills/forming-an-openrig-mental-model/SKILL.md"),
-      resolve(DAEMON_ROOT, "assets/plugins/openrig-core/skills/openrig-operating-model/SKILL.md"),
+      resolve(DAEMON_ROOT, "assets/plugins/softwareteam-core/skills/forming-an-softwareteam-mental-model/SKILL.md"),
+      resolve(DAEMON_ROOT, "assets/plugins/softwareteam-core/skills/softwareteam-operating-model/SKILL.md"),
     ];
     const canonicalParagraphs = new Set(canonPaths.flatMap((path) => paragraphs(readFileSync(path, "utf8"))));
     const copied = paragraphs(text).filter((paragraph) => canonicalParagraphs.has(paragraph));
@@ -117,9 +117,9 @@ describe("default onboarding pack", () => {
     const startup = readFileSync(resolve(DAEMON_ROOT, "src/startup.ts"), "utf8");
     expect(startup).toContain('resolveOne("onboarding.default_pack.enabled")');
     expect(startup).toContain("onboardingEnabledResolver");
-    expect(startup).not.toContain("OPENRIG_ONBOARDING_DEFAULT_PACK_ENABLED ===");
+    expect(startup).not.toContain("SOFTWARETEAM_ONBOARDING_DEFAULT_PACK_ENABLED ===");
 
-    const instantiator = readFileSync(resolve(DAEMON_ROOT, "src/domain/rigspec-instantiator.ts"), "utf8");
+    const instantiator = readFileSync(resolve(DAEMON_ROOT, "src/domain/software-team-spec-instantiator.ts"), "utf8");
     expect(instantiator).toContain("assets/onboarding/01-world-and-purpose.md");
     expect(instantiator).toContain("assets/onboarding/02-self-and-competent-action.md");
   });

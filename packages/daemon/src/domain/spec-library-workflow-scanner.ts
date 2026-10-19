@@ -1,6 +1,6 @@
 // Workflows in Spec Library + Activation Lens v0 — workflow scanner.
 //
-// SpecLibraryService knows how to classify rig + agent YAML files. This
+// SpecLibraryService knows how to classify softwareTeam + agent YAML files. This
 // scanner adds workflow_specs as a third library kind by reading
 // directly from the workflow_specs SQLite cache (PL-004 Phase D) +
 // re-parsing each cached row to extract the per-step routing for the
@@ -13,7 +13,7 @@
 // surface reconciliation contract has read through. Reading from the
 // cache (rather than re-walking directories) means: no new env config,
 // no duplicate parse logic, and the scanner stays consistent with
-// `rig workflow specs` (same rows, same source-of-truth).
+// `SoftwareTeam workflow specs` (same rows, same source-of-truth).
 //
 // Built-in detection: a row's `source_path` is "built in" iff it falls
 // under the daemon's workflowBuiltinSpecsDir (the same `path.sep`
@@ -44,7 +44,7 @@ export interface SpecLibraryWorkflowEntry {
   rolesCount: number;
   stepsCount: number;
   terminalTurnRule: string;
-  targetRig: string | null;
+  targetSoftwareTeam: string | null;
   /**
    * Slice 11 (workflow-spec-folder-discovery) — diagnostic state.
    * "valid" rows have parsed payload and are operable.
@@ -62,7 +62,7 @@ export interface SpecLibraryWorkflowReview {
   name: string;
   version: string;
   purpose: string | null;
-  targetRig: string | null;
+  targetSoftwareTeam: string | null;
   terminalTurnRule: string;
   rolesCount: number;
   stepsCount: number;
@@ -126,7 +126,7 @@ interface SpecRow {
   name: string;
   version: string;
   purpose: string | null;
-  target_rig: string | null;
+  target_software_team: string | null;
   roles_json: string;
   steps_json: string;
   coordination_terminal_turn_rule: string;
@@ -183,7 +183,7 @@ export function scanWorkflowSpecs(opts: ScanWorkflowSpecsOpts): SpecLibraryWorkf
         rolesCount: 0,
         stepsCount: 0,
         terminalTurnRule: row.coordination_terminal_turn_rule || "hot_potato",
-        targetRig: null,
+        targetSoftwareTeam: null,
         status: "error",
         errorMessage: row.error_message ?? null,
       });
@@ -203,7 +203,7 @@ export function scanWorkflowSpecs(opts: ScanWorkflowSpecsOpts): SpecLibraryWorkf
     out.push({
       // Stable id derived from name+version so the SpecLibrary's review
       // endpoint can resolve workflow entries the same way it resolves
-      // rig/agent entries by id.
+      // softwareTeam/agent entries by id.
       id: workflowLibraryId(row.name, row.version),
       kind: "workflow",
       name: row.name,
@@ -217,7 +217,7 @@ export function scanWorkflowSpecs(opts: ScanWorkflowSpecsOpts): SpecLibraryWorkf
       rolesCount: Object.keys(roles ?? {}).length,
       stepsCount: Array.isArray(steps) ? steps.length : 0,
       terminalTurnRule: row.coordination_terminal_turn_rule || "hot_potato",
-      targetRig: row.target_rig,
+      targetSoftwareTeam: row.target_software_team,
       status: "valid",
       errorMessage: null,
     });
@@ -318,7 +318,7 @@ export function getWorkflowReview(opts: ScanWorkflowSpecsOpts & { name: string; 
     name: row.name,
     version: row.version,
     purpose: row.purpose,
-    targetRig: row.target_rig,
+    targetSoftwareTeam: row.target_software_team,
     terminalTurnRule: row.coordination_terminal_turn_rule || "hot_potato",
     rolesCount: Object.keys(roles ?? {}).length,
     stepsCount: (steps ?? []).length,

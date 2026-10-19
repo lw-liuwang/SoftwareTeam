@@ -21,7 +21,7 @@ beforeEach(() => {
   mockFetch.mockReset();
   // Reset pin store between tests
   for (const p of previewPinStore.list()) {
-    previewPinStore.unpin(p.rigId, p.logicalId);
+    previewPinStore.unpin(p.softwareTeamId, p.logicalId);
   }
   previewPinStore.setMaxPins(4);
 });
@@ -37,7 +37,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function settingsResponse(overrides: Record<string, { value: unknown; source: string; defaultValue: unknown }> = {}) {
   const baseline = {
-    "daemon.port": { value: 7433, source: "default", defaultValue: 7433 },
+    "daemon.port": { value: 7434, source: "default", defaultValue: 7434 },
     "daemon.host": { value: "127.0.0.1", source: "default", defaultValue: "127.0.0.1" },
     "db.path": { value: "/tmp", source: "default", defaultValue: "/tmp" },
     "transcripts.enabled": { value: true, source: "default", defaultValue: true },
@@ -66,14 +66,14 @@ describe("PreviewPane (PL-018)", () => {
       if (u.includes("/preview")) return jsonResponse({
         content: "line A\nline B\nline C",
         lines: 50,
-        sessionName: "velocity-driver@openrig-velocity",
+        sessionName: "velocity-driver@softwareteam-velocity",
         capturedAt: "2026-05-04T12:00:00Z",
       });
       return jsonResponse({});
     });
 
     render(createTestRouter({
-      component: () => <PreviewPane rigId="r-1" logicalId="driver" testIdPrefix="t" />,
+      component: () => <PreviewPane softwareTeamId="r-1" logicalId="driver" testIdPrefix="t" />,
       path: "/",
     }));
 
@@ -94,12 +94,12 @@ describe("PreviewPane (PL-018)", () => {
     });
 
     render(createTestRouter({
-      component: () => <PreviewPane rigId="r-1" logicalId="missing" testIdPrefix="t" />,
+      component: () => <PreviewPane softwareTeamId="r-1" logicalId="missing" testIdPrefix="t" />,
       path: "/",
     }));
 
     await waitFor(() => expect(screen.getByTestId("t-unavailable")).toBeDefined());
-    expect(screen.getByTestId("t-unavailable").textContent).toContain("rig capture missing");
+    expect(screen.getByTestId("t-unavailable").textContent).toContain("SoftwareTeam capture missing");
   });
 
   it("renders 409 session_unbound with hint", async () => {
@@ -108,19 +108,19 @@ describe("PreviewPane (PL-018)", () => {
       if (u.includes("/api/config")) return settingsResponse();
       if (u.includes("/preview")) return jsonResponse({
         error: "session_unbound",
-        hint: "Use rig up to start the seat.",
+        hint: "Use SoftwareTeam up to start the seat.",
       }, 409);
       return jsonResponse({});
     });
 
     render(createTestRouter({
-      component: () => <PreviewPane rigId="r-1" logicalId="unbound" testIdPrefix="t" />,
+      component: () => <PreviewPane softwareTeamId="r-1" logicalId="unbound" testIdPrefix="t" />,
       path: "/",
     }));
 
     await waitFor(() => expect(screen.getByTestId("t-unavailable")).toBeDefined());
     expect(screen.getByTestId("t-unavailable").textContent).toContain("session_unbound");
-    expect(screen.getByTestId("t-unavailable").textContent).toContain("rig up");
+    expect(screen.getByTestId("t-unavailable").textContent).toContain("SoftwareTeam up");
   });
 
   it("Pin button toggles pin state in the store", async () => {
@@ -134,7 +134,7 @@ describe("PreviewPane (PL-018)", () => {
     });
 
     render(createTestRouter({
-      component: () => <PreviewPane rigId="r-1" logicalId="driver" rigName="rig-1" testIdPrefix="t" />,
+      component: () => <PreviewPane softwareTeamId="r-1" logicalId="driver" softwareTeamName="software-team-1" testIdPrefix="t" />,
       path: "/",
     }));
 
@@ -174,7 +174,7 @@ describe("PreviewStack (PL-018)", () => {
     });
 
     act(() => {
-      previewPinStore.pin({ rigId: "r-1", rigName: "rig-1", logicalId: "alpha", sessionName: "alpha-session" });
+      previewPinStore.pin({ softwareTeamId: "r-1", softwareTeamName: "software-team-1", logicalId: "alpha", sessionName: "alpha-session" });
     });
 
     render(createTestRouter({ component: () => <PreviewStack />, path: "/" }));
@@ -186,24 +186,24 @@ describe("PreviewStack (PL-018)", () => {
 describe("preview pin store cap (PL-018)", () => {
   it("rejects pin when max-pins cap is reached", () => {
     previewPinStore.setMaxPins(2);
-    expect(previewPinStore.pin({ rigId: "r-1", rigName: "rig", logicalId: "a", sessionName: "a" })).toBe(true);
-    expect(previewPinStore.pin({ rigId: "r-1", rigName: "rig", logicalId: "b", sessionName: "b" })).toBe(true);
-    expect(previewPinStore.pin({ rigId: "r-1", rigName: "rig", logicalId: "c", sessionName: "c" })).toBe(false);
+    expect(previewPinStore.pin({ softwareTeamId: "r-1", softwareTeamName: "softwareTeam", logicalId: "a", sessionName: "a" })).toBe(true);
+    expect(previewPinStore.pin({ softwareTeamId: "r-1", softwareTeamName: "softwareTeam", logicalId: "b", sessionName: "b" })).toBe(true);
+    expect(previewPinStore.pin({ softwareTeamId: "r-1", softwareTeamName: "softwareTeam", logicalId: "c", sessionName: "c" })).toBe(false);
     expect(previewPinStore.list().length).toBe(2);
   });
 
   it("idempotent pin returns true even when max reached if already pinned", () => {
     previewPinStore.setMaxPins(1);
-    previewPinStore.pin({ rigId: "r-1", rigName: "rig", logicalId: "a", sessionName: "a" });
-    expect(previewPinStore.pin({ rigId: "r-1", rigName: "rig", logicalId: "a", sessionName: "a" })).toBe(true);
+    previewPinStore.pin({ softwareTeamId: "r-1", softwareTeamName: "softwareTeam", logicalId: "a", sessionName: "a" });
+    expect(previewPinStore.pin({ softwareTeamId: "r-1", softwareTeamName: "softwareTeam", logicalId: "a", sessionName: "a" })).toBe(true);
     expect(previewPinStore.list().length).toBe(1);
   });
 
   it("setMaxPins shrinks list to new cap", () => {
     previewPinStore.setMaxPins(4);
-    previewPinStore.pin({ rigId: "r-1", rigName: "rig", logicalId: "a", sessionName: "a" });
-    previewPinStore.pin({ rigId: "r-1", rigName: "rig", logicalId: "b", sessionName: "b" });
-    previewPinStore.pin({ rigId: "r-1", rigName: "rig", logicalId: "c", sessionName: "c" });
+    previewPinStore.pin({ softwareTeamId: "r-1", softwareTeamName: "softwareTeam", logicalId: "a", sessionName: "a" });
+    previewPinStore.pin({ softwareTeamId: "r-1", softwareTeamName: "softwareTeam", logicalId: "b", sessionName: "b" });
+    previewPinStore.pin({ softwareTeamId: "r-1", softwareTeamName: "softwareTeam", logicalId: "c", sessionName: "c" });
     previewPinStore.setMaxPins(1);
     expect(previewPinStore.list().length).toBe(1);
   });

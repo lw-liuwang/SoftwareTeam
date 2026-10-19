@@ -4,26 +4,26 @@ import { Document, isMap, isScalar, isSeq, parse as parseYaml, parseDocument, ty
 import { projectManifestId } from "../bundle-carried-project.js";
 
 /**
- * Registers a bundle's project in the workspace catalog and records which rig
- * works in it, before that rig's first turn.
+ * Registers a bundle's project in the workspace catalog and records which softwareTeam
+ * works in it, before that softwareTeam's first turn.
  *
- * The record is an optional `rigs` list on the catalog entry:
- *   projects: [{ id, root, rigs: [<rig name>] }]
- * `rig context work-install` reads it to resolve a seat's project from its rig.
+ * The record is an optional `softwareTeams` list on the catalog entry:
+ *   projects: [{ id, root, softwareTeams: [<softwareTeam name>] }]
+ * `SoftwareTeam context work-install` reads it to resolve a seat's project from its softwareTeam.
  * The entry names a catalog id and a root; nothing else stores the path.
  *
  * Rules (agreed with the work-install selection order):
  * 1. The catalog is found through workspace.catalog_path, never a literal.
  * 2. An existing catalog is never rewritten: every byte already there stays.
  *    A new entry is appended as text in the file's own indentation and line
- *    endings, and a rig joins an entry by a one-line edit of its `rigs: [...]`.
+ *    endings, and a softwareTeam joins an entry by a one-line edit of its `softwareTeams: [...]`.
  *    Each edit is checked by re-parsing. When neither applies (for example a
  *    flow-style list), nothing is written and the result gives the exact line
  *    to add. Only a catalog created from scratch is written whole.
  * 3. An entry with the same id and the same canonical root is the same
- *    project: the rig name is added once, so reinstalling changes nothing.
+ *    project: the softwareTeam name is added once, so reinstalling changes nothing.
  * 4. If the id is taken by another root, the root is registered under another
- *    id, or the rig is already listed under another project, nothing is
+ *    id, or the softwareTeam is already listed under another project, nothing is
  *    written for that part. The result says so, with the fix; it is reported,
  *    never thrown.
  */
@@ -32,7 +32,7 @@ export interface ProjectRegistrationInput {
   /** Extracted project folder from the bundle (holds project.yaml). */
   bundleProjectDir: string;
   projectId: string;
-  rigName: string;
+  softwareTeamName: string;
   /** workspace.projects_root: the project folder is materialized at <projectsRoot>/<id>. */
   projectsRoot: string;
   /** workspace.root: a catalog written from scratch keeps it as the default project. */
@@ -42,18 +42,18 @@ export interface ProjectRegistrationInput {
 }
 
 export interface ProjectRegistrationResult {
-  /** registered: entry added; associated: rig added to an existing entry; already_registered: nothing to change; conflict: nothing written for the catalog part. */
+  /** registered: entry added; associated: softwareTeam added to an existing entry; already_registered: nothing to change; conflict: nothing written for the catalog part. */
   status: "registered" | "associated" | "already_registered" | "conflict";
   projectId: string;
   projectRoot: string;
   catalogPath: string;
-  rigName: string;
+  softwareTeamName: string;
   /** The project folder already existed with different files; it was kept unchanged. */
   projectFolderKept?: boolean;
   detail?: string;
 }
 
-const CATALOG_HEADER = "schema: openrig.workspace/v0alpha1\n";
+const CATALOG_HEADER = "schema: softwareteam.workspace/v0alpha1\n";
 
 /** Replace the catalog in one step: a reader sees the old file or the new one, never a partial write. */
 function writeCatalog(catalogPath: string, text: string): void {
@@ -116,7 +116,7 @@ function scalar(value: string): string {
  * Returns null when `projects:` is not the last top-level key in block style,
  * or when re-parsing does not give exactly the old list plus the new entry.
  */
-function appendEntryText(source: string, entry: { id: string; root: string; rigs: string[] }): string | null {
+function appendEntryText(source: string, entry: { id: string; root: string; softwareTeams: string[] }): string | null {
   const eol = source.includes("\r\n") ? "\r\n" : "\n";
   const lines = source.split(/\r?\n/);
   const start = lines.findIndex((line) => /^projects:\s*(#.*)?$/.test(line));
@@ -131,7 +131,7 @@ function appendEntryText(source: string, entry: { id: string; root: string; rigs
   const text = [
     `${dash}-${gap}id: ${scalar(entry.id)}`,
     `${inner}root: ${scalar(entry.root)}`,
-    `${inner}rigs: [${entry.rigs.map(scalar).join(", ")}]`,
+    `${inner}softwareTeams: [${entry.softwareTeams.map(scalar).join(", ")}]`,
   ].join(eol) + eol;
   const appended = (/\r?\n$/.test(source) ? source : source + eol) + text;
   const before = (parseDocument(source).toJS() as { projects?: unknown[] } | null)?.projects;
@@ -142,29 +142,29 @@ function appendEntryText(source: string, entry: { id: string; root: string; rigs
 }
 
 /**
- * Add a rig to an entry's one-line `rigs: [...]` list as a text edit. Returns
+ * Add a softwareTeam to an entry's one-line `softwareTeams: [...]` list as a text edit. Returns
  * null when the entry has no such line, or when re-parsing does not give the
- * old catalog with only that rig added.
+ * old catalog with only that softwareTeam added.
  */
-function addRigText(source: string, projectId: string, rigName: string): string | null {
+function addSoftwareTeamText(source: string, projectId: string, softwareTeamName: string): string | null {
   const lines = source.split(/(?<=\n)/);
   const escaped = projectId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const idLine = lines.findIndex((line) => new RegExp(`^\\s*(-\\s+)?id:\\s*["']?${escaped}["']?\\s*(#.*)?\\r?\\n?$`).test(line));
   if (idLine < 0) return null;
   const itemColumn = lines[idLine]!.search(/\S/);
-  let rigsLine = -1;
+  let softwareTeamsLine = -1;
   for (let i = idLine + 1; i < lines.length; i++) {
     const line = lines[i]!;
     if (/^\S/.test(line) || (/^\s*-\s/.test(line) && line.search(/\S/) <= itemColumn)) break;
-    if (/^\s*rigs:\s*\[[^\]]*\]\s*(#.*)?\r?\n?$/.test(line)) { rigsLine = i; break; }
+    if (/^\s*softwareTeams:\s*\[[^\]]*\]\s*(#.*)?\r?\n?$/.test(line)) { softwareTeamsLine = i; break; }
   }
-  if (rigsLine < 0) return null;
-  lines[rigsLine] = lines[rigsLine]!.replace(/\[([^\]]*)\]/, (_m, inside: string) => `[${inside.trim() ? `${inside.trimEnd()}, ` : ""}${scalar(rigName)}]`);
+  if (softwareTeamsLine < 0) return null;
+  lines[softwareTeamsLine] = lines[softwareTeamsLine]!.replace(/\[([^\]]*)\]/, (_m, inside: string) => `[${inside.trim() ? `${inside.trimEnd()}, ` : ""}${scalar(softwareTeamName)}]`);
   const edited = lines.join("");
   const before = (parseDocument(source).toJS() as { projects?: Array<Record<string, unknown>> } | null)?.projects;
   const after = parseDocument(edited);
   if (!Array.isArray(before) || after.errors.length > 0) return null;
-  const expected = before.map((p) => (p["id"] === projectId ? { ...p, rigs: [...((p["rigs"] as unknown[]) ?? []), rigName] } : p));
+  const expected = before.map((p) => (p["id"] === projectId ? { ...p, softwareTeams: [...((p["softwareTeams"] as unknown[]) ?? []), softwareTeamName] } : p));
   return JSON.stringify((after.toJS() as { projects?: unknown[] }).projects) === JSON.stringify(expected) ? edited : null;
 }
 
@@ -173,16 +173,16 @@ function entryString(entry: YAMLMap, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function entryRigs(entry: YAMLMap): string[] {
-  const rigs = entry.get("rigs");
-  return isSeq(rigs) ? rigs.items.map((item) => String(isScalar(item) ? item.value : item)) : [];
+function entrySoftwareTeams(entry: YAMLMap): string[] {
+  const softwareTeams = entry.get("softwareTeams");
+  return isSeq(softwareTeams) ? softwareTeams.items.map((item) => String(isScalar(item) ? item.value : item)) : [];
 }
 
 export function registerBundleProject(input: ProjectRegistrationInput): ProjectRegistrationResult {
   const projectRoot = nodePath.join(input.projectsRoot, input.projectId);
   const catalogDir = nodePath.dirname(input.catalogPath);
   const relativeRoot = nodePath.relative(catalogDir, projectRoot).split(nodePath.sep).join("/") || ".";
-  const base = { projectId: input.projectId, projectRoot, catalogPath: input.catalogPath, rigName: input.rigName };
+  const base = { projectId: input.projectId, projectRoot, catalogPath: input.catalogPath, softwareTeamName: input.softwareTeamName };
   // The project folder is placed only once every check has passed, so a conflict changes nothing.
   const placeFolder = (): { projectFolderKept?: true } =>
     (materializeProjectFolder(input.bundleProjectDir, projectRoot) ? { projectFolderKept: true } : {});
@@ -196,8 +196,8 @@ export function registerBundleProject(input: ProjectRegistrationInput): ProjectR
       return { ...base, status: "conflict", detail: `${input.catalogPath} does not parse (${doc.errors[0]!.message}); nothing was changed. Fix the file, then install the bundle again` };
     }
   } else {
-    // A workspace with no catalog resolves every rig to the workspace root. Keep that for the user's
-    // own rigs: a default entry for the workspace root stays the one unclaimed entry beside the
+    // A workspace with no catalog resolves every softwareTeam to the workspace root. Keep that for the user's
+    // own softwareTeams: a default entry for the workspace root stays the one unclaimed entry beside the
     // bundle's project. Its root is relative to the catalog, which need not sit in the workspace root.
     // Its id is the one the workspace's own project.yaml declares, which work-install already uses
     // for an uncatalogued workspace; "default" when it declares none.
@@ -244,21 +244,21 @@ export function registerBundleProject(input: ProjectRegistrationInput): ProjectR
       detail: `project id '${input.projectId}' is already registered in ${input.catalogPath} with a different root (${entryString(sameId, "root")}); nothing was changed. Rename one of the two ids in ${input.catalogPath}, then install the bundle again`,
     };
   }
-  const claimedElsewhere = entries.find((entry) => entry !== target && entryRigs(entry).includes(input.rigName));
+  const claimedElsewhere = entries.find((entry) => entry !== target && entrySoftwareTeams(entry).includes(input.softwareTeamName));
   if (claimedElsewhere) {
     return {
       ...base, status: "conflict",
-      detail: `rig '${input.rigName}' is already associated with project '${entryString(claimedElsewhere, "id")}' in ${input.catalogPath}; nothing was changed. Remove '${input.rigName}' from that entry's rigs to associate it with '${targetId}'`,
+      detail: `softwareTeam '${input.softwareTeamName}' is already associated with project '${entryString(claimedElsewhere, "id")}' in ${input.catalogPath}; nothing was changed. Remove '${input.softwareTeamName}' from that entry's softwareTeams to associate it with '${targetId}'`,
     };
   }
 
   if (target) {
-    if (entryRigs(target).includes(input.rigName)) return { ...base, ...placeFolder(), projectId: targetId!, status: "already_registered" };
-    const edited = existingText !== undefined ? addRigText(existingText, targetId!, input.rigName) : null;
+    if (entrySoftwareTeams(target).includes(input.softwareTeamName)) return { ...base, ...placeFolder(), projectId: targetId!, status: "already_registered" };
+    const edited = existingText !== undefined ? addSoftwareTeamText(existingText, targetId!, input.softwareTeamName) : null;
     if (edited === null) {
       return {
         ...base, projectId: targetId!, status: "conflict",
-        detail: `could not add rig '${input.rigName}' to project '${targetId}' in ${input.catalogPath} without rewriting the file; nothing was changed. Add ${scalar(input.rigName)} to that entry's rigs list by hand`,
+        detail: `could not add softwareTeam '${input.softwareTeamName}' to project '${targetId}' in ${input.catalogPath} without rewriting the file; nothing was changed. Add ${scalar(input.softwareTeamName)} to that entry's softwareTeams list by hand`,
       };
     }
     const placed = placeFolder();
@@ -266,13 +266,13 @@ export function registerBundleProject(input: ProjectRegistrationInput): ProjectR
     return { ...base, ...placed, projectId: targetId!, status: "associated" };
   }
 
-  const entry = { id: input.projectId, root: relativeRoot, rigs: [input.rigName] };
+  const entry = { id: input.projectId, root: relativeRoot, softwareTeams: [input.softwareTeamName] };
   if (existingText !== undefined) {
     const appended = appendEntryText(existingText, entry);
     if (appended === null) {
       return {
         ...base, status: "conflict",
-        detail: `could not append project '${input.projectId}' to ${input.catalogPath} without rewriting the file; nothing was changed. Add this entry under projects by hand: { id: ${scalar(input.projectId)}, root: ${scalar(relativeRoot)}, rigs: [${scalar(input.rigName)}] }`,
+        detail: `could not append project '${input.projectId}' to ${input.catalogPath} without rewriting the file; nothing was changed. Add this entry under projects by hand: { id: ${scalar(input.projectId)}, root: ${scalar(relativeRoot)}, softwareTeams: [${scalar(input.softwareTeamName)}] }`,
       };
     }
     const placed = placeFolder();

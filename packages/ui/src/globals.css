@@ -227,7 +227,7 @@
   }
 
   /* Heavier ink-bleed for very large display headlines (the WELCOME
-     BACK / RIG·OS scale). The reference's massive ANGEL(s*) word
+     BACK / SOFTWARE_TEAM·OS scale). The reference's massive ANGEL(s*) word
      has visible ink-grain — this is our static approximation. */
   .inky-display {
     text-shadow:
@@ -347,7 +347,7 @@
 /* === PL-019 ACTIVITY INDICATORS === */
 
 @layer components {
-  /* Subtle slow pulse for the running activity state on RigNode dot.
+  /* Subtle slow pulse for the running activity state on SoftwareTeamNode dot.
      Low-amplitude opacity + box-shadow halo. The brief is explicit:
      pulses, not blinking — running stays calm and confident, needs_input
      is the eye-catcher (and stays static color). */
@@ -535,12 +535,12 @@
     to   { stroke-dashoffset: -13; }
   }
 
-  @keyframes rig-activity-frame-frames {
+  @keyframes software-team-activity-frame-frames {
     0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.0); }
     50%      { box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.12); }
   }
-  .rig-activity-frame-pulse {
-    animation: rig-activity-frame-frames 2.4s ease-in-out infinite;
+  .software-team-activity-frame-pulse {
+    animation: software-team-activity-frame-frames 2.4s ease-in-out infinite;
   }
 }
 
@@ -567,7 +567,7 @@
   .activity-card-blocked,
   .activity-card-source-flash,
   .activity-card-target-flash,
-  .rig-activity-frame-pulse {
+  .software-team-activity-frame-pulse {
     animation: none;
     opacity: 1;
     transform: none;

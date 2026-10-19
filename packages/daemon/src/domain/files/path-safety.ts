@@ -5,11 +5,11 @@
 // /api/files/* routes.
 //
 // Allowlist source (driver pivot from PRD's suggested ConfigStore key
-// family — see handoff): OPENRIG_FILES_ALLOWLIST env var, comma-
+// family — see handoff): SOFTWARETEAM_FILES_ALLOWLIST env var, comma-
 // separated `<name>:<absolute-path>` pairs. Operator sets via shell
-// (or via `~/.openrig` env file). Empty / unset → no allowlist roots
+// (or via `~/.softwareteam` env file). Empty / unset → no allowlist roots
 // → routes return empty roots list with a structured "configure
-// OPENRIG_FILES_ALLOWLIST" hint. Default after fresh install: nothing
+// SOFTWARETEAM_FILES_ALLOWLIST" hint. Default after fresh install: nothing
 // (the safe default per PRD § Item 3).
 //
 // Path-safety contract:
@@ -22,7 +22,7 @@
 //     pointing OUTSIDE the tree are treated as escape attempts.
 //   - Reads/lists never return content from outside the resolved root.
 //
-// MVP single-host context: no per-rig overrides, no remote allowlist
+// MVP single-host context: no per-softwareTeam overrides, no remote allowlist
 // management, no audit at allowlist-resolution time (allowlist
 // resolution is read-only). Audit applies to writes only (item 4).
 
@@ -47,8 +47,8 @@ export class FilePathSafetyError extends Error {
   }
 }
 
-const ENV_VAR = "OPENRIG_FILES_ALLOWLIST";
-const LEGACY_ENV_VAR = "RIGGED_FILES_ALLOWLIST";
+const ENV_VAR = "SOFTWARETEAM_FILES_ALLOWLIST";
+const LEGACY_ENV_VAR = "SOFTWARETEAM_FILES_ALLOWLIST";
 
 /**
  * Decodes a raw `name:/abs/path,name:/abs/path` allowlist string into
@@ -86,7 +86,7 @@ export function decodeAllowlist(raw: string): AllowlistRoot[] {
  * settings-store path which honors env > settings-file > empty.
  */
 export function readAllowlistFromEnv(env: NodeJS.ProcessEnv = process.env): AllowlistRoot[] {
-  // Use || (not ??) so an empty-string OPENRIG_FILES_ALLOWLIST falls
+  // Use || (not ??) so an empty-string SOFTWARETEAM_FILES_ALLOWLIST falls
   // back to the legacy var. ?? only handles null/undefined.
   const raw = (env[ENV_VAR] || env[LEGACY_ENV_VAR] || "").toString();
   return decodeAllowlist(raw);

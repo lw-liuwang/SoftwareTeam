@@ -29,9 +29,9 @@ export function PreviewStack({ testIdPrefix = "preview-stack" }: { testIdPrefix?
       <div className="flex-1 px-2 py-2 space-y-2">
         {pins.map((p) => (
           <PreviewPane
-            key={`${p.rigId}:${p.logicalId}`}
-            rigId={p.rigId}
-            rigName={p.rigName}
+            key={`${p.softwareTeamId}:${p.logicalId}`}
+            softwareTeamId={p.softwareTeamId}
+            softwareTeamName={p.softwareTeamName}
             logicalId={p.logicalId}
             compact
             testIdPrefix={`pinned-preview-${p.logicalId}`}

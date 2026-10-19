@@ -14,7 +14,7 @@ export interface LocalReadingState {
 }
 
 export function readLocal(cliEntry: string | undefined, request: LocalRequest): Promise<LocalResult> {
-  if (!cliEntry) return Promise.resolve({ error: "Local reader unavailable in this launcher; open through the installed rig CLI." });
+  if (!cliEntry) return Promise.resolve({ error: "Local reader unavailable in this launcher; open through the installed softwareTeam CLI." });
   return new Promise((resolve) => {
     execFile(process.execPath, [join(dirname(cliEntry), "local-reading.js"), JSON.stringify(request)],
       { timeout: 5000, maxBuffer: 8 * 1024 * 1024 }, (error, stdout) => {

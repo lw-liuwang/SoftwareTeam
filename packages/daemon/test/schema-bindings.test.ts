@@ -6,14 +6,14 @@ import { coreSchema } from "../src/db/migrations/001_core_schema.js";
 import { bindingsSessionsSchema } from "../src/db/migrations/002_bindings_sessions.js";
 import { externalCliAttachmentSchema } from "../src/db/migrations/019_external_cli_attachment.js";
 
-function seedRigWithNode(db: Database.Database) {
-  db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run(
-    "rig-1",
-    "test-rig"
+function seedSoftwareTeamWithNode(db: Database.Database) {
+  db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run(
+    "software-team-1",
+    "test-software-team"
   );
   db.prepare(
-    "INSERT INTO nodes (id, rig_id, logical_id, role, runtime) VALUES (?, ?, ?, ?, ?)"
-  ).run("node-1", "rig-1", "dev1-impl", "worker", "claude-code");
+    "INSERT INTO nodes (id, software_team_id, logical_id, role, runtime) VALUES (?, ?, ?, ?, ?)"
+  ).run("node-1", "software-team-1", "dev1-impl", "worker", "claude-code");
 }
 
 describe("002_bindings_sessions", () => {
@@ -41,7 +41,7 @@ describe("002_bindings_sessions", () => {
 
   describe("bindings", () => {
     it("can insert a binding for a node", () => {
-      seedRigWithNode(db);
+      seedSoftwareTeamWithNode(db);
       db.prepare(
         "INSERT INTO bindings (id, node_id, tmux_session) VALUES (?, ?, ?)"
       ).run("bind-1", "node-1", "r01-dev1-impl");
@@ -53,7 +53,7 @@ describe("002_bindings_sessions", () => {
     });
 
     it("binding is optional — node can exist without binding", () => {
-      seedRigWithNode(db);
+      seedSoftwareTeamWithNode(db);
       const binding = db
         .prepare("SELECT * FROM bindings WHERE node_id = ?")
         .get("node-1");
@@ -61,7 +61,7 @@ describe("002_bindings_sessions", () => {
     });
 
     it("enforces one binding per node (UNIQUE node_id)", () => {
-      seedRigWithNode(db);
+      seedSoftwareTeamWithNode(db);
       db.prepare(
         "INSERT INTO bindings (id, node_id, tmux_session) VALUES (?, ?, ?)"
       ).run("bind-1", "node-1", "r01-dev1-impl");
@@ -76,7 +76,7 @@ describe("002_bindings_sessions", () => {
     });
 
     it("allows updating a binding", () => {
-      seedRigWithNode(db);
+      seedSoftwareTeamWithNode(db);
       db.prepare(
         "INSERT INTO bindings (id, node_id, tmux_session) VALUES (?, ?, ?)"
       ).run("bind-1", "node-1", "r01-dev1-impl");
@@ -92,7 +92,7 @@ describe("002_bindings_sessions", () => {
     });
 
     it("supports external_cli attachment without tmux session", () => {
-      seedRigWithNode(db);
+      seedSoftwareTeamWithNode(db);
       db.prepare(
         "INSERT INTO bindings (id, node_id, attachment_type, external_session_name) VALUES (?, ?, ?, ?)"
       ).run("bind-1", "node-1", "external_cli", "orch-lead@host");
@@ -106,7 +106,7 @@ describe("002_bindings_sessions", () => {
     });
 
     it("cascades on node delete", () => {
-      seedRigWithNode(db);
+      seedSoftwareTeamWithNode(db);
       db.prepare(
         "INSERT INTO bindings (id, node_id, tmux_session) VALUES (?, ?, ?)"
       ).run("bind-1", "node-1", "r01-dev1-impl");
@@ -119,7 +119,7 @@ describe("002_bindings_sessions", () => {
 
   describe("sessions", () => {
     it("can insert a session for a node", () => {
-      seedRigWithNode(db);
+      seedSoftwareTeamWithNode(db);
       db.prepare(
         "INSERT INTO sessions (id, node_id, session_name, status) VALUES (?, ?, ?, ?)"
       ).run("sess-1", "node-1", "r01-dev1-impl", "running");
@@ -132,7 +132,7 @@ describe("002_bindings_sessions", () => {
     });
 
     it("defaults status to unknown", () => {
-      seedRigWithNode(db);
+      seedSoftwareTeamWithNode(db);
       db.prepare(
         "INSERT INTO sessions (id, node_id, session_name) VALUES (?, ?, ?)"
       ).run("sess-1", "node-1", "r01-dev1-impl");
@@ -144,7 +144,7 @@ describe("002_bindings_sessions", () => {
     });
 
     it("supports detached status", () => {
-      seedRigWithNode(db);
+      seedSoftwareTeamWithNode(db);
       db.prepare(
         "INSERT INTO sessions (id, node_id, session_name, status) VALUES (?, ?, ?, ?)"
       ).run("sess-1", "node-1", "r01-dev1-impl", "running");
@@ -161,7 +161,7 @@ describe("002_bindings_sessions", () => {
     });
 
     it("cascades on node delete", () => {
-      seedRigWithNode(db);
+      seedSoftwareTeamWithNode(db);
       db.prepare(
         "INSERT INTO sessions (id, node_id, session_name) VALUES (?, ?, ?)"
       ).run("sess-1", "node-1", "r01-dev1-impl");

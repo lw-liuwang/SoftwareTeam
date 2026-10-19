@@ -4,19 +4,19 @@ import { RestoreCheckService, type RestoreCheckDeps, type NodeInventoryEntry, ty
 function makeReadyNode(logicalId: string): NodeInventoryEntry {
   return {
     logicalId,
-    canonicalSessionName: `${logicalId.replace(".", "-")}@test-rig`,
+    canonicalSessionName: `${logicalId.replace(".", "-")}@test-software-team`,
     sessionStatus: "running",
     startupStatus: "ready",
     cwd: "/project",
     latestError: null,
-    tmuxAttachCommand: `tmux attach -t ${logicalId.replace(".", "-")}@test-rig`,
+    tmuxAttachCommand: `tmux attach -t ${logicalId.replace(".", "-")}@test-software-team`,
   } as NodeInventoryEntry;
 }
 
 function makeNotReadyNode(logicalId: string): NodeInventoryEntry {
   return {
     logicalId,
-    canonicalSessionName: `${logicalId.replace(".", "-")}@test-rig`,
+    canonicalSessionName: `${logicalId.replace(".", "-")}@test-software-team`,
     sessionStatus: "exited",
     startupStatus: "failed",
     cwd: "/project",
@@ -26,14 +26,14 @@ function makeNotReadyNode(logicalId: string): NodeInventoryEntry {
 
 function makeDeps(nodes: NodeInventoryEntry[]): RestoreCheckDeps {
   return {
-    listRigs: () => [{ rigId: "rig-1", name: "test-rig" }],
+    listSoftwareTeams: () => [{ softwareTeamId: "software-team-1", name: "test-software-team" }],
     getNodeInventory: () => nodes,
     getStartupContext: () => ({ status: "missing" as const, evidence: "no context" }),
     hasSnapshot: () => true,
     // Independent fixture for the newly shared snapshot pre-validation.
-    getRestoreInputs: (rigId) => ({
+    getRestoreInputs: (softwareTeamId) => ({
       snapshot: { id: "snap-1", kind: "full", data: {
-        rig: { id: rigId, name: "test-rig", createdAt: "", updatedAt: "" },
+        softwareTeam: { id: softwareTeamId, name: "test-software-team", createdAt: "", updatedAt: "" },
         nodes: [], sessions: [], edges: [], checkpoints: {},
       } },
       servicesRecord: null,
@@ -59,7 +59,7 @@ describe("OPR.0.4.0.29 — restore-check compact via service", () => {
     const compact = service.check({ compact: true });
 
     expect(compact.checks.length).toBeLessThan(full.checks.length);
-    expect(compact.rigs.length).toBe(full.rigs.length);
+    expect(compact.softwareTeams.length).toBe(full.softwareTeams.length);
   });
 
   it("AC-3: compact skips per-seat detail for ready seats (FR-3/AC-4)", () => {
@@ -89,8 +89,8 @@ describe("OPR.0.4.0.29 — restore-check compact via service", () => {
 
     const validStatuses = new Set(["ready", "ready_with_caveats", "not_ready", "unknown"]);
     expect(validStatuses.has(result.readiness.status)).toBe(true);
-    for (const rig of result.rigs) {
-      expect(validStatuses.has(rig.status)).toBe(true);
+    for (const softwareTeam of result.softwareTeams) {
+      expect(validStatuses.has(softwareTeam.status)).toBe(true);
     }
   });
 
@@ -103,21 +103,21 @@ describe("OPR.0.4.0.29 — restore-check compact via service", () => {
     expect(seatChecks.length).toBeGreaterThan(1);
   });
 
-  it("AC-8: per-rig grouping shows rig rollup", () => {
+  it("AC-8: per-software-team grouping shows SoftwareTeam rollup", () => {
     const nodes = [makeReadyNode("dev.impl"), makeNotReadyNode("dev.qa")];
     const service = new RestoreCheckService(makeDeps(nodes));
     const result = service.check({});
 
-    expect(result.rigs.length).toBe(1);
-    expect(result.rigs[0]!.rigName).toBe("test-rig");
-    expect(result.rigs[0]!.expectedNodes).toBe(2);
+    expect(result.softwareTeams.length).toBe(1);
+    expect(result.softwareTeams[0]!.softwareTeamName).toBe("test-software-team");
+    expect(result.softwareTeams[0]!.expectedNodes).toBe(2);
   });
 
   // OPR.0.4.0.29 FR-8 / AC-7 — ready-confidence breakdown by the 5 real-enum classes.
   it("AC-7: classCounts breaks seats into the 5 real-enum classes (no invented status)", () => {
     const makeAttentionNode = (logicalId: string): NodeInventoryEntry => ({
       logicalId,
-      canonicalSessionName: `${logicalId.replace(".", "-")}@test-rig`,
+      canonicalSessionName: `${logicalId.replace(".", "-")}@test-software-team`,
       sessionStatus: "running",
       startupStatus: "attention_required",
       cwd: "/project",
@@ -156,19 +156,19 @@ describe("OPR.0.4.0.29 — restore-check compact via service", () => {
     expect(total).toBe(4);
   });
 
-  it("AC-7: per-rig classCounts sum to the fleet-wide classCounts", () => {
+  it("AC-7: per-software-team classCounts sum to the fleet-wide classCounts", () => {
     const result = new RestoreCheckService(
       makeDeps([makeReadyNode("dev.impl"), makeNotReadyNode("dev.qa")]),
     ).check({});
-    const rigSum = result.rigs.reduce((a, r) => a + Object.values(r.classCounts).reduce((x, y) => x + y, 0), 0);
+    const softwareTeamSum = result.softwareTeams.reduce((a, r) => a + Object.values(r.classCounts).reduce((x, y) => x + y, 0), 0);
     const fleetSum = Object.values(result.classCounts).reduce((a, b) => a + b, 0);
-    expect(rigSum).toBe(fleetSum);
+    expect(softwareTeamSum).toBe(fleetSum);
   });
 
-  it("AC-7: a no-snapshot rig's running/ready seats count as unknown, not ready (real snapshot primitive)", () => {
+  it("AC-7: a no-snapshot softwareTeam's running/ready seats count as unknown, not ready (real snapshot primitive)", () => {
     const deps: RestoreCheckDeps = { ...makeDeps([makeReadyNode("dev.impl"), makeReadyNode("dev.qa")]), hasSnapshot: () => false };
     const result = new RestoreCheckService(deps).check({ compact: true });
-    // Without a snapshot the rig cannot be restored -> its ready seats are unknown.
+    // Without a snapshot the softwareTeam cannot be restored -> its ready seats are unknown.
     expect(result.classCounts.ready).toBe(0);
     expect(result.classCounts.unknown).toBe(2);
   });
@@ -184,7 +184,7 @@ describe("OPR.0.4.0.29 — restore-check compact via service", () => {
 
   // OPR.0.4.0.29 QA-blocking forward-fix (qa-blocking-1f7b1282): the
   // restore-proof-caveat repro. A snapshot-backed, running/ready seat whose
-  // startup context is MISSING is a real yellow caveat. The per-rig status +
+  // startup context is MISSING is a real yellow caveat. The per-SoftwareTeam status +
   // caveatNodes already report it; classCounts must follow the caveat too —
   // ready_with_caveats wins over plain ready (but still loses to
   // attention/not_ready/no-snapshot, which are asserted above).
@@ -192,7 +192,7 @@ describe("OPR.0.4.0.29 — restore-check compact via service", () => {
     // makeReadyNode is running+ready; with a missing startup context its
     // seat.<session>.startup-context check is yellow (buildStartupContextAvailabilityCheck).
     // includeReady forces the ready-seat detail to assemble (the --ready path the QA proof used).
-    // exists:true + a healthy daemon clears the unrelated rig/host red checks
+    // exists:true + a healthy daemon clears the unrelated softwareTeam/host red checks
     // (spec-present, daemon.reachable, transcript/queue files) so the ONLY
     // non-green signal is the real startup-context caveat — isolating the bug.
     const deps: RestoreCheckDeps = {
@@ -204,15 +204,15 @@ describe("OPR.0.4.0.29 — restore-check compact via service", () => {
     };
     const result = new RestoreCheckService(deps).check({ compact: true, includeReady: true });
 
-    const rig = result.rigs.find((r) => r.rigName === "test-rig")!;
-    expect(rig.status).toBe("ready_with_caveats");
-    expect(rig.caveatNodes).toBe(1);
+    const softwareTeam = result.softwareTeams.find((r) => r.softwareTeamName === "test-software-team")!;
+    expect(softwareTeam.status).toBe("ready_with_caveats");
+    expect(softwareTeam.caveatNodes).toBe(1);
     expect(result.classCounts.ready_with_caveats).toBe(1);
     expect(result.classCounts.ready).toBe(0);
   });
 
   // OPR.0.4.0.29 code-review BLOCKING forward-fix (qitem-...52809188): the DEFAULT
-  // compact path the QA proof actually ran (rig restore-check, NOT --ready). Default
+  // compact path the QA proof actually ran (SoftwareTeam restore-check, NOT --ready). Default
   // compact omits ready-seat DETAIL from the emitted output (token-safe), but the
   // summary must STILL detect the caveat -- a snapshot-backed running/ready seat with
   // a missing startup context is ready_with_caveats, not ready. The includeReady test
@@ -230,9 +230,9 @@ describe("OPR.0.4.0.29 — restore-check compact via service", () => {
     };
     const result = new RestoreCheckService(deps).check({ compact: true });
 
-    const rig = result.rigs.find((r) => r.rigName === "test-rig")!;
-    expect(rig.status).toBe("ready_with_caveats");
-    expect(rig.caveatNodes).toBe(1);
+    const softwareTeam = result.softwareTeams.find((r) => r.softwareTeamName === "test-software-team")!;
+    expect(softwareTeam.status).toBe("ready_with_caveats");
+    expect(softwareTeam.caveatNodes).toBe(1);
     expect(result.classCounts.ready_with_caveats).toBe(1);
     expect(result.classCounts.ready).toBe(0);
     // Token-safe: default compact does NOT dump the ready seat's detail rows.
@@ -263,7 +263,7 @@ describe("OPR.0.4.0.29 — restore-check compact via service", () => {
     const compact = new RestoreCheckService(deps).check({ compact: true });
     expect(compact.classCounts.ready).toBe(1);
     expect(compact.classCounts.ready_with_caveats).toBe(0);
-    expect(compact.rigs.find((r) => r.rigName === "test-rig")!.status).toBe("ready");
+    expect(compact.softwareTeams.find((r) => r.softwareTeamName === "test-software-team")!.status).toBe("ready");
 
     // --ready/includeReady DOES assemble detail -> the missing attach command is
     // a yellow resume-path caveat -> ready_with_caveats. Proves the detail set is
@@ -277,7 +277,7 @@ describe("OPR.0.4.0.29 — restore-check compact via service", () => {
   // (computed-but-not-emitted) ready-seat startup-context caveat must STILL drive
   // the top-level verdict/readiness/counts, or default compact reports a false
   // top-level ready/restorable while the same payload admits a ready_with_caveats
-  // rig. Clean host (green daemon + green host-infra declaration) so the ONLY
+  // softwareTeam. Clean host (green daemon + green host-infra declaration) so the ONLY
   // non-green signal is the hidden startup-context caveat.
   it("AC-4 / no-false-ready: a hidden ready-seat caveat drives the top-level verdict/readiness in default compact", () => {
     const caveatNode = { ...makeReadyNode("dev.impl"), nodeId: "node-caveat" } as NodeInventoryEntry;
@@ -295,7 +295,7 @@ describe("OPR.0.4.0.29 — restore-check compact via service", () => {
     // Top-level must NOT be a false ready/restorable.
     expect(result.verdict).toBe("restorable_with_caveats");
     expect(result.readiness.status).toBe("ready_with_caveats");
-    expect(result.readiness.caveatRigCount).toBe(1);
+    expect(result.readiness.caveatSoftwareTeamCount).toBe(1);
     expect(result.counts.yellow).toBeGreaterThanOrEqual(1);
     // Rollup + classCounts agree.
     expect(result.classCounts.ready_with_caveats).toBe(1);

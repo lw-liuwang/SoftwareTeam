@@ -27,7 +27,7 @@ const VALID_YAML = (id: string) => `workflow:
   version: '1'
   objective: Folder-scan fixture
   target:
-    rig: folder-fix
+    software_team: folder-fix
   entry:
     role: producer
   roles:
@@ -87,7 +87,7 @@ describe("spec-library route folder scan (slice 11)", () => {
       c.set("specLibraryService" as never, lib);
       c.set("specReviewService" as never, new SpecReviewService());
       c.set("activeLensStore" as never, lensStore);
-      c.set("rigRepo" as never, { db });
+      c.set("softwareTeamRepo" as never, { db });
       c.set("workflowBuiltinSpecsDir" as never, builtinDir);
       c.set("workflowSpecCache" as never, cache);
       if (opts.withFolder) c.set("workflowsFolderDir" as never, folder);

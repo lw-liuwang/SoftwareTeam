@@ -20,7 +20,7 @@ import { deriveOriented } from "../src/domain/startup-proof.js";
 const ORIENTED_SQL =
   "SELECT type, payload, seq FROM events WHERE node_id = ? AND type IN ('node.startup_challenged','node.startup_proof_skipped','node.startup_proof_verified','node.startup_proof_rejected') ORDER BY seq DESC";
 const RESTORE_SQL =
-  "SELECT type, payload, seq FROM events WHERE rig_id = ? AND type IN ('restore.completed', 'restore.subset_completed', 'restore.outcome_reconciled') ORDER BY seq DESC";
+  "SELECT type, payload, seq FROM events WHERE software_team_id = ? AND type IN ('restore.completed', 'restore.subset_completed', 'restore.outcome_reconciled') ORDER BY seq DESC";
 
 function mkDb(withIndex: boolean): Database.Database {
   const db = new Database(":memory:");
@@ -30,10 +30,10 @@ function mkDb(withIndex: boolean): Database.Database {
 
 function insertEvent(
   db: Database.Database,
-  ev: { rigId: string | null; nodeId: string | null; type: string; payload: unknown },
+  ev: { softwareTeamId: string | null; nodeId: string | null; type: string; payload: unknown },
 ): void {
-  db.prepare("INSERT INTO events (rig_id, node_id, type, payload) VALUES (?, ?, ?, ?)").run(
-    ev.rigId,
+  db.prepare("INSERT INTO events (software_team_id, node_id, type, payload) VALUES (?, ?, ?, ?)").run(
+    ev.softwareTeamId,
     ev.nodeId,
     ev.type,
     JSON.stringify(ev.payload),
@@ -63,24 +63,24 @@ describe("OPR.0.4.3 healthz-wedge — migration 047 events indexes", () => {
       db.close();
     });
 
-    it("deriveRestoreOutcome is rig-scoped — it rides the existing idx_events_rig_seq (rig-bounded, NOT the full-table wedge); a (rig_id,type,seq) index goes unused (planner prefers rig_seq for the seq ordering), so it is second-order, addressed by the follow-on N+1 collapse, not this hotfix", () => {
+    it("deriveRestoreOutcome is software-team-scoped — it rides the existing idx_events_software_team_seq (software-team-bounded, NOT the full-table wedge); a (software_team_id,type,seq) index goes unused (planner prefers software_team_seq for the seq ordering), so it is second-order, addressed by the follow-on N+1 collapse, not this hotfix", () => {
       const db = mkDb(true);
-      const plan = planFor(db, RESTORE_SQL, "rig-x");
-      expect(plan).toMatch(/idx_events_rig_seq/); // rig-bounded seek, not a full-table SCAN
+      const plan = planFor(db, RESTORE_SQL, "software-team-x");
+      expect(plan).toMatch(/idx_events_software_team_seq/); // software-team-bounded seek, not a full-table SCAN
       expect(plan).not.toMatch(/SCAN events/i);
       db.close();
     });
   });
 
   describe("deriveOriented correctness is unchanged (index-only fix) — even buried under many other-node events", () => {
-    const RIG = "rig-1";
+    const SOFTWARE_TEAM = "software-team-1";
     const TARGET = "node-target";
 
     function seedNoise(db: Database.Database, n: number): void {
       // Many newer agent.activity events for OTHER nodes — the rows that made
       // the pre-index reverse scan walk the whole table for a silent target.
       for (let i = 0; i < n; i++) {
-        insertEvent(db, { rigId: RIG, nodeId: `other-${i % 7}`, type: "agent.activity", payload: { state: "running" } });
+        insertEvent(db, { softwareTeamId: SOFTWARE_TEAM, nodeId: `other-${i % 7}`, type: "agent.activity", payload: { state: "running" } });
       }
     }
 
@@ -93,7 +93,7 @@ describe("OPR.0.4.3 healthz-wedge — migration 047 events indexes", () => {
 
     it("returns 'missing' when challenged but never proven (buried under 300 newer events)", () => {
       const db = mkDb(true);
-      insertEvent(db, { rigId: RIG, nodeId: TARGET, type: "node.startup_challenged", payload: { challengeId: "c1" } });
+      insertEvent(db, { softwareTeamId: SOFTWARE_TEAM, nodeId: TARGET, type: "node.startup_challenged", payload: { challengeId: "c1" } });
       seedNoise(db, 300);
       expect(deriveOriented(db, TARGET)).toBe("missing");
       db.close();
@@ -101,8 +101,8 @@ describe("OPR.0.4.3 healthz-wedge — migration 047 events indexes", () => {
 
     it("returns 'verified' for a verified proof of the current challenge (buried)", () => {
       const db = mkDb(true);
-      insertEvent(db, { rigId: RIG, nodeId: TARGET, type: "node.startup_challenged", payload: { challengeId: "c1" } });
-      insertEvent(db, { rigId: RIG, nodeId: TARGET, type: "node.startup_proof_verified", payload: { challengeId: "c1" } });
+      insertEvent(db, { softwareTeamId: SOFTWARE_TEAM, nodeId: TARGET, type: "node.startup_challenged", payload: { challengeId: "c1" } });
+      insertEvent(db, { softwareTeamId: SOFTWARE_TEAM, nodeId: TARGET, type: "node.startup_proof_verified", payload: { challengeId: "c1" } });
       seedNoise(db, 300);
       expect(deriveOriented(db, TARGET)).toBe("verified");
       db.close();
@@ -110,8 +110,8 @@ describe("OPR.0.4.3 healthz-wedge — migration 047 events indexes", () => {
 
     it("returns 'rejected' for a rejected proof of the current challenge", () => {
       const db = mkDb(true);
-      insertEvent(db, { rigId: RIG, nodeId: TARGET, type: "node.startup_challenged", payload: { challengeId: "c1" } });
-      insertEvent(db, { rigId: RIG, nodeId: TARGET, type: "node.startup_proof_rejected", payload: { challengeId: "c1" } });
+      insertEvent(db, { softwareTeamId: SOFTWARE_TEAM, nodeId: TARGET, type: "node.startup_challenged", payload: { challengeId: "c1" } });
+      insertEvent(db, { softwareTeamId: SOFTWARE_TEAM, nodeId: TARGET, type: "node.startup_proof_rejected", payload: { challengeId: "c1" } });
       seedNoise(db, 300);
       expect(deriveOriented(db, TARGET)).toBe("rejected");
       db.close();
@@ -119,18 +119,18 @@ describe("OPR.0.4.3 healthz-wedge — migration 047 events indexes", () => {
 
     it("a later verify overrides an earlier reject for the same challenge", () => {
       const db = mkDb(true);
-      insertEvent(db, { rigId: RIG, nodeId: TARGET, type: "node.startup_challenged", payload: { challengeId: "c1" } });
-      insertEvent(db, { rigId: RIG, nodeId: TARGET, type: "node.startup_proof_rejected", payload: { challengeId: "c1" } });
-      insertEvent(db, { rigId: RIG, nodeId: TARGET, type: "node.startup_proof_verified", payload: { challengeId: "c1" } });
+      insertEvent(db, { softwareTeamId: SOFTWARE_TEAM, nodeId: TARGET, type: "node.startup_challenged", payload: { challengeId: "c1" } });
+      insertEvent(db, { softwareTeamId: SOFTWARE_TEAM, nodeId: TARGET, type: "node.startup_proof_rejected", payload: { challengeId: "c1" } });
+      insertEvent(db, { softwareTeamId: SOFTWARE_TEAM, nodeId: TARGET, type: "node.startup_proof_verified", payload: { challengeId: "c1" } });
       expect(deriveOriented(db, TARGET)).toBe("verified");
       db.close();
     });
 
     it("the LATEST challenge governs — a proof for an older challenge does not count", () => {
       const db = mkDb(true);
-      insertEvent(db, { rigId: RIG, nodeId: TARGET, type: "node.startup_challenged", payload: { challengeId: "c1" } });
-      insertEvent(db, { rigId: RIG, nodeId: TARGET, type: "node.startup_proof_verified", payload: { challengeId: "c1" } });
-      insertEvent(db, { rigId: RIG, nodeId: TARGET, type: "node.startup_challenged", payload: { challengeId: "c2" } });
+      insertEvent(db, { softwareTeamId: SOFTWARE_TEAM, nodeId: TARGET, type: "node.startup_challenged", payload: { challengeId: "c1" } });
+      insertEvent(db, { softwareTeamId: SOFTWARE_TEAM, nodeId: TARGET, type: "node.startup_proof_verified", payload: { challengeId: "c1" } });
+      insertEvent(db, { softwareTeamId: SOFTWARE_TEAM, nodeId: TARGET, type: "node.startup_challenged", payload: { challengeId: "c2" } });
       // c2 is the current challenge and has no proof → missing (the older c1 verify must not leak through).
       expect(deriveOriented(db, TARGET)).toBe("missing");
       db.close();

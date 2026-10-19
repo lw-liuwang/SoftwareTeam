@@ -77,7 +77,7 @@ function expectRuntimeConfigDisclosure(result: SetupResult): void {
   ]));
 }
 
-describe("rig setup", () => {
+describe("SoftwareTeam setup", () => {
   it("wired via createProgram", async () => {
     const program = createProgram();
     const setupCmd = program.commands.find((c) => c.name() === "setup");
@@ -90,7 +90,7 @@ describe("rig setup", () => {
     program.addCommand(setupCommand(deps));
 
     const { logs } = await captureLogs(() =>
-      program.parseAsync(["node", "rig", "setup", "--dry-run", "--json"]),
+      program.parseAsync(["node", "softwareTeam", "setup", "--dry-run", "--json"]),
     );
 
     const result = JSON.parse(logs.join("\n")) as SetupResult;
@@ -120,7 +120,7 @@ describe("rig setup", () => {
     program.addCommand(setupCommand(deps));
 
     const { logs } = await captureLogs(() =>
-      program.parseAsync(["node", "rig", "setup", "--dry-run", "--full", "--json"]),
+      program.parseAsync(["node", "softwareTeam", "setup", "--dry-run", "--full", "--json"]),
     );
 
     const result = JSON.parse(logs.join("\n")) as SetupResult;
@@ -147,7 +147,7 @@ describe("rig setup", () => {
     program.addCommand(setupCommand(deps));
 
     const { exitCode } = await captureLogs(() =>
-      program.parseAsync(["node", "rig", "setup", "--dry-run", "--json"]),
+      program.parseAsync(["node", "softwareTeam", "setup", "--dry-run", "--json"]),
     );
 
     expect(exitCode).toBeUndefined(); // undefined means 0
@@ -222,15 +222,15 @@ describe("rig setup", () => {
   // verbs (no mega-command), in sequence, with the durable doc reference.
   it("AC-1: goldenPathNextSteps is the ordered sequence over existing verbs, with the durable doc", () => {
     const out = goldenPathNextSteps().join("\n");
-    const upIdx = out.indexOf("rig up");
+    const upIdx = out.indexOf("SoftwareTeam up");
     const loginIdx = out.indexOf("claude auth status");
-    const daemonIdx = out.indexOf("rig daemon start");
-    const statusIdx = out.indexOf("rig status");
-    const offerIdx = out.indexOf("Show the person OpenRig");
-    const viewIdx = out.indexOf("rig terminal open saved:kernel");
-    const wsIdx = out.indexOf("rig workspace doctor");
-    const wfIdx = out.indexOf("rig workflow specs");
-    const scopeIdx = out.indexOf("rig scope");
+    const daemonIdx = out.indexOf("SoftwareTeam daemon start");
+    const statusIdx = out.indexOf("SoftwareTeam status");
+    const offerIdx = out.indexOf("Show the person SoftwareTeam");
+    const viewIdx = out.indexOf("SoftwareTeam terminal open saved:kernel");
+    const wsIdx = out.indexOf("SoftwareTeam workspace doctor");
+    const wfIdx = out.indexOf("SoftwareTeam workflow specs");
+    const scopeIdx = out.indexOf("SoftwareTeam scope");
     expect(upIdx).toBeGreaterThan(-1);
     expect(loginIdx).toBeGreaterThan(-1);
     expect(daemonIdx).toBeGreaterThan(loginIdx);
@@ -241,7 +241,7 @@ describe("rig setup", () => {
     expect(wsIdx).toBeGreaterThan(statusIdx);
     expect(wfIdx).toBeGreaterThan(wsIdx);
     expect(scopeIdx).toBeGreaterThan(wsIdx);
-    expect(out).toContain("rig up <team> --cwd . --plan");
+    expect(out).toContain("SoftwareTeam up <team> --cwd . --plan");
     for (const name of ["starter", "workshop", "factory"]) expect(out).toContain(name);
     expect(out).not.toContain("first-project-claude");
     expect(out).not.toContain("first-project-mixed");
@@ -250,18 +250,18 @@ describe("rig setup", () => {
     expect(out).toContain("If they said not now: give the command to open it later");
     expect(out).toContain("Over headless SSH: ask the person to open a new terminal/tab and give the exact connection/attach command");
     expect(out).toContain("On a desktop, no copying or typing for the person; check the result notes, not just CLI success");
-    expect(out).toContain("rig send dev-build@starter");
-    expect(out).toContain("rig queue list --destination dev-build@starter");
-    expect(out).not.toContain("rig queue list --rig");
-    expect(out).toContain("rig tui --shared");
-    expect(out).toContain("rig context get reference/getting-started.md");
+    expect(out).toContain("SoftwareTeam send dev-build@starter");
+    expect(out).toContain("SoftwareTeam queue list --destination dev-build@starter");
+    expect(out).not.toContain("SoftwareTeam queue list --software-team");
+    expect(out).toContain("SoftwareTeam tui --shared");
+    expect(out).toContain("SoftwareTeam context get reference/getting-started.md");
     // no magic mega-command - the path is existing verbs only
-    expect(out).not.toMatch(/rig (journey|onboarding)\b/);
-    // built-in discovery surface is `rig workflow specs` (lists registered specs,
-    // built-ins tagged "(built-in)"), NOT `rig workflow list` (lists instances) -
+    expect(out).not.toMatch(/softwareTeam (journey|onboarding)\b/);
+    // built-in discovery surface is `SoftwareTeam workflow specs` (lists registered specs,
+    // built-ins tagged "(built-in)"), NOT `SoftwareTeam workflow list` (lists instances) -
     // the path must point a fresh operator at the right discovery command.
-    expect(out).toContain("rig workflow specs");
-    expect(out).not.toContain("rig workflow list");
+    expect(out).toContain("SoftwareTeam workflow specs");
+    expect(out).not.toContain("SoftwareTeam workflow list");
   });
 
   it("fails setup honestly when tmux is installed but the default control socket is unhealthy", async () => {
@@ -430,7 +430,7 @@ describe("rig setup", () => {
         return "";
       },
       checkPort: async () => true,
-      configStore: { resolve: () => ({ daemon: { port: 7433, host: "127.0.0.1" }, db: { path: "/tmp/openrig/openrig.sqlite" }, transcripts: { enabled: true, path: "/tmp/openrig/transcripts" } }) },
+      configStore: { resolve: () => ({ daemon: { port: 7434, host: "127.0.0.1" }, db: { path: "/tmp/softwareteam/softwareteam.sqlite" }, transcripts: { enabled: true, path: "/tmp/softwareteam/transcripts" } }) },
       platform: "darwin",
       readFile: () => null,
       mkdirp: () => {},
@@ -482,7 +482,7 @@ describe("rig setup", () => {
         return "";
       },
       checkPort: async () => true,
-      configStore: { resolve: () => ({ daemon: { port: 7433, host: "127.0.0.1" }, db: { path: "/tmp/openrig/openrig.sqlite" }, transcripts: { enabled: true, path: "/tmp/openrig/transcripts" } }) },
+      configStore: { resolve: () => ({ daemon: { port: 7434, host: "127.0.0.1" }, db: { path: "/tmp/softwareteam/softwareteam.sqlite" }, transcripts: { enabled: true, path: "/tmp/softwareteam/transcripts" } }) },
       platform: "darwin",
       readFile: () => null,
       mkdirp: () => {},
@@ -575,11 +575,11 @@ describe("rig setup", () => {
 // Slice-03 Lane B (0.4.8) onboarding RECORD path. RULING-C b4913ed4: the v1 menu EDITS/RECORDS into
 // an EXISTING spec only (chosen -> permission_policy: builtin:<name>; deliberate-none ->
 // permission_policy: none); NEW INSTALL = no spec = NOTHING WRITTEN = floor by absence. Persistence =
-// the RigSpec permission_policy ONLY (P6 fence). Invariants: P3 write-on-explicit-selection-ONLY,
+// the SoftwareTeamSpec permission_policy ONLY (P6 fence). Invariants: P3 write-on-explicit-selection-ONLY,
 // P1 no absent->deliberate_none upgrade, P2 honest render.
-describe("rig setup --policy (onboarding record)", () => {
-  const SPEC = "/tmp/onboard-demo/rig.yaml";
-  const BASE_SPEC = 'version: "1"\nname: demo-rig\npods: []\nedges: []\n';
+describe("SoftwareTeam setup --policy (onboarding record)", () => {
+  const SPEC = "/tmp/onboard-demo/software-team.yaml";
+  const BASE_SPEC = 'version: "1"\nname: demo-software-team\npods: []\nedges: []\n';
 
   function specDeps(initial: string | null, sink: Record<string, string>): SetupDeps {
     return makeDeps({
@@ -601,7 +601,7 @@ describe("rig setup --policy (onboarding record)", () => {
     const parsed = parseYaml(sink[SPEC]!) as Record<string, unknown>;
     expect(parsed["permission_policy"]).toBe("builtin:standard");
     // least-destructive: all other keys survive the record.
-    expect(parsed["name"]).toBe("demo-rig");
+    expect(parsed["name"]).toBe("demo-software-team");
     expect(parsed["version"]).toBe("1");
     expect(parsed["pods"]).toEqual([]);
   });
@@ -618,7 +618,7 @@ describe("rig setup --policy (onboarding record)", () => {
     const commented =
       "# hand-authored: do not clobber\n" +
       'version: "1"\n' +
-      "name: demo-rig # the rig name\n" +
+      "name: demo-software-team # the SoftwareTeam name\n" +
       "pods: [] # no pods yet\n" +
       "edges: []\n";
     const deps = specDeps(commented, sink);
@@ -693,7 +693,7 @@ describe("rig setup --policy (onboarding record)", () => {
 
   it("re-recording overwrites a prior permission_policy in place (no duplication)", async () => {
     const sink: Record<string, string> = {};
-    const deps = specDeps('version: "1"\nname: demo-rig\npermission_policy: builtin:locked\npods: []\nedges: []\n', sink);
+    const deps = specDeps('version: "1"\nname: demo-software-team\npermission_policy: builtin:locked\npods: []\nedges: []\n', sink);
 
     await runSetup(deps, { policy: "open", specPath: SPEC });
 
@@ -737,7 +737,7 @@ describe("rig setup --policy (onboarding record)", () => {
 // narrative text presenting the choice. Copy is FROZEN (MENU-COPY-FROZEN-2026-08-04, founder-picked):
 // verbatim labels, no "Operator" in copy, exact deliberate-none + skip-line phrasing, NO pre-selected
 // default, Standard carries the ⭐ recommendation marker. P2: the render is honest (three-way).
-describe("rig setup permission-policy menu copy (frozen)", () => {
+describe("SoftwareTeam setup permission-policy menu copy (frozen)", () => {
   it("renders the frozen top-level labels verbatim", () => {
     const out = permissionPolicyMenuLines().join("\n");
     expect(out).toContain("Policy Mode");
@@ -935,7 +935,7 @@ describe("--providers: a provider the person didn't choose reads not selected, n
     const errors: string[] = [];
     vi.spyOn(console, "error").mockImplementation((...args) => { errors.push(args.map(String).join(" ")); });
     process.exitCode = undefined;
-    await new Command().addCommand(setupCommand(makeDeps())).parseAsync(["node", "rig", "setup", "--providers", "gemini"]);
+    await new Command().addCommand(setupCommand(makeDeps())).parseAsync(["node", "softwareTeam", "setup", "--providers", "gemini"]);
     expect(process.exitCode).toBe(1);
     expect(errors.join("\n")).toContain("Unknown provider 'gemini'");
     process.exitCode = undefined;

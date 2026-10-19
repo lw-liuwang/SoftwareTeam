@@ -27,7 +27,7 @@ const CODEX_PROCESS_PATTERNS = ["codex", ".codex-wrapped", ".codex-unwrapped"];
 function processNameIs(command: string, name: string): boolean {
   return command === name || ((command.length === 15 || command.length === 16) && name.startsWith(command));
 }
-// Only the OpenRig-managed runner's READY marker is evidence of resumable OMP
+// Only the SoftwareTeam-managed runner's READY marker is evidence of resumable OMP
 // state; a bare `omp` executable could use the default, unisolated user home.
 // No Layer-1 OMP signal: tmux reports the runner as `node`, never its argv.
 const OMP_READY_PATTERN = /^\s*\[omp-runner\] READY(?:\s|$)/;

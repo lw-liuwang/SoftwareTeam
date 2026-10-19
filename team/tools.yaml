@@ -1,31 +1,31 @@
 # Requirements for this project, not installed MCP declarations or access grants.
 status: awaiting_project_integrations
 roles:
-  coordinator:
-    cli: [rig]
+  manage-agent:
+    cli: [software_team]
     mcp: []
     pending: [human_decision_channel]
-  requirements:
-    cli: [rig, rg]
+  need-agent:
+    cli: [software_team, rg]
     mcp: []
     pending: []
-  architecture:
-    cli: [rig, rg, git]
+  home-agent:
+    cli: [software_team, rg, git]
     mcp: []
     pending: []
-  development:
-    cli: [rig, rg, git, node, npm]
+  code-agent:
+    cli: [software_team, rg, git, node, npm]
     mcp: []
     pending: [github_pr_access]
-  review:
-    cli: [rig, rg, git]
+  review-agent:
+    cli: [software_team, rg, git]
     mcp: []
     pending: [github_pr_access]
-  testing:
-    cli: [rig, node, npm]
+  test-agent:
+    cli: [software_team, node, npm]
     mcp: []
     pending: [browser_or_target_environment_as_required]
-  operations:
-    cli: [rig]
+  run-agent:
+    cli: [software_team]
     mcp: []
     pending: [operations_skill_source, deployment_target, cloud_credentials, resource_budget]

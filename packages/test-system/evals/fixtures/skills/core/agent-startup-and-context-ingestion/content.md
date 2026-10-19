@@ -2,4 +2,4 @@
 
 orient a freshly-woken seat
 
-Run `rig whoami --json` first; it is ground truth for who and where you are.
+Run `SoftwareTeam whoami --json` first; it is ground truth for who and where you are.

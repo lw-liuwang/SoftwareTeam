@@ -41,14 +41,14 @@ function captureLogs(fn: () => Promise<void>): Promise<{ logs: string[]; exitCod
   });
 }
 
-describe("rig env", () => {
+describe("SoftwareTeam env", () => {
   let server: http.Server;
   let port: number;
   let probeStatus = "fresh";
   let probeError: string | undefined;
   let kept: string | undefined;
 
-  const rigSummary = [{ id: "rig-1", name: "my-rig", nodeCount: 2 }];
+  const softwareTeamSummary = [{ id: "software-team-1", name: "my-software-team", nodeCount: 2 }];
 
   beforeAll(async () => {
     server = http.createServer((req, res) => {
@@ -56,9 +56,9 @@ describe("rig env", () => {
       let body = "";
       req.on("data", (chunk: Buffer) => { body += chunk; });
       req.on("end", () => {
-        if (url === "/api/rigs/summary") {
+        if (url === "/api/software-teams/summary") {
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify(rigSummary));
+          res.end(JSON.stringify(softwareTeamSummary));
           return;
         }
 
@@ -82,7 +82,7 @@ describe("rig env", () => {
             probeStatus,
             ...(probeError ? { probeError } : {}),
             kind: "compose",
-            projectName: "my-rig",
+            projectName: "my-software-team",
             receipt: {
               kind: "compose",
               services: [{ name: "vault", status: "running", health: "healthy" }],
@@ -130,15 +130,15 @@ describe("rig env", () => {
     cmd.configureOutput({ writeOut: (str) => logs.push(str), writeErr: (str) => logs.push(str) });
     cmd.outputHelp();
     const help = logs.join("");
-    expect(help).toContain("Inspect and control rig environment services");
-    expect(help).toContain("service-backed rigs and managed");
-    expect(help).toContain("rig env status secrets-manager");
-    expect(help).toContain("rig env logs secrets-manager vault");
+    expect(help).toContain("Inspect and control SoftwareTeam environment services");
+    expect(help.replace(/\s+/g, " ")).toContain("service-backed softwareTeams and managed");
+    expect(help).toContain("SoftwareTeam env status secrets-manager");
+    expect(help).toContain("SoftwareTeam env logs secrets-manager vault");
   });
 
   it("env status prints service status", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "env", "status", "my-rig"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "env", "status", "my-software-team"]);
     });
 
     const output = logs.join("\n");
@@ -148,7 +148,7 @@ describe("rig env", () => {
 
   it("env status --json returns machine-readable output", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "env", "status", "my-rig", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "env", "status", "my-software-team", "--json"]);
     });
 
     const parsed = JSON.parse(logs.join(""));
@@ -161,7 +161,7 @@ describe("rig env", () => {
     probeError = status === "stale" ? "Docker daemon connection refused" : undefined;
     try {
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "env", "status", "my-rig"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "env", "status", "my-software-team"]);
       });
       const output = logs.join("\n");
       expect(output).toContain("saved receipt");
@@ -178,7 +178,7 @@ describe("rig env", () => {
     probeError = "Docker daemon connection refused";
     try {
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "env", "status", "my-rig", "--json"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "env", "status", "my-software-team", "--json"]);
       });
       expect(JSON.parse(logs.join(""))).toMatchObject({ probeStatus, probeError, receipt: { services: [{ health: "healthy" }] } });
       expect(exitCode).toBeUndefined();
@@ -187,7 +187,7 @@ describe("rig env", () => {
 
   it("env logs returns service logs", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "env", "logs", "my-rig"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "env", "logs", "my-software-team"]);
     });
 
     expect(logs.join("\n")).toContain("Starting vault server");
@@ -195,17 +195,17 @@ describe("rig env", () => {
 
   it("env down stops services", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "env", "down", "my-rig"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "env", "down", "my-software-team"]);
     });
 
     expect(logs.join("\n")).toContain("Services stopped");
   });
 
   it("env down explains an archived predecessor's retained project", async () => {
-    kept = "kept project shared: still used by rig successor (rig-2)";
+    kept = "kept project shared: still used by SoftwareTeam successor (software-team-2)";
     try {
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "env", "down", "my-rig"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "env", "down", "my-software-team"]);
       });
       expect(logs.join("\n")).toContain(kept);
       expect(logs.join("\n")).not.toContain("Services stopped");

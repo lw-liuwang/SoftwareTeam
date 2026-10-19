@@ -9,11 +9,11 @@ afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursiv
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "team-workspace-")); roots.push(root);
   const home = path.join(root, "home"); fs.mkdirSync(home);
-  return { root, home, workspace: path.join(root, "custom workspace"), shared: path.join(home, ".openrig", "shared-docs") };
+  return { root, home, workspace: path.join(root, "custom workspace"), shared: path.join(home, ".softwareteam", "shared-docs") };
 }
 describe("Codex team workspace preparation", () => {
   it("creates missing ancestors before granting exactly the configured workspace and pod state", () => {
-    const f = fixture(), state = path.join(f.shared, "rigs/workshop/state/dev");
+    const f = fixture(), state = path.join(f.shared, "software-teams/workshop/state/dev");
     expect(fs.existsSync(f.shared)).toBe(false);
     const dirs = prepareCodexTeamWorkspace("dev-builder@workshop", f.workspace, f.shared, f.home);
     expect(dirs).toEqual([f.workspace, state]);
@@ -31,14 +31,14 @@ describe("Codex team workspace preparation", () => {
     const alias = path.join(f.root, "alias"); fs.symlinkSync(f.home, alias);
     for (const candidate of [f.home, f.root, alias, "/"]) {
       const dirs = prepareCodexTeamWorkspace("dev-builder@workshop", candidate, f.shared, f.home);
-      expect(dirs).toEqual([path.join(f.shared, "rigs/workshop/state/dev")]);
+      expect(dirs).toEqual([path.join(f.shared, "software-teams/workshop/state/dev")]);
     }
   });
   it("keeps legacy/malformed names from inventing state paths", () => {
     for (const name of ["r00-team-seat", "seat@team", "dev-seat@team@host", "../dev-seat@team"]) {
       expect(codexQueueStateRoot(name, "/shared")).toBeUndefined();
     }
-    expect(codexQueueStateRoot("dev-code-review@team", "/shared")).toBe("/shared/rigs/team/state/dev");
+    expect(codexQueueStateRoot("dev-code-review@team", "/shared")).toBe("/shared/software-teams/team/state/dev");
   });
   it("quotes spaces and preserves launch availability when optional preparation fails", () => {
     expect(codexTeamWorkspaceArg(() => ["/custom work", "/state"], "seat")).toBe(" --add-dir '/custom work' --add-dir '/state'");

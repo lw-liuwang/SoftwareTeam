@@ -16,9 +16,9 @@ vi.mock("../src/hooks/useHosts.js", () => ({ useSelectedHostId: () => "local" })
 vi.mock("../src/hooks/useNodeInventory.js", () => ({
   useNodeInventory: () => ({
     data: [
-      { rigId: "00000000-0000-4000-8000-000000000042", rigName: "v-openrig-build", logicalId: "orch.lead", canonicalSessionName: "orch-lead@acme-build", nodeKind: "agent", podNamespace: "orch", agentActivity: { state: "running" } },
-      { rigId: "00000000-0000-4000-8000-000000000042", rigName: "v-openrig-build", logicalId: "dev.d1", canonicalSessionName: "dev-d1@acme-build", nodeKind: "agent", podNamespace: "dev", agentActivity: { state: "idle" } },
-      { rigId: "00000000-0000-4000-8000-000000000042", rigName: "v-openrig-build", logicalId: "infra.daemon", canonicalSessionName: "infra@acme-build", nodeKind: "infrastructure", podNamespace: null },
+      { softwareTeamId: "00000000-0000-4000-8000-000000000042", softwareTeamName: "v-softwareteam-build", logicalId: "orch.lead", canonicalSessionName: "orch-lead@acme-build", nodeKind: "agent", podNamespace: "orch", agentActivity: { state: "running" } },
+      { softwareTeamId: "00000000-0000-4000-8000-000000000042", softwareTeamName: "v-softwareteam-build", logicalId: "dev.d1", canonicalSessionName: "dev-d1@acme-build", nodeKind: "agent", podNamespace: "dev", agentActivity: { state: "idle" } },
+      { softwareTeamId: "00000000-0000-4000-8000-000000000042", softwareTeamName: "v-softwareteam-build", logicalId: "infra.daemon", canonicalSessionName: "infra@acme-build", nodeKind: "infrastructure", podNamespace: null },
     ],
   }),
 }));
@@ -26,7 +26,7 @@ vi.mock("../src/hooks/useSlices.js", () => ({
   useSlices: () => ({ data: { slices: [{ name: "02-ride", missionId: "release-0.4.6", displayName: "02 ride" }] } }),
 }));
 vi.mock("../src/hooks/useTerminalViews.js", () => ({
-  useTerminalViews: () => ({ data: { saved: [{ id: "watchtower", name: "Watchtower", members: [{ seat: "lead@acme-ops", readOnly: true }] }], rigs: ["acme-build"] } }),
+  useTerminalViews: () => ({ data: { saved: [{ id: "watchtower", name: "Watchtower", members: [{ seat: "lead@acme-ops", readOnly: true }] }], softwareTeams: ["acme-build"] } }),
 }));
 vi.mock("../src/hooks/useReviewAgents.js", () => ({ useReviewAgents: () => ({ data: undefined }) }));
 vi.mock("../src/components/mission-control/missionControlAuth.js", () => ({ terminalAuthHeaders: () => ({}) }));
@@ -41,8 +41,8 @@ import {
 
 const node = (partial: Partial<NodeInventoryEntry>): NodeInventoryEntry =>
   ({
-    rigId: "rig-1",
-    rigName: "acme",
+    softwareTeamId: "software-team-1",
+    softwareTeamName: "acme",
     nodeKind: "agent",
     canonicalSessionName: null,
     logicalId: "x",
@@ -59,42 +59,42 @@ describe("buildLauncherViews — the view library", () => {
   const slices = [{ name: "02-ride", missionId: "release-0.4.6", displayName: "02 ride" }];
   const saved = [{ id: "watchtower", name: "Watchtower", members: [{ seat: "a@r", readOnly: true }, { seat: "b@r", readOnly: true }] }];
 
-  it("puts the rig first, interactive, with all agent seats (infra excluded)", () => {
+  it("puts the SoftwareTeam first, interactive, with all agent seats (infra excluded)", () => {
     const views = buildLauncherViews({
       nodes: [node({ logicalId: "orch.lead", canonicalSessionName: "orch-lead@acme", podNamespace: "orch" }), node({ nodeKind: "infrastructure", canonicalSessionName: "infra@acme" })],
-      rigId: "rig-1",
-      rigName: "acme",
+      softwareTeamId: "software-team-1",
+      softwareTeamName: "acme",
       slices: [],
       savedViews: [],
     });
-    expect(views[0]).toMatchObject({ id: "rig:rig-1", kind: "rig", label: "acme" });
-    expect(views[0]!.crossRig).toBeUndefined(); // a rig view is interactive
+    expect(views[0]).toMatchObject({ id: "software-team:software-team-1", kind: "softwareTeam", label: "acme" });
+    expect(views[0]!.crossSoftwareTeam).toBeUndefined(); // a softwareTeam view is interactive
     expect(views[0]!.seats).toHaveLength(1); // infra excluded
   });
 
   it.each([null, ""])(
-    "resolves a missing caller name from the matching node and never labels the rig with its UUID (%j)",
-    (rigName) => {
-      const rigId = "00000000-0000-4000-8000-000000000042";
+    "resolves a missing caller name from the matching node and never labels the SoftwareTeam with its UUID (%j)",
+    (softwareTeamName) => {
+      const softwareTeamId = "00000000-0000-4000-8000-000000000042";
       const views = buildLauncherViews({
-        nodes: [node({ rigId, rigName: "v-openrig-build" })],
-        rigId,
-        rigName,
+        nodes: [node({ softwareTeamId, softwareTeamName: "v-softwareteam-build" })],
+        softwareTeamId,
+        softwareTeamName,
         slices: [],
         savedViews: [],
       });
 
-      expect(views[0]!.label).toBe("v-openrig-build");
-      expect(views[0]!.label).not.toContain(rigId);
+      expect(views[0]!.label).toBe("v-softwareteam-build");
+      expect(views[0]!.label).not.toContain(softwareTeamId);
     },
   );
 
   it("keeps an explicit nonblank caller name ahead of the node fallback", () => {
-    const rigId = "00000000-0000-4000-8000-000000000042";
+    const softwareTeamId = "00000000-0000-4000-8000-000000000042";
     const views = buildLauncherViews({
-      nodes: [node({ rigId, rigName: "node-name" })],
-      rigId,
-      rigName: "summary-name",
+      nodes: [node({ softwareTeamId, softwareTeamName: "node-name" })],
+      softwareTeamId,
+      softwareTeamName: "summary-name",
       slices: [],
       savedViews: [],
     });
@@ -103,19 +103,19 @@ describe("buildLauncherViews — the view library", () => {
   });
 
   it("uses the exact honest unavailable label for mismatched or blank node names", () => {
-    const rigId = "00000000-0000-4000-8000-000000000042";
+    const softwareTeamId = "00000000-0000-4000-8000-000000000042";
     const views = buildLauncherViews({
       nodes: [
-        node({ rigId: "00000000-0000-4000-8000-000000000099", rigName: "another-rig" }),
-        node({ rigId, rigName: "   " }),
+        node({ softwareTeamId: "00000000-0000-4000-8000-000000000099", softwareTeamName: "another-software-team" }),
+        node({ softwareTeamId, softwareTeamName: "   " }),
       ],
-      rigId,
-      rigName: " ",
+      softwareTeamId,
+      softwareTeamName: " ",
       slices: [],
       savedViews: [],
     });
 
-    expect(views[0]!.label).toBe("Rig name unavailable");
+    expect(views[0]!.label).toBe("SoftwareTeam name unavailable");
   });
 
   it("groups agents into pod views by podNamespace and names absent seats", () => {
@@ -125,35 +125,35 @@ describe("buildLauncherViews — the view library", () => {
         node({ logicalId: "dev.d2", canonicalSessionName: null, podNamespace: "dev" }),
         node({ logicalId: "orch.lead", canonicalSessionName: "orch-lead@acme", podNamespace: "orch" }),
       ],
-      rigId: "rig-1",
+      softwareTeamId: "software-team-1",
       slices: [],
       savedViews: [],
     });
-    const dev = views.find((v) => v.id === "pod:rig-1/dev");
+    const dev = views.find((v) => v.id === "pod:software-team-1/dev");
     expect(dev).toBeTruthy();
     expect(dev!.seats).toHaveLength(2);
     expect(dev!.seats!.filter((s) => s.live)).toHaveLength(1); // d2 has no session → absent
     expect(dev!.seats!.find((s) => !s.live)!.reason).toBe("not launched");
-    expect(views.some((v) => v.id === "pod:rig-1/orch")).toBe(true);
+    expect(views.some((v) => v.id === "pod:software-team-1/orch")).toBe(true);
   });
 
   it("adds derived mission + slice views (seats null, read-only by construction)", () => {
-    const views = buildLauncherViews({ nodes: [], rigId: "rig-1", slices, savedViews: [] });
+    const views = buildLauncherViews({ nodes: [], softwareTeamId: "software-team-1", slices, savedViews: [] });
     const mission = views.find((v) => v.id === "mission:release-0.4.6");
     const slice = views.find((v) => v.id === "slice:02-ride");
-    expect(mission).toMatchObject({ kind: "mission", seats: null, crossRig: true });
-    expect(slice).toMatchObject({ kind: "slice", seats: null, crossRig: true });
+    expect(mission).toMatchObject({ kind: "mission", seats: null, crossSoftwareTeam: true });
+    expect(slice).toMatchObject({ kind: "slice", seats: null, crossSoftwareTeam: true });
   });
 
-  it("marks a fully read-only saved view as read-only (crossRig)", () => {
-    const views = buildLauncherViews({ nodes: [], rigId: "rig-1", slices: [], savedViews: saved });
-    expect(views.find((v) => v.id === "watchtower")).toMatchObject({ kind: "saved", crossRig: true });
+  it("marks a fully read-only saved view as read-only (crossSoftwareTeam)", () => {
+    const views = buildLauncherViews({ nodes: [], softwareTeamId: "software-team-1", slices: [], savedViews: saved });
+    expect(views.find((v) => v.id === "watchtower")).toMatchObject({ kind: "saved", crossSoftwareTeam: true });
   });
 
   it("a saved view with an interactive member is NOT read-only", () => {
     const mixed = [{ id: "mix", name: "Mix", members: [{ seat: "a@r", readOnly: true }, { seat: "b@r" }] }];
-    const views = buildLauncherViews({ nodes: [], rigId: "rig-1", slices: [], savedViews: mixed });
-    expect(views.find((v) => v.id === "mix")!.crossRig).toBe(false);
+    const views = buildLauncherViews({ nodes: [], softwareTeamId: "software-team-1", slices: [], savedViews: mixed });
+    expect(views.find((v) => v.id === "mix")!.crossSoftwareTeam).toBe(false);
   });
 });
 
@@ -211,42 +211,42 @@ describe("TerminalLauncher — mounts with its live hooks (collapsed)", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
     render(
       <QueryClientProvider client={qc}>
-        <TerminalLauncher rigId="rig-1" rigName="acme-build" />
+        <TerminalLauncher softwareTeamId="software-team-1" softwareTeamName="acme-build" />
       </QueryClientProvider>,
     );
     const btn = screen.getByTestId("terminal-launcher-button");
     expect(btn.textContent).toContain("Open in terminal");
   });
 
-  it("uses one resolved canonical label in the deep-linked header and rig row without exposing the UUID", () => {
-    const rigId = "00000000-0000-4000-8000-000000000042";
+  it("uses one resolved canonical label in the deep-linked header and SoftwareTeam row without exposing the UUID", () => {
+    const softwareTeamId = "00000000-0000-4000-8000-000000000042";
     window.history.replaceState(
       {},
       "",
-      `/topology/rig/${rigId}?launcher=open&provider=cmux&view=${encodeURIComponent(`rig:${rigId}`)}`,
+      `/topology/softwareTeam/${softwareTeamId}?launcher=open&provider=cmux&view=${encodeURIComponent(`software-team:${softwareTeamId}`)}`,
     );
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
 
     render(
       <QueryClientProvider client={qc}>
-        <TerminalLauncher rigId={rigId} rigName={null} />
+        <TerminalLauncher softwareTeamId={softwareTeamId} softwareTeamName={null} />
       </QueryClientProvider>,
     );
 
     const dialog = screen.getByTestId("terminal-launcher-dialog");
-    const rigRow = screen.getByTestId(`launcher-view-rig:${rigId}`);
-    expect(dialog.textContent).toContain("v-openrig-build · topology");
-    expect(rigRow.textContent).toContain("v-openrig-build");
-    expect(dialog.textContent).not.toContain(rigId);
+    const softwareTeamRow = screen.getByTestId(`launcher-view-software-team:${softwareTeamId}`);
+    expect(dialog.textContent).toContain("v-softwareteam-build · topology");
+    expect(softwareTeamRow.textContent).toContain("v-softwareteam-build");
+    expect(dialog.textContent).not.toContain(softwareTeamId);
   });
 
   it("keeps the deep-linked dialog inside a one-rem viewport inset with vertically reachable content", () => {
-    window.history.replaceState({}, "", "/topology/rig/rig-1?launcher=open");
+    window.history.replaceState({}, "", "/topology/softwareTeam/software-team-1?launcher=open");
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
 
     render(
       <QueryClientProvider client={qc}>
-        <TerminalLauncher rigId="rig-1" rigName="acme-build" />
+        <TerminalLauncher softwareTeamId="software-team-1" softwareTeamName="acme-build" />
       </QueryClientProvider>,
     );
 

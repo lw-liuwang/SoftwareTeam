@@ -7,11 +7,11 @@ import type { NodeBinding } from "../src/domain/runtime-adapter.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
 
 // OPR.0.4.8.2 — agnostic permission RIP-OUT (founder-locked; rip-list = ASSESSMENT sha 5d450fdd).
-// Strips the three OpenRig-baked CONFIG-FILE policy writes beyond the floor: C1b (fragment
-// permissions.allow), C1c (fragment permissions.ask), C2 (provisionRigPermissions global allow).
+// Strips the three SoftwareTeam-baked CONFIG-FILE policy writes beyond the floor: C1b (fragment
+// permissions.allow), C1c (fragment permissions.ask), C2 (provisionSoftwareTeamPermissions global allow).
 // KEEPS the usability floor byte-identical (fragment defaultMode=acceptEdits + the
 // --permission-mode acceptEdits launch flag). Two-surface rule: config-file writes go, launch-flag
-// floor stays. RED-first: the rip assertions FAIL on f81018fb (which ships allow/ask + rig allow).
+// floor stays. RED-first: the rip assertions FAIL on f81018fb (which ships allow/ask + softwareTeam allow).
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FRAGMENT_PATH = path.join(__dirname, "../specs/agents/shared/runtime/claude-settings.fragment.json");
@@ -88,9 +88,9 @@ describe("OPR.0.4.8.2 agnostic rip-out — config-file policy writes stripped, l
   });
 
   it("NO retro-scrub: a pre-existing provenance-marked settings.json is left BYTE-IDENTICAL", async () => {
-    // NOTE: no Bash(rig:*) here — so the pre-rip code WOULD add it and rewrite (that is the RED).
+    // NOTE: no Bash(software-team:*) here — so the pre-rip code WOULD add it and rewrite (that is the RED).
     const existing = JSON.stringify(
-      { permissions: { allow: ["Bash(npm:*)"] }, _openrig_provenance: { author: "openrig-at-spawn", baseline: "convenience" } },
+      { permissions: { allow: ["Bash(npm:*)"] }, _softwareteam_provenance: { author: "softwareteam-at-spawn", baseline: "convenience" } },
       null,
       2,
     );
@@ -107,7 +107,7 @@ describe("OPR.0.4.8.2 agnostic rip-out — config-file policy writes stripped, l
       fsOps: mockFs(),
       sessionIdFactory: () => "11111111-1111-4111-8111-111111111111",
     });
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-rig" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-software-team" });
     expect(result.ok).toBe(true);
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
     const cmd = sendText.mock.calls[0]?.[1] as string;

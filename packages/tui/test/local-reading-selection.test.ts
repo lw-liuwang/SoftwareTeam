@@ -7,7 +7,7 @@ import { LocalReadingController, localLines, type LocalRequest, type LocalResult
 const scratch: string[] = [];
 afterEach(() => { for (const path of scratch.splice(0)) rmSync(path, { recursive: true, force: true }); });
 function fixture() {
-  const root = mkdtempSync(join(tmpdir(), "openrig-local-selection-")); scratch.push(root);
+  const root = mkdtempSync(join(tmpdir(), "softwareteam-local-selection-")); scratch.push(root);
   const requests: LocalRequest[] = [];
   const controller = new LocalReadingController(async (request) => {
     requests.push(request);

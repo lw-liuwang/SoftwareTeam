@@ -1,6 +1,6 @@
 // OPR.0.4.6.02 FB4 — the herdr SOCKET transport (arm's-length AGPL boundary).
 //
-// herdr is an AGPL terminal multiplexer. OpenRig integrates it at ARM'S LENGTH:
+// herdr is an AGPL terminal multiplexer. SoftwareTeam integrates it at ARM'S LENGTH:
 // we talk to its local unix-domain CONTROL SOCKET (a runtime IPC endpoint the
 // operator's installed herdr exposes) exactly the way we shell out to tmux/cmux
 // — a local IPC client, NEVER importing, linking, embedding, or vendoring herdr
@@ -153,7 +153,7 @@ export function createHerdrSocketRpc(
 export function createHerdrSocketTransport(rpc: HerdrSocketRpc): HerdrTransportFactory {
   return (): HerdrTransport => {
     let counter = 0;
-    const nextId = () => `openrig-${(counter += 1)}`;
+    const nextId = () => `softwareteam-${(counter += 1)}`;
     return {
       async probe(): Promise<HerdrProbeResult> {
         try {

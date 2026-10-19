@@ -109,7 +109,7 @@ it("two standalone TUIs stay usable and expose the second control path without r
   const outputs = new Map<ChildProcessWithoutNullStreams, string>();
   const launch = () => {
     const child = spawn(process.execPath, [entry, "--demo"], {
-      env: { ...process.env, OPENRIG_HOME: root, OPENRIG_TUI_SOCKET: "", NO_COLOR: "1" },
+      env: { ...process.env, SOFTWARETEAM_HOME: root, SOFTWARETEAM_TUI_SOCKET: "", NO_COLOR: "1" },
       stdio: ["pipe", "pipe", "pipe"],
     });
     launched.push(child); outputs.set(child, "");

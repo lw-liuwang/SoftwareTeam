@@ -26,7 +26,7 @@ function fixture() {
   const seats = ["operator", "dashboard", "advisor"];
   const alive = new Set(seats);
   const kernelSeats = ["operator.agent", "operator.human", "advisor.lead"].map((logicalId, i) => ({
-    logicalId, canonicalSessionName: seats[i]!, tmuxSession: seats[i]!, attachmentType: "tmux", rigName: "kernel", runtime: "stub",
+    logicalId, canonicalSessionName: seats[i]!, tmuxSession: seats[i]!, attachmentType: "tmux", softwareTeamName: "kernel", runtime: "stub",
   }));
   const provider: TerminalProvider = {
     name: "herdr", status: async () => ({ provider: "herdr", available: false, capabilities: { layout: true } }),
@@ -34,15 +34,15 @@ function fixture() {
   };
   const service = new TerminalService({
     resolveProvider: () => provider, viewsStore: { get: () => null, list: () => [] },
-    listRigSeats: name => name === "kernel" ? kernelSeats : null,
-    listPodSeats: () => null, listScopeSeats: () => null, listRigNames: () => ["kernel"],
+    listSoftwareTeamSeats: name => name === "kernel" ? kernelSeats : null,
+    listPodSeats: () => null, listScopeSeats: () => null, listSoftwareTeamNames: () => ["kernel"],
     resolveHost: () => null, hasSession: name => alive.has(name), resolveLocalTmux: () => "/fixture/tmux",
   } as ConstructorParameters<typeof TerminalService>[0]);
   const app = new Hono();
   app.use("*", async (c, next) => { c.set("terminalService" as never, service); await next(); });
   app.route("/api/terminal", terminalRoutes());
   const fetchImpl: typeof fetch = async (url, init) => app.request(String(url), init);
-  const baseUrl = "http://127.0.0.1:7433";
+  const baseUrl = "http://127.0.0.1:7434";
   const launched: string[] = [], commands: string[][] = [];
   const deps: WindowDeps = {
     columns: async () => process.stdout.columns,

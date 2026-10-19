@@ -37,20 +37,20 @@ describe.skipIf(!hasTmux || process.platform === "win32")("Pi launch through nat
     const routeServer = routing ? createServer((req, res) => {
       res.end(JSON.stringify({ instance: "intended", node: req.headers["x-node"] }));
     }) : undefined;
-    const sessionEnv = { PATH: process.env.PATH ?? "", OPENRIG_HOME: path.join(temp, "instance"),
-      OPENRIG_URL: "", OPENRIG_NODE_ID: "fixture-node", OPENRIG_SESSION_NAME: session,
-      OPENRIG_RUNTIME: "pi", OPENRIG_OCCUPANT_GENERATION: "existing-generation" };
+    const sessionEnv = { PATH: process.env.PATH ?? "", SOFTWARETEAM_HOME: path.join(temp, "instance"),
+      SOFTWARETEAM_URL: "", SOFTWARETEAM_NODE_ID: "fixture-node", SOFTWARETEAM_SESSION_NAME: session,
+      SOFTWARETEAM_RUNTIME: "pi", SOFTWARETEAM_OCCUPANT_GENERATION: "existing-generation" };
     const cli = path.join(temp, "paired-cli");
     const rc = path.join(temp, "pane.rc");
     if (routing) {
       const userBin = path.join(temp, "user-bin"); fs.mkdirSync(userBin);
-      fs.writeFileSync(path.join(userBin, "rig"), `#!${process.execPath}\nconsole.log(JSON.stringify({body:{instance:'wrong-cli'}, home:process.env.OPENRIG_HOME, node:process.env.OPENRIG_NODE_ID}));\n`, { mode: 0o700 });
+      fs.writeFileSync(path.join(userBin, "SoftwareTeam"), `#!${process.execPath}\nconsole.log(JSON.stringify({body:{instance:'wrong-cli'}, home:process.env.SOFTWARETEAM_HOME, node:process.env.SOFTWARETEAM_NODE_ID}));\n`, { mode: 0o700 });
       fs.writeFileSync(cli, `#!${process.execPath}
 const http=require('node:http');
-http.get(process.env.OPENRIG_URL+'/identity', {headers:{'x-node':process.env.OPENRIG_NODE_ID}}, r=>{
-  let body='';r.on('data',c=>body+=c);r.on('end',()=>console.log(JSON.stringify({body:JSON.parse(body), home:process.env.OPENRIG_HOME, node:process.env.OPENRIG_NODE_ID, generation:process.env.OPENRIG_OCCUPANT_GENERATION, runtime:process.env.OPENRIG_RUNTIME, agentDir:process.env.PI_CODING_AGENT_DIR, sessionsDir:process.env.PI_CODING_AGENT_SESSION_DIR, HOME:process.env.HOME, PATH:process.env.PATH, extraPresent:process.env.UNRELATED_SECRET!==undefined})));
+http.get(process.env.SOFTWARETEAM_URL+'/identity', {headers:{'x-node':process.env.SOFTWARETEAM_NODE_ID}}, r=>{
+  let body='';r.on('data',c=>body+=c);r.on('end',()=>console.log(JSON.stringify({body:JSON.parse(body), home:process.env.SOFTWARETEAM_HOME, node:process.env.SOFTWARETEAM_NODE_ID, generation:process.env.SOFTWARETEAM_OCCUPANT_GENERATION, runtime:process.env.SOFTWARETEAM_RUNTIME, agentDir:process.env.PI_CODING_AGENT_DIR, sessionsDir:process.env.PI_CODING_AGENT_SESSION_DIR, HOME:process.env.HOME, PATH:process.env.PATH, extraPresent:process.env.UNRELATED_SECRET!==undefined})));
 }).on('error',()=>{process.exitCode=1;});\n`, { mode: 0o700 });
-      fs.writeFileSync(rc, `export OPENRIG_HOME=/wrong OPENRIG_URL=http://127.0.0.1:1 OPENRIG_NODE_ID=wrong OPENRIG_RUNTIME=wrong OPENRIG_OCCUPANT_GENERATION=wrong\nexport PATH=${quote(userBin + ":" + sessionEnv.PATH)} HOME=${quote(temp)} UNRELATED_SECRET=synthetic\nprintf ready > ${quote(path.join(temp, "rc-ready"))}\n`);
+      fs.writeFileSync(rc, `export SOFTWARETEAM_HOME=/wrong SOFTWARETEAM_URL=http://127.0.0.1:1 SOFTWARETEAM_NODE_ID=wrong SOFTWARETEAM_RUNTIME=wrong SOFTWARETEAM_OCCUPANT_GENERATION=wrong\nexport PATH=${quote(userBin + ":" + sessionEnv.PATH)} HOME=${quote(temp)} UNRELATED_SECRET=synthetic\nprintf ready > ${quote(path.join(temp, "rc-ready"))}\n`);
     }
     const runner = path.join(temp, "offline-runner.cjs");
     fs.writeFileSync(runner, `const fs = require('node:fs'); const path = require('node:path');
@@ -62,7 +62,7 @@ const sessionFile = args.includes('--session') ? at('--session') : path.join(dir
 let route;
 ${routing ? `const {buildPiChildEnv} = await import(${JSON.stringify(pathToFileURL(path.resolve(import.meta.dirname, "../dist/adapters/pi-runner-protocol.js")).href)});
 const childEnv=buildPiChildEnv(process.env,{agentDir:path.join(dir,'agent'),sessionsDir:path.join(dir,'sessions'),model:at('--model')});
-route=JSON.parse(require('node:child_process').execFileSync('rig',['whoami'],{env:childEnv,encoding:'utf8',timeout:3000}));` : ""}
+route=JSON.parse(require('node:child_process').execFileSync('SoftwareTeam',['whoami'],{env:childEnv,encoding:'utf8',timeout:3000}));` : ""}
 fs.writeFileSync(path.join(dir, 'received.json'), JSON.stringify({cwd:at('--cwd'), sessionFile, args, route}));
 // Publish readiness after the test artifact: launch/resume can return as soon as this file exists.
 fs.writeFileSync(path.join(dir, 'runner-state.json'), JSON.stringify({ready:true, launchId:at('--launch-id'), sessionFile, sessionId:'offline', updatedAt:new Date().toISOString()}));
@@ -87,7 +87,7 @@ setInterval(() => {}, 1000);
     try {
       if (routeServer) {
         await new Promise<void>(resolve => routeServer.listen(0, "127.0.0.1", resolve));
-        sessionEnv.OPENRIG_URL = `http://127.0.0.1:${(routeServer.address() as { port: number }).port}`;
+        sessionEnv.SOFTWARETEAM_URL = `http://127.0.0.1:${(routeServer.address() as { port: number }).port}`;
       }
       // The canonical reader models a shell before an interactive line editor
       // takes over. Only the owned fixture socket receives input.
@@ -142,12 +142,12 @@ setInterval(() => {}, 1000);
         expect(received.route).toMatchObject({ body: { instance: "wrong-cli" }, home: "/wrong", node: "wrong" });
       } else if (routing) {
         expect(received.route).toMatchObject({ body: { instance: "intended", node: "fixture-node" },
-          home: sessionEnv.OPENRIG_HOME, node: "fixture-node", runtime: "pi", HOME: temp,
+          home: sessionEnv.SOFTWARETEAM_HOME, node: "fixture-node", runtime: "pi", HOME: temp,
           generation: launchMode === "resume" ? "existing-generation" : "reserved-generation",
           agentDir: piSeatPaths(stateRoot, session).agentDir,
           sessionsDir: piSeatPaths(stateRoot, session).sessionsDir, extraPresent: false });
         const [owned, ...rest] = received.route.PATH.split(":");
-        expect(fs.readlinkSync(path.join(owned, "rig"))).toBe(cli);
+        expect(fs.readlinkSync(path.join(owned, "SoftwareTeam"))).toBe(cli);
         expect(rest.join(":")).toBe(path.join(temp, "user-bin") + ":" + sessionEnv.PATH);
       }
       expect(received.cwd).toBe(cwd);

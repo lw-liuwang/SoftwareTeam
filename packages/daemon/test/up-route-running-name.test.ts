@@ -1,4 +1,4 @@
-// S5b final fix, R2 F1 (row r054-s5b-final-fix) — the rig_name_running refusal
+// S5b final fix, R2 F1 (row r054-s5b-final-fix) — the software_team_name_running refusal
 // must SURVIVE the real /api/up boundary: structured non-500 (409 conflict),
 // top-level code, top-level error carrying the guard's teaching text — instead
 // of the pre-fix bare 500 with the code buried in stages[].detail.
@@ -56,21 +56,21 @@ describe("POST /api/up — running-name refusal crosses the route boundary (S5b 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  function seedRunningRig(name: string) {
-    const rig = setup.rigRepo.createRig(name);
-    const node = setup.rigRepo.addNode(rig.id, "crew.a", { runtime: "claude-code", cwd: "/" });
+  function seedRunningSoftwareTeam(name: string) {
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam(name);
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "crew.a", { runtime: "claude-code", cwd: "/" });
     const session = setup.sessionRegistry.registerSession(node.id, `crew-a@${name}`);
     setup.sessionRegistry.updateStatus(session.id, "running");
-    return rig;
+    return softwareTeam;
   }
 
-  function rigCount(name: string): number {
-    return (db.prepare("SELECT COUNT(*) AS c FROM rigs WHERE name = ?").get(name) as { c: number }).c;
+  function softwareTeamCount(name: string): number {
+    return (db.prepare("SELECT COUNT(*) AS c FROM software_teams WHERE name = ?").get(name) as { c: number }).c;
   }
 
-  it("second up of a RUNNING name: 409, top-level rig_name_running, teaching error, nothing created or launched", async () => {
-    const rig = seedRunningRig("dupe-route");
-    const specPath = path.join(tmpDir, "rig.yaml");
+  it("second up of a RUNNING name: 409, top-level software_team_name_running, teaching error, nothing created or launched", async () => {
+    const softwareTeam = seedRunningSoftwareTeam("dupe-route");
+    const specPath = path.join(tmpDir, "software-team.yaml");
     fs.writeFileSync(specPath, POD_YAML("dupe-route"));
     const createSession = (setup.tmuxAdapter as unknown as { createSession: ReturnType<typeof vi.fn> }).createSession;
 
@@ -83,21 +83,21 @@ describe("POST /api/up — running-name refusal crosses the route boundary (S5b 
 
     // The structured non-500 refusal with the code at the TOP LEVEL.
     expect(res.status).toBe(409);
-    expect(body["code"]).toBe("rig_name_running");
+    expect(body["code"]).toBe("software_team_name_running");
     // The teaching content survives to the top-level error field.
     const error = String(body["error"] ?? "");
     expect(error).toContain("dupe-route");
-    expect(error).toContain(rig.id);
+    expect(error).toContain(softwareTeam.id);
     expect(error).toMatch(/nothing was created or launched/i);
-    expect(error).toMatch(/rig down/);
+    expect(error).toMatch(/SoftwareTeam down/);
 
     // Effect side: nothing created, nothing launched.
-    expect(rigCount("dupe-route")).toBe(1);
+    expect(softwareTeamCount("dupe-route")).toBe(1);
     expect(createSession).not.toHaveBeenCalled();
   });
 
   it("control: up of a fresh name through the same route is not affected", async () => {
-    const specPath = path.join(tmpDir, "rig.yaml");
+    const specPath = path.join(tmpDir, "software-team.yaml");
     fs.writeFileSync(specPath, POD_YAML("fresh-route"));
 
     const res = await setup.app.request("/api/up", {
@@ -108,7 +108,7 @@ describe("POST /api/up — running-name refusal crosses the route boundary (S5b 
 
     // Whatever this harness's launch outcome is, the guard refusal must not fire.
     const body = await res.json() as Record<string, unknown>;
-    expect(body["code"]).not.toBe("rig_name_running");
-    expect(rigCount("fresh-route")).toBe(1);
+    expect(body["code"]).not.toBe("software_team_name_running");
+    expect(softwareTeamCount("fresh-route")).toBe(1);
   });
 });

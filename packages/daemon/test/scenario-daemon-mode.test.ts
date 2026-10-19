@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // 51-04 step-3 — the daemon-standup OPT-IN seam at runScenarioFile. Container-mode is a
 // PURELY ADDITIVE opt-in: when the caller supplies no `daemon` spawner, the host-mode
-// path is byte-identical to pre-51-04 (spawnScenarioDaemon with { rigBin }); when it
+// path is byte-identical to pre-51-04 (spawnScenarioDaemon with { softwareTeamBin }); when it
 // supplies one, that override is used instead. This suite pins BOTH halves of that
 // contract — the fence that keeps the 51-02 host-mode contract byte-intact (no PM gate).
 //
@@ -35,28 +35,28 @@ beforeEach(() => {
 });
 
 describe("defaultHostDaemon — the unchanged host-mode standup", () => {
-  it("forwards to spawnScenarioDaemon with exactly { rigBin } (byte-identical to line 195)", async () => {
-    const opts: RunScenarioFileOptions = { rigBin: "/path/to/rig" };
+  it("forwards to spawnScenarioDaemon with exactly { softwareTeamBin } (byte-identical to line 195)", async () => {
+    const opts: RunScenarioFileOptions = { softwareTeamBin: "/path/to/softwareTeam" };
     const daemon = await defaultHostDaemon(scaffold, opts);
     expect(spawnScenarioDaemon).toHaveBeenCalledTimes(1);
-    expect(spawnScenarioDaemon).toHaveBeenCalledWith(scaffold, { rigBin: "/path/to/rig" });
+    expect(spawnScenarioDaemon).toHaveBeenCalledWith(scaffold, { softwareTeamBin: "/path/to/softwareTeam" });
     expect(daemon).toBe(FAKE_DAEMON);
   });
 });
 
 describe("resolveScenarioDaemonSpawner — the additive opt-in selection", () => {
   it("returns the host-mode default when no `daemon` override is supplied (fence)", () => {
-    expect(resolveScenarioDaemonSpawner({ rigBin: "x" })).toBe(defaultHostDaemon);
+    expect(resolveScenarioDaemonSpawner({ softwareTeamBin: "x" })).toBe(defaultHostDaemon);
   });
 
   it("returns the caller's override when one is supplied (container-mode opt-in)", () => {
     const override: ScenarioDaemonSpawner = async () => FAKE_DAEMON;
-    expect(resolveScenarioDaemonSpawner({ rigBin: "x", daemon: override })).toBe(override);
+    expect(resolveScenarioDaemonSpawner({ softwareTeamBin: "x", daemon: override })).toBe(override);
   });
 
   it("does not invoke the host-mode spawner merely by resolving an override", () => {
     const override: ScenarioDaemonSpawner = async () => FAKE_DAEMON;
-    resolveScenarioDaemonSpawner({ rigBin: "x", daemon: override });
+    resolveScenarioDaemonSpawner({ softwareTeamBin: "x", daemon: override });
     expect(spawnScenarioDaemon).not.toHaveBeenCalled();
   });
 });

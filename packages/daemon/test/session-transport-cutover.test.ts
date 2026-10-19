@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { ulid } from "ulid";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SessionTransport } from "../src/domain/session-transport.js";
 import { TmuxAdapter } from "../src/adapters/tmux.js";
@@ -18,9 +18,9 @@ describe.each(["capture", "send"] as const)("%s absence observation", verb => {
       try {
         const start = Date.parse("2026-07-02T12:00:00.000Z");
         const oldId = ulid(start), newId = ulid(start + 200);
-        const name = "dev-impl@test-rig";
-        db.prepare("INSERT INTO rigs(id,name) VALUES('r','test-rig')").run();
-        db.prepare("INSERT INTO nodes(id,rig_id,logical_id,runtime) VALUES('n','r','dev.impl','claude-code')").run();
+        const name = "dev-impl@test-software-team";
+        db.prepare("INSERT INTO software_teams(id,name) VALUES('r','test-software-team')").run();
+        db.prepare("INSERT INTO nodes(id,software_team_id,logical_id,runtime) VALUES('n','r','dev.impl','claude-code')").run();
         const insert = db.prepare("INSERT INTO sessions(id,node_id,session_name,status,startup_status,created_at) VALUES(?,'n',?,'running','ready','2026-07-02 12:00:00')");
         insert.run(oldId, name);
         db.prepare("INSERT INTO bindings(id,node_id,attachment_type,tmux_session,tmux_pane) VALUES('b','n','tmux',?,'%1')").run(name);
@@ -29,7 +29,7 @@ describe.each(["capture", "send"] as const)("%s absence observation", verb => {
         let now = start + 100;
         let started = false;
         const transport = new SessionTransport({
-          db, rigRepo: new RigRepository(db), sessionRegistry: new SessionRegistry(db), now: () => new Date(now),
+          db, softwareTeamRepo: new SoftwareTeamRepository(db), sessionRegistry: new SessionRegistry(db), now: () => new Date(now),
           tmuxAdapter: new TmuxAdapter(async () => {
             started = true;
             await pendingProbe;

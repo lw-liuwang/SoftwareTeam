@@ -21,10 +21,10 @@ const tmuxExec: ExecFn = async () => "";
 
 describe("S10 gateway subsystem activation (RED at tip: no boot-time subsystem caller)", () => {
   beforeAll(() => {
-    process.env.OPENRIG_NO_KERNEL = "1";
+    process.env.SOFTWARETEAM_NO_KERNEL = "1";
   });
   afterAll(() => {
-    delete process.env.OPENRIG_NO_KERNEL;
+    delete process.env.SOFTWARETEAM_NO_KERNEL;
   });
 
   it("createDaemon exposes an ACTIVE gateway subsystem on AppDeps (daemon boot activates it in-process)", async () => {

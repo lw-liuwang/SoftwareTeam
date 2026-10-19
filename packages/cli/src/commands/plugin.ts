@@ -1,4 +1,4 @@
-// rig plugin CLI verb family — read-only plugin inspection.
+// softwareTeam plugin CLI verb family — read-only plugin inspection.
 //
 // Per IMPL-PRD §4 plugin-primitive Phase 3a slice 3.4 + DESIGN.md §6
 // (CLI minimalism: 4 read-only inspection commands).
@@ -34,10 +34,10 @@
 //   --tree  — declared in PRD §4.2 but show output already prints the
 //             tree structure (manifests + skills + hooks + mcp).
 //             Distinct tree-only mode is post-v0 polish.
-//   --source rig-cwd — daemon route's parseSourceFilter doesn't accept
-//             rig-cwd; rig-cwd scan is enabled via separate ?cwd=<path>
+//   --source software-team-cwd — daemon route's parseSourceFilter doesn't accept
+//             software-team-cwd; software-team-cwd scan is enabled via separate ?cwd=<path>
 //             query (out of scope for v0 since CLI doesn't have a "scan
-//             this rig's cwd" surface yet).
+//             this softwareTeam's cwd" surface yet).
 //   --runtime both — daemon parseRuntimeFilter accepts only claude|codex;
 //             omitting --runtime returns all (the "both" semantic is
 //             default no-filter).
@@ -66,7 +66,7 @@ const VALID_SOURCES = ["vendored", "claude-cache", "codex-cache"] as const;
 // ============================================================
 
 type PluginRuntime = "claude" | "codex";
-type PluginSourceKind = "vendored" | "claude-cache" | "codex-cache" | "rig-cwd";
+type PluginSourceKind = "vendored" | "claude-cache" | "codex-cache" | "software-team-cwd";
 
 interface PluginEntryWire {
   id: string;
@@ -144,7 +144,7 @@ export function pluginCommand(depsOverride?: StatusDeps): Command {
     return deps.clientFactory(getDaemonUrl(status));
   }
 
-  // -- rig plugin list --
+  // -- softwareTeam plugin list --
   cmd.command("list")
     .description("List discoverable plugins (aggregated across vendored + runtime caches)")
     .option("--runtime <runtime>", "Filter by runtime support: claude | codex (omit for all)")
@@ -153,7 +153,7 @@ export function pluginCommand(depsOverride?: StatusDeps): Command {
     .action(async (opts: { runtime?: string; source?: string; json?: boolean }) => {
       try {
         // CLI-side filter-value validation per pre-close punch from velocity-guard
-        // 3.4.A repair verdict: typos like --source rig-cwd should fail loud,
+        // 3.4.A repair verdict: typos like --source software-team-cwd should fail loud,
         // not silently be ignored by the daemon route.
         if (opts.runtime && !(VALID_RUNTIMES as readonly string[]).includes(opts.runtime)) {
           throw new Error(`Invalid --runtime value "${opts.runtime}". Valid: ${VALID_RUNTIMES.join(" | ")} (omit flag for all)`);
@@ -196,9 +196,9 @@ export function pluginCommand(depsOverride?: StatusDeps): Command {
       }
     });
 
-  // -- rig plugin show <id> --
+  // -- softwareTeam plugin show <id> --
   cmd.command("show")
-    .argument("<id>", "Plugin id (e.g., openrig-core)")
+    .argument("<id>", "Plugin id (e.g., softwareteam-core)")
     .description("Show plugin manifest + skills + hooks + mcp servers")
     .option("--json", "JSON output")
     .action(async (id: string, opts: { json?: boolean }) => {
@@ -287,9 +287,9 @@ export function pluginCommand(depsOverride?: StatusDeps): Command {
       }
     });
 
-  // -- rig plugin used-by <id> --
+  // -- softwareTeam plugin used-by <id> --
   cmd.command("used-by")
-    .argument("<id>", "Plugin id (e.g., openrig-core)")
+    .argument("<id>", "Plugin id (e.g., softwareteam-core)")
     .description("List profile consumers and resource definitions for this plugin")
     .option("--json", "JSON output")
     .action(async (id: string, opts: { json?: boolean }) => {
@@ -327,7 +327,7 @@ export function pluginCommand(depsOverride?: StatusDeps): Command {
       }
     });
 
-  // -- rig plugin validate <path> --
+  // -- softwareTeam plugin validate <path> --
   // Local file inspection — no daemon dependency; useful when authoring
   // a plugin in a feature branch where the daemon may not yet have
   // discovered it. Validates manifest shape (per Claude/Codex specs)

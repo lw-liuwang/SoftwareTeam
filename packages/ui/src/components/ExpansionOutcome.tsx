@@ -1,6 +1,6 @@
-import type { ExpandRigResult } from "../hooks/mutations.js";
+import type { ExpandSoftwareTeamResult } from "../hooks/mutations.js";
 
-export function ExpansionOutcome({ result }: { result: ExpandRigResult }) {
+export function ExpansionOutcome({ result }: { result: ExpandSoftwareTeamResult }) {
   return (
     <div data-testid="expand-result" className="mt-2 font-mono text-[9px]">
       <div className={result.status === "ok" ? "text-green-700" : "text-amber-700"}>

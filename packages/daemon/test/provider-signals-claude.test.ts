@@ -14,13 +14,13 @@ const RESET = "2026-08-03T17:00:00.000Z";
 describe("claudeStatuslineSignals — Claude lane honesty", () => {
   it("a Claude seat before the first API response (no cache yet) yields a seat-keyed explicit unknown row", () => {
     const sigs = claudeStatuslineSignals({
-      seatSession: "dev-impl@rig",
+      seatSession: "dev-impl@software-team",
       cachePresent: false,
       asOf: ASOF,
     });
     expect(sigs).toHaveLength(1);
     expect(sigs[0].provider).toBe("claude");
-    expect(sigs[0].seatSession).toBe("dev-impl@rig");
+    expect(sigs[0].seatSession).toBe("dev-impl@software-team");
     expect(sigs[0].accountRef).toBeUndefined();
     expect(sigs[0].sourceClass).toBe("unknown");
     expect(sigs[0].authority).toBe("unknown");
@@ -33,7 +33,7 @@ describe("claudeStatuslineSignals — Claude lane honesty", () => {
 
   it("a Pro/Max statusline reading yields provider_statusline rows for five_hour + weekly (seven-day)", () => {
     const sigs = claudeStatuslineSignals({
-      seatSession: "dev-impl@rig",
+      seatSession: "dev-impl@software-team",
       cachePresent: true,
       reading: {
         five_hour: { usedPercent: 12, resetsAt: RESET },
@@ -45,7 +45,7 @@ describe("claudeStatuslineSignals — Claude lane honesty", () => {
     expect(fiveHour).toBeDefined();
     expect(fiveHour!.sourceClass).toBe("provider_statusline");
     expect(fiveHour!.authority).toBe("account_cross_device");
-    expect(fiveHour!.seatSession).toBe("dev-impl@rig");
+    expect(fiveHour!.seatSession).toBe("dev-impl@software-team");
     expect(fiveHour!.accountRef).toBeUndefined();
     expect(fiveHour!.usedPercent).toBe(12);
     expect(fiveHour!.resetsAt).toBe(RESET);
@@ -59,7 +59,7 @@ describe("claudeStatuslineSignals — Claude lane honesty", () => {
 
   it("a subscription with cache present but no windows degrades to an explicit unknown row", () => {
     const sigs = claudeStatuslineSignals({
-      seatSession: "dev-impl@rig",
+      seatSession: "dev-impl@software-team",
       cachePresent: true,
       reading: {},
       asOf: ASOF,

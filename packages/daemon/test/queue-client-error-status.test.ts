@@ -57,7 +57,7 @@ describe("queue update refusals that are client errors answer 400", () => {
 
   const update = (body: Record<string, unknown>) => app.request(`/api/queue/${qitemId}/update`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+    headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
     body: JSON.stringify(body),
   });
 

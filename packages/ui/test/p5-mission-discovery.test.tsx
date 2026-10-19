@@ -181,8 +181,8 @@ function renderTree(opts: RenderTreeOpts): ReturnType<typeof render> {
 describe("ProjectTreeView P5-5/P5-6 mission discovery", () => {
   it("filesystem-discovered missions surface as tree nodes when allowlist exposes workspace root", async () => {
     const { findByTestId } = renderTree({
-      workspaceRoot: "/Users/admin/.openrig/workspace",
-      roots: [{ name: "workspace", path: "/Users/admin/.openrig/workspace" }],
+      workspaceRoot: "/Users/admin/.softwareteam/workspace",
+      roots: [{ name: "workspace", path: "/Users/admin/.softwareteam/workspace" }],
       listings: {
         "workspace:missions": [
           { name: "release-readiness", type: "dir" },
@@ -207,8 +207,8 @@ describe("ProjectTreeView P5-5/P5-6 mission discovery", () => {
 
   it("file-type entries under missions/ are not surfaced as missions", async () => {
     const { findByTestId, queryByTestId } = renderTree({
-      workspaceRoot: "/Users/admin/.openrig/workspace",
-      roots: [{ name: "workspace", path: "/Users/admin/.openrig/workspace" }],
+      workspaceRoot: "/Users/admin/.softwareteam/workspace",
+      roots: [{ name: "workspace", path: "/Users/admin/.softwareteam/workspace" }],
       listings: {
         "workspace:missions": [
           { name: "release-readiness", type: "dir" },
@@ -223,7 +223,7 @@ describe("ProjectTreeView P5-5/P5-6 mission discovery", () => {
 
   it("falls back to indexed slice grouping when no allowlist root contains workspace.root", async () => {
     const { findByTestId } = renderTree({
-      workspaceRoot: "/Users/admin/.openrig/workspace",
+      workspaceRoot: "/Users/admin/.softwareteam/workspace",
       roots: [{ name: "elsewhere", path: "/Users/admin/code/elsewhere" }],
       slices: [
         {
@@ -244,7 +244,7 @@ describe("ProjectTreeView P5-5/P5-6 mission discovery", () => {
 
   it("falls back to indexed slice grouping when allowlist is empty", async () => {
     const { findByTestId } = renderTree({
-      workspaceRoot: "/Users/admin/.openrig/workspace",
+      workspaceRoot: "/Users/admin/.softwareteam/workspace",
       roots: [],
       slices: [
         {
@@ -265,7 +265,7 @@ describe("ProjectTreeView P5-5/P5-6 mission discovery", () => {
 
   it("separates live qitem-backed work from stale archived seed slices", async () => {
     const { findByTestId, queryByTestId } = renderTree({
-      workspaceRoot: "/Users/admin/.openrig/workspace",
+      workspaceRoot: "/Users/admin/.softwareteam/workspace",
       roots: [],
       slices: [
         {
@@ -357,8 +357,8 @@ describe("ProjectTreeView P5-5/P5-6 mission discovery", () => {
 
   it("matches slices to filesystem missions by missionId first; unmatched mission keys stay reachable", async () => {
     const { findByTestId } = renderTree({
-      workspaceRoot: "/Users/admin/.openrig/workspace",
-      roots: [{ name: "workspace", path: "/Users/admin/.openrig/workspace" }],
+      workspaceRoot: "/Users/admin/.softwareteam/workspace",
+      roots: [{ name: "workspace", path: "/Users/admin/.softwareteam/workspace" }],
       listings: {
         "workspace:missions": [{ name: "release-readiness", type: "dir" }],
       },
@@ -395,8 +395,8 @@ describe("ProjectTreeView P5-5/P5-6 mission discovery", () => {
 
   it("preserves unmatched legacy rail groups when filesystem missions are available", async () => {
     const { findByTestId } = renderTree({
-      workspaceRoot: "/Users/admin/.openrig/workspace",
-      roots: [{ name: "workspace", path: "/Users/admin/.openrig/workspace" }],
+      workspaceRoot: "/Users/admin/.softwareteam/workspace",
+      roots: [{ name: "workspace", path: "/Users/admin/.softwareteam/workspace" }],
       listings: {
         "workspace:missions": [{ name: "demo-seed", type: "dir" }],
       },
@@ -457,7 +457,7 @@ describe("ProjectTreeView P5-5/P5-6 mission discovery", () => {
   // mission aggregate present, a zero-count slice must still visibly show 0.
   it("#3 pin: a slice whose API qitemCount is 0 visibly stays 0 even alongside nonzero-count siblings in the same mission", async () => {
     const { findByTestId } = renderTree({
-      workspaceRoot: "/Users/admin/.openrig/workspace",
+      workspaceRoot: "/Users/admin/.softwareteam/workspace",
       roots: [],
       slices: [
         {

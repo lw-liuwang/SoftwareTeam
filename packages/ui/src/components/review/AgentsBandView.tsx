@@ -1,7 +1,7 @@
 // Living Notes Packet 2 — the AGENTS band (OPR.0.4.4.20 FR-4 SSOT + delta-A).
 //
 // The SHARED AGENT-ROW ANATOMY both scopes render (this component is the one
-// renderer; slice-22's rig altitude consumes the same anatomy + the same
+// renderer; slice-22's softwareTeam altitude consumes the same anatomy + the same
 // scope-parameterized contract): name · runtime badge · state glyph
 // (honest-unknown when telemetry is down — never guessed) · plain-language
 // "doing" line · holds count · last transition age · ▲ mark with inline
@@ -114,7 +114,7 @@ export function AgentsBandView({
    *  THIS one home, never a forked copy): "agent" = the flat one-row-per-
    *  agent render (existing behavior, default); "slice" = the same rows
    *  grouped under each slice they hold work on — membership stays
-   *  work-on-scope, never rig co-residency (the data already guarantees it). */
+   *  work-on-scope, never softwareTeam co-residency (the data already guarantees it). */
   grouping?: "agent" | "slice";
   /** Mission altitude keeps ownership visible without letting a large queue
    *  ledger dominate the page. Only the remainder is disclosed. */
@@ -124,7 +124,7 @@ export function AgentsBandView({
   const overflowRows = previewLimit === undefined ? [] : band.rows.slice(previewLimit);
   const zoomHref = band.scope.startsWith("slice:")
     ? `/agents?slice=${encodeURIComponent(band.scope.slice("slice:".length))}`
-    : band.scope === "rig"
+    : band.scope === "softwareTeam"
       ? null
       : "/agents";
   const groups: Array<{ label: string | null; rows: typeof band.rows }> =

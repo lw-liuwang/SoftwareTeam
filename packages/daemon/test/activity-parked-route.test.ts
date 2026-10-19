@@ -7,7 +7,7 @@ import { SeatActivityService } from "../src/domain/seat-activity-service.js";
 // the queue's obligation face, with the honest 503/404 refusals.
 
 const SEAT = "node-p1";
-const SESSION = "dev50-qa@v-openrig-build";
+const SESSION = "dev50-qa@v-softwareteam-build";
 
 function makeApp(opts: { withDeps: boolean; rows?: Array<{ qitemId: string; state: string; summary?: string | null }> }) {
   const clock = { now: 3_000_000 };
@@ -31,9 +31,9 @@ function makeApp(opts: { withDeps: boolean; rows?: Array<{ qitemId: string; stat
     if (opts.withDeps) {
       c.set("seatActivityService" as never, svc as never);
       c.set("queueRepo" as never, { list: () => opts.rows ?? [] } as never);
-      c.set("rigRepo" as never, { db: { prepare: (sql: string) => ({
-        get: () => ({ id: "rig-1", name: "v-openrig-build" }),
-        all: () => (sql.includes("SELECT name FROM rigs") ? [] : [{ node_id: SEAT, session_name: SESSION }]),
+      c.set("softwareTeamRepo" as never, { db: { prepare: (sql: string) => ({
+        get: () => ({ id: "software-team-1", name: "v-softwareteam-build" }),
+        all: () => (sql.includes("SELECT name FROM software_teams") ? [] : [{ node_id: SEAT, session_name: SESSION }]),
       }) } } as never);
     }
     await next();
@@ -43,21 +43,21 @@ function makeApp(opts: { withDeps: boolean; rows?: Array<{ qitemId: string; stat
 }
 
 describe("S19 A7 — GET /api/activity/parked", () => {
-  it("rig-level: joins the oracle with the obligation face and returns the derived diagnosis", async () => {
+  it("software-team-level: joins the oracle with the obligation face and returns the derived diagnosis", async () => {
     const app = makeApp({ withDeps: true, rows: [{ qitemId: "qitem-9", state: "pending", summary: "owed" }] });
-    const res = await app.request("/api/activity/parked", { headers: { "x-openrig-session": SESSION } });
+    const res = await app.request("/api/activity/parked", { headers: { "x-softwareteam-session": SESSION } });
     expect(res.status).toBe(200);
-    const body = await res.json() as { ok: boolean; rig: { parked: boolean; seats: Array<{ parked: boolean }> } };
+    const body = await res.json() as { ok: boolean; softwareTeam: { parked: boolean; seats: Array<{ parked: boolean }> } };
     expect(body.ok).toBe(true);
-    expect(body.rig.parked).toBe(true);
-    expect(body.rig.seats[0]!.parked).toBe(true);
+    expect(body.softwareTeam.parked).toBe(true);
+    expect(body.softwareTeam.seats[0]!.parked).toBe(true);
   });
 
   it("seat-level resolves node id OR session name; an unknown seat teaches with the known set", async () => {
     const app = makeApp({ withDeps: true, rows: [] });
     const byName = await app.request(`/api/activity/parked?seat=${encodeURIComponent(SESSION)}`);
     expect(byName.status).toBe(200);
-    const ghost = await app.request("/api/activity/parked?seat=ghost", { headers: { "x-openrig-session": SESSION } });
+    const ghost = await app.request("/api/activity/parked?seat=ghost", { headers: { "x-softwareteam-session": SESSION } });
     expect(ghost.status).toBe(404);
     const body = await ghost.json() as { error: string };
     expect(body.error).toContain(SESSION); // teaching names the known seats

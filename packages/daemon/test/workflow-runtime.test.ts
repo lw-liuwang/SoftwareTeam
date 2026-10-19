@@ -41,13 +41,13 @@ const SPEC = `workflow:
   roles:
     producer:
       preferred_targets:
-        - producer@rig
+        - producer@software-team
     reviewer:
       preferred_targets:
-        - reviewer@rig
+        - reviewer@software-team
     finalizer:
       preferred_targets:
-        - finalizer@rig
+        - finalizer@software-team
   steps:
     - id: produce
       actor_role: producer
@@ -76,8 +76,8 @@ const SPEC = `workflow:
 function buildRuntime(db: Database.Database) {
   migrate(db, ALL_MIGRATIONS);
   const bus = new EventBus(db);
-  db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-  const queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+  db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+  const queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
   // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
   // close needs a SAME-DB intent store to make its wake durable.
   queueRepo.attachOutbox(new OutboxHandler(db));
@@ -127,7 +127,7 @@ describe("WorkflowRuntime facade + FR-1 KEEP-fence pins (OPR.0.4.6.WF1)", () => 
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "facade walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     expect(inst.instance.status).toBe("active");
     expect(inst.instance.currentStepId).toBe("produce");
@@ -136,7 +136,7 @@ describe("WorkflowRuntime facade + FR-1 KEEP-fence pins (OPR.0.4.6.WF1)", () => 
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "handoff",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
     });
     expect(projected.nextStepId).toBe("review");
 
@@ -154,7 +154,7 @@ describe("WorkflowRuntime facade + FR-1 KEEP-fence pins (OPR.0.4.6.WF1)", () => 
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "atomicity pin",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const before = runtime.instanceStore.getByIdOrThrow(inst.instance.instanceId);
     const qitemCountBefore = (
@@ -175,7 +175,7 @@ describe("WorkflowRuntime facade + FR-1 KEEP-fence pins (OPR.0.4.6.WF1)", () => 
         instanceId: inst.instance.instanceId,
         currentPacketId: inst.entryQitemId,
         exit: "handoff",
-        actorSession: "producer@rig",
+        actorSession: "producer@software-team",
       }),
     ).rejects.toThrow("injected-mid-txn-failure");
 
@@ -209,7 +209,7 @@ describe("WorkflowRuntime facade + FR-1 KEEP-fence pins (OPR.0.4.6.WF1)", () => 
     const inst = await built.runtime.instantiate({
       specPath,
       rootObjective: "crash-shaped pin",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
 
     vi.spyOn(built.runtime.trailLog, "record").mockImplementation(() => {
@@ -220,7 +220,7 @@ describe("WorkflowRuntime facade + FR-1 KEEP-fence pins (OPR.0.4.6.WF1)", () => 
         instanceId: inst.instance.instanceId,
         currentPacketId: inst.entryQitemId,
         exit: "handoff",
-        actorSession: "producer@rig",
+        actorSession: "producer@software-team",
       }),
     ).rejects.toThrow("injected-mid-txn-failure");
 
@@ -278,13 +278,13 @@ describe("WorkflowRuntime facade + FR-1 KEEP-fence pins (OPR.0.4.6.WF1)", () => 
       const inst = await runtime.instantiate({
         specPath,
         rootObjective: "determinism pin",
-        createdBySession: "ops@rig",
+        createdBySession: "ops@software-team",
       });
       const projected = await runtime.project({
         instanceId: inst.instance.instanceId,
         currentPacketId: inst.entryQitemId,
         exit: "handoff",
-        actorSession: "producer@rig",
+        actorSession: "producer@software-team",
       });
       const closed = queueRepo.getById(inst.entryQitemId);
       decisions.push({
@@ -299,7 +299,7 @@ describe("WorkflowRuntime facade + FR-1 KEEP-fence pins (OPR.0.4.6.WF1)", () => 
 
     const first = decisions[0]!;
     expect(first.nextStepId).toBe("review");
-    expect(first.nextOwnerSession).toBe("reviewer@rig");
+    expect(first.nextOwnerSession).toBe("reviewer@software-team");
     for (const d of decisions) {
       expect(d).toEqual(first);
     }
@@ -311,13 +311,13 @@ describe("WorkflowRuntime facade + FR-1 KEEP-fence pins (OPR.0.4.6.WF1)", () => 
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "terminal replay pin",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "handoff",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
     });
     const trailCountAfterFirst = runtime.trailLog.countForInstance(
       inst.instance.instanceId,
@@ -329,7 +329,7 @@ describe("WorkflowRuntime facade + FR-1 KEEP-fence pins (OPR.0.4.6.WF1)", () => 
         instanceId: inst.instance.instanceId,
         currentPacketId: inst.entryQitemId,
         exit: "handoff",
-        actorSession: "producer@rig",
+        actorSession: "producer@software-team",
       });
     } catch (err) {
       thrown = err;
@@ -347,20 +347,20 @@ describe("WorkflowRuntime facade + FR-1 KEEP-fence pins (OPR.0.4.6.WF1)", () => 
       const inst = await runtime.instantiate({
         specPath,
         rootObjective: `terminal ${exit} replay pin`,
-        createdBySession: "ops@rig",
+        createdBySession: "ops@software-team",
       });
       await runtime.project({
         instanceId: inst.instance.instanceId,
         currentPacketId: inst.entryQitemId,
         exit,
-        actorSession: "producer@rig",
+        actorSession: "producer@software-team",
       });
       await expect(
         runtime.project({
           instanceId: inst.instance.instanceId,
           currentPacketId: inst.entryQitemId,
           exit,
-          actorSession: "producer@rig",
+          actorSession: "producer@software-team",
         }),
       ).rejects.toMatchObject({
         // Terminal instance is rejected before the frontier check even
@@ -407,8 +407,8 @@ describe("P19 A4 — default seat-liveness check (validator advisory is live in 
       const dead = runtime.validate(specPath);
       expect(dead.issues.some((i) => i.code === "role_no_live_preferred_target")).toBe(true);
 
-      db.prepare(`INSERT INTO rigs (id, name) VALUES ('lr', 'lrig')`).run();
-      db.prepare(`INSERT INTO nodes (id, rig_id, logical_id, runtime) VALUES ('ln', 'lr', 'dev.worker', 'claude-code')`).run();
+      db.prepare(`INSERT INTO software_teams (id, name) VALUES ('lr', 'lrig')`).run();
+      db.prepare(`INSERT INTO nodes (id, software_team_id, logical_id, runtime) VALUES ('ln', 'lr', 'dev.worker', 'claude-code')`).run();
       db.prepare(`INSERT INTO sessions (id, node_id, session_name, status) VALUES ('ls', 'ln', 'dev-worker@lrig', 'running')`).run();
       const alive = runtime.validate(specPath);
       expect(alive.issues.some((i) => i.code === "role_no_live_preferred_target")).toBe(false);

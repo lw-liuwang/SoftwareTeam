@@ -21,13 +21,13 @@ describe("POST /api/seat/{set-model,stop,clean}/:seatRef", () => {
   });
 
   function seedSeat(logicalId = "dev.impl", model = "fable") {
-    const rig = setup.rigRepo.findRigsByName("seat-rig")[0] ?? setup.rigRepo.createRig("seat-rig");
-    const sessionName = `${logicalId.replace(".", "-")}@seat-rig`;
-    const node = setup.rigRepo.addNode(rig.id, logicalId, { runtime: "claude-code", model });
+    const softwareTeam = setup.softwareTeamRepo.findSoftwareTeamsByName("seat-software-team")[0] ?? setup.softwareTeamRepo.createSoftwareTeam("seat-software-team");
+    const sessionName = `${logicalId.replace(".", "-")}@seat-software-team`;
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, logicalId, { runtime: "claude-code", model });
     const session = setup.sessionRegistry.registerSession(node.id, sessionName);
     setup.sessionRegistry.updateStatus(session.id, "running");
     setup.sessionRegistry.updateBinding(node.id, { attachmentType: "tmux", tmuxSession: sessionName, tmuxPane: "%1" });
-    return { rig, node, session, sessionName };
+    return { softwareTeam, node, session, sessionName };
   }
 
   function tmux() {
@@ -62,7 +62,7 @@ describe("POST /api/seat/{set-model,stop,clean}/:seatRef", () => {
 
   it("set-model 200: persists, echoes from/to/changed", async () => {
     const { sessionName } = seedSeat();
-    const res = await post("set-model", sessionName, { model: "claude-fable-5", reason: "alias migration", operator: "op@rig" });
+    const res = await post("set-model", sessionName, { model: "claude-fable-5", reason: "alias migration", operator: "op@software-team" });
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ ok: true, from: "fable", to: "claude-fable-5", changed: true });
   });
@@ -79,12 +79,12 @@ describe("POST /api/seat/{set-model,stop,clean}/:seatRef", () => {
 
   it("404 seat_not_found; 409 seat_ambiguous with matches", async () => {
     seedSeat();
-    const missing = await post("set-model", "ghost@seat-rig", { model: "m", reason: "x" });
+    const missing = await post("set-model", "ghost@seat-software-team", { model: "m", reason: "x" });
     expect(missing.status).toBe(404);
 
-    // Same logical id in a second rig → bare ref is ambiguous.
-    const rigB = setup.rigRepo.createRig("seat-rig-b");
-    setup.rigRepo.addNode(rigB.id, "dev.impl", { runtime: "claude-code" });
+    // Same logical id in a second softwareTeam → bare ref is ambiguous.
+    const softwareTeamB = setup.softwareTeamRepo.createSoftwareTeam("seat-software-team-b");
+    setup.softwareTeamRepo.addNode(softwareTeamB.id, "dev.impl", { runtime: "claude-code" });
     const ambiguous = await post("set-model", "dev.impl", { model: "m", reason: "x" });
     expect(ambiguous.status).toBe(409);
     const body = await ambiguous.json() as { code: string; matches: unknown[] };
@@ -112,7 +112,7 @@ describe("POST /api/seat/{set-model,stop,clean}/:seatRef", () => {
     expect((await probe.json() as { code: string }).code).toBe("tmux_probe_failed");
   });
 
-  it("keeps ps and the TUI rig summary consistent after an intentional stop and a sibling crash", async () => {
+  it("keeps ps and the TUI SoftwareTeam summary consistent after an intentional stop and a sibling crash", async () => {
     const stopped = seedSeat("dev.qa");
     const crashed = seedSeat("dev.impl");
     seedSeat("dev.lead");
@@ -124,12 +124,12 @@ describe("POST /api/seat/{set-model,stop,clean}/:seatRef", () => {
       const ps = await setup.app.request("/api/ps");
       expect(ps.status).toBe(200);
       expect(await ps.json()).toEqual(expect.arrayContaining([
-        expect.objectContaining({ rigId: stopped.rig.id, lifecycleState, nodeCount: 3, runningCount, status: "partial" }),
+        expect.objectContaining({ softwareTeamId: stopped.softwareTeam.id, lifecycleState, nodeCount: 3, runningCount, status: "partial" }),
       ]));
-      const summary = await setup.app.request("/api/rigs/summary");
+      const summary = await setup.app.request("/api/software-teams/summary");
       expect(summary.status).toBe(200);
       expect(await summary.json()).toEqual(expect.arrayContaining([
-        expect.objectContaining({ id: stopped.rig.id, lifecycleState, restoreLifecycleState: "degraded", nodeCount: 3, hasLiveAgents: true }),
+        expect.objectContaining({ id: stopped.softwareTeam.id, lifecycleState, restoreLifecycleState: "degraded", nodeCount: 3, hasLiveAgents: true }),
       ]));
     }
 
@@ -183,9 +183,9 @@ describe("POST /api/seat/{set-model,stop,clean}/:seatRef", () => {
   it("#729: launch route forwards the explicit fresh/stop/reason contract and warnings", async () => {
     const launchFresh = vi.spyOn(SeatLifecycleService.prototype, "launchFresh").mockResolvedValue({
       ok: true,
-      seat: { ref: "dev-impl@seat-rig", rigId: "rig-1", rigName: "seat-rig", logicalId: "dev.impl", podId: null, podNamespace: null, runtime: "codex" },
+      seat: { ref: "dev-impl@seat-software-team", softwareTeamId: "software-team-1", softwareTeamName: "seat-software-team", logicalId: "dev.impl", podId: null, podNamespace: null, runtime: "codex" },
       status: "ready",
-      sessionName: "dev-impl@seat-rig",
+      sessionName: "dev-impl@seat-software-team",
       sessionId: "sess-fresh",
       generation: "gen-fresh",
       model: "gpt-5.6-codex",
@@ -194,20 +194,20 @@ describe("POST /api/seat/{set-model,stop,clean}/:seatRef", () => {
       warnings: ["Startup submission unverified"],
     });
 
-    const res = await post("launch", "dev-impl@seat-rig", {
+    const res = await post("launch", "dev-impl@seat-software-team", {
       fresh: true,
       stop: true,
       reason: "deliberate blank restart",
-      operator: "orch-lead@seat-rig",
+      operator: "orch-lead@seat-software-team",
     });
 
     expect(res.status).toBe(200);
     expect(launchFresh).toHaveBeenCalledWith({
-      seatRef: "dev-impl@seat-rig",
+      seatRef: "dev-impl@seat-software-team",
       fresh: true,
       stop: true,
       reason: "deliberate blank restart",
-      operator: "orch-lead@seat-rig",
+      operator: "orch-lead@seat-software-team",
     });
     expect(await res.json()).toMatchObject({ status: "ready", generation: "gen-fresh", warnings: ["Startup submission unverified"] });
   });

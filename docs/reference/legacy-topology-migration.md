@@ -1,9 +1,9 @@
-# Migrating a pre-convention rig's topology context
+# Migrating a pre-convention SoftwareTeam's topology context
 
-For rigs whose hand-authored context predates the chain-file convention and
-lives at the legacy location (`~/.openrig/shared-docs/rigs/<rig>/`, or
-`$OPENRIG_SHARED_DOCS_ROOT/rigs/<rig>/`). Nothing here is destructive: the
-legacy tree is left in place, `rig context trace` keeps reading it at the rig and
+For SoftwareTeams whose hand-authored context predates the chain-file convention and
+lives at the legacy location (`~/.softwareteam/shared-docs/SoftwareTeams/<SoftwareTeam>/`, or
+`$SOFTWARETEAM_SHARED_DOCS_ROOT/SoftwareTeams/<SoftwareTeam>/`). Nothing here is destructive: the
+legacy tree is left in place, `SoftwareTeam context trace` keeps reading it at the SoftwareTeam and
 seat levels throughout (with an advisory), and every copy is no-clobber. The refocus
 trace, `seat:` profile atoms and handover priming read only `topology.root`, so
 they see these files only after migration.
@@ -12,23 +12,23 @@ they see these files only after migration.
 
 ```bash
 # 0. Know both roots — never hardcode either.
-DEST="$(rig config get topology.root)"
-SRC="${OPENRIG_SHARED_DOCS_ROOT:-$HOME/.openrig/shared-docs}/rigs"
+DEST="$(SoftwareTeam config get topology.root)"
+SRC="${SOFTWARETEAM_SHARED_DOCS_ROOT:-$HOME/.softwareteam/shared-docs}/SoftwareTeams"
 
-# 1. BEFORE: prove the fallback is carrying this rig (expect ADVISORY lines
+# 1. BEFORE: prove the fallback is carrying this SoftwareTeam (expect ADVISORY lines
 #    on stderr for every level that resolves at the legacy location).
-rig context trace --rig <rig> --seat <seat> --name LEARNED.md
+SoftwareTeam context trace --software-team <SoftwareTeam> --seat <seat> --name LEARNED.md
 
 # 2. Preview the migration (dry run — nothing moves).
-rsync -av --ignore-existing --exclude 'state/' --dry-run "$SRC/<rig>/" "$DEST/rigs/<rig>/"
+rsync -av --ignore-existing --exclude 'state/' --dry-run "$SRC/<SoftwareTeam>/" "$DEST/SoftwareTeams/<SoftwareTeam>/"
 
 # 3. Migrate. --ignore-existing mirrors the installer's copy-if-absent law:
 #    anything already earned under topology.root is never overwritten.
-mkdir -p "$DEST/rigs/<rig>"
-rsync -av --ignore-existing --exclude 'state/' "$SRC/<rig>/" "$DEST/rigs/<rig>/"
+mkdir -p "$DEST/SoftwareTeams/<SoftwareTeam>"
+rsync -av --ignore-existing --exclude 'state/' "$SRC/<SoftwareTeam>/" "$DEST/SoftwareTeams/<SoftwareTeam>/"
 
 # 4. AFTER: the same trace now resolves canonically — the advisories are gone.
-rig context trace --rig <rig> --seat <seat> --name LEARNED.md
+SoftwareTeam context trace --software-team <SoftwareTeam> --seat <seat> --name LEARNED.md
 
 # 5. Do NOT delete the legacy tree in the same session. Archive it later,
 #    once every consumer (queue-state add-dirs, review artifacts, scripts)
@@ -38,10 +38,10 @@ rig context trace --rig <rig> --seat <seat> --name LEARNED.md
 
 ## What migrates and what does not
 
-- **Migrates:** the rig's chain files and seat directories — `LEARNED.md`,
+- **Migrates:** the SoftwareTeam's chain files and seat directories — `LEARNED.md`,
   `CULTURE.md`, craft files, `seats/<seat>/…`.
 - **Stays (for now):** `state/` (queue-state add-dirs and live artifacts are
-  actively written by running seats; moving them under a live rig strands
+  actively written by running seats; moving them under a live SoftwareTeam strands
   writers — that cutover is its own change with its own receipt).
 - **Never:** anything into a running seat's context. Migration moves files;
   delivery to running seats is the refocus channel
@@ -49,6 +49,6 @@ rig context trace --rig <rig> --seat <seat> --name LEARNED.md
 
 ## After migration
 
-The next `rig up` of a spec shipping topology defaults installs them
+The next `SoftwareTeam up` of a spec shipping topology defaults installs them
 copy-if-absent alongside the migrated content — earned context always wins
 over a shipped default. Verify any doubt with the trace, not with memory.

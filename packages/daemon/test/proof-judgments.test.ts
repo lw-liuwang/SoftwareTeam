@@ -51,7 +51,7 @@ describe("attributed proof judgments and derived readiness", () => {
     const prepared = await read.json(), item = prepared.items[0];
     expect(prepared.preparedEvidence[0].ref).toBe("work/initiatives/trial/slices/01-alpha/proof/evidence.md");
     const input = { scope: "trial/slices/01-alpha", item: item.id, verdict: "accept", reason: "Prepared observed outcome", evidence: ["proof/evidence.md"], expectedEvidence: prepared.preparedEvidence, expectedRevision: item.revision, expectedPrevious: null };
-    const post = () => app.request("/api/proof/judge", { method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "judge@trial" }, body: JSON.stringify(input) });
+    const post = () => app.request("/api/proof/judge", { method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "judge@trial" }, body: JSON.stringify(input) });
     const evidence = join(alpha, "proof", "evidence.md"), original = fs.readFileSync(evidence);
     fs.writeFileSync(evidence, "Changed after preparation");
     const stale = await post(); expect(stale.status).toBe(409); expect((await stale.json()).error).toBe("evidence_conflict");
@@ -139,7 +139,7 @@ describe("attributed proof judgments and derived readiness", () => {
     const f = fixture(), app = new Hono();
     app.use("*", async (c, next) => { c.set("sliceIndexer" as never, { isReady: () => true, slicesRoot: f.missions, invalidate: () => {} } as never); await next(); });
     app.route("/api/proof", proofRoutes());
-    const post = (actor: string, body: unknown) => app.request("/api/proof/judge", { method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": actor }, body: JSON.stringify(body) });
+    const post = (actor: string, body: unknown) => app.request("/api/proof/judge", { method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": actor }, body: JSON.stringify(body) });
     const rejected = await post("other@trial", { ...f.input(), actorSession: "judge@trial" });
     expect(rejected.status).toBe(403);
     const accepted = await post("judge@trial", { ...f.input(), actorSession: "other@trial" });

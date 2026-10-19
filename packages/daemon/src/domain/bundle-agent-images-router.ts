@@ -53,8 +53,8 @@ export interface RouteAgentImagesInput {
    *  manifest's agent_images[] block (per PRD §Item 6 line 197). */
   declaredAgentImages: string[];
   /** Absolute path to the operator agent-images library (per
-   *  agent-image-types.ts:9-10: typically `<openrigHome>/agent-images/`
-   *  or workspace-local `.openrig/agent-images/`). Caller resolves. */
+   *  agent-image-types.ts:9-10: typically `<softwareteamHome>/agent-images/`
+   *  or workspace-local `.softwareteam/agent-images/`). Caller resolves. */
   targetAgentImagesDir: string;
 }
 

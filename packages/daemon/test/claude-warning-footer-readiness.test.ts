@@ -4,7 +4,7 @@ import { classifyPaneActivity, SessionTransport } from "../src/domain/session-tr
 import { SeatStructuralActivityService } from "../src/domain/seat-structural-activity-service.js";
 import { AgentActivityStore } from "../src/domain/agent-activity-store.js";
 import { EventBus } from "../src/domain/event-bus.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { createFullTestDb } from "./helpers/test-app.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
@@ -74,7 +74,7 @@ describe("Claude composer below noninteractive status warnings", () => {
   it.each(nestedDrafts)("does not read draft continuations as a new empty input: %s", async (_name, content) => {
     expect(classifyPaneActivity(content).state).not.toBe("agent_idle");
     const service = new SeatStructuralActivityService({ capturePaneContent: async () => content });
-    expect((await service.pollSeat("seat@rig"))?.state).not.toBe("agent_idle");
+    expect((await service.pollSeat("seat@software-team"))?.state).not.toBe("agent_idle");
   });
 
   it("does not confuse completed prompt history with a current draft", () => {
@@ -85,7 +85,7 @@ describe("Claude composer below noninteractive status warnings", () => {
   it.each(workingCaptures)("keeps current work ahead of the empty composer: %s", async (_name, content) => {
     expect(classifyPaneActivity(content)).toMatchObject({ state: "agent_active", reason: "mid_work_pattern" });
     const service = new SeatStructuralActivityService({ capturePaneContent: async () => content });
-    expect(await service.pollSeat("seat@rig")).toMatchObject({ state: "agent_active", reason: "mid_work_pattern" });
+    expect(await service.pollSeat("seat@software-team")).toMatchObject({ state: "agent_active", reason: "mid_work_pattern" });
   });
 
   it.each([[], [update], [update, focus], [update, weekly]])("keeps completed work idle with suffix %j", (...trailers) => {
@@ -117,13 +117,13 @@ describe("Claude composer below noninteractive status warnings", () => {
   it.each(incompleteBlocks)("keeps an incomplete status block unknown: %s", async (_name, content) => {
     expect(classifyPaneActivity(content)).toMatchObject({ state: "unknown", reason: "no_activity_signal" });
     const service = new SeatStructuralActivityService({ capturePaneContent: async () => content });
-    expect((await service.pollSeat("seat@rig"))?.state).toBe("unknown");
+    expect((await service.pollSeat("seat@software-team"))?.state).toBe("unknown");
   });
 
   it.each(alternateWorking)("recognizes work independently of the mode hint: %s", async (_name, content) => {
     expect(classifyPaneActivity(content).state).toBe("agent_active");
     const service = new SeatStructuralActivityService({ capturePaneContent: async () => content });
-    expect((await service.pollSeat("seat@rig"))?.state).toBe("agent_active");
+    expect((await service.pollSeat("seat@software-team"))?.state).toBe("agent_active");
   });
 
   it.each(otherBars)("keeps completed work idle under mode hint %s", (hint) => {
@@ -176,13 +176,13 @@ describe("Claude composer below noninteractive status warnings", () => {
 
   it.each(captures)("shares recognition with the structural-activity consumer: %s", async (_name, content) => {
     const service = new SeatStructuralActivityService({ capturePaneContent: async () => content });
-    expect(await service.pollSeat("seat@rig")).toMatchObject({ state: "agent_idle", reason: "idle_prompt" });
+    expect(await service.pollSeat("seat@software-team")).toMatchObject({ state: "agent_idle", reason: "idle_prompt" });
   });
 
   it("keeps structural draft and warning-only observations unsendable", async () => {
     for (const content of [pane([update, focus], "❯ unfinished message"), focus]) {
       const service = new SeatStructuralActivityService({ capturePaneContent: async () => content });
-      expect((await service.pollSeat("seat@rig"))?.state).not.toBe("agent_idle");
+      expect((await service.pollSeat("seat@software-team"))?.state).not.toBe("agent_idle");
     }
   });
 });
@@ -212,7 +212,7 @@ describe("#808: Claude permission-mode footers below status warnings", () => {
       const content = modePane(hint, trailers);
       expect(classifyPaneActivity(content)).toMatchObject({ state: "agent_idle", reason: "idle_prompt", evidence: "❯" });
       const service = new SeatStructuralActivityService({ capturePaneContent: async () => content });
-      expect(await service.pollSeat("seat@rig")).toMatchObject({ state: "agent_idle", reason: "idle_prompt" });
+      expect(await service.pollSeat("seat@software-team")).toMatchObject({ state: "agent_idle", reason: "idle_prompt" });
     }
   });
 
@@ -256,10 +256,10 @@ describe("first guarded Claude send with retained warning-shaped composer", () =
 
   function setup(content: string, event = "SessionStart", ageMs = 16_000, priorGeneration = false) {
     db = createFullTestDb();
-    const repo = new RigRepository(db);
+    const repo = new SoftwareTeamRepository(db);
     const registry = new SessionRegistry(db);
-    const rig = repo.createRig("footer-test");
-    const node = repo.addNode(rig.id, "worker.a", { runtime: "claude-code", role: "worker" });
+    const softwareTeam = repo.createSoftwareTeam("footer-test");
+    const node = repo.addNode(softwareTeam.id, "worker.a", { runtime: "claude-code", role: "worker" });
     const name = "worker-a@footer-test";
     const session = registry.registerSession(node.id, name);
     registry.updateStatus(session.id, "running");
@@ -291,7 +291,7 @@ describe("first guarded Claude send with retained warning-shaped composer", () =
       listPanes: async () => [], getPanePid: async () => null,
       sendText, sendKeys,
     } as unknown as TmuxAdapter;
-    const transport = new SessionTransport({ db, rigRepo: repo, sessionRegistry: registry,
+    const transport = new SessionTransport({ db, softwareTeamRepo: repo, sessionRegistry: registry,
       tmuxAdapter: tmux, agentActivityStore: store, now: () => now, sleep: async () => undefined, waitForIdlePollMs: 1 });
     return { transport, store, name, sendText, sendKeys };
   }

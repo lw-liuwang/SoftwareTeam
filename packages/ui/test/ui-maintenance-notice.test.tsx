@@ -19,7 +19,7 @@ describe("UI maintenance notice", () => {
     render(<UiMaintenanceNotice />);
 
     expect(screen.getByTestId("ui-maintenance-notice").textContent).toContain(
-      "The OpenRig UI is experimental and in maintenance mode.",
+      "The SoftwareTeam UI is experimental and in maintenance mode.",
     );
     expect(screen.getByTestId("ui-maintenance-notice").textContent).toContain(
       "The CLI is the primary supported interface.",

@@ -10,7 +10,7 @@ import type Database from "better-sqlite3";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { ContextUsageStore } from "../src/domain/context-usage-store.js";
 import { ContextMonitor } from "../src/domain/context-monitor.js";
@@ -82,17 +82,17 @@ describe("post-compact drain readiness without a usage sample", () => {
   };
   const boundaryWrites = () => tmux.sendText.mock.calls
     .map((call) => String(call[1]))
-    .filter((text) => text.includes("OpenRig post-compaction turn boundary."));
+    .filter((text) => text.includes("SoftwareTeam post-compaction turn boundary."));
 
   beforeEach(() => {
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
     home = mkdtempSync(join(tmpdir(), "compaction-drain-readiness-"));
     mkdirSync(join(home, "state", "context-usage"), { recursive: true });
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const sessionRegistry = new SessionRegistry(db);
-    const rig = rigRepo.createRig("drain");
-    const node = rigRepo.addNode(rig.id, "worker", { runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("drain");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code" });
     sessionName = "worker@drain";
     const session = sessionRegistry.registerSession(node.id, sessionName);
     sessionRegistry.updateStatus(session.id, "running");
@@ -118,7 +118,7 @@ describe("post-compact drain readiness without a usage sample", () => {
       listPanes: async () => [],
     };
     realTransport = new SessionTransport({
-      db, rigRepo, sessionRegistry, tmuxAdapter: tmux, agentActivityStore: activity,
+      db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux, agentActivityStore: activity,
       now: () => new Date(clock), sleep: async (ms: number) => { clock += ms; }, waitForIdlePollMs: 10,
     } as never);
     // Preparation and /compact go to a recording fake; after /compact the real transport delivers.
@@ -126,7 +126,7 @@ describe("post-compact drain readiness without a usage sample", () => {
       send: async (name: string, text: string, opts: unknown) => {
         if (deliver) return realTransport.send(name, text, opts as never);
         preparation.push(text);
-        const marker = text.match(/<!-- openrig-compaction-complete .*? -->/)?.[0];
+        const marker = text.match(/<!-- softwareteam-compaction-complete .*? -->/)?.[0];
         const target = text.match(/Write this attempt's complete restore map to ("(?:[^"\\]|\\.)*")/);
         if (marker && target) {
           const file = JSON.parse(target[1]!) as string;
@@ -140,7 +140,7 @@ describe("post-compact drain readiness without a usage sample", () => {
     settings.set("policies.claude_compaction.enabled", "true");
     settings.set("policies.claude_compaction.threshold_percent", "80");
     enforcer = new ClaudeCompactionEnforcer(settings, transport, {
-      openrigHome: home, resolveOccupantGeneration: () => "gen-1", postCompactSendWaitMs: 40,
+      softwareteamHome: home, resolveOccupantGeneration: () => "gen-1", postCompactSendWaitMs: 40,
     });
     monitor = new ContextMonitor(db, new ContextUsageStore(db, { stateDir: home, codexHomeDir: home }), undefined, enforcer);
   });

@@ -181,13 +181,13 @@ export interface WorkflowSpec {
   /** Addressed context for the agent; references are carried, never interpreted. */
   context_refs?: string[];
   /**
-   * OPR.0.4.6.FAC1: `target.rig` is a DEFAULT, not a hardcode — the
-   * instantiate-time `targetRig` param overrides it, and the effective
-   * binding persists on the instance (`WorkflowInstance.boundRig`).
+   * OPR.0.4.6.FAC1: `target.software_team` is a DEFAULT, not a hardcode — the
+   * instantiate-time `targetSoftwareTeam` param overrides it, and the effective
+   * binding persists on the instance (`WorkflowInstance.boundSoftwareTeam`).
    * No routing path reads this field at runtime (display/label
    * surfaces only); it is kept, never removed/deprecated here.
    */
-  target?: { rig?: string };
+  target?: { software_team?: string };
   entry?: { role?: string };
   roles: Record<string, WorkflowRoleSpec>;
   steps: WorkflowStepSpec[];
@@ -251,13 +251,13 @@ export interface WorkflowInstance {
    */
   hopsBaseline: number;
   /**
-   * OPR.0.4.6.FAC1 (migration 052): the rig NAME this instance is
-   * bound to — `targetRig ?? spec.target.rig ?? null` recorded at
+   * OPR.0.4.6.FAC1 (migration 052): the softwareTeam NAME this instance is
+   * bound to — `targetSoftwareTeam ?? spec.target.software_team ?? null` recorded at
    * instantiate. Role-capability resolution (tier 3) runs against
-   * this rig's inventory; name→id resolves FRESH at each resolution
+   * this softwareTeam's inventory; name→id resolves FRESH at each resolution
    * site. null = unbound = pre-FAC-1 behavior byte-identical.
    */
-  boundRig: string | null;
+  boundSoftwareTeam: string | null;
   lifecycleOperationKey: string | null;
   compiledInputDigest: string | null;
   lifecycleBinding: Record<string, unknown> | null;
@@ -307,7 +307,7 @@ export interface WorkflowSpecRow {
   name: string;
   version: string;
   purpose: string | null;
-  targetRig: string | null;
+  targetSoftwareTeam: string | null;
   spec: WorkflowSpec;
   coordinationTerminalTurnRule: string;
   sourcePath: string;

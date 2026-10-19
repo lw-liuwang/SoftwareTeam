@@ -19,17 +19,17 @@ describe("HistoryQuery.searchSeat — seat-scoped, cross-generation, honest-degr
     rmSync(root, { recursive: true, force: true });
   });
 
-  function writeSeatLog(rig: string, seat: string, content: string): void {
-    const dir = join(root, rig);
+  function writeSeatLog(softwareTeam: string, seat: string, content: string): void {
+    const dir = join(root, softwareTeam);
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, `${seat}.log`), content, "utf-8");
   }
 
   it("returns hits spanning TWO generations of one seat, labeled by generation", async () => {
-    const rig = "my-rig";
-    const seat = "dev-planner@my-rig";
+    const softwareTeam = "my-software-team";
+    const seat = "dev-planner@my-software-team";
     writeSeatLog(
-      rig,
+      softwareTeam,
       seat,
       [
         "gen1 discussed the deployment strategy",
@@ -38,11 +38,11 @@ describe("HistoryQuery.searchSeat — seat-scoped, cross-generation, honest-degr
         "gen2 revisited the deployment plan",
       ].join("\n") + "\n",
     );
-    // A DIFFERENT seat in the same rig dir must NOT be searched (scoping).
-    writeSeatLog(rig, "review-r1@my-rig", "deployment noise in another seat\n");
+    // A DIFFERENT seat in the same softwareTeam dir must NOT be searched (scoping).
+    writeSeatLog(softwareTeam, "review-r1@my-software-team", "deployment noise in another seat\n");
 
     const hq = new HistoryQuery({ transcriptsRoot: root, exec: throwExec });
-    const res = await hq.searchSeat(rig, seat, "deployment");
+    const res = await hq.searchSeat(softwareTeam, seat, "deployment");
 
     expect(res.seat).toBe(seat);
     expect(res.generations).toBe(2);
@@ -56,12 +56,12 @@ describe("HistoryQuery.searchSeat — seat-scoped, cross-generation, honest-degr
   });
 
   it("honest-degraded (boundary_only) — never a silent zero-hits implying the seat never spoke", async () => {
-    const rig = "my-rig";
-    const seat = "dev-guard@my-rig";
-    writeSeatLog(rig, seat, "--- SESSION BOUNDARY: launch at 2026-08-06T00:00:00.000Z ---\n\n");
+    const softwareTeam = "my-software-team";
+    const seat = "dev-guard@my-software-team";
+    writeSeatLog(softwareTeam, seat, "--- SESSION BOUNDARY: launch at 2026-08-06T00:00:00.000Z ---\n\n");
 
     const hq = new HistoryQuery({ transcriptsRoot: root, exec: throwExec });
-    const res = await hq.searchSeat(rig, seat, "deployment");
+    const res = await hq.searchSeat(softwareTeam, seat, "deployment");
 
     expect(res.degraded).toBeDefined();
     expect(res.degraded?.reason).toBe("boundary_only");
@@ -72,7 +72,7 @@ describe("HistoryQuery.searchSeat — seat-scoped, cross-generation, honest-degr
 
   it("honest-degraded (capture_missing) when the seat has no transcript file", async () => {
     const hq = new HistoryQuery({ transcriptsRoot: root, exec: throwExec });
-    const res = await hq.searchSeat("my-rig", "ghost@my-rig", "deployment");
+    const res = await hq.searchSeat("my-software-team", "ghost@my-software-team", "deployment");
 
     expect(res.degraded?.reason).toBe("capture_missing");
     expect(res.hits.length).toBe(0);

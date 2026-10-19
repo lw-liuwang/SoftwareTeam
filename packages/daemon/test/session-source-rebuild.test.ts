@@ -5,17 +5,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFullTestDb } from "./helpers/test-app.js";
 
-import { RigSpecSchema } from "../src/domain/rigspec-schema.js";
-import { RigSpecCodec } from "../src/domain/rigspec-codec.js";
+import { SoftwareTeamSpecSchema } from "../src/domain/software-team-spec-schema.js";
+import { SoftwareTeamSpecCodec } from "../src/domain/software-team-spec-codec.js";
 import { resolveRebuildArtifacts } from "../src/domain/session-source-rebuild-resolver.js";
 import { StartupOrchestrator, type StartupInput } from "../src/domain/startup-orchestrator.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import type { RuntimeAdapter, NodeBinding, ResolvedStartupFile } from "../src/domain/runtime-adapter.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
 import type { ProjectionPlan } from "../src/domain/projection-planner.js";
-import type { RigSpec, SessionSourceRebuildSpec } from "../src/domain/types.js";
+import type { SoftwareTeamSpec, SessionSourceRebuildSpec } from "../src/domain/types.js";
 
 // ============================================================================
 // Fixtures
@@ -24,7 +24,7 @@ import type { RigSpec, SessionSourceRebuildSpec } from "../src/domain/types.js";
 function baseValidSpec(): Record<string, unknown> {
   return {
     version: "0.2",
-    name: "rebuild-test-rig",
+    name: "rebuild-test-software-team",
     pods: [
       {
         id: "dev",
@@ -65,7 +65,7 @@ describe("session_source rebuild — schema validation", () => {
         ref: { kind: "artifact_set", value: ["/tmp/CULTURE.md", "/tmp/role.md"] },
       },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
   });
@@ -75,7 +75,7 @@ describe("session_source rebuild — schema validation", () => {
       runtime: "codex",
       session_source: { mode: "rebuild", ref: { kind: "artifact_set", value: ["/x/y.md"] } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(true);
   });
 
@@ -86,7 +86,7 @@ describe("session_source rebuild — schema validation", () => {
       profile: "none",
       session_source: { mode: "rebuild", ref: { kind: "artifact_set", value: ["/x.md"] } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes("terminal runtime has no native fork primitive and no agent context to rebuild"))).toBe(true);
   });
@@ -95,7 +95,7 @@ describe("session_source rebuild — schema validation", () => {
     const spec = withMember(baseValidSpec(), {
       session_source: { mode: "rebuild", ref: { kind: "native_id", value: "abc" } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('rebuild mode requires ref.kind: "artifact_set"'))).toBe(true);
     expect(result.errors.some((e) => e.includes('belong to mode: "fork"'))).toBe(true);
@@ -105,7 +105,7 @@ describe("session_source rebuild — schema validation", () => {
     const spec = withMember(baseValidSpec(), {
       session_source: { mode: "rebuild", ref: { kind: "artifact_path", value: "/x" } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('rebuild mode requires ref.kind: "artifact_set"'))).toBe(true);
   });
@@ -114,7 +114,7 @@ describe("session_source rebuild — schema validation", () => {
     const spec = withMember(baseValidSpec(), {
       session_source: { mode: "rebuild", ref: { kind: "artifact_set", value: [] } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes("rebuild requires at least one artifact path"))).toBe(true);
     // The error mentions trust-precedence ordering as guidance.
@@ -125,7 +125,7 @@ describe("session_source rebuild — schema validation", () => {
     const spec = withMember(baseValidSpec(), {
       session_source: { mode: "rebuild", ref: { kind: "artifact_set", value: "/just/one/path.md" } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes("required non-empty array"))).toBe(true);
   });
@@ -134,7 +134,7 @@ describe("session_source rebuild — schema validation", () => {
     const spec = withMember(baseValidSpec(), {
       session_source: { mode: "rebuild", ref: { kind: "artifact_set", value: ["/x.md", "  "] } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes("each entry must be a non-empty string"))).toBe(true);
   });
@@ -143,7 +143,7 @@ describe("session_source rebuild — schema validation", () => {
     const spec = withMember(baseValidSpec(), {
       session_source: { mode: "rebuild", ref: { kind: "magic", value: ["/x"] } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('v1 rebuild mode supports "artifact_set" only'))).toBe(true);
   });
@@ -152,7 +152,7 @@ describe("session_source rebuild — schema validation", () => {
     const spec = withMember(baseValidSpec(), {
       session_source: { mode: "snapshot", ref: { kind: "native_id", value: "x" } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     // PL-016 Item 4: error message names the now-three valid modes.
     expect(result.errors.some((e) => e.includes('supports "fork", "rebuild", or "agent_image"'))).toBe(true);
@@ -165,9 +165,9 @@ describe("session_source rebuild — schema validation", () => {
 
 describe("session_source rebuild — codec roundtrip", () => {
   it("preserves rebuild + artifact_set + value array through serialize → parse → normalize", () => {
-    const seed: RigSpec = {
+    const seed: SoftwareTeamSpec = {
       version: "0.2",
-      name: "rebuild-test-rig",
+      name: "rebuild-test-software-team",
       pods: [{
         id: "dev",
         label: "Dev pod",
@@ -183,7 +183,7 @@ describe("session_source rebuild — codec roundtrip", () => {
       }],
       edges: [],
     };
-    const yaml = RigSpecCodec.serialize(seed);
+    const yaml = SoftwareTeamSpecCodec.serialize(seed);
     expect(yaml).toContain("session_source:");
     expect(yaml).toContain("mode: rebuild");
     expect(yaml).toContain("kind: artifact_set");
@@ -191,11 +191,11 @@ describe("session_source rebuild — codec roundtrip", () => {
     expect(yaml).toContain("/tmp/role.md");
     expect(yaml).toContain("/tmp/handover.md");
 
-    const parsed = RigSpecCodec.parse(yaml);
-    const validation = RigSpecSchema.validate(parsed);
+    const parsed = SoftwareTeamSpecCodec.parse(yaml);
+    const validation = SoftwareTeamSpecSchema.validate(parsed);
     expect(validation.valid).toBe(true);
 
-    const normalized = RigSpecSchema.normalize(parsed as Record<string, unknown>) as RigSpec;
+    const normalized = SoftwareTeamSpecSchema.normalize(parsed as Record<string, unknown>) as SoftwareTeamSpec;
     const member = normalized.pods[0]!.members[0]!;
     expect(member.sessionSource).toEqual(seed.pods[0]!.members[0]!.sessionSource);
   });
@@ -296,27 +296,27 @@ describe("StartupOrchestrator rebuild integration", () => {
   let db: Database.Database;
   let sessionRegistry: SessionRegistry;
   let eventBus: EventBus;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
 
   beforeEach(() => {
     db = createFullTestDb();
     sessionRegistry = new SessionRegistry(db);
     eventBus = new EventBus(db);
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
   });
   afterEach(() => { db.close(); });
 
-  function seed(): { rigId: string; nodeId: string; sessionId: string } {
-    const rig = rigRepo.createRig("rebuild-rig");
-    const node = rigRepo.addNode(rig.id, "writer", { runtime: "claude-code" });
+  function seed(): { softwareTeamId: string; nodeId: string; sessionId: string } {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("rebuild-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "writer", { runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, "r01-writer");
     sessionRegistry.updateStatus(session.id, "running");
-    return { rigId: rig.id, nodeId: node.id, sessionId: session.id };
+    return { softwareTeamId: softwareTeam.id, nodeId: node.id, sessionId: session.id };
   }
 
-  function makeInput(s: { rigId: string; nodeId: string; sessionId: string }, overrides?: Partial<StartupInput>): StartupInput {
+  function makeInput(s: { softwareTeamId: string; nodeId: string; sessionId: string }, overrides?: Partial<StartupInput>): StartupInput {
     return {
-      rigId: s.rigId,
+      softwareTeamId: s.softwareTeamId,
       nodeId: s.nodeId,
       sessionId: s.sessionId,
       binding: { id: "b1", nodeId: s.nodeId, tmuxSession: "r01-writer", tmuxWindow: null, tmuxPane: null, cmuxWorkspace: null, cmuxSurface: null, updatedAt: "", cwd: "." },
@@ -470,7 +470,7 @@ describe("identity-honesty literal contract — rebuild", () => {
 describe("rebuild resolver real-filesystem smoke (default existsSync)", () => {
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "openrig-rebuild-resolver-"));
+    dir = mkdtempSync(join(tmpdir(), "softwareteam-rebuild-resolver-"));
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });

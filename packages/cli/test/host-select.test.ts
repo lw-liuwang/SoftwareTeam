@@ -1,4 +1,4 @@
-// OPR.0.4.6.MH1 rev1-r1 B (fixback) — the `rig host select` COMMAND
+// OPR.0.4.6.MH1 rev1-r1 B (fixback) — the `softwareTeam host select` COMMAND
 // itself: registry validation, the one daemon write, the structured
 // unknown-id error (persisting nothing), select-local, and the
 // daemon-down surface. The read helpers are covered in
@@ -14,7 +14,7 @@ import { Command } from "commander";
 import { hostCommand } from "../src/commands/host.js";
 import { addHostEntry } from "../src/host-registry.js";
 
-describe("rig host select (OPR.0.4.6.MH1 FR-1 command path)", () => {
+describe("SoftwareTeam host select (OPR.0.4.6.MH1 FR-1 command path)", () => {
   let dir: string;
   let savedEnv: Record<string, string | undefined>;
   let server: http.Server;
@@ -24,11 +24,11 @@ describe("rig host select (OPR.0.4.6.MH1 FR-1 command path)", () => {
   beforeEach(async () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "hostselect-"));
     savedEnv = {};
-    for (const k of ["OPENRIG_HOME", "RIGGED_HOME", "OPENRIG_URL", "RIGGED_URL", "OPENRIG_HOST_SELECTED"]) {
+    for (const k of ["SOFTWARETEAM_HOME", "SOFTWARETEAM_HOME", "SOFTWARETEAM_URL", "SOFTWARETEAM_URL", "SOFTWARETEAM_HOST_SELECTED"]) {
       savedEnv[k] = process.env[k];
       delete process.env[k];
     }
-    process.env.OPENRIG_HOME = dir;
+    process.env.SOFTWARETEAM_HOME = dir;
 
     writes = [];
     server = http.createServer((req, res) => {
@@ -42,7 +42,7 @@ describe("rig host select (OPR.0.4.6.MH1 FR-1 command path)", () => {
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     port = (server.address() as { port: number }).port;
-    process.env.OPENRIG_URL = `http://127.0.0.1:${port}`;
+    process.env.SOFTWARETEAM_URL = `http://127.0.0.1:${port}`;
   });
 
   afterEach(() => {
@@ -72,11 +72,11 @@ describe("rig host select (OPR.0.4.6.MH1 FR-1 command path)", () => {
     const prog = new Command();
     prog.exitOverride();
     prog.addCommand(hostCommand());
-    return prog.parseAsync(["node", "rig", "host", ...argv]);
+    return prog.parseAsync(["node", "softwareTeam", "host", ...argv]);
   }
 
   function seedRegistry() {
-    expect(addHostEntry({ id: "vps-a", transport: "http", url: "http://vps-a:7433", bearer_env: "VPS_A_TOKEN" }).ok).toBe(true);
+    expect(addHostEntry({ id: "vps-a", transport: "http", url: "http://vps-a:7434", bearer_env: "VPS_A_TOKEN" }).ok).toBe(true);
   }
 
   it("selects a registered id: validates against the registry, then ONE daemon config write", async () => {

@@ -6,32 +6,32 @@ import type { StatusDeps } from "./status.js";
 
 interface UnarchiveResult {
   ok: boolean;
-  rigId: string;
+  softwareTeamId: string;
   unarchived?: boolean;
 }
 
 /**
- * `rig unarchive <rigId>` - OPR.0.3.3.19. Reverse of `rig archive`: clears the
- * `archived_at` flag so the rig returns to the default explorer + `rig ps` view.
+ * `softwareTeam unarchive <softwareTeamId>` - OPR.0.3.3.19. Reverse of `softwareTeam archive`: clears the
+ * `archived_at` flag so the softwareTeam returns to the default explorer + `SoftwareTeam ps` view.
  * Always non-destructive (the row and snapshots were retained while archived);
- * no `--force` and no running-rig guard - unarchiving only makes a rig visible.
+ * no `--force` and no running-softwareTeam guard - unarchiving only makes a softwareTeam visible.
  */
 export function unarchiveCommand(depsOverride?: StatusDeps): Command {
   const cmd = new Command("unarchive").description(
-    "Unarchive a rig (reverse of 'rig archive'): returns it to the default view. Always safe.",
+    "Unarchive a softwareTeam (reverse of 'SoftwareTeam archive'): returns it to the default view. Always safe.",
   );
   const getDepsF = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   cmd
-    .argument("<rigId>", "Rig identifier to unarchive")
+    .argument("<softwareTeamId>", "SoftwareTeam identifier to unarchive")
     .option("--json", "JSON output for agents")
-    .action(async (rigId: string, opts: { json?: boolean }) => {
+    .action(async (softwareTeamId: string, opts: { json?: boolean }) => {
       const deps = getDepsF();
       const status = await getDaemonStatus(deps.lifecycleDeps);
       if (!daemonStatusGuard(status)) return;
       const client = deps.clientFactory(getDaemonUrl(status));
       const res = await client.post<UnarchiveResult | { error: string }>(
-        `/api/rigs/${encodeURIComponent(rigId)}/unarchive`,
+        `/api/software-teams/${encodeURIComponent(softwareTeamId)}/unarchive`,
         {},
       );
 
@@ -42,7 +42,7 @@ export function unarchiveCommand(depsOverride?: StatusDeps): Command {
       }
 
       if (res.status === 404) {
-        console.error(`Rig not found: ${rigId}. List archived rigs with: rig ps --include-archived`);
+        console.error(`SoftwareTeam not found: ${softwareTeamId}. List archived softwareTeams with: SoftwareTeam ps --include-archived`);
         process.exitCode = 1;
         return;
       }
@@ -54,9 +54,9 @@ export function unarchiveCommand(depsOverride?: StatusDeps): Command {
 
       const r = res.data as UnarchiveResult;
       if (r.unarchived) {
-        console.log(`Rig ${rigId} unarchived. It is back in the default view.`);
+        console.log(`SoftwareTeam ${softwareTeamId} unarchived. It is back in the default view.`);
       } else {
-        console.log(`Rig ${rigId} was not archived.`);
+        console.log(`SoftwareTeam ${softwareTeamId} was not archived.`);
       }
     });
 

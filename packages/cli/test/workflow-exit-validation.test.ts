@@ -57,7 +57,7 @@ describe("isProjectExitKind — pure helper", () => {
   });
 });
 
-describe("rig workflow project --exit — CLI-side discriminator (BLOCK 2)", () => {
+describe("SoftwareTeam workflow project --exit — CLI-side discriminator (BLOCK 2)", () => {
   it("rejects '--exit banana' with --json: exit=1, body.error 3-part, client.post NOT called", async () => {
     const post = vi.fn();
     const deps = fakeRunningDeps(post);
@@ -66,7 +66,7 @@ describe("rig workflow project --exit — CLI-side discriminator (BLOCK 2)", () 
     process.exitCode = 0;
     const root = workflowCommand(deps);
     await root.parseAsync([
-      "node", "rig", "project",
+      "node", "softwareTeam", "project",
       "--instance", "WF1",
       "--current-packet", "q1",
       "--exit", "banana",
@@ -94,7 +94,7 @@ describe("rig workflow project --exit — CLI-side discriminator (BLOCK 2)", () 
     process.exitCode = 0;
     const root = workflowCommand(deps);
     await root.parseAsync([
-      "node", "rig", "project",
+      "node", "softwareTeam", "project",
       "--instance", "WF1",
       "--current-packet", "q1",
       "--exit", "banana",
@@ -120,7 +120,7 @@ describe("rig workflow project --exit — CLI-side discriminator (BLOCK 2)", () 
       process.exitCode = 0;
       const root = workflowCommand(deps);
       await root.parseAsync([
-        "node", "rig", "project",
+        "node", "softwareTeam", "project",
         "--instance", "WF1",
         "--current-packet", "q1",
         "--exit", bad,

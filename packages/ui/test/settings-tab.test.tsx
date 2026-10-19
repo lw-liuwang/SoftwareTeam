@@ -24,17 +24,17 @@ function jsonResponse(body: unknown, status = 200): Response {
 function makeSettingsResponse() {
   return {
     settings: {
-      "daemon.port": { value: 7433, source: "default", defaultValue: 7433 },
+      "daemon.port": { value: 7434, source: "default", defaultValue: 7434 },
       "daemon.host": { value: "127.0.0.1", source: "default", defaultValue: "127.0.0.1" },
-      "db.path": { value: "/Users/me/.openrig/openrig.sqlite", source: "default", defaultValue: "/Users/me/.openrig/openrig.sqlite" },
+      "db.path": { value: "/Users/me/.softwareteam/softwareteam.sqlite", source: "default", defaultValue: "/Users/me/.softwareteam/softwareteam.sqlite" },
       "transcripts.enabled": { value: true, source: "default", defaultValue: true },
-      "transcripts.path": { value: "/Users/me/.openrig/transcripts", source: "default", defaultValue: "/Users/me/.openrig/transcripts" },
-      "workspace.root": { value: "/Users/me/.openrig/workspace", source: "default", defaultValue: "/Users/me/.openrig/workspace" },
-      "workspace.slices_root": { value: "/Users/me/.openrig/workspace/missions", source: "default", defaultValue: "/Users/me/.openrig/workspace/missions" },
-      "workspace.steering_path": { value: "/Users/me/.openrig/workspace/STEERING.md", source: "default", defaultValue: "/Users/me/.openrig/workspace/STEERING.md" },
-      "workspace.specs_root": { value: "/Users/me/.openrig/workspace/specs", source: "default", defaultValue: "/Users/me/.openrig/workspace/specs" },
-      "workspace.projects_root": { value: "/Users/me/.openrig/workspace/projects", source: "default", defaultValue: "/Users/me/.openrig/workspace/projects" },
-      "workspace.catalog_path": { value: "/Users/me/.openrig/workspace/workspace.yaml", source: "default", defaultValue: "/Users/me/.openrig/workspace/workspace.yaml" },
+      "transcripts.path": { value: "/Users/me/.softwareteam/transcripts", source: "default", defaultValue: "/Users/me/.softwareteam/transcripts" },
+      "workspace.root": { value: "/Users/me/.softwareteam/workspace", source: "default", defaultValue: "/Users/me/.softwareteam/workspace" },
+      "workspace.slices_root": { value: "/Users/me/.softwareteam/workspace/missions", source: "default", defaultValue: "/Users/me/.softwareteam/workspace/missions" },
+      "workspace.steering_path": { value: "/Users/me/.softwareteam/workspace/STEERING.md", source: "default", defaultValue: "/Users/me/.softwareteam/workspace/STEERING.md" },
+      "workspace.specs_root": { value: "/Users/me/.softwareteam/workspace/specs", source: "default", defaultValue: "/Users/me/.softwareteam/workspace/specs" },
+      "workspace.projects_root": { value: "/Users/me/.softwareteam/workspace/projects", source: "default", defaultValue: "/Users/me/.softwareteam/workspace/projects" },
+      "workspace.catalog_path": { value: "/Users/me/.softwareteam/workspace/workspace.yaml", source: "default", defaultValue: "/Users/me/.softwareteam/workspace/workspace.yaml" },
       "files.allowlist": { value: "", source: "default", defaultValue: "" },
       "progress.scan_roots": { value: "ws:/Users/me/work", source: "env", defaultValue: "" },
     },
@@ -106,7 +106,7 @@ describe("SettingsTab — User Settings v0", () => {
       if (String(url).includes("/api/config/init-workspace")) {
         initCalled = true;
         return jsonResponse({
-          root: "/Users/me/.openrig/workspace",
+          root: "/Users/me/.softwareteam/workspace",
           rootCreated: true,
           subdirs: [
             { name: "missions", path: "/x/missions", created: true },

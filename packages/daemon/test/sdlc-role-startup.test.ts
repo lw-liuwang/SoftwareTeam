@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { resolveAgentRef } from '../src/domain/agent-resolver.js';
 import { resolveNodeConfig } from '../src/domain/profile-resolver.js';
-import { RigSpecSchema } from '../src/domain/rigspec-schema.js';
+import { SoftwareTeamSpecSchema } from '../src/domain/software-team-spec-schema.js';
 
 const agents = resolve(import.meta.dirname, '../specs/agents');
 const roles = ['development/implementer', 'development/qa', 'review/independent-reviewer', 'orchestration/orchestrator'];
@@ -14,9 +14,9 @@ describe('packaged SDLC entry', () => {
     const result = resolveAgentRef(`local:${role}`, agents, fs);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(JSON.stringify(result));
-    const rig = RigSpecSchema.normalize({ version: '0.2', name: 'entry-fixture', pods: [{ id: 'work', members: [{ id: 'seat', agent_ref: `local:${role}`, profile: 'default', runtime: 'codex', cwd: '/isolated-sdlc-fixture' }] }] });
-    const pod = rig.pods[0]!;
-    const config = resolveNodeConfig({ baseSpec: result.resolved, importedSpecs: result.imports, collisions: result.collisions, profileName: 'default', member: pod.members[0]!, pod, rig, homedir: '/isolated-sdlc-fixture-home', skillsRoot: '/isolated-sdlc-fixture-catalog' });
+    const softwareTeam = SoftwareTeamSpecSchema.normalize({ version: '0.2', name: 'entry-fixture', pods: [{ id: 'work', members: [{ id: 'seat', agent_ref: `local:${role}`, profile: 'default', runtime: 'codex', cwd: '/isolated-sdlc-fixture' }] }] });
+    const pod = softwareTeam.pods[0]!;
+    const config = resolveNodeConfig({ baseSpec: result.resolved, importedSpecs: result.imports, collisions: result.collisions, profileName: 'default', member: pod.members[0]!, pod, softwareTeam, homedir: '/isolated-sdlc-fixture-home', skillsRoot: '/isolated-sdlc-fixture-catalog' });
     expect(config.ok).toBe(true);
     if (!config.ok) throw new Error(config.errors.join('\n'));
     const startup = config.config.startup;
@@ -35,9 +35,9 @@ describe('packaged SDLC entry', () => {
 });
 
 it('generic starter overlays cannot reintroduce universal edit gates', () => {
-  const rigs = resolve(agents, '../rigs');
+  const softwareTeams = resolve(agents, '../software-teams');
   for (const file of ['launch/factory/CULTURE.md']) {
-    const text = readFileSync(resolve(rigs, file), 'utf8');
+    const text = readFileSync(resolve(softwareTeams, file), 'utf8');
     expect(text).not.toMatch(/gates every edit|reviews every edit|strict gated loop|Reviewers do not wait to be asked|Wait for QA approval/);
     expect(text).toContain('Part A');
   }

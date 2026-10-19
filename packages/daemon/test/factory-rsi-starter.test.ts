@@ -1,4 +1,4 @@
-// OPR.0.4.6.FAC2 C1 — the single-rig RSI factory MVP workflow spec.
+// OPR.0.4.6.FAC2 C1 — the single-softwareTeam RSI factory MVP workflow spec.
 //
 // Proves the two things that make it a coherent inner loop on the SHIPPED engine:
 //  1. it VALIDATES clean — the bounded remediation loops are sanctioned by the
@@ -62,8 +62,8 @@ describe("OPR.0.4.6.FAC2 factory-rsi factory workflow", () => {
       queueItemEvidenceRefSchema,
     ]);
     eventBus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-factory-rsi', 'factory-rsi')`).run();
-    queueRepo = new QueueRepository(db, eventBus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-factory-rsi', 'factory-rsi')`).run();
+    queueRepo = new QueueRepository(db, eventBus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
@@ -76,7 +76,7 @@ describe("OPR.0.4.6.FAC2 factory-rsi factory workflow", () => {
     const raw = readFileSync(RSI_SPEC, "utf-8");
     const spec = parseWorkflowSpec(raw, RSI_SPEC);
 
-    expect(spec.target?.rig).toBe("factory-rsi");
+    expect(spec.target?.software_team).toBe("factory-rsi");
     expect(spec.entry?.role).toBe("planner");
     expect(spec.coordination_terminal_turn_rule).toBe("hot_potato");
     expect(spec.steps.map((s) => s.id)).toEqual([

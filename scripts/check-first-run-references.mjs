@@ -7,23 +7,23 @@ import ts from "typescript";
 import { parse as parseYaml } from "yaml";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const RIGS = "packages/daemon/specs/rigs";
+const SOFTWARE_TEAMS = "packages/daemon/specs/software-teams";
 const SHARED_SKILLS = "packages/daemon/specs/agents/shared/skills";
-const PLUGIN_SKILLS = "packages/daemon/assets/plugins/openrig-core/skills";
+const PLUGIN_SKILLS = "packages/daemon/assets/plugins/softwareteam-core/skills";
 // The daemon installs these into the global skill roots; skills/ at the repository
 // root carries the same skills for skills.sh.
 const GLOBAL_SKILLS = "packages/daemon/assets/skills";
 const SKILL_ROOTS = [SHARED_SKILLS, PLUGIN_SKILLS, GLOBAL_SKILLS];
 
-// These are shipped via agent startup.files, rig/member startup.files,
-// builtin-startup-files.ts and rigspec-instantiator.ts; setup prints the function
+// These are shipped via agent startup.files, softwareTeam/member startup.files,
+// builtin-startup-files.ts and software-team-spec-instantiator.ts; setup prints the function
 // below, and build-package.sh ships docs/reference. Add new first-run surfaces here.
 export const SCOPE = [
-  { file: `${RIGS}/launch/kernel/agents/operator/agent/guidance/role.md`, team: "kernel" },
-  { file: `${RIGS}/launch/kernel/agents/operator/agent/startup/context.md`, team: "kernel" },
-  { file: `${RIGS}/launch/starter/guidance/lead-first-move.md`, team: "starter" },
-  { file: `${RIGS}/launch/factory/guidance/lead-first-move.md`, team: "factory" },
-  { file: `${RIGS}/launch/factory/guidance/advisor-role.md`, team: "factory" },
+  { file: `${SOFTWARE_TEAMS}/launch/kernel/agents/operator/agent/guidance/role.md`, team: "kernel" },
+  { file: `${SOFTWARE_TEAMS}/launch/kernel/agents/operator/agent/startup/context.md`, team: "kernel" },
+  { file: `${SOFTWARE_TEAMS}/launch/starter/guidance/lead-first-move.md`, team: "starter" },
+  { file: `${SOFTWARE_TEAMS}/launch/factory/guidance/lead-first-move.md`, team: "factory" },
+  { file: `${SOFTWARE_TEAMS}/launch/factory/guidance/advisor-role.md`, team: "factory" },
   { file: "docs/reference/getting-started.md" },
   { file: "packages/cli/src/commands/setup.ts", function: "goldenPathNextSteps" },
   { file: "packages/daemon/assets/onboarding/01-world-and-purpose.md" },
@@ -74,11 +74,11 @@ export function references(text, { printed = false, team } = {}) {
   const spans = [...text.matchAll(/(?<!`)`([^`]+)`(?!`)/g)].map((m) => ({ value: m[1], offset: m.index + 1 }));
   for (const block of text.matchAll(/^```(?:sh|bash|zsh|shell|console)\s*\n([\s\S]*?)^```/gm)) {
     const start = block.index + block[0].indexOf("\n") + 1;
-    for (const m of block[1].matchAll(/^[ \t]*(rig\s+[^\n#]+)/gm)) spans.push({ value: m[1], offset: start + m.index + m[0].indexOf(m[1]) });
+    for (const m of block[1].matchAll(/^[ \t]*(SoftwareTeam\s+[^\n#]+)/gm)) spans.push({ value: m[1], offset: start + m.index + m[0].indexOf(m[1]) });
   }
   if (printed) spans.push({ value: text, offset: 0 });
   for (const { value, offset } of spans) {
-    for (const m of value.matchAll(/\brig\s+(?=[a-z-])([^;`]+)/g)) {
+    for (const m of value.matchAll(/\bSoftwareTeam\s+(?=[a-z-])([^;`]+)/g)) {
       add("command", m[0].trim(), offset + m.index, { printed });
     }
     for (const m of value.matchAll(/\b([a-z][a-z0-9-]*@[a-z][a-z0-9-]*)\b/g)) add("seat", m[1], offset + m.index);
@@ -86,13 +86,13 @@ export function references(text, { printed = false, team } = {}) {
       // Unqualified seat names are only meaningful inside their own team's guidance.
       if (!/skill|old name/.test(text.slice(offset + value.length, offset + value.length + 30))) add("local-seat", value, offset, { team });
     }
-    for (const m of value.matchAll(/(?:^|\s)((?:packages|docs|scripts|reference|specs\/rigs|daemon\/docs|daemon\/assets|@openrig\/cli\/daemon\/assets|skills)\/[\w./-]+)(?:#[\w/-]+)?/g)) {
+    for (const m of value.matchAll(/(?:^|\s)((?:packages|docs|scripts|reference|specs\/software-teams|daemon\/docs|daemon\/assets|@softwareteam\/cli\/daemon\/assets|skills)\/[\w./-]+)(?:#[\w/-]+)?/g)) {
       add("path", m[1], offset + m.index + m[0].indexOf(m[1]));
     }
     const before = text.slice(Math.max(0, offset - 85), offset - 1);
     const after = text.slice(offset + value.length + 1, offset + value.length + 85);
     if (literalName(value) && (
-      /^\s+(?:team|rig)\b/.test(after) || /(?:shipped|built-in team|team named)\s+$/.test(before) ||
+      /^\s+(?:team|softwareTeam)\b/.test(after) || /(?:shipped|built-in team|team named)\s+$/.test(before) ||
       /(?:^|\n)\s*-\s*$/.test(before) && /^:/.test(after)
     )) add("team", value, offset);
     if (literalName(value) && (/^\s*skill\b/.test(after) || /\b(?:skill|use|follow)\s+$/.test(before))) add("skill", value, offset);
@@ -139,7 +139,7 @@ export function commandReference(value, program, { prose = false } = {}) {
   const words = tokens(value).slice(1);
   let cmd = program;
   let i = 0;
-  const verbs = ["rig"];
+  const verbs = ["SoftwareTeam"];
   for (; i < words.length; i++) {
     const word = words[i];
     if (!cmd.commands.length) break;
@@ -175,8 +175,8 @@ export async function loadAuthorities(root) {
   ]);
   const library = new SpecLibraryService({ roots: [{ path: path.join(root, "packages/daemon/specs"), sourceType: "builtin" }], specReviewService: new SpecReviewService() });
   library.scan();
-  const entries = library.list({ kind: "rig" });
-  if (!entries.length) throw new Error(`empty builtin rig library: ${RIGS}`);
+  const entries = library.list({ kind: "softwareTeam" });
+  if (!entries.length) throw new Error(`empty builtin SoftwareTeam library: ${SOFTWARE_TEAMS}`);
   const skills = new Map();
   for (const dir of SKILL_ROOTS) {
     for (const file of walk(path.join(root, dir)).filter((p) => p.endsWith("/SKILL.md"))) {
@@ -189,7 +189,7 @@ export async function loadAuthorities(root) {
     program: createProgram(), skills,
     async team(name) {
       if (!resolved.has(name)) {
-        resolved.set(name, resolveLibrarySpec({ get: async () => ({ data: entries }) }, name, { kind: "rig" }).then((entry) => {
+        resolved.set(name, resolveLibrarySpec({ get: async () => ({ data: entries }) }, name, { kind: "softwareTeam" }).then((entry) => {
           const spec = parseYaml(fs.readFileSync(entry.sourcePath, "utf8"));
           const seats = (spec.pods ?? []).flatMap((pod) => (pod.members ?? []).map((m) => `${pod.id}-${m.id}`));
           return { seats, source: path.relative(root, entry.sourcePath) };
@@ -201,7 +201,7 @@ export async function loadAuthorities(root) {
 }
 
 function repositoryPath(value) {
-  return value.replace(/^@openrig\/cli\/daemon\/assets\//, "packages/daemon/assets/")
+  return value.replace(/^@softwareteam\/cli\/daemon\/assets\//, "packages/daemon/assets/")
     .replace(/^daemon\/assets\//, "packages/daemon/assets/").replace(/^daemon\/docs\//, "docs/")
     .replace(/^reference\//, "docs/reference/")
     .replace(/^specs\//, "packages/daemon/specs/");
@@ -217,11 +217,11 @@ export async function checkReferences(root, scope, authority) {
       const against = "packages/cli/src/index.ts:createProgram() command tree";
       if (result.error) return fail(against, result.error);
       const first = result.args?.[0];
-      if (["rig up", "rig specs preview", "rig specs show"].includes(result.verbs) && literalName(first ?? "")) {
+      if (["SoftwareTeam up", "SoftwareTeam specs preview", "SoftwareTeam specs show"].includes(result.verbs) && literalName(first ?? "")) {
         await check({ ...ref, kind: "team", value: first });
       }
-      const words = tokens(ref.value), rigOption = words.indexOf("--rig");
-      if (rigOption >= 0 && literalName(words[rigOption + 1] ?? "")) await check({ ...ref, kind: "team", value: words[rigOption + 1] });
+      const words = tokens(ref.value), softwareTeamOption = words.indexOf("--software-team");
+      if (softwareTeamOption >= 0 && literalName(words[softwareTeamOption + 1] ?? "")) await check({ ...ref, kind: "team", value: words[softwareTeamOption + 1] });
       checked.push({ ...ref, against });
     } else if (["team", "seat", "local-seat"].includes(ref.kind)) {
       const [seat, name] = ref.kind === "team" ? [null, ref.value] : ref.kind === "local-seat" ? [ref.value, ref.team] : ref.value.split("@");
@@ -230,7 +230,7 @@ export async function checkReferences(root, scope, authority) {
         return;
       }
       const found = await authority.team(name);
-      if (!found) return fail(`${RIGS} via resolveLibrarySpec(kind=rig)`, `missing or ambiguous team ${name}`);
+      if (!found) return fail(`${SOFTWARE_TEAMS} via resolveLibrarySpec(kind=softwareTeam)`, `missing or ambiguous team ${name}`);
       if (seat && !found.seats.includes(seat)) return fail(`${found.source} pods[].members[]`, `missing seat ${seat}`);
       checked.push({ ...ref, against: found.source });
     } else if (ref.kind === "skill") {

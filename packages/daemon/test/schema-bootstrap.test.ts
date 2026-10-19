@@ -30,7 +30,7 @@ describe("P5-T00: Bootstrap schema", () => {
     expect(names).toContain("source_kind");
     expect(names).toContain("source_ref");
     expect(names).toContain("status");
-    expect(names).toContain("rig_id");
+    expect(names).toContain("software_team_id");
     expect(names).toContain("created_at");
     expect(names).toContain("applied_at");
   });
@@ -68,14 +68,14 @@ describe("P5-T00: Bootstrap schema", () => {
   it("insert bootstrap run and query by status", () => {
     db.prepare(
       "INSERT INTO bootstrap_runs (id, source_kind, source_ref) VALUES (?, ?, ?)"
-    ).run("bs-1", "rig_spec", "/tmp/rig.yaml");
+    ).run("bs-1", "software_team_spec", "/tmp/software-team.yaml");
 
     const row = db.prepare("SELECT * FROM bootstrap_runs WHERE status = ?")
       .get("planned") as { id: string; source_kind: string; source_ref: string; status: string };
 
     expect(row.id).toBe("bs-1");
-    expect(row.source_kind).toBe("rig_spec");
-    expect(row.source_ref).toBe("/tmp/rig.yaml");
+    expect(row.source_kind).toBe("software_team_spec");
+    expect(row.source_ref).toBe("/tmp/software-team.yaml");
     expect(row.status).toBe("planned");
   });
 
@@ -83,7 +83,7 @@ describe("P5-T00: Bootstrap schema", () => {
   it("insert actions with seq ordering and retrieve ordered", () => {
     db.prepare(
       "INSERT INTO bootstrap_runs (id, source_kind, source_ref) VALUES (?, ?, ?)"
-    ).run("bs-1", "rig_spec", "/tmp/rig.yaml");
+    ).run("bs-1", "software_team_spec", "/tmp/software-team.yaml");
 
     db.prepare(
       "INSERT INTO bootstrap_actions (id, bootstrap_id, seq, action_kind, subject_name, status) VALUES (?, ?, ?, ?, ?, ?)"
@@ -129,7 +129,7 @@ describe("P5-T00: Bootstrap schema", () => {
     // Create bootstrap run
     db.prepare(
       "INSERT INTO bootstrap_runs (id, source_kind, source_ref) VALUES (?, ?, ?)"
-    ).run("bs-1", "rig_spec", "/tmp/rig.yaml");
+    ).run("bs-1", "software_team_spec", "/tmp/software-team.yaml");
 
     // Create install linked to bootstrap run
     db.prepare(

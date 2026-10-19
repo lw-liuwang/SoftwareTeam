@@ -69,14 +69,14 @@ export interface ProbeDeps {
   timeoutMs?: number;
 }
 
-/** Probe `<url>` (a daemon /healthz): 2xx → answered; non-2xx (foreign occupant) → not-openrig; a
+/** Probe `<url>` (a daemon /healthz): 2xx → answered; non-2xx (foreign occupant) → not-softwareteam; a
  *  rejection is classified (refused/timeout). Bounded by an abort timeout. */
 export async function probeHealthz(url: string, deps: ProbeDeps): Promise<HealthzProbeResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), deps.timeoutMs ?? 800);
   try {
     const res = await deps.fetch(url, { signal: controller.signal });
-    return res.ok ? "answered" : "not-openrig";
+    return res.ok ? "answered" : "not-softwareteam";
   } catch (e) {
     return classifyProbeError((e ?? {}) as { code?: string; name?: string });
   } finally {
@@ -95,10 +95,10 @@ export function isProcessAlive(pid: number): boolean {
   }
 }
 
-/** Read + parse `$OPENRIG_HOME/daemon.json` → the {pid,port,host} record, or undefined if absent or
+/** Read + parse `$SOFTWARETEAM_HOME/daemon.json` → the {pid,port,host} record, or undefined if absent or
  *  malformed (treated as "no state file"). */
-export function readDaemonJson(openrigHome: string): DaemonStateFile | undefined {
-  const p = join(openrigHome, "daemon.json");
+export function readDaemonJson(softwareteamHome: string): DaemonStateFile | undefined {
+  const p = join(softwareteamHome, "daemon.json");
   if (!existsSync(p)) return undefined;
   try {
     const j = JSON.parse(readFileSync(p, "utf8")) as { pid?: unknown; port?: unknown; host?: unknown };

@@ -1,4 +1,4 @@
-// release-0.3.2 slice 12 — `rig scope` command-surface integration
+// release-0.3.2 slice 12 — `SoftwareTeam scope` command-surface integration
 // tests. Drives the commander tree end-to-end with a tmp substrate
 // fixture so every HG-N gate has direct coverage.
 
@@ -17,7 +17,7 @@ import { readFrontmatter } from "../src/lib/scope/scope-fs.js";
 import { readMissionReadiness, readProjectReadiness, readSliceReadiness, recordJudgment } from "../../daemon/src/domain/proof/judgments.js";
 
 function mktemp(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "rig-scope-cmd-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "software-team-scope-cmd-"));
 }
 
 function writeFile(p: string, content: string): void {
@@ -91,7 +91,7 @@ interface CaptureResult {
   stderr: string;
 }
 
-/** Run `rig scope <args> --workspace <dirname(workspace)>`, or with no --workspace when `workspace` is null. */
+/** Run `SoftwareTeam scope <args> --workspace <dirname(workspace)>`, or with no --workspace when `workspace` is null. */
 async function run(args: string[], workspace: string | null): Promise<CaptureResult> {
   const stdoutBuf: string[] = [];
   const stderrBuf: string[] = [];
@@ -109,7 +109,7 @@ async function run(args: string[], workspace: string | null): Promise<CaptureRes
   program.addCommand(scopeCommand());
   program.exitOverride();
   try {
-    await program.parseAsync(["node", "rig", "scope", ...args, ...(workspace === null ? [] : ["--workspace", path.dirname(workspace)])]);
+    await program.parseAsync(["node", "softwareTeam", "scope", ...args, ...(workspace === null ? [] : ["--workspace", path.dirname(workspace)])]);
   } catch (err) {
     const msg = (err as Error).message ?? "";
     if (!msg.startsWith("__EXIT__")) {
@@ -127,7 +127,7 @@ async function run(args: string[], workspace: string | null): Promise<CaptureRes
   };
 }
 
-describe("rig scope resolve-notes", () => {
+describe("SoftwareTeam scope resolve-notes", () => {
   let root: string;
   beforeEach(() => { root = mktemp(); });
   afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
@@ -162,10 +162,10 @@ describe("rig scope resolve-notes", () => {
 });
 
 // ---------------------------------------------------------------------
-// HG-1 + HG-9: rig scope slice ls --json + state filter
+// HG-1 + HG-9: SoftwareTeam scope slice ls --json + state filter
 // ---------------------------------------------------------------------
 
-describe("rig scope slice ls", () => {
+describe("SoftwareTeam scope slice ls", () => {
   let env: { root: string; missionsRoot: string };
   beforeEach(() => { env = seedSubstrate(); });
   afterEach(() => { fs.rmSync(env.root, { recursive: true, force: true }); });
@@ -187,10 +187,10 @@ describe("rig scope slice ls", () => {
 });
 
 // ---------------------------------------------------------------------
-// HG-2: rig scope slice show
+// HG-2: SoftwareTeam scope slice show
 // ---------------------------------------------------------------------
 
-describe("rig scope slice show (HG-2)", () => {
+describe("SoftwareTeam scope slice show (HG-2)", () => {
   let env: { root: string; missionsRoot: string };
   beforeEach(() => { env = seedSubstrate(); });
   afterEach(() => { fs.rmSync(env.root, { recursive: true, force: true }); });
@@ -209,10 +209,10 @@ describe("rig scope slice show (HG-2)", () => {
 });
 
 // ---------------------------------------------------------------------
-// HG-3 + HG-4 + HG-15: rig scope slice create
+// HG-3 + HG-4 + HG-15: SoftwareTeam scope slice create
 // ---------------------------------------------------------------------
 
-describe("rig scope slice create", () => {
+describe("SoftwareTeam scope slice create", () => {
   let env: { root: string; missionsRoot: string };
   beforeEach(() => { env = seedSubstrate(); });
   afterEach(() => { fs.rmSync(env.root, { recursive: true, force: true }); });
@@ -263,7 +263,7 @@ describe("rig scope slice create", () => {
     expect(content).toContain("# Progress");
     expect(content).toContain("## Current state");
     expect(content).toContain("## Outcomes");
-    expect(content).toContain("rig proof show <slice>");
+    expect(content).toContain("SoftwareTeam proof show <slice>");
     expect(content).not.toContain("- [ ] Implementation complete");
   });
 
@@ -336,10 +336,10 @@ describe("rig scope slice create", () => {
 });
 
 // ---------------------------------------------------------------------
-// HG-5 + HG-9: rig scope slice ship — git mv + frontmatter update
+// HG-5 + HG-9: SoftwareTeam scope slice ship — git mv + frontmatter update
 // ---------------------------------------------------------------------
 
-describe("rig scope slice rollback snapshots", () => {
+describe("SoftwareTeam scope slice rollback snapshots", () => {
   let env: { root: string; missionsRoot: string };
   beforeEach(() => { env = seedSubstrate(); });
   afterEach(() => { fs.rmSync(env.root, { recursive: true, force: true }); });
@@ -395,7 +395,7 @@ describe("rig scope slice rollback snapshots", () => {
   });
 });
 
-describe("rig scope slice ship (HG-5)", () => {
+describe("SoftwareTeam scope slice ship (HG-5)", () => {
   let env: { root: string; missionsRoot: string };
   beforeEach(() => { env = seedSubstrate(); });
   afterEach(() => { fs.rmSync(env.root, { recursive: true, force: true }); });
@@ -472,10 +472,10 @@ describe("rig scope slice ship (HG-5)", () => {
 });
 
 // ---------------------------------------------------------------------
-// HG-6: rig scope slice close --reason
+// HG-6: SoftwareTeam scope slice close --reason
 // ---------------------------------------------------------------------
 
-describe("rig scope slice close (HG-6)", () => {
+describe("SoftwareTeam scope slice close (HG-6)", () => {
 
   it.each(["status", "'status'", '\"status\"', "status ", '\"sta\\u0074us\"', "? status\n", "flow", "flow-trailing"])("retains a slice identity after updating the YAML key %j", async (key) => {
     const source = path.join(env.missionsRoot, "backlog", "slices", "01-debt-foo", "README.md");
@@ -558,10 +558,10 @@ describe("rig scope slice close (HG-6)", () => {
 });
 
 // ---------------------------------------------------------------------
-// HG-7: rig scope slice move
+// HG-7: SoftwareTeam scope slice move
 // ---------------------------------------------------------------------
 
-describe("rig scope slice move (HG-7)", () => {
+describe("SoftwareTeam scope slice move (HG-7)", () => {
   let env: { root: string; missionsRoot: string };
   beforeEach(() => { env = seedSubstrate(); });
   afterEach(() => { fs.rmSync(env.root, { recursive: true, force: true }); });
@@ -614,7 +614,7 @@ describe("rig scope slice move (HG-7)", () => {
 // Scope moves treat repository-relative paths as operands, including '-'.
 // ---------------------------------------------------------------------
 
-describe("rig scope slice moves in a dash-prefixed workspace", () => {
+describe("SoftwareTeam scope slice moves in a dash-prefixed workspace", () => {
   let env: { root: string; missionsRoot: string };
   afterEach(() => { if (env) fs.rmSync(env.root, { recursive: true, force: true }); });
 
@@ -662,10 +662,10 @@ describe("rig scope slice moves in a dash-prefixed workspace", () => {
 });
 
 // ---------------------------------------------------------------------
-// HG-8: rig scope mission ls
+// HG-8: SoftwareTeam scope mission ls
 // ---------------------------------------------------------------------
 
-describe("rig scope mission ls (HG-8)", () => {
+describe("SoftwareTeam scope mission ls (HG-8)", () => {
   let env: { root: string; missionsRoot: string };
   beforeEach(() => { env = seedSubstrate(); });
   afterEach(() => { fs.rmSync(env.root, { recursive: true, force: true }); });
@@ -679,7 +679,7 @@ describe("rig scope mission ls (HG-8)", () => {
   });
 });
 
-describe("rig scope mission show", () => {
+describe("SoftwareTeam scope mission show", () => {
   let env: { root: string; missionsRoot: string };
   beforeEach(() => { env = seedSubstrate(); });
   afterEach(() => { fs.rmSync(env.root, { recursive: true, force: true }); });
@@ -693,10 +693,10 @@ describe("rig scope mission show", () => {
 });
 
 // ---------------------------------------------------------------------
-// HG-14 + HG-15: rig scope mission create (PROMOTED to v0 per Amendment §B)
+// HG-14 + HG-15: SoftwareTeam scope mission create (PROMOTED to v0 per Amendment §B)
 // ---------------------------------------------------------------------
 
-describe("rig scope mission create (HG-14 + HG-15)", () => {
+describe("SoftwareTeam scope mission create (HG-14 + HG-15)", () => {
   let env: { root: string; missionsRoot: string };
   beforeEach(() => { env = seedSubstrate(); });
   afterEach(() => { fs.rmSync(env.root, { recursive: true, force: true }); });
@@ -725,10 +725,10 @@ describe("rig scope mission create (HG-14 + HG-15)", () => {
       workspace: { root: path.dirname(globalMissions), slicesRoot: globalMissions },
     }));
 
-    const priorHome = process.env.OPENRIG_HOME;
-    const priorSlicesRoot = process.env.OPENRIG_WORKSPACE_SLICES_ROOT;
-    process.env.OPENRIG_HOME = globalHome;
-    delete process.env.OPENRIG_WORKSPACE_SLICES_ROOT;
+    const priorHome = process.env.SOFTWARETEAM_HOME;
+    const priorSlicesRoot = process.env.SOFTWARETEAM_WORKSPACE_SLICES_ROOT;
+    process.env.SOFTWARETEAM_HOME = globalHome;
+    delete process.env.SOFTWARETEAM_WORKSPACE_SLICES_ROOT;
     try {
       const r = await run(["mission", "create", "first-project-mission", "--json"], path.join(workspace, "missions"));
       expect(r.exitCode).toBe(0);
@@ -736,10 +736,10 @@ describe("rig scope mission create (HG-14 + HG-15)", () => {
       expect(parsed.mission.path).toBe(path.join(workspace, "missions", "first-project-mission"));
       expect(fs.existsSync(path.join(globalMissions, "first-project-mission"))).toBe(false);
     } finally {
-      if (priorHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = priorHome;
-      if (priorSlicesRoot === undefined) delete process.env.OPENRIG_WORKSPACE_SLICES_ROOT;
-      else process.env.OPENRIG_WORKSPACE_SLICES_ROOT = priorSlicesRoot;
+      if (priorHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = priorHome;
+      if (priorSlicesRoot === undefined) delete process.env.SOFTWARETEAM_WORKSPACE_SLICES_ROOT;
+      else process.env.SOFTWARETEAM_WORKSPACE_SLICES_ROOT = priorSlicesRoot;
     }
   });
 
@@ -810,7 +810,7 @@ describe("rig scope mission create (HG-14 + HG-15)", () => {
 
   for (const [via, named] of [
     ["--workspace", "project"],
-    ["OPENRIG_WORK_ROOT", "project"],
+    ["SOFTWARETEAM_WORK_ROOT", "project"],
     ["--workspace naming its missions folder", "missions"],
   ] as const) {
     it(`creates under a missing workspace named by ${via}, reads it back, and leaves the configured root alone`, async () => {
@@ -819,12 +819,12 @@ describe("rig scope mission create (HG-14 + HG-15)", () => {
       const missionsRoot = named === "missions" ? workspace : path.join(workspace, "missions");
       const configuredRoot = path.join(env.root, "configured", via.replace(/\W+/g, "-"), "missions");
       fs.mkdirSync(configuredRoot, { recursive: true });
-      const priorSlicesRoot = process.env.OPENRIG_WORKSPACE_SLICES_ROOT;
-      const priorWorkRoot = process.env.OPENRIG_WORK_ROOT;
-      process.env.OPENRIG_WORKSPACE_SLICES_ROOT = configuredRoot;
-      const byEnv = via === "OPENRIG_WORK_ROOT";
-      if (byEnv) process.env.OPENRIG_WORK_ROOT = workspace;
-      else delete process.env.OPENRIG_WORK_ROOT;
+      const priorSlicesRoot = process.env.SOFTWARETEAM_WORKSPACE_SLICES_ROOT;
+      const priorWorkRoot = process.env.SOFTWARETEAM_WORK_ROOT;
+      process.env.SOFTWARETEAM_WORKSPACE_SLICES_ROOT = configuredRoot;
+      const byEnv = via === "SOFTWARETEAM_WORK_ROOT";
+      if (byEnv) process.env.SOFTWARETEAM_WORK_ROOT = workspace;
+      else delete process.env.SOFTWARETEAM_WORK_ROOT;
       const naming = byEnv ? null : path.join(workspace, "child");
       try {
         expect(fs.existsSync(absent)).toBe(false);
@@ -839,10 +839,10 @@ describe("rig scope mission create (HG-14 + HG-15)", () => {
         expect(JSON.parse(shown.stdout).mission.path).toBe(path.join(missionsRoot, "first-anywhere"));
         expect(fs.readdirSync(configuredRoot)).toEqual([]);
       } finally {
-        if (priorSlicesRoot === undefined) delete process.env.OPENRIG_WORKSPACE_SLICES_ROOT;
-        else process.env.OPENRIG_WORKSPACE_SLICES_ROOT = priorSlicesRoot;
-        if (priorWorkRoot === undefined) delete process.env.OPENRIG_WORK_ROOT;
-        else process.env.OPENRIG_WORK_ROOT = priorWorkRoot;
+        if (priorSlicesRoot === undefined) delete process.env.SOFTWARETEAM_WORKSPACE_SLICES_ROOT;
+        else process.env.SOFTWARETEAM_WORKSPACE_SLICES_ROOT = priorSlicesRoot;
+        if (priorWorkRoot === undefined) delete process.env.SOFTWARETEAM_WORK_ROOT;
+        else process.env.SOFTWARETEAM_WORK_ROOT = priorWorkRoot;
       }
     });
   }
@@ -852,16 +852,16 @@ describe("rig scope mission create (HG-14 + HG-15)", () => {
     writeFile(workspace, "not a workspace\n");
     const configuredRoot = path.join(env.root, "configured-for-file", "missions");
     fs.mkdirSync(configuredRoot, { recursive: true });
-    const priorSlicesRoot = process.env.OPENRIG_WORKSPACE_SLICES_ROOT;
-    process.env.OPENRIG_WORKSPACE_SLICES_ROOT = configuredRoot;
+    const priorSlicesRoot = process.env.SOFTWARETEAM_WORKSPACE_SLICES_ROOT;
+    process.env.SOFTWARETEAM_WORKSPACE_SLICES_ROOT = configuredRoot;
     try {
       const r = await run(["mission", "create", "nowhere", "--json"], path.join(workspace, "child"));
       expect(r.exitCode).not.toBe(0);
       expect(r.stdout + r.stderr).toMatch(/ENOTDIR/);
       expect(fs.readdirSync(configuredRoot)).toEqual([]);
     } finally {
-      if (priorSlicesRoot === undefined) delete process.env.OPENRIG_WORKSPACE_SLICES_ROOT;
-      else process.env.OPENRIG_WORKSPACE_SLICES_ROOT = priorSlicesRoot;
+      if (priorSlicesRoot === undefined) delete process.env.SOFTWARETEAM_WORKSPACE_SLICES_ROOT;
+      else process.env.SOFTWARETEAM_WORKSPACE_SLICES_ROOT = priorSlicesRoot;
     }
   });
 
@@ -1085,7 +1085,7 @@ describe("rig scope mission create (HG-14 + HG-15)", () => {
     expect(fs.existsSync(path.join(parsed.mission.path, "NOTES.md"))).toBe(false);
   });
 
-  it("OPENRIG_NOTES_TEMPLATE_PATH overrides the built-in template", async () => {
+  it("SOFTWARETEAM_NOTES_TEMPLATE_PATH overrides the built-in template", async () => {
     // Write a custom template at a temp path containing a distinctive marker.
     const customTemplatePath = path.join(env.root, "custom-mission-notes-template.md");
     fs.writeFileSync(
@@ -1093,8 +1093,8 @@ describe("rig scope mission create (HG-14 + HG-15)", () => {
       "---\nmission: {{mission_id}}\n---\n\n# CUSTOM TEMPLATE — {{mission_name}}\n\nCREATED ON {{created_date}}\n",
       "utf8",
     );
-    const prior = process.env.OPENRIG_NOTES_TEMPLATE_PATH;
-    process.env.OPENRIG_NOTES_TEMPLATE_PATH = customTemplatePath;
+    const prior = process.env.SOFTWARETEAM_NOTES_TEMPLATE_PATH;
+    process.env.SOFTWARETEAM_NOTES_TEMPLATE_PATH = customTemplatePath;
     try {
       const r = await run(["mission", "create", "release-0.8.0", "--json"], env.missionsRoot);
       expect(r.exitCode).toBe(0);
@@ -1106,20 +1106,20 @@ describe("rig scope mission create (HG-14 + HG-15)", () => {
       // Built-in canonical sections must NOT appear (proves we used the custom one).
       expect(content).not.toMatch(/## §1\. Top-of-mind context/);
     } finally {
-      if (prior === undefined) delete process.env.OPENRIG_NOTES_TEMPLATE_PATH;
-      else process.env.OPENRIG_NOTES_TEMPLATE_PATH = prior;
+      if (prior === undefined) delete process.env.SOFTWARETEAM_NOTES_TEMPLATE_PATH;
+      else process.env.SOFTWARETEAM_NOTES_TEMPLATE_PATH = prior;
     }
   });
 
-  it("FR-3: OPENRIG_MISSION_NOTES_TEMPLATE_PATH pointing at a missing file fails with a 3-part error and no mission dir leaked", async () => {
-    const prior = process.env.OPENRIG_MISSION_NOTES_TEMPLATE_PATH;
-    process.env.OPENRIG_MISSION_NOTES_TEMPLATE_PATH = path.join(env.root, "does-not-exist.md");
+  it("FR-3: SOFTWARETEAM_MISSION_NOTES_TEMPLATE_PATH pointing at a missing file fails with a 3-part error and no mission dir leaked", async () => {
+    const prior = process.env.SOFTWARETEAM_MISSION_NOTES_TEMPLATE_PATH;
+    process.env.SOFTWARETEAM_MISSION_NOTES_TEMPLATE_PATH = path.join(env.root, "does-not-exist.md");
     try {
       const r = await run(["mission", "create", "release-0.9.0", "--json"], env.missionsRoot);
       expect(r.exitCode).toBe(1);
       const parsed = JSON.parse(r.stdout);
       expect(parsed.ok).toBe(false);
-      expect(parsed.error.fact).toMatch(/OPENRIG_MISSION_NOTES_TEMPLATE_PATH/);
+      expect(parsed.error.fact).toMatch(/SOFTWARETEAM_MISSION_NOTES_TEMPLATE_PATH/);
       // Discriminator (guard catch qitem-20260601121058): the failed scaffold
       // MUST NOT leave a half-created mission dir behind. Without the
       // verify-first-then-write reorder, the mission dir + README would
@@ -1129,8 +1129,8 @@ describe("rig scope mission create (HG-14 + HG-15)", () => {
       const leakedPath = path.join(env.missionsRoot, "release-0.9.0");
       expect(fs.existsSync(leakedPath), `expected no half-created mission at ${leakedPath} after stale env-var failure`).toBe(false);
     } finally {
-      if (prior === undefined) delete process.env.OPENRIG_MISSION_NOTES_TEMPLATE_PATH;
-      else process.env.OPENRIG_MISSION_NOTES_TEMPLATE_PATH = prior;
+      if (prior === undefined) delete process.env.SOFTWARETEAM_MISSION_NOTES_TEMPLATE_PATH;
+      else process.env.SOFTWARETEAM_MISSION_NOTES_TEMPLATE_PATH = prior;
     }
   });
 
@@ -1328,7 +1328,7 @@ describe("--help is present on every command (HG-12)", () => {
   });
 });
 
-describe("rig scope audit ordinal naming", () => {
+describe("SoftwareTeam scope audit ordinal naming", () => {
   let root: string;
   let mission: string;
   const missionReadme = "---\nid: OPR.99.0.1\n---\n# Owned legacy mission\n";
@@ -1348,7 +1348,7 @@ describe("rig scope audit ordinal naming", () => {
       "--workspace", path.join(root, "workspace"), "--json"];
     const options = { encoding: "utf8" as const, timeout: 15000, env: {
       PATH: process.env.PATH, HOME: home, TMPDIR: root,
-      OPENRIG_HOME: path.join(home, ".openrig"), CODEX_HOME: path.join(home, "codex"),
+      SOFTWARETEAM_HOME: path.join(home, ".softwareteam"), CODEX_HOME: path.join(home, "codex"),
       CLAUDE_CONFIG_DIR: path.join(home, "claude"), GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: os.devNull,
     } };
     try {
@@ -1398,7 +1398,7 @@ describe("rig scope audit ordinal naming", () => {
 // Guard BLOCKING: audit edge cases
 // ---------------------------------------------------------------------
 
-describe("rig scope audit edge cases (guard BLOCKING fixes)", () => {
+describe("SoftwareTeam scope audit edge cases (guard BLOCKING fixes)", () => {
   let substrate: { root: string; missionsRoot: string };
   beforeEach(() => {
     substrate = seedSubstrate();
@@ -1536,7 +1536,7 @@ describe("rig scope audit edge cases (guard BLOCKING fixes)", () => {
 // S17 fix round 1 — PROGRESS is an acceptance checklist, not a commit log.
 // ---------------------------------------------------------------------
 
-describe("rig scope audit — no per-commit PROGRESS enforcement", () => {
+describe("SoftwareTeam scope audit — no per-commit PROGRESS enforcement", () => {
   let substrate: { root: string; missionsRoot: string };
   beforeEach(() => { substrate = seedSubstrate(); });
   afterEach(() => { fs.rmSync(substrate.root, { recursive: true, force: true }); });
@@ -1563,7 +1563,7 @@ describe("rig scope audit — no per-commit PROGRESS enforcement", () => {
 // OPR.0.4.1.6 — FR-1 stage verb (deterministic maturity)
 // ---------------------------------------------------------------------
 
-describe("rig scope <tier> stage (OPR.0.4.1.6 FR-1)", () => {
+describe("SoftwareTeam scope <tier> stage (OPR.0.4.1.6 FR-1)", () => {
   let substrate: { root: string; missionsRoot: string };
   beforeEach(() => { substrate = seedSubstrate(); });
   afterEach(() => { fs.rmSync(substrate.root, { recursive: true, force: true }); });
@@ -1620,7 +1620,7 @@ describe("rig scope <tier> stage (OPR.0.4.1.6 FR-1)", () => {
 // OPR.0.4.1.6 — FR-2 verified verb (provenance-stamped freshness)
 // ---------------------------------------------------------------------
 
-describe("rig scope <tier> verified (OPR.0.4.1.6 FR-2)", () => {
+describe("SoftwareTeam scope <tier> verified (OPR.0.4.1.6 FR-2)", () => {
   let substrate: { root: string; missionsRoot: string };
   beforeEach(() => { substrate = seedSubstrate(); });
   afterEach(() => { fs.rmSync(substrate.root, { recursive: true, force: true }); });
@@ -1666,7 +1666,7 @@ describe("rig scope <tier> verified (OPR.0.4.1.6 FR-2)", () => {
 // OPR.0.4.1.6 — FR-4 repair frontmatter-conformance backfill
 // ---------------------------------------------------------------------
 
-describe("rig scope repair frontmatter conformance (OPR.0.4.1.6 FR-4)", () => {
+describe("SoftwareTeam scope repair frontmatter conformance (OPR.0.4.1.6 FR-4)", () => {
   let substrate: { root: string; missionsRoot: string };
   beforeEach(() => { substrate = seedSubstrate(); });
   afterEach(() => { fs.rmSync(substrate.root, { recursive: true, force: true }); });
@@ -1726,14 +1726,14 @@ describe("rig scope repair frontmatter conformance (OPR.0.4.1.6 FR-4)", () => {
     const fm1 = readFrontmatter(ghostSpec);
     expect(fm1.id).toBe("OPR.0.3.2.5");                 // minted from parent + NN, registered
     expect(fm1.stage).toBe("wip");                      // placeholder -> wip (migration map)
-    expect(fm1.verified).toBe(`${today()} against backfill (rig scope repair)`);
+    expect(fm1.verified).toBe(`${today()} against backfill (SoftwareTeam scope repair)`);
 
     // Idempotent: a second run changes nothing.
     await run(["slice", "repair", "05-ghost", "--mission", "release-0.3.2", "--json"], substrate.missionsRoot);
     const fm2 = readFrontmatter(ghostSpec);
     expect(fm2.id).toBe("OPR.0.3.2.5");
     expect(fm2.stage).toBe("wip");
-    expect(fm2.verified).toBe(`${today()} against backfill (rig scope repair)`);
+    expect(fm2.verified).toBe(`${today()} against backfill (SoftwareTeam scope repair)`);
   });
 
   it("AC-4: does NOT clobber an existing real verified line", async () => {
@@ -1808,7 +1808,7 @@ depends_on: OPR.0.3.2.7
 
     expect(fm.id).toBe("OPR.0.3.2.8");
     expect(fm.stage).toBe("established");
-    expect(fm.verified).toMatch(/against backfill \(rig scope repair\)$/);
+    expect(fm.verified).toMatch(/against backfill \(SoftwareTeam scope repair\)$/);
     expect(fm.intent).toBe("Lossless repair");
     expect(fm.depends_on).toEqual([]);
     expect(fm["repair-original-id"]).toBe(8);
@@ -1875,7 +1875,7 @@ ${body}`);
     const mfm = readFrontmatter(path.join(m, "SPEC.md"));
     expect(typeof mfm.id).toBe("string");          // escape-band id minted
     expect(mfm.stage).toBe("wip");
-    expect(mfm.verified).toBe(`${today()} against backfill (rig scope repair)`);
+    expect(mfm.verified).toBe(`${today()} against backfill (SoftwareTeam scope repair)`);
     const sfm = readFrontmatter(path.join(m, "slices", "01-foo", "SPEC.md"));
     expect(typeof sfm.id).toBe("string");          // child id = parentId.1
     expect(sfm.id).toBe(`${mfm.id}.1`);
@@ -1887,7 +1887,7 @@ ${body}`);
 // OPR.0.4.1.6 — FR-5 read-time-trust in show (DERIVE, never store)
 // ---------------------------------------------------------------------
 
-describe("rig scope show read-time trust (OPR.0.4.1.6 FR-5)", () => {
+describe("SoftwareTeam scope show read-time trust (OPR.0.4.1.6 FR-5)", () => {
   let substrate: { root: string; missionsRoot: string };
   beforeEach(() => { substrate = seedSubstrate(); });
   afterEach(() => { fs.rmSync(substrate.root, { recursive: true, force: true }); });
@@ -1920,7 +1920,7 @@ describe("rig scope show read-time trust (OPR.0.4.1.6 FR-5)", () => {
   });
 
   it("AC-5: established + SCAFFOLD provenance shows effectively provisional regardless of date", async () => {
-    seedSlice("09-scaffold", `---\nid: OPR.0.3.2.9\nstage: established\nverified: ${dAgo(1)} against scaffold (rig scope create)\n---\n# s\n`);
+    seedSlice("09-scaffold", `---\nid: OPR.0.3.2.9\nstage: established\nverified: ${dAgo(1)} against scaffold (SoftwareTeam scope create)\n---\n# s\n`);
     const r = await run(["slice", "show", "09-scaffold", "--mission", "release-0.3.2", "--json"], substrate.missionsRoot);
     const p = JSON.parse(r.stdout);
     expect(p.slice.trust.effectiveStage).toBe("provisional");
@@ -1954,7 +1954,7 @@ describe("rig scope show read-time trust (OPR.0.4.1.6 FR-5)", () => {
 // OPR.0.4.1.6 — FR-3 create regression-lock (already ships; guard the templates)
 // ---------------------------------------------------------------------
 
-describe("rig scope create regression-lock (OPR.0.4.1.6 FR-3)", () => {
+describe("SoftwareTeam scope create regression-lock (OPR.0.4.1.6 FR-3)", () => {
   let substrate: { root: string; missionsRoot: string };
   beforeEach(() => { substrate = seedSubstrate(); });
   afterEach(() => { fs.rmSync(substrate.root, { recursive: true, force: true }); });

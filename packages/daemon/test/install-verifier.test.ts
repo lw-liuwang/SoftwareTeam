@@ -54,7 +54,7 @@ describe("InstallVerifier", () => {
     migrate(db, ALL_MIGRATIONS);
     pkgRepo = new PackageRepository(db);
     installRepo = new InstallRepository(db);
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "rigged-verify-"));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-verify-"));
     repoRoot = path.join(tmpDir, "repo");
     pkgRoot = path.join(tmpDir, "pkg");
     fs.mkdirSync(repoRoot, { recursive: true });
@@ -260,7 +260,7 @@ describe("InstallVerifier", () => {
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
     fs.writeFileSync(targetPath, "Content", "utf-8");
 
-    const backupPath = path.join(repoRoot, ".rigged-backups", install.id, ".agents/skills/foo/SKILL.md");
+    const backupPath = path.join(repoRoot, ".softwareteam-backups", install.id, ".agents/skills/foo/SKILL.md");
     fs.mkdirSync(path.dirname(backupPath), { recursive: true });
     fs.writeFileSync(backupPath, "Original", "utf-8");
 

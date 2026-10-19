@@ -8,7 +8,7 @@ import { renderGraphStyle } from "../src/topology/render-graph.js";
 import { launchArgs, launchCommand, launchProcess, runSpecLaunch } from "../src/specs/launch.js";
 import type { SpecEntry } from "../src/types.js";
 
-const spec: SpecEntry = { name: "custom-team", kind: "rig", graph: {
+const spec: SpecEntry = { name: "custom-team", kind: "softwareTeam", graph: {
   nodes: [{ id: "dev.build", label: "Build", pod: "dev", runtime: "claude", kind: "agent" },
     { id: "dev.review", label: "Review", pod: "dev", runtime: "codex", kind: "agent" }],
   edges: [{ source: "dev.build", target: "dev.review", kind: "collaborates_with" }],
@@ -20,17 +20,17 @@ function setup() {
   return { snap, view, screen: () => renderScreen(view.get(), snap, { cols: 88, rows: 38 }) };
 }
 
-describe("rig spec graph and Launch", () => {
-  it.each([false, true])("prefers the rig for a shared name, independent of library order (rig first: %s)", rigFirst => {
-    const rig = { ...spec, name: "pm" };
+describe("SoftwareTeam spec graph and Launch", () => {
+  it.each([false, true])("prefers the SoftwareTeam for a shared name, independent of library order (SoftwareTeam first: %s)", softwareTeamFirst => {
+    const softwareTeam = { ...spec, name: "pm" };
     const agent: SpecEntry = { name: "pm", kind: "agent", runtime: "claude" };
-    const snap = { ...emptySnapshot(), specsLoaded: true, specs: rigFirst ? [rig, agent] : [agent, rig] };
+    const snap = { ...emptySnapshot(), specsLoaded: true, specs: softwareTeamFirst ? [softwareTeam, agent] : [agent, softwareTeam] };
     const view = createViewState({ instanceId: "collision", getSnapshot: () => snap });
     view.dispatch(parseCommand("spec pm"));
     expect(view.get().viewTab).toBe("graph");
-    expect(renderScreen(view.get(), snap, { cols: 100, rows: 40 }).lines.join("\n")).toContain("rig spec pm");
+    expect(renderScreen(view.get(), snap, { cols: 100, rows: 40 }).lines.join("\n")).toContain("SoftwareTeam spec pm");
     const rows = computeExplorerRows(view.get(), snap);
-    expect(view.get().selection).toBe(rows.findIndex(row => row.key === "specs-kind:rig") + 1);
+    expect(view.get().selection).toBe(rows.findIndex(row => row.key === "specs-kind:softwareTeam") + 1);
     view.dispatch(parseCommand("launch"));
     expect(view.get().specLaunch?.source).toBe("pm");
   });
@@ -38,7 +38,7 @@ describe("rig spec graph and Launch", () => {
   it("keeps explicit agent selection, preview and spec-of on the agent with the same name", () => {
     const snap = { ...emptySnapshot(), specsLoaded: true, specs: [
       { ...spec, name: "pm" }, { name: "pm", kind: "agent" as const, runtime: "claude", description: "Agent purpose" },
-    ], hosts: [{ name: "local", reachable: true, rigs: [{ name: "team", pods: [{ name: "work", agents: [
+    ], hosts: [{ name: "local", reachable: true, softwareTeams: [{ name: "team", pods: [{ name: "work", agents: [
       { name: "work.pm", spec: "pm", runtime: "claude", status: "idle", context: null, tokens: null, live: true },
     ] }] }] }] };
     const view = createViewState({ instanceId: "collision", getSnapshot: () => snap });
@@ -53,7 +53,7 @@ describe("rig spec graph and Launch", () => {
     view.dispatch({ type: "activate" });
     expect(renderScreen(view.get(), snap, { cols: 100, rows: 40 }).lines.join("\n")).toContain("agent spec pm");
     expect(view.get().selection).toBe(index);
-    expect(view.dispatch(parseCommand("launch")).lastError).toContain("Open a rig spec");
+    expect(view.dispatch(parseCommand("launch")).lastError).toContain("Open a SoftwareTeam spec");
     view.dispatch({ type: "cross", kind: "spec-of", name: "work.pm" });
     expect(renderScreen(view.get(), snap, { cols: 100, rows: 40 }).lines.join("\n")).toContain("agent spec pm");
     expect(view.dispatch(parseCommand("tab graph")).lastError).toContain("not available");
@@ -66,13 +66,13 @@ describe("rig spec graph and Launch", () => {
     expect(view.get().viewTab).toBe("graph");
     const frame = screen();
     const graph = specGraph(spec.graph!);
-    const expected = renderGraphStyle("hatchet", graph, { host: "", rig: spec.name }, 87).plainLines();
+    const expected = renderGraphStyle("hatchet", graph, { host: "", softwareTeam: spec.name }, 87).plainLines();
     const text = frame.lines.join("\n");
     for (const line of expected.filter(s => s.trim())) expect(text).toContain(line.trimEnd());
     expect(text).toContain("authored topology, not live status");
     expect(text).toContain("Launch…");
     expect(frame.contentTargets.some(t => t.action.type === "drill" && t.action.resource === "agent")).toBe(false);
-    expect(graph.nodes.filter(n => n.type === "rigNode").every(n => n.data.status === null)).toBe(true);
+    expect(graph.nodes.filter(n => n.type === "softwareTeamNode").every(n => n.data.status === null)).toBe(true);
   });
 
   it("keeps edge directions, pod grouping and null observations in the renderer input", () => {
@@ -99,7 +99,7 @@ describe("rig spec graph and Launch", () => {
     view.dispatch({ type: "layout", contentMaxOffset: frame.contentMaxOffset, contentTargetCount: frame.contentTargets.length });
     expect(frame.lines.join("\n")).toContain("/work/My Team");
     expect(frame.lines.join("\n")).toContain("Host: build-box");
-    expect(frame.lines.join("\n")).toContain("Launch also sets OPENRIG_URL to this TUI's daemon.");
+    expect(frame.lines.join("\n")).toContain("Launch also sets SOFTWARETEAM_URL to this TUI's daemon.");
     view.dispatch({ type: "content-select", index: frame.contentTargets.findIndex(t => t.action.type === "act") });
     expect(resolveKeyAction({ type: "key", key: "enter" }, view.get(), frame, frame.explorerRows.length)).toEqual({ type: "act", act: "launch-spec" });
     // Dispatch alone (including control-socket navigation) cannot execute an act.
@@ -128,14 +128,14 @@ describe("rig spec graph and Launch", () => {
   });
 });
 
-describe("unchanged rig up invocation and terminal handoff", () => {
+describe("unchanged SoftwareTeam up invocation and terminal handoff", () => {
   it("retains literal source/cwd/host and CLI entry; does not bypass collisions or add approval", () => {
     const request = { source: "custom-team", folder: "/work/Team's $(literal)", host: "remote-box" };
-    const command = launchProcess(request, "http://127.0.0.1:7499", { OPENRIG_HOME: "/isolated", OPENRIG_HOST_SELECTED: "prior" }, "/node", ["/cli/bin-wrapper.js"]);
-    expect(command).toEqual({ executable: "/node", args: ["/cli/bin-wrapper.js", "up", "--cwd", request.folder, "--host", "remote-box", "--", "custom-team"], env: { OPENRIG_HOME: "/isolated", OPENRIG_HOST_SELECTED: "prior", OPENRIG_URL: "http://127.0.0.1:7499" } });
+    const command = launchProcess(request, "http://127.0.0.1:7499", { SOFTWARETEAM_HOME: "/isolated", SOFTWARETEAM_HOST_SELECTED: "prior" }, "/node", ["/cli/bin-wrapper.js"]);
+    expect(command).toEqual({ executable: "/node", args: ["/cli/bin-wrapper.js", "up", "--cwd", request.folder, "--host", "remote-box", "--", "custom-team"], env: { SOFTWARETEAM_HOME: "/isolated", SOFTWARETEAM_HOST_SELECTED: "prior", SOFTWARETEAM_URL: "http://127.0.0.1:7499" } });
     expect(launchCommand(request)).toContain("--cwd '");
     expect(launchArgs({ ...request, host: "" })).not.toContain("--host");
-    expect(launchProcess({ ...request, host: "local" }, "http://localhost:7499", { OPENRIG_HOST_SELECTED: "remote" }, "rig").env.OPENRIG_HOST_SELECTED).toBe("local");
+    expect(launchProcess({ ...request, host: "local" }, "http://localhost:7499", { SOFTWARETEAM_HOST_SELECTED: "remote" }, "softwareTeam").env.SOFTWARETEAM_HOST_SELECTED).toBe("local");
     expect(() => launchArgs({ ...request, folder: "" })).toThrow("absolute working folder");
     expect(() => launchArgs({ ...request, folder: "relative" })).toThrow("absolute working folder");
   });
@@ -143,7 +143,7 @@ describe("unchanged rig up invocation and terminal handoff", () => {
   it.each([0, 1, null])("does not turn exit %s into a success claim or erase the CLI's partial output", async code => {
     const events: string[] = [];
     let notice = "";
-    await runSpecLaunch({ command: { executable: "rig", args: ["up"], env: {} },
+    await runSpecLaunch({ command: { executable: "softwareTeam", args: ["up"], env: {} },
       run: async () => { events.push("CLI: partially_restored; one seat failed"); return code; },
       terminal: { write: s => { events.push(s); }, setRawMode: on => { events.push(`raw:${on}`); }, waitForEnter: async () => { events.push("wait"); return "enter"; } },
       pauseInput: () => { events.push("pause"); }, resumeInput: () => { events.push("resume"); }, setSuspended: on => { events.push(`suspended:${on}`); },
@@ -163,6 +163,6 @@ describe("unchanged rig up invocation and terminal handoff", () => {
       pauseInput() {}, resumeInput: () => { resumed = true; }, setSuspended() {}, isShuttingDown: () => false,
       notice: s => { notice = s; }, draw() {},
     });
-    expect(runs).toBe(1); expect(resumed).toBe(true); expect(notice).toContain("ENOENT"); expect(notice).toContain("Inspect rig ps");
+    expect(runs).toBe(1); expect(resumed).toBe(true); expect(notice).toContain("ENOENT"); expect(notice).toContain("Inspect SoftwareTeam ps");
   });
 });

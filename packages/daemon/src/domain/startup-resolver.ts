@@ -4,8 +4,8 @@ import { validateStartupAction } from "./startup-validation.js";
 export interface StartupLayerInputs {
   specStartup: StartupBlock;
   profileStartup?: StartupBlock;
-  rigCultureFile?: string;
-  rigStartup?: StartupBlock;
+  softwareTeamCultureFile?: string;
+  softwareTeamStartup?: StartupBlock;
   podStartup?: StartupBlock;
   memberStartup?: StartupBlock;
   operatorStartup?: StartupBlock;
@@ -15,8 +15,8 @@ export interface StartupLayerInputs {
  * Build effective startup in fixed additive order:
  * 1. Agent base startup
  * 2. Profile startup
- * 3. Rig culture file (synthetic StartupFile)
- * 4. Rig startup overlays
+ * 3. SoftwareTeam culture file (synthetic StartupFile)
+ * 4. SoftwareTeam startup overlays
  * 5. Pod shared startup
  * 6. Member startup overlays
  * 7. Operator debug append (always last)
@@ -39,19 +39,19 @@ export function resolveStartup(inputs: StartupLayerInputs): StartupBlock {
     appendBlock(inputs.profileStartup, files, actions);
   }
 
-  // 3. Rig culture file (synthetic file entry)
-  if (inputs.rigCultureFile) {
+  // 3. SoftwareTeam culture file (synthetic file entry)
+  if (inputs.softwareTeamCultureFile) {
     files.push({
-      path: inputs.rigCultureFile,
+      path: inputs.softwareTeamCultureFile,
       deliveryHint: "auto",
       required: true,
       appliesOn: ["fresh_start", "restore"],
     });
   }
 
-  // 4. Rig startup overlays
-  if (inputs.rigStartup) {
-    appendBlock(inputs.rigStartup, files, actions);
+  // 4. SoftwareTeam startup overlays
+  if (inputs.softwareTeamStartup) {
+    appendBlock(inputs.softwareTeamStartup, files, actions);
   }
 
   // 5. Pod shared startup

@@ -1,6 +1,6 @@
-# OpenRig UI digital-twin harness (OPR.0.4.1.11.1)
+# SoftwareTeam UI digital-twin harness (OPR.0.4.1.11.1)
 
-Builds the **real** `@openrig/ui` App with dummy data into ONE self-contained,
+Builds the **real** `@softwareteam/ui` App with dummy data into ONE self-contained,
 double-clickable `intent.html` — so an agent can fork a feature-version, change the one
 thing a slice proposes, and emit a clickable mockup that is **1:1 with the live UI by
 construction** (it IS the real components; it never needs manual re-syncing).
@@ -12,7 +12,7 @@ construction** (it IS the real components; it never needs manual re-syncing).
    edit is the durable essence of the change.
 2. **`npm run twin:build`** (in `packages/ui`) → emits `twin-out/intent.html` (single file).
    Target a surface with `TWIN_ROUTE`, e.g.
-   `TWIN_ROUTE=/topology/rig/rig_delivery npm run twin:build`.
+   `TWIN_ROUTE=/topology/SoftwareTeam/software_team_delivery npm run twin:build`.
 3. **(capture)** screenshot it → `intent.png`:
    `"<chrome>" --headless=new --window-size=1440,900 --virtual-time-budget=9000 --screenshot=intent.png "file://$PWD/twin-out/intent.html"`
 
@@ -21,7 +21,7 @@ regenerable on demand; `twin-out/` is gitignored).
 
 ## Seams (daemon-free, NOT MSW)
 
-The twin renders the real App with three thin seams installed before any `@openrig/ui`
+The twin renders the real App with three thin seams installed before any `@softwareteam/ui`
 module imports (`twin-main.tsx`):
 
 - **cache-seed** (`seed.ts`) — seeds the react-query cache from typed fixtures under the
@@ -38,7 +38,7 @@ module imports (`twin-main.tsx`):
 ## Drift guard (FR-4 / D-2)
 
 `twin:build` runs `tsc -p tsconfig.twin.json` first. Fixtures are typed against the REAL
-exported hook interfaces (`RigSummary`, `NodeDetailData`, `SliceListResponse`, …), so a
+exported hook interfaces (`SoftwareTeamSummary`, `NodeDetailData`, `SliceListResponse`, …), so a
 real-interface change BREAKS the twin build = compile-time drift detection. (Proven: a
 `string` where a `number` is required fails with `TS2322`.)
 
@@ -46,9 +46,9 @@ real-interface change BREAKS the twin build = compile-time drift detection. (Pro
 
 | Surface | Route | Driven by |
 |---|---|---|
-| Dashboard | `/` | rigs/summary, ps, spec-library |
-| Topology graph | `/topology/rig/<rigId>` | rig/<id>/graph (xyflow nodes/edges) |
-| Live node details | `/rigs/<rigId>/nodes/<logicalId>` | NodeDetailData + session-preview (terminal) |
+| Dashboard | `/` | SoftwareTeams/summary, ps, spec-library |
+| Topology graph | `/topology/SoftwareTeam/<softwareTeamId>` | SoftwareTeam/<id>/graph (xyflow nodes/edges) |
+| Live node details | `/SoftwareTeams/<softwareTeamId>/nodes/<logicalId>` | NodeDetailData + session-preview (terminal) |
 | For-You feed | `/for-you` | seeded SSE activity events + slices (storytelling) |
 | Workspace | `/project` | /api/slices + workspace.root setting |
 | Library | `/specs` | spec-library |
@@ -62,7 +62,7 @@ real-interface change BREAKS the twin build = compile-time drift detection. (Pro
 
 ## Known follow-up
 
-Graph rigNode badges read STALE/UNKNOWN — the per-node LIVE activity comes from the SSE
+Graph softwareTeamNode badges read STALE/UNKNOWN — the per-node LIVE activity comes from the SSE
 topology-activity baseline + clock-freshness, not the static graph fixture. Seeding live
 node-activity events is a separate small task; the graph STRUCTURE renders 1:1.
 

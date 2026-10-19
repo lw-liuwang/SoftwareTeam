@@ -4,11 +4,11 @@
 // conductor in the BACKGROUND and answers immediately with a fleet-attempt handle —
 // it NEVER blocks to fleet completion (a real fleet restore is seconds-per-seat and
 // would exceed any request timeout). The client polls the status endpoint for the
-// rollup + triage as rigs complete. A cancel endpoint sets stop-before-next-rig.
+// rollup + triage as softwareTeams complete. A cancel endpoint sets stop-before-next-softwareTeam.
 import { Hono } from "hono";
 import { existsSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import type { RigRepository } from "../domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "../domain/software-team-repository.js";
 import type { SnapshotRepository } from "../domain/snapshot-repository.js";
 import type { RestoreOrchestrator } from "../domain/restore-orchestrator.js";
 import type { RuntimeAdapter } from "../domain/runtime-adapter.js";
@@ -17,23 +17,23 @@ import type { TmuxAdapter } from "../adapters/tmux.js";
 import type { ClaimService } from "../domain/claim-service.js";
 import {
   RestoreConductor,
-  createDefaultRestoreRig,
-  listRigsInKernelFirstOrder,
+  createDefaultRestoreSoftwareTeam,
+  listSoftwareTeamsInKernelFirstOrder,
   aggregateFleetRollup,
   deriveFleetVerdict,
-  type AdoptRigDeps,
+  type AdoptSoftwareTeamDeps,
   type FleetRollup,
-  type ConductorRigResult,
+  type ConductorSoftwareTeamResult,
 } from "../domain/crash-cart-conductor.js";
 
 export const crashCartRoutes = new Hono();
 
 /** A live fleet-restore attempt — the pollable progress/rollup state, updated by the
- *  background conductor as each rig completes. In-memory per daemon process (v1).
+ *  background conductor as each softwareTeam completes. In-memory per daemon process (v1).
  *  NO verdict field: per ARCH-RULING Q2 / plan R6 the fleet verdict is a DERIVED
  *  f(counts), never a stored second truth — it is computed in the GET handler. */
 interface FleetAttempt {
-  sequence: ConductorRigResult[];
+  sequence: ConductorSoftwareTeamResult[];
   rollup: FleetRollup;
   done: boolean;
   cancelled: boolean;
@@ -47,7 +47,7 @@ export function __resetFleetAttempts(): void {
 
 function getDeps(c: { get: (key: string) => unknown }) {
   return {
-    rigRepo: c.get("rigRepo" as never) as RigRepository,
+    softwareTeamRepo: c.get("softwareTeamRepo" as never) as SoftwareTeamRepository,
     snapshotRepo: c.get("snapshotRepo" as never) as SnapshotRepository,
     restoreOrchestrator: c.get("restoreOrchestrator" as never) as RestoreOrchestrator,
     // H1 — the app's runtime adapters + fs, WITHOUT which the orchestrator fail-closes
@@ -62,20 +62,20 @@ function getDeps(c: { get: (key: string) => unknown }) {
 
 /** AMENDMENT 2 — build the adopt deps from the SHIPPED machinery, or undefined when a
  *  degraded daemon lacks any of it (the conductor then behaves exactly pre-amendment:
- *  a live-panes rig fail-closes through restore's own 409 — no clobber, no new path). */
-function buildAdoptDeps(deps: ReturnType<typeof getDeps>): AdoptRigDeps | undefined {
-  const { rigRepo, sessionRegistry, tmuxAdapter, claimService, restoreOrchestrator, runtimeAdapters } = deps;
+ *  a live-panes softwareTeam fail-closes through restore's own 409 — no clobber, no new path). */
+function buildAdoptDeps(deps: ReturnType<typeof getDeps>): AdoptSoftwareTeamDeps | undefined {
+  const { softwareTeamRepo, sessionRegistry, tmuxAdapter, claimService, restoreOrchestrator, runtimeAdapters } = deps;
   if (!sessionRegistry || !tmuxAdapter || !claimService) return undefined;
   return {
     // The same classification restore's 409 guard runs: DB-running sessions × tmux
     // reality. A tmux error is NOT live (fail-closed both ways: an unprobeable pane
     // never adopts here, and restore's own unknown-blocks guard still refuses).
-    probeLiveSessions: async (rigId) => {
-      const rig = rigRepo.getRig(rigId);
-      if (!rig) return [];
-      const logicalByNodeId = new Map(rig.nodes.map((n) => [n.id, n.logicalId]));
+    probeLiveSessions: async (softwareTeamId) => {
+      const softwareTeam = softwareTeamRepo.getSoftwareTeam(softwareTeamId);
+      if (!softwareTeam) return [];
+      const logicalByNodeId = new Map(softwareTeam.nodes.map((n) => [n.id, n.logicalId]));
       const live: Array<{ sessionName: string; logicalId: string }> = [];
-      for (const session of sessionRegistry.getSessionsForRig(rigId)) {
+      for (const session of sessionRegistry.getSessionsForSoftwareTeam(softwareTeamId)) {
         if (session.status !== "running") continue;
         const logicalId = logicalByNodeId.get(session.nodeId);
         if (!logicalId) continue;
@@ -88,9 +88,9 @@ function buildAdoptDeps(deps: ReturnType<typeof getDeps>): AdoptRigDeps | undefi
       return live;
     },
     reconcileSession: (sessionName) => claimService.reconcileSession({ sessionName }),
-    listRigSeats: (rigId) => rigRepo.getRig(rigId)?.nodes.map((n) => n.logicalId) ?? [],
-    launchNodeSubset: (rigId, logicalIds) =>
-      restoreOrchestrator.launchNodeSubset(rigId, logicalIds, {
+    listSoftwareTeamSeats: (softwareTeamId) => softwareTeamRepo.getSoftwareTeam(softwareTeamId)?.nodes.map((n) => n.logicalId) ?? [],
+    launchNodeSubset: (softwareTeamId, logicalIds) =>
+      restoreOrchestrator.launchNodeSubset(softwareTeamId, logicalIds, {
         adapters: runtimeAdapters ?? {},
         fsOps: { exists: (p: string) => existsSync(p) },
       }),
@@ -104,7 +104,7 @@ function recompute(attempt: FleetAttempt): void {
 // POST /api/crash-cart/restore-fleet — start the fleet restore, answer ON-COMMIT.
 crashCartRoutes.post("/restore-fleet", (c) => {
   const deps = getDeps(c);
-  const { rigRepo, snapshotRepo, restoreOrchestrator, runtimeAdapters } = deps;
+  const { softwareTeamRepo, snapshotRepo, restoreOrchestrator, runtimeAdapters } = deps;
   const fleetAttemptId = `fleet-${randomUUID()}`;
   const attempt: FleetAttempt = {
     sequence: [],
@@ -115,12 +115,12 @@ crashCartRoutes.post("/restore-fleet", (c) => {
   fleetAttempts.set(fleetAttemptId, attempt);
 
   const conductor = new RestoreConductor({
-    listRigsInOrder: () => listRigsInKernelFirstOrder({ listRigs: () => rigRepo.listRigs() }),
-    restoreRig: createDefaultRestoreRig(
+    listSoftwareTeamsInOrder: () => listSoftwareTeamsInKernelFirstOrder({ listSoftwareTeams: () => softwareTeamRepo.listSoftwareTeams() }),
+    restoreSoftwareTeam: createDefaultRestoreSoftwareTeam(
       {
-        findLatestRestoreUsable: (rigId) => snapshotRepo.findLatestRestoreUsable(rigId),
+        findLatestRestoreUsable: (softwareTeamId) => snapshotRepo.findLatestRestoreUsable(softwareTeamId),
         ...(typeof snapshotRepo.selectRestoreUsable === "function"
-          ? { selectRestoreUsable: (rigId: string) => snapshotRepo.selectRestoreUsable(rigId) }
+          ? { selectRestoreUsable: (softwareTeamId: string) => snapshotRepo.selectRestoreUsable(softwareTeamId) }
           : {}),
         // H1 — thread the app's adapters + fsOps into the shipped restore.
         restore: (snapshotId, opts) =>
@@ -133,15 +133,15 @@ crashCartRoutes.post("/restore-fleet", (c) => {
       // AMENDMENT 2 — LIVE panes adopt via the shipped machinery; DEAD panes unchanged.
       buildAdoptDeps(deps),
     ),
-    // H3 — the running attempt's cancel flag, polled stop-before-next-rig.
+    // H3 — the running attempt's cancel flag, polled stop-before-next-softwareTeam.
     isCancelled: () => attempt.cancelled,
   });
 
   // Run the fleet restore in the BACKGROUND — the response has already been sent.
-  // Each rig updates the pollable rollup (the progress stream) as it completes.
+  // Each softwareTeam updates the pollable rollup (the progress stream) as it completes.
   void conductor
     .restoreFleet({
-      onRigDone: (r) => {
+      onSoftwareTeamDone: (r) => {
         attempt.sequence.push(r);
         recompute(attempt);
       },
@@ -150,8 +150,8 @@ crashCartRoutes.post("/restore-fleet", (c) => {
       attempt.done = true;
     })
     .catch(() => {
-      // Best-effort: the fleet loop itself is guarded per rig; mark done so the
-      // client stops polling. Per-rig failures are already in the rollup.
+      // Best-effort: the fleet loop itself is guarded per softwareTeam; mark done so the
+      // client stops polling. Per-softwareTeam failures are already in the rollup.
       attempt.done = true;
     });
 
@@ -172,7 +172,7 @@ crashCartRoutes.get("/restore-fleet/:fleetAttemptId", (c) => {
   });
 });
 
-// POST /api/crash-cart/restore-fleet/:fleetAttemptId/cancel — stop-before-next-rig.
+// POST /api/crash-cart/restore-fleet/:fleetAttemptId/cancel — stop-before-next-softwareTeam.
 crashCartRoutes.post("/restore-fleet/:fleetAttemptId/cancel", (c) => {
   const attempt = fleetAttempts.get(c.req.param("fleetAttemptId"));
   if (!attempt) return c.json({ error: "unknown fleet restore attempt" }, 404);

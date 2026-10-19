@@ -3,8 +3,8 @@ import { SpecReviewService } from "../src/domain/spec-review-service.js";
 
 const POD_AWARE_YAML = `
 version: "0.2"
-name: review-rig
-summary: A test review rig
+name: review-software-team
+summary: A test review softwareTeam
 pods:
   - id: dev
     label: Development
@@ -39,7 +39,7 @@ edges:
 
 const LEGACY_YAML = `
 version: "1.0"
-name: legacy-rig
+name: legacy-software-team
 nodes:
   - id: worker-a
     runtime: claude-code
@@ -81,10 +81,10 @@ startup:
       idempotent: true
 `;
 
-const SERVICE_RIG_YAML = `
+const SERVICE_SOFTWARE_TEAM_YAML = `
 version: "0.2"
-name: service-rig
-summary: A rig with services
+name: service-software-team
+summary: A SoftwareTeam with services
 
 services:
   kind: compose
@@ -120,12 +120,12 @@ edges: []
 describe("SpecReviewService", () => {
   const svc = new SpecReviewService();
 
-  it("reviewRigSpec pod-aware returns structured pods/members/edges + graph", () => {
-    const result = svc.reviewRigSpec(POD_AWARE_YAML, "draft");
+  it("reviewSoftwareTeamSpec pod-aware returns structured pods/members/edges + graph", () => {
+    const result = svc.reviewSoftwareTeamSpec(POD_AWARE_YAML, "draft");
 
-    expect(result.kind).toBe("rig");
+    expect(result.kind).toBe("softwareTeam");
     expect(result.sourceState).toBe("draft");
-    expect(result.name).toBe("review-rig");
+    expect(result.name).toBe("review-software-team");
     expect(result.format).toBe("pod_aware");
     if (result.format !== "pod_aware") throw new Error("wrong format");
 
@@ -146,10 +146,10 @@ describe("SpecReviewService", () => {
     expect(implNode!.pod).toBe("dev");
   });
 
-  it("reviewRigSpec legacy returns structured nodes/edges + graph", () => {
-    const result = svc.reviewRigSpec(LEGACY_YAML, "file_preview");
+  it("reviewSoftwareTeamSpec legacy returns structured nodes/edges + graph", () => {
+    const result = svc.reviewSoftwareTeamSpec(LEGACY_YAML, "file_preview");
 
-    expect(result.kind).toBe("rig");
+    expect(result.kind).toBe("softwareTeam");
     expect(result.sourceState).toBe("file_preview");
     expect(result.format).toBe("legacy");
     if (result.format !== "legacy") throw new Error("wrong format");
@@ -162,8 +162,8 @@ describe("SpecReviewService", () => {
     expect(result.graph.edges).toHaveLength(1);
   });
 
-  it("reviewRigSpec invalid YAML throws with validation errors", () => {
-    expect(() => svc.reviewRigSpec("name: test\n", "draft")).toThrow();
+  it("reviewSoftwareTeamSpec invalid YAML throws with validation errors", () => {
+    expect(() => svc.reviewSoftwareTeamSpec("name: test\n", "draft")).toThrow();
   });
 
   it("reviewAgentSpec returns profiles, resources, startup", () => {
@@ -188,8 +188,8 @@ describe("SpecReviewService", () => {
     expect(() => svc.reviewAgentSpec("foo: bar\n", "draft")).toThrow();
   });
 
-  it("reviewRigSpec returns structured services for service-backed rigs", () => {
-    const result = svc.reviewRigSpec(SERVICE_RIG_YAML, "library_item");
+  it("reviewSoftwareTeamSpec returns structured services for service-backed softwareTeams", () => {
+    const result = svc.reviewSoftwareTeamSpec(SERVICE_SOFTWARE_TEAM_YAML, "library_item");
 
     expect(result.format).toBe("pod_aware");
     const services = (result as Record<string, unknown>)["services"] as Record<string, unknown> | undefined;
@@ -214,11 +214,11 @@ describe("SpecReviewService", () => {
     expect(commands[0]!["name"]).toBe("Status");
   });
 
-  it("reviewRigSpec preserves tcp and service+condition wait targets from real contract", () => {
+  it("reviewSoftwareTeamSpec preserves tcp and service+condition wait targets from real contract", () => {
     const yaml = `
 version: "0.2"
-name: multi-wait-rig
-summary: Rig with diverse wait targets
+name: multi-wait-software-team
+summary: SoftwareTeam with diverse wait targets
 services:
   kind: compose
   compose_file: compose.yaml
@@ -239,7 +239,7 @@ pods:
     edges: []
 edges: []
 `;
-    const result = svc.reviewRigSpec(yaml, "library_item");
+    const result = svc.reviewSoftwareTeamSpec(yaml, "library_item");
     const services = (result as Record<string, unknown>)["services"] as Record<string, unknown>;
     expect(services).toBeDefined();
 
@@ -258,8 +258,8 @@ edges: []
     expect(waitFor[2]!["condition"]).toBe("healthy");
   });
 
-  it("reviewRigSpec returns no services for non-service rigs", () => {
-    const result = svc.reviewRigSpec(POD_AWARE_YAML, "draft");
+  it("reviewSoftwareTeamSpec returns no services for non-service softwareTeams", () => {
+    const result = svc.reviewSoftwareTeamSpec(POD_AWARE_YAML, "draft");
     const services = (result as Record<string, unknown>)["services"];
     expect(services).toBeUndefined();
   });

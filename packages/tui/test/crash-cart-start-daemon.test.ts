@@ -8,7 +8,7 @@ describe("local startup target", () => {
       "daemon", "start", "--no-kernel", "--host", "127.0.0.1", "--port", "17433",
     ]);
   });
-  it.each(["https://example.test", "http://10.0.0.2:7433", "http://user:password@localhost:7433", "http://localhost:7433/other"])(
+  it.each(["https://example.test", "http://10.0.0.2:7434", "http://user:password@localhost:7434", "http://localhost:7434/other"])(
     "does not turn %s into local startup authority", (target) => {
       expect(() => daemonStartArgs(target)).toThrow("no local daemon was started");
     },

@@ -45,9 +45,9 @@ describe("assembleFourBlock — proof-4 mixed-provider shape", () => {
     const m = assembleFourBlock({
       accounts: ACCOUNTS,
       rawBindings: [
-        { accountId: "cdx-a", seatSession: "seat-2", rigName: "rig-1", boundAt: ASOF, bindingSource: "adopt" },
-        { accountId: "cdx-a", seatSession: "seat-1", rigName: "rig-1", boundAt: ASOF, bindingSource: "adopt" },
-        { accountId: "cdx-b", seatSession: "seat-3", rigName: "rig-2", boundAt: ASOF, bindingSource: "adopt" },
+        { accountId: "cdx-a", seatSession: "seat-2", softwareTeamName: "software-team-1", boundAt: ASOF, bindingSource: "adopt" },
+        { accountId: "cdx-a", seatSession: "seat-1", softwareTeamName: "software-team-1", boundAt: ASOF, bindingSource: "adopt" },
+        { accountId: "cdx-b", seatSession: "seat-3", softwareTeamName: "software-team-2", boundAt: ASOF, bindingSource: "adopt" },
       ],
       signals: [],
       asOf: ASOF,
@@ -72,7 +72,7 @@ describe("assembleFourBlock — proof-4 mixed-provider shape", () => {
     const m = assembleFourBlock({
       accounts: ACCOUNTS,
       rawBindings: [
-        { accountId: null, seatSession: "seat-9", rigName: "rig-3", boundAt: null, bindingSource: null },
+        { accountId: null, seatSession: "seat-9", softwareTeamName: "software-team-3", boundAt: null, bindingSource: null },
       ],
       signals: [],
       asOf: ASOF,
@@ -93,8 +93,8 @@ describe("assembleFourBlock — proof-4 mixed-provider shape", () => {
     const m = assembleFourBlock({
       accounts: ACCOUNTS,
       rawBindings: [
-        { accountId: "cdx-a", seatSession: "seat-1", rigName: "rig-1", boundAt: ASOF, bindingSource: "adopt" },
-        { accountId: "cdx-a", seatSession: "seat-1", rigName: "rig-1", boundAt: ASOF, bindingSource: "adopt" },
+        { accountId: "cdx-a", seatSession: "seat-1", softwareTeamName: "software-team-1", boundAt: ASOF, bindingSource: "adopt" },
+        { accountId: "cdx-a", seatSession: "seat-1", softwareTeamName: "software-team-1", boundAt: ASOF, bindingSource: "adopt" },
       ],
       signals: [],
       asOf: ASOF,
@@ -109,8 +109,8 @@ describe("assembleFourBlock — proof-4 mixed-provider shape", () => {
     const m = assembleFourBlock({
       accounts: ACCOUNTS,
       rawBindings: [
-        { accountId: null, seatSession: "seat-a", rigName: "r", boundAt: null, bindingSource: null },
-        { accountId: null, seatSession: "seat-b", rigName: "r", boundAt: null, bindingSource: null },
+        { accountId: null, seatSession: "seat-a", softwareTeamName: "r", boundAt: null, bindingSource: null },
+        { accountId: null, seatSession: "seat-b", softwareTeamName: "r", boundAt: null, bindingSource: null },
       ],
       signals: [],
       asOf: ASOF,

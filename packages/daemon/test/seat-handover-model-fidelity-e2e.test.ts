@@ -6,7 +6,7 @@ import * as os from "node:os";
 import nodePath from "node:path";
 import { TmuxAdapter } from "../src/adapters/tmux.js";
 import { CodexRuntimeAdapter } from "../src/adapters/codex-runtime-adapter.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { DiscoveryRepository } from "../src/domain/discovery-repository.js";
 import { EventBus } from "../src/domain/event-bus.js";
@@ -26,10 +26,10 @@ import { createDb } from "../src/db/connection.js";
 // D15 isolation ([[real-run-e2e-daemon-isolation-doctrine]], [[tmux-kill-server-from-seat-reaps-fleet]]):
 // a per-run `-L` socket on EVERY tmux command (overrides $TMUX), full env MINUS $TMUX/$TMUX_TMPDIR,
 // verify-isolation-first, teardown by session name, then kill-server on this run's own -L socket only.
-// Opt-in: skips unless OPENRIG_E2E_REAL_CODEX=1, and when tmux/codex/auth are absent.
+// Opt-in: skips unless SOFTWARETEAM_E2E_REAL_CODEX=1, and when tmux/codex/auth are absent.
 
 const pexec = promisify(execFile);
-const SOCK = `openrig-mf-e2e-${process.pid}`;
+const SOCK = `softwareteam-mf-e2e-${process.pid}`;
 const cleanEnv: any = { ...process.env };
 delete cleanEnv.TMUX;
 delete cleanEnv.TMUX_TMPDIR;
@@ -51,8 +51,8 @@ const SPEC_MODEL = "gpt-5.6-luna"; // valid, distinct from the default; footer s
 const DEFAULT_MODEL = "gpt-5.6-sol"; // the no-flag runtime default — the reverted-handover failure mode
 
 // Opt-in only: this test drives the codex CLI with whatever account is signed in
-// on the host (~/.codex/auth.json), so it never runs unless OPENRIG_E2E_REAL_CODEX=1.
-const REAL_CODEX_OPT_IN = process.env.OPENRIG_E2E_REAL_CODEX === "1";
+// on the host (~/.codex/auth.json), so it never runs unless SOFTWARETEAM_E2E_REAL_CODEX=1.
+const REAL_CODEX_OPT_IN = process.env.SOFTWARETEAM_E2E_REAL_CODEX === "1";
 
 function preflightOk(): boolean {
   if (!REAL_CODEX_OPT_IN) return false;
@@ -93,7 +93,7 @@ describe("seat-handover model-fidelity money-proof (real codex, isolated tmux)",
       const sessions = await tmux("list-sessions -F '#{session_name}'").catch(() => "");
       expect(sessions).not.toMatch(/dev-guard@|dev-planner@|orch-|review-/);
 
-      const SEAT = "dev-impl@mf-rig";
+      const SEAT = "dev-impl@mf-software-team";
       seats.push(SEAT);
       // A real cwd with a .git so the adapter's `--add-dir <cwd>/.git` is a real path.
       const cwd = fs.mkdtempSync(nodePath.join(os.tmpdir(), "mf-e2e-"));
@@ -103,7 +103,7 @@ describe("seat-handover model-fidelity money-proof (real codex, isolated tmux)",
       // directory does not exist, codex silently degrades its -m to a fallback tier (a real quirk worth
       // its own note — a missing queue dir drops the pin). Production ensures it; create it here so -m
       // takes effect and the successor renders the EXACT pinned model.
-      const queueRoot = nodePath.join(os.homedir(), ".openrig", "shared-docs", "rigs", "mf-rig", "state", "dev");
+      const queueRoot = nodePath.join(os.homedir(), ".softwareteam", "shared-docs", "software-teams", "mf-software-team", "state", "dev");
       fs.mkdirSync(queueRoot, { recursive: true });
 
       await tmux(`kill-session -t ${q(SEAT)}`).catch(() => {});
@@ -112,11 +112,11 @@ describe("seat-handover model-fidelity money-proof (real codex, isolated tmux)",
       const pane = (await tmux(`list-panes -t ${q(SEAT)} -F '#{pane_id}'`)).trim();
 
       const db = createDb(); db.pragma("foreign_keys = ON"); migrate(db, ALL_MIGRATIONS);
-      const rigRepo = new RigRepository(db), sessionRegistry = new SessionRegistry(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db), sessionRegistry = new SessionRegistry(db);
       const discoveryRepo = new DiscoveryRepository(db), eventBus = new EventBus(db);
-      const rig = rigRepo.createRig("mf-rig");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("mf-software-team");
       // THE PIN: the seat is spec-pinned to the cheap model.
-      const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "codex", cwd, model: SPEC_MODEL });
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "codex", cwd, model: SPEC_MODEL });
       const session = sessionRegistry.registerSession(node.id, SEAT);
       sessionRegistry.updateStatus(session.id, "running");
       sessionRegistry.updateStartupStatus(session.id, "ready", new Date("2026-08-07T09:00:00Z").toISOString());
@@ -128,7 +128,7 @@ describe("seat-handover model-fidelity money-proof (real codex, isolated tmux)",
       const codexAdapter = new CodexRuntimeAdapter({ tmux: realTmux, fsOps: realFsOps(), listProcesses: () => [] }) as any;
 
       const service = new SeatHandoverService({
-        db, rigRepo, sessionRegistry, discoveryRepo, eventBus,
+        db, softwareTeamRepo, sessionRegistry, discoveryRepo, eventBus,
         tmuxAdapter: realTmux, runtimeAdapters: { codex: codexAdapter },
         predecessorRecapResolver: () => null, // no recap typed — keep the successor TUI clean for the footer read
         // The readiness verify polls the real successor until it is an interactive agent. Codex boots in

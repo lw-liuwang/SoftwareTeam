@@ -1,8 +1,8 @@
-// OPR.0.3.3.19 - rig archive / unarchive CLI surface.
+// OPR.0.3.3.19 - softwareTeam archive / unarchive CLI surface.
 //
-// Covers AC-6 (running-rig --force guard surfaces a 3-part honest error),
+// Covers AC-6 (running-SoftwareTeam --force guard surfaces a 3-part honest error),
 // the happy archive/unarchive paths, the --force flag wiring, and JSON output.
-// The daemon-layer guard is proven in the daemon suite (rig-archive.test.ts);
+// The daemon-layer guard is proven in the daemon suite (software-team-archive.test.ts);
 // here we prove the CLI faithfully surfaces the route's contract.
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import http from "node:http";
@@ -79,11 +79,11 @@ describe("Archive / Unarchive CLI (OPR.0.3.3.19)", () => {
       for await (const chunk of req) body += chunk;
       if (req.url?.endsWith("/archive") && req.method === "POST") {
         lastBody = body ? JSON.parse(body) : {};
-        const r = archiveResponse ?? { status: 200, body: { ok: true, rigId: "rig-1", archived: true } };
+        const r = archiveResponse ?? { status: 200, body: { ok: true, softwareTeamId: "software-team-1", archived: true } };
         res.writeHead(r.status, { "Content-Type": "application/json" });
         res.end(JSON.stringify(r.body));
       } else if (req.url?.endsWith("/unarchive") && req.method === "POST") {
-        const r = unarchiveResponse ?? { status: 200, body: { ok: true, rigId: "rig-1", unarchived: true } };
+        const r = unarchiveResponse ?? { status: 200, body: { ok: true, softwareTeamId: "software-team-1", unarchived: true } };
         res.writeHead(r.status, { "Content-Type": "application/json" });
         res.end(JSON.stringify(r.body));
       } else {
@@ -111,100 +111,100 @@ describe("Archive / Unarchive CLI (OPR.0.3.3.19)", () => {
   }
 
   it("archive success prints reversible note and exits 0", async () => {
-    archiveResponse = { status: 200, body: { ok: true, rigId: "rig-1", archived: true } };
+    archiveResponse = { status: 200, body: { ok: true, softwareTeamId: "software-team-1", archived: true } };
     const { logs, exitCode } = await captureLogs(async () => {
-      await archiveCmd().parseAsync(["node", "rig", "archive", "rig-1"]);
+      await archiveCmd().parseAsync(["node", "softwareTeam", "archive", "software-team-1"]);
     });
     const out = logs.join("\n");
     expect(out).toContain("archived");
-    expect(out).toContain("rig unarchive rig-1");
+    expect(out).toContain("SoftwareTeam unarchive software-team-1");
     expect(exitCode).toBeUndefined(); // 0
   });
 
   it("archive defaults force:false; --force sends force:true", async () => {
-    archiveResponse = { status: 200, body: { ok: true, rigId: "rig-1", archived: true } };
+    archiveResponse = { status: 200, body: { ok: true, softwareTeamId: "software-team-1", archived: true } };
     await captureLogs(async () => {
-      await archiveCmd().parseAsync(["node", "rig", "archive", "rig-1"]);
+      await archiveCmd().parseAsync(["node", "softwareTeam", "archive", "software-team-1"]);
     });
     expect(lastBody["force"]).toBe(false);
     await captureLogs(async () => {
-      await archiveCmd().parseAsync(["node", "rig", "archive", "rig-1", "--force"]);
+      await archiveCmd().parseAsync(["node", "softwareTeam", "archive", "software-team-1", "--force"]);
     });
     expect(lastBody["force"]).toBe(true);
   });
 
-  it("AC-6: running-rig 409 surfaces the 3-part honest error and exits 2", async () => {
+  it("AC-6: running-software-team 409 surfaces the 3-part honest error and exits 2", async () => {
     archiveResponse = {
       status: 409,
       body: { error: {
-        fact: "Rig 'alpha' is running (it has live sessions).",
-        consequence: "Archiving it would hide a rig with running seats from the default view.",
-        action: "Stop it first ('rig down rig-1'), or re-run with --force to archive anyway.",
+        fact: "SoftwareTeam 'alpha' is running (it has live sessions).",
+        consequence: "Archiving it would hide a SoftwareTeam with running seats from the default view.",
+        action: "Stop it first ('SoftwareTeam down software-team-1'), or re-run with --force to archive anyway.",
       } },
     };
     const { logs, exitCode } = await captureLogs(async () => {
-      await archiveCmd().parseAsync(["node", "rig", "archive", "rig-1"]);
+      await archiveCmd().parseAsync(["node", "softwareTeam", "archive", "software-team-1"]);
     });
     const out = logs.join("\n");
     expect(out).toContain("is running");
-    expect(out).toContain("would hide a rig with running seats");
+    expect(out).toContain("would hide a SoftwareTeam with running seats");
     expect(out).toContain("--force to archive anyway");
     expect(exitCode).toBe(2);
   });
 
   it("archive 404 exits 1 with a list hint", async () => {
-    archiveResponse = { status: 404, body: { error: "rig not found" } };
+    archiveResponse = { status: 404, body: { error: "SoftwareTeam not found" } };
     const { logs, exitCode } = await captureLogs(async () => {
-      await archiveCmd().parseAsync(["node", "rig", "archive", "missing"]);
+      await archiveCmd().parseAsync(["node", "softwareTeam", "archive", "missing"]);
     });
-    expect(logs.join("\n")).toContain("Rig not found: missing");
+    expect(logs.join("\n")).toContain("SoftwareTeam not found: missing");
     expect(exitCode).toBe(1);
   });
 
   it("archive --json emits raw JSON; 409 json exits 2", async () => {
-    archiveResponse = { status: 200, body: { ok: true, rigId: "rig-1", archived: true } };
+    archiveResponse = { status: 200, body: { ok: true, softwareTeamId: "software-team-1", archived: true } };
     const { logs } = await captureLogs(async () => {
-      await archiveCmd().parseAsync(["node", "rig", "archive", "rig-1", "--json"]);
+      await archiveCmd().parseAsync(["node", "softwareTeam", "archive", "software-team-1", "--json"]);
     });
     expect(JSON.parse(logs.join("")).archived).toBe(true);
 
     archiveResponse = { status: 409, body: { error: { fact: "f", consequence: "c", action: "a" } } };
     const { exitCode } = await captureLogs(async () => {
-      await archiveCmd().parseAsync(["node", "rig", "archive", "rig-1", "--json"]);
+      await archiveCmd().parseAsync(["node", "softwareTeam", "archive", "software-team-1", "--json"]);
     });
     expect(exitCode).toBe(2);
   });
 
   it("archive already-archived prints already-archived and exits 0", async () => {
-    archiveResponse = { status: 200, body: { ok: true, rigId: "rig-1", archived: false } };
+    archiveResponse = { status: 200, body: { ok: true, softwareTeamId: "software-team-1", archived: false } };
     const { logs, exitCode } = await captureLogs(async () => {
-      await archiveCmd().parseAsync(["node", "rig", "archive", "rig-1"]);
+      await archiveCmd().parseAsync(["node", "softwareTeam", "archive", "software-team-1"]);
     });
     expect(logs.join("\n")).toContain("already archived");
     expect(exitCode).toBeUndefined();
   });
 
   it("unarchive success prints back-in-view and exits 0", async () => {
-    unarchiveResponse = { status: 200, body: { ok: true, rigId: "rig-1", unarchived: true } };
+    unarchiveResponse = { status: 200, body: { ok: true, softwareTeamId: "software-team-1", unarchived: true } };
     const { logs, exitCode } = await captureLogs(async () => {
-      await unarchiveCmd().parseAsync(["node", "rig", "unarchive", "rig-1"]);
+      await unarchiveCmd().parseAsync(["node", "softwareTeam", "unarchive", "software-team-1"]);
     });
     expect(logs.join("\n")).toContain("back in the default view");
     expect(exitCode).toBeUndefined();
   });
 
   it("unarchive when not archived prints was-not-archived", async () => {
-    unarchiveResponse = { status: 200, body: { ok: true, rigId: "rig-1", unarchived: false } };
+    unarchiveResponse = { status: 200, body: { ok: true, softwareTeamId: "software-team-1", unarchived: false } };
     const { logs } = await captureLogs(async () => {
-      await unarchiveCmd().parseAsync(["node", "rig", "unarchive", "rig-1"]);
+      await unarchiveCmd().parseAsync(["node", "softwareTeam", "unarchive", "software-team-1"]);
     });
     expect(logs.join("\n")).toContain("was not archived");
   });
 
   it("unarchive 404 exits 1", async () => {
-    unarchiveResponse = { status: 404, body: { error: "rig not found" } };
+    unarchiveResponse = { status: 404, body: { error: "SoftwareTeam not found" } };
     const { exitCode } = await captureLogs(async () => {
-      await unarchiveCmd().parseAsync(["node", "rig", "unarchive", "missing"]);
+      await unarchiveCmd().parseAsync(["node", "softwareTeam", "unarchive", "missing"]);
     });
     expect(exitCode).toBe(1);
   });

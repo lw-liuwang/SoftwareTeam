@@ -1,7 +1,7 @@
 import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { extname, isAbsolute, join } from "node:path";
 import { parse as parseYaml } from "yaml";
-import { ATOM_TAXONOMIES, TAXONOMY_TEACHING } from "@openrig/daemon/context-pack-taxonomy";
+import { ATOM_TAXONOMIES, TAXONOMY_TEACHING } from "@softwareteam/daemon/context-pack-taxonomy";
 
 // Slice-03 Atom 2 — mirror the daemon's per-segment ref contract at the
 // local install boundary. This must run before creating the context store.

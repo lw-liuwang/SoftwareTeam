@@ -4,7 +4,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { rebindAndVerifyPaneIdentity } from "../src/domain/seat-attention-reconciler.js";
 import { SeatIdentityStore } from "../src/domain/seat-identity-store.js";
@@ -46,9 +46,9 @@ async function strictRestore(processRows: Row[], panePid = 100, paths: Record<nu
   witnesses.clear();
   for (const [pid, path] of Object.entries(paths)) witnesses.set(Number(pid), path);
   const db = createFullTestDb(); databases.push(db);
-  const repo = new RigRepository(db), registry = new SessionRegistry(db);
-  const rig = repo.createRig("prod1091"), name = "worker@prod1091";
-  const node = repo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
+  const repo = new SoftwareTeamRepository(db), registry = new SessionRegistry(db);
+  const softwareTeam = repo.createSoftwareTeam("prod1091"), name = "worker@prod1091";
+  const node = repo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
   registry.registerSession(node.id, name);
   registry.updateBinding(node.id, { tmuxSession: name, tmuxPane: "%1091" });
   const tmux = {

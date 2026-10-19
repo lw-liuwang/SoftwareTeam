@@ -1,11 +1,11 @@
 import { Hono } from "hono";
-import type { RigRepository } from "../domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "../domain/software-team-repository.js";
 import type { ServiceOrchestrator } from "../domain/service-orchestrator.js";
 import type { ComposeServicesAdapter } from "../adapters/compose-services-adapter.js";
 
 function getDeps(c: { get: (key: string) => unknown }) {
   return {
-    rigRepo: c.get("rigRepo" as never) as RigRepository,
+    softwareTeamRepo: c.get("softwareTeamRepo" as never) as SoftwareTeamRepository,
     serviceOrchestrator: c.get("serviceOrchestrator" as never) as ServiceOrchestrator | undefined,
     composeAdapter: c.get("composeAdapter" as never) as ComposeServicesAdapter | undefined,
   };
@@ -14,13 +14,13 @@ function getDeps(c: { get: (key: string) => unknown }) {
 export function envRoutes(): Hono {
   const app = new Hono();
 
-  // GET /api/rigs/:rigId/env — env status with fresh receipt
+  // GET /api/software-teams/:softwareTeamId/env — env status with fresh receipt
   app.get("/", async (c) => {
-    const rigId = c.req.param("rigId");
-    if (!rigId) return c.json({ error: "Missing rigId" }, 400);
+    const softwareTeamId = c.req.param("softwareTeamId");
+    if (!softwareTeamId) return c.json({ error: "Missing softwareTeamId" }, 400);
 
-    const { rigRepo, serviceOrchestrator } = getDeps(c);
-    const record = rigRepo.getServicesRecord(rigId);
+    const { softwareTeamRepo, serviceOrchestrator } = getDeps(c);
+    const record = softwareTeamRepo.getServicesRecord(softwareTeamId);
     if (!record) {
       return c.json({ ok: true, hasServices: false });
     }
@@ -35,7 +35,7 @@ export function envRoutes(): Hono {
     }
     if (serviceOrchestrator) {
       try {
-        const fresh = await serviceOrchestrator.captureReceipt(rigId);
+        const fresh = await serviceOrchestrator.captureReceipt(softwareTeamId);
         if (fresh) {
           receipt = fresh;
           probeStatus = "fresh";
@@ -70,15 +70,15 @@ export function envRoutes(): Hono {
     });
   });
 
-  // GET /api/rigs/:rigId/env/logs — service logs
+  // GET /api/software-teams/:softwareTeamId/env/logs — service logs
   app.get("/logs", async (c) => {
-    const rigId = c.req.param("rigId");
-    if (!rigId) return c.json({ error: "Missing rigId" }, 400);
+    const softwareTeamId = c.req.param("softwareTeamId");
+    if (!softwareTeamId) return c.json({ error: "Missing softwareTeamId" }, 400);
 
-    const { rigRepo, composeAdapter } = getDeps(c);
-    const record = rigRepo.getServicesRecord(rigId);
+    const { softwareTeamRepo, composeAdapter } = getDeps(c);
+    const record = softwareTeamRepo.getServicesRecord(softwareTeamId);
     if (!record) {
-      return c.json({ error: "No services configured for this rig" }, 404);
+      return c.json({ error: "No services configured for this softwareTeam" }, 404);
     }
 
     if (!composeAdapter) {
@@ -107,15 +107,15 @@ export function envRoutes(): Hono {
     return c.json({ ok: true, output: result.output });
   });
 
-  // POST /api/rigs/:rigId/env/down — tear down services
+  // POST /api/software-teams/:softwareTeamId/env/down — tear down services
   app.post("/down", async (c) => {
-    const rigId = c.req.param("rigId");
-    if (!rigId) return c.json({ error: "Missing rigId" }, 400);
+    const softwareTeamId = c.req.param("softwareTeamId");
+    if (!softwareTeamId) return c.json({ error: "Missing softwareTeamId" }, 400);
 
-    const { rigRepo, serviceOrchestrator } = getDeps(c);
-    const record = rigRepo.getServicesRecord(rigId);
+    const { softwareTeamRepo, serviceOrchestrator } = getDeps(c);
+    const record = softwareTeamRepo.getServicesRecord(softwareTeamId);
     if (!record) {
-      return c.json({ error: "No services configured for this rig" }, 404);
+      return c.json({ error: "No services configured for this softwareTeam" }, 404);
     }
 
     if (!serviceOrchestrator) {
@@ -126,8 +126,8 @@ export function envRoutes(): Hono {
     const volumes = body?.volumes;
 
     const result = volumes === true
-      ? await serviceOrchestrator.teardown(rigId, { policyOverride: "down_and_volumes" })
-      : await serviceOrchestrator.teardown(rigId);
+      ? await serviceOrchestrator.teardown(softwareTeamId, { policyOverride: "down_and_volumes" })
+      : await serviceOrchestrator.teardown(softwareTeamId);
 
     if (!result.ok) {
       return c.json({ ok: false, error: result.error }, 500);

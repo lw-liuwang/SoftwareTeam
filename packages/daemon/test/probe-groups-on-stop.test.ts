@@ -170,7 +170,7 @@ describe.skipIf(process.platform === "win32")("runtime probe groups end when the
     // The startup Codex probe on a fresh database answers at once.
     fs.writeFileSync(path.join(bin, "codex"), "#!/bin/sh\necho 'codex-cli 0.139.0'\n", { mode: 0o755 });
     const home = path.join(root, "home");
-    fs.mkdirSync(path.join(home, "openrig"), { recursive: true });
+    fs.mkdirSync(path.join(home, "softwareteam"), { recursive: true });
     const pidFile = path.join(root, "child.pid");
     const termMarker = path.join(root, "got-term");
     const daemon = spawn(process.execPath, [
@@ -179,8 +179,8 @@ describe.skipIf(process.platform === "win32")("runtime probe groups end when the
     ], {
       stdio: ["ignore", "pipe", "ignore"],
       env: {
-        PATH: `${bin}${path.delimiter}${process.env.PATH}`, HOME: home, TMPDIR: os.tmpdir(), VITEST: "true", OPENRIG_NO_KERNEL: "1",
-        OPENRIG_HOME: path.join(home, "openrig"), OPENRIG_DB: path.join(home, "openrig", "test.sqlite"),
+        PATH: `${bin}${path.delimiter}${process.env.PATH}`, HOME: home, TMPDIR: os.tmpdir(), VITEST: "true", SOFTWARETEAM_NO_KERNEL: "1",
+        SOFTWARETEAM_HOME: path.join(home, "softwareteam"), SOFTWARETEAM_DB: path.join(home, "softwareteam", "test.sqlite"),
         CODEX_HOME: path.join(home, ".codex"), CLAUDE_CONFIG_DIR: path.join(home, ".claude"),
         TMUX_TMPDIR: home, XDG_CONFIG_HOME: home, XDG_CACHE_HOME: home, XDG_DATA_HOME: home, XDG_STATE_HOME: home,
       },
@@ -201,7 +201,7 @@ describe.skipIf(process.platform === "win32")("runtime probe groups end when the
       // Exit 0 and a clean receipt: the real shutdown handler ran. If the startup handler were still armed it
       // would re-raise SIGTERM and the daemon would die of the signal instead.
       expect(await closed).toEqual({ code: 0, signal: null });
-      expect(JSON.parse(fs.readFileSync(path.join(home, "openrig", "daemon-shutdown.json"), "utf-8"))).toMatchObject({ outcome: "clean" });
+      expect(JSON.parse(fs.readFileSync(path.join(home, "softwareteam", "daemon-shutdown.json"), "utf-8"))).toMatchObject({ outcome: "clean" });
       expect(await gone(child)).toBe(true);
       // The "runtime-probes" shutdown phase TERMed the group; the exit hook alone would only KILL it.
       expect(fs.existsSync(termMarker)).toBe(true);

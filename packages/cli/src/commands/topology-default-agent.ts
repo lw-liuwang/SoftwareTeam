@@ -18,7 +18,7 @@ export async function resolveDefaultAgentRef(client: DaemonClient): Promise<stri
       && candidate.sourceType === "builtin",
   );
   if (!entry) {
-    throw new Error("The shipped default agent is unavailable. Reinstall OpenRig and retry.");
+    throw new Error("The shipped default agent is unavailable. Reinstall SoftwareTeam and retry.");
   }
   return `path:${dirname(entry.sourcePath)}`;
 }

@@ -37,7 +37,7 @@ beforeEach(() => {
 
 function topologyWith(sessions: string[]): SliceDetail["topology"] {
   return {
-    affectedRigs: [{ rigId: "rig-1", rigName: "demo", sessionNames: sessions }],
+    affectedSoftwareTeams: [{ softwareTeamId: "software-team-1", softwareTeamName: "demo", sessionNames: sessions }],
     totalSeats: sessions.length,
     specGraph: null,
   } as SliceDetail["topology"];
@@ -103,7 +103,7 @@ describe("TopologyTab progressive terminal (OPR.0.4.0.1 forward-fix)", () => {
   it("FR-2: project ScopePages mounts an explicit shared LiveTerminalProvider (not the fallback)", () => {
     // Source guard: the project scope shell wraps its pages in an explicit
     // LiveTerminalProvider (cap from useTerminalCap) so the Topology-tab terminal
-    // + the page's other terminals (e.g. HostMultiRigGraph) share ONE registry,
+    // + the page's other terminals (e.g. HostMultiSoftwareTeamGraph) share ONE registry,
     // instead of TopologyTab landing on the module-singleton fallback.
     const src = readFileSync(path.join(import.meta.dirname, "../src/components/project/ScopePages.tsx"), "utf8");
     expect(src).toContain("LiveTerminalProvider");

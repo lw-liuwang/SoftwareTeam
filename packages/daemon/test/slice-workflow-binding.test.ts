@@ -106,7 +106,7 @@ describe("PL-slice-story-view-v1 findSliceWorkflowBinding", () => {
       queueItemsSchema, queueTransitionsSchema,
       workflowSpecsSchema, workflowInstancesSchema, workflowStepTrailsSchema,
     ]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
   });
 
   afterEach(() => db.close());

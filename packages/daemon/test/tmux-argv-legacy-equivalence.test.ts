@@ -44,7 +44,7 @@ function respond(cmd: string, failing: string[]): string {
     case "list-panes": return "%1|0|/w|80|24|1\n";
     case "display-message":
       return cmd.includes("session_id") ? "$7\n" : cmd.includes("pane_pid") ? "4242\n" : "1\n";
-    case "show-environment": return "OPENRIG_NODE_ID=n1\nCLAUDECODE=1\nHERDR_PANE_ID=p1\n";
+    case "show-environment": return "SOFTWARETEAM_NODE_ID=n1\nCLAUDECODE=1\nHERDR_PANE_ID=p1\n";
     case "new-session": return "%1\n";
     default: return "";
   }
@@ -57,7 +57,7 @@ function recordingAdapter(calls: RunCall[], opts: { failing?: string[]; guard?: 
     writeFile: async () => {},
     unlink: async () => {},
     tmpName: () => "/tmp/a b/it's.txt",
-    bufferName: () => "openrig_1_buf",
+    bufferName: () => "softwareteam_1_buf",
   };
   const adapter = new TmuxAdapter(async (cmd) => {
     execs.push(cmd);
@@ -103,7 +103,7 @@ async function driveEveryMethod(): Promise<RunCall[]> {
   await a.sendText(SESSION, "1", undefined, { bracketed: false });
   await a.sendShellCommand(SESSION, "echo 'hi there'", undefined, { sourceInPane: true });
   await a.sendKeys(SESSION, ["Enter; rm -rf /", "C-c"]);
-  await a.setWindowOption(SESSION, "@openrig x", "a b'c");
+  await a.setWindowOption(SESSION, "@softwareteam x", "a b'c");
   await a.resizeWindow(SESSION, 120, 40);
   await a.killSession(SESSION);
   await a.respawnPane("%1", "codex resume 'tok en'", { cwd: "/w x", env: { A: "b c", Q: "it's" } });
@@ -119,10 +119,10 @@ async function driveEveryMethod(): Promise<RunCall[]> {
   await a.getPanePid(SESSION);
   await a.getDefaultShell();
   await a.getPaneCommand(SESSION);
-  await a.getSessionEnv(SESSION, "OPENRIG_NODE_ID");
+  await a.getSessionEnv(SESSION, "SOFTWARETEAM_NODE_ID");
   await a.setSessionEnv(SESSION, "SEAT_FLAG", "it's a value");
   await a.unsetSessionEnv(SESSION, "SEAT_FLAG");
-  await a.hasSessionEnv(SESSION, "OPENRIG_NODE_ID");
+  await a.hasSessionEnv(SESSION, "SOFTWARETEAM_NODE_ID");
   await a.startPipePane(SESSION, "/tmp/out dir/it's.log");
   await a.stopPipePane(SESSION);
   await a.capturePanesContent([SESSION, "alpha", "missing"], 50);
@@ -130,10 +130,10 @@ async function driveEveryMethod(): Promise<RunCall[]> {
   await a.capturePaneContent(SESSION, 30, { escapeSequences: true });
   await a.capturePaneScreen(SESSION);
   await a.getPaneCursorPosition(SESSION);
-  await a.setSessionOption(SESSION, "@openrig-x", "a b'c");
+  await a.setSessionOption(SESSION, "@softwareteam-x", "a b'c");
   await a.setServerOption("copy-command", "pbcopy -x 'y'");
   await a.showServerOption("copy-command");
-  await a.getSessionOption(SESSION, "@openrig-x");
+  await a.getSessionOption(SESSION, "@softwareteam-x");
   await a.readAllSessionWindowActivity();
   await a.readAllSessionWindows();
   await a.readAllPaneProcesses();

@@ -40,7 +40,7 @@ function readHead(root) {
 
 function main() {
   const root = process.cwd();
-  const verdictPath = resolve(process.argv[2] ?? process.env.OPENRIG_GATE_VERDICT ?? join(root, "gate-lane-verdict.json"));
+  const verdictPath = resolve(process.argv[2] ?? process.env.SOFTWARETEAM_GATE_VERDICT ?? join(root, "gate-lane-verdict.json"));
   consumeGateVerdict({ verdictPath, headSha: readHead(root) });
 }
 

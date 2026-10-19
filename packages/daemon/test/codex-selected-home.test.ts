@@ -24,9 +24,9 @@ function fixture() {
   fs.writeFileSync(path.join(home, '.codex/history.jsonl'), '{"fixture":"first-home"}\n');
   fs.writeFileSync(path.join(root, 'project-one/AGENTS.md'), 'first-project sentinel\n');
   fs.writeFileSync(path.join(bin, "codex"), `#!${process.execPath}\nconst fs=require('node:fs');const r={home:process.env.CODEX_HOME,cwd:process.cwd(),argv:process.argv.slice(2)};if(process.env.PROBE_RECORD)fs.appendFileSync(process.env.PROBE_RECORD,JSON.stringify(r)+'\\n');if(process.argv.includes('--help'))console.log('Usage: codex [OPTIONS]\\n  --no-daemon');else if(process.argv.includes('--version'))console.log('codex-cli 0.155.1');else console.log(JSON.stringify(r));\n`, { mode: 0o700 });
-  const cli = path.join(bin, "rig"); fs.writeFileSync(cli, '#!/bin/sh\nexit 0\n', { mode: 0o700 });
-  const env = { PATH: `${bin}:${path.dirname(process.execPath)}:/usr/bin:/bin`, HOME: home, CODEX_HOME: selected, OPENRIG_HOME: path.join(root, "instance") };
-  const ids: Record<string, string> = { OPENRIG_NODE_ID: "node", OPENRIG_SESSION_NAME: "seat@rig", OPENRIG_RUNTIME: "codex", OPENRIG_OCCUPANT_GENERATION: "generation" };
+  const cli = path.join(bin, "SoftwareTeam"); fs.writeFileSync(cli, '#!/bin/sh\nexit 0\n', { mode: 0o700 });
+  const env = { PATH: `${bin}:${path.dirname(process.execPath)}:/usr/bin:/bin`, HOME: home, CODEX_HOME: selected, SOFTWARETEAM_HOME: path.join(root, "instance") };
+  const ids: Record<string, string> = { SOFTWARETEAM_NODE_ID: "node", SOFTWARETEAM_SESSION_NAME: "seat@software-team", SOFTWARETEAM_RUNTIME: "codex", SOFTWARETEAM_OCCUPANT_GENERATION: "generation" };
   const tmux = { getPaneCommand: vi.fn(async () => "bash"), getSessionEnv: vi.fn(async (_s: string, k: string) => ids[k]), sendShellCommand: vi.fn(async (_s: string, _cmd: string) => ({ ok: true })) };
   const fsOps = { homedir: home, readFile: (p: string) => fs.readFileSync(p, "utf8"), writeFile: (p: string, c: string) => fs.writeFileSync(p, c), exists: fs.existsSync, mkdirp: (p: string) => { fs.mkdirSync(p, { recursive: true }); } };
   const launch = (explicit: boolean) => new (SeatLaunchEnvironment as any)(tmux, env, root, cli, explicit ? selected : undefined) as SeatLaunchEnvironment;
@@ -40,25 +40,25 @@ it.each(["fresh", "resume", "fork", "legacy"])("explicit home wins over pane rc 
   if (kind === "legacy") {
     const adapter = new CodexResumeAdapter(f.tmux as any, { seatLaunchEnvironment: launch, launchPath: f.env.PATH });
     vi.spyOn(adapter as any, 'verifyResume').mockResolvedValue({ ok: true });
-    expect((await adapter.resume('seat@rig', 'codex_id', 'old', f.cwd)).ok).toBe(true);
+    expect((await adapter.resume('seat@software-team', 'codex_id', 'old', f.cwd)).ok).toBe(true);
   } else {
     const adapter = new CodexRuntimeAdapter({ tmux: f.tmux as any, fsOps: f.fsOps, codexHome: f.selected, launchPath: f.env.PATH, seatLaunchEnvironment: launch, resolveGitAddDirs: async () => [] });
     vi.spyOn(adapter as any, 'dismissSkippableCodexUpdatePrompt').mockResolvedValue(undefined);
     vi.spyOn(adapter as any, 'captureFreshThreadId').mockResolvedValue('fresh');
     vi.spyOn(adapter as any, 'verifyResumeLaunch').mockResolvedValue({ ok: true });
-    expect((await adapter.launchHarness({ nodeId: 'node', tmuxSession: 'seat@rig', cwd: f.cwd } as any,
+    expect((await adapter.launchHarness({ nodeId: 'node', tmuxSession: 'seat@software-team', cwd: f.cwd } as any,
       { name: 'seat', ...(kind === 'resume' ? { resumeToken: 'old' } : kind === 'fork' ? { forkSource: { kind: 'native_id' as const, value: 'parent' } } : {}) })).ok).toBe(true);
   }
   expect(JSON.parse((await f.run(f.tmux.sendShellCommand.mock.calls.at(-1)![1])).stdout).home).toBe(f.selected);
 });
 it("unset selection keeps the pane home, including when startup supplies its default session home", async () => {
   const f = fixture();
-  const cmd = await f.launch(false).command('seat@rig', 'codex --versionless', { codexCwd: f.cwd });
+  const cmd = await f.launch(false).command('seat@software-team', 'codex --versionless', { codexCwd: f.cwd });
   expect(JSON.parse((await f.run(cmd)).stdout).home).toBe(path.join(f.home, '.codex'));
 });
 it("explicit home survives the existing metadata-unavailable fallback", async () => {
   const f = fixture(); f.tmux.getSessionEnv.mockRejectedValue(Error('unavailable'));
-  const cmd = await f.launch(true).command('seat@rig', 'codex --versionless', { codexCwd: f.cwd });
+  const cmd = await f.launch(true).command('seat@software-team', 'codex --versionless', { codexCwd: f.cwd });
   expect(JSON.parse((await f.run(cmd)).stdout).home).toBe(f.selected);
 });
 it.each(['managed', 'legacy', 'capability'])("%s probe uses the explicit home and launch PATH/cwd", async kind => {
@@ -69,11 +69,11 @@ it.each(['managed', 'legacy', 'capability'])("%s probe uses the explicit home an
   } else if (kind === 'legacy') {
     const a = new CodexResumeAdapter(f.tmux as any, { codexHome: f.selected, launchPath: f.env.PATH } as any);
     vi.spyOn(a as any, 'verifyResume').mockResolvedValue({ ok: true });
-    expect((await a.resume('seat@rig', 'codex_id', 'old', f.cwd, 'fixture')).ok).toBe(true);
+    expect((await a.resume('seat@software-team', 'codex_id', 'old', f.cwd, 'fixture')).ok).toBe(true);
   } else {
     const a = new CodexRuntimeAdapter({ tmux: f.tmux as any, fsOps: f.fsOps, codexHome: f.selected, launchPath: f.env.PATH, resolveGitAddDirs: async () => [] });
     vi.spyOn(a as any, 'dismissSkippableCodexUpdatePrompt').mockResolvedValue(undefined); vi.spyOn(a as any, 'captureFreshThreadId').mockResolvedValue('fresh');
-    expect((await a.launchHarness({ nodeId: 'node', tmuxSession: 'seat@rig', cwd: f.cwd, codexConfigProfile: 'fixture' } as any, { name: 'seat' })).ok).toBe(true);
+    expect((await a.launchHarness({ nodeId: 'node', tmuxSession: 'seat@software-team', cwd: f.cwd, codexConfigProfile: 'fixture' } as any, { name: 'seat' })).ok).toBe(true);
   }
   const rows = fs.readFileSync(record, 'utf8').trim().split('\n').map(l => JSON.parse(l));
   expect(rows.length).toBeGreaterThan(0); for (const r of rows) { expect(r.home).toBe(f.selected); expect(r.cwd).toBe(f.cwd); }
@@ -106,10 +106,10 @@ it("seatless startup, disable and projection preserve the other home's bytes; st
   const f = fixture(), before = fs.readFileSync(f.firstConfig);
   vi.spyOn(os, 'homedir').mockReturnValue(f.home);
   for (const [k, v] of Object.entries(f.env)) vi.stubEnv(k, v);
-  vi.stubEnv('OPENRIG_DB', path.join(f.root, 'instance.sqlite')); vi.stubEnv('OPENRIG_NO_KERNEL', '1');
-  vi.stubEnv('OPENRIG_RUNTIME_CODEX_HOOKS_ENABLED', 'true'); vi.stubEnv('OPENRIG_URL', undefined); vi.stubEnv('OPENRIG_PORT', undefined);
+  vi.stubEnv('SOFTWARETEAM_DB', path.join(f.root, 'instance.sqlite')); vi.stubEnv('SOFTWARETEAM_NO_KERNEL', '1');
+  vi.stubEnv('SOFTWARETEAM_RUNTIME_CODEX_HOOKS_ENABLED', 'true'); vi.stubEnv('SOFTWARETEAM_URL', undefined); vi.stubEnv('SOFTWARETEAM_PORT', undefined);
   const { createDaemon } = await import('../src/startup.js');
-  const start = () => createDaemon({ dbPath: process.env.OPENRIG_DB!, tmuxExec: async () => '', cmuxFactory: async () => { throw Error('fixture: no cmux'); } });
+  const start = () => createDaemon({ dbPath: process.env.SOFTWARETEAM_DB!, tmuxExec: async () => '', cmuxFactory: async () => { throw Error('fixture: no cmux'); } });
   const first = await start();
   try {
     expect(first.db.prepare('SELECT count(*) AS n FROM nodes').get()).toEqual({ n: 0 });
@@ -132,10 +132,10 @@ it("seatless startup, disable and projection preserve the other home's bytes; st
     expect(await (first.deps.resumeMetadataRefresher as any).readCodexThreadIdByPid(42, 'Sat Oct  3 00:00:00 2026')).toBe('second');
     expect(fs.readFileSync(f.firstConfig)).toEqual(before);
   } finally { first.db.close(); }
-  vi.stubEnv('OPENRIG_RUNTIME_CODEX_HOOKS_ENABLED', 'false');
+  vi.stubEnv('SOFTWARETEAM_RUNTIME_CODEX_HOOKS_ENABLED', 'false');
   const second = await start();
   try {
-    expect(fs.readFileSync(path.join(f.selected, 'config.toml'), 'utf8')).not.toContain('# BEGIN OPENRIG MANAGED ACTIVITY HOOKS');
+    expect(fs.readFileSync(path.join(f.selected, 'config.toml'), 'utf8')).not.toContain('# BEGIN SOFTWARETEAM MANAGED ACTIVITY HOOKS');
     expect(fs.readFileSync(f.firstConfig)).toEqual(before);
     expect(fs.readdirSync(path.join(f.home, '.codex')).sort()).toEqual(['config.toml', 'history.jsonl']);
     expect(fs.readFileSync(path.join(f.home, '.codex/history.jsonl'), 'utf8')).toBe('{"fixture":"first-home"}\n');
@@ -153,21 +153,21 @@ it.each([
   vi.spyOn(os, 'homedir').mockReturnValue(f.home);
   for (const [k, v] of Object.entries(f.env)) vi.stubEnv(k, v);
   vi.stubEnv('CODEX_HOME', selection);
-  vi.stubEnv('OPENRIG_DB', path.join(f.root, 'instance.sqlite'));
-  vi.stubEnv('OPENRIG_NO_KERNEL', '1');
-  vi.stubEnv('OPENRIG_RUNTIME_CODEX_HOOKS_ENABLED', 'true');
-  vi.stubEnv('OPENRIG_URL', undefined); vi.stubEnv('OPENRIG_PORT', undefined);
+  vi.stubEnv('SOFTWARETEAM_DB', path.join(f.root, 'instance.sqlite'));
+  vi.stubEnv('SOFTWARETEAM_NO_KERNEL', '1');
+  vi.stubEnv('SOFTWARETEAM_RUNTIME_CODEX_HOOKS_ENABLED', 'true');
+  vi.stubEnv('SOFTWARETEAM_URL', undefined); vi.stubEnv('SOFTWARETEAM_PORT', undefined);
   process.chdir(f.cwd);
   try {
     const { createDaemon } = await import('../src/startup.js');
-    const daemon = await createDaemon({ dbPath: process.env.OPENRIG_DB!, tmuxExec: async () => '', cmuxFactory: async () => { throw Error('fixture: no cmux'); } });
+    const daemon = await createDaemon({ dbPath: process.env.SOFTWARETEAM_DB!, tmuxExec: async () => '', cmuxFactory: async () => { throw Error('fixture: no cmux'); } });
     try {
       expect(daemon.db.prepare('SELECT count(*) AS n FROM nodes').get()).toEqual({ n: 0 });
       expect(fs.existsSync(path.join(f.cwd, 'config.toml'))).toBe(false);
       expect(fs.readFileSync(f.firstConfig, 'utf8')).toBe('# first-home sentinel\nmodel = "fixture"\n');
       await (daemon.deps.runtimeAdapters!.codex as CodexRuntimeAdapter).ensureManagedConfig();
       expect(fs.readFileSync(f.firstConfig, 'utf8')).toContain('trusted_hash');
-      expect(fs.readFileSync(f.firstConfig, 'utf8')).toContain('# BEGIN OPENRIG MANAGED ACTIVITY HOOKS');
+      expect(fs.readFileSync(f.firstConfig, 'utf8')).toContain('# BEGIN SOFTWARETEAM MANAGED ACTIVITY HOOKS');
       expect(daemon.deps.sessionEnv!.CODEX_HOME).toBe(path.join(f.home, '.codex'));
       expect((daemon.deps.pluginDiscoveryService as any).opts.codexCacheDir).toBe(path.join(f.home, '.codex/plugins/cache'));
       expect(fs.readdirSync(f.selected)).toEqual([]);

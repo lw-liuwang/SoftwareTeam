@@ -1,4 +1,4 @@
-import type { AttentionRead, AttentionItem } from "@openrig/daemon/attention";
+import type { AttentionRead, AttentionItem } from "@softwareteam/daemon/attention";
 import type { FleetSnapshot, ViewState } from "../types.js";
 import { listItem, wrapDetailLines, type ContentLine } from "../detail.js";
 

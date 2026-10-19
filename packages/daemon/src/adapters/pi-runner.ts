@@ -1,9 +1,9 @@
 // OPR.0.4.6.PI1 — the pane-hosted pi-runner (compiled entry in the daemon dist).
 //
-// The runner is what makes a Pi seat behave like a normal OpenRig tmux seat
+// The runner is what makes a Pi seat behave like a normal SoftwareTeam tmux seat
 // while everything underneath stays structured RPC:
 //
-//   pane stdin (rig send / human typing)  ──▶ RPC prompt / steer / follow_up
+//   pane stdin (SoftwareTeam send / human typing)  ──▶ RPC prompt / steer / follow_up
 //   pi RPC events (typed JSONL)           ──▶ (a) human-readable pane mirror
 //                                             (b) activity + session_identity
 //                                                 POSTs to the daemon
@@ -176,7 +176,7 @@ function piCredentialHint(message: string): string {
   const key = Object.hasOwn(PI_PROVIDER_ENV_VARS, provider) ? PI_PROVIDER_ENV_VARS[provider] : undefined;
   return key
     ? ` For managed Pi, set ${key} in the daemon environment and add ${key} to recovery.provider_auth_env_allowlist. Use model ${provider}/<id>, then restart the daemon and relaunch the seat. Default Pi logins are not automatically shared.`
-    : " For managed Pi, configure this provider in the seat's PI_CODING_AGENT_DIR (auth.json or models.json). Its key is not in OpenRig's Pi environment passthrough map; default Pi logins are not automatically shared.";
+    : " For managed Pi, configure this provider in the seat's PI_CODING_AGENT_DIR (auth.json or models.json). Its key is not in SoftwareTeam's Pi environment passthrough map; default Pi logins are not automatically shared.";
 }
 
 function errorNotice(details: unknown[], runtime: RunnerRuntime): string {
@@ -887,15 +887,15 @@ export function parseRunnerArgs(argv: string[]): RunnerArgs {
 }
 
 function resolveActivityEndpoint(env: NodeJS.ProcessEnv): { baseUrl: string; token: string } | null {
-  let baseUrl = env.OPENRIG_URL?.trim() || null;
-  let token = env.OPENRIG_ACTIVITY_HOOK_TOKEN?.trim() || null;
-  if (!baseUrl && env.OPENRIG_PORT) {
-    const rawHost = env.OPENRIG_HOST?.trim() || "127.0.0.1";
-    baseUrl = `http://${formatDaemonHostForUrl(rawHost)}:${env.OPENRIG_PORT.trim()}`;
+  let baseUrl = env.SOFTWARETEAM_URL?.trim() || null;
+  let token = env.SOFTWARETEAM_ACTIVITY_HOOK_TOKEN?.trim() || null;
+  if (!baseUrl && env.SOFTWARETEAM_PORT) {
+    const rawHost = env.SOFTWARETEAM_HOST?.trim() || "127.0.0.1";
+    baseUrl = `http://${formatDaemonHostForUrl(rawHost)}:${env.SOFTWARETEAM_PORT.trim()}`;
   }
   if (!baseUrl || !token) {
     try {
-      const home = env.OPENRIG_HOME?.trim() || nodePath.join(process.env.HOME ?? "", ".openrig");
+      const home = env.SOFTWARETEAM_HOME?.trim() || nodePath.join(process.env.HOME ?? "", ".softwareteam");
       const parsed = JSON.parse(fs.readFileSync(nodePath.join(home, "activity-endpoint.json"), "utf8"));
       if (!baseUrl && typeof parsed.baseUrl === "string") baseUrl = parsed.baseUrl;
       if (!token && typeof parsed.token === "string") token = parsed.token;
@@ -1042,9 +1042,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     model: args.model,
     runtime,
     sessionName: args.sessionName,
-    nodeId: process.env.OPENRIG_NODE_ID,
-    openrigHome: process.env.OPENRIG_HOME,
-    openrigUrl: endpoint?.baseUrl ?? process.env.OPENRIG_URL,
+    nodeId: process.env.SOFTWARETEAM_NODE_ID,
+    softwareteamHome: process.env.SOFTWARETEAM_HOME,
+    softwareteamUrl: endpoint?.baseUrl ?? process.env.SOFTWARETEAM_URL,
   });
   const childArgs = buildPiChildArgs({
     sessionsDir: paths.sessionsDir,
@@ -1129,7 +1129,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       return fetch(new URL("/api/activity/pi-usage-charges", endpoint.baseUrl).toString(), {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${endpoint.token}` },
-        body: JSON.stringify({ sessionName: args.sessionName, nodeId: process.env.OPENRIG_NODE_ID, piSessionId, charges }),
+        body: JSON.stringify({ sessionName: args.sessionName, nodeId: process.env.SOFTWARETEAM_NODE_ID, piSessionId, charges }),
         signal: controller.signal,
       }).then(async (res) => {
         if (!res.ok) return false as const;
@@ -1212,9 +1212,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   };
 
   const core = new RunnerCore(io, {
-    sessionName: args.sessionName, nodeId: process.env.OPENRIG_NODE_ID, launchId: args.launchId,
+    sessionName: args.sessionName, nodeId: process.env.SOFTWARETEAM_NODE_ID, launchId: args.launchId,
     // Carry the emitting tenure; never infer it from a later daemon read or Pi event.
-    generation: process.env.OPENRIG_OCCUPANT_GENERATION,
+    generation: process.env.SOFTWARETEAM_OCCUPANT_GENERATION,
   }, { catchUpSince, runtime, usageFacts: args.usageFacts === true, openRouterCharge: args.openRouterCharge === true, launchCredentialEvidence });
 
   let transportUp = runtime === "pi";
@@ -1287,7 +1287,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       const how = signal ? `signal ${signal}` : `exit code ${code ?? "unknown"}`;
       const output = stderrTail.length > 0 ? ` Its last output: ${stderrTail.join(" | ")}` : " It printed nothing on stderr.";
       console.error(transportUp
-        ? "[omp-runner] ERROR OMP did not establish a resumable RPC session. Authenticate this isolated seat using HOME=<seat-root> PI_CODING_AGENT_DIR=<seat-root>/agent omp and /login, or provide its declared model provider key in the OpenRig daemon environment. Default OMP credentials are not shared."
+        ? "[omp-runner] ERROR OMP did not establish a resumable RPC session. Authenticate this isolated seat using HOME=<seat-root> PI_CODING_AGENT_DIR=<seat-root>/agent omp and /login, or provide its declared model provider key in the SoftwareTeam daemon environment. Default OMP credentials are not shared."
         : `[omp-runner] ERROR OMP exited during startup, before its RPC transport started (${command}, ${how}).${output}`);
     }
     core.handlePiExit(code);

@@ -37,20 +37,20 @@ export class ClaudeManagedLaunch {
     private readonly rendererEnv: Readonly<NodeJS.ProcessEnv>,
     /** Reads one variable from a seat's tmux session environment (the daemon's tmux adapter). */
     private readonly readSessionEnv?: (session: string, key: string) => Promise<string | undefined>,
-    /** Where the daemon vendors its plugins; default is `plugins` under the OpenRig home (tests). */
+    /** Where the daemon vendors its plugins; default is `plugins` under the SoftwareTeam home (tests). */
     private readonly pluginsDir?: string) {}
 
-  /** Names the seat's rig and member declare in `env:`, plus any one-off `rig up --env` names the
+  /** Names the seat's softwareTeam and member declare in `env:`, plus any one-off `SoftwareTeam up --env` names the
    *  launch recorded on the tmux session. Their values are already in the pane shell, which is
    *  where `env -i` forwards them from. The launch keeps ownership of its own variables. */
   private async seatEnvKeys(nodeId: string, session: string | undefined): Promise<string[]> {
     const keys = new Set<string>();
     try {
-      const row = this.db.prepare(`SELECT n.env_json AS member, r.env_json AS rig
-        FROM nodes n JOIN rigs r ON r.id = n.rig_id WHERE n.id = ?`).get(nodeId) as { member: string | null; rig: string | null } | undefined;
-      for (const json of [row?.rig, row?.member]) for (const key of Object.keys(parseStoredSeatEnv(json) ?? {})) keys.add(key);
+      const row = this.db.prepare(`SELECT n.env_json AS member, r.env_json AS softwareTeam
+        FROM nodes n JOIN software_teams r ON r.id = n.software_team_id WHERE n.id = ?`).get(nodeId) as { member: string | null; softwareTeam: string | null } | undefined;
+      for (const json of [row?.softwareTeam, row?.member]) for (const key of Object.keys(parseStoredSeatEnv(json) ?? {})) keys.add(key);
     } catch { /* A database from before seat env has no columns to read. */ }
-    // A seat that selected the shipped openrig-core plugin has the plugin variable in its pane (the launch, or a
+    // A seat that selected the shipped softwareteam-core plugin has the plugin variable in its pane (the launch, or a
     // handover's respawned pane, put it there). The session's own name list can predate that, so name it here too.
     if (seatCorePluginDir({ id: nodeId, runtime: "claude-code" }, this.db, undefined, this.pluginsDir)) keys.add(CLAUDE_PLUGIN_DIRS_ENV);
     if (session && this.readSessionEnv) {
@@ -162,9 +162,9 @@ export class ClaudeManagedLaunch {
     assertCurrent();
     validateNativePermissionSelection("claude-code", mode, parseClaudePermissionModes(help));
     const generation = target.generation ?? before.generation;
-    const identity: Record<string, string> = { OPENRIG_NODE_ID: target.nodeId, OPENRIG_RUNTIME: "claude-code",
-      ...(before.session ? { OPENRIG_SESSION_NAME: before.session } : {}),
-      ...(generation ? { OPENRIG_OCCUPANT_GENERATION: generation } : {}) };
+    const identity: Record<string, string> = { SOFTWARETEAM_NODE_ID: target.nodeId, SOFTWARETEAM_RUNTIME: "claude-code",
+      ...(before.session ? { SOFTWARETEAM_SESSION_NAME: before.session } : {}),
+      ...(generation ? { SOFTWARETEAM_OCCUPANT_GENERATION: generation } : {}) };
     const seatKeys = await this.seatEnvKeys(target.nodeId, before.session ?? undefined);
     const publicEnv = publicSeatEnvironment(this.sessionEnv);
     const assignments = Object.entries({ ...context.env, ...publicEnv, ...identity }).map(([key, value]) => shellQuote(`${key}=${value}`));
@@ -173,7 +173,7 @@ export class ClaudeManagedLaunch {
     // the session never reaches a successor pane that was not given it. Set-but-empty stays empty.
     const seatForwarded = seatKeys.filter(key => !inherited.includes(key) && !(key in identity) && !(key in publicEnv))
       .map(key => `\${${key}+"${key}=$${key}"}`);
-    // A seat that loads the openrig-core plugin has its launch project in its pane (OPENRIG_SEAT_PROJECT_DIR): the plugin's
+    // A seat that loads the softwareteam-core plugin has its launch project in its pane (SOFTWARETEAM_SEAT_PROJECT_DIR): the plugin's
     // hooks use it to tell the seat from a Claude started elsewhere inside it. Forwarded by name; the pane supplies the value.
     const loadsCorePlugin = seatCorePluginDir({ id: target.nodeId, runtime: "claude-code" }, this.db, undefined, this.pluginsDir) !== undefined;
     const projectForwarded = loadsCorePlugin ? [`\${${SEAT_PROJECT_DIR_ENV}+"${SEAT_PROJECT_DIR_ENV}=$${SEAT_PROJECT_DIR_ENV}"}`] : [];

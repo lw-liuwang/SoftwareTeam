@@ -32,7 +32,7 @@ describe("LaunchCmuxButton", () => {
   it("renders button with 'Launch in CMUX' label", () => {
     render(
       <Wrapper>
-        <LaunchCmuxButton rigId="my-rig" />
+        <LaunchCmuxButton softwareTeamId="my-software-team" />
       </Wrapper>,
     );
     const button = screen.getByTestId("launch-cmux-button");
@@ -43,7 +43,7 @@ describe("LaunchCmuxButton", () => {
   it("button has lg:inline + hidden classes (visible on desktop, hidden on mobile)", () => {
     render(
       <Wrapper>
-        <LaunchCmuxButton rigId="my-rig" />
+        <LaunchCmuxButton softwareTeamId="my-software-team" />
       </Wrapper>,
     );
     const wrapper = screen.getByTestId("launch-cmux-wrapper");
@@ -51,21 +51,21 @@ describe("LaunchCmuxButton", () => {
     expect(wrapper.className).toMatch(/lg:/);
   });
 
-  it("click POSTs to /api/rigs/:rigId/cmux/launch", async () => {
+  it("click POSTs to /api/software-teams/:softwareTeamId/cmux/launch", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ ok: true, workspaces: [{ name: "my-rig", agents: ["a", "b"], blanks: 0 }] }),
+      json: async () => ({ ok: true, workspaces: [{ name: "my-software-team", agents: ["a", "b"], blanks: 0 }] }),
     });
     render(
       <Wrapper>
-        <LaunchCmuxButton rigId="my-rig" />
+        <LaunchCmuxButton softwareTeamId="my-software-team" />
       </Wrapper>,
     );
     fireEvent.click(screen.getByTestId("launch-cmux-button"));
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        "/api/rigs/my-rig/cmux/launch",
+        "/api/software-teams/my-software-team/cmux/launch",
         expect.objectContaining({ method: "POST" }),
       );
     });
@@ -80,7 +80,7 @@ describe("LaunchCmuxButton", () => {
 
     render(
       <Wrapper>
-        <LaunchCmuxButton rigId="my-rig" />
+        <LaunchCmuxButton softwareTeamId="my-software-team" />
       </Wrapper>,
     );
     fireEvent.click(screen.getByTestId("launch-cmux-button"));
@@ -108,19 +108,19 @@ describe("LaunchCmuxButton", () => {
       status: 200,
       json: async () => ({
         ok: true,
-        workspaces: [{ name: "my-rig", agents: ["a", "b", "c"], blanks: 1 }],
+        workspaces: [{ name: "my-software-team", agents: ["a", "b", "c"], blanks: 1 }],
       }),
     });
     render(
       <Wrapper>
-        <LaunchCmuxButton rigId="my-rig" />
+        <LaunchCmuxButton softwareTeamId="my-software-team" />
       </Wrapper>,
     );
     fireEvent.click(screen.getByTestId("launch-cmux-button"));
     await waitFor(() => {
       const toast = screen.getByTestId("launch-cmux-status");
       expect(toast.textContent?.toLowerCase()).toMatch(/launched/);
-      expect(toast.textContent).toContain("my-rig");
+      expect(toast.textContent).toContain("my-software-team");
       expect(toast.textContent).toMatch(/3/); // 3 agents
     });
   });
@@ -130,23 +130,23 @@ describe("LaunchCmuxButton", () => {
       ok: false,
       status: 412,
       json: async () => ({
-        error: "rig_not_running",
-        message: "Rig 'my-rig' has no running tmux sessions — can't attach to anything — run: rig up my-rig",
+        error: "software_team_not_running",
+        message: "SoftwareTeam 'my-software-team' has no running tmux sessions — can't attach to anything — run: SoftwareTeam up my-software-team",
       }),
     });
     render(
       <Wrapper>
-        <LaunchCmuxButton rigId="my-rig" />
+        <LaunchCmuxButton softwareTeamId="my-software-team" />
       </Wrapper>,
     );
     fireEvent.click(screen.getByTestId("launch-cmux-button"));
     await waitFor(() => {
       const toast = screen.getByTestId("launch-cmux-status");
-      expect(toast.textContent?.toLowerCase()).toMatch(/no running tmux|rig_not_running/);
+      expect(toast.textContent?.toLowerCase()).toMatch(/no running tmux|software_team_not_running/);
     });
   });
 
-  it("error toast contains rig name + actionable hint (honest 3-part check)", async () => {
+  it("error toast contains SoftwareTeam name + actionable hint (honest 3-part check)", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: false,
       status: 503,
@@ -157,7 +157,7 @@ describe("LaunchCmuxButton", () => {
     });
     render(
       <Wrapper>
-        <LaunchCmuxButton rigId="my-rig" />
+        <LaunchCmuxButton softwareTeamId="my-software-team" />
       </Wrapper>,
     );
     fireEvent.click(screen.getByTestId("launch-cmux-button"));
@@ -169,7 +169,7 @@ describe("LaunchCmuxButton", () => {
 
   // velocity-guard 24.D BLOCKING-CONCERN repair (primary):
   // honest 3-part error must NOT be visually truncated. Operators
-  // need to see the action phrase (e.g., "cmux ping", "rig up <name>")
+  // need to see the action phrase (e.g., "cmux ping", "SoftwareTeam up <name>")
   // to recover. Truncation would only show the FACT but hide the
   // ACTION guidance, violating HG-10/HG-13 honest-error contract.
 
@@ -184,7 +184,7 @@ describe("LaunchCmuxButton", () => {
     });
     render(
       <Wrapper>
-        <LaunchCmuxButton rigId="my-rig" />
+        <LaunchCmuxButton softwareTeamId="my-software-team" />
       </Wrapper>,
     );
     fireEvent.click(screen.getByTestId("launch-cmux-button"));
@@ -207,7 +207,7 @@ describe("LaunchCmuxButton", () => {
     });
     render(
       <Wrapper>
-        <LaunchCmuxButton rigId="my-rig" />
+        <LaunchCmuxButton softwareTeamId="my-software-team" />
       </Wrapper>,
     );
     fireEvent.click(screen.getByTestId("launch-cmux-button"));
@@ -220,24 +220,24 @@ describe("LaunchCmuxButton", () => {
     });
   });
 
-  it("error status text content includes 'rig up' action phrase for rig_not_running", async () => {
+  it("error status text content includes 'SoftwareTeam up' action phrase for software_team_not_running", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: false,
       status: 412,
       json: async () => ({
-        error: "rig_not_running",
-        message: "Rig 'my-rig' has no running tmux sessions — can't attach to anything — run: rig up my-rig",
+        error: "software_team_not_running",
+        message: "SoftwareTeam 'my-software-team' has no running tmux sessions — can't attach to anything — run: SoftwareTeam up my-software-team",
       }),
     });
     render(
       <Wrapper>
-        <LaunchCmuxButton rigId="my-rig" />
+        <LaunchCmuxButton softwareTeamId="my-software-team" />
       </Wrapper>,
     );
     fireEvent.click(screen.getByTestId("launch-cmux-button"));
     await waitFor(() => {
       const toast = screen.getByTestId("launch-cmux-status");
-      expect(toast.textContent).toContain("rig up my-rig");
+      expect(toast.textContent).toContain("SoftwareTeam up my-software-team");
     });
   });
 
@@ -251,7 +251,7 @@ describe("LaunchCmuxButton", () => {
         return new Response(
           JSON.stringify({
             ok: true,
-            workspaces: [{ name: "w1", agents: ["a@rig"], blanks: 0 }],
+            workspaces: [{ name: "w1", agents: ["a@software-team"], blanks: 0 }],
             missing: [
               { logicalId: "b", reason: "still-booting" },
               { logicalId: "c", reason: "session-missing" },
@@ -268,7 +268,7 @@ describe("LaunchCmuxButton", () => {
 
     render(
       <Wrapper>
-        <LaunchCmuxButton rigId="my-rig" />
+        <LaunchCmuxButton softwareTeamId="my-software-team" />
       </Wrapper>,
     );
 
@@ -300,7 +300,7 @@ describe("LaunchCmuxButton", () => {
         return new Response(
           JSON.stringify({
             ok: true,
-            workspaces: [{ name: "w1", agents: ["a@rig"], blanks: 0 }],
+            workspaces: [{ name: "w1", agents: ["a@software-team"], blanks: 0 }],
             missing: [{ logicalId: "b", reason: "session-missing" }],
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
@@ -317,7 +317,7 @@ describe("LaunchCmuxButton", () => {
 
     render(
       <Wrapper>
-        <LaunchCmuxButton rigId="my-rig" />
+        <LaunchCmuxButton softwareTeamId="my-software-team" />
       </Wrapper>,
     );
     fireEvent.click(screen.getByTestId("launch-cmux-button"));
@@ -338,7 +338,7 @@ describe("LaunchCmuxButton", () => {
       new Response(
         JSON.stringify({
           ok: true,
-          workspaces: [{ name: "w1", agents: ["a@rig"], blanks: 0 }],
+          workspaces: [{ name: "w1", agents: ["a@software-team"], blanks: 0 }],
           missing: [{ logicalId: "b", reason: "session-missing" }],
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
@@ -346,7 +346,7 @@ describe("LaunchCmuxButton", () => {
     );
     render(
       <Wrapper>
-        <LaunchCmuxButton rigId="my-rig" />
+        <LaunchCmuxButton softwareTeamId="my-software-team" />
       </Wrapper>,
     );
     fireEvent.click(screen.getByTestId("launch-cmux-button"));

@@ -18,7 +18,7 @@
 //
 // Route discipline: zoom-addressed like /agents (ADDRESSING, not nav
 // chrome). Expanded state rides ?open=<fleetKey> so every state is
-// deep-link addressable (the RigAgentsPage query-param idiom).
+// deep-link addressable (the SoftwareTeamAgentsPage query-param idiom).
 
 import { Link } from "@tanstack/react-router";
 import { Globe } from "lucide-react";
@@ -248,7 +248,7 @@ export function FleetPage() {
                       </span>
                     ))}
                     <span className="font-mono text-[9px] text-on-surface-variant">
-                      {h.rigCount} rigs · {h.seatCount} seats
+                      {h.softwareTeamCount} softwareTeams · {h.seatCount} seats
                     </span>
                     <button
                       type="button"

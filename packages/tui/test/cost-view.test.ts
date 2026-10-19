@@ -1,5 +1,5 @@
 // Slice 02 — System → Cost: the read and the presenter, against the daemon's own cost route over a real store (and
-// plain served JSON for states that store can't hold). Every seat's first line is the line `rig usage cost` prints
+// plain served JSON for states that store can't hold). Every seat's first line is the line `softwareTeam usage cost` prints
 // for the same response; every served kind, source, window, coverage, count and reason shows; a charge sits beside
 // its estimate and is never added; tiny money never reads as zero; failures and absence say so; and the read is one
 // GET of one route, starting nothing.
@@ -42,7 +42,7 @@ const text = (r: CostRead, width = 4000) => costLines(r, width).map((l) => l.tex
 const served = async () => (await (await daemonFetch()("http://fixture" + COST_ROUTE)).json()) as { seats: Array<Record<string, any>>; note: string };
 
 describe("System → Cost: the presenter over the daemon's cost route", () => {
-  it("each seat's first line is the line rig usage cost prints for the same response", async () => {
+  it("each seat's first line is the line SoftwareTeam usage cost prints for the same response", async () => {
     const body = await served();
     expect(body.seats.map((s) => s.seatSession).sort()).toEqual(["dev-claude@r", "dev-codex@r", "dev-pi@r", "misc@r", "old-claude@r", "quiet-claude@r", "tiny-claude@r"]);
     const out = text(await read()).split("\n").map((l) => l.trim());
@@ -95,7 +95,7 @@ describe("System → Cost: the presenter over the daemon's cost route", () => {
     expect(out).toContain("own 5 (counted; 1 without a cost, 1 error/aborted) · inherited 1 ($0.20) and unknown origin 1 ($0.03): shown apart, not counted");
     expect(out).toContain("provider charge, beside the estimate and never added to it: partial · $0.01 USD (Pi's estimate for the same requests: $0.01)");
     expect(out).toContain("requests: 5 OpenRouter · 4 covered · 2 charged · 1 pending · 1 unavailable · 1 not covered");
-    expect(out).toContain("account context: credential OPENROUTER_API_KEY (forwarded by OpenRig; Pi's credential observed before and after the request) · workspace ws-1 · BYOK requests 0");
+    expect(out).toContain("account context: credential OPENROUTER_API_KEY (forwarded by SoftwareTeam; Pi's credential observed before and after the request) · workspace ws-1 · BYOK requests 0");
     expect(out).not.toContain("$0.00");
     expect(formatUsd(0.0004)).toBe("<$0.01");
     expect(formatUsd(0)).toBe("$0.00"); // a real zero still reads as zero

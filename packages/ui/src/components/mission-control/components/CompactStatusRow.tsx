@@ -5,7 +5,7 @@
 // visible on mobile width) but the JSON payload preserves all 9.
 //
 // 9 fields verbatim from PRD:
-//   1. rig/mission name
+//   1. softwareTeam/mission name
 //   2. current phase
 //   3. active/idle/attention/blocked/degraded
 //   4. next-action
@@ -81,11 +81,11 @@ export function CompactStatusRow({
             {badge.label}
           </span>
           <span
-            data-testid="mc-rig-name"
+            data-testid="mc-software-team-name"
             className="font-mono text-xs text-on-surface truncate"
-            title={row.rigOrMissionName}
+            title={row.softwareTeamOrMissionName}
           >
-            {row.rigOrMissionName}
+            {row.softwareTeamOrMissionName}
           </span>
           {row.currentPhase ? (
             <span

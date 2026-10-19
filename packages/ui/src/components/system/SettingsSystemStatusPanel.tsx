@@ -8,7 +8,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { SectionHeader } from "../ui/section-header.js";
 import { StatusPip } from "../ui/status-pip.js";
-import { useRigSummary } from "../../hooks/useRigSummary.js";
+import { useSoftwareTeamSummary } from "../../hooks/useSoftwareTeamSummary.js";
 import { usePsEntries } from "../../hooks/usePsEntries.js";
 
 async function fetchHealth(): Promise<boolean> {
@@ -37,13 +37,13 @@ export function SettingsSystemStatusPanel() {
     retry: false,
   });
 
-  const { data: rigs, isLoading: rigsLoading, error: rigsError } = useRigSummary();
+  const { data: softwareTeams, isLoading: softwareTeamsLoading, error: softwareTeamsError } = useSoftwareTeamSummary();
   const { data: psEntries } = usePsEntries();
 
   const daemonConnected = healthQuery.isSuccess;
   const cmuxAvailable = daemonConnected ? (cmuxQuery.data?.available ?? null) : null;
-  const totalRigs = rigs?.length ?? 0;
-  const runningRigs = psEntries?.filter((p) => p.runningCount > 0).length ?? 0;
+  const totalSoftwareTeams = softwareTeams?.length ?? 0;
+  const runningSoftwareTeams = psEntries?.filter((p) => p.runningCount > 0).length ?? 0;
 
   const daemonStatus: React.ComponentProps<typeof StatusPip>["status"] =
     daemonConnected
@@ -102,19 +102,19 @@ export function SettingsSystemStatusPanel() {
           />
         </div>
         <div className="mt-1 font-mono text-[10px] text-on-surface-variant">
-          OpenRig can control cmux surfaces for node open-or-focus.
+          SoftwareTeam can control cmux surfaces for node open-or-focus.
         </div>
       </section>
       <section>
-        <SectionHeader tone="muted">Rigs</SectionHeader>
+        <SectionHeader tone="muted">SoftwareTeams</SectionHeader>
         <div className="mt-2 space-y-1.5 font-mono text-xs">
           <div className="flex justify-between">
             <span className="text-on-surface-variant">Total</span>
-            <span className="text-on-surface font-bold" data-testid="status-rigs-total">{totalRigs}</span>
+            <span className="text-on-surface font-bold" data-testid="status-software-teams-total">{totalSoftwareTeams}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-on-surface-variant">Running</span>
-            <span className="text-on-surface font-bold" data-testid="status-rigs-running">{runningRigs}</span>
+            <span className="text-on-surface font-bold" data-testid="status-software-teams-running">{runningSoftwareTeams}</span>
           </div>
         </div>
       </section>

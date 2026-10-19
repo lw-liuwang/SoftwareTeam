@@ -13,7 +13,7 @@ function rows(argv0 = "claude"): NativeProcessRow[] {
     { pid: 538586, ppid: 538585, pgid: 538586, tpgid: 538612, executableName: "bash", command: "-bash", startedAt },
     { pid: 538612, ppid: 538586, pgid: 538612, tpgid: 538612, executableName: "bash", command: "-bash", startedAt },
     { pid: 538614, ppid: 538612, pgid: 538612, tpgid: 538612, executableName: ".claude-unwrapp", executablePath: path,
-      command: `${argv0} --permission-mode acceptEdits --settings {"permissions":{"allow":["Skill","Read"]}} --session-id ${token} --name seat@rig`, startedAt },
+      command: `${argv0} --permission-mode acceptEdits --settings {"permissions":{"allow":["Skill","Read"]}} --session-id ${token} --name seat@software-team`, startedAt },
   ];
 }
 const input = (listProcesses: () => NativeProcessRow[]) => ({ target: "%0", tmux: { getPanePid: async () => 538586 }, listProcesses, expectedToken: token });
@@ -45,7 +45,7 @@ const cases: [string, (r: NativeProcessRow[]) => NativeProcessRow[]][] = [
   ["Claude helper with a different argv0", native({ command: `ugrep -G --hidden --session-id ${token}` })],
   ["non-Claude argv0 in a wrapped process", native({ command: `/bin/echo claude --session-id ${token}` })],
   ["wrong token", native({ command: "claude --session-id other" })],
-  ["missing token", native({ command: "claude --name seat@rig" })],
+  ["missing token", native({ command: "claude --name seat@software-team" })],
   ["background", native({ pgid: 88 })],
   ["ambiguous", r => [...r, { ...r[2]!, pid: 538615 }]],
 ];

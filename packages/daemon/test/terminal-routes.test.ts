@@ -1,15 +1,15 @@
-// OPR.0.4.6.02 C3 — the terminal routes: canonical composer + rig-scoped thin
+// OPR.0.4.6.02 C3 — the terminal routes: canonical composer + software-team-scoped thin
 // alias. Pins the route wiring + status mapping + the one shared body contract:
 //  - POST /api/terminal/open → the TerminalService result body verbatim;
 //  - status mapping: ok → 200 · unknown_provider/view_required → 400 ·
 //    view_not_found → 404 · provider-unavailable (honest-partial) → 200;
 //  - GET /views + GET /status delegate;
 //  - service absent → 503 (never a crash);
-//  - the rig-scoped alias composes view = rig:<rigId> and delegates (arch R1).
+//  - the software-team-scoped alias composes view = software-team:<softwareTeamId> and delegates (arch R1).
 
 import { describe, it, expect, vi } from "vitest";
 import { Hono } from "hono";
-import { terminalRoutes, rigTerminalRoutes } from "../src/routes/terminal.js";
+import { terminalRoutes, softwareTeamTerminalRoutes } from "../src/routes/terminal.js";
 import type { OpenViewResult } from "../src/domain/terminal/terminal-provider.js";
 
 type OpenReq = { provider?: string; view: string };
@@ -32,7 +32,7 @@ function makeApp(opts: {
             openCalls.push(req);
             return (opts.openImpl ?? okResult)(req.view);
           },
-          listViews: async () => ({ saved: [{ id: "watchtower", name: "Watchtower", members: [] }], rigs: ["acme-build"] }),
+          listViews: async () => ({ saved: [{ id: "watchtower", name: "Watchtower", members: [] }], softwareTeams: ["acme-build"] }),
           status: async (p?: string) => ({ providers: [{ name: p ?? "herdr", status: { provider: p ?? "herdr", available: true, capabilities: {} }, liveness: { alive: true } }] }),
         };
   const app = new Hono();
@@ -41,7 +41,7 @@ function makeApp(opts: {
     await next();
   });
   app.route("/api/terminal", terminalRoutes());
-  app.route("/api/rigs/:rigId/terminal", rigTerminalRoutes);
+  app.route("/api/software-teams/:softwareTeamId/terminal", softwareTeamTerminalRoutes);
   return { app, openCalls };
 }
 
@@ -106,7 +106,7 @@ describe("GET /api/terminal/views + /status", () => {
     const { app } = makeApp();
     const res = await app.request("/api/terminal/views");
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ rigs: ["acme-build"] });
+    expect(await res.json()).toMatchObject({ softwareTeams: ["acme-build"] });
   });
 
   it("status passes the provider query through", async () => {
@@ -117,18 +117,18 @@ describe("GET /api/terminal/views + /status", () => {
   });
 });
 
-describe("POST /api/rigs/:rigId/terminal/open — thin alias", () => {
-  it("composes view = rig:<rigId> and delegates to the same service", async () => {
+describe("POST /api/software-teams/:softwareTeamId/terminal/open — thin alias", () => {
+  it("composes view = software-team:<softwareTeamId> and delegates to the same service", async () => {
     const { app, openCalls } = makeApp();
-    const res = await post(app, "/api/rigs/rig-id-1/terminal/open", {});
+    const res = await post(app, "/api/software-teams/software-team-id-1/terminal/open", {});
     expect(res.status).toBe(200);
-    expect(openCalls[0]?.view).toBe("rig:rig-id-1");
+    expect(openCalls[0]?.view).toBe("software-team:software-team-id-1");
   });
 
-  it("carries a provider from the body while still composing the rig view", async () => {
+  it("carries a provider from the body while still composing the SoftwareTeam view", async () => {
     const { app, openCalls } = makeApp();
-    await post(app, "/api/rigs/rig-id-1/terminal/open", { provider: "cmux" });
-    expect(openCalls[0]).toEqual({ view: "rig:rig-id-1", provider: "cmux" });
+    await post(app, "/api/software-teams/software-team-id-1/terminal/open", { provider: "cmux" });
+    expect(openCalls[0]).toEqual({ view: "software-team:software-team-id-1", provider: "cmux" });
   });
 });
 

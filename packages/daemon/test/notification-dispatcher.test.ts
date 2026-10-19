@@ -39,9 +39,9 @@ describe("MissionControlNotificationDispatcher (PL-005 Phase B)", () => {
   beforeEach(() => {
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, queueItemsSchema, queueTransitionsSchema, missionControlActionsSchema]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     bus = new EventBus(db);
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     adapter = new FakeAdapter();
     dispatcher = new MissionControlNotificationDispatcher({ db, eventBus: bus, adapter });
     dispatcher.start();
@@ -54,7 +54,7 @@ describe("MissionControlNotificationDispatcher (PL-005 Phase B)", () => {
 
   it("dispatches on human-gate qitem arrival (mandatory trigger)", async () => {
     await queueRepo.create({
-      sourceSession: "src@rig",
+      sourceSession: "src@software-team",
       destinationSession: "human-operator@kernel",
       body: "needs human approval",
       tier: "human-gate",
@@ -79,7 +79,7 @@ describe("MissionControlNotificationDispatcher (PL-005 Phase B)", () => {
     dispatcher.start();
 
     const created = await queueRepo.create({
-      sourceSession: "src@rig",
+      sourceSession: "src@software-team",
       destinationSession: "human-operator@kernel",
       body: "needs human approval",
       tier: "human-gate",
@@ -95,8 +95,8 @@ describe("MissionControlNotificationDispatcher (PL-005 Phase B)", () => {
 
   it("does NOT dispatch on non-human-gate qitem arrival", async () => {
     await queueRepo.create({
-      sourceSession: "src@rig",
-      destinationSession: "agent@rig",
+      sourceSession: "src@software-team",
+      destinationSession: "agent@software-team",
       body: "agent task",
     });
     await new Promise((r) => setTimeout(r, 10));
@@ -105,8 +105,8 @@ describe("MissionControlNotificationDispatcher (PL-005 Phase B)", () => {
 
   it("does NOT dispatch on action_executed by default (verb-completion opt-in)", async () => {
     const created = await queueRepo.create({
-      sourceSession: "src@rig",
-      destinationSession: "human@rig",
+      sourceSession: "src@software-team",
+      destinationSession: "human@software-team",
       body: "x",
       tier: "human-gate",
       summary: "test summary (FR-4 human-routed fixture)",
@@ -116,7 +116,7 @@ describe("MissionControlNotificationDispatcher (PL-005 Phase B)", () => {
     adapter.calls.length = 0;
     const actionLog = new MissionControlActionLog(db);
     const writeContract = new MissionControlWriteContract({ db, eventBus: bus, queueRepo, actionLog });
-    await writeContract.act({ verb: "approve", qitemId: created.qitemId, actorSession: "human@rig" });
+    await writeContract.act({ verb: "approve", qitemId: created.qitemId, actorSession: "human@software-team" });
     await new Promise((r) => setTimeout(r, 10));
     expect(adapter.calls).toHaveLength(0);
   });
@@ -131,8 +131,8 @@ describe("MissionControlNotificationDispatcher (PL-005 Phase B)", () => {
     });
     dispatcher2.start();
     const created = await queueRepo.create({
-      sourceSession: "src@rig",
-      destinationSession: "human@rig",
+      sourceSession: "src@software-team",
+      destinationSession: "human@software-team",
       body: "x",
       tier: "human-gate",
       summary: "test summary (FR-4 human-routed fixture)",
@@ -142,7 +142,7 @@ describe("MissionControlNotificationDispatcher (PL-005 Phase B)", () => {
     adapter.calls.length = 0;
     const actionLog = new MissionControlActionLog(db);
     const writeContract = new MissionControlWriteContract({ db, eventBus: bus, queueRepo, actionLog });
-    await writeContract.act({ verb: "approve", qitemId: created.qitemId, actorSession: "human@rig" });
+    await writeContract.act({ verb: "approve", qitemId: created.qitemId, actorSession: "human@software-team" });
     await new Promise((r) => setTimeout(r, 10));
     const verbCalls = adapter.calls.filter((c) => c.title.includes("verb completed"));
     expect(verbCalls).toHaveLength(1);
@@ -153,8 +153,8 @@ describe("MissionControlNotificationDispatcher (PL-005 Phase B)", () => {
     const events: Array<{ type: string }> = [];
     bus.subscribe((e) => events.push(e));
     await queueRepo.create({
-      sourceSession: "src@rig",
-      destinationSession: "human@rig",
+      sourceSession: "src@software-team",
+      destinationSession: "human@software-team",
       body: "x",
       tier: "human-gate",
       summary: "test summary (FR-4 human-routed fixture)",
@@ -169,8 +169,8 @@ describe("MissionControlNotificationDispatcher (PL-005 Phase B)", () => {
     const events: Array<{ type: string }> = [];
     bus.subscribe((e) => events.push(e));
     const created = await queueRepo.create({
-      sourceSession: "src@rig",
-      destinationSession: "human@rig",
+      sourceSession: "src@software-team",
+      destinationSession: "human@software-team",
       body: "x",
       tier: "human-gate",
       summary: "test summary (FR-4 human-routed fixture)",
@@ -184,8 +184,8 @@ describe("MissionControlNotificationDispatcher (PL-005 Phase B)", () => {
 
   it("dedups same qitem (no duplicate notification on re-emit)", async () => {
     const created = await queueRepo.create({
-      sourceSession: "src@rig",
-      destinationSession: "human@rig",
+      sourceSession: "src@software-team",
+      destinationSession: "human@software-team",
       body: "x",
       tier: "human-gate",
       summary: "test summary (FR-4 human-routed fixture)",
@@ -196,8 +196,8 @@ describe("MissionControlNotificationDispatcher (PL-005 Phase B)", () => {
     bus.emit({
       type: "queue.created",
       qitemId: created.qitemId,
-      sourceSession: "src@rig",
-      destinationSession: "human@rig",
+      sourceSession: "src@software-team",
+      destinationSession: "human@software-team",
       priority: "routine",
       tier: "human-gate",
     });

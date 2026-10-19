@@ -3,7 +3,7 @@
 // The daemon cannot import packages/cli, so it carries its own resolver over the same contract:
 // SPEC.md is the authored node file, README.md is the legacy name and stays valid forever. These
 // pin the daemon half of that contract, including the surface that refuses a plan-lock — the whole
-// SDLC flow dead-ends there if `rig scope slice approve` cannot see a SPEC-backed slice.
+// SDLC flow dead-ends there if `SoftwareTeam scope slice approve` cannot see a SPEC-backed slice.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";

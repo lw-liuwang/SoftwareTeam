@@ -25,7 +25,7 @@ export function cleanStaleVendoredBundle(repoRoot, rm = rmSync) {
  * NAMED (pid/started-at); a foreign squatter is HONEST-UNKNOWN (never a fabricated holder).
  */
 export function renderRefusal(result, port) {
-  const head = `⛔ gate lane BUSY — lock = localhost port ${port} (OPENRIG_GATE_LANE_PORT). REFUSING (non-blocking, exit nonzero).`;
+  const head = `⛔ gate lane BUSY — lock = localhost port ${port} (SOFTWARETEAM_GATE_LANE_PORT). REFUSING (non-blocking, exit nonzero).`;
   if (result.reason === "gate-holder" && result.holder) {
     return (
       `${head}\n` +

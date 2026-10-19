@@ -68,10 +68,10 @@ const SPEC = `workflow:
   roles:
     producer:
       preferred_targets:
-        - producer@rig
+        - producer@software-team
     reviewer:
       preferred_targets:
-        - reviewer@rig
+        - reviewer@software-team
   steps:
     - id: produce
       actor_role: producer
@@ -122,7 +122,7 @@ function makeHarness(): Harness {
     queueItemSummarySchema,
     queueItemEvidenceRefSchema,
   ]);
-  db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+  db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
   const bus = new EventBus(db);
   const outbox = new OutboxHandler(db);
   const transport: QueueNudgeTransport = {
@@ -130,7 +130,7 @@ function makeHarness(): Harness {
       return { ok: true, verified: true };
     },
   };
-  const repo = new QueueRepository(db, bus, { validateRig: () => true });
+  const repo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
   repo.attachTransport(transport);
   // The intent store is ATTACHED on purpose: this suite asks whether the wiring
   // stages an intent, not whether the store exists. A harness without an outbox
@@ -166,15 +166,15 @@ describe("P34 RED 1 — the CURRENT MISS: terminal close + successor create stag
 
   it("mission-control-write-contract.ts:174 — handoff closes the source and creates the successor with a DURABLE wake intent", async () => {
     const source = await h.repo.create({
-      sourceSession: "src@rig",
-      destinationSession: "dst@rig",
+      sourceSession: "src@software-team",
+      destinationSession: "dst@software-team",
       body: "work",
     });
     const result = await h.mc.act({
       verb: "handoff",
       qitemId: source.qitemId,
       actorSession: "human-operator@kernel",
-      destinationSession: "next@rig",
+      destinationSession: "next@software-team",
     });
 
     // The terminal close actually happened — otherwise this test would pass
@@ -189,13 +189,13 @@ describe("P34 RED 1 — the CURRENT MISS: terminal close + successor create stag
     const inst = await h.runtime.instantiate({
       specPath: h.specPath,
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const projected = await h.runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "handoff",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
       resultNote: "produced",
     });
 
@@ -209,13 +209,13 @@ describe("P34 RED 1 — the CURRENT MISS: terminal close + successor create stag
     const inst = await h.runtime.instantiate({
       specPath: h.specPath,
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const projected = await h.runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "failed",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
       resultNote: "blew up",
     });
 
@@ -239,12 +239,12 @@ describe("P34 RED 1 — the CURRENT MISS: terminal close + successor create stag
     const inst = await h.runtime.instantiate({
       specPath: h.specPath,
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const routed = await h.runtime.route({
       instanceId: inst.instance.instanceId,
-      toSession: "reviewer@rig",
-      actorSession: "ops@rig",
+      toSession: "reviewer@software-team",
+      actorSession: "ops@software-team",
       reason: "owner swap",
     });
 
@@ -257,19 +257,19 @@ describe("P34 RED 1 — the CURRENT MISS: terminal close + successor create stag
     const inst = await h.runtime.instantiate({
       specPath: h.specPath,
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     await h.runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "failed",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
       resultNote: "blew up",
     });
     const resumed = await h.runtime.resume({
       instanceId: inst.instance.instanceId,
       decision: "redrive it",
-      actorSession: "ops@rig",
+      actorSession: "ops@software-team",
     });
 
     // The redrive packet is the ONLY successor in this transaction. The N
@@ -293,15 +293,15 @@ describe("P34 RED 4 — NO-FALSE-POSITIVE: a PARK is not a closure and requires 
 
   it("mission-control `hold` parks the item and stages NO intent — the park path is untouched", async () => {
     const source = await h.repo.create({
-      sourceSession: "src@rig",
-      destinationSession: "dst@rig",
+      sourceSession: "src@software-team",
+      destinationSession: "dst@software-team",
       body: "work",
       nudge: false, // Isolate the hold action from the setup create's wake intent.
     });
     await h.mc.act({
       verb: "hold",
       qitemId: source.qitemId,
-      actorSession: "human@rig",
+      actorSession: "human@software-team",
       reason: "external-gate",
     });
 
@@ -319,7 +319,7 @@ describe("P34 RED 4 — NO-FALSE-POSITIVE: a PARK is not a closure and requires 
     const inst = await h.runtime.instantiate({
       specPath: h.specPath,
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     expect(h.repo.getById(inst.entryQitemId)?.state).toBe("pending");
     expect(intentFor(h, inst.entryQitemId)).toBeNull();
@@ -333,8 +333,8 @@ describe("P34 RED 4b — NO-FALSE-POSITIVE: a TERMINAL CLOSE with NO SUCCESSOR r
 
   it("mission-control `approve` closes done/no-follow-on with no successor — no intent, no throw", async () => {
     const source = await h.repo.create({
-      sourceSession: "src@rig",
-      destinationSession: "dst@rig",
+      sourceSession: "src@software-team",
+      destinationSession: "dst@software-team",
       body: "work",
       nudge: false, // Isolate the closure from the setup create's wake intent.
     });
@@ -345,7 +345,7 @@ describe("P34 RED 4b — NO-FALSE-POSITIVE: a TERMINAL CLOSE with NO SUCCESSOR r
     const result = await h.mc.act({
       verb: "approve",
       qitemId: source.qitemId,
-      actorSession: "human@rig",
+      actorSession: "human@software-team",
     });
 
     expect(h.repo.getById(source.qitemId)?.state).toBe("done");
@@ -358,13 +358,13 @@ describe("P34 RED 4b — NO-FALSE-POSITIVE: a TERMINAL CLOSE with NO SUCCESSOR r
     const inst = await h.runtime.instantiate({
       specPath: h.specPath,
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     await h.runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "failed",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
       resultNote: "blew up",
     });
     const exceptionIds = (
@@ -384,7 +384,7 @@ describe("P34 RED 4b — NO-FALSE-POSITIVE: a TERMINAL CLOSE with NO SUCCESSOR r
 
     const resumed = await h.runtime.resume({
       instanceId: inst.instance.instanceId,
-      actorSession: "ops@rig",
+      actorSession: "ops@software-team",
     });
 
     for (const id of exceptionIds) {
@@ -410,15 +410,15 @@ describe("P34 — NO DOUBLE SEND: the staged intent is finalized, so recovery ca
 
   it("after a wired close+create, the intent row is FINALIZED and a recovery drain delivers nothing", async () => {
     const source = await h.repo.create({
-      sourceSession: "src@rig",
-      destinationSession: "dst@rig",
+      sourceSession: "src@software-team",
+      destinationSession: "dst@software-team",
       body: "work",
     });
     const result = await h.mc.act({
       verb: "handoff",
       qitemId: source.qitemId,
-      actorSession: "human@rig",
-      destinationSession: "next@rig",
+      actorSession: "human@software-team",
+      destinationSession: "next@software-team",
     });
 
     // The defect this pins: maybeNudge SENDS without claiming or finalizing, so the
@@ -444,7 +444,7 @@ describe("P34 — THE FALLBACK CONTROL: no intent store ⇒ the wake still happe
     const h = makeHarness();
     try {
       const sends: string[] = [];
-      const repoNoOutbox = new QueueRepository(h.db, h.bus, { validateRig: () => true });
+      const repoNoOutbox = new QueueRepository(h.db, h.bus, { validateSoftwareTeam: () => true });
       repoNoOutbox.attachTransport({
         async send(session: string) {
           sends.push(session);
@@ -453,8 +453,8 @@ describe("P34 — THE FALLBACK CONTROL: no intent store ⇒ the wake still happe
       });
       // Deliberately NO attachOutbox — the test/bootstrap shape.
       const created = await repoNoOutbox.create({
-        sourceSession: "src@rig",
-        destinationSession: "dst@rig",
+        sourceSession: "src@software-team",
+        destinationSession: "dst@software-team",
         body: "work",
       });
       // create() nudges its destination on its own. Isolate the fallback's send,
@@ -462,11 +462,11 @@ describe("P34 — THE FALLBACK CONTROL: no intent store ⇒ the wake still happe
       // about deliverWakeForSuccessor.
       sends.length = 0;
 
-      await repoNoOutbox.deliverWakeForSuccessor(created.qitemId, "dst@rig", undefined, "src@rig");
+      await repoNoOutbox.deliverWakeForSuccessor(created.qitemId, "dst@software-team", undefined, "src@software-team");
 
       // Exactly one send, from the fallback itself. Before P34 this was ZERO:
       // deliverWakeIntent returned "skipped" with no store attached.
-      expect(sends).toEqual(["dst@rig"]);
+      expect(sends).toEqual(["dst@software-team"]);
     } finally {
       h.db.close();
       rmSync(h.tmp, { recursive: true, force: true });

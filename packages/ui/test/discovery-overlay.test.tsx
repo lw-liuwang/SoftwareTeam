@@ -71,8 +71,8 @@ function mockFetchSessions(sessions: DiscoveredSession[] = MOCK_SESSIONS) {
     if (typeof url === "string" && url.includes("/discovery")) {
       return { ok: true, json: async () => filterSessionsForQuery(url, sessions) };
     }
-    if (typeof url === "string" && url.includes("/api/rigs/summary")) {
-      return { ok: true, json: async () => [{ id: "rig-1", name: "r01-test", nodeCount: 3, latestSnapshotAt: null, latestSnapshotId: null }] };
+    if (typeof url === "string" && url.includes("/api/software-teams/summary")) {
+      return { ok: true, json: async () => [{ id: "software-team-1", name: "r01-test", nodeCount: 3, latestSnapshotAt: null, latestSnapshotId: null }] };
     }
     // Default: return empty success for any other API call
     return { ok: true, json: async () => ({}) };
@@ -206,8 +206,8 @@ describe("DiscoveryOverlay", () => {
       if (typeof url === "string" && url.includes("/discovery")) {
         return { ok: true, json: async () => filterSessionsForQuery(url, MOCK_SESSIONS) };
       }
-      if (typeof url === "string" && url.includes("/api/rigs/summary")) {
-        return { ok: true, json: async () => [{ id: "rig-1", name: "r01-test", nodeCount: 3, latestSnapshotAt: null, latestSnapshotId: null }] };
+      if (typeof url === "string" && url.includes("/api/software-teams/summary")) {
+        return { ok: true, json: async () => [{ id: "software-team-1", name: "r01-test", nodeCount: 3, latestSnapshotAt: null, latestSnapshotId: null }] };
       }
       return { ok: true, json: async () => ({}) };
     });
@@ -218,7 +218,7 @@ describe("DiscoveryOverlay", () => {
     act(() => { fireEvent.click(screen.getByTestId("adopt-btn")); });
     await waitFor(() => expect(screen.getByTestId("adopt-dialog")).toBeTruthy());
 
-    act(() => { fireEvent.change(screen.getByTestId("adopt-rig-input"), { target: { value: "rig-1" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("adopt-software-team-input"), { target: { value: "software-team-1" } }); });
     act(() => { fireEvent.change(screen.getByTestId("adopt-logical-input"), { target: { value: "orch.lead" } }); });
     act(() => { fireEvent.click(screen.getByTestId("adopt-confirm")); });
 
@@ -236,8 +236,8 @@ describe("DiscoveryOverlay", () => {
       if (typeof url === "string" && url.includes("/discovery")) {
         return { ok: true, json: async () => filterSessionsForQuery(url, MOCK_SESSIONS) };
       }
-      if (typeof url === "string" && url.includes("/api/rigs/summary")) {
-        return { ok: true, json: async () => [{ id: "rig-1", name: "r01-test", nodeCount: 3, latestSnapshotAt: null, latestSnapshotId: null }] };
+      if (typeof url === "string" && url.includes("/api/software-teams/summary")) {
+        return { ok: true, json: async () => [{ id: "software-team-1", name: "r01-test", nodeCount: 3, latestSnapshotAt: null, latestSnapshotId: null }] };
       }
       return { ok: true, json: async () => ({}) };
     });
@@ -248,7 +248,7 @@ describe("DiscoveryOverlay", () => {
 
     act(() => { fireEvent.click(screen.getByTestId("adopt-btn")); });
     await waitFor(() => expect(screen.getByTestId("adopt-dialog")).toBeTruthy());
-    act(() => { fireEvent.change(screen.getByTestId("adopt-rig-input"), { target: { value: "rig-1" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("adopt-software-team-input"), { target: { value: "software-team-1" } }); });
     // Do NOT fill logical ID
     act(() => { fireEvent.click(screen.getByTestId("adopt-confirm")); });
 
@@ -256,32 +256,32 @@ describe("DiscoveryOverlay", () => {
     expect(screen.getByTestId("adopt-dialog")).toBeTruthy();
   });
 
-  it("adopt invalidates rig graph after success", async () => {
+  it("adopt invalidates SoftwareTeam graph after success", async () => {
     let graphFetchCount = 0;
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
       if (init?.method === "POST" && typeof url === "string" && url.includes("/bind")) {
         return { ok: true, json: async () => ({ ok: true, nodeId: "n-1", sessionId: "s-1" }) };
       }
-      if (typeof url === "string" && url.includes("/api/rigs/rig-1/graph")) {
+      if (typeof url === "string" && url.includes("/api/software-teams/software-team-1/graph")) {
         graphFetchCount++;
         return { ok: true, json: async () => ({ nodes: [], edges: [] }) };
       }
       if (typeof url === "string" && url.includes("/discovery")) {
         return { ok: true, json: async () => filterSessionsForQuery(url, MOCK_SESSIONS) };
       }
-      if (typeof url === "string" && url.includes("/api/rigs/summary")) {
-        return { ok: true, json: async () => [{ id: "rig-1", name: "r01-test", nodeCount: 3, latestSnapshotAt: null, latestSnapshotId: null }] };
+      if (typeof url === "string" && url.includes("/api/software-teams/summary")) {
+        return { ok: true, json: async () => [{ id: "software-team-1", name: "r01-test", nodeCount: 3, latestSnapshotAt: null, latestSnapshotId: null }] };
       }
       return { ok: true, json: async () => ({}) };
     });
 
-    // Harness: renders DiscoveryOverlay + subscribes to rig graph query
+    // Harness: renders DiscoveryOverlay + subscribes to softwareTeam graph query
     const { useQuery } = await import("@tanstack/react-query");
     function GraphSubscriber() {
       useQuery({
-        queryKey: ["rig", "rig-1", "graph"],
+        queryKey: ["softwareTeam", "software-team-1", "graph"],
         queryFn: async () => {
-          const res = await fetch("/api/rigs/rig-1/graph");
+          const res = await fetch("/api/software-teams/software-team-1/graph");
           return res.json();
         },
       });
@@ -311,7 +311,7 @@ describe("DiscoveryOverlay", () => {
 
     act(() => { fireEvent.click(screen.getByTestId("adopt-btn")); });
     await waitFor(() => expect(screen.getByTestId("adopt-dialog")).toBeTruthy());
-    act(() => { fireEvent.change(screen.getByTestId("adopt-rig-input"), { target: { value: "rig-1" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("adopt-software-team-input"), { target: { value: "software-team-1" } }); });
     act(() => { fireEvent.change(screen.getByTestId("adopt-logical-input"), { target: { value: "orch.lead" } }); });
     act(() => { fireEvent.click(screen.getByTestId("adopt-confirm")); });
 
@@ -352,9 +352,9 @@ describe("Discovery activity feed events", () => {
   });
 
   // T7c: node.claimed color + route
-  it("node.claimed uses bg-primary color and routes to rig", () => {
+  it("node.claimed uses bg-primary color and routes to softwareTeam", () => {
     expect(eventColor("node.claimed")).toBe("bg-primary");
-    expect(eventRoute(makeEvent({ type: "node.claimed", payload: { rigId: "rig-1" } }))).toBe("/rigs/rig-1");
+    expect(eventRoute(makeEvent({ type: "node.claimed", payload: { softwareTeamId: "software-team-1" } }))).toBe("/software-teams/software-team-1");
   });
 
   // T7d: session.discovered route
@@ -368,14 +368,14 @@ describe("Discovery activity feed events", () => {
   });
 });
 
-// NS-T14: Generate Draft Rig Spec button — runtime regression
+// NS-T14: Generate Draft SoftwareTeam Spec button — runtime regression
 import { GenerateDraftSection } from "../src/components/DiscoveryOverlay.js";
 
 describe("Discovery Generate Draft", () => {
-  it("clicking Generate Rig Spec button calls /api/discovery/draft-rig and renders YAML", async () => {
+  it("clicking Generate SoftwareTeam Spec button calls /api/discovery/draft-software-team and renders YAML", async () => {
     fetchMock = vi.fn(async (url: string, opts?: RequestInit) => {
-      if (typeof url === "string" && url.includes("/api/discovery/draft-rig") && opts?.method === "POST") {
-        return { ok: true, text: async () => '# WARNING: Excluded session\nversion: "0.2"\nname: discovered-rig\npods: []' };
+      if (typeof url === "string" && url.includes("/api/discovery/draft-software-team") && opts?.method === "POST") {
+        return { ok: true, text: async () => '# WARNING: Excluded session\nversion: "0.2"\nname: discovered-software-team\npods: []' };
       }
       return { ok: true, json: async () => ({}) };
     });
@@ -386,7 +386,7 @@ describe("Discovery Generate Draft", () => {
     // Button should be present
     const btn = screen.getByTestId("generate-draft-btn");
     expect(btn).toBeDefined();
-    expect(btn.textContent).toContain("GENERATE RIG SPEC");
+    expect(btn.textContent).toContain("GENERATE SOFTWARE_TEAM SPEC");
 
     // Click generate
     await act(async () => {
@@ -396,7 +396,7 @@ describe("Discovery Generate Draft", () => {
     // Draft YAML should appear with warnings extracted
     await waitFor(() => {
       expect(screen.getByTestId("draft-yaml")).toBeDefined();
-      expect(screen.getByTestId("draft-yaml").textContent).toContain("discovered-rig");
+      expect(screen.getByTestId("draft-yaml").textContent).toContain("discovered-software-team");
       // Warning should be extracted into separate section
       expect(screen.getByTestId("draft-warnings")).toBeDefined();
       expect(screen.getByTestId("draft-warnings").textContent).toContain("Excluded session");
@@ -405,7 +405,7 @@ describe("Discovery Generate Draft", () => {
     });
 
     // Verify fetch was called with POST
-    const draftCalls = fetchMock.mock.calls.filter((c: any[]) => String(c[0]).includes("draft-rig"));
+    const draftCalls = fetchMock.mock.calls.filter((c: any[]) => String(c[0]).includes("draft-software-team"));
     expect(draftCalls.length).toBeGreaterThan(0);
     expect(draftCalls[0]![1]).toEqual(expect.objectContaining({ method: "POST" }));
   });

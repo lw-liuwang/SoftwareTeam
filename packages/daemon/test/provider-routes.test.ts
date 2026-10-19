@@ -14,7 +14,7 @@ const MODEL: FourBlockReadModel = {
     { accountId: "cla-x", label: "Claude X", provider: "claude", authState: "active", profileRef: null, asOf: "2026-08-03T12:00:00.000Z" },
   ],
   bindings: [
-    { accountId: "cdx-a", seatSession: "seat-1", rigName: "r1", boundAt: "2026-08-03T12:00:00.000Z", bindingSource: "adopt", anomalies: [] },
+    { accountId: "cdx-a", seatSession: "seat-1", softwareTeamName: "r1", boundAt: "2026-08-03T12:00:00.000Z", bindingSource: "adopt", anomalies: [] },
   ],
   signals: [
     { provider: "codex", accountRef: "cdx-a", sourceClass: "provider_structured_read", authority: "account_cross_device", window: "primary", usedPercent: 40, asOf: "2026-08-03T12:00:00.000Z", staleAfter: "2026-08-03T12:05:00.000Z", supportsNotification: true, automationUse: "allow_switch_decision" },

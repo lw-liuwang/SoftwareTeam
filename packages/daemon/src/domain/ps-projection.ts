@@ -1,13 +1,13 @@
 import type Database from "better-sqlite3";
-import type { AgentActivity, NodeInventoryEntry, NodeLifecycleState, RigLifecycleState } from "./types.js";
+import type { AgentActivity, NodeInventoryEntry, NodeLifecycleState, SoftwareTeamLifecycleState } from "./types.js";
 import { identityVerdictConfirmsSessionMissing } from "./types.js";
 import {
   countAssignedWorkForEntry,
-  getNodeInventoryForAllRigs,
+  getNodeInventoryForAllSoftwareTeams,
   readAssignedWorkBySession,
   type AssignedWorkCounts,
 } from "./node-inventory.js";
-import { archiveWhereClause, type RigArchiveFilter } from "./rig-repository.js";
+import { archiveWhereClause, type SoftwareTeamArchiveFilter } from "./software-team-repository.js";
 import type { SeatActivityService } from "./seat-activity-service.js";
 import type { AgentActivityStore } from "./agent-activity-store.js";
 import type { ArbitratedSeatState, EvidenceRungId } from "./activity-taxonomy.js";
@@ -17,18 +17,18 @@ import type { ArbitratedSeatState, EvidenceRungId } from "./activity-taxonomy.js
 const NEEDS_INPUT_RUNGS: readonly EvidenceRungId[] = ["needs-input-chrome", "lifecycle-hooks", "self-report"];
 
 export interface PsEntry {
-  rigId: string;
+  softwareTeamId: string;
   name: string;
   /**
    * Alias of `name`. Always populated and always equal to `name`.
    *
-   * Background: per-node `NodeInventoryEntry` exposes the rig's name as
-   * `rigName` while rig-summary `PsEntry` historically used `name`. Agent
-   * code that projects `.rigName` from rig-summary JSON saw silent
+   * Background: per-node `NodeInventoryEntry` exposes the softwareTeam's name as
+   * `softwareTeamName` while software-team-summary `PsEntry` historically used `name`. Agent
+   * code that projects `.softwareTeamName` from software-team-summary JSON saw silent
    * `null`/`undefined`. This alias closes that inconsistency without
    * breaking existing consumers reading `.name`.
    */
-  rigName: string;
+  softwareTeamName: string;
   nodeCount: number;
   runningCount: number;
   /**
@@ -46,12 +46,12 @@ export interface PsEntry {
    */
   hasWorkCount: number;
   status: "running" | "partial" | "stopped";
-  /** Folded from members not explicitly stopped. Empty rigs and rigs whose
+  /** Folded from members not explicitly stopped. Empty softwareTeams and softwareTeams whose
    * members are all intentionally stopped derive `stopped`. */
-  lifecycleState: RigLifecycleState;
+  lifecycleState: SoftwareTeamLifecycleState;
   uptime: string | null;
   latestSnapshot: string | null;
-  /** OPR.0.3.3.19 - ISO timestamp when the rig was archived, or null if active. */
+  /** OPR.0.3.3.19 - ISO timestamp when the softwareTeam was archived, or null if active. */
   archivedAt: string | null;
   /** OPR.0.3.3.19 - convenience flag; true iff `archivedAt !== null`. */
   isArchived: boolean;
@@ -59,20 +59,20 @@ export interface PsEntry {
   periodicSnapshotActive: boolean;
   /** OPR.0.3.4.9 — periodic snapshot interval in seconds (0 if inactive). */
   periodicSnapshotIntervalSeconds: number;
-  /** OPR.0.3.4.9 — count of auto-periodic snapshots for this rig. */
+  /** OPR.0.3.4.9 — count of auto-periodic snapshots for this softwareTeam. */
   autoPeriodicSnapshotCount: number;
   /**
    * OPR.0.4.4.21 — count of seats needing attention (additive field; the
    * consolidated default's ATTENTION flag and the host rollup's "K need
    * attention" both read it). A seat counts ONCE when ANY signal in
-   * `seatNeedsAttention` fires. Folded inside the same per-rig inventory
+   * `seatNeedsAttention` fires. Folded inside the same per-softwareTeam inventory
    * pass as `lifecycleState` — no extra probes.
    */
   attentionCount: number;
 }
 
 /**
- * OPR.0.4.4.21 — THE rig-rollup attention predicate (one predicate, one
+ * OPR.0.4.4.21 — THE software-team-rollup attention predicate (one predicate, one
  * count; mirrors + extends the CLI's per-node `needsAttention`). A seat
  * needs attention iff ANY of:
  *   - lifecycle `attention_required`
@@ -82,7 +82,7 @@ export interface PsEntry {
  *     (`arbitratedNeedsInput` — the same oracle the per-seat row renders, pane chrome
  *     included), and the hook store's live `needs_input` is the fallback when the
  *     arbitrated signal is `null` (stale hooks arrive as `unknown` and contribute
- *     nothing — never guessed). The rig total and the seat row must not disagree
+ *     nothing — never guessed). The softwareTeam total and the seat row must not disagree
  *     about the same seat.
  *   - a held seat (`heldReason` present)
  *   - a recorded startup error (`latestError` present)
@@ -126,7 +126,7 @@ export function arbitratedNeedsInputSignal(
 }
 
 /**
- * Folds per-node lifecycle states into a rig-level lifecycle state.
+ * Folds per-node lifecycle states into a software-team-level lifecycle state.
  *
  *   attention_required > running > recoverable > stopped, with `degraded` for mixes.
  *
@@ -136,12 +136,12 @@ export function arbitratedNeedsInputSignal(
  *   - all nodes non-running, any recoverable → recoverable.
  *   - all nodes non-running, none recoverable → stopped.
  *   - mixed running + non-running          → degraded.
- *   - empty rig (no nodes)                 → stopped.
+ *   - empty softwareTeam (no nodes)                 → stopped.
  *
- * `recoverable` at rig level depends on per-node recoverability, which already accounts
- * for whether the rig's latest usable snapshot has a resume token for that node.
+ * `recoverable` at softwareTeam level depends on per-node recoverability, which already accounts
+ * for whether the softwareTeam's latest usable snapshot has a resume token for that node.
  */
-export function deriveRigLifecycleState(nodeStates: NodeLifecycleState[]): RigLifecycleState {
+export function deriveSoftwareTeamLifecycleState(nodeStates: NodeLifecycleState[]): SoftwareTeamLifecycleState {
   if (nodeStates.length === 0) return "stopped";
   if (nodeStates.some((s) => s === "attention_required")) return "attention_required";
 
@@ -156,12 +156,12 @@ export function deriveRigLifecycleState(nodeStates: NodeLifecycleState[]): RigLi
   return "degraded";
 }
 
-/** Shared display rollup for ps and the rig summaries consumed by the TUI.
+/** Shared display rollup for ps and the softwareTeam summaries consumed by the TUI.
  * Intentionally stopped seats remain in process counts and node diagnostics. */
-export function deriveRigLifecycleFromInventory(
+export function deriveSoftwareTeamLifecycleFromInventory(
   inventory: readonly Pick<NodeInventoryEntry, "lifecycleState" | "intentionallyStopped">[],
-): RigLifecycleState {
-  return deriveRigLifecycleState(
+): SoftwareTeamLifecycleState {
+  return deriveSoftwareTeamLifecycleState(
     inventory.filter((entry) => !entry.intentionallyStopped).map((entry) => entry.lifecycleState),
   );
 }
@@ -191,8 +191,8 @@ export function isEffectivelyRunning(node: NodeInventoryEntry): boolean {
 }
 
 /**
- * Projects rig/run summary for `rig ps`.
- * Aggregates across all rigs: node counts, running counts, status, uptime, snapshot age.
+ * Projects softwareTeam/run summary for `SoftwareTeam ps`.
+ * Aggregates across all softwareTeams: node counts, running counts, status, uptime, snapshot age.
  */
 export class PsProjectionService {
   readonly db: Database.Database;
@@ -215,24 +215,24 @@ export class PsProjectionService {
     this.periodicSnapshotIntervalSeconds = intervalSeconds;
   }
 
-  getEntries(filter?: RigArchiveFilter): PsEntry[] {
-    // OPR.0.3.3.19 - default excludes archived rigs at the projection layer
+  getEntries(filter?: SoftwareTeamArchiveFilter): PsEntry[] {
+    // OPR.0.3.3.19 - default excludes archived softwareTeams at the projection layer
     // (NOT client-side). Explicit includeArchived/archivedOnly opt in.
     const cond = archiveWhereClause("r.archived_at", filter);
     const where = cond ? `WHERE ${cond}` : "";
     const rows = this.db.prepare(`
       SELECT
-        r.id as rig_id,
+        r.id as software_team_id,
         r.name,
         r.archived_at as archived_at,
-        (SELECT COUNT(*) FROM nodes n WHERE n.rig_id = r.id) as node_count,
-        (SELECT snap.created_at FROM snapshots snap WHERE snap.rig_id = r.id ORDER BY snap.created_at DESC, snap.id DESC LIMIT 1) as latest_snapshot_at,
-        (SELECT COUNT(*) FROM snapshots snap WHERE snap.rig_id = r.id AND snap.kind = 'auto-periodic') as auto_periodic_count
-      FROM rigs r
+        (SELECT COUNT(*) FROM nodes n WHERE n.software_team_id = r.id) as node_count,
+        (SELECT snap.created_at FROM snapshots snap WHERE snap.software_team_id = r.id ORDER BY snap.created_at DESC, snap.id DESC LIMIT 1) as latest_snapshot_at,
+        (SELECT COUNT(*) FROM snapshots snap WHERE snap.software_team_id = r.id AND snap.kind = 'auto-periodic') as auto_periodic_count
+      FROM software_teams r
       ${where}
       ORDER BY r.name
     `).all() as Array<{
-      rig_id: string;
+      software_team_id: string;
       name: string;
       archived_at: string | null;
       node_count: number;
@@ -242,30 +242,30 @@ export class PsProjectionService {
 
     const now = Date.now();
 
-    // FS-1 W1.2 (rig-level N+1 collapse): the assigned-work map is host-global and
+    // FS-1 W1.2 (software-team-level N+1 collapse): the assigned-work map is host-global and
     // bounded by distinct destination sessions (seat count), so read it ONCE here
-    // instead of one countNodesWithPendingWork query per rig. Per-rig hasWorkCount
+    // instead of one countNodesWithPendingWork query per softwareTeam. Per-softwareTeam hasWorkCount
     // is then a pure JS derivation over the already-fetched inventory below.
     const assignedByDest = readAssignedWorkBySession(this.db);
-    // FS-1 W1.2: node inventory for ALL rigs built in ONE batched pass (was one
-    // getNodeInventory query-set PER RIG — the rig-level N+1); indexed per rig below.
-    const inventoryByRig = getNodeInventoryForAllRigs(this.db);
+    // FS-1 W1.2: node inventory for ALL softwareTeams built in ONE batched pass (was one
+    // getNodeInventory query-set PER SOFTWARE_TEAM — the software-team-level N+1); indexed per softwareTeam below.
+    const inventoryBySoftwareTeam = getNodeInventoryForAllSoftwareTeams(this.db);
 
     // Read the current registration's timestamp once per node, in one batch.
     // Uptime membership comes from the same effective-running inventory below.
     const sessionTimes = this.db.prepare(`
       SELECT n.id as node_id,
         (SELECT s.created_at FROM sessions s WHERE s.node_id = n.id ORDER BY s.id DESC LIMIT 1) as created_at
-      FROM nodes n JOIN rigs r ON r.id = n.rig_id
+      FROM nodes n JOIN software_teams r ON r.id = n.software_team_id
       ${where}
     `).all() as Array<{ node_id: string; created_at: string | null }>;
     const sessionCreatedAt = new Map(sessionTimes.map((row) => [row.node_id, row.created_at]));
 
     return rows.map((r) => {
-      // Derive rig-level lifecycleState by folding per-node states. FS-1 W1.2:
-      // inventory for ALL rigs was built in ONE batched pass above (previously one
-      // getNodeInventory query-set per rig — the rig-level N+1); index it here.
-      const inventory = inventoryByRig.get(r.rig_id) ?? [];
+      // Derive software-team-level lifecycleState by folding per-node states. FS-1 W1.2:
+      // inventory for ALL softwareTeams was built in ONE batched pass above (previously one
+      // getNodeInventory query-set per softwareTeam — the software-team-level N+1); index it here.
+      const inventory = inventoryBySoftwareTeam.get(r.software_team_id) ?? [];
 
       // Count the same current registrations used for lifecycle and activity.
       // Registry IDs stay monotonic through clock rollback within one daemon;
@@ -284,7 +284,7 @@ export class PsProjectionService {
         : effectiveRunningCount > 0 ? "partial"
         : "stopped";
 
-      const lifecycleState = deriveRigLifecycleFromInventory(inventory);
+      const lifecycleState = deriveSoftwareTeamLifecycleFromInventory(inventory);
 
       // Slice 15 — `terminal-active` count. Subset of running tmux-bound
       // seats whose latest SeatActivity observation says
@@ -320,7 +320,7 @@ export class PsProjectionService {
       // needs-input evidence supplied (#180 review; discussion #879); `now` keeps its
       // staleness honest (stale hooks come back `unknown` and contribute
       // nothing). Preferring one source over the other is what let a gated seat
-      // show `needs-input x1` on its row while the rig total read ATTN 0.
+      // show `needs-input x1` on its row while the softwareTeam total read ATTN 0.
       let attentionCount = 0;
       const nowDate = new Date(now);
       for (const node of inventory) {
@@ -336,9 +336,9 @@ export class PsProjectionService {
       }
 
       return {
-        rigId: r.rig_id,
+        softwareTeamId: r.software_team_id,
         name: r.name,
-        rigName: r.name,
+        softwareTeamName: r.name,
         nodeCount: r.node_count,
         runningCount: effectiveRunningCount,
         activeCount,

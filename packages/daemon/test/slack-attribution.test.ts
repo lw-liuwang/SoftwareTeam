@@ -1,4 +1,4 @@
-// S10 — identity policy receipts (A1.2): the structured attribution header (rig/host/seat/
+// S10 — identity policy receipts (A1.2): the structured attribution header (softwareTeam/host/seat/
 // session) rides every outbound post in ONE honest bot identity; ZERO per-message
 // username/icon overrides (customize ABSENCE pinned at the posted-bytes level); the interim
 // loudness rule mentions ONLY escalations.
@@ -22,16 +22,16 @@ function memFs(): StateFsOps {
 const clock = () => new Date("2026-08-27T00:00:00.000Z");
 
 describe("attributionFromSession — the stamped triple parses into the four fields", () => {
-  it("three-part triple: seat, rig, host, session", () => {
-    expect(attributionFromSession("dev-driver@v-openrig-build@host-84c37990")).toEqual({
-      seat: "dev-driver@v-openrig-build",
-      rig: "v-openrig-build",
+  it("three-part triple: seat, softwareTeam, host, session", () => {
+    expect(attributionFromSession("dev-driver@v-softwareteam-build@host-84c37990")).toEqual({
+      seat: "dev-driver@v-softwareteam-build",
+      softwareTeam: "v-softwareteam-build",
       host: "host-84c37990",
-      session: "dev-driver@v-openrig-build@host-84c37990",
+      session: "dev-driver@v-softwareteam-build@host-84c37990",
     });
   });
-  it("two-part ref: seat + rig, no host", () => {
-    expect(attributionFromSession("dev-driver@v-openrig-build")).toMatchObject({ seat: "dev-driver@v-openrig-build", rig: "v-openrig-build" });
+  it("two-part ref: seat + softwareTeam, no host", () => {
+    expect(attributionFromSession("dev-driver@v-softwareteam-build")).toMatchObject({ seat: "dev-driver@v-softwareteam-build", softwareTeam: "v-softwareteam-build" });
   });
   it("bare/absent degrade honestly", () => {
     expect(attributionFromSession("daemon")).toMatchObject({ seat: "daemon", session: "daemon" });
@@ -45,15 +45,15 @@ describe("buildOutboundMessage — attribution header + loudness rule", () => {
   it("the subject leads and one sender attribution preserves the full source identity", () => {
     const m = buildOutboundMessage(q, {
       sourceLabel: "vm",
-      attribution: { seat: "dev-driver@v-openrig-build", rig: "v-openrig-build", host: "host-84c37990", session: "dev-driver@v-openrig-build@host-84c37990" },
+      attribution: { seat: "dev-driver@v-softwareteam-build", softwareTeam: "v-softwareteam-build", host: "host-84c37990", session: "dev-driver@v-softwareteam-build@host-84c37990" },
     });
     expect((m.blocks[0] as { type: string }).type).toBe("section");
     const first = m.blocks.at(-1) as { type: string; elements: { text: string }[] };
     expect(first.type).toBe("context");
     const line = first.elements[0]!.text;
-    expect(line).toContain("dev-driver@v-openrig-build");
-    expect(line).toBe("from dev-driver@v-openrig-build@host-84c37990");
-    expect(m.text).toContain("from dev-driver@v-openrig-build@host-84c37990"); // notification fallback carries it too
+    expect(line).toContain("dev-driver@v-softwareteam-build");
+    expect(line).toBe("from dev-driver@v-softwareteam-build@host-84c37990");
+    expect(m.text).toContain("from dev-driver@v-softwareteam-build@host-84c37990"); // notification fallback carries it too
   });
 
   it("ESCALATION mentions the human by USER ID; routine stays quiet", () => {
@@ -100,7 +100,7 @@ describe("customize ABSENCE — posted bytes carry the app identity ONLY", () =>
       summary: "URGENT decide",
       body: "please",
       destinationSession: "mike@external",
-      sourceSession: "dev-driver@v-openrig-build@host-84c37990",
+      sourceSession: "dev-driver@v-softwareteam-build@host-84c37990",
       evidenceRef: "https://example.invalid/x.png",
       tier: "human-gate",
     }));
@@ -113,6 +113,6 @@ describe("customize ABSENCE — posted bytes carry the app identity ONLY", () =>
     expect(JSON.stringify(body)).not.toMatch(/"username"|"icon_url"|"icon_emoji"/);
     // and the attribution + mention arrived as CONTENT, not identity
     expect(String(body.text)).toContain("<@U012AB3CD>");
-    expect(JSON.stringify(body.blocks)).toContain("dev-driver@v-openrig-build");
+    expect(JSON.stringify(body.blocks)).toContain("dev-driver@v-softwareteam-build");
   });
 });

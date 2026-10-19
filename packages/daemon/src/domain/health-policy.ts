@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 export const HEALTH_DETECTORS = ["process.ceremony-amplification", "process.review-carousel", "process.redundant-wake-storm", "governance.stale-directive", "governance.scope-admission-drift", "context.pressure"] as const;
 export interface HealthPolicy {
-  schema: "openrig.health-policy/v0alpha1";
+  schema: "softwareteam.health-policy/v0alpha1";
   disabledDetectors: string[];
   thresholds: { ceremonyTransitions: number; ceremonyRatio: number; reviewReturns: number; redundantWakes: number };
   observationWindowSeconds: number;
@@ -18,7 +18,7 @@ export interface EffectiveHealthPolicy {
   contextPressure: { warningPercent: number; criticalPercent: number };
 }
 export const DEFAULT_HEALTH_POLICY: HealthPolicy = {
-  schema: "openrig.health-policy/v0alpha1", disabledDetectors: [],
+  schema: "softwareteam.health-policy/v0alpha1", disabledDetectors: [],
   thresholds: { ceremonyTransitions: 20, ceremonyRatio: 12, reviewReturns: 4, redundantWakes: 4 },
   observationWindowSeconds: 86400, freshnessSeconds: 600,
   diagnosis: { enabled: false, owner: null, detectors: ["process.ceremony-amplification"], cooldownSeconds: 3600, maxRepresentations: 1 },

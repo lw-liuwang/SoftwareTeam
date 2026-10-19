@@ -1,13 +1,13 @@
 # VM Preview Fixtures
 
-Sample data used by the Tart preview environment to give one OpenRig daemon
+Sample data used by the Tart preview environment to give one SoftwareTeam daemon
 representative content while a second daemon remains empty for comparison.
 
 ## Contents
 
 - `workflows/` — public example workflow specifications. The basic-loop sample
   demonstrates a complete intake-to-close handoff without depending on a
-  private rig or machine.
+  private SoftwareTeam or machine.
 
 ## Use
 
@@ -20,7 +20,7 @@ directory. The daemon discovers them on the next workflow-library listing.
 - Use `/Users/example/...` for username-bearing paths.
 - Use symbolic configuration paths such as `<workspace.specs_root>` instead of
   machine-specific locations.
-- Use generic logical roles and IDs rather than concrete session, host, or rig
+- Use generic logical roles and IDs rather than concrete session, host, or SoftwareTeam
   instance addresses.
 - Describe the product behavior the fixture demonstrates; omit release history,
   internal ownership, and implementation planning.

@@ -15,7 +15,7 @@ import { buildExecutionView } from "../src/domain/execution-view.js";
 import { readMissionReadiness, readSliceReadiness, recordJudgment } from "../src/domain/proof/judgments.js";
 
 const MISSION = "readiness-probe";
-const GENERATED_SLICE = `schema: openrig.slice/v0alpha1
+const GENERATED_SLICE = `schema: softwareteam.slice/v0alpha1
 kind: slice
 composition:
   mission: ../../mission.yaml
@@ -37,7 +37,7 @@ function project(members: Member[]) {
   const write = (p: string, text: string) => { fs.mkdirSync(join(p, ".."), { recursive: true }); fs.writeFileSync(p, text); };
   write(join(root, "project.yaml"), YAML.stringify({ kind: "project", metadata: { id: "probe" }, proofPolicy: { judges: ["judge@probe"] }, missions: { root: "missions" } }));
   write(join(mission, "mission.yaml"), YAML.stringify({
-    schema: "openrig.mission/v0alpha1", kind: "mission", metadata: { status: "active" },
+    schema: "softwareteam.mission/v0alpha1", kind: "mission", metadata: { status: "active" },
     composition: { mission_markdown: { spec: "SPEC.md" }, slices: members.map((m, i) => ({ ref: `slices/${m.dir}/slice.yaml`, order: (i + 1) * 10, active: true })) },
   }));
   for (const m of members) {

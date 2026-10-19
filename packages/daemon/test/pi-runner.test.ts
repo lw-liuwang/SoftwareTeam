@@ -13,8 +13,8 @@ import {
 } from "../src/adapters/pi-runner.js";
 import { PI_RUNNER_READY_MARKER, PI_RUNNER_EXIT_MARKER, type PiRunnerState } from "../src/adapters/pi-runner-protocol.js";
 
-const SESSION = "devpi-a@some-rig";
-const SESSION_FILE = "/state/pi/devpi-a@some-rig/sessions/2026_0197.jsonl";
+const SESSION = "devpi-a@some-software-team";
+const SESSION_FILE = "/state/pi/devpi-a@some-software-team/sessions/2026_0197.jsonl";
 
 function fakeIo() {
   const rpc: Record<string, unknown>[] = [];
@@ -273,7 +273,7 @@ describe("RunnerCore identity + sidecar", () => {
 
 // ── event → mirror / activity mapping ────────────────────────────────────────
 
-// Shapes from a real `pi --mode rpc` 0.87.1 run (OpenRig's child argv) that
+// Shapes from a real `pi --mode rpc` 0.87.1 run (SoftwareTeam's child argv) that
 // streamed a reply from a local OpenAI-compatible mock. Since Pi 0.84.0,
 // message_update carries only `usage` and the `assistantMessageEvent` delta.
 const PI_USAGE = {

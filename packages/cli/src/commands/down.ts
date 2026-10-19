@@ -4,11 +4,11 @@ import { DaemonClient } from "../client.js";
 import { getDaemonStatus, getDaemonUrl, type LifecycleDeps , daemonStatusGuard} from "../daemon-lifecycle.js";
 import { realDeps } from "./daemon.js";
 import type { StatusDeps } from "./status.js";
-import { resolveRigHandle } from "../rig-handle.js";
+import { resolveSoftwareTeamHandle } from "../software-team-handle.js";
 import { shellQuote } from "../cross-host-executor.js";
 
 interface TeardownResult {
-  rigId: string;
+  softwareTeamId: string;
   sessionsKilled: number;
   snapshotId: string | null;
   deleted: boolean;
@@ -27,7 +27,7 @@ interface DownAgentEntry {
 }
 
 /** Best-effort facts from the ordinary inventory, before teardown changes it. */
-async function showAgentsBeforeDown(rigId: string, readInventory: () => Promise<unknown>): Promise<void> {
+async function showAgentsBeforeDown(softwareTeamId: string, readInventory: () => Promise<unknown>): Promise<void> {
   let facts = "agent sessions unknown; work status unknown";
   try {
     const inventory = await readInventory();
@@ -48,34 +48,34 @@ async function showAgentsBeforeDown(rigId: string, readInventory: () => Promise<
       }).join(", ");
     }
   } catch { /* Unavailable inventory is an unknown fact, never a teardown gate. */ }
-  console.error(`Before stopping ${rigId}: ${facts}.`);
+  console.error(`Before stopping ${softwareTeamId}: ${facts}.`);
 }
 
 const LONG_RUNNING_TIMEOUT_MS = 45_000;
 
 /**
- * `rig down <rig>` - tear down a rig by name or id.
+ * `SoftwareTeam down <softwareTeam>` - tear down a softwareTeam by name or id.
  * @param depsOverride - injectable deps for testing
  * @returns Commander command
  */
 export function downCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("down").description("Tear down a rig")
+  const cmd = new Command("down").description("Tear down a softwareTeam")
     .addHelpText("after", `
-rig down stops every agent in the rig: their sessions end, and any work in progress stops with them.
-Before running it, check who is working (rig ps --nodes --rig <rig>) and that the person asked for it;
-don't stop a team you didn't start unless asked. OpenRig snapshots the rig first (best-effort), and
-rig up <rig> --existing brings it back, resuming each seat's conversation where its harness allows. With
---delete the rig record is removed too, so it can't be brought back that way.`);
+SoftwareTeam down stops every agent in the softwareTeam: their sessions end, and any work in progress stops with them.
+Before running it, check who is working (SoftwareTeam ps --nodes --software-team <softwareTeam>) and that the person asked for it;
+don't stop a team you didn't start unless asked. SoftwareTeam snapshots the SoftwareTeam first (best-effort), and
+SoftwareTeam up <softwareTeam> --existing brings it back, resuming each seat's conversation where its harness allows. With
+--delete the SoftwareTeam record is removed too, so it can't be brought back that way.`);
   const getDepsF = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   cmd
-    .argument("<rig>", "Rig name or id to tear down")
-    .option("--delete", "Delete rig record after stopping")
+    .argument("<softwareTeam>", "SoftwareTeam name or id to tear down")
+    .option("--delete", "Delete SoftwareTeam record after stopping")
     .option("--force", "Kill sessions immediately")
     .option("--snapshot", "Take snapshot before teardown")
     .option("--json", "JSON output for agents")
-    .option("--host <id>", "Run on a remote host declared in ~/.openrig/hosts.yaml")
-    .action(async (rigHandle: string, opts: { delete?: boolean; force?: boolean; snapshot?: boolean; json?: boolean; host?: string }) => {
+    .option("--host <id>", "Run on a remote host declared in ~/.softwareteam/hosts.yaml")
+    .action(async (softwareTeamHandle: string, opts: { delete?: boolean; force?: boolean; snapshot?: boolean; json?: boolean; host?: string }) => {
       // OPR.0.4.6.MH1 FR-2: selected-host routing — explicit --host wins;
       // else the persisted selection feeds the SHIPPED --host path; no
       // selection = today exactly.
@@ -83,21 +83,21 @@ rig up <rig> --existing brings it back, resuming each seat's conversation where 
       const deps = getDepsF();
 
       if (opts.host) {
-        const { runRemoteHttpOp, resolveRemoteRigId } = await import("../remote-host-ops.js");
-        const rigIdResult = await resolveRemoteRigId(opts.host, rigHandle, deps);
-        if (!rigIdResult.ok) {
-          if (opts.json) console.log(JSON.stringify(rigIdResult));
-          else console.error(`Error: ${rigIdResult.error}`);
+        const { runRemoteHttpOp, resolveRemoteSoftwareTeamId } = await import("../remote-host-ops.js");
+        const softwareTeamIdResult = await resolveRemoteSoftwareTeamId(opts.host, softwareTeamHandle, deps);
+        if (!softwareTeamIdResult.ok) {
+          if (opts.json) console.log(JSON.stringify(softwareTeamIdResult));
+          else console.error(`Error: ${softwareTeamIdResult.error}`);
           process.exitCode = 1;
           return;
         }
         if (!opts.json) {
-          await showAgentsBeforeDown(rigIdResult.rigId, async () => {
-            const inventory = await runRemoteHttpOp(opts.host!, "GET", `/api/rigs/${encodeURIComponent(rigIdResult.rigId)}/nodes`, undefined, deps, { timeoutMs: 2_000 });
+          await showAgentsBeforeDown(softwareTeamIdResult.softwareTeamId, async () => {
+            const inventory = await runRemoteHttpOp(opts.host!, "GET", `/api/software-teams/${encodeURIComponent(softwareTeamIdResult.softwareTeamId)}/nodes`, undefined, deps, { timeoutMs: 2_000 });
             return inventory.ok ? inventory.data : undefined;
           });
         }
-        const result = await runRemoteHttpOp(opts.host, "POST", `/api/down`, { rigId: rigIdResult.rigId, delete: opts.delete, force: opts.force, snapshot: opts.snapshot }, deps, opts);
+        const result = await runRemoteHttpOp(opts.host, "POST", `/api/down`, { softwareTeamId: softwareTeamIdResult.softwareTeamId, delete: opts.delete, force: opts.force, snapshot: opts.snapshot }, deps, opts);
         if (opts.json) {
           console.log(JSON.stringify(result));
           if (!result.ok) process.exitCode = 1;
@@ -122,12 +122,12 @@ rig up <rig> --existing brings it back, resuming each seat's conversation where 
       // Resolve the handle (name OR id) to a concrete id BEFORE the teardown POST.
       // Ambiguous/not-found halt here and never reach `/api/down` - for a
       // destructive op, ambiguity must stop, never guess (AC-3 load-bearing).
-      const resolution = await resolveRigHandle(client, rigHandle);
+      const resolution = await resolveSoftwareTeamHandle(client, softwareTeamHandle);
 
       if (resolution.kind === "ambiguous") {
-        const fact = `'${resolution.name}' matches ${resolution.ids.length} rigs.`;
-        const consequence = "Refusing to tear down: an ambiguous name could destroy the wrong rig.";
-        const action = `Re-run with the specific id, e.g. ${resolution.ids.map((id) => `rig down ${id}`).join("  |  ")}`;
+        const fact = `'${resolution.name}' matches ${resolution.ids.length} softwareTeams.`;
+        const consequence = "Refusing to tear down: an ambiguous name could destroy the wrong softwareTeam.";
+        const action = `Re-run with the specific id, e.g. ${resolution.ids.map((id) => `SoftwareTeam down ${id}`).join("  |  ")}`;
         if (opts.json) {
           console.log(JSON.stringify({ error: { fact, consequence, action, candidates: resolution.ids } }));
         } else {
@@ -140,9 +140,9 @@ rig up <rig> --existing brings it back, resuming each seat's conversation where 
       }
 
       if (resolution.kind === "not_found") {
-        const fact = `No rig found matching '${resolution.handle}'.`;
+        const fact = `No SoftwareTeam found matching '${resolution.handle}'.`;
         const consequence = "Nothing was torn down.";
-        const action = "List rigs with: rig ps";
+        const action = "List softwareTeams with: SoftwareTeam ps";
         if (opts.json) {
           console.log(JSON.stringify({ error: { fact, consequence, action } }));
         } else {
@@ -157,17 +157,17 @@ rig up <rig> --existing brings it back, resuming each seat's conversation where 
       // resolved -> the looked-up id; passthrough -> the raw handle (summary
       // unavailable; daemon resolves by exact id, 404s if absent). Either way
       // the SAME existing teardown path + guards run below - no forked path.
-      const rigId = resolution.kind === "resolved" ? resolution.id : resolution.handle;
+      const softwareTeamId = resolution.kind === "resolved" ? resolution.id : resolution.handle;
 
       if (!opts.json) {
-        await showAgentsBeforeDown(rigId, async () => {
-          const inventory = await client.get<unknown>(`/api/rigs/${encodeURIComponent(rigId)}/nodes`, { timeoutMs: 2_000 });
+        await showAgentsBeforeDown(softwareTeamId, async () => {
+          const inventory = await client.get<unknown>(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/nodes`, { timeoutMs: 2_000 });
           return inventory.status === 200 ? inventory.data : undefined;
         });
       }
 
       const res = await client.post<TeardownResult | { error: string }>("/api/down", {
-        rigId,
+        softwareTeamId,
         delete: opts.delete ?? false,
         force: opts.force ?? false,
         snapshot: opts.snapshot ?? false,
@@ -188,7 +188,7 @@ rig up <rig> --existing brings it back, resuming each seat's conversation where 
       // HTTP error
       if (res.status >= 400) {
         const errMsg = (res.data as { error: string }).error ?? "unknown error";
-        console.error(`Down failed: ${errMsg} (HTTP ${res.status}). Check rig ID with: rig ps`);
+        console.error(`Down failed: ${errMsg} (HTTP ${res.status}). Check softwareTeam ID with: SoftwareTeam ps`);
         process.exitCode = 2;
         return;
       }
@@ -197,8 +197,8 @@ rig up <rig> --existing brings it back, resuming each seat's conversation where 
 
       // Exit code: errors first, then deleted, then alreadyStopped
       if (result.errors.length > 0) {
-        console.log(`Rig ${rigId}: ${result.sessionsKilled} session(s) killed`);
-        if (result.deleted) console.log("Rig deleted");
+        console.log(`SoftwareTeam ${softwareTeamId}: ${result.sessionsKilled} session(s) killed`);
+        if (result.deleted) console.log("SoftwareTeam deleted");
         if (result.snapshotId) console.log(`Snapshot: ${result.snapshotId}`);
         for (const e of result.errors) console.error(`  warning: ${e}`);
         process.exitCode = 2;
@@ -206,28 +206,28 @@ rig up <rig> --existing brings it back, resuming each seat's conversation where 
       }
 
       if (result.deleted) {
-        console.log(`Rig ${rigId} deleted. ${result.sessionsKilled} session(s) killed.`);
+        console.log(`SoftwareTeam ${softwareTeamId} deleted. ${result.sessionsKilled} session(s) killed.`);
         if (result.snapshotId) console.log(`Snapshot: ${result.snapshotId}`);
         return;
       }
 
       if (result.alreadyStopped) {
-        console.log(`Rig ${rigId} already stopped`);
+        console.log(`SoftwareTeam ${softwareTeamId} already stopped`);
         process.exitCode = 1;
         return;
       }
 
       // Clean stop with post-command handoff
-      console.log(`Rig ${rigId} stopped. ${result.sessionsKilled} session(s) killed.`);
+      console.log(`SoftwareTeam ${softwareTeamId} stopped. ${result.sessionsKilled} session(s) killed.`);
       if (result.snapshotId) {
         console.log(`Snapshot: ${result.snapshotId}`);
         // Post-command handoff: how to restore (check for duplicate names)
-        const rigName = (res.data as Record<string, unknown>)["rigName"] as string | undefined;
+        const softwareTeamName = (res.data as Record<string, unknown>)["softwareTeamName"] as string | undefined;
         const isUniqueName = (res.data as Record<string, unknown>)["isUniqueName"] as boolean | undefined;
-        if (rigName && isUniqueName !== false) {
-          console.log(`To restore: rig up ${shellQuote(rigName)} --existing`);
+        if (softwareTeamName && isUniqueName !== false) {
+          console.log(`To restore: SoftwareTeam up ${shellQuote(softwareTeamName)} --existing`);
         } else {
-          console.log(`To restore: rig restore ${result.snapshotId} --rig ${rigId}`);
+          console.log(`To restore: SoftwareTeam restore ${result.snapshotId} --software-team ${softwareTeamId}`);
         }
       }
     });

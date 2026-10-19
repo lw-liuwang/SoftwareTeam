@@ -44,7 +44,7 @@ function fixture() {
   db.prepare("INSERT INTO nodes VALUES ('node','claude-code',?)").run(cwd);
   db.exec("INSERT INTO bindings VALUES ('binding','node','seat','%1'); INSERT INTO occupant_tenures VALUES ('node','generation-1',1)");
   const env: Record<string,string> = { PATH: "./bin" + path.delimiter + daemonBin, HOME: path.join(root, "home"), CLAUDE_CONFIG_DIR: "./config",
-    ANTHROPIC_API_KEY: "synthetic-secret-never-in-command", OPENRIG_HOME: path.join(root, "instance") };
+    ANTHROPIC_API_KEY: "synthetic-secret-never-in-command", SOFTWARETEAM_HOME: path.join(root, "instance") };
   const renderer = { TERM: "dumb", COLORTERM: "daemon-value", LANG: "C",
     LC_CTYPE: "C", LC_MESSAGES: "C", UNAPPROVED_RENDERER_VALUE: "must-not-forward" };
   const managed = new ClaudeManagedLaunch(db, env, renderer);
@@ -56,18 +56,18 @@ function fixture() {
   const binding: NodeBinding = { id: "binding", nodeId: "node", cwd, attachmentType: "tmux", tmuxSession: "seat", tmuxPane: "%1",
     tmuxWindow: null, cmuxWorkspace: null, cmuxSurface: null, updatedAt: "", permissionMode: "auto", model: "model's choice" };
   const eventBus = { db, persistWithinTransaction: (event: unknown) => { db.prepare("INSERT INTO events VALUES (?)").run(JSON.stringify(event)); return event; }, notifySubscribers: vi.fn() };
-  const deps: Record<string,unknown> = { rigRepo: { db }, sessionRegistry: { db }, eventBus, tmuxAdapter: tmux, runtimeAdapters: { "claude-code": adapter } };
+  const deps: Record<string,unknown> = { softwareTeamRepo: { db }, sessionRegistry: { db }, eventBus, tmuxAdapter: tmux, runtimeAdapters: { "claude-code": adapter } };
   // Use the production route constructor and its actual adapter/service wiring.
   const service = seatLifecycleService({ get: key => deps[key] });
   vi.spyOn(service as any, "resolveSeat").mockReturnValue({ nodeId: "node", entry: { runtime: "claude-code", cwd } });
-  vi.spyOn(service as any, "describe").mockReturnValue({ nodeId: "node", rigId: "rig", logicalId: "owner", rigName: "rig" });
+  vi.spyOn(service as any, "describe").mockReturnValue({ nodeId: "node", softwareTeamId: "softwareTeam", logicalId: "owner", softwareTeamName: "softwareTeam" });
   vi.mocked(execFile).mockImplementation(((file: string, _args: string[], options: any, done: any) => {
     expect(file).toBe(executable); expect(options.cwd).toBe(cwd); expect(options.env.PATH).toBe(path.join(cwd,"bin") + path.delimiter + daemonBin);
     expect(options.env.ANTHROPIC_API_KEY).toBeUndefined(); done(null, help);
   }) as any);
   return { root, cwd, executable, daemonBin, db, env, renderer, managed, tmux, calls, adapter, binding, service, eventBus };
 }
-const input = { seatRef: "owner@rig", mode: "auto", actor: "operator", reason: "deliberate choice" };
+const input = { seatRef: "owner@software-team", mode: "auto", actor: "operator", reason: "deliberate choice" };
 
 describe("S03 production managed capability selection", () => {
   it.skipIf(process.platform === "win32").each([
@@ -82,7 +82,7 @@ describe("S03 production managed capability selection", () => {
     const expression = source.slice(source.indexOf("{", start), source.indexOf("\n  };", start) + 4);
     const sessionEnv = runInNewContext(`(${expression})`, {
       process: { env: { PATH: f.env.PATH, ...names, UNRELATED_VALUE: "not-forwarded" } },
-      OPENRIG_HOME: f.env.OPENRIG_HOME, openRigPort: "1", openRigHost: "127.0.0.1",
+      SOFTWARETEAM_HOME: f.env.SOFTWARETEAM_HOME, softwareTeamPort: "1", softwareTeamHost: "127.0.0.1",
       resolvedActivityHookUrl: "http://127.0.0.1:1", resolvedActivityHookToken: "synthetic-only",
       providerAuthEnv: {}, daemonHome: f.env.HOME, codexHome: path.join(f.root, "codex"),
     });
@@ -111,8 +111,8 @@ describe("S03 production managed capability selection", () => {
     writeFileSync(f.executable, `#!${process.execPath}\n
 const fs = require('node:fs');
     const keys = ['CLAUDE_CONFIG_DIR', 'HOME', 'TERM', 'COLORTERM', 'LANG', 'LC_CTYPE', 'LC_MESSAGES',
-      'UNAPPROVED_RENDERER_VALUE', 'ANTHROPIC_API_KEY', 'OPENRIG_HOME',
-  'OPENRIG_NODE_ID', 'OPENRIG_RUNTIME', 'OPENRIG_SESSION_NAME', 'OPENRIG_OCCUPANT_GENERATION'];
+      'UNAPPROVED_RENDERER_VALUE', 'ANTHROPIC_API_KEY', 'SOFTWARETEAM_HOME',
+  'SOFTWARETEAM_NODE_ID', 'SOFTWARETEAM_RUNTIME', 'SOFTWARETEAM_SESSION_NAME', 'SOFTWARETEAM_OCCUPANT_GENERATION'];
 const env = Object.fromEntries(keys.filter(k => process.env[k] !== undefined).map(k => [k, process.env[k]]));
 if (process.argv.includes('--help')) {
   fs.writeFileSync(${JSON.stringify(helpReceipt)}, JSON.stringify(env));
@@ -128,7 +128,7 @@ if (process.argv.includes('--help')) {
     const command = prepared.command(args);
     expect(command).not.toContain(f.env.ANTHROPIC_API_KEY);
     const paneEnv: Record<string, string> = { ...f.env, UNAPPROVED_RENDERER_VALUE: "must-not-forward",
-      CLAUDE_CONFIG_DIR: "/inert/not-the-managed-selection", OPENRIG_NODE_ID: "not-the-target" };
+      CLAUDE_CONFIG_DIR: "/inert/not-the-managed-selection", SOFTWARETEAM_NODE_ID: "not-the-target" };
     if (terminal !== "absent") Object.assign(paneEnv, Object.fromEntries(Object.entries({
       TERM: "tmux-256color", COLORTERM: "truecolor", LANG: "en_US.UTF-8",
       LC_CTYPE: "en_US.UTF-8", LC_MESSAGES: "en_US.UTF-8",
@@ -156,9 +156,9 @@ if (process.argv.includes('--help')) {
     for (const key of ["TERM", "COLORTERM", "LANG", "LC_CTYPE", "LC_MESSAGES"]) expect(queried).not.toHaveProperty(key);
     expect(launched.env).not.toHaveProperty("UNAPPROVED_RENDERER_VALUE");
     expect(launched).toMatchObject({ cwd: f.cwd, args, env: {
-      HOME: f.env.HOME, ANTHROPIC_API_KEY: f.env.ANTHROPIC_API_KEY, OPENRIG_HOME: f.env.OPENRIG_HOME,
-      OPENRIG_NODE_ID: "node", OPENRIG_RUNTIME: "claude-code", OPENRIG_SESSION_NAME: "seat",
-      OPENRIG_OCCUPANT_GENERATION: "generation-1",
+      HOME: f.env.HOME, ANTHROPIC_API_KEY: f.env.ANTHROPIC_API_KEY, SOFTWARETEAM_HOME: f.env.SOFTWARETEAM_HOME,
+      SOFTWARETEAM_NODE_ID: "node", SOFTWARETEAM_RUNTIME: "claude-code", SOFTWARETEAM_SESSION_NAME: "seat",
+      SOFTWARETEAM_OCCUPANT_GENERATION: "generation-1",
     } });
   });
   it("forwards only terminal and locale variables into the isolated Claude environment", async () => {
@@ -266,7 +266,7 @@ describe("S03 bound launch across existing paths", () => {
     expect(result, JSON.stringify(result)).toMatchObject({ ok: true, appliedLaunch: { reason: "emitted_launch_arguments" } });
     expect(f.calls).toHaveLength(1); const cmd = f.calls[0]!;
     expect(cmd).toContain("/usr/bin/env -i"); expect(cmd).toContain("'--permission-mode' 'auto'");
-    expect(cmd).toContain("'OPENRIG_OCCUPANT_GENERATION=generation-1'"); expect(cmd).toContain("'model'\"'\"'s choice'");
+    expect(cmd).toContain("'SOFTWARETEAM_OCCUPANT_GENERATION=generation-1'"); expect(cmd).toContain("'model'\"'\"'s choice'");
     expect(cmd).toContain('"ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY-}"'); expect(cmd).not.toContain(f.env.ANTHROPIC_API_KEY);
     expect(cmd).toContain("'" + f.executable.replaceAll("'", "'\"'\"'") + "'");
     if (kind !== "fresh") expect(cmd).toContain("'history'\"'\"'s id; literal'");
@@ -282,7 +282,7 @@ describe("S03 bound launch across existing paths", () => {
   });
   it("binds the successor's reserved generation while guarding the uncommitted current tenure", async () => {
     const f = fixture(); await f.adapter.launchHarness({ ...f.binding, launchGeneration: "reserved-next" }, { name: "seat" });
-    expect(f.calls[0]).toContain("'OPENRIG_OCCUPANT_GENERATION=reserved-next'");
+    expect(f.calls[0]).toContain("'SOFTWARETEAM_OCCUPANT_GENERATION=reserved-next'");
     expect(f.db.prepare("SELECT generation_uuid FROM occupant_tenures").get()).toEqual({ generation_uuid: "generation-1" });
   });
   it.each(["unset", "explicit"])("names the fork's own id with the %s config root, reads no session file, and preserves call-entry arguments", async selection => {

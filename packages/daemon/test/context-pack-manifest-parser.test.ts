@@ -1,4 +1,4 @@
-// Rig Context / Composable Context Injection v0 (PL-014) — manifest
+// SoftwareTeam Context / Composable Context Injection v0 (PL-014) — manifest
 // parser unit tests.
 
 import { describe, it, expect } from "vitest";

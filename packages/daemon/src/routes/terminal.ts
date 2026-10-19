@@ -1,9 +1,9 @@
 // OPR.0.4.6.02 C3 — the terminal-provider-ride daemon routes.
 //
-// ONE canonical, NON-rig-scoped composer for EVERY view kind (arch R1 / guard
+// ONE canonical, NON-software-team-scoped composer for EVERY view kind (arch R1 / guard
 // b1): `POST /api/terminal/open {provider, view}` + `GET /api/terminal/views` +
-// `GET /api/terminal/status`. The rig-scoped `POST /api/rigs/:rigId/terminal/
-// open` is a THIN ALIAS that composes `view = rig:<rigId>` and delegates to the
+// `GET /api/terminal/status`. The software-team-scoped `POST /api/software-teams/:softwareTeamId/terminal/
+// open` is a THIN ALIAS that composes `view = software-team:<softwareTeamId>` and delegates to the
 // SAME `TerminalService` — zero composition logic of its own. The CLI and the
 // web-UI launcher both hit the canonical seam.
 //
@@ -46,7 +46,7 @@ function readOpenBody(raw: unknown): { provider?: string; view?: string; expecte
   return { ...(provider !== undefined ? { provider } : {}), ...(view !== undefined ? { view } : {}), ...(expectedPlan !== undefined ? { expectedPlan } : {}), ...(viewportColumns !== undefined ? { viewportColumns } : {}) };
 }
 
-/** The canonical, non-rig-scoped terminal route family. Mounted at `/api/terminal`. */
+/** The canonical, non-software-team-scoped terminal route family. Mounted at `/api/terminal`. */
 export function terminalRoutes(): Hono {
   const app = new Hono();
 
@@ -89,18 +89,18 @@ export function terminalRoutes(): Hono {
 }
 
 /**
- * The rig-scoped THIN ALIAS. Mounted at `/api/rigs/:rigId/terminal`, so `POST
- * /api/rigs/:rigId/terminal/open` composes `view = rig:<rigId>` and delegates
+ * The software-team-scoped THIN ALIAS. Mounted at `/api/software-teams/:softwareTeamId/terminal`, so `POST
+ * /api/software-teams/:softwareTeamId/terminal/open` composes `view = software-team:<softwareTeamId>` and delegates
  * to the same canonical `TerminalService.openView` — no composition logic here
  * (arch R1 / guard b1). A `provider` may still ride in the body.
  */
-export const rigTerminalRoutes = new Hono();
+export const softwareTeamTerminalRoutes = new Hono();
 
-rigTerminalRoutes.post("/open", async (c) => {
+softwareTeamTerminalRoutes.post("/open", async (c) => {
   const svc = getService(c);
   if (!svc) return c.json({ error: "terminal_service_unavailable" }, 503);
-  const rigId = c.req.param("rigId");
-  if (!rigId) return c.json({ error: "rig_id_required" }, 400);
+  const softwareTeamId = c.req.param("softwareTeamId");
+  if (!softwareTeamId) return c.json({ error: "software_team_id_required" }, 400);
   let provider: string | undefined;
   try {
     const raw = (await c.req.json()) as unknown;
@@ -108,8 +108,8 @@ rigTerminalRoutes.post("/open", async (c) => {
       provider = (raw as Record<string, unknown>)["provider"] as string;
     }
   } catch {
-    // An empty/absent body is fine for the alias — the view is the rig itself.
+    // An empty/absent body is fine for the alias — the view is the softwareTeam itself.
   }
-  const result = await svc.openView({ ...(provider !== undefined ? { provider } : {}), view: `rig:${rigId}` });
+  const result = await svc.openView({ ...(provider !== undefined ? { provider } : {}), view: `software-team:${softwareTeamId}` });
   return c.json(result, statusForOpen(result.ok, result.code));
 });

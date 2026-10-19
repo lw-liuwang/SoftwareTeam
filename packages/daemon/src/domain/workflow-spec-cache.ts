@@ -17,14 +17,14 @@ import { ulid } from "ulid";
 import { parse as parseYaml } from "yaml";
 import type { WorkflowSpec, WorkflowSpecRow } from "./workflow-types.js";
 import { WORKFLOW_AGENT_HARNESSES, WORKFLOW_EXIT_KINDS } from "./workflow-types.js";
-import { bindSpecToRig } from "./workflow-rig-placeholder.js";
+import { bindSpecToSoftwareTeam } from "./workflow-software-team-placeholder.js";
 
 interface SpecRow {
   spec_id: string;
   name: string;
   version: string;
   purpose: string | null;
-  target_rig: string | null;
+  target_software_team: string | null;
   roles_json: string;
   steps_json: string;
   coordination_terminal_turn_rule: string;
@@ -109,9 +109,9 @@ export const WORKFLOW_STEP_KEYS = [
   "depends_on",
   "acceptance",
 ] as const;
-/** A spec row with `{rig}` targets resolved against `boundRig`. */
-export function bindRowToRig(row: WorkflowSpecRow, boundRig: string | null): WorkflowSpecRow {
-  const spec = bindSpecToRig(row.spec, boundRig);
+/** A spec row with `{softwareTeam}` targets resolved against `boundSoftwareTeam`. */
+export function bindRowToSoftwareTeam(row: WorkflowSpecRow, boundSoftwareTeam: string | null): WorkflowSpecRow {
+  const spec = bindSpecToSoftwareTeam(row.spec, boundSoftwareTeam);
   return spec === row.spec ? row : { ...row, spec };
 }
 
@@ -119,7 +119,7 @@ export const WORKFLOW_ROLE_KEYS = ["skill_refs", "preferred_targets"] as const;
 export const WORKFLOW_NEXT_HOP_KEYS = ["mode", "suggested_roles", "on"] as const;
 export const WORKFLOW_GATE_KEYS = ["target", "summary", "evidence_ref"] as const;
 export const WORKFLOW_ACCEPTANCE_KEYS = ["candidate", "verdicts", "evidence_ref"] as const;
-export const WORKFLOW_TARGET_KEYS = ["rig"] as const;
+export const WORKFLOW_TARGET_KEYS = ["software_team"] as const;
 export const WORKFLOW_ENTRY_KEYS = ["role"] as const;
 export const WORKFLOW_INVARIANTS_KEYS = [
   "continuation_required",
@@ -638,7 +638,7 @@ export class WorkflowSpecCache {
     }
     const cachedAt = this.now().toISOString();
     const purpose = spec.objective ?? null;
-    const targetRig = spec.target?.rig ?? null;
+    const targetSoftwareTeam = spec.target?.software_team ?? null;
     const rolesJson = JSON.stringify(spec.roles);
     const stepsJson = JSON.stringify(spec.steps);
     const coordinationTerminalTurnRule = spec.coordination_terminal_turn_rule ?? "hot_potato";
@@ -650,7 +650,7 @@ export class WorkflowSpecCache {
         spec.id,
         spec.version,
         purpose,
-        targetRig,
+        targetSoftwareTeam,
         rolesJson,
         stepsJson,
         coordinationTerminalTurnRule,
@@ -664,7 +664,7 @@ export class WorkflowSpecCache {
         .prepare(
           `UPDATE workflow_specs SET
              name = ?, version = ?,
-             purpose = ?, target_rig = ?, roles_json = ?, steps_json = ?,
+             purpose = ?, target_software_team = ?, roles_json = ?, steps_json = ?,
              coordination_terminal_turn_rule = ?, source_path = ?,
              source_hash = ?, cached_at = ?${specJsonSet}${diagnosticSet}
            WHERE spec_id = ?`,
@@ -676,7 +676,7 @@ export class WorkflowSpecCache {
         version: spec.version,
         ...(this.hasDiagnosticColumns ? { status: "valid", error_message: null } : {}),
         purpose,
-        target_rig: targetRig,
+        target_software_team: targetSoftwareTeam,
         roles_json: rolesJson,
         steps_json: stepsJson,
         coordination_terminal_turn_rule: coordinationTerminalTurnRule,
@@ -693,7 +693,7 @@ export class WorkflowSpecCache {
       spec.id,
       spec.version,
       purpose,
-      targetRig,
+      targetSoftwareTeam,
       rolesJson,
       stepsJson,
       coordinationTerminalTurnRule,
@@ -705,7 +705,7 @@ export class WorkflowSpecCache {
     this.db
       .prepare(
         `INSERT INTO workflow_specs (
-           spec_id, name, version, purpose, target_rig,
+           spec_id, name, version, purpose, target_software_team,
            roles_json, steps_json, coordination_terminal_turn_rule,
            source_path, source_hash, cached_at${insertCols}
          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${insertPlaceholder})`,
@@ -716,7 +716,7 @@ export class WorkflowSpecCache {
       name: spec.id,
       version: spec.version,
       purpose,
-      target_rig: targetRig,
+      target_software_team: targetSoftwareTeam,
       roles_json: rolesJson,
       steps_json: stepsJson,
       coordination_terminal_turn_rule: coordinationTerminalTurnRule,
@@ -738,7 +738,7 @@ export class WorkflowSpecCache {
       .get(spec.id, spec.version) as SpecRow | undefined;
     const cachedAt = this.now().toISOString();
     const purpose = spec.objective ?? null;
-    const targetRig = spec.target?.rig ?? null;
+    const targetSoftwareTeam = spec.target?.software_team ?? null;
     const rolesJson = JSON.stringify(spec.roles);
     const stepsJson = JSON.stringify(spec.steps);
     const coordinationTerminalTurnRule = spec.coordination_terminal_turn_rule ?? "hot_potato";
@@ -760,7 +760,7 @@ export class WorkflowSpecCache {
       spec.id,
       spec.version,
       purpose,
-      targetRig,
+      targetSoftwareTeam,
       rolesJson,
       stepsJson,
       coordinationTerminalTurnRule,
@@ -771,7 +771,7 @@ export class WorkflowSpecCache {
     if (this.hasSpecJsonColumn) params.push(JSON.stringify(spec));
     this.db.prepare(
       `INSERT INTO workflow_specs (
-         spec_id, name, version, purpose, target_rig, roles_json, steps_json,
+         spec_id, name, version, purpose, target_software_team, roles_json, steps_json,
          coordination_terminal_turn_rule, source_path, source_hash, cached_at${extraCols}
        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${extraValue})`,
     ).run(...(params as never[]));
@@ -780,7 +780,7 @@ export class WorkflowSpecCache {
       name: spec.id,
       version: spec.version,
       purpose,
-      target_rig: targetRig,
+      target_software_team: targetSoftwareTeam,
       roles_json: rolesJson,
       steps_json: stepsJson,
       coordination_terminal_turn_rule: coordinationTerminalTurnRule,
@@ -797,12 +797,12 @@ export class WorkflowSpecCache {
     return row ? rowToWorkflowSpec(row) : null;
   }
 
-  /** The cached spec as one INSTANCE sees it: `member@{rig}` targets are
-   *  resolved against the instance's bound rig. Use this wherever a running
-   *  instance reads its roles; `getByNameVersion` keeps the literal `{rig}`. */
-  getForInstance(instance: { workflowName: string; workflowVersion: string; boundRig: string | null }): WorkflowSpecRow | null {
+  /** The cached spec as one INSTANCE sees it: `member@{softwareTeam}` targets are
+   *  resolved against the instance's bound softwareTeam. Use this wherever a running
+   *  instance reads its roles; `getByNameVersion` keeps the literal `{softwareTeam}`. */
+  getForInstance(instance: { workflowName: string; workflowVersion: string; boundSoftwareTeam: string | null }): WorkflowSpecRow | null {
     const row = this.getByNameVersion(instance.workflowName, instance.workflowVersion);
-    return row ? bindRowToRig(row, instance.boundRig) : null;
+    return row ? bindRowToSoftwareTeam(row, instance.boundSoftwareTeam) : null;
   }
 
   /**
@@ -888,7 +888,7 @@ export class WorkflowSpecCache {
              name = ?,
              version = '',
              purpose = NULL,
-             target_rig = NULL,
+             target_software_team = NULL,
              roles_json = '{}',
              steps_json = '[]',
              coordination_terminal_turn_rule = 'hot_potato',
@@ -902,7 +902,7 @@ export class WorkflowSpecCache {
     this.db
       .prepare(
         `INSERT INTO workflow_specs (
-           spec_id, name, version, purpose, target_rig,
+           spec_id, name, version, purpose, target_software_team,
            roles_json, steps_json, coordination_terminal_turn_rule,
            source_path, source_hash, cached_at, status, error_message
          ) VALUES (?, ?, '', NULL, NULL, '{}', '[]', 'hot_potato', ?, ?, ?, 'error', ?)`,
@@ -980,7 +980,7 @@ export class WorkflowSpecCache {
    * `<pkg>/dist/builtins/workflow-specs/` in production npm-published
    * daemons — without this guard the unscoped DELETE would nuke
    * every shipped built-in on every boot. Pass
-   * `getOpenRigInstallRoot()` from cwd-resolution at the call site.
+   * `getSoftwareTeamInstallRoot()` from cwd-resolution at the call site.
    * When omitted, no install-root preservation is applied (test-only
    * convenience for tests that operate fully outside any install).
    */
@@ -1030,7 +1030,7 @@ function warnLegacyRehydrationOnce(name: string, version: string): void {
   if (warnedLegacyRehydrations.has(key)) return;
   warnedLegacyRehydrations.add(key);
   console.warn(
-    `workflow spec ${key} rehydrated WITHOUT full fidelity (pre-050 cache row: loop_guards/invariants/closure/entry unavailable at projection). Re-validate the spec file (rig workflow validate <path>) to heal the cache row.`,
+    `workflow spec ${key} rehydrated WITHOUT full fidelity (pre-050 cache row: loop_guards/invariants/closure/entry unavailable at projection). Re-validate the spec file (SoftwareTeam workflow validate <path>) to heal the cache row.`,
   );
 }
 
@@ -1066,7 +1066,7 @@ function rowToWorkflowSpec(row: SpecRow, parsedSpec?: WorkflowSpec): WorkflowSpe
         id: row.name,
         version: row.version,
         objective: row.purpose ?? undefined,
-        target: row.target_rig ? { rig: row.target_rig } : undefined,
+        target: row.target_software_team ? { software_team: row.target_software_team } : undefined,
         roles: JSON.parse(row.roles_json) as WorkflowSpec["roles"],
         steps: JSON.parse(row.steps_json) as WorkflowSpec["steps"],
         coordination_terminal_turn_rule: row.coordination_terminal_turn_rule,
@@ -1076,7 +1076,7 @@ function rowToWorkflowSpec(row: SpecRow, parsedSpec?: WorkflowSpec): WorkflowSpe
     name: row.name,
     version: row.version,
     purpose: row.purpose,
-    targetRig: row.target_rig,
+    targetSoftwareTeam: row.target_software_team,
     spec,
     coordinationTerminalTurnRule: row.coordination_terminal_turn_rule,
     sourcePath: row.source_path,

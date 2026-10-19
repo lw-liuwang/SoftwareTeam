@@ -95,15 +95,15 @@ function makePlan(entries: ProjectionEntry[]): ProjectionPlan {
 // Plugin tree fixtures
 // ============================================================
 
-const OPENRIG_CORE_TREE = {
-  "/p/openrig-core/.claude-plugin/plugin.json": '{"name":"openrig-core","version":"0.1.0"}',
-  "/p/openrig-core/.codex-plugin/plugin.json": '{"name":"openrig-core","version":"0.1.0","description":"openrig"}',
-  "/p/openrig-core/skills/openrig-user/SKILL.md": "# openrig-user\nUse for ...",
-  "/p/openrig-core/skills/openrig-architect/SKILL.md": "# openrig-architect",
-  "/p/openrig-core/hooks/claude.json": '{"hooks":{"SessionStart":[]}}',
-  "/p/openrig-core/hooks/codex.json": '{"hooks":{"SessionStart":[]}}',
-  "/p/openrig-core/hooks/scripts/activity-relay.cjs": "// relay script body",
-  "/p/openrig-core/README.md": "# openrig-core plugin",
+const SOFTWARETEAM_CORE_TREE = {
+  "/p/softwareteam-core/.claude-plugin/plugin.json": '{"name":"softwareteam-core","version":"0.1.0"}',
+  "/p/softwareteam-core/.codex-plugin/plugin.json": '{"name":"softwareteam-core","version":"0.1.0","description":"softwareteam"}',
+  "/p/softwareteam-core/skills/softwareteam-user/SKILL.md": "# softwareteam-user\nUse for ...",
+  "/p/softwareteam-core/skills/softwareteam-architect/SKILL.md": "# softwareteam-architect",
+  "/p/softwareteam-core/hooks/claude.json": '{"hooks":{"SessionStart":[]}}',
+  "/p/softwareteam-core/hooks/codex.json": '{"hooks":{"SessionStart":[]}}',
+  "/p/softwareteam-core/hooks/scripts/activity-relay.cjs": "// relay script body",
+  "/p/softwareteam-core/README.md": "# softwareteam-core plugin",
 };
 
 // ============================================================
@@ -112,24 +112,24 @@ const OPENRIG_CORE_TREE = {
 
 describe("Claude Code adapter — plugin directory projection", () => {
   it("copies entire plugin tree to <cwd>/.claude/plugins/<id>/ preserving nested structure", async () => {
-    const fs = mockClaudeFs(OPENRIG_CORE_TREE);
+    const fs = mockClaudeFs(SOFTWARETEAM_CORE_TREE);
     const adapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: fs });
-    const plan = makePlan([makePluginEntry("openrig-core", "/p/openrig-core")]);
+    const plan = makePlan([makePluginEntry("softwareteam-core", "/p/softwareteam-core")]);
 
     const result = await adapter.project(plan, makeBinding("/cwd"));
 
-    expect(result.projected).toContain("openrig-core");
+    expect(result.projected).toContain("softwareteam-core");
     expect(result.failed).toEqual([]);
 
     // All 8 source files should land at the correct nested target paths
-    expect(fs._store["/cwd/.claude/plugins/openrig-core/.claude-plugin/plugin.json"]).toBe('{"name":"openrig-core","version":"0.1.0"}');
-    expect(fs._store["/cwd/.claude/plugins/openrig-core/.codex-plugin/plugin.json"]).toBe('{"name":"openrig-core","version":"0.1.0","description":"openrig"}');
-    expect(fs._store["/cwd/.claude/plugins/openrig-core/skills/openrig-user/SKILL.md"]).toBe("# openrig-user\nUse for ...");
-    expect(fs._store["/cwd/.claude/plugins/openrig-core/skills/openrig-architect/SKILL.md"]).toBe("# openrig-architect");
-    expect(fs._store["/cwd/.claude/plugins/openrig-core/hooks/claude.json"]).toBe('{"hooks":{"SessionStart":[]}}');
-    expect(fs._store["/cwd/.claude/plugins/openrig-core/hooks/codex.json"]).toBe('{"hooks":{"SessionStart":[]}}');
-    expect(fs._store["/cwd/.claude/plugins/openrig-core/hooks/scripts/activity-relay.cjs"]).toBe("// relay script body");
-    expect(fs._store["/cwd/.claude/plugins/openrig-core/README.md"]).toBe("# openrig-core plugin");
+    expect(fs._store["/cwd/.claude/plugins/softwareteam-core/.claude-plugin/plugin.json"]).toBe('{"name":"softwareteam-core","version":"0.1.0"}');
+    expect(fs._store["/cwd/.claude/plugins/softwareteam-core/.codex-plugin/plugin.json"]).toBe('{"name":"softwareteam-core","version":"0.1.0","description":"softwareteam"}');
+    expect(fs._store["/cwd/.claude/plugins/softwareteam-core/skills/softwareteam-user/SKILL.md"]).toBe("# softwareteam-user\nUse for ...");
+    expect(fs._store["/cwd/.claude/plugins/softwareteam-core/skills/softwareteam-architect/SKILL.md"]).toBe("# softwareteam-architect");
+    expect(fs._store["/cwd/.claude/plugins/softwareteam-core/hooks/claude.json"]).toBe('{"hooks":{"SessionStart":[]}}');
+    expect(fs._store["/cwd/.claude/plugins/softwareteam-core/hooks/codex.json"]).toBe('{"hooks":{"SessionStart":[]}}');
+    expect(fs._store["/cwd/.claude/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs"]).toBe("// relay script body");
+    expect(fs._store["/cwd/.claude/plugins/softwareteam-core/README.md"]).toBe("# softwareteam-core plugin");
   });
 
   it("plugin projection lands at .claude/plugins/, NOT .claude/skills/ or other category dirs (drift discriminator)", async () => {
@@ -173,11 +173,11 @@ describe("Claude Code adapter — plugin directory projection", () => {
 
   it("plugin re-projection is a no-op when hash matches (idempotent)", async () => {
     const fs = mockClaudeFs({
-      "/p/openrig-core/.claude-plugin/plugin.json": "{}",
-      "/cwd/.claude/plugins/openrig-core/.claude-plugin/plugin.json": "{}", // already projected with same content
+      "/p/softwareteam-core/.claude-plugin/plugin.json": "{}",
+      "/cwd/.claude/plugins/softwareteam-core/.claude-plugin/plugin.json": "{}", // already projected with same content
     });
     const adapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: fs });
-    const plan = makePlan([makePluginEntry("openrig-core", "/p/openrig-core")]);
+    const plan = makePlan([makePluginEntry("softwareteam-core", "/p/softwareteam-core")]);
 
     let writeCount = 0;
     const origWrite = fs.writeFile;
@@ -196,21 +196,21 @@ describe("Claude Code adapter — plugin directory projection", () => {
 
 describe("Codex adapter — plugin directory projection", () => {
   it("copies entire plugin tree to <cwd>/.codex/plugins/<id>/ preserving nested structure", async () => {
-    const fs = mockCodexFs(OPENRIG_CORE_TREE);
+    const fs = mockCodexFs(SOFTWARETEAM_CORE_TREE);
     const adapter = new CodexRuntimeAdapter({ tmux: mockTmux(), fsOps: fs });
-    const plan = makePlan([makePluginEntry("openrig-core", "/p/openrig-core")]);
+    const plan = makePlan([makePluginEntry("softwareteam-core", "/p/softwareteam-core")]);
 
     const result = await adapter.project(plan, makeBinding("/cwd"));
 
-    expect(result.projected).toContain("openrig-core");
+    expect(result.projected).toContain("softwareteam-core");
     expect(result.failed).toEqual([]);
 
     // All 8 source files should land at the correct nested Codex target paths
-    expect(fs._store["/cwd/.codex/plugins/openrig-core/.claude-plugin/plugin.json"]).toBe('{"name":"openrig-core","version":"0.1.0"}');
-    expect(fs._store["/cwd/.codex/plugins/openrig-core/.codex-plugin/plugin.json"]).toBe('{"name":"openrig-core","version":"0.1.0","description":"openrig"}');
-    expect(fs._store["/cwd/.codex/plugins/openrig-core/skills/openrig-user/SKILL.md"]).toBe("# openrig-user\nUse for ...");
-    expect(fs._store["/cwd/.codex/plugins/openrig-core/hooks/codex.json"]).toBe('{"hooks":{"SessionStart":[]}}');
-    expect(fs._store["/cwd/.codex/plugins/openrig-core/hooks/scripts/activity-relay.cjs"]).toBe("// relay script body");
+    expect(fs._store["/cwd/.codex/plugins/softwareteam-core/.claude-plugin/plugin.json"]).toBe('{"name":"softwareteam-core","version":"0.1.0"}');
+    expect(fs._store["/cwd/.codex/plugins/softwareteam-core/.codex-plugin/plugin.json"]).toBe('{"name":"softwareteam-core","version":"0.1.0","description":"softwareteam"}');
+    expect(fs._store["/cwd/.codex/plugins/softwareteam-core/skills/softwareteam-user/SKILL.md"]).toBe("# softwareteam-user\nUse for ...");
+    expect(fs._store["/cwd/.codex/plugins/softwareteam-core/hooks/codex.json"]).toBe('{"hooks":{"SessionStart":[]}}');
+    expect(fs._store["/cwd/.codex/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs"]).toBe("// relay script body");
   });
 
   it("Codex plugin lands at .codex/plugins/ NOT .agents/skills/ (drift discriminator vs skill projection)", async () => {
@@ -237,20 +237,20 @@ describe("Codex adapter — plugin directory projection", () => {
 
 describe("Plugin projection — cross-runtime target discrimination", () => {
   it("same plugin source projects to .claude/plugins on Claude AND .codex/plugins on Codex (distinct targets)", async () => {
-    const claudeFs = mockClaudeFs(OPENRIG_CORE_TREE);
-    const codexFs = mockCodexFs(OPENRIG_CORE_TREE);
+    const claudeFs = mockClaudeFs(SOFTWARETEAM_CORE_TREE);
+    const codexFs = mockCodexFs(SOFTWARETEAM_CORE_TREE);
     const claudeAdapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: claudeFs });
     const codexAdapter = new CodexRuntimeAdapter({ tmux: mockTmux(), fsOps: codexFs });
-    const plan = makePlan([makePluginEntry("openrig-core", "/p/openrig-core")]);
+    const plan = makePlan([makePluginEntry("softwareteam-core", "/p/softwareteam-core")]);
 
     await claudeAdapter.project(plan, makeBinding("/cwd"));
     await codexAdapter.project(plan, makeBinding("/cwd"));
 
     // Claude target distinct from Codex target
-    expect(claudeFs._store["/cwd/.claude/plugins/openrig-core/.claude-plugin/plugin.json"]).toBeDefined();
-    expect(claudeFs._store["/cwd/.codex/plugins/openrig-core/.codex-plugin/plugin.json"]).toBeUndefined();
+    expect(claudeFs._store["/cwd/.claude/plugins/softwareteam-core/.claude-plugin/plugin.json"]).toBeDefined();
+    expect(claudeFs._store["/cwd/.codex/plugins/softwareteam-core/.codex-plugin/plugin.json"]).toBeUndefined();
 
-    expect(codexFs._store["/cwd/.codex/plugins/openrig-core/.codex-plugin/plugin.json"]).toBeDefined();
-    expect(codexFs._store["/cwd/.claude/plugins/openrig-core/.claude-plugin/plugin.json"]).toBeUndefined();
+    expect(codexFs._store["/cwd/.codex/plugins/softwareteam-core/.codex-plugin/plugin.json"]).toBeDefined();
+    expect(codexFs._store["/cwd/.claude/plugins/softwareteam-core/.claude-plugin/plugin.json"]).toBeUndefined();
   });
 });

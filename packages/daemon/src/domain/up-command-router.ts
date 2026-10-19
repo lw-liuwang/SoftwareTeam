@@ -1,10 +1,10 @@
-import { LegacyRigSpecCodec as LegacyCodec } from "./rigspec-codec.js";
-import { LegacyRigSpecSchema as LegacySchema } from "./rigspec-schema.js";
-import { RigSpecCodec as PodCodec } from "./rigspec-codec.js";
-import { RigSpecSchema as PodSchema } from "./rigspec-schema.js";
-import { yamlTextHasTopLevelRigsList } from "./topology/topology-manifest.js";
+import { LegacySoftwareTeamSpecCodec as LegacyCodec } from "./software-team-spec-codec.js";
+import { LegacySoftwareTeamSpecSchema as LegacySchema } from "./software-team-spec-schema.js";
+import { SoftwareTeamSpecCodec as PodCodec } from "./software-team-spec-codec.js";
+import { SoftwareTeamSpecSchema as PodSchema } from "./software-team-spec-schema.js";
+import { yamlTextHasTopLevelSoftwareTeamsList } from "./topology/topology-manifest.js";
 
-export type SourceKind = "rig_spec" | "rig_bundle" | "rig_name" | "topology";
+export type SourceKind = "software_team_spec" | "software_team_bundle" | "software_team_name" | "topology";
 
 export interface RouteResult {
   sourceKind: SourceKind;
@@ -41,53 +41,53 @@ export class UpCommandRouter {
   }
 
   route(sourceRef: string): RouteResult {
-    // Rig name detection: no '/' and no file extension → treat as existing rig name.
-    // OPR.0.4.4.11 (guard G-1): `.rigtopology` counts as a file extension here,
-    // so a bare `factory.rigtopology` reaches topology routing. A no-slash
-    // EXTENSIONLESS source keeps rig_name precedence byte-for-byte (FR-2
+    // SoftwareTeam name detection: no '/' and no file extension → treat as existing softwareTeam name.
+    // OPR.0.4.4.11 (guard G-1): `.softwareteamtopology` counts as a file extension here,
+    // so a bare `factory.softwareteamtopology` reaches topology routing. A no-slash
+    // EXTENSIONLESS source keeps software_team_name precedence byte-for-byte (FR-2
     // negative AC; `./file` is the explicit path escape hatch).
-    if (!sourceRef.includes("/") && !sourceRef.match(/\.(ya?ml|rigbundle|rigtopology)$/i)) {
-      return { sourceKind: "rig_name", sourceRef };
+    if (!sourceRef.includes("/") && !sourceRef.match(/\.(ya?ml|softwareteambundle|softwareteamtopology)$/i)) {
+      return { sourceKind: "software_team_name", sourceRef };
     }
 
     if (!this.fs.exists(sourceRef)) {
-      throw new Error(`Source not found: ${sourceRef}. Provide a .yaml rig spec path or a rig name to restore.`);
+      throw new Error(`Source not found: ${sourceRef}. Provide a .yaml SoftwareTeam spec path or a SoftwareTeam name to restore.`);
     }
 
     // Extension-based routing
     const ext = sourceRef.split(".").pop()?.toLowerCase();
-    if (ext === "rigbundle") {
-      return { sourceKind: "rig_bundle", sourceRef };
+    if (ext === "softwareteambundle") {
+      return { sourceKind: "software_team_bundle", sourceRef };
     }
     // OPR.0.4.4.11 (arch ruling 1): the declared extension BINDS — a
-    // `.rigtopology` file failing manifest validation errors downstream AS a
-    // topology; it never falls through to rig-spec parsing.
-    if (ext === "rigtopology") {
+    // `.softwareteamtopology` file failing manifest validation errors downstream AS a
+    // topology; it never falls through to software-team-spec parsing.
+    if (ext === "softwareteamtopology") {
       return { sourceKind: "topology", sourceRef };
     }
     if (ext === "yaml" || ext === "yml") {
       // OPR.0.4.4.11 (guard yaml fold): a YAML document with a top-level
-      // `rigs:` LIST is a topology by the FR-1 detection contract — sniff
-      // BEFORE rig-spec validation so a `factory.yaml` topology never dies
-      // in a confusing rig-spec error. A rig spec never carries top-level
-      // `rigs:`, so the sniff is unambiguous. Unreadable files flow to the
-      // existing rig-spec path, which reports them unchanged.
+      // `softwareTeams:` LIST is a topology by the FR-1 detection contract — sniff
+      // BEFORE software-team-spec validation so a `factory.yaml` topology never dies
+      // in a confusing software-team-spec error. A softwareTeam spec never carries top-level
+      // `softwareTeams:`, so the sniff is unambiguous. Unreadable files flow to the
+      // existing software-team-spec path, which reports them unchanged.
       try {
-        if (yamlTextHasTopLevelRigsList(this.fs.readFile(sourceRef))) {
+        if (yamlTextHasTopLevelSoftwareTeamsList(this.fs.readFile(sourceRef))) {
           return { sourceKind: "topology", sourceRef };
         }
       } catch {
-        // fall through — validateYamlAsRigSpec owns the error surface
+        // fall through — validateYamlAsSoftwareTeamSpec owns the error surface
       }
       // Validate semantically — reject bundle.yaml, package.yaml, etc.
-      return this.validateYamlAsRigSpec(sourceRef);
+      return this.validateYamlAsSoftwareTeamSpec(sourceRef);
     }
 
     // Auto-detection fallback for extensionless files
     return this.autoDetect(sourceRef);
   }
 
-  private validateYamlAsRigSpec(sourceRef: string): RouteResult {
+  private validateYamlAsSoftwareTeamSpec(sourceRef: string): RouteResult {
     try {
       const content = this.fs.readFile(sourceRef);
 
@@ -95,39 +95,39 @@ export class UpCommandRouter {
       const podRaw = PodCodec.parse(content);
       const podValidation = PodSchema.validate(podRaw);
       if (podValidation.valid) {
-        return { sourceKind: "rig_spec", sourceRef };
+        return { sourceKind: "software_team_spec", sourceRef };
       }
       // S7: a pod-shaped document belongs to the pod-aware validator even
       // when invalid. Falling through to legacy replaces an exact topology
       // diagnostic with the unrelated "nodes is required" error.
       if (podSchemaOwnsDiagnostics(podRaw)) {
-        throw new Error(`Source is YAML but not a valid rig spec: ${podValidation.errors[0] ?? "unknown error"}`);
+        throw new Error(`Source is YAML but not a valid SoftwareTeam spec: ${podValidation.errors[0] ?? "unknown error"}`);
       }
 
       // Fall back to legacy schema
       const raw = LegacyCodec.parse(content);
       const validation = LegacySchema.validate(raw);
       if (validation.valid) {
-        return { sourceKind: "rig_spec", sourceRef };
+        return { sourceKind: "software_team_spec", sourceRef };
       }
 
-      // Not a valid rig spec — give helpful error
+      // Not a valid softwareTeam spec — give helpful error
       const obj = raw as Record<string, unknown> | null;
       if (obj && typeof obj === "object") {
-        if ("packages" in obj && ("integrity" in obj || "rig_spec" in obj)) {
-          throw new Error(`Source appears to be a bundle manifest (bundle.yaml), not a rig spec. Use 'rig bundle install' instead.`);
+        if ("packages" in obj && ("integrity" in obj || "software_team_spec" in obj)) {
+          throw new Error(`Source appears to be a bundle manifest (bundle.yaml), not a SoftwareTeam spec. Use 'SoftwareTeam bundle install' instead.`);
         }
         if ("exports" in obj || "compatibility" in obj) {
-          throw new Error(`Source appears to be a package manifest (package.yaml), not a rig spec. Use 'rig package install' instead.`);
+          throw new Error(`Source appears to be a package manifest (package.yaml), not a SoftwareTeam spec. Use 'SoftwareTeam package install' instead.`);
         }
       }
 
-      throw new Error(`Source is YAML but not a valid rig spec: ${validation.errors[0] ?? "unknown error"}`);
+      throw new Error(`Source is YAML but not a valid SoftwareTeam spec: ${validation.errors[0] ?? "unknown error"}`);
     } catch (err) {
       if ((err as Error).message.includes("Source appears") || (err as Error).message.includes("Source is YAML")) {
         throw err;
       }
-      throw new Error(`Failed to parse '${sourceRef}' as rig spec: ${(err as Error).message}`);
+      throw new Error(`Failed to parse '${sourceRef}' as SoftwareTeam spec: ${(err as Error).message}`);
     }
   }
 
@@ -136,21 +136,21 @@ export class UpCommandRouter {
     try {
       const head = this.fs.readHead(sourceRef, 2);
       if (head.length >= 2 && head[0] === GZIP_MAGIC[0] && head[1] === GZIP_MAGIC[1]) {
-        return { sourceKind: "rig_bundle", sourceRef };
+        return { sourceKind: "software_team_bundle", sourceRef };
       }
     } catch {
       // Can't read head — try as text
     }
 
-    // Try parsing as YAML and validating as rig spec (canonical first, then legacy)
+    // Try parsing as YAML and validating as softwareTeam spec (canonical first, then legacy)
     try {
       const content = this.fs.readFile(sourceRef);
 
       // OPR.0.4.4.11 (guard G-1): extensionless PATH-form sources gain the
-      // top-level `rigs:` list sniff → topology. Only reachable for path
-      // forms — a no-slash extensionless source classified rig_name above
+      // top-level `softwareTeams:` list sniff → topology. Only reachable for path
+      // forms — a no-slash extensionless source classified software_team_name above
       // and never reaches autoDetect (documented precedence).
-      if (yamlTextHasTopLevelRigsList(content)) {
+      if (yamlTextHasTopLevelSoftwareTeamsList(content)) {
         return { sourceKind: "topology", sourceRef };
       }
 
@@ -158,36 +158,36 @@ export class UpCommandRouter {
       const podRaw = PodCodec.parse(content);
       const podVal = PodSchema.validate(podRaw);
       if (podVal.valid) {
-        return { sourceKind: "rig_spec", sourceRef };
+        return { sourceKind: "software_team_spec", sourceRef };
       }
       if (podSchemaOwnsDiagnostics(podRaw)) {
-        throw new Error(`Source is YAML but not a valid rig spec: ${podVal.errors[0] ?? "unknown error"}. Use .yaml for rig specs or .rigbundle for bundles.`);
+        throw new Error(`Source is YAML but not a valid SoftwareTeam spec: ${podVal.errors[0] ?? "unknown error"}. Use .yaml for SoftwareTeam specs or .softwareteambundle for bundles.`);
       }
 
       // Try legacy
       const raw = LegacyCodec.parse(content);
       const validation = LegacySchema.validate(raw);
       if (validation.valid) {
-        return { sourceKind: "rig_spec", sourceRef };
+        return { sourceKind: "software_team_spec", sourceRef };
       }
 
-      // Valid YAML but not a rig spec — provide helpful message
+      // Valid YAML but not a softwareTeam spec — provide helpful message
       const obj = raw as Record<string, unknown> | null;
       if (obj && typeof obj === "object") {
         if ("packages" in obj && "integrity" in obj) {
-          throw new Error(`Source appears to be a bundle manifest (bundle.yaml), not a rig spec. Use 'rig bundle install' instead.`);
+          throw new Error(`Source appears to be a bundle manifest (bundle.yaml), not a SoftwareTeam spec. Use 'SoftwareTeam bundle install' instead.`);
         }
         if ("exports" in obj || "compatibility" in obj) {
-          throw new Error(`Source appears to be a package manifest (package.yaml), not a rig spec. Use 'rig package install' instead.`);
+          throw new Error(`Source appears to be a package manifest (package.yaml), not a SoftwareTeam spec. Use 'SoftwareTeam package install' instead.`);
         }
       }
 
-      throw new Error(`Source is YAML but not a valid rig spec: ${validation.errors[0] ?? "unknown error"}. Use .yaml for rig specs or .rigbundle for bundles.`);
+      throw new Error(`Source is YAML but not a valid SoftwareTeam spec: ${validation.errors[0] ?? "unknown error"}. Use .yaml for SoftwareTeam specs or .softwareteambundle for bundles.`);
     } catch (err) {
       if ((err as Error).message.includes("Source appears") || (err as Error).message.includes("Source is YAML")) {
         throw err; // Re-throw our helpful messages
       }
-      throw new Error(`Unable to determine source type for '${sourceRef}'. Use .yaml for rig specs or .rigbundle for bundles.`);
+      throw new Error(`Unable to determine source type for '${sourceRef}'. Use .yaml for SoftwareTeam specs or .softwareteambundle for bundles.`);
     }
   }
 }

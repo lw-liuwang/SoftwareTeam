@@ -1,4 +1,4 @@
-// OPR.0.4.1.29 — command-level `rig auth` surface: --runtime axis + structured output wiring.
+// OPR.0.4.1.29 — command-level `softwareTeam auth` surface: --runtime axis + structured output wiring.
 // (Secret-leak coverage lives in codex-auth-leakhunt.test.ts; lib semantics in the other suites.)
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
@@ -36,7 +36,7 @@ async function run(subArgs: string[]): Promise<{ out: string; code: number | und
   return { out: chunks.join("\n"), code };
 }
 
-describe("rig auth command surface (OPR.0.4.1.29)", () => {
+describe("SoftwareTeam auth command surface (OPR.0.4.1.29)", () => {
   it("--runtime non-codex is rejected on every verb (harness = flag, MVP codex only)", async () => {
     for (const v of [["status"], ["list"], ["save", "p"], ["switch", "p"], ["validate", "p"], ["seats", "list"]]) {
       const { out, code } = await run([...v, "--runtime", "claude-code"]);
@@ -60,7 +60,7 @@ describe("rig auth command surface (OPR.0.4.1.29)", () => {
   });
 
   it("seats output carries the labels-are-not-proof-of-live-account disclaimer", async () => {
-    await run(["seats", "set", "--seat", "a@r", "--rig", "r", "--profile", "work"]);
+    await run(["seats", "set", "--seat", "a@r", "--software-team", "r", "--profile", "work"]);
     const { out } = await run(["seats", "list"]);
     expect(out).toMatch(/not.*(proof|prove)|metadata/i);
     const report = await run(["seats", "report"]);

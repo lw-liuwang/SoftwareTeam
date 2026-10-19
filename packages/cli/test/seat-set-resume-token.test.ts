@@ -1,4 +1,4 @@
-// OPR.0.4.0.22 FR-1 CLI — rig seat set-resume-token. Token is read from STDIN
+// OPR.0.4.0.22 FR-1 CLI — softwareTeam seat set-resume-token. Token is read from STDIN
 // only (never argv), carried to the authed route, and never echoed.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -8,8 +8,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -33,7 +33,7 @@ function makeDeps(opts: {
   };
 }
 
-describe("rig seat set-resume-token", () => {
+describe("SoftwareTeam seat set-resume-token", () => {
   let logs: string[];
   let errors: string[];
 
@@ -48,10 +48,10 @@ describe("rig seat set-resume-token", () => {
   it("reads the token from stdin, posts it in the body with auth headers, and never echoes it", async () => {
     const postCalls: PostCall[] = [];
     const deps = makeDeps({ stdin: "claude-stdin-tok-789\n", postCalls });
-    await seatCommand(deps).parseAsync(["node", "rig", "set-resume-token", "dev-impl@my-rig", "--token-stdin", "--reason", "founder re-authed"]);
+    await seatCommand(deps).parseAsync(["node", "softwareTeam", "set-resume-token", "dev-impl@my-software-team", "--token-stdin", "--reason", "founder re-authed"]);
 
     expect(postCalls.length).toBe(1);
-    expect(postCalls[0]!.path).toBe("/api/sessions/dev-impl%40my-rig/resume-token");
+    expect(postCalls[0]!.path).toBe("/api/sessions/dev-impl%40my-software-team/resume-token");
     expect(postCalls[0]!.body).toEqual({ token: "claude-stdin-tok-789", reason: "founder re-authed" });
     // Auth headers were passed (terminalAuthHeaders()).
     expect(postCalls[0]!.options).toHaveProperty("headers");
@@ -64,7 +64,7 @@ describe("rig seat set-resume-token", () => {
   it("refuses without --token-stdin (no positional/argv token path) and does NOT call the daemon", async () => {
     const postCalls: PostCall[] = [];
     const deps = makeDeps({ stdin: "unused", postCalls });
-    await seatCommand(deps).parseAsync(["node", "rig", "set-resume-token", "dev-impl@my-rig", "--reason", "x"]);
+    await seatCommand(deps).parseAsync(["node", "softwareTeam", "set-resume-token", "dev-impl@my-software-team", "--reason", "x"]);
     expect(process.exitCode).toBe(2);
     expect(postCalls.length).toBe(0);
     expect(errors.join(" ")).toMatch(/--token-stdin/);
@@ -73,7 +73,7 @@ describe("rig seat set-resume-token", () => {
   it("errors when stdin is empty", async () => {
     const postCalls: PostCall[] = [];
     const deps = makeDeps({ stdin: "   \n", postCalls });
-    await seatCommand(deps).parseAsync(["node", "rig", "set-resume-token", "dev-impl@my-rig", "--token-stdin", "--reason", "x"]);
+    await seatCommand(deps).parseAsync(["node", "softwareTeam", "set-resume-token", "dev-impl@my-software-team", "--token-stdin", "--reason", "x"]);
     expect(process.exitCode).toBe(2);
     expect(postCalls.length).toBe(0);
   });
@@ -85,7 +85,7 @@ describe("rig seat set-resume-token", () => {
       response: { status: 422, data: { error: "invalid_token", message: "Resume token contains disallowed characters (allowed: letters, digits, '.', '_', '-')." } },
       postCalls,
     });
-    await seatCommand(deps).parseAsync(["node", "rig", "set-resume-token", "dev-impl@my-rig", "--token-stdin", "--reason", "x"]);
+    await seatCommand(deps).parseAsync(["node", "softwareTeam", "set-resume-token", "dev-impl@my-software-team", "--token-stdin", "--reason", "x"]);
     expect(process.exitCode).toBe(1);
     expect(errors.join("\n")).toContain("disallowed characters");
     expect(errors.join("\n")).not.toContain("bad tok");

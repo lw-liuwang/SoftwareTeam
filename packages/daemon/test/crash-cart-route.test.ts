@@ -1,6 +1,6 @@
 // B1 — the crash-cart conductor ROUTE (ASYNC on-commit shape). The route starts the
 // fleet restore in the BACKGROUND and answers immediately with a fleet-attempt handle
-// (202); the client POLLS the status endpoint for the rollup as rigs complete. These
+// (202); the client POLLS the status endpoint for the rollup as softwareTeams complete. These
 // tests drive the REAL route: POST → 202 + id, then GET status until done, asserting the
 // kernel-first sequence composed from the shipped restore. (Conductor logic is unit-tested
 // in crash-cart-conductor.test.ts.)
@@ -10,10 +10,10 @@ import { crashCartRoutes, __resetFleetAttempts } from "../src/routes/crash-cart.
 
 beforeEach(() => __resetFleetAttempts());
 
-function appWith(deps: { rigRepo: unknown; snapshotRepo: unknown; restoreOrchestrator: unknown; runtimeAdapters?: unknown; sessionRegistry?: unknown; tmuxAdapter?: unknown; claimService?: unknown }) {
+function appWith(deps: { softwareTeamRepo: unknown; snapshotRepo: unknown; restoreOrchestrator: unknown; runtimeAdapters?: unknown; sessionRegistry?: unknown; tmuxAdapter?: unknown; claimService?: unknown }) {
   const app = new Hono();
   app.use("*", async (c, next) => {
-    c.set("rigRepo" as never, deps.rigRepo as never);
+    c.set("softwareTeamRepo" as never, deps.softwareTeamRepo as never);
     c.set("snapshotRepo" as never, deps.snapshotRepo as never);
     c.set("restoreOrchestrator" as never, deps.restoreOrchestrator as never);
     if (deps.runtimeAdapters !== undefined) c.set("runtimeAdapters" as never, deps.runtimeAdapters as never);
@@ -29,7 +29,7 @@ function appWith(deps: { rigRepo: unknown; snapshotRepo: unknown; restoreOrchest
 type StatusBody = {
   done: boolean;
   cancelled: boolean;
-  rollup: { sequence: Array<{ rigId: string; outcome: string }>; counts: Record<string, number>; attention_required: unknown[] };
+  rollup: { sequence: Array<{ softwareTeamId: string; outcome: string }>; counts: Record<string, number>; attention_required: unknown[] };
   verdict: string;
 };
 
@@ -60,18 +60,18 @@ async function pollUntilDone(app: Hono, id: string): Promise<StatusBody> {
 }
 
 describe("POST /api/crash-cart/restore-fleet — the async conductor batch verb", () => {
-  it("restores every rig kernel-first; the polled rollup carries the sequence", async () => {
+  it("restores every SoftwareTeam kernel-first; the polled rollup carries the sequence", async () => {
     const restored: string[] = [];
     const app = appWith({
-      rigRepo: { listRigs: () => [
+      softwareTeamRepo: { listSoftwareTeams: () => [
         { id: "r-alpha", name: "alpha" },
         { id: "r-kernel", name: "kernel" },
       ] },
-      snapshotRepo: { findLatestRestoreUsable: (rigId: string) => ({ id: `snap-${rigId}` }) },
+      snapshotRepo: { findLatestRestoreUsable: (softwareTeamId: string) => ({ id: `snap-${softwareTeamId}` }) },
       restoreOrchestrator: {
         restore: vi.fn(async (snapshotId: string) => {
           restored.push(snapshotId);
-          return { ok: true, result: { rigResult: "fully_restored" } };
+          return { ok: true, result: { softwareTeamResult: "fully_restored" } };
         }),
       },
     });
@@ -81,26 +81,26 @@ describe("POST /api/crash-cart/restore-fleet — the async conductor batch verb"
 
     // kernel restored FIRST, then alpha
     expect(restored).toEqual(["snap-r-kernel", "snap-r-alpha"]);
-    expect(body.rollup.sequence.map((r) => r.rigId)).toEqual(["r-kernel", "r-alpha"]);
+    expect(body.rollup.sequence.map((r) => r.softwareTeamId)).toEqual(["r-kernel", "r-alpha"]);
     expect(body.rollup.sequence.every((r) => r.outcome === "fully_restored")).toBe(true);
     expect(body.rollup.counts.fully_restored).toBe(2);
     expect(body.verdict).toBe("all_fully_restored");
   });
 
-  it("a rig with no usable snapshot is not_attempted; the fleet still proceeds", async () => {
+  it("a SoftwareTeam with no usable snapshot is not_attempted; the fleet still proceeds", async () => {
     const app = appWith({
-      rigRepo: { listRigs: () => [
+      softwareTeamRepo: { listSoftwareTeams: () => [
         { id: "r-kernel", name: "kernel" },
         { id: "r-beta", name: "beta" },
       ] },
       // beta has no usable snapshot
-      snapshotRepo: { findLatestRestoreUsable: (rigId: string) => (rigId === "r-beta" ? null : { id: `snap-${rigId}` }) },
-      restoreOrchestrator: { restore: async () => ({ ok: true, result: { rigResult: "fully_restored" } }) },
+      snapshotRepo: { findLatestRestoreUsable: (softwareTeamId: string) => (softwareTeamId === "r-beta" ? null : { id: `snap-${softwareTeamId}` }) },
+      restoreOrchestrator: { restore: async () => ({ ok: true, result: { softwareTeamResult: "fully_restored" } }) },
     });
     const id = await kickFleet(app);
     const body = await pollUntilDone(app, id);
-    expect(body.rollup.sequence.find((r) => r.rigId === "r-kernel")!.outcome).toBe("fully_restored");
-    expect(body.rollup.sequence.find((r) => r.rigId === "r-beta")!.outcome).toBe("not_attempted");
+    expect(body.rollup.sequence.find((r) => r.softwareTeamId === "r-kernel")!.outcome).toBe("fully_restored");
+    expect(body.rollup.sequence.find((r) => r.softwareTeamId === "r-beta")!.outcome).toBe("not_attempted");
     expect(body.rollup.counts).toEqual({ fully_restored: 1, partially_restored: 0, failed: 0, not_attempted: 1 });
   });
 
@@ -115,13 +115,13 @@ describe("POST /api/crash-cart/restore-fleet — the async conductor batch verb"
     });
     let restoreEntered = false;
     const app = appWith({
-      rigRepo: { listRigs: () => [{ id: "r-kernel", name: "kernel" }] },
+      softwareTeamRepo: { listSoftwareTeams: () => [{ id: "r-kernel", name: "kernel" }] },
       snapshotRepo: { findLatestRestoreUsable: () => ({ id: "snap-k" }) },
       restoreOrchestrator: {
         restore: async () => {
           restoreEntered = true;
           await restoreGate; // block until the test releases — stands in for a slow seat restore
-          return { ok: true, result: { rigResult: "fully_restored" } };
+          return { ok: true, result: { softwareTeamResult: "fully_restored" } };
         },
       },
     });
@@ -146,13 +146,13 @@ describe("POST /api/crash-cart/restore-fleet — the async conductor batch verb"
     let receivedOpts: { adapters?: unknown; fsOps?: { exists?: unknown } } | undefined;
     const adapters = { codex: { runtime: "codex" } };
     const app = appWith({
-      rigRepo: { listRigs: () => [{ id: "r-kernel", name: "kernel" }] },
+      softwareTeamRepo: { listSoftwareTeams: () => [{ id: "r-kernel", name: "kernel" }] },
       snapshotRepo: { findLatestRestoreUsable: () => ({ id: "snap-k" }) },
       runtimeAdapters: adapters,
       restoreOrchestrator: {
         restore: async (_id: string, opts: unknown) => {
           receivedOpts = opts as typeof receivedOpts;
-          return { ok: true, result: { rigResult: "fully_restored" } };
+          return { ok: true, result: { softwareTeamResult: "fully_restored" } };
         },
       },
     });
@@ -162,25 +162,25 @@ describe("POST /api/crash-cart/restore-fleet — the async conductor batch verb"
     expect(typeof receivedOpts?.fsOps?.exists).toBe("function");
   });
 
-  // H3 — cancel through the REAL route: stop-before-next-rig. Cancel while the kernel rig is
-  // in flight (gated) → later rigs are not_attempted, and the status reflects cancelled.
-  it("H3: cancel mid-fleet through the route → later rigs not_attempted", async () => {
+  // H3 — cancel through the REAL route: stop-before-next-softwareTeam. Cancel while the kernel softwareTeam is
+  // in flight (gated) → later softwareTeams are not_attempted, and the status reflects cancelled.
+  it("H3: cancel mid-fleet through the route → later softwareTeams not_attempted", async () => {
     const attempted: string[] = [];
     let releaseKernel!: () => void;
     const kernelGate = new Promise<void>((resolve) => {
       releaseKernel = resolve;
     });
     const app = appWith({
-      rigRepo: { listRigs: () => [
+      softwareTeamRepo: { listSoftwareTeams: () => [
         { id: "r-kernel", name: "kernel" },
         { id: "r-beta", name: "beta" },
       ] },
-      snapshotRepo: { findLatestRestoreUsable: (rigId: string) => ({ id: `snap-${rigId}` }) },
+      snapshotRepo: { findLatestRestoreUsable: (softwareTeamId: string) => ({ id: `snap-${softwareTeamId}` }) },
       restoreOrchestrator: {
         restore: async (snapshotId: string) => {
           attempted.push(snapshotId);
           if (snapshotId === "snap-r-kernel") await kernelGate; // hold kernel in flight
-          return { ok: true, result: { rigResult: "fully_restored" } };
+          return { ok: true, result: { softwareTeamResult: "fully_restored" } };
         },
       },
     });
@@ -196,20 +196,20 @@ describe("POST /api/crash-cart/restore-fleet — the async conductor batch verb"
     const body = await pollUntilDone(app, id);
     expect(attempted).toEqual(["snap-r-kernel"]); // beta never restored
     expect(body.cancelled).toBe(true);
-    expect(body.rollup.sequence.find((r) => r.rigId === "r-kernel")!.outcome).toBe("fully_restored");
-    expect(body.rollup.sequence.find((r) => r.rigId === "r-beta")!.outcome).toBe("not_attempted");
+    expect(body.rollup.sequence.find((r) => r.softwareTeamId === "r-kernel")!.outcome).toBe("fully_restored");
+    expect(body.rollup.sequence.find((r) => r.softwareTeamId === "r-beta")!.outcome).toBe("not_attempted");
   });
 
   // R6 / ARCH-RULING Q2 — the fleet verdict is DERIVED at read from the current counts, never a
   // stored field on the attempt. The status verdict must equal f(the rollup counts it returns).
   it("derives the verdict from the returned counts (not a stored second truth)", async () => {
     const app = appWith({
-      rigRepo: { listRigs: () => [
+      softwareTeamRepo: { listSoftwareTeams: () => [
         { id: "r-kernel", name: "kernel" },
         { id: "r-beta", name: "beta" },
       ] },
-      snapshotRepo: { findLatestRestoreUsable: (rigId: string) => (rigId === "r-beta" ? null : { id: `snap-${rigId}` }) },
-      restoreOrchestrator: { restore: async () => ({ ok: true, result: { rigResult: "fully_restored" } }) },
+      snapshotRepo: { findLatestRestoreUsable: (softwareTeamId: string) => (softwareTeamId === "r-beta" ? null : { id: `snap-${softwareTeamId}` }) },
+      restoreOrchestrator: { restore: async () => ({ ok: true, result: { softwareTeamResult: "fully_restored" } }) },
     });
     const id = await kickFleet(app);
     const body = await pollUntilDone(app, id);
@@ -229,7 +229,7 @@ describe("POST /api/crash-cart/restore-fleet — the async conductor batch verb"
   });
 
   // AMENDMENT 2 (stamped, 72757e81) — THE ROUND-10 DOOR IN ROUTE FORM. Daemon-only crash:
-  // DB says running, panes are ALIVE, restore() would 409. Through the REAL route the rig
+  // DB says running, panes are ALIVE, restore() would 409. Through the REAL route the softwareTeam
   // must ADOPT (reconcile the surviving session, resume-verify the rest), land the
   // engineered non-resumable seat on triage with its EXACT --fresh need, and never call
   // restore(). This is the composition the round-10 fleet read as 3-failed/8-not_attempted.
@@ -238,10 +238,10 @@ describe("POST /api/crash-cart/restore-fleet — the async conductor batch verb"
     const subsetTargets: string[][] = [];
     let restoreCalled = false;
     const app = appWith({
-      rigRepo: {
-        listRigs: () => [{ id: "r-kernel", name: "kernel" }],
-        getRig: () => ({
-          rig: { name: "kernel" },
+      softwareTeamRepo: {
+        listSoftwareTeams: () => [{ id: "r-kernel", name: "kernel" }],
+        getSoftwareTeam: () => ({
+          softwareTeam: { name: "kernel" },
           nodes: [
             { id: "n1", logicalId: "dev.planner" },
             { id: "n2", logicalId: "dev.qa" },
@@ -250,7 +250,7 @@ describe("POST /api/crash-cart/restore-fleet — the async conductor batch verb"
       },
       snapshotRepo: { findLatestRestoreUsable: () => ({ id: "snap-k" }) },
       sessionRegistry: {
-        getSessionsForRig: () => [
+        getSessionsForSoftwareTeam: () => [
           { id: "s1", nodeId: "n1", sessionName: "dev-planner@kernel", status: "running" },
           { id: "s2", nodeId: "n2", sessionName: "dev-qa@kernel", status: "running" },
         ],
@@ -264,8 +264,8 @@ describe("POST /api/crash-cart/restore-fleet — the async conductor batch verb"
         },
       },
       restoreOrchestrator: {
-        restore: async () => { restoreCalled = true; return { ok: false, code: "rig_not_stopped" }; },
-        launchNodeSubset: async (_rigId: string, ids: string[]) => {
+        restore: async () => { restoreCalled = true; return { ok: false, code: "software_team_not_stopped" }; },
+        launchNodeSubset: async (_softwareTeamId: string, ids: string[]) => {
           subsetTargets.push(ids);
           return {
             ok: true,
@@ -281,20 +281,20 @@ describe("POST /api/crash-cart/restore-fleet — the async conductor batch verb"
     const id = await kickFleet(app);
     const body = await pollUntilDone(app, id);
 
-    expect(restoreCalled).toBe(false); // the 409 path is never entered on a live-panes rig
+    expect(restoreCalled).toBe(false); // the 409 path is never entered on a live-panes softwareTeam
     expect(reconciled).toEqual(["dev-planner@kernel"]); // the surviving session is ADOPTED
     expect(subsetTargets).toEqual([["dev.qa"]]); // only the dead seat is resume-verified
-    const kernel = body.rollup.sequence.find((r) => r.rigId === "r-kernel")!;
+    const kernel = body.rollup.sequence.find((r) => r.softwareTeamId === "r-kernel")!;
     expect(kernel.outcome).toBe("partially_restored");
     expect(body.rollup.attention_required).toEqual([
-      { rigId: "r-kernel", seat: "dev.qa", need: "Original session not resumable. Use --fresh dev.qa to fresh-prime, or skip." },
+      { softwareTeamId: "r-kernel", seat: "dev.qa", need: "Original session not resumable. Use --fresh dev.qa to fresh-prime, or skip." },
     ]);
-    expect(body.verdict).toBe("mixed"); // f(counts): a lone partially_restored rig derives mixed
+    expect(body.verdict).toBe("mixed"); // f(counts): a lone partially_restored softwareTeam derives mixed
   });
 
   it("status/cancel of an unknown fleet-attempt id → 404", async () => {
     const app = appWith({
-      rigRepo: { listRigs: () => [] },
+      softwareTeamRepo: { listSoftwareTeams: () => [] },
       snapshotRepo: { findLatestRestoreUsable: () => null },
       restoreOrchestrator: { restore: async () => ({ ok: true }) },
     });

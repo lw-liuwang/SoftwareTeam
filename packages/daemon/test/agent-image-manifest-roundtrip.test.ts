@@ -8,7 +8,7 @@ import type { AgentImageManifest } from "../src/domain/agent-images/agent-image-
 let root: string | undefined;
 afterEach(() => { if (root) rmSync(root, { recursive: true, force: true }); root = undefined; });
 it.each(["true", "123", "null", "model: fast", "#notes", "normal-name"])("round-trips the operator's image name %s and string metadata", (name) => {
-  root = mkdtempSync(join(tmpdir(), "openrig-image-roundtrip-"));
+  root = mkdtempSync(join(tmpdir(), "softwareteam-image-roundtrip-"));
   const library = new AgentImageLibraryService({ roots: [{ path: root, sourceType: "user_file" }] });
   const manifest: AgentImageManifest = {
     name, version: "01", runtime: "claude-code", sourceSeat: "dev@fixture", sourceSessionId: "conversation",
@@ -22,7 +22,7 @@ it.each(["true", "123", "null", "model: fast", "#notes", "normal-name"])("round-
   expect(library.list()[0]!.id).toBe(`agent-image:${name}:01`);
 });
 it("preserves YAML-like strings in captured metadata and supplementary descriptors", () => {
-  root = mkdtempSync(join(tmpdir(), "openrig-image-roundtrip-"));
+  root = mkdtempSync(join(tmpdir(), "softwareteam-image-roundtrip-"));
   const library = new AgentImageLibraryService({ roots: [{ path: root, sourceType: "user_file" }] });
   const manifest: AgentImageManifest = { name: "metadata", version: "1", runtime: "codex",
     sourceSeat: "true", sourceSessionId: "123", sourceResumeToken: "false", sourceCwd: "null",
@@ -33,7 +33,7 @@ it("preserves YAML-like strings in captured metadata and supplementary descripto
 });
 
 it.each(["  indented first\noutdented second", "no trailing newline", "multiple trailing\n\n", "windows\r\nnotes\r\n", ""])("preserves notes exactly: %j", (notes) => {
-  root = mkdtempSync(join(tmpdir(), "openrig-image-notes-"));
+  root = mkdtempSync(join(tmpdir(), "softwareteam-image-notes-"));
   const library = new AgentImageLibraryService({ roots: [{ path: root, sourceType: "user_file" }] });
   const manifest: AgentImageManifest = { name: "notes", version: "1", runtime: "codex",
     sourceSeat: "dev@fixture", sourceSessionId: "session", sourceResumeToken: "session",

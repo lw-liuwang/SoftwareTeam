@@ -31,10 +31,10 @@ images, plugins, and skills.
 Components in `packages/ui/src/components/specs/`:
 
 - `SpecsLibraryPage.tsx` — the `/specs` Library page (also mounted at
-  `/specs/applications`): a sectioned grid of Rig Specs, Workspace Specs
+  `/specs/applications`): a sectioned grid of SoftwareTeam Specs, Workspace Specs
   (placeholder), Workflow Specs, Context Packs, Agent Specs, Agent Images
   and Applications, then full-width Plugins and Skills sections.
-  Service-backed rigs (`hasServices`) appear under Applications, not Rig
+  Service-backed SoftwareTeams (`hasServices`) appear under Applications, not SoftwareTeam
   Specs.
 - `SpecsTreeView.tsx` — the Explorer tree. (`SpecsTable.tsx` is still in
   the folder but nothing imports it.)
@@ -62,29 +62,29 @@ Library routes: `/specs`, `/specs/applications`, `/specs/skills`,
 
 These daemon-backed flows feed the Library UI:
 
-- **Raw YAML preview:** UI/CLI posts YAML to `/api/specs/review/rig` or
+- **Raw YAML preview:** UI/CLI posts YAML to `/api/specs/review/SoftwareTeam` or
   `/api/specs/review/agent`; `SpecReviewService` parses/validates/returns
-  structured review models; UI renders them through `RigSpecDisplay` /
+  structured review models; UI renders them through `SoftwareTeamSpecDisplay` /
   `AgentSpecDisplay` (the same primitives reused for draft preview, library
   review, and live details).
 - **Filesystem-backed library:** `SpecLibraryService` scans builtin + user
-  roots (`packages/daemon/specs`, `~/.openrig/specs`, legacy fallback
-  `~/.rigged/specs`); each YAML is classified via structured review;
-  service-backed rigs are marked `hasServices`. Each list request also
+  roots (`packages/daemon/specs`, `~/.softwareteam/specs`, legacy fallback
+  `~/.softwareteam/specs`); each YAML is classified via structured review;
+  service-backed SoftwareTeams are marked `hasServices`. Each list request also
   merges workflow entries from the workflow-spec cache.
   `/api/specs/library` serves list, get, review and sync, plus
   `DELETE /:id`, `POST /:id/rename` and GET/POST/DELETE `/active-lens`.
   On a non-local host, list and review reads carry `?host=<id>`; the
   active lens stays local.
-- **CLI mirror:** `rig specs ls/show/preview/add/sync/remove/rename`;
-  `rig specs add` installs a single YAML spec or a full spec directory;
-  `rig up` / `rig bootstrap` resolve name-shaped sources through the
+- **CLI mirror:** `SoftwareTeam specs ls/show/preview/add/sync/remove/rename`;
+  `SoftwareTeam specs add` installs a single YAML spec or a full spec directory;
+  `SoftwareTeam up` / `SoftwareTeam bootstrap` resolve name-shaped sources through the
   library.
 - **Seat details:** graph, tree and table clicks navigate to
-  `/topology/seat/$rigId/$logicalId`, which renders `LiveNodeDetails`
+  `/topology/seat/$softwareTeamId/$logicalId`, which renders `LiveNodeDetails`
   (Overview and Details tabs). The shared drawer no longer has a
   seat-detail kind; its kinds are system, log, status, discovery, qitem,
-  file and sub-spec. The legacy `/rigs/$rigId/nodes/$logicalId` route also
+  file and sub-spec. The legacy `/SoftwareTeams/$softwareTeamId/nodes/$logicalId` route also
   renders `LiveNodeDetails`, but nothing in the UI links to it.
 
 > Source: `packages/daemon/src/routes/spec-library.ts`;
@@ -96,8 +96,8 @@ These daemon-backed flows feed the Library UI:
 
 - **Vellum/base** (`components/ui/`): `VellumCard`, `VellumSheet`,
   `RegistrationMarks`, `StatusPip`, `SectionHeader`, `EmptyState`,
-  `Button`, `Tabs`, `Table`, form controls, plus `rig-stamp.tsx`
-  (`RigStamp`).
+  `Button`, `Tabs`, `Table`, form controls, plus `software-team-stamp.tsx`
+  (`SoftwareTeamStamp`).
 - **Graphics** (`components/graphics/RuntimeMark.tsx`): `RuntimeMark`,
   `RuntimeBadge`, `ToolMark`, `ToolBadge`, `ActorMark`,
   `OperatorMoodMark`; normalization in `lib/runtime-brand.ts` +
@@ -115,7 +115,7 @@ These daemon-backed flows feed the Library UI:
   `SessionPreviewPane` (`components/preview/`).
 - **Themes** (`lib/theme.ts`): Vellum Light, Vellum Dark and System
   (default `system`, following the OS colour scheme), stored under the
-  `openrig.theme` localStorage key. `applyTheme` toggles a `.dark` class
+  `softwareteam.theme` localStorage key. `applyTheme` toggles a `.dark` class
   on `<html>`, which switches to the `.dark` token block in `globals.css`.
   `ThemeProvider` is mounted in `main.tsx`, `ThemeSelector` in the
   AppShell top bar, and a pre-paint script in `index.html` mirrors the
@@ -123,7 +123,7 @@ These daemon-backed flows feed the Library UI:
 
 ## 4. Design-system pointer (NOT a copy — Q1)
 
-The canonical OpenRig visual/design system is **`docs/DESIGN.md`** (at the
+The canonical SoftwareTeam visual/design system is **`docs/DESIGN.md`** (at the
 repo `docs/` root, NOT under `docs/as-built/`). Q1 is ratified: DESIGN.md
 stays at root (the as-built reorganization left it byte-identical), and this
 module **points to it rather than copying it**. DESIGN.md is the source for: Vellum-paper vs

@@ -10,7 +10,7 @@ export interface BootstrapPlanResult {
 }
 
 export interface BootstrapApplyResult extends BootstrapPlanResult {
-  rigId?: string;
+  softwareTeamId?: string;
 }
 
 type BootstrapErrorPayload = {
@@ -79,7 +79,7 @@ export function useBootstrapApply() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["rigs", "summary"] });
+      queryClient.invalidateQueries({ queryKey: ["softwareTeams", "summary"] });
     },
   });
 }

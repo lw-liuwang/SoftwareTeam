@@ -32,10 +32,10 @@ const MAX_TOKEN_LEN = 200;
 //
 // "@" is in the set deliberately (a delta from the PRD's literal
 // [A-Za-z0-9._/-], caught by the VM hermetic run): the Pi seat state layout
-// keys on the CANONICAL session name (pod-member@rig), so every real Pi
+// keys on the CANONICAL session name (pod-member@software-team), so every real Pi
 // session-file path contains "@". It is shell-inert here — the token is
 // always argv/shellQuote-passed, never a remote scp/rsync operand where
-// user@host parsing would matter (that ambiguity is why `rig file` excludes
+// user@host parsing would matter (that ambiguity is why `softwareTeam file` excludes
 // it; this surface has no such parse).
 const SESSION_FILE_CHARSET_RE = /^[A-Za-z0-9._/@-]+$/;
 const MAX_SESSION_FILE_LEN = 1024;

@@ -7,7 +7,7 @@ import { execArgvCommand, execCommand, resolveOnPath } from "../src/adapters/tmu
 
 // Fake `tmux` binaries in private directories: each prints its own directory, so a call shows which one ran.
 // PATH holds only these directories: a real tmux later on PATH would answer for a fake that has gone.
-const root = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-tmux-resolve-"));
+const root = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-tmux-resolve-"));
 afterAll(() => fs.rmSync(root, { recursive: true, force: true }));
 afterEach(() => vi.unstubAllEnvs());
 

@@ -58,7 +58,7 @@ export function BundleInstallFlow() {
           <label className="text-label-md uppercase block mb-spacing-2">BUNDLE PATH</label>
           <input data-testid="bundle-input" type="text" value={bundlePath}
             onChange={(e) => setBundlePath(e.target.value)}
-            placeholder="/path/to/my-rig.rigbundle"
+            placeholder="/path/to/my-software-team.softwareteambundle"
             className="w-full bg-transparent border-b border-foreground/20 py-spacing-2 text-body-md font-mono focus:outline-none focus:border-primary mb-spacing-4" />
           <label className="text-label-md uppercase block mb-spacing-2">TARGET ROOT</label>
           <input data-testid="target-input" type="text" value={targetRoot}
@@ -98,11 +98,11 @@ export function BundleInstallFlow() {
               <span className="ml-spacing-2 text-foreground-muted" data-testid="bundle-type-label">Legacy bundle</span>
             )}
           </div>
-          {planResult.rigId && (
-            <div className="text-label-sm font-mono" data-testid="result-rig-id">Rig: {planResult.rigId}</div>
+          {planResult.softwareTeamId && (
+            <div className="text-label-sm font-mono" data-testid="result-software-team-id">SoftwareTeam: {planResult.softwareTeamId}</div>
           )}
-          {planResult.rigId && (
-            <Button variant="tactical" className="mt-spacing-3" onClick={() => navigate({ to: "/rigs/$rigId", params: { rigId: planResult.rigId! } })}>VIEW RIG</Button>
+          {planResult.softwareTeamId && (
+            <Button variant="tactical" className="mt-spacing-3" onClick={() => navigate({ to: "/software-teams/$softwareTeamId", params: { softwareTeamId: planResult.softwareTeamId! } })}>VIEW SOFTWARE_TEAM</Button>
           )}
         </div>
       )}

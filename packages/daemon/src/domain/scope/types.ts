@@ -1,7 +1,7 @@
 // release-0.3.2 slice 12 — scope CLI primitive types.
 //
 // Aligned with the substrate convention at
-// `openrig-work/conventions/scope-and-versioning/README.md` (stage:
+// `softwareteam-work/conventions/scope-and-versioning/README.md` (stage:
 // provisional, authored 2026-05-15). The CLI mints stable dot-IDs
 // into created mission/slice frontmatter per §1 of that convention.
 
@@ -36,7 +36,7 @@ export interface MissionInfo {
 }
 
 export interface SliceInfo {
-  name: string;          // folder name like "12-rig-slice-cli-primitive"
+  name: string;          // folder name like "12-software-team-slice-cli-primitive"
   absPath: string;
   readmePath: string | null;
   frontmatter: Record<string, unknown>;

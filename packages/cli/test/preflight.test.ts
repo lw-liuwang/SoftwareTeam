@@ -51,14 +51,14 @@ describe("SystemPreflight", () => {
     const configPath = join(tmpDir, "config.json");
     const config = new ConfigStore(configPath);
     // Point writable paths to tmpDir
-    const homeDir = join(tmpDir, ".openrig");
+    const homeDir = join(tmpDir, ".softwareteam");
     mkdirSync(homeDir, { recursive: true });
 
     return new SystemPreflight({
       exec: makeExec(opts?.tmuxMode ?? "healthy"),
       configStore: config,
       getDaemonStatus: makeStatus(opts?.daemonStatus),
-      riggedHome: homeDir,
+      softwareteamHome: homeDir,
     });
   }
 
@@ -124,7 +124,7 @@ describe("SystemPreflight", () => {
   });
 
   // Test 4
-  it("OpenRig home not writable → ready: false with guidance", async () => {
+  it("SoftwareTeam home not writable → ready: false with guidance", async () => {
     const readonlyDir = join(tmpDir, "readonly-home");
     mkdirSync(readonlyDir);
     chmodSync(readonlyDir, 0o444);
@@ -132,7 +132,7 @@ describe("SystemPreflight", () => {
       exec: makeExec(),
       configStore: new ConfigStore(join(tmpDir, "config.json")),
       getDaemonStatus: makeStatus(),
-      riggedHome: join(readonlyDir, "nested"),
+      softwareteamHome: join(readonlyDir, "nested"),
     });
     const result = await pf.run();
     expect(result.ready).toBe(false);
@@ -158,27 +158,27 @@ describe("SystemPreflight", () => {
     const portCheck = result.checks.find((c) => c.name === "port_available");
     expect(portCheck!.ok).toBe(false);
     expect(portCheck!.error).toContain(String(port));
-    expect(portCheck!.fix).toContain("rig config set daemon.port");
+    expect(portCheck!.fix).toContain("SoftwareTeam config set daemon.port");
   });
 
   // Test 6
   it("port check skipped when daemon running on same host:port", async () => {
     const pf = createPreflight({
-      daemonStatus: { state: "running", port: 7433, host: "127.0.0.1", healthy: true },
+      daemonStatus: { state: "running", port: 7434, host: "127.0.0.1", healthy: true },
     });
-    const result = await pf.run({ port: 7433, host: "127.0.0.1" });
+    const result = await pf.run({ port: 7434, host: "127.0.0.1" });
     const portCheck = result.checks.find((c) => c.name === "port_available");
     expect(portCheck!.ok).toBe(true);
   });
 
   // Test 7
   it("port check NOT skipped when daemon running on different host:port", async () => {
-    // Daemon running on 127.0.0.1:7433 but checking 10.0.0.5:7433
+    // Daemon running on 127.0.0.1:7434 but checking 10.0.0.5:7434
     const pf = createPreflight({
-      daemonStatus: { state: "running", port: 7433, host: "127.0.0.1", healthy: true },
+      daemonStatus: { state: "running", port: 7434, host: "127.0.0.1", healthy: true },
     });
     // Use a port that's actually available, but the skip rule should not apply
-    const result = await pf.run({ port: 7433, host: "10.0.0.5" });
+    const result = await pf.run({ port: 7434, host: "10.0.0.5" });
     const portCheck = result.checks.find((c) => c.name === "port_available");
     // Should have attempted the check (not skipped)
     expect(portCheck).toBeDefined();
@@ -197,7 +197,7 @@ describe("SystemPreflight", () => {
   // Test 10
   it("port override takes precedence over config", async () => {
     const pf = createPreflight();
-    // Config default is 7433, override to 0 (always available)
+    // Config default is 7434, override to 0 (always available)
     const result = await pf.run({ port: 0 });
     const portCheck = result.checks.find((c) => c.name === "port_available");
     expect(portCheck!.ok).toBe(true);
@@ -233,8 +233,8 @@ describe("Preflight CLI", () => {
   });
 
   // Test 9 (--json)
-  it("rig preflight --json prints structured result", async () => {
-    const homeDir = join(tmpDir, ".openrig");
+  it("SoftwareTeam preflight --json prints structured result", async () => {
+    const homeDir = join(tmpDir, ".softwareteam");
     mkdirSync(homeDir, { recursive: true });
     // Set port to 0 to avoid collisions
     const configPath = join(tmpDir, "config.json");
@@ -243,7 +243,7 @@ describe("Preflight CLI", () => {
     const cmd = preflightCommand({
       exec: makeExec(),
       configPath,
-      riggedHome: homeDir,
+      softwareteamHome: homeDir,
       getDaemonStatus: makeStatus(),
     });
     const prog = new Command();
@@ -251,7 +251,7 @@ describe("Preflight CLI", () => {
     prog.addCommand(cmd);
 
     const { logs } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "preflight", "--json"]);
+      await prog.parseAsync(["node", "softwareTeam", "preflight", "--json"]);
     });
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed.ready).toBe(true);
@@ -259,8 +259,8 @@ describe("Preflight CLI", () => {
   });
 
   // Test 11
-  it("rig preflight prints check marks and exits 0 on pass", async () => {
-    const homeDir = join(tmpDir, ".openrig");
+  it("SoftwareTeam preflight prints check marks and exits 0 on pass", async () => {
+    const homeDir = join(tmpDir, ".softwareteam");
     mkdirSync(homeDir, { recursive: true });
     const configPath2 = join(tmpDir, "config2.json");
     const { writeFileSync: wf } = await import("node:fs");
@@ -268,7 +268,7 @@ describe("Preflight CLI", () => {
     const cmd = preflightCommand({
       exec: makeExec(),
       configPath: configPath2,
-      riggedHome: homeDir,
+      softwareteamHome: homeDir,
       getDaemonStatus: makeStatus(),
     });
     const prog = new Command();
@@ -276,7 +276,7 @@ describe("Preflight CLI", () => {
     prog.addCommand(cmd);
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "preflight"]);
+      await prog.parseAsync(["node", "softwareTeam", "preflight"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("✓");
@@ -284,11 +284,11 @@ describe("Preflight CLI", () => {
     expect(exitCode).toBeUndefined(); // 0 / not set
   });
 
-  // Test 12: simulates daemon start / rig up aborting on preflight failure
+  // Test 12: simulates daemon start / SoftwareTeam up aborting on preflight failure
   // The actual daemon.ts and up.ts commands run the same SystemPreflight.run() check
   // and abort on !result.ready — this test proves that flow via the preflight command
   it("preflight failure causes abort with exit code 1 (same flow as daemon start/up)", async () => {
-    const homeDir = join(tmpDir, ".openrig");
+    const homeDir = join(tmpDir, ".softwareteam");
     mkdirSync(homeDir, { recursive: true });
     // Create a server on a known port to trigger port-in-use
     const server = (await import("node:net")).createServer();
@@ -301,7 +301,7 @@ describe("Preflight CLI", () => {
     const cmd = preflightCommand({
       exec: makeExec(),
       configPath,
-      riggedHome: homeDir,
+      softwareteamHome: homeDir,
       getDaemonStatus: makeStatus(),
     });
     const prog = new Command();
@@ -309,7 +309,7 @@ describe("Preflight CLI", () => {
     prog.addCommand(cmd);
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "preflight"]);
+      await prog.parseAsync(["node", "softwareTeam", "preflight"]);
     });
     server.close();
     const output = logs.join("\n");
@@ -319,13 +319,13 @@ describe("Preflight CLI", () => {
   });
 
   // Test 13
-  it("rig preflight with failure prints three-part error and exits 1", async () => {
-    const homeDir = join(tmpDir, ".openrig");
+  it("SoftwareTeam preflight with failure prints three-part error and exits 1", async () => {
+    const homeDir = join(tmpDir, ".softwareteam");
     mkdirSync(homeDir, { recursive: true });
     const cmd = preflightCommand({
       exec: makeExec("missing"),
       configPath: join(tmpDir, "config.json"),
-      riggedHome: homeDir,
+      softwareteamHome: homeDir,
       getDaemonStatus: makeStatus(),
     });
     const prog = new Command();
@@ -333,7 +333,7 @@ describe("Preflight CLI", () => {
     prog.addCommand(cmd);
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "preflight"]);
+      await prog.parseAsync(["node", "softwareTeam", "preflight"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("✗");

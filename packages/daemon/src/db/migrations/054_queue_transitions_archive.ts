@@ -5,7 +5,7 @@ import type { Migration } from "../migrate.js";
  * sibling table (arch D3: ARCHIVE-never-plain-delete for the audit surface).
  *
  * `queue_transitions` is an AUDIT surface with product meaning (chain of record;
- * `rig queue resolve` records decision text here) — INSERT-ONLY today, no prune
+ * `SoftwareTeam queue resolve` records decision text here) — INSERT-ONLY today, no prune
  * path exists, so it grows unbounded (13691 rows on the incident fixture) and
  * bloats backups + any transitions-reading surface. Arch D3 ruling: NEVER
  * plain-delete; MOVE terminal-and-aged transitions into this sibling table, in

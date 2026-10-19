@@ -48,7 +48,7 @@ describe("skill-mirror-drift by repo layout", () => {
   afterEach(() => { rmSync(root, { recursive: true, force: true }); });
 
   it("skips, as information, in the installed-package layout", async () => {
-    // From @openrig/cli/daemon/dist/domain/ the four-level walk lands in node_modules/@openrig/: the
+    // From @softwareteam/cli/daemon/dist/domain/ the four-level walk lands in node_modules/@softwareteam/: the
     // package's skills are under cli/daemon/specs/, and there is no scripts/mirror-skills.mjs.
     mkdirSync(join(root, "cli/daemon/specs/agents/shared/skills"), { recursive: true });
     const result = await checkMirrorDriftSafe(root);

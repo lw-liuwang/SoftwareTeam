@@ -1,6 +1,6 @@
 // Preview Terminal v0 (PL-018) — UI hook for live terminal preview.
 //
-// Polls /api/rigs/:rigId/nodes/:logicalId/preview at the operator-
+// Polls /api/software-teams/:softwareTeamId/nodes/:logicalId/preview at the operator-
 // configured interval (`ui.preview.refresh_interval_seconds`, default
 // 3s; read from /api/config). Honest fallback when the daemon doesn't
 // have the new route (cross-CLI-version drift): consumers see
@@ -24,11 +24,11 @@ export interface NodePreviewUnavailable {
 }
 
 export async function fetchNodePreview(
-  rigId: string,
+  softwareTeamId: string,
   logicalId: string,
   lines: number,
 ): Promise<NodePreviewResponse | NodePreviewUnavailable> {
-  const url = `/api/rigs/${encodeURIComponent(rigId)}/nodes/${encodeURIComponent(logicalId)}/preview?lines=${lines}`;
+  const url = `/api/software-teams/${encodeURIComponent(softwareTeamId)}/nodes/${encodeURIComponent(logicalId)}/preview?lines=${lines}`;
   const res = await fetch(url, { headers: terminalAuthHeaders() });
   // 404 from a daemon without the route OR with no such node → unavailable.
   if (res.status === 404) {
@@ -52,7 +52,7 @@ export async function fetchNodePreview(
 }
 
 export interface UseNodePreviewOpts {
-  rigId: string | null;
+  softwareTeamId: string | null;
   logicalId: string | null;
   /** Override line count; defaults to ui.preview.default_lines. */
   lines?: number;
@@ -68,9 +68,9 @@ export function useNodePreview(opts: UseNodePreviewOpts) {
   const refetchInterval = opts.paused ? false : ((intervalSeconds ?? 3) * 1000);
 
   return useQuery({
-    queryKey: ["node-preview", opts.rigId, opts.logicalId, lines],
-    queryFn: () => fetchNodePreview(opts.rigId!, opts.logicalId!, lines),
-    enabled: !!opts.rigId && !!opts.logicalId && !opts.paused,
+    queryKey: ["node-preview", opts.softwareTeamId, opts.logicalId, lines],
+    queryFn: () => fetchNodePreview(opts.softwareTeamId!, opts.logicalId!, lines),
+    enabled: !!opts.softwareTeamId && !!opts.logicalId && !opts.paused,
     refetchInterval,
     refetchIntervalInBackground: false,
     staleTime: 0,
@@ -84,7 +84,7 @@ export function isNodePreviewUnavailable(
 }
 
 // --- Session-keyed preview (composes with surfaces that have a session
-// name but no rigId/logicalId — Loop State panel, Slice Story View
+// name but no softwareTeamId/logicalId — Loop State panel, Slice Story View
 // Topology tab). Same shape; different route. ---
 
 export async function fetchSessionPreview(

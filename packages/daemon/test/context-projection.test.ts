@@ -12,7 +12,7 @@ describe("Context Usage Projection", () => {
   beforeEach(() => {
     db = createFullTestDb();
     setup = createTestApp(db);
-    store = new ContextUsageStore(db, { stateDir: "/tmp/openrig-test" });
+    store = new ContextUsageStore(db, { stateDir: "/tmp/softwareteam-test" });
   });
 
   afterEach(() => { db.close(); });
@@ -29,19 +29,19 @@ describe("Context Usage Projection", () => {
     currentUsage: "67% used",
     transcriptPath: "/tmp/test.log",
     sessionId: "sess-123",
-    sessionName: "dev-impl@test-rig",
+    sessionName: "dev-impl@test-software-team",
     sampledAt: new Date().toISOString(),
     fresh: true,
   };
 
   // T1: NodeInventoryEntry includes contextUsage for Claude node with persisted data
   it("getNodeInventoryWithContext includes known contextUsage", () => {
-    const rig = setup.rigRepo.createRig("test-rig");
-    const node = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    setup.sessionRegistry.registerSession(node.id, "dev-impl@test-rig");
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    setup.sessionRegistry.registerSession(node.id, "dev-impl@test-software-team");
     store.persist(node.id, KNOWN_USAGE);
 
-    const inventory = getNodeInventoryWithContext(db, rig.id, store);
+    const inventory = getNodeInventoryWithContext(db, softwareTeam.id, store);
     const entry = inventory.find((e) => e.logicalId === "dev.impl");
 
     expect(entry?.contextUsage).toBeDefined();
@@ -51,11 +51,11 @@ describe("Context Usage Projection", () => {
 
   // T2: NodeInventoryEntry includes unknown contextUsage for non-Claude node
   it("getNodeInventoryWithContext returns unknown for non-Claude node", () => {
-    const rig = setup.rigRepo.createRig("test-rig");
-    const node = setup.rigRepo.addNode(rig.id, "dev.qa", { runtime: "codex" });
-    setup.sessionRegistry.registerSession(node.id, "dev-qa@test-rig");
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { runtime: "codex" });
+    setup.sessionRegistry.registerSession(node.id, "dev-qa@test-software-team");
 
-    const inventory = getNodeInventoryWithContext(db, rig.id, store);
+    const inventory = getNodeInventoryWithContext(db, softwareTeam.id, store);
     const entry = inventory.find((e) => e.logicalId === "dev.qa");
 
     expect(entry?.contextUsage?.availability).toBe("unknown");
@@ -63,12 +63,12 @@ describe("Context Usage Projection", () => {
 
   // T3: NodeDetailEntry includes full contextUsage
   it("getNodeDetailWithContext includes full contextUsage", () => {
-    const rig = setup.rigRepo.createRig("test-rig");
-    const node = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    setup.sessionRegistry.registerSession(node.id, "dev-impl@test-rig");
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    setup.sessionRegistry.registerSession(node.id, "dev-impl@test-software-team");
     store.persist(node.id, KNOWN_USAGE);
 
-    const detail = getNodeDetailWithContext(db, rig.id, "dev.impl", store);
+    const detail = getNodeDetailWithContext(db, softwareTeam.id, "dev.impl", store);
     expect(detail?.contextUsage?.availability).toBe("known");
     expect(detail?.contextUsage?.usedPercentage).toBe(67);
     expect(detail?.contextUsage?.contextWindowSize).toBe(200000);
@@ -76,13 +76,13 @@ describe("Context Usage Projection", () => {
 
   // T4: Graph projection overlay includes compact context data
   it("graph overlay includes compact context data from inventory", async () => {
-    const rig = setup.rigRepo.createRig("test-rig");
-    const node = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    setup.sessionRegistry.registerSession(node.id, "dev-impl@test-rig");
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    setup.sessionRegistry.registerSession(node.id, "dev-impl@test-software-team");
     store.persist(node.id, KNOWN_USAGE);
 
     // Test via HTTP route which uses context-aware inventory
-    const res = await setup.app.request(`/api/rigs/${rig.id}/graph`);
+    const res = await setup.app.request(`/api/software-teams/${softwareTeam.id}/graph`);
     expect(res.status).toBe(200);
     const body = await res.json();
     const graphNode = body.nodes.find((n: any) => n.data?.logicalId === "dev.impl");
@@ -94,9 +94,9 @@ describe("Context Usage Projection", () => {
 
   // T5: WhoamiResult includes contextUsage (via route)
   it("whoami includes contextUsage for Claude node", async () => {
-    const rig = setup.rigRepo.createRig("test-rig");
-    const node = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    setup.sessionRegistry.registerSession(node.id, "dev-impl@test-rig");
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    setup.sessionRegistry.registerSession(node.id, "dev-impl@test-software-team");
     store.persist(node.id, KNOWN_USAGE);
 
     const res = await setup.app.request(`/api/whoami?nodeId=${node.id}`);
@@ -109,9 +109,9 @@ describe("Context Usage Projection", () => {
 
   // T6: Unsupported runtime returns unknown honestly
   it("whoami returns unknown contextUsage for codex node", async () => {
-    const rig = setup.rigRepo.createRig("test-rig");
-    const node = setup.rigRepo.addNode(rig.id, "dev.qa", { runtime: "codex" });
-    setup.sessionRegistry.registerSession(node.id, "dev-qa@test-rig");
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { runtime: "codex" });
+    setup.sessionRegistry.registerSession(node.id, "dev-qa@test-software-team");
 
     const res = await setup.app.request(`/api/whoami?nodeId=${node.id}`);
     expect(res.status).toBe(200);
@@ -122,12 +122,12 @@ describe("Context Usage Projection", () => {
 
   // T7: Node detail route returns context data
   it("node detail route includes contextUsage", async () => {
-    const rig = setup.rigRepo.createRig("test-rig");
-    const node = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    setup.sessionRegistry.registerSession(node.id, "dev-impl@test-rig");
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    setup.sessionRegistry.registerSession(node.id, "dev-impl@test-software-team");
     store.persist(node.id, KNOWN_USAGE);
 
-    const res = await setup.app.request(`/api/rigs/${rig.id}/nodes/${encodeURIComponent("dev.impl")}`);
+    const res = await setup.app.request(`/api/software-teams/${softwareTeam.id}/nodes/${encodeURIComponent("dev.impl")}`);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.contextUsage).toBeDefined();

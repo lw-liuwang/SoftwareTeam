@@ -1,4 +1,4 @@
-// S16 measured RED (23 live rigs, 2026-08-26): 167 direct HTTP reads in
+// S16 measured RED (23 live softwareTeams, 2026-08-26): 167 direct HTTP reads in
 // 16 seconds, including a 117-read five-second bin; daemon CPU was 15.5%
 // during the TUI window versus 2.125% in the adjacent control. This probe
 // drives the production entrypoint so the cadence cannot pass behind a mock.
@@ -55,19 +55,19 @@ describe("production TUI refresh cadence", () => {
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
 
-    const root = await mkdtemp(path.join(tmpdir(), "openrig-tui-refresh-"));
+    const root = await mkdtemp(path.join(tmpdir(), "softwareteam-tui-refresh-"));
     tempDirs.push(root);
     const bin = path.join(root, "bin");
     await mkdir(bin);
-    const rigStub = path.join(bin, "rig");
-    await writeFile(rigStub, `#!/bin/sh
+    const softwareTeamStub = path.join(bin, "SoftwareTeam");
+    await writeFile(softwareTeamStub, `#!/bin/sh
 case "$1" in
   crash-cart) printf '%s\\n' '{"state":"up"}' ;;
   config) printf '%s\\n' '{"value":"UTC"}' ;;
   *) exit 1 ;;
 esac
 `);
-    await chmod(rigStub, 0o755);
+    await chmod(softwareTeamStub, 0o755);
 
     const viteNode = fileURLToPath(new URL("../../../node_modules/vite-node/vite-node.mjs", import.meta.url));
     const entry = fileURLToPath(new URL("../src/main.ts", import.meta.url));
@@ -77,8 +77,8 @@ esac
     const child = spawn(process.execPath, [viteNode, "--script", entry, "--instance", "refresh-policy-test", "--no-color", "--url", `http://127.0.0.1:${address.port}`], {
       env: {
         ...process.env,
-        OPENRIG_HOME: root,
-        OPENRIG_TUI_SOCKET: path.join(root, "t.sock"),
+        SOFTWARETEAM_HOME: root,
+        SOFTWARETEAM_TUI_SOCKET: path.join(root, "t.sock"),
         PATH: `${bin}${path.delimiter}${process.env["PATH"] ?? ""}`,
       },
       stdio: ["pipe", "pipe", "pipe"],
@@ -93,9 +93,9 @@ esac
 
     try {
       // A connected empty catalog enters ordinary work without a startup keypress.
-      await until(() => stdout.includes("no rigs served — proven empty") || child.exitCode != null);
+      await until(() => stdout.includes("no softwareTeams served — proven empty") || child.exitCode != null);
       expect(child.exitCode, stderr).toBeNull();
-      expect(stdout).toContain("no rigs served — proven empty");
+      expect(stdout).toContain("no softwareTeams served — proven empty");
       // Wait for the initial hydration to finish before taking the idle sample.
       await new Promise((resolve) => setTimeout(resolve, 100));
       const initialReads = requests.length;

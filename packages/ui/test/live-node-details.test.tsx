@@ -16,10 +16,10 @@ let OriginalEventSource: typeof EventSource | undefined;
 // V0.3.1 slice 25 — seat detail page now uses a 2-tab Overview +
 // Details layout. Tests target the new structure.
 const NODE_DETAIL = {
-  rigId: "rig-1", rigName: "test-rig", logicalId: "dev.impl", podId: "dev",
-  canonicalSessionName: "dev-impl@test-rig", nodeKind: "agent", runtime: "claude-code",
+  softwareTeamId: "software-team-1", softwareTeamName: "test-software-team", logicalId: "dev.impl", podId: "dev",
+  canonicalSessionName: "dev-impl@test-software-team", nodeKind: "agent", runtime: "claude-code",
   sessionStatus: "running", startupStatus: "ready", restoreOutcome: "n-a",
-  tmuxAttachCommand: "tmux attach -t dev-impl@test-rig", resumeCommand: null,
+  tmuxAttachCommand: "tmux attach -t dev-impl@test-software-team", resumeCommand: null,
   latestError: null, model: "opus", agentRef: "local:agents/impl", profile: "default",
   resolvedSpecName: "impl", resolvedSpecVersion: "1.0.0", cwd: "/workspace",
   startupFiles: [{
@@ -30,13 +30,13 @@ const NODE_DETAIL = {
   }],
   startupActions: [], recentEvents: [],
   infrastructureStartupCommand: null,
-  binding: { tmuxSession: "dev-impl@test-rig" },
-  peers: [{ logicalId: "dev.qa", canonicalSessionName: "dev-qa@test-rig", runtime: "codex" }],
+  binding: { tmuxSession: "dev-impl@test-software-team" },
+  peers: [{ logicalId: "dev.qa", canonicalSessionName: "dev-qa@test-software-team", runtime: "codex" }],
   edges: {
-    outgoing: [{ kind: "delegates_to", to: { logicalId: "dev.qa", sessionName: "dev-qa@test-rig" } }],
+    outgoing: [{ kind: "delegates_to", to: { logicalId: "dev.qa", sessionName: "dev-qa@test-software-team" } }],
     incoming: [],
   },
-  transcript: { enabled: true, path: "/tmp/test.log", tailCommand: "rig transcript dev-impl --tail 100" },
+  transcript: { enabled: true, path: "/tmp/test.log", tailCommand: "SoftwareTeam transcript dev-impl --tail 100" },
   compactSpec: { name: "impl", version: "1.0.0", profile: "default", skillCount: 2, guidanceCount: 1 },
   agentActivity: {
     state: "running",
@@ -105,7 +105,7 @@ describe("LiveNodeDetails (slice 25 Overview + Details)", () => {
   function renderDetails(logicalId = "dev.impl") {
     return render(
       createTestRouter({
-        component: () => <LiveNodeDetails rigId="rig-1" logicalId={logicalId} />,
+        component: () => <LiveNodeDetails softwareTeamId="software-team-1" logicalId={logicalId} />,
         path: "/test",
       }),
     );
@@ -116,7 +116,7 @@ describe("LiveNodeDetails (slice 25 Overview + Details)", () => {
       createTestRouter({
         component: () => (
           <DrawerSelectionContext.Provider value={{ selection: null, setSelection }}>
-            <LiveNodeDetails rigId="rig-1" logicalId={logicalId} />
+            <LiveNodeDetails softwareTeamId="software-team-1" logicalId={logicalId} />
           </DrawerSelectionContext.Provider>
         ),
         path: "/test",
@@ -126,11 +126,11 @@ describe("LiveNodeDetails (slice 25 Overview + Details)", () => {
 
   function TopologyActivityWarmup() {
     useTopologyActivity(buildTopologySessionIndex([{
-      nodeId: "rig-1::dev.impl",
-      rigId: "rig-1",
-      rigName: "test-rig",
+      nodeId: "software-team-1::dev.impl",
+      softwareTeamId: "software-team-1",
+      softwareTeamName: "test-software-team",
       logicalId: "dev.impl",
-      canonicalSessionName: "dev-impl@test-rig",
+      canonicalSessionName: "dev-impl@test-software-team",
     }]));
     return <div data-testid="activity-warmup" />;
   }
@@ -335,7 +335,7 @@ describe("LiveNodeDetails (slice 25 Overview + Details)", () => {
 
     instances[0]!.simulateMessage(JSON.stringify({
       type: "agent.activity",
-      sessionName: "dev-impl@test-rig",
+      sessionName: "dev-impl@test-software-team",
       activity: { state: "running" },
     }));
     warmup.unmount();
@@ -465,7 +465,7 @@ describe("LiveNodeDetails (slice 25 Overview + Details)", () => {
       latestError: "Synthetic test error.",
       recoveryGuidance: {
         summary: "Synthetic guidance summary.",
-        commands: ["rig restore <snap>"],
+        commands: ["SoftwareTeam restore <snap>"],
         notes: [],
       },
     });
@@ -502,7 +502,7 @@ describe("LiveNodeDetails (slice 25 Overview + Details)", () => {
       latestError: null,
       recoveryGuidance: {
         summary: "Generic recovery guidance documentation.",
-        commands: ["rig restore <snap>"],
+        commands: ["SoftwareTeam restore <snap>"],
         notes: [],
       },
     });
@@ -664,7 +664,7 @@ describe("LiveNodeDetails (slice 25 Overview + Details)", () => {
 
   // Resume action glyph remains independent of tab structure.
   it("uses a resume action glyph instead of a runtime mark on the copy resume command", async () => {
-    mockNodeDetail({ ...NODE_DETAIL, resumeCommand: "rig seat resume dev.impl" });
+    mockNodeDetail({ ...NODE_DETAIL, resumeCommand: "SoftwareTeam seat resume dev.impl" });
     renderDetails();
     const resumeButton = await screen.findByTestId("detail-copy-resume");
     expect(resumeButton.textContent).toContain("Copy resume command");

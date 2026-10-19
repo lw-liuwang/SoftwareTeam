@@ -26,7 +26,7 @@ import { NativePermissionStore } from "../src/domain/native-permission-store.js"
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
 
 const pexec = promisify(execFile);
-const SOCK = `openrig-restart-${process.pid}`;
+const SOCK = `softwareteam-restart-${process.pid}`;
 const cleanEnv: NodeJS.ProcessEnv = { ...process.env };
 delete cleanEnv.TMUX;
 const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
 }
 `;
 
-const root = fs.mkdtempSync(nodePath.join(os.tmpdir(), "openrig-restart-native-"));
+const root = fs.mkdtempSync(nodePath.join(os.tmpdir(), "softwareteam-restart-native-"));
 const sessions: string[] = [];
 const pids = new Set<number>();
 afterAll(async () => {
@@ -94,7 +94,7 @@ describe.runIf(available())("in-place restart, native (private tmux socket, stub
   const argv = (...words: string[]) => words.map(q).join(" ");
 
   async function setup(shape: "shell_backed" | "direct_native", opts: { running?: { networkOverride: boolean; daemonOptOut: boolean; addDirs: string[] }; quiet?: boolean; prelude?: string;
-    /** Shell-backed: type the launch the way OpenRig does (tmux adapter's staged `/bin/sh <script>`). */
+    /** Shell-backed: type the launch the way SoftwareTeam does (tmux adapter's staged `/bin/sh <script>`). */
     staged?: boolean } = {}) {
     // One seat at a time: end the previous test's session and wait for its stub to exit.
     for (const name of sessions) await tmux(`kill-session -t ${q(name)}`).catch(() => {});
@@ -110,7 +110,7 @@ describe.runIf(available())("in-place restart, native (private tmux socket, stub
     const resolved = execFileSync("/bin/sh", ["-c", "command -v codex"], { env: { PATH: launchPath }, encoding: "utf8" }).trim();
     if (resolved !== stub) throw new Error(`Refusing to run: codex on the pinned PATH is ${resolved}, not the stub.`);
     expect(home).not.toBe(nodePath.join(os.homedir(), ".codex"));
-    const seat = `dev-codex@${shape === "shell_backed" ? "shell" : "native"}-rig`;
+    const seat = `dev-codex@${shape === "shell_backed" ? "shell" : "native"}-software-team`;
     sessions.push(seat);
     const db = createFullTestDb();
     const realTmux = new TmuxAdapter(exec);
@@ -121,8 +121,8 @@ describe.runIf(available())("in-place restart, native (private tmux socket, stub
     const setupApp = createTestApp(db, { tmux: realTmux, adapters: { codex: adapter },
       appDeps: { seatActivityService: { getSeatState: () => ({ seatNodeId: "", activity: "working", needsInput: { count: 0, reason: null },
         needsInputEvidence: null, decidedBy: null, seq: 1, changedAt: "", rungs: [], lastSwap: null }) } as never } });
-    const rig = setupApp.rigRepo.createRig(seat.split("@")[1]!);
-    const node = setupApp.rigRepo.addNode(rig.id, "dev.codex", { runtime: "codex", cwd: work });
+    const softwareTeam = setupApp.softwareTeamRepo.createSoftwareTeam(seat.split("@")[1]!);
+    const node = setupApp.softwareTeamRepo.addNode(softwareTeam.id, "dev.codex", { runtime: "codex", cwd: work });
     const session = setupApp.sessionRegistry.registerSession(node.id, seat);
     setupApp.sessionRegistry.updateStatus(session.id, "running");
     setupApp.sessionRegistry.updateResumeToken(session.id, "codex_id", TOKEN, "scrape");
@@ -133,7 +133,7 @@ describe.runIf(available())("in-place restart, native (private tmux socket, stub
       id: "", nodeId: node.id, attachmentType: "tmux", tmuxSession: seat, tmuxWindow: null, tmuxPane: null,
       cmuxWorkspace: null, cmuxSurface: null, updatedAt: "", cwd: work, launchPosture: "floor",
       kernelAuthority: override.kernelAuthority, teamPermissionDefault: override.teamPermissionDefault,
-      nonInterruptive: setupApp.rigRepo.getRigNonInterruptive(rig.id),
+      nonInterruptive: setupApp.softwareTeamRepo.getSoftwareTeamNonInterruptive(softwareTeam.id),
     }, { name: seat, resumeToken: TOKEN, ...(opts.running ? { running: opts.running } : {}) });
     if (!built.ok) throw new Error(built.error);
     // Session env for respawns; the pane processes themselves start from env -i, non-login.
@@ -181,7 +181,7 @@ describe.runIf(available())("in-place restart, native (private tmux socket, stub
     expect(plan.body).toMatchObject({ planOnly: true, paneShape: "shell_backed", conversationProof: "argv",
       activity: { state: "working" }, codexHome: home, childProcesses: [], oldProcess: { pid: oldStub } });
 
-    const result = await post("restart", { reason: "native harness", operator: "test@rig" });
+    const result = await post("restart", { reason: "native harness", operator: "test@software-team" });
     expect(result.status, JSON.stringify(result.body)).toBe(200);
     expect(result.body).toMatchObject({ outcome: "restarted_account_unverified", pane, oldProcess: { pid: oldStub },
       newProcess: { sameExecutable: true } });
@@ -203,7 +203,7 @@ describe.runIf(available())("in-place restart, native (private tmux socket, stub
     expect(verified.body).toMatchObject({ ok: true, outcome: "restarted_account_unverified", accountEvidence: { state: "not_requested" } });
   }, 60_000);
 
-  it("a Codex launched the way OpenRig launches it (staged sh script), restarted twice in the same pane", async () => {
+  it("a Codex launched the way SoftwareTeam launches it (staged sh script), restarted twice in the same pane", async () => {
     const { pane, post } = await setup("shell_backed", { staged: true });
     const shell = await panePid(pane);
     const [oldStub] = stubPids();
@@ -211,7 +211,7 @@ describe.runIf(available())("in-place restart, native (private tmux socket, stub
     const script = parentOf(oldStub!);
     expect(script, "a staged script sits between the shell and Codex").not.toBe(shell);
     expect(parentOf(script)).toBe(shell);
-    expect(fs.readFileSync(`/proc/${script}/cmdline`, "utf8")).toMatch(/openrig-tmux-send-\d+-[0-9a-f-]+\.txt/);
+    expect(fs.readFileSync(`/proc/${script}/cmdline`, "utf8")).toMatch(/softwareteam-tmux-send-\d+-[0-9a-f-]+\.txt/);
 
     for (const round of [1, 2]) {
       const plan = await post("restart-plan");

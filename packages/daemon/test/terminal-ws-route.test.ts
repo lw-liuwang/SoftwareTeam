@@ -195,7 +195,7 @@ describe("terminal WebSocket DNS rebinding and origin protection", () => {
     expect(result.statusCode).toBe(403);
   });
 
-  it("allows origins configured in OPENRIG_ALLOWED_ORIGINS", async () => {
+  it("allows origins configured in SOFTWARETEAM_ALLOWED_ORIGINS", async () => {
     const result = await noAuthUpgrade(
       "/api/terminal/test-session",
       { Origin: "https://custom-dashboard.corp" },
@@ -203,7 +203,7 @@ describe("terminal WebSocket DNS rebinding and origin protection", () => {
     expect(result.statusCode).not.toBe(403);
   });
 
-  it("enforces protocol and port boundaries for full URL origins in OPENRIG_ALLOWED_ORIGINS", async () => {
+  it("enforces protocol and port boundaries for full URL origins in SOFTWARETEAM_ALLOWED_ORIGINS", async () => {
     const match = await noAuthUpgrade(
       "/api/terminal/test-session",
       { Origin: "https://custom-dashboard.corp:8443" },
@@ -606,7 +606,7 @@ describe("terminal WebSocket attach rejection", () => {
       else localServer.once("listening", resolve);
     });
     const port = (localServer.address() as { port: number }).port;
-    const url = `ws://127.0.0.1:${port}/api/terminal/retry@rig?token=${TOKEN}`;
+    const url = `ws://127.0.0.1:${port}/api/terminal/retry@software-team?token=${TOKEN}`;
     const viewers: WebSocket[] = [];
     try {
       const failed = new WebSocket(url);

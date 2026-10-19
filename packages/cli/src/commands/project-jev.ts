@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { createHash } from "node:crypto";
-import type { ClassificationDecision, ClassificationRequest } from "@openrig/daemon/stream-classifier";
+import type { ClassificationDecision, ClassificationRequest } from "@softwareteam/daemon/stream-classifier";
 import type { prepareWorker } from "./project-worker.js";
 
 export const JEV_ENDPOINT = "https://openrouter.ai/api/alpha/decisions";

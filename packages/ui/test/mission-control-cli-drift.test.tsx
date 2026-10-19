@@ -22,7 +22,7 @@ describe("Mission Control CLI capability display", () => {
     );
 
     expect(screen.getByTestId("mc-cli-drift-unknown-count").textContent).toContain(
-      `${count} ${count === 1 ? "rig" : "rigs"} with unknown CLI capabilities`,
+      `${count} ${count === 1 ? "softwareTeam" : "softwareTeams"} with unknown CLI capabilities`,
     );
     expect(screen.queryByTestId("mc-cli-drift-stale-count")).toBeNull();
   });
@@ -38,8 +38,8 @@ describe("Mission Control CLI capability display", () => {
     expect(screen.getByTestId("mc-cli-drift-fields").textContent).toContain("agentActivity");
     expect(screen.queryByTestId("mc-cli-drift-stale-count")).toBeNull();
     const placeholder = screen.getByTestId("mc-missing-field-placeholder");
-    expect(placeholder.textContent).toBe("agentActivity: field unavailable on this rig");
-    expect(placeholder.title).toBe("field unavailable on this rig");
+    expect(placeholder.textContent).toBe("agentActivity: field unavailable on this softwareTeam");
+    expect(placeholder.title).toBe("field unavailable on this softwareTeam");
   });
 
   it("reserves the stale CLI label for independently confirmed outdated versions", () => {
@@ -51,8 +51,8 @@ describe("Mission Control CLI capability display", () => {
       />,
     );
 
-    expect(screen.getByTestId("mc-cli-drift-stale-count").textContent).toContain("1 rig running stale CLI");
-    expect(screen.getByTestId("mc-cli-drift-unknown-count").textContent).toContain("2 rigs with unknown CLI capabilities");
+    expect(screen.getByTestId("mc-cli-drift-stale-count").textContent).toContain("1 SoftwareTeam running stale CLI");
+    expect(screen.getByTestId("mc-cli-drift-unknown-count").textContent).toContain("2 softwareTeams with unknown CLI capabilities");
     expect(screen.getByTestId("mc-cli-drift-fields").textContent).toContain("agentActivity");
   });
 });

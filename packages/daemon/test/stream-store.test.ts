@@ -27,7 +27,7 @@ describe("StreamStore", () => {
   afterEach(() => db.close());
 
   it("emit assigns ULID + sort key when not provided", () => {
-    const item = store.emit({ sourceSession: "alice@rig", body: "hello" });
+    const item = store.emit({ sourceSession: "alice@software-team", body: "hello" });
     expect(item.streamItemId).toMatch(/^[0-9A-Z]{26}$/);
     expect(item.streamSortKey).toMatch(/^[0-9A-Z]{26}$/);
     expect(item.body).toBe("hello");
@@ -37,17 +37,17 @@ describe("StreamStore", () => {
 
   it("emit is idempotent on stream_item_id", () => {
     const id = "01HXYZ_FIXED_ID_FOR_TEST_AB";
-    const a = store.emit({ streamItemId: id, sourceSession: "alice@rig", body: "first" });
-    const b = store.emit({ streamItemId: id, sourceSession: "alice@rig", body: "second-ignored" });
+    const a = store.emit({ streamItemId: id, sourceSession: "alice@software-team", body: "first" });
+    const b = store.emit({ streamItemId: id, sourceSession: "alice@software-team", body: "second-ignored" });
     expect(a.streamItemId).toBe(b.streamItemId);
     expect(b.body).toBe("first");
   });
 
   it("emit fires stream.emitted event with hint metadata", () => {
     store.emit({
-      sourceSession: "alice@rig",
+      sourceSession: "alice@software-team",
       body: "tagged",
-      hintDestination: "bob@rig",
+      hintDestination: "bob@software-team",
       hintType: "review",
       hintUrgency: "urgent",
       interrupt: true,
@@ -56,7 +56,7 @@ describe("StreamStore", () => {
     const ev = captured[0]!;
     expect(ev.type).toBe("stream.emitted");
     if (ev.type === "stream.emitted") {
-      expect(ev.hintDestination).toBe("bob@rig");
+      expect(ev.hintDestination).toBe("bob@software-team");
       expect(ev.hintType).toBe("review");
       expect(ev.hintUrgency).toBe("urgent");
       expect(ev.interrupt).toBe(true);
@@ -64,9 +64,9 @@ describe("StreamStore", () => {
   });
 
   it("list returns chronological order, excludes archived by default", () => {
-    const a = store.emit({ sourceSession: "alice@rig", body: "first" });
-    store.emit({ sourceSession: "alice@rig", body: "second" });
-    store.emit({ sourceSession: "alice@rig", body: "third" });
+    const a = store.emit({ sourceSession: "alice@software-team", body: "first" });
+    store.emit({ sourceSession: "alice@software-team", body: "second" });
+    store.emit({ sourceSession: "alice@software-team", body: "third" });
     store.archive(a.streamItemId);
 
     const items = store.list();
@@ -79,7 +79,7 @@ describe("StreamStore", () => {
   it("list latest returns the newest bounded active rows in chronological order", () => {
     expect(store.list({ limit: 5, direction: "latest" })).toEqual([]);
     const items = Array.from({ length: 7 }, (_, index) =>
-      store.emit({ sourceSession: "alice@rig", body: `item-${index + 1}` }),
+      store.emit({ sourceSession: "alice@software-team", body: `item-${index + 1}` }),
     );
 
     expect(store.list({ limit: 5, direction: "latest" }).map((item) => item.body)).toEqual([
@@ -93,24 +93,24 @@ describe("StreamStore", () => {
   });
 
   it("list latest uses the canonical timestamp + sort-key tuple and keeps filters", () => {
-    const first = store.emit({ sourceSession: "alice@rig", body: "first", hintDestination: "bob@rig" });
-    const second = store.emit({ sourceSession: "alice@rig", body: "second", hintDestination: "bob@rig" });
-    store.emit({ sourceSession: "carol@rig", body: "filtered-out", hintDestination: "bob@rig" });
+    const first = store.emit({ sourceSession: "alice@software-team", body: "first", hintDestination: "bob@software-team" });
+    const second = store.emit({ sourceSession: "alice@software-team", body: "second", hintDestination: "bob@software-team" });
+    store.emit({ sourceSession: "carol@software-team", body: "filtered-out", hintDestination: "bob@software-team" });
     db.prepare("UPDATE stream_items SET ts_emitted = ? WHERE stream_item_id IN (?, ?)")
       .run("2026-08-03T07:00:00.000Z", first.streamItemId, second.streamItemId);
 
-    expect(store.list({ limit: 1, direction: "latest", sourceSession: "alice@rig" }).map((item) => item.body)).toEqual(["second"]);
-    expect(store.list({ limit: 5, direction: "latest", sourceSession: "alice@rig", hintDestination: "bob@rig" }).map((item) => item.body)).toEqual(["first", "second"]);
+    expect(store.list({ limit: 1, direction: "latest", sourceSession: "alice@software-team" }).map((item) => item.body)).toEqual(["second"]);
+    expect(store.list({ limit: 5, direction: "latest", sourceSession: "alice@software-team", hintDestination: "bob@software-team" }).map((item) => item.body)).toEqual(["first", "second"]);
   });
 
   it("list filters by sourceSession + hintDestination", () => {
-    store.emit({ sourceSession: "alice@rig", body: "a-msg", hintDestination: "bob@rig" });
-    store.emit({ sourceSession: "carol@rig", body: "c-msg", hintDestination: "bob@rig" });
-    store.emit({ sourceSession: "alice@rig", body: "a2", hintDestination: "dave@rig" });
+    store.emit({ sourceSession: "alice@software-team", body: "a-msg", hintDestination: "bob@software-team" });
+    store.emit({ sourceSession: "carol@software-team", body: "c-msg", hintDestination: "bob@software-team" });
+    store.emit({ sourceSession: "alice@software-team", body: "a2", hintDestination: "dave@software-team" });
 
-    expect(store.list({ sourceSession: "alice@rig" })).toHaveLength(2);
-    expect(store.list({ hintDestination: "bob@rig" })).toHaveLength(2);
-    expect(store.list({ sourceSession: "alice@rig", hintDestination: "bob@rig" })).toHaveLength(1);
+    expect(store.list({ sourceSession: "alice@software-team" })).toHaveLength(2);
+    expect(store.list({ hintDestination: "bob@software-team" })).toHaveLength(2);
+    expect(store.list({ sourceSession: "alice@software-team", hintDestination: "bob@software-team" })).toHaveLength(1);
   });
 
   it("getById returns null for unknown id", () => {
@@ -119,7 +119,7 @@ describe("StreamStore", () => {
 
   it("hint_tags JSON-roundtrip", () => {
     const item = store.emit({
-      sourceSession: "alice@rig",
+      sourceSession: "alice@software-team",
       body: "tagged",
       hintTags: ["urgent", "review", "phase-a"],
     });
@@ -130,27 +130,27 @@ describe("StreamStore", () => {
 
   it("list filters by exact tag and inclusive time window without changing cursor order", () => {
     const before = store.emit({
-      sourceSession: "alice@rig",
+      sourceSession: "alice@software-team",
       body: "before",
       hintTags: ["review"],
     });
     const lower = store.emit({
-      sourceSession: "alice@rig",
+      sourceSession: "alice@software-team",
       body: "lower-bound",
       hintTags: ["review", "context"],
     });
     const upper = store.emit({
-      sourceSession: "alice@rig",
+      sourceSession: "alice@software-team",
       body: "upper-bound",
       hintTags: ["review"],
     });
     const wrongSource = store.emit({
-      sourceSession: "bob@rig",
+      sourceSession: "bob@software-team",
       body: "wrong-source",
       hintTags: ["review"],
     });
     const substringOnly = store.emit({
-      sourceSession: "alice@rig",
+      sourceSession: "alice@software-team",
       body: "substring-only",
       hintTags: ["review-request"],
     });
@@ -163,7 +163,7 @@ describe("StreamStore", () => {
     setTime.run("2026-08-03T09:45:00.000Z", substringOnly.streamItemId);
 
     const options = {
-      sourceSession: "alice@rig",
+      sourceSession: "alice@software-team",
       hintTag: "review",
       since: "2026-08-03T09:00:00.000Z",
       until: "2026-08-03T10:00:00.000Z",
@@ -177,14 +177,14 @@ describe("StreamStore", () => {
 
   it("list composes tag, time, source, archive, and latest-page filters", () => {
     const matching = Array.from({ length: 4 }, (_, index) => store.emit({
-      sourceSession: "alice@rig",
+      sourceSession: "alice@software-team",
       body: `matching-${index + 1}`,
       hintTags: ["context"],
     }));
-    const wrongSource = store.emit({ sourceSession: "bob@rig", body: "wrong-source", hintTags: ["context"] });
-    const wrongTag = store.emit({ sourceSession: "alice@rig", body: "wrong-tag", hintTags: ["context-extra"] });
-    const outsideWindow = store.emit({ sourceSession: "alice@rig", body: "outside-window", hintTags: ["context"] });
-    const archived = store.emit({ sourceSession: "alice@rig", body: "archived-newest", hintTags: ["context"] });
+    const wrongSource = store.emit({ sourceSession: "bob@software-team", body: "wrong-source", hintTags: ["context"] });
+    const wrongTag = store.emit({ sourceSession: "alice@software-team", body: "wrong-tag", hintTags: ["context-extra"] });
+    const outsideWindow = store.emit({ sourceSession: "alice@software-team", body: "outside-window", hintTags: ["context"] });
+    const archived = store.emit({ sourceSession: "alice@software-team", body: "archived-newest", hintTags: ["context"] });
 
     const setTime = db.prepare("UPDATE stream_items SET ts_emitted = ? WHERE stream_item_id = ?");
     matching.forEach((item, index) => setTime.run(`2026-08-03T09:0${index}:00.000Z`, item.streamItemId));
@@ -195,7 +195,7 @@ describe("StreamStore", () => {
     store.archive(archived.streamItemId);
 
     expect(store.list({
-      sourceSession: "alice@rig",
+      sourceSession: "alice@software-team",
       hintTag: "context",
       since: "2026-08-03T09:00:00.000Z",
       until: "2026-08-03T09:04:00.000Z",
@@ -203,7 +203,7 @@ describe("StreamStore", () => {
       limit: 2,
     }).map((item) => item.body)).toEqual(["matching-3", "matching-4"]);
     expect(store.list({
-      sourceSession: "alice@rig",
+      sourceSession: "alice@software-team",
       hintTag: "context",
       since: "2026-08-03T09:00:00.000Z",
       until: "2026-08-03T09:04:00.000Z",

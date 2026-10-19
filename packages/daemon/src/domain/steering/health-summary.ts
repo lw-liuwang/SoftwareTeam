@@ -2,10 +2,10 @@
 //
 // Item 1F: compact health gates on the steering surface. Two
 // aggregations:
-//   - nodes: cross-rig roll-up of node sessionStatus + lifecycleState
-//     (mirrors `rig ps --nodes --summary` shape; UI consumes for the
+//   - nodes: cross-softwareTeam roll-up of node sessionStatus + lifecycleState
+//     (mirrors `SoftwareTeam ps --nodes --summary` shape; UI consumes for the
 //     "running / detached / attention-required" badges).
-//   - context: cross-rig roll-up of context-usage urgency + freshness
+//   - context: cross-softwareTeam roll-up of context-usage urgency + freshness
 //     (mirrors `rigx-context --json` summary; UI consumes for the
 //     "critical / warning / ok / stale" badges).
 //
@@ -14,11 +14,11 @@
 // request. Same data, cheaper.
 
 import type Database from "better-sqlite3";
-import type { RigRepository } from "../rig-repository.js";
+import type { SoftwareTeamRepository } from "../software-team-repository.js";
 import { getNodeInventory } from "../node-inventory.js";
 
 export interface NodeHealthSummary {
-  /** Total nodes across all rigs. */
+  /** Total nodes across all softwareTeams. */
   total: number;
   /** Counts grouped by node.sessionStatus (running / detached / exited / unknown). */
   bySessionStatus: Record<string, number>;
@@ -45,14 +45,14 @@ const FRESHNESS_THRESHOLD_S = 300;
 const URGENCY_CRITICAL_PCT = 80;
 const URGENCY_WARNING_PCT = 60;
 
-export function computeNodeHealthSummary(deps: { db: Database.Database; rigRepo: RigRepository }): NodeHealthSummary {
-  const rigs = deps.rigRepo.listRigs();
+export function computeNodeHealthSummary(deps: { db: Database.Database; softwareTeamRepo: SoftwareTeamRepository }): NodeHealthSummary {
+  const softwareTeams = deps.softwareTeamRepo.listSoftwareTeams();
   const bySessionStatus: Record<string, number> = {};
   const byLifecycle: Record<string, number> = {};
   let total = 0;
   let attentionRequired = 0;
-  for (const rig of rigs) {
-    const inventory = getNodeInventory(deps.db, rig.id);
+  for (const softwareTeam of softwareTeams) {
+    const inventory = getNodeInventory(deps.db, softwareTeam.id);
     for (const node of inventory) {
       total++;
       const sessionStatus = node.sessionStatus ?? "unknown";

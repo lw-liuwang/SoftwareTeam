@@ -14,7 +14,7 @@ import { discoverySchema } from "../src/db/migrations/012_discovery.js";
 import { discoveryFkFix } from "../src/db/migrations/013_discovery_fk_fix.js";
 import { agentspecRebootSchema } from "../src/db/migrations/014_agentspec_reboot.js";
 import { externalCliAttachmentSchema } from "../src/db/migrations/019_external_cli_attachment.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SessionTransport } from "../src/domain/session-transport.js";
 import { EventBus } from "../src/domain/event-bus.js";
@@ -71,12 +71,12 @@ function createApp(deps: { sessionTransport: SessionTransport; outboxHandler?: O
 
 describe("transport routes", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
 
   beforeEach(() => {
     db = setupDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
   });
 
@@ -84,46 +84,46 @@ describe("transport routes", () => {
     db.close();
   });
 
-  function seedRig() {
-    const rig = rigRepo.createRig("my-rig");
-    const node1 = rigRepo.addNode(rig.id, "dev.impl", { role: "worker", runtime: "claude-code" });
-    const sess1 = sessionRegistry.registerSession(node1.id, "dev-impl@my-rig");
+  function seedSoftwareTeam() {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("my-software-team");
+    const node1 = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+    const sess1 = sessionRegistry.registerSession(node1.id, "dev-impl@my-software-team");
     sessionRegistry.updateStatus(sess1.id, "running");
-    sessionRegistry.updateBinding(node1.id, { tmuxSession: "dev-impl@my-rig" });
+    sessionRegistry.updateBinding(node1.id, { tmuxSession: "dev-impl@my-software-team" });
 
-    const node2 = rigRepo.addNode(rig.id, "dev.qa", { role: "worker", runtime: "codex" });
-    const sess2 = sessionRegistry.registerSession(node2.id, "dev-qa@my-rig");
+    const node2 = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { role: "worker", runtime: "codex" });
+    const sess2 = sessionRegistry.registerSession(node2.id, "dev-qa@my-software-team");
     sessionRegistry.updateStatus(sess2.id, "running");
-    sessionRegistry.updateBinding(node2.id, { tmuxSession: "dev-qa@my-rig" });
-    return { rig, node1, node2 };
+    sessionRegistry.updateBinding(node2.id, { tmuxSession: "dev-qa@my-software-team" });
+    return { softwareTeam, node1, node2 };
   }
 
-  function seedExternalCliRig() {
-    const rig = rigRepo.createRig("rigged-buildout");
-    const node = rigRepo.addNode(rig.id, "orch1.lead", { role: "orchestrator", runtime: "claude-code" });
-    const session = sessionRegistry.registerClaimedSession(node.id, "orch1-lead@rigged-buildout");
+  function seedExternalCliSoftwareTeam() {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("softwareteam-buildout");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "orch1.lead", { role: "orchestrator", runtime: "claude-code" });
+    const session = sessionRegistry.registerClaimedSession(node.id, "orch1-lead@softwareteam-buildout");
     sessionRegistry.updateBinding(node.id, {
       attachmentType: "external_cli",
-      externalSessionName: "orch1-lead@rigged-buildout",
+      externalSessionName: "orch1-lead@softwareteam-buildout",
     });
-    return { rig, node, session };
+    return { softwareTeam, node, session };
   }
 
   it("POST /send with valid session returns 200 with SendResult", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const tmux = mockTmux();
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "hello" }),
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "hello" }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
-    expect(body.sessionName).toBe("dev-impl@my-rig");
+    expect(body.sessionName).toBe("dev-impl@my-software-team");
   });
 
   // ── A3 (P22) — auto-record dispatched sends into the sender-side outbox, so a DERIVED send cannot
@@ -140,51 +140,51 @@ describe("transport routes", () => {
     const hasProv = (db.prepare("PRAGMA table_info(outbox_entries)").all() as Array<{ name: string }>)
       .some((c) => c.name === "identity_provenance");
     if (!hasProv) db.exec("ALTER TABLE outbox_entries ADD COLUMN identity_provenance TEXT");
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: mockTmux() });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: mockTmux() });
     return createApp({ sessionTransport: transport, outboxHandler: new OutboxHandler(db) });
   }
 
   it("A3 — a DERIVED send auto-records exactly ONE outbox row (sender=derived actor, provenance=transport:v1)", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const res = await sendApp().request("/api/transport/send", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch@my-rig" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "hello" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch@my-software-team" },
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "hello" }),
     });
     expect(res.status).toBe(200);
     const rows = outboxRows();
     expect(rows).toHaveLength(1); // exactly one, not zero, not two
-    expect(rows[0]!["sender_session"]).toBe("orch@my-rig"); // the DERIVED actor, never a body claim
-    expect(rows[0]!["destination_session"]).toBe("dev-impl@my-rig");
+    expect(rows[0]!["sender_session"]).toBe("orch@my-software-team"); // the DERIVED actor, never a body claim
+    expect(rows[0]!["destination_session"]).toBe("dev-impl@my-software-team");
     expect(rows[0]!["body"]).toBe("hello");
     expect(rows[0]!["identity_provenance"]).toBe("transport:v1"); // era-stamp from the run, not hardcoded-lying
   });
 
   it("A3 — a cross-host send records the ORIGIN triple (the derived header), never the relay's seat", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const res = await sendApp().request("/api/transport/send", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch@rig-a@origin-host" }, // 3-part origin (A2/A4 carry)
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "coordinate" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch@software-team-a@origin-host" }, // 3-part origin (A2/A4 carry)
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "coordinate" }),
     });
     expect(res.status).toBe(200);
     const rows = outboxRows();
     expect(rows).toHaveLength(1);
-    expect(rows[0]!["sender_session"]).toBe("orch@rig-a@origin-host"); // ORIGIN triple, not the relay
+    expect(rows[0]!["sender_session"]).toBe("orch@software-team-a@origin-host"); // ORIGIN triple, not the relay
   });
 
   it("#131 — a send stamped with THIS daemon's own host id records the bare local sender", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const prior = getSelfHostId();
     setSelfHostId("host-self-131");
     try {
       const res = await sendApp().request("/api/transport/send", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch@my-rig@host-self-131" },
-        body: JSON.stringify({ session: "dev-impl@my-rig", text: "loaded probe fell back" }),
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch@my-software-team@host-self-131" },
+        body: JSON.stringify({ session: "dev-impl@my-software-team", text: "loaded probe fell back" }),
       });
       expect(res.status).toBe(200);
-      expect(outboxRows()[0]!["sender_session"]).toBe("orch@my-rig");
+      expect(outboxRows()[0]!["sender_session"]).toBe("orch@my-software-team");
     } finally { setSelfHostId(prior); }
   });
 
@@ -193,16 +193,16 @@ describe("transport routes", () => {
   // the send now DELIVERS and the row records the wire identity. What this pin is
   // for is unchanged: the body claim must never reach the ledger.
   it("A3 — a send whose body actor differs is DELIVERED, and the outbox row carries the HEADER identity", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const res = await sendApp().request("/api/transport/send", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch@my-rig" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "hi", actorSession: "mallory@my-rig" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch@my-software-team" },
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "hi", actorSession: "mallory@my-software-team" }),
     });
     expect(res.status).toBe(200);
     const rows = outboxRows();
     expect(rows).toHaveLength(1);
-    expect(rows[0]!["sender_session"]).toBe("orch@my-rig");
+    expect(rows[0]!["sender_session"]).toBe("orch@my-software-team");
     expect(rows[0]!["sender_session"]).not.toContain("mallory");
   });
 
@@ -212,41 +212,41 @@ describe("transport routes", () => {
   // same actor with its origin added — but a literal string comparison read it as a
   // mismatch and 409'd the first real cross-host send at the SAME SHA.
   it("L5 A3 — header TRIPLE + body PAIR delivers, and records the WIRE identity (not the body claim)", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const res = await sendApp().request("/api/transport/send", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch-main@rig-a@host-a16b0df1" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "cross-host probe", actorSession: "orch-main@rig-a" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch-main@software-team-a@host-a16b0df1" },
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "cross-host probe", actorSession: "orch-main@software-team-a" }),
     });
     expect(res.status).toBe(200); // was 409 identity_mismatch — the release blocker
     const rows = outboxRows();
     expect(rows).toHaveLength(1);
     // provenance unchanged: the WIRE decides the actor and the body never does. If the
     // body PAIR leaked into the recorded sender, deleting the guard would be wrong.
-    expect(rows[0]!["sender_session"]).toBe("orch-main@rig-a@host-a16b0df1");
-    expect(rows[0]!["sender_session"]).not.toBe("orch-main@rig-a");
+    expect(rows[0]!["sender_session"]).toBe("orch-main@software-team-a@host-a16b0df1");
+    expect(rows[0]!["sender_session"]).not.toBe("orch-main@software-team-a");
   });
 
   it("L5 A3 — a body claim naming a DIFFERENT actor is SUPERSEDED, never trusted, and never refuses", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const res = await sendApp().request("/api/transport/send", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch@my-rig" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "hi", actorSession: "mallory@my-rig" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch@my-software-team" },
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "hi", actorSession: "mallory@my-software-team" }),
     });
     expect(res.status).toBe(200);
     const rows = outboxRows();
     expect(rows).toHaveLength(1);
-    expect(rows[0]!["sender_session"]).toBe("orch@my-rig"); // wire wins
+    expect(rows[0]!["sender_session"]).toBe("orch@my-software-team"); // wire wins
     expect(rows[0]!["sender_session"]).not.toContain("mallory"); // body DISCARDED, not recorded
   });
 
   it("A3 — a header-LESS send (no derived actor) auto-records NO row (nothing to attribute; no fabricated sender)", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const res = await sendApp().request("/api/transport/send", {
       method: "POST",
-      headers: { "Content-Type": "application/json" }, // no X-OpenRig-Session
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "hi" }),
+      headers: { "Content-Type": "application/json" }, // no X-SoftwareTeam-Session
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "hi" }),
     });
     expect(res.status).toBe(200); // delivers (non-interactive send tolerates a null actor)
     expect(outboxRows()).toHaveLength(0); // but no derived sender ⇒ no auto-record, never a null-sender row
@@ -257,30 +257,30 @@ describe("transport routes", () => {
   //    per-recipient design; a TargetSpec would poison the typed column). Same downstream-of-derivation
   //    shape as /send. ──
   it("A3b — a broadcast auto-records N rows, one per RESOLVED recipient (sender=derived, provenance=transport:v1, destination=each session, never the TargetSpec)", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const res = await sendApp().request("/api/transport/broadcast", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch@my-rig" },
-      body: JSON.stringify({ rig: "my-rig", text: "team update" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch@my-software-team" },
+      body: JSON.stringify({ softwareTeam: "my-software-team", text: "team update" }),
     });
     expect(res.status).toBe(200);
     const rows = outboxRows();
     expect(rows).toHaveLength(2); // one per resolved recipient, NOT one broadcast row
-    expect(rows.map((r) => r["destination_session"]).sort()).toEqual(["dev-impl@my-rig", "dev-qa@my-rig"]);
+    expect(rows.map((r) => r["destination_session"]).sort()).toEqual(["dev-impl@my-software-team", "dev-qa@my-software-team"]);
     for (const r of rows) {
-      expect(r["sender_session"]).toBe("orch@my-rig"); // the DERIVED actor, per row
+      expect(r["sender_session"]).toBe("orch@my-software-team"); // the DERIVED actor, per row
       expect(r["identity_provenance"]).toBe("transport:v1");
-      expect(String(r["destination_session"])).not.toContain("rig:"); // a resolved session, never the TargetSpec
+      expect(String(r["destination_session"])).not.toContain("software-team:"); // a resolved session, never the TargetSpec
       expect(r["delivery_state"]).toBe("delivered"); // all landed (mockTmux) ⇒ per-row state
     }
   });
 
   it("A3b — a PARTIAL fan-out records per-row delivery_state (delivered vs failed) — the truth one row could not express", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const transport = new SessionTransport({
-      db, rigRepo, sessionRegistry,
+      db, softwareTeamRepo, sessionRegistry,
       // dev-qa's pane is missing ⇒ its send fails; dev-impl lands. A partial fan-out.
-      tmuxAdapter: mockTmux({ hasSession: async (name: string) => name !== "dev-qa@my-rig" }),
+      tmuxAdapter: mockTmux({ hasSession: async (name: string) => name !== "dev-qa@my-software-team" }),
     });
     migrate(db, [outboxEntriesSchema]);
     if (!(db.prepare("PRAGMA table_info(outbox_entries)").all() as Array<{ name: string }>).some((c) => c.name === "identity_provenance")) {
@@ -289,38 +289,38 @@ describe("transport routes", () => {
     const app = createApp({ sessionTransport: transport, outboxHandler: new OutboxHandler(db) });
     const res = await app.request("/api/transport/broadcast", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch@my-rig" },
-      body: JSON.stringify({ rig: "my-rig", text: "team update" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch@my-software-team" },
+      body: JSON.stringify({ softwareTeam: "my-software-team", text: "team update" }),
     });
     expect(res.status).toBe(200);
     const byDest = Object.fromEntries(outboxRows().map((r) => [r["destination_session"], r["delivery_state"]]));
-    expect(byDest["dev-impl@my-rig"]).toBe("delivered");
-    expect(byDest["dev-qa@my-rig"]).toBe("failed"); // per-recipient truth, not a lossy aggregate
+    expect(byDest["dev-impl@my-software-team"]).toBe("delivered");
+    expect(byDest["dev-qa@my-software-team"]).toBe("failed"); // per-recipient truth, not a lossy aggregate
   });
 
   // Same conversion on the fan-out path (the second deleted guard, transport.ts:223).
   it("A3b — a broadcast whose body actor differs is DELIVERED, and every row carries the HEADER identity", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const res = await sendApp().request("/api/transport/broadcast", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch@my-rig" },
-      body: JSON.stringify({ rig: "my-rig", text: "hi", actorSession: "mallory@my-rig" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch@my-software-team" },
+      body: JSON.stringify({ softwareTeam: "my-software-team", text: "hi", actorSession: "mallory@my-software-team" }),
     });
     expect(res.status).toBe(200);
     const rows = outboxRows();
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
-      expect(row["sender_session"]).toBe("orch@my-rig");
+      expect(row["sender_session"]).toBe("orch@my-software-team");
       expect(row["sender_session"]).not.toContain("mallory");
     }
   });
 
   it("A3b — a header-LESS broadcast auto-records NO rows (no derived sender to attribute)", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const res = await sendApp().request("/api/transport/broadcast", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rig: "my-rig", text: "hi" }),
+      body: JSON.stringify({ softwareTeam: "my-software-team", text: "hi" }),
     });
     expect(res.status).toBe(200);
     expect(outboxRows()).toHaveLength(0);
@@ -329,20 +329,20 @@ describe("transport routes", () => {
   // OPR.99.0.6.3 — the additive outcome field auto-surfaces through the
   // c.json(result) passthrough; failure HTTP mapping unchanged.
   it("POST /send with verify surfaces the outcome field in the JSON response (passthrough)", async () => {
-    seedRig();
+    seedSoftwareTeam();
     // Pre-existing pane content means the post-capture cannot re-confirm:
     // the redraw-race middle outcome.
     const tmux = {
       ...mockTmux(),
       capturePaneContent: async () => "idle\nhello\n❯ ",
     } as unknown as TmuxAdapter;
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "hello", verify: true }),
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "hello", verify: true }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -352,18 +352,18 @@ describe("transport routes", () => {
   });
 
   it("POST /send verify failure stays HTTP-error-distinct from the middle outcome (discriminator)", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const tmux = {
       ...mockTmux(),
       sendKeys: async () => ({ ok: false as const, code: "session_not_found", message: "session died" }),
     } as unknown as TmuxAdapter;
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "hello", verify: true }),
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "hello", verify: true }),
     });
     // submit_failed maps to 502 (unchanged); the middle outcome above is 200.
     expect(res.status).toBe(502);
@@ -376,8 +376,8 @@ describe("transport routes", () => {
   it.each(["different body", "different long tail", "wrapped full", "wrapped wrong tail", "suffix same line", "suffix next line", "agent reply", "plain assistant output", "thinking before framed composer", "quoted reply", "unsent input", "submitted transcript"])(
     "POST /send verifies submitted message identity: %s",
     async (mode) => {
-      seedRig();
-      const text = "From: sender-agent@demo\nTo: dev-impl@my-rig\nSent: 10-11 05:00Z\n---\nPlease check this task.";
+      seedSoftwareTeam();
+      const text = "From: sender-agent@demo\nTo: dev-impl@my-software-team\nSent: 10-11 05:00Z\n---\nPlease check this task.";
       const message = ["different long tail", "wrapped full", "wrapped wrong tail"].includes(mode) ? text.replace("Please check this task.",
         "A shared opening longer than forty characters belongs to both messages. Requested tail.") : text;
       const rendered = "❯ " + message.split("\n").join("\n  ");
@@ -401,11 +401,11 @@ describe("transport routes", () => {
               : mode === "plain assistant output" ? rendered.replace(/^❯/, "›") + "\nAssistant output without a role glyph"
               : mode === "quoted reply" ? rendered + "\n  ⏺ extra quoted body" : rendered) + "\n❯ ",
       });
-      const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux, sleep: async () => undefined });
+      const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux, sleep: async () => undefined });
       const res = await createApp({ sessionTransport: transport }).request("/api/transport/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session: "dev-impl@my-rig", text: message, verify: true }),
+        body: JSON.stringify({ session: "dev-impl@my-software-team", text: message, verify: true }),
       });
       expect(res.status).toBe(200);
       expect(await res.json()).toMatchObject({ ok: true, verified: expectedVerified,
@@ -414,18 +414,18 @@ describe("transport routes", () => {
   );
 
   it("POST /send to a mid-work pane returns 200 and DELIVERS with a non-blocking advisory (OPR.0.4.3.28 fast-follow — mid_work downgraded)", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const tmux = {
       ...mockTmux(),
       capturePaneContent: async () => "Working on task...\n⠋ Processing\nesc to interrupt",
     } as unknown as TmuxAdapter;
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "hello" }),
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "hello" }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -435,13 +435,13 @@ describe("transport routes", () => {
 
   // OPR.0.4.1.10 — prompt/permission guard surfaces through the route as 409 target_needs_input.
   it("POST /send to an interactive prompt returns 409 target_needs_input (default, no override)", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const tmux = { ...mockTmux(), capturePaneContent: async () => "❯ 1. Authorize\n  2. Hold" } as unknown as TmuxAdapter;
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
     const res = await app.request("/api/transport/send", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "stand down" }),
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "stand down" }),
     });
     expect(res.status).toBe(409);
     expect((await res.json()).reason).toBe("target_needs_input");
@@ -449,31 +449,31 @@ describe("transport routes", () => {
 
   // OPR.0.4.1.10 — the route rejects contradictory / unauditable override requests before transport.
   it("POST /send rejects --dangerously-interact + --wait-for-idle with 400", async () => {
-    seedRig();
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: mockTmux() });
+    seedSoftwareTeam();
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: mockTmux() });
     const app = createApp({ sessionTransport: transport });
     const res = await app.request("/api/transport/send", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "x", dangerouslyInteract: true, reason: "y", waitForIdleMs: 1000 }),
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "x", dangerouslyInteract: true, reason: "y", waitForIdleMs: 1000 }),
     });
     expect(res.status).toBe(400);
     expect((await res.json()).reason).toBe("invalid_dangerously_interact");
   });
 
   it("POST /send rejects --dangerously-interact without a reason with 400", async () => {
-    seedRig();
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: mockTmux() });
+    seedSoftwareTeam();
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: mockTmux() });
     const app = createApp({ sessionTransport: transport });
     const res = await app.request("/api/transport/send", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "x", dangerouslyInteract: true }),
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "x", dangerouslyInteract: true }),
     });
     expect(res.status).toBe(400);
     expect((await res.json()).reason).toBe("dangerously_interact_requires_reason");
   });
 
   it("POST /send with waitForIdleMs waits for idle and returns activity evidence", async () => {
-    seedRig();
+    seedSoftwareTeam();
     let captureCount = 0;
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({
@@ -481,13 +481,13 @@ describe("transport routes", () => {
         captureCount++;
         return captureCount === 1
           ? "Working on task...\n⠋ Processing\nesc to interrupt"
-          : "› Use /skills to list available skills\n\n  gpt-5.5 high · Context [████ ] · ~/code/projects/openrig";
+          : "› Use /skills to list available skills\n\n  gpt-5.5 high · Context [████ ] · ~/code/projects/softwareteam";
       },
       sendText: sendTextSpy,
     });
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: tmux,
       sleep: async () => undefined,
@@ -498,7 +498,7 @@ describe("transport routes", () => {
     const res = await app.request("/api/transport/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "hello", waitForIdleMs: 50 }),
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "hello", waitForIdleMs: 50 }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -506,15 +506,15 @@ describe("transport routes", () => {
     expect(body.sent).toBe(true);
     expect(body.attempts).toBe(2);
     expect(body.activity.state).toBe("idle");
-    expect(sendTextSpy).toHaveBeenCalledWith("dev-impl@my-rig", "hello");
+    expect(sendTextSpy).toHaveBeenCalledWith("dev-impl@my-software-team", "hello");
   });
 
   it("POST /send rejects force with waitForIdleMs before sending", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux({ sendText: sendTextSpy }),
     });
@@ -523,7 +523,7 @@ describe("transport routes", () => {
     const res = await app.request("/api/transport/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "hello", force: true, waitForIdleMs: 50 }),
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "hello", force: true, waitForIdleMs: 50 }),
     });
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -532,7 +532,7 @@ describe("transport routes", () => {
   });
 
   it("POST /send maps wait timeout to 409 without sending text", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({
       capturePaneContent: async () => "Working on task...\n⠋ Processing\nesc to interrupt",
@@ -540,7 +540,7 @@ describe("transport routes", () => {
     });
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: tmux,
       waitForIdlePollMs: 1,
@@ -550,7 +550,7 @@ describe("transport routes", () => {
     const res = await app.request("/api/transport/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "hello", waitForIdleMs: 1 }),
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "hello", waitForIdleMs: 1 }),
     });
     expect(res.status).toBe(409);
     const body = await res.json();
@@ -561,17 +561,17 @@ describe("transport routes", () => {
   });
 
   it("POST /send with ambiguous session returns 409", async () => {
-    // Create two rigs, both with same canonical session name
-    const rig1 = rigRepo.createRig("rig-a");
-    const node1 = rigRepo.addNode(rig1.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+    // Create two softwareTeams, both with same canonical session name
+    const rig1 = softwareTeamRepo.createSoftwareTeam("software-team-a");
+    const node1 = softwareTeamRepo.addNode(rig1.id, "dev.impl", { role: "worker", runtime: "claude-code" });
     sessionRegistry.registerSession(node1.id, "dev-impl@shared");
 
-    const rig2 = rigRepo.createRig("rig-b");
-    const node2 = rigRepo.addNode(rig2.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+    const rig2 = softwareTeamRepo.createSoftwareTeam("software-team-b");
+    const node2 = softwareTeamRepo.addNode(rig2.id, "dev.impl", { role: "worker", runtime: "claude-code" });
     sessionRegistry.registerSession(node2.id, "dev-impl@shared");
 
     const tmux = mockTmux();
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/send", {
@@ -585,15 +585,15 @@ describe("transport routes", () => {
   });
 
   it("POST /send to external_cli target returns 409 with honest transport guidance", async () => {
-    seedExternalCliRig();
+    seedExternalCliSoftwareTeam();
     const tmux = mockTmux();
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "orch1-lead@rigged-buildout", text: "hello" }),
+      body: JSON.stringify({ session: "orch1-lead@softwareteam-buildout", text: "hello" }),
     });
     expect(res.status).toBe(409);
     const body = await res.json();
@@ -601,16 +601,16 @@ describe("transport routes", () => {
     expect(body.error).toContain("external CLI");
   });
 
-  it("POST /capture with rig targeting returns multi-session results", async () => {
-    seedRig();
+  it("POST /capture with SoftwareTeam targeting returns multi-session results", async () => {
+    seedSoftwareTeam();
     const tmux = mockTmux();
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/capture", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rig: "my-rig" }),
+      body: JSON.stringify({ softwareTeam: "my-software-team" }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -619,17 +619,17 @@ describe("transport routes", () => {
     expect(body.results.every((r: { ok: boolean }) => r.ok)).toBe(true);
   });
 
-  it("POST /capture with rig targeting includes external_cli targets as explicit failures", async () => {
-    seedRig();
-    seedExternalCliRig();
+  it("POST /capture with SoftwareTeam targeting includes external_cli targets as explicit failures", async () => {
+    seedSoftwareTeam();
+    seedExternalCliSoftwareTeam();
     const tmux = mockTmux();
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/capture", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rig: "rigged-buildout" }),
+      body: JSON.stringify({ softwareTeam: "softwareteam-buildout" }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -639,15 +639,15 @@ describe("transport routes", () => {
   });
 
   it("POST /capture for external_cli target returns 409 with honest transport guidance", async () => {
-    seedExternalCliRig();
+    seedExternalCliSoftwareTeam();
     const tmux = mockTmux();
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/capture", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "orch1-lead@rigged-buildout" }),
+      body: JSON.stringify({ session: "orch1-lead@softwareteam-buildout" }),
     });
     expect(res.status).toBe(409);
     const body = await res.json();
@@ -655,10 +655,10 @@ describe("transport routes", () => {
     expect(body.error).toContain("external CLI");
   });
 
-  it("POST /broadcast without rig/pod broadcasts globally to all running sessions", async () => {
-    seedRig(); // creates my-rig with dev-impl@my-rig and dev-qa@my-rig
+  it("POST /broadcast without softwareTeam/pod broadcasts globally to all running sessions", async () => {
+    seedSoftwareTeam(); // creates my-softwareTeam with dev-impl@my-softwareTeam and dev-qa@my-softwareTeam
     const tmux = mockTmux();
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/broadcast", {
@@ -673,7 +673,7 @@ describe("transport routes", () => {
   });
 
   it("POST /broadcast with partial failure returns honest per-target outcomes", async () => {
-    seedRig();
+    seedSoftwareTeam();
     let callCount = 0;
     const tmux = {
       ...mockTmux(),
@@ -686,13 +686,13 @@ describe("transport routes", () => {
       },
       capturePaneContent: async () => "idle\n❯ ",
     } as unknown as TmuxAdapter;
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/broadcast", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rig: "my-rig", text: "broadcast message", force: true }),
+      body: JSON.stringify({ softwareTeam: "my-software-team", text: "broadcast message", force: true }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -701,27 +701,27 @@ describe("transport routes", () => {
     expect(body.failed).toBe(1);
   });
 
-  // OPR.0.4.3.30 — `rig send` fan-out via /broadcast: explicit list target + per-recipient envelope.
+  // OPR.0.4.3.30 — `SoftwareTeam send` fan-out via /broadcast: explicit list target + per-recipient envelope.
   // CONTRACT CHANGE (ruling 03c35295, review-visible): a `sessions` multi-send now renders the FULL
   // recipient list on EVERY recipient's To line — the anti-storm behavior (each recipient sees WHO
   // ELSE got it, so it never re-forwards to peers who already have it). This SUPERSEDES the prior
   // per-recipient-isolated To (B1); the wrap is still per-recipient (own From + reply hint), only the
   // To projection changed from <that seat> to <full list>.
   it("POST /broadcast with a sessions list renders the FULL recipient list on every To (anti-storm, B1)", async () => {
-    seedRig(); // dev-impl@my-rig + dev-qa@my-rig
+    seedSoftwareTeam(); // dev-impl@my-softwareTeam + dev-qa@my-softwareTeam
     const delivered: string[] = [];
     const tmux = mockTmux({ sendText: async (_target: string, text: string) => { delivered.push(text); return { ok: true as const }; } });
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/broadcast", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch@my-rig" }, // P21: From: derives from the header
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch@my-software-team" }, // P21: From: derives from the header
       body: JSON.stringify({
-        sessions: ["dev-impl@my-rig", "dev-qa@my-rig"],
+        sessions: ["dev-impl@my-software-team", "dev-qa@my-software-team"],
         text: "hello team",
         force: true,
-        envelopeSender: "orch@my-rig",
+        envelopeSender: "orch@my-software-team",
       }),
     });
     expect(res.status).toBe(200);
@@ -731,23 +731,23 @@ describe("transport routes", () => {
     expect(delivered).toHaveLength(2);
     // Both recipients get the SAME full-list To (WHO got it) — the anti-storm teeth.
     for (const text of delivered) {
-      expect(text).toContain("To: dev-impl@my-rig, dev-qa@my-rig");
-      expect(text).toContain("From: orch@my-rig"); // still per-recipient wrapped (own From + reply)
+      expect(text).toContain("To: dev-impl@my-software-team, dev-qa@my-software-team");
+      expect(text).toContain("From: orch@my-software-team"); // still per-recipient wrapped (own From + reply)
       expect(text).toContain("---\nhello team\n---");
     }
   });
 
-  it("POST /broadcast WITHOUT envelopeSender delivers raw text to all (rig broadcast unchanged)", async () => {
-    seedRig();
+  it("POST /broadcast WITHOUT envelopeSender delivers raw text to all (SoftwareTeam broadcast unchanged)", async () => {
+    seedSoftwareTeam();
     const delivered: string[] = [];
     const tmux = mockTmux({ sendText: async (_target: string, text: string) => { delivered.push(text); return { ok: true as const }; } });
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/broadcast", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rig: "my-rig", text: "raw msg", force: true }),
+      body: JSON.stringify({ softwareTeam: "my-software-team", text: "raw msg", force: true }),
     });
     expect(res.status).toBe(200);
     expect(delivered).toHaveLength(2);
@@ -756,35 +756,35 @@ describe("transport routes", () => {
   });
 
   it("POST /broadcast with an unknown seat in the list rejects honestly, naming the seat", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const tmux = mockTmux();
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/broadcast", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessions: ["dev-impl@my-rig", "ghost@my-rig"], text: "x", force: true }),
+      body: JSON.stringify({ sessions: ["dev-impl@my-software-team", "ghost@my-software-team"], text: "x", force: true }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.total).toBe(0);
-    expect(body.results[0].error).toContain("ghost@my-rig");
+    expect(body.results[0].error).toContain("ghost@my-software-team");
   });
 
   it("POST /broadcast list: one recipient failing does NOT abort the others (independence)", async () => {
-    seedRig();
+    seedSoftwareTeam();
     let n = 0;
     const tmux = mockTmux({
       sendText: async () => { n++; return n > 1 ? { ok: false as const, code: "e", message: "boom" } : { ok: true as const }; },
     });
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/broadcast", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch@my-rig" }, // P21: From: derives from the header
-      body: JSON.stringify({ sessions: ["dev-impl@my-rig", "dev-qa@my-rig"], text: "x", force: true, envelopeSender: "orch@my-rig" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch@my-software-team" }, // P21: From: derives from the header
+      body: JSON.stringify({ sessions: ["dev-impl@my-software-team", "dev-qa@my-software-team"], text: "x", force: true, envelopeSender: "orch@my-software-team" }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -794,12 +794,12 @@ describe("transport routes", () => {
   });
 
   it("POST /broadcast list keeps per-recipient send guard semantics for unknown telemetry and picker refusal", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const delivered: string[] = [];
     const tmux = mockTmux({
       capturePaneContent: async (target: string) => {
-        if (target === "dev-impl@my-rig") {
-          return "OpenRig pane capture failed before activity could be classified";
+        if (target === "dev-impl@my-software-team") {
+          return "SoftwareTeam pane capture failed before activity could be classified";
         }
         return [
           "Would you like to run the following command?",
@@ -813,16 +813,16 @@ describe("transport routes", () => {
         return { ok: true as const };
       },
     });
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/broadcast", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch@my-rig" }, // P21: From: derives from the header
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch@my-software-team" }, // P21: From: derives from the header
       body: JSON.stringify({
-        sessions: ["dev-impl@my-rig", "dev-qa@my-rig"],
+        sessions: ["dev-impl@my-software-team", "dev-qa@my-software-team"],
         text: "union seam",
-        envelopeSender: "orch@my-rig",
+        envelopeSender: "orch@my-software-team",
       }),
     });
 
@@ -832,34 +832,34 @@ describe("transport routes", () => {
     expect(body.sent).toBe(1);
     expect(body.failed).toBe(1);
 
-    const impl = body.results.find((r: { sessionName: string }) => r.sessionName === "dev-impl@my-rig");
-    const qa = body.results.find((r: { sessionName: string }) => r.sessionName === "dev-qa@my-rig");
-    expect(impl).toMatchObject({ ok: true, sessionName: "dev-impl@my-rig" });
+    const impl = body.results.find((r: { sessionName: string }) => r.sessionName === "dev-impl@my-software-team");
+    const qa = body.results.find((r: { sessionName: string }) => r.sessionName === "dev-qa@my-software-team");
+    expect(impl).toMatchObject({ ok: true, sessionName: "dev-impl@my-software-team" });
     expect(impl.warning).toContain("producer-link:");
     expect(impl.warning).toContain("sent anyway (telemetry is advisory)");
-    expect(qa).toMatchObject({ ok: false, sessionName: "dev-qa@my-rig", reason: "target_needs_input" });
+    expect(qa).toMatchObject({ ok: false, sessionName: "dev-qa@my-software-team", reason: "target_needs_input" });
     expect(qa.error).toContain("--dangerously-interact --reason");
     expect(delivered).toHaveLength(1);
-    expect(delivered[0]).toContain("dev-impl@my-rig:");
-    expect(delivered[0]).toContain("To: dev-impl@my-rig");
+    expect(delivered[0]).toContain("dev-impl@my-software-team:");
+    expect(delivered[0]).toContain("To: dev-impl@my-software-team");
   });
 
   it("POST /broadcast plumbs danger/reason/actorSession to EACH recipient send (per-seat, not per-batch)", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const tmux = mockTmux();
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const sendSpy = vi.spyOn(transport, "send");
     const app = createApp({ sessionTransport: transport });
 
     await app.request("/api/transport/broadcast", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch@my-rig" }, // P21: From: derives from the header
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch@my-software-team" }, // P21: From: derives from the header
       body: JSON.stringify({
-        sessions: ["dev-impl@my-rig", "dev-qa@my-rig"],
+        sessions: ["dev-impl@my-software-team", "dev-qa@my-software-team"],
         text: "unblock please",
         dangerouslyInteract: true,
         reason: "drive the stuck prompt",
-        actorSession: "orch@my-rig",
+        actorSession: "orch@my-software-team",
       }),
     });
     expect(sendSpy).toHaveBeenCalledTimes(2);
@@ -867,21 +867,21 @@ describe("transport routes", () => {
       expect(call[2]).toMatchObject({
         dangerouslyInteract: true,
         reason: "drive the stuck prompt",
-        actorSession: "orch@my-rig",
+        actorSession: "orch@my-software-team",
       });
     }
   });
 
   it("POST /broadcast includes external_cli targets as explicit transport_unavailable failures", async () => {
-    seedExternalCliRig();
+    seedExternalCliSoftwareTeam();
     const tmux = mockTmux();
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
     const app = createApp({ sessionTransport: transport });
 
     const res = await app.request("/api/transport/broadcast", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rig: "rigged-buildout", text: "broadcast message", force: true }),
+      body: JSON.stringify({ softwareTeam: "softwareteam-buildout", text: "broadcast message", force: true }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -893,51 +893,51 @@ describe("transport routes", () => {
 
   // ── P21 I4: the rendered From: + the override audit actor derive from the transport, never the body ──
   it("P21 I4: the From: line derives from the transport header, IGNORING a forged body.envelopeSender (specimen-5 kill)", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const delivered: string[] = [];
     const tmux = mockTmux({ sendText: async (_t: string, text: string) => { delivered.push(text); return { ok: true as const }; } });
-    const app = createApp({ sessionTransport: new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux }) });
+    const app = createApp({ sessionTransport: new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux }) });
     const res = await app.request("/api/transport/broadcast", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch@my-rig" }, // the REAL sender
-      body: JSON.stringify({ sessions: ["dev-impl@my-rig"], text: "hi", force: true, envelopeSender: "pm-lead@my-rig" }), // FORGED From:
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch@my-software-team" }, // the REAL sender
+      body: JSON.stringify({ sessions: ["dev-impl@my-software-team"], text: "hi", force: true, envelopeSender: "pm-lead@my-software-team" }), // FORGED From:
     });
     expect(res.status).toBe(200);
     for (const text of delivered) {
-      expect(text).toContain("From: orch@my-rig"); // the transport identity, NOT the forged pm-lead claim
-      expect(text).not.toContain("From: pm-lead@my-rig"); // the false From: the incident acted upon never renders
+      expect(text).toContain("From: orch@my-software-team"); // the transport identity, NOT the forged pm-lead claim
+      expect(text).not.toContain("From: pm-lead@my-software-team"); // the false From: the incident acted upon never renders
     }
   });
 
   it("P21 I4 → S2: an enveloped send with NO authenticated identity DELIVERS as unknown (still never renders an unverified From:)", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const delivered: string[] = [];
     const tmux = mockTmux({
       sendText: async (_t: string, text: string) => { delivered.push(text); return { ok: true as const }; },
     });
-    const app = createApp({ sessionTransport: new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux }) });
+    const app = createApp({ sessionTransport: new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux }) });
     const res = await app.request("/api/transport/broadcast", {
       method: "POST",
-      headers: { "Content-Type": "application/json" }, // NO X-OpenRig-Session
-      body: JSON.stringify({ sessions: ["dev-impl@my-rig"], text: "hi", force: true, envelopeSender: "anyone@my-rig" }),
+      headers: { "Content-Type": "application/json" }, // NO X-SoftwareTeam-Session
+      body: JSON.stringify({ sessions: ["dev-impl@my-software-team"], text: "hi", force: true, envelopeSender: "anyone@my-software-team" }),
     });
     // S2 (OPR.0.5.4.3, founder descope): delivery replaces the refusal; the
     // specimen-5 invariant is UNCHANGED — the body claim never renders.
     expect(res.status).toBe(200);
     expect(delivered.some((t) => t.includes("From: <unknown sender>"))).toBe(true);
-    expect(delivered.every((t) => !t.includes("anyone@my-rig"))).toBe(true);
+    expect(delivered.every((t) => !t.includes("anyone@my-software-team"))).toBe(true);
   });
 
   it("P21 I4 → S2: --dangerously-interact with NO identity delivers and audits its actual idle state", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const eventBus = new EventBus(db);
     const agentActivityStore = new AgentActivityStore({ db, eventBus });
-    agentActivityStore.recordHookEvent({ runtime: "claude-code", sessionName: "dev-impl@my-rig", hookEvent: "Stop" });
-    const app = createApp({ sessionTransport: new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: mockTmux(), eventBus, agentActivityStore }) });
+    agentActivityStore.recordHookEvent({ runtime: "claude-code", sessionName: "dev-impl@my-software-team", hookEvent: "Stop" });
+    const app = createApp({ sessionTransport: new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: mockTmux(), eventBus, agentActivityStore }) });
     const res = await app.request("/api/transport/send", {
       method: "POST",
-      headers: { "Content-Type": "application/json" }, // NO X-OpenRig-Session
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "drive it", dangerouslyInteract: true, reason: "why" }),
+      headers: { "Content-Type": "application/json" }, // NO X-SoftwareTeam-Session
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "drive it", dangerouslyInteract: true, reason: "why" }),
     });
     // Unknown-sender delivery stays accepted. Explicit interaction now audits
     // every readiness state without inventing an actor or a positive prompt.
@@ -949,12 +949,12 @@ describe("transport routes", () => {
   });
 
   it("P21 I4: a body actorSession that DIFFERS from the header is SUPERSEDED (no identity_mismatch refusal)", async () => {
-    seedRig();
-    const app = createApp({ sessionTransport: new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: mockTmux() }) });
+    seedSoftwareTeam();
+    const app = createApp({ sessionTransport: new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: mockTmux() }) });
     const res = await app.request("/api/transport/send", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch@my-rig" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", text: "x", actorSession: "mallory@my-rig" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch@my-software-team" },
+      body: JSON.stringify({ session: "dev-impl@my-software-team", text: "x", actorSession: "mallory@my-software-team" }),
     });
     expect(res.status).toBe(200);
     // the refusal is gone from this path entirely — not merely a different status
@@ -966,7 +966,7 @@ describe("transport routes", () => {
   // audit records a null actor; raw sends stay byte-verbatim), and the sender-
   // facing response carries the sign-it notice.
   describe("S2 — unknown-sender honesty (OPR.0.5.4.3)", () => {
-    const HOSTILE_CLAIM = "pm-lead@evil-rig";
+    const HOSTILE_CLAIM = "pm-lead@evil-software-team";
     const PICKER_PROMPT = [
       "Authorize the 0.4.0 release?",
       "",
@@ -988,7 +988,7 @@ describe("transport routes", () => {
         getPaneCommand: async () => "claude",
       });
       const transport = new SessionTransport({
-        db, rigRepo, sessionRegistry, tmuxAdapter: tmux, eventBus, agentActivityStore,
+        db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux, eventBus, agentActivityStore,
       });
       return { app: createApp({ sessionTransport: transport }), sentTexts };
     }
@@ -998,12 +998,12 @@ describe("transport routes", () => {
         .map((r) => JSON.parse(r.payload) as Record<string, unknown>);
 
     it("PROOF-1: enveloped broadcast with no header DELIVERS, From: is the unknown marker, hostile body claim never renders, notice in payload", async () => {
-      seedRig();
+      seedSoftwareTeam();
       const { app, sentTexts } = spyTransportApp();
       const res = await app.request("/api/transport/broadcast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessions: ["dev-impl@my-rig", "dev-qa@my-rig"], text: "hello team", envelopeSender: HOSTILE_CLAIM }),
+        body: JSON.stringify({ sessions: ["dev-impl@my-software-team", "dev-qa@my-software-team"], text: "hello team", envelopeSender: HOSTILE_CLAIM }),
       });
       expect(res.status).toBe(200); // RED at pre-fix bytes: 401 unattributable_sender
       const data = (await res.json()) as Record<string, unknown>;
@@ -1018,14 +1018,14 @@ describe("transport routes", () => {
     });
 
     it("PROOF-2: send --dangerously-interact with no header proceeds on a STAGED needs_input prompt; the audit row carries actorSession NULL", async () => {
-      seedRig();
+      seedSoftwareTeam();
       const { app } = spyTransportApp({ paneContent: PICKER_PROMPT });
       // Positive staged-prompt evidence BEFORE the override: the default guard
       // itself detects the pending picker and refuses.
       const guard = await app.request("/api/transport/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session: "dev-impl@my-rig", text: "hi" }),
+        body: JSON.stringify({ session: "dev-impl@my-software-team", text: "hi" }),
       });
       expect(guard.status).toBe(409);
       expect(((await guard.json()) as Record<string, unknown>)["reason"]).toBe("target_needs_input");
@@ -1033,7 +1033,7 @@ describe("transport routes", () => {
       const res = await app.request("/api/transport/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session: "dev-impl@my-rig", text: "1", dangerouslyInteract: true, reason: "S2 proof: drive the staged test prompt" }),
+        body: JSON.stringify({ session: "dev-impl@my-software-team", text: "1", dangerouslyInteract: true, reason: "S2 proof: drive the staged test prompt" }),
       });
       expect(res.status).toBe(200); // RED at pre-fix bytes: 401 unattributable_sender
       const rows = overrideAuditRows();
@@ -1043,12 +1043,12 @@ describe("transport routes", () => {
     });
 
     it("PROOF-2b: broadcast --dangerously-interact with no header proceeds; per-seat audit actorSession NULL", async () => {
-      seedRig();
+      seedSoftwareTeam();
       const { app } = spyTransportApp({ paneContent: PICKER_PROMPT });
       const res = await app.request("/api/transport/broadcast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessions: ["dev-impl@my-rig"], text: "1", dangerouslyInteract: true, reason: "S2 proof: drive the staged test prompt" }),
+        body: JSON.stringify({ sessions: ["dev-impl@my-software-team"], text: "1", dangerouslyInteract: true, reason: "S2 proof: drive the staged test prompt" }),
       });
       expect(res.status).toBe(200); // RED at pre-fix bytes: 401 unattributable_sender
       const rows = overrideAuditRows();
@@ -1057,12 +1057,12 @@ describe("transport routes", () => {
     });
 
     it("PROOF-4a: a plain unattributed send delivers BYTE-VERBATIM (no recipient-side marker) plus the response notice", async () => {
-      seedRig();
+      seedSoftwareTeam();
       const { app, sentTexts } = spyTransportApp();
       const res = await app.request("/api/transport/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session: "dev-impl@my-rig", text: "exact bytes ✓ --- é" }),
+        body: JSON.stringify({ session: "dev-impl@my-software-team", text: "exact bytes ✓ --- é" }),
       });
       expect(res.status).toBe(200);
       expect(sentTexts[0]!.text).toBe("exact bytes ✓ --- é"); // raw sends are keystrokes, never mail
@@ -1072,12 +1072,12 @@ describe("transport routes", () => {
     });
 
     it("PROOF-4b: an attributed send delivers verbatim with a runtime advisory but no unknown-sender notice", async () => {
-      seedRig();
+      seedSoftwareTeam();
       const { app, sentTexts } = spyTransportApp();
       const res = await app.request("/api/transport/send", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch@my-rig" },
-        body: JSON.stringify({ session: "dev-impl@my-rig", text: "hello" }),
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch@my-software-team" },
+        body: JSON.stringify({ session: "dev-impl@my-software-team", text: "hello" }),
       });
       expect(res.status).toBe(200);
       expect(sentTexts[0]!.text).toBe("hello");

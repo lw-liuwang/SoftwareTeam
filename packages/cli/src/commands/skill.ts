@@ -9,7 +9,7 @@ import {
   reconcileSkillLoadout,
   resolveSkillLoadout,
   type SkillRuntime,
-} from "@openrig/daemon/skill-loadout";
+} from "@softwareteam/daemon/skill-loadout";
 
 interface AuditFinding {
   class: string;

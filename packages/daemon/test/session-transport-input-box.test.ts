@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type Database from "better-sqlite3";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SessionTransport, type SendOpts, type SendResult } from "../src/domain/session-transport.js";
 import { AgentActivityStore } from "../src/domain/agent-activity-store.js";
@@ -89,12 +89,12 @@ const claudeShortStagedWhileRunningTextFooter = editLine(claudeStagedWhileRunnin
 // Edit (ADV4-4, review 4 R4): the 3 real wrapped box rows staged in the running frame under that footer.
 const claudeWrappedStagedWhileRunningTextFooter = editLine(editLine(claudeRunning, claudeBoxRow, wrappedBoxRows), claudeFooterRow, claudeTextFooter);
 
-// OpenRig's own Claude launch (ADV4-1). Every Claude seat is launched with `--name <session>`, a permission posture
-// (claudePostureFlag: acceptEdits by default) and OpenRig's statusLine collector. Edits of real frames:
+// SoftwareTeam's own Claude launch (ADV4-1). Every Claude seat is launched with `--name <session>`, a permission posture
+// (claudePostureFlag: acceptEdits by default) and SoftwareTeam's statusLine collector. Edits of real frames:
 /** The box's opening rule (the rule above the last `❯` row) drawn with this seat's session name, as Claude Code draws
  *  `--name`: the rule, the name padded by one space each side, then `trailing` rule cells (one in the 2.1.296
- *  bundle, two in real frames of OpenRig seats from earlier versions), as wide as the plain rule it replaces. */
-function nameBox(frame: string, name = "dev-impl@my-rig", trailing = 1): string {
+ *  bundle, two in real frames of SoftwareTeam seats from earlier versions), as wide as the plain rule it replaces. */
+function nameBox(frame: string, name = "dev-impl@my-software-team", trailing = 1): string {
   const lines = frame.split("\n");
   let box = lines.length - 1;
   while (box >= 0 && !lines[box]!.startsWith("❯")) box--;
@@ -107,8 +107,8 @@ function nameBox(frame: string, name = "dev-impl@my-rig", trailing = 1): string 
 const posture = (frame: string, footer: string) => editLine(frame, claudeFooterRow, `  ${footer}`);
 const ACCEPT_EDITS_IDLE = "⏵⏵ accept edits on (shift+tab to cycle) · ← for agents";
 const ACCEPT_EDITS_TEXT = "⏵⏵ accept edits on (shift+tab to cycle)";
-// With OpenRig's statusLine the footer drops `esc to interrupt`, so a running turn draws the idle footer row.
-const openRig = {
+// With SoftwareTeam's statusLine the footer drops `esc to interrupt`, so a running turn draws the idle footer row.
+const softwareTeam = {
   idle: posture(nameBox(claude("after-enter-15s.J")), ACCEPT_EDITS_IDLE),
   staged: (text: string) => posture(nameBox(editLine(claude("staged-short.raw"), claudeBoxRow, `❯\u00a0${text}`)), ACCEPT_EDITS_TEXT),
   running: posture(nameBox(claudeRunning), ACCEPT_EDITS_IDLE),
@@ -150,9 +150,9 @@ const codexHeaderVersion = (frame: string, version: string) => editLine(frame, (
   `  >_ OpenAI Codex (v${version})`);
 const codexUpdateFrom = (frame: string, version: string) => editLine(frame, (line) => line.includes("Update available!"),
   `│ ✨ Update available! ${version} -> 0.162.1         │`);
-// Change 3, Claude's blank status row: OpenRig's idle frame with its completion row replaced by a streamed message
+// Change 3, Claude's blank status row: SoftwareTeam's idle frame with its completion row replaced by a streamed message
 // whose last row is blank, the shape the 2.1.296 bundle does not rule out while it hides its spinner for streamed text.
-const openRigStreamingBlankTail = editLine(openRig.idle, (line) => line.startsWith("✻ Cooked"),
+const softwareTeamStreamingBlankTail = editLine(softwareTeam.idle, (line) => line.startsWith("✻ Cooked"),
   ["● I am checking the queue now; the first item is a review request.", ""]);
 
 type Phase = "prePaste" | "afterPaste" | "afterEnter";
@@ -201,13 +201,13 @@ function phasedTmux(script: Script) {
 
 describe("SessionTransport with transport.verify_input_box", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
-  const SESSION = "dev-impl@my-rig";
+  const SESSION = "dev-impl@my-software-team";
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
   });
   afterEach(() => {
@@ -215,19 +215,19 @@ describe("SessionTransport with transport.verify_input_box", () => {
     db.close();
   });
 
-  function seedCanonicalRig(runtime: string | null = "claude-code") {
-    const rig = rigRepo.createRig("my-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { role: "worker", ...(runtime ? { runtime } : {}) });
+  function seedCanonicalSoftwareTeam(runtime: string | null = "claude-code") {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("my-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { role: "worker", ...(runtime ? { runtime } : {}) });
     const session = sessionRegistry.registerSession(node.id, SESSION);
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateBinding(node.id, { tmuxSession: SESSION });
-    return { rig, node, session };
+    return { softwareTeam, node, session };
   }
 
   /** `setting` undefined builds the transport without the dep, as every other construction does. */
   function transport(tmux: TmuxAdapter, setting?: boolean | (() => boolean)) {
     return new SessionTransport({
-      db, rigRepo, sessionRegistry, tmuxAdapter: tmux, sleep: async () => {},
+      db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux, sleep: async () => {},
       ...(setting === undefined ? {} : { verifyInputBox: typeof setting === "function" ? setting : () => setting }),
     });
   }
@@ -407,12 +407,12 @@ describe("SessionTransport with transport.verify_input_box", () => {
         afterPaste: codex("submit-staged.J"), afterEnter: codex("after-enter-0.4s.J") },
       null, { seat: "not-idle", before: "exact", after: "empty", sameProcess: true }, false],
     // An unknown layout before the paste: not on the idle allow-list, so unconfirmed even when the box reads well
-    ["U1 Claude with a footer no posture of 2.1.296 under OpenRig draws (earlier versions' `? for shortcuts`)", "claude-code", texts.submit,
+    ["U1 Claude with a footer no posture of 2.1.296 under SoftwareTeam draws (earlier versions' `? for shortcuts`)", "claude-code", texts.submit,
       { prePaste: editLine(claude("after-enter-15s.J"), claudeFooterRow, "  ? for shortcuts"),
         afterPaste: claude("submit-staged.J"), afterEnter: claude("after-enter-0.4s.J") },
       null, { seat: "unknown", before: "exact", after: "empty", sameProcess: true }, false],
     ["U5 Claude: another seat's name on the box", "claude-code", texts.submit,
-      { prePaste: nameBox(claude("after-enter-15s.J"), "dev-qa@my-rig"), afterPaste: claude("submit-staged.J"), afterEnter: claude("after-enter-0.4s.J") },
+      { prePaste: nameBox(claude("after-enter-15s.J"), "dev-qa@my-software-team"), afterPaste: claude("submit-staged.J"), afterEnter: claude("after-enter-0.4s.J") },
       null, { seat: "unknown", before: "exact", after: "empty", sameProcess: true }, false],
     // A turn that starts after the pre-paste capture (ADV4-2): the seat read idle, so the queued reading of the frame
     // read before Enter is what rejects the send. A person or the agent itself (a background task finishing, a
@@ -431,16 +431,16 @@ describe("SessionTransport with transport.verify_input_box", () => {
     ["L1 (review 4 R4c) Codex: a turn starts after the pre-paste capture and streams before Enter: verifies (documented limit)", "codex", texts.short,
       { prePaste: codex("idle"), afterPaste: codexStagedWhileStreaming(texts.short), afterEnter: codexStreaming },
       null, { seat: "idle", before: "exact", after: "empty", sameProcess: true }, true],
-    // OpenRig's own Claude launch (ADV4-1): named box, accept edits, the statusLine collector. Idle verifies; running,
+    // SoftwareTeam's own Claude launch (ADV4-1): named box, accept edits, the statusLine collector. Idle verifies; running,
     // where the footer looks idle, reads not-idle through the status row above the box.
-    ["O1 OpenRig-launched Claude seat, idle: verified", "claude-code", texts.short,
-      { prePaste: openRig.idle, afterPaste: openRig.staged(texts.short), afterEnter: openRig.running },
+    ["O1 SoftwareTeam-launched Claude seat, idle: verified", "claude-code", texts.short,
+      { prePaste: softwareTeam.idle, afterPaste: softwareTeam.staged(texts.short), afterEnter: softwareTeam.running },
       null, { seat: "idle", before: "exact", after: "empty", sameProcess: true }, true],
-    ["O2 OpenRig-launched Claude seat, running before the paste (no esc to interrupt in its footer): unconfirmed", "claude-code", texts.short,
-      { prePaste: openRig.running, afterPaste: openRig.stagedWhileRunning(texts.short), afterEnter: openRig.running },
+    ["O2 SoftwareTeam-launched Claude seat, running before the paste (no esc to interrupt in its footer): unconfirmed", "claude-code", texts.short,
+      { prePaste: softwareTeam.running, afterPaste: softwareTeam.stagedWhileRunning(texts.short), afterEnter: softwareTeam.running },
       null, { seat: "not-idle", before: "exact", after: "queued", sameProcess: true }, false],
-    ["O3 OpenRig-launched Claude seat, running with a row no running pattern knows where the status row goes: unconfirmed", "claude-code", texts.short,
-      { prePaste: editLine(openRig.running, claudeStatusRow, "⎿  Running…"), afterPaste: openRig.staged(texts.short), afterEnter: openRig.running },
+    ["O3 SoftwareTeam-launched Claude seat, running with a row no running pattern knows where the status row goes: unconfirmed", "claude-code", texts.short,
+      { prePaste: editLine(softwareTeam.running, claudeStatusRow, "⎿  Running…"), afterPaste: softwareTeam.staged(texts.short), afterEnter: softwareTeam.running },
       null, { seat: "unknown", before: "exact", after: "empty", sameProcess: true }, false],
     ["U2 Codex: a session header of a version with no captured frames", "codex", texts.submit,
       { prePaste: editLine(codex("idle"), (line) => line.includes(">_ OpenAI Codex"), "  >_ OpenAI Codex (v0.161.0)"),
@@ -497,8 +497,8 @@ describe("SessionTransport with transport.verify_input_box", () => {
       { prePaste: codex("idle"), afterPaste: codex("submit-staged.J"), afterEnter: codexHeaderVersion(codex("after-enter-0.4s.J"), "0.159.0") },
       null, { seat: "idle", before: "exact", after: "unrecognized", sameProcess: true }, false],
     // Review round 1, change 3: a blank status slot under streamed text is not proof of an idle Claude seat.
-    ["R1-14 OpenRig-launched Claude seat streaming, its last streamed row blank: unconfirmed", "claude-code", texts.short,
-      { prePaste: openRigStreamingBlankTail, afterPaste: openRig.staged(texts.short), afterEnter: openRig.idle },
+    ["R1-14 SoftwareTeam-launched Claude seat streaming, its last streamed row blank: unconfirmed", "claude-code", texts.short,
+      { prePaste: softwareTeamStreamingBlankTail, afterPaste: softwareTeam.staged(texts.short), afterEnter: softwareTeam.idle },
       null, { seat: "unknown", before: "exact", after: "empty", sameProcess: true }, false],
     // Repair round 1 (review-safety-1): a row break that need not be whitespace of the box's text is not the sent
     // text's space. Before the repair each of these read exact, then empty, and verified.
@@ -541,7 +541,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
 
   describe.each(rows)("%s", (_id, runtime, text, frames, off, box, on) => {
     it("setting on: reports the input box and verifies only exact, then empty, on the same process", async () => {
-      seedCanonicalRig(runtime);
+      seedCanonicalSoftwareTeam(runtime);
       const { result, log } = await run({ frames }, text, true);
       expectOnePasteOneEnter(result, log);
       // The verdict first, so a changed verdict is reported as such, then the readings that explain it.
@@ -555,13 +555,13 @@ describe("SessionTransport with transport.verify_input_box", () => {
     });
 
     it("setting off: the call log equals a transport built without the setting, and the verdict is today's", async () => {
-      seedCanonicalRig(runtime);
+      seedCanonicalSoftwareTeam(runtime);
       const withoutDep = await run({ frames }, text);
       db.close();
       db = createFullTestDb();
-      rigRepo = new RigRepository(db);
+      softwareTeamRepo = new SoftwareTeamRepository(db);
       sessionRegistry = new SessionRegistry(db);
-      seedCanonicalRig(runtime);
+      seedCanonicalSoftwareTeam(runtime);
       const settingOff = await run({ frames }, text, false);
       expect(settingOff.log).toEqual(withoutDep.log);
       expect(settingOff.log.some((call) => call.startsWith("pid:"))).toBe(false);
@@ -574,7 +574,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
 
   describe("contrast with main: a match outside the box no longer verifies", () => {
     it("T14 Claude raw send: a draft sharing the first 40 characters is in the box and our Enter submits it", async () => {
-      seedCanonicalRig("claude-code");
+      seedCanonicalSoftwareTeam("claude-code");
       const draft = `${texts.short.slice(0, 45)} and something else entirely`;
       const frames = {
         prePaste: idle,
@@ -588,7 +588,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
     });
 
     it("T15 Codex: the box holds our text plus more", async () => {
-      seedCanonicalRig("codex");
+      seedCanonicalSoftwareTeam("codex");
       const expected = texts.short.split(" ").slice(0, -2).join(" ");
       const frames = { prePaste: codex("idle"), afterPaste: codex("staged-short.J"), afterEnter: codex("after-enter-0.4s.J") };
       const { result, log } = await run({ frames }, expected, true);
@@ -597,7 +597,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
     });
 
     it("T17 Claude raw send: the box never held the text and an agent line repeats its first 40 characters", async () => {
-      seedCanonicalRig("claude-code");
+      seedCanonicalSoftwareTeam("claude-code");
       const frames = {
         prePaste: idle,
         afterPaste: idle,
@@ -610,7 +610,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
     });
 
     it("T19 Claude envelope collapsed to a label of the right size: hidden, even though the transcript shows the whole envelope", async () => {
-      seedCanonicalRig("claude-code");
+      seedCanonicalSoftwareTeam("claude-code");
       // Edit: the submitted envelope inserted into the transcript the way 2.1.296 renders a submitted paste.
       const rendered = ["❯ " + texts.envelope.split("\n")[0], ...texts.envelope.split("\n").slice(1).map((line) => `  ${line}`)];
       const frames = {
@@ -647,17 +647,17 @@ describe("SessionTransport with transport.verify_input_box", () => {
       // ADV4-3: the completion row on a 24-hour-clock host (edit, grammar from Codex 0.160 separators.rs and clock_format.rs).
       ["Codex finished turn on a 24-hour clock (edit)", "codex",
         editLine(codex("after-enter-15s.J"), (line) => line.includes("Worked for"), "  Worked for 3s • 15:12")],
-      // ADV4-1: OpenRig's own launch. Each posture's footer row (from the 2.1.296 bundle) and the named box (edits).
-      ["Claude posture acceptEdits (OpenRig's default)", "claude-code", posture(claude("after-enter-15s.J"), ACCEPT_EDITS_IDLE)],
+      // ADV4-1: SoftwareTeam's own launch. Each posture's footer row (from the 2.1.296 bundle) and the named box (edits).
+      ["Claude posture acceptEdits (SoftwareTeam's default)", "claude-code", posture(claude("after-enter-15s.J"), ACCEPT_EDITS_IDLE)],
       ["Claude posture auto", "claude-code", posture(claude("after-enter-15s.J"), "⏵⏵ auto mode on (shift+tab to cycle) · ← for agents")],
       ["Claude posture dontAsk", "claude-code", posture(claude("after-enter-15s.J"), "⏵⏵ don't ask on (shift+tab to cycle) · ← for agents")],
       ["Claude posture plan", "claude-code", posture(claude("after-enter-15s.J"), "⏸ plan mode on (shift+tab to cycle) · ← for agents")],
       ["Claude posture default", "claude-code", posture(claude("after-enter-15s.J"), "⏸ manual mode on · ← for agents")],
       ["Claude box named for this seat, the 2.1.296 bundle's border", "claude-code", nameBox(claude("after-enter-15s.J"))],
-      ["Claude box named for this seat, the border of real OpenRig seat frames", "claude-code", nameBox(claude("after-enter-15s.J"), "dev-impl@my-rig", 2)],
+      ["Claude box named for this seat, the border of real SoftwareTeam seat frames", "claude-code", nameBox(claude("after-enter-15s.J"), "dev-impl@my-software-team", 2)],
       ["Claude box named for this seat, Try suggestion and effort row", "claude-code", nameBox(idle)],
     ] as const)("%s", async (_id, runtime, prePaste) => {
-      seedCanonicalRig(runtime);
+      seedCanonicalSoftwareTeam(runtime);
       const { result, log } = await run({ frames: { prePaste, ...(runtime === "codex" ? codexAfter : claudeAfter) } }, texts.submit, true);
       expectOnePasteOneEnter(result, log);
       expect(result).toMatchObject({ verified: true, outcome: "delivered", inputBox: { seat: "idle", before: "exact", after: "empty", sameProcess: true } });
@@ -667,7 +667,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
       ["returns null", null],
       ["throws", new Error("capture failed")],
     ] as const)("the pre-paste capture %s: the seat reads unknown, unconfirmed, and the calls are today's", async (_id, prePaste) => {
-      seedCanonicalRig("claude-code");
+      seedCanonicalSoftwareTeam("claude-code");
       const { result, log } = await run({ frames: { prePaste, ...claudeAfter } }, texts.submit, true);
       expectOnePasteOneEnter(result, log);
       expect(result).toMatchObject({ verified: false, outcome: "rendered-unconfirmed", inputBox: { seat: "unknown", before: "exact", after: "empty", sameProcess: true } });
@@ -677,14 +677,14 @@ describe("SessionTransport with transport.verify_input_box", () => {
     });
   });
 
-  describe("real idle OpenRig-launched Claude seats (ADV5-1): the completion row in the status slot", () => {
-    // Real frames of idle seats OpenRig launched (Claude Code 2.1.296, classic renderer, named box, OpenRig's
+  describe("real idle SoftwareTeam-launched Claude seats (ADV5-1): the completion row in the status slot", () => {
+    // Real frames of idle seats SoftwareTeam launched (Claude Code 2.1.296, classic renderer, named box, SoftwareTeam's
     // statusLine collector; fixtures/input-box/README.md). The slot two rows above the opening rule holds the last
     // turn's completion row. Edits of these frames are named where they are made.
     const realFooter = (line: string) => /^ {2}⏵⏵ (?:bypass permissions|accept edits) on/.test(line);
     const seats = {
-      bypass: { frame: claude("openrig-seat-bypass-idle"), session: "orch-advisor@sample-rig", textFooter: "  ⏵⏵ bypass permissions on (shift+tab to cycle)" },
-      acceptEdits: { frame: claude("openrig-seat-accept-edits-idle"), session: "review-r1@sample-rig", textFooter: `  ${ACCEPT_EDITS_TEXT}` },
+      bypass: { frame: claude("softwareteam-seat-bypass-idle"), session: "orch-advisor@sample-rig", textFooter: "  ⏵⏵ bypass permissions on (shift+tab to cycle)" },
+      acceptEdits: { frame: claude("softwareteam-seat-accept-edits-idle"), session: "review-r1@sample-rig", textFooter: `  ${ACCEPT_EDITS_TEXT}` },
     };
     type Seat = (typeof seats)[keyof typeof seats];
     /** Edit: the status slot (two rows above the opening rule) replaced by `row`. */
@@ -696,15 +696,15 @@ describe("SessionTransport with transport.verify_input_box", () => {
     /** Edit: our text in the real live box row, under the footer Claude 2.1.296 draws while the box holds text. */
     const staged = (seat: Seat, text: string, frame = seat.frame) => editLine(editLine(frame, claudeBoxRow, `❯\u00a0${text}`), realFooter, seat.textFooter);
     const LIVE = "✶ Churning… (3s · ↓ 120 tokens)";
-    // Edit: the turn running after Enter, as OpenRig's statusLine draws it: the live status row in the slot, the
+    // Edit: the turn running after Enter, as SoftwareTeam's statusLine draws it: the live status row in the slot, the
     // footer unchanged (no `esc to interrupt`).
     const running = (seat: Seat) => slot(seat.frame, LIVE);
     const higherUp = (line: string) => line.startsWith("● I checked in") || line.startsWith("● I'm confirmed");
 
     async function runSeat(session: string, script: Script, text: string) {
-      const [member, rigName] = session.split("@") as [string, string];
-      const rig = rigRepo.createRig(rigName);
-      const node = rigRepo.addNode(rig.id, member.replace("-", "."), { role: "worker", runtime: "claude-code" });
+      const [member, softwareTeamName] = session.split("@") as [string, string];
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam(softwareTeamName);
+      const node = softwareTeamRepo.addNode(softwareTeam.id, member.replace("-", "."), { role: "worker", runtime: "claude-code" });
       const row = sessionRegistry.registerSession(node.id, session);
       sessionRegistry.updateStatus(row.id, "running");
       sessionRegistry.updateBinding(node.id, { tmuxSession: session });
@@ -716,7 +716,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
 
     it.each(Object.entries(seats))("R5-1 %s seat, idle after its turn: verified (box empty after Enter, then the turn running)", async (_name, seat) => {
       for (const afterEnter of [seat.frame, running(seat)]) {
-        db.close(); db = createFullTestDb(); rigRepo = new RigRepository(db); sessionRegistry = new SessionRegistry(db);
+        db.close(); db = createFullTestDb(); softwareTeamRepo = new SoftwareTeamRepository(db); sessionRegistry = new SessionRegistry(db);
         const result = await runSeat(seat.session, { frames: { prePaste: seat.frame, afterPaste: staged(seat, texts.short), afterEnter } }, texts.short);
         expect(result).toMatchObject({ verified: true, outcome: "delivered", inputBox: { seat: "idle", before: "exact", after: "empty", sameProcess: true } });
       }
@@ -743,7 +743,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
         { seat: "unknown", before: "exact", after: "empty", sameProcess: true }],
     ] as const)("%s: unconfirmed", async (_id, frames, box) => {
       for (const seat of Object.values(seats)) {
-        db.close(); db = createFullTestDb(); rigRepo = new RigRepository(db); sessionRegistry = new SessionRegistry(db);
+        db.close(); db = createFullTestDb(); softwareTeamRepo = new SoftwareTeamRepository(db); sessionRegistry = new SessionRegistry(db);
         const result = await runSeat(seat.session, { frames: frames(seat) }, texts.short);
         expect(result.verified, seat.session).toBe(false);
         expect(result.outcome).toBe("rendered-unconfirmed");
@@ -768,14 +768,14 @@ describe("SessionTransport with transport.verify_input_box", () => {
       ["T33 the pane process changed", frames, { afterPaste: 4242, afterEnter: 4343 }, { before: "exact", after: "empty", sameProcess: false }],
       ["T34 the pane process is unknown", frames, { afterPaste: null, afterEnter: null }, { before: "exact", after: "empty", sameProcess: false }],
     ] as Array<[string, Script["frames"], Script["pids"], object]>)("%s: unconfirmed, Enter once", async (_id, phases, pids, box) => {
-      seedCanonicalRig("claude-code");
+      seedCanonicalSoftwareTeam("claude-code");
       const { result, log } = await run({ frames: phases, pids }, texts.submit, true);
       expectOnePasteOneEnter(result, log);
       expect(result).toMatchObject({ ok: true, verified: false, outcome: "rendered-unconfirmed", inputBox: box });
     });
 
     it("T27 the post capture throws: the existing catch branch, with the before reading kept", async () => {
-      seedCanonicalRig("claude-code");
+      seedCanonicalSoftwareTeam("claude-code");
       const { result, log } = await run({ frames: { ...frames, afterEnter: new Error("capture failed") } }, texts.submit, true);
       expectOnePasteOneEnter(result, log);
       expect(result).toMatchObject({ verified: false, outcome: "rendered-unconfirmed", inputBox: { before: "exact", after: "unavailable", sameProcess: false } });
@@ -786,7 +786,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
       ["T25 the pre-Enter pid read never settles", { frames, pids: { afterPaste: "never" } } as Script],
     ])("%s: Enter waits at most 500 ms, then goes once; the late read is ignored", async (_id, script) => {
       vi.useFakeTimers();
-      seedCanonicalRig("claude-code");
+      seedCanonicalSoftwareTeam("claude-code");
       const { tmux, log } = phasedTmux(script);
       const pending = transport(tmux, true).send(SESSION, texts.submit, { verify: true });
       await vi.advanceTimersByTimeAsync(499);
@@ -800,7 +800,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
 
     it("T28 the post pid read never settles: the result returns after 500 ms, unconfirmed", async () => {
       vi.useFakeTimers();
-      seedCanonicalRig("codex");
+      seedCanonicalSoftwareTeam("codex");
       const { tmux, log } = phasedTmux({
         frames: { prePaste: codex("idle"), afterPaste: codex("submit-staged.J"), afterEnter: codex("after-enter-0.4s.J") },
         pids: { afterEnter: "never" },
@@ -819,7 +819,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
 
   describe("uncertainty from a changed binding", () => {
     it("T35 the binding's pane changes between Enter and the post read: unconfirmed", async () => {
-      const { node } = seedCanonicalRig("codex");
+      const { node } = seedCanonicalSoftwareTeam("codex");
       const { result, log } = await run({
         frames: { prePaste: codex("idle"), afterPaste: codex("submit-staged.J"), afterEnter: codex("after-enter-0.4s.J") },
         onEnter: () => sessionRegistry.updateBinding(node.id, { tmuxSession: SESSION, tmuxPane: "%99" }),
@@ -829,7 +829,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
     });
 
     it("T36 Claude: a rebind during the pre-Enter read is refused by the existing recipient check, as today", async () => {
-      const { node } = seedCanonicalRig("claude-code");
+      const { node } = seedCanonicalSoftwareTeam("claude-code");
       const script: Script = {
         frames: { prePaste: idle, afterPaste: claude("submit-staged.J"), afterEnter: claude("after-enter-0.4s.J") },
         onAfterPasteCapture: () => sessionRegistry.updateBinding(node.id, { tmuxSession: SESSION, tmuxPane: "%99" }),
@@ -845,13 +845,13 @@ describe("SessionTransport with transport.verify_input_box", () => {
     const claudeFrames = { prePaste: idle, afterPaste: claude("submit-staged.J"), afterEnter: claude("after-enter-0.4s.J") };
 
     it.each(["terminal", "stub", "pi", "omp", null])("T38 runtime %s: the setting is never read and nothing changes", async (runtime) => {
-      seedCanonicalRig(runtime);
+      seedCanonicalSoftwareTeam(runtime);
       const withoutDep = await run({ frames: claudeFrames }, texts.submit);
       db.close();
       db = createFullTestDb();
-      rigRepo = new RigRepository(db);
+      softwareTeamRepo = new SoftwareTeamRepository(db);
       sessionRegistry = new SessionRegistry(db);
-      seedCanonicalRig(runtime);
+      seedCanonicalSoftwareTeam(runtime);
       const setting = vi.fn(() => true);
       const { tmux, log } = phasedTmux({ frames: claudeFrames });
       const result = await transport(tmux, setting).send(SESSION, texts.submit, { verify: true });
@@ -862,7 +862,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
     });
 
     it("T39 without --verify: the setting is never read, no extra calls, no inputBox", async () => {
-      seedCanonicalRig("claude-code");
+      seedCanonicalSoftwareTeam("claude-code");
       const setting = vi.fn(() => true);
       const { tmux, log } = phasedTmux({ frames: claudeFrames });
       const result = await transport(tmux, setting).send(SESSION, texts.submit);
@@ -873,15 +873,15 @@ describe("SessionTransport with transport.verify_input_box", () => {
     });
 
     it("T40 submitOnly: unchanged with the setting on", async () => {
-      seedCanonicalRig("claude-code");
+      seedCanonicalSoftwareTeam("claude-code");
       const opts: SendOpts = { verify: true, submitOnly: true, expectedStagedText: texts.submit };
       const frames = { prePaste: claude("submit-staged.J"), afterPaste: claude("submit-staged.J"), afterEnter: claude("after-enter-0.4s.J") };
       const off = await run({ frames }, "", undefined, opts);
       db.close();
       db = createFullTestDb();
-      rigRepo = new RigRepository(db);
+      softwareTeamRepo = new SoftwareTeamRepository(db);
       sessionRegistry = new SessionRegistry(db);
-      seedCanonicalRig("claude-code");
+      seedCanonicalSoftwareTeam("claude-code");
       const on = await run({ frames }, "", true, opts);
       expect(on.log).toEqual(off.log);
       expect(on.result).toEqual(off.result);
@@ -898,12 +898,12 @@ describe("SessionTransport with transport.verify_input_box", () => {
         : `${echo ? `❯ ${echo}\n\n` : ""}────────────────────\n❯ ${input}\n────────────────────\n\n  ⏵⏵ accept edits on (shift+tab to cycle) · ← for agents`;
       const frames = { prePaste: answerFrame(""), afterPaste: answerFrame("green please"), afterEnter: answerFrame("", echoed ? "green please" : "") };
       const answer = async (setting?: boolean) => {
-        seedCanonicalRig(runtime);
+        seedCanonicalSoftwareTeam(runtime);
         const eventBus = new EventBus(db);
         const activity = new AgentActivityStore({ db, eventBus });
         activity.recordHookEvent({ runtime, sessionName: SESSION, hookEvent: "PermissionRequest", subtype: "Bash" });
         const { tmux, log } = phasedTmux({ frames });
-        const result = await new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux, eventBus, agentActivityStore: activity,
+        const result = await new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux, eventBus, agentActivityStore: activity,
           sleep: async () => {}, ...(setting === undefined ? {} : { verifyInputBox: () => setting }) })
           .send(SESSION, "green please", { verify: true, dangerouslyInteract: true, reason: "answer the text field" });
         return { result, log };
@@ -911,7 +911,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
       const off = await answer();
       db.close();
       db = createFullTestDb();
-      rigRepo = new RigRepository(db);
+      softwareTeamRepo = new SoftwareTeamRepository(db);
       sessionRegistry = new SessionRegistry(db);
       const on = await answer(true);
       expect(on.log).toEqual(off.log);
@@ -930,12 +930,12 @@ describe("SessionTransport with transport.verify_input_box", () => {
       // The answer never shows in the prompt, so the existing path sends no Enter.
       const frames = { prePaste: answerFrame(""), afterPaste: answerFrame(""), afterEnter: answerFrame("") };
       const answer = async (setting?: boolean) => {
-        seedCanonicalRig(runtime);
+        seedCanonicalSoftwareTeam(runtime);
         const eventBus = new EventBus(db);
         const activity = new AgentActivityStore({ db, eventBus });
         activity.recordHookEvent({ runtime, sessionName: SESSION, hookEvent: "PermissionRequest", subtype: "Bash" });
         const { tmux, log } = phasedTmux({ frames });
-        const result = await new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux, eventBus, agentActivityStore: activity,
+        const result = await new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux, eventBus, agentActivityStore: activity,
           sleep: async () => {}, ...(setting === undefined ? {} : { verifyInputBox: () => setting }) })
           .send(SESSION, "green please", { verify: true, dangerouslyInteract: true, reason: "answer the text field" });
         return { result, log };
@@ -943,7 +943,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
       const off = await answer();
       db.close();
       db = createFullTestDb();
-      rigRepo = new RigRepository(db);
+      softwareTeamRepo = new SoftwareTeamRepository(db);
       sessionRegistry = new SessionRegistry(db);
       const on = await answer(true);
       expect(on.log).toEqual(off.log);
@@ -959,12 +959,12 @@ describe("SessionTransport with transport.verify_input_box", () => {
         : `────────────────────\n❯\u00a0${input}\n────────────────────\n\n  ⏵⏵ accept edits on (shift+tab to cycle) · ← for agents`;
       const frames = { prePaste: answerFrame(""), afterPaste: answerFrame("green please"), afterEnter: new Error("capture failed") };
       const answer = async (setting?: boolean) => {
-        seedCanonicalRig(runtime);
+        seedCanonicalSoftwareTeam(runtime);
         const eventBus = new EventBus(db);
         const activity = new AgentActivityStore({ db, eventBus });
         activity.recordHookEvent({ runtime, sessionName: SESSION, hookEvent: "PermissionRequest", subtype: "Bash" });
         const { tmux, log } = phasedTmux({ frames });
-        const result = await new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux, eventBus, agentActivityStore: activity,
+        const result = await new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux, eventBus, agentActivityStore: activity,
           sleep: async () => {}, ...(setting === undefined ? {} : { verifyInputBox: () => setting }) })
           .send(SESSION, "green please", { verify: true, dangerouslyInteract: true, reason: "answer the text field" });
         return { result, log };
@@ -972,7 +972,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
       const off = await answer();
       db.close();
       db = createFullTestDb();
-      rigRepo = new RigRepository(db);
+      softwareTeamRepo = new SoftwareTeamRepository(db);
       sessionRegistry = new SessionRegistry(db);
       const on = await answer(true);
       expect(on.log).toEqual(off.log);
@@ -983,7 +983,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
     });
 
     it("T42 the setting is read fresh per send", async () => {
-      seedCanonicalRig("codex");
+      seedCanonicalSoftwareTeam("codex");
       let on = false;
       const frames = { prePaste: codex("idle"), afterPaste: codex("submit-staged.J"), afterEnter: codex("after-enter-0.4s.J") };
       const first = phasedTmux({ frames });
@@ -1001,7 +1001,7 @@ describe("SessionTransport with transport.verify_input_box", () => {
     });
 
     it("a setting read that throws reads off", async () => {
-      seedCanonicalRig("codex");
+      seedCanonicalSoftwareTeam("codex");
       const frames = { prePaste: codex("idle"), afterPaste: codex("submit-staged.J"), afterEnter: codex("after-enter-0.4s.J") };
       const { tmux, log } = phasedTmux({ frames });
       const result = await transport(tmux, () => { throw new Error("settings unreadable"); }).send(SESSION, texts.submit, { verify: true });
@@ -1025,9 +1025,9 @@ describe("transport.verify_input_box production wiring", () => {
     ["W1 on", "1"],
     ["W2 off", "0"],
   ] as const)("%s: settings store → startup → transport → real TmuxAdapter: the reads, their order and their stages", async (_id, setting) => {
-    const env = { kernel: process.env.OPENRIG_NO_KERNEL, setting: process.env.OPENRIG_TRANSPORT_VERIFY_INPUT_BOX };
-    process.env.OPENRIG_NO_KERNEL = "1";
-    process.env.OPENRIG_TRANSPORT_VERIFY_INPUT_BOX = setting;
+    const env = { kernel: process.env.SOFTWARETEAM_NO_KERNEL, setting: process.env.SOFTWARETEAM_TRANSPORT_VERIFY_INPUT_BOX };
+    process.env.SOFTWARETEAM_NO_KERNEL = "1";
+    process.env.SOFTWARETEAM_TRANSPORT_VERIFY_INPUT_BOX = setting;
     const timer = new RecordingStageTimer();
     const pane = "%42";
     let phase: "prePaste" | "afterPaste" | "afterEnter" = "prePaste";
@@ -1062,13 +1062,13 @@ describe("transport.verify_input_box production wiring", () => {
       globalThis.fetch = originalFetch;
     }
     try {
-      const rig = daemon.deps.rigRepo.createRig("wiring-rig");
-      const node = daemon.deps.rigRepo.addNode(rig.id, "dev.impl", { role: "worker", runtime: "claude-code" });
-      const session = daemon.deps.sessionRegistry.registerSession(node.id, "dev-impl@wiring-rig");
+      const softwareTeam = daemon.deps.softwareTeamRepo.createSoftwareTeam("wiring-software-team");
+      const node = daemon.deps.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+      const session = daemon.deps.sessionRegistry.registerSession(node.id, "dev-impl@wiring-software-team");
       daemon.deps.sessionRegistry.updateStatus(session.id, "running");
-      daemon.deps.sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@wiring-rig", tmuxPane: pane });
+      daemon.deps.sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@wiring-software-team", tmuxPane: pane });
       logging = true;
-      const result = await daemon.deps.sessionTransport!.send("dev-impl@wiring-rig", texts.submit, { verify: true });
+      const result = await daemon.deps.sessionTransport!.send("dev-impl@wiring-software-team", texts.submit, { verify: true });
 
       expect(result.ok, JSON.stringify({ reason: result.reason, error: result.error })).toBe(true);
       const paste = commands.findIndex((command) => command.includes("paste-buffer"));
@@ -1110,7 +1110,7 @@ describe("transport.verify_input_box production wiring", () => {
     } finally {
       daemon.eventLoopMonitor.stop();
       daemon.db.close();
-      for (const [key, value] of [["OPENRIG_NO_KERNEL", env.kernel], ["OPENRIG_TRANSPORT_VERIFY_INPUT_BOX", env.setting]] as const) {
+      for (const [key, value] of [["SOFTWARETEAM_NO_KERNEL", env.kernel], ["SOFTWARETEAM_TRANSPORT_VERIFY_INPUT_BOX", env.setting]] as const) {
         if (value === undefined) delete process.env[key];
         else process.env[key] = value;
       }

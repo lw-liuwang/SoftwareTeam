@@ -29,18 +29,18 @@ nodes:
 edges: []
 `;
 
-function createFixture(rigSpec: string, author: unknown) {
+function createFixture(softwareTeamSpec: string, author: unknown) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-preconditions-")); roots.push(root);
-  fs.writeFileSync(path.join(root, "rig.yaml"), rigSpec);
+  fs.writeFileSync(path.join(root, "software-team.yaml"), softwareTeamSpec);
   fs.writeFileSync(path.join(root, "README.md"), "# Fixture\n");
   fs.writeFileSync(path.join(root, "bundle.yaml"), stringify(author));
   const app = new Hono();
   app.use("*", async (c, next) => { c.set("eventBus" as never, { emit() {} } as never); await next(); });
   app.route("/api/bundles", bundleRoutes);
   const post = (route: string, body: unknown) => app.request(`/api/bundles/${route}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const bundlePath = path.join(root, "fixture.rigbundle");
+  const bundlePath = path.join(root, "fixture.softwareteambundle");
   return {
-    create: () => post("create", { specPath: path.join(root, "rig.yaml"), rigRoot: root, bundleName: "fixture", bundleVersion: "1.0.0", outputPath: bundlePath }),
+    create: () => post("create", { specPath: path.join(root, "software-team.yaml"), softwareTeamRoot: root, bundleName: "fixture", bundleVersion: "1.0.0", outputPath: bundlePath }),
     inspect: () => post("inspect", { bundlePath }),
   };
 }
@@ -48,23 +48,23 @@ function createFixture(rigSpec: string, author: unknown) {
 describe("authored bundle setup preconditions", () => {
   it.each([false, true])("carries declarations through create and inspect (link source=%s), without executing them", async linked => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-preconditions-")); roots.push(root);
-    fs.writeFileSync(path.join(root, "rig.yaml"), spec);
+    fs.writeFileSync(path.join(root, "software-team.yaml"), spec);
     fs.writeFileSync(path.join(root, "README.md"), "# Fixture\n");
     const marker = path.join(root, "must-not-run");
-    const preconditions = [{ name: "Prepare the source clone first.", commands: [`touch ${marker}`, "cd openrig", "npm ci", "npm run build"] }, { name: "Sign in to the selected runtimes." }];
+    const preconditions = [{ name: "Prepare the source clone first.", commands: [`touch ${marker}`, "cd softwareteam", "npm ci", "npm run build"] }, { name: "Sign in to the selected runtimes." }];
     fs.writeFileSync(path.join(root, "bundle.yaml"), stringify({ preconditions }));
-    const source = { repository: "https://github.com/example/team", folder: "rig", requestedRef: "main", resolvedCommit: "a".repeat(40), canonicalUrl: `https://github.com/example/team/tree/${"a".repeat(40)}/rig` };
+    const source = { repository: "https://github.com/example/team", folder: "softwareTeam", requestedRef: "main", resolvedCommit: "a".repeat(40), canonicalUrl: `https://github.com/example/team/tree/${"a".repeat(40)}/softwareTeam` };
     const app = new Hono();
     app.use("*", async (c, next) => { c.set("eventBus" as never, { emit() {} } as never); await next(); });
     app.route("/api/bundles", bundleRoutes);
     const post = async (route: string, body: unknown) => app.request(`/api/bundles/${route}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const bundlePath = path.join(root, "fixture.rigbundle");
-    const created = await post("create", { specPath: path.join(root, "rig.yaml"), rigRoot: root, bundleName: "fixture", bundleVersion: "1.0.0", outputPath: bundlePath, ...(linked ? { provenance: { source } } : {}) });
+    const bundlePath = path.join(root, "fixture.softwareteambundle");
+    const created = await post("create", { specPath: path.join(root, "software-team.yaml"), softwareTeamRoot: root, bundleName: "fixture", bundleVersion: "1.0.0", outputPath: bundlePath, ...(linked ? { provenance: { source } } : {}) });
     expect(created.status, await created.clone().text()).toBe(201);
     const creation = await created.json();
     // Inspection must use the archive even when its author's files are gone.
     fs.unlinkSync(path.join(root, "bundle.yaml"));
-    fs.unlinkSync(path.join(root, "rig.yaml"));
+    fs.unlinkSync(path.join(root, "software-team.yaml"));
     const response = await post("inspect", { bundlePath });
     expect(response.status).toBe(200);
     const inspected = await response.json();
@@ -79,14 +79,14 @@ describe("authored bundle setup preconditions", () => {
 
   it.each([null, "run setup", [{ name: "" }], [{ name: "Setup", commands: [42] }], [{ name: "Setup", commands: ["cd clone\nnpm ci"] }]])("keeps malformed setup metadata diagnostic: %j", preconditions => {
     expect(normalizePreconditionsBlock(preconditions)).toBeUndefined();
-    const view = describeBundleBehaviour({ files: new Map([["rig.yaml", spec]]), manifest: { schema_version: 2, rig_spec: "rig.yaml", preconditions }, generator: { openrigVersion: "test" }, digestValid: true, filesVerified: true });
+    const view = describeBundleBehaviour({ files: new Map([["software-team.yaml", spec]]), manifest: { schema_version: 2, software_team_spec: "software-team.yaml", preconditions }, generator: { softwareteamVersion: "test" }, digestValid: true, filesVerified: true });
     expect(view.state).toBe("generated");
     if (view.state !== "generated") throw new Error(view.reason);
     expect(view.needs.filter(n => n.kind === "precondition")).toEqual([]);
     expect(view.unknownBeforeLaunch).toContainEqual(expect.objectContaining({ subject: "Bundle preconditions" }));
   });
 
-  describe.each([{ branch: "pod", rigSpec: spec }, { branch: "legacy", rigSpec: legacySpec }])("$branch creation", ({ rigSpec }) => {
+  describe.each([{ branch: "pod", softwareTeamSpec: spec }, { branch: "legacy", softwareTeamSpec: legacySpec }])("$branch creation", ({ softwareTeamSpec }) => {
     it.each([
       { preconditions: null, reason: "preconditions must be an array" },
       { preconditions: "run setup", reason: "preconditions must be an array" },
@@ -95,7 +95,7 @@ describe("authored bundle setup preconditions", () => {
       { preconditions: [{ name: "Setup", commands: ["cd clone\nnpm ci"] }], reason: "preconditions[0].commands" },
       { preconditions: [{ name: "Valid first entry" }, null], reason: "preconditions[1].name" },
     ])("warns and omits the whole malformed block: $reason", async ({ preconditions, reason }) => {
-      const fixture = createFixture(rigSpec, { preconditions });
+      const fixture = createFixture(softwareTeamSpec, { preconditions });
       const created = await fixture.create();
       expect(created.status, await created.clone().text()).toBe(201);
       expect((await created.json()).warning).toContain(`${reason}`);
@@ -108,7 +108,7 @@ describe("authored bundle setup preconditions", () => {
 
     it("warns about shell operators but retains the declarations as data", async () => {
       const preconditions = [{ name: "Author setup", commands: ["echo one; echo two", "echo one && echo two", "echo one | cat", "echo $(pwd)", "echo `pwd`", "echo one > output", "cat < input"] }];
-      const fixture = createFixture(rigSpec, { preconditions });
+      const fixture = createFixture(softwareTeamSpec, { preconditions });
       const created = await fixture.create();
       expect(created.status, await created.clone().text()).toBe(201);
       expect((await created.json()).warning).toContain("preconditions[0].commands contains shell operators; retained as data");
@@ -120,7 +120,7 @@ describe("authored bundle setup preconditions", () => {
     });
 
     it("still refuses a missing declared skill even when preconditions are malformed", async () => {
-      const created = await createFixture(rigSpec, { preconditions: null, skills: ["skills/absent/SKILL.md"] }).create();
+      const created = await createFixture(softwareTeamSpec, { preconditions: null, skills: ["skills/absent/SKILL.md"] }).create();
       expect(created.status).toBe(500);
       expect((await created.json()).error).toContain("does not exist in source");
     });

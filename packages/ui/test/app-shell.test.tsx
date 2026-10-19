@@ -32,10 +32,10 @@ let OriginalEventSource: typeof EventSource | undefined;
 
 beforeEach(async () => {
   mockFetch.mockReset();
-  // Default rig/ps mocks return empty so chrome can render.
+  // Default softwareTeam/ps mocks return empty so chrome can render.
   mockFetch.mockImplementation(async (url: string) => {
-    if (url.includes("/api/rigs/summary")) return new Response(JSON.stringify([]));
-    if (url.includes("/api/rigs/ps")) return new Response(JSON.stringify([]));
+    if (url.includes("/api/software-teams/summary")) return new Response(JSON.stringify([]));
+    if (url.includes("/api/software-teams/ps")) return new Response(JSON.stringify([]));
     if (url.includes("/api/inventory")) return new Response(JSON.stringify([]));
     return new Response("[]");
   });
@@ -159,8 +159,8 @@ describe("AppShell — Phase 2 chrome", () => {
       expect(icon.getAttribute("data-active")).toBe("true");
     });
 
-    it("Topology rail icon active at /rigs/$rigId (legacy graph route)", async () => {
-      const { container } = await renderAt("/rigs/abc");
+    it("Topology rail icon active at /software-teams/$softwareTeamId (legacy graph route)", async () => {
+      const { container } = await renderAt("/software-teams/abc");
       const icon = container.querySelector("[data-testid='rail-topology']") as HTMLElement;
       expect(icon.getAttribute("data-active")).toBe("true");
     });
@@ -212,7 +212,7 @@ describe("AppShell — Phase 2 chrome", () => {
     });
 
     it("Plugin detail routes keep the Library Explorer mounted", async () => {
-      const { container } = await renderAt("/plugins/openrig-core");
+      const { container } = await renderAt("/plugins/softwareteam-core");
       const explorer = container.querySelector("[data-testid='explorer']") as HTMLElement;
       const railSpecs = container.querySelector("[data-testid='rail-specs']") as HTMLAnchorElement;
       expect(explorer?.getAttribute("data-surface")).toBe("specs");
@@ -241,7 +241,7 @@ describe("AppShell — Phase 2 chrome", () => {
       const brand = container.querySelector("[data-testid='brand-home-link']") as HTMLAnchorElement;
       expect(brand).toBeTruthy();
       expect(brand.getAttribute("href")).toBe("/");
-      expect(brand.textContent).toContain("OPENRIG");
+      expect(brand.textContent).toContain("SOFTWARETEAM");
     });
 
     it("right-slot carries the MH-2 host indicator (quiet local register, defaults to 'localhost')", async () => {

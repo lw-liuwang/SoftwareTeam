@@ -1,4 +1,4 @@
-// OPR.0.4.3.05 — `rig fork` verb tests. Proves the CLI composes the daemon
+// OPR.0.4.3.05 — `softwareTeam fork` verb tests. Proves the CLI composes the daemon
 // fork composer, surfaces honest errors, reports the successor + kept image,
 // and never prints a native resume id (kept daemon-local by the route).
 
@@ -50,9 +50,9 @@ const OK = {
 };
 const OK_KEEP = { ...OK, image: { id: "agent-image:kept:1", name: "kept", version: "1", pinned: true } };
 const NO_TOKEN = { error: "resume_token_unavailable", message: "Could not discover a resume token ... No token was fabricated and no fresh seat was cold-started." };
-const CONFLICT = { ok: false, code: "member_conflict", message: 'Member "dev.forked" already exists in rig "dst". Pick a different member id, or remove the existing seat first.' };
+const CONFLICT = { ok: false, code: "member_conflict", message: 'Member "dev.forked" already exists in softwareTeam "dst". Pick a different member id, or remove the existing seat first.' };
 
-describe("rig fork", () => {
+describe("SoftwareTeam fork", () => {
   let server: http.Server;
   let port: number;
   let capturedBody: Record<string, unknown> | null = null;
@@ -113,10 +113,10 @@ describe("rig fork", () => {
 
   it("default fork posts the composer body and reports the one-shot successor", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "fork", "dev-impl@src", "--rig", "dst-rig", "--pod", "dev", "--member", "forked"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "fork", "dev-impl@src", "--software-team", "dst-software-team", "--pod", "dev", "--member", "forked"]);
     });
     expect(exitCode).toBeUndefined();
-    expect(capturedBody).toMatchObject({ sourceSession: "dev-impl@src", rigId: "dst-rig", pod: "dev", member: "forked" });
+    expect(capturedBody).toMatchObject({ sourceSession: "dev-impl@src", softwareTeamId: "dst-software-team", pod: "dev", member: "forked" });
     expect(capturedBody!.keepImage).toBeUndefined();
     const out = logs.join("\n");
     expect(out).toContain("[OK] dev.forked");
@@ -126,7 +126,7 @@ describe("rig fork", () => {
 
   it("--keep-image sends keepImage and reports the pinned image", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "fork", "dev-impl@src", "--rig", "dst-rig", "--pod", "dev", "--member", "kept-fork", "--keep-image", "--image-name", "kept"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "fork", "dev-impl@src", "--software-team", "dst-software-team", "--pod", "dev", "--member", "kept-fork", "--keep-image", "--image-name", "kept"]);
     });
     expect(capturedBody).toMatchObject({ keepImage: true, imageName: "kept" });
     const out = logs.join("\n");
@@ -135,7 +135,7 @@ describe("rig fork", () => {
 
   it("--json emits the raw response", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "fork", "dev-impl@src", "--rig", "dst-rig", "--pod", "dev", "--member", "forked", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "fork", "dev-impl@src", "--software-team", "dst-software-team", "--pod", "dev", "--member", "forked", "--json"]);
     });
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed.ok).toBe(true);
@@ -144,7 +144,7 @@ describe("rig fork", () => {
 
   it("no-resume-token → exit 1 with the honest (no-fabrication) message", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "fork", "dev-impl@src", "--rig", "dst-rig", "--pod", "dev", "--member", "notoken"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "fork", "dev-impl@src", "--software-team", "dst-software-team", "--pod", "dev", "--member", "notoken"]);
     });
     expect(exitCode).toBe(1);
     expect(logs.join("\n")).toMatch(/fabricated/i);
@@ -152,17 +152,17 @@ describe("rig fork", () => {
 
   it("member_conflict → exit 1 with the honest conflict message", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "fork", "dev-impl@src", "--rig", "dst-rig", "--pod", "dev", "--member", "dupe"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "fork", "dev-impl@src", "--software-team", "dst-software-team", "--pod", "dev", "--member", "dupe"]);
     });
     expect(exitCode).toBe(1);
     expect(logs.join("\n")).toContain("already exists");
   });
 
-  it("requires --rig, --pod, --member", async () => {
+  it("requires --software-team, --pod, --member", async () => {
     let threw = false;
     await captureLogs(async () => {
       try {
-        await makeCmd().parseAsync(["node", "rig", "fork", "dev-impl@src"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "fork", "dev-impl@src"]);
       } catch { threw = true; }
     });
     expect(threw).toBe(true); // commander exitOverride throws on missing required options

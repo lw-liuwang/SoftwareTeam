@@ -26,11 +26,11 @@ keep in your own project and attach by path — it is **not** one of the built-i
 
 ## Using it
 
-Keep a policy like this in your own project, then point a rig at it by **relative path**
-— resolved from the directory of the rig spec that references it:
+Keep a policy like this in your own project, then point a SoftwareTeam at it by **relative path**
+— resolved from the directory of the SoftwareTeam spec that references it:
 
 ```yaml
-# rig.yaml
+# software-team.yaml
 permission_policy: policies/my-cautious-dev.policy.md
 ```
 

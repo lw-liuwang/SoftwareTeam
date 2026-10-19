@@ -24,36 +24,36 @@ afterEach(() => fs.rmSync(home, { recursive: true, force: true }));
 
 describe("auth seats registry (OPR.0.4.1.29)", () => {
   it("creates a 0600 registry with the product columns (NO resume_token) and upserts in place", () => {
-    expect(authSeatSet(paths, { seat: "dev1@rig", rig: "rig", runtime: "codex", cwd: "/x", authProfile: "work" }, NOW)).toMatchObject({ ok: true });
+    expect(authSeatSet(paths, { seat: "dev1@software-team", softwareTeam: "softwareTeam", runtime: "codex", cwd: "/x", authProfile: "work" }, NOW)).toMatchObject({ ok: true });
     const content = fs.readFileSync(paths.registryPath, "utf8");
-    expect(content.split("\n")[0]).toBe("seat\trig\truntime\tcwd\tauth_profile\tupdated_ts");
+    expect(content.split("\n")[0]).toBe("seat\tsoftwareTeam\truntime\tcwd\tauth_profile\tupdated_ts");
     expect(content).not.toContain("resume_token");
     expect((fs.statSync(paths.registryPath).mode & 0o777).toString(8)).toBe("600");
-    authSeatSet(paths, { seat: "dev1@rig", rig: "rig", runtime: "codex", authProfile: "team" }, NOW);
-    const rows = authSeatsList(paths).filter((r) => r.seat === "dev1@rig");
+    authSeatSet(paths, { seat: "dev1@software-team", softwareTeam: "softwareTeam", runtime: "codex", authProfile: "team" }, NOW);
+    const rows = authSeatsList(paths).filter((r) => r.seat === "dev1@software-team");
     expect(rows.length).toBe(1);
     expect(rows[0].authProfile).toBe("team");
   });
 
   it("rejects invalid runtime + control-char seat fail-closed", () => {
-    expect(authSeatSet(paths, { seat: "s@r", rig: "r", runtime: "claude-code" }, NOW)).toEqual({ ok: false, reason: "invalid_runtime" });
-    expect(authSeatSet(paths, { seat: "bad\tseat", rig: "r", runtime: "codex" }, NOW)).toEqual({ ok: false, reason: "invalid_seat" });
+    expect(authSeatSet(paths, { seat: "s@r", softwareTeam: "r", runtime: "claude-code" }, NOW)).toEqual({ ok: false, reason: "invalid_runtime" });
+    expect(authSeatSet(paths, { seat: "bad\tseat", softwareTeam: "r", runtime: "codex" }, NOW)).toEqual({ ok: false, reason: "invalid_seat" });
   });
 
   it("defaults cwd + auth_profile to unknown; report counts known vs unknown", () => {
-    authSeatSet(paths, { seat: "a@r", rig: "r", runtime: "codex", authProfile: "work" }, NOW);
-    authSeatSet(paths, { seat: "b@r", rig: "r", runtime: "codex" }, NOW);
+    authSeatSet(paths, { seat: "a@r", softwareTeam: "r", runtime: "codex", authProfile: "work" }, NOW);
+    authSeatSet(paths, { seat: "b@r", softwareTeam: "r", runtime: "codex" }, NOW);
     expect(authSeatsReport(paths)).toMatchObject({ registryPresent: true, total: 2, known: 1, unknown: 1, malformed: 0 });
   });
 
   it("show returns the row or missing_seat", () => {
-    authSeatSet(paths, { seat: "a@r", rig: "r", runtime: "codex", authProfile: "work" }, NOW);
+    authSeatSet(paths, { seat: "a@r", softwareTeam: "r", runtime: "codex", authProfile: "work" }, NOW);
     expect(authSeatShow(paths, "a@r")).toMatchObject({ ok: true, row: { seat: "a@r", authProfile: "work" } });
     expect(authSeatShow(paths, "ghost")).toEqual({ ok: false, reason: "missing_seat" });
   });
 
   it("drops malformed rows on report (never fabricates metadata)", () => {
-    authSeatSet(paths, { seat: "a@r", rig: "r", runtime: "codex" }, NOW);
+    authSeatSet(paths, { seat: "a@r", softwareTeam: "r", runtime: "codex" }, NOW);
     fs.appendFileSync(paths.registryPath, "malformed-single-field\n");
     const rep = authSeatsReport(paths);
     expect(rep.total).toBe(1);

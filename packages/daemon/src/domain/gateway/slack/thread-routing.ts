@@ -39,9 +39,9 @@ export function makeThreadRouteResolver(opts: {
       // within a channel, so a reaction on another channel's message is not on this ask.
       const sameMessage = ev.type !== "reaction_added" || mapping?.channel === ev.channel;
       if (ev.type === "reaction_added" && !(mapping && sameMessage)) {
-        // #899 — a reaction on a message OpenRig posted into a thread for an ask (a long ask's reply
+        // #899 — a reaction on a message SoftwareTeam posted into a thread for an ask (a long ask's reply
         // part, a later notification, an ask posted into another thread) reaches that ask's own seat.
-        // A person's reply in the thread was not posted by OpenRig, so a reaction on it stays ignored.
+        // A person's reply in the thread was not posted by SoftwareTeam, so a reaction on it stays ignored.
         const part = opts.map.partOf(threadTs, ev.channel ?? "");
         if (part) {
           log(`inbound reaction on ts=${threadTs} (posted for ${part.conversationId}) -> ${part.seat}`);

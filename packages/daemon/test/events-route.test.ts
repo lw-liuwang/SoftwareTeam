@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type Database from "better-sqlite3";
 import type { Hono } from "hono";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
-import type { RigRepository } from "../src/domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import type { EventBus } from "../src/domain/event-bus.js";
 import { createDaemon } from "../src/startup.js";
 import type { ExecFn } from "../src/adapters/tmux.js";
@@ -58,14 +58,14 @@ async function readSSEEvents(
 describe("SSE events route", () => {
   let db: Database.Database;
   let app: Hono;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let eventBus: EventBus;
 
   beforeEach(() => {
     db = createFullTestDb();
     const setup = createTestApp(db);
     app = setup.app;
-    rigRepo = setup.rigRepo;
+    softwareTeamRepo = setup.softwareTeamRepo;
     eventBus = setup.eventBus;
   });
 
@@ -74,21 +74,21 @@ describe("SSE events route", () => {
   });
 
   it("connect to SSE -> receives content-type text/event-stream", async () => {
-    const rig = rigRepo.createRig("r01");
-    const res = await app.request(`/api/events?rigId=${rig.id}`);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+    const res = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}`);
     expect(res.headers.get("content-type")).toContain("text/event-stream");
     // Cancel the stream
     res.body?.cancel();
   });
 
   it("emit event on bus -> received on stream as SSE data line with id field", async () => {
-    const rig = rigRepo.createRig("r01");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
 
-    const res = await app.request(`/api/events?rigId=${rig.id}`);
+    const res = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}`);
 
     // Emit after connection
     setTimeout(() => {
-      eventBus.emit({ type: "rig.created", rigId: rig.id });
+      eventBus.emit({ type: "software-team.created", softwareTeamId: softwareTeam.id });
     }, 10);
 
     const events = await readSSEEvents(res, 1);
@@ -96,18 +96,18 @@ describe("SSE events route", () => {
     expect(events[0]!.id).toBeDefined();
     expect(events[0]!.id).not.toBe("");
     const parsed = JSON.parse(events[0]!.data);
-    expect(parsed.type).toBe("rig.created");
+    expect(parsed.type).toBe("software-team.created");
   });
 
   it("Last-Event-ID replay: connect with header, get missed events from DB", async () => {
-    const rig = rigRepo.createRig("r01");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
 
     // Pre-emit events before connecting
-    const e1 = eventBus.emit({ type: "rig.created", rigId: rig.id });
-    const e2 = eventBus.emit({ type: "node.added", rigId: rig.id, nodeId: "n1", logicalId: "worker" });
+    const e1 = eventBus.emit({ type: "software-team.created", softwareTeamId: softwareTeam.id });
+    const e2 = eventBus.emit({ type: "node.added", softwareTeamId: softwareTeam.id, nodeId: "n1", logicalId: "worker" });
 
     // Connect with Last-Event-ID = e1.seq (should replay e2 only)
-    const res = await app.request(`/api/events?rigId=${rig.id}`, {
+    const res = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}`, {
       headers: { "Last-Event-ID": String(e1.seq) },
     });
 
@@ -119,21 +119,21 @@ describe("SSE events route", () => {
   });
 
   it("no gap: event emitted during replay window delivered exactly once", async () => {
-    const rig = rigRepo.createRig("r01");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
 
     // Pre-emit 2 events
-    const e1 = eventBus.emit({ type: "rig.created", rigId: rig.id });
-    eventBus.emit({ type: "node.added", rigId: rig.id, nodeId: "n1", logicalId: "a" });
+    const e1 = eventBus.emit({ type: "software-team.created", softwareTeamId: softwareTeam.id });
+    eventBus.emit({ type: "node.added", softwareTeamId: softwareTeam.id, nodeId: "n1", logicalId: "a" });
 
     // Connect with Last-Event-ID = e1.seq
     // Then immediately emit another event that could land in the replay/live overlap
-    const res = await app.request(`/api/events?rigId=${rig.id}`, {
+    const res = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}`, {
       headers: { "Last-Event-ID": String(e1.seq) },
     });
 
     // Emit during the replay window
     setTimeout(() => {
-      eventBus.emit({ type: "node.added", rigId: rig.id, nodeId: "n2", logicalId: "b" });
+      eventBus.emit({ type: "node.added", softwareTeamId: softwareTeam.id, nodeId: "n2", logicalId: "b" });
     }, 10);
 
     const events = await readSSEEvents(res, 3, 1000);
@@ -147,20 +147,20 @@ describe("SSE events route", () => {
   });
 
   it("client disconnect during replay releases the subscription", async () => {
-    const rig = rigRepo.createRig("r01");
-    eventBus.emit({ type: "rig.created", rigId: rig.id });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+    eventBus.emit({ type: "software-team.created", softwareTeamId: softwareTeam.id });
     const countBefore = eventBus.subscriberCount;
-    const res = await app.request(`/api/events?rigId=${rig.id}`);
+    const res = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}`);
     expect(eventBus.subscriberCount).toBe(countBefore + 1);
     await res.body?.cancel();
     await vi.waitFor(() => expect(eventBus.subscriberCount).toBe(countBefore), { timeout: 1000 });
   });
 
   it("client disconnect -> subscriber cleaned up (subscriberCount drops)", async () => {
-    const rig = rigRepo.createRig("r01");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
     const countBefore = eventBus.subscriberCount;
 
-    const res = await app.request(`/api/events?rigId=${rig.id}`);
+    const res = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}`);
 
     // Give the stream a moment to establish the subscription
     await new Promise((r) => setTimeout(r, 50));
@@ -168,7 +168,7 @@ describe("SSE events route", () => {
 
     // Read one event then cancel (disconnect)
     setTimeout(() => {
-      eventBus.emit({ type: "rig.created", rigId: rig.id });
+      eventBus.emit({ type: "software-team.created", softwareTeamId: softwareTeam.id });
     }, 10);
     await readSSEEvents(res, 1);
 
@@ -177,24 +177,24 @@ describe("SSE events route", () => {
     expect(eventBus.subscriberCount).toBe(countBefore);
   });
 
-  it("rigId filter: only events for requested rig are streamed", async () => {
-    const rig1 = rigRepo.createRig("r01");
-    const rig2 = rigRepo.createRig("r02");
+  it("softwareTeamId filter: only events for requested SoftwareTeam are streamed", async () => {
+    const rig1 = softwareTeamRepo.createSoftwareTeam("r01");
+    const rig2 = softwareTeamRepo.createSoftwareTeam("r02");
 
-    const res = await app.request(`/api/events?rigId=${rig1.id}`);
+    const res = await app.request(`/api/events?softwareTeamId=${rig1.id}`);
 
     setTimeout(() => {
-      eventBus.emit({ type: "rig.created", rigId: rig2.id }); // different rig
-      eventBus.emit({ type: "rig.created", rigId: rig1.id }); // target rig
+      eventBus.emit({ type: "software-team.created", softwareTeamId: rig2.id }); // different softwareTeam
+      eventBus.emit({ type: "software-team.created", softwareTeamId: rig1.id }); // target softwareTeam
     }, 10);
 
     const events = await readSSEEvents(res, 1);
     expect(events).toHaveLength(1);
     const parsed = JSON.parse(events[0]!.data);
-    expect(parsed.rigId).toBe(rig1.id);
+    expect(parsed.softwareTeamId).toBe(rig1.id);
   });
 
-  it("missing rigId -> global SSE stream (200)", async () => {
+  it("missing softwareTeamId -> global SSE stream (200)", async () => {
     const res = await app.request("/api/events");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/event-stream");
@@ -206,11 +206,11 @@ describe("SSE events route", () => {
   });
 
   it("invalid Last-Event-ID (non-numeric) -> treated as 0, replays all", async () => {
-    const rig = rigRepo.createRig("r01");
-    eventBus.emit({ type: "rig.created", rigId: rig.id });
-    eventBus.emit({ type: "node.added", rigId: rig.id, nodeId: "n1", logicalId: "worker" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+    eventBus.emit({ type: "software-team.created", softwareTeamId: softwareTeam.id });
+    eventBus.emit({ type: "node.added", softwareTeamId: softwareTeam.id, nodeId: "n1", logicalId: "worker" });
 
-    const res = await app.request(`/api/events?rigId=${rig.id}`, {
+    const res = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}`, {
       headers: { "Last-Event-ID": "garbage" },
     });
 
@@ -220,10 +220,10 @@ describe("SSE events route", () => {
   });
 
   it("SSE id field matches event seq number", async () => {
-    const rig = rigRepo.createRig("r01");
-    const emitted = eventBus.emit({ type: "rig.created", rigId: rig.id });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+    const emitted = eventBus.emit({ type: "software-team.created", softwareTeamId: softwareTeam.id });
 
-    const res = await app.request(`/api/events?rigId=${rig.id}`, {
+    const res = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}`, {
       headers: { "Last-Event-ID": "0" },
     });
 
@@ -232,84 +232,84 @@ describe("SSE events route", () => {
   });
 
   describe("replay without Last-Event-ID", () => {
-    const emitMany = (rigId: string, count: number) =>
-      Array.from({ length: count }, (_, i) => eventBus.emit({ type: "node.added", rigId, nodeId: `n${i}`, logicalId: `w${i}` }).seq);
+    const emitMany = (softwareTeamId: string, count: number) =>
+      Array.from({ length: count }, (_, i) => eventBus.emit({ type: "node.added", softwareTeamId, nodeId: `n${i}`, logicalId: `w${i}` }).seq);
     const ids = (events: { id: string }[]) => events.map((e) => Number(e.id));
 
     it("replays the whole log by default, as before", async () => {
-      const rig = rigRepo.createRig("r01");
-      const seqs = emitMany(rig.id, 103);
-      const events = await readSSEEvents(await app.request(`/api/events?rigId=${rig.id}`), 103, 2000);
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+      const seqs = emitMany(softwareTeam.id, 103);
+      const events = await readSSEEvents(await app.request(`/api/events?softwareTeamId=${softwareTeam.id}`), 103, 2000);
       expect(ids(events)).toEqual(seqs);
     });
 
     it("replay=<n> replays the newest n, replay=0 starts from now, replay=all replays the whole log", async () => {
-      const rig = rigRepo.createRig("r01");
-      const seqs = emitMany(rig.id, 5);
-      expect(ids(await readSSEEvents(await app.request(`/api/events?rigId=${rig.id}&replay=2`), 5))).toEqual(seqs.slice(-2));
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+      const seqs = emitMany(softwareTeam.id, 5);
+      expect(ids(await readSSEEvents(await app.request(`/api/events?softwareTeamId=${softwareTeam.id}&replay=2`), 5))).toEqual(seqs.slice(-2));
       expect(ids(await readSSEEvents(await app.request(`/api/events?replay=all`), 5))).toEqual(seqs);
 
-      const live = await app.request(`/api/events?rigId=${rig.id}&replay=0`);
-      setTimeout(() => eventBus.emit({ type: "rig.created", rigId: rig.id }), 10);
+      const live = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}&replay=0`);
+      setTimeout(() => eventBus.emit({ type: "software-team.created", softwareTeamId: softwareTeam.id }), 10);
       const events = await readSSEEvents(live, 2);
-      expect(events.map((e) => JSON.parse(e.data).type)).toEqual(["rig.created"]);
+      expect(events.map((e) => JSON.parse(e.data).type)).toEqual(["software-team.created"]);
     });
 
     it("Last-Event-ID, which EventSource sends when it reconnects, wins over replay", async () => {
-      const rig = rigRepo.createRig("r01");
-      const seqs = emitMany(rig.id, 3);
-      const res = await app.request(`/api/events?rigId=${rig.id}&replay=0`, { headers: { "Last-Event-ID": String(seqs[0]) } });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+      const seqs = emitMany(softwareTeam.id, 3);
+      const res = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}&replay=0`, { headers: { "Last-Event-ID": String(seqs[0]) } });
       expect(ids(await readSSEEvents(res, 3))).toEqual(seqs.slice(1));
     });
 
     it("a count beyond SQLite's integers replays the whole log", async () => {
-      const rig = rigRepo.createRig("r01");
-      const seqs = emitMany(rig.id, 3);
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+      const seqs = emitMany(softwareTeam.id, 3);
       for (const count of ["100000000000000000000", "9".repeat(400)]) {
-        const res = await app.request(`/api/events?rigId=${rig.id}&replay=${count}`);
+        const res = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}&replay=${count}`);
         expect(ids(await readSSEEvents(res, 3)), count).toEqual(seqs);
       }
     });
 
     it("a replay that fails to start releases its subscription", async () => {
-      const rig = rigRepo.createRig("r01");
-      emitMany(rig.id, 3);
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+      emitMany(softwareTeam.id, 3);
       const countBefore = eventBus.subscriberCount;
       vi.spyOn(eventBus, "seqBeforeNewest").mockImplementation(() => {
         throw new Error("lookup failed");
       });
-      const res = await app.request(`/api/events?rigId=${rig.id}&replay=2`);
+      const res = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}&replay=2`);
       await readSSEEvents(res, 1, 200);
       await vi.waitFor(() => expect(eventBus.subscriberCount).toBe(countBefore), { timeout: 1000 });
     });
 
     it("replays the whole log, as before, for a replay that is neither a count nor all", async () => {
-      const rig = rigRepo.createRig("r01");
-      const seqs = emitMany(rig.id, 3);
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+      const seqs = emitMany(softwareTeam.id, 3);
       const values = ["-1", "1.5", "some", "", "%2B1", "%20", "1e2", "0x10", "ALL", "Infinity", "NaN", "%D9%A1", "1%0A"];
       for (const value of values) {
-        const res = await app.request(`/api/events?rigId=${rig.id}&replay=${value}`);
+        const res = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}&replay=${value}`);
         expect(res.status, value).toBe(200);
         expect(ids(await readSSEEvents(res, 3)), value).toEqual(seqs);
       }
-      const duplicate = await app.request(`/api/events?rigId=${rig.id}&replay=some&replay=0`);
+      const duplicate = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}&replay=some&replay=0`);
       expect(ids(await readSSEEvents(duplicate, 3))).toEqual(seqs);
     });
 
     it("Last-Event-ID resumes as before when replay is not recognized", async () => {
-      const rig = rigRepo.createRig("r01");
-      const seqs = emitMany(rig.id, 3);
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+      const seqs = emitMany(softwareTeam.id, 3);
       for (const value of ["some", "-1", ""]) {
-        const res = await app.request(`/api/events?rigId=${rig.id}&replay=${value}`, { headers: { "Last-Event-ID": String(seqs[1]) } });
+        const res = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}&replay=${value}`, { headers: { "Last-Event-ID": String(seqs[1]) } });
         expect(ids(await readSSEEvents(res, 3, 200)), value).toEqual(seqs.slice(2));
       }
-      const unparsed = await app.request(`/api/events?rigId=${rig.id}&replay=some`, { headers: { "Last-Event-ID": "abc" } });
+      const unparsed = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}&replay=some`, { headers: { "Last-Event-ID": "abc" } });
       expect(ids(await readSSEEvents(unparsed, 3))).toEqual(seqs);
     });
 
     it("streams a long replay a page at a time, every event once and in order", async () => {
-      const rig = rigRepo.createRig("r01");
-      const seqs = emitMany(rig.id, 1201);
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+      const seqs = emitMany(softwareTeam.id, 1201);
       const replayAll = vi.spyOn(eventBus, "replayAll");
       const page = vi.spyOn(eventBus, "replayPage");
       const events = await readSSEEvents(await app.request(`/api/events?replay=all`), 1201, 5000);
@@ -322,15 +322,15 @@ describe("SSE events route", () => {
       ["replay=all", {}],
       ["Last-Event-ID", { "Last-Event-ID": "0" }],
     ])("a replay (%s) ends at the newest event stored as it connects, those arriving meanwhile sent once after it", async (_, headers) => {
-      const rig = rigRepo.createRig("r01");
-      const seqs = emitMany(rig.id, 1201);
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+      const seqs = emitMany(softwareTeam.id, 1201);
       const replayPage = eventBus.replayPage.bind(eventBus);
       const emitted: number[] = [];
       const page = vi.spyOn(eventBus, "replayPage").mockImplementation((...args) => {
-        emitted.push(eventBus.emit({ type: "rig.created", rigId: rig.id }).seq);
+        emitted.push(eventBus.emit({ type: "software-team.created", softwareTeamId: softwareTeam.id }).seq);
         return replayPage(...args);
       });
-      const res = await app.request(`/api/events?rigId=${rig.id}&replay=all`, { headers });
+      const res = await app.request(`/api/events?softwareTeamId=${softwareTeam.id}&replay=all`, { headers });
       const events = await readSSEEvents(res, 1201 + 50, 1500);
       expect(page.mock.calls.length).toBeLessThanOrEqual(4);
       expect(ids(events)).toEqual([...seqs, ...emitted]);
@@ -344,9 +344,9 @@ describe("SSE events route", () => {
     const tmuxExec: ExecFn = async () => "";
 
     const { app: prodApp, db: prodDb, deps } = await createDaemon({ cmuxFactory, tmuxExec });
-    const rig = deps.rigRepo.createRig("r01");
+    const softwareTeam = deps.softwareTeamRepo.createSoftwareTeam("r01");
 
-    const res = await prodApp.request(`/api/events?rigId=${rig.id}`);
+    const res = await prodApp.request(`/api/events?softwareTeamId=${softwareTeam.id}`);
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/event-stream");
     res.body?.cancel();

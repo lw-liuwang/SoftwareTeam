@@ -14,8 +14,8 @@ function qitem(partial: Partial<StoryQitemInput> & { qitemId: string }): StoryQi
   return {
     tsCreated: "2026-06-23T02:00:00.000Z",
     tsUpdated: "2026-06-23T02:00:00.000Z",
-    sourceSession: "dev1-planner@openrig-delivery",
-    destinationSession: "dev1-driver@openrig-delivery",
+    sourceSession: "dev1-planner@softwareteam-delivery",
+    destinationSession: "dev1-driver@softwareteam-delivery",
     state: "done",
     closureReason: null,
     tags: [],
@@ -84,7 +84,7 @@ describe("buildStoryForest", () => {
 
   it("tolerates a non-resolving chain entry (fallback sentinel) without crashing -> treated as a root", () => {
     const forest = buildStoryForest([
-      qitem({ qitemId: "B", chainOfRecord: ["fallback-from:dev1-driver@openrig-delivery"] }),
+      qitem({ qitemId: "B", chainOfRecord: ["fallback-from:dev1-driver@softwareteam-delivery"] }),
       qitem({ qitemId: "C", chainOfRecord: ["does-not-exist"] }),
     ]);
     const byId = new Map(forest.nodes.map((n) => [n.qitemId, n]));
@@ -95,7 +95,7 @@ describe("buildStoryForest", () => {
 
   it("produces a forest with multiple roots (mission spine + human-origin branch)", () => {
     const forest = buildStoryForest([
-      qitem({ qitemId: "spine", chainOfRecord: null, sourceSession: "orch-advisor@openrig-delivery" }),
+      qitem({ qitemId: "spine", chainOfRecord: null, sourceSession: "orch-advisor@softwareteam-delivery" }),
       qitem({
         qitemId: "human",
         chainOfRecord: null,

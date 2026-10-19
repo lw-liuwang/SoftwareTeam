@@ -18,7 +18,7 @@ describe("recorded legacy cross-host custody", () => {
     databases.push(db);
     migrate(db, ALL_MIGRATIONS);
     const bus = new EventBus(db);
-    const repo = new QueueRepository(db, bus, { validateRig: () => true });
+    const repo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     repo.attachOutbox(new OutboxHandler(db));
     const app = new Hono();
     app.use("*", async (c, next) => {
@@ -39,7 +39,7 @@ describe("recorded legacy cross-host custody", () => {
 
   async function post(app: Hono, id: string, verb: string, body: Record<string, unknown>) {
     const response = await app.request(`/api/queue/${id}/${verb}`, {
-      method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "worker@r" },
+      method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "worker@r" },
       body: JSON.stringify(body),
     });
     expect(response.status).toBe(verb === "handoff" ? 201 : 200);

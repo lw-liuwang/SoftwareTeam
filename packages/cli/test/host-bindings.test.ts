@@ -98,8 +98,8 @@ describe("loadHostBindings — fail-open by contract", () => {
 describe("resolveHost — learned bindings join the match set", () => {
   const registry: HostRegistry = {
     hosts: [
-      { id: "mm2-host", transport: "http", url: "http://x:7433" },
-      { id: "declared", transport: "http", url: "http://y:7433", hostId: "host-declared" },
+      { id: "mm2-host", transport: "http", url: "http://x:7434" },
+      { id: "declared", transport: "http", url: "http://y:7434", hostId: "host-declared" },
     ],
   };
 
@@ -124,19 +124,19 @@ describe("resolveHost — learned bindings join the match set", () => {
 describe("resolveCrossHostTarget — the lived reply-hint scenario via the sidecar", () => {
   const registryLoader = () => ({
     ok: true as const,
-    registry: { hosts: [{ id: "mm2-host", transport: "http" as const, url: "http://x:7433" }] },
+    registry: { hosts: [{ id: "mm2-host", transport: "http" as const, url: "http://x:7434" }] },
   });
 
   it("a pasted reply hint resolves through the LEARNED binding and normalizes to the alias", () => {
-    const out = resolveCrossHostTarget("pm@some-rig@host-84c37990", undefined, registryLoader, undefined, () => ({
+    const out = resolveCrossHostTarget("pm@some-software-team@host-84c37990", undefined, registryLoader, undefined, () => ({
       version: 1,
       bindings: { "mm2-host": { hostId: "host-84c37990", firstObservedAt: "x", lastObservedAt: "x" } },
     }));
-    expect(out).toEqual({ ok: true, target: "pm@some-rig", sugarHost: "mm2-host", hint: undefined });
+    expect(out).toEqual({ ok: true, target: "pm@some-software-team", sugarHost: "mm2-host", hint: undefined });
   });
 
   it("resolution through an entry with a recorded contradiction carries a loud warning naming both ids", () => {
-    const out = resolveCrossHostTarget("pm@some-rig@host-84c37990", undefined, registryLoader, undefined, () => ({
+    const out = resolveCrossHostTarget("pm@some-software-team@host-84c37990", undefined, registryLoader, undefined, () => ({
       version: 1,
       bindings: {
         "mm2-host": {
@@ -155,20 +155,20 @@ describe("resolveCrossHostTarget — the lived reply-hint scenario via the sidec
   });
 
   it("an unlearned suffix still passes through unchanged with the loud unregistered hint", () => {
-    const out = resolveCrossHostTarget("pm@some-rig@host-unknown", undefined, registryLoader, undefined, () => ({
+    const out = resolveCrossHostTarget("pm@some-software-team@host-unknown", undefined, registryLoader, undefined, () => ({
       version: 1,
       bindings: {},
     }));
     expect(out.ok).toBe(true);
     if (out.ok) {
-      expect(out.target).toBe("pm@some-rig@host-unknown");
+      expect(out.target).toBe("pm@some-software-team@host-unknown");
       expect(out.hint).toContain("no registered host 'host-unknown'");
     }
   });
 });
 
 describe("doctorLegs — Source-1 learning from the healthz body already in hand", () => {
-  const anonHost = { id: "mm2-host", transport: "http", url: "http://x:7433" } as const;
+  const anonHost = { id: "mm2-host", transport: "http", url: "http://x:7434" } as const;
   const baseDeps = {
     run: async () => ({ ok: true as const, stdout: "", sshStderr: "", failedStep: null }),
     tcpProbe: async () => "open" as const,

@@ -71,9 +71,9 @@ describe("GET /api/workflow/specs", () => {
       queueItemsSchema, queueTransitionsSchema,
       workflowSpecsSchema, workflowInstancesSchema, workflowStepTrailsSchema,
     ]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     eventBus = new EventBus(db);
-    const queueRepo = new QueueRepository(db, eventBus, { validateRig: () => true });
+    const queueRepo = new QueueRepository(db, eventBus, { validateSoftwareTeam: () => true });
     runtime = new WorkflowRuntime({ db, eventBus, queueRepo });
     cleanupRoot = mkdtempSync(join(tmpdir(), "specs-route-"));
     builtinDir = join(cleanupRoot, "builtin", "workflow-specs");

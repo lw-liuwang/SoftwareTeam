@@ -1,11 +1,11 @@
 {
-  "schema": "openrig.run-record/v1",
+  "schema": "softwareteam.run-record/v1",
   "id": "rr-20261004-002",
   "subject": {
     "kind": "team",
     "source": {
       "repository": "https://github.com/mvschwarz/openrig-world",
-      "folder": "rigs/openrig-dev",
+      "folder": "software-teams/softwareteam-dev",
       "resolvedCommit": "894ad0e301ab46ac6ddd74dea784b7f6311d69a2",
       "requestedRef": "main",
       "canonicalUrl": "https://github.com/mvschwarz/openrig-world/tree/894ad0e301ab46ac6ddd74dea784b7f6311d69a2/rigs/openrig-dev"
@@ -14,10 +14,10 @@
     "packageDigest": {
       "algorithm": "sha256",
       "value": "5f2c0a1e9b8d7c6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a29",
-      "coverage": "openrig.package-digest/v1"
+      "coverage": "softwareteam.package-digest/v1"
     },
     "assembler": {
-      "openrigVersion": "0.6.6",
+      "softwareteamVersion": "0.6.6",
       "commit": "910bf9f1"
     }
   },
@@ -25,7 +25,7 @@
     "resources": [
       {
         "kind": "plugin",
-        "ref": "openrig-core",
+        "ref": "softwareteam-core",
         "version": "0.1.3"
       }
     ],
@@ -37,7 +37,7 @@
     ]
   },
   "environment": {
-    "openrig": {
+    "softwareteam": {
       "version": "0.6.6",
       "commit": "910bf9f1"
     },

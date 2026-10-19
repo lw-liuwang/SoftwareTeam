@@ -30,15 +30,15 @@ function redraw(view: ViewStateStore, before: FleetSnapshot, after: FleetSnapsho
   });
 }
 
-function snapshot(rigs: string[]): FleetSnapshot {
-  return { ...emptySnapshot(), hosts: [{ name: "fixture", reachable: true, rigs: rigs.map(name => ({ name, pods: [] })) }] };
+function snapshot(softwareTeams: string[]): FleetSnapshot {
+  return { ...emptySnapshot(), hosts: [{ name: "fixture", reachable: true, softwareTeams: softwareTeams.map(name => ({ name, pods: [] })) }] };
 }
 
 const warning = "Startup prompt still staged in worker@example; press Enter in that pane.";
 function selected(before: FleetSnapshot) {
   const view = createViewState({ instanceId: "test", getSnapshot: () => before });
   const rows = computeExplorerRows(view.get(), before);
-  const index = rows.findIndex(row => row.key === "rig:fixture/target");
+  const index = rows.findIndex(row => row.key === "software-team:fixture/target");
   expect(index).toBeGreaterThanOrEqual(0);
   view.dispatch({ type: "select", index, rowCount: rows.length });
   view.dispatch({ type: "notice", message: launchNodeNotice("worker", { ok: true, warnings: [warning] }) });
@@ -46,12 +46,12 @@ function selected(before: FleetSnapshot) {
 }
 
 describe("startup guidance through background selection refresh", () => {
-  it("keeps the warning when a newly observed rig moves the selected logical row", () => {
+  it("keeps the warning when a newly observed SoftwareTeam moves the selected logical row", () => {
     const before = snapshot(["target"]), after = snapshot(["newly-observed", "target"]);
     const view = selected(before), previousIndex = view.get().selection;
     redraw(view, before, after);
     expect(view.get().selection).not.toBe(previousIndex);
-    expect(computeExplorerRows(view.get(), after)[view.get().selection]?.key).toBe("rig:fixture/target");
+    expect(computeExplorerRows(view.get(), after)[view.get().selection]?.key).toBe("software-team:fixture/target");
     expect(view.get().notice).toContain(warning);
   });
 

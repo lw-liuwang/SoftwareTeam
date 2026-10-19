@@ -43,7 +43,7 @@ const SLICES: Record<string, { proofMd?: string; proofEntries?: Array<{ name: st
     proofMd: "**Verdict: FAIL** · regression found",
     proofEntries: [{ name: "fail.png", type: "file", size: 1000, mtime: "2026-06-23T22:04:00.000Z" }],
   },
-  // SCAFFOLDED-but-unpopulated — the rig-scope template with placeholder verdict + empty proof/
+  // SCAFFOLDED-but-unpopulated — the software-team-scope template with placeholder verdict + empty proof/
   "missions/m/slices/18-queue": {
     proofMd: "# PROOF — OPR.0.4.1.18 Queue summary\n\nClosed by: <seat>   Date: <date>   Verdict: <pass | pass-with-residue | ...>\n\n## What this proves\n\n<1-3 sentences>",
     proofEntries: [],

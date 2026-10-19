@@ -16,8 +16,8 @@ describe("Startup resolver", () => {
     normalizeStartupBlock({ actions: [{ type: "startup_proof", value, applies_on, idempotent: true }] });
 
   it("uses the last applicable selection through every authored layer", () => {
-    const layers: StartupLayerInputs = { specStartup: proof("authenticated"), rigCultureFile: "culture.md" };
-    const order = ["specStartup", "profileStartup", "rigStartup", "podStartup", "memberStartup", "operatorStartup"] as const;
+    const layers: StartupLayerInputs = { specStartup: proof("authenticated"), softwareTeamCultureFile: "culture.md" };
+    const order = ["specStartup", "profileStartup", "softwareTeamStartup", "podStartup", "memberStartup", "operatorStartup"] as const;
     for (const [index, layer] of order.entries()) {
       const mode = index % 2 ? "none" : "authenticated";
       layers[layer] = proof(mode);
@@ -50,13 +50,13 @@ describe("Startup resolver", () => {
     }
   });
 
-  // T9: startup files ordered: agent base → profile → culture → rig overlay → pod shared → member
+  // T9: startup files ordered: agent base → profile → culture → softwareTeam overlay → pod shared → member
   it("startup files ordered correctly across all layers", () => {
     const inputs: StartupLayerInputs = {
       specStartup: makeBlock(["startup/base.md"]),
       profileStartup: makeBlock(["startup/profile.md"]),
-      rigCultureFile: "culture.md",
-      rigStartup: makeBlock(["startup/rig-overlay.md"]),
+      softwareTeamCultureFile: "culture.md",
+      softwareTeamStartup: makeBlock(["startup/software-team-overlay.md"]),
       podStartup: makeBlock(["pods/dev/shared.md"]),
       memberStartup: makeBlock(["pods/dev/overlays/impl.md"]),
     };
@@ -67,8 +67,8 @@ describe("Startup resolver", () => {
     expect(paths).toEqual([
       "startup/base.md",        // 1. agent base
       "startup/profile.md",     // 2. profile
-      "culture.md",             // 3. rig culture
-      "startup/rig-overlay.md", // 4. rig overlay
+      "culture.md",             // 3. softwareTeam culture
+      "startup/software-team-overlay.md", // 4. softwareTeam overlay
       "pods/dev/shared.md",     // 5. pod shared
       "pods/dev/overlays/impl.md", // 6. member
     ]);
@@ -79,8 +79,8 @@ describe("Startup resolver", () => {
     const inputs: StartupLayerInputs = {
       specStartup: makeBlock(["startup/base.md"]),
       profileStartup: makeBlock(["startup/profile.md"]),
-      rigCultureFile: "culture.md",
-      rigStartup: makeBlock(["startup/rig.md"]),
+      softwareTeamCultureFile: "culture.md",
+      softwareTeamStartup: makeBlock(["startup/softwareTeam.md"]),
       podStartup: makeBlock(["pods/dev/shared.md"]),
       memberStartup: makeBlock(["pods/dev/overlays/impl.md"]),
       operatorStartup: makeBlock(["debug/operator-debug.md"]),
@@ -98,7 +98,7 @@ describe("Startup resolver", () => {
   it("empty layers are skipped without gaps", () => {
     const inputs: StartupLayerInputs = {
       specStartup: makeBlock(["base.md"]),
-      // no profile, no culture, no rig, no pod
+      // no profile, no culture, no softwareTeam, no pod
       memberStartup: makeBlock(["member.md"]),
     };
 

@@ -5,7 +5,7 @@
 //   .md      → FileViewer in the SharedDetailDrawer (FileReferenceTrigger)
 //   image    → the live proof Lightbox (extracted from ProofTab)
 //   video    → inline <video playsinline preload="metadata"> via /api/files/asset
-//   folder   → ArtifactsNavigator scoped to the folder (OPENRIG_FILES_ALLOWLIST-governed)
+//   folder   → ArtifactsNavigator scoped to the folder (SOFTWARETEAM_FILES_ALLOWLIST-governed)
 //   .html    → rendered page in a NEW TAB via ?render=1 (the named net-new opt-in;
 //              supports scripted mockups in the daemon origin)
 // Dead code (ProofImageViewer / TestsVerificationTab viewer / DocsTab) stays dead.
@@ -66,7 +66,7 @@ export function EvidenceOpener({ evidenceRef, ctx, testId }: { evidenceRef: stri
       </span>
     );
   }
-  // No resolvable base (e.g. the rig altitude, which has no slice dir): ONE
+  // No resolvable base (e.g. the softwareTeam altitude, which has no slice dir): ONE
   // named degrade for every ref kind — the honest non-openable pointer plus
   // its reason (the ref opens fully at the slice drill). Also load-bearing
   // for markdown: a FileReferenceTrigger without a readable target opens a

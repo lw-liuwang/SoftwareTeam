@@ -37,9 +37,9 @@ function fixture(opts: { registerHuman?: boolean } = {}) {
   const selectionCount = () => prepare.mock.calls.filter(([sql]) => /SELECT qitem_id FROM queue_items/.test(sql)).length;
   const alert = (id: string) => {
     db.prepare(`INSERT INTO queue_items(qitem_id,ts_created,ts_updated,source_session,destination_session,state,body)
-      VALUES (?, '2026-01-01', '2026-01-01', 'author@rig', 'alex@external', 'pending', 'fixture backlog')`).run(id);
+      VALUES (?, '2026-01-01', '2026-01-01', 'author@software-team', 'alex@external', 'pending', 'fixture backlog')`).run(id);
     const result = db.prepare(`INSERT INTO queue_transitions(qitem_id,ts,state,actor_session,owner_notification_level,owner_notification_kind)
-      VALUES (?, '2026-01-01', 'pending', 'author@rig', 'ALERT', 'human-required')`).run(id);
+      VALUES (?, '2026-01-01', 'pending', 'author@software-team', 'ALERT', 'human-required')`).run(id);
     return `${id}:${result.lastInsertRowid}`;
   };
   const seen = () => [...new SeenStore(join(home, "state", "slack-outbound-seen.jsonl")).load()];
@@ -51,7 +51,7 @@ function fixture(opts: { registerHuman?: boolean } = {}) {
   });
   app.route("/", gatewayRoutes({ home }));
   const post = (verb: string, body: object = {}) => app.request(`/slack/${verb}`, {
-    method: "POST", headers: { "content-type": "application/json", "x-openrig-session": "operator@rig" }, body: JSON.stringify(body),
+    method: "POST", headers: { "content-type": "application/json", "x-softwareteam-session": "operator@software-team" }, body: JSON.stringify(body),
   });
   const receipts = () => readFileSync(join(home, "state", "human-channel-operations.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line));
   return { home, app, restart, selectionCount, alert, seen, post, receipts };
@@ -76,7 +76,7 @@ describe("human channel lifecycle at the daemon door", () => {
     expect(response.headers.get("content-type")).toContain("application/json");
     expect(await response.json()).toMatchObject({
       error: "human_registry_unavailable",
-      message: expect.stringContaining("rig gateway human add"),
+      message: expect.stringContaining("SoftwareTeam gateway human add"),
     });
     expect(readFileSync(join(f.home, "slack-connector.json"), "utf8")).toBe(before);
     expect(f.restart).not.toHaveBeenCalled();
@@ -141,7 +141,7 @@ describe("human channel lifecycle at the daemon door", () => {
   it("attributes changes, distinguishes repeats, and requires a shutdown reason before changing state", async () => {
     const f = fixture();
     const key = f.alert("attributed-backlog");
-    expect((await f.post("enable", { actor: "other@rig", reason: "resume delivery" })).status).toBe(200);
+    expect((await f.post("enable", { actor: "other@software-team", reason: "resume delivery" })).status).toBe(200);
     expect(f.seen()).toEqual([key]);
     expect(loadConfig(f.home).enabled).toBe(true);
     expect((await f.post("enable", { reason: "replay" })).status).toBe(200);
@@ -154,9 +154,9 @@ describe("human channel lifecycle at the daemon door", () => {
     expect(f.restart).toHaveBeenCalledTimes(2);
     const rows = f.receipts().filter((row) => row.effect !== "started");
     expect(rows.map((row) => row.effect)).toEqual(["applied", "no-op", "applied", "no-op"]);
-    expect(rows[0]).toMatchObject({ actor: "operator@rig", provenance: "transport:v1", reason: "resume delivery", before: { enabled: false }, after: { enabled: true } });
+    expect(rows[0]).toMatchObject({ actor: "operator@software-team", provenance: "transport:v1", reason: "resume delivery", before: { enabled: false }, after: { enabled: true } });
     expect(rows[2]).toMatchObject({ reason: "bounded maintenance", before: { enabled: true }, after: { enabled: false } });
-    expect(JSON.stringify(rows)).not.toMatch(/private-pointer|C-private|other@rig/);
+    expect(JSON.stringify(rows)).not.toMatch(/private-pointer|C-private|other@software-team/);
   });
 
   it("requires a recordable actor without inventing an identity", async () => {

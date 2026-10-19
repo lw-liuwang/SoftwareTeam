@@ -8,7 +8,7 @@
 // ONE hookSpecificOutput.additionalContext restore directive, and stamps
 // deliveredAt/deliveryCount on the marker (one-shot). The observable (the real injected
 // directive + a stamped marker) is production-identical and deterministic under the shared
-// injectable clock (OPENRIG_TEST_CLOCK_NOW).
+// injectable clock (SOFTWARETEAM_TEST_CLOCK_NOW).
 //
 // A restore with NO pending marker legitimately no-ops (nothing to deliver) — that is NOT
 // an error (unlike a fired compaction that produced no marker): the bridge stays silent and
@@ -33,8 +33,8 @@ export interface FireRestoreOpts {
    *  compaction — the real SessionStart/UserPromptSubmit event carries it. Omitting it made
    *  the gate (correctly) refuse an identity-less event, so nothing was ever delivered. */
   transcriptPath: string;
-  /** OPENRIG_HOME the seam reads the restore-pending marker under. */
-  openrigHome: string;
+  /** SOFTWARETEAM_HOME the seam reads the restore-pending marker under. */
+  softwareteamHome: string;
   /** The seat's managed cwd (part of the hook payload). */
   cwd: string;
   /** The delivering hook event (SessionStart / UserPromptSubmit). Defaults to
@@ -87,11 +87,9 @@ export function fireRestore(opts: FireRestoreOpts): RestoreResult {
 
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    OPENRIG_HOME: opts.openrigHome,
-    OPENRIG_SESSION_NAME: opts.sessionName,
-    // Don't let a stray RIGGED_HOME pre-empt the isolated OPENRIG_HOME.
-    RIGGED_HOME: undefined,
-    OPENRIG_TEST_CLOCK_NOW: opts.injectClockNow,
+    SOFTWARETEAM_HOME: opts.softwareteamHome,
+    SOFTWARETEAM_SESSION_NAME: opts.sessionName,
+    SOFTWARETEAM_TEST_CLOCK_NOW: opts.injectClockNow,
   } as NodeJS.ProcessEnv;
 
   const result = spawnSync(process.execPath, [opts.bridgeScriptPath], {
@@ -106,7 +104,7 @@ export function fireRestore(opts: FireRestoreOpts): RestoreResult {
   }
 
   const markerPath = nodePath.join(
-    opts.openrigHome, "compaction", "restore-pending", `${sanitizeKey(opts.sessionName)}.json`,
+    opts.softwareteamHome, "compaction", "restore-pending", `${sanitizeKey(opts.sessionName)}.json`,
   );
 
   // The bridge writes a hookSpecificOutput.additionalContext directive to stdout ONLY when

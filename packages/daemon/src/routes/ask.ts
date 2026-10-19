@@ -6,13 +6,13 @@ export const askRoutes = new Hono();
 askRoutes.post("/", async (c) => {
   const askService = c.get("askService" as never) as AskService;
 
-  const body = await c.req.json<{ rig?: string; question?: string; nodeId?: string; sessionName?: string; seat?: string; session?: string }>();
+  const body = await c.req.json<{ softwareTeam?: string; question?: string; nodeId?: string; sessionName?: string; seat?: string; session?: string }>();
 
-  if (!body.rig || !body.question) {
-    return c.json({ error: "Missing required fields: rig, question" }, 400);
+  if (!body.softwareTeam || !body.question) {
+    return c.json({ error: "Missing required fields: softwareTeam, question" }, 400);
   }
 
-  const result = await askService.ask(body.rig, body.question, {
+  const result = await askService.ask(body.softwareTeam, body.question, {
     nodeId: body.nodeId,
     sessionName: body.sessionName,
     seat: body.seat,

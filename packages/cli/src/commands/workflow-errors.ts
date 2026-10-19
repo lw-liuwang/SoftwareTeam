@@ -34,8 +34,8 @@ export function describeDaemonRejection(body: unknown, instanceHint?: string): T
   const b = body as RejectionBody;
   if (typeof b.error !== "string") return null;
   const instance = typeof b.instanceId === "string" ? b.instanceId : instanceHint;
-  const traceCmd = instance ? `rig workflow trace ${instance}` : "rig workflow trace <instance>";
-  const showCmd = instance ? `rig workflow show ${instance}` : "rig workflow show <instance>";
+  const traceCmd = instance ? `SoftwareTeam workflow trace ${instance}` : "SoftwareTeam workflow trace <instance>";
+  const showCmd = instance ? `SoftwareTeam workflow show ${instance}` : "SoftwareTeam workflow show <instance>";
 
   switch (b.error) {
     case "packet_not_on_frontier":
@@ -53,7 +53,7 @@ export function describeDaemonRejection(body: unknown, instanceHint?: string): T
         // OPR.0.4.6.WF5 FR-4: the promised pointer upgrade — resume is
         // real now. A FAILED instance redrives; other terminal states
         // still inspect-first.
-        action: `If it is failed, redrive it: rig workflow resume <instanceId> --actor-session <you>. Otherwise inspect: ${showCmd}`,
+        action: `If it is failed, redrive it: SoftwareTeam workflow resume <instanceId> --actor-session <you>. Otherwise inspect: ${showCmd}`,
       };
     }
     case "instance_not_failed":
@@ -104,7 +104,7 @@ export function describeDaemonRejection(body: unknown, instanceHint?: string): T
       return {
         fact: `No such workflow instance${instance ? `: ${instance}` : ""}.`,
         consequence: "Nothing was read or changed.",
-        action: "List instances: rig workflow list",
+        action: "List instances: SoftwareTeam workflow list",
       };
     default:
       return null;

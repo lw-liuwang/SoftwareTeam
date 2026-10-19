@@ -7,16 +7,16 @@ export interface Snapshot {
   createdAt: string;
 }
 
-async function fetchSnapshots(rigId: string): Promise<Snapshot[]> {
-  const res = await fetch(`/api/rigs/${encodeURIComponent(rigId)}/snapshots`);
+async function fetchSnapshots(softwareTeamId: string): Promise<Snapshot[]> {
+  const res = await fetch(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/snapshots`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
-export function useSnapshots(rigId: string) {
+export function useSnapshots(softwareTeamId: string) {
   return useQuery({
-    queryKey: ["rig", rigId, "snapshots"],
-    queryFn: () => fetchSnapshots(rigId),
-    enabled: !!rigId,
+    queryKey: ["softwareTeam", softwareTeamId, "snapshots"],
+    queryFn: () => fetchSnapshots(softwareTeamId),
+    enabled: !!softwareTeamId,
   });
 }

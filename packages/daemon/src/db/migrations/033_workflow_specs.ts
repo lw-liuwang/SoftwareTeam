@@ -15,7 +15,7 @@ import type { Migration } from "../migrate.js";
  *   - name (workflow.id from spec yaml)
  *   - version (workflow.version)
  *   - purpose (workflow.objective)
- *   - target_rig (workflow.target.rig)
+ *   - target_software_team (workflow.target.software_team)
  *   - roles_json (serialized roles[] map)
  *   - steps_json (serialized steps[] array)
  *   - coordination_terminal_turn_rule (default `hot_potato`)
@@ -35,7 +35,7 @@ export const workflowSpecsSchema: Migration = {
       name TEXT NOT NULL,
       version TEXT NOT NULL,
       purpose TEXT,
-      target_rig TEXT,
+      target_software_team TEXT,
       roles_json TEXT NOT NULL,
       steps_json TEXT NOT NULL,
       coordination_terminal_turn_rule TEXT NOT NULL DEFAULT 'hot_potato',
@@ -45,7 +45,7 @@ export const workflowSpecsSchema: Migration = {
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_workflow_specs_name_version
       ON workflow_specs(name, version);
-    CREATE INDEX IF NOT EXISTS idx_workflow_specs_target_rig
-      ON workflow_specs(target_rig);
+    CREATE INDEX IF NOT EXISTS idx_workflow_specs_target_software_team
+      ON workflow_specs(target_software_team);
   `,
 };

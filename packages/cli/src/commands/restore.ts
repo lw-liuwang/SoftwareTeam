@@ -8,29 +8,29 @@ const LONG_RUNNING_TIMEOUT_MS = 45_000;
 
 export function restoreCommand(depsOverride?: StatusDeps): Command {
   const cmd = new Command("restore")
-    .description("Restore a rig from a snapshot")
-    .addHelpText("after", "\nDirect restore: rig restore <snapshotId> --rig <rigId>");
+    .description("Restore a SoftwareTeam from a snapshot")
+    .addHelpText("after", "\nDirect restore: SoftwareTeam restore <snapshotId> --software-team <softwareTeamId>");
   const getDeps = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   cmd
     .command("apply <snapshotId>", { isDefault: true, hidden: true })
-    .description("Restore a rig from a snapshot")
-    .requiredOption("--rig <rigId>", "Rig ID to restore into")
-    .action(async (snapshotId: string, opts: { rig: string }) => {
+    .description("Restore a SoftwareTeam from a snapshot")
+    .requiredOption("--software-team <softwareTeamId>", "SoftwareTeam ID to restore into")
+    .action(async (snapshotId: string, opts: { softwareTeam: string }) => {
       const deps = getDeps();
       const status = await getDaemonStatus(deps.lifecycleDeps);
 
       if (!daemonStatusGuard(status)) return;
 
       const client = deps.clientFactory(getDaemonUrl(status));
-      const rigId = opts.rig;
+      const softwareTeamId = opts.softwareTeam;
 
       // L3: install a SIGINT/SIGTERM handler that prints an honest message —
       // interrupting the CLI client does NOT stop daemon-side restore work.
       // Cancellation as a daemon protocol is a separate slice; ship the
       // message so operators are not surprised.
       const onSignal = () => {
-        console.error("Client interrupt received; daemon-side restore may continue. Use 'rig ps --nodes' or 'rig restore-check' to follow progress.");
+        console.error("Client interrupt received; daemon-side restore may continue. Use 'SoftwareTeam ps --nodes' or 'SoftwareTeam restore-check' to follow progress.");
         process.exit(1);
       };
       process.once("SIGINT", onSignal);
@@ -40,9 +40,9 @@ export function restoreCommand(depsOverride?: StatusDeps): Command {
         ok?: boolean;
         attemptId?: number;
         status?: string;
-        rigId?: string;
+        softwareTeamId?: string;
         // Pre-restore-started error path keeps the original payload shape.
-        rigResult?: string;
+        softwareTeamResult?: string;
         blockers?: RestoreBlocker[];
         nodes?: Array<{
           nodeId: string;
@@ -62,13 +62,13 @@ export function restoreCommand(depsOverride?: StatusDeps): Command {
         attachCommand?: string;
         warnings?: string[];
       }>(
-        `/api/rigs/${encodeURIComponent(rigId)}/restore/${encodeURIComponent(snapshotId)}`,
+        `/api/software-teams/${encodeURIComponent(softwareTeamId)}/restore/${encodeURIComponent(snapshotId)}`,
         undefined,
         { timeoutMs: LONG_RUNNING_TIMEOUT_MS },
       );
 
       if (res.status === 404) {
-        console.error(`Snapshot "${snapshotId}" or rig "${rigId}" not found. List snapshots with: rig snapshot list --rig ${rigId}`);
+        console.error(`Snapshot "${snapshotId}" or softwareTeam "${softwareTeamId}" not found. List snapshots with: SoftwareTeam snapshot list --software-team ${softwareTeamId}`);
         process.exitCode = 1;
       } else if (res.status === 409) {
         if ((res.data as { code?: string }).code === "pre_restore_validation_failed") {
@@ -79,7 +79,7 @@ export function restoreCommand(depsOverride?: StatusDeps): Command {
         if ((res.data as { code?: string }).code === "snapshot_unusable") {
           console.error(`Restore refused: ${(res.data as { error?: string }).error ?? "the selected snapshot is not restore-usable"}. Choose a different snapshot.`);
         } else {
-          console.error(`Restore conflict: ${(res.data as { error?: string }).error ?? "rig may still be running"}. Stop the rig first with: rig down ${rigId}`);
+          console.error(`Restore conflict: ${(res.data as { error?: string }).error ?? "SoftwareTeam may still be running"}. Stop the SoftwareTeam first with: SoftwareTeam down ${softwareTeamId}`);
         }
         process.exitCode = 1;
       } else if (res.status >= 400) {
@@ -89,15 +89,15 @@ export function restoreCommand(depsOverride?: StatusDeps): Command {
         // L3 success path: route returned 202 immediately after restore.started.
         console.log(`Restore attempt id: ${res.data.attemptId}`);
         console.log(`Status: ${res.data.status ?? "started"}`);
-        console.log("Daemon is restoring per-node in the background; follow progress with 'rig ps --nodes' or 'rig restore-check'.");
-        console.log(`Read the completed attempt and its startup warnings with: rig restore status ${res.data.attemptId} --rig ${rigId}`);
+        console.log("Daemon is restoring per-node in the background; follow progress with 'SoftwareTeam ps --nodes' or 'SoftwareTeam restore-check'.");
+        console.log(`Read the completed attempt and its startup warnings with: SoftwareTeam restore status ${res.data.attemptId} --software-team ${softwareTeamId}`);
       } else {
         // Defensive: server responded ok=true but didn't include attemptId.
         // Fall back to the legacy summary if it's present (back-compat with
         // pre-L3 daemons during rolling upgrades).
         console.log("Restore complete:");
-        if (res.data.rigResult) {
-          console.log(`Rig result: ${res.data.rigResult}`);
+        if (res.data.softwareTeamResult) {
+          console.log(`SoftwareTeam result: ${res.data.softwareTeamResult}`);
         }
         const nodes = res.data.nodes ?? [];
         for (const node of nodes) {
@@ -110,7 +110,7 @@ export function restoreCommand(depsOverride?: StatusDeps): Command {
         if (attachCommand) {
           console.log(`Attach: ${attachCommand}`);
         }
-        if (res.data.rigResult === "partially_restored" || res.data.rigResult === "failed" || res.data.rigResult === "not_attempted" || nodes.some((node) => node.status === "failed")) {
+        if (res.data.softwareTeamResult === "partially_restored" || res.data.softwareTeamResult === "failed" || res.data.softwareTeamResult === "not_attempted" || nodes.some((node) => node.status === "failed")) {
           process.exitCode = 1;
         }
       }
@@ -119,9 +119,9 @@ export function restoreCommand(depsOverride?: StatusDeps): Command {
   cmd
     .command("status <attemptId>")
     .description("Show the derived current receipt for one restore attempt")
-    .requiredOption("--rig <rigId>", "Rig ID containing the restore attempt")
+    .requiredOption("--software-team <softwareTeamId>", "SoftwareTeam ID containing the restore attempt")
     .option("--json", "JSON output")
-    .action(async (attemptId: string, opts: { rig: string; json?: boolean }) => {
+    .action(async (attemptId: string, opts: { softwareTeam: string; json?: boolean }) => {
       const deps = getDeps();
       const status = await getDaemonStatus(deps.lifecycleDeps);
       if (!daemonStatusGuard(status)) return;
@@ -131,12 +131,12 @@ export function restoreCommand(depsOverride?: StatusDeps): Command {
         error?: string;
         attemptId?: number;
         snapshotSelection?: { snapshotId: string; mode: string; kind: string; ageMs: number; rationale: string } | null;
-        originalResult?: { rigResult: string; warnings?: string[] };
+        originalResult?: { softwareTeamResult: string; warnings?: string[] };
         currentIntendedSetVerdict?: string;
         intendedRoster?: unknown[];
         excludedNodes?: unknown[];
         unresolvedIntendedSeats?: Array<{ logicalId: string; status: string }>;
-      }>(`/api/rigs/${encodeURIComponent(opts.rig)}/restore/status/${encodeURIComponent(attemptId)}`);
+      }>(`/api/software-teams/${encodeURIComponent(opts.softwareTeam)}/restore/status/${encodeURIComponent(attemptId)}`);
       if (res.status >= 400 || !res.data.ok) {
         console.error(res.data.error ?? `Restore attempt status failed (HTTP ${res.status})`);
         process.exitCode = 1;
@@ -151,7 +151,7 @@ export function restoreCommand(depsOverride?: StatusDeps): Command {
         console.log(`Snapshot: ${res.data.snapshotSelection.snapshotId} (${res.data.snapshotSelection.kind}, ${res.data.snapshotSelection.mode})`);
         console.log(`Selection: ${res.data.snapshotSelection.rationale}`);
       }
-      console.log(`Original verdict: ${res.data.originalResult?.rigResult ?? "unknown"}`);
+      console.log(`Original verdict: ${res.data.originalResult?.softwareTeamResult ?? "unknown"}`);
       for (const warning of res.data.originalResult?.warnings ?? []) console.warn(`Original attempt warning: ${warning}`);
       console.log(`Current intended-set verdict: ${res.data.currentIntendedSetVerdict ?? "unknown"}`);
       console.log(`Intended: ${res.data.intendedRoster?.length ?? 0}; excluded historical: ${res.data.excludedNodes?.length ?? 0}; unresolved: ${res.data.unresolvedIntendedSeats?.length ?? 0}`);
@@ -172,10 +172,10 @@ interface RestoreBlocker {
   remediation: string;
 }
 
-function printRestoreNotAttempted(data: { rigResult?: string; blockers?: RestoreBlocker[]; error?: string }): void {
+function printRestoreNotAttempted(data: { softwareTeamResult?: string; blockers?: RestoreBlocker[]; error?: string }): void {
   console.error(`Restore blocked: ${data.error ?? "pre-restore validation failed"}`);
-  if (data.rigResult) {
-    console.error(`Rig result: ${data.rigResult}`);
+  if (data.softwareTeamResult) {
+    console.error(`SoftwareTeam result: ${data.softwareTeamResult}`);
   }
   printBlockers(data.blockers ?? []);
 }

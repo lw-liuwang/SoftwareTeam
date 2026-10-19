@@ -350,7 +350,7 @@ interface ClearAttentionDeps {
   db?: Database.Database;
   tmux?: PaneIdentityTmux;
   listProcesses?: NativeProcessLister;
-  reconcileRestoreOutcome?: (rigId: string, nodeId: string) => Promise<
+  reconcileRestoreOutcome?: (softwareTeamId: string, nodeId: string) => Promise<
     | {
         ok: true;
         attemptId: number;
@@ -362,7 +362,7 @@ interface ClearAttentionDeps {
   >;
 }
 
-const IDENTITY_RECOVERY_GUIDANCE = "--reason cannot bypass this attention class. If the recorded native token needs correction and you know the actual token, use rig seat set-resume-token <session> --token-stdin --reason <explanation>, then rerun rig seat clear-attention <session> to check the live evidence. Setting a token or stopping/relaunching the seat alone does not prove continuity.";
+const IDENTITY_RECOVERY_GUIDANCE = "--reason cannot bypass this attention class. If the recorded native token needs correction and you know the actual token, use SoftwareTeam seat set-resume-token <session> --token-stdin --reason <explanation>, then rerun SoftwareTeam seat clear-attention <session> to check the live evidence. Setting a token or stopping/relaunching the seat alone does not prove continuity.";
 
 const POSITIVE_STATES = new Set(["running", "idle"]);
 type DerivedAttentionOutcome = {
@@ -413,7 +413,7 @@ export class SeatAttentionReconciler {
           detail: `Uncleared attention class restore_outcome (full restore): strict restore reconciler is unavailable. ${IDENTITY_RECOVERY_GUIDANCE}`,
         };
       }
-      const restored = await reconcile(session.rigId, session.nodeId);
+      const restored = await reconcile(session.softwareTeamId, session.nodeId);
       if (!restored.ok) {
         return {
           ok: false,
@@ -429,7 +429,7 @@ export class SeatAttentionReconciler {
         sessionRegistry.updateStartupStatus(session.id, "ready", new Date().toISOString());
         eventBus.emit({
           type: "seat.attention_cleared",
-          rigId: session.rigId,
+          softwareTeamId: session.softwareTeamId,
           nodeId: session.nodeId,
           sessionName,
           from: session.startupStatus,
@@ -503,7 +503,7 @@ export class SeatAttentionReconciler {
         sessionRegistry.updateStartupStatus(session.id, "ready", new Date().toISOString());
         eventBus.emit({
           type: "seat.attention_cleared",
-          rigId: session.rigId,
+          softwareTeamId: session.softwareTeamId,
           nodeId: session.nodeId,
           sessionName,
           from: session.startupStatus,
@@ -517,7 +517,7 @@ export class SeatAttentionReconciler {
       if (derivedOutcome?.source === "restore.subset_completed") {
         eventBus.emit({
           type: "restore.outcome_reconciled",
-          rigId: session.rigId,
+          softwareTeamId: session.softwareTeamId,
           nodeId: session.nodeId,
           attemptId: 0,
           from: derivedOutcome.status,
@@ -562,7 +562,7 @@ export class SeatAttentionReconciler {
     // Second evidence path: active send-verify round-trip.
     if (this.deps.sendVerify) {
       try {
-        const probeText = `# OpenRig attention-clear liveness probe ${Date.now()}`;
+        const probeText = `# SoftwareTeam attention-clear liveness probe ${Date.now()}`;
         const sendResult = await this.deps.sendVerify(sessionName, probeText, { verify: true });
         if (sendResult.ok && (sendResult.outcome === "delivered" || sendResult.verified === true)) {
           const evidence = { kind: "send_verify_roundtrip", state: sendResult.outcome ?? "delivered" };
@@ -608,7 +608,7 @@ export class SeatAttentionReconciler {
   }
 
   private performEvidenceClear(
-    session: { id: string; nodeId: string; rigId: string; startupStatus: string },
+    session: { id: string; nodeId: string; softwareTeamId: string; startupStatus: string },
     sessionName: string,
     startupClassActive: boolean,
     subsetOutcome: "failed" | "attention_required" | null,
@@ -625,7 +625,7 @@ export class SeatAttentionReconciler {
       sessionRegistry.updateStartupStatus(session.id, "ready", new Date().toISOString());
       eventBus.emit({
         type: "seat.attention_cleared",
-        rigId: session.rigId,
+        softwareTeamId: session.softwareTeamId,
         nodeId: session.nodeId,
         sessionName,
         from: session.startupStatus,
@@ -640,7 +640,7 @@ export class SeatAttentionReconciler {
     if (subsetOutcome) {
       eventBus.emit({
         type: "restore.outcome_reconciled",
-        rigId: session.rigId,
+        softwareTeamId: session.softwareTeamId,
         nodeId: session.nodeId,
         attemptId: 0,
         from: subsetOutcome,
@@ -668,7 +668,7 @@ export class SeatAttentionReconciler {
   private findLatestSessionByName(sessionName: string): {
     id: string;
     nodeId: string;
-    rigId: string;
+    softwareTeamId: string;
     startupStatus: string;
     sessionStatus: string;
     runtime: string | null;
@@ -677,7 +677,7 @@ export class SeatAttentionReconciler {
     latestError: string | null;
   } | null {
     const row = this.deps.sessionRegistry.db.prepare(
-      `SELECT s.id, s.node_id, n.rig_id, n.runtime, s.resume_token, b.tmux_pane, s.startup_status, s.status,
+      `SELECT s.id, s.node_id, n.software_team_id, n.runtime, s.resume_token, b.tmux_pane, s.startup_status, s.status,
               (SELECT e.payload FROM events e WHERE e.node_id = s.node_id AND e.type IN ('node.startup_attention_required','node.startup_failed') ORDER BY e.seq DESC LIMIT 1) as latest_error_payload
        FROM sessions s
        JOIN nodes n ON n.id = s.node_id
@@ -687,7 +687,7 @@ export class SeatAttentionReconciler {
     ).get(sessionName) as {
       id: string;
       node_id: string;
-      rig_id: string;
+      software_team_id: string;
       startup_status: string;
       status: string;
       runtime: string | null;
@@ -711,7 +711,7 @@ export class SeatAttentionReconciler {
     return {
       id: row.id,
       nodeId: row.node_id,
-      rigId: row.rig_id,
+      softwareTeamId: row.software_team_id,
       startupStatus: row.startup_status ?? "pending",
       sessionStatus: row.status ?? "unknown",
       runtime: row.runtime,
@@ -734,12 +734,12 @@ export class SeatAttentionReconciler {
     return verdict.verdict === "mismatch" || verdict.verdict === "pane_missing" ? verdict : null;
   }
 
-  private getDerivedAttentionOutcome(session: { nodeId: string; rigId: string; sessionStatus: string }): DerivedAttentionOutcome | null {
+  private getDerivedAttentionOutcome(session: { nodeId: string; softwareTeamId: string; sessionStatus: string }): DerivedAttentionOutcome | null {
     if (!this.deps.db) return null;
 
     const rows = this.deps.db.prepare(
-      "SELECT type, payload FROM events WHERE rig_id = ? AND type IN ('restore.completed', 'restore.subset_completed', 'restore.outcome_reconciled') ORDER BY seq DESC"
-    ).all(session.rigId) as { type: string; payload: string }[];
+      "SELECT type, payload FROM events WHERE software_team_id = ? AND type IN ('restore.completed', 'restore.subset_completed', 'restore.outcome_reconciled') ORDER BY seq DESC"
+    ).all(session.softwareTeamId) as { type: string; payload: string }[];
 
     let sawLegacyReconciliation = false;
     for (const row of rows) {

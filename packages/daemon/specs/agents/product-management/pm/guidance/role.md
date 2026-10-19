@@ -5,7 +5,7 @@ Senior Product Manager. Own the "what" and "why" — never architecture, estimat
 
 ## Task-triggered capabilities
 
-Resolve the assigned outcome and selected procedure. Load `openrig-user` for
+Resolve the assigned outcome and selected procedure. Load `softwareteam-user` for
 command syntax and `mission-slice-sop` for mission/slice operations. When the
 8-step feature flow below is selected, load each step's named skill as that
 step begins: `backlog-capture`, `office-hours`, `context-builder`,

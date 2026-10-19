@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { buildOutboundMessage, buildImageBlocks, containsSecret, redactSecrets, SLACK_SECTION_CAP, SLACK_TEXT_CAP } from "../src/domain/gateway/slack/message.js";
 
 describe("Slice-11 outbound message — content hygiene (item 7)", () => {
-  const opts = { sourceLabel: "vm-openrig-build" };
+  const opts = { sourceLabel: "vm-softwareteam-build" };
 
   it("shows the brief and sender; internal queue identifiers stay behind the message", () => {
     const m = buildOutboundMessage(
@@ -12,7 +12,7 @@ describe("Slice-11 outbound message — content hygiene (item 7)", () => {
     expect(m.text).toContain("Founder needs a decision");
     expect(m.text).not.toContain("qitem-abc");
     expect(m.text).not.toContain("human-founder@kernel");
-    expect(m.text).toContain("vm-openrig-build");
+    expect(m.text).toContain("vm-softwareteam-build");
   });
 
   it("NEVER forwards a Slack/bearer secret that leaks through a qitem body (redacted)", () => {
@@ -103,7 +103,7 @@ describe("#47 evidence link boundaries", () => {
     const fullOpts = {
       ...opts,
       evidenceLink,
-      attribution: { seat: "dev@rig", session: "dev@rig@host" },
+      attribution: { seat: "dev@software-team", session: "dev@software-team@host" },
       mentionUserId: "U-EVIDENCE",
       reconcileMarker: "(or-mark:d-evidence)",
       mediaRefs: [{ imageUrl: "https://example.invalid/shot.png", altText: "Screenshot & evidence" }],
@@ -115,7 +115,7 @@ describe("#47 evidence link boundaries", () => {
     expect(message.text.length).toBe(SLACK_TEXT_CAP);
     expect(message.text).toContain("Evidence: " + evidenceLink.replaceAll("&", "&amp;"));
     expect(message.text).toContain("Image: Screenshot &amp; evidence");
-    expect(message.text).toContain("from dev@rig@host");
+    expect(message.text).toContain("from dev@software-team@host");
     expect(message.text).toContain("<@U-EVIDENCE>");
     expect(message.text.endsWith(fullOpts.reconcileMarker)).toBe(true);
     expect(() => buildOutboundMessage({ ...brief, body: body + "b" }, fullOpts)).toThrow(/complete fallback.*maximum 3900/);
@@ -123,7 +123,7 @@ describe("#47 evidence link boundaries", () => {
 });
 
 describe("M1 A5b — outbound image attachments (the wired T1076 seam)", () => {
-  const opts = { sourceLabel: "vm-openrig-build" };
+  const opts = { sourceLabel: "vm-softwareteam-build" };
   const imageBlocks = (m: { blocks: unknown[] }) => m.blocks.filter((b) => (b as { type?: string }).type === "image") as { type: string; image_url: string; alt_text: string }[];
 
   it("renders a media ref as a Block Kit image block + carries the image description in the fallback", () => {
@@ -173,7 +173,7 @@ describe("#1013 — a workflow gate parked on a human seat renders the question,
     "Evidence: https://example.invalid/plan.md",
     "Objective: reach plan sign-off",
     "",
-    "Continuation: rig workflow project --instance 01M4EXAMPLEINSTANCE",
+    "Continuation: SoftwareTeam workflow project --instance 01M4EXAMPLEINSTANCE",
     "Context: this workflow packet is a shortcut, not the whole story; open the instance for the full plan.",
   ].join("\n");
   const gateRow = {
@@ -184,7 +184,7 @@ describe("#1013 — a workflow gate parked on a human seat renders the question,
     tags: ["workflow", "gate", "workflow:tianqi-mission", "instance:01M4EXAMPLEINSTANCE"],
     destinationSession: "orch@kernel",
   };
-  const opts = { sourceLabel: "vm-openrig-build", evidenceLink: "https://example.invalid/plan.md" };
+  const opts = { sourceLabel: "vm-softwareteam-build", evidenceLink: "https://example.invalid/plan.md" };
 
   it("posts the headline (gate.summary) and evidence link, never the agent packet lines", () => {
     const m = buildOutboundMessage(gateRow, opts);
@@ -210,19 +210,19 @@ describe("#1013 — a workflow gate parked on a human seat renders the question,
   });
 
   it("renders a single Evidence: line when the gate's evidence is a local path (the common case)", () => {
-    const m = buildOutboundMessage({ ...gateRow, evidenceRef: "/srv/rig/retained/plan.md" }, { sourceLabel: opts.sourceLabel });
+    const m = buildOutboundMessage({ ...gateRow, evidenceRef: "/srv/softwareTeam/retained/plan.md" }, { sourceLabel: opts.sourceLabel });
     expect(m.text).toContain("*Approve the plan at https://example.invalid/plan.md*");
     expect((m.text.match(/Evidence:/g) ?? []).length).toBe(1);
-    expect(m.text).toContain("Evidence: /srv/rig/retained/plan.md");
+    expect(m.text).toContain("Evidence: /srv/softwareTeam/retained/plan.md");
     expect(m.text).not.toContain("Workflow instance:");
   });
 
   it("keeps the Evidence line when the attached media is a different artifact than the evidence", () => {
     const m = buildOutboundMessage(
-      { ...gateRow, evidenceRef: "/srv/rig/retained/plan.md" },
+      { ...gateRow, evidenceRef: "/srv/softwareTeam/retained/plan.md" },
       { sourceLabel: opts.sourceLabel, mediaRefs: [{ imageUrl: "https://example.invalid/screenshot.png", altText: "screenshot" }] },
     );
-    expect(m.text).toContain("Evidence: /srv/rig/retained/plan.md");
+    expect(m.text).toContain("Evidence: /srv/softwareTeam/retained/plan.md");
   });
 
   it("suppresses the Evidence path only when the rendered media carries that same reference", () => {
@@ -327,7 +327,7 @@ describe("#1013 — a workflow gate parked on a human seat renders the question,
     const tags = ["workflow", "gate", `workflow:${"&".repeat(100)}`, `instance:${"&".repeat(100)}`];
     const m = buildOutboundMessage(
       { ...gateRow, summary: "s".repeat(2990), evidenceRef: `/tmp/${"e".repeat(850)}`, tags },
-      { sourceLabel: "vm-openrig-build" },
+      { sourceLabel: "vm-softwareteam-build" },
     );
     expect(m.text.length).toBeLessThanOrEqual(SLACK_TEXT_CAP);
     expect(m.text).toContain(`Evidence: /tmp/${"e".repeat(850)}`);

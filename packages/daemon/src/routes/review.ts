@@ -5,10 +5,10 @@
 //   GET /api/review/slice/:name        — ComposedSliceReview
 //   GET /api/review/mission/:name      — ComposedMissionReview
 //   GET /api/review/agents?scope=...   — AgentsBand; scope is the THREE-VALUED
-//                                        parameter slice:<id> | mission:<id> | rig
+//                                        parameter slice:<id> | mission:<id> | softwareTeam
 //                                        (never a second endpoint per consumer).
 //
-// Git lineage facts come from the repo at OPENRIG_REVIEW_GIT_REPO when set;
+// Git lineage facts come from the repo at SOFTWARETEAM_REVIEW_GIT_REPO when set;
 // otherwise lineage degrades honestly to "unknown" (the composer renders the
 // three N1 facts with what it has — never a remembered claim).
 
@@ -33,7 +33,7 @@ function getGatherer(c: { get(key: string): unknown }): ReviewGatherer | null {
 
 function parseScope(raw: string | undefined): AgentsScope | null {
   if (!raw) return null;
-  if (raw === "rig") return raw;
+  if (raw === "softwareTeam") return raw;
   if (raw.startsWith("slice:") && raw.length > "slice:".length) return raw as AgentsScope;
   if (raw.startsWith("mission:") && raw.length > "mission:".length) return raw as AgentsScope;
   return null;
@@ -50,7 +50,7 @@ export function reviewRoutes(): Hono {
       return c.json(
         {
           error: "scope_invalid",
-          hint: "scope must be one of: slice:<id> | mission:<id> | rig",
+          hint: "scope must be one of: slice:<id> | mission:<id> | softwareTeam",
         },
         400,
       );
@@ -60,20 +60,20 @@ export function reviewRoutes(): Hono {
     return c.json(band);
   });
 
-  // OPR.0.4.4.22 — the rig-scope standalone altitude root (FR-1..FR-4):
+  // OPR.0.4.4.22 — the software-team-scope standalone altitude root (FR-1..FR-4):
   // NEEDS YOU + AGENTS (health line) + SETTLED, same contract family as
   // /slice/:name and /mission/:name. Read-only pure projection; the panel's
   // standing cost is queue+ps only (drill-in rides the SHIPPED transcript
   // routes — zero new routes for reading panes, per FR-6).
-  app.get("/rig", (c) => {
+  app.get("/softwareTeam", (c) => {
     const gatherer = getGatherer(c);
     if (!gatherer) return c.json({ error: "review_composer_unavailable" }, 503);
-    return c.json(gatherer.composeRig());
+    return c.json(gatherer.composeSoftwareTeam());
   });
 
   // OPR.0.4.6.MH5 — the FLEET aggregate root (arch Q2: a SIBLING aggregate
   // beside this family, never a fourth AgentsScope value). Fans out each
-  // registered host's OWN composed rig root and unions + host-dimensions +
+  // registered host's OWN composed softwareTeam root and unions + host-dimensions +
   // counts (arch Q1 — exception truth is never recomputed here); the LOCAL
   // host joins in-process via the same gatherer this family uses (D-1).
   // Read + surface only (FR-5); bearers stay server-side (the fan-out is
@@ -86,7 +86,7 @@ export function reviewRoutes(): Hono {
     const registryLoader = (c.get("hostRegistryLoader" as never) as (() => HostRegistryLoadResult) | undefined) ?? loadHostRegistry;
     const registryProbe = (c.get("hostRegistryExists" as never) as (() => boolean) | undefined) ?? (() => fs.existsSync(defaultHostRegistryPath()));
     const fleet = await composeFleet({
-      composeLocalRig: () => gatherer.composeRig(),
+      composeLocalSoftwareTeam: () => gatherer.composeSoftwareTeam(),
       loadRegistry: registryLoader,
       registryExists: registryProbe,
       // View time enters at the edge; the union never derives host time state.
@@ -124,7 +124,7 @@ export function reviewRoutes(): Hono {
       return c.json(
         {
           error: "file_write_service_unavailable",
-          hint: "the freeze write path is allowlist-governed; set OPENRIG_FILES_ALLOWLIST=name:/abs/path and restart the daemon",
+          hint: "the freeze write path is allowlist-governed; set SOFTWARETEAM_FILES_ALLOWLIST=name:/abs/path and restart the daemon",
         },
         503,
       );
@@ -178,7 +178,7 @@ export function reviewRoutes(): Hono {
             const stat = fs.statSync(target.briefPath);
             const mapped = resolveAllowlisted(allowlist, path.dirname(target.briefPath));
             if (!mapped) {
-              briefWrite = "skipped: mission folder not under OPENRIG_FILES_ALLOWLIST";
+              briefWrite = "skipped: mission folder not under SOFTWARETEAM_FILES_ALLOWLIST";
             } else {
               writeService.writeAtomic({
                 rootName: mapped.root,

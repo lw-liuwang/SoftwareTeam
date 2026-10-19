@@ -29,7 +29,7 @@ async function run(args: string[], respond: (path: string) => Promise<{
     } as unknown as StatusDeps;
     process.exitCode = undefined;
     try {
-        await new Command().addCommand(telemetryCommand(deps)).parseAsync(["node", "rig", "telemetry", ...args]);
+        await new Command().addCommand(telemetryCommand(deps)).parseAsync(["node", "softwareTeam", "telemetry", ...args]);
         return { paths, logs, errors, exit: process.exitCode };
     }
     finally {
@@ -42,13 +42,13 @@ const envelope = {
     page: { scanned: 128, returned: 1, through: "9007199254741000", hasMore: true, nextCursor: "next-token", restartCursor: null },
     coverage: { status: "partial", historyCompleteness: "unknown", gaps: [{ code: "retained_sequence_gap" }], gapCount: 1 },
 };
-describe("rig telemetry", () => {
+describe("SoftwareTeam telemetry", () => {
     it("passes filters and cursor to one read and preserves the complete JSON envelope", async () => {
-        const result = await run(["events", "--cursor", "cursor-token", "--limit", "17", "--node", "node-a", "--rig", "rig-a", "--json"], async () => ({ status: 200, data: envelope }));
+        const result = await run(["events", "--cursor", "cursor-token", "--limit", "17", "--node", "node-a", "--software-team", "software-team-a", "--json"], async () => ({ status: 200, data: envelope }));
         expect(result.paths).toHaveLength(1);
         const url = new URL(result.paths[0]!, "http://fixture");
         expect(url.pathname).toBe("/api/telemetry/v1/events");
-        expect(Object.fromEntries(url.searchParams)).toEqual({ cursor: "cursor-token", limit: "17", nodeId: "node-a", rigId: "rig-a" });
+        expect(Object.fromEntries(url.searchParams)).toEqual({ cursor: "cursor-token", limit: "17", nodeId: "node-a", softwareTeamId: "software-team-a" });
         expect(JSON.parse(result.logs.join("\n"))).toEqual(envelope);
         expect(result.exit).toBeUndefined();
     });

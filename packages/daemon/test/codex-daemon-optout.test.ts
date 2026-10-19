@@ -10,7 +10,7 @@ import type { NodeBinding } from "../src/domain/runtime-adapter.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
 
 // #69 — Codex versions using a shared app-server daemon can run tool shells there, so a seat's tools
-// can inherit another seat's OpenRig identity. Supported binaries must launch with
+// can inherit another seat's SoftwareTeam identity. Supported binaries must launch with
 // --no-daemon on every path; a positively legacy binary keeps its current invocation;
 // an undeterminable binary must not be launched as if it were isolated.
 
@@ -81,10 +81,10 @@ async function launch(kind: LaunchKind, support: CodexDaemonSupport | undefined)
     ...(support ? { detectDaemonSupport } : {}),
   });
   const opts = kind === "fork"
-    ? { name: "dev-qa@test-rig", forkSource: { kind: "native_id" as const, value: "parent thread" } }
+    ? { name: "dev-qa@test-software-team", forkSource: { kind: "native_id" as const, value: "parent thread" } }
     : kind === "resume"
-      ? { name: "dev-qa@test-rig", resumeToken: "sess 456" }
-      : { name: "dev-qa@test-rig" };
+      ? { name: "dev-qa@test-software-team", resumeToken: "sess 456" }
+      : { name: "dev-qa@test-software-team" };
   const result = await adapter.launchHarness(binding(), opts);
   return { result, commands: sentCommands(tmux), detectDaemonSupport };
 }
@@ -210,7 +210,7 @@ describe("#69 production detector with a fake executor", () => {
     const run = () => kind === "restore" || kind === "last"
       ? restore.resume("r01-qa", kind === "last" ? "codex_last" : "codex_id", "thread's id", cwd, profile, posture, model)
       : adapter.launchHarness({ ...binding(), cwd, model, launchPosture: posture, codexConfigProfile: profile }, {
-          name: "dev-qa@test-rig",
+          name: "dev-qa@test-software-team",
           ...(kind === "fork" ? { forkSource: { kind: "native_id" as const, value: "parent's id" } }
             : kind === "resume" ? { resumeToken: "thread's id" } : {}),
         });

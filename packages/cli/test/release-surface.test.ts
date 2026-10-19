@@ -51,10 +51,10 @@ if (skipTagTests) {
 }
 
 describe("release-surface parser - extract (unit)", () => {
-  it("AC-2 crux: emits the registration name `mode`, never the filename `rig-mode` (verb renamed from `policy`, B7)", () => {
-    const surface = extractSurfaceFromSources([readSource("src/commands/rig-mode.ts")]);
+  it("AC-2 crux: emits the registration name `mode`, never the filename `software-team-mode` (verb renamed from `policy`, B7)", () => {
+    const surface = extractSurfaceFromSources([readSource("src/commands/software-team-mode.ts")]);
     expect(surface.commands.has("mode")).toBe(true);
-    expect([...surface.commands].some((c) => c.includes("rig-mode"))).toBe(false);
+    expect([...surface.commands].some((c) => c.includes("software-team-mode"))).toBe(false);
     // a few known subcommands of `mode`
     expect(surface.commands.has("mode set")).toBe(true);
     expect(surface.commands.has("mode defaults")).toBe(true);
@@ -124,7 +124,7 @@ describe.skipIf(skipTagTests)("release-surface parser - v0.3.1..v0.3.2 worked ex
   it("emits exactly `policy` and `scope` as new top-level commands (no false positives, no filename)", () => {
     const names = diff.added_commands.map((c) => c.name).sort();
     expect(names).toEqual(["policy", "scope"]);
-    expect(names).not.toContain("rig-policy");
+    expect(names).not.toContain("software-team-policy");
   });
 
   it("surfaces the new queue create flags", () => {

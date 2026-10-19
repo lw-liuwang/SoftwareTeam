@@ -19,7 +19,7 @@ const HOSTS_EMPTY: HostsResponse = { ownName: "studio", selected: "local", hosts
 const HOSTS_ONE_REMOTE: HostsResponse = {
   ownName: "studio",
   selected: "local",
-  hosts: [{ id: "vps-a", transport: "http", url: "http://vps-a:7433", bearer_env: "A", selected: false, status: "reachable" }],
+  hosts: [{ id: "vps-a", transport: "http", url: "http://vps-a:7434", bearer_env: "A", selected: false, status: "reachable" }],
 };
 
 function fleetFixture(over: Partial<ComposedFleet> = {}): ComposedFleet {
@@ -38,10 +38,10 @@ function fleetFixture(over: Partial<ComposedFleet> = {}): ComposedFleet {
           identity: "qi-a|stuck|t0",
           fleetKey: "vps-a|qi-a|stuck|t0",
           hostId: "vps-a",
-          seenFrom: ["rig"],
+          seenFrom: ["softwareTeam"],
           summary: "packer2 idle 47m with work",
           leg: "stuck",
-          where: "rig",
+          where: "softwareTeam",
           ageIso: null,
           priority: null,
           tier: null,
@@ -56,10 +56,10 @@ function fleetFixture(over: Partial<ComposedFleet> = {}): ComposedFleet {
           identity: "qi-l1",
           fleetKey: "local|qi-l1",
           hostId: "local",
-          seenFrom: ["rig"],
+          seenFrom: ["softwareTeam"],
           summary: "sign-off needed",
           leg: "human-gate",
-          where: "rig",
+          where: "softwareTeam",
           ageIso: null,
           priority: "urgent",
           tier: "human-gate",
@@ -73,8 +73,8 @@ function fleetFixture(over: Partial<ComposedFleet> = {}): ComposedFleet {
       provenance: "fleet union · counted once per identity+host · 2/2 hosts composing",
     },
     hosts: [
-      { hostId: "local", kind: "local", status: { hostId: "local", status: "ok" }, needsYouCount: 1, exceptionsByKind: [], seatCount: 1, rigCount: 1, topLine: "● sign-off needed" },
-      { hostId: "vps-a", kind: "remote", status: { hostId: "vps-a", status: "ok" }, needsYouCount: 0, exceptionsByKind: [{ kind: "stuck", count: 1 }], seatCount: 2, rigCount: 1, topLine: "▲ stuck — packer2 idle 47m with work" },
+      { hostId: "local", kind: "local", status: { hostId: "local", status: "ok" }, needsYouCount: 1, exceptionsByKind: [], seatCount: 1, softwareTeamCount: 1, topLine: "● sign-off needed" },
+      { hostId: "vps-a", kind: "remote", status: { hostId: "vps-a", status: "ok" }, needsYouCount: 0, exceptionsByKind: [{ kind: "stuck", count: 1 }], seatCount: 2, softwareTeamCount: 1, topLine: "▲ stuck — packer2 idle 47m with work" },
     ],
     settled: [],
     settledProvenance: "0 settled handoffs across 2 composing hosts",
@@ -178,8 +178,8 @@ describe("FleetBand — guard B1 regression: an unreadable registry is NEVER hid
       fleetFixture({
         // What the daemon composer actually returns in this state: an
         // existing-but-unreadable registry → local-only + registryError.
-        registryError: "failed to parse host registry YAML at ~/.openrig/hosts.yaml",
-        hosts: [{ hostId: "local", kind: "local", status: { hostId: "local", status: "ok" }, needsYouCount: 0, exceptionsByKind: [], seatCount: 1, rigCount: 1, topLine: "quiet" }],
+        registryError: "failed to parse host registry YAML at ~/.softwareteam/hosts.yaml",
+        hosts: [{ hostId: "local", kind: "local", status: { hostId: "local", status: "ok" }, needsYouCount: 0, exceptionsByKind: [], seatCount: 1, softwareTeamCount: 1, topLine: "quiet" }],
         needsYou: { items: [], provenance: "0 items" },
         rollup: { needsYouCount: 0, exceptionCount: 0, exceptionsByKind: [], hostCount: 1, unreachableCount: 0 },
       }),

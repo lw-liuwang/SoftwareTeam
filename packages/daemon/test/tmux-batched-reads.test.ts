@@ -11,7 +11,7 @@ import { SeatIdentityStore } from "../src/domain/seat-identity-store.js";
 
 // A tmux "server": sessions (one current window each, plus an inactive one for s2) and panes.
 const WINDOWS = [
-  ["s1@rig", 1, 1790000100], ["s2@rig", 0, 1790000999], ["s2@rig", 1, 1790000050], ["s3@rig", 1, 0], ["s4@rig", 1, 1790000200],
+  ["s1@software-team", 1, 1790000100], ["s2@software-team", 0, 1790000999], ["s2@software-team", 1, 1790000050], ["s3@software-team", 1, 0], ["s4@software-team", 1, 1790000200],
 ] as const;
 const PANES = [["%1", 4242, "node"], ["%2", 5151, "zsh"], ["%3", 0, ""], ["%4", 7777, "codex"]] as const;
 const unquote = (t: string) => t.replace(/^'(.*)'$/, "$1");
@@ -36,12 +36,12 @@ describe("batched tmux reads", () => {
     const { exec, calls } = fakeExec(); const tmux = new TmuxAdapter(exec as never);
     const batch = await tmux.readAllSessionWindowActivity();
     expect(calls).toHaveLength(1);
-    for (const s of ["s1@rig", "s2@rig", "s3@rig", "s4@rig"]) {
+    for (const s of ["s1@software-team", "s2@software-team", "s3@software-team", "s4@software-team"]) {
       const per = await tmux.readPaneLastActivity(s);
       expect(batch!.get(s) ?? null, s).toBe(per);
     }
-    expect(batch!.get("s2@rig")).toBe(1790000050);   // the CURRENT window, as display-message -t <session> reads
-    expect(batch!.has("s3@rig")).toBe(false);          // 0 is not a timestamp: left out, like the per-target null
+    expect(batch!.get("s2@software-team")).toBe(1790000050);   // the CURRENT window, as display-message -t <session> reads
+    expect(batch!.has("s3@software-team")).toBe(false);          // 0 is not a timestamp: left out, like the per-target null
   });
 
   it("readAllPaneProcesses equals getPanePid/getPaneCommand for every pane, in one call", async () => {
@@ -63,25 +63,25 @@ describe("batched tmux reads", () => {
 });
 
 function seed(db: Database.Database, seats: Array<[string, string, string, string?]>) {
-  db.prepare("INSERT INTO rigs (id, name) VALUES ('rig-1', 'rig')").run();
+  db.prepare("INSERT INTO software_teams (id, name) VALUES ('software-team-1', 'softwareTeam')").run();
   for (const [node, session, pane, runtime] of seats) {
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id, runtime, cwd) VALUES (?, 'rig-1', ?, ?, '/tmp')").run(node, `p.${node}`, runtime ?? "claude-code");
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, runtime, cwd) VALUES (?, 'software-team-1', ?, ?, '/tmp')").run(node, `p.${node}`, runtime ?? "claude-code");
     db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status) VALUES (?, ?, ?, 'running', 'ready')").run(`s-${node}`, node, session);
     db.prepare("INSERT INTO bindings (id, node_id, attachment_type, tmux_session, tmux_pane) VALUES (?, ?, 'tmux', ?, ?)").run(`b-${node}`, node, session, pane);
   }
 }
-const SEATS: Array<[string, string, string, string?]> = [["n1", "s1@rig", "%1"], ["n2", "s2@rig", "%2"], ["n3", "s3@rig", "%3"], ["n4", "s4@rig", "%9"], ["n5", "gone@rig", "%5"]];
+const SEATS: Array<[string, string, string, string?]> = [["n1", "s1@software-team", "%1"], ["n2", "s2@software-team", "%2"], ["n3", "s3@software-team", "%3"], ["n4", "s4@software-team", "%9"], ["n5", "gone@software-team", "%5"]];
 const NOW = () => new Date(1790000102 * 1000);
 
 describe("batched tmux reads: the separator inside a session name or a command", () => {
   it("keeps a session name and a pane command that contain the field separator intact", async () => {
     const exec = vi.fn(async (cmd: string) => {
-      if (cmd.startsWith("tmux list-windows -a")) return "1|1790000100|odd|name@rig\n0|1790000200|odd|name@rig\n";
+      if (cmd.startsWith("tmux list-windows -a")) return "1|1790000100|odd|name@software-team\n0|1790000200|odd|name@software-team\n";
       if (cmd.startsWith("tmux list-panes -a")) return "%9|4242|a|b\n";
       throw new Error(`unexpected: ${cmd}`);
     });
     const tmux = new TmuxAdapter(exec as never);
-    expect(await tmux.readAllSessionWindowActivity()).toEqual(new Map([["odd|name@rig", 1790000100]]));
+    expect(await tmux.readAllSessionWindowActivity()).toEqual(new Map([["odd|name@software-team", 1790000100]]));
     expect(await tmux.readAllPaneProcesses()).toEqual(new Map([["%9", { pid: 4242, command: "a|b" }]]));
   });
 });
@@ -105,10 +105,10 @@ describe("SeatActivityService sweep with the batch", () => {
     expect(bat.out).toEqual(per.out);
     expect(per.calls).toHaveLength(5);                                   // one display-message per seat before
     expect(bat.calls.filter((c) => c.startsWith("tmux list-windows -a"))).toHaveLength(1);
-    // misses fall back: s3 (no valid timestamp) and gone@rig (no such session); s1, s2, s4 come from the batch
-    expect(bat.calls.filter((c) => c.startsWith("tmux display-message")).map((c) => c.match(/-t (\S+)/)![1]).map(unquote).sort()).toEqual(["=gone@rig:", "=s3@rig:"]);
-    expect(bat.out["s1@rig"]!.isActiveWithinWindow).toBe(true);
-    expect(bat.out["s2@rig"]!.isActiveWithinWindow).toBe(false);
+    // misses fall back: s3 (no valid timestamp) and gone@software-team (no such session); s1, s2, s4 come from the batch
+    expect(bat.calls.filter((c) => c.startsWith("tmux display-message")).map((c) => c.match(/-t (\S+)/)![1]).map(unquote).sort()).toEqual(["=gone@software-team:", "=s3@software-team:"]);
+    expect(bat.out["s1@software-team"]!.isActiveWithinWindow).toBe(true);
+    expect(bat.out["s2@software-team"]!.isActiveWithinWindow).toBe(false);
   });
 
   it("a failed batch reads every seat per target, as before", async () => {
@@ -124,8 +124,8 @@ describe("SeatActivityService sweep with the batch", () => {
   it("pollSeat called directly still reads per target (no stale batch)", async () => {
     const { exec, calls } = fakeExec(); const real = new TmuxAdapter(exec as never);
     const svc = new SeatActivityService({ tmux: { readPaneLastActivity: (p: string) => real.readPaneLastActivity(p), readAllSessionWindowActivity: () => real.readAllSessionWindowActivity() }, defaultWindowSeconds: 3, now: NOW });
-    await svc.pollSeat("s1@rig");
-    expect(calls).toEqual([expect.stringMatching(/^tmux display-message -p -t .*s1@rig/)]);
+    await svc.pollSeat("s1@software-team");
+    expect(calls).toEqual([expect.stringMatching(/^tmux display-message -p -t .*s1@software-team/)]);
   });
 });
 
@@ -133,7 +133,7 @@ describe("SeatIdentityReconciler with the batch", () => {
   it.each([1, 25, 100])("%i direct Claude seats use one batch and no per-seat/native reads", async count => {
     const db = createFullTestDb();
     try {
-      const seats: Array<[string, string, string]> = Array.from({ length: count }, (_, i) => [`n${i}`, `s${i}@rig`, `%${i}`]);
+      const seats: Array<[string, string, string]> = Array.from({ length: count }, (_, i) => [`n${i}`, `s${i}@software-team`, `%${i}`]);
       seed(db, seats);
       // Saved tokens do not turn a direct Claude label into a wrapper-probe need.
       db.prepare("UPDATE sessions SET resume_token = 'saved' WHERE node_id = 'n0'").run();
@@ -152,9 +152,9 @@ describe("SeatIdentityReconciler with the batch", () => {
   it.each(["missing", "unavailable"])("a %s batch falls back once per direct Claude pane", async kind => {
     const db = createFullTestDb();
     try {
-      seed(db, [["n", "s@rig", "%1"]]);
+      seed(db, [["n", "s@software-team", "%1"]]);
       const getPanePid = vi.fn(async () => 42), getPaneCommand = vi.fn(async () => "claude"), listProcesses = vi.fn(async () => []);
-      await new SeatIdentityReconciler({ db, tmux: { listSessions: async () => [{ name: "s@rig" }] as never,
+      await new SeatIdentityReconciler({ db, tmux: { listSessions: async () => [{ name: "s@software-team" }] as never,
         getPanePid, getPaneCommand, listPanes: async () => [] as never,
         readAllPaneProcesses: async () => { if (kind === "unavailable") throw Error("unavailable"); return new Map(); } }, listProcesses }).reconcileAll();
       expect(getPanePid).toHaveBeenCalledTimes(1); expect(getPaneCommand).toHaveBeenCalledTimes(1);
@@ -167,7 +167,7 @@ describe("SeatIdentityReconciler with the batch", () => {
     const db = createFullTestDb(); seed(db, SEATS.slice(0, 4));
     const { exec, calls } = fakeExec(); const real = new TmuxAdapter(exec as never);
     const tmux = {
-      listSessions: async () => ["s1@rig", "s2@rig", "s3@rig", "s4@rig"].map((name) => ({ name })) as never,
+      listSessions: async () => ["s1@software-team", "s2@software-team", "s3@software-team", "s4@software-team"].map((name) => ({ name })) as never,
       getPanePid: (p: string) => real.getPanePid(p), getPaneCommand: (p: string) => real.getPaneCommand(p),
       ...(batched ? { readAllPaneProcesses: () => real.readAllPaneProcesses() } : {}),
     };

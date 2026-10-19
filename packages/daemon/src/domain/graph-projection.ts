@@ -1,7 +1,7 @@
-import type { RigWithRelations, Session, Binding, Pod, AgentActivity, SeatIdentityVerdict } from "./types.js";
+import type { SoftwareTeamWithRelations, Session, Binding, Pod, AgentActivity, SeatIdentityVerdict } from "./types.js";
 import { identityVerdictDownranksRunning } from "./types.js";
 
-export interface RigGraphInput extends RigWithRelations {
+export interface SoftwareTeamGraphInput extends SoftwareTeamWithRelations {
   sessions: Session[];
   pods?: Pod[];
 }
@@ -16,7 +16,7 @@ interface RFNodeData {
   logicalId: string;
   podLabel?: string | null;
   podNamespace?: string | null;
-  rigId: string;
+  softwareTeamId: string;
   role: string | null;
   runtime: string | null;
   model: string | null;
@@ -97,8 +97,8 @@ export interface InventoryOverlay {
   heldReason?: string | null;
 }
 
-export function projectRigToGraph(input: RigGraphInput, inventoryOverlay?: InventoryOverlay[]): ReactFlowGraph {
-  const { nodes: rigNodes, edges: rigEdges, sessions, pods = [] } = input;
+export function projectSoftwareTeamToGraph(input: SoftwareTeamGraphInput, inventoryOverlay?: InventoryOverlay[]): ReactFlowGraph {
+  const { nodes: softwareTeamNodes, edges: softwareTeamEdges, sessions, pods = [] } = input;
   const overlayMap = new Map((inventoryOverlay ?? []).map((o) => [o.logicalId, o]));
   const podLabelById = new Map(pods.map((pod) => [pod.id, pod.label]));
   const podNamespaceById = new Map(pods.map((pod) => [pod.id, pod.namespace]));
@@ -106,7 +106,7 @@ export function projectRigToGraph(input: RigGraphInput, inventoryOverlay?: Inven
   // Collect unique pods for group nodes
   const podNodes = new Map<string, string[]>(); // podId → node IDs
 
-  const nodes: RFNode[] = rigNodes.map((node, index) => {
+  const nodes: RFNode[] = softwareTeamNodes.map((node, index) => {
     // Find latest session for this node by ULID ordering (max session.id)
     const nodeSessions = sessions.filter((s) => s.nodeId === node.id);
     const latestSession = nodeSessions.length > 0
@@ -139,14 +139,14 @@ export function projectRigToGraph(input: RigGraphInput, inventoryOverlay?: Inven
 
     return {
       id: node.id,
-      type: "rigNode",
+      type: "softwareTeamNode",
       position: { x: 0, y: index * VERTICAL_SPACING },
       parentId: node.podId ? `pod-${node.podId}` : undefined,
       data: {
         logicalId: node.logicalId,
         podLabel: node.podId ? (podLabelById.get(node.podId) ?? null) : null,
         podNamespace: node.podId ? (podNamespaceById.get(node.podId) ?? null) : null,
-        rigId: node.rigId,
+        softwareTeamId: node.softwareTeamId,
         role: node.role,
         runtime: node.runtime,
         model: node.model,
@@ -162,7 +162,7 @@ export function projectRigToGraph(input: RigGraphInput, inventoryOverlay?: Inven
         resumeToken: latestSession?.resumeToken ?? null,
         resolvedSpecName: node.resolvedSpecName ?? null,
         profile: node.profile ?? null,
-        edgeCount: rigEdges.filter((e) => e.sourceId === node.id || e.targetId === node.id).length,
+        edgeCount: softwareTeamEdges.filter((e) => e.sourceId === node.id || e.targetId === node.id).length,
         contextUsedPercentage: overlay?.contextUsedPercentage ?? null,
         contextFresh: overlay?.contextFresh ?? false,
         contextAvailability: overlay?.contextAvailability ?? "unknown",
@@ -193,7 +193,7 @@ export function projectRigToGraph(input: RigGraphInput, inventoryOverlay?: Inven
         logicalId: podNamespaceById.get(podId) ?? podId,
         podLabel: podLabelById.get(podId) ?? podId,
         podNamespace: podNamespaceById.get(podId) ?? podId,
-        rigId: input.rig.id,
+        softwareTeamId: input.softwareTeam.id,
         role: null,
         runtime: null,
         model: null,
@@ -228,7 +228,7 @@ export function projectRigToGraph(input: RigGraphInput, inventoryOverlay?: Inven
     });
   }
 
-  const edges: RFEdge[] = rigEdges.map((edge) => ({
+  const edges: RFEdge[] = softwareTeamEdges.map((edge) => ({
     id: edge.id,
     source: edge.sourceId,
     target: edge.targetId,

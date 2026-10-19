@@ -81,7 +81,7 @@ describe("A4a gateway spawn wrapper e2e (real spawned process)", () => {
     let exited = false;
     // entryPath = the built dist entry (under vitest the source module resolves ./*.js to a
     // non-existent sibling — prod resolves it correctly from dist via import.meta.url).
-    child = spawnGatewayProcess({ socketPath: sockPath, home, entryPath: DIST_ENTRY, env: { ...process.env, OPENRIG_GATEWAY_RECONNECT_MS: "300" } });
+    child = spawnGatewayProcess({ socketPath: sockPath, home, entryPath: DIST_ENTRY, env: { ...process.env, SOFTWARETEAM_GATEWAY_RECONNECT_MS: "300" } });
     child.on("exit", () => { exited = true; });
 
     await waitFor(() => stub1.connections >= 1); // out-dialled the connector

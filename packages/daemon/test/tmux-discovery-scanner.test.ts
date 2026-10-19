@@ -73,13 +73,13 @@ describe("TmuxDiscoveryScanner", () => {
     const adapter = mockAdapter({
       sessions: [{ name: "s", windows: 1, created: "0", attached: false }],
       windows: { s: [{ index: 0, name: "w", panes: 1, active: true }] },
-      panes: { "s:0": [{ id: "%0", index: 0, cwd: "/projects/rigged", width: 80, height: 24, active: true }] },
+      panes: { "s:0": [{ id: "%0", index: 0, cwd: "/projects/softwareteam", width: 80, height: 24, active: true }] },
     });
     const scanner = new TmuxDiscoveryScanner({ tmuxAdapter: adapter });
 
     const result = await scanner.scan();
 
-    expect(result.panes[0]!.cwd).toBe("/projects/rigged");
+    expect(result.panes[0]!.cwd).toBe("/projects/softwareteam");
   });
 
   // T4: Resolves active command via adapter.getPaneCommand

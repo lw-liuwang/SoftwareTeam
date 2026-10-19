@@ -7,13 +7,13 @@ import { dirname, join } from "node:path";
 // 51-04 testbed image — the Dockerfile is the deliverable (plan §1). `docker build` runs
 // HOST-side (the locus ruling: the VM seat has no container runtime); this contract test is the
 // VM-authorable proof that the Dockerfile encodes the plan §1 fences as executable guards, so a
-// later edit that floats the base tag, pulls openrig from the npm registry, or drops the non-root
+// later edit that floats the base tag, pulls softwareteam from the npm registry, or drops the non-root
 // user breaks the build here — not silently in a host-side image nobody re-audits.
 //
 // The fences it pins (plan §1 + the FENCES line): base parameterized for a digest-pin (never a
 // floating tag baked in); tmux + git present (the PTY/tmux substrate); node pinned to an in-range
-// engines version; OpenRig installed from a COPY'd local tarball, NEVER the npm registry (0.5.1 is
-// unreleased — build from the tree); a non-root `openrig` user; a tini/dumb-init entrypoint.
+// engines version; SoftwareTeam installed from a COPY'd local tarball, NEVER the npm registry (0.5.1 is
+// unreleased — build from the tree); a non-root `softwareteam` user; a tini/dumb-init entrypoint.
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, "..");
@@ -63,27 +63,27 @@ test("node is pinned via ARG NODE_VERSION to an in-range (even LTS) engines vers
   assert.ok(ENGINES_LTS_MAJORS.has(major), `NODE_VERSION major ${major} must be in {20,22,24} (engines LTS)`);
 });
 
-test("OpenRig is installed from a COPY'd local tarball, NEVER the npm registry", () => {
+test("SoftwareTeam is installed from a COPY'd local tarball, NEVER the npm registry", () => {
   const text = readDockerfile();
   // Positive: there is a build ARG for the tarball, it is COPY'd in, and installed from that path.
-  assert.match(text, /^ARG\s+OPENRIG_TARBALL\b/m, "must declare ARG OPENRIG_TARBALL");
-  assert.match(text, /^COPY\s+.*\$\{OPENRIG_TARBALL\}/m, "must COPY the tarball into the image");
-  assert.match(text, /npm\s+install[^\n]*\.tgz/, "must install openrig from the local .tgz");
-  // Negative fence: no registry install of the openrig package by bare name.
+  assert.match(text, /^ARG\s+SOFTWARETEAM_TARBALL\b/m, "must declare ARG SOFTWARETEAM_TARBALL");
+  assert.match(text, /^COPY\s+.*\$\{SOFTWARETEAM_TARBALL\}/m, "must COPY the tarball into the image");
+  assert.match(text, /npm\s+install[^\n]*\.tgz/, "must install softwareteam from the local .tgz");
+  // Negative fence: no registry install of the softwareteam package by bare name.
   assert.doesNotMatch(
     text,
-    /npm\s+(?:install|i|add)\s+(?:-g\s+)?openrig(?:@|\s|$)/m,
-    "must NOT install openrig from the npm registry (build from the tree)",
+    /npm\s+(?:install|i|add)\s+(?:-g\s+)?softwareteam(?:@|\s|$)/m,
+    "must NOT install softwareteam from the npm registry (build from the tree)",
   );
 });
 
-test("runs as a non-root `openrig` user (creates it + a trailing USER openrig)", () => {
+test("runs as a non-root `softwareteam` user (creates it + a trailing USER softwareteam)", () => {
   const text = readDockerfile();
-  assert.match(text, /\bopenrig\b/, "must reference an openrig user");
-  assert.match(text, /(useradd|adduser)[^\n]*openrig/, "must create the openrig user");
+  assert.match(text, /\bsoftwareteam\b/, "must reference an softwareteam user");
+  assert.match(text, /(useradd|adduser)[^\n]*softwareteam/, "must create the softwareteam user");
   const userLines = instructions(text).filter((l) => /^USER\s/i.test(l));
   assert.ok(userLines.length > 0, "must set a USER");
-  assert.match(userLines[userLines.length - 1], /^USER\s+openrig\b/i, "the final USER must be openrig (non-root)");
+  assert.match(userLines[userLines.length - 1], /^USER\s+softwareteam\b/i, "the final USER must be softwareteam (non-root)");
 });
 
 test("entrypoint execs under tini/dumb-init (PID1 reaping)", () => {

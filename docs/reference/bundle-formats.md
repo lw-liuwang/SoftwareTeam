@@ -1,6 +1,6 @@
 # Bundle formats (v1)
 
-The shared data formats for sharing rig bundles: the configurations a bundle offers, the before-install view of what it
+The shared data formats for sharing SoftwareTeam bundles: the configurations a bundle offers, the before-install view of what it
 will do, run records and the public status file, and registry entries. The schemas are in [`schemas/`](schemas/), with
 fixtures that pass and fail them in [`schemas/fixtures/`](schemas/fixtures/). Tools outside this repository read them
 at a pinned commit.
@@ -27,7 +27,7 @@ packaged.
 ### Source identity
 
 A bundle on GitHub is named by `repository` (`https://github.com/<owner>/<repo>`, no credentials), `folder` (the
-repo-relative path of the folder holding `rig.yaml`, or `.` for the repository root) and `resolvedCommit` (40 lowercase
+repo-relative path of the folder holding `software-team.yaml`, or `.` for the repository root) and `resolvedCommit` (40 lowercase
 hex).
 - `requestedRef` (the branch, tag or commit someone gave, or `HEAD` for a link without `/tree/…`) and `canonicalUrl`
   (`…/tree/<resolvedCommit>/<folder>`, with each folder segment percent-encoded and no folder part for the root)
@@ -37,7 +37,7 @@ hex).
 ### Configuration ID
 
 Every member's `pod.member=runtime`, sorted by `pod.member` in UTF-16 code-unit order, joined with `,`. There's no
-whitespace, and runtimes are spelled as in `rig.yaml`. For example:
+whitespace, and runtimes are spelled as in `software-team.yaml`. For example:
 
 ```text
 dev.build=claude-code,dev.qa=claude-code,dev.review=codex,orch.lead=codex
@@ -47,49 +47,49 @@ Preset names such as `recommended` or `all-claude` are aliases shown beside the 
 
 ### Package digest
 
-`{ algorithm: "sha256", value, coverage: "openrig.package-digest/v1" }`:
+`{ algorithm: "sha256", value, coverage: "softwareteam.package-digest/v1" }`:
 - `value` is SHA-256 over UTF-8 lines `<quoted path>\t<sha256>\n`, one for each entry of the built archive's
   `integrity.files`, sorted by path in UTF-16 code-unit order;
 - `<quoted path>` is the path as a JSON string, exactly as JavaScript's `JSON.stringify(path)` writes it, so a tab or
   newline in a file name can't make two different file lists hash the same. In words: wrapped in `"`; `"` and `\`
   escaped with a backslash; U+0008, U+0009, U+000A, U+000C and U+000D written `\b`, `\t`, `\n`, `\f` and `\r`; any
   other character below U+0020, and any lone surrogate, written `\uXXXX` in lowercase hex; everything else as itself;
-- it's the same when the same folder is rebuilt by the same OpenRig, while the archive's own hash changes with every
+- it's the same when the same folder is rebuilt by the same SoftwareTeam, while the archive's own hash changes with every
   build (`createdAt`).
 
 **Coverage, shown wherever the digest is:** the bytes of every packaged file. It doesn't cover:
 - `bundle.yaml`, so no manifest field, provenance or `createdAt`;
 - the names the integrity walk skips (`.DS_Store`, `Thumbs.db`, `.gitkeep`);
 - file modes;
-- anything resolved on the installing machine at launch, for example an `openrig-home:` plugin, catalog skills, or a
+- anything resolved on the installing machine at launch, for example an `softwareteam-home:` plugin, catalog skills, or a
   model or effort nothing declares.
 
 **A build result** carries `source` (`null` unless the bundle was built from a GitHub link), `configurationId`,
-`packageDigest`, `archiveHash` and `assembler`. `rig bundle inspect` reports the same fields for an archive, and any the
-archive doesn't state are `null`. `assembler` is `{ openrigVersion }`: the format also allows a `commit`, which this
-OpenRig doesn't write. `configurationId()` and `packageDigest()` are exported from `@openrig/daemon/bundle-identity`.
+`packageDigest`, `archiveHash` and `assembler`. `SoftwareTeam bundle inspect` reports the same fields for an archive, and any the
+archive doesn't state are `null`. `assembler` is `{ softwareteamVersion }`: the format also allows a `commit`, which this
+SoftwareTeam doesn't write. `configurationId()` and `packageDigest()` are exported from `@softwareteam/daemon/bundle-identity`.
 Shared test vectors are in `schemas/fixtures/identity-vectors.json`.
 
 ## The formats
 
 | Format | Schema | Lives | Written by |
 |---|---|---|---|
-| Declared configurations | `bundle-configurations.v1` | `configurations.yaml` beside `rig.yaml` | the bundle's author |
-| Before-install view | `bundle-behaviour.v1` (`openrig.bundle-behaviour/v1`) | the registry, one file per configuration and assembler version; never inside the archive | the daemon's inspect: `rig bundle inspect`, under `behaviour` with `--json` |
+| Declared configurations | `bundle-configurations.v1` | `configurations.yaml` beside `software-team.yaml` | the bundle's author |
+| Before-install view | `bundle-behaviour.v1` (`softwareteam.bundle-behaviour/v1`) | the registry, one file per configuration and assembler version; never inside the archive | the daemon's inspect: `SoftwareTeam bundle inspect`, under `behaviour` with `--json` |
 | Run record | `run-record.v1` | beside its receipt, private | Fleet, Dev QA, and maintainers for community reports |
-| Public status | `bundle-status.v1` | `openrig-registry` status, generated | the status generator only |
-| Registry entry | `registry-entry.v1` | `openrig-registry/registry/<slug>.yaml` | maintainers, through review |
+| Public status | `bundle-status.v1` | `softwareteam-registry` status, generated | the status generator only |
+| Registry entry | `registry-entry.v1` | `softwareteam-registry/registry/<slug>.yaml` | maintainers, through review |
 
 ### Declared configurations
 
 `seats` gives a `pod.member` the runtimes it may use, and the profile each runtime uses. A member it doesn't list keeps
-the runtime `rig.yaml` gives it. `presets` names full mappings, and `recommended` names one of them, which must be
-`rig.yaml` as written. `rig bundle create`, `rig bundle configurations` and `rig bundle check` refuse a file that breaks
+the runtime `software-team.yaml` gives it. `presets` names full mappings, and `recommended` names one of them, which must be
+`software-team.yaml` as written. `SoftwareTeam bundle create`, `SoftwareTeam bundle configurations` and `SoftwareTeam bundle check` refuse a file that breaks
 these rules.
 
-`--preset` and `--seat` choose a configuration (see the [rig bundle reference](rig-bundle.md)). Any mix of each seat's
+`--preset` and `--seat` choose a configuration (see the [SoftwareTeam bundle reference](software-team-bundle.md)). Any mix of each seat's
 declared runtimes can be built, not only the presets; a runtime a seat doesn't declare is refused, and nothing is built.
-Without either flag, create builds `rig.yaml` as written. The built archive's manifest records
+Without either flag, create builds `software-team.yaml` as written. The built archive's manifest records
 `configuration: { id, preset }` outside the package digest; `preset` is there only when `--preset` or `--seat` chose a
 mapping that matches a declared preset.
 
@@ -100,13 +100,13 @@ carries no tested status.
 - **`identity`:** source, configuration ID, package digest, the archive's assembler, the generator that made the view,
   stated compatibility, stated provenance (not verified), and integrity (self-consistency, not authorship). A source,
   configuration ID, package digest or assembler the archive doesn't state is `null`; unstated compatibility and
-  provenance are empty objects. None of it is filled from the inspecting OpenRig.
+  provenance are empty objects. None of it is filled from the inspecting SoftwareTeam.
 - **`team`, `posture`, `toldFiles`, `alsoRuns`, `writes`, `outsideAddresses`, `needs` and `unknownBeforeLaunch`**, in
   that order. Facts cite the archive file they come from (`sourceRefs`), except `team` entries and the bundle-wide
   unknowns. `toldFiles` and `alsoRuns` also say how each resolves: `archive`, `host_at_launch` or `unresolved`.
   - Posture separates what the archive declares from the product's default. Its effect on the host is `unknown`,
     because host settings decide it.
-    Optional `posture[].permissionPrompts` is `off` for declared `full_bypass` (including rig- or member-level
+    Optional `posture[].permissionPrompts` is `off` for declared `full_bypass` (including software-team- or member-level
     `builtin:yolo`) on any runtime; for Claude/Codex, `on` for a declared flag-surface floor policy or `default` when
     no policy is declared (prompts on unless the installing machine's settings turn them off); for Codex, `on` for
     declared `auto`. Omit it for Claude under auto (naming auto mode in `selection`), config-surface policies
@@ -121,7 +121,7 @@ carries no tested status.
     `posture[].nonInterruptive: "available"` says a full-bypass Claude/Codex seat can use
     [non-interruptive launch flags](non-interruptive-mode.md). It does not select the option, read host acceptance
     state or prove a prompt-free launch. Both fields are omitted where inapplicable or unresolved; older v1 views
-    remain valid without them. Optional `posture[].nonInterruptiveDefault` (boolean) carries the rig's authored
+    remain valid without them. Optional `posture[].nonInterruptiveDefault` (boolean) carries the SoftwareTeam's authored
     `non_interruptive` for those seats; an explicit launch choice overrides it. When it is `true`, `firstRunWarnings`
     is omitted. Pi has no additional warning-suppression flag. `nativeEffect` stays `unknown`.
   - An empty list means none are known. Something unknown goes in `unknownBeforeLaunch`.
@@ -129,22 +129,21 @@ carries no tested status.
     `team` and `posture`. Elsewhere it's optional: bundle-wide facts (services, library and project writes, setup and
     version needs) omit it, and older generators may not have stated it.
 - **`not_generated`:** a combination without a generated view, or an archive the generator can't describe: schema 1, no
-  readable pod-aware rig spec, a member missing its pod, id or agent reference, a runtime that depends on an AgentSpec
+  readable pod-aware SoftwareTeam spec, a member missing its pod, id or agent reference, a runtime that depends on an AgentSpec
   the archive can't read, or an error while reading. It carries a reason and the local command that shows it, and no
   sections.
 
 ### Declared setup preconditions
 
-The author's `bundle.yaml`, beside `rig.yaml`, may declare setup that the user must do before installing:
+The author's `bundle.yaml`, beside `software-team.yaml`, may declare setup that the user must do before installing:
 
 ```yaml
 preconditions:
-  - name: Run inside an OpenRig source clone with dependencies installed and packages built.
+  - name: Run inside a SoftwareTeam source clone with dependencies installed and packages built.
     commands:
-      - git clone https://github.com/mvschwarz/openrig.git
-      - cd openrig
-      - npm ci
-      - npm run build
+      - git clone https://github.com/lw-liuwang/SoftwareTeam.git
+      - cd SoftwareTeam
+      - ./install.sh --runtime codex
   - name: Sign in to the selected coding runtimes before starting the team.
 ```
 
@@ -158,7 +157,7 @@ Each command is one plain command line, without shell operators (`;`, `&&`, pipe
 redirection). Run them in order in **one shell**, then run the install command in that same shell: it inherits the
 working directory left by the setup commands. There is no separate `workdir` field. Commands are untrusted author data;
 a site building a copyable block must validate every line and bound the number of entries, omitting all setup lines
-if any fails its plain-command rule. OpenRig displays these declarations; it does not execute them, verify that setup
+if any fails its plain-command rule. SoftwareTeam displays these declarations; it does not execute them, verify that setup
 was done, or add a prerequisite gate. The archive hash covers the manifest; `packageDigest` excludes `bundle.yaml`
 and therefore does not cover these declarations.
 
@@ -179,14 +178,14 @@ runtime). A harness check never upgrades a team label.
 **Relations:** `supersedes`, `withdraws` and `resolves`. Reusing earlier evidence for a changed package is a reviewer's
 decision, recorded in the registry entry's `evidenceReuse`.
 
-**The status file** is generated from records by rule `openrig.status-rule/v1`:
+**The status file** is generated from records by rule `softwareteam.status-rule/v1`:
 - **Labels:** `known_problem`, `tested`, `tested_with_help`, `partly_tested`, `not_tested` and `status_unavailable`.
-  They're shown as Known problem, Tested by OpenRig, Tested with help (N), Partly tested, Not tested by OpenRig
+  They're shown as Known problem, Tested by SoftwareTeam, Tested with help (N), Partly tested, Not tested by SoftwareTeam
   and Status unavailable.
 - **A label belongs to one configuration ID.** No configuration is ever shown another configuration's label.
-- **Empty `platforms`** means Not tested by OpenRig. So does a custom configuration, one the listing doesn't offer.
+- **Empty `platforms`** means Not tested by SoftwareTeam. So does a custom configuration, one the listing doesn't offer.
 - **Status unavailable is only for a listed configuration** whose records can't be read, or that's missing from the
-  status file; never Not tested by OpenRig. A listing whose records can't be read is `status_unavailable` as a whole.
+  status file; never Not tested by SoftwareTeam. A listing whose records can't be read is `status_unavailable` as a whole.
 - **Platform keys** are `<os>-<arch>` (`linux`, `darwin` or `win32`; `x64` or `arm64`).
 - **`tested` means no help was needed:** it can't carry an assistance count above zero.
 - **An assist** is one action a person or the test runner took to get past a problem during the run, such as restarting a seat or re-running a command; following the bundle's own documented steps doesn't count.

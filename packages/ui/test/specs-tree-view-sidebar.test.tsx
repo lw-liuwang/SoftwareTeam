@@ -179,10 +179,10 @@ describe("SpecsTreeView — slice 19 sidebar density follow-up", () => {
         return {
           ok: true,
           json: async () => [
-            { id: "rig:adversarial-review:0.2", kind: "rig", name: "adversarial-review", version: "0.2", sourceType: "builtin", sourcePath: "/pkg/rig.yaml", relativePath: "rig.yaml" },
+            { id: "software-team:adversarial-review:0.2", kind: "softwareTeam", name: "adversarial-review", version: "0.2", sourceType: "builtin", sourcePath: "/pkg/software-team.yaml", relativePath: "software-team.yaml" },
             { id: "workflow:conveyor:1", kind: "workflow", name: "conveyor", version: "1", sourceType: "builtin", sourcePath: "/pkg/workflow.yaml", relativePath: "workflow.yaml" },
             { id: "agent:driver:1", kind: "agent", name: "driver", version: "1", sourceType: "builtin", sourcePath: "/pkg/agent.yaml", relativePath: "agent.yaml" },
-            { id: "app:vault:3", kind: "rig", name: "vault-app", version: "3", sourceType: "builtin", sourcePath: "/pkg/app/rig.yaml", relativePath: "apps/vault/rig.yaml", hasServices: true },
+            { id: "app:vault:3", kind: "softwareTeam", name: "vault-app", version: "3", sourceType: "builtin", sourcePath: "/pkg/app/software-team.yaml", relativePath: "apps/vault/software-team.yaml", hasServices: true },
           ],
         };
       }
@@ -190,7 +190,7 @@ describe("SpecsTreeView — slice 19 sidebar density follow-up", () => {
         return {
           ok: true,
           json: async () => [
-            { id: "context-pack:demo:1", kind: "context-pack", name: "demo-pack", version: "1", sourceType: "workspace", sourcePath: "/workspace/.openrig/context-packs/demo", relativePath: "demo", updatedAt: "2026-05-07T00:00:00.000Z", manifestEstimatedTokens: null, derivedEstimatedTokens: 120, files: [] },
+            { id: "context-pack:demo:1", kind: "context-pack", name: "demo-pack", version: "1", sourceType: "workspace", sourcePath: "/workspace/.softwareteam/context-packs/demo", relativePath: "demo", updatedAt: "2026-05-07T00:00:00.000Z", manifestEstimatedTokens: null, derivedEstimatedTokens: 120, files: [] },
           ],
         };
       }
@@ -198,7 +198,7 @@ describe("SpecsTreeView — slice 19 sidebar density follow-up", () => {
         return {
           ok: true,
           json: async () => [
-            { id: "agent-image:driver:1", kind: "agent-image", name: "driver-image", version: "1", runtime: "claude-code", sourceSeat: "driver", sourceSessionId: "s", sourceCwd: null, notes: null, createdAt: "2026-05-07T00:00:00.000Z", sourceType: "workspace", sourcePath: "/workspace/.openrig/agent-images/driver", relativePath: "driver", updatedAt: "2026-05-07T00:00:00.000Z", manifestEstimatedTokens: null, derivedEstimatedTokens: 200, files: [], sourceResumeToken: "(redacted)", stats: { forkCount: 0, lastUsedAt: null, estimatedSizeBytes: 0, lineage: [] }, lineage: [], pinned: false },
+            { id: "agent-image:driver:1", kind: "agent-image", name: "driver-image", version: "1", runtime: "claude-code", sourceSeat: "driver", sourceSessionId: "s", sourceCwd: null, notes: null, createdAt: "2026-05-07T00:00:00.000Z", sourceType: "workspace", sourcePath: "/workspace/.softwareteam/agent-images/driver", relativePath: "driver", updatedAt: "2026-05-07T00:00:00.000Z", manifestEstimatedTokens: null, derivedEstimatedTokens: 200, files: [], sourceResumeToken: "(redacted)", stats: { forkCount: 0, lastUsedAt: null, estimatedSizeBytes: 0, lineage: [] }, lineage: [], pinned: false },
           ],
         };
       }
@@ -206,7 +206,7 @@ describe("SpecsTreeView — slice 19 sidebar density follow-up", () => {
         return {
           ok: true,
           json: async () => [
-            { id: "openrig-core", name: "openrig-core", version: "0.1.0", description: "Core plugin", source: "vendored", sourceLabel: "vendored:openrig-core", runtimes: ["claude", "codex"], path: "/plugins/openrig-core", lastSeenAt: null, skillCount: 0 },
+            { id: "softwareteam-core", name: "softwareteam-core", version: "0.1.0", description: "Core plugin", source: "vendored", sourceLabel: "vendored:softwareteam-core", runtimes: ["claude", "codex"], path: "/plugins/softwareteam-core", lastSeenAt: null, skillCount: 0 },
           ],
         };
       }
@@ -220,13 +220,13 @@ describe("SpecsTreeView — slice 19 sidebar density follow-up", () => {
     renderTree();
 
     const entries = [
-      { section: "rig-specs", leaf: "rig:adversarial-review:0.2", meta: "0.2" },
+      { section: "software-team-specs", leaf: "software-team:adversarial-review:0.2", meta: "0.2" },
       { section: "workflow-specs", leaf: "workflow:conveyor:1", meta: "1" },
       { section: "context-packs", leaf: "context-pack:demo:1", meta: "1 · workspace" },
       { section: "agent-specs", leaf: "agent:driver:1", meta: "1" },
       { section: "agent-images", leaf: "agent-image:driver:1", meta: "1" },
       { section: "applications", leaf: "app:vault:3", meta: "3" },
-      { section: "plugins", leaf: "openrig-core", meta: "0.1.0" },
+      { section: "plugins", leaf: "softwareteam-core", meta: "0.1.0" },
     ];
 
     for (const entry of entries) {

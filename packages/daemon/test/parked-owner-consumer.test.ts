@@ -11,7 +11,7 @@ import Database from "better-sqlite3";
 // integration half below, each at its actual seam.
 import {
   makeParkedOwnerConsumerPolicy,
-  makeRigAnchor,
+  makeSoftwareTeamAnchor,
   RESERVE_PREFIX,
   CLOSE_PREFIX,
   REFUSED_PREFIX,
@@ -31,12 +31,12 @@ import { QueueRepository, isBlockerLive } from "../src/domain/queue-repository.j
 import { EventBus } from "../src/domain/event-bus.js";
 import { WatchdogHistoryLog } from "../src/domain/watchdog-history-log.js";
 import { WatchdogJobsRepository } from "../src/domain/watchdog-jobs-repository.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { pruneWatchdogHistory } from "../src/domain/queue-retention.js";
 
-const RIG = "test-rig";
-const SEAT = `dev-planner@${RIG}`;
-const SEAT2 = `review-r9@${RIG}`;
+const SOFTWARE_TEAM = "test-software-team";
+const SEAT = `dev-planner@${SOFTWARE_TEAM}`;
+const SEAT2 = `review-r9@${SOFTWARE_TEAM}`;
 const MODULE_PATH = join(
   dirname(fileURLToPath(import.meta.url)),
   "../src/domain/policies/parked-owner-consumer.ts",
@@ -47,7 +47,7 @@ function makeJob(overrides: Partial<PolicyJob> = {}): PolicyJob {
   return {
     jobId: "job-poc-1",
     policy: PARKED_OWNER_POLICY_NAME,
-    target: { session: makeRigAnchor(RIG) },
+    target: { session: makeSoftwareTeamAnchor(SOFTWARE_TEAM) },
     intervalSeconds: 120,
     activeWakeIntervalSeconds: null,
     scanIntervalSeconds: null,
@@ -124,7 +124,7 @@ function makeDeps(
   occupantGeneration: (sessionName: string) => string | null = () => "gen-1",
 ): ParkedOwnerConsumerDeps {
   return {
-    diagnoseRig: () => ({ seats }),
+    diagnoseSoftwareTeam: () => ({ seats }),
     history: {
       listForJob: (_j, limit) => history.slice(0, limit),
       countForJob: () => history.length,
@@ -195,7 +195,7 @@ describe("parked-owner-consumer policy — unit contract (OPR.0.5.6.24)", () => 
     expect(result.message).toContain("After a wake that failed, was refused or has no recorded outcome, it wakes you again the next time you park");
     expect(result.message).toContain("for a claimed in-progress row, the wake-or-escalate ladder also retries a failed wake");
     expect(result.message).not.toContain("handles a wake that failed to deliver");
-    expect(result.message).toContain("rig view show held");
+    expect(result.message).toContain("SoftwareTeam view show held");
     expect(result.message).not.toContain("S01");
     expect(result.message).not.toContain("OPR.0.5.5.1");
   });
@@ -486,10 +486,10 @@ describe("parked-owner-consumer policy — unit contract (OPR.0.5.6.24)", () => 
     expect(store2.nudges.some((n) => n.result.startsWith(NUDGE_FAIL_PREFIX))).toBe(true);
   });
 
-  it("anchor + structural pins: stable per-rig tuple; arbitrated-only; no second scheduler", () => {
-    expect(makeRigAnchor("test-rig")).toBe("parked-owner-consumer@test-rig");
+  it("anchor + structural pins: stable per-software-team tuple; arbitrated-only; no second scheduler", () => {
+    expect(makeSoftwareTeamAnchor("test-software-team")).toBe("parked-owner-consumer@test-software-team");
     const src = readModuleSource();
-    expect(src).toMatch(/diagnoseRigParked|RigParkedDiagnosis|diagnoseRig/);
+    expect(src).toMatch(/diagnoseSoftwareTeamParked|SoftwareTeamParkedDiagnosis|diagnoseSoftwareTeam/);
     expect(src).not.toMatch(/AgentActivityStore|getLatestForNode|activity-relay|hook/);
     expect(src).not.toMatch(/setInterval|setTimeout|new\s+\w*Scheduler|cron/i);
   });
@@ -511,7 +511,7 @@ describe("parked-owner-consumer — R2 integration hard checks (OPR.0.5.6.24)", 
   beforeEach(() => {
     db = new Database(":memory:");
     migrate(db, ALL_MIGRATIONS);
-    repo = new QueueRepository(db, new EventBus(db), { validateRig: () => true } as never);
+    repo = new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => true } as never);
   });
   afterEach(() => db.close());
 
@@ -546,7 +546,7 @@ describe("parked-owner-consumer — R2 integration hard checks (OPR.0.5.6.24)", 
     const history: WatchdogHistoryEntry[] = [];
     const run = async (parked: boolean) => {
       const result = await makeParkedOwnerConsumerPolicy({
-        diagnoseRig: () => ({ seats: [parkedSeat({ parked, obligations: { items, held: [] } })] }),
+        diagnoseSoftwareTeam: () => ({ seats: [parkedSeat({ parked, obligations: { items, held: [] } })] }),
         history: { listForJob: (_j, l) => history.slice(0, l), countForJob: () => history.length },
         rows: realRows(),
         occupantGeneration: () => "gen-1",
@@ -571,14 +571,14 @@ describe("parked-owner-consumer — R2 integration hard checks (OPR.0.5.6.24)", 
     const jobsRepo = new WatchdogJobsRepository(db);
     const job = jobsRepo.register({
       policy: PARKED_OWNER_POLICY_NAME,
-      specYaml: `policy: ${PARKED_OWNER_POLICY_NAME}\ntarget:\n  session: ${makeRigAnchor(RIG)}\ninterval_seconds: 120\n`,
-      targetSession: makeRigAnchor(RIG),
+      specYaml: `policy: ${PARKED_OWNER_POLICY_NAME}\ntarget:\n  session: ${makeSoftwareTeamAnchor(SOFTWARE_TEAM)}\ninterval_seconds: 120\n`,
+      targetSession: makeSoftwareTeamAnchor(SOFTWARE_TEAM),
       intervalSeconds: 120,
       activeWakeIntervalSeconds: null,
       registeredBySession: "daemon@kernel",
     });
     const deps: ParkedOwnerConsumerDeps = {
-      diagnoseRig: () => ({ seats: [seat] }),
+      diagnoseSoftwareTeam: () => ({ seats: [seat] }),
       history: { listForJob: (j, l) => log.listForJob(j, l), countForJob: (j) => log.countForJob(j) },
       rows: realRows(),
     };
@@ -658,11 +658,11 @@ describe("parked-owner-consumer — R2 integration hard checks (OPR.0.5.6.24)", 
     expect(joined).toMatch(/escalation-rung:|ladder-exhausted:/);
   });
 
-  it("late-rig hard check (born-armed): createRig arms the supervisor job in the same act, no restart", () => {
-    const rigRepo = new RigRepository(db);
+  it("late-software-team hard check (born-armed): createSoftwareTeam arms the supervisor job in the same act, no restart", () => {
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const jobsRepo = new WatchdogJobsRepository(db);
-    rigRepo.onRigCreated = (rig) => {
-      const anchor = makeRigAnchor(rig.name);
+    softwareTeamRepo.onSoftwareTeamCreated = (softwareTeam) => {
+      const anchor = makeSoftwareTeamAnchor(softwareTeam.name);
       jobsRepo.ensureAutoRegistration({
         policy: PARKED_OWNER_POLICY_NAME,
         targetSession: anchor,
@@ -670,13 +670,13 @@ describe("parked-owner-consumer — R2 integration hard checks (OPR.0.5.6.24)", 
         intervalSeconds: 120,
         activeWakeIntervalSeconds: null,
         scanIntervalSeconds: null,
-        specYaml: `policy: ${PARKED_OWNER_POLICY_NAME}\ntarget:\n  session: ${anchor}\ncontext:\n  rig: ${rig.name}\n`,
+        specYaml: `policy: ${PARKED_OWNER_POLICY_NAME}\ntarget:\n  session: ${anchor}\ncontext:\n  softwareTeam: ${softwareTeam.name}\n`,
       });
     };
-    rigRepo.createRig("late-rig");
+    softwareTeamRepo.createSoftwareTeam("late-software-team");
     const job = db
       .prepare("SELECT job_id, target_session FROM watchdog_jobs WHERE policy = ? AND target_session = ?")
-      .get(PARKED_OWNER_POLICY_NAME, makeRigAnchor("late-rig")) as { job_id: string } | undefined;
+      .get(PARKED_OWNER_POLICY_NAME, makeSoftwareTeamAnchor("late-software-team")) as { job_id: string } | undefined;
     expect(job).toBeDefined();
   });
 });

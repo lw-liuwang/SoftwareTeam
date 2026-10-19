@@ -32,7 +32,7 @@ the entry ID is `context-pack:<ref>`.
 
 Startup in `packages/daemon/src/startup.ts` configures the shipped context-pack root (when
 it exists), the resolved `context.root` and its `system` root, followed by the
-workspace-local `.openrig/context-packs` root. The workspace root is registered even before
+workspace-local `.softwareteam/context-packs` root. The workspace root is registered even before
 it exists, so a folder created later is found by the next sync; it is left out only when it
 is the same path as one of the other two. The library scans recursively, stops descending
 when it finds a pack manifest, skips `.tmp-add-*` staging folders, and does not follow
@@ -75,7 +75,7 @@ as a dependency of a selected atom. Post-compaction composition skips an absent
 
 The profile route resolves configured tree sources through
 `packages/daemon/src/domain/context-packs/profile-source-resolver.ts`.
-Seat context requires explicit rig and seat selectors. Mission/slice selectors and named
+Seat context requires explicit SoftwareTeam and seat selectors. Mission/slice selectors and named
 profile context requirements are validated before reading those trees. The default
 project/mission/slice walk is bounded to the conventional single-project workspace layout
 and fresh situation; it is not an arbitrary project-catalog resolver.
@@ -90,19 +90,19 @@ reports overage and drop candidates without silently truncating the profile. Ato
 `/api/context-packs`. Its library handlers cover list, sync, compose, read/delete by ref,
 preview, pieces, addressed reads and profile composition.
 
-`packages/cli/src/commands/context.ts` implements `rig context`, including `list`, `show`,
+`packages/cli/src/commands/context.ts` implements `SoftwareTeam context`, including `list`, `show`,
 `preview`, `get`, `profile`, `compose`, `add`, `rm` and `sync`, plus `work-install`, `trace`,
 `source inspect|update` and `recap-write`. The library read/compose routes do not themselves
 send a pack to a running seat. Several verbs write: `add` installs into `context.root` (from
 a folder, a URL, or Git with `--git`), `source update` fetches and merges a Git-installed pack
 and resyncs, `work-install --apply-skills` reconciles skill projections, and `recap-write`
 writes a seat recap. Inspect the selected CLI verb before treating a context command as
-read-only. `rig context work-install` resolves a project position and its declared context
+read-only. `SoftwareTeam context work-install` resolves a project position and its declared context
 without the daemon; [workspace-primitive.md](workspace-primitive.md) covers project
 resolution.
 
 On a profile read, the route adds each piece's `sha256` and provenance, with a warning when a
-piece's bytes come from outside the granted folder. Rig and seat selectors grant the seat's
+piece's bytes come from outside the granted folder. SoftwareTeam and seat selectors grant the seat's
 folder as a source root and supply a default `seat:LEARNED.md` atom to named profiles whose
 phases request seat context. An ordinary situation profile includes that file only when the
 pack authors a seat atom; the selectors alone don't add it.
@@ -110,24 +110,24 @@ pack authors a seat atom; the selectors alone don't add it.
 ### System World, seat recaps and skill loadouts
 
 `packages/daemon/src/domain/system-world.ts` reads the System World manifest (schema
-`openrig.system-world/v0alpha1`): an id, a version, the context packs every seat starts from,
+`softwareteam.system-world/v0alpha1`): an id, a version, the context packs every seat starts from,
 and system skills. The `context.system_world` setting selects the default manifest at
 `system/system-world.yaml` under `context.root`, disables it, or names another manifest file.
-The default (`openrig-default`) names the `onboarding-width` and `world-public` packs and no
+The default (`softwareteam-default`) names the `onboarding-width` and `world-public` packs and no
 skills; it is seeded when missing.
 
-`rig context recap-write --rig <rig> --seat <seat> --file <file>` writes the seat's
+`SoftwareTeam context recap-write --software-team <SoftwareTeam> --seat <seat> --file <file>` writes the seat's
 `RECAP.md` through `packages/daemon/src/domain/context-packs/seat-recap-store.ts`. The previous
 recap is kept byte-for-byte under `recap-superseded/`. A recap that isn't addressable Markdown
 is refused; the other content checks are advisory.
 
 `packages/daemon/src/domain/skill-catalog.ts` resolves a seat's skill loadout from the
-catalog at `skills.root` (`catalog.yaml`, schema `openrig.skill-catalog/v1`) and the system,
+catalog at `skills.root` (`catalog.yaml`, schema `softwareteam.skill-catalog/v1`) and the system,
 topology and project selections. It projects skills into `<cwd>/.claude/skills` or
 `<cwd>/.agents/skills` and tracks what it owns in
-`<cwd>/.openrig/skill-loadouts/<runtime>.json`. Each projection reports `current`, `missing`,
-`shadowed`, `stale` or `conflicting`. `rig skill loadout --runtime <runtime>` inspects the
-composed projection and reconciles it only with `--apply`; `rig skill audit` is a separate
+`<cwd>/.softwareteam/skill-loadouts/<runtime>.json`. Each projection reports `current`, `missing`,
+`shadowed`, `stale` or `conflicting`. `SoftwareTeam skill loadout --runtime <runtime>` inspects the
+composed projection and reconciles it only with `--apply`; `SoftwareTeam skill audit` is a separate
 read-only provenance and freshness audit. Launch applies the selected loadout per seat.
 
 For a Claude Code or Codex seat, the profile resolver also adds each selected plugin's skills to
@@ -135,16 +135,16 @@ that loadout (`packages/daemon/src/domain/profile-resolver.ts:309–330`, with
 `resolvePluginSkills()` at `skill-catalog.ts:460`). Neither runtime reads skills from the plugin
 folder projected into the working directory. The skills are projected under their plain names,
 and a skill the profile already selects keeps its source. A kept plugin copy (an edited or
-user-owned one, or OpenRig's own copy whose plugin source changed or moved after the loadout
+user-owned one, or SoftwareTeam's own copy whose plugin source changed or moved after the loadout
 was resolved, `skill-catalog.ts:1060–1068`) gives a `plugin_skill_kept` warning, and an unreadable one gives
 `plugin_skill_skipped`. If plugin skills can't be projected at all, the seat starts without them
-and gets a `plugin_skills_not_projected` warning (`rigspec-instantiator.ts:2045`).
+and gets a `plugin_skills_not_projected` warning (`software-team-spec-instantiator.ts:2045`).
 
 ## Agent images and forks
 
 `packages/daemon/src/domain/agent-images/agent-image-library-service.ts` implements
-`AgentImageLibraryService`. Startup registers the OpenRig `agent-images` root and,
-when present, the workspace-local `.openrig/agent-images` root. Entries are keyed by
+`AgentImageLibraryService`. Startup registers the SoftwareTeam `agent-images` root and,
+when present, the workspace-local `.softwareteam/agent-images` root. Entries are keyed by
 `agent-image:<name>:<version>`, with later discovery roots replacing identical IDs.
 Content is a manifest plus optional files; `stats.json` holds usage data and `.pinned`
 marks protection from ordinary deletion/pruning.
@@ -180,14 +180,14 @@ spec roots; it is not an inventory of every reference anywhere on the host.
 The guard keys its result by image name, not version: every version of one name gets the
 status computed for the last-listed version, carrying that version's image ID. The delete
 route looks up by image ID, so on delete only that last-listed version of a name is matched,
-and its other versions are deleted without `force` even when pinned. `rig agent-image prune`
+and its other versions are deleted without `force` even when pinned. `SoftwareTeam agent-image prune`
 sends a dry run unless `--force` is given, and `--force` also overrides the guard, so a
 guarded real prune is reachable only through the HTTP route.
 
 The routes mount at `/api/agent-images` and expose list/sync, snapshot/fork,
 entry/preview, pin/unpin, delete and prune.
 `packages/cli/src/commands/agent-image.ts` owns the image library commands. The top-level
-`rig fork` verb (`packages/cli/src/commands/fork.ts`) drives `POST /fork`; `--keep-image`
+`SoftwareTeam fork` verb (`packages/cli/src/commands/fork.ts`) drives `POST /fork`; `--keep-image`
 also captures a pinned image. Forking a Claude Code seat needs Claude Code 2.0.73 or later,
 because the fork is launched with its own `--session-id`.
 
@@ -199,10 +199,10 @@ because the fork is launched with its own `--session-id`.
 
 | Source kind | Directory shape |
 |---|---|
-| `vendored` | OpenRig plugins root, one plugin directory per entry. |
+| `vendored` | SoftwareTeam plugins root, one plugin directory per entry. |
 | `claude-cache` | Claude cache, grouped by marketplace/plugin/version. |
 | `codex-cache` | Codex cache, grouped by marketplace/plugin/version. |
-| `rig-cwd` | `.claude/plugins` and `.codex/plugins` beneath supplied working-directory roots. |
+| `software-team-cwd` | `.claude/plugins` and `.codex/plugins` beneath supplied working-directory roots. |
 
 Detection uses the Claude/Codex plugin manifests. `listPlugins()` returns runtime/source
 metadata; `getPlugin()` adds manifests, skills, hooks and MCP detail.
@@ -218,9 +218,9 @@ rejection, so a duplicate vendored hook stops daemon creation.
 
 `packages/daemon/src/routes/plugins.ts` exposes GET-only inspection at `/api/plugins`:
 list, detail, used-by and file list/read. The file routes use the discovered plugin root as
-their path allowlist. `?cwd=` supplies rig-cwd discovery roots.
+their path allowlist. `?cwd=` supplies software-team-cwd discovery roots.
 At this pin, the route's source filter accepts vendored, Claude-cache and Codex-cache only;
-`source=rig-cwd` is not applied as a filter, even though the service supports that kind.
+`source=software-team-cwd` is not applied as a filter, even though the service supports that kind.
 
 ### Vendoring and projection
 
@@ -234,10 +234,10 @@ changed files but never deletes files the new version dropped.
 `ensureSkillGlobally()` projects a named plugin skill using a vendor-version marker.
 An existing unversioned global skill remains externally owned. Startup wires this service
 and its filesystem implementation; inspect that wiring when changing projection roots. At
-startup only `openrig-core` is vendored, and its `openrig-skills` and `refocusing` skills are
+startup only `softwareteam-core` is vendored, and its `softwareteam-skills` and `refocusing` skills are
 projected globally into `~/.claude/skills` and `~/.agents/skills`
-(`packages/daemon/src/startup.ts:877–886`). The packaged `rigs` skill
-(`packages/daemon/assets/skills/rigs`) is not a plugin skill: `ensureSkillDirGlobally()`
+(`packages/daemon/src/startup.ts:877–886`). The packaged `SoftwareTeams` skill
+(`packages/daemon/assets/skills/SoftwareTeams`) is not a plugin skill: `ensureSkillDirGlobally()`
 projects it into the same roots under the daemon version, so each upgrade refreshes it
 (`startup.ts:891–899`). A failed global projection is logged and does not stop startup.
 
@@ -246,7 +246,7 @@ requests a release asset with a bounded timeout and logs failures; even its succ
 response path does not extract/install the fetched archive at this pin. This does not
 establish whether an upstream release asset currently exists.
 
-`packages/cli/src/commands/plugin.ts` implements `rig plugin
+`packages/cli/src/commands/plugin.ts` implements `SoftwareTeam plugin
 list|show|used-by|validate`. Discovery, vendoring and a runtime's projected plugin tree
 are distinct steps; see [agent-spec-and-startup.md](agent-spec-and-startup.md) for launch.
 
@@ -279,8 +279,8 @@ with. Claude Code before 2.1.290 ignores the key, Claude's managed settings take
    An unknown occupant generation stops the attempt at once.
 2. The agent writes `RESTORE-MAP.md.tmp` with its file-edit tool, completion marker last.
    Later ticks return `preparation_pending` until that exact map is complete. The map path is under the seat's working directory
-   (`.openrig/compaction/preparation/<session>/<attempt>/`, with a `.gitignore` of `*`) when
-   that is writable, otherwise under `compaction/preparation/` in the OpenRig home.
+   (`.softwareteam/compaction/preparation/<session>/<attempt>/`, with a `.gitignore` of `*`) when
+   that is writable, otherwise under `compaction/preparation/` in the SoftwareTeam home.
 3. The daemon atomically renames the completed temp file to `RESTORE-MAP.md` in its existing
    final send checks, after rechecking the attempt and occupant. An already-complete final map
    remains compatible. Only then is `/compact` sent, with the final map path appended to the
@@ -301,11 +301,11 @@ that clearly wasn't sent is retried at most three times; an uncertain prep or `/
 never replayed.
 
 The restore prompt names a restore-pending marker at
-`compaction/restore-pending/<session>.json` in the OpenRig home, which the `openrig-core`
+`compaction/restore-pending/<session>.json` in the SoftwareTeam home, which the `softwareteam-core`
 PreCompact hook writes. A per-seat `compaction/post-compact-extra/<session>.md` is preferred
 over the global extra file, and an extra file that declares a different seat is refused.
 
-`rig compact <session>` (`packages/cli/src/commands/compact.ts`) runs the same sequence
+`SoftwareTeam compact <session>` (`packages/cli/src/commands/compact.ts`) runs the same sequence
 manually through `/api/compaction/trigger`, `cancel` and `state`, which use the terminal
 bearer-token middleware; it passes every request through when no token is configured.
 `--skip-map` skips the map requirement once, `--cancel` ends the preparation, and `--state`

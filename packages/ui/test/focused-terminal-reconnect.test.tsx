@@ -68,7 +68,7 @@ beforeEach(() => {
   instances.length = 0;
   terminalWrites.length = 0;
   terminalDisposeCount = 0;
-  window.localStorage.setItem("openrig.terminalBearerToken", "test-tok");
+  window.localStorage.setItem("softwareteam.terminalBearerToken", "test-tok");
   vi.useFakeTimers();
 });
 
@@ -76,18 +76,18 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
-  window.localStorage.removeItem("openrig.terminalBearerToken");
+  window.localStorage.removeItem("softwareteam.terminalBearerToken");
 });
 
 describe("FocusedTerminal reconnect behavior", () => {
   it("close triggers reconnecting message + new WebSocket after 3s", async () => {
     const { FocusedTerminal } = await import("../src/components/terminal/FocusedTerminal.js");
 
-    render(React.createElement(FocusedTerminal, { sessionName: "dev-impl@test-rig" }));
+    render(React.createElement(FocusedTerminal, { sessionName: "dev-impl@test-software-team" }));
     await act(async () => { await vi.advanceTimersByTimeAsync(50); });
 
     expect(instances.length).toBe(1);
-    expect(instances[0]!.url).toContain("/api/terminal/dev-impl%40test-rig");
+    expect(instances[0]!.url).toContain("/api/terminal/dev-impl%40test-software-team");
     expect(instances[0]!.url).toContain("token=test-tok");
 
     // Simulate session death -> onclose
@@ -101,7 +101,7 @@ describe("FocusedTerminal reconnect behavior", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
 
     expect(instances.length).toBe(2);
-    expect(instances[1]!.url).toContain("/api/terminal/dev-impl%40test-rig");
+    expect(instances[1]!.url).toContain("/api/terminal/dev-impl%40test-software-team");
     expect(instances[1]!.url).toContain("token=test-tok");
   });
 

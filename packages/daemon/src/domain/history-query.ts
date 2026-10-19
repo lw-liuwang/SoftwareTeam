@@ -48,7 +48,7 @@ export interface ChatSearchResult {
 interface HistoryQueryOpts {
   transcriptsRoot: string;
   exec: ExecDep;
-  chatSearchFn?: (rigId: string, pattern: string) => ChatSearchResult[];
+  chatSearchFn?: (softwareTeamId: string, pattern: string) => ChatSearchResult[];
   /** root of per-session provider JSONL (Claude): ~/.claude/projects. Injectable for tests. */
   claudeProjectsRoot?: string;
 }
@@ -135,7 +135,7 @@ const SEAT_LARGE_FILE_BYTES = 25 * 1024 * 1024; // 25 MB
 export class HistoryQuery {
   private readonly transcriptsRoot: string;
   private readonly exec: ExecDep;
-  private readonly chatSearchFn?: (rigId: string, pattern: string) => ChatSearchResult[];
+  private readonly chatSearchFn?: (softwareTeamId: string, pattern: string) => ChatSearchResult[];
   private readonly claudeProjectsRoot: string;
 
   constructor(opts: HistoryQueryOpts) {
@@ -237,10 +237,10 @@ export class HistoryQuery {
     };
   }
 
-  async search(rigName: string, question: string): Promise<SearchResult> {
-    const rigDir = join(this.transcriptsRoot, rigName);
+  async search(softwareTeamName: string, question: string): Promise<SearchResult> {
+    const softwareTeamDir = join(this.transcriptsRoot, softwareTeamName);
 
-    if (!existsSync(rigDir)) {
+    if (!existsSync(softwareTeamDir)) {
       return { backend: "rg", excerpts: [], insufficient: true, noTranscriptDir: true };
     }
 
@@ -252,7 +252,7 @@ export class HistoryQuery {
     const pattern = keywords.join("|");
 
     // Try rg first — use -e to avoid dash-led patterns being parsed as flags
-    const rgResult = await this.exec("rg", ["-i", "--no-filename", "-e", pattern, rigDir]);
+    const rgResult = await this.exec("rg", ["-i", "--no-filename", "-e", pattern, softwareTeamDir]);
 
     if (rgResult.exitCode === 0 || rgResult.exitCode === 1) {
       const excerpts = this.parseExcerpts(rgResult.stdout);
@@ -261,7 +261,7 @@ export class HistoryQuery {
     }
 
     // rg failed (exit code >= 2), fall back to grep
-    const logFiles = this.getLogFiles(rigDir);
+    const logFiles = this.getLogFiles(softwareTeamDir);
     if (logFiles.length === 0) {
       return { backend: "grep", excerpts: [], insufficient: true };
     }
@@ -280,16 +280,16 @@ export class HistoryQuery {
 
   /**
    * L1 — seat-scoped, cross-generation transcript search. Scopes to ONE seat's
-   * `<rig>/<sessionName>.log` (never the whole rig dir) and labels every hit with
+   * `<softwareTeam>/<sessionName>.log` (never the whole softwareTeam dir) and labels every hit with
    * the generation (tenure) it fell in — the generations are the segments between
    * `--- SESSION BOUNDARY … ---` markers the seat's log accumulates as agents come
    * and go. Cross-generation is the point: a hit from before and after a boundary
    * proves the search spans tenures. Honest-degraded (never a silent zero-hits):
    * a missing / empty / boundary-only transcript says so.
    */
-  async searchSeat(rigName: string, seatSessionName: string, question: string): Promise<SeatSearchResult> {
+  async searchSeat(softwareTeamName: string, seatSessionName: string, question: string): Promise<SeatSearchResult> {
     const base = { backend: "read" as const, seat: seatSessionName, generations: 0, hits: [] as SeatHit[] };
-    const filePath = join(this.transcriptsRoot, rigName, `${seatSessionName}.log`);
+    const filePath = join(this.transcriptsRoot, softwareTeamName, `${seatSessionName}.log`);
 
     if (!existsSync(filePath)) {
       return {
@@ -297,7 +297,7 @@ export class HistoryQuery {
         insufficient: true,
         degraded: {
           reason: "capture_missing",
-          message: `No transcript captured for seat '${seatSessionName}' in rig '${rigName}' — the seat may never have been managed on this host, or capture is disabled. This is not proof the seat never spoke.`,
+          message: `No transcript captured for seat '${seatSessionName}' in softwareTeam '${softwareTeamName}' — the seat may never have been managed on this host, or capture is disabled. This is not proof the seat never spoke.`,
         },
       };
     }
@@ -379,12 +379,12 @@ export class HistoryQuery {
       .filter((line) => line !== "");
   }
 
-  searchChat(rigId: string, question: string): ChatSearchResult[] {
+  searchChat(softwareTeamId: string, question: string): ChatSearchResult[] {
     if (!this.chatSearchFn) return [];
     const keywords = extractLiteralKeywords(question);
     if (keywords.length === 0) return [];
     const pattern = keywords.join("|");
-    return this.chatSearchFn(rigId, pattern);
+    return this.chatSearchFn(softwareTeamId, pattern);
   }
 
   private getLogFiles(dir: string): string[] {

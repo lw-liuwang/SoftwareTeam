@@ -1,0 +1,67 @@
+version: "0.2"
+name: software-team
+summary: One resident software team for this SoftwareTeam repository
+workspace:
+  workspace_root: ..
+  repos:
+    - name: software-team
+      path: ..
+      kind: project
+  default_repo: software-team
+  knowledge_root: knowledge
+startup:
+  files:
+    - path: PROJECT.md
+      delivery_hint: send_text
+      required: true
+pods:
+  - id: product
+    label: 产品组
+    members:
+      - id: manage-agent
+        role: manage-agent
+        agent_ref: local:../packages/daemon/specs/agents/software-team/manage-agent
+        profile: default
+        cwd: workspaces/manage-agent
+      - id: need-agent
+        role: need-agent
+        agent_ref: local:../packages/daemon/specs/agents/software-team/need-agent
+        profile: default
+        cwd: workspaces/need-agent
+    edges:
+      - {kind: delegates_to, from: manage-agent, to: need-agent}
+  - id: dev
+    label: 开发组
+    members:
+      - id: home-agent
+        role: home-agent
+        agent_ref: local:../packages/daemon/specs/agents/software-team/home-agent
+        profile: default
+        cwd: workspaces/home-agent
+      - id: code-agent
+        role: code-agent
+        agent_ref: local:../packages/daemon/specs/agents/software-team/code-agent
+        profile: default
+        cwd: workspaces/code-agent
+      - id: review-agent
+        role: review-agent
+        agent_ref: local:../packages/daemon/specs/agents/software-team/review-agent
+        profile: default
+        cwd: workspaces/review-agent
+      - id: test-agent
+        role: test-agent
+        agent_ref: local:../packages/daemon/specs/agents/software-team/test-agent
+        profile: default
+        cwd: workspaces/test-agent
+      - id: run-agent
+        role: run-agent
+        agent_ref: local:../packages/daemon/specs/agents/software-team/run-agent
+        profile: default
+        cwd: workspaces/run-agent
+    edges: []
+edges:
+  - {kind: delegates_to, from: product.manage-agent, to: dev.home-agent}
+  - {kind: delegates_to, from: product.manage-agent, to: dev.code-agent}
+  - {kind: delegates_to, from: product.manage-agent, to: dev.review-agent}
+  - {kind: delegates_to, from: product.manage-agent, to: dev.test-agent}
+  - {kind: delegates_to, from: product.manage-agent, to: dev.run-agent}

@@ -20,7 +20,7 @@ import {
   setActiveLens,
   clearActiveLens,
   useActiveLens,
-  type LibraryRigReview,
+  type LibrarySoftwareTeamReview,
   type LibraryAgentReview,
   type LibraryWorkflowReview,
 } from "../hooks/useSpecLibrary.js";
@@ -44,7 +44,7 @@ import {
 } from "./WorkflowScaffold.js";
 import { RuntimeBadge, ToolMark } from "./graphics/RuntimeMark.js";
 import { AgentSpecDisplay } from "./AgentSpecDisplay.js";
-import { RigSpecDisplay } from "./RigSpecDisplay.js";
+import { SoftwareTeamSpecDisplay } from "./SoftwareTeamSpecDisplay.js";
 import { buildSetupPrompt } from "../lib/build-setup-prompt.js";
 import { copyText } from "../lib/copy-text.js";
 
@@ -94,7 +94,7 @@ function LibraryAgentReviewPage({ review }: { review: LibraryAgentReview }) {
   );
 }
 
-function LibraryRigReviewContent({ review }: { review: LibraryRigReview }) {
+function LibrarySoftwareTeamReviewContent({ review }: { review: LibrarySoftwareTeamReview }) {
   const navigate = useNavigate();
   const [setupPromptCopied, setSetupPromptCopied] = useState(false);
   const { data: agentEntries = [] } = useSpecLibrary("agent");
@@ -107,9 +107,9 @@ function LibraryRigReviewContent({ review }: { review: LibraryRigReview }) {
     if (!agentRef.startsWith("local:")) return null;
     const refPath = agentRef.slice("local:".length);
 
-    // Resolve the ref path against the rig's source directory
-    const rigDir = review.sourcePath.replace(/\/[^/]+$/, "");
-    const segments = `${rigDir}/${refPath}`.split("/");
+    // Resolve the ref path against the softwareTeam's source directory
+    const softwareTeamDir = review.sourcePath.replace(/\/[^/]+$/, "");
+    const segments = `${softwareTeamDir}/${refPath}`.split("/");
     const resolved: string[] = [];
     for (const seg of segments) {
       if (seg === "..") { resolved.pop(); }
@@ -123,11 +123,11 @@ function LibraryRigReviewContent({ review }: { review: LibraryRigReview }) {
 
   return (
     <WorkspacePage>
-      <div data-testid="library-review-rig" className="space-y-6">
+      <div data-testid="library-review-software-team" className="space-y-6">
         <WorkflowHeader
-          eyebrow={review.services ? "Library — Managed App" : "Library — Rig Spec"}
+          eyebrow={review.services ? "Library — Managed App" : "Library — SoftwareTeam Spec"}
           title={review.name}
-          description={review.summary ?? "Rig spec from library."}
+          description={review.summary ?? "SoftwareTeam spec from library."}
           actions={
             <div className="flex gap-2">
               {review.services && (
@@ -156,9 +156,9 @@ function LibraryRigReviewContent({ review }: { review: LibraryRigReview }) {
         <ProvenanceBadge sourcePath={review.sourcePath} sourceState={review.sourceState} />
 
         <WorkflowSummaryGrid>
-          <WorkflowSummaryCard label="Format" value={review.format === "pod_aware" ? "Pod-Aware" : "Legacy"} testId="lib-rig-format" />
+          <WorkflowSummaryCard label="Format" value={review.format === "pod_aware" ? "Pod-Aware" : "Legacy"} testId="lib-software-team-format" />
           {review.services && (
-            <WorkflowSummaryCard label="Type" value="Agent-Managed App" testId="lib-rig-type" />
+            <WorkflowSummaryCard label="Type" value="Agent-Managed App" testId="lib-software-team-type" />
           )}
           {review.services && reviewPods.length > 0 && (() => {
             const specialistPod = reviewPods.find((p) => p.members.some((m) => m.id === "specialist"));
@@ -167,36 +167,36 @@ function LibraryRigReviewContent({ review }: { review: LibraryRigReview }) {
               <WorkflowSummaryCard
                 label="Specialist Agent"
                 value={`${specialistPod.id}.specialist`}
-                testId="lib-rig-specialist"
+                testId="lib-software-team-specialist"
               />
             );
           })()}
           <WorkflowSummaryCard
             label={review.format === "pod_aware" ? "Pods" : "Nodes"}
             value={review.format === "pod_aware" ? reviewPods.length : reviewNodes.length}
-            testId="lib-rig-pods"
+            testId="lib-software-team-pods"
           />
           <WorkflowSummaryCard
             label="Members"
             value={review.format === "pod_aware"
               ? reviewPods.reduce((sum, p) => sum + p.members.length, 0)
               : reviewNodes.length}
-            testId="lib-rig-members"
+            testId="lib-software-team-members"
           />
           <WorkflowSummaryCard
             label="Edges"
             value={reviewEdges.length + (review.format === "pod_aware"
               ? reviewPods.reduce((sum, p) => sum + (p.edges?.length ?? 0), 0)
               : 0)}
-            testId="lib-rig-edges"
+            testId="lib-software-team-edges"
           />
         </WorkflowSummaryGrid>
 
-        <RigSpecDisplay
+        <SoftwareTeamSpecDisplay
           review={review}
           yaml={review.raw}
           testIdPrefix="lib"
-          yamlTestId="lib-rig-yaml"
+          yamlTestId="lib-software-team-yaml"
           showEnvironmentTab={!!review.services}
           onMemberClick={(podId, member) => {
             const agentEntry = resolveMemberAgent(member.agentRef);
@@ -257,7 +257,7 @@ function LibrarySpecReview({ entryId }: LibraryReviewProps) {
     return <LibraryWorkflowReviewPage review={review as LibraryWorkflowReview} />;
   }
 
-  return <LibraryRigReviewContent review={review as LibraryRigReview} />;
+  return <LibrarySoftwareTeamReviewContent review={review as LibrarySoftwareTeamReview} />;
 }
 
 // --- Workflows in Spec Library v0: workflow review variant ---
@@ -342,7 +342,7 @@ function LibraryWorkflowReviewPage({ review }: { review: LibraryWorkflowReview }
           <WorkflowSummaryCard label="Version" value={review.version} testId="lib-wf-version" />
           <WorkflowSummaryCard label="Roles" value={review.rolesCount} testId="lib-wf-roles" />
           <WorkflowSummaryCard label="Steps" value={review.stepsCount} testId="lib-wf-steps" />
-          <WorkflowSummaryCard label="Target Rig" value={review.targetRig ?? "(any)"} testId="lib-wf-target-rig" />
+          <WorkflowSummaryCard label="Target SoftwareTeam" value={review.targetSoftwareTeam ?? "(any)"} testId="lib-wf-target-software-team" />
           <WorkflowSummaryCard label="Source" value={review.isBuiltIn ? "built-in" : "user file"} testId="lib-wf-source" />
         </WorkflowSummaryGrid>
 
@@ -392,7 +392,7 @@ function LibraryWorkflowReviewPage({ review }: { review: LibraryWorkflowReview }
   );
 }
 
-// --- Rig Context / Composable Context Injection v0 (PL-014):
+// --- SoftwareTeam Context / Composable Context Injection v0 (PL-014):
 //     context_pack review page ---
 
 function LibraryContextPackReviewPage({ entryId }: { entryId: string }) {

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { CLAUDE_RESUME_ROTATION_COLUMNS, SessionRegistry, claudeResumeRotation } from "../src/domain/session-registry.js";
 import { SessionTransport } from "../src/domain/session-transport.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
@@ -28,7 +28,7 @@ type Mode = "unchanged" | "rotation" | "duplicate-hook" | "delayed-hook" | "shim
   | "delayed-rotated-hook" | "probe-refresh"
   | SourcedMode;
 // #1077 — the hook also reports SessionStart's source and the seat's occupant generation.
-// It also forwards OPENRIG_RESUME_LAUNCH, which only the command OpenRig sent carries.
+// It also forwards SOFTWARETEAM_RESUME_LAUNCH, which only the command SoftwareTeam sent carries.
 const sourcedModes = ["resume-rotation", "resume-then-clear", "clear-sourced", "startup-sourced",
   "compact-sourced", "resume-stale-generation", "resume-no-source",
   "resume-no-marker", "resume-other-marker", "resume-after-launch-hook", "resume-clear-resume",
@@ -42,13 +42,13 @@ async function sendAfterHook(mode: Mode, consumer: "send" | "wake" | "handoff" =
   const db = createDb();
   try {
     migrate(db, ALL_MIGRATIONS);
-    const rigRepo = new RigRepository(db), registry = new SessionRegistry(db), eventBus = new EventBus(db);
-    const rig = rigRepo.createRig("rotation");
-    const node = rigRepo.addNode(rig.id, "test.c", { runtime: "claude-code" });
+    const softwareTeamRepo = new SoftwareTeamRepository(db), registry = new SessionRegistry(db), eventBus = new EventBus(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("rotation");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "test.c", { runtime: "claude-code" });
     const session = registry.registerSession(node.id, name);
     registry.updateStatus(session.id, "running");
     registry.updateBinding(node.id, { tmuxSession: name, tmuxPane: "%1" });
-    // OpenRig launched this seat with `--resume original`.
+    // SoftwareTeam launched this seat with `--resume original`.
     registry.recordResumeLaunch(session.id, original);
     // ... and observed the process it started (102 below) right after the launch.
     registry.recordResumeLaunchProcess(session.id, original, { pid: 102, startedAt: "Sat Oct  3 01:00:00 2026" });
@@ -84,7 +84,7 @@ async function sendAfterHook(mode: Mode, consumer: "send" | "wake" | "handoff" =
     const hook = async (token: string, occurredAt?: string, evidence: { source?: string; generation?: string; resumeLaunch?: string; hookPid?: number; resumeLaunchFirst?: boolean } = {}) => {
       const response = await app.request("/api/activity/hooks", {
         method: "POST",
-        headers: { "content-type": "application/json", "x-openrig-activity-token": "fixture" },
+        headers: { "content-type": "application/json", "x-softwareteam-activity-token": "fixture" },
         body: JSON.stringify({ eventFamily: "session_identity", sessionName: name, runtime: "claude-code", sessionId: token, occurredAt, hookPid: 111, ...evidence }),
       });
       expect(response.status).toBe(200);
@@ -167,7 +167,7 @@ async function sendAfterHook(mode: Mode, consumer: "send" | "wake" | "handoff" =
       return mode === "changed-process" && reads === 2
         ? rows.map(row => row.pid === 102 ? { ...row, startedAt: "replacement" } : row) : rows;
     };
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry: registry, eventBus,
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry: registry, eventBus,
       tmuxAdapter: tmux, listProcesses, sleep: async () => {} });
     const send = vi.spyOn(transport, "send"); // Call through the actual delivery path for every consumer.
     if (consumer === "send") await transport.send(name, "isolated rotation message");

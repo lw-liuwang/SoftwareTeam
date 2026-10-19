@@ -44,12 +44,12 @@ describe("parity by construction (FR-7 / PIN 1)", () => {
     const byCommand = fresh("cmd");
     const byKeys = fresh("kbd");
 
-    byCommand.dispatch(parseCommand("rig openrig-build"));
+    byCommand.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
 
     const screen = renderScreen(byKeys.get(), snap, { cols: 100, rows: 30 });
-    const rigIndex = screen.explorerRows.findIndex((r) => r.action.type === "drill" && r.action.resource === "rig");
-    expect(rigIndex).toBeGreaterThanOrEqual(0);
-    for (let i = 0; i < rigIndex; i++)
+    const softwareTeamIndex = screen.explorerRows.findIndex((r) => r.action.type === "drill" && r.action.resource === "softwareTeam");
+    expect(softwareTeamIndex).toBeGreaterThanOrEqual(0);
+    for (let i = 0; i < softwareTeamIndex; i++)
       for (const ev of decodeInput("\x1b[B"))
         if (ev.type === "key" && "action" in ev) byKeys.dispatch(ev.action);
     const enter = decodeInput("\r")[0];
@@ -60,7 +60,7 @@ describe("parity by construction (FR-7 / PIN 1)", () => {
 
   it("renders the agents table with fixed-width columns and right-aligned numerics (honest-unknown as —)", () => {
     const s = fresh("t");
-    s.dispatch(parseCommand("rig openrig-build"));
+    s.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     const screen = renderScreen(s.get(), snap, { cols: 140, rows: 30 });
     const header = screen.lines.find((l) => l.includes("SEAT") && l.includes("STATE"));
     expect(header).toBeDefined();
@@ -73,7 +73,7 @@ describe("parity by construction (FR-7 / PIN 1)", () => {
 
   it("keeps STATUS verbatim from the snapshot — never fabricated (PIN 2 render leg)", () => {
     const s = fresh("t");
-    s.dispatch(parseCommand("rig openrig-build"));
+    s.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     const screen = renderScreen(s.get(), snap, { cols: 140, rows: 30 });
     const qaRow = screen.lines.find((l) => /\? qa\s/.test(l));
     expect(qaRow).toBeDefined();

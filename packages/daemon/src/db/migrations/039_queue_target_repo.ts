@@ -6,12 +6,12 @@ import type { Migration } from "../migrate.js";
  * Adds `target_repo TEXT` to the queue_items table. Carries the
  * per-item typed repo scope when an operator passes
  * `rigx queue create --target-repo <name>` etc. Validated at the
- * route layer against the source rig's RigSpec.workspace.repos[].
- * NULL when the qitem is unambiguous against the rig's default_repo
+ * route layer against the source softwareTeam's SoftwareTeamSpec.workspace.repos[].
+ * NULL when the qitem is unambiguous against the softwareTeam's default_repo
  * or when no workspace is declared. Mission Control views surface
- * the field for cross-rig handoff clarity.
+ * the field for cross-softwareTeam handoff clarity.
  *
- * Companion to migration 038 which adds rigs.workspace_json.
+ * Companion to migration 038 which adds softwareTeams.workspace_json.
  */
 export const queueTargetRepoSchema: Migration = {
   name: "039_queue_target_repo.sql",

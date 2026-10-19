@@ -15,7 +15,7 @@ import type { Migration } from "../migrate.js";
  * `minted_at` never moves; `reconciled_at` advances every boot. The id is never
  * the `"local"`/`"kernel"`/`"host"` reserved set nor the `"localhost"` display
  * default (asserted in the reconciler). Next free number after
- * 058_rig_policy_provenance.ts.
+ * 058_software_team_policy_provenance.ts.
  */
 export const selfHostIdentitySchema: Migration = {
   name: "059_self_host_identity.sql",

@@ -76,15 +76,15 @@ export class SeatIdentityStore {
     });
   }
 
-  /** Read all verdicts for the nodes of a rig, keyed by node_id. Defensive. */
-  getForRig(rigId: string): Map<string, SeatIdentityVerdict> {
+  /** Read all verdicts for the nodes of a softwareTeam, keyed by node_id. Defensive. */
+  getForSoftwareTeam(softwareTeamId: string): Map<string, SeatIdentityVerdict> {
     const out = new Map<string, SeatIdentityVerdict>();
     try {
       const rows = this.db.prepare(`
         SELECT v.* FROM seat_identity_verdicts v
         JOIN nodes n ON n.id = v.node_id
-        WHERE n.rig_id = ?
-      `).all(rigId) as VerdictRow[];
+        WHERE n.software_team_id = ?
+      `).all(softwareTeamId) as VerdictRow[];
       for (const row of rows) out.set(row.node_id, rowToVerdict(row));
     } catch {
       // Table absent (partial fixture) — degrade to no verdicts.
@@ -93,21 +93,21 @@ export class SeatIdentityStore {
   }
 
   /**
-   * FS-1 W1.2 — all rigs' verdicts in ONE query, keyed rigId → (nodeId →
-   * verdict). Same JOIN + `rowToVerdict` as `getForRig`, minus the per-rig
-   * WHERE — so a per-rig `getForAllRigs().get(rigId)` is equivalent to
-   * `getForRig(rigId)` (empty map when a rig has no verdicts). Defensive.
+   * FS-1 W1.2 — all softwareTeams' verdicts in ONE query, keyed softwareTeamId → (nodeId →
+   * verdict). Same JOIN + `rowToVerdict` as `getForSoftwareTeam`, minus the per-softwareTeam
+   * WHERE — so a per-softwareTeam `getForAllSoftwareTeams().get(softwareTeamId)` is equivalent to
+   * `getForSoftwareTeam(softwareTeamId)` (empty map when a softwareTeam has no verdicts). Defensive.
    */
-  getForAllRigs(): Map<string, Map<string, SeatIdentityVerdict>> {
+  getForAllSoftwareTeams(): Map<string, Map<string, SeatIdentityVerdict>> {
     const out = new Map<string, Map<string, SeatIdentityVerdict>>();
     try {
       const rows = this.db.prepare(`
-        SELECT v.*, n.rig_id as owning_rig_id FROM seat_identity_verdicts v
+        SELECT v.*, n.software_team_id as owning_software_team_id FROM seat_identity_verdicts v
         JOIN nodes n ON n.id = v.node_id
-      `).all() as Array<VerdictRow & { owning_rig_id: string }>;
+      `).all() as Array<VerdictRow & { owning_software_team_id: string }>;
       for (const row of rows) {
-        let m = out.get(row.owning_rig_id);
-        if (!m) { m = new Map<string, SeatIdentityVerdict>(); out.set(row.owning_rig_id, m); }
+        let m = out.get(row.owning_software_team_id);
+        if (!m) { m = new Map<string, SeatIdentityVerdict>(); out.set(row.owning_software_team_id, m); }
         m.set(row.node_id, rowToVerdict(row));
       }
     } catch {

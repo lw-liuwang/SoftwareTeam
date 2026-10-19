@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createRequire } from "node:module";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { isCodex013xOrLater } from "../src/adapters/codex-runtime-adapter.js";
@@ -16,10 +16,10 @@ describe("resume provenance + precedence", () => {
   beforeEach(() => {
     db = createFullTestDb();
     sessionRegistry = new SessionRegistry(db);
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.worker", { runtime: "codex" });
-    sessionRegistry.registerSession(node.id, "dev-worker@test-rig");
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.worker", { runtime: "codex" });
+    sessionRegistry.registerSession(node.id, "dev-worker@test-software-team");
   });
 
   afterEach(() => db.close());
@@ -94,9 +94,9 @@ describe("isCodex013xOrLater", () => {
 });
 
 describe("activity-relay session identity", () => {
-  it("buildSessionIdentityPayload reads OpenRig identity from env, session_id from stdin", () => {
-    const { buildSessionIdentityPayload } = require("../assets/plugins/openrig-core/hooks/scripts/activity-relay.cjs");
-    const env = { OPENRIG_SESSION_NAME: "dev-worker@test-rig", OPENRIG_NODE_ID: "node-1", OPENRIG_RUNTIME: "codex" };
+  it("buildSessionIdentityPayload reads SoftwareTeam identity from env, session_id from stdin", () => {
+    const { buildSessionIdentityPayload } = require("../assets/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs");
+    const env = { SOFTWARETEAM_SESSION_NAME: "dev-worker@test-software-team", SOFTWARETEAM_NODE_ID: "node-1", SOFTWARETEAM_RUNTIME: "codex" };
     const payload = buildSessionIdentityPayload(
       { hookEvent: "SessionStart", session_id: "thread-abc-123" },
       env,
@@ -104,26 +104,26 @@ describe("activity-relay session identity", () => {
     expect(payload).not.toBeNull();
     expect(payload.eventFamily).toBe("session_identity");
     expect(payload.sessionId).toBe("thread-abc-123");
-    expect(payload.sessionName).toBe("dev-worker@test-rig");
+    expect(payload.sessionName).toBe("dev-worker@test-software-team");
     expect(payload.runtime).toBe("codex");
   });
 
   it("buildSessionIdentityPayload returns null for non-SessionStart", () => {
-    const { buildSessionIdentityPayload } = require("../assets/plugins/openrig-core/hooks/scripts/activity-relay.cjs");
-    const env = { OPENRIG_SESSION_NAME: "dev-worker@test-rig", OPENRIG_RUNTIME: "codex" };
+    const { buildSessionIdentityPayload } = require("../assets/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs");
+    const env = { SOFTWARETEAM_SESSION_NAME: "dev-worker@test-software-team", SOFTWARETEAM_RUNTIME: "codex" };
     const payload = buildSessionIdentityPayload({ hookEvent: "UserPromptSubmit", session_id: "thread-abc-123" }, env);
     expect(payload).toBeNull();
   });
 
   it("buildSessionIdentityPayload returns null when no session_id", () => {
-    const { buildSessionIdentityPayload } = require("../assets/plugins/openrig-core/hooks/scripts/activity-relay.cjs");
-    const env = { OPENRIG_SESSION_NAME: "dev-worker@test-rig", OPENRIG_RUNTIME: "codex" };
+    const { buildSessionIdentityPayload } = require("../assets/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs");
+    const env = { SOFTWARETEAM_SESSION_NAME: "dev-worker@test-software-team", SOFTWARETEAM_RUNTIME: "codex" };
     const payload = buildSessionIdentityPayload({ hookEvent: "SessionStart" }, env);
     expect(payload).toBeNull();
   });
 
   it("returns null when provider payload has identity but env does not", () => {
-    const { buildSessionIdentityPayload } = require("../assets/plugins/openrig-core/hooks/scripts/activity-relay.cjs");
+    const { buildSessionIdentityPayload } = require("../assets/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs");
     const payload = buildSessionIdentityPayload(
       { hookEvent: "SessionStart", session_id: "thread-123", sessionName: "foo", runtime: "codex" },
       {},
@@ -139,10 +139,10 @@ describe("clearResumeToken clears provenance", () => {
   beforeEach(() => {
     db = createFullTestDb();
     sessionRegistry = new SessionRegistry(db);
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.worker", { runtime: "codex" });
-    sessionRegistry.registerSession(node.id, "dev-worker@test-rig");
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.worker", { runtime: "codex" });
+    sessionRegistry.registerSession(node.id, "dev-worker@test-software-team");
   });
 
   afterEach(() => db.close());

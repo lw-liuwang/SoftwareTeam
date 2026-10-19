@@ -1,5 +1,5 @@
 // A post that fails stays in the dispatch buffer and is replayed when the gateway next starts (a
-// restart, or `rig slack disable` then `enable`). On Build, four alerts whose posts timed out on
+// restart, or `softwareTeam slack disable` then `enable`). On Build, four alerts whose posts timed out on
 // 10-08 were replayed by an enable 28 hours later and posted for rows that had long closed. These
 // tests drive the real wire: a replayed decision for a row that has left the active states posts
 // nothing and the row says why; one for a still-open row still posts; and enable drains the
@@ -22,7 +22,7 @@ import { DEFAULT_CONFIG, saveConfig } from "../src/domain/gateway/slack/config.j
 import type { FetchImpl } from "../src/domain/gateway/slack/slack-api.js";
 
 const registry = { ok: true as const, entities: [{ entityId: "human-founder", class: "human" as const, displayName: "Founder", address: "human-founder@external", connectorBindings: [{ kind: "slack" as const, connectorRef: "primary", secretsRef: "env:SLACK_BOT_TOKEN", role: "primary" as const, handle: "UFOUNDER" }], prefs: { deliveryClass: "A" as const } }] };
-const request = { sourceSession: "author@rig", destinationSession: "human-founder@external", summary: "Stale on replay?", body: "A decision whose first post fails.", nudge: false };
+const request = { sourceSession: "author@software-team", destinationSession: "human-founder@external", summary: "Stale on replay?", body: "A decision whose first post fails.", nudge: false };
 const reply = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 const isPost = (url: string | URL) => String(url).endsWith("chat.postMessage");
 

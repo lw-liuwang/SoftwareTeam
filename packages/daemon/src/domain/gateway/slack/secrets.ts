@@ -1,7 +1,7 @@
 // Slice-11 slack-connector — secret resolution (item 7 + 10).
 //
 // Secrets (Slack bot token / app-level token / incoming-webhook URL) resolve
-// from EITHER an OPENRIG_SLACK_* environment variable OR a 0600 env file, at
+// from EITHER an SOFTWARETEAM_SLACK_* environment variable OR a 0600 env file, at
 // call time — NEVER stored in the connector config file, NEVER in the repo,
 // NEVER logged. Mirrors the daemon's bearer_file/activity-hook-token posture.
 // The env file lives on the TRUSTED host (item 10 secret-host axis); it may be
@@ -55,17 +55,17 @@ export function checkEnvFilePermissions(envFile: string, fsops: SecretFsOps = no
 }
 
 /**
- * Resolve a secret by logical name. Precedence: explicit env var (OPENRIG_SLACK_<NAME>
+ * Resolve a secret by logical name. Precedence: explicit env var (SOFTWARETEAM_SLACK_<NAME>
  * or the raw name) → env-file key. Returns null when unresolved (honest: callers
  * report "unconfigured", they do NOT fabricate). Never logs the value.
  */
 export function resolveSecret(name: string, opts: SecretLookupOpts = {}): string | null {
   const env = opts.env ?? process.env;
   const fsops = opts.fsops ?? nodeSecretFs;
-  // Aliases: the raw name (e.g. SLACK_WEBHOOK_URL) and the OPENRIG_-prefixed
-  // form (OPENRIG_SLACK_WEBHOOK_URL). NOT OPENRIG_SLACK_<name> — that would
+  // Aliases: the raw name (e.g. SLACK_WEBHOOK_URL) and the SOFTWARETEAM_-prefixed
+  // form (SOFTWARETEAM_SLACK_WEBHOOK_URL). NOT SOFTWARETEAM_SLACK_<name> — that would
   // double the SLACK_ segment (the B4 defect).
-  const envKeys = [name, `OPENRIG_${name.replace(/[^A-Za-z0-9]/g, "_").toUpperCase()}`];
+  const envKeys = [name, `SOFTWARETEAM_${name.replace(/[^A-Za-z0-9]/g, "_").toUpperCase()}`];
   for (const k of envKeys) {
     if (env[k]) return env[k]!;
   }

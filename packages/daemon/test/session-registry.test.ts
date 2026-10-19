@@ -14,17 +14,17 @@ function setupDb(): Database.Database {
   return createFullTestDb();
 }
 
-function seedRig(db: Database.Database) {
-  db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run(
-    "rig-1",
-    "test-rig"
+function seedSoftwareTeam(db: Database.Database) {
+  db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run(
+    "software-team-1",
+    "test-software-team"
   );
   db.prepare(
-    "INSERT INTO nodes (id, rig_id, logical_id, role, runtime) VALUES (?, ?, ?, ?, ?)"
-  ).run("node-1", "rig-1", "dev1-impl", "worker", "claude-code");
+    "INSERT INTO nodes (id, software_team_id, logical_id, role, runtime) VALUES (?, ?, ?, ?, ?)"
+  ).run("node-1", "software-team-1", "dev1-impl", "worker", "claude-code");
   db.prepare(
-    "INSERT INTO nodes (id, rig_id, logical_id, role, runtime) VALUES (?, ?, ?, ?, ?)"
-  ).run("node-2", "rig-1", "dev1-qa", "qa", "codex");
+    "INSERT INTO nodes (id, software_team_id, logical_id, role, runtime) VALUES (?, ?, ?, ?, ?)"
+  ).run("node-2", "software-team-1", "dev1-qa", "qa", "codex");
 }
 
 describe("SessionRegistry", () => {
@@ -34,7 +34,7 @@ describe("SessionRegistry", () => {
   beforeEach(() => {
     db = setupDb();
     registry = new SessionRegistry(db);
-    seedRig(db);
+    seedSoftwareTeam(db);
   });
 
   afterEach(() => {
@@ -88,7 +88,7 @@ describe("SessionRegistry", () => {
     const session = registry.registerSession("node-1", "r01-dev1-impl");
     registry.updateResumeToken(session.id, "claude_id", "abc-123-def");
 
-    const sessions = registry.getSessionsForRig("rig-1");
+    const sessions = registry.getSessionsForSoftwareTeam("software-team-1");
     const updated = sessions.find((s) => s.id === session.id);
     expect(updated!.resumeType).toBe("claude_id");
     expect(updated!.resumeToken).toBe("abc-123-def");
@@ -99,7 +99,7 @@ describe("SessionRegistry", () => {
 
     expect(registry.recordResumeAttempt(session.id, " claude_id ", " attempted-token ")).toBe(true);
 
-    const updated = registry.getSessionsForRig("rig-1").find((s) => s.id === session.id)!;
+    const updated = registry.getSessionsForSoftwareTeam("software-team-1").find((s) => s.id === session.id)!;
     expect(updated.resumeType).toBe("claude_id");
     expect(updated.resumeToken).toBe("attempted-token");
     expect(updated.resumeProvenance).toBeNull();
@@ -113,7 +113,7 @@ describe("SessionRegistry", () => {
 
     expect(registry.recordResumeAttempt(session.id, "codex_id", "attempted-token")).toBe(false);
 
-    const updated = registry.getSessionsForRig("rig-1").find((s) => s.id === session.id)!;
+    const updated = registry.getSessionsForSoftwareTeam("software-team-1").find((s) => s.id === session.id)!;
     expect(updated.resumeToken).toBe("hook-token");
     expect(updated.resumeProvenance).toBe("hook");
     expect(updated.resumeLastVerified).not.toBeNull();
@@ -131,7 +131,7 @@ describe("SessionRegistry", () => {
   }
 
   it("operator provenance overwrites an existing hook token", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "claude_id", "hook-tok", "hook");
     registry.updateResumeToken(s.id, "claude_id", "operator-tok", "operator");
     expect(tokenOf(s.id)).toBe("operator-tok");
@@ -139,7 +139,7 @@ describe("SessionRegistry", () => {
   });
 
   it("operator provenance overwrites an existing scrape token", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "claude_id", "scrape-tok", "scrape");
     registry.updateResumeToken(s.id, "claude_id", "operator-tok", "operator");
     expect(tokenOf(s.id)).toBe("operator-tok");
@@ -147,7 +147,7 @@ describe("SessionRegistry", () => {
   });
 
   it("a hook write does NOT clobber an existing operator token (operator outranks hook)", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "claude_id", "operator-tok", "operator");
     registry.updateResumeToken(s.id, "claude_id", "hook-tok", "hook");
     expect(tokenOf(s.id)).toBe("operator-tok");
@@ -155,7 +155,7 @@ describe("SessionRegistry", () => {
   });
 
   it("a scrape write does NOT clobber an existing operator token", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "claude_id", "operator-tok", "operator");
     registry.updateResumeToken(s.id, "claude_id", "scrape-tok", "scrape");
     expect(tokenOf(s.id)).toBe("operator-tok");
@@ -163,7 +163,7 @@ describe("SessionRegistry", () => {
   });
 
   it("preserves the existing rule: scrape does NOT clobber hook", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "claude_id", "hook-tok", "hook");
     registry.updateResumeToken(s.id, "claude_id", "scrape-tok", "scrape");
     expect(tokenOf(s.id)).toBe("hook-tok");
@@ -181,7 +181,7 @@ describe("SessionRegistry", () => {
   }
 
   it("FR-6: updateResumeToken stamps last_verified + probe_status=resumable on write", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     expect(verifiedOf(s.id)).toBeNull();
     registry.updateResumeToken(s.id, "claude_id", "tok-1", "adoption");
     expect(verifiedOf(s.id)).not.toBeNull();
@@ -189,7 +189,7 @@ describe("SessionRegistry", () => {
   });
 
   it("FR-6: equal-value refresh re-verifies a token previously marked stale", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "claude_id", "tok-1", "hook");
     registry.markResumeProbeResult(s.id, "not_resumable");
     expect(probeStatusOf(s.id)).toBe("not_resumable");
@@ -200,7 +200,7 @@ describe("SessionRegistry", () => {
   });
 
   it("FR-6: markResumeProbeResult(not_resumable) marks stale WITHOUT clearing the token", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "claude_id", "tok-1", "adoption");
     registry.markResumeProbeResult(s.id, "not_resumable");
     expect(tokenOf(s.id)).toBe("tok-1");          // survival-critical: token SURVIVES (§2.1b)
@@ -209,7 +209,7 @@ describe("SessionRegistry", () => {
   });
 
   it("FR-6: markResumeProbeResult(inconclusive) marks stale; a later resumable stamps verified", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "claude_id", "tok-1", "hook");
     registry.markResumeProbeResult(s.id, "inconclusive");
     expect(probeStatusOf(s.id)).toBe("inconclusive");
@@ -220,7 +220,7 @@ describe("SessionRegistry", () => {
   });
 
   it("FR-6: clearResumeToken nulls the freshness columns too", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "claude_id", "tok-1", "adoption");
     registry.clearResumeToken(s.id);
     expect(tokenOf(s.id)).toBeNull();
@@ -230,7 +230,7 @@ describe("SessionRegistry", () => {
 
   // OPR.0.4.3.20 FR-3 — the `adoption` rung: scrape < adoption < hook < operator.
   it("adoption overwrites an existing scrape token (adoption outranks scrape)", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "codex_id", "scrape-tok", "scrape");
     registry.updateResumeToken(s.id, "codex_id", "adoption-tok", "adoption");
     expect(tokenOf(s.id)).toBe("adoption-tok");
@@ -238,7 +238,7 @@ describe("SessionRegistry", () => {
   });
 
   it("a hook self-report REFRESHES an adoption token (hook outranks adoption — freshest live token wins)", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "codex_id", "adoption-tok", "adoption");
     registry.updateResumeToken(s.id, "codex_id", "hook-tok", "hook");
     expect(tokenOf(s.id)).toBe("hook-tok");
@@ -246,7 +246,7 @@ describe("SessionRegistry", () => {
   });
 
   it("an adoption write does NOT clobber an existing hook token", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "codex_id", "hook-tok", "hook");
     registry.updateResumeToken(s.id, "codex_id", "adoption-tok", "adoption");
     expect(tokenOf(s.id)).toBe("hook-tok");
@@ -254,7 +254,7 @@ describe("SessionRegistry", () => {
   });
 
   it("an adoption write does NOT clobber an existing operator token", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "claude_id", "operator-tok", "operator");
     registry.updateResumeToken(s.id, "claude_id", "adoption-tok", "adoption");
     expect(tokenOf(s.id)).toBe("operator-tok");
@@ -262,7 +262,7 @@ describe("SessionRegistry", () => {
   });
 
   it("adoption refreshes an equal-rank adoption token (equal rank overwrites — idempotent re-capture)", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "codex_id", "adoption-tok-1", "adoption");
     registry.updateResumeToken(s.id, "codex_id", "adoption-tok-2", "adoption");
     expect(tokenOf(s.id)).toBe("adoption-tok-2");
@@ -273,7 +273,7 @@ describe("SessionRegistry", () => {
   // is a SKIP, never a write, and can never clobber a valid stored token even
   // from a higher-provenance source ("flakiness = missing = no-write").
   it("an empty token is a no-op write (leaves an existing valid token untouched, even from a higher provenance)", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "codex_id", "adoption-tok", "adoption");
     registry.updateResumeToken(s.id, "codex_id", "", "operator"); // higher provenance, but empty
     expect(tokenOf(s.id)).toBe("adoption-tok");
@@ -281,14 +281,14 @@ describe("SessionRegistry", () => {
   });
 
   it("a whitespace-only token is a no-op write", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "codex_id", "hook-tok", "hook");
     registry.updateResumeToken(s.id, "codex_id", "   ", "hook");
     expect(tokenOf(s.id)).toBe("hook-tok");
   });
 
   it("an empty token never populates a fresh (null) session", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     registry.updateResumeToken(s.id, "codex_id", "", "adoption");
     expect(tokenOf(s.id)).toBeNull();
     expect(provenanceOf(s.id)).toBeNull();
@@ -298,7 +298,7 @@ describe("SessionRegistry", () => {
   // the adoption-capture audit event never falsely claims a captured write when
   // the provenance guard refused it.
   it("updateResumeToken returns true on a real write, false on a rank-blocked no-op", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     expect(registry.updateResumeToken(s.id, "codex_id", "adoption-tok", "adoption")).toBe(true);
     expect(registry.updateResumeToken(s.id, "codex_id", "hook-tok", "hook")).toBe(true); // hook > adoption
     expect(registry.updateResumeToken(s.id, "codex_id", "adoption-tok-2", "adoption")).toBe(false); // refused
@@ -306,7 +306,7 @@ describe("SessionRegistry", () => {
   });
 
   it("updateResumeToken returns false on an empty/whitespace-token no-op", () => {
-    const s = registry.registerSession("node-1", "dev-impl@test-rig");
+    const s = registry.registerSession("node-1", "dev-impl@test-software-team");
     expect(registry.updateResumeToken(s.id, "codex_id", "", "adoption")).toBe(false);
     registry.updateResumeToken(s.id, "codex_id", "hook-tok", "hook");
     expect(registry.updateResumeToken(s.id, "codex_id", "   ", "hook")).toBe(false);
@@ -318,7 +318,7 @@ describe("SessionRegistry", () => {
 
     registry.clearResumeToken(session.id);
 
-    const sessions = registry.getSessionsForRig("rig-1");
+    const sessions = registry.getSessionsForSoftwareTeam("software-team-1");
     const updated = sessions.find((s) => s.id === session.id);
     expect(updated!.resumeType).toBeNull();
     expect(updated!.resumeToken).toBeNull();
@@ -351,11 +351,11 @@ describe("SessionRegistry", () => {
     expect(row.status).toBe("detached");
   });
 
-  it("getSessionsForRig returns all sessions across nodes in rig", () => {
+  it("getSessionsForSoftwareTeam returns all sessions across nodes in softwareTeam", () => {
     registry.registerSession("node-1", "r01-dev1-impl");
     registry.registerSession("node-2", "r01-dev1-qa");
 
-    const sessions = registry.getSessionsForRig("rig-1");
+    const sessions = registry.getSessionsForSoftwareTeam("software-team-1");
     expect(sessions).toHaveLength(2);
     const names = sessions.map((s) => s.sessionName);
     expect(names).toContain("r01-dev1-impl");
@@ -418,13 +418,13 @@ describe("SessionRegistry", () => {
     expect(session.restorePolicy).toBe("resume_if_possible");
   });
 
-  it("getSessionsForRig returns populated resume metadata after update", () => {
+  it("getSessionsForSoftwareTeam returns populated resume metadata after update", () => {
     const session = registry.registerSession("node-1", "r01-dev1-impl");
     db.prepare(
       "UPDATE sessions SET resume_type = ?, resume_token = ?, restore_policy = ? WHERE id = ?"
     ).run("claude_name", "my-session", "checkpoint_only", session.id);
 
-    const sessions = registry.getSessionsForRig("rig-1");
+    const sessions = registry.getSessionsForSoftwareTeam("software-team-1");
     expect(sessions).toHaveLength(1);
     expect(sessions[0]!.resumeType).toBe("claude_name");
     expect(sessions[0]!.resumeToken).toBe("my-session");
@@ -447,7 +447,7 @@ describe("SessionRegistry", () => {
 
     registry.markSuperseded(session.id);
 
-    const sessions = registry.getSessionsForRig("rig-1");
+    const sessions = registry.getSessionsForSoftwareTeam("software-team-1");
     expect(sessions[0]!.status).toBe("superseded");
   });
 });
@@ -461,7 +461,7 @@ describe("SessionRegistry — atom-B occupant tenures", () => {
   beforeEach(() => {
     db = createFullTestDb();
     registry = new SessionRegistry(db);
-    seedRig(db);
+    seedSoftwareTeam(db);
   });
   afterEach(() => { db.close(); });
 
@@ -505,7 +505,7 @@ describe("SessionRegistry — atom-B occupant tenures", () => {
     registry.mintOccupantTenure("node-2", "initial");
     expect(registry.currentOccupantTenure("node-1")!.generationOrdinal).toBe(2);
     expect(registry.currentOccupantTenure("node-2")!.generationOrdinal).toBe(1);
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id, role, runtime) VALUES ('node-3','rig-1','dev1-x','worker','claude-code')").run();
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, role, runtime) VALUES ('node-3','software-team-1','dev1-x','worker','claude-code')").run();
     expect(registry.currentOccupantTenure("node-3")).toBeNull();
   });
 });
@@ -517,7 +517,7 @@ describe("SessionRegistry — W2c live-seat watchdog mint seam", () => {
   let db: Database.Database;
   beforeEach(() => {
     db = createFullTestDb();
-    seedRig(db);
+    seedSoftwareTeam(db);
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -548,7 +548,7 @@ describe("SessionRegistry — W2c live-seat watchdog mint seam", () => {
       ensure: (nodeId, sessionName) => seen.push(`ensure:${statusAtHook(nodeId, sessionName)}`),
       assertCoverage: (nodeId, sessionName) => seen.push(`coverage:${statusAtHook(nodeId, sessionName)}`),
     });
-    const session = registry.registerSession("node-1", "dev-impl@test-rig");
+    const session = registry.registerSession("node-1", "dev-impl@test-software-team");
     expect(session.status).toBe("unknown");
     expect(seen).toEqual(["ensure:unknown", "coverage:unknown"]);
   });
@@ -559,7 +559,7 @@ describe("SessionRegistry — W2c live-seat watchdog mint seam", () => {
       ensure: (nodeId, sessionName) => seen.push(`ensure:${statusAtHook(nodeId, sessionName)}`),
       assertCoverage: (nodeId, sessionName) => seen.push(`coverage:${statusAtHook(nodeId, sessionName)}`),
     });
-    const session = registry.registerClaimedSession("node-1", "dev-impl@test-rig");
+    const session = registry.registerClaimedSession("node-1", "dev-impl@test-software-team");
     expect(session.status).toBe("running");
     expect(seen).toEqual(["ensure:running", "coverage:running"]);
   });
@@ -570,16 +570,16 @@ describe("SessionRegistry — W2c live-seat watchdog mint seam", () => {
     const assertCoverage = vi.fn(() => { throw new Error("missing auto-registration"); });
     const registry = withObserver({ ensure, assertCoverage });
 
-    expect(() => registry.registerSession("node-1", "dev-impl@test-rig")).not.toThrow();
-    expect(() => registry.registerClaimedSession("node-2", "dev-qa@test-rig")).not.toThrow();
-    expect(registry.getSessionsForRig("rig-1")).toHaveLength(2);
+    expect(() => registry.registerSession("node-1", "dev-impl@test-software-team")).not.toThrow();
+    expect(() => registry.registerClaimedSession("node-2", "dev-qa@test-software-team")).not.toThrow();
+    expect(registry.getSessionsForSoftwareTeam("software-team-1")).toHaveLength(2);
     expect(ensure).toHaveBeenCalledTimes(2);
     expect(assertCoverage).toHaveBeenCalledTimes(2);
 
     const lines = warn.mock.calls.map((args) => args.map(String).join(" "));
     expect(lines.filter((line) => line.includes("injected ensure failure"))).toHaveLength(1);
     expect(lines.filter((line) => line.includes("missing auto-registration"))).toHaveLength(2);
-    expect(lines.some((line) => line.includes("node-1") && line.includes("dev-impl@test-rig"))).toBe(true);
-    expect(lines.some((line) => line.includes("node-2") && line.includes("dev-qa@test-rig"))).toBe(true);
+    expect(lines.some((line) => line.includes("node-1") && line.includes("dev-impl@test-software-team"))).toBe(true);
+    expect(lines.some((line) => line.includes("node-2") && line.includes("dev-qa@test-software-team"))).toBe(true);
   });
 });

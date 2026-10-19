@@ -1,4 +1,4 @@
-// B7 — `rig policy`, the reintroduced permission-policy verb (ruling RULING-rig-mode-rig-policy-naming).
+// B7 — `softwareTeam policy`, the reintroduced permission-policy verb (ruling RULING-software-team-mode-software-team-policy-naming).
 // The honesty pin must ride every teaching surface; apply reuses the setup recording flow verbatim.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -25,7 +25,7 @@ function runCapture(argv: string[]): Promise<{ logs: string[]; errs: string[]; e
     const prog = new Command();
     prog.exitOverride();
     prog.addCommand(policyCommand());
-    try { await prog.parseAsync(["node", "rig", ...argv]); } catch { /* commander exitOverride */ }
+    try { await prog.parseAsync(["node", "softwareTeam", ...argv]); } catch { /* commander exitOverride */ }
     const exitCode = process.exitCode;
     console.log = origLog;
     console.error = origErr;
@@ -34,15 +34,15 @@ function runCapture(argv: string[]): Promise<{ logs: string[]; errs: string[]; e
   });
 }
 
-describe("rig policy — the permission-policy verb", () => {
+describe("SoftwareTeam policy — the permission-policy verb", () => {
   let dir: string;
-  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "rig-policy-verb-")); });
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "software-team-policy-verb-")); });
   afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); vi.restoreAllMocks(); });
 
-  it("the verb description carries the honesty pin VERBATIM and points at rig mode", () => {
+  it("the verb description carries the honesty pin VERBATIM and points at SoftwareTeam mode", () => {
     const desc = policyCommand().description();
     expect(desc).toContain(PIN);
-    expect(desc).toContain("rig mode");
+    expect(desc).toContain("SoftwareTeam mode");
   });
 
   it("list --json names all six choices with their ref forms and the pin", async () => {
@@ -76,7 +76,7 @@ describe("rig policy — the permission-policy verb", () => {
   });
 
   it("current classifies ABSENT as the team launch default (nothing recorded)", async () => {
-    const spec = path.join(dir, "rig.yaml");
+    const spec = path.join(dir, "software-team.yaml");
     fs.writeFileSync(spec, "name: r\npods: []\n");
     const { logs } = await runCapture(["policy", "current", "--spec", spec, "--json"]);
     const out = JSON.parse(logs.join("")) as { sites: Array<{ effective: unknown; applies?: string }> };
@@ -85,7 +85,7 @@ describe("rig policy — the permission-policy verb", () => {
   });
 
   it("apply records builtin:standard into an existing spec and current reads it back classified", async () => {
-    const spec = path.join(dir, "rig.yaml");
+    const spec = path.join(dir, "software-team.yaml");
     fs.writeFileSync(spec, "# operator comment stays\nname: r\npods: []\n");
     const applied = await runCapture(["policy", "apply", "standard", "--spec", spec, "--json"]);
     const step = JSON.parse(applied.logs.join("")) as { status: string };
@@ -122,13 +122,13 @@ body
   it("r2 HIGH-1: list --spec discovers CUSTOM policies referenced by the spec set, resolved + posture-visible", async () => {
     fs.mkdirSync(path.join(dir, "policies"), { recursive: true });
     fs.writeFileSync(path.join(dir, "policies", "custom.policy.md"), VALID_FLAG_POLICY);
-    fs.writeFileSync(path.join(dir, "rig.yaml"), "name: r\npermission_policy: policies/custom.policy.md\npods:\n  - id: dev\n    members:\n      - id: qa\n        permission_policy: builtin:locked\n");
-    const { logs, exitCode } = await runCapture(["policy", "list", "--spec", path.join(dir, "rig.yaml"), "--json"]);
+    fs.writeFileSync(path.join(dir, "software-team.yaml"), "name: r\npermission_policy: policies/custom.policy.md\npods:\n  - id: dev\n    members:\n      - id: qa\n        permission_policy: builtin:locked\n");
+    const { logs, exitCode } = await runCapture(["policy", "list", "--spec", path.join(dir, "software-team.yaml"), "--json"]);
     const out = JSON.parse(logs.join("")) as { custom: Array<Record<string, unknown>> };
     expect(exitCode).toBeUndefined();
     expect(out.custom).toHaveLength(1); // builtin member ref is not a custom policy
     expect(out.custom[0]).toMatchObject({
-      site: "rig",
+      site: "softwareTeam",
       ref: "policies/custom.policy.md",
       surface: "flag",
       launchPosture: "full_bypass",
@@ -139,24 +139,24 @@ body
   it("r2 HIGH-1: show opens + validates a CUSTOM policy ref anchored at --spec", async () => {
     fs.mkdirSync(path.join(dir, "policies"), { recursive: true });
     fs.writeFileSync(path.join(dir, "policies", "custom.policy.md"), VALID_FLAG_POLICY);
-    fs.writeFileSync(path.join(dir, "rig.yaml"), "name: r\n");
-    const { logs, exitCode } = await runCapture(["policy", "show", "policies/custom.policy.md", "--spec", path.join(dir, "rig.yaml"), "--json"]);
+    fs.writeFileSync(path.join(dir, "software-team.yaml"), "name: r\n");
+    const { logs, exitCode } = await runCapture(["policy", "show", "policies/custom.policy.md", "--spec", path.join(dir, "software-team.yaml"), "--json"]);
     expect(exitCode).toBeUndefined();
     const out = JSON.parse(logs.join("")) as Record<string, unknown>;
     expect(out).toMatchObject({ origin: "custom", surface: "flag", launchPosture: "full_bypass", contentResolved: true, contractValid: true });
   });
 
   it("r2 HIGH-1: show on a MISSING custom ref refuses loudly naming the resolved path and the advisory floor", async () => {
-    fs.writeFileSync(path.join(dir, "rig.yaml"), "name: r\n");
-    const { errs, exitCode } = await runCapture(["policy", "show", "policies/nope.policy.md", "--spec", path.join(dir, "rig.yaml")]);
+    fs.writeFileSync(path.join(dir, "software-team.yaml"), "name: r\n");
+    const { errs, exitCode } = await runCapture(["policy", "show", "policies/nope.policy.md", "--spec", path.join(dir, "software-team.yaml")]);
     expect(exitCode).toBe(1);
     expect(errs.join(" ")).toContain("does not resolve");
     expect(errs.join(" ")).toContain("FLOOR");
   });
 
   it("r2 HIGH-2: current REFUSES a traversal ref with the AUTHORITATIVE error (exit 1, never blessed as custom)", async () => {
-    fs.writeFileSync(path.join(dir, "rig.yaml"), "name: r\npermission_policy: ../escape.policy.md\n");
-    const { logs, exitCode } = await runCapture(["policy", "current", "--spec", path.join(dir, "rig.yaml"), "--json"]);
+    fs.writeFileSync(path.join(dir, "software-team.yaml"), "name: r\npermission_policy: ../escape.policy.md\n");
+    const { logs, exitCode } = await runCapture(["policy", "current", "--spec", path.join(dir, "software-team.yaml"), "--json"]);
     expect(exitCode).toBe(1);
     const out = JSON.parse(logs.join("")) as { sites: Array<Record<string, unknown>> };
     expect(String(out.sites[0]!.invalid)).toContain("path traversal (..) is not allowed");
@@ -165,35 +165,35 @@ body
   it("r2 HIGH-2: current on a VALID full-bypass custom shows WHAT WOULD APPLY (target, surface, posture, content-resolution)", async () => {
     fs.mkdirSync(path.join(dir, "policies"), { recursive: true });
     fs.writeFileSync(path.join(dir, "policies", "custom.policy.md"), VALID_FLAG_POLICY);
-    fs.writeFileSync(path.join(dir, "rig.yaml"), "name: r\npermission_policy: policies/custom.policy.md\n");
-    const { logs, exitCode } = await runCapture(["policy", "current", "--spec", path.join(dir, "rig.yaml"), "--json"]);
+    fs.writeFileSync(path.join(dir, "software-team.yaml"), "name: r\npermission_policy: policies/custom.policy.md\n");
+    const { logs, exitCode } = await runCapture(["policy", "current", "--spec", path.join(dir, "software-team.yaml"), "--json"]);
     expect(exitCode).toBeUndefined();
     const out = JSON.parse(logs.join("")) as { sites: Array<{ attachment?: Record<string, unknown>; applies?: string }> };
-    const rig = out.sites[0]!;
-    expect(rig.attachment).toMatchObject({ origin: "custom", surface: "flag", launchPosture: "full_bypass", contentResolved: true });
-    expect(String(rig.attachment!.resolvedTarget)).toContain("custom.policy.md");
+    const softwareTeam = out.sites[0]!;
+    expect(softwareTeam.attachment).toMatchObject({ origin: "custom", surface: "flag", launchPosture: "full_bypass", contentResolved: true });
+    expect(String(softwareTeam.attachment!.resolvedTarget)).toContain("custom.policy.md");
   });
 
   it("r2 HIGH-2: current on a MISSING custom file SURFACES the advisory-floor result (visible, exit 0 — unresolved is not a defect)", async () => {
-    fs.writeFileSync(path.join(dir, "rig.yaml"), "name: r\npermission_policy: policies/ghost.policy.md\n");
-    const { logs, exitCode } = await runCapture(["policy", "current", "--spec", path.join(dir, "rig.yaml"), "--json"]);
+    fs.writeFileSync(path.join(dir, "software-team.yaml"), "name: r\npermission_policy: policies/ghost.policy.md\n");
+    const { logs, exitCode } = await runCapture(["policy", "current", "--spec", path.join(dir, "software-team.yaml"), "--json"]);
     expect(exitCode).toBeUndefined();
     const out = JSON.parse(logs.join("")) as { sites: Array<{ applies?: string; attachment?: Record<string, unknown> }> };
     expect(out.sites[0]!.attachment).toMatchObject({ contentResolved: false, launchPosture: "floor" });
     expect(String(out.sites[0]!.applies)).toContain("advisory FLOOR");
   });
 
-  it("r2 round 3: a PRESENT non-string rig value is INVALID (exit 1), never reported as absent/floor", async () => {
-    fs.writeFileSync(path.join(dir, "rig.yaml"), "name: r\npermission_policy: 42\n");
-    const { logs, exitCode } = await runCapture(["policy", "current", "--spec", path.join(dir, "rig.yaml"), "--json"]);
+  it("r2 round 3: a PRESENT non-string SoftwareTeam value is INVALID (exit 1), never reported as absent/floor", async () => {
+    fs.writeFileSync(path.join(dir, "software-team.yaml"), "name: r\npermission_policy: 42\n");
+    const { logs, exitCode } = await runCapture(["policy", "current", "--spec", path.join(dir, "software-team.yaml"), "--json"]);
     expect(exitCode).toBe(1);
     const out = JSON.parse(logs.join("")) as { sites: Array<Record<string, unknown>> };
     expect(String(out.sites[0]!.invalid)).toContain("must be a non-empty string ref");
   });
 
   it("r2 round 3: a PRESENT non-string member value surfaces as ITS OWN site defect, never silently omitted", async () => {
-    fs.writeFileSync(path.join(dir, "rig.yaml"), "name: r\npermission_policy: builtin:standard\npods:\n  - id: dev\n    members:\n      - id: qa\n        permission_policy: { nested: true }\n");
-    const { logs, exitCode } = await runCapture(["policy", "current", "--spec", path.join(dir, "rig.yaml"), "--json"]);
+    fs.writeFileSync(path.join(dir, "software-team.yaml"), "name: r\npermission_policy: builtin:standard\npods:\n  - id: dev\n    members:\n      - id: qa\n        permission_policy: { nested: true }\n");
+    const { logs, exitCode } = await runCapture(["policy", "current", "--spec", path.join(dir, "software-team.yaml"), "--json"]);
     expect(exitCode).toBe(1);
     const out = JSON.parse(logs.join("")) as { sites: Array<Record<string, unknown>> };
     expect(out.sites).toHaveLength(2);
@@ -202,16 +202,16 @@ body
   });
 
   it("r2 round 3: list --spec surfaces a present non-string as INVALID in the custom set", async () => {
-    fs.writeFileSync(path.join(dir, "rig.yaml"), "name: r\npermission_policy: 42\n");
-    const { logs } = await runCapture(["policy", "list", "--spec", path.join(dir, "rig.yaml"), "--json"]);
+    fs.writeFileSync(path.join(dir, "software-team.yaml"), "name: r\npermission_policy: 42\n");
+    const { logs } = await runCapture(["policy", "list", "--spec", path.join(dir, "software-team.yaml"), "--json"]);
     const out = JSON.parse(logs.join("")) as { custom: Array<Record<string, unknown>> };
     expect(out.custom).toHaveLength(1);
     expect(String(out.custom[0]!.invalid)).toContain("must be a non-empty string ref");
   });
 
-  it("current reports member-level overrides per site (member > rig)", async () => {
-    fs.writeFileSync(path.join(dir, "rig.yaml"), "name: r\npermission_policy: builtin:standard\npods:\n  - id: dev\n    members:\n      - id: qa\n        permission_policy: builtin:yolo\n");
-    const { logs } = await runCapture(["policy", "current", "--spec", path.join(dir, "rig.yaml"), "--json"]);
+  it("current reports member-level overrides per site (member > softwareTeam)", async () => {
+    fs.writeFileSync(path.join(dir, "software-team.yaml"), "name: r\npermission_policy: builtin:standard\npods:\n  - id: dev\n    members:\n      - id: qa\n        permission_policy: builtin:yolo\n");
+    const { logs } = await runCapture(["policy", "current", "--spec", path.join(dir, "software-team.yaml"), "--json"]);
     const out = JSON.parse(logs.join("")) as { sites: Array<Record<string, unknown>> };
     expect(out.sites).toHaveLength(2);
     expect(String(out.sites[1]!.site)).toContain("dev.qa");
@@ -219,7 +219,7 @@ body
   });
 
   it("apply 'none' records the deliberate choice and current names it as chosen absence", async () => {
-    const spec = path.join(dir, "rig.yaml");
+    const spec = path.join(dir, "software-team.yaml");
     fs.writeFileSync(spec, "name: r\n");
     await runCapture(["policy", "apply", "none", "--spec", spec, "--json"]);
     expect(fs.readFileSync(spec, "utf-8")).toContain("permission_policy: none");
@@ -229,12 +229,12 @@ body
   });
 });
 
-describe("rig policy apply --seat — an existing seat's stored policy", () => {
+describe("SoftwareTeam policy apply --seat — an existing seat's stored policy", () => {
   function seatDeps(response: { status: number; data: Record<string, unknown> }) {
     const posts: unknown[][] = [];
     const deps = {
       lifecycleDeps: {
-        readFile: (p: string) => p === STATE_FILE ? JSON.stringify({ pid: 123, port: 7433, db: "inert.sqlite", startedAt: "2026-10-14T00:00:00Z" }) : null,
+        readFile: (p: string) => p === STATE_FILE ? JSON.stringify({ pid: 123, port: 7434, db: "inert.sqlite", startedAt: "2026-10-14T00:00:00Z" }) : null,
         exists: (p: string) => p === STATE_FILE, isProcessAlive: () => true, fetch: async () => ({ ok: true }),
       },
       clientFactory: () => ({ post: async (...a: unknown[]) => { posts.push(a); return response; } }),
@@ -249,13 +249,13 @@ describe("rig policy apply --seat — an existing seat's stored policy", () => {
     const err = vi.spyOn(console, "error").mockImplementation((...a) => { errs.push(a.join(" ")); });
     process.exitCode = undefined;
     try {
-      await new Command().exitOverride().addCommand(policyCommand(deps)).parseAsync(["node", "rig", ...argv]);
+      await new Command().exitOverride().addCommand(policyCommand(deps)).parseAsync(["node", "softwareTeam", ...argv]);
       return { logs, errs, exitCode: process.exitCode };
     } finally { log.mockRestore(); err.mockRestore(); process.exitCode = saved; }
   }
 
   it("posts the builtin ref to the seat and reports the daemon's effect", async () => {
-    const effect = "Restore, resume and launches that read this seat's stored state use this policy, unless an explicit native selection (rig seat set-permissions) takes precedence.";
+    const effect = "Restore, resume and launches that read this seat's stored state use this policy, unless an explicit native selection (SoftwareTeam seat set-permissions) takes precedence.";
     const { deps, posts } = seatDeps({ status: 200, data: {
       ok: true, changed: true, from: null, to: "builtin:yolo", launchPosture: "full_bypass", effect,
     } });
@@ -272,7 +272,7 @@ describe("rig policy apply --seat — an existing seat's stored policy", () => {
     const { deps, posts } = seatDeps({ status: 200, data: { ok: true, changed: false, to: "none", launchPosture: "floor", effect: "e" } });
     const out = await run(deps, ["policy", "permissions", "apply", "none", "--seat", "dev-builder@spark", "--reason", "r"]);
     expect(posts[0]![1]).toEqual({ ref: "none", reason: "r" });
-    expect(out.logs[0]).toBe("Recorded permission_policy: none on seat dev-builder@spark: an explicit floor for this seat, not \"no policy\"; it does not inherit the rig's policy (launch_posture=floor) (unchanged).");
+    expect(out.logs[0]).toBe("Recorded permission_policy: none on seat dev-builder@spark: an explicit floor for this seat, not \"no policy\"; it does not inherit the softwareTeam's policy (launch_posture=floor) (unchanged).");
   });
 
   it("passes a daemon refusal through with its exit code", async () => {
@@ -291,7 +291,7 @@ describe("rig policy apply --seat — an existing seat's stored policy", () => {
     const unknown = await run(deps, ["policy", "apply", "builtin:yolo", "--seat", "s", "--reason", "r"]);
     expect(unknown.errs.join(" ")).toContain("Unknown policy choice 'builtin:yolo'");
     expect(unknown.exitCode).toBe(1);
-    for (const argv of [["policy", "apply", "yolo"], ["policy", "apply", "yolo", "--spec", "rig.yaml", "--seat", "s"]]) {
+    for (const argv of [["policy", "apply", "yolo"], ["policy", "apply", "yolo", "--spec", "software-team.yaml", "--seat", "s"]]) {
       const out = await run(deps, argv);
       expect(out.errs.join(" ")).toContain("exactly one of --spec");
       expect(out.exitCode).toBe(1);

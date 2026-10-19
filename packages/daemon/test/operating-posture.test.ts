@@ -6,12 +6,12 @@ import { Hono } from "hono";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
-import { RigModeStore } from "../src/domain/rig-mode/rig-mode-store.js";
-import { OperatingPostureService, configuredCatalogPath } from "../src/domain/rig-mode/operating-posture.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
+import { SoftwareTeamModeStore } from "../src/domain/software-team-mode/software-team-mode-store.js";
+import { OperatingPostureService, configuredCatalogPath } from "../src/domain/software-team-mode/operating-posture.js";
 import { SettingsStore } from "../src/domain/user-settings/settings-store.js";
-import { RECOMMENDED_MODE_DEFAULTS } from "../src/domain/rig-mode/rig-mode-defaults.js";
-import type { OperatorContextScope } from "../src/domain/rig-mode/rig-mode-types.js";
+import { RECOMMENDED_MODE_DEFAULTS } from "../src/domain/software-team-mode/software-team-mode-defaults.js";
+import type { OperatorContextScope } from "../src/domain/software-team-mode/software-team-mode-types.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
@@ -22,7 +22,7 @@ import { PassiveCeremonySource } from "../src/domain/health-passive-ceremony.js"
 import { HealthCheckpointSource } from "../src/domain/health-checkpoints.js";
 import { healthAuthority } from "../src/domain/health-context.js";
 import { adaptQueueTransitionEvidence, boundHealthEvidence, deriveHealthSourceFreshness } from "../src/domain/health-projection.js";
-import { rigModeRoutes } from "../src/routes/rig-mode.js";
+import { softwareTeamModeRoutes } from "../src/routes/software-team-mode.js";
 import { healthRoutes } from "../src/routes/health.js";
 
 const cleanup: Array<() => void> = [];
@@ -34,10 +34,10 @@ const record = (mode: "human-led" | "delegated" | "focus", scope: OperatorContex
 async function setup() {
   const home = mkdtempSync(join(tmpdir(), "operating-posture-")); cleanup.push(() => rmSync(home, { recursive: true, force: true }));
   const db = createDb(); migrate(db, ALL_MIGRATIONS); cleanup.push(() => db.close());
-  const rigs = new RigRepository(db), rig = rigs.createRig("demo");
+  const softwareTeams = new SoftwareTeamRepository(db), softwareTeam = softwareTeams.createSoftwareTeam("demo");
   const queue = new QueueRepository(db, new EventBus(db));
   const send = vi.fn(async () => ({ ok: true, verified: true })); queue.attachTransport({ send });
-  const modes = new RigModeStore(db), service = new OperatingPostureService(db, modes, () => home);
+  const modes = new SoftwareTeamModeStore(db), service = new OperatingPostureService(db, modes, () => home);
   const write = (path: string, bytes: string) => { mkdirSync(join(home, path, ".."), { recursive: true }); writeFileSync(join(home, path), bytes); };
   write("workspace.yaml", "projects: [{id: alpha, root: alpha}, {id: beta, root: beta}]\n");
   for (const project of ["alpha", "beta"]) {
@@ -50,22 +50,22 @@ async function setup() {
   }
   await queue.create({ qitemId: "unlinked", sourceSession: "author@demo", destinationSession: "owner@demo", body: "No authored linkage", nudge: false });
   const app = new Hono();
-  app.use("*", async (c, next) => { c.set("rigModeStore" as never, modes); c.set("operatingPosture" as never, service); await next(); });
-  app.route("/api/rig-mode", rigModeRoutes({ bearerToken: "isolated-operator" }));
-  const put = (mode: "human-led" | "delegated", scope: OperatorContextScope, qualifier: string) => app.request("/api/rig-mode/bindings/" + scope + "/" + encodeURIComponent(qualifier), {
+  app.use("*", async (c, next) => { c.set("softwareTeamModeStore" as never, modes); c.set("operatingPosture" as never, service); await next(); });
+  app.route("/api/software-team-mode", softwareTeamModeRoutes({ bearerToken: "isolated-operator" }));
+  const put = (mode: "human-led" | "delegated", scope: OperatorContextScope, qualifier: string) => app.request("/api/software-team-mode/bindings/" + scope + "/" + encodeURIComponent(qualifier), {
     method: "PUT", headers: { "content-type": "application/json", authorization: "Bearer isolated-operator" }, body: JSON.stringify({ mode, record: record(mode, scope) }),
   });
-  return { home, db, rig, rigs, queue, send, modes, service, app, put, write };
+  return { home, db, softwareTeam, softwareTeams, queue, send, modes, service, app, put, write };
 }
 
-it("defaults a resolved new rig to human-led; explicit public transitions retain source and do not grant authority", async () => {
+it("defaults a resolved new SoftwareTeam to human-led; explicit public transitions retain source and do not grant authority", async () => {
   const t = await setup();
-  const initial = await (await t.app.request("/api/rig-mode/effective?rig=demo")).json();
-  expect(initial.operatingPosture).toMatchObject({ posture: "human-led", source: "product-default", binding: null, grantsAuthority: false, context: { rigId: t.rig.id } });
-  expect((await t.put("delegated", "rig", "demo")).status).toBe(200);
-  expect(t.service.resolve({ rigId: "demo" })).toMatchObject({ posture: "delegated", source: "binding", binding: { id: "rig:" + t.rig.id }, grantsAuthority: false });
-  expect((await t.put("human-led", "rig", "demo")).status).toBe(200);
-  expect(t.service.resolve({ rigId: t.rig.id }).posture).toBe("human-led");
+  const initial = await (await t.app.request("/api/software-team-mode/effective?softwareTeam=demo")).json();
+  expect(initial.operatingPosture).toMatchObject({ posture: "human-led", source: "product-default", binding: null, grantsAuthority: false, context: { softwareTeamId: t.softwareTeam.id } });
+  expect((await t.put("delegated", "softwareTeam", "demo")).status).toBe(200);
+  expect(t.service.resolve({ softwareTeamId: "demo" })).toMatchObject({ posture: "delegated", source: "binding", binding: { id: "software-team:" + t.softwareTeam.id }, grantsAuthority: false });
+  expect((await t.put("human-led", "softwareTeam", "demo")).status).toBe(200);
+  expect(t.service.resolve({ softwareTeamId: t.softwareTeam.id }).posture).toBe("human-led");
   expect(t.modes.listBindings()).toHaveLength(1);
   expect(t.send).not.toHaveBeenCalled();
 });
@@ -84,19 +84,19 @@ it("joins project, mission, authored workstream and qitem; the most specific exp
   t.service.resolve({ qitemId: "alpha" }); expect(readFileSync(manifest)).toEqual(before);
 });
 
-it("uses exact workflow packet phase and normalizes rig aliases; workflow existence does not delegate", async () => {
+it("uses exact workflow packet phase and normalizes SoftwareTeam aliases; workflow existence does not delegate", async () => {
   const t = await setup();
-  t.db.prepare("INSERT INTO workflow_instances(instance_id,workflow_name,workflow_version,created_by_session,created_at,bound_rig,lifecycle_binding_json) VALUES('workflow','fixture','1','owner@demo','2026-09-09',?,?)")
+  t.db.prepare("INSERT INTO workflow_instances(instance_id,workflow_name,workflow_version,created_by_session,created_at,bound_software_team,lifecycle_binding_json) VALUES('workflow','fixture','1','owner@demo','2026-09-09',?,?)")
     .run("demo", JSON.stringify({ identity: { project: "alpha", mission: "release" } }));
   t.db.prepare("INSERT INTO workflow_frontier_bindings(instance_id,packet_id,step_id,created_at) VALUES('workflow','alpha','interactive-plan','2026-09-09')").run();
-  expect(t.service.resolve({ rigId: t.rig.id, qitemId: "alpha" })).toMatchObject({ posture: "human-led", source: "product-default", context: { phase: { value: "interactive-plan", source: "workflow:workflow/frontier/alpha" } } });
+  expect(t.service.resolve({ softwareTeamId: t.softwareTeam.id, qitemId: "alpha" })).toMatchObject({ posture: "human-led", source: "product-default", context: { phase: { value: "interactive-plan", source: "workflow:workflow/frontier/alpha" } } });
   t.db.prepare("UPDATE workflow_instances SET lifecycle_binding_json = ?").run(JSON.stringify({ identity: { project: "beta", mission: "release" } }));
   expect(t.service.resolve({ qitemId: "alpha" })).toMatchObject({ posture: "unknown", source: "unknown", reason: expect.stringContaining("conflicting projectId") });
 });
 
 it("refuses missing, conflicting, ambiguous, unreadable and corrupt sources instead of using the default", async () => {
   const t = await setup();
-  for (const ctx of [{}, { rigId: "missing" }, { rigId: " " }, { missionId: "release" }, { projectId: "missing" }, { projectId: "alpha", missionId: "missing" }, { qitemId: "unlinked" }, { qitemId: "missing" }, { qitemId: "alpha", projectId: "beta" }]) {
+  for (const ctx of [{}, { softwareTeamId: "missing" }, { softwareTeamId: " " }, { missionId: "release" }, { projectId: "missing" }, { projectId: "alpha", missionId: "missing" }, { qitemId: "unlinked" }, { qitemId: "missing" }, { qitemId: "alpha", projectId: "beta" }]) {
     expect(t.service.resolve(ctx)).toMatchObject({ posture: "unknown", source: "unknown", binding: null });
   }
   expect((await t.put("delegated", "qitem", "unlinked")).status).toBe(400);
@@ -105,35 +105,35 @@ it("refuses missing, conflicting, ambiguous, unreadable and corrupt sources inst
   expect(t.service.resolve({ qitemId: "alpha" }).posture).toBe("unknown");
   t.write("beta/missions/release/mission.yaml", "metadata: [invalid yaml\n");
   expect(t.service.resolve({ qitemId: "beta" }).posture).toBe("unknown");
-  expect((await t.put("delegated", "rig", "demo")).status).toBe(200);
+  expect((await t.put("delegated", "softwareTeam", "demo")).status).toBe(200);
   t.db.prepare("UPDATE operator_context_mode_bindings SET record_json = '{'").run();
-  expect(t.service.resolve({ rigId: "demo" })).toMatchObject({ posture: "unknown", source: "unknown" });
+  expect(t.service.resolve({ softwareTeamId: "demo" })).toMatchObject({ posture: "unknown", source: "unknown" });
 });
 
 it("preserves legacy binding bytes through migration and never infers delegation from an ergonomic mode", async () => {
   const db = createDb(); cleanup.push(() => db.close()); migrate(db, ALL_MIGRATIONS.slice(0, -1));
-  const store = new RigModeStore(db); store.setBinding("global_host", null, "focus", record("focus", "global_host"));
+  const store = new SoftwareTeamModeStore(db); store.setBinding("global_host", null, "focus", record("focus", "global_host"));
   const before = db.prepare("SELECT * FROM operator_context_mode_bindings").all();
   migrate(db, ALL_MIGRATIONS); expect(db.prepare("SELECT * FROM operator_context_mode_bindings").all()).toEqual(before);
-  const rig = new RigRepository(db).createRig("legacy");
-  const result = new OperatingPostureService(db, store, () => "unreadable").resolve({ rigId: rig.id });
+  const softwareTeam = new SoftwareTeamRepository(db).createSoftwareTeam("legacy");
+  const result = new OperatingPostureService(db, store, () => "unreadable").resolve({ softwareTeamId: softwareTeam.id });
   expect(result).toMatchObject({ posture: "human-led", source: "product-default" });
 });
 
-it("keeps legacy ergonomic bindings addressed by rig name readable alongside canonical posture", async () => {
-  const t = await setup(); t.modes.setBinding("rig", "demo", "focus", record("focus", "rig"));
-  const result = await (await t.app.request("/api/rig-mode/effective?rig=demo")).json();
+it("keeps legacy ergonomic bindings addressed by SoftwareTeam name readable alongside canonical posture", async () => {
+  const t = await setup(); t.modes.setBinding("softwareTeam", "demo", "focus", record("focus", "softwareTeam"));
+  const result = await (await t.app.request("/api/software-team-mode/effective?softwareTeam=demo")).json();
   expect(result.effective.binding.mode).toBe("focus");
   expect(result.operatingPosture).toMatchObject({ posture: "human-led", source: "product-default" });
   await t.put("delegated", "project", "alpha");
-  const scoped = await (await t.app.request("/api/rig-mode/effective?rig=demo&project=alpha")).json();
+  const scoped = await (await t.app.request("/api/software-team-mode/effective?softwareTeam=demo&project=alpha")).json();
   expect(scoped.effective.binding.id).toBe("project:alpha");
   expect(scoped.operatingPosture.posture).toBe("delegated");
 });
 
 async function diagnosisSetup() {
   const t = await setup(); let now = "2026-09-09T22:00:00Z";
-  const observation = (id: string): HealthDetectorObservation => ({ kind: "coordination-lineage", scope: { type: "rig", rigId: t.rig.id }, lineageId: id, episodeKey: id,
+  const observation = (id: string): HealthDetectorObservation => ({ kind: "coordination-lineage", scope: { type: "softwareTeam", softwareTeamId: t.softwareTeam.id }, lineageId: id, episodeKey: id,
     episodeStartedAt: now, lastObservedAt: now, coordinationTransitions: 257, productStateChanges: 0, boundedAuthority: false, reviewReturns: 0, candidateChanges: 0, newRiskClasses: 0,
     source: boundHealthEvidence([adaptQueueTransitionEvidence({ transitionId: id === "alpha" ? 1 : 2, qitemId: id, ts: now, state: "in-progress", actorSession: "owner@demo" }, 0)], { source: "mixed", startedAt: now, endedAt: now, limit: 200, retentionSeconds: 86400 }, deriveHealthSourceFreshness({ evaluatedAt: now, newestSourceAt: now, maxAgeSeconds: 600, available: true })),
   });
@@ -208,7 +208,7 @@ it("discovers simultaneous catalog projects through the automatic source and sup
 it("keeps ordinary context/continuity health and queue reminders effective under human-led posture", async () => {
   const t = await diagnosisSetup(), now = "2026-09-09T22:00:00.000Z";
   const source = t.observations[0]!.source;
-  t.observations.push({ kind: "context-pressure", scope: { type: "seat", rigId: t.rig.id, seatId: "seat" }, episodeStartedAt: now, lastObservedAt: now,
+  t.observations.push({ kind: "context-pressure", scope: { type: "seat", softwareTeamId: t.softwareTeam.id, seatId: "seat" }, episodeStartedAt: now, lastObservedAt: now,
     sourceName: "fixture", continuity: "known", source: { ...source, evidence: [{ type: "context-usage", sourceOrder: 0, observedAt: now, nodeId: "seat", sessionId: "session", usedPercentage: 99, available: true, fresh: true }] } });
   const p = t.policy.read().policy; t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, detectors: [...p.diagnosis.detectors, "context.pressure"] } }, "operator");
   const operational = t.projection.records().find(r => r.category === "context")!;
@@ -239,9 +239,9 @@ it("reads the project catalog from the configured workspace.catalog_path, not on
   mkdirSync(join(workspace, "gamma"), { recursive: true }); mkdirSync(join(home, "catalogs"), { recursive: true });
   writeFileSync(join(workspace, "gamma", "project.yaml"), "metadata: {id: gamma}\n");
   // Only the configured catalog declares gamma; its root is relative to the catalog's folder,
-  // and the entry carries the optional rigs key other catalog readers accept.
-  writeFileSync(catalog, "projects: [{id: gamma, root: ../workspace/gamma, rigs: [openrig-dev]}]\n");
-  const service = new OperatingPostureService(db, new RigModeStore(db), () => workspace, () => catalog);
+  // and the entry carries the optional softwareTeams key other catalog readers accept.
+  writeFileSync(catalog, "projects: [{id: gamma, root: ../workspace/gamma, softwareTeams: [softwareteam-dev]}]\n");
+  const service = new OperatingPostureService(db, new SoftwareTeamModeStore(db), () => workspace, () => catalog);
   expect(service.resolve({ projectId: "gamma" })).toMatchObject({
     posture: "human-led",
     source: "product-default",
@@ -250,7 +250,7 @@ it("reads the project catalog from the configured workspace.catalog_path, not on
 });
 
 it("keeps the default catalog beside the real workspace when workspace.root is a symlink, and honours an explicit catalog", () => {
-  vi.stubEnv("OPENRIG_WORKSPACE_ROOT", undefined); vi.stubEnv("OPENRIG_WORKSPACE_CATALOG_PATH", undefined); cleanup.push(() => vi.unstubAllEnvs());
+  vi.stubEnv("SOFTWARETEAM_WORKSPACE_ROOT", undefined); vi.stubEnv("SOFTWARETEAM_WORKSPACE_CATALOG_PATH", undefined); cleanup.push(() => vi.unstubAllEnvs());
   const root = realpathSync(mkdtempSync(join(tmpdir(), "operating-posture-link-"))); cleanup.push(() => rmSync(root, { recursive: true, force: true }));
   const workspace = join(root, "physical", "workspace"), gamma = join(root, "physical", "gamma"), alias = join(root, "logical", "workspace");
   mkdirSync(workspace, { recursive: true }); mkdirSync(gamma); mkdirSync(join(root, "logical")); mkdirSync(join(root, "catalogs"));
@@ -262,7 +262,7 @@ it("keeps the default catalog beside the real workspace when workspace.root is a
   const resolveWith = (workspaceConfig: Record<string, string>, projectId: string) => {
     writeFileSync(configPath, JSON.stringify({ workspace: workspaceConfig }));
     const settings = new SettingsStore(configPath);
-    const service = new OperatingPostureService(db, new RigModeStore(db), () => settings.resolveOne("workspace.root").value as string, configuredCatalogPath(settings));
+    const service = new OperatingPostureService(db, new SoftwareTeamModeStore(db), () => settings.resolveOne("workspace.root").value as string, configuredCatalogPath(settings));
     return service.resolve({ projectId });
   };
 
@@ -277,12 +277,12 @@ it("keeps the default catalog beside the real workspace when workspace.root is a
     .toMatchObject({ posture: "human-led", context: { projectId: "delta", paths: { project: delta } } });
 });
 
-// A user's own project beside a contributor bundle's project, which claims the bundle's rig (the installer's
+// A user's own project beside a contributor bundle's project, which claims the bundle's softwareTeam (the installer's
 // association). A row that names only its mission must pick a project the way work-install does.
-async function inferenceSetup(catalog = "projects: [{id: bundle, root: bundle, rigs: [bundle-rig]}, {id: mine, root: mine}]\n") {
+async function inferenceSetup(catalog = "projects: [{id: bundle, root: bundle, softwareTeams: [bundle-software-team]}, {id: mine, root: mine}]\n") {
   const home = realpathSync(mkdtempSync(join(tmpdir(), "operating-posture-infer-"))); cleanup.push(() => rmSync(home, { recursive: true, force: true }));
   const db = createDb(); migrate(db, ALL_MIGRATIONS); cleanup.push(() => db.close());
-  const rigs = new RigRepository(db), sessions = new SessionRegistry(db);
+  const softwareTeams = new SoftwareTeamRepository(db), sessions = new SessionRegistry(db);
   const queue = new QueueRepository(db, new EventBus(db)); queue.attachTransport({ send: vi.fn(async () => ({ ok: true, verified: true })) });
   const write = (path: string, bytes: string) => { mkdirSync(join(home, path, ".."), { recursive: true }); writeFileSync(join(home, path), bytes); };
   write("workspace.yaml", catalog);
@@ -292,54 +292,54 @@ async function inferenceSetup(catalog = "projects: [{id: bundle, root: bundle, r
     write(project + "/missions/release/mission.yaml", "kind: mission\nmetadata: {name: release, status: active}\nrelease: {phase: planning}\n");
   }
   mkdirSync(join(home, "elsewhere"));
-  const seat = (rigName: string, cwd: string) => {
-    const rig = rigs.createRig(rigName), node = rigs.addNode(rig.id, "dev.impl", { cwd });
-    sessions.registerSession(node.id, "dev-impl@" + rigName);
-    return "dev-impl@" + rigName;
+  const seat = (softwareTeamName: string, cwd: string) => {
+    const softwareTeam = softwareTeams.createSoftwareTeam(softwareTeamName), node = softwareTeams.addNode(softwareTeam.id, "dev.impl", { cwd });
+    sessions.registerSession(node.id, "dev-impl@" + softwareTeamName);
+    return "dev-impl@" + softwareTeamName;
   };
   const row = (qitemId: string, destinationSession: string, tags: string[]) =>
     queue.create({ qitemId, sourceSession: "author@" + destinationSession.split("@")[1], destinationSession, body: "Scoped work", tags, nudge: false });
-  return { home, db, service: new OperatingPostureService(db, new RigModeStore(db), () => home), seat, row, write };
+  return { home, db, service: new OperatingPostureService(db, new SoftwareTeamModeStore(db), () => home), seat, row, write };
 }
 
-it("picks the project the bundle's rig claims for a row that names only its mission", async () => {
+it("picks the project the bundle's SoftwareTeam claims for a row that names only its mission", async () => {
   const t = await inferenceSetup();
-  await t.row("claimed", t.seat("bundle-rig", join(t.home, "elsewhere")), ["mission:release"]);
+  await t.row("claimed", t.seat("bundle-software-team", join(t.home, "elsewhere")), ["mission:release"]);
   const result = t.service.resolve({ qitemId: "claimed" });
   expect(result).toMatchObject({ posture: "human-led", source: "product-default", context: { projectId: "bundle", missionId: "release", paths: { project: join(t.home, "bundle") } } });
-  expect(result.context!.sources).toContain(join(t.home, "workspace.yaml") + "#selected-by=rig:bundle-rig");
+  expect(result.context!.sources).toContain(join(t.home, "workspace.yaml") + "#selected-by=softwareTeam:bundle-software-team");
 });
 
-it("picks the user's own project for its unclaimed rig by working folder, then as the only unclaimed entry", async () => {
+it("picks the user's own project for its unclaimed SoftwareTeam by working folder, then as the only unclaimed entry", async () => {
   const t = await inferenceSetup();
-  await t.row("by-folder", t.seat("user-rig", join(t.home, "mine", "missions")), ["mission:release"]);
+  await t.row("by-folder", t.seat("user-software-team", join(t.home, "mine", "missions")), ["mission:release"]);
   const byFolder = t.service.resolve({ qitemId: "by-folder" });
   expect(byFolder).toMatchObject({ posture: "human-led", context: { projectId: "mine", paths: { project: join(t.home, "mine") } } });
   expect(byFolder.context!.sources).toContain(join(t.home, "workspace.yaml") + "#selected-by=cwd:" + join(t.home, "mine", "missions"));
-  await t.row("unclaimed", t.seat("other-rig", join(t.home, "elsewhere")), ["mission:release"]);
+  await t.row("unclaimed", t.seat("other-software-team", join(t.home, "elsewhere")), ["mission:release"]);
   const unclaimed = t.service.resolve({ qitemId: "unclaimed" });
   expect(unclaimed).toMatchObject({ posture: "human-led", context: { projectId: "mine" } });
   expect(unclaimed.context!.sources).toContain(join(t.home, "workspace.yaml") + "#selected-by=unclaimed");
 });
 
-it("infers for a rig-scoped read without a qitem: the rig's claim, then the only unclaimed entry", async () => {
+it("infers for a software-team-scoped read without a qitem: the softwareTeam's claim, then the only unclaimed entry", async () => {
   const t = await inferenceSetup();
-  t.seat("bundle-rig", join(t.home, "elsewhere")); t.seat("user-rig", join(t.home, "mine"));
-  expect(t.service.resolve({ rigId: "bundle-rig", missionId: "release" })).toMatchObject({ posture: "human-led", context: { projectId: "bundle" } });
-  // No working folder for a rig-only read, so the user's rig falls to the only unclaimed entry.
-  expect(t.service.resolve({ rigId: "user-rig", missionId: "release" })).toMatchObject({ posture: "human-led", context: { projectId: "mine" } });
+  t.seat("bundle-software-team", join(t.home, "elsewhere")); t.seat("user-software-team", join(t.home, "mine"));
+  expect(t.service.resolve({ softwareTeamId: "bundle-software-team", missionId: "release" })).toMatchObject({ posture: "human-led", context: { projectId: "bundle" } });
+  // No working folder for a software-team-only read, so the user's softwareTeam falls to the only unclaimed entry.
+  expect(t.service.resolve({ softwareTeamId: "user-software-team", missionId: "release" })).toMatchObject({ posture: "human-led", context: { projectId: "mine" } });
 });
 
 it("leaves explicit projects alone and stays unknown when no single project is inferable", async () => {
   const t = await inferenceSetup();
-  await t.row("explicit", t.seat("bundle-rig", join(t.home, "elsewhere")), ["project:mine", "mission:release"]);
+  await t.row("explicit", t.seat("bundle-software-team", join(t.home, "elsewhere")), ["project:mine", "mission:release"]);
   const explicit = t.service.resolve({ qitemId: "explicit" });
   expect(explicit).toMatchObject({ posture: "human-led", context: { projectId: "mine" } });
   expect(explicit.context!.sources.some(s => s.includes("#selected-by="))).toBe(false);
-  const ambiguous = await inferenceSetup("projects: [{id: bundle, root: bundle, rigs: [bundle-rig]}, {id: mine, root: mine, rigs: [bundle-rig]}]\n");
-  await ambiguous.row("ambiguous", ambiguous.seat("bundle-rig", join(ambiguous.home, "elsewhere")), ["mission:release"]);
+  const ambiguous = await inferenceSetup("projects: [{id: bundle, root: bundle, softwareTeams: [bundle-software-team]}, {id: mine, root: mine, softwareTeams: [bundle-software-team]}]\n");
+  await ambiguous.row("ambiguous", ambiguous.seat("bundle-software-team", join(ambiguous.home, "elsewhere")), ["mission:release"]);
   expect(ambiguous.service.resolve({ qitemId: "ambiguous" })).toMatchObject({ posture: "unknown", source: "unknown", reason: expect.stringContaining("several projects") });
   const unclaimedPair = await inferenceSetup("projects: [{id: bundle, root: bundle}, {id: mine, root: mine}]\n");
-  await unclaimedPair.row("pair", unclaimedPair.seat("user-rig", join(unclaimedPair.home, "elsewhere")), ["mission:release"]);
+  await unclaimedPair.row("pair", unclaimedPair.seat("user-software-team", join(unclaimedPair.home, "elsewhere")), ["mission:release"]);
   expect(unclaimedPair.service.resolve({ qitemId: "pair" })).toMatchObject({ posture: "unknown", reason: expect.stringContaining("multiple projects are declared") });
 });

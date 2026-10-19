@@ -13,9 +13,9 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
       state: "running",
       healthy: true,
       pid: 1234,
-      port: 7433,
+      port: 7434,
     })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -67,7 +67,7 @@ function makeDeps(opts?: {
   };
 }
 
-describe("rig watchdog CLI (PL-004 Phase C)", () => {
+describe("SoftwareTeam watchdog CLI (PL-004 Phase C)", () => {
   let logs: string[];
   let errors: string[];
 
@@ -104,13 +104,13 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
     const tmp = mkdtempSync(join(tmpdir(), "wd-cli-"));
     const spec = join(tmp, "spec.yaml");
     const yaml =
-      "policy: periodic-reminder\ntarget: alice@rig\ninterval_seconds: 60\ncontext:\n  target:\n    session: alice@rig\n  message: ping\n";
+      "policy: periodic-reminder\ntarget: alice@software-team\ninterval_seconds: 60\ncontext:\n  target:\n    session: alice@software-team\n  message: ping\n";
     writeFileSync(spec, yaml);
     const program = createProgram({ watchdogDeps: deps });
     program.exitOverride();
     await program.parseAsync([
       "node",
-      "rig",
+      "softwareTeam",
       "watchdog",
       "register",
       "--spec",
@@ -118,7 +118,7 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
       "--policy",
       "periodic-reminder",
       "--target-session",
-      "alice@rig",
+      "alice@software-team",
       "--interval-seconds",
       "60",
       "--registered-by",
@@ -130,7 +130,7 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
     const body = call!.body as Record<string, unknown>;
     expect(body.policy).toBe("periodic-reminder");
     expect(body.specYaml).toBe(yaml);
-    expect(body.targetSession).toBe("alice@rig");
+    expect(body.targetSession).toBe("alice@software-team");
     expect(body.intervalSeconds).toBe(60);
     expect(body.registeredBySession).toBe("ops@kernel");
   });
@@ -151,13 +151,13 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
     const spec = join(tmp, "spec.yaml");
     writeFileSync(
       spec,
-      "policy: workflow-keepalive\ntarget:\n  session: alice@rig\ninterval_seconds: 1800\ncontext:\n  workflow_instance_id: 01ABC\n",
+      "policy: workflow-keepalive\ntarget:\n  session: alice@software-team\ninterval_seconds: 1800\ncontext:\n  workflow_instance_id: 01ABC\n",
     );
     const program = createProgram({ watchdogDeps: deps });
     program.exitOverride();
     await program.parseAsync([
       "node",
-      "rig",
+      "softwareTeam",
       "watchdog",
       "register",
       "--spec",
@@ -165,7 +165,7 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
       "--policy",
       "workflow-keepalive",
       "--target-session",
-      "alice@rig",
+      "alice@software-team",
       "--interval-seconds",
       "1800",
       "--registered-by",
@@ -199,13 +199,13 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
     program.exitOverride();
     await program.parseAsync([
       "node",
-      "rig",
+      "softwareTeam",
       "watchdog",
       "register",
       "--policy",
       "context-usage-threshold",
       "--target-session",
-      "alice@rig",
+      "alice@software-team",
       "--threshold-mb",
       "1.5",
       "--watched-file",
@@ -221,7 +221,7 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
     const request = calls.find((call) => call.path === "/api/watchdog/register");
     expect(request?.body).toMatchObject({
       policy: "context-usage-threshold",
-      targetSession: "alice@rig",
+      targetSession: "alice@software-team",
       thresholdBytes: 1_500_000,
       watchedFilePath: transcript,
     });
@@ -245,7 +245,7 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
     });
     const program = createProgram({ watchdogDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "watchdog", "list", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "watchdog", "list", "--json"]);
     expect(calls.find((c) => c.path === "/api/watchdog/list")).toBeDefined();
   });
 
@@ -254,14 +254,14 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
       jobId: `job-${index}`,
       policy: "periodic-reminder",
       specYaml: `policy: periodic-reminder\nmessage: ${"x".repeat(1_000)}`,
-      targetSession: `worker-${index}@rig`,
+      targetSession: `worker-${index}@software-team`,
       intervalSeconds: 60,
       lastEvaluationAt: "2026-09-02T06:00:00.000Z",
       lastFireAt: null,
       actionable: index === 100,
       lastActionableAt: index === 100 ? "2026-09-02T06:00:00.000Z" : null,
       state: "active",
-      registeredBySession: "ops@rig",
+      registeredBySession: "ops@software-team",
       registeredAt: "2026-09-02T05:00:00.000Z",
     }));
     jobs.push({
@@ -274,7 +274,7 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
     });
     const program = createProgram({ watchdogDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "watchdog", "list", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "watchdog", "list", "--json"]);
 
     const result = JSON.parse(logs.at(-1)!) as Array<Record<string, unknown>>;
     expect(result).toHaveLength(100);
@@ -282,7 +282,7 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
     expect(result[0]).toEqual({
       jobId: "job-100",
       policy: "periodic-reminder",
-      targetSession: "worker-100@rig",
+      targetSession: "worker-100@software-team",
       intervalSeconds: 60,
       lastEvaluationAt: "2026-09-02T06:00:00.000Z",
       lastFireAt: null,
@@ -302,7 +302,7 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
         jobId: "active-job",
         policy: "periodic-reminder",
         specYaml: "policy: periodic-reminder\nmessage: full record",
-        targetSession: "worker@rig",
+        targetSession: "worker@software-team",
         intervalSeconds: 60,
         state: "active",
       },
@@ -310,7 +310,7 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
         jobId: "stopped-job",
         policy: "periodic-reminder",
         specYaml: "policy: periodic-reminder\nmessage: stopped history",
-        targetSession: "worker@rig",
+        targetSession: "worker@software-team",
         intervalSeconds: 60,
         state: "stopped",
       },
@@ -322,7 +322,7 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
     program.exitOverride();
     await program.parseAsync([
       "node",
-      "rig",
+      "softwareTeam",
       "watchdog",
       "list",
       "--all",
@@ -339,7 +339,7 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
     });
     const program = createProgram({ watchdogDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "watchdog", "show", "job-1", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "watchdog", "show", "job-1", "--json"]);
     expect(calls.find((c) => c.path === "/api/watchdog/job-1")).toBeDefined();
   });
 
@@ -354,7 +354,7 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
     });
     const program = createProgram({ watchdogDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "watchdog", "status", "job-1", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "watchdog", "status", "job-1", "--json"]);
     expect(calls.find((c) => c.path === "/api/watchdog/job-1/status")).toBeDefined();
   });
 
@@ -368,7 +368,7 @@ describe("rig watchdog CLI (PL-004 Phase C)", () => {
     program.exitOverride();
     await program.parseAsync([
       "node",
-      "rig",
+      "softwareTeam",
       "watchdog",
       "stop",
       "job-1",

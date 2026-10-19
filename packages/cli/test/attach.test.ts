@@ -67,7 +67,7 @@ describe("Attach CLI", () => {
       let body = "";
       for await (const chunk of req) body += chunk;
 
-      if (req.url === "/api/rigs/rig-1/attach-self" && req.method === "POST") {
+      if (req.url === "/api/software-teams/software-team-1/attach-self" && req.method === "POST") {
         const parsed = body ? JSON.parse(body) : {};
         receivedBody = parsed;
         const logicalId = parsed.logicalId ?? `${parsed.podNamespace}.${parsed.memberName}`;
@@ -77,11 +77,11 @@ describe("Attach CLI", () => {
           nodeId: "node-1",
           logicalId,
           sessionId: "sess-1",
-          sessionName: "orch1-lead@rigged-buildout",
+          sessionName: "orch1-lead@softwareteam-buildout",
           attachmentType: "external_cli",
           env: {
-            OPENRIG_NODE_ID: "node-1",
-            OPENRIG_SESSION_NAME: "orch1-lead@rigged-buildout",
+            SOFTWARETEAM_NODE_ID: "node-1",
+            SOFTWARETEAM_SESSION_NAME: "orch1-lead@softwareteam-buildout",
           },
         }));
         return;
@@ -111,7 +111,7 @@ describe("Attach CLI", () => {
 
   it("attach --self --node prints a human summary", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "attach", "--self", "--rig", "rig-1", "--node", "orch1.lead"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "attach", "--self", "--software-team", "software-team-1", "--node", "orch1.lead"]);
     });
 
     const output = logs.join("\n");
@@ -123,7 +123,7 @@ describe("Attach CLI", () => {
 
   it("attach --self --node accepts the advertised runtime guard", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "attach", "--self", "--rig", "rig-1", "--node", "orch1.lead", "--runtime", "codex"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "attach", "--self", "--software-team", "software-team-1", "--node", "orch1.lead", "--runtime", "codex"]);
     });
 
     expect(exitCode).toBeUndefined();
@@ -133,19 +133,19 @@ describe("Attach CLI", () => {
 
   it("attach --self --print-env prints shell exports only", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "attach", "--self", "--rig", "rig-1", "--node", "orch1.lead", "--print-env"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "attach", "--self", "--software-team", "software-team-1", "--node", "orch1.lead", "--print-env"]);
     });
 
     expect(exitCode).toBeUndefined();
     expect(logs).toEqual([
-      "export OPENRIG_NODE_ID='node-1'",
-      "export OPENRIG_SESSION_NAME='orch1-lead@rigged-buildout'",
+      "export SOFTWARETEAM_NODE_ID='node-1'",
+      "export SOFTWARETEAM_SESSION_NAME='orch1-lead@softwareteam-buildout'",
     ]);
   });
 
   it("attach rejects missing --self", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "attach", "--rig", "rig-1", "--node", "orch1.lead"]).catch(() => undefined);
+      await makeCmd().parseAsync(["node", "softwareTeam", "attach", "--software-team", "software-team-1", "--node", "orch1.lead"]).catch(() => undefined);
     });
 
     expect(exitCode).toBeUndefined();
@@ -154,7 +154,7 @@ describe("Attach CLI", () => {
 
   it.each(["--pod", "--member"])("attach rejects node mode combined with %s", async (flag) => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "attach", "--self", "--rig", "rig-1", "--node", "orch1.lead", "--runtime", "codex", flag, "orch1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "attach", "--self", "--software-team", "software-team-1", "--node", "orch1.lead", "--runtime", "codex", flag, "orch1"]);
     });
     expect(exitCode).toBe(1);
     expect(logs.join("\n")).toContain("Specify either");
@@ -162,7 +162,7 @@ describe("Attach CLI", () => {
 
   it("attach rejects incomplete pod mode before calling the daemon", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "attach", "--self", "--rig", "rig-1", "--pod", "orch1", "--member", "lead"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "attach", "--self", "--software-team", "software-team-1", "--pod", "orch1", "--member", "lead"]);
     });
 
     expect(exitCode).toBe(1);
@@ -172,7 +172,7 @@ describe("Attach CLI", () => {
   it("resolveAttachContext detects tmux session metadata when TMUX_PANE is set", () => {
     const savedPane = process.env["TMUX_PANE"];
     process.env["TMUX_PANE"] = "%42";
-    const mockTmuxExec = vi.fn(() => "dev1-impl2@rigged-buildout\n@12\n%42");
+    const mockTmuxExec = vi.fn(() => "dev1-impl2@softwareteam-buildout\n@12\n%42");
 
     const result = resolveAttachContext(mockTmuxExec);
 
@@ -181,7 +181,7 @@ describe("Attach CLI", () => {
 
     expect(result).toEqual({
       attachmentType: "tmux",
-      tmuxSession: "dev1-impl2@rigged-buildout",
+      tmuxSession: "dev1-impl2@softwareteam-buildout",
       tmuxWindow: "@12",
       tmuxPane: "%42",
     });

@@ -1,9 +1,9 @@
-// Build B — `rig doctor` spec-vs-live conformance check. RED-first.
+// Build B — `softwareTeam doctor` spec-vs-live conformance check. RED-first.
 //
 // This check cannot discover its own input, and that is a finding rather than a shortcoming: NOTHING
-// persists a running rig's spec path. The `rigs` table has no spec/rigRoot column, `rig_services.
-// rig_root` is empty, and `projection_manifest.source_spec` is empty. The daemon does not remember
-// where the file that describes a rig came from. So the check takes `--spec` explicitly, and when it
+// persists a running softwareTeam's spec path. The `softwareTeams` table has no spec/softwareTeamRoot column, `software_team_services.
+// software_team_root` is empty, and `projection_manifest.source_spec` is empty. The daemon does not remember
+// where the file that describes a softwareTeam came from. So the check takes `--spec` explicitly, and when it
 // is not given it must SKIP WITH THE REASON rather than pass — a check that cannot find its input
 // and stays quiet is indistinguishable from one that looked and found nothing wrong.
 
@@ -11,7 +11,7 @@ import { describe, it, expect } from "vitest";
 import { runDoctorChecks, type DoctorDeps } from "../src/commands/doctor.js";
 
 const SPEC_3_8 = `version: "0.2"
-name: v-openrig-build
+name: v-softwareteam-build
 pods:
   - id: orch
     label: Orchestration
@@ -34,9 +34,9 @@ function baseDeps(over: Partial<DoctorDeps> = {}): DoctorDeps {
     checkPort: async () => true,
     configStore: {
       resolve: () => ({
-        db: { path: "/tmp/openrig/openrig.sqlite" },
-        transcripts: { path: "/tmp/openrig/transcripts" },
-        daemon: { host: "127.0.0.1", port: 7433 },
+        db: { path: "/tmp/softwareteam/softwareteam.sqlite" },
+        transcripts: { path: "/tmp/softwareteam/transcripts" },
+        daemon: { host: "127.0.0.1", port: 7434 },
       }),
     } as never,
     mkdirp: () => {},
@@ -51,7 +51,7 @@ async function conformanceCheck(deps: DoctorDeps) {
   return all.find((c) => c.name === "spec_live_conformance");
 }
 
-describe("rig doctor — spec vs live conformance", () => {
+describe("SoftwareTeam doctor — spec vs live conformance", () => {
   it("SKIPS with the reason when no --spec is given — it must not read as a pass", async () => {
     const check = await conformanceCheck(baseDeps());
     expect(check).toBeDefined();
@@ -60,9 +60,9 @@ describe("rig doctor — spec vs live conformance", () => {
     expect(`${check!.message} ${check!.reason ?? ""}`).toMatch(/not persisted|--spec/i);
   });
 
-  it("PASSES silently when the spec matches the live rig — the negative control", async () => {
+  it("PASSES silently when the spec matches the live softwareTeam — the negative control", async () => {
     const check = await conformanceCheck(baseDeps({
-      specPath: "/specs/rig.yaml",
+      specPath: "/specs/software-team.yaml",
       readFile: () => SPEC_3_8,
       fetchLiveLogicalIds: async () => ["orch.lead", "orch.advisor", "dev.driver", "dev.guard"],
     }));
@@ -70,9 +70,9 @@ describe("rig doctor — spec vs live conformance", () => {
     expect(check!.message).not.toMatch(/absent|WARNING/i);
   });
 
-  it("WARNS and names the real delta when the live rig has undeclared pods", async () => {
+  it("WARNS and names the real delta when the live SoftwareTeam has undeclared pods", async () => {
     const check = await conformanceCheck(baseDeps({
-      specPath: "/specs/rig.yaml",
+      specPath: "/specs/software-team.yaml",
       readFile: () => SPEC_3_8,
       fetchLiveLogicalIds: async () => [
         "orch.lead", "orch.advisor", "dev.driver", "dev.guard",
@@ -88,7 +88,7 @@ describe("rig doctor — spec vs live conformance", () => {
 
   it("SKIPS when the live topology cannot be read — absence of data is not conformance", async () => {
     const check = await conformanceCheck(baseDeps({
-      specPath: "/specs/rig.yaml",
+      specPath: "/specs/software-team.yaml",
       readFile: () => SPEC_3_8,
       fetchLiveLogicalIds: async () => null,
     }));

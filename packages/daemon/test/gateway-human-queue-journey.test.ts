@@ -33,7 +33,7 @@ import { queueRoutes } from "../src/routes/queue.js";
 const PROJECTION_HEADER =
   "# GENERATED FILE — DO NOT EDIT.\n" +
   "# Projection of the human fragments under gateway/humans/<entityId>.yaml.\n" +
-  "# The fragment is truth: add/edit a human via its fragment (or `rig gateway human\n" +
+  "# The fragment is truth: add/edit a human via its fragment (or `SoftwareTeam gateway human\n" +
   "# add`), then re-project. A hand-edit here is REFUSED at load.\n";
 
 const HUMAN = {
@@ -68,7 +68,7 @@ describe("public human registry -> queue admission journey", () => {
     migrate(db, [coreSchema, eventsSchema, queueItemsSchema, queueTransitionsSchema, inboxEntriesSchema, outboxEntriesSchema]);
     const bus = new EventBus(db);
     const registry = () => loadHumanRegistry(home);
-    const validateRig = (sessionRef: string): boolean => {
+    const validateSoftwareTeam = (sessionRef: string): boolean => {
       const parsed = parseSessionName(sessionRef);
       if (parsed.kind === "external") {
         const loaded = registry();
@@ -77,9 +77,9 @@ describe("public human registry -> queue admission journey", () => {
           : [];
         return resolveExternal(parsed.local, entities).kind !== "unregistered";
       }
-      return parsed.kind === "canonical" && parsed.rig === "known-rig";
+      return parsed.kind === "canonical" && parsed.softwareTeam === "known-software-team";
     };
-    const queueRepo = new QueueRepository(db, bus, { validateRig, loadHumanRegistry: registry });
+    const queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam, loadHumanRegistry: registry });
     const inbox = new InboxHandler(db, bus, queueRepo);
     const outbox = new OutboxHandler(db);
     queueRepo.attachOutbox(outbox);
@@ -115,7 +115,7 @@ describe("public human registry -> queue admission journey", () => {
 
     const created = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "agent@known-rig" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "agent@known-software-team" },
       body: JSON.stringify(humanDestination),
     });
     expect(created.status).toBe(201);
@@ -123,13 +123,13 @@ describe("public human registry -> queue admission journey", () => {
 
     const source = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "agent@known-rig" },
-      body: JSON.stringify({ destinationSession: "worker@known-rig", body: "handoff source", nudge: false }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "agent@known-software-team" },
+      body: JSON.stringify({ destinationSession: "worker@known-software-team", body: "handoff source", nudge: false }),
     });
     const sourceRow = await source.json() as { qitemId: string };
     const handed = await app.request(`/api/queue/${sourceRow.qitemId}/handoff`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "worker@known-rig" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "worker@known-software-team" },
       body: JSON.stringify({ toSession: "founder@external", ...humanDestination }),
     });
     expect(handed.status).toBe(201);
@@ -141,18 +141,18 @@ describe("public human registry -> queue admission journey", () => {
     mkdirSync(home);
     const response = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "agent@known-rig" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "agent@known-software-team" },
       body: JSON.stringify(humanDestination),
     });
     expect(response.status).toBe(400);
     const body = await response.json() as Record<string, unknown>;
     expect(body).toMatchObject({ error: "human_registry_unavailable", registryLoadError: true });
-    const nobody = "no human configured yet — register one: rig gateway human add <entityId> --display-name … --binding … --delivery-class …";
+    const nobody = "no human configured yet — register one: SoftwareTeam gateway human add <entityId> --display-name … --binding … --delivery-class …";
     expect(String(body.registryError)).toBe(nobody);
     expect(body).not.toHaveProperty("registryProjectionError");
     // The queue's own frame says nobody is registered, never "failed to load" or "repair the projection".
     expect(body.message).toBe(`destination_session founder@external cannot be admitted because no human is registered yet: ${nobody}`);
-    expect(body.hint).toBe(`human registry admission is unavailable because no human is registered yet: ${nobody}. Register the person with rig gateway human add; do not downgrade the destination to an agent seat.`);
+    expect(body.hint).toBe(`human registry admission is unavailable because no human is registered yet: ${nobody}. Register the person with SoftwareTeam gateway human add; do not downgrade the destination to an agent seat.`);
     expect(Object.keys(body).sort()).toEqual(["error", "externalDomain", "hint", "message", "registryError", "registryLoadError"]);
     expect(db.prepare("SELECT COUNT(*) AS count FROM queue_items").get()).toMatchObject({ count: 0 });
   });
@@ -162,7 +162,7 @@ describe("public human registry -> queue admission journey", () => {
 
     const response = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "agent@known-rig" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "agent@known-software-team" },
       body: JSON.stringify(humanDestination),
     });
     expect(response.status).toBe(400);
@@ -179,13 +179,13 @@ describe("public human registry -> queue admission journey", () => {
   it("keeps unknown-human teaching when the registry is healthy", async () => {
     const response = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "agent@known-rig" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "agent@known-software-team" },
       body: JSON.stringify({ ...humanDestination, destinationSession: "stranger@external" }),
     });
     expect(response.status).toBe(400);
     const body = await response.json() as Record<string, unknown>;
-    expect(body).toMatchObject({ error: "unknown_destination_rig", unregisteredEntity: "stranger" });
-    expect(String(body.hint)).toMatch(/no registered human|rig gateway human add/i);
+    expect(body).toMatchObject({ error: "unknown_destination_software_team", unregisteredEntity: "stranger" });
+    expect(String(body.hint)).toMatch(/no registered human|SoftwareTeam gateway human add/i);
     expect(body).not.toHaveProperty("registryLoadError");
   });
 });

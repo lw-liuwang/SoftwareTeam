@@ -20,7 +20,7 @@ import type { HostRegistry, HttpHostEntry } from "../src/domain/hosts/hosts-regi
 
 const REGISTRY: HostRegistry = {
   hosts: [
-    { id: "vps-a", transport: "http", url: "http://vps-a:7433", bearer_env: "VPS_A_TOKEN" },
+    { id: "vps-a", transport: "http", url: "http://vps-a:7434", bearer_env: "VPS_A_TOKEN" },
     { id: "vm-ssh", transport: "ssh", target: "vm.local" },
   ],
 };
@@ -43,7 +43,7 @@ function makeApp(opts: { fetchResponse?: () => Response; env?: Record<string, st
     });
     return opts.fetchResponse
       ? opts.fetchResponse()
-      : new Response(JSON.stringify({ rigs: ["remote-rig"] }), {
+      : new Response(JSON.stringify({ softwareTeams: ["remote-software-team"] }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -59,9 +59,9 @@ function makeApp(opts: { fetchResponse?: () => Response; env?: Record<string, st
     await next();
   });
   app.use("/api/*", hostReadThrough());
-  app.get("/api/rigs/summary", (c) => {
+  app.get("/api/software-teams/summary", (c) => {
     localHits.push(c.req.path);
-    return c.json({ rigs: ["local-rig"] });
+    return c.json({ softwareTeams: ["local-software-team"] });
   });
   app.get("/api/slices", (c) => {
     localHits.push(`${c.req.path}?${new URL(c.req.url).searchParams.toString()}`);
@@ -88,10 +88,10 @@ function withBearerEnv<T>(fn: () => Promise<T>): Promise<T> {
 describe("READ_THROUGH_ALLOWLIST matcher (arch P1 — the named closed set)", () => {
   it("matches every allowlisted screen read", () => {
     const positives = [
-      "/api/rigs/summary",
-      "/api/rigs/factory-fleet/graph",
-      "/api/rigs/factory-fleet/nodes",
-      "/api/rigs/factory-fleet/nodes/orch-lead", // rev1-r2 B2 + arch Option A: the seat-detail leaf
+      "/api/software-teams/summary",
+      "/api/software-teams/factory-fleet/graph",
+      "/api/software-teams/factory-fleet/nodes",
+      "/api/software-teams/factory-fleet/nodes/orch-lead", // rev1-r2 B2 + arch Option A: the seat-detail leaf
       "/api/ps",
       "/api/slices",
       "/api/slices/mh2-view-remote-workspace",
@@ -99,7 +99,7 @@ describe("READ_THROUGH_ALLOWLIST matcher (arch P1 — the named closed set)", ()
       "/api/slices/mh2-view-remote-workspace/doc/proof/nested.md",
       "/api/missions/release-0.4.6",
       "/api/specs/library",
-      "/api/specs/library/rig-spec-1/review",
+      "/api/specs/library/software-team-spec-1/review",
     ];
     for (const p of positives) expect(isReadThroughPath(p), p).toBe(true);
   });
@@ -113,14 +113,14 @@ describe("READ_THROUGH_ALLOWLIST matcher (arch P1 — the named closed set)", ()
       "/api/config",
       "/api/hosts",
       "/api/mission-control/action",
-      "/api/rigs", // bare collection is not a screen read today
-      "/api/rigs/x/graph/extra",
+      "/api/software-teams", // bare collection is not a screen read today
+      "/api/software-teams/x/graph/extra",
       // THE ARCH TOOTH on the first parameterized seat-detail entry: strict
       // segment-shape only — the deeper ACTION routes under the same prefix
       // stay refused (these are exactly rev1-r2 B1's local action endpoints).
-      "/api/rigs/x/nodes/y/focus",
-      "/api/rigs/x/nodes/y/open-cmux",
-      "/api/rigs/x/nodes/y/anything/deeper",
+      "/api/software-teams/x/nodes/y/focus",
+      "/api/software-teams/x/nodes/y/open-cmux",
+      "/api/software-teams/x/nodes/y/anything/deeper",
     ];
     for (const p of negatives) expect(isReadThroughPath(p), p).toBe(false);
   });
@@ -137,10 +137,10 @@ describe("READ_THROUGH_ALLOWLIST matcher (arch P1 — the named closed set)", ()
 
   it("the constant itself is the closed set (additions are deliberate extensions)", () => {
     expect([...READ_THROUGH_ALLOWLIST]).toEqual([
-      "/api/rigs/summary",
-      "/api/rigs/:rigId/graph",
-      "/api/rigs/:rigId/nodes",
-      "/api/rigs/:rigId/nodes/:logicalId", // rev1-r2 B2, arch-ruled Option A
+      "/api/software-teams/summary",
+      "/api/software-teams/:softwareTeamId/graph",
+      "/api/software-teams/:softwareTeamId/nodes",
+      "/api/software-teams/:softwareTeamId/nodes/:logicalId", // rev1-r2 B2, arch-ruled Option A
       "/api/ps",
       "/api/slices",
       "/api/slices/:name",
@@ -155,19 +155,19 @@ describe("READ_THROUGH_ALLOWLIST matcher (arch P1 — the named closed set)", ()
 describe("hostReadThrough — local path untouched (FR-2 zero-regression)", () => {
   it("absent host param falls through to the existing handler; no forward", async () => {
     const { app, fetchCalls, localHits } = makeApp();
-    const res = await app.request("/api/rigs/summary");
+    const res = await app.request("/api/software-teams/summary");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ rigs: ["local-rig"] });
-    expect(localHits).toEqual(["/api/rigs/summary"]);
+    expect(await res.json()).toEqual({ softwareTeams: ["local-software-team"] });
+    expect(localHits).toEqual(["/api/software-teams/summary"]);
     expect(fetchCalls).toEqual([]);
   });
 
   it("host=local falls through identically; no forward", async () => {
     const { app, fetchCalls, localHits } = makeApp();
-    const res = await app.request("/api/rigs/summary?host=local");
+    const res = await app.request("/api/software-teams/summary?host=local");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ rigs: ["local-rig"] });
-    expect(localHits).toEqual(["/api/rigs/summary"]);
+    expect(await res.json()).toEqual({ softwareTeams: ["local-software-team"] });
+    expect(localHits).toEqual(["/api/software-teams/summary"]);
     expect(fetchCalls).toEqual([]);
   });
 });
@@ -189,7 +189,7 @@ describe("hostReadThrough — the FR-7 boundary teeth (refused, NEVER forwarded)
 
   it("non-GET refusal fires even on an allowlisted READ path", async () => {
     const { app, fetchCalls } = makeApp();
-    const res = await app.request("/api/rigs/summary?host=vps-a", { method: "DELETE" });
+    const res = await app.request("/api/software-teams/summary?host=vps-a", { method: "DELETE" });
     expect(res.status).toBe(405);
     expect(await res.json()).toMatchObject({ error: "cross_host_write_refused", boundary: "MH-3" });
     expect(fetchCalls).toEqual([]);
@@ -213,7 +213,7 @@ describe("hostReadThrough — the FR-7 boundary teeth (refused, NEVER forwarded)
 describe("hostReadThrough — registry validated BEFORE any dial (arch P2)", () => {
   it("unknown host id → structured unknown-host error, zero forwards", async () => {
     const { app, fetchCalls } = makeApp();
-    const res = await app.request("/api/rigs/summary?host=nope");
+    const res = await app.request("/api/software-teams/summary?host=nope");
     expect(res.status).toBe(502);
     expect(await res.json()).toMatchObject({ error: "remote_read_failed", hostId: "nope", failureClass: "unknown-host" });
     expect(fetchCalls).toEqual([]);
@@ -221,7 +221,7 @@ describe("hostReadThrough — registry validated BEFORE any dial (arch P2)", () 
 
   it("ssh-transport host → structured unsupported-transport, zero forwards", async () => {
     const { app, fetchCalls } = makeApp();
-    const res = await app.request("/api/rigs/summary?host=vm-ssh");
+    const res = await app.request("/api/software-teams/summary?host=vm-ssh");
     expect(res.status).toBe(502);
     expect(await res.json()).toMatchObject({ error: "remote_read_failed", hostId: "vm-ssh", failureClass: "unsupported-transport" });
     expect(fetchCalls).toEqual([]);
@@ -234,12 +234,12 @@ describe("hostReadThrough — forward mechanics (arch P2 strip-is-total + P3 ver
       const { app, fetchCalls, localHits } = makeApp();
       const res = await app.request("/api/slices?filter=current&refresh=1&host=vps-a");
       expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ rigs: ["remote-rig"] });
+      expect(await res.json()).toEqual({ softwareTeams: ["remote-software-team"] });
       expect(localHits).toEqual([]); // the local handler never ran
       expect(fetchCalls).toHaveLength(1);
       const call = fetchCalls[0]!;
       // strip-is-total: no host param in ANY form; the rest of the query rides through.
-      expect(call.url).toBe("http://vps-a:7433/api/slices?filter=current&refresh=1");
+      expect(call.url).toBe("http://vps-a:7434/api/slices?filter=current&refresh=1");
       expect(call.url).not.toContain("host");
       expect(call.method).toBe("GET");
       expect(call.authorization).toBe("Bearer test-token");
@@ -260,7 +260,7 @@ describe("hostReadThrough — forward mechanics (arch P2 strip-is-total + P3 ver
   it("missing bearer env → structured auth-failed (edge taxonomy is for the FORWARD failing only)", async () => {
     // VPS_A_TOKEN deliberately unset.
     const { app, fetchCalls } = makeApp();
-    const res = await app.request("/api/rigs/summary?host=vps-a");
+    const res = await app.request("/api/software-teams/summary?host=vps-a");
     expect(res.status).toBe(502);
     expect(await res.json()).toMatchObject({ error: "remote_read_failed", hostId: "vps-a", failureClass: "auth-failed" });
     expect(fetchCalls).toEqual([]); // bearer resolution precedes the dial
@@ -273,14 +273,14 @@ describe("hostReadThrough — forward mechanics (arch P2 strip-is-total + P3 ver
           throw new TypeError("fetch failed: ECONNREFUSED");
         },
       });
-      const res = await app.request("/api/rigs/summary?host=vps-a");
+      const res = await app.request("/api/software-teams/summary?host=vps-a");
       expect(res.status).toBe(502);
       expect(await res.json()).toMatchObject({ error: "remote_read_failed", failureClass: "unreachable" });
     }));
 });
 
 describe("remoteRawRequest — the transport leg's own discipline", () => {
-  const HOST: HttpHostEntry = { id: "vps-a", transport: "http", url: "http://vps-a:7433", bearer_env: "RAW_TOKEN" };
+  const HOST: HttpHostEntry = { id: "vps-a", transport: "http", url: "http://vps-a:7434", bearer_env: "RAW_TOKEN" };
 
   it("deadline is required + armed: a hanging origin yields a structured timeout, never a hang", async () => {
     const hangingFetch = ((_: RequestInfo | URL, init?: RequestInit) =>

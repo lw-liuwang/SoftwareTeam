@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { WorkflowDeps } from "../src/commands/workflow.js";
 import { createProgram } from "../src/index.js";
 
-// `rig workflow instantiate|run --project/--mission/--slice/--tags`: the scope a
+// `SoftwareTeam workflow instantiate|run --project/--mission/--slice/--tags`: the scope a
 // run's packets carry, sent to the daemon as a `scope` object on BOTH verbs (run
 // instantiates too). The object is what opts the request into the daemon's strict
 // validation; bare fields keep their old meaning there (ignored). Unscoped
@@ -12,8 +12,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -79,7 +79,7 @@ describe("workflow scope flags", () => {
     });
     const program = createProgram({ workflowDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "workflow", verb, "/abs/spec.yaml", "--root-objective", "obj", "--created-by", "ops@rig", "--json", ...extra]);
+    await program.parseAsync(["node", "softwareTeam", "workflow", verb, "/abs/spec.yaml", "--root-objective", "obj", "--created-by", "ops@software-team", "--json", ...extra]);
     return calls.find((c) => c.path === "/api/workflow/instantiate")!.body as Record<string, unknown>;
   };
 
@@ -122,7 +122,7 @@ describe("workflow scope flags", () => {
       program.configureOutput({ writeErr: (text) => errors.push(text), writeOut: () => {} });
       // subcommands were built before exitOverride, so they need it (and the output capture) themselves
       program.commands.find((c) => c.name() === "workflow")!.commands.forEach((c) => c.exitOverride().configureOutput({ writeErr: (text) => errors.push(text), writeOut: () => {} }));
-      await expect(program.parseAsync(["node", "rig", "workflow", verb, "/abs/spec.yaml", "--root-objective", "obj", "--created-by", "ops@rig", ...extra])).rejects.toMatchObject({ code: "workflow.scope.invalid" });
+      await expect(program.parseAsync(["node", "softwareTeam", "workflow", verb, "/abs/spec.yaml", "--root-objective", "obj", "--created-by", "ops@software-team", ...extra])).rejects.toMatchObject({ code: "workflow.scope.invalid" });
       expect(errors.join("")).toMatch(message);
       expect(calls.filter((c) => c.method === "POST")).toEqual([]);
     });
@@ -140,7 +140,7 @@ describe("workflow scope flags", () => {
       vi.spyOn(process.stderr, "write").mockImplementation(((chunk: unknown) => { stderr.push(String(chunk)); return true; }) as never);
       const program = createProgram({ workflowDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "workflow", verb, "/abs/spec.yaml", "--root-objective", "obj", "--created-by", "ops@rig", "--project", "nope", ...(json ? ["--json"] : [])]);
+      await program.parseAsync(["node", "softwareTeam", "workflow", verb, "/abs/spec.yaml", "--root-objective", "obj", "--created-by", "ops@software-team", "--project", "nope", ...(json ? ["--json"] : [])]);
       const stdout = (console.log as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
       return { calls, stderr: stderr.join(""), stdout };
     };

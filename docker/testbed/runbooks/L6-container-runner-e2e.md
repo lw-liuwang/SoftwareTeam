@@ -14,10 +14,10 @@ invoker + a live container replace the injection — the leg no source-only proo
 
 ## Topology of a container-mode run (what talks to what)
 
-- The **daemon** runs inside the container (`rig daemon start` on the container port, container-local
+- The **daemon** runs inside the container (`SoftwareTeam daemon start` on the container port, container-local
   HOME/DB, no mounts).
-- The host-side **`rig` reads/writes** (the shipped CLI subprocesses the runner already uses) run on the
-  HOST against `OPENRIG_URL = http://127.0.0.1:<published port>` — the adapter self-sets that URL to its
+- The host-side **`SoftwareTeam` reads/writes** (the shipped CLI subprocesses the runner already uses) run on the
+  HOST against `SOFTWARETEAM_URL = http://127.0.0.1:<published port>` — the adapter self-sets that URL to its
   OWN container (never a foreign target). So the host still needs the built CLI bin for the READ side.
 
 ## Prerequisites
@@ -25,9 +25,9 @@ invoker + a live container replace the injection — the leg no source-only proo
 ```bash
 # L0 resolved the base + stub-assets slots; the build verb produced the image + manifest.
 scripts/build-testbed-image.sh                                   # -> dist/testbed-image/manifest.json
-GIT_SHA="$(git rev-parse HEAD)"; IMAGE="openrig-testbed:${GIT_SHA}"
+GIT_SHA="$(git rev-parse HEAD)"; IMAGE="softwareteam-testbed:${GIT_SHA}"
 EVID="dist/testbed-image/evidence/${GIT_SHA}"; mkdir -p "${EVID}"
-# Built HOST rig bin for the read side (the same bin run-scenarios.mjs uses).
+# Built HOST SoftwareTeam bin for the read side (the same bin run-scenarios.mjs uses).
 npm run build -w packages/cli && npm run build -w packages/daemon
 test -x packages/cli/dist/bin-wrapper.js || { echo "BLOCKER: build the CLI bin first"; exit 1; }
 command -v docker >/dev/null || { echo "BLOCKER: docker not on PATH"; exit 1; }
@@ -53,7 +53,7 @@ import { spawnContainerDaemon } from "./packages/daemon/test/helpers/scenario-co
 import { makeRealStagingDocker } from "./packages/daemon/test/helpers/staging-docker-invoker.ts";
 
 const [image, imageId] = process.argv.slice(2);
-const RIG_BIN = resolve("packages/cli/dist/bin-wrapper.js");
+const SOFTWARE_TEAM_BIN = resolve("packages/cli/dist/bin-wrapper.js");
 const SCENARIO = resolve("packages/daemon/test/fixtures/scenarios"); // pick one committed scenario file below
 
 // The committed real invoker: two-process tar pipe, dual-exit check, per-step timeout.
@@ -69,7 +69,7 @@ const baseEnv = { HOME: process.env.HOME, PATH: process.env.PATH, TERM: "xterm" 
 
 const records = [];
 const result = await runScenarioFile(scenario, {
-  rigBin: RIG_BIN, baseEnv, daemon, imageId,
+  softwareTeamBin: SOFTWARE_TEAM_BIN, baseEnv, daemon, imageId,
   deps: { appendRecord: (r) => records.push(r), normalizer: (_s, v) => v },
 });
 console.log("VERDICT:", result.verdict, "scenario:", result.scenario);
@@ -104,7 +104,7 @@ Inject a FOREIGN daemon target into the base env and confirm the run HARD-REFUSE
 container up (the container is not an excuse to weaken the `DAEMON_TARGET` guard — same as host-mode):
 
 ```bash
-OPENRIG_URL='http://foreign-daemon.invalid:9999' node --import tsx - "$IMAGE" <<'RUN' 2>&1 | tee "${EVID}/L6-failclosed.txt"; RC=${PIPESTATUS[0]:-$?}
+SOFTWARETEAM_URL='http://foreign-daemon.invalid:9999' node --import tsx - "$IMAGE" <<'RUN' 2>&1 | tee "${EVID}/L6-failclosed.txt"; RC=${PIPESTATUS[0]:-$?}
 import { resolve } from "node:path";
 import { runScenarioFile } from "./packages/daemon/test/helpers/scenario-pipeline.ts";
 import { spawnContainerDaemon } from "./packages/daemon/test/helpers/scenario-container.ts";
@@ -112,13 +112,13 @@ const [image] = process.argv.slice(2);
 const daemon = (scaffold) => spawnContainerDaemon(scaffold, { image, docker: async () => ({ stdout: "", stderr: "", code: 0 }) });
 try {
   await runScenarioFile(resolve("packages/daemon/test/fixtures/scenarios/scenario-02-baton.yaml"),
-    { rigBin: resolve("packages/cli/dist/bin-wrapper.js"), baseEnv: process.env, daemon });
+    { softwareTeamBin: resolve("packages/cli/dist/bin-wrapper.js"), baseEnv: process.env, daemon });
   console.log("NO-REFUSAL"); process.exit(0);
 } catch (e) { console.error("REFUSED: " + e.message); process.exit(7); }
 RUN
 ```
 
-**PASS:** non-zero exit + `REFUSED:` naming the foreign `OPENRIG_URL` — `prepareHermeticEnv` fail-closes
+**PASS:** non-zero exit + `REFUSED:` naming the foreign `SOFTWARETEAM_URL` — `prepareHermeticEnv` fail-closes
 on the foreign target in `baseEnv` and NO container is created. **FAIL:** `NO-REFUSAL` / exit 0 (the
 guard was bypassed in container-mode). This is the step-3 form of the L4 leg (the packaged-helper form
 lives in `L4-hermetic-fail-closed.md`); either form is real — record which one the shipped surface ran.

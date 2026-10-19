@@ -1,17 +1,17 @@
 # Getting started: meet the kernel, then make one useful change
 
-Install OpenRig, use a working provider login, and meet the kernel operator with
+Install SoftwareTeam, use a working provider login, and meet the kernel operator with
 the advisor and TUI beside it. No starter team is needed to reach that view.
 Tell the operator what you want to do, then choose a project team for a bounded
 change you can exercise. Reuse the accounts and terminal tools you already have.
 
-After installation and sign-in, your agent opens the **OpenRig TUI and operator** for you. The path is `rig daemon start` (if stopped),
-then `rig terminal open saved:kernel --window`. The second command opens the
+After installation and sign-in, your agent opens the **SoftwareTeam TUI and operator** for you. The path is `SoftwareTeam daemon start` (if stopped),
+then `SoftwareTeam terminal open saved:kernel --window`. The second command opens the
 desktop window itself. An agent can run it from its shell on the daemon's
 desktop; it does not need to type into your current terminal. See
 [Open the kernel conversations](#open-the-kernel-conversations).
-`rig tui` is the team dashboard; installation ends when you are talking to the
-operator in the OpenRig view.
+`SoftwareTeam tui` is the team dashboard; installation ends when you are talking to the
+operator in the SoftwareTeam view.
 
 ## Before you start
 
@@ -21,39 +21,39 @@ supported version with [nvm](https://github.com/nvm-sh/nvm) (`nvm install 22`)
 or NodeSource. On a Mac with Apple
 silicon, use Node.js 22 (see the [compatibility
 history](../releases/v0.5.15.md#known-compatibility-limitation)). Native
-Windows isn't supported. On Windows, use WSL2: it's the Windows route OpenRig
-supports, though OpenRig's automated tests don't run on it yet. One user's
+Windows isn't supported. On Windows, use WSL2: it's the Windows route SoftwareTeam
+supports, though SoftwareTeam's automated tests don't run on it yet. One user's
 [working setup](#wsl2-a-reported-working-setup) is below. Node 20 and
 odd-numbered releases (23, 25 and so on) are not supported; Node 26 and later
 even-numbered releases are untested.
 
-**Choose permissions before starting the team.** Ordinary OpenRig launches use
+**Choose permissions before starting the team.** Ordinary SoftwareTeam launches use
 Codex's `-s workspace-write`, with approval policy from your native configuration,
 or Claude Code's `acceptEdits`, which still leaves commands subject to native
 rules and prompts. A team seat with no permission policy, per-seat choice or
 (for Codex) named profile also gets a per-launch
-[team default](rig-spec.md#team-launch-defaults): Claude runs ordinary `rig`
+[team default](software-team-spec.md#team-launch-defaults): Claude runs ordinary `SoftwareTeam`
 commands, project reads and common tests without prompting, while lifecycle
-commands such as `rig up` and `rig down` still ask; Codex also gets the OpenRig
+commands such as `SoftwareTeam up` and `SoftwareTeam down` still ask; Codex also gets the SoftwareTeam
 workspace root and its pod's state directory as writable directories. The
 kernel's own seats get a wider operational default. Codex's
-sandbox normally blocks network access, including the local OpenRig daemon, so
-before that plain launch OpenRig asks Codex for its own configuration and adds
+sandbox normally blocks network access, including the local SoftwareTeam daemon, so
+before that plain launch SoftwareTeam asks Codex for its own configuration and adds
 network access inside the sandbox only when Codex answers that no configuration
 layer sets `sandbox_workspace_write.network_access` and no managed requirement
 could restrict it; if Codex can't be asked or doesn't answer in time, the launch
 is left unchanged. To keep it off, set `network_access = false` under
 `[sandbox_workspace_write]` in your Codex configuration. If Codex does not answer
 within a few seconds, the seat starts without it. A command allowance does not
-change general sandbox/network settings. The starter's `profile: default` selects OpenRig resources, not a native
+change general sandbox/network settings. The starter's `profile: default` selects SoftwareTeam resources, not a native
 permission profile.
 Agent-guided setup [recommends keeping the team default](#have-your-agent-configure-permissions)
-and offers to remember selected OpenRig commands in your native settings only if
+and offers to remember selected SoftwareTeam commands in your native settings only if
 you want that. An existing explicit choice is reused; No or no answer keeps the
 team default and leaves settings unchanged. Broader access is separate.
 
 If permission prompts are slowing you down, consider the
-[workshop bundle](https://openrig.dev/rigs/workshop). It ships with broad access
+[external upstream workshop bundle](https://github.com/mvschwarz/openrig-world/tree/main/rigs/workshop). It ships with broad access
 and [non-interruptive mode](non-interruptive-mode.md): its agents bypass
 permission prompts and supported harness warning dialogs. The listing and
 before-install view explain that access before you choose it.
@@ -65,20 +65,20 @@ before-install view explain that access before you choose it.
 
 ## WSL2: a reported working setup
 
-WSL2 is the Windows route OpenRig supports. OpenRig's automated tests don't run on
+WSL2 is the Windows route SoftwareTeam supports. SoftwareTeam's automated tests don't run on
 it yet; this is one user's working setup.
 [dajiaohuang](https://github.com/dajiaohuang)
-[ran OpenRig 0.6.6 under WSL2](https://github.com/mvschwarz/openrig/issues/88#issuecomment-6043925546)
+[ran upstream OpenRig 0.6.6 under WSL2](https://github.com/mvschwarz/openrig/issues/88#issuecomment-6043925546)
 on Ubuntu 24.04, with Node.js 24.14.1, tmux 3.4, Codex CLI 0.161.0 and Pi
 (`@earendil-works/pi-coding-agent`) 1.0.4, headless, as the distribution's root
 user.
 
-- **What worked**, with one Codex seat and one Pi seat: `rig doctor`, starting
-  the daemon (`rig daemon start --no-kernel`), launching both seats, replies to
-  `rig send` and `rig capture`, and stopping with `rig down --snapshot`
-  followed by a warm restore with `rig up --existing`.
+- **What worked**, with one Codex seat and one Pi seat: `SoftwareTeam doctor`, starting
+  the daemon (`SoftwareTeam daemon start --no-kernel`), launching both seats, replies to
+  `SoftwareTeam send` and `SoftwareTeam capture`, and stopping with `SoftwareTeam down --snapshot`
+  followed by a warm restore with `SoftwareTeam up --existing`.
 - **What mattered:**
-  - the install and the OpenRig instance on the Linux filesystem;
+  - the install and the SoftwareTeam instance on the Linux filesystem;
   - Linux-native Node.js and harnesses, not the Windows `npm` or `pi` that WSL
     inherits;
   - Pi credentials the managed seat can reach, because a global Pi login isn't
@@ -96,56 +96,40 @@ user.
 
 ## Install and sign in
 
-**Agents:** if you're setting OpenRig up for someone, load the `rigs` skill and follow it. It carries the install, the
-OpenRig view and the handoff to the operator as one procedure. From 0.6.7, OpenRig installs it as `rigs` in
-`~/.claude/skills` and `~/.agents/skills` when the daemon starts. Before that, add it with
-`npx skills add mvschwarz/openrig --skill rigs`, or read [`skills/rigs/SKILL.md`](../../skills/rigs/SKILL.md).
-
-**One command, for the full setup.** It needs Node.js 22 or 24 with npm already installed. The preview prints what the
-script will do and changes nothing:
+Use a local source checkout with Linux/macOS, Node.js 22 or 24, npm, Git, tmux,
+and the selected Codex or Claude Code executable. From the checkout root:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/mvschwarz/openrig/v0.6.8/scripts/install.sh | sh -s -- --dry-run
+./install.sh --runtime codex
+./start.sh --name my-team --runtime codex
 ```
 
-The same command without `--dry-run`,
-`curl -fsSL https://raw.githubusercontent.com/mvschwarz/openrig/v0.6.8/scripts/install.sh | sh`, installs the
-latest published `@openrig/cli` with `npm install -g`,
-runs the Node.js and SQLite check, then `rig setup --dry-run` and `rig setup`. `rig setup` checks both Claude Code and
-Codex and may install a missing one, as described below. A failed step prints
-`FAILED [n/4] <command or check> (exit <code>)`. Where a provider isn't signed in yet, step 4 ends that way and
-`rig setup` lists each sign-in under "Some steps need attention". If the only remaining failures are provider
-sign-ins, the install steps finished: sign in to each selected provider as below, then continue at
-[Start the kernel](#start-the-kernel-and-check-its-state). To install only what the selected providers need, go step
-by step instead:
+Use `--runtime claude-code` for Claude Code. Startup also bootstraps a cold checkout.
+No globally published SoftwareTeam package or upstream installer is required.
+The installer builds this checkout and installs it inside the selected private state.
+Native SQLite builds may require Python and a C/C++ toolchain.
 
-### Choose your providers
+First startup checks only the selected provider inside the fresh SoftwareTeam account.
+If it is not authenticated, startup exits with `authentication_required` and prints
+the exact scoped login command. Complete that login, then rerun startup. Existing
+provider credentials are not copied or imported. Help, `--dry-run` and `--check`
+work before dependencies are installed and do not write state.
 
-Ask: **“Which working account do you want this team to use: Claude Code, Codex,
-or both?”** Reuse an explicit choice already made. Recommend the account the
-user already has working; a second subscription is not a prerequisite.
+The seven experts use the product/dev groups. With `--name my-team`, management is
+`product-manage-agent@<name>` with the selected name substituted. Omitted names reuse the saved selection, with
+`software-team` as the fresh default. A different explicit name requires a fresh
+`--state-dir /absolute/path`. The controller accepts portable slugs matching
+`^[A-Za-z0-9][A-Za-z0-9_-]*$`, except `external` and `kernel`.
 
-Install OpenRig (`npm install -g @openrig/cli`) and check `tmux -V`. With npm 11 or later, an `npm warn install-scripts` line for `@openrig/cli` is expected: only the postinstall Node.js and SQLite check was skipped, and `node "$(npm root -g)/@openrig/cli/scripts/check-abi.mjs"` runs it. Check **only the selected providers**:
+The root startup opens the team terminal after exact seven-seat readiness; use
+`--headless` to receive the private-socket management attachment command instead.
+Web stays off by default. To enable it, run `SoftwareTeam config set ui.enabled true`
+and explicitly restart the owned daemon; `SoftwareTeam ui open` prints the URL
+and requests a browser. See the root README for current instance behavior.
 
-- Claude Code: `claude --version` and `claude auth status`. If sign-in is missing,
-  ask once: “Please run `claude auth login` in your launch environment.”
-- Codex: `codex --version` and `codex login status`. If sign-in is missing,
-  ask once: “Please run `codex login` in your launch environment.”
-
-Install a missing selected CLI using its provider's installation instructions.
-The other provider's CLI/login is optional. Herdr is installed by default unless
-you decline it; cmux remains optional. Do not copy credentials
-or start repeated sign-in attempts. Recheck the selected login after the user
-completes it. `rig setup --dry-run` previews the broader setup; applying
-`rig setup` checks **both** harnesses and installs a missing one with npm, unless
-you pass the person's choice: `rig setup --providers claude` (or `codex`) leaves
-the other out, so it reads not selected instead of failed. On
-macOS it uses an existing Homebrew (it does not install Homebrew) to install a
-missing tmux (elsewhere tmux is checked, not installed). Herdr installs on
-macOS and Linux; pass `--no-herdr` to decline it. Setup also
-writes an OpenRig-managed block (mouse on, a longer history) into `~/.tmux.conf`.
-It is optional for this selected-provider path, not a requirement to fix an unused
-provider.
+The remaining sections document the generic kernel and team engine commands.
+The root seven-expert launcher uses `--no-kernel` deliberately and does not require
+manually following those engine setup steps.
 
 ## Start the kernel and check its state
 
@@ -153,14 +137,14 @@ With a working selected login, start the daemon if it is stopped, then read its
 state and the kernel seats:
 
 ```sh
-rig daemon start  # only if the daemon is stopped
-rig status
-rig ps --nodes --rig kernel
+SoftwareTeam daemon start  # only if the daemon is stopped
+SoftwareTeam status
+SoftwareTeam ps --nodes --software-team kernel
 ```
 
 Starting the kernel, including its operator and advisor, is part of installing
-OpenRig. Keep it for a normal install: it helps you choose and start your project
-team. `rig daemon start --no-kernel` is for automation or an explicit request to
+SoftwareTeam. Keep it for a normal install: it helps you choose and start your project
+team. `SoftwareTeam daemon start --no-kernel` is for automation or an explicit request to
 omit the kernel; it leaves you without that operator.
 
 On a fresh instance, explicit daemon startup chooses the kernel variant from
@@ -170,35 +154,35 @@ fine; if both accounts are authenticated, the kernel uses both even when your
 later project uses just one. A request to use only one provider for everything
 is a separate choice.
 
-**Started is not ready.** Read the `Kernel:` boot state in `rig status` and the
-individual seat state in `rig ps --nodes --rig kernel`. The view may open while
+**Started is not ready.** Read the `Kernel:` boot state in `SoftwareTeam status` and the
+individual seat state in `SoftwareTeam ps --nodes --software-team kernel`. The view may open while
 agents finish starting; describe that state, without claiming they are ready.
 A missing or unknown readiness signal is not proof of readiness. Follow
 [Incomplete setup and restart](#incomplete-setup-and-restart) for login, trust,
 startup or missing-seat problems.
 
-`rig setup` itself does not start the daemon. Preserve a daemon and kernel that
+`SoftwareTeam setup` itself does not start the daemon. Preserve a daemon and kernel that
 already exist: ordinary daemon startup skips a managed kernel, and
-`OPENRIG_NO_KERNEL=1` skips automatic kernel startup. If neither runtime is
+`SOFTWARETEAM_NO_KERNEL=1` skips automatic kernel startup. If neither runtime is
 authenticated, kernel boot reports `auth_blocked`. Do not restart or recreate an
-existing kernel merely to open its view. The startup TUI (`rig`) offers its own
+existing kernel merely to open its view. The startup TUI (`SoftwareTeam`) offers its own
 kernel setup and individual-seat recovery; it does not automatically boot agents
 when it starts the daemon.
 
 ## Open the kernel conversations
 
-This is the **OpenRig view**, in a new terminal window or tab.
+This is the **SoftwareTeam view**, in a new terminal window or tab.
 Below 120 measured columns, the operator fills the first page; from 120, the dashboard and operator share it equally.
 The advisor always has a separate tab or tmux window.
-**Agents:** the `rigs` skill says when to open it, what to check, what to do when it can't open, and how to hand the
+**Agents:** the `SoftwareTeams` skill says when to open it, what to check, what to do when it can't open, and how to hand the
 person's goal to the operator; [Install and sign in](#install-and-sign-in) says how to load it.
 
-`rig setup` installs Herdr by default on macOS and Linux. If the person declines
-Herdr, use `rig setup --no-herdr`; the OpenRig view can use plain tmux. Setup
+`SoftwareTeam setup` installs Herdr by default on macOS and Linux. If the person declines
+Herdr, use `SoftwareTeam setup --no-herdr`; the SoftwareTeam view can use plain tmux. Setup
 checks both PATH and the installer's default `~/.local/bin/herdr` location. It
 leaves existing cmux settings alone and does not open a view during setup.
 
-On a Mac, the installing agent also asks once, "Install Ghostty for the OpenRig
+On a Mac, the installing agent also asks once, "Install Ghostty for the SoftwareTeam
 view?" On Yes it reruns setup with `--ghostty`, preserving earlier choices such
 as `--no-herdr` and `--providers`. This installs the
 [documented Homebrew cask](https://ghostty.org/docs/install/binary) and checks for
@@ -210,7 +194,7 @@ This command opens it in a new terminal tab or window itself, so nobody copies o
 without a local display it can't, and the [headless handoff](#headless-or-ssh-handoff) applies:
 
 ```sh
-rig terminal open saved:kernel --window --json
+SoftwareTeam terminal open saved:kernel --window --json
 ```
 
 Run this on the daemon's desktop, as the same user. On macOS, the command
@@ -220,8 +204,8 @@ for a local macOS desktop session and opens a new Ghostty window if its scriptin
 support is confirmed (1.3 or newer), otherwise Terminal.app with an explanation.
 That window uses the app's own profile defaults because
 there is no hosting window to copy. Before running the command, the agent should say that clicking **Allow**
-on macOS's one-time control prompt is fine: it lets OpenRig open the requested
-OpenRig view. A denied or uncertain action is reported once, not replayed in
+on macOS's one-time control prompt is fine: it lets SoftwareTeam open the requested
+SoftwareTeam view. A denied or uncertain action is reported once, not replayed in
 another app. If macOS remembers a denial, enable the calling app in System Settings
 → Privacy & Security → Automation, or use the printed command in a terminal yourself.
 Unknown width keeps the operator-only layout.
@@ -237,10 +221,10 @@ what actually appeared. SSH, headless, CI and unsupported Linux hosts get a
 no-window result with the reason, a command for the person to run, and any
 follow-up the agent needs to perform.
 
-OpenRig's Herdr launch and its printed manual command keep your personal Herdr
-config when present. If it is absent, OpenRig creates private sidebar defaults;
+SoftwareTeam's Herdr launch and its printed manual command keep your personal Herdr
+config when present. If it is absent, SoftwareTeam creates private sidebar defaults;
 the new desktop terminal selects them from its measured width. The manual command
-uses the collapsed default. If private settings cannot be prepared, OpenRig
+uses the collapsed default. If private settings cannot be prepared, SoftwareTeam
 reports why and keeps the ordinary launch or manual command with Herdr's usual settings.
 
 The command runs Herdr when installed, using the daemon's configured session and
@@ -250,7 +234,7 @@ installing agent's terminal. Existing conversations continue in their original
 sessions.
 
 Opening the same Herdr view with the same current plan selects its existing
-OpenRig workspace in the new window, preserving its tabs and contents. The receipt
+SoftwareTeam workspace in the new window, preserving its tabs and contents. The receipt
 reports reuse and any currently absent or degraded seats; it does not claim to
 refresh the layout or create new tiles. Changed membership or attachment targets
 create a fresh workspace. A note identifies older workspaces and gives the command
@@ -260,7 +244,7 @@ inventory problem.
 
 Terminal.app copies the person's front-window bounds to the new view without
 changing the original. Ghostty keeps the current window size when adding a tab.
-OpenRig keeps an existing personal Herdr config unchanged. Only when that config
+SoftwareTeam keeps an existing personal Herdr config unchanged. Only when that config
 is absent, its private default starts the sidebar open at 160 columns or more,
 and collapsed below that width. Unknown widths use the collapsed default.
 
@@ -271,7 +255,7 @@ uses the viewing terminal's measured width. Below 120 columns (or when width is
 unknown), **the operator** fills the first page, followed by dashboard and advisor
 pages. From 120 columns, dashboard and operator share the first page equally, with
 the advisor on a separate page. Select a Herdr tab to switch; in plain tmux, press
-**Ctrl-b, then w** and choose a `view-*` window; `view-1` is the OpenRig view's first page.
+**Ctrl-b, then w** and choose a `view-*` window; `view-1` is the SoftwareTeam view's first page.
 Missing roles are reported rather than filled with another conversation. The queue worker remains
 reachable through the dashboard. The composition uses the installed kernel's current
 bindings; no YAML edit, seat launch or daemon restart is needed. A custom saved
@@ -283,13 +267,13 @@ and that the original terminal remains intact. The person sees Herdr only in a t
 Creating its workspace or switching the shared TUI to `:terminals` does not open
 that terminal. A created window or successful CLI response alone is not visual
 confirmation. A partial view remains partial. If the shared TUI tile shows a
-shell, the installing agent starts `rig tui` in that new tile.
+shell, the installing agent starts `SoftwareTeam tui` in that new tile.
 
 Opening the view can happen while the kernel finishes starting. Report its actual
 state; do not start or restore seats just to obtain a view. If the kernel is absent
 or blocked, follow [Incomplete setup and restart](#incomplete-setup-and-restart).
 
-### What can interrupt installation and the OpenRig view
+### What can interrupt installation and the SoftwareTeam view
 
 For an installing agent, a blocked step needs an explanation, not silence. Name
 the command, the reported reason and what remains unfinished. These checks cover
@@ -297,9 +281,9 @@ different points in the same journey:
 
 | What you see | Why and what to do next |
 | --- | --- |
-| Codex offers to switch to a cheaper model near a rate limit | This is Codex's own menu. Ask the person to choose in the seat's terminal; do not silently change the team's configured model. OpenRig disables Codex's startup update check for managed launches, but does not answer this model-choice menu. |
+| Codex offers to switch to a cheaper model near a rate limit | This is Codex's own menu. Ask the person to choose in the seat's terminal; do not silently change the team's configured model. SoftwareTeam disables Codex's startup update check for managed launches, but does not answer this model-choice menu. |
 | A missing Node.js, npm or tmux; an install download or command fails | The named prerequisite or install step did not finish. Read its error and the [platform and provider instructions](#install-and-sign-in), resolve that step, then recheck it. `FAILED [4/4]` with only selected-provider sign-ins outstanding means the package installed but those logins still need the person. |
-| The installing harness refuses a tool call or asks for permission | Its native rules, sandbox or automatic permission decision apply before OpenRig can run. Claude Code's [auto mode can deny calls](https://code.claude.com/docs/en/auto-mode-config) as well as approve them. Show the specific refusal and ask the person to review it in the harness permission controls or run that named step themselves. Keep their chosen restrictions; a refused call does not prove the OpenRig command failed. |
+| The installing harness refuses a tool call or asks for permission | Its native rules, sandbox or automatic permission decision apply before SoftwareTeam can run. Claude Code's [auto mode can deny calls](https://code.claude.com/docs/en/auto-mode-config) as well as approve them. Show the specific refusal and ask the person to review it in the harness permission controls or run that named step themselves. Keep their chosen restrictions; a refused call does not prove the SoftwareTeam command failed. |
 | Herdr or Ghostty installation is unavailable or declined | Herdr is optional for the view: `--window` uses plain tmux when Herdr is absent, and its install failure is a warning. On macOS, Terminal.app is the fallback when supported Ghostty is absent. An explicitly requested Ghostty install can fail setup; resolve that install or decline it with `--no-ghostty`, preserving earlier choices. Address separate required-tool or login failures. Existing cmux remains supported. |
 | macOS asks for Automation access, or the window action is denied | The command asks the desktop terminal app to open a new surface. Let the person answer the system prompt. Read the error and inspect any new window before retrying an uncertain action; do not silently switch apps and open a duplicate. |
 | No local display, or the configured daemon is remote | `--window` needs the daemon's desktop. An SSH shell or remote daemon address alone does not give the agent that desktop. Explain the limit and use the [manual](#talk-to-the-operator-in-any-terminal) or [SSH handoff](#headless-or-ssh-handoff) with the actual operator binding. |
@@ -320,21 +304,21 @@ The existing provider-only commands remain available when a terminal is already
 open. They create a workspace inside that provider, without opening an OS window:
 
 ```sh
-rig terminal views --json
-rig terminal open saved:kernel --provider herdr --json
-rig terminal open saved:kernel --provider cmux --json
+SoftwareTeam terminal views --json
+SoftwareTeam terminal open saved:kernel --provider herdr --json
+SoftwareTeam terminal open saved:kernel --provider cmux --json
 ```
 
-Use `rig terminal status --json` to inspect provider availability and liveness.
+Use `SoftwareTeam terminal status --json` to inspect provider availability and liveness.
 For the first desktop handoff, use `--window`. Only if the window cannot open,
-`rig tui --shared` is the dashboard-only fallback, not the operator's conversation.
+`SoftwareTeam tui --shared` is the dashboard-only fallback, not the operator's conversation.
 
 ### Talk to the operator in any terminal
 
 For an explicitly requested manual attachment, inspect the current bindings:
 
 ```sh
-rig ps --nodes --rig kernel --json --fields logicalId,canonicalSessionName,tmuxAttachCommand
+SoftwareTeam ps --nodes --software-team kernel --json --fields logicalId,canonicalSessionName,tmuxAttachCommand
 ```
 
 Find `logicalId: operator.agent` and run its `tmuxAttachCommand`, after `env -u TMUX`, in a new
@@ -351,8 +335,8 @@ is separate from the first-install desktop action above.
 
 ### Plain terminal: a new viewing session
 
-`rig terminal open saved:kernel --provider tmux --window --json` creates and opens
-the same width-based OpenRig view layout, with the advisor in a separate window. It reuses
+`SoftwareTeam terminal open saved:kernel --provider tmux --window --json` creates and opens
+the same width-based SoftwareTeam view layout, with the advisor in a separate window. It reuses
 the daemon's composition and preserves existing sessions. The result names the viewing session. No pane names or shell
 commands need to be assembled by the person.
 
@@ -362,27 +346,27 @@ A provider running on the server opens no window on the person's desktop. From a
 own machine, connect over SSH with the known host and account, then attach:
 - **the operator's conversation**, with the command in
   [Talk to the operator in any terminal](#talk-to-the-operator-in-any-terminal);
-- **the Herdr view**, with the command that `rig terminal open saved:kernel --window` prints when it can't open a
+- **the Herdr view**, with the command that `SoftwareTeam terminal open saved:kernel --window` prints when it can't open a
   window. It names the installed Herdr, wherever setup put it, and the daemon's socket. Then
-  `rig terminal open saved:kernel --provider herdr --json` selects the view in it.
+  `SoftwareTeam terminal open saved:kernel --provider herdr --json` selects the view in it.
 
-No new account or credential provisioning is part of this. **Agents:** the `rigs` skill gives the person this as one
+No new account or credential provisioning is part of this. **Agents:** the `SoftwareTeams` skill gives the person this as one
 filled-in command.
 
 ### Installing-agent handoff
 
 The kernel's operator takes the person's goal and project folder, helps them choose and start a team, and hands the
 goal to the team's lead. The person can type the goal in the operator's pane (attach with the command
-[above](#talk-to-the-operator-in-any-terminal)), or the agent that installed OpenRig sends it. The `rig tui --shared`
+[above](#talk-to-the-operator-in-any-terminal)), or the agent that installed SoftwareTeam sends it. The `SoftwareTeam tui --shared`
 fallback shows the dashboard, not this conversation. If the operator needs attention, use the
 [recovery routes](#incomplete-setup-and-restart).
 
-**Agents:** the `rigs` skill's step 2 has the exact `rig send` to the operator and says when installation is finished.
+**Agents:** the `SoftwareTeams` skill's step 2 has the exact `SoftwareTeam send` to the operator and says when installation is finished.
 
-Stopping OpenRig keeps a team's work, and the branch a team makes is your
+Stopping SoftwareTeam keeps a team's work, and the branch a team makes is your
 change: an agent tidying up says what's on it before offering to remove it. The
 operator starts a team when you ask for one in its conversation, so an agent
-reporting back checks `rig ps` or the team's tasks before saying a team started
+reporting back checks `SoftwareTeam ps` or the team's tasks before saying a team started
 on its own.
 
 ## Choose your first team
@@ -391,25 +375,25 @@ Tell the kernel operator what you want to do. It asks about your goal, presents
 three teams with one recommendation, and fits the team to the providers you have.
 Review that choice before launching it.
 
-`rig specs preview starter --kind rig` and the factory preview include the three
+`SoftwareTeam specs preview starter --kind SoftwareTeam` and the factory preview include the three
 choices and their uses, in text and JSON. The reminder respects a team you already
 picked; previewing a spec does not launch it.
 
 | Team | Talk to | Agents and purpose |
 | --- | --- | --- |
 | `starter` | `dev-build@starter` | `dev-build` (Claude Code) and `dev-review` (Codex, pinned `gpt-6-astra`) for one bounded change |
-| `workshop` | `orch-lead@workshop` | A lead, builder, QA and reviewer for ongoing work in one repository. It's a rig bundle, not built in: the operator installs it from its pinned listing |
+| `workshop` | `orch-lead@workshop` | A lead, builder, QA and reviewer for ongoing work in one repository. It's a SoftwareTeam bundle, not built in: the operator installs it from its pinned listing |
 | `factory` | `orch-lead@factory` | Seven: a lead, advisor, build, QA, design and two independent reviewers for sustained product work. It uses the most concurrent capacity |
 
 As shipped, `starter` needs both Claude Code and Codex. With only one of them, the
 operator writes an adapted copy of the team for your providers and keeps its name;
 there are no per-provider variants. `first-project` is starter's old name and
-still starts it, so an old `rig up first-project` now starts a Claude builder and a
-Codex reviewer. If you already have a rig named `first-project` (or `starter`),
-`rig up first-project` refuses instead and names the `rig up <name> --existing`
-command that brings that rig back.
+still starts it, so an old `SoftwareTeam up first-project` now starts a Claude builder and a
+Codex reviewer. If you already have a SoftwareTeam named `first-project` (or `starter`),
+`SoftwareTeam up first-project` refuses instead and names the `SoftwareTeam up <name> --existing`
+command that brings that SoftwareTeam back.
 
-Claude seats use the native default model, as the Claude kernel does: OpenRig
+Claude seats use the native default model, as the Claude kernel does: SoftwareTeam
 does not pass a model override. Read the selected harness's configured model and
 show it alongside the team and launch command before proceeding. Confirm account access to any pin; if unavailable,
 ask for a supported model choice rather than silently substituting a model or
@@ -419,26 +403,26 @@ provider. After launch, confirm the actual native model before assigning work.
 
 ```sh
 cd <your-repository>
-rig specs preview starter --kind rig
-rig up starter --cwd . --plan
-rig up starter --cwd .
-rig status
-rig ps --nodes --rig starter
+SoftwareTeam specs preview starter --kind SoftwareTeam
+SoftwareTeam up starter --cwd . --plan
+SoftwareTeam up starter --cwd .
+SoftwareTeam status
+SoftwareTeam ps --nodes --software-team starter
 ```
 
 Preview the selected seats, models and resources. Plan checks resolution and
 preflight for the working directory. The kernel is already your entry point; this step starts the chosen project
 team. Read readiness for the project seats, not only daemon health. Resolve a named authentication, trust or permission prompt before giving
-that seat work. When a seat stops at such a prompt, `rig up` reports
+that seat work. When a seat stops at such a prompt, `SoftwareTeam up` reports
 `Status: partial`, prints `Startup attention (<seat>): <reason>` and exits 1;
-`rig ps --nodes` repeats it as "Startup details". The reason ends with the command
-to run once the prompt is answered: `rig seat continue <seat>`, which delivers the
+`SoftwareTeam ps --nodes` repeats it as "Startup details". The reason ends with the command
+to run once the prompt is answered: `SoftwareTeam seat continue <seat>`, which delivers the
 seat's startup context in the same conversation. No new team is needed when
 returning to an existing project.
 
 When a seat pauses, open its existing terminal with **o** in the startup view.
 Read the proposed command, working directory and target instance. For an intended
-local `rig` call, choose the native prompt's one-time approval if that is the scope
+local `SoftwareTeam` call, choose the native prompt's one-time approval if that is the scope
 you want; a saved command-prefix allowance also affects future matching calls.
 Decline an unexpected operation and tell the same agent what to do instead.
 Approval controls whether an action may run; the sandbox controls its filesystem
@@ -449,52 +433,52 @@ the corresponding task and its history from your ordinary terminal. If an
 operation timed out, read its result before asking for another attempt: it may
 already have taken effect. A delivered message or disappearing prompt alone is
 not progress. If startup is still waiting for context delivery, use **c** (or
-`rig seat continue <seat>`) for the same occupant, then **r** to refresh. If the
-command times out, check `rig seat status <seat>` before trying again. Do not
+`SoftwareTeam seat continue <seat>`) for the same occupant, then **r** to refresh. If the
+command times out, check `SoftwareTeam seat status <seat>` before trying again. Do not
 start another seat to clear a prompt.
 
 Starter is a deliberately small starting point. For a bigger team, `factory` is
 built in (seven agents, using more concurrent capacity), and so are the specialist
-teams `code-review`, `research` and `pm`. Inspect `rig specs ls --kind rig` and
-`rig specs preview <name> --kind rig` before selecting one (`pm` is also an agent
-spec's name, so a preview without `--kind rig` reports it as ambiguous). A team published on GitHub, such
-as workshop, installs from its folder link with `rig up <link>` (see
-[publishing a rig bundle](publishing-a-rig-bundle.md)).
+teams `code-review`, `research` and `pm`. Inspect `SoftwareTeam specs ls --kind SoftwareTeam` and
+`SoftwareTeam specs preview <name> --kind SoftwareTeam` before selecting one (`pm` is also an agent
+spec's name, so a preview without `--kind SoftwareTeam` reports it as ambiguous). A team published on GitHub, such
+as workshop, installs from its folder link with `SoftwareTeam up <link>` (see
+[publishing a SoftwareTeam bundle](publishing-a-software-team-bundle.md)).
 
 ## Give the builder an outcome
 
 For example, in a project that imports CSV files:
 
 ```sh
-rig send dev-build@starter 'Improve the CSV import error when a required column is missing: name the column and leave the existing data unchanged. Add a regression check, ask dev-review for an independent check of the exact candidate, and record the result and how I can try it. Keep the change local; do not publish.'
+SoftwareTeam send dev-build@starter 'Improve the CSV import error when a required column is missing: name the column and leave the existing data unchanged. Add a regression check, ask dev-review for an independent check of the exact candidate, and record the result and how I can try it. Keep the change local; do not publish.'
 ```
 
 Replace the example with a real problem in your repository. Include what the
 user should observe, a boundary and how success can be checked. The builder
 creates and claims a durable task, implements it, and routes the selected
 independent check. You should not have to relay the review between terminals.
-`rig send` is the initial conversation; the queue and repository artifacts
+`SoftwareTeam send` is the initial conversation; the queue and repository artifacts
 retain the work. An unbound shell does not need to impersonate a queue owner.
 
-Seat addresses carry the rig name (for example, `dev-build@starter`). From an
+Seat addresses carry the SoftwareTeam name (for example, `dev-build@starter`). From an
 actual project seat, follow the work with
-`rig queue list --limit 1000`: its default scope is the caller's current rig.
-`queue list` has no `--rig` option. From an observer shell or another rig, use
-`rig queue list --destination dev-build@starter --limit 1000` and the same
+`SoftwareTeam queue list --limit 1000`: its default scope is the caller's current SoftwareTeam.
+`queue list` has no `--software-team` option. From an observer shell or another SoftwareTeam, use
+`SoftwareTeam queue list --destination dev-build@starter --limit 1000` and the same
 command for `dev-review@starter`, after verifying those live addresses.
-These show each destination's obligations, not a whole-rig view. An unbound shell
-must not pretend to be a seat to change scope; use `--all-rigs` only when that
-broader view is intended. Then read `rig queue show <id> --full` and
-`rig queue transitions <id>`. A delivered message is not a reviewed result.
+These show each destination's obligations, not a whole-SoftwareTeam view. An unbound shell
+must not pretend to be a seat to change scope; use `--all-SoftwareTeams` only when that
+broader view is intended. Then read `SoftwareTeam queue show <id> --full` and
+`SoftwareTeam queue transitions <id>`. A delivered message is not a reviewed result.
 Read the artifact, exercise its behavior, and check the candidate reviewed.
 
 ## Share the dashboard and return to it
 
 After install, and whenever the person wants their agents again, the installing agent runs
-`rig terminal open saved:kernel --window` and checks the result. It does not
+`SoftwareTeam terminal open saved:kernel --window` and checks the result. It does not
 finish by suggesting a dashboard command for the person to type.
 
-**Only if that window cannot open**, `rig tui --shared` is the dashboard-only
+**Only if that window cannot open**, `SoftwareTeam tui --shared` is the dashboard-only
 fallback. Explain the window failure and help with this fallback if chosen;
 it does not show the advisor or operator conversation.
 
@@ -505,13 +489,13 @@ stays where it was. Another authorized agent can capture or operate that same
 pane. It should tell you before changing your view. The terminal is not a
 human inbox and does not prove anyone is watching it.
 
-Plain `rig tui` remains an independent local view. If an older kernel or a TUI
-you quit shows a shell, run `rig tui` in that shell once. `--shared` does not
+Plain `SoftwareTeam tui` remains an independent local view. If an older kernel or a TUI
+you quit shows a shell, run `SoftwareTeam tui` in that shell once. `--shared` does not
 start or replace a terminal, so a missing binding is reported with recovery
 guidance rather than creating a second kernel.
 
 Herdr users follow the same launch and task path. To place the managed team in
-Herdr, use `rig terminal open starter --provider herdr`; for the shared
+Herdr, use `SoftwareTeam terminal open starter --provider herdr`; for the shared
 dashboard together with the kernel conversations, use the
 [saved first view](#open-the-kernel-conversations). The equivalent
 cmux provider is also available. Read the opened/absent/degraded result: a
@@ -532,83 +516,83 @@ Return to the same owner with the next outcome, citing the earlier result.
 The seat address and durable queue survive closing your viewing terminal.
 Keep intent, acceptance and evidence in the repository's existing project,
 mission and slice artifacts; the starter reads those before inventing a path.
-`rig context work-install` lists what the project declares (intent, context files,
-skills). Without `--project` it picks the project by the seat's rig, then by the
+`SoftwareTeam context work-install` lists what the project declares (intent, context files,
+skills). Without `--project` it picks the project by the seat's SoftwareTeam, then by the
 working directory, and stops with `project_required` and the exact `--project`
 commands only if several still match.
 
-If the project has no work tree, start with `rig workspace doctor` and
-`rig scope mission create --help`, then `rig scope slice create --help`. Set
-the actual intended outcome before creating work. `rig scope` retains what is
+If the project has no work tree, start with `SoftwareTeam workspace doctor` and
+`SoftwareTeam scope mission create --help`, then `SoftwareTeam scope slice create --help`. Set
+the actual intended outcome before creating work. `SoftwareTeam scope` retains what is
 being built. When repeated coordination warrants a workflow, discover with
-`rig workflow specs`, inspect its owners and inputs, and instantiate the
-selected name with `rig workflow instantiate --help`. A workflow is not needed
+`SoftwareTeam workflow specs`, inspect its owners and inputs, and instantiate the
+selected name with `SoftwareTeam workflow instantiate --help`. A workflow is not needed
 merely to make the first local change.
 
-For a continuing team, [OpenRig Software Factory](../../packages/daemon/specs/agents/shared/skills/core/openrig-software-factory/SKILL.md)
+For a continuing team, [SoftwareTeam Software Factory](../../packages/daemon/specs/agents/shared/skills/core/softwareteam-software-factory/SKILL.md)
 offers manual/team work, queue-supported orchestration without Workflow, and an
 optional explicit Workflow path, with wake defaults, token costs and permission
 choices visible. Give its short request to your existing agent. After
-installation, discover the compatible bundled recipe with `rig context show
-skills/core/openrig-software-factory --json`; retain a missing/version-mismatch
+installation, discover the compatible bundled recipe with `SoftwareTeam context show
+skills/core/softwareteam-software-factory --json`; retain a missing/version-mismatch
 result rather than silently using newer instructions. Its growth section keeps
-three choices clear: stay with the pair, add one or two seats to the running rig
-with `rig grow` and no YAML, or optionally author a custom rig. It covers
+three choices clear: stay with the pair, add one or two seats to the running SoftwareTeam
+with `SoftwareTeam grow` and no YAML, or optionally author a custom SoftwareTeam. It covers
 new-seat context/work ownership, concurrency costs and saving the expanded spec.
 This guide remains the short first-use path.
 
 ## Stop your teams
 
-`rig down <rig-name>` ends that rig's agent sessions and work in progress.
-Read `rig ps --nodes --rig <rig-name>` first so you can see who will stop;
-`rig down` also prints the rig's recorded agent sessions and their activity
+`SoftwareTeam down <software-team-name>` ends that SoftwareTeam's agent sessions and work in progress.
+Read `SoftwareTeam ps --nodes --software-team <software-team-name>` first so you can see who will stop;
+`SoftwareTeam down` also prints the SoftwareTeam's recorded agent sessions and their activity
 before stopping them.
 For example, to stop starter:
 
 ```sh
-rig down starter
+SoftwareTeam down starter
 ```
 
-For "stop everything", list the rigs with `rig ps --json` and run `rig down`
+For "stop everything", list the SoftwareTeams with `SoftwareTeam ps --json` and run `SoftwareTeam down`
 for each one you want stopped. Include `kernel` last if you want its operator,
 advisor and queue worker stopped too; its operator cannot continue helping
 after its own session ends. Check each result before calling the shutdown done.
 
-`rig daemon stop` stops only the background service and preserves agent tmux
-sessions. If you also want that service stopped, run it after stopping the rigs.
+`SoftwareTeam daemon stop` stops only the background service and preserves agent tmux
+sessions. If you also want that service stopped, run it after stopping the SoftwareTeams.
 If the operator is handling this full shutdown and kernel is included, it gives you this
-last step before running `rig down kernel`: once kernel is down, run
-`rig daemon stop` in your own shell and check the result. The operator's session
+last step before running `SoftwareTeam down kernel`: once kernel is down, run
+`SoftwareTeam daemon stop` in your own shell and check the result. The operator's session
 ends with kernel, so it cannot run that final command for you afterwards.
-If the daemon is already stopped, use `rig daemon start --no-kernel` to restore
-the lifecycle API without booting a new kernel, then stop the remaining rigs.
+If the daemon is already stopped, use `SoftwareTeam daemon start --no-kernel` to restore
+the lifecycle API without booting a new kernel, then stop the remaining SoftwareTeams.
 
 ## Incomplete setup and restart
 
 | Observation | Next action |
 | --- | --- |
 | Tool missing or login fails | Use the specific setup/auth hint; recheck that executable in the launch shell. Do not send work to an unready seat. |
-| "Startup attention" or "Startup details" names a prompt | Answer the login, trust or bypass prompt in that seat's terminal, then run the `rig seat continue <seat>` it shows. |
-| "Readiness timeout after 30s — harness did not become interactive" | The harness took longer than the readiness window. Raise it for the next launch with `rig config set runtime.readiness_timeout_seconds <1-600>`, then relaunch that seat. |
-| "Claude resume did not finish within Ns; Claude may still be starting, so the launch was kept" | A restored Claude seat was not interactive when the wait ended. Its pane and resume token are kept. Look at the pane; once Claude is up, run `rig seat clear-attention <seat>`. The wait is about `runtime.readiness_timeout_seconds` in total for each seat (default 30 s), counting the first 3.2 s, and the time adds up seat by seat in a restore. Raising the setting for slow fresh launches lengthens it. If `rig up` or `rig launch` times out at 120 s, that is not a rollback: check `rig ps` before running it again. |
-| Daemon is healthy, kernel is still starting | Read `rig status` and `rig ps --nodes --rig kernel`; kernel readiness is separate. |
+| "Startup attention" or "Startup details" names a prompt | Answer the login, trust or bypass prompt in that seat's terminal, then run the `SoftwareTeam seat continue <seat>` it shows. |
+| "Readiness timeout after 30s — harness did not become interactive" | The harness took longer than the readiness window. Raise it for the next launch with `SoftwareTeam config set runtime.readiness_timeout_seconds <1-600>`, then relaunch that seat. |
+| "Claude resume did not finish within Ns; Claude may still be starting, so the launch was kept" | A restored Claude seat was not interactive when the wait ended. Its pane and resume token are kept. Look at the pane; once Claude is up, run `SoftwareTeam seat clear-attention <seat>`. The wait is about `runtime.readiness_timeout_seconds` in total for each seat (default 30 s), counting the first 3.2 s, and the time adds up seat by seat in a restore. Raising the setting for slow fresh launches lengthens it. If `SoftwareTeam up` or `SoftwareTeam launch` times out at 120 s, that is not a rollback: check `SoftwareTeam ps` before running it again. |
+| Daemon is healthy, kernel is still starting | Read `SoftwareTeam status` and `SoftwareTeam ps --nodes --software-team kernel`; kernel readiness is separate. |
 | Kernel seats fail within a second of the first start, and tmux reports "server exited unexpectedly" | Check that your tmux can capture a pane, then start the failed seats again; see the tmux check below this table. |
-| Shared terminal is absent | Inspect the existing kernel binding and recovery state; use standalone `rig tui` while resolving it. |
-| Viewing terminal was closed | Open the conversations again with `rig terminal open saved:kernel --window`; `rig tui --shared` is only the dashboard fallback if that window cannot open. Do not relaunch the team. |
-| Daemon restarted but tmux survived | Re-read `rig status` and the existing queue; a daemon restart is not a fresh project. |
-| Host reboot lost tmux sessions | Open `rig`, start the daemon if needed (press **S** if it opens on the work views), and select the existing rig and seats. Resume is the default; a fresh conversation needs a separate decision. |
-| Launch reports no usable snapshot | Inspect the existing rig and retained project files, then follow the same-seat recovery below. |
+| Shared terminal is absent | Inspect the existing kernel binding and recovery state; use standalone `SoftwareTeam tui` while resolving it. |
+| Viewing terminal was closed | Open the conversations again with `SoftwareTeam terminal open saved:kernel --window`; `SoftwareTeam tui --shared` is only the dashboard fallback if that window cannot open. Do not relaunch the team. |
+| Daemon restarted but tmux survived | Re-read `SoftwareTeam status` and the existing queue; a daemon restart is not a fresh project. |
+| Host reboot lost tmux sessions | Open `SoftwareTeam`, start the daemon if needed (press **S** if it opens on the work views), and select the existing SoftwareTeam and seats. Resume is the default; a fresh conversation needs a separate decision. |
+| Launch reports no usable snapshot | Inspect the existing SoftwareTeam and retained project files, then follow the same-seat recovery below. |
 | Work is waiting on a prompt or decision | Read the row, transition and named prompt; preserve the obligation until the missing decision arrives. |
 
 **When the kernel's seats all fail at the first start.** A report on Oracle Linux 10
 ([#980](https://github.com/mvschwarz/openrig/issues/980)) traced this to the distribution's packaged tmux, whose
-`tmux -V` prints `next-3.4`: its server exited on every `capture-pane -p`, also outside OpenRig. To check your tmux on
+`tmux -V` prints `next-3.4`: its server exited on every `capture-pane -p`, also outside SoftwareTeam. To check your tmux on
 a throwaway socket, without touching your own sessions:
 
 ```sh
-tmux -L "openrig-check-$$" -f /dev/null new-session -d -s check
-tmux -L "openrig-check-$$" capture-pane -p -t check >/dev/null && echo "capture-pane works"
-tmux -L "openrig-check-$$" kill-server
+tmux -L "softwareteam-check-$$" -f /dev/null new-session -d -s check
+tmux -L "softwareteam-check-$$" capture-pane -p -t check >/dev/null && echo "capture-pane works"
+tmux -L "softwareteam-check-$$" kill-server
 ```
 
 If the second command fails because the server exited, put a tmux that passes this check first on your `PATH`; the
@@ -616,19 +600,19 @@ reporter built tmux 3.5a into `/usr/local/bin`. Then, from a shell where `tmux -
 and start the failed seats again, as the reporter did:
 
 ```sh
-rig daemon stop
-rig start --last
-rig ps --nodes --rig kernel --full   # the failed seats show "failed" under STARTUP
-rig up kernel --existing --fresh <failed seats> --yes
+SoftwareTeam daemon stop
+SoftwareTeam start --last
+SoftwareTeam ps --nodes --software-team kernel --full   # the failed seats show "failed" under STARTUP
+SoftwareTeam up kernel --existing --fresh <failed seats> --yes
 ```
 
 This recovery is for the case the reporter hit: the kernel's seats failed and none of them is still running.
-`rig up kernel --existing` refuses a kernel that still has a live session. Name the failed seats by their logical
+`SoftwareTeam up kernel --existing` refuses a kernel that still has a live session. Name the failed seats by their logical
 IDs, for example `advisor.lead operator.agent operator.human queue.worker` when all four failed. `--fresh` starts a
 new conversation for each seat you name. Seats you don't name follow their normal recovery policy and may remain
-awaiting a decision if their old conversation can't be resumed. A later `rig daemon start` doesn't retry the failed
-seats by itself: once a kernel exists, startup skips the built-in kernel boot, and `rig status` then reads
-`Kernel: skipped` whatever its seats' state, so check `rig ps --nodes --rig kernel --full`.
+awaiting a decision if their old conversation can't be resumed. A later `SoftwareTeam daemon start` doesn't retry the failed
+seats by itself: once a kernel exists, startup skips the built-in kernel boot, and `SoftwareTeam status` then reads
+`Kernel: skipped` whatever its seats' state, so check `SoftwareTeam ps --nodes --software-team kernel --full`.
 
 If a snapshot is unavailable, the startup view checks the selected seat's
 retained startup source and authoritative occupant relation. It reports a
@@ -636,22 +620,22 @@ missing or ambiguous source instead of selecting an arbitrary historical row.
 Repair the named source, retry, or leave the seat stopped. Check the retained
 queue, project notes and observed result before continuing work.
 
-`rig setup` prints the short form of this path after ready, incomplete and dry-run
+`SoftwareTeam setup` prints the short form of this path after ready, incomplete and dry-run
 results; JSON output includes it as `nextSteps`. This guidance does not mean the
 kernel is ready: retain any named failures, check the actual seat state, then
-offer `rig terminal open saved:kernel --window`. If the person chooses a manual
+offer `SoftwareTeam terminal open saved:kernel --window`. If the person chooses a manual
 attachment after a failure, derive the exact command from the current operator
 binding [above](#talk-to-the-operator-in-any-terminal); not every failure prints
 one. Hand the goal and project folder to the ready
-operator rather than implementing the project during installation. `rig status`
-points back here while no rigs are registered.
+operator rather than implementing the project during installation. `SoftwareTeam status`
+points back here while no SoftwareTeams are registered.
 
 ### Use the startup and work TUI
 
-Type `rig` in an ordinary terminal to open the startup and work TUI. It shows
+Type `SoftwareTeam` in an ordinary terminal to open the startup and work TUI. It shows
 the daemon address; **d** expands the selected instance path and diagnostics.
 If the daemon is stopped, press Enter
-to start that daemon, then choose the rigs and seats you want. Kernel is
+to start that daemon, then choose the SoftwareTeams and seats you want. Kernel is
 recommended first; selecting its operator does not start every kernel seat.
 The same view is available with **S** from ordinary TUI work.
 **?** opens Help even while connection checks are pending. **w** skips startup;
@@ -677,59 +661,59 @@ but does not resume that history. Authentication or runtime failures require
 repair of that prerequisite. **o** opens the existing native terminal here; detach
 to return (tmux defaults to Ctrl-b, then d). Decide native trust/auth prompts
 there. If a fresh start paused before context delivery, **c** finishes that
-delivery to the same occupant (from a shell, `rig seat continue <seat>` does the
+delivery to the same occupant (from a shell, `SoftwareTeam seat continue <seat>` does the
 same). **r** reads actual state again; **d** expands details.
 
-## Kernel framing (what `rig setup` does and does not do)
+## Kernel framing (what `SoftwareTeam setup` does and does not do)
 
 Explicit CLI daemon startup retains its automatic kernel behavior. The TUI
 starts the daemon with kernel auto-boot disabled so the user can select seats:
 
-- `rig setup` installs/verifies the runtime; it does not start the daemon or the
+- `SoftwareTeam setup` installs/verifies the runtime; it does not start the daemon or the
   kernel.
-- Starting the daemon (`rig daemon start`, or implicitly via `rig up` or `rig context add`) is what
-  boots the kernel rig in the background.
-- Starting it from bare `rig` prepares no agents automatically. The TUI offers
+- Starting the daemon (`SoftwareTeam daemon start`, or implicitly via `SoftwareTeam up` or `SoftwareTeam context add`) is what
+  boots the kernel SoftwareTeam in the background.
+- Starting it from bare `SoftwareTeam` prepares no agents automatically. The TUI offers
   kernel setup and individual seat selection after connecting.
 - **Kernel readiness is a distinct signal from daemon health.** The daemon's HTTP
   health binds early; the kernel can still be booting or a kernel agent can be
-  unhealthy while the daemon is up. `rig status` surfaces kernel readiness
-  separately (via `/api/kernel/status`); `rig daemon start --wait-for-kernel`
+  unhealthy while the daemon is up. `SoftwareTeam status` surfaces kernel readiness
+  separately (via `/api/kernel/status`); `SoftwareTeam daemon start --wait-for-kernel`
   polls it.
 
 ## The scope <-> workflow bridge
 
 Two related primitives, often confused by new operators:
 
-- **`rig scope`** manages **durable, on-disk artifacts** - missions and slices
+- **`SoftwareTeam scope`** manages **durable, on-disk artifacts** - missions and slices
   (markdown/YAML files in your workspace). These are the persistent record of
   *what work exists*.
-- **`rig workflow`** manages a **runtime instance** - when you
-  `rig workflow instantiate <name>`, the daemon creates a workflow instance plus
+- **`SoftwareTeam workflow`** manages a **runtime instance** - when you
+  `SoftwareTeam workflow instantiate <name>`, the daemon creates a workflow instance plus
   an **entry qitem** that routes the first step to an owner. This is the live
   coordination of *who does the next step*.
 
 Scope files retain what the work is; workflow instances and their queue packets
 retain who acts next. Creating or editing a mission does not start work. You can
-instantiate a named workflow with `rig workflow instantiate <name> --root-objective <text> --created-by <session>` (both options are needed), or explicitly
-inspect an authored lifecycle with `rig workflow compile` and create its runtime
-with `rig workflow instantiate-lifecycle`. Compilation alone does not start work.
-[OpenRig Software Factory](../../packages/daemon/specs/agents/shared/skills/core/openrig-software-factory/SKILL.md)
+instantiate a named workflow with `SoftwareTeam workflow instantiate <name> --root-objective <text> --created-by <session>` (both options are needed), or explicitly
+inspect an authored lifecycle with `SoftwareTeam workflow compile` and create its runtime
+with `SoftwareTeam workflow instantiate-lifecycle`. Compilation alone does not start work.
+[SoftwareTeam Software Factory](../../packages/daemon/specs/agents/shared/skills/core/softwareteam-software-factory/SKILL.md)
 shows a small reviewed example and how to retain custody through a genuine wait.
 
 ## Have your agent configure permissions
 
 For a team with no permission policy, your agent recommends keeping the
-[team default](rig-spec.md#team-launch-defaults), unless you already made an
+[team default](software-team-spec.md#team-launch-defaults), unless you already made an
 explicit choice for these harnesses and this scope. It offers additional
 remembered allowances only if you want them:
 
-> Remember these selected OpenRig commands in your native settings for this
+> Remember these selected SoftwareTeam commands in your native settings for this
 > project? This is separate from the team launch default; stricter rules and
 > Claude lifecycle asks remain. **Yes / No — keep the team default**
 
-A remembered allowance can cover the whole `rig` family, but on Claude team
-seats lifecycle commands such as `rig up` and `rig down` still ask. It is not
+A remembered allowance can cover the whole `SoftwareTeam` family, but on Claude team
+seats lifecycle commands such as `SoftwareTeam up` and `SoftwareTeam down` still ask. It is not
 global YOLO or permission to invent work. The scope is your personal settings
 for this project unless you explicitly choose user-wide sessions, which can
 affect your other projects.
@@ -743,7 +727,7 @@ managed restriction is reported; it is not permission to grant broader access.
 
 The agent remembers an explicit choice, scope and exact additions in existing
 onboarding context, so setup does not ask again. You do not need to approve each
-routine edit separately. To undo, say **“Undo the OpenRig command allowances
+routine edit separately. To undo, say **“Undo the SoftwareTeam command allowances
 added by this setup; keep my other rules.”** The agent removes only its recorded
 additions, preserves earlier rules and later edits, and verifies reloading.
 Other pre-existing allowances may still permit commands after this undo.
@@ -751,14 +735,14 @@ Other pre-existing allowances may still permit commands after this undo.
 Use the maintained **Applying a permission policy** procedure:
 
 ```sh
-rig context get skills/applying-a-permission-policy/SKILL.md
+SoftwareTeam context get skills/applying-a-permission-policy/SKILL.md
 ```
 
-In a source checkout, read [its source](../../packages/daemon/assets/plugins/openrig-core/skills/applying-a-permission-policy/SKILL.md).
+In a source checkout, read [its source](../../packages/daemon/assets/plugins/softwareteam-core/skills/applying-a-permission-policy/SKILL.md).
 In an npm installation, the same file is under
-`@openrig/cli/daemon/assets/plugins/openrig-core/skills/applying-a-permission-policy/SKILL.md`
+`@softwareteam/cli/daemon/assets/plugins/softwareteam-core/skills/applying-a-permission-policy/SKILL.md`
 below the matching `npm root -g` or local `npm root`. Use the version supplying
-your `rig` executable. It covers Codex/Claude command rules, actual config roots,
+your `SoftwareTeam` executable. It covers Codex/Claude command rules, actual config roots,
 preserving restrictions and verifying the target conversation. A missing guide or
 unsupported native version is a reported gap, not permission to silently bypass.
 
@@ -773,11 +757,11 @@ another confirmation. Use it only for work and an environment you deliberately
 trust; it does not supply missing credentials or override organization policy.
 
 Make changes in a **user-owned spec before its first launch**. To customize the
-starter, run `rig specs show starter --kind rig` and find its `Path`, ending
-in `specs/rigs/launch/starter/rig.yaml`. Copy that whole `specs` directory to
-`./openrig-specs` in your repository, keeping its layout: copying only `rig.yaml`
+starter, run `SoftwareTeam specs show starter --kind SoftwareTeam` and find its `Path`, ending
+in `specs/SoftwareTeams/launch/starter/software-team.yaml`. Copy that whole `specs` directory to
+`./softwareteam-specs` in your repository, keeping its layout: copying only `software-team.yaml`
 breaks its relative agent and culture references. Leave the installed copy alone.
-The examples below use `./openrig-specs/rigs/launch/starter/rig.yaml`. If you
+The examples below use `./softwareteam-specs/SoftwareTeams/launch/starter/software-team.yaml`. If you
 already have a running `starter`, follow the existing-session advice below
 before changing it; this is not a live permission switch.
 
@@ -792,7 +776,7 @@ sandbox_mode = "danger-full-access"
 approval_policy = "never"
 ```
 
-In the copied rig, add this field to **each Codex member** that should use it (in
+In the copied SoftwareTeam, add this field to **each Codex member** that should use it (in
 starter, that's `dev.review`); keep the member's existing `profile: default`:
 
 ```yaml
@@ -800,26 +784,26 @@ codex_config_profile: starter-permissive
 ```
 
 Leave `permission_policy` absent or set it to `none`, with no member-level YOLO
-override. OpenRig then passes `-p starter-permissive` instead of its default
+override. SoftwareTeam then passes `-p starter-permissive` instead of its default
 `-s workspace-write`, so the native profile supplies both settings. Higher-priority
 native project configuration or managed requirements can still change/refuse the
 result. Inspect native `/status` before assigning work.
 
 ```sh
-rig policy current --spec ./openrig-specs/rigs/launch/starter/rig.yaml
-rig up ./openrig-specs/rigs/launch/starter/rig.yaml --cwd . --plan
-rig up ./openrig-specs/rigs/launch/starter/rig.yaml --cwd .
+SoftwareTeam policy current --spec ./softwareteam-specs/SoftwareTeams/launch/starter/software-team.yaml
+SoftwareTeam up ./softwareteam-specs/SoftwareTeams/launch/starter/software-team.yaml --cwd . --plan
+SoftwareTeam up ./softwareteam-specs/SoftwareTeams/launch/starter/software-team.yaml --cwd .
 ```
 
-OpenRig's `permission_policy: builtin:yolo` setting selects
+SoftwareTeam's `permission_policy: builtin:yolo` setting selects
 `-s danger-full-access -a never` on fresh, resume and fork launches, replacing
 the named-profile argument. The profile recipe above remains useful when you
 want to maintain those choices in native configuration. The legacy
-environment-only `OPENRIG_YOLO=1` path remains sandbox-only when no resolved
-policy is present. A standalone `codex --yolo` command is not an OpenRig setting.
+environment-only `SOFTWARETEAM_YOLO=1` path remains sandbox-only when no resolved
+policy is present. A standalone `codex --yolo` command is not an SoftwareTeam setting.
 At full access, Codex can show its full-access and GPT-5.1 migration notices at
-first launch. When OpenRig itself selects full bypass for the seat (`builtin:yolo`,
-a `full_bypass` flag policy, or an explicit seat `full_bypass`), `rig up <spec> --non-interruptive` hides them
+first launch. When SoftwareTeam itself selects full bypass for the seat (`builtin:yolo`,
+a `full_bypass` flag policy, or an explicit seat `full_bypass`), `SoftwareTeam up <spec> --non-interruptive` hides them
 with per-launch `-c` overrides (see [non-interruptive mode](non-interruptive-mode.md)).
 Full access chosen inside a native Codex profile, with `permission_policy` absent or
 `none`, doesn't qualify.
@@ -840,14 +824,14 @@ Permission mode is the native execution choice; work posture is project guidance
 For an existing managed seat, select future-launch permissions explicitly:
 
 ```sh
-rig seat set-permissions dev-build@starter --mode full_bypass --reason "Operator selected broader access"
-rig seat status dev-build@starter --json
+SoftwareTeam seat set-permissions dev-build@starter --mode full_bypass --reason "Operator selected broader access"
+SoftwareTeam seat status dev-build@starter --json
 ```
 
 This records the actor, reason and old/new choice on that seat. It does not
 relaunch it, alter native history, change sibling seats, or edit permission
 rules/hooks. A later lifecycle action remains a separate decision. The explicit
-seat choice overrides the inherited member/rig policy; `--mode inherit` clears
+seat choice overrides the inherited member/SoftwareTeam policy; `--mode inherit` clears
 it without changing that inherited policy. `floor` selects the existing normal
 launch path (including a Codex named profile when configured); it does not
 rewrite a native profile or force its approval settings. An explicit `floor`
@@ -856,7 +840,7 @@ also replaces any team or kernel launch default with the plain floor flags;
 
 Codex and Claude accept `floor` and `full_bypass`. Additional Claude native modes,
 including `auto`, require support advertised by the managed executable's help.
-OpenRig resolves the first executable on its managed launch PATH at the seat's
+SoftwareTeam resolves the first executable on its managed launch PATH at the seat's
 absolute working directory, then uses that exact path for discovery and launch.
 It does not use interactive shell aliases or a shell's modified PATH. Relative
 PATH entries and a relative `CLAUDE_CONFIG_DIR` resolve from the seat directory.
@@ -882,83 +866,83 @@ distinguishes desired settings, generation-bound
 launch arguments and an unverified native effect. Inspect the native session
 after an authorized launch before claiming its actual permission behavior.
 
-The rig-level verbs are `rig policy permissions list`, `show`, `current` and
-`apply`. Existing `rig policy list/show/current/apply` remain compatibility
+The software-team-level verbs are `SoftwareTeam policy permissions list`, `show`, `current` and
+`apply`. Existing `SoftwareTeam policy list/show/current/apply` remain compatibility
 aliases with the same JSON and exit behavior. Pi resource trust and the per-seat
 typing guard are separate controls.
 
 ### Claude Code: a different launch flag
 
 In the shipped `starter`, `dev-build` runs Claude Code. For a **Claude Code** seat,
-OpenRig normally passes `--permission-mode acceptEdits`: edits can proceed, while
+SoftwareTeam normally passes `--permission-mode acceptEdits`: edits can proceed, while
 other actions follow native rules and prompts. For a seat with no permission
 policy or per-seat choice it also passes the per-launch team default (`--settings` allowing ordinary
-`rig` commands, project reads and common tests, with a session hook asking for
-lifecycle commands while allowing literal help forms such as `rig down --help`);
-personal and project rules still apply. Nothing is written to your settings files. To explicitly select the bypass launch flag for that rig:
+`SoftwareTeam` commands, project reads and common tests, with a session hook asking for
+lifecycle commands while allowing literal help forms such as `SoftwareTeam down --help`);
+personal and project rules still apply. Nothing is written to your settings files. To explicitly select the bypass launch flag for that SoftwareTeam:
 
 ```sh
-rig policy apply yolo --spec ./my-claude-rig/rig.yaml
-rig policy current --spec ./my-claude-rig/rig.yaml
+SoftwareTeam policy apply yolo --spec ./my-claude-SoftwareTeam/software-team.yaml
+SoftwareTeam policy current --spec ./my-claude-SoftwareTeam/software-team.yaml
 ```
 
 This records `permission_policy: builtin:yolo`; the next managed launch passes
 `--dangerously-skip-permissions`. Member-level policies take precedence.
 
 On a machine where nobody has accepted it yet, Claude Code then shows its
-bypass-permissions warning in each new seat, and OpenRig reports the seat as
+bypass-permissions warning in each new seat, and SoftwareTeam reports the seat as
 needing attention without sending its startup context. Either accept the warning
 once beforehand (run `claude --dangerously-skip-permissions` in your repository,
 accept, then `/exit`; Claude Code remembers it), or accept it in the seat and run
-`rig seat continue <seat>`. Or launch with `rig up <spec> --non-interruptive`,
+`SoftwareTeam seat continue <seat>`. Or launch with `SoftwareTeam up <spec> --non-interruptive`,
 which accepts it with a launch flag and writes nothing to your settings; see
 [non-interruptive mode](non-interruptive-mode.md).
 
-`rig policy apply auto --spec ./my-claude-rig/rig.yaml` (also `rig setup --policy
-auto --spec ./my-claude-rig/rig.yaml`) records `builtin:auto` instead: Claude seats launch with
+`SoftwareTeam policy apply auto --spec ./my-claude-SoftwareTeam/software-team.yaml` (also `SoftwareTeam setup --policy
+auto --spec ./my-claude-SoftwareTeam/software-team.yaml`) records `builtin:auto` instead: Claude seats launch with
 `--permission-mode auto`, and Codex and Pi seats, which have no auto mode, launch
 at the floor. To return future launches to the team default, remove
 `permission_policy` from the spec along with any member-level bypass override.
-`rig policy apply none --spec ./my-claude-rig/rig.yaml` instead records plain
+`SoftwareTeam policy apply none --spec ./my-claude-SoftwareTeam/software-team.yaml` instead records plain
 `acceptEdits` without the team allowances. Native rules
 and managed restrictions still matter; this flag is not a promise about sandbox
 or account access. See [Claude permissions](https://code.claude.com/docs/en/permissions).
 
-**Already running:** changing a file or running `rig policy apply` does not revoke
-a live agent's permissions, and a spec edit does not rewrite a stored rig's policy
+**Already running:** changing a file or running `SoftwareTeam policy apply` does not revoke
+a live agent's permissions, and a spec edit does not rewrite a stored SoftwareTeam's policy
 on restore: restore and resume read each seat's stored policy. To change that
-for an existing seat, run `rig policy apply <name> --seat <seat> --reason <text>`,
+for an existing seat, run `SoftwareTeam policy apply <name> --seat <seat> --reason <text>`,
 adding `--operator <address>` outside a managed seat. Restore, resume and launches
 that read the seat's stored state then use it, unless an explicit native selection
-(`rig seat set-permissions`) takes precedence; the running process and the spec
-file are unchanged. `rig up <rig name>` uses it, while launching from a spec that
+(`SoftwareTeam seat set-permissions`) takes precedence; the running process and the spec
+file are unchanged. `SoftwareTeam up <SoftwareTeam name>` uses it, while launching from a spec that
 declares a policy replaces it with the spec's policy, which later restores then
 use. `--seat none` is an explicit floor for that seat, not "no policy", and it does
-not inherit the rig's policy. After `--seat`, a `rig launch --retry-startup-from`
+not inherit the SoftwareTeam's policy. After `--seat`, a `SoftwareTeam launch --retry-startup-from`
 file has to carry the new policy. Pause
 work and use the native permission controls for that conversation (current
 Codex and Claude CLIs expose `/permissions`); inspect the effective mode again.
 Keep the launch spec/profile consistent for subsequent launches. If the native
 version cannot apply the change in place, preserve the work and use the supported
 same-seat stop/resume path after checking its retained policy; do not erase the
-rig or start a duplicate to reset permissions. A resume can reapply the stored
+SoftwareTeam or start a duplicate to reset permissions. A resume can reapply the stored
 launch mode, so verify the native mode again before continuing work.
 
 ## Custom settings and precedence
 
-- **OpenRig:** member `permission_policy` overrides rig `permission_policy`.
+- **SoftwareTeam:** member `permission_policy` overrides SoftwareTeam `permission_policy`.
   Normal managed launches bind the default mode explicitly when neither is set;
-  exporting `OPENRIG_YOLO=1` in a client shell is not a reliable per-team recipe.
-  A custom policy file is relative to the declaring rig spec, with no absolute
+  exporting `SOFTWARETEAM_YOLO=1` in a client shell is not a reliable per-team recipe.
+  A custom policy file is relative to the declaring SoftwareTeam spec, with no absolute
   path or `..`. `surface: flag` selects a launch mode. Config-surface policies
   (`locked`, `standard`, `open`, or custom) describe intent: recording one does
   not translate and enforce its rules. Apply and inspect the actual native
-  settings separately. See [RigSpec policy references](rig-spec.md#attaching-a-permission-policy).
+  settings separately. See [SoftwareTeamSpec policy references](software-team-spec.md#attaching-a-permission-policy).
 - **Codex:** personal settings live in `~/.codex/config.toml` or `CODEX_HOME`;
   trusted project settings live in `.codex/config.toml`. Current precedence is
   CLI overrides, trusted project settings, selected profile, user settings,
   cloud defaults when supplied, `/etc/codex/config.toml` on Unix, then built-in
-  defaults, subject to managed requirements. OpenRig's explicit sandbox flag
+  defaults, subject to managed requirements. SoftwareTeam's explicit sandbox flag
   wins over a file's `sandbox_mode`; use `codex_config_profile` for a custom
   sandbox instead. For workspace edits with network access while retaining
   approvals, use a named profile with `sandbox_mode = "workspace-write"`,
@@ -970,12 +954,12 @@ launch mode, so verify the native mode again before continuing work.
   `.claude/settings.json`, or personal project `.claude/settings.local.json`.
   Managed settings precede launch flags, then project-local, project-shared and
   user settings. Permission-rule lists combine; a higher-level allow is not a
-  way to defeat a deny. OpenRig's `acceptEdits` launch flag overrides a file's
+  way to defeat a deny. SoftwareTeam's `acceptEdits` launch flag overrides a file's
   `permissions.defaultMode`; selected runtime resources may also merge into
   project-local settings. See [Claude settings and precedence](https://code.claude.com/docs/en/settings)
-  and [OpenRig's runtime config disclosure](agent-startup-guide.md#runtime-config-disclosure).
+  and [SoftwareTeam's runtime config disclosure](agent-startup-guide.md#runtime-config-disclosure).
 
 These recipes do not establish every provider/version/config combination.
 Check the installed version and effective settings. Newer permission-profile or
-automatic review features are provider choices, not implicit OpenRig capabilities.
+automatic review features are provider choices, not implicit SoftwareTeam capabilities.
 Selecting rules or a broader mode does not change the shipped defaults.

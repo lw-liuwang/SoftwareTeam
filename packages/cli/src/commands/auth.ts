@@ -1,5 +1,5 @@
-// OPR.0.4.1.29 — `rig auth <verb> [--runtime codex]`: CLI-LOCAL / daemon-free auth-profile management.
-// Capability-grouped with runtime as an orthogonal flag (NOT `rig codex-auth`, NOT a `rig codex` noun)
+// OPR.0.4.1.29 — `softwareTeam auth <verb> [--runtime codex]`: CLI-LOCAL / daemon-free auth-profile management.
+// Capability-grouped with runtime as an orthogonal flag (NOT `softwareTeam codex-auth`, NOT a `softwareTeam codex` noun)
 // per conventions/cli-read-command-grammar. Every line printed here is built ONLY from the structured,
 // non-secret result fields of the secret-safe lib — a token value can never reach stdout/stderr.
 import { Command } from "commander";
@@ -28,7 +28,7 @@ export interface AuthCommandDeps {
 }
 
 function fail(reason: string): void {
-  console.error(`rig auth: ${reason}`);
+  console.error(`SoftwareTeam auth: ${reason}`);
   process.exitCode = 1;
 }
 
@@ -124,7 +124,7 @@ export function authCommand(depsOverride?: AuthCommandDeps): Command {
       const r = authSeatShow(paths(), seat);
       if (!r.ok) return fail(r.reason);
       console.log(`seat: ${r.row.seat}`);
-      console.log(`rig: ${r.row.rig}`);
+      console.log(`softwareTeam: ${r.row.softwareTeam}`);
       console.log(`runtime: ${r.row.runtime}`);
       console.log(`cwd: ${r.row.cwd}`);
       console.log(`auth_profile: ${r.row.authProfile}`);
@@ -135,14 +135,14 @@ export function authCommand(depsOverride?: AuthCommandDeps): Command {
   withRuntime(seats.command("set"))
     .description("Upsert a seat -> profile metadata row.")
     .requiredOption("--seat <seat>", "Seat session name")
-    .requiredOption("--rig <rig>", "Rig name")
+    .requiredOption("--software-team <softwareTeam>", "SoftwareTeam name")
     .option("--cwd <cwd>", "Working dir (metadata)")
     .option("--profile <profile>", "Auth profile label (or omit for unknown)")
-    .action((opts: { runtime: string; seat?: string; rig?: string; cwd?: string; profile?: string }) => {
+    .action((opts: { runtime: string; seat?: string; softwareTeam?: string; cwd?: string; profile?: string }) => {
       if (!ensureRuntime(opts.runtime)) return;
       const r = authSeatSet(
         paths(),
-        { seat: opts.seat ?? "", rig: opts.rig ?? "", runtime: "codex", cwd: opts.cwd, authProfile: opts.profile },
+        { seat: opts.seat ?? "", softwareTeam: opts.softwareTeam ?? "", runtime: "codex", cwd: opts.cwd, authProfile: opts.profile },
         depsOverride?.now,
       );
       if (!r.ok) return fail(r.reason);

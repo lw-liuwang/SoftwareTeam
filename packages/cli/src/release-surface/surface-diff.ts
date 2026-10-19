@@ -69,7 +69,7 @@ export function resolveRepoRoot(cwd: string): string {
     throw new SurfaceParserError({
       fact: `Not inside a git repository (cwd: ${cwd}).`,
       consequence: "The surface parser reads CLI sources at two git refs; without a repo it cannot run.",
-      action: "Run from inside the openrig git repository, or pass an explicit repoRoot.",
+      action: "Run from inside the softwareteam git repository, or pass an explicit repoRoot.",
     });
   }
 }

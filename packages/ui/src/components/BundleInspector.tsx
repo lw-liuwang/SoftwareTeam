@@ -27,7 +27,7 @@ export function BundleInspector() {
           type="text"
           value={bundlePath}
           onChange={(e) => setBundlePath(e.target.value)}
-          placeholder="/path/to/my-rig.rigbundle"
+          placeholder="/path/to/my-software-team.softwareteambundle"
           className="w-full bg-transparent border-b border-foreground/20 py-spacing-2 text-body-md font-mono focus:outline-none focus:border-primary"
         />
         <Button variant="tactical" onClick={handleInspect} disabled={!bundlePath.trim() || inspectMutation.isPending} className="mt-spacing-3" data-testid="inspect-btn">
@@ -52,7 +52,7 @@ export function BundleInspector() {
               </span>
             </div>
             <div className="text-label-sm font-mono text-foreground-muted-on-dark">v{result.manifest.version}</div>
-            <div className="text-label-sm font-mono text-foreground-muted-on-dark">Spec: {result.manifest.rigSpec}</div>
+            <div className="text-label-sm font-mono text-foreground-muted-on-dark">Spec: {result.manifest.softwareTeamSpec}</div>
             <div className="mt-spacing-2 flex gap-spacing-3">
               <span className={cn("text-label-sm", result.digestValid ? "text-success" : "text-destructive")}>
                 DIGEST: {result.digestValid ? "VALID" : "INVALID"}
@@ -108,11 +108,11 @@ export function BundleInspector() {
                     <span className="text-foreground-muted-on-dark">Author: </span>{result.manifest.provenance.authorSession}
                   </div>
                 )}
-                {result.manifest.provenance.sourceRigName && (
-                  <div className="text-label-sm font-mono" data-testid="provenance-sourceRigName">
-                    <span className="text-foreground-muted-on-dark">Rig: </span>{result.manifest.provenance.sourceRigName}
-                    {result.manifest.provenance.sourceRigId && (
-                      <span className="text-foreground-muted-on-dark"> ({result.manifest.provenance.sourceRigId})</span>
+                {result.manifest.provenance.sourceSoftwareTeamName && (
+                  <div className="text-label-sm font-mono" data-testid="provenance-sourceSoftwareTeamName">
+                    <span className="text-foreground-muted-on-dark">SoftwareTeam: </span>{result.manifest.provenance.sourceSoftwareTeamName}
+                    {result.manifest.provenance.sourceSoftwareTeamId && (
+                      <span className="text-foreground-muted-on-dark"> ({result.manifest.provenance.sourceSoftwareTeamId})</span>
                     )}
                   </div>
                 )}

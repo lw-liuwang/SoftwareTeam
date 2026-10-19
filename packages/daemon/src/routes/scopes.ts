@@ -42,7 +42,7 @@ export function scopesRoutes(): Hono {
     if (selected && mission) projectMission(selected, mission);
     const wantDetail = c.req.query("detail") === "1";
     const readPolicy = createProofPolicyRead();
-    // A selected catalog project's own root bounds readiness, as in `rig proof` (never an ancestor's project.yaml).
+    // A selected catalog project's own root bounds readiness, as in `softwareTeam proof` (never an ancestor's project.yaml).
     const bound = selected?.root;
     const detailFor = (missionName: string, dirName: string): (SliceScopeDetail & { narrative: string | null; error?: string }) | null => {
       let sourcePath: string | undefined;

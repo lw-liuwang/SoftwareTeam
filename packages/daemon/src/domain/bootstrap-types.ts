@@ -7,7 +7,7 @@ export type ActionKind =
   | "requirement_check"
   | "external_install"
   | "package_install"
-  | "rig_import"
+  | "software_team_import"
   | "launch";
 
 /** Bootstrap action status lifecycle */
@@ -16,13 +16,13 @@ export type ActionStatus = "planned" | "approved" | "skipped" | "running" | "com
 /** Runtime verification status */
 export type RuntimeStatus = "verified" | "not_found" | "degraded" | "error";
 
-/** A bootstrap run — one execution of `rig bootstrap <spec>` */
+/** A bootstrap run — one execution of `softwareTeam bootstrap <spec>` */
 export interface BootstrapRun {
   id: string;
   sourceKind: string;
   sourceRef: string;
   status: BootstrapStatus;
-  rigId: string | null;
+  softwareTeamId: string | null;
   createdAt: string;
   appliedAt: string | null;
 }

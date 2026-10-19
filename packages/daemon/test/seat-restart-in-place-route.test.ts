@@ -14,8 +14,8 @@ describe("POST /api/seat/restart{,-plan,-verify}/:seatRef", () => {
     const setup = createTestApp(db, adapters ? { adapters: adapters as never } : undefined);
     // The shared mock predates the classified probe; this seat's session is present.
     (setup.tmuxAdapter as unknown as { probeSession: () => Promise<{ state: "present" }> }).probeSession = async () => ({ state: "present" });
-    const rig = setup.rigRepo.createRig("r");
-    const node = setup.rigRepo.addNode(rig.id, "dev.codex", { runtime, cwd: "/work" });
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("r");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.codex", { runtime, cwd: "/work" });
     const session = setup.sessionRegistry.registerSession(node.id, "dev-codex@r");
     setup.sessionRegistry.updateStatus(session.id, "running");
     setup.sessionRegistry.updateBinding(node.id, { attachmentType: "tmux", tmuxSession: "dev-codex@r", tmuxPane: "%1" });

@@ -1,7 +1,7 @@
 // 51-04 testbed image — the reproducible MANIFEST generator (plan §1 + §3).
 //
 // The manifest is the durable identity the 51-02 runner + 51-05 matrix cite per run
-// (census-receipt discipline): base image digest, node version, the openrig sha the image
+// (census-receipt discipline): base image digest, node version, the softwareteam sha the image
 // was built from, and the stub-asset hash. REBUILD CONTRACT: same inputs => byte-identical
 // manifest + digest, so runs are comparable across image versions. The build verb
 // (scripts/build-testbed-image.sh class) computes these inputs from the tree + the docker
@@ -23,14 +23,14 @@ export class TestbedManifestError extends Error {
   }
 }
 
-/** The image name prefix (plan §1: `openrig-testbed:<git-sha>`). */
-export const TESTBED_IMAGE_NAME = "openrig-testbed";
+/** The image name prefix (plan §1: `softwareteam-testbed:<git-sha>`). */
+export const TESTBED_IMAGE_NAME = "softwareteam-testbed";
 
 /** The manifest schema id — bumped only on a breaking manifest-shape change. */
-export const TESTBED_MANIFEST_SCHEMA = "openrig-testbed-manifest/v1";
+export const TESTBED_MANIFEST_SCHEMA = "softwareteam-testbed-manifest/v1";
 
 /** The identity fields that define a testbed image build (all required, all non-empty). */
-const IDENTITY_FIELDS = ["baseDigest", "nodeVersion", "openrigSha", "stubAssetsHash", "gitSha"];
+const IDENTITY_FIELDS = ["baseDigest", "nodeVersion", "softwareteamSha", "stubAssetsHash", "gitSha"];
 
 /** Deterministic JSON with recursively sorted keys — the byte-stable form the digest is
  *  taken over (two objects with the same entries serialize identically regardless of key

@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { validatePreRestore } from "../src/domain/restore-preconditions.js";
 import { RestoreCheckService, type RestoreCheckDeps, type NodeInventoryEntry } from "../src/domain/restore-check-service.js";
-import type { SnapshotData, RigServicesRecord } from "../src/domain/types.js";
+import type { SnapshotData, SoftwareTeamServicesRecord } from "../src/domain/types.js";
 
 function data(): SnapshotData {
   return {
-    rig: { id: "rig-1", name: "test-rig", createdAt: "", updatedAt: "" },
+    softwareTeam: { id: "software-team-1", name: "test-software-team", createdAt: "", updatedAt: "" },
     nodes: [{ id: "node-1", logicalId: "seat", cwd: "/project" }],
     sessions: [], edges: [], checkpoints: {},
     nodeStartupContext: { "node-1": {
@@ -15,21 +15,21 @@ function data(): SnapshotData {
   } as SnapshotData;
 }
 
-function services(): RigServicesRecord {
-  return { rigId: "rig-1", kind: "compose", specJson: "{}", rigRoot: "/services", composeFile: "/services/compose.yaml", projectName: "test", latestReceiptJson: null, createdAt: "", updatedAt: "" };
+function services(): SoftwareTeamServicesRecord {
+  return { softwareTeamId: "software-team-1", kind: "compose", specJson: "{}", softwareTeamRoot: "/services", composeFile: "/services/compose.yaml", projectName: "test", latestReceiptJson: null, createdAt: "", updatedAt: "" };
 }
 
-function node(rigId = "rig-1", running = false): NodeInventoryEntry {
+function node(softwareTeamId = "software-team-1", running = false): NodeInventoryEntry {
   return {
-    nodeId: "node-1", logicalId: "seat", rigId, rigName: rigId,
-    podId: null, canonicalSessionName: `seat@${rigId}`, nodeKind: "infrastructure", runtime: "terminal",
+    nodeId: "node-1", logicalId: "seat", softwareTeamId, softwareTeamName: softwareTeamId,
+    podId: null, canonicalSessionName: `seat@${softwareTeamId}`, nodeKind: "infrastructure", runtime: "terminal",
     sessionStatus: running ? "running" : "exited", startupStatus: "ready", tmuxAttachCommand: null, latestError: null,
   };
 }
 
 function deps(overrides: Partial<RestoreCheckDeps> = {}): RestoreCheckDeps {
   return {
-    listRigs: () => [{ rigId: "rig-1", name: "test-rig" }],
+    listSoftwareTeams: () => [{ softwareTeamId: "software-team-1", name: "test-software-team" }],
     getNodeInventory: () => [node()],
     getStartupContext: () => ({ status: "ok", runtime: "terminal", resolvedStartupFiles: [], projectionEntries: [] }),
     hasSnapshot: () => true,
@@ -43,7 +43,7 @@ function deps(overrides: Partial<RestoreCheckDeps> = {}): RestoreCheckDeps {
 
 const cases = [
   ["/owner", "startup_owner_root_missing", "Required startup file owner root is missing for seat: /owner", "Restore the agent/source root or capture a new snapshot with reachable startup context."],
-  ["/services", "service_rig_root_missing", "Service rig root is missing: /services", "Restore the service rig root or update the services record before retrying restore."],
+  ["/services", "service_software_team_root_missing", "Service SoftwareTeam root is missing: /services", "Restore the service SoftwareTeam root or update the services record before retrying restore."],
   ["/services/compose.yaml", "service_compose_file_missing", "Service compose file is missing: /services/compose.yaml", "Restore the compose file or update the services record before retrying restore."],
 ] as const;
 
@@ -54,7 +54,7 @@ describe("shared restore preconditions", () => {
       blockers: [{ code, severity: "critical", message, remediation, path: missing,
         ...(code === "startup_owner_root_missing"
           ? { nodeId: "node-1", logicalId: "seat", target: "notes.md" }
-          : { target: code === "service_rig_root_missing" ? "services.rigRoot" : "services.composeFile" }),
+          : { target: code === "service_software_team_root_missing" ? "services.softwareTeamRoot" : "services.composeFile" }),
       }], warnings: [],
     });
   });
@@ -64,7 +64,7 @@ describe("shared restore preconditions", () => {
     snapshot.nodeStartupContext!["node-1"]!.resolvedStartupFiles.push({ path: "optional.md", ownerRoot: "/optional", absolutePath: "/optional/file", required: false } as never);
     const result = validatePreRestore(snapshot, { fsOps: { exists: () => false }, servicesRecord: services() });
     expect(result.blockers.map((b) => b.code)).toEqual([
-      "startup_owner_root_missing", "required_startup_file_missing", "service_rig_root_missing", "service_compose_file_missing",
+      "startup_owner_root_missing", "required_startup_file_missing", "service_software_team_root_missing", "service_compose_file_missing",
     ]);
     expect(result.warnings).toEqual(["Restore pre-validation: optional startup file missing for seat: /optional/file"]);
   });
@@ -119,8 +119,8 @@ describe("shared restore preconditions", () => {
 describe("restore-check consumes the shared snapshot validation", () => {
   it.each(cases)("reports %s as red with the original message, remediation and snapshot", (missing, code, message, remediation) => {
     const result = new RestoreCheckService(deps({ exists: (path) => path !== missing })).check({ compact: true, noQueue: true, noHooks: true });
-    expect(result.checks.find((c) => c.check === "rig.test-rig.restore-preconditions")).toEqual({
-      check: "rig.test-rig.restore-preconditions", status: "red",
+    expect(result.checks.find((c) => c.check === "softwareTeam.test-software-team.restore-preconditions")).toEqual({
+      check: "softwareTeam.test-software-team.restore-preconditions", status: "red",
       evidence: `Snapshot chosen-snapshot: ${code}: ${message}`, remediation, remediationSafe: false,
     });
     expect(result.verdict).toBe("not_restorable");
@@ -140,37 +140,37 @@ describe("restore-check consumes the shared snapshot validation", () => {
   });
 
   it.each(["no usable current-occupant snapshot", "snapshot read failed"])("isolates unavailable inputs: %s", (reason) => {
-    const getRestoreInputs = vi.fn((rigId: string) => {
-      if (rigId === "rig-1") {
+    const getRestoreInputs = vi.fn((softwareTeamId: string) => {
+      if (softwareTeamId === "software-team-1") {
         if (reason === "snapshot read failed") throw new Error(reason);
         return { unavailable: reason };
       }
       return { snapshot: { id: "other-snapshot", kind: "manual", data: data() }, servicesRecord: null };
     });
     const result = new RestoreCheckService(deps({
-      listRigs: () => [{ rigId: "rig-1", name: "broken" }, { rigId: "rig-2", name: "healthy" }],
+      listSoftwareTeams: () => [{ softwareTeamId: "software-team-1", name: "broken" }, { softwareTeamId: "software-team-2", name: "healthy" }],
       getNodeInventory: (id) => [node(id)], getRestoreInputs,
     })).check({ noQueue: true, noHooks: true });
     expect(getRestoreInputs).toHaveBeenCalledTimes(2);
     expect(result.verdict).toBe("not_restorable");
-    expect(result.rigs.find((r) => r.rigId === "rig-1")?.status).toBe("unknown");
-    expect(result.rigs.find((r) => r.rigId === "rig-2")?.status).not.toBe("unknown");
+    expect(result.softwareTeams.find((r) => r.softwareTeamId === "software-team-1")?.status).toBe("unknown");
+    expect(result.softwareTeams.find((r) => r.softwareTeamId === "software-team-2")?.status).not.toBe("unknown");
     expect(result.recovery.unknown[0]?.reason).toContain(reason);
-    expect(result.recovery.actions.map((a) => a.rigId)).toEqual(["rig-2"]);
-    expect(result.checks.find((c) => c.check === "rig.healthy.restore-preconditions")?.status).toBe("green");
+    expect(result.recovery.actions.map((a) => a.softwareTeamId)).toEqual(["software-team-2"]);
+    expect(result.checks.find((c) => c.check === "softwareTeam.healthy.restore-preconditions")?.status).toBe("green");
   });
 
   it("skips added reads only for all-ready recovery polls, never an explicit check", () => {
     const getRestoreInputs = vi.fn(deps().getRestoreInputs);
-    const service = new RestoreCheckService(deps({ getRestoreInputs, getNodeInventory: () => [node("rig-1", true)] }));
+    const service = new RestoreCheckService(deps({ getRestoreInputs, getNodeInventory: () => [node("software-team-1", true)] }));
     expect(service.check({ recoveryOnly: true }).recovery.status).toBe("not_needed");
     expect(getRestoreInputs).not.toHaveBeenCalled();
     service.check({});
     expect(getRestoreInputs).toHaveBeenCalledTimes(1);
   });
 
-  it("validates mixed and empty rigs even in recovery-only mode", () => {
-    for (const nodes of [[], [node("rig-1", true), node("rig-1", false)]]) {
+  it("validates mixed and empty softwareTeams even in recovery-only mode", () => {
+    for (const nodes of [[], [node("software-team-1", true), node("software-team-1", false)]]) {
       const getRestoreInputs = vi.fn(deps().getRestoreInputs);
       new RestoreCheckService(deps({ getRestoreInputs, getNodeInventory: () => nodes })).check({ recoveryOnly: true });
       expect(getRestoreInputs).toHaveBeenCalledTimes(1);

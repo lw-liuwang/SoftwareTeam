@@ -13,10 +13,10 @@ export function prepareHerdrLaunchConfig(env: NodeJS.ProcessEnv, socketPath: str
   catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   const collapsed = !(Number.isSafeInteger(columns) && columns! >= 160);
   // Herdr shows its first-run tips over the view when `onboarding` is missing; the person's own
-  // first Herdr launch outside OpenRig still gets them.
+  // first Herdr launch outside SoftwareTeam still gets them.
   const bytes = `onboarding = false\n\n[ui]\nsidebar_start_collapsed = ${collapsed}\n`;
   const key = createHash("sha256").update(source).update("\0").update(socketPath).update(String(collapsed)).digest("hex").slice(0, 20);
-  const target = path.join(path.dirname(source), `.openrig-herdr-${key}.toml`);
+  const target = path.join(path.dirname(source), `.softwareteam-herdr-${key}.toml`);
   if (target === source) throw new Error("The private Herdr config must differ from the source config.");
   mkdirSync(path.dirname(source), { recursive: true, mode: 0o700 });
   const temporary = `${target}.${randomUUID()}.tmp`;

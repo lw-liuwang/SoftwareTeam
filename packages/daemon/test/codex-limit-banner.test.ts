@@ -12,7 +12,7 @@ import {
   latestHookWaitsOnPerson,
 } from "../src/domain/agent-activity-store.js";
 import { EventBus } from "../src/domain/event-bus.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { attachAgentActivity } from "../src/domain/node-inventory.js";
 import type { AgentActivity } from "../src/domain/types.js";
@@ -222,14 +222,14 @@ describe("recordCodexLimitBanner", () => {
     const recorded = recordCodexLimitBanner({
       store,
       resolveGeneration: () => "gen-1",
-      sessionName: "rec-1@rig",
+      sessionName: "rec-1@software-team",
       banner: { resetText: "4:14 AM", evidence: "■ ..." },
       now: () => T0,
     });
     expect(recorded).toBe(true);
     expect(store.recordHookEvent).toHaveBeenCalledWith({
       runtime: "codex",
-      sessionName: "rec-1@rig",
+      sessionName: "rec-1@software-team",
       hookEvent: "at_limit",
       subtype: "4:14 AM",
       generation: "gen-1",
@@ -241,7 +241,7 @@ describe("recordCodexLimitBanner", () => {
     const recorded = recordCodexLimitBanner({
       store,
       resolveGeneration: () => "gen-1",
-      sessionName: "rec-2@rig",
+      sessionName: "rec-2@software-team",
       banner: { resetText: "4:14 AM", evidence: "■ ..." },
       now: () => T0,
     });
@@ -254,7 +254,7 @@ describe("recordCodexLimitBanner", () => {
     const recorded = recordCodexLimitBanner({
       store,
       resolveGeneration: () => "gen-1",
-      sessionName: "rec-3@rig",
+      sessionName: "rec-3@software-team",
       banner: { resetText: "4:14 AM", evidence: "■ ..." },
       now: () => T0,
     });
@@ -269,7 +269,7 @@ describe("recordCodexLimitBanner", () => {
     const recorded = recordCodexLimitBanner({
       store,
       resolveGeneration: () => "gen-1",
-      sessionName: "rec-4@rig",
+      sessionName: "rec-4@software-team",
       banner: { resetText: "5:00 AM", evidence: "■ ..." },
       now: () => T0,
     });
@@ -287,7 +287,7 @@ describe("recordCodexLimitBanner", () => {
     { generation: "previous-generation" },
   ])("does not clear newer, undated or other-occupant evidence: %j", (overrides) => {
     const store = fakeStore(hookRow({ eventAt: new Date(T0.getTime() - 1000).toISOString(), ...overrides }));
-    expect(recordCodexLimitBanner({ store, resolveGeneration: () => "gen-1", sessionName: "guard@rig", banner: null, now: () => T0 })).toBe(false);
+    expect(recordCodexLimitBanner({ store, resolveGeneration: () => "gen-1", sessionName: "guard@software-team", banner: null, now: () => T0 })).toBe(false);
     expect(store.recordHookEvent).not.toHaveBeenCalled();
   });
 
@@ -305,10 +305,10 @@ describe("recordCodexLimitBanner", () => {
       banner,
       now: () => T0,
     });
-    expect(recordCodexLimitBanner(deps("rec-5@rig"))).toBe(true);
+    expect(recordCodexLimitBanner(deps("rec-5@software-team"))).toBe(true);
     // Same banner still visible after a hook cleared the signal: same
     // episode, no new row.
-    expect(recordCodexLimitBanner(deps("rec-5@rig"))).toBe(false);
+    expect(recordCodexLimitBanner(deps("rec-5@software-team"))).toBe(false);
     expect(store.recordHookEvent).toHaveBeenCalledTimes(1);
   });
 });
@@ -322,8 +322,8 @@ describe("SeatStructuralActivityService — Codex limit banner emission", () => 
     svc.attachCodexLimitBanner((sessionName, banner) => {
       seen.push({ session: sessionName, reset: banner?.resetText ?? null });
     });
-    await svc.pollSeat("dev@rig", null, "codex");
-    expect(seen).toEqual([{ session: "dev@rig", reset: "4:14 AM" }]);
+    await svc.pollSeat("dev@software-team", null, "codex");
+    expect(seen).toEqual([{ session: "dev@software-team", reset: "4:14 AM" }]);
   });
 
   it("never emits for other runtimes or banner-free panes", async () => {
@@ -334,8 +334,8 @@ describe("SeatStructuralActivityService — Codex limit banner emission", () => 
     svc.attachCodexLimitBanner((...args: unknown[]) => {
       seen.push(args);
     });
-    await svc.pollSeat("dev@rig", null, "claude-code");
-    await svc.pollSeat("other@rig", null, null);
+    await svc.pollSeat("dev@software-team", null, "claude-code");
+    await svc.pollSeat("other@software-team", null, null);
     expect(seen).toEqual([]);
   });
 
@@ -343,7 +343,7 @@ describe("SeatStructuralActivityService — Codex limit banner emission", () => 
     const svc = new SeatStructuralActivityService({
       capturePaneContent: async () => BANNER,
     } as never);
-    await expect(svc.pollSeat("dev@rig", null, "codex")).resolves.not.toBeNull();
+    await expect(svc.pollSeat("dev@software-team", null, "codex")).resolves.not.toBeNull();
   });
 });
 
@@ -351,14 +351,14 @@ describe("codex-limit-banner — store mapping and seat status", () => {
   const NOW = new Date("2026-10-07T00:00:00.000Z");
 
   function seedCodexSeat(db: Database.Database) {
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const sessionRegistry = new SessionRegistry(db);
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.qa", { runtime: "codex" });
-    const session = sessionRegistry.registerSession(node.id, "dev-qa@test-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { runtime: "codex" });
+    const session = sessionRegistry.registerSession(node.id, "dev-qa@test-software-team");
     sessionRegistry.updateStatus(session.id, "running");
-    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-qa@test-rig", attachmentType: "tmux" });
-    return { sessionName: "dev-qa@test-rig" as string };
+    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-qa@test-software-team", attachmentType: "tmux" });
+    return { sessionName: "dev-qa@test-software-team" as string };
   }
 
   function entries(sessionName: string) {
@@ -573,8 +573,8 @@ describe("codex-limit-banner — store mapping and seat status", () => {
           } as never,
           clientFactory: () => ({ get: async (path: string) => ({ status: 200, data: path.includes("/nodes")
             ? [{ canonicalSessionName: sessionName, logicalId: "dev.qa", agentActivity: out[0]!.agentActivity }]
-            : [{ rigId: "fixture", rigName: "test-rig", status: "running" }] }) }) as never,
-        }).parseAsync(["node", "rig", "--nodes", "--active", "--json", "--rig", "test-rig"]);
+            : [{ softwareTeamId: "fixture", softwareTeamName: "test-software-team", status: "running" }] }) }) as never,
+        }).parseAsync(["node", "softwareTeam", "--nodes", "--active", "--json", "--software-team", "test-software-team"]);
         expect.soft(JSON.parse(log.mock.calls[0]![0])).toMatchObject(limit
           ? { totalNodes: 0, entries: [] } : { totalNodes: 1, entries: [{ canonicalSessionName: sessionName }] });
       }
@@ -633,8 +633,8 @@ describe("codex-limit-banner — store mapping and seat status", () => {
           } as never,
           clientFactory: () => ({ get: async (path: string) => ({ status: 200, data: path.includes("/nodes")
             ? [{ canonicalSessionName: sessionName, logicalId: "dev.qa", agentActivity: recovered }]
-            : [{ rigId: "fixture", rigName: "test-rig", status: "running" }] }) }) as never,
-        }).parseAsync(["node", "rig", "--nodes", "--active", "--json", "--rig", "test-rig"]);
+            : [{ softwareTeamId: "fixture", softwareTeamName: "test-software-team", status: "running" }] }) }) as never,
+        }).parseAsync(["node", "softwareTeam", "--nodes", "--active", "--json", "--software-team", "test-software-team"]);
         expect.soft(JSON.parse(log.mock.calls[0]![0])).toMatchObject({ totalNodes: 1, entries: [{ canonicalSessionName: sessionName, agentActivity: { state: "running" } }] });
       } finally { log.mockRestore(); }
       expect(db.prepare("SELECT COUNT(*) AS n FROM events WHERE type = 'agent.activity'").get()).toEqual(eventCount);
@@ -720,15 +720,15 @@ describe("codex-limit-banner — store mapping and seat status", () => {
     });
     // No reset time: record, hook clears it, same banner returns → same
     // episode is over, so it reports again.
-    expect(recordCodexLimitBanner(deps("rec-7@rig", bannerNoReset))).toBe(true);
-    expect(recordCodexLimitBanner(deps("rec-7@rig", bannerNoReset))).toBe(false);
-    clearRecordedBanner("rec-7@rig");
-    expect(recordCodexLimitBanner(deps("rec-7@rig", bannerNoReset))).toBe(true);
+    expect(recordCodexLimitBanner(deps("rec-7@software-team", bannerNoReset))).toBe(true);
+    expect(recordCodexLimitBanner(deps("rec-7@software-team", bannerNoReset))).toBe(false);
+    clearRecordedBanner("rec-7@software-team");
+    expect(recordCodexLimitBanner(deps("rec-7@software-team", bannerNoReset))).toBe(true);
     // Identical reset text: same sequence reports again after the clear.
-    expect(recordCodexLimitBanner(deps("rec-8@rig", bannerSameReset))).toBe(true);
-    expect(recordCodexLimitBanner(deps("rec-8@rig", bannerSameReset))).toBe(false);
-    clearRecordedBanner("rec-8@rig");
-    expect(recordCodexLimitBanner(deps("rec-8@rig", bannerSameReset))).toBe(true);
+    expect(recordCodexLimitBanner(deps("rec-8@software-team", bannerSameReset))).toBe(true);
+    expect(recordCodexLimitBanner(deps("rec-8@software-team", bannerSameReset))).toBe(false);
+    clearRecordedBanner("rec-8@software-team");
+    expect(recordCodexLimitBanner(deps("rec-8@software-team", bannerSameReset))).toBe(true);
     expect(store.recordHookEvent).toHaveBeenCalledTimes(4);
   });
 });

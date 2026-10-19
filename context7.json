@@ -1,7 +1,5 @@
 {
-  "url": "https://context7.com/mvschwarz/openrig",
-  "public_key": "pk_HcRwWEoFBsmU1mo5VIvWw",
-  "projectTitle": "OpenRig",
+  "projectTitle": "SoftwareTeam",
   "description": "Build your own network of agents from Claude Code, Codex and Pi: persistent teams with roles, shared context and owned work.",
   "folders": [],
   "excludeFolders": [
@@ -18,13 +16,13 @@
   ],
   "excludeFiles": [],
   "rules": [
-    "Install with npm install -g @openrig/cli. OpenRig requires Node.js 22 or 24, tmux, and Claude Code or Codex signed in. The starter team uses both, and the kernel operator adapts it when you have only one.",
-    "Preview before launching: rig specs preview <spec>, then rig up <spec> --cwd . --plan, then rig up <spec> --cwd .",
-    "Check seat readiness with rig ps --nodes --rig <rig>, not only daemon health from rig status.",
-    "Inside a rig, an agent runs rig whoami --json first and treats its output as its identity.",
-    "rig send <session> \"message\" types into a peer's terminal and presses Enter; rig capture <session> reads that peer's screen.",
-    "Work another agent must act on goes in the queue (rig queue create or rig queue handoff); a message informs but does not assign work.",
-    "Use rig start to bring rigs back after a reboot or daemon restart.",
-    "Run rig --help for the current command surface; the CLI is authoritative over older examples."
+    "From this source checkout run ./install.sh --runtime codex and ./start.sh --name my-team --runtime codex (or select claude-code). Use the fresh scoped login command printed by startup; never copy old credentials.",
+    "Preview before launching: SoftwareTeam specs preview <spec>, then SoftwareTeam up <spec> --cwd . --plan, then SoftwareTeam up <spec> --cwd .",
+    "Check seat readiness with SoftwareTeam ps --nodes --software-team <softwareTeam>, not only daemon health from SoftwareTeam status.",
+    "Inside a softwareTeam, an agent runs SoftwareTeam whoami --json first and treats its output as its identity.",
+    "SoftwareTeam send <session> \"message\" types into a peer's terminal and presses Enter; SoftwareTeam capture <session> reads that peer's screen.",
+    "Work another agent must act on goes in the queue (SoftwareTeam queue create or SoftwareTeam queue handoff); a message informs but does not assign work.",
+    "Use SoftwareTeam start to bring softwareTeams back after a reboot or daemon restart.",
+    "Run SoftwareTeam --help for the current command surface; the CLI is authoritative over older examples."
   ]
 }

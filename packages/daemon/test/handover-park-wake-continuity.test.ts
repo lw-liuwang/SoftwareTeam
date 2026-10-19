@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
@@ -16,8 +16,8 @@ import { WatchdogPolicyEngine } from "../src/domain/watchdog-policy-engine.js";
 import { WatchdogHistoryLog } from "../src/domain/watchdog-history-log.js";
 import { watchdogHistorySchema } from "../src/db/migrations/032_watchdog_history.js";
 
-const SEAT = "dev-impl@seat-rig";
-const OTHER = "dev-qa@seat-rig";
+const SEAT = "dev-impl@seat-software-team";
+const OTHER = "dev-qa@seat-software-team";
 
 describe("#handover-wake: a blocked row's park timer across an occupant swap", () => {
   let db: Database.Database;
@@ -33,17 +33,17 @@ describe("#handover-wake: a blocked row's park timer across an occupant swap", (
   beforeEach(() => {
     db = createFullTestDb();
     db.exec(watchdogHistorySchema.sql); // the engine audits each evaluation; the full test DB does not include this table
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
-    const rig = rigRepo.createRig("seat-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("seat-software-team");
     for (const [logicalId, session] of [["dev.impl", SEAT], ["dev.qa", OTHER]] as const) {
-      const node = rigRepo.addNode(rig.id, logicalId, { runtime: "codex" });
+      const node = softwareTeamRepo.addNode(softwareTeam.id, logicalId, { runtime: "codex" });
       sessionRegistry.updateStatus(sessionRegistry.registerSession(node.id, session).id, "running");
       if (session === SEAT) seatNodeId = node.id; else otherNodeId = node.id;
     }
     gen = (session) => sessionRegistry.currentOccupantGenerationForSession(session);
     bus = new EventBus(db);
-    queue = new QueueRepository(db, bus, { validateRig: () => true, resolveOccupantGeneration: gen });
+    queue = new QueueRepository(db, bus, { validateSoftwareTeam: () => true, resolveOccupantGeneration: gen });
     jobs = new WatchdogJobsRepository(db, undefined, gen);
     queue.attachWatchdogJobsRepository(jobs);
     invalidator = new DefaultOccupantInvalidator({
@@ -53,7 +53,7 @@ describe("#handover-wake: a blocked row's park timer across an occupant swap", (
   afterEach(() => db.close());
 
   async function park(opts: { destination?: string; actor?: string; repeating?: boolean; watchdogId?: string } = {}) {
-    const row = await queue.create({ sourceSession: "orch-lead@seat-rig", destinationSession: opts.destination ?? SEAT, body: "work" } as never);
+    const row = await queue.create({ sourceSession: "orch-lead@seat-software-team", destinationSession: opts.destination ?? SEAT, body: "work" } as never);
     queue.update({
       qitemId: row.qitemId, actorSession: opts.actor ?? SEAT, state: "blocked", blockedOn: "external:ci",
       transitionNote: "continuation: check CI",

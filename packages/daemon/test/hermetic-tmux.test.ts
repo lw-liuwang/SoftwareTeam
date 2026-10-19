@@ -178,7 +178,7 @@ describe("D5 p2 — an inherited TMUX_TMPDIR is ABSENT from the child and REPLAC
 // detects removal of the socket shim by observing the owned server PID survive.
 describe("D5 p3 (integration) — an INHERITED tmux server is replaced, proven while seats live", () => {
   it("seats land on the scaffold-owned server; the inherited sentinel server gains nothing", async () => {
-    const { spawnScenarioDaemon, runRig } = await import("./helpers/scenario-daemon.js");
+    const { spawnScenarioDaemon, runSoftwareTeam } = await import("./helpers/scenario-daemon.js");
     const { fileURLToPath } = await import("node:url");
     const { dirname, resolve } = await import("node:path");
     const { execFile } = await import("node:child_process");
@@ -186,7 +186,7 @@ describe("D5 p3 (integration) — an INHERITED tmux server is replaced, proven w
     const run = promisify(execFile);
 
     const HERE = dirname(fileURLToPath(import.meta.url));
-    const rigBin = resolve(HERE, "../../cli/dist/bin-wrapper.js");
+    const softwareTeamBin = resolve(HERE, "../../cli/dist/bin-wrapper.js");
     const sourceTopology = join(HERE, "fixtures", "scenarios", "topo-stub-baton.yaml");
     const pkgRoot = resolve(HERE, "..");
 
@@ -225,19 +225,19 @@ describe("D5 p3 (integration) — an INHERITED tmux server is replaced, proven w
     // Guard finding 2: the earlier version ran `up` on a topology whose seats
     // declare `cwd: .`, with no staged cwd and no --cwd — so the daemon resolved
     // seat cwd into the SOURCE TREE and the seats wrote AGENTS.md and
-    // .openrig/stub/** into packages/daemon. A pin that proves tmux isolation
+    // .softwareteam/stub/** into packages/daemon. A pin that proves tmux isolation
     // while corrupting the owner tree is not a hermeticity pin. Stage per-seat
     // scaffold cwds with the slice's OWN staging helper instead.
     const staged = stageTopologyRoot(sourceTopology, join(scaffold.root, "topology"));
     const managedInSource = () => [
       join(pkgRoot, "AGENTS.md"),
-      join(pkgRoot, ".openrig"),
+      join(pkgRoot, ".softwareteam"),
     ].filter((f) => existsSync(f));
     expect(managedInSource()).toEqual([]); // clean before
 
-    const daemon = await spawnScenarioDaemon(scaffold, { rigBin });
+    const daemon = await spawnScenarioDaemon(scaffold, { softwareTeamBin });
     try {
-      const up = await runRig(["up", staged.topologyPath, "--json", "--yes"], daemon.readEnv, rigBin, 120_000);
+      const up = await runSoftwareTeam(["up", staged.topologyPath, "--json", "--yes"], daemon.readEnv, softwareTeamBin, 120_000);
       expect(up.code).toBe(0);
 
       // WHILE THE SEATS ARE ALIVE (no `down` yet) — both directions:
@@ -251,9 +251,9 @@ describe("D5 p3 (integration) — an INHERITED tmux server is replaced, proven w
       // seat files — the seats' writes landed in the scaffold, where they belong.
       expect(managedInSource()).toEqual([]);
       const seatCwd = staged.seatCwds["dev-worker"]!;
-      expect(existsSync(join(seatCwd, ".openrig", "stub", "state.json"))).toBe(true);
+      expect(existsSync(join(seatCwd, ".softwareteam", "stub", "state.json"))).toBe(true);
     } finally {
-      await runRig(["down", "scn-baton", "--json", "--force"], daemon.readEnv, rigBin, 60_000).catch(() => {});
+      await runSoftwareTeam(["down", "scn-baton", "--json", "--force"], daemon.readEnv, softwareTeamBin, 60_000).catch(() => {});
       await daemon.stop().catch(() => {});
       await at(sentinelSocketPath, ["kill-session", "-t", "sentinel-only"]).catch(() => {});
     }

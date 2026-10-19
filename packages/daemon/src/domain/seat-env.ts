@@ -1,6 +1,6 @@
 /**
- * Launch environment a rig declares for its seats: `env:` at rig level and at member level in
- * rig.yaml, plus one-off `rig up --env KEY=VALUE` overrides.
+ * Launch environment a softwareTeam declares for its seats: `env:` at softwareTeam level and at member level in
+ * software-team.yaml, plus one-off `SoftwareTeam up --env KEY=VALUE` overrides.
  *
  * These values are written into the seat's tmux launch command line and the process environment.
  * Local processes can read them (#306), so they are for non-secret settings only.
@@ -9,15 +9,15 @@
 export type SeatEnv = Record<string, string>;
 
 const NAME = /^[A-Z_][A-Z0-9_]*$/;
-const RESERVED_PREFIX = "OPENRIG_";
+const RESERVED_PREFIX = "SOFTWARETEAM_";
 
 /** Tmux session variable listing the declared keys, so the managed Claude `env -i` launch can
- *  forward exactly those variables from the pane shell. Reserved by the OPENRIG_ prefix. */
-export const SEAT_ENV_KEYS_VAR = "OPENRIG_SEAT_ENV_KEYS";
+ *  forward exactly those variables from the pane shell. Reserved by the SOFTWARETEAM_ prefix. */
+export const SEAT_ENV_KEYS_VAR = "SOFTWARETEAM_SEAT_ENV_KEYS";
 
 export function validateSeatEnvName(name: string): string | null {
   if (!NAME.test(name)) return `"${name}" is not a valid name; names match ^[A-Z_][A-Z0-9_]*$`;
-  if (name.startsWith(RESERVED_PREFIX)) return `"${name}" is reserved; ${RESERVED_PREFIX}* names belong to OpenRig`;
+  if (name.startsWith(RESERVED_PREFIX)) return `"${name}" is reserved; ${RESERVED_PREFIX}* names belong to SoftwareTeam`;
   return null;
 }
 
@@ -57,7 +57,7 @@ export function readSeatEnvOverride(raw: unknown): SeatEnv | undefined {
   return normalizeSeatEnv(raw);
 }
 
-/** Parse the `KEY=VALUE` form `rig up --env` takes. The value may contain `=`. */
+/** Parse the `KEY=VALUE` form `SoftwareTeam up --env` takes. The value may contain `=`. */
 export function parseSeatEnvAssignment(text: string): { ok: true; name: string; value: string } | { ok: false; error: string } {
   const eq = text.indexOf("=");
   if (eq <= 0) return { ok: false, error: `"${text}" is not KEY=VALUE` };
@@ -70,7 +70,7 @@ export function parseSeatEnvAssignment(text: string): { ok: true; name: string; 
   return { ok: true, name, value };
 }
 
-/** Effective env for one seat: rig, then member, then a one-off override. Later wins. */
+/** Effective env for one seat: softwareTeam, then member, then a one-off override. Later wins. */
 export function mergeSeatEnv(...layers: Array<SeatEnv | null | undefined>): SeatEnv {
   return Object.assign({}, ...layers.filter(Boolean));
 }

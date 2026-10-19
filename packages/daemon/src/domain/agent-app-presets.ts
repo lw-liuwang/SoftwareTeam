@@ -1,12 +1,12 @@
 // Community agent apps: another agent app runs in a seat from a small data preset the person installs, one YAML file
-// per app under $OPENRIG_HOME/agent-apps/<name>.yaml. A preset names the app, the command that starts it in the seat's
-// pane, its maintainer and the limits it declares. OpenRig hasn't tested these apps: it shows them as community apps,
+// per app under $SOFTWARETEAM_HOME/agent-apps/<name>.yaml. A preset names the app, the command that starts it in the seat's
+// pane, its maintainer and the limits it declares. SoftwareTeam hasn't tested these apps: it shows them as community apps,
 // never confirms their identity, and reads their activity only from what the screen shows. Built-in runtime names are
 // reserved, so a preset can't replace one.
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { basename, join } from "node:path";
 import { parse as parseYaml } from "yaml";
-import { getDefaultOpenRigPath } from "../openrig-compat.js";
+import { getDefaultSoftwareTeamPath } from "../softwareteam-compat.js";
 import { BUILT_IN_RUNTIMES, isAgentAppRuntime } from "./built-in-runtimes.js";
 
 export { BUILT_IN_RUNTIMES, isAgentAppRuntime };
@@ -28,7 +28,7 @@ export type AgentAppPresetLookup =
   | { ok: false; kind: "missing" | "incompatible"; path: string; message: string };
 
 export function agentAppsDir(): string {
-  return getDefaultOpenRigPath("agent-apps");
+  return getDefaultSoftwareTeamPath("agent-apps");
 }
 
 function parsePreset(name: string, path: string, text: string): AgentAppPresetLookup {
@@ -39,7 +39,7 @@ function parsePreset(name: string, path: string, text: string): AgentAppPresetLo
   if (!doc || typeof doc !== "object" || Array.isArray(doc)) return bad("it isn't a YAML mapping");
   const raw = doc as Record<string, unknown>;
   if (raw.format !== AGENT_APP_PRESET_FORMAT) {
-    return bad(`it declares format ${JSON.stringify(raw.format ?? null)}; this OpenRig reads format ${AGENT_APP_PRESET_FORMAT}`);
+    return bad(`it declares format ${JSON.stringify(raw.format ?? null)}; this SoftwareTeam reads format ${AGENT_APP_PRESET_FORMAT}`);
   }
   const unknown = Object.keys(raw).filter(key => !(FIELDS as readonly string[]).includes(key));
   if (unknown.length) return bad(`unknown field${unknown.length > 1 ? "s" : ""} ${unknown.join(", ")} (format ${AGENT_APP_PRESET_FORMAT} has ${FIELDS.join(", ")})`);
@@ -125,7 +125,7 @@ export function listAgentAppPresets(dir: string = agentAppsDir()): AgentAppPrese
 export interface AgentAppLabel {
   app: string;
   community: true;
-  testedByOpenRig: false;
+  testedBySoftwareTeam: false;
   maintainer: string | null;
   limits: string[];
   identity: "not confirmed";
@@ -137,7 +137,7 @@ export interface AgentAppLabel {
 export function agentAppLabel(runtime: string, dir: string = agentAppsDir()): AgentAppLabel {
   const found = loadAgentAppPreset(runtime, dir);
   return {
-    app: runtime, community: true, testedByOpenRig: false,
+    app: runtime, community: true, testedBySoftwareTeam: false,
     maintainer: found.ok ? found.preset.maintainer : null,
     limits: found.ok ? found.preset.limits : [],
     identity: "not confirmed", needsInput: "from the screen only: no app prompt pattern",

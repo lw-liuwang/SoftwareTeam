@@ -16,7 +16,7 @@ function makeEntry(overrides: Partial<SkillProvenanceEntry> & { fmOverrides?: Re
     id: "test-skill",
     path: "/tmp/skills/test-skill",
     sourceRoot: "/tmp/skills",
-    sourceKind: "rig_bundled",
+    sourceKind: "software_team_bundled",
     frontmatter: baseFm as SkillFrontmatter,
     body: "",
     shadowed: false,
@@ -34,11 +34,11 @@ describe("skill-audit", () => {
     const entry = makeEntry({
       fmOverrides: {
         metadata: {
-          openrig: {
+          softwareteam: {
             stage: "factory-approved",
             last_verified: "2026-06-15",
             source_evidence: "practical-passed-2026-06-15 against runtime tests",
-            owner: "openrig-delivery",
+            owner: "softwareteam-delivery",
             source_ref: "v0.4.0",
           },
         },
@@ -55,7 +55,7 @@ describe("skill-audit", () => {
     const entry = makeEntry({
       fmOverrides: {
         metadata: {
-          openrig: {
+          softwareteam: {
             stage: "factory-approved",
             last_verified: "2026-06-15",
           },
@@ -73,7 +73,7 @@ describe("skill-audit", () => {
     const entry = makeEntry({
       fmOverrides: {
         metadata: {
-          openrig: {
+          softwareteam: {
             stage: "factory-approved",
             last_verified: "2026-06-15",
             source_evidence: "",
@@ -92,7 +92,7 @@ describe("skill-audit", () => {
       path: "/tmp/skills/test-skill",
       fmOverrides: {
         metadata: {
-          openrig: {
+          softwareteam: {
             stage: "factory-approved",
             last_verified: "2026-06-15",
             source_evidence: "/tmp/skills/test-skill/SKILL.md",
@@ -111,7 +111,7 @@ describe("skill-audit", () => {
       path: "/tmp/skills/test-skill",
       fmOverrides: {
         metadata: {
-          openrig: {
+          softwareteam: {
             stage: "factory-approved",
             last_verified: "2026-06-15",
             source_evidence: "/tmp/skills/test-skill/../test-skill/SKILL.md",
@@ -129,7 +129,7 @@ describe("skill-audit", () => {
       path: "/tmp/skills/test-skill",
       fmOverrides: {
         metadata: {
-          openrig: {
+          softwareteam: {
             stage: "factory-approved",
             last_verified: "2026-06-15",
             source_evidence: "/tmp/skills/test-skill/",
@@ -147,7 +147,7 @@ describe("skill-audit", () => {
       path: "/tmp/skills/test-skill",
       fmOverrides: {
         verified: "2026-06-15 against /tmp/skills/test-skill/../test-skill/SKILL.md",
-        metadata: { openrig: { owner: "test", source_ref: "v1" } },
+        metadata: { softwareteam: { owner: "test", source_ref: "v1" } },
       },
     });
 
@@ -160,7 +160,7 @@ describe("skill-audit", () => {
       path: "/tmp/skills/test-skill",
       fmOverrides: {
         metadata: {
-          openrig: {
+          softwareteam: {
             stage: "factory-approved",
             last_verified: "2026-06-15",
             source_evidence: "./test-skill/SKILL.md",
@@ -178,7 +178,7 @@ describe("skill-audit", () => {
       path: "/tmp/skills/test-skill",
       fmOverrides: {
         metadata: {
-          openrig: {
+          softwareteam: {
             stage: "factory-approved",
             last_verified: "2026-06-15",
             source_evidence: "test-skill/",
@@ -196,7 +196,7 @@ describe("skill-audit", () => {
       path: "/tmp/skills/test-skill",
       fmOverrides: {
         verified: "2026-06-15 against ./test-skill/SKILL.md",
-        metadata: { openrig: { owner: "test", source_ref: "v1" } },
+        metadata: { softwareteam: { owner: "test", source_ref: "v1" } },
       },
     });
 
@@ -208,7 +208,7 @@ describe("skill-audit", () => {
     const entry = makeEntry({
       fmOverrides: {
         metadata: {
-          openrig: {
+          softwareteam: {
             stage: "factory-approved",
             last_verified: "2026-06-15",
             source_evidence: "SKILL.md",
@@ -225,7 +225,7 @@ describe("skill-audit", () => {
     const entry = makeEntry({
       fmOverrides: {
         metadata: {
-          openrig: {
+          softwareteam: {
             stage: "factory-approved",
           },
         },
@@ -241,11 +241,11 @@ describe("skill-audit", () => {
     const entry = makeEntry({
       fmOverrides: {
         metadata: {
-          openrig: {
+          softwareteam: {
             stage: "factory-approved",
             last_verified: "2025-01-01",
             source_evidence: "practical-passed-2025-01-01",
-            owner: "openrig-delivery",
+            owner: "softwareteam-delivery",
             source_ref: "v0.1.0",
           },
         },
@@ -276,7 +276,7 @@ describe("skill-audit", () => {
     const entry = makeEntry({
       shadowed: true,
       fmOverrides: {
-        metadata: { openrig: { stage: "factory-approved" } },
+        metadata: { softwareteam: { stage: "factory-approved" } },
       },
     });
 
@@ -289,7 +289,7 @@ describe("skill-audit", () => {
     const entry = makeEntry({
       fmOverrides: {
         metadata: {
-          openrig: {
+          softwareteam: {
             stage: "factory-approved",
             last_verified: "2026-06-15",
             source_evidence: "verified against tests",
@@ -309,8 +309,8 @@ describe("skill-audit", () => {
       fmOverrides: {
         verified: "2026-06-10 against runtime integration tests",
         metadata: {
-          openrig: {
-            owner: "openrig-delivery",
+          softwareteam: {
+            owner: "softwareteam-delivery",
             source_ref: "v0.4.0",
           },
         },
@@ -328,8 +328,8 @@ describe("skill-audit", () => {
   // READ-ONLY INVARIANT (structural -- audit never mutates)
   it("auditSkills returns entries without side effects", () => {
     const entries = [
-      makeEntry({ id: "skill-a", fmOverrides: { metadata: { openrig: { stage: "factory-approved" } } } }),
-      makeEntry({ id: "skill-b", fmOverrides: { metadata: { openrig: { stage: "factory-approved", last_verified: "2026-06-15", source_evidence: "test" } } } }),
+      makeEntry({ id: "skill-a", fmOverrides: { metadata: { softwareteam: { stage: "factory-approved" } } } }),
+      makeEntry({ id: "skill-b", fmOverrides: { metadata: { softwareteam: { stage: "factory-approved", last_verified: "2026-06-15", source_evidence: "test" } } } }),
     ];
 
     const { entries: results } = auditSkills(entries);
@@ -342,23 +342,23 @@ describe("skill-audit", () => {
   it("mirror drift findings emitted when mirrorDrift.stale is true", () => {
     const entry = makeEntry({
       fmOverrides: {
-        metadata: { openrig: { stage: "factory-approved", last_verified: "2026-06-15", source_evidence: "test", owner: "test", source_ref: "v1" } },
+        metadata: { softwareteam: { stage: "factory-approved", last_verified: "2026-06-15", source_evidence: "test", owner: "test", source_ref: "v1" } },
       },
     });
 
     const { mirrorDriftFindings } = auditSkills([entry], {
-      mirrorDrift: { stale: true, changes: ["skills/_canonical/openrig-user/SKILL.md", "skills/_canonical/openrig-builder/SKILL.md"] },
+      mirrorDrift: { stale: true, changes: ["skills/_canonical/softwareteam-user/SKILL.md", "skills/_canonical/softwareteam-builder/SKILL.md"] },
     });
 
     expect(mirrorDriftFindings).toHaveLength(2);
     expect(mirrorDriftFindings[0]!.class).toBe("mirror_drift");
-    expect(mirrorDriftFindings[0]!.file).toContain("openrig-user");
+    expect(mirrorDriftFindings[0]!.file).toContain("softwareteam-user");
   });
 
   it("no mirror drift findings when mirrorDrift.stale is false", () => {
     const entry = makeEntry({
       fmOverrides: {
-        metadata: { openrig: { stage: "factory-approved", last_verified: "2026-06-15", source_evidence: "test", owner: "test", source_ref: "v1" } },
+        metadata: { softwareteam: { stage: "factory-approved", last_verified: "2026-06-15", source_evidence: "test", owner: "test", source_ref: "v1" } },
       },
     });
 
@@ -383,7 +383,7 @@ describe("skill-audit", () => {
     const entry = makeEntry({
       fmOverrides: {
         metadata: {
-          openrig: {
+          softwareteam: {
             stage: "factory-approved",
             last_verified: "not-a-date",
             source_evidence: "runtime integration tests",
@@ -405,7 +405,7 @@ describe("skill-audit", () => {
       path: "/tmp/skills/test-skill",
       fmOverrides: {
         metadata: {
-          openrig: {
+          softwareteam: {
             stage: "factory-approved",
             last_verified: "2026-06-15",
             sourced_from: ["/tmp/skills/test-skill/SKILL.md", "./test-skill/SKILL.md"],
@@ -426,7 +426,7 @@ describe("skill-audit", () => {
       path: "/tmp/skills/test-skill",
       fmOverrides: {
         metadata: {
-          openrig: {
+          softwareteam: {
             stage: "factory-approved",
             last_verified: "2026-06-15",
             sourced_from: ["/tmp/skills/test-skill/SKILL.md", "runtime integration tests"],
@@ -445,18 +445,18 @@ describe("skill-audit", () => {
 // #802 (a): a projected copy of a skill an installed plugin ships has known provenance (the plugin and its
 // version, verified by that release) while its bytes match the plugin's. An edited copy is audited as before.
 describe("skill-audit — bundled plugin skills", () => {
-  const SKILL = "---\nname: openrig-skills\ndescription: index\nmetadata:\n  openrig:\n    stage: shipped\n---\n\n# index\n";
+  const SKILL = "---\nname: softwareteam-skills\ndescription: index\nmetadata:\n  softwareteam:\n    stage: shipped\n---\n\n# index\n";
   let root: string;
   let pluginsDir: string;
   let projected: string;
 
   function writePlugin(files: Record<string, string>, version = "0.1.4"): void {
-    const plugin = join(pluginsDir, "openrig-core");
+    const plugin = join(pluginsDir, "softwareteam-core");
     mkdirSync(join(plugin, ".claude-plugin"), { recursive: true });
-    writeFileSync(join(plugin, ".claude-plugin/plugin.json"), JSON.stringify({ name: "openrig-core", version }));
+    writeFileSync(join(plugin, ".claude-plugin/plugin.json"), JSON.stringify({ name: "softwareteam-core", version }));
     for (const [rel, content] of Object.entries(files)) {
-      mkdirSync(join(plugin, "skills/openrig-skills", rel, ".."), { recursive: true });
-      writeFileSync(join(plugin, "skills/openrig-skills", rel), content);
+      mkdirSync(join(plugin, "skills/softwareteam-skills", rel, ".."), { recursive: true });
+      writeFileSync(join(plugin, "skills/softwareteam-skills", rel), content);
     }
   }
 
@@ -469,32 +469,32 @@ describe("skill-audit — bundled plugin skills", () => {
 
   function projectedEntry(): SkillProvenanceEntry {
     return makeEntry({
-      id: "openrig-skills",
+      id: "softwareteam-skills",
       path: projected,
       sourceRoot: join(root, "home/.claude/skills"),
       sourceKind: "runtime_user",
-      fmOverrides: { metadata: { openrig: { stage: "shipped" } } },
+      fmOverrides: { metadata: { softwareteam: { stage: "shipped" } } },
     });
   }
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), "skill-audit-bundled-"));
-    pluginsDir = join(root, "openrig-home/plugins");
-    projected = join(root, "home/.claude/skills/openrig-skills");
+    pluginsDir = join(root, "softwareteam-home/plugins");
+    projected = join(root, "home/.claude/skills/softwareteam-skills");
   });
   afterEach(() => { rmSync(root, { recursive: true, force: true }); vi.useRealTimers(); });
 
   it("a byte-identical projected copy has the plugin's provenance and no findings", () => {
     writePlugin({ "SKILL.md": SKILL });
     // The projection adds its own version marker beside the plugin's files.
-    writeProjected({ "SKILL.md": SKILL, ".openrig-vendor-version": "0.1.4\n" });
+    writeProjected({ "SKILL.md": SKILL, ".softwareteam-vendor-version": "0.1.4\n" });
 
     const { entries: [result] } = auditSkills([projectedEntry()], { bundledSources: listBundledSkillSources(pluginsDir) });
     expect(result!.findings).toEqual([]);
-    expect(result!.bundledFrom).toEqual({ plugin: "openrig-core", version: "0.1.4" });
-    expect(result!.owner).toBe("openrig-core");
-    expect(result!.sourceRef).toBe("openrig-core@0.1.4");
-    expect(result!.verified).toEqual({ status: "bundled", plugin: "openrig-core", version: "0.1.4" });
+    expect(result!.bundledFrom).toEqual({ plugin: "softwareteam-core", version: "0.1.4" });
+    expect(result!.owner).toBe("softwareteam-core");
+    expect(result!.sourceRef).toBe("softwareteam-core@0.1.4");
+    expect(result!.verified).toEqual({ status: "bundled", plugin: "softwareteam-core", version: "0.1.4" });
     expect(result!.state).toBe("active");
   });
 
@@ -528,7 +528,7 @@ describe("skill-audit — bundled plugin skills", () => {
 
   it("a copy with a file added locally is audited like any other skill", () => {
     writePlugin({ "SKILL.md": SKILL });
-    writeProjected({ "SKILL.md": SKILL, ".openrig-vendor-version": "0.1.4\n", "references/local.md": "# local\n" });
+    writeProjected({ "SKILL.md": SKILL, ".softwareteam-vendor-version": "0.1.4\n", "references/local.md": "# local\n" });
 
     const { entries: [result] } = auditSkills([projectedEntry()], { bundledSources: listBundledSkillSources(pluginsDir) });
     expect(result!.bundledFrom).toBeNull();
@@ -537,7 +537,7 @@ describe("skill-audit — bundled plugin skills", () => {
 
   it("a copy holding self-referencing directory symlinks completes and is audited like any other skill", () => {
     writePlugin({ "SKILL.md": SKILL });
-    writeProjected({ "SKILL.md": SKILL, ".openrig-vendor-version": "0.1.4\n" });
+    writeProjected({ "SKILL.md": SKILL, ".softwareteam-vendor-version": "0.1.4\n" });
     symlinkSync(".", join(projected, "a"));
     symlinkSync(".", join(projected, "b"));
 
@@ -549,10 +549,10 @@ describe("skill-audit — bundled plugin skills", () => {
   it("a copy that is itself a symlink to the plugin's skill directory still counts as bundled", () => {
     writePlugin({ "SKILL.md": SKILL });
     mkdirSync(join(projected, ".."), { recursive: true });
-    symlinkSync(join(pluginsDir, "openrig-core/skills/openrig-skills"), projected);
+    symlinkSync(join(pluginsDir, "softwareteam-core/skills/softwareteam-skills"), projected);
 
     const { entries: [result] } = auditSkills([projectedEntry()], { bundledSources: listBundledSkillSources(pluginsDir) });
-    expect(result!.bundledFrom).toEqual({ plugin: "openrig-core", version: "0.1.4" });
+    expect(result!.bundledFrom).toEqual({ plugin: "softwareteam-core", version: "0.1.4" });
     expect(result!.findings).toEqual([]);
   });
 
@@ -572,7 +572,7 @@ describe("skill-audit — bundled plugin skills", () => {
     writeFileSync(join(pluginsDir, "no-skills/.claude-plugin/plugin.json"), JSON.stringify({ version: "1.0.0" }));
 
     expect(listBundledSkillSources(pluginsDir)).toEqual([
-      { plugin: "openrig-core", version: "0.1.5", skillsDir: join(pluginsDir, "openrig-core/skills") },
+      { plugin: "softwareteam-core", version: "0.1.5", skillsDir: join(pluginsDir, "softwareteam-core/skills") },
     ]);
     expect(listBundledSkillSources(join(root, "missing"))).toEqual([]);
   });

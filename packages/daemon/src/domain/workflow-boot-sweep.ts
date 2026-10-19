@@ -1,5 +1,5 @@
 // OPR.0.4.6.WF1 FR-4 (G5): the startup resume sweep — the workflow
-// twin of the existing rig/session boot reconcile.
+// twin of the existing softwareTeam/session boot reconcile.
 //
 // Before this slice NOTHING re-examined in-flight workflow instances
 // at daemon boot: a nudge lost to the commit-then-crash window stayed

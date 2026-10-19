@@ -1,4 +1,4 @@
-// Rig Context / Composable Context Injection v0 (PL-014) — library
+// SoftwareTeam Context / Composable Context Injection v0 (PL-014) — library
 // service tests.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";

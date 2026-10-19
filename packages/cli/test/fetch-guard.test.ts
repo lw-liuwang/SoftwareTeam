@@ -16,9 +16,9 @@ import { allowFetchTarget, resetFetchAllowlist } from "./fetch-guard.js";
 describe("fetch guard — allowlist by shape, fail-closed, three-sided", () => {
   afterEach(() => resetFetchAllowlist());
 
-  it("REFUSES the canonical daemon target (:7433, both host forms) — the escape", async () => {
-    await expect(fetch("http://localhost:7433/api/queue/x/update")).rejects.toThrow(/FETCH GUARD|daemon/i);
-    await expect(fetch("http://127.0.0.1:7433/healthz")).rejects.toThrow(/FETCH GUARD|daemon/i);
+  it("REFUSES the canonical daemon target (:7434, both host forms) — the escape", async () => {
+    await expect(fetch("http://localhost:7434/api/queue/x/update")).rejects.toThrow(/FETCH GUARD|daemon/i);
+    await expect(fetch("http://127.0.0.1:7434/healthz")).rejects.toThrow(/FETCH GUARD|daemon/i);
   });
 
   it("PERMITS a loopback-ephemeral fixture BY SHAPE (server.listen(0), no registration)", async () => {
@@ -35,7 +35,7 @@ describe("fetch guard — allowlist by shape, fail-closed, three-sided", () => {
   });
 
   it("REFUSES a NON-LOOPBACK target (the machine-boundary arm — hosts.yaml's real remote)", async () => {
-    await expect(fetch("http://100.95.124.51:7433/api/x")).rejects.toThrow(/FETCH GUARD|non-loopback/i);
+    await expect(fetch("http://100.95.124.51:7434/api/x")).rejects.toThrow(/FETCH GUARD|non-loopback/i);
   });
 
   it("FAILS CLOSED on a loopback WELL-KNOWN/low port (< ephemeral) that is not registered", async () => {
@@ -51,6 +51,6 @@ describe("fetch guard — allowlist by shape, fail-closed, three-sided", () => {
 
   it("a registered / loopback-ephemeral fixture does NOT widen the allowlist to the daemon", async () => {
     allowFetchTarget("http://127.0.0.1:8123");
-    await expect(fetch("http://localhost:7433/api/x")).rejects.toThrow(/FETCH GUARD|daemon/i);
+    await expect(fetch("http://localhost:7434/api/x")).rejects.toThrow(/FETCH GUARD|daemon/i);
   });
 });

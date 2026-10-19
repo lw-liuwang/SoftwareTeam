@@ -1,8 +1,8 @@
 ---
 name: watchdog
-description: Use when configuring `rig watchdog` policies, authoring wake/refocus/alignment-checkpoint messages, or choosing the right intervention level for a stale-owner situation. The 3-level continuity-check stack (wake / refocus / alignment-checkpoint), the discipline that prevents cadence pollution and bureaucracy theater, and the artifact-pool loop-edge pattern for evidence-aware waking.
+description: Use when configuring `SoftwareTeam watchdog` policies, authoring wake/refocus/alignment-checkpoint messages, or choosing the right intervention level for a stale-owner situation. The 3-level continuity-check stack (wake / refocus / alignment-checkpoint), the discipline that prevents cadence pollution and bureaucracy theater, and the artifact-pool loop-edge pattern for evidence-aware waking.
 metadata:
-  openrig:
+  softwareteam:
     stage: factory-approved
     sibling_skills:
       # Sibling sweep 2026-07-19 audit: superseded control-plane-* family
@@ -26,7 +26,7 @@ bureaucracy. They operationalize the refocus doctrine.
 
 ## Use this when
 
-- **Authoring a watchdog policy** for a long-running rig (artifact-pool
+- **Authoring a watchdog policy** for a long-running SoftwareTeam (artifact-pool
   edges, stale-owner detection, periodic reminders).
 - **Choosing the intervention level** for a stale-owner situation: is
   this a wake, a refocus, or an alignment checkpoint?
@@ -51,7 +51,7 @@ bureaucracy. They operationalize the refocus doctrine.
 | **Refocus** | Correct drift | Output shows mode drift, approval regression, weak stop-condition reasoning | Medium alignment nudge — re-centers on role, north star, current approved workstream, coordination mode, stop conditions; does NOT interrupt valid work |
 | **Alignment checkpoint** | Rebuild shared map | Phase boundary, lifecycle mutation, product-intent decision, confusing contradiction | Larger deliberate pause — agent runs full refocus before proceeding |
 
-`cron`, timers, and `rig watchdog` are scheduling substrates. They
+`cron`, timers, and `SoftwareTeam watchdog` are scheduling substrates. They
 should NOT imply that every tick means the same semantic action. The
 intervention level is chosen by evidence, not cadence.
 
@@ -94,7 +94,7 @@ pools and missing edge artifacts.
 
 ## Active surface
 
-Daemon `rig watchdog` is the active host coordination surface for new
+Daemon `SoftwareTeam watchdog` is the active host coordination surface for new
 work. History records only loud evaluations (`sent` / `terminal`);
 quiet skip reasons are NOT recorded — POC parity so agents are not
 woken about scheduler polls.
@@ -117,4 +117,4 @@ handling over many per-seat nag loops.
 
 - `refocus` skill — the doctrine this primitive operationalizes; full and light trace templates
 - `queue-handoff` skill — durable handoff via queue items; watchdog is complementary (watchdog wakes; queue routes)
-- `looping-workflows` skill — operating discipline for self-driving rig-shaped loops; uses watchdog policies for loop edges
+- `looping-workflows` skill — operating discipline for self-driving software-team-shaped loops; uses watchdog policies for loop edges

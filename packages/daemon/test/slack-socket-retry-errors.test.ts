@@ -10,7 +10,7 @@ import { expect, it } from "vitest";
 it.skipIf(process.platform === "win32" || process.getuid?.() === 0).each(["onopen", "periodic"])(
   "%s retry logs a real storage fault, survives, and recovers exactly one delivery",
   (phase) => {
-    const home = mkdtempSync(join(tmpdir(), "openrig-slack-retry-child-"));
+    const home = mkdtempSync(join(tmpdir(), "softwareteam-slack-retry-child-"));
     try {
       const result = spawnSync(process.execPath, [
         fileURLToPath(new URL("./fixtures/slack-retry-storage-fault.mjs", import.meta.url)), phase, home,

@@ -1,15 +1,15 @@
 // Fork Primitive + Starter Agent Images v0 (PL-016) — evidence-
-// preservation guard for `rig agent-image prune` / DELETE
+// preservation guard for `softwareTeam agent-image prune` / DELETE
 // /api/agent-images/library/:id.
 //
 // PRD § Item 6 — CATASTROPHIC BOUNCE if dropped. An image is protected
 // from deletion if ANY:
 //
-//   - Pinned (operator placed `.pinned` sentinel via `rig agent-image pin`)
+//   - Pinned (operator placed `.pinned` sentinel via `softwareTeam agent-image pin`)
 //   - Referenced by an active agent.yaml (session_source: mode:
 //     agent_image, ref.value: <name>) — scanned across discovery roots
 //     for spec library files
-//   - Referenced by a rig spec in the spec library (members[].session_source)
+//   - Referenced by a softwareTeam spec in the spec library (members[].session_source)
 //   - Lineage descendant of another protected image (transitive
 //     protection up the chain)
 //
@@ -23,7 +23,7 @@ import type { AgentImageEntry } from "./agent-image-types.js";
 export type ProtectionReason =
   | "pinned"
   | "referenced_by_agent_spec"
-  | "referenced_by_rig_spec"
+  | "referenced_by_software_team_spec"
   | "lineage_descendant_of_protected";
 
 export interface ImageProtectionStatus {
@@ -60,15 +60,15 @@ export function evaluateProtection(opts: EvidenceGuardOpts): ImageProtectionStat
     const refs = referencedNames.get(img.name) ?? [];
     const reasons: ProtectionReason[] = [];
     if (img.pinned) reasons.push("pinned");
-    // Distinguish agent.yaml-shaped vs rig.yaml-shaped references when
+    // Distinguish agent.yaml-shaped vs software-team.yaml-shaped references when
     // both surface; but the scanner returns paths, and the path-based
     // tag is stored alongside. Simplification at v0: any file whose
-    // basename is `agent.yaml` is agent-spec; otherwise rig-spec.
+    // basename is `agent.yaml` is agent-spec; otherwise software-team-spec.
     const seenReason = new Set<ProtectionReason>();
     for (const ref of refs) {
       const reason: ProtectionReason = ref.endsWith("/agent.yaml")
         ? "referenced_by_agent_spec"
-        : "referenced_by_rig_spec";
+        : "referenced_by_software_team_spec";
       if (!seenReason.has(reason)) {
         reasons.push(reason);
         seenReason.add(reason);
@@ -188,7 +188,7 @@ function collectImageRefs(node: unknown, acc: Set<string> = new Set()): Set<stri
       }
     }
   }
-  // Recurse into all values regardless — a rig.yaml has session_source
+  // Recurse into all values regardless — a software-team.yaml has session_source
   // nested inside members[].
   for (const v of Object.values(obj)) collectImageRefs(v, acc);
   return acc;

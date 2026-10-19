@@ -1,4 +1,4 @@
-// OPR.0.4.0.33 — `rig scope ... progress` update verb + `... repair`
+// OPR.0.4.0.33 — `SoftwareTeam scope ... progress` update verb + `... repair`
 // backfill, driven end-to-end through the commander tree against a tmp
 // substrate fixture.
 
@@ -12,7 +12,7 @@ import { Command } from "commander";
 import { scopeCommand } from "../src/commands/scope.js";
 
 function mktemp(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "rig-scope-prog-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "software-team-scope-prog-"));
 }
 
 function writeFile(p: string, content: string): void {
@@ -48,7 +48,7 @@ async function run(args: string[], workspace: string): Promise<CaptureResult> {
   program.addCommand(scopeCommand());
   program.exitOverride();
   try {
-    await program.parseAsync(["node", "rig", "scope", ...args, "--workspace", path.dirname(workspace)]);
+    await program.parseAsync(["node", "softwareTeam", "scope", ...args, "--workspace", path.dirname(workspace)]);
   } catch (err) {
     const msg = (err as Error).message ?? "";
     if (!msg.startsWith("__EXIT__")) stderrBuf.push(msg + "\n");
@@ -66,7 +66,7 @@ async function createSlice(env: { missionsRoot: string }, slug: string, extra: s
   return JSON.parse(r.stdout).slice.path as string;
 }
 
-describe("rig scope slice progress (FR-3 add/set)", () => {
+describe("SoftwareTeam scope slice progress (FR-3 add/set)", () => {
   let env: { root: string; missionsRoot: string };
   beforeEach(() => { env = seedSubstrate(); });
   afterEach(() => { fs.rmSync(env.root, { recursive: true, force: true }); });
@@ -169,7 +169,7 @@ describe("rig scope slice progress (FR-3 add/set)", () => {
   });
 });
 
-describe("rig scope mission progress (FR-3)", () => {
+describe("SoftwareTeam scope mission progress (FR-3)", () => {
   let env: { root: string; missionsRoot: string };
   beforeEach(() => { env = seedSubstrate(); });
   afterEach(() => { fs.rmSync(env.root, { recursive: true, force: true }); });
@@ -186,7 +186,7 @@ describe("rig scope mission progress (FR-3)", () => {
   });
 });
 
-describe("rig scope repair (FR-6 backfill)", () => {
+describe("SoftwareTeam scope repair (FR-6 backfill)", () => {
   let env: { root: string; missionsRoot: string };
   beforeEach(() => { env = seedSubstrate(); });
   afterEach(() => { fs.rmSync(env.root, { recursive: true, force: true }); });

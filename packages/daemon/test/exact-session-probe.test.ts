@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
 it("probes exact native session names so a live prefix neighbor cannot hide a detached seat", () => {
-  const home = mkdtempSync(join(tmpdir(), "openrig-exact-probe-"));
+  const home = mkdtempSync(join(tmpdir(), "softwareteam-exact-probe-"));
   try {
     const result = spawnSync(process.execPath, [
       fileURLToPath(new URL("./fixtures/exact-session-probe.mjs", import.meta.url)), home,

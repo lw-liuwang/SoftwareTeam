@@ -23,7 +23,7 @@ function renderWizard() {
     createAppTestRouter({
       routes: [
         { path: "/bootstrap", component: BootstrapWizard },
-        { path: "/rigs/$rigId", component: () => <div data-testid="rig-page">Rig</div> },
+        { path: "/software-teams/$softwareTeamId", component: () => <div data-testid="software-team-page">SoftwareTeam</div> },
       ],
       initialPath: "/bootstrap",
       rootComponent: ({ children }) => <SpecsWorkspaceProvider>{children}</SpecsWorkspaceProvider>,
@@ -57,8 +57,8 @@ const PLAN_RESPONSE = {
 const APPLY_RESPONSE = {
   runId: "run-2",
   status: "completed",
-  rigId: "rig-1",
-  stages: [{ stage: "import_rig", status: "ok", detail: {} }],
+  softwareTeamId: "software-team-1",
+  stages: [{ stage: "import_software_team", status: "ok", detail: {} }],
   errors: [],
   warnings: [],
 };
@@ -77,13 +77,13 @@ describe("BootstrapWizard", () => {
   it("hydrates the source input from the Specs workspace", async () => {
     window.localStorage.setItem(
       SPECS_WORKSPACE_STORAGE_KEYS.bootstrapSourceRef,
-      JSON.stringify("/tmp/captured-dev-pod/rig.yaml"),
+      JSON.stringify("/tmp/captured-dev-pod/software-team.yaml"),
     );
 
     renderWizard();
 
     await waitFor(() => {
-      expect((screen.getByTestId("spec-input") as HTMLInputElement).value).toBe("/tmp/captured-dev-pod/rig.yaml");
+      expect((screen.getByTestId("spec-input") as HTMLInputElement).value).toBe("/tmp/captured-dev-pod/software-team.yaml");
     });
   });
 
@@ -94,7 +94,7 @@ describe("BootstrapWizard", () => {
 
     await waitFor(() => expect(screen.getByTestId("spec-input")).toBeTruthy());
 
-    act(() => { fireEvent.change(screen.getByTestId("spec-input"), { target: { value: "/tmp/rig.yaml" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("spec-input"), { target: { value: "/tmp/software-team.yaml" } }); });
     act(() => { fireEvent.click(screen.getByTestId("plan-btn")); });
 
     await waitFor(() => {
@@ -142,7 +142,7 @@ describe("BootstrapWizard", () => {
     renderWizard();
 
     await waitFor(() => expect(screen.getByTestId("spec-input")).toBeTruthy());
-    act(() => { fireEvent.change(screen.getByTestId("spec-input"), { target: { value: "/tmp/rig.yaml" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("spec-input"), { target: { value: "/tmp/software-team.yaml" } }); });
     act(() => { fireEvent.click(screen.getByTestId("plan-btn")); });
 
     await waitFor(() => expect(screen.getByTestId("apply-btn")).toBeTruthy());
@@ -155,23 +155,23 @@ describe("BootstrapWizard", () => {
     expect(body.approvedActionKeys).toEqual(["external_install:cli_tool:rg"]);
   });
 
-  // T5: done state with rigId + link
-  it("done state shows rigId and view rig button", async () => {
+  // T5: done state with softwareTeamId + link
+  it("done state shows softwareTeamId and view SoftwareTeam button", async () => {
     fetchMock
       .mockResolvedValueOnce({ ok: true, json: async () => PLAN_RESPONSE })
       .mockResolvedValueOnce({ ok: true, json: async () => APPLY_RESPONSE });
 
     renderWizard();
     await waitFor(() => expect(screen.getByTestId("spec-input")).toBeTruthy());
-    act(() => { fireEvent.change(screen.getByTestId("spec-input"), { target: { value: "/tmp/rig.yaml" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("spec-input"), { target: { value: "/tmp/software-team.yaml" } }); });
     act(() => { fireEvent.click(screen.getByTestId("plan-btn")); });
     await waitFor(() => expect(screen.getByTestId("apply-btn")).toBeTruthy());
     act(() => { fireEvent.click(screen.getByTestId("apply-btn")); });
 
     await waitFor(() => {
       expect(screen.getByTestId("step-done")).toBeTruthy();
-      expect(screen.getByTestId("result-rig-id").textContent).toContain("rig-1");
-      expect(screen.getByTestId("view-rig-btn")).toBeTruthy();
+      expect(screen.getByTestId("result-software-team-id").textContent).toContain("software-team-1");
+      expect(screen.getByTestId("view-software-team-btn")).toBeTruthy();
     });
   });
 
@@ -181,7 +181,7 @@ describe("BootstrapWizard", () => {
 
     renderWizard();
     await waitFor(() => expect(screen.getByTestId("spec-input")).toBeTruthy());
-    act(() => { fireEvent.change(screen.getByTestId("spec-input"), { target: { value: "/tmp/rig.yaml" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("spec-input"), { target: { value: "/tmp/software-team.yaml" } }); });
     act(() => { fireEvent.click(screen.getByTestId("plan-btn")); });
 
     await waitFor(() => {
@@ -220,7 +220,7 @@ describe("BootstrapWizard", () => {
 
     renderWizard();
     await waitFor(() => expect(screen.getByTestId("spec-input")).toBeTruthy());
-    act(() => { fireEvent.change(screen.getByTestId("spec-input"), { target: { value: "/tmp/bad-rig.yaml" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("spec-input"), { target: { value: "/tmp/bad-software-team.yaml" } }); });
     act(() => { fireEvent.click(screen.getByTestId("plan-btn")); });
 
     await waitFor(() => {
@@ -239,7 +239,7 @@ describe("BootstrapWizard", () => {
 
     renderWizard();
     await waitFor(() => expect(screen.getByTestId("spec-input")).toBeTruthy());
-    act(() => { fireEvent.change(screen.getByTestId("spec-input"), { target: { value: "/tmp/rig.yaml" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("spec-input"), { target: { value: "/tmp/software-team.yaml" } }); });
     act(() => { fireEvent.click(screen.getByTestId("plan-btn")); });
     await waitFor(() => expect(screen.getByTestId("apply-btn")).toBeTruthy());
     act(() => { fireEvent.click(screen.getByTestId("apply-btn")); });
@@ -252,7 +252,7 @@ describe("BootstrapWizard", () => {
     // Should show stages from the plan + apply-only stages
     const checklist = screen.getByTestId("applying-checklist");
     expect(checklist.textContent).toContain("resolve_spec");
-    expect(checklist.textContent).toContain("import_rig");
+    expect(checklist.textContent).toContain("import_software_team");
   });
 
   // T9: apply button disabled when plan is blocked
@@ -271,7 +271,7 @@ describe("BootstrapWizard", () => {
 
     renderWizard();
     await waitFor(() => expect(screen.getByTestId("spec-input")).toBeTruthy());
-    act(() => { fireEvent.change(screen.getByTestId("spec-input"), { target: { value: "/tmp/rig.yaml" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("spec-input"), { target: { value: "/tmp/software-team.yaml" } }); });
     act(() => { fireEvent.click(screen.getByTestId("plan-btn")); });
 
     await waitFor(() => {
@@ -287,7 +287,7 @@ describe("BootstrapWizard", () => {
 
     renderWizard();
     await waitFor(() => expect(screen.getByTestId("spec-input")).toBeTruthy());
-    act(() => { fireEvent.change(screen.getByTestId("spec-input"), { target: { value: "/tmp/rig.yaml" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("spec-input"), { target: { value: "/tmp/software-team.yaml" } }); });
     act(() => { fireEvent.click(screen.getByTestId("plan-btn")); });
 
     await waitFor(() => expect(screen.getByTestId("apply-btn")).toBeTruthy());

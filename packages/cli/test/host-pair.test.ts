@@ -1,4 +1,4 @@
-// OPR.0.4.6.MH1 FR-6 — rig host pair <url>: the founder-simple add path.
+// OPR.0.4.6.MH1 FR-6 — softwareTeam host pair <url>: the founder-simple add path.
 // One pasted address, one approval on the target, done — and the
 // nothing-persists guarantee on every failure leg.
 
@@ -10,18 +10,18 @@ import { Command } from "commander";
 import { hostCommand, resolvePairTimeoutMs, MAX_PAIR_TIMEOUT_MS, type DoctorDeps } from "../src/commands/host.js";
 import { addHostEntry } from "../src/host-registry.js";
 
-describe("rig host pair (OPR.0.4.6.MH1 FR-6)", () => {
+describe("SoftwareTeam host pair (OPR.0.4.6.MH1 FR-6)", () => {
   let dir: string;
   let savedHome: string | undefined;
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "hostpair-"));
-    savedHome = process.env.OPENRIG_HOME;
-    process.env.OPENRIG_HOME = dir;
+    savedHome = process.env.SOFTWARETEAM_HOME;
+    process.env.SOFTWARETEAM_HOME = dir;
   });
   afterEach(() => {
-    if (savedHome === undefined) delete process.env.OPENRIG_HOME;
-    else process.env.OPENRIG_HOME = savedHome;
+    if (savedHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+    else process.env.SOFTWARETEAM_HOME = savedHome;
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
@@ -66,12 +66,12 @@ describe("rig host pair (OPR.0.4.6.MH1 FR-6)", () => {
     const prog = new Command();
     prog.exitOverride();
     prog.addCommand(hostCommand(deps));
-    return prog.parseAsync(["node", "rig", "host", ...argv]);
+    return prog.parseAsync(["node", "softwareTeam", "host", ...argv]);
   }
 
   it("approved walk: registry entry with bearer_file + a 0600 token file; code printed", async () => {
     const deps = fakeDeps({ poll: [{ status: 200, body: { status: "approved", token: "issued-bearer" } }] });
-    const { out, exitCode } = await capture(() => run(deps, ["pair", "vps-a:7433", "--id", "vps-a", "--timeout", "10"]));
+    const { out, exitCode } = await capture(() => run(deps, ["pair", "vps-a:7434", "--id", "vps-a", "--timeout", "10"]));
     expect(exitCode).toBeUndefined();
     expect(out.join("\n")).toContain("Pairing code: 424242");
     expect(out.join("\n")).toContain("Paired. Host 'vps-a' registered");
@@ -87,7 +87,7 @@ describe("rig host pair (OPR.0.4.6.MH1 FR-6)", () => {
 
   it("denied: loud error, exit 1, NOTHING persists", async () => {
     const deps = fakeDeps({ poll: [{ status: 200, body: { status: "denied" } }] });
-    const { err, exitCode } = await capture(() => run(deps, ["pair", "http://vps-a:7433", "--timeout", "10"]));
+    const { err, exitCode } = await capture(() => run(deps, ["pair", "http://vps-a:7434", "--timeout", "10"]));
     expect(exitCode).toBe(1);
     expect(err.join("\n")).toContain("DENIED");
     expect(err.join("\n")).toContain("Nothing was persisted");
@@ -97,12 +97,12 @@ describe("rig host pair (OPR.0.4.6.MH1 FR-6)", () => {
 
   it("a tokenless target's structured refusal is surfaced verbatim", async () => {
     const deps = fakeDeps({
-      post: { status: 409, body: { error: "pair_target_no_bearer", message: "this daemon runs without OPENRIG_AUTH_BEARER_TOKEN; pairing has no credential to issue." } },
+      post: { status: 409, body: { error: "pair_target_no_bearer", message: "this daemon runs without SOFTWARETEAM_AUTH_BEARER_TOKEN; pairing has no credential to issue." } },
       poll: [],
     });
-    const { err, exitCode } = await capture(() => run(deps, ["pair", "vps-a:7433"]));
+    const { err, exitCode } = await capture(() => run(deps, ["pair", "vps-a:7434"]));
     expect(exitCode).toBe(1);
-    expect(err.join("\n")).toContain("OPENRIG_AUTH_BEARER_TOKEN");
+    expect(err.join("\n")).toContain("SOFTWARETEAM_AUTH_BEARER_TOKEN");
     expect(fs.existsSync(path.join(dir, "hosts.yaml"))).toBe(false);
   });
 
@@ -118,15 +118,15 @@ describe("rig host pair (OPR.0.4.6.MH1 FR-6)", () => {
     deps.httpGet = async (url, headers) => {
       if (!raced) {
         raced = true;
-        expect(addHostEntry({ id: "vps-a", transport: "http", url: "http://racer:7433", bearer_env: "RACER_TOKEN" }).ok).toBe(true);
+        expect(addHostEntry({ id: "vps-a", transport: "http", url: "http://racer:7434", bearer_env: "RACER_TOKEN" }).ok).toBe(true);
       }
       return origGet(url, headers);
     };
-    const { err, exitCode } = await capture(() => run(deps, ["pair", "vps-a:7433", "--id", "vps-a", "--timeout", "10"]));
+    const { err, exitCode } = await capture(() => run(deps, ["pair", "vps-a:7434", "--id", "vps-a", "--timeout", "10"]));
     expect(exitCode).toBe(1);
     expect(err.join("\n")).toContain("nothing persisted");
     const yaml = fs.readFileSync(path.join(dir, "hosts.yaml"), "utf8");
-    expect(yaml).toContain("http://racer:7433");
+    expect(yaml).toContain("http://racer:7434");
     expect(yaml).not.toContain("issued-bearer");
     expect(fs.existsSync(path.join(dir, "secrets", "host-vps-a.token"))).toBe(false);
   }, 15_000);
@@ -139,11 +139,11 @@ describe("rig host pair (OPR.0.4.6.MH1 FR-6)", () => {
     const tokenPath = path.join(secretsDir, "host-vps-a.token");
     fs.mkdirSync(secretsDir, { recursive: true, mode: 0o700 });
     fs.writeFileSync(tokenPath, "live-credential\n", { mode: 0o600 });
-    expect(addHostEntry({ id: "vps-a", transport: "http", url: "http://old-target:7433", bearer_file: tokenPath }).ok).toBe(true);
+    expect(addHostEntry({ id: "vps-a", transport: "http", url: "http://old-target:7434", bearer_file: tokenPath }).ok).toBe(true);
     const yamlBefore = fs.readFileSync(path.join(dir, "hosts.yaml"), "utf8");
 
     const deps = fakeDeps({ poll: [] });
-    const { err, exitCode } = await capture(() => run(deps, ["pair", "vps-a:7433", "--id", "vps-a"]));
+    const { err, exitCode } = await capture(() => run(deps, ["pair", "vps-a:7434", "--id", "vps-a"]));
     expect(exitCode).toBe(1);
     expect(err.join("\n")).toContain("duplicate host id");
 
@@ -160,7 +160,7 @@ describe("rig host pair (OPR.0.4.6.MH1 FR-6)", () => {
     fs.writeFileSync(tokenPath, "stale-but-not-ours-to-delete\n", { mode: 0o600 });
 
     const deps = fakeDeps({ poll: [] });
-    const { err, exitCode } = await capture(() => run(deps, ["pair", "vps-a:7433"]));
+    const { err, exitCode } = await capture(() => run(deps, ["pair", "vps-a:7434"]));
     expect(exitCode).toBe(1);
     expect(err.join("\n")).toContain("never overwritten");
 
@@ -174,15 +174,15 @@ describe("rig host pair (OPR.0.4.6.MH1 FR-6)", () => {
     const deps = fakeDeps({ poll: [] });
     const { out } = await capture(() => run(deps, ["list"]));
     const text = out.join("\n");
-    expect(text).toContain("rig host pair <url>");
-    expect(text.indexOf("rig host pair")).toBeLessThan(text.indexOf("rig host add"));
+    expect(text).toContain("SoftwareTeam host pair <url>");
+    expect(text.indexOf("SoftwareTeam host pair")).toBeLessThan(text.indexOf("SoftwareTeam host add"));
   });
 
   // rev1-r1 D: the client-side TIMEOUT walk — deny was walked end-to-end,
   // timeout only server-side; this pins the client's nothing-persists leg.
   it("R1-D: approval timeout on the client persists NOTHING (no registry entry, no token file)", async () => {
     const deps = fakeDeps({ poll: [{ status: 200, body: { status: "pending", code: "424242" } }] });
-    const { err, exitCode } = await capture(() => run(deps, ["pair", "vps-a:7433", "--id", "vps-a", "--timeout", "1"]));
+    const { err, exitCode } = await capture(() => run(deps, ["pair", "vps-a:7434", "--id", "vps-a", "--timeout", "1"]));
     expect(exitCode).toBe(1);
     expect(err.join("\n")).toContain("no approval arrived before the timeout");
     expect(err.join("\n")).toContain("Nothing was persisted");
@@ -213,7 +213,7 @@ describe("rig host pair (OPR.0.4.6.MH1 FR-6)", () => {
 
   it("still pairs with a huge --timeout — it is bounded, not refused", async () => {
     const deps = fakeDeps({ poll: [{ status: 200, body: { status: "approved", token: "issued-bearer" } }] });
-    const { exitCode } = await capture(() => run(deps, ["pair", "vps-a:7433", "--id", "vps-a", "--timeout", "Infinity"]));
+    const { exitCode } = await capture(() => run(deps, ["pair", "vps-a:7434", "--id", "vps-a", "--timeout", "Infinity"]));
     expect(exitCode).toBeUndefined();
     expect(deps.postCalls()).toBe(1);
     expect(fs.existsSync(path.join(dir, "hosts.yaml"))).toBe(true);
@@ -223,7 +223,7 @@ describe("rig host pair (OPR.0.4.6.MH1 FR-6)", () => {
   // they must never reach the token-path join, let alone the target.
   it("B1 (rev1-r2): a path-bearing --id is rejected at preflight; target never contacted, nothing written", async () => {
     const deps = fakeDeps({ poll: [] });
-    const { err, exitCode } = await capture(() => run(deps, ["pair", "vps-a:7433", "--id", "../escape"]));
+    const { err, exitCode } = await capture(() => run(deps, ["pair", "vps-a:7434", "--id", "../escape"]));
     expect(exitCode).toBe(1);
     expect(err.join("\n")).toContain("not a valid host id");
     expect(deps.postCalls()).toBe(0);
@@ -246,18 +246,18 @@ describe("rig host pair (OPR.0.4.6.MH1 FR-6)", () => {
       }
       return origGet(url, headers);
     };
-    const { err, exitCode } = await capture(() => run(deps, ["pair", "vps-a:7433", "--id", "vps-a", "--timeout", "10"]));
+    const { err, exitCode } = await capture(() => run(deps, ["pair", "vps-a:7434", "--id", "vps-a", "--timeout", "10"]));
     expect(exitCode).toBe(1);
     expect(err.join("\n")).toContain("refusing to overwrite");
     expect(fs.readFileSync(tokenPath, "utf8")).toBe("winner-credential\n");
     expect(fs.existsSync(path.join(dir, "hosts.yaml"))).toBe(false);
   }, 15_000);
 
-  // QA2 fixback: the PRD/proof contract spells the verb `rig host ls` —
+  // QA2 fixback: the PRD/proof contract spells the verb `softwareTeam host ls` —
   // the alias must resolve to the SAME list behavior, --json included.
-  it("rig host ls is a working alias of list (PRD FR-3 contract spelling), --json preserved", async () => {
+  it("SoftwareTeam host ls is a working alias of list (PRD FR-3 contract spelling), --json preserved", async () => {
     const deps = fakeDeps({ poll: [{ status: 200, body: { status: "approved", token: "issued-bearer" } }] });
-    await capture(() => run(deps, ["pair", "vps-a:7433", "--id", "vps-a", "--timeout", "10"]));
+    await capture(() => run(deps, ["pair", "vps-a:7434", "--id", "vps-a", "--timeout", "10"]));
 
     const human = await capture(() => run(fakeDeps({ poll: [] }), ["ls"]));
     expect(human.exitCode).toBeUndefined();

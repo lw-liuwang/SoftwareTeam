@@ -37,15 +37,15 @@ function scenarioDir(): string {
     "    members:", "      - id: worker", '        agent_ref: "local:agents/worker"',
     "        profile: default", "        runtime: stub", "        cwd: .", "    edges: []", "",
   ].join("\n"));
-  // A rig bin whose observable output is FIXED — so any run-to-run difference
+  // A softwareTeam bin whose observable output is FIXED — so any run-to-run difference
   // would come from the runner, which is exactly what this pins.
-  writeFileSync(join(d, "rig.mjs"), [
+  writeFileSync(join(d, "softwareTeam.mjs"), [
     'import { appendFileSync } from "node:fs";',
     'const args = process.argv.slice(2);',
     // record the clock the pipeline actually handed the child — the caller-boundary
     // pin that catches the pipeline DROPPING the option (the false-green guard found)
-    `appendFileSync(${JSON.stringify(join(d, "clock.log"))}, String(process.env.OPENRIG_TEST_CLOCK_NOW) + "\\n");`,
-    'if (args[0] === "up") { process.stdout.write(JSON.stringify({ rigId: "r1", rigName: "scn-det" })); }',
+    `appendFileSync(${JSON.stringify(join(d, "clock.log"))}, String(process.env.SOFTWARETEAM_TEST_CLOCK_NOW) + "\\n");`,
+    'if (args[0] === "up") { process.stdout.write(JSON.stringify({ softwareTeamId: "r1", softwareTeamName: "scn-det" })); }',
     'else if (args[0] === "queue") { process.stdout.write(JSON.stringify([{ qitemId: "fixed-1", state: "pending" }])); }',
     'else { process.stdout.write("{}"); }',
     "",
@@ -85,16 +85,16 @@ function scenarioDir(): string {
 
 async function runOnce(d: string, records: RunRecord[], file = "s.yaml") {
   return runScenarioFile(join(d, file), {
-    rigBin: join(d, "rig.mjs"),
+    softwareTeamBin: join(d, "softwareTeam.mjs"),
     baseEnv: { HOME: d, PATH: process.env.PATH, TERM: "xterm" },
     // the claim is "under the injected clock" — so actually inject it
     injectClockNow: INJECTED_CLOCK,
     // Mirror the REAL spawner: readEnv derives from the scaffold the pipeline
-    // built (scenario-daemon.ts:155 = {...scaffold.env, OPENRIG_URL}). A fake
+    // built (scenario-daemon.ts:155 = {...scaffold.env, SOFTWARETEAM_URL}). A fake
     // that fabricates its own env would pin the fake, not the pipeline — which
     // is how the dropped clock stayed invisible.
     daemon: (async (scaffold: { env: Record<string, string | undefined> }) => ({
-      readEnv: { ...scaffold.env, OPENRIG_URL: "http://127.0.0.1:1" },
+      readEnv: { ...scaffold.env, SOFTWARETEAM_URL: "http://127.0.0.1:1" },
       baseUrl: "http://127.0.0.1:1",
       sigterm: async () => {}, restart: async () => {}, stop: async () => {},
     })) as never,
@@ -162,9 +162,9 @@ describe("D8 — the same scenario twice under the injected clock is byte-identi
     const a = await runOnce(d, recordsA);
 
     // change ONLY the observable the scenario reads
-    writeFileSync(join(d, "rig.mjs"), [
+    writeFileSync(join(d, "softwareTeam.mjs"), [
       'const args = process.argv.slice(2);',
-      'if (args[0] === "up") { process.stdout.write(JSON.stringify({ rigId: "r1", rigName: "scn-det" })); }',
+      'if (args[0] === "up") { process.stdout.write(JSON.stringify({ softwareTeamId: "r1", softwareTeamName: "scn-det" })); }',
       'else if (args[0] === "queue") { process.stdout.write(JSON.stringify([{ qitemId: "fixed-2", state: "pending" }])); }',
       'else { process.stdout.write("{}"); }',
       "",
@@ -180,10 +180,10 @@ describe("D8 — the same scenario twice under the injected clock is byte-identi
     const d = scenarioDir();
     const { prepareHermeticEnv, AmbientClockHazardError } = await import("./helpers/hermetic-env.js");
     expect(() =>
-      prepareHermeticEnv({ baseEnv: { HOME: d, PATH: process.env.PATH, OPENRIG_TEST_CLOCK_NOW: INJECTED_CLOCK } }),
+      prepareHermeticEnv({ baseEnv: { HOME: d, PATH: process.env.PATH, SOFTWARETEAM_TEST_CLOCK_NOW: INJECTED_CLOCK } }),
     ).toThrow(AmbientClockHazardError);
     const s = prepareHermeticEnv({ baseEnv: { HOME: d, PATH: process.env.PATH }, injectClockNow: INJECTED_CLOCK });
-    expect(s.env.OPENRIG_TEST_CLOCK_NOW).toBe(INJECTED_CLOCK);
+    expect(s.env.SOFTWARETEAM_TEST_CLOCK_NOW).toBe(INJECTED_CLOCK);
     s.cleanup();
   });
 });

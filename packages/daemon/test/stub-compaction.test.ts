@@ -14,11 +14,11 @@ import { fireCompaction, StubCompactionError } from "../src/adapters/stub-compac
 // runner (a real-spawn caller) invokes fireCompaction on an `emit compaction` step.
 //
 // These tests spawn the REAL shipped hook (the class-fix floor) with an isolated
-// OPENRIG_HOME + a controlled transcript so the packet + stamps are deterministic.
+// SOFTWARETEAM_HOME + a controlled transcript so the packet + stamps are deterministic.
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HOOK_SCRIPT = resolve(
-  HERE, "..", "assets", "plugins", "openrig-core",
+  HERE, "..", "assets", "plugins", "softwareteam-core",
   "skills", "claude-compaction-restore", "scripts", "precompact-hook.mjs",
 );
 const SEAT = "dev-worker@compaction-scn";
@@ -36,14 +36,14 @@ function writeFixtureJsonl(dir: string): string {
 
 describe("stub compaction behavior fires the real precompact seam", () => {
   let tmpDir: string;
-  let openrigHome: string;
+  let softwareteamHome: string;
 
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), "stub-compaction-"));
-    openrigHome = join(tmpDir, ".openrig");
+    softwareteamHome = join(tmpDir, ".softwareteam");
     // fireCompaction inherits process.env; keep the packet out of the production
     // default (/tmp/claude-compaction-restore).
-    vi.stubEnv("OPENRIG_COMPACTION_OUT_ROOT", join(tmpDir, "packets"));
+    vi.stubEnv("SOFTWARETEAM_COMPACTION_OUT_ROOT", join(tmpDir, "packets"));
   });
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -55,13 +55,13 @@ describe("stub compaction behavior fires the real precompact seam", () => {
     const result = fireCompaction({
       hookScriptPath: HOOK_SCRIPT,
       sessionName: SEAT,
-      openrigHome,
+      softwareteamHome,
       cwd: tmpDir,
       transcriptPath: jsonl,
     });
     expect(existsSync(result.markerPath)).toBe(true);
     // Keyed to THIS seat (sanitized) under the shipped restore-pending dir.
-    expect(result.markerPath).toBe(join(openrigHome, "compaction", "restore-pending", `${SEAT}.json`));
+    expect(result.markerPath).toBe(join(softwareteamHome, "compaction", "restore-pending", `${SEAT}.json`));
     const marker = JSON.parse(readFileSync(result.markerPath, "utf8"));
     expect(marker.sessionName).toBe(SEAT);
     // The packet the real seam generated actually exists (restore-from-jsonl ran).
@@ -73,11 +73,11 @@ describe("stub compaction behavior fires the real precompact seam", () => {
   it("is deterministic under the injected clock (byte-identical stamps across a double-run)", () => {
     const readStamps = (): { createdAt: unknown; outStamp: string | undefined } => {
       const dir = mkdtempSync(join(tmpdir(), "stub-compaction-det-"));
-      const home = join(dir, ".openrig");
+      const home = join(dir, ".softwareteam");
       const jsonl = writeFixtureJsonl(dir);
-      vi.stubEnv("OPENRIG_COMPACTION_OUT_ROOT", join(dir, "packets"));
+      vi.stubEnv("SOFTWARETEAM_COMPACTION_OUT_ROOT", join(dir, "packets"));
       const result = fireCompaction({
-        hookScriptPath: HOOK_SCRIPT, sessionName: SEAT, openrigHome: home, cwd: dir,
+        hookScriptPath: HOOK_SCRIPT, sessionName: SEAT, softwareteamHome: home, cwd: dir,
         transcriptPath: jsonl, injectClockNow: INJECTED_ISO,
       });
       const marker = JSON.parse(readFileSync(result.markerPath, "utf8"));
@@ -97,7 +97,7 @@ describe("stub compaction behavior fires the real precompact seam", () => {
     expect(() => fireCompaction({
       hookScriptPath: join(tmpDir, "no-such-precompact-hook.mjs"),
       sessionName: SEAT,
-      openrigHome,
+      softwareteamHome,
       cwd: tmpDir,
     })).toThrow(StubCompactionError);
   });

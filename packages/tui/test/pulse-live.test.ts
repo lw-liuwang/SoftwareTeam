@@ -47,7 +47,7 @@ function liveSnap(over: Partial<FleetSnapshot> = {}): FleetSnapshot {
 }
 
 // The compact canonical id the daemon serves as node.logicalId (podNamespace.member).
-// For the simple fixture sessions here `dev50-guard@rig` → `dev50.guard`; a test that
+// For the simple fixture sessions here `dev50-guard@software-team` → `dev50.guard`; a test that
 // cares about the exact compact form passes it explicitly.
 const compact = (session: string) => session.split("@")[0]!.replace(/-/g, ".");
 // A ps/activity row for one seat (the PARKED/NOW join's right side).
@@ -56,7 +56,7 @@ const seat = (session: string, terminalActive: boolean | null, lastActivityAt: s
 
 // An in-progress qitem (reuses attn's shape but with a real owner + in-progress state).
 const inprog = (over: Partial<QueueRead>): QueueRead =>
-  attn({ state: "in-progress", destinationSession: "dev50-guard@openrig-build", claimedAt: ago(50 * MIN), ...over });
+  attn({ state: "in-progress", destinationSession: "dev50-guard@softwareteam-build", claimedAt: ago(50 * MIN), ...over });
 
 const attn = (over: Partial<QueueRead>): QueueRead => ({
   qitemId: "q",
@@ -142,9 +142,9 @@ describe("PULSE view increment 2 — Exceptions strip LIVE", () => {
         attn({
           qitemId: "b1",
           state: "blocked",
-          destinationSession: "dev50-driver@openrig-build",
+          destinationSession: "dev50-driver@softwareteam-build",
           blockedOn: "qitem-20260805-blkA", // a qitem POINTER — must NOT be shown as the blocker
-          blockerSession: "review-r1@openrig-build", // resolved owner = the blocking agent
+          blockerSession: "review-r1@softwareteam-build", // resolved owner = the blocking agent
           tier: null,
           summary: "terminal verdict for 51209941",
           claimedAt: ago(1 * HR),
@@ -153,7 +153,7 @@ describe("PULSE view increment 2 — Exceptions strip LIVE", () => {
         attn({
           qitemId: "b2",
           state: "blocked",
-          destinationSession: "dev50-qa@openrig-build",
+          destinationSession: "dev50-qa@softwareteam-build",
           blockedOn: "human-yeah@kernel",
           tier: null,
           summary: "human sign-off pending",
@@ -167,13 +167,13 @@ describe("PULSE view increment 2 — Exceptions strip LIVE", () => {
     expect(blocked!.rows.length).toBe(1);
     const text = renderExceptionSection(blocked!).map((l) => l.text).join("\n");
     expect(text).toContain("⧗ BLOCKED ON AGENTS (1)");
-    expect(text).toContain("dev50-driver@openrig-build");
+    expect(text).toContain("dev50-driver@softwareteam-build");
     // label==referent: the AGENT is named, the qitem POINTER is NOT rendered
-    expect(text).toContain("blocked on review-r1@openrig-build");
+    expect(text).toContain("blocked on review-r1@softwareteam-build");
     expect(text).not.toContain("qitem-20260805-blkA");
     expect(text).toContain("terminal verdict for 51209941");
     // the human-blocked item must NOT leak into BLOCKED ON AGENTS
-    expect(text).not.toContain("dev50-qa@openrig-build");
+    expect(text).not.toContain("dev50-qa@softwareteam-build");
     expect(text).not.toContain("human sign-off pending");
   });
 
@@ -183,7 +183,7 @@ describe("PULSE view increment 2 — Exceptions strip LIVE", () => {
         attn({
           qitemId: "b3",
           state: "blocked",
-          destinationSession: "dev50-guard@openrig-build",
+          destinationSession: "dev50-guard@softwareteam-build",
           blockedOn: "gate:review", // e.g. a gate name — not a qitem id, does not resolve
           blockerSession: null,
           tier: null,
@@ -201,10 +201,10 @@ describe("PULSE view increment 2 — Exceptions strip LIVE", () => {
   it("◌ PARKED WITH BATON: rows from in-progress qitems whose owner is IDLE (terminalActive===false) and NOT handed off; idle-duration derived from lastActivityAt at the renderer", () => {
     const snap = liveSnap({
       inProgress: [
-        inprog({ qitemId: "qitem-20260806-8f3a1b2c", destinationSession: "dev50-guard@openrig-build", summary: "slice 51-06 D2 atom" }),
+        inprog({ qitemId: "qitem-20260806-8f3a1b2c", destinationSession: "dev50-guard@softwareteam-build", summary: "slice 51-06 D2 atom" }),
       ],
       // owner idle: terminalActive false, last output 47m ago
-      seatActivity: [seat("dev50-guard@openrig-build", false, ago(47 * MIN))],
+      seatActivity: [seat("dev50-guard@softwareteam-build", false, ago(47 * MIN))],
     });
     const model = buildPulseModel(snap, NOW);
     const parked = model.exceptions.find((s) => s.label === "PARKED WITH BATON");
@@ -212,7 +212,7 @@ describe("PULSE view increment 2 — Exceptions strip LIVE", () => {
     expect(parked!.rows.length).toBe(1);
     const text = renderExceptionSection(parked!).map((l) => l.text).join("\n");
     expect(text).toContain("◌ PARKED WITH BATON (1)");
-    expect(text).toContain("dev50-guard@openrig-build");      // owner (baton holder) named
+    expect(text).toContain("dev50-guard@softwareteam-build");      // owner (baton holder) named
     expect(text).toContain("qitem 8f3a…");                     // qitem-short
     expect(text).not.toContain("qitem-20260806-8f3a1b2c");     // full id pointer NOT rendered
     expect(text).toContain("47m idle");                         // idle-duration from lastActivityAt (renderer nowMs)
@@ -225,14 +225,14 @@ describe("PULSE view increment 2 — Exceptions strip LIVE", () => {
   it("◌ PARKED WITH BATON exclusions: ACTIVE owner (terminalActive===true), HANDED-OFF baton, and UNKNOWN-activity owner (null) are all excluded (null ≠ idle — honest)", () => {
     const snap = liveSnap({
       inProgress: [
-        inprog({ qitemId: "qitem-a-active01", destinationSession: "dev50-driver@openrig-build", summary: "actively working" }),
-        inprog({ qitemId: "qitem-b-handed02", destinationSession: "dev50-guard@openrig-build", handedOffTo: "review50-r1@openrig-build", summary: "already handed off" }),
-        inprog({ qitemId: "qitem-c-unknwn3", destinationSession: "dev50-qa@openrig-build", summary: "no activity signal" }),
+        inprog({ qitemId: "qitem-a-active01", destinationSession: "dev50-driver@softwareteam-build", summary: "actively working" }),
+        inprog({ qitemId: "qitem-b-handed02", destinationSession: "dev50-guard@softwareteam-build", handedOffTo: "review50-r1@softwareteam-build", summary: "already handed off" }),
+        inprog({ qitemId: "qitem-c-unknwn3", destinationSession: "dev50-qa@softwareteam-build", summary: "no activity signal" }),
       ],
       seatActivity: [
-        seat("dev50-driver@openrig-build", true, ago(1 * MIN)),   // ACTIVE → working, not parked
-        seat("dev50-guard@openrig-build", false, ago(47 * MIN)),  // idle, but THIS qitem is handed off
-        seat("dev50-qa@openrig-build", null, null),               // no signal → honest-unknown, NOT idle
+        seat("dev50-driver@softwareteam-build", true, ago(1 * MIN)),   // ACTIVE → working, not parked
+        seat("dev50-guard@softwareteam-build", false, ago(47 * MIN)),  // idle, but THIS qitem is handed off
+        seat("dev50-qa@softwareteam-build", null, null),               // no signal → honest-unknown, NOT idle
       ],
     });
     const model = buildPulseModel(snap, NOW);
@@ -283,15 +283,15 @@ describe("PULSE view increment 3 — Lanes LIVE (NOW / JUST FINISHED / UP NEXT +
   it("NOW: active seats (terminalActive===true) joined to their in-progress work; idle/unknown owners excluded", () => {
     const snap = liveSnap({
       inProgress: [
-        inprog({ qitemId: "n1", destinationSession: "dev50-driver@openrig-build", summary: "pulse incr-3 build" }),
-        inprog({ qitemId: "n2", destinationSession: "dev50-guard@openrig-build", summary: "guard busywork" }),
-        inprog({ qitemId: "n3", destinationSession: "dev50-qa@openrig-build", summary: "qa matrix leg" }),
+        inprog({ qitemId: "n1", destinationSession: "dev50-driver@softwareteam-build", summary: "pulse incr-3 build" }),
+        inprog({ qitemId: "n2", destinationSession: "dev50-guard@softwareteam-build", summary: "guard busywork" }),
+        inprog({ qitemId: "n3", destinationSession: "dev50-qa@softwareteam-build", summary: "qa matrix leg" }),
       ],
       seatActivity: [
-        seat("dev50-driver@openrig-build", true, ago(1 * MIN)),   // ACTIVE → NOW (with work)
-        seat("dev50-guard@openrig-build", false, ago(47 * MIN)),  // IDLE → PARKED, never NOW
-        seat("dev50-qa@openrig-build", null, null),               // UNKNOWN signal → excluded (null ≠ active)
-        seat("dev50-planner@openrig-build", true, ago(30_000)),   // ACTIVE, no in-progress qitem → bare NOW row
+        seat("dev50-driver@softwareteam-build", true, ago(1 * MIN)),   // ACTIVE → NOW (with work)
+        seat("dev50-guard@softwareteam-build", false, ago(47 * MIN)),  // IDLE → PARKED, never NOW
+        seat("dev50-qa@softwareteam-build", null, null),               // UNKNOWN signal → excluded (null ≠ active)
+        seat("dev50-planner@softwareteam-build", true, ago(30_000)),   // ACTIVE, no in-progress qitem → bare NOW row
       ],
     });
     const now = buildPulseModel(snap, NOW).lanes[0];
@@ -299,7 +299,7 @@ describe("PULSE view increment 3 — Lanes LIVE (NOW / JUST FINISHED / UP NEXT +
     const labels = now.rows.map((r) => r.label);
     // active owner + its work — the COMPACT logicalId (incr-4), never the full session
     expect(labels.some((l) => l.includes("dev50.driver") && l.includes("pulse incr-3 build"))).toBe(true);
-    expect(labels.some((l) => l.includes("dev50-driver@openrig-build"))).toBe(false); // full session dropped → drill recovers it
+    expect(labels.some((l) => l.includes("dev50-driver@softwareteam-build"))).toBe(false); // full session dropped → drill recovers it
     // active seat with NO in-progress qitem is still running → shown bare (honest)
     expect(labels.some((l) => l.includes("dev50.planner"))).toBe(true);
     // idle owner belongs under PARKED, NOT here; unknown-signal owner excluded
@@ -359,12 +359,12 @@ describe("PULSE view increment 3 — Lanes LIVE (NOW / JUST FINISHED / UP NEXT +
         attn({ qitemId: "a2", summary: "gate two", claimedAt: ago(3 * MIN) }),
       ],
       inProgress: [
-        inprog({ qitemId: "n1", destinationSession: "dev50-driver@openrig-build", summary: "working" }),
-        inprog({ qitemId: "pk", destinationSession: "dev50-guard@openrig-build", summary: "parked baton" }),
+        inprog({ qitemId: "n1", destinationSession: "dev50-driver@softwareteam-build", summary: "working" }),
+        inprog({ qitemId: "pk", destinationSession: "dev50-guard@softwareteam-build", summary: "parked baton" }),
       ],
       seatActivity: [
-        seat("dev50-driver@openrig-build", true, ago(1 * MIN)),
-        seat("dev50-guard@openrig-build", false, ago(47 * MIN)),
+        seat("dev50-driver@softwareteam-build", true, ago(1 * MIN)),
+        seat("dev50-guard@softwareteam-build", false, ago(47 * MIN)),
       ],
       hydratedAt: ago(2000),
     });
@@ -385,8 +385,8 @@ describe("PULSE view increment 3 — Lanes LIVE (NOW / JUST FINISHED / UP NEXT +
 
   it("◌ PARKED age-unknown belt: an idle owner (terminalActive false) with NO lastActivityAt renders 'idle (age unknown)', never a bare/fabricated duration", () => {
     const snap = liveSnap({
-      inProgress: [inprog({ qitemId: "qitem-x-noagey1", destinationSession: "dev50-guard@openrig-build", summary: "stranded" })],
-      seatActivity: [seat("dev50-guard@openrig-build", false, null)], // idle owner, but NO activity stamp
+      inProgress: [inprog({ qitemId: "qitem-x-noagey1", destinationSession: "dev50-guard@softwareteam-build", summary: "stranded" })],
+      seatActivity: [seat("dev50-guard@softwareteam-build", false, null)], // idle owner, but NO activity stamp
     });
     const parked = buildPulseModel(snap, NOW).exceptions.find((s) => s.label === "PARKED WITH BATON")!;
     expect(parked).toBeDefined();
@@ -411,32 +411,32 @@ describe("PULSE view increment 3 — Lanes LIVE (NOW / JUST FINISHED / UP NEXT +
 describe("PULSE view increment 4 — compact-seat lane form + drill-in actions", () => {
   it("NOW label is the COMPACT logicalId (r1 mock-authority ruling); the full session is dropped from the strip", () => {
     const snap = liveSnap({
-      inProgress: [inprog({ qitemId: "n1", destinationSession: "dev50-driver@openrig-build", summary: "pulse incr-4 build" })],
-      seatActivity: [seat("dev50-driver@openrig-build", true, ago(1 * MIN), "dev50.driver")],
+      inProgress: [inprog({ qitemId: "n1", destinationSession: "dev50-driver@softwareteam-build", summary: "pulse incr-4 build" })],
+      seatActivity: [seat("dev50-driver@softwareteam-build", true, ago(1 * MIN), "dev50.driver")],
     });
     const now = buildPulseModel(snap, NOW).lanes[0];
     expect(now.rows[0]!.label).toBe("dev50.driver  pulse incr-4 build"); // compact id + work
-    expect(now.rows[0]!.label).not.toContain("@openrig-build"); // full session NOT on the strip
+    expect(now.rows[0]!.label).not.toContain("@softwareteam-build"); // full session NOT on the strip
   });
 
   it("compact form is LANES-ONLY: exception rows keep the FULL session", () => {
     const snap = liveSnap({
-      inProgress: [inprog({ qitemId: "pk", destinationSession: "dev50-guard@openrig-build", summary: "stranded" })],
-      seatActivity: [seat("dev50-guard@openrig-build", false, ago(47 * MIN), "dev50.guard")],
+      inProgress: [inprog({ qitemId: "pk", destinationSession: "dev50-guard@softwareteam-build", summary: "stranded" })],
+      seatActivity: [seat("dev50-guard@softwareteam-build", false, ago(47 * MIN), "dev50.guard")],
     });
     const parked = buildPulseModel(snap, NOW).exceptions.find((s) => s.label === "PARKED WITH BATON")!;
     const text = renderExceptionSection(parked).map((l) => l.text).join("\n");
-    expect(text).toContain("dev50-guard@openrig-build"); // exceptions keep the FULL session
+    expect(text).toContain("dev50-guard@softwareteam-build"); // exceptions keep the FULL session
     expect(text).not.toContain("dev50.guard"); // and NOT the compact lane form
   });
 
   it("NOW row drills to the seat's AGENT (session→topology) — recovering the full identity the compact label drops", () => {
     const snap = liveSnap({
-      inProgress: [inprog({ qitemId: "n1", destinationSession: "dev50-driver@openrig-build", summary: "work" })],
-      seatActivity: [seat("dev50-driver@openrig-build", true, ago(1 * MIN), "dev50.driver")],
+      inProgress: [inprog({ qitemId: "n1", destinationSession: "dev50-driver@softwareteam-build", summary: "work" })],
+      seatActivity: [seat("dev50-driver@softwareteam-build", true, ago(1 * MIN), "dev50.driver")],
     });
     const now = buildPulseModel(snap, NOW).lanes[0];
-    expect(now.rows[0]!.action).toEqual({ type: "drill", resource: "agent", name: "dev50.driver", target: { host: "vm-host", rig: "openrig-build", pod: "dev50" } });
+    expect(now.rows[0]!.action).toEqual({ type: "drill", resource: "agent", name: "dev50.driver", target: { host: "vm-host", softwareTeam: "softwareteam-build", pod: "dev50" } });
   });
 
   it("a NOW seat ABSENT from the topology degrades to a `notice` revealing the full identity — never a dead key", () => {
@@ -450,16 +450,16 @@ describe("PULSE view increment 4 — compact-seat lane form + drill-in actions",
 
   it("JUST FINISHED row drills to the seat that FINISHED it (destinationSession→agent)", () => {
     const snap = liveSnap({
-      recentlyFinished: [attn({ qitemId: "f1", state: "done", destinationSession: "dev50-guard@openrig-build", summary: "close-out", tsUpdated: "2026-08-06T11:44:00.000Z" })],
+      recentlyFinished: [attn({ qitemId: "f1", state: "done", destinationSession: "dev50-guard@softwareteam-build", summary: "close-out", tsUpdated: "2026-08-06T11:44:00.000Z" })],
     });
     const jf = buildPulseModel(snap, NOW).lanes[1];
-    expect(jf.rows[0]!.action).toEqual({ type: "drill", resource: "agent", name: "dev50.guard", target: { host: "vm-host", rig: "openrig-build", pod: "dev50" } });
+    expect(jf.rows[0]!.action).toEqual({ type: "drill", resource: "agent", name: "dev50.guard", target: { host: "vm-host", softwareTeam: "softwareteam-build", pod: "dev50" } });
   });
 
   it("UP NEXT rows drill to the DESTINED seat; the '…' overflow marker carries NO action (not an entity → not selectable)", () => {
-    const pend = Array.from({ length: 6 }, (_, i) => attn({ qitemId: `p${i}`, state: "pending", destinationSession: "dev50-qa@openrig-build", summary: `item ${i}`, claimedAt: null }));
+    const pend = Array.from({ length: 6 }, (_, i) => attn({ qitemId: `p${i}`, state: "pending", destinationSession: "dev50-qa@softwareteam-build", summary: `item ${i}`, claimedAt: null }));
     const un = buildPulseModel(liveSnap({ pending: pend }), NOW).lanes[2];
-    expect(un.rows[0]!.action).toEqual({ type: "drill", resource: "agent", name: "dev50.qa", target: { host: "vm-host", rig: "openrig-build", pod: "dev50" } });
+    expect(un.rows[0]!.action).toEqual({ type: "drill", resource: "agent", name: "dev50.qa", target: { host: "vm-host", softwareTeam: "softwareteam-build", pod: "dev50" } });
     expect(un.rows[4]!.label).toBe("…");
     expect(un.rows[4]!.action).toBeUndefined();
   });

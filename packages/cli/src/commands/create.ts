@@ -8,7 +8,7 @@ import type { StatusDeps } from "./status.js";
 import { resolveDefaultAgentRef } from "./topology-default-agent.js";
 
 interface CreateResult {
-  rigId: string;
+  softwareTeamId: string;
   specName: string;
   specVersion: string;
   nodes: Array<{
@@ -23,14 +23,14 @@ interface CreateResult {
 }
 
 export function createCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("create").description("Create a one-seat rig without writing a spec");
+  const cmd = new Command("create").description("Create a one-seat SoftwareTeam without writing a spec");
   const getDeps = () => depsOverride ?? {
     lifecycleDeps: realDeps(),
     clientFactory: (url: string) => new DaemonClient(url),
   };
 
   cmd
-    .argument("<name>", "Name of the new rig")
+    .argument("<name>", "Name of the new softwareTeam")
     .option("--runtime <runtime>", "Agent runtime", "claude-code")
     .option("--cwd <path>", "Working directory for the seat", process.cwd())
     .option("--json", "JSON output for agents")
@@ -70,15 +70,15 @@ export function createCommand(depsOverride?: StatusDeps): Command {
       });
 
       const res = await client.postText<CreateResult>(
-        "/api/rigs/import",
+        "/api/software-teams/import",
         yaml,
         "text/yaml",
-        { "X-Rig-Root": cwd, "X-Cwd-Override": cwd },
+        { "X-Software-Team-Root": cwd, "X-Cwd-Override": cwd },
         { timeoutMs: 120_000 },
       );
       const node = res.data.nodes?.find((candidate) => candidate.logicalId === logicalId);
       const ok = res.status < 400 && node?.status === "launched";
-      // The same reason in both outputs, under the key `rig grow --json` uses.
+      // The same reason in both outputs, under the key `softwareTeam grow --json` uses.
       const detail = ok ? undefined : (res.data.errors?.join("; ")
         ?? res.data.message
         ?? res.data.error
@@ -88,8 +88,8 @@ export function createCommand(depsOverride?: StatusDeps): Command {
       if (opts.json) {
         console.log(JSON.stringify({
           ok,
-          rigId: res.data.rigId,
-          rigName: name,
+          softwareTeamId: res.data.softwareTeamId,
+          softwareTeamName: name,
           pod: "main",
           seat: logicalId,
           source: agentRef,
@@ -97,7 +97,7 @@ export function createCommand(depsOverride?: StatusDeps): Command {
           ...(detail !== undefined ? { detail } : {}),
         }, null, 2));
       } else if (ok) {
-        console.log(`Created rig ${name} (${res.data.rigId})`);
+        console.log(`Created softwareTeam ${name} (${res.data.softwareTeamId})`);
         console.log(`  Seat: ${logicalId}${node?.sessionName ? ` (${node.sessionName})` : ""}`);
       } else {
         console.error(detail);

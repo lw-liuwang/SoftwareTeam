@@ -7,13 +7,13 @@ import { fileURLToPath } from "node:url";
 import { deriveCurrentWork } from "../src/domain/current-work.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const HOOK = resolve(HERE, "../assets/plugins/openrig-core/hooks/scripts/refocus.cjs");
-const PLUGIN = resolve(HERE, "../assets/plugins/openrig-core");
+const HOOK = resolve(HERE, "../assets/plugins/softwareteam-core/hooks/scripts/refocus.cjs");
+const PLUGIN = resolve(HERE, "../assets/plugins/softwareteam-core");
 const CLAUDE_HOOKS = resolve(PLUGIN, "hooks/claude.json");
 const CODEX_HOOKS = resolve(PLUGIN, "hooks/codex.json");
 const TRACE = resolve(PLUGIN, "skills/refocusing/scripts/trace-to-root.py");
 const REFOCUS_MD = resolve(PLUGIN, "skills/refocusing/references/refocus.md");
-const LEGACY_COMPOSE = resolve(PLUGIN, "skills/openrig-operating-model/scripts/compose.py");
+const LEGACY_COMPOSE = resolve(PLUGIN, "skills/softwareteam-operating-model/scripts/compose.py");
 const REF = "packs/r5-contributing-knowledge-20260824";
 // The daemon's own "this seat holds no in-progress typed baton" refusal, taken from the
 // derivation itself (no rows, so no filesystem is touched) rather than copied, so a wording
@@ -30,9 +30,9 @@ afterEach(() => {
 function runHook(options: {
   ref?: string;
   fileContent?: string;
-  rigStdout?: string;
-  rigStderr?: string;
-  rigStatus?: number;
+  softwareTeamStdout?: string;
+  softwareTeamStderr?: string;
+  softwareTeamStatus?: number;
   event?: string;
   transcriptContent?: string;
   extraEnv?: NodeJS.ProcessEnv;
@@ -46,8 +46,8 @@ function runHook(options: {
   root = mkdtempSync(join(tmpdir(), "refocus-context-ref-"));
   const home = join(root, "home");
   const bin = join(root, "bin");
-  const argvCapture = join(root, "rig-argv.json");
-  const verbLog = join(root, "rig-verbs.log");
+  const argvCapture = join(root, "software-team-argv.json");
+  const verbLog = join(root, "software-team-verbs.log");
   mkdirSync(home, { recursive: true });
   mkdirSync(bin, { recursive: true });
   if (options.instanceContent !== undefined) {
@@ -61,22 +61,22 @@ function runHook(options: {
     writeFileSync(transcript, options.transcriptContent, "utf8");
   }
 
-  const rig = join(bin, "rig");
+  const softwareTeam = join(bin, "SoftwareTeam");
   // The fake answers two verbs. `queue whoami` is dispatched first and returns its own
   // stdout/status, so a whoami failure can be exercised without disturbing the context-get
   // contract below, which stays byte-identical to keep the existing suites unaffected.
-  writeFileSync(rig, `#!/bin/sh
-printf '%s %s %s\\n' "$1" "$2" "$3" >> "$RIG_VERB_LOG"
+  writeFileSync(softwareTeam, `#!/bin/sh
+printf '%s %s %s\\n' "$1" "$2" "$3" >> "$SOFTWARE_TEAM_VERB_LOG"
 if [ "$1" = "queue" ] && [ "$2" = "whoami" ]; then
-  printf '%s' "$RIG_WHOAMI_STDOUT"
-  exit "\${RIG_WHOAMI_STATUS:-0}"
+  printf '%s' "$SOFTWARE_TEAM_WHOAMI_STDOUT"
+  exit "\${SOFTWARE_TEAM_WHOAMI_STATUS:-0}"
 fi
-printf '["%s","%s","%s"]' "$1" "$2" "$3" > "$RIG_ARGV_CAPTURE"
-printf '%s' "$RIG_STDOUT"
-printf '%s' "$RIG_STDERR" >&2
-exit "\${RIG_STATUS:-0}"
+printf '["%s","%s","%s"]' "$1" "$2" "$3" > "$SOFTWARE_TEAM_ARGV_CAPTURE"
+printf '%s' "$SOFTWARE_TEAM_STDOUT"
+printf '%s' "$SOFTWARE_TEAM_STDERR" >&2
+exit "\${SOFTWARE_TEAM_STATUS:-0}"
 `, "utf8");
-  chmodSync(rig, 0o755);
+  chmodSync(softwareTeam, 0o755);
 
   // The hook resolves its interpreter through PYTHON, so a shim there records the exact
   // trace-to-root argv — which is where --work-start is observable as an effect.
@@ -97,22 +97,22 @@ exit 0
   const env = {
     ...process.env,
     PATH: `${bin}:${process.env.PATH || ""}`,
-    OPENRIG_HOME: home,
-    OPENRIG_SESSION_NAME: "seat@test",
-    OPENRIG_REFOCUS_CONTENT_REF: options.ref,
-    OPENRIG_REFOCUS_CONTENT_FILE: contentFile,
-    RIG_ARGV_CAPTURE: argvCapture,
-    RIG_VERB_LOG: verbLog,
-    RIG_STDOUT: options.rigStdout,
-    RIG_STDERR: options.rigStderr,
-    RIG_STATUS: options.rigStatus === undefined ? undefined : String(options.rigStatus),
-    RIG_WHOAMI_STDOUT: options.whoamiStdout,
-    RIG_WHOAMI_STATUS: options.whoamiStatus === undefined ? undefined : String(options.whoamiStatus),
+    SOFTWARETEAM_HOME: home,
+    SOFTWARETEAM_SESSION_NAME: "seat@test",
+    SOFTWARETEAM_REFOCUS_CONTENT_REF: options.ref,
+    SOFTWARETEAM_REFOCUS_CONTENT_FILE: contentFile,
+    SOFTWARE_TEAM_ARGV_CAPTURE: argvCapture,
+    SOFTWARE_TEAM_VERB_LOG: verbLog,
+    SOFTWARE_TEAM_STDOUT: options.softwareTeamStdout,
+    SOFTWARE_TEAM_STDERR: options.softwareTeamStderr,
+    SOFTWARE_TEAM_STATUS: options.softwareTeamStatus === undefined ? undefined : String(options.softwareTeamStatus),
+    SOFTWARE_TEAM_WHOAMI_STDOUT: options.whoamiStdout,
+    SOFTWARE_TEAM_WHOAMI_STATUS: options.whoamiStatus === undefined ? undefined : String(options.whoamiStatus),
     PYTHON_ARGV_LOG: pythonLog,
-    OPENRIG_REFOCUS_NOW: "1",
-    OPENRIG_REFOCUS_TREES: "work",
-    OPENRIG_WORKSPACE_ROOT: home,
-    OPENRIG_REFOCUS_WORK_NODE: home,
+    SOFTWARETEAM_REFOCUS_NOW: "1",
+    SOFTWARETEAM_REFOCUS_TREES: "work",
+    SOFTWARETEAM_WORKSPACE_ROOT: home,
+    SOFTWARETEAM_REFOCUS_WORK_NODE: home,
     ...(options.capturePython ? { PYTHON: python } : {}),
     ...options.extraEnv,
   } as NodeJS.ProcessEnv;
@@ -135,20 +135,20 @@ exit 0
     argvCapture,
     verbLog,
     pythonLog,
-    rigVerbs: () => (existsSync(verbLog) ? readFileSync(verbLog, "utf8") : ""),
+    softwareTeamVerbs: () => (existsSync(verbLog) ? readFileSync(verbLog, "utf8") : ""),
     traceArgv: () => (existsSync(pythonLog) ? readFileSync(pythonLog, "utf8") : ""),
   };
 }
 
-describe("openrig-core refocus hook — context library refs", () => {
-  it("REF wins over FILE and delivers the exact rig context get bytes", () => {
-    const bundle = "# OpenRig Context Pack: proof v1\n\nassembled bytes\n";
-    const result = runHook({ ref: REF, fileContent: "FILE MUST NOT WIN", rigStdout: bundle });
+describe("softwareteam-core refocus hook — context library refs", () => {
+  it("REF wins over FILE and delivers the exact SoftwareTeam context get bytes", () => {
+    const bundle = "# SoftwareTeam Context Pack: proof v1\n\nassembled bytes\n";
+    const result = runHook({ ref: REF, fileContent: "FILE MUST NOT WIN", softwareTeamStdout: bundle });
 
     expect(result.status).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.payload?.hookSpecificOutput.additionalContext).toContain(
-      `OPENRIG_REFOCUS_CONTENT_REF=${REF}`,
+      `SOFTWARETEAM_REFOCUS_CONTENT_REF=${REF}`,
     );
     expect(result.payload?.hookSpecificOutput.additionalContext).not.toContain("FILE MUST NOT WIN");
     expect(result.payload?.hookSpecificOutput.additionalContext.endsWith(bundle)).toBe(true);
@@ -159,7 +159,7 @@ describe("openrig-core refocus hook — context library refs", () => {
 
   it("puts an unresolvable REF failure banner at the payload head and still delivers generic context", () => {
     const reason = `Context pack '${REF}' not found in library.`;
-    const result = runHook({ ref: REF, rigStderr: `${reason}\n`, rigStatus: 1 });
+    const result = runHook({ ref: REF, softwareTeamStderr: `${reason}\n`, softwareTeamStatus: 1 });
     const context = result.payload?.hookSpecificOutput.additionalContext || "";
 
     expect(result.status).toBe(0);
@@ -186,7 +186,7 @@ describe("openrig-core refocus hook — context library refs", () => {
   });
 });
 
-describe("openrig-core refocus hook — S18 trigger and event contract", () => {
+describe("softwareteam-core refocus hook — S18 trigger and event contract", () => {
   function refocusEvents(path: string): string[] {
     const config = JSON.parse(readFileSync(path, "utf8")) as {
       hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
@@ -201,7 +201,7 @@ describe("openrig-core refocus hook — S18 trigger and event contract", () => {
     expect(refocusEvents(CLAUDE_HOOKS)).not.toContain("SessionStart");
     expect(refocusEvents(CODEX_HOOKS)).not.toContain("SessionStart");
 
-    const result = runHook({ event: "SessionStart", extraEnv: { OPENRIG_REFOCUS_NOW: undefined } });
+    const result = runHook({ event: "SessionStart", extraEnv: { SOFTWARETEAM_REFOCUS_NOW: undefined } });
     expect(result.status).toBe(0);
     expect(result.stdout).toBe("");
   });
@@ -213,7 +213,7 @@ describe("openrig-core refocus hook — S18 trigger and event contract", () => {
           runtime,
           event,
           transcriptContent: "threshold crossed",
-          extraEnv: { OPENRIG_REFOCUS_BYTES: "1", OPENRIG_REFOCUS_NOW: undefined },
+          extraEnv: { SOFTWARETEAM_REFOCUS_BYTES: "1", SOFTWARETEAM_REFOCUS_NOW: undefined },
         });
         expect(result.status, `${runtime}:${event}`).toBe(0);
         if (!result.stdout) continue;
@@ -240,8 +240,8 @@ describe("openrig-core refocus hook — S18 trigger and event contract", () => {
     const off = runHook({
       transcriptContent: "threshold crossed",
       extraEnv: {
-        OPENRIG_REFOCUS_ENABLED: "0",
-        OPENRIG_REFOCUS_BYTES: "1",
+        SOFTWARETEAM_REFOCUS_ENABLED: "0",
+        SOFTWARETEAM_REFOCUS_BYTES: "1",
       },
     });
     expect(off.status).toBe(0);
@@ -254,7 +254,7 @@ describe("openrig-core refocus hook — S18 trigger and event contract", () => {
     const thresholdOnly = runHook({
       runtime: "codex",
       transcriptContent: "threshold crossed",
-      extraEnv: { OPENRIG_REFOCUS_BYTES: "1", OPENRIG_REFOCUS_NOW: undefined },
+      extraEnv: { SOFTWARETEAM_REFOCUS_BYTES: "1", SOFTWARETEAM_REFOCUS_NOW: undefined },
     });
     expect(thresholdOnly.status).toBe(0);
     expect(thresholdOnly.stdout).toBe("");
@@ -263,70 +263,70 @@ describe("openrig-core refocus hook — S18 trigger and event contract", () => {
   it("ships self-teaching defaults that cite, rather than copy, the S15 onboarding pack", () => {
     const result = runHook({});
     const context = result.payload?.hookSpecificOutput.additionalContext || "";
-    expect(context).toContain("OPENRIG_REFOCUS_CONTENT_REF");
-    expect(context).toContain("OPENRIG_REFOCUS_CONTENT_FILE");
-    expect(context).toContain("$OPENRIG_HOME/refocus/REFOCUS.md");
-    expect(context).toContain("openrig-onboarding-01.md");
-    expect(context).toContain("openrig-onboarding-02.md");
+    expect(context).toContain("SOFTWARETEAM_REFOCUS_CONTENT_REF");
+    expect(context).toContain("SOFTWARETEAM_REFOCUS_CONTENT_FILE");
+    expect(context).toContain("$SOFTWARETEAM_HOME/refocus/REFOCUS.md");
+    expect(context).toContain("softwareteam-onboarding-01.md");
+    expect(context).toContain("softwareteam-onboarding-02.md");
     expect(context).toContain("1. What is the person actually trying to get?");
     expect(readFileSync(REFOCUS_MD, "utf8")).toContain("refocusing");
   });
 });
 
-describe("openrig-core refocusing skill — real dual-tree trace", () => {
+describe("softwareteam-core refocusing skill — real dual-tree trace", () => {
   function fixture() {
     root = mkdtempSync(join(tmpdir(), "refocus-trace-"));
     const topology = join(root, "topology");
     const workspace = join(root, "workspace");
-    const topologyStart = join(topology, "rigs/demo/seats/builder");
+    const topologyStart = join(topology, "software-teams/demo/seats/builder");
     const workStart = join(workspace, "missions/release/slices/feature");
     const bin = join(root, "bin");
     mkdirSync(topologyStart, { recursive: true });
     mkdirSync(workStart, { recursive: true });
     mkdirSync(bin, { recursive: true });
-    writeFileSync(join(topology, "rigs/demo/LEARNED.md"), "# Demo rig learned\n", "utf8");
+    writeFileSync(join(topology, "software-teams/demo/LEARNED.md"), "# Demo SoftwareTeam learned\n", "utf8");
     writeFileSync(join(topologyStart, "LEARNED.md"), "# Builder learned\n", "utf8");
     writeFileSync(join(workspace, "SPEC.md"), "---\nintent: Build useful things\n---\n# Project\n", "utf8");
     writeFileSync(join(workspace, "missions/release/SPEC.md"), "---\nintent: Ship the release\n---\n# Release\n", "utf8");
     writeFileSync(join(workStart, "SPEC.md"), "---\nintent: Deliver refocus\n---\n# Feature\n", "utf8");
     writeFileSync(join(workspace, "missions/release/NOTES.md"), "release observation secret\n", "utf8");
     writeFileSync(join(workStart, "NOTES.md"), "feature observation secret\n", "utf8");
-    const rig = join(bin, "rig");
-    const callLog = join(root, "rig-calls.log");
-    // Every invocation is logged, so a test can count the rig processes one fire spends.
-    writeFileSync(rig, `#!/bin/sh
-printf '%s\\n' "$*" >> "$RIG_CALL_LOG"
-if [ -n "$RIG_HANG" ]; then exec sleep "$RIG_HANG"; fi
+    const softwareTeam = join(bin, "SoftwareTeam");
+    const callLog = join(root, "software-team-calls.log");
+    // Every invocation is logged, so a test can count the softwareTeam processes one fire spends.
+    writeFileSync(softwareTeam, `#!/bin/sh
+printf '%s\\n' "$*" >> "$SOFTWARE_TEAM_CALL_LOG"
+if [ -n "$SOFTWARE_TEAM_HANG" ]; then exec sleep "$SOFTWARE_TEAM_HANG"; fi
 # A slow call that still answers; the sleep holds no output pipe, so a timeout kill returns at once.
 slow() { if [ -n "$1" ]; then sleep "$1" </dev/null >/dev/null 2>&1; fi; }
 if [ "$1 $2" = "queue whoami" ]; then
-  if [ -n "$RIG_QUEUE_WHOAMI_SLEEP" ]; then exec sleep "$RIG_QUEUE_WHOAMI_SLEEP"; fi
-  slow "$RIG_SLOW_QUEUE_WHOAMI"
-  printf '%s' "$RIG_QUEUE_WHOAMI_STDOUT"; exit 0
+  if [ -n "$SOFTWARE_TEAM_QUEUE_WHOAMI_SLEEP" ]; then exec sleep "$SOFTWARE_TEAM_QUEUE_WHOAMI_SLEEP"; fi
+  slow "$SOFTWARE_TEAM_SLOW_QUEUE_WHOAMI"
+  printf '%s' "$SOFTWARE_TEAM_QUEUE_WHOAMI_STDOUT"; exit 0
 fi
 if [ "$1 $2" = "config --json" ]; then
-  slow "$RIG_SLOW_CONFIG_JSON"
-  printf '%s' "$RIG_CONFIG_JSON_STDOUT"; exit "\${RIG_CONFIG_JSON_STATUS:-0}"
+  slow "$SOFTWARE_TEAM_SLOW_CONFIG_JSON"
+  printf '%s' "$SOFTWARE_TEAM_CONFIG_JSON_STDOUT"; exit "\${SOFTWARE_TEAM_CONFIG_JSON_STATUS:-0}"
 fi
-if [ "$1 $2" = "context get" ]; then slow "$RIG_SLOW_CONTEXT"; printf 'slow configured content for %s\\n' "$3"; exit 0; fi
-if [ "$1 $2" = "whoami --json" ]; then printf '{"identity":{"rigName":"demo","sessionName":"builder@demo"}}\\n'; exit 0; fi
-if [ "$1 $2 $3" = "config get topology.root" ]; then printf '%s\\n' "$OPENRIG_TEST_TOPOLOGY_ROOT"; exit 0; fi
-if [ "$1 $2 $3" = "config get workspace.root" ]; then printf '%s\\n' "$OPENRIG_TEST_WORKSPACE_ROOT"; exit 0; fi
+if [ "$1 $2" = "context get" ]; then slow "$SOFTWARE_TEAM_SLOW_CONTEXT"; printf 'slow configured content for %s\\n' "$3"; exit 0; fi
+if [ "$1 $2" = "whoami --json" ]; then printf '{"identity":{"softwareTeamName":"demo","sessionName":"builder@demo"}}\\n'; exit 0; fi
+if [ "$1 $2 $3" = "config get topology.root" ]; then printf '%s\\n' "$SOFTWARETEAM_TEST_TOPOLOGY_ROOT"; exit 0; fi
+if [ "$1 $2 $3" = "config get workspace.root" ]; then printf '%s\\n' "$SOFTWARETEAM_TEST_WORKSPACE_ROOT"; exit 0; fi
 if [ "$1 $2" = "scope resolve-notes" ]; then
-  slow "$RIG_SLOW_RESOLVE"
+  slow "$SOFTWARE_TEAM_SLOW_RESOLVE"
   if [ -r "$3/NOTES.md" ]; then printf '{"ok":true,"resolution":{"path":"%s","name":"NOTES.md"}}\\n' "$3/NOTES.md"; exit 0; fi
   if [ -r "$3/MISSION_NOTES.md" ]; then printf '{"ok":true,"resolution":{"path":"%s","name":"MISSION_NOTES.md"}}\\n' "$3/MISSION_NOTES.md"; exit 0; fi
   printf '{"ok":true,"resolution":null}\\n'; exit 0
 fi
 exit 1
 `, "utf8");
-    chmodSync(rig, 0o755);
+    chmodSync(softwareTeam, 0o755);
     const env = {
       ...process.env,
       PATH: `${bin}:${process.env.PATH || ""}`,
-      OPENRIG_TEST_TOPOLOGY_ROOT: topology,
-      OPENRIG_TEST_WORKSPACE_ROOT: workspace,
-      RIG_CALL_LOG: callLog,
+      SOFTWARETEAM_TEST_TOPOLOGY_ROOT: topology,
+      SOFTWARETEAM_TEST_WORKSPACE_ROOT: workspace,
+      SOFTWARE_TEAM_CALL_LOG: callLog,
     };
     const calls = () => (existsSync(callLog) ? readFileSync(callLog, "utf8").split("\n").filter(Boolean) : []);
     const resetCalls = () => rmSync(callLog, { force: true });
@@ -338,7 +338,7 @@ exit 1
   }
 
   // The work-node cases below must not inherit an ambient work-node variable from the runner.
-  const unpinned = (env: NodeJS.ProcessEnv) => ({ ...env, OPENRIG_REFOCUS_WORK_NODE: undefined });
+  const unpinned = (env: NodeJS.ProcessEnv) => ({ ...env, SOFTWARETEAM_REFOCUS_WORK_NODE: undefined });
 
   it("renders both config-rooted, path-only ascents with notes at light depth", () => {
     const f = fixture();
@@ -349,7 +349,7 @@ exit 1
     ], f.env);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("TOPOLOGY TRACE");
-    expect(result.stdout).toContain("Demo rig learned");
+    expect(result.stdout).toContain("Demo SoftwareTeam learned");
     expect(result.stdout).toContain("Builder learned");
     expect(result.stdout).toContain("WORK TRACE");
     expect(result.stdout).toContain("Build useful things");
@@ -361,7 +361,7 @@ exit 1
 
   it("makes tree and depth intensity observable and reports a broken chain link", () => {
     const f = fixture();
-    unlinkSync(join(f.topology, "rigs/demo/LEARNED.md"));
+    unlinkSync(join(f.topology, "software-teams/demo/LEARNED.md"));
     const topologyOnly = trace([
       "--trees", "topology", "--depth", "full",
       "--topology-start", f.topologyStart,
@@ -423,7 +423,7 @@ exit 1
     expect(result.stdout).not.toContain("Deliver refocus");
   });
 
-  it("lets an explicit --work-start or OPENRIG_REFOCUS_WORK_NODE win over a daemon basis", () => {
+  it("lets an explicit --work-start or SOFTWARETEAM_REFOCUS_WORK_NODE win over a daemon basis", () => {
     const f = fixture();
     const flag = trace(["--trees", "work", "--work-start", f.workStart, "--work-basis", NO_BATON], unpinned(f.env));
     expect(flag.status).toBe(0);
@@ -431,7 +431,7 @@ exit 1
     expect(flag.stdout).not.toContain("FALLBACK");
     expect(flag.stdout).not.toContain("TRACE GAP");
 
-    const env = trace(["--trees", "work", "--work-basis", AMBIGUOUS], { ...f.env, OPENRIG_REFOCUS_WORK_NODE: f.workStart });
+    const env = trace(["--trees", "work", "--work-basis", AMBIGUOUS], { ...f.env, SOFTWARETEAM_REFOCUS_WORK_NODE: f.workStart });
     expect(env.status).toBe(0);
     expect(env.stdout).toContain("Deliver refocus");
     expect(env.stdout).not.toContain("TRACE GAP");
@@ -447,7 +447,7 @@ exit 1
     const outside = trace(["--trees", "work"], unpinned(f.env), dirname(f.workspace));
     expect(outside.status).toBe(0);
     expect(outside.stdout).toContain(
-      "TRACE GAP — current work node is unresolved; pass --work-start with a literal absolute path (or configure OPENRIG_REFOCUS_WORK_NODE separately)",
+      "TRACE GAP — current work node is unresolved; pass --work-start with a literal absolute path (or configure SOFTWARETEAM_REFOCUS_WORK_NODE separately)",
     );
   });
 
@@ -472,13 +472,13 @@ exit 1
 
     const publicText = [skill, readFileSync(REFOCUS_MD, "utf8"), readFileSync(TRACE, "utf8")].join("\n");
     expect(publicText).not.toMatch(/\/(?:Users|home|private|var|opt)\//);
-    expect(publicText).not.toMatch(/v-openrig-build|release-0\.5\.5|qitem-/i);
+    expect(publicText).not.toMatch(/v-softwareteam-build|release-0\.5\.5|qitem-/i);
   });
 
-  // One fire used to start 7 rig processes on a typed slice: queue whoami, two config gets,
+  // One fire used to start 7 softwareTeam processes on a typed slice: queue whoami, two config gets,
   // whoami, and one resolver call per level. The hook now reads both roots with one config read
-  // and the script takes a canonical seat from OPENRIG_SESSION_NAME, which leaves 5.
-  describe("rig processes per fire", () => {
+  // and the script takes a canonical seat from SOFTWARETEAM_SESSION_NAME, which leaves 5.
+  describe("SoftwareTeam processes per fire", () => {
     const typed = (workNodePath: string) =>
       JSON.stringify({ currentWork: { workNodePath }, currentWorkBasis: "one typed in-progress work node" });
     const configJson = (topology: unknown, workspace: unknown) => JSON.stringify({
@@ -490,16 +490,16 @@ exit 1
     // Nothing ambient may decide a root, a start or the interpreter.
     const clean = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv => ({
       ...env,
-      OPENRIG_NODE_ID: undefined,
-      OPENRIG_SESSION_NAME: undefined,
-      OPENRIG_TOPOLOGY_ROOT: undefined,
-      OPENRIG_WORKSPACE_ROOT: undefined,
-      OPENRIG_REFOCUS_TOPOLOGY_NODE: undefined,
-      OPENRIG_REFOCUS_WORK_NODE: undefined,
-      OPENRIG_REFOCUS_TREES: undefined,
-      OPENRIG_REFOCUS_DEPTH: undefined,
-      OPENRIG_REFOCUS_CONTENT_REF: undefined,
-      OPENRIG_REFOCUS_CONTENT_FILE: undefined,
+      SOFTWARETEAM_NODE_ID: undefined,
+      SOFTWARETEAM_SESSION_NAME: undefined,
+      SOFTWARETEAM_TOPOLOGY_ROOT: undefined,
+      SOFTWARETEAM_WORKSPACE_ROOT: undefined,
+      SOFTWARETEAM_REFOCUS_TOPOLOGY_NODE: undefined,
+      SOFTWARETEAM_REFOCUS_WORK_NODE: undefined,
+      SOFTWARETEAM_REFOCUS_TREES: undefined,
+      SOFTWARETEAM_REFOCUS_DEPTH: undefined,
+      SOFTWARETEAM_REFOCUS_CONTENT_REF: undefined,
+      SOFTWARETEAM_REFOCUS_CONTENT_FILE: undefined,
       PYTHON: undefined,
     });
 
@@ -510,11 +510,11 @@ exit 1
         encoding: "utf8",
         env: {
           ...clean(f.env),
-          OPENRIG_HOME: join(root!, "hook-home"),
-          OPENRIG_SESSION_NAME: "builder@demo",
-          OPENRIG_REFOCUS_NOW: "1",
-          RIG_QUEUE_WHOAMI_STDOUT: typed(f.workStart),
-          RIG_CONFIG_JSON_STDOUT: configJson(f.topology, f.workspace),
+          SOFTWARETEAM_HOME: join(root!, "hook-home"),
+          SOFTWARETEAM_SESSION_NAME: "builder@demo",
+          SOFTWARETEAM_REFOCUS_NOW: "1",
+          SOFTWARE_TEAM_QUEUE_WHOAMI_STDOUT: typed(f.workStart),
+          SOFTWARE_TEAM_CONFIG_JSON_STDOUT: configJson(f.topology, f.workspace),
           ...env,
         },
       });
@@ -527,12 +527,12 @@ exit 1
     const resolverCalls = (f: ReturnType<typeof fixture>, nodes: string[]) =>
       nodes.map((node) => `scope resolve-notes ${join(realpathSync(f.workspace), node)} --json`);
 
-    it("spends 5 rig processes on a typed fire and 3 on the no-baton fallback", () => {
+    it("spends 5 SoftwareTeam processes on a typed fire and 3 on the no-baton fallback", () => {
       const f = fixture();
       const typedFire = hook(f);
       expect(typedFire.status).toBe(0);
       expect(typedFire.stderr).toBe("");
-      expect(typedFire.context).toContain(`start: ${realpathSync(f.topology)}/rigs/demo/seats/builder\n`);
+      expect(typedFire.context).toContain(`start: ${realpathSync(f.topology)}/software-teams/demo/seats/builder\n`);
       expect(typedFire.context).toContain("Builder learned");
       expect(typedFire.context).toContain("Deliver refocus");
       expect(typedFire.context).not.toContain("CONFIG-FIELD-NOT-FOR-OUTPUT");
@@ -542,7 +542,7 @@ exit 1
         ...resolverCalls(f, ["", "missions/release", "missions/release/slices/feature"]),
       ]);
 
-      const fallback = hook(f, { RIG_QUEUE_WHOAMI_STDOUT: JSON.stringify({ currentWork: null, currentWorkBasis: NO_BATON }) });
+      const fallback = hook(f, { SOFTWARE_TEAM_QUEUE_WHOAMI_STDOUT: JSON.stringify({ currentWork: null, currentWorkBasis: NO_BATON }) });
       expect(fallback.status).toBe(0);
       expect(fallback.context).toContain(`FALLBACK — no current typed baton (${NO_BATON})`);
       expect(fallback.context).toContain("Builder learned");
@@ -552,9 +552,9 @@ exit 1
     it("sets no root from a failed or malformed config read, so the script's own lookup runs as before", () => {
       const f = fixture();
       for (const env of [
-        { RIG_CONFIG_JSON_STDOUT: "", RIG_CONFIG_JSON_STATUS: "1" },
-        { RIG_CONFIG_JSON_STDOUT: "not json at all" },
-        { RIG_CONFIG_JSON_STDOUT: configJson(42, null) },
+        { SOFTWARE_TEAM_CONFIG_JSON_STDOUT: "", SOFTWARE_TEAM_CONFIG_JSON_STATUS: "1" },
+        { SOFTWARE_TEAM_CONFIG_JSON_STDOUT: "not json at all" },
+        { SOFTWARE_TEAM_CONFIG_JSON_STDOUT: configJson(42, null) },
       ]) {
         const result = hook(f, env);
         expect(result.status).toBe(0);
@@ -574,9 +574,9 @@ exit 1
       const decoy = join(root!, "decoy-root");
 
       const both = hook(f, {
-        OPENRIG_TOPOLOGY_ROOT: f.topology,
-        OPENRIG_WORKSPACE_ROOT: f.workspace,
-        RIG_CONFIG_JSON_STDOUT: configJson(decoy, decoy),
+        SOFTWARETEAM_TOPOLOGY_ROOT: f.topology,
+        SOFTWARETEAM_WORKSPACE_ROOT: f.workspace,
+        SOFTWARE_TEAM_CONFIG_JSON_STDOUT: configJson(decoy, decoy),
       });
       expect(both.status).toBe(0);
       expect(both.calls.filter((call) => call.startsWith("config"))).toEqual([]);
@@ -584,15 +584,15 @@ exit 1
       expect(both.context).toContain("Deliver refocus");
 
       const partial = hook(f, {
-        OPENRIG_TOPOLOGY_ROOT: f.topology,
-        RIG_CONFIG_JSON_STDOUT: configJson(decoy, f.workspace),
+        SOFTWARETEAM_TOPOLOGY_ROOT: f.topology,
+        SOFTWARE_TEAM_CONFIG_JSON_STDOUT: configJson(decoy, f.workspace),
       });
       expect(partial.calls.filter((call) => call.startsWith("config"))).toEqual(["config --json"]);
       expect(partial.context).toContain(`root: ${realpathSync(f.topology)}`);
       expect(partial.context).toContain("Deliver refocus");
       expect(partial.context).not.toContain("decoy-root");
 
-      const empty = hook(f, { OPENRIG_TOPOLOGY_ROOT: "", OPENRIG_WORKSPACE_ROOT: f.workspace });
+      const empty = hook(f, { SOFTWARETEAM_TOPOLOGY_ROOT: "", SOFTWARETEAM_WORKSPACE_ROOT: f.workspace });
       expect(empty.calls.filter((call) => call.startsWith("config"))).toEqual(["config --json"]);
       expect(empty.context).toContain(`root: ${realpathSync(f.topology)}`);
       expect(empty.context).toContain("Builder learned");
@@ -600,25 +600,25 @@ exit 1
 
     it("reads config only for the roots the selected trees need", () => {
       const f = fixture();
-      const work = hook(f, { OPENRIG_REFOCUS_TREES: "work", OPENRIG_WORKSPACE_ROOT: f.workspace });
+      const work = hook(f, { SOFTWARETEAM_REFOCUS_TREES: "work", SOFTWARETEAM_WORKSPACE_ROOT: f.workspace });
       expect(work.status).toBe(0);
       expect(work.calls.filter((call) => call.startsWith("config"))).toEqual([]);
       expect(work.context).toContain("Deliver refocus");
       expect(work.context).not.toContain("TOPOLOGY TRACE");
 
-      const topology = hook(f, { OPENRIG_REFOCUS_TREES: "topology", OPENRIG_TOPOLOGY_ROOT: f.topology });
+      const topology = hook(f, { SOFTWARETEAM_REFOCUS_TREES: "topology", SOFTWARETEAM_TOPOLOGY_ROOT: f.topology });
       expect(topology.status).toBe(0);
       expect(topology.calls.filter((call) => call.startsWith("config"))).toEqual([]);
       expect(topology.context).toContain("Builder learned");
       expect(topology.context).not.toContain("WORK TRACE");
     });
 
-    // Both harnesses kill the hook at 5 s. With every rig call hanging, queue whoami (2 s) and
+    // Both harnesses kill the hook at 5 s. With every softwareTeam call hanging, queue whoami (2 s) and
     // python (2 s) are fixed, so the config read may only use what is left; a gap is delivered.
-    it("delivers within the 5 s hook kill when every rig call hangs", () => {
+    it("delivers within the 5 s hook kill when every SoftwareTeam call hangs", () => {
       const f = fixture();
       const started = Date.now();
-      const result = hook(f, { RIG_HANG: "8" });
+      const result = hook(f, { SOFTWARE_TEAM_HANG: "8" });
       const elapsed = Date.now() - started;
       expect(result.status).toBe(0);
       expect(elapsed).toBeLessThan(5_000);
@@ -628,23 +628,23 @@ exit 1
       expect(result.calls.filter((call) => call === "config --json").length).toBeLessThanOrEqual(1);
     }, 20_000);
 
-    // With a content ref, `rig context get` runs after python. Every call here answers, just slowly:
+    // With a content ref, `SoftwareTeam context get` runs after python. Every call here answers, just slowly:
     // main delivers this fire well under 5 s, so the config read must not spend the time the
     // content lookup needs. Without the content reserve this fire took over 5.2 s and was killed.
     it("delivers a slow but successful fire with a content ref inside the 5 s hook kill", () => {
       const f = fixture();
       const started = Date.now();
       const result = hook(f, {
-        OPENRIG_REFOCUS_CONTENT_REF: "packs/slow-ref",
-        RIG_SLOW_QUEUE_WHOAMI: "0.6",
-        RIG_SLOW_CONFIG_JSON: "1.7",
-        RIG_SLOW_RESOLVE: "0.4",
-        RIG_SLOW_CONTEXT: "1.5",
+        SOFTWARETEAM_REFOCUS_CONTENT_REF: "packs/slow-ref",
+        SOFTWARE_TEAM_SLOW_QUEUE_WHOAMI: "0.6",
+        SOFTWARE_TEAM_SLOW_CONFIG_JSON: "1.7",
+        SOFTWARE_TEAM_SLOW_RESOLVE: "0.4",
+        SOFTWARE_TEAM_SLOW_CONTEXT: "1.5",
       });
       const elapsed = Date.now() - started;
       expect(result.status).toBe(0);
       expect(elapsed).toBeLessThan(5_000);
-      expect(result.context).toContain("REFOCUS CONTENT SOURCE: OPENRIG_REFOCUS_CONTENT_REF=packs/slow-ref");
+      expect(result.context).toContain("REFOCUS CONTENT SOURCE: SOFTWARETEAM_REFOCUS_CONTENT_REF=packs/slow-ref");
       expect(result.context).toContain("slow configured content for packs/slow-ref");
       expect(result.calls).not.toContain("config --json");
     }, 20_000);
@@ -652,10 +652,10 @@ exit 1
     // A queue whoami past the hook's 2 s budget must reach the trace as UNKNOWN (#484 review LOW-1).
     it("passes a queue whoami that outlives its 2 s budget as UNKNOWN to the real trace", () => {
       const f = fixture();
-      const result = hook(f, { RIG_QUEUE_WHOAMI_SLEEP: "6" });
+      const result = hook(f, { SOFTWARE_TEAM_QUEUE_WHOAMI_SLEEP: "6" });
       expect(result.status).toBe(0);
       expect(result.context).toContain(
-        "TRACE GAP — current work node UNKNOWN: queue whoami failed: spawnSync rig ETIMEDOUT",
+        "TRACE GAP — current work node UNKNOWN: queue whoami failed: spawnSync SoftwareTeam ETIMEDOUT",
       );
       expect(result.context).not.toContain("Deliver refocus");
     }, 20_000);
@@ -666,57 +666,57 @@ exit 1
       return trace(["--trees", "topology", ...args], { ...clean(f.env), ...env });
     };
 
-    it("derives the seat start from a canonical session name without asking rig whoami", () => {
+    it("derives the seat start from a canonical session name without asking SoftwareTeam whoami", () => {
       const f = fixture();
       for (const [session, seat] of [
-        ["builder@demo", "rigs/demo/seats/builder"],
-        ["dev46-driver2@openrig-delivery", "rigs/openrig-delivery/seats/dev46-driver2"],
-        ["member@rig@x", "rigs/rig@x/seats/member"],
-        ["human@some-rig", "rigs/some-rig/seats/human"],
+        ["builder@demo", "software-teams/demo/seats/builder"],
+        ["dev46-driver2@softwareteam-delivery", "software-teams/softwareteam-delivery/seats/dev46-driver2"],
+        ["member@software-team@x", "software-teams/software-team@x/seats/member"],
+        ["human@some-software-team", "software-teams/some-software-team/seats/human"],
       ]) {
         mkdirSync(join(f.topology, seat), { recursive: true });
-        const result = topologyTrace(f, { OPENRIG_SESSION_NAME: session });
+        const result = topologyTrace(f, { SOFTWARETEAM_SESSION_NAME: session });
         expect(result.status, session).toBe(0);
         expect(result.stdout, session).toContain(`start: ${realpathSync(f.topology)}/${seat}\n`);
         expect(f.calls(), session).not.toContain("whoami --json");
       }
     });
 
-    it("asks rig whoami once when a canonical session name has no seat folder", () => {
+    it("asks SoftwareTeam whoami once when a canonical session name has no seat folder", () => {
       const f = fixture();
       // A stale name left over from a seat swap: canonical, but no such seat exists.
-      const result = topologyTrace(f, { OPENRIG_SESSION_NAME: "builder-v2@demo" });
+      const result = topologyTrace(f, { SOFTWARETEAM_SESSION_NAME: "builder-v2@demo" });
       expect(result.status).toBe(0);
       expect(f.calls().filter((call) => call === "whoami --json")).toHaveLength(1);
-      expect(result.stdout).toContain(`start: ${realpathSync(f.topology)}/rigs/demo/seats/builder\n`);
+      expect(result.stdout).toContain(`start: ${realpathSync(f.topology)}/software-teams/demo/seats/builder\n`);
       expect(result.stdout).toContain("Builder learned");
     });
 
-    it("keeps rig whoami for legacy, malformed, human-class and out-of-charset session names", () => {
+    it("keeps SoftwareTeam whoami for legacy, malformed, human-class and out-of-charset session names", () => {
       const f = fixture();
-      for (const session of [undefined, "", "r03-worker", "bare", "@rig", "member@", "human@kernel", "human-mvs@host", "mike@external", "seat/x@demo"]) {
-        const result = topologyTrace(f, { OPENRIG_SESSION_NAME: session });
+      for (const session of [undefined, "", "r03-worker", "bare", "@software-team", "member@", "human@kernel", "human-mvs@host", "mike@external", "seat/x@demo"]) {
+        const result = topologyTrace(f, { SOFTWARETEAM_SESSION_NAME: session });
         expect(result.status, String(session)).toBe(0);
         expect(f.calls(), String(session)).toContain("whoami --json");
-        expect(result.stdout, String(session)).toContain(`start: ${realpathSync(f.topology)}/rigs/demo/seats/builder\n`);
+        expect(result.stdout, String(session)).toContain(`start: ${realpathSync(f.topology)}/software-teams/demo/seats/builder\n`);
       }
     });
 
     it("lets an explicit topology start win over the session name", () => {
       const f = fixture();
-      const explicit = join(f.topology, "rigs/demo");
-      const flag = topologyTrace(f, { OPENRIG_SESSION_NAME: "other@elsewhere" }, ["--topology-start", explicit]);
+      const explicit = join(f.topology, "software-teams/demo");
+      const flag = topologyTrace(f, { SOFTWARETEAM_SESSION_NAME: "other@elsewhere" }, ["--topology-start", explicit]);
       expect(flag.stdout).toContain(`start: ${explicit}\n`);
       expect(f.calls()).not.toContain("whoami --json");
 
-      const env = topologyTrace(f, { OPENRIG_SESSION_NAME: "other@elsewhere", OPENRIG_REFOCUS_TOPOLOGY_NODE: explicit });
+      const env = topologyTrace(f, { SOFTWARETEAM_SESSION_NAME: "other@elsewhere", SOFTWARETEAM_REFOCUS_TOPOLOGY_NODE: explicit });
       expect(env.stdout).toContain(`start: ${explicit}\n`);
       expect(f.calls()).not.toContain("whoami --json");
     });
   });
 });
 
-describe("openrig-core refocus hook — delivery state", () => {
+describe("softwareteam-core refocus hook — delivery state", () => {
   // These cases exercise delivery state; the real dual-tree trace is covered above.
   function successfulTrace(home: string): string {
     const script = join(home, "trace-success");
@@ -740,14 +740,14 @@ describe("openrig-core refocus hook — delivery state", () => {
       encoding: "utf8",
       env: {
         ...process.env,
-        OPENRIG_HOME: home,
-        OPENRIG_SESSION_NAME: "seat@test",
-        OPENRIG_REFOCUS_BYTES: "1",
-        OPENRIG_REFOCUS_CONTENT_REF: undefined,
-        OPENRIG_REFOCUS_CONTENT_FILE: undefined,
-        OPENRIG_REFOCUS_TREES: "work",
-        OPENRIG_WORKSPACE_ROOT: home,
-        OPENRIG_REFOCUS_WORK_NODE: home,
+        SOFTWARETEAM_HOME: home,
+        SOFTWARETEAM_SESSION_NAME: "seat@test",
+        SOFTWARETEAM_REFOCUS_BYTES: "1",
+        SOFTWARETEAM_REFOCUS_CONTENT_REF: undefined,
+        SOFTWARETEAM_REFOCUS_CONTENT_FILE: undefined,
+        SOFTWARETEAM_REFOCUS_TREES: "work",
+        SOFTWARETEAM_WORKSPACE_ROOT: home,
+        SOFTWARETEAM_REFOCUS_WORK_NODE: home,
         PYTHON: python,
       },
     });
@@ -788,14 +788,14 @@ describe("openrig-core refocus hook — delivery state", () => {
       encoding: "utf8",
       env: {
         ...process.env,
-        OPENRIG_HOME: home,
-        OPENRIG_SESSION_NAME: "seat@test",
-        OPENRIG_REFOCUS_NOW: undefined,
-        OPENRIG_REFOCUS_TREES: "work",
-        OPENRIG_WORKSPACE_ROOT: home,
-        OPENRIG_REFOCUS_WORK_NODE: home,
-        OPENRIG_REFOCUS_CONTENT_REF: undefined,
-        OPENRIG_REFOCUS_CONTENT_FILE: undefined,
+        SOFTWARETEAM_HOME: home,
+        SOFTWARETEAM_SESSION_NAME: "seat@test",
+        SOFTWARETEAM_REFOCUS_NOW: undefined,
+        SOFTWARETEAM_REFOCUS_TREES: "work",
+        SOFTWARETEAM_WORKSPACE_ROOT: home,
+        SOFTWARETEAM_REFOCUS_WORK_NODE: home,
+        SOFTWARETEAM_REFOCUS_CONTENT_REF: undefined,
+        SOFTWARETEAM_REFOCUS_CONTENT_FILE: undefined,
         PYTHON: python,
       },
     });
@@ -813,7 +813,7 @@ describe("openrig-core refocus hook — delivery state", () => {
   });
 });
 
-describe("openrig-core refocus hook — current-work binding (OPR.0.5.8.14)", () => {
+describe("softwareteam-core refocus hook — current-work binding (OPR.0.5.8.14)", () => {
   const whoami = (currentWork: unknown) => JSON.stringify({ currentWork });
 
   // Every case here unsets the work-node env var, because the harness default sets it and
@@ -823,7 +823,7 @@ describe("openrig-core refocus hook — current-work binding (OPR.0.5.8.14)", ()
       capturePython: true,
       whoamiStdout: options.whoamiStdout,
       whoamiStatus: options.whoamiStatus,
-      extraEnv: { OPENRIG_REFOCUS_WORK_NODE: options.workNode },
+      extraEnv: { SOFTWARETEAM_REFOCUS_WORK_NODE: options.workNode },
     });
 
   it("passes the derived work node as --work-start when exactly one typed baton resolves", () => {
@@ -836,7 +836,7 @@ describe("openrig-core refocus hook — current-work binding (OPR.0.5.8.14)", ()
       }),
     });
 
-    expect(result.rigVerbs()).toContain("queue whoami");
+    expect(result.softwareTeamVerbs()).toContain("queue whoami");
     expect(result.traceArgv()).toContain(
       "--work-start /w/missions/release-0.5.8/slices/14-refocus-current-work-binding",
     );
@@ -870,14 +870,14 @@ describe("openrig-core refocus hook — current-work binding (OPR.0.5.8.14)", ()
 
     // The consult is the RED half: today the hook never asks. Declining to pass a path is
     // only meaningful once we can prove the answer was sought and then honestly refused.
-    expect(result.rigVerbs()).toContain("queue whoami");
+    expect(result.softwareTeamVerbs()).toContain("queue whoami");
     expect(result.traceArgv()).not.toContain("--work-start");
   });
 
   it("consults the daemon and still refuses to guess when two typed batons are held", () => {
     const result = derive({ whoamiStdout: whoami(null) });
 
-    expect(result.rigVerbs()).toContain("queue whoami");
+    expect(result.softwareTeamVerbs()).toContain("queue whoami");
     expect(result.traceArgv()).not.toContain("--work-start");
   });
 
@@ -894,14 +894,14 @@ describe("openrig-core refocus hook — current-work binding (OPR.0.5.8.14)", ()
 
     expect(result.traceArgv()).toContain("--work-start /explicit/override");
     expect(result.traceArgv()).not.toContain("/derived/should-not-win");
-    expect(result.rigVerbs()).not.toContain("queue whoami");
+    expect(result.softwareTeamVerbs()).not.toContain("queue whoami");
   });
 
   it("falls through to today's behaviour when the whoami consult fails", () => {
     const result = derive({ whoamiStdout: "not json at all", whoamiStatus: 1 });
 
     expect(result.status).toBe(0);
-    expect(result.rigVerbs()).toContain("queue whoami");
+    expect(result.softwareTeamVerbs()).toContain("queue whoami");
     expect(result.traceArgv()).not.toContain("--work-start");
   });
 
@@ -921,7 +921,7 @@ describe("openrig-core refocus hook — current-work binding (OPR.0.5.8.14)", ()
   it("passes the daemon's basis as --work-basis when it names no single work node", () => {
     for (const basis of [NO_BATON, AMBIGUOUS]) {
       const result = derive({ whoamiStdout: answer(null, basis) });
-      expect(result.rigVerbs()).toContain("queue whoami");
+      expect(result.softwareTeamVerbs()).toContain("queue whoami");
       expect(result.traceArgv()).toContain(`--work-basis ${basis}`);
       expect(result.traceArgv()).not.toContain("--work-start");
       expect(result.traceArgv()).not.toContain("--work-unknown");
@@ -946,7 +946,7 @@ describe("openrig-core refocus hook — current-work binding (OPR.0.5.8.14)", ()
   it("delivers the work-root fallback through the real trace when the daemon reports no baton", () => {
     const result = runHook({
       whoamiStdout: answer(null, NO_BATON),
-      extraEnv: { OPENRIG_REFOCUS_WORK_NODE: undefined },
+      extraEnv: { SOFTWARETEAM_REFOCUS_WORK_NODE: undefined },
     });
     const context = result.payload?.hookSpecificOutput.additionalContext || "";
     expect(result.status).toBe(0);

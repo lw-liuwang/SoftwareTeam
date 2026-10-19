@@ -6,7 +6,7 @@
 // precedent documented in check-packing.test.mjs):
 //   repo source      packages/daemon/policies/builtin/<name>.policy.md
 //   packed           daemon/policies/builtin/<name>.policy.md   (build-package.sh staging)
-//   installed stable $OPENRIG_HOME/reference/policies/builtin/<name>.policy.md
+//   installed stable $SOFTWARETEAM_HOME/reference/policies/builtin/<name>.policy.md
 //                    (daemon startup materializer, mode 0444 inspection copies)
 // The runtime edge is proven at the compiled assembled boundary by
 // scripts/verify-packaged-builtins.mjs (plan D5b); these tests pin the source
@@ -17,19 +17,20 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 const AUTHORITY_SHA256 = {
-  "auto.policy.md": "ffd0347af4bc5d5fdb4e5f8208577ca72dcc085883ea4fa0b10e9c6ac3022bde",
-  "locked.policy.md": "dcb38c372def7fe58ddfc9f1f3e97b9ba391ae79a99ef486e44f017cb39e57fe",
+  // SoftwareTeam command spelling changes the authored policy bytes; mirrors must match these pins.
+  "auto.policy.md": "6acc1817c759615058a8c3eea4ca96d09651bd5a50dcffd8be6061bcb99972fb",
+  "locked.policy.md": "36f58dcaa595c996ed605b31593c335bd389589d5c04c6217578eab8cc752885",
   "open.policy.md": "bb5fbb18e1f3706bd0676a9e709e29b5754bb6b41b6f304453dd6d73e7a4d62b",
-  "standard.policy.md": "737d3f56e6d8275fe548a3a06e9b02ede8f328207ec2e6223cea6a83f40f5148",
+  "standard.policy.md": "ccf8a6e9d0e903112cc8358e2c7a47f8d0e99425a1881eb6345f7abe3584d163",
   // 0.6.0 (#109): accepted Codex full_bypass now includes approval policy never.
-  "yolo.policy.md": "1c34fff0b385426689fd26e20b8b431de6b688028d584924e7d5384fe5ff6d42",
+  "yolo.policy.md": "ab8f7f5f64119feeeb77db577f9e57ad9f57dc42b30b932d774ef7d4d30f6f75",
 };
 
 test("T6: build-package.sh stages daemon policies into the assembled package", () => {
   const sh = readFileSync("scripts/build-package.sh", "utf-8");
   assert.ok(
     /if \[ -d "\$DAEMON_DIR\/policies" \]/.test(sh),
-    "build-package.sh no longer stages $DAEMON_DIR/policies — the assembled daemon would ship no built-in policies and the startup materializer would find nothing to copy to $OPENRIG_HOME/reference/policies/builtin/."
+    "build-package.sh no longer stages $DAEMON_DIR/policies — the assembled daemon would ship no built-in policies and the startup materializer would find nothing to copy to $SOFTWARETEAM_HOME/reference/policies/builtin/."
   );
   assert.ok(
     sh.includes('cp -r "$DAEMON_DIR/policies" "$CLI_DIR/daemon/policies"'),

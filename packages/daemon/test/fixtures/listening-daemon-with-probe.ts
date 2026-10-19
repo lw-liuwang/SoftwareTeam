@@ -1,5 +1,5 @@
 // Runs as a child of probe-groups-on-stop.test.ts: the real startServer, listening, with a hung runtime probe
-// running in it (as a preflight during a `rig up` would be). The test then sends it SIGTERM.
+// running in it (as a preflight during a `SoftwareTeam up` would be). The test then sends it SIGTERM.
 import { once } from "node:events";
 import { boundedProbeExec } from "../../src/adapters/bounded-probe-exec.js";
 import { startServer } from "../../src/index.js";

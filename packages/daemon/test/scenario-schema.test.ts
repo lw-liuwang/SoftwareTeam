@@ -20,7 +20,7 @@ const VALID: Record<string, unknown> = {
   topology: "fixtures/two-seat.yaml",
   steps: [
     { up: {} },
-    { send: { to: "dev-impl@rig", text: "work" } },
+    { send: { to: "dev-impl@software-team", text: "work" } },
     { expect: { surface: "queue", within: "5s", match: { state: "in-progress" } } },
     { down: {} },
   ],
@@ -46,7 +46,7 @@ describe("validateScenario — schema fidelity + loud rejection", () => {
   });
 
   it("rejects an unknown emit behavior with a NAMED error listing the four", () => {
-    const doc = { ...VALID, steps: [{ emit: { seat: "dev-impl@rig", behavior: "explode" } }] };
+    const doc = { ...VALID, steps: [{ emit: { seat: "dev-impl@software-team", behavior: "explode" } }] };
     const r = validateScenario(doc);
     expect(r.ok).toBe(false);
     expect(errCodes(r)).toContain("UNKNOWN_EMIT_BEHAVIOR");
@@ -57,7 +57,7 @@ describe("validateScenario — schema fidelity + loud rejection", () => {
   });
 
   it("rejects emit usage_limit in a STUB topology with a DISTINCT named error (not unknown-behavior)", () => {
-    const doc = { ...VALID, steps: [{ emit: { seat: "dev-impl@rig", behavior: "usage_limit" } }] };
+    const doc = { ...VALID, steps: [{ emit: { seat: "dev-impl@software-team", behavior: "usage_limit" } }] };
     const r = validateScenario(doc, { topologyKind: "stub" });
     expect(r.ok).toBe(false);
     expect(errCodes(r)).toContain("USAGE_LIMIT_IN_STUB_TOPOLOGY");
@@ -71,7 +71,7 @@ describe("validateScenario — schema fidelity + loud rejection", () => {
   });
 
   it("accepts emit usage_limit in a REAL-runtime topology", () => {
-    const doc = { ...VALID, steps: [{ emit: { seat: "dev-impl@rig", behavior: "usage_limit" } }] };
+    const doc = { ...VALID, steps: [{ emit: { seat: "dev-impl@software-team", behavior: "usage_limit" } }] };
     const r = validateScenario(doc, { topologyKind: "real" });
     expect(r.ok).toBe(true);
   });
@@ -105,7 +105,7 @@ describe("validateScenario — schema fidelity + loud rejection", () => {
     expect(validateScenario({ ...VALID, steps: [{ daemon: { op: "restart" } }] }).ok).toBe(true);
     expect(errCodes(validateScenario({ ...VALID, steps: [{ daemon: { op: "reboot" } }] }))).toContain("UNKNOWN_DAEMON_OP");
     // seat-level restart is a DIFFERENT verb and stays valid on its own
-    expect(validateScenario({ ...VALID, steps: [{ restart: "dev-impl@rig" }] }).ok).toBe(true);
+    expect(validateScenario({ ...VALID, steps: [{ restart: "dev-impl@software-team" }] }).ok).toBe(true);
   });
 
   it("rejects a wall-clock value as a within bound (within is a relative duration, never an assertion input)", () => {

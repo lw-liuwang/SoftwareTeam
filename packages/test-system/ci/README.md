@@ -6,13 +6,13 @@ Linux target and proves daemon load before running the existing
 `packages/daemon/test/fixtures/scenarios/scenario-02-baton.yaml` unchanged.
 
 The runner is `runScenarioFile`, also used by `run-scenarios.mjs`. The small CI
-entry binds its existing `rigBin`, daemon lifecycle and results-ledger seams.
+entry binds its existing `softwareTeamBin`, daemon lifecycle and results-ledger seams.
 No second scenario engine or synthetic CLI replaces the product.
 
 ## What must pass
 
 1. **Healthy:** real stub topology launch, queue creation/claim, daemon restart,
-   the same in-progress baton visible through the shipped CLI, then rig teardown.
+   the same in-progress baton visible through the shipped CLI, then SoftwareTeam teardown.
 2. **Lost-baton control:** the same scenario and assertions. After the pre-restart
    assertion and a confirmed daemon stop, the test changes exactly one scratch DB
    row from `in-progress` to `pending`. The unchanged post-restart assertion must
@@ -51,7 +51,7 @@ admission only; they are
 
 The same job also runs `../scenarios/queue-baton-survives-restart.yaml` in three
 fresh containers: healthy, `baton-drop`, healthy again. It brings up the library's
-two-seat stub rig and asserts the exact `dev-qa@dev-pair-stub` claim after restart.
+two-seat stub SoftwareTeam and asserts the exact `dev-qa@dev-pair-stub` claim after restart.
 The original fixture and its three controls remain unchanged.
 
 `seed_regression` now calls an explicit fault controller supplied through the
@@ -65,9 +65,9 @@ the job. Assertions continue to use the shipped queue read, never a fake observe
 
 The same job then runs `../scenarios/transcript-reads-addressed-seat.yaml` and
 `../scenarios/capture-returns-addressed-seat.yaml` once each, healthy only, in their own
-fresh containers. Each brings up a two-seat stub rig whose seats print their own token from
-an `env.stub_scripts` script, and reads it back through the shipped `rig transcript` or
-`rig capture`. `verifyPassingRun` in `result.mjs` accepts only a clean PASS of the named
+fresh containers. Each brings up a two-seat stub SoftwareTeam whose seats print their own token from
+an `env.stub_scripts` script, and reads it back through the shipped `SoftwareTeam transcript` or
+`SoftwareTeam capture`. `verifyPassingRun` in `result.mjs` accepts only a clean PASS of the named
 scenario: one ledger record matching the result, the scenario SHA256, exit 0, and no error,
 seed or fault.
 
@@ -112,7 +112,7 @@ The client can be macOS/arm64 while Docker is Linux/amd64: the build reads the
 **server** OS/architecture and passes the same platform to the image builds and
 containers. The Node deadline helper replaces GNU `timeout`, preserves the real
 exit status, returns 124 on deadline and escalates TERM to KILL after 15 seconds.
-All daemon work remains in the container. No local OpenRig daemon is touched.
+All daemon work remains in the container. No local SoftwareTeam daemon is touched.
 
 Build contexts are uploaded by Docker, not mounted from the client. Logs, actual
 exit-code files, container names/inspection, server platform, image identity and

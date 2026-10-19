@@ -7,7 +7,7 @@ import { pendingCompletedSliceRefs, markSliceRegistrationsVerified } from "./sli
 import {
   LifecycleManifestValidationError,
   validateMissionComposition,
-} from "@openrig/daemon/project-lifecycle";
+} from "@softwareteam/daemon/project-lifecycle";
 
 export interface MissionSliceMembership {
   ref: string;
@@ -145,7 +145,7 @@ export function applyMissionCompositionEdits(edits: MissionCompositionEdit[]): v
   const applied: MissionCompositionEdit[] = [];
   try {
     for (const edit of unique) {
-      const temporary = `${edit.manifestPath}.openrig-${process.pid}-${randomUUID()}.tmp`;
+      const temporary = `${edit.manifestPath}.softwareteam-${process.pid}-${randomUUID()}.tmp`;
       fs.writeFileSync(temporary, edit.updated, { encoding: "utf8", mode: fs.statSync(edit.manifestPath).mode });
       staged.push({ edit, temporary });
     }

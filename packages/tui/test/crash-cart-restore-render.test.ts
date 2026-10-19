@@ -25,11 +25,11 @@ describe("renderRestoreLifecycleView — done", () => {
         rollup: {
           counts: { fully_restored: 1, partially_restored: 0, failed: 0, not_attempted: 1 },
           sequence: [
-            { rigId: "kernel", outcome: "fully_restored" },
-            { rigId: "beta", outcome: "not_attempted", reason: "no restore-usable snapshot for this rig", remediation: "take a snapshot" },
+            { softwareTeamId: "kernel", outcome: "fully_restored" },
+            { softwareTeamId: "beta", outcome: "not_attempted", reason: "no restore-usable snapshot for this softwareTeam", remediation: "take a snapshot" },
           ],
           attention_required: [
-            { rigId: "kernel", seat: "dev.guard", need: "original session not resumable and no --fresh — choose fresh-prime or skip" },
+            { softwareTeamId: "kernel", seat: "dev.guard", need: "original session not resumable and no --fresh — choose fresh-prime or skip" },
           ],
         },
       }),
@@ -37,7 +37,7 @@ describe("renderRestoreLifecycleView — done", () => {
     const lines = renderRestoreLifecycleView(vm);
     const body = lines.map((l) => l.text).join("\n");
     expect(body).toContain("FLEET RESTORE: mixed");
-    expect(body).toContain("NEEDS ATTENTION (2)"); // one attention seat + one not_attempted rig
+    expect(body).toContain("NEEDS ATTENTION (2)"); // one attention seat + one not_attempted softwareTeam
     expect(body).toContain("dev.guard@kernel");
     expect(body).toContain("choose fresh-prime or skip"); // the exact need, in full
     expect(body).toContain("take a snapshot"); // the not_attempted remediation, in full
@@ -70,8 +70,8 @@ describe("renderRestoreLifecycleView — detached (HIGH-1: honest, operable, nev
         rollup: {
           counts: { fully_restored: 2, partially_restored: 0, failed: 0, not_attempted: 0 },
           sequence: [
-            { rigId: "kernel", outcome: "fully_restored" },
-            { rigId: "alpha", outcome: "fully_restored" },
+            { softwareTeamId: "kernel", outcome: "fully_restored" },
+            { softwareTeamId: "alpha", outcome: "fully_restored" },
           ],
           attention_required: [],
         },
@@ -116,7 +116,7 @@ describe("renderRestoreLifecycleView — done header glyph matches the verdict (
 });
 
 describe("renderRestoreLifecycleView — running (mid-run progress frame)", () => {
-  it("shows a per-rig progress list + the cancel affordance while running", () => {
+  it("shows a per-software-team progress list + the cancel affordance while running", () => {
     const vm = buildRestoreLifecycleVM(
       frame({
         phase: "running",
@@ -124,7 +124,7 @@ describe("renderRestoreLifecycleView — running (mid-run progress frame)", () =
         verdict: "none_attempted",
         rollup: {
           counts: { fully_restored: 1, partially_restored: 0, failed: 0, not_attempted: 0 },
-          sequence: [{ rigId: "kernel", outcome: "fully_restored" }],
+          sequence: [{ softwareTeamId: "kernel", outcome: "fully_restored" }],
           attention_required: [],
         },
       }),

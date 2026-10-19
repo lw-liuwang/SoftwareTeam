@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ConfigStore } from "./config-store.js";
-import { decodeAllowlist, resolveAllowedDirectory, resolveAllowedPath, readAllowedFile, FilePathSafetyError } from "@openrig/daemon/local-reading";
+import { decodeAllowlist, resolveAllowedDirectory, resolveAllowedPath, readAllowedFile, FilePathSafetyError } from "@softwareteam/daemon/local-reading";
 
 export interface LocalRequest { op: "roots" | "list" | "read"; root?: string; path?: string }
 

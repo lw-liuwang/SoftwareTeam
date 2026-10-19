@@ -1,25 +1,25 @@
 // V1 attempt-3 Phase 3 — Topology tree per topology-tree.md L13–L29 + SC-9 + SC-11b.
 //
-// host > rig > pod > seat. Multi-host envelope: V1 has only one host
-// node ("localhost") above all rigs; V2 adds remote host registration.
+// host > softwareTeam > pod > seat. Multi-host envelope: V1 has only one host
+// node ("localhost") above all softwareTeams; V2 adds remote host registration.
 //
 // V1 polish slice Phase 5.1 P5.1-2 + DRIFT P5.1-D2: SeatLeaf details
 // icon (P5-1) RETIRED at V1 polish. Graph node
 // click + tree click + table row click all navigate to the canonical
-// /topology/seat/$rigId/$logicalId center page. The drawer-as-seat-
+// /topology/seat/$softwareTeamId/$logicalId center page. The drawer-as-seat-
 // detail mode is gone; SeatDetailTrigger primitive deleted.
 //
 // P5.1-2 second part — auto-expand: when the route is on a seat URL,
-// expand the matching rig + pod branches automatically so the user
+// expand the matching softwareTeam + pod branches automatically so the user
 // sees where the agent lives in the tree. Implemented via
-// useRouterState pathname parsing inside RigBranch + PodBranch.
+// useRouterState pathname parsing inside SoftwareTeamBranch + PodBranch.
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Archive, ChevronDown, ChevronRight, Globe } from "lucide-react";
 import { cn } from "../../lib/utils.js";
-import { useRigSummary } from "../../hooks/useRigSummary.js";
-import { useArchivedRigs } from "../../hooks/useArchivedRigs.js";
+import { useSoftwareTeamSummary } from "../../hooks/useSoftwareTeamSummary.js";
+import { useArchivedSoftwareTeams } from "../../hooks/useArchivedSoftwareTeams.js";
 import { useNodeInventory } from "../../hooks/useNodeInventory.js";
 import { useSettings } from "../../hooks/useSettings.js";
 import { useHosts, useSelectHost } from "../../hooks/useHosts.js";
@@ -27,42 +27,42 @@ import { LOCAL_HOST_ID } from "../../lib/host-param.js";
 import { displayPodName, inferPodName } from "../../lib/display-name.js";
 import { RuntimeMark } from "../graphics/RuntimeMark.js";
 
-/** Parse the active topology pathname for the seat-scope rigId+logicalId
- *  and (when on a rig/pod URL) the active rigId / podName. Used for
+/** Parse the active topology pathname for the seat-scope softwareTeamId+logicalId
+ *  and (when on a softwareTeam/pod URL) the active softwareTeamId / podName. Used for
  *  auto-expand of the matching branches. */
 function useActiveTopologyContext(): {
-  rigId: string | null;
+  softwareTeamId: string | null;
   podName: string | null;
   logicalId: string | null;
 } {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  // /topology/seat/$rigId/$logicalId
+  // /topology/seat/$softwareTeamId/$logicalId
   const seatMatch = pathname.match(/^\/topology\/seat\/([^/]+)\/(.+)$/);
   if (seatMatch) {
-    const rigId = decodeURIComponent(seatMatch[1]!);
+    const softwareTeamId = decodeURIComponent(seatMatch[1]!);
     const logicalId = decodeURIComponent(seatMatch[2]!);
     const podName = inferPodName(logicalId) ?? "default";
-    return { rigId, podName, logicalId };
+    return { softwareTeamId, podName, logicalId };
   }
-  // /topology/pod/$rigId/$podName
+  // /topology/pod/$softwareTeamId/$podName
   const podMatch = pathname.match(/^\/topology\/pod\/([^/]+)\/([^/]+)$/);
   if (podMatch) {
     return {
-      rigId: decodeURIComponent(podMatch[1]!),
+      softwareTeamId: decodeURIComponent(podMatch[1]!),
       podName: decodeURIComponent(podMatch[2]!),
       logicalId: null,
     };
   }
-  // /topology/rig/$rigId
-  const rigMatch = pathname.match(/^\/topology\/rig\/([^/]+)$/);
-  if (rigMatch) {
-    return { rigId: decodeURIComponent(rigMatch[1]!), podName: null, logicalId: null };
+  // /topology/softwareTeam/$softwareTeamId
+  const softwareTeamMatch = pathname.match(/^\/topology\/softwareTeam\/([^/]+)$/);
+  if (softwareTeamMatch) {
+    return { softwareTeamId: decodeURIComponent(softwareTeamMatch[1]!), podName: null, logicalId: null };
   }
-  return { rigId: null, podName: null, logicalId: null };
+  return { softwareTeamId: null, podName: null, logicalId: null };
 }
 
-function SeatLeaf({ rigId, logicalId, label, runtime, isActive }: {
-  rigId: string;
+function SeatLeaf({ softwareTeamId, logicalId, label, runtime, isActive }: {
+  softwareTeamId: string;
   logicalId: string;
   label: string;
   runtime?: string | null;
@@ -71,9 +71,9 @@ function SeatLeaf({ rigId, logicalId, label, runtime, isActive }: {
   return (
     <li className="px-2 py-0.5 hover:bg-surface-low">
       <Link
-        to="/topology/seat/$rigId/$logicalId"
-        params={{ rigId, logicalId: encodeURIComponent(logicalId) }}
-        data-testid={`topology-seat-${rigId}-${logicalId}`}
+        to="/topology/seat/$softwareTeamId/$logicalId"
+        params={{ softwareTeamId, logicalId: encodeURIComponent(logicalId) }}
+        data-testid={`topology-seat-${softwareTeamId}-${logicalId}`}
         data-active={isActive}
         className={cn(
           "flex w-full min-w-0 items-center gap-1.5 font-mono text-xs",
@@ -89,11 +89,11 @@ function SeatLeaf({ rigId, logicalId, label, runtime, isActive }: {
   );
 }
 
-function PodBranch({ rigId, podName, seats, activeRigId, activePodName, activeLogicalId }: {
-  rigId: string;
+function PodBranch({ softwareTeamId, podName, seats, activeSoftwareTeamId, activePodName, activeLogicalId }: {
+  softwareTeamId: string;
   podName: string;
   seats: Array<{ logicalId: string; label: string; runtime?: string | null }>;
-  activeRigId: string | null;
+  activeSoftwareTeamId: string | null;
   activePodName: string | null;
   activeLogicalId: string | null;
 }) {
@@ -101,12 +101,12 @@ function PodBranch({ rigId, podName, seats, activeRigId, activePodName, activeLo
   // P5.1-2 auto-expand: when current route is on this pod (via pod URL
   // OR via a seat URL whose pod resolves to this pod), force-expand.
   const shouldAutoExpand =
-    activeRigId === rigId && activePodName === podName;
+    activeSoftwareTeamId === softwareTeamId && activePodName === podName;
   useEffect(() => {
     if (shouldAutoExpand && !open) setOpen(true);
   }, [shouldAutoExpand, open]);
   return (
-    <li data-testid={`topology-pod-${rigId}-${podName}`}>
+    <li data-testid={`topology-pod-${softwareTeamId}-${podName}`}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -114,8 +114,8 @@ function PodBranch({ rigId, podName, seats, activeRigId, activePodName, activeLo
       >
         {open ? <ChevronDown className="h-3 w-3 text-on-surface-variant" /> : <ChevronRight className="h-3 w-3 text-on-surface-variant" />}
         <Link
-          to="/topology/pod/$rigId/$podName"
-          params={{ rigId, podName }}
+          to="/topology/pod/$softwareTeamId/$podName"
+          params={{ softwareTeamId, podName }}
           onClick={(e) => e.stopPropagation()}
           className="font-mono text-[11px] text-on-surface flex-1 truncate hover:underline"
         >
@@ -128,11 +128,11 @@ function PodBranch({ rigId, podName, seats, activeRigId, activePodName, activeLo
           {seats.map((s) => (
             <SeatLeaf
               key={s.logicalId}
-              rigId={rigId}
+              softwareTeamId={softwareTeamId}
               logicalId={s.logicalId}
               label={s.label}
               runtime={s.runtime}
-              isActive={activeRigId === rigId && activeLogicalId === s.logicalId}
+              isActive={activeSoftwareTeamId === softwareTeamId && activeLogicalId === s.logicalId}
             />
           ))}
         </ul>
@@ -141,24 +141,24 @@ function PodBranch({ rigId, podName, seats, activeRigId, activePodName, activeLo
   );
 }
 
-function RigBranch({ rigId, rigName, activeRigId, activePodName, activeLogicalId }: {
-  rigId: string;
-  rigName: string;
-  activeRigId: string | null;
+function SoftwareTeamBranch({ softwareTeamId, softwareTeamName, activeSoftwareTeamId, activePodName, activeLogicalId }: {
+  softwareTeamId: string;
+  softwareTeamName: string;
+  activeSoftwareTeamId: string | null;
   activePodName: string | null;
   activeLogicalId: string | null;
 }) {
-  // P5.1-2 auto-expand: when the active route lives in this rig (rig
-  // scope URL OR pod/seat scope URL whose rigId matches), force-expand.
-  const shouldAutoExpand = activeRigId === rigId;
+  // P5.1-2 auto-expand: when the active route lives in this softwareTeam (softwareTeam
+  // scope URL OR pod/seat scope URL whose softwareTeamId matches), force-expand.
+  const shouldAutoExpand = activeSoftwareTeamId === softwareTeamId;
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (shouldAutoExpand && !open) setOpen(true);
   }, [shouldAutoExpand, open]);
   // When auto-expanded, fetch nodes eagerly so the pod tree resolves
-  // even if user lands on a deep URL without manually expanding the rig.
+  // even if user lands on a deep URL without manually expanding the softwareTeam.
   const eagerFetch = open || shouldAutoExpand;
-  const { data: nodes } = useNodeInventory(eagerFetch ? rigId : null);
+  const { data: nodes } = useNodeInventory(eagerFetch ? softwareTeamId : null);
   const podsMap = new Map<string, Array<{ logicalId: string; label: string; runtime?: string | null }>>();
   for (const n of nodes ?? []) {
     const pod = inferPodName(n.logicalId) ?? "default";
@@ -172,7 +172,7 @@ function RigBranch({ rigId, rigName, activeRigId, activePodName, activeLogicalId
   const pods = Array.from(podsMap.entries());
 
   return (
-    <li data-testid={`topology-rig-${rigId}`}>
+    <li data-testid={`topology-software-team-${softwareTeamId}`}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -180,12 +180,12 @@ function RigBranch({ rigId, rigName, activeRigId, activePodName, activeLogicalId
       >
         {open ? <ChevronDown className="h-3 w-3 text-on-surface-variant" /> : <ChevronRight className="h-3 w-3 text-on-surface-variant" />}
         <Link
-          to="/topology/rig/$rigId"
-          params={{ rigId }}
+          to="/topology/softwareTeam/$softwareTeamId"
+          params={{ softwareTeamId }}
           onClick={(e) => e.stopPropagation()}
           className="font-mono text-[11px] uppercase text-on-surface flex-1 truncate hover:underline"
         >
-          {rigName}
+          {softwareTeamName}
         </Link>
       </button>
       {open ? (
@@ -198,10 +198,10 @@ function RigBranch({ rigId, rigName, activeRigId, activePodName, activeLogicalId
             pods.map(([pod, seats]) => (
               <PodBranch
                 key={pod}
-                rigId={rigId}
+                softwareTeamId={softwareTeamId}
                 podName={pod}
                 seats={seats}
-                activeRigId={activeRigId}
+                activeSoftwareTeamId={activeSoftwareTeamId}
                 activePodName={activePodName}
                 activeLogicalId={activeLogicalId}
               />
@@ -213,18 +213,18 @@ function RigBranch({ rigId, rigName, activeRigId, activePodName, activeLogicalId
   );
 }
 
-// OPR.0.3.3.19 - the per-host "Archive" section. Archived rigs are hidden from
+// OPR.0.3.3.19 - the per-host "Archive" section. Archived softwareTeams are hidden from
 // the default tree above; this collapsible section (default collapsed) lists
 // them so they stay discoverable + reversible. Fetch is LAZY: the archived-only
 // query only fires once the section is expanded, so a collapsed archive costs
-// nothing (mirrors the lazy per-rig graph fan-out elsewhere in the tree).
-function ArchiveSection({ activeRigId, activePodName, activeLogicalId }: {
-  activeRigId: string | null;
+// nothing (mirrors the lazy per-softwareTeam graph fan-out elsewhere in the tree).
+function ArchiveSection({ activeSoftwareTeamId, activePodName, activeLogicalId }: {
+  activeSoftwareTeamId: string | null;
   activePodName: string | null;
   activeLogicalId: string | null;
 }) {
   const [open, setOpen] = useState(false);
-  const { data: archived } = useArchivedRigs({ enabled: open });
+  const { data: archived } = useArchivedSoftwareTeams({ enabled: open });
   const count = archived?.length ?? 0;
 
   return (
@@ -243,15 +243,15 @@ function ArchiveSection({ activeRigId, activePodName, activeLogicalId }: {
         <ul className="ml-5">
           {count === 0 ? (
             <li className="px-2 py-1 font-mono text-[10px] text-on-surface-variant italic">
-              No archived rigs.
+              No archived softwareTeams.
             </li>
           ) : (
             archived!.map((r) => (
-              <RigBranch
+              <SoftwareTeamBranch
                 key={r.id}
-                rigId={r.id}
-                rigName={r.name}
-                activeRigId={activeRigId}
+                softwareTeamId={r.id}
+                softwareTeamName={r.name}
+                activeSoftwareTeamId={activeSoftwareTeamId}
                 activePodName={activePodName}
                 activeLogicalId={activeLogicalId}
               />
@@ -269,20 +269,20 @@ function ArchiveSection({ activeRigId, activePodName, activeLogicalId }: {
 // screen at a time — indicator + tree + data move together). Collapsed
 // hosts render as rows; clicking one writes the selection through the
 // same one write path as the CLI. Honest v1 deviation from the twin
-// frames (recorded in the plan log): collapsed hosts carry NO rig-count
-// badge — counting an unselected host's rigs would need per-host fan-out
+// frames (recorded in the plan log): collapsed hosts carry NO software-team-count
+// badge — counting an unselected host's softwareTeams would need per-host fan-out
 // reads, which is MH-5 fleet altitude, not single-selected-host
 // read-through.
-function HostBranch({ hostId, label, chip, isSelected, isLocal, onSelect, rigs, rigsError, rigsLoading, children }: {
+function HostBranch({ hostId, label, chip, isSelected, isLocal, onSelect, softwareTeams, softwareTeamsError, softwareTeamsLoading, children }: {
   hostId: string;
   label: string;
   chip: string | null;
   isSelected: boolean;
   isLocal: boolean;
   onSelect: () => void;
-  rigs: Array<{ id: string; name: string }> | undefined;
-  rigsError: string | null;
-  rigsLoading: boolean;
+  softwareTeams: Array<{ id: string; name: string }> | undefined;
+  softwareTeamsError: string | null;
+  softwareTeamsLoading: boolean;
   children?: ReactNode;
 }) {
   return (
@@ -317,21 +317,21 @@ function HostBranch({ hostId, label, chip, isSelected, isLocal, onSelect, rigs, 
           </span>
         ) : null}
         {isSelected ? (
-          <span className="font-mono text-[9px] text-on-surface-variant">{rigs?.length ?? 0}</span>
+          <span className="font-mono text-[9px] text-on-surface-variant">{softwareTeams?.length ?? 0}</span>
         ) : null}
       </button>
       {isSelected ? (
         <ul className="ml-5">
-          {rigsError ? (
+          {softwareTeamsError ? (
             // FR-6 — the honest inline unreachable note (fr6-unreachable
             // tree leg): what happened + where the retry lives.
             <li
               data-testid={`topology-host-error-${hostId}`}
               className="px-2 py-1 font-mono text-[10px] text-error"
             >
-              Host unreachable — its rigs can&apos;t be listed. See the page for retry.
+              Host unreachable — its softwareTeams can&apos;t be listed. See the page for retry.
             </li>
-          ) : rigsLoading && (rigs === undefined || rigs.length === 0) ? (
+          ) : softwareTeamsLoading && (softwareTeams === undefined || softwareTeams.length === 0) ? (
             <li className="px-2 py-1 font-mono text-[10px] text-on-surface-variant italic">
               Pulling {label}&apos;s workspace…
             </li>
@@ -345,7 +345,7 @@ function HostBranch({ hostId, label, chip, isSelected, isLocal, onSelect, rigs, 
 }
 
 export function TopologyTreeView() {
-  const { data: rigs, error: rigsQueryError, isFetching: rigsFetching } = useRigSummary();
+  const { data: softwareTeams, error: softwareTeamsQueryError, isFetching: softwareTeamsFetching } = useSoftwareTeamSummary();
   const { data: hostsData } = useHosts();
   const selectHost = useSelectHost();
   // OPR.0.4.6.MH1 FR-4: the own-host display name (one stored name, every
@@ -354,38 +354,38 @@ export function TopologyTreeView() {
   const ownHostNameRaw = (settingsData?.settings?.["host.name" as never] as { value?: unknown } | undefined)?.value;
   const ownHostName = typeof ownHostNameRaw === "string" && ownHostNameRaw.trim() !== "" ? ownHostNameRaw : "localhost";
   // P5.1-2 auto-expand: pull active route context once at the tree root
-  // and thread down through RigBranch + PodBranch.
-  const { rigId: activeRigId, podName: activePodName, logicalId: activeLogicalId } =
+  // and thread down through SoftwareTeamBranch + PodBranch.
+  const { softwareTeamId: activeSoftwareTeamId, podName: activePodName, logicalId: activeLogicalId } =
     useActiveTopologyContext();
 
   const selected = hostsData?.selected ?? LOCAL_HOST_ID;
   const remoteHosts = hostsData?.hosts ?? [];
-  const rigList = rigs ?? [];
+  const softwareTeamList = softwareTeams ?? [];
 
-  const rigTree = (
+  const softwareTeamTree = (
     <>
-      {rigList.length > 0 ? (
-        rigList.map((r) => (
-          <RigBranch
+      {softwareTeamList.length > 0 ? (
+        softwareTeamList.map((r) => (
+          <SoftwareTeamBranch
             key={r.id}
-            rigId={r.id}
-            rigName={r.name}
-            activeRigId={activeRigId}
+            softwareTeamId={r.id}
+            softwareTeamName={r.name}
+            activeSoftwareTeamId={activeSoftwareTeamId}
             activePodName={activePodName}
             activeLogicalId={activeLogicalId}
           />
         ))
       ) : (
         <li className="px-2 py-1 font-mono text-[10px] text-on-surface-variant italic">
-          No rigs.
+          No softwareTeams.
         </li>
       )}
-      {/* OPR.0.3.3.19 - archived rigs nest under the LOCAL host only: the
-          archived-rigs read is not on the MH-2 read allowlist, so a remote
+      {/* OPR.0.3.3.19 - archived softwareTeams nest under the LOCAL host only: the
+          archived-softwareTeams read is not on the MH-2 read allowlist, so a remote
           host's archive is honestly absent rather than silently local. */}
       {selected === LOCAL_HOST_ID ? (
         <ArchiveSection
-          activeRigId={activeRigId}
+          activeSoftwareTeamId={activeSoftwareTeamId}
           activePodName={activePodName}
           activeLogicalId={activeLogicalId}
         />
@@ -408,11 +408,11 @@ export function TopologyTreeView() {
           onSelect={() => {
             if (selected !== LOCAL_HOST_ID) selectHost.mutate({ hostId: LOCAL_HOST_ID });
           }}
-          rigs={rigList}
-          rigsError={null}
-          rigsLoading={rigsFetching}
+          softwareTeams={softwareTeamList}
+          softwareTeamsError={null}
+          softwareTeamsLoading={softwareTeamsFetching}
         >
-          {rigTree}
+          {softwareTeamTree}
         </HostBranch>
         {remoteHosts.map((h) => (
           <HostBranch
@@ -425,11 +425,11 @@ export function TopologyTreeView() {
             onSelect={() => {
               if (selected !== h.id) selectHost.mutate({ hostId: h.id });
             }}
-            rigs={rigList}
-            rigsError={selected === h.id && rigsQueryError ? String((rigsQueryError as Error).message ?? rigsQueryError) : null}
-            rigsLoading={rigsFetching}
+            softwareTeams={softwareTeamList}
+            softwareTeamsError={selected === h.id && softwareTeamsQueryError ? String((softwareTeamsQueryError as Error).message ?? softwareTeamsQueryError) : null}
+            softwareTeamsLoading={softwareTeamsFetching}
           >
-            {rigTree}
+            {softwareTeamTree}
           </HostBranch>
         ))}
       </ul>

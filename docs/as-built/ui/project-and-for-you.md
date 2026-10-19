@@ -68,7 +68,7 @@ Verified at `routes.tsx` (605 lines):
 > `:61-65` (`WorkspaceScopePage`/`MissionScopePage`/`SliceScopePage` from
 > `components/project/ScopePages.js`).
 
-The review altitudes `/agents` (`RigAgentsPage`) and `/fleet` (`FleetPage`)
+The review altitudes `/agents` (`SoftwareTeamAgentsPage`) and `/fleet` (`FleetPage`)
 are listed in [`shell-and-routing.md`](shell-and-routing.md).
 
 > **Route-reality contract:** the **Mission Control *system*** lives in the
@@ -240,12 +240,12 @@ file-backed sections explain why local files are not shown.
 Reads the live workspace name; honest empty state (`NO WORKSPACE
 CONNECTED` with an Open-settings action) when unset. Tabs: Overview →
 `WorkspacePortfolioPanel`; Story/Progress/Artifacts/Proof/Queue → the
-scope rollups (§3.4); Workflow → `HostMultiRigGraph`.
+scope rollups (§3.4); Workflow → `HostMultiSoftwareTeamGraph`.
 (`WorkspaceOverviewPanel`, the older Current Work / Archive grid, is still
 defined but not rendered.)
 
 > Source: `ScopePages.tsx` `WorkspaceScopePage` (no-workspace guard;
-> `WorkspacePortfolioPanel` `:745`; `HostMultiRigGraph` `:788`).
+> `WorkspacePortfolioPanel` `:745`; `HostMultiSoftwareTeamGraph` `:788`).
 
 ### 3.2 MissionScopePage (`/project/mission/$missionId`)
 
@@ -271,7 +271,7 @@ activity — then the README). Story → `ScopeStoryRollup` (the queue-lineage
 story graph). Progress → `AcceptanceTab`. Artifacts → `ArtifactsNavigator`;
 Proof → `SliceProofTab`; Queue → `SliceQueueTab`; Workflow → `TopologyTab`.
 Loading and error states are honest (the error names
-`rig config get workspace.slices_root` as the likely misconfiguration).
+`SoftwareTeam config get workspace.slices_root` as the likely misconfiguration).
 
 > Source: `ScopePages.tsx` `SliceScopePage` (`SliceReviewTab` `:1307`,
 > `ScopeStoryRollup` `:1317`, `SliceOverviewTab` `:1325`, `AcceptanceTab`
@@ -317,15 +317,15 @@ box above NEEDS YOU:
   stack below the `sm` breakpoint.
 - The mission tab (`review/MissionReviewTab.tsx`) is board-first: stage
   cells, the completion ledger, cut-complete, and a row expansion reading
-  the same contract. The rig altitude (`review/RigAgentsPage.tsx`, route
-  `/agents`) reads `GET /api/review/rig`.
+  the same contract. The SoftwareTeam altitude (`review/SoftwareTeamAgentsPage.tsx`, route
+  `/agents`) reads `GET /api/review/SoftwareTeam`.
 
 Backend contract: see
 [`../architecture/living-notes-review.md`](../architecture/living-notes-review.md).
 
 > Source: `components/review/{SliceReviewTab,MissionReviewTab,
 > NeedsYouAccordion,AgentsBandView,VerifyLineageCard,EvidenceOpener,
-> RigAgentsPage}.tsx`, `review/vellum.ts`, `hooks/useReview.ts`,
+> SoftwareTeamAgentsPage}.tsx`, `review/vellum.ts`, `hooks/useReview.ts`,
 > `SharedDetailDrawer.tsx`; verified labels `SliceReviewTab.tsx:131-135`,
 > `:164`, `:194`.
 
@@ -333,7 +333,7 @@ Backend contract: see
 
 `Dashboard` is the paper-draft launcher (OPR.0.4.1.14). It renders, in
 order: a header with the station online state; `FieldEnvironment` (live
-rows: RIGS from `useRigSummary`, AGENTS as the sum of `nodeCount` from
+rows: SOFTWARE_TEAMS from `useSoftwareTeamSummary`, AGENTS as the sum of `nodeCount` from
 `usePsEntries`, STATION from `window.location.hostname`, OPERATOR ID from
 the `agents.operator_session` setting with an `OPERATOR` fallback, and
 VERSION from `useDaemonVersion` via `/api/health-summary/version`);

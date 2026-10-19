@@ -46,7 +46,7 @@ describe("SessionPreviewPane", () => {
       if (url === "/api/config") return new Response(JSON.stringify(settingsResponse()));
       if (url.includes("/api/sessions/")) {
         return new Response(JSON.stringify({
-          sessionName: "driver@test-rig",
+          sessionName: "driver@test-software-team",
           content: "line 1\nline 2\nline 3\nline 4",
           lines: 4,
           capturedAt: "2026-05-07T08:00:00Z",
@@ -55,7 +55,7 @@ describe("SessionPreviewPane", () => {
       return new Response(JSON.stringify({}), { status: 404 });
     });
 
-    withQueryClient(<SessionPreviewPane sessionName="driver@test-rig" testIdPrefix="terminal-test" />);
+    withQueryClient(<SessionPreviewPane sessionName="driver@test-software-team" testIdPrefix="terminal-test" />);
 
     const pane = await screen.findByTestId("terminal-test-pane");
     const content = await screen.findByTestId("terminal-test-content");
@@ -71,7 +71,7 @@ describe("SessionPreviewPane", () => {
       if (url === "/api/config") return new Response(JSON.stringify(settingsResponse()));
       if (url.includes("/api/sessions/")) {
         return new Response(JSON.stringify({
-          sessionName: "driver@test-rig",
+          sessionName: "driver@test-software-team",
           content: "tail line",
           lines: 1,
           capturedAt: "2026-05-07T08:00:00Z",
@@ -82,7 +82,7 @@ describe("SessionPreviewPane", () => {
 
     withQueryClient(
       <SessionPreviewPane
-        sessionName="driver@test-rig"
+        sessionName="driver@test-software-team"
         testIdPrefix="compact-terminal-test"
         variant="compact-terminal"
       />,
@@ -131,7 +131,7 @@ describe("SessionPreviewPane", () => {
 
     withQueryClient(
       <SessionPreviewPane
-        sessionName="driver@test-rig"
+        sessionName="driver@test-software-team"
         testIdPrefix="compact-terminal-test"
         variant="compact-terminal"
       />,
@@ -143,6 +143,6 @@ describe("SessionPreviewPane", () => {
     expect(unavailable.textContent).toContain("Preview unavailable.");
     expect(unavailable.textContent).toContain("$ waiting for terminal output");
     expect(unavailable.textContent).not.toContain("preview_unavailable");
-    expect(unavailable.textContent).not.toContain("rig capture");
+    expect(unavailable.textContent).not.toContain("SoftwareTeam capture");
   });
 });

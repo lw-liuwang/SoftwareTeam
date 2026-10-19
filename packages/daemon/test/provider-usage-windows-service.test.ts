@@ -24,7 +24,7 @@ function setup(opts: { enabled: boolean | (() => boolean); withWindows?: boolean
     read: codexUsageReader({ launchPath: `${fake.binDir}${path.delimiter}${process.env.PATH}`, home, codexHome: fake.codexHome, deadlineMs: 5_000, graceMs: 200, now: () => ASOF }),
   });
   const enabled = typeof opts.enabled === "function" ? opts.enabled : () => opts.enabled as boolean;
-  const base = { db: createFullTestDb(), listRigs: () => [], env: { CODEX_HOME: fake.codexHome } as NodeJS.ProcessEnv, now: () => ASOF };
+  const base = { db: createFullTestDb(), listSoftwareTeams: () => [], env: { CODEX_HOME: fake.codexHome } as NodeJS.ProcessEnv, now: () => ASOF };
   const svc = new ProviderServiceImpl({ ...base, ...(opts.withWindows === false ? {} : { usageWindows: { enabled, windows } }) });
   const mainSvc = new ProviderServiceImpl(base); // today's wiring: no usage windows at all
   const app = (s: ProviderServiceImpl) => {
@@ -57,7 +57,7 @@ describe("usage windows: switch off is today's read model and routes", () => {
     const { svc, fake, app } = setup({ enabled: false });
     const res = await app(svc).request("/api/provider/usage/refresh", { method: "POST", body: JSON.stringify({ provider: "codex" }) });
     expect(res.status).toBe(409);
-    expect(await res.json()).toEqual({ error: "usage_windows_disabled", message: "Codex usage windows are off. Turn them on with: rig config set provider.usage_windows true" });
+    expect(await res.json()).toEqual({ error: "usage_windows_disabled", message: "Codex usage windows are off. Turn them on with: SoftwareTeam config set provider.usage_windows true" });
     expect(fake.spawns()).toBe(0);
   });
 
@@ -98,7 +98,7 @@ describe("usage windows: switch on", () => {
     expect(JSON.stringify(rest)).toBe(JSON.stringify(await mainSvc.getReadModel()));
   });
 
-  it("saved rig auth profiles: the rows say they weren't read, only when profiles exist", async () => {
+  it("saved SoftwareTeam auth profiles: the rows say they weren't read, only when profiles exist", async () => {
     const { svc, fake } = setup({ enabled: true });
     expect((await svc.getReadModel()).usage![0]).not.toHaveProperty("savedProfiles");
     fs.mkdirSync(path.join(fake.codexHome, "auth-profiles"));
@@ -106,7 +106,7 @@ describe("usage windows: switch on", () => {
     const usage = (await svc.getReadModel()).usage!;
     expect(usage.every((row) => JSON.stringify(row.savedProfiles) === JSON.stringify({
       names: ["personal", "work"],
-      note: "saved rig auth profiles: not read (usage unknown); this reading is only the login active in the daemon's CODEX_HOME",
+      note: "saved SoftwareTeam auth profiles: not read (usage unknown); this reading is only the login active in the daemon's CODEX_HOME",
     }))).toBe(true);
   });
 
@@ -138,7 +138,7 @@ describe("usage windows with the Claude reader alongside Codex", () => {
     if (withSamples) {
       // A Claude seat's status-line windows, as the context monitor records them (lane provider_window).
       const insert = db.prepare(`INSERT INTO usage_samples (lane, seat_session, source, sampled_at, captured_at, window, window_used_percent, resets_at)
-        VALUES ('provider_window', 'dev@rig', 'claude_statusline_json', ?, ?, ?, ?, ?)`);
+        VALUES ('provider_window', 'dev@software-team', 'claude_statusline_json', ?, ?, ?, ?, ?)`);
       const sampledAt = new Date(Date.parse(ASOF) - 60_000).toISOString();
       const later = (days: number) => new Date(Date.parse(ASOF) + days * 86_400_000).toISOString();
       insert.run(sampledAt, sampledAt, "five_hour", 20, later(0.1));
@@ -153,7 +153,7 @@ describe("usage windows with the Claude reader alongside Codex", () => {
       now: () => ASOF,
       read: codexUsageReader({ launchPath: `${base.fake.binDir}${path.delimiter}${process.env.PATH}`, home, codexHome: base.fake.codexHome, deadlineMs: 5_000, graceMs: 200, now: () => ASOF }),
     });
-    const svc = new ProviderServiceImpl({ db, listRigs: () => [], env: { CODEX_HOME: base.fake.codexHome } as NodeJS.ProcessEnv, now: () => ASOF,
+    const svc = new ProviderServiceImpl({ db, listSoftwareTeams: () => [], env: { CODEX_HOME: base.fake.codexHome } as NodeJS.ProcessEnv, now: () => ASOF,
       usageWindows: { enabled: () => enabled, windows: codex, claude } });
     return { ...base, svc, fakeClaude };
   }
@@ -194,7 +194,7 @@ describe("usage windows with the Claude reader alongside Codex", () => {
     const off = await both(false);
     const res = await post(off.app(off.svc), "claude");
     expect(res.status).toBe(409);
-    expect(await res.json()).toEqual({ error: "usage_windows_disabled", message: "Claude usage windows are off. Turn them on with: rig config set provider.usage_windows true" });
+    expect(await res.json()).toEqual({ error: "usage_windows_disabled", message: "Claude usage windows are off. Turn them on with: SoftwareTeam config set provider.usage_windows true" });
     const on = await both();
     fs.mkdirSync(path.join(on.fake.codexHome, "auth-profiles"));
     fs.writeFileSync(path.join(on.fake.codexHome, "auth-profiles", "work.json"), "{}");

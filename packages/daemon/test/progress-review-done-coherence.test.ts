@@ -122,7 +122,7 @@ describe("VM-006 — Progress↔Review done coherence (union in buildAcceptance)
       workflowSpecsSchema, workflowInstancesSchema, workflowStepTrailsSchema,
       missionControlActionsSchema,
     ]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     cleanupRoot = mkdtempSync(join(tmpdir(), "vm006-coherence-"));
     slicesRoot = join(cleanupRoot, "slices");
     // The frozen fixture is copied per test so vectors can derive from it

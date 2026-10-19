@@ -9,18 +9,18 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { PodRepository } from "../src/domain/pod-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { NodeLauncher } from "../src/domain/node-launcher.js";
 import { StartupOrchestrator } from "../src/domain/startup-orchestrator.js";
-import { PodRigInstantiator } from "../src/domain/rigspec-instantiator.js";
-import { RigSpecCodec } from "../src/domain/rigspec-codec.js";
+import { PodSoftwareTeamInstantiator } from "../src/domain/software-team-spec-instantiator.js";
+import { SoftwareTeamSpecCodec } from "../src/domain/software-team-spec-codec.js";
 import type { AgentResolverFsOps } from "../src/domain/agent-resolver.js";
 import type { RuntimeAdapter } from "../src/domain/runtime-adapter.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
-import type { RigSpec } from "../src/domain/types.js";
+import type { SoftwareTeamSpec } from "../src/domain/types.js";
 import { AgentImageLibraryService } from "../src/domain/agent-images/agent-image-library-service.js";
 import type { AgentImageEntry } from "../src/domain/agent-images/agent-image-types.js";
 
@@ -71,16 +71,16 @@ function mockFs(files: Record<string, string>): AgentResolverFsOps {
   };
 }
 
-const RIG_ROOT = "/project/rigs/my-rig";
+const SOFTWARE_TEAM_ROOT = "/project/software-teams/my-software-team";
 
 function agentYaml(name: string): string {
   return `name: ${name}\nversion: "1.0.0"\nresources:\n  skills: []\nprofiles:\n  default:\n    uses:\n      skills: []`;
 }
 
-function makeRigSpec(): RigSpec {
+function makeSoftwareTeamSpec(): SoftwareTeamSpec {
   return {
     version: "0.2",
-    name: "fork-count-gate-rig",
+    name: "fork-count-gate-software-team",
     pods: [{
       id: "dev",
       label: "Dev",
@@ -115,7 +115,7 @@ function makeStubLibrary(): AgentImageLibraryService {
     name: "test-image",
     version: "1",
     runtime: "claude-code",
-    sourceSeat: "alice@rig",
+    sourceSeat: "alice@software-team",
     sourceSessionId: "src-session-id",
     sourceResumeToken: "RESUME-TOKEN-XYZ",
     notes: null,
@@ -139,23 +139,23 @@ function makeStubLibrary(): AgentImageLibraryService {
 describe("agent_image fork_count gating on launch outcome", () => {
   it("FAILED launch: recordConsumption called once with { incrementForkCount: false } only", async () => {
     const db = createFullTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const podRepo = new PodRepository(db);
     const sessionRegistry = new SessionRegistry(db);
     const eventBus = new EventBus(db);
     const tmux = mockTmux();
-    const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+    const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
     const startupOrch = new StartupOrchestrator({ db, sessionRegistry, eventBus, tmuxAdapter: tmux });
     const failingAdapter = mockFailingAdapter();
-    const fsOps = mockFs({ [`${RIG_ROOT}/agents/impl/agent.yaml`]: agentYaml("impl") });
+    const fsOps = mockFs({ [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: agentYaml("impl") });
 
     const library = makeStubLibrary();
     // Stub recordConsumption so the test doesn't try to write stats.json
     // to /tmp/nonexistent — verifies call shape only.
     const recordConsumption = vi.spyOn(library, "recordConsumption").mockImplementation(() => {});
 
-    const inst = new PodRigInstantiator({
-      db, rigRepo, podRepo, sessionRegistry, eventBus, nodeLauncher,
+    const inst = new PodSoftwareTeamInstantiator({
+      db, softwareTeamRepo, podRepo, sessionRegistry, eventBus, nodeLauncher,
       startupOrchestrator: startupOrch,
       fsOps,
       adapters: { "claude-code": failingAdapter, "codex": mockSucceedingAdapter("codex"), "terminal": mockSucceedingAdapter("terminal") },
@@ -163,8 +163,8 @@ describe("agent_image fork_count gating on launch outcome", () => {
       agentImageLibrary: library,
     });
 
-    const yaml = RigSpecCodec.serialize(makeRigSpec());
-    await inst.instantiate(yaml, RIG_ROOT);
+    const yaml = SoftwareTeamSpecCodec.serialize(makeSoftwareTeamSpec());
+    await inst.instantiate(yaml, SOFTWARE_TEAM_ROOT);
 
     // Pre-launch optimistic call must have happened with incrementForkCount: false
     const calls = recordConsumption.mock.calls;
@@ -177,21 +177,21 @@ describe("agent_image fork_count gating on launch outcome", () => {
 
   it("SUCCESSFUL launch: recordConsumption called twice — pre-launch (false) + post-launch success (true)", async () => {
     const db = createFullTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const podRepo = new PodRepository(db);
     const sessionRegistry = new SessionRegistry(db);
     const eventBus = new EventBus(db);
     const tmux = mockTmux();
-    const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+    const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
     const startupOrch = new StartupOrchestrator({ db, sessionRegistry, eventBus, tmuxAdapter: tmux });
     const succeedingAdapter = mockSucceedingAdapter();
-    const fsOps = mockFs({ [`${RIG_ROOT}/agents/impl/agent.yaml`]: agentYaml("impl") });
+    const fsOps = mockFs({ [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: agentYaml("impl") });
 
     const library = makeStubLibrary();
     const recordConsumption = vi.spyOn(library, "recordConsumption").mockImplementation(() => {});
 
-    const inst = new PodRigInstantiator({
-      db, rigRepo, podRepo, sessionRegistry, eventBus, nodeLauncher,
+    const inst = new PodSoftwareTeamInstantiator({
+      db, softwareTeamRepo, podRepo, sessionRegistry, eventBus, nodeLauncher,
       startupOrchestrator: startupOrch,
       fsOps,
       adapters: { "claude-code": succeedingAdapter, "codex": mockSucceedingAdapter("codex"), "terminal": mockSucceedingAdapter("terminal") },
@@ -199,8 +199,8 @@ describe("agent_image fork_count gating on launch outcome", () => {
       agentImageLibrary: library,
     });
 
-    const yaml = RigSpecCodec.serialize(makeRigSpec());
-    await inst.instantiate(yaml, RIG_ROOT);
+    const yaml = SoftwareTeamSpecCodec.serialize(makeSoftwareTeamSpec());
+    await inst.instantiate(yaml, SOFTWARE_TEAM_ROOT);
 
     // Two calls: pre-launch false, post-launch success true.
     const calls = recordConsumption.mock.calls;

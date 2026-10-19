@@ -8,7 +8,7 @@
 // documented contract: logged out, it prints {"loggedIn": false, ...} and exits 1, which is not_logged_in (no
 // identity fact is taken from it). Any other nonzero exit is auth_status_failed, whatever it printed. Only loggedIn, authMethod, email and orgId are read, plus orgName and
 // subscriptionType as labels. It runs with the HOME, CLAUDE_CONFIG_DIR and PATH a seat session gets, without
-// TMUX, TMUX_PANE or any OpenRig seat variable. It starts a Claude CLI process, not a session; what that
+// TMUX, TMUX_PANE or any SoftwareTeam seat variable. It starts a Claude CLI process, not a session; what that
 // process may write in the config dir is open for the native run. The reader never opens a credentials file.
 
 import { spawn } from "node:child_process";
@@ -71,7 +71,7 @@ export function claudeAuthReaderEnv(options: ClaudeAuthReaderOptions, base: Node
   for (const [key, value] of Object.entries(base)) {
     if (value === undefined) continue;
     if (key === "TMUX" || key === "TMUX_PANE" || key === "CLAUDECODE") continue;
-    if (key.startsWith("OPENRIG_") || key.startsWith("RIGGED_") || key.startsWith("CLAUDE_CODE_")) continue;
+    if (key.startsWith("SOFTWARETEAM_") || key.startsWith("SOFTWARETEAM_") || key.startsWith("CLAUDE_CODE_")) continue;
     env[key] = value;
   }
   if (options.launchPath) env.PATH = options.launchPath;

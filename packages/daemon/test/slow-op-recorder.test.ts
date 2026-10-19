@@ -14,7 +14,7 @@ const expectedSites = new Map<string, string[]>([
   ["adapters/codex-runtime-adapter.ts", ["codex.runtime.profile_preflight"]],
   // The Codex process-table read moved into the shared lineage module; the site name is kept.
   ["domain/native-process-lineage.ts", ["codex.runtime.list_processes"]],
-  ["routes/rigspec.ts", ["rigspec.import.preflight"]],
+  ["routes/software-team-spec.ts", ["software-team-spec.import.preflight"]],
   ["domain/bootstrap-orchestrator.ts", ["bootstrap.plan.preflight"]],
   ["domain/resume-metadata-refresher.ts", ["resume_metadata.list_processes"]],
   ["domain/codex-thread-id.ts", ["codex_thread_id.resolve_home"]],
@@ -37,7 +37,7 @@ async function createTestDaemon(
   };
   try {
     const daemon = await createDaemon(options);
-    expect(fetchedUrls).toEqual([pluginVendorUrl]);
+    expect(fetchedUrls).toEqual([]);
     return daemon;
   } finally {
     globalThis.fetch = originalFetch;
@@ -47,7 +47,7 @@ async function createTestDaemon(
 const tempDirs: string[] = [];
 
 function tempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-slow-op-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-slow-op-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -80,8 +80,8 @@ describe("SlowOpRecorder locked instrumentation contract", () => {
     const dir = tempDir();
     const logPath = path.join(dir, "slow-operations.jsonl");
     const recorder = new mod.SlowOpRecorder({ logPath });
-    const secret = "OPENRIG_TEST_SECRET_DO_NOT_RECORD";
-    process.env.OPENRIG_TEST_SECRET = secret;
+    const secret = "SOFTWARETEAM_TEST_SECRET_DO_NOT_RECORD";
+    process.env.SOFTWARETEAM_TEST_SECRET = secret;
     try {
       const value = recorder.runSync("test.sync.boundary", () => {
         const records = fs.readFileSync(logPath, "utf8");
@@ -101,7 +101,7 @@ describe("SlowOpRecorder locked instrumentation contract", () => {
       expect(fs.readFileSync(logPath, "utf8")).not.toContain(secret);
       expect(fs.statSync(logPath).mode & 0o777).toBe(0o600);
     } finally {
-      delete process.env.OPENRIG_TEST_SECRET;
+      delete process.env.SOFTWARETEAM_TEST_SECRET;
       await recorder.close();
     }
   });
@@ -126,8 +126,8 @@ describe("SlowOpRecorder locked instrumentation contract", () => {
       logPath: path.join(dir, "degraded.jsonl"),
       barrierTimeoutMs: 0,
     });
-    const oldNoKernel = process.env.OPENRIG_NO_KERNEL;
-    process.env.OPENRIG_NO_KERNEL = "1";
+    const oldNoKernel = process.env.SOFTWARETEAM_NO_KERNEL;
+    process.env.SOFTWARETEAM_NO_KERNEL = "1";
     const daemon = await createTestDaemon({
       dbPath: ":memory:",
       tmuxExec: async () => "",
@@ -157,8 +157,8 @@ describe("SlowOpRecorder locked instrumentation contract", () => {
       daemon.eventLoopMonitor.stop();
       daemon.db.close();
       await degraded.close();
-      if (oldNoKernel === undefined) delete process.env.OPENRIG_NO_KERNEL;
-      else process.env.OPENRIG_NO_KERNEL = oldNoKernel;
+      if (oldNoKernel === undefined) delete process.env.SOFTWARETEAM_NO_KERNEL;
+      else process.env.SOFTWARETEAM_NO_KERNEL = oldNoKernel;
     }
   });
 
@@ -472,8 +472,8 @@ describe("SlowOpRecorder locked instrumentation contract", () => {
     const dir = tempDir();
     const logPath = path.join(dir, "slow-operations.jsonl");
     const recorder = new mod.SlowOpRecorder({ logPath });
-    const oldNoKernel = process.env.OPENRIG_NO_KERNEL;
-    process.env.OPENRIG_NO_KERNEL = "1";
+    const oldNoKernel = process.env.SOFTWARETEAM_NO_KERNEL;
+    process.env.SOFTWARETEAM_NO_KERNEL = "1";
     const daemon = await createTestDaemon({
       dbPath: ":memory:",
       tmuxExec: async () => "",
@@ -490,8 +490,8 @@ describe("SlowOpRecorder locked instrumentation contract", () => {
       daemon.eventLoopMonitor.stop();
       daemon.db.close();
       await recorder.close();
-      if (oldNoKernel === undefined) delete process.env.OPENRIG_NO_KERNEL;
-      else process.env.OPENRIG_NO_KERNEL = oldNoKernel;
+      if (oldNoKernel === undefined) delete process.env.SOFTWARETEAM_NO_KERNEL;
+      else process.env.SOFTWARETEAM_NO_KERNEL = oldNoKernel;
     }
   });
 });

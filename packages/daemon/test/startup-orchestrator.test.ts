@@ -3,7 +3,7 @@ import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { StartupOrchestrator, type StartupInput } from "../src/domain/startup-orchestrator.js";
 import type { RuntimeAdapter, NodeBinding, ResolvedStartupFile, ProjectionResult, StartupDeliveryResult, ReadinessResult } from "../src/domain/runtime-adapter.js";
 import { resolveConcreteHint } from "../src/domain/runtime-adapter.js";
@@ -64,13 +64,13 @@ function makeIdentityAction(overrides?: Partial<StartupAction>): StartupAction {
   return {
     type: "send_text",
     value: [
-      "dev-impl@test-rig",
-      "OpenRig session identity:",
-      "- rig: test-rig",
+      "dev-impl@test-software-team",
+      "SoftwareTeam session identity:",
+      "- softwareTeam: test-software-team",
       "- pod: dev",
       "- member: impl",
       "- logical_id: dev.impl",
-      "- session: dev-impl@test-rig",
+      "- session: dev-impl@test-software-team",
     ].join("\n"),
     phase: "after_ready",
     appliesOn: ["fresh_start", "restore"],
@@ -84,14 +84,14 @@ describe("StartupOrchestrator", () => {
   let db: Database.Database;
   let sessionRegistry: SessionRegistry;
   let eventBus: EventBus;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let tmux: TmuxAdapter;
 
   beforeEach(() => {
     db = createFullTestDb();
     sessionRegistry = new SessionRegistry(db);
     eventBus = new EventBus(db);
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     tmux = mockTmux();
   });
 
@@ -116,17 +116,17 @@ describe("StartupOrchestrator", () => {
     });
   }
 
-  function seedSession(): { rigId: string; nodeId: string; sessionId: string } {
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "impl", { runtime: "claude-code" });
+  function seedSession(): { softwareTeamId: string; nodeId: string; sessionId: string } {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "impl", { runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, "r01-impl");
     sessionRegistry.updateStatus(session.id, "running");
-    return { rigId: rig.id, nodeId: node.id, sessionId: session.id };
+    return { softwareTeamId: softwareTeam.id, nodeId: node.id, sessionId: session.id };
   }
 
-  function makeInput(seed: { rigId: string; nodeId: string; sessionId: string }, overrides?: Partial<StartupInput>): StartupInput {
+  function makeInput(seed: { softwareTeamId: string; nodeId: string; sessionId: string }, overrides?: Partial<StartupInput>): StartupInput {
     return {
-      rigId: seed.rigId,
+      softwareTeamId: seed.softwareTeamId,
       nodeId: seed.nodeId,
       sessionId: seed.sessionId,
       binding: makeBinding(),
@@ -165,7 +165,7 @@ describe("StartupOrchestrator", () => {
     const seed = seedSession();
     await createOrchestrator().startNode(makeInput(seed, { startupActions: [makeIdentityAction()], includeDurableObligations: true }));
     expect(tmux.sendText).toHaveBeenCalledTimes(1);
-    expect(tmux.sendText).toHaveBeenCalledWith("r01-impl", expect.stringContaining("rig queue list --destination r01-impl --state pending,in-progress,blocked"));
+    expect(tmux.sendText).toHaveBeenCalledWith("r01-impl", expect.stringContaining("SoftwareTeam queue list --destination r01-impl --state pending,in-progress,blocked"));
     expect(tmux.sendText).toHaveBeenCalledWith("r01-impl", expect.stringContaining(makeIdentityAction().value));
   });
 
@@ -178,7 +178,7 @@ describe("StartupOrchestrator", () => {
     expect(JSON.parse((db.prepare("SELECT startup_actions_json FROM node_startup_context WHERE node_id=?").get(seed.nodeId) as {startup_actions_json:string}).startup_actions_json)).toEqual([action]);
     expect(orch.canContinueFresh(seed.nodeId, seed.sessionId)).toBe(true);
     expect(orch.canContinueFresh(seed.nodeId, "other-occupant")).toBe(false);
-    eventBus.emit({ type: "node.startup_pending", rigId: seed.rigId, nodeId: seed.nodeId });
+    eventBus.emit({ type: "node.startup_pending", softwareTeamId: seed.softwareTeamId, nodeId: seed.nodeId });
     expect(orch.canContinueFresh(seed.nodeId, seed.sessionId)).toBe(false);
   });
 
@@ -632,7 +632,7 @@ describe("StartupOrchestrator", () => {
     await orch.startNode(makeInput(seed, { adapter, readinessTimeoutMs: 100 }));
 
     // Session should show failed startup
-    const sessions = sessionRegistry.getSessionsForRig(seed.rigId);
+    const sessions = sessionRegistry.getSessionsForSoftwareTeam(seed.softwareTeamId);
     const session = sessions.find((s) => s.id === seed.sessionId);
     expect(session).toBeDefined();
     expect(session!.startupStatus).toBe("failed");
@@ -712,8 +712,8 @@ describe("StartupOrchestrator", () => {
     });
     expect(sendText).toHaveBeenNthCalledWith(1, "r01-impl", expect.any(String));
     const firstPrompt = sendText.mock.calls[0]?.[1];
-    expect(firstPrompt).toContain("dev-impl@test-rig");
-    expect(firstPrompt).toContain("OpenRig session identity:");
+    expect(firstPrompt).toContain("dev-impl@test-software-team");
+    expect(firstPrompt).toContain("SoftwareTeam session identity:");
     expect(firstPrompt).toContain("Role instructions go here.");
     expect(sendText).toHaveBeenNthCalledWith(2, "r01-impl", "/rename impl");
     expect(deliverStartup).toHaveBeenCalledTimes(1);
@@ -745,7 +745,7 @@ describe("StartupOrchestrator", () => {
 
   // OPR.0.4.7.17 restore-order-correction (qitem-e99624f7). On a real automatic
   // Codex restore the daemon delivered the work-triggering guidance/role.md FIRST
-  // (its turn ran skill-metadata checks + `rig whoami`), and the after_ready
+  // (its turn ran skill-metadata checks + `SoftwareTeam whoami`), and the after_ready
   // "BEFORE you do anything else" preload action landed only afterwards — so
   // non-skill work preceded the action, breaking the locked action-before-work
   // contract. The fix must be CAUSAL (sequence the preload ahead of the
@@ -841,7 +841,7 @@ describe("StartupOrchestrator", () => {
     expect(sendText).toHaveBeenNthCalledWith(
       1,
       "r01-impl",
-      expect.stringContaining("dev-impl@test-rig"),
+      expect.stringContaining("dev-impl@test-software-team"),
     );
     expect(sendText).toHaveBeenNthCalledWith(2, "r01-impl", "/rename impl");
   });
@@ -913,10 +913,10 @@ describe("StartupOrchestrator", () => {
     const orch = createOrchestrator({ tmux: mockTmux({ sendText }) });
     await orch.startNode(makeInput(seed, {
       adapter: mockAdapter({ runtime: "terminal" }),
-      startupActions: [makeAction({ type: "startup_proof", value: "authenticated" }), makeAction({ type: "send_text", value: "rig tui" })],
+      startupActions: [makeAction({ type: "startup_proof", value: "authenticated" }), makeAction({ type: "send_text", value: "SoftwareTeam tui" })],
     }));
     expect(sendText).toHaveBeenCalledTimes(1);
-    expect(sendText).toHaveBeenCalledWith("r01-impl", "rig tui");
+    expect(sendText).toHaveBeenCalledWith("r01-impl", "SoftwareTeam tui");
     expect(deriveOriented(db, seed.nodeId)).toBe("n-a");
   });
 
@@ -1104,8 +1104,8 @@ describe("StartupOrchestrator", () => {
     const seed = seedSession();
     const adapter = mockAdapter();
     const files: ResolvedStartupFile[] = [
-      { path: "fresh.md", absolutePath: "/rig/fresh.md", ownerRoot: "/rig", deliveryHint: "auto", required: true, appliesOn: ["fresh_start"] },
-      { path: "always.md", absolutePath: "/rig/always.md", ownerRoot: "/rig", deliveryHint: "auto", required: true, appliesOn: ["fresh_start", "restore"] },
+      { path: "fresh.md", absolutePath: "/softwareTeam/fresh.md", ownerRoot: "/softwareTeam", deliveryHint: "auto", required: true, appliesOn: ["fresh_start"] },
+      { path: "always.md", absolutePath: "/softwareTeam/always.md", ownerRoot: "/softwareTeam", deliveryHint: "auto", required: true, appliesOn: ["fresh_start", "restore"] },
     ];
     const orch = createOrchestrator();
     await orch.startNode(makeInput(seed, { adapter, resolvedStartupFiles: files, isRestore: true }));
@@ -1183,7 +1183,7 @@ describe("StartupOrchestrator", () => {
     const orch = createOrchestrator();
     await orch.startNode(makeInput(seed, { adapter }));
 
-    const sessions = sessionRegistry.getSessionsForRig(seed.rigId);
+    const sessions = sessionRegistry.getSessionsForSoftwareTeam(seed.softwareTeamId);
     const session = sessions.find((s) => s.id === seed.sessionId);
     expect(session!.resumeToken).toBe("sess-xyz");
     expect(session!.resumeType).toBe("claude_id");
@@ -1197,7 +1197,7 @@ describe("StartupOrchestrator", () => {
     const orch = createOrchestrator();
     await orch.startNode(makeInput(seed, { adapter }));
 
-    const sessions = sessionRegistry.getSessionsForRig(seed.rigId);
+    const sessions = sessionRegistry.getSessionsForSoftwareTeam(seed.softwareTeamId);
     const session = sessions.find((s) => s.id === seed.sessionId);
     expect(session!.resumeToken).toBeNull();
     expect(session!.resumeType).toBeNull();
@@ -1236,7 +1236,7 @@ describe("StartupOrchestrator", () => {
       resumeToken: undefined,
     });
 
-    const sessions = sessionRegistry.getSessionsForRig(seed.rigId);
+    const sessions = sessionRegistry.getSessionsForSoftwareTeam(seed.softwareTeamId);
     const session = sessions.find((s) => s.id === seed.sessionId);
     expect(session!.resumeToken).toBe("fresh-token");
     expect(session!.resumeType).toBe("codex_id");
@@ -1283,7 +1283,7 @@ describe("StartupOrchestrator", () => {
     // Auth-refusal is operator-recoverable, not a stale-token signal.
     expect(launchHarness).toHaveBeenCalledTimes(1);
 
-    const sessions = sessionRegistry.getSessionsForRig(seed.rigId);
+    const sessions = sessionRegistry.getSessionsForSoftwareTeam(seed.softwareTeamId);
     const session = sessions.find((s) => s.id === seed.sessionId);
     expect(session!.startupStatus).toBe("attention_required");
     expect(session!.resumeType).toBe("codex_id");
@@ -1316,7 +1316,7 @@ describe("StartupOrchestrator", () => {
 
     expect(result.ok).toBe(false);
     expect(result.startupStatus).toBe("attention_required");
-    const session = sessionRegistry.getSessionsForRig(seed.rigId).find((s) => s.id === seed.sessionId)!;
+    const session = sessionRegistry.getSessionsForSoftwareTeam(seed.softwareTeamId).find((s) => s.id === seed.sessionId)!;
     expect(session.resumeType).toBe("pi_session_file");
     expect(session.resumeToken).toBe("attempted-pi-token");
     expect(session.resumeProvenance).toBeNull();
@@ -1379,7 +1379,7 @@ describe("StartupOrchestrator", () => {
       await vi.advanceTimersByTimeAsync(1);
 
       expect(await pending).toMatchObject({ ok: true, startupStatus: "ready" });
-      expect(sessionRegistry.getSessionsForRig(seed.rigId).find((s) => s.id === seed.sessionId)?.startupStatus).toBe("ready");
+      expect(sessionRegistry.getSessionsForSoftwareTeam(seed.softwareTeamId).find((s) => s.id === seed.sessionId)?.startupStatus).toBe("ready");
     });
 
     it.each([500, 30_000])("does not time out before the %i ms budget expires", async (timeoutMs) => {
@@ -1418,7 +1418,7 @@ describe("StartupOrchestrator", () => {
       expect(await pending).toMatchObject({
         ok: false,
         startupStatus: "attention_required",
-        errors: ["Startup requires attention: workspace trust required", expect.stringContaining("rig seat continue")],
+        errors: ["Startup requires attention: workspace trust required", expect.stringContaining("SoftwareTeam seat continue")],
       });
     });
   });
@@ -1472,7 +1472,7 @@ describe("StartupOrchestrator", () => {
     }
   });
 
-  it("delivers openrig-start.md overlay alongside agent role guidance (append, not replace)", async () => {
+  it("delivers softwareteam-start.md overlay alongside agent role guidance (append, not replace)", async () => {
     const seed = seedSession();
     const deliveredFiles: string[] = [];
     const adapter = mockAdapter({
@@ -1490,8 +1490,8 @@ describe("StartupOrchestrator", () => {
       appliesOn: ["fresh_start", "restore"],
     };
     const onboardingFile: ResolvedStartupFile = {
-      path: "openrig-start.md",
-      absolutePath: "/assets/guidance/openrig-start.md",
+      path: "softwareteam-start.md",
+      absolutePath: "/assets/guidance/softwareteam-start.md",
       ownerRoot: "/assets",
       deliveryHint: "guidance_merge",
       required: false,
@@ -1507,6 +1507,6 @@ describe("StartupOrchestrator", () => {
     expect(result.ok).toBe(true);
     // Both files were delivered — overlay appended, not replacing role guidance
     expect(deliveredFiles).toContain("guidance/role.md");
-    expect(deliveredFiles).toContain("openrig-start.md");
+    expect(deliveredFiles).toContain("softwareteam-start.md");
   });
 });

@@ -6,20 +6,20 @@
 // non-green (the 19/21 lesson: render the verdict, don't default to green while
 // carrying it in data).
 //
-// "Restore kernel" opens the same launch/recovery modal against the kernel rig.
-// Double-instantiation guard: the action is disabled unless a kernel rig exists
-// (found via the rig summary) AND the kernel is not already up; the restore
-// itself routes through /api/rigs/:id/up, whose `rig_not_stopped` guard refuses
+// "Restore kernel" opens the same launch/recovery modal against the kernel softwareTeam.
+// Double-instantiation guard: the action is disabled unless a kernel softwareTeam exists
+// (found via the softwareTeam summary) AND the kernel is not already up; the restore
+// itself routes through /api/software-teams/:id/up, whose `software_team_not_stopped` guard refuses
 // to restore a running kernel (so no second kernel/advisor/operator is spawned).
 
 import { useState } from "react";
-import { RigStatusCard } from "./RigStatusCard.js";
+import { SoftwareTeamStatusCard } from "./SoftwareTeamStatusCard.js";
 import { LaunchRecoveryModal } from "./LaunchRecoveryModal.js";
 import { useKernelStatus, isKernelUnavailable, type KernelState } from "../hooks/useKernelStatus.js";
-import { useRigSummary } from "../hooks/useRigSummary.js";
-import type { RigAggStatus } from "../hooks/useRigStatus.js";
+import { useSoftwareTeamSummary } from "../hooks/useSoftwareTeamSummary.js";
+import type { SoftwareTeamAggStatus } from "../hooks/useSoftwareTeamStatus.js";
 
-function kernelToAggregate(state: KernelState | undefined): RigAggStatus {
+function kernelToAggregate(state: KernelState | undefined): SoftwareTeamAggStatus {
   switch (state) {
     case "ready":
       return "up";
@@ -38,16 +38,16 @@ function kernelToAggregate(state: KernelState | undefined): RigAggStatus {
 
 export function KernelStatusCard() {
   const { data: kernel, isLoading } = useKernelStatus();
-  const { data: rigs } = useRigSummary();
+  const { data: softwareTeams } = useSoftwareTeamSummary();
   const [modalOpen, setModalOpen] = useState(false);
 
-  const kernelRig = rigs?.find((r) => r.name === "kernel");
+  const kernelSoftwareTeam = softwareTeams?.find((r) => r.name === "kernel");
 
   if (isLoading || !kernel) {
     return (
-      <RigStatusCard
-        rigId="kernel"
-        rigName="kernel"
+      <SoftwareTeamStatusCard
+        softwareTeamId="kernel"
+        softwareTeamName="kernel"
         isKernel
         status="unknown"
         seatsRunning={0}
@@ -65,9 +65,9 @@ export function KernelStatusCard() {
   // (never green); restore is not offered (nothing observable to restore).
   if (isKernelUnavailable(kernel)) {
     return (
-      <RigStatusCard
-        rigId={kernelRig?.id ?? "kernel"}
-        rigName="kernel"
+      <SoftwareTeamStatusCard
+        softwareTeamId={kernelSoftwareTeam?.id ?? "kernel"}
+        softwareTeamName="kernel"
         isKernel
         status="unknown"
         seatsRunning={0}
@@ -93,15 +93,15 @@ export function KernelStatusCard() {
     ...(kernel.detail ? [kernel.detail] : []),
   ];
 
-  // Double-instantiation guard: restore only when a kernel rig exists and the
+  // Double-instantiation guard: restore only when a kernel softwareTeam exists and the
   // kernel is not already up.
-  const restoreDisabled = !kernelRig || status === "up";
+  const restoreDisabled = !kernelSoftwareTeam || status === "up";
 
   return (
     <>
-      <RigStatusCard
-        rigId={kernelRig?.id ?? "kernel"}
-        rigName="kernel"
+      <SoftwareTeamStatusCard
+        softwareTeamId={kernelSoftwareTeam?.id ?? "kernel"}
+        softwareTeamName="kernel"
         isKernel
         status={status}
         seatsRunning={readyAgents}
@@ -113,10 +113,10 @@ export function KernelStatusCard() {
         onPrimary={() => setModalOpen(true)}
         testId="kernel-status-card"
       />
-      {kernelRig ? (
+      {kernelSoftwareTeam ? (
         <LaunchRecoveryModal
-          rigId={kernelRig.id}
-          rigName="kernel"
+          softwareTeamId={kernelSoftwareTeam.id}
+          softwareTeamName="kernel"
           open={modalOpen}
           onOpenChange={setModalOpen}
         />

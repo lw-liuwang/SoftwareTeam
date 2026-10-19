@@ -1,4 +1,4 @@
-// Slice-03 rig-context ATOM 2 (STORE) — the WRITE/ADD trust boundary: the CLI
+// Slice-03 software-team-context ATOM 2 (STORE) — the WRITE/ADD trust boundary: the CLI
 // add path must reject an unsafe install ref BEFORE any filesystem mutation
 // (spec §2 path-like refs; sealed Atom-1 per-segment contract, mirrored at
 // the CLI trust boundary like the existing manifest hardening). PM watch: the
@@ -57,24 +57,24 @@ files:
 describe("ATOM 2 — `context add` write boundary rejects unsafe install refs BEFORE any fs mutation", () => {
   const tmpHomes: string[] = [];
   const tmpSrcs: string[] = [];
-  const origHome = process.env["OPENRIG_HOME"];
-  const origContextRoot = process.env["OPENRIG_CONTEXT_ROOT"];
+  const origHome = process.env["SOFTWARETEAM_HOME"];
+  const origContextRoot = process.env["SOFTWARETEAM_CONTEXT_ROOT"];
 
   afterEach(() => {
     for (const d of [...tmpHomes, ...tmpSrcs]) rmSync(d, { recursive: true, force: true });
     tmpHomes.length = 0;
     tmpSrcs.length = 0;
-    if (origHome === undefined) delete process.env["OPENRIG_HOME"];
-    else process.env["OPENRIG_HOME"] = origHome;
-    if (origContextRoot === undefined) delete process.env["OPENRIG_CONTEXT_ROOT"];
-    else process.env["OPENRIG_CONTEXT_ROOT"] = origContextRoot;
+    if (origHome === undefined) delete process.env["SOFTWARETEAM_HOME"];
+    else process.env["SOFTWARETEAM_HOME"] = origHome;
+    if (origContextRoot === undefined) delete process.env["SOFTWARETEAM_CONTEXT_ROOT"];
+    else process.env["SOFTWARETEAM_CONTEXT_ROOT"] = origContextRoot;
   });
 
   function isolatedHome(): string {
     const home = mkdtempSync(join(tmpdir(), "ctx-add-home-"));
     tmpHomes.push(home);
-    process.env["OPENRIG_HOME"] = home;
-    process.env["OPENRIG_CONTEXT_ROOT"] = join(home, "context");
+    process.env["SOFTWARETEAM_HOME"] = home;
+    process.env["SOFTWARETEAM_CONTEXT_ROOT"] = join(home, "context");
     return home;
   }
 
@@ -95,7 +95,7 @@ describe("ATOM 2 — `context add` write boundary rejects unsafe install refs BE
     console.error = (...args: unknown[]) => { errLogs.push(args.map(String).join(" ")); };
     const origExit = process.exitCode;
     try {
-      await makeCmd().parseAsync(["node", "rig", "context", "add", src, "--name", name]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "add", src, "--name", name]);
     } catch { /* commander exitOverride */ }
     failed = process.exitCode === 1;
     console.error = origErr;
@@ -117,7 +117,7 @@ describe("ATOM 2 — `context add` write boundary rejects unsafe install refs BE
     console.error = () => {};
     console.log = () => {};
     try {
-      await makeCmd().parseAsync(["node", "rig", "context", "add", src, "--name", "packs/compaction-restore"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "add", src, "--name", "packs/compaction-restore"]);
     } catch { /* daemon sync may fail against the mock-less port — the WRITE has already happened */ }
     console.error = origErr;
     console.log = origLog;
@@ -143,7 +143,7 @@ describe("ATOM 2 — `context add` write boundary rejects unsafe install refs BE
     console.error = (...a: unknown[]) => { errLogs.push(a.map(String).join(" ")); };
     const origExit = process.exitCode;
     try {
-      await makeCmd().parseAsync(["node", "rig", "context", "add", src, "--name", "linked/escape"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "add", src, "--name", "linked/escape"]);
     } catch { /* commander exitOverride */ }
     failed = process.exitCode === 1;
     console.error = origErr;
@@ -169,7 +169,7 @@ describe("ATOM 2 — `context add` write boundary rejects unsafe install refs BE
     console.error = (...a: unknown[]) => { errLogs.push(a.map(String).join(" ")); };
     const origExit = process.exitCode;
     try {
-      await makeCmd().parseAsync(["node", "rig", "context", "add", src, "--name", "dangle"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "add", src, "--name", "dangle"]);
       expect(process.exitCode, "normal CLI rejection, never a signal/abort").toBe(1);
     } finally {
       console.error = origErr;
@@ -194,7 +194,7 @@ describe("ATOM 2 — `context add` write boundary rejects unsafe install refs BE
     console.error = (...a: unknown[]) => { errLogs.push(a.map(String).join(" ")); };
     const origExit = process.exitCode;
     try {
-      await makeCmd().parseAsync(["node", "rig", "context", "add", src, "--name", "badver"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "add", src, "--name", "badver"]);
     } catch { /* commander exitOverride */ }
     failed = process.exitCode === 1;
     console.error = origErr;

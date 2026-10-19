@@ -13,10 +13,10 @@ describe("GHOST-STAGE (e) DefaultOccupantInvalidator", () => {
     const inv = new DefaultOccupantInvalidator({ enforcer, contextUsage });
 
     // Under a cutover the successor reuses the name — retiring === successor. Class-A keys on RETIRING.
-    inv.invalidateRetiringOccupant({ retiringSessionName: "seat@rig", successorSessionName: "seat@rig" });
+    inv.invalidateRetiringOccupant({ retiringSessionName: "seat@software-team", successorSessionName: "seat@software-team" });
 
-    expect(enforcer.invalidateOccupant).toHaveBeenCalledWith("seat@rig");
-    expect(contextUsage.invalidateOccupantSidecar).toHaveBeenCalledWith("seat@rig");
+    expect(enforcer.invalidateOccupant).toHaveBeenCalledWith("seat@software-team");
+    expect(contextUsage.invalidateOccupantSidecar).toHaveBeenCalledWith("seat@software-team");
   });
 
   it("Class-B: with NO retiringGeneration, logs a LOUD atom-B-pending marker and NEVER name-scopes", () => {
@@ -26,7 +26,7 @@ describe("GHOST-STAGE (e) DefaultOccupantInvalidator", () => {
       contextUsage: { invalidateOccupantSidecar: () => {} },
       log: (m) => logs.push(m),
     });
-    inv.invalidateRetiringOccupant({ retiringSessionName: "seat@rig", successorSessionName: "seat@rig" });
+    inv.invalidateRetiringOccupant({ retiringSessionName: "seat@software-team", successorSessionName: "seat@software-team" });
     expect(logs.some((l) => /PENDING atom-B/.test(l) && /NOT name-scoping/.test(l))).toBe(true);
   });
 
@@ -47,7 +47,7 @@ describe("GHOST-STAGE (e) DefaultOccupantInvalidator", () => {
       contextUsage: { invalidateOccupantSidecar: () => {} },
       watchdog: { dropArmedByRegisteringGeneration },
       log: (m) => logs.push(m),
-    }).invalidateRetiringOccupant({ retiringSessionName: "seat@rig", successorSessionName: "seat@rig", retiringGeneration: "gen-retired" });
+    }).invalidateRetiringOccupant({ retiringSessionName: "seat@software-team", successorSessionName: "seat@software-team", retiringGeneration: "gen-retired" });
     // No queue dep wired, so no park timers are kept.
     expect(dropArmedByRegisteringGeneration).toHaveBeenCalledWith("gen-retired", []);
     expect(logs.some((l) => /stopped 2 armed watchdog/.test(l))).toBe(true);
@@ -71,7 +71,7 @@ describe("GHOST-STAGE (e) DefaultOccupantInvalidator", () => {
       contextUsage: { invalidateOccupantSidecar: () => {} },
       queue: { releaseClaimsByGeneration },
       log: (m) => logs.push(m),
-    }).invalidateRetiringOccupant({ retiringSessionName: "seat@rig", successorSessionName: "seat@rig", retiringGeneration: "gen-retired" });
+    }).invalidateRetiringOccupant({ retiringSessionName: "seat@software-team", successorSessionName: "seat@software-team", retiringGeneration: "gen-retired" });
     expect(releaseClaimsByGeneration).toHaveBeenCalledWith("gen-retired");
     expect(logs.some((l) => /released 3 in-progress queue item/.test(l))).toBe(true);
   });

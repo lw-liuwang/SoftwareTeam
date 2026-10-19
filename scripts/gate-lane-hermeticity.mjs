@@ -12,7 +12,7 @@ function inside(parent, child) {
 
 /**
  * Verify that this worktree owns the dependency root and every lock-derived
- * @openrig workspace link. The check reports only; it never repairs.
+ * @softwareteam workspace link. The check reports only; it never repairs.
  */
 export function checkDependencyRoot(repoRoot, { log = console.log } = {}) {
   const root = realpathSync(repoRoot);
@@ -38,9 +38,9 @@ export function checkDependencyRoot(repoRoot, { log = console.log } = {}) {
     fail(`cannot read package-lock.json: ${error?.message ?? error}`);
   }
   const entries = Object.entries(lock?.packages ?? {})
-    .filter(([path]) => path.startsWith("node_modules/@openrig/"))
+    .filter(([path]) => path.startsWith("node_modules/@softwareteam/"))
     .sort(([a], [b]) => a.localeCompare(b));
-  if (entries.length === 0) fail("zero scoped @openrig links were derived from package-lock.json");
+  if (entries.length === 0) fail("zero scoped @softwareteam links were derived from package-lock.json");
 
   const packagesRoot = realpathSync(join(root, "packages"));
   const pairs = [];

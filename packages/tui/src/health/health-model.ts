@@ -5,17 +5,17 @@ import type { Token } from "../theme.js";
 
 export type HealthDisplayScope =
   | { kind: "instance"; local: boolean }
-  | { kind: "rig"; rigId: string; rigName: string; local: boolean }
-  | { kind: "seat"; rigId: string; seatId: string | null; seatName: string; local: boolean };
+  | { kind: "softwareTeam"; softwareTeamId: string; softwareTeamName: string; local: boolean }
+  | { kind: "seat"; softwareTeamId: string; seatId: string | null; seatName: string; local: boolean };
 
 function scopeMatches(record: HealthRecord, scope: HealthDisplayScope): boolean {
   if (scope.kind === "instance") return true;
-  if (scope.kind === "rig") {
-    return (record.scope.type === "rig" && record.scope.rigId === scope.rigId)
-      || (record.scope.type === "seat" && record.scope.rigId === scope.rigId);
+  if (scope.kind === "softwareTeam") {
+    return (record.scope.type === "softwareTeam" && record.scope.softwareTeamId === scope.softwareTeamId)
+      || (record.scope.type === "seat" && record.scope.softwareTeamId === scope.softwareTeamId);
   }
   return record.scope.type === "seat"
-    && record.scope.rigId === scope.rigId
+    && record.scope.softwareTeamId === scope.softwareTeamId
     && scope.seatId !== null
     && record.scope.seatId === scope.seatId;
 }
@@ -85,9 +85,9 @@ function scopeName(record: HealthRecord, snap: FleetSnapshot): string {
   const recordScope = record.scope;
   switch (recordScope.type) {
     case "instance": return recordScope.instanceId;
-    case "rig": return snap.hosts.flatMap((host) => host.rigs).find((rig) => rig.id === recordScope.rigId)?.name ?? recordScope.rigId;
+    case "softwareTeam": return snap.hosts.flatMap((host) => host.softwareTeams).find((softwareTeam) => softwareTeam.id === recordScope.softwareTeamId)?.name ?? recordScope.softwareTeamId;
     case "seat": {
-      for (const host of snap.hosts) for (const rig of host.rigs) for (const pod of rig.pods) {
+      for (const host of snap.hosts) for (const softwareTeam of host.softwareTeams) for (const pod of softwareTeam.pods) {
         const agent = pod.agents.find((candidate) => candidate.nodeId === recordScope.seatId);
         if (agent) return agent.name;
       }

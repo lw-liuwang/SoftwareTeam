@@ -132,7 +132,7 @@ export class ResumeMetadataRefresher {
     opts?: {
       fillNullOnly?: boolean;
       /** OPR.0.5.3.10 mini-req 2 — a CYCLE-SCOPED process lister (one census for
-       *  the whole tick, all rigs and seats). Absent → the instance lister. */
+       *  the whole tick, all softwareTeams and seats). Absent → the instance lister. */
       listProcesses?: () => Promise<Array<{ pid: number; ppid: number; command: string }>>;
     },
   ): Promise<void> {
@@ -362,7 +362,7 @@ export class ResumeMetadataRefresher {
       return "not_resumable";
     }
 
-    const probeSession = `rigged-refresh-${sanitizeTmuxName(sessionName)}-${Date.now().toString(36)}`;
+    const probeSession = `softwareteam-refresh-${sanitizeTmuxName(sessionName)}-${Date.now().toString(36)}`;
     const create = this.tmuxAdapter.deliveryGuard
       ? await this.tmuxAdapter.createProbeSession(probeSession, resolveProbeCwd(cwd, this.homeDir))
       : await this.tmuxAdapter.createSession(probeSession, resolveProbeCwd(cwd, this.homeDir));

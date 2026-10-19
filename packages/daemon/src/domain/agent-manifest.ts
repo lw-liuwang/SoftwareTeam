@@ -100,7 +100,7 @@ function validateLifecycle(raw: unknown, prefix: string): { errors: string[]; ad
     obj["mechanic"] !== undefined &&
     canonicalContinuityMechanic(obj["mechanic"]) === null
   ) {
-    errors.push(`${prefix}.mechanic: must be a canonical seat@rig session address`);
+    errors.push(`${prefix}.mechanic: must be a canonical seat@software-team session address`);
   }
   if (obj["restore_policy"] !== undefined && !VALID_RESTORE_POLICIES.has(obj["restore_policy"] as string)) {
     errors.push(`${prefix}.restore_policy: must be one of ${[...VALID_RESTORE_POLICIES].join(", ")} (got "${obj["restore_policy"]}")`);
@@ -497,7 +497,7 @@ function validatePluginResources(entries: Array<Record<string, unknown>>): strin
       errors.push(`resources.plugins[${i}].source.kind: only "local" is supported in v0 (got "${String(kind)}")`);
       continue;
     }
-    // Plugin paths may be absolute (e.g. ~/.openrig/plugins/<id> for vendored
+    // Plugin paths may be absolute (e.g. ~/.softwareteam/plugins/<id> for vendored
      // plugins, or absolute project paths). Skip the safe-path check used for
      // in-spec resources; plugin sources are explicit operator-managed paths.
     const pluginPath = sourceObj["path"];

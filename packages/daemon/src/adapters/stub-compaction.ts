@@ -6,7 +6,7 @@
 // asset a real Claude seat runs at PreCompact — so it writes the seat-keyed
 // restore-pending marker the real compaction-restore-bridge later delivers. The observable
 // (a real keyed marker + generated packet) is production-identical, and deterministic
-// under the shared injectable clock (OPENRIG_TEST_CLOCK_NOW).
+// under the shared injectable clock (SOFTWARETEAM_TEST_CLOCK_NOW).
 //
 // Effectful by nature (it spawns a subprocess); kept separate from the pure stub-script
 // model so that model stays hermetic.
@@ -21,8 +21,8 @@ export interface FireCompactionOpts {
   hookScriptPath: string;
   /** The seat's canonical session name — the marker key (identity). */
   sessionName: string;
-  /** OPENRIG_HOME the seam reads/writes the restore-pending marker under. */
-  openrigHome: string;
+  /** SOFTWARETEAM_HOME the seam reads/writes the restore-pending marker under. */
+  softwareteamHome: string;
   /** The seat's managed cwd (packet generation + transcript discovery). */
   cwd: string;
   /** An explicit JSONL transcript for deterministic packet generation (optional; absent
@@ -64,11 +64,9 @@ export function fireCompaction(opts: FireCompactionOpts): CompactionResult {
 
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    OPENRIG_HOME: opts.openrigHome,
-    OPENRIG_SESSION_NAME: opts.sessionName,
-    // Don't let a stray RIGGED_HOME pre-empt the isolated OPENRIG_HOME.
-    RIGGED_HOME: undefined,
-    OPENRIG_TEST_CLOCK_NOW: opts.injectClockNow,
+    SOFTWARETEAM_HOME: opts.softwareteamHome,
+    SOFTWARETEAM_SESSION_NAME: opts.sessionName,
+    SOFTWARETEAM_TEST_CLOCK_NOW: opts.injectClockNow,
   } as NodeJS.ProcessEnv;
 
   const result = spawnSync(process.execPath, [opts.hookScriptPath], {
@@ -83,7 +81,7 @@ export function fireCompaction(opts: FireCompactionOpts): CompactionResult {
   }
 
   const markerPath = nodePath.join(
-    opts.openrigHome, "compaction", "restore-pending", `${sanitizeKey(opts.sessionName)}.json`,
+    opts.softwareteamHome, "compaction", "restore-pending", `${sanitizeKey(opts.sessionName)}.json`,
   );
   if (!nodeFs.existsSync(markerPath)) {
     // The seam ran but produced no marker (e.g. packet generation failed) — the stub

@@ -1,4 +1,4 @@
-// Slice-21 FR-5 — `rig workspace doctor` CLI subcommand tests.
+// Slice-21 FR-5 — `softwareTeam workspace doctor` CLI subcommand tests.
 //
 // Covers:
 //   - default behavior posts to /api/workspace/doctor with empty body
@@ -28,9 +28,9 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
       state: "running",
       healthy: true,
       pid: 1234,
-      port: 7433,
+      port: 7434,
     })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -103,12 +103,12 @@ afterEach(() => {
   process.exitCode = originalExitCode;
 });
 
-describe("rig workspace doctor — request shape", () => {
+describe("SoftwareTeam workspace doctor — request shape", () => {
   it("POSTs to /api/workspace/doctor with empty body when no --workspace", async () => {
     const { deps, post } = makeDeps({ status: 200, data: healthyReport() });
     const out = captureStdout();
     try {
-      await workspaceCommand(deps).parseAsync(["node", "rig", "doctor"]);
+      await workspaceCommand(deps).parseAsync(["node", "softwareTeam", "doctor"]);
     } finally {
       out.restore();
     }
@@ -124,7 +124,7 @@ describe("rig workspace doctor — request shape", () => {
     const out = captureStdout();
     try {
       await workspaceCommand(deps).parseAsync([
-        "node", "rig", "doctor", "--workspace", "/ws-override",
+        "node", "softwareTeam", "doctor", "--workspace", "/ws-override",
       ]);
     } finally {
       out.restore();
@@ -137,7 +137,7 @@ describe("rig workspace doctor — request shape", () => {
     const out = captureStdout();
     try {
       await workspaceCommand(deps).parseAsync([
-        "node", "rig", "doctor", "--workspace", "./local-ws",
+        "node", "softwareTeam", "doctor", "--workspace", "./local-ws",
       ]);
     } finally {
       out.restore();
@@ -149,41 +149,41 @@ describe("rig workspace doctor — request shape", () => {
   });
 
   // GUARD/QA BLOCKING-A2 discriminator: CLI-side
-  // OPENRIG_FILES_ALLOWLIST must propagate to the daemon as
+  // SOFTWARETEAM_FILES_ALLOWLIST must propagate to the daemon as
   // body.filesAllowlistOverride. Without this, an operator setting
   // the env in their CLI shell sees no doctor behavior change because
   // the daemon's env-resolution is decoupled from the CLI process.
-  it("forwards OPENRIG_FILES_ALLOWLIST from process.env as body.filesAllowlistOverride", async () => {
-    const original = process.env.OPENRIG_FILES_ALLOWLIST;
-    process.env.OPENRIG_FILES_ALLOWLIST = "workspace:.";
+  it("forwards SOFTWARETEAM_FILES_ALLOWLIST from process.env as body.filesAllowlistOverride", async () => {
+    const original = process.env.SOFTWARETEAM_FILES_ALLOWLIST;
+    process.env.SOFTWARETEAM_FILES_ALLOWLIST = "workspace:.";
     const { deps, post } = makeDeps({ status: 200, data: healthyReport() });
     const out = captureStdout();
     try {
-      await workspaceCommand(deps).parseAsync(["node", "rig", "doctor"]);
+      await workspaceCommand(deps).parseAsync(["node", "softwareTeam", "doctor"]);
     } finally {
       out.restore();
-      if (original === undefined) delete process.env.OPENRIG_FILES_ALLOWLIST;
-      else process.env.OPENRIG_FILES_ALLOWLIST = original;
+      if (original === undefined) delete process.env.SOFTWARETEAM_FILES_ALLOWLIST;
+      else process.env.SOFTWARETEAM_FILES_ALLOWLIST = original;
     }
     const [, body] = post.mock.calls[0]!;
     const sent = body as { workspaceRoot?: string; filesAllowlistOverride?: string };
     expect(sent.filesAllowlistOverride).toBe("workspace:.");
   });
 
-  // Discriminator-flip: an unset OPENRIG_FILES_ALLOWLIST must NOT
+  // Discriminator-flip: an unset SOFTWARETEAM_FILES_ALLOWLIST must NOT
   // attach an override (the daemon should use SettingsStore as the
   // source of truth, not silently apply an empty-string).
-  it("omits filesAllowlistOverride from body when OPENRIG_FILES_ALLOWLIST is unset", async () => {
-    const original = process.env.OPENRIG_FILES_ALLOWLIST;
-    delete process.env.OPENRIG_FILES_ALLOWLIST;
+  it("omits filesAllowlistOverride from body when SOFTWARETEAM_FILES_ALLOWLIST is unset", async () => {
+    const original = process.env.SOFTWARETEAM_FILES_ALLOWLIST;
+    delete process.env.SOFTWARETEAM_FILES_ALLOWLIST;
     const { deps, post } = makeDeps({ status: 200, data: healthyReport() });
     const out = captureStdout();
     try {
-      await workspaceCommand(deps).parseAsync(["node", "rig", "doctor"]);
+      await workspaceCommand(deps).parseAsync(["node", "softwareTeam", "doctor"]);
     } finally {
       out.restore();
-      if (original === undefined) delete process.env.OPENRIG_FILES_ALLOWLIST;
-      else process.env.OPENRIG_FILES_ALLOWLIST = original;
+      if (original === undefined) delete process.env.SOFTWARETEAM_FILES_ALLOWLIST;
+      else process.env.SOFTWARETEAM_FILES_ALLOWLIST = original;
     }
     const [, body] = post.mock.calls[0]!;
     const sent = body as { filesAllowlistOverride?: string };
@@ -194,17 +194,17 @@ describe("rig workspace doctor — request shape", () => {
   // (no override sent). Without the length > 0 check, an empty value
   // would land as filesAllowlistOverride="" and the daemon route
   // would treat that as an explicit override.
-  it("treats empty-string OPENRIG_FILES_ALLOWLIST as unset (no override sent)", async () => {
-    const original = process.env.OPENRIG_FILES_ALLOWLIST;
-    process.env.OPENRIG_FILES_ALLOWLIST = "";
+  it("treats empty-string SOFTWARETEAM_FILES_ALLOWLIST as unset (no override sent)", async () => {
+    const original = process.env.SOFTWARETEAM_FILES_ALLOWLIST;
+    process.env.SOFTWARETEAM_FILES_ALLOWLIST = "";
     const { deps, post } = makeDeps({ status: 200, data: healthyReport() });
     const out = captureStdout();
     try {
-      await workspaceCommand(deps).parseAsync(["node", "rig", "doctor"]);
+      await workspaceCommand(deps).parseAsync(["node", "softwareTeam", "doctor"]);
     } finally {
       out.restore();
-      if (original === undefined) delete process.env.OPENRIG_FILES_ALLOWLIST;
-      else process.env.OPENRIG_FILES_ALLOWLIST = original;
+      if (original === undefined) delete process.env.SOFTWARETEAM_FILES_ALLOWLIST;
+      else process.env.SOFTWARETEAM_FILES_ALLOWLIST = original;
     }
     const [, body] = post.mock.calls[0]!;
     const sent = body as { filesAllowlistOverride?: string };
@@ -212,13 +212,13 @@ describe("rig workspace doctor — request shape", () => {
   });
 });
 
-describe("rig workspace doctor — output formatters", () => {
+describe("SoftwareTeam workspace doctor — output formatters", () => {
   it("--json prints the report as a single-line JSON document", async () => {
     const report = healthyReport();
     const { deps } = makeDeps({ status: 200, data: report });
     const out = captureStdout();
     try {
-      await workspaceCommand(deps).parseAsync(["node", "rig", "doctor", "--json"]);
+      await workspaceCommand(deps).parseAsync(["node", "softwareTeam", "doctor", "--json"]);
     } finally {
       out.restore();
     }
@@ -232,7 +232,7 @@ describe("rig workspace doctor — output formatters", () => {
     const { deps } = makeDeps({ status: 200, data: healthyReport() });
     const out = captureStdout();
     try {
-      await workspaceCommand(deps).parseAsync(["node", "rig", "doctor"]);
+      await workspaceCommand(deps).parseAsync(["node", "softwareTeam", "doctor"]);
     } finally {
       out.restore();
     }
@@ -263,7 +263,7 @@ describe("rig workspace doctor — output formatters", () => {
     const report: DoctorReportFixture = {
       workspaceRoot: "/ws",
       checks: [
-        { check: "workspace_root_reachable", status: "fail", message: "workspace root '/ws' does not exist", fixHint: "run `rig config init-workspace`" },
+        { check: "workspace_root_reachable", status: "fail", message: "workspace root '/ws' does not exist", fixHint: "run `SoftwareTeam config init-workspace`" },
         { check: "missions_folder_present", status: "ok", message: "ok" },
         { check: "file_allowlist_sane", status: "ok", message: "ok" },
         { check: "daemon_points_at_this_workspace", status: "ok", message: "ok" },
@@ -282,7 +282,7 @@ describe("rig workspace doctor — output formatters", () => {
     }
     const joined = out.logs.join("\n");
     expect(joined).toContain("[FAIL] workspace_root_reachable");
-    expect(joined).toContain("Fix: run `rig config init-workspace`");
+    expect(joined).toContain("Fix: run `SoftwareTeam config init-workspace`");
   });
 
   // Discriminator-flip: a check absent from DOCTOR_CHECK_GROUPS falls
@@ -309,12 +309,12 @@ describe("rig workspace doctor — output formatters", () => {
   });
 });
 
-describe("rig workspace doctor — exit-code semantics", () => {
+describe("SoftwareTeam workspace doctor — exit-code semantics", () => {
   it("exits 0 when summary is all-ok (default mode)", async () => {
     const { deps } = makeDeps({ status: 200, data: healthyReport() });
     const out = captureStdout();
     try {
-      await workspaceCommand(deps).parseAsync(["node", "rig", "doctor"]);
+      await workspaceCommand(deps).parseAsync(["node", "softwareTeam", "doctor"]);
     } finally {
       out.restore();
     }
@@ -330,7 +330,7 @@ describe("rig workspace doctor — exit-code semantics", () => {
     const { deps } = makeDeps({ status: 200, data: failing });
     const out = captureStdout();
     try {
-      await workspaceCommand(deps).parseAsync(["node", "rig", "doctor"]);
+      await workspaceCommand(deps).parseAsync(["node", "softwareTeam", "doctor"]);
     } finally {
       out.restore();
     }
@@ -345,7 +345,7 @@ describe("rig workspace doctor — exit-code semantics", () => {
     const { deps } = makeDeps({ status: 200, data: warning });
     const out = captureStdout();
     try {
-      await workspaceCommand(deps).parseAsync(["node", "rig", "doctor"]);
+      await workspaceCommand(deps).parseAsync(["node", "softwareTeam", "doctor"]);
     } finally {
       out.restore();
     }
@@ -360,7 +360,7 @@ describe("rig workspace doctor — exit-code semantics", () => {
     const { deps } = makeDeps({ status: 200, data: warning });
     const out = captureStdout();
     try {
-      await workspaceCommand(deps).parseAsync(["node", "rig", "doctor", "--strict"]);
+      await workspaceCommand(deps).parseAsync(["node", "softwareTeam", "doctor", "--strict"]);
     } finally {
       out.restore();
     }
@@ -374,7 +374,7 @@ describe("rig workspace doctor — exit-code semantics", () => {
     const stderrOrig = process.stderr.write;
     process.stderr.write = ((_chunk: unknown) => true) as typeof process.stderr.write;
     try {
-      await workspaceCommand(deps).parseAsync(["node", "rig", "doctor"]);
+      await workspaceCommand(deps).parseAsync(["node", "softwareTeam", "doctor"]);
     } finally {
       out.restore();
       process.stderr.write = stderrOrig;

@@ -66,7 +66,9 @@ function withExecOutput(err: unknown): unknown {
  */
 export const execCommand: ExecFn = async (cmd: string): Promise<string> => {
   try {
-    const { stdout } = await execAsync(cmd);
+    const socket = process.env.SOFTWARETEAM_TMUX_SOCKET;
+    const command = socket ? cmd.replace(/\btmux(?=\s)/g, `tmux -S '${socket.replace(/'/g, "'\\''")}'`) : cmd;
+    const { stdout } = await execAsync(command);
     return stdout;
   } catch (err) {
     throw withExecOutput(err);
@@ -81,7 +83,9 @@ export const execCommand: ExecFn = async (cmd: string): Promise<string> => {
  * PATH, so Windows passes the bare name to the spawn.
  */
 export const execArgvCommand: ArgvExecFn = async (argv: string[]): Promise<string> => {
-  const [bin, ...args] = argv;
+  const [bin, ...originalArgs] = argv;
+  const args = bin === "tmux" && process.env.SOFTWARETEAM_TMUX_SOCKET
+    ? ["-S", process.env.SOFTWARETEAM_TMUX_SOCKET, ...originalArgs] : originalArgs;
   if (!bin) throw new Error("execArgvCommand: empty argv");
   // Nothing ran when no file was found: a shell also finds tmux through an entry the lookup skips, such as a literal
   // `~/bin`, and reports a missing one as the shell transport does.
@@ -110,6 +114,7 @@ export const execArgvCommand: ArgvExecFn = async (argv: string[]): Promise<strin
  * and rejects with the spawn error when even the shell could not start. POSIX only, as control mode is.
  */
 export async function spawnTmuxClient(args: string[]): Promise<ChildProcessWithoutNullStreams> {
+  if (process.env.SOFTWARETEAM_TMUX_SOCKET) args = ["-S", process.env.SOFTWARETEAM_TMUX_SOCKET, ...args];
   const opts = { stdio: "pipe" as const, windowsHide: true };
   const started = (file: string | null) => new Promise<ChildProcessWithoutNullStreams>((resolve, reject) => {
     const child = file ? spawn(file, args, opts) : spawn("/bin/sh", ["-c", 'exec "$0" "$@"', "tmux", ...args], opts);

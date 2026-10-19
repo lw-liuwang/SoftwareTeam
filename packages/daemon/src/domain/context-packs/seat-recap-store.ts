@@ -167,7 +167,7 @@ export function validateRecapContract(content: string): RecapContractFinding[] {
 /** BUILD FOLLOW-UP (r1 verdict bb00e850; row 17015088) — the authored-recap
  *  pointer resolution, ONE-HOMED here beside the store it reads, parsing the
  *  seat ref through the CANONICAL parseSessionName (first-@ split, the
- *  documented greedy-rig ruling) — never a second parser. Safety floor
+ *  documented greedy-softwareTeam ruling) — never a second parser. Safety floor
  *  preserved: an unresolved or non-canonical ref fails with a LABELED reason
  *  carrying what was tried; fuzzy-matching another seat's directory would hand
  *  a successor a DIFFERENT occupant's decisions, which is strictly worse than
@@ -178,9 +178,9 @@ export function resolveAuthoredRecapPointer(
 ): { address: string; chainLength: number } | { absentReason: string } {
   const parsed = parseSessionName(seatRef);
   if (parsed.kind !== "canonical") {
-    return { absentReason: `seat ref '${seatRef}' did not parse as canonical <seat>@<rig> (parse verdict: ${parsed.kind}) — authored recap not resolved, never guessed` };
+    return { absentReason: `seat ref '${seatRef}' did not parse as canonical <seat>@<softwareTeam> (parse verdict: ${parsed.kind}) — authored recap not resolved, never guessed` };
   }
-  const seatDir = join(topologyRoot, "rigs", parsed.rig, "seats", parsed.member);
+  const seatDir = join(topologyRoot, "software-teams", parsed.softwareTeam, "seats", parsed.member);
   if (!existsSync(join(seatDir, RECAP_FILENAME))) {
     return { absentReason: `no ${RECAP_FILENAME} on the seat tree (${seatDir}) — the predecessor never wrote one` };
   }

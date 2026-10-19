@@ -1,7 +1,7 @@
 import { mkdirSync, appendFileSync, existsSync, openSync, readSync, closeSync, statSync, fstatSync, readFileSync } from "node:fs";
 import { join, dirname, relative, isAbsolute, sep } from "node:path";
 import { StringDecoder } from "node:string_decoder";
-import { getCompatibleOpenRigPath } from "../openrig-compat.js";
+import { getCompatibleSoftwareTeamPath } from "../softwareteam-compat.js";
 import { getLastCaptureAt, getLastCheckedAt, DEFAULT_TRANSCRIPT_STALE_AFTER_MS } from "./transcript-rotation.js";
 
 export interface TranscriptStoreOpts {
@@ -18,7 +18,7 @@ export interface TranscriptIngestHealth {
   lastCapturedAt: string | null;
 }
 
-const DEFAULT_ROOT = getCompatibleOpenRigPath("transcripts");
+const DEFAULT_ROOT = getCompatibleSoftwareTeamPath("transcripts");
 export { DEFAULT_TRANSCRIPT_STALE_AFTER_MS } from "./transcript-rotation.js";
 
 function applyBackspaces(text: string): string {
@@ -213,9 +213,9 @@ export class TranscriptStore {
     return this._enabled;
   }
 
-  getTranscriptPath(rigName: string, sessionName: string): string {
-    const resolved = join(this.root, rigName, `${sessionName}.log`);
-    // Guard against path traversal from rig/session names containing "..".
+  getTranscriptPath(softwareTeamName: string, sessionName: string): string {
+    const resolved = join(this.root, softwareTeamName, `${sessionName}.log`);
+    // Guard against path traversal from softwareTeam/session names containing "..".
     // Separator-agnostic: `join()` yields backslashes on Windows, so a
     // `startsWith(root + "/")` check rejected every valid path there and
     // routed all transcripts to the _unsafe fallback (issue #1).
@@ -227,12 +227,12 @@ export class TranscriptStore {
     return resolved;
   }
 
-  getIngestHealth(rigName: string, sessionName: string): TranscriptIngestHealth {
+  getIngestHealth(softwareTeamName: string, sessionName: string): TranscriptIngestHealth {
     if (!this._enabled) {
       return { state: "unavailable", reason: "capture_disabled", lastCapturedAt: null };
     }
     try {
-      const filePath = this.getTranscriptPath(rigName, sessionName);
+      const filePath = this.getTranscriptPath(softwareTeamName, sessionName);
       if (!existsSync(filePath)) {
         return { state: "unavailable", reason: "capture_missing", lastCapturedAt: null };
       }
@@ -258,13 +258,13 @@ export class TranscriptStore {
     }
   }
 
-  ensureTranscriptDir(rigName: string): boolean {
+  ensureTranscriptDir(softwareTeamName: string): boolean {
     if (!this._enabled) return false;
     try {
-      const dir = join(this.root, rigName);
+      const dir = join(this.root, softwareTeamName);
       // Guard against path traversal. Separator-agnostic: `join()` yields
       // backslashes on Windows, so a `startsWith(root + "/")` check can never
-      // pass there (it rejected every rig dir and transcripts never started).
+      // pass there (it rejected every softwareTeam dir and transcripts never started).
       const rel = relative(this.root, dir);
       if (!rel || rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
         return false;
@@ -276,15 +276,15 @@ export class TranscriptStore {
     }
   }
 
-  writeBoundaryMarker(rigName: string, sessionName: string, reason: string): boolean {
+  writeBoundaryMarker(softwareTeamName: string, sessionName: string, reason: string): boolean {
     if (!this._enabled) return false;
     try {
-      const filePath = this.getTranscriptPath(rigName, sessionName);
-      // Ensure the rig directory exists so the marker write succeeds
+      const filePath = this.getTranscriptPath(softwareTeamName, sessionName);
+      // Ensure the softwareTeam directory exists so the marker write succeeds
       // even when called before the launcher's ensureTranscriptDir.
       // Restore orchestration writes the marker before launch; the
       // launcher creates the dir later, which used to lose markers
-      // for the first restore on a fresh rig.
+      // for the first restore on a fresh softwareTeam.
       mkdirSync(dirname(filePath), { recursive: true });
       const marker = `--- SESSION BOUNDARY: ${reason} at ${new Date().toISOString()} ---\n`;
       appendFileSync(filePath, marker, "utf-8");
@@ -316,9 +316,9 @@ export class TranscriptStore {
       .replace(/\n{3,}/g, "\n\n");
   }
 
-  readTail(rigName: string, sessionName: string, lines: number): string | null {
+  readTail(softwareTeamName: string, sessionName: string, lines: number): string | null {
     try {
-      const filePath = this.getTranscriptPath(rigName, sessionName);
+      const filePath = this.getTranscriptPath(softwareTeamName, sessionName);
       if (!existsSync(filePath)) return null;
       const fileSize = statSync(filePath).size;
       if (fileSize === 0) return "";
@@ -379,9 +379,9 @@ export class TranscriptStore {
    * serialization (per orch decision approved-option-a:
    * open-route-with-redaction-as-protective-primitive).
    */
-  readFull(rigName: string, sessionName: string): string | null {
+  readFull(softwareTeamName: string, sessionName: string): string | null {
     try {
-      const filePath = this.getTranscriptPath(rigName, sessionName);
+      const filePath = this.getTranscriptPath(softwareTeamName, sessionName);
       if (!existsSync(filePath)) return null;
       return readFileSync(filePath, "utf-8");
     } catch {
@@ -389,9 +389,9 @@ export class TranscriptStore {
     }
   }
 
-  grep(rigName: string, sessionName: string, pattern: string): string[] | null {
+  grep(softwareTeamName: string, sessionName: string, pattern: string): string[] | null {
     try {
-      const filePath = this.getTranscriptPath(rigName, sessionName);
+      const filePath = this.getTranscriptPath(softwareTeamName, sessionName);
       if (!existsSync(filePath)) return null;
       return this.grepSync(filePath, pattern);
     } catch {

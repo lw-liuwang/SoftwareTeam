@@ -7,18 +7,18 @@ import { demoSnapshot } from "../src/demo-data.js";
 
 function factory() {
   const snap = demoSnapshot();
-  const driver = snap.hosts[0]!.rigs[0]!.pods[0]!.agents[0]!;
+  const driver = snap.hosts[0]!.softwareTeams[0]!.pods[0]!.agents[0]!;
   driver.model = "fable-5.1";
   snap.blocked[0]!.tags = ["mission:release-0.5.9", "slice:OPR.0.5.9.11"];
-  snap.blocked = snap.blocked.filter((row) => row.destinationSession !== "dev50-qa@openrig-build");
-  snap.pending = snap.pending.filter((row) => row.destinationSession !== "dev50-qa@openrig-build");
+  snap.blocked = snap.blocked.filter((row) => row.destinationSession !== "dev50-qa@softwareteam-build");
+  snap.pending = snap.pending.filter((row) => row.destinationSession !== "dev50-qa@softwareteam-build");
   const view = createViewState({ instanceId: "production-composed", getSnapshot: () => snap });
-  view.dispatch({ type: "drill", resource: "rig", name: "openrig-build" });
+  view.dispatch({ type: "drill", resource: "softwareTeam", name: "softwareteam-build" });
   return { snap, view };
 }
 
 afterEach(() => {
-  delete process.env["OPENRIG_REDUCED_MOTION"];
+  delete process.env["SOFTWARETEAM_REDUCED_MOTION"];
 });
 
 describe("founder-approved G2/L2 production composition", () => {
@@ -42,7 +42,7 @@ describe("founder-approved G2/L2 production composition", () => {
     expect(body).toContain("fable-5");
     expect(body).toMatch(/\sS11\s/);
     expect(body).toMatch(/blocked · [^ ]/);
-    expect(body).not.toMatch(/RIG\s+POD\s+SEAT/);
+    expect(body).not.toMatch(/SOFTWARE_TEAM\s+POD\s+SEAT/);
   });
 
   it("defers MODEL, NOW, and ACTIONS at 84 columns and says where they went", () => {
@@ -66,7 +66,7 @@ describe("founder-approved G2/L2 production composition", () => {
     expect(at0.motionActive).toBe(true);
     expect(noRow).toMatch(/\s—\s+—\s+run ▸/);
 
-    process.env["OPENRIG_REDUCED_MOTION"] = "1";
+    process.env["SOFTWARETEAM_REDUCED_MOTION"] = "1";
     const reduced0 = renderScreen(view.get(), snap, { cols: 160, rows: 42, nowMs: 0 });
     const reduced500 = renderScreen(view.get(), snap, { cols: 160, rows: 42, nowMs: 500 });
     expect(reduced0.lines.find((line) => line.includes("┃ dev50") && line.includes("driver"))).toBe(
@@ -91,7 +91,7 @@ describe("founder-approved G2/L2 production composition", () => {
       instance: "production-composed",
       section: "topology",
       host: "vm-host",
-      rig: "openrig-build",
+      softwareTeam: "softwareteam-build",
       pod: "dev50",
       agent: "dev50.driver",
     });
@@ -99,12 +99,12 @@ describe("founder-approved G2/L2 production composition", () => {
   });
 
   it.each([
-    ["resource drill", "rig openrig-build", {
+    ["resource drill", "SoftwareTeam softwareteam-build", {
       instance: "production-composed",
       section: "topology",
       host: "vm-host",
-      rig: "openrig-build",
-      path: "instance:production-composed/section:topology/host:vm-host/rig:openrig-build",
+      softwareTeam: "softwareteam-build",
+      path: "instance:production-composed/section:topology/host:vm-host/software-team:softwareteam-build",
     }],
     ["cross navigation", "spec-of dev50.driver", {
       instance: "production-composed",

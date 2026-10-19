@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { DiscoveryRepository } from "../src/domain/discovery-repository.js";
 import { EventBus } from "../src/domain/event-bus.js";
@@ -23,7 +23,7 @@ import { tmpdir } from "node:os";
 // here runs the REAL service path over a real DB — fakes only at tmux/adapter.
 describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let discoveryRepo: DiscoveryRepository;
   let eventBus: EventBus;
@@ -50,7 +50,7 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     discoveryRepo = new DiscoveryRepository(db);
     eventBus = new EventBus(db);
@@ -101,7 +101,7 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
   function newService(): SeatHandoverService {
     return new SeatHandoverService({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       discoveryRepo,
       eventBus,
@@ -119,16 +119,16 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
   }
 
   function seedSeat(opts?: { resumeToken?: string | null }) {
-    const rig = rigRepo.createRig("seat-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "codex", cwd: "/project" });
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@seat-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("seat-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "codex", cwd: "/project" });
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@seat-software-team");
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateStartupStatus(session.id, "ready", "2026-04-20T12:00:00Z");
-    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@seat-rig", tmuxPane: "%0" });
+    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@seat-software-team", tmuxPane: "%0" });
     if (opts?.resumeToken) {
       sessionRegistry.updateResumeToken(session.id, "codex_id", opts.resumeToken, "scrape");
     }
-    return { rig, node, sessionId: session.id };
+    return { softwareTeam, node, sessionId: session.id };
   }
 
   function nodeRow(nodeId: string) {
@@ -141,10 +141,10 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
     const { node } = seedSeat({ resumeToken: "native-abc" });
 
     const result = await service.handover({
-      seatRef: "dev-impl@seat-rig",
+      seatRef: "dev-impl@seat-software-team",
       reason: "context-wall",
-      source: "fork:dev-impl@seat-rig",
-      operator: "orch-lead@seat-rig",
+      source: "fork:dev-impl@seat-software-team",
+      operator: "orch-lead@seat-software-team",
     });
 
     expect(result).toMatchObject({ ok: true });
@@ -154,7 +154,7 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
     expect(result.result).toMatchObject({
       ok: true,
       mutated: true,
-      source: { mode: "fork", ref: "dev-impl@seat-rig" },
+      source: { mode: "fork", ref: "dev-impl@seat-software-team" },
       currentStatus: { continuityOutcome: "forked", handoverResult: "complete" },
     });
     expect(nodeRow(node.id)).toEqual({ continuity_outcome: "forked", handover_result: "complete" });
@@ -165,21 +165,21 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
     // The NEW post-fork token (adapter result) is what commit persists — never
     // the parent's token.
     const successor = sessionRegistry.getBindingForNode(node.id);
-    expect(successor?.tmuxSession).toBe("dev-impl@seat-rig");
+    expect(successor?.tmuxSession).toBe("dev-impl@seat-software-team");
   });
 
   it("fork: refuses honestly BEFORE any respawn when no native resume id is discoverable — no successor is created, the seat is untouched", async () => {
     seedSeat({ resumeToken: null });
 
     const result = await service.handover({
-      seatRef: "dev-impl@seat-rig",
+      seatRef: "dev-impl@seat-software-team",
       reason: "context-wall",
-      source: "fork:dev-impl@seat-rig",
+      source: "fork:dev-impl@seat-software-team",
     });
 
     expect(result).toMatchObject({ ok: false, code: "resume_token_unavailable" });
     if (result.ok) throw new Error("expected refusal");
-    expect(result.message).toContain("dev-impl@seat-rig");
+    expect(result.message).toContain("dev-impl@seat-software-team");
     // Honest refusal is PRE-mutation: the departing pane was never respawned and
     // no harness launch was attempted.
     expect(respawnPane).not.toHaveBeenCalled();
@@ -192,7 +192,7 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
     const { node } = seedSeat();
 
     const result = await service.handover({
-      seatRef: "dev-impl@seat-rig",
+      seatRef: "dev-impl@seat-software-team",
       reason: "degraded-incumbent",
       source: "rebuild",
     });
@@ -230,7 +230,7 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
     artifactExists.mockImplementation((path: string) => !String(path).includes("LEARNED"));
 
     const result = await service.handover({
-      seatRef: "dev-impl@seat-rig",
+      seatRef: "dev-impl@seat-software-team",
       reason: "degraded-incumbent",
       source: "rebuild",
     });
@@ -248,7 +248,7 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
     rebuildChain.mockImplementation(() => ({ emptyReason: "no recap chain, no LEARNED, no restore packet for this seat" }));
 
     const result = await service.handover({
-      seatRef: "dev-impl@seat-rig",
+      seatRef: "dev-impl@seat-software-team",
       reason: "degraded-incumbent",
       source: "rebuild",
     });
@@ -268,18 +268,18 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
   // ── Mini-req 3: PLAN AND EXECUTION AGREE ─────────────────────────────────
 
   it("plan/executor equality: no source the dry-run plan renders a mutation plan for is refused by execution as source_not_supported", async () => {
-    const sources = ["fresh", "fork:dev-impl@seat-rig", "rebuild"];
+    const sources = ["fresh", "fork:dev-impl@seat-software-team", "rebuild"];
     for (const source of sources) {
       seedSeat({ resumeToken: "native-abc" });
-      const plan = await service.handover({ seatRef: "dev-impl@seat-rig", reason: "context-wall", source, dryRun: true });
+      const plan = await service.handover({ seatRef: "dev-impl@seat-software-team", reason: "context-wall", source, dryRun: true });
       expect(plan, `dry-run plan for --source ${source}`).toMatchObject({ ok: true });
-      const executed = await service.handover({ seatRef: "dev-impl@seat-rig", reason: "context-wall", source });
+      const executed = await service.handover({ seatRef: "dev-impl@seat-software-team", reason: "context-wall", source });
       if (!executed.ok) {
         expect(executed.code, `execution of --source ${source} refused a source its own plan promised`).not.toBe("source_not_supported");
       }
       db.close();
       db = createFullTestDb();
-      rigRepo = new RigRepository(db);
+      softwareTeamRepo = new SoftwareTeamRepository(db);
       sessionRegistry = new SessionRegistry(db);
       discoveryRepo = new DiscoveryRepository(db);
       eventBus = new EventBus(db);
@@ -294,9 +294,9 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
     for (const row of Object.values(SEAT_HANDOVER_SOURCE_CAPABILITIES)) {
       expect(row.executes).toBe(true);
     }
-    for (const source of ["fresh", "rebuild", "fork:dev-impl@seat-rig"]) {
+    for (const source of ["fresh", "rebuild", "fork:dev-impl@seat-software-team"]) {
       seedSeat();
-      const planned = await service.handover({ seatRef: "dev-impl@seat-rig", reason: "context-wall", source, dryRun: true });
+      const planned = await service.handover({ seatRef: "dev-impl@seat-software-team", reason: "context-wall", source, dryRun: true });
       expect(planned.ok).toBe(true);
       if (!planned.ok || !("plan" in planned)) throw new Error("expected plan");
       const step = planned.plan.phases.flatMap((phase) => phase.steps).find((candidate) => candidate.id === "create-successor");
@@ -304,7 +304,7 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
       expect(step?.description).toContain(SEAT_HANDOVER_SOURCE_CAPABILITIES[mode as keyof typeof SEAT_HANDOVER_SOURCE_CAPABILITIES].contextCarrier);
       db.close();
       db = createFullTestDb();
-      rigRepo = new RigRepository(db);
+      softwareTeamRepo = new SoftwareTeamRepository(db);
       sessionRegistry = new SessionRegistry(db);
       discoveryRepo = new DiscoveryRepository(db);
       eventBus = new EventBus(db);
@@ -325,7 +325,7 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
     seedSeat();
     artifactExists.mockImplementation((path: string) => !String(path).includes("LEARNED"));
 
-    const result = await service.handover({ seatRef: "dev-impl@seat-rig", reason: "degraded-incumbent", source: "rebuild" });
+    const result = await service.handover({ seatRef: "dev-impl@seat-software-team", reason: "degraded-incumbent", source: "rebuild" });
 
     expect(result).toMatchObject({ ok: true });
     expect(lastHandoverEventPayload().sourceOutcome).toMatchObject({
@@ -339,7 +339,7 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
     seedSeat();
     rebuildChain.mockImplementation(() => ({ emptyReason: "no recap chain, no LEARNED, no restore packet for this seat" }));
 
-    const result = await service.handover({ seatRef: "dev-impl@seat-rig", reason: "degraded-incumbent", source: "rebuild" });
+    const result = await service.handover({ seatRef: "dev-impl@seat-software-team", reason: "degraded-incumbent", source: "rebuild" });
 
     expect(result).toMatchObject({ ok: true });
     expect(lastHandoverEventPayload().sourceOutcome).toMatchObject({
@@ -352,10 +352,10 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
   it("B2: fork provenance persists on the durable event in the same shape", async () => {
     seedSeat({ resumeToken: "native-abc" });
 
-    const result = await service.handover({ seatRef: "dev-impl@seat-rig", reason: "context-wall", source: "fork:dev-impl@seat-rig" });
+    const result = await service.handover({ seatRef: "dev-impl@seat-software-team", reason: "context-wall", source: "fork:dev-impl@seat-software-team" });
 
     expect(result).toMatchObject({ ok: true });
-    expect(lastHandoverEventPayload().sourceOutcome).toMatchObject({ mode: "fork", forkedFrom: "dev-impl@seat-rig" });
+    expect(lastHandoverEventPayload().sourceOutcome).toMatchObject({ mode: "fork", forkedFrom: "dev-impl@seat-software-team" });
   });
 
   // ── Mini-req 4: MID-SWAP FAILURE IS HONEST ───────────────────────────────
@@ -365,9 +365,9 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
     launchHarness.mockImplementation(async () => ({ ok: false, error: "induced: harness died mid-launch" }));
 
     const result = await service.handover({
-      seatRef: "dev-impl@seat-rig",
+      seatRef: "dev-impl@seat-software-team",
       reason: "context-wall",
-      source: "fork:dev-impl@seat-rig",
+      source: "fork:dev-impl@seat-software-team",
     });
 
     expect(result).toMatchObject({ ok: false, code: "successor_create_failed" });
@@ -375,7 +375,7 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
     expect(result.message).toContain("induced: harness died mid-launch");
     // Recorded partial state: the registry binding never moved and the node row
     // records no false completion.
-    expect(sessionRegistry.getBindingForNode(node.id)?.tmuxSession).toBe("dev-impl@seat-rig");
+    expect(sessionRegistry.getBindingForNode(node.id)?.tmuxSession).toBe("dev-impl@seat-software-team");
     expect(nodeRow(node.id).handover_result).not.toBe("complete");
     expect(result.guidance).toMatch(/re-wakeable|binding is unchanged/);
   });
@@ -385,13 +385,13 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
     sendText.mockImplementation(async () => ({ ok: false, error: "induced: tmux delivery down" }));
 
     const result = await service.handover({
-      seatRef: "dev-impl@seat-rig",
+      seatRef: "dev-impl@seat-software-team",
       reason: "degraded-incumbent",
       source: "rebuild",
     });
 
     expect(result).toMatchObject({ ok: false, code: "context_delivery_failed" });
-    expect(sessionRegistry.getBindingForNode(node.id)?.tmuxSession).toBe("dev-impl@seat-rig");
+    expect(sessionRegistry.getBindingForNode(node.id)?.tmuxSession).toBe("dev-impl@seat-software-team");
     expect(nodeRow(node.id).handover_result).not.toBe("complete");
   });
 
@@ -402,34 +402,34 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
     return row?.id;
   }
   function seatPaneRows() {
-    return db.prepare("SELECT id, status, claimed_node_id FROM discovered_sessions WHERE tmux_session = ? AND tmux_pane = ?").all("dev-impl@seat-rig", "%9");
+    return db.prepare("SELECT id, status, claimed_node_id FROM discovered_sessions WHERE tmux_session = ? AND tmux_pane = ?").all("dev-impl@seat-software-team", "%9");
   }
 
   it.each(["rebuild", "fresh"] as const)("%s twice in a row: the second handover succeeds and the seat follows each new occupant (#981)", async (source) => {
     const { node, sessionId } = seedSeat();
 
-    const first = await service.handover({ seatRef: "dev-impl@seat-rig", reason: "a", source });
+    const first = await service.handover({ seatRef: "dev-impl@seat-software-team", reason: "a", source });
     expect(first).toMatchObject({ ok: true, result: { mutated: true } });
     const firstOccupant = liveSessionId(node.id);
     expect(firstOccupant).not.toBe(sessionId);
     expect(seatPaneRows()).toEqual([expect.objectContaining({ status: "claimed", claimed_node_id: node.id })]);
 
-    const second = await service.handover({ seatRef: "dev-impl@seat-rig", reason: "b", source });
+    const second = await service.handover({ seatRef: "dev-impl@seat-software-team", reason: "b", source });
     expect(second).toMatchObject({ ok: true, result: { mutated: true } });
     const secondOccupant = liveSessionId(node.id);
     expect(secondOccupant).not.toBe(firstOccupant);
-    expect(sessionRegistry.getBindingForNode(node.id)?.tmuxSession).toBe("dev-impl@seat-rig");
+    expect(sessionRegistry.getBindingForNode(node.id)?.tmuxSession).toBe("dev-impl@seat-software-team");
     expect(seatPaneRows()).toEqual([expect.objectContaining({ status: "claimed", claimed_node_id: node.id })]);
     expect(respawnPane).toHaveBeenCalledTimes(2);
   });
 
   it("a seat-pane discovery row claimed by another node still refuses the handover (#237 holds)", async () => {
-    const { rig, node, sessionId } = seedSeat();
-    const other = rigRepo.addNode(rig.id, "dev.other", { runtime: "codex", cwd: "/project" });
-    const row = discoveryRepo.upsertDiscoveredSession({ tmuxSession: "dev-impl@seat-rig", tmuxPane: "%9", runtimeHint: "codex", confidence: "high" });
+    const { softwareTeam, node, sessionId } = seedSeat();
+    const other = softwareTeamRepo.addNode(softwareTeam.id, "dev.other", { runtime: "codex", cwd: "/project" });
+    const row = discoveryRepo.upsertDiscoveredSession({ tmuxSession: "dev-impl@seat-software-team", tmuxPane: "%9", runtimeHint: "codex", confidence: "high" });
     discoveryRepo.markClaimed(row.id, other.id);
 
-    const result = await service.handover({ seatRef: "dev-impl@seat-rig", reason: "a", source: "rebuild" });
+    const result = await service.handover({ seatRef: "dev-impl@seat-software-team", reason: "a", source: "rebuild" });
 
     expect(result).toMatchObject({ ok: false, code: "discovered_not_active" });
     expect(liveSessionId(node.id)).toBe(sessionId);
@@ -442,35 +442,35 @@ describe("SeatHandoverService source execution (OPR.0.5.5.5)", () => {
 
 describe("buildRebuildPrimingChain (production resolver, OPR.0.5.5.5 fix B3)", () => {
   let topologyRoot: string;
-  let openrigHome: string;
+  let softwareteamHome: string;
   let seatDir: string;
-  const SEAT = "dev-impl@seat-rig";
+  const SEAT = "dev-impl@seat-software-team";
 
   function markerPath(): string {
-    return join(openrigHome, "compaction", "restore-pending", "dev-impl@seat-rig.json");
+    return join(softwareteamHome, "compaction", "restore-pending", "dev-impl@seat-software-team.json");
   }
 
   function chain(): Array<{ address: string; label: string }> {
-    const result = buildRebuildPrimingChain(SEAT, { topologyRoot, openrigHome });
+    const result = buildRebuildPrimingChain(SEAT, { topologyRoot, softwareteamHome });
     if (!("artifacts" in result)) throw new Error(`expected artifacts, got: ${JSON.stringify(result)}`);
     return result.artifacts;
   }
 
   beforeEach(() => {
     topologyRoot = mkdtempSync(join(tmpdir(), "s05b3-topo-"));
-    openrigHome = mkdtempSync(join(tmpdir(), "s05b3-home-"));
-    seatDir = join(topologyRoot, "rigs", "seat-rig", "seats", "dev-impl");
+    softwareteamHome = mkdtempSync(join(tmpdir(), "s05b3-home-"));
+    seatDir = join(topologyRoot, "software-teams", "seat-software-team", "seats", "dev-impl");
     mkdirSync(seatDir, { recursive: true });
-    mkdirSync(join(openrigHome, "compaction", "restore-pending"), { recursive: true });
+    mkdirSync(join(softwareteamHome, "compaction", "restore-pending"), { recursive: true });
   });
 
   afterEach(() => {
     rmSync(topologyRoot, { recursive: true, force: true });
-    rmSync(openrigHome, { recursive: true, force: true });
+    rmSync(softwareteamHome, { recursive: true, force: true });
   });
 
   it("a valid restore-pending marker's packet is NAMED in the chain — after LEARNED, before the superseded recaps", () => {
-    const packetDir = join(openrigHome, "packet-x");
+    const packetDir = join(softwareteamHome, "packet-x");
     mkdirSync(packetDir, { recursive: true });
     writeFileSync(markerPath(), JSON.stringify({ version: 1, createdAt: "2026-08-27T00:00:00Z", outputDir: packetDir }));
     mkdirSync(join(seatDir, "recap-superseded"), { recursive: true });
@@ -488,7 +488,7 @@ describe("buildRebuildPrimingChain (production resolver, OPR.0.5.5.5 fix B3)", (
   });
 
   it("a marker whose packet dir is GONE still declares the address (the service records it as a named gap, never silently dropped)", () => {
-    const goneDir = join(openrigHome, "packet-deleted");
+    const goneDir = join(softwareteamHome, "packet-deleted");
     writeFileSync(markerPath(), JSON.stringify({ version: 1, outputDir: goneDir }));
 
     const addresses = chain().map((artifact) => artifact.address);
@@ -517,7 +517,7 @@ describe("buildRebuildPrimingChain (production resolver, OPR.0.5.5.5 fix B3)", (
   });
 
   it("an unparseable seat ref is a NAMED empty chain, never a guess", () => {
-    const result = buildRebuildPrimingChain("not a canonical ref", { topologyRoot, openrigHome });
+    const result = buildRebuildPrimingChain("not a canonical ref", { topologyRoot, softwareteamHome });
     expect(result).toMatchObject({ emptyReason: expect.stringContaining("did not parse as canonical") });
   });
 });

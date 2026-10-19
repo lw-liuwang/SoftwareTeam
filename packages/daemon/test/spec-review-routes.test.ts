@@ -14,9 +14,9 @@ function createApp(): Hono {
   return app;
 }
 
-const VALID_RIG_YAML = `
+const VALID_SOFTWARE_TEAM_YAML = `
 version: "0.2"
-name: test-rig
+name: test-software-team
 pods:
   - id: dev
     label: Dev
@@ -46,19 +46,19 @@ startup:
 `;
 
 describe("spec review routes", () => {
-  it("POST /rig returns RigSpecReview for valid YAML", async () => {
+  it("POST /SoftwareTeam returns SoftwareTeamSpecReview for valid YAML", async () => {
     const app = createApp();
-    const res = await app.request("/api/specs/review/rig", {
+    const res = await app.request("/api/specs/review/softwareTeam", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ yaml: VALID_RIG_YAML }),
+      body: JSON.stringify({ yaml: VALID_SOFTWARE_TEAM_YAML }),
     });
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.kind).toBe("rig");
+    expect(body.kind).toBe("softwareTeam");
     expect(body.sourceState).toBe("draft");
-    expect(body.name).toBe("test-rig");
+    expect(body.name).toBe("test-software-team");
     expect(body.format).toBe("pod_aware");
     expect(body.graph).toBeDefined();
     expect(body.graph.nodes.length).toBe(1);
@@ -79,9 +79,9 @@ describe("spec review routes", () => {
     expect(body.name).toBe("test-agent");
   });
 
-  it("POST /rig with invalid YAML returns 400", async () => {
+  it("POST /SoftwareTeam with invalid YAML returns 400", async () => {
     const app = createApp();
-    const res = await app.request("/api/specs/review/rig", {
+    const res = await app.request("/api/specs/review/softwareTeam", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ yaml: "name: test\n" }),
@@ -93,9 +93,9 @@ describe("spec review routes", () => {
     expect(body.errors.length).toBeGreaterThan(0);
   });
 
-  it("POST /rig with malformed YAML returns 400, not 500", async () => {
+  it("POST /SoftwareTeam with malformed YAML returns 400, not 500", async () => {
     const app = createApp();
-    const res = await app.request("/api/specs/review/rig", {
+    const res = await app.request("/api/specs/review/softwareTeam", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ yaml: "name: [bad\nversion:" }),

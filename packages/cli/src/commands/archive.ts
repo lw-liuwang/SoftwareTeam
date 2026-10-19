@@ -6,7 +6,7 @@ import type { StatusDeps } from "./status.js";
 
 interface ArchiveResult {
   ok: boolean;
-  rigId: string;
+  softwareTeamId: string;
   archived?: boolean;
 }
 
@@ -17,28 +17,28 @@ interface ThreePartErrorBody {
 }
 
 /**
- * `rig archive <rigId>` - OPR.0.3.3.19. Soft, REVERSIBLE archive: hides a rig
- * from the default explorer + `rig ps`, while RETAINING the rigs row, topology,
- * and snapshots. This is NOT `rig down --delete` (which is destructive). Reverse
- * with `rig unarchive <rigId>`. Running/degraded rigs require `--force`.
+ * `softwareTeam archive <softwareTeamId>` - OPR.0.3.3.19. Soft, REVERSIBLE archive: hides a softwareTeam
+ * from the default explorer + `SoftwareTeam ps`, while RETAINING the softwareTeams row, topology,
+ * and snapshots. This is NOT `SoftwareTeam down --delete` (which is destructive). Reverse
+ * with `softwareTeam unarchive <softwareTeamId>`. Running/degraded softwareTeams require `--force`.
  */
 export function archiveCommand(depsOverride?: StatusDeps): Command {
   const cmd = new Command("archive").description(
-    "Archive a rig (soft + reversible: hides it from the default view, retains all data). NOT a delete; reverse with 'rig unarchive'.",
+    "Archive a softwareTeam (soft + reversible: hides it from the default view, retains all data). NOT a delete; reverse with 'SoftwareTeam unarchive'.",
   );
   const getDepsF = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   cmd
-    .argument("<rigId>", "Rig identifier to archive")
-    .option("--force", "Archive even if the rig is running or degraded")
+    .argument("<softwareTeamId>", "SoftwareTeam identifier to archive")
+    .option("--force", "Archive even if the SoftwareTeam is running or degraded")
     .option("--json", "JSON output for agents")
-    .action(async (rigId: string, opts: { force?: boolean; json?: boolean }) => {
+    .action(async (softwareTeamId: string, opts: { force?: boolean; json?: boolean }) => {
       const deps = getDepsF();
       const status = await getDaemonStatus(deps.lifecycleDeps);
       if (!daemonStatusGuard(status)) return;
       const client = deps.clientFactory(getDaemonUrl(status));
       const res = await client.post<ArchiveResult | ThreePartErrorBody>(
-        `/api/rigs/${encodeURIComponent(rigId)}/archive`,
+        `/api/software-teams/${encodeURIComponent(softwareTeamId)}/archive`,
         { force: opts.force ?? false },
       );
 
@@ -49,7 +49,7 @@ export function archiveCommand(depsOverride?: StatusDeps): Command {
       }
 
       if (res.status === 404) {
-        console.error(`Rig not found: ${rigId}. Check the id with: rig ps`);
+        console.error(`SoftwareTeam not found: ${softwareTeamId}. Check the id with: SoftwareTeam ps`);
         process.exitCode = 1;
         return;
       }
@@ -72,11 +72,11 @@ export function archiveCommand(depsOverride?: StatusDeps): Command {
 
       const r = res.data as ArchiveResult;
       if (r.archived) {
-        console.log(`Rig ${rigId} archived (reversible). It is hidden from the default view.`);
-        console.log(`  See it with:   rig ps --include-archived`);
-        console.log(`  Bring it back: rig unarchive ${rigId}`);
+        console.log(`SoftwareTeam ${softwareTeamId} archived (reversible). It is hidden from the default view.`);
+        console.log(`  See it with:   SoftwareTeam ps --include-archived`);
+        console.log(`  Bring it back: SoftwareTeam unarchive ${softwareTeamId}`);
       } else {
-        console.log(`Rig ${rigId} was already archived.`);
+        console.log(`SoftwareTeam ${softwareTeamId} was already archived.`);
       }
     });
 

@@ -277,7 +277,7 @@ describe("OPR.0.5.6.1 §3 — the gateway consults the engine before dispatch", 
     // Classify the park at write time against the same private human identity
     // used by the gateway reader. Delivery preferences are selected per test.
     repo = new QueueRepository(db, bus, {
-      validateRig: () => true,
+      validateSoftwareTeam: () => true,
       loadHumanRegistry: () => registryWith({}),
     });
     home = mkdtempSync(join(tmpdir(), "s01-rules-"));
@@ -289,15 +289,15 @@ describe("OPR.0.5.6.1 §3 — the gateway consults the engine before dispatch", 
 
   async function parkOnFounder(tags: string[] = []): Promise<QueueItem> {
     const row = await repo.create({
-      sourceSession: "dev-qa@v-openrig-build",
-      destinationSession: "orch-lead@v-openrig-build",
+      sourceSession: "dev-qa@v-softwareteam-build",
+      destinationSession: "orch-lead@v-softwareteam-build",
       body: "await decision",
       ...(tags.length ? { tags } : {}),
       nudge: false,
     });
     repo.update({
       qitemId: row.qitemId,
-      actorSession: "orch-lead@v-openrig-build",
+      actorSession: "orch-lead@v-softwareteam-build",
       state: "blocked",
       blockedOn: "human-founder@kernel",
       summary: "Choose A or B",
@@ -407,7 +407,7 @@ describe("OPR.0.5.6.1 §4 — the C/D digest flush (v3: transport truth first, r
     migrate(db, ALL_MIGRATIONS);
     ensureFinalColumns(db);
     repo = new QueueRepository(db, new EventBus(db), {
-      validateRig: () => true,
+      validateSoftwareTeam: () => true,
       loadHumanRegistry: () => registryWith({}),
     });
     home = mkdtempSync(join(tmpdir(), "s01-digest-"));
@@ -423,13 +423,13 @@ describe("OPR.0.5.6.1 §4 — the C/D digest flush (v3: transport truth first, r
     for (let i = 0; i < n; i++) {
       const row = await repo.create({
         sourceSession: `seat-${i}@r`,
-        destinationSession: "orch-lead@v-openrig-build",
+        destinationSession: "orch-lead@v-softwareteam-build",
         body: `decision ${parkNumber++}`,
         nudge: false,
       });
       repo.update({
         qitemId: row.qitemId,
-        actorSession: "orch-lead@v-openrig-build",
+        actorSession: "orch-lead@v-softwareteam-build",
         state: "blocked",
         blockedOn: "human-founder@kernel",
         summary: `Decision ${i}`,
@@ -700,7 +700,7 @@ describe("OPR.0.5.6.1 §5 — the 30-minute away deferral on the watchdog substr
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
     ensureFinalColumns(db);
-    repo = new QueueRepository(db, new EventBus(db), { validateRig: () => true });
+    repo = new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => true });
     jobs = new WatchdogJobsRepository(db);
   });
   afterEach(() => db.close());
@@ -709,7 +709,7 @@ describe("OPR.0.5.6.1 §5 — the 30-minute away deferral on the watchdog substr
     const mod = await deferralPolicyModule();
     expect(mod, "policies/delivery-deferral must exist (RED at base: absent)").not.toBeNull();
     const row = await repo.create({
-      sourceSession: "orch-lead@v-openrig-build",
+      sourceSession: "orch-lead@v-softwareteam-build",
       destinationSession: "human-founder@external",
       body: "escalation",
       nudge: false,
@@ -764,7 +764,7 @@ describe("OPR.0.5.6.1 §6 — the operator rung dispatches through the engine", 
     db = new Database(":memory:");
     migrate(db, ALL_MIGRATIONS);
     ensureFinalColumns(db);
-    repo = new QueueRepository(db, new EventBus(db), { validateRig: () => true });
+    repo = new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => true });
   });
   afterEach(() => db.close());
 
@@ -910,7 +910,7 @@ describe("OPR.0.5.6.1 §8 — the production composition is live (R2 B-1/B-2/B-3
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
     ensureFinalColumns(db);
-    repo = new QueueRepository(db, new EventBus(db), { validateRig: () => true });
+    repo = new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => true });
     home = mkdtempSync(join(tmpdir(), "s01-prod-"));
   });
   afterEach(() => {
@@ -946,7 +946,7 @@ describe("OPR.0.5.6.1 §8 — the production composition is live (R2 B-1/B-2/B-3
     try {
       wire.startServices?.();
       const row = await repo.create({
-        sourceSession: "orch-lead@v-openrig-build",
+        sourceSession: "orch-lead@v-softwareteam-build",
         destinationSession: "human-founder@external",
         body: "deferred escalation",
         nudge: false,

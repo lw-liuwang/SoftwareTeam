@@ -107,7 +107,7 @@ export function workflowDetail(execution: ExecutionViewSnap, key: string, width:
       for (const reason of Array.isArray(comparison.reasons) ? comparison.reasons : []) lines.push(field("reason", reason));
       lines.push(...actionLines(text(comparison.nextAction), width));
       if (comparison.applyCommand) lines.push(...actionLines(text(comparison.applyCommand), width));
-      lines.push({ text: "  Inspect first; the plan can change. A lost response is recoverable with rig workflow operation <key>." });
+      lines.push({ text: "  Inspect first; the plan can change. A lost response is recoverable with SoftwareTeam workflow operation <key>." });
     }
     lines.push(field("input digest", instance.compiled_input_digest));
     for (const failure of rows(instance.failure_occurrences)) if (failure.status === "unresolved") lines.push(sectionRule("Unresolved failure", width), field("step", failure.step_id), field("reason", failure.failure_reason), field("occurrence", failure.occurrence_id), ...actionLines(text(failure.targeted_action), width));

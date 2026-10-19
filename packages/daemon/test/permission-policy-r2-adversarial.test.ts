@@ -4,7 +4,7 @@ import {
   validatePermissionPolicyRef,
 } from "../src/domain/permission-policy/policy-ref.js";
 import { validatePolicySpec } from "../src/domain/permission-policy/policy-spec.js";
-import { RigSpecSchema } from "../src/domain/rigspec-schema.js";
+import { SoftwareTeamSpecSchema } from "../src/domain/software-team-spec-schema.js";
 import {
   createFullTestDb,
   createTestApp,
@@ -58,11 +58,11 @@ describe("review50-r2 independent Seam-B adversarial branches", () => {
   });
 
   it("rejects explicit null because attachment grammar permits only the two string forms or absence", () => {
-    expect(RigSpecSchema.validate(minimalSpec(null)).valid).toBe(false);
+    expect(SoftwareTeamSpecSchema.validate(minimalSpec(null)).valid).toBe(false);
   });
 
   it("does not mark readable-but-invalid config content as safely re-derived", () => {
-    const attachment = resolvePermissionPolicyAttachment("policies/incomplete.md", "/rig", {
+    const attachment = resolvePermissionPolicyAttachment("policies/incomplete.md", "/softwareTeam", {
       readFile: () => INVALID_BUT_READABLE_CONFIG,
     });
     const validity = validatePolicySpec({
@@ -76,7 +76,7 @@ describe("review50-r2 independent Seam-B adversarial branches", () => {
     expect(attachment.contentResolved).toBe(false);
   });
 
-  it("launches structured add-member at inherited rig posture", async () => {
+  it("launches structured add-member at inherited SoftwareTeam posture", async () => {
     const bindings: NodeBinding[] = [];
     const adapter: RuntimeAdapter = {
       runtime: "claude-code",
@@ -103,12 +103,12 @@ describe("review50-r2 independent Seam-B adversarial branches", () => {
       });
       const materialized = await setup.podInstantiator.materializeStructured(
         minimalSpec("builtin:yolo"),
-        "/rig",
+        "/softwareTeam",
       );
       expect(materialized.ok).toBe(true);
-      const rigId = (materialized as { ok: true; result: { rigId: string } }).result.rigId;
+      const softwareTeamId = (materialized as { ok: true; result: { softwareTeamId: string } }).result.softwareTeamId;
       const added = await setup.podInstantiator.addMemberToPod(
-        rigId,
+        softwareTeamId,
         "dev",
         {
           id: "late",
@@ -122,14 +122,14 @@ describe("review50-r2 independent Seam-B adversarial branches", () => {
       expect(added.ok).toBe(true);
       expect(bindings).toHaveLength(1);
       const lateId = (db.prepare("SELECT id FROM nodes WHERE logical_id = 'dev.late'").get() as { id: string }).id;
-      expect(setup.rigRepo.getNodePolicyProvenance(lateId)?.launchPosture).toBe("full_bypass");
+      expect(setup.softwareTeamRepo.getNodePolicyProvenance(lateId)?.launchPosture).toBe("full_bypass");
       expect.soft(bindings[0]?.launchPosture).toBe("full_bypass");
     } finally {
       db.close();
     }
   });
 
-  it("launches structured pod expansion at inherited rig posture", async () => {
+  it("launches structured pod expansion at inherited SoftwareTeam posture", async () => {
     const bindings: NodeBinding[] = [];
     const adapter: RuntimeAdapter = {
       runtime: "claude-code",
@@ -156,13 +156,13 @@ describe("review50-r2 independent Seam-B adversarial branches", () => {
       });
       const materialized = await setup.podInstantiator.materializeStructured(
         minimalSpec("builtin:yolo"),
-        "/rig",
+        "/softwareTeam",
       );
       expect(materialized.ok).toBe(true);
-      const rigId = (materialized as { ok: true; result: { rigId: string } }).result.rigId;
-      const expanded = await setup.rigExpansionService.expand({
-        rigId,
-        rigRoot: "/different-operation-root",
+      const softwareTeamId = (materialized as { ok: true; result: { softwareTeamId: string } }).result.softwareTeamId;
+      const expanded = await setup.softwareTeamExpansionService.expand({
+        softwareTeamId,
+        softwareTeamRoot: "/different-operation-root",
         pod: {
           id: "later",
           label: "Later",
@@ -180,7 +180,7 @@ describe("review50-r2 independent Seam-B adversarial branches", () => {
       expect(bindings).toHaveLength(1);
       const workerId = (db.prepare("SELECT id FROM nodes WHERE logical_id = 'later.worker'").get() as { id: string }).id;
       expect.soft(bindings[0]?.launchPosture).toBe("full_bypass");
-      expect.soft(setup.rigRepo.getNodePolicyProvenance(workerId)?.launchPosture).toBe("full_bypass");
+      expect.soft(setup.softwareTeamRepo.getNodePolicyProvenance(workerId)?.launchPosture).toBe("full_bypass");
     } finally {
       db.close();
     }

@@ -39,7 +39,7 @@ describe("VerbActions — optimistic outcome (demo-bug fix #1)", () => {
       vi.fn(async (url: string, init?: RequestInit) => {
         if (url.includes("/api/mission-control/destinations")) {
           return new Response(
-            JSON.stringify({ destinations: [{ sessionName: "orch-lead@rig", label: "orch-lead" }] }),
+            JSON.stringify({ destinations: [{ sessionName: "orch-lead@software-team", label: "orch-lead" }] }),
             { status: 200, headers: { "Content-Type": "application/json" } },
           );
         }
@@ -127,13 +127,13 @@ describe("VerbActions — optimistic outcome (demo-bug fix #1)", () => {
 
     fireEvent.click(getByTestId("mc-verb-route"));
     const input = (await waitFor(() => getByTestId("mc-verb-destination-input"))) as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "orch-lead@rig" } });
+    fireEvent.change(input, { target: { value: "orch-lead@software-team" } });
     fireEvent.click(getByTestId("mc-verb-submit"));
 
     await waitFor(() => expect(onOptimisticOutcome).toHaveBeenCalledTimes(1));
     const outcome = onOptimisticOutcome.mock.calls[0]![0] as FeedActionOutcome;
     expect(outcome.verb).toBe("route");
-    expect(outcome.destinationSession).toBe("orch-lead@rig");
+    expect(outcome.destinationSession).toBe("orch-lead@software-team");
   });
 
   it("resets selection after a successful mutation", async () => {

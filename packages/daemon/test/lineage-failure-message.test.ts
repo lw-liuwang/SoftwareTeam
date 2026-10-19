@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { rebindAndVerifyPaneIdentity } from "../src/domain/seat-attention-reconciler.js";
 import type { NativeProcessRow } from "../src/domain/native-process-lineage.js";
@@ -22,9 +22,9 @@ afterEach(() => { for (const db of databases.splice(0)) db.close(); });
 
 async function check(runtime: "claude-code" | "codex", rows: NativeProcessRow[] | (() => NativeProcessRow[]), opts: { token?: string | null; strict?: boolean; explainFailure?: boolean; command?: string | null; rotation?: { token: string; process: { pid: number; startedAt: string } }; splitAfterFirstPaneRead?: boolean } = {}) {
   const db = createFullTestDb(); databases.push(db);
-  const repo = new RigRepository(db), registry = new SessionRegistry(db);
-  const rig = repo.createRig("lineage"), name = "worker@lineage";
-  const node = repo.addNode(rig.id, "worker", { role: "worker", runtime });
+  const repo = new SoftwareTeamRepository(db), registry = new SessionRegistry(db);
+  const softwareTeam = repo.createSoftwareTeam("lineage"), name = "worker@lineage";
+  const node = repo.addNode(softwareTeam.id, "worker", { role: "worker", runtime });
   registry.registerSession(node.id, name);
   const tmux = {
     listPanes: vi.fn(async () => (opts.splitAfterFirstPaneRead && paneReads++ > 0 ? [{ id: "%1" }, { id: "%2" }] : [{ id: "%1" }]) as never),
@@ -95,8 +95,8 @@ describe("a failed lineage check names the check, not the pane label", () => {
   });
   it("explainFailure: false keeps the label text and reads the process table once less often", async () => {
     const db = createFullTestDb(); databases.push(db);
-    const repo = new RigRepository(db), registry = new SessionRegistry(db);
-    const node = repo.addNode(repo.createRig("quiet").id, "worker", { role: "worker", runtime: "claude-code" });
+    const repo = new SoftwareTeamRepository(db), registry = new SessionRegistry(db);
+    const node = repo.addNode(repo.createSoftwareTeam("quiet").id, "worker", { role: "worker", runtime: "claude-code" });
     registry.registerSession(node.id, "worker@quiet");
     const tmux = { listPanes: async () => [{ id: "%1" }] as never, getPanePid: async () => 100, getPaneCommand: async () => "sh" };
     const reads = { explained: 0, quiet: 0 };

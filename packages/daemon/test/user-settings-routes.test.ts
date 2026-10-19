@@ -19,18 +19,18 @@ import { configRoutes } from "../src/routes/config.js";
 
 function clearEnv(): () => void {
   const keys = [
-    "OPENRIG_PORT", "OPENRIG_FILES_ALLOWLIST", "OPENRIG_PROGRESS_SCAN_ROOTS",
-    "OPENRIG_WORKSPACE_ROOT", "OPENRIG_DOGFOOD_EVIDENCE_ROOT",
-    "OPENRIG_WORKSPACE_PROJECTS_ROOT", "OPENRIG_WORKSPACE_CATALOG_PATH",
-    "OPENRIG_CONTEXT_ROOT", "OPENRIG_CONTEXT_PACKS_ROOT",
-    "OPENRIG_LAUNCH_NON_INTERRUPTIVE",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_ENABLED",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_PRE_COMPACT_INSTRUCTION",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_COMPACT_INSTRUCTION",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_MESSAGE_INLINE",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_MESSAGE_FILE_PATH",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_POST_RESTORE_AUDIT_INSTRUCTION",
+    "SOFTWARETEAM_PORT", "SOFTWARETEAM_FILES_ALLOWLIST", "SOFTWARETEAM_PROGRESS_SCAN_ROOTS",
+    "SOFTWARETEAM_WORKSPACE_ROOT", "SOFTWARETEAM_DOGFOOD_EVIDENCE_ROOT",
+    "SOFTWARETEAM_WORKSPACE_PROJECTS_ROOT", "SOFTWARETEAM_WORKSPACE_CATALOG_PATH",
+    "SOFTWARETEAM_CONTEXT_ROOT", "SOFTWARETEAM_CONTEXT_PACKS_ROOT",
+    "SOFTWARETEAM_LAUNCH_NON_INTERRUPTIVE",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_ENABLED",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_PRE_COMPACT_INSTRUCTION",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_COMPACT_INSTRUCTION",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_MESSAGE_INLINE",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_MESSAGE_FILE_PATH",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_POST_RESTORE_AUDIT_INSTRUCTION",
   ];
   const saved: Record<string, string | undefined> = {};
   for (const k of keys) {
@@ -107,7 +107,7 @@ describe("config routes (User Settings v0)", () => {
     // + 2 OPR.0.5.10.7 context-pressure policy thresholds → 68 total.
     // + 1 S07 local-time preference.
     // + 1 ui.enabled (web UI and its terminal WebSocket; default off).
-    // + 1 launch.non_interruptive (new-rig launch default; default off).
+    // + 1 launch.non_interruptive (new-SoftwareTeam launch default; default off).
     // + 1 queue.wake_human_rung (#811; default "always").
     // + 1 output.compact (slice 15 compact command-output switch; default off).
     // + 1 provider.usage_windows (slice 01 Codex usage windows; default off).
@@ -205,13 +205,13 @@ describe("config routes (User Settings v0)", () => {
   });
 
   it("GET /api/config/context.root preserves removed environment-setting guidance", async () => {
-    process.env.OPENRIG_CONTEXT_PACKS_ROOT = "/legacy";
+    process.env.SOFTWARETEAM_CONTEXT_PACKS_ROOT = "/legacy";
 
     const res = await buildApp().request("/api/config/context.root");
 
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({
-      error: expect.stringContaining("OPENRIG_CONTEXT_ROOT"),
+      error: expect.stringContaining("SOFTWARETEAM_CONTEXT_ROOT"),
     });
   });
 
@@ -348,8 +348,8 @@ describe("config routes (User Settings v0)", () => {
   it("project-only initialization does not consult mission-note overrides", async () => {
     const root = join(tmpDir, "project-only-workspace");
     expect(existsSync(root)).toBe(false);
-    const original = process.env.OPENRIG_MISSION_NOTES_TEMPLATE_PATH;
-    process.env.OPENRIG_MISSION_NOTES_TEMPLATE_PATH = join(tmpDir, "does-not-exist.md");
+    const original = process.env.SOFTWARETEAM_MISSION_NOTES_TEMPLATE_PATH;
+    process.env.SOFTWARETEAM_MISSION_NOTES_TEMPLATE_PATH = join(tmpDir, "does-not-exist.md");
     try {
       const app = buildApp();
       const res = await app.request("/api/config/init-workspace", {
@@ -361,8 +361,8 @@ describe("config routes (User Settings v0)", () => {
       expect(existsSync(root)).toBe(true);
       expect(existsSync(join(root, "missions", "getting-started"))).toBe(false);
     } finally {
-      if (original === undefined) delete process.env.OPENRIG_MISSION_NOTES_TEMPLATE_PATH;
-      else process.env.OPENRIG_MISSION_NOTES_TEMPLATE_PATH = original;
+      if (original === undefined) delete process.env.SOFTWARETEAM_MISSION_NOTES_TEMPLATE_PATH;
+      else process.env.SOFTWARETEAM_MISSION_NOTES_TEMPLATE_PATH = original;
     }
   });
 });

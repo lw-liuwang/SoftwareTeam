@@ -61,24 +61,24 @@ describe("Ps CLI", () => {
   let savedSessionName: string | undefined;
 
   beforeAll(async () => {
-    savedSessionName = process.env.OPENRIG_SESSION_NAME;
-    delete process.env.OPENRIG_SESSION_NAME;
+    savedSessionName = process.env.SOFTWARETEAM_SESSION_NAME;
+    delete process.env.SOFTWARETEAM_SESSION_NAME;
     psData = [];
     nodesData = {};
     server = http.createServer(async (req, res) => {
-      // OPR.0.4.4.21: the rig tier always requests ?includeArchived=true
+      // OPR.0.4.4.21: the softwareTeam tier always requests ?includeArchived=true
       // (client-side visibility split) — match by prefix, not exact URL.
       if (req.url?.startsWith("/api/ps") && req.method === "GET") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(psData));
-      } else if (req.url?.match(/^\/api\/rigs\/([^/]+)\/nodes(?:\?.*)?$/) && req.method === "GET") {
-        const rigId = decodeURIComponent(req.url.match(/^\/api\/rigs\/([^/]+)\/nodes(?:\?.*)?$/)![1]!);
-        if (rigId in nodesData) {
+      } else if (req.url?.match(/^\/api\/software-teams\/([^/]+)\/nodes(?:\?.*)?$/) && req.method === "GET") {
+        const softwareTeamId = decodeURIComponent(req.url.match(/^\/api\/software-teams\/([^/]+)\/nodes(?:\?.*)?$/)![1]!);
+        if (softwareTeamId in nodesData) {
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify(nodesData[rigId]));
+          res.end(JSON.stringify(nodesData[softwareTeamId]));
         } else {
           res.writeHead(404, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: `Rig "${rigId}" not found` }));
+          res.end(JSON.stringify({ error: `SoftwareTeam "${softwareTeamId}" not found` }));
         }
       } else {
         res.writeHead(404, { "Content-Type": "application/json" });
@@ -91,7 +91,7 @@ describe("Ps CLI", () => {
 
   afterAll(() => {
     server.close();
-    if (savedSessionName !== undefined) process.env.OPENRIG_SESSION_NAME = savedSessionName;
+    if (savedSessionName !== undefined) process.env.SOFTWARETEAM_SESSION_NAME = savedSessionName;
   });
 
   function makeCmd(): Command {
@@ -101,43 +101,43 @@ describe("Ps CLI", () => {
     return prog;
   }
 
-  // T9: ps table output with rigs
+  // T9: ps table output with softwareTeams
   it("ps prints formatted table", async () => {
     psData = [
-      { rigId: "rig-1", name: "review-rig", nodeCount: 3, runningCount: 3, status: "running", uptime: "2h 15m", latestSnapshot: "5m ago" },
-      { rigId: "rig-2", name: "dev-rig", nodeCount: 2, runningCount: 0, status: "stopped", uptime: null, latestSnapshot: "1d ago" },
+      { softwareTeamId: "software-team-1", name: "review-software-team", nodeCount: 3, runningCount: 3, status: "running", uptime: "2h 15m", latestSnapshot: "5m ago" },
+      { softwareTeamId: "software-team-2", name: "dev-software-team", nodeCount: 2, runningCount: 0, status: "stopped", uptime: null, latestSnapshot: "1d ago" },
     ];
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps"]);
     });
     const output = logs.join("\n");
-    expect(output).toContain("RIG");
+    expect(output).toContain("SOFTWARE_TEAM");
     expect(output).toContain("NODES");
     expect(output).toContain("RUNNING");
     expect(output).toContain("STATUS");
-    expect(output).toContain("review-rig");
-    // OPR.0.4.4.21 FR-1: on the bare default, stopped rigs are HISTORY —
-    // one count line, not rows (field of view stays O(active rigs)).
-    expect(output).not.toContain("dev-rig");
-    expect(output).toContain("not shown: 1 stopped (rig ps --filter status=stopped)");
+    expect(output).toContain("review-software-team");
+    // OPR.0.4.4.21 FR-1: on the bare default, stopped softwareTeams are HISTORY —
+    // one count line, not rows (field of view stays O(active softwareTeams)).
+    expect(output).not.toContain("dev-software-team");
+    expect(output).toContain("not shown: 1 stopped (SoftwareTeam ps --filter status=stopped)");
     // FR-1 display elements: host rollup line + affordance footer.
-    expect(output).toContain("1 rig · 3 seats · 0 need attention");
-    expect(output).toContain("drill: rig ps --rig <name>");
+    expect(output).toContain("1 softwareTeam · 3 seats · 0 need attention");
+    expect(output).toContain("drill: SoftwareTeam ps --software-team <name>");
     expect(output).toContain("running");
     expect(exitCode).toBeUndefined(); // 0
   });
 
   it.each(["--full", "--verbose"])("ps %s preserves complete cells and aligns columns", async (flag) => {
-    const longName = "demo-production-integration-rig";
+    const longName = "demo-production-integration-software-team";
     const longUptime = "12345d 23h 59m";
     psData = [
-      { rigId: "rig-1", name: longName, nodeCount: 5, runningCount: 5, status: "running", uptime: longUptime, latestSnapshot: "1m ago" },
-      { rigId: "rig-2", name: "short", nodeCount: 2, runningCount: 2, status: "running", uptime: "1m", latestSnapshot: "2m ago" },
+      { softwareTeamId: "software-team-1", name: longName, nodeCount: 5, runningCount: 5, status: "running", uptime: longUptime, latestSnapshot: "1m ago" },
+      { softwareTeamId: "software-team-2", name: "short", nodeCount: 2, runningCount: 2, status: "running", uptime: "1m", latestSnapshot: "2m ago" },
     ];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", flag]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", flag]);
     });
-    const header = logs.find((line) => line.startsWith("RIG"))!;
+    const header = logs.find((line) => line.startsWith("SOFTWARE_TEAM"))!;
     const longRow = logs.find((line) => line.startsWith("demo-"))!;
     const shortRow = logs.find((line) => line.startsWith("short"))!;
     expect(longRow).toContain(longName);
@@ -150,16 +150,16 @@ describe("Ps CLI", () => {
     expect(shortRow.indexOf("2m ago")).toBe(header.indexOf("SNAPSHOT"));
   });
 
-  it.each(["--full", "--verbose", ""])("ps %s aligns CJK rig names by terminal width", async (flag) => {
-    const name = "演示-生产-集成-长名称-rig";
+  it.each(["--full", "--verbose", ""])("ps %s aligns CJK SoftwareTeam names by terminal width", async (flag) => {
+    const name = "演示-生产-集成-长名称-software-team";
     psData = [
-      { rigId: "rig-1", name, nodeCount: 5, runningCount: 5, status: "running" },
-      { rigId: "rig-2", name: "short", nodeCount: 2, runningCount: 2, status: "running" },
+      { softwareTeamId: "software-team-1", name, nodeCount: 5, runningCount: 5, status: "running" },
+      { softwareTeamId: "software-team-2", name: "short", nodeCount: 2, runningCount: 2, status: "running" },
     ];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", ...(flag ? [flag] : [])]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", ...(flag ? [flag] : [])]);
     });
-    const header = logs.find((line) => line.startsWith("RIG"))!;
+    const header = logs.find((line) => line.startsWith("SOFTWARE_TEAM"))!;
     const cjkRow = logs.find((line) => line.startsWith("演示"))!;
     const shortRow = logs.find((line) => line.startsWith("short"))!;
     const nodeColumn = stringWidth(header.slice(0, header.indexOf("NODES")));
@@ -170,11 +170,11 @@ describe("Ps CLI", () => {
   });
 
   it("ps compact rows separate truncated names from counts", async () => {
-    psData = [{ rigId: "rig-1", name: "demo-production-integration-rig", nodeCount: 5, runningCount: 5, status: "running" }];
+    psData = [{ softwareTeamId: "software-team-1", name: "demo-production-integration-software-team", nodeCount: 5, runningCount: 5, status: "running" }];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps"]);
     });
-    const header = logs.find((line) => line.startsWith("RIG"))!;
+    const header = logs.find((line) => line.startsWith("SOFTWARE_TEAM"))!;
     const row = logs.find((line) => line.startsWith("demo-"))!;
     expect(row).toMatch(/… {2,}5/);
     expect(row.indexOf("5")).toBe(header.indexOf("NODES"));
@@ -182,26 +182,26 @@ describe("Ps CLI", () => {
 
   it("ps compact table stays within its original width", async () => {
     psData = [{
-      rigId: "rig-1", name: "short", nodeCount: 1, runningCount: 1,
+      softwareTeamId: "software-team-1", name: "short", nodeCount: 1, runningCount: 1,
       activeCount: 0, hasWorkCount: 0, attentionCount: 0,
       status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: "1m ago",
     }];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps"]);
     });
-    const header = logs.find((line) => line.startsWith("RIG"))!;
+    const header = logs.find((line) => line.startsWith("SOFTWARE_TEAM"))!;
     const row = logs.find((line) => line.startsWith("short"))!;
     expect(stringWidth(header)).toBeLessThanOrEqual(100);
     expect(stringWidth(row)).toBeLessThanOrEqual(98);
   });
 
   it.each([false, true])("ps separates the footer when hidden history is %s", async (hiddenHistory) => {
-    psData = [{ rigId: "rig-1", name: "live", nodeCount: 1, runningCount: 1, status: "running" }];
+    psData = [{ softwareTeamId: "software-team-1", name: "live", nodeCount: 1, runningCount: 1, status: "running" }];
     if (hiddenHistory) {
-      psData.push({ rigId: "rig-2", name: "stopped", nodeCount: 1, runningCount: 0, status: "stopped" });
+      psData.push({ softwareTeamId: "software-team-2", name: "stopped", nodeCount: 1, runningCount: 0, status: "stopped" });
     }
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--full"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--full"]);
     });
     const rowIndex = logs.findIndex((line) => line.startsWith("live"));
     expect(logs[rowIndex + 1]).toBe("");
@@ -211,9 +211,9 @@ describe("Ps CLI", () => {
 
   it("ps --full preserves the archived marker and separates its legend", async () => {
     const name = "demo-production-integration-archived";
-    psData = [{ rigId: "rig-1", name, nodeCount: 1, runningCount: 0, status: "stopped", isArchived: true }];
+    psData = [{ softwareTeamId: "software-team-1", name, nodeCount: 1, runningCount: 0, status: "stopped", isArchived: true }];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--full", "--include-archived"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--full", "--include-archived"]);
     });
     const rowIndex = logs.findIndex((line) => line.startsWith(name));
     expect(rowIndex).toBeGreaterThan(0);
@@ -223,9 +223,9 @@ describe("Ps CLI", () => {
   });
 
   it("ps filtered output without a footer has no extra blank line", async () => {
-    psData = [{ rigId: "rig-1", name: "live", nodeCount: 1, runningCount: 1, status: "running" }];
+    psData = [{ softwareTeamId: "software-team-1", name: "live", nodeCount: 1, runningCount: 1, status: "running" }];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--filter", "status=running"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--filter", "status=running"]);
     });
     expect(logs).toHaveLength(3);
     expect(logs.at(-1)).toMatch(/^live/);
@@ -233,71 +233,71 @@ describe("Ps CLI", () => {
 
   // OPR.0.4.4.21 FR-1 (arch pin, STATED contract): the JSON-vs-table scope
   // split — default --json keeps ALL non-archived entries INCLUDING stopped
-  // rigs (a stopped rig vanishing from default JSON would silently break
+  // softwareTeams (a stopped softwareTeam vanishing from default JSON would silently break
   // status-monitoring scripts); only the HUMAN table folds them.
-  it("OPR.0.4.4.21: default --json keeps stopped rigs while the table folds them", async () => {
+  it("OPR.0.4.4.21: default --json keeps stopped softwareTeams while the table folds them", async () => {
     psData = [
-      { rigId: "rig-1", name: "live-rig", nodeCount: 1, runningCount: 1, status: "running", uptime: "1m", latestSnapshot: null },
-      { rigId: "rig-2", name: "halted-rig", nodeCount: 2, runningCount: 0, status: "stopped", uptime: null, latestSnapshot: null },
+      { softwareTeamId: "software-team-1", name: "live-software-team", nodeCount: 1, runningCount: 1, status: "running", uptime: "1m", latestSnapshot: null },
+      { softwareTeamId: "software-team-2", name: "halted-software-team", nodeCount: 2, runningCount: 0, status: "stopped", uptime: null, latestSnapshot: null },
     ];
     const { logs: jsonLogs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--json"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json"]);
     });
     const parsed = JSON.parse(jsonLogs.join(""));
-    expect(parsed.map((e: { name: string }) => e.name).sort()).toEqual(["halted-rig", "live-rig"]);
+    expect(parsed.map((e: { name: string }) => e.name).sort()).toEqual(["halted-software-team", "live-software-team"]);
 
     const { logs: humanLogs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps"]);
     });
     const output = humanLogs.join("\n");
-    expect(output).toContain("live-rig");
-    expect(output).not.toContain("halted-rig");
-    expect(output).toContain("not shown: 1 stopped (rig ps --filter status=stopped)");
+    expect(output).toContain("live-software-team");
+    expect(output).not.toContain("halted-software-team");
+    expect(output).toContain("not shown: 1 stopped (SoftwareTeam ps --filter status=stopped)");
   });
 
   // OPR.0.4.4.21 fixback (qa1 F4): attentionCount is selectable via --fields
   // (it is emitted by default JSON, so the allow-list must carry it).
   it("OPR.0.4.4.21: --fields attentionCount projects the additive field", async () => {
     psData = [
-      { rigId: "rig-1", name: "attn-rig", rigName: "attn-rig", nodeCount: 2, runningCount: 2, status: "running", uptime: "1m", latestSnapshot: null, attentionCount: 1 },
+      { softwareTeamId: "software-team-1", name: "attn-software-team", softwareTeamName: "attn-software-team", nodeCount: 2, runningCount: 2, status: "running", uptime: "1m", latestSnapshot: null, attentionCount: 1 },
     ];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--fields", "rigName,attentionCount"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--fields", "softwareTeamName,attentionCount"]);
     });
     const parsed = JSON.parse(logs.join(""));
-    expect(parsed.entries[0]).toEqual({ rigName: "attn-rig", attentionCount: 1 });
+    expect(parsed.entries[0]).toEqual({ softwareTeamName: "attn-software-team", attentionCount: 1 });
   });
 
   // T10: ps --json outputs PsEntry[]
   it("ps --json outputs parseable JSON array", async () => {
     psData = [
-      { rigId: "rig-1", name: "test", nodeCount: 1, runningCount: 1, status: "running", uptime: "1m", latestSnapshot: null },
+      { softwareTeamId: "software-team-1", name: "test", nodeCount: 1, runningCount: 1, status: "running", uptime: "1m", latestSnapshot: null },
     ];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--json"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json"]);
     });
     const parsed = JSON.parse(logs.join(""));
     expect(Array.isArray(parsed)).toBe(true);
-    expect(parsed[0].rigId).toBe("rig-1");
+    expect(parsed[0].softwareTeamId).toBe("software-team-1");
   });
 
-  // T11: ps empty -> 'No rigs'
-  it("ps with no rigs prints No rigs", async () => {
+  // T11: ps empty -> 'No softwareTeams'
+  it("ps with no softwareTeams prints No softwareTeams", async () => {
     psData = [];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps"]);
     });
-    expect(logs.some((l) => l.includes("No rigs"))).toBe(true);
+    expect(logs.some((l) => l.includes("No softwareTeams"))).toBe(true);
   });
 
   it("ps recovers when daemon.json is missing but configured daemon is healthy", async () => {
-    const savedPort = process.env["OPENRIG_PORT"];
-    const savedHost = process.env["OPENRIG_HOST"];
-    process.env["OPENRIG_PORT"] = String(port);
-    process.env["OPENRIG_HOST"] = "127.0.0.1";
+    const savedPort = process.env["SOFTWARETEAM_PORT"];
+    const savedHost = process.env["SOFTWARETEAM_HOST"];
+    process.env["SOFTWARETEAM_PORT"] = String(port);
+    process.env["SOFTWARETEAM_HOST"] = "127.0.0.1";
     try {
       psData = [
-        { rigId: "rig-1", name: "recovered-rig", nodeCount: 1, runningCount: 1, status: "running", uptime: "15s", latestSnapshot: null },
+        { softwareTeamId: "software-team-1", name: "recovered-team", nodeCount: 1, runningCount: 1, status: "running", uptime: "15s", latestSnapshot: null },
       ];
       const prog = new Command();
       prog.exitOverride();
@@ -313,23 +313,23 @@ describe("Ps CLI", () => {
       }));
 
       const { logs, exitCode } = await captureLogs(async () => {
-        await prog.parseAsync(["node", "rig", "ps"]);
+        await prog.parseAsync(["node", "SoftwareTeam", "ps"]);
       });
       const output = logs.join("\n");
-      expect(output).toContain("recovered-rig");
+      expect(output).toContain("recovered-team");
       expect(output).not.toMatch(/Daemon not running/i);
       expect(exitCode).toBeUndefined();
     } finally {
-      if (savedPort === undefined) delete process.env["OPENRIG_PORT"];
-      else process.env["OPENRIG_PORT"] = savedPort;
-      if (savedHost === undefined) delete process.env["OPENRIG_HOST"];
-      else process.env["OPENRIG_HOST"] = savedHost;
+      if (savedPort === undefined) delete process.env["SOFTWARETEAM_PORT"];
+      else process.env["SOFTWARETEAM_PORT"] = savedPort;
+      if (savedHost === undefined) delete process.env["SOFTWARETEAM_HOST"];
+      else process.env["SOFTWARETEAM_HOST"] = savedHost;
     }
   });
 
   it.each([false, true])("ps cleanup opt-out=%s preserves ordinary housekeeping by default", async (noCleanup) => {
     const state = { pid: 555, port, db: "test.sqlite", startedAt: "2026-01-01T00:00:00Z" };
-    const receipt = { schema: "openrig.daemon-shutdown/v1", pid: 555,
+    const receipt = { schema: "softwareteam.daemon-shutdown/v1", pid: 555,
       startedAt: "2026-01-01T00:01:00Z", completedAt: "2026-01-01T00:02:00Z",
       phase: "complete", outcome: "clean", failures: [] };
     const deps = mockLifecycleDeps({
@@ -340,83 +340,83 @@ describe("Ps CLI", () => {
     });
     const prog = new Command().exitOverride().addCommand(psCommand({ lifecycleDeps: deps,
       clientFactory: (url) => new DaemonClient(url) }));
-    await captureLogs(() => prog.parseAsync(["node", "rig", "ps", ...(noCleanup ? ["--no-cleanup"] : [])]).then(() => {}));
+    await captureLogs(() => prog.parseAsync(["node", "SoftwareTeam", "ps", ...(noCleanup ? ["--no-cleanup"] : [])]).then(() => {}));
     if (noCleanup) expect(deps.removeFile).not.toHaveBeenCalled();
     else expect(deps.removeFile).toHaveBeenCalledWith(STATE_FILE);
   });
 
   // NS-T08: ps --nodes tests
 
-  it("ps --nodes --full formats table with rig context and restore columns", async () => {
+  it("ps --nodes --full formats table with SoftwareTeam context and restore columns", async () => {
     psData = [
-      { rigId: "rig-1", name: "test-rig", nodeCount: 2, runningCount: 2, status: "running", uptime: "1h", latestSnapshot: null },
+      { softwareTeamId: "software-team-1", name: "test-software-team", nodeCount: 2, runningCount: 2, status: "running", uptime: "1h", latestSnapshot: null },
     ];
-    nodesData["rig-1"] = [
+    nodesData["software-team-1"] = [
       {
-        rigId: "rig-1", rigName: "test-rig", logicalId: "dev.impl", podId: "pod-1", podNamespace: "dev",
-        canonicalSessionName: "dev-impl@test-rig", nodeKind: "agent", runtime: "claude-code",
+        softwareTeamId: "software-team-1", softwareTeamName: "test-software-team", logicalId: "dev.impl", podId: "pod-1", podNamespace: "dev",
+        canonicalSessionName: "dev-impl@test-software-team", nodeKind: "agent", runtime: "claude-code",
         sessionStatus: "running", startupStatus: "ready", restoreOutcome: "n-a",
-        tmuxAttachCommand: "tmux attach -t dev-impl@test-rig", resumeCommand: null, latestError: null,
+        tmuxAttachCommand: "tmux attach -t dev-impl@test-software-team", resumeCommand: null, latestError: null,
       },
       {
-        rigId: "rig-1", rigName: "test-rig", logicalId: "infra.server", podId: "pod-1", podNamespace: "dev",
-        canonicalSessionName: "infra-server@test-rig", nodeKind: "infrastructure", runtime: "terminal",
+        softwareTeamId: "software-team-1", softwareTeamName: "test-software-team", logicalId: "infra.server", podId: "pod-1", podNamespace: "dev",
+        canonicalSessionName: "infra-server@test-software-team", nodeKind: "infrastructure", runtime: "terminal",
         sessionStatus: "running", startupStatus: "ready", restoreOutcome: "n-a",
-        tmuxAttachCommand: "tmux attach -t infra-server@test-rig", resumeCommand: null, latestError: null,
+        tmuxAttachCommand: "tmux attach -t infra-server@test-software-team", resumeCommand: null, latestError: null,
       },
     ];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--full"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--full"]);
     });
     const output = logs.join("\n");
-    expect(output).toContain("RIG");
+    expect(output).toContain("SOFTWARE_TEAM");
     expect(output).toContain("POD");
     expect(output).toContain("MEMBER");
     expect(output).toContain("SESSION");
     expect(output).toContain("RUNTIME");
     expect(output).toContain("RESTORE");
-    expect(output).toContain("test-rig#rig-1");
-    expect(output).toContain("dev-impl@test-rig");
+    expect(output).toContain("test-software-team#software-team-1");
+    expect(output).toContain("dev-impl@test-software-team");
     expect(output).toContain("terminal");
   });
 
-  it("ps --nodes --full includes rig identifiers so duplicate rig names stay distinguishable", async () => {
+  it("ps --nodes --full includes SoftwareTeam identifiers so duplicate SoftwareTeam names stay distinguishable", async () => {
     psData = [
-      { rigId: "rig-old", name: "demo-rig", nodeCount: 1, runningCount: 0, status: "stopped", uptime: null, latestSnapshot: "1m ago" },
-      { rigId: "rig-new", name: "demo-rig", nodeCount: 1, runningCount: 1, status: "running", uptime: "10s", latestSnapshot: null },
+      { softwareTeamId: "software-team-old", name: "demo-software-team", nodeCount: 1, runningCount: 0, status: "stopped", uptime: null, latestSnapshot: "1m ago" },
+      { softwareTeamId: "software-team-new", name: "demo-software-team", nodeCount: 1, runningCount: 1, status: "running", uptime: "10s", latestSnapshot: null },
     ];
-    nodesData["rig-old"] = [
+    nodesData["software-team-old"] = [
       {
-        rigId: "rig-old", rigName: "demo-rig", logicalId: "dev.impl", podId: "pod-1", podNamespace: "dev",
-        canonicalSessionName: "dev-impl@demo-rig", nodeKind: "agent", runtime: "claude-code",
+        softwareTeamId: "software-team-old", softwareTeamName: "demo-software-team", logicalId: "dev.impl", podId: "pod-1", podNamespace: "dev",
+        canonicalSessionName: "dev-impl@demo-software-team", nodeKind: "agent", runtime: "claude-code",
         sessionStatus: "exited", startupStatus: "failed", restoreOutcome: "failed",
         tmuxAttachCommand: null, resumeCommand: null, latestError: "old restore failed",
       },
     ];
-    nodesData["rig-new"] = [
+    nodesData["software-team-new"] = [
       {
-        rigId: "rig-new", rigName: "demo-rig", logicalId: "dev.impl", podId: "pod-2", podNamespace: "dev",
-        canonicalSessionName: "dev-impl@demo-rig", nodeKind: "agent", runtime: "claude-code",
+        softwareTeamId: "software-team-new", softwareTeamName: "demo-software-team", logicalId: "dev.impl", podId: "pod-2", podNamespace: "dev",
+        canonicalSessionName: "dev-impl@demo-software-team", nodeKind: "agent", runtime: "claude-code",
         sessionStatus: "running", startupStatus: "ready", restoreOutcome: "n-a",
         tmuxAttachCommand: null, resumeCommand: null, latestError: null,
       },
     ];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--full"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--full"]);
     });
     const output = logs.join("\n");
-    expect(output).toContain("demo-rig#rig-old");
-    expect(output).toContain("demo-rig#rig-new");
+    expect(output).toContain("demo-software-team#software-team-old");
+    expect(output).toContain("demo-software-team#software-team-new");
   });
 
   it("ps --nodes --json --full produces valid JSON array with restoreOutcome", async () => {
     psData = [
-      { rigId: "rig-1", name: "test-rig", nodeCount: 1, runningCount: 1, status: "running", uptime: "1m", latestSnapshot: null },
+      { softwareTeamId: "software-team-1", name: "test-software-team", nodeCount: 1, runningCount: 1, status: "running", uptime: "1m", latestSnapshot: null },
     ];
-    nodesData["rig-1"] = [
+    nodesData["software-team-1"] = [
       {
-        rigId: "rig-1", rigName: "test-rig", logicalId: "dev.impl", podId: "pod-1", podNamespace: "dev",
-        canonicalSessionName: "dev-impl@test-rig", nodeKind: "agent", runtime: "claude-code",
+        softwareTeamId: "software-team-1", softwareTeamName: "test-software-team", logicalId: "dev.impl", podId: "pod-1", podNamespace: "dev",
+        canonicalSessionName: "dev-impl@test-software-team", nodeKind: "agent", runtime: "claude-code",
         sessionStatus: "running", startupStatus: "ready", restoreOutcome: "resumed",
         tmuxAttachCommand: null, resumeCommand: null, latestError: null,
         agentActivity: {
@@ -429,7 +429,7 @@ describe("Ps CLI", () => {
       },
     ];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--full"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--full"]);
     });
     const parsed = JSON.parse(logs.join(""));
     expect(Array.isArray(parsed)).toBe(true);
@@ -445,19 +445,19 @@ describe("Ps CLI", () => {
 
   it("ps --nodes human output shows activity as a separate runtime truth field", async () => {
     psData = [
-      { rigId: "rig-1", name: "test-rig", nodeCount: 2, runningCount: 2, status: "running", uptime: "1m", latestSnapshot: null },
+      { softwareTeamId: "software-team-1", name: "test-software-team", nodeCount: 2, runningCount: 2, status: "running", uptime: "1m", latestSnapshot: null },
     ];
-    nodesData["rig-1"] = [
+    nodesData["software-team-1"] = [
       {
-        rigId: "rig-1", rigName: "test-rig", logicalId: "dev.impl", podId: "pod-1", podNamespace: "dev",
-        canonicalSessionName: "dev-impl@test-rig", nodeKind: "agent", runtime: "claude-code",
+        softwareTeamId: "software-team-1", softwareTeamName: "test-software-team", logicalId: "dev.impl", podId: "pod-1", podNamespace: "dev",
+        canonicalSessionName: "dev-impl@test-software-team", nodeKind: "agent", runtime: "claude-code",
         sessionStatus: "running", startupStatus: "ready", restoreOutcome: "n-a",
         tmuxAttachCommand: null, resumeCommand: null, latestError: null,
         agentActivity: { state: "running", reason: "mid_work_pattern", evidenceSource: "pane_heuristic", sampledAt: "2026-04-24T12:00:00.000Z", evidence: "Working" },
       },
       {
-        rigId: "rig-1", rigName: "test-rig", logicalId: "dev.qa", podId: "pod-1", podNamespace: "dev",
-        canonicalSessionName: "dev-qa@test-rig", nodeKind: "agent", runtime: "codex",
+        softwareTeamId: "software-team-1", softwareTeamName: "test-software-team", logicalId: "dev.qa", podId: "pod-1", podNamespace: "dev",
+        canonicalSessionName: "dev-qa@test-software-team", nodeKind: "agent", runtime: "codex",
         sessionStatus: "running", startupStatus: "ready", restoreOutcome: "n-a",
         tmuxAttachCommand: null, resumeCommand: null, latestError: null,
         agentActivity: { state: "unknown", reason: "capture_failed", evidenceSource: "pane_heuristic", sampledAt: "2026-04-24T12:00:00.000Z", evidence: null },
@@ -465,41 +465,41 @@ describe("Ps CLI", () => {
     ];
 
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A"]);
     });
 
     const output = logs.join("\n");
     expect(output).toContain("ACTIVITY");
     expect(output).toContain("running");
     expect(output).toContain("unknown");
-    expect(output).toContain("dev-impl@test-rig");
+    expect(output).toContain("dev-impl@test-software-team");
   });
 
   it("ps --nodes includes infrastructure nodes (compact shows session)", async () => {
     psData = [
-      { rigId: "rig-1", name: "test-rig", nodeCount: 1, runningCount: 1, status: "running", uptime: "1m", latestSnapshot: null },
+      { softwareTeamId: "software-team-1", name: "test-software-team", nodeCount: 1, runningCount: 1, status: "running", uptime: "1m", latestSnapshot: null },
     ];
-    nodesData["rig-1"] = [
+    nodesData["software-team-1"] = [
       {
-        rigId: "rig-1", rigName: "test-rig", logicalId: "infra.daemon", podId: "pod-1", podNamespace: "infra",
-        canonicalSessionName: "infra-daemon@test-rig", nodeKind: "infrastructure", runtime: "terminal",
+        softwareTeamId: "software-team-1", softwareTeamName: "test-software-team", logicalId: "infra.daemon", podId: "pod-1", podNamespace: "infra",
+        canonicalSessionName: "infra-daemon@test-software-team", nodeKind: "infrastructure", runtime: "terminal",
         sessionStatus: "running", startupStatus: "ready", restoreOutcome: "n-a",
         tmuxAttachCommand: null, resumeCommand: null, latestError: null,
       },
     ];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A"]);
     });
     const output = logs.join("\n");
-    expect(output).toContain("infra-daemon@test-rig");
-    expect(output).toContain("test-rig");
+    expect(output).toContain("infra-daemon@test-software-team");
+    expect(output).toContain("test-software-team");
   });
 
-  it("ps --nodes truncates long rig and session names so the table stays aligned", async () => {
+  it("ps --nodes truncates long SoftwareTeam and session names so the table stays aligned", async () => {
     psData = [
       {
-        rigId: "rig-very-long-id-1234567890",
-        name: "rigged-buildout-with-an-extremely-long-name",
+        softwareTeamId: "software-team-very-long-id-1234567890",
+        name: "softwareteam-buildout-with-an-extremely-long-name",
         nodeCount: 1,
         runningCount: 1,
         status: "running",
@@ -507,14 +507,14 @@ describe("Ps CLI", () => {
         latestSnapshot: null,
       },
     ];
-    nodesData["rig-very-long-id-1234567890"] = [
+    nodesData["software-team-very-long-id-1234567890"] = [
       {
-        rigId: "rig-very-long-id-1234567890",
-        rigName: "rigged-buildout-with-an-extremely-long-name",
+        softwareTeamId: "software-team-very-long-id-1234567890",
+        softwareTeamName: "softwareteam-buildout-with-an-extremely-long-name",
         logicalId: "research1.analyst",
         podId: "pod-research",
         podNamespace: "research1",
-        canonicalSessionName: "research1-analyst-with-an-extremely-long-session-name@rigged-buildout-with-an-extremely-long-name",
+        canonicalSessionName: "research1-analyst-with-an-extremely-long-session-name@softwareteam-buildout-with-an-extremely-long-name",
         nodeKind: "agent",
         runtime: "claude-code",
         sessionStatus: "running",
@@ -527,7 +527,7 @@ describe("Ps CLI", () => {
     ];
 
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A"]);
     });
     const lines = logs.join("\n").split("\n");
     expect(lines[1]).toContain("…");
@@ -536,14 +536,14 @@ describe("Ps CLI", () => {
 
   it("ps (no flag) still works backward compatible", async () => {
     psData = [
-      { rigId: "rig-1", name: "compat-rig", nodeCount: 1, runningCount: 1, status: "running", uptime: "5m", latestSnapshot: null },
+      { softwareTeamId: "software-team-1", name: "compat-software-team", nodeCount: 1, runningCount: 1, status: "running", uptime: "5m", latestSnapshot: null },
     ];
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps"]);
     });
     const output = logs.join("\n");
-    expect(output).toContain("compat-rig");
-    expect(output).toContain("RIG");
+    expect(output).toContain("compat-software-team");
+    expect(output).toContain("SOFTWARE_TEAM");
     expect(exitCode).toBeUndefined();
   });
 
@@ -552,21 +552,21 @@ describe("Ps CLI", () => {
     let helpOutput = "";
     psCmd.configureOutput({ writeOut: (s) => { helpOutput += s; } });
     psCmd.outputHelp();
-    expect(helpOutput).toContain("rig ps --nodes");
+    expect(helpOutput).toContain("SoftwareTeam ps --nodes");
     expect(helpOutput).toContain("Exit codes");
   });
 
-  it("ps --nodes warns on per-rig fetch failure", async () => {
+  it("ps --nodes warns on per-software-team fetch failure", async () => {
     psData = [
-      { rigId: "nonexistent", name: "bad-rig", nodeCount: 1, runningCount: 0, status: "stopped", uptime: null, latestSnapshot: null },
+      { softwareTeamId: "nonexistent", name: "bad-software-team", nodeCount: 1, runningCount: 0, status: "stopped", uptime: null, latestSnapshot: null },
     ];
     nodesData = {}; // no nodes data → server returns 404
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("Warning");
-    expect(output).toContain("bad-rig");
+    expect(output).toContain("bad-software-team");
   });
 
   it("daemon not running error includes guidance", async () => {
@@ -580,25 +580,25 @@ describe("Ps CLI", () => {
     prog.exitOverride();
     prog.addCommand(psCommand(stoppedDeps));
     const { logs, exitCode } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "ps"]);
+      await prog.parseAsync(["node", "SoftwareTeam", "ps"]);
     });
-    expect(logs.some((l) => l.includes("rig daemon start"))).toBe(true);
+    expect(logs.some((l) => l.includes("SoftwareTeam daemon start"))).toBe(true);
     expect(exitCode).toBe(1);
   });
 
-  // L2 lifecycle column / JSON shape (rig + node level)
-  it("ps prints LIFECYCLE column with abbreviated rig-level state", async () => {
+  // L2 lifecycle column / JSON shape (softwareTeam + node level)
+  it("ps prints LIFECYCLE column with abbreviated software-team-level state", async () => {
     psData = [
-      { rigId: "rig-1", name: "running-rig", nodeCount: 2, runningCount: 2, status: "running", lifecycleState: "running", uptime: "2h", latestSnapshot: null },
-      { rigId: "rig-2", name: "recover-rig", nodeCount: 2, runningCount: 0, status: "stopped", lifecycleState: "recoverable", uptime: null, latestSnapshot: "1h ago" },
-      { rigId: "rig-3", name: "stop-rig", nodeCount: 1, runningCount: 0, status: "stopped", lifecycleState: "stopped", uptime: null, latestSnapshot: null },
-      { rigId: "rig-4", name: "deg-rig", nodeCount: 2, runningCount: 1, status: "partial", lifecycleState: "degraded", uptime: "30m", latestSnapshot: null },
-      { rigId: "rig-5", name: "att-rig", nodeCount: 2, runningCount: 2, status: "running", lifecycleState: "attention_required", uptime: "10m", latestSnapshot: null },
+      { softwareTeamId: "software-team-1", name: "running-software-team", nodeCount: 2, runningCount: 2, status: "running", lifecycleState: "running", uptime: "2h", latestSnapshot: null },
+      { softwareTeamId: "software-team-2", name: "recover-software-team", nodeCount: 2, runningCount: 0, status: "stopped", lifecycleState: "recoverable", uptime: null, latestSnapshot: "1h ago" },
+      { softwareTeamId: "software-team-3", name: "stop-software-team", nodeCount: 1, runningCount: 0, status: "stopped", lifecycleState: "stopped", uptime: null, latestSnapshot: null },
+      { softwareTeamId: "software-team-4", name: "deg-software-team", nodeCount: 2, runningCount: 1, status: "partial", lifecycleState: "degraded", uptime: "30m", latestSnapshot: null },
+      { softwareTeamId: "software-team-5", name: "att-software-team", nodeCount: 2, runningCount: 2, status: "running", lifecycleState: "attention_required", uptime: "10m", latestSnapshot: null },
     ];
     const { logs } = await captureLogs(async () => {
       // OPR.0.4.4.21 — --include-archived is the full-breadth view (no
       // stopped fold), so every lifecycle abbreviation stays visible here.
-      await makeCmd().parseAsync(["node", "rig", "ps", "--include-archived"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--include-archived"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("LIFECYCLE");
@@ -609,12 +609,12 @@ describe("Ps CLI", () => {
     expect(output).toContain("att");
   });
 
-  it("ps --json includes lifecycleState in rig entries", async () => {
+  it("ps --json includes lifecycleState in SoftwareTeam entries", async () => {
     psData = [
-      { rigId: "rig-1", name: "test", nodeCount: 1, runningCount: 0, status: "stopped", lifecycleState: "recoverable", uptime: null, latestSnapshot: "5m ago" },
+      { softwareTeamId: "software-team-1", name: "test", nodeCount: 1, runningCount: 0, status: "stopped", lifecycleState: "recoverable", uptime: null, latestSnapshot: "5m ago" },
     ];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--json"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json"]);
     });
     const parsed = JSON.parse(logs.join(""));
     expect(parsed[0].lifecycleState).toBe("recoverable");
@@ -622,30 +622,30 @@ describe("Ps CLI", () => {
 
   it("ps --nodes prints LIFECYCLE column with per-node abbreviated state", async () => {
     psData = [
-      { rigId: "rig-1", name: "mixed-rig", nodeCount: 3, runningCount: 1, status: "partial", lifecycleState: "degraded", uptime: "15m", latestSnapshot: null },
+      { softwareTeamId: "software-team-1", name: "mixed-software-team", nodeCount: 3, runningCount: 1, status: "partial", lifecycleState: "degraded", uptime: "15m", latestSnapshot: null },
     ];
-    nodesData["rig-1"] = [
+    nodesData["software-team-1"] = [
       {
-        rigId: "rig-1", rigName: "mixed-rig", logicalId: "dev.impl", podId: "pod-1", podNamespace: "dev",
-        canonicalSessionName: "dev-impl@mixed-rig", nodeKind: "agent", runtime: "claude-code",
+        softwareTeamId: "software-team-1", softwareTeamName: "mixed-software-team", logicalId: "dev.impl", podId: "pod-1", podNamespace: "dev",
+        canonicalSessionName: "dev-impl@mixed-software-team", nodeKind: "agent", runtime: "claude-code",
         sessionStatus: "running", startupStatus: "ready", restoreOutcome: "n-a", lifecycleState: "running",
         tmuxAttachCommand: null, resumeCommand: null, latestError: null,
       },
       {
-        rigId: "rig-1", rigName: "mixed-rig", logicalId: "dev.qa", podId: "pod-1", podNamespace: "dev",
-        canonicalSessionName: "dev-qa@mixed-rig", nodeKind: "agent", runtime: "claude-code",
+        softwareTeamId: "software-team-1", softwareTeamName: "mixed-software-team", logicalId: "dev.qa", podId: "pod-1", podNamespace: "dev",
+        canonicalSessionName: "dev-qa@mixed-software-team", nodeKind: "agent", runtime: "claude-code",
         sessionStatus: "detached", startupStatus: "ready", restoreOutcome: "n-a", lifecycleState: "recoverable",
         tmuxAttachCommand: null, resumeCommand: null, latestError: null,
       },
       {
-        rigId: "rig-1", rigName: "mixed-rig", logicalId: "dev.lead", podId: "pod-1", podNamespace: "dev",
-        canonicalSessionName: "dev-lead@mixed-rig", nodeKind: "agent", runtime: "claude-code",
+        softwareTeamId: "software-team-1", softwareTeamName: "mixed-software-team", logicalId: "dev.lead", podId: "pod-1", podNamespace: "dev",
+        canonicalSessionName: "dev-lead@mixed-software-team", nodeKind: "agent", runtime: "claude-code",
         sessionStatus: "detached", startupStatus: "ready", restoreOutcome: "n-a", lifecycleState: "detached",
         tmuxAttachCommand: null, resumeCommand: null, latestError: null,
       },
     ];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("LIFECYCLE");
@@ -656,92 +656,92 @@ describe("Ps CLI", () => {
 
   it("ps --nodes --json includes lifecycleState per node", async () => {
     psData = [
-      { rigId: "rig-1", name: "test", nodeCount: 1, runningCount: 0, status: "stopped", lifecycleState: "recoverable", uptime: null, latestSnapshot: null },
+      { softwareTeamId: "software-team-1", name: "test", nodeCount: 1, runningCount: 0, status: "stopped", lifecycleState: "recoverable", uptime: null, latestSnapshot: null },
     ];
-    nodesData["rig-1"] = [
+    nodesData["software-team-1"] = [
       {
-        rigId: "rig-1", rigName: "test", logicalId: "dev.impl", podId: "pod-1", podNamespace: "dev",
+        softwareTeamId: "software-team-1", softwareTeamName: "test", logicalId: "dev.impl", podId: "pod-1", podNamespace: "dev",
         canonicalSessionName: "dev-impl@test", nodeKind: "agent", runtime: "claude-code",
         sessionStatus: "detached", startupStatus: "ready", restoreOutcome: "n-a", lifecycleState: "recoverable",
         tmuxAttachCommand: null, resumeCommand: null, latestError: null,
       },
     ];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json"]);
     });
     const parsed = JSON.parse(logs.join(""));
     expect(parsed[0].lifecycleState).toBe("recoverable");
   });
 
-  // L3-followup: trustworthy and scale-safe rig ps.
-  describe("L3-followup: trustworthy and scale-safe rig ps", () => {
-    it("ps --json passes through rigName alias from server (jq '.[].rigName' regression)", async () => {
+  // L3-followup: trustworthy and scale-safe SoftwareTeam ps.
+  describe("L3-followup: trustworthy and scale-safe SoftwareTeam ps", () => {
+    it("ps --json passes through softwareTeamName alias from server (jq '.[].softwareTeamName' regression)", async () => {
       psData = [
-        { rigId: "rig-1", name: "alpha", rigName: "alpha", nodeCount: 1, runningCount: 1, status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: null },
+        { softwareTeamId: "software-team-1", name: "alpha", softwareTeamName: "alpha", nodeCount: 1, runningCount: 1, status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: null },
       ];
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json"]);
       });
       const parsed = JSON.parse(logs.join(""));
       expect(Array.isArray(parsed)).toBe(true);
       expect(parsed[0].name).toBe("alpha");
-      expect(parsed[0].rigName).toBe("alpha");
+      expect(parsed[0].softwareTeamName).toBe("alpha");
     });
 
     it("ps --json without flags emits a bare array (back-compat)", async () => {
       psData = [
-        { rigId: "rig-1", name: "alpha", rigName: "alpha", nodeCount: 1, runningCount: 1, status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: null },
-        { rigId: "rig-2", name: "beta", rigName: "beta", nodeCount: 1, runningCount: 0, status: "stopped", lifecycleState: "stopped", uptime: null, latestSnapshot: null },
+        { softwareTeamId: "software-team-1", name: "alpha", softwareTeamName: "alpha", nodeCount: 1, runningCount: 1, status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: null },
+        { softwareTeamId: "software-team-2", name: "beta", softwareTeamName: "beta", nodeCount: 1, runningCount: 0, status: "stopped", lifecycleState: "stopped", uptime: null, latestSnapshot: null },
       ];
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json"]);
       });
       const parsed = JSON.parse(logs.join(""));
       expect(Array.isArray(parsed)).toBe(true);
       expect(parsed).toHaveLength(2);
     });
 
-    it("ps --json --limit emits envelope shape with truncated/totalRigs/hint", async () => {
+    it("ps --json --limit emits envelope shape with truncated/totalSoftwareTeams/hint", async () => {
       psData = Array.from({ length: 10 }, (_, i) => ({
-        rigId: `rig-${i}`, name: `r${i}`, rigName: `r${i}`,
+        softwareTeamId: `software-team-${i}`, name: `r${i}`, softwareTeamName: `r${i}`,
         nodeCount: 1, runningCount: 1, status: "running" as const, lifecycleState: "running" as const,
         uptime: "1m", latestSnapshot: null,
       }));
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--limit", "3"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--limit", "3"]);
       });
       const parsed = JSON.parse(logs.join(""));
       expect(Array.isArray(parsed)).toBe(false);
       expect(parsed.entries).toHaveLength(3);
-      expect(parsed.totalRigs).toBe(10);
+      expect(parsed.totalSoftwareTeams).toBe(10);
       expect(parsed.truncated).toBe(true);
       expect(parsed.hint).toContain("--full");
     });
 
     it("ps --json --fields projects only named fields", async () => {
       psData = [
-        { rigId: "rig-1", name: "alpha", rigName: "alpha", nodeCount: 2, runningCount: 1, status: "partial", lifecycleState: "degraded", uptime: "1m", latestSnapshot: null },
+        { softwareTeamId: "software-team-1", name: "alpha", softwareTeamName: "alpha", nodeCount: 2, runningCount: 1, status: "partial", lifecycleState: "degraded", uptime: "1m", latestSnapshot: null },
       ];
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--fields", "rigName,status,lifecycleState"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--fields", "softwareTeamName,status,lifecycleState"]);
       });
       const parsed = JSON.parse(logs.join(""));
       // Envelope (because --fields specified)
-      expect(parsed.entries[0]).toEqual({ rigName: "alpha", status: "partial", lifecycleState: "degraded" });
+      expect(parsed.entries[0]).toEqual({ softwareTeamName: "alpha", status: "partial", lifecycleState: "degraded" });
       expect(parsed.entries[0].nodeCount).toBeUndefined();
     });
 
     it("ps --json --summary emits aggregate-only shape", async () => {
       psData = [
-        { rigId: "rig-1", name: "a", rigName: "a", nodeCount: 1, runningCount: 1, status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: null },
-        { rigId: "rig-2", name: "b", rigName: "b", nodeCount: 1, runningCount: 0, status: "stopped", lifecycleState: "stopped", uptime: null, latestSnapshot: null },
-        { rigId: "rig-3", name: "c", rigName: "c", nodeCount: 1, runningCount: 0, status: "stopped", lifecycleState: "attention_required", uptime: null, latestSnapshot: null },
+        { softwareTeamId: "software-team-1", name: "a", softwareTeamName: "a", nodeCount: 1, runningCount: 1, status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: null },
+        { softwareTeamId: "software-team-2", name: "b", softwareTeamName: "b", nodeCount: 1, runningCount: 0, status: "stopped", lifecycleState: "stopped", uptime: null, latestSnapshot: null },
+        { softwareTeamId: "software-team-3", name: "c", softwareTeamName: "c", nodeCount: 1, runningCount: 0, status: "stopped", lifecycleState: "attention_required", uptime: null, latestSnapshot: null },
       ];
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--summary"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--summary"]);
       });
       const parsed = JSON.parse(logs.join(""));
-      expect(parsed.totalRigs).toBe(3);
+      expect(parsed.totalSoftwareTeams).toBe(3);
       expect(parsed.totalRunning).toBe(1);
       expect(parsed.byLifecycle.running).toBe(1);
       expect(parsed.byLifecycle.stopped).toBe(1);
@@ -751,11 +751,11 @@ describe("Ps CLI", () => {
 
     it("ps --filter status=running narrows entries", async () => {
       psData = [
-        { rigId: "rig-1", name: "a", rigName: "a", nodeCount: 1, runningCount: 1, status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: null },
-        { rigId: "rig-2", name: "b", rigName: "b", nodeCount: 1, runningCount: 0, status: "stopped", lifecycleState: "stopped", uptime: null, latestSnapshot: null },
+        { softwareTeamId: "software-team-1", name: "a", softwareTeamName: "a", nodeCount: 1, runningCount: 1, status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: null },
+        { softwareTeamId: "software-team-2", name: "b", softwareTeamName: "b", nodeCount: 1, runningCount: 0, status: "stopped", lifecycleState: "stopped", uptime: null, latestSnapshot: null },
       ];
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--filter", "status=running"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--filter", "status=running"]);
       });
       const parsed = JSON.parse(logs.join(""));
       // Envelope because --filter specified
@@ -765,11 +765,11 @@ describe("Ps CLI", () => {
 
     it("ps --filter lifecycleState=attention_required narrows entries", async () => {
       psData = [
-        { rigId: "rig-1", name: "a", rigName: "a", nodeCount: 1, runningCount: 1, status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: null },
-        { rigId: "rig-2", name: "b", rigName: "b", nodeCount: 1, runningCount: 1, status: "running", lifecycleState: "attention_required", uptime: "1m", latestSnapshot: null },
+        { softwareTeamId: "software-team-1", name: "a", softwareTeamName: "a", nodeCount: 1, runningCount: 1, status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: null },
+        { softwareTeamId: "software-team-2", name: "b", softwareTeamName: "b", nodeCount: 1, runningCount: 1, status: "running", lifecycleState: "attention_required", uptime: "1m", latestSnapshot: null },
       ];
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--filter", "lifecycleState=attention_required"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--filter", "lifecycleState=attention_required"]);
       });
       const parsed = JSON.parse(logs.join(""));
       expect(parsed.entries).toHaveLength(1);
@@ -779,7 +779,7 @@ describe("Ps CLI", () => {
     it("ps --filter rejects unknown keys with actionable error and exits 1", async () => {
       psData = [];
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--filter", "unknown=foo"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--filter", "unknown=foo"]);
       });
       expect(logs.some((l) => l.includes("Unknown --filter key 'unknown'"))).toBe(true);
       expect(logs.some((l) => l.includes("Supported:"))).toBe(true);
@@ -789,7 +789,7 @@ describe("Ps CLI", () => {
     it("ps --filter rejects malformed value (no '=') and exits 1", async () => {
       psData = [];
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--filter", "noequals"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--filter", "noequals"]);
       });
       // PL-012: error message now names the comparator family since
       // numeric ops (>=, >, <=, <, =) are accepted.
@@ -800,7 +800,7 @@ describe("Ps CLI", () => {
     it("ps --limit rejects non-numeric values and exits 1", async () => {
       psData = [];
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--limit", "abc"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--limit", "abc"]);
       });
       expect(logs.some((l) => l.includes("--limit must be a non-negative integer"))).toBe(true);
       expect(exitCode).toBe(1);
@@ -808,17 +808,17 @@ describe("Ps CLI", () => {
 
     // C9a: --fields UX rejection alignment with --filter pattern.
 
-    it("ps --json --fields rejects unknown field with sorted supported list (rig-level)", async () => {
+    it("ps --json --fields rejects unknown field with sorted supported list (software-team-level)", async () => {
       psData = [];
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--fields", "rigId,bogus"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--fields", "softwareTeamId,bogus"]);
       });
       const stderr = logs.join("\n");
       expect(stderr).toContain("Unknown --fields key 'bogus'");
       expect(stderr).toContain("Supported:");
-      // Sorted rig-level allow-list keys appear in the message.
+      // Sorted software-team-level allow-list keys appear in the message.
       expect(stderr).toContain("latestSnapshot");
-      expect(stderr).toContain("rigName");
+      expect(stderr).toContain("softwareTeamName");
       expect(stderr).toContain("nodeCount");
       expect(exitCode).toBe(1);
     });
@@ -826,7 +826,7 @@ describe("Ps CLI", () => {
     it("ps --json --fields rejects multiple unknown fields with 'keys' plural", async () => {
       psData = [];
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--fields", "foo,bar"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--fields", "foo,bar"]);
       });
       const stderr = logs.join("\n");
       expect(stderr).toContain("Unknown --fields keys 'foo', 'bar'");
@@ -836,7 +836,7 @@ describe("Ps CLI", () => {
     it("ps --json --fields rejects empty string and exits 1", async () => {
       psData = [];
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--fields", ""]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--fields", ""]);
       });
       expect(logs.some((l) => l.includes("--fields cannot be empty"))).toBe(true);
       expect(exitCode).toBe(1);
@@ -845,46 +845,46 @@ describe("Ps CLI", () => {
     it("ps --json --fields rejects whitespace-only-after-trim and exits 1", async () => {
       psData = [];
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--fields", ",,"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--fields", ",,"]);
       });
       expect(logs.some((l) => l.includes("--fields cannot be empty"))).toBe(true);
       expect(exitCode).toBe(1);
     });
 
-    it("ps --json --fields rejects node-only field at rig-level (logicalId)", async () => {
+    it("ps --json --fields rejects node-only field at software-team-level (logicalId)", async () => {
       psData = [];
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--fields", "rigId,logicalId"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--fields", "softwareTeamId,logicalId"]);
       });
       expect(logs.some((l) => l.includes("Unknown --fields key 'logicalId'"))).toBe(true);
       expect(exitCode).toBe(1);
     });
 
-    it("ps --json --fields accepts both name AND rigName at rig-level (aliasing preserved per 0a9fb43)", async () => {
+    it("ps --json --fields accepts both name AND softwareTeamName at software-team-level (aliasing preserved per 0a9fb43)", async () => {
       psData = [
-        { rigId: "rig-1", name: "alpha", rigName: "alpha", nodeCount: 1, runningCount: 1, status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: null },
+        { softwareTeamId: "software-team-1", name: "alpha", softwareTeamName: "alpha", nodeCount: 1, runningCount: 1, status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: null },
       ];
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--fields", "name,rigName"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--fields", "name,softwareTeamName"]);
       });
       expect(exitCode).not.toBe(1);
       const parsed = JSON.parse(logs.join(""));
-      expect(parsed.entries[0]).toEqual({ name: "alpha", rigName: "alpha" });
+      expect(parsed.entries[0]).toEqual({ name: "alpha", softwareTeamName: "alpha" });
     });
 
-    it("ps --nodes --json --fields rejects 'name' with rigName hint (load-bearing aliasing decision)", async () => {
+    it("ps --nodes --json --fields rejects 'name' with softwareTeamName hint (load-bearing aliasing decision)", async () => {
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--fields", "name,logicalId"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--fields", "name,logicalId"]);
       });
       const stderr = logs.join("\n");
       expect(stderr).toContain("Unknown --fields key 'name'");
-      expect(stderr).toContain("Hint: 'name' is a rig-level field; use 'rigName' for node entries.");
+      expect(stderr).toContain("Hint: 'name' is a software-team-level field; use 'softwareTeamName' for node entries.");
       expect(exitCode).toBe(1);
     });
 
     it("ps --nodes --json --fields rejects bogus key with sorted node-level supported list", async () => {
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--fields", "rigName,bogus"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--fields", "softwareTeamName,bogus"]);
       });
       const stderr = logs.join("\n");
       expect(stderr).toContain("Unknown --fields key 'bogus'");
@@ -892,7 +892,7 @@ describe("Ps CLI", () => {
       // Sorted node-level allow-list — node-level-only key must be present.
       expect(stderr).toContain("agentActivity");
       expect(stderr).toContain("logicalId");
-      // Rig-level-only key must NOT be in the node-level supported list.
+      // SoftwareTeam-level-only key must NOT be in the node-level supported list.
       expect(stderr).not.toMatch(/Supported:[^.]*\bname\b/);
       expect(exitCode).toBe(1);
     });
@@ -900,64 +900,64 @@ describe("Ps CLI", () => {
     it("ps --filter rejection still works after --fields rejection wired in (regression)", async () => {
       psData = [];
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--filter", "unknown=v"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--filter", "unknown=v"]);
       });
       expect(logs.some((l) => l.includes("Unknown --filter key 'unknown'"))).toBe(true);
       expect(exitCode).toBe(1);
     });
 
-    it("ps --filter status=running --fields rigName combined still works (regression)", async () => {
+    it("ps --filter status=running --fields softwareTeamName combined still works (regression)", async () => {
       psData = [
-        { rigId: "rig-1", name: "a", rigName: "a", nodeCount: 1, runningCount: 1, status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: null },
-        { rigId: "rig-2", name: "b", rigName: "b", nodeCount: 1, runningCount: 0, status: "stopped", lifecycleState: "stopped", uptime: null, latestSnapshot: null },
+        { softwareTeamId: "software-team-1", name: "a", softwareTeamName: "a", nodeCount: 1, runningCount: 1, status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: null },
+        { softwareTeamId: "software-team-2", name: "b", softwareTeamName: "b", nodeCount: 1, runningCount: 0, status: "stopped", lifecycleState: "stopped", uptime: null, latestSnapshot: null },
       ];
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json", "--filter", "status=running", "--fields", "rigName,status"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json", "--filter", "status=running", "--fields", "softwareTeamName,status"]);
       });
       expect(exitCode).not.toBe(1);
       const parsed = JSON.parse(logs.join(""));
       expect(parsed.entries).toHaveLength(1);
-      expect(parsed.entries[0]).toEqual({ rigName: "a", status: "running" });
+      expect(parsed.entries[0]).toEqual({ softwareTeamName: "a", status: "running" });
     });
 
-    // Synthetic large-host fixture: 60 rigs (just over default 50 budget) is
+    // Synthetic large-host fixture: 60 softwareTeams (just over default 50 budget) is
     // the smallest fixture that proves human-truncation behavior. Per Amendment
     // C: the L4 proof already exercised real 100x10 scale; this test asserts
     // the truncation path fires and the footer is honest. Using 60 instead of
     // 100 keeps the test fast while still proving the budget boundary.
-    it("ps human output truncates above HUMAN_RIG_BUDGET (50) with honest footer (Amendment C)", async () => {
+    it("ps human output truncates above HUMAN_SOFTWARE_TEAM_BUDGET (50) with honest footer (Amendment C)", async () => {
       psData = Array.from({ length: 60 }, (_, i) => ({
-        rigId: `rig-${String(i).padStart(2, "0")}`,
+        softwareTeamId: `software-team-${String(i).padStart(2, "0")}`,
         name: `r${String(i).padStart(2, "0")}`,
-        rigName: `r${String(i).padStart(2, "0")}`,
+        softwareTeamName: `r${String(i).padStart(2, "0")}`,
         nodeCount: 1, runningCount: 1, status: "running" as const, lifecycleState: "running" as const,
         uptime: "1m", latestSnapshot: null,
       }));
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps"]);
       });
       const output = logs.join("\n");
 
       // Header present
       expect(output).toContain("LIFECYCLE");
-      // First 50 rig names visible
+      // First 50 softwareTeam names visible
       expect(output).toContain("r00");
       expect(output).toContain("r49");
-      // Beyond-budget rigs not in default human output
+      // Beyond-budget softwareTeams not in default human output
       expect(output).not.toContain("r59");
       // Truncation footer with actual remaining count
-      expect(output).toMatch(/and 10 more rigs \(truncated at 50\)/);
-      expect(output).toContain("rig ps --full");
+      expect(output).toMatch(/and 10 more softwareTeams \(truncated at 50\)/);
+      expect(output).toContain("SoftwareTeam ps --full");
     });
 
-    it("ps --full disables human truncation; all 60 rigs printed", async () => {
+    it("ps --full disables human truncation; all 60 softwareTeams printed", async () => {
       psData = Array.from({ length: 60 }, (_, i) => ({
-        rigId: `rig-${i}`, name: `r${i}`, rigName: `r${i}`,
+        softwareTeamId: `software-team-${i}`, name: `r${i}`, softwareTeamName: `r${i}`,
         nodeCount: 1, runningCount: 1, status: "running" as const, lifecycleState: "running" as const,
         uptime: "1m", latestSnapshot: null,
       }));
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--full"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--full"]);
       });
       const output = logs.join("\n");
       expect(output).toContain("r0");
@@ -965,14 +965,14 @@ describe("Ps CLI", () => {
       expect(output).not.toMatch(/truncated/);
     });
 
-    it("ps --json default unbounded for large rigs: emits all 60 entries (back-compat)", async () => {
+    it("ps --json default unbounded for large softwareTeams: emits all 60 entries (back-compat)", async () => {
       psData = Array.from({ length: 60 }, (_, i) => ({
-        rigId: `rig-${i}`, name: `r${i}`, rigName: `r${i}`,
+        softwareTeamId: `software-team-${i}`, name: `r${i}`, softwareTeamName: `r${i}`,
         nodeCount: 1, runningCount: 1, status: "running" as const, lifecycleState: "running" as const,
         uptime: "1m", latestSnapshot: null,
       }));
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--json"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--json"]);
       });
       const parsed = JSON.parse(logs.join(""));
       // Default JSON stays a bare array of all 60; NO envelope.
@@ -982,16 +982,16 @@ describe("Ps CLI", () => {
 
     it("ps --nodes --json default unbounded: bare array (back-compat)", async () => {
       psData = [
-        { rigId: "rig-1", name: "test", rigName: "test", nodeCount: 2, runningCount: 1, status: "partial", lifecycleState: "degraded", uptime: "1m", latestSnapshot: null },
+        { softwareTeamId: "software-team-1", name: "test", softwareTeamName: "test", nodeCount: 2, runningCount: 1, status: "partial", lifecycleState: "degraded", uptime: "1m", latestSnapshot: null },
       ];
-      nodesData["rig-1"] = Array.from({ length: 5 }, (_, i) => ({
-        rigId: "rig-1", rigName: "test", logicalId: `dev.n${i}`, podId: "pod-1", podNamespace: "dev",
+      nodesData["software-team-1"] = Array.from({ length: 5 }, (_, i) => ({
+        softwareTeamId: "software-team-1", softwareTeamName: "test", logicalId: `dev.n${i}`, podId: "pod-1", podNamespace: "dev",
         canonicalSessionName: `n${i}@test`, nodeKind: "agent", runtime: "claude-code",
         sessionStatus: "running", startupStatus: "ready", restoreOutcome: "n-a", lifecycleState: "running",
         tmuxAttachCommand: null, resumeCommand: null, latestError: null,
       }));
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json"]);
       });
       const parsed = JSON.parse(logs.join(""));
       expect(Array.isArray(parsed)).toBe(true);
@@ -1000,16 +1000,16 @@ describe("Ps CLI", () => {
 
     it("ps --nodes --json --limit emits envelope shape with totalNodes/truncated/hint", async () => {
       psData = [
-        { rigId: "rig-1", name: "test", rigName: "test", nodeCount: 5, runningCount: 5, status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: null },
+        { softwareTeamId: "software-team-1", name: "test", softwareTeamName: "test", nodeCount: 5, runningCount: 5, status: "running", lifecycleState: "running", uptime: "1m", latestSnapshot: null },
       ];
-      nodesData["rig-1"] = Array.from({ length: 5 }, (_, i) => ({
-        rigId: "rig-1", rigName: "test", logicalId: `dev.n${i}`, podId: "pod-1", podNamespace: "dev",
+      nodesData["software-team-1"] = Array.from({ length: 5 }, (_, i) => ({
+        softwareTeamId: "software-team-1", softwareTeamName: "test", logicalId: `dev.n${i}`, podId: "pod-1", podNamespace: "dev",
         canonicalSessionName: `n${i}@test`, nodeKind: "agent", runtime: "claude-code",
         sessionStatus: "running", startupStatus: "ready", restoreOutcome: "n-a", lifecycleState: "running",
         tmuxAttachCommand: null, resumeCommand: null, latestError: null,
       }));
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--limit", "2"]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--limit", "2"]);
       });
       const parsed = JSON.parse(logs.join(""));
       expect(parsed.entries).toHaveLength(2);
@@ -1021,7 +1021,7 @@ describe("Ps CLI", () => {
   });
 });
 
-describe("OPR.0.4.0.26 — rig ps help reflects the slimmed node-list contract", () => {
+describe("OPR.0.4.0.26 — SoftwareTeam ps help reflects the slimmed node-list contract", () => {
   it("no longer advertises the pre-0.4.0 complete node payload (recoveryGuidance/currentUsage relocated)", () => {
     // Capture the FULL rendered help (the addHelpText "after" block is only in
     // outputHelp, not helpInformation). Normalize whitespace so commander's

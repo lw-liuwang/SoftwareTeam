@@ -1,7 +1,7 @@
 // V0.3.1 slice 23 founder-walk-queue-handoff-envelope.
 //
 // Daemon-side renderer for the email-style envelope the recipient's
-// tmux pane shows when a peer sends them a message (`rig send`) or
+// tmux pane shows when a peer sends them a message (`SoftwareTeam send`) or
 // when a queue handoff/create nudges them. Wrapping the body with
 // From / To / --- / body / --- / ↩ Reply gives both a sender
 // identity and a copy-pasteable reply hint.
@@ -15,7 +15,7 @@
 //   2. `packages/daemon/test/pane-envelope.test.ts` mirroring the
 //      assertions in `packages/cli/test/send-header.test.ts`
 //   3. Live integration parity (HG-5): a queue handoff nudge and a
-//      rig send to the same destination render byte-identical
+//      SoftwareTeam send to the same destination render byte-identical
 //      output except for the body content
 // If you update this function, update wrapSendBody in lockstep.
 
@@ -24,12 +24,12 @@ const SENDER_FALLBACK = "<unknown sender>";
 /** Send/broadcast header envelope metadata (ruling 03c35295). The ENVELOPE carries the machine truth;
  *  the rendered header is a PROJECTION of it. Both twins (this + cli wrapSendBody) share this shape. */
 export interface EnvelopeScope {
-  /** dm = a single recipient; multi = a named recipient set; rig-broadcast/topology = scaled broadcasts. */
-  kind: "dm" | "multi" | "rig-broadcast" | "topology";
+  /** dm = a single recipient; multi = a named recipient set; software-team-broadcast/topology = scaled broadcasts. */
+  kind: "dm" | "multi" | "software-team-broadcast" | "topology";
   /** multi: the full recipient list (WHO got it). */
   recipients?: string[];
-  /** rig-broadcast: the rig + seat count (the anti-storm scale). */
-  rig?: string;
+  /** software-team-broadcast: the softwareTeam + seat count (the anti-storm scale). */
+  softwareTeam?: string;
   seats?: number;
 }
 export interface EnvelopeMeta {
@@ -49,7 +49,7 @@ export interface EnvelopeMeta {
 export function renderToLine(recipient: string, scope?: EnvelopeScope): string {
   if (!scope || scope.kind === "dm") return `To: ${recipient}`;
   if (scope.kind === "multi") return `To: ${(scope.recipients ?? [recipient]).join(", ")}`;
-  if (scope.kind === "rig-broadcast") return `To: broadcast to ${scope.rig} (${scope.seats} seats)`;
+  if (scope.kind === "software-team-broadcast") return `To: broadcast to ${scope.softwareTeam} (${scope.seats} seats)`;
   return "To: broadcast to topology";
 }
 
@@ -87,7 +87,7 @@ export function appendDeliveredSegment(envelope: string, deltaMs: number): strin
 
 /** Wrap a tmux-pane body with the canonical From/To envelope. The
  *  recipient pane sees both the sender's identity and a reply hint.
- *  Cross-host nudges should NOT double-wrap: the remote rig wraps
+ *  Cross-host nudges should NOT double-wrap: the remote softwareTeam wraps
  *  when it processes the same command (matches `wrapSendBody`'s
  *  cross-host carve-out).
  *  `meta` (ruling 03c35295) projects the recipient scale + a transport-stamped timestamp; ABSENT ⇒
@@ -100,7 +100,7 @@ export function wrapPaneEnvelope(
 ): string {
   // FOUNDER ROOT INVARIANT (2026-08-27, supersedes 51-09 incr 3 / ruling cb19867f Q2
   // always-suffix): the sender renders EXACTLY AS RECEIVED. A local sender is the bare
-  // member@rig (the reply hint is copy-paste-usable locally); a cross-host arrival already
+  // member@software-team (the reply hint is copy-paste-usable locally); a cross-host arrival already
   // carries its origin triple from the forwarding boundary and rides verbatim — the wrapper
   // never appends this host's id to anything.
   const senderLabel = sender && sender.trim().length > 0 ? sender : SENDER_FALLBACK;
@@ -115,7 +115,7 @@ export function wrapPaneEnvelope(
     header.push(`Sent: ${renderShortStamp(meta.stampISO)}${genSuffix}`);
   }
   const reply = senderLabel.endsWith("@external")
-    ? `↩ Reply if needed: rig queue create --destination ${senderLabel} --summary "<one line>" --body "..." --verify`
-    : `↩ Reply: rig send ${senderLabel} "..."`;
+    ? `↩ Reply if needed: SoftwareTeam queue create --destination ${senderLabel} --summary "<one line>" --body "..." --verify`
+    : `↩ Reply: SoftwareTeam send ${senderLabel} "..."`;
   return [...header, "---", body, "---", reply].join("\n");
 }

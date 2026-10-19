@@ -6,7 +6,7 @@
 // local-only fleet, per-host honesty THROUGH the route with zero network
 // (ssh + unset-bearer legs), no bearer material in the response body (the
 // full browser-bound SENTINEL proof rides the VM leg-7 per the QA2 binding
-// check), and the sibling-purity zero-regression pin (/rig and /agents are
+// check), and the sibling-purity zero-regression pin (/softwareTeam and /agents are
 // byte-untouched by the fleet addition).
 
 import { describe, it, expect } from "vitest";
@@ -15,7 +15,7 @@ import { reviewRoutes } from "../src/routes/review.js";
 import { LOCAL_HOST_ID } from "../src/domain/hosts/fanout-contract.js";
 import type { PerHostStatusKind } from "../src/domain/hosts/fanout-contract.js";
 import type { HostRegistry } from "../src/domain/hosts/hosts-registry-reader.js";
-import type { ComposedFleet, ComposedRigAgents, NeedsYouItem } from "../src/domain/review/types.js";
+import type { ComposedFleet, ComposedSoftwareTeamAgents, NeedsYouItem } from "../src/domain/review/types.js";
 
 // TYPE-LEVEL PIN (§0.4): PerHostStatusKind stays the CLOSED 4-value enum.
 // A union GAIN breaks this literal (missing key); a union LOSS breaks it
@@ -34,7 +34,7 @@ const LOCAL_ITEM: NeedsYouItem = {
   identity: "qi-local-1",
   summary: "Sign-off needed",
   leg: "human-gate",
-  where: "rig",
+  where: "softwareTeam",
   ageIso: "2026-07-08T13:00:00.000Z",
   priority: "urgent",
   tier: "human-gate",
@@ -45,11 +45,11 @@ const LOCAL_ITEM: NeedsYouItem = {
   derived: null,
 };
 
-const LOCAL_COMPOSED: ComposedRigAgents = {
-  scope: "rig",
-  needsYou: { items: [LOCAL_ITEM], provenance: "composed from the rig read root" },
+const LOCAL_COMPOSED: ComposedSoftwareTeamAgents = {
+  scope: "softwareTeam",
+  needsYou: { items: [LOCAL_ITEM], provenance: "composed from the SoftwareTeam read root" },
   agents: {
-    scope: "rig",
+    scope: "softwareTeam",
     rows: [
       { agentName: "lead", runtime: "claude-code", stateGlyph: "active", doing: null, holdsCount: 1, lastTransitionIso: null, exception: null, sessionName: "lead@acme-build", slices: [] },
     ],
@@ -70,7 +70,7 @@ function makeApp(opts: {
   app.use("*", async (c, next) => {
     const set = c.set.bind(c) as (key: string, value: unknown) => void;
     if (opts.withGatherer !== false) {
-      set("reviewGatherer", { composeRig: () => LOCAL_COMPOSED });
+      set("reviewGatherer", { composeSoftwareTeam: () => LOCAL_COMPOSED });
     }
     set("hostRegistryExists", () => opts.registryExists ?? opts.registry !== undefined);
     if (opts.registry) set("hostRegistryLoader", () => ({ ok: true, registry: opts.registry }));
@@ -98,7 +98,7 @@ describe("GET /api/review/fleet — route wiring + payload contract", () => {
     expect("registryError" in fleet).toBe(false);
     // The local composed set flowed through the IN-PROCESS gatherer (D-1).
     expect(fleet.needsYou.items).toHaveLength(1);
-    expect(fleet.needsYou.items[0]).toMatchObject({ fleetKey: `${LOCAL_HOST_ID}|qi-local-1`, hostId: LOCAL_HOST_ID, seenFrom: ["rig"] });
+    expect(fleet.needsYou.items[0]).toMatchObject({ fleetKey: `${LOCAL_HOST_ID}|qi-local-1`, hostId: LOCAL_HOST_ID, seenFrom: ["softwareTeam"] });
     expect(fleet.rollup).toEqual({ needsYouCount: 1, exceptionCount: 0, exceptionsByKind: [], hostCount: 1, unreachableCount: 0 });
   });
 
@@ -119,7 +119,7 @@ describe("GET /api/review/fleet — route wiring + payload contract", () => {
 
   it("an http host whose bearer env is UNSET → auth-failed with the env-var name; NO bearer/Authorization material in the body", async () => {
     const app = makeApp({
-      registry: { hosts: [{ id: "vps-a", transport: "http", url: "http://vps-a.invalid:7433", bearer_env: "MH5_ROUTE_TEST_BEARER_DELIBERATELY_UNSET" }] },
+      registry: { hosts: [{ id: "vps-a", transport: "http", url: "http://vps-a.invalid:7434", bearer_env: "MH5_ROUTE_TEST_BEARER_DELIBERATELY_UNSET" }] },
     });
     const res = await app.request("/api/review/fleet");
     const fleet = (await res.json()) as ComposedFleet;
@@ -144,9 +144,9 @@ describe("GET /api/review/fleet — route wiring + payload contract", () => {
 });
 
 describe("sibling purity — the existing family is untouched by the fleet addition (zero-regression pin)", () => {
-  it("GET /rig still returns the gatherer's composeRig() verbatim", async () => {
+  it("GET /SoftwareTeam still returns the gatherer's composeSoftwareTeam() verbatim", async () => {
     const app = makeApp({ registryExists: false });
-    const res = await app.request("/api/review/rig");
+    const res = await app.request("/api/review/softwareTeam");
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(JSON.parse(JSON.stringify(LOCAL_COMPOSED)));
   });
@@ -157,7 +157,7 @@ describe("sibling purity — the existing family is untouched by the fleet addit
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string; hint: string };
     expect(body.error).toBe("scope_invalid");
-    expect(body.hint).toContain("slice:<id> | mission:<id> | rig");
+    expect(body.hint).toContain("slice:<id> | mission:<id> | softwareTeam");
   });
 
   it("the per-host reachability enum stays closed (compile-time pin above)", () => {

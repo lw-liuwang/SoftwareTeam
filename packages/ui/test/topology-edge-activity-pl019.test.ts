@@ -41,8 +41,8 @@ describe("PL-019 topology edge-activity normalization", () => {
   });
 
   it("returns null for unknown / non-PL-019 event types", () => {
-    expect(normalizeEvent({ type: "rig.created", rigId: "r-1" })).toBeNull();
-    expect(normalizeEvent({ type: "node.startup_completed", rigId: "r-1" })).toBeNull();
+    expect(normalizeEvent({ type: "software-team.created", softwareTeamId: "r-1" })).toBeNull();
+    expect(normalizeEvent({ type: "node.startup_completed", softwareTeamId: "r-1" })).toBeNull();
     // mission_control.action_executed is intentionally not mapped at v0
     // because the event payload lacks a destination session pair.
     expect(normalizeEvent({ type: "mission_control.action_executed", actorSession: "a@r" })).toBeNull();

@@ -62,7 +62,7 @@ describe("S02 P1 classification persistence and lease correctness", () => {
     const ids: string[] = [];
     for (let i = 0; i < n; i++) {
       const id = `${prefix}-${String(i).padStart(3, "0")}`;
-      stream.emit({ streamItemId: id, sourceSession: "obs@rig", body: `observation ${i}` });
+      stream.emit({ streamItemId: id, sourceSession: "obs@software-team", body: `observation ${i}` });
       ids.push(id);
     }
     return ids;
@@ -83,59 +83,59 @@ describe("S02 P1 classification persistence and lease correctness", () => {
 
   describe("lease binding (R2 controls 1-3, now passing the corrected direction)", () => {
     it("same-session acquire after TTL issues a NEW lease id instead of returning the expired one", () => {
-      const first = leases.acquire("occ@rig");
+      const first = leases.acquire("occ@software-team");
       clock += TTL + 1;
-      const second = leases.acquire("occ@rig");
+      const second = leases.acquire("occ@software-team");
       expect(second.leaseId).not.toBe(first.leaseId);
       expect(leases.getById(first.leaseId)?.state).toBe("expired");
       expect(second.state).toBe("active");
     });
 
     it("same-session acquire before TTL stays idempotent", () => {
-      const first = leases.acquire("occ@rig");
+      const first = leases.acquire("occ@software-team");
       clock += TTL - 1;
-      expect(leases.acquire("occ@rig").leaseId).toBe(first.leaseId);
+      expect(leases.acquire("occ@software-team").leaseId).toBe(first.leaseId);
     });
 
     it("heartbeat on a TTL-passed lease refuses with lease_expired and does not revive it", () => {
-      const lease = leases.acquire("occ@rig");
+      const lease = leases.acquire("occ@software-team");
       clock += TTL + 1;
-      expect(code(() => leases.heartbeat(lease.leaseId, "occ@rig"))).toBe("lease_expired");
+      expect(code(() => leases.heartbeat(lease.leaseId, "occ@software-team"))).toBe("lease_expired");
       expect(leases.getById(lease.leaseId)?.expiresAt).toBe(lease.expiresAt);
     });
 
     it("a late result bound to a replaced same-session lease is refused (lease_mismatch), nothing written", () => {
       seed(1);
-      const old = leases.acquire("occ@rig");
+      const old = leases.acquire("occ@software-team");
       clock += TTL + 1;
-      leases.acquire("occ@rig");
-      expect(code(() => classifier.classify({ streamItemId: "item-000", classifierSession: "occ@rig", leaseId: old.leaseId }))).toBe(
+      leases.acquire("occ@software-team");
+      expect(code(() => classifier.classify({ streamItemId: "item-000", classifierSession: "occ@software-team", leaseId: old.leaseId }))).toBe(
         "lease_mismatch",
       );
       expect(classifier.getByStreamItemId("item-000")).toBeNull();
     });
 
     it("a different session cannot take an expired lease without the evaluated acquire, then can", () => {
-      leases.acquire("occ@rig");
+      leases.acquire("occ@software-team");
       clock += TTL + 1;
-      expect(code(() => leases.acquire("other@rig"))).toBe("lease_held");
+      expect(code(() => leases.acquire("other@software-team"))).toBe("lease_held");
       leases.evaluateDeadness();
-      expect(leases.acquire("other@rig").classifierSession).toBe("other@rig");
+      expect(leases.acquire("other@software-team").classifierSession).toBe("other@software-team");
     });
 
     it("an expired lease (not yet replaced) refuses the write", () => {
       seed(1);
-      const lease = leases.acquire("occ@rig");
+      const lease = leases.acquire("occ@software-team");
       clock += TTL + 1;
-      expect(code(() => classifier.classify({ streamItemId: "item-000", classifierSession: "occ@rig", leaseId: lease.leaseId }))).toBe(
+      expect(code(() => classifier.classify({ streamItemId: "item-000", classifierSession: "occ@software-team", leaseId: lease.leaseId }))).toBe(
         "lease_expired",
       );
     });
 
     it("an old caller without leaseId gets a clear refusal, not a silent write", () => {
       seed(1);
-      leases.acquire("occ@rig");
-      expect(code(() => classifier.classify({ streamItemId: "item-000", classifierSession: "occ@rig" } as never))).toBe(
+      leases.acquire("occ@software-team");
+      expect(code(() => classifier.classify({ streamItemId: "item-000", classifierSession: "occ@software-team" } as never))).toBe(
         "lease_id_required",
       );
     });
@@ -144,14 +144,14 @@ describe("S02 P1 classification persistence and lease correctness", () => {
   describe("classification fields (migration 086)", () => {
     it("stores the four fields and version bindings; unknown needs_human stays null, not false", () => {
       seed(3);
-      const { leaseId } = leases.acquire("occ@rig");
+      const { leaseId } = leases.acquire("occ@software-team");
       const yes = classifier.classify({
-        streamItemId: "item-001", classifierSession: "occ@rig", leaseId,
+        streamItemId: "item-001", classifierSession: "occ@software-team", leaseId,
         area: "coordination-stream-queue", scopeRef: "OPR.0.6.0.2", candidateSetVersion: "scope@2026-09-26",
         duplicateOfStreamItemId: "item-000", needsHuman: true, classifierVersion: "clf-1", taxonomyVersion: "tax-0.2",
       });
-      const no = classifier.classify({ streamItemId: "item-002", classifierSession: "occ@rig", leaseId, needsHuman: false });
-      const unknown = classifier.classify({ streamItemId: "item-000", classifierSession: "occ@rig", leaseId });
+      const no = classifier.classify({ streamItemId: "item-002", classifierSession: "occ@software-team", leaseId, needsHuman: false });
+      const unknown = classifier.classify({ streamItemId: "item-000", classifierSession: "occ@software-team", leaseId });
       expect(yes).toMatchObject({
         area: "coordination-stream-queue", scopeRef: "OPR.0.6.0.2", candidateSetVersion: "scope@2026-09-26",
         duplicateOfStreamItemId: "item-000", needsHuman: true, leaseId, classifierVersion: "clf-1", taxonomyVersion: "tax-0.2",
@@ -166,8 +166,8 @@ describe("S02 P1 classification persistence and lease correctness", () => {
 
     it("validates consumed shapes: duplicate must exist and not be self; scopeRef needs a candidate-set version", () => {
       seed(1);
-      const { leaseId } = leases.acquire("occ@rig");
-      const base = { streamItemId: "item-000", classifierSession: "occ@rig", leaseId };
+      const { leaseId } = leases.acquire("occ@software-team");
+      const base = { streamItemId: "item-000", classifierSession: "occ@software-team", leaseId };
       expect(code(() => classifier.classify({ ...base, duplicateOfStreamItemId: "item-000" }))).toBe("invalid_duplicate_of");
       expect(code(() => classifier.classify({ ...base, duplicateOfStreamItemId: "missing" }))).toBe("invalid_duplicate_of");
       expect(code(() => classifier.classify({ ...base, scopeRef: "OPR.0.6.0.2" }))).toBe("candidate_set_version_required");
@@ -177,9 +177,9 @@ describe("S02 P1 classification persistence and lease correctness", () => {
 
     it("first write still wins", () => {
       seed(1);
-      const { leaseId } = leases.acquire("occ@rig");
-      classifier.classify({ streamItemId: "item-000", classifierSession: "occ@rig", leaseId, area: "a" });
-      expect(code(() => classifier.classify({ streamItemId: "item-000", classifierSession: "occ@rig", leaseId, area: "b" }))).toBe(
+      const { leaseId } = leases.acquire("occ@software-team");
+      classifier.classify({ streamItemId: "item-000", classifierSession: "occ@software-team", leaseId, area: "a" });
+      expect(code(() => classifier.classify({ streamItemId: "item-000", classifierSession: "occ@software-team", leaseId, area: "b" }))).toBe(
         "idempotency_violation",
       );
       expect(classifier.getByStreamItemId("item-000")?.area).toBe("a");
@@ -189,10 +189,10 @@ describe("S02 P1 classification persistence and lease correctness", () => {
   describe("attempt ledger", () => {
     it("abstention is terminal for its identity, and a new version or evidence epoch makes the item eligible again", () => {
       seed(1);
-      const { leaseId } = leases.acquire("occ@rig");
-      const a = ledger.begin({ streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@rig" });
-      ledger.abstain({ attemptId: a.attemptId, executionId: a.executionId, leaseId, classifierSession: "occ@rig", reason: "margin below threshold" });
-      expect(code(() => ledger.begin({ streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@rig" }))).toBe("attempt_terminal");
+      const { leaseId } = leases.acquire("occ@software-team");
+      const a = ledger.begin({ streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@software-team" });
+      ledger.abstain({ attemptId: a.attemptId, executionId: a.executionId, leaseId, classifierSession: "occ@software-team", reason: "margin below threshold" });
+      expect(code(() => ledger.begin({ streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@software-team" }))).toBe("attempt_terminal");
       expect(ledger.eligible(V).items).toHaveLength(0);
       expect(ledger.eligible({ ...V, classifierVersion: "clf-2" }).items.map((i) => i.streamItemId)).toEqual(["item-000"]);
       expect(ledger.eligible({ ...V, evidenceEpoch: "evidence:sha256:abc" }).items).toHaveLength(1);
@@ -204,10 +204,10 @@ describe("S02 P1 classification persistence and lease correctness", () => {
       seed(1);
       // The test lease TTL (60 s) is shorter than the backoff, so the occupant
       // re-acquires after each wait; its own expired lease yields a new id.
-      let leaseId = leases.acquire("occ@rig").leaseId;
-      const begin = () => ledger.begin({ streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@rig" });
+      let leaseId = leases.acquire("occ@software-team").leaseId;
+      const begin = () => ledger.begin({ streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@software-team" });
       const fail = (x: { attemptId: string; executionId: string }) =>
-        ledger.fail({ attemptId: x.attemptId, executionId: x.executionId, leaseId, classifierSession: "occ@rig", reason: "provider 503" });
+        ledger.fail({ attemptId: x.attemptId, executionId: x.executionId, leaseId, classifierSession: "occ@software-team", reason: "provider 503" });
       const a = begin();
       const failed = fail(a);
       expect(failed.status).toBe("error");
@@ -215,7 +215,7 @@ describe("S02 P1 classification persistence and lease correctness", () => {
       expect(ledger.eligible(V).items).toHaveLength(0);
       expect(code(begin)).toBe("attempt_not_due");
       clock += DEFAULT_BASE_BACKOFF_MS;
-      leaseId = leases.acquire("occ@rig").leaseId;
+      leaseId = leases.acquire("occ@software-team").leaseId;
       expect(ledger.eligible(V).items).toHaveLength(1);
       const b = begin();
       expect(b.attemptCount).toBe(2);
@@ -223,7 +223,7 @@ describe("S02 P1 classification persistence and lease correctness", () => {
       const second = fail(b);
       expect(Date.parse(second.retryAfter!)).toBe(clock + 2 * DEFAULT_BASE_BACKOFF_MS);
       clock += 2 * DEFAULT_BASE_BACKOFF_MS;
-      leaseId = leases.acquire("occ@rig").leaseId;
+      leaseId = leases.acquire("occ@software-team").leaseId;
       const c = begin();
       expect(c.attemptCount).toBe(3);
       const last = fail(c);
@@ -233,38 +233,38 @@ describe("S02 P1 classification persistence and lease correctness", () => {
 
     it("an abandoned in-flight attempt (crash) becomes eligible after the timeout and counts toward the budget", () => {
       seed(1);
-      const lease = leases.acquire("occ@rig");
-      ledger.begin({ streamItemId: "item-000", ...V, leaseId: lease.leaseId, classifierSession: "occ@rig" });
+      const lease = leases.acquire("occ@software-team");
+      ledger.begin({ streamItemId: "item-000", ...V, leaseId: lease.leaseId, classifierSession: "occ@software-team" });
       expect(ledger.eligible(V).items).toHaveLength(0);
-      expect(code(() => ledger.begin({ streamItemId: "item-000", ...V, leaseId: lease.leaseId, classifierSession: "occ@rig" }))).toBe(
+      expect(code(() => ledger.begin({ streamItemId: "item-000", ...V, leaseId: lease.leaseId, classifierSession: "occ@software-team" }))).toBe(
         "attempt_in_flight",
       );
       clock += DEFAULT_IN_FLIGHT_TIMEOUT_MS;
-      const fresh = leases.acquire("occ@rig"); // own lease past TTL -> new lease id
+      const fresh = leases.acquire("occ@software-team"); // own lease past TTL -> new lease id
       expect(ledger.eligible(V).items).toHaveLength(1);
-      expect(ledger.begin({ streamItemId: "item-000", ...V, leaseId: fresh.leaseId, classifierSession: "occ@rig" }).attemptCount).toBe(2);
+      expect(ledger.begin({ streamItemId: "item-000", ...V, leaseId: fresh.leaseId, classifierSession: "occ@software-team" }).attemptCount).toBe(2);
     });
 
     it("an in-flight attempt under a replaced lease can be resumed by the new lease but not finished by the old one", () => {
       seed(1);
-      const old = leases.acquire("occ@rig");
-      const a = ledger.begin({ streamItemId: "item-000", ...V, leaseId: old.leaseId, classifierSession: "occ@rig" });
+      const old = leases.acquire("occ@software-team");
+      const a = ledger.begin({ streamItemId: "item-000", ...V, leaseId: old.leaseId, classifierSession: "occ@software-team" });
       clock += TTL + 1;
-      const fresh = leases.acquire("occ@rig");
-      expect(code(() => ledger.abstain({ attemptId: a.attemptId, executionId: a.executionId, leaseId: old.leaseId, classifierSession: "occ@rig", reason: "x" }))).toBe(
+      const fresh = leases.acquire("occ@software-team");
+      expect(code(() => ledger.abstain({ attemptId: a.attemptId, executionId: a.executionId, leaseId: old.leaseId, classifierSession: "occ@software-team", reason: "x" }))).toBe(
         "lease_mismatch",
       );
-      const resumed = ledger.begin({ streamItemId: "item-000", ...V, leaseId: fresh.leaseId, classifierSession: "occ@rig" });
+      const resumed = ledger.begin({ streamItemId: "item-000", ...V, leaseId: fresh.leaseId, classifierSession: "occ@software-team" });
       expect(resumed.leaseId).toBe(fresh.leaseId);
       expect(resumed.attemptCount).toBe(2);
     });
 
     it("a classify bound to the attempt marks it written in the same transaction", () => {
       seed(1);
-      const { leaseId } = leases.acquire("occ@rig");
-      const a = ledger.begin({ streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@rig" });
+      const { leaseId } = leases.acquire("occ@software-team");
+      const a = ledger.begin({ streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@software-team" });
       classifier.classify({
-        streamItemId: "item-000", classifierSession: "occ@rig", leaseId, attemptId: a.attemptId, executionId: a.executionId,
+        streamItemId: "item-000", classifierSession: "occ@software-team", leaseId, attemptId: a.attemptId, executionId: a.executionId,
         classifierVersion: V.classifierVersion, taxonomyVersion: V.taxonomyVersion, classificationType: "bug",
       });
       expect(ledger.getById(a.attemptId)?.status).toBe("written");
@@ -274,12 +274,12 @@ describe("S02 P1 classification persistence and lease correctness", () => {
 
     it("a classify with mismatched attempt versions is refused and writes nothing", () => {
       seed(1);
-      const { leaseId } = leases.acquire("occ@rig");
-      const a = ledger.begin({ streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@rig" });
+      const { leaseId } = leases.acquire("occ@software-team");
+      const a = ledger.begin({ streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@software-team" });
       expect(
         code(() =>
           classifier.classify({
-            streamItemId: "item-000", classifierSession: "occ@rig", leaseId, attemptId: a.attemptId, executionId: a.executionId,
+            streamItemId: "item-000", classifierSession: "occ@software-team", leaseId, attemptId: a.attemptId, executionId: a.executionId,
             classifierVersion: "clf-other", taxonomyVersion: V.taxonomyVersion,
           }),
         ),
@@ -290,8 +290,8 @@ describe("S02 P1 classification persistence and lease correctness", () => {
 
     it("a transaction failure after the checks rolls back both the row and the attempt", () => {
       seed(1);
-      const { leaseId } = leases.acquire("occ@rig");
-      const a = ledger.begin({ streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@rig" });
+      const { leaseId } = leases.acquire("occ@software-team");
+      const a = ledger.begin({ streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@software-team" });
       const original = bus.persistWithinTransaction.bind(bus);
       bus.persistWithinTransaction = ((event: Parameters<typeof original>[0]) => {
         if (event.type === "project.classified") throw new Error("injected event-store failure");
@@ -299,7 +299,7 @@ describe("S02 P1 classification persistence and lease correctness", () => {
       }) as typeof bus.persistWithinTransaction;
       expect(() =>
         classifier.classify({
-          streamItemId: "item-000", classifierSession: "occ@rig", leaseId, attemptId: a.attemptId, executionId: a.executionId,
+          streamItemId: "item-000", classifierSession: "occ@software-team", leaseId, attemptId: a.attemptId, executionId: a.executionId,
           classifierVersion: V.classifierVersion, taxonomyVersion: V.taxonomyVersion,
         }),
       ).toThrow("injected event-store failure");
@@ -324,15 +324,15 @@ describe("S02 P1 classification persistence and lease correctness", () => {
 
     function retried(cause: "timeout" | "error") {
       seed(1);
-      const { leaseId } = fenceLeases.acquire("occ@rig");
-      const begin = () => fenceLedger.begin({ streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@rig" });
+      const { leaseId } = fenceLeases.acquire("occ@software-team");
+      const begin = () => fenceLedger.begin({ streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@software-team" });
       const oldExec = begin();
       if (cause === "timeout") {
-        for (let t = 0; t < 3; t++) { clock += 5 * 60_000; fenceLeases.heartbeat(leaseId, "occ@rig"); }
+        for (let t = 0; t < 3; t++) { clock += 5 * 60_000; fenceLeases.heartbeat(leaseId, "occ@software-team"); }
       } else {
-        fenceLedger.fail({ attemptId: oldExec.attemptId, executionId: oldExec.executionId, leaseId, classifierSession: "occ@rig", reason: "provider 503" });
+        fenceLedger.fail({ attemptId: oldExec.attemptId, executionId: oldExec.executionId, leaseId, classifierSession: "occ@software-team", reason: "provider 503" });
         clock += DEFAULT_BASE_BACKOFF_MS;
-        fenceLeases.heartbeat(leaseId, "occ@rig");
+        fenceLeases.heartbeat(leaseId, "occ@software-team");
       }
       const current = begin();
       expect(current.attemptId).toBe(oldExec.attemptId);
@@ -344,11 +344,11 @@ describe("S02 P1 classification persistence and lease correctness", () => {
     for (const cause of ["timeout", "error"] as const) {
       it(`${cause} retry: the old execution cannot classify, abstain or fail; the current one can`, () => {
         const { leaseId, oldExec, current } = retried(cause);
-        const finish = { attemptId: oldExec.attemptId, leaseId, classifierSession: "occ@rig", reason: "late" };
+        const finish = { attemptId: oldExec.attemptId, leaseId, classifierSession: "occ@software-team", reason: "late" };
         expect(code(() => fenceLedger.abstain({ ...finish, executionId: oldExec.executionId }))).toBe("attempt_superseded");
         expect(code(() => fenceLedger.fail({ ...finish, executionId: oldExec.executionId }))).toBe("attempt_superseded");
         expect(code(() => fenceClassifier.classify({
-          streamItemId: "item-000", classifierSession: "occ@rig", leaseId, attemptId: oldExec.attemptId,
+          streamItemId: "item-000", classifierSession: "occ@software-team", leaseId, attemptId: oldExec.attemptId,
           executionId: oldExec.executionId, classifierVersion: V.classifierVersion, taxonomyVersion: V.taxonomyVersion,
         }))).toBe("attempt_superseded");
         // Nothing the old execution tried touched the current one.
@@ -356,7 +356,7 @@ describe("S02 P1 classification persistence and lease correctness", () => {
         expect(fenceLedger.getById(current.attemptId)).toMatchObject({ status: "in_flight", executionId: current.executionId });
         // The current execution finishes normally.
         fenceClassifier.classify({
-          streamItemId: "item-000", classifierSession: "occ@rig", leaseId, attemptId: current.attemptId,
+          streamItemId: "item-000", classifierSession: "occ@software-team", leaseId, attemptId: current.attemptId,
           executionId: current.executionId, classifierVersion: V.classifierVersion, taxonomyVersion: V.taxonomyVersion,
         });
         expect(fenceLedger.getById(current.attemptId)?.status).toBe("written");
@@ -365,13 +365,13 @@ describe("S02 P1 classification persistence and lease correctness", () => {
 
     it("a missing executionId is refused on every finish path", () => {
       seed(1);
-      const { leaseId } = fenceLeases.acquire("occ@rig");
-      const a = fenceLedger.begin({ streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@rig" });
-      const finish = { attemptId: a.attemptId, leaseId, classifierSession: "occ@rig", reason: "x" };
+      const { leaseId } = fenceLeases.acquire("occ@software-team");
+      const a = fenceLedger.begin({ streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@software-team" });
+      const finish = { attemptId: a.attemptId, leaseId, classifierSession: "occ@software-team", reason: "x" };
       expect(code(() => fenceLedger.abstain(finish as never))).toBe("invalid_field");
       expect(code(() => fenceLedger.fail(finish as never))).toBe("invalid_field");
       expect(code(() => fenceClassifier.classify({
-        streamItemId: "item-000", classifierSession: "occ@rig", leaseId, attemptId: a.attemptId,
+        streamItemId: "item-000", classifierSession: "occ@software-team", leaseId, attemptId: a.attemptId,
         classifierVersion: V.classifierVersion, taxonomyVersion: V.taxonomyVersion,
       }))).toBe("execution_id_required");
       expect(fenceLedger.getById(a.attemptId)?.status).toBe("in_flight");
@@ -379,8 +379,8 @@ describe("S02 P1 classification persistence and lease correctness", () => {
 
     it("a manual classification (no attemptId) needs no executionId and is not ledger-bound", () => {
       seed(1);
-      const { leaseId } = fenceLeases.acquire("occ@rig");
-      fenceClassifier.classify({ streamItemId: "item-000", classifierSession: "occ@rig", leaseId, area: "tui" });
+      const { leaseId } = fenceLeases.acquire("occ@software-team");
+      fenceClassifier.classify({ streamItemId: "item-000", classifierSession: "occ@software-team", leaseId, area: "tui" });
       expect(db.prepare(`SELECT count(*) AS n FROM classification_attempts`).get()).toEqual({ n: 0 });
     });
   });
@@ -403,8 +403,8 @@ describe("S02 P1 classification persistence and lease correctness", () => {
 
     it("rejects number, object and null for string fields with a field-specific 400 and no write", async () => {
       seed(1);
-      const { leaseId } = leases.acquire("occ@rig");
-      const base = { streamItemId: "item-000", classifierSession: "occ@rig", leaseId };
+      const { leaseId } = leases.acquire("occ@software-team");
+      const base = { streamItemId: "item-000", classifierSession: "occ@software-team", leaseId };
       const cases: Array<[string, unknown]> = [
         ["scopeRef", 7], ["candidateSetVersion", 8], ["area", 9], ["scopeRef", { id: "x" }],
         ["area", null], ["classificationType", ["bug"]], ["classifierVersion", ""], ["duplicateOfStreamItemId", 0],
@@ -422,25 +422,25 @@ describe("S02 P1 classification persistence and lease correctness", () => {
 
     it("legitimate strings and needsHuman true/false/null still succeed", async () => {
       seed(3);
-      const { leaseId } = leases.acquire("occ@rig");
+      const { leaseId } = leases.acquire("occ@software-team");
       const ok = await post("/project", {
-        streamItemId: "item-000", classifierSession: "occ@rig", leaseId, area: "tui", scopeRef: "OPR.0.6.0.2",
+        streamItemId: "item-000", classifierSession: "occ@software-team", leaseId, area: "tui", scopeRef: "OPR.0.6.0.2",
         candidateSetVersion: "scope@1", classificationType: "", needsHuman: null,
       });
       expect(ok.status).toBe(201);
       expect(await ok.json()).toMatchObject({ area: "tui", scopeRef: "OPR.0.6.0.2", classificationType: "", needsHuman: null });
-      expect((await post("/project", { streamItemId: "item-001", classifierSession: "occ@rig", leaseId, needsHuman: false })).status).toBe(201);
-      expect((await post("/project", { streamItemId: "item-002", classifierSession: "occ@rig", leaseId, needsHuman: "no" })).status).toBe(400);
+      expect((await post("/project", { streamItemId: "item-001", classifierSession: "occ@software-team", leaseId, needsHuman: false })).status).toBe(201);
+      expect((await post("/project", { streamItemId: "item-002", classifierSession: "occ@software-team", leaseId, needsHuman: "no" })).status).toBe(400);
     });
 
     it("attempt routes reject non-string identity and finish fields", async () => {
       seed(1);
-      const { leaseId } = leases.acquire("occ@rig");
-      const bad = await post("/attempts/begin", { streamItemId: "item-000", ...V, classifierVersion: 1, leaseId, classifierSession: "occ@rig" });
+      const { leaseId } = leases.acquire("occ@software-team");
+      const bad = await post("/attempts/begin", { streamItemId: "item-000", ...V, classifierVersion: 1, leaseId, classifierSession: "occ@software-team" });
       expect(bad.status).toBe(400);
-      const begun = await post("/attempts/begin", { streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@rig" });
+      const begun = await post("/attempts/begin", { streamItemId: "item-000", ...V, leaseId, classifierSession: "occ@software-team" });
       const a = (await begun.json()) as { attemptId: string; executionId: string };
-      const r = await post(`/attempts/${a.attemptId}/abstain`, { executionId: 1, leaseId, classifierSession: "occ@rig", reason: "x" });
+      const r = await post(`/attempts/${a.attemptId}/abstain`, { executionId: 1, leaseId, classifierSession: "occ@software-team", reason: "x" });
       expect([r.status, ((await r.json()) as { field?: string }).field]).toEqual([400, "executionId"]);
       expect(ledger.getById(a.attemptId)?.status).toBe("in_flight");
     });
@@ -450,8 +450,8 @@ describe("S02 P1 classification persistence and lease correctness", () => {
     it("pages more than 50 items completely, in stream order, excluding archived and classified", () => {
       const ids = seed(57);
       stream.archive(ids[3]!);
-      const { leaseId } = leases.acquire("occ@rig");
-      classifier.classify({ streamItemId: ids[10]!, classifierSession: "occ@rig", leaseId });
+      const { leaseId } = leases.acquire("occ@software-team");
+      classifier.classify({ streamItemId: ids[10]!, classifierSession: "occ@software-team", leaseId });
       const seen: string[] = [];
       let after: string | undefined;
       let pages = 0;
@@ -490,11 +490,11 @@ describe("S02 P1 migration 086 on a populated base database (upgrade + reopen)",
     const before = createDb(file);
     migrate(before, base);
     before.prepare(`INSERT INTO stream_items (stream_item_id, ts_emitted, stream_sort_key, source_session, body) VALUES (?, ?, ?, ?, ?)`)
-      .run("old-1", "2026-09-01T00:00:00.000Z", "01OLD0000000000000000000001", "obs@rig", "old observation");
+      .run("old-1", "2026-09-01T00:00:00.000Z", "01OLD0000000000000000000001", "obs@software-team", "old observation");
     before.prepare(`INSERT INTO classifier_leases (lease_id, classifier_session, acquired_at, expires_at, last_heartbeat, state) VALUES (?, ?, ?, ?, ?, 'active')`)
-      .run("lease-old", "occ@rig", "2026-09-01T00:00:00.000Z", "2099-01-01T00:00:00.000Z", "2026-09-01T00:00:00.000Z");
+      .run("lease-old", "occ@software-team", "2026-09-01T00:00:00.000Z", "2099-01-01T00:00:00.000Z", "2026-09-01T00:00:00.000Z");
     before.prepare(`INSERT INTO project_classifications (project_id, stream_item_id, classification_type, classifier_session, ts_projected) VALUES (?, ?, ?, ?, ?)`)
-      .run("proj-old", "old-1", "idea", "occ@rig", "2026-09-01T00:00:01.000Z");
+      .run("proj-old", "old-1", "idea", "occ@software-team", "2026-09-01T00:00:01.000Z");
     before.close();
 
     // Upgrade and reopen.
@@ -511,7 +511,7 @@ describe("S02 P1 migration 086 on a populated base database (upgrade + reopen)",
       classificationType: "idea", area: null, scopeRef: null, duplicateOfStreamItemId: null,
       needsHuman: null, leaseId: null, classifierVersion: null, taxonomyVersion: null, candidateSetVersion: null,
     });
-    expect(code(() => classifier.classify({ streamItemId: "old-1", classifierSession: "occ@rig", leaseId: "lease-old" }))).toBe(
+    expect(code(() => classifier.classify({ streamItemId: "old-1", classifierSession: "occ@software-team", leaseId: "lease-old" }))).toBe(
       "idempotency_violation",
     );
     const tables = reopened.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'classification_attempts'`).all();
@@ -533,22 +533,22 @@ describe("S02 P1 migration 086 on a populated base database (upgrade + reopen)",
       return { db, bus, leases, ledger: new ClassificationAttemptLedger(db, leases, { now }), classifier: new ProjectClassifier(db, bus, leases, { now }) };
     };
     let s1 = open();
-    new StreamStore(s1.db, s1.bus).emit({ streamItemId: "d-1", sourceSession: "obs@rig", body: "durable" });
-    const leaseId = s1.leases.acquire("occ@rig").leaseId;
-    const a = s1.ledger.begin({ streamItemId: "d-1", ...V, leaseId, classifierSession: "occ@rig" });
-    s1.ledger.fail({ attemptId: a.attemptId, executionId: a.executionId, leaseId, classifierSession: "occ@rig", reason: "provider 503" });
+    new StreamStore(s1.db, s1.bus).emit({ streamItemId: "d-1", sourceSession: "obs@software-team", body: "durable" });
+    const leaseId = s1.leases.acquire("occ@software-team").leaseId;
+    const a = s1.ledger.begin({ streamItemId: "d-1", ...V, leaseId, classifierSession: "occ@software-team" });
+    s1.ledger.fail({ attemptId: a.attemptId, executionId: a.executionId, leaseId, classifierSession: "occ@software-team", reason: "provider 503" });
     s1.db.close();
 
     clock += DEFAULT_BASE_BACKOFF_MS;
     const s2 = open();
     expect(s2.ledger.getById(a.attemptId)).toMatchObject({ status: "error", attemptCount: 1, executionId: a.executionId });
     expect(s2.ledger.eligible(V).items.map((i) => i.streamItemId)).toEqual(["d-1"]);
-    const b = s2.ledger.begin({ streamItemId: "d-1", ...V, leaseId, classifierSession: "occ@rig" });
+    const b = s2.ledger.begin({ streamItemId: "d-1", ...V, leaseId, classifierSession: "occ@software-team" });
     expect(b.attemptCount).toBe(2);
-    expect(code(() => s2.ledger.abstain({ attemptId: a.attemptId, executionId: a.executionId, leaseId, classifierSession: "occ@rig", reason: "late" }))).toBe(
+    expect(code(() => s2.ledger.abstain({ attemptId: a.attemptId, executionId: a.executionId, leaseId, classifierSession: "occ@software-team", reason: "late" }))).toBe(
       "attempt_superseded",
     );
-    s2.ledger.abstain({ attemptId: b.attemptId, executionId: b.executionId, leaseId, classifierSession: "occ@rig", reason: "below threshold" });
+    s2.ledger.abstain({ attemptId: b.attemptId, executionId: b.executionId, leaseId, classifierSession: "occ@software-team", reason: "below threshold" });
     s2.db.close();
     s1 = open();
     expect(s1.ledger.getById(a.attemptId)?.status).toBe("abstained");

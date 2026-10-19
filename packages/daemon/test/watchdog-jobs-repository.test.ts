@@ -40,8 +40,8 @@ describe("WatchdogJobsRepository (PL-004 Phase C)", () => {
   function validInput(overrides: Record<string, unknown> = {}) {
     return {
       policy: "periodic-reminder",
-      specYaml: "policy: periodic-reminder\ntarget: a@rig\ninterval_seconds: 60\ncontext:\n  target:\n    session: a@rig\n  message: hello\n",
-      targetSession: "a@rig",
+      specYaml: "policy: periodic-reminder\ntarget: a@software-team\ninterval_seconds: 60\ncontext:\n  target:\n    session: a@software-team\n  message: hello\n",
+      targetSession: "a@software-team",
       intervalSeconds: 60,
       registeredBySession: "ops@kernel",
       ...overrides,
@@ -145,9 +145,9 @@ describe("WatchdogJobsRepository (PL-004 Phase C)", () => {
   });
 
   it("listActive returns only state=active jobs in registration order", () => {
-    const a = repo.register(validInput({ targetSession: "a@rig" }));
-    const b = repo.register(validInput({ targetSession: "b@rig" }));
-    const c = repo.register(validInput({ targetSession: "c@rig" }));
+    const a = repo.register(validInput({ targetSession: "a@software-team" }));
+    const b = repo.register(validInput({ targetSession: "b@software-team" }));
+    const c = repo.register(validInput({ targetSession: "c@software-team" }));
     repo.stop(b.jobId);
     const active = repo.listActive();
     expect(active.map((j) => j.jobId)).toEqual([a.jobId, c.jobId]);
@@ -249,26 +249,26 @@ describe("WatchdogJobsRepository — generation stamps (Class-B)", () => {
 
   const input = (overrides: Record<string, unknown> = {}) => ({
     policy: "periodic-reminder",
-    specYaml: "policy: periodic-reminder\ntarget: a@rig\ninterval_seconds: 60\ncontext:\n  target:\n    session: a@rig\n  message: hi\n",
-    targetSession: "a@rig",
+    specYaml: "policy: periodic-reminder\ntarget: a@software-team\ninterval_seconds: 60\ncontext:\n  target:\n    session: a@software-team\n  message: hi\n",
+    targetSession: "a@software-team",
     intervalSeconds: 60,
-    registeredBySession: "seat@rig",
+    registeredBySession: "seat@software-team",
     ...overrides,
   });
 
   it("stamps the ARMING occupant's generation at register", () => {
-    genBySession.set("seat@rig", "gen-1");
+    genBySession.set("seat@software-team", "gen-1");
     expect(repo.register(input()).registeredByGeneration).toBe("gen-1");
   });
 
   it("an unresolved arming generation stays NULL (UNKNOWN — never a false stamp)", () => {
-    expect(repo.register(input({ registeredBySession: "unknown@rig" })).registeredByGeneration).toBeNull();
+    expect(repo.register(input({ registeredBySession: "unknown@software-team" })).registeredByGeneration).toBeNull();
   });
 
   it("drops ONLY armed jobs of the retiring generation — the successor's own job (same name, live gen) survives", () => {
-    genBySession.set("seat@rig", "gen-retired");
+    genBySession.set("seat@software-team", "gen-retired");
     const retired = repo.register(input());
-    genBySession.set("seat@rig", "gen-live"); // successor resumes into the SAME seat name, new gen
+    genBySession.set("seat@software-team", "gen-live"); // successor resumes into the SAME seat name, new gen
     const live = repo.register(input());
 
     const stopped = repo.dropArmedByRegisteringGeneration("gen-retired");
@@ -279,13 +279,13 @@ describe("WatchdogJobsRepository — generation stamps (Class-B)", () => {
   });
 
   it("an empty generation is a no-op (never a catch-all drop)", () => {
-    genBySession.set("seat@rig", "gen-1");
+    genBySession.set("seat@software-team", "gen-1");
     repo.register(input());
     expect(repo.dropArmedByRegisteringGeneration("")).toBe(0);
   });
 
   it("NULL-generation jobs are never matched (UNKNOWN != retired)", () => {
-    const job = repo.register(input({ registeredBySession: "unknown@rig" }));
+    const job = repo.register(input({ registeredBySession: "unknown@software-team" }));
     expect(repo.dropArmedByRegisteringGeneration("gen-anything")).toBe(0);
     expect(repo.getById(job.jobId)!.state).toBe("active");
   });
@@ -315,10 +315,10 @@ describe("WatchdogJobsRepository — target-generation stamp (i-c, opt-in)", () 
 
   const input = (overrides: Record<string, unknown> = {}) => ({
     policy: "periodic-reminder",
-    specYaml: "policy: periodic-reminder\ntarget: a@rig\ninterval_seconds: 60\ncontext:\n  target:\n    session: a@rig\n  message: hi\n",
-    targetSession: "a@rig",
+    specYaml: "policy: periodic-reminder\ntarget: a@software-team\ninterval_seconds: 60\ncontext:\n  target:\n    session: a@software-team\n  message: hi\n",
+    targetSession: "a@software-team",
     intervalSeconds: 60,
-    registeredBySession: "seat@rig",
+    registeredBySession: "seat@software-team",
     ...overrides,
   });
 
@@ -368,7 +368,7 @@ describe("WatchdogJobsRepository — W2c exact-tuple auto-registration", () => {
     policy: "idle-gate-qitem",
     specYaml:
       `policy: idle-gate-qitem\n` +
-      `generated_by: openrig-daemon\n` +
+      `generated_by: softwareteam-daemon\n` +
       `target:\n  session: ${targetSession}\n` +
       `interval_seconds: 60\n` +
       `scan_interval_seconds: 60\n` +
@@ -393,8 +393,8 @@ describe("WatchdogJobsRepository — W2c exact-tuple auto-registration", () => {
   }
 
   it("reuses the sole active row and preserves role-bound daemon identity across handover", () => {
-    const first = repo.register(input("active@rig"));
-    const ensured = ensureFn()(input("active@rig"));
+    const first = repo.register(input("active@software-team"));
+    const ensured = ensureFn()(input("active@software-team"));
     expect(ensured.jobId).toBe(first.jobId);
     expect(ensured).toMatchObject({
       state: "active",
@@ -407,39 +407,39 @@ describe("WatchdogJobsRepository — W2c exact-tuple auto-registration", () => {
   });
 
   it("preserves the sole stopped row as an operator opt-out", () => {
-    const stopped = repo.register(input("stopped@rig"));
+    const stopped = repo.register(input("stopped@software-team"));
     repo.stop(stopped.jobId, "operator_stopped");
-    const ensured = ensureFn()(input("stopped@rig"));
+    const ensured = ensureFn()(input("stopped@software-team"));
     expect(ensured.jobId).toBe(stopped.jobId);
     expect(ensured.state).toBe("stopped");
-    expect(repo.listAll().filter((job) => job.targetSession === "stopped@rig")).toHaveLength(1);
+    expect(repo.listAll().filter((job) => job.targetSession === "stopped@software-team")).toHaveLength(1);
   });
 
   it("terminal-only history creates one replacement and subsequent ensure reuses it", () => {
-    const terminal = repo.register(input("terminal@rig"));
+    const terminal = repo.register(input("terminal@software-team"));
     repo.markTerminal(terminal.jobId, "completed");
     const ensure = ensureFn();
-    const replacement = ensure(input("terminal@rig"));
+    const replacement = ensure(input("terminal@software-team"));
     expect(replacement.jobId).not.toBe(terminal.jobId);
     expect(replacement.state).toBe("active");
-    expect(ensure(input("terminal@rig")).jobId).toBe(replacement.jobId);
-    expect(repo.listAll().filter((job) => job.targetSession === "terminal@rig")).toHaveLength(2);
+    expect(ensure(input("terminal@software-team")).jobId).toBe(replacement.jobId);
+    expect(repo.listAll().filter((job) => job.targetSession === "terminal@software-team")).toHaveLength(2);
   });
 
   it("inspects full history: older active plus newer terminal reuses the active row", () => {
-    const active = repo.register(input("history@rig"));
-    const terminal = repo.register(input("history@rig"));
+    const active = repo.register(input("history@software-team"));
+    const terminal = repo.register(input("history@software-team"));
     repo.markTerminal(terminal.jobId, "newer terminal history");
-    const ensured = ensureFn()(input("history@rig"));
+    const ensured = ensureFn()(input("history@software-team"));
     expect(ensured.jobId).toBe(active.jobId);
-    expect(repo.listAll().filter((job) => job.targetSession === "history@rig")).toHaveLength(2);
+    expect(repo.listAll().filter((job) => job.targetSession === "history@software-team")).toHaveLength(2);
   });
 
   it("fails loudly on every ambiguous nonterminal cardinality with all job ids and states", () => {
     const scenarios = [
-      { target: "two-active@rig", states: ["active", "active"] as const },
-      { target: "two-stopped@rig", states: ["stopped", "stopped"] as const },
-      { target: "active-stopped@rig", states: ["active", "stopped"] as const },
+      { target: "two-active@software-team", states: ["active", "active"] as const },
+      { target: "two-stopped@software-team", states: ["stopped", "stopped"] as const },
+      { target: "active-stopped@software-team", states: ["active", "stopped"] as const },
     ];
     const ensure = ensureFn();
 
@@ -467,27 +467,27 @@ describe("WatchdogJobsRepository — W2c exact-tuple auto-registration", () => {
   it.each(["active", "stopped"] as const)(
     "retargets the sole %s role-bound historical alias without changing job identity",
     (state) => {
-      const old = repo.register(input("old-seat@rig"));
+      const old = repo.register(input("old-seat@software-team"));
       if (state === "stopped") repo.stop(old.jobId, "operator_stopped");
-      const ensured = ensureFn()(input("new-seat@rig"), ["old-seat@rig", "new-seat@rig"]);
-      expect(ensured).toMatchObject({ jobId: old.jobId, state, targetSession: "new-seat@rig" });
-      expect(ensured.specYaml).toContain("session: new-seat@rig");
-      expect(ensured.specYaml).not.toContain("session: old-seat@rig");
+      const ensured = ensureFn()(input("new-seat@software-team"), ["old-seat@software-team", "new-seat@software-team"]);
+      expect(ensured).toMatchObject({ jobId: old.jobId, state, targetSession: "new-seat@software-team" });
+      expect(ensured.specYaml).toContain("session: new-seat@software-team");
+      expect(ensured.specYaml).not.toContain("session: old-seat@software-team");
       expect(repo.listAll().filter((job) => job.state !== "terminal")).toHaveLength(1);
     },
   );
 
   it("rejects conflicts across historical aliases with every row in structured details", () => {
-    const old = repo.register(input("old-seat@rig"));
-    const current = repo.register(input("new-seat@rig"));
+    const old = repo.register(input("old-seat@software-team"));
+    const current = repo.register(input("new-seat@software-team"));
     try {
-      ensureFn()(input("new-seat@rig"), ["old-seat@rig", "new-seat@rig"]);
+      ensureFn()(input("new-seat@software-team"), ["old-seat@software-team", "new-seat@software-team"]);
       throw new Error("expected alias conflict");
     } catch (error) {
       expect(error).toBeInstanceOf(WatchdogJobsError);
       expect((error as WatchdogJobsError).code).toBe("auto_registration_ambiguous");
       expect((error as WatchdogJobsError).details).toMatchObject({
-        targetSession: "new-seat@rig",
+        targetSession: "new-seat@software-team",
         rows: expect.arrayContaining([
           { jobId: old.jobId, state: "active" },
           { jobId: current.jobId, state: "active" },
@@ -497,25 +497,25 @@ describe("WatchdogJobsRepository — W2c exact-tuple auto-registration", () => {
   });
 
   it("terminal-only alias history creates one replacement for the current seat", () => {
-    const old = repo.register(input("old-seat@rig"));
+    const old = repo.register(input("old-seat@software-team"));
     repo.markTerminal(old.jobId, "completed");
-    const replacement = ensureFn()(input("new-seat@rig"), ["old-seat@rig", "new-seat@rig"]);
-    expect(replacement).toMatchObject({ state: "active", targetSession: "new-seat@rig" });
+    const replacement = ensureFn()(input("new-seat@software-team"), ["old-seat@software-team", "new-seat@software-team"]);
+    expect(replacement).toMatchObject({ state: "active", targetSession: "new-seat@software-team" });
     expect(replacement.jobId).not.toBe(old.jobId);
     expect(repo.listAll()).toHaveLength(2);
   });
 
   it("refuses any persisted state outside active, stopped, and terminal", () => {
-    const invalid = repo.register(input("paused@rig"));
+    const invalid = repo.register(input("paused@software-team"));
     db.prepare("UPDATE watchdog_jobs SET state = 'paused' WHERE job_id = ?").run(invalid.jobId);
     try {
-      ensureFn()(input("paused@rig"));
+      ensureFn()(input("paused@software-team"));
       throw new Error("expected invalid state refusal");
     } catch (error) {
       expect(error).toBeInstanceOf(WatchdogJobsError);
       expect((error as WatchdogJobsError).code).toBe("auto_registration_state_invalid");
       expect((error as WatchdogJobsError).details).toMatchObject({
-        targetSession: "paused@rig",
+        targetSession: "paused@software-team",
         rows: [{ jobId: invalid.jobId, state: "paused" }],
       });
     }

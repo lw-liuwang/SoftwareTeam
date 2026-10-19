@@ -21,18 +21,18 @@ function EventHubHarness() {
   const edgeActivity = useTopologyEdgeActivity();
   const topologyActivity = useTopologyActivity(buildTopologySessionIndex([
     {
-      nodeId: "rig-1::orch.lead",
-      rigId: "rig-1",
-      rigName: "rig-1",
+      nodeId: "software-team-1::orch.lead",
+      softwareTeamId: "software-team-1",
+      softwareTeamName: "software-team-1",
       logicalId: "orch.lead",
-      canonicalSessionName: "orch.lead@rig-1",
+      canonicalSessionName: "orch.lead@software-team-1",
     },
     {
-      nodeId: "rig-1::dev.driver",
-      rigId: "rig-1",
-      rigName: "rig-1",
+      nodeId: "software-team-1::dev.driver",
+      softwareTeamId: "software-team-1",
+      softwareTeamName: "software-team-1",
       logicalId: "dev.driver",
-      canonicalSessionName: "dev.driver@rig-1",
+      canonicalSessionName: "dev.driver@software-team-1",
     },
   ]));
   return (
@@ -84,8 +84,8 @@ describe("P5.3 shared topology event hub", () => {
     act(() => {
       instances[0]!.simulateMessage(JSON.stringify({
         type: "queue.created",
-        sourceSession: "orch.lead@rig-1",
-        destinationSession: "dev.driver@rig-1",
+        sourceSession: "orch.lead@software-team-1",
+        destinationSession: "dev.driver@software-team-1",
         seq: 1,
       }));
     });
@@ -105,7 +105,7 @@ describe("P5.3 shared topology event hub", () => {
     const hookFiles = [
       "hooks/useActivityFeed.ts",
       "hooks/useGlobalEvents.ts",
-      "hooks/useRigEvents.ts",
+      "hooks/useSoftwareTeamEvents.ts",
       "hooks/useTopologyEdgeActivity.ts",
       "hooks/useTopologyActivity.ts",
     ];
@@ -143,14 +143,14 @@ describe("P5.3 shared topology event hub", () => {
 
       // Host-derived 594-event qualifying burst (the useActivityFeed ps+summary types).
       const burst: Array<[string, number]> = [
-        ["session.detached", 437], ["rig.deleted", 49], ["rig.expanded", 35],
+        ["session.detached", 437], ["software-team.deleted", 49], ["softwareTeam.expanded", 35],
         ["restore.completed", 35], ["node.claimed", 21], ["node.removed", 14], ["pod.deleted", 3],
       ];
       let seq = 1;
       act(() => {
         for (const [type, n] of burst) {
           for (let i = 0; i < n; i++) {
-            instances[0]!.simulateMessage(JSON.stringify({ type, rigId: "rig-1", seq: seq++ }));
+            instances[0]!.simulateMessage(JSON.stringify({ type, softwareTeamId: "software-team-1", seq: seq++ }));
           }
         }
       });
@@ -163,9 +163,9 @@ describe("P5.3 shared topology event hub", () => {
       // Genuine RED at the test-only gate; regression now. Pre-fix, useActivityFeed
       // invalidated ps + default-summary PER event (no debounce); now coalesced to one.
       expect(countKey(["ps"])).toBe(1);
-      expect(countKey(["rigs", "summary"])).toBe(1);
-      // GREEN pins that must survive the fix: distinct-key rig/discovery fan + the 100 feed cap.
-      expect(countPrefix("rig")).toBeGreaterThan(0);
+      expect(countKey(["softwareTeams", "summary"])).toBe(1);
+      // GREEN pins that must survive the fix: distinct-key softwareTeam/discovery fan + the 100 feed cap.
+      expect(countPrefix("softwareTeam")).toBeGreaterThan(0);
       expect(countPrefix("discovery")).toBeGreaterThan(0);
       expect(Number(screen.getByTestId("hub-event-count").textContent)).toBe(100);
     } finally {
@@ -180,13 +180,13 @@ describe("P5.3 shared topology event hub", () => {
       await act(async () => { await Promise.resolve(); await Promise.resolve(); });
       act(() => {
         for (let i = 0; i < 50; i++) {
-          instances[0]!.simulateMessage(JSON.stringify({ type: "agent.activity", rigId: "rig-1", nodeId: "rig-1::orch.lead", seq: i + 1 }));
+          instances[0]!.simulateMessage(JSON.stringify({ type: "agent.activity", softwareTeamId: "software-team-1", nodeId: "software-team-1::orch.lead", seq: i + 1 }));
         }
       });
       act(() => { vi.advanceTimersByTime(200); });
       const psSummary = invalSpy.mock.calls
         .map((c) => (c[0] as { queryKey?: unknown } | undefined)?.queryKey)
-        .filter((k) => Array.isArray(k) && (k[0] === "ps" || (k[0] === "rigs" && k[1] === "summary")));
+        .filter((k) => Array.isArray(k) && (k[0] === "ps" || (k[0] === "softwareTeams" && k[1] === "summary")));
       expect(psSummary).toHaveLength(0);
     } finally {
       vi.useRealTimers();

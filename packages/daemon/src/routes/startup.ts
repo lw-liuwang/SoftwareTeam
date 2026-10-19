@@ -5,16 +5,16 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type Database from "better-sqlite3";
-import type { RigRepository } from "../domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "../domain/software-team-repository.js";
 import type { SessionRegistry } from "../domain/session-registry.js";
 import type { SnapshotRepository } from "../domain/snapshot-repository.js";
 import type { SnapshotCapture } from "../domain/snapshot-capture.js";
 import type { RestoreOrchestrator } from "../domain/restore-orchestrator.js";
 import type { RuntimeAdapter } from "../domain/runtime-adapter.js";
-import type { PodRigInstantiator } from "../domain/rigspec-instantiator.js";
+import type { PodSoftwareTeamInstantiator } from "../domain/software-team-spec-instantiator.js";
 import type { ResumeMetadataRefresher } from "../domain/resume-metadata-refresher.js";
 import type { TmuxAdapter } from "../adapters/tmux.js";
-import type { Node, RigWithRelations } from "../domain/types.js";
+import type { Node, SoftwareTeamWithRelations } from "../domain/types.js";
 import { defaultProbeRuntimes } from "../domain/kernel-boot.js";
 import { SettingsStore } from "../domain/user-settings/settings-store.js";
 import { buildRestorePlanPreview, collectPreviewSessionRows } from "../domain/restore-plan-preview.js";
@@ -23,8 +23,8 @@ import { deriveCanonicalSessionName, deriveSessionName } from "../domain/session
 import { observeSolePane } from "../domain/pane-binding-observation.js";
 import { assessNativeResumeProbe } from "../domain/native-resume-probe.js";
 import { verifyPaneIdleShell, type NativeProcessLister } from "../domain/native-process-lineage.js";
-import { RigSpecCodec } from "../domain/rigspec-codec.js";
-import { RigSpecSchema } from "../domain/rigspec-schema.js";
+import { SoftwareTeamSpecCodec } from "../domain/software-team-spec-codec.js";
+import { SoftwareTeamSpecSchema } from "../domain/software-team-spec-schema.js";
 import { seatLifecycleService } from "./seat.js";
 import { authBearerTokenMiddleware } from "../middleware/auth-bearer-token.js";
 import { readFreshOccupantRelations } from "../domain/fresh-occupant-relation.js";
@@ -40,7 +40,7 @@ startupRoutes.use("*", async (c, next) => {
 });
 const active = new WeakMap<Database.Database, Set<string>>();
 function dep<T>(c: Context, key: string): T { return c.get(key as never) as T; }
-function repo(c: Context) { return dep<RigRepository>(c, "rigRepo"); }
+function repo(c: Context) { return dep<SoftwareTeamRepository>(c, "softwareTeamRepo"); }
 function sessions(c: Context) { return dep<SessionRegistry>(c, "sessionRegistry"); }
 function tmux(c: Context) { return dep<TmuxAdapter>(c, "tmuxAdapter"); }
 
@@ -61,16 +61,16 @@ async function exclusive(c: Context, key: string, action: () => Promise<Response
   try { return await action(); } finally { locks.delete(key); }
 }
 
-function currentSnapshot(c: Context, rig: RigWithRelations) {
-  const snapshot = dep<SnapshotRepository>(c, "snapshotRepo").findLatestRestoreUsable(rig.rig.id);
-  return snapshot && snapshotMatchesCurrentOccupants(repo(c).db, rig, snapshot) ? snapshot : null;
+function currentSnapshot(c: Context, softwareTeam: SoftwareTeamWithRelations) {
+  const snapshot = dep<SnapshotRepository>(c, "snapshotRepo").findLatestRestoreUsable(softwareTeam.softwareTeam.id);
+  return snapshot && snapshotMatchesCurrentOccupants(repo(c).db, softwareTeam, snapshot) ? snapshot : null;
 }
 
-async function observeSeat(c: Context, rig: RigWithRelations, node: Node) {
+async function observeSeat(c: Context, softwareTeam: SoftwareTeamWithRelations, node: Node) {
   const dot = node.logicalId.indexOf(".");
   const name = sessions(c).getBindingForNode(node.id)?.tmuxSession ?? (node.podId && dot > 0
-    ? deriveCanonicalSessionName(node.logicalId.slice(0, dot), node.logicalId.slice(dot + 1), rig.rig.name)
-    : deriveSessionName(rig.rig.name, node.logicalId));
+    ? deriveCanonicalSessionName(node.logicalId.slice(0, dot), node.logicalId.slice(dot + 1), softwareTeam.softwareTeam.name)
+    : deriveSessionName(softwareTeam.softwareTeam.name, node.logicalId));
   try {
     const presence = await tmux(c).probeSession(name);
     if (presence.state === "absent") return { state: "stopped", detail: "No live terminal", sessionName: name };
@@ -94,9 +94,9 @@ async function observeSeat(c: Context, rig: RigWithRelations, node: Node) {
   }
 }
 
-async function refreshNativeMetadata(c: Context, rigId: string) {
+async function refreshNativeMetadata(c: Context, softwareTeamId: string) {
   const refresher = dep<ResumeMetadataRefresher | undefined>(c, "resumeMetadataRefresher");
-  if (refresher) await refresher.refresh(sessions(c).getLatestLiveSessions(rigId), { fillNullOnly: true });
+  if (refresher) await refresher.refresh(sessions(c).getLatestLiveSessions(softwareTeamId), { fillNullOnly: true });
 }
 
 startupRoutes.get("/prerequisites", async (c) => c.json(await defaultProbeRuntimes()));
@@ -109,55 +109,55 @@ startupRoutes.post("/terminal", (c) => exclusive(c, "terminal", async () => {
 startupRoutes.post("/kernel", (c) => exclusive(c, "kernel", async () => {
   const body = await c.req.json().catch(() => ({}));
   if (body.runtime !== "codex" && body.runtime !== "claude-code") return c.json({ ok: false, message: "Choose an authenticated runtime for the new kernel." }, 400);
-  const existing = repo(c).findRigsByName("kernel");
-  if (existing.length > 1) return c.json({ ok: false, message: "More than one kernel exists; select an exact rig before continuing." }, 409);
-  if (existing.length === 1) return c.json({ ok: true, rigId: existing[0]!.id, reused: true });
+  const existing = repo(c).findSoftwareTeamsByName("kernel");
+  if (existing.length > 1) return c.json({ ok: false, message: "More than one kernel exists; select an exact SoftwareTeam before continuing." }, 409);
+  if (existing.length === 1) return c.json({ ok: true, softwareTeamId: existing[0]!.id, reused: true });
   const auth = await defaultProbeRuntimes();
   if ((body.runtime === "codex" ? auth.codex : auth.claudeCode) !== "ok") return c.json({ ok: false, code: "provider_prerequisite", message: "The selected runtime is unavailable or unauthenticated. Repair that prerequisite and retry; fresh history will not fix it." }, 409);
   const root = kernelRoot();
-  const source = readFileSync(root + (body.runtime === "codex" ? "rig-codex-only.yaml" : "rig-claude-only.yaml"), "utf8");
-  const result = await dep<PodRigInstantiator>(c, "podInstantiator").materialize(source, root, {
+  const source = readFileSync(root + (body.runtime === "codex" ? "software-team-codex-only.yaml" : "software-team-claude-only.yaml"), "utf8");
+  const result = await dep<PodSoftwareTeamInstantiator>(c, "podInstantiator").materialize(source, root, {
     cwdOverride: new SettingsStore().resolveConfig().workspaceRoot,
   });
-  return c.json(result.ok ? { ok: true, rigId: result.result.rigId, message: "Kernel prepared. Choose the seats to start." } : result, result.ok ? 200 : 409);
+  return c.json(result.ok ? { ok: true, softwareTeamId: result.result.softwareTeamId, message: "Kernel prepared. Choose the seats to start." } : result, result.ok ? 200 : 409);
 }));
 
-function kernelRoot() { return fileURLToPath(new URL("../../specs/rigs/launch/kernel/", import.meta.url)); }
+function kernelRoot() { return fileURLToPath(new URL("../../specs/software-teams/launch/kernel/", import.meta.url)); }
 
-startupRoutes.get("/:rigId", async (c) => {
-  const rig = repo(c).getRig(c.req.param("rigId"));
-  if (!rig) return c.json({ ok: false, message: "Rig is no longer available." }, 404);
-  const snapshot = currentSnapshot(c, rig);
-  const plan = buildRestorePlanPreview(rig, snapshot, collectPreviewSessionRows(repo(c).db, rig, snapshot), undefined, Date.now(), readFreshOccupantRelations(repo(c).db, rig.rig.id));
+startupRoutes.get("/:softwareTeamId", async (c) => {
+  const softwareTeam = repo(c).getSoftwareTeam(c.req.param("softwareTeamId"));
+  if (!softwareTeam) return c.json({ ok: false, message: "SoftwareTeam is no longer available." }, 404);
+  const snapshot = currentSnapshot(c, softwareTeam);
+  const plan = buildRestorePlanPreview(softwareTeam, snapshot, collectPreviewSessionRows(repo(c).db, softwareTeam, snapshot), undefined, Date.now(), readFreshOccupantRelations(repo(c).db, softwareTeam.softwareTeam.id));
   const auth = await defaultProbeRuntimes();
-  const history = sessions(c).getSessionsForRig(rig.rig.id);
+  const history = sessions(c).getSessionsForSoftwareTeam(softwareTeam.softwareTeam.id);
   const seats = [];
-  for (const node of rig.nodes) {
+  for (const node of softwareTeam.nodes) {
     const forecast = plan.nodes.find((entry) => entry.logicalId === node.logicalId)!;
     const hasHistory = history.some((session) => session.nodeId === node.id);
     const available = node.runtime === "codex" ? auth.codex === "ok" : node.runtime === "claude-code" ? auth.claudeCode === "ok" : true;
-    const observed = await observeSeat(c, rig, node);
+    const observed = await observeSeat(c, softwareTeam, node);
     seats.push({ ...forecast, hasHistory, nodeId: node.id, runtime: node.runtime, model: node.model,
       revision: startupRevision(repo(c).db, node), observed,
       contextPending: history.some((session) => session.nodeId === node.id && dep<import("../domain/startup-orchestrator.js").StartupOrchestrator>(c, "startupOrchestrator")?.canContinueFresh(node.id, session.id)),
       freshAllowed: available && observed.state === "stopped",
       ...(!available ? { prerequisite: `${node.runtime} is unavailable or unauthenticated. Repair it and retry; fresh history cannot repair this prerequisite.` } : {}) });
   }
-  return c.json({ rigId: rig.rig.id, rigName: rig.rig.name, seats });
+  return c.json({ softwareTeamId: softwareTeam.softwareTeam.id, softwareTeamName: softwareTeam.softwareTeam.name, seats });
 });
 
-startupRoutes.post("/:rigId/:logicalId", async (c) => {
-  const rig = repo(c).getRig(c.req.param("rigId"));
-  const node = rig?.nodes.find((entry) => entry.logicalId === c.req.param("logicalId"));
-  if (!rig || !node) return c.json({ ok: false, message: "Selected seat is no longer available." }, 404);
+startupRoutes.post("/:softwareTeamId/:logicalId", async (c) => {
+  const softwareTeam = repo(c).getSoftwareTeam(c.req.param("softwareTeamId"));
+  const node = softwareTeam?.nodes.find((entry) => entry.logicalId === c.req.param("logicalId"));
+  if (!softwareTeam || !node) return c.json({ ok: false, message: "Selected seat is no longer available." }, 404);
   return exclusive(c, node.id, async () => {
     const body = await c.req.json().catch(() => ({}));
     if (!["resume", "start", "fresh", "continue"].includes(body.action) || typeof body.revision !== "string") return c.json({ ok: false, message: "A named action and current seat revision are required." }, 400);
     if (body.revision !== startupRevision(repo(c).db, node)) return c.json({ ok: false, code: "selection_changed", message: "The seat changed since this choice was displayed. Refresh and make a new decision." }, 409);
-    const observed = await observeSeat(c, rig, node);
+    const observed = await observeSeat(c, softwareTeam, node);
     if (body.action === "continue") {
       const result = await seatLifecycleService(c).continueFreshStartup(observed.sessionName);
-      await refreshNativeMetadata(c, rig.rig.id);
+      await refreshNativeMetadata(c, softwareTeam.softwareTeam.id);
       return c.json(result, result.ok ? 200 : 409);
     }
     // A present or unprobeable pane is never overwritten, even on explicit fresh.
@@ -170,47 +170,47 @@ startupRoutes.post("/:rigId/:logicalId", async (c) => {
     }
     if (body.revision !== startupRevision(repo(c).db, node)) return c.json({ ok: false, code: "selection_changed",
       message: "The seat changed while prerequisites were checked. Refresh before making a new decision." }, 409);
-    const history = sessions(c).getSessionsForRig(rig.rig.id).filter((session) => session.nodeId === node.id);
+    const history = sessions(c).getSessionsForSoftwareTeam(softwareTeam.softwareTeam.id).filter((session) => session.nodeId === node.id);
     if (body.action === "start" && history.length > 0) return c.json({ ok: false, code: "history_present", message: "This seat has prior history. Choose resume, or explicitly confirm a fresh conversation." }, 409);
     if (body.action === "fresh") {
       const result = await seatLifecycleService(c).launchFresh({ seatRef: observed.sessionName, fresh: true,
         reason: `TUI explicit fresh consent for ${node.logicalId}, observed revision ${body.revision}`, stop: false });
-      await refreshNativeMetadata(c, rig.rig.id);
-      if (result.ok) dep<SnapshotCapture>(c, "snapshotCapture").captureSnapshot(rig.rig.id, "auto-rehydrate");
+      await refreshNativeMetadata(c, softwareTeam.softwareTeam.id);
+      if (result.ok) dep<SnapshotCapture>(c, "snapshotCapture").captureSnapshot(softwareTeam.softwareTeam.id, "auto-rehydrate");
       return c.json(result, result.ok ? 200 : 409);
     }
     // Never-occupied builtin seats reuse materialization's existing launch effect.
-    if (history.length === 0 && rig.rig.name === "kernel") {
+    if (history.length === 0 && softwareTeam.softwareTeam.name === "kernel") {
       const root = kernelRoot();
-      const raw = RigSpecCodec.parse(readFileSync(root + (node.runtime === "codex" ? "rig-codex-only.yaml" : "rig-claude-only.yaml"), "utf8"));
-      const spec = RigSpecSchema.normalize(raw as Record<string, unknown>);
+      const raw = SoftwareTeamSpecCodec.parse(readFileSync(root + (node.runtime === "codex" ? "software-team-codex-only.yaml" : "software-team-claude-only.yaml"), "utf8"));
+      const spec = SoftwareTeamSpecSchema.normalize(raw as Record<string, unknown>);
       const pod = spec.pods.find((entry) => entry.id === node.logicalId.split(".")[0]);
       const member = pod?.members.find((entry) => `${pod.id}.${entry.id}` === node.logicalId);
       if (!pod || !member || member.agentRef !== node.agentRef || member.runtime !== node.runtime) return c.json({ ok: false, message: "This kernel seat differs from the installed definition; its owner must repair the startup source." }, 409);
-      const result = await dep<PodRigInstantiator>(c, "podInstantiator").launchBinding({ rigId: rig.rig.id, rigSpec: spec, rigRoot: root, pod,
+      const result = await dep<PodSoftwareTeamInstantiator>(c, "podInstantiator").launchBinding({ softwareTeamId: softwareTeam.softwareTeam.id, softwareTeamSpec: spec, softwareTeamRoot: root, pod,
         member: { ...member, ...(node.model ? { model: node.model } : {}) }, qualifiedId: node.logicalId, nodeId: node.id, cwdOverride: node.cwd ?? undefined });
-      await refreshNativeMetadata(c, rig.rig.id);
-      dep<SnapshotCapture>(c, "snapshotCapture").captureSnapshot(rig.rig.id, "auto-rehydrate");
-      const after = await observeSeat(c, rig, node);
+      await refreshNativeMetadata(c, softwareTeam.softwareTeam.id);
+      dep<SnapshotCapture>(c, "snapshotCapture").captureSnapshot(softwareTeam.softwareTeam.id, "auto-rehydrate");
+      const after = await observeSeat(c, softwareTeam, node);
       const ok = result.status === "launched" && after.state === "running";
       return c.json({ ...result, ok, observed: after, ...(!ok ? { message: after.detail, freshAllowed: false } : {}) }, ok ? 200 : 409);
     }
-    const selectedRig = { ...rig, nodes: [node] };
-    let snapshot = currentSnapshot(c, selectedRig);
+    const selectedSoftwareTeam = { ...softwareTeam, nodes: [node] };
+    let snapshot = currentSnapshot(c, selectedSoftwareTeam);
     if (!snapshot) {
-      const eligibility = assessCurrentStateRehydrateEligibility(repo(c).db, selectedRig);
+      const eligibility = assessCurrentStateRehydrateEligibility(repo(c).db, selectedSoftwareTeam);
       if (!eligibility.ok) return c.json({ ok: false, code: "startup_source_unavailable", message: eligibility.blockers.join("; ") }, 409);
-      snapshot = dep<SnapshotCapture>(c, "snapshotCapture").captureSnapshot(rig.rig.id, "auto-rehydrate");
+      snapshot = dep<SnapshotCapture>(c, "snapshotCapture").captureSnapshot(softwareTeam.softwareTeam.id, "auto-rehydrate");
     }
-    const forecast = buildRestorePlanPreview(selectedRig, snapshot, collectPreviewSessionRows(repo(c).db, selectedRig, snapshot)).nodes[0]!;
+    const forecast = buildRestorePlanPreview(selectedSoftwareTeam, snapshot, collectPreviewSessionRows(repo(c).db, selectedSoftwareTeam, snapshot)).nodes[0]!;
     if (history.length > 0 && forecast.intendedAction !== "resume-original") return c.json({ ok: false, code: "resume_unavailable", freshAllowed: forecast.freshRequired,
       message: forecast.reason ?? "The prior conversation cannot be resumed under this seat's configured policy. A fresh conversation needs a separate decision." }, 409);
-    const result = await dep<RestoreOrchestrator>(c, "restoreOrchestrator").launchSingleNode(rig.rig.id, node.logicalId, {
+    const result = await dep<RestoreOrchestrator>(c, "restoreOrchestrator").launchSingleNode(softwareTeam.softwareTeam.id, node.logicalId, {
       snapshotId: snapshot.id, adapters: dep<Record<string, RuntimeAdapter>>(c, "runtimeAdapters"), fsOps: { exists: existsSync },
     });
     const outcome = result.launched?.[0];
     const ok = result.ok && (!outcome || ["resumed", "fresh-primed"].includes(outcome.status));
-    await refreshNativeMetadata(c, rig.rig.id);
+    await refreshNativeMetadata(c, softwareTeam.softwareTeam.id);
     return c.json({ ...result, ok, code: outcome?.status ?? result.code,
       message: outcome?.error ?? result.message ?? (outcome?.status === "resumed" ? "Previous conversation resumed." : "Seat launch reconciled.") }, ok ? 200 : 409);
   });

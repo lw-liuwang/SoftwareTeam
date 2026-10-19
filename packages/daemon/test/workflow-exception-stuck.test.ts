@@ -31,10 +31,10 @@ const SPEC = `workflow:
   roles:
     producer:
       preferred_targets:
-        - producer@rig
+        - producer@software-team
     orch:
       preferred_targets:
-        - orch-lead@rig
+        - orch-lead@software-team
   steps:
     - id: produce
       actor_role: producer
@@ -62,8 +62,8 @@ describe("WF-5 FR-2 class (b): detection-time stuck exception items", () => {
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
     const bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    const queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    const queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     queueRepo.attachOutbox(new OutboxHandler(db));
     const runtime = new WorkflowRuntime({ db, eventBus: bus, queueRepo });
     const watchdogJobsRepo = new WatchdogJobsRepository(db);
@@ -79,7 +79,7 @@ describe("WF-5 FR-2 class (b): detection-time stuck exception items", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "stuck walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const packetId = inst.instance.currentFrontier[0]!;
     // Backdate the never-claimed packet past the single-home threshold.
@@ -113,12 +113,12 @@ describe("WF-5 FR-2 class (b): detection-time stuck exception items", () => {
     const rows = exceptionRows(db);
     expect(rows).toHaveLength(1);
     const item = rows[0]!;
-    expect(item.destination_session).toBe("orch-lead@rig");
+    expect(item.destination_session).toBe("orch-lead@software-team");
     expect(item.tier).not.toBe("human-gate");
     const tags = String(item.tags);
     expect(tags).toContain(`occurrence:${f.packetId}`);
     expect(tags).toContain("step:produce");
-    expect(String(item.evidence_ref)).toContain("rig workflow trace");
+    expect(String(item.evidence_ref)).toContain("SoftwareTeam workflow trace");
     expect(String(item.body)).toContain("packet age alone does not establish idle");
   });
 
@@ -138,7 +138,7 @@ describe("WF-5 FR-2 class (b): detection-time stuck exception items", () => {
     const evaluation = await policy.evaluate({
       jobId: "job-1",
       policy: "workflow-keepalive",
-      target: { session: "producer@rig" },
+      target: { session: "producer@software-team" },
       context: { workflow_instance_id: f.inst.instance.instanceId, deadline_gated: true },
     } as never);
     expect(evaluation.action).toBe("skip");
@@ -151,7 +151,7 @@ describe("WF-5 FR-2 class (b): detection-time stuck exception items", () => {
     await policy.evaluate({
       jobId: "job-1",
       policy: "workflow-keepalive",
-      target: { session: "producer@rig" },
+      target: { session: "producer@software-team" },
       context: { workflow_instance_id: f.inst.instance.instanceId, deadline_gated: true },
     } as never);
     expect(exceptionRows(db)).toHaveLength(1);
@@ -209,19 +209,19 @@ describe("WF-5 FR-2 class (b): detection-time stuck exception items", () => {
     await sweep(f);
     const first = String(exceptionRows(db)[0]!.qitem_id);
     await f.runtime.project({ instanceId: f.inst.instance.instanceId, currentPacketId: f.packetId,
-      actorSession: "producer@rig", exit: "waiting", blockedOn: "authored-external-condition" });
+      actorSession: "producer@software-team", exit: "waiting", blockedOn: "authored-external-condition" });
     expect(f.queueRepo.getById(first)?.state).toBe("done");
     expect(f.queueRepo.getById(first)?.closureReason).toBe("no-follow-on");
     expect(db.prepare("SELECT count(*) n FROM queue_transitions WHERE qitem_id = ?").get(first)).toMatchObject({ n: 2 });
     expect(f.runtime.reconcileStuckExceptions()).toBe(0);
-    await f.queueRepo.update({ qitemId: f.packetId, actorSession: "producer@rig", state: "pending", transitionNote: "condition cleared" });
+    await f.queueRepo.update({ qitemId: f.packetId, actorSession: "producer@software-team", state: "pending", transitionNote: "condition cleared" });
     await sweep(f);
     await sweep(f);
     const rows = exceptionRows(db);
     expect(rows).toHaveLength(2);
     expect(rows.filter((r) => r.state === "pending")).toHaveLength(1);
     await f.runtime.project({ instanceId: f.inst.instance.instanceId, currentPacketId: f.packetId,
-      actorSession: "producer@rig", exit: "done" });
+      actorSession: "producer@software-team", exit: "done" });
     expect(exceptionRows(db).every((r) => r.state === "done")).toBe(true);
   });
 
@@ -229,7 +229,7 @@ describe("WF-5 FR-2 class (b): detection-time stuck exception items", () => {
     const f = await build();
     await sweep(f);
     // Model project committed before reconciliation (a crash window).
-    await f.queueRepo.update({ qitemId: f.packetId, actorSession: "producer@rig", state: "blocked",
+    await f.queueRepo.update({ qitemId: f.packetId, actorSession: "producer@software-team", state: "blocked",
       closureReason: "blocked_on", blockedOn: "authored-condition", transitionNote: "waiting" });
     const policy = makeWorkflowKeepalivePolicy({ db, ensureStuckExceptionItem: f.ensurer,
       reconcileStuckExceptions: (id) => f.runtime.reconcileStuckExceptions(id) });
@@ -250,18 +250,18 @@ describe("WF-5 FR-2 class (b): detection-time stuck exception items", () => {
 
   it("one healthy packet cannot clear an overdue sibling or a foreign occurrence", async () => {
     const f = await build();
-    const second = await f.queueRepo.create({ sourceSession: "ops@rig", destinationSession: "producer@rig",
+    const second = await f.queueRepo.create({ sourceSession: "ops@software-team", destinationSession: "producer@software-team",
       body: "parallel fixture", tags: ["workflow:wf5-stuck-pipeline", `instance:${f.inst.instance.instanceId}`] });
     db.prepare("UPDATE workflow_instances SET current_frontier_json = ? WHERE instance_id = ?")
       .run(JSON.stringify([f.packetId, second.qitemId]), f.inst.instance.instanceId);
     await sweep(f);
     const overdue = String(exceptionRows(db)[0]!.qitem_id);
-    const foreign = await f.queueRepo.create({ sourceSession: "ops@rig", destinationSession: "orch-lead@rig",
+    const foreign = await f.queueRepo.create({ sourceSession: "ops@software-team", destinationSession: "orch-lead@software-team",
       body: "unknown provenance", tags: ["workflow-exception", "exception:stuck_overdue", "workflow:wf5-stuck-pipeline",
         "instance:unknown-instance", `occurrence:${f.packetId}`] });
     expect(f.runtime.reconcileStuckExceptions()).toBe(0);
     expect(f.queueRepo.getById(overdue)?.state).toBe("pending");
-    await f.queueRepo.update({ qitemId: f.packetId, actorSession: "producer@rig", state: "blocked",
+    await f.queueRepo.update({ qitemId: f.packetId, actorSession: "producer@software-team", state: "blocked",
       closureReason: "blocked_on", blockedOn: "authored-condition", transitionNote: "waiting" });
     expect(f.runtime.reconcileStuckExceptions()).toBe(1);
     expect(f.queueRepo.getById(foreign.qitemId)?.state).toBe("pending");
@@ -276,7 +276,7 @@ describe("WF-5 FR-2 class (b): detection-time stuck exception items", () => {
       deadline_gated: true } } as never);
     expect(result.action).toBe("send");
     if (result.action !== "send") throw new Error("owner nudge missing");
-    expect(result.target.session).toBe("producer@rig");
+    expect(result.target.session).toBe("producer@software-team");
     expect(result.notes?.exceptionItemError).toContain("No registered human");
     expect(result.message).toContain("was not admitted");
     expect(exceptionRows(db)).toHaveLength(0);
@@ -294,19 +294,19 @@ describe("WF-5 FR-2 class (b): detection-time stuck exception items", () => {
   exception_routing:`);
     const f = await build(parallel);
     const instanceId = f.inst.instance.instanceId;
-    await f.runtime.project({ instanceId, currentPacketId: f.packetId, actorSession: "producer@rig", exit: "done" });
+    await f.runtime.project({ instanceId, currentPacketId: f.packetId, actorSession: "producer@software-team", exit: "done" });
     const packets = f.runtime.instanceStore.getByIdOrThrow(instanceId).currentFrontier;
     expect(packets).toHaveLength(2);
     for (const id of packets) db.prepare("UPDATE queue_items SET ts_created = '2020-01-01T00:00:00Z' WHERE qitem_id = ?").run(id);
     await sweep(f);
     expect(exceptionRows(db)).toHaveLength(2);
-    await f.runtime.project({ instanceId, currentPacketId: packets[0]!, actorSession: "producer@rig", exit: "done" });
+    await f.runtime.project({ instanceId, currentPacketId: packets[0]!, actorSession: "producer@software-team", exit: "done" });
     const remaining = exceptionRows(db).filter((row) => row.state === "pending");
     expect(remaining).toHaveLength(1);
     expect(JSON.parse(String(remaining[0]!.tags))).toContain(`occurrence:${packets[1]}`);
     await sweep(f);
     expect(exceptionRows(db)).toHaveLength(2);
-    await f.runtime.project({ instanceId, currentPacketId: packets[1]!, actorSession: "producer@rig", exit: "done" });
+    await f.runtime.project({ instanceId, currentPacketId: packets[1]!, actorSession: "producer@software-team", exit: "done" });
     expect(exceptionRows(db).every((row) => row.state === "done")).toBe(true);
   });
 

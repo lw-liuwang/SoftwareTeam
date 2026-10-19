@@ -11,7 +11,7 @@ import { useRouterState } from "@tanstack/react-router";
 
 export interface SpecsDraft {
   id: string;
-  kind: "rig" | "agent";
+  kind: "softwareTeam" | "agent";
   label: string;
   yaml: string;
   updatedAt: number;
@@ -26,17 +26,17 @@ export interface SpecsTask {
 
 interface SpecsWorkspaceValue {
   activeTask: SpecsTask | null;
-  currentRigDraft: SpecsDraft | null;
+  currentSoftwareTeamDraft: SpecsDraft | null;
   currentAgentDraft: SpecsDraft | null;
-  recentRigDrafts: SpecsDraft[];
+  recentSoftwareTeamDrafts: SpecsDraft[];
   recentAgentDrafts: SpecsDraft[];
-  selectedRigDraft: SpecsDraft | null;
+  selectedSoftwareTeamDraft: SpecsDraft | null;
   selectedAgentDraft: SpecsDraft | null;
   bootstrapSourceRef: string;
-  saveRigDraft: (yaml: string, label?: string) => void;
-  rememberRigDraft: (yaml: string, label?: string) => void;
-  selectRigDraft: (draftId: string) => void;
-  clearSelectedRigDraft: () => void;
+  saveSoftwareTeamDraft: (yaml: string, label?: string) => void;
+  rememberSoftwareTeamDraft: (yaml: string, label?: string) => void;
+  selectSoftwareTeamDraft: (draftId: string) => void;
+  clearSelectedSoftwareTeamDraft: () => void;
   saveAgentDraft: (yaml: string, label?: string) => void;
   rememberAgentDraft: (yaml: string, label?: string) => void;
   selectAgentDraft: (draftId: string) => void;
@@ -45,34 +45,34 @@ interface SpecsWorkspaceValue {
 }
 
 export const SPECS_WORKSPACE_STORAGE_KEYS = {
-  currentRigDraft: "openrig.specs.current-rig-draft",
-  currentAgentDraft: "openrig.specs.current-agent-draft",
-  recentRigDrafts: "openrig.specs.recent-rig-drafts",
-  recentAgentDrafts: "openrig.specs.recent-agent-drafts",
-  bootstrapSourceRef: "openrig.specs.bootstrap-source-ref",
+  currentSoftwareTeamDraft: "softwareteam.specs.current-software-team-draft",
+  currentAgentDraft: "softwareteam.specs.current-agent-draft",
+  recentSoftwareTeamDrafts: "softwareteam.specs.recent-software-team-drafts",
+  recentAgentDrafts: "softwareteam.specs.recent-agent-drafts",
+  bootstrapSourceRef: "softwareteam.specs.bootstrap-source-ref",
 } as const;
 
 const LEGACY_SPECS_WORKSPACE_STORAGE_KEYS: Record<keyof typeof SPECS_WORKSPACE_STORAGE_KEYS, string> = {
-  currentRigDraft: "rigged.specs.current-rig-draft",
-  currentAgentDraft: "rigged.specs.current-agent-draft",
-  recentRigDrafts: "rigged.specs.recent-rig-drafts",
-  recentAgentDrafts: "rigged.specs.recent-agent-drafts",
-  bootstrapSourceRef: "rigged.specs.bootstrap-source-ref",
+  currentSoftwareTeamDraft: "softwareteam.specs.current-software-team-draft",
+  currentAgentDraft: "softwareteam.specs.current-agent-draft",
+  recentSoftwareTeamDrafts: "softwareteam.specs.recent-software-team-drafts",
+  recentAgentDrafts: "softwareteam.specs.recent-agent-drafts",
+  bootstrapSourceRef: "softwareteam.specs.bootstrap-source-ref",
 };
 
 const DEFAULT_SPECS_WORKSPACE: SpecsWorkspaceValue = {
   activeTask: null,
-  currentRigDraft: null,
+  currentSoftwareTeamDraft: null,
   currentAgentDraft: null,
-  recentRigDrafts: [],
+  recentSoftwareTeamDrafts: [],
   recentAgentDrafts: [],
-  selectedRigDraft: null,
+  selectedSoftwareTeamDraft: null,
   selectedAgentDraft: null,
   bootstrapSourceRef: "",
-  saveRigDraft: () => {},
-  rememberRigDraft: () => {},
-  selectRigDraft: () => {},
-  clearSelectedRigDraft: () => {},
+  saveSoftwareTeamDraft: () => {},
+  rememberSoftwareTeamDraft: () => {},
+  selectSoftwareTeamDraft: () => {},
+  clearSelectedSoftwareTeamDraft: () => {},
   saveAgentDraft: () => {},
   rememberAgentDraft: () => {},
   selectAgentDraft: () => {},
@@ -121,11 +121,11 @@ function persistStoredValue(key: string, value: unknown) {
   }
 }
 
-function createDraft(kind: "rig" | "agent", yaml: string, label?: string): SpecsDraft {
+function createDraft(kind: "softwareTeam" | "agent", yaml: string, label?: string): SpecsDraft {
   return {
     id: `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     kind,
-    label: label ?? (kind === "rig" ? "Untitled RigSpec" : "Untitled AgentSpec"),
+    label: label ?? (kind === "softwareTeam" ? "Untitled SoftwareTeamSpec" : "Untitled AgentSpec"),
     yaml,
     updatedAt: Date.now(),
   };
@@ -142,17 +142,17 @@ function upsertRecentDrafts(list: SpecsDraft[], draft: SpecsDraft): SpecsDraft[]
 
 function buildActiveTask(
   pathname: string,
-  currentRigDraft: SpecsDraft | null,
+  currentSoftwareTeamDraft: SpecsDraft | null,
   currentAgentDraft: SpecsDraft | null,
   bootstrapSourceRef: string,
 ): SpecsTask | null {
   if (pathname === "/import") {
-    if (!currentRigDraft) return null;
+    if (!currentSoftwareTeamDraft) return null;
     return {
       id: "import",
-      label: "Import RigSpec",
+      label: "Import SoftwareTeamSpec",
       route: "/import",
-      summary: currentRigDraft.label,
+      summary: currentSoftwareTeamDraft.label,
     };
   }
 
@@ -182,35 +182,35 @@ function buildActiveTask(
 
 export function SpecsWorkspaceProvider({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const [currentRigDraft, setCurrentRigDraft] = useState<SpecsDraft | null>(() =>
-    loadStoredValue<SpecsDraft | null>(SPECS_WORKSPACE_STORAGE_KEYS.currentRigDraft, null)
+  const [currentSoftwareTeamDraft, setCurrentSoftwareTeamDraft] = useState<SpecsDraft | null>(() =>
+    loadStoredValue<SpecsDraft | null>(SPECS_WORKSPACE_STORAGE_KEYS.currentSoftwareTeamDraft, null)
   );
   const [currentAgentDraft, setCurrentAgentDraft] = useState<SpecsDraft | null>(() =>
     loadStoredValue<SpecsDraft | null>(SPECS_WORKSPACE_STORAGE_KEYS.currentAgentDraft, null)
   );
-  const [recentRigDrafts, setRecentRigDrafts] = useState<SpecsDraft[]>(() =>
-    loadStoredValue<SpecsDraft[]>(SPECS_WORKSPACE_STORAGE_KEYS.recentRigDrafts, [])
+  const [recentSoftwareTeamDrafts, setRecentSoftwareTeamDrafts] = useState<SpecsDraft[]>(() =>
+    loadStoredValue<SpecsDraft[]>(SPECS_WORKSPACE_STORAGE_KEYS.recentSoftwareTeamDrafts, [])
   );
   const [recentAgentDrafts, setRecentAgentDrafts] = useState<SpecsDraft[]>(() =>
     loadStoredValue<SpecsDraft[]>(SPECS_WORKSPACE_STORAGE_KEYS.recentAgentDrafts, [])
   );
-  const [selectedRigDraftId, setSelectedRigDraftId] = useState<string | null>(null);
+  const [selectedSoftwareTeamDraftId, setSelectedSoftwareTeamDraftId] = useState<string | null>(null);
   const [selectedAgentDraftId, setSelectedAgentDraftId] = useState<string | null>(null);
   const [bootstrapSourceRef, setBootstrapSourceRefState] = useState(() =>
     loadStoredValue<string>(SPECS_WORKSPACE_STORAGE_KEYS.bootstrapSourceRef, "")
   );
 
   useEffect(() => {
-    persistStoredValue(SPECS_WORKSPACE_STORAGE_KEYS.currentRigDraft, currentRigDraft);
-  }, [currentRigDraft]);
+    persistStoredValue(SPECS_WORKSPACE_STORAGE_KEYS.currentSoftwareTeamDraft, currentSoftwareTeamDraft);
+  }, [currentSoftwareTeamDraft]);
 
   useEffect(() => {
     persistStoredValue(SPECS_WORKSPACE_STORAGE_KEYS.currentAgentDraft, currentAgentDraft);
   }, [currentAgentDraft]);
 
   useEffect(() => {
-    persistStoredValue(SPECS_WORKSPACE_STORAGE_KEYS.recentRigDrafts, recentRigDrafts);
-  }, [recentRigDrafts]);
+    persistStoredValue(SPECS_WORKSPACE_STORAGE_KEYS.recentSoftwareTeamDrafts, recentSoftwareTeamDrafts);
+  }, [recentSoftwareTeamDrafts]);
 
   useEffect(() => {
     persistStoredValue(SPECS_WORKSPACE_STORAGE_KEYS.recentAgentDrafts, recentAgentDrafts);
@@ -220,11 +220,11 @@ export function SpecsWorkspaceProvider({ children }: { children: ReactNode }) {
     persistStoredValue(SPECS_WORKSPACE_STORAGE_KEYS.bootstrapSourceRef, bootstrapSourceRef.trim());
   }, [bootstrapSourceRef]);
 
-  const selectedRigDraft = useMemo(
+  const selectedSoftwareTeamDraft = useMemo(
     () =>
-      recentRigDrafts.find((draft) => draft.id === selectedRigDraftId)
-      ?? (currentRigDraft?.id === selectedRigDraftId ? currentRigDraft : null),
-    [currentRigDraft, recentRigDrafts, selectedRigDraftId],
+      recentSoftwareTeamDrafts.find((draft) => draft.id === selectedSoftwareTeamDraftId)
+      ?? (currentSoftwareTeamDraft?.id === selectedSoftwareTeamDraftId ? currentSoftwareTeamDraft : null),
+    [currentSoftwareTeamDraft, recentSoftwareTeamDrafts, selectedSoftwareTeamDraftId],
   );
 
   const selectedAgentDraft = useMemo(
@@ -234,27 +234,27 @@ export function SpecsWorkspaceProvider({ children }: { children: ReactNode }) {
     [currentAgentDraft, recentAgentDrafts, selectedAgentDraftId],
   );
 
-  const saveRigDraft = useCallback((yaml: string, label?: string) => {
+  const saveSoftwareTeamDraft = useCallback((yaml: string, label?: string) => {
     if (!yaml.trim()) {
-      setCurrentRigDraft(null);
+      setCurrentSoftwareTeamDraft(null);
       return;
     }
 
-    setCurrentRigDraft((existing) => ({
-      id: existing?.id ?? createDraft("rig", yaml, label).id,
-      kind: "rig",
-      label: label ?? extractSpecLabel(yaml, existing?.label ?? "Untitled RigSpec"),
+    setCurrentSoftwareTeamDraft((existing) => ({
+      id: existing?.id ?? createDraft("softwareTeam", yaml, label).id,
+      kind: "softwareTeam",
+      label: label ?? extractSpecLabel(yaml, existing?.label ?? "Untitled SoftwareTeamSpec"),
       yaml,
       updatedAt: Date.now(),
     }));
   }, []);
 
-  const rememberRigDraft = useCallback((yaml: string, label?: string) => {
+  const rememberSoftwareTeamDraft = useCallback((yaml: string, label?: string) => {
     if (!yaml.trim()) return;
-    const draft = createDraft("rig", yaml, label ?? extractSpecLabel(yaml, "Untitled RigSpec"));
-    setCurrentRigDraft(draft);
-    setRecentRigDrafts((existing) => upsertRecentDrafts(existing, draft));
-    setSelectedRigDraftId(draft.id);
+    const draft = createDraft("softwareTeam", yaml, label ?? extractSpecLabel(yaml, "Untitled SoftwareTeamSpec"));
+    setCurrentSoftwareTeamDraft(draft);
+    setRecentSoftwareTeamDrafts((existing) => upsertRecentDrafts(existing, draft));
+    setSelectedSoftwareTeamDraftId(draft.id);
   }, []);
 
   const saveAgentDraft = useCallback((yaml: string, label?: string) => {
@@ -280,14 +280,14 @@ export function SpecsWorkspaceProvider({ children }: { children: ReactNode }) {
     setSelectedAgentDraftId(draft.id);
   }, []);
 
-  const selectRigDraft = useCallback((draftId: string) => {
-    setSelectedRigDraftId(draftId);
-    const draft = recentRigDrafts.find((item) => item.id === draftId)
-      ?? (currentRigDraft?.id === draftId ? currentRigDraft : null);
+  const selectSoftwareTeamDraft = useCallback((draftId: string) => {
+    setSelectedSoftwareTeamDraftId(draftId);
+    const draft = recentSoftwareTeamDrafts.find((item) => item.id === draftId)
+      ?? (currentSoftwareTeamDraft?.id === draftId ? currentSoftwareTeamDraft : null);
     if (draft) {
-      setCurrentRigDraft(draft);
+      setCurrentSoftwareTeamDraft(draft);
     }
-  }, [currentRigDraft, recentRigDrafts]);
+  }, [currentSoftwareTeamDraft, recentSoftwareTeamDrafts]);
 
   const selectAgentDraft = useCallback((draftId: string) => {
     setSelectedAgentDraftId(draftId);
@@ -299,18 +299,18 @@ export function SpecsWorkspaceProvider({ children }: { children: ReactNode }) {
   }, [currentAgentDraft, recentAgentDrafts]);
 
   const value = useMemo<SpecsWorkspaceValue>(() => ({
-    activeTask: buildActiveTask(pathname, currentRigDraft, currentAgentDraft, bootstrapSourceRef),
-    currentRigDraft,
+    activeTask: buildActiveTask(pathname, currentSoftwareTeamDraft, currentAgentDraft, bootstrapSourceRef),
+    currentSoftwareTeamDraft,
     currentAgentDraft,
-    recentRigDrafts,
+    recentSoftwareTeamDrafts,
     recentAgentDrafts,
-    selectedRigDraft,
+    selectedSoftwareTeamDraft,
     selectedAgentDraft,
     bootstrapSourceRef,
-    saveRigDraft,
-    rememberRigDraft,
-    selectRigDraft,
-    clearSelectedRigDraft: () => setSelectedRigDraftId(null),
+    saveSoftwareTeamDraft,
+    rememberSoftwareTeamDraft,
+    selectSoftwareTeamDraft,
+    clearSelectedSoftwareTeamDraft: () => setSelectedSoftwareTeamDraftId(null),
     saveAgentDraft,
     rememberAgentDraft,
     selectAgentDraft,
@@ -318,16 +318,16 @@ export function SpecsWorkspaceProvider({ children }: { children: ReactNode }) {
     setBootstrapSourceRef: setBootstrapSourceRefState,
   }), [
     pathname,
-    currentRigDraft,
+    currentSoftwareTeamDraft,
     currentAgentDraft,
-    recentRigDrafts,
+    recentSoftwareTeamDrafts,
     recentAgentDrafts,
-    selectedRigDraft,
+    selectedSoftwareTeamDraft,
     selectedAgentDraft,
     bootstrapSourceRef,
-    saveRigDraft,
-    rememberRigDraft,
-    selectRigDraft,
+    saveSoftwareTeamDraft,
+    rememberSoftwareTeamDraft,
+    selectSoftwareTeamDraft,
     saveAgentDraft,
     rememberAgentDraft,
     selectAgentDraft,

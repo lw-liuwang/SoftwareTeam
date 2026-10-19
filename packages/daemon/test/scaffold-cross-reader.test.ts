@@ -1,5 +1,5 @@
 // release-0.4.7 intent-stage/scaffold-projection — T5: the NAMED R3
-// divergence test. ONE placeholder-only fixture (a pristine `rig scope slice
+// divergence test. ONE placeholder-only fixture (a pristine `SoftwareTeam scope slice
 // create` output, template-derived via the real CLI renderers) is read by all
 // three consumers of the shared scaffold-placeholder grammar, and they must
 // AGREE it carries no authored content:
@@ -65,7 +65,7 @@ describe("T5 — shared-helper agreement across the three readers (the R3 pin, p
       workflowSpecsSchema, workflowInstancesSchema, workflowStepTrailsSchema,
       missionControlActionsSchema,
     ]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     cleanupRoot = mkdtempSync(join(tmpdir(), "scaffold-crossreader-"));
   });
 
@@ -197,7 +197,7 @@ describe("PM dogfood #1 — authored README + pristine PRD: three-reader agreeme
       workflowSpecsSchema, workflowInstancesSchema, workflowStepTrailsSchema,
       missionControlActionsSchema,
     ]);
-    db2.prepare(`INSERT INTO rigs (id, name) VALUES ('r-2', 'rig')`).run();
+    db2.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-2', 'softwareTeam')`).run();
     root2 = mkdtempSync(join(tmpdir(), "scaffold-crossreader-df1-"));
   });
 

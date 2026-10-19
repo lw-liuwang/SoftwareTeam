@@ -2,7 +2,7 @@
 //
 // Status derives from `PROGRESS.md`
 // frontmatter or top-level `status:` field. No daemon work; matches the
-// file-system-as-truth pattern OpenRig uses for slices and missions.
+// file-system-as-truth pattern SoftwareTeam uses for slices and missions.
 // V1 takes the status as an externally-provided prop (caller resolves
 // from PROGRESS.md via a dedicated hook in Phase 3+ or daemon-side
 // later); renders the badge.

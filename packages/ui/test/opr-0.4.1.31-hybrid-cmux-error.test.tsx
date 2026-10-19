@@ -33,8 +33,8 @@ const DATA = {
   runtime: "claude-code",
   model: null,
   status: "running",
-  rigId: "rig-1",
-  canonicalSessionName: "dev-impl@rig",
+  softwareTeamId: "software-team-1",
+  canonicalSessionName: "dev-impl@software-team",
 };
 
 describe("OPR.0.4.1.31 B2 — hybrid cmux button surfaces a VISIBLE error", () => {

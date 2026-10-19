@@ -4,7 +4,7 @@
 // the runtime, or process evidence that's missing or changing, keeps the launch for attention with its pane, binding
 // and token. Process observations are controlled; the restore, the resume adapters and the database are real.
 import { describe, it, expect, vi } from "vitest";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { SnapshotRepository } from "../src/domain/snapshot-repository.js";
@@ -23,7 +23,7 @@ const paneShell: NativeProcessRow = { pid: 100, ppid: 1, pgid: 100, tpgid: 100, 
 // The pane shell runs the staged launch script as its foreground job before the runtime appears.
 const launchWrapper: NativeProcessRow[] = [
   { ...paneShell, tpgid: 101 },
-  { pid: 101, ppid: 100, pgid: 101, tpgid: 101, executableName: "sh", command: "sh /tmp/openrig-launch.sh", startedAt },
+  { pid: 101, ppid: 100, pgid: 101, tpgid: 101, executableName: "sh", command: "sh /tmp/softwareteam-launch.sh", startedAt },
 ];
 const idleShell: NativeProcessRow[] = [paneShell];
 const TOKEN = "tok-abc";
@@ -53,23 +53,23 @@ const runtimes = [
 
 async function legacyRestore(runtime: (typeof runtimes)[number], label: string, listProcesses: () => NativeProcessRow[]) {
   const db = createFullTestDb();
-  const rigRepo = new RigRepository(db);
+  const softwareTeamRepo = new SoftwareTeamRepository(db);
   const sessionRegistry = new SessionRegistry(db);
   const eventBus = new EventBus(db);
   const snapshotRepo = new SnapshotRepository(db);
   const checkpointStore = new CheckpointStore(db);
-  const snapshotCapture = new SnapshotCapture({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
+  const snapshotCapture = new SnapshotCapture({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
   const tmux = tmuxFor(label);
   const fast = { pollMs: 1, maxWaitMs: 2, sleep: async () => {}, listProcesses };
   const orchestrator = new RestoreOrchestrator({
-    db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture, checkpointStore,
-    nodeLauncher: new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux }), tmuxAdapter: tmux,
+    db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture, checkpointStore,
+    nodeLauncher: new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux }), tmuxAdapter: tmux,
     claudeResume: new ClaudeResumeAdapter(tmux, fast), codexResume: new CodexResumeAdapter(tmux, fast),
   });
   // A pod-less node with a resumable session in the snapshot takes the legacy resume path.
-  const rig = rigRepo.createRig("r88");
-  const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: runtime.runtime, cwd: "/tmp" });
-  const snap = snapshotCapture.captureSnapshot(rig.id, "manual");
+  const softwareTeam = softwareTeamRepo.createSoftwareTeam("r88");
+  const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: runtime.runtime, cwd: "/tmp" });
+  const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
   const data = JSON.parse(JSON.stringify(snapshotRepo.getSnapshot(snap.id)!.data));
   data.sessions = [{ id: "sess-1", nodeId: node.id, sessionName: "r88-worker", status: "running",
     resumeType: runtime.resumeType, resumeToken: TOKEN, restorePolicy: "resume_if_possible" }];

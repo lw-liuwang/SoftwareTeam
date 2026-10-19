@@ -1,4 +1,4 @@
-import type { PodRigInstantiator, AddMemberOutcome } from "./rigspec-instantiator.js";
+import type { PodSoftwareTeamInstantiator, AddMemberOutcome } from "./software-team-spec-instantiator.js";
 import type { ClaimService, ReconcileSessionOutcome } from "./claim-service.js";
 
 /**
@@ -13,7 +13,7 @@ import type { ClaimService, ReconcileSessionOutcome } from "./claim-service.js";
  * existing seat's identity (logical-id re-key + continuity_state migration +
  * queue re-route), which add_member deliberately does not.
  *
- * This is a SCAFFOLD, not a reconciler build: there is no `rig apply` loop here
+ * This is a SCAFFOLD, not a reconciler build: there is no `softwareTeam apply` loop here
  * (that is a design sketch this release). converge() never silently skips an
  * unsupported op — it reports it honestly as "detected, not yet supported".
  */
@@ -26,7 +26,7 @@ export type TopologyOp =
   // An imperative REPAIR op: not derivable from a declarative membership diff
   // (the node already exists; only the live-binding projection is stale), so
   // diffTopology does not classify it — convergeOp applies it directly.
-  | { kind: "reconcile_session"; sessionName: string; rigId?: string; logicalId?: string }
+  | { kind: "reconcile_session"; sessionName: string; softwareTeamId?: string; logicalId?: string }
   | { kind: "remove_member"; logicalId: string }
   | { kind: "move_member"; logicalId: string; toPod: string }
   | { kind: "fork_member"; logicalId: string; toMember: string }
@@ -57,7 +57,7 @@ export interface DeclaredMember {
   fragment: Record<string, unknown>;
 }
 
-/** A member as it exists LIVE in the rig today. */
+/** A member as it exists LIVE in the softwareTeam today. */
 export interface LiveMember {
   logicalId: string;
   runtime: string;
@@ -106,14 +106,14 @@ export function diffTopology(declared: DeclaredMember[], live: LiveMember[]): To
  *  add_member runs on the instantiator, reconcile_session on the claim service's
  *  no-input reconcile binding). */
 export interface ConvergeDeps {
-  instantiator: PodRigInstantiator;
+  instantiator: PodSoftwareTeamInstantiator;
   /** Required for reconcile_session ops; add_member-only callers may omit it. */
   claimService?: ClaimService;
 }
 
 /**
  * Apply a single topology op. `add_member` runs the extracted create-node +
- * launch-binding seam via PodRigInstantiator.addMemberToPod; `reconcile_session`
+ * launch-binding seam via PodSoftwareTeamInstantiator.addMemberToPod; `reconcile_session`
  * runs ClaimService.reconcileSession — the NO-LAUNCH, NO-INPUT adopt of a live
  * hand-resumed session into its persisted node (never reaches NodeLauncher.
  * launchNode or any pane-input primitive). Every other kind is reported honestly
@@ -123,14 +123,14 @@ export interface ConvergeDeps {
  */
 export async function convergeOp(
   deps: ConvergeDeps,
-  rigId: string,
+  softwareTeamId: string,
   op: TopologyOp,
-  rigRoot: string,
+  softwareTeamRoot: string,
   opts?: { cwdOverride?: string },
 ): Promise<ConvergeResult> {
   switch (op.kind) {
     case "add_member": {
-      const outcome = await deps.instantiator.addMemberToPod(rigId, op.pod, op.member, rigRoot, {
+      const outcome = await deps.instantiator.addMemberToPod(softwareTeamId, op.pod, op.member, softwareTeamRoot, {
         cwdOverride: opts?.cwdOverride,
         edges: op.edges,
       });
@@ -146,7 +146,7 @@ export async function convergeOp(
       }
       const outcome = await deps.claimService.reconcileSession({
         sessionName: op.sessionName,
-        rigId: op.rigId,
+        softwareTeamId: op.softwareTeamId,
         logicalId: op.logicalId,
       });
       return { kind: "reconcile_session", supported: true, outcome };

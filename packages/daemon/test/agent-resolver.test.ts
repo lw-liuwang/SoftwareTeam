@@ -25,19 +25,19 @@ function mockFs(files: Record<string, string>): AgentResolverFsOps {
   };
 }
 
-const RIG_ROOT = "/project/rigs/my-rig";
+const SOFTWARE_TEAM_ROOT = "/project/software-teams/my-software-team";
 
 describe("AgentSpec source resolver + import resolver", () => {
-  // T1: local: ref resolves relative to rig root
-  it("local: ref resolves relative to rig root", () => {
+  // T1: local: ref resolves relative to softwareTeam root
+  it("local: ref resolves relative to SoftwareTeam root", () => {
     const fs = mockFs({
-      "/project/rigs/my-rig/agents/impl/agent.yaml": validAgentYaml(),
+      "/project/software-teams/my-software-team/agents/impl/agent.yaml": validAgentYaml(),
     });
-    const result = resolveAgentRef("local:agents/impl", RIG_ROOT, fs);
+    const result = resolveAgentRef("local:agents/impl", SOFTWARE_TEAM_ROOT, fs);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.resolved.spec.name).toBe("test-agent");
-      expect(result.resolved.sourcePath).toBe("/project/rigs/my-rig/agents/impl");
+      expect(result.resolved.sourcePath).toBe("/project/software-teams/my-software-team/agents/impl");
     }
   });
 
@@ -46,7 +46,7 @@ describe("AgentSpec source resolver + import resolver", () => {
     const fs = mockFs({
       "/abs/agents/impl/agent.yaml": validAgentYaml({ name: "abs-agent" }),
     });
-    const result = resolveAgentRef("path:/abs/agents/impl", RIG_ROOT, fs);
+    const result = resolveAgentRef("path:/abs/agents/impl", SOFTWARE_TEAM_ROOT, fs);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.resolved.spec.name).toBe("abs-agent");
@@ -57,7 +57,7 @@ describe("AgentSpec source resolver + import resolver", () => {
   // T3: missing agent.yaml fails with code not_found
   it("missing agent.yaml fails with not_found", () => {
     const fs = mockFs({});
-    const result = resolveAgentRef("local:agents/missing", RIG_ROOT, fs);
+    const result = resolveAgentRef("local:agents/missing", SOFTWARE_TEAM_ROOT, fs);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe("not_found");
@@ -68,9 +68,9 @@ describe("AgentSpec source resolver + import resolver", () => {
   // T4: invalid AgentSpec fails with validation_failed
   it("invalid AgentSpec fails with validation errors", () => {
     const fs = mockFs({
-      "/project/rigs/my-rig/agents/bad/agent.yaml": "summary: no name or version",
+      "/project/software-teams/my-software-team/agents/bad/agent.yaml": "summary: no name or version",
     });
-    const result = resolveAgentRef("local:agents/bad", RIG_ROOT, fs);
+    const result = resolveAgentRef("local:agents/bad", SOFTWARE_TEAM_ROOT, fs);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe("validation_failed");
@@ -81,12 +81,12 @@ describe("AgentSpec source resolver + import resolver", () => {
   // T5: exact version match passes
   it("exact version match passes", () => {
     const fs = mockFs({
-      "/project/rigs/my-rig/agents/impl/agent.yaml": validAgentYaml({
+      "/project/software-teams/my-software-team/agents/impl/agent.yaml": validAgentYaml({
         imports: 'imports:\n  - ref: local:../lib\n    version: "1.0.0"',
       }),
-      "/project/rigs/my-rig/agents/lib/agent.yaml": validAgentYaml({ name: "lib", version: "1.0.0" }),
+      "/project/software-teams/my-software-team/agents/lib/agent.yaml": validAgentYaml({ name: "lib", version: "1.0.0" }),
     });
-    const result = resolveAgentRef("local:agents/impl", RIG_ROOT, fs);
+    const result = resolveAgentRef("local:agents/impl", SOFTWARE_TEAM_ROOT, fs);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.imports).toHaveLength(1);
@@ -97,12 +97,12 @@ describe("AgentSpec source resolver + import resolver", () => {
   // T6: exact version mismatch fails
   it("exact version mismatch fails", () => {
     const fs = mockFs({
-      "/project/rigs/my-rig/agents/impl/agent.yaml": validAgentYaml({
+      "/project/software-teams/my-software-team/agents/impl/agent.yaml": validAgentYaml({
         imports: 'imports:\n  - ref: local:../lib\n    version: "2.0.0"',
       }),
-      "/project/rigs/my-rig/agents/lib/agent.yaml": validAgentYaml({ name: "lib", version: "1.0.0" }),
+      "/project/software-teams/my-software-team/agents/lib/agent.yaml": validAgentYaml({ name: "lib", version: "1.0.0" }),
     });
-    const result = resolveAgentRef("local:agents/impl", RIG_ROOT, fs);
+    const result = resolveAgentRef("local:agents/impl", SOFTWARE_TEAM_ROOT, fs);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe("version_mismatch");
@@ -115,10 +115,10 @@ describe("AgentSpec source resolver + import resolver", () => {
   it("remote import source fails at resolve time", () => {
     // Remote sources are rejected by AS-T01 validation, but also by resolver
     const fs = mockFs({
-      "/project/rigs/my-rig/agents/impl/agent.yaml":
+      "/project/software-teams/my-software-team/agents/impl/agent.yaml":
         'name: impl\nversion: "1.0.0"\nimports:\n  - ref: "github:foo/bar"\nprofiles: {}',
     });
-    const result = resolveAgentRef("local:agents/impl", RIG_ROOT, fs);
+    const result = resolveAgentRef("local:agents/impl", SOFTWARE_TEAM_ROOT, fs);
     // The validator rejects github: at parse time, so this should fail at validation
     expect(result.ok).toBe(false);
   });
@@ -126,14 +126,14 @@ describe("AgentSpec source resolver + import resolver", () => {
   // T8: base/import collision produces diagnostic
   it("base/import collision produces diagnostic", () => {
     const fs = mockFs({
-      "/project/rigs/my-rig/agents/impl/agent.yaml": validAgentYaml({
+      "/project/software-teams/my-software-team/agents/impl/agent.yaml": validAgentYaml({
         name: "impl",
         imports: "imports:\n  - ref: local:../lib",
         resources: "resources:\n  skills:\n    - id: shared-skill\n      path: skills/shared",
       }),
-      "/project/rigs/my-rig/agents/lib/agent.yaml": validAgentYamlWithSkill("lib", "shared-skill"),
+      "/project/software-teams/my-software-team/agents/lib/agent.yaml": validAgentYamlWithSkill("lib", "shared-skill"),
     });
-    const result = resolveAgentRef("local:agents/impl", RIG_ROOT, fs);
+    const result = resolveAgentRef("local:agents/impl", SOFTWARE_TEAM_ROOT, fs);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.collisions.length).toBeGreaterThan(0);
@@ -146,14 +146,14 @@ describe("AgentSpec source resolver + import resolver", () => {
   // T9: imported resource addressable by qualified id
   it("collision diagnostic includes qualified id", () => {
     const fs = mockFs({
-      "/project/rigs/my-rig/agents/impl/agent.yaml": validAgentYaml({
+      "/project/software-teams/my-software-team/agents/impl/agent.yaml": validAgentYaml({
         name: "impl",
         imports: "imports:\n  - ref: local:../lib",
         resources: "resources:\n  skills:\n    - id: foo\n      path: skills/foo",
       }),
-      "/project/rigs/my-rig/agents/lib/agent.yaml": validAgentYamlWithSkill("lib", "foo"),
+      "/project/software-teams/my-software-team/agents/lib/agent.yaml": validAgentYamlWithSkill("lib", "foo"),
     });
-    const result = resolveAgentRef("local:agents/impl", RIG_ROOT, fs);
+    const result = resolveAgentRef("local:agents/impl", SOFTWARE_TEAM_ROOT, fs);
     expect(result.ok).toBe(true);
     if (result.ok) {
       const collision = result.collisions.find((c) => c.resourceId === "foo");
@@ -166,12 +166,12 @@ describe("AgentSpec source resolver + import resolver", () => {
   // T10: self-import rejected
   it("self-import (cycle) is rejected", () => {
     const fs = mockFs({
-      "/project/rigs/my-rig/agents/impl/agent.yaml": validAgentYaml({
+      "/project/software-teams/my-software-team/agents/impl/agent.yaml": validAgentYaml({
         name: "impl",
         imports: "imports:\n  - ref: local:.",
       }),
     });
-    const result = resolveAgentRef("local:agents/impl", RIG_ROOT, fs);
+    const result = resolveAgentRef("local:agents/impl", SOFTWARE_TEAM_ROOT, fs);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe("cycle_detected");
@@ -182,10 +182,10 @@ describe("AgentSpec source resolver + import resolver", () => {
   it("resolved spec hash is deterministic", () => {
     const yaml = validAgentYaml({ name: "stable" });
     const fs = mockFs({
-      "/project/rigs/my-rig/agents/stable/agent.yaml": yaml,
+      "/project/software-teams/my-software-team/agents/stable/agent.yaml": yaml,
     });
-    const r1 = resolveAgentRef("local:agents/stable", RIG_ROOT, fs);
-    const r2 = resolveAgentRef("local:agents/stable", RIG_ROOT, fs);
+    const r1 = resolveAgentRef("local:agents/stable", SOFTWARE_TEAM_ROOT, fs);
+    const r2 = resolveAgentRef("local:agents/stable", SOFTWARE_TEAM_ROOT, fs);
     expect(r1.ok).toBe(true);
     expect(r2.ok).toBe(true);
     if (r1.ok && r2.ok) {
@@ -197,17 +197,17 @@ describe("AgentSpec source resolver + import resolver", () => {
   // T12: imported spec with non-empty imports -> rejected
   it("imported spec with nested imports is rejected", () => {
     const fs = mockFs({
-      "/project/rigs/my-rig/agents/impl/agent.yaml": validAgentYaml({
+      "/project/software-teams/my-software-team/agents/impl/agent.yaml": validAgentYaml({
         name: "impl",
         imports: "imports:\n  - ref: local:../lib",
       }),
-      "/project/rigs/my-rig/agents/lib/agent.yaml": validAgentYaml({
+      "/project/software-teams/my-software-team/agents/lib/agent.yaml": validAgentYaml({
         name: "lib",
         imports: "imports:\n  - ref: local:agents/nested",
       }),
-      "/project/rigs/my-rig/agents/nested/agent.yaml": validAgentYaml({ name: "nested" }),
+      "/project/software-teams/my-software-team/agents/nested/agent.yaml": validAgentYaml({ name: "nested" }),
     });
-    const result = resolveAgentRef("local:agents/impl", RIG_ROOT, fs);
+    const result = resolveAgentRef("local:agents/impl", SOFTWARE_TEAM_ROOT, fs);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe("import_error");
@@ -219,14 +219,14 @@ describe("AgentSpec source resolver + import resolver", () => {
   // T13: import/import collision -> ResourceCollision with both sources
   it("import/import collision produces diagnostic with both qualified ids", () => {
     const fs = mockFs({
-      "/project/rigs/my-rig/agents/impl/agent.yaml": validAgentYaml({
+      "/project/software-teams/my-software-team/agents/impl/agent.yaml": validAgentYaml({
         name: "impl",
         imports: "imports:\n  - ref: local:../lib-a\n  - ref: local:../lib-b",
       }),
-      "/project/rigs/my-rig/agents/lib-a/agent.yaml": validAgentYamlWithSkill("lib-a", "shared"),
-      "/project/rigs/my-rig/agents/lib-b/agent.yaml": validAgentYamlWithSkill("lib-b", "shared"),
+      "/project/software-teams/my-software-team/agents/lib-a/agent.yaml": validAgentYamlWithSkill("lib-a", "shared"),
+      "/project/software-teams/my-software-team/agents/lib-b/agent.yaml": validAgentYamlWithSkill("lib-b", "shared"),
     });
-    const result = resolveAgentRef("local:agents/impl", RIG_ROOT, fs);
+    const result = resolveAgentRef("local:agents/impl", SOFTWARE_TEAM_ROOT, fs);
     expect(result.ok).toBe(true);
     if (result.ok) {
       const collision = result.collisions.find((c) => c.resourceId === "shared");
@@ -239,14 +239,14 @@ describe("AgentSpec source resolver + import resolver", () => {
   // T14: two imports resolving to same spec name -> rejected
   it("two imports with same spec name are rejected", () => {
     const fs = mockFs({
-      "/project/rigs/my-rig/agents/impl/agent.yaml": validAgentYaml({
+      "/project/software-teams/my-software-team/agents/impl/agent.yaml": validAgentYaml({
         name: "impl",
         imports: "imports:\n  - ref: local:../lib-v1\n  - ref: local:../lib-v2",
       }),
-      "/project/rigs/my-rig/agents/lib-v1/agent.yaml": validAgentYaml({ name: "lib" }),
-      "/project/rigs/my-rig/agents/lib-v2/agent.yaml": validAgentYaml({ name: "lib" }),
+      "/project/software-teams/my-software-team/agents/lib-v1/agent.yaml": validAgentYaml({ name: "lib" }),
+      "/project/software-teams/my-software-team/agents/lib-v2/agent.yaml": validAgentYaml({ name: "lib" }),
     });
-    const result = resolveAgentRef("local:agents/impl", RIG_ROOT, fs);
+    const result = resolveAgentRef("local:agents/impl", SOFTWARE_TEAM_ROOT, fs);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe("import_error");
@@ -258,13 +258,13 @@ describe("AgentSpec source resolver + import resolver", () => {
   // T15: imported spec name containing colon -> rejected
   it("imported spec name with colon is rejected", () => {
     const fs = mockFs({
-      "/project/rigs/my-rig/agents/impl/agent.yaml": validAgentYaml({
+      "/project/software-teams/my-software-team/agents/impl/agent.yaml": validAgentYaml({
         name: "impl",
         imports: "imports:\n  - ref: local:../lib",
       }),
-      "/project/rigs/my-rig/agents/lib/agent.yaml": validAgentYaml({ name: "has:colon" }),
+      "/project/software-teams/my-software-team/agents/lib/agent.yaml": validAgentYaml({ name: "has:colon" }),
     });
-    const result = resolveAgentRef("local:agents/impl", RIG_ROOT, fs);
+    const result = resolveAgentRef("local:agents/impl", SOFTWARE_TEAM_ROOT, fs);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe("import_error");

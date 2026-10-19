@@ -72,7 +72,7 @@ async function freshLaunchCommand(cwd: string): Promise<string> {
   const adapter = new CodexRuntimeAdapter({
     tmux, fsOps, sleep: async () => {}, listProcesses: () => [], readThreadIdByPid: () => undefined,
   });
-  await adapter.launchHarness(binding(cwd), { name: "dev@issue121-rig" });
+  await adapter.launchHarness(binding(cwd), { name: "dev@issue121-software-team" });
   return vi.mocked(tmux.sendText).mock.calls[0]![1] as string;
 }
 
@@ -118,7 +118,7 @@ describe("Codex fresh launch git add-dirs (issue #121)", () => {
     const adapter = new CodexRuntimeAdapter({
       tmux, fsOps, sleep: async () => {}, listProcesses: () => [], readThreadIdByPid: () => undefined, resolveGitAddDirs,
     });
-    await adapter.launchHarness(binding(root), { name: "dev@issue121-rig", resumeToken: "thread-1" });
+    await adapter.launchHarness(binding(root), { name: "dev@issue121-software-team", resumeToken: "thread-1" });
     expect(resolveGitAddDirs).not.toHaveBeenCalled();
     expect(vi.mocked(tmux.sendText).mock.calls[0]![1]).not.toContain("/should/not/appear");
   });

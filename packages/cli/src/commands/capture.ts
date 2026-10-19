@@ -20,7 +20,7 @@ export interface CaptureDeps extends StatusDeps {
 }
 
 interface CaptureOpts {
-  rig?: string;
+  softwareTeam?: string;
   pod?: string;
   lines?: string;
   host?: string;
@@ -59,7 +59,7 @@ export function lastLines(content: string, n: number): { content: string; lines:
 /** When `--lines N` left earlier lines out, a busy seat's activity indicator (Claude draws its own above the input box)
  *  may be among them, so this capture can't say the seat is idle. It says unknown and names where activity is known.
  *  Capture never reported activity before, so no known fact is replaced. */
-export const CUT_ACTIVITY_NOTE = "lines cut; busy or idle not shown here; see rig ps --nodes or --history-plus-pane";
+export const CUT_ACTIVITY_NOTE = "lines cut; busy or idle not shown here; see SoftwareTeam ps --nodes or --history-plus-pane";
 
 /** Cut each successful capture in a route payload to its last `n` lines; `lines` becomes the count returned. */
 function withExactLines<T>(data: T, n: number | undefined): T {
@@ -81,7 +81,7 @@ function renderCapture(data: Record<string, unknown>): void {
   const note = (r: Record<string, unknown>): void => {
     const omitted = r["omittedLines"];
     if (typeof omitted === "number" && omitted > 0) {
-      console.error(`[rig capture: ${r["sessionName"]}: ${omitted} earlier line${omitted === 1 ? "" : "s"} not shown; last ${r["lines"]} shown; activity unknown: rig ps --nodes]`);
+      console.error(`[SoftwareTeam capture: ${r["sessionName"]}: ${omitted} earlier line${omitted === 1 ? "" : "s"} not shown; last ${r["lines"]} shown; activity unknown: SoftwareTeam ps --nodes]`);
     }
   };
 
@@ -116,45 +116,45 @@ export function captureCommand(depsOverride?: CaptureDeps): Command {
   };
 
   cmd
-    .argument("[session]", "Session name (omit for multi-target with --rig/--pod)")
-    .option("--rig <name>", "Capture all sessions in a rig")
+    .argument("[session]", "Session name (omit for multi-target with --software-team/--pod)")
+    .option("--software-team <name>", "Capture all sessions in a softwareTeam")
     .option("--pod <name>", "Capture all sessions in a pod")
     .option("--lines <n>", "Show the last N lines of the pane (without it: 20 history lines plus the whole visible pane)", "20")
     .option("--history-plus-pane", "With --lines N, show N history lines plus the whole visible pane, as before --lines was exact")
-    .option("--host <id>", "Capture on a remote host declared in ~/.openrig/hosts.yaml (ssh hosts shell out; http hosts go CLI-direct to the remote daemon)")
+    .option("--host <id>", "Capture on a remote host declared in ~/.softwareteam/hosts.yaml (ssh hosts shell out; http hosts go CLI-direct to the remote daemon)")
     .option("--json", "JSON output for agents")
     .addHelpText("after", `
 Examples:
-  rig capture dev-impl@my-rig
-  rig capture dev-impl@my-rig --lines 50
-  rig capture dev-impl@my-rig --lines 5 --history-plus-pane
-  rig capture --rig my-rig
-  rig capture --pod dev --rig my-rig
-  rig capture --rig my-rig --json
-  rig capture --host remote-dev dev-impl@my-rig --lines 50
+  SoftwareTeam capture dev-impl@my-software-team
+  SoftwareTeam capture dev-impl@my-software-team --lines 50
+  SoftwareTeam capture dev-impl@my-software-team --lines 5 --history-plus-pane
+  SoftwareTeam capture --software-team my-software-team
+  SoftwareTeam capture --pod dev --software-team my-software-team
+  SoftwareTeam capture --software-team my-software-team --json
+  SoftwareTeam capture --host remote-dev dev-impl@my-software-team --lines 50
 
 Supported notes:
   - --lines N shows at most the last N lines, counted up from the last non-blank line. When lines
-    above them are left out, a "[rig capture: ...]" note on stderr says how many; --json reports
+    above them are left out, a "[SoftwareTeam capture: ...]" note on stderr says how many; --json reports
     lines (returned), requestedLines and omittedLines. Trailing rows that are entirely whitespace
     are dropped before counting (a deliberately blank last row isn't returned); omittedLines counts
     only the earlier rows the limit left out.
   - When --lines N leaves earlier lines out, a busy seat's activity indicator may be among them,
     so the capture says activity unknown (the stderr note; --json: activity "unknown" with an
-    activityNote) rather than looking idle. rig ps --nodes shows the seat's activity; the default
+    activityNote) rather than looking idle. SoftwareTeam ps --nodes shows the seat's activity; the default
     capture and --history-plus-pane include the whole visible pane.
-  - Over ssh (--host), the remote host's own rig CLI does the capture, so mixed versions differ:
+  - Over ssh (--host), the remote host's own softwareTeam CLI does the capture, so mixed versions differ:
     an older CLI here with no --lines gets the last 20 lines from a remote with this CLI (older
     CLIs always forward --lines 20); this CLI with --lines N gets the older history-plus-pane
     output from a remote with an older CLI; and --history-plus-pane fails there as an unknown
     option (plain --lines N gives that host's old view).
   - Multi-target capture reports unsupported external_cli nodes as explicit per-target failures.
-  - For outbound-only external_cli nodes, use rig whoami/rig ps instead of rig capture.
-  - --host captures on a remote host declared in ~/.openrig/hosts.yaml. The host
+  - For outbound-only external_cli nodes, use SoftwareTeam whoami/SoftwareTeam ps instead of SoftwareTeam capture.
+  - --host captures on a remote host declared in ~/.softwareteam/hosts.yaml. The host
     entry's transport decides the path: ssh hosts via single-hop ssh; http hosts
     (e.g. pair-registered) CLI-direct to the remote daemon's capture route. The
     remote is authoritative on what it can capture either way. A session of the
-    form agent@rig@host is sugar for --host when the suffix is a REGISTERED
+    form agent@software-team@host is sugar for --host when the suffix is a REGISTERED
     host id (explicit --host > sugar > persisted selection).`)
     .action(async (session: string | undefined, opts: CaptureOpts) => {
       // OPR.0.4.6.MH1 FR-2: selected-host routing — explicit --host wins;
@@ -167,8 +167,8 @@ Supported notes:
       opts.linesGiven = cmd.getOptionValueSource("lines") === "cli";
       opts.exactLines = exactLineCount(opts, opts.linesGiven);
 
-      // OPR.0.4.6.MH4 §4 — `agent@rig@host` target sugar (session operand
-      // only; --rig/--pod values are names, never sugar-parsed). Suffix must
+      // OPR.0.4.6.MH4 §4 — `agent@software-team@host` target sugar (session operand
+      // only; --software-team/--pod values are names, never sugar-parsed). Suffix must
       // match a REGISTERED host id, else passthrough + loud-failure hint.
       let crossHostHint: string | undefined;
       if (session !== undefined) {
@@ -198,7 +198,7 @@ Supported notes:
       const lines = parseInt(opts.lines ?? "20", 10);
 
       const body: Record<string, unknown> = { lines: isNaN(lines) ? 20 : lines };
-      if (opts.rig) body.rig = opts.rig;
+      if (opts.softwareTeam) body.softwareTeam = opts.softwareTeam;
       if (opts.pod) body.pod = opts.pod;
       if (session) body.session = session;
 
@@ -257,9 +257,9 @@ async function runCrossHostCapture(
   }
 
   // Reconstruct argv. Order: positional first, then flags.
-  const argv: string[] = ["rig", "capture"];
+  const argv: string[] = ["SoftwareTeam", "capture"];
   if (session) argv.push(session);
-  if (opts.rig) argv.push("--rig", opts.rig);
+  if (opts.softwareTeam) argv.push("--software-team", opts.softwareTeam);
   if (opts.pod) argv.push("--pod", opts.pod);
   // Only an explicit --lines is forwarded: the remote's own default stays the default.
   if (opts.linesGiven || opts.historyPlusPane) argv.push("--lines", opts.lines ?? "20");
@@ -289,7 +289,7 @@ async function runCrossHostCapture(
 /**
  * OPR.0.4.6.MH4 C1 — cross-host capture over http, CLI-DIRECT to the remote
  * daemon's shipped POST /api/transport/capture (zero daemon-side changes).
- * Body parity with the local path (lines/rig/pod/session); the remote's
+ * Body parity with the local path (lines/softwareTeam/pod/session); the remote's
  * single/multi result renders exactly as a local capture does, under the
  * `[via host=…]` banner. Read-class deadline (the client default).
  */
@@ -302,7 +302,7 @@ async function runHttpHostCapture(
 ): Promise<void> {
   const lines = parseInt(opts.lines ?? "20", 10);
   const body: Record<string, unknown> = { lines: isNaN(lines) ? 20 : lines };
-  if (opts.rig) body.rig = opts.rig;
+  if (opts.softwareTeam) body.softwareTeam = opts.softwareTeam;
   if (opts.pod) body.pod = opts.pod;
   if (session) body.session = session;
 

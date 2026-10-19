@@ -17,7 +17,7 @@ const editedText = "# Operator edit\nKeep this local change.\n";
 // Execute the production planning block without constructing an instantiator,
 // opening a database or launching a seat. Unlike a copied resolver, this also
 // catches a wiring change that sends the wrong plan to the adapter.
-const instantiator = fs.readFileSync(new URL("../src/domain/rigspec-instantiator.ts", import.meta.url), "utf8");
+const instantiator = fs.readFileSync(new URL("../src/domain/software-team-spec-instantiator.ts", import.meta.url), "utf8");
 const start = instantiator.indexOf("    const planResult = planProjection({");
 const end = instantiator.indexOf("    const resolvedFiles = this.buildResolvedStartupFiles(", start);
 if (start < 0 || end < start) throw new Error("Production projection planning block not found");
@@ -59,10 +59,10 @@ function fixture(target: "absent" | "identical" | "edited", runtime = "codex", f
   };
   let resolveTargetPath: NonNullable<ProjectionInput["resolveTargetPath"]>;
   const plan: ProjectionPlan = buildPlan.call(
-    { deps: { fsOps, rigRepo: { getRigClaudeManagedBlockFile: () => "CLAUDE.local.md" } } },
+    { deps: { fsOps, softwareTeamRepo: { getSoftwareTeamClaudeManagedBlockFile: () => "CLAUDE.local.md" } } },
     (input: ProjectionInput) => { resolveTargetPath = input.resolveTargetPath!; return planProjection(input); },
     claudeConflictTargetPath, projectionConflictWarnings, nodePath,
-    { member: { runtime }, rigId: "fixture", force }, { config }, { collisions: [] },
+    { member: { runtime }, softwareTeamId: "fixture", force }, { config }, { collisions: [] },
     { lastHash: (path: string) => path === codexFile ? hashContent(sourceText) : null },
     { warnings: [] }, "dev-check@fixture", {}, [],
   );
@@ -145,9 +145,9 @@ describe("OMP skill projection in a shared project", () => {
       tmux: new Proxy({}, { get() { throw new Error("No tmux calls allowed"); } }) as never,
     });
     const plan = (runtime: string, adapter: RuntimeAdapter): ProjectionPlan => buildPlan.call(
-      { deps: { fsOps, rigRepo: { getRigClaudeManagedBlockFile: () => null } } },
+      { deps: { fsOps, softwareTeamRepo: { getSoftwareTeamClaudeManagedBlockFile: () => null } } },
       planProjection, claudeConflictTargetPath, projectionConflictWarnings, nodePath,
-      { member: { runtime }, rigId: "fixture" }, { config: { ...config, runtime } }, { collisions: [] },
+      { member: { runtime }, softwareTeamId: "fixture" }, { config: { ...config, runtime } }, { collisions: [] },
       { lastHash: () => null }, { warnings: [], binding: { tmuxSession: seat } }, seat, adapter, [],
     );
     const binding = { tmuxSession: seat, cwd: config.cwd } as NodeBinding;

@@ -3,16 +3,16 @@ import { writeTextAtomically } from "./atomic-text-write.js";
 import { join, dirname, resolve } from "node:path";
 import { homedir } from "node:os";
 import {
-  getDefaultOpenRigPath,
-  readOpenRigEnv,
-} from "./openrig-compat.js";
+  getDefaultSoftwareTeamPath,
+  readSoftwareTeamEnv,
+} from "./softwareteam-compat.js";
 
 // User Settings v0 — extends the existing ConfigStore with new namespaces
 // (workspace.*, files.*, progress.*) without changing the existing 5
 // daemon/db/transcripts keys' behavior. Storage stays single-source-of-
-// truth at ~/.openrig/config.json. Resolution stays env > file > default.
+// truth at ~/.softwareteam/config.json. Resolution stays env > file > default.
 
-export interface RiggedConfig {
+export interface SoftwareTeamConfig {
   launch: { nonInterruptive: boolean };
   daemon: { port: number; host: string };
   // OPR.0.4.6.MH1 FR-1 — the persisted host-selection pointer.
@@ -40,11 +40,11 @@ export interface RiggedConfig {
     operatorSeatName: string;
   };
   // OPR.0.5.3.6 D1 — the TOPOLOGY tree root (the other tree: instance at its
-  // top, rigs/<rig>/seats/<seat> beneath). Twin of the daemon settings-store.
+  // top, software-teams/<softwareTeam>/seats/<seat> beneath). Twin of the daemon settings-store.
   topology: {
     root: string;
   };
-  // OPR.0.5.9.5 Wave B — the addressable context library root (`rig context add`
+  // OPR.0.5.9.5 Wave B — the addressable context library root (`SoftwareTeam context add`
   // installs here). The removed packsRoot shape is refused, never bridged.
   context: {
     root: string;
@@ -66,7 +66,7 @@ export interface RiggedConfig {
   };
   // User Settings v0 — UEP env-var graduation.
   // Values are stored as raw named-pair strings ("name:/abs/path,...")
-  // matching the OPENRIG_FILES_ALLOWLIST / OPENRIG_PROGRESS_SCAN_ROOTS
+  // matching the SOFTWARETEAM_FILES_ALLOWLIST / SOFTWARETEAM_PROGRESS_SCAN_ROOTS
   // formats; decoded helpers (parseNamedPairs) turn them into structured
   // arrays.
   files: {
@@ -159,7 +159,7 @@ export interface RiggedConfig {
   // OPR.0.4.6.02 S1 — inner-tmux status-bar default at session launch.
   // Static boolean (default off), lockstep with the daemon settings-store
   // twin. Consumed by the daemon NodeLauncher; the CLI carries it for the
-  // `rig config get/set terminal.status_bar` surface + twin parity.
+  // `SoftwareTeam config get/set terminal.status_bar` surface + twin parity.
   terminal: {
     statusBar: boolean;
   };
@@ -168,7 +168,7 @@ export interface RiggedConfig {
   // settings-store twin keeps the two registries in lockstep.
   output: {
     compact: boolean;
-    /** With compact on, how many peers `rig whoami --json` lists (edge peers first). */
+    /** With compact on, how many peers `SoftwareTeam whoami --json` lists (edge peers first). */
     whoamiPeers: number;
   };
   // Slice 01 (OPR.0.7.0.1) — Codex and Claude usage windows in the provider view (default
@@ -210,19 +210,19 @@ export interface RiggedConfig {
   };
 }
 
-const DEFAULT_WORKSPACE_ROOT = getDefaultOpenRigPath("workspace");
+const DEFAULT_WORKSPACE_ROOT = getDefaultSoftwareTeamPath("workspace");
 
 /** OPR.0.5.3.6 — twin of the daemon settings-store helper. The LEGACY topology
- *  location, kept readable (advisory-emitting fallback) so pre-convention rigs
+ *  location, kept readable (advisory-emitting fallback) so pre-convention softwareTeams
  *  migrate instead of flag-daying. Resolves where legacy code ACTUALLY wrote —
- *  the codex adapter's shared-docs precedent (OPENRIG_SHARED_DOCS_ROOT env,
- *  else the literal ~/.openrig/shared-docs), NOT $OPENRIG_HOME: boxes with a
- *  non-default home still carry their legacy tree at ~/.openrig/shared-docs.
+ *  the codex adapter's shared-docs precedent (SOFTWARETEAM_SHARED_DOCS_ROOT env,
+ *  else the literal ~/.softwareteam/shared-docs), NOT $SOFTWARETEAM_HOME: boxes with a
+ *  non-default home still carry their legacy tree at ~/.softwareteam/shared-docs.
  *  This is the ONE CLI home for the literal; walkers import it and carry none. */
-export function resolveLegacyTopologyRigsRoot(): string {
-  const sharedDocsRoot = process.env["OPENRIG_SHARED_DOCS_ROOT"]?.trim()
-    || join(homedir(), ".openrig", "shared-docs");
-  return join(sharedDocsRoot, "rigs");
+export function resolveLegacyTopologySoftwareTeamsRoot(): string {
+  const sharedDocsRoot = process.env["SOFTWARETEAM_SHARED_DOCS_ROOT"]?.trim()
+    || join(homedir(), ".softwareteam", "shared-docs");
+  return join(sharedDocsRoot, "software-teams");
 }
 
 const DEFAULT_CLAUDE_COMPACTION_PRE_COMPACT_INSTRUCTION =
@@ -236,18 +236,18 @@ const DEFAULT_CLAUDE_COMPACTION_RESTORE_INSTRUCTION =
 const DEFAULT_CLAUDE_COMPACTION_POST_RESTORE_AUDIT_INSTRUCTION =
   "Read the claude-compaction-restore skill and follow its \"Required Read-Depth Audit\" protocol.";
 
-const DEFAULT_CLAUDE_COMPACTION_EXTRA_INSTRUCTION_FILE_PATH = getDefaultOpenRigPath(
+const DEFAULT_CLAUDE_COMPACTION_EXTRA_INSTRUCTION_FILE_PATH = getDefaultSoftwareTeamPath(
   "compaction/post-compact-extra.md",
 );
 
 const DEFAULTS = {
   launch: { nonInterruptive: false },
-  daemon: { port: 7433, host: "127.0.0.1" },
+  daemon: { port: 7434, host: "127.0.0.1" },
   // OPR.0.4.6.MH1 FR-1 — "local" ≡ no remote selection (LOCAL_HOST_ID).
   // FR-4 — own-host display name; default "localhost" (PRD-named).
   host: { selected: "local", name: "localhost" },
-  db: { path: getDefaultOpenRigPath("openrig.sqlite") },
-  transcripts: { enabled: true, path: getDefaultOpenRigPath("transcripts"), lines: 1000, pollIntervalSeconds: 2 },
+  db: { path: getDefaultSoftwareTeamPath("softwareteam.sqlite") },
+  transcripts: { enabled: true, path: getDefaultSoftwareTeamPath("transcripts"), lines: 1000, pollIntervalSeconds: 2 },
   workspace: {
     root: DEFAULT_WORKSPACE_ROOT,
     slicesRoot: "",
@@ -258,11 +258,11 @@ const DEFAULTS = {
     // No synthetic username-based human address.
     operatorSeatName: "",
   },
-  // OPR.0.5.3.6 D1 — derived under the OpenRig home, never a shared-docs literal.
-  topology: { root: getDefaultOpenRigPath("topology") },
+  // OPR.0.5.3.6 D1 — derived under the SoftwareTeam home, never a shared-docs literal.
+  topology: { root: getDefaultSoftwareTeamPath("topology") },
   // OPR.0.5.9.5 Wave B — canonical addressable context library.
-  context: { root: getDefaultOpenRigPath("context"), systemWorld: "default" },
-  skills: { root: getDefaultOpenRigPath("skills") },
+  context: { root: getDefaultSoftwareTeamPath("context"), systemWorld: "default" },
+  skills: { root: getDefaultSoftwareTeamPath("skills") },
   onboarding: { defaultPack: { enabled: true } },
   health: { contextPressure: { warningPercent: 95, criticalPercent: 99 } },
   files: { allowlist: "" },
@@ -381,7 +381,7 @@ export const VALID_KEYS = [
   // OPR.0.4.6.MH1 FR-1 — the persisted host-selection pointer (the
   // kubectl current-context shape). ONE static key, lockstep with the
   // daemon settings-store twin (parity test pins both). Registry-
-  // membership validation of the VALUE happens at the `rig host select`
+  // membership validation of the VALUE happens at the `softwareTeam host select`
   // verb layer (the store stays value-agnostic); the daemon config
   // write is the one write path — the CLI verb is a thin client.
   // Default "local" (unset ≡ the local host — the FR-2 zero-regression
@@ -390,7 +390,7 @@ export const VALID_KEYS = [
   // OPR.0.4.6.MH1 FR-4 — the own-host display name (arch Ruling 1: home =
   // the settings twins, never hosts.yaml). One stored name, every surface
   // reads it (dashboard/explorer/ls/whoami). Write path = the daemon
-  // config write via `rig host rename` (thin client, same as select).
+  // config write via `softwareTeam host rename` (thin client, same as select).
   "host.name",
   // OPR.0.4.6.WF5 FR-2 — the host-level maturity-dial default (lockstep
   // with the daemon settings twin). "orchestrator" | "human_only";
@@ -410,9 +410,9 @@ export const VALID_KEYS = [
   "workspace.projects_root",
   "workspace.catalog_path",
   // OPR.0.5.3.6 D1 — the topology tree root; lockstep with the daemon
-  // settings-store twin. Derived default $OPENRIG_HOME/topology; the legacy
-  // shared-docs/rigs location stays readable via the daemon's
-  // resolveLegacyTopologyRigsRoot fallback (advisory-emitting).
+  // settings-store twin. Derived default $SOFTWARETEAM_HOME/topology; the legacy
+  // shared-docs/softwareTeams location stays readable via the daemon's
+  // resolveLegacyTopologySoftwareTeamsRoot fallback (advisory-emitting).
   "topology.root",
   // OPR.0.5.9.5 Wave B — canonical context library; old key is refused.
   "context.root",
@@ -434,7 +434,7 @@ export const VALID_KEYS = [
   // V1 Phase 4 SC-29 exception — allowlist-only additions.
   "agents.advisor_session",
   "agents.operator_session",
-  // Explicit operator override (OPENRIG_* only; no legacy alias).
+  // Explicit operator override (SOFTWARETEAM_* only; no legacy alias).
   "workspace.operator_seat_name",
   // V1 Phase 5 P5-3 SC-29 exception — allowlist-only additions.
   "feed.subscriptions.action_required",
@@ -501,101 +501,101 @@ export const VALID_KEYS = [
 export type ValidKey = typeof VALID_KEYS[number];
 
 export const ENV_MAP: Record<ValidKey, { primary: string; legacy?: string }> = {
-  // Only the original runtime keys keep RIGGED_* aliases for upgrade
-  // compatibility. New typed keys use OPENRIG_* only.
-  "daemon.port": { primary: "OPENRIG_PORT", legacy: "RIGGED_PORT" },
-  // OPR.0.4.6.MH1 FR-1/FR-4 — new keys, OPENRIG_* only (no RIGGED_* legacy).
-  "host.selected": { primary: "OPENRIG_HOST_SELECTED" },
-  "host.name": { primary: "OPENRIG_HOST_NAME" },
-  // OPR.0.4.6.WF5 FR-2 — new key, OPENRIG_* only.
-  "workflow.exception_routing": { primary: "OPENRIG_WORKFLOW_EXCEPTION_ROUTING" },
-  "daemon.host": { primary: "OPENRIG_HOST", legacy: "RIGGED_HOST" },
-  "db.path": { primary: "OPENRIG_DB", legacy: "RIGGED_DB" },
-  "transcripts.enabled": { primary: "OPENRIG_TRANSCRIPTS_ENABLED", legacy: "RIGGED_TRANSCRIPTS_ENABLED" },
-  "transcripts.path": { primary: "OPENRIG_TRANSCRIPTS_PATH", legacy: "RIGGED_TRANSCRIPTS_PATH" },
-  "transcripts.lines": { primary: "OPENRIG_TRANSCRIPTS_LINES" },
-  "transcripts.poll_interval_seconds": { primary: "OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS" },
-  "workspace.root": { primary: "OPENRIG_WORKSPACE_ROOT" },
-  "workspace.slices_root": { primary: "OPENRIG_WORKSPACE_SLICES_ROOT" },
-  "workspace.steering_path": { primary: "OPENRIG_WORKSPACE_STEERING_PATH" },
-  "workspace.specs_root": { primary: "OPENRIG_WORKSPACE_SPECS_ROOT" },
-  "workspace.projects_root": { primary: "OPENRIG_WORKSPACE_PROJECTS_ROOT" },
-  "workspace.catalog_path": { primary: "OPENRIG_WORKSPACE_CATALOG_PATH" },
-  "topology.root": { primary: "OPENRIG_TOPOLOGY_ROOT" },
-  "context.root": { primary: "OPENRIG_CONTEXT_ROOT" },
-  "context.system_world": { primary: "OPENRIG_CONTEXT_SYSTEM_WORLD" },
-  "skills.root": { primary: "OPENRIG_SKILLS_ROOT" },
-  "onboarding.default_pack.enabled": { primary: "OPENRIG_ONBOARDING_DEFAULT_PACK_ENABLED" },
-  "launch.non_interruptive": { primary: "OPENRIG_LAUNCH_NON_INTERRUPTIVE" },
-  "health.context_pressure.warning_percent": { primary: "OPENRIG_HEALTH_CONTEXT_PRESSURE_WARNING_PERCENT" },
-  "health.context_pressure.critical_percent": { primary: "OPENRIG_HEALTH_CONTEXT_PRESSURE_CRITICAL_PERCENT" },
-  // UEP env-var graduation: existing OPENRIG_FILES_ALLOWLIST /
-  // OPENRIG_PROGRESS_SCAN_ROOTS become the env override for the new
+  // Only the original runtime keys keep SOFTWARETEAM_* aliases for upgrade
+  // compatibility. New typed keys use SOFTWARETEAM_* only.
+  "daemon.port": { primary: "SOFTWARETEAM_PORT" },
+  // OPR.0.4.6.MH1 FR-1/FR-4 — new keys, SOFTWARETEAM_* only (no SOFTWARETEAM_* legacy).
+  "host.selected": { primary: "SOFTWARETEAM_HOST_SELECTED" },
+  "host.name": { primary: "SOFTWARETEAM_HOST_NAME" },
+  // OPR.0.4.6.WF5 FR-2 — new key, SOFTWARETEAM_* only.
+  "workflow.exception_routing": { primary: "SOFTWARETEAM_WORKFLOW_EXCEPTION_ROUTING" },
+  "daemon.host": { primary: "SOFTWARETEAM_HOST" },
+  "db.path": { primary: "SOFTWARETEAM_DB" },
+  "transcripts.enabled": { primary: "SOFTWARETEAM_TRANSCRIPTS_ENABLED" },
+  "transcripts.path": { primary: "SOFTWARETEAM_TRANSCRIPTS_PATH" },
+  "transcripts.lines": { primary: "SOFTWARETEAM_TRANSCRIPTS_LINES" },
+  "transcripts.poll_interval_seconds": { primary: "SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS" },
+  "workspace.root": { primary: "SOFTWARETEAM_WORKSPACE_ROOT" },
+  "workspace.slices_root": { primary: "SOFTWARETEAM_WORKSPACE_SLICES_ROOT" },
+  "workspace.steering_path": { primary: "SOFTWARETEAM_WORKSPACE_STEERING_PATH" },
+  "workspace.specs_root": { primary: "SOFTWARETEAM_WORKSPACE_SPECS_ROOT" },
+  "workspace.projects_root": { primary: "SOFTWARETEAM_WORKSPACE_PROJECTS_ROOT" },
+  "workspace.catalog_path": { primary: "SOFTWARETEAM_WORKSPACE_CATALOG_PATH" },
+  "topology.root": { primary: "SOFTWARETEAM_TOPOLOGY_ROOT" },
+  "context.root": { primary: "SOFTWARETEAM_CONTEXT_ROOT" },
+  "context.system_world": { primary: "SOFTWARETEAM_CONTEXT_SYSTEM_WORLD" },
+  "skills.root": { primary: "SOFTWARETEAM_SKILLS_ROOT" },
+  "onboarding.default_pack.enabled": { primary: "SOFTWARETEAM_ONBOARDING_DEFAULT_PACK_ENABLED" },
+  "launch.non_interruptive": { primary: "SOFTWARETEAM_LAUNCH_NON_INTERRUPTIVE" },
+  "health.context_pressure.warning_percent": { primary: "SOFTWARETEAM_HEALTH_CONTEXT_PRESSURE_WARNING_PERCENT" },
+  "health.context_pressure.critical_percent": { primary: "SOFTWARETEAM_HEALTH_CONTEXT_PRESSURE_CRITICAL_PERCENT" },
+  // UEP env-var graduation: existing SOFTWARETEAM_FILES_ALLOWLIST /
+  // SOFTWARETEAM_PROGRESS_SCAN_ROOTS become the env override for the new
   // typed keys (no breaking change).
-  "files.allowlist": { primary: "OPENRIG_FILES_ALLOWLIST" },
-  "progress.scan_roots": { primary: "OPENRIG_PROGRESS_SCAN_ROOTS" },
-  "ui.preview.refresh_interval_seconds": { primary: "OPENRIG_UI_PREVIEW_REFRESH_INTERVAL_SECONDS" },
-  "ui.preview.max_pins": { primary: "OPENRIG_UI_PREVIEW_MAX_PINS" },
-  "ui.timezone": { primary: "OPENRIG_UI_TIMEZONE" },
-  "ui.enabled": { primary: "OPENRIG_UI_ENABLED" },
-  "ui.preview.default_lines": { primary: "OPENRIG_UI_PREVIEW_DEFAULT_LINES" },
-  "recovery.auto_drive_provider_prompts": { primary: "OPENRIG_RECOVERY_AUTO_DRIVE_PROVIDER_PROMPTS" },
-  "recovery.provider_auth_env_allowlist": { primary: "OPENRIG_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST" },
-  "agents.advisor_session": { primary: "OPENRIG_AGENTS_ADVISOR_SESSION" },
-  "agents.operator_session": { primary: "OPENRIG_AGENTS_OPERATOR_SESSION" },
-  "workspace.operator_seat_name": { primary: "OPENRIG_WORKSPACE_OPERATOR_SEAT_NAME" },
-  "feed.subscriptions.action_required": { primary: "OPENRIG_FEED_SUBSCRIPTIONS_ACTION_REQUIRED" },
-  "feed.subscriptions.approvals": { primary: "OPENRIG_FEED_SUBSCRIPTIONS_APPROVALS" },
-  "feed.subscriptions.shipped": { primary: "OPENRIG_FEED_SUBSCRIPTIONS_SHIPPED" },
-  "feed.subscriptions.progress": { primary: "OPENRIG_FEED_SUBSCRIPTIONS_PROGRESS" },
-  "feed.subscriptions.audit_log": { primary: "OPENRIG_FEED_SUBSCRIPTIONS_AUDIT_LOG" },
-  // Net-new key post-rename: OPENRIG_X primary only per the 5-key
-  // boundary doctrine (no RIGGED_X legacy on net-new keys).
-  "runtime.codex.hooks_enabled": { primary: "OPENRIG_RUNTIME_CODEX_HOOKS_ENABLED" },
-  "runtime.readiness_timeout_seconds": { primary: "OPENRIG_RUNTIME_READINESS_TIMEOUT_SECONDS" },
-  // Slice 27 — Claude auto-compaction policy. OPENRIG_X primary only
+  "files.allowlist": { primary: "SOFTWARETEAM_FILES_ALLOWLIST" },
+  "progress.scan_roots": { primary: "SOFTWARETEAM_PROGRESS_SCAN_ROOTS" },
+  "ui.preview.refresh_interval_seconds": { primary: "SOFTWARETEAM_UI_PREVIEW_REFRESH_INTERVAL_SECONDS" },
+  "ui.preview.max_pins": { primary: "SOFTWARETEAM_UI_PREVIEW_MAX_PINS" },
+  "ui.timezone": { primary: "SOFTWARETEAM_UI_TIMEZONE" },
+  "ui.enabled": { primary: "SOFTWARETEAM_UI_ENABLED" },
+  "ui.preview.default_lines": { primary: "SOFTWARETEAM_UI_PREVIEW_DEFAULT_LINES" },
+  "recovery.auto_drive_provider_prompts": { primary: "SOFTWARETEAM_RECOVERY_AUTO_DRIVE_PROVIDER_PROMPTS" },
+  "recovery.provider_auth_env_allowlist": { primary: "SOFTWARETEAM_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST" },
+  "agents.advisor_session": { primary: "SOFTWARETEAM_AGENTS_ADVISOR_SESSION" },
+  "agents.operator_session": { primary: "SOFTWARETEAM_AGENTS_OPERATOR_SESSION" },
+  "workspace.operator_seat_name": { primary: "SOFTWARETEAM_WORKSPACE_OPERATOR_SEAT_NAME" },
+  "feed.subscriptions.action_required": { primary: "SOFTWARETEAM_FEED_SUBSCRIPTIONS_ACTION_REQUIRED" },
+  "feed.subscriptions.approvals": { primary: "SOFTWARETEAM_FEED_SUBSCRIPTIONS_APPROVALS" },
+  "feed.subscriptions.shipped": { primary: "SOFTWARETEAM_FEED_SUBSCRIPTIONS_SHIPPED" },
+  "feed.subscriptions.progress": { primary: "SOFTWARETEAM_FEED_SUBSCRIPTIONS_PROGRESS" },
+  "feed.subscriptions.audit_log": { primary: "SOFTWARETEAM_FEED_SUBSCRIPTIONS_AUDIT_LOG" },
+  // Net-new key post-rename: SOFTWARETEAM_X primary only per the 5-key
+  // boundary doctrine (no SOFTWARETEAM_X legacy on net-new keys).
+  "runtime.codex.hooks_enabled": { primary: "SOFTWARETEAM_RUNTIME_CODEX_HOOKS_ENABLED" },
+  "runtime.readiness_timeout_seconds": { primary: "SOFTWARETEAM_RUNTIME_READINESS_TIMEOUT_SECONDS" },
+  // Slice 27 — Claude auto-compaction policy. SOFTWARETEAM_X primary only
   // (net-new keys, no legacy).
-  "policies.claude_compaction.enabled": { primary: "OPENRIG_POLICIES_CLAUDE_COMPACTION_ENABLED" },
-  "policies.claude_compaction.threshold_percent": { primary: "OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT" },
-  "policies.claude_compaction.pre_compact_instruction": { primary: "OPENRIG_POLICIES_CLAUDE_COMPACTION_PRE_COMPACT_INSTRUCTION" },
-  "policies.claude_compaction.compact_instruction": { primary: "OPENRIG_POLICIES_CLAUDE_COMPACTION_COMPACT_INSTRUCTION" },
-  "policies.claude_compaction.message_inline": { primary: "OPENRIG_POLICIES_CLAUDE_COMPACTION_MESSAGE_INLINE" },
-  "policies.claude_compaction.message_file_path": { primary: "OPENRIG_POLICIES_CLAUDE_COMPACTION_MESSAGE_FILE_PATH" },
-  "policies.claude_compaction.post_restore_audit_instruction": { primary: "OPENRIG_POLICIES_CLAUDE_COMPACTION_POST_RESTORE_AUDIT_INSTRUCTION" },
-  "policies.idle_gate_qitem.scan_interval_seconds": { primary: "OPENRIG_POLICIES_IDLE_GATE_QITEM_SCAN_INTERVAL_SECONDS" },
-  "policies.idle_gate_qitem.active_wake_interval_seconds": { primary: "OPENRIG_POLICIES_IDLE_GATE_QITEM_ACTIVE_WAKE_INTERVAL_SECONDS" },
-  "policies.idle_gate_qitem.auto_register": { primary: "OPENRIG_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER" },
-  "policies.idle_gate_qitem.opt_in_sessions": { primary: "OPENRIG_POLICIES_IDLE_GATE_QITEM_OPT_IN_SESSIONS" },
-  "snapshots.periodic.enabled": { primary: "OPENRIG_SNAPSHOTS_PERIODIC_ENABLED" },
-  "snapshots.periodic.interval_seconds": { primary: "OPENRIG_SNAPSHOTS_PERIODIC_INTERVAL_SECONDS" },
-  "snapshots.periodic.retention_keep": { primary: "OPENRIG_SNAPSHOTS_PERIODIC_RETENTION_KEEP" },
-  // OPR.0.4.6.02 S1 — net-new key; OPENRIG_* primary only (no RIGGED_* legacy).
-  "terminal.status_bar": { primary: "OPENRIG_TERMINAL_STATUS_BAR" },
-  "output.compact": { primary: "OPENRIG_OUTPUT_COMPACT" },
-  "output.whoami_peers": { primary: "OPENRIG_OUTPUT_WHOAMI_PEERS" },
-  "provider.usage_windows": { primary: "OPENRIG_PROVIDER_USAGE_WINDOWS" },
-  "usage.pi_cost_facts": { primary: "OPENRIG_USAGE_PI_COST_FACTS" },
-  "usage.pi_openrouter_charge": { primary: "OPENRIG_USAGE_PI_OPENROUTER_CHARGE" },
-  "transport.verify_input_box": { primary: "OPENRIG_TRANSPORT_VERIFY_INPUT_BOX" },
-  // OPR.0.4.6.FS-1 W2 — retention knobs; net-new keys, OPENRIG_* primary only.
-  "retention.enabled": { primary: "OPENRIG_RETENTION_ENABLED" },
-  "retention.transitions_days": { primary: "OPENRIG_RETENTION_TRANSITIONS_DAYS" },
-  "retention.watchdog_days": { primary: "OPENRIG_RETENTION_WATCHDOG_DAYS" },
-  "retention.watchdog_keep_per_job": { primary: "OPENRIG_RETENTION_WATCHDOG_KEEP_PER_JOB" },
-  "retention.batch_size": { primary: "OPENRIG_RETENTION_BATCH_SIZE" },
-  "queue.pickup_stall_threshold_minutes": { primary: "OPENRIG_QUEUE_PICKUP_STALL_THRESHOLD_MINUTES" },
-  "queue.stuck_sweep_interval_seconds": { primary: "OPENRIG_QUEUE_STUCK_SWEEP_INTERVAL_SECONDS" },
-  "queue.stuck_sweep_unclaimed_age_minutes": { primary: "OPENRIG_QUEUE_STUCK_SWEEP_UNCLAIMED_AGE_MINUTES" },
-  "queue.wake_retry_interval_seconds": { primary: "OPENRIG_QUEUE_WAKE_RETRY_INTERVAL_SECONDS" },
-  "queue.wake_retry_cap": { primary: "OPENRIG_QUEUE_WAKE_RETRY_CAP" },
-  "queue.wake_unconfirmed_window_minutes": { primary: "OPENRIG_QUEUE_WAKE_UNCONFIRMED_WINDOW_MINUTES" },
-  "queue.wake_swap_grace_seconds": { primary: "OPENRIG_QUEUE_WAKE_SWAP_GRACE_SECONDS" },
-  "queue.wake_human_rung": { primary: "OPENRIG_QUEUE_WAKE_HUMAN_RUNG" },
+  "policies.claude_compaction.enabled": { primary: "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_ENABLED" },
+  "policies.claude_compaction.threshold_percent": { primary: "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT" },
+  "policies.claude_compaction.pre_compact_instruction": { primary: "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_PRE_COMPACT_INSTRUCTION" },
+  "policies.claude_compaction.compact_instruction": { primary: "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_COMPACT_INSTRUCTION" },
+  "policies.claude_compaction.message_inline": { primary: "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_MESSAGE_INLINE" },
+  "policies.claude_compaction.message_file_path": { primary: "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_MESSAGE_FILE_PATH" },
+  "policies.claude_compaction.post_restore_audit_instruction": { primary: "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_POST_RESTORE_AUDIT_INSTRUCTION" },
+  "policies.idle_gate_qitem.scan_interval_seconds": { primary: "SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_SCAN_INTERVAL_SECONDS" },
+  "policies.idle_gate_qitem.active_wake_interval_seconds": { primary: "SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_ACTIVE_WAKE_INTERVAL_SECONDS" },
+  "policies.idle_gate_qitem.auto_register": { primary: "SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER" },
+  "policies.idle_gate_qitem.opt_in_sessions": { primary: "SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_OPT_IN_SESSIONS" },
+  "snapshots.periodic.enabled": { primary: "SOFTWARETEAM_SNAPSHOTS_PERIODIC_ENABLED" },
+  "snapshots.periodic.interval_seconds": { primary: "SOFTWARETEAM_SNAPSHOTS_PERIODIC_INTERVAL_SECONDS" },
+  "snapshots.periodic.retention_keep": { primary: "SOFTWARETEAM_SNAPSHOTS_PERIODIC_RETENTION_KEEP" },
+  // OPR.0.4.6.02 S1 — net-new key; SOFTWARETEAM_* primary only (no SOFTWARETEAM_* legacy).
+  "terminal.status_bar": { primary: "SOFTWARETEAM_TERMINAL_STATUS_BAR" },
+  "output.compact": { primary: "SOFTWARETEAM_OUTPUT_COMPACT" },
+  "output.whoami_peers": { primary: "SOFTWARETEAM_OUTPUT_WHOAMI_PEERS" },
+  "provider.usage_windows": { primary: "SOFTWARETEAM_PROVIDER_USAGE_WINDOWS" },
+  "usage.pi_cost_facts": { primary: "SOFTWARETEAM_USAGE_PI_COST_FACTS" },
+  "usage.pi_openrouter_charge": { primary: "SOFTWARETEAM_USAGE_PI_OPENROUTER_CHARGE" },
+  "transport.verify_input_box": { primary: "SOFTWARETEAM_TRANSPORT_VERIFY_INPUT_BOX" },
+  // OPR.0.4.6.FS-1 W2 — retention knobs; net-new keys, SOFTWARETEAM_* primary only.
+  "retention.enabled": { primary: "SOFTWARETEAM_RETENTION_ENABLED" },
+  "retention.transitions_days": { primary: "SOFTWARETEAM_RETENTION_TRANSITIONS_DAYS" },
+  "retention.watchdog_days": { primary: "SOFTWARETEAM_RETENTION_WATCHDOG_DAYS" },
+  "retention.watchdog_keep_per_job": { primary: "SOFTWARETEAM_RETENTION_WATCHDOG_KEEP_PER_JOB" },
+  "retention.batch_size": { primary: "SOFTWARETEAM_RETENTION_BATCH_SIZE" },
+  "queue.pickup_stall_threshold_minutes": { primary: "SOFTWARETEAM_QUEUE_PICKUP_STALL_THRESHOLD_MINUTES" },
+  "queue.stuck_sweep_interval_seconds": { primary: "SOFTWARETEAM_QUEUE_STUCK_SWEEP_INTERVAL_SECONDS" },
+  "queue.stuck_sweep_unclaimed_age_minutes": { primary: "SOFTWARETEAM_QUEUE_STUCK_SWEEP_UNCLAIMED_AGE_MINUTES" },
+  "queue.wake_retry_interval_seconds": { primary: "SOFTWARETEAM_QUEUE_WAKE_RETRY_INTERVAL_SECONDS" },
+  "queue.wake_retry_cap": { primary: "SOFTWARETEAM_QUEUE_WAKE_RETRY_CAP" },
+  "queue.wake_unconfirmed_window_minutes": { primary: "SOFTWARETEAM_QUEUE_WAKE_UNCONFIRMED_WINDOW_MINUTES" },
+  "queue.wake_swap_grace_seconds": { primary: "SOFTWARETEAM_QUEUE_WAKE_SWAP_GRACE_SECONDS" },
+  "queue.wake_human_rung": { primary: "SOFTWARETEAM_QUEUE_WAKE_HUMAN_RUNG" },
 };
 
-// Maps dotted-string config keys to the camelCase RiggedConfig path.
+// Maps dotted-string config keys to the camelCase SoftwareTeamConfig path.
 // Workspace per-subdir keys are stored on disk as `workspace.slices_root`
-// (snake) and exposed in RiggedConfig as `workspace.slicesRoot` (camel)
+// (snake) and exposed in SoftwareTeamConfig as `workspace.slicesRoot` (camel)
 // to match TS conventions.
 const KEY_TO_PATH: Record<ValidKey, string[]> = {
   "daemon.port": ["daemon", "port"],
@@ -682,7 +682,7 @@ function isValidKey(key: string): key is ValidKey {
 }
 
 const REMOVED_CONTEXT_KEY = "context.packs_root";
-const REMOVED_CONTEXT_ENV = "OPENRIG_CONTEXT_PACKS_ROOT";
+const REMOVED_CONTEXT_ENV = "SOFTWARETEAM_CONTEXT_PACKS_ROOT";
 
 export function removedContextSettingMessage(key: string): string | null {
   return key === REMOVED_CONTEXT_KEY
@@ -693,7 +693,7 @@ export function removedContextSettingMessage(key: string): string | null {
 function assertNoRemovedContextSetting(fileConfig: Record<string, unknown>): void {
   if (process.env[REMOVED_CONTEXT_ENV]?.trim()) {
     throw new Error(
-      "OPENRIG_CONTEXT_PACKS_ROOT was removed; use OPENRIG_CONTEXT_ROOT (config key context.root).",
+      "SOFTWARETEAM_CONTEXT_PACKS_ROOT was removed; use SOFTWARETEAM_CONTEXT_ROOT (config key context.root).",
     );
   }
   if (getNestedValue(fileConfig, ["context", "packsRoot"]) !== undefined) {
@@ -764,7 +764,7 @@ function setNestedValue(obj: Record<string, unknown>, parts: string[], value: un
 // the indexer remains backward-compatible with flat slice roots when an
 // operator sets workspace.slices_root explicitly.
 // Files and Progress default to the whole workspace so a fresh
-// `rig config init-workspace` install is browsable without extra env wiring.
+// `SoftwareTeam config init-workspace` install is browsable without extra env wiring.
 export function deriveWorkspaceDefault(key: ValidKey, workspaceRoot: string): string {
   switch (key) {
     case "workspace.slices_root":      return join(workspaceRoot, "missions");
@@ -870,13 +870,13 @@ const KEY_CONSTRAINTS: Partial<Record<ValidKey, (raw: string, coerced: string | 
       throw new Error(`Invalid value for runtime.readiness_timeout_seconds: must be an integer in [1, 600], got "${raw}"`);
     }
   },
-  // daemon.port had no KEY_CONSTRAINTS entry, so `rig config set daemon.port
+  // daemon.port had no KEY_CONSTRAINTS entry, so `SoftwareTeam config set daemon.port
   // 99999` stored 99999 and the next daemon start died with a raw
   // ERR_SOCKET_BAD_PORT from serve(). The check range-validates the value
   // the runtime actually consumes — the same parseInt the boot path runs on
-  // OPENRIG_PORT (startServer) — rather than the raw input format, so
-  // everything that resolves today keeps resolving: 7433abc, 7433.5 and
-  // +7433 resolve to 7433, 1e4 to 1, 0x1D11 to 0, and a quoted in-range
+  // SOFTWARETEAM_PORT (startServer) — rather than the raw input format, so
+  // everything that resolves today keeps resolving: 7433abc, 7434.5 and
+  // +7434 resolve to 7434, 1e4 to 1, 0x1D11 to 0, and a quoted in-range
   // port in config.json ("7434") stays "7434". Only ports that cannot be
   // bound are refused. 0 stays legal: checkPort treats port <= 0 as
   // "always available" and the repo's own preflight tests write
@@ -1036,17 +1036,17 @@ export class ConfigStore {
 
   constructor(configPath?: string) {
     // GHOST-STAGE (d): the config default WRITE target must be the CANONICAL path the daemon READS
-    // (getOpenRigHome/config.json), NOT the existence-based getCompatibleOpenRigPath which prefers a
-    // legacy ~/.rigged/config.json when canonical is absent. That divergence let `rig config set`
+    // (getSoftwareTeamHome/config.json), NOT the existence-based getCompatibleSoftwareTeamPath which prefers a
+    // legacy ~/.softwareteam/config.json when canonical is absent. That divergence let `SoftwareTeam config set`
     // report success while writing a stale operator SIDECAR the daemon never reads (accept-and-drop
-    // family). Reads align to canonical too — the daemon already ignores ~/.rigged.
-    this.configPath = configPath ?? getDefaultOpenRigPath("config.json");
+    // family). Reads align to canonical too — the daemon already ignores ~/.softwareteam.
+    this.configPath = configPath ?? getDefaultSoftwareTeamPath("config.json");
   }
 
   // GHOST-STAGE (d): verify-readback + fail-loud. After a write, RE-READ the file we wrote
   // (this.configPath) and confirm the value actually persisted. For the DEFAULT store this path is
-  // the CANONICAL config the daemon reads (getOpenRigHome/config.json — the constructor no longer
-  // resolves the legacy ~/.rigged sidecar), so a persisted read here IS proof the daemon sees it.
+  // the CANONICAL config the daemon reads (getSoftwareTeamHome/config.json — the constructor no longer
+  // resolves the legacy ~/.softwareteam sidecar), so a persisted read here IS proof the daemon sees it.
   // A read-back MISMATCH means the write silently did not take — we REFUSE loudly rather than report
   // a phantom success (the accept-and-drop / config-set-success-without-persist class).
   /** Publish a complete config without truncating the previous usable file. */
@@ -1073,7 +1073,7 @@ export class ConfigStore {
     }
   }
 
-  resolve(): RiggedConfig {
+  resolve(): SoftwareTeamConfig {
     const fileConfig = this.readConfigFile();
 
     // Workspace root must be resolved first so derived per-subdir
@@ -1285,7 +1285,7 @@ export class ConfigStore {
       return { [warningKey]: warning, [criticalKey]: critical };
     }
     process.stderr.write(
-      `[openrig-config] context-pressure policy rejected: warning (${warning.value}) must be less than critical (${critical.value}); falling back to 95/99 defaults\n`,
+      `[softwareteam-config] context-pressure policy rejected: warning (${warning.value}) must be less than critical (${critical.value}); falling back to 95/99 defaults\n`,
     );
     return {
       [warningKey]: { value: 95, source: "default", defaultValue: 95 },
@@ -1299,14 +1299,14 @@ export class ConfigStore {
     //    override and fall through to file/default (safer-failure than
     //    crashing or accepting a bad value). Warn so the operator sees
     //    the misconfigured env on stderr.
-    const envVal = readOpenRigEnv(ENV_MAP[key].primary, ENV_MAP[key].legacy);
+    const envVal = readSoftwareTeamEnv(ENV_MAP[key].primary, ENV_MAP[key].legacy);
     if (envVal !== undefined && envVal !== "") {
       try {
         return { value: coerceAndValidate(key, envVal, workspaceRoot), source: "env", defaultValue };
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
         process.stderr.write(
-          `[openrig-config] env override for ${key} rejected: ${reason}; falling back to file/default\n`,
+          `[softwareteam-config] env override for ${key} rejected: ${reason}; falling back to file/default\n`,
         );
       }
     }
@@ -1326,7 +1326,7 @@ export class ConfigStore {
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
         process.stderr.write(
-          `[openrig-config] file value for ${key} rejected: ${reason}; falling back to default\n`,
+          `[softwareteam-config] file value for ${key} rejected: ${reason}; falling back to default\n`,
         );
       }
     }
@@ -1358,7 +1358,7 @@ export class ConfigStore {
     }
     const fileConfig = this.readConfigFile();
     const workspaceRoot = (getNestedValue(fileConfig, KEY_TO_PATH["workspace.root"]) as string | undefined)
-      || readOpenRigEnv(ENV_MAP["workspace.root"].primary, ENV_MAP["workspace.root"].legacy)
+      || readSoftwareTeamEnv(ENV_MAP["workspace.root"].primary, ENV_MAP["workspace.root"].legacy)
       || DEFAULT_WORKSPACE_ROOT;
     const coerced = coerceAndValidate(key, value, workspaceRoot);
     setNestedValue(fileConfig, KEY_TO_PATH[key], coerced);
@@ -1413,7 +1413,7 @@ export class ConfigStore {
       delete parent[leaf];
       if (key === "health.context_pressure.warning_percent" || key === "health.context_pressure.critical_percent") {
         const workspaceRoot = (getNestedValue(fileConfig, KEY_TO_PATH["workspace.root"]) as string | undefined)
-          || readOpenRigEnv(ENV_MAP["workspace.root"].primary, ENV_MAP["workspace.root"].legacy)
+          || readSoftwareTeamEnv(ENV_MAP["workspace.root"].primary, ENV_MAP["workspace.root"].legacy)
           || DEFAULT_WORKSPACE_ROOT;
         const warning = getNestedValue(fileConfig, KEY_TO_PATH["health.context_pressure.warning_percent"])
           ?? getDefaultValue("health.context_pressure.warning_percent", workspaceRoot);
@@ -1435,7 +1435,7 @@ export class ConfigStore {
         parsed = JSON.parse(raw) as Record<string, unknown>;
       } catch {
         throw new Error(
-          `Config file at ${this.configPath} is malformed. Fix the JSON or reset with: rig config reset`
+          `Config file at ${this.configPath} is malformed. Fix the JSON or reset with: SoftwareTeam config reset`
         );
       }
     }

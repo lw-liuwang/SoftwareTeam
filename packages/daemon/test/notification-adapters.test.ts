@@ -17,7 +17,7 @@ describe("NtfyNotificationAdapter (PL-005 Phase B)", () => {
       title: "human-gate qitem arrived",
       body: "qitem-XXX arrived",
       qitemRef: "qitem-XXX",
-      tags: ["openrig", "mission-control"],
+      tags: ["softwareteam", "mission-control"],
     });
     expect(result.ok).toBe(true);
     expect(result.ack).toContain("200");
@@ -27,7 +27,7 @@ describe("NtfyNotificationAdapter (PL-005 Phase B)", () => {
     const headers = calls[0]!.init.headers as Record<string, string>;
     expect(headers.Title).toBe("human-gate qitem arrived");
     expect(headers.Click).toBe("qitem-XXX");
-    expect(headers.Tags).toBe("openrig,mission-control");
+    expect(headers.Tags).toBe("softwareteam,mission-control");
   });
 
   it("returns ok=false on non-2xx response", async () => {
@@ -92,7 +92,7 @@ describe("WebhookNotificationAdapter (PL-005 Phase B)", () => {
     expect(result.ok).toBe(true);
     expect(calls[0]!.url).toBe("https://example.com/webhook");
     const body = JSON.parse(calls[0]!.init.body as string) as Record<string, unknown>;
-    expect(body.source).toBe("openrig.mission-control");
+    expect(body.source).toBe("softwareteam.mission-control");
     expect(body.schema_version).toBe(1);
     expect(body.title).toBe("test");
     expect(body.body).toBe("bodytext");
@@ -268,7 +268,7 @@ describe("WebhookNotificationAdapter (PL-005 Phase B)", () => {
 
     it("permits self-hosted notifiers on localhost and local network", async () => {
       const fakeFetch = (async () => new Response(null, { status: 200 })) as unknown as typeof fetch;
-      for (const target of ["http://localhost:8080/hook", "http://127.0.0.1:7433/api", "http://192.168.1.50/ntfy", "http://10.0.0.5:8000/webhook"]) {
+      for (const target of ["http://localhost:8080/hook", "http://127.0.0.1:7434/api", "http://192.168.1.50/ntfy", "http://10.0.0.5:8000/webhook"]) {
         const webhook = new WebhookNotificationAdapter({ endpointUrl: target, fetchImpl: fakeFetch });
         const res1 = await webhook.send({ title: "test", body: "test" });
         expect(res1.ok).toBe(true);

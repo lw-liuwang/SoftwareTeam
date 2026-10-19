@@ -3,7 +3,7 @@ import type { StreamDeps } from "../src/commands/stream.js";
 import { createProgram } from "../src/index.js";
 
 /**
- * `rig stream` CLI tests — PL-004 Phase A revision (R1).
+ * `softwareTeam stream` CLI tests — PL-004 Phase A revision (R1).
  *
  * Covers parser behavior, HTTP request shape, and non-2xx exit handling for
  * stream emit / list / show / archive plus the GA CLI watch consumer over the
@@ -14,8 +14,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -64,7 +64,7 @@ function makeDeps(opts?: {
   };
 }
 
-describe("rig stream CLI", () => {
+describe("SoftwareTeam stream CLI", () => {
   let logs: string[];
   let errors: string[];
 
@@ -100,15 +100,15 @@ describe("rig stream CLI", () => {
     const program = createProgram({ streamDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "stream", "emit",
-      "--source", "alice@rig",
+      "node", "softwareTeam", "stream", "emit",
+      "--source", "alice@software-team",
       "--body", "stream content",
       "--json",
     ]);
     const call = calls.find((c) => c.path === "/api/stream/emit");
     expect(call).toBeDefined();
     const body = call!.body as Record<string, unknown>;
-    expect(body.sourceSession).toBe("alice@rig");
+    expect(body.sourceSession).toBe("alice@software-team");
     expect(body.body).toBe("stream content");
   });
 
@@ -117,8 +117,8 @@ describe("rig stream CLI", () => {
     const program = createProgram({ streamDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "stream", "emit",
-      "--source", "alice@rig",
+      "node", "softwareTeam", "stream", "emit",
+      "--source", "alice@software-team",
       "--body", "x",
       "--id", "stream-fixed-id",
     ]);
@@ -128,19 +128,19 @@ describe("rig stream CLI", () => {
 
   it("list GETs /api/stream/list with limit + sourceSession query", async () => {
     const { deps, calls } = makeDeps({
-      routes: { "GET /api/stream/list?sourceSession=bob%40rig&limit=20": { status: 200, data: [] } },
+      routes: { "GET /api/stream/list?sourceSession=bob%40software-team&limit=20": { status: 200, data: [] } },
     });
     const program = createProgram({ streamDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "stream", "list",
-      "--source", "bob@rig",
+      "node", "softwareTeam", "stream", "list",
+      "--source", "bob@software-team",
       "--limit", "20",
       "--json",
     ]);
     const call = calls.find((c) => c.method === "GET" && c.path.startsWith("/api/stream/list"));
     expect(call).toBeDefined();
-    expect(call!.path).toContain("sourceSession=bob%40rig");
+    expect(call!.path).toContain("sourceSession=bob%40software-team");
     expect(call!.path).toContain("limit=20");
   });
 
@@ -151,7 +151,7 @@ describe("rig stream CLI", () => {
     const program = createProgram({ streamDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "stream", "show", "stream-x",
+      "node", "softwareTeam", "stream", "show", "stream-x",
       "--json",
     ]);
     const call = calls.find((c) => c.method === "GET" && c.path === "/api/stream/stream-x");
@@ -165,7 +165,7 @@ describe("rig stream CLI", () => {
     const program = createProgram({ streamDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "stream", "archive", "stream-x",
+      "node", "softwareTeam", "stream", "archive", "stream-x",
       "--json",
     ]);
     const call = calls.find((c) => c.method === "POST" && c.path === "/api/stream/stream-x/archive");
@@ -184,8 +184,8 @@ describe("rig stream CLI", () => {
     const program = createProgram({ streamDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "stream", "emit",
-      "--source", "alice@rig",
+      "node", "softwareTeam", "stream", "emit",
+      "--source", "alice@software-team",
       "--body", "x",
       "--json",
     ]);
@@ -201,7 +201,7 @@ describe("rig stream CLI", () => {
     const program = createProgram({ streamDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "stream", "show", "missing",
+      "node", "softwareTeam", "stream", "show", "missing",
       "--json",
     ]);
     expect(process.exitCode).toBe(1);
@@ -212,8 +212,8 @@ describe("rig stream CLI", () => {
     const program = createProgram({ streamDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "stream", "emit",
-      "--source", "alice@rig",
+      "node", "softwareTeam", "stream", "emit",
+      "--source", "alice@software-team",
       "--body", "structured observation",
       "--format", "markdown",
     ]);
@@ -226,7 +226,7 @@ describe("rig stream CLI", () => {
     const program = createProgram({ streamDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "stream", "list",
+      "node", "softwareTeam", "stream", "list",
       "--tag", "review",
       "--since", "2026-08-03T09:00:00.000Z",
       "--until", "2026-08-03T10:00:00.000Z",
@@ -241,9 +241,9 @@ describe("rig stream CLI", () => {
     const { deps } = makeDeps();
     const encoder = new TextEncoder();
     const items = [
-      { streamItemId: "stream-1", tsEmitted: "2026-08-03T09:00:00.000Z", sourceSession: "alice@rig", body: "café" },
-      { streamItemId: "stream-2", tsEmitted: "2026-08-03T09:01:00.000Z", sourceSession: "bob@rig", body: "second" },
-      { streamItemId: "stream-3", tsEmitted: "2026-08-03T09:02:00.000Z", sourceSession: "carol@rig", body: "eof" },
+      { streamItemId: "stream-1", tsEmitted: "2026-08-03T09:00:00.000Z", sourceSession: "alice@software-team", body: "café" },
+      { streamItemId: "stream-2", tsEmitted: "2026-08-03T09:01:00.000Z", sourceSession: "bob@software-team", body: "second" },
+      { streamItemId: "stream-3", tsEmitted: "2026-08-03T09:02:00.000Z", sourceSession: "carol@software-team", body: "eof" },
     ];
     const payload = `id: stream-1\r\ndata: ${JSON.stringify(items[0])}\r\n\r\ndata: ${JSON.stringify(items[1])}\n\ndata: not-json\n\ndata: ${JSON.stringify(items[2])}`;
     const bytes = encoder.encode(payload);
@@ -273,7 +273,7 @@ describe("rig stream CLI", () => {
 
     const program = createProgram({ streamDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "stream", "watch", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "stream", "watch", "--json"]);
 
     expect(logs).toEqual(items.map((item) => JSON.stringify(item)));
     expect(fetchImpl).toHaveBeenCalledTimes(1);
@@ -285,14 +285,14 @@ describe("rig stream CLI", () => {
     const item = {
       streamItemId: "stream-1",
       tsEmitted: "2026-08-03T09:00:00.000Z",
-      sourceSession: "alice@rig",
+      sourceSession: "alice@software-team",
       body: "noticed",
     };
     deps.fetchImpl = vi.fn(async () => new Response(`data: ${JSON.stringify(item)}\n\n`, { status: 200 })) as typeof fetch;
     const program = createProgram({ streamDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "stream", "watch"]);
-    expect(logs).toEqual(["[2026-08-03T09:00:00.000Z alice@rig] noticed"]);
+    await program.parseAsync(["node", "softwareTeam", "stream", "watch"]);
+    expect(logs).toEqual(["[2026-08-03T09:00:00.000Z alice@software-team] noticed"]);
   });
 
   it("watch names HTTP, missing-body, and transport failures without reconnecting", async () => {
@@ -301,7 +301,7 @@ describe("rig stream CLI", () => {
       deps.fetchImpl = fetchImpl as typeof fetch;
       const program = createProgram({ streamDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "stream", "watch"]);
+      await program.parseAsync(["node", "softwareTeam", "stream", "watch"]);
       expect(fetchImpl).toHaveBeenCalledTimes(1);
       expect(process.exitCode).toBe(2);
       process.exitCode = undefined;

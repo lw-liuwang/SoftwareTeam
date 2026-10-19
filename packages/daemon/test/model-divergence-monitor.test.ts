@@ -12,14 +12,14 @@ import {
   formatProclamation,
   type PinnedSeat,
 } from "../src/domain/model-divergence/model-divergence-monitor.js";
-import { SPEC_VALIDATION_CAPABILITIES } from "../src/domain/rigspec-schema.js";
+import { SPEC_VALIDATION_CAPABILITIES } from "../src/domain/software-team-spec-schema.js";
 import { ProcessCensus } from "../src/domain/process-census.js";
 
 const SEAT: PinnedSeat = {
   nodeId: "n1",
   sessionName: "dev-impl@r",
-  rigId: "rig-1",
-  rigName: "r",
+  softwareTeamId: "software-team-1",
+  softwareTeamName: "r",
   runtime: "codex",
   pinnedModel: "gpt-5.1-codex-mini",
   generation: "gen-1",

@@ -3,9 +3,9 @@ import { subscribeTopologyEvents } from "../lib/topology-events.js";
 import {
   HOT_POTATO_TRAIL_TTL_MS,
   TOPOLOGY_NODE_ACTIVITY_TTL_MS,
-  TOPOLOGY_RIG_ACTIVITY_TTL_MS,
+  TOPOLOGY_SOFTWARE_TEAM_ACTIVITY_TTL_MS,
   computeActivityVisual,
-  isRigRecentlyActive,
+  isSoftwareTeamRecentlyActive,
   makeHotPotatoPacket,
   parseTopologyActivityEvent,
   resolveTopologySession,
@@ -19,7 +19,7 @@ import {
 
 interface TopologyActivityStore {
   nodeActivity: Map<string, TopologyRecentNodeActivity>;
-  rigActivity: Map<string, number>;
+  softwareTeamActivity: Map<string, number>;
   packets: HotPotatoPacket[];
   unresolvedCount: number;
   sequence: number;
@@ -30,13 +30,13 @@ export interface TopologyActivitySnapshot {
   unresolvedCount: number;
   packets: HotPotatoPacket[];
   getNodeActivity(nodeId: string, baseline?: TopologyActivityBaseline | null): TopologyActivityVisual;
-  isRigRecentlyActive(rigId: string | null | undefined): boolean;
+  isSoftwareTeamRecentlyActive(softwareTeamId: string | null | undefined): boolean;
 }
 
 function createStore(): TopologyActivityStore {
   return {
     nodeActivity: new Map(),
-    rigActivity: new Map(),
+    softwareTeamActivity: new Map(),
     packets: [],
     unresolvedCount: 0,
     sequence: 0,
@@ -88,9 +88,9 @@ function pruneStore(store: TopologyActivityStore, nowMs: number): boolean {
     }
   }
 
-  for (const [rigId, lastActiveAt] of store.rigActivity.entries()) {
-    if (nowMs - lastActiveAt > TOPOLOGY_RIG_ACTIVITY_TTL_MS) {
-      store.rigActivity.delete(rigId);
+  for (const [softwareTeamId, lastActiveAt] of store.softwareTeamActivity.entries()) {
+    if (nowMs - lastActiveAt > TOPOLOGY_SOFTWARE_TEAM_ACTIVITY_TTL_MS) {
+      store.softwareTeamActivity.delete(softwareTeamId);
       changed = true;
     }
   }
@@ -126,7 +126,7 @@ export function useTopologyActivity(index: TopologySessionIndex): TopologyActivi
           continue;
         }
         recordNodeActivity(store, resolved.nodeId, item.state, nowMs, item.flash ?? null);
-        if (resolved.rigId) store.rigActivity.set(resolved.rigId, nowMs);
+        if (resolved.softwareTeamId) store.softwareTeamActivity.set(resolved.softwareTeamId, nowMs);
         changed = true;
       }
 
@@ -145,8 +145,8 @@ export function useTopologyActivity(index: TopologySessionIndex): TopologyActivi
           }));
           recordNodeActivity(store, source.nodeId, "active", nowMs, "source");
           recordNodeActivity(store, target.nodeId, "active", nowMs, "target");
-          if (source.rigId) store.rigActivity.set(source.rigId, nowMs);
-          if (target.rigId) store.rigActivity.set(target.rigId, nowMs);
+          if (source.softwareTeamId) store.softwareTeamActivity.set(source.softwareTeamId, nowMs);
+          if (target.softwareTeamId) store.softwareTeamActivity.set(target.softwareTeamId, nowMs);
           changed = true;
         } else {
           store.unresolvedCount += 1;
@@ -185,9 +185,9 @@ export function useTopologyActivity(index: TopologySessionIndex): TopologyActivi
           nowMs,
         });
       },
-      isRigRecentlyActive(rigId) {
-        if (!rigId) return false;
-        return isRigRecentlyActive(store.rigActivity.get(rigId), nowMs);
+      isSoftwareTeamRecentlyActive(softwareTeamId) {
+        if (!softwareTeamId) return false;
+        return isSoftwareTeamRecentlyActive(store.softwareTeamActivity.get(softwareTeamId), nowMs);
       },
     };
   }, [version]);

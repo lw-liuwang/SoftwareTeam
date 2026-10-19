@@ -15,20 +15,20 @@ describe("waiting face names the next action the existing ladder can actually ta
   const advance = (seconds: number) => vi.setSystemTime(Date.now() + seconds * 1000);
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime("2026-09-08T00:00:00Z");
-    vi.stubEnv("OPENRIG_QUEUE_WAKE_RETRY_INTERVAL_SECONDS", "300");
-    vi.stubEnv("OPENRIG_QUEUE_WAKE_RETRY_CAP", "3");
-    vi.stubEnv("OPENRIG_QUEUE_WAKE_UNCONFIRMED_WINDOW_MINUTES", "30");
+    vi.stubEnv("SOFTWARETEAM_QUEUE_WAKE_RETRY_INTERVAL_SECONDS", "300");
+    vi.stubEnv("SOFTWARETEAM_QUEUE_WAKE_RETRY_CAP", "3");
+    vi.stubEnv("SOFTWARETEAM_QUEUE_WAKE_UNCONFIRMED_WINDOW_MINUTES", "30");
     db = new Database(":memory:"); migrate(db, ALL_MIGRATIONS);
-    db.prepare("INSERT INTO rigs (id,name) VALUES ('r','rig')").run(); sends = [];
-    queue = new QueueRepository(db, new EventBus(db), { validateRig: () => true, transport: { send: async target => {
-      sends.push(target); return target === "healthy@rig" ? { ok: true, verified: true } : { ok: false, error: "synthetic unavailable" };
+    db.prepare("INSERT INTO software_teams (id,name) VALUES ('r','softwareTeam')").run(); sends = [];
+    queue = new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => true, transport: { send: async target => {
+      sends.push(target); return target === "healthy@software-team" ? { ok: true, verified: true } : { ok: false, error: "synthetic unavailable" };
     } } });
     queue.attachOutbox(new OutboxHandler(db));
   });
   afterEach(() => { db.close(); vi.useRealTimers(); vi.unstubAllEnvs(); });
-  async function handoff(target = "worker@rig") {
-    const source = await queue.create({ sourceSession: "owner@rig", destinationSession: "owner@rig", body: "Prepare result", nudge: false });
-    const id = (await queue.handoff({ qitemId: source.qitemId, fromSession: "owner@rig", toSession: target, body: "Continue exact work", nudge: true })).created.qitemId;
+  async function handoff(target = "worker@software-team") {
+    const source = await queue.create({ sourceSession: "owner@software-team", destinationSession: "owner@software-team", body: "Prepare result", nudge: false });
+    const id = (await queue.handoff({ qitemId: source.qitemId, fromSession: "owner@software-team", toSession: target, body: "Continue exact work", nudge: true })).created.qitemId;
     // Backstop assertions describe a completed wake attempt, not the earlier persistence receipt.
     await new Promise<void>(resolve => setImmediate(resolve));
     expect(queue.getByIdOrThrow(id).lastNudgeResult).not.toBeNull();
@@ -38,58 +38,58 @@ describe("waiting face names the next action the existing ladder can actually ta
   const tick = () => runWakeLadderTick({ db, queueRepo: queue, now: new Date(), resolveOrchestrator: () => null, log: () => {} });
 
   it("separates failed retry and verified unclaimed grace, and advances only after the actual attempt", async () => {
-    const good = await handoff("healthy@rig"), failed = await handoff();
+    const good = await handoff("healthy@software-team"), failed = await handoff();
     expect(view(good).nextBackstop).toMatchObject({ mechanism: "queue-stuck-sweep:unclaimed", dueAt: "2026-09-08T01:00:00.000Z" });
-    expect(view(failed).nextBackstop).toMatchObject({ owner: "worker@rig", mechanism: "queue-wake-ladder:retry", dueAt: "2026-09-08T00:05:00.000Z" });
+    expect(view(failed).nextBackstop).toMatchObject({ owner: "worker@software-team", mechanism: "queue-wake-ladder:retry", dueAt: "2026-09-08T00:05:00.000Z" });
     expect(view(failed).laterBackstop?.mechanism).toBe("queue-stuck-sweep:unclaimed");
     const snapshot = db.serialize(); view(failed); view(failed); expect(db.serialize()).toEqual(snapshot);
     const before = sends.length; advance(299); expect((await tick()).actions).toEqual([]); expect(sends).toHaveLength(before);
-    advance(2); expect((await tick()).actions).toContainEqual({ qitemId: failed, action: "retry", target: "worker@rig" });
+    advance(2); expect((await tick()).actions).toContainEqual({ qitemId: failed, action: "retry", target: "worker@software-team" });
     expect(sends).toHaveLength(before + 1);
     expect(view(failed).nextBackstop.dueAt).toBe("2026-09-08T00:10:01.000Z");
   });
 
   it("shows the existing suspension deadline and resumes at it without mutating policy", async () => {
     const id = await handoff();
-    vi.stubEnv(WAKE_SUSPEND_OVERRIDE_ENV, "worker@rig:2026-09-08T00:20:00.000Z");
+    vi.stubEnv(WAKE_SUSPEND_OVERRIDE_ENV, "worker@software-team:2026-09-08T00:20:00.000Z");
     expect(view(id).nextBackstop).toMatchObject({ mechanism: "queue-wake-ladder:retry", dueAt: "2026-09-08T00:20:00.000Z", suspendedUntil: "2026-09-08T00:20:00.000Z" });
     const count = sends.length; advance(301); expect((await tick()).actions).toContainEqual({ qitemId: id, action: "suspend" });
     expect(sends).toHaveLength(count); advance(899);
-    expect((await tick()).actions).toContainEqual({ qitemId: id, action: "retry", target: "worker@rig" });
+    expect((await tick()).actions).toContainEqual({ qitemId: id, action: "retry", target: "worker@software-team" });
     expect(view(id).nextBackstop.suspendedUntil).toBeUndefined();
     expect(view(id).nextBackstop.dueAt).toBe("2026-09-08T00:25:00.000Z");
   });
 
   it("derives post-swap suspension from the current seat binding", async () => {
     const id = await handoff(); advance(301);
-    db.prepare("INSERT INTO nodes (id,rig_id,logical_id,handover_at) VALUES ('worker-node','r','work.seat',?)").run(new Date().toISOString());
-    db.prepare("INSERT INTO sessions (id,node_id,session_name,status) VALUES ('worker-session','worker-node','worker@rig','running')").run();
-    expect(view(id).nextBackstop).toMatchObject({ owner: "worker@rig", dueAt: "2026-09-08T00:08:01.000Z", suspendedUntil: "2026-09-08T00:08:01.000Z" });
+    db.prepare("INSERT INTO nodes (id,software_team_id,logical_id,handover_at) VALUES ('worker-node','r','work.seat',?)").run(new Date().toISOString());
+    db.prepare("INSERT INTO sessions (id,node_id,session_name,status) VALUES ('worker-session','worker-node','worker@software-team','running')").run();
+    expect(view(id).nextBackstop).toMatchObject({ owner: "worker@software-team", dueAt: "2026-09-08T00:08:01.000Z", suspendedUntil: "2026-09-08T00:08:01.000Z" });
     expect(view(id).nextBackstop.note).toContain("post-swap grace");
     const count = sends.length; await tick(); expect(sends).toHaveLength(count);
-    advance(180); expect((await tick()).actions).toContainEqual({ qitemId: id, action: "retry", target: "worker@rig" });
+    advance(180); expect((await tick()).actions).toContainEqual({ qitemId: id, action: "retry", target: "worker@software-team" });
   });
 
   it("honors a closed recovery and exposes retry again only after a new meaningful source event", async () => {
     const id = await handoff();
-    const recovery = await queue.create({ sourceSession: "owner@rig", destinationSession: "orch@rig", body: "Inspect failed delivery", tags: [recoveryTag(id)], nudge: false });
-    await queue.update({ qitemId: recovery.qitemId, actorSession: "orch@rig", state: "done", closureReason: "no-follow-on", resolution: "Do not retry this episode" });
-    expect(view(id).nextBackstop).toMatchObject({ owner: "orch@rig", mechanism: "queue-recovery:resolved", dueAt: null, recovery: { qitemId: recovery.qitemId, state: "done" } });
+    const recovery = await queue.create({ sourceSession: "owner@software-team", destinationSession: "orch@software-team", body: "Inspect failed delivery", tags: [recoveryTag(id)], nudge: false });
+    await queue.update({ qitemId: recovery.qitemId, actorSession: "orch@software-team", state: "done", closureReason: "no-follow-on", resolution: "Do not retry this episode" });
+    expect(view(id).nextBackstop).toMatchObject({ owner: "orch@software-team", mechanism: "queue-recovery:resolved", dueAt: null, recovery: { qitemId: recovery.qitemId, state: "done" } });
     const count = sends.length; advance(301); expect((await tick()).actions).toEqual([]); expect(sends).toHaveLength(count);
-    await queue.update({ qitemId: id, actorSession: "owner@rig", transitionNote: "New evidence: delivery can now be retried" });
+    await queue.update({ qitemId: id, actorSession: "owner@software-team", transitionNote: "New evidence: delivery can now be retried" });
     expect(view(id).nextBackstop.mechanism).toBe("queue-wake-ladder:retry");
-    expect((await tick()).actions).toContainEqual({ qitemId: id, action: "retry", target: "worker@rig" });
+    expect((await tick()).actions).toContainEqual({ qitemId: id, action: "retry", target: "worker@software-team" });
   });
 
   it("uses configured retry cadence and the shared destination budget", async () => {
-    vi.stubEnv("OPENRIG_QUEUE_WAKE_RETRY_INTERVAL_SECONDS", "40");
-    vi.stubEnv("OPENRIG_QUEUE_WAKE_RETRY_CAP", "1");
+    vi.stubEnv("SOFTWARETEAM_QUEUE_WAKE_RETRY_INTERVAL_SECONDS", "40");
+    vi.stubEnv("SOFTWARETEAM_QUEUE_WAKE_RETRY_CAP", "1");
     const first = await handoff(), second = await handoff();
     expect(view(first).nextBackstop.dueAt).toBe("2026-09-08T00:00:40.000Z");
     advance(41); const count = sends.length; await tick(); expect(sends).toHaveLength(count + 1);
     const untried = queue.listTransitions(first).some(t => t.transitionNote?.startsWith("wake-attempt:")) ? second : first;
     expect(view(untried).nextBackstop.dueAt).toBe("2026-09-08T00:01:21.001Z");
-    expect(view(untried).nextBackstop.owner).toBe("worker@rig");
+    expect(view(untried).nextBackstop.owner).toBe("worker@software-team");
   });
 
   it("shows confirmation escalation rather than retry, and current recovery after the rung completes", async () => {
@@ -116,7 +116,7 @@ describe("waiting face names the next action the existing ladder can actually ta
       expect(lastMeaningfulTransition(db, id)).toEqual(before);
     }
     // Identical prose from an author remains testimony; no keyword classifier.
-    queue.update({ qitemId: id, actorSession: "owner@rig", transitionNote: "delivery-termination: author investigated the actual outcome" });
+    queue.update({ qitemId: id, actorSession: "owner@software-team", transitionNote: "delivery-termination: author investigated the actual outcome" });
     const authored = lastMeaningfulTransition(db, id);
     expect(authored!.id).toBeGreaterThan(before!.id);
     queue.update({ qitemId: id, actorSession, state: "blocked", blockedOn: "operator decision" });
@@ -129,14 +129,14 @@ describe("waiting face names the next action the existing ladder can actually ta
     // Every wake this episode is refused by the typing guard: no pane input is
     // written, and the nudge records the retained vocabulary.
     queue = new QueueRepository(db, new EventBus(db), {
-      validateRig: () => true,
+      validateSoftwareTeam: () => true,
       transport: { send: async () => ({ outcome: "retained" }) },
     });
-    const source = await queue.create({ sourceSession: "owner@rig", destinationSession: "owner@rig", body: "Prepare result", nudge: false });
-    const id = (await queue.handoff({ qitemId: source.qitemId, fromSession: "owner@rig", toSession: "worker@rig", body: "Continue exact work", nudge: false })).created.qitemId;
+    const source = await queue.create({ sourceSession: "owner@software-team", destinationSession: "owner@software-team", body: "Prepare result", nudge: false });
+    const id = (await queue.handoff({ qitemId: source.qitemId, fromSession: "owner@software-team", toSession: "worker@software-team", body: "Continue exact work", nudge: false })).created.qitemId;
     // A terminal recovery disposition closes BEFORE the next wake attempt.
-    const recovery = await queue.create({ sourceSession: "owner@rig", destinationSession: "orch@rig", body: "Inspect failed delivery", tags: [recoveryTag(id)], nudge: false });
-    await queue.update({ qitemId: recovery.qitemId, actorSession: "orch@rig", state: "done", closureReason: "no-follow-on", resolution: "Do not retry this episode" });
+    const recovery = await queue.create({ sourceSession: "owner@software-team", destinationSession: "orch@software-team", body: "Inspect failed delivery", tags: [recoveryTag(id)], nudge: false });
+    await queue.update({ qitemId: recovery.qitemId, actorSession: "orch@software-team", state: "done", closureReason: "no-follow-on", resolution: "Do not retry this episode" });
     // The ladder's later retry is refused again — the refusal is NEWER than the
     // recovery and must count as evidence about the original obligation.
     advance(60);
@@ -146,12 +146,12 @@ describe("waiting face names the next action the existing ladder can actually ta
       dueAt: "2026-09-08T00:06:00.000Z",
     });
     advance(301);
-    expect((await tick()).actions).toContainEqual({ qitemId: id, action: "retry", target: "worker@rig" });
+    expect((await tick()).actions).toContainEqual({ qitemId: id, action: "retry", target: "worker@software-team" });
   });
 
   it("keeps an unclaimed baton whose wake was guard-refused inside the retry ladder (#344)", async () => {
     queue = new QueueRepository(db, new EventBus(db), {
-      validateRig: () => true,
+      validateSoftwareTeam: () => true,
       transport: { send: async () => ({ outcome: "retained" }) },
     });
     queue.attachOutbox(new OutboxHandler(db));
@@ -165,7 +165,7 @@ describe("waiting face names the next action the existing ladder can actually ta
       dueAt: "2026-09-08T00:05:00.000Z",
     });
     advance(301);
-    expect((await tick()).actions).toContainEqual({ qitemId: id, action: "retry", target: "worker@rig" });
+    expect((await tick()).actions).toContainEqual({ qitemId: id, action: "retry", target: "worker@software-team" });
   });
 
   it("does not let a retained nudge claim ownership of a claimed parked-owner row (#344 follow-up)", async () => {
@@ -174,34 +174,34 @@ describe("waiting face names the next action the existing ladder can actually ta
     // retry readback selects `failed:%` only, so owning it here would let the
     // parked-owner watchdog skip a row that nothing retries.
     queue = new QueueRepository(db, new EventBus(db), {
-      validateRig: () => true,
+      validateSoftwareTeam: () => true,
       transport: { send: async () => ({ outcome: "retained" }) },
     });
     queue.attachOutbox(new OutboxHandler(db));
     const id = await handoff();
     // Move it to the claimed parked-owner shape: in-progress, claimed, with the
     // consumer's FAILED origin note the claimed arm keys on.
-    await queue.claim({ qitemId: id, destinationSession: "worker@rig" });
+    await queue.claim({ qitemId: id, destinationSession: "worker@software-team" });
     queue.recordNudgeAttempt(id, "retained:typing_guard");
-    queue.update({ qitemId: id, actorSession: "worker@rig", transitionNote: "parked-owner wake delivery failed: retained:typing_guard" });
+    queue.update({ qitemId: id, actorSession: "worker@software-team", transitionNote: "parked-owner wake delivery failed: retained:typing_guard" });
     const row = queue.getByIdOrThrow(id);
     expect(row.state).toBe("in-progress");
     expect(row.claimedAt).not.toBeNull();
     expect(queueRecoveryOwnsWake(db, row)).toBe(false);
-    expect((await tick()).actions).not.toContainEqual({ qitemId: id, action: "retry", target: "worker@rig" });
+    expect((await tick()).actions).not.toContainEqual({ qitemId: id, action: "retry", target: "worker@software-team" });
   });
 
   it("projects a parked row's timer when the scheduler will fire it, not now or 1970 (#860)", async () => {
-    const row = await queue.create({ sourceSession: "owner@rig", destinationSession: "worker@rig", body: "Wait for the vendor", nudge: false });
+    const row = await queue.create({ sourceSession: "owner@software-team", destinationSession: "worker@software-team", body: "Wait for the vendor", nudge: false });
     const jobs = new WatchdogJobsRepository(db);
     const job = jobs.register({
       policy: "periodic-reminder",
-      specYaml: "policy: periodic-reminder\ntarget:\n  session: worker@rig\nmessage: resume\n",
-      targetSession: "worker@rig",
+      specYaml: "policy: periodic-reminder\ntarget:\n  session: worker@software-team\nmessage: resume\n",
+      targetSession: "worker@software-team",
       intervalSeconds: 600,
-      registeredBySession: "worker@rig",
+      registeredBySession: "worker@software-team",
     });
-    await queue.update({ qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked", blockedOn: "external:vendor",
+    await queue.update({ qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked", blockedOn: "external:vendor",
       transitionNote: "continuation: resume when the vendor answers", wakeWatchdogId: job.jobId } as never);
     // Never evaluated: the reminder fires one interval after registration.
     expect(view(row.qitemId).nextBackstop).toMatchObject({ mechanism: `watchdog:${job.jobId}`, dueAt: "2026-09-08T00:10:00.000Z" });

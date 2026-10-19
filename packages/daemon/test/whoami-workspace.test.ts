@@ -1,9 +1,9 @@
 // PL-007 Workspace Primitive v0 — whoami workspace block tests.
 //
 // Pins:
-//   - whoami returns workspace block populated when rig has workspace
-//     declared via setRigWorkspace
-//   - whoami returns workspace=null when rig has no workspace
+//   - whoami returns workspace block populated when softwareTeam has workspace
+//     declared via setSoftwareTeamWorkspace
+//   - whoami returns workspace=null when softwareTeam has no workspace
 //   - back-compat: legacy fixture without migration 038 returns null
 //   - per-node workspace.activeRepo resolves from cwd against repos[]
 
@@ -22,13 +22,13 @@ import { agentspecRebootSchema } from "../src/db/migrations/014_agentspec_reboot
 import { podNamespaceSchema } from "../src/db/migrations/017_pod_namespace.js";
 import { externalCliAttachmentSchema } from "../src/db/migrations/019_external_cli_attachment.js";
 import { workspacePrimitiveSchema } from "../src/db/migrations/038_workspace_primitive.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { WhoamiService } from "../src/domain/whoami-service.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { TranscriptStore } from "../src/domain/transcript-store.js";
 
 let db: Database.Database;
-let rigRepo: RigRepository;
+let softwareTeamRepo: SoftwareTeamRepository;
 let whoami: WhoamiService;
 
 function makeFixture(withWorkspaceMigration: boolean): void {
@@ -47,19 +47,19 @@ function makeFixture(withWorkspaceMigration: boolean): void {
   ];
   if (withWorkspaceMigration) migs.push(workspacePrimitiveSchema);
   migrate(db, migs);
-  rigRepo = new RigRepository(db);
+  softwareTeamRepo = new SoftwareTeamRepository(db);
   const sessionRegistry = new SessionRegistry(db);
   const transcriptStore = new TranscriptStore({ enabled: false, baseDir: "/tmp" });
-  whoami = new WhoamiService({ db, rigRepo, sessionRegistry, transcriptStore });
+  whoami = new WhoamiService({ db, softwareTeamRepo, sessionRegistry, transcriptStore });
 }
 
 beforeEach(() => makeFixture(true));
 
 describe("whoami workspace block (PL-007)", () => {
-  it("returns workspace block when rig has workspace declared", () => {
-    const rig = rigRepo.createRig("alpha-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code", cwd: "/Users/op/hub/main/sub" });
-    rigRepo.setRigWorkspace(rig.id, {
+  it("returns workspace block when SoftwareTeam has workspace declared", () => {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("alpha-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code", cwd: "/Users/op/hub/main/sub" });
+    softwareTeamRepo.setSoftwareTeamWorkspace(softwareTeam.id, {
       workspaceRoot: "/Users/op/hub",
       repos: [
         { name: "main", path: "/Users/op/hub/main", kind: "project" },
@@ -77,9 +77,9 @@ describe("whoami workspace block (PL-007)", () => {
   });
 
   it("honors caller-supplied target repo override for CLI-scoped whoami", () => {
-    const rig = rigRepo.createRig("alpha-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code", cwd: "/Users/op/hub/main/sub" });
-    rigRepo.setRigWorkspace(rig.id, {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("alpha-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code", cwd: "/Users/op/hub/main/sub" });
+    softwareTeamRepo.setSoftwareTeamWorkspace(softwareTeam.id, {
       workspaceRoot: "/Users/op/hub",
       repos: [
         { name: "main", path: "/Users/op/hub/main", kind: "project" },
@@ -92,9 +92,9 @@ describe("whoami workspace block (PL-007)", () => {
     expect(result?.workspace?.activeRepo).toBe("internal");
   });
 
-  it("returns workspace=null when rig has no workspace declared", () => {
-    const rig = rigRepo.createRig("plain-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code", cwd: "/x" });
+  it("returns workspace=null when SoftwareTeam has no workspace declared", () => {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("plain-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code", cwd: "/x" });
 
     const result = whoami.resolve({ nodeId: node.id });
     expect(result?.workspace).toBeNull();
@@ -102,10 +102,10 @@ describe("whoami workspace block (PL-007)", () => {
 
   it("back-compat: legacy fixture without migration 038 surfaces workspace=null (no throws)", () => {
     makeFixture(false);
-    const rig = rigRepo.createRig("legacy-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code", cwd: "/x" });
-    // setRigWorkspace is a no-op when column absent
-    rigRepo.setRigWorkspace(rig.id, {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("legacy-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code", cwd: "/x" });
+    // setSoftwareTeamWorkspace is a no-op when column absent
+    softwareTeamRepo.setSoftwareTeamWorkspace(softwareTeam.id, {
       workspaceRoot: "/Users/op/hub",
       repos: [{ name: "main", path: "/Users/op/hub/main", kind: "project" }],
     });

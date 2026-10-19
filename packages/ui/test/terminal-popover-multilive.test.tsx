@@ -42,8 +42,8 @@ describe("Progressive terminal popovers coexist under the global cap (rev1-r2 fi
   it("opening a second progressive popover does NOT close the first -- two live at once", () => {
     render(
       <LiveTerminalProvider cap={2}>
-        <TerminalPreviewPopover rigId="r1" logicalId="a" sessionName="a@r" testIdPrefix="pa" progressive />
-        <TerminalPreviewPopover rigId="r1" logicalId="b" sessionName="b@r" testIdPrefix="pb" progressive />
+        <TerminalPreviewPopover softwareTeamId="r1" logicalId="a" sessionName="a@r" testIdPrefix="pa" progressive />
+        <TerminalPreviewPopover softwareTeamId="r1" logicalId="b" sessionName="b@r" testIdPrefix="pb" progressive />
       </LiveTerminalProvider>,
     );
     goLive("pa");
@@ -57,7 +57,7 @@ describe("Progressive terminal popovers coexist under the global cap (rev1-r2 fi
   it("OPR.0.4.0.39 (founder spec, REVERSES rev1-r2 reshape): the popover holds the full-terminal width for BOTH static and live (no reshape on go-live)", () => {
     render(
       <LiveTerminalProvider cap={2}>
-        <TerminalPreviewPopover rigId="r1" logicalId="a" sessionName="a@r" testIdPrefix="pa" progressive />
+        <TerminalPreviewPopover softwareTeamId="r1" logicalId="a" sessionName="a@r" testIdPrefix="pa" progressive />
       </LiveTerminalProvider>,
     );
     // open the popover -> STATIC -> shell is already the full-terminal width (the
@@ -75,9 +75,9 @@ describe("Progressive terminal popovers coexist under the global cap (rev1-r2 fi
   it("a third live progressive popover evicts the OLDEST to static (global cap=2)", () => {
     render(
       <LiveTerminalProvider cap={2}>
-        <TerminalPreviewPopover rigId="r1" logicalId="a" sessionName="a@r" testIdPrefix="pa" progressive />
-        <TerminalPreviewPopover rigId="r1" logicalId="b" sessionName="b@r" testIdPrefix="pb" progressive />
-        <TerminalPreviewPopover rigId="r1" logicalId="c" sessionName="c@r" testIdPrefix="pc" progressive />
+        <TerminalPreviewPopover softwareTeamId="r1" logicalId="a" sessionName="a@r" testIdPrefix="pa" progressive />
+        <TerminalPreviewPopover softwareTeamId="r1" logicalId="b" sessionName="b@r" testIdPrefix="pb" progressive />
+        <TerminalPreviewPopover softwareTeamId="r1" logicalId="c" sessionName="c@r" testIdPrefix="pc" progressive />
       </LiveTerminalProvider>,
     );
     goLive("pa");

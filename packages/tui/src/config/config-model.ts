@@ -89,7 +89,7 @@ const LABELS: Record<string, string> = {
   "slack.credentialFile": "Credential file reference", "slack.botToken": "Bot credential",
   "slack.appToken": "Socket Mode credential", "slack.requiredScopes": "Required scopes",
   "slack.minimumLevelThatPosts": "Minimum posting level", "slack.minimumLevelThatInterrupts": "Minimum interrupt level",
-  "slack.channelMap": "Channel map (rig or seat: channel)",
+  "slack.channelMap": "Channel map (SoftwareTeam or seat: channel)",
   "feed.subscriptions.action_required": "Action-required feed", "feed.subscriptions.approvals": "Approval feed",
   "feed.subscriptions.shipped": "Shipped feed", "feed.subscriptions.progress": "Progress feed", "feed.subscriptions.audit_log": "Audit feed",
 };
@@ -165,7 +165,7 @@ export function configSourceLines(read: ConfigRead | null, width: number): Conte
     { text: "Sources & coverage" },
     ...read.sources.flatMap((s) => [fieldLine({ label: s.id, value: s.state }), { text: s.detail }]),
     { text: "" }, ...read.exclusions.map((text) => ({ text })),
-    { text: "Resolved settings describe the daemon instance. Client display and rig declarations retain their own scopes." },
+    { text: "Resolved settings describe the daemon instance. Client display and SoftwareTeam declarations retain their own scopes." },
   ], width);
 }
 
@@ -205,7 +205,7 @@ function configContentLines(state: ViewState, snap: FleetSnapshot, width: number
   if (!read) return [...heading, ...wrapDetailLines([
     { text: "" }, { text: "CONFIG unavailable. Refresh to try this daemon again." },
     { text: snap.configError ?? "The cause was not identified. Compatibility is unverified." },
-    { text: "Optional diagnosis: rig status; rig --version; rig daemon logs" }, back,
+    { text: "Optional diagnosis: SoftwareTeam status; SoftwareTeam --version; SoftwareTeam daemon logs" }, back,
   ], width)];
   if (!category) return [...heading, { text: "" }, ...[
     ["Where is my work?", "workspace.root"], ["Which context root?", "context.root"],
@@ -224,7 +224,7 @@ function configContentLines(state: ViewState, snap: FleetSnapshot, width: number
     { text: `Slack: ${snap.connections?.state ?? "unavailable"} · external reach unverified` },
     { text: `Source: ${read.sources.find((s) => s.id === "slack")?.state ?? "unavailable"}` },
     { text: `Gateway: ${snap.connections?.running.state ?? "unreported"}; configuration ${snap.connections?.running.applied ?? "unreported"}` },
-    { text: `Next: ${snap.connections?.nextAction ?? "rig gateway status"}` },
+    { text: `Next: ${snap.connections?.nextAction ?? "SoftwareTeam gateway status"}` },
     { text: "Guidance only; verification contacts Slack explicitly." },
   ], width));
   if (category === "display") lines.push(...wrapDetailLines([{ text: `Client timezone: ${state.timeZone} (selected at TUI start)` }], width));

@@ -1,7 +1,7 @@
 // Slice-03 (OPR.0.4.8.3) Seam B — RED pins for the permission_policy REF resolver:
 // validate/classify (builtin vs custom vs reserved vs invalid), the flag-surface launch-posture
 // resolution (README v4 d65afe67: YOLO/Operator = full_bypass, everything else = floor), and the
-// member > rig > floor precedence. Grounds the ref/none semantics from README v4 A1/A2/A3.
+// member > softwareTeam > floor precedence. Grounds the ref/none semantics from README v4 A1/A2/A3.
 import { describe, it, expect } from "vitest";
 import {
   validatePermissionPolicyRef,
@@ -34,7 +34,7 @@ describe("permission_policy ref — validate (A1/A2/A3)", () => {
     expect(validatePermissionPolicyRef("standard", "permission_policy")).toBeTruthy();
   });
 
-  it("accepts a relative custom ref (resolved relative to the declaring RigSpec dir)", () => {
+  it("accepts a relative custom ref (resolved relative to the declaring SoftwareTeamSpec dir)", () => {
     expect(validatePermissionPolicyRef("policies/team.md", "permission_policy")).toBeNull();
     expect(validatePermissionPolicyRef("team.md", "permission_policy")).toBeNull();
   });
@@ -68,7 +68,7 @@ describe("permission_policy — restart-stable attachment resolution (Guard ruli
   const noFile = { readFile: () => { throw new Error("no file"); } };
 
   it("builtin:yolo → full_bypass, origin=builtin, PM-ruled package-copy target (never a builtin:<name> echo)", () => {
-    const a = resolvePermissionPolicyAttachment("builtin:yolo", "/rig", noFile);
+    const a = resolvePermissionPolicyAttachment("builtin:yolo", "/softwareTeam", noFile);
     expect(a).toMatchObject({ ref: "builtin:yolo", origin: "builtin", builtinName: "yolo", launchPosture: "full_bypass" });
     // PM inline ruling (via dev-guard NOT-CLEAR at 9e94c274): the resolved target is the
     // package-relative canonical copy — NOT the raw ref echoed.
@@ -76,14 +76,14 @@ describe("permission_policy — restart-stable attachment resolution (Guard ruli
   });
 
   it("builtin:auto → auto, origin=builtin, flag surface, package-copy target", () => {
-    const a = resolvePermissionPolicyAttachment("builtin:auto", "/rig", noFile);
+    const a = resolvePermissionPolicyAttachment("builtin:auto", "/softwareTeam", noFile);
     expect(a).toMatchObject({ ref: "builtin:auto", origin: "builtin", builtinName: "auto", surface: "flag", launchPosture: "auto" });
     expect(a.resolvedTarget).toBe("policies/builtin/auto.policy.md");
   });
 
   it("Policy-Mode built-ins resolve to the floor with the PM-ruled package-copy target", () => {
     for (const name of ["locked", "standard", "open"]) {
-      const a = resolvePermissionPolicyAttachment(`builtin:${name}`, "/rig", noFile);
+      const a = resolvePermissionPolicyAttachment(`builtin:${name}`, "/softwareTeam", noFile);
       expect(a.origin).toBe("builtin");
       expect(a.launchPosture).toBe("floor");
       expect(a.resolvedTarget).toBe(`policies/builtin/${name}.policy.md`);
@@ -97,47 +97,47 @@ describe("permission_policy — restart-stable attachment resolution (Guard ruli
   });
 
   it("CUSTOM flag policy CAN be full_bypass — content resolved relative to the declaring dir (core-owned)", () => {
-    const a = resolvePermissionPolicyAttachment("policies/operator.md", "/rig/spec", { readFile: () => FLAG_FULL_BYPASS });
+    const a = resolvePermissionPolicyAttachment("policies/operator.md", "/softwareTeam/spec", { readFile: () => FLAG_FULL_BYPASS });
     expect(a.origin).toBe("custom");
     expect(a.surface).toBe("flag");
     expect(a.launchPosture).toBe("full_bypass"); // NOT floor — the ruling's crux
-    expect(a.resolvedTarget).toBe("/rig/spec/policies/operator.md"); // restart-stable absolute target
-    expect(a.declaringDir).toBe("/rig/spec"); // restart-stable provenance
+    expect(a.resolvedTarget).toBe("/softwareTeam/spec/policies/operator.md"); // restart-stable absolute target
+    expect(a.declaringDir).toBe("/softwareTeam/spec"); // restart-stable provenance
     expect(a.ref).toBe("policies/operator.md"); // raw ref preserved for export
   });
 
   it("CUSTOM flag policy CAN be auto — content resolved relative to the declaring dir", () => {
     const FLAG_AUTO = `---\nsource: custom\nname: my-auto\nsurface: flag\nlaunch_posture: auto\npolicy_schema_version: 1\ndescription: custom auto policy\n---\nbody\n`;
-    const a = resolvePermissionPolicyAttachment("policies/auto.md", "/rig/spec", { readFile: () => FLAG_AUTO });
+    const a = resolvePermissionPolicyAttachment("policies/auto.md", "/softwareTeam/spec", { readFile: () => FLAG_AUTO });
     expect(a.origin).toBe("custom");
     expect(a.surface).toBe("flag");
     expect(a.launchPosture).toBe("auto");
-    expect(a.resolvedTarget).toBe("/rig/spec/policies/auto.md");
-    expect(a.declaringDir).toBe("/rig/spec");
+    expect(a.resolvedTarget).toBe("/softwareTeam/spec/policies/auto.md");
+    expect(a.declaringDir).toBe("/softwareTeam/spec");
     expect(a.ref).toBe("policies/auto.md");
   });
 
   it("CUSTOM config policy resolves to the floor (config-surface content deferred; no config write)", () => {
-    const a = resolvePermissionPolicyAttachment("policies/team.md", "/rig", { readFile: () => CONFIG_POLICY });
+    const a = resolvePermissionPolicyAttachment("policies/team.md", "/softwareTeam", { readFile: () => CONFIG_POLICY });
     expect(a.origin).toBe("custom");
     expect(a.surface).toBe("config");
     expect(a.launchPosture).toBe("floor");
   });
 
   it("CUSTOM ref that is unreadable → advisory floor, but ref + provenance are still preserved", () => {
-    const a = resolvePermissionPolicyAttachment("policies/missing.md", "/rig", noFile);
+    const a = resolvePermissionPolicyAttachment("policies/missing.md", "/softwareTeam", noFile);
     expect(a.launchPosture).toBe("floor");
     expect(a.ref).toBe("policies/missing.md");
-    expect(a.resolvedTarget).toBe("/rig/policies/missing.md");
+    expect(a.resolvedTarget).toBe("/softwareTeam/policies/missing.md");
     expect(a.origin).toBe("custom");
   });
 });
 
-describe("permission_policy — precedence (member > rig > floor)", () => {
-  it("member ref overrides the rig ref", () => {
+describe("permission_policy — precedence (member > softwareTeam > floor)", () => {
+  it("member ref overrides the SoftwareTeam ref", () => {
     expect(resolvePermissionPolicyRefValue("builtin:yolo", "builtin:locked")).toBe("builtin:yolo");
   });
-  it("falls back to the rig ref when the member has none", () => {
+  it("falls back to the SoftwareTeam ref when the member has none", () => {
     expect(resolvePermissionPolicyRefValue(undefined, "builtin:standard")).toBe("builtin:standard");
   });
   it("absent at both levels resolves to undefined (= floor)", () => {

@@ -11,19 +11,19 @@ import { createViewState } from "../src/state.js";
 // strings — fixture realism is the point (a text-only stub would false-green).
 
 const FIXTURES: Record<string, unknown> = {
-  "/healthz": { ok: true, selfHostId: "mm2-openrig1" },
+  "/healthz": { ok: true, selfHostId: "mm2-softwareteam1" },
   "/api/health?limit=200": {
-    schema: "openrig.health-list/v0alpha1",
+    schema: "softwareteam.health-list/v0alpha1",
     evaluatedAt: "2026-09-05T12:00:00.000Z",
     total: 1,
     limit: 200,
     truncated: false,
     records: [{
-      schema: "openrig.health/v0alpha1",
+      schema: "softwareteam.health/v0alpha1",
       id: "health-context-dev-impl",
       detector: "context.pressure",
       category: "context",
-      scope: { type: "seat", rigId: "01JRIG", seatId: "01JNODEIMPL" },
+      scope: { type: "seat", softwareTeamId: "01JRIG", seatId: "01JNODEIMPL" },
       severity: "warning",
       confidence: "high",
       status: "active",
@@ -39,18 +39,18 @@ const FIXTURES: Record<string, unknown> = {
       indeterminateReason: null,
     }],
   },
-  "/api/rigs/summary": [
+  "/api/software-teams/summary": [
     { id: "01JRIG", name: "myrig", nodeCount: 4, hasServices: false, latestSnapshotAt: null, latestSnapshotId: null, archivedAt: null, lifecycleState: "running" },
     { id: "01JDOWN", name: "downrig", nodeCount: 2, hasServices: false, latestSnapshotAt: null, latestSnapshotId: null, archivedAt: null, lifecycleState: "recoverable" },
   ],
-  "/api/rigs/01JDOWN/nodes": [],
-  "/api/rigs/01JDOWN/spec.json": { schemaVersion: 1, name: "downrig", version: "0.1.0", nodes: [], edges: [] },
-  "/api/rigs/01JDOWN/status": {
-    rigId: "01JDOWN", rigName: "downrig", isKernel: false, status: "down", seatsTotal: 2, seatsRunning: 0,
+  "/api/software-teams/01JDOWN/nodes": [],
+  "/api/software-teams/01JDOWN/spec.json": { schemaVersion: 1, name: "downrig", version: "0.1.0", nodes: [], edges: [] },
+  "/api/software-teams/01JDOWN/status": {
+    softwareTeamId: "01JDOWN", softwareTeamName: "downrig", isKernel: false, status: "down", seatsTotal: 2, seatsRunning: 0,
     recoverable: true, perSeat: [], src: ["ps: 0/2 running · lifecycle=recoverable"],
   },
   "/api/specs/library/a1/review": {
-    sourceState: "library_item", kind: "rig", name: "myrig", version: "0.2",
+    sourceState: "library_item", kind: "softwareTeam", name: "myrig", version: "0.2",
     format: "pod_aware",
     pods: [{
       id: "dev", label: "Development",
@@ -62,13 +62,13 @@ const FIXTURES: Record<string, unknown> = {
     }],
     edges: [{ from: "dev.impl", to: "review.r1", kind: "collaborates_with" }],
     graph: { nodes: [], edges: [] }, raw: "name: myrig",
-    libraryEntryId: "a1", sourcePath: "/s/rig.yaml",
+    libraryEntryId: "a1", sourcePath: "/s/software-team.yaml",
   },
   "/api/specs/library/a2/review": {
     sourceState: "library_item", kind: "agent", name: "implementer", version: "0.1.0",
     description: "Implements locked slices",
     profiles: [{ name: "default" }],
-    resources: { skills: [], guidance: ["guidance.md"], plugins: ["openrig-core"], subagents: ["reviewer"] },
+    resources: { skills: [], guidance: ["guidance.md"], plugins: ["softwareteam-core"], subagents: ["reviewer"] },
     startup: { files: [{ path: "STARTUP.md", required: true }], actions: [] },
     raw: [
       "name: implementer",
@@ -80,9 +80,9 @@ const FIXTURES: Record<string, unknown> = {
       "      skills: [using-superpowers, tdd]",
     ].join("\n"),
   },
-  "/api/rigs/01JRIG/nodes": [
+  "/api/software-teams/01JRIG/nodes": [
     {
-      nodeId: "01JNODEIMPL", rigId: "01JRIG", rigName: "myrig", logicalId: "dev.impl", podId: "01JPOD", podNamespace: "dev",
+      nodeId: "01JNODEIMPL", softwareTeamId: "01JRIG", softwareTeamName: "myrig", logicalId: "dev.impl", podId: "01JPOD", podNamespace: "dev",
       role: "implementer", canonicalSessionName: "dev-impl@myrig", nodeKind: "agent", runtime: "claude-code",
       sessionStatus: "running", startupStatus: "ready", restoreOutcome: "resumed", oriented: "verified",
       terminalActive: false, lastActivityAt: "2026-08-02T09:15:00.000Z",
@@ -95,7 +95,7 @@ const FIXTURES: Record<string, unknown> = {
       hasAssignedWork: true, pendingWorkCount: 2,
     },
     {
-      nodeId: "01JNODEQA", rigId: "01JRIG", rigName: "myrig", logicalId: "dev.qa", podId: "01JPOD", podNamespace: "dev",
+      nodeId: "01JNODEQA", softwareTeamId: "01JRIG", softwareTeamName: "myrig", logicalId: "dev.qa", podId: "01JPOD", podNamespace: "dev",
       role: "qa", canonicalSessionName: "dev-qa@myrig", nodeKind: "agent", runtime: "codex",
       sessionStatus: null, startupStatus: null, restoreOutcome: "n-a", oriented: "n-a",
       terminalActive: null, lastActivityAt: null,
@@ -107,34 +107,34 @@ const FIXTURES: Record<string, unknown> = {
       contextUsage: { availability: "unknown", reason: "missing_sidecar", source: null, usedPercentage: null, remainingPercentage: null, contextWindowSize: null, totalInputTokens: null, totalOutputTokens: null, currentUsage: null, transcriptPath: null, sessionId: null, sessionName: null, sampledAt: null, fresh: false },
       hasAssignedWork: false, pendingWorkCount: 0,
     },
-    { rigId: "01JRIG", rigName: "myrig", logicalId: "svc.db", podId: null, podNamespace: null, role: null, canonicalSessionName: null, nodeKind: "infrastructure", runtime: null, sessionStatus: null, startupStatus: null, restoreOutcome: "n-a", oriented: "n-a", lifecycleState: "running", occupantLifecycle: "unknown", continuityOutcome: null, handoverResult: null, previousOccupant: null, handoverAt: null, tmuxAttachCommand: null, resumeCommand: null, recoveryGuidance: null, latestError: null, model: null, agentRef: null, profile: null, resolvedSpecName: null, resolvedSpecVersion: null, resolvedSpecHash: null, cwd: null, restorePolicy: null, resumeType: null, resumeToken: null, startupCompletedAt: null },
+    { softwareTeamId: "01JRIG", softwareTeamName: "myrig", logicalId: "svc.db", podId: null, podNamespace: null, role: null, canonicalSessionName: null, nodeKind: "infrastructure", runtime: null, sessionStatus: null, startupStatus: null, restoreOutcome: "n-a", oriented: "n-a", lifecycleState: "running", occupantLifecycle: "unknown", continuityOutcome: null, handoverResult: null, previousOccupant: null, handoverAt: null, tmuxAttachCommand: null, resumeCommand: null, recoveryGuidance: null, latestError: null, model: null, agentRef: null, profile: null, resolvedSpecName: null, resolvedSpecVersion: null, resolvedSpecHash: null, cwd: null, restorePolicy: null, resumeType: null, resumeToken: null, startupCompletedAt: null },
   ],
   // slice-17: the topology view consumes the DECLARED graph read — the
   // closed route enumeration gains the row; assertions below are unchanged
-  "/api/rigs/01JRIG/graph": { nodes: [], edges: [] },
-  "/api/rigs/01JDOWN/graph": { nodes: [], edges: [] },
-  "/api/rigs/01JRIG/spec.json": {
+  "/api/software-teams/01JRIG/graph": { nodes: [], edges: [] },
+  "/api/software-teams/01JDOWN/graph": { nodes: [], edges: [] },
+  "/api/software-teams/01JRIG/spec.json": {
     version: "0.2", name: "myrig",
     pods: [{ id: "dev", label: "Development", members: [{ id: "impl", agentRef: "local:../../../agents/development/implementer", profile: "default", runtime: "claude-code", cwd: "/repo" }, { id: "qa", agentRef: "qa-agent", profile: "default", runtime: "codex", cwd: "/repo" }], edges: [] }],
     edges: [],
   },
   "/api/specs/library": [
-    { id: "a1", kind: "rig", name: "myrig", version: "0.2", sourceType: "user_file", sourcePath: "/s/rig.yaml", relativePath: "rig.yaml", updatedAt: "2026-08-01T00:00:00.000Z" },
+    { id: "a1", kind: "softwareTeam", name: "myrig", version: "0.2", sourceType: "user_file", sourcePath: "/s/software-team.yaml", relativePath: "software-team.yaml", updatedAt: "2026-08-01T00:00:00.000Z" },
     { id: "a2", kind: "agent", name: "implementer", version: "0.1.0", sourceType: "builtin", sourcePath: "/s/implementer.yaml", relativePath: "agents/implementer.yaml", updatedAt: "2026-08-01T00:00:00.000Z" },
     { id: "a3", kind: "workflow", name: "conveyor", version: "0.3.0", sourceType: "user_file", sourcePath: "/s/conveyor.yaml", relativePath: "workflows/conveyor.yaml", updatedAt: "2026-08-01T00:00:00.000Z", isBuiltIn: false, rolesCount: 4, stepsCount: 9, status: "valid", errorMessage: null },
   ],
   "/api/review/fleet": {
-    scope: "rig",
+    scope: "softwareTeam",
     needsYou: {
       items: [
         { source: "agent", identity: "qitem-2026080201", summary: "approve slice 11 proof", leg: "human-routed", where: "human@kernel", ageIso: "2026-08-02T08:40:00.000Z", priority: "high", tier: "human-gate", evidenceRef: "proof/qa.md", unblocks: null, qitemId: "qitem-2026080201", destinationSession: "human@kernel", derived: null, hostId: "local" },
         { source: "agent", identity: "qitem-remote", summary: "remote founder gate", leg: "human-routed", where: "human@kernel", ageIso: "2026-08-02T08:41:00.000Z", priority: "high", tier: "human-gate", evidenceRef: null, unblocks: null, qitemId: "qitem-remote", destinationSession: "human@kernel", derived: null, hostId: "mm2-host" },
-        { source: "derived", identity: "dev-impl@myrig|stuck|2026-08-02T08:43:00.000Z", summary: "impl looks stuck", leg: "stuck", where: "rig", ageIso: null, priority: null, tier: null, evidenceRef: null, unblocks: null, qitemId: null, destinationSession: null, derived: { kind: "stuck", evidence: "idle 47m >= 30m default · holds 2", threshold: "idle-with-work >= 30m" }, hostId: "local" },
-        { source: "derived", identity: "dev-qa@myrig|too-long-in-state|2026-08-02T05:00:00.000Z", summary: "qa has not transitioned in 180m", leg: "stuck", where: "rig", ageIso: null, priority: null, tier: null, evidenceRef: null, unblocks: null, qitemId: null, destinationSession: null, derived: { kind: "stuck", evidence: "no transition for 180m >= 120m default · holds 2", threshold: "too-long-in-state >= 120m" }, hostId: "local" },
+        { source: "derived", identity: "dev-impl@myrig|stuck|2026-08-02T08:43:00.000Z", summary: "impl looks stuck", leg: "stuck", where: "softwareTeam", ageIso: null, priority: null, tier: null, evidenceRef: null, unblocks: null, qitemId: null, destinationSession: null, derived: { kind: "stuck", evidence: "idle 47m >= 30m default · holds 2", threshold: "idle-with-work >= 30m" }, hostId: "local" },
+        { source: "derived", identity: "dev-qa@myrig|too-long-in-state|2026-08-02T05:00:00.000Z", summary: "qa has not transitioned in 180m", leg: "stuck", where: "softwareTeam", ageIso: null, priority: null, tier: null, evidenceRef: null, unblocks: null, qitemId: null, destinationSession: null, derived: { kind: "stuck", evidence: "no transition for 180m >= 120m default · holds 2", threshold: "too-long-in-state >= 120m" }, hostId: "local" },
       ],
-      provenance: "computed from queue+ps (rig scope) · window: today at 2026-08-02T09:30:00.000Z",
+      provenance: "computed from queue+ps (SoftwareTeam scope) · window: today at 2026-08-02T09:30:00.000Z",
     },
-    agents: { scope: "rig", rows: [], provenance: "computed", coordinationHealth: null },
+    agents: { scope: "softwareTeam", rows: [], provenance: "computed", coordinationHealth: null },
     settled: [], settledProvenance: "computed", composedAt: "2026-08-02T09:30:00.000Z",
     hosts: [{ hostId: "local", status: { hostId: "local", status: "ok" } }, { hostId: "mm2-host", status: { hostId: "mm2-host", status: "ok" } }],
   },
@@ -159,7 +159,7 @@ const FIXTURES: Record<string, unknown> = {
   // PULSE ○ UP NEXT + ✓ JUST FINISHED lane sources (increment 3) — same /list route
   "/api/queue/list?state=pending&limit=50": [],
   "/api/queue/list?state=done,handed-off&limit=20": [],
-  "/api/queue/recent-transitions?scope=rig&rig=myrig&limit=20": [],
+  "/api/queue/recent-transitions?scope=softwareTeam&softwareTeam=myrig&limit=20": [],
 };
 
 function fixtureClient(overrides: Record<string, { status: number } | undefined> = {}, responses: Record<string, unknown> = {}): DaemonClient {
@@ -197,7 +197,7 @@ describe("snapshot hydration over the §4.A reads (Phase 2)", () => {
       truncated: false,
       records: [{ id: "health-context-dev-impl", scope: { seatId: "01JNODEIMPL" } }],
     });
-    expect(snap.hosts[0]?.rigs[0]?.pods[0]?.agents[0]).toMatchObject({ nodeId: "01JNODEIMPL" });
+    expect(snap.hosts[0]?.softwareTeams[0]?.pods[0]?.agents[0]).toMatchObject({ nodeId: "01JNODEIMPL" });
   });
   it("leaves health unassessed when a focused view skips the projection read", async () => {
     const context = { section: "topology" as const, viewTab: "table" as const, drill: [] };
@@ -206,10 +206,10 @@ describe("snapshot hydration over the §4.A reads (Phase 2)", () => {
   });
   it("hydrates the seat queue on the focused topology table so Q / WORK / NOW can fill", async () => {
     const row = (qitemId: string, state: string, destinationSession: string) => ({ qitemId, state, destinationSession, blockedOn: null, handedOffTo: null, tier: null, tags: ["slice:OPR.1.0.2.7"], summary: `work ${qitemId}`, body: "", claimedAt: null, tsUpdated: "2026-09-12T10:00:00.000Z" });
-    const context = { section: "topology" as const, viewTab: "table" as const, drill: [{ kind: "rig" as const, name: "myrig" }] };
+    const context = { section: "topology" as const, viewTab: "table" as const, drill: [{ kind: "softwareTeam" as const, name: "myrig" }] };
     const snap = await hydrateSnapshot(fixtureClient({}, {
-      "/api/queue/list?state=in-progress": [row("qi1", "in-progress", "dev-a@rig")],
-      "/api/queue/list?state=pending&limit=50": [row("qp1", "pending", "dev-a@rig")],
+      "/api/queue/list?state=in-progress": [row("qi1", "in-progress", "dev-a@software-team")],
+      "/api/queue/list?state=pending&limit=50": [row("qp1", "pending", "dev-a@software-team")],
     }), undefined, undefined, undefined, undefined, context);
     expect(snap.inProgress.map((q) => q.qitemId)).toEqual(["qi1"]);
     expect(snap.pending.map((q) => q.qitemId)).toEqual(["qp1"]);
@@ -249,8 +249,8 @@ describe("snapshot hydration over the §4.A reads (Phase 2)", () => {
   it("maps topology: pods grouped, agent rows VERBATIM from the maintained projection (PIN 2)", async () => {
     const snap = await hydrateSnapshot(fixtureClient());
     const local = snap.hosts.find((h) => h.id === "local");
-    expect(local?.rigs[0]?.name).toBe("myrig");
-    const dev = local?.rigs[0]?.pods.find((p) => p.name === "dev");
+    expect(local?.softwareTeams[0]?.name).toBe("myrig");
+    const dev = local?.softwareTeams[0]?.pods.find((p) => p.name === "dev");
     expect(dev?.agents.map((a) => a.name)).toEqual(["dev.impl", "dev.qa"]);
     const impl = dev?.agents[0];
     expect(impl).toMatchObject({
@@ -262,7 +262,7 @@ describe("snapshot hydration over the §4.A reads (Phase 2)", () => {
     const qa = dev?.agents[1];
     expect(qa).toMatchObject({ context: null, tokens: null, status: "unknown", canRun: true });
     // infrastructure nodes are not agent rows
-    expect(local?.rigs[0]?.pods.flatMap((p) => p.agents.map((a) => a.name))).not.toContain("svc.db");
+    expect(local?.softwareTeams[0]?.pods.flatMap((p) => p.agents.map((a) => a.name))).not.toContain("svc.db");
   });
 
   it("keeps the two stuck legs DISTINCT — served evidence/threshold strings verbatim, no client threshold", async () => {
@@ -275,17 +275,17 @@ describe("snapshot hydration over the §4.A reads (Phase 2)", () => {
     expect(stuck[1]?.detail).toContain("no transition for 180m >= 120m default");
   });
 
-  it("composes host-down AND rig-down BESIDE the items, never into the item shape (PIN 3)", async () => {
+  it("composes host-down AND software-team-down BESIDE the items, never into the item shape (PIN 3)", async () => {
     const snap = await hydrateSnapshot(fixtureClient());
     expect(snap.hostsDown).toEqual([
       { hostId: "mm2-host", status: "unreachable", error: "read timed out after 5000ms" },
-      { hostId: "rig:downrig", status: "recoverable (down)", error: "0/2 seats running" },
+      { hostId: "software-team:downrig", status: "recoverable (down)", error: "0/2 seats running" },
     ]);
     expect(snap.needs.some((n) => n.target === "mm2-host" || n.target.includes("downrig"))).toBe(false);
     // and the unreachable host appears in topology with honest reachability
     expect(snap.hosts.find((h) => h.name === "mm2-host")?.reachable).toBe(false);
-    // the non-running rig carries its served lifecycleState verbatim (QA blocker 3)
-    expect(snap.hosts.find((h) => h.id === "local")?.rigs.find((r) => r.name === "downrig")?.lifecycleState).toBe("recoverable");
+    // the non-running softwareTeam carries its served lifecycleState verbatim (QA blocker 3)
+    expect(snap.hosts.find((h) => h.id === "local")?.softwareTeams.find((r) => r.name === "downrig")?.lifecycleState).toBe("recoverable");
   });
 
   it("hydrates agent-spec structured detail from the LIVE /:id/review route (QA blocker 2)", async () => {
@@ -304,20 +304,20 @@ describe("snapshot hydration over the §4.A reads (Phase 2)", () => {
       resources: {
         skills: [],
         guidance: ["guidance.md"],
-        plugins: ["openrig-core"],
+        plugins: ["softwareteam-core"],
         subagents: ["reviewer"],
       },
     });
-    expect(cache.size).toBe(2); // rig + agent reviews memoized by id@updatedAt
+    expect(cache.size).toBe(2); // softwareTeam + agent reviews memoized by id@updatedAt
   });
 
-  it("hydrates the locked rig-spec structure and library provenance from the LIVE /:id/review route", async () => {
+  it("hydrates the locked software-team-spec structure and library provenance from the LIVE /:id/review route", async () => {
     const snap = await hydrateSnapshot(fixtureClient());
     expect(snap.specs.find((s) => s.name === "myrig")).toMatchObject({
       sourceState: "library_item",
       sourceType: "user_file",
-      sourcePath: "/s/rig.yaml",
-      relativePath: "rig.yaml",
+      sourcePath: "/s/software-team.yaml",
+      relativePath: "software-team.yaml",
       format: "pod_aware",
       pods: [{
         id: "dev",
@@ -343,9 +343,9 @@ describe("snapshot hydration over the §4.A reads (Phase 2)", () => {
 
   it("preserves the daemon's fleet-wide Needs priority order across agent and derived sources", async () => {
     const ordered = [
-      { source: "derived", identity: "urgent@rig|stuck|1", summary: "urgent derived", leg: "stuck", where: "rig", priority: "urgent", derived: { kind: "stuck", evidence: "urgent evidence" }, hostId: "local" },
+      { source: "derived", identity: "urgent@software-team|stuck|1", summary: "urgent derived", leg: "stuck", where: "softwareTeam", priority: "urgent", derived: { kind: "stuck", evidence: "urgent evidence" }, hostId: "local" },
       { source: "agent", identity: "q-high", summary: "high human", leg: "human-routed", where: "human@kernel", priority: "high", destinationSession: "human@kernel", derived: null, hostId: "local" },
-      { source: "derived", identity: "normal@rig|stuck|2", summary: "normal derived", leg: "stuck", where: "rig", priority: "normal", derived: { kind: "stuck", evidence: "normal evidence" }, hostId: "local" },
+      { source: "derived", identity: "normal@software-team|stuck|2", summary: "normal derived", leg: "stuck", where: "softwareTeam", priority: "normal", derived: { kind: "stuck", evidence: "normal evidence" }, hostId: "local" },
       { source: "agent", identity: "q-low", summary: "low human", leg: "human-routed", where: "human@kernel", priority: "low", destinationSession: "human@kernel", derived: null, hostId: "local" },
     ];
     const snap = await hydrateSnapshot(fixtureClient({}, {
@@ -367,7 +367,7 @@ describe("snapshot hydration over the §4.A reads (Phase 2)", () => {
     const items = [
       { source: "agent", identity: "q-high", summary: "HIGH HUMAN APPROVAL", leg: "human-routed", where: "human@kernel", priority: "high", destinationSession: "human@kernel", derived: null, hostId: "local" },
       ...Array.from({ length: 30 }, (_, index) => ({
-        source: "derived", identity: `normal-${index}@rig|stuck|${index}`, summary: `normal exception ${index}`, leg: "stuck", where: "rig", priority: "normal",
+        source: "derived", identity: `normal-${index}@software-team|stuck|${index}`, summary: `normal exception ${index}`, leg: "stuck", where: "softwareTeam", priority: "normal",
         derived: { kind: "stuck", evidence: `normal evidence ${index}` }, hostId: "local",
       })),
     ];
@@ -417,7 +417,7 @@ describe("snapshot hydration over the §4.A reads (Phase 2)", () => {
   });
 
   it("gives failed, attention, and needs-input truth precedence over terminal active/idle", async () => {
-    const base = (FIXTURES["/api/rigs/01JRIG/nodes"] as Array<Record<string, unknown>>)[0]!;
+    const base = (FIXTURES["/api/software-teams/01JRIG/nodes"] as Array<Record<string, unknown>>)[0]!;
 
     const nodes = [
       { ...base, logicalId: "dev.failed", startupStatus: "failed", lifecycleState: "attention_required", terminalActive: true },
@@ -427,8 +427,8 @@ describe("snapshot hydration over the §4.A reads (Phase 2)", () => {
       { ...base, logicalId: "dev.mismatch", startupStatus: "ready", lifecycleState: "attention_required", agentActivity: { state: "running" }, terminalActive: true, identityVerdict: { verdict: "mismatch" } },
       { ...base, logicalId: "dev.missing", startupStatus: "ready", lifecycleState: "attention_required", agentActivity: { state: "running" }, terminalActive: true, identityVerdict: { verdict: "pane_missing" } },
     ];
-    const snap = await hydrateSnapshot(fixtureClient({}, { "/api/rigs/01JRIG/nodes": nodes }));
-    const statuses = Object.fromEntries(snap.hosts[0]!.rigs[0]!.pods[0]!.agents.map((agent) => [agent.name, agent.status]));
+    const snap = await hydrateSnapshot(fixtureClient({}, { "/api/software-teams/01JRIG/nodes": nodes }));
+    const statuses = Object.fromEntries(snap.hosts[0]!.softwareTeams[0]!.pods[0]!.agents.map((agent) => [agent.name, agent.status]));
     expect(statuses).toEqual({
       "dev.failed": "failed",
       "dev.attention": "attention_required",
@@ -437,17 +437,17 @@ describe("snapshot hydration over the §4.A reads (Phase 2)", () => {
       "dev.mismatch": "attention_required",
       "dev.missing": "attention_required",
     });
-    const byName = Object.fromEntries(snap.hosts[0]!.rigs[0]!.pods[0]!.agents.map((agent) => [agent.name, agent]));
+    const byName = Object.fromEntries(snap.hosts[0]!.softwareTeams[0]!.pods[0]!.agents.map((agent) => [agent.name, agent]));
     expect(byName["dev.mismatch"]?.canRun).toBe(false);
     expect(byName["dev.missing"]?.canRun).toBe(false);
     const view = createViewState({ instanceId: "t", getSnapshot: () => snap });
-    view.dispatch({ type: "drill", resource: "rig", name: "myrig" });
+    view.dispatch({ type: "drill", resource: "softwareTeam", name: "myrig" });
     const output = renderScreen(view.get(), snap, { cols: 140, rows: 34 });
     expect(output.lines.find((line) => /\bmismatch\s/.test(line))).not.toContain("run ▸");
     expect(output.lines.find((line) => /\bmissing\s/.test(line))).not.toContain("run ▸");
   });
   it("shows a quiet community agent app as unknown, never idle, and leaves built-in rows as they were", async () => {
-    const base = (FIXTURES["/api/rigs/01JRIG/nodes"] as Array<Record<string, unknown>>)[0]!;
+    const base = (FIXTURES["/api/software-teams/01JRIG/nodes"] as Array<Record<string, unknown>>)[0]!;
     const quiet = { startupStatus: "ready", sessionStatus: "running", terminalActive: false, agentActivity: { state: "unknown" },
       activityState: { activity: "unknown", display: "unknown", needsInput: { count: 0, reason: null }, decidedBy: null } };
     const nodes = [
@@ -457,8 +457,8 @@ describe("snapshot hydration over the §4.A reads (Phase 2)", () => {
       { ...base, ...quiet, logicalId: "dev.pi-quiet", runtime: "pi" },
       { ...base, ...quiet, logicalId: "dev.claude-quiet", runtime: "claude-code" },
     ];
-    const snap = await hydrateSnapshot(fixtureClient({}, { "/api/rigs/01JRIG/nodes": nodes }));
-    const statuses = Object.fromEntries(snap.hosts[0]!.rigs[0]!.pods[0]!.agents.map((agent) => [agent.name, agent.status]));
+    const snap = await hydrateSnapshot(fixtureClient({}, { "/api/software-teams/01JRIG/nodes": nodes }));
+    const statuses = Object.fromEntries(snap.hosts[0]!.softwareTeams[0]!.pods[0]!.agents.map((agent) => [agent.name, agent.status]));
     expect(statuses).toEqual({
       "dev.app-quiet": "unknown",
       "dev.app-moving": "active",
@@ -469,7 +469,7 @@ describe("snapshot hydration over the §4.A reads (Phase 2)", () => {
   });
 
   it("shows confirmed missing sessions as detached unless lifecycle still requires attention", async () => {
-    const base = (FIXTURES["/api/rigs/01JRIG/nodes"] as Array<Record<string, unknown>>)[0]!;
+    const base = (FIXTURES["/api/software-teams/01JRIG/nodes"] as Array<Record<string, unknown>>)[0]!;
     const nodes = [
       {
         ...base,
@@ -490,36 +490,36 @@ describe("snapshot hydration over the §4.A reads (Phase 2)", () => {
         identityVerdict: { verdict: "pane_missing", reason: "session_missing" },
       },
     ];
-    const snap = await hydrateSnapshot(fixtureClient({}, { "/api/rigs/01JRIG/nodes": nodes }));
-    const statuses = Object.fromEntries(snap.hosts[0]!.rigs[0]!.pods[0]!.agents.map((agent) => [agent.name, agent.status]));
+    const snap = await hydrateSnapshot(fixtureClient({}, { "/api/software-teams/01JRIG/nodes": nodes }));
+    const statuses = Object.fromEntries(snap.hosts[0]!.softwareTeams[0]!.pods[0]!.agents.map((agent) => [agent.name, agent.status]));
     expect(statuses).toEqual({
       "dev.missing-session": "detached",
       "dev.missing-attention": "attention_required",
     });
   });
 
-  it("joins Specs↔Topology over existing reads: rig agentRefs + agent usedByRigs", async () => {
+  it("joins Specs↔Topology over existing reads: SoftwareTeam agentRefs + agent usedBySoftwareTeams", async () => {
     const snap = await hydrateSnapshot(fixtureClient());
     expect(snap.specs.find((s) => s.name === "myrig")?.agentRefs).toEqual(["implementer", "qa-agent"]);
-    expect(snap.specs.find((s) => s.name === "implementer")?.usedByRigs).toEqual(["myrig"]);
+    expect(snap.specs.find((s) => s.name === "implementer")?.usedBySoftwareTeams).toEqual(["myrig"]);
     expect(snap.specs.find((s) => s.name === "conveyor")?.kind).toBe("workflow");
   });
 
   it("PULSE BLOCKED: resolves blockedOn (qitem id) to the blocker's OWNER via GET /:qitemId; human-park skipped; a miss degrades QUIETLY", async () => {
     const blockedList = [
       // agent-block: blockedOn is a qitem POINTER → resolves to the owner
-      { qitemId: "b1", state: "blocked", destinationSession: "dev-a@rig", blockedOn: "qitem-blkA", handedOffTo: null, tier: null, tags: null, summary: "waiting", body: "", claimedAt: "2026-08-05T09:00:00.000Z", tsUpdated: "2026-08-05T09:00:00.000Z" },
+      { qitemId: "b1", state: "blocked", destinationSession: "dev-a@software-team", blockedOn: "qitem-blkA", handedOffTo: null, tier: null, tags: null, summary: "waiting", body: "", claimedAt: "2026-08-05T09:00:00.000Z", tsUpdated: "2026-08-05T09:00:00.000Z" },
       // human-park: blockedOn is a SESSION → NOT resolved (no lookup, belongs under NEEDS YOU)
-      { qitemId: "b2", state: "blocked", destinationSession: "dev-b@rig", blockedOn: "human-yeah@kernel", handedOffTo: null, tier: null, tags: null, summary: "human", body: "", claimedAt: "2026-08-05T09:00:00.000Z", tsUpdated: "2026-08-05T09:00:00.000Z" },
+      { qitemId: "b2", state: "blocked", destinationSession: "dev-b@software-team", blockedOn: "human-yeah@kernel", handedOffTo: null, tier: null, tags: null, summary: "human", body: "", claimedAt: "2026-08-05T09:00:00.000Z", tsUpdated: "2026-08-05T09:00:00.000Z" },
       // agent-block whose blocker read 404s → blockerSession null, NO readError (enrichment)
-      { qitemId: "b3", state: "blocked", destinationSession: "dev-c@rig", blockedOn: "qitem-gone", handedOffTo: null, tier: null, tags: null, summary: "stale", body: "", claimedAt: "2026-08-05T09:00:00.000Z", tsUpdated: "2026-08-05T09:00:00.000Z" },
+      { qitemId: "b3", state: "blocked", destinationSession: "dev-c@software-team", blockedOn: "qitem-gone", handedOffTo: null, tier: null, tags: null, summary: "stale", body: "", claimedAt: "2026-08-05T09:00:00.000Z", tsUpdated: "2026-08-05T09:00:00.000Z" },
     ];
     const snap = await hydrateSnapshot(fixtureClient({ "/api/queue/qitem-gone": { status: 404 } }, {
       "/api/queue/list?state=blocked": blockedList,
-      "/api/queue/qitem-blkA": { qitemId: "qitem-blkA", destinationSession: "review-r1@rig", state: "in-progress", blockedOn: null, handedOffTo: null, tier: null, tags: null, summary: "the blocker", body: "", claimedAt: null, tsUpdated: "2026-08-05T09:00:00.000Z" },
+      "/api/queue/qitem-blkA": { qitemId: "qitem-blkA", destinationSession: "review-r1@software-team", state: "in-progress", blockedOn: null, handedOffTo: null, tier: null, tags: null, summary: "the blocker", body: "", claimedAt: null, tsUpdated: "2026-08-05T09:00:00.000Z" },
     }));
     const by = Object.fromEntries(snap.blocked.map((q) => [q.qitemId, q]));
-    expect(by["b1"]?.blockerSession).toBe("review-r1@rig"); // resolved owner = the blocking agent
+    expect(by["b1"]?.blockerSession).toBe("review-r1@software-team"); // resolved owner = the blocking agent
     expect(by["b2"]?.blockerSession ?? null).toBeNull();     // human-park not resolved
     expect(by["b3"]?.blockerSession ?? null).toBeNull();     // 404 miss → null (fallback to raw at render)
     // the per-row enrichment is NOT load-bearing: a miss must not pollute readErrors
@@ -546,11 +546,11 @@ describe("snapshot hydration over the §4.A reads (Phase 2)", () => {
 
   it("PULSE lanes (incr 3): carries the pending (UP NEXT) + done/handed-off (JUST FINISHED) reads and stamps hydratedAt", async () => {
     const pending = [
-      { qitemId: "qp1", state: "pending", destinationSession: "dev-a@rig", blockedOn: null, handedOffTo: null, tier: null, tags: null, summary: "next up", body: "", claimedAt: null, tsUpdated: "2026-08-06T11:00:00.000Z" },
+      { qitemId: "qp1", state: "pending", destinationSession: "dev-a@software-team", blockedOn: null, handedOffTo: null, tier: null, tags: null, summary: "next up", body: "", claimedAt: null, tsUpdated: "2026-08-06T11:00:00.000Z" },
     ];
     const finished = [
-      { qitemId: "qf1", state: "done", destinationSession: "dev-a@rig", blockedOn: null, handedOffTo: null, tier: null, tags: null, summary: "closed", body: "", claimedAt: "2026-08-06T10:00:00.000Z", tsUpdated: "2026-08-06T10:30:00.000Z" },
-      { qitemId: "qf2", state: "handed-off", destinationSession: "dev-b@rig", blockedOn: null, handedOffTo: "rev@rig", tier: null, tags: null, summary: "passed on", body: "", claimedAt: "2026-08-06T09:00:00.000Z", tsUpdated: "2026-08-06T09:30:00.000Z" },
+      { qitemId: "qf1", state: "done", destinationSession: "dev-a@software-team", blockedOn: null, handedOffTo: null, tier: null, tags: null, summary: "closed", body: "", claimedAt: "2026-08-06T10:00:00.000Z", tsUpdated: "2026-08-06T10:30:00.000Z" },
+      { qitemId: "qf2", state: "handed-off", destinationSession: "dev-b@software-team", blockedOn: null, handedOffTo: "rev@software-team", tier: null, tags: null, summary: "passed on", body: "", claimedAt: "2026-08-06T09:00:00.000Z", tsUpdated: "2026-08-06T09:30:00.000Z" },
     ];
     const snap = await hydrateSnapshot(fixtureClient({}, {
       "/api/queue/list?state=pending&limit=50": pending,
@@ -568,7 +568,7 @@ describe("snapshot hydration over the §4.A reads (Phase 2)", () => {
     expect(snap.humanQueueProbed).toBe(false);
     expect(snap.needs).toEqual([]);
     expect(snap.readErrors).toEqual([expect.stringMatching(/review-fleet: .*503/)]);
-    expect(snap.hosts.find((h) => h.id === "local")?.rigs[0]?.name).toBe("myrig");
+    expect(snap.hosts.find((h) => h.id === "local")?.softwareTeams[0]?.name).toBe("myrig");
     expectIncompleteNeedsTruth(snap);
   });
 });
@@ -591,7 +591,7 @@ describe("footer stream tail via the bounded latest-active projection", () => {
 
   const item = (n: number) => ({
     streamItemId: `si-${n}`, tsEmitted: `2026-08-03T07:${String(n % 60).padStart(2, "0")}:00.000Z`,
-    streamSortKey: `k${String(n).padStart(4, "0")}`, sourceSession: "qa@rig", body: `item-${n}`,
+    streamSortKey: `k${String(n).padStart(4, "0")}`, sourceSession: "qa@software-team", body: `item-${n}`,
     format: "text", hintType: null, hintUrgency: null, hintDestination: null, hintTags: null, interrupt: false, archivedAt: null,
   });
 
@@ -655,7 +655,7 @@ describe("footer stream tail via the bounded latest-active projection", () => {
 
 describe("S05 authored source and observed consumers", () => {
   it("shows the shipped starter summary as its purpose", async () => {
-    const raw = readFileSync(new URL("../../daemon/specs/rigs/launch/starter/rig.yaml", import.meta.url), "utf8");
+    const raw = readFileSync(new URL("../../daemon/specs/software-teams/launch/starter/software-team.yaml", import.meta.url), "utf8");
     const { summary } = parseYaml(raw) as { summary: string };
     expect(summary).toContain("Claude Code builder and a Codex reviewer");
     const snap = await hydrateSnapshot(fixtureClient({}, {
@@ -665,7 +665,7 @@ describe("S05 authored source and observed consumers", () => {
   });
 
   it.each([
-    ["summary: Rig purpose\ndescription: Old purpose\nmetadata:\n  description: Older purpose", "Rig purpose"],
+    ["summary: SoftwareTeam purpose\ndescription: Old purpose\nmetadata:\n  description: Older purpose", "SoftwareTeam purpose"],
     ["description: Legacy purpose\nmetadata:\n  description: Older purpose", "Legacy purpose"],
     ["metadata:\n  description: Metadata purpose", "Metadata purpose"],
     ["summary: '  '\ndescription: Legacy purpose", "Legacy purpose"],
@@ -679,13 +679,13 @@ describe("S05 authored source and observed consumers", () => {
     expect(snap.specs.find((s) => s.name === "myrig")!.description).toBe(expected);
   });
 
-  it("separates library declarations from served rig and seat consumers", async () => {
+  it("separates library declarations from served SoftwareTeam and seat consumers", async () => {
     const snap = await hydrateSnapshot(fixtureClient({}, { "/api/specs/library/a1/review": { ...(FIXTURES["/api/specs/library/a1/review"] as object), raw: "name: myrig\ndescription: Build and review software" } }));
-    const rig = snap.specs.find((s) => s.name === "myrig")!;
-    expect(rig.description).toBe("Build and review software");
-    expect(rig.consumers).toContainEqual(expect.objectContaining({ rig: "myrig", host: "mm2-openrig1" }));
+    const softwareTeam = snap.specs.find((s) => s.name === "myrig")!;
+    expect(softwareTeam.description).toBe("Build and review software");
+    expect(softwareTeam.consumers).toContainEqual(expect.objectContaining({ softwareTeam: "myrig", host: "mm2-softwareteam1" }));
     const agent = snap.specs.find((s) => s.name === "implementer")!;
-    expect(agent.consumers).toEqual([expect.objectContaining({ agent: "dev.impl", rig: "myrig", runtime: "claude-code" })]);
+    expect(agent.consumers).toEqual([expect.objectContaining({ agent: "dev.impl", softwareTeam: "myrig", runtime: "claude-code" })]);
     const view = createViewState({ instanceId: "proof", getSnapshot: () => snap });
     view.dispatch({ type: "jump", section: "specs" });
     view.dispatch({ type: "filter", text: "implementer" });
@@ -693,7 +693,7 @@ describe("S05 authored source and observed consumers", () => {
     view.dispatch({ type: "layout", contentMaxOffset: 60, contentTargetCount: 2 });
     view.dispatch({ type: "content-scroll", delta: 6 });
     const origin = view.get();
-    view.dispatch({ type: "drill", resource: "agent", name: "dev.impl", target: { host: "mm2-openrig1", rig: "myrig" } });
+    view.dispatch({ type: "drill", resource: "agent", name: "dev.impl", target: { host: "mm2-softwareteam1", softwareTeam: "myrig" } });
     expect(view.get().lastError).toBeNull();
     expect(view.get().filter).toBe("");
     view.dispatch({ type: "back" });

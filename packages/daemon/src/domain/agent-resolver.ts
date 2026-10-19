@@ -48,16 +48,16 @@ const RESOURCE_CATEGORIES: (keyof AgentResources)[] = [
 /**
  * Resolve an agent_ref to a concrete AgentSpec, including flat imports.
  * @param ref - agent_ref string (e.g. "local:agents/impl" or "path:/abs/agents/impl")
- * @param rigRoot - absolute path to rig root directory
+ * @param softwareTeamRoot - absolute path to softwareTeam root directory
  * @param fsOps - injectable filesystem operations
  * @returns structured resolve result
  */
 export function resolveAgentRef(
   ref: string,
-  rigRoot: string,
+  softwareTeamRoot: string,
   fsOps: AgentResolverFsOps,
 ): ResolveResult {
-  const dirPath = resolveRefToAbsPath(ref, rigRoot);
+  const dirPath = resolveRefToAbsPath(ref, softwareTeamRoot);
   if (!dirPath) {
     return { ok: false, code: "not_found", error: `Cannot resolve agent_ref "${ref}"` };
   }
@@ -186,7 +186,7 @@ function loadSpec(
  */
 /**
  * Resolve base spec + flat imports. Import local: refs resolve relative to specDir
- * (the importing spec's own directory), not the rig root.
+ * (the importing spec's own directory), not the softwareTeam root.
  */
 function resolveWithImports(
   base: ResolvedAgentSpec,

@@ -1,7 +1,7 @@
 #!/usr/bin/env -S node --import tsx
 /*
  * Slice 51-02 - the STANDALONE scenario runner entry (config-wrapper-code; NOT a
- * rig-test verb). Runs one or more scenario YAML files against a forced-local,
+ * software-team-test verb). Runs one or more scenario YAML files against a forced-local,
  * hermetic scenario-local daemon and prints a PASS/FAIL results ledger.
  *
  * Usage (the tsx loader is needed for the TS pipeline import; the shebang wires it
@@ -10,7 +10,7 @@
  *   node --import tsx packages/daemon/scripts/run-scenarios.mjs [scenario.yaml ...]
  *
  * With no args it runs the committed evidence scenarios under
- * test/fixtures/scenarios/. Prerequisite: the built rig bin (npm run build -w
+ * test/fixtures/scenarios/. Prerequisite: the built softwareTeam bin (npm run build -w
  * packages/cli and -w packages/daemon). The up step stands up real tmux seats on a
  * server the hermetic scaffold OWNS (it sets TMUX_TMPDIR itself), so a run cannot
  * reach the operator/fleet server. This runner passes the scaffold only HOME, PATH
@@ -30,7 +30,7 @@ import { runScenarioFile } from "../test/helpers/scenario-pipeline.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DAEMON_ROOT = resolve(HERE, "..");
-const RIG_BIN = resolve(DAEMON_ROOT, "..", "cli", "dist", "bin-wrapper.js");
+const SOFTWARE_TEAM_BIN = resolve(DAEMON_ROOT, "..", "cli", "dist", "bin-wrapper.js");
 const FIXTURES = join(DAEMON_ROOT, "test", "fixtures", "scenarios");
 
 const argv = process.argv.slice(2);
@@ -58,7 +58,7 @@ const deps = { normalizer: (_surface, value) => value }; // v1 identity placehol
 let failures = 0;
 for (const file of files) {
   try {
-    const result = await runScenarioFile(file, { rigBin: RIG_BIN, baseEnv, deps });
+    const result = await runScenarioFile(file, { softwareTeamBin: SOFTWARE_TEAM_BIN, baseEnv, deps });
     const tag = result.verdict === "PASS" ? "PASS" : "FAIL";
     let line = `[${tag}] ${result.scenario}`;
     if (result.verdict === "FAIL") line += `\n  step ${result.failedStep}: ${result.diff}`;

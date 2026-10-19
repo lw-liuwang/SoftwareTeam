@@ -36,10 +36,10 @@ function readYaml<T>(rel: string): T {
 const SAMPLE_DIFF = "src/release-surface/release-surface-diff.v0.3.1-v0.3.2.yaml";
 
 describe("affected-skills - toSegments / pathsMatch (the ratified match rule)", () => {
-  it("strips a leading `rig ` and splits on whitespace", () => {
-    expect(toSegments("rig scope slice create")).toEqual(["scope", "slice", "create"]);
+  it("strips a leading `softwareTeam ` and splits on whitespace", () => {
+    expect(toSegments("SoftwareTeam scope slice create")).toEqual(["scope", "slice", "create"]);
     expect(toSegments("queue create")).toEqual(["queue", "create"]);
-    expect(toSegments("  rig   ps  ")).toEqual(["ps"]);
+    expect(toSegments("  SoftwareTeam   ps  ")).toEqual(["ps"]);
     expect(toSegments("")).toEqual([]);
   });
 
@@ -85,8 +85,8 @@ describe("affected-skills - AC-3a normalization vs 13.1's shipped sample diff", 
     const changed = expandChangedSurface(diff);
     // the exact deep path is present
     expect(skillTokenMatches("scope slice create", changed)).toBe(true);
-    // a `rig `-prefixed skill token still matches (defensive strip)
-    expect(skillTokenMatches("rig scope slice create", changed)).toBe(true);
+    // a `softwareTeam `-prefixed skill token still matches (defensive strip)
+    expect(skillTokenMatches("SoftwareTeam scope slice create", changed)).toBe(true);
     // a skill referencing only bare `scope` is over-included (conservative bias)
     expect(skillTokenMatches("scope", changed)).toBe(true);
     // an unrelated command is NOT matched
@@ -99,22 +99,22 @@ describe("affected-skills - AC-3b output (inline fixtures) + AC-4 determinism", 
   const diff = (): SurfaceDiff => readYaml<SurfaceDiff>(SAMPLE_DIFF);
   const skills: SkillIndexEntry[] = [
     { name: "queue-handoff", cliSurfacesReferenced: ["queue create", "send"] },
-    { name: "openrig-work-codemap", cliSurfacesReferenced: ["scope slice create", "scope mission show"] },
-    { name: "rig-bundles-and-shareable-artifacts", cliSurfacesReferenced: ["bundle create", "bundle install"] },
-    { name: "openrig-user", cliSurfacesReferenced: ["whoami", "ps", "send"] }, // none in v0.3.2 diff
+    { name: "softwareteam-work-codemap", cliSurfacesReferenced: ["scope slice create", "scope mission show"] },
+    { name: "software-team-bundles-and-shareable-artifacts", cliSurfacesReferenced: ["bundle create", "bundle install"] },
+    { name: "softwareteam-user", cliSurfacesReferenced: ["whoami", "ps", "send"] }, // none in v0.3.2 diff
     { name: "primitive-workspace", cliSurfacesReferenced: ["workspace doctor"] },
   ];
 
   it("computes the affected-skill set: only skills whose tokens hit the changed surface", () => {
     const affected = computeAffectedSkills(diff(), skills);
     expect(affected).toEqual([
-      "openrig-work-codemap",
+      "softwareteam-work-codemap",
       "primitive-workspace",
       "queue-handoff",
-      "rig-bundles-and-shareable-artifacts",
-    ]);
-    // openrig-user (whoami/ps/send) is NOT affected by the v0.3.2 surface set
-    expect(affected).not.toContain("openrig-user");
+      "software-team-bundles-and-shareable-artifacts",
+    ].sort());
+    // softwareteam-user (whoami/ps/send) is NOT affected by the v0.3.2 surface set
+    expect(affected).not.toContain("softwareteam-user");
   });
 
   it("AC-4: identical (diff, skills) produces identical output (deterministic, offline)", () => {

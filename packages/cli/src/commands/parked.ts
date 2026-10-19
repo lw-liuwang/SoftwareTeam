@@ -1,6 +1,6 @@
 import { Command } from "commander";
 
-// OPR.0.5.5.19 A7 — `rig parked [seat]`: the founder's one-command ask. The diagnosis is
+// OPR.0.5.5.19 A7 — `softwareTeam parked [seat]`: the founder's one-command ask. The diagnosis is
 // DERIVED at read time by the daemon (activity oracle × the queue's obligation face) and
 // returns confidence for BOTH inputs — this command renders it, it never computes it.
 
@@ -56,24 +56,24 @@ function renderSeat(d: SeatDiagnosis): void {
 export function parkedCommand(): Command {
   return new Command("parked")
     .description("Are we parked? Derived diagnosis: stopped seats owing work; HELD is healthy only while its recorded wake is live")
-    .argument("[seat]", "Seat node id or canonical session name; omit to diagnose the whole rig")
-    .option("--rig <rig>", "Rig scope (defaults to your seat's rig from OPENRIG_SESSION_NAME; a seat argument carrying @rig self-scopes)")
+    .argument("[seat]", "Seat node id or canonical session name; omit to diagnose the whole softwareTeam")
+    .option("--software-team <softwareTeam>", "SoftwareTeam scope (defaults to your seat's SoftwareTeam from SOFTWARETEAM_SESSION_NAME; a seat argument carrying @software-team self-scopes)")
     .option("--json", "Full diagnosis as JSON")
-    .action(async (seat: string | undefined, opts: { json?: boolean; rig?: string }) => {
+    .action(async (seat: string | undefined, opts: { json?: boolean; softwareTeam?: string }) => {
       const { DaemonClient } = await import("../client.js");
       const client = new DaemonClient();
-      // WAVE-O B2: the diagnosis is rig-scoped — carry the coordinate. A seat@rig
-      // argument self-scopes; otherwise --rig, then the shell's own seat identity.
+      // WAVE-O B2: the diagnosis is software-team-scoped — carry the coordinate. A seat@software-team
+      // argument self-scopes; otherwise --software-team, then the shell's own seat identity.
       // With none resolvable the daemon's teaching refusal is surfaced verbatim.
       const params = new URLSearchParams();
       if (seat) params.set("seat", seat);
       if (!seat?.includes("@")) {
-        const envSession = process.env["OPENRIG_SESSION_NAME"];
-        const rig = opts.rig ?? (envSession?.includes("@") ? envSession.split("@")[1] : undefined);
-        if (rig) params.set("rig", rig);
+        const envSession = process.env["SOFTWARETEAM_SESSION_NAME"];
+        const softwareTeam = opts.softwareTeam ?? (envSession?.includes("@") ? envSession.split("@")[1] : undefined);
+        if (softwareTeam) params.set("softwareTeam", softwareTeam);
       }
       const qs = params.toString();
-      let data: { ok: boolean; error?: string; scope?: { rig: string; resolvedFrom: string }; seat?: SeatDiagnosis; rig?: { parked: boolean | "indeterminate"; reason: string; seats: SeatDiagnosis[]; scope?: { rig: string; resolvedFrom: string } } };
+      let data: { ok: boolean; error?: string; scope?: { softwareTeam: string; resolvedFrom: string }; seat?: SeatDiagnosis; softwareTeam?: { parked: boolean | "indeterminate"; reason: string; seats: SeatDiagnosis[]; scope?: { softwareTeam: string; resolvedFrom: string } } };
       try {
         const res = await client.get<typeof data>(`/api/activity/parked${qs ? `?${qs}` : ""}`);
         data = res.data;
@@ -92,14 +92,14 @@ export function parkedCommand(): Command {
         return;
       }
       if (data.seat) {
-        if (data.scope) console.log(`scope: rig ${data.scope.rig} (from ${data.scope.resolvedFrom})`);
+        if (data.scope) console.log(`scope: softwareTeam ${data.scope.softwareTeam} (from ${data.scope.resolvedFrom})`);
         renderSeat(data.seat);
         return;
       }
-      const rig = data.rig!;
-      console.log(`rig: ${verdictWord(rig.parked)} — ${rig.reason}`);
-      if (rig.scope) console.log(`scope: rig ${rig.scope.rig} (from ${rig.scope.resolvedFrom})`);
-      for (const d of rig.seats) {
+      const softwareTeam = data.softwareTeam!;
+      console.log(`softwareTeam: ${verdictWord(softwareTeam.parked)} — ${softwareTeam.reason}`);
+      if (softwareTeam.scope) console.log(`scope: softwareTeam ${softwareTeam.scope.softwareTeam} (from ${softwareTeam.scope.resolvedFrom})`);
+      for (const d of softwareTeam.seats) {
         if (d.parked === false) continue; // the interesting cells are parked + indeterminate
         renderSeat(d);
       }

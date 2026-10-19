@@ -17,7 +17,7 @@ import { migrate } from "./db/migrate.js";
 // P8: apply the CANONICAL migration list — the single source of truth (db/all-migrations.ts),
 // never an inline copy that can drift out of sync with the daemon's schema.
 import { ALL_MIGRATIONS } from "./db/all-migrations.js";
-import { RigRepository } from "./domain/rig-repository.js";
+import { SoftwareTeamRepository } from "./domain/software-team-repository.js";
 import { SessionRegistry } from "./domain/session-registry.js";
 import { deriveCanonicalSessionName, isHumanSeatSessionRef, parseSessionName } from "./domain/session-name.js";
 import { resolveExternal } from "./domain/gateway/external-admission.js";
@@ -50,10 +50,10 @@ import { prepareCodexTeamWorkspace } from "./domain/codex-team-workspace.js";
 import { PiResumeAdapter } from "./adapters/pi-resume.js";
 import { OmpResumeAdapter } from "./adapters/omp-resume.js";
 import { OMP_PROVIDER_ENV_VARS, OMP_PROVIDER_EXTRA_ENV_VARS } from "./adapters/pi-runner-protocol.js";
-import { RigSpecExporter } from "./domain/rigspec-exporter.js";
+import { SoftwareTeamSpecExporter } from "./domain/software-team-spec-exporter.js";
 import { PodRepository } from "./domain/pod-repository.js";
-import { RigSpecPreflight } from "./domain/rigspec-preflight.js";
-import { RigInstantiator } from "./domain/rigspec-instantiator.js";
+import { SoftwareTeamSpecPreflight } from "./domain/software-team-spec-preflight.js";
+import { SoftwareTeamInstantiator } from "./domain/software-team-spec-instantiator.js";
 import { Reconciler } from "./domain/reconciler.js";
 import { PackageRepository } from "./domain/package-repository.js";
 import { InstallRepository } from "./domain/install-repository.js";
@@ -74,8 +74,8 @@ import { DiscoveryRepository } from "./domain/discovery-repository.js";
 import { DiscoveryCoordinator } from "./domain/discovery-coordinator.js";
 import { ClaimService } from "./domain/claim-service.js";
 import { SelfAttachService } from "./domain/self-attach-service.js";
-import { RigLifecycleService } from "./domain/rig-lifecycle-service.js";
-import { RigExpansionService } from "./domain/rig-expansion-service.js";
+import { SoftwareTeamLifecycleService } from "./domain/software-team-lifecycle-service.js";
+import { SoftwareTeamExpansionService } from "./domain/software-team-expansion-service.js";
 // TODO: AS-T12 — migrate to pod-aware bundle source resolver
 import { LegacyBundleSourceResolver as BundleSourceResolver } from "./domain/bundle-source-resolver.js";
 import { PodBundleSourceResolver } from "./domain/bundle-source-resolver.js";
@@ -90,7 +90,7 @@ import { DaemonLifecycleStore } from "./domain/daemon-lifecycle-store.js";
 import { randomUUID } from "node:crypto";
 import { setSelfHostId, setSelfHostIdSource } from "./domain/hosts/fanout-contract.js";
 import { UpCommandRouter } from "./domain/up-command-router.js";
-import { RigTeardownOrchestrator } from "./domain/rig-teardown.js";
+import { SoftwareTeamTeardownOrchestrator } from "./domain/software-team-teardown.js";
 import { ResumeMetadataRefresher } from "./domain/resume-metadata-refresher.js";
 import { observeClaudePaneStartedAt } from "./domain/native-process-lineage.js";
 import { TranscriptStore } from "./domain/transcript-store.js";
@@ -133,8 +133,8 @@ import { WorkflowRuntime } from "./domain/workflow-runtime.js";
 import { resolveWorkflowHumanDestination } from "./domain/workflow-human-destination.js";
 import { makeWorkflowKeepalivePolicy } from "./domain/policies/workflow-keepalive.js";
 import { makeIdleGateQitemPolicy } from "./domain/policies/idle-gate-qitem.js";
-import { makeParkedOwnerConsumerPolicy, makeRigAnchor, PARKED_OWNER_POLICY_NAME } from "./domain/policies/parked-owner-consumer.js";
-import { diagnoseRigParked } from "./domain/parked-query.js";
+import { makeParkedOwnerConsumerPolicy, makeSoftwareTeamAnchor, PARKED_OWNER_POLICY_NAME } from "./domain/policies/parked-owner-consumer.js";
+import { diagnoseSoftwareTeamParked } from "./domain/parked-query.js";
 import { SpecReviewService } from "./domain/spec-review-service.js";
 import { SpecLibraryService } from "./domain/spec-library-service.js";
 // Phase 3a slice 3.3 — plugin discovery service.
@@ -142,7 +142,7 @@ import { PluginDiscoveryService } from "./domain/plugin-discovery-service.js";
 // Slice 28 Checkpoint C-3 — skill-library discovery (SC-29 #11 cumulative).
 import { SkillLibraryDiscoveryService } from "./domain/skill-library-discovery.js";
 import { ContextPackLibraryService } from "./domain/context-packs/context-pack-library-service.js";
-import { openRigContextLibraryRoots } from "./domain/instance-initialization.js";
+import { softwareTeamContextLibraryRoots } from "./domain/instance-initialization.js";
 import { resolveSystemWorld } from "./domain/system-world.js";
 import { AgentImageLibraryService } from "./domain/agent-images/agent-image-library-service.js";
 import { SnapshotCapturer } from "./domain/agent-images/snapshot-capturer.js";
@@ -160,8 +160,8 @@ import nodePath from "node:path";
 // Slice 11 (release-0.3.1 workflow-spec-folder-discovery) — adds
 // status + error_message columns to workflow_specs so the scanner
 // can record diagnostic rows. SC-29 #10 declared verbatim in commit body.
-import { RigModeStore } from "./domain/rig-mode/rig-mode-store.js";
-import { OperatingPostureService, configuredCatalogPath } from "./domain/rig-mode/operating-posture.js";
+import { SoftwareTeamModeStore } from "./domain/software-team-mode/software-team-mode-store.js";
+import { OperatingPostureService, configuredCatalogPath } from "./domain/software-team-mode/operating-posture.js";
 import { MissionControlActionLog } from "./domain/mission-control/mission-control-action-log.js";
 import { MissionControlWriteContract } from "./domain/mission-control/mission-control-write-contract.js";
 import { MissionControlReadLayer } from "./domain/mission-control/mission-control-read-layer.js";
@@ -174,16 +174,16 @@ import { MissionControlNotificationDispatcher } from "./domain/mission-control/n
 import { NtfyNotificationAdapter } from "./domain/mission-control/notification-adapter-ntfy.js";
 import { WebhookNotificationAdapter } from "./domain/mission-control/notification-adapter-webhook.js";
 import type { NotificationAdapter } from "./domain/mission-control/notification-adapter-types.js";
-import { OPENRIG_HOME } from "./openrig-compat.js";
+import { SOFTWARETEAM_HOME } from "./softwareteam-compat.js";
 import { homeIsolationAdvisory } from "./domain/home-isolation.js";
 import { materializeBuiltinPolicyReference } from "./domain/builtin-policy-reference.js";
 import { withAgentAppResolver, withAgentApps } from "./adapters/agent-app-runtime-adapter.js";
 import { ensureActivityHookToken, writeActivityEndpointFile, deriveActivityUrl, readActivityEndpointFile } from "./domain/activity-endpoint.js";
 import {
-  getCompatibleOpenRigPath,
-  getDefaultOpenRigPath,
-  readOpenRigEnv,
-} from "./openrig-compat.js";
+  getCompatibleSoftwareTeamPath,
+  getDefaultSoftwareTeamPath,
+  readSoftwareTeamEnv,
+} from "./softwareteam-compat.js";
 
 interface DaemonOptions {
   dbPath?: string;
@@ -303,7 +303,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     throw new Error(`CODEX_HOME must be an absolute path for managed seats: ${configuredCodexHome}`);
   }
   const codexHome = configuredCodexHome || nodePath.join(daemonHome, ".codex");
-  const homeIsolation = homeIsolationAdvisory({ openrigHome: OPENRIG_HOME, home: daemonHome, codexHome: configuredCodexHome });
+  const homeIsolation = homeIsolationAdvisory({ softwareteamHome: SOFTWARETEAM_HOME, home: daemonHome, codexHome: configuredCodexHome });
   if (homeIsolation) console.warn(homeIsolation);
   // Only the explicit selection overrides a pane rc or the legacy PID-home
   // reader. The resolved default remains the writer/network-reader/session root.
@@ -338,16 +338,16 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const daemonBootEpoch = randomUUID();
   daemonLifecycleStore.recordBoot(daemonBootEpoch, new Date().toISOString());
 
-  const rigRepo = new RigRepository(db);
+  const softwareTeamRepo = new SoftwareTeamRepository(db);
   const sessionRegistry = new SessionRegistry(db);
   const eventBus = new EventBus(db);
   const streamStore = new StreamStore(db, eventBus);
   // Explicit source opt-in only. No sink I/O until a separate drain request.
-  const shadow = configureShadowCapture(process.env.OPENRIG_SHADOW_CAPTURE);
+  const shadow = configureShadowCapture(process.env.SOFTWARETEAM_SHADOW_CAPTURE);
   const slowOpRecorder = opts?.slowOpRecorder ?? (dbPath === ":memory:"
     ? undefined
     : new SlowOpRecorder({
-        logPath: nodePath.join(OPENRIG_HOME, "logs", "slow-operations.jsonl"),
+        logPath: nodePath.join(SOFTWARETEAM_HOME, "logs", "slow-operations.jsonl"),
       }));
   configureSyncSiteRecorder(slowOpRecorder);
   // Instrumentation wiring is observe-only: neither a throwing registration
@@ -370,15 +370,15 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   } catch (error) {
     console.error("[slow-operation] setDegradedHandler registration failed", error);
   }
-  // PL-004 Phase A revision (R1): topology-backed validateRig.
-  // Reject `<member>@<unknown-rig>` shapes against the rig registry.
+  // PL-004 Phase A revision (R1): topology-backed validateSoftwareTeam.
+  // Reject `<member>@<unknown-softwareTeam>` shapes against the softwareTeam registry.
   // Bare ids without `@` are also rejected
-  // (no canonical rig binding).
+  // (no canonical softwareTeam binding).
   // OPR.0.4.6.MH1 FR-8: this gate is the ARCHETYPE consumer of the shared
   // parse contract — human-seat classification BEFORE parse, then the
-  // greedy first-@ rig (so "member@rig@x" looks up rig "rig@x", misses,
-  // and rejects with the same unknown_destination_rig as ever — BR-1).
-  const topologyValidateRig = (sessionRef: string): boolean => {
+  // greedy first-@ softwareTeam (so "member@software-team@x" looks up softwareTeam "softwareTeam@x", misses,
+  // and rejects with the same unknown_destination_software_team as ever — BR-1).
+  const topologyValidateSoftwareTeam = (sessionRef: string): boolean => {
     const parsed = parseSessionName(sessionRef);
     // M1 A4b — @external entity-admission (checked BEFORE the human-CLASS bare-admit,
     // which A2 also makes true for <local>@external): a queue row destinationed to
@@ -393,35 +393,35 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     }
     if (isHumanSeatSessionRef(sessionRef)) return true;
     if (parsed.kind !== "canonical") return false;
-    return rigRepo.findRigsByName(parsed.rig).length > 0;
+    return softwareTeamRepo.findSoftwareTeamsByName(parsed.softwareTeam).length > 0;
   };
   // Seat absence in positively known local topology is advice, never admission
   // authority. Keep every typed destination intact, including adopted aliases.
   const topologyDestinationAdvisory = (sessionRef: string) => {
     const parsed = parseSessionName(sessionRef);
     if (isHumanSeatSessionRef(sessionRef) || parsed.kind !== "canonical") return null;
-    const rigs = rigRepo.findUnarchivedRigsByName(parsed.rig);
-    if (rigs.length === 0) return null;
+    const softwareTeams = softwareTeamRepo.findUnarchivedSoftwareTeamsByName(parsed.softwareTeam);
+    if (softwareTeams.length === 0) return null;
     // Membership needs only registered names and logical seat coordinates,
     // not the full ps projection (snapshots, activity and lifecycle history).
-    for (const rig of rigs) {
+    for (const softwareTeam of softwareTeams) {
       if (db.prepare(`SELECT 1 FROM sessions s JOIN nodes n ON n.id = s.node_id
-        WHERE n.rig_id = ? AND s.session_name = ? LIMIT 1`).get(rig.id, sessionRef)) return null;
-      if (db.prepare(`SELECT 1 FROM nodes WHERE rig_id = ? AND
+        WHERE n.software_team_id = ? AND s.session_name = ? LIMIT 1`).get(softwareTeam.id, sessionRef)) return null;
+      if (db.prepare(`SELECT 1 FROM nodes WHERE software_team_id = ? AND
         CASE WHEN instr(logical_id, '.') = 0 THEN logical_id
           WHEN instr(logical_id, '.') > 1 AND instr(logical_id, '.') < length(logical_id)
           THEN substr(logical_id, 1, instr(logical_id, '.') - 1) || '-' || substr(logical_id, instr(logical_id, '.') + 1)
-        END = ? LIMIT 1`).get(rig.id, parsed.member)) return null;
+        END = ? LIMIT 1`).get(softwareTeam.id, parsed.member)) return null;
     }
-    const names = rigs.flatMap((rig) => db.prepare(`SELECT n.logical_id, s.session_name
+    const names = softwareTeams.flatMap((softwareTeam) => db.prepare(`SELECT n.logical_id, s.session_name
       FROM nodes n LEFT JOIN sessions s ON s.id =
         (SELECT id FROM sessions WHERE node_id = n.id ORDER BY id DESC LIMIT 1)
-      WHERE n.rig_id = ?`).all(rig.id) as Array<{ logical_id: string; session_name: string | null }>);
+      WHERE n.software_team_id = ?`).all(softwareTeam.id) as Array<{ logical_id: string; session_name: string | null }>);
     const canonicalName = (logicalId: string) => {
       const dot = logicalId.indexOf(".");
-      if (dot < 0) return `${logicalId}@${parsed.rig}`;
+      if (dot < 0) return `${logicalId}@${parsed.softwareTeam}`;
       return dot > 0 && dot < logicalId.length - 1
-        ? deriveCanonicalSessionName(logicalId.slice(0, dot), logicalId.slice(dot + 1), parsed.rig) : null;
+        ? deriveCanonicalSessionName(logicalId.slice(0, dot), logicalId.slice(dot + 1), parsed.softwareTeam) : null;
     };
     const availableDestinations = [...new Set(names.flatMap((entry) => [
       entry.session_name, canonicalName(entry.logical_id),
@@ -430,7 +430,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       code: "unmatched_destination_seat" as const,
       destinationSession: sessionRef,
       availableDestinations,
-      message: `Suspected seat typo: '${sessionRef}' matches no session address of locally known rig '${parsed.rig}'. `
+      message: `Suspected seat typo: '${sessionRef}' matches no session address of locally known softwareTeam '${parsed.softwareTeam}'. `
         + `Available destinations: ${availableDestinations.join(", ") || "(none)"}. `
         + "The row keeps the exact destination as typed; this warning does not guarantee pickup or delivery.",
     };
@@ -440,11 +440,11 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   // Transport is wired after SessionTransport instantiation below via
   // attachTransport().
   const queueRepoInstance = new QueueRepository(db, eventBus, {
-    validateRig: topologyValidateRig,
+    validateSoftwareTeam: topologyValidateSoftwareTeam,
     destinationAdvisory: topologyDestinationAdvisory,
     // OPR.0.4.6.WF3 FR-6 — the frontier close-path guard's predicate,
     // INJECTED here (arch layering pin: the queue never imports the
-    // workflow domain; startup wires them — the validateRig precedent).
+    // workflow domain; startup wires them — the validateSoftwareTeam precedent).
     workflowFrontierPredicate: createWorkflowFrontierPredicate(db),
     // GHOST-STAGE (h): resolve the source seat's atom-B generation for the handoff-nudge Sent: line
     // (same injected-predicate layering — the queue never imports the session domain).
@@ -491,12 +491,12 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   watchdogAutoRegistration.assertLiveSeatCoverage();
   const watchdogHistoryLogInstance = new WatchdogHistoryLog(db);
 
-  // An injected string exec keeps the shell path, so its fake sees every command. OPENRIG_TMUX_SHELL=1 keeps it too.
+  // An injected string exec keeps the shell path, so its fake sees every command. SOFTWARETEAM_TMUX_SHELL=1 keeps it too.
   const spawnedArgvExec = opts?.argvExec
-    ?? (opts?.tmuxExec || (process.env.OPENRIG_TMUX_SHELL === "1" && process.platform !== "win32") ? undefined : execArgvCommand);
-  // OPENRIG_TMUX_CONTROL=1 drives the real tmux through one control-mode client (tmux-control.ts); by default a client
+    ?? (opts?.tmuxExec || (process.env.SOFTWARETEAM_TMUX_SHELL === "1" && process.platform !== "win32") ? undefined : execArgvCommand);
+  // SOFTWARETEAM_TMUX_CONTROL=1 drives the real tmux through one control-mode client (tmux-control.ts); by default a client
   // is spawned per command. An injected exec is the test's own, and psmux has no control mode.
-  const argvExec = spawnedArgvExec === execArgvCommand && process.platform !== "win32" && process.env.OPENRIG_TMUX_CONTROL === "1"
+  const argvExec = spawnedArgvExec === execArgvCommand && process.platform !== "win32" && process.env.SOFTWARETEAM_TMUX_CONTROL === "1"
     ? tmuxControlExec(execArgvCommand) : spawnedArgvExec;
   const tmuxAdapter = new TmuxAdapter(opts?.tmuxExec ?? execCommand, undefined, argvExec);
   // The real tmux runs with this process's environment, so its server is the one $TMUX names.
@@ -534,7 +534,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     },
   });
   // 5b82324b — the STRUCTURAL activity cache (sibling of SeatActivityService). Captures pane TEXT once
-  // per running seat per tick + classifies motion STRUCTURALLY, so the `rig ps` ACTIVITY column reflects
+  // per running seat per tick + classifies motion STRUCTURALLY, so the `SoftwareTeam ps` ACTIVITY column reflects
   // real liveness for hook-less / stale-hook / turn-boundary seats WITHOUT a per-request capture storm.
   const seatStructuralActivityService = new SeatStructuralActivityService(tmuxAdapter);
   // OPR.0.4.3.19 — SeatIdentityReconciler owns the liveness identity verdict
@@ -554,26 +554,26 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   );
 
   // Read transcript config from env (passed by CLI via PNS-T02 config surface)
-  const transcriptsEnabled = readOpenRigEnv("OPENRIG_TRANSCRIPTS_ENABLED", "RIGGED_TRANSCRIPTS_ENABLED") !== "false";
-  const transcriptsPath = readOpenRigEnv("OPENRIG_TRANSCRIPTS_PATH", "RIGGED_TRANSCRIPTS_PATH") || undefined;
-  const activityHookToken = readOpenRigEnv("OPENRIG_ACTIVITY_HOOK_TOKEN", "RIGGED_ACTIVITY_HOOK_TOKEN") || undefined;
-  const activityHookUrl = readOpenRigEnv("OPENRIG_URL", "RIGGED_URL") || undefined;
-  const openRigPort = readOpenRigEnv("OPENRIG_PORT", "RIGGED_PORT") || undefined;
-  const openRigHost = readOpenRigEnv("OPENRIG_HOST", "RIGGED_HOST") || undefined;
+  const transcriptsEnabled = readSoftwareTeamEnv("SOFTWARETEAM_TRANSCRIPTS_ENABLED") !== "false";
+  const transcriptsPath = readSoftwareTeamEnv("SOFTWARETEAM_TRANSCRIPTS_PATH") || undefined;
+  const activityHookToken = readSoftwareTeamEnv("SOFTWARETEAM_ACTIVITY_HOOK_TOKEN") || undefined;
+  const activityHookUrl = readSoftwareTeamEnv("SOFTWARETEAM_URL") || undefined;
+  const softwareTeamPort = readSoftwareTeamEnv("SOFTWARETEAM_PORT") || undefined;
+  const softwareTeamHost = readSoftwareTeamEnv("SOFTWARETEAM_HOST") || undefined;
   // OPR.0.4.3.28 B2 — self-provision a STABLE activity url+token so launched
   // seats reach the ingest endpoint without operator shell seeding (the
   // confirmed live break). The token persists across daemon restarts (matches
   // already-launched seats' frozen env); the URL derives from the daemon's
-  // loopback + port (DEFAULT_PORT 7433 fallback). The SAME token becomes both
+  // loopback + port (DEFAULT_PORT 7434 fallback). The SAME token becomes both
   // the ingest expected-token (server dep below) and the seats' env value, so
   // hook POSTs authenticate. Also snapshotted to activity-endpoint.json for the
   // relay file-discovery fallback used by reconcile/restored seats (B3).
-  const resolvedActivityHookToken = activityHookToken ?? ensureActivityHookToken(OPENRIG_HOME);
-  // Derive from the daemon's OWN bound host+port (honors an explicit OPENRIG_HOST
+  const resolvedActivityHookToken = activityHookToken ?? ensureActivityHookToken(SOFTWARETEAM_HOME);
+  // Derive from the daemon's OWN bound host+port (honors an explicit SOFTWARETEAM_HOST
   // single-host bind; wildcard/absent → loopback) so seats post to a reachable
   // address — a hardcoded 127.0.0.1 breaks an explicit tailnet/hostname bind.
-  const resolvedActivityHookUrl = activityHookUrl ?? deriveActivityUrl(openRigHost, openRigPort);
-  writeActivityEndpointFile(OPENRIG_HOME, { baseUrl: resolvedActivityHookUrl, token: resolvedActivityHookToken });
+  const resolvedActivityHookUrl = activityHookUrl ?? deriveActivityUrl(softwareTeamHost, softwareTeamPort);
+  writeActivityEndpointFile(SOFTWARETEAM_HOME, { baseUrl: resolvedActivityHookUrl, token: resolvedActivityHookToken });
   const startupSettings = new ContextPackSettingsStore().resolveConfig();
   const providerAuthEnv = collectAllowlistedProviderAuthEnv(
     startupSettings.recoveryProviderAuthEnvAllowlistRaw,
@@ -595,11 +595,11 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   // reports activity exactly like a launched seat.
   const launchSessionEnv: Record<string, string | undefined> = {
     PATH: process.env.PATH,
-    OPENRIG_HOME,
-    OPENRIG_PORT: openRigPort,
-    OPENRIG_HOST: openRigHost,
-    OPENRIG_URL: resolvedActivityHookUrl,
-    OPENRIG_ACTIVITY_HOOK_TOKEN: resolvedActivityHookToken,
+    SOFTWARETEAM_HOME,
+    SOFTWARETEAM_PORT: softwareTeamPort,
+    SOFTWARETEAM_HOST: softwareTeamHost,
+    SOFTWARETEAM_URL: resolvedActivityHookUrl,
+    SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: resolvedActivityHookToken,
     ...providerAuthEnv,
     HOME: daemonHome,
     USER: process.env.USER,
@@ -630,7 +630,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const seatLaunchEnvironment = new SeatLaunchEnvironment(tmuxAdapter, launchSessionEnv, process.cwd(), undefined, configuredCodexHome);
   const nodeLauncher = new NodeLauncher({
     db,
-    rigRepo,
+    softwareTeamRepo,
     sessionRegistry,
     eventBus,
     tmuxAdapter,
@@ -642,22 +642,22 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
 
   const snapshotRepo = new SnapshotRepository(db);
   const checkpointStore = new CheckpointStore(db);
-  const snapshotCapture = new SnapshotCapture({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
+  const snapshotCapture = new SnapshotCapture({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
   const claudeManagedLaunch = new ClaudeManagedLaunch(db, { ...launchSessionEnv, CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR }, {
-    OPENRIG_CLAUDE_DISABLE_ALTERNATE_SCREEN: process.env.OPENRIG_CLAUDE_DISABLE_ALTERNATE_SCREEN,
+    SOFTWARETEAM_CLAUDE_DISABLE_ALTERNATE_SCREEN: process.env.SOFTWARETEAM_CLAUDE_DISABLE_ALTERNATE_SCREEN,
   }, (session, key) => tmuxAdapter.getSessionEnv(session, key));
   const claudeResume = new ClaudeResumeAdapter(tmuxAdapter, { claudeManagedLaunch, seatLaunchEnvironment });
   // #275: one reader for both Codex launch adapters, with the PATH, HOME and CODEX_HOME a seat session gets.
   const readCodexNetworkDefault = codexNetworkDefaultReader({ launchPath: process.env.PATH, home: daemonHome, codexHome });
   const prepareTeamWorkspace = (sessionName: string) => prepareCodexTeamWorkspace(sessionName,
     new ContextPackSettingsStore().resolveConfig().workspaceRoot,
-    process.env.OPENRIG_SHARED_DOCS_ROOT?.trim() || nodePath.join(daemonHome, ".openrig", "shared-docs"), daemonHome);
+    process.env.SOFTWARETEAM_SHARED_DOCS_ROOT?.trim() || nodePath.join(daemonHome, ".softwareteam", "shared-docs"), daemonHome);
   const codexResume = new CodexResumeAdapter(tmuxAdapter, { ensureManagedConfig: () => codexAdapter.ensureManagedConfig(), prepareTeamWorkspace, seatLaunchEnvironment, codexHome: configuredCodexHome, launchPath: process.env.PATH, detectDaemonSupport: codexDaemonSupportProbe(process.env.PATH, undefined, configuredCodexHome), readNetworkDefault: readCodexNetworkDefault });
   // OPR.0.4.6.PI1 — the Pi seat-state root + the compiled runner entry (daemon
   // dist). Shared by the Pi runtime adapter, the resume adapter, and the
   // resume-token capture sidecar reader.
-  const piStateRoot = nodePath.join(OPENRIG_HOME, "state", "pi");
-  const ompStateRoot = nodePath.join(OPENRIG_HOME, "state", "omp");
+  const piStateRoot = nodePath.join(SOFTWARETEAM_HOME, "state", "pi");
+  const ompStateRoot = nodePath.join(SOFTWARETEAM_HOME, "state", "omp");
   const piRunnerEntryPath = nodePath.resolve(import.meta.dirname, "./adapters/pi-runner.js");
   // OPR.0.7.0.2: Pi seats report cost facts from persisted entries only while usage.pi_cost_facts is on;
   // read at each launch and resume, so the switch takes effect at the next one.
@@ -680,14 +680,14 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     { readFile: (p: string) => fs.readFileSync(p, "utf-8"), writeFile: (p: string, c: string) => fs.writeFileSync(p, c, "utf-8"), exists: (p: string) => fs.existsSync(p), mkdirp: (p: string) => fs.mkdirSync(p, { recursive: true }) },
     { stateRoot: ompStateRoot, runnerEntryPath: piRunnerEntryPath },
   );
-  // Services infrastructure (RigEnv) — created early so restore/bootstrap can use it
+  // Services infrastructure (SoftwareTeamEnv) — created early so restore/bootstrap can use it
   const { ComposeServicesAdapter } = await import("./adapters/compose-services-adapter.js");
   const { ServiceOrchestrator } = await import("./domain/service-orchestrator.js");
   const composeAdapter = new ComposeServicesAdapter(opts?.tmuxExec ?? execCommand);
-  const serviceOrchestrator = new ServiceOrchestrator({ rigRepo, composeAdapter });
+  const serviceOrchestrator = new ServiceOrchestrator({ softwareTeamRepo, composeAdapter });
 
   const restoreOrchestrator = new RestoreOrchestrator({
-    db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+    db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
     checkpointStore, nodeLauncher, tmuxAdapter, claudeResume, codexResume, piResume, ompResume,
     transcriptStore, serviceOrchestrator,
   });
@@ -695,37 +695,37 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   // Connect to cmux at startup — degrades gracefully if absent
   await cmuxAdapter.connect();
 
-  // Reconcile all managed rigs — marks stale sessions as detached.
+  // Reconcile all managed softwareTeams — marks stale sessions as detached.
   // Capture aggregate counts and log a compact summary so cold-start truth
   // repair is visible in daemon output instead of silently swallowed.
   const reconciler = new Reconciler({ db, sessionRegistry, eventBus, tmuxAdapter });
-  const rigs = rigRepo.listRigs();
+  const softwareTeams = softwareTeamRepo.listSoftwareTeams();
   let reconcileChecked = 0;
   let reconcileDetached = 0;
   let reconcileErrors = 0;
-  for (const rig of rigs) {
+  for (const softwareTeam of softwareTeams) {
     try {
-      const result = await reconciler.reconcile(rig.id);
+      const result = await reconciler.reconcile(softwareTeam.id);
       reconcileChecked += result.checked;
       reconcileDetached += result.detached;
       reconcileErrors += result.errors.length;
       for (const e of result.errors) {
         try {
           // eslint-disable-next-line no-console
-          console.warn(`startup reconcile warning: rig=${rig.id} session=${e.sessionId} error=${e.error}`);
+          console.warn(`startup reconcile warning: softwareTeam=${softwareTeam.id} session=${e.sessionId} error=${e.error}`);
         } catch { /* logging must never throw */ }
       }
     } catch (err) {
       reconcileErrors += 1;
       try {
         // eslint-disable-next-line no-console
-        console.warn(`startup reconcile warning: rig=${rig.id} error=${err instanceof Error ? err.message : String(err)}`);
+        console.warn(`startup reconcile warning: softwareTeam=${softwareTeam.id} error=${err instanceof Error ? err.message : String(err)}`);
       } catch { /* logging must never throw */ }
     }
   }
   try {
     // eslint-disable-next-line no-console
-    console.log(`startup reconcile: rigs=${rigs.length} checked=${reconcileChecked} detached=${reconcileDetached} errors=${reconcileErrors}`);
+    console.log(`startup reconcile: softwareTeams=${softwareTeams.length} checked=${reconcileChecked} detached=${reconcileDetached} errors=${reconcileErrors}`);
   } catch { /* logging must never throw */ }
 
   // Transcript rotators are process-local. Reattach them after lifecycle
@@ -742,12 +742,12 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   }
 
   const podRepo = new PodRepository(db);
-  const rigSpecExporter = new RigSpecExporter({ rigRepo, sessionRegistry, podRepo });
-  const rigSpecPreflight = new RigSpecPreflight({
-    rigRepo, tmuxAdapter, exec: opts?.tmuxExec ?? execPreflightCommand, cmuxExec: opts?.cmuxExec ?? execCommand,
+  const softwareTeamSpecExporter = new SoftwareTeamSpecExporter({ softwareTeamRepo, sessionRegistry, podRepo });
+  const softwareTeamSpecPreflight = new SoftwareTeamSpecPreflight({
+    softwareTeamRepo, tmuxAdapter, exec: opts?.tmuxExec ?? execPreflightCommand, cmuxExec: opts?.cmuxExec ?? execCommand,
   });
-  const rigInstantiator = new RigInstantiator({
-    db, rigRepo, sessionRegistry, eventBus, nodeLauncher, preflight: rigSpecPreflight, tmuxAdapter,
+  const softwareTeamInstantiator = new SoftwareTeamInstantiator({
+    db, softwareTeamRepo, sessionRegistry, eventBus, nodeLauncher, preflight: softwareTeamSpecPreflight, tmuxAdapter,
   });
 
   // Phase 4: Package install services
@@ -796,7 +796,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   };
   const bundleSourceResolver = new BundleSourceResolver({ fsOps: resolverFsOps });
   // Pod-aware instantiator (AgentSpec reboot)
-  const { PodRigInstantiator } = await import("./domain/rigspec-instantiator.js");
+  const { PodSoftwareTeamInstantiator } = await import("./domain/software-team-spec-instantiator.js");
   const { reconcileSkillLoadout } = await import("./domain/skill-catalog.js");
   const { StartupOrchestrator } = await import("./domain/startup-orchestrator.js");
   const { ClaudeCodeAdapter } = await import("./adapters/claude-code-adapter.js");
@@ -821,8 +821,8 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
 
   const startupOrchestrator = new StartupOrchestrator({ db, sessionRegistry, eventBus, tmuxAdapter, readFile: (p: string) => fs.readFileSync(p, "utf-8") });
   const runtimeSettings = new ContextPackSettingsStore().resolveConfig();
-  const claudeAdapter = new ClaudeCodeAdapter({ tmux: tmuxAdapter, seatLaunchEnvironment, claudeManagedLaunch, fsOps: { readFile: (p: string) => fs.readFileSync(p, "utf-8"), writeFile: (p: string, c: string) => fs.writeFileSync(p, c, "utf-8"), exists: (p: string) => fs.existsSync(p), mkdirp: (p: string) => fs.mkdirSync(p, { recursive: true }), copyFile: replaceFile, listFiles: (dir: string) => { const r: string[] = []; /** Collect relative file paths recursively. */ function w(d: string, pre: string) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.isDirectory()) w(nodePath.join(d, e.name), nodePath.join(pre, e.name)); else r.push(pre ? nodePath.join(pre, e.name) : e.name); } } w(dir, ""); return r; }, readdir: (dir: string) => fs.readdirSync(dir), statMode: (p: string) => fs.statSync(p).mode, chmod: (p: string, m: number) => fs.chmodSync(p, m), homedir: os.homedir() }, stateDir: OPENRIG_HOME, collectorAssetPath: nodePath.resolve(import.meta.dirname, "../assets/claude-statusline-context.cjs"), autoDriveProviderPrompts: runtimeSettings.recoveryAutoDriveProviderPrompts, activityRelayPath: nodePath.resolve(import.meta.dirname, "../assets/plugins/openrig-core/hooks/scripts/activity-relay.cjs"), claudeHooksManifestPath: nodePath.resolve(import.meta.dirname, "../assets/plugins/openrig-core/hooks/claude.json"), recordProjection: (targetPath: string, content: string) => projectionManifestStore.record({ targetPath, lastHash: hashContent(content), writtenAt: new Date().toISOString() }) });
-  const codexAdapter = new CodexRuntimeAdapter({ prepareTeamWorkspace, tmux: tmuxAdapter, seatLaunchEnvironment, fsOps: { readFile: (p: string) => fs.readFileSync(p, "utf-8"), writeFile: (p: string, c: string) => fs.writeFileSync(p, c, "utf-8"), exists: (p: string) => fs.existsSync(p), mkdirp: (p: string) => fs.mkdirSync(p, { recursive: true }), listFiles: (dir: string) => { const r: string[] = []; /** Collect relative file paths recursively. */ function w(d: string, pre: string) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.isDirectory()) w(nodePath.join(d, e.name), nodePath.join(pre, e.name)); else r.push(pre ? nodePath.join(pre, e.name) : e.name); } } w(dir, ""); return r; }, statMode: (p: string) => fs.statSync(p).mode, chmod: (p: string, m: number) => fs.chmodSync(p, m), homedir: daemonHome }, codexHome: configuredCodexHome, launchPath: process.env.PATH, detectDaemonSupport: codexDaemonSupportProbe(process.env.PATH, undefined, configuredCodexHome), readNetworkDefault: readCodexNetworkDefault, activityRelayPath: nodePath.resolve(import.meta.dirname, "../assets/plugins/openrig-core/hooks/scripts/activity-relay.cjs"), resolveHooksEnabled: async () => {
+  const claudeAdapter = new ClaudeCodeAdapter({ tmux: tmuxAdapter, seatLaunchEnvironment, claudeManagedLaunch, fsOps: { readFile: (p: string) => fs.readFileSync(p, "utf-8"), writeFile: (p: string, c: string) => fs.writeFileSync(p, c, "utf-8"), exists: (p: string) => fs.existsSync(p), mkdirp: (p: string) => fs.mkdirSync(p, { recursive: true }), copyFile: replaceFile, listFiles: (dir: string) => { const r: string[] = []; /** Collect relative file paths recursively. */ function w(d: string, pre: string) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.isDirectory()) w(nodePath.join(d, e.name), nodePath.join(pre, e.name)); else r.push(pre ? nodePath.join(pre, e.name) : e.name); } } w(dir, ""); return r; }, readdir: (dir: string) => fs.readdirSync(dir), statMode: (p: string) => fs.statSync(p).mode, chmod: (p: string, m: number) => fs.chmodSync(p, m), homedir: os.homedir() }, stateDir: SOFTWARETEAM_HOME, collectorAssetPath: nodePath.resolve(import.meta.dirname, "../assets/claude-statusline-context.cjs"), autoDriveProviderPrompts: runtimeSettings.recoveryAutoDriveProviderPrompts, activityRelayPath: nodePath.resolve(import.meta.dirname, "../assets/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs"), claudeHooksManifestPath: nodePath.resolve(import.meta.dirname, "../assets/plugins/softwareteam-core/hooks/claude.json"), recordProjection: (targetPath: string, content: string) => projectionManifestStore.record({ targetPath, lastHash: hashContent(content), writtenAt: new Date().toISOString() }) });
+  const codexAdapter = new CodexRuntimeAdapter({ prepareTeamWorkspace, tmux: tmuxAdapter, seatLaunchEnvironment, fsOps: { readFile: (p: string) => fs.readFileSync(p, "utf-8"), writeFile: (p: string, c: string) => fs.writeFileSync(p, c, "utf-8"), exists: (p: string) => fs.existsSync(p), mkdirp: (p: string) => fs.mkdirSync(p, { recursive: true }), listFiles: (dir: string) => { const r: string[] = []; /** Collect relative file paths recursively. */ function w(d: string, pre: string) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.isDirectory()) w(nodePath.join(d, e.name), nodePath.join(pre, e.name)); else r.push(pre ? nodePath.join(pre, e.name) : e.name); } } w(dir, ""); return r; }, statMode: (p: string) => fs.statSync(p).mode, chmod: (p: string, m: number) => fs.chmodSync(p, m), homedir: daemonHome }, codexHome: configuredCodexHome, launchPath: process.env.PATH, detectDaemonSupport: codexDaemonSupportProbe(process.env.PATH, undefined, configuredCodexHome), readNetworkDefault: readCodexNetworkDefault, activityRelayPath: nodePath.resolve(import.meta.dirname, "../assets/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs"), resolveHooksEnabled: async () => {
     const { SettingsStore } = await import("./domain/user-settings/settings-store.js");
     return new SettingsStore().resolveOne("runtime.codex.hooks_enabled").value as boolean;
   }, resolveManagedConfigSettings: async () => {
@@ -848,11 +848,11 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   // codex_hooks = true is set in ~/.codex/config.toml so plugin-shipped
   // hooks fire on Codex runtime. Slice 27 also creates the default
   // user-owned Claude compaction extra-instructions placeholder.
-  // Operator can disable Codex hooks via OPENRIG_RUNTIME_CODEX_HOOKS_ENABLED
-  // or rig config set runtime.codex.hooks_enabled false.
+  // Operator can disable Codex hooks via SOFTWARETEAM_RUNTIME_CODEX_HOOKS_ENABLED
+  // or SoftwareTeam config set runtime.codex.hooks_enabled false.
   try {
     const { ensureDefaultClaudeCompactionFiles } = await import("./domain/user-settings/settings-store.js");
-    ensureDefaultClaudeCompactionFiles(OPENRIG_HOME);
+    ensureDefaultClaudeCompactionFiles(SOFTWARETEAM_HOME);
     // The Codex config is the user's file: write it at boot only when this daemon already
     // has a Codex seat; otherwise the first Codex launch ensures it (CodexRuntimeAdapter.prepareLaunch).
     // A disabled hooks setting still strips a stale managed block at every boot.
@@ -862,18 +862,18 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       await codexAdapter.stripManagedHooksIfDisabled();
     }
   } catch (err) {
-    console.error(`[openrig] runtime setup warning: ${(err as Error).message}`);
+    console.error(`[softwareteam] runtime setup warning: ${(err as Error).message}`);
   }
 
-  // plugin-primitive Phase 3a slice 3.2 — vendor openrig-core plugin to
-  // ~/.openrig/plugins/openrig-core/ on first launch. Auto-fetch from
-  // github.com/mvschwarz/openrig-plugins is best-effort + 404-tolerant
+  // plugin-primitive Phase 3a slice 3.2 — vendor softwareteam-core plugin to
+  // ~/.softwareteam/plugins/softwareteam-core/ on first launch. Auto-fetch from
+  // github.com/mvschwarz/softwareteam-plugins is best-effort + 404-tolerant
   // (repo currently empty as of 2026-05-10; vendored
   // copy is the source of truth at v0).
   try {
     const { PluginVendorService } = await import("./domain/plugin-vendor-service.js");
     const vendoredAssetsDir = nodePath.resolve(import.meta.dirname, "../assets/plugins");
-    const userPluginsDir = getDefaultOpenRigPath("plugins");
+    const userPluginsDir = getDefaultSoftwareTeamPath("plugins");
     const realFs = {
       readFile: (p: string) => fs.readFileSync(p, "utf-8"),
       writeFile: (p: string, c: string) => fs.writeFileSync(p, c, "utf-8"),
@@ -909,34 +909,34 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       userPluginsDir,
       fs: realFs,
       httpClient,
-      logger: (...args) => console.log("[openrig]", ...args),
+      logger: (...args) => console.log("[softwareteam]", ...args),
     });
-    await vendorService.ensureLatest("openrig-core");
-    for (const skill of ["openrig-skills", "refocusing"]) {
+    await vendorService.ensureLatest("softwareteam-core");
+    for (const skill of ["softwareteam-skills", "refocusing"]) {
       try {
-        vendorService.ensureSkillGlobally("openrig-core", skill, [
+        vendorService.ensureSkillGlobally("softwareteam-core", skill, [
           nodePath.join(os.homedir(), ".claude", "skills"),
           nodePath.join(os.homedir(), ".agents", "skills"),
         ]);
       } catch (err) {
-        console.error(`[openrig] global ${skill} skill setup warning: ${(err as Error).message}`);
+        console.error(`[softwareteam] global ${skill} skill setup warning: ${(err as Error).message}`);
       }
     }
-    // `rigs` is the person-facing guide (skills/rigs, the skills.sh front door), for a session that isn't on a
+    // `softwareTeams` is the person-facing guide (skills/softwareTeams, the skills.sh front door), for a session that isn't on a
     // team yet, so it isn't a plugin skill: that would put it in every seat's loadout. Its packaged copy
-    // installs under OpenRig's own version, so each upgrade refreshes it; a copy installed another way has no
-    // OpenRig marker and is left as it is.
+    // installs under SoftwareTeam's own version, so each upgrade refreshes it; a copy installed another way has no
+    // SoftwareTeam marker and is left as it is.
     try {
       const { getDaemonVersion } = await import("./domain/daemon-version.js");
-      vendorService.ensureSkillDirGlobally(nodePath.resolve(import.meta.dirname, "../assets/skills/rigs"), "rigs", getDaemonVersion(), [
+      vendorService.ensureSkillDirGlobally(nodePath.resolve(import.meta.dirname, "../assets/skills/software-teams"), "software-teams", getDaemonVersion(), [
         nodePath.join(os.homedir(), ".claude", "skills"),
         nodePath.join(os.homedir(), ".agents", "skills"),
       ]);
     } catch (err) {
-      console.error(`[openrig] global rigs skill setup warning: ${(err as Error).message}`);
+      console.error(`[softwareteam] global softwareTeams skill setup warning: ${(err as Error).message}`);
     }
   } catch (err) {
-    console.error(`[openrig] plugin vendor setup warning: ${(err as Error).message}`);
+    console.error(`[softwareteam] plugin vendor setup warning: ${(err as Error).message}`);
   }
 
   // PL-014: one daemon-scoped ContextPackLibraryService backs the
@@ -948,7 +948,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     // shared instance initializer normally creates both roots; the mkdirs keep
     // direct createDaemon test harnesses compatible.
     const userPacksRoot = new ContextPackSettingsStore().resolveOne("context.root").value as string;
-    const [contextRoot, systemPacksRoot] = openRigContextLibraryRoots(userPacksRoot);
+    const [contextRoot, systemPacksRoot] = softwareTeamContextLibraryRoots(userPacksRoot);
     try { fs.mkdirSync(systemPacksRoot, { recursive: true }); } catch { /* best-effort */ }
     const roots: Array<{ path: string; sourceType: "builtin" | "user_file" | "workspace" }> = [
       { path: contextRoot, sourceType: "user_file" },
@@ -957,7 +957,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     try {
       const settingsStore = new ContextPackSettingsStore();
       const cfg = settingsStore.resolveConfig();
-      const workspacePacksRoot = nodePath.join(cfg.workspaceRoot, ".openrig", "context-packs");
+      const workspacePacksRoot = nodePath.join(cfg.workspaceRoot, ".softwareteam", "context-packs");
       // Registered even before it exists: scan() skips a missing root, so a
       // folder created after startup is found by the next sync, not a restart.
       if (workspacePacksRoot !== userPacksRoot && workspacePacksRoot !== systemPacksRoot) {
@@ -974,11 +974,11 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   })();
 
   // PL-016 Item 2 + Item 4: hoist AgentImageLibraryService construction
-  // so the PodRigInstantiator can resolve `session_source: mode:
+  // so the PodSoftwareTeamInstantiator can resolve `session_source: mode:
   // agent_image` at materialize time. Same instance returned to deps
   // below so /api/agent-images/* + the SnapshotCapturer share it.
   const agentImageRootBuilder = () => {
-    const userImagesRoot = getDefaultOpenRigPath("agent-images");
+    const userImagesRoot = getDefaultSoftwareTeamPath("agent-images");
     try { fs.mkdirSync(userImagesRoot, { recursive: true }); } catch { /* best-effort */ }
     const roots: Array<{ path: string; sourceType: "builtin" | "user_file" | "workspace" }> = [
       { path: userImagesRoot, sourceType: "user_file" },
@@ -986,7 +986,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     try {
       const settingsStore = new ContextPackSettingsStore();
       const cfg = settingsStore.resolveConfig();
-      const workspaceImagesRoot = nodePath.join(cfg.workspaceRoot, ".openrig", "agent-images");
+      const workspaceImagesRoot = nodePath.join(cfg.workspaceRoot, ".softwareteam", "agent-images");
       if (workspaceImagesRoot !== userImagesRoot && fs.existsSync(workspaceImagesRoot)) {
         roots.push({ path: workspaceImagesRoot, sourceType: "workspace" });
       }
@@ -1001,10 +1001,10 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   })();
   const snapshotCapturer = new SnapshotCapturer({
     db,
-    rigRepo,
+    softwareTeamRepo,
     sessionRegistry,
     agentImageLibrary,
-    targetRoot: getDefaultOpenRigPath("agent-images"),
+    targetRoot: getDefaultSoftwareTeamPath("agent-images"),
   });
 
   const continuityPolicyMaterializer = new ContinuityPolicyMaterializer(
@@ -1020,8 +1020,8 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     },
   );
 
-  const podInstantiator = new PodRigInstantiator({
-    db, rigRepo, podRepo,
+  const podInstantiator = new PodSoftwareTeamInstantiator({
+    db, softwareTeamRepo, podRepo,
     sessionRegistry, eventBus, nodeLauncher, startupOrchestrator,
     fsOps: { readFile: (p: string) => fs.readFileSync(p, "utf-8"), exists: (p: string) => fs.existsSync(p) },
     adapters: withAgentApps({ "claude-code": claudeAdapter, "codex": codexAdapter, "pi": piAdapter, "omp": ompAdapter, "stub": stubAdapter, "terminal": new (await import("./adapters/terminal-adapter.js")).TerminalAdapter() }, { tmux: tmuxAdapter, seatLaunchEnvironment }),
@@ -1054,9 +1054,9 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const bootstrapOrchestrator = new BootstrapOrchestrator({
     db, bootstrapRepo, runtimeVerifier, probeRegistry,
     installPlanner: externalInstallPlanner, installExecutor: externalInstallExecutor,
-    packageInstallService, rigInstantiator, fsOps: resolverFsOps,
+    packageInstallService, softwareTeamInstantiator, fsOps: resolverFsOps,
     bundleSourceResolver, podInstantiator, podBundleSourceResolver,
-    serviceOrchestrator, rigRepo,
+    serviceOrchestrator, softwareTeamRepo,
     // A bundle's packs land in context.root before its seats launch; rescan
     // so the live library serves them on the first turn.
     routeBundleContents: (bundlePath) => routeBundleContents(bundlePath, {
@@ -1064,7 +1064,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     }),
   });
 
-  // V0.3.1 slice 05 kernel-rig-as-default — auto-boot the kernel rig
+  // V0.3.1 slice 05 kernel-software-team-as-default — auto-boot the kernel softwareTeam
   // on daemon-start. Forward-fix #3 architectural: the bootstrap is
   // FIRED in the background, not awaited. createDaemon completes as
   // soon as the tracker is created so server.ts can bind healthz
@@ -1072,22 +1072,22 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   // longer keeps the daemon HTTP surface from starting.
   //
   // Tracker state is exposed via /api/kernel/status (route below) and
-  // the CLI's `rig daemon start --wait-for-kernel` flag polls it.
+  // the CLI's `SoftwareTeam daemon start --wait-for-kernel` flag polls it.
   // After the configurable degraded-timer window (default 90s; env
-  // override OPENRIG_KERNEL_DEGRADED_MS for ops + test fixtures), the
+  // override SOFTWARETEAM_KERNEL_DEGRADED_MS for ops + test fixtures), the
   // tracker emits a single `kernel.agent.degraded` event for
-  // observability. The kernel rig is still the only rig the daemon
-  // auto-boots; other rigs require explicit operator-initiated
-  // `rig up` / `rig restore` per amended IMPL-PRD §16.2.
+  // observability. The kernel softwareTeam is still the only softwareTeam the daemon
+  // auto-boots; other softwareTeams require explicit operator-initiated
+  // `SoftwareTeam up` / `SoftwareTeam restore` per amended IMPL-PRD §16.2.
   let kernelBootTracker: import("./domain/kernel-boot-tracker.js").KernelBootTracker | undefined;
   try {
     const { bootKernelIfNeeded } = await import("./domain/kernel-boot.js");
-    const degradedRaw = readOpenRigEnv("OPENRIG_KERNEL_DEGRADED_MS");
+    const degradedRaw = readSoftwareTeamEnv("SOFTWARETEAM_KERNEL_DEGRADED_MS");
     const degradedTimeoutMs = degradedRaw && /^\d+$/.test(degradedRaw)
       ? parseInt(degradedRaw, 10)
       : undefined;
     kernelBootTracker = await bootKernelIfNeeded({
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       eventBus,
       bootstrapOrchestrator,
@@ -1095,7 +1095,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       // V0.3.1 slice 05 — kernel members run against the operator's
       // workspace, not the daemon installation tree. Without this
       // cwdOverride, BootstrapOrchestrator refuses with
-      // "cwd is inside the OpenRig installation". Use the resolved
+      // "cwd is inside the SoftwareTeam installation". Use the resolved
       // workspace.root setting as the per-operator default.
       cwdOverride: runtimeSettings.workspaceRoot,
       degradedTimeoutMs,
@@ -1131,7 +1131,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   // Also threaded through WhoamiService + routes below (same single instance).
   const { ContextUsageStore } = await import("./domain/context-usage-store.js");
   const contextUsageStore = new ContextUsageStore(db, {
-    stateDir: OPENRIG_HOME,
+    stateDir: SOFTWARETEAM_HOME,
     codexHome: configuredCodexHome,
     // GHOST-STAGE (c-id): reject context readings from before the live occupant booted (prior
     // generation) so a frozen pre-handover sample can't drive the threshold. null = UNKNOWN (inert).
@@ -1141,23 +1141,23 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const healthSettingsStore = new ContextPackSettingsStore();
   const contextHealthSource = new LiveContextHealthSource({
     db,
-    rigRepo,
+    softwareTeamRepo,
     sessionRegistry,
     contextUsageStore,
     resolveContextPressurePolicy: () => healthSettingsStore.resolveContextPressurePolicy(),
   });
-  const healthPolicy = new HealthPolicyStore(OPENRIG_HOME, () => healthSettingsStore.resolveContextPressurePolicy());
-  const healthCheckpoints = new HealthCheckpointSource(OPENRIG_HOME, queueRepoInstance, healthPolicy, undefined, healthSettingsStore.resolveOne("workspace.root").value as string);
-  const rigModeStore = new RigModeStore(db);
-  const operatingPosture = new OperatingPostureService(db, rigModeStore,
+  const healthPolicy = new HealthPolicyStore(SOFTWARETEAM_HOME, () => healthSettingsStore.resolveContextPressurePolicy());
+  const healthCheckpoints = new HealthCheckpointSource(SOFTWARETEAM_HOME, queueRepoInstance, healthPolicy, undefined, healthSettingsStore.resolveOne("workspace.root").value as string);
+  const softwareTeamModeStore = new SoftwareTeamModeStore(db);
+  const operatingPosture = new OperatingPostureService(db, softwareTeamModeStore,
     () => healthSettingsStore.resolveOne("workspace.root").value as string,
     configuredCatalogPath(healthSettingsStore));
-  const passiveCeremony = new PassiveCeremonySource(healthSettingsStore.resolveOne("workspace.root").value as string, queueRepoInstance, healthPolicy, undefined, healthCheckpoints, { reader: operatingPosture, instanceId: OPENRIG_HOME });
+  const passiveCeremony = new PassiveCeremonySource(healthSettingsStore.resolveOne("workspace.root").value as string, queueRepoInstance, healthPolicy, undefined, healthCheckpoints, { reader: operatingPosture, instanceId: SOFTWARETEAM_HOME });
   const healthProjection = new HealthProjectionService([contextHealthSource, healthCheckpoints, passiveCeremony], () => healthPolicy.read(), (record) => operatingPosture.forHealth(record));
   const healthDiagnosis = new HealthDiagnosisService({ queue: queueRepoInstance, projection: healthProjection, policy: healthPolicy,
     authority: (record) => healthAuthority(healthSettingsStore.resolveOne("workspace.root").value as string, healthCheckpoints, record),
     resolveEvidence: (path, finding) => readHealthArtifact(finding.operatingPosture?.context?.paths?.project ?? healthSettingsStore.resolveOne("workspace.root").value as string, path),
-    humanReadiness: (address) => healthHumanReadiness(OPENRIG_HOME, address, deps.gatewaySubsystem?.status().state === "active"),
+    humanReadiness: (address) => healthHumanReadiness(SOFTWARETEAM_HOME, address, deps.gatewaySubsystem?.status().state === "active"),
   });
   // OPR.0.4.3.20 FR-4 — inject contextUsageStore so refresh() can null-fill a
   // Claude token from the sidecar during periodic/manual snapshot refresh.
@@ -1166,7 +1166,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const claudeProcessStartedAt = (sessionName: string) => observeClaudePaneStartedAt({ target: sessionName, tmux: tmuxAdapter });
   const resumeMetadataRefresher = new ResumeMetadataRefresher({ sessionRegistry, tmuxAdapter, contextUsageStore, claudeProcessStartedAt, codexHome: configuredCodexHome });
   const claimService = new ClaimService({
-    db, rigRepo, sessionRegistry, discoveryRepo, eventBus, tmuxAdapter, transcriptStore,
+    db, softwareTeamRepo, sessionRegistry, discoveryRepo, eventBus, tmuxAdapter, transcriptStore,
     claudeContextProvisioner: claudeAdapter,
     // OPR.0.4.3.20 FR-3 — adoption-boundary resume-token capture deps
     // (Claude sidecar reader + Codex thread-id capturer, both reuse).
@@ -1178,22 +1178,22 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     ompRunnerStateStore: ompAdapter,
   });
   const selfAttachService = new SelfAttachService({
-    db, rigRepo, podRepo, sessionRegistry, eventBus, tmuxAdapter, transcriptStore,
+    db, softwareTeamRepo, podRepo, sessionRegistry, eventBus, tmuxAdapter, transcriptStore,
     claudeContextProvisioner: claudeAdapter,
     // OPR.0.4.3.28 B3 — echo the resolved activity url+token into the self-attach
     // response env so the caller's shell can produce activity signal.
     activityEnv: { url: resolvedActivityHookUrl, token: resolvedActivityHookToken },
   });
-  const rigLifecycleService = new RigLifecycleService({
-    db, rigRepo, sessionRegistry, discoveryRepo, eventBus, queueRepo: queueRepoInstance, tmuxAdapter,
+  const softwareTeamLifecycleService = new SoftwareTeamLifecycleService({
+    db, softwareTeamRepo, sessionRegistry, discoveryRepo, eventBus, queueRepo: queueRepoInstance, tmuxAdapter,
   });
-  const rigExpansionService = new RigExpansionService({ db, rigRepo, eventBus, nodeLauncher, podInstantiator, sessionRegistry });
+  const softwareTeamExpansionService = new SoftwareTeamExpansionService({ db, softwareTeamRepo, eventBus, nodeLauncher, podInstantiator, sessionRegistry });
 
   const specReviewService = new SpecReviewService();
 
   // (ContextUsageStore is constructed above, ahead of ClaimService, for FR-3.)
-  const whoamiService = new WhoamiService({ db, rigRepo, sessionRegistry, transcriptStore, contextUsageStore });
-  const nodeCmuxService = new NodeCmuxService(rigRepo, sessionRegistry, cmuxAdapter, tmuxAdapter);
+  const whoamiService = new WhoamiService({ db, softwareTeamRepo, sessionRegistry, transcriptStore, contextUsageStore });
+  const nodeCmuxService = new NodeCmuxService(softwareTeamRepo, sessionRegistry, cmuxAdapter, tmuxAdapter);
   // W2a-1 — producer wiring: the live occupant generation resolves synchronously from the shipped
   // occupant-tenure ledger. generation_uuid CHANGES for a new occupant and persists only within one
   // tenure (a same-session relaunch is a continuation with no new generation); node_id is the stable-
@@ -1225,7 +1225,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   const { SeatAttentionReconciler } = await import("./domain/seat-attention-reconciler.js");
   const seatAttentionReconciler = new SeatAttentionReconciler({
     sessionRegistry, eventBus, agentActivityStore, db, tmux: tmuxAdapter,
-    reconcileRestoreOutcome: (rigId, nodeId) => restoreOrchestrator.reconcileNodeRuntimeTruth(rigId, nodeId),
+    reconcileRestoreOutcome: (softwareTeamId, nodeId) => restoreOrchestrator.reconcileNodeRuntimeTruth(softwareTeamId, nodeId),
     sendVerify: async (session, text, opts) => {
       const transport = deps.sessionTransport;
       if (!transport) return { ok: false, outcome: "failed" };
@@ -1239,8 +1239,8 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   });
 
   // Capture compatibility before the spec-library initializer creates the primary directory.
-  const userSpecLibraryRoot = getDefaultOpenRigPath("specs");
-  const compatibleSpecLibraryRoot = getCompatibleOpenRigPath("specs");
+  const userSpecLibraryRoot = getDefaultSoftwareTeamPath("specs");
+  const compatibleSpecLibraryRoot = getCompatibleSoftwareTeamPath("specs");
   const runtimeAdaptersMap = withAgentAppResolver({
     "claude-code": claudeAdapter,
     "codex": codexAdapter,
@@ -1251,7 +1251,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   }, { tmux: tmuxAdapter, seatLaunchEnvironment });
 
   const deps: AppDeps = {
-    rigRepo,
+    softwareTeamRepo,
     sessionRegistry,
     daemonLifecycleStore,
     daemonBootEpoch,
@@ -1266,16 +1266,16 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     snapshotCapture,
     snapshotRepo,
     // Slice-04 OPR.0.5.0.4: production provider service — getReadModel over the codex-auth reader
-    // + node-inventory across rigs; precheck via the pure gate; switch honest-interim (D seam).
+    // + node-inventory across softwareTeams; precheck via the pure gate; switch honest-interim (D seam).
     // C3: the Claude statusline provider_usage cache lane. Cache files are seat-keyed and the
     // reader normalizes valid subscription windows. Live-seat fallback is owned by provider-collect.
     providerService: new ProviderServiceImpl({
       db,
-      listRigs: () => rigRepo.listRigs(),
+      listSoftwareTeams: () => softwareTeamRepo.listSoftwareTeams(),
       collectClaudeSignals: () => collectClaudeSignalsFromProviderUsageDirectory(
-        providerUsageDirectory(OPENRIG_HOME),
+        providerUsageDirectory(SOFTWARETEAM_HOME),
         undefined,
-        legacyProviderUsageDirectory(OPENRIG_HOME),
+        legacyProviderUsageDirectory(SOFTWARETEAM_HOME),
       ),
       agentActivityStore,
       // Slice 01: Codex and Claude usage windows, off unless provider.usage_windows is on (read per call). The native
@@ -1293,9 +1293,9 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     }),
     restoreOrchestrator,
     resumeMetadataRefresher, // OPR.0.4.3.20 FR-4 — manual snapshot refresh-before-serialize
-    rigSpecExporter,
-    rigSpecPreflight,
-    rigInstantiator,
+    softwareTeamSpecExporter,
+    softwareTeamSpecPreflight,
+    softwareTeamInstantiator,
     packageRepo,
     installRepo,
     installEngine,
@@ -1306,16 +1306,16 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     discoveryRepo,
     claimService,
     selfAttachService,
-    rigLifecycleService,
-    rigExpansionService,
+    softwareTeamLifecycleService,
+    softwareTeamExpansionService,
     // Slice 15 — SeatActivityService owns the `terminal-active` primitive
-    // (tmux byte-stream). Wired into PsProjectionService so `rig ps`
+    // (tmux byte-stream). Wired into PsProjectionService so `SoftwareTeam ps`
     // + UI surfaces read the latest observation per seat. NEVER reads
     // queue/assignment state (non-inference contract; see slice 15 IMPL-PRD §2.3).
     seatActivityService,
     seatStructuralActivityService,
     seatIdentityReconciler,
-    // OPR.0.4.4.21 — agentActivity feeds the rig-rollup attention
+    // OPR.0.4.4.21 — agentActivity feeds the software-team-rollup attention
     // predicate's needs_input signal (synchronous events lookup only).
     psProjectionService: new PsProjectionService({ db, seatActivity: seatActivityService, agentActivity: agentActivityStore }),
     upRouter: new UpCommandRouter({
@@ -1325,8 +1325,8 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
         readHead: (p: string, bytes: number) => { const fd = fs.openSync(p, "r"); const buf = Buffer.alloc(bytes); fs.readSync(fd, buf, 0, bytes, 0); fs.closeSync(fd); return buf; },
       },
     }),
-    teardownOrchestrator: new RigTeardownOrchestrator({
-      db, rigRepo, sessionRegistry, tmuxAdapter, snapshotCapture, eventBus, resumeMetadataRefresher, serviceOrchestrator,
+    teardownOrchestrator: new SoftwareTeamTeardownOrchestrator({
+      db, softwareTeamRepo, sessionRegistry, tmuxAdapter, snapshotCapture, eventBus, resumeMetadataRefresher, serviceOrchestrator,
     }),
     podInstantiator,
     podBundleSourceResolver,
@@ -1335,13 +1335,13 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     sessionTransport: (() => {
       const t = new SessionTransport({
         db,
-        rigRepo,
+        softwareTeamRepo,
         sessionRegistry,
         tmuxAdapter,
         agentActivityStore,
         eventBus,
         slowOpRecorder,
-        activityEndpointFile: () => readActivityEndpointFile(OPENRIG_HOME),
+        activityEndpointFile: () => readActivityEndpointFile(SOFTWARETEAM_HOME),
         captureObserver: shadow.capture?.observer,
         runtimeAdapters: runtimeAdaptersMap,
         // transport.verify_input_box, read at each verified Claude Code or Codex send (absent or unreadable = off).
@@ -1415,11 +1415,11 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       const chatRepoForAsk = new ChatRepository(db);
       const historyQuery = new HistoryQuery({
         transcriptsRoot: transcriptStore.enabled
-          ? (transcriptsPath ?? getCompatibleOpenRigPath("transcripts"))
-          : getCompatibleOpenRigPath("transcripts"),
+          ? (transcriptsPath ?? getCompatibleSoftwareTeamPath("transcripts"))
+          : getCompatibleSoftwareTeamPath("transcripts"),
         exec: execDep,
-        chatSearchFn: (rigId: string, pattern: string) =>
-          chatRepoForAsk.searchChat(rigId, pattern).map((m) => ({
+        chatSearchFn: (softwareTeamId: string, pattern: string) =>
+          chatRepoForAsk.searchChat(softwareTeamId, pattern).map((m) => ({
             sender: m.sender,
             body: m.body,
             createdAt: m.createdAt,
@@ -1427,7 +1427,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       });
       return new AskService({
         psProjectionService,
-        rigRepo,
+        softwareTeamRepo,
         historyQuery,
         transcriptsEnabled: transcriptStore.enabled,
         whoamiService,
@@ -1468,14 +1468,14 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       return lib;
     })(),
     // Plugin reverse usage must cover the same built-in, user, and legacy roots as the spec library.
-    // bug-fix slice plugin-discovery-respects-openrig-home: route the
-    // openrigPluginsDir through the OPENRIG_HOME-aware resolver so
+    // bug-fix slice plugin-discovery-respects-softwareteam-home: route the
+    // softwareteamPluginsDir through the SOFTWARETEAM_HOME-aware resolver so
     // discovery + vendor (which already uses the helper at line 428)
     // resolve to the same root. Operator-level test isolation + the
     // slice 22 populated-VM-env story both depend on this symmetry.
-    // Provider caches belong to their selected provider homes, not OPENRIG_HOME.
+    // Provider caches belong to their selected provider homes, not SOFTWARETEAM_HOME.
     pluginDiscoveryService: new PluginDiscoveryService({
-      openrigPluginsDir: getDefaultOpenRigPath("plugins"),
+      softwareteamPluginsDir: getDefaultSoftwareTeamPath("plugins"),
       claudeCacheDir: nodePath.join(os.homedir(), ".claude", "plugins", "cache"),
       codexCacheDir: nodePath.join(codexHome, "plugins", "cache"),
       specLibraryDir: userSpecLibraryRoot,
@@ -1491,18 +1491,18 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     contextPackLibrary,
     // PL-016 — agent_image typed primitive. Shared library + capturer
     // + spec-roots supplier across /api/agent-images/* and the
-    // PodRigInstantiator's session_source: mode: agent_image dispatch.
+    // PodSoftwareTeamInstantiator's session_source: mode: agent_image dispatch.
     agentImageLibrary,
     snapshotCapturer,
     // Slice 09 (OPR.0.3.2.9) — operator-context-mode bindings store
     // (typed primitive on the shared db handle; HG-5: no parallel store).
-    rigModeStore,
+    softwareTeamModeStore,
     operatingPosture,
     agentImageSpecRoots: () => {
       // Spec-library roots scanned by the evidence guard. v0: user
-      // specs under ~/.openrig/specs + workspace-local specs root
+      // specs under ~/.softwareteam/specs + workspace-local specs root
       // (from the SettingsStore-resolved workspace.specsRoot).
-      const userSpecsRoot = getDefaultOpenRigPath("specs");
+      const userSpecsRoot = getDefaultSoftwareTeamPath("specs");
       const roots: string[] = [userSpecsRoot];
       try {
         const settingsStore = new ContextPackSettingsStore();
@@ -1516,11 +1516,11 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   };
   Object.assign(deps, { watchdogAutoRegistration });
 
-  // Copy bundled reference docs to ~/.openrig/reference/ so agents can find them at a stable path
+  // Copy bundled reference docs to ~/.softwareteam/reference/ so agents can find them at a stable path
   try {
     const bundledDocsDir = nodePath.resolve(import.meta.dirname, "../docs/reference");
     if (fs.existsSync(bundledDocsDir)) {
-      const referenceDir = getDefaultOpenRigPath("reference");
+      const referenceDir = getDefaultSoftwareTeamPath("reference");
       fs.mkdirSync(referenceDir, { recursive: true });
       for (const file of fs.readdirSync(bundledDocsDir)) {
         if (file.endsWith(".md")) {
@@ -1531,13 +1531,13 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   } catch { /* best-effort — reference docs are not critical to daemon operation */ }
 
   // OPR.0.4.8.3 — materialize the packaged built-in policies as read-only
-  // inspection copies at $OPENRIG_HOME/reference/policies/builtin/ (same
+  // inspection copies at $SOFTWARETEAM_HOME/reference/policies/builtin/ (same
   // best-effort posture as the reference docs above; ../policies/builtin
   // resolves from the compiled dist in BOTH the repo-run and assembled layouts)
   try {
     materializeBuiltinPolicyReference({
       bundledDir: nodePath.resolve(import.meta.dirname, "../policies/builtin"),
-      targetDir: getDefaultOpenRigPath(nodePath.join("reference", "policies", "builtin")),
+      targetDir: getDefaultSoftwareTeamPath(nodePath.join("reference", "policies", "builtin")),
     });
   } catch { /* best-effort — inspection copies are not critical to daemon operation */ }
 
@@ -1588,8 +1588,8 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       workflowExceptionEnsurer = makeEnsureStuckExceptionItem({
         db,
         queueRepo: queueRepoForWorkflow,
-        resolveRoute: (name, version, cls, boundRig) =>
-          workflowRuntime!.resolveExceptionRouteFor(name, version, cls, boundRig),
+        resolveRoute: (name, version, cls, boundSoftwareTeam) =>
+          workflowRuntime!.resolveExceptionRouteFor(name, version, cls, boundSoftwareTeam),
         humanFallbackSeat: resolveWorkflowHumanDestination,
         log: (line) => console.log(line),
       });
@@ -1636,8 +1636,8 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     // delete them on every boot (then loadStarterWorkflowSpecs re-seeds
     // — wasteful at best, broken if the loader ever skips re-seeding).
     // Pass the resolved install root so rows under it are preserved.
-    const { getOpenRigInstallRoot } = await import("./domain/cwd-resolution.js");
-    workflowRuntime.specCache.pruneNoiseDirRows(getOpenRigInstallRoot());
+    const { getSoftwareTeamInstallRoot } = await import("./domain/cwd-resolution.js");
+    workflowRuntime.specCache.pruneNoiseDirRows(getSoftwareTeamInstallRoot());
 
     try {
       const settingsStore = new ContextPackSettingsStore();
@@ -1670,17 +1670,17 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     const mcFleetCliCapability = new MissionControlFleetCliCapability({
       db,
       eventBus,
-      rigRepo,
+      softwareTeamRepo,
       // This projection observes the daemon registry and queue, not a CLI.
       // Leave CLI version/capabilities unknown until actually observed.
-      probeRig: makeLocalCliCapabilityProbe(),
+      probeSoftwareTeam: makeLocalCliCapabilityProbe(),
     });
-    // V0.3.1 slice 05 kernel-rig-as-default — cascade the resolved
+    // V0.3.1 slice 05 kernel-software-team-as-default — cascade the resolved
     // workspace.operator_seat_name setting into the mission-control
     // read layer so my-queue routes to the operator's configured seat
     // (default `operator-${USER}@kernel`) instead of the legacy
-    // hardcoded constant. The setting reads OPENRIG_WORKSPACE_OPERATOR_SEAT_NAME
-    // env var first, then ~/.openrig/config.json, then the derived
+    // hardcoded constant. The setting reads SOFTWARETEAM_WORKSPACE_OPERATOR_SEAT_NAME
+    // env var first, then ~/.softwareteam/config.json, then the derived
     // default — same cascade as every other typed setting.
     const mcReadLayer = new MissionControlReadLayer({
       db,
@@ -1705,27 +1705,27 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     // at route mount time (not per-request).
     deps.missionControlBearerToken = opts?.bearerToken ?? null;
 
-    const terminalTokenEnv = process.env.OPENRIG_TERMINAL_BEARER_TOKEN?.trim();
+    const terminalTokenEnv = process.env.SOFTWARETEAM_TERMINAL_BEARER_TOKEN?.trim();
     deps.terminalBearerToken =
       opts && Object.prototype.hasOwnProperty.call(opts, "terminalBearerToken")
         ? opts.terminalBearerToken ?? null
         : terminalTokenEnv || null;
 
     // Notification dispatcher: chosen mechanism via env config.
-    // OPENRIG_NOTIFICATIONS_MECHANISM=ntfy|webhook|none (default none).
-    // OPENRIG_NOTIFICATIONS_TARGET=<topic url | webhook url>.
-    // OPENRIG_NOTIFICATIONS_INCLUDE_VERB_COMPLETION=1 to opt into the
+    // SOFTWARETEAM_NOTIFICATIONS_MECHANISM=ntfy|webhook|none (default none).
+    // SOFTWARETEAM_NOTIFICATIONS_TARGET=<topic url | webhook url>.
+    // SOFTWARETEAM_NOTIFICATIONS_INCLUDE_VERB_COMPLETION=1 to opt into the
     // verb-completion trigger (default off; only human-gate arrivals
     // trigger by default per planner brief).
     // No legacy alias for these env vars (new in Phase B).
-    const mechanism = process.env.OPENRIG_NOTIFICATIONS_MECHANISM ?? "none";
-    const target = process.env.OPENRIG_NOTIFICATIONS_TARGET ?? "";
+    const mechanism = process.env.SOFTWARETEAM_NOTIFICATIONS_MECHANISM ?? "none";
+    const target = process.env.SOFTWARETEAM_NOTIFICATIONS_TARGET ?? "";
     const missionControlBaseUrl =
-      process.env.OPENRIG_MISSION_CONTROL_BASE_URL ??
-      process.env.OPENRIG_URL ??
-      process.env.RIGGED_URL;
+      process.env.SOFTWARETEAM_MISSION_CONTROL_BASE_URL ??
+      process.env.SOFTWARETEAM_URL ??
+      process.env.SOFTWARETEAM_URL;
     const includeVerbCompletion =
-      process.env.OPENRIG_NOTIFICATIONS_INCLUDE_VERB_COMPLETION === "1";
+      process.env.SOFTWARETEAM_NOTIFICATIONS_INCLUDE_VERB_COMPLETION === "1";
     if (mechanism !== "none" && target.length > 0) {
       let adapter: NotificationAdapter;
       if (mechanism === "ntfy") {
@@ -1734,7 +1734,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
         adapter = new WebhookNotificationAdapter({ endpointUrl: target });
       } else {
         throw new Error(
-          `OPENRIG_NOTIFICATIONS_MECHANISM='${mechanism}' is not recognized; supported: ntfy | webhook | none`,
+          `SOFTWARETEAM_NOTIFICATIONS_MECHANISM='${mechanism}' is not recognized; supported: ntfy | webhook | none`,
         );
       }
       if (adapter.disabled) {
@@ -1755,21 +1755,21 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
 
   // Slice Story View v0 — slice indexer + per-tab projector.
   //
-  // User Settings v0 graduates `OPENRIG_SLICES_ROOT` env-var into the
+  // User Settings v0 graduates `SOFTWARETEAM_SLICES_ROOT` env-var into the
   // typed `workspace.slices_root` setting (resolution chain: env >
   // config-file > default `<workspace.root>/missions`). Backward-compat:
-  // operators with OPENRIG_SLICES_ROOT set continue to work because the
+  // operators with SOFTWARETEAM_SLICES_ROOT set continue to work because the
   // settings store reads env in the same resolution slot. Operators
-  // setting via `rig config set workspace.slices_root <path>` or via the
+  // setting via `SoftwareTeam config set workspace.slices_root <path>` or via the
   // System drawer Settings panel UI now flow through the indexer too —
   // closes the PRD § Scenario B requirement that wasn't wired in v0.
   //
-  //   OPENRIG_SLICES_ROOT             legacy short env var (still honored
+  //   SOFTWARETEAM_SLICES_ROOT             legacy short env var (still honored
   //                                   if set; preferred route is settings)
-  //   OPENRIG_WORKSPACE_SLICES_ROOT   typed-key env override
-  //   workspace.slices_root           typed setting in ~/.openrig/config.json
-  //   workspace.root                  cascade fallback (default ~/.openrig/workspace)
-  //   OPENRIG_DOGFOOD_EVIDENCE_ROOT   legacy proof-packet relocation override
+  //   SOFTWARETEAM_WORKSPACE_SLICES_ROOT   typed-key env override
+  //   workspace.slices_root           typed setting in ~/.softwareteam/config.json
+  //   workspace.root                  cascade fallback (default ~/.softwareteam/workspace)
+  //   SOFTWARETEAM_DOGFOOD_EVIDENCE_ROOT   legacy proof-packet relocation override
   //
   // When the resolved slicesRoot path doesn't exist on disk, the indexer
   // is still constructed but isReady() returns false — the routes return
@@ -1781,7 +1781,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     // SettingsStore). The SettingsStore is constructed locally here
     // so the slices block doesn't depend on the User Settings v0 wiring
     // block ordering further below.
-    const legacyEnvSlicesRoot = readOpenRigEnv("OPENRIG_SLICES_ROOT", "RIGGED_SLICES_ROOT") ?? "";
+    const legacyEnvSlicesRoot = readSoftwareTeamEnv("SOFTWARETEAM_SLICES_ROOT") ?? "";
     let resolvedSlicesRoot = "";
     let resolvedWorkspaceRoot = "";
     try {
@@ -1799,7 +1799,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     // scaffold. Keep the existing proof-packet reader usable for old
     // workspaces and explicit legacy relocations without exposing a second
     // project-workspace setting.
-    const resolvedDogfoodRoot = readOpenRigEnv("OPENRIG_DOGFOOD_EVIDENCE_ROOT")
+    const resolvedDogfoodRoot = readSoftwareTeamEnv("SOFTWARETEAM_DOGFOOD_EVIDENCE_ROOT")
       || (resolvedWorkspaceRoot ? nodePath.join(resolvedWorkspaceRoot, "dogfood-evidence") : "");
     const additionalSliceRoots = resolvedWorkspaceRoot
       ? [
@@ -1813,7 +1813,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       db,
       slicesRoot: () => slicesRoot || null,
       // S19's locked one-oracle contract: the ARBITRATED seat-keyed read every
-      // surface (rig ps, node inventory, parked-query) consumes — never
+      // surface (SoftwareTeam ps, node inventory, parked-query) consumes — never
       // sessions.status, never the parallel AgentActivityStore ingest.
       seatActivity: seatActivityService,
     });
@@ -1844,13 +1844,13 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     }
     deps.sliceDetailProjector = sliceDetailProjector;
     // Living Notes Packet 2 (OPR.0.4.4.20): the composed-review gatherer.
-    // Git lineage facts come from OPENRIG_REVIEW_GIT_REPO when set; else
+    // Git lineage facts come from SOFTWARETEAM_REVIEW_GIT_REPO when set; else
     // lineage degrades honestly to unknown.
     const { ReviewGatherer } = await import("./domain/review/gather.js");
     deps.reviewGatherer = new ReviewGatherer({
       db,
       indexer: sliceIndexer,
-      gitRepoPath: process.env["OPENRIG_REVIEW_GIT_REPO"] ?? null,
+      gitRepoPath: process.env["SOFTWARETEAM_REVIEW_GIT_REPO"] ?? null,
       // OPR.0.4.4.22 FR-2: the agent state glyph reads recorded hook
       // activity (honest-unknown when absent) - synchronous, never polls.
       activityStore: agentActivityStore,
@@ -1870,7 +1870,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     const { CmuxProviderAdapter } = await import("./domain/terminal/cmux-provider-adapter.js");
     const { CmuxLayoutService } = await import("./domain/cmux-layout-service.js");
     const { TerminalViewsStore } = await import("./domain/terminal/terminal-views-store.js");
-    const { getNodeInventory, getNodeInventoryForRigs } = await import("./domain/node-inventory.js");
+    const { getNodeInventory, getNodeInventoryForSoftwareTeams } = await import("./domain/node-inventory.js");
     const { loadHostRegistry, resolveHost: resolveHostInRegistry } = await import(
       "./domain/hosts/hosts-registry-reader.js"
     );
@@ -1881,14 +1881,14 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
       canonicalSessionName: string | null;
       attachmentType?: "tmux" | "external_cli" | null;
       runtime?: string | null;
-      rigName: string;
+      softwareTeamName: string;
       logicalId: string;
     }) => ({
       canonicalSessionName: e.canonicalSessionName,
       attachmentType: e.attachmentType ?? null,
       runtime: e.runtime ?? null,
       tmuxSession: e.canonicalSessionName,
-      rigName: e.rigName,
+      softwareTeamName: e.softwareTeamName,
       logicalId: e.logicalId,
     });
 
@@ -1901,7 +1901,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     const cmuxProvider = new CmuxProviderAdapter({
       cmuxAdapter,
       // One gridded workspace per composed page — the same grid machinery as
-      // the rig-scope /cmux/launch endpoint, never one window per seat.
+      // the software-team-scope /cmux/launch endpoint, never one window per seat.
       layoutService: new CmuxLayoutService(cmuxAdapter),
     });
     const providerMap: Record<string, typeof herdrProvider | typeof cmuxProvider> = {
@@ -1912,27 +1912,27 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     deps.terminalService = new TerminalService({
       resolveProvider: (name) => providerMap[name] ?? null,
       viewsStore: new TerminalViewsStore(),
-      listRigSeatsBatch: (names) => {
-        const rigs = rigRepo.listRigs();
-        // Match listRigSeats' first-name resolution, including duplicate names.
+      listSoftwareTeamSeatsBatch: (names) => {
+        const softwareTeams = softwareTeamRepo.listSoftwareTeams();
+        // Match listSoftwareTeamSeats' first-name resolution, including duplicate names.
         const selected = new Map(names.flatMap(name => {
-          const rig = rigs.find(rig => rig.name === name);
-          return rig ? [[name, rig] as const] : [];
+          const softwareTeam = softwareTeams.find(softwareTeam => softwareTeam.name === name);
+          return softwareTeam ? [[name, softwareTeam] as const] : [];
         }));
-        const inventory = getNodeInventoryForRigs(db, new Set([...selected.values()].map(rig => rig.id)));
-        return new Map([...selected].map(([name, rig]) => [name, (inventory.get(rig.id) ?? []).map(toLiveSeatRow)]));
+        const inventory = getNodeInventoryForSoftwareTeams(db, new Set([...selected.values()].map(softwareTeam => softwareTeam.id)));
+        return new Map([...selected].map(([name, softwareTeam]) => [name, (inventory.get(softwareTeam.id) ?? []).map(toLiveSeatRow)]));
       },
-      listRigSeats: (rigArg) => {
-        const rigs = rigRepo.listRigs();
-        const rig = rigs.find((r) => r.name === rigArg) ?? rigs.find((r) => r.id === rigArg);
-        if (!rig) return null;
-        return getNodeInventory(db, rig.id).map(toLiveSeatRow);
+      listSoftwareTeamSeats: (softwareTeamArg) => {
+        const softwareTeams = softwareTeamRepo.listSoftwareTeams();
+        const softwareTeam = softwareTeams.find((r) => r.name === softwareTeamArg) ?? softwareTeams.find((r) => r.id === softwareTeamArg);
+        if (!softwareTeam) return null;
+        return getNodeInventory(db, softwareTeam.id).map(toLiveSeatRow);
       },
-      listPodSeats: (rigArg, pod) => {
-        const rigs = rigRepo.listRigs();
-        const rig = rigs.find((r) => r.name === rigArg) ?? rigs.find((r) => r.id === rigArg);
-        if (!rig) return null;
-        const rows = getNodeInventory(db, rig.id)
+      listPodSeats: (softwareTeamArg, pod) => {
+        const softwareTeams = softwareTeamRepo.listSoftwareTeams();
+        const softwareTeam = softwareTeams.find((r) => r.name === softwareTeamArg) ?? softwareTeams.find((r) => r.id === softwareTeamArg);
+        if (!softwareTeam) return null;
+        const rows = getNodeInventory(db, softwareTeam.id)
           .filter((e) => e.podNamespace === pod)
           .map(toLiveSeatRow);
         // No node carries that pod namespace → an unknown pod (not an empty view).
@@ -1947,14 +1947,14 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
         if (!band) return null;
         const wanted = new Set(band.rows.map((r) => r.sessionName));
         const rows: ReturnType<typeof toLiveSeatRow>[] = [];
-        for (const rig of rigRepo.listRigs()) {
-          for (const e of getNodeInventory(db, rig.id)) {
+        for (const softwareTeam of softwareTeamRepo.listSoftwareTeams()) {
+          for (const e of getNodeInventory(db, softwareTeam.id)) {
             if (e.canonicalSessionName && wanted.has(e.canonicalSessionName)) rows.push(toLiveSeatRow(e));
           }
         }
         return rows;
       },
-      listRigNames: () => rigRepo.listRigs().map((r) => r.name),
+      listSoftwareTeamNames: () => softwareTeamRepo.listSoftwareTeams().map((r) => r.name),
       resolveHost: (id) => {
         const res = loadHostRegistry();
         if (!res.ok) return null;
@@ -1968,9 +1968,9 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   }
 
   // UI Enhancement Pack v0:
-  //   - file allowlist (item 3) from OPENRIG_FILES_ALLOWLIST
+  //   - file allowlist (item 3) from SOFTWARETEAM_FILES_ALLOWLIST
   //   - atomic write service (item 4) wired only when allowlist non-empty
-  //   - progress scan-roots (item 1B) from OPENRIG_PROGRESS_SCAN_ROOTS
+  //   - progress scan-roots (item 1B) from SOFTWARETEAM_PROGRESS_SCAN_ROOTS
   //
   // Empty env → empty allowlist / no-roots indexer; routes return 503
   // with structured config hints so the UI can surface a setup message
@@ -2001,7 +2001,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     deps.fileWriteService = filesAllowlist.length > 0
       ? new FileWriteService({
           allowlist: filesAllowlist,
-          auditFilePath: nodePath.join(OPENRIG_HOME, "file-edit-audit.jsonl"),
+          auditFilePath: nodePath.join(SOFTWARETEAM_HOME, "file-edit-audit.jsonl"),
         })
       : null;
     // Slice 28 Checkpoint C-3 — SkillLibraryDiscoveryService. sharedSkillsDir
@@ -2009,7 +2009,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     // directory via import.meta.url (independent of operator allowlist
     // configuration; closes HG-5 on the founder-walk VM where the operator
     // allowlist doesn't include the daemon source tree). filesAllowlist
-    // is also passed so workspace `.openrig/skills/` skills surface via
+    // is also passed so workspace `.softwareteam/skills/` skills surface via
     // the same daemon endpoint.
     deps.skillLibraryDiscoveryService = new SkillLibraryDiscoveryService({
       sharedSkillsDir: nodePath.resolve(
@@ -2026,7 +2026,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
 
     // Operator Surface Reconciliation v0 — steering composer (item 1).
     // Reads typed workspace settings by default while preserving the
-    // OPENRIG_STEERING_* env override family for non-canonical layouts.
+    // SOFTWARETEAM_STEERING_* env override family for non-canonical layouts.
     const { SteeringComposer, steeringOptsFromSettings } = await import("./domain/steering/steering-composer.js");
     deps.steeringComposer = new SteeringComposer(steeringOptsFromSettings({
       workspaceRoot: cfg.workspaceRoot,
@@ -2034,13 +2034,13 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     }));
 
     // Workflows in Spec Library + Activation Lens v0 — active lens
-    // persistence under OPENRIG_HOME/active-workflow-lens.json. Same
+    // persistence under SOFTWARETEAM_HOME/active-workflow-lens.json. Same
     // file-backed pattern as UI Enhancement Pack v0's audit JSONL —
-    // honors OPENRIG_HOME so isolated test/dogfood daemons keep their
+    // honors SOFTWARETEAM_HOME so isolated test/dogfood daemons keep their
     // own lens state instead of bleeding into the operator's host.
     const { ActiveLensStore } = await import("./domain/active-lens-store.js");
     deps.activeLensStore = new ActiveLensStore({
-      filePath: nodePath.join(OPENRIG_HOME, "active-workflow-lens.json"),
+      filePath: nodePath.join(SOFTWARETEAM_HOME, "active-workflow-lens.json"),
     });
   }
 
@@ -2116,24 +2116,24 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
         }),
         makeIdleGateQitemPolicy({ db, seatActivity: seatActivityService }),
         // OPR.0.5.6.24 F-14: the parked-owner consumer — the WHOLE shipped
-        // parked diagnosis (diagnoseRigParked over the arbitrated oracle +
+        // parked diagnosis (diagnoseSoftwareTeamParked over the arbitrated oracle +
         // destination-scoped obligations + wake status; the same derivation
-        // `rig parked` serves) consumed by one rig-level supervisor job.
+        // `softwareTeam parked` serves) consumed by one software-team-level supervisor job.
         // Episode receipts are TRANSITIONS on the obligation row, written
         // reserve-before-deliver (the retention active-frontier invariant is
         // the durability proof); watchdog history is telemetry only.
         makeParkedOwnerConsumerPolicy({
-          diagnoseRig: (rigName) => {
+          diagnoseSoftwareTeam: (softwareTeamName) => {
             const seats = db
               .prepare(
                 `SELECT n.id AS node_id, s.session_name AS session_name
                    FROM nodes n
-                   JOIN rigs r ON r.id = n.rig_id
+                   JOIN software_teams r ON r.id = n.software_team_id
                    JOIN sessions s ON s.node_id = n.id
                     AND s.id = (SELECT s2.id FROM sessions s2 WHERE s2.node_id = n.id ORDER BY s2.id DESC LIMIT 1)
                   WHERE s.status = 'running' AND s.session_name IS NOT NULL AND r.name = ?`,
               )
-              .all(rigName) as Array<{ node_id: string; session_name: string }>;
+              .all(softwareTeamName) as Array<{ node_id: string; session_name: string }>;
             const parkedDeps = {
               getSeatState: (seatNodeId: string) => seatActivityService.getSeatState(seatNodeId),
               listOpenObligations: (destinationSession: string, limit: number) => ({
@@ -2143,7 +2143,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
               getParkWake: (qitemId: string) => queueRepoInstance.getParkWakeStatus(qitemId),
               servedByOwnReminder: (qitemId: string) => queueRepoInstance.parkWakeServedByOwnReminder(qitemId),
             };
-            return diagnoseRigParked(
+            return diagnoseSoftwareTeamParked(
               parkedDeps,
               seats.map((s) => ({ seatNodeId: s.node_id, sessionName: s.session_name })),
             ) as never;
@@ -2201,7 +2201,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
         (await import("./domain/policies/delivery-digest-flush.js")).makeDeliveryDigestFlushPolicy({
           queueRepo: queueRepoInstance,
           registry: { loadHumanRegistry: (home: string) => loadHumanRegistryForDelivery(home) },
-          home: OPENRIG_HOME,
+          home: SOFTWARETEAM_HOME,
           // v3: the digest posts THROUGH THE GATEWAY on its stable decision id —
           // one transport, one redrive/reconcile machinery, receipts after truth.
           dispatch: (op: string, ref: string, payload: unknown, opts?: { decisionId?: string }) => {
@@ -2221,17 +2221,17 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     deps.watchdogPolicyEngine = watchdogPolicyEngine;
     deps.watchdogScheduler = watchdogScheduler;
 
-    // OPR.0.5.6.24 F-14 — ONE parked-owner supervisor job per rig (mini-req 1):
+    // OPR.0.5.6.24 F-14 — ONE parked-owner supervisor job per softwareTeam (mini-req 1):
     // ensured idempotently on the (policy, target_session) tuple; the anchor is
-    // `parked-owner-consumer@<rigName>` (member@rig shape, policy name as the
+    // `parked-owner-consumer@<softwareTeamName>` (member@software-team shape, policy name as the
     // member slug). activeWakeIntervalSeconds stays NULL so the engine never
     // throttles one seat's wake because another fired — per-seat dedup lives in
-    // the durable episode receipts. Rigs created after startup are BORN ARMED:
-    // rigRepo.onRigCreated (wired below) runs the same ensure in the creation
+    // the durable episode receipts. SoftwareTeams created after startup are BORN ARMED:
+    // softwareTeamRepo.onSoftwareTeamCreated (wired below) runs the same ensure in the creation
     // act itself (the birth-property ruling) — no restart wait, no watcher.
     {
-      const ensureParkedOwnerJob = (rigName: string) => {
-        const anchor = makeRigAnchor(rigName);
+      const ensureParkedOwnerJob = (softwareTeamName: string) => {
+        const anchor = makeSoftwareTeamAnchor(softwareTeamName);
         watchdogJobsRepoInstance.ensureAutoRegistration({
           policy: PARKED_OWNER_POLICY_NAME,
           targetSession: anchor,
@@ -2239,15 +2239,15 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
           intervalSeconds: 120,
           activeWakeIntervalSeconds: null,
           scanIntervalSeconds: null,
-          specYaml: `policy: ${PARKED_OWNER_POLICY_NAME}\ntarget:\n  session: ${anchor}\ncontext:\n  rig: ${rigName}\n`,
+          specYaml: `policy: ${PARKED_OWNER_POLICY_NAME}\ntarget:\n  session: ${anchor}\ncontext:\n  softwareTeam: ${softwareTeamName}\n`,
         });
       };
-      const rigRows = db.prepare("SELECT name FROM rigs ORDER BY name").all() as Array<{ name: string }>;
-      for (const r of rigRows) ensureParkedOwnerJob(r.name);
-      // R2 repair — born-armed (advisor-ruled): a rig created after startup gets
+      const softwareTeamRows = db.prepare("SELECT name FROM software_teams ORDER BY name").all() as Array<{ name: string }>;
+      for (const r of softwareTeamRows) ensureParkedOwnerJob(r.name);
+      // R2 repair — born-armed (advisor-ruled): a softwareTeam created after startup gets
       // its supervisor job in the same act that creates it, never at the next
       // daemon restart.
-      rigRepo.onRigCreated = (rig) => ensureParkedOwnerJob(rig.name);
+      softwareTeamRepo.onSoftwareTeamCreated = (softwareTeam) => ensureParkedOwnerJob(softwareTeam.name);
     }
 
     // OPR.0.5.6.1 — the two digest windows as idempotent watchdog jobs (AM-F1:
@@ -2273,7 +2273,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     // comparison at the earliest reliable per-runtime read, one verdict per occupant generation,
     // LOUD four-channel proclamation on divergence (orch seats + operator + oversight + the named
     // Slack deferral per DS2). Channel targets per the desk ruling 2026-08-21: orch = the seat's
-    // own rig's orch.* seats; operator = derived from workspace.operator_seat_name (never
+    // own softwareTeam's orch.* seats; operator = derived from workspace.operator_seat_name (never
     // hardcoded); oversight = the fleet judgment seat, locally resolvable or a NAMED deferral
     // (no daemon-side cross-host send seam exists yet — the deferral names that, never silence).
     {
@@ -2305,13 +2305,13 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
         processCensus: divergenceCensus,
         listPinnedSeats: () => {
           const rows = db.prepare(`
-            SELECT n.id AS nodeId, r.id AS rigId, r.name AS rigName, n.runtime AS runtime, n.model AS pinnedModel,
+            SELECT n.id AS nodeId, r.id AS softwareTeamId, r.name AS softwareTeamName, n.runtime AS runtime, n.model AS pinnedModel,
                    (SELECT s.session_name FROM sessions s
                      WHERE s.node_id = n.id AND s.status = 'running'
                      ORDER BY s.created_at DESC, s.id DESC LIMIT 1) AS sessionName
-              FROM nodes n JOIN rigs r ON r.id = n.rig_id
+              FROM nodes n JOIN software_teams r ON r.id = n.software_team_id
              WHERE n.model IS NOT NULL AND n.model <> ''
-          `).all() as Array<{ nodeId: string; rigId: string; rigName: string; runtime: string | null; pinnedModel: string; sessionName: string | null }>;
+          `).all() as Array<{ nodeId: string; softwareTeamId: string; softwareTeamName: string; runtime: string | null; pinnedModel: string; sessionName: string | null }>;
           return rows
             .filter((row): row is typeof row & { sessionName: string } => row.sessionName !== null)
             .map((row) => ({ ...row, generation: sessionRegistry.currentOccupantGenerationForSession(row.sessionName) }));
@@ -2364,11 +2364,11 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
             return { ok: false, error: err instanceof Error ? err.message : String(err) };
           }
         },
-        resolveOrchSeats: (rigName) => (db.prepare(`
+        resolveOrchSeats: (softwareTeamName) => (db.prepare(`
           SELECT s.session_name AS sessionName
-            FROM sessions s JOIN nodes n ON n.id = s.node_id JOIN rigs r ON r.id = n.rig_id
+            FROM sessions s JOIN nodes n ON n.id = s.node_id JOIN software_teams r ON r.id = n.software_team_id
            WHERE r.name = ? AND s.status = 'running' AND n.logical_id LIKE 'orch.%'
-        `).all(rigName) as Array<{ sessionName: string }>).map((row) => row.sessionName),
+        `).all(softwareTeamName) as Array<{ sessionName: string }>).map((row) => row.sessionName),
         resolveOperatorSeat: () => {
           const value = deps.settingsStore?.resolveOne("workspace.operator_seat_name").value;
           return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
@@ -2380,7 +2380,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
         recordProclamation: (proclamation) => {
           eventBus.emit({
             type: "seat.model_divergence",
-            rigId: proclamation.rigId,
+            softwareTeamId: proclamation.softwareTeamId,
             nodeId: proclamation.nodeId,
             sessionName: proclamation.sessionName,
             runtime: proclamation.runtime,
@@ -2484,9 +2484,9 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
     omp: ompAdapter,
   }, usageSamplesStore, () => providerWindowSamplesFromSignals(
     collectClaudeSignalsFromProviderUsageDirectory(
-      providerUsageDirectory(OPENRIG_HOME),
+      providerUsageDirectory(SOFTWARETEAM_HOME),
       undefined,
-      legacyProviderUsageDirectory(OPENRIG_HOME),
+      legacyProviderUsageDirectory(SOFTWARETEAM_HOME),
     ),
   ));
   deps.contextMonitor = contextMonitor;
@@ -2512,7 +2512,7 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
 
   // OPR.0.3.4.9 — periodic snapshot scheduler (crash-insurance floor).
   const { PeriodicSnapshotScheduler } = await import("./domain/periodic-snapshot-scheduler.js");
-  // OPR.0.5.3.10 — the snapshot tick shares ONE census across all rigs/seats.
+  // OPR.0.5.3.10 — the snapshot tick shares ONE census across all software-teams/seats.
   const { ProcessCensus: SnapshotProcessCensus } = await import("./domain/process-census.js");
   const snapshotProcessCensus = new SnapshotProcessCensus();
   const periodicSnapshotScheduler = new PeriodicSnapshotScheduler({
@@ -2552,13 +2552,13 @@ export async function createDaemon(opts?: DaemonOptions): Promise<DaemonResult> 
   // composed in-process, the Slack delivery/inbound services wired from config + secrets).
   // start() never throws: a wiring failure surfaces as state=failed on the health surface and
   // boot proceeds. An unconfigured connector is an INERT wire (honest refusal class, no ops,
-  // no drivers) — `rig slack status` names what is missing.
+  // no drivers) — `softwareTeam slack status` names what is missing.
   const { GatewaySubsystem } = await import("./domain/gateway/gateway-subsystem.js");
   const { buildSlackGatewayWire, makeHumanReplyResolver } = await import("./domain/gateway/slack/slack-subsystem.js");
   const gatewaySubsystem = new GatewaySubsystem({
-    home: OPENRIG_HOME,
+    home: SOFTWARETEAM_HOME,
     wire: () => buildSlackGatewayWire({
-      home: OPENRIG_HOME,
+      home: SOFTWARETEAM_HOME,
       queueRepo: queueRepoInstance,
       resolveHumanReply: makeHumanReplyResolver(queueRepoInstance, deps.missionControlWriteContract),
       log: (m) => console.log(`[gateway] ${m}`),

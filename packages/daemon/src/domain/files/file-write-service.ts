@@ -4,7 +4,7 @@
 // PROGRESS.md / spec YAML / any allowlisted file. Honors the dashboard
 // precedent's mtime + content-hash invariants (cited as retired-but-
 // instructive from `services/dashboard/bin/server.py:1269-1289`;
-// reimplemented fresh in TypeScript per current OpenRig conventions).
+// reimplemented fresh in TypeScript per current SoftwareTeam conventions).
 //
 // Atomic-write semantics:
 //   1. Resolve target path under allowlist root (path-safety from
@@ -20,7 +20,7 @@
 //   6. Compute new mtime + contentHash from the rename'd target.
 //   7. Append one JSONL row to the audit file.
 //
-// The audit file is `~/.openrig/file-edit-audit.jsonl` by default
+// The audit file is `~/.softwareteam/file-edit-audit.jsonl` by default
 // (operator-overridable via env). Append-only; never rotates at v0
 // per PRD § Item 4 (rotation is a future concern).
 
@@ -89,7 +89,7 @@ export interface FileWriteServiceOpts {
 
 const DEFAULT_AUDIT_FILE = path.join(
   process.env.HOME ?? process.env.USERPROFILE ?? "/tmp",
-  ".openrig",
+  ".softwareteam",
   "file-edit-audit.jsonl",
 );
 
@@ -140,7 +140,7 @@ export class FileWriteService {
     // Write to temp file in the SAME directory (so atomic rename
     // works across the same filesystem). Suffix with PID + random
     // so concurrent writes don't collide.
-    const tmpName = `.openrig-write-${process.pid}-${Math.random().toString(36).slice(2, 10)}-${path.basename(target)}`;
+    const tmpName = `.softwareteam-write-${process.pid}-${Math.random().toString(36).slice(2, 10)}-${path.basename(target)}`;
     const tmpPath = path.join(path.dirname(target), tmpName);
     let tmpFd: number | null = null;
     try {
@@ -231,7 +231,7 @@ export class FileWriteService {
       throw new FileWriteError("target_exists", `refusing to overwrite existing file '${target}'`, { target });
     }
 
-    const tmpName = `.openrig-write-${process.pid}-${Math.random().toString(36).slice(2, 10)}-${path.basename(target)}`;
+    const tmpName = `.softwareteam-write-${process.pid}-${Math.random().toString(36).slice(2, 10)}-${path.basename(target)}`;
     const tmpPath = path.join(path.dirname(target), tmpName);
     let tmpFd: number | null = null;
     try {

@@ -1,17 +1,17 @@
 // V0.3.1 bug-fix slice topology-perf — large-N smoke fixture.
 //
 // Production VM walk 2026-05-11 reported a scale-dependent page hang
-// on /topology Table view (~13+ seats across multiple rigs hangs
+// on /topology Table view (~13+ seats across multiple softwareTeams hangs
 // Chrome; smaller topologies do not reproduce). This file is the
 // synthetic-fixture smoke gate: render TopologyTableView with N=20
-// seats across 4 rigs and assert the render path stays bounded.
+// seats across 4 softwareTeams and assert the render path stays bounded.
 //
 // What this test asserts (and what it does NOT — be explicit):
 //
 //   DOES assert:
-//     - Mounting N=20 rows across 4 rigs issues a BOUNDED, deterministic
-//       fetch pattern: exactly one /api/rigs/summary + exactly one
-//       /api/rigs/rig-N/nodes per rig (each rig once), with no duplicate
+//     - Mounting N=20 rows across 4 softwareTeams issues a BOUNDED, deterministic
+//       fetch pattern: exactly one /api/software-teams/summary + exactly one
+//       /api/software-teams/software-team-N/nodes per softwareTeam (each softwareTeam once), with no duplicate
 //       and no unknown paths. Re-querying inventory per row / per render
 //       is the over-fetch class behind the scale hang; this catches it
 //       deterministically. (Slice 52: replaced a flaky `elapsedMs < 2000`
@@ -59,25 +59,25 @@ import { TopologyTableView } from "../src/components/topology/TopologyTableView.
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
 
-// N=20 seats across 4 rigs = production-scale fixture per the bug
-// report. 5 seats per rig matches a typical mid-size rig (orch HA
+// N=20 seats across 4 softwareTeams = production-scale fixture per the bug
+// report. 5 seats per softwareTeam matches a typical mid-size softwareTeam (orch HA
 // pair + 3 specialized seats).
-const RIG_COUNT = 4;
-const SEATS_PER_RIG = 5;
-const TOTAL_SEATS = RIG_COUNT * SEATS_PER_RIG;
+const SOFTWARE_TEAM_COUNT = 4;
+const SEATS_PER_SOFTWARE_TEAM = 5;
+const TOTAL_SEATS = SOFTWARE_TEAM_COUNT * SEATS_PER_SOFTWARE_TEAM;
 
-function makeRig(i: number) {
-  return { id: `rig-${i}`, name: `synth-rig-${i}` };
+function makeSoftwareTeam(i: number) {
+  return { id: `software-team-${i}`, name: `synth-software-team-${i}` };
 }
 
-function makeSeat(rigId: string, rigName: string, idx: number) {
+function makeSeat(softwareTeamId: string, softwareTeamName: string, idx: number) {
   return {
-    rigId,
-    rigName,
-    logicalId: `${rigName}.seat-${idx}`,
+    softwareTeamId,
+    softwareTeamName,
+    logicalId: `${softwareTeamName}.seat-${idx}`,
     podId: idx % 2 === 0 ? "orch" : "specialist",
     podNamespace: idx % 2 === 0 ? "orch" : "specialist",
-    canonicalSessionName: `${rigName}-seat-${idx}@${rigName}`,
+    canonicalSessionName: `${softwareTeamName}-seat-${idx}@${softwareTeamName}`,
     nodeKind: "agent",
     runtime: "claude-code",
     sessionStatus: "running",
@@ -103,16 +103,16 @@ beforeEach(() => {
   navigateSpy.mockClear();
   mockFetch.mockReset();
   mockFetch.mockImplementation(async (url: string) => {
-    if (url.includes("/api/rigs/summary")) {
-      const rigs = Array.from({ length: RIG_COUNT }, (_, i) => makeRig(i));
-      return new Response(JSON.stringify(rigs));
+    if (url.includes("/api/software-teams/summary")) {
+      const softwareTeams = Array.from({ length: SOFTWARE_TEAM_COUNT }, (_, i) => makeSoftwareTeam(i));
+      return new Response(JSON.stringify(softwareTeams));
     }
-    const m = url.match(/\/api\/rigs\/rig-(\d+)\/nodes/);
+    const m = url.match(/\/api\/software-teams\/software-team-(\d+)\/nodes/);
     if (m) {
-      const rigIdx = Number(m[1]);
-      const rig = makeRig(rigIdx);
-      const seats = Array.from({ length: SEATS_PER_RIG }, (_, i) =>
-        makeSeat(rig.id, rig.name, i),
+      const softwareTeamIdx = Number(m[1]);
+      const softwareTeam = makeSoftwareTeam(softwareTeamIdx);
+      const seats = Array.from({ length: SEATS_PER_SOFTWARE_TEAM }, (_, i) =>
+        makeSeat(softwareTeam.id, softwareTeam.name, i),
       );
       return new Response(JSON.stringify(seats));
     }
@@ -130,7 +130,7 @@ function withQueryClient(ui: React.ReactNode) {
 }
 
 describe("TopologyTableView large-N smoke (bug-fix slice topology-perf)", () => {
-  it("mounts N=20 seats with a bounded fetch pattern: exactly 1 summary + one /nodes per rig, no duplicates or unknowns", async () => {
+  it("mounts N=20 seats with a bounded fetch pattern: exactly 1 summary + one /nodes per softwareTeam, no duplicates or unknowns", async () => {
     const { container } = withQueryClient(<TopologyTableView />);
     await waitFor(() => {
       const rows = container.querySelectorAll("[data-testid^='topology-table-row-']");
@@ -140,31 +140,31 @@ describe("TopologyTableView large-N smoke (bug-fix slice topology-perf)", () => 
     // Slice 52: replaces a flaky wall-clock threshold (elapsedMs < 2000, which
     // measured machine load and false-failed under fleet contention) with the
     // DETERMINISTIC invariant the scale hang actually violates — an over-fetch
-    // of inventory. TopologyTableView demand-loads each rig's nodes exactly
-    // once (useQueries keyed per rig) on top of the single rig-roster summary.
+    // of inventory. TopologyTableView demand-loads each softwareTeam's nodes exactly
+    // once (useQueries keyed per softwareTeam) on top of the single software-team-roster summary.
     const urls = mockFetch.mock.calls.map(([u]) => String(u));
-    const NODES_RE = /\/api\/rigs\/rig-(\d+)\/nodes/;
-    const summaryCalls = urls.filter((u) => u.includes("/api/rigs/summary"));
+    const NODES_RE = /\/api\/software-teams\/software-team-(\d+)\/nodes/;
+    const summaryCalls = urls.filter((u) => u.includes("/api/software-teams/summary"));
     const nodeCalls = urls.filter((u) => NODES_RE.test(u));
     const unknownCalls = urls.filter(
-      (u) => !u.includes("/api/rigs/summary") && !NODES_RE.test(u),
+      (u) => !u.includes("/api/software-teams/summary") && !NODES_RE.test(u),
     );
 
-    // Exactly one rig-roster summary.
+    // Exactly one software-team-roster summary.
     expect(summaryCalls).toHaveLength(1);
-    // One /nodes fetch per rig, each rig fetched exactly once. The Set-size
+    // One /nodes fetch per softwareTeam, each softwareTeam fetched exactly once. The Set-size
     // check is load-bearing independently of the count: a duplicated inventory
-    // query for one rig that drops another (e.g. [0,1,1,2]) keeps nodeCalls at
+    // query for one softwareTeam that drops another (e.g. [0,1,1,2]) keeps nodeCalls at
     // length 4 but collapses the Set to 3 — RED on this line, not vacuously
     // green. (Falsification only covers the axis it perturbs — assert both.)
-    const rigIdxSet = new Set(nodeCalls.map((u) => u.match(NODES_RE)![1]));
-    expect(nodeCalls).toHaveLength(RIG_COUNT);
-    expect(rigIdxSet.size).toBe(RIG_COUNT);
+    const softwareTeamIdxSet = new Set(nodeCalls.map((u) => u.match(NODES_RE)![1]));
+    expect(nodeCalls).toHaveLength(SOFTWARE_TEAM_COUNT);
+    expect(softwareTeamIdxSet.size).toBe(SOFTWARE_TEAM_COUNT);
     // No fetches to unexpected paths.
     expect(unknownCalls).toHaveLength(0);
-    // Total fetch budget is exactly five: 1 summary + 4 rig inventories. A
-    // straight duplicate (any rig fetched twice) makes this and nodeCalls RED.
-    expect(urls).toHaveLength(1 + RIG_COUNT);
+    // Total fetch budget is exactly five: 1 summary + 4 softwareTeam inventories. A
+    // straight duplicate (any softwareTeam fetched twice) makes this and nodeCalls RED.
+    expect(urls).toHaveLength(1 + SOFTWARE_TEAM_COUNT);
   });
 
   it("renders exactly N cells of each kind (one per row); count is bounded by N (no double-mounts)", async () => {

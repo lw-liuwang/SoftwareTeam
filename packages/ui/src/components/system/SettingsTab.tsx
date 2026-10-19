@@ -5,7 +5,7 @@
 // Operators set per-key via inline form; Init Workspace button + Reset
 // button per setting.
 //
-// Keep this read+write surface small. The CLI (`rig config get/set/reset`)
+// Keep this read+write surface small. The CLI (`SoftwareTeam config get/set/reset`)
 // is the canonical agent-edit path.
 
 import { useState, type ReactNode } from "react";
@@ -171,7 +171,7 @@ export function SettingsTab() {
               Until that lands, configure via the CLI:
             </p>
             <pre className="font-mono text-[10px] bg-background border border-outline-variant px-2 py-1 inline-block">
-              rig config get / set / reset
+              SoftwareTeam config get / set / reset
             </pre>
           </>
         ) : (

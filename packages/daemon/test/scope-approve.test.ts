@@ -127,14 +127,14 @@ describe("ScopeApproveService (OPR.0.4.4.19 FR-9)", () => {
 
   it("STAGED: --scope spec writes approved-spec-by/-at with approval_scope=spec; delivery afterwards is the normal staged sequence, not a re-stamp", () => {
     seedAuthoredSpec();
-    service().approve({ ...baseInput, approvalScope: "spec", actorSession: "pm-lead@openrig-pm" });
+    service().approve({ ...baseInput, approvalScope: "spec", actorSession: "pm-lead@softwareteam-pm" });
     let fm = frontmatterOf(readmePath);
-    expect(fm["approved-spec-by"]).toBe("pm-lead@openrig-pm");
+    expect(fm["approved-spec-by"]).toBe("pm-lead@softwareteam-pm");
     expect(fm["approved-by"]).toBeUndefined();
     // Delivery stamp lands independently.
     service().approve(baseInput);
     fm = frontmatterOf(readmePath);
-    expect(fm["approved-spec-by"]).toBe("pm-lead@openrig-pm");
+    expect(fm["approved-spec-by"]).toBe("pm-lead@softwareteam-pm");
     expect(fm["approved-by"]).toBe("human-review@kernel");
     const spec = auditBrowse.query({ scopeId: "OPR.X.19", approvalScope: "spec" }).rows;
     const delivery = auditBrowse.query({ scopeId: "OPR.X.19", approvalScope: "delivery" }).rows;
@@ -155,11 +155,11 @@ describe("ScopeApproveService (OPR.0.4.4.19 FR-9)", () => {
   });
 
   it("DELEGATED: --on-behalf-of keeps the REAL invoking session as actor; delegation lives in the audit notes", () => {
-    service().approve({ ...baseInput, actorSession: "orch-advisor@openrig-delivery", onBehalfOf: "founder" });
+    service().approve({ ...baseInput, actorSession: "orch-advisor@softwareteam-delivery", onBehalfOf: "founder" });
     const fm = frontmatterOf(readmePath);
-    expect(fm["approved-by"]).toBe("orch-advisor@openrig-delivery"); // honest provenance
+    expect(fm["approved-by"]).toBe("orch-advisor@softwareteam-delivery"); // honest provenance
     const rows = auditBrowse.query({ scopeId: "OPR.X.19" }).rows;
-    expect(rows[0]!.actorSession).toBe("orch-advisor@openrig-delivery");
+    expect(rows[0]!.actorSession).toBe("orch-advisor@softwareteam-delivery");
     expect((rows[0]!.auditNotes as Record<string, unknown>).on_behalf_of).toBe("founder");
     expect(rows[0]!.reason).toContain("on behalf of founder");
   });
@@ -204,7 +204,7 @@ describe("ScopeApproveService (OPR.0.4.4.19 FR-9)", () => {
   // plannedRefs -> intent visuals; normalized-path dedup; escape/N-A excluded).
   // ===================================================================
 
-  const specInput = { ...baseInput, approvalScope: "spec" as const, actorSession: "pm-lead@openrig-pm" };
+  const specInput = { ...baseInput, approvalScope: "spec" as const, actorSession: "pm-lead@softwareteam-pm" };
 
   // B14 — spec approvals refuse a contentless derived set, so tests whose premise is
   // "a normal spec approve succeeds" seed a minimally authored current SPEC.
@@ -247,7 +247,7 @@ describe("ScopeApproveService (OPR.0.4.4.19 FR-9)", () => {
       const fixtureDir = path.join(ws.root, "release-y", "slices", "20-plan");
       fs.renameSync(path.join(fixtureDir, "README.md"), path.join(fixtureDir, "SPEC.md"));
       new ScopeApproveService({ missionsRoot: () => ws.root, actionLog: new MissionControlActionLog(gdb) })
-        .approve({ scopeTier: "slice", scopePath: "release-y/slices/20-plan", approvalScope: "spec", actorSession: "pm-lead@openrig-pm" });
+        .approve({ scopeTier: "slice", scopePath: "release-y/slices/20-plan", approvalScope: "spec", actorSession: "pm-lead@softwareteam-pm" });
       const indexer = new SliceIndexer({ slicesRoot: ws.root, additionalSliceRoots: [], dogfoodEvidenceRoot: null, db: gdb });
       const gatherer = new ReviewGatherer({ db: gdb, indexer, gitRepoPath: null, now: () => "2026-07-23T00:00:00.000Z" });
       const composed = gatherer.composeSlice("20-plan");
@@ -296,7 +296,7 @@ describe("ScopeApproveService (OPR.0.4.4.19 FR-9)", () => {
     const specPath = path.join(sliceDir, "SPEC.md");
     fs.writeFileSync(path.join(sliceDir, "PLAN-x.md"), "the grounded plan\n");
     service().approve({ ...specInput, lockedArtifacts: ["PLAN-x.md", "SPEC.md"] });
-    expect(frontmatterOf(specPath)["approved-spec-by"]).toBe("pm-lead@openrig-pm");
+    expect(frontmatterOf(specPath)["approved-spec-by"]).toBe("pm-lead@softwareteam-pm");
     expect(lockedOf(specPath)).toEqual([
       { name: "PLAN-x.md", path: "PLAN-x.md", kind: "spec" },
       { name: "SPEC.md", path: "SPEC.md", kind: "spec" },
@@ -365,7 +365,7 @@ describe("ScopeApproveService (OPR.0.4.4.19 FR-9)", () => {
   it("GREEN gate — mission-spec approve NEVER creates locked-artifacts", () => {
     const missionReadme = path.join(missionsRoot, "release-x", "README.md");
     fs.writeFileSync(missionReadme, "---\nid: OPR.X\n---\n# mission\n");
-    service().approve({ scopeTier: "mission", scopePath: "release-x", approvalScope: "spec", actorSession: "pm-lead@openrig-pm" });
+    service().approve({ scopeTier: "mission", scopePath: "release-x", approvalScope: "spec", actorSession: "pm-lead@softwareteam-pm" });
     expect(frontmatterOf(missionReadme)["locked-artifacts"]).toBeUndefined();
   });
 

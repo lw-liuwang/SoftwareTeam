@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { describeBundleBehaviour } from "../src/domain/bundle-behaviour.js";
 
-const manifest = { schema_version: 2, rig_spec: "rig.yaml", integrity: { files: { "rig.yaml": "a".repeat(64) } } };
-const generator = { openrigVersion: "0.6.6", commit: "1234567" };
+const manifest = { schema_version: 2, software_team_spec: "software-team.yaml", integrity: { files: { "software-team.yaml": "a".repeat(64) } } };
+const generator = { softwareteamVersion: "0.6.6", commit: "1234567" };
 function fixture(runtime = "claude-code") {
   return new Map<string, string>([
-    ["rig.yaml", `name: demo\nversion: '1'\nmanaged_blocks: {claude-code: CLAUDE.local.md}\npermission_policy: builtin:yolo\nculture_file: CULTURE.md\npods:\n- id: build\n  members:\n  - id: worker\n    agent_ref: local:agents/worker\n    profile: default\n    runtime: ${runtime}\n    cwd: .\n`],
-    ["agents/worker/agent.yaml", `name: worker\nversion: '1'\nprofiles:\n  default:\n    uses:\n      guidance: [role]\n      plugins: [core]\n      runtime_resources: [hooks]\nresources:\n  guidance:\n  - {id: role, path: role.md, target: AGENTS.md, merge: managed_block}\n  plugins:\n  - {id: core, source: {kind: local, path: 'openrig-home:plugins/core'}}\n  runtime_resources:\n  - {id: hooks, runtime: claude-code, type: hooks, path: hooks.json}\nstartup:\n  files:\n  - {path: brief.md, delivery_hint: send_text, required: true}\n`],
+    ["software-team.yaml", `name: demo\nversion: '1'\nmanaged_blocks: {claude-code: CLAUDE.local.md}\npermission_policy: builtin:yolo\nculture_file: CULTURE.md\npods:\n- id: build\n  members:\n  - id: worker\n    agent_ref: local:agents/worker\n    profile: default\n    runtime: ${runtime}\n    cwd: .\n`],
+    ["agents/worker/agent.yaml", `name: worker\nversion: '1'\nprofiles:\n  default:\n    uses:\n      guidance: [role]\n      plugins: [core]\n      runtime_resources: [hooks]\nresources:\n  guidance:\n  - {id: role, path: role.md, target: AGENTS.md, merge: managed_block}\n  plugins:\n  - {id: core, source: {kind: local, path: 'softwareteam-home:plugins/core'}}\n  runtime_resources:\n  - {id: hooks, runtime: claude-code, type: hooks, path: hooks.json}\nstartup:\n  files:\n  - {path: brief.md, delivery_hint: send_text, required: true}\n`],
     ["agents/worker/role.md", "Use https://user:password@example.org/guide?token=secret#section"],
     ["agents/worker/brief.md", "Read the task."],
     ["agents/worker/hooks.json", '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"node hooks/done.mjs"}]}]}}'],
@@ -24,7 +24,7 @@ describe("archive-only bundle behaviour", () => {
     expect(view.posture).toMatchObject([{ basis: "explicit", selection: expect.stringContaining("full_bypass"), nativeEffect: "unknown" }]);
     expect(view.toldFiles).toEqual(expect.arrayContaining([expect.objectContaining({ pathOrRef: "agents/worker/brief.md", delivery: "send_text" })]));
     expect(view.alsoRuns).toEqual(expect.arrayContaining([
-      expect.objectContaining({ pathOrRef: "openrig-home:plugins/core", resolution: "host_at_launch" }),
+      expect.objectContaining({ pathOrRef: "softwareteam-home:plugins/core", resolution: "host_at_launch" }),
       expect.objectContaining({ pathOrRef: "node hooks/done.mjs", kind: "hook_command" }),
     ]));
     expect(view.writes).toEqual(expect.arrayContaining([expect.objectContaining({ path: "CLAUDE.local.md", destinationBase: "seat_cwd" })]));
@@ -58,7 +58,7 @@ describe("archive-only bundle behaviour", () => {
   }
   function policyFixture(runtime: string, policy?: string) {
     const files = fixture(runtime);
-    files.set("rig.yaml", files.get("rig.yaml")!.replace("permission_policy: builtin:yolo\n", policy ? `permission_policy: ${policy}\n` : ""));
+    files.set("software-team.yaml", files.get("software-team.yaml")!.replace("permission_policy: builtin:yolo\n", policy ? `permission_policy: ${policy}\n` : ""));
     const frontmatter = "policy_schema_version: 1\nname: custom\nsource: custom\ndescription: Declared policy.\n";
     files.set("config.md", `---\n${frontmatter}surface: config\ndefault_posture: ask\nallow: []\nask: []\ndeny: []\ndestructive_class: []\n---\n`);
     files.set("floor.md", `---\n${frontmatter}surface: flag\nlaunch_posture: floor\n---\n`);
@@ -85,7 +85,7 @@ describe("archive-only bundle behaviour", () => {
 
   it.each([undefined, "floor.md", "config.md", "builtin:yolo", "builtin:auto", "auto.md"])("does not infer prompts from a host Codex profile with %s", policy => {
     const files = policyFixture("codex", policy);
-    files.set("rig.yaml", files.get("rig.yaml")!.replace("    runtime: codex\n", "    runtime: codex\n    codex_config_profile: host-profile\n"));
+    files.set("software-team.yaml", files.get("software-team.yaml")!.replace("    runtime: codex\n", "    runtime: codex\n    codex_config_profile: host-profile\n"));
     const view = inspect(files);
     expect(view.state).toBe("generated");
     if (view.state !== "generated") throw new Error(view.reason);
@@ -96,7 +96,7 @@ describe("archive-only bundle behaviour", () => {
 
   it("distinguishes unsupported legacy archives from an empty team", () => {
     const view = inspect(new Map(), { manifest: { schema_version: 1 } });
-    expect(view).toMatchObject({ state: "not_generated", reason: expect.stringContaining("schema-1"), localInspectCommand: expect.stringContaining("rig bundle inspect") });
+    expect(view).toMatchObject({ state: "not_generated", reason: expect.stringContaining("schema-1"), localInspectCommand: expect.stringContaining("SoftwareTeam bundle inspect") });
     expect(view).not.toHaveProperty("team");
   });
 
@@ -141,7 +141,7 @@ describe("archive-only bundle behaviour", () => {
 
   it("lists service commands and version requirements without probing either", () => {
     const files = fixture();
-    files.set("rig.yaml", files.get("rig.yaml")! + "services:\n  kind: compose\n  compose_file: compose.yaml\n  checkpoints:\n  - id: db\n    export_command: ./export-db.sh\n");
+    files.set("software-team.yaml", files.get("software-team.yaml")! + "services:\n  kind: compose\n  compose_file: compose.yaml\n  checkpoints:\n  - id: db\n    export_command: ./export-db.sh\n");
     files.set("compose.yaml", "services: {}\n");
     const view = inspect(files, { manifest: { ...manifest, compatibility: { min_cli_version: "0.6.6" } } });
     expect(view.state === "generated" && view.alsoRuns).toEqual(expect.arrayContaining([
@@ -149,14 +149,14 @@ describe("archive-only bundle behaviour", () => {
       expect.objectContaining({ pathOrRef: "./export-db.sh", trigger: "export_command" }),
     ]));
     expect(view.state === "generated" && view.needs).toEqual(expect.arrayContaining([
-      expect.objectContaining({ name: "OpenRig CLI", versionConstraint: ">=0.6.6", status: "not_checked" }),
+      expect.objectContaining({ name: "SoftwareTeam CLI", versionConstraint: ">=0.6.6", status: "not_checked" }),
     ]));
   });
 
   it("does not invent a runtime when an external AgentSpec supplies its defaults", () => {
-    const files = new Map([["rig.yaml", "name: demo\nversion: '1'\npods:\n- id: team\n  members:\n  - {id: worker, agent_ref: 'catalog:unavailable', profile: default, cwd: .}\n"]]);
+    const files = new Map([["software-team.yaml", "name: demo\nversion: '1'\npods:\n- id: team\n  members:\n  - {id: worker, agent_ref: 'catalog:unavailable', profile: default, cwd: .}\n"]]);
     expect(inspect(files).state).toBe("not_generated");
-    files.set("rig.yaml", files.get("rig.yaml")!.replace("catalog:unavailable", "builtin:terminal"));
+    files.set("software-team.yaml", files.get("software-team.yaml")!.replace("catalog:unavailable", "builtin:terminal"));
     const terminal = inspect(files);
     expect(terminal.state === "generated" && terminal.team[0]?.runtime).toBe("terminal");
   });
@@ -181,7 +181,7 @@ describe("archive-only bundle behaviour", () => {
 it.each([true, false])("reports authored non-interruptive default %s separately from availability", declared => {
   for (const runtime of ["claude-code", "codex", "pi"]) {
     const files = fixture(runtime);
-    files.set("rig.yaml", files.get("rig.yaml")! + `\nnon_interruptive: ${declared}\n`);
+    files.set("software-team.yaml", files.get("software-team.yaml")! + `\nnon_interruptive: ${declared}\n`);
     const view = inspect(files);
     expect(view.state).toBe("generated");
     if (view.state !== "generated") throw new Error(view.reason);

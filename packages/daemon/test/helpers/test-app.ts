@@ -1,4 +1,4 @@
-import { rigInstallRootSchema } from "../../src/db/migrations/096_rig_install_root.js";
+import { softwareTeamInstallRootSchema } from "../../src/db/migrations/096_software_team_install_root.js";
 import { threadPartMapSchema } from "../../src/db/migrations/097_thread_part_map.js";
 import { queueTransitionsQitemIdOrderSchema } from "../../src/db/migrations/098_queue_transitions_qitem_id_order.js";
 import { queueItemsRecoveryTagsSchema } from "../../src/db/migrations/099_queue_items_recovery_tags.js";
@@ -9,7 +9,7 @@ import { seatEnvSchema } from "../../src/db/migrations/111_seat_env.js";
 import { appliedLaunchDaemonOptOutSchema } from "../../src/db/migrations/113_applied_launch_daemon_opt_out.js";
 import { sessionAgentAppSchema } from "../../src/db/migrations/114_session_agent_app.js";
 import { modePostureCoexistSchema } from "../../src/db/migrations/109_mode_posture_coexist.js";
-import { rigNonInterruptiveSchema } from "../../src/db/migrations/095_rig_non_interruptive.js";
+import { softwareTeamNonInterruptiveSchema } from "../../src/db/migrations/095_software_team_non_interruptive.js";
 import { mockShellCommand } from "./shell-command-mock.js";
 import { vi } from "vitest";
 import type Database from "better-sqlite3";
@@ -34,12 +34,12 @@ import { chatMessagesSchema } from "../../src/db/migrations/016_chat_messages.js
 import { podNamespaceSchema } from "../../src/db/migrations/017_pod_namespace.js";
 import { contextUsageSchema } from "../../src/db/migrations/018_context_usage.js";
 import { externalCliAttachmentSchema } from "../../src/db/migrations/019_external_cli_attachment.js";
-import { rigServicesSchema } from "../../src/db/migrations/020_rig_services.js";
+import { softwareTeamServicesSchema } from "../../src/db/migrations/020_software_team_services.js";
 import { seatHandoverObservabilitySchema } from "../../src/db/migrations/021_seat_handover_observability.js";
 import { nodePermissionPolicySchema } from "../../src/db/migrations/055_node_permission_policy.js";
-import { rigPermissionPolicySchema } from "../../src/db/migrations/056_rig_permission_policy.js";
+import { softwareTeamPermissionPolicySchema } from "../../src/db/migrations/056_software_team_permission_policy.js";
 import { nodePolicyProvenanceSchema } from "../../src/db/migrations/057_node_policy_provenance.js";
-import { rigPolicyProvenanceSchema } from "../../src/db/migrations/058_rig_policy_provenance.js";
+import { softwareTeamPolicyProvenanceSchema } from "../../src/db/migrations/058_software_team_policy_provenance.js";
 import { selfHostIdentitySchema } from "../../src/db/migrations/059_self_host_identity.js";
 import { occupantTenuresSchema } from "../../src/db/migrations/060_occupant_tenures.js";
 import { daemonLifecycleSchema } from "../../src/db/migrations/061_daemon_lifecycle.js";
@@ -53,7 +53,7 @@ import { threadSeatMapSchema } from "../../src/db/migrations/072_thread_seat_map
 import { queueTransitionWakesSchema } from "../../src/db/migrations/073_queue_transition_wakes.js";
 import { nodeCodexConfigProfileSchema } from "../../src/db/migrations/022_node_codex_config_profile.js";
 import { nodeSessionSourceSchema } from "../../src/db/migrations/077_node_session_source.js";
-// PL-019: GET /api/rigs/:id/graph + GET /api/rigs/:rigId/nodes/:logicalId
+// PL-019: GET /api/software-teams/:id/graph + GET /api/software-teams/:softwareTeamId/nodes/:logicalId
 // now perform a read-side join over queue_items (in-progress qitem
 // ownership per session). The route returns 500 if the table is absent,
 // so the integration harness needs the queue migrations through 025.
@@ -64,13 +64,13 @@ import { scopedOperatingPostureSchema } from "../../src/db/migrations/080_scoped
 import { humanNotificationIntentSchema } from "../../src/db/migrations/081_human_notification_intent.js";
 import { reviewReadIndexesSchema } from "../../src/db/migrations/083_review_read_indexes.js";
 import { inventoryEventIndexesSchema } from "../../src/db/migrations/084_inventory_event_indexes.js";
-import { rigClaudeManagedBlockFileSchema } from "../../src/db/migrations/085_rig_claude_managed_block_file.js";
+import { softwareTeamClaudeManagedBlockFileSchema } from "../../src/db/migrations/085_software_team_claude_managed_block_file.js";
 import { nodePermissionSelectionsSchema } from "../../src/db/migrations/088_node_permission_selections.js";
 import { humanReplyToSchema } from "../../src/db/migrations/090_human_reply_to.js";
 import { humanQuestionsSchema } from "../../src/db/migrations/091_human_questions.js";
 import { nodeEffortSchema } from "../../src/db/migrations/092_node_effort.js";
-import { rigPolicySchema } from "../../src/db/migrations/041_rig_policy.js";
-import { rigArchiveSchema } from "../../src/db/migrations/042_rig_archive.js";
+import { softwareTeamPolicySchema } from "../../src/db/migrations/041_software_team_policy.js";
+import { softwareTeamArchiveSchema } from "../../src/db/migrations/042_software_team_archive.js";
 import { resumeProvenanceSchema } from "../../src/db/migrations/043_resume_provenance.js";
 import { resumeVerificationSchema } from "../../src/db/migrations/045_resume_verification.js";
 import { seatIdentityVerdictsSchema } from "../../src/db/migrations/046_seat_identity_verdicts.js";
@@ -87,17 +87,17 @@ import { SessionEnricher } from "../../src/domain/session-enricher.js";
 import { DiscoveryRepository } from "../../src/domain/discovery-repository.js";
 import { PsProjectionService } from "../../src/domain/ps-projection.js";
 import { UpCommandRouter } from "../../src/domain/up-command-router.js";
-import { RigTeardownOrchestrator } from "../../src/domain/rig-teardown.js";
+import { SoftwareTeamTeardownOrchestrator } from "../../src/domain/software-team-teardown.js";
 import { DiscoveryCoordinator } from "../../src/domain/discovery-coordinator.js";
 import { ClaimService } from "../../src/domain/claim-service.js";
 import { SelfAttachService } from "../../src/domain/self-attach-service.js";
-import { RigExpansionService } from "../../src/domain/rig-expansion-service.js";
+import { SoftwareTeamExpansionService } from "../../src/domain/software-team-expansion-service.js";
 import { ContextUsageStore } from "../../src/domain/context-usage-store.js";
 import { HealthProjectionService, LiveContextHealthSource } from "../../src/domain/health-detectors.js";
 import { WhoamiService } from "../../src/domain/whoami-service.js";
 import { TranscriptStore } from "../../src/domain/transcript-store.js";
-import { RigLifecycleService } from "../../src/domain/rig-lifecycle-service.js";
-import { RigRepository } from "../../src/domain/rig-repository.js";
+import { SoftwareTeamLifecycleService } from "../../src/domain/software-team-lifecycle-service.js";
+import { SoftwareTeamRepository } from "../../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../../src/domain/session-registry.js";
 import { EventBus } from "../../src/domain/event-bus.js";
 import { QueueRepository } from "../../src/domain/queue-repository.js";
@@ -106,9 +106,9 @@ import { SnapshotRepository } from "../../src/domain/snapshot-repository.js";
 import { CheckpointStore } from "../../src/domain/checkpoint-store.js";
 import { SnapshotCapture } from "../../src/domain/snapshot-capture.js";
 import { RestoreOrchestrator } from "../../src/domain/restore-orchestrator.js";
-import { RigSpecExporter } from "../../src/domain/rigspec-exporter.js";
-import { RigSpecPreflight } from "../../src/domain/rigspec-preflight.js";
-import { RigInstantiator, PodRigInstantiator } from "../../src/domain/rigspec-instantiator.js";
+import { SoftwareTeamSpecExporter } from "../../src/domain/software-team-spec-exporter.js";
+import { SoftwareTeamSpecPreflight } from "../../src/domain/software-team-spec-preflight.js";
+import { SoftwareTeamInstantiator, PodSoftwareTeamInstantiator } from "../../src/domain/software-team-spec-instantiator.js";
 import { PodRepository } from "../../src/domain/pod-repository.js";
 import { StartupOrchestrator } from "../../src/domain/startup-orchestrator.js";
 import type { RuntimeAdapter } from "../../src/domain/runtime-adapter.js";
@@ -131,11 +131,11 @@ import fs from "node:fs";
 
 /** Seam B R6: the canonical full-fixture migration list, exported so file-backed
  *  DB-reopen tests migrate IDENTICALLY to createFullTestDb. */
-export const migrationsForFullTestDb = [coreSchema, bindingsSessionsSchema, eventsSchema, snapshotsSchema, checkpointsSchema, resumeMetadataSchema, nodeSpecFieldsSchema, packagesSchema, installJournalSchema, journalSeqSchema, bootstrapSchema, discoverySchema, discoveryFkFix, agentspecRebootSchema, startupContextSchema, chatMessagesSchema, podNamespaceSchema, contextUsageSchema, externalCliAttachmentSchema, rigServicesSchema, seatHandoverObservabilitySchema, nodeCodexConfigProfileSchema, nodePermissionPolicySchema, rigPermissionPolicySchema, nodePolicyProvenanceSchema, rigPolicyProvenanceSchema, streamItemsSchema, queueItemsSchema, queueTransitionsSchema, rigPolicySchema, rigArchiveSchema, resumeProvenanceSchema, resumeVerificationSchema, seatIdentityVerdictsSchema, selfHostIdentitySchema, occupantTenuresSchema, daemonLifecycleSchema, watchdogJobsSchema, occupantGenerationStampsSchema, projectionManifestSchema, watchdogTargetGenerationSchema, appliedLaunchObservationsSchema, appliedLaunchObservationInvalidationsSchema, threadSeatMapSchema, queueTransitionWakesSchema, nodeSessionSourceSchema, scopedOperatingPostureSchema, humanNotificationIntentSchema, reviewReadIndexesSchema, inventoryEventIndexesSchema, rigClaudeManagedBlockFileSchema, nodePermissionSelectionsSchema, humanReplyToSchema, humanQuestionsSchema, nodeEffortSchema, rigNonInterruptiveSchema, rigInstallRootSchema, threadPartMapSchema, queueTransitionsQitemIdOrderSchema, queueItemsRecoveryTagsSchema, resumeRotationSchema, sessionStopIntentSchema, nodeEffortChoiceSchema, modePostureCoexistSchema, seatEnvSchema, appliedLaunchDaemonOptOutSchema, sessionAgentAppSchema];
+export const migrationsForFullTestDb = [coreSchema, bindingsSessionsSchema, eventsSchema, snapshotsSchema, checkpointsSchema, resumeMetadataSchema, nodeSpecFieldsSchema, packagesSchema, installJournalSchema, journalSeqSchema, bootstrapSchema, discoverySchema, discoveryFkFix, agentspecRebootSchema, startupContextSchema, chatMessagesSchema, podNamespaceSchema, contextUsageSchema, externalCliAttachmentSchema, softwareTeamServicesSchema, seatHandoverObservabilitySchema, nodeCodexConfigProfileSchema, nodePermissionPolicySchema, softwareTeamPermissionPolicySchema, nodePolicyProvenanceSchema, softwareTeamPolicyProvenanceSchema, streamItemsSchema, queueItemsSchema, queueTransitionsSchema, softwareTeamPolicySchema, softwareTeamArchiveSchema, resumeProvenanceSchema, resumeVerificationSchema, seatIdentityVerdictsSchema, selfHostIdentitySchema, occupantTenuresSchema, daemonLifecycleSchema, watchdogJobsSchema, occupantGenerationStampsSchema, projectionManifestSchema, watchdogTargetGenerationSchema, appliedLaunchObservationsSchema, appliedLaunchObservationInvalidationsSchema, threadSeatMapSchema, queueTransitionWakesSchema, nodeSessionSourceSchema, scopedOperatingPostureSchema, humanNotificationIntentSchema, reviewReadIndexesSchema, inventoryEventIndexesSchema, softwareTeamClaudeManagedBlockFileSchema, nodePermissionSelectionsSchema, humanReplyToSchema, humanQuestionsSchema, nodeEffortSchema, softwareTeamNonInterruptiveSchema, softwareTeamInstallRootSchema, threadPartMapSchema, queueTransitionsQitemIdOrderSchema, queueItemsRecoveryTagsSchema, resumeRotationSchema, sessionStopIntentSchema, nodeEffortChoiceSchema, modePostureCoexistSchema, seatEnvSchema, appliedLaunchDaemonOptOutSchema, sessionAgentAppSchema];
 
 /**
  * P24 — the DECLARED exclusions for {@link migrationsForFullTestDb}. That list is deliberately a
- * schema-MINIMAL core-topology DB (node / rig / session / pod / discovery / stream / queue items+
+ * schema-MINIMAL core-topology DB (node / softwareTeam / session / pod / discovery / stream / queue items+
  * transitions / projection) shared by ~135 suites; each per-subsystem table below is a shipped
  * migration intentionally omitted so the shared fixture stays lean. The exclusion is SAFE evidence,
  * not a guess: the fixture omits these AND all ~135 consumers pass, which proves no createFullTestDb
@@ -172,7 +172,7 @@ export const migrationsForFullTestDbExclusions: Record<string, string> = {
   "049_workflow_instance_version.sql": "workflow subsystem column — workflow-* suites migrate the workflow schema inline.",
   "050_workflow_spec_json.sql": "workflow subsystem column — workflow-* suites migrate the workflow schema inline.",
   "051_workflow_resume.sql": "workflow subsystem column — workflow-* suites migrate the workflow schema inline.",
-  "052_workflow_instance_bound_rig.sql": "workflow subsystem column — workflow-* suites migrate the workflow schema inline.",
+  "052_workflow_instance_bound_software_team.sql": "workflow subsystem column — workflow-* suites migrate the workflow schema inline.",
   "053_sessions_node_id_index.sql": "sessions perf index — index/perf suites add it inline; the core edge uses the base sessions table.",
   "054_queue_transitions_archive.sql": "queue-retention EXTENSION table — queue-retention suites migrate it inline.",
   "112_queue_transitions_ts_qitem.sql": "indexes queue transitions plus the archive table (054 is excluded). Speed only: the recent-activity read returns the same rows without these indexes, and queue-recent-transitions.test.ts tests that read without them (it migrates 054 inline, not 112).",
@@ -258,7 +258,7 @@ export function createTestApp(
      * Agent Starter v1 vertical M2: optional real-fs upRouter for tests
      * that POST /api/up with a YAML spec on disk. Default behavior
      * (always-false fsOps) preserved when this is omitted, so existing
-     * rig-name-path tests are not affected.
+     * software-team-name-path tests are not affected.
      */
     upRouterFsOps?: {
       exists: (p: string) => boolean;
@@ -267,14 +267,14 @@ export function createTestApp(
     };
     /**
      * Agent Starter v1 vertical M2 R2: optional fsOps for the
-     * PodRigInstantiator used by /api/up apply-mode tests that need
+     * PodSoftwareTeamInstantiator used by /api/up apply-mode tests that need
      * real agent.yaml resolution. Default (always-false) preserved.
      */
     podInstantiatorFsOps?: {
       exists: (p: string) => boolean;
       readFile: (p: string) => string;
     };
-    /** Managed Claude activity-hook delivery asset paths, forwarded to the PodRigInstantiator
+    /** Managed Claude activity-hook delivery asset paths, forwarded to the PodSoftwareTeamInstantiator
      *  (defaults to daemon-shipped assets). Tests inject fixtures to exercise the nonfatal
      *  delivery-gap warning through the real /api/up route. */
     claudeActivityAssets?: { relayPath?: string; manifestPath?: string };
@@ -290,34 +290,34 @@ export function createTestApp(
     withWebSocket?: boolean;
     /**
      * Agent Starter v1 vertical M2 R2: optionally expose the in-test
-     * StartupOrchestrator + PodRigInstantiator so callers can spy on
+     * StartupOrchestrator + PodSoftwareTeamInstantiator so callers can spy on
      * `startNode` / inspect node_startup_context end-to-end.
      */
   },
 ) {
-  const rigRepo = new RigRepository(db);
+  const softwareTeamRepo = new SoftwareTeamRepository(db);
   const sessionRegistry = new SessionRegistry(db);
   const eventBus = new EventBus(db);
   const queueRepo = new QueueRepository(db, eventBus);
   const tmux = opts?.tmux ?? mockTmuxAdapter();
   const cmux = opts?.cmux ?? unavailableCmuxAdapter();
-  const transcriptStore = opts?.transcriptStore ?? new TranscriptStore("/tmp/openrig-test-transcripts");
-  const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+  const transcriptStore = opts?.transcriptStore ?? new TranscriptStore("/tmp/softwareteam-test-transcripts");
+  const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
   const snapshotRepo = new SnapshotRepository(db);
   const checkpointStore = new CheckpointStore(db);
-  const snapshotCapture = new SnapshotCapture({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
+  const snapshotCapture = new SnapshotCapture({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
   const claudeResume = new ClaudeResumeAdapter(tmux);
   const codexResume = new CodexResumeAdapter(tmux);
   const restoreOrchestrator = new RestoreOrchestrator({
-    db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+    db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
     checkpointStore, nodeLauncher, tmuxAdapter: tmux, claudeResume, codexResume,
     ...(opts?.listProcesses ? { listProcesses: opts.listProcesses } : {}),
   });
   const podRepo = new PodRepository(db);
-  const rigSpecExporter = new RigSpecExporter({ rigRepo, sessionRegistry, podRepo });
+  const softwareTeamSpecExporter = new SoftwareTeamSpecExporter({ softwareTeamRepo, sessionRegistry, podRepo });
   const exec: ExecFn = async () => "";
-  const rigSpecPreflight = new RigSpecPreflight({ rigRepo, tmuxAdapter: tmux, exec, cmuxExec: exec });
-  const rigInstantiator = new RigInstantiator({ db, rigRepo, sessionRegistry, eventBus, nodeLauncher, preflight: rigSpecPreflight });
+  const softwareTeamSpecPreflight = new SoftwareTeamSpecPreflight({ softwareTeamRepo, tmuxAdapter: tmux, exec, cmuxExec: exec });
+  const softwareTeamInstantiator = new SoftwareTeamInstantiator({ db, softwareTeamRepo, sessionRegistry, eventBus, nodeLauncher, preflight: softwareTeamSpecPreflight });
 
   // Phase 4: Package install services
   const packageRepo = new PackageRepository(db);
@@ -351,8 +351,8 @@ export function createTestApp(
     codex: readyRuntimeAdapter("codex"),
     ...opts?.adapters,
   };
-  const podInstantiator = new PodRigInstantiator({
-    db, rigRepo, podRepo, sessionRegistry, eventBus, nodeLauncher,
+  const podInstantiator = new PodSoftwareTeamInstantiator({
+    db, softwareTeamRepo, podRepo, sessionRegistry, eventBus, nodeLauncher,
     tmuxAdapter: tmux,
     startupOrchestrator,
     fsOps: opts?.podInstantiatorFsOps ?? { readFile: () => "", exists: () => false },
@@ -363,7 +363,7 @@ export function createTestApp(
   const bootstrapOrchestrator = new BootstrapOrchestrator({
     db, bootstrapRepo, runtimeVerifier, probeRegistry,
     installPlanner: externalInstallPlanner, installExecutor: externalInstallExecutor,
-    packageInstallService, rigInstantiator, fsOps: {
+    packageInstallService, softwareTeamInstantiator, fsOps: {
       readFile: (p: string) => fs.readFileSync(p, "utf-8"),
       exists: (p: string) => fs.existsSync(p),
       listFiles: () => [],
@@ -383,20 +383,20 @@ export function createTestApp(
   const discoveryCoordinator = new DiscoveryCoordinator({
     scanner: tmuxScanner, fingerprinter, enricher, discoveryRepo, sessionRegistry, eventBus,
   });
-  const claimService = new ClaimService({ db, rigRepo, sessionRegistry, discoveryRepo, eventBus, tmuxAdapter: tmux, transcriptStore });
-  const selfAttachService = new SelfAttachService({ db, rigRepo, podRepo, sessionRegistry, eventBus, tmuxAdapter: tmux, transcriptStore });
-  const rigExpansionService = new RigExpansionService({ db, rigRepo, eventBus, nodeLauncher, podInstantiator, sessionRegistry });
-  const rigLifecycleService = new RigLifecycleService({ db, rigRepo, sessionRegistry, discoveryRepo, eventBus, queueRepo, tmuxAdapter: tmux });
-  const contextUsageStore = new ContextUsageStore(db, { stateDir: "/tmp/openrig-test" });
+  const claimService = new ClaimService({ db, softwareTeamRepo, sessionRegistry, discoveryRepo, eventBus, tmuxAdapter: tmux, transcriptStore });
+  const selfAttachService = new SelfAttachService({ db, softwareTeamRepo, podRepo, sessionRegistry, eventBus, tmuxAdapter: tmux, transcriptStore });
+  const softwareTeamExpansionService = new SoftwareTeamExpansionService({ db, softwareTeamRepo, eventBus, nodeLauncher, podInstantiator, sessionRegistry });
+  const softwareTeamLifecycleService = new SoftwareTeamLifecycleService({ db, softwareTeamRepo, sessionRegistry, discoveryRepo, eventBus, queueRepo, tmuxAdapter: tmux });
+  const contextUsageStore = new ContextUsageStore(db, { stateDir: "/tmp/softwareteam-test" });
   const healthProjection = new HealthProjectionService(new LiveContextHealthSource({
     db,
-    rigRepo,
+    softwareTeamRepo,
     sessionRegistry,
     contextUsageStore,
   }));
-  const whoamiService = new WhoamiService({ db, rigRepo, sessionRegistry, transcriptStore, contextUsageStore });
+  const whoamiService = new WhoamiService({ db, softwareTeamRepo, sessionRegistry, transcriptStore, contextUsageStore });
   const cmuxTmux = { ...tmux, hasSession: vi.fn(async () => true) } as unknown as TmuxAdapter;
-  const nodeCmuxService = new NodeCmuxService(rigRepo, sessionRegistry, cmux, cmuxTmux);
+  const nodeCmuxService = new NodeCmuxService(softwareTeamRepo, sessionRegistry, cmux, cmuxTmux);
   const agentActivityStore = new AgentActivityStore({
     db,
     eventBus,
@@ -414,7 +414,7 @@ export function createTestApp(
     agentActivityStore,
     db,
     tmux,
-    reconcileRestoreOutcome: (rigId, nodeId) => restoreOrchestrator.reconcileNodeRuntimeTruth(rigId, nodeId),
+    reconcileRestoreOutcome: (softwareTeamId, nodeId) => restoreOrchestrator.reconcileNodeRuntimeTruth(softwareTeamId, nodeId),
   });
 
   const podBundleSourceResolver = new PodBundleSourceResolver();
@@ -427,16 +427,16 @@ export function createTestApp(
   const upRouter = new UpCommandRouter({ fsOps: upRouterFs });
 
   const testAppDeps = {
-    rigRepo, sessionRegistry, eventBus, nodeLauncher, startupOrchestrator, tmuxAdapter: tmux, cmuxAdapter: cmux,
+    softwareTeamRepo, sessionRegistry, eventBus, nodeLauncher, startupOrchestrator, tmuxAdapter: tmux, cmuxAdapter: cmux,
     snapshotCapture, snapshotRepo, restoreOrchestrator,
-    rigSpecExporter, rigSpecPreflight, rigInstantiator,
+    softwareTeamSpecExporter, softwareTeamSpecPreflight, softwareTeamInstantiator,
     packageRepo, installRepo, installEngine, installVerifier,
     bootstrapOrchestrator, bootstrapRepo,
-    discoveryCoordinator, discoveryRepo, claimService, selfAttachService, rigExpansionService,
-    rigLifecycleService,
+    discoveryCoordinator, discoveryRepo, claimService, selfAttachService, softwareTeamExpansionService,
+    softwareTeamLifecycleService,
     psProjectionService: new PsProjectionService({ db }),
     upRouter,
-    teardownOrchestrator: new RigTeardownOrchestrator({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux, snapshotCapture, eventBus }),
+    teardownOrchestrator: new SoftwareTeamTeardownOrchestrator({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux, snapshotCapture, eventBus }),
     podInstantiator,
     podBundleSourceResolver,
     contextUsageStore,
@@ -468,16 +468,16 @@ export function createTestApp(
     : { app: createApp(testAppDeps as never), injectWebSocket: undefined };
   const app = built.app;
   return {
-    app, injectWebSocket: built.injectWebSocket, rigRepo, sessionRegistry, eventBus, nodeLauncher, snapshotRepo,
+    app, injectWebSocket: built.injectWebSocket, softwareTeamRepo, sessionRegistry, eventBus, nodeLauncher, snapshotRepo,
     snapshotCapture, checkpointStore, restoreOrchestrator,
-    rigSpecExporter, rigSpecPreflight, rigInstantiator,
+    softwareTeamSpecExporter, softwareTeamSpecPreflight, softwareTeamInstantiator,
     packageRepo, installRepo, installEngine, installVerifier,
     bootstrapOrchestrator, bootstrapRepo,
-    discoveryCoordinator, discoveryRepo, claimService, selfAttachService, rigExpansionService, tmuxScanner,
-    rigLifecycleService,
+    discoveryCoordinator, discoveryRepo, claimService, selfAttachService, softwareTeamExpansionService, tmuxScanner,
+    softwareTeamLifecycleService,
     psProjectionService: new PsProjectionService({ db }),
     upRouter,
-    teardownOrchestrator: new RigTeardownOrchestrator({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux, snapshotCapture, eventBus }),
+    teardownOrchestrator: new SoftwareTeamTeardownOrchestrator({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux, snapshotCapture, eventBus }),
     podInstantiator, podBundleSourceResolver, db, tmuxAdapter: tmux,
     agentActivityStore,
     startupOrchestrator,

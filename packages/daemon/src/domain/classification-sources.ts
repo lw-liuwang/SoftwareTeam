@@ -8,11 +8,11 @@ import { isMissionDotId, isSliceDotId } from "./scope/dot-id.js";
 import type { StreamStore } from "./stream-store.js";
 
 export const sourceHash = (value: string) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
-export interface ClassifierOccupant { nodeId: string; rigId: string; session: string; generation: string }
+export interface ClassifierOccupant { nodeId: string; softwareTeamId: string; session: string; generation: string }
 
 // Same real running-session/tenure sources as startup liveness. No daemon pseudo-session.
 export function classifierOccupant(db: Database.Database, session: string): ClassifierOccupant | null {
-  const rows = db.prepare(`SELECT DISTINCT n.id AS nodeId, n.rig_id AS rigId, b.tmux_session AS session,
+  const rows = db.prepare(`SELECT DISTINCT n.id AS nodeId, n.software_team_id AS softwareTeamId, b.tmux_session AS session,
     o.generation_uuid AS generation FROM nodes n JOIN bindings b ON b.node_id=n.id
     JOIN sessions s ON s.node_id=n.id AND s.session_name=b.tmux_session AND s.status='running'
       AND s.id=(SELECT id FROM sessions WHERE node_id=n.id ORDER BY id DESC LIMIT 1)
@@ -64,14 +64,14 @@ export function classificationSources(db: Database.Database, project: ProjectRea
       for (const child of children) readScope(path.join(slices, child.name), id);
     }
   } catch (error) { unavailable.push(error instanceof Error ? error.message : "scope sources unavailable"); }
-  const names = db.prepare(`SELECT DISTINCT b.tmux_session AS session FROM bindings b JOIN nodes n ON n.id=b.node_id WHERE n.rig_id=? ORDER BY session LIMIT 1001`).all(occupant.rigId) as {session: string}[];
+  const names = db.prepare(`SELECT DISTINCT b.tmux_session AS session FROM bindings b JOIN nodes n ON n.id=b.node_id WHERE n.software_team_id=? ORDER BY session LIMIT 1001`).all(occupant.softwareTeamId) as {session: string}[];
   const roster = names.flatMap(x => { const row = classifierOccupant(db, x.session); return row ? [row] : []; });
   if (names.length > 1000) unavailable.push("roster exceeds 1000");
   const recent = stream.list({ limit: 100, direction: "latest" }).map(item => ({
     streamItemId: item.streamItemId, body: item.body.slice(0, 2000), bodyTruncated: item.body.length > 2000, sourceSession: item.sourceSession,
     evidenceRef: `stream:${item.streamItemId}:${sourceHash(item.body)}`,
   }));
-  const sources = { project: { id: project.id, root: project.root, missionsRoot: project.missionsRoot, files: projectSources }, scopes, rosterSource: "bindings + running sessions + latest occupant_tenures in the classifier rig", roster: roster.slice(0,1000), recent };
+  const sources = { project: { id: project.id, root: project.root, missionsRoot: project.missionsRoot, files: projectSources }, scopes, rosterSource: "bindings + running sessions + latest occupant_tenures in the classifier softwareTeam", roster: roster.slice(0,1000), recent };
   return { occupant, observedAt, version: sourceHash(JSON.stringify({sources, unavailable})), sources, unavailable,
     duplicateCoverage: "Most recent 100 nonarchived items; a retrieval miss is unknown, not no duplicate." };
 }

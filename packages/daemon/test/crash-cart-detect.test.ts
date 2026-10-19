@@ -8,11 +8,11 @@ import { classifyDaemonState, resolveDaemonState, type HealthzProbeResult } from
 // bounded retry is the caller's. All probes injected → hermetic.
 
 const deps = (over: Partial<Parameters<typeof classifyDaemonState>[0]> = {}) => ({
-  openrigHome: "/scratch/.openrig",
-  readDaemonJson: () => ({ pid: 9, port: 7433, host: "127.0.0.1" }),
+  softwareteamHome: "/scratch/.softwareteam",
+  readDaemonJson: () => ({ pid: 9, port: 7434, host: "127.0.0.1" }),
   isProcessAlive: () => false,
   probeHealthz: async () => "refused" as const,
-  openrigUrl: undefined as string | undefined,
+  softwareteamUrl: undefined as string | undefined,
   ...over,
 });
 
@@ -37,17 +37,17 @@ describe("classifyDaemonState — 3-state honest-degraded rail", () => {
     expect(await classifyDaemonState(deps({ isProcessAlive: () => false, probeHealthz: async () => "timeout" }))).toBe("unverified");
   });
 
-  it("UNVERIFIED when a non-openrig process answers the port", async () => {
-    expect(await classifyDaemonState(deps({ probeHealthz: async () => "not-openrig" }))).toBe("unverified");
+  it("UNVERIFIED when a non-softwareteam process answers the port", async () => {
+    expect(await classifyDaemonState(deps({ probeHealthz: async () => "not-softwareteam" }))).toBe("unverified");
   });
 
-  it("probes OPENRIG_URL when set, else daemon.json host:port, else the default", async () => {
+  it("probes SOFTWARETEAM_URL when set, else daemon.json host:port, else the default", async () => {
     const seen: string[] = [];
     const probe = async (url: string) => {
       seen.push(url);
       return "refused" as const;
     };
-    await classifyDaemonState(deps({ openrigUrl: "http://foreign:8080", probeHealthz: probe }));
+    await classifyDaemonState(deps({ softwareteamUrl: "http://foreign:8080", probeHealthz: probe }));
     await classifyDaemonState(deps({ readDaemonJson: () => ({ pid: 9, port: 9999, host: "10.0.0.5" }), probeHealthz: probe }));
     await classifyDaemonState(deps({ readDaemonJson: () => ({ pid: 9, port: 9999, host: "::1" }), probeHealthz: probe }));
     await classifyDaemonState(deps({ readDaemonJson: () => undefined, probeHealthz: probe }));
@@ -55,7 +55,7 @@ describe("classifyDaemonState — 3-state honest-degraded rail", () => {
       "http://foreign:8080/healthz",
       "http://10.0.0.5:9999/healthz",
       "http://[::1]:9999/healthz",
-      "http://127.0.0.1:7433/healthz",
+      "http://127.0.0.1:7434/healthz",
     ]);
   });
 });
@@ -66,11 +66,11 @@ describe("resolveDaemonState — bounded retry (injected clock; timeout never pr
     return async () => results[Math.min(i++, results.length - 1)]!;
   }
   const rdeps = (over: Partial<Parameters<typeof resolveDaemonState>[0]> = {}) => ({
-    openrigHome: "/scratch/.openrig",
-    readDaemonJson: () => ({ pid: 9, port: 7433, host: "127.0.0.1" }),
+    softwareteamHome: "/scratch/.softwareteam",
+    readDaemonJson: () => ({ pid: 9, port: 7434, host: "127.0.0.1" }),
     isProcessAlive: () => false,
     probeHealthz: seq(["timeout"]),
-    openrigUrl: undefined as string | undefined,
+    softwareteamUrl: undefined as string | undefined,
     sleep: vi.fn(async () => {}),
     maxProbes: 3,
     retryDelayMs: 400,

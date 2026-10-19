@@ -16,7 +16,7 @@ import type { AdapterRungInventory } from "../src/domain/activity-taxonomy.js";
 
 const TOKEN = "test-token";
 const SEAT = "node-ing-1";
-const SESSION = "dev50-qa@v-openrig-build";
+const SESSION = "dev50-qa@v-softwareteam-build";
 
 const CLAUDE_INVENTORY: AdapterRungInventory = {
   adapterId: "claude-code-adapter",
@@ -44,9 +44,9 @@ afterEach(() => { for (const close of closeDbs.splice(0)) close(); });
 function makeApp(clock: { now: number }) {
   const db = createFullTestDb();
   closeDbs.push(() => db.close());
-  db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-ing-1", "ingest-fixture");
-  db.prepare("INSERT INTO nodes (id, rig_id, logical_id, runtime) VALUES (?, ?, ?, ?)")
-    .run(SEAT, "rig-ing-1", "dev.qa", "claude-code");
+  db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-ing-1", "ingest-fixture");
+  db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, runtime) VALUES (?, ?, ?, ?)")
+    .run(SEAT, "software-team-ing-1", "dev.qa", "claude-code");
   const registry = new SessionRegistry(db);
   const session = registry.registerSession(SEAT, SESSION);
   registry.updateStatus(session.id, "running");

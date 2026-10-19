@@ -24,8 +24,8 @@ import {
 } from "../src/lib/file-transfer.js";
 import type { SshHostEntry } from "../src/host-registry.js";
 
-const VPS: SshHostEntry = { id: "vps-a", transport: "ssh", target: "vps-a.tail.net", user: "openrig" };
-const REGISTRY_OK = () => ({ ok: true as const, registry: { hosts: [VPS, { id: "http-1", transport: "http" as const, url: "http://h:7433", bearer_env: "T" }] } });
+const VPS: SshHostEntry = { id: "vps-a", transport: "ssh", target: "vps-a.tail.net", user: "softwareteam" };
+const REGISTRY_OK = () => ({ ok: true as const, registry: { hosts: [VPS, { id: "http-1", transport: "http" as const, url: "http://h:7434", bearer_env: "T" }] } });
 
 function local(p: string): CopySide {
   return { kind: "local", path: p };
@@ -102,7 +102,7 @@ describe("parseFilePathArg — the explicit-or-local grammar", () => {
 
   it("retains remote validation failures after positive dotted registration", () => {
     const ssh = { ...VPS, id: "edge.dev" };
-    const http = { id: "web.dev", transport: "http" as const, url: "http://h:7433" };
+    const http = { id: "web.dev", transport: "http" as const, url: "http://h:7434" };
     const badUser = { ...VPS, id: "bad.dev", user: "invalid user" };
     const registryLoader = () => ({ ok: true as const, registry: { hosts: [ssh, http, badUser] } });
     for (const [operand, code] of [["edge.dev:", "bad_operand"], ["edge.dev:relative", "denied_path"], ["edge.dev:/srv/a b", "denied_path"], ["edge.dev:/srv/.ssh/key", "denied_path"], ["web.dev:/srv/x", "unsupported_transport"], ["bad.dev:/srv/x", "invalid_registry_user"]]) {
@@ -175,21 +175,21 @@ describe("checkLocalPath — resolve-then-recheck deny wall", () => {
     }
   });
 
-  it("denies the active hosts registry and custom OPENRIG_HOME state", () => {
-    const saved = process.env["OPENRIG_HOME"];
-    const customHome = path.join(os.tmpdir(), `openrig-s18-active-${Date.now()}`);
+  it("denies the active hosts registry and custom SOFTWARETEAM_HOME state", () => {
+    const saved = process.env["SOFTWARETEAM_HOME"];
+    const customHome = path.join(os.tmpdir(), `softwareteam-s18-active-${Date.now()}`);
     try {
-      process.env["OPENRIG_HOME"] = customHome;
+      process.env["SOFTWARETEAM_HOME"] = customHome;
       const registry = checkLocalPath(path.join(customHome, "hosts.yaml"));
       expect(registry.ok).toBe(false);
       if (!registry.ok) expect(registry.error).toContain("active hosts registry");
 
       const state = checkLocalPath(path.join(customHome, "workspace", "artifact.md"));
       expect(state.ok).toBe(false);
-      if (!state.ok) expect(state.error).toContain("active OPENRIG_HOME");
+      if (!state.ok) expect(state.error).toContain("active SOFTWARETEAM_HOME");
     } finally {
-      if (saved === undefined) delete process.env["OPENRIG_HOME"];
-      else process.env["OPENRIG_HOME"] = saved;
+      if (saved === undefined) delete process.env["SOFTWARETEAM_HOME"];
+      else process.env["SOFTWARETEAM_HOME"] = saved;
     }
   });
 
@@ -293,7 +293,7 @@ describe("planFileCopy — fail-closed set", () => {
 
   it("denied locations reject at planning on either side", () => {
     expect(planFileCopy("~/.ssh/id_ed25519", "vps-a:/tmp/key", deps)).toMatchObject({ ok: false, code: "denied_path" });
-    expect(planFileCopy("./ok.md", "vps-a:/home/u/.openrig/db.sqlite", deps)).toMatchObject({ ok: false, code: "denied_path" });
+    expect(planFileCopy("./ok.md", "vps-a:/home/u/.softwareteam/db.sqlite", deps)).toMatchObject({ ok: false, code: "denied_path" });
   });
 });
 
@@ -344,7 +344,7 @@ describe("buildRsyncArgv — closed-builder properties (every permutation)", () 
   it("the -e ssh command is built ONLY from registry fields; local-local plans carry no -e at all", () => {
     const withRemote = buildRsyncArgv({ src: local("/tmp/a"), dst: remote("/srv/b"), dryRun: false });
     const e = withRemote[withRemote.indexOf("-e") + 1]!;
-    expect(e).toBe("ssh -o ConnectTimeout=10 -l openrig");
+    expect(e).toBe("ssh -o ConnectTimeout=10 -l softwareteam");
     const localOnly = buildRsyncArgv({ src: local("/tmp/a"), dst: local("/tmp/b"), dryRun: false });
     expect(localOnly.includes("-e")).toBe(false);
   });
@@ -385,7 +385,7 @@ describe("classifyRsyncResult / runFileCopy", () => {
     expect(result.hint).toContain("authentication");
     expect(result.hint).toContain("host-key");
     expect(result.hint).toContain("keep host verification enabled");
-    expect(result.hint).not.toContain("openrig-work/");
+    expect(result.hint).not.toContain("softwareteam-work/");
   });
 
   it("exit 255 / connection-class stderr → ssh-unreachable; other non-zero → remote-command-failed; NO daemon class exists", () => {
@@ -455,7 +455,7 @@ describe("local directory copy semantics", () => {
   });
 
   it.skipIf(!rsyncAvailable).each([false, true])("native rsync preserves source directory trailing slash=%s (requires installed rsync)", async (contentsOnly) => {
-    const root = mkdtempSync(path.join(process.cwd(), "openrig-copy-contents-"));
+    const root = mkdtempSync(path.join(process.cwd(), "softwareteam-copy-contents-"));
     try {
       const src = path.join(root, "source");
       const dst = path.join(root, "destination");
@@ -480,7 +480,7 @@ describe("local directory copy semantics", () => {
 
 it.skipIf(!rsyncAvailable && process.platform !== "darwin")("native local file copies disclose the transferred byte count", async () => {
   expect(rsyncAvailable, "macOS native copy proof requires the system rsync").toBe(true);
-  const root = mkdtempSync(path.join(process.cwd(), "openrig-copy-stats-"));
+  const root = mkdtempSync(path.join(process.cwd(), "softwareteam-copy-stats-"));
   try {
     const src = path.join(root, "source.txt");
     const dst = path.join(root, "copied.txt");

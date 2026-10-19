@@ -31,7 +31,7 @@ function manifest(): AgentImageManifest {
     files: [{ path: "supplement.md", role: "notes" }] };
 }
 it.each(["stats.json", "supplement.md", "manifest.yaml"])("cleans partial %s writes without publishing a snapshot and allows a clean retry", (path) => {
-  root = mkdtempSync(join(tmpdir(), "openrig-image-failure-"));
+  root = mkdtempSync(join(tmpdir(), "softwareteam-image-failure-"));
   const library = new AgentImageLibraryService({ roots: [{ path: root, sourceType: "user_file" }] });
   failure.enabled = true; failure.path = path;
   expect(() => library.install(root!, manifest(), new Map([["supplement.md", "complete bytes"]]))).toThrow("fixture disk full");
@@ -45,7 +45,7 @@ it.each(["stats.json", "supplement.md", "manifest.yaml"])("cleans partial %s wri
 });
 
 it("reports a concurrent creator without removing its directory", () => {
-  root = mkdtempSync(join(tmpdir(), "openrig-image-race-"));
+  root = mkdtempSync(join(tmpdir(), "softwareteam-image-race-"));
   const library = new AgentImageLibraryService({ roots: [{ path: root, sourceType: "user_file" }] });
   failure.race = true;
   try { library.install(root, manifest(), new Map()); throw new Error("install unexpectedly succeeded"); }

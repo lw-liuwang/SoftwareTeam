@@ -14,7 +14,7 @@ vi.mock("../src/host-selection.js", () => ({ resolveEffectiveHost: (explicit?: s
 vi.mock("../src/daemon-lifecycle.js", () => ({ getDaemonStatus: async () => ({ state: "running", healthy: true }), getDaemonUrl: () => "http://localhost:17895" }));
 
 const A = "a".repeat(40), B = "b".repeat(40);
-const URL = "https://github.com/example/teams/tree/main/rigs/dev";
+const URL = "https://github.com/example/teams/tree/main/software-teams/dev";
 const refs = `${A}\tHEAD\n${A}\trefs/heads/main\n${B}\trefs/heads/feature/team\n${B}\trefs/tags/v1\n${A}\trefs/tags/v1^{}\n`;
 
 describe("GitHub bundle source", () => {
@@ -26,10 +26,10 @@ describe("GitHub bundle source", () => {
   afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
   it.each([
-    [URL, A, "main", "rigs/dev"],
+    [URL, A, "main", "software-teams/dev"],
     ["https://github.com/example/teams/tree/v1", A, "v1", "."],
-    ["https://github.com/example/teams/tree/feature/team/rig", B, "feature/team", "rig"],
-    [`https://github.com/example/teams/tree/${B}/rig`, B, B, "rig"],
+    ["https://github.com/example/teams/tree/feature/team/softwareTeam", B, "feature/team", "softwareTeam"],
+    [`https://github.com/example/teams/tree/${B}/softwareTeam`, B, B, "softwareTeam"],
     ["https://github.com/example/teams", A, "HEAD", "."],
   ])("pins branch/tag/commit/folder %s", (url, commit, ref, folder) => {
     const s = selectGitHubBundleSource(url, refs);
@@ -41,10 +41,10 @@ describe("GitHub bundle source", () => {
     const first = selectGitHubBundleSource(URL, refs);
     const moved = refs.replace(`${A}\trefs/heads/main`, `${B}\trefs/heads/main`);
     expect(selectGitHubBundleSource(URL, moved).resolvedCommit).toBe(B);
-    expect(selectGitHubBundleSource(first.canonicalUrl, moved)).toMatchObject({ resolvedCommit: A, folder: "rigs/dev" });
+    expect(selectGitHubBundleSource(first.canonicalUrl, moved)).toMatchObject({ resolvedCommit: A, folder: "software-teams/dev" });
   });
 
-  it.each(["https://SECRET@github.com/example/teams/tree/main", "https://github.com/example/teams/tree/main?token=SECRET", "http://github.com/example/teams/tree/main", "https://github.com/example/teams/blob/main/rig.yaml"])("rejects unsupported input without echoing it", input => {
+  it.each(["https://SECRET@github.com/example/teams/tree/main", "https://github.com/example/teams/tree/main?token=SECRET", "http://github.com/example/teams/tree/main", "https://github.com/example/teams/blob/main/software-team.yaml"])("rejects unsupported input without echoing it", input => {
     try { parseGitHubBundleLink(input); throw new Error("unexpected acceptance"); }
     catch (err) { expect((err as Error).message).toContain("credential-free"); expect((err as Error).message).not.toContain("SECRET"); }
   });
@@ -56,15 +56,15 @@ describe("GitHub bundle source", () => {
       if (args[0] === "ls-remote") return refs;
       if (args[0] === "rev-parse") return A;
       if (args[0] === "checkout") {
-        fs.mkdirSync(path.join(cwd, "rigs/dev"), { recursive: true });
-        fs.writeFileSync(path.join(cwd, "rigs/dev/rig.yaml"), "name: team\n");
+        fs.mkdirSync(path.join(cwd, "software-teams/dev"), { recursive: true });
+        fs.writeFileSync(path.join(cwd, "software-teams/dev/software-team.yaml"), "name: team\n");
       }
       return "";
     };
     const prepared = await prepareGitHubBundle(URL, git, root);
     expect(calls.filter(c => c[0] === "fetch")).toEqual([["fetch", "--depth=1", "--no-tags", "--", "https://github.com/example/teams", A]]);
     expect(JSON.parse(fs.readFileSync(prepared.receiptPath, "utf8"))).toEqual(prepared.source);
-    expect(prepared.archivePath).toBe(path.join(path.dirname(prepared.receiptPath), "bundle.rigbundle"));
+    expect(prepared.archivePath).toBe(path.join(path.dirname(prepared.receiptPath), "bundle.softwareteambundle"));
   });
 
   it("does not substitute another fetched commit or a missing source folder", async () => {
@@ -72,7 +72,7 @@ describe("GitHub bundle source", () => {
     await expect(prepareGitHubBundle(URL, wrong, root)).rejects.toThrow(/did not match/);
     expect(fs.readdirSync(root)).toEqual([]);
     const missing = async (_cwd: string, args: string[]) => args[0] === "ls-remote" ? refs : args[0] === "rev-parse" ? A : "";
-    await expect(prepareGitHubBundle(URL, missing, root)).rejects.toThrow(/must contain rig.yaml/);
+    await expect(prepareGitHubBundle(URL, missing, root)).rejects.toThrow(/must contain software-team.yaml/);
     expect(fs.readdirSync(root)).toEqual([]);
   });
 
@@ -81,17 +81,17 @@ describe("GitHub bundle source", () => {
       if (args[0] === "ls-remote") return refs;
       if (args[0] === "rev-parse") return A;
       if (args[0] === "checkout") {
-        const folder = path.join(cwd, "rigs/dev");
+        const folder = path.join(cwd, "software-teams/dev");
         fs.mkdirSync(folder, { recursive: true });
-        fs.writeFileSync(path.join(folder, "rig.yaml"), "name: team\n");
+        fs.writeFileSync(path.join(folder, "software-team.yaml"), "name: team\n");
         populate(cwd, folder);
       }
       return "";
     };
   }
 
-  function rigWithAgent(folder: string, ref: string) {
-    fs.writeFileSync(path.join(folder, "rig.yaml"), `version: "0.2"\nname: team\npods:\n  - id: dev\n    label: Dev\n    members:\n      - id: helper\n        agent_ref: ${JSON.stringify(ref)}\n        profile: default\n        runtime: codex\n        cwd: .\n`);
+  function softwareTeamWithAgent(folder: string, ref: string) {
+    fs.writeFileSync(path.join(folder, "software-team.yaml"), `version: "0.2"\nname: team\npods:\n  - id: dev\n    label: Dev\n    members:\n      - id: helper\n        agent_ref: ${JSON.stringify(ref)}\n        profile: default\n        runtime: codex\n        cwd: .\n`);
   }
 
   function writeAgent(dir: string, name: string, imports: string[] = []) {
@@ -105,7 +105,7 @@ describe("GitHub bundle source", () => {
     fs.writeFileSync(outside, "synthetic host-only fixture\n");
     const imports = path.join(root, "imports");
     const git = checkoutWith((checkout, folder) => {
-      rigWithAgent(folder, "local:../../agents/helper");
+      softwareTeamWithAgent(folder, "local:../../agents/helper");
       const agent = path.join(checkout, "agents/helper");
       writeAgent(agent, "helper");
       fs.symlinkSync(outside, path.join(agent, "outside.txt"));
@@ -123,9 +123,9 @@ describe("GitHub bundle source", () => {
       const helper = path.join(checkout, "agents/helper");
       const base = kind.startsWith("member") ? folder : helper;
       const ref = kind.endsWith("local") ? `local:${path.relative(base, outside)}` : `path:${outside}`;
-      if (kind.startsWith("member")) rigWithAgent(folder, ref);
+      if (kind.startsWith("member")) softwareTeamWithAgent(folder, ref);
       else {
-        rigWithAgent(folder, "local:../../agents/helper");
+        softwareTeamWithAgent(folder, "local:../../agents/helper");
         writeAgent(helper, "helper", [ref]);
       }
     });
@@ -136,10 +136,10 @@ describe("GitHub bundle source", () => {
 
   it.each([[false, "local"], [true, "local"], [false, "path"], [true, "path"]] as const)("assembles shared agents and imports outside the selected folder (preset=%s, ref=%s)", async (preset, refKind) => {
     const git = checkoutWith((checkout, folder) => {
-      rigWithAgent(folder, refKind === "local" ? "local:../../agents/helper" : `path:${path.join(checkout, "agents/helper")}`);
+      softwareTeamWithAgent(folder, refKind === "local" ? "local:../../agents/helper" : `path:${path.join(checkout, "agents/helper")}`);
       writeAgent(path.join(checkout, "agents/helper"), "helper", ["local:../library"]);
       writeAgent(path.join(checkout, "agents/library"), "library");
-      fs.writeFileSync(path.join(folder, "configurations.yaml"), 'schema: openrig.bundle-configurations/v1\nrecommended: authored\nseats:\n  dev.helper:\n    runtimes: { codex: default, claude-code: default }\npresets:\n  authored: { dev.helper: codex }\n  alternate: { dev.helper: claude-code }\n');
+      fs.writeFileSync(path.join(folder, "configurations.yaml"), 'schema: softwareteam.bundle-configurations/v1\nrecommended: authored\nseats:\n  dev.helper:\n    runtimes: { codex: default, claude-code: default }\npresets:\n  authored: { dev.helper: codex }\n  alternate: { dev.helper: claude-code }\n');
     });
     const prepared = await prepareGitHubBundle(URL, git, path.join(root, "imports"));
     const output = path.join(root, "assembled");
@@ -152,22 +152,22 @@ describe("GitHub bundle source", () => {
       listFiles: dir => fs.readdirSync(dir, { recursive: true }).map(String).filter(file => fs.statSync(path.join(dir, file)).isFile()),
     } });
     const f = fixture();
-    let assembledRigRoot = "";
+    let assembledSoftwareTeamRoot = "";
     f.post.mockImplementation(async (_url, body) => {
-      assembledRigRoot = body.rigRoot as string;
+      assembledSoftwareTeamRoot = body.softwareTeamRoot as string;
       expect(body.bundleName).toBe("team");
-      const result = assembler.assemble({ rigRoot: assembledRigRoot, rigSpecPath: body.specPath as string,
+      const result = assembler.assemble({ softwareTeamRoot: assembledSoftwareTeamRoot, softwareTeamSpecPath: body.specPath as string,
         outputDir: output, bundleName: "fixture", bundleVersion: "1.0.0" });
       expect(result.manifest.agents.map(agent => agent.name)).toEqual(["helper"]);
       expect(fs.readFileSync(path.join(output, "agents/helper/notes.txt"), "utf8")).toBe("helper repository fixture\n");
       expect(fs.readFileSync(path.join(output, "agents/library/notes.txt"), "utf8")).toBe("library repository fixture\n");
-      expect(fs.readFileSync(path.join(output, "rig.yaml"), "utf8")).toContain(`runtime: ${preset ? "claude-code" : "codex"}`);
-      return { status: 201, data: { source: prepared.source, configurationId: "fixture", packageDigest: { value: "fixture", coverage: "openrig.package-digest/v1" }, assembler: { openrigVersion: "0.6.6" }, archiveHash: "fixture" } };
+      expect(fs.readFileSync(path.join(output, "software-team.yaml"), "utf8")).toContain(`runtime: ${preset ? "claude-code" : "codex"}`);
+      return { status: 201, data: { source: prepared.source, configurationId: "fixture", packageDigest: { value: "fixture", coverage: "softwareteam.package-digest/v1" }, assembler: { softwareteamVersion: "0.6.6" }, archiveHash: "fixture" } };
     });
     await importGitHubBundle(URL, f.deps, preset ? { preset: "alternate" } : {}, async () => prepared);
     expect(f.post).toHaveBeenCalledTimes(1);
     expect(fs.existsSync(prepared.checkoutDir)).toBe(false);
-    expect(fs.existsSync(assembledRigRoot)).toBe(false);
+    expect(fs.existsSync(assembledSoftwareTeamRoot)).toBe(false);
   });
 
   it.each(["relative", "absolute", "dangling", "nested-directory"])("rejects unsafe repository symlinks: %s", async kind => {
@@ -211,14 +211,14 @@ describe("GitHub bundle source", () => {
     const env = { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null" };
     const git = (cwd: string, args: string[]) => execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.test", ...args], { cwd, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trimEnd();
     git(repository, ["init", "--template=", "-b", "main"]);
-    fs.mkdirSync(path.join(repository, "rigs/dev"), { recursive: true });
-    fs.writeFileSync(path.join(repository, "rigs/dev/rig.yaml"), "name: original\n");
+    fs.mkdirSync(path.join(repository, "software-teams/dev"), { recursive: true });
+    fs.writeFileSync(path.join(repository, "software-teams/dev/software-team.yaml"), "name: original\n");
     git(repository, ["add", "."]); git(repository, ["commit", "-m", "original"]);
     const original = git(repository, ["rev-parse", "HEAD"]);
     const adapter = async (cwd: string, args: string[]) => {
       if (args[0] === "ls-remote") {
         const listed = git(cwd, ["ls-remote", repository]);
-        fs.writeFileSync(path.join(repository, "rigs/dev/rig.yaml"), "name: moved\n");
+        fs.writeFileSync(path.join(repository, "software-teams/dev/software-team.yaml"), "name: moved\n");
         git(repository, ["commit", "-am", "moved"]);
         return listed;
       }
@@ -226,7 +226,7 @@ describe("GitHub bundle source", () => {
     };
     const prepared = await prepareGitHubBundle(URL, adapter, path.join(root, "imports"));
     expect(prepared.source.resolvedCommit).toBe(original);
-    expect(fs.readFileSync(path.join(prepared.folder, "rig.yaml"), "utf8")).toBe("name: original\n");
+    expect(fs.readFileSync(path.join(prepared.folder, "software-team.yaml"), "utf8")).toBe("name: original\n");
     expect(git(repository, ["rev-parse", "HEAD"])).not.toBe(original);
   });
 
@@ -244,10 +244,10 @@ describe("GitHub bundle source", () => {
 
   function fixture() {
     const checkoutDir = path.join(root, "source"); fs.mkdirSync(checkoutDir);
-    fs.writeFileSync(path.join(checkoutDir, "rig.yaml"), 'version: "0.2"\nname: sample\npods: []\n');
+    fs.writeFileSync(path.join(checkoutDir, "software-team.yaml"), 'version: "0.2"\nname: sample\npods: []\n');
     fs.writeFileSync(path.join(checkoutDir, "bundle.yaml"), 'compatibility:\n  min_daemon_version: "0.6.6"\n  min_cli_version: "0.6.5"\n');
-    const prepared = { source: selectGitHubBundleSource(URL, refs), folder: checkoutDir, checkoutDir, archivePath: path.join(root, "bundle.rigbundle"), receiptPath: path.join(root, "source.json") };
-    const post = vi.fn(async (_url: string, body: Record<string, unknown>) => ({ status: 201, data: { source: (body.provenance as { source: unknown }).source, configurationId: "build.dev=codex", packageDigest: { value: "digest", coverage: "openrig.package-digest/v1" }, assembler: { openrigVersion: "0.6.6" }, archiveHash: "archive" } }));
+    const prepared = { source: selectGitHubBundleSource(URL, refs), folder: checkoutDir, checkoutDir, archivePath: path.join(root, "bundle.softwareteambundle"), receiptPath: path.join(root, "source.json") };
+    const post = vi.fn(async (_url: string, body: Record<string, unknown>) => ({ status: 201, data: { source: (body.provenance as { source: unknown }).source, configurationId: "build.dev=codex", packageDigest: { value: "digest", coverage: "softwareteam.package-digest/v1" }, assembler: { softwareteamVersion: "0.6.6" }, archiveHash: "archive" } }));
     const client = { get: vi.fn(async () => ({ status: 200, data: { selfHostId: state.remote } })), post } as unknown as DaemonClient;
     const deps = { lifecycleDeps: {}, clientFactory: () => client } as StatusDeps;
     return { prepared, post, deps, prepare: vi.fn(async () => prepared) };
@@ -271,7 +271,7 @@ describe("GitHub bundle source", () => {
     expect(fs.existsSync(path.join(root, "build.json"))).toBe(true);
     expect(result.bundlePath).toBe(f.prepared.archivePath);
     expect(bundleIdentityLines(result.res.data).join("\n")).toContain("excludes bundle.yaml");
-    expect(bundleIdentityLines(result.res.data)).toContain("Assembler: OpenRig 0.6.6");
+    expect(bundleIdentityLines(result.res.data)).toContain("Assembler: SoftwareTeam 0.6.6");
   });
 
   it("retains input after an unknown create outcome and never installs/retries", async () => {

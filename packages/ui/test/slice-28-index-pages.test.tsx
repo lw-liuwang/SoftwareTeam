@@ -1,7 +1,7 @@
 // Slice 28 Checkpoint C — Index page rolled-up-rows regression (HG-9 + HG-10).
 //
 // Pre-slice-28 the index pages grouped entries by source via
-// LibraryTopLevelEntry (workspace / openrig-managed buckets for skills;
+// LibraryTopLevelEntry (workspace / softwareteam-managed buckets for skills;
 // vendored / claude-cache / codex-cache for plugins). Founder-walk
 // feedback: rolled-up flat rows surface ALL entries at a glance + per-row
 // metadata (source / file-count for skills; version / runtimes / source
@@ -74,9 +74,9 @@ describe("SkillsIndexPage — slice 28 HG-9 (rolled-up flat rows)", () => {
           ok: true,
           json: async () =>
             skillNames.map((name) => ({
-              id: `openrig-managed:${name}`,
+              id: `softwareteam-managed:${name}`,
               name,
-              source: "openrig-managed",
+              source: "softwareteam-managed",
               files: [{ name: "SKILL.md", path: "SKILL.md", size: 42, mtime: "2026-05-12T00:00:00.000Z" }],
             })),
         };
@@ -91,14 +91,14 @@ describe("SkillsIndexPage — slice 28 HG-9 (rolled-up flat rows)", () => {
     await waitFor(() => {
       expect(screen.getByTestId("skills-index-rows")).toBeTruthy();
     });
-    expect(screen.getByTestId("skills-index-row-openrig-managed:alpha-skill")).toBeTruthy();
-    expect(screen.getByTestId("skills-index-row-openrig-managed:beta-skill")).toBeTruthy();
+    expect(screen.getByTestId("skills-index-row-softwareteam-managed:alpha-skill")).toBeTruthy();
+    expect(screen.getByTestId("skills-index-row-softwareteam-managed:beta-skill")).toBeTruthy();
   });
 
   it("each row navigates to /specs/skills/$skillToken (anchor with correct href)", async () => {
     mockSkillsFetch(["alpha-skill"]);
     renderSkillsIndex();
-    const id = "openrig-managed:alpha-skill";
+    const id = "softwareteam-managed:alpha-skill";
     await waitFor(() => {
       expect(screen.getByTestId(`skills-index-row-${id}`)).toBeTruthy();
     });
@@ -110,11 +110,11 @@ describe("SkillsIndexPage — slice 28 HG-9 (rolled-up flat rows)", () => {
   it("each row includes source label + file-count columns", async () => {
     mockSkillsFetch(["alpha-skill"]);
     renderSkillsIndex();
-    const id = "openrig-managed:alpha-skill";
+    const id = "softwareteam-managed:alpha-skill";
     await waitFor(() => {
       expect(screen.getByTestId(`skills-index-row-${id}-source`)).toBeTruthy();
     });
-    expect(screen.getByTestId(`skills-index-row-${id}-source`).textContent).toContain("OpenRig managed");
+    expect(screen.getByTestId(`skills-index-row-${id}-source`).textContent).toContain("SoftwareTeam managed");
     expect(screen.getByTestId(`skills-index-row-${id}-filecount`).textContent).toMatch(/1 file/);
   });
 
@@ -126,7 +126,7 @@ describe("SkillsIndexPage — slice 28 HG-9 (rolled-up flat rows)", () => {
     });
     expect(screen.queryByTestId("library-top-level-skills")).toBeNull();
     expect(screen.queryByTestId("library-folder-workspace")).toBeNull();
-    expect(screen.queryByTestId("library-folder-openrig-managed")).toBeNull();
+    expect(screen.queryByTestId("library-folder-softwareteam-managed")).toBeNull();
   });
 
   it("empty state renders when no skills present", async () => {
@@ -165,50 +165,50 @@ describe("PluginsIndexPage — slice 28 HG-10 (rolled-up flat rows)", () => {
 
   it("renders each plugin as a flat row with stable testid", async () => {
     mockPluginsFetch([
-      { id: "openrig-core", name: "openrig-core", version: "0.1.0", runtimes: ["claude", "codex"] },
+      { id: "softwareteam-core", name: "softwareteam-core", version: "0.1.0", runtimes: ["claude", "codex"] },
       { id: "gstack", name: "gstack", version: "0.5.0", runtimes: ["claude"] },
     ]);
     renderPluginsIndex();
     await waitFor(() => {
       expect(screen.getByTestId("plugins-index-rows")).toBeTruthy();
     });
-    expect(screen.getByTestId("plugins-index-row-openrig-core")).toBeTruthy();
+    expect(screen.getByTestId("plugins-index-row-softwareteam-core")).toBeTruthy();
     expect(screen.getByTestId("plugins-index-row-gstack")).toBeTruthy();
   });
 
   it("each row navigates to /plugins/$pluginId (anchor with correct href)", async () => {
-    mockPluginsFetch([{ id: "openrig-core", name: "openrig-core", version: "0.1.0", runtimes: ["claude"] }]);
+    mockPluginsFetch([{ id: "softwareteam-core", name: "softwareteam-core", version: "0.1.0", runtimes: ["claude"] }]);
     renderPluginsIndex();
     await waitFor(() => {
-      expect(screen.getByTestId("plugins-index-row-openrig-core")).toBeTruthy();
+      expect(screen.getByTestId("plugins-index-row-softwareteam-core")).toBeTruthy();
     });
-    const row = screen.getByTestId("plugins-index-row-openrig-core") as HTMLAnchorElement;
+    const row = screen.getByTestId("plugins-index-row-softwareteam-core") as HTMLAnchorElement;
     expect(row.tagName).toBe("A");
-    expect(row.getAttribute("href")).toBe("/plugins/openrig-core");
+    expect(row.getAttribute("href")).toBe("/plugins/softwareteam-core");
   });
 
   it("each row includes version + runtimes + skill-count + source columns (HG-10)", async () => {
     mockPluginsFetch([
       {
-        id: "openrig-core",
-        name: "openrig-core",
+        id: "softwareteam-core",
+        name: "softwareteam-core",
         version: "0.1.0",
         runtimes: ["claude", "codex"],
         source: "vendored",
-        sourceLabel: "vendored:openrig-core",
+        sourceLabel: "vendored:softwareteam-core",
         skillCount: 5,
       },
     ]);
     renderPluginsIndex();
     await waitFor(() => {
-      expect(screen.getByTestId("plugins-index-row-openrig-core-version")).toBeTruthy();
+      expect(screen.getByTestId("plugins-index-row-softwareteam-core-version")).toBeTruthy();
     });
-    expect(screen.getByTestId("plugins-index-row-openrig-core-version").textContent).toBe("v0.1.0");
-    const runtimesEl = screen.getByTestId("plugins-index-row-openrig-core-runtimes");
+    expect(screen.getByTestId("plugins-index-row-softwareteam-core-version").textContent).toBe("v0.1.0");
+    const runtimesEl = screen.getByTestId("plugins-index-row-softwareteam-core-runtimes");
     expect(runtimesEl.textContent).toContain("claude");
     expect(runtimesEl.textContent).toContain("codex");
-    expect(screen.getByTestId("plugins-index-row-openrig-core-skillcount").textContent).toBe("5 skills");
-    expect(screen.getByTestId("plugins-index-row-openrig-core-source").textContent).toContain("vendored");
+    expect(screen.getByTestId("plugins-index-row-softwareteam-core-skillcount").textContent).toBe("5 skills");
+    expect(screen.getByTestId("plugins-index-row-softwareteam-core-source").textContent).toContain("vendored");
   });
 
   it("HG-10 skill-count column singular/plural pluralization", async () => {
@@ -225,7 +225,7 @@ describe("PluginsIndexPage — slice 28 HG-10 (rolled-up flat rows)", () => {
   });
 
   it("DISCRIMINATOR: legacy LibraryTopLevelEntry testids ABSENT in DOM", async () => {
-    mockPluginsFetch([{ id: "openrig-core", name: "openrig-core", version: "0.1.0", runtimes: ["claude"] }]);
+    mockPluginsFetch([{ id: "softwareteam-core", name: "softwareteam-core", version: "0.1.0", runtimes: ["claude"] }]);
     renderPluginsIndex();
     await waitFor(() => {
       expect(screen.getByTestId("plugins-index-rows")).toBeTruthy();
@@ -245,7 +245,7 @@ describe("PluginsIndexPage — slice 28 HG-10 (rolled-up flat rows)", () => {
 
   it("count badge reflects number of plugins", async () => {
     mockPluginsFetch([
-      { id: "openrig-core", name: "openrig-core", version: "0.1.0", runtimes: ["claude"] },
+      { id: "softwareteam-core", name: "softwareteam-core", version: "0.1.0", runtimes: ["claude"] },
       { id: "gstack", name: "gstack", version: "0.5.0", runtimes: ["claude"] },
       { id: "obra-superpowers", name: "obra-superpowers", version: "1.0.0", runtimes: ["claude"] },
     ]);

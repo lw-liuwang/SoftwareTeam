@@ -72,7 +72,7 @@ describe("UI Enhancement Pack v0 — /api/files routes", () => {
       expect(res.status).toBe(200);
       const body = (await res.json()) as { roots: AllowlistRoot[]; hint?: string };
       expect(body.roots).toEqual([]);
-      expect(body.hint).toContain("OPENRIG_FILES_ALLOWLIST");
+      expect(body.hint).toContain("SOFTWARETEAM_FILES_ALLOWLIST");
     });
 
     it("returns the configured roots", async () => {
@@ -238,7 +238,7 @@ describe("UI Enhancement Pack v0 — /api/files routes", () => {
       const expectedContentHash = sha256(readFileSync(target));
       const res = await app.request("/api/files/write", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "cli@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "cli@r" },
         body: JSON.stringify({ root: "workspace", path: "STEERING.md", content: "# via cli\n", expectedMtime, expectedContentHash }),
       });
       expect(res.status).toBe(200);
@@ -254,7 +254,7 @@ describe("UI Enhancement Pack v0 — /api/files routes", () => {
       const expectedContentHash = sha256(readFileSync(target));
       const res = await app.request("/api/files/write", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "cli@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "cli@r" },
         body: JSON.stringify({ root: "workspace", path: "STEERING.md", content: "x", expectedMtime, expectedContentHash, actor: "mallory@r" }), // superseded
       });
       expect(res.status).toBe(200);

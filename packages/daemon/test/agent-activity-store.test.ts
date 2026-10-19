@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { AgentActivityStore, hookEventState, hookMeansNeedsInput, latestHookMovedOn, latestHookPermissionPending, latestHookWaitsOnPerson } from "../src/domain/agent-activity-store.js";
@@ -10,13 +10,13 @@ const NOW = new Date("2026-04-24T12:00:00.000Z");
 
 describe("AgentActivityStore", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let eventBus: EventBus;
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     eventBus = new EventBus(db);
   });
@@ -26,13 +26,13 @@ describe("AgentActivityStore", () => {
   });
 
   function seedSession(runtime: "claude-code" | "codex" = "claude-code") {
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, runtime === "codex" ? "dev.qa" : "dev.impl", { runtime });
-    const sessionName = runtime === "codex" ? "dev-qa@test-rig" : "dev-impl@test-rig";
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, runtime === "codex" ? "dev.qa" : "dev.impl", { runtime });
+    const sessionName = runtime === "codex" ? "dev-qa@test-software-team" : "dev-impl@test-software-team";
     const session = sessionRegistry.registerSession(node.id, sessionName);
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateBinding(node.id, { tmuxSession: sessionName, attachmentType: "tmux" });
-    return { rig, node, session, sessionName };
+    return { softwareTeam, node, session, sessionName };
   }
 
   it.each([
@@ -100,9 +100,9 @@ describe("AgentActivityStore", () => {
   });
 
   it("projects an OMP model/auth error as needs_input until a later turn succeeds", () => {
-    const rig = rigRepo.createRig("omp-rig");
-    const node = rigRepo.addNode(rig.id, "qa.worker", { runtime: "omp" });
-    const sessionName = "qa-worker@omp-rig";
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("omp-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "qa.worker", { runtime: "omp" });
+    const sessionName = "qa-worker@omp-software-team";
     const session = sessionRegistry.registerSession(node.id, sessionName);
     sessionRegistry.updateStatus(session.id, "running");
     const store = new AgentActivityStore({ db, eventBus, now: () => NOW });
@@ -292,13 +292,13 @@ describe("AgentActivityStore", () => {
 // (generation_resolver_error). Ignorance and evidence get different verdicts and must not collapse.
 describe("AgentActivityStore — generation identity (W2a-1)", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let eventBus: EventBus;
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     eventBus = new EventBus(db);
   });
@@ -308,9 +308,9 @@ describe("AgentActivityStore — generation identity (W2a-1)", () => {
   });
 
   function seedGenSession() {
-    const rig = rigRepo.createRig("gen-rig");
-    const node = rigRepo.addNode(rig.id, "dev.qa", { runtime: "codex" });
-    const sessionName = "dev-qa@gen-rig";
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("gen-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { runtime: "codex" });
+    const sessionName = "dev-qa@gen-software-team";
     const session = sessionRegistry.registerSession(node.id, sessionName);
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateBinding(node.id, { tmuxSession: sessionName, attachmentType: "tmux" });

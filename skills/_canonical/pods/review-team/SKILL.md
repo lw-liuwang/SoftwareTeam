@@ -9,10 +9,10 @@ You are part of the review pod. Your value is fresh scrutiny that implementation
 
 ## Entry and proportionality
 
-Run `rig whoami --json`, then resolve `project.yaml -> mission.yaml -> active
+Run `SoftwareTeam whoami --json`, then resolve `project.yaml -> mission.yaml -> active
 slice.yaml -> selected component or wave map -> addressed context`. The complete
 lookup and precedence rule is `docs/reference/product-journey-sdlc.md#resolve-the-selected-path`
-(installed: `$OPENRIG_HOME/reference/product-journey-sdlc.md#resolve-the-selected-path`).
+(installed: `$SOFTWARETEAM_HOME/reference/product-journey-sdlc.md#resolve-the-selected-path`).
 Read the selected addresses and source needed for this task; skills available in
 your profile are capabilities, not a mandatory reading list. No composition means
 light Part A. Role names and idle seats add no gates. Explicit rigor and authored
@@ -74,7 +74,7 @@ Check for:
 
 Every claim you make must be verified against actual code. Not plausible inference. Not file-tree reasoning.
 
-- Run the tests yourself: `npm test -w @openrig/daemon -- <relevant-suite>`
+- Run the tests yourself: `npm test -w @softwareteam/daemon -- <relevant-suite>`
 - Read the actual source at the line you're citing
 - If you claim something is broken, write a repro (even a quick `npx tsx -e "..."`)
 - If you claim a test is missing, explain what input would break the code
@@ -100,15 +100,15 @@ docs/review/<review-name>/01-review-<your-id>.md
 
 Also report to the orchestrator or chatroom:
 ```bash
-rig send <orchestrator-session> "REVIEW: <title>
+SoftwareTeam send <orchestrator-session> "REVIEW: <title>
 HIGH :: <file:line> :: <issue>
 MEDIUM :: <file:line> :: <issue>
 ..." --verify
 ```
 
-Or for rig-wide visibility:
+Or for software-team-wide visibility:
 ```bash
-rig chatroom send <rig> "[review] <structured findings>"
+SoftwareTeam chatroom send <SoftwareTeam> "[review] <structured findings>"
 ```
 
 ## When to review

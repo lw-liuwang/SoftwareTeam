@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { Hono } from "hono";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { AgentActivityStore } from "../src/domain/agent-activity-store.js";
@@ -27,9 +27,9 @@ function fixture(
 ) {
   const db = createFullTestDb();
   cleanups.push(() => db.close());
-  const rigs = new RigRepository(db);
-  const rig = rigs.createRig("retirement-hooks");
-  const node = rigs.addNode(rig.id, "dev.a", { runtime: "claude-code" });
+  const softwareTeams = new SoftwareTeamRepository(db);
+  const softwareTeam = softwareTeams.createSoftwareTeam("retirement-hooks");
+  const node = softwareTeams.addNode(softwareTeam.id, "dev.a", { runtime: "claude-code" });
   const sessions = new SessionRegistry(db);
   const session = sessions.registerSession(node.id, "dev-a@retirement-hooks");
   sessions.updateStatus(session.id, "running");
@@ -58,7 +58,7 @@ function fixture(
     const after = db.prepare("SELECT COUNT(*) AS n FROM events WHERE type = 'agent.activity'").get() as { n: number };
     expect(after.n).toBe(count.n + 1); // late reports remain archival records
   }
-  return { db, rig, rigs, node, sessions, session, oracle, hook, store, generation, eventBus, app };
+  return { db, softwareTeam, softwareTeams, node, sessions, session, oracle, hook, store, generation, eventBus, app };
 }
 
 describe("retired hook evidence through the real HTTP route", () => {
@@ -86,7 +86,7 @@ describe("retired hook evidence through the real HTTP route", () => {
     const discovery = new DiscoveryRepository(f.db);
     f.db.prepare("INSERT INTO discovered_sessions (id, tmux_session, tmux_pane, runtime_hint, confidence) VALUES (?, ?, ?, ?, ?)")
       .run("successor-discovery", successor, pane, "claude-code", "high");
-    const claim = new ClaimService({ db: f.db, rigRepo: f.rigs, sessionRegistry: f.sessions,
+    const claim = new ClaimService({ db: f.db, softwareTeamRepo: f.softwareTeams, sessionRegistry: f.sessions,
       discoveryRepo: discovery, eventBus: f.eventBus, tmuxAdapter: adapter });
     f.app.use("/api/discovery/*", async (c, next) => {
       c.set("claimService" as never, claim as never);
@@ -95,7 +95,7 @@ describe("retired hook evidence through the real HTTP route", () => {
     f.app.route("/api/discovery", discoveryRoutes);
     const adoption = await f.app.request("/api/discovery/successor-discovery/adopt", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: f.rig.id, target: { kind: "node", logicalId: "dev.a" } }),
+      body: JSON.stringify({ softwareTeamId: f.softwareTeam.id, target: { kind: "node", logicalId: "dev.a" } }),
     });
     expect(adoption.status).toBe(201);
     expect((await adoption.json()).ok).toBe(true);

@@ -25,7 +25,7 @@ async function runRecapWrite(argv: string[]): Promise<{ logs: string[]; errLogs:
     const program = new Command();
     program.exitOverride();
     program.addCommand(contextCommand());
-    await program.parseAsync(["node", "rig", "context", ...argv]);
+    await program.parseAsync(["node", "softwareTeam", "context", ...argv]);
   } catch { /* commander exitOverride */ } finally {
     exitCode = process.exitCode;
     console.log = origLog;
@@ -35,145 +35,145 @@ async function runRecapWrite(argv: string[]): Promise<{ logs: string[]; errLogs:
   return { logs, errLogs, exitCode };
 }
 
-describe("rig context recap-write — the boundary write verb", () => {
+describe("SoftwareTeam context recap-write — the boundary write verb", () => {
   it("writes RECAP.md to the topology seat dir, supersedes into the chain, and echoes advisory findings on stderr", async () => {
     const tmp = mkdtempSync(join(tmpdir(), "s05-recap-verb-"));
-    const saved = process.env["OPENRIG_TOPOLOGY_ROOT"];
+    const saved = process.env["SOFTWARETEAM_TOPOLOGY_ROOT"];
     try {
-      process.env["OPENRIG_TOPOLOGY_ROOT"] = join(tmp, "topology");
-      mkdirSync(join(tmp, "topology", "rigs", "r1", "seats", "s1"), { recursive: true });
+      process.env["SOFTWARETEAM_TOPOLOGY_ROOT"] = join(tmp, "topology");
+      mkdirSync(join(tmp, "topology", "software-teams", "r1", "seats", "s1"), { recursive: true });
       const f1 = join(tmp, "era1.md");
       writeFileSync(f1, "## Recent Decisions\nchose X because Y");
-      const first = await runRecapWrite(["recap-write", "--rig", "r1", "--seat", "s1", "--file", f1]);
+      const first = await runRecapWrite(["recap-write", "--software-team", "r1", "--seat", "s1", "--file", f1]);
       expect(first.exitCode ?? 0).toBe(0);
-      const seatDir = join(tmp, "topology", "rigs", "r1", "seats", "s1");
+      const seatDir = join(tmp, "topology", "software-teams", "r1", "seats", "s1");
       expect(readFileSync(join(seatDir, "RECAP.md"), "utf-8")).toContain("chose X because Y");
       // Second write supersedes; content missing a decisions section draws the
       // ADVISORY finding on stderr but still lands (never gated on prose).
       const f2 = join(tmp, "era2.md");
       writeFileSync(f2, "## Status\nall done");
-      const second = await runRecapWrite(["recap-write", "--rig", "r1", "--seat", "s1", "--file", f2]);
+      const second = await runRecapWrite(["recap-write", "--software-team", "r1", "--seat", "s1", "--file", f2]);
       expect(second.exitCode ?? 0).toBe(0);
       expect(readFileSync(join(seatDir, "RECAP.md"), "utf-8")).toContain("all done");
       expect(readdirSync(join(seatDir, "recap-superseded"))).toHaveLength(1);
       expect(second.errLogs.join("\n")).toMatch(/decisions/i);
     } finally {
-      if (saved === undefined) delete process.env["OPENRIG_TOPOLOGY_ROOT"];
-      else process.env["OPENRIG_TOPOLOGY_ROOT"] = saved;
+      if (saved === undefined) delete process.env["SOFTWARETEAM_TOPOLOGY_ROOT"];
+      else process.env["SOFTWARETEAM_TOPOLOGY_ROOT"] = saved;
       rmSync(tmp, { recursive: true, force: true });
     }
   });
 
-  it("provisions a missing seat directory beneath an existing topology rig", async () => {
+  it("provisions a missing seat directory beneath an existing topology softwareTeam", async () => {
     const tmp = mkdtempSync(join(tmpdir(), "s06-recap-provision-"));
-    const saved = process.env["OPENRIG_TOPOLOGY_ROOT"];
+    const saved = process.env["SOFTWARETEAM_TOPOLOGY_ROOT"];
     try {
-      process.env["OPENRIG_TOPOLOGY_ROOT"] = join(tmp, "topology");
-      const rigDir = join(tmp, "topology", "rigs", "r1");
-      const seatDir = join(rigDir, "seats", "s1");
-      mkdirSync(rigDir, { recursive: true });
+      process.env["SOFTWARETEAM_TOPOLOGY_ROOT"] = join(tmp, "topology");
+      const softwareTeamDir = join(tmp, "topology", "software-teams", "r1");
+      const seatDir = join(softwareTeamDir, "seats", "s1");
+      mkdirSync(softwareTeamDir, { recursive: true });
       expect(existsSync(seatDir)).toBe(false);
       const recap = join(tmp, "recap.md");
       writeFileSync(recap, "## Recent Decisions\nchose provisioning because manual mkdir is not a product path");
 
-      const res = await runRecapWrite(["recap-write", "--rig", "r1", "--seat", "s1", "--file", recap]);
+      const res = await runRecapWrite(["recap-write", "--software-team", "r1", "--seat", "s1", "--file", recap]);
 
       expect(res.exitCode ?? 0).toBe(0);
       expect(readFileSync(join(seatDir, "RECAP.md"), "utf-8")).toContain("chose provisioning");
       writeFileSync(recap, "## Recent Decisions\nkept the supported store path because it preserves the chain");
-      const second = await runRecapWrite(["recap-write", "--rig", "r1", "--seat", "s1", "--file", recap]);
+      const second = await runRecapWrite(["recap-write", "--software-team", "r1", "--seat", "s1", "--file", recap]);
       expect(second.exitCode ?? 0).toBe(0);
       expect(readFileSync(join(seatDir, "RECAP.md"), "utf-8")).toContain("preserves the chain");
       expect(readdirSync(join(seatDir, "recap-superseded"))).toHaveLength(1);
     } finally {
-      if (saved === undefined) delete process.env["OPENRIG_TOPOLOGY_ROOT"];
-      else process.env["OPENRIG_TOPOLOGY_ROOT"] = saved;
+      if (saved === undefined) delete process.env["SOFTWARETEAM_TOPOLOGY_ROOT"];
+      else process.env["SOFTWARETEAM_TOPOLOGY_ROOT"] = saved;
       rmSync(tmp, { recursive: true, force: true });
     }
   });
 
-  it("refuses a missing rig instead of manufacturing an arbitrary topology", async () => {
-    const tmp = mkdtempSync(join(tmpdir(), "s06-recap-missing-rig-"));
-    const saved = process.env["OPENRIG_TOPOLOGY_ROOT"];
+  it("refuses a missing SoftwareTeam instead of manufacturing an arbitrary topology", async () => {
+    const tmp = mkdtempSync(join(tmpdir(), "s06-recap-missing-software-team-"));
+    const saved = process.env["SOFTWARETEAM_TOPOLOGY_ROOT"];
     try {
-      process.env["OPENRIG_TOPOLOGY_ROOT"] = join(tmp, "topology");
+      process.env["SOFTWARETEAM_TOPOLOGY_ROOT"] = join(tmp, "topology");
       const recap = join(tmp, "recap.md");
       writeFileSync(recap, "## Recent Decisions\nnone");
 
-      const res = await runRecapWrite(["recap-write", "--rig", "missing", "--seat", "s1", "--file", recap]);
+      const res = await runRecapWrite(["recap-write", "--software-team", "missing", "--seat", "s1", "--file", recap]);
 
       expect(res.exitCode).toBe(1);
-      expect(res.errLogs.join("\n")).toMatch(/rig.*does not exist|topology/i);
-      expect(existsSync(join(tmp, "topology", "rigs", "missing"))).toBe(false);
+      expect(res.errLogs.join("\n")).toMatch(/softwareTeam.*does not exist|topology/i);
+      expect(existsSync(join(tmp, "topology", "software-teams", "missing"))).toBe(false);
     } finally {
-      if (saved === undefined) delete process.env["OPENRIG_TOPOLOGY_ROOT"];
-      else process.env["OPENRIG_TOPOLOGY_ROOT"] = saved;
+      if (saved === undefined) delete process.env["SOFTWARETEAM_TOPOLOGY_ROOT"];
+      else process.env["SOFTWARETEAM_TOPOLOGY_ROOT"] = saved;
       rmSync(tmp, { recursive: true, force: true });
     }
   });
 
-  it("refuses unsafe rig or seat path segments before provisioning", async () => {
+  it("refuses unsafe SoftwareTeam or seat path segments before provisioning", async () => {
     const tmp = mkdtempSync(join(tmpdir(), "s06-recap-path-guard-"));
-    const saved = process.env["OPENRIG_TOPOLOGY_ROOT"];
+    const saved = process.env["SOFTWARETEAM_TOPOLOGY_ROOT"];
     try {
-      process.env["OPENRIG_TOPOLOGY_ROOT"] = join(tmp, "topology");
-      mkdirSync(join(tmp, "topology", "rigs", "r1"), { recursive: true });
+      process.env["SOFTWARETEAM_TOPOLOGY_ROOT"] = join(tmp, "topology");
+      mkdirSync(join(tmp, "topology", "software-teams", "r1"), { recursive: true });
       const recap = join(tmp, "recap.md");
       writeFileSync(recap, "## Recent Decisions\nnone");
 
-      const res = await runRecapWrite(["recap-write", "--rig", "r1", "--seat", "../escape", "--file", recap]);
+      const res = await runRecapWrite(["recap-write", "--software-team", "r1", "--seat", "../escape", "--file", recap]);
 
       expect(res.exitCode).toBe(1);
       expect(res.errLogs.join("\n")).toMatch(/unsafe|segment/i);
-      expect(existsSync(join(tmp, "topology", "rigs", "r1", "escape"))).toBe(false);
+      expect(existsSync(join(tmp, "topology", "software-teams", "r1", "escape"))).toBe(false);
     } finally {
-      if (saved === undefined) delete process.env["OPENRIG_TOPOLOGY_ROOT"];
-      else process.env["OPENRIG_TOPOLOGY_ROOT"] = saved;
+      if (saved === undefined) delete process.env["SOFTWARETEAM_TOPOLOGY_ROOT"];
+      else process.env["SOFTWARETEAM_TOPOLOGY_ROOT"] = saved;
       rmSync(tmp, { recursive: true, force: true });
     }
   });
 
   it("refuses to provision through a symlinked topology namespace", async () => {
     const tmp = mkdtempSync(join(tmpdir(), "s06-recap-symlink-guard-"));
-    const saved = process.env["OPENRIG_TOPOLOGY_ROOT"];
+    const saved = process.env["SOFTWARETEAM_TOPOLOGY_ROOT"];
     try {
-      process.env["OPENRIG_TOPOLOGY_ROOT"] = join(tmp, "topology");
-      const rigDir = join(tmp, "topology", "rigs", "r1");
+      process.env["SOFTWARETEAM_TOPOLOGY_ROOT"] = join(tmp, "topology");
+      const softwareTeamDir = join(tmp, "topology", "software-teams", "r1");
       const outside = join(tmp, "outside");
-      mkdirSync(rigDir, { recursive: true });
+      mkdirSync(softwareTeamDir, { recursive: true });
       mkdirSync(outside);
-      symlinkSync(outside, join(rigDir, "seats"));
+      symlinkSync(outside, join(softwareTeamDir, "seats"));
       const recap = join(tmp, "recap.md");
       writeFileSync(recap, "## Recent Decisions\nnone");
 
-      const res = await runRecapWrite(["recap-write", "--rig", "r1", "--seat", "s1", "--file", recap]);
+      const res = await runRecapWrite(["recap-write", "--software-team", "r1", "--seat", "s1", "--file", recap]);
 
       expect(res.exitCode).toBe(1);
       expect(res.errLogs.join("\n")).toMatch(/symlink|escape|unsafe/i);
       expect(existsSync(join(outside, "s1"))).toBe(false);
     } finally {
-      if (saved === undefined) delete process.env["OPENRIG_TOPOLOGY_ROOT"];
-      else process.env["OPENRIG_TOPOLOGY_ROOT"] = saved;
+      if (saved === undefined) delete process.env["SOFTWARETEAM_TOPOLOGY_ROOT"];
+      else process.env["SOFTWARETEAM_TOPOLOGY_ROOT"] = saved;
       rmSync(tmp, { recursive: true, force: true });
     }
   });
 
   it("the addressability gate refuses LOUD and leaves nothing behind", async () => {
     const tmp = mkdtempSync(join(tmpdir(), "s05-recap-verb2-"));
-    const saved = process.env["OPENRIG_TOPOLOGY_ROOT"];
+    const saved = process.env["SOFTWARETEAM_TOPOLOGY_ROOT"];
     try {
-      process.env["OPENRIG_TOPOLOGY_ROOT"] = join(tmp, "topology");
-      const seatDir = join(tmp, "topology", "rigs", "r1", "seats", "s1");
+      process.env["SOFTWARETEAM_TOPOLOGY_ROOT"] = join(tmp, "topology");
+      const seatDir = join(tmp, "topology", "software-teams", "r1", "seats", "s1");
       mkdirSync(seatDir, { recursive: true });
       const bad = join(tmp, "bad.md");
       writeFileSync(bad, "## Same\na\n## Same\nb");
-      const res = await runRecapWrite(["recap-write", "--rig", "r1", "--seat", "s1", "--file", bad]);
+      const res = await runRecapWrite(["recap-write", "--software-team", "r1", "--seat", "s1", "--file", bad]);
       expect(res.exitCode).toBe(1);
       expect(res.errLogs.join("\n")).toMatch(/addressab|duplicate/i);
       expect(existsSync(join(seatDir, "RECAP.md"))).toBe(false);
     } finally {
-      if (saved === undefined) delete process.env["OPENRIG_TOPOLOGY_ROOT"];
-      else process.env["OPENRIG_TOPOLOGY_ROOT"] = saved;
+      if (saved === undefined) delete process.env["SOFTWARETEAM_TOPOLOGY_ROOT"];
+      else process.env["SOFTWARETEAM_TOPOLOGY_ROOT"] = saved;
       rmSync(tmp, { recursive: true, force: true });
     }
   });

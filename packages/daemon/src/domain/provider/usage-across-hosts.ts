@@ -258,7 +258,7 @@ export function selectUsageHosts(deps: Pick<UsageHostsDeps, "loadRegistry" | "se
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
-// The checks below cover every field the CLI (`rig provider status --all-hosts`) and the TUI draw from a host's rows
+// The checks below cover every field the CLI (`softwareTeam provider status --all-hosts`) and the TUI draw from a host's rows
 // and seats, by the types in provider-types.ts. A field a renderer reads is a typed primitive, null or absent where the
 // type allows, or an array or record of them, so nothing that reaches a template string or a join can throw or print
 // "undefined". Fields no renderer reads aren't checked; they're served as the host sent them (scrubbed, bounded).
@@ -339,7 +339,7 @@ const seatConfiguration: Check = (v) =>
 /** A served seat account with every field the views read, typed as provider-types.ts says. */
 export const isSeat = record({
   seatSession: str,
-  rigName: str,
+  softwareTeamName: str,
   runtime: str,
   configured: seatConfiguration,
   registryNotes: optional(listOf(str)),

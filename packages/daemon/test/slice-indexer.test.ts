@@ -79,7 +79,7 @@ describe("PL-slice-story-view-v0 SliceIndexer", () => {
   beforeEach(() => {
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, streamItemsSchema, queueItemsSchema]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     const dirs = makeTempDirs();
     slicesRoot = dirs.slicesRoot;
     dogfoodRoot = dirs.dogfoodRoot;
@@ -248,13 +248,13 @@ describe("PL-slice-story-view-v0 SliceIndexer", () => {
   describe("workflow_spec frontmatter", () => {
     it("parses workflow_spec: <name>@<version> from frontmatter onto SliceRecord + SliceListEntry", () => {
       writeSlice(slicesRoot, "topo-slice", {
-        "README.md": "---\nstatus: active\nworkflow_spec: openrig-velocity@1.0\n---\n# Topo\n",
+        "README.md": "---\nstatus: active\nworkflow_spec: softwareteam-velocity@1.0\n---\n# Topo\n",
       });
       const indexer = new SliceIndexer({ slicesRoot, dogfoodEvidenceRoot: null, db });
       const list = indexer.list();
-      expect(list[0]!.workflowSpec).toEqual({ name: "openrig-velocity", version: "1.0" });
+      expect(list[0]!.workflowSpec).toEqual({ name: "softwareteam-velocity", version: "1.0" });
       const record = indexer.get("topo-slice")!;
-      expect(record.workflowSpec).toEqual({ name: "openrig-velocity", version: "1.0" });
+      expect(record.workflowSpec).toEqual({ name: "softwareteam-velocity", version: "1.0" });
     });
 
     it("returns workflowSpec: null when the frontmatter field is absent", () => {
@@ -605,7 +605,7 @@ describe("qitem-ccf87c0d — mission-index load contract + membership pins", () 
   beforeEach(() => {
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, streamItemsSchema, queueItemsSchema]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     cleanup = fs.mkdtempSync(path.join(os.tmpdir(), "slice-indexer-load-"));
     missionsRoot = path.join(cleanup, "missions");
     fs.mkdirSync(missionsRoot, { recursive: true });
@@ -795,7 +795,7 @@ describe("qitem-ccf87c0d — LIKE byte-equivalence + fallback-order pins (guard 
   beforeEach(() => {
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, streamItemsSchema, queueItemsSchema]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     cleanup = fs.mkdtempSync(path.join(os.tmpdir(), "slice-indexer-eqv-"));
   });
 
@@ -851,7 +851,7 @@ describe("qitem-ccf87c0d — LIKE '_' Unicode code-point parity (guard blocker p
   beforeEach(() => {
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, streamItemsSchema, queueItemsSchema]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     cleanup = fs.mkdtempSync(path.join(os.tmpdir(), "slice-indexer-cp-"));
   });
 
@@ -884,7 +884,7 @@ describe("qitem-18f3300d — NUL parity + cross-operation membership freshness (
   beforeEach(() => {
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, streamItemsSchema, queueItemsSchema]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     cleanup = fs.mkdtempSync(path.join(os.tmpdir(), "slice-indexer-gate2-"));
   });
 
@@ -963,7 +963,7 @@ describe("qitem-ccf87c0d — withMembershipBatch scope API (RED: API missing)", 
   beforeEach(() => {
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, streamItemsSchema, queueItemsSchema]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     cleanup = fs.mkdtempSync(path.join(os.tmpdir(), "slice-indexer-scope-"));
   });
 
@@ -1097,7 +1097,7 @@ describe("qitem-render-driver #3 — modern mission: mission-only rows must not 
   beforeEach(() => {
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, streamItemsSchema, queueItemsSchema]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     cleanup = fs.mkdtempSync(path.join(os.tmpdir(), "slice-indexer-leak-"));
     missionsRoot = path.join(cleanup, "missions");
     fs.mkdirSync(missionsRoot, { recursive: true });
@@ -1241,7 +1241,7 @@ describe("qitem-18110994 — membership build integrity + scoping", () => {
   beforeEach(() => {
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, streamItemsSchema, queueItemsSchema]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     cleanup = fs.mkdtempSync(path.join(os.tmpdir(), "slice-indexer-harden-"));
     missionsRoot = path.join(cleanup, "missions");
     fs.mkdirSync(missionsRoot, { recursive: true });

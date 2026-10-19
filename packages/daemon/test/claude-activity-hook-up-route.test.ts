@@ -1,6 +1,6 @@
 // OPR activity-hook r3 Part 3 — route altitude: the managed-activity-hook delivery-gap warning
 // must cross the REAL /api/up route. An apply of a claude-code member that selects
-// claude_activity_hooks with the delivery assets unavailable must SUCCEED (rc0 — rigId returned,
+// claude_activity_hooks with the delivery assets unavailable must SUCCEED (rc0 — softwareTeamId returned,
 // no hard failure) AND carry the exact nonfatal warning in the response body.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -26,7 +26,7 @@ profiles:
       runtime_resources: [claude-activity-hooks]
 `;
 
-const RIG_YAML = `version: "0.2"
+const SOFTWARE_TEAM_YAML = `version: "0.2"
 name: activity-warn-route
 pods:
   - id: dev
@@ -74,8 +74,8 @@ describe("/api/up — managed activity-hook delivery-gap warning crosses the rou
       podInstantiatorFsOps: { exists: (p: string) => fs.existsSync(p), readFile: (p: string) => fs.readFileSync(p, "utf-8") },
       claudeActivityAssets: { relayPath: "/nope/relay.cjs", manifestPath: "/nope/claude.json" },
     });
-    const specPath = path.join(specDir, "rig.yaml");
-    fs.writeFileSync(specPath, RIG_YAML);
+    const specPath = path.join(specDir, "software-team.yaml");
+    fs.writeFileSync(specPath, SOFTWARE_TEAM_YAML);
 
     const res = await app.request("/api/up", {
       method: "POST",
@@ -84,9 +84,9 @@ describe("/api/up — managed activity-hook delivery-gap warning crosses the rou
     });
     const body = await res.json();
 
-    // rc0: the apply SUCCEEDED (a rigId came back) — the delivery gap did not gate startup.
+    // rc0: the apply SUCCEEDED (a softwareTeamId came back) — the delivery gap did not gate startup.
     expect(res.status, JSON.stringify(body)).toBeLessThan(400);
-    expect(body.rigId, JSON.stringify(body)).toBeDefined();
+    expect(body.softwareTeamId, JSON.stringify(body)).toBeDefined();
     // The exact nonfatal warning crossed the route.
     const warnings: string[] = body.warnings ?? [];
     expect(warnings.some((w) => /managed Claude activity hooks cannot be delivered/.test(w)), JSON.stringify(body)).toBe(true);

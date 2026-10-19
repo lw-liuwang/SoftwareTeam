@@ -21,12 +21,12 @@ import { WorkflowRuntime } from "../src/domain/workflow-runtime.js";
 /**
  * PRD § Acceptance Criteria load-bearing case (Phase D):
  *   "A workflow instance with three steps, instantiated and run by
- *    three different rigs, completes with a continuous step trail and
+ *    three different softwareTeams, completes with a continuous step trail and
  *    no orphaned packets."
  *
- * This test simulates the three different rigs by using three
- * different actor sessions on canonical rig names; the daemon
- * doesn't gate this test on rig topology being live.
+ * This test simulates the three different softwareTeams by using three
+ * different actor sessions on canonical softwareTeam names; the daemon
+ * doesn't gate this test on softwareTeam topology being live.
  */
 
 const SPEC = `workflow:
@@ -38,13 +38,13 @@ const SPEC = `workflow:
   roles:
     discovery:
       preferred_targets:
-        - discovery@rig-discovery
+        - discovery@software-team-discovery
     productlab:
       preferred_targets:
-        - productlab@rig-productlab
+        - productlab@software-team-productlab
     delivery:
       preferred_targets:
-        - delivery@rig-delivery
+        - delivery@software-team-delivery
   steps:
     - id: discover
       actor_role: discovery
@@ -82,8 +82,8 @@ describe("workflow cross-loop three-step (PL-004 Phase D PRD acceptance)", () =>
       workflowSpecsSchema, workflowInstancesSchema, workflowStepTrailsSchema,
     ]);
     bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
@@ -105,7 +105,7 @@ describe("workflow cross-loop three-step (PL-004 Phase D PRD acceptance)", () =>
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "ship feature X",
-      createdBySession: "orchestrator@rig-orch",
+      createdBySession: "orchestrator@software-team-orch",
     });
     expect(inst.instance.status).toBe("active");
 
@@ -114,11 +114,11 @@ describe("workflow cross-loop three-step (PL-004 Phase D PRD acceptance)", () =>
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "handoff",
-      actorSession: "discovery@rig-discovery",
+      actorSession: "discovery@software-team-discovery",
       resultNote: "discovered intent",
     });
     expect(projected.nextStepId).toBe("shape");
-    expect(projected.nextOwnerSession).toBe("productlab@rig-productlab");
+    expect(projected.nextOwnerSession).toBe("productlab@software-team-productlab");
     const step2QitemId = projected.nextQitemId!;
 
     // Step 2 (productlab)
@@ -126,11 +126,11 @@ describe("workflow cross-loop three-step (PL-004 Phase D PRD acceptance)", () =>
       instanceId: inst.instance.instanceId,
       currentPacketId: step2QitemId,
       exit: "handoff",
-      actorSession: "productlab@rig-productlab",
+      actorSession: "productlab@software-team-productlab",
       resultNote: "shaped slice",
     });
     expect(projected.nextStepId).toBe("deliver");
-    expect(projected.nextOwnerSession).toBe("delivery@rig-delivery");
+    expect(projected.nextOwnerSession).toBe("delivery@software-team-delivery");
     const step3QitemId = projected.nextQitemId!;
 
     // Step 3 (delivery; terminal)
@@ -138,7 +138,7 @@ describe("workflow cross-loop three-step (PL-004 Phase D PRD acceptance)", () =>
       instanceId: inst.instance.instanceId,
       currentPacketId: step3QitemId,
       exit: "done",
-      actorSession: "delivery@rig-delivery",
+      actorSession: "delivery@software-team-delivery",
       resultNote: "shipped",
     });
     expect(projected.instance.status).toBe("completed");

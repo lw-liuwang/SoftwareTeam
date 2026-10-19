@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { ContextMonitor } from "../src/domain/context-monitor.js";
@@ -26,22 +26,22 @@ describe("ContextMonitor readiness ownership", () => {
   let db: Database.Database;
   let registry: SessionRegistry;
   let events: EventBus;
-  let repo: RigRepository;
+  let repo: SoftwareTeamRepository;
   let home: string;
   beforeEach(() => {
-    db = createFullTestDb(); registry = new SessionRegistry(db); events = new EventBus(db); repo = new RigRepository(db);
+    db = createFullTestDb(); registry = new SessionRegistry(db); events = new EventBus(db); repo = new SoftwareTeamRepository(db);
     home = mkdtempSync(join(tmpdir(), "readiness-race-"));
   });
   afterEach(() => { db.close(); rmSync(home, { recursive: true, force: true }); });
 
   function seed(runtime = "claude-code", name = "dev-agent@fixture") {
-    const rig = repo.createRig(name);
-    const node = repo.addNode(rig.id, "agent", { runtime });
+    const softwareTeam = repo.createSoftwareTeam(name);
+    const node = repo.addNode(softwareTeam.id, "agent", { runtime });
     const session = registry.registerSession(node.id, name);
     registry.updateStatus(session.id, "running");
     registry.updateStartupStatus(session.id, "failed");
     registry.updateBinding(node.id, { tmuxSession: name, tmuxPane: "%11" });
-    return { rig, node, session };
+    return { softwareTeam, node, session };
   }
   function makeMonitor(runtime: string, checkReady: (binding: NodeBinding) => Promise<ReadinessResult>) {
     return new ContextMonitor(db, new ContextUsageStore(db, { stateDir: home, codexHomeDir: home }),
@@ -55,7 +55,7 @@ describe("ContextMonitor readiness ownership", () => {
     ["replacement", "generation", "pane", "window", "binding session", "clear binding", "external", "exited", "pending", "ready", "new failed attempt"]
       .map(change => ({ runtime, ready, change })))))("discards $runtime ready=$ready after $change", async ({ runtime, ready, change }) => {
     const result: ReadinessResult = ready ? { ready: true } : blocked;
-    const { rig, node, session } = seed(runtime);
+    const { softwareTeam, node, session } = seed(runtime);
     const gate = deferred<ReadinessResult>(); const entered = deferred<void>();
     const check = vi.fn(() => { entered.resolve(); return gate.promise; });
     const monitor = makeMonitor(runtime, check);
@@ -70,8 +70,8 @@ describe("ContextMonitor readiness ownership", () => {
     if (change === "exited") registry.updateStatus(session.id, "exited");
     if (change === "pending" || change === "ready") registry.updateStartupStatus(session.id, change);
     if (change === "new failed attempt") {
-      events.emit({ type: "node.startup_pending", rigId: rig.id, nodeId: node.id });
-      events.emit({ type: "node.startup_failed", rigId: rig.id, nodeId: node.id, sessionId: session.id, error: "new attempt failed" });
+      events.emit({ type: "node.startup_pending", softwareTeamId: softwareTeam.id, nodeId: node.id });
+      events.emit({ type: "node.startup_failed", softwareTeamId: softwareTeam.id, nodeId: node.id, sessionId: session.id, error: "new attempt failed" });
     }
     const rows = () => db.prepare("SELECT id, status, startup_status, startup_completed_at FROM sessions ORDER BY id").all();
     const before = rows();
@@ -93,7 +93,7 @@ describe("ContextMonitor readiness ownership", () => {
   });
 
   it.each(["pending", "ready", "failed"] as const)("a delayed probe cannot overwrite a real startup retry at %s", async status => {
-    const { rig, node, session } = seed();
+    const { softwareTeam, node, session } = seed();
     const tmux = {
       sendText: vi.fn(async () => ({ ok: true })), sendKeys: vi.fn(async () => ({ ok: true })),
       capturePaneContent: vi.fn(async () => "❯ \n────────────────────\n⏵⏵ accept edits on (shift+tab to cycle)\n"),
@@ -105,7 +105,7 @@ describe("ContextMonitor readiness ownership", () => {
       launchHarness: vi.fn(async () => ({ ok: true })), checkReady: vi.fn(async () => ({ ready: true })),
     };
     const input: StartupInput = {
-      rigId: rig.id, nodeId: node.id, sessionId: session.id,
+      softwareTeamId: softwareTeam.id, nodeId: node.id, sessionId: session.id,
       binding: { ...registry.getBindingForNode(node.id)!, cwd: home }, adapter, isRestore: false,
       plan: { runtime: "claude-code", cwd: home, entries: [], startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [] },
       resolvedStartupFiles: [], startupActions: [{ type: "send_text", value: "fixture role", phase: "after_ready", appliesOn: ["fresh_start"], idempotent: true }],
@@ -145,7 +145,7 @@ describe("ContextMonitor readiness ownership", () => {
 
   it.each(["claude-code", "codex"].flatMap(runtime => [true, false].map(ready => ({ runtime, ready }))))(
     "probes the recorded $runtime session despite a lasting binding mismatch (ready=$ready)", async ({ runtime, ready }) => {
-      const { rig, node, session } = seed(runtime);
+      const { softwareTeam, node, session } = seed(runtime);
       registry.updateBinding(node.id, { tmuxSession: "dev-other@fixture" });
       const binding = registry.getBindingForNode(node.id);
       const check = vi.fn(async () => ready ? { ready: true } as const : blocked);
@@ -153,7 +153,7 @@ describe("ContextMonitor readiness ownership", () => {
 
       await monitor.pollOnce();
       expect(state(session.id)).toMatchObject({ status: "running", startup_status: ready ? "ready" : "attention_required" });
-      const inventory = getNodeInventory(db, rig.id);
+      const inventory = getNodeInventory(db, softwareTeam.id);
       expect(inventory).toMatchObject([{ nodeId: node.id, startupStatus: ready ? "ready" : "attention_required" }]);
       expect(compactNodeProjection(inventory)).toMatchObject([{ startupStatus: ready ? "ready" : "attention_required" }]);
       expect(check).toHaveBeenCalledWith(expect.objectContaining({ nodeId: node.id, tmuxSession: session.sessionName }));

@@ -13,7 +13,7 @@ function getEventBus(c: { get: (key: string) => unknown }): EventBus {
 }
 
 eventsRoute.get("/", (c) => {
-  const rigId = c.req.query("rigId"); // Optional — omit for global stream
+  const softwareTeamId = c.req.query("softwareTeamId"); // Optional — omit for global stream
   // `?replay=<n>` asks for the newest n events (0: none); `all`, no `replay` or any other value, the whole log, as before
   // the parameter existed.
   const replay = c.req.query("replay");
@@ -33,10 +33,10 @@ eventsRoute.get("/", (c) => {
 
     // 1. Subscribe to live bus BEFORE replay query (no gap)
     const unsubscribe = eventBus.subscribe((event) => {
-      // Rig-scoped: filter by rigId. Global: accept all events.
-      if (rigId) {
-        const eventRigId = "rigId" in event ? (event as { rigId: string }).rigId : null;
-        if (eventRigId !== rigId) return;
+      // SoftwareTeam-scoped: filter by softwareTeamId. Global: accept all events.
+      if (softwareTeamId) {
+        const eventSoftwareTeamId = "softwareTeamId" in event ? (event as { softwareTeamId: string }).softwareTeamId : null;
+        if (eventSoftwareTeamId !== softwareTeamId) return;
       }
       if (replaying) {
         buffer.push(event);
@@ -56,15 +56,15 @@ eventsRoute.get("/", (c) => {
       // Last-Event-ID, `?replay=<n>` replays the newest n (0: from now on), the whole log when it holds no more.
       const lastSeq = lastEventId !== null ? (isNaN(lastEventId) ? 0 : lastEventId)
         : replayCount === null ? 0
-        : eventBus.seqBeforeNewest(replayCount, rigId);
+        : eventBus.seqBeforeNewest(replayCount, softwareTeamId);
       maxReplayedSeq = lastSeq;
       // Where it ends, read once subscribed too: an event stored after it is buffered, so events arriving while the
       // pages are written can neither keep the replay going nor be sent twice.
       const upTo = eventBus.maxSeq();
 
       // 2. Replay missed events from DB, a page at a time
-      for (let page = eventBus.replayPage(lastSeq, upTo, REPLAY_PAGE, rigId); page.length > 0 && !stream.aborted;
-        page = eventBus.replayPage(maxReplayedSeq, upTo, REPLAY_PAGE, rigId)) {
+      for (let page = eventBus.replayPage(lastSeq, upTo, REPLAY_PAGE, softwareTeamId); page.length > 0 && !stream.aborted;
+        page = eventBus.replayPage(maxReplayedSeq, upTo, REPLAY_PAGE, softwareTeamId)) {
         for (const event of page) {
           await stream.writeSSE({ id: String(event.seq), data: JSON.stringify(event) });
           if (event.seq > maxReplayedSeq) maxReplayedSeq = event.seq;

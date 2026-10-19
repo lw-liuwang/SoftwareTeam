@@ -26,8 +26,8 @@ export function chatRoutes(): Hono {
 
   // POST /send — persist message + emit event
   app.post("/send", async (c) => {
-    const rigId = c.req.param("rigId");
-    if (!rigId) return c.json({ error: "Missing rigId" }, 400);
+    const softwareTeamId = c.req.param("softwareTeamId");
+    if (!softwareTeamId) return c.json({ error: "Missing softwareTeamId" }, 400);
 
     const payload: unknown = await c.req.json().catch(() => null);
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
@@ -47,11 +47,11 @@ export function chatRoutes(): Hono {
     const chatRepo = getChatRepo(c);
     const eventBus = getEventBus(c);
 
-    const msg = chatRepo.send(rigId, sender, body.body as string);
+    const msg = chatRepo.send(softwareTeamId, sender, body.body as string);
 
     eventBus.emit({
       type: "chat.message",
-      rigId,
+      softwareTeamId,
       messageId: msg.id,
       sender: msg.sender,
       kind: msg.kind,
@@ -63,8 +63,8 @@ export function chatRoutes(): Hono {
 
   // GET /history — query messages
   app.get("/history", (c) => {
-    const rigId = c.req.param("rigId");
-    if (!rigId) return c.json({ error: "Missing rigId" }, 400);
+    const softwareTeamId = c.req.param("softwareTeamId");
+    if (!softwareTeamId) return c.json({ error: "Missing softwareTeamId" }, 400);
 
     const topic = c.req.query("topic");
     const after = c.req.query("after");
@@ -78,19 +78,19 @@ export function chatRoutes(): Hono {
       return c.json({ error: `since must be a datetime SQLite can parse, such as 'YYYY-MM-DD HH:MM:SS'; got '${escapeControlChars(since)}'` }, 400);
     }
     // A topic that hasn't started answers [] before the limit is used.
-    const parsed = queryLimit(c, { used: !topic || chatRepo.topicStarted(rigId, topic) });
+    const parsed = queryLimit(c, { used: !topic || chatRepo.topicStarted(softwareTeamId, topic) });
     if (!parsed.ok) return parsed.response;
     const limit = parsed.limit;
 
-    const messages = chatRepo.history(rigId, { topic, limit, after, since, sender });
+    const messages = chatRepo.history(softwareTeamId, { topic, limit, after, since, sender });
 
     return c.json(messages);
   });
 
   // GET /watch — SSE stream of chat messages
   app.get("/watch", (c) => {
-    const rigId = c.req.param("rigId");
-    if (!rigId) return c.json({ error: "Missing rigId" }, 400);
+    const softwareTeamId = c.req.param("softwareTeamId");
+    if (!softwareTeamId) return c.json({ error: "Missing softwareTeamId" }, 400);
 
     const chatRepo = getChatRepo(c);
     const eventBus = getEventBus(c);
@@ -100,11 +100,11 @@ export function chatRoutes(): Hono {
       const pendingMessages: Array<{ id: string; data: string }> = [];
       let initialDone = false;
       const unsubscribe = eventBus.subscribe((event) => {
-        if (event.type === "chat.message" && "rigId" in event && (event as { rigId: string }).rigId === rigId) {
-          const chatEvent = event as { messageId: string; sender: string; kind: string; body: string; topic?: string; rigId: string };
+        if (event.type === "chat.message" && "softwareTeamId" in event && (event as { softwareTeamId: string }).softwareTeamId === softwareTeamId) {
+          const chatEvent = event as { messageId: string; sender: string; kind: string; body: string; topic?: string; softwareTeamId: string };
           const msg = {
             id: chatEvent.messageId,
-            rigId: chatEvent.rigId,
+            softwareTeamId: chatEvent.softwareTeamId,
             sender: chatEvent.sender,
             kind: chatEvent.kind,
             body: chatEvent.body,
@@ -126,7 +126,7 @@ export function chatRoutes(): Hono {
 
       try {
         // Send initial batch
-        const initial = chatRepo.latest(rigId, 20);
+        const initial = chatRepo.latest(softwareTeamId, 20);
         const sentIds = new Set<string>();
         for (const msg of initial) {
           await stream.writeSSE({ id: msg.id, data: JSON.stringify(msg) });
@@ -152,8 +152,8 @@ export function chatRoutes(): Hono {
 
   // POST /topic — create topic marker
   app.post("/topic", async (c) => {
-    const rigId = c.req.param("rigId");
-    if (!rigId) return c.json({ error: "Missing rigId" }, 400);
+    const softwareTeamId = c.req.param("softwareTeamId");
+    if (!softwareTeamId) return c.json({ error: "Missing softwareTeamId" }, 400);
 
     const payload: unknown = await c.req.json().catch(() => null);
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
@@ -176,11 +176,11 @@ export function chatRoutes(): Hono {
     const chatRepo = getChatRepo(c);
     const eventBus = getEventBus(c);
 
-    const msg = chatRepo.sendTopic(rigId, sender, body.topic as string, body.body as string | undefined);
+    const msg = chatRepo.sendTopic(softwareTeamId, sender, body.topic as string, body.body as string | undefined);
 
     eventBus.emit({
       type: "chat.message",
-      rigId,
+      softwareTeamId,
       messageId: msg.id,
       sender: msg.sender,
       kind: msg.kind,
@@ -191,13 +191,13 @@ export function chatRoutes(): Hono {
     return c.json(msg, 201);
   });
 
-  // POST /clear — delete all messages for this rig
+  // POST /clear — delete all messages for this softwareTeam
   app.post("/clear", (c) => {
-    const rigId = c.req.param("rigId");
-    if (!rigId) return c.json({ error: "Missing rigId" }, 400);
+    const softwareTeamId = c.req.param("softwareTeamId");
+    if (!softwareTeamId) return c.json({ error: "Missing softwareTeamId" }, 400);
 
     const chatRepo = getChatRepo(c);
-    const result = chatRepo.clear(rigId);
+    const result = chatRepo.clear(softwareTeamId);
     return c.json({ ok: true, deleted: result.deleted });
   });
 

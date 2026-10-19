@@ -5,7 +5,7 @@ import { DaemonClient } from "../src/client.js";
 import { STATE_FILE, type LifecycleDeps } from "../src/daemon-lifecycle.js";
 import type { StatusDeps } from "../src/commands/status.js";
 
-// Slice 01 (OPR.0.7.0.1) — `rig provider status` with Codex usage windows: the USAGE section only
+// Slice 01 (OPR.0.7.0.1) — `softwareTeam provider status` with Codex usage windows: the USAGE section only
 // when the daemon serves `usage` (switch on), level and freshness side by side, a failed refresh
 // beside the kept reading, and `--refresh` refusing clearly while the switch is off.
 
@@ -50,7 +50,7 @@ async function run(args: string[], port: number): Promise<{ out: string; err: st
   console.log = (...a: unknown[]) => out.push(a.join(" "));
   console.error = (...a: unknown[]) => err.push(a.join(" "));
   try {
-    await providerCommand(deps(port)).parseAsync(["node", "rig", ...args]);
+    await providerCommand(deps(port)).parseAsync(["node", "softwareTeam", ...args]);
   } finally {
     console.log = origLog;
     console.error = origErr;
@@ -60,7 +60,7 @@ async function run(args: string[], port: number): Promise<{ out: string; err: st
   return { out: out.join("\n"), err: err.join("\n"), exitCode };
 }
 
-describe("rig provider status — usage windows", () => {
+describe("SoftwareTeam provider status — usage windows", () => {
   let server: http.Server;
   let port = 0;
   beforeAll(async () => {
@@ -94,7 +94,7 @@ describe("rig provider status — usage windows", () => {
     model = { ...MODEL, usage: [READING] };
     const { out } = await run(["status"], port);
     expect(out).toContain([
-      "USAGE (read on request: rig provider status --refresh)",
+      "USAGE (read on request: SoftwareTeam provider status --refresh)",
       "  codex  account acct-1 · bucket codex · dev@example.test · plus · seats unknown",
       "    5h (primary)  59% left  ok  resets 2026-10-14T00:00:00.000Z  observed 2026-10-12T20:00:00.000Z (stale: refresh failed at 2026-10-12T20:05:00.000Z; this reading is older)",
       "    weekly (secondary)  0% left  exhausted (at the limit)  resets 2026-10-14T00:00:00.000Z  observed 2026-10-12T20:00:00.000Z (stale: refresh failed at 2026-10-12T20:05:00.000Z; this reading is older)",
@@ -106,13 +106,13 @@ describe("rig provider status — usage windows", () => {
 
   it("an unavailable row and a last-seen row say so", async () => {
     model = { ...MODEL, usage: [
-      { provider: "codex", identity: null, windows: [], unavailableReason: "no reading since the daemon started at T; refresh with rig provider status --refresh" },
+      { provider: "codex", identity: null, windows: [], unavailableReason: "no reading since the daemon started at T; refresh with SoftwareTeam provider status --refresh" },
       { ...READING, identity: { ...READING.identity, accountId: null, workspaceId: "ws-a", source: "account/read workspace routing" }, latestFromSource: false, lastRefresh: { at: "x", outcome: "ok" } },
       { ...READING, identity: { ...READING.identity, accountId: null, source: "unresolved" }, lastRefresh: { at: "x", outcome: "ok" },
         unresolved: { note: "identity unresolved: not matched to, merged with or replacing any other row", keptReads: 3, droppedReads: 2 } },
     ] };
     const { out } = await run(["status"], port);
-    expect(out).toContain("  codex  unavailable: no reading since the daemon started at T; refresh with rig provider status --refresh");
+    expect(out).toContain("  codex  unavailable: no reading since the daemon started at T; refresh with SoftwareTeam provider status --refresh");
     expect(out).toContain("  codex  workspace ws-a (from account/read; no usage account id) · bucket codex · dev@example.test · plus · seats unknown  [from an earlier read; the latest read didn't match this row]");
     expect(out).toContain("  codex  identity unresolved · bucket codex · dev@example.test · plus · seats unknown\n    not matched to, merged with or replacing any other row; kept from the 3 most recent unresolved reads (2 older dropped)");
     expect(out).not.toContain("last reading kept, marked old");
@@ -145,32 +145,32 @@ describe("rig provider status — usage windows", () => {
     expect(out).not.toContain("another account");
   });
 
-  it("saved rig auth profiles: one line when the daemon says they weren't read; nothing otherwise", async () => {
-    const savedProfiles = { names: ["personal", "work"], note: "saved rig auth profiles: not read (usage unknown); this reading is only the login active in the daemon's CODEX_HOME" };
+  it("saved SoftwareTeam auth profiles: one line when the daemon says they weren't read; nothing otherwise", async () => {
+    const savedProfiles = { names: ["personal", "work"], note: "saved SoftwareTeam auth profiles: not read (usage unknown); this reading is only the login active in the daemon's CODEX_HOME" };
     model = { ...MODEL, usage: [{ ...READING, savedProfiles }] };
     const { out } = await run(["status"], port);
-    expect(out.split("\n").filter((l) => l.includes("saved rig auth profiles"))).toEqual([
-      "  saved rig auth profiles: not read (usage unknown); this reading is only the login active in the daemon's CODEX_HOME: personal, work",
+    expect(out.split("\n").filter((l) => l.includes("saved SoftwareTeam auth profiles"))).toEqual([
+      "  saved SoftwareTeam auth profiles: not read (usage unknown); this reading is only the login active in the daemon's CODEX_HOME: personal, work",
     ]);
     expect(JSON.parse((await run(["status", "--json"], port)).out).usage[0].savedProfiles).toEqual(savedProfiles);
     model = { ...MODEL, usage: [READING] };
-    expect((await run(["status"], port)).out).not.toContain("saved rig auth profiles");
+    expect((await run(["status"], port)).out).not.toContain("saved SoftwareTeam auth profiles");
   });
 
   it("a Claude row: organisation (name and id), bucket, email, subscription, how identity and windows were joined, each window's seat", async () => {
-    const note = "identity: the daemon's Claude login (claude auth status) as of the refresh at 2026-10-12T20:05:00.000Z; windows: status-line readings from dev@rig at their own times; not proven to be the same login";
+    const note = "identity: the daemon's Claude login (claude auth status) as of the refresh at 2026-10-12T20:05:00.000Z; windows: status-line readings from dev@software-team at their own times; not proven to be the same login";
     model = { ...MODEL, usage: [{
       provider: "claude",
       identity: { orgId: "org-1", limitId: "all models", email: "d***@example.test", orgName: "Example Org", subscriptionType: "team", source: "claude auth status orgId and email" },
       source: { kind: "claude_statusline_samples", host: "local" }, observedAt: "2026-10-12T20:00:00.000Z", seats: "unknown",
-      windows: [{ window: "weekly", durationMins: 10080, usedPercent: 85, remainingPercent: 15, resetsAt: "2026-10-14T09:00:00.000Z", observedAt: "2026-10-12T20:00:00.000Z", seatSession: "dev@rig", level: "nearing", levelReason: "80% or more used", freshness: "fresh" }],
+      windows: [{ window: "weekly", durationMins: 10080, usedPercent: 85, remainingPercent: 15, resetsAt: "2026-10-14T09:00:00.000Z", observedAt: "2026-10-12T20:00:00.000Z", seatSession: "dev@software-team", level: "nearing", levelReason: "80% or more used", freshness: "fresh" }],
       limitEvidence: null, latestFromSource: true, lastRefresh: { at: "2026-10-12T20:05:00.000Z", outcome: "ok" }, currentAvailability: "known", identityNote: note,
     }] };
     const { out } = await run(["status"], port);
     expect(out).toContain([
       "  claude  organisation Example Org (org-1) · bucket all models · d***@example.test · team · seats unknown",
       `    ${note}`,
-      "    weekly (weekly)  15% left  nearing (80% or more used)  resets 2026-10-14T09:00:00.000Z  observed 2026-10-12T20:00:00.000Z by seat dev@rig (fresh)",
+      "    weekly (weekly)  15% left  nearing (80% or more used)  resets 2026-10-14T09:00:00.000Z  observed 2026-10-12T20:00:00.000Z by seat dev@software-team (fresh)",
       "    current availability: known",
     ].join("\n"));
   });
@@ -181,13 +181,13 @@ describe("rig provider status — usage windows", () => {
       source: { kind: "claude_statusline_samples", host: "local" }, observedAt: "2026-10-12T20:00:00.000Z", seats: "unknown", limitEvidence: null, latestFromSource: true,
       currentAvailability: "unknown", lastRefresh: null,
       windows: [{ window: "weekly", durationMins: 10080, usedPercent: 10, remainingPercent: 90, resetsAt: "2026-10-14T09:00:00.000Z", observedAt: "2026-10-12T20:00:00.000Z",
-        seatSession: "a@rig", level: "unknown", levelReason: "Claude seats report different windows (possibly different logins): a@rig, b@rig", freshness: "fresh",
-        disagreeingSeats: [{ seatSession: "b@rig", usedPercent: 90, resetsAt: "2026-10-16T09:00:00.000Z", observedAt: "2026-10-12T19:59:00.000Z" }] }],
+        seatSession: "a@software-team", level: "unknown", levelReason: "Claude seats report different windows (possibly different logins): a@software-team, b@software-team", freshness: "fresh",
+        disagreeingSeats: [{ seatSession: "b@software-team", usedPercent: 90, resetsAt: "2026-10-16T09:00:00.000Z", observedAt: "2026-10-12T19:59:00.000Z" }] }],
     }] };
     const { out } = await run(["status"], port);
     expect(out).toContain([
-      "    weekly (weekly)  90% left  unknown (Claude seats report different windows (possibly different logins): a@rig, b@rig)  resets 2026-10-14T09:00:00.000Z  observed 2026-10-12T20:00:00.000Z by seat a@rig (fresh)",
-      "      seat b@rig reports 10% left  resets 2026-10-16T09:00:00.000Z  observed 2026-10-12T19:59:00.000Z",
+      "    weekly (weekly)  90% left  unknown (Claude seats report different windows (possibly different logins): a@software-team, b@software-team)  resets 2026-10-14T09:00:00.000Z  observed 2026-10-12T20:00:00.000Z by seat a@software-team (fresh)",
+      "      seat b@software-team reports 10% left  resets 2026-10-16T09:00:00.000Z  observed 2026-10-12T19:59:00.000Z",
     ].join("\n"));
   });
 
@@ -283,11 +283,11 @@ describe("rig provider status — usage windows", () => {
 
   it("an older daemon with the switch off (Codex 409, Claude 400): main's one off line, exit 1", async () => {
     refreshByProvider = {
-      codex: { status: 409, body: { error: "usage_windows_disabled", message: "Codex usage windows are off. Turn them on with: rig config set provider.usage_windows true" } },
+      codex: { status: 409, body: { error: "usage_windows_disabled", message: "Codex usage windows are off. Turn them on with: SoftwareTeam config set provider.usage_windows true" } },
       claude: { status: 400, body: { error: "usage windows can be refreshed for codex only in this version (got claude)" } },
     };
     const r = await run(["status", "--refresh"], port);
-    expect([r.err, r.out, r.exitCode]).toEqual(["Codex usage windows are off. Turn them on with: rig config set provider.usage_windows true", "", 1]);
+    expect([r.err, r.out, r.exitCode]).toEqual(["Codex usage windows are off. Turn them on with: SoftwareTeam config set provider.usage_windows true", "", 1]);
   });
 
   it("--provider takes codex or claude only", async () => {
@@ -302,9 +302,9 @@ describe("rig provider status — usage windows", () => {
   });
 
   it("--refresh while the switch is off: the daemon's message, exit 1, no status", async () => {
-    refreshReply = { status: 409, body: { error: "usage_windows_disabled", message: "Codex usage windows are off. Turn them on with: rig config set provider.usage_windows true" } };
+    refreshReply = { status: 409, body: { error: "usage_windows_disabled", message: "Codex usage windows are off. Turn them on with: SoftwareTeam config set provider.usage_windows true" } };
     const r = await run(["status", "--refresh"], port);
-    expect(r.err).toBe("Codex usage windows are off. Turn them on with: rig config set provider.usage_windows true");
+    expect(r.err).toBe("Codex usage windows are off. Turn them on with: SoftwareTeam config set provider.usage_windows true");
     expect(r.out).toBe("");
     expect(r.exitCode).toBe(1);
     // Without --provider both are read; the switch-off line is printed once.
@@ -330,15 +330,15 @@ describe("rig provider status — usage windows", () => {
   it("seatAccounts (switch on): a SEATS section, one line per seat with its configured account and source, never linked", async () => {
     const notLinked = "a registry profile name and an observed account are different kinds of fact; nothing supported links them without reading the profile's contents";
     model = { ...MODEL, usage: [READING], seatAccounts: [
-      { seatSession: "dev-qa@r", rigName: "r", runtime: "codex",
+      { seatSession: "dev-qa@r", softwareTeamName: "r", runtime: "codex",
         configured: { source: "registry", profileRef: "work-a", recordedAt: "2026-10-12T10:00:00Z", profileSaved: false },
         registryNotes: ["profile work-a is not saved on this host"],
         allowance: { linked: false, reason: notLinked }, observed: { note: "no per-seat observation for Codex" } },
-      { seatSession: "dev-build@r", rigName: "r", runtime: "claude-code",
+      { seatSession: "dev-build@r", softwareTeamName: "r", runtime: "claude-code",
         configured: { source: "default_login", home: "/h/.claude", homeNote: "the login in the daemon's Claude config dir, shared by every Claude seat on this daemon" },
         allowance: { linked: false, reason: "the usage read reads the login this home holds now; the seat runs the login that was active when it launched" },
         observed: { windowsSampled: true, lastSampledAt: "2026-10-13T14:59:00Z", differsFrom: ["dev-r1@r"], note: "possibly a different login: not a verdict" } },
-      { seatSession: "t@r", rigName: "r", runtime: "terminal",
+      { seatSession: "t@r", softwareTeamName: "r", runtime: "terminal",
         configured: { source: "unknown", reason: "no account configuration is known for runtime terminal" },
         allowance: { linked: false, reason: "no configured account" } },
     ] };
@@ -364,7 +364,7 @@ describe("rig provider status — usage windows", () => {
   it("a withheld observation renders its note", async () => {
     const note = "observation withheld: 2 seats share session name a@r; status-line samples are keyed by session name and cannot be attributed to one seat";
     model = { ...MODEL, seatAccounts: [
-      { seatSession: "a@r", rigName: "r", runtime: "claude-code",
+      { seatSession: "a@r", softwareTeamName: "r", runtime: "claude-code",
         configured: { source: "default_login", home: "/h/.claude", homeNote: "shared" },
         allowance: { linked: false, reason: "r" }, observed: { withheld: true, note } },
     ] };
@@ -374,7 +374,7 @@ describe("rig provider status — usage windows", () => {
   it("an unreadable profile folder: the profile's saved state renders as unknown, never 'not saved'", async () => {
     const note = "can't tell whether profile work-a is saved on this host: the profile folder couldn't be read (EACCES)";
     model = { ...MODEL, seatAccounts: [
-      { seatSession: "dev-qa@r", rigName: "r", runtime: "codex",
+      { seatSession: "dev-qa@r", softwareTeamName: "r", runtime: "codex",
         configured: { source: "registry", profileRef: "work-a", recordedAt: "2026-10-12T10:00:00Z", profileSaved: null },
         registryNotes: [note], allowance: { linked: false, reason: "r" }, observed: { note: "no per-seat observation for Codex" } },
     ] };
@@ -388,7 +388,7 @@ describe("rig provider status — usage windows", () => {
 
   it("a sampled seat names when its status line last reported, never pointing at USAGE", async () => {
     model = { ...MODEL, seatAccounts: [
-      { seatSession: "b@r", rigName: "r", runtime: "claude-code",
+      { seatSession: "b@r", softwareTeamName: "r", runtime: "claude-code",
         configured: { source: "default_login", home: "/h/.claude", homeNote: "shared" },
         allowance: { linked: false, reason: "r" }, observed: { windowsSampled: true, lastSampledAt: "2026-09-22T15:00:00Z" } },
     ] };
@@ -399,10 +399,10 @@ describe("rig provider status — usage windows", () => {
 
   it("review round 1 wordings: an unreadable registry, an empty CLAUDE_CONFIG_DIR, samples not available", async () => {
     model = { ...MODEL, seatAccounts: [
-      { seatSession: "dev-cx@r", rigName: "r", runtime: "codex",
+      { seatSession: "dev-cx@r", softwareTeamName: "r", runtime: "codex",
         configured: { source: "unknown", reason: "the seat registry exists but couldn't be read (EACCES)" },
         allowance: { linked: false, reason: "no configured account" }, observed: { note: "no per-seat observation for Codex" } },
-      { seatSession: "a@r", rigName: "r", runtime: "claude-code",
+      { seatSession: "a@r", softwareTeamName: "r", runtime: "claude-code",
         configured: { source: "default_login", home: null, homeNote: "CLAUDE_CONFIG_DIR is set but empty: it resolves to each seat's working directory" },
         allowance: { linked: false, reason: "r" }, observed: { note: "status-line samples were not available to this read" } },
     ] };

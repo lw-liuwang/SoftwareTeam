@@ -1,9 +1,9 @@
 // OPR.0.4.6.2 (FR-5) — TerminalLauncher (the REAL build of the spec-mockup twin).
 //
 // The web-UI launcher for the terminal wall/views ride (herdr primary, cmux
-// best-effort). Generalizes the shipped rig-scope "Launch in CMUX" button into
+// best-effort). Generalizes the shipped software-team-scope "Launch in CMUX" button into
 // a provider + view picker: choose a PROVIDER (herdr | cmux), choose a VIEW
-// (this rig · a pod · a mission-or-slice's agents · a saved view), see the
+// (this softwareTeam · a pod · a mission-or-slice's agents · a saved view), see the
 // suggested LAYOUT for N panes, then Open. Same tab-bar trailing slot so it
 // extends the shipped surface rather than inventing a new one.
 //
@@ -11,7 +11,7 @@
 //
 // This is the real-data build of `fr5-launcher-mockup/` (twin-locked): the
 // structure, copy, testids, and 4 regions match the twin; the DEMO roster is
-// replaced by live seams — rig seats + pods from `useNodeInventory`, derived
+// replaced by live seams — softwareTeam seats + pods from `useNodeInventory`, derived
 // mission/slice targets from `useSlices` (roster previewed via the review
 // agents band), saved views from `GET /api/terminal/views`, and the launch via
 // `POST /api/terminal/open { provider, view }` (the C3 canonical composer).
@@ -40,7 +40,7 @@ export interface Seat {
   activity: "active" | "idle";
 }
 
-export type ViewKind = "rig" | "pod" | "mission" | "slice" | "saved";
+export type ViewKind = "softwareTeam" | "pod" | "mission" | "slice" | "saved";
 
 export interface LauncherView {
   id: string;
@@ -49,8 +49,8 @@ export interface LauncherView {
   sub: string;
   /** null = a derived roster resolved lazily (mission/slice) via the review band. */
   seats: Seat[] | null;
-  /** spans another rig / all-read-only ⇒ read-only by construction (tmux attach -r). */
-  crossRig?: boolean;
+  /** spans another softwareTeam / all-read-only ⇒ read-only by construction (tmux attach -r). */
+  crossSoftwareTeam?: boolean;
 }
 
 // ── The one shared open-result shape (mirrors the daemon OpenViewResult) ──
@@ -99,7 +99,7 @@ const PROVIDERS: { id: ProviderId; label: string; note: string; badge: string }[
 ];
 
 const KIND_ICON: Record<ViewKind, typeof Server> = {
-  rig: Server,
+  softwareTeam: Server,
   pod: Layers,
   mission: GitBranch,
   slice: GitBranch,
@@ -107,25 +107,25 @@ const KIND_ICON: Record<ViewKind, typeof Server> = {
 };
 
 const KIND_GROUP: { heading: string; kinds: ViewKind[] }[] = [
-  { heading: "This rig", kinds: ["rig"] },
+  { heading: "This softwareTeam", kinds: ["softwareTeam"] },
   { heading: "By pod", kinds: ["pod"] },
   { heading: "Mission · slice", kinds: ["mission", "slice"] },
   { heading: "Saved views", kinds: ["saved"] },
 ];
 
-const RIG_NAME_UNAVAILABLE = "Rig name unavailable";
+const SOFTWARE_TEAM_NAME_UNAVAILABLE = "SoftwareTeam name unavailable";
 
-export function resolveLauncherRigName(input: {
+export function resolveLauncherSoftwareTeamName(input: {
   nodes: NodeInventoryEntry[] | undefined;
-  rigId: string;
-  rigName?: string | null;
+  softwareTeamId: string;
+  softwareTeamName?: string | null;
 }): string {
-  const explicitName = input.rigName?.trim();
+  const explicitName = input.softwareTeamName?.trim();
   if (explicitName) return explicitName;
   const nodeName = input.nodes
-    ?.find((node) => node.rigId === input.rigId && typeof node.rigName === "string" && node.rigName.trim())
-    ?.rigName.trim();
-  return nodeName || RIG_NAME_UNAVAILABLE;
+    ?.find((node) => node.softwareTeamId === input.softwareTeamId && typeof node.softwareTeamName === "string" && node.softwareTeamName.trim())
+    ?.softwareTeamName.trim();
+  return nodeName || SOFTWARE_TEAM_NAME_UNAVAILABLE;
 }
 
 // Boot open/provider/view from the URL — the ratified deep-link capture method
@@ -152,32 +152,32 @@ export function nodeToSeat(n: NodeInventoryEntry): Seat {
 /**
  * PURE view-library builder — the launcher's whole data model, extracted so it
  * is unit-testable without rendering the (Radix) dialog. Order = the founder's
- * "choose what to open": this rig → a pod → a mission/slice → a saved view.
+ * "choose what to open": this softwareTeam → a pod → a mission/slice → a saved view.
  * Derived mission/slice views carry `seats: null` (their roster resolves live at
- * open, previewed via the review agents band); rig/pod/saved carry their roster.
+ * open, previewed via the review agents band); softwareTeam/pod/saved carry their roster.
  */
 export function buildLauncherViews(input: {
   nodes: NodeInventoryEntry[] | undefined;
-  rigId: string;
-  rigName?: string | null;
+  softwareTeamId: string;
+  softwareTeamName?: string | null;
   slices: { name: string; missionId: string | null; displayName: string }[];
   savedViews: { id: string; name: string; members: { seat: string; readOnly?: boolean }[] }[];
 }): LauncherView[] {
-  const { nodes, rigId, rigName, slices, savedViews } = input;
+  const { nodes, softwareTeamId, softwareTeamName, slices, savedViews } = input;
   const out: LauncherView[] = [];
   const agents = (nodes ?? []).filter((n) => n.nodeKind === "agent");
-  const resolvedRigName = resolveLauncherRigName({ nodes, rigId, rigName });
+  const resolvedSoftwareTeamName = resolveLauncherSoftwareTeamName({ nodes, softwareTeamId, softwareTeamName });
 
-  // This rig — every live agent, interactive.
+  // This softwareTeam — every live agent, interactive.
   out.push({
-    id: `rig:${rigId}`,
-    kind: "rig",
-    label: resolvedRigName,
-    sub: "All live agents in this rig",
+    id: `software-team:${softwareTeamId}`,
+    kind: "softwareTeam",
+    label: resolvedSoftwareTeamName,
+    sub: "All live agents in this softwareTeam",
     seats: agents.map(nodeToSeat),
   });
 
-  // By pod — group the rig's agents by pod namespace.
+  // By pod — group the softwareTeam's agents by pod namespace.
   const pods = new Map<string, NodeInventoryEntry[]>();
   for (const n of agents) {
     const ns = n.podNamespace;
@@ -188,10 +188,10 @@ export function buildLauncherViews(input: {
   }
   for (const [ns, members] of pods) {
     out.push({
-      id: `pod:${rigId}/${ns}`,
+      id: `pod:${softwareTeamId}/${ns}`,
       kind: "pod",
       label: `${ns} pod`,
-      sub: `${members.length} agent${members.length === 1 ? "" : "s"} · this rig`,
+      sub: `${members.length} agent${members.length === 1 ? "" : "s"} · this softwareTeam`,
       seats: members.map(nodeToSeat),
     });
   }
@@ -199,10 +199,10 @@ export function buildLauncherViews(input: {
   // Mission · slice — derived targets; the roster resolves live at open.
   const missionIds = [...new Set(slices.map((s) => s.missionId).filter((m): m is string => !!m))];
   for (const mid of missionIds) {
-    out.push({ id: `mission:${mid}`, kind: "mission", label: mid, sub: "Agents working this mission — derived live", seats: null, crossRig: true });
+    out.push({ id: `mission:${mid}`, kind: "mission", label: mid, sub: "Agents working this mission — derived live", seats: null, crossSoftwareTeam: true });
   }
   for (const s of slices) {
-    out.push({ id: `slice:${s.name}`, kind: "slice", label: s.displayName || s.name, sub: `slice ${s.name} — derived live`, seats: null, crossRig: true });
+    out.push({ id: `slice:${s.name}`, kind: "slice", label: s.displayName || s.name, sub: `slice ${s.name} — derived live`, seats: null, crossSoftwareTeam: true });
   }
 
   // Saved views — provider-agnostic; read-only when every member is read-only.
@@ -213,26 +213,26 @@ export function buildLauncherViews(input: {
       label: sv.name,
       sub: `${sv.members.length} agent${sv.members.length === 1 ? "" : "s"} · saved`,
       seats: sv.members.map((m) => ({ session: m.seat, live: true, activity: "idle" as const })),
-      crossRig: sv.members.length > 0 && sv.members.every((m) => m.readOnly === true),
+      crossSoftwareTeam: sv.members.length > 0 && sv.members.every((m) => m.readOnly === true),
     });
   }
   return out;
 }
 
 interface TerminalLauncherProps {
-  rigId: string;
-  /** The rig's human name (falls back to the id when unknown). */
-  rigName?: string | null;
+  softwareTeamId: string;
+  /** The softwareTeam's human name (falls back to the id when unknown). */
+  softwareTeamName?: string | null;
 }
 
-export function TerminalLauncher({ rigId, rigName }: TerminalLauncherProps) {
+export function TerminalLauncher({ softwareTeamId, softwareTeamName }: TerminalLauncherProps) {
   const boot = readParams();
   const [open, setOpen] = useState(boot.open);
   const [provider, setProvider] = useState<ProviderId>(boot.provider);
-  const [selectedId, setSelectedId] = useState<string>(boot.view || `rig:${rigId}`);
+  const [selectedId, setSelectedId] = useState<string>(boot.view || `software-team:${softwareTeamId}`);
 
   const hostId = useSelectedHostId();
-  const { data: nodes } = useNodeInventory(rigId);
+  const { data: nodes } = useNodeInventory(softwareTeamId);
   const { data: slicesData } = useSlices("active");
   const { data: viewsData } = useTerminalViews();
 
@@ -241,18 +241,18 @@ export function TerminalLauncher({ rigId, rigName }: TerminalLauncherProps) {
     () =>
       buildLauncherViews({
         nodes,
-        rigId,
-        rigName,
+        softwareTeamId,
+        softwareTeamName,
         // useSlices returns SliceListResponse | SlicesUnavailable — narrow the
         // unavailable arm (shipped Feed.tsx / ProjectTreeView.tsx discriminant).
         slices: slicesData && "slices" in slicesData ? slicesData.slices : [],
         savedViews: viewsData?.saved ?? [],
       }),
-    [nodes, rigId, rigName, slicesData, viewsData],
+    [nodes, softwareTeamId, softwareTeamName, slicesData, viewsData],
   );
 
   const selected = views.find((v) => v.id === selectedId) ?? views[0];
-  const resolvedRigName = views.find((view) => view.kind === "rig")?.label ?? RIG_NAME_UNAVAILABLE;
+  const resolvedSoftwareTeamName = views.find((view) => view.kind === "softwareTeam")?.label ?? SOFTWARE_TEAM_NAME_UNAVAILABLE;
 
   // A derived view (mission/slice) previews its roster via the review band.
   const derivedScope = selected && (selected.kind === "mission" || selected.kind === "slice") ? selected.id : null;
@@ -270,7 +270,7 @@ export function TerminalLauncher({ rigId, rigName }: TerminalLauncherProps) {
   const live = selectedSeats.filter((s) => s.live);
   const absent = selectedSeats.filter((s) => !s.live);
   const layout = suggestLayout(live.length);
-  const readOnly = Boolean(selected?.crossRig);
+  const readOnly = Boolean(selected?.crossSoftwareTeam);
   const providerLabel = PROVIDERS.find((p) => p.id === provider)!.label;
 
   const openMut = useMutation({
@@ -278,7 +278,7 @@ export function TerminalLauncher({ rigId, rigName }: TerminalLauncherProps) {
       const res = await fetch(withHostParam("/api/terminal/open", hostId), {
         method: "POST",
         headers: { "Content-Type": "application/json", ...terminalAuthHeaders() },
-        body: JSON.stringify({ provider, view: selected?.id ?? `rig:${rigId}` }),
+        body: JSON.stringify({ provider, view: selected?.id ?? `software-team:${softwareTeamId}` }),
       });
       const body = (await res.json().catch(() => null)) as OpenViewResult | null;
       if (!res.ok || !body) throw new Error(body?.error ?? `HTTP ${res.status}`);
@@ -320,7 +320,7 @@ export function TerminalLauncher({ rigId, rigName }: TerminalLauncherProps) {
               <span className="font-mono text-[11px] uppercase tracking-[0.18em]">Open terminal view</span>
             </div>
             <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-stone-400">
-              {resolvedRigName.replace(/^rig_/, "")} · topology
+              {resolvedSoftwareTeamName.replace(/^software_team_/, "")} · topology
             </span>
           </div>
 
@@ -399,7 +399,7 @@ export function TerminalLauncher({ rigId, rigName }: TerminalLauncherProps) {
                             <span className="flex-1 min-w-0">
                               <span className="flex items-center gap-2">
                                 <span className="font-mono text-[11px] text-on-surface truncate">{v.label}</span>
-                                {v.crossRig ? (
+                                {v.crossSoftwareTeam ? (
                                   <span className="inline-flex items-center gap-1 px-1 py-0.5 text-[8px] font-mono uppercase tracking-[0.12em] border border-outline text-on-surface-variant">
                                     <Eye className="h-2.5 w-2.5" aria-hidden="true" /> read-only
                                   </span>
@@ -469,7 +469,7 @@ export function TerminalLauncher({ rigId, rigName }: TerminalLauncherProps) {
                 <StatusPip
                   status={readOnly ? "info" : "active"}
                   variant="pill"
-                  label={readOnly ? "read-only · cross-rig" : "interactive"}
+                  label={readOnly ? "read-only · cross-software-team" : "interactive"}
                   testId="launcher-mode-pip"
                 />
                 <div className="mt-1.5 font-mono text-[9px] text-on-surface-variant leading-relaxed">

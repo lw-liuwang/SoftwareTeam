@@ -49,9 +49,9 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
       policy: "periodic-reminder", specYaml: `target: { session: ${targetSession} }\nmessage: ping\n`,
       targetSession, intervalSeconds: 60, registeredBySession: "ops@kernel",
     });
-    const first = register("first@rig");
-    const stopped = register("stopped@rig");
-    const active = register("active@rig");
+    const first = register("first@software-team");
+    const stopped = register("stopped@software-team");
+    const active = register("active@software-team");
     let release!: () => void;
     let started!: () => void;
     const deliveryStarted = new Promise<void>(resolve => { started = resolve; });
@@ -94,8 +94,8 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
   it("isDue waits a full interval for a never-evaluated periodic reminder (#801)", () => {
     const job = jobsRepo.register({
       policy: "periodic-reminder",
-      specYaml: "context:\n  target:\n    session: a@rig\n  message: x\n",
-      targetSession: "a@rig",
+      specYaml: "context:\n  target:\n    session: a@software-team\n  message: x\n",
+      targetSession: "a@software-team",
       intervalSeconds: 30,
       registeredBySession: "ops@kernel",
     });
@@ -108,8 +108,8 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
   it("isDue still returns true immediately for never-evaluated non-periodic jobs", () => {
     const job = jobsRepo.register({
       policy: "artifact-pool-ready",
-      specYaml: "context:\n  target:\n    session: a@rig\n",
-      targetSession: "a@rig",
+      specYaml: "context:\n  target:\n    session: a@software-team\n",
+      targetSession: "a@software-team",
       intervalSeconds: 30,
       registeredBySession: "ops@kernel",
     });
@@ -119,14 +119,14 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
   it("stays immediately due for a pre-upgrade pending wake (null evaluation + pending event, #860)", () => {
     const pendingSpec = JSON.stringify({
       policy: "periodic-reminder",
-      target: { session: "a@rig" },
+      target: { session: "a@software-team" },
       message: "x",
       context: { queue_wait: { qitemId: "qitem-1", eventPending: true } },
     });
     const pending = jobsRepo.register({
       policy: "periodic-reminder",
       specYaml: pendingSpec,
-      targetSession: "a@rig",
+      targetSession: "a@software-team",
       intervalSeconds: 300,
       registeredBySession: "ops@kernel",
     });
@@ -137,14 +137,14 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
 
     const freshSpec = JSON.stringify({
       policy: "periodic-reminder",
-      target: { session: "a@rig" },
+      target: { session: "a@software-team" },
       message: "x",
       context: { queue_wait: { qitemId: "qitem-2", eventPending: false } },
     });
     const fresh = jobsRepo.register({
       policy: "periodic-reminder",
       specYaml: freshSpec,
-      targetSession: "a@rig",
+      targetSession: "a@software-team",
       intervalSeconds: 300,
       registeredBySession: "ops@kernel",
     });
@@ -154,8 +154,8 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
   it("isDue returns false when interval not yet elapsed", () => {
     const job = jobsRepo.register({
       policy: "periodic-reminder",
-      specYaml: "context:\n  target:\n    session: a@rig\n  message: x\n",
-      targetSession: "a@rig",
+      specYaml: "context:\n  target:\n    session: a@software-team\n  message: x\n",
+      targetSession: "a@software-team",
       intervalSeconds: 30,
       registeredBySession: "ops@kernel",
     });
@@ -168,8 +168,8 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
   it("isDue returns true when interval elapsed", () => {
     const job = jobsRepo.register({
       policy: "periodic-reminder",
-      specYaml: "context:\n  target:\n    session: a@rig\n  message: x\n",
-      targetSession: "a@rig",
+      specYaml: "context:\n  target:\n    session: a@software-team\n  message: x\n",
+      targetSession: "a@software-team",
       intervalSeconds: 30,
       registeredBySession: "ops@kernel",
     });
@@ -182,15 +182,15 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
   it("runTickNow only evaluates due active jobs", async () => {
     const j1 = jobsRepo.register({
       policy: "periodic-reminder",
-      specYaml: "context:\n  target:\n    session: a@rig\n  message: m1\n",
-      targetSession: "a@rig",
+      specYaml: "context:\n  target:\n    session: a@software-team\n  message: m1\n",
+      targetSession: "a@software-team",
       intervalSeconds: 30,
       registeredBySession: "ops@kernel",
     });
     const j2 = jobsRepo.register({
       policy: "periodic-reminder",
-      specYaml: "context:\n  target:\n    session: b@rig\n  message: m2\n",
-      targetSession: "b@rig",
+      specYaml: "context:\n  target:\n    session: b@software-team\n  message: m2\n",
+      targetSession: "b@software-team",
       intervalSeconds: 30,
       registeredBySession: "ops@kernel",
     });
@@ -200,14 +200,14 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
     const engine = makeEngine();
     const sched = new WatchdogScheduler({ jobsRepo, policyEngine: engine });
     await sched.runTickNow();
-    expect(deliveries).toEqual([{ targetSession: "b@rig", message: "m2" }]);
+    expect(deliveries).toEqual([{ targetSession: "b@software-team", message: "m2" }]);
   });
 
   it("runTickNow evaluates a due job at every subsequent due tick", async () => {
     const job = jobsRepo.register({
       policy: "periodic-reminder",
-      specYaml: "context:\n  target:\n    session: a@rig\n  message: m\n",
-      targetSession: "a@rig",
+      specYaml: "context:\n  target:\n    session: a@software-team\n  message: m\n",
+      targetSession: "a@software-team",
       intervalSeconds: 1,
       registeredBySession: "ops@kernel",
     });
@@ -226,8 +226,8 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
   it("stopped jobs are excluded from evaluation", async () => {
     const job = jobsRepo.register({
       policy: "periodic-reminder",
-      specYaml: "context:\n  target:\n    session: a@rig\n  message: m\n",
-      targetSession: "a@rig",
+      specYaml: "context:\n  target:\n    session: a@software-team\n  message: m\n",
+      targetSession: "a@software-team",
       intervalSeconds: 30,
       registeredBySession: "ops@kernel",
     });
@@ -244,8 +244,8 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
   it("terminal jobs are excluded from evaluation", async () => {
     const job = jobsRepo.register({
       policy: "periodic-reminder",
-      specYaml: "context:\n  target:\n    session: a@rig\n  message: m\n",
-      targetSession: "a@rig",
+      specYaml: "context:\n  target:\n    session: a@software-team\n  message: m\n",
+      targetSession: "a@software-team",
       intervalSeconds: 30,
       registeredBySession: "ops@kernel",
     });
@@ -265,15 +265,15 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
     // fresh registrations wait their first interval instead of firing).
     const bad = jobsRepo.register({
       policy: "periodic-reminder",
-      specYaml: "policy: periodic-reminder\ntarget:\n  session: a@rig\n",
-      targetSession: "a@rig",
+      specYaml: "policy: periodic-reminder\ntarget:\n  session: a@software-team\n",
+      targetSession: "a@software-team",
       intervalSeconds: 30,
       registeredBySession: "ops@kernel",
     });
     const ok = jobsRepo.register({
       policy: "periodic-reminder",
-      specYaml: "policy: periodic-reminder\ntarget:\n  session: ok@rig\nmessage: ok\n",
-      targetSession: "ok@rig",
+      specYaml: "policy: periodic-reminder\ntarget:\n  session: ok@software-team\nmessage: ok\n",
+      targetSession: "ok@software-team",
       intervalSeconds: 30,
       registeredBySession: "ops@kernel",
     });
@@ -288,7 +288,7 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
     });
     await sched.runTickNow();
     expect(errors.length).toBe(1);
-    expect(deliveries).toEqual([{ targetSession: "ok@rig", message: "ok" }]);
+    expect(deliveries).toEqual([{ targetSession: "ok@software-team", message: "ok" }]);
     // After successful eval the second job's last_evaluation_at should be set.
     const after = jobsRepo.getByIdOrThrow(ok.jobId);
     expect(after.lastEvaluationAt).not.toBeNull();
@@ -312,8 +312,8 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
   it("isDue uses scan_interval_seconds (=30) over interval_seconds (=600) — due after 45s elapsed", () => {
     const job = jobsRepo.register({
       policy: "periodic-reminder",
-      specYaml: "policy: periodic-reminder\ntarget:\n  session: a@rig\nmessage: x\n",
-      targetSession: "a@rig",
+      specYaml: "policy: periodic-reminder\ntarget:\n  session: a@software-team\nmessage: x\n",
+      targetSession: "a@software-team",
       intervalSeconds: 600,
       scanIntervalSeconds: 30,
       registeredBySession: "ops@kernel",
@@ -327,8 +327,8 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
   it("isDue uses scan_interval_seconds (=600) over interval_seconds (=30) — NOT due after 45s elapsed", () => {
     const job = jobsRepo.register({
       policy: "periodic-reminder",
-      specYaml: "policy: periodic-reminder\ntarget:\n  session: a@rig\nmessage: x\n",
-      targetSession: "a@rig",
+      specYaml: "policy: periodic-reminder\ntarget:\n  session: a@software-team\nmessage: x\n",
+      targetSession: "a@software-team",
       intervalSeconds: 30,
       scanIntervalSeconds: 600,
       registeredBySession: "ops@kernel",
@@ -349,8 +349,8 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
     const job = jobsRepo.register({
       policy: "periodic-reminder",
       specYaml:
-        "policy: periodic-reminder\ntarget:\n  session: counted@rig\nmessage: counted\n",
-      targetSession: "counted@rig",
+        "policy: periodic-reminder\ntarget:\n  session: counted@software-team\nmessage: counted\n",
+      targetSession: "counted@software-team",
       intervalSeconds: 30,
       scanIntervalSeconds: 600,
       registeredBySession: "ops@kernel",
@@ -381,8 +381,8 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
     const job = jobsRepo.register({
       policy: "periodic-reminder",
       specYaml:
-        "policy: periodic-reminder\ntarget:\n  session: counted@rig\nmessage: counted\n",
-      targetSession: "counted@rig",
+        "policy: periodic-reminder\ntarget:\n  session: counted@software-team\nmessage: counted\n",
+      targetSession: "counted@software-team",
       intervalSeconds: 600,
       scanIntervalSeconds: 30,
       registeredBySession: "ops@kernel",
@@ -402,15 +402,15 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
     const sched = new WatchdogScheduler({ jobsRepo, policyEngine: engine });
     await sched.runTickNow();
     expect(policyCalled).toBe(1);
-    expect(deliveries).toEqual([{ targetSession: "counted@rig", message: "counted" }]);
+    expect(deliveries).toEqual([{ targetSession: "counted@software-team", message: "counted" }]);
     expect(log.countForJob(job.jobId)).toBe(1);
   });
 
   it("recovers schedule across restart via SQLite (new repo + new scheduler picks up active jobs)", async () => {
     const job = jobsRepo.register({
       policy: "periodic-reminder",
-      specYaml: "context:\n  target:\n    session: persist@rig\n  message: persisted\n",
-      targetSession: "persist@rig",
+      specYaml: "context:\n  target:\n    session: persist@software-team\n  message: persisted\n",
+      targetSession: "persist@software-team",
       intervalSeconds: 1,
       registeredBySession: "ops@kernel",
     });
@@ -432,6 +432,6 @@ describe("WatchdogScheduler (PL-004 Phase C)", () => {
     });
     const sched2 = new WatchdogScheduler({ jobsRepo: repo2, policyEngine: engine2 });
     await sched2.runTickNow();
-    expect(deliveries).toEqual([{ targetSession: "persist@rig", message: "persisted" }]);
+    expect(deliveries).toEqual([{ targetSession: "persist@software-team", message: "persisted" }]);
   });
 });

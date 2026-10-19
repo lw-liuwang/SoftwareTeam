@@ -15,7 +15,7 @@ export function packageCommand(depsOverride?: StatusDeps): Command {
     return deps.clientFactory(getDaemonUrl(status));
   }
 
-  // rig package validate <path>
+  // softwareTeam package validate <path>
   cmd
     .command("validate <path>")
     .description("Validate a package manifest")
@@ -52,7 +52,7 @@ export function packageCommand(depsOverride?: StatusDeps): Command {
       console.log(`  Exports: skills: ${ec.skills}, guidance: ${ec.guidance}, agents: ${ec.agents}, hooks: ${ec.hooks}, mcp: ${ec.mcp}`);
     });
 
-  // rig package plan <path>
+  // softwareTeam package plan <path>
   cmd
     .command("plan <path>")
     .description("Preview install plan (dry run)")
@@ -115,7 +115,7 @@ export function packageCommand(depsOverride?: StatusDeps): Command {
       }
     });
 
-  // rig package install <path>
+  // softwareTeam package install <path>
   cmd
     .command("install <path>")
     .description("Install a package")
@@ -206,7 +206,7 @@ export function packageCommand(depsOverride?: StatusDeps): Command {
       }
     });
 
-  // rig package rollback <installId>
+  // softwareTeam package rollback <installId>
   cmd
     .command("rollback <installId>")
     .description("Rollback an install")
@@ -243,7 +243,7 @@ export function packageCommand(depsOverride?: StatusDeps): Command {
       }
     });
 
-  // rig package list
+  // softwareTeam package list
   cmd
     .command("list")
     .description("List installed packages")

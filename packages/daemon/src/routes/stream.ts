@@ -39,8 +39,8 @@ function normalizeIsoTimestamp(value: string): string | null {
 /**
  * Coordination L1 — Stream HTTP routes (PL-004 Phase A).
  *
- * Host-scoped (no rigId in path). Append-only intake/audit root for the
- * coordination primitive. CLI `rig stream` calls these endpoints.
+ * Host-scoped (no softwareTeamId in path). Append-only intake/audit root for the
+ * coordination primitive. CLI `softwareTeam stream` calls these endpoints.
  */
 export function streamRoutes(): Hono {
   const app = new Hono();

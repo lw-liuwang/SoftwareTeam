@@ -18,16 +18,16 @@ const PROVENANCE = {
 
 const HOST_USAGE: HostUsageRow[] = [
   // ok
-  { host: "local", provider: "claude", state: "ok", windows: [{ window: "five_hour", usedPercent: 10, asOf: AS_OF, seatSession: "review-r1@rig" }], provenance: PROVENANCE, anomalies: [], evidenceSeats: ["review-r1@rig"], asOf: AS_OF },
+  { host: "local", provider: "claude", state: "ok", windows: [{ window: "five_hour", usedPercent: 10, asOf: AS_OF, seatSession: "review-r1@software-team" }], provenance: PROVENANCE, anomalies: [], evidenceSeats: ["review-r1@software-team"], asOf: AS_OF },
   // limited + resets_at
-  { host: "local", provider: "codex", state: "limited", resetsAt: "2026-08-03T13:00:00.000Z", windows: [{ window: "primary", usedPercent: 100, resetsAt: "2026-08-03T13:00:00.000Z", asOf: AS_OF, seatSession: "dev-qa@rig" }], provenance: PROVENANCE, anomalies: [], evidenceSeats: ["dev-qa@rig"], asOf: AS_OF },
+  { host: "local", provider: "codex", state: "limited", resetsAt: "2026-08-03T13:00:00.000Z", windows: [{ window: "primary", usedPercent: 100, resetsAt: "2026-08-03T13:00:00.000Z", asOf: AS_OF, seatSession: "dev-qa@software-team" }], provenance: PROVENANCE, anomalies: [], evidenceSeats: ["dev-qa@software-team"], asOf: AS_OF },
   // explicit_unknown + reason (passthrough)
   { host: "local", provider: "codex", state: "explicit_unknown", unknownReason: "codex profile present but no usage meter", windows: [], provenance: PROVENANCE, anomalies: [], evidenceSeats: [], asOf: AS_OF },
 ];
 
 // a row carrying a first-class conflict anomaly (both-facts-visible)
 const HOST_USAGE_CONFLICT: HostUsageRow[] = [
-  { host: "local", provider: "claude", state: "explicit_unknown", unknownReason: "conflicting seat windows falsify the one-account-per-host invariant", windows: [], provenance: PROVENANCE, anomalies: [{ kind: "conflicting_seat_windows", window: "five_hour", seats: ["a@rig", "b@rig"], evidence: "a=20% vs b=90% at same asOf", asOf: AS_OF }], evidenceSeats: ["a@rig", "b@rig"], asOf: AS_OF },
+  { host: "local", provider: "claude", state: "explicit_unknown", unknownReason: "conflicting seat windows falsify the one-account-per-host invariant", windows: [], provenance: PROVENANCE, anomalies: [{ kind: "conflicting_seat_windows", window: "five_hour", seats: ["a@software-team", "b@software-team"], evidence: "a=20% vs b=90% at same asOf", asOf: AS_OF }], evidenceSeats: ["a@software-team", "b@software-team"], asOf: AS_OF },
 ];
 
 function modelWith(hostUsage: HostUsageRow[] | undefined): FourBlockReadModel {
@@ -75,7 +75,7 @@ describe("GET /api/provider/usage — S-B external status contract", () => {
     expect(row.state).toBe("explicit_unknown");
     expect(row.anomalies).toHaveLength(1);
     expect(row.anomalies[0].kind).toBe("conflicting_seat_windows");
-    expect(row.anomalies[0].seats).toEqual(["a@rig", "b@rig"]);
+    expect(row.anomalies[0].seats).toEqual(["a@software-team", "b@software-team"]);
   });
 
   it("passes an explicit_unknown row through unchanged (state + unknownReason)", async () => {

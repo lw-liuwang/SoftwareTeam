@@ -1,5 +1,5 @@
 // OPR.0.5.5.19 A7 — THE PARKED QUERY, the flagship consumer (founder's one-command ask):
-// "are we parked?" at rig level, "is this seat parked?" at seat level. PARKED is a
+// "are we parked?" at softwareTeam level, "is this seat parked?" at seat level. PARKED is a
 // DERIVED DIAGNOSIS (the taxonomy's rule — computed at read time, never stored):
 // (activity = idle-at-prompt OR needs-input pending) × (open obligations exist).
 //
@@ -92,7 +92,7 @@ export interface SeatParkedDiagnosis {
   confidence: { activity: "high" | "none"; obligations: "complete" | "truncation-possible" | "unavailable" };
 }
 
-export interface RigParkedDiagnosis {
+export interface SoftwareTeamParkedDiagnosis {
   parked: boolean | "indeterminate";
   reason: string;
   seats: SeatParkedDiagnosis[];
@@ -204,10 +204,10 @@ export function diagnoseSeatParked(
   };
 }
 
-export function diagnoseRigParked(
+export function diagnoseSoftwareTeamParked(
   deps: ParkedQueryDeps,
   seats: Array<{ seatNodeId: string; sessionName: string }>,
-): RigParkedDiagnosis {
+): SoftwareTeamParkedDiagnosis {
   const diagnoses = seats.map((s) => diagnoseSeatParked(deps, s));
   const parkedSeats = diagnoses.filter((d) => d.parked === true);
   const indeterminate = diagnoses.filter((d) => d.parked === "indeterminate");
@@ -219,7 +219,7 @@ export function diagnoseRigParked(
     };
   }
   if (indeterminate.length > 0) {
-    // An unreadable seat can hide a park — the rig verdict must not claim all-clear.
+    // An unreadable seat can hide a park — the softwareTeam verdict must not claim all-clear.
     return {
       parked: "indeterminate",
       reason: `no seat is provably parked, but ${indeterminate.length} seat(s) are indeterminate (${indeterminate.map((d) => d.seatNodeId).join(", ")}) — not an all-clear`,

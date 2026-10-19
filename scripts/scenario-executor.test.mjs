@@ -23,7 +23,7 @@ test('deadline expires even when the child ignores TERM', async () => {
   assert.ok(Date.now() - start < 3000);
 });
 test('a missing executable and an invalid deadline cannot report success', async () => {
-  assert.equal(await runWithDeadline(['/nonexistent/openrig-test-program'], { timeoutMs: 1000 }), 127);
+  assert.equal(await runWithDeadline(['/nonexistent/softwareteam-test-program'], { timeoutMs: 1000 }), 127);
   await assert.rejects(runWithDeadline([process.execPath], { timeoutMs: 0 }), /positive/);
 });
 

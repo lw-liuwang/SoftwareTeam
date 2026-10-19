@@ -36,7 +36,7 @@ import { agentspecRebootSchema } from "../src/db/migrations/014_agentspec_reboot
 import { podNamespaceSchema } from "../src/db/migrations/017_pod_namespace.js";
 import { contextUsageSchema } from "../src/db/migrations/018_context_usage.js";
 import { externalCliAttachmentSchema } from "../src/db/migrations/019_external_cli_attachment.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { ulid } from "ulid";
 
@@ -64,7 +64,7 @@ function writeImage(root: string, name: string, manifest: string): void {
 // ============================================================================
 
 describe("agent image source_cwd — snapshot capturer captures cwd", () => {
-  function setupDb(): { db: Database.Database; rigRepo: RigRepository; sessionRegistry: SessionRegistry } {
+  function setupDb(): { db: Database.Database; softwareTeamRepo: SoftwareTeamRepository; sessionRegistry: SessionRegistry } {
     const db = createDb();
     migrate(db, [
       coreSchema,
@@ -79,76 +79,76 @@ describe("agent image source_cwd — snapshot capturer captures cwd", () => {
       contextUsageSchema,
       externalCliAttachmentSchema,
     ]);
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const sessionRegistry = new SessionRegistry(db);
-    return { db, rigRepo, sessionRegistry };
+    return { db, softwareTeamRepo, sessionRegistry };
   }
 
   it("captures source seat's cwd into manifest source_cwd", () => {
-    const { db, rigRepo, sessionRegistry } = setupDb();
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", {
+    const { db, softwareTeamRepo, sessionRegistry } = setupDb();
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", {
       runtime: "claude-code",
-      cwd: "/Users/op/code/projects/openrig",
+      cwd: "/Users/op/code/projects/softwareteam",
     });
     // Create a session row + resume_token so discoverResumeToken returns it.
     const sessionId = ulid();
     db.prepare(
       `INSERT INTO sessions (id, node_id, session_name, status, created_at)
        VALUES (?, ?, ?, 'live', ?)`,
-    ).run(sessionId, node.id, "dev-impl@test-rig", new Date().toISOString());
+    ).run(sessionId, node.id, "dev-impl@test-software-team", new Date().toISOString());
     db.prepare(`UPDATE sessions SET resume_token = ?, resume_type = 'claude_id' WHERE id = ?`).run("NATIVE-RESUME-TOKEN", sessionId);
 
     const library = new AgentImageLibraryService({ roots: [{ path: userRoot, sourceType: "user_file" }] });
     const capturer = new SnapshotCapturer({
-      db, rigRepo, sessionRegistry, agentImageLibrary: library,
+      db, softwareTeamRepo, sessionRegistry, agentImageLibrary: library,
       targetRoot: userRoot,
     });
 
     const result = capturer.capture({
-      sourceSession: "dev-impl@test-rig",
+      sourceSession: "dev-impl@test-software-team",
       name: "captured-image",
     });
 
-    expect(result.manifest.sourceCwd).toBe("/Users/op/code/projects/openrig");
+    expect(result.manifest.sourceCwd).toBe("/Users/op/code/projects/softwareteam");
 
     // The manifest is also persisted to disk — verify the YAML contains
     // source_cwd so a fresh re-scan would re-load it correctly.
     const yaml = readFileSync(join(userRoot, "captured-image", "manifest.yaml"), "utf-8");
     expect(yaml).toContain("source_cwd:");
-    expect(yaml).toContain("/Users/op/code/projects/openrig");
+    expect(yaml).toContain("/Users/op/code/projects/softwareteam");
 
     db.close();
   });
 
   it("captures Claude's live context session id instead of stale launch resume_token", () => {
-    const { db, rigRepo, sessionRegistry } = setupDb();
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", {
+    const { db, softwareTeamRepo, sessionRegistry } = setupDb();
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", {
       runtime: "claude-code",
-      cwd: "/Users/op/code/projects/openrig",
+      cwd: "/Users/op/code/projects/softwareteam",
     });
     const sessionId = ulid();
     db.prepare(
       `INSERT INTO sessions (id, node_id, session_name, status, created_at)
        VALUES (?, ?, ?, 'live', ?)`,
-    ).run(sessionId, node.id, "dev-impl@test-rig", new Date().toISOString());
+    ).run(sessionId, node.id, "dev-impl@test-software-team", new Date().toISOString());
     db.prepare(`UPDATE sessions SET resume_token = ?, resume_type = 'claude_id' WHERE id = ?`)
       .run("STALE-GENERATED-LAUNCH-ID", sessionId);
     db.prepare(`
       INSERT INTO context_usage (
         node_id, session_id, session_name, availability, source, sampled_at
       ) VALUES (?, ?, ?, 'known', 'claude_statusline_json', ?)
-    `).run(node.id, "LIVE-CLAUDE-TRANSCRIPT-ID", "dev-impl@test-rig", new Date().toISOString());
+    `).run(node.id, "LIVE-CLAUDE-TRANSCRIPT-ID", "dev-impl@test-software-team", new Date().toISOString());
 
     const library = new AgentImageLibraryService({ roots: [{ path: userRoot, sourceType: "user_file" }] });
     const capturer = new SnapshotCapturer({
-      db, rigRepo, sessionRegistry, agentImageLibrary: library,
+      db, softwareTeamRepo, sessionRegistry, agentImageLibrary: library,
       targetRoot: userRoot,
     });
 
     const result = capturer.capture({
-      sourceSession: "dev-impl@test-rig",
+      sourceSession: "dev-impl@test-software-team",
       name: "captured-live-session-image",
     });
 
@@ -160,43 +160,43 @@ describe("agent image source_cwd — snapshot capturer captures cwd", () => {
   });
 
   it("captures a managed Codex seat's persisted thread id into manifest", () => {
-    const { db, rigRepo, sessionRegistry } = setupDb();
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.qa", {
+    const { db, softwareTeamRepo, sessionRegistry } = setupDb();
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", {
       runtime: "codex",
-      cwd: "/Users/op/code/projects/openrig",
+      cwd: "/Users/op/code/projects/softwareteam",
     });
     const sessionId = ulid();
     db.prepare(
       `INSERT INTO sessions (id, node_id, session_name, status, created_at)
        VALUES (?, ?, ?, 'live', ?)`,
-    ).run(sessionId, node.id, "dev-qa@test-rig", new Date().toISOString());
+    ).run(sessionId, node.id, "dev-qa@test-software-team", new Date().toISOString());
     db.prepare(`UPDATE sessions SET resume_token = ?, resume_type = 'codex_id' WHERE id = ?`)
       .run("LIVE-CODEX-THREAD-ID", sessionId);
 
     const library = new AgentImageLibraryService({ roots: [{ path: userRoot, sourceType: "user_file" }] });
     const capturer = new SnapshotCapturer({
-      db, rigRepo, sessionRegistry, agentImageLibrary: library,
+      db, softwareTeamRepo, sessionRegistry, agentImageLibrary: library,
       targetRoot: userRoot,
     });
 
     const result = capturer.capture({
-      sourceSession: "dev-qa@test-rig",
+      sourceSession: "dev-qa@test-software-team",
       name: "captured-codex-image",
     });
 
     expect(result.manifest.runtime).toBe("codex");
     expect(result.manifest.sourceSessionId).toBe("LIVE-CODEX-THREAD-ID");
     expect(result.manifest.sourceResumeToken).toBe("LIVE-CODEX-THREAD-ID");
-    expect(result.manifest.sourceCwd).toBe("/Users/op/code/projects/openrig");
+    expect(result.manifest.sourceCwd).toBe("/Users/op/code/projects/softwareteam");
 
     db.close();
   });
 
   it("omits source_cwd when source node has no recorded cwd (legacy fixture)", () => {
-    const { db, rigRepo, sessionRegistry } = setupDb();
-    const rig = rigRepo.createRig("legacy-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", {
+    const { db, softwareTeamRepo, sessionRegistry } = setupDb();
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("legacy-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", {
       runtime: "claude-code",
       // cwd intentionally null — models a pre-cwd-capture node row
     });
@@ -204,17 +204,17 @@ describe("agent image source_cwd — snapshot capturer captures cwd", () => {
     db.prepare(
       `INSERT INTO sessions (id, node_id, session_name, status, created_at)
        VALUES (?, ?, ?, 'live', ?)`,
-    ).run(sessionId, node.id, "dev-impl@legacy-rig", new Date().toISOString());
+    ).run(sessionId, node.id, "dev-impl@legacy-software-team", new Date().toISOString());
     db.prepare(`UPDATE sessions SET resume_token = ?, resume_type = 'claude_id' WHERE id = ?`).run("TOKEN", sessionId);
 
     const library = new AgentImageLibraryService({ roots: [{ path: userRoot, sourceType: "user_file" }] });
     const capturer = new SnapshotCapturer({
-      db, rigRepo, sessionRegistry, agentImageLibrary: library,
+      db, softwareTeamRepo, sessionRegistry, agentImageLibrary: library,
       targetRoot: userRoot,
     });
 
     const result = capturer.capture({
-      sourceSession: "dev-impl@legacy-rig",
+      sourceSession: "dev-impl@legacy-software-team",
       name: "no-cwd-image",
     });
 
@@ -246,10 +246,10 @@ describe("agent image source_cwd — snippet generator emits cwd", () => {
 name: with-cwd
 version: 1
 runtime: claude-code
-source_seat: alice@rig
+source_seat: alice@software-team
 source_session_id: SID
 source_resume_token: TOK
-source_cwd: /Users/op/code/projects/openrig
+source_cwd: /Users/op/code/projects/softwareteam
 files: []
 `);
     const lib = new AgentImageLibraryService({ roots: [{ path: userRoot, sourceType: "user_file" }] });
@@ -260,7 +260,7 @@ files: []
     const res = await app.request(`/api/agent-images/library/${id}/preview`);
     expect(res.status).toBe(200);
     const body = await res.json() as { starterSnippet: string };
-    expect(body.starterSnippet).toContain('cwd: "/Users/op/code/projects/openrig"');
+    expect(body.starterSnippet).toContain('cwd: "/Users/op/code/projects/softwareteam"');
     expect(body.starterSnippet).toContain("session_source:");
     expect(body.starterSnippet).toContain("    value: \"with-cwd\"");
     // cwd line precedes session_source block (operator pastes verbatim).
@@ -274,7 +274,7 @@ files: []
 name: no-cwd
 version: 1
 runtime: claude-code
-source_seat: alice@rig
+source_seat: alice@software-team
 source_session_id: SID
 source_resume_token: TOK
 files: []
@@ -296,7 +296,7 @@ files: []
 name: with-cwd
 version: 1
 runtime: claude-code
-source_seat: alice@rig
+source_seat: alice@software-team
 source_session_id: SID
 source_resume_token: TOK
 source_cwd: /Users/op/code
@@ -306,7 +306,7 @@ files: []
 name: no-cwd
 version: 1
 runtime: claude-code
-source_seat: alice@rig
+source_seat: alice@software-team
 source_session_id: SID
 source_resume_token: TOK
 files: []
@@ -373,19 +373,19 @@ source_resume_token: t
 // ============================================================================
 //
 // The daemon must NOT override cwd at fork dispatch — operator's chosen
-// cwd in the rig.yaml is honored verbatim. If wrong, Claude returns
+// cwd in the software-team.yaml is honored verbatim. If wrong, Claude returns
 // "no conversation found" and the operator gets an honest error.
 //
 // This test enforces the absence of any daemon override path by
-// scanning the rigspec-instantiator + claude-code-adapter source for
+// scanning the software-team-spec-instantiator + claude-code-adapter source for
 // a documented red flag: if some future patch adds an override here,
 // the test fails and the author must explicitly justify.
 
 describe("agent image source_cwd — operator-override safety", () => {
-  it("rigspec-instantiator does NOT mutate member.cwd from agent_image manifest", async () => {
+  it("software-team-spec-instantiator does NOT mutate member.cwd from agent_image manifest", async () => {
     const fs = await import("node:fs/promises");
     const src = await fs.readFile(
-      join(import.meta.dirname ?? __dirname, "../src/domain/rigspec-instantiator.ts"),
+      join(import.meta.dirname ?? __dirname, "../src/domain/software-team-spec-instantiator.ts"),
       "utf-8",
     );
     // Negative assertion: no code path reads sourceCwd from the

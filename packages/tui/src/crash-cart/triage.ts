@@ -9,7 +9,7 @@ import type { Token } from "../theme.js";
 export type TriageStatus = "red" | "yellow" | "green";
 
 /** One seat's restore-check evidence (the tui-local view of the daemon's CheckEntry[] — parsed, so no
- *  @openrig/daemon dep; the light-TUI fence). */
+ *  @softwareteam/daemon dep; the light-TUI fence). */
 export interface TriageCheckInput {
   seat: string;
   entries: Array<{

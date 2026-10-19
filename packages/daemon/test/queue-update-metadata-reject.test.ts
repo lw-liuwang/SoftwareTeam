@@ -39,12 +39,12 @@ describe("51-06 D2 — non-park queue update metadata reject", () => {
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, queueItemsSchema, queueTransitionsSchema, inboxEntriesSchema, outboxEntriesSchema, queueTargetRepoSchema, queueItemSummarySchema, queueItemEvidenceRefSchema]);
     bus = new EventBus(db);
-    repo = new QueueRepository(db, bus, { validateRig: () => true });
+    repo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     app = buildApp(bus, repo);
   });
   afterEach(() => db.close());
 
-  const mkItem = async () => (await repo.create({ sourceSession: "orch@rig", destinationSession: "dev-x@rig", body: "d2 item" })).qitemId;
+  const mkItem = async () => (await repo.create({ sourceSession: "orch@software-team", destinationSession: "dev-x@software-team", body: "d2 item" })).qitemId;
   const txnCount = (id: string) => (db.prepare("SELECT count(*) c FROM queue_transitions WHERE qitem_id = ?").get(id) as { c: number }).c;
   const eventCount = () => (db.prepare("SELECT count(*) c FROM events").get() as { c: number }).c;
 
@@ -54,7 +54,7 @@ describe("51-06 D2 — non-park queue update metadata reject", () => {
     const beforeTxns = txnCount(id);
     const beforeEvents = eventCount();
     let err: unknown;
-    try { repo.update({ qitemId: id, actorSession: "dev-x@rig", state: "in-progress", ...input }); }
+    try { repo.update({ qitemId: id, actorSession: "dev-x@software-team", state: "in-progress", ...input }); }
     catch (e) { err = e; }
     expect(err).toBeInstanceOf(QueueRepositoryError);
     expect((err as QueueRepositoryError).code).toBe(REJECT_CODE);
@@ -80,9 +80,9 @@ describe("51-06 D2 — non-park queue update metadata reject", () => {
 
   it("also rejects on a terminal non-park transition (in-progress -> done + closure)", async () => {
     const id = await mkItem();
-    repo.update({ qitemId: id, actorSession: "dev-x@rig", state: "in-progress" }); // claim (metadata-free, ok)
+    repo.update({ qitemId: id, actorSession: "dev-x@software-team", state: "in-progress" }); // claim (metadata-free, ok)
     let err: unknown;
-    try { repo.update({ qitemId: id, actorSession: "dev-x@rig", state: "done", closureReason: "no-follow-on", summary: "S" }); }
+    try { repo.update({ qitemId: id, actorSession: "dev-x@software-team", state: "done", closureReason: "no-follow-on", summary: "S" }); }
     catch (e) { err = e; }
     expect((err as QueueRepositoryError).code).toBe(REJECT_CODE);
     expect(repo.getByIdOrThrow(id).state).toBe("in-progress"); // unchanged by the rejected close
@@ -90,22 +90,22 @@ describe("51-06 D2 — non-park queue update metadata reject", () => {
 
   it("metadata-free non-park update is UNCHANGED (null=absent, no reject)", async () => {
     const id = await mkItem();
-    const res = repo.update({ qitemId: id, actorSession: "dev-x@rig", state: "in-progress", summary: null, evidenceRef: null });
+    const res = repo.update({ qitemId: id, actorSession: "dev-x@software-team", state: "in-progress", summary: null, evidenceRef: null });
     expect(res.state).toBe("in-progress");
   });
 
   it("CONTROL: human-seat park still PERSISTS summary + evidence byte-for-byte", async () => {
     const id = await mkItem();
-    const res = repo.update({ qitemId: id, actorSession: "orch@rig", state: "blocked", blockedOn: "human@kernel", summary: "PARK-KEEP", evidenceRef: "/proof/park.md" });
+    const res = repo.update({ qitemId: id, actorSession: "orch@software-team", state: "blocked", blockedOn: "human@kernel", summary: "PARK-KEEP", evidenceRef: "/proof/park.md" });
     expect(res.summary).toBe("PARK-KEEP");
     expect(res.evidenceRef).toBe("/proof/park.md");
   });
 
   it("ROUTE: POST /:id/update non-park + summary -> HTTP 400 naming invalidFields", async () => {
     // P21 I3: create/update derive the sender from the transport header; header==body claim ⇒ tolerated.
-    const created = await app.request("/api/queue/create", { method: "POST", headers: { "content-type": "application/json", "X-OpenRig-Session": "orch@rig" }, body: JSON.stringify({ sourceSession: "orch@rig", destinationSession: "dev-x@rig", body: "r" }) });
+    const created = await app.request("/api/queue/create", { method: "POST", headers: { "content-type": "application/json", "X-SoftwareTeam-Session": "orch@software-team" }, body: JSON.stringify({ sourceSession: "orch@software-team", destinationSession: "dev-x@software-team", body: "r" }) });
     const id = ((await created.json()) as { qitemId: string }).qitemId;
-    const res = await app.request(`/api/queue/${id}/update`, { method: "POST", headers: { "content-type": "application/json", "X-OpenRig-Session": "dev-x@rig" }, body: JSON.stringify({ actorSession: "dev-x@rig", state: "in-progress", summary: "DROPME" }) });
+    const res = await app.request(`/api/queue/${id}/update`, { method: "POST", headers: { "content-type": "application/json", "X-SoftwareTeam-Session": "dev-x@software-team" }, body: JSON.stringify({ actorSession: "dev-x@software-team", state: "in-progress", summary: "DROPME" }) });
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string; invalidFields?: string[] };
     expect(body.error).toBe(REJECT_CODE);

@@ -5,38 +5,38 @@ import { mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { prepareHermeticEnv, type HermeticScaffold } from "./helpers/hermetic-env.js";
-import { runRig, spawnScenarioDaemon, type ScenarioDaemon } from "./helpers/scenario-daemon.js";
+import { runSoftwareTeam, spawnScenarioDaemon, type ScenarioDaemon } from "./helpers/scenario-daemon.js";
 
 // Real CLI/daemon/SQLite/tmux with two scripted agents. These journeys exercise
 // ordinary user commands; they do not model a provider prompt or input consumption.
 // Reuse one private fixture to keep the PR cost bounded. Each assertion uses its
 // own marker/selector, and only the stream case restarts this fixture's daemon.
 const here = dirname(fileURLToPath(import.meta.url));
-const rigBin = resolve(here, "../../cli/dist/bin-wrapper.js");
+const softwareTeamBin = resolve(here, "../../cli/dist/bin-wrapper.js");
 const library = resolve(here, "../../test-system/scenarios");
 
 describe("stub CLI journeys", () => {
   let scaffold: HermeticScaffold | undefined;
   let daemon: ScenarioDaemon | undefined;
-  const launchedRigs: string[] = [];
-  const sender = "work-worker@rig-alpha";
-  const recipient = "work-worker@rig-beta";
+  const launchedSoftwareTeams: string[] = [];
+  const sender = "work-worker@software-team-alpha";
+  const recipient = "work-worker@software-team-beta";
 
   async function cli(args: string[]) {
-    const result = await runRig(args, { ...daemon!.readEnv, OPENRIG_SESSION_NAME: sender }, rigBin);
+    const result = await runSoftwareTeam(args, { ...daemon!.readEnv, SOFTWARETEAM_SESSION_NAME: sender }, softwareTeamBin);
     expect(result.code, JSON.stringify({ args, ...result })).toBe(0);
     return JSON.parse(result.stdout);
   }
 
   beforeAll(async () => {
     scaffold = prepareHermeticEnv({ baseEnv: { PATH: process.env.PATH, TERM: "xterm-256color" } });
-    daemon = await spawnScenarioDaemon(scaffold, { rigBin });
+    daemon = await spawnScenarioDaemon(scaffold, { softwareTeamBin });
     for (const name of ["alpha", "beta"]) {
       const cwd = join(scaffold.root, name);
       mkdirSync(cwd);
-      const result = await runRig(["up", join(library, `rig-${name}-stub.yaml`), "--cwd", cwd, "--json", "--yes"], daemon.readEnv, rigBin, 120_000);
+      const result = await runSoftwareTeam(["up", join(library, `software-team-${name}-stub.yaml`), "--cwd", cwd, "--json", "--yes"], daemon.readEnv, softwareTeamBin, 120_000);
       expect(result.code, JSON.stringify({ name, ...result })).toBe(0);
-      launchedRigs.push(`rig-${name}`);
+      launchedSoftwareTeams.push(`software-team-${name}`);
     }
   }, 120_000);
 
@@ -44,8 +44,8 @@ describe("stub CLI journeys", () => {
     if (!daemon) { scaffold?.cleanup(); return; }
     try {
       // Stop the launched seats while their daemon can still coordinate teardown.
-      // Removing the scratch tree with live rigs can race their final writes.
-      for (const rig of launchedRigs) await cli(["down", rig, "--json", "--force"]);
+      // Removing the scratch tree with live softwareTeams can race their final writes.
+      for (const softwareTeam of launchedSoftwareTeams) await cli(["down", softwareTeam, "--json", "--force"]);
     } finally {
       await daemon.stop();
     }
@@ -67,17 +67,17 @@ describe("stub CLI journeys", () => {
     // Pane rendering is the contract here. The stub has no consuming input loop.
   }, 60_000);
 
-  it("keeps the current-rig view exact while explicit scopes reach the other live rig", async () => {
-    const all = await cli(["ps", "--nodes", "--all-rigs", "--json"]);
+  it("keeps the current-software-team view exact while explicit scopes reach the other live softwareTeam", async () => {
+    const all = await cli(["ps", "--nodes", "--all-software-teams", "--json"]);
     expect(all.map((n: { canonicalSessionName: string }) => n.canonicalSessionName).sort()).toEqual([sender, recipient]);
-    for (const [rig, seat] of [["rig-alpha", sender], ["rig-beta", recipient]]) {
-      const nodes = await cli(["ps", "--nodes", "--rig", rig, "--json"]);
+    for (const [softwareTeam, seat] of [["software-team-alpha", sender], ["software-team-beta", recipient]]) {
+      const nodes = await cli(["ps", "--nodes", "--software-team", softwareTeam, "--json"]);
       expect(nodes.map((n: { canonicalSessionName: string }) => n.canonicalSessionName)).toEqual([seat]);
       expect(nodes[0].sessionStatus).toBe("running");
     }
     const current = await cli(["ps", "--nodes", "--json"]);
     expect(current.entries.map((n: { canonicalSessionName: string }) => n.canonicalSessionName)).toEqual([sender]);
-    expect(current.scope).toMatchObject({ rig: "rig-alpha", rigsOnHost: 2 });
+    expect(current.scope).toMatchObject({ softwareTeam: "software-team-alpha", softwareTeamsOnHost: 2 });
     // Exact arrays, not subset matches: an extra sibling is a failure.
   }, 60_000);
 

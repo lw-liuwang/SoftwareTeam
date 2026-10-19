@@ -4,13 +4,13 @@ import type { Migration } from "../migrate.js";
  * OPR.0.4.8.3 Seam B (R2 — dev-guard restart-provenance ruling): additive restart-stable
  * provenance columns for a node's RESOLVED permission-policy attachment. The raw ref
  * (migration 055) alone is NOT restart-complete — a restore must be able to re-derive
- * surface + launch posture without the original in-memory RigSpec:
+ * surface + launch posture without the original in-memory SoftwareTeamSpec:
  *   - policy_origin           'builtin' | 'custom' (origin honesty, never reclassified)
  *   - policy_resolved_target  custom: the absolute resolved policy path.
  *                             builtin: the canonical shipped package-copy path ONCE the
  *                             packaging leg rules it (PM lane c76c7153) — NULL until then;
  *                             never a `builtin:<name>` echo of the raw ref.
- *   - policy_declaring_dir    custom: the canonical declaring RigSpec directory.
+ *   - policy_declaring_dir    custom: the canonical declaring SoftwareTeamSpec directory.
  *   - policy_launch_posture   'floor' | 'full_bypass' — the resolved posture at materialize;
  *                             restore re-resolves and reconciles (a custom flag policy must
  *                             restore to full_bypass — the ruling's crux).

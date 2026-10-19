@@ -36,7 +36,7 @@ function makeClient(): DaemonClient {
     if (path.startsWith("/api/gateway")) return http.request(path, init);
     const fixtures: Record<string, unknown> = {
       "/healthz": { status: "ok", semver: "0.6.0", commit: "fixture", selfHostId: "fixture-host", selfHostIdSource: "registry" },
-      "/api/rigs/summary": [], "/api/review/fleet": { needsYou: { items: [] }, hosts: [] },
+      "/api/software-teams/summary": [], "/api/review/fleet": { needsYou: { items: [] }, hosts: [] },
       "/api/queue/attention-aggregate": { hosts: [] }, "/api/scopes": { missions: [] }, "/api/views/execution": { rows: [] },
     };
     return Response.json(fixtures[path] ?? []);
@@ -69,14 +69,14 @@ describe("Connections · Slack not configured (no app tokens)", () => {
     const snap = await hydrate(makeClient()) as FleetSnapshot;
     const bundle = buildSlackAppManifest();
     expect(snap.slackManifest?.url).toBe(bundle.url);
-    expect(snap.connections?.nextAction).toBe("rig slack manifest --url");
+    expect(snap.connections?.nextAction).toBe("SoftwareTeam slack manifest --url");
     const lines = connectionsLines(snap, 400);
     const body = text(lines);
     expect(body).toContain("not configured · no Slack app tokens yet");
     expect(linkRows(lines)).toBe(bundle.url);
     expect(body).toContain("▸ Show manifest (Enter)");
     expect(body).not.toContain("socket_mode_enabled: true");
-    expect(body).toContain("Next: rig slack manifest --url");
+    expect(body).toContain("Next: SoftwareTeam slack manifest --url");
     expect(external).not.toHaveBeenCalled();
     expect(readdirSync(home)).toEqual([]);
   });
@@ -128,6 +128,6 @@ describe("Connections · Slack configured, and older daemons", () => {
     expect(snap.slackManifest).toBeNull();
     expect(snap.readErrors.join("\n")).not.toMatch(/manifest/i);
     const body = text(connectionsLines(snap, 400));
-    expect(body).toContain("rig slack manifest --url (this daemon does not serve the manifest)");
+    expect(body).toContain("SoftwareTeam slack manifest --url (this daemon does not serve the manifest)");
   });
 });

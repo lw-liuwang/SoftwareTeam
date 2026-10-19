@@ -16,7 +16,7 @@ export function discoverCommand(depsOverride?: StatusDeps): Command {
 
   cmd
     .option("--json", "Output as parseable JSON")
-    .option("--draft", "Generate a candidate rig spec from discovered sessions")
+    .option("--draft", "Generate a candidate SoftwareTeam spec from discovered sessions")
     .action(async (opts: { json?: boolean; draft?: boolean }) => {
       const deps = getDeps();
       const client = await getClient(deps);
@@ -31,9 +31,9 @@ export function discoverCommand(depsOverride?: StatusDeps): Command {
       }
 
       if (opts.draft) {
-        const draftRes = await client.postExpectText("/api/discovery/draft-rig", {});
+        const draftRes = await client.postExpectText("/api/discovery/draft-software-team", {});
         if (draftRes.status >= 400) {
-          console.error(`Draft generation failed (HTTP ${draftRes.status}). Run a scan first with: rig discover`);
+          console.error(`Draft generation failed (HTTP ${draftRes.status}). Run a scan first with: SoftwareTeam discover`);
           process.exitCode = 1;
           return;
         }

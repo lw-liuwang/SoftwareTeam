@@ -17,7 +17,7 @@
 //   5. useFilesList(rootName, relPath) → mission directory entries
 //
 // When no suitable root is registered (operator hasn't added workspace.root
-// to OPENRIG_FILES_ALLOWLIST), returns { unavailable: true } so the UI can
+// to SOFTWARETEAM_FILES_ALLOWLIST), returns { unavailable: true } so the UI can
 // degrade to the legacy railItem-grouped slice listing without crashing.
 
 import { useFilesRoots, useFilesList } from "./useFiles.js";
@@ -81,7 +81,7 @@ export function useMissionDiscovery(opts?: { enabled?: boolean }): UseMissionDis
     } else {
       // Otherwise pick the deepest root that is a prefix of workspace.root
       // (handles operator who registered ~/code as a root with workspace.root
-      // = ~/code/projects/openrig-work).
+      // = ~/code/projects/softwareteam-work).
       const prefixed = rootsResp.roots
         .filter((r) => workspace.root && isPathPrefix(r.path, workspace.root))
         .sort((a, b) => b.path.length - a.path.length);
@@ -137,7 +137,7 @@ export function useMissionDiscovery(opts?: { enabled?: boolean }): UseMissionDis
       missions: [],
       unavailable: true,
       isLoading,
-      hint: "Configure a workspace root: rig config set workspace.root <path>",
+      hint: "Configure a workspace root: SoftwareTeam config set workspace.root <path>",
     };
   }
   if (!chosenRoot && !rootsQuery.isLoading) {
@@ -145,7 +145,7 @@ export function useMissionDiscovery(opts?: { enabled?: boolean }): UseMissionDis
       missions: [],
       unavailable: true,
       isLoading,
-      hint: `No allowlist root contains workspace.root (${workspace.root}). Set OPENRIG_FILES_ALLOWLIST=<name>:<path> to register.`,
+      hint: `No allowlist root contains workspace.root (${workspace.root}). Set SOFTWARETEAM_FILES_ALLOWLIST=<name>:<path> to register.`,
     };
   }
 

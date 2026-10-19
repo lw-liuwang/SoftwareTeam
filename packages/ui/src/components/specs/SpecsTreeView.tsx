@@ -173,7 +173,7 @@ export function SpecsTreeView() {
   const { data: plugins = [], isLoading: pluginsLoading } = usePlugins();
   const activeSkill = librarySkillSelectionFromPath(routerState.location.pathname);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
-    "rig-specs": true,
+    "software-team-specs": true,
     "workspace-specs": false,
     "workflow-specs": false,
     "context-packs": false,
@@ -190,12 +190,12 @@ export function SpecsTreeView() {
     setExpandedSkills((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const sections = useMemo<SectionDef[]>(() => {
-    const rigSpecs = library.filter((entry) => entry.kind === "rig" && !entry.hasServices).map(specEntry);
+    const softwareTeamSpecs = library.filter((entry) => entry.kind === "softwareTeam" && !entry.hasServices).map(specEntry);
     const workflowSpecs = library.filter((entry) => entry.kind === "workflow").map(specEntry);
     const agentSpecs = library.filter((entry) => entry.kind === "agent").map(specEntry);
-    const applications = library.filter((entry) => entry.kind === "rig" && entry.hasServices).map(specEntry);
+    const applications = library.filter((entry) => entry.kind === "softwareTeam" && entry.hasServices).map(specEntry);
     return [
-      { id: "rig-specs", label: "Rig Specs", entries: rigSpecs, loading: specsLoading },
+      { id: "software-team-specs", label: "SoftwareTeam Specs", entries: softwareTeamSpecs, loading: specsLoading },
       { id: "workspace-specs", label: "Workspace Specs", entries: [] },
       { id: "workflow-specs", label: "Workflow Specs", entries: workflowSpecs, loading: specsLoading },
       {
@@ -280,7 +280,7 @@ export function SpecsTreeView() {
           if (def.id !== "skills") {
             // Slice 28 dual-action: plugins section label navigates
             // to /specs/plugins AND expands the tree. Other sections
-            // (rig-specs, agent-specs, etc.) keep legacy toggle-only.
+            // (software-team-specs, agent-specs, etc.) keep legacy toggle-only.
             const navigateTo = def.id === "plugins" ? "/specs/plugins" : undefined;
             return (
               <Section
@@ -342,7 +342,7 @@ export function SpecsTreeView() {
 // Slice 29 HG-3 — skills section restructure.
 //
 // Category-folder grouping: parse the skill id's path segment (after
-// "openrig-managed:" or "workspace:<root>:") for a category prefix like
+// "softwareteam-managed:" or "workspace:<root>:") for a category prefix like
 // "core/" / "pm/" / "pods/" / "process/". Skills with a category render
 // under that folder; flat skills (e.g. workspace skills with no nested
 // path) render under a synthetic "uncategorized" group.
@@ -363,9 +363,9 @@ interface SkillsTreeProps {
 
 function extractCategory(skillId: string): string {
   // id shapes:
-  //   openrig-managed:claude-compact-in-place       → "(top-level)"
-  //   openrig-managed:core/openrig-user             → "core"
-  //   openrig-managed:pm/requirements-writer        → "pm"
+  //   softwareteam-managed:claude-compact-in-place       → "(top-level)"
+  //   softwareteam-managed:core/softwareteam-user             → "core"
+  //   softwareteam-managed:pm/requirements-writer        → "pm"
   //   workspace:<root>:operator-skill               → "workspace"
   const afterSource = skillId.replace(/^[^:]+:/, "");
   if (afterSource.startsWith("workspace:") || skillId.startsWith("workspace:")) {

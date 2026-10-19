@@ -9,7 +9,7 @@ export const BUNDLE_PROJECT_DIR = "project";
 
 const PROJECT_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
-/** The id a project.yaml declares, read the way `rig context work-install` reads it. */
+/** The id a project.yaml declares, read the way `SoftwareTeam context work-install` reads it. */
 export function projectManifestId(manifest: unknown): string | null {
   if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) return null;
   const m = manifest as Record<string, unknown>;
@@ -24,7 +24,7 @@ export function projectManifestId(manifest: unknown): string | null {
 
 /**
  * Vendor a project folder (project.yaml plus the files beside it, such as its
- * SPEC.md) into a bundle being built, for `rig bundle create --project-dir`.
+ * SPEC.md) into a bundle being built, for `softwareTeam bundle create --project-dir`.
  * Every file must resolve inside the folder. Returns the manifest's `project`
  * reference.
  */

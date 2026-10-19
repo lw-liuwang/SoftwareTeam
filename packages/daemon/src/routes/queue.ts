@@ -29,7 +29,7 @@ import { queryLimit } from "./query-limit.js";
 /**
  * Coordination L3 — Queue HTTP routes (PL-004 Phase A).
  *
- * Host-scoped. Backs `rig queue create|claim|update|handoff|show|list|inbox-*`.
+ * Host-scoped. Backs `SoftwareTeam queue create|claim|update|handoff|show|list|inbox-*`.
  * Hot-potato strict-rejection happens in the domain layer; routes surface
  * structured errors with the validReasons enum so CLIs can render help.
  */
@@ -91,35 +91,35 @@ export function queueRoutes(): Hono {
     return c.get("eventBus" as never) as EventBus;
   }
 
-  /** PL-007: validate `target_repo` against the source rig's typed
+  /** PL-007: validate `target_repo` against the source softwareTeam's typed
    *  workspace block. Returns 3-part structured error when the repo name
-   *  does not match the source rig's RigSpec.workspace.repos[]. Sessions
-   *  not associated with a workspace-bearing rig pass-through (target_repo
+   *  does not match the source softwareTeam's SoftwareTeamSpec.workspace.repos[]. Sessions
+   *  not associated with a workspace-bearing softwareTeam pass-through (target_repo
    *  is honored as a free-form tag for back-compat). */
   function validateTargetRepo(
     c: { get: (key: string) => unknown },
     sourceSession: string,
     targetRepo: string,
   ): { ok: true } | { ok: false; error: string; message: string; meta?: Record<string, unknown> } {
-    const rigRepo = c.get("rigRepo" as never) as import("../domain/rig-repository.js").RigRepository | undefined;
-    if (!rigRepo) return { ok: true };
+    const softwareTeamRepo = c.get("softwareTeamRepo" as never) as import("../domain/software-team-repository.js").SoftwareTeamRepository | undefined;
+    if (!softwareTeamRepo) return { ok: true };
     // OPR.0.4.6.MH1 FR-8: the shared parse contract (this regex WAS the
     // contract's canonical shape — behavior-identical for every input).
     const parsedSource = parseSessionName(sourceSession);
     if (parsedSource.kind !== "canonical") return { ok: true };
-    const rigName = parsedSource.rig;
-    const rigs = rigRepo.findRigsByName(rigName);
-    if (rigs.length === 0) return { ok: true };
-    const rigId = rigs[0]!.id;
-    const ws = rigRepo.getRigWorkspace(rigId);
+    const softwareTeamName = parsedSource.softwareTeam;
+    const softwareTeams = softwareTeamRepo.findSoftwareTeamsByName(softwareTeamName);
+    if (softwareTeams.length === 0) return { ok: true };
+    const softwareTeamId = softwareTeams[0]!.id;
+    const ws = softwareTeamRepo.getSoftwareTeamWorkspace(softwareTeamId);
     if (!ws) return { ok: true };
     const known = ws.repos.map((r) => r.name);
     if (!known.includes(targetRepo)) {
       return {
         ok: false,
         error: "unknown_target_repo",
-        message: `target_repo "${targetRepo}" does not match any repo in rig ${rigName}'s workspace; check rig whoami --full --json | jq .workspace.repos to see declared repos`,
-        meta: { rigName, knownRepos: known },
+        message: `target_repo "${targetRepo}" does not match any repo in softwareTeam ${softwareTeamName}'s workspace; check SoftwareTeam whoami --full --json | jq .workspace.repos to see declared repos`,
+        meta: { softwareTeamName, knownRepos: known },
       };
     }
     return { ok: true };
@@ -167,7 +167,7 @@ export function queueRoutes(): Hono {
         // DIFFERENT closure_target than the recorded one — someone else closed
         // the source meanwhile; surfaced, never overwritten.
         : err.code === "cross_host_close_conflict" ? 409
-        : err.code === "unknown_destination_rig" ? 400
+        : err.code === "unknown_destination_software_team" ? 400
         : err.code === "human_registry_unavailable" ? 400
         : err.code === "human_route_fields_required" ? 400
         : err.code === "invalid_human_notification" ? 400
@@ -367,7 +367,7 @@ export function queueRoutes(): Hono {
     // The deterministic successor identity is also the local custody key.
     // It must be derived before the re-drive preflight so the comparator and
     // the eventual close use the same host-qualified target. Already-terminal
-    // pre-convention rows retain their stored member@rig@host key on re-drive;
+    // pre-convention rows retain their stored member@software-team@host key on re-drive;
     // the new key is prospective and historical custody is never rewritten.
     const successorId = deriveCrossHostSuccessorId(source.qitemId, body.toSession, hostId);
     const closureTarget = `${successorId}@${hostId}`;
@@ -490,12 +490,12 @@ export function queueRoutes(): Hono {
       evidenceRef?: string | null;
       nudge?: boolean;
       // OPR.0.4.6.MH3 FR-1: the out-of-band host envelope (BR-1 — the
-      // session string stays member@rig; the host is NEVER in-string).
+      // session string stays member@software-team; the host is NEVER in-string).
       // Absent / "" / "local" = today's local path, byte-identical.
       hostId?: string;
     }>().catch(() => ({} as never));
 
-    // P21 I3 — the source is the transport-derived sender (X-OpenRig-Session), NEVER the body claim.
+    // P21 I3 — the source is the transport-derived sender (X-SoftwareTeam-Session), NEVER the body claim.
     // P18 deliver-and-label: absent header + a body sourceSession → recorded as the claimed-era stamp
     // claimed:v1; absent header + no body → 400 actor_required; a body sourceSession that DIFFERS from the
     // header → the wire SUPERSEDES it (transport:v1), not a 409. `sourceSession` below is authoritative.
@@ -503,11 +503,11 @@ export function queueRoutes(): Hono {
     if (!identity.ok) return identity.response;
     const sourceSession = identity.session;
     // Required destination and body, then PL-007: validate target_repo against
-    // source rig's workspace.repos[].
+    // source softwareTeam's workspace.repos[].
     // GUARD FIXBACK (OPR.0.4.6.MH3 review of 86ba8b42, Finding 1): this runs
     // BEFORE the cross-host branch — the validation authority is the SOURCE
-    // rig's typed workspace, which lives on THIS host; the target daemon
-    // passes-through when it doesn't know the source rig, so a post-forward
+    // softwareTeam's typed workspace, which lives on THIS host; the target daemon
+    // passes-through when it doesn't know the source softwareTeam, so a post-forward
     // check cannot recover it. Local ordering is unchanged (the cross-host
     // branch is a no-op without hostId).
     const refusal = createInputRefusal(c, sourceSession, body);
@@ -528,7 +528,7 @@ export function queueRoutes(): Hono {
         qitemId: mintedId,
         // 51-09 incr 4a — stamp-at-FORWARD: this forwarding daemon is the origin,
         // so it stamps its OWN self-id (overriding the bare spread) before the
-        // remote create() runs — else the remote would forge member@rig@RECEIVER.
+        // remote create() runs — else the remote would forge member@software-team@RECEIVER.
         sourceSession: c.req.header(ORIGIN_UNKNOWN_HEADER) === "true" ? sourceSession : stampSelfHostSuffix(sourceSession),
         tags: crossHostProvenanceTags(body.tags),
       };
@@ -636,7 +636,7 @@ export function queueRoutes(): Hono {
       summary?: string | null;
       evidenceRef?: string | null;
     }>().catch(() => ({} as never));
-    // P21 I3 — the actor is the transport-derived sender (X-OpenRig-Session), NEVER a body claim.
+    // P21 I3 — the actor is the transport-derived sender (X-SoftwareTeam-Session), NEVER a body claim.
     // P18 deliver-and-label: absent header + a body actor → claimed:v1; absent + no body → 400
     // actor_required; a differing body actorSession → the wire SUPERSEDES it (transport:v1), not a 409;
     // an equal body claim is a no-op.
@@ -962,7 +962,7 @@ export function queueRoutes(): Hono {
     const userLimit = parsedLimit.limit;
     const asSession = c.req.query("as") || undefined;
     const compact = c.req.query("compact") === "1";
-    const rig = c.req.query("rig") || undefined;
+    const softwareTeam = c.req.query("softwareTeam") || undefined;
     const activeOnly = c.req.query("activeOnly") === "1";
     const attention = c.req.query("attention") === "1";
 
@@ -981,7 +981,7 @@ export function queueRoutes(): Hono {
         limit: userLimit,
         asSession,
         compact,
-        rig,
+        softwareTeam,
         activeOnly,
       });
       return c.json(items);
@@ -1019,28 +1019,28 @@ export function queueRoutes(): Hono {
   // GET /overdue — surfaces in-progress qitems past closure_required_at.
   // MUST precede /:qitemId.
   app.get("/overdue", (c) => {
-    // Slice 15 (finding 2): rig-scoped + bounded + compact-by-default, mirroring
-    // /list — so `rig queue overdue` no longer dumps every rig's full bodies.
+    // Slice 15 (finding 2): software-team-scoped + bounded + compact-by-default, mirroring
+    // /list — so `SoftwareTeam queue overdue` no longer dumps every softwareTeam's full bodies.
     const q = c.req.query();
-    const rig = q.rig || undefined;
+    const softwareTeam = q.softwareTeam || undefined;
     const limitRaw = q.limit !== undefined ? Number.parseInt(q.limit, 10) : undefined;
     const limit = limitRaw !== undefined && Number.isInteger(limitRaw) && limitRaw > 0 ? limitRaw : undefined;
     const compact = q.compact === "1" || q.compact === "true";
-    const items = getRepo(c).findOverdue({ rig, limit, compact });
+    const items = getRepo(c).findOverdue({ softwareTeam, limit, compact });
     return c.json(items);
   });
 
   // GET /undelivered — surfaces pending create-path nudge failures plus active
   // human-notification episodes whose gateway delivery ledger failed or never posted.
-  // Rig-scoped + bounded + compact-by-default, mirroring /overdue.
+  // SoftwareTeam-scoped + bounded + compact-by-default, mirroring /overdue.
   // MUST precede /:qitemId. READ-only (no retry — DR-2 is PM-gated on this surface's measurement).
   app.get("/undelivered", (c) => {
     const q = c.req.query();
-    const rig = q.rig || undefined;
+    const softwareTeam = q.softwareTeam || undefined;
     const limitRaw = q.limit !== undefined ? Number.parseInt(q.limit, 10) : undefined;
     const limit = limitRaw !== undefined && Number.isInteger(limitRaw) && limitRaw > 0 ? limitRaw : undefined;
     const compact = q.compact === "1" || q.compact === "true";
-    const items = getRepo(c).findUndelivered({ rig, limit, compact });
+    const items = getRepo(c).findUndelivered({ softwareTeam, limit, compact });
     // 0.5.1-54 classifier fold (PM ruling): LABEL each strand transient vs permanent-topology so the
     // count is actionable — permanent-topology (destination unresolvable on this daemon) routes to the
     // addressing family, not retry; transient is the only class a future DR-2 (held n=1) would touch.
@@ -1052,25 +1052,25 @@ export function queueRoutes(): Hono {
   });
 
   // GET /recent-transitions — one bounded, read-only topology chronology over
-  // typed queue state/closure facts. `scope=instance` spans local rigs in ONE
-  // read; a rig query stays backward-compatible. Each entry's `summary` is the authored
+  // typed queue state/closure facts. `scope=instance` spans local softwareTeams in ONE
+  // read; a softwareTeam query stays backward-compatible. Each entry's `summary` is the authored
   // subject (null when none); `bodyPreview` is display text derived from the body for a row
   // with no summary (see RecentQueueTransition). MUST precede /:qitemId.
   app.get("/recent-transitions", (c) => {
     const scopeKind = c.req.query("scope")?.trim();
-    const rig = c.req.query("rig")?.trim();
-    if (scopeKind && scopeKind !== "instance" && scopeKind !== "rig") {
-      return c.json({ error: "invalid_scope", message: "scope must be instance or rig" }, 400);
+    const softwareTeam = c.req.query("softwareTeam")?.trim();
+    if (scopeKind && scopeKind !== "instance" && scopeKind !== "softwareTeam") {
+      return c.json({ error: "invalid_scope", message: "scope must be instance or softwareTeam" }, 400);
     }
-    if (scopeKind !== "instance" && !rig) {
-      return c.json({ error: "rig_required", message: "rig is required for a rig RECENT read" }, 400);
+    if (scopeKind !== "instance" && !softwareTeam) {
+      return c.json({ error: "software_team_required", message: "SoftwareTeam is required for a softwareTeam RECENT read" }, 400);
     }
     const raw = c.req.query("limit");
     const parsed = raw == null ? 20 : Number.parseInt(raw, 10);
     const limit = Number.isInteger(parsed) && parsed > 0 ? parsed : 20;
     const scope = scopeKind === "instance"
       ? { kind: "instance" } as const
-      : { kind: "rig", rig: rig! } as const;
+      : { kind: "softwareTeam", softwareTeam: softwareTeam! } as const;
     return c.json(getRepo(c).listRecentTransitions(scope, limit));
   });
 

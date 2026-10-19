@@ -38,7 +38,7 @@ function harness(mapped: Record<string, string>) {
     resolveSender: () => ({ admitted: true, source: "founder@humans" }),
     resolveRoute: makeThreadRouteResolver({
       map: threadMap,
-      unroutedDestination: "orch-lead@v-openrig-build",
+      unroutedDestination: "orch-lead@v-softwareteam-build",
       log: (m: string) => logs.push(m),
     }),
     log: (m: string) => logs.push(m),
@@ -69,15 +69,15 @@ describe("#899 thread_broadcast replies", () => {
   });
 
   it("route to the seat that owns the thread, the same as a plain reply", async () => {
-    const h = harness({ "400.0": "asker@rig" });
+    const h = harness({ "400.0": "asker@software-team" });
     const { result, logs } = await deliver(h, broadcast());
     expect(result.status).toBe("accepted");
     expect(logs.some((m) => m.includes("ignored non-ingestible"))).toBe(false);
     expect(h.rows).toHaveLength(1);
-    expect(h.rows[0]!.destination).toBe("asker@rig");
+    expect(h.rows[0]!.destination).toBe("asker@software-team");
     expect(h.rows[0]!.body).toContain("Yes!");
 
-    const plain = harness({ "400.0": "asker@rig" });
+    const plain = harness({ "400.0": "asker@software-team" });
     await deliver(plain, broadcast({ subtype: undefined }));
     expect(plain.rows.map((r) => r.destination)).toEqual(h.rows.map((r) => r.destination));
   });

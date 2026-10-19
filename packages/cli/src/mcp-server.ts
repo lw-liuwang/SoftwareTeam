@@ -51,16 +51,16 @@ function mapResult(
  */
 export function createMcpServer(client: DaemonClient): McpServer {
   const server = new McpServer({
-    name: "openrig",
+    name: "softwareteam",
     version: CLI_VERSION,
   });
 
-  // 1. rig_up — bootstrap/bundle install
+  // 1. softwareteam_up — bootstrap/bundle install
   server.tool(
-    "rig_up",
-    "Bootstrap a rig from a spec or bundle",
+    "softwareteam_up",
+    "Bootstrap a SoftwareTeam from a spec or bundle",
     {
-      sourceRef: z.string().describe("Path to .yaml rig spec or .rigbundle"),
+      sourceRef: z.string().describe("Path to .yaml SoftwareTeam spec or .softwareteambundle"),
       plan: z.boolean().optional().describe("Plan mode — preview without executing"),
       autoApprove: z.boolean().optional().describe("Auto-approve trusted actions"),
       targetRoot: z.string().optional().describe("Target root directory for package installation"),
@@ -79,20 +79,20 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 2. rig_down — rig teardown
+  // 2. softwareteam_down — softwareTeam teardown
   server.tool(
-    "rig_down",
-    "Tear down a rig",
+    "softwareteam_down",
+    "Tear down a softwareTeam",
     {
-      rigId: z.string().describe("Rig identifier to tear down"),
-      delete: z.boolean().optional().describe("Delete rig record after stopping"),
+      softwareTeamId: z.string().describe("SoftwareTeam identifier to tear down"),
+      delete: z.boolean().optional().describe("Delete SoftwareTeam record after stopping"),
       force: z.boolean().optional().describe("Kill sessions immediately"),
       snapshot: z.boolean().optional().describe("Take snapshot before teardown"),
     },
     async (params) => {
       try {
         const res = await client.post("/api/down", {
-          rigId: params.rigId,
+          softwareTeamId: params.softwareTeamId,
           delete: params.delete ?? false,
           force: params.force ?? false,
           snapshot: params.snapshot ?? false,
@@ -104,10 +104,10 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 3. rig_ps — list running rigs
+  // 3. softwareteam_ps — list running softwareTeams
   server.tool(
-    "rig_ps",
-    "List rigs and their status",
+    "softwareteam_ps",
+    "List softwareTeams and their status",
     {},
     async () => {
       try {
@@ -119,9 +119,9 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 4. rig_status — daemon health
+  // 4. softwareteam_status — daemon health
   server.tool(
-    "rig_status",
+    "softwareteam_status",
     "Check daemon health",
     {},
     async () => {
@@ -134,16 +134,16 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 5. rig_snapshot_create — create snapshot
+  // 5. softwareteam_snapshot_create — create snapshot
   server.tool(
-    "rig_snapshot_create",
-    "Create a snapshot for a rig",
+    "softwareteam_snapshot_create",
+    "Create a snapshot for a softwareTeam",
     {
-      rigId: z.string().describe("Rig identifier"),
+      softwareTeamId: z.string().describe("SoftwareTeam identifier"),
     },
-    async ({ rigId }) => {
+    async ({ softwareTeamId }) => {
       try {
-        const res = await client.post(`/api/rigs/${encodeURIComponent(rigId)}/snapshots`, {});
+        const res = await client.post(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/snapshots`, {});
         return mapResult(res);
       } catch (err) {
         return { content: [{ type: "text" as const, text: (err as Error).message }], isError: true as const };
@@ -151,16 +151,16 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 6. rig_snapshot_list — list snapshots
+  // 6. softwareteam_snapshot_list — list snapshots
   server.tool(
-    "rig_snapshot_list",
-    "List snapshots for a rig",
+    "softwareteam_snapshot_list",
+    "List snapshots for a softwareTeam",
     {
-      rigId: z.string().describe("Rig identifier"),
+      softwareTeamId: z.string().describe("SoftwareTeam identifier"),
     },
-    async ({ rigId }) => {
+    async ({ softwareTeamId }) => {
       try {
-        const res = await client.get(`/api/rigs/${encodeURIComponent(rigId)}/snapshots`);
+        const res = await client.get(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/snapshots`);
         return mapResult(res);
       } catch (err) {
         return { content: [{ type: "text" as const, text: (err as Error).message }], isError: true as const };
@@ -168,17 +168,17 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 7. rig_restore — restore from snapshot
+  // 7. softwareteam_restore — restore from snapshot
   server.tool(
-    "rig_restore",
-    "Restore a rig from a snapshot",
+    "softwareteam_restore",
+    "Restore a SoftwareTeam from a snapshot",
     {
-      rigId: z.string().describe("Rig identifier"),
+      softwareTeamId: z.string().describe("SoftwareTeam identifier"),
       snapshotId: z.string().describe("Snapshot identifier"),
     },
-    async ({ rigId, snapshotId }) => {
+    async ({ softwareTeamId, snapshotId }) => {
       try {
-        const res = await client.post(`/api/rigs/${encodeURIComponent(rigId)}/restore/${encodeURIComponent(snapshotId)}`, {});
+        const res = await client.post(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/restore/${encodeURIComponent(snapshotId)}`, {});
         return mapResult(res);
       } catch (err) {
         return { content: [{ type: "text" as const, text: (err as Error).message }], isError: true as const };
@@ -186,9 +186,9 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 8. rig_discover — scan for sessions
+  // 8. softwareteam_discover — scan for sessions
   server.tool(
-    "rig_discover",
+    "softwareteam_discover",
     "Scan for tmux sessions to discover",
     {},
     async () => {
@@ -201,20 +201,20 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 9. rig_bind — bind discovered session to a rig node (existing or new in pod)
+  // 9. softwareteam_bind — bind discovered session to a softwareTeam node (existing or new in pod)
   server.tool(
-    "rig_bind",
+    "softwareteam_bind",
     "Bind a discovered session to an existing node or create a new node in a pod",
     {
       discoveryId: z.string().describe("Discovery session identifier"),
-      rigId: z.string().describe("Target rig identifier"),
+      softwareTeamId: z.string().describe("Target SoftwareTeam identifier"),
       logicalId: z.string().optional().describe("Existing node logical ID (mode: bind to existing)"),
       podNamespace: z.string().optional().describe("Pod namespace to create node in (mode: create in pod)"),
       memberName: z.string().optional().describe("Member name for new node (required with podNamespace)"),
     },
-    async ({ discoveryId, rigId, logicalId, podNamespace, memberName }) => {
+    async ({ discoveryId, softwareTeamId, logicalId, podNamespace, memberName }) => {
       try {
-        const body: Record<string, unknown> = { rigId };
+        const body: Record<string, unknown> = { softwareTeamId };
         if (logicalId) body["logicalId"] = logicalId;
         if (podNamespace) body["podNamespace"] = podNamespace;
         if (memberName) body["memberName"] = memberName;
@@ -226,12 +226,12 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 10. rig_bundle_inspect — inspect a bundle
+  // 10. softwareteam_bundle_inspect — inspect a bundle
   server.tool(
-    "rig_bundle_inspect",
-    "Inspect a .rigbundle file",
+    "softwareteam_bundle_inspect",
+    "Inspect a .softwareteambundle file",
     {
-      bundlePath: z.string().describe("Path to .rigbundle file"),
+      bundlePath: z.string().describe("Path to .softwareteambundle file"),
     },
     async ({ bundlePath }) => {
       try {
@@ -249,9 +249,9 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 11. rig_agent_validate — validate an AgentSpec
+  // 11. softwareteam_agent_validate — validate an AgentSpec
   server.tool(
-    "rig_agent_validate",
+    "softwareteam_agent_validate",
     "Validate an AgentSpec (agent.yaml) from YAML text",
     {
       yaml: z.string().describe("YAML text of the agent spec"),
@@ -266,16 +266,16 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 12. rig_rig_validate — validate a RigSpec
+  // 12. softwareteam_software_team_validate — validate a SoftwareTeamSpec
   server.tool(
-    "rig_rig_validate",
-    "Validate a RigSpec (rig.yaml) from YAML text",
+    "softwareteam_software_team_validate",
+    "Validate a SoftwareTeamSpec (software-team.yaml) from YAML text",
     {
-      yaml: z.string().describe("YAML text of the rig spec"),
+      yaml: z.string().describe("YAML text of the SoftwareTeam spec"),
     },
     async ({ yaml }) => {
       try {
-        const res = await client.postText("/api/rigs/import/validate", yaml);
+        const res = await client.postText("/api/software-teams/import/validate", yaml);
         return mapResult(res);
       } catch (err) {
         return { content: [{ type: "text" as const, text: (err as Error).message }], isError: true as const };
@@ -283,16 +283,16 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 13. rig_rig_nodes — node inventory for a rig
+  // 13. softwareteam_software_team_nodes — node inventory for a softwareTeam
   server.tool(
-    "rig_rig_nodes",
-    "Get node inventory for a rig — session names, status, attach commands, resume commands",
+    "softwareteam_software_team_nodes",
+    "Get node inventory for a softwareTeam — session names, status, attach commands, resume commands",
     {
-      rigId: z.string().describe("Rig identifier"),
+      softwareTeamId: z.string().describe("SoftwareTeam identifier"),
     },
-    async ({ rigId }) => {
+    async ({ softwareTeamId }) => {
       try {
-        const res = await client.get(`/api/rigs/${encodeURIComponent(rigId)}/nodes`);
+        const res = await client.get(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/nodes`);
         return mapResult(res);
       } catch (err) {
         return { content: [{ type: "text" as const, text: (err as Error).message }], isError: true as const };
@@ -300,12 +300,12 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 14. rig_send — send message to agent session
+  // 14. softwareteam_send — send message to agent session
   server.tool(
-    "rig_send",
+    "softwareteam_send",
     "Send a message to an agent's terminal using reliable two-step send",
     {
-      session: z.string().describe("Target session name (e.g. dev-impl@my-rig)"),
+      session: z.string().describe("Target session name (e.g. dev-impl@my-software-team)"),
       text: z.string().describe("Message text to send"),
       verify: z.boolean().optional().describe("Verify delivery by checking pane content"),
       force: z.boolean().optional().describe("Send even if target appears mid-task"),
@@ -334,21 +334,21 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 15. rig_capture — capture terminal output from agent session
+  // 15. softwareteam_capture — capture terminal output from agent session
   server.tool(
-    "rig_capture",
+    "softwareteam_capture",
     "Capture terminal output from an agent session",
     {
-      session: z.string().optional().describe("Session name (omit for multi-target with rig/pod)"),
-      rig: z.string().optional().describe("Capture all sessions in a rig"),
+      session: z.string().optional().describe("Session name (omit for multi-target with softwareTeam/pod)"),
+      softwareTeam: z.string().optional().describe("Capture all sessions in a softwareTeam"),
       pod: z.string().optional().describe("Capture all sessions in a pod"),
       lines: z.number().optional().describe("Number of lines to capture (default: 20)"),
     },
-    async ({ session, rig, pod, lines }) => {
+    async ({ session, softwareTeam, pod, lines }) => {
       try {
         const body: Record<string, unknown> = {};
         if (session) body.session = session;
-        if (rig) body.rig = rig;
+        if (softwareTeam) body.softwareTeam = softwareTeam;
         if (pod) body.pod = pod;
         if (lines) body.lines = lines;
         const res = await client.post("/api/transport/capture", body);
@@ -359,33 +359,33 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 16. rig_chatroom_send — send message to rig chatroom
+  // 16. softwareteam_chatroom_send — send message to softwareTeam chatroom
   server.tool(
-    "rig_chatroom_send",
-    "Send a message to a rig's chatroom",
+    "softwareteam_chatroom_send",
+    "Send a message to a softwareTeam's chatroom",
     {
-      rigName: z.string().describe("Rig name to send message to"),
+      softwareTeamName: z.string().describe("SoftwareTeam name to send message to"),
       body: z.string().describe("Message body"),
-      sender: z.string().optional().describe("(deprecated, ignored) the sender is derived from the seat env (X-OpenRig-Session, stamped by the MCP server's DaemonClient); the chat route derives it from the transport header"),
+      sender: z.string().optional().describe("(deprecated, ignored) the sender is derived from the seat env (X-SoftwareTeam-Session, stamped by the MCP server's DaemonClient); the chat route derives it from the transport header"),
     },
-    async ({ rigName, body }) => {
+    async ({ softwareTeamName, body }) => {
       try {
-        // Resolve rig name → ID
-        const summaryRes = await client.get<Array<{ id: string; name: string }>>("/api/rigs/summary");
-        const matches = (summaryRes.data ?? []).filter((r) => r.name === rigName);
+        // Resolve softwareTeam name → ID
+        const summaryRes = await client.get<Array<{ id: string; name: string }>>("/api/software-teams/summary");
+        const matches = (summaryRes.data ?? []).filter((r) => r.name === softwareTeamName);
 
         if (matches.length === 0) {
-          return { content: [{ type: "text" as const, text: JSON.stringify({ error: `Rig '${rigName}' not found` }) }], isError: true as const };
+          return { content: [{ type: "text" as const, text: JSON.stringify({ error: `SoftwareTeam '${softwareTeamName}' not found` }) }], isError: true as const };
         }
         if (matches.length > 1) {
-          return { content: [{ type: "text" as const, text: JSON.stringify({ error: `Rig '${rigName}' is ambiguous — ${matches.length} rigs share that name` }) }], isError: true as const };
+          return { content: [{ type: "text" as const, text: JSON.stringify({ error: `SoftwareTeam '${softwareTeamName}' is ambiguous — ${matches.length} softwareTeams share that name` }) }], isError: true as const };
         }
 
-        const rigId = matches[0]!.id;
-        // P21: no body sender — the daemon derives it from the transport header (X-OpenRig-Session,
+        const softwareTeamId = matches[0]!.id;
+        // P21: no body sender — the daemon derives it from the transport header (X-SoftwareTeam-Session,
         // stamped by the MCP server's DaemonClient from its seat env). A hardcoded 'mcp' differing from the
         // header would be SUPERSEDED by it (transport:v1), not persisted (P18: the 409 mismatch is retired).
-        const res = await client.post(`/api/rigs/${encodeURIComponent(rigId)}/chat/send`, {
+        const res = await client.post(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/chat/send`, {
           body,
         });
         return mapResult(res);
@@ -395,28 +395,28 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 17. rig_chatroom_watch — get recent chatroom history for a rig
+  // 17. softwareteam_chatroom_watch — get recent chatroom history for a softwareTeam
   server.tool(
-    "rig_chatroom_watch",
-    "Get recent chatroom messages for a rig (MCP returns history, not streaming)",
+    "softwareteam_chatroom_watch",
+    "Get recent chatroom messages for a softwareTeam (MCP returns history, not streaming)",
     {
-      rigName: z.string().describe("Rig name"),
+      softwareTeamName: z.string().describe("SoftwareTeam name"),
     },
-    async ({ rigName }) => {
+    async ({ softwareTeamName }) => {
       try {
-        // Resolve rig name → ID
-        const summaryRes = await client.get<Array<{ id: string; name: string }>>("/api/rigs/summary");
-        const matches = (summaryRes.data ?? []).filter((r) => r.name === rigName);
+        // Resolve softwareTeam name → ID
+        const summaryRes = await client.get<Array<{ id: string; name: string }>>("/api/software-teams/summary");
+        const matches = (summaryRes.data ?? []).filter((r) => r.name === softwareTeamName);
 
         if (matches.length === 0) {
-          return { content: [{ type: "text" as const, text: JSON.stringify({ error: `Rig '${rigName}' not found` }) }], isError: true as const };
+          return { content: [{ type: "text" as const, text: JSON.stringify({ error: `SoftwareTeam '${softwareTeamName}' not found` }) }], isError: true as const };
         }
         if (matches.length > 1) {
-          return { content: [{ type: "text" as const, text: JSON.stringify({ error: `Rig '${rigName}' is ambiguous — ${matches.length} rigs share that name` }) }], isError: true as const };
+          return { content: [{ type: "text" as const, text: JSON.stringify({ error: `SoftwareTeam '${softwareTeamName}' is ambiguous — ${matches.length} softwareTeams share that name` }) }], isError: true as const };
         }
 
-        const rigId = matches[0]!.id;
-        const res = await client.get(`/api/rigs/${encodeURIComponent(rigId)}/chat/history?limit=20`);
+        const softwareTeamId = matches[0]!.id;
+        const res = await client.get(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/chat/history?limit=20`);
         return mapResult(res);
       } catch (err) {
         return { content: [{ type: "text" as const, text: (err as Error).message }], isError: true as const };
@@ -424,26 +424,26 @@ export function createMcpServer(client: DaemonClient): McpServer {
     },
   );
 
-  // 18. rig_add — add a single member to an existing pod (the add_member
-  // converge op). Agent parity for `rig add`: the ergonomics live ON the
+  // 18. softwareteam_add — add a single member to an existing pod (the add_member
+  // converge op). Agent parity for `softwareTeam add`: the ergonomics live ON the
   // converge interface, so every future reshape verb inherits this surface.
   server.tool(
-    "rig_add",
-    "Add a single member to an existing pod in a running rig (the add_member converge op). Identity-migration-free: mints a fresh seat, nothing existing re-keys.",
+    "softwareteam_add",
+    "Add a single member to an existing pod in a running softwareTeam (the add_member converge op). Identity-migration-free: mints a fresh seat, nothing existing re-keys.",
     {
-      rigId: z.string().describe("Target rig identifier"),
+      softwareTeamId: z.string().describe("Target SoftwareTeam identifier"),
       podNamespace: z.string().describe("Namespace of the existing pod to add the member to"),
       member: z.record(z.string(), z.unknown()).describe("Member fragment with spec snake_case fields: id, runtime, agent_ref, profile, cwd (and optional model, codex_config_profile, restore_policy, label)"),
       edges: z.array(z.object({ from: z.string(), to: z.string(), kind: z.string() })).optional().describe("Optional pod-local edges (from/to are member ids within the pod; resolved against the new member + existing pod-mates)"),
-      rigRoot: z.string().optional().describe("Root directory for agent resolution"),
+      softwareTeamRoot: z.string().optional().describe("Root directory for agent resolution"),
     },
-    async ({ rigId, podNamespace, member, edges, rigRoot }) => {
+    async ({ softwareTeamId, podNamespace, member, edges, softwareTeamRoot }) => {
       try {
         const body: Record<string, unknown> = { member };
         if (edges) body["edges"] = edges;
-        if (rigRoot) body["rigRoot"] = rigRoot;
+        if (softwareTeamRoot) body["softwareTeamRoot"] = softwareTeamRoot;
         const res = await client.post(
-          `/api/rigs/${encodeURIComponent(rigId)}/pods/${encodeURIComponent(podNamespace)}/members`,
+          `/api/software-teams/${encodeURIComponent(softwareTeamId)}/pods/${encodeURIComponent(podNamespace)}/members`,
           body,
         );
         // Structural failure: the add persisted (201) but the new node did not

@@ -1,5 +1,5 @@
 // Slice-04 (OPR.0.5.0.4) C1 (resume) — the production ProviderService. getReadModel is fully
-// wired over the collection seam (real codex-auth reader + node-inventory across rigs + clock).
+// wired over the collection seam (real codex-auth reader + node-inventory across softwareTeams + clock).
 // precheck composes the pure precheckSwitch gate (fails closed on unknown auth per BR-3). switch
 // is precheck-gated and NEVER fabricates success — the switch-execution + BR-1 action-record path
 // is the D seam; until it lands, switch returns an honest failed_safely with an operational reason.
@@ -30,8 +30,8 @@ import type { FourBlockReadModel, PrecheckResult, ProviderSignal } from "./provi
 
 export interface ProviderServiceImplDeps {
   db: Database.Database;
-  /** The rig universe (rigRepo.listRigs()) — each rig's node-inventory contributes seats. */
-  listRigs: () => Array<{ id: string }>;
+  /** The softwareTeam universe (softwareTeamRepo.listSoftwareTeams()) — each softwareTeam's node-inventory contributes seats. */
+  listSoftwareTeams: () => Array<{ id: string }>;
   /** Slice-04 C3: the Claude statusline provider_usage signal source (undefined → signals []). */
   collectClaudeSignals?: () => ProviderSignal[];
   /** Slice-04 C4: the shipped structured activity detector. Undefined keeps the reactive lane empty. */
@@ -81,11 +81,11 @@ export class ProviderServiceImpl implements ProviderService {
     // Slice 01: memory only. A read never starts a native probe (the wake ladder reads this every tick).
     const usage = this.usageWindowsEnabled() ? this.deps.usageWindows!.windows.project(asOf) : null;
     if (!usage) return model;
-    // The read covers only the login active in the daemon's CODEX_HOME: say so whenever saved rig auth
+    // The read covers only the login active in the daemon's CODEX_HOME: say so whenever saved softwareTeam auth
     // profiles exist, so a profile without a row never reads as fine.
     const profiles = model.accounts.filter((a) => a.provider === "codex").map((a) => a.accountId);
     const savedProfiles = profiles.length > 0
-      ? { names: profiles, note: "saved rig auth profiles: not read (usage unknown); this reading is only the login active in the daemon's CODEX_HOME" }
+      ? { names: profiles, note: "saved SoftwareTeam auth profiles: not read (usage unknown); this reading is only the login active in the daemon's CODEX_HOME" }
       : null;
     const codexRows = savedProfiles ? usage.map((row) => ({ ...row, savedProfiles })) : usage;
     const allUsage = [...codexRows, ...(this.deps.usageWindows!.claude?.project(asOf) ?? [])];
@@ -120,12 +120,12 @@ export class ProviderServiceImpl implements ProviderService {
 
   private listSeats(): ProviderSeat[] {
     const seats: ProviderSeat[] = [];
-    for (const rig of this.deps.listRigs()) {
-      for (const entry of getNodeInventory(this.deps.db, rig.id)) {
+    for (const softwareTeam of this.deps.listSoftwareTeams()) {
+      for (const entry of getNodeInventory(this.deps.db, softwareTeam.id)) {
         if (!entry.canonicalSessionName) continue;
         seats.push({
           seatSession: entry.canonicalSessionName,
-          rigName: entry.rigName ?? "",
+          softwareTeamName: entry.softwareTeamName ?? "",
           runtime: entry.runtime ?? "unknown",
           lifecycleState: entry.lifecycleState,
         });
@@ -155,7 +155,7 @@ export class ProviderServiceImpl implements ProviderService {
       const reasons = verdict.reasons.length > 0 ? verdict.reasons : ["precheck_unsafe"];
       return { outcome: "failed_safely", reasons: reasons as [string, ...string[]] };
     }
-    // D seam (compose the rig-auth codex switch + BR-1 durable action record) is NOT yet wired.
+    // D seam (compose the software-team-auth codex switch + BR-1 durable action record) is NOT yet wired.
     // Honest operational failure — never fabricate a succeeded/rebind_in_progress outcome.
     return { outcome: "failed_safely", reasons: ["switch_execution_not_yet_wired"] };
   }

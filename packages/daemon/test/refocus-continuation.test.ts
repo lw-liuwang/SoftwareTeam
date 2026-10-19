@@ -4,8 +4,8 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSyn
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-const hook = resolve(import.meta.dirname, "../assets/plugins/openrig-core/hooks/scripts/refocus.cjs");
-const boundary = "OpenRig post-compaction turn boundary. Please acknowledge this message briefly. Do not restore yet; the next normal user message will contain the restore instructions.";
+const hook = resolve(import.meta.dirname, "../assets/plugins/softwareteam-core/hooks/scripts/refocus.cjs");
+const boundary = "SoftwareTeam post-compaction turn boundary. Please acknowledge this message briefly. Do not restore yet; the next normal user message will contain the restore instructions.";
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
 
@@ -15,22 +15,22 @@ function fixture() {
   const bin = join(root, "bin");
   mkdirSync(bin);
   const trace = join(bin, "trace");
-  const rig = join(bin, "rig");
+  const softwareTeam = join(bin, "SoftwareTeam");
   const calls = join(root, "calls");
   const transcript = join(root, "transcript.jsonl");
   writeFileSync(transcript, "x".repeat(100));
   writeFileSync(trace, '#!/bin/sh\nprintf "%s" "$TRACE_RESULT"\nexit "${TRACE_STATUS:-0}"\n');
-  writeFileSync(rig, '#!/bin/sh\nif [ "$1 $2" = "stream emit" ]; then\n printf "%s\\n" "$*" >> "$CALLS"\n exit "${STREAM_EXIT:-0}"\nfi\nprintf "{}"\n');
+  writeFileSync(softwareTeam, '#!/bin/sh\nif [ "$1 $2" = "stream emit" ]; then\n printf "%s\\n" "$*" >> "$CALLS"\n exit "${STREAM_EXIT:-0}"\nfi\nprintf "{}"\n');
   chmodSync(trace, 0o755);
-  chmodSync(rig, 0o755);
+  chmodSync(softwareTeam, 0o755);
   const run = (event: string, prompt = "continue", good = true, extra: NodeJS.ProcessEnv = {}, identity = "occupant") => {
     const result = spawnSync(process.execPath, [hook, "--runtime", "claude"], {
       input: JSON.stringify({ hook_event_name: event, session_id: identity, prompt, transcript_path: transcript }),
       encoding: "utf8", timeout: 10_000,
-      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, OPENRIG_HOME: root,
-        OPENRIG_SESSION_NAME: "seat@test", OPENRIG_REFOCUS_ENABLED: "1", OPENRIG_REFOCUS_NOW: "",
-        OPENRIG_REFOCUS_CONTENT_REF: "", OPENRIG_REFOCUS_CONTENT_FILE: "", OPENRIG_REFOCUS_TREES: "work",
-        OPENRIG_REFOCUS_WORK_NODE: root, OPENRIG_WORKSPACE_ROOT: root,
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, SOFTWARETEAM_HOME: root,
+        SOFTWARETEAM_SESSION_NAME: "seat@test", SOFTWARETEAM_REFOCUS_ENABLED: "1", SOFTWARETEAM_REFOCUS_NOW: "",
+        SOFTWARETEAM_REFOCUS_CONTENT_REF: "", SOFTWARETEAM_REFOCUS_CONTENT_FILE: "", SOFTWARETEAM_REFOCUS_TREES: "work",
+        SOFTWARETEAM_REFOCUS_WORK_NODE: root, SOFTWARETEAM_WORKSPACE_ROOT: root,
         PYTHON: trace, TRACE_RESULT: good ? "WORK TRACE: current intent" : "TRACE GAP — fixture resolver unavailable",
         TRACE_STATUS: good ? "0" : "1", CALLS: calls, ...extra },
     });

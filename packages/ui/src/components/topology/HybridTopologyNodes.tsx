@@ -52,7 +52,7 @@ interface HybridAgentNodeData {
   // terminalActive so the dot never renders active/running green.
   identityVerdict?: SeatIdentityVerdictSummary | null;
   currentQitems?: unknown[];
-  rigId?: string | null;
+  softwareTeamId?: string | null;
   activityRing?: TopologyActivityVisual;
   reducedMotion?: boolean;
 }
@@ -185,9 +185,9 @@ function HybridAgentNodeInner({ data }: { data: HybridAgentNodeData }) {
           aria-label={`activity: ${activityLabel}${timeInState ? ` ${timeInState.label}` : ""}${activitySource !== "hook" && activitySource !== "none" ? " (activity-grade)" : ""}`}
         />
       </div>
-      {data.rigId && !nodeIsRemote ? (
+      {data.softwareTeamId && !nodeIsRemote ? (
         <TerminalPreviewPopover
-          rigId={data.rigId}
+          softwareTeamId={data.softwareTeamId}
           logicalId={data.logicalId}
           sessionName={data.canonicalSessionName ?? null}
           reducedMotion={data.reducedMotion}
@@ -197,7 +197,7 @@ function HybridAgentNodeInner({ data }: { data: HybridAgentNodeData }) {
           progressive
         />
       ) : null}
-      {data.rigId && !nodeIsRemote ? (
+      {data.softwareTeamId && !nodeIsRemote ? (
         <>
         <button
           type="button"
@@ -228,7 +228,7 @@ function HybridAgentNodeInner({ data }: { data: HybridAgentNodeData }) {
             // part B — reset a prior error then retry; the failure is no longer
             // silent (data-error + title/aria carry the message).
             if (cmuxLaunch.isError) cmuxLaunch.reset();
-            cmuxLaunch.mutate({ rigId: data.rigId!, logicalId: data.logicalId });
+            cmuxLaunch.mutate({ softwareTeamId: data.softwareTeamId!, logicalId: data.logicalId });
           }}
           className={cn("absolute right-1.5 top-6 z-10 disabled:cursor-wait disabled:opacity-60", cmuxLaunch.isError ? "text-rose-700" : "", hoverIconClass)}
         >
@@ -307,12 +307,12 @@ function HybridAgentNodeInner({ data }: { data: HybridAgentNodeData }) {
  *
  * HybridAgentNode is the per-seat card on the workspace topology graph.
  * Its `data` prop reference changes on every `useTopologyActivity` bump
- * (1s interval + per-stream-event in HostMultiRigGraph.activeNodes) but
+ * (1s interval + per-stream-event in HostMultiSoftwareTeamGraph.activeNodes) but
  * most fields are stable across bumps for any given seat. Without
  * memoization we re-render the full card — including `useCmuxLaunch`,
  * `TerminalPreviewPopover`, multiple format calls, ActivityRing — on
  * every tick for every visible seat. Slice 12.5 made this acute by
- * mounting the graph at workspace scope (many rigs × many seats).
+ * mounting the graph at workspace scope (many softwareTeams × many seats).
  *
  * Custom equality compares all fields the renderer reads (visible
  * content + activity-ring shape + flash). The `currentQitems` array is
@@ -339,7 +339,7 @@ export const HybridAgentNode = memo(HybridAgentNodeInner, (prev, next) => {
     a.contextTotalOutputTokens === b.contextTotalOutputTokens &&
     a.agentActivity === b.agentActivity &&
     (a.currentQitems?.length ?? 0) === (b.currentQitems?.length ?? 0) &&
-    a.rigId === b.rigId &&
+    a.softwareTeamId === b.softwareTeamId &&
     a.activityRing?.state === b.activityRing?.state &&
     a.activityRing?.flash === b.activityRing?.flash &&
     a.reducedMotion === b.reducedMotion

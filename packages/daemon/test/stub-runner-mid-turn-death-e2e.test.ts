@@ -35,10 +35,10 @@ describe("stub-runner mid_turn_death (real-spawn death)", () => {
 
   it("exits with the death code, records the exited sidecar, and NEVER sends Stop", async () => {
     dir = mkdtempSync(join(tmpdir(), "death-e2e-"));
-    const home = join(dir, ".openrig");
-    mkdirSync(join(dir, ".openrig", "stub"), { recursive: true });
+    const home = join(dir, ".softwareteam");
+    mkdirSync(join(dir, ".softwareteam", "stub"), { recursive: true });
     const script: StubScript = { steps: [{ kind: "emit", behavior: "mid_turn_death" }, { kind: "say", text: "unreachable" }] };
-    writeFileSync(join(dir, ".openrig", "stub", "script.json"), JSON.stringify(script), "utf8");
+    writeFileSync(join(dir, ".softwareteam", "stub", "script.json"), JSON.stringify(script), "utf8");
 
     const events: string[] = [];
     server = createServer((req, res) => {
@@ -54,14 +54,14 @@ describe("stub-runner mid_turn_death (real-spawn death)", () => {
     const exitCode = await new Promise<number | null>((resolvePromise) => {
       child = execFile("node", ["--import", "tsx", RUNNER,
         "--session-name", SEAT, "--cwd", dir, "--launch-id", "death-1", "--posture", "floor"],
-        { env: { ...process.env, OPENRIG_HOME: home, OPENRIG_URL: `http://127.0.0.1:${port}`, OPENRIG_ACTIVITY_HOOK_TOKEN: "t" } as NodeJS.ProcessEnv });
+        { env: { ...process.env, SOFTWARETEAM_HOME: home, SOFTWARETEAM_URL: `http://127.0.0.1:${port}`, SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: "t" } as NodeJS.ProcessEnv });
       child.on("exit", (code) => resolvePromise(code));
     });
 
     // The process really died with the death code.
     expect(exitCode).toBe(STUB_MID_TURN_DEATH_EXIT_CODE);
     // The exited sidecar was recorded synchronously (daemon never false-greens a dead seat).
-    const sidecar = JSON.parse(readFileSync(join(dir, ".openrig", "stub", "state.json"), "utf8"));
+    const sidecar = JSON.parse(readFileSync(join(dir, ".softwareteam", "stub", "state.json"), "utf8"));
     expect(sidecar.ready).toBe(false);
     expect(sidecar.exited?.code).toBe(STUB_MID_TURN_DEATH_EXIT_CODE);
     // Hooks ceased: Stop was NEVER sent (grace already elapsed — the process has exited).

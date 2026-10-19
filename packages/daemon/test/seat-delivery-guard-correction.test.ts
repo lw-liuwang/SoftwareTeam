@@ -5,18 +5,18 @@ import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 import { TmuxAdapter } from "../src/adapters/tmux.js";
 import { SeatDeliveryGuard, resolveGuardTarget } from "../src/domain/seat-delivery-guard.js";
 import { ClaimService } from "../src/domain/claim-service.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
-import { RigTeardownOrchestrator } from "../src/domain/rig-teardown.js";
+import { SoftwareTeamTeardownOrchestrator } from "../src/domain/software-team-teardown.js";
 import { SessionTransport } from "../src/domain/session-transport.js";
 import { OutboxHandler } from "../src/domain/outbox-handler.js";
 
 // Real services and private SQLite; terminal/file effects are injected, never executed.
 function fixture(hooks: { file?: () => Promise<void>; exec?: (command: string) => Promise<string>; realPanes?: boolean } = {}) {
   const db = new Database(":memory:"); migrate(db, ALL_MIGRATIONS);
-  db.exec(`INSERT INTO rigs(id,name) VALUES ('r','fixture');
-    INSERT INTO nodes(id,rig_id,logical_id) VALUES ('a','r','worker');
+  db.exec(`INSERT INTO software_teams(id,name) VALUES ('r','fixture');
+    INSERT INTO nodes(id,software_team_id,logical_id) VALUES ('a','r','worker');
     INSERT INTO bindings(id,node_id,tmux_session,tmux_pane) VALUES ('ba','a','worker@fixture','%1');
     INSERT INTO sessions(id,node_id,session_name,status) VALUES ('sa','a','worker@fixture','running');
     INSERT INTO occupant_tenures(id,node_id,generation_ordinal,generation_uuid,kind) VALUES ('ga','a',1,'g1','fresh');`);
@@ -32,10 +32,10 @@ function fixture(hooks: { file?: () => Promise<void>; exec?: (command: string) =
   tmux.hasSession = async () => true;
   tmux.getPaneCommand = async () => "bash";
   tmux.probeSession = async () => ({ state: "present" });
-  const rigRepo = new RigRepository(db), sessionRegistry = new SessionRegistry(db), eventBus = new EventBus(db);
-  const deps = { db, tmuxAdapter: tmux, rigRepo, sessionRegistry, eventBus };
+  const softwareTeamRepo = new SoftwareTeamRepository(db), sessionRegistry = new SessionRegistry(db), eventBus = new EventBus(db);
+  const deps = { db, tmuxAdapter: tmux, softwareTeamRepo, sessionRegistry, eventBus };
   const claim = new ClaimService({ ...deps, discoveryRepo: { db } as never });
-  const teardown = new RigTeardownOrchestrator({ ...deps, snapshotCapture: { db, captureSnapshot: () => ({ id: "private" }) } as never });
+  const teardown = new SoftwareTeamTeardownOrchestrator({ ...deps, snapshotCapture: { db, captureSnapshot: () => ({ id: "private" }) } as never });
   const transport = new SessionTransport({ ...deps, sleep: async () => {} });
   return { ...deps, tmux, guard, commands, claim, teardown, transport, outbox: new OutboxHandler(db) };
 }

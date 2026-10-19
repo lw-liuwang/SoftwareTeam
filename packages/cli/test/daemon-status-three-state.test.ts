@@ -3,7 +3,7 @@
 //     packages/daemon/src/domain/crash-cart-detect.ts — kept in lockstep): DOWN
 //     ("stopped") requires POSITIVE evidence (connection refused); a TIMEOUT NEVER
 //     promotes to stopped — it is "unverified".
-// (2) HOME-RESOLUTION HONESTY: an empty/stale resolved OPENRIG_HOME with a LIVE
+// (2) HOME-RESOLUTION HONESTY: an empty/stale resolved SOFTWARETEAM_HOME with a LIVE
 //     sibling home (or HOME-MOVED marker) must surface BOTH paths — never assert
 //     daemon-down from the wrong home.
 import { describe, it, expect, vi } from "vitest";
@@ -35,23 +35,23 @@ const REFUSED: LifecycleDeps["fetch"] = async () => {
 
 describe("3-state daemon status (C3 semantics: DOWN on positive evidence only)", () => {
   it("env-URL path: probe TIMEOUT is UNVERIFIED, never stopped", async () => {
-    process.env.OPENRIG_URL = "http://127.0.0.1:7433";
+    process.env.SOFTWARETEAM_URL = "http://127.0.0.1:7434";
     try {
       const s = await getDaemonStatus(baseDeps({ fetch: HANG }));
       expect(s.state).toBe("unverified");
       expect(s.state).not.toBe("stopped");
     } finally {
-      delete process.env.OPENRIG_URL;
+      delete process.env.SOFTWARETEAM_URL;
     }
   });
 
   it("env-URL path: connection REFUSED is stopped (positive evidence)", async () => {
-    process.env.OPENRIG_URL = "http://127.0.0.1:7433";
+    process.env.SOFTWARETEAM_URL = "http://127.0.0.1:7434";
     try {
       const s = await getDaemonStatus(baseDeps({ fetch: REFUSED }));
       expect(s.state).toBe("stopped");
     } finally {
-      delete process.env.OPENRIG_URL;
+      delete process.env.SOFTWARETEAM_URL;
     }
   });
 
@@ -68,42 +68,42 @@ describe("3-state daemon status (C3 semantics: DOWN on positive evidence only)",
 
 describe("home-resolution honesty (never daemon-down from the wrong home)", () => {
   it("empty resolved home + LIVE sibling home -> UNVERIFIED + both paths named", async () => {
-    // resolved home has NO daemon.json; a sibling .openrig-build-vm home has one with a live pid.
+    // resolved home has NO daemon.json; a sibling .softwareteam-build-vm home has one with a live pid.
     const deps = baseDeps({
       fetch: REFUSED,
-      homeDir: "/fake/home/.openrig",
-      listDir: vi.fn((p: string) => (p === "/fake/home" ? [".openrig", ".openrig-build-vm-x"] : [])),
-      exists: vi.fn((p: string) => p === "/fake/home/.openrig-build-vm-x/daemon.json"),
+      homeDir: "/fake/home/.softwareteam",
+      listDir: vi.fn((p: string) => (p === "/fake/home" ? [".softwareteam", ".softwareteam-build-vm-x"] : [])),
+      exists: vi.fn((p: string) => p === "/fake/home/.softwareteam-build-vm-x/daemon.json"),
       readFile: vi.fn((p: string) =>
-        p === "/fake/home/.openrig-build-vm-x/daemon.json" ? JSON.stringify({ pid: 4242, port: 7433 }) : null,
+        p === "/fake/home/.softwareteam-build-vm-x/daemon.json" ? JSON.stringify({ pid: 4242, port: 7434 }) : null,
       ),
       isProcessAlive: vi.fn((pid: number) => pid === 4242),
     });
     const s = await getDaemonStatus(deps);
     expect(s.state).toBe("unverified");
-    expect(s.siblingHint?.resolvedHome).toBe("/fake/home/.openrig");
-    expect(s.siblingHint?.siblingHome).toBe("/fake/home/.openrig-build-vm-x");
+    expect(s.siblingHint?.resolvedHome).toBe("/fake/home/.softwareteam");
+    expect(s.siblingHint?.siblingHome).toBe("/fake/home/.softwareteam-build-vm-x");
   });
 
   it("HOME-MOVED marker in the resolved home surfaces the moved-to path", async () => {
     const deps = baseDeps({
       fetch: REFUSED,
-      homeDir: "/fake/home/.openrig",
-      exists: vi.fn((p: string) => p === "/fake/home/.openrig/HOME-MOVED"),
+      homeDir: "/fake/home/.softwareteam",
+      exists: vi.fn((p: string) => p === "/fake/home/.softwareteam/HOME-MOVED"),
       readFile: vi.fn((p: string) =>
-        p === "/fake/home/.openrig/HOME-MOVED" ? "/fake/home/.openrig-build-vm-x\n" : null,
+        p === "/fake/home/.softwareteam/HOME-MOVED" ? "/fake/home/.softwareteam-build-vm-x\n" : null,
       ),
     });
     const s = await getDaemonStatus(deps);
     expect(s.state).toBe("unverified");
-    expect(s.siblingHint?.siblingHome).toBe("/fake/home/.openrig-build-vm-x");
+    expect(s.siblingHint?.siblingHome).toBe("/fake/home/.softwareteam-build-vm-x");
   });
 
   it("no sibling, no marker: refused still reports stopped (no false unverified)", async () => {
     const deps = baseDeps({
       fetch: REFUSED,
-      homeDir: "/fake/home/.openrig",
-      listDir: vi.fn(() => [".openrig"]),
+      homeDir: "/fake/home/.softwareteam",
+      listDir: vi.fn(() => [".softwareteam"]),
     });
     const s = await getDaemonStatus(deps);
     expect(s.state).toBe("stopped");

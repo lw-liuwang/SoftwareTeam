@@ -41,7 +41,7 @@ function withQueryClient(ui: React.ReactNode) {
 }
 
 function makeSeat(opts: {
-  rigId?: string;
+  softwareTeamId?: string;
   logicalId: string;
   pod?: string;
   active?: boolean;
@@ -51,12 +51,12 @@ function makeSeat(opts: {
   contextTotalOutputTokens?: number;
 }): NodeInventoryEntry {
   return {
-    rigId: opts.rigId ?? "rig-1",
-    rigName: "test-rig",
+    softwareTeamId: opts.softwareTeamId ?? "software-team-1",
+    softwareTeamName: "test-software-team",
     logicalId: opts.logicalId,
     podId: opts.pod ?? "default",
     podNamespace: opts.pod ?? "default",
-    canonicalSessionName: `${opts.logicalId}@test-rig`,
+    canonicalSessionName: `${opts.logicalId}@test-software-team`,
     nodeKind: "agent",
     runtime: opts.runtime ?? "claude-code",
     sessionStatus: "running",
@@ -89,17 +89,17 @@ function makeSeat(opts: {
 }
 
 function setupFetch(opts: {
-  rigs?: Array<{ id: string; name: string }>;
-  seatsByRig?: Record<string, NodeInventoryEntry[]>;
+  softwareTeams?: Array<{ id: string; name: string }>;
+  seatsBySoftwareTeam?: Record<string, NodeInventoryEntry[]>;
 }) {
   mockFetch.mockImplementation(async (url: string) => {
-    if (url.includes("/api/rigs/summary")) {
-      return new Response(JSON.stringify(opts.rigs ?? []));
+    if (url.includes("/api/software-teams/summary")) {
+      return new Response(JSON.stringify(opts.softwareTeams ?? []));
     }
-    const m = url.match(/\/api\/rigs\/([^/]+)\/nodes/);
+    const m = url.match(/\/api\/software-teams\/([^/]+)\/nodes/);
     if (m) {
-      const rigId = decodeURIComponent(m[1]!);
-      return new Response(JSON.stringify(opts.seatsByRig?.[rigId] ?? []));
+      const softwareTeamId = decodeURIComponent(m[1]!);
+      return new Response(JSON.stringify(opts.seatsBySoftwareTeam?.[softwareTeamId] ?? []));
     }
     // SessionPreviewPane fetches /api/preview/session/:name etc.
     return new Response(JSON.stringify({
@@ -109,28 +109,28 @@ function setupFetch(opts: {
 }
 
 describe("TopologyTerminalView P5-7 grid", () => {
-  it("rig scope: renders one card per seat under safe-N=12", async () => {
+  it("SoftwareTeam scope: renders one card per seat under safe-N=12", async () => {
     const seats = [
       makeSeat({ logicalId: "orch.lead" }),
       makeSeat({ logicalId: "review.lead" }),
       makeSeat({ logicalId: "driver.impl", active: true }),
     ];
-    setupFetch({ rigs: [{ id: "rig-1", name: "test-rig" }], seatsByRig: { "rig-1": seats } });
+    setupFetch({ softwareTeams: [{ id: "software-team-1", name: "test-software-team" }], seatsBySoftwareTeam: { "software-team-1": seats } });
     const { findByTestId, container } = withQueryClient(
-      <TopologyTerminalView scope="rig" rigId="rig-1" />,
+      <TopologyTerminalView scope="softwareTeam" softwareTeamId="software-team-1" />,
     );
     expect(await findByTestId("topology-terminal-grid")).toBeTruthy();
-    expect(await findByTestId("terminal-card-rig-1-orch.lead")).toBeTruthy();
-    expect(await findByTestId("terminal-card-rig-1-driver.impl")).toBeTruthy();
+    expect(await findByTestId("terminal-card-software-team-1-orch.lead")).toBeTruthy();
+    expect(await findByTestId("terminal-card-software-team-1-driver.impl")).toBeTruthy();
     // Active seat carries data-active='true' AND the pulse class.
     const driverCard = container.querySelector(
-      "[data-testid='terminal-card-rig-1-driver.impl']",
+      "[data-testid='terminal-card-software-team-1-driver.impl']",
     );
     expect(driverCard?.getAttribute("data-active")).toBe("true");
     expect(driverCard?.className).toMatch(/terminal-card-active/);
     // Idle seat does NOT carry the pulse class.
     const idleCard = container.querySelector(
-      "[data-testid='terminal-card-rig-1-orch.lead']",
+      "[data-testid='terminal-card-software-team-1-orch.lead']",
     );
     expect(idleCard?.getAttribute("data-active")).toBe("false");
     expect(idleCard?.className ?? "").not.toMatch(/terminal-card-active/);
@@ -141,14 +141,14 @@ describe("TopologyTerminalView P5-7 grid", () => {
     for (let i = 0; i < 15; i++) {
       seats.push(makeSeat({ logicalId: `seat${i.toString().padStart(2, "0")}` }));
     }
-    setupFetch({ rigs: [{ id: "rig-1", name: "test-rig" }], seatsByRig: { "rig-1": seats } });
+    setupFetch({ softwareTeams: [{ id: "software-team-1", name: "test-software-team" }], seatsBySoftwareTeam: { "software-team-1": seats } });
     const { findByTestId, container } = withQueryClient(
-      <TopologyTerminalView scope="rig" rigId="rig-1" />,
+      <TopologyTerminalView scope="softwareTeam" softwareTeamId="software-team-1" />,
     );
     await findByTestId("topology-terminal-grid");
     // Default: 12 cards visible.
     expect(
-      container.querySelectorAll("[data-testid^='terminal-card-rig-1-']").length,
+      container.querySelectorAll("[data-testid^='terminal-card-software-team-1-']").length,
     ).toBe(12);
     expect((await findByTestId("topology-terminal-count")).textContent).toContain("12 of 15");
     // Toggle: show all.
@@ -156,7 +156,7 @@ describe("TopologyTerminalView P5-7 grid", () => {
     fireEvent.click(toggle);
     await waitFor(() => {
       expect(
-        container.querySelectorAll("[data-testid^='terminal-card-rig-1-']").length,
+        container.querySelectorAll("[data-testid^='terminal-card-software-team-1-']").length,
       ).toBe(15);
     });
   });
@@ -167,14 +167,14 @@ describe("TopologyTerminalView P5-7 grid", () => {
       makeSeat({ logicalId: "driver.impl", pod: "implementation" }),
       makeSeat({ logicalId: "qa.codex", pod: "implementation" }),
     ];
-    setupFetch({ rigs: [{ id: "rig-1", name: "test-rig" }], seatsByRig: { "rig-1": seats } });
+    setupFetch({ softwareTeams: [{ id: "software-team-1", name: "test-software-team" }], seatsBySoftwareTeam: { "software-team-1": seats } });
     const { findByTestId, container } = withQueryClient(
-      <TopologyTerminalView scope="pod" rigId="rig-1" podName="implementation" />,
+      <TopologyTerminalView scope="pod" softwareTeamId="software-team-1" podName="implementation" />,
     );
     await findByTestId("topology-terminal-grid");
-    expect(container.querySelector("[data-testid='terminal-card-rig-1-orch.lead']")).toBeNull();
-    expect(container.querySelector("[data-testid='terminal-card-rig-1-driver.impl']")).toBeTruthy();
-    expect(container.querySelector("[data-testid='terminal-card-rig-1-qa.codex']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='terminal-card-software-team-1-orch.lead']")).toBeNull();
+    expect(container.querySelector("[data-testid='terminal-card-software-team-1-driver.impl']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='terminal-card-software-team-1-qa.codex']")).toBeTruthy();
   });
 
   it("renders Codex context percentage and token total in terminal cards", async () => {
@@ -187,12 +187,12 @@ describe("TopologyTerminalView P5-7 grid", () => {
         contextTotalOutputTokens: 615,
       }),
     ];
-    setupFetch({ rigs: [{ id: "rig-1", name: "test-rig" }], seatsByRig: { "rig-1": seats } });
+    setupFetch({ softwareTeams: [{ id: "software-team-1", name: "test-software-team" }], seatsBySoftwareTeam: { "software-team-1": seats } });
     const { findByTestId } = withQueryClient(
-      <TopologyTerminalView scope="rig" rigId="rig-1" />,
+      <TopologyTerminalView scope="softwareTeam" softwareTeamId="software-team-1" />,
     );
-    const context = await findByTestId("terminal-card-context-rig-1-guard.codex");
-    const tokens = await findByTestId("terminal-card-tokens-rig-1-guard.codex");
+    const context = await findByTestId("terminal-card-context-software-team-1-guard.codex");
+    const tokens = await findByTestId("terminal-card-tokens-software-team-1-guard.codex");
     expect(context.textContent).toBe("21%");
     expect(tokens.textContent).toBe("55k");
     expect(tokens.getAttribute("title")).toContain("Tokens: 54,615");
@@ -200,37 +200,37 @@ describe("TopologyTerminalView P5-7 grid", () => {
 
   it("renders unknown context affordance when terminal cards have no sample", async () => {
     const seats = [makeSeat({ logicalId: "orch.lead" })];
-    setupFetch({ rigs: [{ id: "rig-1", name: "test-rig" }], seatsByRig: { "rig-1": seats } });
+    setupFetch({ softwareTeams: [{ id: "software-team-1", name: "test-software-team" }], seatsBySoftwareTeam: { "software-team-1": seats } });
     const { findByTestId } = withQueryClient(
-      <TopologyTerminalView scope="rig" rigId="rig-1" />,
+      <TopologyTerminalView scope="softwareTeam" softwareTeamId="software-team-1" />,
     );
-    expect((await findByTestId("terminal-card-context-rig-1-orch.lead")).textContent).toBe("--");
-    expect((await findByTestId("terminal-card-tokens-rig-1-orch.lead")).textContent).toBe("--");
+    expect((await findByTestId("terminal-card-context-software-team-1-orch.lead")).textContent).toBe("--");
+    expect((await findByTestId("terminal-card-tokens-software-team-1-orch.lead")).textContent).toBe("--");
   });
 
   it("empty state when scope has no agent seats", async () => {
-    setupFetch({ rigs: [{ id: "rig-1", name: "test-rig" }], seatsByRig: { "rig-1": [] } });
+    setupFetch({ softwareTeams: [{ id: "software-team-1", name: "test-software-team" }], seatsBySoftwareTeam: { "software-team-1": [] } });
     const { findByTestId } = withQueryClient(
-      <TopologyTerminalView scope="rig" rigId="rig-1" />,
+      <TopologyTerminalView scope="softwareTeam" softwareTeamId="software-team-1" />,
     );
     expect(await findByTestId("topology-terminal-empty")).toBeTruthy();
   });
 
-  it("host scope with no rigs renders empty state", async () => {
-    setupFetch({ rigs: [] });
+  it("host scope with no softwareTeams renders empty state", async () => {
+    setupFetch({ softwareTeams: [] });
     const { findByTestId } = withQueryClient(<TopologyTerminalView scope="host" />);
     expect(await findByTestId("topology-terminal-empty")).toBeTruthy();
   });
 
-  it("host scope demand-loads one rig instead of fetching every rig inventory on tab open", async () => {
+  it("host scope demand-loads one SoftwareTeam instead of fetching every SoftwareTeam inventory on tab open", async () => {
     setupFetch({
-      rigs: [
-        { id: "rig-1", name: "test-rig" },
-        { id: "rig-2", name: "other-rig" },
+      softwareTeams: [
+        { id: "software-team-1", name: "test-software-team" },
+        { id: "software-team-2", name: "other-software-team" },
       ],
-      seatsByRig: {
-        "rig-1": [makeSeat({ logicalId: "orch.lead", rigId: "rig-1" })],
-        "rig-2": [makeSeat({ logicalId: "ops.lead", rigId: "rig-2" })],
+      seatsBySoftwareTeam: {
+        "software-team-1": [makeSeat({ logicalId: "orch.lead", softwareTeamId: "software-team-1" })],
+        "software-team-2": [makeSeat({ logicalId: "ops.lead", softwareTeamId: "software-team-2" })],
       },
     });
 
@@ -240,14 +240,14 @@ describe("TopologyTerminalView P5-7 grid", () => {
       mockFetch.mock.calls.filter(([url]) => String(url).includes("/nodes")),
     ).toHaveLength(0);
 
-    fireEvent.click(await findByTestId("topology-terminal-host-rig-rig-1"));
-    expect(await findByTestId("terminal-card-rig-1-orch.lead")).toBeTruthy();
+    fireEvent.click(await findByTestId("topology-terminal-host-software-team-software-team-1"));
+    expect(await findByTestId("terminal-card-software-team-1-orch.lead")).toBeTruthy();
 
     const nodeFetches = mockFetch.mock.calls
       .map(([url]) => String(url))
       .filter((url) => url.includes("/nodes"));
     expect(nodeFetches).toHaveLength(1);
-    expect(nodeFetches[0]).toContain("/api/rigs/rig-1/nodes");
+    expect(nodeFetches[0]).toContain("/api/software-teams/software-team-1/nodes");
   });
 });
 
@@ -262,9 +262,9 @@ describe("TerminalView card a11y (OPR.0.4.0.39 in-place click-to-live)", () => {
       makeSeat({ logicalId: "alpha" }),
       makeSeat({ logicalId: "beta" }),
     ];
-    setupFetch({ rigs: [{ id: "rig-1", name: "test-rig" }], seatsByRig: { "rig-1": seats } });
+    setupFetch({ softwareTeams: [{ id: "software-team-1", name: "test-software-team" }], seatsBySoftwareTeam: { "software-team-1": seats } });
     const { findByTestId, container } = withQueryClient(
-      <TopologyTerminalView scope="rig" rigId="rig-1" />,
+      <TopologyTerminalView scope="softwareTeam" softwareTeamId="software-team-1" />,
     );
     await findByTestId("topology-terminal-grid");
 
@@ -283,9 +283,9 @@ describe("TerminalView card a11y (OPR.0.4.0.39 in-place click-to-live)", () => {
   });
 
   it("OPR.0.4.0.39 (FR-1/FR-6): the grid static carries the smoked-glass plate AND is the in-place click-to-live button", async () => {
-    setupFetch({ rigs: [{ id: "rig-1", name: "test-rig" }], seatsByRig: { "rig-1": [makeSeat({ logicalId: "alpha" })] } });
+    setupFetch({ softwareTeams: [{ id: "software-team-1", name: "test-software-team" }], seatsBySoftwareTeam: { "software-team-1": [makeSeat({ logicalId: "alpha" })] } });
     const { findByTestId, container } = withQueryClient(
-      <TopologyTerminalView scope="rig" rigId="rig-1" />,
+      <TopologyTerminalView scope="softwareTeam" softwareTeamId="software-team-1" />,
     );
     await findByTestId("topology-terminal-grid");
 
@@ -293,7 +293,7 @@ describe("TerminalView card a11y (OPR.0.4.0.39 in-place click-to-live)", () => {
     // static carries its OWN borderless smoked-glass plate; and per FR-6 it IS the
     // click-to-live button (ProgressiveTerminal static), not a non-interactive
     // thumbnail beside a separate popover trigger.
-    const staticPlate = await findByTestId("terminal-grid-rig-1-alpha-static");
+    const staticPlate = await findByTestId("terminal-grid-software-team-1-alpha-static");
     expect(staticPlate.tagName).toBe("BUTTON");
     expect(staticPlate.className).toContain("bg-stone-950/85");
     expect(staticPlate.className).toContain("backdrop-blur-sm");

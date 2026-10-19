@@ -1,10 +1,10 @@
 // Slice-03 (OPR.0.4.8.3) Seam B — permission_policy REF resolution + precedence + launch-posture.
-// The `permission_policy` value attached to a rig or a seat is a REF (not a policy body). Semantics
+// The `permission_policy` value attached to a softwareTeam or a seat is a REF (not a policy body). Semantics
 // are grounded in Slice03 README v4 (sha256-8 d65afe67), rulings A1/A2/A3 + the Policy/YOLO framing:
 //   - `builtin:<name>`, <name> ∈ {locked, standard, open, yolo} (A1): resolves into the packaged
 //     read-only built-in set (origin=builtin). Unknown name = STRUCTURED error listing the known
 //     set. The `builtin:` prefix is MANDATORY — bare canonical names never resolve (no shadowing).
-//   - a RELATIVE custom path (A2), resolved relative to the DECLARING RigSpec dir (origin=custom);
+//   - a RELATIVE custom path (A2), resolved relative to the DECLARING SoftwareTeamSpec dir (origin=custom);
 //     absolute / `..` traversal / empty segments = STRUCTURED error (a spec defect, NOT a floor
 //     fallback). Reuses the established safe-path discipline (path-safety.validateSafePath).
 //   - `none` = the RECORDED DELIBERATE choice (RULED-FORM-deliberate-none-2026-08-04,
@@ -43,7 +43,7 @@ function isBuiltinName(name: string): name is BuiltinPolicyName {
  * Validate + classify a permission_policy REF. Returns a STRUCTURED error string for an invalid ref
  * (an invalid ref is a spec DEFECT, never a silent floor fallback), or null when valid. ABSENT is the
  * caller's concern (only pass a present value here). `label` prefixes the error for the surfacing
- * layer (matches the RigSpec validate convention, e.g. "permission_policy" / "pods[0].members[1].
+ * layer (matches the SoftwareTeamSpec validate convention, e.g. "permission_policy" / "pods[0].members[1].
  * permission_policy").
  */
 export function validatePermissionPolicyRef(value: unknown, label: string): string | null {
@@ -77,7 +77,7 @@ export function validatePermissionPolicyRef(value: unknown, label: string): stri
     return `${label}: empty path segments are not allowed (got "${value}")`;
   }
   // README v4 A2 per-segment charset (the established ref discipline — same class as the
-  // rig-context day-one contract): every segment is a single safe path component.
+  // software-team-context day-one contract): every segment is a single safe path component.
   for (const seg of segments) {
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(seg)) {
       return `${label}: path segment "${seg}" violates the ref charset (each segment must match [A-Za-z0-9][A-Za-z0-9._-]*)`;
@@ -102,7 +102,7 @@ export function classifyPermissionPolicyRef(value: string): ResolvedPolicyRef {
  * relative ref is NOT restart-complete. We carry the raw `ref` (for export truth + later skill apply)
  * PLUS `resolvedTarget` (canonical package identifier for built-ins; the absolute resolved path for
  * custom) + `declaringDir` (custom) + `origin`, so a restore can reopen/validate the custom policy
- * and re-derive surface + launch_posture without the original in-memory RigSpec.
+ * and re-derive surface + launch_posture without the original in-memory SoftwareTeamSpec.
  */
 export interface ResolvedPolicyAttachment {
   /** Raw ref, preserved verbatim for export + skill apply. */
@@ -115,7 +115,7 @@ export interface ResolvedPolicyAttachment {
    * the raw ref (dev-guard correction 2: the ref is persisted separately for export; duplicating it
    * here is not restart-stable provenance). */
   resolvedTarget?: string;
-  /** origin=custom: the canonical (absolute) declaring RigSpec directory — restart-stable provenance. */
+  /** origin=custom: the canonical (absolute) declaring SoftwareTeamSpec directory — restart-stable provenance. */
   declaringDir?: string;
   /** The resolved policy surface, when content was resolvable (custom) or known (built-in). */
   surface?: PolicySurface;
@@ -149,7 +149,7 @@ export function builtinPackageTarget(name: BuiltinPolicyName): string {
 
 /**
  * Resolve a VALIDATED, present ref (call validatePermissionPolicyRef first) into a restart-stable
- * attachment. `declaringDir` is the canonical directory of the RigSpec that declared the ref (custom
+ * attachment. `declaringDir` is the canonical directory of the SoftwareTeamSpec that declared the ref (custom
  * refs resolve relative to it — README v4 A2). Flag-surface CONTENT resolution is CORE-owned (guard
  * ruling): a custom `surface: flag` policy's `launch_posture` (floor|full_bypass) is read here.
  *   - built-in: name-derived posture bounded to the locked set (yolo → full_bypass, else floor);
@@ -198,7 +198,7 @@ export function resolvePermissionPolicyAttachment(
       contentResolved: true,
     };
   }
-  // Custom ref: resolve relative to the declaring RigSpec directory (never cwd/workspace root).
+  // Custom ref: resolve relative to the declaring SoftwareTeamSpec directory (never cwd/workspace root).
   const resolvedTarget = path.resolve(declaringDir, ref);
   let surface: PolicySurface | undefined;
   let launchPosture: LaunchPosture = "floor";
@@ -231,12 +231,12 @@ export function resolvePermissionPolicyAttachment(
 }
 
 /**
- * Precedence: a per-member ref overrides the rig-level ref; absence at both is undefined (= floor).
- * member > rig > floor (README v4 + IMPL-PLAN). No pod level exists in the spec surface.
+ * Precedence: a per-member ref overrides the software-team-level ref; absence at both is undefined (= floor).
+ * member > softwareTeam > floor (README v4 + IMPL-PLAN). No pod level exists in the spec surface.
  */
 export function resolvePermissionPolicyRefValue(
   memberRef: string | null | undefined,
-  rigRef: string | null | undefined,
+  softwareTeamRef: string | null | undefined,
 ): string | undefined {
-  return (memberRef ?? undefined) ?? (rigRef ?? undefined);
+  return (memberRef ?? undefined) ?? (softwareTeamRef ?? undefined);
 }

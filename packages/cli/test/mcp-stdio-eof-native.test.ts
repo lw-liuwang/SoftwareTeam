@@ -1,9 +1,9 @@
 import { expect, it } from "vitest";
 import { spawn } from "node:child_process";
 
-it.each(["eof", "sigterm"])("finishes rig mcp serve after native %s", async (mode) => {
+it.each(["eof", "sigterm"])("finishes SoftwareTeam mcp serve after native %s", async (mode) => {
   const source = new URL("../src/commands/mcp.ts", import.meta.url).href;
-  const script = `import { mcpCommand } from ${JSON.stringify(source)}; console.error("module-ready"); await mcpCommand().parseAsync(["serve", "--port", "7433"], { from: "user" }); console.error("command-closed");`;
+  const script = `import { mcpCommand } from ${JSON.stringify(source)}; console.error("module-ready"); await mcpCommand().parseAsync(["serve", "--port", "7434"], { from: "user" }); console.error("command-closed");`;
   const child = spawn(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], { stdio: ["pipe", "pipe", "pipe"] });
   let err = ""; let ready = false; let timedOut = false;
   let timer = setTimeout(() => { timedOut = true; child.kill("SIGKILL"); }, 10_000);

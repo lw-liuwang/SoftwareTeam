@@ -1,6 +1,6 @@
 import { OutboxHandler } from "./outbox-handler.js";
 import type Database from "better-sqlite3";
-import type { RigRepository } from "./rig-repository.js";
+import type { SoftwareTeamRepository } from "./software-team-repository.js";
 import type { SessionRegistry } from "./session-registry.js";
 import type { DiscoveryRepository } from "./discovery-repository.js";
 import type { EventBus } from "./event-bus.js";
@@ -28,8 +28,8 @@ export type ClaimResult =
  * the provider conversation is continuous.
  */
 export interface ReconcileSessionResult {
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   nodeId: string;
   logicalId: string;
   sessionName: string;
@@ -45,7 +45,7 @@ export type ReconcileSessionOutcome =
   | { ok: true; result: ReconcileSessionResult }
   | { ok: false; code: "session_not_found"; message: string }
   | { ok: false; code: "node_not_found"; message: string }
-  | { ok: false; code: "rig_not_found"; message: string }
+  | { ok: false; code: "software_team_not_found"; message: string }
   | { ok: false; code: "node_mismatch"; message: string }
   | { ok: false; code: "reconcile_error"; message: string };
 
@@ -53,13 +53,13 @@ export interface ReconcileSessionOptions {
   sessionName: string;
   /** Optional explicit disambiguation; when given they are authoritative and
    *  cross-checked against the session-name mapping. */
-  rigId?: string;
+  softwareTeamId?: string;
   logicalId?: string;
 }
 
 interface ClaimServiceDeps {
   db: Database.Database;
-  rigRepo: RigRepository;
+  softwareTeamRepo: SoftwareTeamRepository;
   sessionRegistry: SessionRegistry;
   discoveryRepo: DiscoveryRepository;
   eventBus: EventBus;
@@ -91,26 +91,26 @@ interface ClaimServiceDeps {
 
 interface BindOptions {
   discoveredId: string;
-  rigId: string;
+  softwareTeamId: string;
   logicalId: string;
 }
 
 interface CreateAndBindToPodOptions {
   discoveredId: string;
-  rigId: string;
+  softwareTeamId: string;
   podId: string;
   podNamespace: string;
   memberName: string;
 }
 
 /**
- * Adopts a discovered session into a managed rig.
+ * Adopts a discovered session into a managed softwareTeam.
  * Creates node + binding + session record atomically.
  * No package install, no guidance merge, no hooks.
  */
 export class ClaimService {
   readonly db: Database.Database;
-  private rigRepo: RigRepository;
+  private softwareTeamRepo: SoftwareTeamRepository;
   private sessionRegistry: SessionRegistry;
   private discoveryRepo: DiscoveryRepository;
   private eventBus: EventBus;
@@ -125,12 +125,12 @@ export class ClaimService {
   private ompRunnerStateStore: ClaimServiceDeps["ompRunnerStateStore"] | null;
 
   constructor(deps: ClaimServiceDeps) {
-    if (deps.db !== deps.rigRepo.db) throw new Error("ClaimService: rigRepo must share the same db handle");
+    if (deps.db !== deps.softwareTeamRepo.db) throw new Error("ClaimService: softwareTeamRepo must share the same db handle");
     if (deps.db !== deps.sessionRegistry.db) throw new Error("ClaimService: sessionRegistry must share the same db handle");
     if (deps.db !== deps.discoveryRepo.db) throw new Error("ClaimService: discoveryRepo must share the same db handle");
     if (deps.db !== deps.eventBus.db) throw new Error("ClaimService: eventBus must share the same db handle");
     this.db = deps.db;
-    this.rigRepo = deps.rigRepo;
+    this.softwareTeamRepo = deps.softwareTeamRepo;
     this.sessionRegistry = deps.sessionRegistry;
     this.discoveryRepo = deps.discoveryRepo;
     this.eventBus = deps.eventBus;
@@ -178,17 +178,17 @@ export class ClaimService {
     }
   }
 
-  /** Best-effort: set OpenRig-owned tmux metadata on an adopted session. */
-  private async setRiggedMetadata(tmuxSession: string, meta: {
-    nodeId: string; sessionName: string; rigId: string; rigName: string; logicalId: string;
+  /** Best-effort: set SoftwareTeam-owned tmux metadata on an adopted session. */
+  private async setSoftwareTeamMetadata(tmuxSession: string, meta: {
+    nodeId: string; sessionName: string; softwareTeamId: string; softwareTeamName: string; logicalId: string;
   }): Promise<void> {
     if (!this.tmuxAdapter) return;
     const entries: [string, string][] = [
-      ["@rigged_node_id", meta.nodeId],
-      ["@rigged_session_name", meta.sessionName],
-      ["@rigged_rig_id", meta.rigId],
-      ["@rigged_rig_name", meta.rigName],
-      ["@rigged_logical_id", meta.logicalId],
+      ["@softwareteam_node_id", meta.nodeId],
+      ["@softwareteam_session_name", meta.sessionName],
+      ["@softwareteam_software_team_id", meta.softwareTeamId],
+      ["@softwareteam_software_team_name", meta.softwareTeamName],
+      ["@softwareteam_logical_id", meta.logicalId],
     ];
     for (const [key, value] of entries) {
       await this.tmuxAdapter.setSessionOption(tmuxSession, key, value);
@@ -197,10 +197,10 @@ export class ClaimService {
 
   /** Best-effort: send a short identity hint into the adopted session after claim. */
   private async deliverClaimHint(tmuxSession: string, meta: {
-    rigName: string; logicalId: string;
+    softwareTeamName: string; logicalId: string;
   }): Promise<void> {
     if (!this.tmuxAdapter) return;
-    const hint = `--- OpenRig: You have been adopted into rig "${meta.rigName}" as ${meta.logicalId}. Run: rig whoami --json ---`;
+    const hint = `--- SoftwareTeam: You have been adopted into softwareTeam "${meta.softwareTeamName}" as ${meta.logicalId}. Run: SoftwareTeam whoami --json ---`;
     const write = async () => {
       const sent = await this.tmuxAdapter!.sendText(tmuxSession, hint);
       if (sent.ok) await this.tmuxAdapter!.sendKeys(tmuxSession, ["Enter"]);
@@ -242,7 +242,7 @@ export class ClaimService {
    * adoption (PRD Rule 7).
    */
   private async captureResumeTokenOnAdoption(input: {
-    rigId: string; nodeId: string; sessionId: string; sessionName: string; runtime: string | null;
+    softwareTeamId: string; nodeId: string; sessionId: string; sessionName: string; runtime: string | null;
   }): Promise<void> {
     try {
       // Derivation is the shared PURE helper (OPR.0.4.3.04 B2 — reused by the
@@ -270,12 +270,12 @@ export class ClaimService {
         this.eventBus.emit(wrote
           ? {
               type: "session.resume_token_captured",
-              rigId: input.rigId, nodeId: input.nodeId, sessionName: input.sessionName, sessionId: input.sessionId,
+              softwareTeamId: input.softwareTeamId, nodeId: input.nodeId, sessionName: input.sessionName, sessionId: input.sessionId,
               runtime, outcome: "captured", resumeType: validation.resumeType, provenance: "adoption", redacted: true,
             }
           : {
               type: "session.resume_token_captured",
-              rigId: input.rigId, nodeId: input.nodeId, sessionName: input.sessionName, sessionId: input.sessionId,
+              softwareTeamId: input.softwareTeamId, nodeId: input.nodeId, sessionName: input.sessionName, sessionId: input.sessionId,
               runtime, outcome: "preserved", resumeType: validation.resumeType, reason: "higher_rank_present", redacted: true,
             });
       } catch { /* best-effort */ }
@@ -285,14 +285,14 @@ export class ClaimService {
   }
 
   private emitCaptureSkip(
-    input: { rigId: string; nodeId: string; sessionId: string; sessionName: string },
+    input: { softwareTeamId: string; nodeId: string; sessionId: string; sessionName: string },
     runtime: string,
     reason: "missing_sidecar" | "parse_error" | "probe_timeout" | "process_unreadable" | "invalid_token" | "stale_sidecar",
   ): void {
     try {
       this.eventBus.emit({
         type: "session.resume_token_captured",
-        rigId: input.rigId, nodeId: input.nodeId, sessionName: input.sessionName, sessionId: input.sessionId,
+        softwareTeamId: input.softwareTeamId, nodeId: input.nodeId, sessionName: input.sessionName, sessionId: input.sessionId,
         runtime, outcome: "skipped", reason, redacted: true,
       });
     } catch { /* best-effort */ }
@@ -307,14 +307,14 @@ export class ClaimService {
       return { ok: false, code: "not_active", error: `Discovery record is ${discovered.status}, not active` };
     }
 
-    const rig = this.rigRepo.getRig(opts.rigId);
-    if (!rig) {
-      return { ok: false, code: "rig_not_found", error: "Target rig not found" };
+    const softwareTeam = this.softwareTeamRepo.getSoftwareTeam(opts.softwareTeamId);
+    if (!softwareTeam) {
+      return { ok: false, code: "software_team_not_found", error: "Target SoftwareTeam not found" };
     }
 
-    const node = rig.nodes.find((candidate) => candidate.logicalId === opts.logicalId);
+    const node = softwareTeam.nodes.find((candidate) => candidate.logicalId === opts.logicalId);
     if (!node) {
-      return { ok: false, code: "node_not_found", error: `Logical ID '${opts.logicalId}' does not exist in rig` };
+      return { ok: false, code: "node_not_found", error: `Logical ID '${opts.logicalId}' does not exist in softwareTeam` };
     }
 
     const guard = this.tmuxAdapter?.deliveryGuard;
@@ -352,7 +352,7 @@ export class ClaimService {
       this.discoveryRepo.markClaimed(discovered.id, node.id);
       this.eventBus.persistWithinTransaction({
         type: "node.claimed",
-        rigId: opts.rigId,
+        softwareTeamId: opts.softwareTeamId,
         nodeId: node.id,
         logicalId: opts.logicalId,
         discoveredId: discovered.id,
@@ -364,11 +364,11 @@ export class ClaimService {
     try {
       const { nodeId, sessionId } = bindTx();
       this.tmuxAdapter?.deliveryGuard?.rebindLifecycle(nodeId);
-      const event = this.db.prepare("SELECT * FROM events ORDER BY seq DESC LIMIT 1").get() as { seq: number; type: string; rig_id: string; node_id: string; payload: string; created_at: string };
+      const event = this.db.prepare("SELECT * FROM events ORDER BY seq DESC LIMIT 1").get() as { seq: number; type: string; software_team_id: string; node_id: string; payload: string; created_at: string };
       if (event) {
         this.eventBus.notifySubscribers({
           type: "node.claimed",
-          rigId: opts.rigId,
+          softwareTeamId: opts.softwareTeamId,
           nodeId,
           logicalId: opts.logicalId,
           discoveredId: discovered.id,
@@ -376,24 +376,24 @@ export class ClaimService {
           createdAt: event.created_at,
         });
       }
-      // Best-effort: set OpenRig-owned tmux metadata
+      // Best-effort: set SoftwareTeam-owned tmux metadata
       try {
-        await this.setRiggedMetadata(discovered.tmuxSession, {
+        await this.setSoftwareTeamMetadata(discovered.tmuxSession, {
           nodeId, sessionName: discovered.tmuxSession,
-          rigId: opts.rigId, rigName: rig!.rig.name, logicalId: opts.logicalId,
+          softwareTeamId: opts.softwareTeamId, softwareTeamName: softwareTeam!.softwareTeam.name, logicalId: opts.logicalId,
         });
       } catch { /* best-effort */ }
       this.maybeProvisionContextCollector(node.runtime ?? discoveredRuntime, node.cwd ?? discovered.cwd, discovered.tmuxSession);
       try {
-        await startTmuxTranscriptCapture(this.tmuxAdapter, this.transcriptStore, rig!.rig.name, discovered.tmuxSession);
+        await startTmuxTranscriptCapture(this.tmuxAdapter, this.transcriptStore, softwareTeam!.softwareTeam.name, discovered.tmuxSession);
       } catch { /* best-effort */ }
       // Best-effort: send post-claim identity hint
       try {
-        await this.deliverClaimHint(discovered.tmuxSession, { rigName: rig!.rig.name, logicalId: opts.logicalId });
+        await this.deliverClaimHint(discovered.tmuxSession, { softwareTeamName: softwareTeam!.softwareTeam.name, logicalId: opts.logicalId });
       } catch { /* best-effort */ }
       // OPR.0.4.3.20 FR-3 — capture the resume token at the adoption boundary.
       await this.captureResumeTokenOnAdoption({
-        rigId: opts.rigId, nodeId, sessionId, sessionName: discovered.tmuxSession,
+        softwareTeamId: opts.softwareTeamId, nodeId, sessionId, sessionName: discovered.tmuxSession,
         runtime: node.runtime ?? discoveredRuntime ?? null,
       });
 
@@ -441,18 +441,18 @@ export class ClaimService {
 
     // 1. Resolve the persisted node for this canonical session name. The
     // session-name mapping is the daemon's own history (bindings + session
-    // rows); explicit --rig/--node are authoritative and cross-checked.
-    let nodeRow: { id: string; rig_id: string; logical_id: string; runtime: string | null; cwd: string | null } | undefined;
-    if (opts.rigId && opts.logicalId) {
-      const rig = this.rigRepo.getRig(opts.rigId);
-      if (!rig) {
-        return { ok: false, code: "rig_not_found", message: `Rig "${opts.rigId}" not found.` };
+    // rows); explicit --software-team/--node are authoritative and cross-checked.
+    let nodeRow: { id: string; software_team_id: string; logical_id: string; runtime: string | null; cwd: string | null } | undefined;
+    if (opts.softwareTeamId && opts.logicalId) {
+      const softwareTeam = this.softwareTeamRepo.getSoftwareTeam(opts.softwareTeamId);
+      if (!softwareTeam) {
+        return { ok: false, code: "software_team_not_found", message: `SoftwareTeam "${opts.softwareTeamId}" not found.` };
       }
-      const node = rig.nodes.find((candidate) => candidate.logicalId === opts.logicalId);
+      const node = softwareTeam.nodes.find((candidate) => candidate.logicalId === opts.logicalId);
       if (!node) {
-        return { ok: false, code: "node_not_found", message: `Logical ID "${opts.logicalId}" does not exist in rig "${rig.rig.name}".` };
+        return { ok: false, code: "node_not_found", message: `Logical ID "${opts.logicalId}" does not exist in softwareTeam "${softwareTeam.softwareTeam.name}".` };
       }
-      nodeRow = { id: node.id, rig_id: opts.rigId, logical_id: node.logicalId, runtime: node.runtime ?? null, cwd: node.cwd ?? null };
+      nodeRow = { id: node.id, software_team_id: opts.softwareTeamId, logical_id: node.logicalId, runtime: node.runtime ?? null, cwd: node.cwd ?? null };
       // Cross-check: if the daemon's history maps this session name to a
       // DIFFERENT node, refuse honestly rather than silently re-pointing.
       const mapped = this.resolveNodeIdForSessionName(sessionName);
@@ -460,21 +460,21 @@ export class ClaimService {
         return {
           ok: false,
           code: "node_mismatch",
-          message: `Session "${sessionName}" maps to a different persisted node than ${opts.logicalId}. Re-check --rig/--node, or omit them to use the daemon's mapping.`,
+          message: `Session "${sessionName}" maps to a different persisted node than ${opts.logicalId}. Re-check --software-team/--node, or omit them to use the daemon's mapping.`,
         };
       }
       // IDENTITY BOUNDARY (guard re-review): with NO daemon-history mapping,
-      // explicit --rig/--node may only adopt the node's OWN canonical/managed
+      // explicit --software-team/--node may only adopt the node's OWN canonical/managed
       // session name. Binding an arbitrary never-managed name to a node would
       // be an adopt/re-key path, not a reconcile — those go through
-      // rig discover + rig bind.
+      // softwareTeam discover + softwareTeam bind.
       if (!mapped) {
-        const expected = await this.expectedManagedSessionName(node.logicalId, node.podId ?? null, rig.rig.name);
+        const expected = await this.expectedManagedSessionName(node.logicalId, node.podId ?? null, softwareTeam.softwareTeam.name);
         if (sessionName !== expected) {
           return {
             ok: false,
             code: "node_mismatch",
-            message: `Session "${sessionName}" is not ${opts.logicalId}'s managed session name (expected "${expected}") and the daemon has no history mapping it to this node. Reconcile only re-adopts a node's own canonical session; to manage a new/unmanaged session, use rig discover + rig bind.`,
+            message: `Session "${sessionName}" is not ${opts.logicalId}'s managed session name (expected "${expected}") and the daemon has no history mapping it to this node. Reconcile only re-adopts a node's own canonical session; to manage a new/unmanaged session, use SoftwareTeam discover + SoftwareTeam bind.`,
           };
         }
       }
@@ -484,21 +484,21 @@ export class ClaimService {
         return {
           ok: false,
           code: "node_not_found",
-          message: `No persisted node maps to session "${sessionName}". If this seat was never managed, use rig discover + rig bind; reconcile only re-adopts a previously managed seat. You can disambiguate with --rig <rig> --node <logicalId>.`,
+          message: `No persisted node maps to session "${sessionName}". If this seat was never managed, use SoftwareTeam discover + SoftwareTeam bind; reconcile only re-adopts a previously managed seat. You can disambiguate with --software-team <softwareTeam> --node <logicalId>.`,
         };
       }
       const row = this.db
-        .prepare("SELECT id, rig_id, logical_id, runtime, cwd FROM nodes WHERE id = ?")
-        .get(mappedNodeId) as { id: string; rig_id: string; logical_id: string; runtime: string | null; cwd: string | null } | undefined;
+        .prepare("SELECT id, software_team_id, logical_id, runtime, cwd FROM nodes WHERE id = ?")
+        .get(mappedNodeId) as { id: string; software_team_id: string; logical_id: string; runtime: string | null; cwd: string | null } | undefined;
       if (!row) {
         return { ok: false, code: "node_not_found", message: `Persisted node for session "${sessionName}" no longer exists.` };
       }
       nodeRow = row;
     }
 
-    const rig = this.rigRepo.getRig(nodeRow.rig_id);
-    if (!rig) {
-      return { ok: false, code: "rig_not_found", message: `Rig for node "${nodeRow.logical_id}" no longer exists.` };
+    const softwareTeam = this.softwareTeamRepo.getSoftwareTeam(nodeRow.software_team_id);
+    if (!softwareTeam) {
+      return { ok: false, code: "software_team_not_found", message: `SoftwareTeam for node "${nodeRow.logical_id}" no longer exists.` };
     }
 
     // 2. Verify a LIVE tmux session with the canonical name exists (read-only).
@@ -564,7 +564,7 @@ export class ClaimService {
         sessionId = session.id;
         persistedEvent = this.eventBus.persistWithinTransaction({
           type: "node.reconciled",
-          rigId: nodeRow!.rig_id,
+          softwareTeamId: nodeRow!.software_team_id,
           nodeId: nodeRow!.id,
           logicalId: nodeRow!.logical_id,
           sessionName,
@@ -574,36 +574,36 @@ export class ClaimService {
       else tx();
       if (persistedEvent) this.eventBus.notifySubscribers(persistedEvent);
 
-      // 5. Best-effort NON-INPUT housekeeping: OpenRig-owned tmux metadata
+      // 5. Best-effort NON-INPUT housekeeping: SoftwareTeam-owned tmux metadata
       // (setSessionOption only) + transcript capture (pipe-pane bookkeeping).
       // Deliberately NO deliverClaimHint and NO context-collector provisioning
       // — nothing that writes into the live pane or the seat's workspace.
       try {
-        await this.setRiggedMetadata(sessionName, {
+        await this.setSoftwareTeamMetadata(sessionName, {
           nodeId: nodeRow.id,
           sessionName,
-          rigId: nodeRow.rig_id,
-          rigName: rig.rig.name,
+          softwareTeamId: nodeRow.software_team_id,
+          softwareTeamName: softwareTeam.softwareTeam.name,
           logicalId: nodeRow.logical_id,
         });
       } catch { /* best-effort */ }
       try {
-        await startTmuxTranscriptCapture(this.tmuxAdapter, this.transcriptStore, rig.rig.name, sessionName);
+        await startTmuxTranscriptCapture(this.tmuxAdapter, this.transcriptStore, softwareTeam.softwareTeam.name, sessionName);
       } catch { /* best-effort */ }
       // OPR.0.4.3.20 FR-3 — capture the resume token at the adoption boundary.
       // Pure reads only (sidecar file / pid-keyed log) — consistent with the
       // no-launch/no-input contract above; does NOT touch `continuity`
       // (FR-3 captures a token, it does not assert conversation continuity).
       await this.captureResumeTokenOnAdoption({
-        rigId: nodeRow.rig_id, nodeId: nodeRow.id, sessionId, sessionName,
+        softwareTeamId: nodeRow.software_team_id, nodeId: nodeRow.id, sessionId, sessionName,
         runtime: nodeRow.runtime,
       });
 
       return {
         ok: true,
         result: {
-          rigId: nodeRow.rig_id,
-          rigName: rig.rig.name,
+          softwareTeamId: nodeRow.software_team_id,
+          softwareTeamName: softwareTeam.softwareTeam.name,
           nodeId: nodeRow.id,
           logicalId: nodeRow.logical_id,
           sessionName,
@@ -618,18 +618,18 @@ export class ClaimService {
   }
 
   /** The session name a managed node is EXPECTED to live at — pod-aware nodes
-   *  derive `{pod}-{member}@{rigName}`; legacy flat nodes use the legacy
-   *  derivation. Used to fence the explicit --rig/--node reconcile branch when
+   *  derive `{pod}-{member}@{softwareTeamName}`; legacy flat nodes use the legacy
+   *  derivation. Used to fence the explicit --software-team/--node reconcile branch when
    *  the daemon has no history mapping for the supplied name. */
-  private async expectedManagedSessionName(logicalId: string, podId: string | null, rigName: string): Promise<string> {
+  private async expectedManagedSessionName(logicalId: string, podId: string | null, softwareTeamName: string): Promise<string> {
     const { deriveCanonicalSessionName, deriveSessionName } = await import("./session-name.js");
     if (podId) {
       const parts = logicalId.split(".");
       if (parts.length >= 2) {
-        return deriveCanonicalSessionName(parts[0]!, parts.slice(1).join("."), rigName);
+        return deriveCanonicalSessionName(parts[0]!, parts.slice(1).join("."), softwareTeamName);
       }
     }
-    return deriveSessionName(rigName, logicalId);
+    return deriveSessionName(softwareTeamName, logicalId);
   }
 
   /** Map a canonical session name to its persisted node via the daemon's own
@@ -654,16 +654,16 @@ export class ClaimService {
       return { ok: false, code: "not_active", error: `Discovery record is ${discovered.status}, not active` };
     }
 
-    const rig = this.rigRepo.getRig(opts.rigId);
-    if (!rig) {
-      return { ok: false, code: "rig_not_found", error: "Target rig not found" };
+    const softwareTeam = this.softwareTeamRepo.getSoftwareTeam(opts.softwareTeamId);
+    if (!softwareTeam) {
+      return { ok: false, code: "software_team_not_found", error: "Target SoftwareTeam not found" };
     }
 
     const podRow = this.db
-      .prepare("SELECT rig_id, namespace FROM pods WHERE id = ?")
-      .get(opts.podId) as { rig_id: string; namespace: string } | undefined;
-    if (!podRow || podRow.rig_id !== opts.rigId) {
-      return { ok: false, code: "pod_not_found", error: "Target pod not found in rig" };
+      .prepare("SELECT software_team_id, namespace FROM pods WHERE id = ?")
+      .get(opts.podId) as { software_team_id: string; namespace: string } | undefined;
+    if (!podRow || podRow.software_team_id !== opts.softwareTeamId) {
+      return { ok: false, code: "pod_not_found", error: "Target pod not found in softwareTeam" };
     }
 
     const memberName = opts.memberName.trim();
@@ -679,8 +679,8 @@ export class ClaimService {
     }
 
     const logicalId = `${podNamespace}.${memberName}`;
-    if (rig.nodes.some((n) => n.logicalId === logicalId)) {
-      return { ok: false, code: "duplicate_logical_id", error: `Logical ID '${logicalId}' already exists in rig` };
+    if (softwareTeam.nodes.some((n) => n.logicalId === logicalId)) {
+      return { ok: false, code: "duplicate_logical_id", error: `Logical ID '${logicalId}' already exists in softwareTeam` };
     }
 
     const discoveredRuntime = discovered.runtimeHint === "unknown" || discovered.runtimeHint === "terminal"
@@ -693,7 +693,7 @@ export class ClaimService {
     );
 
     const claimTx = this.db.transaction(() => {
-      const node = this.rigRepo.addNode(opts.rigId, logicalId, {
+      const node = this.softwareTeamRepo.addNode(opts.softwareTeamId, logicalId, {
         runtime: discoveredRuntime,
         cwd: discovered.cwd ?? undefined,
         podId: opts.podId,
@@ -710,7 +710,7 @@ export class ClaimService {
       this.discoveryRepo.markClaimed(discovered.id, node.id);
       this.eventBus.persistWithinTransaction({
         type: "node.claimed",
-        rigId: opts.rigId,
+        softwareTeamId: opts.softwareTeamId,
         nodeId: node.id,
         logicalId,
         discoveredId: discovered.id,
@@ -721,11 +721,11 @@ export class ClaimService {
 
     try {
       const { nodeId, sessionId } = claimTx();
-      const event = this.db.prepare("SELECT * FROM events ORDER BY seq DESC LIMIT 1").get() as { seq: number; type: string; rig_id: string; node_id: string; payload: string; created_at: string };
+      const event = this.db.prepare("SELECT * FROM events ORDER BY seq DESC LIMIT 1").get() as { seq: number; type: string; software_team_id: string; node_id: string; payload: string; created_at: string };
       if (event) {
         this.eventBus.notifySubscribers({
           type: "node.claimed",
-          rigId: opts.rigId,
+          softwareTeamId: opts.softwareTeamId,
           nodeId,
           logicalId,
           discoveredId: discovered.id,
@@ -733,24 +733,24 @@ export class ClaimService {
           createdAt: event.created_at,
         });
       }
-      // Best-effort: set OpenRig-owned tmux metadata
+      // Best-effort: set SoftwareTeam-owned tmux metadata
       try {
-        await this.setRiggedMetadata(discovered.tmuxSession, {
+        await this.setSoftwareTeamMetadata(discovered.tmuxSession, {
           nodeId, sessionName: discovered.tmuxSession,
-          rigId: opts.rigId, rigName: rig!.rig.name, logicalId,
+          softwareTeamId: opts.softwareTeamId, softwareTeamName: softwareTeam!.softwareTeam.name, logicalId,
         });
       } catch { /* best-effort */ }
       this.maybeProvisionContextCollector(discoveredRuntime, discovered.cwd, discovered.tmuxSession);
       try {
-        await startTmuxTranscriptCapture(this.tmuxAdapter, this.transcriptStore, rig!.rig.name, discovered.tmuxSession);
+        await startTmuxTranscriptCapture(this.tmuxAdapter, this.transcriptStore, softwareTeam!.softwareTeam.name, discovered.tmuxSession);
       } catch { /* best-effort */ }
       // Best-effort: send post-claim identity hint
       try {
-        await this.deliverClaimHint(discovered.tmuxSession, { rigName: rig!.rig.name, logicalId });
+        await this.deliverClaimHint(discovered.tmuxSession, { softwareTeamName: softwareTeam!.softwareTeam.name, logicalId });
       } catch { /* best-effort */ }
       // OPR.0.4.3.20 FR-3 — capture the resume token at the adoption boundary.
       await this.captureResumeTokenOnAdoption({
-        rigId: opts.rigId, nodeId, sessionId, sessionName: discovered.tmuxSession,
+        softwareTeamId: opts.softwareTeamId, nodeId, sessionId, sessionName: discovered.tmuxSession,
         runtime: discoveredRuntime ?? null,
       });
 

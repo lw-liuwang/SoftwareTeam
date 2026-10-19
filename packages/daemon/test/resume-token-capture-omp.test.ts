@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { deriveResumeToken } from "../src/domain/resume-token-capture.js";
 
-const sessionName = "qa-worker@omp-rig";
-const sessionFile = "/openrig/state/omp/qa-worker@omp-rig/sessions/2026-09-24_id.jsonl";
+const sessionName = "qa-worker@omp-software-team";
+const sessionFile = "/softwareteam/state/omp/qa-worker@omp-software-team/sessions/2026-09-24_id.jsonl";
 
 describe("OMP adoption resume token capture", () => {
   it("uses the OMP sidecar and never the Pi sidecar", async () => {

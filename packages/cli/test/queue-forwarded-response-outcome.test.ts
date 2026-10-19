@@ -52,7 +52,7 @@ describe("forwarded queue response outcomes reach the CLI", () => {
       await next();
     });
     app.route("/api/queue", queueRoutes());
-    vi.stubEnv("OPENRIG_SESSION_NAME", "seat@rig");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "seat@software-team");
     const output = vi.spyOn(console, "log").mockImplementation(() => {});
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const deps: QueueDeps = {
@@ -69,7 +69,7 @@ describe("forwarded queue response outcomes reach the CLI", () => {
     const program = new Command();
     program.addCommand(queueCommand(deps));
     await program.parseAsync([
-      "node", "rig", "queue", "create", "--destination", "worker@rig", "--body", "proof",
+      "node", "softwareTeam", "queue", "create", "--destination", "worker@software-team", "--body", "proof",
       "--summary", "proof", "--host", "edge", "--no-nudge", "--json",
     ]);
     const response = JSON.parse(String(output.mock.calls[0]?.[0]));
@@ -81,7 +81,7 @@ describe("forwarded queue response outcomes reach the CLI", () => {
     expect(stderr).toContain(`Queue create request ID: ${id}`);
     expect(stderr).toContain("not proof of persistence");
     expect(stderr).toContain("destination host 'edge'");
-    expect(stderr).toContain(`OPENRIG_URL='<destination-daemon-url>' rig queue show '${id}' --full --json`);
+    expect(stderr).toContain(`SOFTWARETEAM_URL='<destination-daemon-url>' SoftwareTeam queue show '${id}' --full --json`);
     expect(stderr).not.toContain("--full --json on destination host");
     if (mode === "interrupted") {
       expect(response).toMatchObject({ error: "remote_queue_write_failed", hostId: "edge", remoteStatus: 201, outcome: "indeterminate" });

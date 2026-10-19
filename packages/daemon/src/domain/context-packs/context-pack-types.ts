@@ -1,4 +1,4 @@
-// Rig Context / Composable Context Injection v0 (PL-014) — typed primitive
+// SoftwareTeam Context / Composable Context Injection v0 (PL-014) — typed primitive
 // shared types.
 //
 // A context_pack is a directory containing `manifest.yaml` + included
@@ -6,8 +6,8 @@
 // reviewable, sendable. Parallel to skills + workflow_specs in shape.
 //
 // MVP single-host context: storage filesystem-canonical at
-// <context.root>/<ref>/ (host; default $OPENRIG_HOME/context) + workspace-local
-// .openrig/context-packs/<name>/. NO new SQLite tables; library cache
+// <context.root>/<ref>/ (host; default $SOFTWARETEAM_HOME/context) + workspace-local
+// .softwareteam/context-packs/<name>/. NO new SQLite tables; library cache
 // is in-memory at the daemon scope.
 
 export interface ContextPackManifestFile {

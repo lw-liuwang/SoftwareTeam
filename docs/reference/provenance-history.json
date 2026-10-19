@@ -1,0 +1,182 @@
+{
+  "base": "3d1cb0b3432217f0db2798e507a1eeb172a1c764",
+  "historicalFiles": [
+    {
+      "path": "CHANGELOG.md",
+      "source": "CHANGELOG.md"
+    },
+    {
+      "path": "docs/releases/README.md",
+      "source": "docs/releases/README.md"
+    },
+    {
+      "path": "docs/releases/_template.md",
+      "source": "docs/releases/_template.md"
+    },
+    {
+      "path": "docs/releases/v0.1.12.md",
+      "source": "docs/releases/v0.1.12.md"
+    },
+    {
+      "path": "docs/releases/v0.2.0.md",
+      "source": "docs/releases/v0.2.0.md"
+    },
+    {
+      "path": "docs/releases/v0.3.0.md",
+      "source": "docs/releases/v0.3.0.md"
+    },
+    {
+      "path": "docs/releases/v0.3.1.md",
+      "source": "docs/releases/v0.3.1.md"
+    },
+    {
+      "path": "docs/releases/v0.3.2.md",
+      "source": "docs/releases/v0.3.2.md"
+    },
+    {
+      "path": "docs/releases/v0.3.3.md",
+      "source": "docs/releases/v0.3.3.md"
+    },
+    {
+      "path": "docs/releases/v0.3.4.md",
+      "source": "docs/releases/v0.3.4.md"
+    },
+    {
+      "path": "docs/releases/v0.4.0.md",
+      "source": "docs/releases/v0.4.0.md"
+    },
+    {
+      "path": "docs/releases/v0.4.1.md",
+      "source": "docs/releases/v0.4.1.md"
+    },
+    {
+      "path": "docs/releases/v0.4.2.md",
+      "source": "docs/releases/v0.4.2.md"
+    },
+    {
+      "path": "docs/releases/v0.4.3.md",
+      "source": "docs/releases/v0.4.3.md"
+    },
+    {
+      "path": "docs/releases/v0.4.4.md",
+      "source": "docs/releases/v0.4.4.md"
+    },
+    {
+      "path": "docs/releases/v0.4.6.md",
+      "source": "docs/releases/v0.4.6.md"
+    },
+    {
+      "path": "docs/releases/v0.4.7.md",
+      "source": "docs/releases/v0.4.7.md"
+    },
+    {
+      "path": "docs/releases/v0.4.8.md",
+      "source": "docs/releases/v0.4.8.md"
+    },
+    {
+      "path": "docs/releases/v0.5.0.md",
+      "source": "docs/releases/v0.5.0.md"
+    },
+    {
+      "path": "docs/releases/v0.5.1.md",
+      "source": "docs/releases/v0.5.1.md"
+    },
+    {
+      "path": "docs/releases/v0.5.10.md",
+      "source": "docs/releases/v0.5.10.md"
+    },
+    {
+      "path": "docs/releases/v0.5.11.md",
+      "source": "docs/releases/v0.5.11.md"
+    },
+    {
+      "path": "docs/releases/v0.5.12.md",
+      "source": "docs/releases/v0.5.12.md"
+    },
+    {
+      "path": "docs/releases/v0.5.13.md",
+      "source": "docs/releases/v0.5.13.md"
+    },
+    {
+      "path": "docs/releases/v0.5.14.md",
+      "source": "docs/releases/v0.5.14.md"
+    },
+    {
+      "path": "docs/releases/v0.5.15.md",
+      "source": "docs/releases/v0.5.15.md"
+    },
+    {
+      "path": "docs/releases/v0.5.16.md",
+      "source": "docs/releases/v0.5.16.md"
+    },
+    {
+      "path": "docs/releases/v0.5.17.md",
+      "source": "docs/releases/v0.5.17.md"
+    },
+    {
+      "path": "docs/releases/v0.5.2.md",
+      "source": "docs/releases/v0.5.2.md"
+    },
+    {
+      "path": "docs/releases/v0.5.3.md",
+      "source": "docs/releases/v0.5.3.md"
+    },
+    {
+      "path": "docs/releases/v0.5.4.md",
+      "source": "docs/releases/v0.5.4.md"
+    },
+    {
+      "path": "docs/releases/v0.5.5.md",
+      "source": "docs/releases/v0.5.5.md"
+    },
+    {
+      "path": "docs/releases/v0.5.6.md",
+      "source": "docs/releases/v0.5.6.md"
+    },
+    {
+      "path": "docs/releases/v0.5.7.md",
+      "source": "docs/releases/v0.5.7.md"
+    },
+    {
+      "path": "docs/releases/v0.5.8.md",
+      "source": "docs/releases/v0.5.8.md"
+    },
+    {
+      "path": "docs/releases/v0.5.9.md",
+      "source": "docs/releases/v0.5.9.md"
+    },
+    {
+      "path": "docs/releases/v0.6.0.md",
+      "source": "docs/releases/v0.6.0.md"
+    },
+    {
+      "path": "docs/releases/v0.6.1.md",
+      "source": "docs/releases/v0.6.1.md"
+    },
+    {
+      "path": "docs/releases/v0.6.12.md",
+      "source": "docs/releases/v0.6.12.md"
+    },
+    {
+      "path": "docs/releases/v0.6.2.md",
+      "source": "docs/releases/v0.6.2.md"
+    },
+    {
+      "path": "docs/releases/v0.6.3.md",
+      "source": "docs/releases/v0.6.3.md"
+    },
+    {
+      "path": "skills/CHANGELOG.md",
+      "source": "skills/CHANGELOG.md"
+    },
+    {
+      "path": "team/records/code-agent/release-v0.6.12-verification.md",
+      "source": "team/records/development/release-v0.6.12-verification.md"
+    },
+    {
+      "path": "team/records/code-agent/team-refactor-verification.md",
+      "source": "team/records/development/team-refactor-verification.md"
+    }
+  ],
+  "reason": "Authentic upstream release notes and prior execution evidence; bytes preserved from input revision. Moved role directories identify current ownership, not a rewritten execution."
+}

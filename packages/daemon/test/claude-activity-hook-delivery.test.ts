@@ -24,12 +24,12 @@ import { basename, dirname, resolve as pathResolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { planProjection, type ProjectionPlan, type ProjectionEntry } from "../src/domain/projection-planner.js";
 import { resolveNodeConfig, type ResolutionContext } from "../src/domain/profile-resolver.js";
-import type { RigSpec, RigSpecPod, RigSpecPodMember } from "../src/domain/types.js";
+import type { SoftwareTeamSpec, SoftwareTeamSpecPod, SoftwareTeamSpecPodMember } from "../src/domain/types.js";
 import { resolveAgentRef, type ResolvedAgentSpec } from "../src/domain/agent-resolver.js";
 
 const CWD = "/project";
-const RELAY_SRC = "/assets/plugins/openrig-core/hooks/scripts/activity-relay.cjs";
-const MANIFEST_SRC = "/assets/plugins/openrig-core/hooks/claude.json";
+const RELAY_SRC = "/assets/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs";
+const MANIFEST_SRC = "/assets/plugins/softwareteam-core/hooks/claude.json";
 const STATE_DIR = "/custom-instance/O'Brien";
 const RELAY_DEST = `${STATE_DIR}/state/claude-activity-hooks/activity-relay.cjs`;
 const SETTINGS = "/project/.claude/settings.local.json";
@@ -149,7 +149,7 @@ function committedMode(filePath: string): string | null {
 // executable — this regression STATS the real committed asset, not a synthetic 0o755 fixture.
 describe("Claude activity-hook delivery — shipped relay asset executable mode (0755 contract)", () => {
   it("the committed activity-relay.cjs asset is executable 0755 (so the preserved projection meets the contract)", () => {
-    const assetPath = pathResolve(import.meta.dirname, "../assets/plugins/openrig-core/hooks/scripts/activity-relay.cjs");
+    const assetPath = pathResolve(import.meta.dirname, "../assets/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs");
     const mode = statSync(assetPath).mode & 0o777;
     expect(mode & 0o111, `shipped relay mode is 0${mode.toString(8)}, expected executable`).not.toBe(0);
     // A git checkout's working-tree mode is the committed mode filtered by the checkout user's
@@ -254,7 +254,7 @@ describe("Claude activity-hook delivery — ENABLE (entry present, source + mani
 
 describe("Claude activity-hook delivery — instance path transition", () => {
   it.each([true, false])("migrates or strips both owned forms while preserving user commands (enabled=%s)", async (enabled) => {
-    const oldPath = "/old/project/O'Brien/.openrig/hooks/scripts/activity-relay.cjs";
+    const oldPath = "/old/project/O'Brien/.softwareteam/hooks/scripts/activity-relay.cjs";
     const priorInstance = "/old/instance/state/claude-activity-hooks/activity-relay.cjs";
     const userCommands = [
       `echo ${shellQuote(oldPath)}`,
@@ -411,8 +411,8 @@ describe("Claude activity-hook delivery — ownership round-trips shellQuote (ap
   it("PRESERVES a user multi-arg command whose LAST arg ends in the relay suffix (not one owned token)", async () => {
     // Both of these are USER commands: node <user-arg> <relay-path>. Neither is a single
     // canonical shellQuote token, so ownership must NOT claim (and delete) them.
-    const userSingle = `node 'user-arg' ${shellQuote("/tmp/.openrig/hooks/scripts/activity-relay.cjs")}`;
-    const userDouble = `node "user-arg" "/tmp/.openrig/hooks/scripts/activity-relay.cjs"`;
+    const userSingle = `node 'user-arg' ${shellQuote("/tmp/.softwareteam/hooks/scripts/activity-relay.cjs")}`;
+    const userDouble = `node "user-arg" "/tmp/.softwareteam/hooks/scripts/activity-relay.cjs"`;
     const seeded = JSON.stringify({ hooks: { Stop: [{ hooks: [
       { type: "command", command: userSingle, timeout: 3 },
       { type: "command", command: userDouble, timeout: 3 },
@@ -432,9 +432,9 @@ describe("Claude activity-hook delivery — ownership round-trips shellQuote (ap
 describe("Claude activity-hook — REAL SHIPPED-spec resolver -> planner -> adapter reachability", () => {
   const SHIPPED_SPECS_ROOT = pathResolve(import.meta.dirname, "../specs");
   const realSpecFs = { readFile: (p: string) => readFileSync(p, "utf-8"), exists: (p: string) => existsSync(p) };
-  const member = (): RigSpecPodMember => ({ id: "impl", agentRef: "local:agents/development/implementer", profile: "default", runtime: "claude-code", cwd: "." } as RigSpecPodMember);
-  const pod = (): RigSpecPod => ({ id: "dev", label: "Dev", members: [member()], edges: [] } as RigSpecPod);
-  const rig = (): RigSpec => ({ version: "0.2", name: "test-rig", pods: [pod()], edges: [] } as RigSpec);
+  const member = (): SoftwareTeamSpecPodMember => ({ id: "impl", agentRef: "local:agents/development/implementer", profile: "default", runtime: "claude-code", cwd: "." } as SoftwareTeamSpecPodMember);
+  const pod = (): SoftwareTeamSpecPod => ({ id: "dev", label: "Dev", members: [member()], edges: [] } as SoftwareTeamSpecPod);
+  const softwareTeam = (): SoftwareTeamSpec => ({ version: "0.2", name: "test-software-team", pods: [pod()], edges: [] } as SoftwareTeamSpec);
 
   it("the SHIPPED development/implementer profile selects claude_activity_hooks -> plan entry -> adapter ENABLES", async () => {
     // 1. Resolve the ACTUAL shipped agent.yaml + its shared import from disk.
@@ -443,7 +443,7 @@ describe("Claude activity-hook — REAL SHIPPED-spec resolver -> planner -> adap
     if (!rr.ok) return;
     const ctx: ResolutionContext = {
       baseSpec: rr.resolved as ResolvedAgentSpec, importedSpecs: rr.imports, collisions: rr.collisions,
-      profileName: "default", member: member(), pod: pod(), rig: rig(),
+      profileName: "default", member: member(), pod: pod(), softwareTeam: softwareTeam(),
     };
     // 2. REAL resolver — the shipped selection resolves to a claude_activity_hooks runtime resource.
     const rc = resolveNodeConfig(ctx);

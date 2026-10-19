@@ -43,32 +43,32 @@ afterEach(() => {
   vi.useRealTimers();
   if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
   // Clear env var overrides set by individual tests.
-  delete process.env.OPENRIG_TRANSCRIPTS_LINES;
-  delete process.env.OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS;
+  delete process.env.SOFTWARETEAM_TRANSCRIPTS_LINES;
+  delete process.env.SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS;
 });
 
 describe("startTranscriptRotation — capture-pane invocation contract", () => {
   it("calls tmuxAdapter.capturePaneContent with sessionName + lines on first tick", async () => {
     const adapter = makeFakeAdapter("hello\nworld\n");
-    const outputPath = path.join(tmpDir, "rig", "session.log");
+    const outputPath = path.join(tmpDir, "software-team", "session.log");
     startTranscriptRotation(
       adapter as unknown as TmuxAdapter,
-      "session@rig",
+      "session@software-team",
       outputPath,
       { lines: 500, pollIntervalMs: 60_000 },
     );
     // First tick is async; allow microtasks to flush.
     await new Promise((r) => setImmediate(r));
-    expect(adapter.capturePaneContent).toHaveBeenCalledWith("session@rig", 500);
-    stopTranscriptRotation("session@rig");
+    expect(adapter.capturePaneContent).toHaveBeenCalledWith("session@software-team", 500);
+    stopTranscriptRotation("session@software-team");
   });
 
   it("writes the captured content to the output path atomically", async () => {
     const adapter = makeFakeAdapter("line1\nline2\nline3\n");
-    const outputPath = path.join(tmpDir, "rig", "session.log");
+    const outputPath = path.join(tmpDir, "software-team", "session.log");
     startTranscriptRotation(
       adapter as unknown as TmuxAdapter,
-      "session@rig",
+      "session@software-team",
       outputPath,
       { lines: 1000, pollIntervalMs: 60_000 },
     );
@@ -78,15 +78,15 @@ describe("startTranscriptRotation — capture-pane invocation contract", () => {
     // Partial-write tmp file must NOT remain after rename.
     const dirEntries = fs.readdirSync(path.dirname(outputPath));
     expect(dirEntries.filter((e) => e.includes(".tmp."))).toEqual([]);
-    stopTranscriptRotation("session@rig");
+    stopTranscriptRotation("session@software-team");
   });
 
   it("overwrites the file each tick rather than appending (bounded size)", async () => {
     const adapter = makeFakeAdapter("first-tick");
-    const outputPath = path.join(tmpDir, "rig", "session.log");
+    const outputPath = path.join(tmpDir, "software-team", "session.log");
     startTranscriptRotation(
       adapter as unknown as TmuxAdapter,
-      "session@rig",
+      "session@software-team",
       outputPath,
       { lines: 1000, pollIntervalMs: 60_000 },
     );
@@ -96,7 +96,7 @@ describe("startTranscriptRotation — capture-pane invocation contract", () => {
     adapter.capturePaneContent.mockResolvedValueOnce("second-tick");
     startTranscriptRotation(
       adapter as unknown as TmuxAdapter,
-      "session@rig",
+      "session@software-team",
       outputPath,
       { lines: 1000, pollIntervalMs: 60_000 },
     );
@@ -104,21 +104,21 @@ describe("startTranscriptRotation — capture-pane invocation contract", () => {
     // File holds the second tick's content only — no concatenation of
     // first + second.
     expect(fs.readFileSync(outputPath, "utf8")).toBe("second-tick");
-    stopTranscriptRotation("session@rig");
+    stopTranscriptRotation("session@software-team");
   });
 
   it("silently skips the write when capturePaneContent returns null", async () => {
     const adapter = makeFakeAdapter(null);
-    const outputPath = path.join(tmpDir, "rig", "session.log");
+    const outputPath = path.join(tmpDir, "software-team", "session.log");
     startTranscriptRotation(
       adapter as unknown as TmuxAdapter,
-      "session@rig",
+      "session@software-team",
       outputPath,
       { lines: 1000, pollIntervalMs: 60_000 },
     );
     await new Promise((r) => setImmediate(r));
     expect(fs.existsSync(outputPath)).toBe(false);
-    stopTranscriptRotation("session@rig");
+    stopTranscriptRotation("session@software-team");
   });
 });
 
@@ -131,11 +131,11 @@ describe("startTranscriptRotation — unchanged-content write suppression (hotfi
   // rewrite occurred — no fs mocking required.
   it("does NOT temp-write/rename when two successive captures are byte-identical (inode stable)", async () => {
     const adapter = makeFakeAdapter("stable-1\nstable-2\n");
-    const outputPath = path.join(tmpDir, "rig", "session.log");
+    const outputPath = path.join(tmpDir, "software-team", "session.log");
 
     startTranscriptRotation(
       adapter as unknown as TmuxAdapter,
-      "session@rig",
+      "session@software-team",
       outputPath,
       { lines: 1000, pollIntervalMs: 60_000 },
     );
@@ -146,7 +146,7 @@ describe("startTranscriptRotation — unchanged-content write suppression (hotfi
     // Second immediate tick captures identical content (idempotent replace).
     startTranscriptRotation(
       adapter as unknown as TmuxAdapter,
-      "session@rig",
+      "session@software-team",
       outputPath,
       { lines: 1000, pollIntervalMs: 60_000 },
     );
@@ -160,15 +160,15 @@ describe("startTranscriptRotation — unchanged-content write suppression (hotfi
       fs.readdirSync(path.dirname(outputPath)).filter((e) => e.includes(".tmp.")),
     ).toEqual([]);
 
-    stopTranscriptRotation("session@rig");
+    stopTranscriptRotation("session@software-team");
   });
 
   it("STILL rewrites when the capture content genuinely changes (no over-suppression)", async () => {
     const adapter = makeFakeAdapter("first\n");
-    const outputPath = path.join(tmpDir, "rig", "session.log");
+    const outputPath = path.join(tmpDir, "software-team", "session.log");
     startTranscriptRotation(
       adapter as unknown as TmuxAdapter,
-      "session@rig",
+      "session@software-team",
       outputPath,
       { lines: 1000, pollIntervalMs: 60_000 },
     );
@@ -178,7 +178,7 @@ describe("startTranscriptRotation — unchanged-content write suppression (hotfi
     adapter.capturePaneContent.mockResolvedValue("second\n");
     startTranscriptRotation(
       adapter as unknown as TmuxAdapter,
-      "session@rig",
+      "session@software-team",
       outputPath,
       { lines: 1000, pollIntervalMs: 60_000 },
     );
@@ -186,19 +186,19 @@ describe("startTranscriptRotation — unchanged-content write suppression (hotfi
 
     expect(fs.readFileSync(outputPath, "utf8")).toBe("second\n");
     expect(fs.statSync(outputPath).ino).not.toBe(inoAfterFirst);
-    stopTranscriptRotation("session@rig");
+    stopTranscriptRotation("session@software-team");
   });
 
   it("preserves the SESSION BOUNDARY header while suppressing an unchanged rewrite", async () => {
     const adapter = makeFakeAdapter("scrollback-A\n");
-    const outputPath = path.join(tmpDir, "rig", "session.log");
+    const outputPath = path.join(tmpDir, "software-team", "session.log");
     // Restore orchestrator seeds a boundary line before launch.
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
     fs.writeFileSync(outputPath, "--- SESSION BOUNDARY: 2026-08-22 restore\n");
 
     startTranscriptRotation(
       adapter as unknown as TmuxAdapter,
-      "session@rig",
+      "session@software-team",
       outputPath,
       { lines: 1000, pollIntervalMs: 60_000 },
     );
@@ -211,7 +211,7 @@ describe("startTranscriptRotation — unchanged-content write suppression (hotfi
     // Identical second tick: boundary + body byte-identical → suppressed.
     startTranscriptRotation(
       adapter as unknown as TmuxAdapter,
-      "session@rig",
+      "session@software-team",
       outputPath,
       { lines: 1000, pollIntervalMs: 60_000 },
     );
@@ -220,36 +220,36 @@ describe("startTranscriptRotation — unchanged-content write suppression (hotfi
       "--- SESSION BOUNDARY: 2026-08-22 restore\nscrollback-A\n",
     );
     expect(fs.statSync(outputPath).ino).toBe(inoAfterFirst);
-    stopTranscriptRotation("session@rig");
+    stopTranscriptRotation("session@software-team");
   });
 });
 
 describe("startTranscriptRotation — timer lifecycle", () => {
   it("registers exactly one active timer per session and replaces on second start", () => {
     const adapter = makeFakeAdapter();
-    const outputPath = path.join(tmpDir, "rig", "session.log");
+    const outputPath = path.join(tmpDir, "software-team", "session.log");
     expect(getActiveRotationCount()).toBe(0);
     startTranscriptRotation(
       adapter as unknown as TmuxAdapter,
-      "session@rig",
+      "session@software-team",
       outputPath,
       { lines: 1000, pollIntervalMs: 60_000 },
     );
     expect(getActiveRotationCount()).toBe(1);
     startTranscriptRotation(
       adapter as unknown as TmuxAdapter,
-      "session@rig",
+      "session@software-team",
       outputPath,
       { lines: 1000, pollIntervalMs: 60_000 },
     );
     expect(getActiveRotationCount()).toBe(1);
-    stopTranscriptRotation("session@rig");
+    stopTranscriptRotation("session@software-team");
     expect(getActiveRotationCount()).toBe(0);
   });
 
   it("stopTranscriptRotation is a safe no-op when no timer is registered", () => {
     expect(getActiveRotationCount()).toBe(0);
-    stopTranscriptRotation("never-started@rig");
+    stopTranscriptRotation("never-started@software-team");
     expect(getActiveRotationCount()).toBe(0);
   });
 
@@ -257,20 +257,20 @@ describe("startTranscriptRotation — timer lifecycle", () => {
     const adapter = makeFakeAdapter();
     startTranscriptRotation(
       adapter as unknown as TmuxAdapter,
-      "a@rig",
+      "a@software-team",
       path.join(tmpDir, "a.log"),
       { lines: 1000, pollIntervalMs: 60_000 },
     );
     startTranscriptRotation(
       adapter as unknown as TmuxAdapter,
-      "b@rig",
+      "b@software-team",
       path.join(tmpDir, "b.log"),
       { lines: 1000, pollIntervalMs: 60_000 },
     );
     expect(getActiveRotationCount()).toBe(2);
-    stopTranscriptRotation("a@rig");
+    stopTranscriptRotation("a@software-team");
     expect(getActiveRotationCount()).toBe(1);
-    stopTranscriptRotation("b@rig");
+    stopTranscriptRotation("b@software-team");
     expect(getActiveRotationCount()).toBe(0);
   });
 });
@@ -284,17 +284,17 @@ describe("getTranscriptRotationOptionsFromEnv — env override + defaults", () =
     expect(opts.pollIntervalMs).toBe(2000);
   });
 
-  it("honors OPENRIG_TRANSCRIPTS_LINES + OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS overrides", () => {
-    process.env.OPENRIG_TRANSCRIPTS_LINES = "500";
-    process.env.OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS = "5";
+  it("honors SOFTWARETEAM_TRANSCRIPTS_LINES + SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS overrides", () => {
+    process.env.SOFTWARETEAM_TRANSCRIPTS_LINES = "500";
+    process.env.SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS = "5";
     const opts = getTranscriptRotationOptionsFromEnv();
     expect(opts.lines).toBe(500);
     expect(opts.pollIntervalMs).toBe(5000);
   });
 
   it("rejects non-positive / non-numeric values and uses defaults", () => {
-    process.env.OPENRIG_TRANSCRIPTS_LINES = "0";
-    process.env.OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS = "not-a-number";
+    process.env.SOFTWARETEAM_TRANSCRIPTS_LINES = "0";
+    process.env.SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS = "not-a-number";
     const opts = getTranscriptRotationOptionsFromEnv();
     expect(opts.lines).toBe(DEFAULT_TRANSCRIPT_LINES);
     expect(opts.pollIntervalMs).toBe(DEFAULT_TRANSCRIPT_POLL_INTERVAL_MS);
@@ -308,21 +308,21 @@ describe("startTranscriptRotation — generation guard (r2 HIGH-2: in-flight tic
       resolveCapture = res;
     });
     const adapter = { capturePaneContent: vi.fn(() => deferred) };
-    const outputPath = path.join(tmpDir, "rig", "session.log");
+    const outputPath = path.join(tmpDir, "software-team", "session.log");
 
     startTranscriptRotation(
       adapter as unknown as TmuxAdapter,
-      "s@rig",
+      "s@software-team",
       outputPath,
       { lines: 1000, pollIntervalMs: 60_000 },
     );
     // The immediate first tick is now awaiting the deferred capture.
-    stopTranscriptRotation("s@rig"); // invalidates the generation
+    stopTranscriptRotation("s@software-team"); // invalidates the generation
     resolveCapture("late-content\n"); // capture resolves AFTER stop
     await new Promise((r) => setImmediate(r));
     await new Promise((r) => setImmediate(r));
 
-    expect(getLastCaptureAt("s@rig")).toBeUndefined(); // no resurrection
+    expect(getLastCaptureAt("s@software-team")).toBeUndefined(); // no resurrection
     expect(fs.existsSync(outputPath)).toBe(false); // no write after stop
   });
 
@@ -334,24 +334,24 @@ describe("startTranscriptRotation — generation guard (r2 HIGH-2: in-flight tic
     const adapterB = makeFakeAdapter("new-gen\n");
     const outputPath = path.join(tmpDir, "s.log");
     const opts = { lines: 1000, pollIntervalMs: 100 };
-    startTranscriptRotation(adapterA as unknown as TmuxAdapter, "s@rig", outputPath, opts);
-    startTranscriptRotation(adapterB as unknown as TmuxAdapter, "s@rig", outputPath, opts);
+    startTranscriptRotation(adapterA as unknown as TmuxAdapter, "s@software-team", outputPath, opts);
+    startTranscriptRotation(adapterB as unknown as TmuxAdapter, "s@software-team", outputPath, opts);
     try {
       await vi.advanceTimersByTimeAsync(1000);
       expect(adapterA.capturePaneContent).toHaveBeenCalledTimes(1);
       expect(adapterB.capturePaneContent).not.toHaveBeenCalled();
-      expect(getLastCaptureAt("s@rig")).toBeUndefined();
+      expect(getLastCaptureAt("s@software-team")).toBeUndefined();
       expect(fs.existsSync(outputPath)).toBe(false);
       release("old-gen\n");
       await new Promise((resolve) => setImmediate(resolve));
-      expect(getLastCaptureAt("s@rig")).toBeUndefined();
+      expect(getLastCaptureAt("s@software-team")).toBeUndefined();
       expect(fs.existsSync(outputPath)).toBe(false);
       await vi.advanceTimersByTimeAsync(100);
       expect(adapterB.capturePaneContent).toHaveBeenCalledTimes(1);
       expect(fs.readFileSync(outputPath, "utf8")).toBe("new-gen\n");
-      expect(getLastCaptureAt("s@rig")).toBe(Date.now());
+      expect(getLastCaptureAt("s@software-team")).toBe(Date.now());
     } finally {
-      stopTranscriptRotation("s@rig"); release("old-gen\n");
+      stopTranscriptRotation("s@software-team"); release("old-gen\n");
       await new Promise((resolve) => setImmediate(resolve));
     }
   });
@@ -363,24 +363,24 @@ describe("startTranscriptRotation — bounded polling", () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });
     const adapter = { capturePaneContent: vi.fn(async (session: string) => {
-      if (session !== "fast@rig") await gate;
+      if (session !== "fast@software-team") await gate;
       return session;
     }) };
     const opts = { lines: 1000, pollIntervalMs: 100 };
-    for (const session of ["a@rig", "b@rig", "fast@rig"]) {
+    for (const session of ["a@software-team", "b@software-team", "fast@software-team"]) {
       startTranscriptRotation(adapter as unknown as TmuxAdapter, session, path.join(tmpDir, session), opts);
     }
     try {
       await vi.advanceTimersByTimeAsync(2000);
-      for (const session of ["a@rig", "b@rig"]) {
+      for (const session of ["a@software-team", "b@software-team"]) {
         expect(adapter.capturePaneContent.mock.calls.filter(([s]) => s === session)).toHaveLength(1);
         expect(getLastCaptureAt(session)).toBeUndefined();
       }
-      expect(adapter.capturePaneContent.mock.calls.filter(([s]) => s === "fast@rig")).toHaveLength(21);
+      expect(adapter.capturePaneContent.mock.calls.filter(([s]) => s === "fast@software-team")).toHaveLength(21);
       release();
       await new Promise((resolve) => setImmediate(resolve));
       await vi.advanceTimersByTimeAsync(100);
-      for (const session of ["a@rig", "b@rig"]) {
+      for (const session of ["a@software-team", "b@software-team"]) {
         expect(adapter.capturePaneContent.mock.calls.filter(([s]) => s === session)).toHaveLength(2);
         expect(fs.readFileSync(path.join(tmpDir, session), "utf8")).toBe(session);
       }
@@ -396,29 +396,29 @@ describe("startTranscriptRotation — bounded polling", () => {
     const outputPath = path.join(tmpDir, "s.log");
     const tmpPath = `${outputPath}.tmp.${process.pid}`;
     fs.writeFileSync(outputPath, "--- SESSION BOUNDARY: test\n");
-    startTranscriptRotation(adapter as unknown as TmuxAdapter, "s@rig", outputPath, { lines: 1000, pollIntervalMs: 100 });
+    startTranscriptRotation(adapter as unknown as TmuxAdapter, "s@software-team", outputPath, { lines: 1000, pollIntervalMs: 100 });
     await new Promise((resolve) => setImmediate(resolve));
-    const firstFreshness = getLastCaptureAt("s@rig");
+    const firstFreshness = getLastCaptureAt("s@software-team");
     expect(firstFreshness).toBe(Date.now());
     adapter.capturePaneContent.mockRejectedValueOnce(new Error("capture failed"));
     await vi.advanceTimersByTimeAsync(100);
-    expect(getLastCaptureAt("s@rig")).toBe(firstFreshness);
+    expect(getLastCaptureAt("s@software-team")).toBe(firstFreshness);
     adapter.capturePaneContent.mockResolvedValueOnce(null);
     await vi.advanceTimersByTimeAsync(100);
-    expect(getLastCaptureAt("s@rig")).toBe(firstFreshness);
+    expect(getLastCaptureAt("s@software-team")).toBe(firstFreshness);
     // A directory at the temp-file path forces actual persistence to fail.
     fs.mkdirSync(tmpPath);
     adapter.capturePaneContent.mockResolvedValue("second");
     await vi.advanceTimersByTimeAsync(100);
-    expect(getLastCaptureAt("s@rig")).toBe(firstFreshness);
+    expect(getLastCaptureAt("s@software-team")).toBe(firstFreshness);
     expect(fs.readFileSync(outputPath, "utf8")).toBe("--- SESSION BOUNDARY: test\nfirst");
     fs.rmdirSync(tmpPath);
     await vi.advanceTimersByTimeAsync(100);
-    expect(getLastCaptureAt("s@rig")).toBe(Date.now());
+    expect(getLastCaptureAt("s@software-team")).toBe(Date.now());
     expect(fs.readFileSync(outputPath, "utf8")).toBe("--- SESSION BOUNDARY: test\nsecond");
     const inode = fs.statSync(outputPath).ino;
     await vi.advanceTimersByTimeAsync(100);
-    expect(getLastCaptureAt("s@rig")).toBe(Date.now());
+    expect(getLastCaptureAt("s@software-team")).toBe(Date.now());
     expect(fs.statSync(outputPath).ino).toBe(inode);
   });
 });
@@ -437,53 +437,53 @@ describe("startTranscriptRotation: skips the capture of a pane with no output si
   it("an idle pane is captured once, then only every 10 s; a skipped tick records a check, not a capture", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000 });
     const adapter = hintedAdapter("idle-scrollback\n");
-    adapter.activity.set("s@rig", 1_800_000_000 - 3600); // last output an hour ago
-    const outputPath = path.join(tmpDir, "rig", "s.log");
-    startTranscriptRotation(adapter as unknown as TmuxAdapter, "s@rig", outputPath, opts);
+    adapter.activity.set("s@software-team", 1_800_000_000 - 3600); // last output an hour ago
+    const outputPath = path.join(tmpDir, "software-team", "s.log");
+    startTranscriptRotation(adapter as unknown as TmuxAdapter, "s@software-team", outputPath, opts);
     await vi.advanceTimersByTimeAsync(60_000);
     // Before: every idle tick re-captured the full 1000 lines (about 20 per minute at the idle ceiling).
     expect(adapter.capturePaneContent.mock.calls.length).toBeLessThanOrEqual(7);
     expect(fs.readFileSync(outputPath, "utf8")).toBe("idle-scrollback\n");
     // The capture time is the last real capture; the check time is the last skipped tick.
-    expect(Date.now() - getLastCaptureAt("s@rig")!).toBeLessThanOrEqual(10_000 + 3000);
-    expect(Date.now() - getLastCheckedAt("s@rig")!).toBeLessThanOrEqual(3000); // the idle ceiling
-    stopTranscriptRotation("s@rig");
+    expect(Date.now() - getLastCaptureAt("s@software-team")!).toBeLessThanOrEqual(10_000 + 3000);
+    expect(Date.now() - getLastCheckedAt("s@software-team")!).toBeLessThanOrEqual(3000); // the idle ceiling
+    stopTranscriptRotation("s@software-team");
   });
 
   it("new output (a later activity second) is captured on the next tick", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000 });
     const adapter = hintedAdapter("before\n");
-    adapter.activity.set("s@rig", 1_800_000_000 - 3600);
-    const outputPath = path.join(tmpDir, "rig", "s.log");
-    startTranscriptRotation(adapter as unknown as TmuxAdapter, "s@rig", outputPath, opts);
+    adapter.activity.set("s@software-team", 1_800_000_000 - 3600);
+    const outputPath = path.join(tmpDir, "software-team", "s.log");
+    startTranscriptRotation(adapter as unknown as TmuxAdapter, "s@software-team", outputPath, opts);
     await vi.advanceTimersByTimeAsync(10_000);
     const calls = adapter.capturePaneContent.mock.calls.length;
     adapter.capturePaneContent.mockResolvedValue("before\nafter\n");
-    adapter.activity.set("s@rig", Math.floor(Date.now() / 1000));
+    adapter.activity.set("s@software-team", Math.floor(Date.now() / 1000));
     await vi.advanceTimersByTimeAsync(2_000);
     expect(adapter.capturePaneContent.mock.calls.length).toBeGreaterThan(calls);
     expect(fs.readFileSync(outputPath, "utf8")).toBe("before\nafter\n");
-    stopTranscriptRotation("s@rig");
+    stopTranscriptRotation("s@software-team");
   });
 
   it("output in the same second as the capture start is never skipped", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_500 });
     const adapter = hintedAdapter("x\n");
-    adapter.activity.set("s@rig", 1_800_000_000); // the second the first capture starts in
-    const outputPath = path.join(tmpDir, "rig", "s.log");
-    startTranscriptRotation(adapter as unknown as TmuxAdapter, "s@rig", outputPath, opts);
+    adapter.activity.set("s@software-team", 1_800_000_000); // the second the first capture starts in
+    const outputPath = path.join(tmpDir, "software-team", "s.log");
+    startTranscriptRotation(adapter as unknown as TmuxAdapter, "s@software-team", outputPath, opts);
     await vi.advanceTimersByTimeAsync(1_000);
     expect(adapter.capturePaneContent.mock.calls.length).toBe(2);
-    stopTranscriptRotation("s@rig");
+    stopTranscriptRotation("s@software-team");
   });
 
   it("without an activity hint every due tick still captures", async () => {
     vi.useFakeTimers({ now: 1_800_000_000_000 });
     const adapter = makeFakeAdapter("plain\n");
-    startTranscriptRotation(adapter as unknown as TmuxAdapter, "s@rig", path.join(tmpDir, "rig", "s.log"), opts);
+    startTranscriptRotation(adapter as unknown as TmuxAdapter, "s@software-team", path.join(tmpDir, "software-team", "s.log"), opts);
     await vi.advanceTimersByTimeAsync(10_000);
     expect(adapter.capturePaneContent.mock.calls.length).toBe(11);
-    stopTranscriptRotation("s@rig");
+    stopTranscriptRotation("s@software-team");
   });
 });
 
@@ -492,17 +492,17 @@ describe("startTranscriptRotation: skipped ticks keep ingest health live with ho
     vi.useFakeTimers({ now: 1_800_000_000_000 });
     const adapter = {
       capturePaneContent: vi.fn(async () => "idle\n"),
-      readAllSessionWindowActivity: vi.fn(async () => new Map([["s@rig", 1_800_000_000 - 3600]])),
+      readAllSessionWindowActivity: vi.fn(async () => new Map([["s@software-team", 1_800_000_000 - 3600]])),
     };
     const store = new TranscriptStore({ transcriptsRoot: tmpDir });
-    const file = store.getTranscriptPath("rig", "s@rig");
+    const file = store.getTranscriptPath("softwareTeam", "s@software-team");
     const captureEnds: number[] = [];
     adapter.capturePaneContent.mockImplementation(async () => { captureEnds.push(Date.now()); return "idle\n"; });
-    startTranscriptRotation(adapter as unknown as TmuxAdapter, "s@rig", file, { lines: 1000, pollIntervalMs: 2000 },
+    startTranscriptRotation(adapter as unknown as TmuxAdapter, "s@software-team", file, { lines: 1000, pollIntervalMs: 2000 },
       () => ({ lines: 1000, pollIntervalMs: 2000 }));
     for (let i = 0; i < 1200; i++) {
       await vi.advanceTimersByTimeAsync(100);
-      const health = store.getIngestHealth("rig", "s@rig");
+      const health = store.getIngestHealth("softwareTeam", "s@software-team");
       expect(health.state).toBe("live");
       expect(["capture_fresh", "capture_unchanged"]).toContain(health.reason);
       // Never later than the last capture that really ran.
@@ -510,7 +510,7 @@ describe("startTranscriptRotation: skipped ticks keep ingest health live with ho
     }
     // Two minutes: the first capture plus a full read every 10 s, every other tick skipped.
     expect(adapter.capturePaneContent.mock.calls.length).toBeLessThanOrEqual(14);
-    stopTranscriptRotation("s@rig");
+    stopTranscriptRotation("s@software-team");
   });
 });
 
@@ -520,14 +520,14 @@ describe("startTranscriptRotation: a capture that fails on an idle pane", () => 
     let fail = false;
     const adapter = {
       capturePaneContent: vi.fn(async () => (fail ? null : "idle\n")),
-      readAllSessionWindowActivity: vi.fn(async () => new Map([["s@rig", 1_800_000_000 - 3600]])),
+      readAllSessionWindowActivity: vi.fn(async () => new Map([["s@software-team", 1_800_000_000 - 3600]])),
     };
     const store = new TranscriptStore({ transcriptsRoot: tmpDir });
-    const file = store.getTranscriptPath("rig", "s@rig");
-    startTranscriptRotation(adapter as unknown as TmuxAdapter, "s@rig", file, { lines: 1000, pollIntervalMs: 2000 },
+    const file = store.getTranscriptPath("softwareTeam", "s@software-team");
+    startTranscriptRotation(adapter as unknown as TmuxAdapter, "s@software-team", file, { lines: 1000, pollIntervalMs: 2000 },
       () => ({ lines: 1000, pollIntervalMs: 2000 }));
     await vi.advanceTimersByTimeAsync(12_000);
-    const lastCapture = getLastCaptureAt("s@rig")!;
+    const lastCapture = getLastCaptureAt("s@software-team")!;
     fail = true;
     const calls = adapter.capturePaneContent.mock.calls.length;
     const began = Date.now();
@@ -535,10 +535,10 @@ describe("startTranscriptRotation: a capture that fails on an idle pane", () => 
     expect(Date.now() - lastCapture).toBeLessThanOrEqual(10_000 + 3000);
     expect(Date.now() - began).toBeLessThanOrEqual(10_000 + 3000);
     // The failed capture records no capture and clears the check: the 10 s old capture now reads stale.
-    expect(getLastCaptureAt("s@rig")).toBe(lastCapture);
-    expect(getLastCheckedAt("s@rig")).toBeUndefined();
-    expect(store.getIngestHealth("rig", "s@rig")).toMatchObject({ state: "degraded", reason: "capture_stale" });
-    stopTranscriptRotation("s@rig");
+    expect(getLastCaptureAt("s@software-team")).toBe(lastCapture);
+    expect(getLastCheckedAt("s@software-team")).toBeUndefined();
+    expect(store.getIngestHealth("softwareTeam", "s@software-team")).toMatchObject({ state: "degraded", reason: "capture_stale" });
+    stopTranscriptRotation("s@software-team");
   });
 });
 
@@ -548,10 +548,10 @@ describe("startTranscriptRotation: output right after a skipped tick is captured
     const hint = { at: 1_800_000_000 - 3600 };
     const adapter = {
       capturePaneContent: vi.fn(async () => "idle\n"),
-      readAllSessionWindowActivity: vi.fn(async () => new Map([["s@rig", hint.at]])),
+      readAllSessionWindowActivity: vi.fn(async () => new Map([["s@software-team", hint.at]])),
     };
-    const outputPath = path.join(tmpDir, "rig", "s.log");
-    startTranscriptRotation(adapter as unknown as TmuxAdapter, "s@rig", outputPath, { lines: 1000, pollIntervalMs: 2000 },
+    const outputPath = path.join(tmpDir, "software-team", "s.log");
+    startTranscriptRotation(adapter as unknown as TmuxAdapter, "s@software-team", outputPath, { lines: 1000, pollIntervalMs: 2000 },
       () => ({ lines: 1000, pollIntervalMs: 2000 }));
     await vi.advanceTimersByTimeAsync(20_000); // idle: every tick since the first is a skip
     const calls = adapter.capturePaneContent.mock.calls.length;
@@ -562,6 +562,6 @@ describe("startTranscriptRotation: output right after a skipped tick is captured
     expect(adapter.capturePaneContent.mock.calls.length).toBe(calls + 1);
     // The next 1 s shared tick, plus the shared activity read, as for a seat that idled with captures.
     expect(Date.now() - wrote).toBeLessThanOrEqual(2000);
-    stopTranscriptRotation("s@rig");
+    stopTranscriptRotation("s@software-team");
   });
 });

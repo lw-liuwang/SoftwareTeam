@@ -48,7 +48,7 @@ function seedQitem(db: Database.Database, id: string, state: string, tsList: str
   const ins = db.prepare(
     "INSERT INTO queue_transitions (qitem_id, ts, state, actor_session) VALUES (?, ?, ?, ?)",
   );
-  for (const ts of tsList) ins.run(id, ts, state, "seat@rig");
+  for (const ts of tsList) ins.run(id, ts, state, "seat@software-team");
 }
 
 const count = (db: Database.Database, sql: string, ...args: unknown[]): number =>

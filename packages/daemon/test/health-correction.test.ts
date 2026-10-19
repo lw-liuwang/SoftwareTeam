@@ -7,10 +7,10 @@ import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
-import { RigModeStore } from "../src/domain/rig-mode/rig-mode-store.js";
-import { RECOMMENDED_MODE_DEFAULTS } from "../src/domain/rig-mode/rig-mode-defaults.js";
-import { OperatingPostureService } from "../src/domain/rig-mode/operating-posture.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
+import { SoftwareTeamModeStore } from "../src/domain/software-team-mode/software-team-mode-store.js";
+import { RECOMMENDED_MODE_DEFAULTS } from "../src/domain/software-team-mode/software-team-mode-defaults.js";
+import { OperatingPostureService } from "../src/domain/software-team-mode/operating-posture.js";
 import { HealthPolicyStore } from "../src/domain/health-policy.js";
 import { HealthCheckpointSource } from "../src/domain/health-checkpoints.js";
 import { PassiveCeremonySource } from "../src/domain/health-passive-ceremony.js";
@@ -29,13 +29,13 @@ async function setup() {
   write("PREFLIGHT.md", "## Historical\nRetain reservations.\n## Current\nNormal interactive planning is not pathology.\n");
   write("trace.md", "# Retained causal testimony\nReservations outlived a corrected premise.\n");
   const db = createDb(); migrate(db, ALL_MIGRATIONS); cleanup.push(() => db.close());
-  new RigRepository(db).createRig("rig");
+  new SoftwareTeamRepository(db).createSoftwareTeam("softwareTeam");
   const queue = new QueueRepository(db, new EventBus(db));
   const sends: unknown[] = []; queue.attachTransport({ send: async (...args) => { sends.push(args); return { ok: true, verified: true }; } });
-  await queue.create({ qitemId: "plan", sourceSession: "owner@rig", destinationSession: "owner@rig", body: "Independent planning", tags: ["project:demo"], nudge: false });
+  await queue.create({ qitemId: "plan", sourceSession: "owner@software-team", destinationSession: "owner@software-team", body: "Independent planning", tags: ["project:demo"], nudge: false });
   const now = new Date().toISOString(); db.prepare("UPDATE queue_transitions SET ts = ?").run(now);
-  for (let i = 0; i < 23; i++) db.prepare("INSERT INTO queue_transitions(qitem_id,ts,state,actor_session) VALUES('plan',?,'in-progress',?)").run(now, i % 2 ? "system:watchdog" : "owner@rig");
-  const modes = new RigModeStore(db), posture = new OperatingPostureService(db, modes, () => home);
+  for (let i = 0; i < 23; i++) db.prepare("INSERT INTO queue_transitions(qitem_id,ts,state,actor_session) VALUES('plan',?,'in-progress',?)").run(now, i % 2 ? "system:watchdog" : "owner@software-team");
+  const modes = new SoftwareTeamModeStore(db), posture = new OperatingPostureService(db, modes, () => home);
   const policy = new HealthPolicyStore(home, () => ({ warningPercent: 95, criticalPercent: 99 }));
   const checkpoints = new HealthCheckpointSource(home, queue, policy, () => now, home);
   const passive = new PassiveCeremonySource(home, queue, policy, () => now, checkpoints, { reader: posture, instanceId: "fixture" });
@@ -44,7 +44,7 @@ async function setup() {
     authority: r => healthAuthority(home, checkpoints, r), resolveEvidence: path => readHealthArtifact(home, path) });
   const admit = async () => {
     modes.setBinding("project", "demo", "delegated", { ...RECOMMENDED_MODE_DEFAULTS.delegated, scope: "project", expiry_or_stale_rule: "none", evidence_citation: "isolated explicit choice" });
-    const p = policy.read().policy; policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@rig" } }, "owner@rig");
+    const p = policy.read().policy; policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@software-team" } }, "owner@software-team");
     return (await service.evaluate("system:health", true)).actions.find(a => a.action === "create")!.qitemId;
   };
   return { home, write, db, queue, sends, modes, posture, policy, projection, service, admit };
@@ -58,9 +58,9 @@ it("reads selected project planning without inventing a mission or interrupting 
   const finding = t.projection.records()[0]!;
   expect(finding.ceremony?.context).toContainEqual(expect.objectContaining({ path: join(t.home, "PREFLIGHT.md") + "#current", state: "available", selectedBy: join(t.home, "project.yaml") + "#install.context" }));
   expect(healthAuthority(t.home, new HealthCheckpointSource(t.home, t.queue, t.policy), finding)).toContainEqual(expect.objectContaining({ content: "## Current\nNormal interactive planning is not pathology.\n" }));
-  expect((await t.service.evaluate("owner@rig", false)).actions).toEqual([]);
+  expect((await t.service.evaluate("owner@software-team", false)).actions).toEqual([]);
   expect(t.sends).toEqual([]); expect(t.db.prepare("SELECT total_changes() n").get()).toEqual(before);
-  t.db.prepare("INSERT INTO workflow_instances(instance_id,workflow_name,workflow_version,created_by_session,created_at,bound_rig,lifecycle_binding_json) VALUES('planning','fixture','1','owner@rig',?,'rig',?)")
+  t.db.prepare("INSERT INTO workflow_instances(instance_id,workflow_name,workflow_version,created_by_session,created_at,bound_software_team,lifecycle_binding_json) VALUES('planning','fixture','1','owner@software-team',?,'softwareTeam',?)")
     .run(new Date().toISOString(), JSON.stringify({ identity: { project: "demo" } }));
   t.db.prepare("INSERT INTO workflow_frontier_bindings(instance_id,packet_id,step_id,created_at) VALUES('planning','plan','interactive-plan',?)").run(new Date().toISOString());
   expect(t.posture.resolve({ qitemId: "plan" }).context).toMatchObject({ phase: { value: "interactive-plan", source: "workflow:planning/frontier/plan" } });
@@ -80,7 +80,7 @@ it("refreshes current selected sources while preserving the original diagnosis, 
   }
   expect(t.db.prepare("SELECT total_changes() n").get()).toEqual(before);
   expect(t.queue.getById(id)!.body).toBe(original);
-  await t.queue.create({ qitemId: "unlinked", sourceSession: "owner@rig", destinationSession: "owner@rig", body: "Unlinked", nudge: false });
+  await t.queue.create({ qitemId: "unlinked", sourceSession: "owner@software-team", destinationSession: "owner@software-team", body: "Unlinked", nudge: false });
   expect(t.posture.resolve({ qitemId: "unlinked" }).posture).toBe("unknown");
   t.write("project.yaml", "metadata: {id: conflicting}\n");
   expect(t.service.show(id).authority).toEqual([expect.objectContaining({ path: "operatingPosture", state: "unavailable", reason: expect.stringContaining("conflicting") })]);
@@ -90,15 +90,15 @@ it("keeps correction, attribution and later effect separate without requiring a 
   const t = await setup(), id = await t.admit();
   const d = { verdict: "insufficient evidence", causalStart: null, steering: "Continue useful planning within the corrected authority", uncertainty: "Global outcome census incomplete; half the retained transitions are automatic bookkeeping, not owner actions. Interruption cost not measured.", evidenceRefs: ["trace.md"],
     correction: { applicability: "Emergency origin no longer establishes current need; publication boundary still applies", causalJudgment: "Retained trace attributes persistence of the disproved premise to the process owner", action: { state: "proposed", summary: "Retire reservations", evidenceRefs: [] as string[] }, effect: { state: "unobserved", summary: "No natural later opportunity", evidenceRefs: [] as string[] } } };
-  expect(t.service.dispose(id, "owner@rig", d).disposition?.correction?.action.state).toBe("proposed");
+  expect(t.service.dispose(id, "owner@software-team", d).disposition?.correction?.action.state).toBe("proposed");
   const missing = { ...d, correction: { ...d.correction, action: { state: "taken", summary: "Retired", evidenceRefs: ["absent.md"] } } };
   const before = t.db.prepare("SELECT total_changes() n").get();
-  expect(() => t.service.dispose(id, "owner@rig", missing)).toThrow("health_correction_evidence_unavailable");
+  expect(() => t.service.dispose(id, "owner@software-team", missing)).toThrow("health_correction_evidence_unavailable");
   expect(t.db.prepare("SELECT total_changes() n").get()).toEqual(before);
   t.write("action.md", "# Retained fixture action\nReservations removed within authorized scope.\n");
   const taken = { ...d, correction: { ...d.correction, action: { state: "taken", summary: "Retained-case action recorded", evidenceRefs: ["action.md"] } } };
-  const view = t.service.dispose(id, "owner@rig", taken);
-  expect(view.assessment).toMatchObject({ actor: "owner@rig", transitionId: expect.any(Number) });
+  const view = t.service.dispose(id, "owner@software-team", taken);
+  expect(view.assessment).toMatchObject({ actor: "owner@software-team", transitionId: expect.any(Number) });
   expect(view.correctionEvidence).toContainEqual(expect.objectContaining({ path: "action.md", sha256: expect.any(String) }));
   expect(view.behavioralEffect).toBe("unobserved");
   expect(view.finding.ceremony?.assessment).toBeUndefined();
@@ -106,8 +106,8 @@ it("keeps correction, attribution and later effect separate without requiring a 
   expect(t.queue.getById("plan")!.body).toBe("Independent planning");
   expect((await t.service.evaluate("system:health", true)).actions[0]!.action).toBe("retained");
   expect(t.sends).toHaveLength(1);
-  expect(() => t.service.dispose(id, "foreign@rig", taken)).toThrow("health_diagnosis_owner_required");
-  expect(() => t.service.dispose(id, "owner@rig", { ...taken, correction: { ...taken.correction, effect: { state: "observed", summary: "Unsupported improvement", evidenceRefs: [] } } })).toThrow("require evidence");
+  expect(() => t.service.dispose(id, "foreign@software-team", taken)).toThrow("health_diagnosis_owner_required");
+  expect(() => t.service.dispose(id, "owner@software-team", { ...taken, correction: { ...taken.correction, effect: { state: "observed", summary: "Unsupported improvement", evidenceRefs: [] } } })).toThrow("require evidence");
 });
 
 it("refuses selected context escapes, aliases, ambiguous spans and oversized selections", async () => {

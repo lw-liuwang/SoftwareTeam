@@ -13,11 +13,11 @@ import type { NodeInventoryEntry } from "../src/domain/types.js";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const SEAT = "node-c1";
-const SESSION = "dev50-qa@v-openrig-build";
+const SESSION = "dev50-qa@v-softwareteam-build";
 
 function entryFor(session: string | null): NodeInventoryEntry {
   return {
-    rigId: "r1", rigName: "rig", logicalId: "dev50.qa", podId: null, role: null,
+    softwareTeamId: "r1", softwareTeamName: "softwareTeam", logicalId: "dev50.qa", podId: null, role: null,
     canonicalSessionName: session, nodeKind: "agent", runtime: "claude-code",
     sessionStatus: "running", startupStatus: "ready", restoreOutcome: null,
     oriented: null, lifecycleState: "running",

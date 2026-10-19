@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { NodeLauncher } from "../src/domain/node-launcher.js";
@@ -10,14 +10,14 @@ import { SnapshotCapture } from "../src/domain/snapshot-capture.js";
 import { RestoreOrchestrator } from "../src/domain/restore-orchestrator.js";
 import { ClaudeResumeAdapter } from "../src/adapters/claude-resume.js";
 import { CodexResumeAdapter } from "../src/adapters/codex-resume.js";
-import { RigSpecExporter } from "../src/domain/rigspec-exporter.js";
-import { RigSpecPreflight } from "../src/domain/rigspec-preflight.js";
-import { RigInstantiator } from "../src/domain/rigspec-instantiator.js";
+import { SoftwareTeamSpecExporter } from "../src/domain/software-team-spec-exporter.js";
+import { SoftwareTeamSpecPreflight } from "../src/domain/software-team-spec-preflight.js";
+import { SoftwareTeamInstantiator } from "../src/domain/software-team-spec-instantiator.js";
 import { PackageRepository } from "../src/domain/package-repository.js";
 import { InstallRepository } from "../src/domain/install-repository.js";
 import { InstallEngine } from "../src/domain/install-engine.js";
 import { InstallVerifier } from "../src/domain/install-verifier.js";
-import { PodRigInstantiator } from "../src/domain/rigspec-instantiator.js";
+import { PodSoftwareTeamInstantiator } from "../src/domain/software-team-spec-instantiator.js";
 import { PodRepository } from "../src/domain/pod-repository.js";
 import { StartupOrchestrator } from "../src/domain/startup-orchestrator.js";
 import { PodBundleSourceResolver } from "../src/domain/bundle-source-resolver.js";
@@ -28,29 +28,29 @@ import fs from "node:fs";
 import os from "node:os";
 import nodePath from "node:path";
 
-const UI_INDEX_HTML = "<!doctype html><html><body><div id=\"root\">OpenRig UI</div></body></html>";
+const UI_INDEX_HTML = "<!doctype html><html><body><div id=\"root\">SoftwareTeam UI</div></body></html>";
 
 function buildFullDeps(db: ReturnType<typeof createFullTestDb>, overrides?: { snapshotRepo?: SnapshotRepository; snapshotCapture?: SnapshotCapture; restoreOrchestrator?: RestoreOrchestrator }) {
-  const rigRepo = new RigRepository(db);
+  const softwareTeamRepo = new SoftwareTeamRepository(db);
   const sessionRegistry = new SessionRegistry(db);
   const eventBus = new EventBus(db);
   const tmux = mockTmuxAdapter();
   const cmux = unavailableCmuxAdapter();
-  const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+  const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
   const snapshotRepo = overrides?.snapshotRepo ?? new SnapshotRepository(db);
   const checkpointStore = new CheckpointStore(db);
-  const snapshotCapture = overrides?.snapshotCapture ?? new SnapshotCapture({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
+  const snapshotCapture = overrides?.snapshotCapture ?? new SnapshotCapture({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
   const claudeResume = new ClaudeResumeAdapter(tmux);
   const codexResume = new CodexResumeAdapter(tmux);
   const restoreOrchestrator = overrides?.restoreOrchestrator ?? new RestoreOrchestrator({
-    db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+    db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
     checkpointStore, nodeLauncher, tmuxAdapter: tmux, claudeResume, codexResume,
   });
   const exec: ExecFn = async () => "";
   const podRepo = new PodRepository(db);
-  const rigSpecExporter = new RigSpecExporter({ rigRepo, sessionRegistry, podRepo });
-  const rigSpecPreflight = new RigSpecPreflight({ rigRepo, tmuxAdapter: tmux, exec, cmuxExec: exec });
-  const rigInstantiator = new RigInstantiator({ db, rigRepo, sessionRegistry, eventBus, nodeLauncher, preflight: rigSpecPreflight });
+  const softwareTeamSpecExporter = new SoftwareTeamSpecExporter({ softwareTeamRepo, sessionRegistry, podRepo });
+  const softwareTeamSpecPreflight = new SoftwareTeamSpecPreflight({ softwareTeamRepo, tmuxAdapter: tmux, exec, cmuxExec: exec });
+  const softwareTeamInstantiator = new SoftwareTeamInstantiator({ db, softwareTeamRepo, sessionRegistry, eventBus, nodeLauncher, preflight: softwareTeamSpecPreflight });
 
   const packageRepo = new PackageRepository(db);
   const installRepo = new InstallRepository(db);
@@ -73,34 +73,34 @@ function buildFullDeps(db: ReturnType<typeof createFullTestDb>, overrides?: { sn
     deliverStartup: async () => ({ delivered: 0, failed: [] }),
     checkReady: async () => ({ ready: true }),
   };
-  const podInstantiator = new PodRigInstantiator({
-    db, rigRepo, podRepo, sessionRegistry, eventBus, nodeLauncher,
+  const podInstantiator = new PodSoftwareTeamInstantiator({
+    db, softwareTeamRepo, podRepo, sessionRegistry, eventBus, nodeLauncher,
     startupOrchestrator,
     fsOps: { readFile: () => "", exists: () => false },
     adapters: { "claude-code": mockAdapter, "codex": { ...mockAdapter, runtime: "codex" } },
   });
 
   return {
-    rigRepo, sessionRegistry, eventBus, nodeLauncher, tmuxAdapter: tmux, cmuxAdapter: cmux,
+    softwareTeamRepo, sessionRegistry, eventBus, nodeLauncher, tmuxAdapter: tmux, cmuxAdapter: cmux,
     snapshotCapture, snapshotRepo, restoreOrchestrator,
-    rigSpecExporter, rigSpecPreflight, rigInstantiator,
+    softwareTeamSpecExporter, softwareTeamSpecPreflight, softwareTeamInstantiator,
     packageRepo, installRepo, installEngine, installVerifier,
     podInstantiator, podBundleSourceResolver: new PodBundleSourceResolver(),
   };
 }
 
 function createTempUiDist() {
-  const dir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "rigged-ui-dist-"));
+  const dir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "softwareteam-ui-dist-"));
   fs.mkdirSync(nodePath.join(dir, "assets"), { recursive: true });
   fs.writeFileSync(nodePath.join(dir, "index.html"), UI_INDEX_HTML, "utf-8");
-  fs.writeFileSync(nodePath.join(dir, "assets", "app.js"), "console.log('rig');", "utf-8");
+  fs.writeFileSync(nodePath.join(dir, "assets", "app.js"), "console.log('softwareTeam');", "utf-8");
   return dir;
 }
 
 function createAppWithUiDist(db: ReturnType<typeof createFullTestDb>, uiDistDir: string) {
   const fullSetup = createTestApp(db);
   return createApp({
-    rigRepo: fullSetup.rigRepo,
+    softwareTeamRepo: fullSetup.softwareTeamRepo,
     sessionRegistry: fullSetup.sessionRegistry,
     eventBus: fullSetup.eventBus,
     nodeLauncher: fullSetup.nodeLauncher,
@@ -109,9 +109,9 @@ function createAppWithUiDist(db: ReturnType<typeof createFullTestDb>, uiDistDir:
     snapshotCapture: fullSetup.snapshotCapture,
     snapshotRepo: fullSetup.snapshotRepo,
     restoreOrchestrator: fullSetup.restoreOrchestrator,
-    rigSpecExporter: fullSetup.rigSpecExporter,
-    rigSpecPreflight: fullSetup.rigSpecPreflight,
-    rigInstantiator: fullSetup.rigInstantiator,
+    softwareTeamSpecExporter: fullSetup.softwareTeamSpecExporter,
+    softwareTeamSpecPreflight: fullSetup.softwareTeamSpecPreflight,
+    softwareTeamInstantiator: fullSetup.softwareTeamInstantiator,
     packageRepo: fullSetup.packageRepo,
     installRepo: fullSetup.installRepo,
     installEngine: fullSetup.installEngine,
@@ -138,7 +138,7 @@ describe("Hono server (production app)", () => {
     const res = await app.request("/healthz");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ status: "ok", pid: process.pid });
+    expect(body).toEqual({ status: "ok", pid: process.pid, product: "SoftwareTeam", instanceHome: process.env.SOFTWARETEAM_HOME });
     db.close();
   });
 
@@ -152,7 +152,7 @@ describe("Hono server (production app)", () => {
         expect(res.status, `${method} ${requestPath}`).toBe(404);
         expect(res.headers.get("content-type"), `${method} ${requestPath}`).toContain("application/json");
         const text = await res.text();
-        expect(text, `${method} ${requestPath}`).not.toContain("OpenRig UI");
+        expect(text, `${method} ${requestPath}`).not.toContain("SoftwareTeam UI");
         if (method === "HEAD") {
           expect(text, `${method} ${requestPath}`).toBe("");
         } else {
@@ -179,7 +179,7 @@ describe("Hono server (production app)", () => {
     expect(deepLinkRes.headers.get("content-type")).toContain("text/html");
     expect(await deepLinkRes.text()).toBe(UI_INDEX_HTML);
 
-    const dottedLogicalIdRes = await app.request("/rigs/rig-1/nodes/dev.impl");
+    const dottedLogicalIdRes = await app.request("/software-teams/software-team-1/nodes/dev.impl");
     expect(dottedLogicalIdRes.status).toBe(200);
     expect(dottedLogicalIdRes.headers.get("content-type")).toContain("text/html");
     expect(await dottedLogicalIdRes.text()).toBe(UI_INDEX_HTML);
@@ -203,23 +203,23 @@ describe("Hono server (production app)", () => {
     const res = await app.request("/assets/app.js");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/javascript");
-    expect(await res.text()).toContain("console.log('rig');");
+    expect(await res.text()).toContain("console.log('softwareTeam');");
 
     fs.rmSync(uiDistDir, { recursive: true, force: true });
     db.close();
   });
 
-  it("production app mounts /api/rigs (not healthz-only)", async () => {
+  it("production app mounts /api/software-teams (not healthz-only)", async () => {
     const db = createFullTestDb();
     const { app } = createTestApp(db);
-    const res = await app.request("/api/rigs");
+    const res = await app.request("/api/software-teams");
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(Array.isArray(body)).toBe(true);
     db.close();
   });
 
-  it("createApp throws if rigRepo and eventBus use different db handles", () => {
+  it("createApp throws if softwareTeamRepo and eventBus use different db handles", () => {
     const db1 = createFullTestDb();
     const db2 = createFullTestDb();
 
@@ -251,12 +251,12 @@ describe("Hono server (production app)", () => {
     const db2 = createFullTestDb();
 
     // Build a self-consistent snapshotCapture on db2
-    const r2 = new RigRepository(db2);
+    const r2 = new SoftwareTeamRepository(db2);
     const s2 = new SessionRegistry(db2);
     const e2 = new EventBus(db2);
     const sr2 = new SnapshotRepository(db2);
     const cs2 = new CheckpointStore(db2);
-    const otherCapture = new SnapshotCapture({ db: db2, rigRepo: r2, sessionRegistry: s2, eventBus: e2, snapshotRepo: sr2, checkpointStore: cs2 });
+    const otherCapture = new SnapshotCapture({ db: db2, softwareTeamRepo: r2, sessionRegistry: s2, eventBus: e2, snapshotRepo: sr2, checkpointStore: cs2 });
 
     // Build valid deps on db1, then swap snapshotCapture to db2
     const deps = buildFullDeps(db1);
@@ -273,16 +273,16 @@ describe("Hono server (production app)", () => {
     const db2 = createFullTestDb();
 
     // Build a self-consistent orchestrator on db2
-    const r2 = new RigRepository(db2);
+    const r2 = new SoftwareTeamRepository(db2);
     const s2 = new SessionRegistry(db2);
     const e2 = new EventBus(db2);
     const sr2 = new SnapshotRepository(db2);
     const cs2 = new CheckpointStore(db2);
-    const cap2 = new SnapshotCapture({ db: db2, rigRepo: r2, sessionRegistry: s2, eventBus: e2, snapshotRepo: sr2, checkpointStore: cs2 });
+    const cap2 = new SnapshotCapture({ db: db2, softwareTeamRepo: r2, sessionRegistry: s2, eventBus: e2, snapshotRepo: sr2, checkpointStore: cs2 });
     const tmux2 = mockTmuxAdapter();
-    const nl2 = new NodeLauncher({ db: db2, rigRepo: r2, sessionRegistry: s2, eventBus: e2, tmuxAdapter: tmux2 });
+    const nl2 = new NodeLauncher({ db: db2, softwareTeamRepo: r2, sessionRegistry: s2, eventBus: e2, tmuxAdapter: tmux2 });
     const otherOrch = new RestoreOrchestrator({
-      db: db2, rigRepo: r2, sessionRegistry: s2, eventBus: e2,
+      db: db2, softwareTeamRepo: r2, sessionRegistry: s2, eventBus: e2,
       snapshotRepo: sr2, snapshotCapture: cap2, checkpointStore: cs2,
       nodeLauncher: nl2, tmuxAdapter: tmux2,
       claudeResume: new ClaudeResumeAdapter(tmux2), codexResume: new CodexResumeAdapter(tmux2),
@@ -330,7 +330,7 @@ describe("Hono server (production app)", () => {
 
     const fullSetup = createTestApp(db1);
     const deps = {
-      rigRepo: fullSetup.rigRepo,
+      softwareTeamRepo: fullSetup.softwareTeamRepo,
       sessionRegistry: fullSetup.sessionRegistry,
       eventBus: fullSetup.eventBus,
       nodeLauncher: fullSetup.nodeLauncher,
@@ -339,9 +339,9 @@ describe("Hono server (production app)", () => {
       snapshotCapture: fullSetup.snapshotCapture,
       snapshotRepo: fullSetup.snapshotRepo,
       restoreOrchestrator: fullSetup.restoreOrchestrator,
-      rigSpecExporter: fullSetup.rigSpecExporter,
-      rigSpecPreflight: fullSetup.rigSpecPreflight,
-      rigInstantiator: fullSetup.rigInstantiator,
+      softwareTeamSpecExporter: fullSetup.softwareTeamSpecExporter,
+      softwareTeamSpecPreflight: fullSetup.softwareTeamSpecPreflight,
+      softwareTeamInstantiator: fullSetup.softwareTeamInstantiator,
       packageRepo: fullSetup.packageRepo,
       installRepo: fullSetup.installRepo,
       installEngine: fullSetup.installEngine,

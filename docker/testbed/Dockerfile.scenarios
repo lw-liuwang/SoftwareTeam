@@ -2,7 +2,7 @@
 # host mounts, provider binaries or additional package installation.
 ARG TESTBED_IMAGE
 FROM ${TESTBED_IMAGE}
-COPY runner.mjs /opt/openrig-testbed/runner.mjs
-COPY scenarios/ /opt/openrig-testbed/scenarios/
-COPY library/ /opt/openrig-testbed/library/
-CMD ["node", "/opt/openrig-testbed/runner.mjs", "healthy"]
+COPY runner.mjs /opt/softwareteam-testbed/runner.mjs
+COPY scenarios/ /opt/softwareteam-testbed/scenarios/
+COPY library/ /opt/softwareteam-testbed/library/
+CMD ["node", "/opt/softwareteam-testbed/runner.mjs", "healthy"]

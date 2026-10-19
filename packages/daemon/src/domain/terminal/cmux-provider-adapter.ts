@@ -1,6 +1,6 @@
 // OPR.0.4.6.02 C2 — the cmux TerminalProvider facade.
 //
-// Renders a composed view the way the rig-scope "Launch in CMUX" endpoint
+// Renders a composed view the way the software-team-scope "Launch in CMUX" endpoint
 // always has: ONE gridded cmux workspace per grid page (composer `pages`),
 // driven through the shipped `CmuxLayoutService` split/grid machinery — never
 // one window per seat. Each pane runs the composer's `paneCommand` verbatim
@@ -10,7 +10,7 @@
 // cmux stays best-effort / non-gating on partial renders — a page cmux can't
 // tile is degraded honestly (named, never a silent drop). A cmux surface that
 // isn't connected at all is an honest refuse (`cmux_unavailable`), mirroring
-// the herdr socket gate and the rig-cmux route's 503.
+// the herdr socket gate and the software-team-cmux route's 503.
 //
 // cmux surfaces are always LOCAL (cmux runs on the operator's machine), so a
 // cmux-level degrade stamps the `local` host sentinel.
@@ -37,7 +37,7 @@ export interface CmuxProviderDeps {
    * counter (unique within a daemon lifetime).
    */
   newLaunchToken?: () => string;
-  /** Workspace-name prefix (default `openrig`). */
+  /** Workspace-name prefix (default `softwareteam`). */
   workspacePrefix?: string;
 }
 
@@ -56,7 +56,7 @@ export class CmuxProviderAdapter implements TerminalProvider {
   private launchCounter = 0;
 
   constructor(private readonly deps: CmuxProviderDeps) {
-    this.workspacePrefix = deps.workspacePrefix ?? "openrig";
+    this.workspacePrefix = deps.workspacePrefix ?? "softwareteam";
     this.newLaunchToken = deps.newLaunchToken ?? (() => `l${(this.launchCounter += 1)}`);
   }
 

@@ -21,7 +21,7 @@ import type {
 // presents queue state to the service.
 
 const SEAT = "node-claude-1";
-const SESSION = "dev50-qa@v-openrig-build";
+const SESSION = "dev50-qa@v-softwareteam-build";
 
 function makeHarness(startMs = 1_000_000) {
   const clock = { now: startMs };
@@ -204,7 +204,7 @@ describe("S19 A3 — AM-2: symmetric admission (trial → measured promotion)", 
   it("a TRIAL rung's evidence never decides state; measured production agreement promotes it, visibly", () => {
     const h = makeHarness();
     const codexSeat = "node-codex-1";
-    const codexSession = "orch-lead@v-openrig-build";
+    const codexSession = "orch-lead@v-softwareteam-build";
     h.svc.declareRungInventory({ seatNodeId: codexSeat, sessionName: codexSession }, CODEX_INVENTORY);
     const events: RungHealthEvent[] = [];
     h.svc.onRungHealth((e) => events.push(e));
@@ -271,9 +271,9 @@ describe("S19 A3 — seat-keyed state through an occupant swap", () => {
 
   it("two seats are independent (seat-keyed, never session-global)", () => {
     const h = makeHarness();
-    h.svc.declareRungInventory({ seatNodeId: "node-a", sessionName: "a@rig" }, CLAUDE_INVENTORY);
-    h.svc.declareRungInventory({ seatNodeId: "node-b", sessionName: "b@rig" }, CLAUDE_INVENTORY);
-    h.svc.reportEvidence({ ...ev(h.clock, "self-report", "claude:pid-json", "working"), seatNodeId: "node-a", sessionName: "a@rig" });
+    h.svc.declareRungInventory({ seatNodeId: "node-a", sessionName: "a@software-team" }, CLAUDE_INVENTORY);
+    h.svc.declareRungInventory({ seatNodeId: "node-b", sessionName: "b@software-team" }, CLAUDE_INVENTORY);
+    h.svc.reportEvidence({ ...ev(h.clock, "self-report", "claude:pid-json", "working"), seatNodeId: "node-a", sessionName: "a@software-team" });
     expect(h.svc.getSeatState("node-a")!.activity).toBe("working");
     expect(h.svc.getSeatState("node-b")!.activity).toBe("unknown");
   });

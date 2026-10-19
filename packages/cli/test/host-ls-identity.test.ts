@@ -1,7 +1,7 @@
 // Slice 14 §2c — make the binding state LEGIBLE before a cross-machine failure.
 //
 // A registry entry that never learned its peer's self-id cannot resolve that peer's reply hint, and
-// until now nothing said so: the operator found out when a message failed. `rig host ls` now shows
+// until now nothing said so: the operator found out when a message failed. `softwareTeam host ls` now shows
 // the join key, or the word `unbound` where there isn't one.
 //
 // Also pins the write path end-to-end: `hostId` rides through `addHostEntry` because the writer
@@ -16,18 +16,18 @@ import { Command } from "commander";
 import { hostCommand } from "../src/commands/host.js";
 import { addHostEntry, loadHostRegistry, resolveHost } from "../src/host-registry.js";
 
-describe("rig host ls — the hostId join key is visible, bound or not", () => {
+describe("SoftwareTeam host ls — the hostId join key is visible, bound or not", () => {
   let dir: string;
   let savedEnv: Record<string, string | undefined>;
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "host-ls-identity-"));
     savedEnv = {};
-    for (const k of ["OPENRIG_HOME", "RIGGED_HOME", "OPENRIG_URL", "RIGGED_URL", "OPENRIG_HOST_SELECTED"]) {
+    for (const k of ["SOFTWARETEAM_HOME", "SOFTWARETEAM_HOME", "SOFTWARETEAM_URL", "SOFTWARETEAM_URL", "SOFTWARETEAM_HOST_SELECTED"]) {
       savedEnv[k] = process.env[k];
       delete process.env[k];
     }
-    process.env.OPENRIG_HOME = dir;
+    process.env.SOFTWARETEAM_HOME = dir;
   });
 
   afterEach(() => {
@@ -52,11 +52,11 @@ describe("rig host ls — the hostId join key is visible, bound or not", () => {
     const prog = new Command();
     prog.exitOverride();
     prog.addCommand(hostCommand());
-    return prog.parseAsync(["node", "rig", "host", ...argv]);
+    return prog.parseAsync(["node", "softwareTeam", "host", ...argv]);
   }
 
   it("carries hostId through the WRITE path and resolves by it afterwards", () => {
-    expect(addHostEntry({ id: "mm2-host", transport: "http", url: "http://x:7433", hostId: "host-84c37990" }).ok).toBe(true);
+    expect(addHostEntry({ id: "mm2-host", transport: "http", url: "http://x:7434", hostId: "host-84c37990" }).ok).toBe(true);
     const loaded = loadHostRegistry();
     expect(loaded.ok).toBe(true);
     if (!loaded.ok) return;
@@ -70,8 +70,8 @@ describe("rig host ls — the hostId join key is visible, bound or not", () => {
   });
 
   it("shows the join key in --json, and null (not a missing key) when unbound", async () => {
-    expect(addHostEntry({ id: "bound-host", transport: "http", url: "http://a:7433", hostId: "host-84c37990" }).ok).toBe(true);
-    expect(addHostEntry({ id: "legacy-host", transport: "http", url: "http://b:7433" }).ok).toBe(true);
+    expect(addHostEntry({ id: "bound-host", transport: "http", url: "http://a:7434", hostId: "host-84c37990" }).ok).toBe(true);
+    expect(addHostEntry({ id: "legacy-host", transport: "http", url: "http://b:7434" }).ok).toBe(true);
 
     const out = await capture(() => run(["ls", "--json"]));
     const rows = JSON.parse(out.find((l) => l.trim().startsWith("["))!) as Array<Record<string, unknown>>;
@@ -85,12 +85,12 @@ describe("rig host ls — the hostId join key is visible, bound or not", () => {
     expect("hostId" in legacy).toBe(true);
     // The shipped bare-array contract is additive-only — the pre-existing keys survive.
     expect(legacy.transport).toBe("http");
-    expect(legacy.url).toBe("http://b:7433");
+    expect(legacy.url).toBe("http://b:7434");
   });
 
   it("shows the join key or the word unbound in the human table", async () => {
-    expect(addHostEntry({ id: "bound-host", transport: "http", url: "http://a:7433", hostId: "host-84c37990" }).ok).toBe(true);
-    expect(addHostEntry({ id: "legacy-host", transport: "http", url: "http://b:7433" }).ok).toBe(true);
+    expect(addHostEntry({ id: "bound-host", transport: "http", url: "http://a:7434", hostId: "host-84c37990" }).ok).toBe(true);
+    expect(addHostEntry({ id: "legacy-host", transport: "http", url: "http://b:7434" }).ok).toBe(true);
 
     const out = await capture(() => run(["ls"]));
     const text = out.join("\n");

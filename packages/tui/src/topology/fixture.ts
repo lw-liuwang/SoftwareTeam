@@ -1,16 +1,16 @@
-// SPIKE fixture — mirrors REAL `/api/rigs/:id/graph` output (same field set
-// and id discipline as spike/real-graph-v-openrig-build.json) while exercising
-// the FULL spike vocabulary the live rig happens not to show today:
+// SPIKE fixture — mirrors REAL `/api/software-teams/:id/graph` output (same field set
+// and id discipline as spike/real-graph-v-softwareteam-build.json) while exercising
+// the FULL spike vocabulary the live softwareTeam happens not to show today:
 //   · all 3 edge kinds (delegates_to / collaborates_with / escalates_to)
 //   · all 4 status glyphs, including a GENUINE ○ honest-unknown (no session,
 //     no activity — the projection has no value) and a ◐ with ctx% overlay
 // Gated like demo-data: imported ONLY by the spike shell/tests, never by the
 // live render path (the --demo gate rule applies unchanged).
-import type { RigGraph } from "./graph-types.js";
+import type { SoftwareTeamGraph } from "./graph-types.js";
 
-export const FIXTURE_RIG_NAME = "openrig-build";
+export const FIXTURE_SOFTWARE_TEAM_NAME = "softwareteam-build";
 
-export function spikeFixtureGraph(): RigGraph {
+export function spikeFixtureGraph(): SoftwareTeamGraph {
   return {
     nodes: [
       { id: "pod-01SPIKEORCH000000000000000", type: "podGroup", data: { logicalId: "orch", podNamespace: "orch", podLabel: "orch", runtime: null, model: null, status: null, nodeKind: "agent", startupStatus: null, contextUsedPercentage: null } },
@@ -18,38 +18,38 @@ export function spikeFixtureGraph(): RigGraph {
       { id: "pod-01SPIKEREVIEW00000000000000", type: "podGroup", data: { logicalId: "review", podNamespace: "review", podLabel: "review", runtime: null, model: null, status: null, nodeKind: "agent", startupStatus: null, contextUsedPercentage: null } },
       {
         id: "01SPIKENODELEAD00000000000",
-        type: "rigNode",
+        type: "softwareTeamNode",
         parentId: "pod-01SPIKEORCH000000000000000",
         data: {
           logicalId: "orch.lead", podNamespace: "orch", runtime: "claude-code", model: "claude",
           status: "running", nodeKind: "agent", startupStatus: "ready", contextUsedPercentage: 18,
-          agentActivity: { state: "running" }, terminalActive: true, canonicalSessionName: "orch-lead@openrig-build",
+          agentActivity: { state: "running" }, terminalActive: true, canonicalSessionName: "orch-lead@softwareteam-build",
         },
       },
       {
         id: "01SPIKENODEDRIVER000000000",
-        type: "rigNode",
+        type: "softwareTeamNode",
         parentId: "pod-01SPIKEDEV0000000000000000",
         data: {
           logicalId: "dev.driver", podNamespace: "dev", runtime: "claude-code", model: "claude",
           status: "running", nodeKind: "agent", startupStatus: "ready", contextUsedPercentage: 24,
-          agentActivity: { state: "running" }, terminalActive: true, canonicalSessionName: "dev-driver@openrig-build",
+          agentActivity: { state: "running" }, terminalActive: true, canonicalSessionName: "dev-driver@softwareteam-build",
         },
       },
       {
         id: "01SPIKENODEQA0000000000000",
-        type: "rigNode",
+        type: "softwareTeamNode",
         parentId: "pod-01SPIKEDEV0000000000000000",
         data: {
           // ◐ partial/% — the EXISTING amber-attention state with a served ctx%
           logicalId: "dev.qa", podNamespace: "dev", runtime: "codex", model: "gpt",
           status: "running", nodeKind: "agent", startupStatus: "attention_required", contextUsedPercentage: 63,
-          agentActivity: { state: "needs_input" }, terminalActive: false, canonicalSessionName: "dev-qa@openrig-build",
+          agentActivity: { state: "needs_input" }, terminalActive: false, canonicalSessionName: "dev-qa@softwareteam-build",
         },
       },
       {
         id: "01SPIKENODER1000000000000Z",
-        type: "rigNode",
+        type: "softwareTeamNode",
         parentId: "pod-01SPIKEREVIEW00000000000000",
         data: {
           // ○ honest-unknown — NO session, NO activity, NO ctx: the projection
@@ -61,13 +61,13 @@ export function spikeFixtureGraph(): RigGraph {
       },
       {
         id: "01SPIKENODEVALID0000000000",
-        type: "rigNode",
+        type: "softwareTeamNode",
         parentId: "pod-01SPIKEREVIEW00000000000000",
         data: {
           // ✕ failed
           logicalId: "review.validator", podNamespace: "review", runtime: "codex", model: "gpt",
           status: "running", nodeKind: "agent", startupStatus: "failed", contextUsedPercentage: null,
-          agentActivity: null, terminalActive: false, canonicalSessionName: "review-validator@openrig-build",
+          agentActivity: null, terminalActive: false, canonicalSessionName: "review-validator@softwareteam-build",
         },
       },
     ],

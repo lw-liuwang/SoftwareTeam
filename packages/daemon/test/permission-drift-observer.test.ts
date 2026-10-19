@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { AppliedLaunchObservationStore } from "../src/domain/applied-launch-observation-store.js";
 import { observeClaudePermission, observeCodexSandbox } from "../src/domain/permission-drift.js";
@@ -10,11 +10,11 @@ describe("PermissionDriftObserver", () => {
   it("reads current-generation arguments without claiming native enforcement", () => {
     const db = createFullTestDb();
     try {
-      const rigs = new RigRepository(db);
+      const softwareTeams = new SoftwareTeamRepository(db);
       const sessions = new SessionRegistry(db);
-      const rig = rigs.createRig("observer-rig");
-      const node = rigs.addNode(rig.id, "dev.impl", { runtime: "claude-code", cwd: "/work/project" });
-      sessions.registerClaimedSession(node.id, "dev-impl@observer-rig");
+      const softwareTeam = softwareTeams.createSoftwareTeam("observer-software-team");
+      const node = softwareTeams.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code", cwd: "/work/project" });
+      sessions.registerClaimedSession(node.id, "dev-impl@observer-software-team");
       const generation = sessions.currentOccupantTenure(node.id)!.generationUuid;
       new AppliedLaunchObservationStore(db).recordGeneration(generation, observeClaudePermission("--permission-mode acceptEdits"));
       const readFile = vi.fn(() => JSON.stringify({ permissions: { defaultMode: "manual", allow: [], ask: [], deny: [] } }));
@@ -74,10 +74,10 @@ describe("PermissionDriftObserver", () => {
   it("classifies a production accessSync EACCES as cwd denied", () => {
     const db = createFullTestDb();
     try {
-      const rigs = new RigRepository(db);
+      const softwareTeams = new SoftwareTeamRepository(db);
       const sessions = new SessionRegistry(db);
-      const rig = rigs.createRig("observer-eacces");
-      const node = rigs.addNode(rig.id, "dev.impl", { runtime: "codex", cwd: "/work/denied" });
+      const softwareTeam = softwareTeams.createSoftwareTeam("observer-eacces");
+      const node = softwareTeams.addNode(softwareTeam.id, "dev.impl", { runtime: "codex", cwd: "/work/denied" });
       sessions.registerClaimedSession(node.id, "dev-impl@observer-eacces");
       const generation = sessions.currentOccupantTenure(node.id)!.generationUuid;
       new AppliedLaunchObservationStore(db).recordGeneration(generation, observeCodexSandbox("-s workspace-write"));
@@ -102,10 +102,10 @@ describe("PermissionDriftObserver", () => {
   it("keeps a non-permission production access error at cwd unknown", () => {
     const db = createFullTestDb();
     try {
-      const rigs = new RigRepository(db);
+      const softwareTeams = new SoftwareTeamRepository(db);
       const sessions = new SessionRegistry(db);
-      const rig = rigs.createRig("observer-eio");
-      const node = rigs.addNode(rig.id, "dev.impl", { runtime: "codex", cwd: "/work/uncapturable" });
+      const softwareTeam = softwareTeams.createSoftwareTeam("observer-eio");
+      const node = softwareTeams.addNode(softwareTeam.id, "dev.impl", { runtime: "codex", cwd: "/work/uncapturable" });
       sessions.registerClaimedSession(node.id, "dev-impl@observer-eio");
       const generation = sessions.currentOccupantTenure(node.id)!.generationUuid;
       new AppliedLaunchObservationStore(db).recordGeneration(generation, observeCodexSandbox("-s workspace-write"));

@@ -1,4 +1,4 @@
-// While OpenRig's managed compaction acts on Claude seats, every Claude launch it makes turns Claude's own idle
+// While SoftwareTeam's managed compaction acts on Claude seats, every Claude launch it makes turns Claude's own idle
 // compaction off inside the session's one --settings value: fresh launch, fork, resume and restore, for ordinary,
 // kernel, team-default and full-bypass seats. Off (or an out-of-contract threshold, which the enforcer treats as off)
 // leaves the command as it was. Through the real command builders with an inert transport: nothing is executed.
@@ -27,7 +27,7 @@ type Kind = "ordinary" | "kernel" | "team" | "full-bypass";
 const KINDS: Kind[] = ["ordinary", "kernel", "team", "full-bypass"];
 function binding(kind: Kind): NodeBinding {
   return {
-    id: "binding", nodeId: "node", cwd: "/inert/seat", tmuxSession: "seat@rig", launchPosture: kind === "full-bypass" ? "full_bypass" : "floor",
+    id: "binding", nodeId: "node", cwd: "/inert/seat", tmuxSession: "seat@software-team", launchPosture: kind === "full-bypass" ? "full_bypass" : "floor",
     ...(kind === "kernel" ? { kernelAuthority: true } : {}), ...(kind === "team" ? { teamPermissionDefault: true } : {}),
     ...(kind === "full-bypass" ? { nonInterruptive: true } : {}),
   } as NodeBinding;
@@ -45,11 +45,11 @@ type Path = "fresh" | "fork" | "resume" | "restore";
 const PATHS: Path[] = ["fresh", "fork", "resume", "restore"];
 /** The composed command each path sends to the pane. */
 async function command(path: Path, kind: Kind): Promise<string> {
-  vi.stubEnv("OPENRIG_YOLO", kind === "full-bypass" ? "1" : "0");
+  vi.stubEnv("SOFTWARETEAM_YOLO", kind === "full-bypass" ? "1" : "0");
   const t = inert();
   const b = binding(kind);
   if (path === "restore") {
-    await new ClaudeResumeAdapter(t.tmux).resume("seat@rig", "claude_id", "original", b.cwd, b.launchPosture as "floor" | "full_bypass",
+    await new ClaudeResumeAdapter(t.tmux).resume("seat@software-team", "claude_id", "original", b.cwd, b.launchPosture as "floor" | "full_bypass",
       null, undefined, b.nodeId, null, b.nonInterruptive, b.kernelAuthority, b.teamPermissionDefault);
   } else {
     await new ClaudeCodeAdapter({ ...t, sessionIdFactory: () => "fixed-session-id" }).launchHarness(b, { name: "seat", ...(path === "resume" ? { resumeToken: "original" } : {}),

@@ -52,12 +52,12 @@ describe("AgentPluginsList", () => {
           ok: true,
           json: async () => [
             {
-              id: "openrig-core",
-              name: "openrig-core",
+              id: "softwareteam-core",
+              name: "softwareteam-core",
               version: "0.1.0",
               description: null,
               source: "vendored",
-              sourceLabel: "vendored:openrig-core",
+              sourceLabel: "vendored:softwareteam-core",
               runtimes: ["claude", "codex"],
               path: "/x",
               lastSeenAt: null,
@@ -78,20 +78,20 @@ describe("AgentPluginsList", () => {
       }
       throw new Error(`unexpected ${url}`);
     });
-    renderList(["openrig-core", "superpowers"]);
+    renderList(["softwareteam-core", "superpowers"]);
 
     // Wait for the resolved chips (they have version + source label that
     // unresolved chips lack). The testids alone aren't enough to discriminate
     // because the unresolved fallback uses the same testid.
     await waitFor(() => {
-      expect(screen.getByText("vendored:openrig-core")).toBeDefined();
+      expect(screen.getByText("vendored:softwareteam-core")).toBeDefined();
       expect(screen.getByText("claude-cache:obra/superpowers/5.1.0")).toBeDefined();
     });
-    expect(screen.getByTestId("agent-plugin-chip-openrig-core")).toBeDefined();
+    expect(screen.getByTestId("agent-plugin-chip-softwareteam-core")).toBeDefined();
     expect(screen.getByTestId("agent-plugin-chip-superpowers")).toBeDefined();
 
     // Plugin names visible.
-    expect(screen.getByText("openrig-core")).toBeDefined();
+    expect(screen.getByText("softwareteam-core")).toBeDefined();
     expect(screen.getByText("superpowers")).toBeDefined();
     // Versions visible (regex match across potential text-node splits).
     expect(screen.getByText(/v0\.1\.0/)).toBeDefined();
@@ -102,7 +102,7 @@ describe("AgentPluginsList", () => {
     const codexBadges = screen.getAllByText("codex");
     expect(codexBadges.length).toBeGreaterThanOrEqual(1);
     // Source labels visible.
-    expect(screen.getByText("vendored:openrig-core")).toBeDefined();
+    expect(screen.getByText("vendored:softwareteam-core")).toBeDefined();
     expect(screen.getByText("claude-cache:obra/superpowers/5.1.0")).toBeDefined();
   });
 
@@ -128,12 +128,12 @@ describe("AgentPluginsList", () => {
           ok: true,
           json: async () => [
             {
-              id: "openrig-core",
-              name: "openrig-core",
+              id: "softwareteam-core",
+              name: "softwareteam-core",
               version: "0.1.0",
               description: null,
               source: "vendored",
-              sourceLabel: "vendored:openrig-core",
+              sourceLabel: "vendored:softwareteam-core",
               runtimes: ["claude"],
               path: "/x",
               lastSeenAt: null,
@@ -143,13 +143,13 @@ describe("AgentPluginsList", () => {
       }
       throw new Error(`unexpected ${url}`);
     });
-    renderList(["openrig-core"]);
+    renderList(["softwareteam-core"]);
     // Wait for resolved chip (source label is resolved-only).
     await waitFor(() => {
-      expect(screen.getByText("vendored:openrig-core")).toBeDefined();
+      expect(screen.getByText("vendored:softwareteam-core")).toBeDefined();
     });
-    const chip = screen.getByTestId("agent-plugin-chip-openrig-core") as HTMLAnchorElement;
+    const chip = screen.getByTestId("agent-plugin-chip-softwareteam-core") as HTMLAnchorElement;
     expect(chip.tagName).toBe("A");
-    expect(chip.getAttribute("href")).toBe("/plugins/openrig-core");
+    expect(chip.getAttribute("href")).toBe("/plugins/softwareteam-core");
   });
 });

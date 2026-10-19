@@ -33,7 +33,7 @@ export interface RouteSkillsInput {
   bundleRoot: string;
   /** Relative skill paths declared in the manifest's skills[] block. */
   declaredSkills: string[];
-  /** Absolute path to the operator skills library (default ~/.openrig/skills). */
+  /** Absolute path to the operator skills library (default ~/.softwareteam/skills). */
   targetSkillsDir: string;
   /** Optional package-layout prefix removed only from the destination path.
    *  The source path always remains the exact bundle-declared path. */

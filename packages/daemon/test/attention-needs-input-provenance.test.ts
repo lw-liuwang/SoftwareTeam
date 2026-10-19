@@ -9,21 +9,21 @@ import { evidenceFromHookActivity } from "../src/routes/activity.js";
 import { CLAUDE_ACTIVITY_RUNG_INVENTORY } from "../src/domain/activity-taxonomy.js";
 import type { ActivityEvidence, RungHealthEvent } from "../src/domain/activity-taxonomy.js";
 
-// The rig attention total against a Claude seat's hook-reported approval prompt. Real
+// The softwareTeam attention total against a Claude seat's hook-reported approval prompt. Real
 // SeatActivityService, AgentActivityStore and PsProjectionService over one test DB and one
 // controlled clock. A hook enters as routes/activity.ts feeds it: the store records the raw
 // hook, and the store's normalized activity becomes lifecycle-hooks evidence.
 
 const T0 = Date.parse("2026-10-06T12:00:00.000Z");
-const RIG = "attn-provenance";
-const SESSION = `dev@${RIG}`;
+const SOFTWARE_TEAM = "attn-provenance";
+const SESSION = `dev@${SOFTWARE_TEAM}`;
 
 describe("attention total: a declared needs-input rung is not an observed clear", () => {
   let db: Database.Database;
   let store: AgentActivityStore;
   let svc: SeatActivityService;
   let ps: PsProjectionService;
-  let rigId: string;
+  let softwareTeamId: string;
   let nodeId: string;
   let health: RungHealthEvent[];
   let seq = 0;
@@ -32,10 +32,10 @@ describe("attention total: a declared needs-input rung is not an observed clear"
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(T0);
     db = createFullTestDb();
-    rigId = `rig-${RIG}`;
-    nodeId = `node-${RIG}-dev`;
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run(rigId, RIG);
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id, runtime) VALUES (?, ?, ?, ?)").run(nodeId, rigId, "dev", "claude-code");
+    softwareTeamId = `software-team-${SOFTWARE_TEAM}`;
+    nodeId = `node-${SOFTWARE_TEAM}-dev`;
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run(softwareTeamId, SOFTWARE_TEAM);
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, runtime) VALUES (?, ?, ?, ?)").run(nodeId, softwareTeamId, "dev", "claude-code");
     db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))")
       .run("s-attn-provenance", nodeId, SESSION, "running", "ready");
     const eventBus = new EventBus(db);
@@ -82,7 +82,7 @@ describe("attention total: a declared needs-input rung is not an observed clear"
       hookStore: store.getLatestForNode({ sessionName: SESSION, now: new Date() })?.state ?? null,
       needsInput: state?.needsInput ?? null,
       signal: arbitratedNeedsInputSignal(state),
-      attention: ps.getEntries().find((e) => e.rigId === rigId)!.attentionCount,
+      attention: ps.getEntries().find((e) => e.softwareTeamId === softwareTeamId)!.attentionCount,
       downgraded: health.some((h) => h.rung === "lifecycle-hooks" && h.to === "identity-only"),
     };
   }
@@ -144,7 +144,7 @@ describe("attention total: a declared needs-input rung is not an observed clear"
     hook("Notification", "permission_prompt");
     expect(observe().signal).toBe(true);
     const oracleOnly = new PsProjectionService({ db, seatActivity: svc });
-    expect(oracleOnly.getEntries().find((e) => e.rigId === rigId)!.attentionCount).toBe(1);
+    expect(oracleOnly.getEntries().find((e) => e.softwareTeamId === softwareTeamId)!.attentionCount).toBe(1);
   });
 
   it("working/idle-only evidence is not evidence that clears needs-input", () => {

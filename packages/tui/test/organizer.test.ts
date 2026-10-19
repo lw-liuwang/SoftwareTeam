@@ -27,17 +27,17 @@ it("Specs kinds and Derived views start collapsed, expand deliberately, and reta
   const snap = demoSnapshot();
   snap.terminals = { catalogLoaded: true, preview: null, catalog: [
     { view: "saved:watch", name: "Build watch", kind: "saved", members: ["owner@build"], ready: 0, absent: 0, degraded: 0, pages: 0, readinessUnverified: true },
-    ...Array.from({ length: 24 }, (_, n) => ({ view: `rig:r${n}`, name: `rig-${n}`, kind: "derived" as const, members: [], ready: 0, absent: 0, degraded: 0, pages: 0, readinessUnverified: true })),
+    ...Array.from({ length: 24 }, (_, n) => ({ view: `software-team:r${n}`, name: `software-team-${n}`, kind: "derived" as const, members: [], ready: 0, absent: 0, degraded: 0, pages: 0, readinessUnverified: true })),
   ] };
   const view = createViewState({ instanceId: "groups", getSnapshot: () => snap });
   view.dispatch({ type: "jump", section: "specs" });
   expect(computeExplorerRows(view.get(), snap).some(row => row.key?.startsWith("spec:"))).toBe(false);
-  view.dispatch({ type: "toggle-expand", key: "specs-kind:rig" });
-  expect(computeExplorerRows(view.get(), snap).some(row => row.key === `spec:rig:${snap.specs.find(s => s.kind === "rig")!.name}`)).toBe(true);
+  view.dispatch({ type: "toggle-expand", key: "specs-kind:softwareTeam" });
+  expect(computeExplorerRows(view.get(), snap).some(row => row.key === `spec:software-team:${snap.specs.find(s => s.kind === "softwareTeam")!.name}`)).toBe(true);
   view.dispatch({ type: "jump", section: "terminals" });
   expect(computeExplorerRows(view.get(), snap).some(row => row.key === "terminal:saved:watch")).toBe(true);
-  expect(computeExplorerRows(view.get(), snap).some(row => row.key?.startsWith("terminal:rig:"))).toBe(false);
-  expect(terminalLines(view.get(), snap, 60).some(line => line.text.includes("rig-23"))).toBe(false);
+  expect(computeExplorerRows(view.get(), snap).some(row => row.key?.startsWith("terminal:software-team:"))).toBe(false);
+  expect(terminalLines(view.get(), snap, 60).some(line => line.text.includes("software-team-23"))).toBe(false);
   view.dispatch({ type: "toggle-expand", key: "terminals:derived" });
-  expect(computeExplorerRows(view.get(), snap).filter(row => row.key?.startsWith("terminal:rig:"))).toHaveLength(24);
+  expect(computeExplorerRows(view.get(), snap).filter(row => row.key?.startsWith("terminal:software-team:"))).toHaveLength(24);
 });

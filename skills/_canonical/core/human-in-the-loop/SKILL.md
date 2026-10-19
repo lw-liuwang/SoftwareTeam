@@ -2,7 +2,7 @@
 name: human-in-the-loop
 description: Use when classifying a slice closeout (auto-continue / human gate / park), routing a real decision to a human, or designing a human queue/dashboard surface. Treats humans as durable network participants with attention surfaces, queues, and decision records — escalation lands as a durable attention item, not a chat message. Approval is NOT required for every clean closeout; the default RSI conveyor continues unless an explicit human gate is reached.
 metadata:
-  openrig:
+  softwareteam:
     stage: factory-approved
     sibling_skills:
       - queue-handoff
@@ -58,10 +58,10 @@ step BEFORE touching the human queue:
 
 ## Failure modes (5)
 
-1. **Human decision needed, but the rig only mentions it in chat.** Decisions belong as durable attention items, not chat messages.
+1. **Human decision needed, but the SoftwareTeam only mentions it in chat.** Decisions belong as durable attention items, not chat messages.
 2. **Human queue item lacks enough plain-English context for a decision.** Include proof + decision text + recommended default + action outcomes.
 3. **Human response updates a file but does not wake the next owner.** Approval should return the hot potato; feedback should create the next durable qitem.
-4. **The dashboard shows too much raw rig state and hides the actual decision queue.** Decision queue is the primary surface; rig state is secondary.
+4. **The dashboard shows too much raw SoftwareTeam state and hides the actual decision queue.** Decision queue is the primary surface; SoftwareTeam state is secondary.
 5. **A clean closeout is parked on the human even though `PROGRESS.md` already names the next safe slice.** Don't manufacture human gates.
 
 ## Proof standard (both paths)

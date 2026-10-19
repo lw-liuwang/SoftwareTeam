@@ -18,7 +18,7 @@ import { DEFAULT_CONFIG, saveConfig } from "../src/domain/gateway/slack/config.j
 import type { WsLike } from "../src/domain/gateway/slack/socket-inbound.js";
 
 const registry = { ok: true as const, entities: [{ entityId: "human-founder", class: "human" as const, displayName: "Founder", address: "human-founder@external", connectorBindings: [{ kind: "slack" as const, connectorRef: "primary", secretsRef: "env:SLACK_BOT_TOKEN", role: "primary" as const, handle: "UFOUNDER" }], prefs: { deliveryClass: "A" as const } }] };
-const request = { sourceSession: "author@rig", destinationSession: "human-founder@external", summary: "Release ready", body: "The release is ready. No action needed.", nudge: false };
+const request = { sourceSession: "author@software-team", destinationSession: "human-founder@external", summary: "Release ready", body: "The release is ready. No action needed.", nudge: false };
 const reply = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 
 describe("echo registration for every post", () => {

@@ -22,7 +22,7 @@ function makeFs(files: Record<string, string>) {
 const CLEAN_ENTRY = `draft: false
 starter_id: fixture-clean
 runtime: claude-code
-manifest_id: openrig-builder-base
+manifest_id: softwareteam-builder-base
 manifest_version: "0.2"
 session_source:
   mode: fork
@@ -43,8 +43,8 @@ describe("AgentStarterResolver (M1)", () => {
     const fs = makeFs({});
     const resolver = new AgentStarterResolver({
       registryRoot: "/explicit/root",
-      env: { OPENRIG_AGENT_STARTER_ROOT: "/env/root", HOME: "/home/test" },
-      homeDirRoot: "/home/test/.openrig/agent-starters",
+      env: { SOFTWARETEAM_AGENT_STARTER_ROOT: "/env/root", HOME: "/home/test" },
+      homeDirRoot: "/home/test/.softwareteam/agent-starters",
       fallbackRoot: "/fallback/root",
       ...fs,
     });
@@ -54,8 +54,8 @@ describe("AgentStarterResolver (M1)", () => {
   it("registry root: env var wins when opts.registryRoot is absent", () => {
     const fs = makeFs({});
     const resolver = new AgentStarterResolver({
-      env: { OPENRIG_AGENT_STARTER_ROOT: "/env/root", HOME: "/home/test" },
-      homeDirRoot: "/home/test/.openrig/agent-starters",
+      env: { SOFTWARETEAM_AGENT_STARTER_ROOT: "/env/root", HOME: "/home/test" },
+      homeDirRoot: "/home/test/.softwareteam/agent-starters",
       fallbackRoot: "/fallback/root",
       ...fs,
     });
@@ -63,21 +63,21 @@ describe("AgentStarterResolver (M1)", () => {
   });
 
   it("registry root: homeDirRoot wins when registryRoot+env absent AND home dir exists", () => {
-    const fs = makeFs({ "/home/test/.openrig/agent-starters": "dir" });
+    const fs = makeFs({ "/home/test/.softwareteam/agent-starters": "dir" });
     const resolver = new AgentStarterResolver({
       env: { HOME: "/home/test" },
-      homeDirRoot: "/home/test/.openrig/agent-starters",
+      homeDirRoot: "/home/test/.softwareteam/agent-starters",
       fallbackRoot: "/fallback/root",
       ...fs,
     });
-    expect(resolver.getRegistryRoot()).toBe("/home/test/.openrig/agent-starters");
+    expect(resolver.getRegistryRoot()).toBe("/home/test/.softwareteam/agent-starters");
   });
 
   it("registry root: configured fallback wins when registryRoot+env absent AND home dir does NOT exist", () => {
     const fs = makeFs({});
     const resolver = new AgentStarterResolver({
       env: { HOME: "/home/test" },
-      homeDirRoot: "/home/test/.openrig/agent-starters",
+      homeDirRoot: "/home/test/.softwareteam/agent-starters",
       fallbackRoot: "/fallback/root",
       ...fs,
     });
@@ -88,10 +88,10 @@ describe("AgentStarterResolver (M1)", () => {
     const fs = makeFs({});
     const resolver = new AgentStarterResolver({
       env: { HOME: "/home/test" },
-      homeDirRoot: "/home/test/.openrig/agent-starters",
+      homeDirRoot: "/home/test/.softwareteam/agent-starters",
       ...fs,
     });
-    expect(resolver.getRegistryRoot()).toBe("/home/test/.openrig/agent-starters");
+    expect(resolver.getRegistryRoot()).toBe("/home/test/.softwareteam/agent-starters");
   });
 
   // === Successful resolve ===

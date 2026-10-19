@@ -6,8 +6,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -38,7 +38,7 @@ function makeDeps(opts?: { routes?: Record<string, StubResponse> }): { deps: Pro
   };
 }
 
-describe("rig project CLI (PL-004 Phase B)", () => {
+describe("SoftwareTeam project CLI (PL-004 Phase B)", () => {
   let logs: string[];
   let errors: string[];
 
@@ -71,9 +71,9 @@ describe("rig project CLI (PL-004 Phase B)", () => {
     });
     const program = createProgram({ projectDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "project", "lease-acquire", "--session", "alice@rig", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "project", "lease-acquire", "--session", "alice@software-team", "--json"]);
     const call = calls.find((c) => c.path === "/api/projects/lease/acquire");
-    expect((call!.body as { classifierSession: string }).classifierSession).toBe("alice@rig");
+    expect((call!.body as { classifierSession: string }).classifierSession).toBe("alice@software-team");
   });
 
   it("classify POSTs /api/projects/project with stream-item-id + classification fields", async () => {
@@ -83,8 +83,8 @@ describe("rig project CLI (PL-004 Phase B)", () => {
     const program = createProgram({ projectDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "project", "classify", "stream-x",
-      "--session", "alice@rig",
+      "node", "softwareTeam", "project", "classify", "stream-x",
+      "--session", "alice@software-team",
       "--lease-id", "L-1",
       "--attempt-id", "A-1",
       "--execution-id", "E-1",
@@ -92,16 +92,16 @@ describe("rig project CLI (PL-004 Phase B)", () => {
       "--area", "coordination-stream-queue",
       "--needs-human", "false",
       "--urgency", "high",
-      "--destination", "planning@rig",
+      "--destination", "planning@software-team",
       "--json",
     ]);
     const call = calls.find((c) => c.path === "/api/projects/project");
     const body = call!.body as Record<string, unknown>;
     expect(body.streamItemId).toBe("stream-x");
-    expect(body.classifierSession).toBe("alice@rig");
+    expect(body.classifierSession).toBe("alice@software-team");
     expect(body.classificationType).toBe("idea");
     expect(body.classificationUrgency).toBe("high");
-    expect(body.classificationDestination).toBe("planning@rig");
+    expect(body.classificationDestination).toBe("planning@software-team");
     expect(body.leaseId).toBe("L-1");
     expect(body.attemptId).toBe("A-1");
     expect(body.executionId).toBe("E-1");
@@ -119,7 +119,7 @@ describe("rig project CLI (PL-004 Phase B)", () => {
       sub.configureOutput({ writeErr: () => {} });
       for (const leaf of sub.commands) { leaf.exitOverride(); leaf.configureOutput({ writeErr: () => {} }); }
     }
-    await expect(program.parseAsync(["node", "rig", "project", "classify", "stream-x", "--session", "alice@rig"])).rejects.toThrow(/lease-id/);
+    await expect(program.parseAsync(["node", "softwareTeam", "project", "classify", "stream-x", "--session", "alice@software-team"])).rejects.toThrow(/lease-id/);
     expect(calls.find((c) => c.path === "/api/projects/project")).toBeUndefined();
   });
 
@@ -129,11 +129,11 @@ describe("rig project CLI (PL-004 Phase B)", () => {
     });
     const program = createProgram({ projectDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "project", "classify", "stream-y", "--session", "alice@rig", "--lease-id", "L-1", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "project", "classify", "stream-y", "--session", "alice@software-team", "--lease-id", "L-1", "--json"]);
     const body = calls.find((c) => c.path === "/api/projects/project")!.body as Record<string, unknown>;
     expect(body.needsHuman).toBeUndefined();
     const before = calls.length;
-    await program.parseAsync(["node", "rig", "project", "classify", "stream-y", "--session", "alice@rig", "--lease-id", "L-1", "--needs-human", "maybe"]);
+    await program.parseAsync(["node", "softwareTeam", "project", "classify", "stream-y", "--session", "alice@software-team", "--lease-id", "L-1", "--needs-human", "maybe"]);
     expect(process.exitCode).toBe(1);
     expect(calls.length).toBe(before);
   });
@@ -154,8 +154,8 @@ describe("rig project CLI (PL-004 Phase B)", () => {
     const program = createProgram({ projectDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "project", "classify", "stream-nonexistent",
-      "--session", "alice@rig",
+      "node", "softwareTeam", "project", "classify", "stream-nonexistent",
+      "--session", "alice@software-team",
       "--lease-id", "L-1",
       "--json",
     ]);
@@ -177,8 +177,8 @@ describe("rig project CLI (PL-004 Phase B)", () => {
     const program = createProgram({ projectDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "project", "classify", "stream-x",
-      "--session", "alice@rig",
+      "node", "softwareTeam", "project", "classify", "stream-x",
+      "--session", "alice@software-team",
       "--lease-id", "L-1",
       "--json",
     ]);
@@ -194,32 +194,32 @@ describe("rig project CLI (PL-004 Phase B)", () => {
     const program = createProgram({ projectDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "project", "reclaim-classifier",
-      "--session", "operator@rig",
+      "node", "softwareTeam", "project", "reclaim-classifier",
+      "--session", "operator@software-team",
       "--if-dead",
       "--reason", "alice unresponsive",
     ]);
     const call = calls.find((c) => c.path === "/api/projects/reclaim-classifier");
     const body = call!.body as Record<string, unknown>;
-    expect(body.byClassifierSession).toBe("operator@rig");
+    expect(body.byClassifierSession).toBe("operator@software-team");
     expect(body.ifDead).toBe(true);
     expect(body.reason).toBe("alice unresponsive");
   });
 
   it("list constructs /api/projects/list with filter params", async () => {
     const { deps, calls } = makeDeps({
-      routes: { "GET /api/projects/list?classificationDestination=planning%40rig&limit=50": { status: 200, data: [] } },
+      routes: { "GET /api/projects/list?classificationDestination=planning%40software-team&limit=50": { status: 200, data: [] } },
     });
     const program = createProgram({ projectDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "project", "list",
-      "--destination", "planning@rig",
+      "node", "softwareTeam", "project", "list",
+      "--destination", "planning@software-team",
       "--limit", "50",
       "--json",
     ]);
     const call = calls.find((c) => c.method === "GET" && c.path.startsWith("/api/projects/list"));
-    expect(call!.path).toContain("classificationDestination=planning%40rig");
+    expect(call!.path).toContain("classificationDestination=planning%40software-team");
     expect(call!.path).toContain("limit=50");
   });
 
@@ -228,8 +228,8 @@ describe("rig project CLI (PL-004 Phase B)", () => {
       const { deps, calls } = makeDeps();
       const program = createProgram({ projectDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "project", `shadow-${verb}`, "--actor", "operator"]);
-      await program.parseAsync(["node", "rig", "project", `shadow-${verb}`]);
+      await program.parseAsync(["node", "softwareTeam", "project", `shadow-${verb}`, "--actor", "operator"]);
+      await program.parseAsync(["node", "softwareTeam", "project", `shadow-${verb}`]);
       const posts = calls.filter((c) => c.path === `/api/projects/shadow/${verb}`);
       expect(posts.map((c) => c.body)).toEqual([{ actor: "operator" }, undefined]);
     }

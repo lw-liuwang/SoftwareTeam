@@ -20,16 +20,16 @@ import { QueueRepository } from "../src/domain/queue-repository.js";
 import { WorkflowRuntime } from "../src/domain/workflow-runtime.js";
 import { workflowRoutes } from "../src/routes/workflow.js";
 // OPR.0.4.6.FAC1 (guard code-review blocker at 6e991a9d): route-level
-// regressions for the new bound-rig HTTP status mapping.
+// regressions for the new bound-softwareTeam HTTP status mapping.
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { PodRepository } from "../src/domain/pod-repository.js";
 import { queueItemSummarySchema } from "../src/db/migrations/044_queue_item_summary.js";
 import { queueItemEvidenceRefSchema } from "../src/db/migrations/048_queue_item_evidence_ref.js";
 import { workflowInstanceVersionSchema } from "../src/db/migrations/049_workflow_instance_version.js";
 import { workflowSpecJsonSchema } from "../src/db/migrations/050_workflow_spec_json.js";
 import { workflowResumeSchema } from "../src/db/migrations/051_workflow_resume.js";
-import { workflowInstanceBoundRigSchema } from "../src/db/migrations/052_workflow_instance_bound_rig.js";
+import { workflowInstanceBoundSoftwareTeamSchema } from "../src/db/migrations/052_workflow_instance_bound_software_team.js";
 
 const SPEC = `workflow:
   id: routes-fixture
@@ -39,10 +39,10 @@ const SPEC = `workflow:
   roles:
     producer:
       preferred_targets:
-        - producer@rig
+        - producer@software-team
     reviewer:
       preferred_targets:
-        - reviewer@rig
+        - reviewer@software-team
   steps:
     - id: produce
       actor_role: producer
@@ -86,8 +86,8 @@ describe("workflow routes (PL-004 Phase D)", () => {
       workflowSpecsSchema, workflowInstancesSchema, workflowStepTrailsSchema,
     ]);
     bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    const queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    const queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
@@ -128,7 +128,7 @@ describe("workflow routes (PL-004 Phase D)", () => {
     const res = await app.request("/api/workflow/instantiate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specPath, rootObjective: "test", createdBySession: "ops@rig" }),
+      body: JSON.stringify({ specPath, rootObjective: "test", createdBySession: "ops@software-team" }),
     });
     expect(res.status).toBe(201);
     const body = (await res.json()) as { instance: { instanceId: string }; entryQitemId: string };
@@ -153,7 +153,7 @@ describe("workflow routes (PL-004 Phase D)", () => {
     const res = await app.request("/api/workflow/instantiate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specPath: "routes-fixture", rootObjective: "by-name", createdBySession: "ops@rig" }),
+      body: JSON.stringify({ specPath: "routes-fixture", rootObjective: "by-name", createdBySession: "ops@software-team" }),
     });
     expect(res.status).toBe(201);
     const body = (await res.json()) as { instance: { instanceId: string }; entryQitemId: string };
@@ -169,13 +169,13 @@ describe("workflow routes (PL-004 Phase D)", () => {
     const res = await app.request("/api/workflow/instantiate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specPath: "no-such-name", rootObjective: "x", createdBySession: "ops@rig" }),
+      body: JSON.stringify({ specPath: "no-such-name", rootObjective: "x", createdBySession: "ops@software-team" }),
     });
     expect(res.status).toBe(404);
   });
 
   it("POST /instantiate surfaces queue destination validation as 400", async () => {
-    const rejectingQueueRepo = new QueueRepository(db, bus, { validateRig: () => false });
+    const rejectingQueueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => false });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     rejectingQueueRepo.attachOutbox(new OutboxHandler(db));
@@ -189,21 +189,21 @@ describe("workflow routes (PL-004 Phase D)", () => {
     const res = await rejectingApp.request("/api/workflow/instantiate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specPath, rootObjective: "test", createdBySession: "ops@rig" }),
+      body: JSON.stringify({ specPath, rootObjective: "test", createdBySession: "ops@software-team" }),
     });
 
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string; message: string };
-    expect(body.error).toBe("unknown_destination_rig");
+    expect(body.error).toBe("unknown_destination_software_team");
     expect(body.error).not.toBe("internal_error");
-    expect(body.message).toContain("producer@rig");
+    expect(body.message).toContain("producer@software-team");
   });
 
   it("POST /project closes packet + creates next packet", async () => {
     const create = await app.request("/api/workflow/instantiate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specPath, rootObjective: "x", createdBySession: "ops@rig" }),
+      body: JSON.stringify({ specPath, rootObjective: "x", createdBySession: "ops@software-team" }),
     });
     const created = (await create.json()) as { instance: { instanceId: string }; entryQitemId: string };
     const res = await app.request("/api/workflow/project", {
@@ -213,13 +213,13 @@ describe("workflow routes (PL-004 Phase D)", () => {
         instanceId: created.instance.instanceId,
         currentPacketId: created.entryQitemId,
         exit: "handoff",
-        actorSession: "producer@rig",
+        actorSession: "producer@software-team",
       }),
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { nextStepId: string; nextOwnerSession: string };
     expect(body.nextStepId).toBe("review");
-    expect(body.nextOwnerSession).toBe("reviewer@rig");
+    expect(body.nextOwnerSession).toBe("reviewer@software-team");
   });
 
   // R3 fix (guard blocker): exit_not_allowed must surface as HTTP 400
@@ -230,7 +230,7 @@ describe("workflow routes (PL-004 Phase D)", () => {
     const create = await app.request("/api/workflow/instantiate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specPath, rootObjective: "x", createdBySession: "ops@rig" }),
+      body: JSON.stringify({ specPath, rootObjective: "x", createdBySession: "ops@software-team" }),
     });
     const created = (await create.json()) as { instance: { instanceId: string }; entryQitemId: string };
 
@@ -250,7 +250,7 @@ describe("workflow routes (PL-004 Phase D)", () => {
         instanceId: created.instance.instanceId,
         currentPacketId: created.entryQitemId,
         exit: "done",
-        actorSession: "producer@rig",
+        actorSession: "producer@software-team",
       }),
     });
 
@@ -291,7 +291,7 @@ describe("workflow routes (PL-004 Phase D)", () => {
     await app.request("/api/workflow/instantiate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specPath, rootObjective: "x", createdBySession: "ops@rig" }),
+      body: JSON.stringify({ specPath, rootObjective: "x", createdBySession: "ops@software-team" }),
     });
     const res = await app.request("/api/workflow/list");
     expect(res.status).toBe(200);
@@ -303,7 +303,7 @@ describe("workflow routes (PL-004 Phase D)", () => {
     await app.request("/api/workflow/instantiate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specPath, rootObjective: "x", createdBySession: "ops@rig" }),
+      body: JSON.stringify({ specPath, rootObjective: "x", createdBySession: "ops@software-team" }),
     });
     const res = await app.request("/api/workflow/list?status=completed");
     expect(res.status).toBe(200);
@@ -320,7 +320,7 @@ describe("workflow routes (PL-004 Phase D)", () => {
     const create = await app.request("/api/workflow/instantiate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specPath, rootObjective: "x", createdBySession: "ops@rig" }),
+      body: JSON.stringify({ specPath, rootObjective: "x", createdBySession: "ops@software-team" }),
     });
     const created = (await create.json()) as { instance: { instanceId: string } };
     const res = await app.request(`/api/workflow/${created.instance.instanceId}`);
@@ -331,7 +331,7 @@ describe("workflow routes (PL-004 Phase D)", () => {
     const create = await app.request("/api/workflow/instantiate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specPath, rootObjective: "x", createdBySession: "ops@rig" }),
+      body: JSON.stringify({ specPath, rootObjective: "x", createdBySession: "ops@software-team" }),
     });
     const created = (await create.json()) as { instance: { instanceId: string } };
     const res = await app.request(`/api/workflow/${created.instance.instanceId}/trace`);
@@ -394,8 +394,8 @@ describe("FR-5 route contract: instance_version_conflict is HTTP 409 with expect
       workflowSpecJsonSchema,
     ]);
     const bus2 = new EventBus(db2);
-    db2.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    const queueRepo2 = new QueueRepository(db2, bus2, { validateRig: () => true });
+    db2.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    const queueRepo2 = new QueueRepository(db2, bus2, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo2.attachOutbox(new OutboxHandler(db2));
@@ -408,7 +408,7 @@ describe("FR-5 route contract: instance_version_conflict is HTTP 409 with expect
       const inst = await runtime2.instantiate({
         specPath: specPath2,
         rootObjective: "route 409 pin",
-        createdBySession: "ops@rig",
+        createdBySession: "ops@software-team",
       });
       // Simulate the race exactly as the unit pin does: the route's
       // project() reads the instance, then a concurrent writer bumps
@@ -430,7 +430,7 @@ describe("FR-5 route contract: instance_version_conflict is HTTP 409 with expect
           instanceId: inst.instance.instanceId,
           currentPacketId: inst.entryQitemId,
           exit: "handoff",
-          actorSession: "producer@rig",
+          actorSession: "producer@software-team",
         }),
       });
       expect(res.status).toBe(409);
@@ -448,7 +448,7 @@ describe("FR-5 route contract: instance_version_conflict is HTTP 409 with expect
           instanceId: inst.instance.instanceId,
           currentPacketId: inst.entryQitemId,
           exit: "handoff",
-          actorSession: "producer@rig",
+          actorSession: "producer@software-team",
         }),
       });
       expect(retry.status).toBe(200);
@@ -481,8 +481,8 @@ describe("FR-7 route contract: strict-validation rejections are structured 400s,
       workflowSpecJsonSchema,
     ]);
     const bus3 = new EventBus(db3);
-    db3.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    const queueRepo3 = new QueueRepository(db3, bus3, { validateRig: () => true });
+    db3.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    const queueRepo3 = new QueueRepository(db3, bus3, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo3.attachOutbox(new OutboxHandler(db3));
@@ -534,7 +534,7 @@ describe("FR-7 route contract: strict-validation rejections are structured 400s,
       body: JSON.stringify({
         specPath: p,
         rootObjective: "must not 500",
-        createdBySession: "ops@rig",
+        createdBySession: "ops@software-team",
       }),
     });
     expect(res.status).toBe(400);
@@ -570,29 +570,29 @@ describe("workflow routes — WF-2 structured error boundaries", () => {
       workflowStepTrailsSchema,
     ]);
     bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
     runtime = new WorkflowRuntime({ db, eventBus: bus, queueRepo });
     app = buildApp({ eventBus: bus, runtime });
     tmp = mkdtempSync(join(tmpdir(), "wf2-routes-"));
-    prevHome = process.env.OPENRIG_HOME;
+    prevHome = process.env.SOFTWARETEAM_HOME;
   });
 
   afterEach(() => {
     db.close();
     rmSync(tmp, { recursive: true, force: true });
-    if (prevHome === undefined) delete process.env.OPENRIG_HOME;
-    else process.env.OPENRIG_HOME = prevHome;
+    if (prevHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+    else process.env.SOFTWARETEAM_HOME = prevHome;
   });
 
   async function instantiate(specPath: string): Promise<Response> {
     return app.request("/api/workflow/instantiate", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ specPath, rootObjective: "boundary test", createdBySession: "ops@rig" }),
+      body: JSON.stringify({ specPath, rootObjective: "boundary test", createdBySession: "ops@software-team" }),
     });
   }
 
@@ -601,13 +601,13 @@ describe("workflow routes — WF-2 structured error boundaries", () => {
       join(tmp, "hosts.yaml"),
       "hosts:\n  - id: vps-1\n    transport: ssh\n    target: vps-1.invalid\n",
     );
-    process.env.OPENRIG_HOME = tmp;
+    process.env.SOFTWARETEAM_HOME = tmp;
     const specPath = join(tmp, "remote.yaml");
     writeFileSync(specPath, `workflow:
   id: rb-remote
   version: 1
   roles:
-    a: { preferred_targets: [a@rig] }
+    a: { preferred_targets: [a@software-team] }
   steps:
     - id: s1
       actor_role: a
@@ -626,7 +626,7 @@ describe("workflow routes — WF-2 structured error boundaries", () => {
   id: rb-harness
   version: 1
   roles:
-    a: { preferred_targets: [a@rig] }
+    a: { preferred_targets: [a@software-team] }
   steps:
     - id: s1
       actor_role: a
@@ -645,7 +645,7 @@ describe("workflow routes — WF-2 structured error boundaries", () => {
   id: rb-gate
   version: 1
   roles:
-    a: { preferred_targets: [a@rig] }
+    a: { preferred_targets: [a@software-team] }
   steps:
     - id: s1
       actor_role: a
@@ -660,26 +660,26 @@ describe("workflow routes — WF-2 structured error boundaries", () => {
   });
 });
 
-// OPR.0.4.6.FAC1 — guard code-review blocker at 6e991a9d: the new bound-rig
+// OPR.0.4.6.FAC1 — guard code-review blocker at 6e991a9d: the new bound-softwareTeam
 // errors are thrown correctly in-domain but were MISSING from the route
 // errorResponse mapper, so the public HTTP/CLI surface fell through to 500.
 // These route-level regressions drive the REAL public surface (the domain
-// tests in workflow-bound-rig / workflow-role-resolution do not) and pin the
+// tests in workflow-bound-softwareTeam / workflow-role-resolution do not) and pin the
 // honest status: instantiate authoring-boundary → 400, project live-state
 // conflict → 409. (The WF-1/WF-2 "new structured error needs a route-mapper
 // entry the moment it exists" class, a third time.)
-describe("workflow routes — FAC-1 bound-rig HTTP status mapping (guard blocker 6e991a9d)", () => {
+describe("workflow routes — FAC-1 bound-software-team HTTP status mapping (guard blocker 6e991a9d)", () => {
   let db: Database.Database;
   let bus: EventBus;
   let runtime: WorkflowRuntime;
   let app: Hono;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let podRepo: PodRepository;
   let tmp: string;
   let sessionSeq = 0;
 
   // Role-only spec (ZERO preferred_targets) so the capability resolver + the
-  // structural role-coverage check engage on the bound rig.
+  // structural role-coverage check engage on the bound softwareTeam.
   const ROLE_ONLY = `workflow:
   id: fac1-route-roleonly
   version: 1
@@ -706,16 +706,16 @@ describe("workflow routes — FAC-1 bound-rig HTTP status mapping (guard blocker
       queueItemSummarySchema, queueItemEvidenceRefSchema,
       workflowSpecsSchema, workflowInstancesSchema, workflowStepTrailsSchema,
       workflowInstanceVersionSchema, workflowSpecJsonSchema, workflowResumeSchema,
-      workflowInstanceBoundRigSchema,
+      workflowInstanceBoundSoftwareTeamSchema,
     ]);
     bus = new EventBus(db);
-    const queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    const queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
     runtime = new WorkflowRuntime({ db, eventBus: bus, queueRepo });
     app = buildApp({ eventBus: bus, runtime });
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     podRepo = new PodRepository(db);
     tmp = mkdtempSync(join(tmpdir(), "wf-routes-boundrig-"));
   });
@@ -725,16 +725,16 @@ describe("workflow routes — FAC-1 bound-rig HTTP status mapping (guard blocker
     rmSync(tmp, { recursive: true, force: true });
   });
 
-  function seedSeat(rigId: string, rigName: string, pod: string, member: string, role: string): string {
-    const podRec = podRepo.getPodByNamespace(rigId, pod) ?? podRepo.createPod(rigId, pod, pod);
-    const node = rigRepo.addNode(rigId, `${pod}.${member}`, {
+  function seedSeat(softwareTeamId: string, softwareTeamName: string, pod: string, member: string, role: string): string {
+    const podRec = podRepo.getPodByNamespace(softwareTeamId, pod) ?? podRepo.createPod(softwareTeamId, pod, pod);
+    const node = softwareTeamRepo.addNode(softwareTeamId, `${pod}.${member}`, {
       role, runtime: "claude-code", cwd: "/tmp", podId: podRec.id, agentRef: "local:agents/x", profile: "default",
     });
     sessionSeq += 1;
     db.prepare(`INSERT INTO sessions (id, node_id, session_name, status) VALUES (?, ?, ?, ?)`).run(
-      `s-${String(sessionSeq).padStart(4, "0")}`, node.id, `${pod}-${member}@${rigName}`, "running",
+      `s-${String(sessionSeq).padStart(4, "0")}`, node.id, `${pod}-${member}@${softwareTeamName}`, "running",
     );
-    return `${pod}-${member}@${rigName}`;
+    return `${pod}-${member}@${softwareTeamName}`;
   }
   function writeSpec(name: string, content: string): string {
     const p = join(tmp, name);
@@ -745,48 +745,48 @@ describe("workflow routes — FAC-1 bound-rig HTTP status mapping (guard blocker
     return app.request(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   }
 
-  it("POST /instantiate: explicit --rig unknown → 400 bound_rig_unknown + structured details, no instance row (arch-ruling public contract)", async () => {
+  it("POST /instantiate: explicit --software-team unknown → 400 bound_software_team_unknown + structured details, no instance row (arch-ruling public contract)", async () => {
     const before = db.prepare(`SELECT COUNT(*) c FROM workflow_instances`).get() as { c: number };
     const specPath = writeSpec("ro-unknown.yaml", ROLE_ONLY);
     const res = await post("/api/workflow/instantiate", {
-      specPath, rootObjective: "t", createdBySession: "ops@rig", targetRig: "no-such-rig",
+      specPath, rootObjective: "t", createdBySession: "ops@software-team", targetSoftwareTeam: "no-such-software-team",
     });
     expect(res.status).toBe(400);
-    const body = (await res.json()) as { error: string; registeredRigs?: string[] };
-    expect(body.error).toBe("bound_rig_unknown");
-    expect(body.registeredRigs).toBeDefined();
+    const body = (await res.json()) as { error: string; registeredSoftwareTeams?: string[] };
+    expect(body.error).toBe("bound_software_team_unknown");
+    expect(body.registeredSoftwareTeams).toBeDefined();
     const after = db.prepare(`SELECT COUNT(*) c FROM workflow_instances`).get() as { c: number };
     expect(after.c).toBe(before.c);
   });
 
-  it("POST /instantiate: known bound rig structurally lacks a required role → 400 bound_rig_role_uncovered", async () => {
-    const rig = rigRepo.createRig("factory-min");
-    seedSeat(rig.id, "factory-min", "dev", "lead", "lead"); // covers entry 'lead', NOT 'worker'
+  it("POST /instantiate: known bound SoftwareTeam structurally lacks a required role → 400 bound_software_team_role_uncovered", async () => {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("factory-min");
+    seedSeat(softwareTeam.id, "factory-min", "dev", "lead", "lead"); // covers entry 'lead', NOT 'worker'
     const specPath = writeSpec("ro-uncovered.yaml", ROLE_ONLY);
     const res = await post("/api/workflow/instantiate", {
-      specPath, rootObjective: "t", createdBySession: "ops@factory-min", targetRig: "factory-min",
+      specPath, rootObjective: "t", createdBySession: "ops@factory-min", targetSoftwareTeam: "factory-min",
     });
     expect(res.status).toBe(400);
-    expect(((await res.json()) as { error: string }).error).toBe("bound_rig_role_uncovered");
+    expect(((await res.json()) as { error: string }).error).toBe("bound_software_team_role_uncovered");
   });
 
-  it("POST /project: persisted bound rig vanished mid-run → 409 bound_rig_not_found", async () => {
-    const rig = rigRepo.createRig("factory-gone");
-    seedSeat(rig.id, "factory-gone", "dev", "lead", "lead");
-    seedSeat(rig.id, "factory-gone", "dev", "worker", "worker"); // both roles covered → instantiate succeeds bound
+  it("POST /project: persisted bound SoftwareTeam vanished mid-run → 409 bound_software_team_not_found", async () => {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("factory-gone");
+    seedSeat(softwareTeam.id, "factory-gone", "dev", "lead", "lead");
+    seedSeat(softwareTeam.id, "factory-gone", "dev", "worker", "worker"); // both roles covered → instantiate succeeds bound
     const specPath = writeSpec("ro-vanish.yaml", ROLE_ONLY);
     const inst = await post("/api/workflow/instantiate", {
-      specPath, rootObjective: "t", createdBySession: "ops@factory-gone", targetRig: "factory-gone",
+      specPath, rootObjective: "t", createdBySession: "ops@factory-gone", targetSoftwareTeam: "factory-gone",
     });
     expect(inst.status).toBe(201);
     const ib = (await inst.json()) as { instance: { instanceId: string }; entryQitemId: string; entryOwnerSession: string };
-    // The bound rig is torn down mid-run.
-    db.prepare(`DELETE FROM rigs WHERE name = 'factory-gone'`).run();
-    // Projecting the entry resolves the role-only 'build' step on the vanished bound rig.
+    // The bound softwareTeam is torn down mid-run.
+    db.prepare(`DELETE FROM software_teams WHERE name = 'factory-gone'`).run();
+    // Projecting the entry resolves the role-only 'build' step on the vanished bound softwareTeam.
     const proj = await post("/api/workflow/project", {
       instanceId: ib.instance.instanceId, currentPacketId: ib.entryQitemId, exit: "handoff", actorSession: ib.entryOwnerSession,
     });
     expect(proj.status).toBe(409);
-    expect(((await proj.json()) as { error: string }).error).toBe("bound_rig_not_found");
+    expect(((await proj.json()) as { error: string }).error).toBe("bound_software_team_not_found");
   });
 });

@@ -11,7 +11,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type Database from "better-sqlite3";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { SnapshotRepository } from "../src/domain/snapshot-repository.js";
@@ -58,7 +58,7 @@ function mockCodexResume(): CodexResumeAdapter {
 
 describe("OPR.0.5.7.1 — D1 ambiguity precedes the continuity_state=restoring skip", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let eventBus: EventBus;
   let snapshotRepo: SnapshotRepository;
@@ -67,12 +67,12 @@ describe("OPR.0.5.7.1 — D1 ambiguity precedes the continuity_state=restoring s
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     eventBus = new EventBus(db);
     snapshotRepo = new SnapshotRepository(db);
     checkpointStore = new CheckpointStore(db);
-    snapshotCapture = new SnapshotCapture({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
+    snapshotCapture = new SnapshotCapture({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
   });
 
   afterEach(() => {
@@ -80,14 +80,14 @@ describe("OPR.0.5.7.1 — D1 ambiguity precedes the continuity_state=restoring s
   });
 
   it("pod node with continuity_state=restoring AND a present ambiguous relation fails LOUDLY — never a silent 'fresh' skip", async () => {
-    const rig = rigRepo.createRig("r77");
-    db.prepare("INSERT INTO pods (id, rig_id, namespace, label) VALUES (?, ?, ?, ?)")
-      .run("pod-r77", rig.id, "dev", "Dev");
-    const node = rigRepo.addNode(rig.id, "seat", { role: "worker", runtime: "claude-code", podId: "pod-r77" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r77");
+    db.prepare("INSERT INTO pods (id, software_team_id, namespace, label) VALUES (?, ?, ?, ?)")
+      .run("pod-r77", softwareTeam.id, "dev", "Dev");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "seat", { role: "worker", runtime: "claude-code", podId: "pod-r77" });
     const sess = sessionRegistry.registerSession(node.id, "r77-seat");
     db.prepare("UPDATE sessions SET resume_type = ?, resume_token = ?, restore_policy = ? WHERE id = ?")
       .run("claude_name", "tok-seed", "resume_if_possible", sess.id);
-    const snap = snapshotCapture.captureSnapshot(rig.id, "manual");
+    const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
     sessionRegistry.updateStatus(sess.id, "exited");
     db.prepare("DELETE FROM bindings WHERE node_id = ?").run(node.id);
 
@@ -109,9 +109,9 @@ describe("OPR.0.5.7.1 — D1 ambiguity precedes the continuity_state=restoring s
 
     const tmux = mockTmux();
     const claude = mockClaudeResume();
-    const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+    const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
     const orch = new RestoreOrchestrator({
-      db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+      db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
       checkpointStore, nodeLauncher, tmuxAdapter: tmux,
       claudeResume: claude, codexResume: mockCodexResume(),
     });

@@ -77,7 +77,7 @@ export interface HostUsageRow {
 }
 
 const PROVENANCE_NOTE =
-  "host==account is a deployment invariant of this rig (one account per host), declared by the operator — " +
+  "host==account is a deployment invariant of this softwareTeam (one account per host), declared by the operator — " +
   "it is not source-derived account classification, and no account identity is read or emitted.";
 
 export interface HostUsageRollupInput {

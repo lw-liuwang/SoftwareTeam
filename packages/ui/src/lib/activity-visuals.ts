@@ -1,4 +1,4 @@
-// PL-019: shared activity-state visual mapping. Used by both RigNode (graph
+// PL-019: shared activity-state visual mapping. Used by both SoftwareTeamNode (graph
 // dot) and Explorer (tree-row icon) so the operator sees one consistent
 // palette across surfaces. Design guidance from orch (2026-05-04):
 //
@@ -8,7 +8,7 @@
 //   unknown     desaturated gray, no motion
 //
 // startupStatus (failed / attention_required) is a separate signal and stays
-// surfaced via the existing ATTN/FAILED badges on RigNode — activity color
+// surfaced via the existing ATTN/FAILED badges on SoftwareTeamNode — activity color
 // answers "is this agent working?", startup color answers "did this agent
 // boot?". They are not the same question.
 
@@ -38,7 +38,7 @@ const ACTIVITY_LABELS: Record<ActivityState, string> = {
 };
 
 // Tailwind utility classes — chosen to fit the existing stone/emerald
-// palette already in use across RigNode and Explorer rather than adding a
+// palette already in use across SoftwareTeamNode and Explorer rather than adding a
 // new brand. running uses emerald-500 (warm green); needs_input uses
 // amber-500 (the eye-catcher); idle uses slate-400 (cool blue-gray); unknown
 // uses stone-300 (desaturated, ignorable).

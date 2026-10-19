@@ -14,15 +14,15 @@
 // fails CI. If you update this content, update the CLI mirror in
 // lockstep.
 //
-// Content authored from the slice 21 onboarding-conveyor IMPLEMENTATION-PRD (Appendix A) in the substrate openrig-work tree.
+// Content authored from the slice 21 onboarding-conveyor IMPLEMENTATION-PRD (Appendix A) in the substrate softwareteam-work tree.
 
 export const FIRST_CONVEYOR_RUN_README = `# First Conveyor Run
 
-Welcome to OpenRig. This is the first slice in your getting-started mission. It exists to teach you what a **conveyor run** is + how OpenRig moves work through a multi-agent topology.
+Welcome to SoftwareTeam. This is the first slice in your getting-started mission. It exists to teach you what a **conveyor run** is + how SoftwareTeam moves work through a multi-agent topology.
 
 ## What a conveyor run is
 
-A **conveyor** is OpenRig's central work-movement primitive. One conveyor run = one complete flow of work through your topology:
+A **conveyor** is SoftwareTeam's central work-movement primitive. One conveyor run = one complete flow of work through your topology:
 
 1. **Slice declared** — operator (you) or an agent declares a slice with intent + acceptance criteria
 2. **Work routed** — orchestrator picks the slice up + routes it to the right agent
@@ -40,7 +40,7 @@ You're looking at a mocked conveyor run RIGHT NOW. The other tabs (Story / Progr
 - **Artifacts** — files produced, commits, proof packets — the durable evidence trail
 - **Tests** — pass/fail summaries + screenshots + verification proof
 - **Queue** — operational qitems showing how work moved between agents
-- **Topology** — the rig graph; which agents touched this slice + which edges fired
+- **Topology** — the SoftwareTeam graph; which agents touched this slice + which edges fired
 
 ## Click through
 
@@ -55,7 +55,7 @@ Operator request: "Build a CLI tool that lints todo lists." Slice declared in \`
 
 ## 09:02 — Orchestrator routes
 
-\`orch-lead@getting-started\` picks up the slice. Routes to \`driver@getting-started\` via \`rig queue handoff\`. Driver receives nudge; opens IMPL-PRD; reads acceptance.
+\`orch-lead@getting-started\` picks up the slice. Routes to \`driver@getting-started\` via \`SoftwareTeam queue handoff\`. Driver receives nudge; opens IMPL-PRD; reads acceptance.
 
 ## 09:05 — Driver picks up
 
@@ -129,7 +129,7 @@ The previous slice (First Conveyor Run) showed you what a conveyor run looks lik
 
 ## Why inspect evidence?
 
-In OpenRig, agents work autonomously. The operator (you) doesn't watch every keystroke. Instead, the operator:
+In SoftwareTeam, agents work autonomously. The operator (you) doesn't watch every keystroke. Instead, the operator:
 
 1. Declares slices with clear acceptance
 2. Routes them to agents
@@ -195,7 +195,7 @@ Operator marks slice acceptance complete. Closes the inspection.
 
 ---
 
-**What you just read**: a clean inspection in ~15 minutes. Operator builds trust through the evidence trail. This is the OpenRig usage pattern at scale: declare → route → inspect.
+**What you just read**: a clean inspection in ~15 minutes. Operator builds trust through the evidence trail. This is the SoftwareTeam usage pattern at scale: declare → route → inspect.
 `;
 
 export const INSPECT_PROJECT_EVIDENCE_PROGRESS = `---

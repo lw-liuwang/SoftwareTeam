@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateAgentSpecFromYaml, validateRigSpecFromYaml } from "../src/domain/spec-validation-service.js";
+import { validateAgentSpecFromYaml, validateSoftwareTeamSpecFromYaml } from "../src/domain/spec-validation-service.js";
 
 describe("Spec validation service", () => {
   // T1: valid AgentSpec passes
@@ -19,11 +19,11 @@ describe("Spec validation service", () => {
     expect(result.errors.some((e) => e.includes("version"))).toBe(true);
   });
 
-  // T3: valid RigSpec passes
-  it("valid RigSpec YAML passes validation", () => {
+  // T3: valid SoftwareTeamSpec passes
+  it("valid SoftwareTeamSpec YAML passes validation", () => {
     const yaml = `
 version: "0.2"
-name: test-rig
+name: test-software-team
 pods:
   - id: dev
     label: Dev
@@ -36,14 +36,14 @@ pods:
     edges: []
 edges: []
 `;
-    const result = validateRigSpecFromYaml(yaml);
+    const result = validateSoftwareTeamSpecFromYaml(yaml);
     expect(result.valid).toBe(true);
   });
 
-  // T4: invalid RigSpec returns structured errors
-  it("invalid RigSpec YAML returns structured errors", () => {
-    const yaml = "name: bad-rig\nversion: '0.2'"; // missing pods
-    const result = validateRigSpecFromYaml(yaml);
+  // T4: invalid SoftwareTeamSpec returns structured errors
+  it("invalid SoftwareTeamSpec YAML returns structured errors", () => {
+    const yaml = "name: bad-software-team\nversion: '0.2'"; // missing pods
+    const result = validateSoftwareTeamSpecFromYaml(yaml);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes("pods"))).toBe(true);
   });

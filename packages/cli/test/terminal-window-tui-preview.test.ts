@@ -1,5 +1,5 @@
 // The TUI's "Open terminals" path end to end: the TUI's preview, its planId passed as the expected plan, and the CLI
-// window opener with the provider omitted (`rig terminal open --window --expected-plan <planId> -- <view>`).
+// window opener with the provider omitted (`SoftwareTeam terminal open --window --expected-plan <planId> -- <view>`).
 // Real: the daemon's terminal routes and TerminalService (provider selection, composition, plan hashing) over
 // localhost, the TUI and CLI daemon clients, and the window opener's plain-tmux fallback on an isolated tmux server.
 // Stubbed: the provider adapters' status and liveness, the Herdr binary probe, and the macOS desktop launcher
@@ -60,7 +60,7 @@ async function fixture(herdrAvailable: boolean) {
   const service = new TerminalService({
     resolveProvider: name => providers[name] ?? null,
     viewsStore: { get: viewId => (viewId === "fixture" ? saved : null), list: () => [saved] },
-    listRigSeats: () => null, listPodSeats: () => null, listScopeSeats: () => null, listRigNames: () => [],
+    listSoftwareTeamSeats: () => null, listPodSeats: () => null, listScopeSeats: () => null, listSoftwareTeamNames: () => [],
     resolveHost: () => null, hasSession: () => true, resolveLocalTmux: () => wrapper,
   } as ConstructorParameters<typeof TerminalService>[0]);
   const app = new Hono();
@@ -83,7 +83,7 @@ async function fixture(herdrAvailable: boolean) {
     },
     launch: async () => {}, sleep: async () => {}, id: () => id,
   };
-  const viewCreated = () => tmux(viewer, ["list-sessions", "-F", "#{session_name}"]).split("\n").includes(`openrig-view-${id}`);
+  const viewCreated = () => tmux(viewer, ["list-sessions", "-F", "#{session_name}"]).split("\n").includes(`softwareteam-view-${id}`);
   return { baseUrl, saved, deps, launched, providerOpens, viewCreated };
 }
 

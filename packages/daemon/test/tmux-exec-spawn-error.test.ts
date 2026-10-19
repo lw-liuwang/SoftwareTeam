@@ -37,7 +37,7 @@ async function printed(child: import("node:child_process").ChildProcessWithoutNu
   return out;
 }
 
-const root = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-tmux-spawn-error-"));
+const root = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-tmux-spawn-error-"));
 afterAll(() => fs.rmSync(root, { recursive: true, force: true }));
 afterEach(() => { vi.unstubAllEnvs(); spawned.length = 0; });
 

@@ -23,7 +23,7 @@ function mockFs(initialFiles: Record<string, string> = {}): SkillsRouterFsOps & 
 }
 
 const BUNDLE_ROOT = "/bundle/root";
-const TARGET = "/operator/.openrig/skills";
+const TARGET = "/operator/.softwareteam/skills";
 
 function makeInput(overrides?: Partial<RouteSkillsInput>): RouteSkillsInput {
   return {
@@ -159,7 +159,7 @@ describe("routeSkills", () => {
   });
 
   it("can keep package-shaped bundle payloads outside the managed catalog without changing source lookup", () => {
-    const packageRoot = "/operator/.openrig/packages";
+    const packageRoot = "/operator/.softwareteam/packages";
     const source = `${BUNDLE_ROOT}/packages/test-pkg/skills/DUAL.md`;
     const fs = mockFs({ [source]: "dual" });
 

@@ -17,7 +17,7 @@ const gates = [
 ];
 const refs = [...gates, "qitem-present", "qitem-missing"];
 const blocked = refs.map((blockedOn, i) => ({ qitemId: `qitem-waiter-${i}`, blockedOn,
-  state: "blocked", destinationSession: "worker@rig", handedOffTo: null,
+  state: "blocked", destinationSession: "worker@software-team", handedOffTo: null,
   tier: null, tags: null, summary: "Waiting", claimedAt: null, tsUpdated: "2026-09-11T00:00:00Z" }));
 // Blocker enrichment belongs to the explicitly selected Pulse work view.
 const state = { ...createViewState({ instanceId: "fixture" }).get(), viewTab: "pulse" as const };
@@ -38,9 +38,9 @@ function fixture(humanRefs: string[] = [], collide = false) {
       ...blocked, ...humanRefs.map((blockedOn, i) => ({ ...blocked[0], qitemId: `qitem-human-${i}`, blockedOn })),
     ]);
     if (collide && humanRefs.some(ref => route === `/api/queue/${encodeURIComponent(ref)}`)) {
-      return Response.json({ destinationSession: "unrelated-owner@rig" });
+      return Response.json({ destinationSession: "unrelated-owner@software-team" });
     }
-    if (route === "/api/queue/qitem-present") return Response.json({ destinationSession: "reviewer@rig" });
+    if (route === "/api/queue/qitem-present") return Response.json({ destinationSession: "reviewer@software-team" });
     if (url.pathname.startsWith("/api/queue/") && !["/api/queue/list", "/api/queue/attention-aggregate"].includes(url.pathname)) return fail(404);
     if (route === "/healthz") return Response.json({ selfHostId: "fixture" });
     if (url.pathname === "/api/health") return Response.json({ records: [], total: 0, truncated: false });
@@ -69,7 +69,7 @@ describe("optional blocker enrichment through the production page composition", 
       expect(humans.map(q => q.blockedOn)).toEqual(humanRefs);
       expect(humans.map(q => q.blockerSession ?? null)).toEqual(humanRefs.map(() => null));
       for (const ref of humanRefs) expect(f.requests).not.toContain(`/api/queue/${encodeURIComponent(ref)}`);
-      expect(f.live.snapshot().blocked.find(q => q.blockedOn === "qitem-present")?.blockerSession).toBe("reviewer@rig");
+      expect(f.live.snapshot().blocked.find(q => q.blockedOn === "qitem-present")?.blockerSession).toBe("reviewer@software-team");
       expect(f.live.snapshot().readErrors).toEqual([]);
       expect(f.live.load()).toMatchObject({ stale: false, lastSuccessAt: 1000 });
     } finally { f.live.close(); }
@@ -83,7 +83,7 @@ describe("optional blocker enrichment through the production page composition", 
       expect(f.live.load()).toMatchObject({ settled: true, stale: false, lastSuccessAt: 1000 });
       expect(f.live.snapshot().blocked.map(q => q.blockedOn)).toEqual(refs);
       for (const q of f.live.snapshot().blocked) {
-        expect(q.blockerSession ?? null).toBe(q.blockedOn === "qitem-present" ? "reviewer@rig" : null);
+        expect(q.blockerSession ?? null).toBe(q.blockedOn === "qitem-present" ? "reviewer@software-team" : null);
       }
       for (const gate of gates) expect(f.requests).not.toContain(`/api/queue/${encodeURIComponent(gate)}`);
       expect(f.requests).toContain("/api/queue/qitem-present");

@@ -1,4 +1,4 @@
-// OPR.0.4.4.18 — `rig file copy` CLI wiring: rejection surfaces render the
+// OPR.0.4.4.18 — `softwareTeam file copy` CLI wiring: rejection surfaces render the
 // core's structured errors verbatim (fail-closed, spawn NEVER invoked on any
 // rejection — the spawn-spy negative), dry-run reports the planned transfer,
 // JSON mode is agent-consumable and exposes the closed builder's argv.
@@ -8,7 +8,7 @@ import { fileCommand } from "../src/commands/file.js";
 import type { FileCopyResult } from "../src/lib/file-transfer.js";
 import type { SshHostEntry } from "../src/host-registry.js";
 
-const VPS: SshHostEntry = { id: "vps-a", transport: "ssh", target: "vps-a.tail.net", user: "openrig" };
+const VPS: SshHostEntry = { id: "vps-a", transport: "ssh", target: "vps-a.tail.net", user: "softwareteam" };
 const registryLoader = (() => ({ ok: true as const, registry: { hosts: [VPS] } })) as never;
 
 let logs: string[];
@@ -48,7 +48,7 @@ async function runCopy(args: string[], run?: (plan: unknown) => Promise<FileCopy
   return { runs };
 }
 
-describe("rig file copy — rejection surfaces (spawn NEVER invoked)", () => {
+describe("SoftwareTeam file copy — rejection surfaces (spawn NEVER invoked)", () => {
   it("remote:remote rejects with the pull-then-push text; exit 1; no run", async () => {
     const { runs } = await runCopy(["vps-a:/a.md", "vps-a:/b.md"]);
     expect(errs.join("\n")).toContain("remote-to-remote is not in v0; pull then push");
@@ -85,7 +85,7 @@ describe("rig file copy — rejection surfaces (spawn NEVER invoked)", () => {
   });
 });
 
-describe("rig file copy — success + dry-run rendering", () => {
+describe("SoftwareTeam file copy — success + dry-run rendering", () => {
   it("success prints src → dst + bytes", async () => {
     await runCopy(["./a.md", "vps-a:/srv/briefs/a.md"]);
     expect(logs.join("\n")).toMatch(/Copied .*a\.md → vps-a:\/srv\/briefs\/a\.md \(128 bytes\)/);

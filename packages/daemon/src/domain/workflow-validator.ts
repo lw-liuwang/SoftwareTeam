@@ -20,7 +20,7 @@
 import type { WorkflowSpec, WorkflowStepSpec } from "./workflow-types.js";
 import { resolveNextStep } from "./workflow-projector.js";
 import { isHumanSeatSession } from "./human-route-enforcer.js";
-import { isRigRelativeTarget } from "./workflow-rig-placeholder.js";
+import { isSoftwareTeamRelativeTarget } from "./workflow-software-team-placeholder.js";
 
 export interface ValidationIssue {
   code: string;
@@ -38,7 +38,7 @@ export interface ValidationResult {
   summary: {
     workflowId: string;
     workflowVersion: string;
-    targetRig: string | null;
+    targetSoftwareTeam: string | null;
     entryRole: string | null;
     stepCount: number;
   };
@@ -352,7 +352,7 @@ export class WorkflowValidator {
           if (!probe.registered) {
             issues.push({
               code: "host_not_registered",
-              message: `step "${step.id}" pins host "${step.host}" which is not in the hosts registry (~/.openrig/hosts.yaml). Registered ids: ${probe.registeredIds.length > 0 ? `[${probe.registeredIds.join(", ")}]` : "(none)"}. Register the host with rig host add, use "local", or remove the pin.`,
+              message: `step "${step.id}" pins host "${step.host}" which is not in the hosts registry (~/.softwareteam/hosts.yaml). Registered ids: ${probe.registeredIds.length > 0 ? `[${probe.registeredIds.join(", ")}]` : "(none)"}. Register the host with SoftwareTeam host add, use "local", or remove the pin.`,
               field: `workflow.steps[${idx}].host`,
               severity: "error",
             });
@@ -450,8 +450,8 @@ export class WorkflowValidator {
       // preferred target produces a warning (not an error) — agents
       // can still be resolved at runtime via runtime-adapter / claim.
       for (const [roleName, role] of Object.entries(spec.roles ?? {})) {
-        // A `member@{rig}` target has no seat to probe until an instance binds a rig.
-        const targets = (role?.preferred_targets ?? []).filter((t) => !isRigRelativeTarget(t));
+        // A `member@{softwareTeam}` target has no seat to probe until an instance binds a softwareTeam.
+        const targets = (role?.preferred_targets ?? []).filter((t) => !isSoftwareTeamRelativeTarget(t));
         if (targets.length === 0) continue;
         const liveAny = targets.some((t) => seatLivenessCheck(t).alive);
         if (!liveAny) {
@@ -472,7 +472,7 @@ export class WorkflowValidator {
       summary: {
         workflowId: spec.id,
         workflowVersion: spec.version,
-        targetRig: spec.target?.rig ?? null,
+        targetSoftwareTeam: spec.target?.software_team ?? null,
         entryRole: spec.entry?.role ?? null,
         stepCount: spec.steps.length,
       },

@@ -16,7 +16,7 @@ describe("one browser boundary on the production API and terminal routes", () =>
   let routeEffects = 0;
 
   beforeAll(async () => {
-    vi.stubEnv("OPENRIG_ALLOWED_ORIGINS", "chrome-extension://fixture,https://dashboard.example:443,tools.example.");
+    vi.stubEnv("SOFTWARETEAM_ALLOWED_ORIGINS", "chrome-extension://fixture,https://dashboard.example:443,tools.example.");
     db = createFullTestDb();
     const ok = async () => ({ ok: true });
     const built = createTestApp(db, {

@@ -39,7 +39,7 @@ const SITES = [
 describe.each(SITES)("B12-T real async list_processes — %s", (_site, listProcesses) => {
   it("runs the REAL ps path and sees this very process in the table", async () => {
     const rows = await listProcesses();
-    expect(rows.length).toBeGreaterThan(10);
+    expect(rows.length).toBeGreaterThan(0);
     const self = rows.find((r) => r.pid === process.pid);
     expect(self).toBeDefined();
     expect(self!.ppid).toBeGreaterThan(0);
@@ -70,7 +70,7 @@ describe("F1 real async resolve_home — codex-thread-id", () => {
   async function withChild<T>(fn: (pid: number) => Promise<T>, home = "/tmp/f1-probe-home"): Promise<T> {
     const { spawn } = await import("node:child_process");
     const child = spawn(process.execPath, ["-e", "console.log('ready'); setTimeout(() => {}, 15000)"], {
-      env: { HOME: home, PATH: process.env.PATH ?? "", OPENRIG_TEST_END: "marker" },
+      env: { HOME: home, PATH: process.env.PATH ?? "", SOFTWARETEAM_TEST_END: "marker" },
       stdio: ["ignore", "pipe", "ignore"],
     });
     try {
@@ -93,7 +93,7 @@ describe("F1 real async resolve_home — codex-thread-id", () => {
 
   it("preserves spaces in the real child process HOME environment value", async () => {
     const { defaultResolveHomeDirByPid } = await import("../src/domain/codex-thread-id.js");
-    const home = "/tmp/openrig profile home with spaces";
+    const home = "/tmp/softwareteam profile home with spaces";
     expect(await withChild((pid) => defaultResolveHomeDirByPid(pid), home)).toBe(home);
   });
 

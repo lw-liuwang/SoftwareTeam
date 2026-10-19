@@ -58,10 +58,10 @@ describe("ViewProjector (PL-004 Phase B; L5 read-only projections)", () => {
       state: "blocked",
       transitionNote: "blocked on dep",
     });
-    // Fixture rig (should be excluded by default).
+    // Fixture softwareTeam (should be excluded by default).
     await queueRepo.create({
-      sourceSession: "alice@test-rig",
-      destinationSession: "bob@test-rig",
+      sourceSession: "alice@test-software-team",
+      destinationSession: "bob@test-software-team",
       body: "fixture work",
       nudge: false,
     });
@@ -69,7 +69,7 @@ describe("ViewProjector (PL-004 Phase B; L5 read-only projections)", () => {
 
   afterEach(() => {
     db.close();
-    delete process.env.OPENRIG_VIEW_INCLUDE_FIXTURES;
+    delete process.env.SOFTWARETEAM_VIEW_INCLUDE_FIXTURES;
   });
 
   it("BUILT_IN_VIEW_NAMES includes all 8 expected names", () => {
@@ -125,26 +125,26 @@ describe("ViewProjector (PL-004 Phase B; L5 read-only projections)", () => {
     expect(result.rows[0]).toHaveProperty("transition_id");
   });
 
-  it("OPENRIG_VIEW_INCLUDE_FIXTURES=1 includes fixture rigs", () => {
-    process.env.OPENRIG_VIEW_INCLUDE_FIXTURES = "1";
+  it("SOFTWARETEAM_VIEW_INCLUDE_FIXTURES=1 includes fixture softwareTeams", () => {
+    process.env.SOFTWARETEAM_VIEW_INCLUDE_FIXTURES = "1";
     const result = projector.show("recently-active");
     expect(result.rowCount).toBe(4); // including the fixture qitem
   });
 
-  it("show with --rig filter narrows by session-suffix match", () => {
-    const result = projector.show("recently-active", { rig: "product-lab" });
+  it("show with --software-team filter narrows by session-suffix match", () => {
+    const result = projector.show("recently-active", { softwareTeam: "product-lab" });
     expect(result.rowCount).toBe(3); // all 3 product-lab qitems
   });
 
-  it.each(["dev_team", "dev%team", "dev\\team"])("HTTP rig filter treats %s as a literal session suffix, in recently-active and activity", async (rig) => {
+  it.each(["dev_team", "dev%team", "dev\\team"])("HTTP SoftwareTeam filter treats %s as a literal session suffix, in recently-active and activity", async (softwareTeam) => {
     const exact = [];
     for (const [sourceSession, destinationSession] of [
-      [`alice@${rig}`, "bob@elsewhere"],
-      ["alice@elsewhere", `bob@${rig}`],
+      [`alice@${softwareTeam}`, "bob@elsewhere"],
+      ["alice@elsewhere", `bob@${softwareTeam}`],
     ]) {
-      exact.push((await queueRepo.create({ sourceSession, destinationSession, body: "exact rig", nudge: false })).qitemId);
+      exact.push((await queueRepo.create({ sourceSession, destinationSession, body: "exact softwareTeam", nudge: false })).qitemId);
     }
-    await queueRepo.create({ sourceSession: "alice@devXteam", destinationSession: "bob@dev-other-team", body: "different rig", nudge: false });
+    await queueRepo.create({ sourceSession: "alice@devXteam", destinationSession: "bob@dev-other-team", body: "different softwareTeam", nudge: false });
     const app = new Hono();
     app.use("*", async (c, next) => {
       c.set("viewProjector" as never, projector as never);
@@ -152,9 +152,9 @@ describe("ViewProjector (PL-004 Phase B; L5 read-only projections)", () => {
       await next();
     });
     app.route("/api/views", viewsRoutes());
-    // activity has its own rig clause over the transitions join; each row here is one created transition.
+    // activity has its own softwareTeam clause over the transitions join; each row here is one created transition.
     for (const lens of ["recently-active", "activity"]) {
-      const response = await app.request(`/api/views/${lens}?rig=${encodeURIComponent(rig)}`);
+      const response = await app.request(`/api/views/${lens}?softwareTeam=${encodeURIComponent(softwareTeam)}`);
       expect(response.status).toBe(200);
       const result = await response.json();
       expect(result.rows.map((row: { qitem_id: string }) => row.qitem_id).sort()).toEqual(exact.sort());
@@ -170,7 +170,7 @@ describe("ViewProjector (PL-004 Phase B; L5 read-only projections)", () => {
     const view = projector.registerCustomView({
       viewName: "all-pending",
       definition: "SELECT qitem_id, destination_session FROM queue_items WHERE state = 'pending'",
-      registeredBySession: "operator@rig",
+      registeredBySession: "operator@software-team",
     });
     expect(view.viewId).toMatch(/^[0-9A-Z]{26}$/);
     const result = projector.show("all-pending");
@@ -183,7 +183,7 @@ describe("ViewProjector (PL-004 Phase B; L5 read-only projections)", () => {
       projector.registerCustomView({
         viewName: "recently-active",
         definition: "SELECT 1",
-        registeredBySession: "operator@rig",
+        registeredBySession: "operator@software-team",
       });
       throw new Error("should have thrown");
     } catch (err) {
@@ -196,12 +196,12 @@ describe("ViewProjector (PL-004 Phase B; L5 read-only projections)", () => {
     const first = projector.registerCustomView({
       viewName: "my-view",
       definition: "SELECT 1 as a",
-      registeredBySession: "operator@rig",
+      registeredBySession: "operator@software-team",
     });
     const second = projector.registerCustomView({
       viewName: "my-view",
       definition: "SELECT 2 as b",
-      registeredBySession: "operator@rig",
+      registeredBySession: "operator@software-team",
     });
     expect(second.viewId).toBe(first.viewId);
     expect(second.definition).toContain("SELECT 2");
@@ -212,7 +212,7 @@ describe("ViewProjector (PL-004 Phase B; L5 read-only projections)", () => {
     projector.registerCustomView({
       viewName: "my-view",
       definition: "SELECT 1",
-      registeredBySession: "operator@rig",
+      registeredBySession: "operator@software-team",
     });
     const result = projector.list();
     expect(result.builtIn).toEqual([

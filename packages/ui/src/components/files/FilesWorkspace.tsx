@@ -370,16 +370,16 @@ function TruncationMarker({ read }: { read: FilesReadResponse }) {
   );
 }
 
-// OSR v0 item 3: RigSpec / AgentSpec validation panel. Detects spec
-// kind by filename and invokes the existing /api/specs/review/{rig|agent}
+// OSR v0 item 3: SoftwareTeamSpec / AgentSpec validation panel. Detects spec
+// kind by filename and invokes the existing /api/specs/review/{softwareTeam|agent}
 // endpoint via the useSpecReview hook. Errors / warnings render inline
 // alongside the YAML view; non-spec YAML files don't surface this
 // panel at all.
-function detectSpecKind(filePath: string): "rig" | "agent" | null {
+function detectSpecKind(filePath: string): "softwareTeam" | "agent" | null {
   const lower = filePath.toLowerCase();
-  if (lower.endsWith("/rig.yaml") || lower === "rig.yaml" || lower.endsWith("/rig.yml") || lower === "rig.yml") return "rig";
+  if (lower.endsWith("/software-team.yaml") || lower === "software-team.yaml" || lower.endsWith("/softwareTeam.yml") || lower === "softwareTeam.yml") return "softwareTeam";
   if (lower.endsWith("/agent.yaml") || lower === "agent.yaml" || lower.endsWith("/agent.yml") || lower === "agent.yml") return "agent";
-  // Spec library entries: <pkg>/specs/<spec-name>/{rig,agent}.yaml shape;
+  // Spec library entries: <pkg>/specs/<spec-name>/{softwareTeam,agent}.yaml shape;
   // we already match those above via the basename. Driver picks
   // additional heuristics here in v0+1 if false-positive avoidance
   // becomes a friction (e.g., "config.yaml" inside an unrelated
@@ -387,7 +387,7 @@ function detectSpecKind(filePath: string): "rig" | "agent" | null {
   return null;
 }
 
-function SpecValidationPanel({ kind, yaml }: { kind: "rig" | "agent"; yaml: string }) {
+function SpecValidationPanel({ kind, yaml }: { kind: "softwareTeam" | "agent"; yaml: string }) {
   const review = useSpecReview(kind, yaml);
   if (review.isLoading) {
     return (
@@ -418,7 +418,7 @@ function SpecValidationPanel({ kind, yaml }: { kind: "rig" | "agent"; yaml: stri
       }`}
     >
       <div className="mb-1 font-bold uppercase tracking-[0.10em]">
-        {isValid ? `✓ Valid ${kind === "rig" ? "RigSpec" : "AgentSpec"}` : `✗ ${kind === "rig" ? "RigSpec" : "AgentSpec"} validation errors`}
+        {isValid ? `✓ Valid ${kind === "softwareTeam" ? "SoftwareTeamSpec" : "AgentSpec"}` : `✗ ${kind === "softwareTeam" ? "SoftwareTeamSpec" : "AgentSpec"} validation errors`}
       </div>
       {errors.length > 0 && (
         <ul className="space-y-1">

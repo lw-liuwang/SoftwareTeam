@@ -19,8 +19,8 @@ import { openRouterChargeTarget, parseOpenRouterGeneration } from "../src/domain
 import { PiUsageEntriesStore, validPiProviderCharge } from "../src/domain/pi-usage-entries-store.js";
 
 const TOKEN = "hook-token";
-const SESSION = "devpi-a@rig";
-const SESSION_FILE = "/state/pi/devpi-a@rig/sessions/2026_0197.jsonl";
+const SESSION = "devpi-a@software-team";
+const SESSION_FILE = "/state/pi/devpi-a@software-team/sessions/2026_0197.jsonl";
 const at = (s: number) => new Date(Date.UTC(2026, 9, 13, 21, 0, s)).toISOString();
 const usage = (cost: number) => ({ input: 100, output: 20, cacheRead: 0, cacheWrite: 0, totalTokens: 120,
   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: cost } });
@@ -63,7 +63,7 @@ function pipeline(opts: {
   const d = opts.db ?? (() => { const fresh = createDb(); migrate(fresh, ALL_MIGRATIONS); dbs.push(fresh); return fresh; })();
   const hono = new Hono();
   hono.use("*", async (c, next) => {
-    c.set("agentActivityStore" as never, { resolveSession: () => ({ sessionId: "sid", rigId: "r", nodeId: "node-1", sessionName: SESSION, runtime: "pi" }) } as never);
+    c.set("agentActivityStore" as never, { resolveSession: () => ({ sessionId: "sid", softwareTeamId: "r", nodeId: "node-1", sessionName: SESSION, runtime: "pi" }) } as never);
     c.set("activityHookToken" as never, TOKEN as never);
     c.set("sessionRegistry" as never, { db: d } as never);
     await next();
@@ -141,7 +141,7 @@ describe("K4: the request's OpenRouter charge beside its Pi estimate", () => {
       kind: "provider charge", source: "OpenRouter GET /api/v1/generation (data.total_cost, USD)", status: "reported",
       requests: { openRouter: 3, covered: 2, charged: 2, pending: 0, unavailable: { count: 0 },
         notCovered: { count: 1, reasons: { "Pi's anthropic-messages API: its response id isn't a documented OpenRouter generation id": 1 } } },
-      accountContext: { credentialSources: ["OPENROUTER_API_KEY (forwarded by OpenRig; Pi's credential observed before and after the request)"], workspaceIds: ["ws-fixture"], byokRequests: 0 },
+      accountContext: { credentialSources: ["OPENROUTER_API_KEY (forwarded by SoftwareTeam; Pi's credential observed before and after the request)"], workspaceIds: ["ws-fixture"], byokRequests: 0 },
     });
     expect(p.charge().costUsd).toBeCloseTo(0.042, 10);
     expect(p.charge().estimateForChargedUsd).toBeCloseTo(0.03, 10); // Pi's estimate for exactly those two requests
@@ -199,7 +199,7 @@ describe("K4: the request's OpenRouter charge beside its Pi estimate", () => {
     }
   });
 
-  it("account context: with a credential OpenRig doesn't hold (stored sign-in or key, models.json, unknown), nothing is looked up", async () => {
+  it("account context: with a credential SoftwareTeam doesn't hold (stored sign-in or key, models.json, unknown), nothing is looked up", async () => {
     for (const kind of ["stored-sign-in", "stored-key", "models-key", "unknown"] as const) {
       const source: PiCredentialSource = kind === "unknown" ? { kind } : { kind, provider: "openrouter" };
       const p = pipeline({ source: () => source });
@@ -209,7 +209,7 @@ describe("K4: the request's OpenRouter charge beside its Pi estimate", () => {
         ? `the generating credential isn't established: Pi's OpenRouter credential source couldn't be classified when observed at ${at(0)}, and Pi keeps what it loaded until it restarts or reloads`
         : kind === "models-key" // models.json is loaded at Pi's start: sticky for the process
         ? `the generating credential isn't established: models.json had a credential-bearing OpenRouter provider entry when observed at ${at(0)}, and Pi keeps what it loaded until it restarts or reloads`
-        : `the generating credential isn't established: Pi's OpenRouter credential around the request was ${kind}, not the key OpenRig forwarded`;
+        : `the generating credential isn't established: Pi's OpenRouter credential around the request was ${kind}, not the key SoftwareTeam forwarded`;
       expect(p.charge()).toMatchObject({ status: "unavailable", requests: { unavailable: { count: 2, reasons: { [reason]: 2 } } } });
       expect(p.charge().accountContext.credentialSources).toEqual(["not established"]);
     }
@@ -223,7 +223,7 @@ describe("K4: the request's OpenRouter charge beside its Pi estimate", () => {
     await p.refresh([turn("a1", 2, { cost: 0.01, responseId: "gen-x-1" })]);
     expect(p.lookups).toEqual([]);
     expect(p.charge().requests.unavailable.reasons).toEqual({
-      "the generating credential isn't established: Pi's OpenRouter credential around the request was stored-key, not the key OpenRig forwarded": 1 });
+      "the generating credential isn't established: Pi's OpenRouter credential around the request was stored-key, not the key SoftwareTeam forwarded": 1 });
     await p.refresh([turn("a1", 2, { cost: 0.01, responseId: "gen-x-1" })]); // still the first observation's verdict
     expect(p.lookups).toEqual([]);
   });
@@ -474,7 +474,7 @@ describe("POST /api/activity/pi-usage-charges", () => {
     return p;
   }
   const charged = (entryId: string, generationId: string, total: number) => ({ entryId, generationId, status: "charged", totalCostUsd: total,
-    credentialSource: "OPENROUTER_API_KEY (forwarded by OpenRig)" });
+    credentialSource: "OPENROUTER_API_KEY (forwarded by SoftwareTeam)" });
   const body = (charges: unknown[]) => ({ sessionName: SESSION, piSessionId: "0197a2f0", charges });
 
   it("a charge is final; an unavailable outcome can become charged; a replay changes nothing", async () => {

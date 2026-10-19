@@ -95,14 +95,14 @@ describe("cmux CLI transport — layout RPC method pass-through (slice 24.A repa
       const transport = await factory();
 
       await transport.request("workspace.create", {
-        title: "my-rig",
+        title: "my-software-team",
         cwd: "/path/to/cwd",
       });
 
       const cmd = captured.find((c) => c.startsWith("cmux rpc workspace.create"));
       expect(cmd).toBeTruthy();
       expect(cmd).toMatch(/"title"/);
-      expect(cmd).toMatch(/"my-rig"/);
+      expect(cmd).toMatch(/"my-software-team"/);
       expect(cmd).toMatch(/"cwd"/);
       expect(cmd).toMatch(/"\/path\/to\/cwd"/);
     });
@@ -113,7 +113,7 @@ describe("cmux CLI transport — layout RPC method pass-through (slice 24.A repa
       const factory = createCmuxCliTransport(exec);
       const transport = await factory();
 
-      await transport.request("workspace.create", { title: "my-rig" });
+      await transport.request("workspace.create", { title: "my-software-team" });
 
       const cmd = captured.find((c) => c.startsWith("cmux rpc workspace.create"));
       expect(cmd).toBeTruthy();

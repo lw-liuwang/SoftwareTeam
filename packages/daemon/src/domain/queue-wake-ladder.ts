@@ -34,7 +34,7 @@ import { lastMeaningfulTransition, type WaitingView } from "./queue-waiting.js";
 // AM-P3-F2: suspension is DERIVED, never declared — the destination's post-swap state
 // (nodes.handover_at within a bounded grace; the handover txn itself is atomic and
 // unobservable) suspends wake attempts, with suspend/resume recorded. The manually
-// declared window survives ONLY as an operator override (OPENRIG_WAKE_SUSPEND, fresh-read).
+// declared window survives ONLY as an operator override (SOFTWARETEAM_WAKE_SUSPEND, fresh-read).
 //
 // AM-P3-F4 + AM-R25: rungs DELIVER, not just record. The orchestrator rung attempts a real
 // wake on the aggregate escalation row; a rung whose own wake fails advances after one
@@ -75,7 +75,7 @@ export const WAKE_SWAP_GRACE_KEY = "queue.wake_swap_grace_seconds";
 export const DEFAULT_WAKE_SWAP_GRACE_SECONDS = 180;
 /** Whether the operator rung posts agent-to-agent escalations to a person.
  *  "always" (default) keeps today's behavior; "explicit-only" ends the ladder at
- *  the escalation row (operator seat or rig lead) unless the row's destination is
+ *  the escalation row (operator seat or softwareTeam lead) unless the row's destination is
  *  a person: any `@external` address, or one the human registry resolves to a
  *  person. An ask that needs a person must be addressed to the person. An instance
  *  that has never set up the human registry can't read it, so there explicit-only
@@ -97,7 +97,7 @@ export function drawUsageLimitJitterSeconds(random: () => number = Math.random):
 
 /** The operator-declared suspension override (F2: override, never the mechanism).
  *  Format: comma-separated `<session>:<untilIso>` pairs; fresh-read every tick. */
-export const WAKE_SUSPEND_OVERRIDE_ENV = "OPENRIG_WAKE_SUSPEND";
+export const WAKE_SUSPEND_OVERRIDE_ENV = "SOFTWARETEAM_WAKE_SUSPEND";
 
 /** Stamp tag on the per-destination aggregate escalation row. */
 export const WAKE_ESCALATION_TAG = "wake-escalation";
@@ -551,7 +551,7 @@ function usageLimitPoolTag(poolKey: string): string {
   return `${USAGE_LIMIT_POOL_TAG_PREFIX}${poolKey}`;
 }
 
-function rigOf(session: string): string {
+function softwareTeamOf(session: string): string {
   return session.slice(session.lastIndexOf("@") + 1);
 }
 
@@ -576,10 +576,10 @@ async function ensureUsageLimitBlocker(
     if (wake?.kind === "timer" && wake.live) return blocker;
     if (wake) throw new Error(`usage-limit blocker ${blocker.qitemId} has a non-live timer`);
   } else {
-    const rig = rigOf(pool.seatSessions[0]!);
+    const softwareTeam = softwareTeamOf(pool.seatSessions[0]!);
     blocker = await deps.queueRepo.create({
       sourceSession: LADDER_ACTOR,
-      destinationSession: `wake-ladder@${rig}`,
+      destinationSession: `wake-ladder@${softwareTeam}`,
       body: `Provider usage limit for ${pool.poolKey}; release every dependent once at ${pool.expiresAt}.`,
       tags: [USAGE_LIMIT_BLOCKER_TAG, poolTag],
       expiresAt: new Date(Date.parse(pool.expiresAt) + jitterSeconds * 1000).toISOString(),
@@ -1177,7 +1177,7 @@ async function operatorRung(
     !addressedToPerson(deps, row.destinationSession)
   ) {
     // Agent-to-agent work: the escalation row stays the visible object for the
-    // operator seat or rig lead, and nothing is posted to a person.
+    // operator seat or softwareTeam lead, and nothing is posted to a person.
     appendMarker(
       repo,
       row,

@@ -1,5 +1,5 @@
 // release-0.3.2 slice 12 — filesystem + git helpers shared across
-// `rig scope` verbs. Mission/slice discovery, frontmatter parse/write,
+// `SoftwareTeam scope` verbs. Mission/slice discovery, frontmatter parse/write,
 // auto-numbering, git mv wrapper. Keeps slice/mission command files
 // thin.
 
@@ -257,7 +257,7 @@ export function resolveMissionsRoot(opts: {
   configPath?: string;
   /**
    * Fail instead of falling back to the configured root when an explicit
-   * override (`--workspace` or OPENRIG_WORK_ROOT) names no missions tree.
+   * override (`--workspace` or SOFTWARETEAM_WORK_ROOT) names no missions tree.
    * A caller that writes to the root it resolved wants the refusal: the silent
    * fallback would operate on a tree the caller never named (#995).
    */
@@ -265,9 +265,9 @@ export function resolveMissionsRoot(opts: {
 } = {}): string {
   const cwd = opts.cwd ?? process.cwd();
   // Which one named it matters for the refusal below: dropping --workspace does
-  // not clear OPENRIG_WORK_ROOT, so the two need different remedies.
+  // not clear SOFTWARETEAM_WORK_ROOT, so the two need different remedies.
   const fromFlag = opts.override ?? null;
-  const fromOverride = fromFlag ?? process.env.OPENRIG_WORK_ROOT;
+  const fromOverride = fromFlag ?? process.env.SOFTWARETEAM_WORK_ROOT;
   if (fromOverride) {
     const candidate = path.isAbsolute(fromOverride) ? fromOverride : path.resolve(cwd, fromOverride);
     const missions = path.join(candidate, "missions");
@@ -281,13 +281,13 @@ export function resolveMissionsRoot(opts: {
     if (hasMissionsChild) return missions;
     if (path.basename(candidate) === "missions" && fs.existsSync(candidate)) return candidate;
     if (opts.strictOverride) {
-      const source = fromFlag === null ? "OPENRIG_WORK_ROOT" : "--workspace";
+      const source = fromFlag === null ? "SOFTWARETEAM_WORK_ROOT" : "--workspace";
       throw new ScopeCliError({
         fact: `The workspace named by ${source} has no missions tree: neither ${missions} nor ${candidate} is a readable directory.`,
         consequence: "Nothing was written; the configured workspace was NOT used as a fallback.",
         action: fromFlag === null
-          ? "Correct OPENRIG_WORK_ROOT to a workspace whose missions/ directory exists, or unset it to use the configured workspace."
-          : "Point --workspace at a workspace whose missions/ directory exists, or drop the flag — note that an OPENRIG_WORK_ROOT in the environment still applies once the flag is gone.",
+          ? "Correct SOFTWARETEAM_WORK_ROOT to a workspace whose missions/ directory exists, or unset it to use the configured workspace."
+          : "Point --workspace at a workspace whose missions/ directory exists, or drop the flag — note that an SOFTWARETEAM_WORK_ROOT in the environment still applies once the flag is gone.",
       });
     }
   }
@@ -296,7 +296,7 @@ export function resolveMissionsRoot(opts: {
   throw new ScopeCliError({
     fact: `Configured workspace.slices_root is not a readable directory: ${(new ConfigStore(opts.configPath).get("workspace.slices_root") as string) || "(unset)"}.`,
     consequence: "No mission tree to operate on.",
-    action: "Set workspace.slices_root with `rig config set`, or pass --workspace /path/to/your/workspace.",
+    action: "Set workspace.slices_root with `SoftwareTeam config set`, or pass --workspace /path/to/your/workspace.",
   });
 }
 
@@ -409,7 +409,7 @@ export function findMission(missionsRoot: string, identifier: string): MissionIn
         throw new ScopeCliError({
           fact: `Directory "${identifier}" exists at ${candidate} but contains no ${NODE_FILE_PRECEDENCE.join(" or ")}.`,
           consequence: "It is not a declared mission. Command did not run.",
-          action: "Create it as a mission with: rig scope mission create " + identifier + ". Or add a SPEC.md if the folder is intended to be a mission.",
+          action: "Create it as a mission with: SoftwareTeam scope mission create " + identifier + ". Or add a SPEC.md if the folder is intended to be a mission.",
         });
       }
       return buildMissionInfo(missionsRoot, candidate);
@@ -418,7 +418,7 @@ export function findMission(missionsRoot: string, identifier: string): MissionIn
   throw new ScopeCliError({
     fact: `Mission "${identifier}" not found under ${missionsRoot}.`,
     consequence: "Command did not run.",
-    action: "List available missions with: rig scope mission ls",
+    action: "List available missions with: SoftwareTeam scope mission ls",
   });
 }
 
@@ -562,7 +562,7 @@ export function findSlice(
   throw new ScopeCliError({
     fact: `Slice "${slicePath}" not found.`,
     consequence: "Command did not run.",
-    action: "Check the path. List slices in a mission with: rig scope slice ls --mission <name>",
+    action: "Check the path. List slices in a mission with: SoftwareTeam scope slice ls --mission <name>",
   });
 }
 

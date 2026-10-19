@@ -26,7 +26,7 @@ describe("shipped Slack app manifest — canonical sources", () => {
     expect(setOf(bundle.manifest.oauth_config.scopes.bot)).toEqual(scopeSet);
   });
 
-  it("includes every scope the connector's default config makes `rig slack verify` check", () => {
+  it("includes every scope the connector's default config makes `SoftwareTeam slack verify` check", () => {
     for (const scope of DEFAULT_CONFIG.requiredScopes) expect(scopeSet.has(scope)).toBe(true);
   });
 
@@ -65,9 +65,9 @@ describe("shipped Slack app manifest — canonical sources", () => {
     expect(bundle.url.slice(prefix.length)).not.toMatch(/[\s\n:]/);
   });
 
-  it("carries no private instance, host, rig, seat or workspace identifiers", () => {
+  it("carries no private instance, host, softwareTeam, seat or workspace identifiers", () => {
     const text = bundle.yaml + bundle.url + JSON.stringify(bundle);
-    for (const forbidden of [/esoteric/i, /v-openrig/i, /mm2/i, /openrig-build/i, /\/Users\//, /kernel/i, /@[a-z0-9-]+\b/i, /\bT0[A-Z0-9]{6,}\b/]) {
+    for (const forbidden of [/esoteric/i, /v-softwareteam/i, /mm2/i, /softwareteam-build/i, /\/Users\//, /kernel/i, /@[a-z0-9-]+\b/i, /\bT0[A-Z0-9]{6,}\b/]) {
       expect(text).not.toMatch(forbidden);
     }
   });
@@ -106,7 +106,7 @@ describe("shipped Slack app manifest — mutation controls", () => {
 describe("GET /slack/manifest (read-only route)", () => {
   it("returns the same object the constructor builds", async () => {
     const app = new Hono();
-    app.route("/", gatewayRoutes({ home: "/nonexistent-openrig-home-for-test" }));
+    app.route("/", gatewayRoutes({ home: "/nonexistent-softwareteam-home-for-test" }));
     const res = await app.request("/slack/manifest");
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(JSON.parse(JSON.stringify(buildSlackAppManifest())));
@@ -114,7 +114,7 @@ describe("GET /slack/manifest (read-only route)", () => {
 
   it("is GET-only", async () => {
     const app = new Hono();
-    app.route("/", gatewayRoutes({ home: "/nonexistent-openrig-home-for-test" }));
+    app.route("/", gatewayRoutes({ home: "/nonexistent-softwareteam-home-for-test" }));
     const res = await app.request("/slack/manifest", { method: "POST" });
     expect(res.status).toBe(404);
   });

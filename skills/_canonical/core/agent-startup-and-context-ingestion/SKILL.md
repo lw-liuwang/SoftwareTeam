@@ -1,11 +1,11 @@
 ---
 name: agent-startup-and-context-ingestion
-description: Use when designing or auditing how an agent becomes useful after launch — AGENTS.md overlays, role files, skills, rig specs, workflow specs, startup checklists, refocus messages, "rig context" surface. Covers the 4 failure modes that make startup context fail (old rig spec misses current operating mode; current agents never told about new guidance; startup file as dumping ground; orchestrator transmits implementation without preserving product intent).
+description: Use when designing or auditing how an agent becomes useful after launch — AGENTS.md overlays, role files, skills, SoftwareTeam specs, workflow specs, startup checklists, refocus messages, "SoftwareTeam context" surface. Covers the 4 failure modes that make startup context fail (old SoftwareTeam spec misses current operating mode; current agents never told about new guidance; startup file as dumping ground; orchestrator transmits implementation without preserving product intent).
 metadata:
   cli_surfaces_referenced:
     - context
     - whoami
-  openrig:
+  softwareteam:
     stage: factory-approved
     sibling_skills:
       - claude-compaction-restore
@@ -18,8 +18,8 @@ metadata:
 # Agent Startup and Context Ingestion
 
 How an agent becomes useful after launch: **AGENTS.md overlays, role
-files, skills, rig specs, workflow specs, startup checklists, refocus
-messages**, and the current `rig context` retrieval and profile surface.
+files, skills, SoftwareTeam specs, workflow specs, startup checklists, refocus
+messages**, and the current `SoftwareTeam context` retrieval and profile surface.
 
 It is the current concrete startup path inside the broader
 context-engineering-and-retrieval primitive. Startup gets a seat into
@@ -37,7 +37,7 @@ is scattered or stale, agents execute the wrong thing very efficiently.
 - Refreshing a seat that's been running on stale guidance
 - Auditing whether agents got the current operating mode (not just what's in old files)
 - Designing the orchestrator → next-agent context-transmission shape
-- Building a startup map for OpenRig-building rigs
+- Building a startup map for SoftwareTeam-building SoftwareTeams
 
 ## Don't use this when
 
@@ -47,17 +47,17 @@ is scattered or stale, agents execute the wrong thing very efficiently.
 
 ## Failure modes (4)
 
-1. **A new agent starts from an old rig spec and misses the current operating mode.** Specs go stale; current state must be visible at startup, not just historical config.
+1. **A new agent starts from an old SoftwareTeam spec and misses the current operating mode.** Specs go stale; current state must be visible at startup, not just historical config.
 2. **Guidance is written to a file that future agents read, but current agents are never told.** File edits don't propagate to running sessions. Cultural rollout (broadcast + fleet-changes-feed) is needed alongside file edits.
 3. **A startup file becomes a dumping ground and loses the map-to-canonical-sources role.** Startup should point AT canonical sources; it shouldn't TRY to be one.
 4. **The orchestrator transmits implementation instructions without preserving product intent.** Instructions decay; intent travels.
 
 ## Task-scoped startup
 
-Run `rig whoami --json`, then resolve `project.yaml -> mission.yaml -> active
+Run `SoftwareTeam whoami --json`, then resolve `project.yaml -> mission.yaml -> active
 slice.yaml -> selected component or wave map -> addressed context`. The complete
 lookup and precedence rule is `docs/reference/product-journey-sdlc.md#resolve-the-selected-path`
-(installed: `$OPENRIG_HOME/reference/product-journey-sdlc.md#resolve-the-selected-path`).
+(installed: `$SOFTWARETEAM_HOME/reference/product-journey-sdlc.md#resolve-the-selected-path`).
 Read the selected addresses and source needed for this task; skills available in
 your profile are capabilities, not a mandatory reading list. No composition means
 light Part A. Role names and idle seats add no gates. Explicit rigor and authored
@@ -81,7 +81,7 @@ When a seat's startup is artifact-backed mental-model rebuild (active-work
 reentry case, distinct from reusable Agent Starters / priming packs):
 
 - See the **cross-runtime restore/reentry packet standard v0**
-- Source-trust ranking applies: **`rig whoami` > target rigspec > bounded latest transcript > full transcript > touched-files > `restore-summary.json`**
+- Source-trust ranking applies: **`SoftwareTeam whoami` > target software-team-spec > bounded latest transcript > full transcript > touched-files > `restore-summary.json`**
 
 ## Memory surfaces consumed at startup
 
@@ -92,8 +92,8 @@ old packet does not select the work.
 
 Use the task-scoped startup path above to resolve current authority. Permission
 to read an input is not permission to rewrite its source; writes follow the
-active project/rig policy and assignment. Load
-`skills/openrig-operating-model/SKILL.md` with `rig context get` when deciding
+active project/SoftwareTeam policy and assignment. Load
+`skills/softwareteam-operating-model/SKILL.md` with `SoftwareTeam context get` when deciding
 where durable context belongs.
 
 ## Startup files vs skills (the distinction)
@@ -102,20 +102,20 @@ Per `agent-startup-guide.md` (product reference doc) and the team handbook:
 
 | Startup files | Skills |
 |---|---|
-| Rig-specific, role-specific identity | Reusable SOPs / methodology / knowledge |
-| Tell agent WHO it is, WHAT it's working on, HOW this team operates | Tell agent HOW to do something (transferable across rigs) |
-| Examples: `role.md`, `CULTURE.md`, `startup/context.md` | Examples: `openrig-user`, `test-driven-development`, `vault-user` |
-| Authored per-rig | Authored once, used everywhere |
+| SoftwareTeam-specific, role-specific identity | Reusable SOPs / methodology / knowledge |
+| Tell agent WHO it is, WHAT it's working on, HOW this team operates | Tell agent HOW to do something (transferable across SoftwareTeams) |
+| Examples: `role.md`, `CULTURE.md`, `startup/context.md` | Examples: `softwareteam-user`, `test-driven-development`, `vault-user` |
+| Authored per-SoftwareTeam | Authored once, used everywhere |
 
 Don't put skill content in startup files. Don't put identity content
-in skills. The 7-layer additive startup model (agent / profile / rig /
+in skills. The 7-layer additive startup model (agent / profile / SoftwareTeam /
 culture / pod / member / operator) handles the layering.
 
 ## See also
 
 - `mission-slice-sop` — load when starting assigned mission/slice work; the light artifact and handoff procedure for SPEC.md, NOTES.md, PROGRESS.md and proof. It does not choose the SDLC for the task.
-- `forming-an-openrig-mental-model` skill — orientation for new agents
+- `forming-an-softwareteam-mental-model` skill — orientation for new agents
 - `session-compaction-and-restore` skill — restore-time startup ingestion
 - `agent-starters` skill — reusable starter manifests that compose startup context
-- `openrig-operating-model` skill — placement and authority of durable context
-- `openrig/docs/reference/agent-startup-guide.md` (product reference doc; not a skill) — the 7-layer additive startup model + delivery hints
+- `softwareteam-operating-model` skill — placement and authority of durable context
+- `softwareteam/docs/reference/agent-startup-guide.md` (product reference doc; not a skill) — the 7-layer additive startup model + delivery hints

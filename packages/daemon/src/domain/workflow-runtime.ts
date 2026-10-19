@@ -43,7 +43,7 @@ import {
 } from "./workflow-projector.js";
 import { loadHostRegistry } from "./hosts/hosts-registry-reader.js";
 import type { HostRegistryLookupFn } from "./workflow-validator.js";
-import { WorkflowSpecCache, WorkflowSpecError, bindRowToRig } from "./workflow-spec-cache.js";
+import { WorkflowSpecCache, WorkflowSpecError, bindRowToSoftwareTeam } from "./workflow-spec-cache.js";
 import { WorkflowStepTrailLog } from "./workflow-step-trail-log.js";
 import {
   type SeatLivenessCheckFn,
@@ -54,8 +54,8 @@ import type { WatchdogJobsRepository } from "./watchdog-jobs-repository.js";
 import { disarmAllWorkflowKeepalives, disarmWorkflowKeepalive, ensureWorkflowKeepaliveArmed } from "./workflow-keepalive-arming.js";
 import { evaluateStepDeadline, type WorkflowDeadlineVerdict } from "./workflow-deadline.js";
 import {
-  rigDeclaresRole,
-  rigMemberExists,
+  softwareTeamDeclaresRole,
+  softwareTeamMemberExists,
   roleResolutionContext,
   tryResolveRoleByCapability,
 } from "./workflow-role-context.js";
@@ -107,13 +107,13 @@ export interface InstantiateInput {
    */
   entryOwnerSession?: string;
   /**
-   * OPR.0.4.6.FAC1 (AC-1): the rig this instance binds to. Overrides
-   * the spec's `target.rig` DEFAULT; the effective binding
-   * (`targetRig ?? spec.target.rig ?? null`) persists as
-   * `WorkflowInstance.boundRig` and scopes role-capability resolution.
+   * OPR.0.4.6.FAC1 (AC-1): the softwareTeam this instance binds to. Overrides
+   * the spec's `target.software_team` DEFAULT; the effective binding
+   * (`targetSoftwareTeam ?? spec.target.software_team ?? null`) persists as
+   * `WorkflowInstance.boundSoftwareTeam` and scopes role-capability resolution.
    * Absent AND no spec default = unbound (today's behavior).
    */
-  targetRig?: string;
+  targetSoftwareTeam?: string;
   /**
    * The project / mission / slice (and free-form tags) this instance works
    * for. Normalized here (a reserved or contradicting tag throws
@@ -137,15 +137,15 @@ export interface InstantiateResult {
   entryQitemId: string;
   entryOwnerSession: string;
   /**
-   * OPR.0.4.6.FAC1 (arch ruling 2026-07-07, target-rig zero-regression):
+   * OPR.0.4.6.FAC1 (arch ruling 2026-07-07, target-softwareTeam zero-regression):
    * loud instantiate-time advisories. Non-fatal notices the operator MUST
    * see. TWO producers into this one list: (1) the spec-default degrade —
-   * when a spec's `target.rig` DEFAULT (provenance = spec author's hint,
-   * not an operator `--rig` demand) names an unregistered rig, the
+   * when a spec's `target.software_team` DEFAULT (provenance = spec author's hint,
+   * not an operator `--software-team` demand) names an unregistered softwareTeam, the
    * instance degrades to UNBOUND (routes via preferred_targets,
    * byte-identical pre-FAC-1) with an advisory here rather than a
    * hard-fail; (2) the OPR.0.4.6.FAC3 member-exists probe — a declared
-   * preferred_target naming a registered rig but a nonexistent member.
+   * preferred_target naming a registered softwareTeam but a nonexistent member.
    * Always present (empty when nothing to say); route + CLI surface it
    * loudly.
    */
@@ -211,8 +211,8 @@ export class WorkflowRuntime {
       exceptionConfigurationSource(compiled.sources.find(s => s.kind === "mission")!.path, compiled.graphSource)) } : {}) };
   }
 
-  private readExceptionReadiness(spec: WorkflowSpec, source: string, boundRig?: string | null, instanceId?: string) {
-    return inspectExceptionReadiness({ db: this.db, spec, source, boundRig, instanceId,
+  private readExceptionReadiness(spec: WorkflowSpec, source: string, boundSoftwareTeam?: string | null, instanceId?: string) {
+    return inspectExceptionReadiness({ db: this.db, spec, source, boundSoftwareTeam, instanceId,
       hostDefault: () => this.exceptionDial?.hostDefault() ?? null, humanFallbackSeat: this.exceptionDial?.humanFallbackSeat });
   }
 
@@ -232,7 +232,7 @@ export class WorkflowRuntime {
     const row = this.specCache.getForInstance(instance);
     if (!row) return null;
     return this.readExceptionReadiness(row.spec, exceptionConfigurationSource(row.sourcePath,
-      instance.lifecycleBinding?.graphSource as LifecycleCompilation["graphSource"] | undefined), instance.boundRig, instanceId);
+      instance.lifecycleBinding?.graphSource as LifecycleCompilation["graphSource"] | undefined), instance.boundSoftwareTeam, instanceId);
   }
 
   exceptionObligations(instanceId: string) {
@@ -243,7 +243,7 @@ export class WorkflowRuntime {
         const q = this.queueRepo.getById(row.qitem_id)!;
         return { qitemId: q.qitemId, ownerSession: q.destinationSession, state: q.state,
           evidenceRef: q.evidenceRef, tags: q.tags, handedOffFrom: q.handedOffFrom,
-          inspectCommand: "rig queue show " + q.qitemId + " --full --json" };
+          inspectCommand: "SoftwareTeam queue show " + q.qitemId + " --full --json" };
       });
   }
 
@@ -253,7 +253,7 @@ export class WorkflowRuntime {
     rootObjective: string;
     createdBySession: string;
     entryOwnerSession?: string;
-    targetRig?: string;
+    targetSoftwareTeam?: string;
   }): Promise<InstantiateResult & { compilation: LifecycleCompilation }> {
     if (this.recoverOperation(input.operationKey)?.kind === "revision") {
       throw new WorkflowProjectorError("lifecycle_operation_conflict", "This key already records a graph revision; inspect workflow operation before choosing a new creation key.");
@@ -271,7 +271,7 @@ export class WorkflowRuntime {
       rootObjective: input.rootObjective,
       createdBySession: input.createdBySession,
       entryOwnerSession: input.entryOwnerSession,
-      targetRig: input.targetRig,
+      targetSoftwareTeam: input.targetSoftwareTeam,
       compiledLifecycle: compilation,
       lifecycle: {
         operationKey: input.operationKey,
@@ -299,17 +299,17 @@ export class WorkflowRuntime {
     workflowName: string,
     workflowVersion: string,
     exceptionClass: WorkflowExceptionClass,
-    /** OPR.0.4.6.FAC1 (arch Q3): the instance's bound rig — dial
+    /** OPR.0.4.6.FAC1 (arch Q3): the instance's bound softwareTeam — dial
      *  position 3 (orchestrator-role) then resolves capability-aware
-     *  on that rig when the role declares no preferred_targets.
+     *  on that softwareTeam when the role declares no preferred_targets.
      *  Absent/null = the shipped fleet-blind string-pick only. */
-    boundRig?: string | null,
+    boundSoftwareTeam?: string | null,
   ): ExceptionRoute | null {
     const stored = this.specCache.getByNameVersion(workflowName, workflowVersion);
     if (!stored) return null;
-    const specRow = bindRowToRig(stored, boundRig ?? null);
+    const specRow = bindRowToSoftwareTeam(stored, boundSoftwareTeam ?? null);
     const spec = specRow.spec;
-    const roleCtx = roleResolutionContext(this.db, boundRig ?? null);
+    const roleCtx = roleResolutionContext(this.db, boundSoftwareTeam ?? null);
     return resolveExceptionRoute({
       exceptionClass,
       spec,
@@ -470,77 +470,77 @@ export class WorkflowRuntime {
       }
     }
 
-    // OPR.0.4.6.FAC1 (AC-1) + arch ruling 2026-07-07 (target-rig
+    // OPR.0.4.6.FAC1 (AC-1) + arch ruling 2026-07-07 (target-softwareTeam
     // zero-regression, "Option A refined by PROVENANCE"): resolve the
-    // instance's rig binding by SPLITTING on the provenance of the rig
+    // instance's softwareTeam binding by SPLITTING on the provenance of the softwareTeam
     // name, because the two sources carry different intent:
     //
-    //   - Operator `input.targetRig` (explicit `--rig X`) is AUTHORITATIVE:
-    //     an explicit instantiation demand. Unknown X → `bound_rig_unknown`
+    //   - Operator `input.targetSoftwareTeam` (explicit `--software-team X`) is AUTHORITATIVE:
+    //     an explicit instantiation demand. Unknown X → `bound_software_team_unknown`
     //     HARD-FAIL, loud, before any mutation (unchanged built behavior).
-    //   - Spec-default `spec.target.rig` is ADVISORY: the spec author's
+    //   - Spec-default `spec.target.software_team` is ADVISORY: the spec author's
     //     default HINT, authored under the pre-FAC-1 regime where the field
     //     was IGNORED at runtime (display-only). Unknown → DEGRADE to
     //     UNBOUND + a LOUD advisory (not silent, not a hard-fail). This
     //     preserves AC-1 zero-regression for shipped/example specs (e.g.
-    //     `conveyor` declares `target.rig: conveyor` AND routes every step
+    //     `conveyor` declares `target.software_team: conveyor` AND routes every step
     //     via preferred_targets — degrading to unbound routes exactly as
-    //     pre-FAC-1). A spec that genuinely needs a bound rig still fails
+    //     pre-FAC-1). A spec that genuinely needs a bound softwareTeam still fails
     //     loudly, per-step, at the right granularity (entry →
     //     `entry_owner_unresolved` at instantiate; later role-only step →
     //     `next_owner_unresolved` at projection). Nothing degrades to
     //     silence — it degrades to per-step honest failure with a heads-up.
     //   - Neither set → unbound (byte-identical today's behavior).
     //
-    // name→id re-resolves fresh at each later resolution site, so a rig
+    // name→id re-resolves fresh at each later resolution site, so a softwareTeam
     // vanishing mid-run fails loud there (WF-5 catches it).
-    const registeredRigNames = (): string[] =>
-      (this.db.prepare(`SELECT DISTINCT name FROM rigs ORDER BY name`).all() as Array<{ name: string }>).map(
+    const registeredSoftwareTeamNames = (): string[] =>
+      (this.db.prepare(`SELECT DISTINCT name FROM software_teams ORDER BY name`).all() as Array<{ name: string }>).map(
         (r) => r.name,
       );
-    const rigIsRegistered = (name: string): boolean =>
-      this.db.prepare(`SELECT id FROM rigs WHERE name = ? LIMIT 1`).get(name) !== undefined;
+    const softwareTeamIsRegistered = (name: string): boolean =>
+      this.db.prepare(`SELECT id FROM software_teams WHERE name = ? LIMIT 1`).get(name) !== undefined;
 
     const advisories: string[] = [];
-    let boundRig: string | null;
-    if (input.targetRig != null) {
+    let boundSoftwareTeam: string | null;
+    if (input.targetSoftwareTeam != null) {
       // AUTHORITATIVE path: honor the operator's explicit demand or fail loud.
-      if (!rigIsRegistered(input.targetRig)) {
-        const registered = registeredRigNames();
+      if (!softwareTeamIsRegistered(input.targetSoftwareTeam)) {
+        const registered = registeredSoftwareTeamNames();
         throw new WorkflowProjectorError(
-          "bound_rig_unknown",
-          `cannot instantiate: target rig "${input.targetRig}" is not a registered rig on this daemon. Registered rigs: ${
+          "bound_software_team_unknown",
+          `cannot instantiate: target softwareTeam "${input.targetSoftwareTeam}" is not a registered SoftwareTeam on this daemon. Registered softwareTeams: ${
             registered.length > 0 ? registered.join(", ") : "(none)"
-          }. Check \`rig ps\`, create/import the rig first, or instantiate with a different --rig.`,
-          { specPath: input.specPath, targetRig: input.targetRig, registeredRigs: registered },
+          }. Check \`SoftwareTeam ps\`, create/import the SoftwareTeam first, or instantiate with a different --software-team.`,
+          { specPath: input.specPath, targetSoftwareTeam: input.targetSoftwareTeam, registeredSoftwareTeams: registered },
         );
       }
-      boundRig = input.targetRig;
-    } else if (specRow.spec.target?.rig != null) {
+      boundSoftwareTeam = input.targetSoftwareTeam;
+    } else if (specRow.spec.target?.software_team != null) {
       // ADVISORY path: the spec author's DEFAULT hint. Unknown → degrade
       // to unbound with a loud advisory (never a hard-fail on a default).
-      const specDefaultRig = specRow.spec.target.rig;
-      if (!rigIsRegistered(specDefaultRig)) {
-        const registered = registeredRigNames();
-        boundRig = null;
+      const specDefaultSoftwareTeam = specRow.spec.target.software_team;
+      if (!softwareTeamIsRegistered(specDefaultSoftwareTeam)) {
+        const registered = registeredSoftwareTeamNames();
+        boundSoftwareTeam = null;
         advisories.push(
-          `workflow spec default target.rig "${specDefaultRig}" is not a registered rig on this daemon — instantiating UNBOUND. ` +
+          `workflow spec default target.software_team "${specDefaultSoftwareTeam}" is not a registered SoftwareTeam on this daemon — instantiating UNBOUND. ` +
             `Steps route via their declared preferred_targets; any role-only step (no preferred_targets) will fail per-role at the right time ` +
-            `(entry at instantiate, later steps at projection). Pass --rig <name> to bind explicitly. ` +
-            `Registered rigs: ${registered.length > 0 ? registered.join(", ") : "(none)"}.`,
+            `(entry at instantiate, later steps at projection). Pass --software-team <name> to bind explicitly. ` +
+            `Registered softwareTeams: ${registered.length > 0 ? registered.join(", ") : "(none)"}.`,
         );
       } else {
-        boundRig = specDefaultRig;
+        boundSoftwareTeam = specDefaultSoftwareTeam;
       }
     } else {
-      boundRig = null;
+      boundSoftwareTeam = null;
     }
 
-    // `member@{rig}` in preferred_targets resolves against the bound rig.
+    // `member@{softwareTeam}` in preferred_targets resolves against the bound softwareTeam.
     // The instance row stores that binding, so every later read of this
-    // instance's spec expands the same way. With no bound rig the target
+    // instance's spec expands the same way. With no bound softwareTeam the target
     // stays literal and is handled at the hop that selects it.
-    specRow = bindRowToRig(specRow, boundRig);
+    specRow = bindRowToSoftwareTeam(specRow, boundSoftwareTeam);
 
     // OPR.0.4.6.WF2 FR-2: static harness-pin reconciliation for EVERY
     // pinned step at instantiate (the earliest knowable moment against
@@ -552,7 +552,7 @@ export class WorkflowRuntime {
     // shipped harness/preferred-target reconciliation for steps whose
     // role DECLARES targets (spec-only facts — sound to check now); a
     // BOUND instance's role-only step (zero declared targets) is
-    // deliberately SKIPPED here — a factory rig warms up, and that
+    // deliberately SKIPPED here — a factory softwareTeam warms up, and that
     // step's liveness is its own projection-time concern where
     // loud-with-candidates + WF-5 own the failure. The structural
     // zero-role-coverage check below is the only instantiate-time
@@ -574,10 +574,10 @@ export class WorkflowRuntime {
           const gateRoleTargets = gateIsHuman
             ? declaredTargetsOf(step.actor_role)
             : declaredTargetsOf(step.gate.target);
-          if (boundRig !== null && gateRoleTargets === 0) continue; // role-only on a bound rig: projection resolves
+          if (boundSoftwareTeam !== null && gateRoleTargets === 0) continue; // role-only on a bound softwareTeam: projection resolves
           compileGate(specRow.spec, step, runtimeOf);
         } else if (!(step === entryStep && input.entryOwnerSession)) {
-          if (boundRig !== null && declaredTargetsOf(step.actor_role) === 0) continue;
+          if (boundSoftwareTeam !== null && declaredTargetsOf(step.actor_role) === 0) continue;
           resolveDefaultOwner(specRow.spec, step, runtimeOf);
         }
       }
@@ -586,12 +586,12 @@ export class WorkflowRuntime {
     // OPR.0.4.6.FAC1 (ARCH Q2): the STRUCTURAL role-coverage check for
     // a BOUND instance — hard-fail ONLY when a step's role (or a
     // handler-gate's target role) with zero declared preferred_targets
-    // is declared by ZERO seats on the bound rig, at ANY lifecycle
+    // is declared by ZERO seats on the bound softwareTeam, at ANY lifecycle
     // state. Existence, not liveness: catches typos and missing role
     // attributes at instantiate WITHOUT eager live resolution. The
     // entry step is included — it resolves live below anyway, but a
     // structural miss reads better as this named error.
-    if (boundRig !== null) {
+    if (boundSoftwareTeam !== null) {
       for (const step of specRow.spec.steps) {
         const rolesToCover: string[] = [];
         if (declaredTargetsOf(step.actor_role) === 0) rolesToCover.push(step.actor_role);
@@ -599,11 +599,11 @@ export class WorkflowRuntime {
           rolesToCover.push(step.gate.target);
         }
         for (const roleName of rolesToCover) {
-          if (!rigDeclaresRole(this.db, boundRig, roleName)) {
+          if (!softwareTeamDeclaresRole(this.db, boundSoftwareTeam, roleName)) {
             throw new WorkflowProjectorError(
-              "bound_rig_role_uncovered",
-              `cannot instantiate: step "${step.id}" needs role "${roleName}" but NO seat on rig "${boundRig}" declares that role (at any lifecycle state). Add a member with role ${roleName} to rig ${boundRig} (rig add), declare role: ${roleName} on an existing member, or add preferred_targets to the role in the spec. (A declared-but-not-yet-running seat is fine — liveness is checked when the step projects.)`,
-              { specPath: input.specPath, stepId: step.id, role: roleName, boundRig },
+              "bound_software_team_role_uncovered",
+              `cannot instantiate: step "${step.id}" needs role "${roleName}" but NO seat on softwareTeam "${boundSoftwareTeam}" declares that role (at any lifecycle state). Add a member with role ${roleName} to softwareTeam ${boundSoftwareTeam} (SoftwareTeam add), declare role: ${roleName} on an existing member, or add preferred_targets to the role in the spec. (A declared-but-not-yet-running seat is fine — liveness is checked when the step projects.)`,
+              { specPath: input.specPath, stepId: step.id, role: roleName, boundSoftwareTeam },
             );
           }
         }
@@ -611,10 +611,10 @@ export class WorkflowRuntime {
     }
 
     // OPR.0.4.6.FAC3 (FR-5): the member-exists instantiate ADVISORY —
-    // catch a mis-routed destination (a typo'd/stale member on a rig
+    // catch a mis-routed destination (a typo'd/stale member on a softwareTeam
     // this daemon DOES know) loudly at the earliest knowable moment,
     // never silently orphaned. ADVISORY-NEVER-DENY: instantiate always
-    // proceeds, and the queue transport gate stays rig-exists-only —
+    // proceeds, and the queue transport gate stays software-team-exists-only —
     // hardening it to member-exists would gate EVERY queue write and
     // break legitimate non-managed destinations (adopted seats, human
     // seats, MH-3-forwarded items). A read-only pre-txn pass over
@@ -627,7 +627,7 @@ export class WorkflowRuntime {
     // queue-gate archetype: human-seat classifier BEFORE parse (the
     // identical predicate the transport uses) → non-canonical
     // (raw/adopted destinations are legitimate; the inventory cannot
-    // vouch for them) → unregistered rig (the transport already rejects
+    // vouch for them) → unregistered softwareTeam (the transport already rejects
     // those loudly at queue-write — no double advisory) → member probe
     // (existence at ANY lifecycle state/kind; liveness is projection's
     // business). ONE aggregated advisory per unique unknown target,
@@ -635,7 +635,7 @@ export class WorkflowRuntime {
     {
       const unknownTargets = new Map<
         string,
-        { rig: string; declaredBy: Array<{ stepId: string; role: string }> }
+        { softwareTeam: string; declaredBy: Array<{ stepId: string; role: string }> }
       >();
       const seenPairs = new Set<string>();
       const probeRoleTargets = (roleName: string, stepId: string): void => {
@@ -643,10 +643,10 @@ export class WorkflowRuntime {
           if (isHumanSeatSession(target)) continue;
           const parsed = parseSessionName(target);
           if (parsed.kind !== "canonical") continue;
-          if (!rigIsRegistered(parsed.rig)) continue;
+          if (!softwareTeamIsRegistered(parsed.softwareTeam)) continue;
           let memberExists: boolean;
           try {
-            memberExists = rigMemberExists(this.db, parsed.rig, target);
+            memberExists = softwareTeamMemberExists(this.db, parsed.softwareTeam, target);
           } catch {
             // ADVISORY-NEVER-THROW (VM-caught, run-1): the probe rides the
             // full inventory projection, which can error on a
@@ -660,7 +660,7 @@ export class WorkflowRuntime {
           const pairKey = JSON.stringify([target, stepId, roleName]);
           if (seenPairs.has(pairKey)) continue;
           seenPairs.add(pairKey);
-          const entry = unknownTargets.get(target) ?? { rig: parsed.rig, declaredBy: [] };
+          const entry = unknownTargets.get(target) ?? { softwareTeam: parsed.softwareTeam, declaredBy: [] };
           entry.declaredBy.push({ stepId, role: roleName });
           unknownTargets.set(target, entry);
         }
@@ -671,14 +671,14 @@ export class WorkflowRuntime {
           probeRoleTargets(step.gate.target, step.id);
         }
       }
-      for (const [target, { rig, declaredBy }] of unknownTargets) {
+      for (const [target, { softwareTeam, declaredBy }] of unknownTargets) {
         const declares = declaredBy
           .map((d) => `step "${d.stepId}" (role "${d.role}")`)
           .join(", ");
         advisories.push(
-          `preferred target "${target}" names rig "${rig}" (registered) but NO member of that rig has this coordinate — declared by ${declares}. ` +
+          `preferred target "${target}" names softwareTeam "${softwareTeam}" (registered) but NO member of that SoftwareTeam has this coordinate — declared by ${declares}. ` +
             `Work routed there will not be claimed; it will surface as a stuck exception. ` +
-            `Check the member name against \`rig ps\`, or add the member to rig "${rig}".`,
+            `Check the member name against \`SoftwareTeam ps\`, or add the member to softwareTeam "${softwareTeam}".`,
         );
       }
     }
@@ -691,7 +691,7 @@ export class WorkflowRuntime {
     // packet is actually created now (the first routing decision), so
     // this is resolve-once, not eager pre-resolution. A tier-3 failure
     // here re-throws under the entry error code, candidates preserved.
-    const entryRoleCtx = roleResolutionContext(this.db, boundRig);
+    const entryRoleCtx = roleResolutionContext(this.db, boundSoftwareTeam);
     let entryGate: GateCompileResult | null;
     let entryOwner: string | null;
     try {
@@ -742,9 +742,9 @@ export class WorkflowRuntime {
         // projector resolves the correct step on the first project()
         // call without any trail-based inference.
         currentStepId: entryStep.id,
-        // OPR.0.4.6.FAC1: the resolved rig binding persists with the
+        // OPR.0.4.6.FAC1: the resolved softwareTeam binding persists with the
         // instance row (same txn as the entry packet).
-        boundRig,
+        boundSoftwareTeam,
         scope,
         lifecycle: input.lifecycle
           ? {
@@ -1165,7 +1165,7 @@ export class WorkflowRuntime {
         spec,
         step,
         (session) => nodeRuntimeOf(this.db, session),
-        roleResolutionContext(this.db, instance.boundRig),
+        roleResolutionContext(this.db, instance.boundSoftwareTeam),
       );
       if (!owner) {
         throw new WorkflowProjectorError(
@@ -1193,7 +1193,7 @@ export class WorkflowRuntime {
             `step: ${step.id} (role ${step.actor_role}) — re-driven from the recorded failure; completed steps are NOT re-run\n` +
             `resumed by: ${input.actorSession} (redrive #${(instance.resumeCount ?? 0) + 1})\n` +
             (input.decision ? `decision: ${input.decision}\n` : "") +
-            `history: rig workflow trace ${instance.instanceId}`,
+            `history: SoftwareTeam workflow trace ${instance.instanceId}`,
           instanceId: instance.instanceId,
           packetId: redrivePacketId,
           ownerSession: owner,
@@ -1403,7 +1403,7 @@ export class WorkflowRuntime {
       if (!specRow) throw new WorkflowProjectorError("spec_not_cached", `workflow spec ${instance.workflowName}@${instance.workflowVersion} is not cached`);
       const step = specRow.spec.steps.find((candidate) => candidate.id === occurrence.stepId);
       if (!step) throw new WorkflowProjectorError("resume_step_missing_from_spec", `failed step "${occurrence.stepId}" no longer exists`, { instanceId: instance.instanceId, stepId: occurrence.stepId });
-      const owner = resolveDefaultOwner(specRow.spec, step, (session) => nodeRuntimeOf(this.db, session), roleResolutionContext(this.db, instance.boundRig));
+      const owner = resolveDefaultOwner(specRow.spec, step, (session) => nodeRuntimeOf(this.db, session), roleResolutionContext(this.db, instance.boundSoftwareTeam));
       if (!owner) throw new WorkflowProjectorError("next_owner_unresolved", `cannot resolve owner for failed step "${step.id}"`);
       const redrivePacketId = newQitemId();
       const created = this.queueRepo.createWithinTransaction({
@@ -1706,13 +1706,13 @@ export class WorkflowRuntime {
         });
       }
 
-      // (6) the shipped event shape {rigName, cause} extended ADDITIVELY.
+      // (6) the shipped event shape {softwareTeamName, cause} extended ADDITIVELY.
       register(
         this.eventBus.persistWithinTransaction({
           type: "workflow.routing_table_changed",
           // OPR.0.4.6.FAC1 (display-only): the instance's actual bound
-          // rig wins over the spec's default label.
-          rigName: instance.boundRig ?? specRow?.targetRig ?? "",
+          // softwareTeam wins over the spec's default label.
+          softwareTeamName: instance.boundSoftwareTeam ?? specRow?.targetSoftwareTeam ?? "",
           cause: "workflow_route",
           instanceId: instance.instanceId,
           stepId: selectedStepId,

@@ -2,7 +2,7 @@ import { inventoryCaptureOptions, type ShadowCapture } from "../domain/shadow-ca
 import { Hono } from "hono";
 import { observeInventoryHandler } from "../domain/request-phase-observer.js";
 import { getSelfHostId } from "../domain/hosts/fanout-contract.js";
-import type { RigRepository } from "../domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "../domain/software-team-repository.js";
 import type { SessionRegistry } from "../domain/session-registry.js";
 import type { NodeLauncher } from "../domain/node-launcher.js";
 import type { CmuxAdapter } from "../adapters/cmux.js";
@@ -21,11 +21,11 @@ import {
   getNodeDetailWithContext,
 } from "../domain/node-inventory.js";
 import type { ContextUsageStore } from "../domain/context-usage-store.js";
-import type { RigLifecycleService } from "../domain/rig-lifecycle-service.js";
+import type { SoftwareTeamLifecycleService } from "../domain/software-team-lifecycle-service.js";
 import type { SessionTransport } from "../domain/session-transport.js";
 import type { PreviewRateLimiter } from "../domain/preview/preview-rate-limiter.js";
 import type { ClaimService } from "../domain/claim-service.js";
-import type { PodRigInstantiator } from "../domain/rigspec-instantiator.js";
+import type { PodSoftwareTeamInstantiator } from "../domain/software-team-spec-instantiator.js";
 import { convergeOp } from "../domain/topology-converge.js";
 import type { RestoreOrchestrator } from "../domain/restore-orchestrator.js";
 import { launchStatusIsRunning } from "../domain/restore-orchestrator.js";
@@ -58,7 +58,7 @@ export const sessionAdminRoutes = new Hono();
 function getDeps(c: { get: (key: string) => unknown }) {
   return {
     shadowCapture: c.get("shadowCapture" as never) as ShadowCapture | undefined,
-    rigRepo: c.get("rigRepo" as never) as RigRepository,
+    softwareTeamRepo: c.get("softwareTeamRepo" as never) as SoftwareTeamRepository,
     sessionRegistry: c.get("sessionRegistry" as never) as SessionRegistry,
     nodeLauncher: c.get("nodeLauncher" as never) as NodeLauncher,
     tmuxAdapter: c.get("tmuxAdapter" as never) as TmuxAdapter,
@@ -66,13 +66,13 @@ function getDeps(c: { get: (key: string) => unknown }) {
     agentActivityStore: c.get("agentActivityStore" as never) as AgentActivityStore | undefined,
     seatActivityService: c.get("seatActivityService" as never) as SeatActivityService | undefined,
     seatStructuralActivityService: c.get("seatStructuralActivityService" as never) as SeatStructuralActivityService | undefined,
-    rigLifecycleService: c.get("rigLifecycleService" as never) as RigLifecycleService | undefined,
+    softwareTeamLifecycleService: c.get("softwareTeamLifecycleService" as never) as SoftwareTeamLifecycleService | undefined,
     restoreOrchestrator: c.get("restoreOrchestrator" as never) as RestoreOrchestrator | undefined,
   };
 }
 
 function narrowLaunchErrorStatus(code: string | undefined): 404 | 409 | 500 {
-  if (code === "rig_not_found" || code === "no_matching_nodes" || code === "snapshot_not_found" || code === "snapshot_wrong_rig" || code === "no_usable_snapshot") return 404;
+  if (code === "software_team_not_found" || code === "no_matching_nodes" || code === "snapshot_not_found" || code === "snapshot_wrong_software_team" || code === "no_usable_snapshot") return 404;
   if (code === "snapshot_unusable") return 409;
   return 500;
 }
@@ -91,20 +91,20 @@ async function resumeLaunchOpts(c: { get: (key: string) => unknown }): Promise<{
   return { adapters, fsOps: { exists: (p: string) => fs.existsSync(p) } };
 }
 
-// GET /api/rigs/:rigId/sessions
+// GET /api/software-teams/:softwareTeamId/sessions
 sessionsRoutes.get("/", (c) => {
-  const rigId = c.req.param("rigId")!;
+  const softwareTeamId = c.req.param("softwareTeamId")!;
   const { sessionRegistry } = getDeps(c);
-  return c.json(sessionRegistry.getSessionsForRig(rigId));
+  return c.json(sessionRegistry.getSessionsForSoftwareTeam(softwareTeamId));
 });
 
-// GET /api/rigs/:rigId/nodes — node inventory projection
+// GET /api/software-teams/:softwareTeamId/nodes — node inventory projection
 // ?refresh=true triggers a context-monitor re-sample before responding
 nodesRoutes.get("/", observeInventoryHandler, async (c) => {
-  const rigId = c.req.param("rigId")!;
+  const softwareTeamId = c.req.param("softwareTeamId")!;
   const deps = getDeps(c);
-  const rig = deps.rigRepo.getRig(rigId);
-  if (!rig) return c.json({ error: `Rig "${rigId}" not found. List rigs with: rig ps` }, 404);
+  const softwareTeam = deps.softwareTeamRepo.getSoftwareTeam(softwareTeamId);
+  if (!softwareTeam) return c.json({ error: `SoftwareTeam "${softwareTeamId}" not found. List softwareTeams with: SoftwareTeam ps` }, 404);
 
   const refresh = c.req.query("refresh") === "true";
   if (refresh) {
@@ -125,8 +125,8 @@ nodesRoutes.get("/", observeInventoryHandler, async (c) => {
   const contextUsageStore = c.get("contextUsageStore" as never) as ContextUsageStore | undefined;
   const transcriptStore = c.get("transcriptStore" as never) as TranscriptStore | undefined;
   const inventory = contextUsageStore
-    ? getNodeInventoryWithContext(deps.rigRepo.db, rigId, contextUsageStore, transcriptStore)
-    : getNodeInventory(deps.rigRepo.db, rigId);
+    ? getNodeInventoryWithContext(deps.softwareTeamRepo.db, softwareTeamId, contextUsageStore, transcriptStore)
+    : getNodeInventory(deps.softwareTeamRepo.db, softwareTeamId);
   // Slice 15 — enrich with the two new orthogonal primitives. Order is
   // independent (each enrichment reads its own source), so the chain
   // composes cleanly with attachAgentActivity. The non-inference
@@ -137,7 +137,7 @@ nodesRoutes.get("/", observeInventoryHandler, async (c) => {
   // latter already implies a fresh sweep above.
   const full = c.req.query("full") === "true" || refresh;
   const withActivity = await attachAgentActivity(inventory, {
-    ...inventoryCaptureOptions(deps.rigRepo.db, deps.shadowCapture),
+    ...inventoryCaptureOptions(deps.softwareTeamRepo.db, deps.shadowCapture),
     tmuxAdapter: deps.tmuxAdapter,
     activityStore: deps.agentActivityStore,
     structuralActivity: deps.seatStructuralActivityService,
@@ -158,7 +158,7 @@ nodesRoutes.get("/", observeInventoryHandler, async (c) => {
     captureFallback: full,
   });
   const withTerminalAndWork = attachTerminalActivityAndWork(withActivity, {
-    db: deps.rigRepo.db,
+    db: deps.softwareTeamRepo.db,
     seatActivity: deps.seatActivityService,
   });
   // Slice 13 fix 2 — HOST ATTRIBUTION AT THE SOURCE. A daemon only inventories its own seats, so
@@ -171,23 +171,23 @@ nodesRoutes.get("/", observeInventoryHandler, async (c) => {
   return c.json(withTerminalAndWork.map((n) => ({ ...n, hostSelfId })));
 });
 
-// GET /api/rigs/:rigId/nodes/:logicalId — node detail
+// GET /api/software-teams/:softwareTeamId/nodes/:logicalId — node detail
 nodesRoutes.get("/:logicalId", async (c) => {
-  const rigId = c.req.param("rigId")!;
+  const softwareTeamId = c.req.param("softwareTeamId")!;
   const logicalId = c.req.param("logicalId")!;
   const deps = getDeps(c);
-  const rig = deps.rigRepo.getRig(rigId);
-  if (!rig) return c.json({ error: `Rig "${rigId}" not found. List rigs with: rig ps` }, 404);
+  const softwareTeam = deps.softwareTeamRepo.getSoftwareTeam(softwareTeamId);
+  if (!softwareTeam) return c.json({ error: `SoftwareTeam "${softwareTeamId}" not found. List softwareTeams with: SoftwareTeam ps` }, 404);
   const contextUsageStore = c.get("contextUsageStore" as never) as ContextUsageStore | undefined;
   const detail = contextUsageStore
-    ? getNodeDetailWithContext(deps.rigRepo.db, rigId, logicalId, contextUsageStore)
-    : getNodeDetail(deps.rigRepo.db, rigId, logicalId);
-  if (!detail) return c.json({ error: `Node "${logicalId}" not found in rig "${rigId}". Check node IDs with: rig ps --nodes` }, 404);
+    ? getNodeDetailWithContext(deps.softwareTeamRepo.db, softwareTeamId, logicalId, contextUsageStore)
+    : getNodeDetail(deps.softwareTeamRepo.db, softwareTeamId, logicalId);
+  if (!detail) return c.json({ error: `Node "${logicalId}" not found in softwareTeam "${softwareTeamId}". Check node IDs with: SoftwareTeam ps --nodes` }, 404);
   // Node DETAIL is a single node — the per-node tmux capture is cheap here, so
   // detail always runs the full fallback (freshest needs_input for the one seat).
-  const [detailWithActivity] = await attachAgentActivity([detail], { ...inventoryCaptureOptions(deps.rigRepo.db, deps.shadowCapture), tmuxAdapter: deps.tmuxAdapter, activityStore: deps.agentActivityStore, seatActivity: deps.seatActivityService, captureFallback: true });
+  const [detailWithActivity] = await attachAgentActivity([detail], { ...inventoryCaptureOptions(deps.softwareTeamRepo.db, deps.shadowCapture), tmuxAdapter: deps.tmuxAdapter, activityStore: deps.agentActivityStore, seatActivity: deps.seatActivityService, captureFallback: true });
   const [detailWithTerminalAndWork] = attachTerminalActivityAndWork(detailWithActivity ? [detailWithActivity] : [detail], {
-    db: deps.rigRepo.db,
+    db: deps.softwareTeamRepo.db,
     seatActivity: deps.seatActivityService,
   });
   Object.assign(detail, {
@@ -206,15 +206,15 @@ nodesRoutes.get("/:logicalId", async (c) => {
   // observation is allowed here. It is deliberately absent from the list path.
   const observer = c.get("permissionDriftObserver" as never) as PermissionDriftReader | undefined;
   if (observer) {
-    const row = deps.rigRepo.db.prepare("SELECT id FROM nodes WHERE rig_id = ? AND logical_id = ?")
-      .get(rigId, logicalId) as { id: string } | undefined;
+    const row = deps.softwareTeamRepo.db.prepare("SELECT id FROM nodes WHERE software_team_id = ? AND logical_id = ?")
+      .get(softwareTeamId, logicalId) as { id: string } | undefined;
     if (row) detail.permissionDrift = observer.diagnose(row.id);
   }
 
   // PL-019 item 5: surface in-progress qitems on node-detail when the
   // node has a session name (matches /graph payload's enrichment shape).
   if (detail.canonicalSessionName) {
-    const rows = deps.rigRepo.db.prepare(
+    const rows = deps.softwareTeamRepo.db.prepare(
       `SELECT qitem_id, body, tier
          FROM queue_items
          WHERE state = 'in-progress' AND destination_session = ?
@@ -233,42 +233,42 @@ nodesRoutes.get("/:logicalId", async (c) => {
   // Enrich transcript info from TranscriptStore (not available to pure DB helper)
   const transcriptStore = c.get("transcriptStore" as never) as TranscriptStore | undefined;
   if (transcriptStore?.enabled && detail.canonicalSessionName) {
-    const path = transcriptStore.getTranscriptPath(rig.rig.name, detail.canonicalSessionName);
+    const path = transcriptStore.getTranscriptPath(softwareTeam.softwareTeam.name, detail.canonicalSessionName);
     detail.transcript = {
       enabled: true,
       path,
-      tailCommand: `rig transcript ${detail.canonicalSessionName} --tail 100`,
+      tailCommand: `SoftwareTeam transcript ${detail.canonicalSessionName} --tail 100`,
     };
   }
 
   return c.json(detail);
 });
 
-// POST /api/rigs/:rigId/nodes/:logicalId/launch
+// POST /api/software-teams/:softwareTeamId/nodes/:logicalId/launch
 nodesRoutes.post("/:logicalId/launch", async (c) => {
-  const rigId = c.req.param("rigId")!;
+  const softwareTeamId = c.req.param("softwareTeamId")!;
   const logicalId = c.req.param("logicalId")!;
-  const { rigRepo, nodeLauncher } = getDeps(c);
+  const { softwareTeamRepo, nodeLauncher } = getDeps(c);
 
-  const rig = rigRepo.getRig(rigId);
-  if (!rig) {
-    return c.json({ ok: false, code: "rig_not_found", error: `Rig "${rigId}" not found` }, 404);
+  const softwareTeam = softwareTeamRepo.getSoftwareTeam(softwareTeamId);
+  if (!softwareTeam) {
+    return c.json({ ok: false, code: "software_team_not_found", error: `SoftwareTeam "${softwareTeamId}" not found` }, 404);
   }
 
-  const node = rig.nodes.find((entry) => entry.logicalId === logicalId || entry.id === logicalId);
+  const node = softwareTeam.nodes.find((entry) => entry.logicalId === logicalId || entry.id === logicalId);
   if (!node) {
-    return c.json({ ok: false, code: "node_not_found", error: `Node "${logicalId}" not found in rig "${rigId}"` }, 404);
+    return c.json({ ok: false, code: "node_not_found", error: `Node "${logicalId}" not found in softwareTeam "${softwareTeamId}"` }, 404);
   }
 
-  const body = await c.req.json().catch(() => ({})) as { snapshotId?: string; retryStartupFrom?: { member?: Record<string, unknown>; rigRoot?: string } };
+  const body = await c.req.json().catch(() => ({})) as { snapshotId?: string; retryStartupFrom?: { member?: Record<string, unknown>; softwareTeamRoot?: string } };
   if (body.retryStartupFrom !== undefined) {
     const retry = body.retryStartupFrom;
-    if (body.snapshotId || !retry || !retry.member || typeof retry.member !== "object" || Array.isArray(retry.member) || typeof retry.rigRoot !== "string") {
-      return c.json({ ok: false, code: "invalid_retry", message: "Supply retryStartupFrom.member and an absolute rigRoot, without snapshotId." }, 400);
+    if (body.snapshotId || !retry || !retry.member || typeof retry.member !== "object" || Array.isArray(retry.member) || typeof retry.softwareTeamRoot !== "string") {
+      return c.json({ ok: false, code: "invalid_retry", message: "Supply retryStartupFrom.member and an absolute softwareTeamRoot, without snapshotId." }, 400);
     }
-    const instantiator = c.get("podInstantiator" as never) as PodRigInstantiator | undefined;
+    const instantiator = c.get("podInstantiator" as never) as PodSoftwareTeamInstantiator | undefined;
     if (!instantiator) return c.json({ ok: false, code: "internal_error", message: "Pod instantiator unavailable" }, 500);
-    const result = await instantiator.retryFirstStart(rigId, node.id, retry.member, retry.rigRoot);
+    const result = await instantiator.retryFirstStart(softwareTeamId, node.id, retry.member, retry.softwareTeamRoot);
     return c.json(result, result.ok ? 201 : result.code === "failed" ? 500 : 409);
   }
 
@@ -277,7 +277,7 @@ nodesRoutes.post("/:logicalId/launch", async (c) => {
     if (!restoreOrchestrator) {
       return c.json({ ok: false, code: "internal_error", error: "Restore orchestrator not available" }, 500);
     }
-    const result = await restoreOrchestrator.launchSingleNode(rigId, node.logicalId, { snapshotId: body.snapshotId, ...(await resumeLaunchOpts(c)) });
+    const result = await restoreOrchestrator.launchSingleNode(softwareTeamId, node.logicalId, { snapshotId: body.snapshotId, ...(await resumeLaunchOpts(c)) });
     if (!result.ok) {
       return c.json(result, narrowLaunchErrorStatus(result.code));
     }
@@ -292,22 +292,22 @@ nodesRoutes.post("/:logicalId/launch", async (c) => {
       // 201 ok:true — surface it honestly so the CLI exits non-zero.
       if (!launchStatusIsRunning(launchedNode.status)) {
         return c.json({
-          ok: false, rigId, nodeId: launchedNode.nodeId, logicalId: launchedNode.logicalId,
+          ok: false, softwareTeamId, nodeId: launchedNode.nodeId, logicalId: launchedNode.logicalId,
           code: launchedNode.status, status: launchedNode.status, error: launchedNode.error,
           launched: result.launched, held: result.held, warnings: result.warnings,
           snapshotSelection: result.snapshotSelection, nonTargetEffects: result.nonTargetEffects,
         }, launchedNode.status === "failed" ? 500 : 409);
       }
-      return c.json({ ok: true, rigId, nodeId: launchedNode.nodeId, logicalId: launchedNode.logicalId, launched: result.launched, held: result.held, alreadyRunning: result.alreadyRunning, warnings: result.warnings, snapshotSelection: result.snapshotSelection, nonTargetEffects: result.nonTargetEffects }, 201);
+      return c.json({ ok: true, softwareTeamId, nodeId: launchedNode.nodeId, logicalId: launchedNode.logicalId, launched: result.launched, held: result.held, alreadyRunning: result.alreadyRunning, warnings: result.warnings, snapshotSelection: result.snapshotSelection, nonTargetEffects: result.nonTargetEffects }, 201);
     }
     const alreadyRunningNode = result.alreadyRunning?.find((n) => n.logicalId === node.logicalId);
     if (alreadyRunningNode) {
-      return c.json({ ok: true, rigId, nodeId: alreadyRunningNode.nodeId, logicalId: alreadyRunningNode.logicalId, code: "already_running", launched: result.launched, held: result.held, alreadyRunning: result.alreadyRunning, snapshotSelection: result.snapshotSelection, nonTargetEffects: result.nonTargetEffects });
+      return c.json({ ok: true, softwareTeamId, nodeId: alreadyRunningNode.nodeId, logicalId: alreadyRunningNode.logicalId, code: "already_running", launched: result.launched, held: result.held, alreadyRunning: result.alreadyRunning, snapshotSelection: result.snapshotSelection, nonTargetEffects: result.nonTargetEffects });
     }
     return c.json(result);
   }
 
-  const result = await nodeLauncher.launchNode(rigId, logicalId);
+  const result = await nodeLauncher.launchNode(softwareTeamId, logicalId);
 
   if (!result.ok) {
     const status = result.code === "node_not_found" ? 404
@@ -320,9 +320,9 @@ nodesRoutes.post("/:logicalId/launch", async (c) => {
   return c.json(result, 201);
 });
 
-// POST /api/rigs/:rigId/nodes/launch-subset — multi-target managed subset launch
+// POST /api/software-teams/:softwareTeamId/nodes/launch-subset — multi-target managed subset launch
 nodesRoutes.post("/launch-subset", async (c) => {
-  const rigId = c.req.param("rigId")!;
+  const softwareTeamId = c.req.param("softwareTeamId")!;
   const { restoreOrchestrator } = getDeps(c);
   if (!restoreOrchestrator) {
     return c.json({ ok: false, code: "internal_error", error: "Restore orchestrator not available" }, 500);
@@ -332,8 +332,8 @@ nodesRoutes.post("/launch-subset", async (c) => {
     return c.json({ ok: false, code: "invalid_request", error: "Request body must include a non-empty 'seats' array of logical IDs" }, 400);
   }
   const result = body.plan === true
-    ? restoreOrchestrator.planNodeSubset(rigId, body.seats, { holdReason: body.holdReason, snapshotId: body.snapshotId, nonTargetMode: body.nonTargetMode })
-    : await restoreOrchestrator.launchNodeSubset(rigId, body.seats, { holdReason: body.holdReason, snapshotId: body.snapshotId, ...(await resumeLaunchOpts(c)) });
+    ? restoreOrchestrator.planNodeSubset(softwareTeamId, body.seats, { holdReason: body.holdReason, snapshotId: body.snapshotId, nonTargetMode: body.nonTargetMode })
+    : await restoreOrchestrator.launchNodeSubset(softwareTeamId, body.seats, { holdReason: body.holdReason, snapshotId: body.snapshotId, ...(await resumeLaunchOpts(c)) });
   if (!result.ok) {
     return c.json(result, narrowLaunchErrorStatus(result.code));
   }
@@ -348,18 +348,18 @@ nodesRoutes.post("/launch-subset", async (c) => {
   return c.json({ ...result, ok: nonRunning.length === 0 && result.ok }, status);
 });
 
-// GET /api/rigs/:rigId/nodes/:logicalId/preview?lines=N
+// GET /api/software-teams/:softwareTeamId/nodes/:logicalId/preview?lines=N
 //
 // Preview Terminal v0 (PL-018): returns the seat's last N lines via
 // SessionTransport.capture. Rate-limited per session through the
 // daemon-side PreviewRateLimiter (default 1 sec window) so live polling
 // from multiple panes doesn't hammer tmux.
 //
-// Returns 404 when the rig/node/session can't be resolved (UI surfaces
-// this as "preview unavailable on this rig"). Returns 503 when
+// Returns 404 when the softwareTeam/node/session can't be resolved (UI surfaces
+// this as "preview unavailable on this softwareTeam"). Returns 503 when
 // SessionTransport is missing from context (degraded daemon).
 nodesRoutes.get("/:logicalId/preview", terminalAuthGuard(), async (c) => {
-  const rigId = c.req.param("rigId")!;
+  const softwareTeamId = c.req.param("softwareTeamId")!;
   const logicalId = c.req.param("logicalId")!;
   const deps = getDeps(c);
   const sessionTransport = c.get("sessionTransport" as never) as SessionTransport | undefined;
@@ -373,18 +373,18 @@ nodesRoutes.get("/:logicalId/preview", terminalAuthGuard(), async (c) => {
     return c.json({ error: "preview_unavailable", hint: "SessionTransport not configured on this daemon." }, 503);
   }
 
-  const rig = deps.rigRepo.getRig(rigId);
-  if (!rig) return c.json({ error: `Rig "${rigId}" not found.` }, 404);
+  const softwareTeam = deps.softwareTeamRepo.getSoftwareTeam(softwareTeamId);
+  if (!softwareTeam) return c.json({ error: `SoftwareTeam "${softwareTeamId}" not found.` }, 404);
 
   // Resolve canonical session name. The node-detail projector already
-  // does this; we re-use the raw rig object to keep the route cheap.
-  const node = rig.nodes.find((n) => n.logicalId === logicalId || n.id === logicalId);
-  if (!node) return c.json({ error: `Node "${logicalId}" not found in rig "${rigId}".` }, 404);
+  // does this; we re-use the raw softwareTeam object to keep the route cheap.
+  const node = softwareTeam.nodes.find((n) => n.logicalId === logicalId || n.id === logicalId);
+  if (!node) return c.json({ error: `Node "${logicalId}" not found in softwareTeam "${softwareTeamId}".` }, 404);
   const sessionName = node.binding?.tmuxSession;
   if (!sessionName) {
     return c.json({
       error: "session_unbound",
-      hint: "Node has no tmux session yet. Use rig up or rig launch to start the seat.",
+      hint: "Node has no tmux session yet. Use SoftwareTeam up or SoftwareTeam launch to start the seat.",
     }, 409);
   }
 
@@ -421,9 +421,9 @@ nodesRoutes.get("/:logicalId/preview", terminalAuthGuard(), async (c) => {
   return c.json(payload);
 });
 
-// POST /api/rigs/:rigId/nodes/:logicalId/open-cmux
+// POST /api/software-teams/:softwareTeamId/nodes/:logicalId/open-cmux
 nodesRoutes.post("/:logicalId/open-cmux", terminalAuthGuard(), async (c) => {
-  const rigId = c.req.param("rigId")!;
+  const softwareTeamId = c.req.param("softwareTeamId")!;
   const logicalId = c.req.param("logicalId")!;
   const nodeCmuxService = c.get("nodeCmuxService" as never) as NodeCmuxService | undefined;
 
@@ -431,23 +431,23 @@ nodesRoutes.post("/:logicalId/open-cmux", terminalAuthGuard(), async (c) => {
     return c.json({ ok: false, error: "cmux service not available", code: "unavailable" }, 500);
   }
 
-  const result = await nodeCmuxService.openOrFocusNodeSurface(rigId, logicalId);
+  const result = await nodeCmuxService.openOrFocusNodeSurface(softwareTeamId, logicalId);
   if (!result.ok && result.code === "not_found") {
     return c.json(result, 404);
   }
   return c.json(result);
 });
 
-// POST /api/rigs/:rigId/nodes/:logicalId/focus
+// POST /api/software-teams/:softwareTeamId/nodes/:logicalId/focus
 nodesRoutes.post("/:logicalId/focus", async (c) => {
-  const rigId = c.req.param("rigId")!;
+  const softwareTeamId = c.req.param("softwareTeamId")!;
   const logicalId = c.req.param("logicalId")!;
-  const { rigRepo, cmuxAdapter } = getDeps(c);
+  const { softwareTeamRepo, cmuxAdapter } = getDeps(c);
 
-  const rig = rigRepo.getRig(rigId);
-  if (!rig) return c.json({ error: "rig not found" }, 404);
+  const softwareTeam = softwareTeamRepo.getSoftwareTeam(softwareTeamId);
+  if (!softwareTeam) return c.json({ error: "SoftwareTeam not found" }, 404);
 
-  const node = rig.nodes.find((n) => n.logicalId === logicalId);
+  const node = softwareTeam.nodes.find((n) => n.logicalId === logicalId);
   if (!node) return c.json({ error: "node not found" }, 404);
 
   const cmuxSurface = node.binding?.cmuxSurface;
@@ -459,19 +459,19 @@ nodesRoutes.post("/:logicalId/focus", async (c) => {
   return c.json(result);
 });
 
-// DELETE /api/rigs/:rigId/nodes/:logicalId
+// DELETE /api/software-teams/:softwareTeamId/nodes/:logicalId
 nodesRoutes.delete("/:logicalId", async (c) => {
-  const rigId = c.req.param("rigId")!;
+  const softwareTeamId = c.req.param("softwareTeamId")!;
   const nodeRef = c.req.param("logicalId")!;
   const fallbackDestination = c.req.query("fallback");
-  const { rigLifecycleService } = getDeps(c);
-  if (!rigLifecycleService) {
+  const { softwareTeamLifecycleService } = getDeps(c);
+  if (!softwareTeamLifecycleService) {
     return c.json({ error: "Lifecycle service not available" }, 500);
   }
 
-  const result = await rigLifecycleService.removeNode(rigId, nodeRef, { fallbackDestination });
+  const result = await softwareTeamLifecycleService.removeNode(softwareTeamId, nodeRef, { fallbackDestination });
   if (!result.ok) {
-    const status = result.code === "rig_not_found" ? 404
+    const status = result.code === "software_team_not_found" ? 404
       : result.code === "node_not_found" ? 404
       : result.code === "active_qitems" ? 409
       : result.code === "fallback_not_running" ? 409
@@ -487,9 +487,9 @@ nodesRoutes.delete("/:logicalId", async (c) => {
 // GET /api/sessions/:sessionName/preview?lines=N
 //
 // Preview Terminal v0 (PL-018) — session-keyed alias for /preview.
-// Used by surfaces that hold a sessionName but not a (rigId, logicalId)
+// Used by surfaces that hold a sessionName but not a (softwareTeamId, logicalId)
 // pair (Steering Loop State panel, Slice Story View Topology tab).
-// Behavior identical to the rig+node-keyed route otherwise.
+// Behavior identical to the softwareTeam+node-keyed route otherwise.
 sessionAdminRoutes.get("/:sessionName/preview", terminalAuthGuard(), async (c) => {
   const sessionName = c.req.param("sessionName")!;
   const sessionTransport = c.get("sessionTransport" as never) as SessionTransport | undefined;
@@ -538,22 +538,22 @@ sessionAdminRoutes.get("/:sessionName/preview", terminalAuthGuard(), async (c) =
 sessionAdminRoutes.post("/:sessionName/reconcile", terminalAuthGuard(), async (c) => {
   const sessionName = c.req.param("sessionName")!;
   const claimService = c.get("claimService" as never) as ClaimService | undefined;
-  const podInstantiator = c.get("podInstantiator" as never) as PodRigInstantiator | undefined;
+  const podInstantiator = c.get("podInstantiator" as never) as PodSoftwareTeamInstantiator | undefined;
   if (!claimService || !podInstantiator) {
     return c.json({ error: "Reconcile unavailable: claim service not configured on this daemon." }, 503);
   }
 
   const body: Record<string, unknown> = await c.req.json().catch(() => ({}));
-  const rigId = typeof body["rigId"] === "string" ? body["rigId"] : undefined;
+  const softwareTeamId = typeof body["softwareTeamId"] === "string" ? body["softwareTeamId"] : undefined;
   const logicalId = typeof body["logicalId"] === "string" ? body["logicalId"] : undefined;
-  if ((rigId && !logicalId) || (!rigId && logicalId)) {
-    return c.json({ error: "rigId and logicalId must be provided together (or both omitted)." }, 400);
+  if ((softwareTeamId && !logicalId) || (!softwareTeamId && logicalId)) {
+    return c.json({ error: "softwareTeamId and logicalId must be provided together (or both omitted)." }, 400);
   }
 
   const converged = await convergeOp(
     { instantiator: podInstantiator, claimService },
-    rigId ?? "",
-    { kind: "reconcile_session", sessionName, rigId, logicalId },
+    softwareTeamId ?? "",
+    { kind: "reconcile_session", sessionName, softwareTeamId, logicalId },
     ".",
   );
   if (converged.kind !== "reconcile_session" || !converged.supported) {
@@ -565,7 +565,7 @@ sessionAdminRoutes.post("/:sessionName/reconcile", terminalAuthGuard(), async (c
     switch (outcome.code) {
       case "session_not_found":
       case "node_not_found":
-      case "rig_not_found":
+      case "software_team_not_found":
         return c.json(outcome, 404);
       case "node_mismatch":
         return c.json(outcome, 409);
@@ -630,7 +630,7 @@ sessionAdminRoutes.post("/:sessionName/resume-token", terminalAuthGuard(), async
   if (eventBus) {
     eventBus.emit({
       type: "session.resume_token_set",
-      rigId: ctx.rigId,
+      softwareTeamId: ctx.softwareTeamId,
       nodeId: ctx.nodeId,
       sessionName,
       sessionId: ctx.sessionId,
@@ -658,12 +658,12 @@ sessionAdminRoutes.post("/:sessionName/resume-token", terminalAuthGuard(), async
 // POST /api/sessions/:sessionRef/unclaim
 sessionAdminRoutes.post("/:sessionRef/unclaim", terminalAuthGuard(), async (c) => {
   const sessionRef = c.req.param("sessionRef")!;
-  const { rigLifecycleService } = getDeps(c);
-  if (!rigLifecycleService) {
+  const { softwareTeamLifecycleService } = getDeps(c);
+  if (!softwareTeamLifecycleService) {
     return c.json({ error: "Lifecycle service not available" }, 500);
   }
 
-  const result = await rigLifecycleService.unclaimSession(sessionRef);
+  const result = await softwareTeamLifecycleService.unclaimSession(sessionRef);
   if (!result.ok) {
     const status = result.code === "session_not_found" ? 404 : 409;
     return c.json(result, status);
@@ -673,7 +673,7 @@ sessionAdminRoutes.post("/:sessionRef/unclaim", terminalAuthGuard(), async (c) =
 });
 
 // GET /api/sessions/:sessionName/generation-record?sinceBytes=N
-// Mechanics-gate fix (desk ruling d9b3989a): the CONSUMPTION-BY-EFFECT source for `rig walk`.
+// Mechanics-gate fix (desk ruling d9b3989a): the CONSUMPTION-BY-EFFECT source for `softwareTeam walk`.
 // Serves the seat's current-generation append-only conversation record identity plus the suffix
 // from sinceBytes. Claude uses its context sidecar; Codex joins the current bound pane/process
 // to its native thread and then the existing context store's thread table — never a pane snapshot

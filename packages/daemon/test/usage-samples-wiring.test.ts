@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { ContextUsageStore } from "../src/domain/context-usage-store.js";
 import { ContextMonitor } from "../src/domain/context-monitor.js";
@@ -30,7 +30,7 @@ describe("51-08 A1 wiring — the series accrues from the real poll tick", () =>
   beforeEach(() => {
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const sessionRegistry = new SessionRegistry(db);
     tmpDir = join(tmpdir(), `usage-samples-wiring-${process.pid}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(join(tmpDir, "state", "context-usage"), { recursive: true });
@@ -38,9 +38,9 @@ describe("51-08 A1 wiring — the series accrues from the real poll tick", () =>
     samples = new UsageSamplesStore(db);
     providerRows = [];
 
-    const rig = rigRepo.createRig("t-rig");
-    const node = rigRepo.addNode(rig.id, "dev.qa", { runtime: "claude-code" });
-    sessionName = "dev-qa@t-rig";
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("t-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { runtime: "claude-code" });
+    sessionName = "dev-qa@t-software-team";
     const session = sessionRegistry.registerSession(node.id, sessionName);
     db.prepare("UPDATE sessions SET status = 'running' WHERE id = ?").run(session.id);
 

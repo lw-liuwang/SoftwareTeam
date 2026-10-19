@@ -199,7 +199,7 @@ export function SubscriptionToggleList() {
           Settings endpoint unreachable (legacy daemon &lt; v0.3.0). Toggles render the
           canonical defaults; configure via CLI:
           <code className="ml-1 text-on-surface">
-            rig config set feed.subscriptions.&lt;kind&gt; true|false
+            SoftwareTeam config set feed.subscriptions.&lt;kind&gt; true|false
           </code>
         </p>
       ) : null}

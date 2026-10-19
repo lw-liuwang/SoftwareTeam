@@ -78,7 +78,7 @@ describe("Pi credential presence, not online validation", () => {
 
 describe("Pi version observation", () => {
   it.each(["0.73.1", "pi 0.73.1", "v0.73.1"])("names an older tested-baseline version (%s) without a gate", output => {
-    expect(piVersionNotice(output)).toContain("older than OpenRig's tested baseline 0.87.1");
+    expect(piVersionNotice(output)).toContain("older than SoftwareTeam's tested baseline 0.87.1");
     expect(piVersionNotice(output)).toContain("launch continues");
   });
   it.each(["0.87.1", "0.87.2", "1.0.0", "0.100.0", "0.87.1-dev"])("does not confuse a version response with authentication (%s)", output => {

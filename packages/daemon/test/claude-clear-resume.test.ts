@@ -5,13 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { SnapshotRepository } from "../src/domain/snapshot-repository.js";
 import { SnapshotCapture } from "../src/domain/snapshot-capture.js";
 import { CheckpointStore } from "../src/domain/checkpoint-store.js";
-import { RigTeardownOrchestrator } from "../src/domain/rig-teardown.js";
+import { SoftwareTeamTeardownOrchestrator } from "../src/domain/software-team-teardown.js";
 import { ResumeMetadataRefresher } from "../src/domain/resume-metadata-refresher.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
 
@@ -22,7 +22,7 @@ const startedAt = "2020-01-01T01:00:00Z";
 describe("Claude current conversation at shutdown", () => {
   let db: ReturnType<typeof createDb>;
   let root: string;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let registry: SessionRegistry;
   let eventBus: EventBus;
   let snapshotRepo: SnapshotRepository;
@@ -32,11 +32,11 @@ describe("Claude current conversation at shutdown", () => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), "claude-clear-resume-"));
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     registry = new SessionRegistry(db);
     eventBus = new EventBus(db);
     snapshotRepo = new SnapshotRepository(db);
-    capture = new SnapshotCapture({ db, rigRepo, sessionRegistry: registry, eventBus, snapshotRepo, checkpointStore: new CheckpointStore(db) });
+    capture = new SnapshotCapture({ db, softwareTeamRepo, sessionRegistry: registry, eventBus, snapshotRepo, checkpointStore: new CheckpointStore(db) });
   });
 
   afterEach(() => {
@@ -45,8 +45,8 @@ describe("Claude current conversation at shutdown", () => {
   });
 
   function fixture(provenance: "scrape" | "operator" | "hook" = "scrape", configDir = path.join(root, ".claude")) {
-    const rig = rigRepo.createRig("clear-test");
-    const node = rigRepo.addNode(rig.id, "worker", { runtime: "claude-code", cwd: root });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("clear-test");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code", cwd: root });
     const name = "worker@clear-test";
     const session = registry.registerSession(node.id, name);
     registry.updateStatus(session.id, "running");
@@ -71,43 +71,43 @@ describe("Claude current conversation at shutdown", () => {
     fs.writeFileSync(file, JSON.stringify({ name, sessionId: newId }));
     // Deterministic current-process timestamp, independent of the test machine's date.
     fs.utimesSync(file, new Date("2020-01-01T02:00:00Z"), new Date("2020-01-01T02:00:00Z"));
-    const teardown = new RigTeardownOrchestrator({ db, rigRepo, sessionRegistry: registry, eventBus, snapshotCapture: capture, tmuxAdapter: tmux, resumeMetadataRefresher: refresher });
-    return { rig, session, name, rows, file, tmux, probe, listClaudeProcesses, refresher, teardown };
+    const teardown = new SoftwareTeamTeardownOrchestrator({ db, softwareTeamRepo, sessionRegistry: registry, eventBus, snapshotCapture: capture, tmuxAdapter: tmux, resumeMetadataRefresher: refresher });
+    return { softwareTeam, session, name, rows, file, tmux, probe, listClaudeProcesses, refresher, teardown };
   }
 
   it("captures the post-clear conversation in the actual auto-pre-down snapshot", async () => {
     const f = fixture();
     // Another seat has the same name; a name scan must not select its old conversation.
     fs.writeFileSync(path.join(path.dirname(f.file), "899.json"), JSON.stringify({ name: f.name, sessionId: oldId }));
-    const result = await f.teardown.teardown(f.rig.id);
+    const result = await f.teardown.teardown(f.softwareTeam.id);
     expect(result.errors).toEqual([]);
     expect(result.sessionsKilled).toBe(1);
     const snap = snapshotRepo.getSnapshot(result.snapshotId!)!;
     expect(snap.kind).toBe("auto-pre-down");
     expect(snap.data.sessions.find(s => s.id === f.session.id)?.resumeToken).toBe(newId);
-    expect(registry.getSessionsForRig(f.rig.id)[0]?.resumeToken).toBe(newId);
+    expect(registry.getSessionsForSoftwareTeam(f.softwareTeam.id)[0]?.resumeToken).toBe(newId);
     expect(f.probe).not.toHaveBeenCalled();
   });
 
   it("uses the selected provider config directory for the live PID", async () => {
     const f = fixture("scrape", path.join(root, "custom-config"));
-    await f.teardown.teardown(f.rig.id);
-    expect(registry.getSessionsForRig(f.rig.id)[0]?.resumeToken).toBe(newId);
+    await f.teardown.teardown(f.softwareTeam.id);
+    expect(registry.getSessionsForSoftwareTeam(f.softwareTeam.id)[0]?.resumeToken).toBe(newId);
   });
 
   it("preserves the same conversation when no clear occurred", async () => {
     const f = fixture();
     fs.writeFileSync(f.file, JSON.stringify({ name: f.name, sessionId: oldId }));
-    await f.teardown.teardown(f.rig.id);
-    expect(registry.getSessionsForRig(f.rig.id)[0]?.resumeToken).toBe(oldId);
+    await f.teardown.teardown(f.softwareTeam.id);
+    expect(registry.getSessionsForSoftwareTeam(f.softwareTeam.id)[0]?.resumeToken).toBe(oldId);
   });
 
   it("preserves null provenance when the current token is unchanged", async () => {
     const f = fixture();
     db.prepare("UPDATE sessions SET resume_provenance = NULL WHERE id = ?").run(f.session.id);
     fs.writeFileSync(f.file, JSON.stringify({ name: f.name, sessionId: oldId }));
-    await f.teardown.teardown(f.rig.id);
-    const session = registry.getSessionsForRig(f.rig.id)[0]!;
+    await f.teardown.teardown(f.softwareTeam.id);
+    const session = registry.getSessionsForSoftwareTeam(f.softwareTeam.id)[0]!;
     expect(session.resumeToken).toBe(oldId);
     expect(session.resumeProvenance).toBeNull();
     expect(session.resumeLastProbeStatus).toBe("resumable");
@@ -116,22 +116,22 @@ describe("Claude current conversation at shutdown", () => {
 
   it("keeps an archived namesake's own conversation in the pre-down snapshot", async () => {
     const f = fixture();
-    rigRepo.archiveRig(f.rig.id);
-    const live = rigRepo.createRig("clear-test");
-    const liveNode = rigRepo.addNode(live.id, "worker", { runtime: "claude-code", cwd: root });
+    softwareTeamRepo.archiveSoftwareTeam(f.softwareTeam.id);
+    const live = softwareTeamRepo.createSoftwareTeam("clear-test");
+    const liveNode = softwareTeamRepo.addNode(live.id, "worker", { runtime: "claude-code", cwd: root });
     const liveSession = registry.registerSession(liveNode.id, f.name);
     registry.updateStatus(liveSession.id, "running");
     registry.updateBinding(liveNode.id, { tmuxSession: f.name, tmuxPane: "%2" });
     registry.updateResumeToken(liveSession.id, "claude_id", newId, "scrape");
-    // The name and PID file now belong to the live rig, not the archived row.
+    // The name and PID file now belong to the live softwareTeam, not the archived row.
     f.rows[1]!.command = `claude --session-id ${newId} --name ${f.name}`;
-    const result = await f.teardown.teardown(f.rig.id);
+    const result = await f.teardown.teardown(f.softwareTeam.id);
     const snap = snapshotRepo.getSnapshot(result.snapshotId!)!;
     expect(result.errors).toEqual([]);
     expect(f.tmux.killSession).not.toHaveBeenCalled();
-    expect(registry.getSessionsForRig(live.id)[0]).toMatchObject({ resumeToken: newId, status: "running" });
+    expect(registry.getSessionsForSoftwareTeam(live.id)[0]).toMatchObject({ resumeToken: newId, status: "running" });
     expect(snap.data.sessions.find(s => s.id === f.session.id)?.resumeToken).toBe(oldId);
-    expect(registry.getSessionsForRig(f.rig.id)[0]?.resumeToken).toBe(oldId);
+    expect(registry.getSessionsForSoftwareTeam(f.softwareTeam.id)[0]?.resumeToken).toBe(oldId);
     expect(f.listClaudeProcesses).not.toHaveBeenCalled();
     expect(f.probe).not.toHaveBeenCalled();
   });
@@ -146,17 +146,17 @@ describe("Claude current conversation at shutdown", () => {
     if (kind === "changed-process") f.listClaudeProcesses.mockResolvedValueOnce(f.rows).mockResolvedValue([]);
     if (kind === "ambiguous-process") f.rows.push({ ...f.rows[1]!, pid: 902 });
     if (kind === "background-process") f.rows[1]!.pgid = 902;
-    const result = await f.teardown.teardown(f.rig.id);
+    const result = await f.teardown.teardown(f.softwareTeam.id);
     expect(result.errors).toEqual([]);
     expect(result.sessionsKilled).toBe(1);
-    expect(registry.getSessionsForRig(f.rig.id)[0]?.resumeToken).toBe(oldId);
+    expect(registry.getSessionsForSoftwareTeam(f.softwareTeam.id)[0]?.resumeToken).toBe(oldId);
     expect(f.probe).toHaveBeenCalledWith(f.name, oldId, root);
   });
 
   it.each(["operator", "hook"] as const)("does not replace a protected %s token", async (provenance) => {
     const f = fixture(provenance);
-    await f.teardown.teardown(f.rig.id);
-    const session = registry.getSessionsForRig(f.rig.id)[0]!;
+    await f.teardown.teardown(f.softwareTeam.id);
+    const session = registry.getSessionsForSoftwareTeam(f.softwareTeam.id)[0]!;
     expect(session.resumeToken).toBe(oldId);
     expect(session.resumeProvenance).toBe(provenance);
   });
@@ -166,6 +166,6 @@ describe("Claude current conversation at shutdown", () => {
     await f.refresher.refresh([{ sessionId: f.session.id, sessionName: f.name, runtime: "claude-code", resumeType: "claude_id", resumeToken: oldId }], { fillNullOnly: true });
     expect(f.listClaudeProcesses).not.toHaveBeenCalled();
     expect(f.probe).not.toHaveBeenCalled();
-    expect(registry.getSessionsForRig(f.rig.id)[0]?.resumeToken).toBe(oldId);
+    expect(registry.getSessionsForSoftwareTeam(f.softwareTeam.id)[0]?.resumeToken).toBe(oldId);
   });
 });

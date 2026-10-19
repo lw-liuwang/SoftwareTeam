@@ -1,0 +1,7 @@
+name: software-team-lifecycle
+version: "1"
+taxonomy: skills
+purpose: "(eval fixture) bring software_teams and the whole fleet up/down/back"
+files:
+  - path: content.md
+    role: source

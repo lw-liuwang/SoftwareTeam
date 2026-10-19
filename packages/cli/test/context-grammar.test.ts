@@ -1,9 +1,9 @@
-// ATOM-7 (slice-03 rig-context) — STRIP + RENAME grammar pins.
+// ATOM-7 (slice-03 software-team-context) — STRIP + RENAME grammar pins.
 //
 // Founder-locked SPEC §5 / §7:
 //   - the context-window USAGE VIEWER is KILLED ENTIRELY (remove the command);
-//   - bare `rig context` = the library (list/help), full stop;
-//   - the `rig context-pack` grammar is RETIRED ENTIRELY — ONE grammar, no
+//   - bare `SoftwareTeam context` = the library (list/help), full stop;
+//   - the `SoftwareTeam context-pack` grammar is RETIRED ENTIRELY — ONE grammar, no
 //     deprecated alias, no merged-noun ghost.
 //
 // These pins drive the REAL assembled top-level program (createProgram) so
@@ -36,7 +36,7 @@ function contextCmd(program: Command): Command {
   return cmd;
 }
 
-describe("ATOM-7 rig context grammar (STRIP viewer + RENAME context-pack)", () => {
+describe("ATOM-7 SoftwareTeam context grammar (STRIP viewer + RENAME context-pack)", () => {
   it("(a) VIEWER GONE: `context` is the library, not the usage viewer; no command carries the viewer description", () => {
     const program = createProgram();
     const ctx = contextCmd(program);
@@ -58,7 +58,7 @@ describe("ATOM-7 rig context grammar (STRIP viewer + RENAME context-pack)", () =
     expect(help).not.toContain(VIEWER_DESCRIPTION_FRAGMENT);
   });
 
-  it("(c) BARE `rig context` = DELIVERY-FREE LIBRARY: exact ordered subcommands exclude every delivery seam", () => {
+  it("(c) BARE `SoftwareTeam context` = DELIVERY-FREE LIBRARY: exact ordered subcommands exclude every delivery seam", () => {
     const program = createProgram();
     const context = contextCmd(program);
     const help = context.helpInformation();
@@ -67,16 +67,16 @@ describe("ATOM-7 rig context grammar (STRIP viewer + RENAME context-pack)", () =
       expect(help).toContain(sub);
     }
     expect(context.commands.map((sub) => sub.name())).not.toContain("send");
-    expect(help).not.toMatch(/rig context send|^\s*send\b/im);
+    expect(help).not.toMatch(/SoftwareTeam context send|^\s*send\b/im);
     expect(help).not.toContain("CONTEXT USAGE");
   });
 
-  it("(d) ALIAS ABSENT: no `context-pack` command; `rig context-pack list` is rejected as unknown", async () => {
+  it("(d) ALIAS ABSENT: no `context-pack` command; `SoftwareTeam context-pack list` is rejected as unknown", async () => {
     const program = createProgram();
     expect(topLevelNames(program)).not.toContain("context-pack");
     program.exitOverride();
     await expect(
-      program.parseAsync(["node", "rig", "context-pack", "list"]),
+      program.parseAsync(["node", "softwareTeam", "context-pack", "list"]),
     ).rejects.toThrow();
   });
 });

@@ -1,4 +1,4 @@
-# openrig-testbed verification runbooks (51-04 step-2, plan §2)
+# softwareteam-testbed verification runbooks (51-04 step-2, plan §2)
 
 These are **host-executed, evidence-defined** runbooks — the 51-09 live-legs pattern. The VM seat has
 no container runtime (locus ruling (a) host-side), so the daemon/operator lane runs them **host-side**
@@ -13,15 +13,15 @@ that caught the Apple-container premise): run it, capture the real bytes, verdic
 | L0 | the digest-pinned base + stub-assets census are resolved (prerequisite to a build) | `L0-resolve-inputs.md` |
 | L1 | PTY allocation: `docker run -t` + tmux capture-pane returns real bytes; resize propagates | `L1-pty-allocation.md` |
 | L2 | tmux server lifecycle: detach-survive, multi-pane, send-keys + capture round-trip | `L2-tmux-server-lifecycle.md` |
-| L3 | daemon-in-container: boots vs container-local sqlite, healthz on the published port, `rig up` settles a zero-token stub topology | `L3-daemon-in-container.md` |
-| L4 | the 51-02 hermetic contract: the env-helper still REFUSES a foreign `OPENRIG_URL` **inside** the container (fail-closed not weakened by "we're in a container anyway") | `L4-hermetic-fail-closed.md` |
+| L3 | daemon-in-container: boots vs container-local sqlite, healthz on the published port, `SoftwareTeam up` settles a zero-token stub topology | `L3-daemon-in-container.md` |
+| L4 | the 51-02 hermetic contract: the env-helper still REFUSES a foreign `SOFTWARETEAM_URL` **inside** the container (fail-closed not weakened by "we're in a container anyway") | `L4-hermetic-fail-closed.md` |
 | L5 | multi-host: N containers as N distinct named self-hosts on one docker network, composed via the shipped host registry over HTTP (plan §3) — **and** the 51-09 live-leg rider | `L5-multi-host-and-51-09.md` |
 | L6 | the 51-02 runner's **container-mode** (step-3) drives a REAL scenario through a container by manifest identity + host-mode byte-intact parity + the L4 fail-closed step-3 form; the ledger carries the image manifest id | `L6-container-runner-e2e.md` |
 
 Sequencing: **L0 → build → L1 → L2 → L3 → L4 → L5**, with **L6 after L3** (it needs only the built image
 + an in-container daemon, plus the built HOST CLI bin for the read side). L3 is where the stub payload is
 exercised (and where `docker/testbed/stub-assets.list` is finalized). L4 depends on the 51-02 hermetic
-env-helper being present in the packaged image (it ships in the openrig package the Dockerfile installs);
+env-helper being present in the packaged image (it ships in the softwareteam package the Dockerfile installs);
 if it is NOT packaged, its fail-closed leg is exercised in the **step-3 form** — L6.3.
 
 **51-09 live-leg rider (orch, merge desk).** The testbed image's first multi-host run doubles as the
@@ -35,7 +35,7 @@ round-trip, LEG B founder-collision). Execute both families together; return bot
 **Image identity.** All legs run against the image the build verb tagged, by manifest identity:
 ```bash
 GIT_SHA="$(git rev-parse HEAD)"
-IMAGE="openrig-testbed:${GIT_SHA}"          # == manifest.image
+IMAGE="softwareteam-testbed:${GIT_SHA}"          # == manifest.image
 ```
 Cross-check the running image against the emitted manifest before trusting a leg's result:
 ```bash

@@ -8,8 +8,8 @@
 import { describe, it, expect } from "vitest";
 import { resolveCardTerminalSession } from "../src/components/for-you/FeedCard.js";
 
-const SRC = "orch-lead@openrig-delivery";
-const DST = "dev1-driver@openrig-delivery";
+const SRC = "orch-lead@softwareteam-delivery";
+const DST = "dev1-driver@softwareteam-delivery";
 
 describe("resolveCardTerminalSession (OPR.0.4.1.27 Unit 6)", () => {
   it("action-required opens the SENDER (sourceSession)", () => {

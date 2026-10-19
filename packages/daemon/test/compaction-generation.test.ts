@@ -7,7 +7,7 @@ import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { DiscoveryRepository } from "../src/domain/discovery-repository.js";
 import { ClaimService } from "../src/domain/claim-service.js";
@@ -18,7 +18,7 @@ import { compactionRoutes } from "../src/routes/compaction.js";
 import { sessionAdminRoutes } from "../src/routes/sessions.js";
 import { shellQuote } from "../src/adapters/shell-quote.js";
 
-const seat = "writer@test-rig", node = "test-node";
+const seat = "writer@test-software-team", node = "test-node";
 const input = { sessionName: seat, runtime: "claude-code", usedPercentage: 90 };
 const cleanup: (() => void)[] = [];
 afterEach(() => {
@@ -32,15 +32,15 @@ function fixture(kind: "legacy" | "fresh" | "adopt" = "legacy", primaryMiss = fa
   // Seed a valid running binding before migration 060, then migrate normally.
   // No deleted ledger rows, failed mint or null guard double creates the gap.
   migrate(db, ALL_MIGRATIONS.filter(m => m.name < "060"));
-  db.prepare("INSERT INTO rigs (id,name) VALUES (?,?)").run("test-rig-id", "test-rig");
-  db.prepare("INSERT INTO nodes (id,rig_id,logical_id,role,runtime) VALUES (?,?,?,?,?)")
-    .run(node, "test-rig-id", "writer", "worker", "claude-code");
+  db.prepare("INSERT INTO software_teams (id,name) VALUES (?,?)").run("test-software-team-id", "test-software-team");
+  db.prepare("INSERT INTO nodes (id,software_team_id,logical_id,role,runtime) VALUES (?,?,?,?,?)")
+    .run(node, "test-software-team-id", "writer", "worker", "claude-code");
   db.prepare("INSERT INTO bindings (id,node_id,tmux_session,tmux_pane) VALUES (?,?,?,?)")
     .run("test-binding", node, seat, "%1");
   if (kind === "legacy") db.prepare(`INSERT INTO sessions (id,node_id,session_name,status,origin,startup_status)
     VALUES (?,?,?,'running','launched','ready')`).run("000legacy-session", node, seat);
   migrate(db, ALL_MIGRATIONS);
-  const registry = new SessionRegistry(db), rigRepo = new RigRepository(db);
+  const registry = new SessionRegistry(db), softwareTeamRepo = new SoftwareTeamRepository(db);
   if (kind === "fresh") {
     const s = registry.registerSession(node, seat);
     registry.updateStatus(s.id, "running");
@@ -63,7 +63,7 @@ function fixture(kind: "legacy" | "fresh" | "adopt" = "legacy", primaryMiss = fa
     sendKeys: vi.fn(async (_: string, k: string[]) => { keys.push(k); return { ok: true }; }),
   };
   const transport = new SessionTransport({
-    db, rigRepo, sessionRegistry: registry, tmuxAdapter: tmux,
+    db, softwareTeamRepo, sessionRegistry: registry, tmuxAdapter: tmux,
     sleep: async ms => { clock += ms; }, now: () => new Date(clock), waitForIdlePollMs: 5,
   });
   // Physical input and native activity are offline boundaries. SQL metadata,
@@ -74,11 +74,11 @@ function fixture(kind: "legacy" | "fresh" | "adopt" = "legacy", primaryMiss = fa
   const policy = { enabled: true, thresholdPercent: 80, preCompactInstruction: "Write a restore map.",
     compactInstruction: "", messageInline: "", messageFilePath: "", postRestoreAuditInstruction: "" };
   const enforcer = new ClaudeCompactionEnforcer({ resolveClaudeCompactionPolicy: () => policy } as any, transport, {
-    openrigHome: home, now: () => clock,
+    softwareteamHome: home, now: () => clock,
     sleep: async ms => { clock += ms; await onSleep?.(); },
     resolveOccupantGeneration: s => primaryMiss ? null : registry.currentOccupantGenerationForSession(s),
   });
-  const claim = new ClaimService({ db, rigRepo, sessionRegistry: registry,
+  const claim = new ClaimService({ db, softwareTeamRepo, sessionRegistry: registry,
     discoveryRepo: new DiscoveryRepository(db), eventBus: new EventBus(db), tmuxAdapter: tmux });
   const app = new Hono();
   app.use("*", async (c, next) => {
@@ -121,8 +121,8 @@ it("missing generation fails at the public route before preparation and names ex
   const result = await f.req(trigger, { session: seat });
   expect(result.status).toBe(409);
   expect(result.body.reason).toBe("occupant_generation_unavailable");
-  expect(result.body.error).toContain(`rig reconcile-session ${shellQuote(seat)} --no-launch`);
-  expect(result.body.error).toContain(`explicitly retry rig compact ${shellQuote(seat)}`);
+  expect(result.body.error).toContain(`SoftwareTeam reconcile-session ${shellQuote(seat)} --no-launch`);
+  expect(result.body.error).toContain(`explicitly retry SoftwareTeam compact ${shellQuote(seat)}`);
   const current = await f.req(state);
   expect(current.body.preparation).toMatchObject({ status: "stopped", occupantGeneration: null,
     reason: "occupant_generation_unavailable" });
@@ -140,8 +140,8 @@ it("missing generation disarms automatic preparation; public reconcile requires 
   const stopped = f.enforcer.getPreparationState(seat)!;
   expect(stopped.status).toBe("stopped");
   expect((await f.req(state)).body.guidance).toContain("--no-launch");
-  // Same API called by `rig reconcile-session <seat> --no-launch`, with no hidden
-  // rig/node arguments needed for the persisted canonical binding.
+  // Same API called by `softwareTeam reconcile-session <seat> --no-launch`, with no hidden
+  // softwareTeam/node arguments needed for the persisted canonical binding.
   const recovered = await f.req(reconcile, {});
   expect(recovered).toMatchObject({ status: 200, body: { ok: true } });
   const generation = f.registry.currentOccupantGenerationForSession(seat);

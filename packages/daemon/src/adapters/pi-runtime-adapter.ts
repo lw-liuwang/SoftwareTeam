@@ -1,6 +1,6 @@
 // OPR.0.4.6.PI1 — the Pi runtime adapter (RPC-first, runner-in-a-pane).
 //
-// The adapter launches the OpenRig-owned pi-runner inside the seat's normal
+// The adapter launches the SoftwareTeam-owned pi-runner inside the seat's normal
 // tmux pane; the runner hosts `pi --mode rpc` (headless JSONL — Pi's
 // first-class integration surface). send/capture stay tmux-native and are NOT
 // adapter methods (the runner forwards pane stdin to RPC prompt/steer and
@@ -47,7 +47,7 @@ export interface PiRuntimeAdapterDeps {
   seatLaunchEnvironment?: SeatLaunchEnvironment;
   fsOps: PiAdapterFsOps;
   /** Root under which every Pi seat gets its isolated state dir (FR-7).
-   *  Typically <OPENRIG_HOME>/state/pi. */
+   *  Typically <SOFTWARETEAM_HOME>/state/pi. */
   stateRoot: string;
   /** Absolute path to the compiled pi-runner entry in the daemon dist. */
   runnerEntryPath: string;
@@ -174,7 +174,7 @@ export class PiRuntimeAdapter implements RuntimeAdapter {
             // the managed cwd as a project context file.
             const targetPath = nodePath.join(binding.cwd, "AGENTS.md");
             const merged = this.mergeGuidance(targetPath, file.path, content, warnings);
-            if (!merged) continue; // rig-role skip: do not count as delivered
+            if (!merged) continue; // software-team-role skip: do not count as delivered
             break;
           }
           case "skill_install": {
@@ -475,18 +475,18 @@ export class PiRuntimeAdapter implements RuntimeAdapter {
   }
 
   private mergeGuidance(targetPath: string, blockId: string, content: string, warnings: string[]): boolean {
-    // Mirrors the Claude/Codex adapters: per-seat `rig-role` content collides
+    // Mirrors the Claude/Codex adapters: per-seat `software-team-role` content collides
     // across pod-mates when merged into a shared cwd file; it is delivered via
     // send_text instead. See ADR-0006.
-    if (blockId === "rig-role") {
+    if (blockId === "software-team-role") {
       console.log(
-        `[openrig] skip: effectiveId is rig-role, per-seat delivery via send_text path required (target=${targetPath})`
+        `[softwareteam] skip: effectiveId is software-team-role, per-seat delivery via send_text path required (target=${targetPath})`
       );
       return false;
     }
     mergeManagedBlock(this.fs, targetPath, blockId, content, {
       warnings,
-      replaceBlockIds: blockId === "openrig-start.md" ? ["using-openrig.md"] : [],
+      replaceBlockIds: blockId === "softwareteam-start.md" ? ["using-softwareteam.md"] : [],
     });
     return true;
   }

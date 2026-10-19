@@ -1,5 +1,5 @@
 // An invalid --wake-after duration (and any other non-Commander error) must never fail silently.
-// Before: `rig queue block <id> --on <blocker> --wake-after 7d` exited 1 with no output in a human
+// Before: `SoftwareTeam queue block <id> --on <blocker> --wake-after 7d` exited 1 with no output in a human
 // run, so the owner believed the row was parked with a wake when nothing was parked.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Command, InvalidArgumentError } from "commander";
@@ -11,8 +11,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -38,7 +38,7 @@ async function runCli(program: Command, args: string[]) {
   const out: string[] = [];
   const err: string[] = [];
   let exitCode = 0;
-  await runProgram(program, ["node", "rig", ...args], {
+  await runProgram(program, ["node", "softwareTeam", ...args], {
     out: (l) => out.push(l),
     err: (l) => err.push(l),
     exit: (c) => { exitCode = c; },
@@ -57,7 +57,7 @@ describe("--wake-after: an invalid duration is refused loudly, before any daemon
   // proves the parse refusal, not a missing seat.
   beforeEach(() => {
     vi.unstubAllEnvs();
-    vi.stubEnv("OPENRIG_SESSION_NAME", "seat@rig");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "seat@software-team");
     vi.spyOn(console, "log").mockImplementation(() => {});
     process.exitCode = undefined;
   });
@@ -108,7 +108,7 @@ describe("--wake-after: an invalid duration is refused loudly, before any daemon
 
 describe("runProgram: no thrown error is silent in a human run", () => {
   const throwing = () => {
-    const program = new Command("rig");
+    const program = new Command("softwareTeam");
     program.command("boom").option("--json").action(() => { throw new Error("something broke"); });
     return program;
   };
@@ -130,7 +130,7 @@ describe("runProgram: no thrown error is silent in a human run", () => {
   // A CommanderError that an ACTION throws is not written by Commander (only the errors Commander
   // raises itself are), so it must be printed here too, exactly once.
   const throwingInvalid = () => {
-    const program = new Command("rig");
+    const program = new Command("softwareTeam");
     program.command("boom").option("--json").action(() => { throw new InvalidArgumentError("the value is not usable here"); });
     return program;
   };

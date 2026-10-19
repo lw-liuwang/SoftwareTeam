@@ -7,7 +7,7 @@ import type Database from "better-sqlite3";
  * THE LAYERING PIN (arch, binding, Rev-1): the queue is the lower
  * primitive and NEVER imports the workflow domain. This module is the
  * workflow domain's export; startup INJECTS the predicate into
- * QueueRepository (the `validateRig` injection precedent exactly).
+ * QueueRepository (the `validateSoftwareTeam` injection precedent exactly).
  * Same functional behavior as a direct import, without the module
  * cycle the next refactor would strangle on.
  *

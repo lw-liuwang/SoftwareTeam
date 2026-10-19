@@ -1,4 +1,4 @@
-// OPR.0.4.1.6 — read-time-trust derivation for `rig scope` (FR-5).
+// OPR.0.4.1.6 — read-time-trust derivation for `SoftwareTeam scope` (FR-5).
 //
 // The scope-and-versioning convention §2 keystone: an `established`/`canonical`
 // artifact whose `verified` is stale, absent, bare, or a not-yet-verified
@@ -34,10 +34,10 @@ const VERIFIED_RE = /^(\d{4}-\d{2}-\d{2})\s+against\s+(.+)$/i;
 
 // Tool-written placeholder provenances. None is a real verification against a
 // named source, so an established/canonical carrying one cannot coast as fresh
-// (the exact "looks fresh while lying" trap §2 closes). `rig scope verified`
+// (the exact "looks fresh while lying" trap §2 closes). `SoftwareTeam scope verified`
 // replaces these with a real source.
 const PLACEHOLDER_PROVENANCE_RE =
-  /\bscaffold \(rig scope create\)|\bbackfill \(rig scope repair\)|\(unverified\)/i;
+  /\bscaffold \(SoftwareTeam scope create\)|\bbackfill \(SoftwareTeam scope repair\)|\(unverified\)/i;
 
 function isValidISODate(dateStr: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;

@@ -6,25 +6,25 @@
       "agent-operated-software",
       "agent-operated-workflows",
       "mission-slice-sop",
-      "openrig-cmux",
-      "openrig-herdr",
+      "softwareteam-cmux",
+      "softwareteam-herdr",
       "loading-addressable-markdown",
       "messaging-the-human",
       "software-for-agents",
-      "openrig-skills",
-      "openrig-operating-model",
+      "softwareteam-skills",
+      "softwareteam-operating-model",
       "refocusing",
       "delegating-work",
       "context-engineering",
-      "openrig-software-factory"
+      "softwareteam-software-factory"
     ],
     "ship_after_fix": [
-      "openrig-user",
-      "forming-an-openrig-mental-model",
+      "softwareteam-user",
+      "forming-an-softwareteam-mental-model",
       "queue-handoff",
       "seat-continuity-and-handover",
       "claude-compaction-restore",
-      "openrig-architect",
+      "softwareteam-architect",
       "agent-startup-and-context-ingestion",
       "applying-a-permission-policy",
       "retiring-and-inheriting-a-seat",
@@ -33,13 +33,13 @@
     ],
     "ship_misses_add": [
       "topology-mutation-and-seat-management",
-      "rig-lifecycle",
+      "software-team-lifecycle",
       "session-compaction-and-restore"
     ],
     "sanitize_borderlines_ship": [
-      "rig-bundles-and-shareable-artifacts",
-      "cross-host-rig-commands",
-      "openrig-upgrade",
+      "software-team-bundles-and-shareable-artifacts",
+      "cross-host-software-team-commands",
+      "softwareteam-upgrade",
       "agent-starters",
       "specification-system",
       "human-in-the-loop",
@@ -69,7 +69,7 @@
   ],
   "not_public": {
     "reclass_host_only": [
-      "openrig-operator"
+      "softwareteam-operator"
     ],
     "obsolete_internal": [
       "attention-queue"
@@ -79,7 +79,7 @@
     ]
   },
   "pending_author_public": [
-    "openrig-operator",
+    "softwareteam-operator",
     "foot-guns"
   ]
 }

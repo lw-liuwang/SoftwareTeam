@@ -33,7 +33,7 @@ import type { GatewayCommandDeps } from "./commands/gateway.js";
 import { parkedCommand } from "./commands/parked.js";
 import { mcpCommand } from "./commands/mcp.js";
 import { agentCommand, type AgentDeps } from "./commands/agent.js";
-import { rigCommand, type RigDeps } from "./commands/rig.js";
+import { softwareTeamCommand, type SoftwareTeamDeps } from "./commands/software-team.js";
 import { transcriptCommand } from "./commands/transcript.js";
 import { sendCommand } from "./commands/send.js";
 import { streamCommand, type StreamDeps } from "./commands/stream.js";
@@ -87,7 +87,7 @@ import { compactPlanCommand, type CompactPlanDeps } from "./commands/compact-pla
 import { compactCommand, type CompactDeps } from "./commands/compact.js";
 import { heartbeatCommand, type HeartbeatDeps } from "./commands/heartbeat.js";
 import { seatCommand, handoverCommand, type SeatDeps } from "./commands/seat.js";
-import { rigModeCommand, type RigModeDeps } from "./commands/rig-mode.js";
+import { softwareTeamModeCommand, type SoftwareTeamModeDeps } from "./commands/software-team-mode.js";
 import { policyCommand } from "./commands/policy.js";
 import { startupProofCommand, type StartupProofDeps } from "./commands/startup-proof.js";
 import type { LifecycleDeps } from "./daemon-lifecycle.js";
@@ -117,7 +117,7 @@ export interface ProgramDeps {
   psDeps?: StatusDeps;
   mcpDeps?: StatusDeps;
   agentDeps?: AgentDeps;
-  rigDeps?: RigDeps;
+  softwareTeamDeps?: SoftwareTeamDeps;
   transcriptDeps?: StatusDeps;
   sendDeps?: StatusDeps;
   streamDeps?: StreamDeps;
@@ -160,7 +160,7 @@ export interface ProgramDeps {
   compactDeps?: CompactDeps;
   heartbeatDeps?: HeartbeatDeps;
   seatDeps?: SeatDeps;
-  rigModeDeps?: RigModeDeps;
+  softwareTeamModeDeps?: SoftwareTeamModeDeps;
   startupProofDeps?: StartupProofDeps;
   healthDeps?: HealthDeps;
   startDeps?: StartDeps;
@@ -192,7 +192,7 @@ export function createProgram(depsOverride?: ProgramDeps): Command {
   program.addCommand(bundleCommand(depsOverride?.bundleDeps));
   program.addCommand(upCommand(depsOverride?.upDeps));
   program.addCommand(downCommand(depsOverride?.downDeps));
-  // OPR.0.3.3.19 - rig archive affordance (soft, reversible; NOT a delete).
+  // OPR.0.3.3.19 - softwareTeam archive affordance (soft, reversible; NOT a delete).
   program.addCommand(archiveCommand(depsOverride?.archiveDeps));
   program.addCommand(unarchiveCommand(depsOverride?.unarchiveDeps));
   program.addCommand(hostCommand());
@@ -200,7 +200,7 @@ export function createProgram(depsOverride?: ProgramDeps): Command {
   program.addCommand(rosterCommand());
   program.addCommand(mcpCommand(depsOverride?.mcpDeps));
   program.addCommand(agentCommand(depsOverride?.agentDeps));
-  program.addCommand(rigCommand(depsOverride?.rigDeps));
+  program.addCommand(softwareTeamCommand(depsOverride?.softwareTeamDeps));
   program.addCommand(transcriptCommand(depsOverride?.transcriptDeps));
   program.addCommand(sendCommand(depsOverride?.sendDeps));
   program.addCommand(streamCommand(depsOverride?.streamDeps));
@@ -224,8 +224,8 @@ export function createProgram(depsOverride?: ProgramDeps): Command {
   program.addCommand(agentAppCommand(depsOverride?.agentAppDeps));
   program.addCommand(forkCommand(depsOverride?.forkDeps));
   program.addCommand(workspaceCommand(depsOverride?.workspaceDeps));
-  program.addCommand(rigModeCommand(depsOverride?.rigModeDeps));
-  // B7 — the reintroduced permission-policy verb (the context-mode verb above is now `rig mode`).
+  program.addCommand(softwareTeamModeCommand(depsOverride?.softwareTeamModeDeps));
+  // B7 — the reintroduced permission-policy verb (the context-mode verb above is now `softwareTeam mode`).
   program.addCommand(policyCommand());
   program.addCommand(whoamiCommand(depsOverride?.whoamiDeps));
   program.addCommand(configCommand(depsOverride?.configPath));
@@ -258,9 +258,9 @@ export function createProgram(depsOverride?: ProgramDeps): Command {
   program.addCommand(seatCommand(depsOverride?.seatDeps));
   program.addCommand(handoverCommand(depsOverride?.seatDeps));
   program.addCommand(startupProofCommand(depsOverride?.startupProofDeps));
-  // release-0.3.2 slice 12 — rig scope CLI primitive.
+  // release-0.3.2 slice 12 — SoftwareTeam scope CLI primitive.
   program.addCommand(scopeCommand());
-  // OPR.0.4.4.19 FR-8 — rig proof: the C1 proof-drop write path.
+  // OPR.0.4.4.19 FR-8 — softwareTeam proof: the C1 proof-drop write path.
   program.addCommand(proofCommand());
 
   return program;
@@ -278,13 +278,13 @@ export function isDirectRun(argv1 = process.argv[1], moduleUrl = import.meta.url
 
 // Slice 15 — the shared CLI error/exit path (re-exported for bin-wrapper + tests).
 export { runProgram, wantsJsonOutput } from "./cli-error.js";
-// Slice 17 — the bare-rig front door (re-exported so the PUBLIC bin-wrapper
+// Slice 17 — the bare-softwareTeam front door (re-exported so the PUBLIC bin-wrapper
 // path owns bare TTY invocations too, not just direct entry runs).
 export { runFrontDoor } from "./front-door.js";
 
 // Only parse when executed directly (not imported for testing)
 if (isDirectRun()) {
-  // Slice-17 mini-req 7 — bare `rig` in a real terminal opens the TUI; any
+  // Slice-17 mini-req 7 — bare `softwareTeam` in a real terminal opens the TUI; any
   // arg or a non-TTY stream falls through to the normal program unchanged.
   const { runFrontDoor } = await import("./front-door.js");
   const owned = await runFrontDoor(process.argv);

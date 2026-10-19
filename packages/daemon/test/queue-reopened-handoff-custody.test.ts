@@ -19,7 +19,7 @@ describe("custody diagnostics after reopening an atomic handoff", () => {
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
     const bus = new EventBus(db);
-    repo = new QueueRepository(db, bus, { validateRig: () => true });
+    repo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     repo.attachOutbox(new OutboxHandler(db));
     app = new Hono();
     app.use("*", async (c, next) => {
@@ -33,7 +33,7 @@ describe("custody diagnostics after reopening an atomic handoff", () => {
 
   async function post(id: string, verb: string, body: Record<string, unknown>) {
     const response = await app.request(`/api/queue/${id}/${verb}`, {
-      method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "worker@r" },
+      method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "worker@r" },
       body: JSON.stringify(body),
     });
     expect(response.status).toBe(verb === "handoff" ? 201 : 200);

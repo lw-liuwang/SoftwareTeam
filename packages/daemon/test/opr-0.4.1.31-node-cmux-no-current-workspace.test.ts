@@ -24,16 +24,16 @@ function makeAdapter(overrides: Record<string, unknown>) {
 }
 
 function makeService(adapter: Record<string, unknown>) {
-  const rigRepo = { getRig: () => ({ nodes: [{ id: "n1", logicalId: "dev.impl", binding: null }] }) };
+  const softwareTeamRepo = { getSoftwareTeam: () => ({ nodes: [{ id: "n1", logicalId: "dev.impl", binding: null }] }) };
   const sessionRegistry = { updateBinding: vi.fn() };
-  return new NodeCmuxService(rigRepo as never, sessionRegistry as never, adapter as never);
+  return new NodeCmuxService(softwareTeamRepo as never, sessionRegistry as never, adapter as never);
 }
 
 describe("OPR.0.4.1.31 part A — NodeCmuxService no-current-workspace handling (allowed methods only)", () => {
   it("no current workspace -> creates a workspace (becomes visible) and opens", async () => {
     const adapter = makeAdapter({});
     const svc = makeService(adapter);
-    const result = await svc.openOrFocusNodeSurface("rig-1", "dev.impl");
+    const result = await svc.openOrFocusNodeSurface("software-team-1", "dev.impl");
     expect(result.ok).toBe(true);
     expect((adapter.createWorkspace as ReturnType<typeof vi.fn>)).toHaveBeenCalled();
   });
@@ -43,7 +43,7 @@ describe("OPR.0.4.1.31 part A — NodeCmuxService no-current-workspace handling 
       currentWorkspace: async () => ({ ok: false, code: "unavailable", message: "cmux is not connected" }),
     });
     const svc = makeService(adapter);
-    const result = await svc.openOrFocusNodeSurface("rig-1", "dev.impl");
+    const result = await svc.openOrFocusNodeSurface("software-team-1", "dev.impl");
     expect(result.ok).toBe(false);
     expect((result as { code?: string }).code).toBe("unavailable");
     expect((adapter.createWorkspace as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
@@ -54,17 +54,17 @@ describe("OPR.0.4.1.31 part A — NodeCmuxService no-current-workspace handling 
       currentWorkspace: async () => ({ ok: true, data: "ws-current" }),
     });
     const svc = makeService(adapter);
-    const result = await svc.openOrFocusNodeSurface("rig-1", "dev.impl");
+    const result = await svc.openOrFocusNodeSurface("software-team-1", "dev.impl");
     expect(result.ok).toBe(true);
     expect((adapter.createWorkspace as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
   });
 
-  it("no current + create fails -> honest error (operator can fall back to rig-level Launch)", async () => {
+  it("no current + create fails -> honest error (operator can fall back to software-team-level Launch)", async () => {
     const adapter = makeAdapter({
       createWorkspace: vi.fn(async () => ({ ok: false, code: "request_failed", message: "cmux workspace.create failed" })),
     });
     const svc = makeService(adapter);
-    const result = await svc.openOrFocusNodeSurface("rig-1", "dev.impl");
+    const result = await svc.openOrFocusNodeSurface("software-team-1", "dev.impl");
     expect(result.ok).toBe(false);
     expect((result as { error?: string }).error).toContain("cmux workspace.create failed");
   });

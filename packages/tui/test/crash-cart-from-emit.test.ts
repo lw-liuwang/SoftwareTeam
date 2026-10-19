@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { crashCartRenderOpts, probeCrashCart, type CrashCartEmit } from "../src/crash-cart/from-emit.js";
 
-// Crash-cart C3 unit-C — map the `rig crash-cart --json` verdict → the renderScreen daemon-down opts.
+// Crash-cart C3 unit-C — map the `softwareTeam crash-cart --json` verdict → the renderScreen daemon-down opts.
 // DOWN+discovery → the cockpit; UNVERIFIED+evidence → the cannot-verify screen; UP → normal TUI. Rail 3:
 // a DOWN+refusal (the read fail-closed because a daemon answered) NEVER renders the cockpit → normal TUI.
 
@@ -11,7 +11,7 @@ describe("crashCartRenderOpts — verdict → render opts", () => {
       state: "down",
       discovery: {
         header: { lastActivityAt: "2026-08-06T08:12:00Z" },
-        foundOnHost: [{ rigName: "alpha", seatCount: 2, resumableCount: 2, lastActiveAt: "2026-08-06T08:00:00Z" }],
+        foundOnHost: [{ softwareTeamName: "alpha", seatCount: 2, resumableCount: 2, lastActiveAt: "2026-08-06T08:00:00Z" }],
         whereWorkStopped: [],
       },
     };

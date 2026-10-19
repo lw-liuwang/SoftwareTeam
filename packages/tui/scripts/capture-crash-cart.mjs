@@ -32,7 +32,7 @@ const screens = {
     daemonState: "unverified",
     daemonEvidence: { pidState: "alive (pid 4242)", probeResult: "timeout", failedSignal: "healthz timed out after 3 probes" },
   }),
-  // FIRST-RUN IN-SHELL — DOWN + no DB → onboarding framing, explorer marked ledger even with no rigs.
+  // FIRST-RUN IN-SHELL — DOWN + no DB → onboarding framing, explorer marked ledger even with no softwareTeams.
   "first-run-in-shell": draw({
     daemonState: "down",
     crashCart: buildCrashCartModel({ header: { lastActivityAt: null }, foundOnHost: [], whereWorkStopped: [] }),

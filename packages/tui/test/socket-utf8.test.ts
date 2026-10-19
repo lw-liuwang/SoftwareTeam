@@ -29,7 +29,7 @@ async function sendSplit(socketPath: string, bytes: Buffer, split: number): Prom
 describe("control socket UTF-8 stream", () => {
   it("preserves every split of multibyte command arguments over an actual socket", async () => {
     const view = createViewState({ instanceId: "utf8" });
-    const directory = mkdtempSync(join(tmpdir(), "openrig-utf8-"));
+    const directory = mkdtempSync(join(tmpdir(), "softwareteam-utf8-"));
     try {
       const control = await createControlSocket({ socketPath: join(directory, "control.sock"), view });
       const text = "工程🚀";

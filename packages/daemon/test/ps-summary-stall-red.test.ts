@@ -78,10 +78,10 @@ describe("slice-04 ps/summary event-loop regression", () => {
       expect(countHas(tap.seen, RESTORE_SIG)).toBe(1);
 
       tap.seen.length = 0;
-      const sumRes = await app.request("/api/rigs/summary");
+      const sumRes = await app.request("/api/software-teams/summary");
       expect(sumRes.status).toBe(200);
-      // Genuine RED at the test-only gate. Pre-fix, /api/rigs/summary re-scanned per
-      // active rig (10 startup + 10 restore); the target fix must batch both to
+      // Genuine RED at the test-only gate. Pre-fix, /api/software-teams/summary re-scanned per
+      // active softwareTeam (10 startup + 10 restore); the target fix must batch both to
       // exactly ONE fleet scan each — this pin asserts 1 + 1.
       expect(countHas(tap.seen, STARTUP_SIG)).toBe(1);
       expect(countHas(tap.seen, RESTORE_SIG)).toBe(1);
@@ -106,19 +106,19 @@ describe("slice-04 ps/summary event-loop regression", () => {
       expect(arch).toHaveLength(17);
       for (const f of ["status", "nodeCount", "runningCount"]) expect(def[0]).toHaveProperty(f);
 
-      // slice-04 (guard Correction 1): pin /api/rigs/summary membership + lifecycleState
+      // slice-04 (guard Correction 1): pin /api/software-teams/summary membership + lifecycleState
       // too — same archive contract as /api/ps (previously only /api/ps was pinned),
-      // so the scoped-fold fix cannot silently change which rigs summary returns.
-      const sumDef = (await (await app.request("/api/rigs/summary")).json()) as unknown[];
+      // so the scoped-fold fix cannot silently change which softwareTeams summary returns.
+      const sumDef = (await (await app.request("/api/software-teams/summary")).json()) as unknown[];
       expect(sumDef).toHaveLength(10);
-      const sumIncl = (await (await app.request("/api/rigs/summary?includeArchived=true")).json()) as unknown[];
+      const sumIncl = (await (await app.request("/api/software-teams/summary?includeArchived=true")).json()) as unknown[];
       expect(sumIncl).toHaveLength(27);
-      const sumArch = (await (await app.request("/api/rigs/summary?archived=only")).json()) as unknown[];
+      const sumArch = (await (await app.request("/api/software-teams/summary?archived=only")).json()) as unknown[];
       expect(sumArch).toHaveLength(17);
       expect(sumDef[0]).toHaveProperty("lifecycleState");
 
       // request-boundary freshness: a mutation between two polls is reflected (no stale snapshot)
-      db.prepare("UPDATE rigs SET archived_at = ? WHERE id = ?").run("2026-07-06 00:00:00", shape.activeRigIds[0]);
+      db.prepare("UPDATE software_teams SET archived_at = ? WHERE id = ?").run("2026-07-06 00:00:00", shape.activeSoftwareTeamIds[0]);
       const def2 = (await (await app.request("/api/ps")).json()) as unknown[];
       expect(def2).toHaveLength(9);
 
@@ -129,7 +129,7 @@ describe("slice-04 ps/summary event-loop regression", () => {
       const failRes = await app.request("/api/ps");
       expect(failPrepare).toHaveBeenCalledOnce();
       // Pin the boundary without depending on a computed column's SQL alias.
-      expect(failPrepare).toHaveBeenCalledWith(expect.stringMatching(/^\s*SELECT\s+r\.id\s+as\s+rig_id\b/i));
+      expect(failPrepare).toHaveBeenCalledWith(expect.stringMatching(/^\s*SELECT\s+r\.id\s+as\s+software_team_id\b/i));
       expect(failRes.status).toBe(500);
       const body = await failRes.text();
       expect(body).not.toContain("runningCount"); // no partial ps payload
@@ -148,8 +148,8 @@ describe("slice-04 ps/summary event-loop regression", () => {
   // ---------- D2 (regression pin): real localhost N=24 burst health budget ----------
   it("D2 regression: N=24 real-HTTP ps+summary burst keeps worst /healthz < budget", async () => {
     const env: NodeJS.ProcessEnv = { ...process.env };
-    for (const k of ["OPENRIG_URL", "OPENRIG_PORT", "OPENRIG_HOME", "OPENRIG_HOST", "OPENRIG_DB",
-      "RIGGED_URL", "RIGGED_PORT", "RIGGED_HOME", "RIGGED_HOST", "RIGGED_DB"]) delete env[k];
+    for (const k of ["SOFTWARETEAM_URL", "SOFTWARETEAM_PORT", "SOFTWARETEAM_HOME", "SOFTWARETEAM_HOST", "SOFTWARETEAM_DB",
+      "SOFTWARETEAM_URL", "SOFTWARETEAM_PORT", "SOFTWARETEAM_HOME", "SOFTWARETEAM_HOST", "SOFTWARETEAM_DB"]) delete env[k];
 
     const CAP = 64 * 1024;
     let out = "", err = "", outTrunc = false, errTrunc = false;
@@ -225,7 +225,7 @@ describe("slice-04 ps/summary event-loop regression", () => {
       const reqs: Promise<unknown>[] = [];
       for (let i = 0; i < 24; i++) {
         reqs.push(fetch(base + "/api/ps").then((r) => { psStatuses.push(r.status); return r.text(); }));
-        reqs.push(fetch(base + "/api/rigs/summary").then((r) => { sumStatuses.push(r.status); return r.text(); }));
+        reqs.push(fetch(base + "/api/software-teams/summary").then((r) => { sumStatuses.push(r.status); return r.text(); }));
       }
       await Promise.all(reqs);
       stop = true;

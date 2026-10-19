@@ -5,9 +5,9 @@ workflow:
     role: worker
   roles:
     worker:
-      preferred_targets: [worker@rig]
+      preferred_targets: [worker@software-team]
     next:
-      preferred_targets: [next@rig]
+      preferred_targets: [next@software-team]
   steps:
     - id: work
       actor_role: worker

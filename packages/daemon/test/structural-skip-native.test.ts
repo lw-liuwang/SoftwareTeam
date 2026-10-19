@@ -10,12 +10,12 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { TmuxAdapter } from "../src/adapters/tmux.js";
 import { SeatStructuralActivityService } from "../src/domain/seat-structural-activity-service.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { createFullTestDb } from "./helpers/test-app.js";
 
 const exec = promisify(execFile);
-const socket = `openrig-structural-skip-${process.pid}-${Date.now()}`;
+const socket = `softwareteam-structural-skip-${process.pid}-${Date.now()}`;
 const run = async (...args: string[]) => (await exec("tmux", ["-L", socket, "-f", "/dev/null", ...args], { timeout: 5000 })).stdout;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -36,12 +36,12 @@ try { execFileSync("tmux", ["-V"], { timeout: 2000, stdio: "ignore" }); } catch 
 
 it.skipIf(!nativeAvailable)("structural verdicts with the skip equal a capture-every-sweep service at every sweep", async () => {
   const db = createFullTestDb();
-  const rigRepo = new RigRepository(db);
+  const softwareTeamRepo = new SoftwareTeamRepository(db);
   const reg = new SessionRegistry(db);
-  const rig = rigRepo.createRig("r");
+  const softwareTeam = softwareTeamRepo.createSoftwareTeam("r");
   const seats: string[] = [];
   const addSeat = (name: string) => {
-    const node = rigRepo.addNode(rig.id, `dev.${name}`, { runtime: "claude-code" });
+    const node = softwareTeamRepo.addNode(softwareTeam.id, `dev.${name}`, { runtime: "claude-code" });
     const sess = reg.registerSession(node.id, name);
     reg.updateStatus(sess.id, "running");
     reg.updateBinding(node.id, { tmuxSession: name, attachmentType: "tmux" });

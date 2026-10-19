@@ -14,7 +14,7 @@
 // SEMANTIC FENCE: this order is PRESENTATION ONLY. Any consumer that treats the first warning as
 // higher-priority is a FINDING, not an ordering input — this pin freezes presentation, never semantics.
 import { describe, expect, it } from "vitest";
-import { rigPreflight } from "../src/domain/rigspec-preflight.js";
+import { softwareTeamPreflight } from "../src/domain/software-team-spec-preflight.js";
 import type { AgentResolverFsOps } from "../src/domain/agent-resolver.js";
 
 // An agent.yaml that DECLARES + SELECTS the claude_activity_hooks runtime resource — so a claude-code
@@ -44,7 +44,7 @@ function fsOps(): AgentResolverFsOps {
   };
 }
 
-const RIG_YAML = `version: "0.2"
+const SOFTWARE_TEAM_YAML = `version: "0.2"
 name: order-pin
 pods:
   - id: dev
@@ -60,14 +60,14 @@ pods:
 
 describe("§6 reconciliation — warning emission order (activity-hook-first, policy-appended)", () => {
   it("a preflight emitting BOTH an activity-hook delivery warning AND a policy discovery warning orders activity-hook FIRST, policy APPENDED", async () => {
-    const result = await rigPreflight({
-      rigSpecYaml: RIG_YAML,
-      rigRoot: "/probe/root",
+    const result = await softwareTeamPreflight({
+      softwareTeamSpecYaml: SOFTWARE_TEAM_YAML,
+      softwareTeamRoot: "/probe/root",
       fsOps: fsOps(),
       // Missing assets → the managed-activity-hook delivery warning fires (nonfatal, READY path).
       claudeActivityAssets: { relayPath: "/missing/relay.cjs", manifestPath: "/missing/claude.json" },
     });
-    expect(result.ready).toBe(true); // both warnings are NONFATAL — rig up stays rc0
+    expect(result.ready).toBe(true); // both warnings are NONFATAL — SoftwareTeam up stays rc0
 
     const hookIdx = result.warnings.findIndex((w) =>
       w.includes("managed Claude activity hooks cannot be delivered"),

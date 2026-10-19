@@ -11,13 +11,13 @@ import { fileURLToPath } from "node:url";
 // runner stamps its readiness sidecar (updatedAt, exit.at) — with plain new Date()
 // those stamps drift run-to-run and break the compaction determinism pin (a
 // byte-identical double-run). The runner's clock must be the SAME injectable seam the
-// compaction assets use: OPENRIG_TEST_CLOCK_NOW (an ISO instant) with a real-wall-clock
+// compaction assets use: SOFTWARETEAM_TEST_CLOCK_NOW (an ISO instant) with a real-wall-clock
 // fallback (absent = production). This spawns the REAL runner (the class-fix floor) and
 // reads the sidecar it actually wrote.
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RUNNER = resolve(HERE, "../src/adapters/stub-runner.ts");
-const SIDECAR_SUBPATH = join(".openrig", "stub", "state.json");
+const SIDECAR_SUBPATH = join(".softwareteam", "stub", "state.json");
 const INJECTED_ISO = "2021-06-06T06:06:06.000Z";
 
 async function waitForSidecar(dir: string, timeoutMs = 8000): Promise<Record<string, unknown>> {
@@ -46,11 +46,11 @@ describe("stub-runner own-clock determinism (PRD §5)", () => {
     dir = undefined;
   });
 
-  it("stamps the readiness sidecar updatedAt from OPENRIG_TEST_CLOCK_NOW (not wall-clock)", async () => {
+  it("stamps the readiness sidecar updatedAt from SOFTWARETEAM_TEST_CLOCK_NOW (not wall-clock)", async () => {
     dir = mkdtempSync(join(tmpdir(), "stub-clock-"));
     child = execFile("node", ["--import", "tsx", RUNNER,
       "--session-name", "dev-worker@t", "--cwd", dir, "--launch-id", "clk-1", "--posture", "floor"],
-      { env: { ...process.env, OPENRIG_TEST_CLOCK_NOW: INJECTED_ISO } as NodeJS.ProcessEnv });
+      { env: { ...process.env, SOFTWARETEAM_TEST_CLOCK_NOW: INJECTED_ISO } as NodeJS.ProcessEnv });
 
     const sidecar = await waitForSidecar(dir);
     expect(sidecar["ready"]).toBe(true);

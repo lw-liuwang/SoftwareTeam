@@ -15,14 +15,14 @@ afterEach(async () => {
   process.exitCode = undefined;
 });
 
-it("marks partial native HTTP inventory while preserving healthy rigs", async () => {
+it("marks partial native HTTP inventory while preserving healthy softwareTeams", async () => {
   let failedRoute = "/api/ps";
   let status = 503;
   let malformedNodes = false;
-  let malformedRigs = false;
+  let malformedSoftwareTeams = false;
   const requests: Array<{ method: string; path: string }> = [];
   const candidate = {
-    rigId: "rig-a", rigName: "alpha", logicalId: "orch.lead", canonicalSessionName: "orch-lead@alpha",
+    softwareTeamId: "software-team-a", softwareTeamName: "alpha", logicalId: "orch.lead", canonicalSessionName: "orch-lead@alpha",
     runtime: "claude-code", sessionStatus: "running", startupStatus: "ready",
     tmuxAttachCommand: "tmux attach -t orch-lead@alpha", resumeCommand: null,
     contextUsage: { usedPercentage: 90, remainingPercentage: 10, contextWindowSize: 1_000_000,
@@ -33,8 +33,8 @@ it("marks partial native HTTP inventory while preserving healthy rigs", async ()
     if (req.url === failedRoute && status === 0) { req.socket.destroy(); return; }
     const code = req.url === failedRoute ? status : 200;
     const data = req.url === "/api/ps"
-      ? code === 200 ? malformedRigs ? null : [{ rigId: "rig-a", name: "alpha" }, { rigId: "rig-b", name: "beta" }] : []
-      : req.url === "/api/rigs/rig-a/nodes" ? [candidate] : code === 200 && !malformedNodes ? [] : { error: "inventory unavailable" };
+      ? code === 200 ? malformedSoftwareTeams ? null : [{ softwareTeamId: "software-team-a", name: "alpha" }, { softwareTeamId: "software-team-b", name: "beta" }] : []
+      : req.url === "/api/software-teams/software-team-a/nodes" ? [candidate] : code === 200 && !malformedNodes ? [] : { error: "inventory unavailable" };
     res.writeHead(code, { "Content-Type": "application/json" });
     res.end(JSON.stringify(data));
   });
@@ -48,7 +48,7 @@ it("marks partial native HTTP inventory while preserving healthy rigs", async ()
   const log = vi.spyOn(console, "log").mockImplementation(() => {});
   const error = vi.spyOn(console, "error").mockImplementation(() => {});
   for (const output of [[], ["--json"]]) {
-    for (const route of ["/api/ps", "/api/rigs/rig-b/nodes"]) {
+    for (const route of ["/api/ps", "/api/software-teams/software-team-b/nodes"]) {
       for (const code of [401, 503]) {
         failedRoute = route; status = code; process.exitCode = undefined;
         log.mockClear(); error.mockClear(); requests.length = 0;
@@ -59,7 +59,7 @@ it("marks partial native HTTP inventory while preserving healthy rigs", async ()
           expect.soft(log).not.toHaveBeenCalled();
         } else if (output.length) {
           const plan = JSON.parse(String(log.mock.calls[0]?.[0] ?? "{}"));
-          expect.soft(plan.incompleteRigs).toEqual([{ rig: "beta", status: code }]);
+          expect.soft(plan.incompleteSoftwareTeams).toEqual([{ softwareTeam: "beta", status: code }]);
           expect.soft(plan.candidates?.[0]?.session).toBe("orch-lead@alpha");
         } else {
           expect.soft(log.mock.calls.flat().join(" ")).toContain("orch-lead@alpha");
@@ -69,32 +69,32 @@ it("marks partial native HTTP inventory while preserving healthy rigs", async ()
       }
     }
   }
-  failedRoute = ""; malformedRigs = true; process.exitCode = undefined; log.mockClear(); error.mockClear();
+  failedRoute = ""; malformedSoftwareTeams = true; process.exitCode = undefined; log.mockClear(); error.mockClear();
   await compactPlanCommand(deps).parseAsync(["--json"], { from: "user" });
-  expect(process.exitCode).toBe(2); expect(error.mock.calls.flat().join(" ")).toContain("Rig inventory is not an array");
+  expect(process.exitCode).toBe(2); expect(error.mock.calls.flat().join(" ")).toContain("SoftwareTeam inventory is not an array");
   expect(log).not.toHaveBeenCalled();
-  malformedRigs = false; malformedNodes = true; process.exitCode = undefined; log.mockClear(); error.mockClear();
+  malformedSoftwareTeams = false; malformedNodes = true; process.exitCode = undefined; log.mockClear(); error.mockClear();
   await compactPlanCommand(deps).parseAsync(["--json"], { from: "user" });
   expect(process.exitCode).toBe(1);
-  expect(JSON.parse(String(log.mock.calls[0]![0])).incompleteRigs).toEqual([{ rig: "beta", status: "invalid_inventory" }]);
+  expect(JSON.parse(String(log.mock.calls[0]![0])).incompleteSoftwareTeams).toEqual([{ softwareTeam: "beta", status: "invalid_inventory" }]);
   process.exitCode = undefined; log.mockClear(); error.mockClear();
-  await compactPlanCommand(deps).parseAsync(["--rig", "beta", "--json"], { from: "user" });
+  await compactPlanCommand(deps).parseAsync(["--software-team", "beta", "--json"], { from: "user" });
   expect(process.exitCode).toBe(2); expect(log).not.toHaveBeenCalled();
   expect(error.mock.calls.flat().join(" ")).toContain("is not an array");
-  malformedNodes = false; failedRoute = "/api/rigs/rig-b/nodes"; status = 503;
+  malformedNodes = false; failedRoute = "/api/software-teams/software-team-b/nodes"; status = 503;
   process.exitCode = undefined; log.mockClear(); error.mockClear();
-  await compactPlanCommand(deps).parseAsync(["--rig", "beta", "--json"], { from: "user" });
+  await compactPlanCommand(deps).parseAsync(["--software-team", "beta", "--json"], { from: "user" });
   expect(process.exitCode).toBe(2); expect(log).not.toHaveBeenCalled();
   expect(error.mock.calls.flat().join(" ")).toContain("HTTP 503");
   status = 0; process.exitCode = undefined; log.mockClear(); error.mockClear();
   await compactPlanCommand(deps).parseAsync(["--json"], { from: "user" });
   const partial = JSON.parse(String(log.mock.calls[0]![0]));
   expect(process.exitCode).toBe(1);
-  expect(partial.incompleteRigs).toEqual([{ rig: "beta", status: "request_failed" }]);
+  expect(partial.incompleteSoftwareTeams).toEqual([{ softwareTeam: "beta", status: "request_failed" }]);
   expect(partial.candidates[0].session).toBe("orch-lead@alpha");
   failedRoute = ""; process.exitCode = undefined; log.mockClear(); error.mockClear();
   await compactPlanCommand(deps).parseAsync(["--json"], { from: "user" });
   expect(process.exitCode).toBeUndefined(); expect(error).not.toHaveBeenCalled();
   expect(JSON.parse(String(log.mock.calls[0]![0])).summary.candidateCount).toBe(1);
-  expect(JSON.parse(String(log.mock.calls[0]![0])).incompleteRigs).toEqual([]);
+  expect(JSON.parse(String(log.mock.calls[0]![0])).incompleteSoftwareTeams).toEqual([]);
 });

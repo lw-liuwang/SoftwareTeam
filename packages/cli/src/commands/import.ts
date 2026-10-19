@@ -13,7 +13,7 @@ export interface ImportDeps extends StatusDeps {
 const LONG_RUNNING_IMPORT_TIMEOUT_MS = 120_000;
 
 export function importCommand(depsOverride?: ImportDeps): Command {
-  const cmd = new Command("import").description("Import a rig spec from YAML");
+  const cmd = new Command("import").description("Import a SoftwareTeam spec from YAML");
   const getDeps = (): ImportDeps => depsOverride ?? {
     lifecycleDeps: realDeps(),
     clientFactory: (url: string) => new DaemonClient(url),
@@ -21,15 +21,15 @@ export function importCommand(depsOverride?: ImportDeps): Command {
   };
 
   cmd
-    .argument("<path>", "Path to YAML rig spec file")
-    .option("--instantiate", "Instantiate the rig after import")
-    .option("--materialize-only", "Create rig topology without launching sessions")
-    .option("--workspace-only", "Apply only the workspace declaration to an existing rig")
+    .argument("<path>", "Path to YAML SoftwareTeam spec file")
+    .option("--instantiate", "Instantiate the SoftwareTeam after import")
+    .option("--materialize-only", "Create SoftwareTeam topology without launching sessions")
+    .option("--workspace-only", "Apply only the workspace declaration to an existing softwareTeam")
     .option("--preflight", "Run preflight checks")
-    .option("--target-rig <rigId>", "Target existing rig for materialization or workspace apply")
-    .option("--rig-root <root>", "Root directory for pod-aware resolution")
+    .option("--target-software-team <softwareTeamId>", "Target existing SoftwareTeam for materialization or workspace apply")
+    .option("--software-team-root <root>", "Root directory for pod-aware resolution")
     .option("--cwd <path>", "Override launch/materialization working directory for all members")
-    .action(async (filePath: string, opts: { instantiate?: boolean; materializeOnly?: boolean; workspaceOnly?: boolean; preflight?: boolean; targetRig?: string; rigRoot?: string; cwd?: string }) => {
+    .action(async (filePath: string, opts: { instantiate?: boolean; materializeOnly?: boolean; workspaceOnly?: boolean; preflight?: boolean; targetSoftwareTeam?: string; softwareTeamRoot?: string; cwd?: string }) => {
       const deps = getDeps();
 
       // Read local file first (before daemon check — fail fast on missing file)
@@ -47,15 +47,15 @@ export function importCommand(depsOverride?: ImportDeps): Command {
 
       const client = deps.clientFactory(getDaemonUrl(status));
 
-      // Detect pod-aware specs for X-Rig-Root header
+      // Detect pod-aware specs for X-Software-Team-Root header
       let podAware = false;
       try { const { parse } = await import("yaml"); const parsed = parse(yaml); podAware = !!parsed && Array.isArray(parsed.pods); } catch { /* not parseable — let daemon validate */ }
-      const rigRoot = podAware
-        ? (opts.rigRoot ? nodePath.resolve(opts.rigRoot) : nodePath.dirname(nodePath.resolve(filePath)))
+      const softwareTeamRoot = podAware
+        ? (opts.softwareTeamRoot ? nodePath.resolve(opts.softwareTeamRoot) : nodePath.dirname(nodePath.resolve(filePath)))
         : undefined;
       const cwdOverride = opts.cwd ? nodePath.resolve(opts.cwd) : undefined;
       const extraHeaders = {
-        ...(rigRoot ? { "X-Rig-Root": rigRoot } : {}),
+        ...(softwareTeamRoot ? { "X-Software-Team-Root": softwareTeamRoot } : {}),
         ...(cwdOverride ? { "X-Cwd-Override": cwdOverride } : {}),
       };
 
@@ -71,33 +71,33 @@ export function importCommand(depsOverride?: ImportDeps): Command {
       }
 
       if (opts.workspaceOnly) {
-        if (!opts.targetRig) {
-          console.error("--workspace-only requires --target-rig <rigId>.");
+        if (!opts.targetSoftwareTeam) {
+          console.error("--workspace-only requires --target-software-team <softwareTeamId>.");
           process.exitCode = 1;
           return;
         }
         const res = await client.postText<
-          { rigId: string; changed: boolean; workspace: unknown }
+          { softwareTeamId: string; changed: boolean; workspace: unknown }
           | { ok: false; code: string; errors?: string[]; message?: string; error?: string }
-        >("/api/rigs/import/workspace", yaml, "text/yaml", { "X-Target-Rig-Id": opts.targetRig });
+        >("/api/software-teams/import/workspace", yaml, "text/yaml", { "X-Target-software-team-Id": opts.targetSoftwareTeam });
         if (res.status >= 400) {
           const data = res.data as { errors?: string[]; message?: string; error?: string };
           const detail = data.errors?.join("\n  ") ?? data.message ?? data.error ?? `status ${res.status}`;
-          console.error(`Workspace apply failed:\n  ${detail}\nFix: update the RigSpec workspace or target rig and retry.`);
+          console.error(`Workspace apply failed:\n  ${detail}\nFix: update the SoftwareTeamSpec workspace or target SoftwareTeam and retry.`);
           process.exitCode = 1;
           return;
         }
-        const data = res.data as { rigId: string; changed: boolean };
+        const data = res.data as { softwareTeamId: string; changed: boolean };
         console.log(data.changed
-          ? `Workspace applied to rig ${data.rigId}`
-          : `Workspace already matches rig ${data.rigId}`);
+          ? `Workspace applied to SoftwareTeam ${data.softwareTeamId}`
+          : `Workspace already matches SoftwareTeam ${data.softwareTeamId}`);
         return;
       }
 
       if (opts.preflight) {
-        const res = await client.postText<{ ready?: boolean; warnings?: string[]; errors?: string[] }>("/api/rigs/import/preflight", yaml, "text/yaml", extraHeaders);
+        const res = await client.postText<{ ready?: boolean; warnings?: string[]; errors?: string[] }>("/api/software-teams/import/preflight", yaml, "text/yaml", extraHeaders);
         if (res.status >= 400) {
-          console.error(`Preflight failed (HTTP ${res.status}). Check your spec syntax and rig-root path.`);
+          console.error(`Preflight failed (HTTP ${res.status}). Check your spec syntax and software-team-root path.`);
           process.exitCode = 1;
           return;
         }
@@ -119,24 +119,24 @@ export function importCommand(depsOverride?: ImportDeps): Command {
 
       if (opts.materializeOnly) {
         if (!podAware) {
-          console.error("Materialize-only requires a pod-aware RigSpec with pods.");
+          console.error("Materialize-only requires a pod-aware SoftwareTeamSpec with pods.");
           process.exitCode = 1;
           return;
         }
         const headers = {
           ...extraHeaders,
-          ...(opts.targetRig ? { "X-Target-Rig-Id": opts.targetRig } : {}),
+          ...(opts.targetSoftwareTeam ? { "X-Target-software-team-Id": opts.targetSoftwareTeam } : {}),
         };
-        const res = await client.postText<{ rigId: string; specName: string; specVersion: string; nodes: Array<{ logicalId: string; status: string }> } | { ok: false; code: string; errors?: string[]; message?: string; error?: string }>("/api/rigs/import/materialize", yaml, "text/yaml", headers);
+        const res = await client.postText<{ softwareTeamId: string; specName: string; specVersion: string; nodes: Array<{ logicalId: string; status: string }> } | { ok: false; code: string; errors?: string[]; message?: string; error?: string }>("/api/software-teams/import/materialize", yaml, "text/yaml", headers);
         if (res.status === 409 || res.status === 400 || res.status === 404) {
           const data = res.data as { ok?: false; code?: string; errors?: string[]; message?: string; error?: string };
-          if (data.code === "rig_name_running") {
-            console.error(data.error ?? data.message ?? "A rig with this name is already running.");
+          if (data.code === "software_team_name_running") {
+            console.error(data.error ?? data.message ?? "A SoftwareTeam with this name is already running.");
             process.exitCode = 1;
             return;
           }
           const detail = data.errors?.join("\n  ") ?? data.message ?? data.error ?? `status ${res.status}`;
-          console.error(`Materialize failed:\n  ${detail}\nFix: update your spec or target rig and retry.`);
+          console.error(`Materialize failed:\n  ${detail}\nFix: update your spec or target SoftwareTeam and retry.`);
           process.exitCode = 1;
           return;
         }
@@ -145,8 +145,8 @@ export function importCommand(depsOverride?: ImportDeps): Command {
           process.exitCode = 1;
           return;
         }
-        const data = res.data as { rigId: string; specName: string; specVersion: string; nodes: Array<{ logicalId: string; status: string }> };
-        console.log(`Rig materialized: ${data.specName} (${data.rigId})`);
+        const data = res.data as { softwareTeamId: string; specName: string; specVersion: string; nodes: Array<{ logicalId: string; status: string }> };
+        console.log(`SoftwareTeam materialized: ${data.specName} (${data.softwareTeamId})`);
         for (const n of data.nodes) {
           console.log(`  ${n.logicalId}: ${n.status}`);
         }
@@ -154,8 +154,8 @@ export function importCommand(depsOverride?: ImportDeps): Command {
       }
 
       if (opts.instantiate) {
-        const res = await client.postText<{ rigId: string; specName: string; specVersion: string; nodes: Array<{ logicalId: string; status: string }> } | { ok: false; code: string; errors?: string[]; message?: string; error?: string }>(
-          "/api/rigs/import",
+        const res = await client.postText<{ softwareTeamId: string; specName: string; specVersion: string; nodes: Array<{ logicalId: string; status: string }> } | { ok: false; code: string; errors?: string[]; message?: string; error?: string }>(
+          "/api/software-teams/import",
           yaml,
           "text/yaml",
           extraHeaders,
@@ -163,20 +163,20 @@ export function importCommand(depsOverride?: ImportDeps): Command {
         );
         if (res.status === 409 || res.status === 400) {
           const data = res.data as { ok: false; code: string; errors?: string[]; message?: string; error?: string };
-          if (data.code === "rig_name_running") {
-            console.error(data.error ?? data.message ?? "A rig with this name is already running.");
+          if (data.code === "software_team_name_running") {
+            console.error(data.error ?? data.message ?? "A SoftwareTeam with this name is already running.");
             process.exitCode = 1;
             return;
           }
           const detail = data.errors?.join("\n  ") ?? data.message ?? `status ${res.status}`;
-          console.error(`Import failed:\n  ${detail}\nFix: check your rig spec and retry. Validate first with: rig spec validate <path>`);
+          console.error(`Import failed:\n  ${detail}\nFix: check your SoftwareTeam spec and retry. Validate first with: SoftwareTeam spec validate <path>`);
           process.exitCode = 1;
         } else if (res.status >= 400) {
           console.error(`Import failed (HTTP ${res.status}). Check spec and daemon logs.`);
           process.exitCode = 1;
         } else {
-          const data = res.data as { rigId: string; specName: string; specVersion: string; nodes: Array<{ logicalId: string; status: string }>; attachCommand?: string; warnings?: string[] };
-          console.log(`Rig created: ${data.specName} (${data.rigId})`);
+          const data = res.data as { softwareTeamId: string; specName: string; specVersion: string; nodes: Array<{ logicalId: string; status: string }>; attachCommand?: string; warnings?: string[] };
+          console.log(`SoftwareTeam created: ${data.specName} (${data.softwareTeamId})`);
           for (const warning of data.warnings ?? []) console.warn(`Warning: ${warning}`);
           for (const n of data.nodes) {
             console.log(`  ${n.logicalId}: ${n.status}`);
@@ -189,7 +189,7 @@ export function importCommand(depsOverride?: ImportDeps): Command {
       }
 
       // Default: validate only
-      const res = await client.postText<{ valid?: boolean; errors?: string[] }>("/api/rigs/import/validate", yaml);
+      const res = await client.postText<{ valid?: boolean; errors?: string[] }>("/api/software-teams/import/validate", yaml);
       if (res.status >= 400) {
         console.error(`Validation failed: invalid spec (HTTP ${res.status}). Check your YAML syntax and retry.`);
         process.exitCode = 1;
@@ -199,7 +199,7 @@ export function importCommand(depsOverride?: ImportDeps): Command {
       if (data.valid) {
         console.log("Valid");
       } else {
-        console.error(`Rig spec invalid:\n${(data.errors ?? []).map((e) => `  ${e}`).join("\n")}\nFix: update your spec and re-validate with: rig spec validate <path>`);
+        console.error(`SoftwareTeam spec invalid:\n${(data.errors ?? []).map((e) => `  ${e}`).join("\n")}\nFix: update your spec and re-validate with: SoftwareTeam spec validate <path>`);
         process.exitCode = 1;
       }
     });

@@ -126,11 +126,11 @@ export class StubRuntimeAdapter implements RuntimeAdapter {
         switch (hint) {
           case "guidance_merge": {
             const targetPath = nodePath.join(binding.cwd, "AGENTS.md");
-            if (!this.mergeGuidance(targetPath, file.path, content, warnings)) continue; // rig-role skip
+            if (!this.mergeGuidance(targetPath, file.path, content, warnings)) continue; // software-team-role skip
             break;
           }
           case "skill_install": {
-            const targetDir = nodePath.join(binding.cwd, ".openrig", "stub", "skills", nodePath.basename(nodePath.dirname(file.absolutePath)));
+            const targetDir = nodePath.join(binding.cwd, ".softwareteam", "stub", "skills", nodePath.basename(nodePath.dirname(file.absolutePath)));
             this.fsOps.mkdirp(targetDir);
             this.fsOps.writeFile(nodePath.join(targetDir, nodePath.basename(file.path)), content);
             break;
@@ -293,7 +293,7 @@ export class StubRuntimeAdapter implements RuntimeAdapter {
       return this.mergeGuidance(targetPath, entry.effectiveId, this.fsOps.readFile(entry.absolutePath), warnings);
     }
     if (entry.category === "skill") {
-      const targetDir = nodePath.join(binding.cwd, ".openrig", "stub", "skills", entry.effectiveId);
+      const targetDir = nodePath.join(binding.cwd, ".softwareteam", "stub", "skills", entry.effectiveId);
       this.fsOps.mkdirp(targetDir);
       let isDir = false;
       if (this.fsOps.listFiles) {
@@ -322,12 +322,12 @@ export class StubRuntimeAdapter implements RuntimeAdapter {
 
   private mergeGuidance(targetPath: string, blockId: string, content: string, warnings: string[]): boolean {
     if (!this.fsOps) return false;
-    // Per-seat rig-role content collides across pod-mates when merged into a shared
+    // Per-seat software-team-role content collides across pod-mates when merged into a shared
     // cwd file; it is delivered via send_text instead (mirrors the other adapters).
-    if (blockId === "rig-role") return false;
+    if (blockId === "software-team-role") return false;
     mergeManagedBlock(this.fsOps, targetPath, blockId, content, {
       warnings,
-      replaceBlockIds: blockId === "openrig-start.md" ? ["using-openrig.md"] : [],
+      replaceBlockIds: blockId === "softwareteam-start.md" ? ["using-softwareteam.md"] : [],
     });
     return true;
   }

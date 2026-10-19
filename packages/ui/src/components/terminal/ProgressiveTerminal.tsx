@@ -24,7 +24,7 @@ export { SMOKED_STATIC_PLATE_CLASS } from "./StaticTerminalPlate.js";
 
 interface ProgressiveTerminalProps {
   sessionName: string;
-  /** Stable global key for the cap registry (e.g. `${rigId}:${logicalId}`). */
+  /** Stable global key for the cap registry (e.g. `${softwareTeamId}:${logicalId}`). */
   terminalKey: string;
   lines?: number;
   testIdPrefix?: string;

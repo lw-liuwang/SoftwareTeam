@@ -1,4 +1,4 @@
-// The real `rig ps` / `rig send` code paths, real DaemonClient and real HTTP, rendering the exact
+// The real `SoftwareTeam ps` / `SoftwareTeam send` code paths, real DaemonClient and real HTTP, rendering the exact
 // refusal body produced by the daemon's browser boundary. (A real CLI request cannot present an
 // unlisted target name without DNS: Node fetch sends the URL's host, not an explicit Host header.)
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -20,7 +20,7 @@ beforeAll(async () => {
   const daemon = new Hono();
   daemon.use("/api/*", browserBoundary({ webUiEnabled: false, bearerTokens: [], warn: () => {} }));
   daemon.all("/api/*", (c) => c.json({ ok: true }));
-  const res = await daemon.request("/api/ps", { headers: { Host: "unlisted.example:7433" } });
+  const res = await daemon.request("/api/ps", { headers: { Host: "unlisted.example:7434" } });
   refusalBody = await res.text();
   server = http.createServer((_req, res2) => { res2.writeHead(403, { "content-type": "application/json" }); res2.end(refusalBody); });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
@@ -51,7 +51,7 @@ async function stderrOf(cmd: Command, argv: string[]): Promise<string> {
   const lines: string[] = [];
   const orig = console.error;
   console.error = (...a: unknown[]) => { lines.push(a.map(String).join(" ")); };
-  try { await cmd.parseAsync(["node", "rig", ...argv]); } catch { /* exitOverride */ } finally { console.error = orig; }
+  try { await cmd.parseAsync(["node", "softwareTeam", ...argv]); } catch { /* exitOverride */ } finally { console.error = orig; }
   return lines.join("\n");
 }
 
@@ -60,19 +60,19 @@ describe("CLI shows the boundary's remedy sentence", () => {
     expect(JSON.parse(refusalBody)).toMatchObject({ code: "untrusted_host" });
   });
 
-  it("rig ps prints the daemon's sentence before its generic line", async () => {
+  it("SoftwareTeam ps prints the daemon's sentence before its generic line", async () => {
     const prog = new Command().exitOverride();
     prog.addCommand(psCommand(deps() as never));
     const err = await stderrOf(prog, ["ps"]);
-    expect(err).toContain("OPENRIG_ALLOWED_HOSTS");
-    expect(err).toContain("Failed to fetch rig list from daemon (HTTP 403)");
+    expect(err).toContain("SOFTWARETEAM_ALLOWED_HOSTS");
+    expect(err).toContain("Failed to fetch SoftwareTeam list from daemon (HTTP 403)");
     expect(process.exitCode).toBe(2);
   });
 
-  it("rig send already prints the daemon's error sentence (no change needed)", async () => {
+  it("SoftwareTeam send already prints the daemon's error sentence (no change needed)", async () => {
     const prog = new Command().exitOverride();
     prog.addCommand(sendCommand(deps() as never));
-    const err = await stderrOf(prog, ["send", "dev-impl@rig", "fixture"]);
-    expect(err).toContain("OPENRIG_ALLOWED_HOSTS");
+    const err = await stderrOf(prog, ["send", "dev-impl@software-team", "fixture"]);
+    expect(err).toContain("SOFTWARETEAM_ALLOWED_HOSTS");
   });
 });

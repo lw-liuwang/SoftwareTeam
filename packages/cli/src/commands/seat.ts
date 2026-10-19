@@ -17,8 +17,8 @@ async function defaultReadStdin(): Promise<string> {
 
 interface SeatStatusResponse {
   seat_ref: string;
-  rig_id: string;
-  rig_name: string;
+  software_team_id: string;
+  software_team_name: string;
   logical_id: string;
   pod_id: string | null;
   pod_namespace: string | null;
@@ -54,7 +54,7 @@ interface SeatStatusError {
   message?: string;
   error?: string;
   guidance?: string;
-  matches?: Array<{ rig_name: string; logical_id: string; current_occupant: string | null }>;
+  matches?: Array<{ software_team_name: string; logical_id: string; current_occupant: string | null }>;
   clients?: Array<{ name: string; session: string }>;
 }
 
@@ -64,8 +64,8 @@ interface SeatHandoverPlan {
   willMutate: false;
   seat: {
     ref: string;
-    rigId: string;
-    rigName: string;
+    softwareTeamId: string;
+    softwareTeamName: string;
     logicalId: string;
     podId: string | null;
     podNamespace: string | null;
@@ -156,7 +156,7 @@ function sessionReason(reason: string | null | undefined): string | null {
 
 function printHuman(status: SeatStatusResponse): void {
   console.log(`Seat ${status.seat_ref}`);
-  console.log(`Rig: ${status.rig_name}`);
+  console.log(`SoftwareTeam: ${status.software_team_name}`);
   console.log(`Logical ID: ${status.logical_id}`);
   console.log(`Current occupant: ${display(status.current_occupant)}`);
   if (status.typingGuard) {
@@ -171,9 +171,9 @@ function printHuman(status: SeatStatusResponse): void {
     const p = status.permissions;
     const formatSource = (source: string): string => {
       if (source === "member_spec") return "from the member's permission_policy";
-      if (source === "rig_spec") return "from the rig's permission_policy";
+      if (source === "software_team_spec") return "from the softwareTeam's permission_policy";
       if (source === "kernel_default") return "kernel operational default";
-      if (source === "system_default") return "OpenRig default";
+      if (source === "system_default") return "SoftwareTeam default";
       return source;
     };
     const modeStr = p.desired?.mode
@@ -196,7 +196,7 @@ function printHuman(status: SeatStatusResponse): void {
 
 function printHumanHandoverPlan(plan: SeatHandoverPlan): void {
   console.log(`Seat handover dry run: ${plan.seat.ref}`);
-  console.log(`Rig: ${plan.seat.rigName}`);
+  console.log(`SoftwareTeam: ${plan.seat.softwareTeamName}`);
   console.log(`Logical ID: ${plan.seat.logicalId}`);
   console.log(`Source: ${plan.source.mode}${plan.source.ref ? `:${plan.source.ref}` : ""}`);
   console.log(`Reason: ${plan.reason}`);
@@ -214,7 +214,7 @@ function printHumanHandoverPlan(plan: SeatHandoverPlan): void {
 
 function printHumanHandoverResult(result: SeatHandoverMutationResult): void {
   console.log(`Seat handover complete: ${result.seat.ref}`);
-  console.log(`Rig: ${result.seat.rigName}`);
+  console.log(`SoftwareTeam: ${result.seat.softwareTeamName}`);
   console.log(`Logical ID: ${result.seat.logicalId}`);
   console.log(`Source: ${result.source.mode}${result.source.ref ? `:${result.source.ref}` : ""}`);
   console.log(`Reason: ${result.reason}`);
@@ -268,7 +268,7 @@ function printSeatError(error: SeatStatusError, fallback: string): void {
   }
   if (error.code === "seat_ambiguous" && error.matches?.length) {
     for (const match of error.matches) {
-      console.error(`  ${match.logical_id}@${match.rig_name} (${display(match.current_occupant)})`);
+      console.error(`  ${match.logical_id}@${match.software_team_name} (${display(match.current_occupant)})`);
     }
   }
   if (error.clients?.length) {
@@ -281,7 +281,7 @@ function printSeatError(error: SeatStatusError, fallback: string): void {
 
 export function seatCommand(depsOverride?: SeatDeps & { readStdin?: () => Promise<string> }): Command {
   const cmd = new Command("seat")
-    .description("Inspect OpenRig seat observability state");
+    .description("Inspect SoftwareTeam seat observability state");
   const getDeps = (): SeatDeps => depsOverride ?? {
     lifecycleDeps: realDeps(),
     clientFactory: (url: string) => new DaemonClient(url),
@@ -306,16 +306,16 @@ refuse before effects; raw/force/submit-only options do not bypass protection.
 Direct human terminal input remains available. Other seats keep their own settings.
 
 Activation can be pending while an already-started operation finishes. Read
-rig seat status <seat> and wait for effective=true before relying on protection.
-Inspect retained bodies with rig seat held-messages <seat> (or --id <id>).
+SoftwareTeam seat status <seat> and wait for effective=true before relying on protection.
+Inspect retained bodies with SoftwareTeam seat held-messages <seat> (or --id <id>).
 Turning the guard off permits NEW sends; it never flushes or retries held messages.
-Retire a reviewed record with rig seat retire-held-message <seat> <id> --reason <text>.
+Retire a reviewed record with SoftwareTeam seat retire-held-message <seat> <id> --reason <text>.
 Retirement preserves evidence and frees quota; it does not deliver or close work.
 
 Active retention defaults: 100 records / 8 MiB per seat, 1 MiB per message.
 New admissions refuse at capacity. Already-committed queue intent is preserved even
 when a concurrent activation exceeds that cap; inspect and retire it explicitly.
-Protection covers OpenRig's managed input paths, not external tmux tools or another
+Protection covers SoftwareTeam's managed input paths, not external tmux tools or another
 process writing directly to the terminal. Disable deliberately before lifecycle work.
 `)
     .action(async (seat: string, opts: { enabled: string; reason: string; json?: boolean }) => {
@@ -341,9 +341,9 @@ process writing directly to the terminal. Disable deliberately before lifecycle 
     .description("Show read-only seat handover observability status")
     .addHelpText("after", `
 Examples:
-  rig seat status spec-writer@openrig-pm
-  rig seat status spec.writer@openrig-pm --json
-  rig seat status spec.writer --json`)
+  SoftwareTeam seat status spec-writer@softwareteam-pm
+  SoftwareTeam seat status spec.writer@softwareteam-pm --json
+  SoftwareTeam seat status spec.writer --json`)
     .action(async (seat: string, opts: { json?: boolean }) => {
       const deps = getDeps();
       const daemon = await getDaemonStatus(deps.lifecycleDeps);
@@ -379,10 +379,10 @@ Examples:
     .description("Hand a seat to a successor (two-phase). Pass --dry-run to plan without changing topology.")
     .addHelpText("after", `
 Examples:
-  rig seat handover spec-writer@openrig-pm --reason context-wall --dry-run
-  rig seat handover spec-writer@openrig-pm --source rebuild --reason context-wall --dry-run --json
-  rig seat handover spec-writer@openrig-pm --source fork:0b0165d7 --reason successor-test --operator orch-lead@openrig-pm --dry-run
-  rig seat handover spec-writer@openrig-pm --source discovered:01H... --reason mvp-proof --json`)
+  SoftwareTeam seat handover spec-writer@softwareteam-pm --reason context-wall --dry-run
+  SoftwareTeam seat handover spec-writer@softwareteam-pm --source rebuild --reason context-wall --dry-run --json
+  SoftwareTeam seat handover spec-writer@softwareteam-pm --source fork:0b0165d7 --reason successor-test --operator orch-lead@softwareteam-pm --dry-run
+  SoftwareTeam seat handover spec-writer@softwareteam-pm --source discovered:01H... --reason mvp-proof --json`)
     .action((seat: string, opts: HandoverActionOpts) => runSeatHandover(seat, opts, getDeps()));
 
   // OPR.0.4.3.26 — seat-recovery VIEW retarget. Points an already-attached tmux
@@ -397,12 +397,12 @@ Examples:
     .option("--json", "JSON output for agents")
     .description("Retarget an attached tmux client's view to the seat's canonical session (view-only)")
     .addHelpText("after", `
-Retargets what a client SEES; it never changes OpenRig routing, queue addresses,
-transcripts, or seat bindings. Repair routing first with rig reconcile-session /
-rig seat handover, THEN retarget the view. Examples:
-  rig seat switch-client dev-impl@my-rig
-  rig seat switch-client dev-impl@my-rig --to-window 1
-  rig seat switch-client dev-impl@my-rig --client /dev/ttys003 --json`)
+Retargets what a client SEES; it never changes SoftwareTeam routing, queue addresses,
+transcripts, or seat bindings. Repair routing first with SoftwareTeam reconcile-session /
+SoftwareTeam seat handover, THEN retarget the view. Examples:
+  SoftwareTeam seat switch-client dev-impl@my-software-team
+  SoftwareTeam seat switch-client dev-impl@my-software-team --to-window 1
+  SoftwareTeam seat switch-client dev-impl@my-software-team --client /dev/ttys003 --json`)
     .action(async (seat: string, opts: { toWindow?: string; client?: string; json?: boolean }) => {
       let toWindow: number | undefined;
       if (opts.toWindow != null) {
@@ -452,21 +452,21 @@ rig seat handover, THEN retarget the view. Examples:
   // OPR.0.3.4.10 — clear stuck attention_required / failed startup_status.
   cmd
     .command("clear-attention")
-    .argument("<session>", "Canonical session name (e.g. dev-impl@my-rig)")
+    .argument("<session>", "Canonical session name (e.g. dev-impl@my-software-team)")
     .option("--reason <text>", "Attest startup or subset-restore attention; cannot bypass full-restore or pane-identity checks")
     .option("--json", "JSON output for agents")
     .description("Reconcile seat attention using the checks for its attention class")
     .addHelpText("after", `
 Examples:
-  rig seat clear-attention dev-impl@my-rig
-  rig seat clear-attention dev-impl@my-rig --reason "founder re-authed, confirmed live"
-  rig seat clear-attention dev-impl@my-rig --json
+  SoftwareTeam seat clear-attention dev-impl@my-software-team
+  SoftwareTeam seat clear-attention dev-impl@my-software-team --reason "founder re-authed, confirmed live"
+  SoftwareTeam seat clear-attention dev-impl@my-software-team --json
 
 --reason can acknowledge startup-status and subset-restore attention. It does
 not bypass full-restore continuity or pane-identity checks. Acknowledgment alone
 does not prove that the original conversation resumed.
 If the recorded native token needs correction and you know the actual token:
-  printf '%s' "$TOKEN" | rig seat set-resume-token dev-impl@my-rig --token-stdin --reason "verified native token"
+  printf '%s' "$TOKEN" | SoftwareTeam seat set-resume-token dev-impl@my-software-team --token-stdin --reason "verified native token"
 Then rerun clear-attention to check the live evidence. Setting the token alone,
 or stopping and relaunching the seat, does not prove continuity.
 reconcile-session adopts a binding; it does not clear a failed full-restore
@@ -534,13 +534,13 @@ identity remains unverified; a version number alone cannot clear it.
         code: "restart_outcome_unknown",
         status: "unknown",
         message: "The CLI timed out waiting for the daemon; the in-place restart may still be in progress.",
-        guidance: `Check the outcome before running it again: rig seat restart ${seat} --keep-conversation --plan refuses with restart_in_progress while it is still running, then shows its result as lastRestart.`,
+        guidance: `Check the outcome before running it again: SoftwareTeam seat restart ${seat} --keep-conversation --plan refuses with restart_in_progress while it is still running, then shows its result as lastRestart.`,
       } : {
         ok: false as const,
         code: path === "launch-plan" ? "launch_plan_timeout" : `${path}_outcome_unknown`,
         status: "unknown",
         message: path === "launch-plan" ? "The read-only launch preview timed out; no launch was requested." : `The CLI timed out waiting for the daemon; the ${path === "continue" ? "continuation" : "launch"} may still be in progress.`,
-        guidance: path === "launch-plan" ? "Retry the preview when the daemon responds." : `Check the outcome before retrying: rig seat status ${seat}`,
+        guidance: path === "launch-plan" ? "Retry the preview when the daemon responds." : `Check the outcome before retrying: SoftwareTeam seat status ${seat}`,
       };
       if (opts.json) console.log(JSON.stringify(error, null, 2));
       else printSeatError(error, error.message);
@@ -567,7 +567,7 @@ identity remains unverified; a version number alone cannot clear it.
         ? {
           ...res.data,
           message: "No verified pending fresh-context delivery exists for this occupant. It is unknown whether context was already delivered or was never pending.",
-          guidance: `Inspect its current state: rig seat status ${shellQuote(seat)}`,
+          guidance: `Inspect its current state: SoftwareTeam seat status ${shellQuote(seat)}`,
         }
         : res.data;
       printSeatError(error as unknown as SeatStatusError, `Seat ${path} failed (HTTP ${res.status})`);
@@ -608,8 +608,8 @@ Only this seat changes; its peers, model and account don't. The running process
 keeps its current effort until the seat's next managed continuation. Whether the
 native session then uses the level is a separate fact this command can't see.
 Examples:
-  rig seat set-effort dev-impl@my-rig --effort high --reason "long refactor"
-  rig seat set-effort dev.impl --clear --reason "back to the spec's effort" --json`)
+  SoftwareTeam seat set-effort dev-impl@my-software-team --effort high --reason "long refactor"
+  SoftwareTeam seat set-effort dev.impl --clear --reason "back to the spec's effort" --json`)
     .action(async (seat: string, opts: { effort?: string; clear?: boolean; reason: string; operator?: string; json?: boolean }) => {
       if (Boolean(opts.clear) === (opts.effort !== undefined)) {
         console.error("Pass exactly one of --effort <level> or --clear.");
@@ -618,9 +618,9 @@ Examples:
       }
       const body = opts.clear ? { clear: true, reason: opts.reason, operator: opts.operator } : { effort: opts.effort, reason: opts.reason, operator: opts.operator };
       await runLifecycleVerb("set-effort", seat, body, opts, (data) => {
-        const s = data["seat"] as { logicalId?: string; rigName?: string } | undefined;
+        const s = data["seat"] as { logicalId?: string; softwareTeamName?: string } | undefined;
         const saved = data["saved"] as { choice: string | null; authored: string | null; effective: string | null; source: string };
-        const name = `${s?.logicalId}@${s?.rigName}`;
+        const name = `${s?.logicalId}@${s?.softwareTeamName}`;
         const level = saved.source === "seat_choice" ? `${saved.effective} (this seat's choice)`
           : saved.source === "authored" ? `${saved.effective} (authored)` : "no effort flag (runtime default)";
         console.log(data["changed"] === false ? `Effort for ${name} already resolves to ${level}. No change recorded.` : `Effort for ${name}: ${level}.`);
@@ -642,8 +642,8 @@ The native value is the effort the session recorded for a turn since that proces
 started (Claude's transcript, Codex's rollout); until the seat takes a turn, or
 where it can't be read, it is NOT VERIFIED, never assumed from the flag.
 Examples:
-  rig seat effort dev-impl@my-rig
-  rig seat effort dev.impl --json`)
+  SoftwareTeam seat effort dev-impl@my-software-team
+  SoftwareTeam seat effort dev.impl --json`)
     .action(async (seat: string, opts: { json?: boolean }) => {
       const deps = getDeps();
       const daemon = await getDaemonStatus(deps.lifecycleDeps);
@@ -674,16 +674,16 @@ Examples:
     .addHelpText("after", `
 Session lineage is untouched — only nodes.model changes, and every managed
 resume/successor launch reads it at call time. Examples:
-  rig seat set-model dev-impl@my-rig --model claude-fable-5 --reason "alias fable -> canonical"
-  rig seat set-model dev.impl --model claude-fable-5 --reason "canonical migration" --json`)
+  SoftwareTeam seat set-model dev-impl@my-software-team --model claude-fable-5 --reason "alias fable -> canonical"
+  SoftwareTeam seat set-model dev.impl --model claude-fable-5 --reason "canonical migration" --json`)
     .action(async (seat: string, opts: { model: string; reason: string; operator?: string; json?: boolean }) => {
       await runLifecycleVerb("set-model", seat, { model: opts.model, reason: opts.reason, operator: opts.operator }, opts, (data) => {
-        const s = data["seat"] as { logicalId?: string; rigName?: string } | undefined;
+        const s = data["seat"] as { logicalId?: string; softwareTeamName?: string } | undefined;
         if (data["changed"] === false) {
-          console.log(`Model for ${s?.logicalId}@${s?.rigName} already ${String(data["to"])} — no change recorded.`);
+          console.log(`Model for ${s?.logicalId}@${s?.softwareTeamName} already ${String(data["to"])} — no change recorded.`);
           return;
         }
-        console.log(`Model for ${s?.logicalId}@${s?.rigName}: ${String(data["from"] ?? "none")} -> ${String(data["to"])} (audited).`);
+        console.log(`Model for ${s?.logicalId}@${s?.softwareTeamName}: ${String(data["from"] ?? "none")} -> ${String(data["to"])} (audited).`);
         console.log("The next managed resume/successor launch composes the new model.");
       });
     });
@@ -708,9 +708,9 @@ Preview is a read-only snapshot, not a reservation or a native readiness check.
 A successful preview exits 0; inspect launchable to decide whether launch is allowed.
 Unreadable tmux produces complete:false and unknown eligibility unless already blocked.
 Examples:
-  rig seat launch dev.impl --fresh --plan --json
-  rig seat launch dev-impl@my-rig --fresh --reason "deliberate blank restart"
-  rig seat launch dev.impl --fresh --stop --reason "replace managed occupant" --json`)
+  SoftwareTeam seat launch dev.impl --fresh --plan --json
+  SoftwareTeam seat launch dev-impl@my-software-team --fresh --reason "deliberate blank restart"
+  SoftwareTeam seat launch dev.impl --fresh --stop --reason "replace managed occupant" --json`)
     .action(async (seat: string, opts: { fresh: boolean; reason?: string; plan?: boolean; stop?: boolean; operator?: string; json?: boolean }) => {
       if (!opts.plan && !opts.reason?.trim()) {
         const error = { ok: false, code: "missing_reason", message: "Execution requires --reason; use --plan for a read-only preview." };
@@ -738,9 +738,9 @@ Examples:
           for (const sibling of data["siblings"] as Array<{ logicalId: string }>) console.log(`Sibling ${sibling.logicalId}: unchanged.`);
           return;
         }
-        const s = data["seat"] as { logicalId?: string; rigName?: string } | undefined;
+        const s = data["seat"] as { logicalId?: string; softwareTeamName?: string } | undefined;
         const superseded = data["supersededSessionIds"] as string[] | undefined;
-        console.log(`Fresh occupant ready: ${s?.logicalId}@${s?.rigName} (${String(data["sessionName"])}).`);
+        console.log(`Fresh occupant ready: ${s?.logicalId}@${s?.softwareTeamName} (${String(data["sessionName"])}).`);
         console.log(`Generation: ${String(data["generation"])}; model: ${String(data["model"] ?? "none")}.`);
         console.log(`Startup policy: ${String(data["startupPolicyHash"])}; superseded sessions: ${superseded?.length ?? 0}.`);
         console.log("No continuity source was used; siblings and durable work were preserved.");
@@ -761,18 +761,18 @@ Examples:
     .addHelpText("after", `
 The seat's own conversation resumes in its own pane with the settings the running
 Codex uses now (model, effort, profile, permissions, cwd, Codex home), with one
-exception: an explicit effort choice saved with rig seat set-effort is applied, and
+exception: an explicit effort choice saved with SoftwareTeam seat set-effort is applied, and
 --plan shows that change. With no saved choice (never set, or cleared with --clear),
 an effort difference refuses as settings_drift, as a pending set-model does; the
 next ordinary managed launch or resume resolves effort instead.
-This never switches an account (use rig auth switch first), never reads credentials,
+This never switches an account (use SoftwareTeam auth switch first), never reads credentials,
 never launches fresh, forks or retries. Peers sharing the Codex home are reported,
 not restarted.
 Mid-turn activity and child processes are shown in --plan and the result; deciding
 whether to interrupt them is the operator's call.
 --plan starts no Codex process: the network override, --no-daemon and add-dirs are
 taken from the running Codex's own command line, not probed again. Building the
-command can create OpenRig's own seat-bin link, as every managed launch does.
+command can create SoftwareTeam's own seat-bin link, as every managed launch does.
 A restart that started under an earlier daemon run and never recorded a result is
 shown as staleRestart; it does not block a new restart.
 Results: restarted_account_unverified, not_started (the original is still running),
@@ -780,9 +780,9 @@ incomplete (it exited; the resume was not proven; the pane may be held for recov
 native_unknown (what happened could not be observed). Only --verify reports moved,
 and only with a completed tool turn since the restart AND --expect-account matched.
 Examples:
-  rig seat restart dev.impl --keep-conversation --plan --json
-  rig seat restart dev-impl@my-rig --keep-conversation --reason "take the home's new account"
-  rig seat restart dev.impl --keep-conversation --verify --expect-account me@example.com`)
+  SoftwareTeam seat restart dev.impl --keep-conversation --plan --json
+  SoftwareTeam seat restart dev-impl@my-software-team --keep-conversation --reason "take the home's new account"
+  SoftwareTeam seat restart dev.impl --keep-conversation --verify --expect-account me@example.com`)
     .action(async (seat: string, opts: { keepConversation: boolean; reason?: string; plan?: boolean; verify?: boolean; expectAccount?: string; operator?: string; json?: boolean }) => {
       if (opts.plan && opts.verify) {
         const error = { ok: false, code: "invalid_options", message: "--plan and --verify are separate steps; pass one." };
@@ -832,20 +832,20 @@ Examples:
     .option("--json", "JSON output for agents")
     .description("Stop exactly one LIVE managed seat (kills only that seat's tmux session; audited)")
     .addHelpText("after", `
-Siblings are untouched. A dead seat is refused (use rig seat clean); an adopted
-session is refused (use rig unclaim). Stopping ends that agent's session and any
-work in progress: check it first (rig capture <seat>) and stop only a seat you
-own or were asked to stop. rig seat launch <seat> --fresh --reason <text> starts
+Siblings are untouched. A dead seat is refused (use SoftwareTeam seat clean); an adopted
+session is refused (use SoftwareTeam unclaim). Stopping ends that agent's session and any
+work in progress: check it first (SoftwareTeam capture <seat>) and stop only a seat you
+own or were asked to stop. SoftwareTeam seat launch <seat> --fresh --reason <text> starts
 a fresh occupant there; it does not resume the stopped conversation.
-An intentionally stopped seat does not degrade an otherwise running rig.
+An intentionally stopped seat does not degrade an otherwise running softwareTeam.
 Running counts still exclude the stopped seat; stopping every seat leaves the
-rig stopped. Examples:
-  rig seat stop dev-impl@my-rig --reason "wave boundary retirement"
-  rig seat stop dev.impl --reason "stuck occupant" --json`)
+SoftwareTeam stopped. Examples:
+  SoftwareTeam seat stop dev-impl@my-software-team --reason "wave boundary retirement"
+  SoftwareTeam seat stop dev.impl --reason "stuck occupant" --json`)
     .action(async (seat: string, opts: { reason: string; operator?: string; json?: boolean }) => {
       await runLifecycleVerb("stop", seat, { reason: opts.reason, operator: opts.operator }, opts, (data) => {
-        const s = data["seat"] as { logicalId?: string; rigName?: string } | undefined;
-        console.log(`Stopped ${String(data["sessionName"])} (seat ${s?.logicalId}@${s?.rigName}).`);
+        const s = data["seat"] as { logicalId?: string; softwareTeamName?: string } | undefined;
+        console.log(`Stopped ${String(data["sessionName"])} (seat ${s?.logicalId}@${s?.softwareTeamName}).`);
         console.log("Session marked exited, binding cleared; siblings untouched. Relaunch via the normal launch surface.");
       });
     });
@@ -860,14 +860,14 @@ rig stopped. Examples:
     .addHelpText("after", `
 Live owner state is preserved: the node row, session history (incl. resume
 tokens), and the occupant-tenure ledger are untouched. A live seat is refused
-(use rig seat stop). Examples:
-  rig seat clean dev-impl@my-rig --reason "clean exit observed, relaunch wanted"
-  rig seat clean dev.impl --reason "post-crash tidy" --json`)
+(use SoftwareTeam seat stop). Examples:
+  SoftwareTeam seat clean dev-impl@my-software-team --reason "clean exit observed, relaunch wanted"
+  SoftwareTeam seat clean dev.impl --reason "post-crash tidy" --json`)
     .action(async (seat: string, opts: { reason: string; operator?: string; json?: boolean }) => {
       await runLifecycleVerb("clean", seat, { reason: opts.reason, operator: opts.operator }, opts, (data) => {
-        const s = data["seat"] as { logicalId?: string; rigName?: string } | undefined;
+        const s = data["seat"] as { logicalId?: string; softwareTeamName?: string } | undefined;
         const actions = data["actions"] as { sessionsExited?: string[]; bindingCleared?: boolean } | undefined;
-        console.log(`Cleaned seat ${s?.logicalId}@${s?.rigName}.`);
+        console.log(`Cleaned seat ${s?.logicalId}@${s?.softwareTeamName}.`);
         console.log(`Sessions marked exited: ${actions?.sessionsExited?.length ? actions.sessionsExited.join(", ") : "none (already terminal)"}; binding cleared: ${actions?.bindingCleared ? "yes" : "no"}.`);
         console.log("Owner state preserved (node, session history, tenure ledger). The seat is launchable again.");
       });
@@ -878,20 +878,20 @@ tokens), and the occupant-tenure ledger are untouched. A live seat is refused
   // via shell history + argv/ps) and is NEVER echoed back.
   cmd
     .command("set-resume-token")
-    .argument("<session>", "Canonical session name (e.g. dev-impl@my-rig)")
+    .argument("<session>", "Canonical session name (e.g. dev-impl@my-software-team)")
     .option("--token-stdin", "Read the resume token from STDIN (the only supported input path)")
     .requiredOption("--reason <text>", "Operator attestation recorded in the append-only audit event")
     .option("--json", "JSON output for agents")
     .description("Set a managed seat's durable resume token (token read from stdin; attested + audited)")
     .addHelpText("after", `
 The token is read from STDIN only (never an argument). Examples:
-  printf '%s' "$RESUME_TOKEN" | rig seat set-resume-token dev-impl@my-rig --token-stdin --reason "founder re-authed"
-  pbpaste | rig seat set-resume-token dev-qa@my-rig --token-stdin --reason "manual codex thread id" --json
+  printf '%s' "$RESUME_TOKEN" | SoftwareTeam seat set-resume-token dev-impl@my-software-team --token-stdin --reason "founder re-authed"
+  pbpaste | SoftwareTeam seat set-resume-token dev-qa@my-software-team --token-stdin --reason "manual codex thread id" --json
 `)
     .action(async (session: string, opts: { tokenStdin?: boolean; reason: string; json?: boolean }) => {
       const deps = getDeps();
       if (!opts.tokenStdin) {
-        console.error("set-resume-token requires --token-stdin: the token is read from stdin, never passed as an argument (it would leak via shell history / ps). Pipe it in, e.g. printf '%s' \"$TOKEN\" | rig seat set-resume-token <session> --token-stdin --reason \"...\".");
+        console.error("set-resume-token requires --token-stdin: the token is read from stdin, never passed as an argument (it would leak via shell history / ps). Pipe it in, e.g. printf '%s' \"$TOKEN\" | SoftwareTeam seat set-resume-token <session> --token-stdin --reason \"...\".");
         process.exitCode = 2;
         return;
       }
@@ -935,8 +935,8 @@ interface HandoverActionOpts {
   json?: boolean;
 }
 
-/** Shared handover action for both `rig seat handover` and the top-level
- *  `rig handover` verb (OPR.0.4.3.04). Posts to the same daemon route. */
+/** Shared handover action for both `softwareTeam seat handover` and the top-level
+ *  `softwareTeam handover` verb (OPR.0.4.3.04). Posts to the same daemon route. */
 export async function runSeatHandover(seat: string, opts: HandoverActionOpts, deps: SeatDeps): Promise<void> {
   if (!opts.reason?.trim()) {
     const error: SeatStatusError = {
@@ -981,7 +981,7 @@ export async function runSeatHandover(seat: string, opts: HandoverActionOpts, de
       code: "handover_outcome_unknown",
       status: "unknown",
       message: "The CLI stopped waiting for the daemon after 120 seconds, so the handover outcome is unknown. The daemon may still be working on it.",
-      guidance: `Inspect the seat before considering another handover: rig seat status ${seat}. A handover result shown there may belong to an earlier attempt.`,
+      guidance: `Inspect the seat before considering another handover: SoftwareTeam seat status ${seat}. A handover result shown there may belong to an earlier attempt.`,
     };
     if (opts.json) console.log(JSON.stringify(error, null, 2));
     else printSeatError(error, error.message);
@@ -1010,9 +1010,9 @@ export async function runSeatHandover(seat: string, opts: HandoverActionOpts, de
 }
 
 /**
- * OPR.0.4.3.04 — top-level `rig handover <seat>` verb: the operator-facing
+ * OPR.0.4.3.04 — top-level `softwareTeam handover <seat>` verb: the operator-facing
  * surface for the full-cycle handover composer. Same route + behavior as
- * `rig seat handover`; hoisted to top-level for discoverability.
+ * `softwareTeam seat handover`; hoisted to top-level for discoverability.
  */
 export function handoverCommand(depsOverride?: SeatDeps): Command {
   const getDeps = (): SeatDeps => depsOverride ?? {
@@ -1037,23 +1037,23 @@ proceed (e.g. fork with no discoverable native id) refuses honestly before any
 mutation — a handover is never silently completed.
 
 Examples:
-  rig handover spec-writer@openrig-pm --reason context-wall --dry-run
-  rig handover spec-writer@openrig-pm --source fresh --reason context-wall
-  rig handover spec-writer@openrig-pm --source fork:spec-writer@openrig-pm --reason context-wall
-  rig handover spec-writer@openrig-pm --source rebuild --reason degraded-incumbent
-  rig handover spec-writer@openrig-pm --source discovered:01H... --reason mvp-proof --json`)
+  SoftwareTeam handover spec-writer@softwareteam-pm --reason context-wall --dry-run
+  SoftwareTeam handover spec-writer@softwareteam-pm --source fresh --reason context-wall
+  SoftwareTeam handover spec-writer@softwareteam-pm --source fork:spec-writer@softwareteam-pm --reason context-wall
+  SoftwareTeam handover spec-writer@softwareteam-pm --source rebuild --reason degraded-incumbent
+  SoftwareTeam handover spec-writer@softwareteam-pm --source discovered:01H... --reason mvp-proof --json`)
     .action((seat: string, opts: HandoverActionOpts) => runSeatHandover(seat, opts, getDeps()));
 }
 
 function printEffortReport(data: Record<string, unknown>): void {
-  const seat = data["seat"] as { logicalId?: string; rigName?: string } | undefined;
+  const seat = data["seat"] as { logicalId?: string; softwareTeamName?: string } | undefined;
   const requested = data["requested"] as { value: string | null; at: string; reason: string } | null;
   const saved = data["saved"] as { effective: string | null; source: string };
   const emitted = data["emitted"] as { state: string; value?: string | null; pid?: number; detail?: string };
   const observed = data["observed"] as { state: string; value?: string; at?: string; source?: string; outcome?: string; detail?: string };
   const precedence = data["precedence"] as { decided: boolean; detail: string };
-  console.log(`Effort for ${seat?.logicalId}@${seat?.rigName} (${String(data["runtime"])}):`);
-  console.log(`  Requested: ${requested ? `${requested.value ?? "cleared"} at ${requested.at} ("${requested.reason}")` : "never set with rig seat set-effort"}`);
+  console.log(`Effort for ${seat?.logicalId}@${seat?.softwareTeamName} (${String(data["runtime"])}):`);
+  console.log(`  Requested: ${requested ? `${requested.value ?? "cleared"} at ${requested.at} ("${requested.reason}")` : "never set with SoftwareTeam seat set-effort"}`);
   console.log(`  Saved:     ${saved.effective ? `${saved.effective} (${saved.source === "seat_choice" ? "this seat's choice" : "authored"})` : "no effort flag (runtime default)"}`);
   console.log(`  Launch:    ${emitted.state === "observed" ? `${emitted.value ?? "no effort flag"} (process ${emitted.pid})` : `unknown: ${emitted.detail}`}`);
   console.log(`  Native:    ${observed.state === "observed" ? `${observed.value} sent with the latest turn, ${observed.outcome} (${observed.source}, ${observed.at})` : `NOT VERIFIED: ${observed.detail}`}`);
@@ -1062,8 +1062,8 @@ function printEffortReport(data: Record<string, unknown>): void {
 }
 
 function printRestartReport(data: Record<string, unknown>): void {
-  const seat = data["seat"] as { logicalId?: string; rigName?: string } | undefined;
-  console.log(`${data["outcome"] ? String(data["outcome"]) : "preview"}: ${seat?.logicalId}@${seat?.rigName} (${String(data["sessionName"])}, pane ${String(data["pane"])}, ${String(data["paneShape"])}).`);
+  const seat = data["seat"] as { logicalId?: string; softwareTeamName?: string } | undefined;
+  console.log(`${data["outcome"] ? String(data["outcome"]) : "preview"}: ${seat?.logicalId}@${seat?.softwareTeamName} (${String(data["sessionName"])}, pane ${String(data["pane"])}, ${String(data["paneShape"])}).`);
   console.log(String(data["message"]));
   console.log(`Conversation: ${String(data["conversationId"])} (proved by ${String(data["conversationProof"])}).`);
   const activity = data["activity"] as { state: string; detail: string };

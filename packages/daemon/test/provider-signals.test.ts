@@ -94,7 +94,7 @@ describe("S16 usage-limit pool derivation", () => {
       signals: [
         {
           provider: "claude",
-          seatSession: "dev-a@rig",
+          seatSession: "dev-a@software-team",
           sourceClass: "provider_statusline",
           authority: "account_cross_device",
           window: "five_hour",
@@ -107,7 +107,7 @@ describe("S16 usage-limit pool derivation", () => {
         },
         {
           provider: "claude",
-          seatSession: "dev-b@rig",
+          seatSession: "dev-b@software-team",
           sourceClass: "provider_statusline",
           authority: "account_cross_device",
           window: "five_hour",
@@ -125,7 +125,7 @@ describe("S16 usage-limit pool derivation", () => {
       {
         poolKey: "claude:local",
         provider: "claude",
-        seatSessions: ["dev-a@rig", "dev-b@rig"],
+        seatSessions: ["dev-a@software-team", "dev-b@software-team"],
         expiresAt: "2026-08-28T13:00:00.000Z",
         source: "provider-reset",
       },
@@ -139,8 +139,8 @@ describe("S16 usage-limit pool derivation", () => {
       bindings: [
         {
           accountId: "acct-codex-1",
-          seatSession: "dev-c@rig",
-          rigName: "rig",
+          seatSession: "dev-c@software-team",
+          softwareTeamName: "softwareTeam",
           boundAt: "2026-08-28T08:00:00.000Z",
           bindingSource: "fixture",
           anomalies: [],
@@ -159,7 +159,7 @@ describe("S16 usage-limit pool derivation", () => {
       {
         poolKey: "codex:acct-codex-1",
         provider: "codex",
-        seatSessions: ["dev-c@rig"],
+        seatSessions: ["dev-c@software-team"],
         expiresAt: "2026-08-28T12:04:00.000Z",
         source: "config-fallback",
       },
@@ -174,7 +174,7 @@ describe("S16 usage-limit pool derivation", () => {
       signals: [
         {
           provider: "claude",
-          seatSession: "unknown@rig",
+          seatSession: "unknown@software-team",
           sourceClass: "unknown",
           authority: "unknown",
           asOf: "2026-08-28T11:59:00.000Z",
@@ -184,7 +184,7 @@ describe("S16 usage-limit pool derivation", () => {
         },
         {
           provider: "claude",
-          seatSession: "stale@rig",
+          seatSession: "stale@software-team",
           sourceClass: "provider_statusline",
           authority: "account_cross_device",
           usedPercent: 100,

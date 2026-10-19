@@ -55,14 +55,14 @@ describe("usePlugins (list)", () => {
   it("fetches /api/plugins and exposes the list", async () => {
     const sample: PluginEntry[] = [
       {
-        id: "openrig-core",
-        name: "openrig-core",
+        id: "softwareteam-core",
+        name: "softwareteam-core",
         version: "0.1.0",
         description: "vendored",
         source: "vendored",
-        sourceLabel: "vendored:openrig-core",
+        sourceLabel: "vendored:softwareteam-core",
         runtimes: ["claude", "codex"],
-        path: "/x/openrig-core",
+        path: "/x/softwareteam-core",
         lastSeenAt: null,
       },
     ];
@@ -104,19 +104,19 @@ describe("usePlugin (detail)", () => {
   it("fetches /api/plugins/:id and exposes the detail", async () => {
     const sample: PluginDetail = {
       entry: {
-        id: "openrig-core",
-        name: "openrig-core",
+        id: "softwareteam-core",
+        name: "softwareteam-core",
         version: "0.1.0",
         description: "vendored",
         source: "vendored",
-        sourceLabel: "vendored:openrig-core",
+        sourceLabel: "vendored:softwareteam-core",
         runtimes: ["claude", "codex"],
         path: "/x",
         lastSeenAt: null,
       },
       claudeManifest: {
-        raw: { name: "openrig-core" },
-        name: "openrig-core",
+        raw: { name: "softwareteam-core" },
+        name: "softwareteam-core",
         version: "0.1.0",
         description: null,
         homepage: null,
@@ -124,16 +124,16 @@ describe("usePlugin (detail)", () => {
         license: null,
       },
       codexManifest: null,
-      skills: [{ name: "openrig-user", relativePath: "skills/openrig-user" }],
+      skills: [{ name: "softwareteam-user", relativePath: "skills/softwareteam-user" }],
       hooks: [{ runtime: "claude", relativePath: "hooks/claude.json", events: ["SessionStart"] }],
     };
     mockFetch.mockResolvedValue(new Response(JSON.stringify(sample), { status: 200 }));
-    render(<Wrapper><DetailHarness id="openrig-core" /></Wrapper>);
+    render(<Wrapper><DetailHarness id="softwareteam-core" /></Wrapper>);
     await waitFor(() => {
-      expect(screen.getByTestId("state").textContent).toBe("name: openrig-core");
+      expect(screen.getByTestId("state").textContent).toBe("name: softwareteam-core");
     });
     const callUrl = mockFetch.mock.calls[0]?.[0] as string;
-    expect(callUrl).toBe("/api/plugins/openrig-core");
+    expect(callUrl).toBe("/api/plugins/softwareteam-core");
   });
 
   it("surfaces 404 as error", async () => {
@@ -151,11 +151,11 @@ describe("usePluginUsedBy", () => {
       { agentName: "advisor-lead", sourcePath: "/x/agent.yaml", profiles: ["default"] },
     ];
     mockFetch.mockResolvedValue(new Response(JSON.stringify(sample), { status: 200 }));
-    render(<Wrapper><UsedByHarness id="openrig-core" /></Wrapper>);
+    render(<Wrapper><UsedByHarness id="softwareteam-core" /></Wrapper>);
     await waitFor(() => {
       expect(screen.getByTestId("state").textContent).toBe("used-by: 1");
     });
     const callUrl = mockFetch.mock.calls[0]?.[0] as string;
-    expect(callUrl).toBe("/api/plugins/openrig-core/used-by");
+    expect(callUrl).toBe("/api/plugins/softwareteam-core/used-by");
   });
 });

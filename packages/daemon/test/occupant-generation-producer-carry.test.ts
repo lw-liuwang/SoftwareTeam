@@ -1,23 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 
 describe("SessionRegistry — W2a producer generation reservation", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let registry: SessionRegistry;
   let nodeId: string;
   let secondNodeId: string;
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     registry = new SessionRegistry(db);
-    const rig = rigRepo.createRig("producer-rig");
-    nodeId = rigRepo.addNode(rig.id, "dev.impl", { runtime: "codex" }).id;
-    secondNodeId = rigRepo.addNode(rig.id, "dev.qa", { runtime: "codex" }).id;
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("producer-software-team");
+    nodeId = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "codex" }).id;
+    secondNodeId = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { runtime: "codex" }).id;
   });
 
   afterEach(() => db.close());
@@ -27,11 +27,11 @@ describe("SessionRegistry — W2a producer generation reservation", () => {
     expect(initialGeneration).toMatch(/^[0-9a-f-]{36}$/i);
     expect(db.prepare("SELECT COUNT(*) AS n FROM occupant_tenures").get()).toEqual({ n: 0 });
 
-    registry.registerSession(nodeId, "dev-impl@producer-rig", "initial", initialGeneration);
+    registry.registerSession(nodeId, "dev-impl@producer-software-team", "initial", initialGeneration);
     expect(registry.currentOccupantTenure(nodeId)?.generationUuid).toBe(initialGeneration);
 
     const claimedGeneration = registry.reserveOccupantGeneration();
-    registry.registerClaimedSession(secondNodeId, "dev-qa@producer-rig", "handover", claimedGeneration);
+    registry.registerClaimedSession(secondNodeId, "dev-qa@producer-software-team", "handover", claimedGeneration);
     expect(registry.currentOccupantTenure(secondNodeId)?.generationUuid).toBe(claimedGeneration);
   });
 
@@ -54,7 +54,7 @@ describe("SessionRegistry — W2a producer generation reservation", () => {
 
   it("registered-generation membership is node-scoped", () => {
     const generation = registry.reserveOccupantGeneration();
-    registry.registerSession(nodeId, "dev-impl@producer-rig", "initial", generation);
+    registry.registerSession(nodeId, "dev-impl@producer-software-team", "initial", generation);
 
     expect(registry.isOccupantGenerationRegistered(nodeId, generation!)).toBe(true);
     expect(registry.isOccupantGenerationRegistered(secondNodeId, generation!)).toBe(false);

@@ -8,9 +8,9 @@ import { buildRestorePacket } from "../src/domain/seat-handover-service.js";
 // must make replay unmistakable.
 
 const base = {
-  seatRef: "dev.driver@my-rig",
+  seatRef: "dev.driver@my-software-team",
   reason: "context 85%",
-  departingSession: "dev-driver-h1@my-rig",
+  departingSession: "dev-driver-h1@my-software-team",
   handoverAt: "2026-08-07T01:00:00Z",
   capturedContext: "",
 };
@@ -43,7 +43,7 @@ describe("buildRestorePacket — recap + receipt (labeled-from-record)", () => {
     expect(packet).not.toContain("Predecessor recap (replayed from record");
     expect(packet).not.toContain("Predecessor record:");
     // the base packet (seat/reason/predecessor/handover) still renders
-    expect(packet).toContain("Seat: dev.driver@my-rig");
+    expect(packet).toContain("Seat: dev.driver@my-software-team");
   });
 
   it("B16: an unavailable recap renders its NAMED reason as a labeled line (never a silent omission)", () => {
@@ -70,7 +70,7 @@ describe("buildRestorePacket — recap + receipt (labeled-from-record)", () => {
 
   it("stays backward-compatible when recap/recordPath are omitted entirely", () => {
     const packet = buildRestorePacket(base);
-    expect(packet).toContain("Seat: dev.driver@my-rig");
+    expect(packet).toContain("Seat: dev.driver@my-software-team");
     expect(packet).not.toContain("Predecessor recap (replayed from record");
   });
 });
@@ -92,7 +92,7 @@ describe("buildRestorePacket — the AUTHORED recap leg (seat-homed, by address)
     // Tells the successor HOW to pull it — the handover PROFILE compose is the
     // verb that resolves seat: refs (get is library-only); pin fixed pre-green
     // (my RED asserted get, which does not accept tree refs — disclosed).
-    expect(packet).toContain("rig context profile");
+    expect(packet).toContain("SoftwareTeam context profile");
   });
 
   it("absence is a LABELED line naming the reason, never silence", () => {

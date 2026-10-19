@@ -21,7 +21,7 @@ const PANE_TEXTS = [
 ];
 
 // A fake `tmux` on a private PATH: a chain prints each pane before the dead `=b:` target fails it on stderr.
-const bin = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-tmux-panetext-"));
+const bin = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-tmux-panetext-"));
 fs.writeFileSync(path.join(bin, "tmux"), `#!/bin/sh
 [ "$1" = list-sessions ] && { printf 'a\\nc\\n'; exit 0; }
 run() {
@@ -74,7 +74,7 @@ describe("chained capture error classification, listing first", () => {
 });
 
 describe.skipIf(!nativeAvailable)("chained capture error classification, real tmux", { timeout: 60_000 }, () => {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-panetext-native-"));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-panetext-native-"));
   const sock = path.join(home, "sock");
   const env: NodeJS.ProcessEnv = { ...process.env, HOME: home, TMUX_TMPDIR: home };
   delete env.TMUX;
@@ -115,7 +115,7 @@ describe.skipIf(!nativeAvailable)("chained capture error classification, real tm
   it("pane showing \"can't find session\": an error only the chain hits leaves the chunk out, no halving", async () => {
     const names = await sessions("can't find session: elsewhere");
     // A runtime error tmux reports after every pane printed; a pane read on its own works.
-    const { a, calls } = adapter([";", "set-option", "-g", "openrig-no-such-option", "1"]);
+    const { a, calls } = adapter([";", "set-option", "-g", "softwareteam-no-such-option", "1"]);
     const got = await a.capturePanesContent(names, 20);
     for (const n of names) expect(got!.has(n), n).toBe(false);
     expect(calls.filter((c) => c.includes("display-message"))).toHaveLength(1);

@@ -88,7 +88,7 @@ bootstrapRoutes.post("/apply", async (c) => {
     return c.json({ error: "Bootstrap already in progress for this spec", code: "conflict" }, 409);
   }
 
-  const sourceKind = typeof body["sourceKind"] === "string" ? body["sourceKind"] : "rig_spec";
+  const sourceKind = typeof body["sourceKind"] === "string" ? body["sourceKind"] : "software_team_spec";
   const autoApprove = body["autoApprove"] === true;
   const cwdOverride = typeof body["cwdOverride"] === "string" ? body["cwdOverride"] : undefined;
   const approvedActionKeys = Array.isArray(body["approvedActionKeys"]) ? body["approvedActionKeys"] as string[] : undefined;
@@ -120,12 +120,12 @@ bootstrapRoutes.post("/apply", async (c) => {
 
     // Emit outcome event
     if (result.status === "completed") {
-      eventBus.emit({ type: "bootstrap.completed", runId: result.runId, rigId: result.rigId!, sourceRef });
+      eventBus.emit({ type: "bootstrap.completed", runId: result.runId, softwareTeamId: result.softwareTeamId!, sourceRef });
       return c.json(result, 201);
     } else if (result.status === "partial") {
       const completedCount = result.stages.filter((s) => s.status === "ok").length;
       const failedCount = result.stages.filter((s) => s.status === "failed" || s.status === "blocked").length;
-      eventBus.emit({ type: "bootstrap.partial", runId: result.runId, sourceRef, rigId: result.rigId, completed: completedCount, failed: failedCount });
+      eventBus.emit({ type: "bootstrap.partial", runId: result.runId, sourceRef, softwareTeamId: result.softwareTeamId, completed: completedCount, failed: failedCount });
       return c.json(result, 200);
     } else {
       const errorMsg = result.errors[0] ?? "bootstrap failed";

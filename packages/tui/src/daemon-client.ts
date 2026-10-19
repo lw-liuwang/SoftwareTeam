@@ -31,8 +31,8 @@ export interface RestoreFleetStatus {
   verdict: string;
   rollup: {
     counts: { fully_restored: number; partially_restored: number; failed: number; not_attempted: number };
-    sequence: Array<{ rigId: string; outcome: string; reason?: string; remediation?: string }>;
-    attention_required: Array<{ rigId: string; seat: string; need: string }>;
+    sequence: Array<{ softwareTeamId: string; outcome: string; reason?: string; remediation?: string }>;
+    attention_required: Array<{ softwareTeamId: string; seat: string; need: string }>;
   };
 }
 
@@ -71,7 +71,7 @@ export class DaemonClient {
   private readonly headerSource: Record<string, string> | (() => Record<string, string>);
 
   constructor(options: DaemonClientOptions = {}) {
-    this.baseUrl = (options.baseUrl ?? process.env["OPENRIG_URL"] ?? "http://127.0.0.1:7433").replace(/\/$/, "");
+    this.baseUrl = (options.baseUrl ?? process.env["SOFTWARETEAM_URL"] ?? "http://127.0.0.1:7434").replace(/\/$/, "");
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.optionalFetchImpl = this.fetchImpl;
     this.headerSource = options.headers ?? {};
@@ -186,7 +186,7 @@ export class DaemonClient {
     return this.get("/healthz");
   }
 
-  /** Slice 01 — the provider read model, as `rig provider status --json` prints it. GET only: the daemon answers it
+  /** Slice 01 — the provider read model, as `softwareTeam provider status --json` prints it. GET only: the daemon answers it
    *  from memory and never starts a native read for it; this client never calls the refresh route. A failed or
    *  absent route resolves to its status (404: a daemon without provider routes) instead of throwing. */
   async providerStatus(): Promise<import("./usage/usage-model.js").UsageRead["status"]> {
@@ -202,7 +202,7 @@ export class DaemonClient {
     return { model: data };
   }
 
-  /** Slice 01 — usage windows across registered hosts, as `rig provider status --all-hosts --json` prints them. GET
+  /** Slice 01 — usage windows across registered hosts, as `softwareTeam provider status --all-hosts --json` prints them. GET
    *  only: the daemon and every host answer from memory, and this client has no method for the refresh route. A
    *  failed or absent route resolves to its status, with the daemon's own message (409: usage windows off here). */
   async usageAcrossHosts(): Promise<import("./usage/usage-hosts-model.js").UsageHostsRead["status"]> {
@@ -227,7 +227,7 @@ export class DaemonClient {
     return { view: data };
   }
 
-  /** Slice 02 — the cost view, as `rig usage cost --json` prints it. GET only, computed from what the daemon already
+  /** Slice 02 — the cost view, as `softwareTeam usage cost --json` prints it. GET only, computed from what the daemon already
    *  stores: no provider lookup, native read or charge lookup. A failed or absent route resolves to its status. */
   async usageCost(): Promise<import("./cost/cost-read.js").CostRead["status"]> {
     let res: Response;
@@ -264,7 +264,7 @@ export class DaemonClient {
   restoreFleetStatus(id: string): Promise<RestoreFleetStatus> {
     return this.get(`/api/crash-cart/restore-fleet/${encodeURIComponent(id)}`) as Promise<RestoreFleetStatus>;
   }
-  /** Request stop-before-next-rig cancel on a running fleet attempt. */
+  /** Request stop-before-next-softwareTeam cancel on a running fleet attempt. */
   cancelRestoreFleet(id: string): Promise<{ ok: boolean; cancelled: boolean }> {
     return this.post(`/api/crash-cart/restore-fleet/${encodeURIComponent(id)}/cancel`, {}) as Promise<{
       ok: boolean;
@@ -273,19 +273,19 @@ export class DaemonClient {
   }
 
   // --- Topology (§4.A rows 1–3) ---
-  rigGraph(rigId: string) {
-    return this.get(`/api/rigs/${encodeURIComponent(rigId)}/graph`);
+  softwareTeamGraph(softwareTeamId: string) {
+    return this.get(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/graph`);
   }
   ps() {
     return this.get(`/api/ps`);
   }
-  rigsSummary() {
-    return this.get(`/api/rigs/summary`);
+  softwareTeamsSummary() {
+    return this.get(`/api/software-teams/summary`);
   }
-  rigNodes(rigId: string) {
-    return this.get(`/api/rigs/${encodeURIComponent(rigId)}/nodes`);
+  softwareTeamNodes(softwareTeamId: string) {
+    return this.get(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/nodes`);
   }
-  reviewAgents(scope: "rig" | "fleet" = "rig") {
+  reviewAgents(scope: "softwareTeam" | "fleet" = "softwareTeam") {
     return this.get(`/api/review/agents?scope=${scope}`);
   }
 
@@ -293,8 +293,8 @@ export class DaemonClient {
   specsLibrary(kind?: string) {
     return this.get(`/api/specs/library${kind ? `?kind=${encodeURIComponent(kind)}` : ""}`);
   }
-  rigSpec(rigId: string) {
-    return this.get(`/api/rigs/${encodeURIComponent(rigId)}/spec.json`);
+  softwareTeamSpec(softwareTeamId: string) {
+    return this.get(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/spec.json`);
   }
   /** structured spec detail (spec-library.ts /:id/review — the live route;
    * the spec's §4.A cite `GET /api/specs/review` 404s at tip, QA-found) */
@@ -302,7 +302,7 @@ export class DaemonClient {
     return this.get(`/api/specs/library/${encodeURIComponent(id)}/review`);
   }
 
-  // --- Needs-You (§4.A rows 5–6): composeNeedsYou legs + host/rig-down beside ---
+  // --- Needs-You (§4.A rows 5–6): composeNeedsYou legs + host/software-team-down beside ---
   /** SCOPES view (d64d2f5c): the store-direct one-read hydrate. */
   projects() { return this.get("/api/scopes/projects"); }
   private projectQuery(project?: ProjectSelection | null): string {
@@ -324,10 +324,10 @@ export class DaemonClient {
   }
 
   /** One bounded typed queue chronology for the current topology scope. */
-  queueRecentTransitions(scope: { kind: "instance" } | { kind: "rig"; rig: string }, limit = 20) {
+  queueRecentTransitions(scope: { kind: "instance" } | { kind: "softwareTeam"; softwareTeam: string }, limit = 20) {
     const query = scope.kind === "instance"
       ? "scope=instance"
-      : `scope=rig&rig=${encodeURIComponent(scope.rig)}`;
+      : `scope=softwareTeam&softwareTeam=${encodeURIComponent(scope.softwareTeam)}`;
     return this.get(`/api/queue/recent-transitions?${query}&limit=${limit}`);
   }
 
@@ -374,8 +374,8 @@ export class DaemonClient {
   queueItem(qitemId: string, options: { optional?: boolean } = {}) {
     return this.get(`/api/queue/${encodeURIComponent(qitemId)}`, options.optional ? this.optionalFetchImpl : this.fetchImpl);
   }
-  reviewRig() {
-    return this.get(`/api/review/rig`);
+  reviewSoftwareTeam() {
+    return this.get(`/api/review/softwareTeam`);
   }
   reviewFleet() {
     return this.get(`/api/review/fleet`);
@@ -383,11 +383,11 @@ export class DaemonClient {
   attentionAggregate() {
     return this.get(`/api/queue/attention-aggregate`);
   }
-  rigStatus(rigId: string) {
-    return this.get(`/api/rigs/${encodeURIComponent(rigId)}/status`);
+  softwareTeamStatus(softwareTeamId: string) {
+    return this.get(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/status`);
   }
 
-  // --- rig-stream footer (§4.A row 7: the rig stream read surface) ---
+  // --- software-team-stream footer (§4.A row 7: the softwareTeam stream read surface) ---
   /** legacy chronological page contract, retained for additive API compatibility */
   streamList(limit = 100, afterSortKey?: string) {
     return this.get(`/api/stream/list?limit=${limit}${afterSortKey ? `&afterSortKey=${encodeURIComponent(afterSortKey)}` : ""}`);
@@ -399,10 +399,10 @@ export class DaemonClient {
 
   // --- drive-structure writes (BR-8: EXISTING contracts only; the ONLY two) ---
   /** the web's TerminalLauncher contract: POST /api/terminal/open {view} */
-  async terminalViews(): Promise<{ saved: Array<{ id: string; name: string; members: Array<{ seat: string }> }>; rigs: string[] }> {
-    return await this.get("/api/terminal/views") as { saved: Array<{ id: string; name: string; members: Array<{ seat: string }> }>; rigs: string[] };
+  async terminalViews(): Promise<{ saved: Array<{ id: string; name: string; members: Array<{ seat: string }> }>; softwareTeams: string[] }> {
+    return await this.get("/api/terminal/views") as { saved: Array<{ id: string; name: string; members: Array<{ seat: string }> }>; softwareTeams: string[] };
   }
-  /** The preview behind "Open terminals". That action opens through `rig terminal open --window`, which composes with
+  /** The preview behind "Open terminals". That action opens through `SoftwareTeam terminal open --window`, which composes with
    *  Herdr's layout and falls back to plain tmux without Herdr, so preview the same composition: its planId is the
    *  window opener's expected plan. A provider-less preview may pick cmux, whose plan the window opener never matches. */
   async previewTerminal(view: string): Promise<import("./terminals/terminal-model.js").TerminalPreview> {
@@ -418,9 +418,9 @@ export class DaemonClient {
     }
     return result;
   }
-  /** the `rig launch` per-seat contract */
-  async launchNode(rigId: string, logicalId: string): Promise<LaunchNodeResult> {
-    return (await this.post(`/api/rigs/${encodeURIComponent(rigId)}/nodes/${encodeURIComponent(logicalId)}/launch`, {})) as LaunchNodeResult;
+  /** the `SoftwareTeam launch` per-seat contract */
+  async launchNode(softwareTeamId: string, logicalId: string): Promise<LaunchNodeResult> {
+    return (await this.post(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/nodes/${encodeURIComponent(logicalId)}/launch`, {})) as LaunchNodeResult;
   }
 
   async startupRequest<T>(route: string, body?: unknown): Promise<T> {

@@ -20,7 +20,7 @@ import {
   printDaemonNotRunning,
   STATE_FILE,
   LOG_FILE,
-  OPENRIG_DIR,
+  SOFTWARETEAM_DIR,
   type LifecycleDeps,
   type DaemonState,
 } from "../src/daemon-lifecycle.js";
@@ -29,7 +29,7 @@ afterEach(() => vi.useRealTimers());
 
 function cleanReceipt(pid: number): string {
   const now = new Date().toISOString();
-  return JSON.stringify({ schema: "openrig.daemon-shutdown/v1", pid, startedAt: now, completedAt: now, outcome: "clean", phase: "complete", failures: [] });
+  return JSON.stringify({ schema: "softwareteam.daemon-shutdown/v1", pid, startedAt: now, completedAt: now, outcome: "clean", phase: "complete", failures: [] });
 }
 
 function neverFetch(): Promise<{ ok: boolean }> {
@@ -90,7 +90,7 @@ describe("Daemon Lifecycle", () => {
   // Test 2: start constructs exact spawn command with correct env/redirect
   it("start: constructs spawn with node, daemon entry, env, and log redirect", async () => {
     const deps = startableDeps();
-    await startDaemon({ port: 7433, db: "openrig.sqlite" }, deps);
+    await startDaemon({ port: 7434, db: "softwareteam.sqlite" }, deps);
 
     const spawnMock = deps.spawn as ReturnType<typeof vi.fn>;
     expect(spawnMock).toHaveBeenCalledOnce();
@@ -100,8 +100,8 @@ describe("Daemon Lifecycle", () => {
     expect(args[0]).toContain("daemon");
     expect(args[0]).toContain("dist/index.js");
     expect(opts.env).toMatchObject({
-      OPENRIG_PORT: "7433",
-      OPENRIG_DB: "openrig.sqlite",
+      SOFTWARETEAM_PORT: "7434",
+      SOFTWARETEAM_DB: "softwareteam.sqlite",
     });
     expect(opts.detached).toBe(true);
   });
@@ -115,42 +115,42 @@ describe("Daemon Lifecycle", () => {
       writeFile: vi.fn((p: string, content: string) => { written.set(p, content); }),
     });
     await startDaemon({
-      port: 7433,
-      db: "openrig.sqlite",
-      workspaceRoot: "/tmp/openrig-workspace",
-      contextRoot: "/tmp/openrig-context",
-      skillsRoot: "/tmp/openrig-skills",
-      topologyRoot: "/tmp/openrig-topology",
+      port: 7434,
+      db: "softwareteam.sqlite",
+      workspaceRoot: "/tmp/softwareteam-workspace",
+      contextRoot: "/tmp/softwareteam-context",
+      skillsRoot: "/tmp/softwareteam-skills",
+      topologyRoot: "/tmp/softwareteam-topology",
     }, deps);
 
     for (const root of [
-      path.join(OPENRIG_DIR, "state"),
-      "/tmp/openrig-context",
-      path.join("/tmp/openrig-context", "system"),
-      "/tmp/openrig-skills",
-      path.join(OPENRIG_DIR, "specs"),
-      "/tmp/openrig-topology",
-      path.join(OPENRIG_DIR, "plugins"),
-      path.join(OPENRIG_DIR, "run"),
-      path.join(OPENRIG_DIR, "logs"),
-      path.join(OPENRIG_DIR, "transcripts"),
-      path.join(OPENRIG_DIR, "backups"),
-      path.join(OPENRIG_DIR, "secrets"),
+      path.join(SOFTWARETEAM_DIR, "state"),
+      "/tmp/softwareteam-context",
+      path.join("/tmp/softwareteam-context", "system"),
+      "/tmp/softwareteam-skills",
+      path.join(SOFTWARETEAM_DIR, "specs"),
+      "/tmp/softwareteam-topology",
+      path.join(SOFTWARETEAM_DIR, "plugins"),
+      path.join(SOFTWARETEAM_DIR, "run"),
+      path.join(SOFTWARETEAM_DIR, "logs"),
+      path.join(SOFTWARETEAM_DIR, "transcripts"),
+      path.join(SOFTWARETEAM_DIR, "backups"),
+      path.join(SOFTWARETEAM_DIR, "secrets"),
     ]) {
       expect(created.has(root), root).toBe(true);
     }
-    expect(written.get(path.join(OPENRIG_DIR, "config.json"))).toBe("{}\n");
-    expect(created.has("/tmp/openrig-workspace")).toBe(true);
-    expect(created.has(path.join("/tmp/openrig-workspace", "missions"))).toBe(true);
-    expect(created.has(path.join("/tmp/openrig-workspace", "exhaust"))).toBe(true);
-    expect(written.get(path.join("/tmp/openrig-workspace", "SPEC.md"))).toContain("intent: Organize this project's durable work");
-    expect(written.get(path.join("/tmp/openrig-workspace", "project.yaml"))).toContain("schema: openrig.project/v0alpha1");
-    expect(written.get(path.join("/tmp/openrig-workspace", "workspace.yaml"))).toContain("schema: openrig.workspace/v0alpha1");
-    expect(written.get(path.join("/tmp/openrig-workspace", ".gitignore"))).toContain("/exhaust/");
+    expect(written.get(path.join(SOFTWARETEAM_DIR, "config.json"))).toBe("{}\n");
+    expect(created.has("/tmp/softwareteam-workspace")).toBe(true);
+    expect(created.has(path.join("/tmp/softwareteam-workspace", "missions"))).toBe(true);
+    expect(created.has(path.join("/tmp/softwareteam-workspace", "exhaust"))).toBe(true);
+    expect(written.get(path.join("/tmp/softwareteam-workspace", "SPEC.md"))).toContain("intent: Organize this project's durable work");
+    expect(written.get(path.join("/tmp/softwareteam-workspace", "project.yaml"))).toContain("schema: softwareteam.project/v0alpha1");
+    expect(written.get(path.join("/tmp/softwareteam-workspace", "workspace.yaml"))).toContain("schema: softwareteam.workspace/v0alpha1");
+    expect(written.get(path.join("/tmp/softwareteam-workspace", ".gitignore"))).toContain("/exhaust/");
   });
 
   it("start: refuses an exact user-owned type conflict before any write or spawn", async () => {
-    const conflict = "/tmp/openrig-context";
+    const conflict = "/tmp/softwareteam-context";
     const deps = startableDeps({
       pathKind: vi.fn((candidate: string) => candidate === conflict ? "file" : "missing"),
     });
@@ -185,7 +185,7 @@ describe("Daemon Lifecycle", () => {
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => {
-        if (p === STATE_FILE) return JSON.stringify({ pid: 99, port: 7433, db: "x.db", startedAt: "2026-01-01T00:00:00Z" });
+        if (p === STATE_FILE) return JSON.stringify({ pid: 99, port: 7434, db: "x.db", startedAt: "2026-01-01T00:00:00Z" });
         return null;
       }),
       isProcessAlive: vi.fn(() => true),
@@ -198,7 +198,7 @@ describe("Daemon Lifecycle", () => {
     const deps = mockDeps({
       exists: vi.fn(() => false),
       fetch: vi.fn(async (url: string) => {
-        expect(url).toBe("http://127.0.0.1:7433/healthz");
+        expect(url).toBe("http://127.0.0.1:7434/healthz");
         return { ok: true };
       }),
     });
@@ -210,10 +210,10 @@ describe("Daemon Lifecycle", () => {
   it("start: no state and a hanging initial probe still starts and verifies its own child", async () => {
     vi.useFakeTimers();
     const deps = startableDeps({ fetch: vi.fn().mockImplementationOnce(neverFetch).mockResolvedValue(startupHealth()) });
-    const pending = startDaemon({ port: 7433 }, deps).catch((error) => error as Error);
+    const pending = startDaemon({ port: 7434 }, deps).catch((error) => error as Error);
     await vi.runAllTimersAsync();
 
-    expect(await pending).toMatchObject({ pid: 12345, port: 7433 });
+    expect(await pending).toMatchObject({ pid: 12345, port: 7434 });
     expect(deps.spawn).toHaveBeenCalledOnce();
     expect(deps.fetch).toHaveBeenCalledTimes(3); // initial probe, child identity, listener
     expect(writtenState(deps).pid).toBe(12345);
@@ -271,19 +271,19 @@ describe("Daemon Lifecycle", () => {
       readFile: vi.fn((p: string) => p === LOG_FILE ? log : null),
       spawn: vi.fn(() => {
         setTimeout(() => {
-          log += "Error: listen EADDRINUSE: address already in use 127.0.0.1:7433\n";
+          log += "Error: listen EADDRINUSE: address already in use 127.0.0.1:7434\n";
           child.exitCode = 1;
           child.emit("exit", 1, null);
         }, 1);
         return child as unknown as ChildProcess;
       }),
     });
-    const pending = startDaemon({ port: 7433 }, deps).catch((error) => error as Error);
+    const pending = startDaemon({ port: 7434 }, deps).catch((error) => error as Error);
     await vi.runAllTimersAsync();
     const error = await pending;
 
     expect(error).toBeInstanceOf(Error);
-    expect(error.message).toMatch(/EADDRINUSE.*port 7433/);
+    expect(error.message).toMatch(/EADDRINUSE.*port 7434/);
     expect(error.message).toContain("--port <unused-port>");
     expect(deps.writeFile).not.toHaveBeenCalledWith(STATE_FILE, expect.anything());
     expect(deps.kill).not.toHaveBeenCalled();
@@ -351,7 +351,7 @@ describe("Daemon Lifecycle", () => {
   });
 
   it("production log reads use a byte offset, preserve old-error absence and handle truncation", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-start-log-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-start-log-"));
     const log = path.join(root, "daemon.log");
     const deps = realDeps();
     try {
@@ -375,7 +375,7 @@ describe("Daemon Lifecycle", () => {
 
   // Test 5: stop reads pid from daemon.json, sends SIGTERM, removes daemon.json
   it("stop: reads pid, sends SIGTERM, removes daemon.json", async () => {
-    const state: DaemonState = { pid: 555, port: 7433, db: "openrig.sqlite", startedAt: "2026-01-01T00:00:00Z" };
+    const state: DaemonState = { pid: 555, port: 7434, db: "softwareteam.sqlite", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => {
@@ -409,7 +409,7 @@ describe("Daemon Lifecycle", () => {
     const deps = mockDeps({
       exists: vi.fn(() => false),
       fetch: vi.fn(async (url: string) => {
-        expect(url).toBe("http://127.0.0.1:7433/healthz");
+        expect(url).toBe("http://127.0.0.1:7434/healthz");
         return { ok: true };
       }),
     });
@@ -511,10 +511,10 @@ describe("Daemon Lifecycle", () => {
   });
 
   it("status: no daemon.json but configured healthz responds -> running without pid", async () => {
-    const savedPort = process.env["OPENRIG_PORT"];
-    const savedHost = process.env["OPENRIG_HOST"];
-    process.env["OPENRIG_PORT"] = "7555";
-    process.env["OPENRIG_HOST"] = "127.0.0.1";
+    const savedPort = process.env["SOFTWARETEAM_PORT"];
+    const savedHost = process.env["SOFTWARETEAM_HOST"];
+    process.env["SOFTWARETEAM_PORT"] = "7555";
+    process.env["SOFTWARETEAM_HOST"] = "127.0.0.1";
     try {
       const deps = mockDeps({
         exists: vi.fn(() => false),
@@ -532,16 +532,16 @@ describe("Daemon Lifecycle", () => {
         healthy: true,
       });
     } finally {
-      if (savedPort === undefined) delete process.env["OPENRIG_PORT"];
-      else process.env["OPENRIG_PORT"] = savedPort;
-      if (savedHost === undefined) delete process.env["OPENRIG_HOST"];
-      else process.env["OPENRIG_HOST"] = savedHost;
+      if (savedPort === undefined) delete process.env["SOFTWARETEAM_PORT"];
+      else process.env["SOFTWARETEAM_PORT"] = savedPort;
+      if (savedHost === undefined) delete process.env["SOFTWARETEAM_HOST"];
+      else process.env["SOFTWARETEAM_HOST"] = savedHost;
     }
   });
 
   // A status read must preserve target identity when its shutdown is unverified.
   it("status: stale with no shutdown receipt -> preserves unverified target", async () => {
-    const state: DaemonState = { pid: 888, port: 7433, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
+    const state: DaemonState = { pid: 888, port: 7434, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => {
@@ -566,7 +566,7 @@ describe("Daemon Lifecycle", () => {
 
     const spawnMock = deps.spawn as ReturnType<typeof vi.fn>;
     const env = spawnMock.mock.calls[0]![2].env;
-    expect(env.OPENRIG_PORT).toBe("9999");
+    expect(env.SOFTWARETEAM_PORT).toBe("9999");
   });
 
   // Test 11: start invoked from different cwd -> still resolves correct daemon path
@@ -621,7 +621,7 @@ describe("Daemon Lifecycle", () => {
     console.log = (...args: unknown[]) => logs.push(args.join(" "));
 
     try {
-      await program.parseAsync(["node", "rig", "daemon", "status"]);
+      await program.parseAsync(["node", "softwareTeam", "daemon", "status"]);
     } finally {
       console.log = origLog;
     }
@@ -633,10 +633,10 @@ describe("Daemon Lifecycle", () => {
   });
 
   it("daemonCommand status omits pid when daemon is recovered without state", async () => {
-    const savedPort = process.env["OPENRIG_PORT"];
-    const savedHost = process.env["OPENRIG_HOST"];
-    process.env["OPENRIG_PORT"] = "7555";
-    process.env["OPENRIG_HOST"] = "127.0.0.1";
+    const savedPort = process.env["SOFTWARETEAM_PORT"];
+    const savedHost = process.env["SOFTWARETEAM_HOST"];
+    process.env["SOFTWARETEAM_PORT"] = "7555";
+    process.env["SOFTWARETEAM_HOST"] = "127.0.0.1";
     try {
       const { daemonCommand } = await import("../src/commands/daemon.js");
       const { Command } = await import("commander");
@@ -653,7 +653,7 @@ describe("Daemon Lifecycle", () => {
       console.log = (...args: unknown[]) => logs.push(args.join(" "));
 
       try {
-        await program.parseAsync(["node", "rig", "daemon", "status"]);
+        await program.parseAsync(["node", "softwareTeam", "daemon", "status"]);
       } finally {
         console.log = origLog;
       }
@@ -662,10 +662,10 @@ describe("Daemon Lifecycle", () => {
       expect(output).toContain("Daemon running on port 7555");
       expect(output).not.toContain("pid undefined");
     } finally {
-      if (savedPort === undefined) delete process.env["OPENRIG_PORT"];
-      else process.env["OPENRIG_PORT"] = savedPort;
-      if (savedHost === undefined) delete process.env["OPENRIG_HOST"];
-      else process.env["OPENRIG_HOST"] = savedHost;
+      if (savedPort === undefined) delete process.env["SOFTWARETEAM_PORT"];
+      else process.env["SOFTWARETEAM_PORT"] = savedPort;
+      if (savedHost === undefined) delete process.env["SOFTWARETEAM_HOST"];
+      else process.env["SOFTWARETEAM_HOST"] = savedHost;
     }
   });
 
@@ -687,7 +687,7 @@ describe("Daemon Lifecycle", () => {
     console.error = (...args: unknown[]) => logs.push(args.join(" "));
 
     try {
-      await program.parseAsync(["node", "rig", "daemon", "stop"]);
+      await program.parseAsync(["node", "softwareTeam", "daemon", "stop"]);
     } finally {
       console.error = origErr;
     }
@@ -697,14 +697,14 @@ describe("Daemon Lifecycle", () => {
     process.exitCode = savedExitCode;
   });
 
-  it("S4b RED: daemon stop refuses success when the addressed OPENRIG_URL listener is still up", async () => {
+  it("S4b RED: daemon stop refuses success when the addressed SOFTWARETEAM_URL listener is still up", async () => {
     const { daemonCommand } = await import("../src/commands/daemon.js");
     const { Command } = await import("commander");
-    const savedUrl = process.env.OPENRIG_URL;
+    const savedUrl = process.env.SOFTWARETEAM_URL;
     const savedExitCode = process.exitCode;
-    process.env.OPENRIG_URL = "http://127.0.0.1:7555";
+    process.env.SOFTWARETEAM_URL = "http://127.0.0.1:7555";
     process.exitCode = undefined;
-    const state: DaemonState = { pid: 555, port: 7433, db: "openrig.sqlite", startedAt: "2026-01-01T00:00:00Z" };
+    const state: DaemonState = { pid: 555, port: 7434, db: "softwareteam.sqlite", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => p === STATE_FILE ? JSON.stringify(state) : null),
@@ -720,7 +720,7 @@ describe("Daemon Lifecycle", () => {
     console.log = (...args: unknown[]) => out.push(args.join(" "));
     console.error = (...args: unknown[]) => err.push(args.join(" "));
     try {
-      await program.parseAsync(["node", "rig", "daemon", "stop"]);
+      await program.parseAsync(["node", "softwareTeam", "daemon", "stop"]);
       expect(process.exitCode).toBe(1);
       expect(out.join("\n")).not.toContain("Daemon stopped");
       expect(err.join("\n")).toContain("http://127.0.0.1:7555");
@@ -731,8 +731,8 @@ describe("Daemon Lifecycle", () => {
       console.log = origLog;
       console.error = origErr;
       process.exitCode = savedExitCode;
-      if (savedUrl === undefined) delete process.env.OPENRIG_URL;
-      else process.env.OPENRIG_URL = savedUrl;
+      if (savedUrl === undefined) delete process.env.SOFTWARETEAM_URL;
+      else process.env.SOFTWARETEAM_URL = savedUrl;
     }
   });
 
@@ -740,11 +740,11 @@ describe("Daemon Lifecycle", () => {
     vi.useFakeTimers();
     const { daemonCommand } = await import("../src/commands/daemon.js");
     const { Command } = await import("commander");
-    const savedUrl = process.env.OPENRIG_URL;
+    const savedUrl = process.env.SOFTWARETEAM_URL;
     const savedExitCode = process.exitCode;
-    process.env.OPENRIG_URL = "http://127.0.0.1:7555";
+    process.env.SOFTWARETEAM_URL = "http://127.0.0.1:7555";
     process.exitCode = undefined;
-    const state: DaemonState = { pid: 555, port: 7555, db: "openrig.sqlite", startedAt: "2026-01-01T00:00:00Z" };
+    const state: DaemonState = { pid: 555, port: 7555, db: "softwareteam.sqlite", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => p === STATE_FILE ? JSON.stringify(state) : null),
@@ -760,7 +760,7 @@ describe("Daemon Lifecycle", () => {
     console.log = (...args: unknown[]) => out.push(args.join(" "));
     console.error = (...args: unknown[]) => err.push(args.join(" "));
     try {
-      const stop = program.parseAsync(["node", "rig", "daemon", "stop"]);
+      const stop = program.parseAsync(["node", "softwareTeam", "daemon", "stop"]);
       await vi.runAllTimersAsync();
       await stop;
       expect(process.exitCode).toBe(1);
@@ -773,19 +773,19 @@ describe("Daemon Lifecycle", () => {
       console.error = origErr;
       vi.useRealTimers();
       process.exitCode = savedExitCode;
-      if (savedUrl === undefined) delete process.env.OPENRIG_URL;
-      else process.env.OPENRIG_URL = savedUrl;
+      if (savedUrl === undefined) delete process.env.SOFTWARETEAM_URL;
+      else process.env.SOFTWARETEAM_URL = savedUrl;
     }
   });
 
   it("S4b RED: daemon stop prints success only after the addressed target verifies down", async () => {
     const { daemonCommand } = await import("../src/commands/daemon.js");
     const { Command } = await import("commander");
-    const savedUrl = process.env.OPENRIG_URL;
+    const savedUrl = process.env.SOFTWARETEAM_URL;
     const savedExitCode = process.exitCode;
-    process.env.OPENRIG_URL = "http://127.0.0.1:7555";
+    process.env.SOFTWARETEAM_URL = "http://127.0.0.1:7555";
     process.exitCode = undefined;
-    const state: DaemonState = { pid: 555, port: 7555, db: "openrig.sqlite", startedAt: "2026-01-01T00:00:00Z" };
+    const state: DaemonState = { pid: 555, port: 7555, db: "softwareteam.sqlite", startedAt: "2026-01-01T00:00:00Z" };
     const fetch = vi.fn()
       .mockResolvedValueOnce({ ok: true })
       .mockRejectedValue(Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }));
@@ -801,7 +801,7 @@ describe("Daemon Lifecycle", () => {
     const origLog = console.log;
     console.log = (...args: unknown[]) => out.push(args.join(" "));
     try {
-      await program.parseAsync(["node", "rig", "daemon", "stop"]);
+      await program.parseAsync(["node", "softwareTeam", "daemon", "stop"]);
       expect(process.exitCode).toBeUndefined();
       expect(out.join("\n")).toContain("Daemon stopped");
       expect(fetch.mock.calls.length).toBeGreaterThan(1);
@@ -809,17 +809,17 @@ describe("Daemon Lifecycle", () => {
     } finally {
       console.log = origLog;
       process.exitCode = savedExitCode;
-      if (savedUrl === undefined) delete process.env.OPENRIG_URL;
-      else process.env.OPENRIG_URL = savedUrl;
+      if (savedUrl === undefined) delete process.env.SOFTWARETEAM_URL;
+      else process.env.SOFTWARETEAM_URL = savedUrl;
     }
   });
 
-  // Test 15: start creates ~/.openrig directory if missing
-  it("start: creates OPENRIG_DIR if missing", async () => {
+  // Test 15: start creates ~/.softwareteam directory if missing
+  it("start: creates SOFTWARETEAM_DIR if missing", async () => {
     const deps = startableDeps();
-    await startDaemon({ port: 7433 }, deps);
+    await startDaemon({ port: 7434 }, deps);
 
-    expect(deps.mkdirp).toHaveBeenCalledWith(OPENRIG_DIR);
+    expect(deps.mkdirp).toHaveBeenCalledWith(SOFTWARETEAM_DIR);
   });
 
   // Test 16: logs --follow passes follow flag to tailLogs
@@ -842,7 +842,7 @@ describe("Daemon Lifecycle", () => {
 
   // Test 17: pid alive + healthz failure -> running with healthy=false, daemon.json preserved
   it("status: pid alive but healthz fails -> running, healthy=false, state preserved", async () => {
-    const state: DaemonState = { pid: 999, port: 7433, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
+    const state: DaemonState = { pid: 999, port: 7434, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => {
@@ -857,14 +857,14 @@ describe("Daemon Lifecycle", () => {
     expect(status.state).toBe("running");
     expect(status.healthy).toBe(false);
     expect(status.pid).toBe(999);
-    expect(status.port).toBe(7433);
+    expect(status.port).toBe(7434);
     // daemon.json must NOT be deleted — stop still needs the pid
     expect(deps.removeFile).not.toHaveBeenCalled();
   });
 
   it("status: hanging healthz probe resolves boundedly as unhealthy instead of hanging forever", async () => {
     vi.useFakeTimers();
-    const state: DaemonState = { pid: 999, port: 7433, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
+    const state: DaemonState = { pid: 999, port: 7434, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => {
@@ -886,7 +886,7 @@ describe("Daemon Lifecycle", () => {
 
   // Test 18: stop with process that won't die -> throws, daemon.json preserved
   it("stop: process survives SIGTERM -> throws, daemon.json NOT removed", async () => {
-    const state: DaemonState = { pid: 111, port: 7433, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
+    const state: DaemonState = { pid: 111, port: 7434, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => {
@@ -903,8 +903,8 @@ describe("Daemon Lifecycle", () => {
   });
 
   // Test 19: start with stale PID (pid alive but healthz fails) -> allows start (PID reuse safety)
-  it("start: stale PID (alive but not rig) -> proceeds to start new daemon", async () => {
-    const state: DaemonState = { pid: 999, port: 7433, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
+  it("start: stale PID (alive but not softwareTeam) -> proceeds to start new daemon", async () => {
+    const state: DaemonState = { pid: 999, port: 7434, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
     let fetchCount = 0;
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
@@ -922,13 +922,13 @@ describe("Daemon Lifecycle", () => {
       }),
     });
 
-    const result = await startDaemon({ port: 7433 }, deps);
+    const result = await startDaemon({ port: 7434 }, deps);
     expect(result.pid).toBe(12345); // new daemon spawned
   });
 
   it("start: hanging healthz probe on existing pid throws unresponsive error instead of spawning a second daemon", async () => {
     vi.useFakeTimers();
-    const state: DaemonState = { pid: 999, port: 7433, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
+    const state: DaemonState = { pid: 999, port: 7434, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => {
@@ -939,7 +939,7 @@ describe("Daemon Lifecycle", () => {
       fetch: vi.fn(() => neverFetch()),
     });
 
-    const startPromise = startDaemon({ port: 7433 }, deps).catch((error) => error as Error);
+    const startPromise = startDaemon({ port: 7434 }, deps).catch((error) => error as Error);
     await vi.runAllTimersAsync();
     const error = await startPromise;
 
@@ -950,8 +950,8 @@ describe("Daemon Lifecycle", () => {
   });
 
   // A reused PID must receive no signal and must not erase unresolved stop identity.
-  it("stop: stale PID (alive but not rig) -> preserves state, does not kill", async () => {
-    const state: DaemonState = { pid: 999, port: 7433, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
+  it("stop: stale PID (alive but not softwareTeam) -> preserves state, does not kill", async () => {
+    const state: DaemonState = { pid: 999, port: 7434, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => {
@@ -969,7 +969,7 @@ describe("Daemon Lifecycle", () => {
 
   it("stop: hanging healthz probe still issues SIGTERM and reports the unavailable final probe", async () => {
     vi.useFakeTimers();
-    const state: DaemonState = { pid: 999, port: 7433, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
+    const state: DaemonState = { pid: 999, port: 7434, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => {
@@ -1016,13 +1016,13 @@ describe("Daemon Lifecycle", () => {
       }),
     });
 
-    const result = await startDaemon({ port: 7433 }, deps);
+    const result = await startDaemon({ port: 7434 }, deps);
     expect(result.pid).toBe(12345);
   });
 
-  // Test 23: start with unhealthy rig daemon (healthz responds non-ok) -> blocks start
-  it("start: unhealthy rig daemon (healthz responds) -> throws already running", async () => {
-    const state: DaemonState = { pid: 999, port: 7433, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
+  // Test 23: start with unhealthy SoftwareTeam daemon (healthz responds non-ok) -> blocks start
+  it("start: unhealthy SoftwareTeam daemon (healthz responds) -> throws already running", async () => {
+    const state: DaemonState = { pid: 999, port: 7434, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => {
@@ -1030,16 +1030,16 @@ describe("Daemon Lifecycle", () => {
         return null;
       }),
       isProcessAlive: vi.fn(() => true),
-      // healthz responds (even if not ok) → port is ours → rig
+      // healthz responds (even if not ok) → port is ours → softwareTeam
       fetch: vi.fn(async () => ({ ok: false })),
     });
 
-    await expect(startDaemon({ port: 7433 }, deps)).rejects.toThrow(/already running/i);
+    await expect(startDaemon({ port: 7434 }, deps)).rejects.toThrow(/already running/i);
   });
 
-  // Test 24: stop with unhealthy rig daemon -> still sends SIGTERM (it's our process)
-  it("stop: unhealthy rig daemon -> sends SIGTERM", async () => {
-    const state: DaemonState = { pid: 999, port: 7433, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
+  // Test 24: stop with unhealthy SoftwareTeam daemon -> still sends SIGTERM (it's our process)
+  it("stop: unhealthy SoftwareTeam daemon -> sends SIGTERM", async () => {
+    const state: DaemonState = { pid: 999, port: 7434, db: "x.db", startedAt: "2026-01-01T00:00:00Z" };
     const deps = mockDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => {
@@ -1049,7 +1049,7 @@ describe("Daemon Lifecycle", () => {
       isProcessAlive: vi.fn()
         .mockReturnValueOnce(true)  // checkPid: alive
         .mockReturnValueOnce(false), // after kill: dead
-      // healthz responds (non-ok) → still rig
+      // healthz responds (non-ok) → still softwareTeam
       fetch: vi.fn().mockResolvedValueOnce({ ok: false }).mockRejectedValue(new Error("refused")),
     });
 
@@ -1061,7 +1061,7 @@ describe("Daemon Lifecycle", () => {
   // Test 25: start spawns process.execPath, not bare "node"
   it("start: spawns process.execPath as the Node binary", async () => {
     const deps = startableDeps();
-    await startDaemon({ port: 7433, db: "openrig.sqlite" }, deps);
+    await startDaemon({ port: 7434, db: "softwareteam.sqlite" }, deps);
 
     const spawnMock = deps.spawn as ReturnType<typeof vi.fn>;
     const [cmd] = spawnMock.mock.calls[0]!;
@@ -1087,7 +1087,7 @@ describe("Daemon Lifecycle", () => {
       }),
     });
 
-    const startPromise = startDaemon({ port: 7433 }, deps).catch((error) => error as Error);
+    const startPromise = startDaemon({ port: 7434 }, deps).catch((error) => error as Error);
     await vi.runAllTimersAsync();
     const error = await startPromise;
 
@@ -1113,7 +1113,7 @@ describe("Daemon Lifecycle", () => {
       }),
     });
 
-    const startPromise = startDaemon({ port: 7433 }, deps).catch((error) => error as Error);
+    const startPromise = startDaemon({ port: 7434 }, deps).catch((error) => error as Error);
     await vi.runAllTimersAsync();
     const error = await startPromise;
 
@@ -1122,10 +1122,10 @@ describe("Daemon Lifecycle", () => {
     vi.useRealTimers();
   });
 
-  // Test 26: OPENRIG_URL set → getDaemonStatus bypasses daemon.json
-  it("status: OPENRIG_URL set → probes URL directly, ignores daemon.json", async () => {
-    const prev = process.env["OPENRIG_URL"];
-    process.env["OPENRIG_URL"] = "http://127.0.0.1:7455";
+  // Test 26: SOFTWARETEAM_URL set → getDaemonStatus bypasses daemon.json
+  it("status: SOFTWARETEAM_URL set → probes URL directly, ignores daemon.json", async () => {
+    const prev = process.env["SOFTWARETEAM_URL"];
+    process.env["SOFTWARETEAM_URL"] = "http://127.0.0.1:7455";
     try {
       const deps = mockDeps({
         exists: vi.fn(() => false),
@@ -1140,15 +1140,15 @@ describe("Daemon Lifecycle", () => {
       // daemon.json was never read
       expect(deps.readFile).not.toHaveBeenCalled();
     } finally {
-      if (prev === undefined) delete process.env["OPENRIG_URL"];
-      else process.env["OPENRIG_URL"] = prev;
+      if (prev === undefined) delete process.env["SOFTWARETEAM_URL"];
+      else process.env["SOFTWARETEAM_URL"] = prev;
     }
   });
 
-  // Test 27: OPENRIG_URL set but unreachable → stopped
-  it("status: OPENRIG_URL set but unreachable → stopped", async () => {
-    const prev = process.env["OPENRIG_URL"];
-    process.env["OPENRIG_URL"] = "http://127.0.0.1:9999";
+  // Test 27: SOFTWARETEAM_URL set but unreachable → stopped
+  it("status: SOFTWARETEAM_URL set but unreachable → stopped", async () => {
+    const prev = process.env["SOFTWARETEAM_URL"];
+    process.env["SOFTWARETEAM_URL"] = "http://127.0.0.1:9999";
     try {
       const deps = mockDeps({
         exists: vi.fn(() => false),
@@ -1159,8 +1159,8 @@ describe("Daemon Lifecycle", () => {
       const status = await getDaemonStatus(deps);
       expect(status.state).toBe("stopped");
     } finally {
-      if (prev === undefined) delete process.env["OPENRIG_URL"];
-      else process.env["OPENRIG_URL"] = prev;
+      if (prev === undefined) delete process.env["SOFTWARETEAM_URL"];
+      else process.env["SOFTWARETEAM_URL"] = prev;
     }
   });
 
@@ -1232,15 +1232,15 @@ describe("resolveDaemonPath", () => {
   it("returns monorepo source path when packages/daemon/dist/index.js exists (DEV — both paths present)", () => {
     // Simulates a monorepo checkout: BOTH paths have dist/index.js
     // (vendored bundle assembled via scripts/build-package.sh + source
-    // daemon built via @openrig/daemon). The resolver picks source.
+    // daemon built via @softwareteam/daemon). The resolver picks source.
     const exists = (p: string) => p.endsWith("daemon/dist/index.js");
     const result = resolveDaemonPath("/repo/packages/cli/dist", exists);
     expect(result).toBe(path.resolve("/repo/packages/cli/dist", "../../daemon"));
   });
 
   it("falls back to bundled path when only ../daemon/dist exists (NPM-INSTALL — single path)", () => {
-    // Simulates `npm install -g @openrig/cli` layout:
-    //   node_modules/@openrig/cli/{dist,daemon,ui}
+    // Simulates `npm install -g @softwareteam/cli` layout:
+    //   node_modules/@softwareteam/cli/{dist,daemon,ui}
     // Only ../daemon (sibling to cli/dist) exists; ../../daemon doesn't.
     const exists = (p: string) => {
       // monorepo path absent; bundled present
@@ -1282,7 +1282,7 @@ describe("startDaemon env sanitization", () => {
 
     try {
       const deps = startableDeps();
-      await startDaemon({ port: 7433, host: "127.0.0.1", db: "/tmp/test.db" }, deps);
+      await startDaemon({ port: 7434, host: "127.0.0.1", db: "/tmp/test.db" }, deps);
 
       const spawnCall = (deps.spawn as ReturnType<typeof vi.fn>).mock.calls[0];
       const spawnEnv = spawnCall![2].env as Record<string, string>;
@@ -1305,7 +1305,7 @@ describe("startDaemon env sanitization", () => {
       // CODEX_HOME is topology/config-root state consumed by the daemon; unlike
       // every other CODEX_* runtime/auth/session value, it must cross this boundary.
       expect(spawnEnv["CODEX_HOME"]).toBe("/Users/tester/.codex-custom");
-      expect(spawnEnv["OPENRIG_PORT"]).toBe("7433");
+      expect(spawnEnv["SOFTWARETEAM_PORT"]).toBe("7434");
     } finally {
       // Restore process.env
       for (const [k, v] of Object.entries(saved)) {
@@ -1324,7 +1324,7 @@ describe("buildDaemonEnv", () => {
       CODEX_THREAD_ID: "thread-123",
       CODEX_SESSION_ID: "session-456",
       CODEX_AUTH_TOKEN: "transient-auth",
-    }, { port: 7433, db: "/tmp/test.db" });
+    }, { port: 7434, db: "/tmp/test.db" });
 
     expect(result["CODEX_HOME"]).toBe("/Users/tester/.codex-custom");
     expect(result["CODEX_CI"]).toBeUndefined();
@@ -1364,7 +1364,7 @@ describe("buildDaemonEnv", () => {
       LANG: "en_US.UTF-8",
     };
 
-    const result = buildDaemonEnv(baseEnv, { port: 7433, host: "127.0.0.1", db: "/tmp/test.db" });
+    const result = buildDaemonEnv(baseEnv, { port: 7434, host: "127.0.0.1", db: "/tmp/test.db" });
 
     // Core vars preserved
     expect(result["HOME"]).toBe("/Users/tester");
@@ -1373,10 +1373,10 @@ describe("buildDaemonEnv", () => {
     expect(result["SHELL"]).toBe("/bin/zsh");
     expect(result["LANG"]).toBe("en_US.UTF-8");
 
-    // OPENRIG_* set from opts
-    expect(result["OPENRIG_PORT"]).toBe("7433");
-    expect(result["OPENRIG_HOST"]).toBe("127.0.0.1");
-    expect(result["OPENRIG_DB"]).toBe("/tmp/test.db");
+    // SOFTWARETEAM_* set from opts
+    expect(result["SOFTWARETEAM_PORT"]).toBe("7434");
+    expect(result["SOFTWARETEAM_HOST"]).toBe("127.0.0.1");
+    expect(result["SOFTWARETEAM_DB"]).toBe("/tmp/test.db");
 
     // Scrubbed vars absent
     expect(result["COLORTERM"]).toBeUndefined();
@@ -1405,178 +1405,178 @@ describe("buildDaemonEnv", () => {
     expect(result["CMUX_WORKSPACE_ID"]).toBe("workspace:1");
   });
 
-  it("explicit opts override inherited OPENRIG_* from base env", () => {
+  it("explicit opts override inherited SOFTWARETEAM_* from base env", () => {
     const baseEnv: Record<string, string> = {
       HOME: "/Users/tester",
       PATH: "/usr/bin",
-      OPENRIG_PORT: "9999",
-      OPENRIG_DB: "/old/path.db",
+      SOFTWARETEAM_PORT: "9999",
+      SOFTWARETEAM_DB: "/old/path.db",
     };
 
-    const result = buildDaemonEnv(baseEnv, { port: 7433, host: "127.0.0.1", db: "/new/path.db" });
+    const result = buildDaemonEnv(baseEnv, { port: 7434, host: "127.0.0.1", db: "/new/path.db" });
 
-    expect(result["OPENRIG_PORT"]).toBe("7433");
-    expect(result["OPENRIG_DB"]).toBe("/new/path.db");
+    expect(result["SOFTWARETEAM_PORT"]).toBe("7434");
+    expect(result["SOFTWARETEAM_DB"]).toBe("/new/path.db");
   });
 
   // bug-fix slice auth-bearer-tailscale-trust forward-fix:
-  // Default-product-launch must NOT export OPENRIG_HOST so daemon's
+  // Default-product-launch must NOT export SOFTWARETEAM_HOST so daemon's
   // index.ts falls through to the loopback+tailscale multi-bind path.
   describe("auth-bearer-tailscale-trust: explicit-vs-default host signal", () => {
-    it("omits OPENRIG_HOST when opts.host is undefined (default-product-launch)", () => {
+    it("omits SOFTWARETEAM_HOST when opts.host is undefined (default-product-launch)", () => {
       const baseEnv: Record<string, string> = { HOME: "/Users/tester", PATH: "/usr/bin" };
       const result = buildDaemonEnv(baseEnv, {
-        port: 7433,
+        port: 7434,
         db: "/tmp/test.db",
         // host intentionally omitted — operator never set it (default path)
       });
-      expect(result["OPENRIG_HOST"]).toBeUndefined();
+      expect(result["SOFTWARETEAM_HOST"]).toBeUndefined();
       // port + db still flow through
-      expect(result["OPENRIG_PORT"]).toBe("7433");
-      expect(result["OPENRIG_DB"]).toBe("/tmp/test.db");
+      expect(result["SOFTWARETEAM_PORT"]).toBe("7434");
+      expect(result["SOFTWARETEAM_DB"]).toBe("/tmp/test.db");
     });
 
-    it("sets OPENRIG_HOST when opts.host is explicit (user opt-in)", () => {
+    it("sets SOFTWARETEAM_HOST when opts.host is explicit (user opt-in)", () => {
       const baseEnv: Record<string, string> = { HOME: "/Users/tester", PATH: "/usr/bin" };
       const result = buildDaemonEnv(baseEnv, {
-        port: 7433,
+        port: 7434,
         host: "0.0.0.0",
         db: "/tmp/test.db",
       });
-      expect(result["OPENRIG_HOST"]).toBe("0.0.0.0");
+      expect(result["SOFTWARETEAM_HOST"]).toBe("0.0.0.0");
     });
 
-    it("S20: inherited OPENRIG_HOST is SCRUBBED — the shell-env-wins premise died (routing env is byte-indistinguishable from opt-in; operator baton qitem-20260827070400). Opt-in rides OPENRIG_BIND_HOST", () => {
+    it("S20: inherited SOFTWARETEAM_HOST is SCRUBBED — the shell-env-wins premise died (routing env is byte-indistinguishable from opt-in; operator baton qitem-20260827070400). Opt-in rides SOFTWARETEAM_BIND_HOST", () => {
       // The old pin encoded the dead-premise design this slice re-grounds: an
-      // inherited OPENRIG_HOST was treated as operator opt-in, and a managed
+      // inherited SOFTWARETEAM_HOST was treated as operator opt-in, and a managed
       // environment's injected routing value silently became single-bind policy
       // (the parent lost its Tailscale listener). The dedicated surface carries
       // the same opt-in unambiguously:
       const baseEnv: Record<string, string> = {
         HOME: "/Users/tester",
         PATH: "/usr/bin",
-        OPENRIG_HOST: "0.0.0.0",
+        SOFTWARETEAM_HOST: "0.0.0.0",
       };
-      const scrubbed = buildDaemonEnv(baseEnv, { port: 7433, db: "/tmp/test.db" });
-      expect(scrubbed["OPENRIG_HOST"]).toBeUndefined();
-      const optedIn = buildDaemonEnv({ ...baseEnv, OPENRIG_BIND_HOST: "0.0.0.0" }, { port: 7433, db: "/tmp/test.db" });
-      expect(optedIn["OPENRIG_BIND_HOST"]).toBe("0.0.0.0"); // the dedicated channel still wins
+      const scrubbed = buildDaemonEnv(baseEnv, { port: 7434, db: "/tmp/test.db" });
+      expect(scrubbed["SOFTWARETEAM_HOST"]).toBeUndefined();
+      const optedIn = buildDaemonEnv({ ...baseEnv, SOFTWARETEAM_BIND_HOST: "0.0.0.0" }, { port: 7434, db: "/tmp/test.db" });
+      expect(optedIn["SOFTWARETEAM_BIND_HOST"]).toBe("0.0.0.0"); // the dedicated channel still wins
     });
   });
 
   // Slice 22 founder-walk-vm-populated-env forward-fix #1: the slice
-  // intentionally drops a `--openrig-home` CLI flag in favor of using
-  // the process-env-pattern (each `rig` invocation gets its own
-  // OPENRIG_HOME via the shell). The slice's "fully isolated state"
+  // intentionally drops a `--softwareteam-home` CLI flag in favor of using
+  // the process-env-pattern (each `softwareTeam` invocation gets its own
+  // SOFTWARETEAM_HOME via the shell). The slice's "fully isolated state"
   // claim depends on the env contract being honored at module load
-  // time — specifically that getOpenRigHome() returns the current
-  // env value (not a hardcoded default) and that getDefaultOpenRigPath
+  // time — specifically that getSoftwareTeamHome() returns the current
+  // env value (not a hardcoded default) and that getDefaultSoftwareTeamPath
   // threads it into derived paths. The module-level constants
-  // (OPENRIG_DIR / STATE_FILE / LOG_FILE) are a single snapshot of
+  // (SOFTWARETEAM_DIR / STATE_FILE / LOG_FILE) are a single snapshot of
   // these functions at load.
   //
   // These regression tests prove the function contract with distinct-
   // value discriminators per banked feedback_poc_regression_must_discriminate.
-  describe("slice 22: OPENRIG_HOME env contract for per-process state isolation", () => {
-    it("getOpenRigHome respects process.env.OPENRIG_HOME (distinct values yield distinct paths)", async () => {
-      const { getOpenRigHome } = await import("../src/openrig-compat.js");
-      const saved = process.env["OPENRIG_HOME"];
+  describe("slice 22: SOFTWARETEAM_HOME env contract for per-process state isolation", () => {
+    it("getSoftwareTeamHome respects process.env.SOFTWARETEAM_HOME (distinct values yield distinct paths)", async () => {
+      const { getSoftwareTeamHome } = await import("../src/softwareteam-compat.js");
+      const saved = process.env["SOFTWARETEAM_HOME"];
       try {
-        process.env["OPENRIG_HOME"] = "/Users/example/.openrig-blank";
-        const blank = getOpenRigHome();
-        process.env["OPENRIG_HOME"] = "/Users/example/.openrig-populated";
-        const populated = getOpenRigHome();
-        expect(blank).toBe("/Users/example/.openrig-blank");
-        expect(populated).toBe("/Users/example/.openrig-populated");
+        process.env["SOFTWARETEAM_HOME"] = "/Users/example/.softwareteam-blank";
+        const blank = getSoftwareTeamHome();
+        process.env["SOFTWARETEAM_HOME"] = "/Users/example/.softwareteam-populated";
+        const populated = getSoftwareTeamHome();
+        expect(blank).toBe("/Users/example/.softwareteam-blank");
+        expect(populated).toBe("/Users/example/.softwareteam-populated");
         expect(blank).not.toBe(populated);
       } finally {
-        if (saved === undefined) delete process.env["OPENRIG_HOME"];
-        else process.env["OPENRIG_HOME"] = saved;
+        if (saved === undefined) delete process.env["SOFTWARETEAM_HOME"];
+        else process.env["SOFTWARETEAM_HOME"] = saved;
       }
     });
 
-    it("getDefaultOpenRigPath threads env-resolved OPENRIG_HOME into derived paths (daemon.json + log)", async () => {
-      const { getDefaultOpenRigPath } = await import("../src/openrig-compat.js");
-      const saved = process.env["OPENRIG_HOME"];
+    it("getDefaultSoftwareTeamPath threads env-resolved SOFTWARETEAM_HOME into derived paths (daemon.json + log)", async () => {
+      const { getDefaultSoftwareTeamPath } = await import("../src/softwareteam-compat.js");
+      const saved = process.env["SOFTWARETEAM_HOME"];
       try {
-        process.env["OPENRIG_HOME"] = "/Users/example/.openrig-blank";
-        const blankState = getDefaultOpenRigPath("daemon.json");
-        const blankLog = getDefaultOpenRigPath("daemon.log");
-        process.env["OPENRIG_HOME"] = "/Users/example/.openrig-populated";
-        const populatedState = getDefaultOpenRigPath("daemon.json");
-        const populatedLog = getDefaultOpenRigPath("daemon.log");
-        expect(blankState).toBe("/Users/example/.openrig-blank/daemon.json");
-        expect(populatedState).toBe("/Users/example/.openrig-populated/daemon.json");
-        expect(blankLog).toBe("/Users/example/.openrig-blank/daemon.log");
-        expect(populatedLog).toBe("/Users/example/.openrig-populated/daemon.log");
+        process.env["SOFTWARETEAM_HOME"] = "/Users/example/.softwareteam-blank";
+        const blankState = getDefaultSoftwareTeamPath("daemon.json");
+        const blankLog = getDefaultSoftwareTeamPath("daemon.log");
+        process.env["SOFTWARETEAM_HOME"] = "/Users/example/.softwareteam-populated";
+        const populatedState = getDefaultSoftwareTeamPath("daemon.json");
+        const populatedLog = getDefaultSoftwareTeamPath("daemon.log");
+        expect(blankState).toBe("/Users/example/.softwareteam-blank/daemon.json");
+        expect(populatedState).toBe("/Users/example/.softwareteam-populated/daemon.json");
+        expect(blankLog).toBe("/Users/example/.softwareteam-blank/daemon.log");
+        expect(populatedLog).toBe("/Users/example/.softwareteam-populated/daemon.log");
         expect(blankState).not.toBe(populatedState);
         expect(blankLog).not.toBe(populatedLog);
       } finally {
-        if (saved === undefined) delete process.env["OPENRIG_HOME"];
-        else process.env["OPENRIG_HOME"] = saved;
+        if (saved === undefined) delete process.env["SOFTWARETEAM_HOME"];
+        else process.env["SOFTWARETEAM_HOME"] = saved;
       }
     });
 
-    it("empty OPENRIG_HOME falls back to homedir default (not the literal empty string)", async () => {
-      const { getOpenRigHome } = await import("../src/openrig-compat.js");
+    it("empty SOFTWARETEAM_HOME falls back to homedir default (not the literal empty string)", async () => {
+      const { getSoftwareTeamHome } = await import("../src/softwareteam-compat.js");
       const { homedir } = await import("node:os");
-      const saved = process.env["OPENRIG_HOME"];
+      const saved = process.env["SOFTWARETEAM_HOME"];
       try {
-        process.env["OPENRIG_HOME"] = "";
-        const result = getOpenRigHome();
-        expect(result).toBe(`${homedir()}/.openrig`);
+        process.env["SOFTWARETEAM_HOME"] = "";
+        const result = getSoftwareTeamHome();
+        expect(result).toBe(`${homedir()}/.softwareteam`);
       } finally {
-        if (saved === undefined) delete process.env["OPENRIG_HOME"];
-        else process.env["OPENRIG_HOME"] = saved;
+        if (saved === undefined) delete process.env["SOFTWARETEAM_HOME"];
+        else process.env["SOFTWARETEAM_HOME"] = saved;
       }
     });
 
     // FF2 regression test (per qitem-20260511115845-ee9a4775): the
-    // prior 3 tests verify the openrig-compat function contract but
-    // do NOT prove daemon-lifecycle's module-level OPENRIG_DIR /
-    // STATE_FILE / LOG_FILE constants pick up OPENRIG_HOME at import
-    // time. Future code could hardcode "~/.openrig" in
+    // prior 3 tests verify the softwareteam-compat function contract but
+    // do NOT prove daemon-lifecycle's module-level SOFTWARETEAM_DIR /
+    // STATE_FILE / LOG_FILE constants pick up SOFTWARETEAM_HOME at import
+    // time. Future code could hardcode "~/.softwareteam" in
     // daemon-lifecycle.ts:66-69 and the prior tests would still pass.
     //
     // This test imports daemon-lifecycle FRESH twice via
-    // vi.resetModules + dynamic import, with distinct OPENRIG_HOME
+    // vi.resetModules + dynamic import, with distinct SOFTWARETEAM_HOME
     // values per import. Discriminator-distinct paths (per banked
     // feedback_poc_regression_must_discriminate) prove each module
     // load reflects the env that was set at that moment. Will fail
     // if a future contributor hardcodes a literal path or otherwise
-    // bypasses openrig-compat helpers at module level.
-    it("daemon-lifecycle module-level constants reflect OPENRIG_HOME at import time (slice 22 FF2)", async () => {
-      const saved = process.env["OPENRIG_HOME"];
+    // bypasses softwareteam-compat helpers at module level.
+    it("daemon-lifecycle module-level constants reflect SOFTWARETEAM_HOME at import time (slice 22 FF2)", async () => {
+      const saved = process.env["SOFTWARETEAM_HOME"];
       try {
-        // First import — OPENRIG_HOME = blank-slate value
-        process.env["OPENRIG_HOME"] = "/Users/example/.openrig-vm-blank-fresh";
+        // First import — SOFTWARETEAM_HOME = blank-slate value
+        process.env["SOFTWARETEAM_HOME"] = "/Users/example/.softwareteam-vm-blank-fresh";
         vi.resetModules();
         const blank = await import("../src/daemon-lifecycle.js");
 
-        // Second import — OPENRIG_HOME = populated value (distinct dir;
+        // Second import — SOFTWARETEAM_HOME = populated value (distinct dir;
         // not equal, not a symlink prefix). vi.resetModules clears the
         // module cache so the second import re-evaluates module-level
         // constants under the new env.
-        process.env["OPENRIG_HOME"] = "/Users/example/.openrig-vm-populated-fresh";
+        process.env["SOFTWARETEAM_HOME"] = "/Users/example/.softwareteam-vm-populated-fresh";
         vi.resetModules();
         const populated = await import("../src/daemon-lifecycle.js");
 
-        // OPENRIG_DIR — direct snapshot of getOpenRigHome() at module load
-        expect(blank.OPENRIG_DIR).toBe("/Users/example/.openrig-vm-blank-fresh");
-        expect(populated.OPENRIG_DIR).toBe("/Users/example/.openrig-vm-populated-fresh");
-        expect(blank.OPENRIG_DIR).not.toBe(populated.OPENRIG_DIR);
+        // SOFTWARETEAM_DIR — direct snapshot of getSoftwareTeamHome() at module load
+        expect(blank.SOFTWARETEAM_DIR).toBe("/Users/example/.softwareteam-vm-blank-fresh");
+        expect(populated.SOFTWARETEAM_DIR).toBe("/Users/example/.softwareteam-vm-populated-fresh");
+        expect(blank.SOFTWARETEAM_DIR).not.toBe(populated.SOFTWARETEAM_DIR);
 
-        // STATE_FILE / LOG_FILE — derived as path.join(OPENRIG_DIR, "daemon.{json,log}")
-        expect(blank.STATE_FILE).toBe("/Users/example/.openrig-vm-blank-fresh/daemon.json");
-        expect(populated.STATE_FILE).toBe("/Users/example/.openrig-vm-populated-fresh/daemon.json");
+        // STATE_FILE / LOG_FILE — derived as path.join(SOFTWARETEAM_DIR, "daemon.{json,log}")
+        expect(blank.STATE_FILE).toBe("/Users/example/.softwareteam-vm-blank-fresh/daemon.json");
+        expect(populated.STATE_FILE).toBe("/Users/example/.softwareteam-vm-populated-fresh/daemon.json");
         expect(blank.STATE_FILE).not.toBe(populated.STATE_FILE);
 
-        expect(blank.LOG_FILE).toBe("/Users/example/.openrig-vm-blank-fresh/daemon.log");
-        expect(populated.LOG_FILE).toBe("/Users/example/.openrig-vm-populated-fresh/daemon.log");
+        expect(blank.LOG_FILE).toBe("/Users/example/.softwareteam-vm-blank-fresh/daemon.log");
+        expect(populated.LOG_FILE).toBe("/Users/example/.softwareteam-vm-populated-fresh/daemon.log");
         expect(blank.LOG_FILE).not.toBe(populated.LOG_FILE);
       } finally {
-        if (saved === undefined) delete process.env["OPENRIG_HOME"];
-        else process.env["OPENRIG_HOME"] = saved;
+        if (saved === undefined) delete process.env["SOFTWARETEAM_HOME"];
+        else process.env["SOFTWARETEAM_HOME"] = saved;
         // Re-reset modules so subsequent tests (and the file-top
         // import of daemon-lifecycle at line 4-19) aren't holding
         // stale references to a module instance bound to a temp env.
@@ -1586,46 +1586,46 @@ describe("buildDaemonEnv", () => {
   });
 
   describe("V1 pre-release CLI/daemon Item 1 — transcript rotation tunables projection", () => {
-    it("projects transcriptsLines + transcriptsPollIntervalSeconds into OPENRIG_* env vars when provided", () => {
+    it("projects transcriptsLines + transcriptsPollIntervalSeconds into SOFTWARETEAM_* env vars when provided", () => {
       const baseEnv: Record<string, string> = { HOME: "/Users/tester", PATH: "/usr/bin" };
       const result = buildDaemonEnv(baseEnv, {
-        port: 7433,
+        port: 7434,
         host: "127.0.0.1",
         db: "/tmp/test.db",
         transcriptsLines: 500,
         transcriptsPollIntervalSeconds: 5,
       });
-      expect(result["OPENRIG_TRANSCRIPTS_LINES"]).toBe("500");
-      expect(result["OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS"]).toBe("5");
+      expect(result["SOFTWARETEAM_TRANSCRIPTS_LINES"]).toBe("500");
+      expect(result["SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS"]).toBe("5");
     });
 
     it("omits the transcript rotation env vars when the opts are undefined so the rotation hook falls back to its own defaults", () => {
       const baseEnv: Record<string, string> = { HOME: "/Users/tester", PATH: "/usr/bin" };
       const result = buildDaemonEnv(baseEnv, {
-        port: 7433,
+        port: 7434,
         host: "127.0.0.1",
         db: "/tmp/test.db",
       });
-      expect(result["OPENRIG_TRANSCRIPTS_LINES"]).toBeUndefined();
-      expect(result["OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS"]).toBeUndefined();
+      expect(result["SOFTWARETEAM_TRANSCRIPTS_LINES"]).toBeUndefined();
+      expect(result["SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS"]).toBeUndefined();
     });
 
-    it("scrubs inherited OPENRIG_TRANSCRIPTS_* from the base env when opts override is set, so the daemon honors the file-stored ConfigStore value", () => {
+    it("scrubs inherited SOFTWARETEAM_TRANSCRIPTS_* from the base env when opts override is set, so the daemon honors the file-stored ConfigStore value", () => {
       const baseEnv: Record<string, string> = {
         HOME: "/Users/tester",
         PATH: "/usr/bin",
-        OPENRIG_TRANSCRIPTS_LINES: "9999",
-        OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS: "60",
+        SOFTWARETEAM_TRANSCRIPTS_LINES: "9999",
+        SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS: "60",
       };
       const result = buildDaemonEnv(baseEnv, {
-        port: 7433,
+        port: 7434,
         host: "127.0.0.1",
         db: "/tmp/test.db",
         transcriptsLines: 500,
         transcriptsPollIntervalSeconds: 5,
       });
-      expect(result["OPENRIG_TRANSCRIPTS_LINES"]).toBe("500");
-      expect(result["OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS"]).toBe("5");
+      expect(result["SOFTWARETEAM_TRANSCRIPTS_LINES"]).toBe("500");
+      expect(result["SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS"]).toBe("5");
     });
   });
 });
@@ -1658,12 +1658,12 @@ describe("ensureWorkspaceScaffold", () => {
 // OPR.0.3.3.04.2 (AC-4): the ONE shared daemon-not-running honest error used by
 // the daemon-dependent journey verbs (bootstrap/discover/workspace/workflow).
 describe("daemonNotRunningError / printDaemonNotRunning (AC-4 shared honest error)", () => {
-  it("daemonNotRunningError is the 3-part fact/consequence/action shape pointing to rig up / rig daemon start", () => {
+  it("daemonNotRunningError is the 3-part fact/consequence/action shape pointing to SoftwareTeam up / SoftwareTeam daemon start", () => {
     const err = daemonNotRunningError();
     expect(err.fact).toContain("Daemon not running");
     expect(err.consequence).toContain("needs a running daemon");
-    expect(err.action).toContain("rig up");
-    expect(err.action).toContain("rig daemon start");
+    expect(err.action).toContain("SoftwareTeam up");
+    expect(err.action).toContain("SoftwareTeam daemon start");
   });
 
   it("printDaemonNotRunning (human) emits all three parts on stderr and sets exit code 1", () => {
@@ -1682,7 +1682,7 @@ describe("daemonNotRunningError / printDaemonNotRunning (AC-4 shared honest erro
     const out = lines.join("\n");
     expect(out).toContain("Daemon not running");
     expect(out).toContain("needs a running daemon");
-    expect(out).toContain("rig up");
+    expect(out).toContain("SoftwareTeam up");
     expect(exit).toBe(1);
   });
 
@@ -1701,7 +1701,7 @@ describe("daemonNotRunningError / printDaemonNotRunning (AC-4 shared honest erro
     const parsed = JSON.parse(lines.join("")) as { error: { fact: string; consequence: string; action: string } };
     expect(parsed.error.fact).toContain("Daemon not running");
     expect(parsed.error.consequence).toContain("needs a running daemon");
-    expect(parsed.error.action).toContain("rig up");
+    expect(parsed.error.action).toContain("SoftwareTeam up");
   });
 
   // ===================================================================
@@ -1709,14 +1709,14 @@ describe("daemonNotRunningError / printDaemonNotRunning (AC-4 shared honest erro
   // getDaemonStatus' stateless (no daemon.json) branch returns "stopped" on ANY
   // /healthz throw, conflating a probe TIMEOUT (daemon reachable but slow /healthz,
   // e.g. answers in 400ms > the 250ms status probe) with genuine-down. Runtime repro
-  // (REPRO-D4a): a delayed-/healthz shim makes candidate `rig status` say "Daemon not
+  // (REPRO-D4a): a delayed-/healthz shim makes candidate `SoftwareTeam status` say "Daemon not
   // running" while /api serves. RED pins the honest outcome (a slow-but-ANSWERING probe
   // must not be "stopped"); fix-agnostic (widened budget OR timeout-vs-conn-error).
   // Genuine-down (connection error) stays "stopped" (control preserved).
   // ===================================================================
   it("Slice-05 D4 RED: a slow-but-answering /healthz on the no-daemon.json branch must NOT report stopped", async () => {
-    const savedUrl = process.env["OPENRIG_URL"];
-    delete process.env["OPENRIG_URL"]; // force the no-state (config) branch, not the OPENRIG_URL branch
+    const savedUrl = process.env["SOFTWARETEAM_URL"];
+    delete process.env["SOFTWARETEAM_URL"]; // force the no-state (config) branch, not the SOFTWARETEAM_URL branch
     vi.useFakeTimers();
     try {
       const deps = mockDeps({
@@ -1730,13 +1730,13 @@ describe("daemonNotRunningError / printDaemonNotRunning (AC-4 shared honest erro
       expect(status.state).not.toBe("stopped"); // <-- RED: currently "stopped" (timeout conflated with down)
     } finally {
       vi.useRealTimers();
-      if (savedUrl !== undefined) process.env["OPENRIG_URL"] = savedUrl;
+      if (savedUrl !== undefined) process.env["SOFTWARETEAM_URL"] = savedUrl;
     }
   });
 
   it("Slice-05 D4 preserve (GREEN): genuine-down (connection error, no daemon.json) still reports stopped", async () => {
-    const savedUrl = process.env["OPENRIG_URL"];
-    delete process.env["OPENRIG_URL"];
+    const savedUrl = process.env["SOFTWARETEAM_URL"];
+    delete process.env["SOFTWARETEAM_URL"];
     try {
       const deps = mockDeps({
         exists: vi.fn(() => false),
@@ -1746,16 +1746,16 @@ describe("daemonNotRunningError / printDaemonNotRunning (AC-4 shared honest erro
       const status = await getDaemonStatus(deps);
       expect(status.state).toBe("stopped");
     } finally {
-      if (savedUrl !== undefined) process.env["OPENRIG_URL"] = savedUrl;
+      if (savedUrl !== undefined) process.env["SOFTWARETEAM_URL"] = savedUrl;
     }
   });
 
-  // The OTHER independent stateless catch->stopped branch: OPENRIG_URL set (the
+  // The OTHER independent stateless catch->stopped branch: SOFTWARETEAM_URL set (the
   // firsthand D4a repro path). Same false-negative: a slow-but-answering /healthz
   // there is also reported stopped.
-  it("Slice-05 D4 RED (OPENRIG_URL branch): a slow-but-answering /healthz must NOT report stopped", async () => {
-    const savedUrl = process.env["OPENRIG_URL"];
-    process.env["OPENRIG_URL"] = "http://127.0.0.1:9999"; // force the OPENRIG_URL branch
+  it("Slice-05 D4 RED (SOFTWARETEAM_URL branch): a slow-but-answering /healthz must NOT report stopped", async () => {
+    const savedUrl = process.env["SOFTWARETEAM_URL"];
+    process.env["SOFTWARETEAM_URL"] = "http://127.0.0.1:9999"; // force the SOFTWARETEAM_URL branch
     vi.useFakeTimers();
     try {
       const deps = mockDeps({
@@ -1764,24 +1764,24 @@ describe("daemonNotRunningError / printDaemonNotRunning (AC-4 shared honest erro
       const statusPromise = getDaemonStatus(deps);
       await vi.runAllTimersAsync();
       const status = await statusPromise;
-      expect(status.state).not.toBe("stopped"); // <-- RED: currently "stopped" (OPENRIG_URL branch catch)
+      expect(status.state).not.toBe("stopped"); // <-- RED: currently "stopped" (SOFTWARETEAM_URL branch catch)
     } finally {
       vi.useRealTimers();
-      if (savedUrl !== undefined) process.env["OPENRIG_URL"] = savedUrl;
-      else delete process.env["OPENRIG_URL"];
+      if (savedUrl !== undefined) process.env["SOFTWARETEAM_URL"] = savedUrl;
+      else delete process.env["SOFTWARETEAM_URL"];
     }
   });
 
-  it("Slice-05 D4 preserve (GREEN, OPENRIG_URL branch): genuine-down (connection error) still reports stopped", async () => {
-    const savedUrl = process.env["OPENRIG_URL"];
-    process.env["OPENRIG_URL"] = "http://127.0.0.1:9999";
+  it("Slice-05 D4 preserve (GREEN, SOFTWARETEAM_URL branch): genuine-down (connection error) still reports stopped", async () => {
+    const savedUrl = process.env["SOFTWARETEAM_URL"];
+    process.env["SOFTWARETEAM_URL"] = "http://127.0.0.1:9999";
     try {
       const deps = mockDeps({ sleep: async () => {}, fetch: vi.fn(async () => { throw new Error("ECONNREFUSED"); }) });
       const status = await getDaemonStatus(deps);
       expect(status.state).toBe("stopped");
     } finally {
-      if (savedUrl !== undefined) process.env["OPENRIG_URL"] = savedUrl;
-      else delete process.env["OPENRIG_URL"];
+      if (savedUrl !== undefined) process.env["SOFTWARETEAM_URL"] = savedUrl;
+      else delete process.env["SOFTWARETEAM_URL"];
     }
   });
 });

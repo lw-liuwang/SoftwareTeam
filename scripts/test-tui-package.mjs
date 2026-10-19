@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const cli = path.join(root, "packages", "cli");
-const temp = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-tui-pack-"));
+const temp = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-tui-pack-"));
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -53,8 +53,8 @@ try {
 
   const pkgDir = path.join(temp, "package");
   const pkg = JSON.parse(fs.readFileSync(path.join(pkgDir, "package.json"), "utf8"));
-  assert.equal(pkg.bin["openrig-tui"], "tui/dist/main.js");
-  const entry = path.join(pkgDir, pkg.bin["openrig-tui"]);
+  assert.equal(pkg.bin["softwareteam-tui"], "tui/dist/main.js");
+  const entry = path.join(pkgDir, pkg.bin["softwareteam-tui"]);
   assert.ok(fs.existsSync(entry), "packed TUI entrypoint is missing");
   assert.notEqual(fs.statSync(entry).mode & 0o111, 0, "packed TUI entrypoint is not executable");
 

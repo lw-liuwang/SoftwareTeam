@@ -21,7 +21,7 @@ import type { OutboundDecision } from "../src/domain/gateway/protocol.js";
 import type { FetchImpl } from "../src/domain/gateway/slack/slack-api.js";
 
 const registry = { ok: true as const, entities: [{ entityId: "human-founder", class: "human" as const, displayName: "Founder", address: "human-founder@external", connectorBindings: [{ kind: "slack" as const, connectorRef: "primary", secretsRef: "env:SLACK_BOT_TOKEN", role: "primary" as const, handle: "UFOUNDER" }], prefs: { deliveryClass: "A" as const } }] };
-const request = { sourceSession: "author@rig", destinationSession: "human-founder@external", summary: "Approve the rollout plan?", evidenceRef: "/private/retained-proof.md", nudge: false };
+const request = { sourceSession: "author@software-team", destinationSession: "human-founder@external", summary: "Approve the rollout plan?", evidenceRef: "/private/retained-proof.md", nudge: false };
 const reply = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 const unescape = (s: string) => s.replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&amp;", "&");
 const NOTE = "\n\nThe rest of this brief follows in this thread.";
@@ -498,10 +498,10 @@ describe("long human asks (#897)", () => {
       wire.dispatcher.dispatch("post_message", request.destinationSession, alert);
       await new Promise((r) => setTimeout(r, 50));
       const notice = repo.getById(`${item.qitemId}-undeliverable`)!;
-      expect(notice).toMatchObject({ sourceSession: "author@rig", destinationSession: "author@rig", state: "pending" });
+      expect(notice).toMatchObject({ sourceSession: "author@software-team", destinationSession: "author@software-team", state: "pending" });
       expect(notice.body).toContain(item.qitemId);
       expect(notice.body).toMatch(/maximum 20/);
-      expect(repo.list({ destinationSession: "author@rig" }).filter((q) => q.qitemId.endsWith("-undeliverable"))).toHaveLength(1);
+      expect(repo.list({ destinationSession: "author@software-team" }).filter((q) => q.qitemId.endsWith("-undeliverable"))).toHaveLength(1);
       expect(fetchImpl.mock.calls.filter(([url]) => url.endsWith("chat.postMessage"))).toHaveLength(0);
     } finally {
       wire.stop();
@@ -514,10 +514,10 @@ describe("long human asks (#897)", () => {
     const deliver = subsystemSlackDeliver({ ...stores("gate-detail"), botToken: "synthetic", channel: "C", sourceLabel: "fixture", fetchImpl: recorder(posts) });
     expect(await deliver(decision("gate-detail", {
       summary: "Approve the plan at https://example.invalid/plan.md",
-      body: "### Workflow gate: mission@1 step plan_signoff\n\nWorkflow instance: 01M4EXAMPLE\nContinuation: rig workflow project --instance 01M4EXAMPLE",
+      body: "### Workflow gate: mission@1 step plan_signoff\n\nWorkflow instance: 01M4EXAMPLE\nContinuation: SoftwareTeam workflow project --instance 01M4EXAMPLE",
       state: "blocked",
       tags: ["workflow", "gate"],
-      humanDetail: "Please sign off by Friday; the signed plan is retained at /srv/rig/plan.md.",
+      humanDetail: "Please sign off by Friday; the signed plan is retained at /srv/softwareTeam/plan.md.",
     }))).toEqual({ ok: true });
     const primary = posts[0]!;
     const detail = posts.find((p) => p.text.includes("Supplemental detail"))!;

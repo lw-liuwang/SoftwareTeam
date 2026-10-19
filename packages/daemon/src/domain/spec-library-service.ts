@@ -6,7 +6,7 @@ import { SpecReviewService } from "./spec-review-service.js";
 
 export interface SpecLibraryEntry {
   id: string;
-  kind: "rig" | "agent" | "workflow";
+  kind: "softwareTeam" | "agent" | "workflow";
   name: string;
   version: string;
   sourceType: "builtin" | "user_file";
@@ -20,7 +20,7 @@ export interface SpecLibraryEntry {
   rolesCount?: number;
   stepsCount?: number;
   terminalTurnRule?: string;
-  targetRig?: string | null;
+  targetSoftwareTeam?: string | null;
   /** Slice 11 (workflow-spec-folder-discovery) — diagnostic state for
    *  workflow entries surfaced from the folder scan. "error" rows came
    *  from malformed YAML and carry the parse/validate reason in
@@ -56,7 +56,7 @@ function isYamlFile(filename: string): boolean {
 // if this list and the progress-indexer list ever diverge, reconcile
 // there first. The `.worktrees` entry closes the stale-row class
 // where conveyor.yaml inside a worktree was sliding into the library
-// cache and producing the `rig specs show conveyor` ambiguous-match UX.
+// cache and producing the `softwareTeam specs show conveyor` ambiguous-match UX.
 const SKIP_DIRS = new Set([
   ".worktrees",
   "node_modules",
@@ -103,13 +103,13 @@ function shouldIndexRelativePath(sourceType: "builtin" | "user_file", relPath: s
   }
 
   const normalized = relPath.replaceAll("\\", "/");
-  return normalized.startsWith("rigs/") ? normalized.endsWith("/rig.yaml") : normalized.endsWith("/agent.yaml");
+  return normalized.startsWith("software-teams/") ? normalized.endsWith("/software-team.yaml") : normalized.endsWith("/agent.yaml");
 }
 
 export class SpecLibraryService {
   private entries = new Map<string, SpecLibraryEntry>();
   /** Workflow entries are written by the route layer via
-   *  setWorkflowEntries() — kept separate from the rig+agent scan
+   *  setWorkflowEntries() — kept separate from the softwareTeam+agent scan
    *  because their source-of-truth is the workflow_specs SQLite cache,
    *  not YAML files on disk. */
   private workflowEntries = new Map<string, SpecLibraryEntry>();
@@ -160,7 +160,7 @@ export class SpecLibraryService {
     this.entries = newEntries;
   }
 
-  list(filter?: { kind?: "rig" | "agent" | "workflow" }): SpecLibraryEntry[] {
+  list(filter?: { kind?: "softwareTeam" | "agent" | "workflow" }): SpecLibraryEntry[] {
     const entries = [
       ...Array.from(this.entries.values()),
       ...Array.from(this.workflowEntries.values()),
@@ -274,9 +274,9 @@ export class SpecLibraryService {
     relPath: string,
     mtimeMs: number,
   ): SpecLibraryEntry | null {
-    // Try rig first
+    // Try softwareTeam first
     try {
-      const review = this.specReviewService.reviewRigSpec(yaml, "library_item");
+      const review = this.specReviewService.reviewSoftwareTeamSpec(yaml, "library_item");
       let hasServices = false;
       try {
         const raw = parseYaml(yaml) as Record<string, unknown>;
@@ -284,7 +284,7 @@ export class SpecLibraryService {
       } catch { /* safe default */ }
       return {
         id: makeId(sourceType, relPath),
-        kind: "rig",
+        kind: "softwareTeam",
         name: review.name,
         version: review.version,
         sourceType,
@@ -295,7 +295,7 @@ export class SpecLibraryService {
         ...(hasServices ? { hasServices } : {}),
       };
     } catch {
-      // Not a valid rig spec
+      // Not a valid softwareTeam spec
     }
 
     // Try agent

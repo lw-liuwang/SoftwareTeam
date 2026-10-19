@@ -11,17 +11,17 @@
 // first, then mirror verbatim.
 //
 // SEMANTICS (pinned to the queue-destination gate, the archetype site):
-// - member = everything before the FIRST "@" (non-empty); rig = everything
-//   after it (non-empty, MAY contain further "@"s). The greedy rig is
-//   load-bearing: "member@rig@x" parses as rig "rig@x", so the registry
+// - member = everything before the FIRST "@" (non-empty); softwareTeam = everything
+//   after it (non-empty, MAY contain further "@"s). The greedy softwareTeam is
+//   load-bearing: "member@software-team@x" parses as softwareTeam "softwareTeam@x", so the registry
 //   lookup misses and the queue gate rejects with the SAME
-//   unknown_destination_rig error as before this contract existed — host
+//   unknown_destination_software_team error as before this contract existed — host
 //   NEVER rides in-band in the session string (BR-1).
 // - Human-seat refs (human@kernel / human-<x>@host) are CLASSIFIED BEFORE
 //   any parse wherever the distinction matters: call isHumanSeatSessionRef
 //   first, as the queue gate does.
-// - Legacy flat-rig names (r{NN}-suffix) remain valid NON-canonical names;
-//   they carry no rig binding.
+// - Legacy flat-softwareTeam names (r{NN}-suffix) remain valid NON-canonical names;
+//   they carry no softwareTeam binding.
 // - Exactly ONE structured malformed shape ("malformed_session_name") —
 //   no site invents its own.
 // - parseSessionName does NOT trim and does NOT validate the character set
@@ -31,7 +31,7 @@
 // ============================================================================
 
 export type ParsedSessionName =
-  | { kind: "canonical"; member: string; rig: string }
+  | { kind: "canonical"; member: string; softwareTeam: string }
   | { kind: "legacy"; name: string }
   // A2 4th leg — virtual-domain ref (<local>@external). `local` is verbatim up to
   // the domain "@" (the scheme leg, slack:U..., rides `local` LEXICALLY; the
@@ -64,14 +64,14 @@ export function isHumanSeatSessionRef(sessionRef: string): boolean {
 export function parseSessionName(raw: string): ParsedSessionName {
   // Precedence (arch): human -> EXTERNAL -> canonical -> legacy -> malformed. The
   // virtual-domain leg MUST precede canonical, else "mike@external" parses as
-  // member=mike rig=external; A1's rig-name reservation keeps that unambiguous.
+  // member=mike softwareTeam=external; A1's software-team-name reservation keeps that unambiguous.
   if (VIRTUAL_DOMAIN_SESSION_REF_PATTERN.test(raw)) {
     const domainAt = raw.lastIndexOf("@");
     return { kind: "external", local: raw.slice(0, domainAt), domain: raw.slice(domainAt + 1) };
   }
   const at = raw.indexOf("@");
   if (at > 0 && at < raw.length - 1) {
-    return { kind: "canonical", member: raw.slice(0, at), rig: raw.slice(at + 1) };
+    return { kind: "canonical", member: raw.slice(0, at), softwareTeam: raw.slice(at + 1) };
   }
   if (at === -1 && LEGACY_FLAT_SESSION_PATTERN.test(raw)) {
     return { kind: "legacy", name: raw };
@@ -81,14 +81,14 @@ export function parseSessionName(raw: string): ParsedSessionName {
 
 /** Display: the member/local leg — text before the first "@", or the whole
  *  string when no "@" is present (the shipped split("@")[0] rendering,
- *  verbatim: "@rig" yields ""). */
+ *  verbatim: "@software-team" yields ""). */
 export function sessionMemberLabel(session: string): string {
   const at = session.indexOf("@");
   return at === -1 ? session : session.slice(0, at);
 }
 
-/** Routing/grouping: the rig leg of a canonical name, else undefined. */
-export function sessionRigOf(session: string): string | undefined {
+/** Routing/grouping: the softwareTeam leg of a canonical name, else undefined. */
+export function sessionSoftwareTeamOf(session: string): string | undefined {
   const parsed = parseSessionName(session);
-  return parsed.kind === "canonical" ? parsed.rig : undefined;
+  return parsed.kind === "canonical" ? parsed.softwareTeam : undefined;
 }

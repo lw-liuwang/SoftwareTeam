@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 import type { ClosureReason } from "./hot-potato-enforcer.js";
-import { archiveWhereClause } from "./rig-repository.js";
+import { archiveWhereClause } from "./software-team-repository.js";
 import { isHumanSeatSessionRef, parseSessionName } from "./session-name.js";
 
 export const OWNER_NOTIFICATION_LEVELS = ["RECORD", "NOTICE", "ALERT"] as const;
@@ -44,7 +44,7 @@ export interface QueueTransitionInput {
 }
 
 export type RecentQueueTransitionTargetKind = "qitem" | "slice" | "mission";
-export type RecentQueueTransitionScope = { kind: "instance" } | { kind: "rig"; rig: string };
+export type RecentQueueTransitionScope = { kind: "instance" } | { kind: "softwareTeam"; softwareTeam: string };
 
 /** A compact product event derived only from typed queue state and closure fields.
  * The authored queue summary is presentation only; it never participates in
@@ -64,7 +64,7 @@ export interface RecentQueueTransition {
    * present, the body is empty, or no non-blank line occurs within those 2,000 characters. SQLite's text
    * substr stops at an embedded NUL, so the line also ends there, and a NUL before any text gives null. */
   bodyPreview: string | null;
-  rig: string;
+  softwareTeam: string;
   targetKind: RecentQueueTransitionTargetKind;
   target: string;
 }
@@ -115,10 +115,10 @@ function bodyPreview(bodyHead: string | null): string | null {
   return points.length > BODY_PREVIEW_MAX_CODE_POINTS ? `${points.slice(0, BODY_PREVIEW_MAX_CODE_POINTS - 3).join("")}...` : line;
 }
 
-function sessionRig(session: string, knownRigs: ReadonlySet<string>): string | null {
+function sessionSoftwareTeam(session: string, knownSoftwareTeams: ReadonlySet<string>): string | null {
   if (isHumanSeatSessionRef(session)) return null;
   const parsed = parseSessionName(session);
-  return parsed.kind === "canonical" && knownRigs.has(parsed.rig) ? parsed.rig : null;
+  return parsed.kind === "canonical" && knownSoftwareTeams.has(parsed.softwareTeam) ? parsed.softwareTeam : null;
 }
 
 function recentTarget(row: RecentQueueTransitionRow): Pick<RecentQueueTransition, "targetKind" | "target"> {
@@ -166,7 +166,7 @@ function qualifiesAsRecent(row: Pick<RecentQueueTransitionRow, "state" | "closur
  * Append-only transition log. Domain code MUST NOT update or delete rows here.
  * This log is the authoritative audit trail for queue state evolution.
  */
-/** The prefix `rig queue block --continuation` writes on the park transition, matched exactly. */
+/** The prefix `SoftwareTeam queue block --continuation` writes on the park transition, matched exactly. */
 const CONTINUATION_MARKER = "continuation: ";
 
 export class QueueTransitionLog {
@@ -249,14 +249,14 @@ export class QueueTransitionLog {
   }
 
   /**
-   * OPR.0.7.0.12 — the continuation `rig queue block --continuation` recorded for the row's
+   * OPR.0.7.0.12 — the continuation `SoftwareTeam queue block --continuation` recorded for the row's
    * CURRENT park. The current park is the trailing run of `blocked` transitions: the daemon
    * appends its own later blocked transitions (e.g. "parked-owner episode closed"), so the latest
    * one is not the park, and an earlier park's plan must never resurface.
    *
    * One newest-first seek on idx_queue_transitions_qitem_id_order (migration 098) that stops at
    * the first non-blocked transition, so the work is bounded by the current park, not the row's
-   * history. The marker match is exact-case, as `rig queue block` writes it. The live table
+   * history. The marker match is exact-case, as `SoftwareTeam queue block` writes it. The live table
    * suffices: retention archives only terminal rows, and a parked row is not terminal.
    */
   currentParkContinuation(qitemId: string): string | null {
@@ -315,13 +315,13 @@ export class QueueTransitionLog {
     const limit = Number.isFinite(requestedLimit)
       ? Math.min(20, Math.max(1, Math.floor(requestedLimit)))
       : 20;
-    const activeRigWhere = archiveWhereClause("archived_at");
-    const rigNames = scope.kind === "rig"
-      ? [scope.rig]
-      : (this.db.prepare(`SELECT name FROM rigs${activeRigWhere ? ` WHERE ${activeRigWhere}` : ""} ORDER BY name`).all() as Array<{ name: string }>).map((row) => row.name);
-    if (rigNames.length === 0) return [];
-    const knownRigs = new Set(rigNames);
-    const sessionPatterns = rigNames.map((rig) => `%@${rig.replace(/%/g, "\\%").replace(/_/g, "\\_")}`);
+    const activeSoftwareTeamWhere = archiveWhereClause("archived_at");
+    const softwareTeamNames = scope.kind === "softwareTeam"
+      ? [scope.softwareTeam]
+      : (this.db.prepare(`SELECT name FROM software_teams${activeSoftwareTeamWhere ? ` WHERE ${activeSoftwareTeamWhere}` : ""} ORDER BY name`).all() as Array<{ name: string }>).map((row) => row.name);
+    if (softwareTeamNames.length === 0) return [];
+    const knownSoftwareTeams = new Set(softwareTeamNames);
+    const sessionPatterns = softwareTeamNames.map((softwareTeam) => `%@${softwareTeam.replace(/%/g, "\\%").replace(/_/g, "\\_")}`);
     const scopeSql = sessionPatterns.map(() => "(q.destination_session LIKE ? ESCAPE '\\' OR q.source_session LIKE ? ESCAPE '\\')").join(" OR ");
     const scopeParams = sessionPatterns.flatMap((pattern) => [pattern, pattern]);
     const rows = this.newestQualifying(scopeSql, scopeParams, limit);
@@ -329,10 +329,10 @@ export class QueueTransitionLog {
     return rows.reverse().flatMap((row) => {
       const change = recentChange(row);
       if (!change) return [];
-      const rig = sessionRig(row.destination_session, knownRigs)
-        ?? sessionRig(row.source_session, knownRigs)
-        ?? sessionRig(row.actor_session, knownRigs);
-      if (!rig) return [];
+      const softwareTeam = sessionSoftwareTeam(row.destination_session, knownSoftwareTeams)
+        ?? sessionSoftwareTeam(row.source_session, knownSoftwareTeams)
+        ?? sessionSoftwareTeam(row.actor_session, knownSoftwareTeams);
+      if (!softwareTeam) return [];
       return [{
         transitionId: row.transition_id,
         qitemId: row.qitem_id,
@@ -341,7 +341,7 @@ export class QueueTransitionLog {
         change,
         summary: row.summary?.trim() || null,
         bodyPreview: row.body_head === null ? null : bodyPreview(row.body_head),
-        rig,
+        softwareTeam,
         ...recentTarget(row),
       }];
     });
@@ -392,8 +392,8 @@ export class QueueTransitionLog {
     return rows;
   }
 
-  listRecentForRig(rig: string, requestedLimit = 20): RecentQueueTransition[] {
-    return this.listRecent({ kind: "rig", rig }, requestedLimit);
+  listRecentForSoftwareTeam(softwareTeam: string, requestedLimit = 20): RecentQueueTransition[] {
+    return this.listRecent({ kind: "softwareTeam", softwareTeam }, requestedLimit);
   }
 
   latestOwnerNotificationForQitem(qitemId: string): QueueTransition | null {

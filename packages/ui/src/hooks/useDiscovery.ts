@@ -79,15 +79,15 @@ export function useDiscoveredSessionsConditional(enabled: boolean): DiscoveredSe
 
 // useClaimSession removed — use useBindSession instead
 
-/** Bind a discovered session to an existing logical node. Invalidates discovery + rig graph. */
+/** Bind a discovered session to an existing logical node. Invalidates discovery + softwareTeam graph. */
 export function useBindSession() {
   const queryClient = useQueryClient();
-  return useMutation<{ ok: true; nodeId: string; sessionId: string }, Error, { discoveredId: string; rigId: string; logicalId: string }>({
-    mutationFn: async ({ discoveredId, rigId, logicalId }) => {
+  return useMutation<{ ok: true; nodeId: string; sessionId: string }, Error, { discoveredId: string; softwareTeamId: string; logicalId: string }>({
+    mutationFn: async ({ discoveredId, softwareTeamId, logicalId }) => {
       const res = await fetch(`/api/discovery/${encodeURIComponent(discoveredId)}/bind`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rigId, logicalId }),
+        body: JSON.stringify({ softwareTeamId, logicalId }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -97,24 +97,24 @@ export function useBindSession() {
     },
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ["discovery"] });
-      queryClient.invalidateQueries({ queryKey: ["rig", vars.rigId, "graph"] });
+      queryClient.invalidateQueries({ queryKey: ["softwareTeam", vars.softwareTeamId, "graph"] });
     },
   });
 }
 
-/** Adopt a discovered session into a rig by binding to an existing node or creating one inside a pod. */
+/** Adopt a discovered session into a softwareTeam by binding to an existing node or creating one inside a pod. */
 export function useAdoptSession() {
   const queryClient = useQueryClient();
   return useMutation<
     { ok: true; nodeId: string; sessionId: string; action: "bind" | "create_and_bind"; logicalId: string },
     Error,
-    { discoveredId: string; rigId: string; target: DiscoveryAdoptTarget }
+    { discoveredId: string; softwareTeamId: string; target: DiscoveryAdoptTarget }
   >({
-    mutationFn: async ({ discoveredId, rigId, target }) => {
+    mutationFn: async ({ discoveredId, softwareTeamId, target }) => {
       const res = await fetch(`/api/discovery/${encodeURIComponent(discoveredId)}/adopt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rigId, target }),
+        body: JSON.stringify({ softwareTeamId, target }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -124,7 +124,7 @@ export function useAdoptSession() {
     },
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ["discovery"] });
-      queryClient.invalidateQueries({ queryKey: ["rig", vars.rigId, "graph"] });
+      queryClient.invalidateQueries({ queryKey: ["softwareTeam", vars.softwareTeamId, "graph"] });
     },
   });
 }

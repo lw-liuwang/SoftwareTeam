@@ -57,7 +57,7 @@ describe("R1 C4a — ProofTab empty-state honest copy", () => {
     renderProof();
     const el = await screen.findByTestId(`proof-unresolved-${SID}`);
     expect(el.textContent).toContain("PROOF.MD OUTSIDE FILE ROOTS");
-    expect(el.textContent).toContain("OPENRIG_FILES_ALLOWLIST");
+    expect(el.textContent).toContain("SOFTWARETEAM_FILES_ALLOWLIST");
     expect(screen.queryByTestId(`proof-empty-state-${SID}`)).toBeNull();
   });
 

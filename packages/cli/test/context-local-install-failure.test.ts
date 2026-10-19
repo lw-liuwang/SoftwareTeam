@@ -22,15 +22,15 @@ let root: string | undefined;
 afterEach(() => { failure.enabled = false; failure.observe = undefined; vi.unstubAllEnvs(); vi.restoreAllMocks(); process.exitCode = undefined;
   if (root) rmSync(root, { recursive: true, force: true }); root = undefined; });
 it("does not retain a partial local pack or sync it and allows a clean retry", async () => {
-  root = mkdtempSync(join(tmpdir(), "openrig-local-pack-failure-"));
+  root = mkdtempSync(join(tmpdir(), "softwareteam-local-pack-failure-"));
   const source = join(root, "source"); const library = join(root, "library");
   mkdirSync(source); mkdirSync(library);
   const manifest = "name: fixture\nversion: \"1\"\ntaxonomy: world\nfiles:\n  - path: notes.md\n    role: notes\n";
   writeFileSync(join(source, "manifest.yaml"), manifest); writeFileSync(join(source, "notes.md"), "complete bytes");
-  vi.stubEnv("OPENRIG_CONTEXT_ROOT", library);
+  vi.stubEnv("SOFTWARETEAM_CONTEXT_ROOT", library);
   const post = vi.fn(async () => ({ status: 200, data: { count: 1, entries: [] } }));
   const deps = { lifecycleDeps: { exists: (p: string) => p === STATE_FILE,
-    readFile: () => JSON.stringify({ pid: process.pid, port: 7433, db: "fixture", startedAt: new Date().toISOString() }),
+    readFile: () => JSON.stringify({ pid: process.pid, port: 7434, db: "fixture", startedAt: new Date().toISOString() }),
     isProcessAlive: () => true, fetch: async () => ({ ok: true }) } as never,
     clientFactory: () => ({ post }) as never };
   vi.spyOn(console, "log").mockImplementation(() => {});
@@ -66,15 +66,15 @@ it("does not retain a partial local pack or sync it and allows a clean retry", a
 });
 
 it.skipIf(process.platform === "win32" || process.getuid?.() === 0)("installs into a writable library without requiring its parent to be writable", async () => {
-  root = mkdtempSync(join(tmpdir(), "openrig-local-pack-permission-"));
+  root = mkdtempSync(join(tmpdir(), "softwareteam-local-pack-permission-"));
   const source = join(root, "source"), library = join(root, "library");
   mkdirSync(source); mkdirSync(library); chmodSync(library, 0o700);
   writeFileSync(join(source, "manifest.yaml"), 'name: fixture\nversion: "1"\ntaxonomy: world\nfiles:\n  - path: notes.md\n    role: notes\n');
   writeFileSync(join(source, "notes.md"), "complete bytes");
-  vi.stubEnv("OPENRIG_CONTEXT_ROOT", library);
+  vi.stubEnv("SOFTWARETEAM_CONTEXT_ROOT", library);
   const post = vi.fn(async () => ({ status: 200, data: { count: 1, entries: [] } }));
   const deps = { lifecycleDeps: { exists: (p: string) => p === STATE_FILE,
-    readFile: () => JSON.stringify({ pid: process.pid, port: 7433, db: "fixture", startedAt: new Date().toISOString() }),
+    readFile: () => JSON.stringify({ pid: process.pid, port: 7434, db: "fixture", startedAt: new Date().toISOString() }),
     isProcessAlive: () => true, fetch: async () => ({ ok: true }) } as never,
     clientFactory: () => ({ post }) as never };
   vi.spyOn(console, "log").mockImplementation(() => {});

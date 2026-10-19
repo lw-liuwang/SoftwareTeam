@@ -8,10 +8,10 @@ import { expect, it, vi } from "vitest";
 import { hostCommand } from "../src/commands/host.js";
 
 it("host list reports a live IPv6 endpoint reachable through its native TCP probe", async () => {
-  const home = mkdtempSync(join(tmpdir(), "openrig-host-ipv6-"));
+  const home = mkdtempSync(join(tmpdir(), "softwareteam-host-ipv6-"));
   const server = createServer((socket) => socket.end());
   const output = vi.spyOn(console, "log").mockImplementation(() => {});
-  vi.stubEnv("OPENRIG_HOME", home);
+  vi.stubEnv("SOFTWARETEAM_HOME", home);
   try {
     server.listen(0, "::1");
     await once(server, "listening");
@@ -23,7 +23,7 @@ it("host list reports a live IPv6 endpoint reachable through its native TCP prob
     ] }));
     const program = new Command();
     program.addCommand(hostCommand());
-    await program.parseAsync(["node", "rig", "host", "list", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "host", "list", "--json"]);
     const rows = JSON.parse(String(output.mock.calls[0]?.[0]));
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ id: "ipv6-edge", status: "reachable" });

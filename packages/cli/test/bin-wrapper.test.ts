@@ -16,30 +16,30 @@ describe("bin-wrapper", () => {
   });
 
   it("resolves the real dist entry from a symlinked wrapper path", () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-bin-wrapper-"));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-bin-wrapper-"));
     const wrapperSource = fileURLToPath(new URL("../src/bin-wrapper.ts", import.meta.url));
-    const symlinkPath = path.join(tempDir, "rig");
+    const symlinkPath = path.join(tempDir, "software-team");
     fs.symlinkSync(wrapperSource, symlinkPath);
 
     const entry = resolveBinEntry(symlinkPath, pathToFileURL(wrapperSource).href);
     expect(entry).toBe(path.resolve(path.dirname(wrapperSource), "../dist/index.js"));
   });
 
-  it("prefers the sibling node next to the invoked rig binary when current node comes from elsewhere", () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-bin-wrapper-"));
+  it("prefers the sibling node next to the invoked SoftwareTeam binary when current node comes from elsewhere", () => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-bin-wrapper-"));
     const prefixDir = path.join(tempDir, "prefix");
     const binDir = path.join(prefixDir, "bin");
     fs.mkdirSync(binDir, { recursive: true });
 
     const wrapperSource = fileURLToPath(new URL("../src/bin-wrapper.ts", import.meta.url));
-    const rigPath = path.join(binDir, "rig");
+    const softwareTeamPath = path.join(binDir, "SoftwareTeam");
     const siblingNodePath = path.join(binDir, "node");
-    fs.symlinkSync(wrapperSource, rigPath);
+    fs.symlinkSync(wrapperSource, softwareTeamPath);
     fs.writeFileSync(siblingNodePath, "");
 
     const reexecNode = resolveNodeReexecBinary(
       "/opt/homebrew/bin/node",
-      rigPath,
+      softwareTeamPath,
       {},
       (candidate) => candidate === siblingNodePath,
       (candidate) => candidate,
@@ -49,7 +49,7 @@ describe("bin-wrapper", () => {
   });
 
   it("a command whose module cannot be loaded fails with the CLI's error shape, as JSON under --json", async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-bin-wrapper-"));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-bin-wrapper-"));
     const dist = path.join(tempDir, "dist");
     fs.mkdirSync(dist);
     const wrapper = path.join(dist, "bin-wrapper.js");
@@ -84,20 +84,20 @@ describe("bin-wrapper", () => {
   });
 
   it("does not re-exec when already running under the sibling node", () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-bin-wrapper-"));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-bin-wrapper-"));
     const prefixDir = path.join(tempDir, "prefix");
     const binDir = path.join(prefixDir, "bin");
     fs.mkdirSync(binDir, { recursive: true });
 
     const wrapperSource = fileURLToPath(new URL("../src/bin-wrapper.ts", import.meta.url));
-    const rigPath = path.join(binDir, "rig");
+    const softwareTeamPath = path.join(binDir, "SoftwareTeam");
     const siblingNodePath = path.join(binDir, "node");
-    fs.symlinkSync(wrapperSource, rigPath);
+    fs.symlinkSync(wrapperSource, softwareTeamPath);
     fs.writeFileSync(siblingNodePath, "");
 
     const reexecNode = resolveNodeReexecBinary(
       siblingNodePath,
-      rigPath,
+      softwareTeamPath,
       {},
       (candidate) => candidate === siblingNodePath,
       (candidate) => candidate,

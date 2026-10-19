@@ -56,14 +56,14 @@ describe("Dashboard (OPR.0.4.1.14 fidelity refresh)", () => {
   });
 
   it("Dashboard.tsx wires real-data hooks for the Field Environment", () => {
-    // OPR.0.4.1.14 functional refinement: STATION/RIGS/AGENTS/OPERATOR were
+    // OPR.0.4.1.14 functional refinement: STATION/SOFTWARE_TEAMS/AGENTS/OPERATOR were
     // already real; VERSION is the new real wire (running daemon version). The
     // active sub-count was dropped (AGENTS is a single live count per its row).
-    expect(DASHBOARD_SRC).toContain("useRigSummary");
+    expect(DASHBOARD_SRC).toContain("useSoftwareTeamSummary");
     expect(DASHBOARD_SRC).toContain("usePsEntries");
     expect(DASHBOARD_SRC).toContain("useSettings");
     expect(DASHBOARD_SRC).toContain("useDaemonVersion");
-    expect(DASHBOARD_SRC).toContain("totalRigs");
+    expect(DASHBOARD_SRC).toContain("totalSoftwareTeams");
     expect(DASHBOARD_SRC).toContain("totalAgents");
     expect(DASHBOARD_SRC).toContain("version");
     expect(DASHBOARD_SRC).toContain("hostname");

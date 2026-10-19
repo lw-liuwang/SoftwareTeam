@@ -1,7 +1,7 @@
 // OPR.0.3.4.7 — Codex profile-v2 preflight: profile-LOAD proof via Codex's
 // own loader. A profile that file-exists-but-won't-load (legacy
 // [profiles.<name>] table present) MUST FAIL — not just the missing-file case.
-// Shared by rigspec-preflight (pre-launch per Codex node) and
+// Shared by software-team-spec-preflight (pre-launch per Codex node) and
 // codex-runtime-adapter (pre-restore/launch for stored Codex nodes).
 
 export interface CodexProfileProbeResult {

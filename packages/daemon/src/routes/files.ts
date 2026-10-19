@@ -75,7 +75,7 @@ export function filesRoutes(): Hono {
     if (deps.allowlist.length === 0) {
       return c.json({
         roots: [],
-        hint: "No allowlist roots configured. Set OPENRIG_FILES_ALLOWLIST=name1:/abs/path,name2:/abs/path and restart the daemon.",
+        hint: "No allowlist roots configured. Set SOFTWARETEAM_FILES_ALLOWLIST=name1:/abs/path,name2:/abs/path and restart the daemon.",
       });
     }
     return c.json({
@@ -99,7 +99,7 @@ export function filesRoutes(): Hono {
           .map((entry) => {
             // Skip dotfiles by default unless they're inside an
             // allowlisted root that's a dot-directory itself (e.g.,
-            // operator allowlists ~/.openrig — the operator clearly
+            // operator allowlists ~/.softwareteam — the operator clearly
             // wants to inspect dotfiles in that case). Implementation:
             // include dotfiles always at v0; the operator has already
             // expressed inspection intent by allowlisting the root.
@@ -212,7 +212,7 @@ export function filesRoutes(): Hono {
     if (!deps.writeService) {
       return c.json({
         error: "file_write_service_unavailable",
-        hint: "OPENRIG_FILES_ALLOWLIST is empty or unset; configure at least one root and restart.",
+        hint: "SOFTWARETEAM_FILES_ALLOWLIST is empty or unset; configure at least one root and restart.",
       }, 503);
     }
     const body = await c.req.json<{

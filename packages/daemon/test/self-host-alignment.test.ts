@@ -5,7 +5,7 @@
 // are two DISTINCT accepted spellings that route to the same place. This is the
 // convention the queue-destination validator (increment 4) consumes so a
 // destination qualified with THIS host's own id validates locally instead of
-// failing as unknown_destination_rig (the E1 / 389ec01d class).
+// failing as unknown_destination_software_team (the E1 / 389ec01d class).
 //
 // NOTE: the registry-alignment assert-on-boot (plan increment 2 leg b) is NOT
 // implemented here — see the driver report: the hosts registry has no self-row
@@ -25,7 +25,7 @@ import type { HostRegistry } from "../src/domain/hosts/hosts-registry-reader.js"
 // vps-a is TOKENLESS (bearer optional) so the remote leg dials without needing
 // an env-provided bearer — we only need to prove a non-self host forwards.
 const REGISTRY: HostRegistry = {
-  hosts: [{ id: "vps-a", transport: "http", url: "http://vps-a:7433" }],
+  hosts: [{ id: "vps-a", transport: "http", url: "http://vps-a:7434" }],
 };
 
 function makeApp() {
@@ -33,7 +33,7 @@ function makeApp() {
   const localHits: string[] = [];
   const fakeFetch = (async (input: RequestInfo | URL) => {
     fetchCalls.push(String(input));
-    return new Response(JSON.stringify({ rigs: ["remote-rig"] }), {
+    return new Response(JSON.stringify({ softwareTeams: ["remote-software-team"] }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
@@ -46,7 +46,7 @@ function makeApp() {
     await next();
   });
   app.use("/api/*", hostReadThrough());
-  app.get("/api/rigs/summary", (c) => { localHits.push(c.req.path); return c.json({ rigs: ["local-rig"] }); });
+  app.get("/api/software-teams/summary", (c) => { localHits.push(c.req.path); return c.json({ softwareTeams: ["local-software-team"] }); });
   return { app, fetchCalls, localHits };
 }
 
@@ -89,19 +89,19 @@ describe("51-09 increment 2 — self-host local resolution", () => {
     setSelfHostId("mars-01");
     const { app, fetchCalls, localHits } = makeApp();
 
-    // self-id qualified read → LOCAL handler, NO dial (the E1 unknown_destination_rig killer at the read seam)
-    const selfRes = await app.request("/api/rigs/summary?host=mars-01");
+    // self-id qualified read → LOCAL handler, NO dial (the E1 unknown_destination_software_team killer at the read seam)
+    const selfRes = await app.request("/api/software-teams/summary?host=mars-01");
     expect(selfRes.status).toBe(200);
-    expect(await selfRes.json()).toEqual({ rigs: ["local-rig"] });
+    expect(await selfRes.json()).toEqual({ softwareTeams: ["local-software-team"] });
 
     // 'local' sentinel → also local
-    await app.request("/api/rigs/summary?host=local");
+    await app.request("/api/software-teams/summary?host=local");
 
-    expect(localHits).toEqual(["/api/rigs/summary", "/api/rigs/summary"]);
+    expect(localHits).toEqual(["/api/software-teams/summary", "/api/software-teams/summary"]);
     expect(fetchCalls).toEqual([]); // neither self-id nor 'local' dialed out
 
     // a genuinely remote host still forwards (unchanged)
-    await app.request("/api/rigs/summary?host=vps-a");
+    await app.request("/api/software-teams/summary?host=vps-a");
     expect(fetchCalls.length).toBe(1);
   });
 });

@@ -1,6 +1,6 @@
-import type { RigRepository } from "./rig-repository.js";
+import type { SoftwareTeamRepository } from "./software-team-repository.js";
 import type { ComposeServicesAdapter } from "../adapters/compose-services-adapter.js";
-import type { RigServicesSpec, RigServicesRecord, EnvReceipt } from "./types.js";
+import type { SoftwareTeamServicesSpec, SoftwareTeamServicesRecord, EnvReceipt } from "./types.js";
 import { evaluateWaitTargets, deriveEnvHealth } from "./services-readiness.js";
 
 export type ServiceBootResult =
@@ -12,7 +12,7 @@ export type ServiceTeardownResult =
   | { ok: false; code: string; error: string };
 
 interface ServiceOrchestratorDeps {
-  rigRepo: RigRepository;
+  softwareTeamRepo: SoftwareTeamRepository;
   composeAdapter: ComposeServicesAdapter;
 }
 
@@ -21,25 +21,25 @@ interface ServiceOrchestratorDeps {
  * Does NOT independently manage boot/teardown timing — callers decide when.
  */
 export class ServiceOrchestrator {
-  private rigRepo: RigRepository;
+  private softwareTeamRepo: SoftwareTeamRepository;
   private composeAdapter: ComposeServicesAdapter;
 
   constructor(deps: ServiceOrchestratorDeps) {
-    this.rigRepo = deps.rigRepo;
+    this.softwareTeamRepo = deps.softwareTeamRepo;
     this.composeAdapter = deps.composeAdapter;
   }
 
   /**
-   * Boot services for a rig. Called by bootstrap orchestrator as a stage before agent launch.
+   * Boot services for a softwareTeam. Called by bootstrap orchestrator as a stage before agent launch.
    * 1. Load persisted services record
    * 2. Run docker compose up
    * 3. Evaluate wait targets
    * 4. Persist receipt
    */
-  async boot(rigId: string, opts?: { waitTimeoutMs?: number; waitPollIntervalMs?: number }): Promise<ServiceBootResult> {
-    const record = this.rigRepo.getServicesRecord(rigId);
+  async boot(softwareTeamId: string, opts?: { waitTimeoutMs?: number; waitPollIntervalMs?: number }): Promise<ServiceBootResult> {
+    const record = this.softwareTeamRepo.getServicesRecord(softwareTeamId);
     if (!record) {
-      return { ok: false, code: "no_services", error: "No services record found for this rig" };
+      return { ok: false, code: "no_services", error: "No services record found for this softwareTeam" };
     }
 
     const spec = this.parseSpec(record);
@@ -97,7 +97,7 @@ export class ServiceOrchestrator {
         if (health === "healthy") {
           // All targets healthy — capture receipt and return
           const receipt = this.buildReceipt(record, statusResult.services, waitResults);
-          this.rigRepo.updateServicesReceipt(rigId, JSON.stringify(receipt));
+          this.softwareTeamRepo.updateServicesReceipt(softwareTeamId, JSON.stringify(receipt));
           return { ok: true, receipt, health: "healthy" };
         }
 
@@ -105,7 +105,7 @@ export class ServiceOrchestrator {
         if (elapsed + pollMs > timeoutMs) {
           // Timeout — persist partial receipt honestly
           const receipt = this.buildReceipt(record, statusResult.services, waitResults);
-          this.rigRepo.updateServicesReceipt(rigId, JSON.stringify(receipt));
+          this.softwareTeamRepo.updateServicesReceipt(softwareTeamId, JSON.stringify(receipt));
           const failedTargets = waitResults.filter((r) => r.status !== "healthy");
           const failedNames = failedTargets.map((r) => r.detail ?? JSON.stringify(r.target)).join("; ");
           return { ok: false, code: "wait_timeout", error: `Service wait targets not healthy after ${Math.round(timeoutMs / 1000)}s: ${failedNames}`, receipt };
@@ -129,22 +129,22 @@ export class ServiceOrchestrator {
       };
     }
     const receipt = this.buildReceipt(record, statusResult.services, []);
-    this.rigRepo.updateServicesReceipt(rigId, JSON.stringify(receipt));
+    this.softwareTeamRepo.updateServicesReceipt(softwareTeamId, JSON.stringify(receipt));
     return { ok: true, receipt, health: "healthy" };
   }
 
   /**
-   * Tear down services for a rig. Called by teardown orchestrator during rig down.
+   * Tear down services for a softwareTeam. Called by teardown orchestrator during SoftwareTeam down.
    * Honors down_policy from the persisted spec.
    */
-  async teardown(rigId: string, opts?: { policyOverride?: "down" | "down_and_volumes" | "leave_running" }): Promise<ServiceTeardownResult> {
-    const record = this.rigRepo.getServicesRecord(rigId);
+  async teardown(softwareTeamId: string, opts?: { policyOverride?: "down" | "down_and_volumes" | "leave_running" }): Promise<ServiceTeardownResult> {
+    const record = this.softwareTeamRepo.getServicesRecord(softwareTeamId);
     if (!record) {
       return { ok: true }; // No services — nothing to tear down
     }
-    const successor = this.rigRepo.getLiveServicesSuccessor(rigId, record.projectName);
+    const successor = this.softwareTeamRepo.getLiveServicesSuccessor(softwareTeamId, record.projectName);
     if (successor) {
-      return { ok: true, kept: `kept project ${record.projectName}: still used by rig ${successor.name} (${successor.id})` };
+      return { ok: true, kept: `kept project ${record.projectName}: still used by softwareTeam ${successor.name} (${successor.id})` };
     }
 
     const spec = this.parseSpec(record);
@@ -162,15 +162,15 @@ export class ServiceOrchestrator {
     }
 
     // Update receipt to reflect teardown
-    this.rigRepo.updateServicesReceipt(rigId, null);
+    this.softwareTeamRepo.updateServicesReceipt(softwareTeamId, null);
     return { ok: true };
   }
 
   /**
    * Capture a fresh receipt from current compose state. Called by snapshot capture.
    */
-  async captureReceipt(rigId: string): Promise<EnvReceipt | null> {
-    const record = this.rigRepo.getServicesRecord(rigId);
+  async captureReceipt(softwareTeamId: string): Promise<EnvReceipt | null> {
+    const record = this.softwareTeamRepo.getServicesRecord(softwareTeamId);
     if (!record) return null;
 
     const spec = this.parseSpec(record);
@@ -189,24 +189,24 @@ export class ServiceOrchestrator {
       : [];
 
     const receipt = this.buildReceipt(record, statusResult.services, waitResults);
-    this.rigRepo.updateServicesReceipt(rigId, JSON.stringify(receipt));
+    this.softwareTeamRepo.updateServicesReceipt(softwareTeamId, JSON.stringify(receipt));
     return receipt;
   }
 
   // -- Private helpers --
 
-  private parseSpec(record: RigServicesRecord): RigServicesSpec | null {
+  private parseSpec(record: SoftwareTeamServicesRecord): SoftwareTeamServicesSpec | null {
     try {
-      return JSON.parse(record.specJson) as RigServicesSpec;
+      return JSON.parse(record.specJson) as SoftwareTeamServicesSpec;
     } catch {
       return null;
     }
   }
 
   private buildReceipt(
-    record: RigServicesRecord,
+    record: SoftwareTeamServicesRecord,
     services: Array<{ name: string; state: string; status: string; health: string | null }>,
-    waitResults: Array<{ target: import("./types.js").RigServicesWaitTarget; status: string; detail: string | null }>,
+    waitResults: Array<{ target: import("./types.js").SoftwareTeamServicesWaitTarget; status: string; detail: string | null }>,
   ): EnvReceipt {
     return {
       kind: "compose",

@@ -14,7 +14,7 @@ adds no resolver, source kind, curator role, or transcript-mining process.
 Each item is one Markdown file beneath the owning seat's `lore/` directory:
 
 ```text
-<topology-root>/rigs/<rig>/seats/<seat>/lore/<stable-slug>.md
+<topology-root>/SoftwareTeams/<SoftwareTeam>/seats/<seat>/lore/<stable-slug>.md
 ```
 
 Resolve `topology.root` from configuration; never hardcode the root. The owning
@@ -42,7 +42,7 @@ Every lore item carries these fields from birth:
 | `stage` | Current epistemic maturity. Legal values come only from [`knowledge-maturity.md`, “Two encodings, one ladder”](knowledge-maturity.md#two-encodings-one-ladder); do not copy or extend that vocabulary here. |
 | `method` | How the owning position could know the claim: the observation, comparison, incident, or source method. |
 | `date` | UTC date-time of the current stage decision or substantive revision. Update it when `stage` changes. |
-| `position` | Canonical owning seat address, `<seat>@<rig>`. It names the position, never an occupant. |
+| `position` | Canonical owning seat address, `<seat>@<SoftwareTeam>`. It names the position, never an occupant. |
 
 `taxonomy: lore` is required both in each item's frontmatter and on any
 manifest-bearing lore pack that serves it. A misspelling is not equivalent and
@@ -60,14 +60,14 @@ taxonomy: lore
 stage: wip
 method: "<how this position could know>"
 date: "YYYY-MM-DDTHH:MM:SSZ"
-position: "<seat>@<rig>"
+position: "<seat>@<SoftwareTeam>"
 ---
 
 # <Short situation or trigger>
 
 ## Situation
 
-**Position:** `<seat>@<rig>`
+**Position:** `<seat>@<SoftwareTeam>`
 
 **Moment.** <What is happening when this knowledge becomes useful?>
 
@@ -84,9 +84,9 @@ line so attribution remains visible when the resolver returns only that section.
 
 ## Addressing and composition
 
-Lore uses the existing `seat:` grammar and an explicit rig-and-seat read grant
-(`rig context profile <pack> --situation <fresh|handover|post-compaction> --rig <rig> --seat <seat>`,
-where the grant needs both `--rig` and `--seat`).
+Lore uses the existing `seat:` grammar and an explicit software-team-and-seat read grant
+(`SoftwareTeam context profile <pack> --situation <fresh|handover|post-compaction> --software-team <SoftwareTeam> --seat <seat>`,
+where the grant needs both `--software-team` and `--seat`).
 The address says which file or section to read; the grant says whose seat tree
 the address is relative to. No grant means no read.
 
@@ -107,7 +107,7 @@ An attachment point is only a pointer paired with the owning position:
 ```yaml
 lore:
   address: "seat:lore/<stable-slug>.md#situation"
-  position: "<seat>@<rig>"
+  position: "<seat>@<SoftwareTeam>"
 ```
 
 An attachment never embeds or copies the lore bytes. The reader resolves it
@@ -127,9 +127,9 @@ maturity home; no lore-specific alternatives are invented here.
 
 ## The outward gate
 
-A lore artifact never crosses from rig-local position knowledge into a shared
+A lore artifact never crosses from software-team-local position knowledge into a shared
 or shippable audience by copy, export, serving, or packaging. Grant-gated
-read-side composition inside the rig is not graduation and keeps the source
+read-side composition inside the SoftwareTeam is not graduation and keeps the source
 address and position attached. Its content may inform a new outward artifact
 only through authored re-homing:
 
@@ -144,7 +144,7 @@ graduation:
   source_address: "seat:lore/<stable-slug>.md"
   source_stage: "<stage at graduation>"
   date: "YYYY-MM-DDTHH:MM:SSZ"
-  owner: "<seat>@<rig>"
+  owner: "<seat>@<SoftwareTeam>"
   delegation: "none | <who delegated to whom>"
   warrant: "<why the content earned the new audience>"
 ```
@@ -159,7 +159,7 @@ to announce that another artifact graduated from it.
 
 ## Privacy boundary
 
-Lore is rig-local position knowledge. Shippable projection and bundle paths must
+Lore is software-team-local position knowledge. Shippable projection and bundle paths must
 refuse `taxonomy: lore` structurally, independently of token deny-lists or content
 scanners. Existing containment protections for seat files remain in force.
 
@@ -167,7 +167,7 @@ This convention deliberately does not create:
 
 - automatic transcript or memory mining;
 - a lore librarian, central curation queue, or review ceremony;
-- cross-rig lore sharing;
+- cross-SoftwareTeam lore sharing;
 - a new address grammar, resolver kind, or public export form.
 
 Growth is owner-authored and organic. A seat writes an item when lived work makes

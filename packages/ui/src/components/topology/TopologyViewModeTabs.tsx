@@ -5,17 +5,17 @@
 // by using `/topology/host/table` etc; the canon explicitly forbids that.)
 //
 // State managed via React (useState in scope page); URL stays at the
-// scope path (/topology, /topology/rig/$rigId, etc).
+// scope path (/topology, /topology/softwareTeam/$softwareTeamId, etc).
 
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils.js";
 
 export type TopologyHostScopeTab = "graph" | "table" | "terminal";
-export type TopologyRigPodScopeTab = "graph" | "table" | "terminal" | "overview";
+export type TopologySoftwareTeamPodScopeTab = "graph" | "table" | "terminal" | "overview";
 export type TopologySeatScopeTab = "detail" | "transcript" | "terminal";
 export type AnyTopologyTab =
   | TopologyHostScopeTab
-  | TopologyRigPodScopeTab
+  | TopologySoftwareTeamPodScopeTab
   | TopologySeatScopeTab;
 
 interface TopologyViewModeTabsProps<T extends string> {
@@ -25,9 +25,9 @@ interface TopologyViewModeTabsProps<T extends string> {
   testIdPrefix?: string;
   /**
    * Slice 24 — optional trailing slot rendered with ml-auto inside the
-   * tab-bar flex container. Used by RigScopePage to render the
+   * tab-bar flex container. Used by SoftwareTeamScopePage to render the
    * "Launch in CMUX" button at the tab-bar far right per README §Button
-   * placement Option C (persistent across all rig-scope view-mode tabs).
+   * placement Option C (persistent across all software-team-scope view-mode tabs).
    */
   trailing?: ReactNode;
 }
@@ -96,7 +96,7 @@ export const HOST_SCOPE_TABS: { id: TopologyHostScopeTab; label: string }[] = [
   { id: "terminal", label: "Terminal" },
 ];
 
-export const RIG_POD_SCOPE_TABS: { id: TopologyRigPodScopeTab; label: string }[] = [
+export const SOFTWARE_TEAM_POD_SCOPE_TABS: { id: TopologySoftwareTeamPodScopeTab; label: string }[] = [
   { id: "graph", label: "Graph" },
   { id: "table", label: "Table" },
   { id: "terminal", label: "Terminal" },

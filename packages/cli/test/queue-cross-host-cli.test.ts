@@ -3,7 +3,7 @@
 //   - resolveQueueHostDestination: human-seat classifier FIRST; <2 `@` =
 //     passthrough; >=2 `@` = split on the LAST `@`, trailing segment stripped
 //     into hostId (unconditional — queue destinations are canonical-only, so
-//     a typo dies loud as an unknown HOST, not a rig-shaped error);
+//     a typo dies loud as an unknown HOST, not a software-team-shaped error);
 //     --host + a DIFFERENT qualifier = structured ambiguity error;
 //     empty trailing segment = structured error;
 //   - the 3-part string NEVER leaves the CLI edge: the request body carries
@@ -21,8 +21,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -49,12 +49,12 @@ function makeDeps(): { deps: QueueDeps; calls: Array<{ method: string; path: str
 
 describe("resolveQueueHostDestination (D-3)", () => {
   it("plain 2-part destination passes through untouched (with or without --host)", () => {
-    expect(resolveQueueHostDestination("dev@rig-b")).toEqual({ ok: true, destination: "dev@rig-b", hostId: undefined });
-    expect(resolveQueueHostDestination("dev@rig-b", "vps-b")).toEqual({ ok: true, destination: "dev@rig-b", hostId: "vps-b" });
+    expect(resolveQueueHostDestination("dev@software-team-b")).toEqual({ ok: true, destination: "dev@software-team-b", hostId: undefined });
+    expect(resolveQueueHostDestination("dev@software-team-b", "vps-b")).toEqual({ ok: true, destination: "dev@software-team-b", hostId: "vps-b" });
   });
 
   it("3-part form splits on the LAST @ — trailing segment becomes hostId; the session stays 2-part", () => {
-    expect(resolveQueueHostDestination("dev@rig-b@vps-b")).toEqual({ ok: true, destination: "dev@rig-b", hostId: "vps-b" });
+    expect(resolveQueueHostDestination("dev@software-team-b@vps-b")).toEqual({ ok: true, destination: "dev@software-team-b", hostId: "vps-b" });
   });
 
   it("many-@ input strips exactly ONE trailing segment (canonical-only backstop rejects the rest daemon-side)", () => {
@@ -67,31 +67,31 @@ describe("resolveQueueHostDestination (D-3)", () => {
   });
 
   it("reserved trailing segment 'local' resolves to the explicit local envelope (daemon treats as the local path)", () => {
-    expect(resolveQueueHostDestination("dev@rig-b@local")).toEqual({ ok: true, destination: "dev@rig-b", hostId: "local" });
+    expect(resolveQueueHostDestination("dev@software-team-b@local")).toEqual({ ok: true, destination: "dev@software-team-b", hostId: "local" });
   });
 
   it("--host + a DIFFERENT host qualifier = structured ambiguity error (never a silent precedence pick)", () => {
-    const res = resolveQueueHostDestination("dev@rig-b@vps-b", "vps-c");
+    const res = resolveQueueHostDestination("dev@software-team-b@vps-b", "vps-c");
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toBe("host_qualifier_conflict");
   });
 
   it("--host + the MATCHING qualifier is fine (one host named twice)", () => {
-    expect(resolveQueueHostDestination("dev@rig-b@vps-b", "vps-b")).toEqual({ ok: true, destination: "dev@rig-b", hostId: "vps-b" });
+    expect(resolveQueueHostDestination("dev@software-team-b@vps-b", "vps-b")).toEqual({ ok: true, destination: "dev@software-team-b", hostId: "vps-b" });
   });
 
   it("empty trailing host segment = structured error", () => {
-    const res = resolveQueueHostDestination("dev@rig-b@");
+    const res = resolveQueueHostDestination("dev@software-team-b@");
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toBe("invalid_host_qualified_destination");
   });
 });
 
-describe("rig queue cross-host CLI wiring (C3)", () => {
+describe("SoftwareTeam queue cross-host CLI wiring (C3)", () => {
   beforeEach(() => {
-    // P21 HERMETIC: cross-host queue verbs derive the origin/actor from the seat env (X-OpenRig-Session);
+    // P21 HERMETIC: cross-host queue verbs derive the origin/actor from the seat env (X-SoftwareTeam-Session);
     // stub a deterministic seat so an env-less harness doesn't abort pre-POST (was masked by the ambient env).
-    vi.stubEnv("OPENRIG_SESSION_NAME", "seat@rig");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "seat@software-team");
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
@@ -104,12 +104,12 @@ describe("rig queue cross-host CLI wiring (C3)", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "create",
-      "--source", "orch@rig-a", "--destination", "dev@rig-b",
+      "node", "softwareTeam", "queue", "create",
+      "--source", "orch@software-team-a", "--destination", "dev@software-team-b",
       "--host", "vps-b", "--body", "do thing", "--json",
     ]);
     const body = calls.find((c) => c.path === "/api/queue/create")!.body as Record<string, unknown>;
-    expect(body.destinationSession).toBe("dev@rig-b");
+    expect(body.destinationSession).toBe("dev@software-team-b");
     expect(body.hostId).toBe("vps-b");
   });
 
@@ -118,14 +118,14 @@ describe("rig queue cross-host CLI wiring (C3)", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "create",
-      "--source", "orch@rig-a", "--destination", "dev@rig-b@vps-b",
+      "node", "softwareTeam", "queue", "create",
+      "--source", "orch@software-team-a", "--destination", "dev@software-team-b@vps-b",
       "--body", "do thing", "--json",
     ]);
     const body = calls.find((c) => c.path === "/api/queue/create")!.body as Record<string, unknown>;
-    expect(body.destinationSession).toBe("dev@rig-b");
+    expect(body.destinationSession).toBe("dev@software-team-b");
     expect(body.hostId).toBe("vps-b");
-    expect(JSON.stringify(body)).not.toContain("dev@rig-b@vps-b");
+    expect(JSON.stringify(body)).not.toContain("dev@software-team-b@vps-b");
   });
 
   it("local create posts NO hostId key at all (byte-identical local body)", async () => {
@@ -133,24 +133,24 @@ describe("rig queue cross-host CLI wiring (C3)", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "create",
-      "--source", "orch@rig-a", "--destination", "dev@rig-a",
+      "node", "softwareTeam", "queue", "create",
+      "--source", "orch@software-team-a", "--destination", "dev@software-team-a",
       "--body", "do thing", "--json",
     ]);
     const body = calls.find((c) => c.path === "/api/queue/create")!.body as Record<string, unknown>;
     expect("hostId" in body).toBe(false);
   });
 
-  it("handoff --to member@rig@host: 2-part toSession + hostId envelope", async () => {
+  it("handoff --to member@software-team@host: 2-part toSession + hostId envelope", async () => {
     const { deps, calls } = makeDeps();
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "handoff", "qitem-src-1",
-      "--from", "worker@rig-a", "--to", "dev@rig-b@vps-b", "--json",
+      "node", "softwareTeam", "queue", "handoff", "qitem-src-1",
+      "--from", "worker@software-team-a", "--to", "dev@software-team-b@vps-b", "--json",
     ]);
     const body = calls.find((c) => c.path === "/api/queue/qitem-src-1/handoff")!.body as Record<string, unknown>;
-    expect(body.toSession).toBe("dev@rig-b");
+    expect(body.toSession).toBe("dev@software-team-b");
     expect(body.hostId).toBe("vps-b");
   });
 
@@ -159,11 +159,11 @@ describe("rig queue cross-host CLI wiring (C3)", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "handoff-and-complete", "qitem-src-1",
-      "--from", "worker@rig-a", "--to", "dev@rig-b", "--host", "vps-b", "--json",
+      "node", "softwareTeam", "queue", "handoff-and-complete", "qitem-src-1",
+      "--from", "worker@software-team-a", "--to", "dev@software-team-b", "--host", "vps-b", "--json",
     ]);
     const body = calls.find((c) => c.path === "/api/queue/qitem-src-1/handoff-and-complete")!.body as Record<string, unknown>;
-    expect(body.toSession).toBe("dev@rig-b");
+    expect(body.toSession).toBe("dev@software-team-b");
     expect(body.hostId).toBe("vps-b");
   });
 
@@ -172,8 +172,8 @@ describe("rig queue cross-host CLI wiring (C3)", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "handoff", "qitem-src-1",
-      "--from", "worker@rig-a", "--to", "dev@rig-b@vps-b", "--host", "vps-c", "--json",
+      "node", "softwareTeam", "queue", "handoff", "qitem-src-1",
+      "--from", "worker@software-team-a", "--to", "dev@software-team-b@vps-b", "--host", "vps-c", "--json",
     ]);
     expect(calls.filter((c) => c.method === "POST")).toHaveLength(0);
     expect(process.exitCode).toBe(1);

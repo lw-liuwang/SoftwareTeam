@@ -21,7 +21,7 @@ function mockLifecycleDeps(overrides?: Partial<LifecycleDeps>): LifecycleDeps {
   };
 }
 
-function runningDeps(port: number, identity: HealthDeps["resolveIdentity"] = () => ({ sessionName: "guard@rig-a" })): HealthDeps {
+function runningDeps(port: number, identity: HealthDeps["resolveIdentity"] = () => ({ sessionName: "guard@software-team-a" })): HealthDeps {
   const state: DaemonState = { pid: 123, port, db: "test.sqlite", startedAt: "2026-09-05T00:00:00Z" };
   return {
     lifecycleDeps: mockLifecycleDeps({
@@ -34,7 +34,7 @@ function runningDeps(port: number, identity: HealthDeps["resolveIdentity"] = () 
   };
 }
 
-function stoppedDeps(identity: HealthDeps["resolveIdentity"] = () => ({ sessionName: "guard@rig-a" })): HealthDeps {
+function stoppedDeps(identity: HealthDeps["resolveIdentity"] = () => ({ sessionName: "guard@software-team-a" })): HealthDeps {
   return {
     lifecycleDeps: mockLifecycleDeps(),
     clientFactory: (baseUrl) => new DaemonClient(baseUrl),
@@ -52,7 +52,7 @@ async function run(args: string[], deps?: HealthDeps): Promise<{ logs: string[];
   console.log = (...values: unknown[]) => logs.push(values.join(" "));
   console.error = (...values: unknown[]) => errors.push(values.join(" "));
   try {
-    await healthCommand(deps).parseAsync(["node", "rig", ...args]);
+    await healthCommand(deps).parseAsync(["node", "softwareTeam", ...args]);
   } finally {
     console.log = originalLog;
     console.error = originalError;
@@ -63,11 +63,11 @@ async function run(args: string[], deps?: HealthDeps): Promise<{ logs: string[];
 }
 
 const RECORD = {
-  schema: "openrig.health/v0alpha1",
+  schema: "softwareteam.health/v0alpha1",
   id: "health-context-pressure-a1",
   detector: "context-pressure",
   category: "context",
-  scope: { type: "seat", rigId: "rig-a", seatId: "node-a" },
+  scope: { type: "seat", softwareTeamId: "software-team-a", seatId: "node-a" },
   severity: "critical",
   confidence: "high",
   status: "indeterminate",
@@ -100,12 +100,12 @@ const RECORD = {
   }],
   threshold: "critical when usedPercentage >= 95 and evidence is fresh",
   explanation: "The latest bounded context sample is stale, so pressure is indeterminate.",
-  suggestedInspection: "rig whoami --node-id node-a --full",
+  suggestedInspection: "SoftwareTeam whoami --node-id node-a --full",
   indeterminateReason: "source_stale",
 } as const;
 
 const LIST = {
-  schema: "openrig.health-list/v0alpha1",
+  schema: "softwareteam.health-list/v0alpha1",
   evaluatedAt: "2026-09-05T10:10:00.000Z",
   total: 1,
   limit: 100,
@@ -113,7 +113,7 @@ const LIST = {
   records: [RECORD],
 };
 
-describe("rig health — daemon-backed read-only projection", () => {
+describe("SoftwareTeam health — daemon-backed read-only projection", () => {
   let server: http.Server;
   let port: number;
   const seen: string[] = [];
@@ -133,7 +133,7 @@ describe("rig health — daemon-backed read-only projection", () => {
       response.setHeader("content-type", "application/json");
       if (url.startsWith("/api/whoami")) {
         if (whoamiStatus === 409) response.end(JSON.stringify({ error: "session_name_ambiguous" }));
-        else response.end(JSON.stringify({ identity: { nodeId: "node-a", rigId: "rig-a" } }));
+        else response.end(JSON.stringify({ identity: { nodeId: "node-a", softwareTeamId: "software-team-a" } }));
       } else if (url.startsWith("/api/health/")) {
         response.end(JSON.stringify(healthStatus === 404 ? { error: "health_finding_not_found" } : RECORD));
       } else if (healthStatus === 503) {
@@ -156,7 +156,7 @@ describe("rig health — daemon-backed read-only projection", () => {
     seen.length = 0;
     const { logs, exitCode } = await run(["--severity", "critical", "--status", "indeterminate", "--json"], runningDeps(port));
     expect(exitCode).toBeUndefined();
-    expect(seen[0]).toBe("/api/whoami?sessionName=guard%40rig-a&compact=1");
+    expect(seen[0]).toBe("/api/whoami?sessionName=guard%40software-team-a&compact=1");
     expect(seen[1]).toContain("/api/health?");
     expect(seen[1]).toContain("scope_type=seat");
     expect(seen[1]).toContain("scope_id=node-a");
@@ -165,15 +165,15 @@ describe("rig health — daemon-backed read-only projection", () => {
     expect(JSON.parse(logs.join("\n"))).toEqual(LIST);
   });
 
-  it("passes exact seat, rig, and instance scopes to the daemon rather than inventing hierarchy", async () => {
+  it("passes exact seat, softwareTeam, and instance scopes to the daemon rather than inventing hierarchy", async () => {
     seen.length = 0;
     methods.length = 0;
     await run(["--seat", "node-b", "--limit", "7", "--json"], runningDeps(port));
-    await run(["--rig", "rig-b", "--json"], runningDeps(port));
+    await run(["--software-team", "software-team-b", "--json"], runningDeps(port));
     await run(["--instance", "instance-b", "--json"], runningDeps(port));
     await run(["--instance", "--json"], runningDeps(port));
     expect(seen[0]).toContain("scope_type=seat&scope_id=node-b&limit=7");
-    expect(seen[1]).toContain("scope_type=rig&scope_id=rig-b");
+    expect(seen[1]).toContain("scope_type=softwareTeam&scope_id=software-team-b");
     expect(seen[2]).toContain("scope_type=instance&scope_id=instance-b");
     expect(seen[3]).toBe("/api/health?limit=100");
     expect(seen.every((url) => !url.startsWith("/api/whoami"))).toBe(true);
@@ -195,13 +195,13 @@ describe("rig health — daemon-backed read-only projection", () => {
 
   it("renders an empty bounded query explicitly without asserting health", async () => {
     empty = true;
-    const { logs, exitCode } = await run(["--rig", "rig-a"], runningDeps(port));
+    const { logs, exitCode } = await run(["--software-team", "software-team-a"], runningDeps(port));
     empty = false;
     const output = logs.join("\n");
     expect(exitCode).toBeUndefined();
     expect(output).toContain("No health findings match this bounded query");
     expect(output).toContain("not a healthy assertion");
-    expect(output).toContain("rig health --instance");
+    expect(output).toContain("SoftwareTeam health --instance");
   });
 
   it("names a failed source while retaining other findings without fabricated counts", async () => {
@@ -251,9 +251,9 @@ describe("rig health — daemon-backed read-only projection", () => {
     const missing = await run(["--json"], runningDeps(port, () => null));
     expect(missing.exitCode).toBe(1);
     expect(JSON.parse(missing.logs.join("\n"))).toMatchObject({
-      schema: "openrig.health-error/v0alpha1",
+      schema: "softwareteam.health-error/v0alpha1",
       error: "health_identity_unavailable",
-      nextInspection: "rig whoami --json",
+      nextInspection: "SoftwareTeam whoami --json",
     });
 
     whoamiStatus = 409;
@@ -261,19 +261,19 @@ describe("rig health — daemon-backed read-only projection", () => {
     whoamiStatus = 200;
     expect(ambiguous.exitCode).toBe(1);
     expect(JSON.parse(ambiguous.logs.join("\n"))).toMatchObject({
-      schema: "openrig.health-error/v0alpha1",
+      schema: "softwareteam.health-error/v0alpha1",
       error: "health_identity_ambiguous",
-      nextInspection: "rig ps --nodes -A",
+      nextInspection: "SoftwareTeam ps --nodes -A",
     });
   });
 
   it("distinguishes an unavailable projection, an unknown finding ID, and an unresponsive daemon", async () => {
     healthStatus = 503;
-    const unavailable = await run(["--rig", "rig-a", "--json"], runningDeps(port));
+    const unavailable = await run(["--software-team", "software-team-a", "--json"], runningDeps(port));
     healthStatus = 404;
     const unknown = await run(["explain", "health-missing", "--json"], runningDeps(port));
     healthStatus = 200;
-    const daemon = await run(["--rig", "rig-a", "--json"], stoppedDeps());
+    const daemon = await run(["--software-team", "software-team-a", "--json"], stoppedDeps());
 
     expect(JSON.parse(unavailable.logs.join("\n"))).toMatchObject({ error: "health_projection_unavailable" });
     expect(JSON.parse(unknown.logs.join("\n"))).toMatchObject({ error: "health_finding_not_found" });
@@ -290,7 +290,7 @@ describe("rig health — daemon-backed read-only projection", () => {
     expect(result.exitCode).toBe(1);
     expect(JSON.parse(result.logs.join("\n"))).toMatchObject({
       error: "health_projection_unavailable",
-      nextInspection: "rig --version",
+      nextInspection: "SoftwareTeam --version",
     });
   });
 
@@ -320,7 +320,7 @@ describe("rig health — daemon-backed read-only projection", () => {
           present: true,
           bytes: staleState,
           output: expect.objectContaining({
-            schema: "openrig.health-error/v0alpha1",
+            schema: "softwareteam.health-error/v0alpha1",
             error: "health_daemon_unavailable",
           }),
         },
@@ -328,7 +328,7 @@ describe("rig health — daemon-backed read-only projection", () => {
           present: true,
           bytes: staleState,
           output: expect.objectContaining({
-            schema: "openrig.health-error/v0alpha1",
+            schema: "softwareteam.health-error/v0alpha1",
             error: "health_daemon_unavailable",
           }),
         },

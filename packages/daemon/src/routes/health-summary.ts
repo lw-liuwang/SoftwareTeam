@@ -1,8 +1,8 @@
 // Operator Surface Reconciliation v0 — compact health-summary routes.
 //
 // Endpoints (item 1F):
-//   GET /api/health-summary/nodes    cross-rig roll-up of node sessionStatus + lifecycle
-//   GET /api/health-summary/context  cross-rig roll-up of context-usage urgency + freshness
+//   GET /api/health-summary/nodes    cross-softwareTeam roll-up of node sessionStatus + lifecycle
+//   GET /api/health-summary/context  cross-softwareTeam roll-up of context-usage urgency + freshness
 //   GET /api/health-summary/version  the daemon's own running version (OPR.0.4.1.14)
 //
 // The nodes/context routes wrap existing daemon-side aggregation helpers; the
@@ -13,7 +13,7 @@
 
 import { Hono } from "hono";
 import type Database from "better-sqlite3";
-import type { RigRepository } from "../domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "../domain/software-team-repository.js";
 import {
   computeContextHealthSummary,
   computeNodeHealthSummary,
@@ -22,16 +22,16 @@ import { getDaemonVersion } from "../domain/daemon-version.js";
 
 export interface HealthSummaryRoutesDeps {
   db: Database.Database;
-  rigRepo: RigRepository;
+  softwareTeamRepo: SoftwareTeamRepository;
 }
 
 export function healthSummaryRoutes(): Hono {
   const app = new Hono();
 
   function getDeps(c: { get: (key: string) => unknown }): HealthSummaryRoutesDeps | null {
-    const rigRepo = c.get("rigRepo" as never) as RigRepository | undefined;
-    if (!rigRepo) return null;
-    return { db: rigRepo.db, rigRepo };
+    const softwareTeamRepo = c.get("softwareTeamRepo" as never) as SoftwareTeamRepository | undefined;
+    if (!softwareTeamRepo) return null;
+    return { db: softwareTeamRepo.db, softwareTeamRepo };
   }
 
   app.get("/nodes", (c) => {

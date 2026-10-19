@@ -7,7 +7,7 @@ import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
-import { makeParkedOwnerConsumerPolicy, makeRigAnchor, PARKED_OWNER_POLICY_NAME, REFUSED_PREFIX, RESERVE_PREFIX } from "../src/domain/policies/parked-owner-consumer.js";
+import { makeParkedOwnerConsumerPolicy, makeSoftwareTeamAnchor, PARKED_OWNER_POLICY_NAME, REFUSED_PREFIX, RESERVE_PREFIX } from "../src/domain/policies/parked-owner-consumer.js";
 import type { PolicyJob } from "../src/domain/policies/types.js";
 import type { WatchdogHistoryEntry } from "../src/domain/watchdog-history-log.js";
 import { runWakeLadderTick, queueRecoveryOwnsWake, classifyPromptAfterRefusal } from "../src/domain/queue-wake-ladder.js";
@@ -17,7 +17,7 @@ import { DEFAULT_CONFIG, saveConfig } from "../src/domain/gateway/slack/config.j
 import { DispatchBuffer } from "../src/domain/gateway/dispatch-buffer.js";
 import type { LoadResult } from "../src/domain/gateway/human-registry.js";
 import { GatewayDispatcher } from "../src/domain/gateway/dispatcher.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SessionTransport } from "../src/domain/session-transport.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
@@ -44,7 +44,7 @@ describe("prompt-blocked outstanding work reaches the configured route", () => {
   beforeEach(() => {
     state = "blocked"; episodeRows = []; acceptedAtSink.length = 0;
     db = new Database(":memory:"); migrate(db, ALL_MIGRATIONS);
-    repo = new QueueRepository(db, new EventBus(db), { validateRig: () => true });
+    repo = new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => true });
     home = mkdtempSync(join(tmpdir(), "prompt-alert-"));
   });
   afterEach(() => { for (const w of wires.splice(0)) w.stop(); db.close(); rmSync(home, { recursive: true, force: true }); });
@@ -84,7 +84,7 @@ describe("prompt-blocked outstanding work reaches the configured route", () => {
     const row = repo.getById(episodeRows[0]!)!;
     const history: WatchdogHistoryEntry[] = [];
     const policy = makeParkedOwnerConsumerPolicy({
-      diagnoseRig: () => ({ seats: [{ sessionName: seat, parked: true,
+      diagnoseSoftwareTeam: () => ({ seats: [{ sessionName: seat, parked: true,
         activity: { value: "idle-at-prompt", needsInput: { count: 1, reason: "permission prompt" } },
         obligations: { items: episodeRows.map(qitemId => ({ qitemId, state: "in-progress", summary: "assigned work" })), held: [] },
       }] }),
@@ -97,7 +97,7 @@ describe("prompt-blocked outstanding work reaches the configured route", () => {
         recoveryOwnsWake: id => queueRecoveryOwnsWake(db, repo.getById(id)),
       },
     });
-    const job = { jobId: "fixture-job", policy: PARKED_OWNER_POLICY_NAME, target: { session: makeRigAnchor("fixture") }, context: {} } as PolicyJob;
+    const job = { jobId: "fixture-job", policy: PARKED_OWNER_POLICY_NAME, target: { session: makeSoftwareTeamAnchor("fixture") }, context: {} } as PolicyJob;
     const wake = await policy.evaluate(job);
     expect(wake.action).toBe("send");
     history.push({ historyId: "fixture-history", jobId: job.jobId, evaluatedAt: new Date().toISOString(), outcome: "sent", skipReason: null,
@@ -545,15 +545,15 @@ describe("prompt-blocked outstanding work reaches the configured route", () => {
   });
 
   it("the actual transport refuses the permission prompt without any text or key input", async () => {
-    const rigRepo = new RigRepository(db); const sessions = new SessionRegistry(db);
-    const rig = rigRepo.createRig("fixture"); const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
+    const softwareTeamRepo = new SoftwareTeamRepository(db); const sessions = new SessionRegistry(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("fixture"); const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
     const session = sessions.registerSession(node.id, seat); sessions.updateStatus(session.id, "running");
     sessions.updateBinding(node.id, { tmuxSession: seat });
     const sendText = vi.fn(), sendKeys = vi.fn();
     const tmuxAdapter = { hasSession: async () => true, probeSession: async () => ({ state: "present" }),
       capturePaneContent: async () => "› 1. Yes, continue\n  2. No, cancel", getPaneCommand: async () => null,
       sendText, sendKeys } as unknown as TmuxAdapter;
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry: sessions, tmuxAdapter });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry: sessions, tmuxAdapter });
     expect(await transport.send(seat, "wake")).toMatchObject({ ok: false, reason: "target_needs_input" });
     expect(sendText).not.toHaveBeenCalled(); expect(sendKeys).not.toHaveBeenCalled();
   });

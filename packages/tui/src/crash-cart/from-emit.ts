@@ -1,11 +1,11 @@
-// Crash-cart C3 unit-C — map the parsed `rig crash-cart --json` verdict onto the renderScreen
+// Crash-cart C3 unit-C — map the parsed `softwareTeam crash-cart --json` verdict onto the renderScreen
 // daemon-down opts. Refusals and unavailable prerequisites stay visible, without
 // turning a failed discovery into permission to restore or mint an identity.
 import type { DaemonState, DaemonUnverifiedEvidence } from "./contract.js";
 import { buildCrashCartModel, type CrashCartDiscoveryInput, type CrashCartModel } from "./crash-cart-model.js";
 import type { RestoreLifecycleVM } from "./restore-lifecycle.js";
 
-/** The `rig crash-cart --json` payload (mirrors the daemon verb's emit — the documented JSON contract). */
+/** The `softwareTeam crash-cart --json` payload (mirrors the daemon verb's emit — the documented JSON contract). */
 export interface CrashCartEmit {
   state: DaemonState;
   evidence?: DaemonUnverifiedEvidence;

@@ -1,6 +1,6 @@
 // Slice 14 §0 — the RED that proves the slice.
 //
-// THE LIVED DEFECT: every message renders a reply hint `member@rig@<selfHostId>`, and the in-code
+// THE LIVED DEFECT: every message renders a reply hint `member@software-team@<selfHostId>`, and the in-code
 // justification for always appending the host is that the hint is "verbatim-usable". It is not. A
 // peer used one verbatim and got `no registered host 'host-84c37990'` — because the receiver's
 // registry knows that machine only by a human ALIAS, and resolution matched the suffix against
@@ -23,7 +23,7 @@ function boundRegistry(): { ok: true; registry: HostRegistry } {
       hosts: [{
         id: "mm2-host",
         transport: "http",
-        url: "http://x:7433",
+        url: "http://x:7434",
         hostId: "host-84c37990",
       }],
     },
@@ -34,16 +34,16 @@ function boundRegistry(): { ok: true; registry: HostRegistry } {
 function unboundRegistry(): { ok: true; registry: HostRegistry } {
   return {
     ok: true,
-    registry: { hosts: [{ id: "mm2-host", transport: "http", url: "http://x:7433" }] },
+    registry: { hosts: [{ id: "mm2-host", transport: "http", url: "http://x:7434" }] },
   };
 }
 
 describe("cross-host target resolution — alias -> id -> transport", () => {
   it("resolves a reply hint carrying the peer's SELF-ID against the registry join key", () => {
-    const r = resolveCrossHostTarget("pm@some-rig@host-84c37990", undefined, boundRegistry, undefined);
+    const r = resolveCrossHostTarget("pm@some-software-team@host-84c37990", undefined, boundRegistry, undefined);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.target).toBe("pm@some-rig");
+    expect(r.target).toBe("pm@some-software-team");
     // Normalized to the ALIAS: the human handle is the canonical registry key, and everything
     // downstream that compares against `h.id` keeps working unchanged.
     expect(r.sugarHost).toBe("mm2-host");
@@ -51,20 +51,20 @@ describe("cross-host target resolution — alias -> id -> transport", () => {
   });
 
   it("still resolves when the operator types the human alias", () => {
-    const r = resolveCrossHostTarget("pm@some-rig@mm2-host", undefined, boundRegistry, undefined);
+    const r = resolveCrossHostTarget("pm@some-software-team@mm2-host", undefined, boundRegistry, undefined);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.target).toBe("pm@some-rig");
+    expect(r.target).toBe("pm@some-software-team");
     expect(r.sugarHost).toBe("mm2-host");
   });
 
   // The unbound entry is every entry that exists today. Migration is lazy and non-destructive, so
   // this must keep behaving exactly as it does now — an honest miss, not a new failure mode.
   it("still reports an unresolvable self-id when the entry has no join key yet", () => {
-    const r = resolveCrossHostTarget("pm@some-rig@host-84c37990", undefined, unboundRegistry, undefined);
+    const r = resolveCrossHostTarget("pm@some-software-team@host-84c37990", undefined, unboundRegistry, undefined);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.target).toBe("pm@some-rig@host-84c37990");
+    expect(r.target).toBe("pm@some-software-team@host-84c37990");
     expect(r.sugarHost).toBeUndefined();
     expect(r.hint).toContain("no registered host 'host-84c37990'");
   });
@@ -72,10 +72,10 @@ describe("cross-host target resolution — alias -> id -> transport", () => {
   // Two spellings of ONE host. An operator who pastes back the reply hint we printed them AND
   // passes --host with the human alias is naming the same machine twice, not two machines.
   it("accepts --host alias beside a target suffix that is the same entry's join key", () => {
-    const r = resolveCrossHostTarget("pm@some-rig@host-84c37990", "mm2-host", boundRegistry, undefined);
+    const r = resolveCrossHostTarget("pm@some-software-team@host-84c37990", "mm2-host", boundRegistry, undefined);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.target).toBe("pm@some-rig");
+    expect(r.target).toBe("pm@some-software-team");
     expect(r.sugarHost).toBe("mm2-host");
   });
 
@@ -84,39 +84,39 @@ describe("cross-host target resolution — alias -> id -> transport", () => {
       ok: true as const,
       registry: {
         hosts: [
-          { id: "mm2-host", transport: "http" as const, url: "http://x:7433", hostId: "host-84c37990" },
-          { id: "other-host", transport: "http" as const, url: "http://y:7433", hostId: "host-deadbeef" },
+          { id: "mm2-host", transport: "http" as const, url: "http://x:7434", hostId: "host-84c37990" },
+          { id: "other-host", transport: "http" as const, url: "http://y:7434", hostId: "host-deadbeef" },
         ],
       },
     });
-    const r = resolveCrossHostTarget("pm@some-rig@host-84c37990", "other-host", two, undefined);
+    const r = resolveCrossHostTarget("pm@some-software-team@host-84c37990", "other-host", two, undefined);
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.error).toContain("ambiguous host");
   });
 
   it("still rejects an --host that resolves to nothing", () => {
-    const r = resolveCrossHostTarget("pm@some-rig@host-84c37990", "not-registered", boundRegistry, undefined);
+    const r = resolveCrossHostTarget("pm@some-software-team@host-84c37990", "not-registered", boundRegistry, undefined);
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.error).toContain("ambiguous host");
   });
 
   it("leaves a plain two-part target alone", () => {
-    const r = resolveCrossHostTarget("pm@some-rig", undefined, boundRegistry, undefined);
+    const r = resolveCrossHostTarget("pm@some-software-team", undefined, boundRegistry, undefined);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.target).toBe("pm@some-rig");
+    expect(r.target).toBe("pm@some-software-team");
     expect(r.sugarHost).toBeUndefined();
   });
 
   // A message addressed to THIS machine's own self-id is not a cross-host message; the home-route
   // strip must keep winning over any registry match.
   it("strips this host's own self-id without routing anywhere", () => {
-    const r = resolveCrossHostTarget("pm@some-rig@host-SELF", undefined, boundRegistry, "host-SELF");
+    const r = resolveCrossHostTarget("pm@some-software-team@host-SELF", undefined, boundRegistry, "host-SELF");
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.target).toBe("pm@some-rig");
+    expect(r.target).toBe("pm@some-software-team");
     expect(r.sugarHost).toBeUndefined();
   });
 });

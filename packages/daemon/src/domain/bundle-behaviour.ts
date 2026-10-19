@@ -10,7 +10,7 @@ import { normalizePreconditionsBlock } from "./bundle-types.js";
 type ObjectValue = Record<string, unknown>;
 type SourceRef = { path: string; field?: string };
 type Resolution = "archive" | "host_at_launch" | "unresolved";
-type Assembler = { openrigVersion: string; commit?: string };
+type Assembler = { softwareteamVersion: string; commit?: string };
 export interface BehaviourIdentity {
   source: ObjectValue | null;
   configurationId: string | null;
@@ -41,7 +41,7 @@ interface WriteFact {
   sourceRefs: SourceRef[];
 }
 interface GeneratedBehaviour {
-  schema: "openrig.bundle-behaviour/v1";
+  schema: "softwareteam.bundle-behaviour/v1";
   state: "generated";
   identity: BehaviourIdentity;
   team: Array<{ seat: string; pod: string; member: string; agentRef: string; profile: string; runtime: string; model?: string; cwd: string }>;
@@ -54,7 +54,7 @@ interface GeneratedBehaviour {
   unknownBeforeLaunch: Array<{ seat?: string; subject: string; reason: string; sourceRefs: SourceRef[] }>;
 }
 export type BundleBehaviour = GeneratedBehaviour | {
-  schema: "openrig.bundle-behaviour/v1";
+  schema: "softwareteam.bundle-behaviour/v1";
   state: "not_generated";
   identity: BehaviourIdentity;
   reason: string;
@@ -104,18 +104,18 @@ export function describeBundleBehaviour(input: DescribeBundleInput): BundleBehav
     integrity: { digestValid: input.digestValid, filesVerified: input.filesVerified },
   };
   const unavailable = (reason: string): BundleBehaviour => ({
-    schema: "openrig.bundle-behaviour/v1", state: "not_generated", identity, reason,
-    localInspectCommand: "rig bundle inspect <archive> --json",
+    schema: "softwareteam.bundle-behaviour/v1", state: "not_generated", identity, reason,
+    localInspectCommand: "SoftwareTeam bundle inspect <archive> --json",
   });
   if (manifest.schema_version !== 2) return unavailable("A schema-1 archive has no pods or agent refs to describe.");
   try {
-    const rigPath = memberPath("", text(manifest.rig_spec) ?? "rig.yaml");
-    if (!rigPath || !files.has(rigPath)) return unavailable("The rig spec is not readable inside this archive.");
-    const rig = object(parseYaml(files.get(rigPath)!));
-    if (!Array.isArray(rig.pods)) return unavailable("This archive has no pod-aware rig spec to describe.");
-    const rigRoot = path.dirname(rigPath);
+    const softwareTeamPath = memberPath("", text(manifest.software_team_spec) ?? "software-team.yaml");
+    if (!softwareTeamPath || !files.has(softwareTeamPath)) return unavailable("The SoftwareTeam spec is not readable inside this archive.");
+    const softwareTeam = object(parseYaml(files.get(softwareTeamPath)!));
+    if (!Array.isArray(softwareTeam.pods)) return unavailable("This archive has no pod-aware SoftwareTeam spec to describe.");
+    const softwareTeamRoot = path.dirname(softwareTeamPath);
     const view: GeneratedBehaviour = {
-      schema: "openrig.bundle-behaviour/v1", state: "generated", identity,
+      schema: "softwareteam.bundle-behaviour/v1", state: "generated", identity,
       team: [], posture: [], toldFiles: [], alsoRuns: [], writes: [], outsideAddresses: [], needs: [], unknownBeforeLaunch: [],
     };
     const unknown = (subject: string, reason: string, sourceRefs: SourceRef[] = [], seat?: string) => {
@@ -158,15 +158,15 @@ export function describeBundleBehaviour(input: DescribeBundleInput): BundleBehav
       if (content === undefined) return undefined;
       return { spec: normalizeAgentSpec(parseAgentSpec(content)), dir, file };
     };
-    for (const podValue of rig.pods) {
+    for (const podValue of softwareTeam.pods) {
       const pod = object(podValue);
       for (const memberValue of list(pod.members)) {
         const member = object(memberValue);
         if (!text(pod.id) || !text(member.id) || !text(member.agent_ref)) return unavailable("A member is missing its pod, id or agent reference.");
         const seat = `${pod.id}.${member.id}`;
-        const sourceRefs = [{ path: rigPath, field: `pods.${pod.id}.members.${member.id}` }];
+        const sourceRefs = [{ path: softwareTeamPath, field: `pods.${pod.id}.members.${member.id}` }];
         const agentRef = String(member.agent_ref);
-        const agent = loadAgent(agentRef, rigRoot);
+        const agent = loadAgent(agentRef, softwareTeamRoot);
         if (!agent && agentRef !== "builtin:terminal" && !text(member.runtime)) {
           return unavailable(`Runtime for ${seat} depends on an AgentSpec that is not readable in this archive.`);
         }
@@ -179,14 +179,14 @@ export function describeBundleBehaviour(input: DescribeBundleInput): BundleBehav
         if (runtime !== "terminal") view.needs.push({ seat, kind: "login", name: `${runtime}: the user's own runtime account or provider configuration`, status: "not_checked", sourceRefs });
         let posture: "floor" | "full_bypass" | "auto" | undefined;
         let policySurface: "flag" | "config" | undefined;
-        const policy = text(member.permission_policy) ?? text(rig.permission_policy);
+        const policy = text(member.permission_policy) ?? text(softwareTeam.permission_policy);
         let basis: "explicit" | "product_default" | "unresolved" = policy ? "explicit" : "product_default";
         if (policy === "builtin:yolo") { posture = "full_bypass"; policySurface = "flag"; }
         else if (policy === "builtin:auto") { posture = "auto"; policySurface = "flag"; }
         else if (["builtin:locked", "builtin:standard", "builtin:open"].includes(policy ?? "")) policySurface = "config";
         else if (policy === "none") posture = "floor";
         else if (policy) {
-          const p = memberPath(rigRoot, policy);
+          const p = memberPath(softwareTeamRoot, policy);
           const raw = p ? files.get(p) : undefined;
           const parsed = raw === undefined ? undefined : parsePolicySpec(raw);
           if (parsed && !("error" in parsed) && validatePolicySpec(parsed.frontmatter).ok) {
@@ -215,10 +215,10 @@ export function describeBundleBehaviour(input: DescribeBundleInput): BundleBehav
           : posture === "auto" ? (runtime === "codex" ? "on" : undefined)
           : policySurface === "flag" && posture === "floor" ? "on"
           : basis === "product_default" ? "default" : undefined;
-        view.posture.push({ seat, shellAccess: "Can run shell commands as the launching user, subject to runtime and host policy.", selection, basis, ...(permissionPrompts ? { permissionPrompts } : {}), ...(posture === "full_bypass" && nativePermissionSurface ? { nonInterruptive: "available" as const, ...(typeof rig.non_interruptive === "boolean" ? { nonInterruptiveDefault: rig.non_interruptive } : {}) } : {}),
-          ...(posture === "full_bypass" && runtime === "claude-code" && rig.non_interruptive !== true ? { firstRunWarnings: { claudeBypass: "harness_asks_once" as const } } : {}),
+        view.posture.push({ seat, shellAccess: "Can run shell commands as the launching user, subject to runtime and host policy.", selection, basis, ...(permissionPrompts ? { permissionPrompts } : {}), ...(posture === "full_bypass" && nativePermissionSurface ? { nonInterruptive: "available" as const, ...(typeof softwareTeam.non_interruptive === "boolean" ? { nonInterruptiveDefault: softwareTeam.non_interruptive } : {}) } : {}),
+          ...(posture === "full_bypass" && runtime === "claude-code" && softwareTeam.non_interruptive !== true ? { firstRunWarnings: { claudeBypass: "harness_asks_once" as const } } : {}),
           nativeEffect: "unknown", sourceRefs });
-        const managed = runtime === "claude-code" ? text(object(rig.managed_blocks)["claude-code"]) ?? "CLAUDE.md" : runtime === "codex" ? "AGENTS.md" : undefined;
+        const managed = runtime === "claude-code" ? text(object(softwareTeam.managed_blocks)["claude-code"]) ?? "CLAUDE.md" : runtime === "codex" ? "AGENTS.md" : undefined;
         if (managed) write(seat, "managed_guidance", "seat_cwd", managed, sourceRefs, "merge managed blocks");
         const startup = (block: StartupBlock | undefined, base: string, refs: SourceRef[]) => {
           for (const f of block?.files ?? []) {
@@ -295,22 +295,22 @@ export function describeBundleBehaviour(input: DescribeBundleInput): BundleBehav
             }
           }
         } else if (agentRef !== "builtin:terminal") unknown(agentRef, "AgentSpec is not readable in this archive; its selected resources are unknown.", sourceRefs, seat);
-        if (text(rig.culture_file)) {
-          const fact = fileFact(seat, "culture", String(rig.culture_file), rigRoot, [{ path: rigPath, field: "culture_file" }]);
+        if (text(softwareTeam.culture_file)) {
+          const fact = fileFact(seat, "culture", String(softwareTeam.culture_file), softwareTeamRoot, [{ path: softwareTeamPath, field: "culture_file" }]);
           const content = fact.resolution === "archive" ? files.get(fact.pathOrRef) : undefined;
           view.toldFiles.push({ ...fact, delivery: content === undefined ? "auto" : resolveConcreteHint(fact.pathOrRef, content) });
         }
-        // These overlays use the RigSpec directory, unlike AgentSpec/profile startup.
-        for (const [raw, field] of [[rig.startup, "startup"], [pod.startup, `pods.${pod.id}.startup`], [member.startup, `pods.${pod.id}.members.${member.id}.startup`]] as const) {
-          if (raw) startup(normalizeAgentSpec({ name: "overlay", version: "1", startup: raw }).startup, rigRoot, [{ path: rigPath, field }]);
+        // These overlays use the SoftwareTeamSpec directory, unlike AgentSpec/profile startup.
+        for (const [raw, field] of [[softwareTeam.startup, "startup"], [pod.startup, `pods.${pod.id}.startup`], [member.startup, `pods.${pod.id}.members.${member.id}.startup`]] as const) {
+          if (raw) startup(normalizeAgentSpec({ name: "overlay", version: "1", startup: raw }).startup, softwareTeamRoot, [{ path: softwareTeamPath, field }]);
         }
         if (member.session_source || member.starter_ref) unknown(seat, "Prior conversation, starter and rebuild inputs are resolved at launch.", sourceRefs, seat);
       }
     }
-    if (rig.services) {
-      const services = object(rig.services);
-      const refs = [{ path: rigPath, field: "services" }];
-      view.alsoRuns.push({ ...fileFact(undefined, "services", text(services.compose_file) ?? "compose.yaml", rigRoot, refs), trigger: "before agent launch; existing health checks still apply" });
+    if (softwareTeam.services) {
+      const services = object(softwareTeam.services);
+      const refs = [{ path: softwareTeamPath, field: "services" }];
+      view.alsoRuns.push({ ...fileFact(undefined, "services", text(services.compose_file) ?? "compose.yaml", softwareTeamRoot, refs), trigger: "before agent launch; existing health checks still apply" });
       view.needs.push({ kind: "tool", name: "Docker Compose and the declared services", status: "not_checked", sourceRefs: refs });
       for (const hook of list(services.checkpoints)) {
         for (const field of ["export_command", "import_command"]) {
@@ -324,12 +324,12 @@ export function describeBundleBehaviour(input: DescribeBundleInput): BundleBehav
     for (const [index, precondition] of (preconditions ?? []).entries()) {
       view.needs.push({ kind: "precondition", ...precondition, status: "not_checked", sourceRefs: [{ path: "bundle.yaml", field: `preconditions[${index}]` }] });
     }
-    for (const [key, name] of [["min_daemon_version", "OpenRig daemon"], ["min_cli_version", "OpenRig CLI"]] as const) {
+    for (const [key, name] of [["min_daemon_version", "SoftwareTeam daemon"], ["min_cli_version", "SoftwareTeam CLI"]] as const) {
       const versionConstraint = text(object(manifest.compatibility)[key]);
       if (versionConstraint) view.needs.push({ kind: "version", name, versionConstraint: `>=${versionConstraint}`, status: "not_checked", sourceRefs: [{ path: "bundle.yaml", field: `compatibility.${key}` }] });
     }
     write(undefined, "bundle_files", "install_target", ".", [{ path: "bundle.yaml" }], "materialize archive");
-    for (const [key, destinationBase] of Object.entries({ skills: "openrig_home/packages", plugins: "openrig_home/plugins", workflow_specs: "workspace.specs/workflows", context_packs: "context.root", agent_images: "openrig_home/agent-images" })) {
+    for (const [key, destinationBase] of Object.entries({ skills: "softwareteam_home/packages", plugins: "softwareteam_home/plugins", workflow_specs: "workspace.specs/workflows", context_packs: "context.root", agent_images: "softwareteam_home/agent-images" })) {
       for (const entry of list(manifest[key])) {
         const ref = text(entry) ?? text(object(object(entry).source).path);
         if (ref) {
@@ -343,7 +343,7 @@ export function describeBundleBehaviour(input: DescribeBundleInput): BundleBehav
     if (text(object(manifest.project).id)) {
       const refs = [{ path: "bundle.yaml", field: "project" }];
       write(undefined, "project_files", "workspace.projects_root", String(object(manifest.project).id), refs, "materialize carried project if absent");
-      write(undefined, "project_registration", "workspace.catalog_path", ".", refs, "register carried project and associate installed rig");
+      write(undefined, "project_registration", "workspace.catalog_path", ".", refs, "register carried project and associate installed softwareTeam");
     }
     const domains = new Map<string, SourceRef[]>();
     for (const [p, content] of [...files].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) {
@@ -359,7 +359,7 @@ export function describeBundleBehaviour(input: DescribeBundleInput): BundleBehav
     view.outsideAddresses = [...domains].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([domain, sourceRefs]) => ({ domain, sourceRefs }));
     unknown("host and native settings", "Effective permissions, login, model availability, runtime versions, host catalogs/plugins and configured paths are not checked before launch.");
     unknown("runtime behavior", "Scripts and agents can compute other actions and addresses. Literal URL occurrences are not a prediction of network traffic.");
-    unknown("built-in and host integration", "The installed OpenRig/runtime adds culture, onboarding, session identity and host context, and can provision runtime hook/settings files. Those bytes and effects are outside this archive.");
+    unknown("built-in and host integration", "The installed SoftwareTeam/runtime adds culture, onboarding, session identity and host context, and can provision runtime hook/settings files. Those bytes and effects are outside this archive.");
     if (input.omittedFiles?.length) unknown("unread text", "Binary, oversized or unreadable members were not scanned; this view cannot account for their contents.", input.omittedFiles.map(p => ({ path: p })));
     return view;
   } catch (error) {

@@ -6,155 +6,155 @@ workflow:
   version: 1
   objective: Deliver one verified deployed product through seven accountable project specialists.
   entry:
-    role: coordinator
+    role: manage-agent
   exception_routing:
     default: orchestrator
-    orchestrator_role: coordinator
+    orchestrator_role: manage-agent
   roles:
-    coordinator: {}
-    requirements: {}
-    architecture: {}
-    development: {}
-    review: {}
-    testing: {}
-    operations: {}
+    manage-agent: {}
+    need-agent: {}
+    home-agent: {}
+    code-agent: {}
+    review-agent: {}
+    test-agent: {}
+    run-agent: {}
   steps:
     - id: intake
-      actor_role: coordinator
+      actor_role: manage-agent
       objective: >
         Receive a new requirement, incident remediation, or feedback on an existing PR. Record the delivery mode, request revision, candidate, scope and evidence addresses; use Socratic discussion with the human to clarify intent. Existing PR feedback starts a new verification cycle without requiring merge.
       allowed_exits: [handoff, waiting, failed]
       next_hop:
         on:
-          handoff: requirements
-    - id: requirements
-      actor_role: requirements
+          handoff: need-agent
+    - id: need-agent
+      actor_role: need-agent
       objective: >
-        Analyze the request or recorded reproduction with acceptance criteria and traceability. Return a versioned requirements packet, rationale, open questions and evidence to the coordinator; do not approve implementation or silently alter SOPs.
+        Analyze the request or recorded reproduction with acceptance criteria and traceability. Return a versioned requirements packet, rationale, open questions and evidence to the manage-agent; do not approve implementation or silently alter SOPs.
       allowed_exits: [handoff, waiting, failed]
       next_hop:
         on:
-          handoff: requirements_gate
-          failed: requirements_gate
-    - id: requirements_gate
-      actor_role: coordinator
+          handoff: need-agent_gate
+          failed: need-agent_gate
+    - id: need-agent_gate
+      actor_role: manage-agent
       objective: >
-        Check the requirements packet and evidence against the approved SOP. Handoff approves architecture work; failed requests requirements rework. Wait for human discussion on disputes or proposed SOP, standard, gate or risk changes; record the human decision before continuing.
+        Check the requirements packet and evidence against the approved SOP. Handoff approves architecture work by home-agent; failed requests requirements rework from need-agent. Wait for human discussion on disputes or proposed SOP, standard, gate or risk changes; record the human decision before continuing.
       allowed_exits: [handoff, waiting, failed]
       next_hop:
         on:
-          handoff: architecture
-          failed: requirements
-    - id: architecture
-      actor_role: architecture
+          handoff: home-agent
+          failed: need-agent
+    - id: home-agent
+      actor_role: home-agent
       objective: >
-        Propose or revise the technical design using the project architecture decisions, evolution roadmap and technical debt ledger. Return tradeoffs, risks, verification requirements and evidence on the current requirements revision to the coordinator; human experts decide risk acceptance and debt deferral.
+        Propose or revise the technical design using the project architecture decisions, evolution roadmap and technical debt ledger. Return tradeoffs, risks, verification requirements and evidence on the current requirement revision to the manage-agent; human experts decide risk acceptance and debt deferral.
       allowed_exits: [handoff, waiting, failed]
       next_hop:
         on:
-          handoff: architecture_gate
-          failed: architecture_gate
-    - id: architecture_gate
-      actor_role: coordinator
+          handoff: home-agent_gate
+          failed: home-agent_gate
+    - id: home-agent_gate
+      actor_role: manage-agent
       objective: >
-        Check design evidence and unresolved decisions. Handoff approves development; failed returns to requirements and design clarification. Wait for human discussion when experts dispute the design or accepting a risk requires a human decision.
+        Check design evidence and unresolved decisions. Handoff approves implementation by code-agent; failed returns to requirements and design clarification. Wait for human discussion when experts dispute the design or accepting a risk requires a human decision.
       allowed_exits: [handoff, waiting, failed]
       next_hop:
         on:
-          handoff: development
-          failed: requirements
-    - id: development
-      actor_role: development
+          handoff: code-agent
+          failed: need-agent
+    - id: code-agent
+      actor_role: code-agent
       objective: >
-        Implement the approved requirements and design; supervise subagents and verify their results. Return the exact candidate commit or artifact digest, changed files, self-check results and evidence to the coordinator. Fix feedback with a new candidate and require renewed downstream confirmation.
+        Implement the approved requirements and design; supervise subagents and verify their results. Return the exact candidate commit or artifact digest, changed files, self-check results and evidence to the manage-agent. Fix feedback with a new candidate and require renewed downstream confirmation.
       allowed_exits: [handoff, waiting, failed]
       next_hop:
         on:
-          handoff: development_gate
-          failed: development_gate
-    - id: development_gate
-      actor_role: coordinator
+          handoff: code-agent_gate
+          failed: code-agent_gate
+    - id: code-agent_gate
+      actor_role: manage-agent
       objective: >
-        Check implementation evidence, candidate identity and unresolved issues before architecture verification. Handoff approves architecture verification; failed requests development rework. Record affected prior judgments as historical when the candidate changes and require fresh confirmation.
+        Check implementation evidence, candidate identity and unresolved issues before home-agent verification. Handoff approves home-agent verification; failed requests code-agent rework. Record affected prior judgments as historical when the candidate changes and require fresh confirmation.
       allowed_exits: [handoff, waiting, failed]
       next_hop:
         on:
-          handoff: architecture_verification
-          failed: development
-    - id: architecture_verification
-      actor_role: architecture
+          handoff: home-agent_verification
+          failed: code-agent
+    - id: home-agent_verification
+      actor_role: home-agent
       objective: >
-        Inspect the implemented candidate against the approved design and quality scenarios. Return conformance evidence, deviations, technical debt and any human risk decisions to the coordinator; update project architecture facts and verify fixes when the candidate changes.
+        Inspect the implemented candidate against the approved design and quality scenarios. Return conformance evidence, deviations, technical debt and any human risk decisions to the manage-agent; update project architecture facts and verify fixes when the candidate changes.
       allowed_exits: [handoff, waiting, failed]
       next_hop:
         on:
-          handoff: architecture_verification_gate
-          failed: architecture_verification_gate
-    - id: architecture_verification_gate
-      actor_role: coordinator
+          handoff: home-agent_verification_gate
+          failed: home-agent_verification_gate
+    - id: home-agent_verification_gate
+      actor_role: manage-agent
       objective: >
-        Check candidate-bound architecture conformance evidence and human decisions. Handoff admits independent review; failed requests development correction. Wait for the human expert when accepting a deviation or deferring debt needs a decision.
+        Check candidate-bound architecture conformance evidence and human decisions. Handoff admits independent review by review-agent; failed requests code-agent correction. Wait for the human expert when accepting a deviation or deferring debt needs a decision.
       allowed_exits: [handoff, waiting, failed]
       next_hop:
         on:
-          handoff: review
-          failed: development
-    - id: review
-      actor_role: review
+          handoff: review-agent
+          failed: code-agent
+    - id: review-agent
+      actor_role: review-agent
       objective: >
         Independently review the exact candidate against requirements, architecture and approved engineering standards. Return findings with source locations, impact, rationale and evidence, plus the candidate-bound verdict. Recheck each requested correction and retain earlier conclusions as historical evidence.
       allowed_exits: [handoff, waiting, failed]
       next_hop:
         on:
-          handoff: review_gate
-          failed: review_gate
-    - id: review_gate
-      actor_role: coordinator
+          handoff: review-agent_gate
+          failed: review-agent_gate
+    - id: review-agent_gate
+      actor_role: manage-agent
       objective: >
-        Inspect the review verdict and supporting evidence for the current candidate. Handoff admits testing; failed returns to development, followed by fresh review and testing. Wait for human discussion of disputed findings rather than silently accepting risk.
+        Inspect the review-agent verdict and supporting evidence for the current candidate. Handoff admits testing by test-agent; failed returns to code-agent, followed by fresh independent review and testing. Wait for human discussion of disputed findings rather than silently accepting risk.
       allowed_exits: [handoff, waiting, failed]
       next_hop:
         on:
-          handoff: testing
-          failed: development
-    - id: testing
-      actor_role: testing
+          handoff: test-agent
+          failed: code-agent
+    - id: test-agent
+      actor_role: test-agent
       objective: >
-        Actually execute tests for the new functionality against the exact reviewed candidate. Return requirement-to-test coverage, commands, environment, observed results, reproduction steps, regression evidence and candidate-bound verdict; report defects to the coordinator and verify fixes on the new version.
+        Actually execute tests for the new functionality against the exact reviewed candidate. Return requirement-to-test coverage, commands, environment, observed results, reproduction steps, regression evidence and candidate-bound verdict; report defects to the manage-agent and verify fixes on the new version.
       allowed_exits: [handoff, waiting, failed]
       next_hop:
         on:
-          handoff: testing_gate
-          failed: testing_gate
-    - id: testing_gate
-      actor_role: coordinator
+          handoff: test-agent_gate
+          failed: test-agent_gate
+    - id: test-agent_gate
+      actor_role: manage-agent
       objective: >
-        Check actual execution and regression evidence for the current candidate. Handoff admits requirements acceptance only after testing passes; failed returns to development and repeats review and testing. Missing evidence or disputed quality remains waiting for resolution.
+        Check actual execution and regression evidence for the current candidate. Handoff admits need-agent acceptance only after testing passes; failed returns to code-agent and repeats independent review and testing. Missing evidence or disputed quality remains waiting for resolution.
       allowed_exits: [handoff, waiting, failed]
       next_hop:
         on:
           handoff: acceptance
-          failed: development
+          failed: code-agent
     - id: acceptance
-      actor_role: requirements
+      actor_role: need-agent
       objective: >
-        After testing passes, inspect the final candidate against original intent and every acceptance criterion. Return an evidence-backed product acceptance verdict and remaining gaps to the coordinator. Maintain traceability and revalidate changed versions; a passing test report alone is not requirements acceptance.
+        After testing passes, inspect the final candidate against original intent and every acceptance criterion. Return an evidence-backed product acceptance verdict and remaining gaps to the manage-agent. Maintain traceability and revalidate changed versions; a passing test report alone is not need-agent acceptance.
       allowed_exits: [handoff, waiting, failed]
       next_hop:
         on:
           handoff: acceptance_gate
           failed: acceptance_gate
     - id: acceptance_gate
-      actor_role: coordinator
+      actor_role: manage-agent
       objective: >
-        Check current-candidate requirements acceptance and all prior evidence. Handoff authorizes operations deployment and live retesting; failed returns to requirements clarification and the complete implementation verification cycle.
+        Check current-candidate need-agent acceptance and all prior evidence. Handoff authorizes run-agent deployment and live retesting; failed returns to requirements clarification by need-agent and the complete implementation verification cycle.
       allowed_exits: [handoff, waiting, failed]
       next_hop:
         on:
           handoff: deployment
-          failed: requirements
+          failed: need-agent
     - id: deployment
-      actor_role: operations
+      actor_role: run-agent
       objective: >
         Deploy the exact accepted candidate to the target environment, then actually retest the live product and verify health, migrations, rollback readiness and access. Return deployment identity, environment, accessible product address and live-test evidence. Resources and test environments may be supported earlier on request. Autonomous rollback or incident recovery restores service but never closes root-cause remediation; record reproduction and submit a linked repair requirement even after recovery.
       allowed_exits: [handoff, waiting, failed]
@@ -163,21 +163,21 @@ workflow:
           handoff: deployment_gate
           failed: deployment_gate
     - id: deployment_gate
-      actor_role: coordinator
+      actor_role: manage-agent
       objective: >
-        Check deployed candidate identity, live retest evidence and unresolved operational issues. Handoff admits product delivery only when the target environment passes. Failed returns to development and repeats review, testing, acceptance and deployment; wait for human discussion of disputes. Recovery evidence alone cannot count as final delivery.
+        Check deployed candidate identity, live retest evidence and unresolved operational issues. Handoff admits product delivery only when the target environment passes. Failed returns to code-agent and repeats independent review, testing, acceptance and deployment; wait for human discussion of disputes. Recovery evidence alone cannot count as final delivery.
       allowed_exits: [handoff, waiting, failed]
       next_hop:
         on:
           handoff: delivery
-          failed: development
+          failed: code-agent
     - id: delivery
-      actor_role: coordinator
+      actor_role: manage-agent
       objective: >
-        Deliver the accessible product only after requirements acceptance, deployment and live retesting on the same candidate. Record the final evidence packet, version, open follow-ups and all specialist closure confirmations. Failed returns to requirements; wait for unresolved human decisions.
+        Deliver the accessible product only after need-agent acceptance, deployment and live retesting on the same candidate. Record the final evidence packet, version, open follow-ups and all specialist closure confirmations. Failed returns to need-agent; wait for unresolved human decisions.
       allowed_exits: [done, waiting, failed]
       next_hop:
         on:
-          failed: requirements
+          failed: need-agent
   loop_guards:
     max_hops: 100

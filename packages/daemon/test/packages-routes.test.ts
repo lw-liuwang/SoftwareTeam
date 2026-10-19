@@ -317,8 +317,8 @@ roles:
 
     // Verify managed block was inserted
     const claudeMd = fs.readFileSync(path.join(targetDir, "CLAUDE.md"), "utf-8");
-    expect(claudeMd).toContain("<!-- BEGIN OpenRig MANAGED BLOCK: guidance-pkg -->");
-    expect(claudeMd).toContain("<!-- END OpenRig MANAGED BLOCK: guidance-pkg -->");
+    expect(claudeMd).toContain("<!-- BEGIN SoftwareTeam MANAGED BLOCK: guidance-pkg -->");
+    expect(claudeMd).toContain("<!-- END SoftwareTeam MANAGED BLOCK: guidance-pkg -->");
     expect(claudeMd).toContain("# Existing content");
   });
 
@@ -917,7 +917,7 @@ requirements:
   it("GET /api/events (global) receives package.installed via SSE", async () => {
     writePkg(pkgDir, VALID_MANIFEST_YAML, { "skills/helper/SKILL.md": SKILL_CONTENT });
 
-    // Start SSE stream (no rigId = global)
+    // Start SSE stream (no softwareTeamId = global)
     const ssePromise = app.request("/api/events");
 
     // Small delay to let SSE subscribe
@@ -1009,12 +1009,12 @@ requirements:
     expect(typeof payload.conflicts).toBe("number");
   });
 
-  // --- Test 26: SSE with rigId still works (backward compat) ---
-  it("GET /api/events?rigId=X returns only rig-scoped events, not package events", async () => {
+  // --- Test 26: SSE with softwareTeamId still works (backward compat) ---
+  it("GET /api/events?softwareTeamId=X returns only software-team-scoped events, not package events", async () => {
     writePkg(pkgDir, VALID_MANIFEST_YAML, { "skills/helper/SKILL.md": SKILL_CONTENT });
 
-    // Emit a rig event first
-    setup.eventBus.emit({ type: "rig.created", rigId: "test-rig" });
+    // Emit a softwareTeam event first
+    setup.eventBus.emit({ type: "software-team.created", softwareTeamId: "test-software-team" });
 
     // Trigger a package event
     await app.request("/api/packages/validate", {
@@ -1023,8 +1023,8 @@ requirements:
       body: JSON.stringify({ sourceRef: pkgDir }),
     });
 
-    // SSE with rigId should only get rig events
-    const sseRes = await app.request("/api/events?rigId=test-rig");
+    // SSE with softwareTeamId should only get softwareTeam events
+    const sseRes = await app.request("/api/events?softwareTeamId=test-software-team");
     const reader = sseRes.body!.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -1054,9 +1054,9 @@ requirements:
     }
     reader.cancel().catch(() => {});
 
-    // Should have rig.created, but NOT package.validated
+    // Should have software-team.created, but NOT package.validated
     const types = sseEvents.map((e) => JSON.parse(e.data).type);
-    expect(types).toContain("rig.created");
+    expect(types).toContain("software-team.created");
     expect(types).not.toContain("package.validated");
   });
 

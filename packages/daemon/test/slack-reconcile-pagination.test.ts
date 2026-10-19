@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
 it.each(["recovery", "incomplete"])("%s reconciliation recovers markers and retries incomplete scans without stranding notifications", (group) => {
-  const home = mkdtempSync(join(tmpdir(), "openrig-reconcile-pages-"));
+  const home = mkdtempSync(join(tmpdir(), "softwareteam-reconcile-pages-"));
   try {
     const result = spawnSync(process.execPath, [
       fileURLToPath(new URL("./fixtures/slack-reconcile-pagination.mjs", import.meta.url)), group, home,

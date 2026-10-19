@@ -3,19 +3,19 @@ import { wrapSendBody } from "../src/commands/send.js";
 
 describe("wrapSendBody — pre-release CLI/daemon Item 2 (email-style envelope)", () => {
   it("renders From / To / body / reply hint with both session names", () => {
-    const out = wrapSendBody("driver-3@my-rig", "guard-3@my-rig", "Status: ready.");
-    expect(out).toContain("From: driver-3@my-rig");
-    expect(out).toContain("To: guard-3@my-rig");
+    const out = wrapSendBody("driver-3@my-software-team", "guard-3@my-software-team", "Status: ready.");
+    expect(out).toContain("From: driver-3@my-software-team");
+    expect(out).toContain("To: guard-3@my-software-team");
     expect(out).toContain("Status: ready.");
-    expect(out).toContain('↩ Reply: rig send driver-3@my-rig "..."');
+    expect(out).toContain('↩ Reply: SoftwareTeam send driver-3@my-software-team "..."');
   });
 
   it("routes an external sender's reply through the durable human queue", () => {
-    const out = wrapSendBody("decision-maker@external", "driver@rig", "Decision received.");
+    const out = wrapSendBody("decision-maker@external", "driver@software-team", "Decision received.");
     expect(out).toContain("From: decision-maker@external");
-    expect(out).toContain('↩ Reply if needed: rig queue create --destination decision-maker@external --summary "<one line>" --body "..." --verify');
-    expect(out).not.toContain("rig send decision-maker@external");
-    expect(wrapSendBody("driver@external-tools", "guard@rig", "Status.")).toContain('↩ Reply: rig send driver@external-tools "..."');
+    expect(out).toContain('↩ Reply if needed: SoftwareTeam queue create --destination decision-maker@external --summary "<one line>" --body "..." --verify');
+    expect(out).not.toContain("SoftwareTeam send decision-maker@external");
+    expect(wrapSendBody("driver@external-tools", "guard@software-team", "Status.")).toContain('↩ Reply: SoftwareTeam send driver@external-tools "..."');
   });
 
   it("preserves the original body verbatim between the dash separators", () => {
@@ -31,7 +31,7 @@ describe("wrapSendBody — pre-release CLI/daemon Item 2 (email-style envelope)"
     expect(out).toContain("From: a@r");
     expect(out).toContain("To: b@r");
     expect(out).toContain("---\n\n---");
-    expect(out).toContain('↩ Reply: rig send a@r "..."');
+    expect(out).toContain('↩ Reply: SoftwareTeam send a@r "..."');
   });
 
   // P18 DELIVER-AND-LABEL RESTORED the CLI `<unknown sender>` fallback: an env-less send DELIVERS carrying
@@ -44,10 +44,10 @@ describe("wrapSendBody — pre-release CLI/daemon Item 2 (email-style envelope)"
     expect(wrapSendBody("", "b@r", "hi")).toContain("From: <unknown sender>");
     expect(wrapSendBody("   ", "b@r", "hi")).toContain("From: <unknown sender>");
     // the reply hint routes to the honest marker, not a fabricated identity:
-    expect(wrapSendBody(undefined, "b@r", "hi")).toContain('↩ Reply: rig send <unknown sender> "..."');
+    expect(wrapSendBody(undefined, "b@r", "hi")).toContain('↩ Reply: SoftwareTeam send <unknown sender> "..."');
   });
 
-  it("uses the literal recipient string in the To header so cross-rig addresses survive", () => {
+  it("uses the literal recipient string in the To header so cross-software-team addresses survive", () => {
     const out = wrapSendBody("from@a", "to@b", "x");
     expect(out).toMatch(/^From: from@a\nTo: to@b\n---\n/);
   });
@@ -55,7 +55,7 @@ describe("wrapSendBody — pre-release CLI/daemon Item 2 (email-style envelope)"
   // Send/broadcast header (ruling 03c35295) — MUST mirror packages/daemon/test/pane-envelope.test.ts
   // byte-for-byte (the twin parity contract). Envelope=truth, render=projection; scale=anti-storm teeth.
   it("backward-compat: with no meta, the output is exactly today's 6-line DM envelope (no Sent line)", () => {
-    expect(wrapSendBody("a@r", "b@r", "hi")).toBe("From: a@r\nTo: b@r\n---\nhi\n---\n↩ Reply: rig send a@r \"...\"");
+    expect(wrapSendBody("a@r", "b@r", "hi")).toBe("From: a@r\nTo: b@r\n---\nhi\n---\n↩ Reply: SoftwareTeam send a@r \"...\"");
   });
 
   it("multi-send renders the FULL recipient list on the To line", () => {
@@ -63,9 +63,9 @@ describe("wrapSendBody — pre-release CLI/daemon Item 2 (email-style envelope)"
     expect(out).toContain("To: b@r, c@r, d@r");
   });
 
-  it("rig-broadcast renders 'broadcast to <rig> (N seats)' — the anti-storm scale", () => {
-    const out = wrapSendBody("a@r", "openrig-pm", "hi", { scope: { kind: "rig-broadcast", rig: "openrig-pm", seats: 11 } });
-    expect(out).toContain("To: broadcast to openrig-pm (11 seats)");
+  it("software-team-broadcast renders 'broadcast to <softwareTeam> (N seats)' — the anti-storm scale", () => {
+    const out = wrapSendBody("a@r", "softwareteam-pm", "hi", { scope: { kind: "software-team-broadcast", softwareTeam: "softwareteam-pm", seats: 11 } });
+    expect(out).toContain("To: broadcast to softwareteam-pm (11 seats)");
   });
 
   it("topology-broadcast renders 'broadcast to topology'", () => {
@@ -78,13 +78,13 @@ describe("wrapSendBody — pre-release CLI/daemon Item 2 (email-style envelope)"
     expect(out).toContain("Sent: 08-06 17:42Z");
   });
 
-  it("storm test: DM / multi / rig-bcast / topology each render distinct To lines (header-alone)", () => {
+  it("storm test: DM / multi / software-team-bcast / topology each render distinct To lines (header-alone)", () => {
     const to = (out: string) => out.split("\n").find((l) => l.startsWith("To:"));
     const dm = to(wrapSendBody("a@r", "b@r", "x"));
     const multi = to(wrapSendBody("a@r", "b@r", "x", { scope: { kind: "multi", recipients: ["b@r", "c@r"] } }));
-    const rig = to(wrapSendBody("a@r", "r", "x", { scope: { kind: "rig-broadcast", rig: "r", seats: 4 } }));
+    const softwareTeam = to(wrapSendBody("a@r", "r", "x", { scope: { kind: "software-team-broadcast", softwareTeam: "r", seats: 4 } }));
     const topo = to(wrapSendBody("a@r", "*", "x", { scope: { kind: "topology" } }));
-    expect(new Set([dm, multi, rig, topo]).size).toBe(4);
+    expect(new Set([dm, multi, softwareTeam, topo]).size).toBe(4);
   });
 
   // ── GHOST-STAGE (g): sender-generation suffix on the Sent: line ──
@@ -99,7 +99,7 @@ describe("wrapSendBody — pre-release CLI/daemon Item 2 (email-style envelope)"
 
   it("(g) byte-exact full envelope with gen (cross-package parity anchor)", () => {
     const out = wrapSendBody("a@r", "b@r", "hi", { stampISO: "2026-08-06T17:42:09Z", genUuid: GEN });
-    expect(out).toBe('From: a@r\nTo: b@r\nSent: 08-06 17:42Z · gen a1b2c3d4\n---\nhi\n---\n↩ Reply: rig send a@r "..."');
+    expect(out).toBe('From: a@r\nTo: b@r\nSent: 08-06 17:42Z · gen a1b2c3d4\n---\nhi\n---\n↩ Reply: SoftwareTeam send a@r "..."');
   });
 
   it("(g) pin-a: OMITS the suffix entirely when the generation is UNKNOWN (never 'gen unknown', never forged)", () => {

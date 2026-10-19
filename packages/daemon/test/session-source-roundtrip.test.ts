@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
-import { RigSpecCodec } from "../src/domain/rigspec-codec.js";
+import { SoftwareTeamSpecCodec } from "../src/domain/software-team-spec-codec.js";
 
-const RIG_ROOT = "/project/rigs/session-source-roundtrip";
+const SOFTWARE_TEAM_ROOT = "/project/software-teams/session-source-roundtrip";
 
 function agentYaml(): string {
   return `name: impl
@@ -16,7 +16,7 @@ profiles:
       skills: []`;
 }
 
-describe("RigSpec session_source persistence", () => {
+describe("SoftwareTeamSpec session_source persistence", () => {
   let db: Database.Database;
   let app: ReturnType<typeof createTestApp>;
 
@@ -25,10 +25,10 @@ describe("RigSpec session_source persistence", () => {
     app = createTestApp(db, {
       podInstantiatorFsOps: {
         readFile: (path: string) => {
-          if (path === `${RIG_ROOT}/agents/impl/agent.yaml`) return agentYaml();
+          if (path === `${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`) return agentYaml();
           throw new Error(`Not found: ${path}`);
         },
-        exists: (path: string) => path === `${RIG_ROOT}/agents/impl/agent.yaml`,
+        exists: (path: string) => path === `${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`,
       },
     });
   });
@@ -57,14 +57,14 @@ describe("RigSpec session_source persistence", () => {
         edges: [],
       }],
       edges: [],
-    }, RIG_ROOT);
+    }, SOFTWARE_TEAM_ROOT);
 
     expect(materialized.ok, JSON.stringify(materialized)).toBe(true);
     if (!materialized.ok) return;
 
-    expect(app.rigRepo.getRig(materialized.result.rigId)!.nodes[0]!.sessionSource)
+    expect(app.softwareTeamRepo.getSoftwareTeam(materialized.result.softwareTeamId)!.nodes[0]!.sessionSource)
       .toEqual(sessionSource);
-    const exported = app.rigSpecExporter.exportRig(materialized.result.rigId);
+    const exported = app.softwareTeamSpecExporter.exportSoftwareTeam(materialized.result.softwareTeamId);
     expect("pods" in exported).toBe(true);
     if (!("pods" in exported)) return;
     expect(exported.pods[0]!.members[0]!.sessionSource).toEqual(sessionSource);
@@ -75,7 +75,7 @@ describe("RigSpec session_source persistence", () => {
       mode: "fork",
       ref: { kind: "native_id", value: "parent-session-id" },
     } as const;
-    const outcome = await app.podInstantiator.instantiate(RigSpecCodec.serialize({
+    const outcome = await app.podInstantiator.instantiate(SoftwareTeamSpecCodec.serialize({
       version: "0.2",
       name: "session-source-bootstrap",
       pods: [{
@@ -92,12 +92,12 @@ describe("RigSpec session_source persistence", () => {
         edges: [],
       }],
       edges: [],
-    }), RIG_ROOT);
+    }), SOFTWARE_TEAM_ROOT);
 
     expect(outcome.ok, JSON.stringify(outcome)).toBe(true);
     if (!outcome.ok) return;
 
-    const exported = app.rigSpecExporter.exportRig(outcome.result.rigId);
+    const exported = app.softwareTeamSpecExporter.exportSoftwareTeam(outcome.result.softwareTeamId);
     expect("pods" in exported).toBe(true);
     if (!("pods" in exported)) return;
     expect(exported.pods[0]!.members[0]!.sessionSource).toEqual(sessionSource);

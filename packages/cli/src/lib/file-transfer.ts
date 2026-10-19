@@ -1,4 +1,4 @@
-// OPR.0.4.4.18 — `rig file copy` core: path grammar, the FR-4 security wall,
+// OPR.0.4.4.18 — `softwareTeam file copy` core: path grammar, the FR-4 security wall,
 // the closed rsync argv builder, and result classification.
 //
 // SECURITY CELL (plan §3 + §7a/§7a-2, guard-cleared over three rounds):
@@ -31,7 +31,7 @@
 //
 // DENY WALL (FR-4, arch-endorsed SHORT CLOSED NAMED list — extension = a
 // ruling, never a growing blocklist): local side denies resolved paths under
-// ~/.openrig (live rig state — crash-safety class), ~/.ssh, ~/.codex,
+// ~/.softwareteam (live softwareTeam state — crash-safety class), ~/.ssh, ~/.codex,
 // ~/.claude (credential/shared-singleton classes); remote side denies any
 // path CONTAINING one of those dot-directory segments (conservative-over-
 // broad: /srv/backup/.ssh/x is still a credentials dir; false positives are
@@ -43,7 +43,7 @@ import { StringDecoder } from "node:string_decoder";
 import { spawn as nodeSpawn } from "node:child_process";
 import { loadHostRegistry, resolveHost, type SshHostEntry } from "./../host-registry.js";
 import { looksLikePermissionGate } from "./../cross-host-executor.js";
-import { getDefaultOpenRigPath, getOpenRigHome } from "./../openrig-compat.js";
+import { getDefaultSoftwareTeamPath, getSoftwareTeamHome } from "./../softwareteam-compat.js";
 
 // ── grammar ────────────────────────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ const SSH_USER_SHAPE = /^[A-Za-z0-9._-]+$/;
 export const REMOTE_PATH_CHARSET = /^[A-Za-z0-9._/-]+$/;
 
 /** The FR-4 short closed named deny list (dot-directory segments). */
-export const DENIED_SEGMENTS = [".openrig", ".ssh", ".codex", ".claude"] as const;
+export const DENIED_SEGMENTS = [".softwareteam", ".ssh", ".codex", ".claude"] as const;
 
 export function parseFilePathArg(raw: string, isRegisteredHost: (id: string) => boolean = () => false): FileArgParse {
   if (raw === "") return { ok: false, error: "empty path operand" };
@@ -110,12 +110,12 @@ export type PathCheck = { ok: true; normalizedPath: string } | { ok: false; erro
 export function checkLocalPath(raw: string): PathCheck {
   const resolved = path.resolve(expandLocalTilde(raw));
   const home = os.homedir();
-  const activeOpenRigHome = path.resolve(getOpenRigHome());
-  const activeHostsRegistry = path.resolve(getDefaultOpenRigPath("hosts.yaml"));
+  const activeSoftwareTeamHome = path.resolve(getSoftwareTeamHome());
+  const activeHostsRegistry = path.resolve(getDefaultSoftwareTeamPath("hosts.yaml"));
   if (resolved === activeHostsRegistry) {
     return {
       ok: false,
-      error: `refused: '${raw}' resolves to the active hosts registry (${activeHostsRegistry}) — the registry itself is not a copy source/target in v0. This is the FR-4 default-deny wall (live OpenRig state; extension requires a ruling).`,
+      error: `refused: '${raw}' resolves to the active hosts registry (${activeHostsRegistry}) — the registry itself is not a copy source/target in v0. This is the FR-4 default-deny wall (live SoftwareTeam state; extension requires a ruling).`,
     };
   }
   for (const segment of DENIED_SEGMENTS) {
@@ -123,17 +123,17 @@ export function checkLocalPath(raw: string): PathCheck {
     if (resolved === deniedRoot || resolved.startsWith(deniedRoot + path.sep)) {
       return {
         ok: false,
-        error: `refused: '${raw}' resolves into ${deniedRoot} — ${segment === ".openrig" ? "live OpenRig state (incl. the hosts registry) is not a copy source/target in v0 (crash-safety)" : "credential/agent-home directories are not copy sources/targets"}. This is the FR-4 default-deny wall (a short closed list; extension requires a ruling).`,
+        error: `refused: '${raw}' resolves into ${deniedRoot} — ${segment === ".softwareteam" ? "live SoftwareTeam state (incl. the hosts registry) is not a copy source/target in v0 (crash-safety)" : "credential/agent-home directories are not copy sources/targets"}. This is the FR-4 default-deny wall (a short closed list; extension requires a ruling).`,
       };
     }
   }
   if (
-    activeOpenRigHome !== path.join(home, ".openrig") &&
-    (resolved === activeOpenRigHome || resolved.startsWith(activeOpenRigHome + path.sep))
+    activeSoftwareTeamHome !== path.join(home, ".softwareteam") &&
+    (resolved === activeSoftwareTeamHome || resolved.startsWith(activeSoftwareTeamHome + path.sep))
   ) {
     return {
       ok: false,
-      error: `refused: '${raw}' resolves into the active OPENRIG_HOME (${activeOpenRigHome}) — live OpenRig state is not a copy source/target in v0 (crash-safety). This is the FR-4 default-deny wall (a short closed list; extension requires a ruling).`,
+      error: `refused: '${raw}' resolves into the active SOFTWARETEAM_HOME (${activeSoftwareTeamHome}) — live SoftwareTeam state is not a copy source/target in v0 (crash-safety). This is the FR-4 default-deny wall (a short closed list; extension requires a ruling).`,
     };
   }
   // rsync distinguishes a directory from its contents by the source's trailing separator.
@@ -172,7 +172,7 @@ export function checkRemotePath(raw: string, hostId: string): PathCheck {
     if ((DENIED_SEGMENTS as readonly string[]).includes(part)) {
       return {
         ok: false,
-        error: `refused: remote path '${raw}' contains the denied directory segment '${part}' (credential/rig-state class; conservative-over-broad by design — FR-4's short closed list).`,
+        error: `refused: remote path '${raw}' contains the denied directory segment '${part}' (credential/software-team-state class; conservative-over-broad by design — FR-4's short closed list).`,
       };
     }
   }

@@ -4,7 +4,7 @@
 //
 // Responsibilities:
 //   1. ensureVendored(name): seed packages/daemon/assets/plugins/<name>/ into
-//      ~/.openrig/plugins/<name>/ when absent, or advance an older manifest
+//      ~/.softwareteam/plugins/<name>/ when absent, or advance an older manifest
 //      version. Equal/newer installed bytes retain authority.
 //   2. attemptAutoFetch(name): try to fetch latest from
 //      github.com/mvschwarz/openrig-plugins. Tolerates 404, network errors,
@@ -58,7 +58,7 @@ export interface PluginVendorServiceDeps {
 const DEFAULT_TIMEOUT_MS = 5000;
 const REPO_BASE = "https://github.com/mvschwarz/openrig-plugins";
 const PLUGIN_MANIFESTS = [".claude-plugin/plugin.json", ".codex-plugin/plugin.json"] as const;
-const GLOBAL_VENDOR_VERSION = ".openrig-vendor-version";
+const GLOBAL_VENDOR_VERSION = ".softwareteam-vendor-version";
 
 function parseNumericVersion(raw: string, source: string): number[] {
   const value = raw.trim();
@@ -191,7 +191,7 @@ export class PluginVendorService {
    * Reapply the source file's permission bits to the staged/projected dest. Plain
    * readFile+writeFile (writeFileSync) creates the dest with the process default mode,
    * dropping executable bits on nested plugin helpers (e.g. claude-compaction-restore/
-   * scripts/*.mjs, 0755). This vendor-staging hop (assets -> ~/.openrig/plugins) runs
+   * scripts/*.mjs, 0755). This vendor-staging hop (assets -> ~/.softwareteam/plugins) runs
    * UPSTREAM of the adapter CWD projection, so an unfixed mode here strands 0644 in the
    * staged copy that the adapters then faithfully preserve. No-op when the fs adapter does
    * not expose mode primitives (keeps existing mock-fs callers unaffected).
@@ -226,7 +226,7 @@ export class PluginVendorService {
 
   /**
    * Project one skill folder into the harness-global skill roots under `sourceVersion`
-   * authority. A target without OpenRig's version marker was installed another way (for
+   * authority. A target without SoftwareTeam's version marker was installed another way (for
    * example by skills.sh) and is left unchanged, as is one marked equal or newer.
    */
   ensureSkillDirGlobally(
@@ -282,6 +282,10 @@ export class PluginVendorService {
    * Logs outcome for operator observability.
    */
   async attemptAutoFetch(pluginName: string): Promise<void> {
+    if (pluginName === "softwareteam-core") {
+      this.logger("[plugin-vendor] softwareteam-core is bundled with this SoftwareTeam build; no remote update source is configured");
+      return;
+    }
     const url = `${REPO_BASE}/releases/latest/download/${pluginName}.tar.gz`;
     try {
       const response = await this.httpClient(url, { timeoutMs: DEFAULT_TIMEOUT_MS });

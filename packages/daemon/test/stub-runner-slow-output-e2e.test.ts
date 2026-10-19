@@ -39,14 +39,14 @@ describe("stub-runner slow_output (real-spawn observable)", () => {
 
   it("renders the full deterministic chunk sequence to the pane, in order", async () => {
     dir = mkdtempSync(join(tmpdir(), "slow-output-e2e-"));
-    mkdirSync(join(dir, ".openrig", "stub"), { recursive: true });
+    mkdirSync(join(dir, ".softwareteam", "stub"), { recursive: true });
     const script: StubScript = { steps: [{ kind: "emit", behavior: "slow_output" }] };
-    writeFileSync(join(dir, ".openrig", "stub", "script.json"), JSON.stringify(script), "utf8");
+    writeFileSync(join(dir, ".softwareteam", "stub", "script.json"), JSON.stringify(script), "utf8");
 
     let pane = "";
     child = execFile("node", ["--import", "tsx", RUNNER,
       "--session-name", SEAT, "--cwd", dir, "--launch-id", "slow-1", "--posture", "floor"],
-      { env: { ...process.env, OPENRIG_HOME: join(dir, ".openrig") } as NodeJS.ProcessEnv });
+      { env: { ...process.env, SOFTWARETEAM_HOME: join(dir, ".softwareteam") } as NodeJS.ProcessEnv });
     child.stdout?.on("data", (d) => { pane += String(d); });
 
     // Wait until the last chunk has rendered (proves the whole sequence reached the pane).

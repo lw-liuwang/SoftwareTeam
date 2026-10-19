@@ -4,11 +4,11 @@
 // which returns the LAST 6 chars of any string — fine for 26-char ULIDs
 // (random tail more distinguishable than timestamp head) but WRONG for
 // human-readable pod namespaces ("discovery" / "planning" / "kernel"
-// etc.). Pod IDs in OpenRig are namespace strings, not ULIDs; the
+// etc.). Pod IDs in SoftwareTeam are namespace strings, not ULIDs; the
 // shortId path should never have applied. Returning the podId verbatim.
 //
 // shortId is still imported elsewhere for actual ULID display surfaces
-// (rig IDs, qitem tails, etc.) — this fix only touches the pod path.
+// (softwareTeam IDs, qitem tails, etc.) — this fix only touches the pod path.
 
 export function inferPodName(logicalId: string | null | undefined): string | null {
   if (!logicalId) return null;

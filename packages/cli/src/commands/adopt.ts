@@ -85,13 +85,13 @@ export function adoptCommand(depsOverride?: AdoptDeps): Command {
   };
 
   cmd
-    .argument("<path>", "Path to pod-aware RigSpec or fragment")
+    .argument("<path>", "Path to pod-aware SoftwareTeamSpec or fragment")
     .option("--bind <logicalId=tmuxSessionOrDiscoveryId>", "Bind a logical node to a discovered tmux session or discovery ID", collectOption, [])
     .option("--bindings-file <path>", "Load logicalId -> tmux session/discovery ID mappings from YAML")
-    .option("--target-rig <rigId>", "Target existing rig for additive materialization")
-    .option("--rig-root <root>", "Root directory for pod-aware resolution")
+    .option("--target-software-team <softwareTeamId>", "Target existing SoftwareTeam for additive materialization")
+    .option("--software-team-root <root>", "Root directory for pod-aware resolution")
     .option("--json", "Output machine-readable JSON")
-    .action(async (filePath: string, opts: { bind?: string[]; bindingsFile?: string; targetRig?: string; rigRoot?: string; json?: boolean }) => {
+    .action(async (filePath: string, opts: { bind?: string[]; bindingsFile?: string; targetSoftwareTeam?: string; softwareTeamRoot?: string; json?: boolean }) => {
       const deps = getDeps();
 
       let yaml: string;
@@ -107,13 +107,13 @@ export function adoptCommand(depsOverride?: AdoptDeps): Command {
       try {
         parsed = parseYaml(yaml);
       } catch {
-        console.error("Adopt requires a valid pod-aware RigSpec. Fix: validate the YAML and retry.");
+        console.error("Adopt requires a valid pod-aware SoftwareTeamSpec. Fix: validate the YAML and retry.");
         process.exitCode = 1;
         return;
       }
       const podAware = !!parsed && typeof parsed === "object" && Array.isArray((parsed as Record<string, unknown>)["pods"]);
       if (!podAware) {
-        console.error("Adopt requires a pod-aware RigSpec with pods.");
+        console.error("Adopt requires a pod-aware SoftwareTeamSpec with pods.");
         process.exitCode = 1;
         return;
       }
@@ -147,20 +147,20 @@ export function adoptCommand(depsOverride?: AdoptDeps): Command {
       if (!daemonStatusGuard(status)) return;
 
       const client = deps.clientFactory(getDaemonUrl(status));
-      const rigRoot = opts.rigRoot ? nodePath.resolve(opts.rigRoot) : nodePath.dirname(nodePath.resolve(filePath));
+      const softwareTeamRoot = opts.softwareTeamRoot ? nodePath.resolve(opts.softwareTeamRoot) : nodePath.dirname(nodePath.resolve(filePath));
 
       const materializeHeaders: Record<string, string> = {
-        "X-Rig-Root": rigRoot,
-        ...(opts.targetRig ? { "X-Target-Rig-Id": opts.targetRig } : {}),
+        "X-Software-Team-Root": softwareTeamRoot,
+        ...(opts.targetSoftwareTeam ? { "X-Target-software-team-Id": opts.targetSoftwareTeam } : {}),
       };
 
       const materializeRes = await client.postText<{
-        rigId: string;
+        softwareTeamId: string;
         specName: string;
         specVersion: string;
         nodes: Array<{ logicalId: string; status: string }>;
       } | { error?: string; message?: string; errors?: string[] }>(
-        "/api/rigs/import/materialize",
+        "/api/software-teams/import/materialize",
         yaml,
         "text/yaml",
         materializeHeaders,
@@ -174,7 +174,7 @@ export function adoptCommand(depsOverride?: AdoptDeps): Command {
       }
 
       const materialized = materializeRes.data as {
-        rigId: string;
+        softwareTeamId: string;
         specName: string;
         specVersion: string;
         nodes: Array<{ logicalId: string; status: string }>;
@@ -189,7 +189,7 @@ export function adoptCommand(depsOverride?: AdoptDeps): Command {
 
       const discoveryRes = await client.get<DiscoveredSessionLike[]>("/api/discovery?status=active");
       if (discoveryRes.status >= 400) {
-        console.error(`Failed to read discovery inventory (HTTP ${discoveryRes.status}). Run rig discover and retry.`);
+        console.error(`Failed to read discovery inventory (HTTP ${discoveryRes.status}). Run SoftwareTeam discover and retry.`);
         process.exitCode = 1;
         return;
       }
@@ -210,7 +210,7 @@ export function adoptCommand(depsOverride?: AdoptDeps): Command {
         }
 
         const bindRes = await client.post<Record<string, unknown>>(`/api/discovery/${encodeURIComponent(session.id)}/bind`, {
-          rigId: materialized.rigId,
+          softwareTeamId: materialized.softwareTeamId,
           logicalId: binding.logicalId,
         });
 
@@ -236,7 +236,7 @@ export function adoptCommand(depsOverride?: AdoptDeps): Command {
       }
 
       const payload = {
-        rigId: materialized.rigId,
+        softwareTeamId: materialized.softwareTeamId,
         specName: materialized.specName,
         specVersion: materialized.specVersion,
         materializedNodes: materialized.nodes,
@@ -246,7 +246,7 @@ export function adoptCommand(depsOverride?: AdoptDeps): Command {
       if (opts.json) {
         console.log(JSON.stringify(payload, null, 2));
       } else {
-        console.log(`Rig adopted: ${materialized.specName} (${materialized.rigId})`);
+        console.log(`SoftwareTeam adopted: ${materialized.specName} (${materialized.softwareTeamId})`);
         for (const node of materialized.nodes) {
           console.log(`  ${node.logicalId}: ${node.status}`);
         }
@@ -261,7 +261,7 @@ export function adoptCommand(depsOverride?: AdoptDeps): Command {
 
       if (results.some((result) => !result.ok)) {
         if (!opts.json) {
-          console.error("Adopt completed with errors. Fix: run rig discover --json, correct the mappings, and retry failed bindings.");
+          console.error("Adopt completed with errors. Fix: run SoftwareTeam discover --json, correct the mappings, and retry failed bindings.");
         }
         process.exitCode = 1;
       }

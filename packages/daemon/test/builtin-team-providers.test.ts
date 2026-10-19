@@ -4,10 +4,10 @@ import { dirname, join, resolve } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { SpecLibraryService } from "../src/domain/spec-library-service.js";
 import { SpecReviewService } from "../src/domain/spec-review-service.js";
-import { validateRigSpecFromYaml } from "../src/domain/spec-validation-service.js";
-import { RigSpecCodec } from "../src/domain/rigspec-codec.js";
-import { RigSpecSchema } from "../src/domain/rigspec-schema.js";
-import { rigPreflight } from "../src/domain/rigspec-preflight.js";
+import { validateSoftwareTeamSpecFromYaml } from "../src/domain/spec-validation-service.js";
+import { SoftwareTeamSpecCodec } from "../src/domain/software-team-spec-codec.js";
+import { SoftwareTeamSpecSchema } from "../src/domain/software-team-spec-schema.js";
+import { softwareTeamPreflight } from "../src/domain/software-team-spec-preflight.js";
 import { resolveAgentRef } from "../src/domain/agent-resolver.js";
 import { resolveNodeConfig } from "../src/domain/profile-resolver.js";
 import { selectVariant } from "../src/domain/kernel-boot.js";
@@ -40,18 +40,18 @@ describe("built-in team names and resource resolution", () => {
         specReviewService: new SpecReviewService(),
       });
       lib.scan();
-      const matches = lib.list({ kind: "rig" }).filter((entry) => entry.name === name);
+      const matches = lib.list({ kind: "softwareTeam" }).filter((entry) => entry.name === name);
       expect(matches).toHaveLength(1);
       const found = lib.get(matches[0]!.id)!;
       const root = dirname(found.entry.sourcePath);
-      const result = validateRigSpecFromYaml(found.yaml);
+      const result = validateSoftwareTeamSpecFromYaml(found.yaml);
       expect(result.valid, result.errors.join("\n")).toBe(true);
       if (!result.valid) throw new Error("invalid starter");
-      const spec = RigSpecSchema.normalize(RigSpecCodec.parse(found.yaml) as Record<string, unknown>);
+      const spec = SoftwareTeamSpecSchema.normalize(SoftwareTeamSpecCodec.parse(found.yaml) as Record<string, unknown>);
       expect(spec.pods.flatMap((pod) => pod.members.map((member) => [`${pod.id}.${member.id}`, member.runtime]))).toEqual(seats);
       if (name === "starter") expect(spec.pods[0]!.edges).toEqual([{ kind: "delegates_to", from: "build", to: "review" }]);
       const cwd = join(tmpdir(), "builtin-team-repository");
-      const preflight = await rigPreflight({ rigSpecYaml: found.yaml, rigRoot: root, cwdOverride: cwd, fsOps });
+      const preflight = await softwareTeamPreflight({ softwareTeamSpecYaml: found.yaml, softwareTeamRoot: root, cwdOverride: cwd, fsOps });
       expect(preflight.errors).toEqual([]);
       expect(preflight.ready).toBe(true);
       for (const pod of spec.pods) for (const member of pod.members) {
@@ -60,7 +60,7 @@ describe("built-in team names and resource resolution", () => {
         const resolved = resolveNodeConfig({
           baseSpec: agent.resolved, importedSpecs: agent.imports, collisions: agent.collisions,
           profileName: member.profile, specRoot: root, cwdOverride: cwd,
-          homedir: homedir(), systemSkills: [], member, pod, rig: spec,
+          homedir: homedir(), systemSkills: [], member, pod, softwareTeam: spec,
         });
         if (!resolved.ok) throw new Error(resolved.errors.join("\n"));
         expect(resolved.config.runtime).toBe(member.runtime);
@@ -74,7 +74,7 @@ describe("built-in team names and resource resolution", () => {
         for (const skill of resolved.config.selectedResources.skills) {
           expect(existsSync(resolve(skill.sourcePath, (skill.resource as { path: string }).path, "SKILL.md"))).toBe(true);
         }
-        expect(resolved.config.selectedResources.plugins.map((plugin) => plugin.resource.id)).toContain("openrig-core");
+        expect(resolved.config.selectedResources.plugins.map((plugin) => plugin.resource.id)).toContain("softwareteam-core");
         expect(resolved.config.selectedResources.skills.map((skill) => skill.resource.id)).not.toContain("test-driven-development");
         if (name === "factory" && member.id === "advisor") {
           expect(agent.resolved.spec.name).toBe("pm");
@@ -92,32 +92,32 @@ describe("built-in team names and resource resolution", () => {
     });
   }
 
-  // #226: `rig up starter` from a shell at '/' arrives with cwdOverride '/'. The launch continues;
+  // #226: `SoftwareTeam up starter` from a shell at '/' arrives with cwdOverride '/'. The launch continues;
   // the CLI, which chose that default, warns the person (packages/cli/test/up.test.ts).
   it("does not refuse the filesystem root as launch cwd, even when it arrives as the cwd override", async () => {
-    const root = join(specs, "rigs/launch/starter");
-    const preflight = await rigPreflight({
-      rigSpecYaml: readFileSync(join(root, "rig.yaml"), "utf8"), rigRoot: root, cwdOverride: "/", fsOps,
+    const root = join(specs, "software-teams/launch/starter");
+    const preflight = await softwareTeamPreflight({
+      softwareTeamSpecYaml: readFileSync(join(root, "software-team.yaml"), "utf8"), softwareTeamRoot: root, cwdOverride: "/", fsOps,
     });
     expect(preflight.errors.filter((error) => error.includes("filesystem root"))).toEqual([]);
     expect(preflight.ready).toBe(true);
   });
 
   it("a terminal member with an authored `cwd: /` launches without a refusal or a warning (#226)", async () => {
-    const rigSpecYaml = [
+    const softwareTeamSpecYaml = [
       'version: "0.2"', "name: root-terminal", "pods:", "  - id: ops", "    label: Ops", "    members:",
       "      - id: shell", '        agent_ref: "builtin:terminal"', '        profile: "none"', "        runtime: terminal", "        cwd: /",
       "    edges: []", "edges: []",
     ].join("\n");
-    const preflight = await rigPreflight({ rigSpecYaml, rigRoot: tmpdir(), fsOps });
+    const preflight = await softwareTeamPreflight({ softwareTeamSpecYaml, softwareTeamRoot: tmpdir(), fsOps });
     expect(preflight.errors).toEqual([]);
     expect(preflight.warnings.filter((warning) => warning.includes("root"))).toEqual([]);
     expect(preflight.ready).toBe(true);
   });
 
   it("an absent unused provider selects the matching kernel, while both available select mixed", () => {
-    expect(selectVariant({ claudeCode: "ok", codex: "unavailable" })).toBe("rig-claude-only.yaml");
-    expect(selectVariant({ claudeCode: "unavailable", codex: "ok" })).toBe("rig-codex-only.yaml");
-    expect(selectVariant({ claudeCode: "ok", codex: "ok" })).toBe("rig.yaml");
+    expect(selectVariant({ claudeCode: "ok", codex: "unavailable" })).toBe("software-team-claude-only.yaml");
+    expect(selectVariant({ claudeCode: "unavailable", codex: "ok" })).toBe("software-team-codex-only.yaml");
+    expect(selectVariant({ claudeCode: "ok", codex: "ok" })).toBe("software-team.yaml");
   });
 });

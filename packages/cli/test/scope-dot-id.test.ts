@@ -1,6 +1,6 @@
 // release-0.3.2 slice 12 — dot-ID grammar unit tests.
 //
-// Aligned with `openrig-work/conventions/scope-and-versioning/README.md` §1.
+// Aligned with `softwareteam-work/conventions/scope-and-versioning/README.md` §1.
 
 import { describe, expect, it } from "vitest";
 import {

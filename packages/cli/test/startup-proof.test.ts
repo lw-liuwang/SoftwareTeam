@@ -27,16 +27,16 @@ function captureLogs(fn: () => Promise<void>): Promise<{ logs: string[]; errors:
   });
 }
 
-describe("rig startup-proof", () => {
+describe("SoftwareTeam startup-proof", () => {
   beforeEach(() => vi.restoreAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
   it("resolves endpoint and token from the activity endpoint file", () => {
-    const root = mkdtempSync(join(tmpdir(), "openrig-startup-proof-"));
+    const root = mkdtempSync(join(tmpdir(), "softwareteam-startup-proof-"));
     try {
       mkdirSync(root, { recursive: true });
       writeFileSync(join(root, "activity-endpoint.json"), JSON.stringify({ baseUrl: "http://127.0.0.1:17433", token: "tok-file" }));
-      expect(resolveStartupProofEndpoint({ env: { OPENRIG_HOME: root } })).toEqual({
+      expect(resolveStartupProofEndpoint({ env: { SOFTWARETEAM_HOME: root } })).toEqual({
         baseUrl: "http://127.0.0.1:17433",
         token: "tok-file",
       });
@@ -58,24 +58,24 @@ describe("rig startup-proof", () => {
       {
         fetchImpl,
         env: {
-          OPENRIG_URL: "http://127.0.0.1:7433",
-          OPENRIG_ACTIVITY_HOOK_TOKEN: "tok-env",
-          OPENRIG_SESSION_NAME: "dev-qa@test-rig",
-          OPENRIG_NODE_ID: "node-1",
-          OPENRIG_RUNTIME: "codex",
+          SOFTWARETEAM_URL: "http://127.0.0.1:7434",
+          SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: "tok-env",
+          SOFTWARETEAM_SESSION_NAME: "dev-qa@test-software-team",
+          SOFTWARETEAM_NODE_ID: "node-1",
+          SOFTWARETEAM_RUNTIME: "codex",
         },
       },
     );
 
     expect(result).toMatchObject({ ok: true, oriented: "verified", nodeId: "node-1" });
-    expect(fetchImpl).toHaveBeenCalledWith("http://127.0.0.1:7433/api/activity/hooks", expect.objectContaining({
+    expect(fetchImpl).toHaveBeenCalledWith("http://127.0.0.1:7434/api/activity/hooks", expect.objectContaining({
       method: "POST",
       headers: expect.objectContaining({ authorization: "Bearer tok-env" }),
     }));
     const body = JSON.parse((fetchImpl.mock.calls[0]?.[1] as RequestInit).body as string);
     expect(body).toMatchObject({
       eventFamily: "startup_proof",
-      sessionName: "dev-qa@test-rig",
+      sessionName: "dev-qa@test-software-team",
       nodeId: "node-1",
       runtime: "codex",
       challengeId: "challenge-1",
@@ -95,15 +95,15 @@ describe("rig startup-proof", () => {
     program.addCommand(startupProofCommand({
       fetchImpl,
       env: {
-        OPENRIG_URL: "http://127.0.0.1:7433",
-        OPENRIG_ACTIVITY_HOOK_TOKEN: "tok-secret",
-        OPENRIG_NODE_ID: "node-1",
-        OPENRIG_RUNTIME: "claude-code",
+        SOFTWARETEAM_URL: "http://127.0.0.1:7434",
+        SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: "tok-secret",
+        SOFTWARETEAM_NODE_ID: "node-1",
+        SOFTWARETEAM_RUNTIME: "claude-code",
       },
     }));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "startup-proof", "submit", "--challenge-id", "challenge-1", "--answer", "answer-1"]);
+      await program.parseAsync(["node", "softwareTeam", "startup-proof", "submit", "--challenge-id", "challenge-1", "--answer", "answer-1"]);
     });
 
     const output = logs.join("\n");

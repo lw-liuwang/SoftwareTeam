@@ -28,7 +28,7 @@ export interface FleetNeedsYouItem extends NeedsYouItem {
   /** `${hostId}|${identity}` — rendered VERBATIM on the expanded drawer. */
   fleetKey: string;
   /** Altitudes this identity was visible from on its host (what the
-   *  fan-out actually read — v1 reads each host's rig root). */
+   *  fan-out actually read — v1 reads each host's softwareTeam root). */
   seenFrom: string[];
 }
 
@@ -41,7 +41,7 @@ export interface FleetHostRollup {
   needsYouCount?: number;
   exceptionsByKind?: Array<{ kind: string; count: number }>;
   seatCount?: number;
-  rigCount?: number;
+  softwareTeamCount?: number;
   topLine?: string;
 }
 

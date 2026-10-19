@@ -3,10 +3,10 @@
 // can be built without loading configuration and cannot drift from what the connector checks
 // and admits.
 
-/** Baseline bot scopes: the default `requiredScopes` that `rig slack verify` checks. */
+/** Baseline bot scopes: the default `requiredScopes` that `softwareTeam slack verify` checks. */
 export const BASELINE_REQUIRED_SCOPES: readonly string[] = ["chat:write", "channels:history", "channels:read"];
 
-/** Bot scopes the shipped connector code uses beyond the baseline. `rig slack verify` does not
+/** Bot scopes the shipped connector code uses beyond the baseline. `softwareTeam slack verify` does not
  *  require them, so a baseline READY does not prove these features have their grants. The app
  *  manifest requests them; each entry names the code path that needs it. */
 export const FEATURE_SCOPES: ReadonlyArray<{ scope: string; usedBy: string }> = [

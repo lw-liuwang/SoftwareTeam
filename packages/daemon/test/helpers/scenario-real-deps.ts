@@ -2,19 +2,19 @@
  * Slice 51-02 (L2 test-system) — the REAL-DEPS adapter.
  *
  * Binds the dumb runner core (scenario-runner.ts) to a LIVE scenario-local daemon:
- *   • runAction — maps each action verb to the SHIPPED `rig … --json` invocation
+ *   • runAction — maps each action verb to the SHIPPED `softwareTeam … --json` invocation
  *     (product-is-truth transport), run as a real subprocess against the daemon.
  *   • observe   — reads a shipped surface via readSurface (bound to the daemon).
  *   • the `daemon` verb drives the scenario-local daemon LIFECYCLE (sigterm/restart)
- *     directly — it is the test harness's own daemon, not a rig subprocess.
+ *     directly — it is the test harness's own daemon, not a softwareTeam subprocess.
  *
- * Verb → shipped `rig` command (traced at 13e26355):
- *   up            → rig up <topology> --json --yes         (captures rigId/rigName)
- *   send          → rig send <to> <text> --json
- *   restart <seat>→ rig launch <rigId> <seat> --json       (seat relaunch/resume;
+ * Verb → shipped `softwareTeam` command (traced at 13e26355):
+ *   up            → SoftwareTeam up <topology> --json --yes         (captures softwareTeamId/softwareTeamName)
+ *   send          → SoftwareTeam send <to> <text> --json
+ *   restart <seat>→ SoftwareTeam launch <softwareTeamId> <seat> --json       (seat relaunch/resume;
  *                                                            there is no top-level
  *                                                            `restart` command)
- *   down          → rig down <rigName|rigId> --json --force
+ *   down          → SoftwareTeam down <softwareTeamName|softwareTeamId> --json --force
  *   daemon {op}   → the ScenarioDaemon lifecycle (sigterm | restart)
  *
  * seed_regression calls an explicitly supplied test fault controller. With no
@@ -24,11 +24,11 @@
  * UnboundActionError rather than fabricating a call (same floor as the FLAG-1
  * `proof` surface: unbound is never silently-skipped).
  *
- * `rigBin` is injected (the single 51-04 container-mode seam); `runRig` is injected
+ * `softwareTeamBin` is injected (the single 51-04 container-mode seam); `runSoftwareTeam` is injected
  * so the verb→argv MAPPING is unit-testable without a live daemon.
  */
 
-import { runRig as realRunRig, type RigResult, type ScenarioDaemon } from "./scenario-daemon.js";
+import { runSoftwareTeam as realRunSoftwareTeam, type SoftwareTeamResult, type ScenarioDaemon } from "./scenario-daemon.js";
 import { readSurface } from "./scenario-surfaces.js";
 import type { ExpectSurface } from "./scenario-schema.js";
 import type { ScenarioRunnerDeps, ActionResult } from "./scenario-runner.js";
@@ -61,24 +61,24 @@ export type RealDepsDaemon = Pick<ScenarioDaemon, "readEnv" | "baseUrl" | "sigte
 
 export interface RealDepsOptions {
   daemon: RealDepsDaemon;
-  /** Path to the shipped `rig` bin (the single 51-04 injectable invocation seam). */
-  rigBin: string;
-  /** Resolved rig-spec path for the `up` verb (the scenario's `topology`). */
+  /** Path to the shipped `softwareTeam` bin (the single 51-04 injectable invocation seam). */
+  softwareTeamBin: string;
+  /** Resolved software-team-spec path for the `up` verb (the scenario's `topology`). */
   topologyPath: string;
   /**
-   * Scratch working directory passed to `rig up --cwd` so a seat's `cwd: "."`
+   * Scratch working directory passed to `SoftwareTeam up --cwd` so a seat's `cwd: "."`
    * resolves under the hermetic scaffold (its managed-file writes — AGENTS.md,
    * the stub readiness sidecar — never pollute the launch cwd). Omitted → the
    * shipped default (the daemon's cwd).
    */
   seatCwd?: string;
-  /** Injected `rig` runner (defaults to the real subprocess runner; tests inject a spy). */
-  runRig?: (
+  /** Injected `softwareTeam` runner (defaults to the real subprocess runner; tests inject a spy). */
+  runSoftwareTeam?: (
     args: string[],
     env: Record<string, string | undefined>,
-    rigBin: string,
+    softwareTeamBin: string,
     timeoutMs?: number,
-  ) => Promise<RigResult>;
+  ) => Promise<SoftwareTeamResult>;
   /** Injected scenario-local clock (ms) for the poll bound. Defaults to Date.now. */
   now?: () => number;
   /** Injected sleep between polls. Defaults to a real timer. */
@@ -92,42 +92,42 @@ export interface RealDepsOptions {
    *  the only scenario-facing form, rides 51-03, and lowers to this seam). */
   normalizer?: (surface: ExpectSurface, value: unknown) => unknown;
   /** The mission scope reads audit (D3) — threaded from the scenario's
-   *  env.scope_mission into `rig scope audit --mission <name> --json`. */
+   *  env.scope_mission into `SoftwareTeam scope audit --mission <name> --json`. */
   scopeMission?: string;
   /** Arm a named, scenario-local test fault (or explicitly record its healthy
    * control). The paired harness owns injection timing and verifies the actual
-   * failing observation; this must never invoke a production `rig` command. */
+   * failing observation; this must never invoke a production `softwareTeam` command. */
   seedRegression?: (regressionClass: string) => Promise<ActionResult>;
 }
 
-/** `rig up` is heavy (real tmux seat launch) — give it a generous ceiling. */
+/** `SoftwareTeam up` is heavy (real tmux seat launch) — give it a generous ceiling. */
 const UP_TIMEOUT_MS = 120_000;
 
 const fail = (stderr: string): ActionResult => ({ code: 1, stdout: "", stderr });
 
 /** Build the live ScenarioRunnerDeps for the dumb runner core. */
 export function buildRealDeps(opts: RealDepsOptions): ScenarioRunnerDeps {
-  const { daemon, rigBin, topologyPath } = opts;
-  const runRig = opts.runRig ?? realRunRig;
+  const { daemon, softwareTeamBin, topologyPath } = opts;
+  const runSoftwareTeam = opts.runSoftwareTeam ?? realRunSoftwareTeam;
 
-  // Captured from the `up` result so down/restart target the real rig (never fabricated).
-  let rigId: string | undefined;
-  let rigName: string | undefined;
+  // Captured from the `up` result so down/restart target the real softwareTeam (never fabricated).
+  let softwareTeamId: string | undefined;
+  let softwareTeamName: string | undefined;
 
   const runAction = async (verb: string, payload: unknown, seat?: string): Promise<ActionResult> => {
     switch (verb) {
       case "up": {
         const upArgs = ["up", topologyPath, "--json", "--yes"];
         if (opts.seatCwd) upArgs.push("--cwd", opts.seatCwd);
-        const r = await runRig(upArgs, daemon.readEnv, rigBin, UP_TIMEOUT_MS);
+        const r = await runSoftwareTeam(upArgs, daemon.readEnv, softwareTeamBin, UP_TIMEOUT_MS);
         if (r.code === 0) {
           try {
             const j = JSON.parse(r.stdout) as Record<string, unknown>;
-            const rig = (j.rig as Record<string, unknown> | undefined) ?? undefined;
-            rigId = (j.rigId as string) ?? (rig?.id as string) ?? rigId;
-            rigName = (j.rigName as string) ?? (rig?.name as string) ?? rigName;
+            const softwareTeam = (j.softwareTeam as Record<string, unknown> | undefined) ?? undefined;
+            softwareTeamId = (j.softwareTeamId as string) ?? (softwareTeam?.id as string) ?? softwareTeamId;
+            softwareTeamName = (j.softwareTeamName as string) ?? (softwareTeam?.name as string) ?? softwareTeamName;
           } catch {
-            /* non-JSON up output — leave the rig ids uncaptured; down/restart will fail loud */
+            /* non-JSON up output — leave the softwareTeam ids uncaptured; down/restart will fail loud */
           }
         }
         return r;
@@ -137,21 +137,21 @@ export function buildRealDeps(opts: RealDepsOptions): ScenarioRunnerDeps {
         const to = p.to ?? seat;
         const text = p.text ?? "";
         if (!to) return fail("send: no recipient (payload.to or a seat is required)");
-        return runRig(["send", to, text, "--json"], daemon.readEnv, rigBin);
+        return runSoftwareTeam(["send", to, text, "--json"], daemon.readEnv, softwareTeamBin);
       }
       case "restart": {
-        // Seat relaunch/resume — rig launch <rigId> <seat>. Distinct from the
+        // Seat relaunch/resume — SoftwareTeam launch <softwareTeamId> <seat>. Distinct from the
         // `daemon` verb (which restarts the scenario-local DAEMON, not a seat).
         const node = typeof payload === "string" ? payload : seat;
-        const target = rigId ?? rigName;
-        if (!target) return fail("restart: no rig brought up yet (no rigId/rigName captured from `up`)");
+        const target = softwareTeamId ?? softwareTeamName;
+        if (!target) return fail("restart: no SoftwareTeam brought up yet (no softwareTeamId/softwareTeamName captured from `up`)");
         if (!node) return fail("restart: no seat named (restart <seat>)");
-        return runRig(["launch", target, node, "--json"], daemon.readEnv, rigBin);
+        return runSoftwareTeam(["launch", target, node, "--json"], daemon.readEnv, softwareTeamBin);
       }
       case "down": {
-        const target = rigName ?? rigId;
-        if (!target) return fail("down: no rig brought up yet (no rigId/rigName captured from `up`)");
-        return runRig(["down", target, "--json", "--force"], daemon.readEnv, rigBin);
+        const target = softwareTeamName ?? softwareTeamId;
+        if (!target) return fail("down: no SoftwareTeam brought up yet (no softwareTeamId/softwareTeamName captured from `up`)");
+        return runSoftwareTeam(["down", target, "--json", "--force"], daemon.readEnv, softwareTeamBin);
       }
       case "daemon": {
         const op = (payload && typeof payload === "object" ? (payload as { op?: string }).op : undefined);
@@ -177,7 +177,7 @@ export function buildRealDeps(opts: RealDepsOptions): ScenarioRunnerDeps {
   const observe = (surface: ExpectSurface, o: { seat?: string }): Promise<unknown> =>
     readSurface(
       surface,
-      { rigBin, readEnv: daemon.readEnv, baseUrl: daemon.baseUrl },
+      { softwareTeamBin, readEnv: daemon.readEnv, baseUrl: daemon.baseUrl },
       { seat: o.seat, scopeMission: opts.scopeMission },
     );
 

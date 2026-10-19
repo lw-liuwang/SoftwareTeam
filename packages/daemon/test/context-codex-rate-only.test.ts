@@ -19,7 +19,7 @@ function read(events: unknown[]) {
     native.prepare("INSERT INTO threads VALUES (?, ?)").run("thread", rollout);
     writeFileSync(rollout, events.map(event => JSON.stringify(event)).join("\n") + "\n");
     const store = new ContextUsageStore(db, { stateDir: root, codexHomeDir: root });
-    return store.readCodexAndNormalize({ threadId: "thread", sessionName: "seat@rig" });
+    return store.readCodexAndNormalize({ threadId: "thread", sessionName: "seat@software-team" });
   } finally { native.close(); db.close(); rmSync(root, { recursive: true, force: true }); }
 }
 const event = (data: unknown, timestamp = stamp) => ({ timestamp, type: "event_msg", payload: { type: "token_count", info: data } });

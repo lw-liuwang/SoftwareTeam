@@ -76,7 +76,7 @@ export function WorkflowsPage() {
 
         {rows.length === 0 && !isLoading ? (
           <p data-testid="workflows-empty" className="font-mono text-[11px] text-on-surface-variant">
-            0 instances — instantiate one from a library spec (rig workflow instantiate) and it appears here
+            0 instances — instantiate one from a library spec (SoftwareTeam workflow instantiate) and it appears here
             with its live position.
           </p>
         ) : null}

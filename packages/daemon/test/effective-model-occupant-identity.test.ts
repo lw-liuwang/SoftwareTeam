@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, statSync, utimesSync, writeFileSync } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { DiscoveryRepository } from "../src/domain/discovery-repository.js";
 import { SeatIdentityStore } from "../src/domain/seat-identity-store.js";
@@ -24,17 +24,17 @@ describe("S13 effective-model identity — repository-shaped causal specimen", (
   });
 
   it("keeps the renamed predecessor discoverable while selecting the verified canonical occupant", async () => {
-    const canonicalSession = "orch-advisor@v-openrig-build";
-    const reserveSession = "orch-advisor-memory-20260830T2007Z@v-openrig-build";
+    const canonicalSession = "orch-advisor@v-softwareteam-build";
+    const reserveSession = "orch-advisor-memory-20260830T2007Z@v-softwareteam-build";
     const canonicalId = "f16594c5-179a-4be7-bf5e-fd759b2b87a3";
     const reserveId = "9e1ac0df-505a-4050-857b-a494b46dabc6";
     db = createFullTestDb();
-    const rigs = new RigRepository(db);
+    const softwareTeams = new SoftwareTeamRepository(db);
     const sessions = new SessionRegistry(db);
     const discovery = new DiscoveryRepository(db);
     const identities = new SeatIdentityStore(db);
-    const rig = rigs.createRig("v-openrig-build");
-    const node = rigs.addNode(rig.id, "orch.advisor", { runtime: "claude-code", cwd: "/project" });
+    const softwareTeam = softwareTeams.createSoftwareTeam("v-softwareteam-build");
+    const node = softwareTeams.addNode(softwareTeam.id, "orch.advisor", { runtime: "claude-code", cwd: "/project" });
     const session = sessions.registerSession(node.id, canonicalSession);
     sessions.updateStatus(session.id, "running");
     sessions.updateResumeToken(session.id, "claude_id", reserveId, "scrape");
@@ -60,7 +60,7 @@ describe("S13 effective-model identity — repository-shaped causal specimen", (
       cwd: "/project",
     });
 
-    dir = mkdtempSync(join(tmpdir(), "openrig-s13-causal-"));
+    dir = mkdtempSync(join(tmpdir(), "softwareteam-s13-causal-"));
     const canonicalPath = join(dir, `${canonicalId}.jsonl`);
     const reservePath = join(dir, `${reserveId}.jsonl`);
     writeFileSync(canonicalPath, `${JSON.stringify({ type: "assistant", message: { role: "assistant", model: "claude-fable-5-1" } })}\n`);
@@ -93,7 +93,7 @@ describe("S13 effective-model identity — repository-shaped causal specimen", (
 
     expect(selected).toMatchObject({ ok: true, id: canonicalId, path: canonicalPath });
     expect(selected.ok && readClaudeEffectiveModel(selected.path)).toBe("claude-fable-5-1");
-    expect(sessions.getSessionsForRig(rig.id).at(-1)?.resumeToken).toBe(reserveId);
+    expect(sessions.getSessionsForSoftwareTeam(softwareTeam.id).at(-1)?.resumeToken).toBe(reserveId);
     expect(discovery.getDiscoveredSession(reserve.id)).toMatchObject({
       tmuxSession: reserveSession,
       tmuxPane: "%6",

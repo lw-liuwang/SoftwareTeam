@@ -43,7 +43,7 @@ function packFixture(packParentDir: string): { dirs: string[]; files: string[] }
 }
 
 const BUNDLE_ROOT = "/bundle/root";
-const TARGET = "/operator/.openrig/context";
+const TARGET = "/operator/.softwareteam/context";
 
 function makeInput(overrides?: Partial<RouteContextPacksInput>): RouteContextPacksInput {
   return {
@@ -118,7 +118,7 @@ describe("routeContextPacks", () => {
       files: [manifest, notes],
       contents: {
         [manifest]: "name: private\nversion: '1'\ntaxonomy: world\nfiles: []\n",
-        [notes]: "Continue at substrate/shared-docs/rigs/private.\n",
+        [notes]: "Continue at substrate/shared-docs/software-teams/private.\n",
       },
     });
     const result = routeContextPacks(
@@ -359,12 +359,12 @@ describe("routeContextPacks", () => {
     const installed = `${TARGET}/world`;
     const fs = mockFs({
       dirs: [src, installed],
-      files: [`${src}/manifest.yaml`, `${installed}/manifest.yaml`, `${installed}/.openrig-git-source.json`],
+      files: [`${src}/manifest.yaml`, `${installed}/manifest.yaml`, `${installed}/.softwareteam-git-source.json`],
       contents: { [`${src}/manifest.yaml`]: "name: world\nversion: 0.2.0", [`${installed}/manifest.yaml`]: "name: world\nversion: 0.1.0" },
     });
     const result = routeContextPacks(makeInput({ declaredContextPacks: ["context-packs/world/manifest.yaml"] }), fs);
     expect(result.records[0]?.status).toBe("kept_existing");
-    expect(result.records[0]?.detail).toMatch(/rig context rm world/);
+    expect(result.records[0]?.detail).toMatch(/SoftwareTeam context rm world/);
     expect(result.routedCount).toBe(0);
     expect(fs._copyCalls).toEqual([]);
   });

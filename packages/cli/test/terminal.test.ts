@@ -1,4 +1,4 @@
-// OPR.0.4.6.02 C3 — the `rig terminal` CLI family. Pins arg parsing, the daemon
+// OPR.0.4.6.02 C3 — the `SoftwareTeam terminal` CLI family. Pins arg parsing, the daemon
 // path/body each subcommand hits, the --json shape, and the open exit
 // semantics for explicit cmux (partial-with-names = exit 0; zero-pane = non-zero).
 // The default desktop path is exercised in terminal-open-window-default.test.ts.
@@ -11,8 +11,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -50,7 +50,7 @@ const opened = (seats: string[], extra: Record<string, unknown> = {}) => ({
   provider: "herdr", ok: seats.length > 0, opened: seats, absent: [], degraded: [], pages: 1, ...extra,
 });
 
-describe("rig terminal CLI", () => {
+describe("SoftwareTeam terminal CLI", () => {
   let logs: string[];
   beforeEach(() => {
     logs = [];
@@ -74,11 +74,11 @@ describe("rig terminal CLI", () => {
       planId: "headless-plan", status: {}, composed: { opened: [pane], pages: [[pane]], absent: [], degraded: [] },
     } } } });
     const factory = deps.clientFactory;
-    deps.clientFactory = url => Object.assign(factory(url), { baseUrl: "http://localhost:7433" });
+    deps.clientFactory = url => Object.assign(factory(url), { baseUrl: "http://localhost:7434" });
     deps.windowDeps = { platform: "linux", env: {}, exists: () => false, exec: vi.fn(async () => { throw new Error("not installed"); }), launch: vi.fn(), sleep: vi.fn(), id: () => "unused" };
     const program = createProgram({ terminalDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "terminal", "open", "saved:kernel", "--window", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "terminal", "open", "saved:kernel", "--window", "--json"]);
     expect(process.exitCode).toBe(1);
     expect(JSON.parse(logs[0]!)).toMatchObject({ ok: false, opened: [], code: "terminal_window_failed", windowAttempted: false });
     expect(JSON.parse(logs[0]!).error).toContain("run: env -u TMUX tmux attach-session -t '=operator'");
@@ -94,7 +94,7 @@ describe("rig terminal CLI", () => {
     });
     const program = createProgram({ terminalDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "terminal", "open", "acme-build", "--provider", "cmux", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "terminal", "open", "acme-build", "--provider", "cmux", "--json"]);
     const call = calls.find((c) => c.path === "/api/terminal/open");
     expect(call!.body).toEqual({ view: "acme-build", provider: "cmux" });
   });
@@ -110,7 +110,7 @@ describe("rig terminal CLI", () => {
     });
     const program = createProgram({ terminalDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "terminal", "open", "acme-build", "--provider", "cmux"]);
+    await program.parseAsync(["node", "softwareTeam", "terminal", "open", "acme-build", "--provider", "cmux"]);
     expect(process.exitCode).toBeUndefined(); // exit 0 (disclosure, not failure)
   });
 
@@ -122,7 +122,7 @@ describe("rig terminal CLI", () => {
     try {
       const program = createProgram({ terminalDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "terminal", "open", "acme-build", "--provider", "cmux"]);
+      await program.parseAsync(["node", "softwareTeam", "terminal", "open", "acme-build", "--provider", "cmux"]);
       expect(log.mock.calls.map((c) => String(c[0])).join("\n")).toContain('  note: A workspace named "acme-build" already exists, so this one is "acme-build (2)".');
     } finally { log.mockRestore(); }
   });
@@ -133,7 +133,7 @@ describe("rig terminal CLI", () => {
     });
     const program = createProgram({ terminalDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "terminal", "open", "acme-build", "--provider", "cmux"]);
+    await program.parseAsync(["node", "softwareTeam", "terminal", "open", "acme-build", "--provider", "cmux"]);
     expect(process.exitCode).toBe(1);
   });
 
@@ -143,7 +143,7 @@ describe("rig terminal CLI", () => {
     const { deps } = makeDeps({ routes: { "POST /api/terminal/open": { status: 200, data: result } } });
     const program = createProgram({ terminalDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "terminal", "open", "saved:kernel", "--provider", "cmux", ...(json ? ["--json"] : [])]);
+    await program.parseAsync(["node", "softwareTeam", "terminal", "open", "saved:kernel", "--provider", "cmux", ...(json ? ["--json"] : [])]);
     expect(process.exitCode).toBe(1);
     if (json) expect(JSON.parse(logs[0]!)).toEqual(result);
     else expect(logs.join("\n")).toContain(command);
@@ -155,7 +155,7 @@ describe("rig terminal CLI", () => {
     });
     const program = createProgram({ terminalDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "terminal", "open", "nope", "--provider", "cmux", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "terminal", "open", "nope", "--provider", "cmux", "--json"]);
     expect(process.exitCode).toBe(1);
     expect(logs.join("\n")).toContain("view_not_found");
   });
@@ -164,7 +164,7 @@ describe("rig terminal CLI", () => {
     const { deps } = makeDeps({ routes: { "POST /api/terminal/open": { status: 503, data: { error: "terminal_service_unavailable" } } } });
     const program = createProgram({ terminalDeps: deps });
     program.exitOverride();
-    await expect(program.parseAsync(["node", "rig", "terminal", "open", "acme-build", "--provider", "cmux", ...(json ? ["--json"] : [])])).resolves.toBeDefined();
+    await expect(program.parseAsync(["node", "softwareTeam", "terminal", "open", "acme-build", "--provider", "cmux", ...(json ? ["--json"] : [])])).resolves.toBeDefined();
     expect(process.exitCode).toBe(2);
     const output = [...logs, ...vi.mocked(console.error).mock.calls.map(args => args.join(" "))].join("\n");
     expect(output).toContain("terminal_service_unavailable");
@@ -177,7 +177,7 @@ describe("rig terminal CLI", () => {
     });
     const program = createProgram({ terminalDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "terminal", "open", "nope", "--provider", "cmux"]);
+    await program.parseAsync(["node", "softwareTeam", "terminal", "open", "nope", "--provider", "cmux"]);
     expect(process.exitCode).toBe(1);
     expect(logs.join("\n")).toContain("provider: unknown view 'nope' (view_not_found)");
     expect(logs.join("\n")).not.toMatch(/^\s*\{/);
@@ -185,11 +185,11 @@ describe("rig terminal CLI", () => {
 
   it("views GETs /api/terminal/views", async () => {
     const { deps, calls } = makeDeps({
-      routes: { "GET /api/terminal/views": { status: 200, data: { saved: [], rigs: ["acme-build"] } } },
+      routes: { "GET /api/terminal/views": { status: 200, data: { saved: [], softwareTeams: ["acme-build"] } } },
     });
     const program = createProgram({ terminalDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "terminal", "views", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "terminal", "views", "--json"]);
     expect(calls.find((c) => c.path === "/api/terminal/views")).toBeDefined();
   });
 
@@ -199,7 +199,7 @@ describe("rig terminal CLI", () => {
     });
     const program = createProgram({ terminalDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "terminal", "status", "--provider", "herdr", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "terminal", "status", "--provider", "herdr", "--json"]);
     const call = calls.find((c) => c.method === "GET" && c.path.startsWith("/api/terminal/status"));
     expect(call!.path).toContain("provider=herdr");
   });

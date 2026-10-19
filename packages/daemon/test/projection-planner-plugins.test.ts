@@ -4,14 +4,14 @@
 // any further impl on this surface.
 //
 // Plugin source.path can take four shapes:
-//   1. absolute system path  e.g.  /Users/op/.openrig/plugins/openrig-core
-//   2. tilde-home-prefixed   e.g.  ~/.openrig/plugins/openrig-core
-//   3. daemon home  e.g.  openrig-home:plugins/openrig-core
-//   4. relative to spec dir  e.g.  ./plugins/openrig-core
+//   1. absolute system path  e.g.  /Users/op/.softwareteam/plugins/softwareteam-core
+//   2. tilde-home-prefixed   e.g.  ~/.softwareteam/plugins/softwareteam-core
+//   3. daemon home  e.g.  softwareteam-home:plugins/softwareteam-core
+//   4. relative to spec dir  e.g.  ./plugins/softwareteam-core
 //
 // Each must resolve to a single concrete absolute entry.absolutePath the
 // adapter can use to copy the plugin tree. Tilde expansion is required
-// because vendored plugins live at ~/.openrig/plugins/<id>/ by convention
+// because vendored plugins live at ~/.softwareteam/plugins/<id>/ by convention
 // and operators write that literal path in their agent.yaml resources.
 
 import { describe, it, expect, vi } from "vitest";
@@ -58,9 +58,9 @@ function mockFs(): ProjectionFsOps {
 }
 
 describe("Projection planner — plugin path semantics", () => {
-  it("resolves the shipped shared agent's core plugin under the configured OpenRig home", async () => {
+  it("resolves the shipped shared agent's core plugin under the configured SoftwareTeam home", async () => {
     const home = mkdtempSync(nodePath.join(os.tmpdir(), "builtin-plugin-home-"));
-    vi.stubEnv("OPENRIG_HOME", home);
+    vi.stubEnv("SOFTWARETEAM_HOME", home);
     vi.resetModules();
     try {
       const sourcePath = nodePath.resolve(import.meta.dirname, "../specs/agents/shared");
@@ -73,8 +73,8 @@ describe("Projection planner — plugin path semantics", () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.plan.entries).toMatchObject([{
-          category: "plugin", effectiveId: "openrig-core",
-          absolutePath: nodePath.join(home, "plugins/openrig-core"),
+          category: "plugin", effectiveId: "softwareteam-core",
+          absolutePath: nodePath.join(home, "plugins/softwareteam-core"),
         }]);
       }
     } finally {
@@ -84,30 +84,30 @@ describe("Projection planner — plugin path semantics", () => {
     }
   });
 
-  it.each(["OPENRIG_HOME", "RIGGED_HOME"])("resolves openrig-home: from configured %s, not later shell values", async key => {
-    const config = makeConfig([makePluginQR("openrig-core", "openrig-home:plugins/openrig-core")]);
-    vi.stubEnv("OPENRIG_HOME", "");
+  it.each(["SOFTWARETEAM_HOME", "SOFTWARETEAM_HOME"])("resolves softwareteam-home: from configured %s, not later shell values", async key => {
+    const config = makeConfig([makePluginQR("softwareteam-core", "softwareteam-home:plugins/softwareteam-core")]);
+    vi.stubEnv("SOFTWARETEAM_HOME", "");
     vi.stubEnv("RIGGED_HOME", "");
     vi.stubEnv(key, "/isolated/daemon-home");
     vi.resetModules();
     try {
       const { planProjection: configuredPlan } = await import("../src/domain/projection-planner.js");
-      vi.stubEnv("OPENRIG_HOME", "/wrong-shell-home");
+      vi.stubEnv("SOFTWARETEAM_HOME", "/wrong-shell-home");
       vi.stubEnv("RIGGED_HOME", "/wrong-legacy-shell-home");
       vi.stubEnv("HOME", "/wrong-user-home");
       const result = configuredPlan({ config, collisions: [], fsOps: mockFs() });
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.plan.entries[0]!.absolutePath).toBe("/isolated/daemon-home/plugins/openrig-core");
-        expect(result.plan.entries[0]!.resourcePath).toBe("openrig-home:plugins/openrig-core");
+        expect(result.plan.entries[0]!.absolutePath).toBe("/isolated/daemon-home/plugins/softwareteam-core");
+        expect(result.plan.entries[0]!.resourcePath).toBe("softwareteam-home:plugins/softwareteam-core");
       }
     } finally { vi.unstubAllEnvs(); vi.resetModules(); }
   });
 
   it("rejects an absolute suffix in the home-relative form", () => {
-    const result = planProjection({ config: makeConfig([makePluginQR("p", "openrig-home:/elsewhere")]), collisions: [], fsOps: mockFs() });
+    const result = planProjection({ config: makeConfig([makePluginQR("p", "softwareteam-home:/elsewhere")]), collisions: [], fsOps: mockFs() });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.errors).toContain('Plugin "p": openrig-home: requires a relative path.');
+    if (!result.ok) expect(result.errors).toContain('Plugin "p": softwareteam-home: requires a relative path.');
   });
 
   // ============================================================
@@ -115,15 +115,15 @@ describe("Projection planner — plugin path semantics", () => {
   // ============================================================
 
   it("absolute plugin source.path yields entry.absolutePath = same absolute path", () => {
-    const config = makeConfig([makePluginQR("openrig-core", "/Users/op/.openrig/plugins/openrig-core")]);
+    const config = makeConfig([makePluginQR("softwareteam-core", "/Users/op/.softwareteam/plugins/softwareteam-core")]);
     const input: ProjectionInput = { config, collisions: [], fsOps: mockFs() };
     const result = planProjection(input);
     expect(result.ok).toBe(true);
     if (result.ok) {
       const pluginEntry = result.plan.entries.find((e) => e.category === "plugin");
       expect(pluginEntry).toBeDefined();
-      expect(pluginEntry!.absolutePath).toBe("/Users/op/.openrig/plugins/openrig-core");
-      expect(pluginEntry!.resourcePath).toBe("/Users/op/.openrig/plugins/openrig-core");
+      expect(pluginEntry!.absolutePath).toBe("/Users/op/.softwareteam/plugins/softwareteam-core");
+      expect(pluginEntry!.resourcePath).toBe("/Users/op/.softwareteam/plugins/softwareteam-core");
     }
   });
 
@@ -144,12 +144,12 @@ describe("Projection planner — plugin path semantics", () => {
   // ============================================================
 
   it("tilde-prefixed plugin source.path expands to $HOME absolute path", () => {
-    const config = makeConfig([makePluginQR("openrig-core", "~/.openrig/plugins/openrig-core")]);
+    const config = makeConfig([makePluginQR("softwareteam-core", "~/.softwareteam/plugins/softwareteam-core")]);
     const result = planProjection({ config, collisions: [], fsOps: mockFs() });
     expect(result.ok).toBe(true);
     if (result.ok) {
       const entry = result.plan.entries[0]!;
-      const expectedAbs = nodePath.join(os.homedir(), ".openrig/plugins/openrig-core");
+      const expectedAbs = nodePath.join(os.homedir(), ".softwareteam/plugins/softwareteam-core");
       expect(entry.absolutePath).toBe(expectedAbs);
       expect(entry.absolutePath).not.toMatch(/^~/);
     }
@@ -207,7 +207,7 @@ describe("Projection planner — plugin path semantics", () => {
   it("three plugins with three different path shapes produce distinct absolutePaths (drift discriminator)", () => {
     const config = makeConfig([
       makePluginQR("abs-plugin", "/abs/plugins/abs-plugin", "/specs/agent-X"),
-      makePluginQR("home-plugin", "~/.openrig/plugins/home-plugin", "/specs/agent-X"),
+      makePluginQR("home-plugin", "~/.softwareteam/plugins/home-plugin", "/specs/agent-X"),
       makePluginQR("rel-plugin", "plugins/rel-plugin", "/specs/agent-X"),
     ]);
     const result = planProjection({ config, collisions: [], fsOps: mockFs() });
@@ -215,7 +215,7 @@ describe("Projection planner — plugin path semantics", () => {
     if (result.ok) {
       const byId = new Map(result.plan.entries.map((e) => [e.effectiveId, e.absolutePath]));
       expect(byId.get("abs-plugin")).toBe("/abs/plugins/abs-plugin");
-      expect(byId.get("home-plugin")).toBe(nodePath.join(os.homedir(), ".openrig/plugins/home-plugin"));
+      expect(byId.get("home-plugin")).toBe(nodePath.join(os.homedir(), ".softwareteam/plugins/home-plugin"));
       expect(byId.get("rel-plugin")).toBe("/specs/agent-X/plugins/rel-plugin");
       // All three distinct
       expect(new Set(Array.from(byId.values())).size).toBe(3);
@@ -227,13 +227,13 @@ describe("Projection planner — plugin path semantics", () => {
   // ============================================================
 
   it("plugin entry preserves category 'plugin' and effectiveId through planner", () => {
-    const config = makeConfig([makePluginQR("openrig-core", "/p/openrig-core")]);
+    const config = makeConfig([makePluginQR("softwareteam-core", "/p/softwareteam-core")]);
     const result = planProjection({ config, collisions: [], fsOps: mockFs() });
     expect(result.ok).toBe(true);
     if (result.ok) {
       const entry = result.plan.entries.find((e) => e.category === "plugin");
       expect(entry).toBeDefined();
-      expect(entry!.effectiveId).toBe("openrig-core");
+      expect(entry!.effectiveId).toBe("softwareteam-core");
       expect(entry!.sourceSpec).toBe("test-agent");
     }
   });

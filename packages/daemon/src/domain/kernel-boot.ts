@@ -1,11 +1,11 @@
-// V0.3.1 slice 05 kernel-rig-as-default — kernel auto-boot path.
+// V0.3.1 slice 05 kernel-software-team-as-default — kernel auto-boot path.
 //
-// Composes into rig daemon start per IMPL-PRD §6.1: probes runtime
+// Composes into SoftwareTeam daemon start per IMPL-PRD §6.1: probes runtime
 // auth state, selects a variant (dual / claude-only / codex-only),
 // and fires the in-process bootstrap pipeline IN THE BACKGROUND.
 // Short-circuits cleanly when:
-//   - OPENRIG_NO_KERNEL=1 is set (operator opt-out / test fixture)
-//   - A managed rig named `kernel` already exists in the DB
+//   - SOFTWARETEAM_NO_KERNEL=1 is set (operator opt-out / test fixture)
+//   - A managed softwareTeam named `kernel` already exists in the DB
 //   - Both runtimes are unauthenticated (auth_blocked terminal state)
 //   - The selected variant's spec file is missing
 //
@@ -20,12 +20,12 @@ import nodePath from "node:path";
 import os from "node:os";
 import { existsSync, readFileSync } from "node:fs";
 import { parse as parseToml } from "smol-toml";
-import type { RigRepository } from "./rig-repository.js";
+import type { SoftwareTeamRepository } from "./software-team-repository.js";
 import type { BootstrapOrchestrator } from "./bootstrap-orchestrator.js";
 import type { EventBus } from "./event-bus.js";
 import type { SessionRegistry } from "./session-registry.js";
 import { KernelBootTracker } from "./kernel-boot-tracker.js";
-import { RigSpecCodec } from "./rigspec-codec.js";
+import { SoftwareTeamSpecCodec } from "./software-team-spec-codec.js";
 
 export type RuntimeAuthStatus = "ok" | "unavailable";
 
@@ -35,7 +35,7 @@ export interface RuntimeProbeResult {
 }
 
 export interface KernelBootDeps {
-  rigRepo: RigRepository;
+  softwareTeamRepo: SoftwareTeamRepository;
   sessionRegistry: SessionRegistry;
   eventBus: EventBus;
   bootstrapOrchestrator: BootstrapOrchestrator;
@@ -46,7 +46,7 @@ export interface KernelBootDeps {
   /** cwdOverride passed to BootstrapOrchestrator.bootstrap. Kernel
    *  members run against the operator's environment, not the daemon
    *  installation tree — without this override, the bootstrap path
-   *  refuses with `cwd is inside the OpenRig installation`. Production
+   *  refuses with `cwd is inside the SoftwareTeam installation`. Production
    *  callsite passes the resolved workspace.root setting; tests inject
    *  a fixture path. */
   cwdOverride: string;
@@ -71,33 +71,33 @@ export async function bootKernelIfNeeded(deps: KernelBootDeps): Promise<KernelBo
   const tracker = new KernelBootTracker({
     eventBus: deps.eventBus,
     sessionRegistry: deps.sessionRegistry,
-    rigRepo: deps.rigRepo,
+    softwareTeamRepo: deps.softwareTeamRepo,
     degradedTimeoutMs: deps.degradedTimeoutMs,
   });
 
-  // 1. --no-kernel opt-out (CLI flag projected via OPENRIG_NO_KERNEL).
+  // 1. --no-kernel opt-out (CLI flag projected via SOFTWARETEAM_NO_KERNEL).
   // VITEST env additionally short-circuits the live runtime probe
   // path so daemon-composition tests don't block 5s+ on shelled-out
   // claude/codex CLI calls — real production probes complete in
   // ~100ms; this is an explicit test-fast escape hatch so individual
-  // test files don't each have to remember to set OPENRIG_NO_KERNEL=1.
+  // test files don't each have to remember to set SOFTWARETEAM_NO_KERNEL=1.
   // The auto-skip is suppressed when deps.probeRuntimes is injected:
   // kernel-boot's own unit tests inject a fast deterministic probe
   // and explicitly want to exercise the full logic.
   const probeInjected = typeof deps.probeRuntimes === "function";
-  if (process.env["OPENRIG_NO_KERNEL"] === "1" || (process.env["VITEST"] === "true" && !probeInjected)) {
-    const reason = process.env["OPENRIG_NO_KERNEL"] === "1" ? "OPENRIG_NO_KERNEL=1" : "VITEST=true";
+  if (process.env["SOFTWARETEAM_NO_KERNEL"] === "1" || (process.env["VITEST"] === "true" && !probeInjected)) {
+    const reason = process.env["SOFTWARETEAM_NO_KERNEL"] === "1" ? "SOFTWARETEAM_NO_KERNEL=1" : "VITEST=true";
     log("info", `kernel-boot: ${reason} — skipping kernel auto-boot`);
     tracker.setSkipped(reason);
     return tracker;
   }
 
-  // 2. Already-managed short-circuit. If a rig named `kernel` exists
+  // 2. Already-managed short-circuit. If a softwareTeam named `kernel` exists
   // (e.g., from a prior boot or operator-migrated substrate kernel),
   // the builtin path stays out of the way.
-  if (kernelAlreadyManaged(deps.rigRepo)) {
-    log("info", "kernel-boot: kernel rig already managed; skipping builtin boot");
-    tracker.setSkipped("kernel rig already managed");
+  if (kernelAlreadyManaged(deps.softwareTeamRepo)) {
+    log("info", "kernel-boot: kernel SoftwareTeam already managed; skipping builtin boot");
+    tracker.setSkipped("kernel SoftwareTeam already managed");
     return tracker;
   }
 
@@ -112,7 +112,7 @@ export async function bootKernelIfNeeded(deps: KernelBootDeps): Promise<KernelBo
   }
 
   const variant = selectVariant(probe);
-  const specPath = nodePath.join(deps.specsDir, "rigs/launch/kernel", variant);
+  const specPath = nodePath.join(deps.specsDir, "software-teams/launch/kernel", variant);
 
   if (!existsSync(specPath)) {
     log("warn", `kernel-boot: spec missing at ${specPath} — skipping`);
@@ -121,11 +121,11 @@ export async function bootKernelIfNeeded(deps: KernelBootDeps): Promise<KernelBo
   }
 
   // 4. Cold boot via the in-process bootstrap pipeline — FIRED, not awaited.
-  log("info", `kernel-boot: booting kernel rig from ${variant}`);
+  log("info", `kernel-boot: booting kernel SoftwareTeam from ${variant}`);
   const bootstrapPromise = deps.bootstrapOrchestrator.bootstrap({
     mode: "apply",
     sourceRef: specPath,
-    sourceKind: "rig_spec",
+    sourceKind: "software_team_spec",
     autoApprove: true,
     cwdOverride: deps.cwdOverride,
   });
@@ -138,7 +138,7 @@ export async function bootKernelIfNeeded(deps: KernelBootDeps): Promise<KernelBo
  *  tracker then keeps a failure current, because an unknown roster must never read as ready. */
 export function expectedKernelSeats(specPath: string): string[] | null {
   try {
-    const raw = RigSpecCodec.parse(readFileSync(specPath, "utf-8")) as { pods?: unknown } | null;
+    const raw = SoftwareTeamSpecCodec.parse(readFileSync(specPath, "utf-8")) as { pods?: unknown } | null;
     if (!raw || !Array.isArray(raw.pods)) return null;
     const seats: string[] = [];
     for (const pod of raw.pods as Array<{ id?: unknown; members?: unknown } | null>) {
@@ -154,20 +154,20 @@ export function expectedKernelSeats(specPath: string): string[] | null {
   }
 }
 
-/** True when a rig named `kernel` already exists in the DB. */
-export function kernelAlreadyManaged(rigRepo: RigRepository): boolean {
-  const rigs = rigRepo.listRigs();
-  return rigs.some((r) => r.name === "kernel");
+/** True when a softwareTeam named `kernel` already exists in the DB. */
+export function kernelAlreadyManaged(softwareTeamRepo: SoftwareTeamRepository): boolean {
+  const softwareTeams = softwareTeamRepo.listSoftwareTeams();
+  return softwareTeams.some((r) => r.name === "kernel");
 }
 
-/** Choose a rig variant from the auth probe. */
+/** Choose a softwareTeam variant from the auth probe. */
 export function selectVariant(probe: RuntimeProbeResult): string {
-  if (probe.claudeCode === "ok" && probe.codex === "ok") return "rig.yaml";
-  if (probe.claudeCode === "ok") return "rig-claude-only.yaml";
-  if (probe.codex === "ok") return "rig-codex-only.yaml";
+  if (probe.claudeCode === "ok" && probe.codex === "ok") return "software-team.yaml";
+  if (probe.claudeCode === "ok") return "software-team-claude-only.yaml";
+  if (probe.codex === "ok") return "software-team-codex-only.yaml";
   // Caller is expected to short-circuit before reaching here on the
   // both-unavailable path; defensive default keeps the type narrow.
-  return "rig.yaml";
+  return "software-team.yaml";
 }
 
 /** Default auth probe — shells out to the runtime CLIs. */
@@ -214,7 +214,7 @@ export async function defaultProbeRuntimes(): Promise<RuntimeProbeResult> {
  *  `profile`, a built-in or undeclared provider) keeps the OpenAI login check,
  *  so an unresolved config does not take the env-key shortcut; readiness still follows the login result. Other Codex config layers
  *  (project, system or managed config, requirements, `-c`, `--profile`) are not
- *  resolved here. The CLI's `rig setup` carries the same rule. */
+ *  resolved here. The CLI's `SoftwareTeam setup` carries the same rule. */
 export type CodexProviderAuth =
   | { kind: "openai-login"; unresolved?: string }
   | { kind: "env-key"; providerId: string; envKey: string };
@@ -262,9 +262,9 @@ export async function probeCodexReadiness(deps: {
  *  §6.3 + the building-agent-software skill discipline. */
 export function authBlockMessage(): string {
   return [
-    "Error: Kernel rig cannot boot — no AI runtime is authenticated.",
-    "Reason: Kernel rig requires at least one of Claude Code or Codex authenticated. Both are unavailable.",
-    "Fix: Run `claude auth login` to authenticate Claude Code, OR `codex login` to authenticate Codex. Then run `rig daemon start` (or `rig setup`) again.",
+    "Error: Kernel SoftwareTeam cannot boot — no AI runtime is authenticated.",
+    "Reason: Kernel SoftwareTeam requires at least one of Claude Code or Codex authenticated. Both are unavailable.",
+    "Fix: Run `claude auth login` to authenticate Claude Code, OR `codex login` to authenticate Codex. Then run `SoftwareTeam daemon start` (or `SoftwareTeam setup`) again.",
   ].join("\n");
 }
 

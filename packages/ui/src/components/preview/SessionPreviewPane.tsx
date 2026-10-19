@@ -1,7 +1,7 @@
 // Preview Terminal v0 (PL-018) — session-keyed preview pane.
 //
 // Same shape as PreviewPane but addressed by sessionName. Used by
-// surfaces that hold a sessionName but not a (rigId, logicalId) pair
+// surfaces that hold a sessionName but not a (softwareTeamId, logicalId) pair
 // — Steering Loop State panel, Slice Story View Topology tab.
 //
 // No Pin button at v0 for the session-keyed variant: pinning belongs
@@ -124,7 +124,7 @@ export function SessionPreviewPane({
                 <div className="text-on-surface-variant">{preview.data.hint}</div>
               )}
               <div className="text-on-surface-variant">
-                Use <code>rig capture {sessionName}</code> from terminal as a fallback.
+                Use <code>SoftwareTeam capture {sessionName}</code> from terminal as a fallback.
               </div>
             </>
           )}

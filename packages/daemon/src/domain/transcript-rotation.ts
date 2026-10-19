@@ -5,7 +5,7 @@
 // that atomically overwrites the transcript file. File size stays bounded
 // by trailing line count + line-byte ceiling, not by session duration.
 //
-// Tunables (env: OPENRIG_TRANSCRIPTS_LINES / OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS;
+// Tunables (env: SOFTWARETEAM_TRANSCRIPTS_LINES / SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS;
 // allowlist keys transcripts.lines / transcripts.poll_interval_seconds):
 //   - lines:           number of trailing lines to capture per tick (default 1000)
 //   - pollIntervalMs:  millisecond cadence between ticks (default 2000)
@@ -205,7 +205,7 @@ const capturingSessions = new Set<string>();
 // the current bytes) or after a successful atomic rename — NOT merely on a
 // successful capture: a capture whose required persistence then fails must not
 // advertise freshness over stale on-disk bytes. getIngestHealth reads THIS
-// (with an mtime fallback). Keyed by sessionName (globally unique: {pod}-{member}@{rig}).
+// (with an mtime fallback). Keyed by sessionName (globally unique: {pod}-{member}@{softwareTeam}).
 const lastCaptureAtBySession = new Map<string, number>();
 // When a skipped tick last found the pane unchanged since its last capture. It keeps ingest live between captures;
 // the capture time stays the last real capture.

@@ -3,7 +3,7 @@ import {
   projectSurface,
   buildDeclarativeNormalizer,
   isEqualsMapping,
-  rigOf,
+  softwareTeamOf,
   ProjectionError,
 } from "./helpers/scenario-normalizer.js";
 import { validateScenario } from "./helpers/scenario-schema.js";
@@ -13,16 +13,16 @@ import { validateScenario } from "./helpers/scenario-schema.js";
 
 describe("projectSurface — declares which field carries the shared truth", () => {
   it("plucks a field from an array surface, deduped and sorted (set semantics)", () => {
-    const ps = [{ name: "b-rig" }, { name: "a-rig" }, { name: "a-rig" }];
-    expect(projectSurface(ps, { pluck: "name" })).toEqual(["a-rig", "b-rig"]);
+    const ps = [{ name: "b-software-team" }, { name: "a-software-team" }, { name: "a-software-team" }];
+    expect(projectSurface(ps, { pluck: "name" })).toEqual(["a-software-team", "b-software-team"]);
   });
 
-  it("reduces canonical session names to their rig — N qitems on one rig collapse to one", () => {
+  it("reduces canonical session names to their softwareTeam — N qitems on one SoftwareTeam collapse to one", () => {
     const queue = [
       { destinationSession: "dev-worker@scn-baton" },
       { destinationSession: "dev-qa@scn-baton" },
     ];
-    expect(projectSurface(queue, { pluck: "destinationSession", rig: true })).toEqual(["scn-baton"]);
+    expect(projectSurface(queue, { pluck: "destinationSession", softwareTeam: true })).toEqual(["scn-baton"]);
   });
 
   it("returns empty for genuinely empty input, but THROWS when real data yields nothing", () => {
@@ -36,9 +36,9 @@ describe("projectSurface — declares which field carries the shared truth", () 
     expect(projectSurface({ state: { screen: "topology" } }, { path: "state.screen" })).toBe("topology");
   });
 
-  it("rigOf takes the part after the LAST @ and passes through a bare name", () => {
-    expect(rigOf("dev-worker@scn-baton")).toBe("scn-baton");
-    expect(rigOf("bare")).toBe("bare");
+  it("softwareTeamOf takes the part after the LAST @ and passes through a bare name", () => {
+    expect(softwareTeamOf("dev-worker@scn-baton")).toBe("scn-baton");
+    expect(softwareTeamOf("bare")).toBe("bare");
   });
 });
 
@@ -46,7 +46,7 @@ describe("buildDeclarativeNormalizer — lowering onto the seam", () => {
   it("applies each surface's declared projection and passes undeclared surfaces through", () => {
     const n = buildDeclarativeNormalizer({
       ps: { pluck: "name" },
-      queue: { pluck: "destinationSession", rig: true },
+      queue: { pluck: "destinationSession", softwareTeam: true },
     });
     expect(n("ps", [{ name: "scn-baton" }])).toEqual(["scn-baton"]);
     expect(n("queue", [{ destinationSession: "dev-worker@scn-baton" }])).toEqual(["scn-baton"]);
@@ -60,13 +60,13 @@ describe("buildDeclarativeNormalizer — lowering onto the seam", () => {
   });
 
   it("two surfaces that genuinely disagree do NOT normalize equal (the pin has teeth)", () => {
-    const n = buildDeclarativeNormalizer({ ps: { pluck: "name" }, queue: { pluck: "destinationSession", rig: true } });
-    expect(n("ps", [{ name: "scn-baton" }])).not.toEqual(n("queue", [{ destinationSession: "w@other-rig" }]));
+    const n = buildDeclarativeNormalizer({ ps: { pluck: "name" }, queue: { pluck: "destinationSession", softwareTeam: true } });
+    expect(n("ps", [{ name: "scn-baton" }])).not.toEqual(n("queue", [{ destinationSession: "w@other-software-team" }]));
   });
 });
 
 // Guard finding on a7b6b7c85, reproduced by the desk: my own falsification broke
-// ONE side (name -> rigId) and got a correct FAIL, so I called the comparison
+// ONE side (name -> softwareTeamId) and got a correct FAIL, so I called the comparison
 // value-sensitive. It is — on the DIFFERENCE axis. It could not detect EMPTINESS.
 // A falsification only covers the axis it perturbs; these cover the others.
 describe("the axes my one-sided falsification could not reach", () => {
@@ -85,7 +85,7 @@ describe("the axes my one-sided falsification could not reach", () => {
   });
 
   it("empty-from-EMPTY stays legal — a surface may honestly hold nothing", () => {
-    const n = buildDeclarativeNormalizer({ queue: { pluck: "destinationSession", rig: true } });
+    const n = buildDeclarativeNormalizer({ queue: { pluck: "destinationSession", softwareTeam: true } });
     expect(n("queue", [])).toEqual([]);
   });
 
@@ -122,7 +122,7 @@ describe("load-time refusals (a TypeError must never be the first signal)", () =
   });
 
   it("accepts a well-formed two-surface declarative mapping", () => {
-    const r = validateScenario(base({ ps: { pluck: "name" }, queue: { pluck: "destinationSession", rig: true } }));
+    const r = validateScenario(base({ ps: { pluck: "name" }, queue: { pluck: "destinationSession", softwareTeam: true } }));
     expect(r.ok).toBe(true);
   });
 });

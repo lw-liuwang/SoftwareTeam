@@ -1,9 +1,9 @@
 // Slice 15 (OPR.0.4.7.15) — CLI contract honesty regression tests.
 //   1. shared --json error path (machine-parseable error + nonzero exit)
-//   2. `queue overdue` rig-scoped + bounded + body-free by default
+//   2. `queue overdue` software-team-scoped + bounded + body-free by default
 //   3. unknown `-o` format rejected (queue list) — not accepted-then-ignored
 //   4. invalid `--limit` (negative/zero/non-numeric) rejected (queue list)
-//   5. `rig ps --active` honest: fails loudly without --nodes (no silent no-op)
+//   5. `SoftwareTeam ps --active` honest: fails loudly without --nodes (no silent no-op)
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createProgram } from "../src/index.js";
 import { runProgram } from "../src/cli-error.js";
@@ -13,8 +13,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -42,7 +42,7 @@ async function runCli(args: string[], deps?: Parameters<typeof createProgram>[0]
   const err: string[] = [];
   let exitCode = 0;
   const program = createProgram(deps);
-  await runProgram(program, ["node", "rig", ...args], {
+  await runProgram(program, ["node", "softwareTeam", ...args], {
     out: (l) => out.push(l),
     err: (l) => err.push(l),
     exit: (c) => { exitCode = c; },
@@ -115,28 +115,28 @@ describe("Slice 15 — CLI contract honesty", () => {
   });
 
   describe("finding 2 — queue overdue scoped + bounded + body-free by default", () => {
-    it("default: rig-scoped (current rig) + compact=1 + a default limit", async () => {
-      vi.stubEnv("OPENRIG_SESSION_NAME", "dev@my-rig");
+    it("default: software-team-scoped (current softwareTeam) + compact=1 + a default limit", async () => {
+      vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "dev@my-software-team");
       const { deps, calls } = makeQueueDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "overdue", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "overdue", "--json"]);
       const call = calls.find((c) => c.path.startsWith("/api/queue/overdue"));
       expect(call).toBeDefined();
-      expect(call!.path).toContain("rig=my-rig");
+      expect(call!.path).toContain("softwareTeam=my-software-team");
       expect(call!.path).toContain("compact=1");
       expect(call!.path).toMatch(/limit=\d+/);
       vi.unstubAllEnvs();
     });
-    it("--full drops compact; -A drops the rig scope", async () => {
-      vi.stubEnv("OPENRIG_SESSION_NAME", "dev@my-rig");
+    it("--full drops compact; -A drops the SoftwareTeam scope", async () => {
+      vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "dev@my-software-team");
       const { deps, calls } = makeQueueDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "overdue", "-A", "--full"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "overdue", "-A", "--full"]);
       const call = calls.find((c) => c.path.startsWith("/api/queue/overdue"));
       expect(call!.path).not.toContain("compact=1");
-      expect(call!.path).not.toContain("rig=");
+      expect(call!.path).not.toContain("softwareTeam=");
       vi.unstubAllEnvs();
     });
     it("--limit is validated on overdue too", async () => {
@@ -147,42 +147,42 @@ describe("Slice 15 — CLI contract honesty", () => {
     });
   });
 
-  // 0.5.1-54 DR-1 — `queue undelivered` mirrors `overdue` (rig-scoped, bounded, body-free by default).
+  // 0.5.1-54 DR-1 — `queue undelivered` mirrors `overdue` (software-team-scoped, bounded, body-free by default).
   describe("DR-1 — queue undelivered scoped + bounded + body-free by default", () => {
-    it("default: rig-scoped (current rig) + compact=1 + a default limit, hits /api/queue/undelivered", async () => {
-      vi.stubEnv("OPENRIG_SESSION_NAME", "dev@my-rig");
+    it("default: software-team-scoped (current softwareTeam) + compact=1 + a default limit, hits /api/queue/undelivered", async () => {
+      vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "dev@my-software-team");
       const { deps, calls } = makeQueueDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "undelivered", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "undelivered", "--json"]);
       const call = calls.find((c) => c.path.startsWith("/api/queue/undelivered"));
       expect(call).toBeDefined();
-      expect(call!.path).toContain("rig=my-rig");
+      expect(call!.path).toContain("softwareTeam=my-software-team");
       expect(call!.path).toContain("compact=1");
       expect(call!.path).toMatch(/limit=\d+/);
       vi.unstubAllEnvs();
     });
-    it("--full drops compact; -A drops the rig scope", async () => {
-      vi.stubEnv("OPENRIG_SESSION_NAME", "dev@my-rig");
+    it("--full drops compact; -A drops the SoftwareTeam scope", async () => {
+      vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "dev@my-software-team");
       const { deps, calls } = makeQueueDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "undelivered", "-A", "--full"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "undelivered", "-A", "--full"]);
       const call = calls.find((c) => c.path.startsWith("/api/queue/undelivered"));
       expect(call!.path).not.toContain("compact=1");
-      expect(call!.path).not.toContain("rig=");
+      expect(call!.path).not.toContain("softwareTeam=");
       vi.unstubAllEnvs();
     });
   });
 
-  describe("finding 5 — ps --active honest at rig tier", () => {
+  describe("finding 5 — ps --active honest at SoftwareTeam tier", () => {
     it("bare `ps --active` (no --nodes) fails loudly with nonzero exit — not a silent no-op", async () => {
       const errs: string[] = [];
       vi.spyOn(console, "error").mockImplementation((...a) => { errs.push(a.join(" ")); });
       process.exitCode = undefined;
       const program = createProgram();
       program.exitOverride();
-      try { await program.parseAsync(["node", "rig", "ps", "--active"]); } catch { /* commander throw */ }
+      try { await program.parseAsync(["node", "SoftwareTeam", "ps", "--active"]); } catch { /* commander throw */ }
       expect(process.exitCode).toBe(1);
       expect(errs.join("\n")).toMatch(/--nodes/);
       expect(errs.join("\n")).toMatch(/node tier/i);

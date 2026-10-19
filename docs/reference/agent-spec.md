@@ -49,7 +49,7 @@ profiles:
       skills: [development-team, systematic-debugging, verification-before-completion]
       guidance: []
       subagents: []
-      plugins: [shared:openrig-core]
+      plugins: [shared:softwareteam-core]
       runtime_resources: [shared:claude-default-settings, shared:claude-default-mcp, shared:codex-default-config, shared:claude-activity-hooks]
 
 resources:
@@ -95,7 +95,7 @@ profiles:
       skills: [systematic-debugging, vault-user]
       guidance: []
       subagents: []
-      plugins: [shared:openrig-core, vault-tools]
+      plugins: [shared:softwareteam-core, vault-tools]
       runtime_resources: [claude-settings]
     startup:
       files:
@@ -151,9 +151,9 @@ startup:
 | `name` | string | yes | — | Agent name. Used in spec library identification and validation messages. |
 | `version` | string | yes | — | Spec version. Quote it (`"1.0"`): an unquoted number fails as a non-string. An importing spec that pins `imports[].version` must match it exactly. |
 | `description` | string | no | — | Human-readable description. Shown in spec library and review surfaces. |
-| `defaults` | Defaults | no | — | Default runtime, model, and lifecycle settings. Applied when not overridden by the rig spec or profile. |
+| `defaults` | Defaults | no | — | Default runtime, model, and lifecycle settings. Applied when not overridden by the SoftwareTeam spec or profile. |
 | `imports` | Import[] | no | `[]` | Other AgentSpecs to import. Resources from imported specs become available for profile `uses` references. |
-| `profiles` | map<string, Profile> | no | `{}` | Named profiles. Each profile selects resources and can override startup/lifecycle. The rig spec member's `profile` field selects which profile to use. |
+| `profiles` | map<string, Profile> | no | `{}` | Named profiles. Each profile selects resources and can override startup/lifecycle. The SoftwareTeam spec member's `profile` field selects which profile to use. |
 | `resources` | Resources | no | all empty | Declared resources (skills, guidance, subagents, plugins, runtime resources). These are the available pool that profiles select from via `uses`. |
 | `startup` | StartupBlock | no | `{ files: [], actions: [] }` | Agent-level startup files and actions. Applied to all profiles via the startup layering model. |
 
@@ -174,7 +174,7 @@ defaults:
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `runtime` | string | no | — | Default runtime for this agent. Precedence: the rig spec member's `runtime`, then the profile's `preferences.runtime`, then this, then `claude-code`. |
+| `runtime` | string | no | — | Default runtime for this agent. Precedence: the SoftwareTeam spec member's `runtime`, then the profile's `preferences.runtime`, then this, then `claude-code`. |
 | `model` | string | no | — | Default model, with the same precedence. |
 | `effort` | string | no | — | Default reasoning effort, with the same precedence. Claude gets `--effort`, Codex `-c model_reasoning_effort=…`. A blank or non-string value is ignored with an advisory. |
 | `lifecycle` | Lifecycle | no | see below | Lifecycle behavior defaults. |
@@ -186,7 +186,7 @@ defaults:
 | `execution_mode` | string | `interactive_resident` | `interactive_resident` (only value in v1; `wake_on_demand` is explicitly rejected) |
 | `compaction_strategy` | string | `default-compaction` | `default-compaction`, `managed-compaction`, `handover`, `apprentice-handover`; deprecated aliases accepted with a validation advisory: `harness_native` → `default-compaction`, `pod_continuity` → `handover` (`custom_prompt` is explicitly rejected in v1). `managed-compaction` and `apprentice-handover` create their jobs only for `claude-code` seats; see [Codex compaction and sizing](agent-startup-guide.md#codex-compaction-and-sizing) |
 | `restore_policy` | string | `resume_if_possible` | `resume_if_possible`, `relaunch_fresh`, `checkpoint_only` |
-| `mechanic` | string | — | A canonical `seat@rig` session address; needed by `apprentice-handover` |
+| `mechanic` | string | — | A canonical `seat@software-team` session address; needed by `apprentice-handover` |
 
 ---
 
@@ -209,7 +209,7 @@ imports:
 - `local:` paths resolve relative to the importing spec's directory
 - `path:` paths are absolute filesystem paths
 - Imported resources become available for `uses` references in profiles
-- A qualified reference `namespace:id` (e.g., `shared:openrig-core`) names the imported spec by its `name` field
+- A qualified reference `namespace:id` (e.g., `shared:softwareteam-core`) names the imported spec by its `name` field
 - An unqualified reference (just `id`) resolves against the spec's own resources first, then against the one import that
   declares it. If two imports declare it, the reference is ambiguous and fails: qualify it
 - An imported spec may not have imports of its own, and its `name` may not contain `:`. Two imports that resolve to the
@@ -225,11 +225,11 @@ imports:
 ```
 
 This gives access to the shared pool: skills such as `systematic-debugging`, `verification-before-completion`,
-`development-team` and `test-driven-development`; the `openrig-core` plugin, which carries `openrig-user` and OpenRig's
+`development-team` and `test-driven-development`; the `softwareteam-core` plugin, which carries `softwareteam-user` and SoftwareTeam's
 other skills; and runtime resources such as `claude-default-settings`, `claude-default-mcp`, `codex-default-config` and
 `claude-activity-hooks`. Agents select the ones they need via profile `uses`, for example
-`plugins: [shared:openrig-core]`. That selection projects the plugin's skills into the seat. For a Claude seat it also loads
-the plugin's hooks, through a `CLAUDE_CODE_PLUGIN_DIRS` the daemon sets for a seat that selected `openrig-core` (see
+`plugins: [shared:softwareteam-core]`. That selection projects the plugin's skills into the seat. For a Claude seat it also loads
+the plugin's hooks, through a `CLAUDE_CODE_PLUGIN_DIRS` the daemon sets for a seat that selected `softwareteam-core` (see
 `refocus-channel.md`); a seat that didn't select it gets neither.
 
 ---
@@ -247,7 +247,7 @@ profiles:
       skills: [systematic-debugging, vault-user]
       guidance: [role]
       subagents: []
-      plugins: [shared:openrig-core]
+      plugins: [shared:softwareteam-core]
       runtime_resources: []
     startup:
       files: []
@@ -276,7 +276,7 @@ uses:
   skills: [systematic-debugging, vault-user]
   guidance: [role]
   subagents: []
-  plugins: [shared:openrig-core]
+  plugins: [shared:softwareteam-core]
   runtime_resources: [claude-settings]
 ```
 
@@ -289,8 +289,8 @@ empty list, is refused: hooks ship inside plugins.
 
 **Skills resolve more widely than other resources.** For Claude Code and Codex seats, a skill ID that no declared
 resource provides is looked up at launch in the seat's runtime skill folder (`<cwd>/.claude/skills` or
-`<cwd>/.agents/skills`), then the `skills/` folder beside the RigSpec, then the home skill folder, then the managed
-skills root. Pi looks only in the `skills/` folder beside the RigSpec. OMP does no filesystem discovery, so its
+`<cwd>/.agents/skills`), then the `skills/` folder beside the SoftwareTeamSpec, then the home skill folder, then the managed
+skills root. Pi looks only in the `skills/` folder beside the SoftwareTeamSpec. OMP does no filesystem discovery, so its
 `uses.skills` references need declared resources. A discovered skill's ID is its `SKILL.md` frontmatter `name`, and a declared resource wins over a discovered skill with the
 same ID. When a profile selects a skill from inside the spec's own folder and the managed catalog holds a different
 copy, the spec's copy is used and launch warns `skill_bundle_precedence`. Any other differing copy fails launch with
@@ -338,40 +338,40 @@ A local plugin's `source.path` supports these forms:
 |------|------------|
 | `/absolute/plugin` | The exact absolute path. |
 | `~/plugins/example` or `~` | The operating-system user home. |
-| `openrig-home:plugins/openrig-core` | Relative to the daemon's configured OpenRig home, including a non-default `OPENRIG_HOME`. |
+| `softwareteam-home:plugins/softwareteam-core` | Relative to the daemon's configured SoftwareTeam home, including a non-default `SOFTWARETEAM_HOME`. |
 | `plugins/example` or `./plugins/example` | Relative to the agent spec directory. |
 
-For a plugin seeded by OpenRig, use the home-relative form so the spec selects
+For a plugin seeded by SoftwareTeam, use the home-relative form so the spec selects
 that daemon's copy:
 
 ```yaml
 resources:
   plugins:
-    - id: openrig-core
+    - id: softwareteam-core
       source:
         kind: local
-        path: "openrig-home:plugins/openrig-core"
+        path: "softwareteam-home:plugins/softwareteam-core"
 profiles:
   default:
     uses:
-      plugins: [openrig-core]
+      plugins: [softwareteam-core]
 ```
 
-`openrig-home:` is resolved by the daemon from its configured state root. It is
+`softwareteam-home:` is resolved by the daemon from its configured state root. It is
 not shell interpolation and does not consult a seat's shell startup files. Its
 suffix must be relative. Existing absolute, tilde and spec-relative paths keep
 their meaning; `~user` is still a literal relative segment, not a user lookup.
-This form needs OpenRig 0.6.5 or later; keep bundles using it pinned to such a
+This form needs SoftwareTeam 0.6.5 or later; keep bundles using it pinned to such a
 version.
 
 ### Resource Categories
 
 | Category | Fields | Description |
 |----------|--------|-------------|
-| `skills` | `id`, `path` | Skill directories containing a SKILL.md. Projected by the runtime adapter: Claude to `<cwd>/.claude/skills/<id>`, Codex to `<cwd>/.agents/skills/<id>`, Pi and OMP to the seat's own agent directory under OpenRig's state. |
+| `skills` | `id`, `path` | Skill directories containing a SKILL.md. Projected by the runtime adapter: Claude to `<cwd>/.claude/skills/<id>`, Codex to `<cwd>/.agents/skills/<id>`, Pi and OMP to the seat's own agent directory under SoftwareTeam's state. |
 | `guidance` | `id`, `path`, `target`*, `merge`* | Guidance files, merged as a managed block (see "Guidance Resources"). |
 | `subagents` | `id`, `path` | Subagent definitions. Claude copies them to `<cwd>/.claude/agents/`, Codex to `<cwd>/.agents/`; Pi and OMP don't project them. |
-| `plugins` | `id`, `source`, `plugin_type`* | Local plugin directories; selected with `uses.plugins`. `source.kind` must be `local`. `plugin_type` is `claude`, `codex` or `auto` (default): Claude projects a plugin to `<cwd>/.claude/plugins/<id>` when it is `claude`, or `auto` with a `.claude-plugin/plugin.json`; Codex projects to `<cwd>/.codex/plugins/<id>` when it is `codex`, or `auto` with a `.codex-plugin/plugin.json`. Pi and OMP don't project plugins. Neither Claude Code nor Codex reads skills from that plugin folder, so when a seat is instantiated a selected plugin's skills are also projected into the seat's skill folder (`.claude/skills/<name>` or `.agents/skills/<name>`) under their plain names. A folder already there with the same name, ignoring letter case, that OpenRig doesn't own is left alone; unless it already holds the same bytes, launch warns `plugin_skill_kept`. A skill the seat already selects by that name (from its profile, the System World or the project) keeps that source, an edited OpenRig-owned copy is kept with `plugin_skill_kept`, a retained plugin copy whose remembered source can no longer be projected is also kept with `plugin_skill_kept` (a seat selecting that plugin refreshes it at its next launch), and if the plugin skills can't be projected the seat launches without them and warns `plugin_skills_not_projected`. Hooks ship inside plugins. |
+| `plugins` | `id`, `source`, `plugin_type`* | Local plugin directories; selected with `uses.plugins`. `source.kind` must be `local`. `plugin_type` is `claude`, `codex` or `auto` (default): Claude projects a plugin to `<cwd>/.claude/plugins/<id>` when it is `claude`, or `auto` with a `.claude-plugin/plugin.json`; Codex projects to `<cwd>/.codex/plugins/<id>` when it is `codex`, or `auto` with a `.codex-plugin/plugin.json`. Pi and OMP don't project plugins. Neither Claude Code nor Codex reads skills from that plugin folder, so when a seat is instantiated a selected plugin's skills are also projected into the seat's skill folder (`.claude/skills/<name>` or `.agents/skills/<name>`) under their plain names. A folder already there with the same name, ignoring letter case, that SoftwareTeam doesn't own is left alone; unless it already holds the same bytes, launch warns `plugin_skill_kept`. A skill the seat already selects by that name (from its profile, the System World or the project) keeps that source, an edited SoftwareTeam-owned copy is kept with `plugin_skill_kept`, a retained plugin copy whose remembered source can no longer be projected is also kept with `plugin_skill_kept` (a seat selecting that plugin refreshes it at its next launch), and if the plugin skills can't be projected the seat launches without them and warns `plugin_skills_not_projected`. Hooks ship inside plugins. |
 | `runtime_resources` | `id`, `path`, `runtime`, `type` | Runtime-specific resources. `runtime` and `type` are required. An entry whose `runtime` isn't the seat's runtime is skipped. Pi and OMP project none. |
 
 *Fields marked with `*` are optional.
@@ -379,8 +379,8 @@ version.
 Recognized runtime resource types:
 - `claude_settings_fragment` — merge a JSON object into `<cwd>/.claude/settings.local.json`.
 - `claude_mcp_fragment` — merge a JSON object into `<cwd>/.mcp.json`.
-- `claude_activity_hooks` — reconcile OpenRig's activity hooks into `<cwd>/.claude/settings.local.json`.
-- `codex_config_fragment` — upsert a TOML fragment into `$CODEX_HOME/config.toml` (default `~/.codex/config.toml`) inside an OpenRig-managed block.
+- `claude_activity_hooks` — reconcile SoftwareTeam's activity hooks into `<cwd>/.claude/settings.local.json`.
+- `codex_config_fragment` — upsert a TOML fragment into `$CODEX_HOME/config.toml` (default `~/.codex/config.toml`) inside an SoftwareTeam-managed block.
 
 Unknown runtime resource types are still copied to the Claude or Codex runtime extension directory for agent-visible context.
 
@@ -436,23 +436,23 @@ guidance:
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `id` | string | yes | — | Resource identifier. A `rig-role` guidance resource is never merged; deliver a role with a `send_text` startup file. |
+| `id` | string | yes | — | Resource identifier. A `software-team-role` guidance resource is never merged; deliver a role with a `send_text` startup file. |
 | `path` | string | yes | — | Relative path to the guidance file. |
-| `target` | string | no | — | Parsed but not used: the runtime decides the file. Claude merges into the rig's `managed_blocks` file (`CLAUDE.md` by default, or `CLAUDE.local.md`); Codex, Pi and OMP merge into `<cwd>/AGENTS.md`. |
+| `target` | string | no | — | Parsed but not used: the runtime decides the file. Claude merges into the SoftwareTeam's `managed_blocks` file (`CLAUDE.md` by default, or `CLAUDE.local.md`); Codex, Pi and OMP merge into `<cwd>/AGENTS.md`. |
 | `merge` | string | no | `managed_block` | Only `managed_block` is applied. Any other value, such as `append`, merges nothing. |
 
 ---
 
 ## Startup Block
 
-The startup block follows the same format as in the RigSpec (see `docs/reference/rig-spec.md` for full details on files and actions).
+The startup block follows the same format as in the SoftwareTeamSpec (see `docs/reference/software-team-spec.md` for full details on files and actions).
 
 Agent-level startup is applied to all profiles. Profile-level startup is applied only when that profile is active. Both merge additively via the startup layering model.
 
 An additional orientation challenge requires an explicit `startup_proof` action
 with `value: authenticated` and `idempotent: true`. Omission adds no exercise;
 a later applicable `value: none` overrides an earlier selection. See
-[startup proof selection](rig-spec.md#startup-proof-selection) for precedence,
+[startup proof selection](software-team-spec.md#startup-proof-selection) for precedence,
 restore behavior, and the distinction between readiness and verified proof.
 
 ### Delivery Hint Quick Reference
@@ -484,13 +484,13 @@ restore behavior, and the distinction between readiness and verified proof.
    a plugin instead.
 12b. A plugin needs a unique non-empty `id`, a `source` object with `kind: local` and a non-empty `path`, and a
    `plugin_type` of `claude`, `codex` or `auto` when given.
-12c. Lifecycle `mechanic` must be a canonical `seat@rig` session address.
+12c. Lifecycle `mechanic` must be a canonical `seat@software-team` session address.
 12. Lifecycle `execution_mode` must be `interactive_resident`.
 13. Lifecycle `compaction_strategy` must be one of `default-compaction`, `managed-compaction`, `handover`, `apprentice-handover` — or a deprecated alias (`harness_native`, `pod_continuity`), which validates with a deprecation advisory and normalizes to its canonical value (OPR.0.5.6.20).
 14. Lifecycle `restore_policy` must be `resume_if_possible`, `relaunch_fresh`, or `checkpoint_only`.
-15. Startup files and actions follow the same validation rules as in RigSpec.
+15. Startup files and actions follow the same validation rules as in SoftwareTeamSpec.
 
-Unknown keys are ignored, not refused. `rig agent validate <path> [--json]` runs these syntax checks through the running
+Unknown keys are ignored, not refused. `SoftwareTeam agent validate <path> [--json]` runs these syntax checks through the running
 daemon; it doesn't resolve imports, find skills or check that files exist, so a missing skill shows up only at launch.
 
 ---
@@ -521,16 +521,16 @@ The only required file is `agent.yaml`. Everything else is referenced by paths i
 
 ## Shipped Examples
 
-Every agent below except `shared` imports `shared` and selects `plugins: [shared:openrig-core]`, which carries
-`openrig-user`. Paths are under `packages/daemon/specs/agents/`; the kernel's own agents are under
-`packages/daemon/specs/rigs/launch/kernel/agents/`.
+Every agent below except `shared` imports `shared` and selects `plugins: [shared:softwareteam-core]`, which carries
+`softwareteam-user`. Paths are under `packages/daemon/specs/agents/`; the kernel's own agents are under
+`packages/daemon/specs/SoftwareTeams/launch/kernel/agents/`.
 
 | Agent | Location | Default runtime | Profile skills | Purpose |
 |-------|----------|-----------------|----------------|---------|
-| `shared` | `shared/` | — | — (resource pool only) | Shared skills, the `openrig-core` plugin and runtime resources |
+| `shared` | `shared/` | — | — (resource pool only) | Shared skills, the `softwareteam-core` plugin and runtime resources |
 | `implementer` | `development/implementer/` | claude-code | development-team, systematic-debugging, verification-before-completion | Implementation agent |
 | `qa` | `development/qa/` | codex | development-team, systematic-debugging, verification-before-completion, agent-browser, dogfood | Quality assurance agent |
-| `orchestrator` | `orchestration/orchestrator/` | claude-code | orchestration-team, systematic-debugging, verification-before-completion | Rig orchestration lead |
+| `orchestrator` | `orchestration/orchestrator/` | claude-code | orchestration-team, systematic-debugging, verification-before-completion | SoftwareTeam orchestration lead |
 | `independent-reviewer` | `review/independent-reviewer/` | claude-code | review-team, systematic-debugging, verification-before-completion | Independent code reviewer |
 | `vault-specialist` | `apps/vault-specialist/` | claude-code | systematic-debugging, verification-before-completion, vault-user | Vault domain specialist |
 | `product-designer` | `design/product-designer/` | claude-code | development-team, frontend-design, verification-before-completion | Product designer |

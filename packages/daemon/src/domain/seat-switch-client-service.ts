@@ -1,4 +1,4 @@
-import type { RigRepository } from "./rig-repository.js";
+import type { SoftwareTeamRepository } from "./software-team-repository.js";
 import type { TmuxAdapter, TmuxWindow, TmuxClient } from "../adapters/tmux.js";
 import { SeatStatusService } from "./seat-status-service.js";
 import { tmuxAttachCommand } from "../adapters/tmux-server.js";
@@ -8,7 +8,7 @@ import { tmuxAttachCommand } from "../adapters/tmux-server.js";
  *
  * Points an already-attached tmux client (a human terminal / CMUX tile) at the
  * seat's canonical session/window. It is deliberately VIEW-ONLY: the only
- * dependencies are `rigRepo` (read, via SeatStatusService) and `tmuxAdapter`
+ * dependencies are `softwareTeamRepo` (read, via SeatStatusService) and `tmuxAdapter`
  * (probe + switch). It holds NO SessionRegistry write surface, NO ClaimService,
  * NO SeatHandoverService, and never calls converge/reconcile — so it is
  * structurally incapable of mutating routing, bindings, sessions, transcripts,
@@ -17,7 +17,7 @@ import { tmuxAttachCommand } from "../adapters/tmux-server.js";
  */
 
 const RECONCILE_GUIDANCE =
-  "Repair routing first (rig reconcile-session <session>, or rig seat handover <seat> ...), then re-run switch-client. switch-client only retargets a client's view; it never repairs routing.";
+  "Repair routing first (SoftwareTeam reconcile-session <session>, or SoftwareTeam seat handover <seat> ...), then re-run switch-client. switch-client only retargets a client's view; it never repairs routing.";
 
 function attachGuidance(session: string): string {
   return `Attach a client first: ${tmuxAttachCommand(session)} (or open the seat in CMUX), then re-run switch-client. switch-client never opens a new terminal.`;
@@ -68,15 +68,15 @@ export type SeatSwitchClientResult =
       /** Attached clients, surfaced on the ambiguous / not-found paths so the
        *  operator can re-run with an explicit --client. */
       clients?: ClientRef[];
-      matches?: Array<{ rig_name: string; logical_id: string; current_occupant: string | null }>;
+      matches?: Array<{ software_team_name: string; logical_id: string; current_occupant: string | null }>;
     };
 
 export class SeatSwitchClientService {
-  private rigRepo: RigRepository;
+  private softwareTeamRepo: SoftwareTeamRepository;
   private tmuxAdapter: TmuxAdapter;
 
-  constructor(deps: { rigRepo: RigRepository; tmuxAdapter: TmuxAdapter }) {
-    this.rigRepo = deps.rigRepo;
+  constructor(deps: { softwareTeamRepo: SoftwareTeamRepository; tmuxAdapter: TmuxAdapter }) {
+    this.softwareTeamRepo = deps.softwareTeamRepo;
     this.tmuxAdapter = deps.tmuxAdapter;
   }
 
@@ -96,7 +96,7 @@ export class SeatSwitchClientService {
 
   async switchClient(req: SeatSwitchClientRequest): Promise<SeatSwitchClientResult> {
     // 1. Resolve seat -> canonical session, READ-ONLY (no binding mutation).
-    const statusService = new SeatStatusService({ rigRepo: this.rigRepo });
+    const statusService = new SeatStatusService({ softwareTeamRepo: this.softwareTeamRepo });
     const status = statusService.getStatus(req.seatRef);
     if (!status.ok) {
       // Propagate the read-only resolution errors verbatim (seat_ref_required /
@@ -200,7 +200,7 @@ export class SeatSwitchClientService {
     }
 
     // 5. Retarget the client's VIEW (the only side effect; not a mutation of
-    //    OpenRig routing/identity).
+    //    SoftwareTeam routing/identity).
     const target = `${session}:${windowIndex}`;
     // The canonical session may have ended since the probes; never switch to a prefix sibling.
     const switchResult = await this.tmuxAdapter.switchClient(targetClient, `=${target}`);

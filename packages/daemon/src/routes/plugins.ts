@@ -15,8 +15,8 @@
 // machinery (resolveAllowedDirectory/File) with the discovered plugin's
 // absolute path acting as a synthetic single-root allowlist. Enables
 // docs-browser file navigation of a plugin's on-disk folder without
-// requiring the operator to allowlist ~/.openrig/plugins/ in
-// OPENRIG_FILES_ALLOWLIST.
+// requiring the operator to allowlist ~/.softwareteam/plugins/ in
+// SOFTWARETEAM_FILES_ALLOWLIST.
 // (b) one PluginEntry shape extension — skillCount: number — populated in
 // detectPlugin() by readdir of <plugin>/skills/. Surfaces skill-count in
 // the plugin list response so PluginsIndexPage can render the column
@@ -75,7 +75,7 @@ function pluginRootAllowlist(absolutePath: string): AllowlistRoot[] {
   // Synthetic single-root allowlist scoped to the plugin's folder.
   // Reuses the existing path-safety helpers for ../ escape / symlink
   // realpath containment checks without any allowlist env-var coupling
-  // (operator does not need to declare plugin paths in OPENRIG_FILES_ALLOWLIST).
+  // (operator does not need to declare plugin paths in SOFTWARETEAM_FILES_ALLOWLIST).
   //
   // Normalize via fs.realpathSync so the containment check (realpath vs
   // canonicalPath) holds on platforms where the input path is itself
@@ -113,10 +113,10 @@ export function pluginsRoutes(): Hono {
     if (!service) return c.json({ error: "plugin_discovery_unavailable" }, 503);
     const runtimeFilter = parseRuntimeFilter(c.req.query("runtime"));
     const sourceFilter = parseSourceFilter(c.req.query("source"));
-    // Slice 3.3 fix-C — DESIGN §5.4 union 4th category: rig-bundled
+    // Slice 3.3 fix-C — DESIGN §5.4 union 4th category: software-team-bundled
     // <cwd>/.claude/plugins/* + <cwd>/.codex/plugins/*. The API caller
-    // (UI in rig context, CLI in slice 3.4) passes ?cwd=<path> when
-    // they want the rig-cwd discoveries included; the Library page
+    // (UI in SoftwareTeam context, CLI in slice 3.4) passes ?cwd=<path> when
+    // they want the software-team-cwd discoveries included; the Library page
     // omits it (cross-cutting view).
     const cwd = c.req.query("cwd");
     const cwdScanRoots = cwd ? [cwd] : undefined;

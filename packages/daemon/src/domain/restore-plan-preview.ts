@@ -1,11 +1,11 @@
 import { restoreRuntimeCompatibilityError } from "./restore-runtime-compatibility.js";
 // OPR.0.3.4.4 — read-only restore plan preview.
 //
-// `rig up --existing <rig> --plan` advertised "preview without executing" but
-// the rig_name path bypassed the plan gate and MUTATED (recreated sessions,
+// `SoftwareTeam up --existing <softwareTeam> --plan` advertised "preview without executing" but
+// the software_team_name path bypassed the plan gate and MUTATED (recreated sessions,
 // flipped detached->running, replaced manually-resumed panes). This module is
-// the shared read-only preview both restore routes (`/api/up` rig_name and the
-// Explorer `/api/rigs/:id/up`) return when plan=true: it computes the INTENDED
+// the shared read-only preview both restore routes (`/api/up` software_team_name and the
+// Explorer `/api/software-teams/:id/up`) return when plan=true: it computes the INTENDED
 // per-seat restore action from snapshot/session data and touches NOTHING — no
 // restoreOrchestrator.restore(), no session create/kill/replace/resume, no
 // snapshot capture (the auto-rehydrate capture is itself a mutation and is
@@ -13,7 +13,7 @@ import { restoreRuntimeCompatibilityError } from "./restore-runtime-compatibilit
 
 import type Database from "better-sqlite3";
 import { resolveActiveOccupantRow, resolveActiveSnapshotSession, deriveRehydrateSessionIdByNode, activeOccupantAmbiguityError, absentSeatResumeHistory, absentSeatResumeHistoryError, type ActiveOccupantResolution } from "./active-occupant.js";
-import type { RigWithRelations, Snapshot } from "./types.js";
+import type { SoftwareTeamWithRelations, Snapshot } from "./types.js";
 import { parseSqliteUtcMs } from "./sqlite-time.js";
 import { effectiveRestorePolicy, isOrdinaryTerminalSeat, type RestoreSeatFacts } from "./restore-policy.js";
 
@@ -54,8 +54,8 @@ export interface RestorePlanPreviewNode {
 export interface RestorePlanPreview {
   status: "plan";
   mode: "restore";
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   /** The snapshot apply mode would restore from (null when it would capture
    *  a current-state auto-rehydrate snapshot instead). */
   snapshot: { id: string; kind: string; createdAt: string } | null;
@@ -133,7 +133,7 @@ function intendedActionFor(
   resolution: ActiveOccupantResolution<PreviewSessionRow>,
   freshRequested: boolean,
   seat: RestoreSeatFacts,
-  absentHistory: { logicalId: string; rigName: string; row: PreviewSessionRow | null },
+  absentHistory: { logicalId: string; softwareTeamName: string; row: PreviewSessionRow | null },
 ): { intendedAction: RestorePlanPreviewNode["intendedAction"]; reason?: string } {
   // OPR.0.5.7.1 — a broken authoritative relation beats --fresh, exactly as
   // execution fails loudly before its fresh check: --fresh cannot override
@@ -154,7 +154,7 @@ function intendedActionFor(
   if (resolution.kind === "none" && absentHistory.row) {
     return {
       intendedAction: "awaiting-decision",
-      reason: absentSeatResumeHistoryError(absentHistory.logicalId, absentHistory.row.resumeType, absentHistory.rigName),
+      reason: absentSeatResumeHistoryError(absentHistory.logicalId, absentHistory.row.resumeType, absentHistory.softwareTeamName),
     };
   }
   const occupant = resolution.kind === "resolved" ? resolution.session : null;
@@ -178,7 +178,7 @@ function intendedActionFor(
  *  itself is a mutation and is never performed here). */
 export function collectPreviewSessionRows(
   db: Database.Database,
-  rig: RigWithRelations,
+  softwareTeam: SoftwareTeamWithRelations,
   snapshot: Snapshot | null,
 ): PreviewSessionRow[] {
   if (snapshot) {
@@ -195,7 +195,7 @@ export function collectPreviewSessionRows(
       status: s.status ?? null,
     }));
   }
-  const nodeIds = rig.nodes.map((n) => n.id);
+  const nodeIds = softwareTeam.nodes.map((n) => n.id);
   if (nodeIds.length === 0) return [];
   const placeholders = nodeIds.map(() => "?").join(",");
   const rows = db.prepare(
@@ -219,7 +219,7 @@ export function collectPreviewSessionRows(
  * Report token state and guidance without launching or changing any sessions.
  */
 export function buildRestorePlanPreview(
-  rig: RigWithRelations,
+  softwareTeam: SoftwareTeamWithRelations,
   snapshot: Snapshot | null,
   sessionRows: PreviewSessionRow[],
   freshLogicalIds?: string[],
@@ -232,8 +232,8 @@ export function buildRestorePlanPreview(
   // sibling paths cannot drift).
   const relationMap = snapshot
     ? snapshot.data.activeSessionIdByNode
-    : deriveRehydrateSessionIdByNode(sessionRows, rig.nodes.map((n) => n.id), recorded);
-  const nodes: RestorePlanPreviewNode[] = rig.nodes.map((node) => {
+    : deriveRehydrateSessionIdByNode(sessionRows, softwareTeam.nodes.map((n) => n.id), recorded);
+  const nodes: RestorePlanPreviewNode[] = softwareTeam.nodes.map((node) => {
     const freshRequested = freshLogicalIds?.includes(node.logicalId) ?? false;
     const savedNodeId = snapshot?.data.nodes?.find(saved => saved.logicalId === node.logicalId)?.id ?? node.id;
     const resolution = snapshot
@@ -253,7 +253,7 @@ export function buildRestorePlanPreview(
     const { intendedAction, reason } = runtimeError
       ? { intendedAction: "awaiting-decision" as const, reason: runtimeError }
       : intendedActionFor(resolution, freshRequested, seat,
-        { logicalId: node.logicalId, rigName: rig.rig.name, row: absentSeatResumeHistory(sessionRows, savedNodeId) });
+        { logicalId: node.logicalId, softwareTeamName: softwareTeam.softwareTeam.name, row: absentSeatResumeHistory(sessionRows, savedNodeId) });
     // OPR.0.4.3.20 FR-6 — per-seat token state (read-only), derived from the
     // RESOLVED occupant only — never from a historical row.
     const occupant = resolution.kind === "resolved" ? resolution.session : null;
@@ -279,8 +279,8 @@ export function buildRestorePlanPreview(
   return {
     status: "plan",
     mode: "restore",
-    rigId: rig.rig.id,
-    rigName: rig.rig.name,
+    softwareTeamId: softwareTeam.softwareTeam.id,
+    softwareTeamName: softwareTeam.softwareTeam.name,
     snapshot: snapshot ? { id: snapshot.id, kind: snapshot.kind, createdAt: snapshot.createdAt } : null,
     wouldCaptureCurrentState: snapshot === null,
     nodes,

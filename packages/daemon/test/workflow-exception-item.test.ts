@@ -31,13 +31,13 @@ const SPEC_WITH_ORCH = `workflow:
   roles:
     producer:
       preferred_targets:
-        - producer@rig
+        - producer@software-team
     reviewer:
       preferred_targets:
-        - reviewer@rig
+        - reviewer@software-team
     orch:
       preferred_targets:
-        - orch-lead@rig
+        - orch-lead@software-team
   steps:
     - id: produce
       actor_role: producer
@@ -77,13 +77,13 @@ describe("WF-5 FR-2 class (a): born-in-txn exception item", () => {
   let runtime: WorkflowRuntime;
   let tmp: string;
 
-  const build = (opts?: { validateRig?: (ref: string) => boolean; hostDefault?: () => "orchestrator" | "human_only" | null }) => {
+  const build = (opts?: { validateSoftwareTeam?: (ref: string) => boolean; hostDefault?: () => "orchestrator" | "human_only" | null }) => {
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
     const bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     queueRepo = new QueueRepository(db, bus, {
-      validateRig: opts?.validateRig ?? (() => true),
+      validateSoftwareTeam: opts?.validateSoftwareTeam ?? (() => true),
     });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
@@ -110,7 +110,7 @@ describe("WF-5 FR-2 class (a): born-in-txn exception item", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "wf5 exception walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const packetId = inst.instance.currentFrontier[0]!;
     await runtime.project({
@@ -118,7 +118,7 @@ describe("WF-5 FR-2 class (a): born-in-txn exception item", () => {
       currentPacketId: packetId,
       exit: "failed",
       resultNote: "induced unmapped failure",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
     });
     return { instanceId: inst.instance.instanceId, packetId };
   };
@@ -136,7 +136,7 @@ describe("WF-5 FR-2 class (a): born-in-txn exception item", () => {
     const rows = exceptionRows(db);
     expect(rows).toHaveLength(1);
     const item = rows[0]!;
-    expect(item.destination_session).toBe("orch-lead@rig");
+    expect(item.destination_session).toBe("orch-lead@software-team");
     // THE TIER-SPLIT NEGATIVE at the wire: neither attention-union leg
     // matches — ordinary tier AND non-human destination.
     expect(item.tier).not.toBe("human-gate");
@@ -149,8 +149,8 @@ describe("WF-5 FR-2 class (a): born-in-txn exception item", () => {
     expect(tags).toContain(`occurrence:${packetId}`);
     // actionable: summary + evidence pointer + resolution affordance
     expect(String(item.summary)).toContain("no remediation branch");
-    expect(String(item.evidence_ref)).toContain("rig workflow trace");
-    expect(String(item.body)).toContain("rig workflow resume");
+    expect(String(item.evidence_ref)).toContain("SoftwareTeam workflow trace");
+    expect(String(item.body)).toContain("SoftwareTeam workflow resume");
   });
 
   it("ATOMICITY: an injected failure during item creation rolls back the ENTIRE close — no failed-without-item window, no item-without-failure", async () => {
@@ -159,7 +159,7 @@ describe("WF-5 FR-2 class (a): born-in-txn exception item", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "atomicity pin",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const packetId = inst.instance.currentFrontier[0]!;
     const spy = vi
@@ -173,7 +173,7 @@ describe("WF-5 FR-2 class (a): born-in-txn exception item", () => {
         currentPacketId: packetId,
         exit: "failed",
         resultNote: "induced",
-        actorSession: "producer@rig",
+        actorSession: "producer@software-team",
       }),
     ).rejects.toThrow(/boom-injected/);
     spy.mockRestore();
@@ -219,7 +219,7 @@ describe("WF-5 FR-2 class (a): born-in-txn exception item", () => {
 
   it("WRITE-GATE FALLBACK: a routed destination the queue gate rejects re-routes human@host instead of losing the exception or failing the close", async () => {
     build({
-      validateRig: (ref: string) => !ref.includes("orch-lead"),
+      validateSoftwareTeam: (ref: string) => !ref.includes("orch-lead"),
     });
     const { instanceId } = await failEntryStep(seed(SPEC_WITH_ORCH));
     const rows = exceptionRows(db);
@@ -238,20 +238,20 @@ describe("WF-5 FR-2 class (a): born-in-txn exception item", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "happy path",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const p1 = inst.instance.currentFrontier[0]!;
     const r1 = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: p1,
       exit: "handoff",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
     });
     await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: r1.nextQitemId!,
       exit: "done",
-      actorSession: "reviewer@rig",
+      actorSession: "reviewer@software-team",
     });
     const instRow = db
       .prepare(`SELECT status FROM workflow_instances WHERE instance_id = ?`)
@@ -261,7 +261,7 @@ describe("WF-5 FR-2 class (a): born-in-txn exception item", () => {
     // FR-5's second tooth: zero UNSOLICITED orchestrator involvement —
     // the declared orchestrator seat received NOTHING on a healthy run.
     const orchBound = db
-      .prepare(`SELECT COUNT(*) AS n FROM queue_items WHERE destination_session = 'orch-lead@rig'`)
+      .prepare(`SELECT COUNT(*) AS n FROM queue_items WHERE destination_session = 'orch-lead@software-team'`)
       .get() as { n: number };
     expect(orchBound.n).toBe(0);
   });
@@ -285,12 +285,12 @@ describe("WF-5 FR-2 class (a): born-in-txn exception item", () => {
         evidence_ref: proof/review.md`,
     );
     const specPath = seed(gated);
-    const inst = await runtime.instantiate({ specPath, rootObjective: "gate", createdBySession: "ops@rig" });
+    const inst = await runtime.instantiate({ specPath, rootObjective: "gate", createdBySession: "ops@software-team" });
     const r = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.instance.currentFrontier[0]!,
       exit: "handoff",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
     });
     const rows = exceptionRows(db);
     expect(rows).toHaveLength(1);
@@ -328,7 +328,7 @@ describe("WF-5 FR-2 class (a): born-in-txn exception item", () => {
         evidence_ref: proof/kickoff.md`,
     );
     const specPath = seed(entryGated);
-    const inst = await runtime.instantiate({ specPath, rootObjective: "entry gate", createdBySession: "ops@rig" });
+    const inst = await runtime.instantiate({ specPath, rootObjective: "entry gate", createdBySession: "ops@software-team" });
     const entryId = inst.instance.currentFrontier[0]!;
     const rows = exceptionRows(db);
     expect(rows).toHaveLength(1);
@@ -356,12 +356,12 @@ describe("WF-5 FR-2 class (a): born-in-txn exception item", () => {
         target: reviewer`,
     );
     const specPath = seed(handlerGated);
-    const inst = await runtime.instantiate({ specPath, rootObjective: "handler", createdBySession: "ops@rig" });
+    const inst = await runtime.instantiate({ specPath, rootObjective: "handler", createdBySession: "ops@software-team" });
     await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.instance.currentFrontier[0]!,
       exit: "handoff",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
     });
     expect(exceptionRows(db)).toHaveLength(0);
   });
@@ -392,7 +392,7 @@ describe("WF-5 FR-2 class (a): born-in-txn exception item", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "mapped failed",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const p1 = inst.instance.currentFrontier[0]!;
     const r = await runtime.project({
@@ -400,7 +400,7 @@ describe("WF-5 FR-2 class (a): born-in-txn exception item", () => {
       currentPacketId: p1,
       exit: "failed",
       resultNote: "mapped — routes to remediation",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
     });
     expect(r.nextStepId).toBe("review");
     const instRow = db

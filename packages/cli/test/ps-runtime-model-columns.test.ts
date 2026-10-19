@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { compactNodeProjection, padCompactNodeRow, padNodeRow, formatDeclaredModel } from "../src/commands/ps.js";
 
-// 0.5.1 — rig ps must surface RUNTIME and the DECLARED model.
+// 0.5.1 — SoftwareTeam ps must surface RUNTIME and the DECLARED model.
 //
 // Founder-directed telemetry: an orchestrator diagnosing a silent seat could not
 // see what model it was on, and a Fable rate-limit read as a stall for three hours.
@@ -11,10 +11,10 @@ import { compactNodeProjection, padCompactNodeRow, padNodeRow, formatDeclaredMod
 //        as "this seat has no model" — 13 of 15 claude-code seats are blank today.
 //   (ii) the surface says DECLARED in plain words.
 //   (iii) this does NOT expose the RUNNING model; that is the ACTIVITY-umbrella rider.
-describe("rig ps — runtime + declared model", () => {
+describe("SoftwareTeam ps — runtime + declared model", () => {
   const node = (over: Record<string, unknown> = {}) => ({
-    rigName: "v-openrig-build",
-    canonicalSessionName: "dev-driver@v-openrig-build",
+    softwareTeamName: "v-softwareteam-build",
+    canonicalSessionName: "dev-driver@v-softwareteam-build",
     lifecycleState: "run",
     agentActivity: { state: "idle" },
     hasAssignedWork: false,
@@ -41,14 +41,14 @@ describe("rig ps — runtime + declared model", () => {
   // full-only header, alongside CTX/RESTORE/STARTUP/TERMINAL/POD/MEMBER). So the
   // human columns land on --full, and the JSON projection carries both for tools.
   it("RED (ii): the FULL header marks the model DECLARED in plain words", () => {
-    const header = padNodeRow("RIG", "POD", "MEMBER", "SESSION", "RUNTIME", "MODEL(DECLARED)", "STATUS",
+    const header = padNodeRow("SOFTWARE_TEAM", "POD", "MEMBER", "SESSION", "RUNTIME", "MODEL(DECLARED)", "STATUS",
       "STARTUP", "ORIENTED", "LIFECYCLE", "TERMINAL", "WORK", "ACTIVITY", "CTX", "RESTORE", "ERROR");
     expect(header).toContain("RUNTIME");
     expect(header).toContain("MODEL(DECLARED)");
   });
 
   it("RED (ii): the COMPACT view stays lean — the token-safe pin is preserved", () => {
-    const header = padCompactNodeRow("RIG", "SESSION", "LIFECYCLE", "ACTIVITY", "WORK", "REASON");
+    const header = padCompactNodeRow("SOFTWARE_TEAM", "SESSION", "LIFECYCLE", "ACTIVITY", "WORK", "REASON");
     expect(header).not.toContain("RUNTIME");
     expect(header).not.toContain("MODEL");
   });

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
-const SCHEMA = "openrig.slice-claim/v1";
+const SCHEMA = "softwareteam.slice-claim/v1";
 interface SliceClaim { schema: typeof SCHEMA; ref: string; state: "pending" | "verified" }
 
 /** One persistent claim reserves the ordinal and records unfinished registration. */

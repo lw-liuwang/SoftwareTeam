@@ -50,7 +50,7 @@ function seedSeat(
   db: Database.Database,
   opts: {
     nodeId: string;
-    rigId?: string;
+    softwareTeamId?: string;
     logicalId?: string;
     runtime?: string;
     sessionName: string;
@@ -59,12 +59,12 @@ function seedSeat(
     attachmentType?: string;
   },
 ): void {
-  const rigId = opts.rigId ?? "rig-1";
-  const exists = db.prepare("SELECT 1 FROM rigs WHERE id = ?").get(rigId);
-  if (!exists) db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run(rigId, "test-rig");
+  const softwareTeamId = opts.softwareTeamId ?? "software-team-1";
+  const exists = db.prepare("SELECT 1 FROM software_teams WHERE id = ?").get(softwareTeamId);
+  if (!exists) db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run(softwareTeamId, "test-software-team");
   db.prepare(
-    "INSERT INTO nodes (id, rig_id, logical_id, runtime, cwd) VALUES (?, ?, ?, ?, ?)",
-  ).run(opts.nodeId, rigId, opts.logicalId ?? `pod.${opts.nodeId}`, opts.runtime ?? "claude-code", "/tmp");
+    "INSERT INTO nodes (id, software_team_id, logical_id, runtime, cwd) VALUES (?, ?, ?, ?, ?)",
+  ).run(opts.nodeId, softwareTeamId, opts.logicalId ?? `pod.${opts.nodeId}`, opts.runtime ?? "claude-code", "/tmp");
   db.prepare(
     "INSERT INTO sessions (id, node_id, session_name, status, startup_status) VALUES (?, ?, ?, ?, ?)",
   ).run(`sess-${opts.nodeId}`, opts.nodeId, opts.sessionName, opts.status ?? "running", "ready");
@@ -81,9 +81,9 @@ describe("A3 Claude shell sampling", () => {
 
   function fixture(command = "sh", runtime = "claude-code") {
     const db = createFullTestDb(); databases.push(db);
-    seedSeat(db, { nodeId: "n1", sessionName: "s1@rig", pane: "%1", runtime });
+    seedSeat(db, { nodeId: "n1", sessionName: "s1@software-team", pane: "%1", runtime });
     db.prepare("UPDATE sessions SET resume_token = 'saved-token'").run();
-    const tmux = makeTmux({ sessions: ["s1@rig"], panePid: { "%1": 10 }, paneCommand: { "%1": command } });
+    const tmux = makeTmux({ sessions: ["s1@software-team"], panePid: { "%1": 10 }, paneCommand: { "%1": command } });
     const rows = () => [
       { pid: 10, ppid: 1, pgid: 10, tpgid: 11, executableName: "sh", command: "sh", startedAt: "start" },
       { pid: 11, ppid: 10, pgid: 11, tpgid: 11, executableName: runtime === "codex" ? "codex" : "claude", command: runtime === "codex" ? "codex resume saved-token" : "claude --resume saved-token", startedAt: "start" },
@@ -247,10 +247,10 @@ describe("SeatIdentityReconciler.reconcileAll", () => {
   it("shares two native observations across wrapped Codex seats and rejects later stale or missing proof", async () => {
     const db = createFullTestDb();
     for (const n of [1, 2]) {
-      seedSeat(db, { nodeId: `c${n}`, sessionName: `c${n}@rig`, pane: `%${n}`, runtime: "codex" });
+      seedSeat(db, { nodeId: `c${n}`, sessionName: `c${n}@software-team`, pane: `%${n}`, runtime: "codex" });
       db.prepare("UPDATE sessions SET resume_token = ? WHERE node_id = ?").run(`thread-${n}`, `c${n}`);
     }
-    const tmux = makeTmux({ sessions: ["c1@rig", "c2@rig"], panePid: { "%1": 10, "%2": 20 }, paneCommand: { "%1": "bash", "%2": "node" } });
+    const tmux = makeTmux({ sessions: ["c1@software-team", "c2@software-team"], panePid: { "%1": 10, "%2": 20 }, paneCommand: { "%1": "bash", "%2": "node" } });
     const rows = [1, 2].flatMap(n => [
       { pid: n * 10, ppid: 1, pgid: n * 10, tpgid: n * 10 + 1, executableName: "bash", command: "bash", startedAt: "Sat Jan  1 12:00:00 2000" },
       { pid: n * 10 + 1, ppid: n * 10, pgid: n * 10 + 1, tpgid: n * 10 + 1, executableName: "codex", command: `codex resume thread-${n}`, startedAt: "Sat Jan  1 12:00:00 2000" },
@@ -279,8 +279,8 @@ describe("SeatIdentityReconciler.reconcileAll", () => {
 
   it("keeps fresh Codex distinct from resume, and cannot verify an unavailable pane", async () => {
     const db = createFullTestDb();
-    seedSeat(db, { nodeId: "c1", sessionName: "c1@rig", pane: "%1", runtime: "codex" });
-    const tmux = makeTmux({ sessions: ["c1@rig"], panePid: { "%1": 10 }, paneCommand: { "%1": "codex" } });
+    seedSeat(db, { nodeId: "c1", sessionName: "c1@software-team", pane: "%1", runtime: "codex" });
+    const tmux = makeTmux({ sessions: ["c1@software-team"], panePid: { "%1": 10 }, paneCommand: { "%1": "codex" } });
     const listProcesses = vi.fn(async () => [{ pid: 10, ppid: 1, pgid: 10, tpgid: 10, executableName: "codex", command: "codex -m configured-model", startedAt: "Sat Jan  1 12:00:00 2000" }]);
     const rec = new SeatIdentityReconciler({ db, tmux, listProcesses, now: NOW });
     await rec.reconcileAll();
@@ -293,8 +293,8 @@ describe("SeatIdentityReconciler.reconcileAll", () => {
 
   it("VERIFIED — matching pane pid + command persists a verified verdict", async () => {
     const db = createFullTestDb();
-    seedSeat(db, { nodeId: "n1", sessionName: "s1@rig", pane: "%1", runtime: "claude-code" });
-    const tmux = makeTmux({ sessions: ["s1@rig"], panePid: { "%1": 4242 }, paneCommand: { "%1": "node" } });
+    seedSeat(db, { nodeId: "n1", sessionName: "s1@software-team", pane: "%1", runtime: "claude-code" });
+    const tmux = makeTmux({ sessions: ["s1@software-team"], panePid: { "%1": 4242 }, paneCommand: { "%1": "node" } });
     const rec = new SeatIdentityReconciler({ db, tmux, now: NOW });
 
     await rec.reconcileAll();
@@ -309,9 +309,9 @@ describe("SeatIdentityReconciler.reconcileAll", () => {
 
   it("MISMATCH — orphan/squat process (shell) persists a process_identity_mismatch verdict", async () => {
     const db = createFullTestDb();
-    seedSeat(db, { nodeId: "n1", sessionName: "s1@rig", pane: "%1", runtime: "claude-code" });
+    seedSeat(db, { nodeId: "n1", sessionName: "s1@software-team", pane: "%1", runtime: "claude-code" });
     // Same session name still live (squat), but the pane now runs a bare shell.
-    const tmux = makeTmux({ sessions: ["s1@rig"], panePid: { "%1": 9999 }, paneCommand: { "%1": "zsh" } });
+    const tmux = makeTmux({ sessions: ["s1@software-team"], panePid: { "%1": 9999 }, paneCommand: { "%1": "zsh" } });
     const rec = new SeatIdentityReconciler({ db, tmux, now: NOW });
 
     await rec.reconcileAll();
@@ -326,9 +326,9 @@ describe("SeatIdentityReconciler.reconcileAll", () => {
 
   it("PANE_MISSING (pane gone, session alive) → pane_pid_gone", async () => {
     const db = createFullTestDb();
-    seedSeat(db, { nodeId: "n1", sessionName: "s1@rig", pane: "%1", runtime: "claude-code" });
+    seedSeat(db, { nodeId: "n1", sessionName: "s1@software-team", pane: "%1", runtime: "claude-code" });
     // session listed live, but the registered pane no longer resolves.
-    const tmux = makeTmux({ sessions: ["s1@rig"], panePid: { "%1": null } });
+    const tmux = makeTmux({ sessions: ["s1@software-team"], panePid: { "%1": null } });
     const rec = new SeatIdentityReconciler({ db, tmux, now: NOW });
 
     await rec.reconcileAll();
@@ -342,9 +342,9 @@ describe("SeatIdentityReconciler.reconcileAll", () => {
 
   it("PANE_MISSING (session gone entirely) → session_missing", async () => {
     const db = createFullTestDb();
-    seedSeat(db, { nodeId: "n1", sessionName: "s1@rig", pane: "%1", runtime: "claude-code" });
-    // Another session is live (tmux is up), but s1@rig is gone.
-    const tmux = makeTmux({ sessions: ["other@rig"], panePid: { "%1": null } });
+    seedSeat(db, { nodeId: "n1", sessionName: "s1@software-team", pane: "%1", runtime: "claude-code" });
+    // Another session is live (tmux is up), but s1@software-team is gone.
+    const tmux = makeTmux({ sessions: ["other@software-team"], panePid: { "%1": null } });
     const rec = new SeatIdentityReconciler({ db, tmux, now: NOW });
 
     await rec.reconcileAll();
@@ -358,8 +358,8 @@ describe("SeatIdentityReconciler.reconcileAll", () => {
 
   it("NULL pane + live target → named binding_absent, not tmux_unavailable", async () => {
     const db = createFullTestDb();
-    seedSeat(db, { nodeId: "n1", sessionName: "s1@rig", pane: null, runtime: "claude-code" });
-    const tmux = makeTmux({ sessions: ["s1@rig"] });
+    seedSeat(db, { nodeId: "n1", sessionName: "s1@software-team", pane: null, runtime: "claude-code" });
+    const tmux = makeTmux({ sessions: ["s1@software-team"] });
     const rec = new SeatIdentityReconciler({ db, tmux, now: NOW });
 
     await rec.reconcileAll();
@@ -373,8 +373,8 @@ describe("SeatIdentityReconciler.reconcileAll", () => {
 
   it("NULL pane + absent target while tmux has another session → down-ranking session_missing", async () => {
     const db = createFullTestDb();
-    seedSeat(db, { nodeId: "n1", sessionName: "s1@rig", pane: null, runtime: "claude-code" });
-    const tmux = makeTmux({ sessions: ["other@rig"] });
+    seedSeat(db, { nodeId: "n1", sessionName: "s1@software-team", pane: null, runtime: "claude-code" });
+    const tmux = makeTmux({ sessions: ["other@software-team"] });
     const rec = new SeatIdentityReconciler({ db, tmux, now: NOW });
 
     await rec.reconcileAll();
@@ -388,7 +388,7 @@ describe("SeatIdentityReconciler.reconcileAll", () => {
 
   it("TMUX BLIP GUARD — listSessions throws → tmux_unavailable, never down-ranks", async () => {
     const db = createFullTestDb();
-    seedSeat(db, { nodeId: "n1", sessionName: "s1@rig", pane: "%1", runtime: "claude-code" });
+    seedSeat(db, { nodeId: "n1", sessionName: "s1@software-team", pane: "%1", runtime: "claude-code" });
     const tmux = makeTmux({ throwListSessions: true });
     const rec = new SeatIdentityReconciler({ db, tmux, now: NOW });
 
@@ -402,7 +402,7 @@ describe("SeatIdentityReconciler.reconcileAll", () => {
 
   it("TMUX BLIP GUARD — zero live sessions while seats exist → tmux_unavailable (not session_missing for all)", async () => {
     const db = createFullTestDb();
-    seedSeat(db, { nodeId: "n1", sessionName: "s1@rig", pane: "%1", runtime: "claude-code" });
+    seedSeat(db, { nodeId: "n1", sessionName: "s1@software-team", pane: "%1", runtime: "claude-code" });
     const tmux = makeTmux({ sessions: [], panePid: { "%1": null } });
     const rec = new SeatIdentityReconciler({ db, tmux, now: NOW });
 
@@ -415,9 +415,9 @@ describe("SeatIdentityReconciler.reconcileAll", () => {
 
   it("non-running seats are pruned; only running tmux-bound seats get verdicts", async () => {
     const db = createFullTestDb();
-    seedSeat(db, { nodeId: "n1", sessionName: "s1@rig", pane: "%1", runtime: "claude-code" });
-    seedSeat(db, { nodeId: "n2", sessionName: "s2@rig", pane: "%2", runtime: "claude-code", status: "exited" });
-    const tmux = makeTmux({ sessions: ["s1@rig"], panePid: { "%1": 1 }, paneCommand: { "%1": "node" } });
+    seedSeat(db, { nodeId: "n1", sessionName: "s1@software-team", pane: "%1", runtime: "claude-code" });
+    seedSeat(db, { nodeId: "n2", sessionName: "s2@software-team", pane: "%2", runtime: "claude-code", status: "exited" });
+    const tmux = makeTmux({ sessions: ["s1@software-team"], panePid: { "%1": 1 }, paneCommand: { "%1": "node" } });
     const rec = new SeatIdentityReconciler({ db, tmux, now: NOW });
 
     await rec.reconcileAll();
@@ -432,12 +432,12 @@ describe("SeatIdentityReconciler.reconcileAll", () => {
     // The reconciler never reads queue/classifier/hook state; a seat whose pane
     // is gone yields pane_missing even if (hypothetically) work/heartbeats exist.
     const db = createFullTestDb();
-    seedSeat(db, { nodeId: "n1", sessionName: "s1@rig", pane: "%1", runtime: "claude-code" });
+    seedSeat(db, { nodeId: "n1", sessionName: "s1@software-team", pane: "%1", runtime: "claude-code" });
     // Simulate an active queue heartbeat for the seat (must not upgrade liveness).
     db.prepare(
       "INSERT INTO queue_items (qitem_id, ts_created, ts_updated, source_session, destination_session, state, body) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    ).run("q1", "2026-07-02T12:00:00Z", "2026-07-02T12:00:00Z", "op@rig", "s1@rig", "pending", "do work");
-    const tmux = makeTmux({ sessions: ["s1@rig"], panePid: { "%1": null } });
+    ).run("q1", "2026-07-02T12:00:00Z", "2026-07-02T12:00:00Z", "op@software-team", "s1@software-team", "pending", "do work");
+    const tmux = makeTmux({ sessions: ["s1@software-team"], panePid: { "%1": null } });
     const rec = new SeatIdentityReconciler({ db, tmux, now: NOW });
 
     await rec.reconcileAll();
@@ -462,15 +462,15 @@ describe("seat_identity_verdicts schema (migration 046)", () => {
 
   it("upsert is last-writer-wins per node_id", () => {
     const db = createFullTestDb();
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('rig-1','r')").run();
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id, runtime, cwd) VALUES ('n1','rig-1','p.n1','claude-code','/tmp')").run();
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('software-team-1','r')").run();
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, runtime, cwd) VALUES ('n1','software-team-1','p.n1','claude-code','/tmp')").run();
     const store = new SeatIdentityStore(db);
     const base = {
       nodeId: "n1",
       evidenceSource: "pane_process" as const,
       reason: null,
       evidence: { registeredPane: "%1", observedPid: 1, observedCommand: "node", matchedLayer: 1 },
-      sessionName: "s1@rig",
+      sessionName: "s1@software-team",
       observedAt: "2026-07-02T12:00:00.000Z",
     };
     store.upsert({ ...base, verdict: "verified" });
@@ -486,15 +486,15 @@ describe("SeatIdentityReconciler — bounded polling", () => {
   it("holds one sweep through delayed listing and verdict reads, then observes a changed occupant", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
     const db = createFullTestDb();
-    seedSeat(db, { nodeId: "n1", sessionName: "s1@rig", pane: "%1" });
-    const tmux = makeTmux({ sessions: ["s1@rig"], panePid: { "%1": 42 }, paneCommand: { "%1": "zsh" } });
+    seedSeat(db, { nodeId: "n1", sessionName: "s1@software-team", pane: "%1" });
+    const tmux = makeTmux({ sessions: ["s1@software-team"], panePid: { "%1": 42 }, paneCommand: { "%1": "zsh" } });
     let releaseList!: () => void;
     let releaseCommand!: () => void;
     const listGate = new Promise<void>((resolve) => { releaseList = resolve; });
     const commandGate = new Promise<void>((resolve) => { releaseCommand = resolve; });
     vi.mocked(tmux.listSessions).mockImplementationOnce(async () => {
       await listGate;
-      return [{ name: "s1@rig", windows: 1, created: "", attached: false }];
+      return [{ name: "s1@software-team", windows: 1, created: "", attached: false }];
     });
     // This tokenless legacy fixture has no sole-pane capability, so its one
     // verdict read sees Claude during the held sweep; the next sees the shell.
@@ -529,8 +529,8 @@ describe("SeatIdentityReconciler — bounded polling", () => {
   it("stop/restart fences a pending native observation without releasing its flight early", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
     const db = createFullTestDb();
-    seedSeat(db, { nodeId: "c1", sessionName: "c1@rig", pane: "%1", runtime: "codex" });
-    const tmux = makeTmux({ sessions: ["c1@rig"], panePid: { "%1": 10 }, paneCommand: { "%1": "codex" } });
+    seedSeat(db, { nodeId: "c1", sessionName: "c1@software-team", pane: "%1", runtime: "codex" });
+    const tmux = makeTmux({ sessions: ["c1@software-team"], panePid: { "%1": 10 }, paneCommand: { "%1": "codex" } });
     const rows = [{ pid: 10, ppid: 1, pgid: 10, tpgid: 10, executableName: "codex", command: "codex", startedAt: "Sat Jan  1 12:00:00 2000" }];
     let release!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });
@@ -560,8 +560,8 @@ describe("SeatIdentityReconciler — bounded polling", () => {
 
   it("releases after availability and per-seat failures and recovers on a later sweep", async () => {
     const db = createFullTestDb();
-    seedSeat(db, { nodeId: "n1", sessionName: "s1@rig", pane: "%1" });
-    const tmux = makeTmux({ sessions: ["s1@rig"], panePid: { "%1": 42 }, paneCommand: { "%1": "claude" } });
+    seedSeat(db, { nodeId: "n1", sessionName: "s1@software-team", pane: "%1" });
+    const tmux = makeTmux({ sessions: ["s1@software-team"], panePid: { "%1": 42 }, paneCommand: { "%1": "claude" } });
     vi.mocked(tmux.listSessions).mockRejectedValueOnce(new Error("unavailable"));
     vi.mocked(tmux.getPaneCommand).mockRejectedValueOnce(new Error("final pane read failed"));
     const rec = new SeatIdentityReconciler({ db, tmux });

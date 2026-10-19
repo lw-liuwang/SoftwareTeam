@@ -7,7 +7,7 @@
 //   - AcceptanceTab: PROGRESS.md checkbox view still renders alongside
 //   - TopologyTab: spec graph renders nodes + edges + isCurrent/isEntry/
 //     isTerminal badges + loop-back edge styling when bound
-//   - TopologyTab: per-rig listing still renders alongside spec graph
+//   - TopologyTab: per-softwareTeam listing still renders alongside spec graph
 //   - TopologyTab: routingType="direct" carved-out — every edge has it
 
 import { describe, it, expect, afterEach, vi } from "vitest";
@@ -208,12 +208,12 @@ describe("PL-slice-story-view-v1 AcceptanceTab", () => {
 
 // --- TopologyTab ---
 
-function topologyShape(specGraph: SpecGraphPayload | null, withRigs = true): SliceDetail["topology"] {
+function topologyShape(specGraph: SpecGraphPayload | null, withSoftwareTeams = true): SliceDetail["topology"] {
   return {
-    affectedRigs: withRigs
-      ? [{ rigId: "rig-1", rigName: "demo", sessionNames: ["alpha@demo", "beta@demo"] }]
+    affectedSoftwareTeams: withSoftwareTeams
+      ? [{ softwareTeamId: "software-team-1", softwareTeamName: "demo", sessionNames: ["alpha@demo", "beta@demo"] }]
       : [],
-    totalSeats: withRigs ? 2 : 0,
+    totalSeats: withSoftwareTeams ? 2 : 0,
     specGraph,
   };
 }
@@ -254,14 +254,14 @@ describe("PL-slice-story-view-v1 TopologyTab", () => {
     // Edges, including loop-back.
     expect(screen.getByTestId("spec-edge-discovery-delivery").getAttribute("data-is-loop-back")).toBe("false");
     expect(screen.getByTestId("spec-edge-qa-discovery").getAttribute("data-is-loop-back")).toBe("true");
-    // Per-rig listing still rendering alongside.
-    expect(screen.getByTestId("topology-rig-listing")).toBeDefined();
-    expect(screen.getByTestId("topology-rig-demo")).toBeDefined();
+    // Per-softwareTeam listing still rendering alongside.
+    expect(screen.getByTestId("topology-software-team-listing")).toBeDefined();
+    expect(screen.getByTestId("topology-software-team-demo")).toBeDefined();
   });
 
   it("renders a derived runtime graph when unbound but affected seats are present", async () => {
     render(makeRouter(topologyShape(null)));
-    await waitFor(() => expect(screen.getByTestId("topology-rig-demo")).toBeDefined());
+    await waitFor(() => expect(screen.getByTestId("topology-software-team-demo")).toBeDefined());
     expect(screen.getByTestId("topology-spec-graph").getAttribute("data-spec-name")).toBe("runtime-handoff-map");
     expect(screen.getByTestId("spec-node-demo")).toBeDefined();
   });
@@ -289,9 +289,9 @@ describe("PL-slice-story-view-v1 TopologyTab", () => {
       specName: "triple-gate",
       specVersion: "2",
       nodes: [
-        { stepId: "plan", label: "shape the plan", role: "planner", preferredTarget: "dev1-planner@openrig-delivery", isEntry: true, isCurrent: false, isTerminal: false },
-        { stepId: "build", label: "one-shot the chunk", role: "driver", preferredTarget: "dev1-driver@openrig-delivery", isEntry: false, isCurrent: true, isTerminal: false },
-        { stepId: "merge", label: "merge to main", role: "orch-lead", preferredTarget: "orch-lead@openrig-delivery", isEntry: false, isCurrent: false, isTerminal: true },
+        { stepId: "plan", label: "shape the plan", role: "planner", preferredTarget: "dev1-planner@softwareteam-delivery", isEntry: true, isCurrent: false, isTerminal: false },
+        { stepId: "build", label: "one-shot the chunk", role: "driver", preferredTarget: "dev1-driver@softwareteam-delivery", isEntry: false, isCurrent: true, isTerminal: false },
+        { stepId: "merge", label: "merge to main", role: "orch-lead", preferredTarget: "orch-lead@softwareteam-delivery", isEntry: false, isCurrent: false, isTerminal: true },
       ],
       edges: [
         { fromStepId: "plan", toStepId: "build", routingType: "direct", isLoopBack: false },
@@ -303,7 +303,7 @@ describe("PL-slice-story-view-v1 TopologyTab", () => {
     await waitFor(() => expect(screen.getByTestId("topology-spec-graph")).toBeDefined());
     // Tab content header renamed Topology -> Workflow (slice 20). The legacy
     // capital-T "Topology" header word is gone (the lowercase "Open topology"
-    // rig-listing link is unrelated and untouched).
+    // software-team-listing link is unrelated and untouched).
     expect(screen.getByTestId("topology-tab").textContent).toContain("Workflow");
     expect(screen.getByTestId("topology-tab").textContent).not.toContain("Topology");
     // Read-only spec viz + reject->rework legend (a loop-back edge is present).
@@ -318,8 +318,8 @@ describe("PL-slice-story-view-v1 TopologyTab", () => {
     expect(screen.getByTestId("spec-node-merge-state-dot").getAttribute("data-active")).toBe("false");
   });
 
-  it("renders empty state only when BOTH specGraph is null AND no rigs are present", async () => {
-    render(makeRouter({ affectedRigs: [], totalSeats: 0, specGraph: null }));
+  it("renders empty state only when BOTH specGraph is null AND no softwareTeams are present", async () => {
+    render(makeRouter({ affectedSoftwareTeams: [], totalSeats: 0, specGraph: null }));
     await waitFor(() => expect(screen.getByTestId("topology-empty")).toBeDefined());
   });
 });
@@ -332,8 +332,8 @@ describe("OPR.0.4.4.19 FR-2 TimelineTab summary-first labels", () => {
       qitemId: "q-1",
       tsCreated: "2026-07-04T00:00:00Z",
       tsUpdated: "2026-07-04T00:00:00Z",
-      sourceSession: "a@rig",
-      destinationSession: "b@rig",
+      sourceSession: "a@software-team",
+      destinationSession: "b@software-team",
       state: "pending",
       priority: "routine",
       tier: null,

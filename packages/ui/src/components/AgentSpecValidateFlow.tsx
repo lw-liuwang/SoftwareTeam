@@ -57,7 +57,7 @@ export function AgentSpecValidateFlow() {
         <WorkflowHeader
           eyebrow="Agent Spec Validation"
           title="VALIDATE AGENT"
-          description="Check an AgentSpec before you use it in a rig."
+          description="Check an AgentSpec before you use it in a softwareTeam."
         />
 
         <WorkflowSection title="Agent YAML" description="Paste or refine an AgentSpec draft, then validate it against the daemon contract.">

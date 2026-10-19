@@ -1,12 +1,12 @@
-// OPR.0.4.6.02 C3 — the `rig terminal` command family (the TUI-1 opaque verb +
+// OPR.0.4.6.02 C3 — the `SoftwareTeam terminal` command family (the TUI-1 opaque verb +
 // the operator's terminal-provider-ride entry). Three subcommands, all hitting
 // the ONE canonical daemon composer (`/api/terminal/...`):
 //
-//   rig terminal open <view> [--provider herdr|cmux] [--json]
-//   rig terminal views [--json]
-//   rig terminal status [--provider herdr|cmux] [--json]
+//   SoftwareTeam terminal open <view> [--provider herdr|cmux] [--json]
+//   SoftwareTeam terminal views [--json]
+//   SoftwareTeam terminal status [--provider herdr|cmux] [--json]
 //
-// `<view>` resolves daemon-side: a rig name (per-rig derived) | `mission:<id>` |
+// `<view>` resolves daemon-side: a softwareTeam name (per-softwareTeam derived) | `mission:<id>` |
 // `slice:<id>` (derived) | a saved-view id. The result is the ONE shared
 // `{ opened, absent, degraded }` partition, carried byte-identically here and
 // in the route JSON (arch Q3).
@@ -98,8 +98,8 @@ function printOpen(json: boolean, r: OpenViewResult, status: number): void {
 
 export function terminalCommand(depsOverride?: TerminalDeps): Command {
   const cmd = new Command("terminal").description(
-    "Open the OpenRig view and agent conversations in terminal tiles",
-  ).addHelpText("after", "\nThe OpenRig TUI and operator (after install, and whenever the person wants their agents):\n  rig terminal open saved:kernel --window\n  Opens the window itself on the daemon's desktop; an agent can run it from its shell.\n  Uses herdr when installed, otherwise the same layout in plain tmux.\n  Herdr needs a terminal the person can see; TUI navigation does not open one.\n  Over headless SSH, give the exact connection/attach command for a new terminal/tab.\n  Only if the window cannot open: rig tui --shared is the dashboard-only fallback.\n  On a desktop, the agent opens the view; it does not finish by printing a command to copy.\n");
+    "Open the SoftwareTeam view and agent conversations in terminal tiles",
+  ).addHelpText("after", "\nThe SoftwareTeam TUI and operator (after install, and whenever the person wants their agents):\n  SoftwareTeam terminal open saved:kernel --window\n  Opens the window itself on the daemon's desktop; an agent can run it from its shell.\n  Uses herdr when installed, otherwise the same layout in plain tmux.\n  Herdr needs a terminal the person can see; TUI navigation does not open one.\n  Over headless SSH, give the exact connection/attach command for a new terminal/tab.\n  Only if the window cannot open: SoftwareTeam tui --shared is the dashboard-only fallback.\n  On a desktop, the agent opens the view; it does not finish by printing a command to copy.\n");
 
   const getDeps = (): TerminalDeps =>
     depsOverride ?? {
@@ -109,7 +109,7 @@ export function terminalCommand(depsOverride?: TerminalDeps): Command {
 
   cmd
     .command("open")
-    .argument("<view>", "a rig name, mission:<id>, slice:<id>, or a saved-view id")
+    .argument("<view>", "a SoftwareTeam name, mission:<id>, slice:<id>, or a saved-view id")
     .description("Open a desktop terminal showing the view's live agents as interactive tiles")
     .option("--provider <name>", "herdr or cmux: use an existing workspace without opening a window; tmux requires --window")
     .option("--window", "Open a new desktop terminal tab/window (the default when --provider is omitted)")
@@ -137,7 +137,7 @@ export function terminalCommand(depsOverride?: TerminalDeps): Command {
 
   cmd
     .command("views")
-    .description("List saved views + the rigs openable as derived views")
+    .description("List saved views + the softwareTeams openable as derived views")
     .option("--json", "JSON output for agents")
     .action(async (opts: { json?: boolean }) => {
       const deps = getDeps();

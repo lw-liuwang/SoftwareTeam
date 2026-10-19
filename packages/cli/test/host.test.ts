@@ -7,20 +7,20 @@ import { hostCommand, doctorLegs, postureCheck, type DoctorDeps, type CheckRow }
 import type { HostEntry } from "../src/host-registry.js";
 import type { CrossHostResult } from "../src/cross-host-executor.js";
 
-// OPR.0.4.4.13 FR-1 — rig host add / list. Registry path is steered via
-// OPENRIG_HOME so tests never touch the operator's real ~/.openrig.
-describe("rig host add/list", () => {
+// OPR.0.4.4.13 FR-1 — softwareTeam host add / list. Registry path is steered via
+// SOFTWARETEAM_HOME so tests never touch the operator's real ~/.softwareteam.
+describe("SoftwareTeam host add/list", () => {
   let dir: string;
   let savedHome: string | undefined;
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "hostcmd-"));
-    savedHome = process.env.OPENRIG_HOME;
-    process.env.OPENRIG_HOME = dir;
+    savedHome = process.env.SOFTWARETEAM_HOME;
+    process.env.SOFTWARETEAM_HOME = dir;
   });
   afterEach(() => {
-    if (savedHome === undefined) delete process.env.OPENRIG_HOME;
-    else process.env.OPENRIG_HOME = savedHome;
+    if (savedHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+    else process.env.SOFTWARETEAM_HOME = savedHome;
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
@@ -42,14 +42,14 @@ describe("rig host add/list", () => {
     const prog = new Command();
     prog.exitOverride();
     prog.addCommand(hostCommand());
-    return prog.parseAsync(["node", "rig", "host", ...argv]);
+    return prog.parseAsync(["node", "softwareTeam", "host", ...argv]);
   }
 
   it("add writes the entry and teaches the doctor next step", async () => {
-    const { out, exitCode } = await capture(() => run(["add", "--id", "vps-1", "--transport", "ssh", "--target", "vps-1.tailnet", "--user", "openrig"]));
+    const { out, exitCode } = await capture(() => run(["add", "--id", "vps-1", "--transport", "ssh", "--target", "vps-1.tailnet", "--user", "softwareteam"]));
     expect(exitCode).toBeUndefined();
     expect(out.join("\n")).toContain("Added host 'vps-1' (ssh)");
-    expect(out.join("\n")).toContain("rig host doctor vps-1");
+    expect(out.join("\n")).toContain("SoftwareTeam host doctor vps-1");
   });
 
   it("add surfaces the loader's own validation error at add-time (both bearers)", async () => {
@@ -60,7 +60,7 @@ describe("rig host add/list", () => {
 
   it("list renders pointers and NEVER a resolved secret value (qa1 hygiene guard)", async () => {
     vi.stubEnv("FACTORY_TOKEN", "super-secret-bearer-value");
-    await capture(() => run(["add", "--id", "f1", "--transport", "http", "--url", "http://100.64.0.9:7433", "--bearer-env", "FACTORY_TOKEN"]));
+    await capture(() => run(["add", "--id", "f1", "--transport", "http", "--url", "http://100.64.0.9:7434", "--bearer-env", "FACTORY_TOKEN"]));
     const { out } = await capture(() => run(["list"]));
     const text = out.join("\n");
     expect(text).toContain("env:FACTORY_TOKEN");
@@ -72,31 +72,31 @@ describe("rig host add/list", () => {
 
   it("list on an empty registry teaches add", async () => {
     const { out } = await capture(() => run(["list"]));
-    expect(out.join("\n")).toContain("rig host add --id");
+    expect(out.join("\n")).toContain("SoftwareTeam host add --id");
   });
 });
 
 // ---------------------------------------------------------------------------
 // OPR.0.4.4.13 FR-1/FR-2 — doctor legs + posture (mocked deps; no network).
 // ---------------------------------------------------------------------------
-describe("rig host doctor — stepwise distinct errors + three-valued posture", () => {
-  // Same OPENRIG_HOME steering as the add/list suite: the doctor-CLI case
+describe("SoftwareTeam host doctor — stepwise distinct errors + three-valued posture", () => {
+  // Same SOFTWARETEAM_HOME steering as the add/list suite: the doctor-CLI case
   // seeds a registry via `host add` and must NEVER touch the operator's
-  // real ~/.openrig (the shared-singleton doctrine).
+  // real ~/.softwareteam (the shared-singleton doctrine).
   let dir: string;
   let savedHome: string | undefined;
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "hostdoc-"));
-    savedHome = process.env.OPENRIG_HOME;
-    process.env.OPENRIG_HOME = dir;
+    savedHome = process.env.SOFTWARETEAM_HOME;
+    process.env.SOFTWARETEAM_HOME = dir;
   });
   afterEach(() => {
-    if (savedHome === undefined) delete process.env.OPENRIG_HOME;
-    else process.env.OPENRIG_HOME = savedHome;
+    if (savedHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+    else process.env.SOFTWARETEAM_HOME = savedHome;
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  const sshHost: HostEntry = { id: "vps-1", transport: "ssh", target: "vps-1.tailnet", user: "openrig" };
+  const sshHost: HostEntry = { id: "vps-1", transport: "ssh", target: "vps-1.tailnet", user: "softwareteam" };
 
   const okRun = (stdout: string): CrossHostResult => ({ ok: true, failedStep: "none", stdout, stderr: "", remoteExitCode: 0 });
   const failRun = (): CrossHostResult => ({ ok: false, failedStep: "remote-command-failed", stdout: "", stderr: "not found", remoteExitCode: 127 });
@@ -117,15 +117,15 @@ describe("rig host doctor — stepwise distinct errors + three-valued posture", 
     expect(rows[0]!.fix).toContain("ssh");
   });
 
-  it("distinct error: SSH works but rig binary missing", async () => {
+  it("distinct error: SSH works but SoftwareTeam binary missing", async () => {
     const deps = depsFromScript((argv) => (argv[0] === "true" ? okRun("") : failRun()));
     const rows = await doctorLegs(sshHost, deps);
     expect(rows[0]!.status).toBe("pass");
-    expect(rows[1]).toMatchObject({ step: "remote-rig-binary", status: "fail" });
-    expect(rows[1]!.fix).toContain("npm install -g @openrig/cli");
+    expect(rows[1]).toMatchObject({ step: "remote-software-team-binary", status: "fail" });
+    expect(rows[1]!.fix).toContain("npm install -g @softwareteam/cli");
   });
 
-  it("distinct error: rig installed but daemon down", async () => {
+  it("distinct error: SoftwareTeam installed but daemon down", async () => {
     const deps = depsFromScript((argv) => {
       if (argv[0] === "true") return okRun("");
       if (argv[1] === "--version") return okRun("0.4.4");
@@ -134,7 +134,7 @@ describe("rig host doctor — stepwise distinct errors + three-valued posture", 
     });
     const rows = await doctorLegs(sshHost, deps);
     expect(rows[2]).toMatchObject({ step: "remote-daemon-health", status: "fail" });
-    expect(rows[2]!.fix).toContain("rig daemon start");
+    expect(rows[2]!.fix).toContain("SoftwareTeam daemon start");
     expect(rows).toHaveLength(3); // identity leg not attempted without a daemon
   });
 
@@ -156,11 +156,11 @@ describe("rig host doctor — stepwise distinct errors + three-valued posture", 
 
     const rows = await doctorLegs(sshHost, deps);
     expect(rows[0]).toMatchObject({ step: "transport-reachability", status: "pass" });
-    expect(rows[1]).toMatchObject({ step: "remote-rig-binary", status: "pass" });
+    expect(rows[1]).toMatchObject({ step: "remote-software-team-binary", status: "pass" });
     expect(rows[2]).toMatchObject({ step: "remote-daemon-health", status: "unknown" });
     expect(rows[2]!.detail).toContain("could not confirm");
     expect(rows[2]!.detail).not.toContain("unreachable");
-    expect(rows[2]!.fix).not.toContain("rig daemon start");
+    expect(rows[2]!.fix).not.toContain("SoftwareTeam daemon start");
   });
 
   it("all legs green when the remote answers", async () => {
@@ -170,13 +170,13 @@ describe("rig host doctor — stepwise distinct errors + three-valued posture", 
       if (argv[0] === "true") return okRun("");
       if (argv[1] === "--version") return okRun("0.4.4");
       if (argv[1] === "daemon") return okRun("Daemon running (pid 1)");
-      if (argv[1] === "ps") return okRun(JSON.stringify({ entries: [{ rigName: "kernel" }] }));
+      if (argv[1] === "ps") return okRun(JSON.stringify({ entries: [{ softwareTeamName: "kernel" }] }));
       return failRun();
     });
     const rows = await doctorLegs(sshHost, deps);
     expect(rows.map((r) => r.status)).toEqual(["pass", "pass", "pass", "pass"]);
-    expect(calls).toContainEqual(["rig", "ps", "--json", "--limit", "5"]);
-    expect(calls).not.toContainEqual(["rig", "whoami", "--json"]);
+    expect(calls).toContainEqual(["SoftwareTeam", "ps", "--json", "--limit", "5"]);
+    expect(calls).not.toContainEqual(["SoftwareTeam", "whoami", "--json"]);
   });
 
   it("posture: UNKNOWN is never pass — unreadable sshd/ufw report unknown WITH fixes", async () => {
@@ -187,7 +187,7 @@ describe("rig host doctor — stepwise distinct errors + three-valued posture", 
     });
     const rows = await postureCheck(sshHost, deps);
     const byStep = Object.fromEntries(rows.map((r) => [r.step, r]));
-    expect(byStep["nonroot-openrig-user"]!.status).toBe("pass");
+    expect(byStep["nonroot-softwareteam-user"]!.status).toBe("pass");
     for (const step of ["root-ssh-disabled", "key-only-ssh", "ufw-default-deny-incoming", "tailnet-ingress-allowed", "tailscale-minimal-trust", "daemon-bind-not-public"]) {
       expect(byStep[step]!.status, step).toBe("unknown");
       expect(byStep[step]!.fix, step).toBeTruthy();
@@ -201,7 +201,7 @@ describe("rig host doctor — stepwise distinct errors + three-valued posture", 
     const rows = await postureCheck(sshHost, deps, { publicAddr: "203.0.113.7" });
     const probe = rows.find((r) => r.step === "public-daemon-port-unreachable")!;
     expect(probe.status).toBe("fail");
-    expect(probe.detail).toContain("203.0.113.7:7433");
+    expect(probe.detail).toContain("203.0.113.7:7434");
   });
 
   // R2-B1 regressions — the two false-green classes, pinned.
@@ -220,7 +220,7 @@ describe("rig host doctor — stepwise distinct errors + three-valued posture", 
   it("posture: daemon bound to a SPECIFIC public IP fails exactly like a wildcard", async () => {
     const deps = depsFromScript((argv) => {
       const cmd = String(argv[2] ?? "");
-      if (cmd.includes("ss -tln")) return okRun("LISTEN 0 511 148.113.200.37:7433 0.0.0.0:*");
+      if (cmd.includes("ss -tln")) return okRun("LISTEN 0 511 148.113.200.37:7434 0.0.0.0:*");
       return okRun("");
     });
     const rows = await postureCheck(sshHost, deps);
@@ -232,7 +232,7 @@ describe("rig host doctor — stepwise distinct errors + three-valued posture", 
   it("posture: tailnet CGNAT bind (100.64/10) passes; out-of-range 100.x fails", async () => {
     const mk = (addr: string) => depsFromScript((argv) => {
       const cmd = String(argv[2] ?? "");
-      if (cmd.includes("ss -tln")) return okRun(`LISTEN 0 511 ${addr}:7433 0.0.0.0:*`);
+      if (cmd.includes("ss -tln")) return okRun(`LISTEN 0 511 ${addr}:7434 0.0.0.0:*`);
       return okRun("");
     });
     const inRange = await postureCheck(sshHost, mk("100.103.199.127"));
@@ -244,7 +244,7 @@ describe("rig host doctor — stepwise distinct errors + three-valued posture", 
   it("posture: multi-listener where ONE is public fails, naming the offender", async () => {
     const deps = depsFromScript((argv) => {
       const cmd = String(argv[2] ?? "");
-      if (cmd.includes("ss -tln")) return okRun("LISTEN 0 511 127.0.0.1:7433 0.0.0.0:*\nLISTEN 0 511 203.0.113.9:7433 0.0.0.0:*");
+      if (cmd.includes("ss -tln")) return okRun("LISTEN 0 511 127.0.0.1:7434 0.0.0.0:*\nLISTEN 0 511 203.0.113.9:7434 0.0.0.0:*");
       return okRun("");
     });
     const rows = await postureCheck(sshHost, deps);
@@ -276,7 +276,7 @@ describe("rig host doctor — stepwise distinct errors + three-valued posture", 
       if (cmd.includes("ufw status")) return okRun("Status: active\nDefault: deny (incoming), allow (outgoing)\nAnywhere on tailscale0 ALLOW IN Anywhere\n");
       if (cmd.includes("tailscale status")) return okRun(JSON.stringify({ Self: { PrimaryRoutes: [] } }));
       if (cmd.includes("tailscale debug prefs")) return okRun(JSON.stringify({ RunSSH: false }));
-      if (cmd.includes("ss -tln")) return okRun("LISTEN 0 511 127.0.0.1:7433 0.0.0.0:*");
+      if (cmd.includes("ss -tln")) return okRun("LISTEN 0 511 127.0.0.1:7434 0.0.0.0:*");
       return okRun("");
     });
     const rows = await postureCheck(sshHost, deps, { publicAddr: "203.0.113.7" });
@@ -310,7 +310,7 @@ describe("rig host doctor — stepwise distinct errors + three-valued posture", 
     expect(reach.detail).toContain("requires Authorization");
     expect(reach.fix).toContain("hosts.yaml");
     expect(reach.fix).not.toContain("token is wrong");
-    expect(reach.fix).not.toContain("rig host add");
+    expect(reach.fix).not.toContain("SoftwareTeam host add");
   });
 
   it("doctor over http: a CONFIGURED-token host that gets 401 keeps the wrong-token guidance (unchanged branch)", async () => {
@@ -332,7 +332,7 @@ describe("rig host doctor — stepwise distinct errors + three-valued posture", 
     console.error = (...a: unknown[]) => err.push(a.join(" "));
     try {
       await capturePrelude();
-      await prog.parseAsync(["node", "rig", "host", "doctor", "nope"]);
+      await prog.parseAsync(["node", "softwareTeam", "host", "doctor", "nope"]);
     } finally { console.error = oe; }
     const code = process.exitCode; process.exitCode = oc;
     expect(code).toBe(1);
@@ -346,6 +346,6 @@ describe("rig host doctor — stepwise distinct errors + three-valued posture", 
     prog.exitOverride();
     prog.addCommand(hostCommand());
     const ol = console.log; console.log = () => {};
-    try { await prog.parseAsync(["node", "rig", "host", "add", "--id", "seeded", "--transport", "ssh", "--target", "s.host"]); } finally { console.log = ol; }
+    try { await prog.parseAsync(["node", "softwareTeam", "host", "add", "--id", "seeded", "--transport", "ssh", "--target", "s.host"]); } finally { console.log = ol; }
   }
 });

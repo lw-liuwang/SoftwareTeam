@@ -1,4 +1,4 @@
-// OPR.0.3.4.3 — rig reconcile-session CLI.
+// OPR.0.3.4.3 — softwareTeam reconcile-session CLI.
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { createProgram } from "../src/index.js";
 import http from "node:http";
@@ -42,18 +42,18 @@ function captureLogs(fn: () => Promise<void>): Promise<{ logs: string[]; exitCod
 const OK_RESPONSE = {
   ok: true,
   result: {
-    rigId: "rig-1",
-    rigName: "my-rig",
+    softwareTeamId: "software-team-1",
+    softwareTeamName: "my-software-team",
     nodeId: "node-1",
     logicalId: "dev.impl",
-    sessionName: "dev-impl@my-rig",
+    sessionName: "dev-impl@my-software-team",
     sessionId: "sess-2",
     projectionDrift: ['runtime unverified: pane command "zsh" does not confirm runtime "claude-code"'],
     continuity: "unverified",
   },
 };
 
-describe("rig reconcile-session", () => {
+describe("SoftwareTeam reconcile-session", () => {
   let server: http.Server;
   let port: number;
   let lastBody: Record<string, unknown> | null = null;
@@ -68,7 +68,7 @@ describe("rig reconcile-session", () => {
           lastBody = JSON.parse(body || "{}");
           if (url.includes("dead-session")) {
             res.writeHead(404, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ ok: false, code: "session_not_found", message: 'No live tmux session named "dead-session@my-rig".' }));
+            res.end(JSON.stringify({ ok: false, code: "session_not_found", message: 'No live tmux session named "dead-session@my-software-team".' }));
           } else {
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify(OK_RESPONSE));
@@ -107,10 +107,10 @@ describe("rig reconcile-session", () => {
 
   it("reconciles and prints the no-relaunch/no-input line + honest drift + continuity", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "reconcile-session", "dev-impl@my-rig", "--no-launch"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "reconcile-session", "dev-impl@my-software-team", "--no-launch"]);
     });
     const out = logs.join("\n");
-    expect(out).toContain("Reconciled dev-impl@my-rig into rig my-rig");
+    expect(out).toContain("Reconciled dev-impl@my-software-team into SoftwareTeam my-software-team");
     expect(out).toContain("no relaunch, no input sent");
     expect(out).toContain("node id unchanged");
     expect(out).toContain("Projection drift");
@@ -119,27 +119,27 @@ describe("rig reconcile-session", () => {
     expect(exitCode).toBeUndefined();
   });
 
-  it("forwards --rig/--node together in the body", async () => {
+  it("forwards --software-team/--node together in the body", async () => {
     lastBody = null;
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "reconcile-session", "dev-impl@my-rig", "--rig", "rig-1", "--node", "dev.impl"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "reconcile-session", "dev-impl@my-software-team", "--software-team", "software-team-1", "--node", "dev.impl"]);
     });
-    expect(lastBody).toEqual({ rigId: "rig-1", logicalId: "dev.impl" });
+    expect(lastBody).toEqual({ softwareTeamId: "software-team-1", logicalId: "dev.impl" });
   });
 
-  it("rejects --rig without --node before contacting the daemon", async () => {
+  it("rejects --software-team without --node before contacting the daemon", async () => {
     lastBody = null;
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "reconcile-session", "dev-impl@my-rig", "--rig", "rig-1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "reconcile-session", "dev-impl@my-software-team", "--software-team", "software-team-1"]);
     });
     expect(exitCode).toBe(1);
-    expect(logs.join("\n")).toContain("--rig and --node must be provided together");
+    expect(logs.join("\n")).toContain("--software-team and --node must be provided together");
     expect(lastBody).toBeNull();
   });
 
   it("daemon error -> honest message + exit 1", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "reconcile-session", "dead-session@my-rig"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "reconcile-session", "dead-session@my-software-team"]);
     });
     expect(exitCode).toBe(1);
     expect(logs.join("\n")).toContain("No live tmux session");
@@ -147,7 +147,7 @@ describe("rig reconcile-session", () => {
 
   it("--json passes the outcome through", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "reconcile-session", "dev-impl@my-rig", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "reconcile-session", "dev-impl@my-software-team", "--json"]);
     });
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed.ok).toBe(true);

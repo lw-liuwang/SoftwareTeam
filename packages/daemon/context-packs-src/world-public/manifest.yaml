@@ -29,7 +29,7 @@ atoms:
     order: 10
     priority: core
     probe:
-      prompt: "You just arrived in an unfamiliar OpenRig environment. What do you derive before acting?"
+      prompt: "You just arrived in an unfamiliar SoftwareTeam environment. What do you derive before acting?"
       expect: "The agent derives its identity, live topology, available context, and command surface instead of guessing."
   - id: author-a-world
     address: build-your-world.md
@@ -56,7 +56,7 @@ atoms:
     priority: core
     probe:
       prompt: "Which gaps can this public world answer, and which still require local sources or human judgment?"
-      expect: "The agent distinguishes public structure from rig-local facts, current state, mission context, and irreversible judgment."
+      expect: "The agent distinguishes public structure from software-team-local facts, current state, mission context, and irreversible judgment."
   - id: codex-bootstrap
     address: start-here.md#you-just-arrived
     taxonomy: world

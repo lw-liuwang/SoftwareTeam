@@ -50,7 +50,7 @@ describe("R1 C4b — SteeringTab BriefPanel honest copy", () => {
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><SteeringTab missionId="m" /></QueryClientProvider>);
     const el = await screen.findByTestId("brief-panel-unresolved-state");
     expect(el.textContent).toContain("BRIEF OUTSIDE FILE ROOTS");
-    expect(el.textContent).toContain("OPENRIG_FILES_ALLOWLIST");
+    expect(el.textContent).toContain("SOFTWARETEAM_FILES_ALLOWLIST");
     expect(screen.queryByTestId("brief-panel-empty-state")).toBeNull();
   });
 

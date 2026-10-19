@@ -1,14 +1,14 @@
 /**
  * Slice 51-02 (L2 test-system) — the forced-local scenario daemon lifecycle.
  *
- * The hermetic helper SPAWNS a real scenario-local daemon via the shipped `rig`
+ * The hermetic helper SPAWNS a real scenario-local daemon via the shipped `softwareTeam`
  * bin under the scrubbed scratch env, and the runner drives it with real
- * `rig … --json` subprocesses. This proves the env-discipline at a real process
+ * `softwareTeam … --json` subprocesses. This proves the env-discipline at a real process
  * boundary (a direct in-process method call would not be a transport proof) and
  * makes the assertions read exactly what a user/agent observes (product-is-truth).
  *
- * The `rig` bin is a SINGLE injectable seam (`rigBin`) so 51-04 container-mode can
- * point it at the container's installed `rig` without touching this host-mode
+ * The `softwareTeam` bin is a SINGLE injectable seam (`softwareTeamBin`) so 51-04 container-mode can
+ * point it at the container's installed `softwareTeam` without touching this host-mode
  * contract.
  */
 
@@ -17,7 +17,7 @@ import net from "node:net";
 import { join } from "node:path";
 import { assertNoForeignDaemon, type HermeticScaffold } from "./hermetic-env.js";
 
-export interface RigResult {
+export interface SoftwareTeamResult {
   stdout: string;
   stderr: string;
   code: number;
@@ -31,13 +31,13 @@ export interface ScenarioDaemon {
   baseUrl: string;
   /**
    * Environment for shipped read/write subprocesses: the scaffold's scrubbed
-   * scratch env with OPENRIG_URL pointed at THIS daemon (the helper's own — not a
+   * scratch env with SOFTWARETEAM_URL pointed at THIS daemon (the helper's own — not a
    * foreign target).
    */
   readEnv: Record<string, string | undefined>;
   /**
    * SIGTERM the scenario-local daemon (the `daemon: {op: sigterm}` verb) — kills
-   * it via the shipped `rig daemon stop`; the scaffold is KEPT so a restart can
+   * it via the shipped `SoftwareTeam daemon stop`; the scaffold is KEPT so a restart can
    * re-spawn through the same guarantees. Idempotent.
    */
   sigterm: () => Promise<void>;
@@ -48,23 +48,23 @@ export interface ScenarioDaemon {
    * lifecycle path). Distinct from a seat-level restart, which never touches it.
    */
   restart: () => Promise<void>;
-  /** Stop the daemon (via the shipped `rig daemon stop`) and remove the scaffold. */
+  /** Stop the daemon (via the shipped `SoftwareTeam daemon stop`) and remove the scaffold. */
   stop: () => Promise<void>;
   /**
    * L6 STEP-0 — translate a HOST topology path to a path the daemon can read. Host-mode omits this
    * (identity: the daemon reads the host path directly). CONTAINER-mode implements it by staging the
-   * topology's directory INTO the container and returning the in-container path, so `rig up` is never
+   * topology's directory INTO the container and returning the in-container path, so `SoftwareTeam up` is never
    * handed a host-absolute path a container daemon cannot resolve ("Source not found").
    */
   stageTopology?: (hostTopologyPath: string) => Promise<string>;
 }
 
 export interface SpawnScenarioDaemonOptions {
-  /** Path to the shipped `rig` bin (the single injectable invocation seam). */
-  rigBin: string;
+  /** Path to the shipped `softwareTeam` bin (the single injectable invocation seam). */
+  softwareTeamBin: string;
   /** Override the port (default: an ephemeral free port). */
   port?: number;
-  /** Per-invocation timeout for `rig` subprocesses (ms). */
+  /** Per-invocation timeout for `softwareTeam` subprocesses (ms). */
   timeoutMs?: number;
 }
 
@@ -81,13 +81,13 @@ export function findFreePort(): Promise<number> {
   });
 }
 
-/** Invoke `node <rigBin> <args...>` with the given env. Never rejects — returns the exit code. */
-export function runRig(
+/** Invoke `node <softwareTeamBin> <args...>` with the given env. Never rejects — returns the exit code. */
+export function runSoftwareTeam(
   args: string[],
   env: Record<string, string | undefined>,
-  rigBin: string,
+  softwareTeamBin: string,
   timeoutMs = 30_000,
-): Promise<RigResult> {
+): Promise<SoftwareTeamResult> {
   // execFile replaces the environment wholesale — drop undefined values so a
   // scrubbed (deleted) var never leaks back in as the literal string "undefined".
   const cleanEnv: Record<string, string> = {};
@@ -95,7 +95,7 @@ export function runRig(
   return new Promise((resolve) => {
     execFile(
       "node",
-      [rigBin, ...args],
+      [softwareTeamBin, ...args],
       { env: cleanEnv, timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024 },
       (err, stdout, stderr) => {
         const code =
@@ -112,7 +112,7 @@ export function runRig(
 
 /**
  * Spawn a real forced-local scenario daemon under the hermetic scaffold. The
- * shipped `rig daemon start` waits for its own /healthz before returning, so a
+ * shipped `SoftwareTeam daemon start` waits for its own /healthz before returning, so a
  * zero exit means the daemon is accepting requests. Throws (fail-closed) if the
  * scaffold env still carries a foreign daemon target, or if start fails.
  */
@@ -124,17 +124,17 @@ export async function spawnScenarioDaemon(
   // against a foreign target.
   assertNoForeignDaemon(scaffold.env);
 
-  const { rigBin, timeoutMs } = opts;
+  const { softwareTeamBin, timeoutMs } = opts;
   const port = opts.port ?? (await findFreePort());
   const db = join(scaffold.stateDir, "scenario.db");
 
   // The single start path — reused by initial spawn AND by restart, so a restart
   // re-spawns through EXACTLY the same forced-local/scratch/fail-closed guarantees.
   const startProc = async () => {
-    const start = await runRig(
+    const start = await runSoftwareTeam(
       ["daemon", "start", "--port", String(port), "--db", db, "--no-kernel"],
       scaffold.env,
-      rigBin,
+      softwareTeamBin,
       timeoutMs,
     );
     if (start.code !== 0) {
@@ -144,15 +144,15 @@ export async function spawnScenarioDaemon(
     }
   };
   const killProc = async () => {
-    // `rig daemon stop` reads daemon.json under the scratch OPENRIG_HOME and
+    // `SoftwareTeam daemon stop` reads daemon.json under the scratch SOFTWARETEAM_HOME and
     // SIGTERMs the daemon. Best-effort (already-down is fine).
-    await runRig(["daemon", "stop"], scaffold.env, rigBin, timeoutMs).catch(() => {});
+    await runSoftwareTeam(["daemon", "stop"], scaffold.env, softwareTeamBin, timeoutMs).catch(() => {});
   };
 
   await startProc();
 
   const baseUrl = `http://127.0.0.1:${port}`;
-  const readEnv: Record<string, string | undefined> = { ...scaffold.env, OPENRIG_URL: baseUrl };
+  const readEnv: Record<string, string | undefined> = { ...scaffold.env, SOFTWARETEAM_URL: baseUrl };
 
   return {
     port,

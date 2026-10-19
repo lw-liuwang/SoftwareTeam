@@ -56,7 +56,7 @@ function launchedProcess(json: string | null | undefined): (ClaudeLaunchedProces
 }
 
 /** The rotation a Claude identity proof may accept besides the stored token (#1077): the token
- *  OpenRig launched this row's process to resume, when the first hook after that launch, sent by
+ *  SoftwareTeam launched this row's process to resume, when the first hook after that launch, sent by
  *  that process, said Claude continued it as the stored token; and that process, the only one whose
  *  argv may name it. The hook's process must be the one the launch path itself observed starting on
  *  that token (`resume_launch_process`): a process that replaced it before its hook arrived is not.
@@ -133,7 +133,7 @@ export class SessionRegistry {
   ): Session {
     if (!validateSessionName(sessionName)) {
       throw new Error(
-        `Invalid session name "${sessionName}": must match legacy r{NN}-{suffix} or canonical {pod}-{member}@{rig} format with allowed characters (a-z, A-Z, 0-9, -, _, ., @)`
+        `Invalid session name "${sessionName}": must match legacy r{NN}-{suffix} or canonical {pod}-{member}@{softwareTeam} format with allowed characters (a-z, A-Z, 0-9, -, _, ., @)`
       );
     }
 
@@ -407,10 +407,10 @@ export class SessionRegistry {
   /** Record a Claude SessionStart hook's session id, with the evidence of how it began (#1077).
    *
    * The write itself follows `updateResumeToken`'s hook rank. The first hook carrying the node's
-   * current occupant generation after OpenRig launched this row with `--resume <T1>` consumes that
+   * current occupant generation after SoftwareTeam launched this row with `--resume <T1>` consumes that
    * launch, whatever its source: only that hook can name T1 as the token it replaced, and only when
-   * it reports `source: "resume"`, a different id, and the launch marker OpenRig put on that
-   * process's command (`OPENRIG_RESUME_LAUNCH=T1`), which a Claude started by hand in the pane does
+   * it reports `source: "resume"`, a different id, and the launch marker SoftwareTeam put on that
+   * process's command (`SOFTWARETEAM_RESUME_LAUNCH=T1`), which a Claude started by hand in the pane does
    * not carry, and when the caller observed that the hook came from the launched process itself
    * (`claudeHookFromLaunchedProcess`): a child `claude -p --resume` inherits the marker but is a
    * different process. The rotation keeps that process (pid and start time), and only it may later
@@ -534,12 +534,12 @@ export class SessionRegistry {
   findResumeContextByName(sessionName: string): {
     sessionId: string;
     nodeId: string;
-    rigId: string;
+    softwareTeamId: string;
     runtime: string | null;
     currentProvenance: string | null;
   } | null {
     const row = this.db.prepare(
-      `SELECT s.id as session_id, s.node_id, n.rig_id, n.runtime, s.resume_provenance
+      `SELECT s.id as session_id, s.node_id, n.software_team_id, n.runtime, s.resume_provenance
        FROM sessions s
        JOIN nodes n ON n.id = s.node_id
        WHERE s.session_name = ?
@@ -547,7 +547,7 @@ export class SessionRegistry {
     ).get(sessionName) as {
       session_id: string;
       node_id: string;
-      rig_id: string;
+      software_team_id: string;
       runtime: string | null;
       resume_provenance: string | null;
     } | undefined;
@@ -555,7 +555,7 @@ export class SessionRegistry {
     return {
       sessionId: row.session_id,
       nodeId: row.node_id,
-      rigId: row.rig_id,
+      softwareTeamId: row.software_team_id,
       runtime: row.runtime,
       currentProvenance: row.resume_provenance ?? null,
     };
@@ -583,32 +583,32 @@ export class SessionRegistry {
     this.db.prepare("DELETE FROM bindings WHERE node_id = ?").run(nodeId);
   }
 
-  getSessionsForRig(rigId: string): Session[] {
+  getSessionsForSoftwareTeam(softwareTeamId: string): Session[] {
     const rows = this.db
       .prepare(
         `SELECT s.* FROM sessions s
          JOIN nodes n ON s.node_id = n.id
-         WHERE n.rig_id = ?
+         WHERE n.software_team_id = ?
          ORDER BY s.created_at`
       )
-      .all(rigId) as SessionRow[];
+      .all(softwareTeamId) as SessionRow[];
 
     return rows.map((r) => this.rowToSession(r));
   }
 
   /** OPR.0.4.3.20 FR-4 — the latest session PER NODE, filtered to live statuses
    *  (running / idle / unknown), with the fields the resume-metadata refresher
-   *  needs. Lifted from rig-teardown so both the teardown pre-down path and the
+   *  needs. Lifted from software-team-teardown so both the teardown pre-down path and the
    *  FR-4 periodic/manual snapshot refresh call ONE query (no duplication). */
-  getLatestLiveSessions(rigId: string): LatestLiveSession[] {
+  getLatestLiveSessions(softwareTeamId: string): LatestLiveSession[] {
     const rows = this.db.prepare(`
       SELECT n.id as node_id, s.id as session_id, s.session_name, s.status, n.runtime, n.cwd, s.resume_type, s.resume_token
       FROM nodes n
       JOIN sessions s ON s.node_id = n.id
-      WHERE n.rig_id = ?
+      WHERE n.software_team_id = ?
         AND s.id = (SELECT s2.id FROM sessions s2 WHERE s2.node_id = n.id ORDER BY s2.created_at DESC, s2.id DESC LIMIT 1)
         AND s.status IN ('running', 'idle', 'unknown')
-    `).all(rigId) as Array<{ node_id: string; session_id: string; session_name: string; status: string; runtime: string | null; cwd: string | null; resume_type: string | null; resume_token: string | null }>;
+    `).all(softwareTeamId) as Array<{ node_id: string; session_id: string; session_name: string; status: string; runtime: string | null; cwd: string | null; resume_type: string | null; resume_token: string | null }>;
 
     return rows.map((r) => ({
       nodeId: r.node_id,
@@ -701,7 +701,7 @@ export class SessionRegistry {
       resumeType: row.resume_type ?? null,
       resumeToken: row.resume_token ?? null,
       // OPR.0.4.3.20 FR-6 — carry provenance + verification freshness so a
-      // snapshot's serialized sessions (and getSessionsForRig) surface token
+      // snapshot's serialized sessions (and getSessionsForSoftwareTeam) surface token
       // state in the restore plan. Nullable/degrading for pre-45 rows.
       resumeProvenance: row.resume_provenance ?? null,
       resumeLastVerified: row.resume_last_verified ?? null,

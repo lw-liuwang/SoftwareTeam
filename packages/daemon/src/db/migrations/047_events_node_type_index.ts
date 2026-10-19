@@ -1,26 +1,26 @@
 import type { Migration } from "../migrate.js";
 
 /**
- * OPR.0.4.3 hotfix — events per-node/per-rig+type indexes (daemon /healthz-wedge cure).
+ * OPR.0.4.3 hotfix — events per-node/per-softwareTeam+type indexes (daemon /healthz-wedge cure).
  *
  * ROOT CAUSE (root-caused from a live CPU sample of the wedged daemon, 98-100%
  * CPU): `GET /api/ps` (polled every 3s by the UI) runs a two-level nested map
- * (ps-projection over rigs -> getNodeInventory -> node-inventory over nodes)
+ * (ps-projection over softwareTeams -> getNodeInventory -> node-inventory over nodes)
  * whose per-node derivations reverse-scan the append-only `events` table with
  * NO supporting index. The only pre-existing index is
- * `idx_events_rig_seq(rig_id, seq)` — nothing leads with `node_id`, and no
+ * `idx_events_software_team_seq(software_team_id, seq)` — nothing leads with `node_id`, and no
  * index makes the `type` filter selective. So:
  *   - `deriveOriented` (startup-proof.ts): `WHERE node_id=? AND type IN (...)
  *     ORDER BY seq DESC` had NO usable index -> a full backward PK-btree walk
  *     of the WHOLE events log, per node, every 3s (the btreePrevious/pread
  *     signature in the sample). This is the primary wedge.
- *   - `deriveRestoreOutcome` (node-inventory.ts): `WHERE rig_id=? AND type IN
- *     ('restore.*') ORDER BY seq DESC` rode `idx_events_rig_seq` but, with
- *     `type` unindexed, walked ALL of the rig's events (incl. high-volume
+ *   - `deriveRestoreOutcome` (node-inventory.ts): `WHERE software_team_id=? AND type IN
+ *     ('restore.*') ORDER BY seq DESC` rode `idx_events_software_team_seq` but, with
+ *     `type` unindexed, walked ALL of the softwareTeam's events (incl. high-volume
  *     `agent.activity`) in reverse to find the latest restore event.
  *   - `getLatestForNode` (agent-activity-store.ts) + `deriveHeldReason`'s
  *     `node.held` lookup are the same `node_id`-filtered reverse pattern.
- * The `events` table is append-only with zero prune (survives rig/node
+ * The `events` table is append-only with zero prune (survives softwareTeam/node
  * deletion for audit), so it grows forever and each scan lengthens until the
  * single-threaded better-sqlite3 loop starves `/healthz`.
  *
@@ -32,12 +32,12 @@ import type { Migration } from "../migrate.js";
  *     UNINDEXED → the full-table reverse scan in the CPU sample), plus
  *     `getLatestForNode` and `deriveHeldReason`'s node.held lookup (same
  *     node_id + type reverse pattern).
- * `deriveRestoreOutcome` (rig_id + type filtered) is NOT addressed here: it
- * already rides the existing `idx_events_rig_seq(rig_id, seq)` (the SQLite
+ * `deriveRestoreOutcome` (software_team_id + type filtered) is NOT addressed here: it
+ * already rides the existing `idx_events_software_team_seq(software_team_id, seq)` (the SQLite
  * planner prefers it because it satisfies ORDER BY seq DESC with no sort; a
- * (rig_id, type, seq) index would go UNUSED — verified via EXPLAIN QUERY PLAN),
- * so it is rig-bounded (not the full-table wedge) — a second-order cost the
- * per-node N+1 collapse (a single per-rig windowed query) addresses as the
+ * (software_team_id, type, seq) index would go UNUSED — verified via EXPLAIN QUERY PLAN),
+ * so it is software-team-bounded (not the full-table wedge) — a second-order cost the
+ * per-node N+1 collapse (a single per-softwareTeam windowed query) addresses as the
  * separate, gated follow-on. An agent.activity retention/prune is the other
  * gated follow-on. Neither is in this hotfix.
  * CREATE INDEX IF NOT EXISTS is idempotent + safe to apply to a live/populated

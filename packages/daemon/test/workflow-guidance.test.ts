@@ -17,10 +17,10 @@ function fixture() {
   const catalog = join(root,"method.md");
   const prose = "### draft.choose\n\nChoose one reader question. Preserve uncertainty; do not start another guide.\n\n### draft.review\n\nRead the outline and judge accuracy. Stop at the original promise. Return one decision.\n";
   write(catalog,"# Editorial method\n\n## Components\n\n"+prose);
-  const selected = {catalog:{address:catalog+"#components"},components:[{id:"draft.choose",owner:"writer@rig"},{id:"draft.review",owner:"reader@rig"}],edges:[{from:"draft.choose",to:"draft.review",when:"outline ready"}]};
+  const selected = {catalog:{address:catalog+"#components"},components:[{id:"draft.choose",owner:"writer@software-team"},{id:"draft.review",owner:"reader@software-team"}],edges:[{from:"draft.choose",to:"draft.review",when:"outline ready"}]};
   write(project,{sdlc:selected}); write(mission,{metadata:{name:"trial"}});write(slice,{metadata:{id:"one"}});
   for (const p of [project,mission,slice]) write(join(p,"../SPEC.md"),"---\nintent: Write one accurate public guide.\n---\n");
-  const input = {instanceId:"WF",contextRefs:[project,mission],ownerSession:"writer@rig",packetId:"qitem-test"};
+  const input = {instanceId:"WF",contextRefs:[project,mission],ownerSession:"writer@software-team",packetId:"qitem-test"};
   return {root,project,mission,slice,catalog,prose,selected,write,input};
 }
 describe("selected workflow guidance",()=>{
@@ -31,7 +31,7 @@ describe("selected workflow guidance",()=>{
     expect(g.position).toContain("UNKNOWN");expect(g.expansionCommand).toContain("--packet 'qitem-test' --full");
   });
   it("narrower components replace ancestors and their edges, while inheriting the addressed catalog",()=>{
-    const f=fixture();f.write(f.mission,{sdlc:{components:[{id:"draft.review",owner:"reader@rig"}]}});
+    const f=fixture();f.write(f.mission,{sdlc:{components:[{id:"draft.review",owner:"reader@software-team"}]}});
     const g=readWorkflowGuidance({...f.input,full:true});
     expect(g.components?.map(c=>c.id)).toEqual(["draft.review"]);expect(g.edges).toEqual([]);expect(g.selectionSource).toBe(f.mission);
     f.write(f.slice,{sdlc:{components:[{id:"draft.choose"}]}});

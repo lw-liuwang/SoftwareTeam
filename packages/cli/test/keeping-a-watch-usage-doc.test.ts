@@ -12,7 +12,7 @@ import type { StatusDeps } from "../src/commands/status.js";
 import { SEAT_SHAPES, UsageHost, type UsageHostOptions } from "../../daemon/test/helpers/usage-hosts-harness.js";
 
 const PAGE = join(dirname(fileURLToPath(import.meta.url)), "../../../docs/reference/keeping-a-watch.md");
-const CHECK = "rig provider status --all-hosts --json";
+const CHECK = "SoftwareTeam provider status --all-hosts --json";
 const NOW = "2026-10-13T23:30:00.000Z";
 
 function deps(url: string): StatusDeps {
@@ -31,7 +31,7 @@ async function run(args: string[], hub: UsageHost): Promise<string> {
   const origLog = console.log;
   console.log = (...a: unknown[]) => out.push(a.join(" "));
   try {
-    await providerCommand(deps(hub.url)).parseAsync(["node", "rig", ...args]);
+    await providerCommand(deps(hub.url)).parseAsync(["node", "softwareTeam", ...args]);
   } finally {
     console.log = origLog;
   }

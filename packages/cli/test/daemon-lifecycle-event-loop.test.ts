@@ -29,7 +29,7 @@ function mockDeps(overrides?: Partial<LifecycleDeps>): LifecycleDeps {
 
 const RUNNING_STATE: DaemonState = {
   pid: 4242,
-  port: 7433,
+  port: 7434,
   host: "127.0.0.1",
   db: "x.db",
   startedAt: "2026-07-02T00:00:00Z",
@@ -66,7 +66,7 @@ describe("getDaemonStatus — event-loop evidence", () => {
     expect(status.reason).toBe("event-loop-starved");
     expect(status.eventLoop).toEqual(evidence);
     expect(status.pid).toBe(4242);
-    expect(status.port).toBe(7433);
+    expect(status.port).toBe(7434);
   });
 
   it("wedge: pid alive but healthz times out -> running (NOT stopped), unhealthy, reason unresponsive, pid+port present", async () => {
@@ -77,7 +77,7 @@ describe("getDaemonStatus — event-loop evidence", () => {
     expect(status.healthy).toBe(false);
     expect(status.reason).toBe("unresponsive");
     expect(status.pid).toBe(4242);
-    expect(status.port).toBe(7433);
+    expect(status.port).toBe(7434);
   });
 
   it("monitor-less daemon (plain {status:ok}) -> healthy, no reason, no evidence", async () => {

@@ -33,9 +33,9 @@ function setup() {
   ] }) });
   let now = "2026-09-05T21:00:00.000Z";
   const policy = new HealthPolicyStore(home, () => ({ warningPercent: 95, criticalPercent: 99 }));
-  const evidence = [adaptQueueTransitionEvidence({ transitionId: 1, qitemId: "lineage", ts: now, state: "in-progress", actorSession: "owner@rig", identityProvenance: "transport:v1" }, 0)];
+  const evidence = [adaptQueueTransitionEvidence({ transitionId: 1, qitemId: "lineage", ts: now, state: "in-progress", actorSession: "owner@software-team", identityProvenance: "transport:v1" }, 0)];
   const observation = {
-    kind: "coordination-lineage" as const, scope: { type: "rig" as const, rigId: "rig" },
+    kind: "coordination-lineage" as const, scope: { type: "softwareTeam" as const, softwareTeamId: "softwareTeam" },
     episodeStartedAt: now, lastObservedAt: now, lineageId: "lineage",
     coordinationTransitions: 257, productStateChanges: 0, boundedAuthority: false,
     reviewReturns: 0, candidateChanges: 0, newRiskClasses: 0,
@@ -49,13 +49,13 @@ function setup() {
 it("previews without writes, then persists one non-exhaustive occurrence across repeat/concurrent evaluation", async () => {
   const t = setup();
   const policy = t.policy.read().policy;
-  t.policy.apply({ ...policy, diagnosis: { ...policy.diagnosis, enabled: true, owner: "owner@rig" } }, "actor@rig");
+  t.policy.apply({ ...policy, diagnosis: { ...policy.diagnosis, enabled: true, owner: "owner@software-team" } }, "actor@software-team");
   const before = t.db.prepare("SELECT total_changes() AS n").get();
-  const preview = await t.service.evaluate("actor@rig", false);
+  const preview = await t.service.evaluate("actor@software-team", false);
   expect(preview.actions[0]?.action).toBe("create");
   expect(t.db.prepare("SELECT total_changes() AS n").get()).toEqual(before);
-  await Promise.all([t.service.evaluate("actor@rig", true), t.service.evaluate("actor@rig", true)]);
-  const rows = t.queue.list({ destinationSession: "owner@rig", limit: 1000 });
+  await Promise.all([t.service.evaluate("actor@software-team", true), t.service.evaluate("actor@software-team", true)]);
+  const rows = t.queue.list({ destinationSession: "owner@software-team", limit: 1000 });
   expect(rows).toHaveLength(1);
   expect(rows[0]!.body).toContain("not the whole story");
   expect(rows[0]!.body).toContain("your own contribution");
@@ -67,10 +67,10 @@ it("ignores a canceled topical Markdown receipt in the census and scheduled eval
   vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-05T21:00:00Z"));
   const t = setup(); const p = t.policy.read().policy;
   const foreignId = "qitem-xh-1d22fe73dfa8f0e1";
-  await t.queue.create({ qitemId: foreignId, sourceSession: "peer@rig", destinationSession: "owner@rig", nudge: false,
-    body: "# OpenRig 0.5.10 Slice 09 Founder-Visible Dogfood Receipt\n\nOrdinary cross-host receipt, not a typed occurrence.",
+  await t.queue.create({ qitemId: foreignId, sourceSession: "peer@software-team", destinationSession: "owner@software-team", nudge: false,
+    body: "# SoftwareTeam 0.5.10 Slice 09 Founder-Visible Dogfood Receipt\n\nOrdinary cross-host receipt, not a typed occurrence.",
     tags: ["slice-09", "dogfood", "health-diagnosis", "cross-host"] });
-  t.queue.update({ qitemId: foreignId, state: "canceled", actorSession: "peer@rig" });
+  t.queue.update({ qitemId: foreignId, state: "canceled", actorSession: "peer@software-team" });
   const foreign = t.queue.getById(foreignId); const transitions = t.queue.listTransitions(foreignId);
   const before = t.db.prepare("SELECT total_changes() AS n").get();
   expect(t.service.list()).toEqual([]);
@@ -83,13 +83,13 @@ it("ignores a canceled topical Markdown receipt in the census and scheduled eval
   expect(await refusal.json()).toMatchObject({ message: "health_diagnosis_not_found" });
   expect(t.db.prepare("SELECT total_changes() AS n").get()).toEqual(before);
 
-  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@rig" } }, "actor@rig");
+  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@software-team" } }, "actor@software-team");
   t.service.start();
   try { await vi.advanceTimersByTimeAsync(60000); } finally { await t.service.stop(); }
   expect(t.service.status().lastEvaluation?.error).toBeNull();
   const id = `qitem-health-diagnosis-${t.projection.list().records[0]!.id}`;
   expect(t.service.list().map((o) => o.row.qitemId)).toEqual([id]);
-  await t.service.evaluate("actor@rig", true);
+  await t.service.evaluate("actor@software-team", true);
   expect(t.service.list().map((o) => o.row.qitemId)).toEqual([id]);
   expect(t.queue.getById(foreignId)).toEqual(foreign);
   expect(t.queue.listTransitions(foreignId)).toEqual(transitions);
@@ -97,8 +97,8 @@ it("ignores a canceled topical Markdown receipt in the census and scheduled eval
 
 it.each(["markdown", "null", "schema", "finding-id", "authority", "presentedAt"])("refuses corrupt owned occurrence state (%s) instead of hiding or certifying it", async (defect) => {
   const t = setup(); const p = t.policy.read().policy;
-  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@rig" } }, "actor@rig");
-  const id = (await t.service.evaluate("actor@rig", true)).actions[0]!.qitemId;
+  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@software-team" } }, "actor@software-team");
+  const id = (await t.service.evaluate("actor@software-team", true)).actions[0]!.qitemId;
   const packet = JSON.parse(t.queue.getById(id)!.body);
   if (defect === "schema") packet.schema = "unrelated/v1";
   if (defect === "finding-id") packet.finding.id = "health-other";
@@ -109,22 +109,22 @@ it.each(["markdown", "null", "schema", "finding-id", "authority", "presentedAt"]
   const before = t.db.prepare("SELECT total_changes() AS n").get();
   expect(() => t.service.show(id)).toThrow(`health_diagnosis_invalid_packet: ${id}`);
   expect(() => t.service.list()).toThrow(`health_diagnosis_invalid_packet: ${id}`);
-  await expect(t.service.evaluate("actor@rig", true)).rejects.toThrow(`health_diagnosis_invalid_packet: ${id}`);
+  await expect(t.service.evaluate("actor@software-team", true)).rejects.toThrow(`health_diagnosis_invalid_packet: ${id}`);
   expect(t.db.prepare("SELECT total_changes() AS n").get()).toEqual(before);
 });
 
 it("preserves honest dispositions and never edits the source work or manufactures a resolution", async () => {
   const t = setup();
   const p = t.policy.read().policy;
-  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@rig" } }, "actor@rig");
-  const result = await t.service.evaluate("actor@rig", true);
+  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@software-team" } }, "actor@software-team");
+  const result = await t.service.evaluate("actor@software-team", true);
   const id = result.actions[0]!.qitemId;
   const before = t.queue.getById(id)!;
-  t.service.dispose(id, "owner@rig", { verdict: "insufficient evidence", causalStart: null, steering: "Inspect product checkpoints", uncertainty: "Admission authority unavailable", evidenceRefs: ["project/SPEC.md"] });
+  t.service.dispose(id, "owner@software-team", { verdict: "insufficient evidence", causalStart: null, steering: "Inspect product checkpoints", uncertainty: "Admission authority unavailable", evidenceRefs: ["project/SPEC.md"] });
   expect(t.service.show(id).disposition?.verdict).toBe("insufficient evidence");
   expect(t.queue.getById(id)!.state).toBe(before.state);
   t.observation.boundedAuthority = true;
-  expect((await t.service.evaluate("actor@rig", true)).actions).toHaveLength(0);
+  expect((await t.service.evaluate("actor@software-team", true)).actions).toHaveLength(0);
   expect(t.service.show(id).disposition?.verdict).toBe("insufficient evidence");
 });
 
@@ -132,14 +132,14 @@ it("re-presents the same occurrence once after cooldown, survives service restar
   const t = setup(); const p = t.policy.read().policy;
   const send = vi.fn(async () => ({ ok: true, verified: false }));
   t.queue.attachTransport({ send });
-  t.policy.apply({ ...p, freshnessSeconds: 86400, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@rig", cooldownSeconds: 60 } }, "actor@rig");
-  const first = await t.service.evaluate("actor@rig", true);
+  t.policy.apply({ ...p, freshnessSeconds: 86400, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@software-team", cooldownSeconds: 60 } }, "actor@software-team");
+  const first = await t.service.evaluate("actor@software-team", true);
   t.tick("2026-09-05T21:01:01Z");
   const service = new HealthDiagnosisService({ queue: t.queue, projection: t.projection, policy: t.policy, now: () => "2026-09-05T21:01:01Z", authority: () => [] });
-  const again = await service.evaluate("actor@rig", true);
+  const again = await service.evaluate("actor@software-team", true);
   expect(again.actions[0]).toMatchObject({ action: "represent", qitemId: first.actions[0]!.qitemId });
   t.tick("2026-09-05T22:00:00Z");
-  expect((await t.service.evaluate("actor@rig", true)).actions[0]!.action).toBe("retained");
+  expect((await t.service.evaluate("actor@software-team", true)).actions[0]!.action).toBe("retained");
   expect(t.queue.list({ limit: 100 })).toHaveLength(1);
   expect(send).toHaveBeenCalledTimes(2);
   expect(t.queue.getById(first.actions[0]!.qitemId)!.lastNudgeResult).toBe("delivered-ack-pending");
@@ -148,31 +148,31 @@ it("re-presents the same occurrence once after cooldown, survives service restar
 it("policy changes are versioned and audited, invalid or replayed changes write nothing", () => {
   const t = setup(); const original = t.policy.read();
   const next = { ...original.policy, thresholds: { ...original.policy.thresholds, ceremonyRatio: 1000 } };
-  const changed = t.policy.apply(next, "editor@rig");
+  const changed = t.policy.apply(next, "editor@software-team");
   expect(changed.version).not.toBe(original.version);
   expect(t.projection.list().records).toHaveLength(0);
   const files = readdirSync(join(t.home, "health", "policy-history"));
   expect(files).toHaveLength(1);
-  expect(readFileSync(join(t.home, "health", "policy-history", files[0]!), "utf8")).toContain("editor@rig");
-  t.policy.apply(next, "editor@rig");
-  expect(() => t.policy.apply({ ...next, diagnosis: { ...next.diagnosis, cooldownSeconds: 0 } }, "editor@rig")).toThrow();
+  expect(readFileSync(join(t.home, "health", "policy-history", files[0]!), "utf8")).toContain("editor@software-team");
+  t.policy.apply(next, "editor@software-team");
+  expect(() => t.policy.apply({ ...next, diagnosis: { ...next.diagnosis, cooldownSeconds: 0 } }, "editor@software-team")).toThrow();
   expect(readdirSync(join(t.home, "health", "policy-history"))).toEqual(files);
 });
 
 async function checkpointSetup() {
   const t = setup(); let now = "2026-09-04T04:51:31.138Z";
   // Synthetic lifecycle mechanics, not a historical product-outcome calibration.
-  const subject = { lineage: "synthetic-reminder-lineage", scope: { type: "rig" as const, rigId: "fixture" },
+  const subject = { lineage: "synthetic-reminder-lineage", scope: { type: "softwareTeam" as const, softwareTeamId: "fixture" },
     window: { startedAt: "2026-09-04T04:00:00.000Z" },
     autoUnparks: Array.from({ length: 52 }, (_, i) => ({ transitionId: 100000 + i, observedAt: new Date(Date.parse("2026-09-04T04:00:00.000Z") + i * 60000).toISOString() })) };
-  const row = await t.queue.create({ qitemId: subject.lineage, sourceSession: "actor@rig", destinationSession: "owner@rig", body: "synthetic replay lineage", nudge: false });
+  const row = await t.queue.create({ qitemId: subject.lineage, sourceSession: "actor@software-team", destinationSession: "owner@software-team", body: "synthetic replay lineage", nudge: false });
   // Each transition is explicit; the source must verify the complete census.
   const insert = t.db.prepare("INSERT INTO queue_transitions(transition_id,qitem_id,ts,state,actor_session) VALUES(?,?,?,?,?)");
   for (const event of subject.autoUnparks) insert.run(event.transitionId, row.qitemId, event.observedAt, "pending", "watchdog");
   const workspace = join(t.home, "workspace"); mkdirSync(workspace);
   const evidencePath = join(workspace, "synthetic-census.json");
   writeFileSync(evidencePath, JSON.stringify({ synthetic: true, outcomes: ["closure"], expectation: "One bounded outcome check", boundedAuthority: false }));
-  const cp: HealthCheckpoint = { schema: "openrig.health-checkpoint/v0alpha1", lineageQitemId: row.qitemId, scope: subject.scope,
+  const cp: HealthCheckpoint = { schema: "softwareteam.health-checkpoint/v0alpha1", lineageQitemId: row.qitemId, scope: subject.scope,
     startedAt: subject.window.startedAt, observedAt: now, transitionIds: subject.autoUnparks.map((x: { transitionId: number }) => x.transitionId),
     productOutcomes: [{ id: "closure", observedAt: now, evidenceRef: evidencePath }],
     productCensusRef: evidencePath, sdlc: { expectation: "Keep the graph moving; wait on named live boundaries", evidenceRef: evidencePath }, boundedAuthority: { applies: false, evidenceRef: evidencePath },
@@ -185,42 +185,42 @@ async function checkpointSetup() {
 
 it("drives synthetic checkpoint ingestion, clear and recurrence without a wake storm", async () => {
   const t = await checkpointSetup(); const p = t.policy.read().policy;
-  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@rig", cooldownSeconds: 60 } }, "actor@rig");
-  t.source.submit(t.cp, "author@rig");
+  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@software-team", cooldownSeconds: 60 } }, "actor@software-team");
+  t.source.submit(t.cp, "author@software-team");
   const first = t.projection.list().records[0]!;
   expect(first.status).toBe("active");
   expect(first.explanation).toContain("52 coordination transitions for 1 product-state change");
   const changes = t.db.prepare("SELECT total_changes() AS n").get();
   t.projection.list(); t.projection.get(first.id);
   expect(t.db.prepare("SELECT total_changes() AS n").get()).toEqual(changes);
-  await t.service.evaluate("actor@rig", true); await t.service.evaluate("actor@rig", true);
+  await t.service.evaluate("actor@software-team", true); await t.service.evaluate("actor@software-team", true);
   expect(t.service.list()).toHaveLength(1);
   t.time("2026-09-04T04:52:00Z");
-  t.source.submit({ ...t.cp, observedAt: "2026-09-04T04:52:00Z" }, "author@rig");
+  t.source.submit({ ...t.cp, observedAt: "2026-09-04T04:52:00Z" }, "author@software-team");
   expect(t.projection.list().records[0]!.id).toBe(first.id);
   t.time("2026-09-04T04:53:00Z");
-  t.source.submit({ ...t.cp, observedAt: "2026-09-04T04:53:00Z", boundedAuthority: { applies: true, evidenceRef: t.cp.boundedAuthority.evidenceRef } }, "author@rig");
+  t.source.submit({ ...t.cp, observedAt: "2026-09-04T04:53:00Z", boundedAuthority: { applies: true, evidenceRef: t.cp.boundedAuthority.evidenceRef } }, "author@software-team");
   expect(t.projection.get(first.id)?.status).toBe("cleared");
-  await t.service.evaluate("actor@rig", true);
+  await t.service.evaluate("actor@software-team", true);
   const transitions = t.queue.listTransitions(`qitem-health-diagnosis-${first.id}`).length;
-  await t.service.evaluate("actor@rig", true);
+  await t.service.evaluate("actor@software-team", true);
   expect(t.queue.listTransitions(`qitem-health-diagnosis-${first.id}`)).toHaveLength(transitions);
   t.time("2026-09-04T04:54:00Z");
-  t.source.submit({ ...t.cp, observedAt: "2026-09-04T04:54:00Z" }, "author@rig");
+  t.source.submit({ ...t.cp, observedAt: "2026-09-04T04:54:00Z" }, "author@software-team");
   expect(t.projection.list().records[0]!.id).not.toBe(first.id);
-  await t.service.evaluate("actor@rig", true);
+  await t.service.evaluate("actor@software-team", true);
   expect(t.service.list()).toHaveLength(2);
 });
 
 it("rejects partial/mixed-lineage censuses; unknown authority and stale evidence cannot admit diagnosis", async () => {
   const t = await checkpointSetup();
-  expect(() => t.source.submit({ ...t.cp, transitionIds: t.cp.transitionIds.slice(1) }, "author@rig")).toThrow("census");
+  expect(() => t.source.submit({ ...t.cp, transitionIds: t.cp.transitionIds.slice(1) }, "author@software-team")).toThrow("census");
   expect(t.source.entries()).toHaveLength(0);
-  t.source.submit({ ...t.cp, boundedAuthority: { applies: null, evidenceRef: "unavailable" } }, "author@rig");
+  t.source.submit({ ...t.cp, boundedAuthority: { applies: null, evidenceRef: "unavailable" } }, "author@software-team");
   expect(t.projection.list().records[0]!.status).toBe("indeterminate");
   t.time("2026-09-04T06:00:00Z");
   expect(t.projection.list().records[0]!.status).toBe("indeterminate");
-  expect((await t.service.evaluate("actor@rig", true)).actions).toHaveLength(0);
+  expect((await t.service.evaluate("actor@software-team", true)).actions).toHaveLength(0);
 });
 
 it("serves the real routes with no GET writes and rejects incomplete dispositions", async () => {
@@ -231,10 +231,10 @@ it("serves the real routes with no GET writes and rejects incomplete disposition
     c.set("healthPolicy" as never, t.policy); c.set("healthCheckpoints" as never, t.source); await next();
   });
   app.route("/api/health", healthRoutes()); app.route("/api/health-diagnosis", healthDiagnosisRoutes());
-  const post = (path: string, body: unknown) => app.request(`/api/health-diagnosis/${path}`, { method: "POST", headers: { "x-openrig-session": "actor@rig", "content-type": "application/json" }, body: JSON.stringify(body) });
+  const post = (path: string, body: unknown) => app.request(`/api/health-diagnosis/${path}`, { method: "POST", headers: { "x-softwareteam-session": "actor@software-team", "content-type": "application/json" }, body: JSON.stringify(body) });
   expect((await post("checkpoints", { value: t.cp })).status).toBe(200);
   const p = t.policy.read().policy;
-  expect((await post("policy", { value: { ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@rig" } } })).status).toBe(200);
+  expect((await post("policy", { value: { ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@software-team" } } })).status).toBe(200);
   const before = t.db.prepare("SELECT total_changes() AS n").get();
   for (const path of ["/api/health", "/api/health-diagnosis/policy", "/api/health-diagnosis/checkpoints", "/api/health-diagnosis"]) expect((await app.request(path)).status).toBe(200);
   expect(t.db.prepare("SELECT total_changes() AS n").get()).toEqual(before);
@@ -249,41 +249,41 @@ it("a hundred context episodes remain low-priority and opt-in admission is still
   const t = setup(); let cleared = false; const at = "2026-09-05T21:00:00.000Z";
   const source = { read: (): HealthDetectorObservation[] => Array.from({ length: 100 }, (_, i) => {
     const sample = { type: "context-usage" as const, nodeId: `seat-${i}`, sessionId: `occupant-${i}`, observedAt: at, sourceOrder: 0, usedPercentage: 96, available: true, fresh: true };
-    return { kind: "context-pressure", sourceName: "native", continuity: "same-occupant", scope: { type: "seat", rigId: "rig", seatId: `seat-${i}` }, episodeStartedAt: at, lastObservedAt: at,
+    return { kind: "context-pressure", sourceName: "native", continuity: "same-occupant", scope: { type: "seat", softwareTeamId: "softwareTeam", seatId: `seat-${i}` }, episodeStartedAt: at, lastObservedAt: at,
       source: boundHealthEvidence(cleared ? [sample, { ...sample, sourceOrder: 1, usedPercentage: 30 }] : [sample], { source: "context-usage", startedAt: at, endedAt: at, limit: 3, retentionSeconds: 86400 }, deriveHealthSourceFreshness({ evaluatedAt: at, newestSourceAt: at, maxAgeSeconds: 600, available: true })) };
   }) };
   const projection = new HealthProjectionService(source, () => t.policy.read(), delegatedPostureFixture);
   const service = new HealthDiagnosisService({ queue: t.queue, projection, policy: t.policy, now: () => at, authority: () => [] });
   const p = t.policy.read().policy;
-  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@rig" } }, "actor@rig");
+  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@software-team" } }, "actor@software-team");
   expect(projection.list().total).toBe(100);
-  expect((await service.evaluate("actor@rig", true)).actions).toHaveLength(0);
-  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@rig", detectors: ["context.pressure"] } }, "actor@rig");
-  await Promise.all([service.evaluate("actor@rig", true), service.evaluate("actor@rig", true)]);
+  expect((await service.evaluate("actor@software-team", true)).actions).toHaveLength(0);
+  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@software-team", detectors: ["context.pressure"] } }, "actor@software-team");
+  await Promise.all([service.evaluate("actor@software-team", true), service.evaluate("actor@software-team", true)]);
   expect(service.list()).toHaveLength(1);
   cleared = true;
   expect(projection.list().total).toBe(0);
   expect(projection.list({ status: "cleared" }).total).toBe(100);
-  await service.evaluate("actor@rig", true);
+  await service.evaluate("actor@software-team", true);
   expect(service.list()).toHaveLength(1);
   expect(service.list()[0]!.finding.status).toBe("cleared");
 });
 
 it("human escalation requires both an admitted agent disposition and ready delivery, with one durable request", async () => {
   const t = setup(); const p = t.policy.read().policy;
-  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@rig" }, human: { address: "operator@external", conditions: ["established pathology"] } }, "actor@rig");
-  const id = (await t.service.evaluate("actor@rig", true)).actions[0]!.qitemId;
+  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@software-team" }, human: { address: "operator@external", conditions: ["established pathology"] } }, "actor@software-team");
+  const id = (await t.service.evaluate("actor@software-team", true)).actions[0]!.qitemId;
   let ready = false;
   const readiness = vi.fn(async () => ({ ready, reason: "fixture readiness" }));
   const service = new HealthDiagnosisService({ queue: t.queue, projection: t.projection, policy: t.policy, authority: () => [], humanReadiness: readiness });
-  await expect(service.notify(id, "owner@rig")).rejects.toThrow("policy");
+  await expect(service.notify(id, "owner@software-team")).rejects.toThrow("policy");
   expect(readiness).not.toHaveBeenCalled();
-  service.dispose(id, "owner@rig", { verdict: "established pathology", causalStart: "fixture:initial-reminder", steering: "Retire stale directive at next boundary", uncertainty: "Fixture evidence only", evidenceRefs: ["fixture:stale-conductor"] });
-  await expect(service.notify(id, "owner@rig")).rejects.toThrow("readiness");
+  service.dispose(id, "owner@software-team", { verdict: "established pathology", causalStart: "fixture:initial-reminder", steering: "Retire stale directive at next boundary", uncertainty: "Fixture evidence only", evidenceRefs: ["fixture:stale-conductor"] });
+  await expect(service.notify(id, "owner@software-team")).rejects.toThrow("readiness");
   expect(t.queue.list({ limit: 100 })).toHaveLength(1);
   ready = true;
-  const first = await service.notify(id, "owner@rig");
-  const second = await service.notify(id, "owner@rig");
+  const first = await service.notify(id, "owner@software-team");
+  const second = await service.notify(id, "owner@software-team");
   expect(second.qitemId).toBe(first.qitemId);
   expect(first.deliveryOutcome).not.toBe("posted");
   expect(t.queue.list({ limit: 100 })).toHaveLength(2);
@@ -300,7 +300,7 @@ it("automatically evaluates enabled policy, never sends a human notification, an
   t.service.start();
   await vi.advanceTimersByTimeAsync(60000);
   expect(t.queue.list()).toHaveLength(0);
-  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@rig" } }, "actor@rig");
+  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@software-team" } }, "actor@software-team");
   await vi.advanceTimersByTimeAsync(60000);
   expect(t.queue.list()).toHaveLength(1);
   expect(t.service.status().lastEvaluation?.error).toBeNull();
@@ -312,57 +312,57 @@ it("automatically evaluates enabled policy, never sends a human notification, an
 
 it("policy threshold changes immediately reevaluate the structured source with the displayed version", async () => {
   const t = await checkpointSetup(); const p = t.policy.read().policy;
-  t.source.submit(t.cp, "author@rig");
+  t.source.submit(t.cp, "author@software-team");
   const id = t.projection.list().records[0]!.id;
-  t.policy.apply({ ...p, thresholds: { ...p.thresholds, ceremonyRatio: 100 } }, "actor@rig");
+  t.policy.apply({ ...p, thresholds: { ...p.thresholds, ceremonyRatio: 100 } }, "actor@software-team");
   expect(t.projection.list().records).toHaveLength(0);
   expect(t.projection.get(id)?.status).toBe("cleared");
-  t.policy.apply(p, "actor@rig");
+  t.policy.apply(p, "actor@software-team");
   expect(t.projection.list().records[0]!.policyVersion).toBe(t.policy.read().version);
 });
 
 
 it("requires occurrence custody before disposition or human effects and retains route identity provenance", async () => {
   const t = setup(); const p = t.policy.read().policy;
-  t.policy.apply({ ...p, freshnessSeconds: 86400, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@rig", cooldownSeconds: 60 }, human: { address: "operator@external", conditions: ["established pathology"] } }, "actor@rig");
+  t.policy.apply({ ...p, freshnessSeconds: 86400, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@software-team", cooldownSeconds: 60 }, human: { address: "operator@external", conditions: ["established pathology"] } }, "actor@software-team");
   const readiness = vi.fn(async () => ({ ready: true, reason: "fixture" }));
   const service = new HealthDiagnosisService({ queue: t.queue, projection: t.projection, policy: t.policy, now: () => "2026-09-05T21:01:01Z", authority: () => [], humanReadiness: readiness });
-  const id = (await t.service.evaluate("actor@rig", true)).actions[0]!.qitemId;
+  const id = (await t.service.evaluate("actor@software-team", true)).actions[0]!.qitemId;
   const app = new Hono(); app.use("*", async (c, next) => { c.set("healthDiagnosis" as never, service); await next(); });
   app.route("/api/health-diagnosis", healthDiagnosisRoutes());
   const disposition = { verdict: "established pathology", causalStart: null, steering: "Inspect", uncertainty: "Fixture", evidenceRefs: ["fixture"] };
-  const post = (action: string, actor: string) => app.request(`/api/health-diagnosis/${id}/${action}`, { method: "POST", headers: { "x-openrig-session": actor, "content-type": "application/json" }, body: JSON.stringify({ actor: "owner@rig", value: disposition }) });
+  const post = (action: string, actor: string) => app.request(`/api/health-diagnosis/${id}/${action}`, { method: "POST", headers: { "x-softwareteam-session": actor, "content-type": "application/json" }, body: JSON.stringify({ actor: "owner@software-team", value: disposition }) });
   const before = t.db.prepare("SELECT total_changes() AS n").get();
-  expect((await post("disposition", "peer@rig")).status).toBe(400);
-  expect((await post("notify", "peer@rig")).status).toBe(400);
+  expect((await post("disposition", "peer@software-team")).status).toBe(400);
+  expect((await post("notify", "peer@software-team")).status).toBe(400);
   expect(readiness).not.toHaveBeenCalled();
   expect(t.db.prepare("SELECT total_changes() AS n").get()).toEqual(before);
   expect(service.show(id).disposition).toBeNull();
   expect((await service.evaluate("system:health", true)).actions[0]!.action).toBe("represent");
-  expect((await post("disposition", "owner@rig")).status).toBe(200);
-  expect(t.queue.listTransitions(id).at(-1)).toMatchObject({ actorSession: "owner@rig", identityProvenance: "transport:v1" });
+  expect((await post("disposition", "owner@software-team")).status).toBe(200);
+  expect(t.queue.listTransitions(id).at(-1)).toMatchObject({ actorSession: "owner@software-team", identityProvenance: "transport:v1" });
   const unchanged = t.db.prepare("SELECT total_changes() AS n").get();
-  expect((await post("disposition", "peer@rig")).status).toBe(400); // identical replay is still an owner action
-  expect((await post("notify", "peer@rig")).status).toBe(400);
+  expect((await post("disposition", "peer@software-team")).status).toBe(400); // identical replay is still an owner action
+  expect((await post("notify", "peer@software-team")).status).toBe(400);
   expect(t.db.prepare("SELECT total_changes() AS n").get()).toEqual(unchanged);
-  expect((await post("notify", "owner@rig")).status).toBe(200);
+  expect((await post("notify", "owner@software-team")).status).toBe(200);
   expect(readiness).toHaveBeenCalledTimes(1);
   const human = t.queue.list({ tag: "health-human" })[0]!;
-  expect(t.queue.listTransitions(human.qitemId)[0]).toMatchObject({ actorSession: "owner@rig", identityProvenance: "transport:v1" });
+  expect(t.queue.listTransitions(human.qitemId)[0]).toMatchObject({ actorSession: "owner@software-team", identityProvenance: "transport:v1" });
 });
 
 it("keeps unresolved checkpoint evidence indeterminate and never admits a diagnostic row", async () => {
   for (const field of ["census", "authority", "outcome"]) {
     const t = await checkpointSetup(); const cp = structuredClone(t.cp);
     const p = t.policy.read().policy;
-    t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@rig" } }, "actor@rig");
+    t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@software-team" } }, "actor@software-team");
     if (field === "census") cp.productCensusRef = "missing-census.md";
     if (field === "authority") cp.boundedAuthority.evidenceRef = "missing-authority.md";
     if (field === "outcome") cp.productOutcomes[0]!.evidenceRef = "missing-outcome.md";
-    t.source.submit(cp, "author@rig");
+    t.source.submit(cp, "author@software-team");
     expect(t.source.entries()[0]!.checkpoint).toEqual(cp);
     expect(t.projection.list().records[0]!.status).toBe("indeterminate");
-    expect((await t.service.evaluate("actor@rig", true)).actions).toHaveLength(0);
+    expect((await t.service.evaluate("actor@software-team", true)).actions).toHaveLength(0);
     expect(t.service.list()).toHaveLength(0);
   }
 });
@@ -376,7 +376,7 @@ it("embeds only canonical authority files with contained real paths", async () =
   symlinkSync(outside, join(workspace, "project.yaml"));
   const mission = join(workspace, "missions", "release-0.5.9"); mkdirSync(mission, { recursive: true });
   symlinkSync(outside, join(mission, "SPEC.md"));
-  t.source.submit({ ...t.cp, authorityPaths: { project: [outside, arbitrary, spec], mission: [join(mission, "SPEC.md")], slice: [] } }, "author@rig");
+  t.source.submit({ ...t.cp, authorityPaths: { project: [outside, arbitrary, spec], mission: [join(mission, "SPEC.md")], slice: [] } }, "author@software-team");
   const record = t.projection.list().records[0]!;
   const authority = healthAuthority(workspace, t.source, record);
   expect(authority.find((a) => a.path === spec)).toMatchObject({ state: "available", content: "# Project authority" });
@@ -390,8 +390,8 @@ it("embeds only canonical authority files with contained real paths", async () =
 
 it("rechecks evidence availability after submission and refuses empty, non-file and escaped evidence", async () => {
   const t = await checkpointSetup(); const p = t.policy.read().policy;
-  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@rig" } }, "actor@rig");
-  t.source.submit(t.cp, "author@rig");
+  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@software-team" } }, "actor@software-team");
+  t.source.submit(t.cp, "author@software-team");
   expect(t.projection.list().records[0]!.status).toBe("active");
   const evidence = t.cp.productCensusRef;
   for (const state of ["empty", "directory", "symlink", "missing"]) {
@@ -400,7 +400,7 @@ it("rechecks evidence availability after submission and refuses empty, non-file 
     if (state === "directory") mkdirSync(evidence);
     if (state === "symlink") { const outside = join(t.home, "outside-evidence.md"); writeFileSync(outside, "Unapproved evidence"); symlinkSync(outside, evidence); }
     expect(t.projection.list().records[0]!.status).toBe("indeterminate");
-    expect((await t.service.evaluate("actor@rig", true)).actions).toHaveLength(0);
+    expect((await t.service.evaluate("actor@software-team", true)).actions).toHaveLength(0);
     expect(t.service.list()).toHaveLength(0);
   }
 });
@@ -413,14 +413,14 @@ it("binds authority categories and slice IDs to the finding scope", async () => 
   const mission = write(join(workspace, "missions/current/SPEC.md"), "# Current mission");
   const missionYaml = write(join(workspace, "missions/current/mission.yaml"), "metadata: {name: current}");
   const spec = write(join(workspace, "missions/current/slices/09-current/SPEC.md"), "---\nid: OPR.9\nmission: current\n---\n# Current slice");
-  const yaml = write(join(workspace, "missions/current/slices/09-current/slice.yaml"), "schema: openrig.slice/v0alpha1");
+  const yaml = write(join(workspace, "missions/current/slices/09-current/slice.yaml"), "schema: softwareteam.slice/v0alpha1");
   const otherMission = write(join(workspace, "missions/other/SPEC.md"), "# Unrelated mission marker");
   const sibling = write(join(workspace, "missions/current/slices/08-sibling/SPEC.md"), "---\nid: OPR.8\n---\n# Sibling marker");
   const missingId = write(join(workspace, "missions/current/slices/OPR.9/SPEC.md"), "# Directory name is not a declared ID marker");
   const malformed = write(join(workspace, "missions/current/slices/malformed/SPEC.md"), "---\nid: [broken\n---\n# Malformed marker");
   const cp = { ...t.cp, scope: { type: "slice" as const, projectId: "project", missionId: "current", sliceId: "OPR.9" },
     authorityPaths: { project: [project, mission], mission: [mission, otherMission, spec], slice: [spec, yaml, mission, otherMission, sibling, missingId, malformed] } };
-  t.source.submit(cp, "author@rig");
+  t.source.submit(cp, "author@software-team");
   const finding = t.projection.list().records[0]!;
   const results = healthAuthority(workspace, t.source, finding);
   expect(results.find((a) => a.path === otherMission)).toMatchObject({ state: "unavailable" });
@@ -433,6 +433,6 @@ it("binds authority categories and slice IDs to the finding scope", async () => 
   const changed = healthAuthority(workspace, t.source, finding);
   expect(changed.find((a) => a.path === yaml)).toMatchObject({ state: "unavailable" });
   expect(JSON.stringify(changed)).not.toContain("Changed identity marker");
-  const unscoped = healthAuthority(workspace, t.source, { ...finding, scope: { type: "rig", rigId: "rig" } });
+  const unscoped = healthAuthority(workspace, t.source, { ...finding, scope: { type: "softwareTeam", softwareTeamId: "softwareTeam" } });
   expect(unscoped.filter((a) => (a as { level?: string }).level !== "project").every((a) => a.state === "unavailable")).toBe(true);
 });

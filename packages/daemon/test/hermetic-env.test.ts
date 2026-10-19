@@ -13,8 +13,8 @@ import {
 // the ambient env, the runner must REFUSE with a hard error naming the foreign target and
 // send ZERO traffic to it — never a silent fallback to the ambient daemon.
 describe("hermetic-env fail-closed guard", () => {
-  it("refuses with a named HermeticEnvError when an ambient OPENRIG_URL is present", () => {
-    const env = { OPENRIG_URL: "http://foreign-daemon:9999" };
+  it("refuses with a named HermeticEnvError when an ambient SOFTWARETEAM_URL is present", () => {
+    const env = { SOFTWARETEAM_URL: "http://foreign-daemon:9999" };
     expect(() => assertNoForeignDaemon(env)).toThrow(HermeticEnvError);
     let msg = "";
     try {
@@ -23,7 +23,7 @@ describe("hermetic-env fail-closed guard", () => {
       msg = (e as Error).message;
     }
     // The error must NAME the foreign target (var + value) so the operator can see it.
-    expect(msg).toContain("OPENRIG_URL");
+    expect(msg).toContain("SOFTWARETEAM_URL");
     expect(msg).toContain("http://foreign-daemon:9999");
   });
 
@@ -39,10 +39,10 @@ describe("hermetic-env fail-closed guard", () => {
   });
 
   it("reports the FIRST foreign target found (deterministic, ordered)", () => {
-    const env = { OPENRIG_PORT: "7433", OPENRIG_URL: "http://x:1" };
+    const env = { SOFTWARETEAM_PORT: "7434", SOFTWARETEAM_URL: "http://x:1" };
     const hit = detectForeignDaemonTarget(env);
     // DAEMON_TARGET_ENV_VARS ordering is the detection order — URL precedes PORT.
-    expect(hit!.name).toBe("OPENRIG_URL");
+    expect(hit!.name).toBe("SOFTWARETEAM_URL");
   });
 
   it("passes for a clean env with no foreign daemon target", () => {
@@ -52,18 +52,18 @@ describe("hermetic-env fail-closed guard", () => {
 
   it("ignores empty-string daemon-target vars (unset-equivalent)", () => {
     // An exported-but-empty var does not point at a daemon; treat it as absent.
-    expect(detectForeignDaemonTarget({ OPENRIG_URL: "" })).toBeNull();
-    expect(() => assertNoForeignDaemon({ OPENRIG_URL: "" })).not.toThrow();
+    expect(detectForeignDaemonTarget({ SOFTWARETEAM_URL: "" })).toBeNull();
+    expect(() => assertNoForeignDaemon({ SOFTWARETEAM_URL: "" })).not.toThrow();
   });
 });
 
 // The shared setup (test/hermetic-env.setup.ts) gives compaction packets a folder inside the fixture home, so a test
 // that sets no root of its own never writes to the /tmp/claude-compaction-restore real seats use.
 describe("hermetic-env setup: compaction packet folder", () => {
-  it("defaults OPENRIG_COMPACTION_OUT_ROOT to a folder under the fixture-scoped home", () => {
-    const home = process.env["OPENRIG_HOME"]!;
-    const outRoot = process.env["OPENRIG_COMPACTION_OUT_ROOT"]!;
-    expect(fs.existsSync(path.join(home, ".openrig-fixture"))).toBe(true);
+  it("defaults SOFTWARETEAM_COMPACTION_OUT_ROOT to a folder under the fixture-scoped home", () => {
+    const home = process.env["SOFTWARETEAM_HOME"]!;
+    const outRoot = process.env["SOFTWARETEAM_COMPACTION_OUT_ROOT"]!;
+    expect(fs.existsSync(path.join(home, ".softwareteam-fixture"))).toBe(true);
     expect(outRoot).toBe(path.join(home, "compaction-packets"));
     expect(outRoot.startsWith("/tmp/claude-compaction-restore")).toBe(false);
   });

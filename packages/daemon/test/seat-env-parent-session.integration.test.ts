@@ -9,13 +9,13 @@ import { promisify } from "node:util";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { prepareHermeticEnv, type HermeticScaffold } from "./helpers/hermetic-env.js";
-import { spawnScenarioDaemon, runRig } from "./helpers/scenario-daemon.js";
+import { spawnScenarioDaemon, runSoftwareTeam } from "./helpers/scenario-daemon.js";
 import { stageTopologyRoot } from "./helpers/scenario-stage.js";
 import { PARENT_SESSION_ENV_KEYS } from "../src/domain/parent-session-env.js";
 
 const run = promisify(execFile);
 const HERE = dirname(fileURLToPath(import.meta.url));
-const rigBin = resolve(HERE, "../../cli/dist/bin-wrapper.js");
+const softwareTeamBin = resolve(HERE, "../../cli/dist/bin-wrapper.js");
 
 const PARENT_SESSION = Object.fromEntries([...PARENT_SESSION_ENV_KEYS, "CLAUDE_EFFORT"].map((k) => [k, `parent-${k}`]));
 const CONFIGURATION = {
@@ -57,9 +57,9 @@ describe("seat environment from a daemon started inside Claude Code and Herdr", 
     const staged = stageTopologyRoot(join(HERE, "fixtures", "scenarios", "topo-stub-baton.yaml"), join(scaffold.root, "topology"));
     if (server === "existing") await tmux(["new-session", "-d", "-s", "owner-anchor", "sleep 300"], scaffold.env);
 
-    const daemon = await spawnScenarioDaemon(scaffold, { rigBin });
+    const daemon = await spawnScenarioDaemon(scaffold, { softwareTeamBin });
     try {
-      const up = await runRig(["up", staged.topologyPath, "--json", "--yes"], daemon.readEnv, rigBin, 120_000);
+      const up = await runSoftwareTeam(["up", staged.topologyPath, "--json", "--yes"], daemon.readEnv, softwareTeamBin, 120_000);
       expect(up.code).toBe(0);
 
       // What every new pane on the tmux server starts from.
@@ -80,7 +80,7 @@ describe("seat environment from a daemon started inside Claude Code and Herdr", 
           // The scaffold's tmux wrapper runs tmux with the original PATH.
           PATH: process.env.PATH,
           HOME: scaffold.home,
-          OPENRIG_HOME: scaffold.openrigHome,
+          SOFTWARETEAM_HOME: scaffold.softwareteamHome,
         });
       }
 
@@ -94,7 +94,7 @@ describe("seat environment from a daemon started inside Claude Code and Herdr", 
         if (anchorEnv) expect(anchorEnv).toMatchObject(PARENT_SESSION);
       }
     } finally {
-      await runRig(["down", "scn-baton", "--json", "--force"], daemon.readEnv, rigBin, 60_000).catch(() => {});
+      await runSoftwareTeam(["down", "scn-baton", "--json", "--force"], daemon.readEnv, softwareTeamBin, 60_000).catch(() => {});
       await daemon.stop().catch(() => {});
     }
   }, 300_000);

@@ -11,7 +11,7 @@ import {
 import { cn } from "../../lib/utils.js";
 import { ToolMark } from "../graphics/RuntimeMark.js";
 
-const TERMINAL_PREVIEW_EVENT = "openrig:topology-terminal-preview";
+const TERMINAL_PREVIEW_EVENT = "softwareteam:topology-terminal-preview";
 const POPOVER_GAP = 8;
 const POPOVER_MARGIN = 8;
 const FALLBACK_POPOVER_WIDTH = 408;
@@ -39,7 +39,7 @@ interface ViewportSize {
 }
 
 interface TerminalPreviewPopoverProps {
-  rigId: string | null | undefined;
+  softwareTeamId: string | null | undefined;
   logicalId: string;
   sessionName: string | null | undefined;
   reducedMotion?: boolean;
@@ -100,7 +100,7 @@ export function computeTerminalPopoverPosition(
 }
 
 export function TerminalPreviewPopover({
-  rigId,
+  softwareTeamId,
   logicalId,
   sessionName,
   reducedMotion,
@@ -111,7 +111,7 @@ export function TerminalPreviewPopover({
   renderTrigger = true,
   progressive = false,
 }: TerminalPreviewPopoverProps) {
-  const key = `${rigId ?? "unknown"}:${logicalId}`;
+  const key = `${softwareTeamId ?? "unknown"}:${logicalId}`;
   const rootRef = useRef<HTMLDivElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);

@@ -52,7 +52,7 @@ function agents(count: number): AgentRow[] {
     holdsCount: 1,
     lastTransitionIso: null,
     exception: null,
-    sessionName: `agent-${i + 1}@rig`,
+    sessionName: `agent-${i + 1}@software-team`,
     slices: ["04-review-tab-observability"],
   }));
 }

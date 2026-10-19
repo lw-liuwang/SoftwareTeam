@@ -16,7 +16,7 @@ last-updated: 2026-10-08
 
 # UI Shell, Routing, Drawer System
 
-The `@openrig/ui` package is the shell-first, route-first, primitive-driven
+The `@softwareteam/ui` package is the shell-first, route-first, primitive-driven
 operator surface. Brand/visual rules live in `docs/DESIGN.md` (pointer from
 `library-specs-and-design-system.md`); this module is how the shell is
 assembled and what routes it mounts.
@@ -52,7 +52,7 @@ UI package: `packages/ui`. Primary implementation areas:
 The root route wraps `AppShell` in `QueryClientProvider` and
 `DaemonHealthProvider` (`routes.tsx:80-90`). Above the router, `App.tsx`
 renders a dismissible `UiMaintenanceNotice` (localStorage key
-`openrig.uiMaintenanceNoticeDismissed`); `main.tsx` mounts `ThemeProvider`.
+`softwareteam.uiMaintenanceNoticeDismissed`); `main.tsx` mounts `ThemeProvider`.
 
 `AppShell.tsx` lays a 48px icon rail + a route-aware Explorer sidebar +
 center workspace + shared right drawer + preview stack + topology overlay
@@ -95,10 +95,10 @@ rather than acting as a generic file browser.
 | Path | Component | Notes |
 |---|---|---|
 | `/` | Dashboard (`indexRoute` `routes.tsx:96`) | rail destination |
-| `/topology` | host topology (`:106`) | + rig/pod/seat scopes (see `topology.md`) |
-| `/topology/rig/$rigId` | rig scope (`:112`) | |
-| `/topology/pod/$rigId/$podName` | pod scope (`:118`) | |
-| `/topology/seat/$rigId/$logicalId` | seat scope (`:124`) | live node details |
+| `/topology` | host topology (`:106`) | + SoftwareTeam/pod/seat scopes (see `topology.md`) |
+| `/topology/SoftwareTeam/$softwareTeamId` | SoftwareTeam scope (`:112`) | |
+| `/topology/pod/$softwareTeamId/$podName` | pod scope (`:118`) | |
+| `/topology/seat/$softwareTeamId/$logicalId` | seat scope (`:124`) | live node details |
 | `/for-you` | attention feed (`:130`) | rail destination |
 | `/project` | workspace project scope (`:136`) | rail destination |
 | `/project/mission/$missionId` | mission scope (`:142`) | |
@@ -124,7 +124,7 @@ Reached from other views and deep links, deliberately not on the rail:
 
 | Path | Component | Notes |
 |---|---|---|
-| `/agents` | `RigAgentsPage` (`:159`) | rig review altitude; separate from legacy `/agents/validate` |
+| `/agents` | `SoftwareTeamAgentsPage` (`:159`) | SoftwareTeam review altitude; separate from legacy `/agents/validate` |
 | `/fleet` | `FleetPage` (`:171`) | fleet attention altitude above host |
 | `/workflows` | `WorkflowsPage` (`:181`) | |
 | `/workflow/instance/$instanceId` | `WorkflowInstancePage` (`:187`) | optional `?step=<id>` anchor |
@@ -138,10 +138,10 @@ brand-system experiment surface (the `dashboard/vellum/*` system is 0.3.1).
 
 ### Legacy / compatibility routes
 
-`/rigs/$rigId` (`:374`), `/rigs/$rigId/nodes/$logicalId` (`:380`),
+`/SoftwareTeams/$softwareTeamId` (`:374`), `/SoftwareTeams/$softwareTeamId/nodes/$logicalId` (`:380`),
 `/import` (`:389`), `/packages`, `/packages/install`, `/packages/$packageId`
 (`:395`–`:407`), `/bootstrap` (`:413`), `/agents/validate` (`:419`),
-`/specs/rig` + `/specs/agent` review (`:428`/`:434`),
+`/specs/SoftwareTeam` + `/specs/agent` review (`:428`/`:434`),
 `/specs/library/$entryId` (`:440`), `/discovery` + `/discovery/inventory`
 (`:451`/`:466`), `/bundles/inspect` + `/bundles/install` (`:472`/`:478`).
 
@@ -181,7 +181,7 @@ UI event consumption is centralized through one shared `/api/events`
 connection (`lib/topology-events.ts`) so related surfaces avoid duplicate
 SSE connections. Current consumers: For You feed hydration, topology
 activity rings + hot-potato movement, the activity feed/system surfaces,
-and rig event surfaces. `useGlobalEvents` reports whether that connection
+and SoftwareTeam event surfaces. `useGlobalEvents` reports whether that connection
 is up and refetches review, slice and mission data on reconnect and on
 `proof.*` events. Reduced-motion preference is honoured for pulse/packet
 animation. (Daemon SSE surfaces: `/api/events`, `/api/stream/watch`,

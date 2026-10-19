@@ -21,7 +21,7 @@ function recordingFetch(selfHostId: string): { fetchImpl: typeof fetch; urls: st
   return { fetchImpl, urls, sessions };
 }
 
-/** The deps of a status probe on `OPENRIG_URL`: only its /healthz answer matters. */
+/** The deps of a status probe on `SOFTWARETEAM_URL`: only its /healthz answer matters. */
 function statusDeps(fetch: LifecycleDeps["fetch"]): LifecycleDeps {
   const unused = (): never => { throw new Error("not used by a status probe"); };
   return {
@@ -43,8 +43,8 @@ const answering = (body: unknown): LifecycleDeps["fetch"] => async () => ({ ok: 
 
 describe("a seat's locality proof on a direct endpoint", () => {
   beforeEach(() => {
-    vi.stubEnv("OPENRIG_SESSION_NAME", "qa@rig");
-    vi.stubEnv("OPENRIG_URL", url);
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "qa@software-team");
+    vi.stubEnv("SOFTWARETEAM_URL", url);
   });
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -55,14 +55,14 @@ describe("a seat's locality proof on a direct endpoint", () => {
     const seen = recordingFetch("host-local");
     await new DaemonClient(url, { fetchImpl: seen.fetchImpl }).get("/api/queue/list");
     expect(seen.urls).toEqual([`${url}/healthz`, `${url}/api/queue/list`]);
-    expect(seen.sessions).toEqual(["qa@rig"]);
+    expect(seen.sessions).toEqual(["qa@software-team"]);
   });
 
   it("carries this host's origin when the endpoint answers another instance's id", async () => {
     const seen = recordingFetch("host-forwarded");
     await new DaemonClient(url, { fetchImpl: seen.fetchImpl }).get("/api/queue/list");
     expect(seen.urls).toEqual([`${url}/healthz`, `${url}/api/queue/list`]);
-    expect(seen.sessions).toEqual(["qa@rig@host-local"]);
+    expect(seen.sessions).toEqual(["qa@software-team@host-local"]);
   });
 
   it("asks at each new client's first request, whatever an earlier status probe of the endpoint answered", async () => {
@@ -71,7 +71,7 @@ describe("a seat's locality proof on a direct endpoint", () => {
     const seen = recordingFetch("host-forwarded");
     await new DaemonClient(url, { fetchImpl: seen.fetchImpl }).get("/api/queue/list");
     expect(seen.urls).toEqual([`${url}/healthz`, `${url}/api/queue/list`]);
-    expect(seen.sessions).toEqual(["qa@rig@host-local"]);
+    expect(seen.sessions).toEqual(["qa@software-team@host-local"]);
   });
 
   it("proves locality through a queue command's own client, not its status probe", async () => {
@@ -82,9 +82,9 @@ describe("a seat's locality proof on a direct endpoint", () => {
       lifecycleDeps: statusDeps(answering({ selfHostId: "host-local" })),
       clientFactory: (base) => { bases.push(base); return new DaemonClient(base, { fetchImpl: seen.fetchImpl }); },
     };
-    await new Command().addCommand(queueCommand(deps)).parseAsync(["node", "rig", "queue", "list", "--json"]);
+    await new Command().addCommand(queueCommand(deps)).parseAsync(["node", "softwareTeam", "queue", "list", "--json"]);
     expect(bases).toEqual([url]);
     expect(seen.urls[0]).toBe(`${url}/healthz`);
-    expect(new Set(seen.sessions)).toEqual(new Set(["qa@rig@host-local"]));
+    expect(new Set(seen.sessions)).toEqual(new Set(["qa@software-team@host-local"]));
   });
 });

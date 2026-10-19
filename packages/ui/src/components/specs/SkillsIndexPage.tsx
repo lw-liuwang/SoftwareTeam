@@ -6,7 +6,7 @@ import { librarySkillToken } from "../../lib/library-skills-routing.js";
 
 function formatSkillSource(source: LibrarySkillEntry["source"]): string {
   if (source === "workspace") return "Workspace";
-  if (source === "openrig-managed") return "OpenRig managed";
+  if (source === "softwareteam-managed") return "SoftwareTeam managed";
   return source;
 }
 
@@ -42,8 +42,8 @@ export function SkillsIndexPage() {
         >
           <p className="font-bold uppercase tracking-wide text-on-surface">No skills visible</p>
           <p className="mt-2">
-            Skills live under <code className="font-mono text-on-surface">.openrig/skills/</code> in your
-            workspace, plus the built-in set shipped with OpenRig. If this list is empty, the daemon
+            Skills live under <code className="font-mono text-on-surface">.softwareteam/skills/</code> in your
+            workspace, plus the built-in set shipped with SoftwareTeam. If this list is empty, the daemon
             could not see either source through configured file roots.
           </p>
         </div>

@@ -44,8 +44,8 @@ describe("classifyFeed — SC-15 5 card types", () => {
     const cards = classifyFeed([
       evt("queue.created", {
         qitemId: "qitem-20260507-abcdef12",
-        sourceSession: "orch-lead@openrig-velocity",
-        destinationSession: "driver@openrig-velocity",
+        sourceSession: "orch-lead@softwareteam-velocity",
+        destinationSession: "driver@softwareteam-velocity",
         priority: "routine",
         tier: "mode2",
       }),
@@ -53,30 +53,30 @@ describe("classifyFeed — SC-15 5 card types", () => {
     expect(cards[0]?.kind).toBe("progress");
     expect(cards[0]?.title).toBe("Queue item created: qitem-20260507-abcdef12");
     expect(cards[0]?.body).toContain(
-      "orch-lead@openrig-velocity -> driver@openrig-velocity",
+      "orch-lead@softwareteam-velocity -> driver@softwareteam-velocity",
     );
     expect(cards[0]?.body).toContain("priority=routine / tier=mode2");
-    expect(cards[0]?.authorSession).toBe("orch-lead@openrig-velocity");
+    expect(cards[0]?.authorSession).toBe("orch-lead@softwareteam-velocity");
   });
 
   it("queue.created for a human seat → action-required card", () => {
     const cards = classifyFeed([
       evt("queue.created", {
         qitemId: "qitem-human-review",
-        sourceSession: "qa@openrig-dogfood",
+        sourceSession: "qa@softwareteam-dogfood",
         destinationSession: "human@host",
         priority: "urgent",
       }),
     ]);
     expect(cards[0]?.kind).toBe("action-required");
-    expect(cards[0]?.body).toContain("qa@openrig-dogfood -> human@host");
+    expect(cards[0]?.body).toContain("qa@softwareteam-dogfood -> human@host");
   });
 
   it("queue.created closeout-pending-ratify for a human seat → approval card", () => {
     const cards = classifyFeed([
       evt("queue.created", {
         qitemId: "qitem-approval",
-        sourceSession: "qa@openrig-dogfood",
+        sourceSession: "qa@softwareteam-dogfood",
         destinationSession: "human@host",
         state: "closeout-pending-ratify",
         priority: "urgent",
@@ -89,7 +89,7 @@ describe("classifyFeed — SC-15 5 card types", () => {
     const cards = classifyFeed([
       evt("queue.updated", {
         qitemId: "qitem-shipped",
-        actorSession: "driver@openrig-velocity",
+        actorSession: "driver@softwareteam-velocity",
         toState: "done",
       }),
     ]);
@@ -102,23 +102,23 @@ describe("classifyFeed — SC-15 5 card types", () => {
     const cards = classifyFeed([
       evt("queue.handed_off", {
         qitemId: "qitem-20260507-handoff",
-        fromSession: "driver@openrig-velocity",
-        toSession: "guard@openrig-velocity",
+        fromSession: "driver@softwareteam-velocity",
+        toSession: "guard@softwareteam-velocity",
       }),
     ]);
     expect(cards[0]?.kind).toBe("progress");
     expect(cards[0]?.title).toBe("Queue item handed off: qitem-20260507-handoff");
     expect(cards[0]?.body).toContain(
-      "driver@openrig-velocity -> guard@openrig-velocity",
+      "driver@softwareteam-velocity -> guard@softwareteam-velocity",
     );
-    expect(cards[0]?.authorSession).toBe("driver@openrig-velocity");
+    expect(cards[0]?.authorSession).toBe("driver@softwareteam-velocity");
   });
 
   it("qitem.closure_overdue daemon event → action-required", () => {
     const cards = classifyFeed([
       evt("qitem.closure_overdue", {
         qitemId: "qitem-20260507-overdue",
-        destinationSession: "driver@openrig-velocity",
+        destinationSession: "driver@softwareteam-velocity",
       }),
     ]);
     expect(cards[0]?.kind).toBe("action-required");
@@ -184,7 +184,7 @@ describe("classifyFeed — FR-1 summary titles", () => {
     const cards = classifyFeed([
       evt("queue.created", {
         qitemId: "qitem-20260704-cut",
-        sourceSession: "pm@rig",
+        sourceSession: "pm@software-team",
         destinationSession: "human-review@kernel",
         summary: "Approve the 0.4.4 cut",
       }),
@@ -196,8 +196,8 @@ describe("classifyFeed — FR-1 summary titles", () => {
     const cards = classifyFeed([
       evt("queue.created", {
         qitemId: "qitem-20260704-nosum",
-        sourceSession: "a@rig",
-        destinationSession: "b@rig",
+        sourceSession: "a@software-team",
+        destinationSession: "b@software-team",
         summary: null,
       }),
     ]);

@@ -6,8 +6,8 @@
 // / Codex thread_id), source-seat lineage, optional cwd-deltas + notes
 // — surfaced in the Specs library and consumable by AgentSpec
 // `session_source: mode: agent_image, ref: { kind: image_name, ... }`.
-// Storage at ~/.openrig/agent-images/<name>/ + workspace-local
-// .openrig/agent-images/<name>/.
+// Storage at ~/.softwareteam/agent-images/<name>/ + workspace-local
+// .softwareteam/agent-images/<name>/.
 //
 // MVP single-host context: filesystem-canonical; NO new SQLite tables;
 // library cache is in-memory at the daemon scope.
@@ -35,7 +35,7 @@ export interface AgentImageManifest {
    *  starts in the SAME directory the parent session was created in
    *  — Claude's project-dir-scoped session storage works because the
    *  jsonl file lives there. The daemon does NOT override cwd at fork
-   *  dispatch — if operator manually changes the rig.yaml cwd, fork
+   *  dispatch — if operator manually changes the software-team.yaml cwd, fork
    *  fails honestly with "no conversation found". Optional: manifests
    *  authored before source_cwd support omit this field; snippet renders
    *  without cwd line for back-compat. */
@@ -64,7 +64,7 @@ export interface AgentImageManifestFile {
 
 export interface AgentImageStats {
   /** Incremented atomically when the image is consumed (either by
-   *  rig fork / agent-image fork or by a session_source: mode:
+   *  softwareTeam fork / agent-image fork or by a session_source: mode:
    *  agent_image consumer at instantiation time). */
   forkCount: number;
   /** ISO timestamp of the most-recent consumption. */

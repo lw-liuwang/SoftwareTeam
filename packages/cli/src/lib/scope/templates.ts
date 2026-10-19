@@ -35,7 +35,7 @@ function resolveTemplate(filename: string): string {
   throw new ScopeCliError({
     fact: `Template ${filename} could not be located.`,
     consequence: "Cannot scaffold the new artifact.",
-    action: "Reinstall @openrig/cli, or run from a checkout with packages/cli/src/lib/scope-templates/ present.",
+    action: "Reinstall @softwareteam/cli, or run from a checkout with packages/cli/src/lib/scope-templates/ present.",
   });
 }
 
@@ -124,8 +124,8 @@ export type NotesTemplateSource = "env" | "legacy-env" | "built-in";
 /** Resolve the current NOTES.md template. The retired environment name stays
  * readable as a fallback and is surfaced to callers as `legacy-env`. */
 export function resolveNotesTemplatePath(envValue?: string): { absPath: string; resolvedFrom: NotesTemplateSource } {
-  const current = envValue ?? process.env.OPENRIG_NOTES_TEMPLATE_PATH;
-  const legacy = envValue === undefined ? process.env.OPENRIG_MISSION_NOTES_TEMPLATE_PATH : undefined;
+  const current = envValue ?? process.env.SOFTWARETEAM_NOTES_TEMPLATE_PATH;
+  const legacy = envValue === undefined ? process.env.SOFTWARETEAM_MISSION_NOTES_TEMPLATE_PATH : undefined;
   const selected = current?.trim() ? current : legacy?.trim() ? legacy : null;
   const resolvedFrom: NotesTemplateSource = current?.trim()
     ? "env"
@@ -136,12 +136,12 @@ export function resolveNotesTemplatePath(envValue?: string): { absPath: string; 
     const absPath = path.resolve(selected);
     if (!fs.existsSync(absPath)) {
       const variable = resolvedFrom === "legacy-env"
-        ? "OPENRIG_MISSION_NOTES_TEMPLATE_PATH"
-        : "OPENRIG_NOTES_TEMPLATE_PATH";
+        ? "SOFTWARETEAM_MISSION_NOTES_TEMPLATE_PATH"
+        : "SOFTWARETEAM_NOTES_TEMPLATE_PATH";
       throw new ScopeCliError({
         fact: `${variable} points at "${selected}", which does not exist.`,
         consequence: "NOTES.md not scaffolded.",
-        action: `Set OPENRIG_NOTES_TEMPLATE_PATH to an absolute readable template, or unset ${variable} to use the built-in fallback.`,
+        action: `Set SOFTWARETEAM_NOTES_TEMPLATE_PATH to an absolute readable template, or unset ${variable} to use the built-in fallback.`,
       });
     }
     return { absPath, resolvedFrom };

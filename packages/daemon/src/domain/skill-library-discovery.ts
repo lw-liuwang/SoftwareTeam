@@ -11,14 +11,14 @@
 // Daemon-owned discovery: resolves shared-skills directory via the daemon's
 // install location (import.meta.url + ../specs/agents/shared/skills) +
 // optional workspace allowlist roots for user-defined skills at
-// `.openrig/skills/`. UI consumes /api/skills/library directly (1 fetch
+// `.softwareteam/skills/`. UI consumes /api/skills/library directly (1 fetch
 // replaces N-fetch probe). Symmetric with the plugin pattern from C-1.
 
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, basename } from "node:path";
 import type { AllowlistRoot } from "./files/path-safety.js";
 
-export type LibrarySkillSource = "workspace" | "openrig-managed";
+export type LibrarySkillSource = "workspace" | "softwareteam-managed";
 
 export interface LibrarySkillFile {
   /** Filename only (no directory prefix). */
@@ -35,13 +35,13 @@ export interface LibrarySkill {
   /**
    * Stable id including source + relative path within the source tree.
    * Examples:
-   *   "openrig-managed:claude-compact-in-place" (flat skill at shared root)
-   *   "openrig-managed:core/openrig-user" (nested skill inside category)
-   *   "workspace:.openrig/skills/operator-skill" (workspace skill)
+   *   "softwareteam-managed:claude-compact-in-place" (flat skill at shared root)
+   *   "softwareteam-managed:core/softwareteam-user" (nested skill inside category)
+   *   "workspace:.softwareteam/skills/operator-skill" (workspace skill)
    * Stable across daemon restarts as long as the disk layout is unchanged.
    */
   id: string;
-  /** Leaf skill folder name (e.g., "openrig-user"). */
+  /** Leaf skill folder name (e.g., "softwareteam-user"). */
   name: string;
   source: LibrarySkillSource;
   /** Top-level markdown files in the skill folder (SKILL.md first if present). */
@@ -65,8 +65,8 @@ export interface SkillLibraryDiscoveryOpts {
    */
   sharedSkillsDir: string;
   /**
-   * Workspace allowlist roots (operator-declared via OPENRIG_FILES_ALLOWLIST).
-   * Workspace skills live at `<allowlist-root>/.openrig/skills/<skill-name>/`.
+   * Workspace allowlist roots (operator-declared via SOFTWARETEAM_FILES_ALLOWLIST).
+   * Workspace skills live at `<allowlist-root>/.softwareteam/skills/<skill-name>/`.
    * Empty array → no workspace-source skills discovered (managed-only mode).
    */
   filesAllowlist: AllowlistRoot[];
@@ -123,7 +123,7 @@ function collectMarkdownFiles(absoluteDir: string): LibrarySkillFile[] {
  * tree: flat skill folders + one level of category nesting like core/,
  * pm/, pods/, process/).
  *
- * `idPrefix` is prepended to each emitted skill id (e.g., "openrig-managed:");
+ * `idPrefix` is prepended to each emitted skill id (e.g., "softwareteam-managed:");
  * `relativeId` accumulates the path-within-source for stable id construction.
  */
 function collectSkillsRecursive(
@@ -161,10 +161,10 @@ export class SkillLibraryDiscoveryService {
   constructor(private readonly opts: SkillLibraryDiscoveryOpts) {}
 
   /**
-   * Returns the consolidated list of OpenRig-managed + workspace skills.
+   * Returns the consolidated list of SoftwareTeam-managed + workspace skills.
    * Sources scanned:
-   *   - opts.sharedSkillsDir (daemon-known absolute path; openrig-managed)
-   *   - <opts.filesAllowlist root>/.openrig/skills/ for each root (workspace)
+   *   - opts.sharedSkillsDir (daemon-known absolute path; softwareteam-managed)
+   *   - <opts.filesAllowlist root>/.softwareteam/skills/ for each root (workspace)
    * Dedupe rule: managed wins over workspace when (source-key-collision).
    * v0 collision shape is unusual; defensive only.
    */
@@ -175,8 +175,8 @@ export class SkillLibraryDiscoveryService {
       all.push(
         ...collectSkillsRecursive(
           this.opts.sharedSkillsDir,
-          "openrig-managed",
-          "openrig-managed:",
+          "softwareteam-managed",
+          "softwareteam-managed:",
           "",
           0,
         ),
@@ -184,9 +184,9 @@ export class SkillLibraryDiscoveryService {
     }
 
     for (const root of this.opts.filesAllowlist) {
-      const workspaceSkillsDir = join(root.canonicalPath, ".openrig", "skills");
+      const workspaceSkillsDir = join(root.canonicalPath, ".softwareteam", "skills");
       if (!existsSync(workspaceSkillsDir)) continue;
-      // Workspace skills are identified by .openrig/skills/<name>/ paths.
+      // Workspace skills are identified by .softwareteam/skills/<name>/ paths.
       // Skills under workspace allowlist roots are scanned at depth-0 only
       // (workspace skill folders historically live flat, no category
       // structure — but we recurse for consistency).

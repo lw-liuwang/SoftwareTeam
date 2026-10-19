@@ -14,7 +14,7 @@ import { shellQuote } from "./cross-host-executor.js";
  */
 
 /** Whether compact defaults are on, by the config store's own resolution, the
- *  same one `rig config get output.compact` reports: `OPENRIG_OUTPUT_COMPACT`
+ *  same one `SoftwareTeam config get output.compact` reports: `SOFTWARETEAM_OUTPUT_COMPACT`
  *  (`true`/`1` or `false`/`0`), else the config file, else off. An invalid env
  *  value is rejected with the store's warning and falls back to the file, as
  *  `config get` does. An unreadable config is off. */
@@ -67,8 +67,8 @@ const str = (v: unknown): string | null => (typeof v === "string" && v !== "" ? 
 const isRow = (v: unknown): v is Row => typeof v === "object" && v !== null && !Array.isArray(v);
 
 function showCommand(id: string, remoteHost?: string): string {
-  const show = `rig queue show ${shellQuote(id)} --full --json`;
-  return remoteHost ? `OPENRIG_URL='<daemon-url of host ${remoteHost}>' ${show}` : show;
+  const show = `SoftwareTeam queue show ${shellQuote(id)} --full --json`;
+  return remoteHost ? `SOFTWARETEAM_URL='<daemon-url of host ${remoteHost}>' ${show}` : show;
 }
 
 interface WakeEvidence {

@@ -8,7 +8,7 @@ export const bootstrapSchema: Migration = {
       source_kind TEXT NOT NULL,
       source_ref  TEXT NOT NULL,
       status      TEXT NOT NULL DEFAULT 'planned',
-      rig_id      TEXT,
+      software_team_id      TEXT,
       created_at  TEXT NOT NULL DEFAULT (datetime('now')),
       applied_at  TEXT
     );

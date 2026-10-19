@@ -66,7 +66,7 @@ describe("migration 040 — workflow_specs diagnostic columns", () => {
     // path never set it.
     migrate(db, [coreSchema, workflowSpecsSchema]);
     db.prepare(
-      `INSERT INTO workflow_specs (spec_id, name, version, purpose, target_rig, roles_json, steps_json, coordination_terminal_turn_rule, source_path, source_hash, cached_at)
+      `INSERT INTO workflow_specs (spec_id, name, version, purpose, target_software_team, roles_json, steps_json, coordination_terminal_turn_rule, source_path, source_hash, cached_at)
        VALUES ('s1', 'pre-040', '1.0', null, null, '{}', '[]', 'hot_potato', '/x.yaml', 'h', '2026-05-11T00:00:00Z')`,
     ).run();
     migrate(db, [workflowSpecsDiagnosticSchema]);
@@ -96,13 +96,13 @@ const VALID_DIAG_SAMPLE = `workflow:
   version: '1'
   objective: test fixture
   target:
-    rig: rig-fix
+    software_team: software-team-fix
   entry:
     role: a
   roles:
     a:
       preferred_targets:
-        - a@rig-fix
+        - a@software-team-fix
   steps:
     - id: s1
       actor_role: a

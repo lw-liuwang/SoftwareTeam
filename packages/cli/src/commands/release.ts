@@ -5,7 +5,7 @@ import { realDeps } from "./daemon.js";
 import type { StatusDeps } from "./status.js";
 
 export function releaseCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("release").description("Release claimed sessions from a rig without killing tmux sessions");
+  const cmd = new Command("release").description("Release claimed sessions from a SoftwareTeam without killing tmux sessions");
   const getDeps = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   async function getClient(deps: StatusDeps): Promise<DaemonClient | null> {
@@ -15,14 +15,14 @@ export function releaseCommand(depsOverride?: StatusDeps): Command {
   }
 
   cmd
-    .argument("<rigId>", "Rig identifier")
-    .option("--delete", "Delete the rig record after a clean release")
+    .argument("<softwareTeamId>", "SoftwareTeam identifier")
+    .option("--delete", "Delete the SoftwareTeam record after a clean release")
     .option("--json", "JSON output")
     .addHelpText("after", `
 Notes:
-  - Use rig unclaim <sessionRef> to release a single claimed session.
-  - Release only covers claimed/adopted sessions; OpenRig-launched nodes still require rig down.`)
-    .action(async (rigId: string, opts: { delete?: boolean; json?: boolean }) => {
+  - Use SoftwareTeam unclaim <sessionRef> to release a single claimed session.
+  - Release only covers claimed/adopted sessions; SoftwareTeam-launched nodes still require SoftwareTeam down.`)
+    .action(async (softwareTeamId: string, opts: { delete?: boolean; json?: boolean }) => {
       const deps = getDeps();
       const client = await getClient(deps);
       if (!client) {
@@ -30,7 +30,7 @@ Notes:
         return;
       }
 
-      const res = await client.post<Record<string, unknown>>(`/api/rigs/${encodeURIComponent(rigId)}/release`, {
+      const res = await client.post<Record<string, unknown>>(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/release`, {
         delete: opts.delete === true,
       });
 
@@ -57,7 +57,7 @@ Notes:
       const status = res.data["status"];
 
       if (status === "partial") {
-        console.error(`Partially released ${released.length} claimed session(s) from rig ${rigId}`);
+        console.error(`Partially released ${released.length} claimed session(s) from SoftwareTeam ${softwareTeamId}`);
         for (const entry of failed) {
           console.error(`  ${entry["logicalId"]}: ${entry["error"]}`);
         }
@@ -65,7 +65,7 @@ Notes:
         return;
       }
 
-      console.log(`Released ${released.length} claimed session(s) from rig ${rigId}${opts.delete ? " and deleted the rig record" : ""}`);
+      console.log(`Released ${released.length} claimed session(s) from SoftwareTeam ${softwareTeamId}${opts.delete ? " and deleted the SoftwareTeam record" : ""}`);
       for (const entry of released) {
         console.log(`  ${entry["logicalId"]} <- ${entry["sessionName"]}`);
       }

@@ -25,20 +25,20 @@ describe("bootstrap source paths respect the daemon target", () => {
   let bundleRequests: Array<Record<string, unknown>>;
 
   beforeEach(async () => {
-    vi.stubEnv("OPENRIG_URL", undefined);
+    vi.stubEnv("SOFTWARETEAM_URL", undefined);
     vi.stubEnv("RIGGED_URL", undefined);
-    vi.stubEnv("OPENRIG_HOST", undefined);
+    vi.stubEnv("SOFTWARETEAM_HOST", undefined);
     vi.stubEnv("RIGGED_HOST", undefined);
     root = fs.mkdtempSync(path.join(os.tmpdir(), "bootstrap source paths-"));
     callerDir = path.join(root, "caller project");
     daemonDir = path.join(root, "daemon project");
     for (const directory of [callerDir, daemonDir]) {
       fs.mkdirSync(path.join(directory, "nested folder"), { recursive: true });
-      for (const file of ["rig.yaml", "nested folder/team spec.yml", "unlisted"]) {
+      for (const file of ["software-team.yaml", "nested folder/team spec.yml", "unlisted"]) {
         fs.writeFileSync(path.join(directory, file), `name: ${directory === callerDir ? "caller" : "daemon"}\n`);
       }
     }
-    catalog = [{ id: "catalog-id", name: "catalog-rig", kind: "rig", sourcePath: path.join(daemonDir, "rig.yaml") }];
+    catalog = [{ id: "catalog-id", name: "catalog-software-team", kind: "softwareTeam", sourcePath: path.join(daemonDir, "software-team.yaml") }];
     fs.writeFileSync(path.join(daemonDir, "remote-only.yaml"), "name: remote-only\n");
     requests = [];
     bundleRequests = [];
@@ -95,7 +95,7 @@ describe("bootstrap source paths respect the daemon target", () => {
   async function run(command: string, source: string, args: string[] = []): Promise<void> {
     const program = new Command().exitOverride();
     program.addCommand(command === "bootstrap" ? bootstrapCommand(deps) : requirementsCommand(deps));
-    await program.parseAsync(["node", "rig", command, source, ...args]);
+    await program.parseAsync(["node", "softwareTeam", command, source, ...args]);
   }
 
   const modes = [
@@ -104,7 +104,7 @@ describe("bootstrap source paths respect the daemon target", () => {
     { command: "requirements", args: [], route: "/api/bootstrap/plan" },
   ];
   for (const mode of modes) {
-    it.each(["rig.yaml", "./rig.yaml", "nested folder/team spec.yml"])
+    it.each(["software-team.yaml", "./software-team.yaml", "nested folder/team spec.yml"])
       (`${mode.command} ${mode.args.join(" ")} resolves %s before HTTP`, async (source) => {
         await run(mode.command, source, mode.args);
         expect(requests).toEqual([{ url: mode.route, sourceRef: path.join(callerDir, source), content: "name: caller\n" }]);
@@ -119,11 +119,10 @@ describe("bootstrap source paths respect the daemon target", () => {
       expect(catalogReads).toBe(0);
     });
 
-    for (const envName of ["OPENRIG_URL", "RIGGED_URL"]) {
-      it.each(["rig.yaml", "remote-only.yaml", "nested folder/team spec.yml"])
+    for (const envName of ["SOFTWARETEAM_URL"]) {
+      it.each(["software-team.yaml", "remote-only.yaml", "nested folder/team spec.yml"])
         (`${mode.command} ${mode.args.join(" ")} preserves %s with ${envName}, even on loopback`, async (source) => {
           vi.stubEnv(envName, daemonUrl); // A loopback URL may be a remote tunnel.
-          if (envName === "RIGGED_URL") vi.stubEnv("OPENRIG_URL", "");
           await run(mode.command, source, mode.args);
           expect(requests).toEqual([{
             url: mode.route, sourceRef: source,
@@ -135,8 +134,8 @@ describe("bootstrap source paths respect the daemon target", () => {
     }
 
     it(`${mode.command} ${mode.args.join(" ")} preserves a remote POSIX path on a Windows-style caller`, async () => {
-      vi.stubEnv("OPENRIG_URL", daemonUrl);
-      const source = path.join(daemonDir, "rig.yaml");
+      vi.stubEnv("SOFTWARETEAM_URL", daemonUrl);
+      const source = path.join(daemonDir, "software-team.yaml");
       vi.spyOn(process, "cwd").mockReturnValue("C:\\caller project");
       const resolve = path.resolve;
       const windowsResolve = vi.fn(() => path.win32.resolve("C:\\caller project", source));
@@ -147,10 +146,10 @@ describe("bootstrap source paths respect the daemon target", () => {
       expect(windowsResolve).not.toHaveBeenCalled();
     });
 
-    it.each(["OPENRIG_HOST", "RIGGED_HOST", "config-file", "default"])
+    it.each(["SOFTWARETEAM_HOST", "config-file", "default"])
       (`${mode.command} ${mode.args.join(" ")} preserves daemon-relative paths without local state (%s)`, async (selection) => {
         const host = selection === "default" ? "127.0.0.1" : "remote.example.invalid";
-        vi.stubEnv("OPENRIG_HOME", path.join(root, "state"));
+        vi.stubEnv("SOFTWARETEAM_HOME", path.join(root, "state"));
         if (selection === "config-file") {
           fs.mkdirSync(path.join(root, "state"));
           fs.writeFileSync(path.join(root, "state/config.json"), JSON.stringify({ daemon: { host } }));
@@ -165,49 +164,49 @@ describe("bootstrap source paths respect the daemon target", () => {
       });
 
     it(`${mode.command} ${mode.args.join(" ")} uses recorded local state over configured host`, async () => {
-      vi.stubEnv("OPENRIG_HOST", "remote.example.invalid");
-      await run(mode.command, "rig.yaml", mode.args);
-      expect(requests).toEqual([{ url: mode.route, sourceRef: path.join(callerDir, "rig.yaml"), content: "name: caller\n" }]);
+      vi.stubEnv("SOFTWARETEAM_HOST", "remote.example.invalid");
+      await run(mode.command, "software-team.yaml", mode.args);
+      expect(requests).toEqual([{ url: mode.route, sourceRef: path.join(callerDir, "software-team.yaml"), content: "name: caller\n" }]);
     });
 
     it.each([false, true])(`${mode.command} keeps stale state distinct from an explicit URL (%s)`, async (explicitUrl) => {
       deps.lifecycleDeps.isProcessAlive = () => false;
-      vi.stubEnv("OPENRIG_HOST", "remote.example.invalid");
-      if (explicitUrl) vi.stubEnv("OPENRIG_URL", daemonUrl);
-      await run(mode.command, "rig.yaml", mode.args);
-      expect(requests).toEqual(explicitUrl ? [{ url: mode.route, sourceRef: "rig.yaml", content: "name: daemon\n" }] : []);
+      vi.stubEnv("SOFTWARETEAM_HOST", "remote.example.invalid");
+      if (explicitUrl) vi.stubEnv("SOFTWARETEAM_URL", daemonUrl);
+      await run(mode.command, "software-team.yaml", mode.args);
+      expect(requests).toEqual(explicitUrl ? [{ url: mode.route, sourceRef: "software-team.yaml", content: "name: daemon\n" }] : []);
       expect(process.exitCode).toBe(explicitUrl ? undefined : 1);
     });
   }
 
   it.each([[false, false], [false, true], [true, false], [true, true]])
     ("preserves catalog source paths (explicit URL=%s, plan=%s)", async (explicitUrl, plan) => {
-      if (explicitUrl) vi.stubEnv("OPENRIG_URL", daemonUrl);
-      await run("bootstrap", "catalog-rig", [plan ? "--plan" : "--yes"]);
+      if (explicitUrl) vi.stubEnv("SOFTWARETEAM_URL", daemonUrl);
+      await run("bootstrap", "catalog-software-team", [plan ? "--plan" : "--yes"]);
       expect(catalogReads).toBe(1);
       expect(requests[0]?.sourceRef).toBe(catalog[0]!.sourcePath);
       expect(requests[0]?.content).toBe("name: daemon\n");
     });
 
   it.each([false, true])("preserves unresolved bare-name fallback (explicit URL=%s)", async (explicitUrl) => {
-    if (explicitUrl) vi.stubEnv("OPENRIG_URL", daemonUrl);
+    if (explicitUrl) vi.stubEnv("SOFTWARETEAM_URL", daemonUrl);
     await run("bootstrap", "unlisted", ["--plan"]);
     expect(catalogReads).toBe(1);
     expect(requests[0]?.sourceRef).toBe("unlisted");
   });
 
   it.each([false, true])("does not rebase a daemon-supplied catalog source (explicit URL=%s)", async (explicitUrl) => {
-    if (explicitUrl) vi.stubEnv("OPENRIG_URL", daemonUrl);
-    catalog[0]!.sourcePath = "rig.yaml";
-    await run("bootstrap", "catalog-rig", ["--plan"]);
-    expect(requests[0]?.sourceRef).toBe("rig.yaml");
+    if (explicitUrl) vi.stubEnv("SOFTWARETEAM_URL", daemonUrl);
+    catalog[0]!.sourcePath = "software-team.yaml";
+    await run("bootstrap", "catalog-software-team", ["--plan"]);
+    expect(requests[0]?.sourceRef).toBe("software-team.yaml");
     expect(requests[0]?.content).toBe("name: daemon\n");
   });
 
   it.each([false, true])("still refuses ambiguous catalog names before posting (explicit URL=%s)", async (explicitUrl) => {
-    if (explicitUrl) vi.stubEnv("OPENRIG_URL", daemonUrl);
-    catalog.push({ ...catalog[0]!, id: "other-id", sourcePath: path.join(callerDir, "rig.yaml") });
-    await run("bootstrap", "catalog-rig", ["--plan"]);
+    if (explicitUrl) vi.stubEnv("SOFTWARETEAM_URL", daemonUrl);
+    catalog.push({ ...catalog[0]!, id: "other-id", sourcePath: path.join(callerDir, "software-team.yaml") });
+    await run("bootstrap", "catalog-software-team", ["--plan"]);
     expect(catalogReads).toBe(1);
     expect(requests).toEqual([]);
     expect(process.exitCode).toBe(1);
@@ -215,10 +214,10 @@ describe("bootstrap source paths respect the daemon target", () => {
 
   it.each([[false, false], [false, true], [true, false], [true, true]])
     ("retains bundle addressing (explicit URL=%s, plan=%s)", async (explicitUrl, plan) => {
-      if (explicitUrl) vi.stubEnv("OPENRIG_URL", daemonUrl);
-      await run("bootstrap", "nested folder/team.rigbundle", [plan ? "--plan" : "--yes", "--target", "installed", "--cwd", "project"]);
+      if (explicitUrl) vi.stubEnv("SOFTWARETEAM_URL", daemonUrl);
+      await run("bootstrap", "nested folder/team.softwareteambundle", [plan ? "--plan" : "--yes", "--target", "installed", "--cwd", "project"]);
       expect(bundleRequests).toEqual([expect.objectContaining({
-        bundlePath: path.join(callerDir, "nested folder/team.rigbundle"),
+        bundlePath: path.join(callerDir, "nested folder/team.softwareteambundle"),
         targetRoot: path.join(callerDir, "installed"), cwdOverride: path.join(callerDir, "project"),
         plan, autoApprove: !plan,
       })]);

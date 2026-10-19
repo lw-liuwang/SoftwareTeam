@@ -1,4 +1,4 @@
-// OPR.0.4.1.29 — rig auth secret ops (status / validate), fixture CODEX_HOME, secret-safe results.
+// OPR.0.4.1.29 — softwareTeam auth secret ops (status / validate), fixture CODEX_HOME, secret-safe results.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";

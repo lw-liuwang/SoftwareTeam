@@ -18,8 +18,8 @@ it.each([
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "transcript-backspace-"));
   roots.push(root);
   const store = new TranscriptStore({ transcriptsRoot: root });
-  expect(store.ensureTranscriptDir("owned-rig")).toBe(true);
-  fs.writeFileSync(store.getTranscriptPath("owned-rig", "owned-seat"), raw);
-  expect(store.readTail("owned-rig", "owned-seat", 10)).toBe(expected);
-  expect(store.grep("owned-rig", "owned-seat", "corrected|line")).toEqual(expected.trimEnd().split("\n"));
+  expect(store.ensureTranscriptDir("owned-software-team")).toBe(true);
+  fs.writeFileSync(store.getTranscriptPath("owned-software-team", "owned-seat"), raw);
+  expect(store.readTail("owned-software-team", "owned-seat", 10)).toBe(expected);
+  expect(store.grep("owned-software-team", "owned-seat", "corrected|line")).toEqual(expected.trimEnd().split("\n"));
 });

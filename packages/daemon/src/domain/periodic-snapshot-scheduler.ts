@@ -1,6 +1,6 @@
 // OPR.0.3.4.9 — periodic snapshot scheduler (crash-insurance floor).
 // Mirrors seat-activity-service timer pattern: idempotent start/stop,
-// setInterval().unref(), per-rig error isolation.
+// setInterval().unref(), per-softwareTeam error isolation.
 
 import type Database from "better-sqlite3";
 import type { SnapshotCapture } from "./snapshot-capture.js";
@@ -17,7 +17,7 @@ export interface PeriodicSnapshotSchedulerDeps {
   // periodic snapshot serializes it (optional: absent → no refresh, as before).
   sessionRegistry?: SessionRegistry;
   resumeMetadataRefresher?: ResumeMetadataRefresher;
-  /** OPR.0.5.3.10 mini-req 2 — ONE process census per tick for ALL rigs and
+  /** OPR.0.5.3.10 mini-req 2 — ONE process census per tick for ALL softwareTeams and
    *  seats (absent → the refresher's own lister, the pre-slice behavior). */
   processCensus?: ProcessCensus;
 }
@@ -81,18 +81,18 @@ export class PeriodicSnapshotScheduler {
     if (this.running) return;
     this.running = true;
     try {
-      const runningRigs = this.getRunningNonArchivedRigs();
+      const runningSoftwareTeams = this.getRunningNonArchivedSoftwareTeams();
       // OPR.0.5.3.10 mini-req 2 — one CYCLE-SCOPED census for the whole tick:
-      // every rig's refresh shares it, lazily (a tick with no codex discovery
+      // every softwareTeam's refresh shares it, lazily (a tick with no codex discovery
       // spawns no `ps` at all).
       const tickListProcesses = this.deps.processCensus?.cycleLister();
-      for (const rigId of runningRigs) {
+      for (const softwareTeamId of runningSoftwareTeams) {
         try {
           // OPR.0.4.3.20 FR-4 — refresh live tokens before serialize, in its OWN
           // try/catch so a refresh throw NEVER skips the snapshot (guard caveat:
           // do not wrap refresh + capture in a single try/catch).
           if (this.deps.resumeMetadataRefresher && this.deps.sessionRegistry) {
-            const sessions = this.deps.sessionRegistry.getLatestLiveSessions(rigId);
+            const sessions = this.deps.sessionRegistry.getLatestLiveSessions(softwareTeamId);
             try {
               // fillNullOnly: a routine snapshot refresh fills null tokens but NEVER
               // clears a present one (rev1-r2 fix — keep stale-present for FR-6).
@@ -101,30 +101,30 @@ export class PeriodicSnapshotScheduler {
                 { fillNullOnly: true, ...(tickListProcesses ? { listProcesses: tickListProcesses } : {}) },
               );
             } catch { /* best-effort — the snapshot still writes below */ }
-            const runningIds = new Set(this.deps.sessionRegistry.getLatestLiveSessions(rigId)
+            const runningIds = new Set(this.deps.sessionRegistry.getLatestLiveSessions(softwareTeamId)
               .filter((session) => session.status === "running").map((session) => session.sessionId));
             // Teardown stops seats one at a time; do not publish a partial
             // occupant set if any refreshed running seat stopped or was replaced.
             // Read after refresh: teardown may have written the pre-down source
             // while refresh was awaiting. A lookup failure is best-effort and
             // must not suppress the periodic capture. The lookup reads every
-            // snapshot of the rig, so it runs only when a seat did change.
+            // snapshot of the softwareTeam, so it runs only when a seat did change.
             if (sessions.some((session) => session.status === "running" && !runningIds.has(session.sessionId))) {
               let hasEarlierUsableSnapshot = false;
               try {
-                hasEarlierUsableSnapshot = this.deps.snapshotRepo.findLatestRestoreUsable(rigId) !== null;
+                hasEarlierUsableSnapshot = this.deps.snapshotRepo.findLatestRestoreUsable(softwareTeamId) !== null;
               } catch { /* treat an unavailable lookup as no earlier snapshot */ }
               if (hasEarlierUsableSnapshot) continue;
             }
           }
           // Refresh yields to teardown/archive. Recheck immediately before the
-          // synchronous capture so a stopped rig cannot replace its pre-down
+          // synchronous capture so a stopped softwareTeam cannot replace its pre-down
           // recovery source with a newer snapshot of absent occupants.
-          if (this.getRunningNonArchivedRigs(rigId).length === 0) continue;
-          this.deps.snapshotCapture.captureSnapshot(rigId, "auto-periodic");
-          this.deps.snapshotRepo.pruneSnapshotsByKind(rigId, "auto-periodic", this.retentionKeep);
+          if (this.getRunningNonArchivedSoftwareTeams(softwareTeamId).length === 0) continue;
+          this.deps.snapshotCapture.captureSnapshot(softwareTeamId, "auto-periodic");
+          this.deps.snapshotRepo.pruneSnapshotsByKind(softwareTeamId, "auto-periodic", this.retentionKeep);
         } catch {
-          // Per-rig error isolation: one rig's failure never aborts the tick.
+          // Per-softwareTeam error isolation: one softwareTeam's failure never aborts the tick.
         }
       }
     } finally {
@@ -132,19 +132,19 @@ export class PeriodicSnapshotScheduler {
     }
   }
 
-  private getRunningNonArchivedRigs(rigId?: string): string[] {
+  private getRunningNonArchivedSoftwareTeams(softwareTeamId?: string): string[] {
     // Latest-session-per-node semantics: a node is running only when its
     // NEWEST session (by created_at DESC, id DESC) has status='running'.
     // Mirrors ps-projection.ts:116-118. An older running + newer exited
     // session means the node is NOT running.
     const rows = this.deps.db.prepare(
-      `SELECT DISTINCT r.id FROM rigs r
-       JOIN nodes n ON n.rig_id = r.id
+      `SELECT DISTINCT r.id FROM software_teams r
+       JOIN nodes n ON n.software_team_id = r.id
        WHERE r.archived_at IS NULL
-         ${rigId ? "AND r.id = ?" : ""}
+         ${softwareTeamId ? "AND r.id = ?" : ""}
          AND (SELECT s.status FROM sessions s WHERE s.node_id = n.id
               ORDER BY s.created_at DESC, s.id DESC LIMIT 1) = 'running'`
-    ).all(...(rigId ? [rigId] : [])) as Array<{ id: string }>;
+    ).all(...(softwareTeamId ? [softwareTeamId] : [])) as Array<{ id: string }>;
     return rows.map((r) => r.id);
   }
 }

@@ -1,0 +1,11 @@
+SoftwareTeam is derived from OpenRig.
+Upstream source: https://github.com/mvschwarz/openrig
+Original copyright: Copyright 2026 Mike Schwarz.
+The original Apache License 2.0 text is retained in LICENSE and bundled skill licenses.
+
+SoftwareTeam fork modifications (2026-10-19): product/package/CLI/schema/API/env
+renaming; fresh isolated instance controller and local installer; seven named experts
+in product/dev groups; persistent custom team name; updated tests and active guidance.
+Earlier vendored skill modifications attributed to OpenRig remain upstream work.
+Historical release notes and execution records are classified in docs/reference/provenance-history.json.
+No upstream validation, hosted support, registry or package publication is claimed.

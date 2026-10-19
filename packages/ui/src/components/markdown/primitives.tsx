@@ -1,5 +1,5 @@
 // 0.3.1 slice 06 — spatial primitives used by kind layouts + fenced
-// block renderers. Honors OpenRig vellum tokens (no Thariq palette
+// block renderers. Honors SoftwareTeam vellum tokens (no Thariq palette
 // literals); square corners except the 12px status dots; tactical
 // drafting aesthetic per project_v1_professional_grade_ship_gate.
 

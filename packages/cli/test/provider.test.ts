@@ -5,7 +5,7 @@ import { DaemonClient } from "../src/client.js";
 import { STATE_FILE, type LifecycleDeps, type DaemonState } from "../src/daemon-lifecycle.js";
 import type { StatusDeps } from "../src/commands/status.js";
 
-// Slice-04 (OPR.0.5.0.4) seam A — the `rig provider` CLI grammar, daemon-backed via DaemonClient
+// Slice-04 (OPR.0.5.0.4) seam A — the `softwareTeam provider` CLI grammar, daemon-backed via DaemonClient
 // (packet 3ffa3c22 §3). These prove the CLI reaches the real routes and its --json is stable and
 // param-faithful; the routes/collection/switch composition are the B/C/D production seams.
 
@@ -44,7 +44,7 @@ async function run(args: string[], deps: StatusDeps): Promise<{ logs: string[]; 
   console.log = (...a: unknown[]) => logs.push(a.join(" "));
   console.error = (...a: unknown[]) => logs.push(a.join(" "));
   try {
-    await providerCommand(deps).parseAsync(["node", "rig", ...args]);
+    await providerCommand(deps).parseAsync(["node", "softwareTeam", ...args]);
   } finally {
     console.log = origLog;
     console.error = origErr;
@@ -54,7 +54,7 @@ async function run(args: string[], deps: StatusDeps): Promise<{ logs: string[]; 
   return { logs, exitCode };
 }
 
-describe("rig provider CLI grammar (daemon-backed)", () => {
+describe("SoftwareTeam provider CLI grammar (daemon-backed)", () => {
   let server: http.Server;
   let port: number;
   const seen: Array<{ url: string; method: string; body: string }> = [];
@@ -65,7 +65,7 @@ describe("rig provider CLI grammar (daemon-backed)", () => {
       {
         accountId: null,
         seatSession: "seat-9",
-        rigName: "r3",
+        softwareTeamName: "r3",
         boundAt: null,
         bindingSource: null,
         anomalies: [{ kind: "seat_with_no_account", seat: "seat-9", evidence: "no bound account", asOf: "2026-08-03T12:00:00.000Z" }],
@@ -74,10 +74,10 @@ describe("rig provider CLI grammar (daemon-backed)", () => {
     signals: [{ provider: "codex", accountRef: "cdx-a", sourceClass: "unknown", authority: "unknown", asOf: "2026-08-03T12:00:00.000Z", unknownReason: "codex_app_server_unavailable", automationUse: "do_not_automate" }],
     // S-C: the S-A host-usage rollup rows the status verb now renders (arrive via /status verbatim).
     hostUsage: [
-      { host: "local", provider: "claude", state: "ok", windows: [{ window: "five_hour", usedPercent: 10, asOf: "2026-08-03T12:00:00.000Z", seatSession: "seat-c" }], provenance: { basis: "one_account_per_host_deployment_invariant", note: "host==account is a deployment invariant of this rig (one account per host); no account identity is read or emitted." }, anomalies: [], evidenceSeats: ["seat-c"], asOf: "2026-08-03T12:00:00.000Z" },
-      { host: "local", provider: "codex", state: "limited", resetsAt: "2026-08-03T13:00:00.000Z", windows: [{ window: "primary", usedPercent: 100, resetsAt: "2026-08-03T13:00:00.000Z", asOf: "2026-08-03T12:00:00.000Z", seatSession: "seat-x" }], provenance: { basis: "one_account_per_host_deployment_invariant", note: "host==account is a deployment invariant of this rig (one account per host); no account identity is read or emitted." }, anomalies: [], evidenceSeats: ["seat-x"], asOf: "2026-08-03T12:00:00.000Z" },
-      { host: "local", provider: "codex", state: "explicit_unknown", unknownReason: "codex profile present but no usage meter", windows: [], provenance: { basis: "one_account_per_host_deployment_invariant", note: "host==account is a deployment invariant of this rig (one account per host); no account identity is read or emitted." }, anomalies: [], evidenceSeats: [], asOf: "2026-08-03T12:00:00.000Z" },
-      { host: "local", provider: "claude", state: "explicit_unknown", unknownReason: "conflicting seat windows falsify the one-account-per-host invariant", windows: [], provenance: { basis: "one_account_per_host_deployment_invariant", note: "host==account is a deployment invariant of this rig (one account per host); no account identity is read or emitted." }, anomalies: [{ kind: "conflicting_seat_windows", window: "five_hour", seats: ["a@rig", "b@rig"], evidence: "a=20% vs b=90% at same asOf", asOf: "2026-08-03T12:00:00.000Z" }], evidenceSeats: ["a@rig", "b@rig"], asOf: "2026-08-03T12:00:00.000Z" },
+      { host: "local", provider: "claude", state: "ok", windows: [{ window: "five_hour", usedPercent: 10, asOf: "2026-08-03T12:00:00.000Z", seatSession: "seat-c" }], provenance: { basis: "one_account_per_host_deployment_invariant", note: "host==account is a deployment invariant of this softwareTeam (one account per host); no account identity is read or emitted." }, anomalies: [], evidenceSeats: ["seat-c"], asOf: "2026-08-03T12:00:00.000Z" },
+      { host: "local", provider: "codex", state: "limited", resetsAt: "2026-08-03T13:00:00.000Z", windows: [{ window: "primary", usedPercent: 100, resetsAt: "2026-08-03T13:00:00.000Z", asOf: "2026-08-03T12:00:00.000Z", seatSession: "seat-x" }], provenance: { basis: "one_account_per_host_deployment_invariant", note: "host==account is a deployment invariant of this softwareTeam (one account per host); no account identity is read or emitted." }, anomalies: [], evidenceSeats: ["seat-x"], asOf: "2026-08-03T12:00:00.000Z" },
+      { host: "local", provider: "codex", state: "explicit_unknown", unknownReason: "codex profile present but no usage meter", windows: [], provenance: { basis: "one_account_per_host_deployment_invariant", note: "host==account is a deployment invariant of this softwareTeam (one account per host); no account identity is read or emitted." }, anomalies: [], evidenceSeats: [], asOf: "2026-08-03T12:00:00.000Z" },
+      { host: "local", provider: "claude", state: "explicit_unknown", unknownReason: "conflicting seat windows falsify the one-account-per-host invariant", windows: [], provenance: { basis: "one_account_per_host_deployment_invariant", note: "host==account is a deployment invariant of this softwareTeam (one account per host); no account identity is read or emitted." }, anomalies: [{ kind: "conflicting_seat_windows", window: "five_hour", seats: ["a@software-team", "b@software-team"], evidence: "a=20% vs b=90% at same asOf", asOf: "2026-08-03T12:00:00.000Z" }], evidenceSeats: ["a@software-team", "b@software-team"], asOf: "2026-08-03T12:00:00.000Z" },
     ],
     asOf: "2026-08-03T12:00:00.000Z",
   };
@@ -186,8 +186,8 @@ describe("rig provider CLI grammar (daemon-backed)", () => {
   it("S-C human: the conflict anomaly renders both-facts-visible (never a silent merge)", async () => {
     const out = (await run(["status"], runningDeps(port))).logs.join("\n");
     expect(out.toLowerCase()).toContain("conflict");
-    expect(out).toContain("a@rig");
-    expect(out).toContain("b@rig");
+    expect(out).toContain("a@software-team");
+    expect(out).toContain("b@software-team");
   });
 
   it("S-C human: the deployment-invariant provenance label is visible", async () => {

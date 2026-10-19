@@ -5,13 +5,13 @@ import type { ArgvExecFn } from "./tmux.js";
 
 /**
  * tmux commands over one long-lived control-mode client (`tmux -C`) instead of a new tmux client per command. Opt-in:
- * the daemon drives tmux this way only with OPENRIG_TMUX_CONTROL=1 (startup.ts); without it, every command spawns a
+ * the daemon drives tmux this way only with SOFTWARETEAM_TMUX_CONTROL=1 (startup.ts); without it, every command spawns a
  * client, as before.
  *
  * Each spawned client costs the daemon a fork of its whole process: some 28 ms of CPU a command at its size, against
  * 0.3 ms for a line written to a client already connected. The client makes a session of its own as it attaches
  * (`new-session`: an existing session is never taken over, whatever its name), named after this daemon's owner id and
- * marked with it (`@openrig-control`), and `destroy-unattached`: tmux destroys it when the client leaves, so the daemon
+ * marked with it (`@softwareteam-control`), and `destroy-unattached`: tmux destroys it when the client leaves, so the daemon
  * never kills a session itself. Listings leave out this daemon's own session and client, and nothing else: a session
  * another daemon or a person made, whatever its name or mark, is listed as any other.
  *
@@ -27,11 +27,11 @@ import type { ArgvExecFn } from "./tmux.js";
  */
 
 /** The session option that marks a control session: its value is the owner id of the daemon whose client made it. */
-export const CONTROL_OPTION = "@openrig-control";
+export const CONTROL_OPTION = "@softwareteam-control";
 
 /** The name a daemon's control session is made with: one of its own on any server. */
 export function controlSessionName(owner: string): string {
-  return `openrig-control-${owner}`;
+  return `softwareteam-control-${owner}`;
 }
 
 /** What the control session's pane runs, exec'd as argv (no `default-shell -c`, so no shell of the user's and none of

@@ -4,7 +4,7 @@ import { SpecReviewService, SpecReviewError, type SourceState } from "../domain/
 export function specReviewRoutes(): Hono {
   const router = new Hono();
 
-  router.post("/rig", async (c) => {
+  router.post("/softwareTeam", async (c) => {
     const svc = c.get("specReviewService" as never) as SpecReviewService;
     const body = await c.req.json<{ yaml: string; sourceState?: SourceState }>();
 
@@ -13,7 +13,7 @@ export function specReviewRoutes(): Hono {
     }
 
     try {
-      const review = svc.reviewRigSpec(body.yaml, body.sourceState ?? "draft");
+      const review = svc.reviewSoftwareTeamSpec(body.yaml, body.sourceState ?? "draft");
       return c.json(review);
     } catch (err) {
       if (err instanceof SpecReviewError) {

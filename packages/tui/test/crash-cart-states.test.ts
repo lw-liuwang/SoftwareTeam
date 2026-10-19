@@ -5,7 +5,7 @@ import { renderCrashCartView, renderUnverifiedView } from "../src/crash-cart/ren
 // Crash-cart (rulings) — the two non-DOWN framings; content-level (the in-shell wrapping is covered by
 // crash-cart-in-shell.test.ts):
 //  UNVERIFIED = evidence verbatim + retry + quit, ZERO recovery actions.
-//  FIRST-RUN = DOWN + no DB found (no rigs, no prior activity) → onboarding framing, NEVER a crash story.
+//  FIRST-RUN = DOWN + no DB found (no softwareTeams, no prior activity) → onboarding framing, NEVER a crash story.
 
 describe("renderUnverifiedView — cannot-verify content (no recovery offered)", () => {
   const body = renderUnverifiedView({
@@ -24,27 +24,27 @@ describe("renderUnverifiedView — cannot-verify content (no recovery offered)",
     expect(body).toContain("healthz timed out after 3 probes");
   });
 
-  it("offers retry + quit + the rig-status hint, and NO recovery action", () => {
+  it("offers retry + quit + the software-team-status hint, and NO recovery action", () => {
     expect(body).toContain("r retry");
     expect(body).toContain("q quit");
-    expect(body).toContain("rig status");
+    expect(body).toContain("SoftwareTeam status");
     expect(body).not.toContain("RESTORE EVERYTHING");
   });
 });
 
 describe("buildCrashCartModel — first-run vs recovery mode", () => {
-  const withRigs: CrashCartDiscoveryInput = {
+  const withSoftwareTeams: CrashCartDiscoveryInput = {
     header: { lastActivityAt: "2026-08-06T08:12:00Z" },
-    foundOnHost: [{ rigName: "alpha", seatCount: 2, resumableCount: 2, lastActiveAt: "2026-08-06T08:00:00Z" }],
+    foundOnHost: [{ softwareTeamName: "alpha", seatCount: 2, resumableCount: 2, lastActiveAt: "2026-08-06T08:00:00Z" }],
     whereWorkStopped: [],
   };
   const empty: CrashCartDiscoveryInput = { header: { lastActivityAt: null }, foundOnHost: [], whereWorkStopped: [] };
 
-  it("recovery mode when there is evidence of prior life (rigs and/or last activity)", () => {
-    expect(buildCrashCartModel(withRigs).mode).toBe("recovery");
+  it("recovery mode when there is evidence of prior life (softwareTeams and/or last activity)", () => {
+    expect(buildCrashCartModel(withSoftwareTeams).mode).toBe("recovery");
   });
 
-  it("first-run mode when no rigs AND no prior activity (DOWN + no DB)", () => {
+  it("first-run mode when no softwareTeams AND no prior activity (DOWN + no DB)", () => {
     expect(buildCrashCartModel(empty).mode).toBe("first-run");
   });
 });
@@ -57,13 +57,13 @@ describe("renderCrashCartView — first-run framing is onboarding, never a crash
     expect(body).not.toContain("daemon not running");
     expect(body).not.toContain("RESTORE EVERYTHING");
     expect(body.toLowerCase()).toContain("onboarding");
-    expect(body.toLowerCase()).toMatch(/no rigs|first|nothing to restore|welcome|new here/);
+    expect(body.toLowerCase()).toMatch(/no softwareTeams|first|nothing to restore|welcome|new here/);
   });
 
   it("recovery framing still shows the crash header + RESTORE (unchanged)", () => {
     const rec = buildCrashCartModel({
       header: { lastActivityAt: "2026-08-06T08:12:00Z" },
-      foundOnHost: [{ rigName: "alpha", seatCount: 2, resumableCount: 2, lastActiveAt: "2026-08-06T08:00:00Z" }],
+      foundOnHost: [{ softwareTeamName: "alpha", seatCount: 2, resumableCount: 2, lastActiveAt: "2026-08-06T08:00:00Z" }],
       whereWorkStopped: [],
     });
     const rb = renderCrashCartView(rec).map((l) => l.text).join("\n");

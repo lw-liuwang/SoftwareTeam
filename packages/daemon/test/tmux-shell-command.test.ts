@@ -77,11 +77,11 @@ describe("shell launch transport", () => {
   it.each(["fish", "-fish"])("selects fish sourcing or the older-fish sh fallback before launching (%s)", async shell => {
     const f = fixture();
     vi.spyOn(f.adapter, "getPaneCommand").mockResolvedValue(shell);
-    const command = `OPENRIG_HOME='/instance' PATH='/rig/bin':"$PATH" claude --model '${"m".repeat(4096)}'`;
+    const command = `SOFTWARETEAM_HOME='/instance' PATH='/softwareTeam/bin':"$PATH" claude --model '${"m".repeat(4096)}'`;
     expect(await f.adapter.sendShellCommand("pane", command, undefined, { sourceInPane: true })).toEqual({ ok: true });
     const invocation = vi.mocked(f.fileOps.writeFile).mock.calls[1]![1];
     const quotedPath = shellQuote(f.scriptPath);
-    expect(invocation).toBe(`if eval 'OPENRIG_FISH_ASSIGNMENT_PROBE=1 /bin/sh -c :'; source ${quotedPath}; else; /bin/sh ${quotedPath}; end`);
+    expect(invocation).toBe(`if eval 'SOFTWARETEAM_FISH_ASSIGNMENT_PROBE=1 /bin/sh -c :'; source ${quotedPath}; else; /bin/sh ${quotedPath}; end`);
     expect(Buffer.byteLength(invocation)).toBeLessThan(512);
     expect(f.files.get(f.scriptPath)).toBe(`/bin/rm -f -- '/tmp/launch '\"'\"'quoted'\"'\"'.sh' 2>/dev/null || command rm -f -- '/tmp/launch '\"'\"'quoted'\"'\"'.sh' || true\n${command}\n`);
     expect(f.commands.at(-1)).toBe("tmux send-keys -t 'pane' 'Enter'");
@@ -93,19 +93,19 @@ describe("shell launch transport", () => {
     expect(await f.adapter.sendShellCommand("pane", "claude", undefined, { sourceInPane: true })).toEqual({ ok: true });
     const invocation = vi.mocked(f.fileOps.writeFile).mock.calls[1]![1];
     const probe = invocation.match(/^if eval '([^']+)';/)?.[1];
-    expect(probe).toBe("OPENRIG_FISH_ASSIGNMENT_PROBE=1 /bin/sh -c :");
+    expect(probe).toBe("SOFTWARETEAM_FISH_ASSIGNMENT_PROBE=1 /bin/sh -c :");
     expect(execFileSync("/bin/sh", ["-c", probe!], { encoding: "utf8" })).toBe("");
   });
 
-  it.each([214, 215])("respects the input bound at a %i-byte quoted fish staging path", async quotedBytes => {
+  it.each([211, 212])("respects the input bound at a %i-byte quoted fish staging path", async quotedBytes => {
     const f = fixture(undefined, "/tmp/" + "p".repeat(quotedBytes - 7));
     vi.spyOn(f.adapter, "getPaneCommand").mockResolvedValue("fish");
     expect(Buffer.byteLength(shellQuote(f.scriptPath))).toBe(quotedBytes);
     expect(await f.adapter.sendShellCommand("pane", "claude", undefined, { sourceInPane: true })).toEqual({ ok: true });
     const invocation = vi.mocked(f.fileOps.writeFile).mock.calls[1]![1];
-    if (quotedBytes === 214) {
-      expect(invocation).toContain("OPENRIG_FISH_ASSIGNMENT_PROBE=1 /bin/sh -c :");
-      expect(Buffer.byteLength(invocation)).toBe(512);
+    if (quotedBytes === 211) {
+      expect(invocation).toContain("SOFTWARETEAM_FISH_ASSIGNMENT_PROBE=1 /bin/sh -c :");
+      expect(Buffer.byteLength(invocation)).toBe(511);
     } else {
       expect(invocation).toBe(`/bin/sh ${shellQuote(f.scriptPath)}`);
       expect(Buffer.byteLength(invocation)).toBeLessThan(512);
@@ -186,7 +186,7 @@ describe("shell launch transport", () => {
 
   it("sources a long classic command in a pane-shell subshell using the same short-input bound", async () => {
     const f = fixture();
-    const command = `OPENRIG_HOME='/instance' claude --model '${"m".repeat(4096)}'`;
+    const command = `SOFTWARETEAM_HOME='/instance' claude --model '${"m".repeat(4096)}'`;
     expect(await f.adapter.sendShellCommand("pane", command, undefined, { sourceInPane: true })).toEqual({ ok: true });
     const invocation = vi.mocked(f.fileOps.writeFile).mock.calls[1]![1];
     expect(invocation).toBe(`( . '/tmp/launch '\"'\"'quoted'\"'\"'.sh' )`);

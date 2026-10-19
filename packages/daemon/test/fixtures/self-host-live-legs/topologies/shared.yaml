@@ -1,5 +1,5 @@
-# 51-09 live-leg fixture — LEG B COLLISION rig — deployed BYTE-IDENTICAL to BOTH hosts (the identity IS the collision under test; copy this one file, never author a second)
-# Canonical seat = <pod>-<member>@<rigName> (deriveCanonicalSessionName) => lead-main@shared
+# 51-09 live-leg fixture — LEG B COLLISION software_team — deployed BYTE-IDENTICAL to BOTH hosts (the identity IS the collision under test; copy this one file, never author a second)
+# Canonical seat = <pod>-<member>@<softwareTeamName> (deriveCanonicalSessionName) => lead-main@shared
 version: "0.2"
 name: shared
 culture_file: culture.md

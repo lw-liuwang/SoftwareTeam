@@ -201,7 +201,7 @@ function BriefPanel({ missionId }: { missionId: string | null }) {
       <div data-testid="brief-panel-unresolved">
         <EmptyState
           label="BRIEF OUTSIDE FILE ROOTS"
-          description="The mission path is not under any allowlisted file root, so MISSION_BRIEF.md cannot be read. Check OPENRIG_FILES_ALLOWLIST / the daemon's file-roots settings."
+          description="The mission path is not under any allowlisted file root, so MISSION_BRIEF.md cannot be read. Check SOFTWARETEAM_FILES_ALLOWLIST / the daemon's file-roots settings."
           variant="card"
           testId="brief-panel-unresolved-state"
         />

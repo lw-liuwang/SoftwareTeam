@@ -79,8 +79,8 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
 
   afterEach(() => db.close());
 
-  async function item(destinationSession = "worker@rig") {
-    return repo.create({ sourceSession: "orch@rig", destinationSession, body: "work", nudge: false });
+  async function item(destinationSession = "worker@software-team") {
+    return repo.create({ sourceSession: "orch@software-team", destinationSession, body: "work", nudge: false });
   }
 
   function wakes(qitemId: string): Array<Record<string, unknown>> {
@@ -93,15 +93,15 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     const row = await item();
     const job = jobs.register({
       policy: "periodic-reminder",
-      specYaml: "policy: periodic-reminder\ntarget:\n  session: worker@rig\nmessage: resume\n",
-      targetSession: "worker@rig",
+      specYaml: "policy: periodic-reminder\ntarget:\n  session: worker@software-team\nmessage: resume\n",
+      targetSession: "worker@software-team",
       intervalSeconds: 60,
-      registeredBySession: "orch@rig",
+      registeredBySession: "orch@software-team",
     });
 
     repo.update({
       qitemId: row.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       state: "blocked",
       blockedOn: "external:vendor-window",
       transitionNote: "continuation: resume when the vendor window opens",
@@ -117,7 +117,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     const row = await item();
     repo.update({
       qitemId: row.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       state: "blocked",
       blockedOn: "external:cooldown",
       transitionNote: "continuation: retry after cooldown",
@@ -127,7 +127,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     const wake = wakes(row.qitemId)[0] as { wake_kind: string; wake_ref: string } | undefined;
     expect(wake?.wake_kind).toBe("timer");
     const job = wake ? jobs.getById(wake.wake_ref) : null;
-    expect(job).toMatchObject({ state: "active", targetSession: "worker@rig", intervalSeconds: 90 });
+    expect(job).toMatchObject({ state: "active", targetSession: "worker@software-team", intervalSeconds: 90 });
     // AMENDED by OPR.0.5.8.1 S1. This test's subject — a park arms a timer
     // ATOMICALLY and records its generated watchdog id — is unchanged and still
     // asserted above. Only these two incidental lines described behaviour that
@@ -151,14 +151,14 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     // fired 0.77s — a 6x difference in request collapsing to a shared sub-second
     // latency, because `isDue` treats a job with no `last_evaluation_at` as due.
     // Each duration must now be measured against its own arming instant.
-    const short = await item("worker@rig");
-    const long = await item("worker@rig");
+    const short = await item("worker@software-team");
+    const long = await item("worker@software-team");
     await repo.update({
-      qitemId: short.qitemId, actorSession: "worker@rig", state: "blocked",
+      qitemId: short.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "continuation: short", wakeAfterSeconds: 120,
     } as never);
     await repo.update({
-      qitemId: long.qitemId, actorSession: "worker@rig", state: "blocked",
+      qitemId: long.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "continuation: long", wakeAfterSeconds: 7200,
     } as never);
 
@@ -187,9 +187,9 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
   it("OPR.0.5.8.1 S1b — a park timer is ONE-SHOT: firing ends it, no second wake", async () => {
     // `periodic-reminder` repeats every intervalSeconds forever. An unstopped
     // park timer therefore wakes its owner again at +2 intervals, +3, forever.
-    const row = await item("worker@rig");
+    const row = await item("worker@software-team");
     repo.update({
-      qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked",
+      qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "continuation: one-shot", wakeAfterSeconds: 90,
     } as never);
     const ref = (wakes(row.qitemId)[0] as { wake_ref: string }).wake_ref;
@@ -205,16 +205,16 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     // Specimen: job 01M1E6F3QG41N76Y1CDX48P766 fired at 10:18:07Z for a row that
     // went handed-off at 10:02:03Z — sixteen minutes terminal, and the wake still
     // instructed the seat to resume it. Done must never read as owed.
-    const row = await item("worker@rig");
+    const row = await item("worker@software-team");
     repo.update({
-      qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked",
+      qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "continuation: lifetime", wakeAfterSeconds: 7200,
     } as never);
     const ref = (wakes(row.qitemId)[0] as { wake_ref: string }).wake_ref;
     expect(jobs.getById(ref)!.state).toBe("active");
 
     repo.update({
-      qitemId: row.qitemId, actorSession: "worker@rig", state: "done",
+      qitemId: row.qitemId, actorSession: "worker@software-team", state: "done",
       closureReason: "no-follow-on", transitionNote: "row closed while parked",
     } as never);
 
@@ -226,9 +226,9 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
   });
 
   it("OPR.0.5.8.1 S1c — a legacy park timer bound to a terminal row is refused before transport", async () => {
-    const row = await item("worker@rig");
+    const row = await item("worker@software-team");
     repo.update({
-      qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked",
+      qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "continuation: legacy timer", wakeAfterSeconds: 90,
     } as never);
     const timerId = (wakes(row.qitemId)[0] as { wake_ref: string }).wake_ref;
@@ -283,9 +283,9 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
       onWakeAttempt: ({ jobId, deliveryStatus }) => repo.recordWatchdogWakeAttempt(jobId, deliveryStatus),
     });
 
-    const timerRow = await item("timer-owner@rig");
+    const timerRow = await item("timer-owner@software-team");
     repo.update({
-      qitemId: timerRow.qitemId, actorSession: "timer-owner@rig", state: "blocked",
+      qitemId: timerRow.qitemId, actorSession: "timer-owner@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "continuation: actionable", wakeAfterSeconds: 90,
     } as never);
     const timerId = (wakes(timerRow.qitemId)[0] as { wake_ref: string }).wake_ref;
@@ -293,7 +293,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
 
     expect(timerResult.outcome.action).toBe("send");
     expect(deliveries).toEqual([
-      expect.objectContaining({ targetSession: "timer-owner@rig" }),
+      expect.objectContaining({ targetSession: "timer-owner@software-team" }),
     ]);
     expect(wakes(timerRow.qitemId)).toEqual(expect.arrayContaining([
       expect.objectContaining({ phase: "fired", wake_kind: "timer", wake_ref: timerId }),
@@ -301,14 +301,14 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
 
     const operatorJob = jobs.register({
       policy: "periodic-reminder",
-      specYaml: "policy: periodic-reminder\ntarget:\n  session: attached-owner@rig\nmessage: operator-owned\n",
-      targetSession: "attached-owner@rig",
+      specYaml: "policy: periodic-reminder\ntarget:\n  session: attached-owner@software-team\nmessage: operator-owned\n",
+      targetSession: "attached-owner@software-team",
       intervalSeconds: 90,
-      registeredBySession: "operator@rig",
+      registeredBySession: "operator@software-team",
     });
-    const attachedRow = await item("attached-owner@rig");
+    const attachedRow = await item("attached-owner@software-team");
     repo.update({
-      qitemId: attachedRow.qitemId, actorSession: "attached-owner@rig", state: "blocked",
+      qitemId: attachedRow.qitemId, actorSession: "attached-owner@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "continuation: attached watchdog",
       wakeWatchdogId: operatorJob.jobId,
     } as never);
@@ -316,8 +316,8 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
 
     expect(attachedResult.outcome.action).toBe("send");
     expect(deliveries).toEqual([
-      expect.objectContaining({ targetSession: "timer-owner@rig" }),
-      expect.objectContaining({ targetSession: "attached-owner@rig" }),
+      expect.objectContaining({ targetSession: "timer-owner@software-team" }),
+      expect.objectContaining({ targetSession: "attached-owner@software-team" }),
     ]);
     expect(jobs.getById(operatorJob.jobId)?.state).toBe("active");
   });
@@ -346,9 +346,9 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     });
 
     // Row A parks with --wake-after, producing job J and a timer binding.
-    const timerRow = await item("shared-owner@rig");
+    const timerRow = await item("shared-owner@software-team");
     repo.update({
-      qitemId: timerRow.qitemId, actorSession: "shared-owner@rig", state: "blocked",
+      qitemId: timerRow.qitemId, actorSession: "shared-owner@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "continuation: timer", wakeAfterSeconds: 90,
     } as never);
     const sharedJobId = (db.prepare(
@@ -356,9 +356,9 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     ).get(timerRow.qitemId) as { wake_ref: string }).wake_ref;
 
     // Row B parks against THE SAME job with the supported --wake-watchdog path.
-    const attachedRow = await item("shared-owner@rig");
+    const attachedRow = await item("shared-owner@software-team");
     repo.update({
-      qitemId: attachedRow.qitemId, actorSession: "shared-owner@rig", state: "blocked",
+      qitemId: attachedRow.qitemId, actorSession: "shared-owner@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "continuation: attached watchdog",
       wakeWatchdogId: sharedJobId,
     } as never);
@@ -380,7 +380,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     expect(result.outcome.action).toBe("send");
     expect(jobs.getById(sharedJobId)?.state).toBe("terminal");
     expect(deliveries).toEqual([
-      expect.objectContaining({ targetSession: "shared-owner@rig" }),
+      expect.objectContaining({ targetSession: "shared-owner@software-team" }),
     ]);
   });
 
@@ -434,7 +434,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
 
   it("a one-shot timer's own task: a retained wake doesn't consume it; the next attempt delivers and retires it", async () => {
     const { deliveries, runUntilRetired } = scriptedEngine(["retained", "ok"]);
-    const { row, jobId } = await parkWithTimer("own-owner@rig");
+    const { row, jobId } = await parkWithTimer("own-owner@software-team");
 
     const outcomes = await runUntilRetired(jobId);
 
@@ -448,7 +448,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
   it("a one-shot timer: repeated retained attempts stay eligible at the interval with no retry limit; then ok, or failed, consumes it", async () => {
     for (const last of ["ok", "failed"] as const) {
       const { deliveries, runUntilRetired, tick } = scriptedEngine(["retained", "retained", "retained", last]);
-      const { row, jobId } = await parkWithTimer(`own-repeat-${last}@rig`);
+      const { row, jobId } = await parkWithTimer(`own-repeat-${last}@software-team`);
       const outcomes = await runUntilRetired(jobId);
       expect(deliveries.map((d) => d.status), last).toEqual(["retained", "retained", "retained", last]);
       expect(outcomes, last).toEqual(["skipped", "skipped", "skipped", "sent"]);
@@ -464,7 +464,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
 
   it("a one-shot timer: status after a retained attempt says not delivered, with a live backstop and the attempt in its history", async () => {
     const { runUntilRetired } = scriptedEngine(["retained"]);
-    const { row, jobId } = await parkWithTimer("own-status@rig");
+    const { row, jobId } = await parkWithTimer("own-status@software-team");
     await runUntilRetired(jobId, 1);
     expect(repo.getParkWakeStatus(row.qitemId)).toMatchObject({
       kind: "timer", ref: jobId, phase: "fired", deliveryStatus: "retained", live: true, unconsumed: false,
@@ -473,11 +473,11 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
 
   it("a one-shot timer superseded by a new park after a retained attempt: the old timer retires and never delivers again", async () => {
     const { deliveries, tick } = scriptedEngine(["retained", "ok", "ok"]);
-    const { row, jobId: oldJob } = await parkWithTimer("own-super@rig");
+    const { row, jobId: oldJob } = await parkWithTimer("own-super@software-team");
     await tick();
     expect(deliveries).toHaveLength(1);
     repo.update({
-      qitemId: row.qitemId, actorSession: "own-super@rig", state: "blocked",
+      qitemId: row.qitemId, actorSession: "own-super@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "continuation: new park", wakeAfterSeconds: 300,
     } as never);
     expect(jobs.getById(oldJob)?.state).toBe("terminal");
@@ -487,18 +487,18 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
 
   it("a one-shot timer's own task: after a retained wake the timer is still its live backstop, and leaving the park retires it", async () => {
     const { runUntilRetired } = scriptedEngine(["retained"]);
-    const { row, jobId } = await parkWithTimer("own-owner@rig");
+    const { row, jobId } = await parkWithTimer("own-owner@software-team");
     await runUntilRetired(jobId, 1);
 
     expect(repo.getParkWakeStatus(row.qitemId)).toMatchObject({ kind: "timer", ref: jobId, live: true });
-    repo.update({ qitemId: row.qitemId, actorSession: "own-owner@rig", state: "in-progress", transitionNote: "resumed" } as never);
+    repo.update({ qitemId: row.qitemId, actorSession: "own-owner@software-team", state: "in-progress", transitionNote: "resumed" } as never);
     expect(jobs.getById(jobId)?.state).toBe("terminal");
   });
 
   it("a one-shot timer's own task: a delivered or a failed wake still retires the timer after one fire", async () => {
     for (const status of ["ok", "failed"] as const) {
       const { deliveries, runUntilRetired } = scriptedEngine([status]);
-      const { jobId } = await parkWithTimer(`own-${status}@rig`);
+      const { jobId } = await parkWithTimer(`own-${status}@software-team`);
       await runUntilRetired(jobId);
       expect(deliveries.map((d) => d.status), status).toEqual([status]);
       expect(jobs.getById(jobId)?.state, status).toBe("terminal");
@@ -520,7 +520,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
 
   it("a shared one-shot timer: when its one wake to the attached task is retained, it fires again for that task, then retires", async () => {
     const { deliveries, runUntilRetired } = scriptedEngine(["retained", "ok"]);
-    const { attached, jobId } = await sharedTimerWithOriginalStopped("shared-owner@rig");
+    const { attached, jobId } = await sharedTimerWithOriginalStopped("shared-owner@software-team");
 
     const outcomes = await runUntilRetired(jobId);
 
@@ -533,7 +533,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
 
   it("a shared one-shot timer: a delivered wake to the attached task still retires it after one fire", async () => {
     const { deliveries, runUntilRetired } = scriptedEngine(["ok"]);
-    const { jobId } = await sharedTimerWithOriginalStopped("shared-owner@rig");
+    const { jobId } = await sharedTimerWithOriginalStopped("shared-owner@software-team");
 
     const outcomes = await runUntilRetired(jobId);
 
@@ -544,19 +544,19 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
 
   it("a shared one-shot timer: once its attempt consumes the last attachment, no new task can attach to it", async () => {
     const { tick } = scriptedEngine(["ok"]);
-    const { jobId } = await sharedTimerWithOriginalStopped("shared-window@rig");
+    const { jobId } = await sharedTimerWithOriginalStopped("shared-window@software-team");
     await tick();
     expect(jobs.getById(jobId)?.state).toBe("terminal");
-    const late = await item("shared-window@rig");
+    const late = await item("shared-window@software-team");
     expect(() => repo.update({
-      qitemId: late.qitemId, actorSession: "shared-window@rig", state: "blocked",
+      qitemId: late.qitemId, actorSession: "shared-window@software-team", state: "blocked",
       blockedOn: "external:late", transitionNote: "late attach", wakeWatchdogId: jobId,
     } as never)).toThrow(expect.objectContaining({ code: "wake_watchdog_not_live" }));
   });
 
   it("a shared one-shot timer: repeated retained attempts to the attached task, then a failed one consumes it", async () => {
     const { deliveries, runUntilRetired } = scriptedEngine(["retained", "retained", "failed"]);
-    const { attached, jobId } = await sharedTimerWithOriginalStopped("shared-repeat@rig");
+    const { attached, jobId } = await sharedTimerWithOriginalStopped("shared-repeat@software-team");
     const outcomes = await runUntilRetired(jobId);
     expect(deliveries.map((d) => d.status)).toEqual(["retained", "retained", "failed"]);
     expect(outcomes).toEqual(["skipped", "skipped", "sent"]);
@@ -568,10 +568,10 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     const { deliveries, tick } = scriptedEngine(["retained", "ok", "ok"]);
     const job = jobs.register({
       policy: "periodic-reminder",
-      specYaml: "policy: periodic-reminder\ntarget:\n  session: standalone@rig\nmessage: operator reminder\n",
-      targetSession: "standalone@rig",
+      specYaml: "policy: periodic-reminder\ntarget:\n  session: standalone@software-team\nmessage: operator reminder\n",
+      targetSession: "standalone@software-team",
       intervalSeconds: 90,
-      registeredBySession: "operator@rig",
+      registeredBySession: "operator@software-team",
     });
     await tick();
     await tick();
@@ -594,9 +594,9 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
       onWakeAttempt: ({ jobId, deliveryStatus }) => repo.recordWatchdogWakeAttempt(jobId, deliveryStatus),
     });
 
-    const row = await item("lone-owner@rig");
+    const row = await item("lone-owner@software-team");
     repo.update({
-      qitemId: row.qitemId, actorSession: "lone-owner@rig", state: "blocked",
+      qitemId: row.qitemId, actorSession: "lone-owner@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "continuation: timer", wakeAfterSeconds: 90,
     } as never);
     const jobId = (db.prepare(
@@ -612,15 +612,15 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
   });
 
   it("OPR.0.5.8.1 S1b — an unpark (blocked -> in-progress) also ends the timer", async () => {
-    const row = await item("worker@rig");
+    const row = await item("worker@software-team");
     repo.update({
-      qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked",
+      qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "continuation: unpark", wakeAfterSeconds: 7200,
     } as never);
     const ref = (wakes(row.qitemId)[0] as { wake_ref: string }).wake_ref;
 
     repo.update({
-      qitemId: row.qitemId, actorSession: "worker@rig", state: "in-progress",
+      qitemId: row.qitemId, actorSession: "worker@software-team", state: "in-progress",
       transitionNote: "owner resumed the row itself",
     } as never);
 
@@ -635,7 +635,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
   // Each exit below is pinned through its REAL method, not another spelling of
   // `update()`, which is what made the gap invisible the first time.
 
-  async function parkedWithTimer(session = "worker@rig", seconds = 7200) {
+  async function parkedWithTimer(session = "worker@software-team", seconds = 7200) {
     const row = await item(session);
     repo.update({
       qitemId: row.qitemId, actorSession: session, state: "blocked",
@@ -655,7 +655,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     const { row, ref } = await parkedWithTimer();
 
     await repo.handoff({
-      qitemId: row.qitemId, fromSession: "worker@rig", toSession: "next@rig", nudge: false,
+      qitemId: row.qitemId, fromSession: "worker@software-team", toSession: "next@software-team", nudge: false,
     } as never);
 
     expect(repo.getById(row.qitemId)!.state).toBe("handed-off");
@@ -667,7 +667,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     const { row, ref } = await parkedWithTimer();
 
     await repo.handoffAndComplete({
-      qitemId: row.qitemId, fromSession: "worker@rig", toSession: "next@rig", nudge: false,
+      qitemId: row.qitemId, fromSession: "worker@software-team", toSession: "next@software-team", nudge: false,
     } as never);
 
     expect(jobs.getById(ref)!.state).not.toBe("active");
@@ -681,8 +681,8 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
 
     repo.closeCrossHostHandoffSource({
       qitemId: row.qitemId,
-      fromSession: "worker@rig",
-      toSession: "next@rig",
+      fromSession: "worker@software-team",
+      toSession: "next@software-team",
       closureTarget: "qitem-remote-1@otherhost",
       terminalState: "handed-off",
     });
@@ -696,7 +696,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     // state directly. My earlier pin spelled this through update(), not claim().
     const { row, ref } = await parkedWithTimer();
 
-    repo.claim({ qitemId: row.qitemId, destinationSession: "worker@rig" } as never);
+    repo.claim({ qitemId: row.qitemId, destinationSession: "worker@software-team" } as never);
 
     expect(repo.getById(row.qitemId)!.state).toBe("in-progress");
     expect(jobs.getById(ref)!.state).not.toBe("active");
@@ -706,10 +706,10 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
   it("OPR.0.5.8.1 S1b — auto-unpark on blocker completion retires the timer", async () => {
     // `--on X --wake-after 20m` carries BOTH a blocker and a timer. When X
     // completes, the blocker does its job and the timer must not fire afterwards.
-    const blocker = await item("gate@rig");
-    const row = await item("worker@rig");
+    const blocker = await item("gate@software-team");
+    const row = await item("worker@software-team");
     repo.update({
-      qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked",
+      qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: blocker.qitemId, transitionNote: "parked on a blocker AND a timer",
       wakeAfterSeconds: 7200,
     } as never);
@@ -717,7 +717,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     expect(jobs.getById(ref)!.state).toBe("active");
 
     repo.update({
-      qitemId: blocker.qitemId, actorSession: "gate@rig", state: "done",
+      qitemId: blocker.qitemId, actorSession: "gate@software-team", state: "done",
       closureReason: "no-follow-on", transitionNote: "blocker cleared",
     } as never);
 
@@ -731,8 +731,8 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     "keeps a shared watchdog deliverable after $exit (repeating=$repeating)",
     async ({ exit, repeating }) => {
       repo.attachWatchdogJobsRepository(jobs);
-      const owner = "shared-owner@rig";
-      const blocker = await item("gate@rig");
+      const owner = "shared-owner@software-team";
+      const blocker = await item("gate@software-team");
       const row = await item(owner);
       repo.update({ qitemId: row.qitemId, actorSession: owner, state: "blocked",
         blockedOn: blocker.qitemId, transitionNote: "wait for the gate with a timer",
@@ -749,17 +749,17 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
       if (exit === "claim") {
         repo.claim({ qitemId: row.qitemId, destinationSession: owner });
       } else if (exit === "handoff") {
-        await repo.handoff({ qitemId: row.qitemId, fromSession: owner, toSession: "next@rig", nudge: false });
+        await repo.handoff({ qitemId: row.qitemId, fromSession: owner, toSession: "next@software-team", nudge: false });
       } else if (exit === "handoff-and-complete") {
-        await repo.handoffAndComplete({ qitemId: row.qitemId, fromSession: owner, toSession: "next@rig", nudge: false });
+        await repo.handoffAndComplete({ qitemId: row.qitemId, fromSession: owner, toSession: "next@software-team", nudge: false });
       } else if (exit === "cross-host") {
-        repo.closeCrossHostHandoffSource({ qitemId: row.qitemId, fromSession: owner, toSession: "next@rig",
+        repo.closeCrossHostHandoffSource({ qitemId: row.qitemId, fromSession: owner, toSession: "next@software-team",
           closureTarget: "qitem-remote-1@otherhost", terminalState: "handed-off" });
       } else if (exit === "complete") {
         repo.update({ qitemId: row.qitemId, actorSession: owner, state: "done",
           closureReason: "no-follow-on", transitionNote: "timer work completed" });
       } else if (exit === "auto-unpark") {
-        repo.update({ qitemId: blocker.qitemId, actorSession: "gate@rig", state: "done",
+        repo.update({ qitemId: blocker.qitemId, actorSession: "gate@software-team", state: "done",
           closureReason: "no-follow-on", transitionNote: "gate completed" });
       } else if (exit === "re-park") {
         repo.update({ qitemId: row.qitemId, actorSession: owner, state: "blocked",
@@ -815,7 +815,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
 
   it.each(["failed", "retained"] as const)("retries a %s shared repeating wake before consuming its attachment", async status => {
     repo.attachWatchdogJobsRepository(jobs);
-    const owner = "shared-owner@rig";
+    const owner = "shared-owner@software-team";
     const row = await item(owner);
     repo.update({ qitemId: row.qitemId, actorSession: owner, state: "blocked",
       blockedOn: "external:first", transitionNote: "repeating timer park", wakeAfterSeconds: 30, wakeMaxSeconds: 120 });
@@ -847,7 +847,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
 
   it.each([false, true])("retires a shared timer after its attachment leaves park (repeating=%s)", async repeating => {
     repo.attachWatchdogJobsRepository(jobs);
-    const owner = "shared-owner@rig";
+    const owner = "shared-owner@software-team";
     const row = await item(owner);
     repo.update({ qitemId: row.qitemId, actorSession: owner, state: "blocked",
       blockedOn: "external:first", transitionNote: "timer park", wakeAfterSeconds: 30,
@@ -872,7 +872,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     .flatMap(attachment => [false, true].map(repeating => ({ attachment, repeating }))))(
     "ignores a $attachment attachment when retiring its timer (repeating=$repeating)", async ({ attachment, repeating }) => {
       repo.attachWatchdogJobsRepository(jobs);
-      const owner = "shared-owner@rig";
+      const owner = "shared-owner@software-team";
       const row = await item(owner);
       repo.update({ qitemId: row.qitemId, actorSession: owner, state: "blocked",
         blockedOn: "external:first", transitionNote: "timer park", wakeAfterSeconds: 30,
@@ -895,18 +895,18 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     // executes one real handoff route rather than claiming a six-route matrix.
     const job = jobs.register({
       policy: "periodic-reminder",
-      specYaml: "policy: periodic-reminder\ntarget:\n  session: \"worker@rig\"\nmessage: \"operator's own\"\n",
-      targetSession: "worker@rig", intervalSeconds: 600, registeredBySession: "operator@rig",
+      specYaml: "policy: periodic-reminder\ntarget:\n  session: \"worker@software-team\"\nmessage: \"operator's own\"\n",
+      targetSession: "worker@software-team", intervalSeconds: 600, registeredBySession: "operator@software-team",
     });
-    const row = await item("worker@rig");
+    const row = await item("worker@software-team");
     repo.update({
-      qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked",
+      qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "park on operator watchdog",
       wakeWatchdogId: job.jobId,
     } as never);
 
     await repo.handoff({
-      qitemId: row.qitemId, fromSession: "worker@rig", toSession: "next@rig", nudge: false,
+      qitemId: row.qitemId, fromSession: "worker@software-team", toSession: "next@software-team", nudge: false,
     } as never);
 
     expect(jobs.getById(job.jobId)!.state).toBe("active");
@@ -916,16 +916,16 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     // The third repeat route. Re-parking used to arm a second job while the first
     // stayed active, so one row carried two live timers, each firing on its own
     // cadence. A new park episode now supersedes the old.
-    const row = await item("worker@rig");
+    const row = await item("worker@software-team");
     repo.update({
-      qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked",
+      qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "continuation: first park", wakeAfterSeconds: 90,
     } as never);
     const first = (wakes(row.qitemId)[0] as { wake_ref: string }).wake_ref;
     expect(jobs.getById(first)!.state).toBe("active");
 
     repo.update({
-      qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked",
+      qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "continuation: re-park, longer", wakeAfterSeconds: 3600,
     } as never);
     const second = repo.getParkWakeStatus(row.qitemId)!.ref;
@@ -949,19 +949,19 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
   it("OPR.0.5.8.1 S1b — re-parking does NOT touch an operator's attached watchdog", async () => {
     const job = jobs.register({
       policy: "periodic-reminder",
-      specYaml: "policy: periodic-reminder\ntarget:\n  session: \"worker@rig\"\nmessage: \"operator's own\"\n",
-      targetSession: "worker@rig",
+      specYaml: "policy: periodic-reminder\ntarget:\n  session: \"worker@software-team\"\nmessage: \"operator's own\"\n",
+      targetSession: "worker@software-team",
       intervalSeconds: 600,
-      registeredBySession: "operator@rig",
+      registeredBySession: "operator@software-team",
     });
-    const row = await item("worker@rig");
+    const row = await item("worker@software-team");
     repo.update({
-      qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked",
+      qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "park on operator watchdog",
       wakeWatchdogId: job.jobId,
     } as never);
     repo.update({
-      qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked",
+      qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "re-park with a timer", wakeAfterSeconds: 90,
     } as never);
 
@@ -971,13 +971,13 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
   it("a superseded operator watchdog cannot write a fired receipt for the new park", async () => {
     const job = jobs.register({
       policy: "periodic-reminder",
-      specYaml: "policy: periodic-reminder\ntarget:\n  session: worker@rig\nmessage: old operator reminder\n",
-      targetSession: "worker@rig", intervalSeconds: 600, registeredBySession: "operator@rig",
+      specYaml: "policy: periodic-reminder\ntarget:\n  session: worker@software-team\nmessage: old operator reminder\n",
+      targetSession: "worker@software-team", intervalSeconds: 600, registeredBySession: "operator@software-team",
     });
-    const row = await item("worker@rig");
-    repo.update({ qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked",
+    const row = await item("worker@software-team");
+    repo.update({ qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: "external:first", transitionNote: "park on old watchdog", wakeWatchdogId: job.jobId } as never);
-    repo.update({ qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked",
+    repo.update({ qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: "external:second", transitionNote: "new timer owns continuation", wakeAfterSeconds: 90 } as never);
     const current = repo.getParkWakeStatus(row.qitemId)!;
     const before = wakes(row.qitemId);
@@ -991,7 +991,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
 
   it.each([false, true])("preserves timer lifecycle after the original row reattaches its shared job (repeating=%s)", async (repeating) => {
     repo.attachWatchdogJobsRepository(jobs);
-    const owner = "shared-owner@rig";
+    const owner = "shared-owner@software-team";
     const original = await item(owner);
     repo.update({ qitemId: original.qitemId, actorSession: owner, state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "original wait",
@@ -1041,7 +1041,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     // someone later merges them.
     const blocker = await repo.create({
       sourceSession: "wake-ladder@system",
-      destinationSession: "wake-ladder@rig",
+      destinationSession: "wake-ladder@software-team",
       body: "provider limit for one account pool",
       tags: [USAGE_LIMIT_BLOCKER_TAG, "usage-limit-pool:claude%3Alocal"],
       nudge: false,
@@ -1067,21 +1067,21 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     // not be destroyed by this row's lifecycle.
     const job = jobs.register({
       policy: "periodic-reminder",
-      specYaml: "policy: periodic-reminder\ntarget:\n  session: \"worker@rig\"\nmessage: \"operator's own\"\n",
-      targetSession: "worker@rig",
+      specYaml: "policy: periodic-reminder\ntarget:\n  session: \"worker@software-team\"\nmessage: \"operator's own\"\n",
+      targetSession: "worker@software-team",
       intervalSeconds: 600,
-      registeredBySession: "operator@rig",
+      registeredBySession: "operator@software-team",
     });
-    const row = await item("worker@rig");
+    const row = await item("worker@software-team");
     repo.update({
-      qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked",
+      qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: "external:cooldown", transitionNote: "continuation: attached",
       wakeWatchdogId: job.jobId,
     } as never);
     expect(repo.getParkWakeStatus(row.qitemId)).toMatchObject({ kind: "watchdog", ref: job.jobId });
 
     repo.update({
-      qitemId: row.qitemId, actorSession: "worker@rig", state: "done",
+      qitemId: row.qitemId, actorSession: "worker@software-team", state: "done",
       closureReason: "no-follow-on", transitionNote: "row closed while parked",
     } as never);
 
@@ -1098,7 +1098,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     const before = (db.prepare("SELECT COUNT(*) AS n FROM watchdog_jobs").get() as { n: number }).n;
     expect(() => repo.update({
       qitemId: row.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       state: "blocked",
       blockedOn: "external:cooldown",
       transitionNote: "continuation: retry after cooldown",
@@ -1110,19 +1110,19 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
   });
 
   it("auto-unpark publishes the dependent event and records the real post-commit delivery outcome", async () => {
-    const blocker = await item("gate@rig");
+    const blocker = await item("gate@software-team");
     const row = await item();
-    const sibling = await item("worker-2@rig");
+    const sibling = await item("worker-2@software-team");
     repo.update({
       qitemId: row.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       state: "blocked",
       blockedOn: blocker.qitemId,
       transitionNote: "continuation: resume after gate closes",
     });
     repo.update({
       qitemId: sibling.qitemId,
-      actorSession: "worker-2@rig",
+      actorSession: "worker-2@software-team",
       state: "blocked",
       blockedOn: blocker.qitemId,
       transitionNote: "continuation: sibling resumes after gate closes",
@@ -1137,7 +1137,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     transportResult = { ok: false, error: "owner unreachable" };
     repo.update({
       qitemId: blocker.qitemId,
-      actorSession: "gate@rig",
+      actorSession: "gate@software-team",
       state: "done",
       closureReason: "no-follow-on",
       transitionNote: "gate cleared",
@@ -1151,7 +1151,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     expect(updatedIds).toHaveLength(3);
     expect(new Set(updatedIds)).toEqual(new Set([row.qitemId, sibling.qitemId, blocker.qitemId]));
     await vi.waitFor(() => expect(sent).toHaveLength(2));
-    expect(new Set(sent.map((call) => call.session))).toEqual(new Set(["worker@rig", "worker-2@rig"]));
+    expect(new Set(sent.map((call) => call.session))).toEqual(new Set(["worker@software-team", "worker-2@software-team"]));
     expect(sent.some((call) => call.text.includes(row.qitemId))).toBe(true);
     expect(sent.some((call) => call.text.includes(sibling.qitemId))).toBe(true);
     expect(repo.getById(row.qitemId)?.lastNudgeResult).toBe("failed:owner unreachable");
@@ -1175,11 +1175,11 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
   });
 
   it("outer transactions publish every auto-unpark event through the exact notify envelope", async () => {
-    const blocker = await item("gate@rig");
+    const blocker = await item("gate@software-team");
     const row = await item();
     repo.update({
       qitemId: row.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       state: "blocked",
       blockedOn: blocker.qitemId,
       transitionNote: "continuation: resume after gate closes",
@@ -1190,7 +1190,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     bus.withNotifyEnvelope((register) => {
       const result = repo.updateWithinTransaction({
         qitemId: blocker.qitemId,
-        actorSession: "gate@rig",
+        actorSession: "gate@software-team",
         state: "done",
         closureReason: "no-follow-on",
         transitionNote: "gate cleared transactionally",
@@ -1206,11 +1206,11 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
   });
 
   it("a rolled-back blocker completion leaves no intent and performs no wake effect", async () => {
-    const blocker = await item("gate@rig");
+    const blocker = await item("gate@software-team");
     const row = await item();
     repo.update({
       qitemId: row.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       state: "blocked",
       blockedOn: blocker.qitemId,
       transitionNote: "continuation: resume after gate closes",
@@ -1219,7 +1219,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     expect(() => bus.withNotifyEnvelope((register) => {
       const result = repo.updateWithinTransaction({
         qitemId: blocker.qitemId,
-        actorSession: "gate@rig",
+        actorSession: "gate@software-team",
         state: "done",
         closureReason: "no-follow-on",
         transitionNote: "this whole transaction will abort",
@@ -1236,11 +1236,11 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
   });
 
   it("a committed auto-unpark intent survives a missing transport and the recovery drain records its delivery", async () => {
-    const blocker = await item("gate@rig");
+    const blocker = await item("gate@software-team");
     const row = await item();
     repo.update({
       qitemId: row.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       state: "blocked",
       blockedOn: blocker.qitemId,
       transitionNote: "continuation: resume after gate closes",
@@ -1250,7 +1250,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     recovering.attachOutbox(new OutboxHandler(db));
     recovering.update({
       qitemId: blocker.qitemId,
-      actorSession: "gate@rig",
+      actorSession: "gate@software-team",
       state: "done",
       closureReason: "no-follow-on",
       transitionNote: "gate cleared while transport is absent",
@@ -1286,7 +1286,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
   it("S16 resolves one provider-limit timer into exactly one durable wake per dependent", async () => {
     const blocker = await repo.create({
       sourceSession: "wake-ladder@system",
-      destinationSession: "wake-ladder@rig",
+      destinationSession: "wake-ladder@software-team",
       body: "provider limit for one account pool",
       tags: [USAGE_LIMIT_BLOCKER_TAG, "usage-limit-pool:claude%3Alocal"],
       nudge: false,
@@ -1302,9 +1302,9 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     const timer = repo.getParkWakeStatus(blocker.qitemId)!;
 
     const dependents = await Promise.all([
-      item("worker-1@rig"),
-      item("worker-2@rig"),
-      item("worker-3@rig"),
+      item("worker-1@software-team"),
+      item("worker-2@software-team"),
+      item("worker-3@software-team"),
     ]);
     for (const dependent of dependents) {
       repo.update({
@@ -1333,9 +1333,9 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
       "pending",
     ]);
     expect(sent.map((call) => call.session).sort()).toEqual([
-      "worker-1@rig",
-      "worker-2@rig",
-      "worker-3@rig",
+      "worker-1@software-team",
+      "worker-2@software-team",
+      "worker-3@software-team",
     ]);
 
     repo.recordWatchdogWakeAttempt(timer.ref, "failed:duplicate watchdog callback");
@@ -1346,7 +1346,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
   it("S16 initializes its timer baseline so it becomes due at the projected expiry, never immediately", async () => {
     const blocker = await repo.create({
       sourceSession: "wake-ladder@system",
-      destinationSession: "wake-ladder@rig",
+      destinationSession: "wake-ladder@software-team",
       body: "provider limit for one account pool",
       tags: [USAGE_LIMIT_BLOCKER_TAG, "usage-limit-pool:claude%3Alocal"],
       nudge: false,
@@ -1372,11 +1372,11 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
   });
 
   it("an ordinary blocker wake remains expiry-less", async () => {
-    const blocker = await item("gate@rig");
+    const blocker = await item("gate@software-team");
     const row = await item();
     repo.update({
       qitemId: row.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       state: "blocked",
       blockedOn: blocker.qitemId,
       transitionNote: "ordinary blocker",
@@ -1393,7 +1393,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     const row = await item();
     const parked = repo.update({
       qitemId: row.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       state: "blocked",
       blockedOn: "external:unknown",
       transitionNote: "legacy wakeless park",
@@ -1402,9 +1402,9 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     expect(wakes(row.qitemId)).toEqual([]);
     expect(repo.getParkWakeStatus(row.qitemId)).toBeNull();
 
-    const teaching = "`parked` means the row is blocked; use `rig parked` to diagnose its wake.";
+    const teaching = "`parked` means the row is blocked; use `SoftwareTeam parked` to diagnose its wake.";
     expect(teaching).toContain("`parked` means the row is blocked");
-    expect(teaching).toContain("`rig parked`");
+    expect(teaching).toContain("`SoftwareTeam parked`");
     expect(teaching).not.toContain("it carries its wake and legitimately waits");
   });
 
@@ -1412,7 +1412,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     const row = await item();
     repo.update({
       qitemId: row.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       state: "blocked",
       blockedOn: "external:cooldown",
       transitionNote: "continuation: resume after cooldown",
@@ -1438,7 +1438,7 @@ describe("S03 R25 — a park records its wake on the append-only transition", ()
     const row = await item();
     const parked = repo.update({
       qitemId: row.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       state: "blocked",
       blockedOn: "human-review@kernel",
       summary: "choose the release boundary",

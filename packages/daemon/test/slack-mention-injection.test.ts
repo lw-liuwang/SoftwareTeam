@@ -76,7 +76,7 @@ describe("R2 B1 — queue-controlled content must be structurally INERT in poste
       summary: `routine ${INJECTED}`,
       body: `please check ${INJECTED}`,
       destinationSession: "human-founder@kernel",
-      sourceSession: "dev-driver@v-openrig-build",
+      sourceSession: "dev-driver@v-softwareteam-build",
       tier: "routine",
     }));
     expect(out.ok).toBe(true);
@@ -98,7 +98,7 @@ describe("R2 B1 — queue-controlled content must be structurally INERT in poste
       summary: `URGENT ${INJECTED}`,
       body: `decide now ${INJECTED}`,
       destinationSession: "mike@external",
-      sourceSession: "dev-driver@v-openrig-build",
+      sourceSession: "dev-driver@v-softwareteam-build",
       tier: "human-gate",
     }, "d-inj-pos"));
     expect(out.ok).toBe(true);
@@ -126,7 +126,7 @@ describe("R2 B1 — queue-controlled content must be structurally INERT in poste
       summary: "routine summary",
       body: "routine body",
       destinationSession: "human-founder@kernel",
-      sourceSession: "dev-driver@v-openrig-build",
+      sourceSession: "dev-driver@v-softwareteam-build",
       tier: "routine",
     }, "d-inj-hostile-id"));
     expect(out.ok).toBe(true);
@@ -142,7 +142,7 @@ describe("R2 B1 — queue-controlled content must be structurally INERT in poste
       summary: "plain *bold* _italic_ summary",
       body: "a normal body with a URL https://example.invalid/x and 5 > 3 comparisons",
       destinationSession: "human-founder@kernel",
-      sourceSession: "dev-driver@v-openrig-build",
+      sourceSession: "dev-driver@v-softwareteam-build",
     }, "d-inj-plain"));
     const surfaces = allSurfaces(bodies[0]!);
     expect(surfaces).toContain("*bold*"); // mrkdwn styling is not control syntax; it survives

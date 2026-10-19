@@ -104,7 +104,7 @@ function queueEvidence(input: {
     qitemId: input.qitemId ?? "qitem-lineage",
     ts: input.observedAt,
     state: input.state ?? "in-progress",
-    actorSession: "orchestrator@rig",
+    actorSession: "orchestrator@software-team",
     identityProvenance: "transport:v1",
   }, input.sourceOrder);
 }
@@ -225,7 +225,7 @@ describe("deterministic health detectors", () => {
   });
 
   it("requires unchanged candidates and no new risk class before calling a review carousel", () => {
-    const scope = { type: "slice", projectId: "openrig", missionId: "release-0.5.10", sliceId: "S04" } as const;
+    const scope = { type: "slice", projectId: "softwareteam", missionId: "release-0.5.10", sliceId: "S04" } as const;
     const evidence = queueEvidence({ sourceOrder: 0, transitionId: 1, observedAt: "2026-09-03T10:30:00Z" });
     const base = simpleSource(scope, evidence);
     const observation = {
@@ -247,7 +247,7 @@ describe("deterministic health detectors", () => {
   });
 
   it("subtracts useful rescue wakes and requires an already-recorded next action", () => {
-    const scope = { type: "mission", projectId: "openrig", missionId: "release-0.5.10" } as const;
+    const scope = { type: "mission", projectId: "softwareteam", missionId: "release-0.5.10" } as const;
     const evidence = adaptWatchdogHistoryEvidence({
       historyId: "history-a",
       jobId: "job-a",
@@ -270,7 +270,7 @@ describe("deterministic health detectors", () => {
   });
 
   it("requires a structured phase or rigor conflict for stale directives", () => {
-    const scope = { type: "mission", projectId: "openrig", missionId: "release-0.5.10" } as const;
+    const scope = { type: "mission", projectId: "softwareteam", missionId: "release-0.5.10" } as const;
     const evidence = adaptWatchdogHistoryEvidence({
       historyId: "history-a",
       jobId: "job-old",
@@ -323,12 +323,12 @@ describe("deterministic health detectors", () => {
   });
 
   it("reports fresh pressure, a natural clear, and stale pressure honestly", () => {
-    const scope = { type: "seat", rigId: "rig-a", seatId: "seat-a" } as const;
+    const scope = { type: "seat", softwareTeamId: "software-team-a", seatId: "seat-a" } as const;
     const freshPressure = adaptContextUsageEvidence("seat-a", {
       availability: "known", reason: null, source: "codex_token_count_jsonl",
       usedPercentage: 96, remainingPercentage: 4, contextWindowSize: 250_000,
       totalInputTokens: 205_000, totalOutputTokens: 5_000, currentUsage: null,
-      transcriptPath: null, sessionId: "session-a", sessionName: "seat-a@rig-a",
+      transcriptPath: null, sessionId: "session-a", sessionName: "seat-a@software-team-a",
       sampledAt: "2026-09-03T10:30:00Z", fresh: true,
     }, 0);
     const base = {
@@ -352,7 +352,7 @@ describe("deterministic health detectors", () => {
       availability: "known", reason: null, source: "codex_token_count_jsonl",
       usedPercentage: 99, remainingPercentage: 1, contextWindowSize: 250_000,
       totalInputTokens: 240_000, totalOutputTokens: 5_000, currentUsage: null,
-      transcriptPath: null, sessionId: "session-a", sessionName: "seat-a@rig-a",
+      transcriptPath: null, sessionId: "session-a", sessionName: "seat-a@software-team-a",
       sampledAt: "2026-09-03T10:40:00Z", fresh: true,
     }, 1);
     const criticalSource = boundedSource({
@@ -371,7 +371,7 @@ describe("deterministic health detectors", () => {
       availability: "known", reason: null, source: "codex_token_count_jsonl",
       usedPercentage: 30, remainingPercentage: 70, contextWindowSize: 250_000,
       totalInputTokens: 70_000, totalOutputTokens: 5_000, currentUsage: null,
-      transcriptPath: null, sessionId: "session-a", sessionName: "seat-a@rig-a",
+      transcriptPath: null, sessionId: "session-a", sessionName: "seat-a@software-team-a",
       sampledAt: "2026-09-03T10:50:00Z", fresh: true,
     }, 2);
     const clearSource = boundedSource({
@@ -386,7 +386,7 @@ describe("deterministic health detectors", () => {
       availability: "known", reason: null, source: "codex_token_count_jsonl",
       usedPercentage: 96, remainingPercentage: 4, contextWindowSize: 250_000,
       totalInputTokens: 220_000, totalOutputTokens: 5_000, currentUsage: null,
-      transcriptPath: null, sessionId: "session-a", sessionName: "seat-a@rig-a",
+      transcriptPath: null, sessionId: "session-a", sessionName: "seat-a@software-team-a",
       sampledAt: "2026-09-03T10:55:00Z", fresh: true,
     }, 3);
     const restartedSource = boundedSource({
@@ -415,8 +415,8 @@ describe("deterministic health detectors", () => {
 
   it("keeps the replay's ordinary productive, rescue, stale, and unavailable controls non-active", () => {
     const controls = new Map(corpus.cases.ordinaryControls.map((item) => [item.id, item]));
-    const mission = { type: "mission", projectId: "openrig", missionId: "ordinary-controls" } as const;
-    const seat = { type: "seat", rigId: "rig-a", seatId: "seat-a" } as const;
+    const mission = { type: "mission", projectId: "softwareteam", missionId: "ordinary-controls" } as const;
+    const seat = { type: "seat", softwareTeamId: "software-team-a", seatId: "seat-a" } as const;
     const queue = controls.get("single-proportional-review")!;
     const queueEvidenceItems = queue.events.map((event) => queueEvidence({
       sourceOrder: event.sourceOrder,
@@ -461,7 +461,7 @@ describe("deterministic health detectors", () => {
       availability: "known", reason: null, source: "codex_token_count_jsonl",
       usedPercentage: stale.usedPercentage!, remainingPercentage: 18, contextWindowSize: 250_000,
       totalInputTokens: null, totalOutputTokens: null, currentUsage: null, transcriptPath: null,
-      sessionId: "session-a", sessionName: "seat-a@rig-a", sampledAt: stale.observedAt, fresh: false,
+      sessionId: "session-a", sessionName: "seat-a@software-team-a", sampledAt: stale.observedAt, fresh: false,
     }, 0);
     const staleSource = boundedSource({
       evidence: [staleEvidence],
@@ -538,9 +538,9 @@ describe("daemon health projection route", () => {
     try {
       db.exec(usageSamplesSchema.sql);
       const setup = createTestApp(db);
-      const rig = setup.rigRepo.createRig("health-route-rig");
-      const node = setup.rigRepo.addNode(rig.id, "worker", { role: "worker" });
-      const session = setup.sessionRegistry.registerSession(node.id, "worker@health-route-rig");
+      const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("health-route-software-team");
+      const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
+      const session = setup.sessionRegistry.registerSession(node.id, "worker@health-route-software-team");
       setup.sessionRegistry.updateStatus(session.id, "running");
       const baseMs = Date.now() - 60_000;
       const sampleAt = (offsetSeconds: number) => new Date(baseMs + offsetSeconds * 1000).toISOString();
@@ -600,7 +600,7 @@ describe("daemon health projection route", () => {
         }>;
       };
       expect(body).toMatchObject({
-        schema: "openrig.health-list/v0alpha1",
+        schema: "softwareteam.health-list/v0alpha1",
         total: 1,
         limit: 1,
         truncated: false,

@@ -15,8 +15,8 @@ import {
   RouterProvider,
 } from "@tanstack/react-router";
 
-vi.mock("../src/hooks/useRigSummary.js", () => ({
-  useRigSummary: () => ({ data: [{ id: "r1" }, { id: "r2" }, { id: "r3" }] }),
+vi.mock("../src/hooks/useSoftwareTeamSummary.js", () => ({
+  useSoftwareTeamSummary: () => ({ data: [{ id: "r1" }, { id: "r2" }, { id: "r3" }] }),
 }));
 vi.mock("../src/hooks/usePsEntries.js", () => ({
   usePsEntries: () => ({
@@ -26,7 +26,7 @@ vi.mock("../src/hooks/usePsEntries.js", () => ({
 }));
 vi.mock("../src/hooks/useSettings.js", () => ({
   useSettings: () => ({
-    data: { settings: { "agents.operator_session": { value: "orch-lead@openrig-delivery" } } },
+    data: { settings: { "agents.operator_session": { value: "orch-lead@softwareteam-delivery" } } },
   }),
   // OPR.0.4.6.MH1 FR-5: the HostConfigCard (mounted in Dashboard) imports
   // the settings write hook from this module — the module mock must carry
@@ -104,13 +104,13 @@ describe("Dashboard route visual refresh (OPR.0.4.1.14)", () => {
     renderDashboard();
     const fe = await screen.findByTestId("dashboard-field-environment");
     const text = fe.textContent ?? "";
-    // RIGS + AGENTS are split onto their own lines as single live counts
-    // (3 rigs, 23 agents from the mocked hooks); the active sub-count is dropped.
-    expect(text).toContain("RIGS");
+    // SOFTWARE_TEAMS + AGENTS are split onto their own lines as single live counts
+    // (3 softwareTeams, 23 agents from the mocked hooks); the active sub-count is dropped.
+    expect(text).toContain("SOFTWARE_TEAMS");
     expect(text).toContain("03");
     expect(text).toContain("AGENTS");
     expect(text).toContain("23");
-    expect(text).not.toContain("03 / 23"); // old combined RIGS / AGENTS row is gone
+    expect(text).not.toContain("03 / 23"); // old combined SOFTWARE_TEAMS / AGENTS row is gone
     // OPERATOR ID stays wired to the configured operator_session (real source).
     expect(text).toContain("ORCH-LEAD");
     // VERSION shows the REAL running daemon version from useDaemonVersion.
@@ -118,7 +118,7 @@ describe("Dashboard route visual refresh (OPR.0.4.1.14)", () => {
     expect(text).toContain("0.4.0");
     // The placeholder SESSION row + decorative DECLINATION row were dropped.
     expect(text).not.toContain("SESSION");
-    expect(text).not.toContain("OPENRIG-DELIVERY");
+    expect(text).not.toContain("SOFTWARETEAM-DELIVERY");
     expect(text).not.toContain("DECLINATION");
   });
 });

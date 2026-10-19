@@ -2,7 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 export interface FleetRollupRow {
-  rigName: string;
+  softwareTeamName: string;
   activityState: "active" | "idle" | "attention" | "blocked" | "degraded";
   lifecycleState: string | null;
   attentionReason: string | null;

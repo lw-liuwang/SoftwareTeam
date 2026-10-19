@@ -27,8 +27,8 @@ export interface RollbackResult {
   deleted: string[];
 }
 
-const BLOCK_START = (name: string) => `<!-- BEGIN OpenRig MANAGED BLOCK: ${name} -->`;
-const BLOCK_END = (name: string) => `<!-- END OpenRig MANAGED BLOCK: ${name} -->`;
+const BLOCK_START = (name: string) => `<!-- BEGIN SoftwareTeam MANAGED BLOCK: ${name} -->`;
+const BLOCK_END = (name: string) => `<!-- END SoftwareTeam MANAGED BLOCK: ${name} -->`;
 
 function hashContent(content: string): string {
   return createHash("sha256").update(content).digest("hex");
@@ -52,7 +52,7 @@ export class InstallEngine {
   ): InstallResult {
     const install = this.installRepo.createInstall(packageId, targetRoot, "project_shared", bootstrapId);
     const applied: JournalEntry[] = [];
-    const backupRoot = path.join(targetRoot, ".rigged-backups", install.id);
+    const backupRoot = path.join(targetRoot, ".softwareteam-backups", install.id);
 
     try {
       for (const entry of policyResult.approved) {
@@ -180,9 +180,9 @@ export class InstallEngine {
       const existing = this.fs.readFile(entry.targetPath);
       const startMarker = BLOCK_START(packageName);
       const endMarker = BLOCK_END(packageName);
-      const legacyStart = `<!-- BEGIN RIGGED MANAGED BLOCK: ${packageName} -->`;
-      const legacyEnd = `<!-- END RIGGED MANAGED BLOCK: ${packageName} -->`;
-      // Prefer the OpenRig form; fall back to legacy markers from
+      const legacyStart = `<!-- BEGIN SOFTWARETEAM MANAGED BLOCK: ${packageName} -->`;
+      const legacyEnd = `<!-- END SOFTWARETEAM MANAGED BLOCK: ${packageName} -->`;
+      // Prefer the SoftwareTeam form; fall back to legacy markers from
       // prior installs so re-applying a guidance package over a
       // pre-rename file replaces the old block instead of appending a
       // duplicate.
@@ -200,7 +200,7 @@ export class InstallEngine {
       }
 
       if (startIdx !== -1 && endIdx !== -1) {
-        // Update existing block (rewrites legacy markers to OpenRig form).
+        // Update existing block (rewrites legacy markers to SoftwareTeam form).
         const updated = existing.slice(0, startIdx) + block + existing.slice(endIdx + matchedEndLength);
         this.fs.writeFile(entry.targetPath, updated);
       } else {

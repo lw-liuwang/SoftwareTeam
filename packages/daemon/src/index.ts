@@ -3,7 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { endProbeGroupsOnStartupSignal, stopRuntimeProbes } from "./adapters/bounded-probe-exec.js";
 import { closeHttpServer, createDaemonShutdown, DAEMON_SHUTDOWN_RECEIPT, trackHttpServerResponses } from "./daemon-shutdown.js";
-import { readOpenRigEnv, OPENRIG_HOME } from "./openrig-compat.js";
+import { readSoftwareTeamEnv, SOFTWARETEAM_HOME } from "./softwareteam-compat.js";
 import { makeOperatorDeliveryEngine } from "./domain/gateway/operator-delivery-engine.js";
 import { resolveDaemonDbPath } from "./daemon-db-path.js";
 import { createDaemon } from "./startup.js";
@@ -33,7 +33,7 @@ import type { SlowOperationInstrumentation } from "./domain/slow-op-recorder.js"
 import type { ProviderService } from "./domain/provider/provider-service.js";
 import { SettingsStore } from "./domain/user-settings/settings-store.js";
 import {
-  ensureOpenRigInstance,
+  ensureSoftwareTeamInstance,
   formatInstanceInitializationConflicts,
 } from "./domain/instance-initialization.js";
 
@@ -120,13 +120,13 @@ export function startPeriodicSnapshotScheduler(deps: {
  *  never crash the daemon. Returns the daily interval handle (cleared on
  *  shutdown), or null when disabled. */
 export function startQueueRetentionScheduler(deps: {
-  rigRepo: { db: import("better-sqlite3").Database };
+  softwareTeamRepo: { db: import("better-sqlite3").Database };
   settingsStore?: { resolveOne(key: string): { value: unknown } };
 }): ReturnType<typeof setInterval> | null {
   const store = deps.settingsStore;
   const enabled = store ? store.resolveOne("retention.enabled").value === true : true;
   if (!enabled) return null;
-  const db = deps.rigRepo.db;
+  const db = deps.softwareTeamRepo.db;
   const num = (key: string, fallback: number): number => {
     const v = store ? store.resolveOne(key).value : fallback;
     return typeof v === "number" ? v : fallback;
@@ -157,7 +157,7 @@ export function startQueueRetentionScheduler(deps: {
  *  pattern. Returns the interval handle (cleared on shutdown), or null when the queue
  *  repository is absent (direct-construction harnesses). */
 export function startStuckSweepScheduler(deps: {
-  rigRepo: { db: import("better-sqlite3").Database };
+  softwareTeamRepo: { db: import("better-sqlite3").Database };
   queueRepo?: import("./domain/queue-repository.js").QueueRepository;
   stuckSweepStatus?: import("./domain/queue-stuck-sweep.js").StuckSweepStatus;
 }): ReturnType<typeof setInterval> | null {
@@ -165,7 +165,7 @@ export function startStuckSweepScheduler(deps: {
   if (!queueRepo) return null;
   const status = createStuckSweepStatus();
   deps.stuckSweepStatus = status; // healthz reads this snapshot
-  const db = deps.rigRepo.db;
+  const db = deps.softwareTeamRepo.db;
   const runOnce = (): void => {
     // runStuckSweep never throws (failure is recorded loudly on the status surface);
     // the catch is the never-crash-the-daemon belt for the promise chain itself.
@@ -184,7 +184,7 @@ export function startStuckSweepScheduler(deps: {
  *  every ladder at its exact position with no recovery step. Returns the scheduler
  *  (stopped on shutdown), or null when the queue repository is absent. */
 export function startWakeLadderScheduler(deps: {
-  rigRepo: { db: import("better-sqlite3").Database };
+  softwareTeamRepo: { db: import("better-sqlite3").Database };
   queueRepo?: import("./domain/queue-repository.js").QueueRepository;
   wakeLadderStatus?: import("./domain/queue-wake-ladder.js").WakeLadderStatus;
   providerService?: Pick<ProviderService, "getReadModel">;
@@ -197,14 +197,14 @@ export function startWakeLadderScheduler(deps: {
   if (!queueRepo) return null;
   const status = createWakeLadderStatus();
   deps.wakeLadderStatus = status; // healthz reads this snapshot
-  const db = deps.rigRepo.db;
+  const db = deps.softwareTeamRepo.db;
   // OPR.0.5.6.1 (R2/R1 B-2): the PRODUCTION operator rung dispatches through the
   // engine — the port is built from the live gateway subsystem, which exists by
   // the time the scheduler starts (post-bind). Absence (a gateway-less daemon
   // variant) keeps the honest unwired floor, never a silent green.
   const deliveryEngine = deps.gatewaySubsystem
     ? makeOperatorDeliveryEngine({
-        home: OPENRIG_HOME,
+        home: SOFTWARETEAM_HOME,
         queueRepo,
         dispatch: (op, ref, payload, opts) => deps.gatewaySubsystem!.dispatch(op, ref, payload, opts),
       })
@@ -244,20 +244,20 @@ async function isTrustedLocalOrTailnetBind(host: string): Promise<boolean> {
 }
 
 export async function startServer(port?: number) {
-  const p = port ?? parseInt(readOpenRigEnv("OPENRIG_PORT", "RIGGED_PORT") ?? "7433", 10);
-  // D15 — anchor the default db under OPENRIG_HOME, never a bare CWD-relative
-  // filename (which could open the shared fleet db). Explicit OPENRIG_DB wins.
-  const dbPath = resolveDaemonDbPath(readOpenRigEnv("OPENRIG_DB", "RIGGED_DB"), OPENRIG_HOME);
+  const p = port ?? parseInt(readSoftwareTeamEnv("SOFTWARETEAM_PORT") ?? "7434", 10);
+  // D15 — anchor the default db under SOFTWARETEAM_HOME, never a bare CWD-relative
+  // filename (which could open the shared fleet db). Explicit SOFTWARETEAM_DB wins.
+  const dbPath = resolveDaemonDbPath(readSoftwareTeamEnv("SOFTWARETEAM_DB"), SOFTWARETEAM_HOME);
   const instanceConfig = new SettingsStore().resolveConfig();
-  const initialization = ensureOpenRigInstance({
-    home: OPENRIG_HOME,
+  const initialization = ensureSoftwareTeamInstance({
+    home: SOFTWARETEAM_HOME,
     workspaceRoot: instanceConfig.workspaceRoot,
     contextRoot: instanceConfig.contextRoot,
     skillsRoot: instanceConfig.skillsRoot,
     topologyRoot: instanceConfig.topologyRoot,
   });
   if (!initialization.ok) {
-    throw new Error(`OpenRig instance initialization blocked: ${formatInstanceInitializationConflicts(initialization)}`);
+    throw new Error(`SoftwareTeam instance initialization blocked: ${formatInstanceInitializationConflicts(initialization)}`);
   }
 
   // bug-fix slice auth-bearer-tailscale-trust: distinguish "explicit
@@ -266,31 +266,31 @@ export async function startServer(port?: number) {
   // bearer invariant applies to their chosen host). When default, the
   // daemon always binds loopback and ALSO binds the active tailscale
   // interface (if present) — both accepted paths in the invariant.
-  // OPR.0.5.5.20 — bind intent rides ONLY the dedicated OPENRIG_BIND_HOST surface.
-  // The overloaded routing env (OPENRIG_HOST/RIGGED_HOST) is observed for the
+  // OPR.0.5.5.20 — bind intent rides ONLY the dedicated SOFTWARETEAM_BIND_HOST surface.
+  // The overloaded routing env (SOFTWARETEAM_HOST/SOFTWARETEAM_HOST) is observed for the
   // provenance line below and NEVER selects the bind branch: a managed environment's
   // injected endpoint is byte-indistinguishable from opt-in, and the parent daemon
   // silently lost its Tailscale listener to exactly that (operator baton
   // qitem-20260827070400). The auth-bearer-tailscale-trust ruling rides the new
   // surface unchanged.
   const bindPlan = resolveBindPlan({
-    bindHostEnv: process.env.OPENRIG_BIND_HOST,
-    routingHostEnv: readOpenRigEnv("OPENRIG_HOST", "RIGGED_HOST"),
+    bindHostEnv: process.env.SOFTWARETEAM_BIND_HOST,
+    routingHostEnv: readSoftwareTeamEnv("SOFTWARETEAM_HOST"),
     tailscaleIp: detectTailscaleInterface(),
   });
   if (bindPlan.ignoredRoutingHost) {
     console.error(
-      `[bind-provenance] OPENRIG_HOST=${bindPlan.ignoredRoutingHost} is ROUTING env and was ignored for bind policy — ` +
-      `binding default ${bindPlan.hosts.join(" + ")}. Declare bind intent via --host, the daemon.host config key (file), or OPENRIG_BIND_HOST.`,
+      `[bind-provenance] SOFTWARETEAM_HOST=${bindPlan.ignoredRoutingHost} is ROUTING env and was ignored for bind policy — ` +
+      `binding default ${bindPlan.hosts.join(" + ")}. Declare bind intent via --host, the daemon.host config key (file), or SOFTWARETEAM_BIND_HOST.`,
     );
   }
   const explicitHost = bindPlan.mode === "explicit" ? bindPlan.hosts[0] : undefined;
   // PL-005 Phase B: bearer token for Mission Control write verbs.
   // No legacy alias (this env var is new in Phase B).
-  const bearerToken = process.env.OPENRIG_AUTH_BEARER_TOKEN ?? null;
+  const bearerToken = process.env.SOFTWARETEAM_AUTH_BEARER_TOKEN ?? null;
 
   let bindHosts: string[];
-  const terminalTokenEnv = process.env.OPENRIG_TERMINAL_BEARER_TOKEN?.trim();
+  const terminalTokenEnv = process.env.SOFTWARETEAM_TERMINAL_BEARER_TOKEN?.trim();
   let terminalBearerToken: string | null = terminalTokenEnv || null;
   if (explicitHost) {
     // Operator opt-in path — invariant enforces bearer requirement for
@@ -329,7 +329,7 @@ export async function startServer(port?: number) {
   const servers: ServerType[] = [];
   for (const host of bindHosts) {
     const srv = serve({ fetch: app.fetch, port: p, hostname: host }, (info) => {
-      console.log(`OpenRig daemon listening on http://${host}:${info.port}`);
+      console.log(`SoftwareTeam daemon listening on http://${host}:${info.port}`);
       if (!monitorsStarted) {
         monitorsStarted = true;
         contextMonitor.start();
@@ -345,9 +345,9 @@ export async function startServer(port?: number) {
         // Polls every running tmux-bound seat's window_activity timestamp so
         // PsProjectionService + node-inventory enrichment serve
         // fresh data on each request.
-        deps.seatActivityService?.start(deps.rigRepo.db);
+        deps.seatActivityService?.start(deps.softwareTeamRepo.db);
         // 5b82324b — the structural pane-activity cache, on the same 1Hz cadence.
-        deps.seatStructuralActivityService?.start(deps.rigRepo.db);
+        deps.seatStructuralActivityService?.start(deps.softwareTeamRepo.db);
         // OPR.0.4.3.19 — start the liveness identity reconciler (5s default).
         // Persists the per-seat pane PID/command verdict so node-inventory
         // gates the running/active projection on verified process identity.
@@ -383,7 +383,7 @@ export async function startServer(port?: number) {
   // Multi-bind: close every serve() instance in parallel.
   deps.healthDiagnosis?.start();
   const shutdown = createDaemonShutdown({
-    receiptPath: path.join(OPENRIG_HOME, DAEMON_SHUTDOWN_RECEIPT),
+    receiptPath: path.join(SOFTWARETEAM_HOME, DAEMON_SHUTDOWN_RECEIPT),
     phases: [
       ["timers", () => {
         deps.resumeMetadataRefresher?.stop();
@@ -437,6 +437,6 @@ if (isDirectRun) {
   // Before anything spawns: the tmux server this daemon starts passes its
   // environment to every seat, so drop the launching session's identity.
   const removed = removeParentSessionEnv(process.env);
-  if (removed.length) console.log(`[openrig] Seats will not inherit the launching session's ${removed.join(", ")}.`);
+  if (removed.length) console.log(`[softwareteam] Seats will not inherit the launching session's ${removed.join(", ")}.`);
   startServer();
 }

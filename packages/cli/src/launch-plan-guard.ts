@@ -1,4 +1,4 @@
-// `rig launch --plan` sends `plan: true` to the launch-subset route. That route predates the field: plan support
+// `SoftwareTeam launch --plan` sends `plan: true` to the launch-subset route. That route predates the field: plan support
 // arrived in daemon 0.5.9, and an older daemon ignores the field and launches. So a plan request first asks the
 // daemon its version, and a plan answer must say `planOnly: true`.
 
@@ -58,7 +58,7 @@ export function isPlanAnswer(data: unknown): boolean {
 /**
  * After a plan request whose answer isn't a plan: true when the answer shows the daemon acted, meaning a 2xx, or
  * a body reporting seats (an older daemon's 409 `attention_required` launch carries `launched`). A plan error from
- * a daemon that honours `plan` (unknown rig, unmatched seat, no usable snapshot) shows neither and keeps its own
+ * a daemon that honours `plan` (unknown softwareTeam, unmatched seat, no usable snapshot) shows neither and keeps its own
  * error output.
  */
 export function answerShowsAction(succeeded: boolean, data: unknown): boolean {
@@ -68,9 +68,9 @@ export function answerShowsAction(succeeded: boolean, data: unknown): boolean {
   return ["launched", "held", "alreadyRunning"].some((key) => body[key] !== undefined);
 }
 
-/** The warning for an answer that isn't a plan but shows the daemon acted. `-A` because `rig ps --nodes` refuses
- *  an implicit scope outside a managed session and over `--host`, and `--rig` takes a name where launch takes an id. */
+/** The warning for an answer that isn't a plan but shows the daemon acted. `-A` because `SoftwareTeam ps --nodes` refuses
+ *  an implicit scope outside a managed session and over `--host`, and `--software-team` takes a name where launch takes an id. */
 export function notAPlanMessage(host?: string): string {
-  const check = host ? `rig ps --host ${host} --nodes -A` : "rig ps --nodes -A";
+  const check = host ? `SoftwareTeam ps --host ${host} --nodes -A` : "SoftwareTeam ps --nodes -A";
   return `The daemon did not return a plan, so it may have acted on this request. Check \`${check}\` before retrying.`;
 }

@@ -81,7 +81,7 @@ describe("terminal-token auth on transport routes", () => {
       const res = await app.request("/api/transport/broadcast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rig: "test", text: "hello" }),
+        body: JSON.stringify({ softwareTeam: "test", text: "hello" }),
       });
       expect(res.status).toBe(401);
     });

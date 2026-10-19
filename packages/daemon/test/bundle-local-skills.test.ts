@@ -14,8 +14,8 @@ import { resolveNodeConfig } from "../src/domain/profile-resolver.js";
 import { discoverSkillsForRuntime, discoverSkillsWithProvenance } from "../src/domain/skill-discovery.js";
 import { inspectSkillDirectory, reconcileSkillLoadout, resolveSkillLoadout } from "../src/domain/skill-catalog.js";
 import { planProjection } from "../src/domain/projection-planner.js";
-import { RigSpecSchema } from "../src/domain/rigspec-schema.js";
-import { RigSpecCodec } from "../src/domain/rigspec-codec.js";
+import { SoftwareTeamSpecSchema } from "../src/domain/software-team-spec-schema.js";
+import { SoftwareTeamSpecCodec } from "../src/domain/software-team-spec-codec.js";
 import { ClaudeCodeAdapter } from "../src/adapters/claude-code-adapter.js";
 import { CodexRuntimeAdapter } from "../src/adapters/codex-runtime-adapter.js";
 import { PiRuntimeAdapter } from "../src/adapters/pi-runtime-adapter.js";
@@ -24,7 +24,7 @@ import type { TmuxAdapter } from "../src/adapters/tmux.js";
 import type { NodeBinding, RuntimeAdapter } from "../src/domain/runtime-adapter.js";
 
 const skill = (id: string) => `---\nname: ${id}\ndescription: A portable test skill\n---\n\nRead references/example.md and run scripts/helper.sh.\n`;
-const rigYaml = `version: "0.2"
+const softwareTeamYaml = `version: "0.2"
 name: portable
 pods:
   - id: dev
@@ -77,15 +77,15 @@ describe("bundle-local skills", () => {
     execFileSync("git", ["-C", catalog, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "catalog"]);
   }
   async function create() {
-    const outputPath = path.join(root, "portable.rigbundle");
+    const outputPath = path.join(root, "portable.softwareteambundle");
     const response = await app.request("/api/bundles/create", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specPath: path.join(root, "source/rig.yaml"), bundleName: "portable", bundleVersion: "1.0", outputPath }),
+      body: JSON.stringify({ specPath: path.join(root, "source/software-team.yaml"), bundleName: "portable", bundleVersion: "1.0", outputPath }),
     });
     return { response, outputPath };
   }
   function seed() {
-    write("source/rig.yaml", rigYaml);
+    write("source/software-team.yaml", softwareTeamYaml);
     write("source/agents/worker/agent.yaml", `name: worker\nversion: "1.0"\nprofiles:\n  default:\n    uses:\n      skills: [portable]\n`);
     write("source/bundle.yaml", "skills:\n  - skills/portable/SKILL.md\n  - skills/unselected/SKILL.md\n  - packages/legacy.txt\n");
     write("source/skills/portable/SKILL.md", skill("portable"));
@@ -127,12 +127,12 @@ describe("bundle-local skills", () => {
     const cwd = path.join(root, "work");
     write("work/owned.txt", "User project stays intact\n");
     const catalog = path.join(root, "catalog");
-    write("catalog/catalog.yaml", "schema: openrig.skill-catalog/v1\nsystem: []\n");
+    write("catalog/catalog.yaml", "schema: softwareteam.skill-catalog/v1\nsystem: []\n");
     execFileSync("git", ["init", "-q", catalog]);
     execFileSync("git", ["-C", catalog, "add", "."]);
     execFileSync("git", ["-C", catalog, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "catalog"]);
     const catalogBefore = fs.readFileSync(path.join(catalog, "catalog.yaml"));
-    const rig = RigSpecSchema.normalize(RigSpecCodec.parse(fs.readFileSync(path.join(installed, "rig.yaml"), "utf8")) as Record<string, unknown>);
+    const softwareTeam = SoftwareTeamSpecSchema.normalize(SoftwareTeamSpecCodec.parse(fs.readFileSync(path.join(installed, "software-team.yaml"), "utf8")) as Record<string, unknown>);
     const resolved = resolveAgentRef("local:agents/worker", installed, fsOps);
     expect(resolved.ok).toBe(true);
     if (!resolved.ok) throw new Error(JSON.stringify(resolved));
@@ -140,9 +140,9 @@ describe("bundle-local skills", () => {
     const pi = new PiRuntimeAdapter({ tmux, fsOps, stateRoot: path.join(root, "pi"), runnerEntryPath: "unused" });
     const adapters: RuntimeAdapter[] = [new ClaudeCodeAdapter({ tmux, fsOps }), new CodexRuntimeAdapter({ tmux, fsOps }), pi];
     for (const adapter of adapters) {
-      const member = { ...rig.pods[0]!.members[0]!, runtime: adapter.runtime, cwd };
+      const member = { ...softwareTeam.pods[0]!.members[0]!, runtime: adapter.runtime, cwd };
       const result = resolveNodeConfig({ baseSpec: resolved.resolved, importedSpecs: resolved.imports, collisions: resolved.collisions,
-        profileName: "default", member, pod: rig.pods[0]!, rig, specRoot: installed, homedir: path.join(root, "home"), skillsRoot: catalog });
+        profileName: "default", member, pod: softwareTeam.pods[0]!, softwareTeam, specRoot: installed, homedir: path.join(root, "home"), skillsRoot: catalog });
       expect(result.ok, JSON.stringify(result)).toBe(true);
       if (!result.ok) throw new Error(result.errors.join("; "));
       expect(result.config.selectedResources.skills.map(s => s.effectiveId)).toEqual(["portable"]);
@@ -188,7 +188,7 @@ describe("bundle-local skills", () => {
         fs.cpSync(path.join(installed, "agents/worker/skills/portable"), path.join(catalog, "portable"), { recursive: true });
         if (kind === "different-bytes") write("catalog/portable/references/example.md", "Catalog reference\n");
         if (kind === "different-mode") fs.chmodSync(path.join(catalog, "portable/scripts/helper.sh"), 0o644);
-        write("catalog/catalog.yaml", "schema: openrig.skill-catalog/v1\nsystem: [system-only]\n");
+        write("catalog/catalog.yaml", "schema: softwareteam.skill-catalog/v1\nsystem: [system-only]\n");
         write("catalog/system-only/SKILL.md", skill("system-only"));
         write("catalog/project-only/SKILL.md", skill("project-only"));
         execFileSync("git", ["init", "-q", catalog]);
@@ -196,7 +196,7 @@ describe("bundle-local skills", () => {
         execFileSync("git", ["-C", catalog, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "catalog"]);
       }
       const catalogBefore = kind === "no-catalog" ? null : inspectSkillDirectory(path.join(catalog, "portable"));
-      const rig = RigSpecSchema.normalize(RigSpecCodec.parse(fs.readFileSync(path.join(installed, "rig.yaml"), "utf8")) as Record<string, unknown>);
+      const softwareTeam = SoftwareTeamSpecSchema.normalize(SoftwareTeamSpecCodec.parse(fs.readFileSync(path.join(installed, "software-team.yaml"), "utf8")) as Record<string, unknown>);
       const resolved = resolveAgentRef("local:agents/worker", installed, fsOps);
       if (!resolved.ok) throw new Error(JSON.stringify(resolved));
       const tmux = {} as TmuxAdapter;
@@ -216,7 +216,7 @@ describe("bundle-local skills", () => {
         }
         for (let repeat = 0; repeat < 2; repeat++) {
           const result = resolveNodeConfig({ baseSpec: resolved.resolved, importedSpecs: resolved.imports, collisions: resolved.collisions,
-            profileName: "default", member: { ...rig.pods[0]!.members[0]!, runtime: adapter.runtime, cwd }, pod: rig.pods[0]!, rig,
+            profileName: "default", member: { ...softwareTeam.pods[0]!.members[0]!, runtime: adapter.runtime, cwd }, pod: softwareTeam.pods[0]!, softwareTeam,
             specRoot: installed, homedir: path.join(root, "home"), skillsRoot: catalog });
           expect(result.ok, JSON.stringify(result)).toBe(true);
           if (!result.ok) throw new Error(result.errors.join(";"));
@@ -259,9 +259,9 @@ describe("bundle-local skills", () => {
       const resolved = resolveAgentRef("local:agents/worker", specRoot, fsOps);
       expect(resolved.ok).toBe(true);
       if (!resolved.ok) throw new Error(JSON.stringify(resolved));
-      const rig = RigSpecSchema.normalize(RigSpecCodec.parse(rigYaml) as Record<string, unknown>);
+      const softwareTeam = SoftwareTeamSpecSchema.normalize(SoftwareTeamSpecCodec.parse(softwareTeamYaml) as Record<string, unknown>);
       const result = resolveNodeConfig({ baseSpec: resolved.resolved, importedSpecs: resolved.imports, collisions: resolved.collisions,
-        profileName: "default", member: rig.pods[0]!.members[0]!, pod: rig.pods[0]!, rig, specRoot, homedir: path.join(root, "home") });
+        profileName: "default", member: softwareTeam.pods[0]!.members[0]!, pod: softwareTeam.pods[0]!, softwareTeam, specRoot, homedir: path.join(root, "home") });
       expect(result.ok, JSON.stringify(result)).toBe(true);
       if (!result.ok) throw new Error(result.errors.join("; "));
       const pi = new PiRuntimeAdapter({ tmux: {} as TmuxAdapter, fsOps, stateRoot: path.join(root, "pi"), runnerEntryPath: "unused" });
@@ -298,12 +298,12 @@ describe("bundle-local skills", () => {
     write("source/agents/worker/agent.yaml", `name: worker\nversion: "1.0"\nprofiles:\n  default:\n    uses:\n      skills: [edited]\n`);
     write("source/agents/plain/agent.yaml", `name: plain\nversion: "1.0"\nprofiles:\n  default:\n    uses:\n      skills: []\n`);
     const catalog = path.join(root, "catalog");
-    write("catalog/catalog.yaml", "schema: openrig.skill-catalog/v1\nsystem: []\n");
+    write("catalog/catalog.yaml", "schema: softwareteam.skill-catalog/v1\nsystem: []\n");
     write("catalog/edited/SKILL.md", skill("edited"));
     write("catalog/clean/SKILL.md", skill("clean"));
     commitCatalog(catalog);
     write("catalog/edited/SKILL.md", `${skill("edited")}\nUncommitted draft.\n`);
-    const rig = RigSpecSchema.normalize(RigSpecCodec.parse(rigYaml) as Record<string, unknown>);
+    const softwareTeam = SoftwareTeamSpecSchema.normalize(SoftwareTeamSpecCodec.parse(softwareTeamYaml) as Record<string, unknown>);
     const cwd = path.join(root, "work");
     fs.mkdirSync(cwd, { recursive: true });
     const tmux = {} as TmuxAdapter;
@@ -314,9 +314,9 @@ describe("bundle-local skills", () => {
       const viaProfile = adapter.runtime !== "pi";
       const resolved = resolveAgentRef(viaProfile ? "local:agents/worker" : "local:agents/plain", specRoot, fsOps);
       if (!resolved.ok) throw new Error(JSON.stringify(resolved));
-      const member = { ...rig.pods[0]!.members[0]!, runtime: adapter.runtime, cwd };
+      const member = { ...softwareTeam.pods[0]!.members[0]!, runtime: adapter.runtime, cwd };
       const result = resolveNodeConfig({ baseSpec: resolved.resolved, importedSpecs: resolved.imports, collisions: resolved.collisions,
-        profileName: "default", member, pod: rig.pods[0]!, rig, specRoot, homedir: path.join(root, "home"), skillsRoot: catalog,
+        profileName: "default", member, pod: softwareTeam.pods[0]!, softwareTeam, specRoot, homedir: path.join(root, "home"), skillsRoot: catalog,
         systemSkills: viaProfile ? ["clean"] : ["clean", "edited"] });
       expect(result.ok, JSON.stringify(result)).toBe(true);
       if (!result.ok) throw new Error(result.errors.join("; "));
@@ -340,7 +340,7 @@ describe("bundle-local skills", () => {
       const specRoot = path.join(root, "source");
       write("source/agents/worker/agent.yaml", `name: worker\nversion: "1.0"\nprofiles:\n  default:\n    uses:\n      skills: [edited]\n`);
       const catalog = path.join(root, "catalog");
-      write("catalog/catalog.yaml", "schema: openrig.skill-catalog/v1\nsystem: []\n");
+      write("catalog/catalog.yaml", "schema: softwareteam.skill-catalog/v1\nsystem: []\n");
       write("catalog/folder alias/SKILL.md", skill("edited"));
       write("catalog/clean/SKILL.md", skill("clean"));
       commitCatalog(catalog);
@@ -353,10 +353,10 @@ describe("bundle-local skills", () => {
       fs.mkdirSync(cwd, { recursive: true });
       const resolved = resolveAgentRef("local:agents/worker", specRoot, fsOps);
       if (!resolved.ok) throw new Error(JSON.stringify(resolved));
-      const rig = RigSpecSchema.normalize(RigSpecCodec.parse(rigYaml) as Record<string, unknown>);
-      const member = { ...rig.pods[0]!.members[0]!, runtime: "codex", cwd };
+      const softwareTeam = SoftwareTeamSpecSchema.normalize(SoftwareTeamSpecCodec.parse(softwareTeamYaml) as Record<string, unknown>);
+      const member = { ...softwareTeam.pods[0]!.members[0]!, runtime: "codex", cwd };
       const result = resolveNodeConfig({ baseSpec: resolved.resolved, importedSpecs: resolved.imports, collisions: resolved.collisions,
-        profileName: "default", member, pod: rig.pods[0]!, rig, specRoot, homedir: path.join(root, "home"), skillsRoot: catalog,
+        profileName: "default", member, pod: softwareTeam.pods[0]!, softwareTeam, specRoot, homedir: path.join(root, "home"), skillsRoot: catalog,
         systemSkills: ["clean"] });
       expect(result.ok, JSON.stringify(result)).toBe(true);
       if (!result.ok) return;
@@ -370,7 +370,7 @@ describe("bundle-local skills", () => {
     // The catalog sits in the agent's folder, so the agent can declare a source inside one of its skills.
     write("source/agents/nested/agent.yaml", `name: nested\nversion: "1.0"\nresources:\n  skills:\n    - id: inner\n      path: skills/edited/inner\nprofiles:\n  default:\n    uses:\n      skills: [inner, edited-clean]\n`);
     const catalog = path.join(specRoot, "agents", "nested", "skills");
-    write("source/agents/nested/skills/catalog.yaml", "schema: openrig.skill-catalog/v1\nsystem: []\n");
+    write("source/agents/nested/skills/catalog.yaml", "schema: softwareteam.skill-catalog/v1\nsystem: []\n");
     write("source/agents/nested/skills/edited/SKILL.md", skill("edited"));
     write("source/agents/nested/skills/edited/inner/SKILL.md", skill("inner"));
     write("source/agents/nested/skills/edited-clean/SKILL.md", skill("edited-clean"));
@@ -380,10 +380,10 @@ describe("bundle-local skills", () => {
     fs.mkdirSync(cwd, { recursive: true });
     const resolved = resolveAgentRef("local:agents/nested", specRoot, fsOps);
     if (!resolved.ok) throw new Error(JSON.stringify(resolved));
-    const rig = RigSpecSchema.normalize(RigSpecCodec.parse(rigYaml) as Record<string, unknown>);
-    const member = { ...rig.pods[0]!.members[0]!, runtime: "codex", cwd };
+    const softwareTeam = SoftwareTeamSpecSchema.normalize(SoftwareTeamSpecCodec.parse(softwareTeamYaml) as Record<string, unknown>);
+    const member = { ...softwareTeam.pods[0]!.members[0]!, runtime: "codex", cwd };
     const result = resolveNodeConfig({ baseSpec: resolved.resolved, importedSpecs: resolved.imports, collisions: resolved.collisions,
-      profileName: "default", member, pod: rig.pods[0]!, rig, specRoot, homedir: path.join(root, "home"), skillsRoot: catalog,
+      profileName: "default", member, pod: softwareTeam.pods[0]!, softwareTeam, specRoot, homedir: path.join(root, "home"), skillsRoot: catalog,
       systemSkills: [] });
     expect(result.ok, JSON.stringify(result)).toBe(true);
     if (!result.ok) throw new Error(result.errors.join("; "));
@@ -428,9 +428,9 @@ describe("bundle-local skills", () => {
     const resolved = resolveAgentRef("local:agents/worker", specRoot, fsOps);
     expect(resolved.ok).toBe(true);
     if (!resolved.ok) throw new Error(JSON.stringify(resolved));
-    const rig = RigSpecSchema.normalize(RigSpecCodec.parse(rigYaml) as Record<string, unknown>);
+    const softwareTeam = SoftwareTeamSpecSchema.normalize(SoftwareTeamSpecCodec.parse(softwareTeamYaml) as Record<string, unknown>);
     const result = resolveNodeConfig({ baseSpec: resolved.resolved, importedSpecs: resolved.imports, collisions: resolved.collisions,
-      profileName: "default", member: rig.pods[0]!.members[0]!, pod: rig.pods[0]!, rig, specRoot, homedir: path.join(root, "home") });
+      profileName: "default", member: softwareTeam.pods[0]!.members[0]!, pod: softwareTeam.pods[0]!, softwareTeam, specRoot, homedir: path.join(root, "home") });
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("missing skill was accepted");
     expect(result.errors.join("; ")).toMatch(/portable.*not found/);

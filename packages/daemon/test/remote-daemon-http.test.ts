@@ -16,7 +16,7 @@ import { LOCAL_HOST_ID, hostsCovered } from "../src/domain/hosts/fanout-contract
 import type { AggregatedPayload } from "../src/domain/hosts/fanout-contract.js";
 import type { HttpHostEntry } from "../src/domain/hosts/hosts-registry-reader.js";
 
-const HOST: HttpHostEntry = { id: "vps-b", transport: "http", url: "http://vps-b:7433/", bearer_env: "T" };
+const HOST: HttpHostEntry = { id: "vps-b", transport: "http", url: "http://vps-b:7434/", bearer_env: "T" };
 const ENV = { T: "tok-1" };
 
 function fetchStub(status: number, payload?: unknown, capture?: { url?: string; init?: RequestInit }) {
@@ -58,7 +58,7 @@ describe("remoteJsonRequest — structured outcomes (never hangs, never throws)"
       fetchImpl: fetchStub(200, { items: [1, 2] }, capture),
     });
     expect(res).toEqual({ ok: true, status: 200, payload: { items: [1, 2] } });
-    expect(capture.url).toBe("http://vps-b:7433/api/queue/list?attention=1");
+    expect(capture.url).toBe("http://vps-b:7434/api/queue/list?attention=1");
     expect(capture.init?.method).toBe("GET");
     const headers = capture.init?.headers as Record<string, string>;
     expect(headers["Authorization"]).toBe("Bearer tok-1");
@@ -137,7 +137,7 @@ describe("fanout-contract — the shared intra-P4 payload (arch adjudication: 15
 });
 
 describe("anonymous (URL-only) http host — no Authorization header, no request short-circuit", () => {
-  const ANON: HttpHostEntry = { id: "anon-b", transport: "http", url: "http://anon-b:7433/" };
+  const ANON: HttpHostEntry = { id: "anon-b", transport: "http", url: "http://anon-b:7434/" };
 
   it("remoteJsonRequest: URL-only host sends NO Authorization header; 2xx still returns payload", async () => {
     const capture: { url?: string; init?: RequestInit } = {};
@@ -157,7 +157,7 @@ describe("anonymous (URL-only) http host — no Authorization header, no request
     const res = await remoteRawRequest(ANON, "/api/ps", {
       timeoutMs: 1000,
       env: {},
-      fetchImpl: fetchStub(200, { rigs: [] }, capture),
+      fetchImpl: fetchStub(200, { softwareTeams: [] }, capture),
     });
     expect(res).toMatchObject({ ok: true, status: 200 });
     const headers = capture.init?.headers as Record<string, string>;
@@ -211,14 +211,14 @@ describe("remote response body transport — native HTTP consumers", () => {
       });
       app.use("/api/*", hostReadThrough());
       let localHits = 0;
-      app.get("/api/rigs/summary", c => { localHits++; return c.json({ local: true }); });
+      app.get("/api/software-teams/summary", c => { localHits++; return c.json({ local: true }); });
       try {
         const up = await remoteUpLeaf({ sourceRef: "fixture" }, host, { timeoutMs: 2000, env: {} });
-        const json = await remoteJsonRequest(host, "/api/rigs/summary", { method: "GET", timeoutMs: 2000, env: {} });
-        const raw = await remoteRawRequest(host, "/api/rigs/summary", { timeoutMs: 2000, env: {} });
-        const edge = await app.request("/api/rigs/summary?host=fixture-edge");
+        const json = await remoteJsonRequest(host, "/api/software-teams/summary", { method: "GET", timeoutMs: 2000, env: {} });
+        const raw = await remoteRawRequest(host, "/api/software-teams/summary", { timeoutMs: 2000, env: {} });
+        const edge = await app.request("/api/software-teams/summary?host=fixture-edge");
         const edgeBody = await edge.text();
-        expect(requests).toEqual(["POST /api/up", "GET /api/rigs/summary", "GET /api/rigs/summary", "GET /api/rigs/summary"]);
+        expect(requests).toEqual(["POST /api/up", "GET /api/software-teams/summary", "GET /api/software-teams/summary", "GET /api/software-teams/summary"]);
         expect(localHits).toBe(0);
         if (mode === "truncated") {
           expect(up.ok).toBe(false);

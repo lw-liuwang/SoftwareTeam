@@ -6,7 +6,7 @@ import { UpCommandRouter } from "../src/domain/up-command-router.js";
 
 const VALID_SPEC = `
 schema_version: 1
-name: test-rig
+name: test-software-team
 version: "1.0"
 nodes:
   - id: dev
@@ -19,7 +19,7 @@ schema_version: 1
 name: my-bundle
 version: "0.1.0"
 created_at: "2026-01-01T00:00:00Z"
-rig_spec: rig.yaml
+software_team_spec: software-team.yaml
 packages:
   - name: pkg
     version: "1.0"
@@ -28,7 +28,7 @@ packages:
 integrity:
   algorithm: sha256
   files:
-    rig.yaml: ${"a".repeat(64)}
+    software-team.yaml: ${"a".repeat(64)}
 `.trim();
 
 const PKG_MANIFEST = `
@@ -71,28 +71,28 @@ describe("UpCommandRouter", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  // T1: .yaml -> rig_spec
-  it(".yaml file routes to rig_spec", () => {
-    const specPath = path.join(tmpDir, "rig.yaml");
+  // T1: .yaml -> software_team_spec
+  it(".yaml file routes to software_team_spec", () => {
+    const specPath = path.join(tmpDir, "software-team.yaml");
     fs.writeFileSync(specPath, VALID_SPEC);
     const router = new UpCommandRouter({ fsOps: realFsOps() });
 
     const result = router.route(specPath);
 
-    expect(result.sourceKind).toBe("rig_spec");
+    expect(result.sourceKind).toBe("software_team_spec");
     expect(result.sourceRef).toBe(specPath);
   });
 
-  // T2: .rigbundle -> rig_bundle
-  it(".rigbundle file routes to rig_bundle", () => {
-    const bundlePath = path.join(tmpDir, "test.rigbundle");
+  // T2: .softwareteambundle -> software_team_bundle
+  it(".softwareteambundle file routes to software_team_bundle", () => {
+    const bundlePath = path.join(tmpDir, "test.softwareteambundle");
     // Write a gzip file (minimal valid gzip)
     fs.writeFileSync(bundlePath, Buffer.from([0x1f, 0x8b, 0x08, 0x00]));
     const router = new UpCommandRouter({ fsOps: realFsOps() });
 
     const result = router.route(bundlePath);
 
-    expect(result.sourceKind).toBe("rig_bundle");
+    expect(result.sourceKind).toBe("software_team_bundle");
   });
 
   // T3: Unknown extension -> error
@@ -101,7 +101,7 @@ describe("UpCommandRouter", () => {
     fs.writeFileSync(txtPath, "just text");
     const router = new UpCommandRouter({ fsOps: realFsOps() });
 
-    expect(() => router.route(txtPath)).toThrow(/not a valid rig spec|Unable to determine/);
+    expect(() => router.route(txtPath)).toThrow(/not a valid SoftwareTeam spec|Unable to determine/);
   });
 
   // T4: Missing file -> error
@@ -111,26 +111,26 @@ describe("UpCommandRouter", () => {
     expect(() => router.route("/nonexistent/file.yaml")).toThrow(/Source not found/);
   });
 
-  // T5a: Extensionless valid rig spec -> rig_spec
-  it("extensionless valid rig spec auto-detected as rig_spec", () => {
+  // T5a: Extensionless valid softwareTeam spec -> software_team_spec
+  it("extensionless valid SoftwareTeam spec auto-detected as software_team_spec", () => {
     const noExtPath = path.join(tmpDir, "myrig");
     fs.writeFileSync(noExtPath, VALID_SPEC);
     const router = new UpCommandRouter({ fsOps: realFsOps() });
 
     const result = router.route(noExtPath);
 
-    expect(result.sourceKind).toBe("rig_spec");
+    expect(result.sourceKind).toBe("software_team_spec");
   });
 
-  // T5b: Extensionless gzip -> rig_bundle
-  it("extensionless gzip file auto-detected as rig_bundle", () => {
+  // T5b: Extensionless gzip -> software_team_bundle
+  it("extensionless gzip file auto-detected as software_team_bundle", () => {
     const noExtPath = path.join(tmpDir, "mybundle");
     fs.writeFileSync(noExtPath, Buffer.from([0x1f, 0x8b, 0x08, 0x00, 0x00]));
     const router = new UpCommandRouter({ fsOps: realFsOps() });
 
     const result = router.route(noExtPath);
 
-    expect(result.sourceKind).toBe("rig_bundle");
+    expect(result.sourceKind).toBe("software_team_bundle");
   });
 
   // T5c: bundle.yaml with .yaml extension -> helpful error
@@ -161,14 +161,14 @@ describe("UpCommandRouter", () => {
 
     expect(result).toHaveProperty("sourceKind");
     expect(result).toHaveProperty("sourceRef");
-    expect(["rig_spec", "rig_bundle"]).toContain(result.sourceKind);
+    expect(["software_team_spec", "software_team_bundle"]).toContain(result.sourceKind);
   });
 
-  // AS-T08b: dual-format acceptance — pod-aware rig spec accepted
-  it("routes pod-aware rig spec as rig_spec", () => {
+  // AS-T08b: dual-format acceptance — pod-aware softwareTeam spec accepted
+  it("routes pod-aware SoftwareTeam spec as software_team_spec", () => {
     const podSpec = `
 version: "0.2"
-name: pod-rig
+name: pod-software-team
 pods:
   - id: dev
     label: Dev
@@ -181,17 +181,17 @@ pods:
     edges: []
 edges: []
 `.trim();
-    const specPath = path.join(tmpDir, "pod-rig.yaml");
+    const specPath = path.join(tmpDir, "pod-software-team.yaml");
     fs.writeFileSync(specPath, podSpec);
     const router = new UpCommandRouter({ fsOps: realFsOps() });
     const result = router.route(specPath);
-    expect(result.sourceKind).toBe("rig_spec");
+    expect(result.sourceKind).toBe("software_team_spec");
   });
 
   it("keeps a pod-shaped invalid spec on the pod validator's exact diagnostic", () => {
     const podSpecWithTypo = `
 version: "0.2"
-name: pod-rig
+name: pod-software-team
 operating_mod: lab
 pods:
   - id: dev
@@ -205,7 +205,7 @@ pods:
     edges: []
 edges: []
 `.trim();
-    const specPath = path.join(tmpDir, "pod-rig-typo.yaml");
+    const specPath = path.join(tmpDir, "pod-software-team-typo.yaml");
     fs.writeFileSync(specPath, podSpecWithTypo);
     const router = new UpCommandRouter({ fsOps: realFsOps() });
 
@@ -238,110 +238,110 @@ edges: []
     },
   );
 
-  // AS-T08b: legacy rig spec still accepted
-  it("still routes legacy rig spec as rig_spec", () => {
+  // AS-T08b: legacy softwareTeam spec still accepted
+  it("still routes legacy SoftwareTeam spec as software_team_spec", () => {
     const specPath = path.join(tmpDir, "legacy.yaml");
     fs.writeFileSync(specPath, VALID_SPEC);
     const router = new UpCommandRouter({ fsOps: realFsOps() });
     const result = router.route(specPath);
-    expect(result.sourceKind).toBe("rig_spec");
+    expect(result.sourceKind).toBe("software_team_spec");
   });
 
-  // NS-T06: rig name detection
-  it("bare name without / or extension → rig_name", () => {
+  // NS-T06: softwareTeam name detection
+  it("bare name without / or extension → software_team_name", () => {
     const router = new UpCommandRouter({ fsOps: realFsOps() });
     const result = router.route("auth-feats");
-    expect(result.sourceKind).toBe("rig_name");
+    expect(result.sourceKind).toBe("software_team_name");
     expect(result.sourceRef).toBe("auth-feats");
   });
 
-  it("name with .yaml extension → NOT rig_name (file path)", () => {
+  it("name with .yaml extension → NOT software_team_name (file path)", () => {
     const specPath = path.join(tmpDir, "auth.yaml");
     fs.writeFileSync(specPath, VALID_SPEC);
     const router = new UpCommandRouter({ fsOps: realFsOps() });
     const result = router.route(specPath);
-    expect(result.sourceKind).toBe("rig_spec");
+    expect(result.sourceKind).toBe("software_team_spec");
   });
 
-  it("path with / → NOT rig_name", () => {
+  it("path with / → NOT software_team_name", () => {
     const router = new UpCommandRouter({ fsOps: realFsOps() });
     expect(() => router.route("/tmp/nonexistent")).toThrow(/Source not found/);
   });
 
   // ── OPR.0.4.4.11 — topology classification (guard G-1 enumerated set) ──
-  // The FR-1 detection contract: `.rigtopology` extension OR a YAML document
-  // with a top-level `rigs:` LIST. Extension beats sniff; no-slash
-  // EXTENSIONLESS sources keep rig_name precedence byte-for-byte (FR-2).
+  // The FR-1 detection contract: `.softwareteamtopology` extension OR a YAML document
+  // with a top-level `softwareTeams:` LIST. Extension beats sniff; no-slash
+  // EXTENSIONLESS sources keep software_team_name precedence byte-for-byte (FR-2).
 
-  const TOPOLOGY_YAML = "rigs:\n  - source: ./orch.yaml\n  - source: ./workers/rig.yaml\n    host: vps-b\nconcurrency: 2\n";
+  const TOPOLOGY_YAML = "softwareTeams:\n  - source: ./orch.yaml\n  - source: ./workers/software-team.yaml\n    host: vps-b\nconcurrency: 2\n";
 
-  it("G1-1: bare no-slash factory.rigtopology → topology (extension beats name-detection)", () => {
+  it("G1-1: bare no-slash factory.softwareteamtopology → topology (extension beats name-detection)", () => {
     // Stub fs: the bare ref resolves relative to daemon cwd; existence is the
     // only fs fact the ext branch needs.
     const router = new UpCommandRouter({
       fsOps: { exists: () => true, readFile: () => TOPOLOGY_YAML, readHead: () => Buffer.alloc(0) },
     });
-    const result = router.route("factory.rigtopology");
-    expect(result).toEqual({ sourceKind: "topology", sourceRef: "factory.rigtopology" });
+    const result = router.route("factory.softwareteamtopology");
+    expect(result).toEqual({ sourceKind: "topology", sourceRef: "factory.softwareteamtopology" });
   });
 
-  it("G1-2: ./factory.rigtopology path form → topology", () => {
-    const p = path.join(tmpDir, "factory.rigtopology");
+  it("G1-2: ./factory.softwareteamtopology path form → topology", () => {
+    const p = path.join(tmpDir, "factory.softwareteamtopology");
     fs.writeFileSync(p, TOPOLOGY_YAML);
     const router = new UpCommandRouter({ fsOps: realFsOps() });
     expect(router.route(p).sourceKind).toBe("topology");
   });
 
-  it("G1-3: .rigtopology with INVALID manifest content still classifies topology (declared kind binds — no rig-spec fall-through)", () => {
-    const p = path.join(tmpDir, "broken.rigtopology");
-    fs.writeFileSync(p, VALID_SPEC); // rig-spec content under the topology extension
+  it("G1-3: .softwareteamtopology with INVALID manifest content still classifies topology (declared kind binds — no software-team-spec fall-through)", () => {
+    const p = path.join(tmpDir, "broken.softwareteamtopology");
+    fs.writeFileSync(p, VALID_SPEC); // software-team-spec content under the topology extension
     const router = new UpCommandRouter({ fsOps: realFsOps() });
     expect(router.route(p).sourceKind).toBe("topology");
   });
 
-  it("G1-4: extensionless top-level-rigs file WITH slash → topology (autoDetect sniff)", () => {
+  it("G1-4: extensionless top-level-softwareTeams file WITH slash → topology (autoDetect sniff)", () => {
     const p = path.join(tmpDir, "mytopo");
     fs.writeFileSync(p, TOPOLOGY_YAML);
     const router = new UpCommandRouter({ fsOps: realFsOps() });
     expect(router.route(p).sourceKind).toBe("topology");
   });
 
-  it("G1-5: no-slash EXTENSIONLESS source keeps rig_name precedence — fs is never consulted, even if a matching file exists", () => {
+  it("G1-5: no-slash EXTENSIONLESS source keeps software_team_name precedence — fs is never consulted, even if a matching file exists", () => {
     const boom = () => {
       throw new Error("fs must not be touched for a no-slash extensionless source");
     };
     const router = new UpCommandRouter({ fsOps: { exists: boom, readFile: boom, readHead: boom } });
     const result = router.route("factory"); // ./factory is the explicit path escape hatch
-    expect(result.sourceKind).toBe("rig_name");
+    expect(result.sourceKind).toBe("software_team_name");
   });
 
-  it("G1-6: factory.yaml carrying a top-level rigs: list → topology (sniff BEFORE rig-spec validation)", () => {
+  it("G1-6: factory.yaml carrying a top-level softwareTeams: list → topology (sniff BEFORE software-team-spec validation)", () => {
     const p = path.join(tmpDir, "factory.yaml");
     fs.writeFileSync(p, TOPOLOGY_YAML);
     const router = new UpCommandRouter({ fsOps: realFsOps() });
     expect(router.route(p).sourceKind).toBe("topology");
   });
 
-  it("G1-7: yaml with rigs: list PLUS edge/routing keys still classifies topology (rejection is TOPOLOGY validation downstream, never a rig-spec error)", () => {
+  it("G1-7: yaml with softwareTeams: list PLUS edge/routing keys still classifies topology (rejection is TOPOLOGY validation downstream, never a software-team-spec error)", () => {
     const p = path.join(tmpDir, "edgy.yaml");
     fs.writeFileSync(p, TOPOLOGY_YAML + "edges:\n  - from: a\n    to: b\n");
     const router = new UpCommandRouter({ fsOps: realFsOps() });
     expect(router.route(p).sourceKind).toBe("topology");
   });
 
-  it("G1-8: invalid yaml WITHOUT rigs: keeps the existing rig-spec error surface byte-unchanged", () => {
+  it("G1-8: invalid yaml WITHOUT softwareTeams: keeps the existing software-team-spec error surface byte-unchanged", () => {
     const p = path.join(tmpDir, "invalid.yaml");
     fs.writeFileSync(p, "just: nonsense\n");
     const router = new UpCommandRouter({ fsOps: realFsOps() });
-    expect(() => router.route(p)).toThrow(/Source is YAML but not a valid rig spec/);
+    expect(() => router.route(p)).toThrow(/Source is YAML but not a valid SoftwareTeam spec/);
   });
 
-  it("G1-9: rigs: as a NON-list does not sniff topology — flows to existing yaml handling", () => {
+  it("G1-9: softwareTeams: as a NON-list does not sniff topology — flows to existing yaml handling", () => {
     const p = path.join(tmpDir, "rigsmap.yaml");
-    fs.writeFileSync(p, "rigs:\n  a: 1\n");
+    fs.writeFileSync(p, "softwareTeams:\n  a: 1\n");
     const router = new UpCommandRouter({ fsOps: realFsOps() });
-    // Not a topology by contract (list required; .rigtopology is the escape
-    // hatch) — the existing rig-spec validation owns the error.
-    expect(() => router.route(p)).toThrow(/not a valid rig spec/);
+    // Not a topology by contract (list required; .softwareteamtopology is the escape
+    // hatch) — the existing software-team-spec validation owns the error.
+    expect(() => router.route(p)).toThrow(/not a valid SoftwareTeam spec/);
   });
 });

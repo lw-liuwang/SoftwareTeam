@@ -13,12 +13,12 @@ import { workflowStepTrailsSchema } from "../src/db/migrations/035_workflow_step
 import { workflowInstanceVersionSchema } from "../src/db/migrations/049_workflow_instance_version.js";
 import { workflowSpecJsonSchema } from "../src/db/migrations/050_workflow_spec_json.js";
 import { workflowResumeSchema } from "../src/db/migrations/051_workflow_resume.js";
-import { workflowInstanceBoundRigSchema } from "../src/db/migrations/052_workflow_instance_bound_rig.js";
+import { workflowInstanceBoundSoftwareTeamSchema } from "../src/db/migrations/052_workflow_instance_bound_software_team.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { OutboxHandler } from "../src/domain/outbox-handler.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
 import { WorkflowRuntime } from "../src/domain/workflow-runtime.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { PodRepository } from "../src/domain/pod-repository.js";
 import { resolveDefaultOwner } from "../src/domain/workflow-projector.js";
 import { selectRoleSeat, type RoleSeatCandidateFacts } from "../src/domain/workflow-role-resolver.js";
@@ -77,15 +77,15 @@ describe("FAC-1 C4: the named determinism unit vectors (QA-6 / ARCH F2)", () => 
     expect(results[0]).toBe("dev-a@f");
   });
 
-  it("THE PINNED COUNTERINTUITIVE VECTOR: driver10@rig < driver2@rig (plain codepoint, never natural sort)", () => {
+  it("THE PINNED COUNTERINTUITIVE VECTOR: driver10@software-team < driver2@software-team (plain codepoint, never natural sort)", () => {
     // Anyone \"fixing\" this into natural sort breaks cross-version
     // replay determinism — the pin exists so the fix is impossible to
     // make silently.
     const result = selectRoleSeat({
       role: "driver",
-      candidates: [seat("dev-driver2@rig"), seat("dev-driver10@rig")],
+      candidates: [seat("dev-driver2@software-team"), seat("dev-driver10@software-team")],
     });
-    expect(result.seat).toBe("dev-driver10@rig");
+    expect(result.seat).toBe("dev-driver10@software-team");
   });
 
   it("case handling pinned: plain codepoint compare (uppercase sorts before lowercase)", () => {
@@ -154,42 +154,42 @@ describe("FAC-1 C4: tier-2 byte-parity (declared preferred_targets are NEVER inv
     };
   }
 
-  it("unpinned targets[0] wins even when a bound-rig context with a 'better' role seat is supplied", () => {
-    const spec = specWith(["declared-seat@rig", "second@rig"]);
+  it("unpinned targets[0] wins even when a bound-software-team context with a 'better' role seat is supplied", () => {
+    const spec = specWith(["declared-seat@software-team", "second@software-team"]);
     const ctx = {
-      boundRig: "factory-a",
-      candidatesForRig: () => {
+      boundSoftwareTeam: "factory-a",
+      candidatesForSoftwareTeam: () => {
         throw new Error("tier-2 must NEVER read inventory");
       },
     };
     const owner = resolveDefaultOwner(spec, spec.steps[0]!, runtimeOf, ctx);
-    expect(owner).toBe("declared-seat@rig");
+    expect(owner).toBe("declared-seat@software-team");
   });
 
   it("a DEAD declared target is still returned — liveness-filtering declared targets is the named regression", () => {
     // The fence: tier 2 consults NO inventory, so a stopped/dead
     // declared seat routes exactly as today (WF-5's stuck class owns
     // the consequence, not the resolver).
-    const spec = specWith(["dead-seat@rig"]);
+    const spec = specWith(["dead-seat@software-team"]);
     const ctx = {
-      boundRig: "factory-a",
-      candidatesForRig: () => {
+      boundSoftwareTeam: "factory-a",
+      candidatesForSoftwareTeam: () => {
         throw new Error("tier-2 must NEVER read inventory");
       },
     };
-    expect(resolveDefaultOwner(spec, spec.steps[0]!, runtimeOf, ctx)).toBe("dead-seat@rig");
+    expect(resolveDefaultOwner(spec, spec.steps[0]!, runtimeOf, ctx)).toBe("dead-seat@software-team");
   });
 
   it("harness-pinned selection WITHIN declared targets is untouched by the context", () => {
-    const spec = specWith(["wrong-codex@rig", "right-claude@rig"]);
+    const spec = specWith(["wrong-codex@software-team", "right-claude@software-team"]);
     const step = { ...spec.steps[0]!, harness: "claude-code" as const };
     const ctx = {
-      boundRig: "factory-a",
-      candidatesForRig: () => {
+      boundSoftwareTeam: "factory-a",
+      candidatesForSoftwareTeam: () => {
         throw new Error("tier-2 must NEVER read inventory");
       },
     };
-    expect(resolveDefaultOwner(spec, step, runtimeOf, ctx)).toBe("right-claude@rig");
+    expect(resolveDefaultOwner(spec, step, runtimeOf, ctx)).toBe("right-claude@software-team");
   });
 
   it("unbound no-targets stays byte-identical: null return, no context machinery", () => {
@@ -205,7 +205,7 @@ const ROLE_ONLY_SPEC = `workflow:
   version: 1
   objective: replay pins
   target:
-    rig: factory-a
+    software_team: factory-a
   entry:
     role: planner
   roles:
@@ -228,16 +228,16 @@ describe("FAC-1 C4: replay pins — zero role-resolution inventory reads on BOTH
   let bus: EventBus;
   let queueRepo: QueueRepository;
   let runtime: WorkflowRuntime;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let podRepo: PodRepository;
   let tmp: string;
-  let rigAId: string;
+  let softwareTeamAId: string;
   let specPath: string;
   let sessionSeq = 0;
 
   function seedSeat(pod: string, member: string, opts: { role?: string; sessionStatus?: string }): string {
-    const podRec = podRepo.getPodByNamespace(rigAId, pod) ?? podRepo.createPod(rigAId, pod, pod);
-    const node = rigRepo.addNode(rigAId, `${pod}.${member}`, {
+    const podRec = podRepo.getPodByNamespace(softwareTeamAId, pod) ?? podRepo.createPod(softwareTeamAId, pod, pod);
+    const node = softwareTeamRepo.addNode(softwareTeamAId, `${pod}.${member}`, {
       role: opts.role,
       runtime: "claude-code",
       cwd: "/tmp",
@@ -285,16 +285,16 @@ describe("FAC-1 C4: replay pins — zero role-resolution inventory reads on BOTH
       workflowInstanceVersionSchema,
       workflowSpecJsonSchema,
       workflowResumeSchema,
-      workflowInstanceBoundRigSchema,
+      workflowInstanceBoundSoftwareTeamSchema,
     ]);
     bus = new EventBus(db);
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     podRepo = new PodRepository(db);
-    rigAId = rigRepo.createRig("factory-a").id;
+    softwareTeamAId = softwareTeamRepo.createSoftwareTeam("factory-a").id;
     tmp = mkdtempSync(join(tmpdir(), "wf-c4-"));
     specPath = join(tmp, "replay.yaml");
     writeFileSync(specPath, ROLE_ONLY_SPEC);
@@ -408,7 +408,7 @@ describe("FAC-1 C4: replay pins — zero role-resolution inventory reads on BOTH
     expect(projected2.nextOwnerSession).toBe(driverSeat);
   });
 
-  it("compat: an ENTRY-OWNER override at instantiate beats the resolver on a bound rig", async () => {
+  it("compat: an ENTRY-OWNER override at instantiate beats the resolver on a bound softwareTeam", async () => {
     seedSeat("dev", "planner1", { role: "planner" });
     seedSeat("dev", "driver1", { role: "driver" });
     const override = seedSeat("dev", "special", {});
@@ -421,7 +421,7 @@ describe("FAC-1 C4: replay pins — zero role-resolution inventory reads on BOTH
     expect(inst.entryOwnerSession).toBe(override);
   });
 
-  it("compat: an EXPLICIT nextOwnerSession override beats the resolver under a bound rig", async () => {
+  it("compat: an EXPLICIT nextOwnerSession override beats the resolver under a bound softwareTeam", async () => {
     seedSeat("dev", "planner1", { role: "planner" });
     seedSeat("dev", "driver1", { role: "driver" });
     const override = seedSeat("dev", "special", {});

@@ -1,6 +1,6 @@
 // OPR.0.4.8.3 — built-in policy reference materializer (guard-sealed plan v2
 // eea3c778). Projects the packaged built-in policies to the stable inspection
-// path $OPENRIG_HOME/reference/policies/builtin/ so operators can read (and
+// path $SOFTWARETEAM_HOME/reference/policies/builtin/ so operators can read (and
 // copy-to-customize) them without spelunking the install tree.
 //
 // Contract (guard ruling):
@@ -22,7 +22,7 @@ export const BUILTIN_POLICY_NAMES = ["locked", "standard", "open", "yolo", "auto
 export interface MaterializeBuiltinPolicyReferenceDeps {
   /** the packaged source dir (…/policies/builtin next to the daemon dist) */
   bundledDir: string;
-  /** the stable target dir ($OPENRIG_HOME/reference/policies/builtin) */
+  /** the stable target dir ($SOFTWARETEAM_HOME/reference/policies/builtin) */
   targetDir: string;
 }
 

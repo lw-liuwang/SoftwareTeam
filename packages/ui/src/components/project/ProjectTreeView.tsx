@@ -205,7 +205,7 @@ export function ProjectTreeView() {
     return partitionProjectMissions(missions);
   }, [missions]);
 
-  // A5 bounce-fix: replace hardcoded "openrig-work" with live-wired
+  // A5 bounce-fix: replace hardcoded "softwareteam-work" with live-wired
   // workspace name from ConfigStore. When unset/unreachable: render an
   // honest empty-state node ("No workspace connected" + Link to /settings).
   // MH-2: local-only — the workspace name is LOCAL config; a remote

@@ -41,7 +41,7 @@ describe("GitHub legacy package containment", () => {
           if (args[0] === "ls-remote") return `${sha}\tHEAD\n${sha}\trefs/heads/main\n`;
           if (args[0] === "rev-parse") return sha;
           if (args[0] === "checkout") {
-            const folder = path.join(checkout, "rigs/dev");
+            const folder = path.join(checkout, "software-teams/dev");
             const pkg = outside ? path.join(root, "host-package") : path.join(checkout, "packages/shared");
             fs.mkdirSync(folder, { recursive: true });
             fs.mkdirSync(path.join(pkg, "skills/helper"), { recursive: true });
@@ -49,7 +49,7 @@ describe("GitHub legacy package containment", () => {
             fs.writeFileSync(path.join(pkg, "skills/helper/SKILL.md"), marker);
             const ref = mode === "relative" ? path.relative(folder, pkg) : mode === "local" ? `local:${path.relative(folder, pkg)}` : pkg;
             if (mode === "include") includePackages = [ref];
-            fs.writeFileSync(path.join(folder, "rig.yaml"), `schema_version: 1\nname: legacy-link-fixture\nversion: "1.0"\nnodes:\n  - id: dev\n    runtime: claude-code\n    package_refs: ${JSON.stringify(mode === "include" ? [] : [ref])}\nedges: []\n`);
+            fs.writeFileSync(path.join(folder, "software-team.yaml"), `schema_version: 1\nname: legacy-link-fixture\nversion: "1.0"\nnodes:\n  - id: dev\n    runtime: claude-code\n    package_refs: ${JSON.stringify(mode === "include" ? [] : [ref])}\nedges: []\n`);
           }
           return "";
         };
@@ -58,7 +58,7 @@ describe("GitHub legacy package containment", () => {
         let result: Awaited<ReturnType<typeof importGitHubBundle>> | undefined;
         let error: unknown;
         try {
-          result = await importGitHubBundle("https://github.com/example/fixture/tree/main/rigs/dev",
+          result = await importGitHubBundle("https://github.com/example/fixture/tree/main/software-teams/dev",
             { lifecycleDeps: {}, clientFactory: () => client } as unknown as StatusDeps, opts, async link => {
               const prepared = await prepareGitHubBundle(link, git, imports);
               opts.includePackages = includePackages;

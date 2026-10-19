@@ -27,7 +27,7 @@ const LAYOUT = JSON.parse(readFileSync(join(REPO_ROOT, "scripts", "skill-edge-la
 
 // Skills the oracle ships that live ONLY in the external, founder-gated skill canon: authored there,
 // already tracked in the generated edge digests, but not yet mirrored into this repo (their source
-// isn't in git and the founder mirror inputs — OPENRIG_SKILL_CANON_ROOT + the authority YAMLs — are
+// isn't in git and the founder mirror inputs — SOFTWARETEAM_SKILL_CANON_ROOT + the authority YAMLs — are
 // unset here, so they can't be restored from the repo). This is a repo↔external-canon SYNC GAP the
 // next founder mirror closes, NOT the silent 864cea6b category-drop (leg 2 catches that). The guard
 // test below keeps this set MINIMAL and self-policing: every entry MUST be ship-set + digest-tracked

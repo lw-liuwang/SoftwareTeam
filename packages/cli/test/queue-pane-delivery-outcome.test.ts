@@ -11,17 +11,17 @@ describe("an agent's pane task: woken, claimed and closed (#165)", () => {
   it("keeps deliveryOutcome null, reads claimed, keeps the stored wake result, and reports a terminal receipt", async () => {
     const source = "lead-impl@r165";
     const destination = "dev-impl@r165";
-    const saved = { noKernel: process.env.OPENRIG_NO_KERNEL, session: process.env.OPENRIG_SESSION_NAME };
-    process.env.OPENRIG_NO_KERNEL = "1";
-    process.env.OPENRIG_SESSION_NAME = source;
+    const saved = { noKernel: process.env.SOFTWARETEAM_NO_KERNEL, session: process.env.SOFTWARETEAM_SESSION_NAME };
+    process.env.SOFTWARETEAM_NO_KERNEL = "1";
+    process.env.SOFTWARETEAM_SESSION_NAME = source;
     const daemon = await createDaemon({ cmuxFactory: async () => {
       throw Object.assign(new Error("no fixture socket"), { code: "ENOENT" });
     }, tmuxExec: async () => "" });
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     try {
-      const rig = daemon.deps.rigRepo.createRig("r165");
+      const softwareTeam = daemon.deps.softwareTeamRepo.createSoftwareTeam("r165");
       for (const [logicalId, session] of [["lead.impl", source], ["dev.impl", destination]] as const) {
-        const node = daemon.deps.rigRepo.addNode(rig.id, logicalId, { runtime: "claude-code" });
+        const node = daemon.deps.softwareTeamRepo.addNode(softwareTeam.id, logicalId, { runtime: "claude-code" });
         const registered = daemon.deps.sessionRegistry.registerSession(node.id, session);
         daemon.deps.sessionRegistry.updateStatus(registered.id, "running");
         daemon.deps.sessionRegistry.updateBinding(node.id, { tmuxSession: session, attachmentType: "tmux" });
@@ -34,10 +34,10 @@ describe("an agent's pane task: woken, claimed and closed (#165)", () => {
         },
       });
 
-      // The CLI reaches the daemon's routes in process, as the seat named by OPENRIG_SESSION_NAME.
+      // The CLI reaches the daemon's routes in process, as the seat named by SOFTWARETEAM_SESSION_NAME.
       const request = async (url: string, init: RequestInit) => {
         const response = await daemon.app.request(url, { ...init, headers: {
-          "Content-Type": "application/json", "X-OpenRig-Session": process.env.OPENRIG_SESSION_NAME!,
+          "Content-Type": "application/json", "X-SoftwareTeam-Session": process.env.SOFTWARETEAM_SESSION_NAME!,
         } });
         return { status: response.status, data: await response.json() };
       };
@@ -51,14 +51,14 @@ describe("an agent's pane task: woken, claimed and closed (#165)", () => {
         clientFactory: () => client as unknown as ReturnType<QueueDeps["clientFactory"]>,
         deliveryVerify: { timeoutMs: 5_000, intervalMs: 10 },
       };
-      const rig_ = async (...args: string[]) => {
+      const software_team_ = async (...args: string[]) => {
         log.mockClear();
         await queueCommand(deps).parseAsync(args, { from: "user" });
         return JSON.parse(log.mock.calls.map((call) => call.join(" ")).join("\n"));
       };
 
-      // Woken: `rig queue create --verify` waits for the wake's result.
-      const created = await rig_("create", "--destination", destination, "--body", "#165 fixture task",
+      // Woken: `SoftwareTeam queue create --verify` waits for the wake's result.
+      const created = await software_team_("create", "--destination", destination, "--body", "#165 fixture task",
         "--summary", "#165 fixture", "--verify", "--full", "--json");
       const qitemId = created.qitemId as string;
       expect(created.delivery).toMatchObject({
@@ -69,14 +69,14 @@ describe("an agent's pane task: woken, claimed and closed (#165)", () => {
         "Terminal receipt unconfirmed (delivered-ack-pending): the wake was sent, but its render could not be confirmed.");
 
       // Claimed and closed by the destination seat.
-      process.env.OPENRIG_SESSION_NAME = destination;
-      const claimed = await rig_("claim", qitemId, "--full", "--json");
+      process.env.SOFTWARETEAM_SESSION_NAME = destination;
+      const claimed = await software_team_("claim", qitemId, "--full", "--json");
       expect(claimed).toMatchObject({ state: "in-progress", lastNudgeResult: "claimed", lastNudgeWireResult: "delivered-ack-pending" });
-      const closed = await rig_("update", qitemId, "--state", "done", "--closure-reason", "no-follow-on", "--full", "--json");
+      const closed = await software_team_("update", qitemId, "--state", "done", "--closure-reason", "no-follow-on", "--full", "--json");
       expect(closed.state).toBe("done");
 
-      // `rig queue show`, the repository's single read and its list all read the same row.
-      const shown = await rig_("show", qitemId, "--full", "--json");
+      // `SoftwareTeam queue show`, the repository's single read and its list all read the same row.
+      const shown = await software_team_("show", qitemId, "--full", "--json");
       const listed = daemon.deps.queueRepo.list({ destinationSession: destination }).find((row) => row.qitemId === qitemId);
       for (const row of [shown, daemon.deps.queueRepo.getById(qitemId), listed]) {
         expect(row).toMatchObject({
@@ -110,10 +110,10 @@ describe("an agent's pane task: woken, claimed and closed (#165)", () => {
       log.mockRestore();
       daemon.eventLoopMonitor.stop(); daemon.contextMonitor.stop(); daemon.deps.seatActivityService?.stop();
       daemon.db.close();
-      if (saved.noKernel === undefined) delete process.env.OPENRIG_NO_KERNEL;
-      else process.env.OPENRIG_NO_KERNEL = saved.noKernel;
-      if (saved.session === undefined) delete process.env.OPENRIG_SESSION_NAME;
-      else process.env.OPENRIG_SESSION_NAME = saved.session;
+      if (saved.noKernel === undefined) delete process.env.SOFTWARETEAM_NO_KERNEL;
+      else process.env.SOFTWARETEAM_NO_KERNEL = saved.noKernel;
+      if (saved.session === undefined) delete process.env.SOFTWARETEAM_SESSION_NAME;
+      else process.env.SOFTWARETEAM_SESSION_NAME = saved.session;
     }
   }, 30_000);
 });

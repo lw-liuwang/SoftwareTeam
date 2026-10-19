@@ -7,20 +7,20 @@ import { parseLegacyBundleManifest as parseBundleManifest, validateLegacyBundleM
 import { resolvePackage } from "./package-resolve-helper.js";
 import { isPathInsideRoot } from "./cwd-resolution.js";
 import type { ResolvedPackage, FsOps } from "./package-resolver.js";
-import { getDefaultOpenRigPath } from "../openrig-compat.js";
+import { getDefaultSoftwareTeamPath } from "../softwareteam-compat.js";
 
 /** Result of resolving a bundle for bootstrap consumption */
 export interface BundleResolvedSource {
   specPath: string;
   resolvedPackages: ResolvedPackage[];
-  /** Map from original ref (as it appears in rig spec package_refs) to resolved package */
+  /** Map from original ref (as it appears in softwareTeam spec package_refs) to resolved package */
   packageRefMap: Record<string, ResolvedPackage>;
   manifest: BundleManifest;
   tempDir: string;
 }
 
 /**
- * Resolves a .rigbundle archive into bootstrap-compatible sources.
+ * Resolves a .softwareteambundle archive into bootstrap-compatible sources.
  * Extracts, verifies, parses manifest, maps vendored packages.
  */
 // TODO: AS-T12 — migrate to pod-aware bundle source resolver
@@ -36,7 +36,7 @@ export class LegacyBundleSourceResolver {
    * Caller must call cleanup(tempDir) after use.
    */
   async resolve(bundlePath: string): Promise<BundleResolvedSource> {
-    const tempDir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "rigbundle-"));
+    const tempDir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "softwareteambundle-"));
 
     try {
       // Extract + verify (archive digest + content integrity)
@@ -58,13 +58,13 @@ export class LegacyBundleSourceResolver {
 
       const manifest = normalizeBundleManifest(raw);
 
-      // Locate rig spec — ensure resolved path stays within tempDir
-      const specPath = nodePath.resolve(tempDir, manifest.rigSpec);
+      // Locate softwareTeam spec — ensure resolved path stays within tempDir
+      const specPath = nodePath.resolve(tempDir, manifest.softwareTeamSpec);
       if (!isPathInsideRoot(specPath, tempDir)) {
-        throw new Error(`Rig spec path '${manifest.rigSpec}' escapes bundle workspace`);
+        throw new Error(`SoftwareTeam spec path '${manifest.softwareTeamSpec}' escapes bundle workspace`);
       }
       if (!fs.existsSync(specPath)) {
-        throw new Error(`Rig spec '${manifest.rigSpec}' not found in bundle`);
+        throw new Error(`SoftwareTeam spec '${manifest.softwareTeamSpec}' not found in bundle`);
       }
 
       // Resolve vendored packages
@@ -128,7 +128,7 @@ export interface PodBundleResolvedSource {
 }
 
 /**
- * Resolves a pod-aware .rigbundle archive (schemaVersion 2).
+ * Resolves a pod-aware .softwareteambundle archive (schemaVersion 2).
  * Extracts, verifies manifest shape, returns paths for downstream resolution.
  */
 export class PodBundleSourceResolver {
@@ -156,7 +156,7 @@ export class PodBundleSourceResolver {
         name: m["name"] as string,
         version: m["version"] as string,
         createdAt: m["created_at"] as string,
-        rigSpec: m["rig_spec"] as string,
+        softwareTeamSpec: m["software_team_spec"] as string,
         agents: (m["agents"] as Array<Record<string, unknown>>).map((a) => ({
           name: a["name"] as string,
           version: a["version"] as string,
@@ -176,9 +176,9 @@ export class PodBundleSourceResolver {
         cultureFile: m["culture_file"] as string | undefined,
       };
 
-      const specPath = nodePath.join(tempDir, manifest.rigSpec);
+      const specPath = nodePath.join(tempDir, manifest.softwareTeamSpec);
       if (!fs.existsSync(specPath)) {
-        throw new Error(`Bundle missing rig spec at ${manifest.rigSpec}`);
+        throw new Error(`Bundle missing SoftwareTeam spec at ${manifest.softwareTeamSpec}`);
       }
 
       return { specPath, manifest, tempDir };
@@ -199,7 +199,7 @@ export class PodBundleSourceResolver {
 
 /**
  * Copy an extracted (already verified) pod bundle into a stable target root so
- * the rig launched from it keeps a live spec dir, agent refs and `cwd: "."`
+ * the softwareTeam launched from it keeps a live spec dir, agent refs and `cwd: "."`
  * after the temp extraction is removed.
  *
  * Refuses — writing nothing — when any bundle file would land on a path in the
@@ -261,7 +261,7 @@ export function materializePodBundle(
   let roots: string[] = [];
   if (conflicts.size > 0) {
     roots = [...conflicts].filter(rel => ![...conflicts].some(parent => rel.startsWith(parent + nodePath.sep)));
-    const backupRoot = getDefaultOpenRigPath("bundle-backups");
+    const backupRoot = getDefaultSoftwareTeamPath("bundle-backups");
     fs.mkdirSync(backupRoot, { recursive: true });
     backupPath = fs.mkdtempSync(nodePath.join(backupRoot, "reinstall-"));
     // A parent conflict owns all its descendants. Preserve the path itself,

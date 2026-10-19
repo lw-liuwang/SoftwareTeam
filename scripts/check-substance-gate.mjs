@@ -24,7 +24,7 @@ const FIX = "Genericize the content, cite its public home, or re-home it to the 
 const REFUSAL_VERDICTS = new Set(["instance-fact", "internal-path", "position-knowledge", "lore-class"]);
 const RULE_FIELDS = [
   "path_prefixes",
-  "seat_and_rig_patterns",
+  "seat_and_software_team_patterns",
   "host_patterns",
   "charged_terms",
   "internal_path_globs",
@@ -187,7 +187,7 @@ function selectDerivedRules(rules) {
   return {
     path_prefixes: (rules.path_prefixes ?? []).filter((entry) =>
       entry.startsWith("/") || entry.startsWith("~")),
-    seat_and_rig_patterns: [],
+    seat_and_software_team_patterns: [],
     host_patterns: [...(rules.host_patterns ?? [])],
     charged_terms: [],
     internal_path_globs: [...(rules.internal_path_globs ?? [])],
@@ -268,7 +268,7 @@ function runArtifactScan(options, treeClass, artifactFiles, rules) {
 }
 
 function runFullArtifactScan(options, artifactFiles) {
-  const temp = mkdtempSync(join(tmpdir(), "openrig-substance-scan-"));
+  const temp = mkdtempSync(join(tmpdir(), "softwareteam-substance-scan-"));
   const filesManifest = join(temp, "artifact-files.json");
   const reportPath = join(temp, "scan-report.json");
   try {
@@ -411,7 +411,7 @@ function collectCandidates(text) {
   const patterns = [
     ["absolute-path", /(?:~\/|\/(?:Users|home|var|tmp|etc)\/)[^\s"'`]+/g],
     ["port", /(?:\b(?:localhost|127\.0\.0\.1|0\.0\.0\.0))?:\d{2,5}\b/g],
-    ["count", /\b\d[\d,]*\s+(?:files?|seats?|rigs?|pods?|agents?|directories|tests?|lines?|tokens?|bytes?)\b/gi],
+    ["count", /\b\d[\d,]*\s+(?:files?|seats?|softwareTeams?|pods?|agents?|directories|tests?|lines?|tokens?|bytes?)\b/gi],
     ["date", /\b20\d{2}-\d{2}-\d{2}\b/g],
     ["provenance-marker", /\b(?:may not hold|measured|TELLS-[A-Za-z0-9_-]+|debt\.md|this instance|one instance)\b/gi],
     ["internal-name", /\brigx\b/gi],
@@ -430,7 +430,7 @@ function collectCandidates(text) {
 
 function classifyLeak(token, kind, rules) {
   if (kind === "path" || rules.path_prefixes?.includes(token) || rules.internal_path_globs?.includes(token)) return "internal-path";
-  if (rules.seat_and_rig_patterns?.includes(token) || rules.charged_terms?.includes(token)) return "position-knowledge";
+  if (rules.seat_and_software_team_patterns?.includes(token) || rules.charged_terms?.includes(token)) return "position-knowledge";
   return "instance-fact";
 }
 

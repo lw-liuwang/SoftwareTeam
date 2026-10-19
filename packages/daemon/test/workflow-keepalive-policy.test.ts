@@ -12,7 +12,7 @@ function makeJob(overrides: Partial<PolicyJob> & { context: Record<string, unkno
   return {
     jobId: "job-1",
     policy: "workflow-keepalive",
-    target: { session: "registered@rig" },
+    target: { session: "registered@software-team" },
     intervalSeconds: 1800,
     activeWakeIntervalSeconds: null,
     scanIntervalSeconds: null,
@@ -33,21 +33,21 @@ describe("workflow-keepalive policy (PL-004 Phase D; POC parity, SQLite source-o
     // Seed a workflow_instance + frontier qitems.
     db.prepare(
       `INSERT INTO workflow_instances (instance_id, workflow_name, workflow_version, created_by_session, created_at, status, current_frontier_json)
-       VALUES ('inst-active', 'wf', '1', 'creator@rig', '2026-05-03T07:00:00Z', 'active', '["q-1","q-2"]')`,
+       VALUES ('inst-active', 'wf', '1', 'creator@software-team', '2026-05-03T07:00:00Z', 'active', '["q-1","q-2"]')`,
     ).run();
     db.prepare(
       `INSERT INTO workflow_instances (instance_id, workflow_name, workflow_version, created_by_session, created_at, status, current_frontier_json)
-       VALUES ('inst-completed', 'wf', '1', 'creator@rig', '2026-05-03T07:00:00Z', 'completed', '[]')`,
+       VALUES ('inst-completed', 'wf', '1', 'creator@software-team', '2026-05-03T07:00:00Z', 'completed', '[]')`,
     ).run();
     db.prepare(
       `INSERT INTO workflow_instances (instance_id, workflow_name, workflow_version, created_by_session, created_at, status, current_frontier_json)
-       VALUES ('inst-waiting', 'wf', '1', 'creator@rig', '2026-05-03T07:00:00Z', 'waiting', '["q-3"]')`,
+       VALUES ('inst-waiting', 'wf', '1', 'creator@software-team', '2026-05-03T07:00:00Z', 'waiting', '["q-3"]')`,
     ).run();
     db.prepare(
       `INSERT INTO workflow_instances (instance_id, workflow_name, workflow_version, created_by_session, created_at, status, current_frontier_json)
-       VALUES ('inst-empty', 'wf', '1', 'creator@rig', '2026-05-03T07:00:00Z', 'active', '[]')`,
+       VALUES ('inst-empty', 'wf', '1', 'creator@software-team', '2026-05-03T07:00:00Z', 'active', '[]')`,
     ).run();
-    for (const [id, dest] of [["q-1", "owner1@rig"], ["q-2", "owner2@rig"], ["q-3", "waiter@rig"]] as const) {
+    for (const [id, dest] of [["q-1", "owner1@software-team"], ["q-2", "owner2@software-team"], ["q-3", "waiter@software-team"]] as const) {
       db.prepare(
         `INSERT INTO queue_items (qitem_id, ts_created, ts_updated, source_session, destination_session, state, priority, body)
          VALUES (?, '2026-05-03T07:00:00Z', '2026-05-03T07:00:00Z', 'src@r', ?, 'pending', 'routine', 'x')`,
@@ -64,7 +64,7 @@ describe("workflow-keepalive policy (PL-004 Phase D; POC parity, SQLite source-o
     );
     expect(out.action).toBe("send");
     if (out.action !== "send") return;
-    expect(out.target.session).toBe("owner1@rig");
+    expect(out.target.session).toBe("owner1@software-team");
     expect(out.message).toContain("Workflow keepalive");
     expect(out.message).toContain("inst-active");
     expect(out.notes?.frontierLength).toBe(2);
@@ -77,7 +77,7 @@ describe("workflow-keepalive policy (PL-004 Phase D; POC parity, SQLite source-o
     );
     expect(out.action).toBe("send");
     if (out.action !== "send") return;
-    expect(out.target.session).toBe("waiter@rig");
+    expect(out.target.session).toBe("waiter@software-team");
   });
 
   it("completed status → action=terminal with reason workflow_not_active (POC parity terminal:true)", async () => {
@@ -93,17 +93,17 @@ describe("workflow-keepalive policy (PL-004 Phase D; POC parity, SQLite source-o
   it("empty frontier with no fallback context → skip with empty_frontier", async () => {
     const policy = makeWorkflowKeepalivePolicy({ db });
     // inst-empty has empty frontier and no observer_session in context.
-    // created_by_session ('creator@rig') still counts as additional, so
+    // created_by_session ('creator@software-team') still counts as additional, so
     // this case really needs an instance whose creator + observers are
     // also unresolvable. We'll pass observer-less context against
-    // inst-empty and observe the "creator@rig" kicks in (POC parity:
+    // inst-empty and observe the "creator@software-team" kicks in (POC parity:
     // additional targets always include workflow.created_by).
     const out = await policy.evaluate(
       makeJob({ context: { workflow_instance_id: "inst-empty" } }),
     );
     expect(out.action).toBe("send");
     if (out.action !== "send") return;
-    expect(out.target.session).toBe("creator@rig");
+    expect(out.target.session).toBe("creator@software-team");
   });
 
   it("missing instance → action=terminal with reason workflow_instance_missing", async () => {
@@ -132,13 +132,13 @@ describe("workflow-keepalive policy (PL-004 Phase D; POC parity, SQLite source-o
       makeJob({
         context: {
           workflow_instance_id: "inst-active",
-          observer_session: "observer@rig",
+          observer_session: "observer@software-team",
         },
       }),
     );
     expect(out.action).toBe("send");
     if (out.action !== "send") return;
-    expect(out.notes?.additionalRoutingTargets).toContain("observer@rig");
+    expect(out.notes?.additionalRoutingTargets).toContain("observer@software-team");
   });
 
   it("LOAD-BEARING: policy reads ONLY from SQLite workflow_instances (audit row 18)", async () => {

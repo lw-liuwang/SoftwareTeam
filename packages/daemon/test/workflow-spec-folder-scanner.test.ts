@@ -25,7 +25,7 @@ const VALID_YAML = `workflow:
   version: '1'
   objective: A folder-scan fixture
   target:
-    rig: folder-fixture
+    software_team: folder-fixture
   entry:
     role: producer
   roles:
@@ -54,7 +54,7 @@ const VALID_YAML_TWO = `workflow:
   version: '1'
   objective: second fixture
   target:
-    rig: folder-fixture
+    software_team: folder-fixture
   entry:
     role: producer
   roles:
@@ -463,7 +463,7 @@ describe("scanWorkflowSpecFolder: an older version damaged by the previous diagn
     // The previous writer's in-place rewrite of the oldest row for the path (spec_json untouched).
     db.prepare(
       `UPDATE workflow_specs SET status = 'error', error_message = 'old parse error', name = 'wf.yaml', version = '',
-         purpose = NULL, target_rig = NULL, roles_json = '{}', steps_json = '[]', coordination_terminal_turn_rule = 'hot_potato'
+         purpose = NULL, target_software_team = NULL, roles_json = '{}', steps_json = '[]', coordination_terminal_turn_rule = 'hot_potato'
        WHERE spec_id = ?`,
     ).run(original.specId);
 

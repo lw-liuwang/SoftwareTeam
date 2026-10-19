@@ -4,18 +4,18 @@ import * as nodePath from "node:path";
 /**
  * OPR.0.5.3.6 — shipped topology chain-file defaults (CE-v2 as product).
  *
- * A rig spec may carry a `topology/` folder of sensible-default chain files.
- * At rig-up they install under the typed `topology.root` (see
+ * A softwareTeam spec may carry a `topology/` folder of sensible-default chain files.
+ * At software-team-up they install under the typed `topology.root` (see
  * docs/reference/chain-file-convention.md — the SSOT), at four altitudes:
  *
  *   <spec>/topology/instance/<NAME>.md      -> <topology.root>/<NAME>.md
- *   <spec>/topology/rig/<NAME>.md           -> <topology.root>/rigs/<rig>/<NAME>.md
- *   <spec>/topology/pods/<pod>/<NAME>.md    -> <topology.root>/rigs/<rig>/pods/<pod>/<NAME>.md
- *   <spec>/topology/seats/<seat>/<NAME>.md  -> <topology.root>/rigs/<rig>/seats/<seat>/<NAME>.md
+ *   <spec>/topology/softwareTeam/<NAME>.md           -> <topology.root>/software-teams/<softwareTeam>/<NAME>.md
+ *   <spec>/topology/pods/<pod>/<NAME>.md    -> <topology.root>/software-teams/<softwareTeam>/pods/<pod>/<NAME>.md
+ *   <spec>/topology/seats/<seat>/<NAME>.md  -> <topology.root>/software-teams/<softwareTeam>/seats/<seat>/<NAME>.md
  *
  * COPY-IF-ABSENT, never overwrite: a shipped default is a starting point the
- * occupying team appends to — a later rig-up must never clobber earned
- * context. Installation is best-effort per file (a rig launch never fails on
+ * occupying team appends to — a later software-team-up must never clobber earned
+ * context. Installation is best-effort per file (a SoftwareTeam launch never fails on
  * a defaults copy) but every skip/install is reported so the caller can log
  * honestly rather than silently.
  */
@@ -50,9 +50,9 @@ const realFsOps: TopologyDefaultsFsOps = {
 };
 
 export function installTopologyDefaults(input: {
-  /** The rig spec's directory (rigRoot) — `topology/` is resolved beneath it. */
+  /** The softwareTeam spec's directory (softwareTeamRoot) — `topology/` is resolved beneath it. */
   specDir: string;
-  rigName: string;
+  softwareTeamName: string;
   /** Declared pod namespaces. Their canonical directories exist even when no default file ships. */
   podIds?: string[];
   topologyRoot: string;
@@ -74,9 +74,9 @@ export function installTopologyDefaults(input: {
   // authored defaults. Create them on every materialization, including specs
   // with no topology/ source folder at all.
   ensureDir(input.topologyRoot);
-  ensureDir(nodePath.join(input.topologyRoot, "rigs", input.rigName));
+  ensureDir(nodePath.join(input.topologyRoot, "software-teams", input.softwareTeamName));
   for (const podId of input.podIds ?? []) {
-    ensureDir(nodePath.join(input.topologyRoot, "rigs", input.rigName, "pods", podId));
+    ensureDir(nodePath.join(input.topologyRoot, "software-teams", input.softwareTeamName, "pods", podId));
   }
 
   // r2 residual: the total never-throw contract has no first-line exception —
@@ -128,11 +128,11 @@ export function installTopologyDefaults(input: {
     }
   });
 
-  const rigDir = nodePath.join(topologyDir, "rig");
-  section(rigDir, () => {
-    if (!ops.isDirectory(rigDir)) return;
-    for (const name of ops.listFiles(rigDir)) {
-      copyIfAbsent(nodePath.join(rigDir, name), nodePath.join(input.topologyRoot, "rigs", input.rigName, name));
+  const softwareTeamDir = nodePath.join(topologyDir, "software-team");
+  section(softwareTeamDir, () => {
+    if (!ops.isDirectory(softwareTeamDir)) return;
+    for (const name of ops.listFiles(softwareTeamDir)) {
+      copyIfAbsent(nodePath.join(softwareTeamDir, name), nodePath.join(input.topologyRoot, "software-teams", input.softwareTeamName, name));
     }
   });
 
@@ -144,7 +144,7 @@ export function installTopologyDefaults(input: {
       for (const name of ops.listFiles(podDir)) {
         copyIfAbsent(
           nodePath.join(podDir, name),
-          nodePath.join(input.topologyRoot, "rigs", input.rigName, "pods", podId, name),
+          nodePath.join(input.topologyRoot, "software-teams", input.softwareTeamName, "pods", podId, name),
         );
       }
     });
@@ -158,7 +158,7 @@ export function installTopologyDefaults(input: {
         for (const name of ops.listFiles(nodePath.join(seatsDir, seat))) {
           copyIfAbsent(
             nodePath.join(seatsDir, seat, name),
-            nodePath.join(input.topologyRoot, "rigs", input.rigName, "seats", seat, name),
+            nodePath.join(input.topologyRoot, "software-teams", input.softwareTeamName, "seats", seat, name),
           );
         }
       });

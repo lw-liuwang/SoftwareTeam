@@ -10,7 +10,7 @@ import {
 } from "../src/host-registry.js";
 
 function withTempFile(name: string, contents: string, fn: (path: string) => void) {
-  const dir = mkdtempSync(join(tmpdir(), "openrig-host-registry-"));
+  const dir = mkdtempSync(join(tmpdir(), "softwareteam-host-registry-"));
   const path = join(dir, name);
   writeFileSync(path, contents, "utf-8");
   try {
@@ -23,15 +23,15 @@ function withTempFile(name: string, contents: string, fn: (path: string) => void
 describe("host registry — defaultHostRegistryPath", () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("returns ~/.openrig/hosts.yaml under the canonical OpenRig home", () => {
-    vi.stubEnv("OPENRIG_HOME", "");
+  it("returns ~/.softwareteam/hosts.yaml under the canonical SoftwareTeam home", () => {
+    vi.stubEnv("SOFTWARETEAM_HOME", "");
     vi.stubEnv("RIGGED_HOME", "");
-    expect(defaultHostRegistryPath()).toBe(join(homedir(), ".openrig", "hosts.yaml"));
+    expect(defaultHostRegistryPath()).toBe(join(homedir(), ".softwareteam", "hosts.yaml"));
   });
 
-  it("uses a configured OpenRig home without requiring a .openrig directory name", () => {
-    const customHome = join(tmpdir(), "custom-rig-home");
-    vi.stubEnv("OPENRIG_HOME", customHome);
+  it("uses a configured SoftwareTeam home without requiring a .softwareteam directory name", () => {
+    const customHome = join(tmpdir(), "custom-software-team-home");
+    vi.stubEnv("SOFTWARETEAM_HOME", customHome);
     expect(defaultHostRegistryPath()).toBe(join(customHome, "hosts.yaml"));
   });
 });
@@ -83,7 +83,7 @@ hosts:
   });
 
   it("returns a clear error when the registry file is missing", () => {
-    const r = loadHostRegistry("/tmp/openrig-non-existent-hosts.yaml");
+    const r = loadHostRegistry("/tmp/softwareteam-non-existent-hosts.yaml");
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.error).toContain("host registry not found");

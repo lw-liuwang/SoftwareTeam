@@ -14,7 +14,7 @@ import {
   tailLogs,
   type LifecycleDeps,
   type ProcessLiveness,
-  OPENRIG_DIR,
+  SOFTWARETEAM_DIR,
   STATE_FILE,
   resolveBindIntent,
 } from "../daemon-lifecycle.js";
@@ -92,7 +92,7 @@ export function realDeps(): LifecycleDeps {
 
   return {
     processLiveness,
-    acquireStartLock: () => acquireDaemonStartLock(OPENRIG_DIR),
+    acquireStartLock: () => acquireDaemonStartLock(SOFTWARETEAM_DIR),
     spawn: (cmd, args, opts) => spawn(cmd, args, opts as Parameters<typeof spawn>[2]),
     fetch: async (url) => {
       const res = await fetchWithTimeout(globalThis.fetch, url, {}, {
@@ -158,7 +158,7 @@ export function realDeps(): LifecycleDeps {
 
 export function daemonCommand(depsOverride?: LifecycleDeps): Command {
   const getDeps = () => depsOverride ?? realDeps();
-  const cmd = new Command("daemon").description("Manage the OpenRig daemon");
+  const cmd = new Command("daemon").description("Manage the SoftwareTeam daemon");
 
   cmd
     .command("start")
@@ -167,13 +167,13 @@ export function daemonCommand(depsOverride?: LifecycleDeps): Command {
     .option("--port <port>", "Port to listen on")
     .option("--host <host>", "Host to bind on")
     .option("--db <path>", "Database path")
-    // V0.3.1 slice 05 kernel-rig-as-default — skip the kernel auto-boot
+    // V0.3.1 slice 05 kernel-software-team-as-default — skip the kernel auto-boot
     // path. Used by test fixtures, headless CI, and operators who want
     // a no-kernel daemon for ad-hoc topology work. The daemon proceeds
     // and serves its HTTP API normally; just doesn't materialize the
-    // kernel rig.
+    // kernel softwareTeam.
     .option("--no-kernel", "Skip the kernel and its operator, which helps you start a team; for automation or when requested. Normal installation keeps the kernel")
-    // V0.3.1 slice 05 kernel-rig-as-default — forward-fix #3 architectural.
+    // V0.3.1 slice 05 kernel-software-team-as-default — forward-fix #3 architectural.
     // After the daemon's healthz binds (current behavior preserved),
     // additionally poll /api/kernel/status until kernel_state is
     // ready / partial_ready, or the timeout elapses. Used by operators
@@ -201,12 +201,12 @@ export function daemonCommand(depsOverride?: LifecycleDeps): Command {
         // never opted in to a specific host.
         const hostResolution = configStore.resolveWithSource("daemon.host");
         // S20 — bind intent comes ONLY from the dedicated surfaces: the --host flag,
-        // a FILE-sourced daemon.host, or OPENRIG_BIND_HOST. An env-sourced daemon.host
-        // is the overloaded routing channel (ENV_MAP maps it from OPENRIG_HOST — the
+        // a FILE-sourced daemon.host, or SOFTWARETEAM_BIND_HOST. An env-sourced daemon.host
+        // is the overloaded routing channel (ENV_MAP maps it from SOFTWARETEAM_HOST — the
         // exact injected state a managed environment carries) and never creates intent.
         const intent = resolveBindIntent({
           flagHost: opts.host,
-          envBindHost: process.env["OPENRIG_BIND_HOST"],
+          envBindHost: process.env["SOFTWARETEAM_BIND_HOST"],
           configSource: hostResolution.source,
           configHost: config.daemon.host,
         });
@@ -219,7 +219,7 @@ export function daemonCommand(depsOverride?: LifecycleDeps): Command {
             exec: quietPreflightExec,
             configStore,
             getDaemonStatus: () => getDaemonStatus(getDeps()),
-            openrigHome: OPENRIG_DIR,
+            softwareteamHome: SOFTWARETEAM_DIR,
           });
         const preflightResult = await preflight.run({ port: effectivePort, host: effectiveHost });
         if (!preflightResult.ready) {
@@ -247,8 +247,8 @@ export function daemonCommand(depsOverride?: LifecycleDeps): Command {
             topologyRoot: config.topology.root,
             // Live transcript tunables are read from the shared config file.
             // Only operator-provided environment overrides should mask edits.
-            // V0.3.1 slice 05 kernel-rig-as-default — propagated via
-            // OPENRIG_NO_KERNEL env var so the daemon's kernel-boot
+            // V0.3.1 slice 05 kernel-software-team-as-default — propagated via
+            // SOFTWARETEAM_NO_KERNEL env var so the daemon's kernel-boot
             // check in startup.ts honors the flag.
             skipKernelBoot: skipKernel,
           },
@@ -277,7 +277,7 @@ export function daemonCommand(depsOverride?: LifecycleDeps): Command {
                 `Reason: kernel_state=${result.kernelState ?? "unknown"}` +
                 (result.detail ? `; ${result.detail}` : "") +
                 "\n" +
-                "Fix: inspect `rig ps --rig kernel` for stalled agents, or run `claude auth status` / `codex login status` to confirm runtime auth.",
+                "Fix: inspect `SoftwareTeam ps --software-team kernel` for stalled agents, or run `claude auth status` / `codex login status` to confirm runtime auth.",
             );
             process.exitCode = 1;
           }
@@ -291,7 +291,7 @@ export function daemonCommand(depsOverride?: LifecycleDeps): Command {
   cmd
     .command("stop")
     .description("Stop the daemon (10s shutdown budget; 12s process wait; incomplete drain exits nonzero)")
-    .addHelpText("after", "\nSends at most one SIGTERM to a live target and verifies the original PID and listener. Repeated signals join shutdown.\nFor a recorded target, missing/stale receipts and incomplete drains exit nonzero, including retries.\nTarget state is retained until a matching clean receipt; status reads preserve unverified state.\nNo target is a distinct no-op, never clean-drain certification; unbound incomplete evidence stays unverified.\nInspect OPENRIG_HOME/daemon-shutdown.json and daemon.log for the phase and outcome.\nThe bound covers asynchronous shutdown; an event-loop wedge still requires operator recovery.\n")
+    .addHelpText("after", "\nSends at most one SIGTERM to a live target and verifies the original PID and listener. Repeated signals join shutdown.\nFor a recorded target, missing/stale receipts and incomplete drains exit nonzero, including retries.\nTarget state is retained until a matching clean receipt; status reads preserve unverified state.\nNo target is a distinct no-op, never clean-drain certification; unbound incomplete evidence stays unverified.\nInspect SOFTWARETEAM_HOME/daemon-shutdown.json and daemon.log for the phase and outcome.\nThe bound covers asynchronous shutdown; an event-loop wedge still requires operator recovery.\n")
     .action(async () => {
       try {
         const outcome = await stopDaemon(getDeps());
@@ -327,7 +327,7 @@ export function daemonCommand(depsOverride?: LifecycleDeps): Command {
                 + `utilization ${(el.utilization * 100).toFixed(0)}%, last-tick age ${el.lastTickAgeMs.toFixed(0)}ms`,
               );
             }
-            console.log("  Recovery: restart the daemon only (`rig daemon stop && rig daemon start`) — this preserves the tmux seats.");
+            console.log("  Recovery: restart the daemon only (`SoftwareTeam daemon stop && SoftwareTeam daemon start`) — this preserves the tmux seats.");
           } else {
             console.log(`Daemon running on port ${status.port}${pidSuffix}`);
           }
@@ -341,13 +341,13 @@ export function daemonCommand(depsOverride?: LifecycleDeps): Command {
         case "unverified":
           // 1ae863d2 — C3 semantics: we could NOT confirm up or down; never claim stopped.
           if (status.siblingHint) {
-            console.log("Daemon state UNVERIFIED — the resolved OPENRIG_HOME has no daemon state, but a live daemon appears under a sibling home:");
+            console.log("Daemon state UNVERIFIED — the resolved SOFTWARETEAM_HOME has no daemon state, but a live daemon appears under a sibling home:");
             console.log(`  resolved: ${status.siblingHint.resolvedHome}`);
             console.log(`  sibling:  ${status.siblingHint.siblingHome}`);
-            console.log("  Fix: point OPENRIG_HOME at the right home (or check your shell env) — this CLI is likely resolving the wrong home.");
+            console.log("  Fix: point SOFTWARETEAM_HOME at the right home (or check your shell env) — this CLI is likely resolving the wrong home.");
           } else {
             console.log("Daemon state UNVERIFIED — the probe timed out or was inconclusive (this is NOT evidence the daemon is down).");
-            console.log("  Re-check with: rig daemon status  ·  direct: curl the daemon /healthz");
+            console.log("  Re-check with: SoftwareTeam daemon status  ·  direct: curl the daemon /healthz");
           }
           break;
       }

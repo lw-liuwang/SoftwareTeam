@@ -302,7 +302,7 @@ export function VerbActions({
                   data-testid="mc-verb-destination-input"
                   value={destinationSession}
                   onChange={(e) => setDestinationSession(e.target.value)}
-                  placeholder="destination session (member@rig)"
+                  placeholder="destination session (member@software-team)"
                   className="w-full border border-outline-variant px-2 py-1 font-mono text-xs"
                 />
               ) : null}

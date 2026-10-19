@@ -1,19 +1,19 @@
 import { join } from "node:path";
 
-export function contextUsageDirectory(openrigHome: string): string {
-  return join(openrigHome, "state", "context-usage");
+export function contextUsageDirectory(softwareteamHome: string): string {
+  return join(softwareteamHome, "state", "context-usage");
 }
 
-export function legacyContextUsageDirectory(openrigHome: string): string {
-  return join(openrigHome, "context");
+export function legacyContextUsageDirectory(softwareteamHome: string): string {
+  return join(softwareteamHome, "context");
 }
 
-export function providerUsageDirectory(openrigHome: string): string {
-  return join(openrigHome, "state", "provider-usage");
+export function providerUsageDirectory(softwareteamHome: string): string {
+  return join(softwareteamHome, "state", "provider-usage");
 }
 
-export function legacyProviderUsageDirectory(openrigHome: string): string {
-  return join(openrigHome, "provider-usage");
+export function legacyProviderUsageDirectory(softwareteamHome: string): string {
+  return join(softwareteamHome, "provider-usage");
 }
 
 export function telemetrySidecarFilename(sessionName: string): string {

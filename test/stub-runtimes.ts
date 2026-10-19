@@ -24,11 +24,11 @@ const STUBS = {
   },
 } as const;
 
-const STUB_NAME = ".openrig-test-runtime-stubs";
+const STUB_NAME = ".softwareteam-test-runtime-stubs";
 
 /** True when a test run opted into the host's real runtimes (the existing E2E opt-in). */
 export function realRuntimesRequested(env: Record<string, string | undefined> = process.env): boolean {
-  return env["OPENRIG_E2E_REAL_CODEX"] === "1";
+  return env["SOFTWARETEAM_E2E_REAL_CODEX"] === "1";
 }
 
 /**

@@ -58,9 +58,9 @@ describe("HistoryQuery", () => {
 
   describe("search", () => {
     it("searches transcripts with rg backend", async () => {
-      const rigDir = join(tmpDir, "my-rig");
-      mkdirSync(rigDir, { recursive: true });
-      writeFileSync(join(rigDir, "dev-impl.log"), "line1 deployment started\nline2 nothing\nline3 deployment done\n");
+      const softwareTeamDir = join(tmpDir, "my-software-team");
+      mkdirSync(softwareTeamDir, { recursive: true });
+      writeFileSync(join(softwareTeamDir, "dev-impl.log"), "line1 deployment started\nline2 nothing\nline3 deployment done\n");
 
       const exec: ExecDep = vi.fn(async (_cmd: string, _args: string[]) => ({
         stdout: "line1 deployment started\nline3 deployment done\n",
@@ -68,7 +68,7 @@ describe("HistoryQuery", () => {
       }));
 
       const hq = new HistoryQuery({ transcriptsRoot: tmpDir, exec });
-      const result = await hq.search("my-rig", "what about deployment?");
+      const result = await hq.search("my-software-team", "what about deployment?");
 
       expect(result.backend).toBe("rg");
       expect(result.excerpts.length).toBeGreaterThan(0);
@@ -78,9 +78,9 @@ describe("HistoryQuery", () => {
     });
 
     it("falls back to grep when rg exits with code >= 2 (not found)", async () => {
-      const rigDir = join(tmpDir, "my-rig");
-      mkdirSync(rigDir, { recursive: true });
-      writeFileSync(join(rigDir, "session.log"), "test error handling\n");
+      const softwareTeamDir = join(tmpDir, "my-software-team");
+      mkdirSync(softwareTeamDir, { recursive: true });
+      writeFileSync(join(softwareTeamDir, "session.log"), "test error handling\n");
 
       let callCount = 0;
       const exec: ExecDep = vi.fn(async (cmd: string, _args: string[]) => {
@@ -96,16 +96,16 @@ describe("HistoryQuery", () => {
       });
 
       const hq = new HistoryQuery({ transcriptsRoot: tmpDir, exec });
-      const result = await hq.search("my-rig", "error handling");
+      const result = await hq.search("my-software-team", "error handling");
 
       expect(result.backend).toBe("grep");
       expect(callCount).toBe(2);
     });
 
     it("returns no excerpts when rg exit code 1 (no matches)", async () => {
-      const rigDir = join(tmpDir, "my-rig");
-      mkdirSync(rigDir, { recursive: true });
-      writeFileSync(join(rigDir, "session.log"), "unrelated content\n");
+      const softwareTeamDir = join(tmpDir, "my-software-team");
+      mkdirSync(softwareTeamDir, { recursive: true });
+      writeFileSync(join(softwareTeamDir, "session.log"), "unrelated content\n");
 
       const exec: ExecDep = vi.fn(async () => ({
         stdout: "",
@@ -113,20 +113,20 @@ describe("HistoryQuery", () => {
       }));
 
       const hq = new HistoryQuery({ transcriptsRoot: tmpDir, exec });
-      const result = await hq.search("my-rig", "deployment strategy");
+      const result = await hq.search("my-software-team", "deployment strategy");
 
       expect(result.excerpts).toEqual([]);
       expect(result.insufficient).toBe(true);
     });
 
     it("returns insufficient for empty keywords", async () => {
-      const rigDir = join(tmpDir, "my-rig");
-      mkdirSync(rigDir, { recursive: true });
+      const softwareTeamDir = join(tmpDir, "my-software-team");
+      mkdirSync(softwareTeamDir, { recursive: true });
 
       const exec: ExecDep = vi.fn();
 
       const hq = new HistoryQuery({ transcriptsRoot: tmpDir, exec });
-      const result = await hq.search("my-rig", "what is the");
+      const result = await hq.search("my-software-team", "what is the");
 
       expect(result.insufficient).toBe(true);
       expect(result.excerpts).toEqual([]);
@@ -137,7 +137,7 @@ describe("HistoryQuery", () => {
       const exec: ExecDep = vi.fn();
 
       const hq = new HistoryQuery({ transcriptsRoot: tmpDir, exec });
-      const result = await hq.search("nonexistent-rig", "some query");
+      const result = await hq.search("nonexistent-software-team", "some query");
 
       expect(result.insufficient).toBe(true);
       expect(result.noTranscriptDir).toBe(true);
@@ -145,14 +145,14 @@ describe("HistoryQuery", () => {
     });
 
     it("returns error when both rg and grep fail (exit code 2+)", async () => {
-      const rigDir = join(tmpDir, "my-rig");
-      mkdirSync(rigDir, { recursive: true });
-      writeFileSync(join(rigDir, "dev.log"), "some content\n");
+      const softwareTeamDir = join(tmpDir, "my-software-team");
+      mkdirSync(softwareTeamDir, { recursive: true });
+      writeFileSync(join(softwareTeamDir, "dev.log"), "some content\n");
 
       const exec: ExecDep = vi.fn(async () => ({ stdout: "", exitCode: 2 }));
 
       const hq = new HistoryQuery({ transcriptsRoot: tmpDir, exec });
-      const result = await hq.search("my-rig", "deployment strategy");
+      const result = await hq.search("my-software-team", "deployment strategy");
 
       expect(result.insufficient).toBe(true);
       expect(result.backend).toBe("none");
@@ -160,9 +160,9 @@ describe("HistoryQuery", () => {
     });
 
     it("strips ANSI from excerpts", async () => {
-      const rigDir = join(tmpDir, "my-rig");
-      mkdirSync(rigDir, { recursive: true });
-      writeFileSync(join(rigDir, "session.log"), "content\n");
+      const softwareTeamDir = join(tmpDir, "my-software-team");
+      mkdirSync(softwareTeamDir, { recursive: true });
+      writeFileSync(join(softwareTeamDir, "session.log"), "content\n");
 
       const exec: ExecDep = vi.fn(async () => ({
         stdout: "\x1b[1mdeployment\x1b[0m started\n\x1b[32mdeployment\x1b[0m finished\n",
@@ -170,7 +170,7 @@ describe("HistoryQuery", () => {
       }));
 
       const hq = new HistoryQuery({ transcriptsRoot: tmpDir, exec });
-      const result = await hq.search("my-rig", "deployment status");
+      const result = await hq.search("my-software-team", "deployment status");
 
       for (const excerpt of result.excerpts) {
         expect(excerpt).not.toContain("\x1b[");

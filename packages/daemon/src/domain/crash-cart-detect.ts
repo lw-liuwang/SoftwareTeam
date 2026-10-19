@@ -2,11 +2,11 @@
 //
 // THREE states — the cockpit + the C2 direct read fire ONLY on DOWN, and DOWN requires POSITIVE
 // evidence. A probe blip must NEVER fabricate a crash narrative or offer RESTORE EVERYTHING:
-//   UP         — /healthz answered (openrig is serving).
+//   UP         — /healthz answered (softwareteam is serving).
 //   DOWN       — (no daemon.json OR pid dead) AND /healthz connection-REFUSED. REFUSED is the ONLY
 //                strong down signal; a timeout NEVER promotes to DOWN (at any retry count).
 //   UNVERIFIED — everything else: timeout, a wedged daemon (pid alive but refused/unresponsive), or a
-//                non-openrig process on the port. Renders its own minimal screen, never the cockpit.
+//                non-softwareteam process on the port. Renders its own minimal screen, never the cockpit.
 //
 // All probes + the clock are injected so the verdict is deterministically testable.
 
@@ -16,7 +16,7 @@ export type DaemonState = "up" | "down" | "unverified";
 
 /** The /healthz probe outcome — distinguishes a REFUSED connection (strong down) from a TIMEOUT
  *  (unverified) from a foreign occupant (unverified). */
-export type HealthzProbeResult = "answered" | "refused" | "timeout" | "not-openrig";
+export type HealthzProbeResult = "answered" | "refused" | "timeout" | "not-softwareteam";
 
 /** Verbatim evidence rendered on the UNVERIFIED screen (never a crash story — the honest "we cannot
  *  confirm the daemon is down" record). Assembled by the caller from the pid check + last probe. */
@@ -34,19 +34,19 @@ export interface DaemonStateFile {
 }
 
 export interface ClassifyDaemonDeps {
-  openrigHome: string;
-  readDaemonJson: (openrigHome: string) => DaemonStateFile | undefined;
+  softwareteamHome: string;
+  readDaemonJson: (softwareteamHome: string) => DaemonStateFile | undefined;
   isProcessAlive: (pid: number) => boolean;
   probeHealthz: (url: string) => Promise<HealthzProbeResult>;
-  openrigUrl?: string;
+  softwareteamUrl?: string;
 }
 
 const DEFAULT_HOST = "127.0.0.1";
-const DEFAULT_PORT = 7433;
+const DEFAULT_PORT = 7434;
 
 function healthzUrl(deps: ClassifyDaemonDeps, state: DaemonStateFile | undefined): string {
-  if (deps.openrigUrl && deps.openrigUrl.trim().length > 0) {
-    const base = deps.openrigUrl.trim();
+  if (deps.softwareteamUrl && deps.softwareteamUrl.trim().length > 0) {
+    const base = deps.softwareteamUrl.trim();
     return `${base.endsWith("/") ? base.slice(0, -1) : base}/healthz`;
   }
   const host = state?.host ?? DEFAULT_HOST;
@@ -59,7 +59,7 @@ function healthzUrl(deps: ClassifyDaemonDeps, state: DaemonStateFile | undefined
  * DOWN only on positive evidence (pid dead/absent AND refused); UP on answered; else UNVERIFIED.
  */
 export async function classifyDaemonState(deps: ClassifyDaemonDeps): Promise<DaemonState> {
-  const state = deps.readDaemonJson(deps.openrigHome);
+  const state = deps.readDaemonJson(deps.softwareteamHome);
   const pidDeadOrAbsent = !state || !deps.isProcessAlive(state.pid);
   const probe = await deps.probeHealthz(healthzUrl(deps, state));
   if (probe === "answered") return "up";

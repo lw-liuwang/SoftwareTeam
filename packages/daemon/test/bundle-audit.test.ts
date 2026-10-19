@@ -27,7 +27,7 @@ function mockFs(): BundleAuditFsOps & { _state: Map<string, string>; _mkdirpCall
   };
 }
 
-const FIXTURE_PATH = "/test/.openrig/bundle-audit.jsonl";
+const FIXTURE_PATH = "/test/.softwareteam/bundle-audit.jsonl";
 
 function makeWriter(fs: BundleAuditFsOps) {
   return new BundleAuditWriter({ opts: { auditPath: FIXTURE_PATH }, fsOps: fs });
@@ -40,10 +40,10 @@ function makeReader(fs: BundleAuditFsOps) {
 function record(overrides?: Partial<BundleAuditRecord>): BundleAuditRecord {
   return {
     installedAt: "2026-05-18T12:00:00Z",
-    bundlePath: "/tmp/test.rigbundle",
+    bundlePath: "/tmp/test.softwareteambundle",
     archiveHash: "a".repeat(64),
-    targetRigId: "01H000000000000000000001",
-    targetRigName: "test-rig",
+    targetSoftwareTeamId: "01H000000000000000000001",
+    targetSoftwareTeamName: "test-software-team",
     sourceHost: "test-host.local",
     daemonVersion: "0.3.2",
     cliVersion: "0.3.2",
@@ -78,45 +78,45 @@ describe("BundleAuditWriter + BundleAuditReader", () => {
     const writer = makeWriter(fs);
     writer.append(record());
     expect(fs._mkdirpCalls.length).toBeGreaterThan(0);
-    expect(fs._mkdirpCalls[0]).toBe("/test/.openrig");
+    expect(fs._mkdirpCalls[0]).toBe("/test/.softwareteam");
   });
 
   // A4: each record is one JSONL line terminated by newline
   it("each append writes exactly one JSON object followed by a newline (JSONL format)", () => {
     const fs = mockFs();
     const writer = makeWriter(fs);
-    writer.append(record({ targetRigName: "rig-a" }));
-    writer.append(record({ targetRigName: "rig-b" }));
+    writer.append(record({ targetSoftwareTeamName: "software-team-a" }));
+    writer.append(record({ targetSoftwareTeamName: "software-team-b" }));
     const raw = fs._state.get(FIXTURE_PATH)!;
     const lines = raw.split("\n");
     // Two records → two non-empty lines + a trailing empty (from trailing \n)
     expect(lines.length).toBe(3);
     expect(lines[2]).toBe("");
-    expect(JSON.parse(lines[0]!).targetRigName).toBe("rig-a");
-    expect(JSON.parse(lines[1]!).targetRigName).toBe("rig-b");
+    expect(JSON.parse(lines[0]!).targetSoftwareTeamName).toBe("software-team-a");
+    expect(JSON.parse(lines[1]!).targetSoftwareTeamName).toBe("software-team-b");
   });
 
   // A5: list returns records in append order
   it("list returns records in append order (oldest first)", () => {
     const fs = mockFs();
     const writer = makeWriter(fs);
-    writer.append(record({ installedAt: "2026-05-18T10:00:00Z", targetRigName: "rig-a" }));
-    writer.append(record({ installedAt: "2026-05-18T11:00:00Z", targetRigName: "rig-b" }));
-    writer.append(record({ installedAt: "2026-05-18T12:00:00Z", targetRigName: "rig-c" }));
+    writer.append(record({ installedAt: "2026-05-18T10:00:00Z", targetSoftwareTeamName: "software-team-a" }));
+    writer.append(record({ installedAt: "2026-05-18T11:00:00Z", targetSoftwareTeamName: "software-team-b" }));
+    writer.append(record({ installedAt: "2026-05-18T12:00:00Z", targetSoftwareTeamName: "software-team-c" }));
     const out = makeReader(fs).list();
-    expect(out.map((r) => r.targetRigName)).toEqual(["rig-a", "rig-b", "rig-c"]);
+    expect(out.map((r) => r.targetSoftwareTeamName)).toEqual(["software-team-a", "software-team-b", "software-team-c"]);
   });
 
-  // A6: rig filter scopes to matching records
-  it("rig filter returns only records whose targetRigName matches", () => {
+  // A6: softwareTeam filter scopes to matching records
+  it("SoftwareTeam filter returns only records whose targetSoftwareTeamName matches", () => {
     const fs = mockFs();
     const writer = makeWriter(fs);
-    writer.append(record({ targetRigName: "alpha" }));
-    writer.append(record({ targetRigName: "beta" }));
-    writer.append(record({ targetRigName: "alpha" }));
-    const out = makeReader(fs).list({ rig: "alpha" });
+    writer.append(record({ targetSoftwareTeamName: "alpha" }));
+    writer.append(record({ targetSoftwareTeamName: "beta" }));
+    writer.append(record({ targetSoftwareTeamName: "alpha" }));
+    const out = makeReader(fs).list({ softwareTeam: "alpha" });
     expect(out).toHaveLength(2);
-    expect(out.every((r) => r.targetRigName === "alpha")).toBe(true);
+    expect(out.every((r) => r.targetSoftwareTeamName === "alpha")).toBe(true);
   });
 
   // A7: since filter scopes to records at-or-after the cutoff
@@ -134,14 +134,14 @@ describe("BundleAuditWriter + BundleAuditReader", () => {
     ]);
   });
 
-  // A8: combined rig + since filters
-  it("rig + since filters both apply (AND semantics)", () => {
+  // A8: combined softwareTeam + since filters
+  it("softwareTeam + since filters both apply (AND semantics)", () => {
     const fs = mockFs();
     const writer = makeWriter(fs);
-    writer.append(record({ installedAt: "2026-05-18T10:00:00Z", targetRigName: "alpha" }));
-    writer.append(record({ installedAt: "2026-05-18T11:00:00Z", targetRigName: "beta" }));
-    writer.append(record({ installedAt: "2026-05-18T12:00:00Z", targetRigName: "alpha" }));
-    const out = makeReader(fs).list({ rig: "alpha", since: "2026-05-18T11:00:00Z" });
+    writer.append(record({ installedAt: "2026-05-18T10:00:00Z", targetSoftwareTeamName: "alpha" }));
+    writer.append(record({ installedAt: "2026-05-18T11:00:00Z", targetSoftwareTeamName: "beta" }));
+    writer.append(record({ installedAt: "2026-05-18T12:00:00Z", targetSoftwareTeamName: "alpha" }));
+    const out = makeReader(fs).list({ softwareTeam: "alpha", since: "2026-05-18T11:00:00Z" });
     expect(out).toHaveLength(1);
     expect(out[0]!.installedAt).toBe("2026-05-18T12:00:00Z");
   });
@@ -150,22 +150,22 @@ describe("BundleAuditWriter + BundleAuditReader", () => {
   it("malformed JSONL lines are skipped silently; valid lines still surface", () => {
     const fs = mockFs();
     fs._state.set(FIXTURE_PATH, [
-      JSON.stringify(record({ targetRigName: "a" })),
+      JSON.stringify(record({ targetSoftwareTeamName: "a" })),
       "not-valid-json{",
-      JSON.stringify(record({ targetRigName: "b" })),
+      JSON.stringify(record({ targetSoftwareTeamName: "b" })),
     ].join("\n") + "\n");
     const out = makeReader(fs).list();
     expect(out).toHaveLength(2);
-    expect(out.map((r) => r.targetRigName)).toEqual(["a", "b"]);
+    expect(out.map((r) => r.targetSoftwareTeamName)).toEqual(["a", "b"]);
   });
 
   // A10: outcome field is preserved literally (success / failed / partial)
   it("outcome field round-trips for all three values", () => {
     const fs = mockFs();
     const writer = makeWriter(fs);
-    writer.append(record({ outcome: "success", targetRigName: "ok" }));
-    writer.append(record({ outcome: "failed", targetRigName: "bad" }));
-    writer.append(record({ outcome: "partial", targetRigName: "halfway" }));
+    writer.append(record({ outcome: "success", targetSoftwareTeamName: "ok" }));
+    writer.append(record({ outcome: "failed", targetSoftwareTeamName: "bad" }));
+    writer.append(record({ outcome: "partial", targetSoftwareTeamName: "halfway" }));
     const out = makeReader(fs).list();
     expect(out.map((r) => r.outcome)).toEqual(["success", "failed", "partial"]);
   });

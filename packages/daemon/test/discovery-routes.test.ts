@@ -31,9 +31,9 @@ describe("Discovery API routes", () => {
     return `ds-${tmuxSession}-${tmuxPane}`;
   }
 
-  function seedRig() {
-    const rig = setup.rigRepo.createRig("test-rig");
-    return rig;
+  function seedSoftwareTeam() {
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("test-software-team");
+    return softwareTeam;
   }
 
   // T1: POST /scan returns discovered sessions
@@ -103,13 +103,13 @@ describe("Discovery API routes", () => {
   // T4: POST /:id/bind success -> 201 (bind to existing node)
   it("POST /api/discovery/:id/bind attaches to existing node", async () => {
     const id = seedDiscovery();
-    const rig = seedRig();
-    setup.rigRepo.addNode(rig.id, "orch.lead", { runtime: "claude-code", cwd: "/workspace" });
+    const softwareTeam = seedSoftwareTeam();
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "orch.lead", { runtime: "claude-code", cwd: "/workspace" });
 
     const res = await app.request(`/api/discovery/${id}/bind`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: rig.id, logicalId: "orch.lead" }),
+      body: JSON.stringify({ softwareTeamId: softwareTeam.id, logicalId: "orch.lead" }),
     });
 
     expect(res.status).toBe(201);
@@ -120,13 +120,13 @@ describe("Discovery API routes", () => {
 
   it("POST /api/discovery/:id/bind binds into an existing managed node", async () => {
     const id = seedDiscovery();
-    const rig = seedRig();
-    setup.rigRepo.addNode(rig.id, "orch.lead", { runtime: "claude-code", cwd: "/workspace" });
+    const softwareTeam = seedSoftwareTeam();
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "orch.lead", { runtime: "claude-code", cwd: "/workspace" });
 
     const res = await app.request(`/api/discovery/${id}/bind`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: rig.id, logicalId: "orch.lead" }),
+      body: JSON.stringify({ softwareTeamId: softwareTeam.id, logicalId: "orch.lead" }),
     });
 
     expect(res.status).toBe(201);
@@ -137,14 +137,14 @@ describe("Discovery API routes", () => {
 
   it("POST /api/discovery/:id/adopt binds into an existing managed node target", async () => {
     const id = seedDiscovery();
-    const rig = seedRig();
-    setup.rigRepo.addNode(rig.id, "orch.lead", { runtime: "claude-code", cwd: "/workspace" });
+    const softwareTeam = seedSoftwareTeam();
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "orch.lead", { runtime: "claude-code", cwd: "/workspace" });
 
     const res = await app.request(`/api/discovery/${id}/adopt`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        rigId: rig.id,
+        softwareTeamId: softwareTeam.id,
         target: { kind: "node", logicalId: "orch.lead" },
       }),
     });
@@ -158,15 +158,15 @@ describe("Discovery API routes", () => {
 
   it("POST /api/discovery/:id/adopt creates a new node inside a pod target and binds it", async () => {
     const id = seedDiscovery("research-scout", "%2");
-    const rig = seedRig();
-    db.prepare("INSERT INTO pods (id, rig_id, namespace, label) VALUES (?, ?, ?, ?)").run("pod-research", rig.id, "research", "Research");
-    setup.rigRepo.addNode(rig.id, "research.mapper", { runtime: "claude-code", podId: "pod-research" });
+    const softwareTeam = seedSoftwareTeam();
+    db.prepare("INSERT INTO pods (id, software_team_id, namespace, label) VALUES (?, ?, ?, ?)").run("pod-research", softwareTeam.id, "research", "Research");
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "research.mapper", { runtime: "claude-code", podId: "pod-research" });
 
     const res = await app.request(`/api/discovery/${id}/adopt`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        rigId: rig.id,
+        softwareTeamId: softwareTeam.id,
         target: { kind: "pod", podId: "pod-research", podNamespace: "research", memberName: "scout" },
       }),
     });
@@ -177,36 +177,36 @@ describe("Discovery API routes", () => {
     expect(body.action).toBe("create_and_bind");
     expect(body.logicalId).toBe("research.scout");
 
-    const claimedNode = setup.rigRepo.getRig(rig.id)?.nodes.find((node) => node.logicalId === "research.scout");
+    const claimedNode = setup.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)?.nodes.find((node) => node.logicalId === "research.scout");
     expect(claimedNode?.podId).toBe("pod-research");
     expect(claimedNode?.binding?.tmuxSession).toBe("research-scout");
   });
 
   // T5a: Bind nonexistent discovery -> 404
   it("bind nonexistent discovery returns 404", async () => {
-    const rig = seedRig();
-    setup.rigRepo.addNode(rig.id, "orch.lead", { runtime: "claude-code" });
+    const softwareTeam = seedSoftwareTeam();
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "orch.lead", { runtime: "claude-code" });
     const res = await app.request("/api/discovery/nonexistent/bind", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: rig.id, logicalId: "orch.lead" }),
+      body: JSON.stringify({ softwareTeamId: softwareTeam.id, logicalId: "orch.lead" }),
     });
     expect(res.status).toBe(404);
   });
 
-  // T5b: Bind into nonexistent rig -> 404
-  it("bind into nonexistent rig returns 404", async () => {
+  // T5b: Bind into nonexistent softwareTeam -> 404
+  it("bind into nonexistent SoftwareTeam returns 404", async () => {
     const id = seedDiscovery();
     const res = await app.request(`/api/discovery/${id}/bind`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: "nonexistent-rig", logicalId: "some-node" }),
+      body: JSON.stringify({ softwareTeamId: "nonexistent-software-team", logicalId: "some-node" }),
     });
     expect(res.status).toBe(404);
   });
 
-  // T5c: Missing rigId -> 400
-  it("claim with missing rigId returns 400", async () => {
+  // T5c: Missing softwareTeamId -> 400
+  it("claim with missing softwareTeamId returns 400", async () => {
     const id = seedDiscovery();
     const res = await app.request(`/api/discovery/${id}/bind`, {
       method: "POST",
@@ -218,11 +218,11 @@ describe("Discovery API routes", () => {
 
   it("bind with missing logicalId returns 400", async () => {
     const id = seedDiscovery();
-    const rig = seedRig();
+    const softwareTeam = seedSoftwareTeam();
     const res = await app.request(`/api/discovery/${id}/bind`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: rig.id }),
+      body: JSON.stringify({ softwareTeamId: softwareTeam.id }),
     });
     expect(res.status).toBe(400);
   });
@@ -230,22 +230,22 @@ describe("Discovery API routes", () => {
   // T6a: Already bound -> 409
   it("bind already-bound session returns 409", async () => {
     const id = seedDiscovery();
-    const rig = seedRig();
-    setup.rigRepo.addNode(rig.id, "node-a", { runtime: "claude-code" });
-    setup.rigRepo.addNode(rig.id, "node-b", { runtime: "claude-code" });
+    const softwareTeam = seedSoftwareTeam();
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "node-a", { runtime: "claude-code" });
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "node-b", { runtime: "claude-code" });
 
     // Bind once
     await app.request(`/api/discovery/${id}/bind`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: rig.id, logicalId: "node-a" }),
+      body: JSON.stringify({ softwareTeamId: softwareTeam.id, logicalId: "node-a" }),
     });
 
     // Bind same discovery again -> session is already claimed
     const res = await app.request(`/api/discovery/${id}/bind`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: rig.id, logicalId: "node-b" }),
+      body: JSON.stringify({ softwareTeamId: softwareTeam.id, logicalId: "node-b" }),
     });
     expect(res.status).toBe(409);
   });
@@ -254,21 +254,21 @@ describe("Discovery API routes", () => {
   it("bind to already-bound node returns 409", async () => {
     const id1 = seedDiscovery("s1", "%0");
     const id2 = seedDiscovery("s2", "%0");
-    const rig = seedRig();
-    setup.rigRepo.addNode(rig.id, "dev", { runtime: "claude-code" });
+    const softwareTeam = seedSoftwareTeam();
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "dev", { runtime: "claude-code" });
 
     // Bind first session to dev
     await app.request(`/api/discovery/${id1}/bind`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: rig.id, logicalId: "dev" }),
+      body: JSON.stringify({ softwareTeamId: softwareTeam.id, logicalId: "dev" }),
     });
 
     // Bind second session to same node -> 409 (already bound)
     const res = await app.request(`/api/discovery/${id2}/bind`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: rig.id, logicalId: "dev" }),
+      body: JSON.stringify({ softwareTeamId: softwareTeam.id, logicalId: "dev" }),
     });
     expect(res.status).toBe(409);
   });
@@ -347,31 +347,31 @@ describe("Discovery API routes", () => {
   // T12c: POST /:id/bind -> node.claimed event
   it("POST /:id/bind emits node.claimed event", async () => {
     const id = seedDiscovery();
-    const rig = seedRig();
-    setup.rigRepo.addNode(rig.id, "orch.lead", { runtime: "claude-code" });
+    const softwareTeam = seedSoftwareTeam();
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "orch.lead", { runtime: "claude-code" });
 
     await app.request(`/api/discovery/${id}/bind`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: rig.id, logicalId: "orch.lead" }),
+      body: JSON.stringify({ softwareTeamId: softwareTeam.id, logicalId: "orch.lead" }),
     });
 
     const events = getEvents(db).filter((e) => e.type === "node.claimed");
     expect(events).toHaveLength(1);
     const payload = JSON.parse(events[0]!.payload);
-    expect(payload.rigId).toBe(rig.id);
+    expect(payload.softwareTeamId).toBe(softwareTeam.id);
   });
 
-  // T13: POST /:id/bind sets @rigged_* tmux metadata through the async HTTP path
+  // T13: POST /:id/bind sets @softwareteam_* tmux metadata through the async HTTP path
   it("POST /:id/bind sets tmux metadata on the adopted session", async () => {
     const id = seedDiscovery("claimed-target", "%0");
-    const rig = seedRig();
-    setup.rigRepo.addNode(rig.id, "orch.lead", { runtime: "claude-code" });
+    const softwareTeam = seedSoftwareTeam();
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "orch.lead", { runtime: "claude-code" });
 
     const res = await app.request(`/api/discovery/${id}/bind`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: rig.id, logicalId: "orch.lead" }),
+      body: JSON.stringify({ softwareTeamId: softwareTeam.id, logicalId: "orch.lead" }),
     });
 
     expect(res.status).toBe(201);
@@ -386,10 +386,10 @@ describe("Discovery API routes", () => {
       expect(call[0]).toBe("claimed-target");
     }
     const metaMap = new Map(calls.map((c: [string, string, string]) => [c[1], c[2]]));
-    expect(metaMap.get("@rigged_node_id")).toBe(body.nodeId);
-    expect(metaMap.get("@rigged_session_name")).toBe("claimed-target");
-    expect(metaMap.get("@rigged_rig_id")).toBe(rig.id);
-    expect(metaMap.get("@rigged_rig_name")).toBe("test-rig");
-    expect(metaMap.get("@rigged_logical_id")).toBe("orch.lead");
+    expect(metaMap.get("@softwareteam_node_id")).toBe(body.nodeId);
+    expect(metaMap.get("@softwareteam_session_name")).toBe("claimed-target");
+    expect(metaMap.get("@softwareteam_software_team_id")).toBe(softwareTeam.id);
+    expect(metaMap.get("@softwareteam_software_team_name")).toBe("test-software-team");
+    expect(metaMap.get("@softwareteam_logical_id")).toBe("orch.lead");
   });
 });

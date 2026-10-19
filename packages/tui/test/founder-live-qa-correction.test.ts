@@ -28,7 +28,7 @@ function missionSnapshot(count = 14): FleetSnapshot {
   const q1 = ids.slice(0, 2).map((slice, i) => ({
     qitem_id: `qitem-${i + 1}`,
     slice,
-    seat: `dev-${i + 1}@rig`,
+    seat: `dev-${i + 1}@software-team`,
     activity: {
       activity: i === 0 ? "working" : "idle-at-prompt",
       needs_input: { count: i === 1 ? 1 : 0, reason: i === 1 ? "founder choice" : null },
@@ -198,17 +198,17 @@ describe("founder live-QA correction — truthful explorer disclosures", () => {
     const line = screen.lines[rowIndex]!;
     const glyph = hitAt(screen, line.indexOf("›") + 1, rowIndex + 1)!;
     const label = hitAt(screen, line.indexOf("dev50") + 1, rowIndex + 1)!;
-    expect(glyph.action).toEqual({ type: "toggle-expand", key: "pod:vm-host/openrig-build/dev50" });
-    expect(label.action).toEqual({ type: "drill", resource: "pod", name: "dev50", target: { host: "vm-host", rig: "openrig-build" } });
+    expect(glyph.action).toEqual({ type: "toggle-expand", key: "pod:vm-host/softwareteam-build/dev50" });
+    expect(label.action).toEqual({ type: "drill", resource: "pod", name: "dev50", target: { host: "vm-host", softwareTeam: "softwareteam-build" } });
     view.dispatch(glyph.action);
-    expect(view.get().expanded).toContain("pod:vm-host/openrig-build/dev50");
+    expect(view.get().expanded).toContain("pod:vm-host/softwareteam-build/dev50");
     expect(view.get().drill).toEqual([]);
   });
 });
 
 function agentZoomSnapshot(): FleetSnapshot {
   const snap = demoSnapshot();
-  const guard = snap.hosts[0]!.rigs[0]!.pods[0]!.agents.find((agent) => agent.name === "dev50.guard")!;
+  const guard = snap.hosts[0]!.softwareTeams[0]!.pods[0]!.agents.find((agent) => agent.name === "dev50.guard")!;
   Object.assign(guard, {
     context: 69,
     contextWindowSize: 258400,
@@ -235,7 +235,7 @@ function agentZoomSnapshot(): FleetSnapshot {
   }];
   snap.blocked = [{
     qitemId: "qitem-blocked-agent-zoom-fedcba", state: "blocked", destinationSession: guard.session!, blockedOn: "qitem-upstream-runtime-slot",
-    blockerSession: "review-r2@openrig-build", handedOffTo: null, tier: "deep", tags: ["slice:OPR.0.5.9.11"],
+    blockerSession: "review-r2@softwareteam-build", handedOffTo: null, tier: "deep", tags: ["slice:OPR.0.5.9.11"],
     summary: "Waiting for the exact runtime slot verdict", body: "", claimedAt: "2026-09-03T21:00:00.000Z", tsUpdated: "2026-09-03T22:10:00.000Z",
   }];
   snap.pending = [{
@@ -257,7 +257,7 @@ function agentZoomSnapshot(): FleetSnapshot {
 
 function openAgent(snap: FleetSnapshot) {
   const view = createViewState({ instanceId: "agent-zoom", getSnapshot: () => snap });
-  view.dispatch({ type: "drill", resource: "agent", name: "dev50.guard", target: { host: "vm-host", rig: "openrig-build", pod: "dev50" } });
+  view.dispatch({ type: "drill", resource: "agent", name: "dev50.guard", target: { host: "vm-host", softwareTeam: "softwareteam-build", pod: "dev50" } });
   return view;
 }
 
@@ -308,14 +308,14 @@ describe("founder live-QA correction — operational agent zoom", () => {
   });
 });
 
-describe("founder live-QA correction — rig-wide RECENT rail", () => {
+describe("founder live-QA correction — software-team-wide RECENT rail", () => {
   function recentSnapshot(): FleetSnapshot {
     const snap = agentZoomSnapshot();
     snap.scopes = missionSnapshot().scopes;
-    snap.recentTransitionsRig = "openrig-build";
+    snap.recentTransitionsSoftwareTeam = "softwareteam-build";
     snap.recentTransitions = [
-      { transitionId: 2, ts: "2026-09-03T22:02:00.000Z", actorSession: "dev-qa@openrig-build", change: "claimed", summary: "Recompose the production terminal dashboard without clipping its meaning", targetKind: "slice", target: "OPR.0.5.9.11", qitemId: "q-2" },
-      { transitionId: 3, ts: "2026-09-03T22:03:00.000Z", actorSession: "review-r2@openrig-build", change: "completed", summary: "Independent review cleared", targetKind: "qitem", target: "q-3", qitemId: "q-3" },
+      { transitionId: 2, ts: "2026-09-03T22:02:00.000Z", actorSession: "dev-qa@softwareteam-build", change: "claimed", summary: "Recompose the production terminal dashboard without clipping its meaning", targetKind: "slice", target: "OPR.0.5.9.11", qitemId: "q-2" },
+      { transitionId: 3, ts: "2026-09-03T22:03:00.000Z", actorSession: "review-r2@softwareteam-build", change: "completed", summary: "Independent review cleared", targetKind: "qitem", target: "q-3", qitemId: "q-3" },
     ];
     return snap;
   }
@@ -324,7 +324,7 @@ describe("founder live-QA correction — rig-wide RECENT rail", () => {
     const snap = recentSnapshot();
     for (const cols of [160, 120, 84]) {
       const view = createViewState({ instanceId: "recent", getSnapshot: () => snap });
-      view.dispatch({ type: "drill", resource: "rig", name: "openrig-build", target: { host: "vm-host" } });
+      view.dispatch({ type: "drill", resource: "softwareTeam", name: "softwareteam-build", target: { host: "vm-host" } });
       const screen = renderScreen(view.get(), snap, { cols, rows: 80 });
       const body = screen.lines.join("\n");
       expect(body).toContain("RECENT");
@@ -346,17 +346,17 @@ describe("founder live-QA correction — rig-wide RECENT rail", () => {
     const snap = recentSnapshot();
     snap.recentTransitions = [];
     const view = createViewState({ instanceId: "recent-empty", getSnapshot: () => snap });
-      view.dispatch({ type: "drill", resource: "rig", name: "openrig-build", target: { host: "vm-host" } });
+      view.dispatch({ type: "drill", resource: "softwareTeam", name: "softwareteam-build", target: { host: "vm-host" } });
     const body = renderScreen(view.get(), snap, { cols: 160, rows: 80 }).lines.join("\n");
     expect(body).toContain("No recorded transitions in the current window.");
   });
 
   it("shortens canonical Claude model labels in the table only", () => {
     const snap = recentSnapshot();
-    const driver = snap.hosts[0]!.rigs[0]!.pods[0]!.agents[0]!;
+    const driver = snap.hosts[0]!.softwareTeams[0]!.pods[0]!.agents[0]!;
     driver.model = "claude-fable-5.1";
     const view = createViewState({ instanceId: "model-label", getSnapshot: () => snap });
-    view.dispatch({ type: "drill", resource: "rig", name: "openrig-build", target: { host: "vm-host" } });
+    view.dispatch({ type: "drill", resource: "softwareTeam", name: "softwareteam-build", target: { host: "vm-host" } });
     const screen = renderScreen(view.get(), snap, { cols: 160, rows: 80 });
     expect(screen.lines.join("\n")).toContain("fable-5.1");
     expect(screen.lines.join("\n")).not.toContain("claude-fable-5.1");
@@ -479,11 +479,11 @@ describe("founder live-QA correction — slice information architecture", () => 
       commitRefs: ["5f7bc3c2c"],
       lastActivityAt: "2026-09-03T22:20:25.862Z",
       story: { events: [
-        { ts: "2026-09-03T22:20:25.862Z", kind: "transition.in-progress", actorSession: "dev-qa@v-openrig-build", qitemId: "qitem-current-slice", summary: "claimed", phase: null },
-        { ts: "2026-09-03T22:21:00.000Z", kind: "transition.pending", actorSession: "review-r2@v-openrig-build", qitemId: "qitem-review", summary: "review queued", phase: null },
+        { ts: "2026-09-03T22:20:25.862Z", kind: "transition.in-progress", actorSession: "dev-qa@v-softwareteam-build", qitemId: "qitem-current-slice", summary: "claimed", phase: null },
+        { ts: "2026-09-03T22:21:00.000Z", kind: "transition.pending", actorSession: "review-r2@v-softwareteam-build", qitemId: "qitem-review", summary: "review queued", phase: null },
       ] },
       decisions: { rows: [{
-        actionId: "decision-1", ts: "2026-09-03T22:19:00.000Z", actor: "orch-lead@v-openrig-build", verb: "resolve",
+        actionId: "decision-1", ts: "2026-09-03T22:19:00.000Z", actor: "orch-lead@v-softwareteam-build", verb: "resolve",
         qitemId: "qitem-current-slice", reason: "Founder selected the canonical terminal-native slice composition.",
       }] },
     };
@@ -502,8 +502,8 @@ describe("founder live-QA correction — slice information architecture", () => 
 
       expect(explorerContent).toBe(graphContent);
       expect(graphContent).toContain("TOUCHED");
-      expect(compact).toContain("review-r2@v-openrig-build");
-      if (cols > 84) expect(compact).toContain("dev-qa@v-openrig-build");
+      expect(compact).toContain("review-r2@v-softwareteam-build");
+      if (cols > 84) expect(compact).toContain("dev-qa@v-softwareteam-build");
       else expect(compact).toContain("2 served actors · latest 1 shown");
       expect(graphContent).toContain("RULING");
       expect(compact).toContain("Founder selected the canonical");
@@ -554,7 +554,7 @@ describe("founder live-QA correction — small filter lifecycle", () => {
     expect(resolveEscapeAction(escape, view.get(), false)).toEqual({ type: "filter", text: "" });
 
     view.dispatch({ type: "jump", section: "topology" });
-    view.dispatch({ type: "drill", resource: "rig", name: "openrig-build" });
+    view.dispatch({ type: "drill", resource: "softwareTeam", name: "softwareteam-build" });
     view.dispatch({ type: "filter", text: "dev50" });
     const topology = renderScreen(view.get(), snap, { cols: 120, rows: 34 });
     expect(topology.lines.join("\n")).toContain("/ filter agents: dev50 · / replace · esc clear");

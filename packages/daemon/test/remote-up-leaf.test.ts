@@ -1,4 +1,4 @@
-// OPR.0.4.4.11 — daemon-side remote single-rig leaf (FR-4).
+// OPR.0.4.4.11 — daemon-side remote single-softwareTeam leaf (FR-4).
 //
 // The leaf mirrors the CLI transport shape (bearer resolution + status
 // classification vocabulary) — these tests pin the mirrored semantics and
@@ -8,8 +8,8 @@ import { describe, it, expect } from "vitest";
 import { remoteUpLeaf } from "../src/domain/topology/remote-up-leaf.js";
 import type { HttpHostEntry } from "../src/domain/hosts/hosts-registry-reader.js";
 
-const HOST_ENV: HttpHostEntry = { id: "vps-b", transport: "http", url: "http://vps-b:7433", bearer_env: "VPS_B_TOKEN" };
-const HOST_FILE: HttpHostEntry = { id: "vps-f", transport: "http", url: "http://vps-f:7433/", bearer_file: "/tok/f" };
+const HOST_ENV: HttpHostEntry = { id: "vps-b", transport: "http", url: "http://vps-b:7434", bearer_env: "VPS_B_TOKEN" };
+const HOST_FILE: HttpHostEntry = { id: "vps-f", transport: "http", url: "http://vps-f:7434/", bearer_file: "/tok/f" };
 
 function fetchStub(status: number, payload?: unknown, capture?: { url?: string; init?: RequestInit }) {
   return (async (url: string | URL | Request, init?: RequestInit) => {
@@ -64,7 +64,7 @@ describe("remoteUpLeaf — the shipped POST /api/up transport", () => {
       { readFile: () => "tok-123\n", fetchImpl: fetchStub(200, { status: "completed" }, capture) },
     );
     expect(res).toEqual({ ok: true });
-    expect(capture.url).toBe("http://vps-f:7433/api/up");
+    expect(capture.url).toBe("http://vps-f:7434/api/up");
     expect(capture.init?.method).toBe("POST");
     expect((capture.init?.headers as Record<string, string>)["Authorization"]).toBe("Bearer tok-123");
     expect(JSON.parse(String(capture.init?.body))).toEqual({ sourceRef: "specs/factory.yaml", autoApprove: true });
@@ -140,7 +140,7 @@ describe("remoteUpLeaf — the shipped POST /api/up transport", () => {
     expect(res.error).toContain("HTTP 500: boom from remote");
   });
 
-  it("R2-B1: the default deadline is the long-running rig-up budget, not the generic metadata default", async () => {
+  it("R2-B1: the default deadline is the long-running software-team-up budget, not the generic metadata default", async () => {
     const { REMOTE_UP_TIMEOUT_MS } = await import("../src/domain/topology/remote-up-leaf.js");
     expect(REMOTE_UP_TIMEOUT_MS).toBe(120_000);
   });

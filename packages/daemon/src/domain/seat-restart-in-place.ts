@@ -8,7 +8,7 @@ import type { ArbitratedSeatState } from "./activity-taxonomy.js";
 import type { EventBus } from "./event-bus.js";
 import type { SessionRegistry } from "./session-registry.js";
 import type { HarnessLaunchResult, NodeBinding } from "./runtime-adapter.js";
-import type { PersistedEvent, RigEvent } from "./types.js";
+import type { PersistedEvent, SoftwareTeamEvent } from "./types.js";
 import {
   codexCommandResumeToken, listNativeProcesses, processArgv, verifyCodexPaneProcess,
   type NativeProcessLister, type NativeProcessRow,
@@ -86,7 +86,7 @@ export interface InPlaceRestartDeps {
 
 /** The seat as the caller resolved it, under its lifecycle lease. */
 export interface InPlaceRestartTarget {
-  seat: { rigId: string; rigName: string; logicalId: string; nodeId: string };
+  seat: { softwareTeamId: string; softwareTeamName: string; logicalId: string; nodeId: string };
   sessionId: string;
   sessionName: string;
   /** Saved choices for the seat's next managed launch. The restart keeps EFFECTIVE settings, except effort,
@@ -230,7 +230,7 @@ export class CodexInPlaceRestart {
     const { report } = observed;
     const { sessionName, seat } = target;
     this.persist({
-      type: RESTART_STARTED, rigId: seat.rigId, nodeId: seat.nodeId, logicalId: seat.logicalId, sessionName,
+      type: RESTART_STARTED, softwareTeamId: seat.softwareTeamId, nodeId: seat.nodeId, logicalId: seat.logicalId, sessionName,
       pane: report.pane, paneShape: report.paneShape, oldPid: observed.codexPid, oldStartedAt: observed.codexStartedAt,
       codexHome: report.codexHome, reason: input.reason.trim(), operator: input.operator,
     });
@@ -254,7 +254,7 @@ export class CodexInPlaceRestart {
       ? accountLineCounts(await this.deps.tmux.capturePaneHistory(result.pane).catch(() => null))
       : null;
     this.persist({
-      type: RESTART_FINISHED, rigId: seat.rigId, nodeId: seat.nodeId, logicalId: seat.logicalId, sessionName,
+      type: RESTART_FINISHED, softwareTeamId: seat.softwareTeamId, nodeId: seat.nodeId, logicalId: seat.logicalId, sessionName,
       outcome: result.outcome!, newPid: result.newProcess?.pid ?? null, newStartedAt: result.newProcess?.startedAt ?? null,
       codexHome: result.codexHome, paneHeld: result.paneHeld ? true : false, accountLinesAtRestart, finishedAt: this.now().toISOString(),
     });
@@ -379,7 +379,7 @@ export class CodexInPlaceRestart {
     const token = readResumeToken(this.deps.db, target.sessionId);
     if (!token) {
       return { ok: false, code: "resume_binding_unverified", message: "The seat's session has no stored Codex conversation id, so there is nothing to resume in place.",
-        guidance: "Record the conversation with: rig seat set-resume-token" };
+        guidance: "Record the conversation with: SoftwareTeam seat set-resume-token" };
     }
     const codex = await this.observeCodex(pane, token);
     if (!codex) {
@@ -404,13 +404,13 @@ export class CodexInPlaceRestart {
     const top = chain.at(-1)!;
     const root = rows.find((row) => row.pid === panePid);
     let paneShape: PaneShape;
-    // OpenRig types a Codex launch (and this restart's relaunch) as `/bin/sh <staged script>`, so a managed
+    // SoftwareTeam types a Codex launch (and this restart's relaunch) as `/bin/sh <staged script>`, so a managed
     // Codex runs one sh below the pane's shell. Only that script is accepted between them.
     const between = rows.find((row) => row.pid === top.ppid);
     const viaLaunchScript = !!between && between.ppid === panePid && isStagedLaunchScript(between);
     if (top.pid === panePid) paneShape = "direct_native";
     else if (root && (top.ppid === panePid || viaLaunchScript) && isShellForeground(executableBase(root))) paneShape = "shell_backed";
-    else return { ok: false, code: "pane_shape_unknown", message: "The pane is neither a shell running Codex (directly or through OpenRig's own launch script) nor Codex itself; nothing was stopped." };
+    else return { ok: false, code: "pane_shape_unknown", message: "The pane is neither a shell running Codex (directly or through SoftwareTeam's own launch script) nor Codex itself; nothing was stopped." };
 
     // Where the relaunched Codex would run, and with which home.
     let cwd: string;
@@ -457,8 +457,8 @@ export class CodexInPlaceRestart {
       return { ok: false, code: "settings_drift", detail: { differs: drift },
         message: `Relaunching now would change ${drift.join(", ")} from what the running Codex uses, so this account-only restart refuses. Nothing was stopped.`,
         guidance: drift.includes("effort")
-          ? "This seat has no saved effort choice (never set, or cleared), so an account-only restart keeps the running effort and won't change it. Save one with rig seat set-effort to apply it here; otherwise the next ordinary managed launch or resume resolves effort. Run rig seat restart --plan to compare."
-          : "A saved model/profile choice applies at a managed launch that is meant to change settings, not here. Run rig seat restart --plan to compare." };
+          ? "This seat has no saved effort choice (never set, or cleared), so an account-only restart keeps the running effort and won't change it. Save one with SoftwareTeam seat set-effort to apply it here; otherwise the next ordinary managed launch or resume resolves effort. Run SoftwareTeam seat restart --plan to compare."
+          : "A saved model/profile choice applies at a managed launch that is meant to change settings, not here. Run SoftwareTeam seat restart --plan to compare." };
     }
 
     let priorRemainOnExit: string | null = null;
@@ -744,7 +744,7 @@ export class CodexInPlaceRestart {
       : { state: "not_matched", detail: "The newest Account line produced since the restart does not name the expected account (it may show only a plan)." };
   }
 
-  private persist(event: RigEvent): void {
+  private persist(event: SoftwareTeamEvent): void {
     let persisted: PersistedEvent | null = null;
     this.deps.db.transaction(() => {
       persisted = this.deps.eventBus.persistWithinTransaction(event);
@@ -771,7 +771,7 @@ function executableBase(row: NativeProcessRow): string {
  *  configured), so the OS names the staged script's process after that shell, not sh. */
 const SH_RUNS_AS = new Set(["sh", "bash", "dash", "zsh"]);
 
-/** `/bin/sh <path>` running a launch script that OpenRig's tmux adapter staged, and nothing else. */
+/** `/bin/sh <path>` running a launch script that SoftwareTeam's tmux adapter staged, and nothing else. */
 function isStagedLaunchScript(row: NativeProcessRow): boolean {
   const argv = processArgv(row.command);
   return SH_RUNS_AS.has(executableBase(row)) && argv.length === 2 && /^(?:\/bin\/)?sh$/.test(argv[0]!) && isStagedSendScriptPath(argv[1]!);

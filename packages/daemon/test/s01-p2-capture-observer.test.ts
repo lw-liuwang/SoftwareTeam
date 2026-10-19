@@ -3,7 +3,7 @@ import type Database from "better-sqlite3";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SessionTransport, probeSessionActivity } from "../src/domain/session-transport.js";
 import { SeatDeliveryGuard, resolveGuardTarget } from "../src/domain/seat-delivery-guard.js";
@@ -50,18 +50,18 @@ function terminal(opts?: { capture?: Capture; sendText?: (t: string, text: strin
 
 describe("S01/S02 P2 capture observer", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessions: SessionRegistry;
   let clock: number;
   let occupant: string;
   const now = () => new Date(clock);
 
   function seed(pane = "%7") {
-    const rig = rigRepo.createRig("obs-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { role: "worker", runtime: "codex" });
-    const s = sessions.registerSession(node.id, "dev-impl@obs-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("obs-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { role: "worker", runtime: "codex" });
+    const s = sessions.registerSession(node.id, "dev-impl@obs-software-team");
     sessions.updateStatus(s.id, "running");
-    sessions.updateBinding(node.id, { tmuxSession: "dev-impl@obs-rig", tmuxPane: pane });
+    sessions.updateBinding(node.id, { tmuxSession: "dev-impl@obs-software-team", tmuxPane: pane });
     // registerSession mints the first occupant tenure; read the real one back.
     occupant = (db.prepare(`SELECT generation_uuid AS g FROM occupant_tenures WHERE node_id = ? ORDER BY generation_ordinal DESC LIMIT 1`)
       .get(node.id) as { g: string }).g;
@@ -69,7 +69,7 @@ describe("S01/S02 P2 capture observer", () => {
   }
 
   function transport(adapter: TmuxAdapter, captureObserver?: CaptureObserverSink) {
-    return new SessionTransport({ db, rigRepo, sessionRegistry: sessions, tmuxAdapter: adapter, now, sleep: async () => {}, captureObserver });
+    return new SessionTransport({ db, softwareTeamRepo, sessionRegistry: sessions, tmuxAdapter: adapter, now, sleep: async () => {}, captureObserver });
   }
 
   async function drainAll(o: CaptureObserver): Promise<Observation[]> {
@@ -86,7 +86,7 @@ describe("S01/S02 P2 capture observer", () => {
     clock = Date.parse("2026-09-27T03:00:00.000Z");
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessions = new SessionRegistry(db);
   });
   afterEach(() => db.close());
@@ -98,12 +98,12 @@ describe("S01/S02 P2 capture observer", () => {
       // 20-line calls are the readiness probe; 30-line calls are the verify pre/post captures.
       const t = terminal({ capture: async (_t, lines) => (lines === 20 ? "idle\n❯ " : ++n === 1 ? "before\n❯ " : "before\nhello world\n❯ ") });
       const o = new CaptureObserver();
-      const result = await transport(t.adapter, o).send("dev-impl@obs-rig", "hello world", { verify: true });
+      const result = await transport(t.adapter, o).send("dev-impl@obs-software-team", "hello world", { verify: true });
       expect(result.outcome).toBe("delivered");
       const [obs] = await sendObs(o);
       expect(obs).toMatchObject({
         seam: "send_verify",
-        binding: { sessionName: "dev-impl@obs-rig", nodeId: node.id, occupant, pane: "%7" },
+        binding: { sessionName: "dev-impl@obs-software-team", nodeId: node.id, occupant, pane: "%7" },
         runtime: "codex",
         sentHash: hashSentText(t.calls.sendText[0]!),
         pre: { state: "captured", content: "before\n❯ " },
@@ -121,7 +121,7 @@ describe("S01/S02 P2 capture observer", () => {
       let n = 0;
       const t = terminal({ capture: async (_t, lines) => { if (lines === 20) return "idle\n❯ "; if (++n === 1) return null; throw new Error("tmux gone"); } });
       const o = new CaptureObserver();
-      const result = await transport(t.adapter, o).send("dev-impl@obs-rig", "x", { verify: true });
+      const result = await transport(t.adapter, o).send("dev-impl@obs-software-team", "x", { verify: true });
       expect(result.outcome).toBe("rendered-unconfirmed");
       const [obs] = await sendObs(o);
       expect(obs!.pre).toMatchObject({ state: "unavailable", cause: "empty_or_failed" });
@@ -133,7 +133,7 @@ describe("S01/S02 P2 capture observer", () => {
       seed();
       const t = terminal();
       const o = new CaptureObserver();
-      await transport(t.adapter, o).send("dev-impl@obs-rig", "x");
+      await transport(t.adapter, o).send("dev-impl@obs-software-team", "x");
       const [obs] = await sendObs(o);
       expect(obs!.pre).toEqual({ state: "not_requested" });
       expect(obs!.post).toEqual({ state: "not_requested" });
@@ -145,7 +145,7 @@ describe("S01/S02 P2 capture observer", () => {
       seed();
       const t = terminal({ sendText: async () => ({ ok: false, code: "x", message: "boom" }) as TmuxResult });
       const o = new CaptureObserver();
-      const result = await transport(t.adapter, o).send("dev-impl@obs-rig", "x", { verify: true });
+      const result = await transport(t.adapter, o).send("dev-impl@obs-software-team", "x", { verify: true });
       expect(result.reason).toBe("send_failed");
       const [obs] = await sendObs(o);
       expect(obs!.pre.state).toBe("captured");
@@ -160,7 +160,7 @@ describe("S01/S02 P2 capture observer", () => {
         sendText: async () => { sessions.updateBinding(node.id, { tmuxPane: "%99" }); return { ok: true as const }; },
       });
       const o = new CaptureObserver();
-      await transport(t.adapter, o).send("dev-impl@obs-rig", "x", { verify: true });
+      await transport(t.adapter, o).send("dev-impl@obs-software-team", "x", { verify: true });
       const [obs] = await sendObs(o);
       expect(obs!.binding.pane).toBe("%7");
     });
@@ -172,9 +172,9 @@ describe("S01/S02 P2 capture observer", () => {
         return "idle\n❯ ";
       } });
       const o = new CaptureObserver();
-      await transport(t.adapter, o).send("dev-impl@obs-rig", "x", { waitForIdleMs });
+      await transport(t.adapter, o).send("dev-impl@obs-software-team", "x", { waitForIdleMs });
       const [probe, send] = await drainAll(o);
-      const expected = { sessionName: "dev-impl@obs-rig", nodeId: node.id, occupant, pane: "%7" };
+      const expected = { sessionName: "dev-impl@obs-software-team", nodeId: node.id, occupant, pane: "%7" };
       expect(probe!.binding).toEqual(expected);
       expect(send!.binding).toEqual(expected);
     });
@@ -197,9 +197,9 @@ describe("S01/S02 P2 capture observer", () => {
       } });
       const o = new CaptureObserver();
       const tr = transport(t.adapter, o);
-      const first = tr.send("dev-impl@obs-rig", "first", { verify: true });
+      const first = tr.send("dev-impl@obs-software-team", "first", { verify: true });
       await postStarted;
-      await tr.send("dev-impl@obs-rig", "second", { verify: true });
+      await tr.send("dev-impl@obs-software-team", "second", { verify: true });
       release();
       await first;
       const [second, earlier] = await sendObs(o);
@@ -214,13 +214,13 @@ describe("S01/S02 P2 capture observer", () => {
 
     it("a historical session row does not label the current binding's pane/occupant", async () => {
       const node = seed("%7");
-      const old = sessions.registerSession(node.id, "dev-impl-old@obs-rig");
+      const old = sessions.registerSession(node.id, "dev-impl-old@obs-software-team");
       sessions.updateStatus(old.id, "running");
       const o = new CaptureObserver();
-      // The node's binding still names dev-impl@obs-rig; sending to the OLD name must not borrow it.
-      await transport(terminal().adapter, o).send("dev-impl-old@obs-rig", "x");
+      // The node's binding still names dev-impl@obs-softwareTeam; sending to the OLD name must not borrow it.
+      await transport(terminal().adapter, o).send("dev-impl-old@obs-software-team", "x");
       const [obs] = await sendObs(o);
-      expect(obs!.binding).toMatchObject({ sessionName: "dev-impl-old@obs-rig", pane: null, occupant: null });
+      expect(obs!.binding).toMatchObject({ sessionName: "dev-impl-old@obs-software-team", pane: null, occupant: null });
     });
   });
 
@@ -261,15 +261,15 @@ describe("S01/S02 P2 capture observer", () => {
       seed();
       let n = 0;
       const t = terminal({ capture: async () => (++n % 2 === 1 ? "a\n❯ " : "a\nhi\n❯ ") });
-      const result = await transport(t.adapter, sink).send("dev-impl@obs-rig", "hi", { verify: true });
+      const result = await transport(t.adapter, sink).send("dev-impl@obs-software-team", "hi", { verify: true });
       return { result, calls: t.calls };
     }
 
     it("a throwing sink, a full buffer and no observer all give identical results and terminal calls", async () => {
       const baseline = await run(undefined);
-      db.close(); db = createDb(); migrate(db, ALL_MIGRATIONS); rigRepo = new RigRepository(db); sessions = new SessionRegistry(db);
+      db.close(); db = createDb(); migrate(db, ALL_MIGRATIONS); softwareTeamRepo = new SoftwareTeamRepository(db); sessions = new SessionRegistry(db);
       const throwing = await run({ record: () => { throw new Error("sink exploded"); } });
-      db.close(); db = createDb(); migrate(db, ALL_MIGRATIONS); rigRepo = new RigRepository(db); sessions = new SessionRegistry(db);
+      db.close(); db = createDb(); migrate(db, ALL_MIGRATIONS); softwareTeamRepo = new SoftwareTeamRepository(db); sessions = new SessionRegistry(db);
       const full = new CaptureObserver({ capacity: 1 });
       full.record({ seam: "probe_activity", attemptId: "fill", binding: { sessionName: "x", nodeId: null, occupant: null, pane: null },
         runtime: null, sentHash: null, pre: { state: "not_requested" }, post: { state: "not_requested" }, regexResult: {}, completedAt: "t" });
@@ -285,17 +285,17 @@ describe("S01/S02 P2 capture observer", () => {
       seed();
       const o = new CaptureObserver();
       const tr = transport(terminal().adapter, o);
-      await tr.send("dev-impl@obs-rig", "one"); // seq 1 probe, 2 send
+      await tr.send("dev-impl@obs-software-team", "one"); // seq 1 probe, 2 send
       let release!: () => void;
       const slow = o.drain(() => new Promise<void>((r) => { release = r; }));
       expect(await o.drain(() => {})).toBe(0); // concurrent drain refused, not awaited
-      await tr.send("dev-impl@obs-rig", "two"); // seq 3, 4: recording continues while the consumer is stuck
+      await tr.send("dev-impl@obs-software-team", "two"); // seq 3, 4: recording continues while the consumer is stuck
       expect(o.stats().queued).toBe(2);
       release();
       expect(await slow).toBe(2);
       expect(await o.drain(() => { throw new Error("consumer down"); })).toBe(0);
       expect(o.stats()).toMatchObject({ drained: 2, consumerFailures: 1, consumerFailedObservations: 2, queued: 0 });
-      await tr.send("dev-impl@obs-rig", "three");
+      await tr.send("dev-impl@obs-software-team", "three");
       const later = await drainAll(o);
       expect(later.map((x) => x.seq)).toEqual([5, 6]); // the failed batch (3, 4) is not replayed
     });
@@ -304,7 +304,7 @@ describe("S01/S02 P2 capture observer", () => {
       seed();
       const o = new CaptureObserver();
       const tr = transport(terminal().adapter, o);
-      for (const text of ["a", "b", "c"]) await tr.send("dev-impl@obs-rig", text);
+      for (const text of ["a", "b", "c"]) await tr.send("dev-impl@obs-software-team", text);
       const all = await drainAll(o);
       expect(all.map((x) => x.seq)).toEqual([1, 2, 3, 4, 5, 6]);
       expect(all.map((x) => x.seam)).toEqual(["probe_activity", "send_verify", "probe_activity", "send_verify", "probe_activity", "send_verify"]);
@@ -356,13 +356,13 @@ describe("S01/S02 P2 capture observer", () => {
       await guard.set(node.id, true, "tester", "protect draft");
       const t = terminal({ guard });
       const o = new CaptureObserver();
-      const result = await transport(t.adapter, o).send("dev-impl@obs-rig", "held text", { deliveryId: "d-1", actorSession: "orch@r" });
+      const result = await transport(t.adapter, o).send("dev-impl@obs-software-team", "held text", { deliveryId: "d-1", actorSession: "orch@r" });
       expect(result.outcome).toBe("retained");
       expect(t.calls.sendText).toHaveLength(0);
       const [obs] = await drainAll(o);
       expect(obs).toMatchObject({
         seam: "retained_no_write",
-        binding: { sessionName: "dev-impl@obs-rig", nodeId: node.id, occupant, pane: "%7" },
+        binding: { sessionName: "dev-impl@obs-software-team", nodeId: node.id, occupant, pane: "%7" },
         sentHash: hashSentText("held text"),
         pre: { state: "not_requested" },
         post: { state: "not_requested" },
@@ -370,7 +370,7 @@ describe("S01/S02 P2 capture observer", () => {
       });
       expect(t.calls.capture).toBe(0);
       // A readback of the same retained id is not a new retention.
-      await transport(t.adapter, o).send("dev-impl@obs-rig", "held text", { deliveryId: "d-1", actorSession: "orch@r" });
+      await transport(t.adapter, o).send("dev-impl@obs-software-team", "held text", { deliveryId: "d-1", actorSession: "orch@r" });
       expect(o.stats().recorded).toBe(1);
     });
 
@@ -379,7 +379,7 @@ describe("S01/S02 P2 capture observer", () => {
       const guard = new SeatDeliveryGuard(db, (name) => resolveGuardTarget(db, name));
       await guard.set(node.id, true, "tester", "protect draft");
       const o = new CaptureObserver();
-      const result = await transport(terminal({ guard }).adapter, o).send("dev-impl@obs-rig", "", { submitOnly: true });
+      const result = await transport(terminal({ guard }).adapter, o).send("dev-impl@obs-software-team", "", { submitOnly: true });
       expect(result.reason).toBe("typing_guard_enabled");
       expect(o.stats().recorded).toBe(0);
     });

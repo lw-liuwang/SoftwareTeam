@@ -15,7 +15,7 @@ import { nodeSpecFieldsSchema } from "../src/db/migrations/007_node_spec_fields.
 import { agentspecRebootSchema } from "../src/db/migrations/014_agentspec_reboot.js";
 import { externalCliAttachmentSchema } from "../src/db/migrations/019_external_cli_attachment.js";
 import { sessionStopIntentSchema } from "../src/db/migrations/103_session_stop_intent.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { TranscriptStore } from "../src/domain/transcript-store.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
@@ -49,13 +49,13 @@ describe("transcript capture boot recovery", () => {
   });
 
   it("reattaches capture for running tmux sessions after a daemon restart", async () => {
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const sessions = new SessionRegistry(db);
-    const rig = rigRepo.createRig("restart-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    const session = sessions.registerSession(node.id, "dev-impl@restart-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("restart-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    const session = sessions.registerSession(node.id, "dev-impl@restart-software-team");
     sessions.updateStatus(session.id, "running");
-    sessions.updateBinding(node.id, { tmuxSession: "dev-impl@restart-rig" });
+    sessions.updateBinding(node.id, { tmuxSession: "dev-impl@restart-software-team" });
 
     const capturePaneContent = vi.fn(async () => "recent claude work\n");
     const module = await import("../src/domain/transcript-capture.js") as Record<string, unknown>;
@@ -74,6 +74,6 @@ describe("transcript capture boot recovery", () => {
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(resumed).toBe(1);
-    expect(capturePaneContent).toHaveBeenCalledWith("dev-impl@restart-rig", 1000);
+    expect(capturePaneContent).toHaveBeenCalledWith("dev-impl@restart-software-team", 1000);
   });
 });

@@ -20,7 +20,7 @@ import { parseWatchdogSpec } from "../src/domain/watchdog-policy-engine.js";
 const CLAUDE_SEAT = {
   compactionStrategy: "apprentice-handover" as const,
   runtime: "claude-code",
-  targetSession: "advice-lead@rig",
+  targetSession: "advice-lead@software-team",
   watchedFilePath: "/tmp/advice-lead.jsonl",
   mechanic: "operator-agent@kernel",
 };
@@ -266,12 +266,12 @@ describe("continuity policy materializer (S20 P4)", () => {
     const db = new Database(":memory:");
     try {
       migrate(db, ALL_MIGRATIONS);
-      const queue = new QueueRepository(db, new EventBus(db), { validateRig: () => true });
+      const queue = new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => true });
       const action = {
         type: "create-cutover-baton" as const,
         jobId: "cutover-job",
         occupantGeneration: "target-generation-7",
-        sourceSession: "target@rig",
+        sourceSession: "target@software-team",
         destination: "mechanic@kernel",
         body: "Owned cutover baton; one-active-walker; authority-effective-at-effect-receipt.",
       };
@@ -281,7 +281,7 @@ describe("continuity policy materializer (S20 P4)", () => {
 
       expect(retry.qitemId).toBe(first.qitemId);
       expect(queue.getById(first.qitemId)).toMatchObject({
-        sourceSession: "target@rig",
+        sourceSession: "target@software-team",
         destinationSession: "mechanic@kernel",
         body: expect.stringContaining("authority-effective-at-effect-receipt"),
       });
@@ -304,9 +304,9 @@ describe("continuity policy materializer (S20 P4)", () => {
           "policy: context-usage-threshold\n" +
           "generated_by: continuity-policy-materializer\n" +
           "continuity_mode: managed-compaction\n" +
-          "target:\n  session: target@rig\n" +
+          "target:\n  session: target@software-team\n" +
           "message: Deposit continuity context before managed compaction.\n",
-        targetSession: "target@rig",
+        targetSession: "target@software-team",
         intervalSeconds: 60,
         registeredBySession: "daemon@kernel",
         watchedFilePath: "/tmp/target.jsonl",
@@ -314,7 +314,7 @@ describe("continuity policy materializer (S20 P4)", () => {
       });
 
       const result = recordManagedWidthReceipt({
-        sessionName: "target@rig",
+        sessionName: "target@software-team",
         occupantGeneration: "target-generation-7",
         postRestoreUsedPercentage: 93,
         saturationBoundPercentage: 80,
@@ -348,7 +348,7 @@ describe("continuity policy materializer (S20 P4)", () => {
   it("leaves non-managed compaction alone when no S06 receipt key exists", () => {
     const record = vi.fn();
     expect(recordManagedWidthReceipt({
-      sessionName: "default-seat@rig",
+      sessionName: "default-seat@software-team",
       occupantGeneration: "generation-1",
       postRestoreUsedPercentage: 20,
       saturationBoundPercentage: 80,

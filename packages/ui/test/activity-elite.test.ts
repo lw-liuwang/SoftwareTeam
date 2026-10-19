@@ -137,7 +137,7 @@ describe("AC-4 honesty regression", () => {
   it("activity-needs-input cards are classified as synthetic (no seq collision)", () => {
     const card = needsInputSeatToFeedCard({
       logicalId: "dev.impl",
-      sessionName: "dev-impl@rig",
+      sessionName: "dev-impl@software-team",
       source: "hook",
       eventAt: "2026-06-19T00:00:00Z",
     });
@@ -145,12 +145,12 @@ describe("AC-4 honesty regression", () => {
     expect(card.source.seq).toBe(-1);
   });
 
-  it("cross-rig logicalId collision produces distinct card ids", () => {
-    const card1 = needsInputSeatToFeedCard({ logicalId: "dev.impl", source: "hook", rigId: "rig-a" });
-    const card2 = needsInputSeatToFeedCard({ logicalId: "dev.impl", source: "hook", rigId: "rig-b" });
+  it("cross-software-team logicalId collision produces distinct card ids", () => {
+    const card1 = needsInputSeatToFeedCard({ logicalId: "dev.impl", source: "hook", softwareTeamId: "software-team-a" });
+    const card2 = needsInputSeatToFeedCard({ logicalId: "dev.impl", source: "hook", softwareTeamId: "software-team-b" });
     expect(card1.id).not.toBe(card2.id);
-    expect(card1.id).toContain("rig-a");
-    expect(card2.id).toContain("rig-b");
+    expect(card1.id).toContain("software-team-a");
+    expect(card2.id).toContain("software-team-b");
   });
 
   it("eventDerivedSeqsForPrune excludes activity-needs-input cards", () => {

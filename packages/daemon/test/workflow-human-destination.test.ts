@@ -9,7 +9,7 @@ import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { OutboxHandler } from "../src/domain/outbox-handler.js";
 import { QueueRepository, QueueRepositoryError } from "../src/domain/queue-repository.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { PodRepository } from "../src/domain/pod-repository.js";
 import { WorkflowRuntime } from "../src/domain/workflow-runtime.js";
 import { resolveWorkflowHumanDestination } from "../src/domain/workflow-human-destination.js";
@@ -22,7 +22,7 @@ import { workflowRoutes } from "../src/routes/workflow.js";
 vi.mock("../src/domain/user-settings/settings-store.js", async importOriginal => {
   const actual = await importOriginal<typeof import("../src/domain/user-settings/settings-store.js")>();
   return { ...actual, SettingsStore: class extends actual.SettingsStore {
-    constructor(configPath?: string) { super(configPath ?? join(process.env["OPENRIG_HOME"]!, "config.json")); }
+    constructor(configPath?: string) { super(configPath ?? join(process.env["SOFTWARETEAM_HOME"]!, "config.json")); }
   } };
 });
 
@@ -33,7 +33,7 @@ const SERIAL_SPEC = `workflow:
   id: registered-human-test
   version: 1
   roles:
-    worker: { preferred_targets: [worker@rig] }
+    worker: { preferred_targets: [worker@software-team] }
   steps:
     - id: work
       actor_role: worker
@@ -51,15 +51,15 @@ describe.each(["serial", "dependency"])("workflow registered-human selection at 
   let terminal: ReturnType<typeof vi.fn>;
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "workflow-human-selection-"));
-    vi.stubEnv("OPENRIG_HOME", dir);
-    vi.stubEnv("OPENRIG_WORKSPACE_OPERATOR_SEAT_NAME", "");
+    vi.stubEnv("SOFTWARETEAM_HOME", dir);
+    vi.stubEnv("SOFTWARETEAM_WORKSPACE_OPERATOR_SEAT_NAME", "");
     expect(writeProjection()).toMatchObject({ ok: true });
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
-    db.prepare("INSERT INTO rigs(id,name) VALUES ('r','rig')").run();
+    db.prepare("INSERT INTO software_teams(id,name) VALUES ('r','softwareTeam')").run();
     bus = new EventBus(db);
     terminal = vi.fn(async () => ({ success: true }));
-    queue = new QueueRepository(db, bus, { validateRig: () => true, transport: { send: terminal } });
+    queue = new QueueRepository(db, bus, { validateSoftwareTeam: () => true, transport: { send: terminal } });
     queue.attachOutbox(new OutboxHandler(db));
     runtime = new WorkflowRuntime({ db, eventBus: bus, queueRepo: queue });
     specPath = join(dir, "workflow.yaml");
@@ -67,9 +67,9 @@ describe.each(["serial", "dependency"])("workflow registered-human selection at 
   });
   afterEach(() => { db.close(); vi.unstubAllEnvs(); vi.restoreAllMocks(); rmSync(dir, { recursive: true, force: true }); });
   const add = (name: string) => expect(addHumanFragment(human(name))).toMatchObject({ ok: true });
-  const start = () => runtime.instantiate({ specPath, rootObjective: "private fixture", createdBySession: "ops@rig" });
+  const start = () => runtime.instantiate({ specPath, rootObjective: "private fixture", createdBySession: "ops@software-team" });
   const fail = (i: Awaited<ReturnType<typeof start>>) => runtime.project({ instanceId: i.instance.instanceId,
-    currentPacketId: i.entryQitemId, actorSession: "worker@rig", exit: "failed" });
+    currentPacketId: i.entryQitemId, actorSession: "worker@software-team", exit: "failed" });
   const exceptions = () => db.prepare("SELECT * FROM queue_items WHERE tags LIKE '%workflow-exception%'").all() as Array<Record<string, unknown>>;
 
   it("failed projection and overdue detection both route to the registered gateway address, never its terminal", async () => {
@@ -78,7 +78,7 @@ describe.each(["serial", "dependency"])("workflow registered-human selection at 
     terminal.mockClear();
     await fail(first);
     expect(exceptions()[0]).toMatchObject({ destination_session: "decision-owner@external", tier: "human-gate" });
-    expect(exceptions()[0]!.evidence_ref).toBe(`rig workflow trace ${first.instance.instanceId}`);
+    expect(exceptions()[0]!.evidence_ref).toBe(`SoftwareTeam workflow trace ${first.instance.instanceId}`);
     expect(exceptions()[0]!.last_nudge_result).toMatch(/^gateway-owned:/);
     expect(terminal).not.toHaveBeenCalled();
     const second = await start();
@@ -87,7 +87,7 @@ describe.each(["serial", "dependency"])("workflow registered-human selection at 
     const ensure = makeEnsureStuckExceptionItem({ db, queueRepo: queue,
       resolveRoute: (n, v, c, r) => runtime.resolveExceptionRouteFor(n, v, c, r) });
     const result = await ensure({ workflowName: second.instance.workflowName, workflowVersion: second.instance.workflowVersion,
-      createdBySession: "ops@rig", verdict: runtime.inspect(second.instance.instanceId).frontier[0]!.deadline });
+      createdBySession: "ops@software-team", verdict: runtime.inspect(second.instance.instanceId).frontier[0]!.deadline });
     expect(result.outcome).toBe("created");
     expect(queue.getById(result.qitemId!)?.destinationSession).toBe("decision-owner@external");
     expect(queue.getById(result.qitemId!)?.lastNudgeResult).toMatch(/^gateway-owned:/);
@@ -97,11 +97,11 @@ describe.each(["serial", "dependency"])("workflow registered-human selection at 
   it("an explicit existing setting selects among humans and is re-read for the next episode", () => {
     add("owner-one"); add("owner-two");
     expect(() => resolveWorkflowHumanDestination()).toThrow(/explicitly select/);
-    vi.stubEnv("OPENRIG_WORKSPACE_OPERATOR_SEAT_NAME", "owner-two@external");
+    vi.stubEnv("SOFTWARETEAM_WORKSPACE_OPERATOR_SEAT_NAME", "owner-two@external");
     expect(resolveWorkflowHumanDestination()).toBe("owner-two@external");
-    vi.stubEnv("OPENRIG_WORKSPACE_OPERATOR_SEAT_NAME", "owner-one@external");
+    vi.stubEnv("SOFTWARETEAM_WORKSPACE_OPERATOR_SEAT_NAME", "owner-one@external");
     expect(resolveWorkflowHumanDestination()).toBe("owner-one@external");
-    vi.stubEnv("OPENRIG_WORKSPACE_OPERATOR_SEAT_NAME", "human@host");
+    vi.stubEnv("SOFTWARETEAM_WORKSPACE_OPERATOR_SEAT_NAME", "human@host");
     expect(() => resolveWorkflowHumanDestination()).toThrow(/does not select a registered human/);
   });
 
@@ -116,7 +116,7 @@ describe.each(["serial", "dependency"])("workflow registered-human selection at 
     expect(inspected.selection.state).toBe("missing");
     expect(inspected.routes.map(route => route.state)).toEqual([state, state]);
     const response = await app.request("/workflow/project", { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ instanceId: i.instance.instanceId, currentPacketId: i.entryQitemId, actorSession: "worker@rig", exit: "failed" }) });
+      body: JSON.stringify({ instanceId: i.instance.instanceId, currentPacketId: i.entryQitemId, actorSession: "worker@software-team", exit: "failed" }) });
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({ error: "workflow_human_destination_unavailable", state });
     expect(runtime.instanceStore.getByIdOrThrow(i.instance.instanceId).status).toBe("active");
@@ -127,7 +127,7 @@ describe.each(["serial", "dependency"])("workflow registered-human selection at 
   it("a configured orchestrator route works without any registered human", async () => {
     writeFileSync(specPath, spec + "  exception_routing:\n    orchestrator_role: worker\n");
     await fail(await start());
-    expect(exceptions()[0]).toMatchObject({ destination_session: "worker@rig", tier: "mode2" });
+    expect(exceptions()[0]).toMatchObject({ destination_session: "worker@software-team", tier: "mode2" });
   });
 
   it("a storage/admission failure cannot be relabeled as a bad agent destination", async () => {
@@ -141,7 +141,7 @@ describe.each(["serial", "dependency"])("workflow registered-human selection at 
     expect(spy).toHaveBeenCalledTimes(1);
     expect(exceptions()).toHaveLength(0);
   });
-  it("only an unavailable agent rig falls back to the registered human during admission", async () => {
+  it("only an unavailable agent SoftwareTeam falls back to the registered human during admission", async () => {
     add("owner-one");
     writeFileSync(specPath, spec + "  exception_routing: { orchestrator_role: worker }\n");
     const i = await start();
@@ -149,11 +149,11 @@ describe.each(["serial", "dependency"])("workflow registered-human selection at 
     const attempted: string[] = [];
     vi.spyOn(queue, "createWithinTransaction").mockImplementation(input => {
       attempted.push(input.destinationSession);
-      if (input.destinationSession === "worker@rig") throw new QueueRepositoryError("unknown_destination_rig", "controlled unavailable rig");
+      if (input.destinationSession === "worker@software-team") throw new QueueRepositoryError("unknown_destination_software_team", "controlled unavailable softwareTeam");
       return create(input);
     });
     await fail(i);
-    expect(attempted).toEqual(["worker@rig", "owner-one@external"]);
+    expect(attempted).toEqual(["worker@software-team", "owner-one@external"]);
     expect(exceptions()).toHaveLength(1);
     expect(exceptions()[0]).toMatchObject({ destination_session: "owner-one@external", tier: "human-gate" });
   });
@@ -169,12 +169,12 @@ describe.each(["serial", "dependency"])("workflow registered-human selection at 
   });
   it.each(["project", "overdue"] as const)("%s preserves capability, preferred and no-match routing while exposing read faults", async (channel) => {
     add("owner-one");
-    const rigs = new RigRepository(db);
+    const softwareTeams = new SoftwareTeamRepository(db);
     const pod = new PodRepository(db).createPod("r", "dev", "dev");
-    const node = rigs.addNode("r", "dev.orch", { role: "orch", runtime: "codex", cwd: dir,
+    const node = softwareTeams.addNode("r", "dev.orch", { role: "orch", runtime: "codex", cwd: dir,
       podId: pod.id, agentRef: "local:agents/fixture", profile: "default" });
-    db.prepare("INSERT INTO sessions(id,node_id,session_name,status) VALUES('orch-session',?,'dev-orch@rig','running')").run(node.id);
-    const boundSpec = spec.replace("  roles:", "  target: { rig: rig }\n  roles:\n    orch: {}")
+    db.prepare("INSERT INTO sessions(id,node_id,session_name,status) VALUES('orch-session',?,'dev-orch@software-team','running')").run(node.id);
+    const boundSpec = spec.replace("  roles:", "  target: { software_team: softwareTeam }\n  roles:\n    orch: {}")
       + "  exception_routing:\n    orchestrator_role: orch\n";
     const app = new Hono();
     app.use("*", async (c, next) => { c.set("workflowRuntime" as never, runtime as never); c.set("eventBus" as never, bus as never); await next(); });
@@ -184,7 +184,7 @@ describe.each(["serial", "dependency"])("workflow registered-human selection at 
     for (const mode of ["capability", "preferred", "no-match", "read-fault", ...(channel === "overdue" ? ["binding-read-fault"] as const : [])] as const) {
       const faultExpected = mode === "read-fault" || mode === "binding-read-fault";
       writeFileSync(specPath, boundSpec.replace("registered-human-test", `read-proof-${mode}`)
-        .replace("orch: {}", mode === "preferred" ? "orch: { preferred_targets: [dev-orch@rig] }" : "orch: {}"));
+        .replace("orch: {}", mode === "preferred" ? "orch: { preferred_targets: [dev-orch@software-team] }" : "orch: {}"));
       db.prepare("UPDATE sessions SET status = ? WHERE id = 'orch-session'").run(mode === "no-match" ? "exited" : "running");
       const i = await start();
       if (channel === "overdue") db.prepare("UPDATE queue_items SET ts_created = '2020-01-01T00:00:00Z' WHERE qitem_id = ?").run(i.entryQitemId);
@@ -202,8 +202,8 @@ describe.each(["serial", "dependency"])("workflow registered-human selection at 
       let faultHits = 0;
       const readFault = Object.assign(new Error("fixture capability evidence read failed"), { code: "SQLITE_IOERR" });
       const spy = vi.spyOn(db, "prepare").mockImplementation((sql) => {
-        if (((mode === "read-fault" || mode === "preferred") && sql === "SELECT id FROM rigs WHERE name = ? ORDER BY created_at LIMIT 1")
-          || (mode === "binding-read-fault" && sql === "SELECT bound_rig FROM workflow_instances WHERE instance_id = ?")) {
+        if (((mode === "read-fault" || mode === "preferred") && sql === "SELECT id FROM software_teams WHERE name = ? ORDER BY created_at LIMIT 1")
+          || (mode === "binding-read-fault" && sql === "SELECT bound_software_team FROM workflow_instances WHERE instance_id = ?")) {
           faultHits += 1;
           throw readFault;
         }
@@ -212,12 +212,12 @@ describe.each(["serial", "dependency"])("workflow registered-human selection at 
       try {
         if (channel === "project") {
           const response = await app.request("/workflow/project", { method: "POST", headers: { "content-type": "application/json" },
-            body: JSON.stringify({ instanceId: i.instance.instanceId, currentPacketId: i.entryQitemId, actorSession: "worker@rig", exit: "failed" }) });
+            body: JSON.stringify({ instanceId: i.instance.instanceId, currentPacketId: i.entryQitemId, actorSession: "worker@software-team", exit: "failed" }) });
           expect(response.status).toBe(faultExpected ? 500 : 200);
           if (faultExpected) expect(await response.json()).toMatchObject({ error: "internal_error", message: readFault.message });
         } else {
           const pending = ensure({ workflowName: i.instance.workflowName, workflowVersion: i.instance.workflowVersion,
-            createdBySession: "ops@rig", verdict: runtime.inspect(i.instance.instanceId).frontier[0]!.deadline });
+            createdBySession: "ops@software-team", verdict: runtime.inspect(i.instance.instanceId).frontier[0]!.deadline });
           if (faultExpected) await expect(pending).rejects.toBe(readFault);
           else expect((await pending).outcome).toBe("created");
         }
@@ -231,7 +231,7 @@ describe.each(["serial", "dependency"])("workflow registered-human selection at 
         expect(exceptions()).toHaveLength(previousExceptions + 1);
         expect(exceptions().at(-1)).toMatchObject(mode === "no-match"
           ? { destination_session: "owner-one@external", tier: "human-gate" }
-          : { destination_session: "dev-orch@rig", tier: "mode2" });
+          : { destination_session: "dev-orch@software-team", tier: "mode2" });
       }
     }
   });
@@ -239,21 +239,21 @@ describe.each(["serial", "dependency"])("workflow registered-human selection at 
   it("reports the selected owner, no-match, and read faults without converting an unknown to human fallback", async () => {
     add("owner-one");
     const pod = new PodRepository(db).createPod("r", "dev", "dev");
-    const node = new RigRepository(db).addNode("r", "dev.orch", { role: "orch", runtime: "codex", cwd: dir,
+    const node = new SoftwareTeamRepository(db).addNode("r", "dev.orch", { role: "orch", runtime: "codex", cwd: dir,
       podId: pod.id, agentRef: "local:agents/fixture", profile: "default" });
-    db.prepare("INSERT INTO sessions(id,node_id,session_name,status) VALUES('reader-orch',?,'dev-orch@rig','running')").run(node.id);
-    writeFileSync(specPath, spec.replace("  roles:", "  target: { rig: rig }\n  roles:\n    orch: {}") + "  exception_routing: { orchestrator_role: orch }\n");
+    db.prepare("INSERT INTO sessions(id,node_id,session_name,status) VALUES('reader-orch',?,'dev-orch@software-team','running')").run(node.id);
+    writeFileSync(specPath, spec.replace("  roles:", "  target: { software_team: softwareTeam }\n  roles:\n    orch: {}") + "  exception_routing: { orchestrator_role: orch }\n");
     const i = await start(), id = i.instance.instanceId;
     const before = db.serialize();
     expect(runtime.exceptionReadiness(id)).toMatchObject({ posture: "advisory", selection: { state: "selected", role: "orch" },
-      routes: [{ state: "ready", roleResolution: "capability-match", destinationSession: "dev-orch@rig" },
-        { state: "ready", roleResolution: "capability-match", destinationSession: "dev-orch@rig" }] });
+      routes: [{ state: "ready", roleResolution: "capability-match", destinationSession: "dev-orch@software-team" },
+        { state: "ready", roleResolution: "capability-match", destinationSession: "dev-orch@software-team" }] });
     expect(db.serialize()).toEqual(before);
     db.prepare("UPDATE sessions SET status='exited' WHERE id='reader-orch'").run();
     expect(runtime.exceptionReadiness(id)?.routes[0]).toMatchObject({ state: "ready", roleResolution: "no-match", position: "fallback", destinationSession: "owner-one@external" });
     const prepare = db.prepare.bind(db);
     vi.spyOn(db, "prepare").mockImplementation(sql => {
-      if (sql === "SELECT id FROM rigs WHERE name = ? ORDER BY created_at LIMIT 1") throw new Error("fixture inventory unavailable");
+      if (sql === "SELECT id FROM software_teams WHERE name = ? ORDER BY created_at LIMIT 1") throw new Error("fixture inventory unavailable");
       return prepare(sql);
     });
     expect(runtime.exceptionReadiness(id)?.routes[0]).toMatchObject({ state: "unavailable", roleResolution: "unavailable", destinationSession: null, message: "fixture inventory unavailable" });
@@ -271,7 +271,7 @@ describe.each(["serial", "dependency"])("workflow registered-human selection at 
     expect(runtime.exceptionReadiness(direct.instance.instanceId)?.nextAction).toContain("no orchestrator selection is required");
     writeFileSync(specPath, spec.replace("version: 1", "version: 3") + "  exception_routing: { orchestrator_role: worker }\n");
     const preferred = await start();
-    expect(runtime.exceptionReadiness(preferred.instance.instanceId)?.routes[0]).toMatchObject({ state: "unregistered", roleResolution: "preferred-target", destinationSession: "worker@rig" });
+    expect(runtime.exceptionReadiness(preferred.instance.instanceId)?.routes[0]).toMatchObject({ state: "unregistered", roleResolution: "preferred-target", destinationSession: "worker@software-team" });
   });
 
 });

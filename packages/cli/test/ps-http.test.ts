@@ -6,7 +6,7 @@ import type { DaemonClient, DaemonResponse } from "../src/client.js";
 function mockClient(responses: Record<string, { status: number; data: unknown }>): DaemonClient & { _calls: Array<{ path: string; headers?: Record<string, string> }> } {
   const calls: Array<{ path: string; headers?: Record<string, string> }> = [];
   return {
-    baseUrl: "http://remote:7433",
+    baseUrl: "http://remote:7434",
     get: async <T>(path: string, options?: { headers?: Record<string, string> }) => {
       calls.push({ path, headers: options?.headers });
       const r = responses[path] ?? { status: 404, data: { error: "not found" } };
@@ -49,32 +49,32 @@ async function captureLogs(fn: () => Promise<void>): Promise<{ stdout: string[];
 
 afterEach(() => { vi.unstubAllEnvs(); process.exitCode = undefined; });
 
-describe("rig ps --host HTTP", () => {
+describe("SoftwareTeam ps --host HTTP", () => {
   it("calls /api/ps with remote bearer header", async () => {
     vi.stubEnv("HOST_B_TOKEN", "remote-secret-123");
     const client = mockClient({
-      "/api/ps": { status: 200, data: [{ rigId: "rig-1", name: "test-rig" }] },
+      "/api/ps": { status: 200, data: [{ softwareTeamId: "software-team-1", name: "test-software-team" }] },
     });
     const deps: PsDeps = {
       lifecycleDeps: {} as PsDeps["lifecycleDeps"],
       clientFactory: () => client,
       hostRegistryLoader: mockRegistry([
-        { id: "host-b", transport: "http", url: "http://192.168.64.97:7433", bearer_env: "HOST_B_TOKEN" },
+        { id: "host-b", transport: "http", url: "http://192.168.64.97:7434", bearer_env: "HOST_B_TOKEN" },
       ]),
     };
     await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--host", "host-b", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--host", "host-b", "--json"]);
     });
     expect(client._calls.length).toBeGreaterThanOrEqual(1);
     expect(client._calls[0]!.path).toContain("/api/ps");
     expect(client._calls[0]!.headers?.Authorization).toBe("Bearer remote-secret-123");
   });
 
-  it("--nodes calls /api/rigs/:rigId/nodes with bearer", async () => {
+  it("--nodes calls /api/software-teams/:softwareTeamId/nodes with bearer", async () => {
     vi.stubEnv("HOST_B_TOKEN", "remote-secret");
     const client = mockClient({
-      "/api/ps": { status: 200, data: [{ rigId: "rig-1", name: "test-rig" }] },
-      "/api/rigs/rig-1/nodes": { status: 200, data: [{ logicalId: "dev.impl" }] },
+      "/api/ps": { status: 200, data: [{ softwareTeamId: "software-team-1", name: "test-software-team" }] },
+      "/api/software-teams/software-team-1/nodes": { status: 200, data: [{ logicalId: "dev.impl" }] },
     });
     const deps: PsDeps = {
       lifecycleDeps: {} as PsDeps["lifecycleDeps"],
@@ -86,7 +86,7 @@ describe("rig ps --host HTTP", () => {
     await captureLogs(async () => {
       // OPR.0.4.4.21 FR-2: remote --nodes requires an explicit target
       // (implicit scope defaults don't cross host boundaries).
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--host", "host-b", "--nodes", "--rig", "test-rig", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--host", "host-b", "--nodes", "--software-team", "test-software-team", "--json"]);
     });
     const nodesCalls = client._calls.filter((c) => c.path.includes("/nodes"));
     expect(nodesCalls.length).toBe(1);
@@ -104,7 +104,7 @@ describe("rig ps --host HTTP", () => {
       ]),
     };
     await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--host", "host-b", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--host", "host-b", "--json"]);
     });
     expect(client._calls.length).toBe(0);
   });
@@ -112,7 +112,7 @@ describe("rig ps --host HTTP", () => {
   it("--summary returns summary object", async () => {
     vi.stubEnv("HOST_B_TOKEN", "tok");
     const client = mockClient({
-      "/api/ps": { status: 200, data: [{ rigId: "r1", name: "rig", status: "running", nodeCount: 2, runningCount: 2 }] },
+      "/api/ps": { status: 200, data: [{ softwareTeamId: "r1", name: "softwareTeam", status: "running", nodeCount: 2, runningCount: 2 }] },
     });
     const deps: PsDeps = {
       lifecycleDeps: {} as PsDeps["lifecycleDeps"],
@@ -122,10 +122,10 @@ describe("rig ps --host HTTP", () => {
       ]),
     };
     const { stdout } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--host", "host-b", "--summary", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--host", "host-b", "--summary", "--json"]);
     });
     const parsed = JSON.parse(stdout.join(""));
-    expect(parsed.totalRigs).toBe(1);
+    expect(parsed.totalSoftwareTeams).toBe(1);
   });
 
   it("invalid --limit rejected before HTTP request", async () => {
@@ -139,7 +139,7 @@ describe("rig ps --host HTTP", () => {
       ]),
     };
     const { stderr } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--host", "host-b", "--limit", "abc", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--host", "host-b", "--limit", "abc", "--json"]);
     });
     expect(client._calls.length).toBe(0);
     expect(stderr.some((s) => s.includes("non-negative integer"))).toBe(true);
@@ -149,8 +149,8 @@ describe("rig ps --host HTTP", () => {
     vi.stubEnv("HOST_B_TOKEN", "tok");
     const client = mockClient({
       "/api/ps": { status: 200, data: [
-        { rigId: "r1", name: "a", status: "running" },
-        { rigId: "r2", name: "b", status: "stopped" },
+        { softwareTeamId: "r1", name: "a", status: "running" },
+        { softwareTeamId: "r2", name: "b", status: "stopped" },
       ] },
     });
     const deps: PsDeps = {
@@ -161,7 +161,7 @@ describe("rig ps --host HTTP", () => {
       ]),
     };
     const { stdout } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--host", "host-b", "--active", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--host", "host-b", "--active", "--json"]);
     });
     expect(client._calls.length).toBeGreaterThanOrEqual(1);
   });
@@ -177,17 +177,17 @@ describe("rig ps --host HTTP", () => {
       ]),
     };
     const { stderr } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--host", "host-b", "--active", "--filter", "status=running", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--host", "host-b", "--active", "--filter", "status=running", "--json"]);
     });
     expect(client._calls.length).toBe(0);
     expect(stderr.some((s) => s.includes("cannot be combined"))).toBe(true);
   });
-  it("--nodes --json returns flattened node array (not rig wrappers)", async () => {
+  it("--nodes --json returns flattened node array (not SoftwareTeam wrappers)", async () => {
     vi.stubEnv("HOST_B_TOKEN", "tok");
     const client = mockClient({
-      "/api/ps": { status: 200, data: [{ rigId: "r1", name: "alpha" }, { rigId: "r2", name: "beta" }] },
-      "/api/rigs/r1/nodes": { status: 200, data: [{ logicalId: "dev.a", rigName: "alpha" }] },
-      "/api/rigs/r2/nodes": { status: 200, data: [{ logicalId: "dev.b", rigName: "beta" }] },
+      "/api/ps": { status: 200, data: [{ softwareTeamId: "r1", name: "alpha" }, { softwareTeamId: "r2", name: "beta" }] },
+      "/api/software-teams/r1/nodes": { status: 200, data: [{ logicalId: "dev.a", softwareTeamName: "alpha" }] },
+      "/api/software-teams/r2/nodes": { status: 200, data: [{ logicalId: "dev.b", softwareTeamName: "beta" }] },
     });
     const deps: PsDeps = {
       lifecycleDeps: {} as PsDeps["lifecycleDeps"],
@@ -197,22 +197,22 @@ describe("rig ps --host HTTP", () => {
       ]),
     };
     const { stdout } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--host", "host-b", "--nodes", "-A", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--host", "host-b", "--nodes", "-A", "--json"]);
     });
     const parsed = JSON.parse(stdout.join(""));
     expect(Array.isArray(parsed)).toBe(true);
     expect(parsed.length).toBe(2);
-    expect(parsed[0].rigName).toBeDefined();
+    expect(parsed[0].softwareTeamName).toBeDefined();
   });
 
-  it("--nodes --limit 1 --fields logicalId,rigName returns envelope with totalNodes", async () => {
+  it("--nodes --limit 1 --fields logicalId,softwareTeamName returns envelope with totalNodes", async () => {
     vi.stubEnv("HOST_B_TOKEN", "tok");
     const client = mockClient({
-      "/api/ps": { status: 200, data: [{ rigId: "r1", name: "alpha" }] },
-      "/api/rigs/r1/nodes": { status: 200, data: [
-        { logicalId: "dev.a", rigName: "alpha", runtime: "claude-code" },
-        { logicalId: "dev.b", rigName: "alpha", runtime: "codex" },
-        { logicalId: "dev.c", rigName: "alpha", runtime: "claude-code" },
+      "/api/ps": { status: 200, data: [{ softwareTeamId: "r1", name: "alpha" }] },
+      "/api/software-teams/r1/nodes": { status: 200, data: [
+        { logicalId: "dev.a", softwareTeamName: "alpha", runtime: "claude-code" },
+        { logicalId: "dev.b", softwareTeamName: "alpha", runtime: "codex" },
+        { logicalId: "dev.c", softwareTeamName: "alpha", runtime: "claude-code" },
       ] },
     });
     const deps: PsDeps = {
@@ -223,7 +223,7 @@ describe("rig ps --host HTTP", () => {
       ]),
     };
     const { stdout } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--host", "host-b", "--nodes", "--rig", "alpha", "--json", "--limit", "1", "--fields", "logicalId,rigName"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--host", "host-b", "--nodes", "--software-team", "alpha", "--json", "--limit", "1", "--fields", "logicalId,softwareTeamName"]);
     });
     const parsed = JSON.parse(stdout.join(""));
     expect(parsed.entries).toBeDefined();
@@ -235,8 +235,8 @@ describe("rig ps --host HTTP", () => {
   it("--nodes --summary --limit 1 counts all nodes before limit", async () => {
     vi.stubEnv("HOST_B_TOKEN", "tok");
     const client = mockClient({
-      "/api/ps": { status: 200, data: [{ rigId: "r1", name: "alpha" }] },
-      "/api/rigs/r1/nodes": { status: 200, data: [
+      "/api/ps": { status: 200, data: [{ softwareTeamId: "r1", name: "alpha" }] },
+      "/api/software-teams/r1/nodes": { status: 200, data: [
         { logicalId: "dev.a", sessionStatus: "running" },
         { logicalId: "dev.b", sessionStatus: "running" },
         { logicalId: "dev.c", sessionStatus: "stopped" },
@@ -250,18 +250,18 @@ describe("rig ps --host HTTP", () => {
       ]),
     };
     const { stdout } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--host", "host-b", "--nodes", "--rig", "alpha", "--summary", "--limit", "1", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--host", "host-b", "--nodes", "--software-team", "alpha", "--summary", "--limit", "1", "--json"]);
     });
     const parsed = JSON.parse(stdout.join(""));
     expect(parsed.totalNodes).toBe(3);
   });
 
-  it("--summary --limit 1 counts all rigs before limit", async () => {
+  it("--summary --limit 1 counts all softwareTeams before limit", async () => {
     vi.stubEnv("HOST_B_TOKEN", "tok");
     const client = mockClient({
       "/api/ps": { status: 200, data: [
-        { rigId: "r1", name: "a", status: "running" },
-        { rigId: "r2", name: "b", status: "stopped" },
+        { softwareTeamId: "r1", name: "a", status: "running" },
+        { softwareTeamId: "r2", name: "b", status: "stopped" },
       ] },
     });
     const deps: PsDeps = {
@@ -272,14 +272,14 @@ describe("rig ps --host HTTP", () => {
       ]),
     };
     const { stdout } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--host", "host-b", "--summary", "--limit", "1", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--host", "host-b", "--summary", "--limit", "1", "--json"]);
     });
     const parsed = JSON.parse(stdout.join(""));
-    expect(parsed.totalRigs).toBe(2);
+    expect(parsed.totalSoftwareTeams).toBe(2);
   });
 });
 
-describe("rig ps --all-hosts fan-out", () => {
+describe("SoftwareTeam ps --all-hosts fan-out", () => {
   it("unknown --hosts id returns error", async () => {
     const deps: PsDeps = {
       lifecycleDeps: {} as PsDeps["lifecycleDeps"],
@@ -289,7 +289,7 @@ describe("rig ps --all-hosts fan-out", () => {
       ]),
     };
     const { stderr } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--hosts", "typo-host", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--hosts", "typo-host", "--json"]);
     });
     expect(stderr.some((s) => s.includes("unknown host ids"))).toBe(true);
   });
@@ -308,7 +308,7 @@ describe("rig ps --all-hosts fan-out", () => {
       ]),
     };
     const { stdout } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--hosts", "ssh-host", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--hosts", "ssh-host", "--json"]);
     });
     // OPR.0.4.4.21 FR-5 — the shared P4 contract: an SSH-declared host is a
     // STRUCTURED unsupported-transport status in hosts[], never silence.
@@ -326,7 +326,7 @@ describe("rig ps --all-hosts fan-out", () => {
     vi.stubEnv("TOK_B", "secret-b");
     delete process.env.TOK_C; // host-c bearer missing -> auth-failed
     const client = mockClient({
-      "/api/ps": { status: 200, data: [{ rigId: "rig-1", name: "remote-rig", nodeCount: 2, runningCount: 2, status: "running" }] },
+      "/api/ps": { status: 200, data: [{ softwareTeamId: "software-team-1", name: "remote-software-team", nodeCount: 2, runningCount: 2, status: "running" }] },
     });
     const deps: PsDeps = {
       lifecycleDeps: {} as PsDeps["lifecycleDeps"],
@@ -338,13 +338,13 @@ describe("rig ps --all-hosts fan-out", () => {
       ]),
     };
     const { stdout } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--all-hosts", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--all-hosts", "--json"]);
     });
     const parsed = JSON.parse(stdout.join(""));
     // items: only reachable hosts contribute rows; every row carries its origin
     expect(parsed.items).toHaveLength(1);
     expect(parsed.items[0].hostId).toBe("host-b");
-    expect(parsed.items[0].name).toBe("remote-rig");
+    expect(parsed.items[0].name).toBe("remote-software-team");
     // hosts[]: every targeted host appears with a closed-enum status
     const byId = Object.fromEntries(parsed.hosts.map((h: { hostId: string; status: string }) => [h.hostId, h.status]));
     expect(byId["host-b"]).toBe("ok");
@@ -354,7 +354,7 @@ describe("rig ps --all-hosts fan-out", () => {
   });
 
   // OPR.0.4.4.21 FR-5 — fan-out per-node requires the FULL explicit ladder
-  // (--nodes -A); anything less errors (never silent rig-tier data under a
+  // (--nodes -A); anything less errors (never silent software-team-tier data under a
   // --nodes flag).
   it("fan-out --nodes WITHOUT -A errors, teaching the full ladder", async () => {
     const deps: PsDeps = {
@@ -365,7 +365,7 @@ describe("rig ps --all-hosts fan-out", () => {
       ]),
     };
     const { stderr } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--all-hosts", "--nodes", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--all-hosts", "--nodes", "--json"]);
     });
     const err = stderr.join("\n");
     expect(err).toContain("FULL explicit ladder");
@@ -379,9 +379,9 @@ describe("rig ps --all-hosts fan-out", () => {
   it("fan-out --nodes -A returns AggregatedPayload of projected node rows (full ladder)", async () => {
     vi.stubEnv("TOK_B", "secret-b");
     const client = mockClient({
-      "/api/ps": { status: 200, data: [{ rigId: "rig-1", name: "remote-rig", rigName: "remote-rig" }] },
-      "/api/rigs/rig-1/nodes": { status: 200, data: [
-        { rigId: "rig-1", rigName: "remote-rig", logicalId: "dev.impl", sessionStatus: "running", resumeToken: "SECRET" },
+      "/api/ps": { status: 200, data: [{ softwareTeamId: "software-team-1", name: "remote-software-team", softwareTeamName: "remote-software-team" }] },
+      "/api/software-teams/software-team-1/nodes": { status: 200, data: [
+        { softwareTeamId: "software-team-1", softwareTeamName: "remote-software-team", logicalId: "dev.impl", sessionStatus: "running", resumeToken: "SECRET" },
       ] },
     });
     const deps: PsDeps = {
@@ -393,7 +393,7 @@ describe("rig ps --all-hosts fan-out", () => {
       ]),
     };
     const { stdout } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--all-hosts", "--nodes", "-A", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--all-hosts", "--nodes", "-A", "--json"]);
     });
     const parsed = JSON.parse(stdout.join(""));
     expect(parsed.items).toHaveLength(1);
@@ -413,9 +413,9 @@ describe("rig ps --all-hosts fan-out", () => {
   it("fan-out --nodes -A --full --fields projects named fields only (no resume leakage)", async () => {
     vi.stubEnv("TOK_B", "secret-b");
     const client = mockClient({
-      "/api/ps": { status: 200, data: [{ rigId: "rig-1", name: "remote-rig", rigName: "remote-rig" }] },
-      "/api/rigs/rig-1/nodes": { status: 200, data: [
-        { rigId: "rig-1", rigName: "remote-rig", logicalId: "dev.impl", sessionStatus: "running",
+      "/api/ps": { status: 200, data: [{ softwareTeamId: "software-team-1", name: "remote-software-team", softwareTeamName: "remote-software-team" }] },
+      "/api/software-teams/software-team-1/nodes": { status: 200, data: [
+        { softwareTeamId: "software-team-1", softwareTeamName: "remote-software-team", logicalId: "dev.impl", sessionStatus: "running",
           resumeToken: "SECRET-TOKEN", resumeCommand: "claude --resume SECRET-TOKEN" },
       ] },
     });
@@ -427,7 +427,7 @@ describe("rig ps --all-hosts fan-out", () => {
       ]),
     };
     const { stdout } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--all-hosts", "--nodes", "-A", "--full", "--json", "--fields", "logicalId"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--all-hosts", "--nodes", "-A", "--full", "--json", "--fields", "logicalId"]);
     });
     const raw = stdout.join("");
     const parsed = JSON.parse(raw);
@@ -444,8 +444,8 @@ describe("rig ps --all-hosts fan-out", () => {
     vi.stubEnv("TOK_C", "secret-c");
     const client = mockClient({
       "/api/ps": { status: 200, data: [
-        { rigId: "rig-1", name: "run-rig", rigName: "run-rig", status: "running" },
-        { rigId: "rig-2", name: "stop-rig", rigName: "stop-rig", status: "stopped" },
+        { softwareTeamId: "software-team-1", name: "run-software-team", softwareTeamName: "run-software-team", status: "running" },
+        { softwareTeamId: "software-team-2", name: "stop-software-team", softwareTeamName: "stop-software-team", status: "stopped" },
       ] },
     });
     const deps: PsDeps = {
@@ -456,16 +456,16 @@ describe("rig ps --all-hosts fan-out", () => {
         { id: "host-c", transport: "http", url: "http://c", bearer_env: "TOK_C" },
       ]),
     };
-    // --filter status=running: 2 hosts × 1 matching rig each
+    // --filter status=running: 2 hosts × 1 matching softwareTeam each
     const { stdout: filteredOut } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--all-hosts", "--json", "--filter", "status=running"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--all-hosts", "--json", "--filter", "status=running"]);
     });
     const filtered = JSON.parse(filteredOut.join(""));
     expect(filtered.items).toHaveLength(2);
-    expect(filtered.items.every((i: { name: string }) => i.name === "run-rig")).toBe(true);
+    expect(filtered.items.every((i: { name: string }) => i.name === "run-software-team")).toBe(true);
     // --limit 1 applies to the MERGED list; hosts[] stays complete
     const { stdout: limitedOut } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--all-hosts", "--json", "--limit", "1"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--all-hosts", "--json", "--limit", "1"]);
     });
     const limited = JSON.parse(limitedOut.join(""));
     expect(limited.items).toHaveLength(1);
@@ -481,7 +481,7 @@ describe("rig ps --all-hosts fan-out", () => {
       ]),
     };
     const { stderr } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--all-hosts", "--summary", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--all-hosts", "--summary", "--json"]);
     });
     expect(stderr.join("\n")).toContain("does not compose with the merged fan-out payload");
   });
@@ -496,7 +496,7 @@ describe("rig ps --all-hosts fan-out", () => {
       ]),
     };
     const { stderr } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ps", "--all-hosts", "--json", "--fields", "bogus"]);
+      await makeCmd(deps).parseAsync(["node", "SoftwareTeam", "ps", "--all-hosts", "--json", "--fields", "bogus"]);
     });
     expect(stderr.join("\n")).toContain("bogus");
     expect(client._calls).toHaveLength(0);

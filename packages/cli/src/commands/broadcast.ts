@@ -14,13 +14,13 @@ import { refuseEmptyMessage } from "./send.js";
 /**
  * OPR.0.4.6.MH4 C3 — the cross-host broadcast deadline, named at the call
  * site (arch delivery-lane note (a)): the remote route responds only after
- * the ORIGIN daemon's per-target fan-out loop completes, so a many-seat rig
+ * the ORIGIN daemon's per-target fan-out loop completes, so a many-seat softwareTeam
  * needs more than the 5s read-class default.
  */
 const BROADCAST_REMOTE_TIMEOUT_MS = 30_000;
 
 export interface BroadcastDeps extends StatusDeps {
-  /** Test seam: inject a registry loader so no real ~/.openrig is touched. */
+  /** Test seam: inject a registry loader so no real ~/.softwareteam is touched. */
   hostRegistryLoader?: () => ReturnType<typeof loadHostRegistry>;
 }
 
@@ -33,32 +33,32 @@ export function broadcastCommand(depsOverride?: BroadcastDeps): Command {
 
   cmd
     .argument("[text]", "Message text to broadcast (optional with --context)")
-    .option("--rig <name>", "Broadcast to all sessions in a rig")
-    .option("--pod <name>", "Broadcast to matching pod names across all rigs unless --rig is set")
+    .option("--software-team <name>", "Broadcast to all sessions in a softwareTeam")
+    .option("--pod <name>", "Broadcast to matching pod names across all softwareTeams unless --software-team is set")
     .option("--force", "Send even if targets appear mid-task")
-    .option("--host <id>", "Broadcast on a remote host declared in ~/.openrig/hosts.yaml (http hosts only — CLI-direct to the remote daemon's fan-out)")
+    .option("--host <id>", "Broadcast on a remote host declared in ~/.softwareteam/hosts.yaml (http hosts only — CLI-direct to the remote daemon's fan-out)")
     .option("--context <ref>", "Broadcast a context pack by its path-like ref (e.g. packs/fleet-update). Resolved content is fanned out; an oversized ref is flagged 'walk-sized'.")
     .option("--json", "JSON output for agents")
     .addHelpText("after", `
 Examples:
-  rig broadcast --rig my-rig "Checkpoint review complete. Resume work."
-  rig broadcast --pod dev "New task spec at docs/planning/next-task.md"
-  rig broadcast "System maintenance in 5 minutes."
-  rig broadcast --rig my-rig "message" --json
-  rig broadcast --host vps-b --rig remote-rig "coordinate the remote factory"
+  SoftwareTeam broadcast --software-team my-software-team "Checkpoint review complete. Resume work."
+  SoftwareTeam broadcast --pod dev "New task spec at docs/planning/next-task.md"
+  SoftwareTeam broadcast "System maintenance in 5 minutes."
+  SoftwareTeam broadcast --software-team my-software-team "message" --json
+  SoftwareTeam broadcast --host vps-b --software-team remote-software-team "coordinate the remote factory"
 
-Without --rig or --pod, broadcasts to ALL running tmux sessions plus any attached external_cli nodes across all rigs.
+Without --software-team or --pod, broadcasts to ALL running tmux sessions plus any attached external_cli nodes across all softwareTeams.
 Unsupported external_cli targets are returned as explicit per-target failures in the result.
 
---host broadcasts on a remote host declared in ~/.openrig/hosts.yaml,
+--host broadcasts on a remote host declared in ~/.softwareteam/hosts.yaml,
 CLI-direct against that daemon's shipped broadcast fan-out (http-registered
 hosts, e.g. pair-registered; an ssh-registered host fails with the structured
-transport-requirement error). The REMOTE daemon resolves --rig/--pod on ITS
+transport-requirement error). The REMOTE daemon resolves --software-team/--pod on ITS
 topology and its per-target results print verbatim — a partial fan-out exits
 non-zero exactly as a local one does. The positional is message text (never
 parsed as a target), so broadcast takes --host or the persisted host
-selection, not the agent@rig@host sugar.`)
-    .action(async (text: string | undefined, opts: { rig?: string; pod?: string; force?: boolean; host?: string; context?: string; json?: boolean }) => {
+selection, not the agent@software-team@host sugar.`)
+    .action(async (text: string | undefined, opts: { softwareTeam?: string; pod?: string; force?: boolean; host?: string; context?: string; json?: boolean }) => {
       // OPR.0.4.6.MH4 C3 — explicit --host > persisted selection. Broadcast
       // has NO session-target operand (the positional is message text, which
       // must never be sugar-parsed), so the §4 sugar does not apply here.
@@ -121,10 +121,10 @@ selection, not the agent@rig@host sugar.`)
       }
       if (refuseEmptyMessage(payload, "broadcast", Boolean(opts.json))) return;
       const body: Record<string, unknown> = { text: payload, force: opts.force };
-      if (opts.rig) body.rig = opts.rig;
+      if (opts.softwareTeam) body.softwareTeam = opts.softwareTeam;
       if (opts.pod) body.pod = opts.pod;
       // Send/broadcast header (ruling 03c35295): identify the broadcasting seat so the daemon fan-out
-      // WRAPS each recipient with the scale header ("broadcast to <rig> (N seats)" / topology) instead
+      // WRAPS each recipient with the scale header ("broadcast to <softwareTeam> (N seats)" / topology) instead
       // of delivering raw — a recipient tells it was a broadcast header-alone (the anti-storm teeth).
       // P18: `seatSender` is the broadcasting seat, or the `<unknown sender>` fall-open when unresolvable —
       // the marker is ALWAYS present so its PRESENCE stays the anti-storm signal to WRAP each recipient with
@@ -157,7 +157,7 @@ selection, not the agent@rig@host sugar.`)
 /**
  * OPR.0.4.6.MH4 C3 — cross-host broadcast over http, CLI-DIRECT to the
  * remote daemon's shipped POST /api/transport/broadcast (zero daemon-side
- * changes). The body is the LOCAL shape verbatim ({text, force, rig?,
+ * changes). The body is the LOCAL shape verbatim ({text, force, softwareTeam?,
  * pod?}); the ORIGIN daemon's own fan-out engine resolves the TargetSpec on
  * ITS topology and returns per-target results, printed VERBATIM — per-target
  * honesty is passthrough, never summarized; a partial fan-out exits non-zero
@@ -167,7 +167,7 @@ selection, not the agent@rig@host sugar.`)
 async function runCrossHostBroadcast(
   hostId: string,
   text: string,
-  opts: { rig?: string; pod?: string; force?: boolean; json?: boolean },
+  opts: { softwareTeam?: string; pod?: string; force?: boolean; json?: boolean },
   deps: BroadcastDeps,
   seatSender: string | undefined = undefined,
 ): Promise<void> {
@@ -185,12 +185,12 @@ async function runCrossHostBroadcast(
   const host = resolved.host;
 
   const body: Record<string, unknown> = { text, force: opts.force };
-  if (opts.rig) body.rig = opts.rig;
+  if (opts.softwareTeam) body.softwareTeam = opts.softwareTeam;
   if (opts.pod) body.pod = opts.pod;
   // P21 cross-host broadcast fix + P18: ADD the enveloped-fan-out marker (a rebuild once dropped it, so the
   // remote rendered RAW while the local path wrapped). `seatSender` is the origin seat, or the
   // `<unknown sender>` fall-open when unresolvable — the marker is ALWAYS present. The DaemonClient
-  // auto-stamps X-OpenRig-Session=origin env on this POST (client.ts:171, P18 chokepoint), so the remote
+  // auto-stamps X-SoftwareTeam-Session=origin env on this POST (client.ts:171, P18 chokepoint), so the remote
   // derives From: from the transport; the marker VALUE is ignored. No extra-headers stamp (that would be a
   // second origin of an already-stamped header).
   body.envelopeSender = seatSender ?? SENDER_FALLBACK;

@@ -19,8 +19,8 @@ export function unclaimCommand(depsOverride?: StatusDeps): Command {
     .option("--json", "JSON output")
     .addHelpText("after", `
 Notes:
-  - Use rig release <rigId> to release all claimed sessions from one rig.
-  - Unclaim preserves the live session; it only removes OpenRig management for that node.`)
+  - Use SoftwareTeam release <softwareTeamId> to release all claimed sessions from one softwareTeam.
+  - Unclaim preserves the live session; it only removes SoftwareTeam management for that node.`)
     .action(async (sessionRef: string, opts: { json?: boolean }) => {
       const deps = getDeps();
       const client = await getClient(deps);
@@ -42,7 +42,7 @@ Notes:
         return;
       }
 
-      console.log(`Released claimed session ${res.data["sessionName"]} from ${res.data["logicalId"]} in rig ${res.data["rigId"]}`);
+      console.log(`Released claimed session ${res.data["sessionName"]} from ${res.data["logicalId"]} in softwareTeam ${res.data["softwareTeamId"]}`);
     });
 
   return cmd;

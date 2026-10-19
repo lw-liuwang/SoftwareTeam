@@ -6,7 +6,7 @@ export const scopedOperatingPostureSchema: Migration = {
   sql: `
     CREATE TABLE operator_context_mode_bindings_next (
       id TEXT PRIMARY KEY,
-      scope TEXT NOT NULL CHECK (scope IN ('global_host', 'rig', 'project', 'mission', 'workstream', 'qitem')),
+      scope TEXT NOT NULL CHECK (scope IN ('global_host', 'softwareTeam', 'project', 'mission', 'workstream', 'qitem')),
       qualifier TEXT,
       mode TEXT NOT NULL CHECK (mode IN ('sleep', 'desk', 'mobile', 'away', 'focus', 'debug', 'human-led', 'delegated')),
       record_json TEXT NOT NULL,

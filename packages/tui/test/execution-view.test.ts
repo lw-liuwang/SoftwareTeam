@@ -28,7 +28,7 @@ function executionFixture(count = 4): NonNullable<FleetSnapshot["execution"]> {
     q1_lanes: ids.slice(0, 2).map((slice, index) => ({
       qitem_id: `qitem-${index + 1}`,
       slice,
-      seat: `dev-${index + 1}@rig`,
+      seat: `dev-${index + 1}@software-team`,
       worktree_path: "INDETERMINATE",
       branch: "INDETERMINATE",
       head_sha: "INDETERMINATE",
@@ -298,18 +298,18 @@ describe("mission execution story — readable rows over the shipped projections
       status: "active",
       operation_key: "release-op",
       frontier_packets: [
-        { packet_id: "Q-LEFT", step_id: "left", owner: "left@rig", queue_state: "in-progress", blocked_on: null, targeted_action: "rig workflow project --instance WF-LIFE --current-packet Q-LEFT" },
-        { packet_id: "Q-RIGHT", step_id: "right", owner: "right@rig", queue_state: "blocked", blocked_on: "gate-2", targeted_action: "rig workflow project --instance WF-LIFE --current-packet Q-RIGHT" },
+        { packet_id: "Q-LEFT", step_id: "left", owner: "left@software-team", queue_state: "in-progress", blocked_on: null, targeted_action: "SoftwareTeam workflow project --instance WF-LIFE --current-packet Q-LEFT" },
+        { packet_id: "Q-RIGHT", step_id: "right", owner: "right@software-team", queue_state: "blocked", blocked_on: "gate-2", targeted_action: "SoftwareTeam workflow project --instance WF-LIFE --current-packet Q-RIGHT" },
       ],
       failure_occurrences: [
-        { occurrence_id: "Q-FAILED", step_id: "build", status: "unresolved", failure_reason: "fixture red", targeted_action: "rig workflow resume WF-LIFE --occurrence Q-FAILED --actor-session <you>" },
+        { occurrence_id: "Q-FAILED", step_id: "build", status: "unresolved", failure_reason: "fixture red", targeted_action: "SoftwareTeam workflow resume WF-LIFE --occurrence Q-FAILED --actor-session <you>" },
       ],
       unknowns: ["frontier packet Q-GHOST has no queue row"],
     }];
     const overview = text(executionContentLines(fixture, executionScopes(), [], null, 200));
     expect(overview).toContain("WORKFLOWS");
-    expect(overview).toContain("left · in-progress · left@rig");
-    expect(overview).toContain("right · blocked · right@rig");
+    expect(overview).toContain("left · in-progress · left@software-team");
+    expect(overview).toContain("right · blocked · right@software-team");
     expect(overview).not.toContain("--current-packet");
     const body = text(executionContentLines(fixture, executionScopes(), [], "workflow:WF-LIFE", 200));
     expect(body).toContain("fixture red");
@@ -326,7 +326,7 @@ describe("mission execution story — readable rows over the shipped projections
       graph_source: { mode: "project-profile", profileSource: "/project.yaml#lifecycle.profiles.release" },
       boundary_obligations: [
         { stepId: "exact-cut-substance", required: true, state: "pending", receiptState: "missing", receipt: null },
-        { stepId: "record-shipped", required: true, state: "closed", receiptState: "recorded", receipt: { evidenceRef: "proof/ship.md", actorSession: "orch@rig" } },
+        { stepId: "record-shipped", required: true, state: "closed", receiptState: "recorded", receipt: { evidenceRef: "proof/ship.md", actorSession: "orch@software-team" } },
       ],
     }];
     const body = text(executionContentLines(fixture, executionScopes(), [], "workflow:WF-PROFILE", 120));
@@ -334,7 +334,7 @@ describe("mission execution story — readable rows over the shipped projections
     expect(body).toContain("exact cut substance · required · pending · receipt missing");
     expect(body).toContain("record shipped · required · closed · receipt recorded");
     expect(body).toContain("proof/ship.md");
-    expect(body).toContain("orch@rig");
+    expect(body).toContain("orch@software-team");
     expect(body).toContain("does not establish acceptance");
   });
 
@@ -349,10 +349,10 @@ describe("mission execution story — readable rows over the shipped projections
       frontier_packets: [{
         packet_id: "qitem-acceptance-packet",
         step_id: "accept",
-        owner: "review50-r2@v-openrig-build",
+        owner: "review50-r2@v-softwareteam-build",
         queue_state: "in-progress",
         blocked_on: null,
-        targeted_action: `rig workflow project --instance WF-ACCEPTANCE --current-packet qitem-acceptance-packet --exit done --actor-session review50-r2@v-openrig-build --acceptance-candidate '${candidate}' --acceptance-verdict 'CLEAR' --acceptance-evidence-ref '${evidence}'`,
+        targeted_action: `SoftwareTeam workflow project --instance WF-ACCEPTANCE --current-packet qitem-acceptance-packet --exit done --actor-session review50-r2@v-softwareteam-build --acceptance-candidate '${candidate}' --acceptance-verdict 'CLEAR' --acceptance-evidence-ref '${evidence}'`,
       }],
       failure_occurrences: [],
       unknowns: [],
@@ -376,7 +376,7 @@ describe("mission execution story — readable rows over the shipped projections
       for (let offset = 0; offset <= screen.contentMaxOffset && action == null; offset++) {
         expect(screen.lines.every((line) => line.length <= size.cols), `${size.cols}x${size.rows}`).toBe(true);
         const content = screen.lines.map((line) => line.slice(screen.explorerWidth + 2).trimEnd());
-        let cursor = content.findIndex((line) => line.trimStart().startsWith("action rig workflow project"));
+        let cursor = content.findIndex((line) => line.trimStart().startsWith("action SoftwareTeam workflow project"));
         if (cursor >= 0) {
           let candidate = content[cursor]!.replace(/^\s*action /, "");
           while (candidate.endsWith("\\") && cursor + 1 < content.length && !content[cursor + 1]!.trimStart().startsWith("scroll ")) {
@@ -395,11 +395,11 @@ describe("mission execution story — readable rows over the shipped projections
         .split("\0")
         .filter(Boolean);
       expect(argv, `${size.cols}x${size.rows}`).toEqual([
-        "rig", "workflow", "project",
+        "softwareTeam", "workflow", "project",
         "--instance", "WF-ACCEPTANCE",
         "--current-packet", "qitem-acceptance-packet",
         "--exit", "done",
-        "--actor-session", "review50-r2@v-openrig-build",
+        "--actor-session", "review50-r2@v-softwareteam-build",
         "--acceptance-candidate", candidate,
         "--acceptance-verdict", "CLEAR",
         "--acceptance-evidence-ref", evidence,
@@ -424,7 +424,7 @@ describe("mission execution story — readable rows over the shipped projections
     expect(body).toContain("aborted");
     expect(body).toContain("Q-FAILED");
     expect(body).toContain("historical failure");
-    expect(body).not.toContain("rig workflow resume");
+    expect(body).not.toContain("SoftwareTeam workflow resume");
   });
 
   it("keeps every graph drill affordance in bounds at 110 and 160 columns", () => {
@@ -502,7 +502,7 @@ describe("execution drill — one page from source, esc back", () => {
 
   it("a lane page names the qitem, seat, activity oracle, and the fragile repo join", () => {
     const body = text(executionContentLines(executionFixture(), [], [], "lane:qitem-2", 100));
-    expect(body).toContain("lane OPR.0.5.8.2 · dev-2@rig");
+    expect(body).toContain("lane OPR.0.5.8.2 · dev-2@software-team");
     expect(body).toContain("needs input: 1 · permission prompt");
     expect(body).toContain("repo join · FRAGILE");
     expect(body).toContain("worktree:    INDETERMINATE");
@@ -526,7 +526,7 @@ describe("execution drill — one page from source, esc back", () => {
     expect(strip).not.toMatch(/WAITING|[○✓?]{5}/);
     const live = text(executionSliceStripLines(executionFixture(), "OPR.0.5.8.1", "01-slice", 120, "active"));
     expect(live).toContain("EXECUTION · working · wave active-parallel");
-    expect(live).toContain("assignment  dev-1@rig · working (self-report)");
+    expect(live).toContain("assignment  dev-1@software-team · working (self-report)");
   });
 
   describe("a lane parked on an external gate is a waiting row, not the slice's assignment", () => {
@@ -537,10 +537,10 @@ describe("execution drill — one page from source, esc back", () => {
 
     it("shows the seat, the blocker and the row in the strip, and keeps assignment for in-progress lanes", () => {
       const execution = executionFixture();
-      expect(text(executionSliceStripLines(execution, "OPR.0.5.8.1", "01-slice", 120, "active"))).toContain("assignment  dev-1@rig · working (self-report)");
+      expect(text(executionSliceStripLines(execution, "OPR.0.5.8.1", "01-slice", 120, "active"))).toContain("assignment  dev-1@software-team · working (self-report)");
       park(execution.q1_lanes[0]!);
       const strip = text(executionSliceStripLines(execution, "OPR.0.5.8.1", "01-slice", 120, "active"));
-      expect(strip).toContain("waiting     dev-1@rig · external:capacity-limit · qitem-1");
+      expect(strip).toContain("waiting     dev-1@software-team · external:capacity-limit · qitem-1");
       expect(strip).not.toContain("assignment");
       expect(strip).not.toContain("working (self-report)");
       const line = executionSliceStripLines(execution, "OPR.0.5.8.1", "01-slice", 120, "active").find(l => l.text.includes("waiting     "))!;
@@ -560,16 +560,16 @@ describe("execution drill — one page from source, esc back", () => {
       const execution = executionFixture();
       const lane = execution.q1_lanes[0]!;
       lane["slice"] = "01-slice";
-      expect(text(executionSliceStripLines(execution, "OPR.0.5.8.1", "01-slice", 120, "active"))).toContain("assignment  dev-1@rig · working (self-report)");
+      expect(text(executionSliceStripLines(execution, "OPR.0.5.8.1", "01-slice", 120, "active"))).toContain("assignment  dev-1@software-team · working (self-report)");
       park(lane);
-      expect(text(executionSliceStripLines(execution, "OPR.0.5.8.1", "01-slice", 120, "active"))).toContain("waiting     dev-1@rig · external:capacity-limit · qitem-1");
+      expect(text(executionSliceStripLines(execution, "OPR.0.5.8.1", "01-slice", 120, "active"))).toContain("waiting     dev-1@software-team · external:capacity-limit · qitem-1");
     });
 
     it("shows the waiting row on the slice card's activity field and the lane page, not as the seat's activity", () => {
       const execution = executionFixture();
       park(execution.q1_lanes[0]!);
       const card = text(executionContentLines(execution, [], [], "slice:OPR.0.5.8.1", 120));
-      expect(card).toContain("activity:     waiting row · dev-1@rig · external:capacity-limit · qitem-1");
+      expect(card).toContain("activity:     waiting row · dev-1@software-team · external:capacity-limit · qitem-1");
       expect(card).toContain("seat:         none — no in-progress lane");
       expect(card).not.toContain("self-report");
       const lane = text(executionContentLines(execution, [], [], "lane:qitem-1", 120));
@@ -656,7 +656,7 @@ describe("attributed proof provenance in the ordinary execution path", () => {
         issues: [], history: [{ ref: "proof/judgments/00000001.md", id: "receipt-1", verdict: "accept", previous: null }],
         items: [{ id: "item-1", index: 1, text: "An attributed outcome", state,
           reason: state === "unknown" ? "Evidence missing or changed; inspect the retained judgment" : "Observed outcome",
-          judgment: { id: "receipt-1", actor: "judge@rig", at: "2026-09-09T05:00:00Z", verdict: "accept", previous: null,
+          judgment: { id: "receipt-1", actor: "judge@software-team", at: "2026-09-09T05:00:00Z", verdict: "accept", previous: null,
             subject: { kind, ref: "outcome.md", ...(kind === "patch-equivalent" ? { comparison: "comparison.md" } : {}) },
             evidence: [{ ref: "outcome.md", sha256: "a".repeat(64) }] },
         }],
@@ -671,11 +671,11 @@ describe("attributed proof provenance in the ordinary execution path", () => {
     expect(overview.find(line => line.text.includes("provenance"))?.action).toEqual({ type: "execution-open", key: "evidence" });
     expect(text(overview)).not.toContain("evidence gap 1/1 unknown");
     const page = text(executionContentLines(execution, undefined, [], "evidence", 100));
-    for (const value of ["proof-revision", "ACCEPTED", kind, "outcome.md", "judge@rig", "receipt-1", "a".repeat(64)]) expect(page).toContain(value);
+    for (const value of ["proof-revision", "ACCEPTED", kind, "outcome.md", "judge@software-team", "receipt-1", "a".repeat(64)]) expect(page).toContain(value);
     if (kind === "patch-equivalent") expect(page).toContain("comparison.md");
     const slice = text(executionContentLines(execution, undefined, [], "slice:OPR.0.5.8.1", 100));
     expect(slice).toContain("ACCEPTED");
-    expect(slice).toContain("judge@rig");
+    expect(slice).toContain("judge@software-team");
     expect(slice).toContain("CODE LINEAGE");
     expect(slice).toContain("undetermined");
     expect(text(executionSliceStripLines(execution, "OPR.0.5.8.1", "01-slice", 100))).toContain("proof ready");

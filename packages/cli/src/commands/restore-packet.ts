@@ -1,4 +1,4 @@
-// restore-packet.ts — `rig restore-packet {write,read,validate}` CLI command.
+// restore-packet.ts — `SoftwareTeam restore-packet {write,read,validate}` CLI command.
 //
 // M2a: command shape + mutual-exclusion + read/validate stubs.
 // M2b: source-adapter wiring (codex-jsonl-parser, claude-transcript-parser,
@@ -51,14 +51,14 @@ interface WriteOptions {
    */
   sourceSessionIdOverride?: string;
   /**
-   * R2: explicit operator override for source_rig. Wins over <seat>@<rig>
+   * R2: explicit operator override for source_software_team. Wins over <seat>@<softwareTeam>
    * derivation. Required when the canonical source_session_id is bare
    * (no @) and the operator has not supplied --source-session-id-override
    * with @ shape.
    */
-  sourceRigOverride?: string;
+  sourceSoftwareTeamOverride?: string;
   target: string;
-  targetRig?: string;
+  targetSoftwareTeam?: string;
   targetRuntime?: string;
   targetWorkspaceRoot?: string;
   defaultTargetRepo?: string;
@@ -72,7 +72,7 @@ interface WriteOptions {
 }
 
 /**
- * R2: derive canonical (source_session_id, source_rig) per honest-fallback
+ * R2: derive canonical (source_session_id, source_software_team) per honest-fallback
  * policy. Override flags > parsed session_meta (jsonl) > supplied --source-session.
  *
  * Returns either the derived pair (with no exception) OR throws an Error
@@ -83,7 +83,7 @@ function deriveProvenance(
   opts: WriteOptions,
   parsedSessionId: string | null,
   hasJsonl: boolean,
-): { sourceSessionId: string; sourceRig: string } {
+): { sourceSessionId: string; sourceSoftwareTeam: string } {
   // Step 1: source_session_id — override > parsed > --source-session arg.
   let sourceSessionId: string;
   if (typeof opts.sourceSessionIdOverride === "string" && opts.sourceSessionIdOverride.length > 0) {
@@ -91,7 +91,7 @@ function deriveProvenance(
   } else if (hasJsonl) {
     if (!parsedSessionId) {
       throw new Error(
-        "no session_meta record in source JSONL; supply --source-session-id-override <id> AND --source-rig-override <rig> to set provenance explicitly. Silent fallback to file-path-as-session-id is not allowed (M2c-CLI R2 honest-provenance policy).",
+        "no session_meta record in source JSONL; supply --source-session-id-override <id> AND --source-software-team-override <softwareTeam> to set provenance explicitly. Silent fallback to file-path-as-session-id is not allowed (M2c-CLI R2 honest-provenance policy).",
       );
     }
     sourceSessionId = parsedSessionId;
@@ -100,36 +100,36 @@ function deriveProvenance(
     sourceSessionId = opts.sourceSession!;
   }
 
-  // Step 2: source_rig — override > <seat>@<rig> split.
-  let sourceRig: string;
-  if (typeof opts.sourceRigOverride === "string" && opts.sourceRigOverride.length > 0) {
-    sourceRig = opts.sourceRigOverride;
+  // Step 2: source_software_team — override > <seat>@<softwareTeam> split.
+  let sourceSoftwareTeam: string;
+  if (typeof opts.sourceSoftwareTeamOverride === "string" && opts.sourceSoftwareTeamOverride.length > 0) {
+    sourceSoftwareTeam = opts.sourceSoftwareTeamOverride;
   } else {
     // OPR.0.4.6.MH1 FR-8 + rev1-r2 B2: the shared parse contract, with
-    // this site's OWN strictness on top. The contract's greedy rig is the
+    // this site's OWN strictness on top. The contract's greedy softwareTeam is the
     // QUEUE GATE's shape — where an in-band host fails the registry
     // lookup loudly. THIS site persists provenance with no lookup, so a
-    // multi-@ rig would be silently recorded (BR-1 keeps host out of the
+    // multi-@ softwareTeam would be silently recorded (BR-1 keeps host out of the
     // session string; the honest-provenance policy forbids silent
-    // acceptance). Canonical member@rig with a PLAIN rig derives; anything
+    // acceptance). Canonical member@software-team with a PLAIN softwareTeam derives; anything
     // else throws the explicit override error below.
     const parsedSource = parseSessionName(sourceSessionId);
-    const captured = parsedSource.kind === "canonical" && !parsedSource.rig.includes("@")
-      ? parsedSource.rig
+    const captured = parsedSource.kind === "canonical" && !parsedSource.softwareTeam.includes("@")
+      ? parsedSource.softwareTeam
       : undefined;
     if (!captured) {
       throw new Error(
-        `could not derive source_rig from session id '${sourceSessionId}' (does not match <seat>@<rig> shape); supply --source-rig-override <rig> explicitly. Silent fallback to source_rig:"unknown" is not allowed (M2c-CLI R2 honest-provenance policy).`,
+        `could not derive source_software_team from session id '${sourceSessionId}' (does not match <seat>@<softwareTeam> shape); supply --source-software-team-override <softwareTeam> explicitly. Silent fallback to source_software_team:"unknown" is not allowed (M2c-CLI R2 honest-provenance policy).`,
       );
     }
-    sourceRig = captured;
+    sourceSoftwareTeam = captured;
   }
 
-  return { sourceSessionId, sourceRig };
+  return { sourceSessionId, sourceSoftwareTeam };
 }
 
 function reportFailure(message: string): void {
-  console.error(`rig restore-packet write: ${message}`);
+  console.error(`SoftwareTeam restore-packet write: ${message}`);
   process.exitCode = 2;
 }
 
@@ -144,7 +144,7 @@ async function fetchSourceTranscriptViaDaemon(
   const lifecycleDeps = deps?.lifecycleDeps ?? realDeps();
   const status = await getDaemonStatus(lifecycleDeps);
   if (status.state !== "running" || typeof status.port !== "number") {
-    throw new Error("daemon not running; start it with: rig daemon start");
+    throw new Error("daemon not running; start it with: SoftwareTeam daemon start");
   }
   const url = getDaemonUrl(status);
   const client = (deps?.clientFactory ?? ((u: string) => new DaemonClient(u)))(url);
@@ -176,9 +176,9 @@ function buildWritePacketOptions(
   sourceRuntime: SourceRuntime,
   sourceCwdFallback: string,
   sourceSessionId: string,
-  sourceRig: string,
+  sourceSoftwareTeam: string,
 ): WritePacketOptions {
-  const trustRankingDefault = "rig_whoami,bounded_latest_transcript";
+  const trustRankingDefault = "software_team_whoami,bounded_latest_transcript";
   const trustRankingRaw = opts.sourceTrustRanking ?? trustRankingDefault;
   const trustRanking = trustRankingRaw
     .split(",")
@@ -189,22 +189,22 @@ function buildWritePacketOptions(
     targetDir: resolvePath(opts.target),
     structured,
     sourceRuntime,
-    // A restored seat goes back to its own rig unless told otherwise.
-    targetRig: opts.targetRig ?? sourceRig,
+    // A restored seat goes back to its own softwareTeam unless told otherwise.
+    targetSoftwareTeam: opts.targetSoftwareTeam ?? sourceSoftwareTeam,
     targetRuntime: isValidRuntime(opts.targetRuntime) ? opts.targetRuntime : "claude-code",
     targetWorkspaceRoot: opts.targetWorkspaceRoot ?? structured.sessionMeta?.cwd ?? sourceCwdFallback,
     defaultTargetRepo: opts.defaultTargetRepo ?? null,
-    // The seat's own notes in the topology tree: rigs/<rig>/seats/<seat>/LEARNED.md.
-    rolePointer: opts.rolePointer ?? `rigs/${opts.targetRig ?? sourceRig}/seats/${sourceSessionId.split("@")[0]}/LEARNED.md`,
-    currentWorkSummary: opts.currentWorkSummary ?? "Cross-runtime restore packet generated by rig restore-packet write.",
+    // The seat's own notes in the topology tree: software-teams/<softwareTeam>/seats/<seat>/LEARNED.md.
+    rolePointer: opts.rolePointer ?? `software-teams/${opts.targetSoftwareTeam ?? sourceSoftwareTeam}/seats/${sourceSessionId.split("@")[0]}/LEARNED.md`,
+    currentWorkSummary: opts.currentWorkSummary ?? "Cross-runtime restore packet generated by SoftwareTeam restore-packet write.",
     nextOwner: opts.nextOwner ?? "self",
     caveats: opts.caveat ?? [],
     authorityBoundaries: opts.authorityBoundaries ?? "Restored seat authority per source session role.",
     sourceTrustRanking: trustRanking,
     sourceSessionId,
-    sourceRig,
+    sourceSoftwareTeam,
     sourceCwd: structured.sessionMeta?.cwd ?? sourceCwdFallback,
-    generatorVersion: opts.generatorVersion ?? "rig-restore-packet@0.1.0",
+    generatorVersion: opts.generatorVersion ?? "software-team-restore-packet@0.1.0",
     includeFullTranscript: structured.messages.length > 0,
   };
 }
@@ -232,7 +232,7 @@ export function restorePacketCommand(depsOverride?: RestorePacketDeps): Command 
       "--target <dir>",
       "Target packet directory (must not exist; created atomically)",
     )
-    .option("--target-rig <rig>", "Target rig name for the restored seat (default: the source session's rig)")
+    .option("--target-software-team <softwareTeam>", "Target SoftwareTeam name for the restored seat (default: the source session's softwareTeam)")
     .option(
       "--target-runtime <runtime>",
       "Target runtime (claude-code | codex)",
@@ -247,7 +247,7 @@ export function restorePacketCommand(depsOverride?: RestorePacketDeps): Command 
     )
     .option(
       "--role-pointer <path>",
-      "Role guidance pointer path or URI for the restored seat (default: rigs/<rig>/seats/<seat>/LEARNED.md)",
+      "Role guidance pointer path or URI for the restored seat (default: software-teams/<softwareTeam>/seats/<seat>/LEARNED.md)",
     )
     .option(
       "--current-work-summary <text>",
@@ -269,19 +269,19 @@ export function restorePacketCommand(depsOverride?: RestorePacketDeps): Command 
     )
     .option(
       "--source-trust-ranking <csv>",
-      "Comma-separated source-trust ranking; default: rig_whoami,bounded_latest_transcript",
+      "Comma-separated source-trust ranking; default: software_team_whoami,bounded_latest_transcript",
     )
     .option(
       "--generator-version <version>",
-      'Generator version identifier (default: "rig-restore-packet@0.1.0")',
+      'Generator version identifier (default: "software-team-restore-packet@0.1.0")',
     )
     .option(
       "--source-session-id-override <id>",
       "Operator override for source_session_id (R2; required when JSONL has no session_meta record)",
     )
     .option(
-      "--source-rig-override <rig>",
-      "Operator override for source_rig (R2; required when canonical session id is bare with no <seat>@<rig> shape)",
+      "--source-software-team-override <softwareTeam>",
+      "Operator override for source_software_team (R2; required when canonical session id is bare with no <seat>@<softwareTeam> shape)",
     )
     .action(async (opts: WriteOptions) => {
       const hasSession = typeof opts.sourceSession === "string" && opts.sourceSession.length > 0;
@@ -335,11 +335,11 @@ export function restorePacketCommand(depsOverride?: RestorePacketDeps): Command 
           ? parseCodexJsonl(content)
           : parseClaudeTranscript(content);
 
-        // R2: derive (source_session_id, source_rig) honestly. Override
+        // R2: derive (source_session_id, source_software_team) honestly. Override
         // flags > parsed session_meta (jsonl) > supplied --source-session
         // arg. Throws an Error with explicit operator guidance when the
         // honest-provenance policy can't be satisfied.
-        let provenance: { sourceSessionId: string; sourceRig: string };
+        let provenance: { sourceSessionId: string; sourceSoftwareTeam: string };
         try {
           provenance = deriveProvenance(opts, structured.sessionMeta?.sessionId ?? null, hasJsonl);
         } catch (err) {
@@ -353,7 +353,7 @@ export function restorePacketCommand(depsOverride?: RestorePacketDeps): Command 
           runtime,
           sourceCwdFallback,
           provenance.sourceSessionId,
-          provenance.sourceRig,
+          provenance.sourceSoftwareTeam,
         );
         const result = await writePacket(writeOpts);
 
@@ -379,7 +379,7 @@ export function restorePacketCommand(depsOverride?: RestorePacketDeps): Command 
       const summaryPath = joinPath(dir, "restore-summary.json");
       if (!existsSync(summaryPath)) {
         console.error(
-          `rig restore-packet read: restore-summary.json not found at ${summaryPath}.`,
+          `SoftwareTeam restore-packet read: restore-summary.json not found at ${summaryPath}.`,
         );
         process.exitCode = 2;
         return;
@@ -389,7 +389,7 @@ export function restorePacketCommand(depsOverride?: RestorePacketDeps): Command 
         summary = JSON.parse(readFileSync(summaryPath, "utf-8")) as Record<string, unknown>;
       } catch (err) {
         console.error(
-          `rig restore-packet read: restore-summary.json is not valid JSON: ${(err as Error).message}.`,
+          `SoftwareTeam restore-packet read: restore-summary.json is not valid JSON: ${(err as Error).message}.`,
         );
         process.exitCode = 2;
         return;
@@ -412,10 +412,10 @@ export function restorePacketCommand(depsOverride?: RestorePacketDeps): Command 
       console.log("--- Summary metadata ---");
       const metadataKeys = [
         "source_session_id",
-        "source_rig",
+        "source_software_team",
         "source_cwd",
         "source_runtime",
-        "target_rig",
+        "target_software_team",
         "target_runtime",
         "generator_version",
       ];

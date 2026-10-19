@@ -5,14 +5,14 @@ import { fileURLToPath } from "node:url";
 // P20 WIRING PIN (dead-invalidator / uninjected-service class — orch-named, r1's
 // P7-pin + P17's own uninjected-resolver precedent). The discrimination is proven
 // (conflict-detector-discrimination + projection-planner tests), but it only ACTS
-// if rigspec-instantiator ACTUALLY injects the real manifest lookup into
-// planProjection in production. RigSpecInstantiator is deep-launch-path (not
+// if software-team-spec-instantiator ACTUALLY injects the real manifest lookup into
+// planProjection in production. SoftwareTeamSpecInstantiator is deep-launch-path (not
 // unit-constructable), so this pins the enable path at source — a wiring drop
 // (removing the store or the lastHashLookup) fails HERE, before it can ship a
 // silent dead invalidator (lookup null forever → P17 fallback).
-describe("P20 wiring pin — rigspec-instantiator injects the REAL manifest lookup", () => {
+describe("P20 wiring pin — software-team-spec-instantiator injects the REAL manifest lookup", () => {
   const src = readFileSync(
-    fileURLToPath(new URL("../src/domain/rigspec-instantiator.ts", import.meta.url)),
+    fileURLToPath(new URL("../src/domain/software-team-spec-instantiator.ts", import.meta.url)),
     "utf-8",
   );
 
@@ -34,7 +34,7 @@ describe("P20 wiring pin — rigspec-instantiator injects the REAL manifest look
 // to "overwrite operator edits" while the warning still claims "not overwritten".
 describe("P20 atom-4 wiring pin — the instantiator delivers the PROTECT-filtered set with the real force flag", () => {
   const src = readFileSync(
-    fileURLToPath(new URL("../src/domain/rigspec-instantiator.ts", import.meta.url)),
+    fileURLToPath(new URL("../src/domain/software-team-spec-instantiator.ts", import.meta.url)),
     "utf-8",
   );
 

@@ -10,8 +10,8 @@ export function codexQueueStateRoot(sessionName: string, sharedDocsRoot: string)
   const separator = parsed.member.indexOf("-");
   if (separator <= 0 || separator === parsed.member.length - 1) return undefined;
   const pod = parsed.member.slice(0, separator), member = parsed.member.slice(separator + 1);
-  if (![pod, member, parsed.rig].every(s => /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(s))) return undefined;
-  return path.join(sharedDocsRoot, "rigs", parsed.rig, "state", pod);
+  if (![pod, member, parsed.softwareTeam].every(s => /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(s))) return undefined;
+  return path.join(sharedDocsRoot, "software-teams", parsed.softwareTeam, "state", pod);
 }
 
 /** Only called for the derived team default. No permission/config files are written. */
@@ -33,7 +33,7 @@ export function prepareCodexTeamWorkspace(
       }
       return [root];
     } catch (error) {
-      console.warn(`[openrig] Codex team workspace not added (${root}): ${(error as Error).message}`);
+      console.warn(`[softwareteam] Codex team workspace not added (${root}): ${(error as Error).message}`);
       return [];
     }
   });
@@ -46,7 +46,7 @@ export function codexTeamWorkspaceArg(prepare: PrepareCodexTeamWorkspace | undef
   if (!prepare) return "";
   try { return prepare(sessionName).map(root => ` --add-dir ${shellQuote(root)}`).join(""); }
   catch (error) {
-    console.warn(`[openrig] Codex team workspace unavailable: ${(error as Error).message}`);
+    console.warn(`[softwareteam] Codex team workspace unavailable: ${(error as Error).message}`);
     return "";
   }
 }

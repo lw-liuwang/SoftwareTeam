@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, cleanup, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SnapshotPanel } from "../src/components/SnapshotPanel.js";
-import { RigGraph } from "../src/components/RigGraph.js";
+import { SoftwareTeamGraph } from "../src/components/SoftwareTeamGraph.js";
 import { createMockEventSourceClass } from "./helpers/mock-event-source.js";
 import { createAppTestRouter } from "./helpers/test-router.js";
 
@@ -47,7 +47,7 @@ function mockRestoreError(status: number, error: string) {
 function stoppedPsEntries() {
   return [
     {
-      rigId: "r1",
+      softwareTeamId: "r1",
       name: "alpha",
       nodeCount: 1,
       runningCount: 0,
@@ -70,7 +70,7 @@ describe("SnapshotPanel", () => {
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
-    render(<QueryWrapper><SnapshotPanel rigId="r1" /></QueryWrapper>);
+    render(<QueryWrapper><SnapshotPanel softwareTeamId="r1" /></QueryWrapper>);
     await waitFor(() => {
       const idEl = screen.getByTestId("snap-id-snap-abc123def");
       expect(idEl.className).toContain("font-mono");
@@ -96,7 +96,7 @@ describe("SnapshotPanel", () => {
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
-    render(<QueryWrapper><SnapshotPanel rigId="r1" /></QueryWrapper>);
+    render(<QueryWrapper><SnapshotPanel softwareTeamId="r1" /></QueryWrapper>);
     await waitFor(() => expect(screen.getByText(/CREATE/)).toBeDefined());
 
     const createBtn = screen.getAllByText(/CREATE/).find((el) => el.closest("button"));
@@ -126,7 +126,7 @@ describe("SnapshotPanel", () => {
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
-    render(<QueryWrapper><SnapshotPanel rigId="r1" /></QueryWrapper>);
+    render(<QueryWrapper><SnapshotPanel softwareTeamId="r1" /></QueryWrapper>);
     await waitFor(() => expect(screen.getByTestId("restore-btn-snap-1")).toBeDefined());
 
     fireEvent.click(screen.getByTestId("restore-btn-snap-1"));
@@ -157,7 +157,7 @@ describe("SnapshotPanel", () => {
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
-    render(<QueryWrapper><SnapshotPanel rigId="r1" /></QueryWrapper>);
+    render(<QueryWrapper><SnapshotPanel softwareTeamId="r1" /></QueryWrapper>);
     await waitFor(() => expect(screen.getByTestId("restore-btn-snap-1")).toBeDefined());
 
     fireEvent.click(screen.getByTestId("restore-btn-snap-1"));
@@ -193,7 +193,7 @@ describe("SnapshotPanel", () => {
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
-    render(<QueryWrapper><SnapshotPanel rigId="r1" /></QueryWrapper>);
+    render(<QueryWrapper><SnapshotPanel softwareTeamId="r1" /></QueryWrapper>);
     await waitFor(() => expect(screen.getByTestId("restore-btn-snap-1")).toBeDefined());
     fireEvent.click(screen.getByTestId("restore-btn-snap-1"));
     await waitFor(() => expect(screen.getByTestId("confirm-restore-snap-1")).toBeDefined());
@@ -214,7 +214,7 @@ describe("SnapshotPanel", () => {
           ok: true,
           json: async () => [
             {
-              rigId: "r1",
+              softwareTeamId: "r1",
               name: "alpha",
               nodeCount: 2,
               runningCount: 1,
@@ -233,7 +233,7 @@ describe("SnapshotPanel", () => {
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
-    render(<QueryWrapper><SnapshotPanel rigId="r1" /></QueryWrapper>);
+    render(<QueryWrapper><SnapshotPanel softwareTeamId="r1" /></QueryWrapper>);
     await waitFor(() => expect(screen.getByTestId("restore-btn-snap-1")).toBeDefined());
 
     const restoreBtn = screen.getByTestId("restore-btn-snap-1") as HTMLButtonElement;
@@ -248,7 +248,7 @@ describe("SnapshotPanel", () => {
   it("fetch error shows Alert", async () => {
     mockFetch.mockImplementation(() => Promise.resolve({ ok: false, status: 500, json: async () => ({}) }));
 
-    render(<QueryWrapper><SnapshotPanel rigId="r1" /></QueryWrapper>);
+    render(<QueryWrapper><SnapshotPanel softwareTeamId="r1" /></QueryWrapper>);
     await waitFor(() => {
       expect(screen.getByTestId("restore-error")).toBeDefined();
     });
@@ -257,7 +257,7 @@ describe("SnapshotPanel", () => {
   // Test 7: Empty state
   it("empty state shows 'No snapshots' in muted text", async () => {
     mockFetch.mockImplementation(() => Promise.resolve(mockSnapshotList([])));
-    render(<QueryWrapper><SnapshotPanel rigId="r1" /></QueryWrapper>);
+    render(<QueryWrapper><SnapshotPanel softwareTeamId="r1" /></QueryWrapper>);
     await waitFor(() => expect(screen.getByText(/no snapshots/i)).toBeDefined());
   });
 
@@ -272,7 +272,7 @@ describe("SnapshotPanel", () => {
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
-    render(<QueryWrapper><SnapshotPanel rigId="r1" /></QueryWrapper>);
+    render(<QueryWrapper><SnapshotPanel softwareTeamId="r1" /></QueryWrapper>);
     await waitFor(() => expect(screen.getByTestId("restore-btn-snap-1")).toBeDefined());
 
     fireEvent.click(screen.getByTestId("restore-btn-snap-1"));
@@ -300,7 +300,7 @@ describe("SnapshotPanel", () => {
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
-    render(<QueryWrapper><SnapshotPanel rigId="r1" /></QueryWrapper>);
+    render(<QueryWrapper><SnapshotPanel softwareTeamId="r1" /></QueryWrapper>);
     await waitFor(() => expect(screen.getByTestId("restore-btn-snap-1")).toBeDefined());
 
     fireEvent.click(screen.getByTestId("restore-btn-snap-1"));
@@ -327,7 +327,7 @@ describe("SnapshotPanel", () => {
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
-    render(<QueryWrapper><SnapshotPanel rigId="r1" /></QueryWrapper>);
+    render(<QueryWrapper><SnapshotPanel softwareTeamId="r1" /></QueryWrapper>);
     await waitFor(() => expect(screen.getByTestId("restore-btn-snap-1")).toBeDefined());
     fireEvent.click(screen.getByTestId("restore-btn-snap-1"));
     await waitFor(() => expect(screen.getByTestId("confirm-restore-snap-1")).toBeDefined());
@@ -339,13 +339,13 @@ describe("SnapshotPanel", () => {
   });
 
   // Test 11: App integration — graph detail includes SnapshotPanel
-  it("rig detail route renders SnapshotPanel alongside graph", async () => {
+  it("SoftwareTeam detail route renders SnapshotPanel alongside graph", async () => {
     mockFetch.mockImplementation((url: string) => {
       if (typeof url === "string" && url.includes("/graph")) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
-            nodes: [{ id: "n1", type: "rigNode", position: { x: 0, y: 0 }, data: { logicalId: "w", role: "worker", runtime: "claude-code", model: null, status: null, binding: null } }],
+            nodes: [{ id: "n1", type: "softwareTeamNode", position: { x: 0, y: 0 }, data: { logicalId: "w", role: "worker", runtime: "claude-code", model: null, status: null, binding: null } }],
             edges: [],
           }),
         });
@@ -359,16 +359,16 @@ describe("SnapshotPanel", () => {
     render(createAppTestRouter({
       routes: [
         {
-          path: "/rigs/$rigId",
+          path: "/software-teams/$softwareTeamId",
           component: () => (
             <div className="flex">
-              <RigGraph rigId="r1" />
-              <SnapshotPanel rigId="r1" />
+              <SoftwareTeamGraph softwareTeamId="r1" />
+              <SnapshotPanel softwareTeamId="r1" />
             </div>
           ),
         },
       ],
-      initialPath: "/rigs/r1",
+      initialPath: "/software-teams/r1",
     }));
 
     await waitFor(() => {
@@ -379,7 +379,7 @@ describe("SnapshotPanel", () => {
   // Test 12: Loading skeleton with pulse
   it("loading state shows pulse skeleton", async () => {
     mockFetch.mockReturnValue(new Promise(() => {}));
-    render(<QueryWrapper><SnapshotPanel rigId="r1" /></QueryWrapper>);
+    render(<QueryWrapper><SnapshotPanel softwareTeamId="r1" /></QueryWrapper>);
 
     await waitFor(() => {
       const skeleton = screen.getByTestId("snapshot-loading");

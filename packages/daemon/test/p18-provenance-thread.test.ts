@@ -21,7 +21,7 @@ import { queueRoutes } from "../src/routes/queue.js";
 // ── P18 SWEEP — the provenance-laundering RED (dev50-driver's sealed finding).
 //
 // Deleting the requireSenderIdentity refusal MANUFACTURES a header-absent delivery path that
-// could not previously exist: a caller with no X-OpenRig-Session but a body-declared actor is now
+// could not previously exist: a caller with no X-SoftwareTeam-Session but a body-declared actor is now
 // delivered under that actor labelled `claimed:v1`. The route sites then hardcode
 // `identityProvenance: "transport:v1"` — stamping the row as wire-CERTIFIED when it was only
 // body-CLAIMED. That is unverified laundered into verified, which resolveRecordedProvenance's own
@@ -80,8 +80,8 @@ describe("P18 provenance thread — header-absent delivery must not launder clai
   it("outbox record: header ABSENT + body senderSession → delivers, records claimed:v1 (NOT transport:v1)", async () => {
     const res = await app.request("/api/queue/outbox/record", {
       method: "POST",
-      headers: { "Content-Type": "application/json" }, // NO X-OpenRig-Session — the manufactured path
-      body: JSON.stringify({ senderSession: "claimant@rig", destinationSession: "dest@rig", body: "hi" }),
+      headers: { "Content-Type": "application/json" }, // NO X-SoftwareTeam-Session — the manufactured path
+      body: JSON.stringify({ senderSession: "claimant@software-team", destinationSession: "dest@software-team", body: "hi" }),
     });
     expect(res.status).toBe(201); // deliver-and-label, not refuse
     const { outboxId } = (await res.json()) as { outboxId: string };
@@ -95,8 +95,8 @@ describe("P18 provenance thread — header-absent delivery must not launder clai
   it("outbox record: header PRESENT → records transport:v1 (certified path unchanged)", async () => {
     const res = await app.request("/api/queue/outbox/record", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "me@rig" },
-      body: JSON.stringify({ destinationSession: "dest@rig", body: "hi" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "me@software-team" },
+      body: JSON.stringify({ destinationSession: "dest@software-team", body: "hi" }),
     });
     expect(res.status).toBe(201);
     const { outboxId } = (await res.json()) as { outboxId: string };
@@ -106,15 +106,15 @@ describe("P18 provenance thread — header-absent delivery must not launder clai
     expect(row?.identity_provenance).toBe("transport:v1");
   });
 
-  it.each([{ "x-openrig-origin-unknown": "true" }, { "x-openrig-relay": "true", "x-openrig-provenance": "origin-unknown:v1" }])("queue create preserves unknown origin durably across direct and relayed delivery: %j", async (relayHeaders) => {
+  it.each([{ "x-softwareteam-origin-unknown": "true" }, { "x-softwareteam-relay": "true", "x-softwareteam-provenance": "origin-unknown:v1" }])("queue create preserves unknown origin durably across direct and relayed delivery: %j", async (relayHeaders) => {
     const res = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "me@rig", ...relayHeaders },
-      body: JSON.stringify({ destinationSession: "dest@rig", body: "origin unavailable" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "me@software-team", ...relayHeaders },
+      body: JSON.stringify({ destinationSession: "dest@software-team", body: "origin unavailable" }),
     });
     expect(res.status).toBe(201);
     const { qitemId } = await res.json() as { qitemId: string };
-    expect(db.prepare("SELECT source_session FROM queue_items WHERE qitem_id = ?").get(qitemId)).toEqual({ source_session: "me@rig" });
+    expect(db.prepare("SELECT source_session FROM queue_items WHERE qitem_id = ?").get(qitemId)).toEqual({ source_session: "me@software-team" });
     expect(db.prepare("SELECT identity_provenance FROM queue_transitions WHERE qitem_id = ? ORDER BY rowid LIMIT 1").get(qitemId)).toEqual({ identity_provenance: "origin-unknown:v1" });
   });
 
@@ -122,8 +122,8 @@ describe("P18 provenance thread — header-absent delivery must not launder clai
   it("queue create: header ABSENT + body sourceSession → delivers, transition records claimed:v1 (NOT transport:v1)", async () => {
     const res = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json" }, // NO X-OpenRig-Session
-      body: JSON.stringify({ destinationSession: "dest@rig", body: "hi", sourceSession: "claimant@rig" }),
+      headers: { "Content-Type": "application/json" }, // NO X-SoftwareTeam-Session
+      body: JSON.stringify({ destinationSession: "dest@software-team", body: "hi", sourceSession: "claimant@software-team" }),
     });
     expect(res.status).toBe(201);
     const { qitemId } = (await res.json()) as { qitemId: string };
@@ -136,8 +136,8 @@ describe("P18 provenance thread — header-absent delivery must not launder clai
   it("queue create: header PRESENT → transition records transport:v1 (certified path unchanged)", async () => {
     const res = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "me@rig" },
-      body: JSON.stringify({ destinationSession: "dest@rig", body: "hi" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "me@software-team" },
+      body: JSON.stringify({ destinationSession: "dest@software-team", body: "hi" }),
     });
     expect(res.status).toBe(201);
     const { qitemId } = (await res.json()) as { qitemId: string };

@@ -4,7 +4,7 @@ import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 import { TmuxAdapter } from "../src/adapters/tmux.js";
 import { SeatDeliveryGuard, resolveGuardTarget } from "../src/domain/seat-delivery-guard.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { Reconciler } from "../src/domain/reconciler.js";
@@ -17,10 +17,10 @@ afterEach(() => { for (const db of databases.splice(0)) db.close(); });
 // is injected. No real tmux server, shell command or runtime is started.
 async function fixture() {
   const db = new Database(":memory:"); databases.push(db); migrate(db, ALL_MIGRATIONS);
-  const rigRepo = new RigRepository(db), sessionRegistry = new SessionRegistry(db), eventBus = new EventBus(db);
-  const rig = rigRepo.createRig("fixture");
+  const softwareTeamRepo = new SoftwareTeamRepository(db), sessionRegistry = new SessionRegistry(db), eventBus = new EventBus(db);
+  const softwareTeam = softwareTeamRepo.createSoftwareTeam("fixture");
   const nodes = Object.fromEntries(["old", "worker", "sibling"].map((name, i) => {
-    const node = rigRepo.addNode(rig.id, name, { role: "worker" });
+    const node = softwareTeamRepo.addNode(softwareTeam.id, name, { role: "worker" });
     const session = sessionRegistry.registerSession(node.id, `${name}@fixture`);
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateBinding(node.id, { tmuxSession: session.sessionName, tmuxPane: `%${i}` });
@@ -49,8 +49,8 @@ async function fixture() {
     unlink: async path => { files.delete(path); },
   });
   const guard = new SeatDeliveryGuard(db, name => resolveGuardTarget(db, name)); tmux.deliveryGuard = guard;
-  const deps = { db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux };
-  expect(await new Reconciler(deps).reconcile(rig.id)).toMatchObject({ detached: 2, errors: [] });
+  const deps = { db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux };
+  expect(await new Reconciler(deps).reconcile(softwareTeam.id)).toMatchObject({ detached: 2, errors: [] });
   const retained = () => ({
     nodes: db.prepare("SELECT * FROM nodes ORDER BY id").all(),
     bindings: db.prepare("SELECT * FROM bindings ORDER BY id").all(),
@@ -59,19 +59,19 @@ async function fixture() {
   });
   const oldBinding = sessionRegistry.getBindingForNode(nodes.old!.id);
   const siblingBinding = sessionRegistry.getBindingForNode(nodes.sibling!.id);
-  const oldSessions = sessionRegistry.getSessionsForRig(rig.id);
+  const oldSessions = sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id);
   // Restore clears ONLY the selected node's binding before NodeLauncher. The
   // other detached binding still owns its historical %0 value.
   await guard.lifecycle([nodes.worker!.id], async () => {
     sessionRegistry.clearBinding(nodes.worker!.id);
     guard.rebindLifecycle(nodes.worker!.id);
-    expect(await new NodeLauncher(deps).launchNode(rig.id, "worker", {
+    expect(await new NodeLauncher(deps).launchNode(softwareTeam.id, "worker", {
       cwd: "/inert", sessionName: "worker@fixture",
     })).toMatchObject({ ok: true, binding: { tmuxPane: "%0" } });
   });
   expect(sessionRegistry.getBindingForNode(nodes.old!.id)).toEqual(oldBinding);
   expect(sessionRegistry.getBindingForNode(nodes.sibling!.id)).toEqual(siblingBinding);
-  for (const session of oldSessions) expect(sessionRegistry.getSessionsForRig(rig.id)).toContainEqual(session);
+  for (const session of oldSessions) expect(sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id)).toContainEqual(session);
   expect(guard.maybeTarget("%0")).toBeNull();
   commands.length = 0;
   return { db, nodes, sessionRegistry, guard, tmux, commands, files, panes, hooks, retained };

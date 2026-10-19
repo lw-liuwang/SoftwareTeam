@@ -48,15 +48,15 @@ export const READ_THROUGH_TIMEOUT_MS = 5_000;
 // so a GET there forwards and the origin resolves it as a slice named
 // "refresh" (its own 404, verbatim); the POST can never cross the edge.
 export const READ_THROUGH_ALLOWLIST = [
-  "/api/rigs/summary",
-  "/api/rigs/:rigId/graph",
-  "/api/rigs/:rigId/nodes",
+  "/api/software-teams/summary",
+  "/api/software-teams/:softwareTeamId/graph",
+  "/api/software-teams/:softwareTeamId/nodes",
   // OPR.0.4.6.MH2 rev1-r2 B2 + arch ruling (qitem-…c5402960): seat detail
   // is the LEAF of the FR-2 hierarchy — same read class as its /nodes
   // sibling. STRICT SEGMENT-SHAPE match only (the arch tooth): the deeper
   // ACTION routes under this prefix (…/:logicalId/focus, …/open-cmux)
   // must stay REFUSED — pinned by named negatives.
-  "/api/rigs/:rigId/nodes/:logicalId",
+  "/api/software-teams/:softwareTeamId/nodes/:logicalId",
   "/api/ps",
   "/api/slices",
   "/api/slices/:name",

@@ -30,7 +30,7 @@ interface ForkNowResult {
 
 export function ForkNowAction({ entry }: { entry: AgentImageEntry }) {
   const [open, setOpen] = useState(false);
-  const [selectedRigId, setSelectedRigId] = useState<string | null>(null);
+  const [selectedSoftwareTeamId, setSelectedSoftwareTeamId] = useState<string | null>(null);
   const [selectedPod, setSelectedPod] = useState<string | null>(null);
   const [selectedSibling, setSelectedSibling] = useState<string | null>(null);
   const [newMemberId, setNewMemberId] = useState("");
@@ -38,11 +38,11 @@ export function ForkNowAction({ entry }: { entry: AgentImageEntry }) {
 
   const queryClient = useQueryClient();
   const psQuery = usePsEntries();
-  const nodesQuery = useNodeInventory(selectedRigId);
+  const nodesQuery = useNodeInventory(selectedSoftwareTeamId);
 
   const noCwd = !entry.sourceCwd;
 
-  const rigs = psQuery.data ?? [];
+  const softwareTeams = psQuery.data ?? [];
   const nodes = nodesQuery.data ?? [];
 
   const pods = [...new Set(nodes.filter((n) => n.podId).map((n) => n.podNamespace ?? n.podId!))];
@@ -54,7 +54,7 @@ export function ForkNowAction({ entry }: { entry: AgentImageEntry }) {
 
   const forkMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedRigId || !selectedPod || !selectedSiblingNode || !newMemberId.trim()) {
+      if (!selectedSoftwareTeamId || !selectedPod || !selectedSiblingNode || !newMemberId.trim()) {
         throw new Error("Missing required fields");
       }
 
@@ -74,7 +74,7 @@ export function ForkNowAction({ entry }: { entry: AgentImageEntry }) {
       }
 
       const res = await fetch(
-        `/api/rigs/${encodeURIComponent(selectedRigId)}/pods/${encodeURIComponent(selectedPod)}/members`,
+        `/api/software-teams/${encodeURIComponent(selectedSoftwareTeamId)}/pods/${encodeURIComponent(selectedPod)}/members`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -131,26 +131,26 @@ export function ForkNowAction({ entry }: { entry: AgentImageEntry }) {
       {open && (
         <div data-testid="fork-now-modal" className="border border-outline bg-surface-lowest px-3 py-3 space-y-3 mt-2">
           <div className="font-mono text-[10px] uppercase tracking-[0.10em] text-on-surface">
-            Fork "{entry.name}" into a running rig
+            Fork "{entry.name}" into a running softwareTeam
           </div>
 
           <div className="space-y-2">
             <label className="block font-mono text-[9px] text-on-surface-variant">
-              Target rig
+              Target softwareTeam
               <select
-                data-testid="fork-now-rig-select"
+                data-testid="fork-now-software-team-select"
                 className="block w-full mt-0.5 border border-outline-variant bg-surface-lowest px-1 py-0.5 font-mono text-[10px]"
-                value={selectedRigId ?? ""}
-                onChange={(e) => { setSelectedRigId(e.target.value || null); setSelectedPod(null); setSelectedSibling(null); }}
+                value={selectedSoftwareTeamId ?? ""}
+                onChange={(e) => { setSelectedSoftwareTeamId(e.target.value || null); setSelectedPod(null); setSelectedSibling(null); }}
               >
-                <option value="">Select rig…</option>
-                {rigs.map((r) => (
-                  <option key={r.rigId} value={r.rigId}>{r.name}</option>
+                <option value="">Select softwareTeam…</option>
+                {softwareTeams.map((r) => (
+                  <option key={r.softwareTeamId} value={r.softwareTeamId}>{r.name}</option>
                 ))}
               </select>
             </label>
 
-            {selectedRigId && (
+            {selectedSoftwareTeamId && (
               <label className="block font-mono text-[9px] text-on-surface-variant">
                 Target pod
                 <select

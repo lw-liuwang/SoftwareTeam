@@ -30,7 +30,7 @@ export async function createDaemon({ dbPath }) {
   let recorder;
   if (mode === 'recorder-timeout') recorder = { close: () => new Promise(() => {}) };
   else {
-    const logPath = `${process.env.OPENRIG_HOME}/measurements-${process.pid}.jsonl`;
+    const logPath = `${process.env.SOFTWARETEAM_HOME}/measurements-${process.pid}.jsonl`;
     if (mode === 'recorder-failure') fs.mkdirSync(logPath); // real Worker write fails
     recorder = new SlowOpRecorder({ logPath }); recorder.recordMeasurement('shutdown.consumer', 300);
   }
@@ -44,7 +44,7 @@ export async function createDaemon({ dbPath }) {
       });
     },
     deps: {
-      rigRepo: { db }, settingsStore: { resolveOne: () => ({ value: false }) },
+      softwareTeamRepo: { db }, settingsStore: { resolveOne: () => ({ value: false }) },
       psProjectionService: { setPeriodicSnapshotState() {} },
       watchdogScheduler: scheduler, slowOpRecorder: recorder,
       healthDiagnosis: { start() {}, stop: async () => { if (mode === 'health-rejection') throw new Error('private health stop rejection'); } },

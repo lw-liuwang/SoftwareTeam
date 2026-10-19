@@ -1,9 +1,9 @@
-// V0.3.1 slice 05 kernel-rig-as-default — forward-fix #3 architectural.
+// V0.3.1 slice 05 kernel-software-team-as-default — forward-fix #3 architectural.
 // Decouples daemon health/listen from kernel-agent readiness.
 //
 // Prior behavior: `bootKernelIfNeeded` awaited `bootstrapOrchestrator.bootstrap(...)`
 // inside `createDaemon`, so the daemon process couldn't reach `serve()` until
-// the kernel rig's members had been launched + their startup deliveries
+// the kernel softwareTeam's members had been launched + their startup deliveries
 // completed. A broken kernel agent (e.g., Codex unauthenticated mid-boot)
 // stalled healthz too. The CLI then reported "daemon failed to start" even
 // though the daemon itself was perfectly happy — only the *kernel* was sad.
@@ -21,14 +21,14 @@
 
 import type { EventBus } from "./event-bus.js";
 import type { SessionRegistry } from "./session-registry.js";
-import type { RigRepository } from "./rig-repository.js";
+import type { SoftwareTeamRepository } from "./software-team-repository.js";
 import type { BootstrapResult } from "./bootstrap-orchestrator.js";
 import type { Session } from "./types.js";
 
 export type KernelState =
-  | "skipped"           // OPENRIG_NO_KERNEL=1 / VITEST auto-skip / kernel already managed
+  | "skipped"           // SOFTWARETEAM_NO_KERNEL=1 / VITEST auto-skip / kernel already managed
   | "auth_blocked"      // Both Claude Code + Codex unauthenticated; cannot pick a variant
-  | "spec_missing"      // Selected variant's rig.yaml not found on disk
+  | "spec_missing"      // Selected variant's software-team.yaml not found on disk
   | "booting"           // Bootstrap fired; awaiting member startup_status
   | "partial_ready"     // Bootstrap done; some members ready, others still pending/failed
   | "ready"             // Bootstrap done; all members reached ready
@@ -50,8 +50,8 @@ export interface KernelBootStatus {
   /** ISO timestamp of when the kernel first entered booting; null in
    *  terminal/skipped states. */
   firstUnreadySince: string | null;
-  /** Filename of the picked variant (rig.yaml / rig-claude-only.yaml /
-   *  rig-codex-only.yaml). null when no variant was selected. */
+  /** Filename of the picked variant (software-team.yaml / software-team-claude-only.yaml /
+   *  software-team-codex-only.yaml). null when no variant was selected. */
   variant: string | null;
   /** Human-readable detail for auth_blocked / spec_missing /
    *  bootstrap_failed / degraded states. null otherwise. */
@@ -65,11 +65,11 @@ export interface KernelBootStatus {
 export interface KernelBootTrackerDeps {
   eventBus: EventBus;
   sessionRegistry: SessionRegistry;
-  rigRepo: RigRepository;
+  softwareTeamRepo: SoftwareTeamRepository;
   /** Milliseconds the tracker waits in `booting` before emitting
    *  `kernel.agent.degraded` and transitioning to the `degraded` state.
    *  Default 90_000 (90s) per IMPL-PRD §6.3 amendment. Tests pass
-   *  shorter values; daemon startup honors the OPENRIG_KERNEL_DEGRADED_MS
+   *  shorter values; daemon startup honors the SOFTWARETEAM_KERNEL_DEGRADED_MS
    *  env override resolved by startup.ts. */
   degradedTimeoutMs?: number;
 }
@@ -156,7 +156,7 @@ export class KernelBootTracker {
       && this.rosterRecovered()
     ) {
       // Every seat the kernel expects has since reached ready (a resolved startup gate, a
-      // `rig seat continue`), so the failure is history, not current health. A seat that is not
+      // `softwareTeam seat continue`), so the failure is history, not current health. A seat that is not
       // ready, has no session, or has no node keeps it current, and so does an unknown roster.
       kernelState = "ready";
       lastBootFailure = { state, detail: this.detail, at: this.failedAt };
@@ -229,12 +229,12 @@ export class KernelBootTracker {
     try {
       // Archived kernel generations aren't the current kernel.
       const out: KernelAgentStatus[] = [];
-      for (const rig of this.deps.rigRepo.findUnarchivedRigsByName("kernel")) {
+      for (const softwareTeam of this.deps.softwareTeamRepo.findUnarchivedSoftwareTeamsByName("kernel")) {
         // One entry per seat. The runtime is on the node row, not the session.
         const runtimeByNode = new Map(
-          (this.deps.rigRepo.getRig(rig.id)?.nodes ?? []).map((node) => [node.id, node.runtime]),
+          (this.deps.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)?.nodes ?? []).map((node) => [node.id, node.runtime]),
         );
-        for (const s of this.latestSessionByNode(rig.id).values()) {
+        for (const s of this.latestSessionByNode(softwareTeam.id).values()) {
           out.push({
             sessionName: s.sessionName,
             runtime: runtimeByNode.get(s.nodeId) ?? "unknown",
@@ -251,11 +251,11 @@ export class KernelBootTracker {
     }
   }
 
-  /** A relaunch or `rig seat continue` adds a session row for the same node, so only each node's
+  /** A relaunch or `softwareTeam seat continue` adds a session row for the same node, so only each node's
    *  newest row is the seat's current startup status. */
-  private latestSessionByNode(rigId: string): Map<string, Session> {
+  private latestSessionByNode(softwareTeamId: string): Map<string, Session> {
     const latestByNode = new Map<string, Session>();
-    for (const s of this.deps.sessionRegistry.getSessionsForRig(rigId)) {
+    for (const s of this.deps.sessionRegistry.getSessionsForSoftwareTeam(softwareTeamId)) {
       const prior = latestByNode.get(s.nodeId);
       if (!prior || s.createdAt > prior.createdAt || (s.createdAt === prior.createdAt && s.id > prior.id)) {
         latestByNode.set(s.nodeId, s);
@@ -271,9 +271,9 @@ export class KernelBootTracker {
     if (!this.expectedSeats) return false;
     try {
       const readySeats = new Set<string>();
-      for (const rig of this.deps.rigRepo.findUnarchivedRigsByName("kernel")) {
-        const latest = this.latestSessionByNode(rig.id);
-        for (const node of this.deps.rigRepo.getRig(rig.id)?.nodes ?? []) {
+      for (const softwareTeam of this.deps.softwareTeamRepo.findUnarchivedSoftwareTeamsByName("kernel")) {
+        const latest = this.latestSessionByNode(softwareTeam.id);
+        for (const node of this.deps.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)?.nodes ?? []) {
           if (latest.get(node.id)?.startupStatus !== "ready") return false;
           readySeats.add(node.logicalId);
         }

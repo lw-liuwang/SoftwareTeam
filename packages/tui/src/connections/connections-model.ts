@@ -35,20 +35,20 @@ function slackSetupLines(snap: FleetSnapshot, expanded: readonly string[], width
   const m = snap.slackManifest;
   const lines: ContentLine[] = [fieldLine({ label: "setup", value: "not configured · no Slack app tokens yet" })];
   if (!m) {
-    lines.push({ text: "  Create your own Slack app first: rig slack manifest --url (this daemon does not serve the manifest)." });
+    lines.push({ text: "  Create your own Slack app first: SoftwareTeam slack manifest --url (this daemon does not serve the manifest)." });
     return lines;
   }
   const open = expanded.includes(SLACK_MANIFEST_EXPAND_KEY);
-  lines.push({ text: "  Create your own private Slack app from OpenRig's manifest, using this link:" },
+  lines.push({ text: "  Create your own private Slack app from SoftwareTeam's manifest, using this link:" },
     { text: "  ▸ Print link to copy (Enter): leaves this view and shows the link as one line; Enter returns",
-      action: { type: "print-for-copy", label: "Slack create-app link (from OpenRig's manifest):", value: m.url } },
-    { text: "  The link, split into rows with nothing added (or run: rig slack manifest --url):" },
+      action: { type: "print-for-copy", label: "Slack create-app link (from SoftwareTeam's manifest):", value: m.url } },
+    { text: "  The link, split into rows with nothing added (or run: SoftwareTeam slack manifest --url):" },
     // Exact-width chunks with no indent, so the rows concatenate back to the link byte for byte.
     ...Array.from({ length: Math.ceil(m.url.length / Math.max(8, width)) }, (_, i) =>
       ({ text: m.url.slice(i * Math.max(8, width), (i + 1) * Math.max(8, width)) })),
     { text: `  ${open ? "▾ Hide" : "▸ Show"} manifest (Enter)`, action: { type: "toggle-expand", key: SLACK_MANIFEST_EXPAND_KEY } });
   if (open) for (const line of m.yaml.trimEnd().split("\n")) lines.push({ text: `    ${line}` });
-  lines.push({ text: "  Then: rig slack setup, rig slack verify, rig slack enable. Steps: rig slack manifest --help" });
+  lines.push({ text: "  Then: SoftwareTeam slack setup, SoftwareTeam slack verify, SoftwareTeam slack enable. Steps: SoftwareTeam slack manifest --help" });
   return lines;
 }
 
@@ -63,13 +63,13 @@ export function connectionsLines(snap: FleetSnapshot, width: number, timeZone = 
     ...(c ? [{ text: `  Slack: ${c.state} · humans: ${c.registry.state === "available" ? c.humans.length : "unknown"} · Next: ${c.nextAction}` }] : []),
     { text: "  Passive view · refresh sends nothing · back returns to work" },
     sectionRule("Running control plane", width),
-    fieldLine({ label: "daemon", value: h ? `${h.status ?? "unknown"} · ${h.semver ?? "version unstamped"} · ${h.commit ?? "commit unstamped"}${h.dirty === true ? " · dirty" : ""}` : "unavailable — check rig status" }),
+    fieldLine({ label: "daemon", value: h ? `${h.status ?? "unknown"} · ${h.semver ?? "version unstamped"} · ${h.commit ?? "commit unstamped"}${h.dirty === true ? " · dirty" : ""}` : "unavailable — check SoftwareTeam status" }),
     fieldLine({ label: "host", value: h?.selfHostId ? `${h.selfHostId} (${h.selfHostIdSource ?? "source unreported"})` : "identity unreported" }),
     fieldLine({ label: "CLI launch", value: snap.launchingCli ?? "identity not supplied (direct TUI launch)" }),
     fieldLine({ label: "target", value: snap.daemonTarget ?? "unreported" }),
   ];
   if (!c) return wrapDetailLines([...lines, { text: "" }, { text: "  Connections unavailable — the daemon could not serve this view." },
-    { text: "  Next: rig status; rig --version; rig daemon logs" },
+    { text: "  Next: SoftwareTeam status; SoftwareTeam --version; SoftwareTeam daemon logs" },
     { text: "  An older daemon may not support Connections. No readiness inferred." }], width);
   lines.push(fieldLine({ label: "process", value: `PID ${c.pid} · home ${c.home ?? "unreported"}` }),
     fieldLine({ label: "observed", value: displayTime(c.observedAt, timeZone) }),
@@ -77,7 +77,7 @@ export function connectionsLines(snap: FleetSnapshot, width: number, timeZone = 
   lines.push(fieldLine({ label: "settings", value: c.settingsSource ?? "source unavailable" }));
   for (const s of c.settings) lines.push(fieldLine({ label: s.key === "host.name" ? "display name" : s.key === "workspace.root" ? "workspace" : "operator", value: `${s.value ?? "unavailable"} (${s.source})` }));
   lines.push({ text: "  env overrides file overrides default. These are current settings, not proof of runtime adoption." },
-    { text: "  Inspect/change on this instance: rig config --with-source; rig config set <key> <value>" },
+    { text: "  Inspect/change on this instance: SoftwareTeam config --with-source; SoftwareTeam config set <key> <value>" },
     sectionRule("Slack · configuration and running services", width),
     fieldLine({ label: "delivery", value: `${c.state} · current external reach is unverified` }),
     fieldLine({ label: "source", value: `${c.configSource.state} · ${c.configSource.path ?? "unreported"}` }),
@@ -93,9 +93,9 @@ export function connectionsLines(snap: FleetSnapshot, width: number, timeZone = 
       fieldLine({ label: "outbound", value: c.running.outboundReady === null ? "unreported" : `${c.running.outboundReady ? "configured at activation" : "not configured at activation"}; posting >= ${cfg.postLevel}, interrupting >= ${cfg.interruptLevel} (current config)` }),
       fieldLine({ label: "inbound", value: inboundValue(c.running) }));
     let inboundAction: ContentLine["action"];
-    for (const host of snap.hosts) for (const rig of host.rigs) for (const pod of rig.pods) {
+    for (const host of snap.hosts) for (const softwareTeam of host.softwareTeams) for (const pod of softwareTeam.pods) {
       const a = pod.agents.find((a) => a.session === cfg.inboundDestination);
-      if (a) inboundAction = { type: "drill", resource: "agent", name: a.name, target: { host: host.name, rig: rig.name, pod: pod.name } };
+      if (a) inboundAction = { type: "drill", resource: "agent", name: a.name, target: { host: host.name, softwareTeam: softwareTeam.name, pod: pod.name } };
     }
     lines.push(fieldLine({ label: "new inbound", value: cfg.inboundDestination ?? "missing", link: inboundAction }),
       { text: "  Replies follow their existing conversation; new/unmapped inbound uses the configured seat above." });
@@ -105,8 +105,8 @@ export function connectionsLines(snap: FleetSnapshot, width: number, timeZone = 
     fieldLine({ label: "next", value: c.nextAction }),
     { text: "  Run guidance on the displayed instance. verify contacts Slack explicitly; enable/disable retain their audited CLI behavior." },
     sectionRule("External humans · instance-wide registry", width));
-  if (c.registry.state !== "available") lines.push({ text: "  Registry unavailable; recipients unknown. Next: rig gateway human list --json" });
-  else if (!c.humans.length) lines.push({ text: "  No registered humans. Next: rig gateway human add --help" });
+  if (c.registry.state !== "available") lines.push({ text: "  Registry unavailable; recipients unknown. Next: SoftwareTeam gateway human list --json" });
+  else if (!c.humans.length) lines.push({ text: "  No registered humans. Next: SoftwareTeam gateway human add --help" });
   const requests = [...new Map([...snap.attention, ...snap.pending, ...snap.inProgress, ...snap.blocked].map((r) => [r.qitemId, r])).values()];
   for (const human of c.humans) {
     lines.push(listItem(`${human.displayName ?? human.entityId} · ${human.address}`),
@@ -114,15 +114,15 @@ export function connectionsLines(snap: FleetSnapshot, width: number, timeZone = 
     for (const b of human.bindings) lines.push({ text: `    ${b.role}: ${b.kind} ${b.ref ?? "unreported"} · handle ${b.handle ?? "absent (outbound only)"}` });
     for (const r of requests.filter((r) => r.destinationSession === human.address && ["pending", "in-progress", "blocked"].includes(r.state)).slice(0, 3)) {
       lines.push({ text: `    Open request in loaded window: ${r.qitemId} · from ${r.sourceSession ?? "source unreported"} · ${r.state}` },
-        { text: `      Inspect: rig queue show ${r.qitemId} --full` });
+        { text: `      Inspect: SoftwareTeam queue show ${r.qitemId} --full` });
     }
-    lines.push({ text: `    Inspect binding/readiness (contacts Slack): rig gateway human show ${human.entityId} --json` });
+    lines.push({ text: `    Inspect binding/readiness (contacts Slack): SoftwareTeam gateway human show ${human.entityId} --json` });
   }
-  lines.push({ text: "  Primary is the declared default binding; registration alone assigns no rig and proves no reachability." },
+  lines.push({ text: "  Primary is the declared default binding; registration alone assigns no SoftwareTeam and proves no reachability." },
     sectionRule("Work and configuration", width));
-  for (const host of snap.hosts) for (const rig of host.rigs) {
-    lines.push(listItem(`${rig.name} · observed ${rig.lifecycleState ?? "unknown"} · ${snap.readErrors.some((e) => e.startsWith(`nodes(${rig.name}):`)) ? "seat inventory unavailable" : `${rig.pods.reduce((n, p) => n + p.agents.length, 0)} seats`}`, { type: "drill", resource: "rig", name: rig.name, target: { host: host.name } }));
-    if (rig.authoredSpecName) lines.push(listItem(`Authored spec: ${rig.authoredSpecName}`, snap.specs.some((s) => s.name === rig.authoredSpecName) ? { type: "drill", resource: "spec", name: rig.authoredSpecName } : undefined));
+  for (const host of snap.hosts) for (const softwareTeam of host.softwareTeams) {
+    lines.push(listItem(`${softwareTeam.name} · observed ${softwareTeam.lifecycleState ?? "unknown"} · ${snap.readErrors.some((e) => e.startsWith(`nodes(${softwareTeam.name}):`)) ? "seat inventory unavailable" : `${softwareTeam.pods.reduce((n, p) => n + p.agents.length, 0)} seats`}`, { type: "drill", resource: "softwareTeam", name: softwareTeam.name, target: { host: host.name } }));
+    if (softwareTeam.authoredSpecName) lines.push(listItem(`Authored spec: ${softwareTeam.authoredSpecName}`, snap.specs.some((s) => s.name === softwareTeam.authoredSpecName) ? { type: "drill", resource: "spec", name: softwareTeam.authoredSpecName } : undefined));
   }
   lines.push(listItem("Open work and workflows", { type: "jump", section: "scopes" }), listItem("Human requests and waits", { type: "jump", section: "needs" }), listItem("Return to previous view", { type: "back" }));
   return wrapDetailLines(lines, width);

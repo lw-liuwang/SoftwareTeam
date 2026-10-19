@@ -1,13 +1,13 @@
-// Fleet roll-up from the daemon's rig registry and queue, with optional
+// Fleet roll-up from the daemon's softwareTeam registry and queue, with optional
 // CLI observations. Unobserved capabilities and versions remain unknown;
 // unavailable fields alone do not establish that a CLI version is outdated.
 
 import type Database from "better-sqlite3";
 import type { EventBus } from "../event-bus.js";
-import type { RigRepository } from "../rig-repository.js";
+import type { SoftwareTeamRepository } from "../software-team-repository.js";
 
 export interface FleetRollupRow {
-  rigName: string;
+  softwareTeamName: string;
   /** Compact 5-state activity for a fleet view. */
   activityState: "active" | "idle" | "attention" | "blocked" | "degraded";
   lifecycleState: string | null;
@@ -18,16 +18,16 @@ export interface FleetRollupRow {
   cliCapabilityStatus: "available" | "unavailable" | "unknown";
   /** True only when an observed version was independently confirmed outdated. */
   cliVersionOutdated: boolean;
-  /** True if this rig was observed missing one or more required list fields. */
+  /** True if this softwareTeam was observed missing one or more required list fields. */
   cliDriftDetected: boolean;
 }
 
 export interface FleetRollup {
   rows: FleetRollupRow[];
   staleCliCount: number;
-  /** Rigs whose CLI field support has not been observed. */
+  /** SoftwareTeams whose CLI field support has not been observed. */
   unknownCliCount: number;
-  /** Fields known to be missing across the observed rigs (de-duplicated). */
+  /** Fields known to be missing across the observed softwareTeams (de-duplicated). */
   degradedFields: string[];
   /** Source of fleet activity when it is projected without reading the CLI. */
   sourceFallback: string | null;
@@ -44,17 +44,17 @@ export interface CliCapabilityObservation {
 interface CliCapabilityDeps {
   db: Database.Database;
   eventBus: EventBus;
-  rigRepo: RigRepository;
+  softwareTeamRepo: SoftwareTeamRepository;
   /**
-   * Optional observation of a rig's CLI version and supported list fields.
+   * Optional observation of a softwareTeam's CLI version and supported list fields.
    * Without an observation, both remain unknown.
    */
-  probeRig?: (rigName: string) => Promise<CliCapabilityObservation>;
+  probeSoftwareTeam?: (softwareTeamName: string) => Promise<CliCapabilityObservation>;
   /** Override clock for tests. */
   now?: () => Date;
 }
 
-interface RigQueueRow {
+interface SoftwareTeamQueueRow {
   destination_session: string;
   state: string;
   ts_updated: string;
@@ -63,7 +63,7 @@ interface RigQueueRow {
 
 /**
  * Fields expected from the node list. recoveryGuidance belongs to node
- * detail; its absence from `rig ps --nodes --fields` is not incompatibility.
+ * detail; its absence from `SoftwareTeam ps --nodes --fields` is not incompatibility.
  */
 export const MISSION_CONTROL_DESIRED_FIELDS = [
   "agentActivity",
@@ -78,9 +78,9 @@ export function makeLocalCliCapabilityProbe(opts?: {
   versionLabel?: string;
   knownNodeFields?: ReadonlySet<string>;
   versionOutdated?: boolean;
-}): (rigName: string) => Promise<CliCapabilityObservation> {
+}): (softwareTeamName: string) => Promise<CliCapabilityObservation> {
   const knownNodeFields = opts?.knownNodeFields;
-  return async (_rigName: string) => ({
+  return async (_softwareTeamName: string) => ({
     cliVersionLabel: opts?.versionLabel?.trim() || "unknown",
     unsupportedFields: knownNodeFields === undefined ? null
       : MISSION_CONTROL_DESIRED_FIELDS.filter((field) => !knownNodeFields.has(field)),
@@ -91,32 +91,32 @@ export function makeLocalCliCapabilityProbe(opts?: {
 export class MissionControlFleetCliCapability {
   private readonly db: Database.Database;
   private readonly eventBus: EventBus;
-  private readonly rigRepo: RigRepository;
-  private readonly probeRig: NonNullable<CliCapabilityDeps["probeRig"]>;
+  private readonly softwareTeamRepo: SoftwareTeamRepository;
+  private readonly probeSoftwareTeam: NonNullable<CliCapabilityDeps["probeSoftwareTeam"]>;
   private readonly now: () => Date;
 
-  /** Per-(rig, field) once-per-session log set. Cleared on daemon restart. */
+  /** Per-(softwareTeam, field) once-per-session log set. Cleared on daemon restart. */
   private readonly loggedDriftKeys: Set<string> = new Set();
 
   constructor(deps: CliCapabilityDeps) {
     this.db = deps.db;
     this.eventBus = deps.eventBus;
-    this.rigRepo = deps.rigRepo;
-    this.probeRig = deps.probeRig ?? makeLocalCliCapabilityProbe();
+    this.softwareTeamRepo = deps.softwareTeamRepo;
+    this.probeSoftwareTeam = deps.probeSoftwareTeam ?? makeLocalCliCapabilityProbe();
     this.now = deps.now ?? (() => new Date());
   }
 
   async rollupFleet(): Promise<FleetRollup> {
-    const rigs = this.rigRepo.listRigs();
+    const softwareTeams = this.softwareTeamRepo.listSoftwareTeams();
     const rows: FleetRollupRow[] = [];
     const allDegradedFields = new Set<string>();
     let staleCliCount = 0;
     let unknownCliCount = 0;
 
-    for (const rig of rigs) {
+    for (const softwareTeam of softwareTeams) {
       let probe: CliCapabilityObservation;
       try {
-        probe = await this.probeRig(rig.name);
+        probe = await this.probeSoftwareTeam(softwareTeam.name);
       } catch {
         probe = { cliVersionLabel: "unknown", unsupportedFields: null };
       }
@@ -130,11 +130,11 @@ export class MissionControlFleetCliCapability {
       if (cliCapabilityStatus === "unknown") unknownCliCount++;
       for (const f of unsupportedFields) {
         allDegradedFields.add(f);
-        this.maybeLogDriftOnce(rig.name, f);
+        this.maybeLogDriftOnce(softwareTeam.name, f);
       }
-      const queueState = this.summarizeRigQueue(rig.name);
+      const queueState = this.summarizeSoftwareTeamQueue(softwareTeam.name);
       rows.push({
-        rigName: rig.name,
+        softwareTeamName: softwareTeam.name,
         activityState: queueState.activityState,
         lifecycleState: queueState.lifecycleState,
         attentionReason: queueState.attentionReason,
@@ -158,25 +158,25 @@ export class MissionControlFleetCliCapability {
   }
 
   /**
-   * Per-(rig, field) once-per-session-per-rig log per PRD sub-clause 3.
+   * Per-(softwareTeam, field) once-per-session-per-softwareTeam log per PRD sub-clause 3.
    * Daemon restart clears the set so logging fires again on first
    * post-restart observation.
    */
-  private maybeLogDriftOnce(rigName: string, missingField: string): void {
-    const key = `${rigName}::${missingField}`;
+  private maybeLogDriftOnce(softwareTeamName: string, missingField: string): void {
+    const key = `${softwareTeamName}::${missingField}`;
     if (this.loggedDriftKeys.has(key)) return;
     this.loggedDriftKeys.add(key);
     const observedAt = this.now().toISOString();
     this.eventBus.emit({
       type: "mission_control.cli_drift_detected",
-      rigName,
+      softwareTeamName,
       missingField,
       observedAt,
     });
   }
 
   /**
-   * Summarize a rig's queue state for the fleet view. Synthesized
+   * Summarize a softwareTeam's queue state for the fleet view. Synthesized
    * from PL-004 Phase A queue_items via a single SQL aggregation:
    *   - active: any in-progress qitem
    *   - blocked: any blocked qitem (no in-progress)
@@ -184,7 +184,7 @@ export class MissionControlFleetCliCapability {
    *   - idle: no active queue activity
    *   - degraded: any failed/denied/canceled qitem in last 24h
    */
-  private summarizeRigQueue(rigName: string): {
+  private summarizeSoftwareTeamQueue(softwareTeamName: string): {
     activityState: FleetRollupRow["activityState"];
     lifecycleState: string | null;
     attentionReason: string | null;
@@ -198,7 +198,7 @@ export class MissionControlFleetCliCapability {
             OR source_session LIKE ?
           ORDER BY ts_updated DESC LIMIT 100`,
       )
-      .all(`%@${rigName}`, `%@${rigName}`) as RigQueueRow[];
+      .all(`%@${softwareTeamName}`, `%@${softwareTeamName}`) as SoftwareTeamQueueRow[];
 
     if (ownedSessions.length === 0) {
       return {

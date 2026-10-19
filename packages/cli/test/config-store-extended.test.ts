@@ -4,7 +4,7 @@
 //   - new keys parse + validate; legacy 5 keys' behavior preserved
 //   - per-subdir override resolution (workspace.root / per-subdir overrides / default)
 //   - env > file > default precedence for new keys
-//   - UEP env-var graduation: OPENRIG_FILES_ALLOWLIST + OPENRIG_PROGRESS_SCAN_ROOTS still work
+//   - UEP env-var graduation: SOFTWARETEAM_FILES_ALLOWLIST + SOFTWARETEAM_PROGRESS_SCAN_ROOTS still work
 //   - reset(key) clears one key; bare reset deletes the file
 //   - parseNamedPairs decodes the named-pair format
 //   - init-workspace creates the canonical project scaffold; idempotent
@@ -25,57 +25,57 @@ import { configCommand } from "../src/commands/config.js";
 import { initWorkspaceCommand, runInitWorkspace } from "../src/commands/config-init-workspace.js";
 
 // P6/D12-residue: config-store captures DEFAULT_WORKSPACE_ROOT at MODULE-LOAD from
-// OPENRIG_HOME, so a beforeEach set is too late (module-load-env-capture). Point
-// OPENRIG_HOME at a fresh temp BEFORE the import graph loads (vi.hoisted), never the
-// seat's real home and never a fall-through to ~/.openrig (foreign on-box state).
+// SOFTWARETEAM_HOME, so a beforeEach set is too late (module-load-env-capture). Point
+// SOFTWARETEAM_HOME at a fresh temp BEFORE the import graph loads (vi.hoisted), never the
+// seat's real home and never a fall-through to ~/.softwareteam (foreign on-box state).
 const HOISTED_HOME: string = vi.hoisted(() => {
   const os = require("node:os");
   const fs = require("node:fs");
   const path = require("node:path");
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "config-store-home-")) as string;
-  process.env["OPENRIG_HOME"] = home;
+  process.env["SOFTWARETEAM_HOME"] = home;
   return home;
 });
 
 function clearEnv(): () => void {
   const keysToClear = [
     // P6/D12-residue: snapshot+clear the HOME vars too so a per-test tmp home can be
-    // set (beforeEach) and restored. Leaving OPENRIG_HOME as the seat's value leaked
+    // set (beforeEach) and restored. Leaving SOFTWARETEAM_HOME as the seat's value leaked
     // its custom home into default-path resolution; UNSETTING it would fall through
-    // to the REAL ~/.openrig (foreign on-box state) — so tests set a fresh tmp home.
-    "OPENRIG_HOME", "RIGGED_HOME",
-    "OPENRIG_PORT", "OPENRIG_HOST", "OPENRIG_DB",
-    "OPENRIG_TRANSCRIPTS_ENABLED", "OPENRIG_TRANSCRIPTS_PATH",
-    "OPENRIG_TRANSCRIPTS_LINES", "OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS",
-    "OPENRIG_WORKSPACE_ROOT", "OPENRIG_WORKSPACE_SLICES_ROOT",
-    "OPENRIG_WORKSPACE_STEERING_PATH", "OPENRIG_WORKSPACE_FIELD_NOTES_ROOT",
-    "OPENRIG_WORKSPACE_SPECS_ROOT", "OPENRIG_DOGFOOD_EVIDENCE_ROOT",
-    "OPENRIG_WORKSPACE_PROJECTS_ROOT", "OPENRIG_WORKSPACE_CATALOG_PATH",
-    "OPENRIG_CONTEXT_ROOT", "OPENRIG_CONTEXT_SYSTEM_WORLD", "OPENRIG_CONTEXT_PACKS_ROOT",
-    "OPENRIG_HEALTH_CONTEXT_PRESSURE_WARNING_PERCENT",
-    "OPENRIG_HEALTH_CONTEXT_PRESSURE_CRITICAL_PERCENT",
-    "OPENRIG_FILES_ALLOWLIST", "OPENRIG_PROGRESS_SCAN_ROOTS",
-    "OPENRIG_UI_PREVIEW_REFRESH_INTERVAL_SECONDS",
-    "OPENRIG_UI_PREVIEW_MAX_PINS", "OPENRIG_UI_PREVIEW_DEFAULT_LINES",
-    "OPENRIG_RECOVERY_AUTO_DRIVE_PROVIDER_PROMPTS",
-    "OPENRIG_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST",
-    "OPENRIG_AGENTS_ADVISOR_SESSION", "OPENRIG_AGENTS_OPERATOR_SESSION",
-    "OPENRIG_FEED_SUBSCRIPTIONS_ACTION_REQUIRED", "OPENRIG_FEED_SUBSCRIPTIONS_APPROVALS",
-    "OPENRIG_FEED_SUBSCRIPTIONS_SHIPPED", "OPENRIG_FEED_SUBSCRIPTIONS_PROGRESS",
-    "OPENRIG_FEED_SUBSCRIPTIONS_AUDIT_LOG",
-    "OPENRIG_RUNTIME_CODEX_HOOKS_ENABLED",
-    "OPENRIG_RUNTIME_READINESS_TIMEOUT_SECONDS",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_ENABLED",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_PRE_COMPACT_INSTRUCTION",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_COMPACT_INSTRUCTION",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_MESSAGE_INLINE",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_MESSAGE_FILE_PATH",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_POST_RESTORE_AUDIT_INSTRUCTION",
-    "OPENRIG_POLICIES_IDLE_GATE_QITEM_SCAN_INTERVAL_SECONDS",
-    "OPENRIG_POLICIES_IDLE_GATE_QITEM_ACTIVE_WAKE_INTERVAL_SECONDS",
-    "RIGGED_PORT", "RIGGED_HOST", "RIGGED_DB",
-    "RIGGED_TRANSCRIPTS_ENABLED", "RIGGED_TRANSCRIPTS_PATH",
+    // to the REAL ~/.softwareteam (foreign on-box state) — so tests set a fresh tmp home.
+    "SOFTWARETEAM_HOME", "SOFTWARETEAM_HOME",
+    "SOFTWARETEAM_PORT", "SOFTWARETEAM_HOST", "SOFTWARETEAM_DB",
+    "SOFTWARETEAM_TRANSCRIPTS_ENABLED", "SOFTWARETEAM_TRANSCRIPTS_PATH",
+    "SOFTWARETEAM_TRANSCRIPTS_LINES", "SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS",
+    "SOFTWARETEAM_WORKSPACE_ROOT", "SOFTWARETEAM_WORKSPACE_SLICES_ROOT",
+    "SOFTWARETEAM_WORKSPACE_STEERING_PATH", "SOFTWARETEAM_WORKSPACE_FIELD_NOTES_ROOT",
+    "SOFTWARETEAM_WORKSPACE_SPECS_ROOT", "SOFTWARETEAM_DOGFOOD_EVIDENCE_ROOT",
+    "SOFTWARETEAM_WORKSPACE_PROJECTS_ROOT", "SOFTWARETEAM_WORKSPACE_CATALOG_PATH",
+    "SOFTWARETEAM_CONTEXT_ROOT", "SOFTWARETEAM_CONTEXT_SYSTEM_WORLD", "SOFTWARETEAM_CONTEXT_PACKS_ROOT",
+    "SOFTWARETEAM_HEALTH_CONTEXT_PRESSURE_WARNING_PERCENT",
+    "SOFTWARETEAM_HEALTH_CONTEXT_PRESSURE_CRITICAL_PERCENT",
+    "SOFTWARETEAM_FILES_ALLOWLIST", "SOFTWARETEAM_PROGRESS_SCAN_ROOTS",
+    "SOFTWARETEAM_UI_PREVIEW_REFRESH_INTERVAL_SECONDS",
+    "SOFTWARETEAM_UI_PREVIEW_MAX_PINS", "SOFTWARETEAM_UI_PREVIEW_DEFAULT_LINES",
+    "SOFTWARETEAM_RECOVERY_AUTO_DRIVE_PROVIDER_PROMPTS",
+    "SOFTWARETEAM_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST",
+    "SOFTWARETEAM_AGENTS_ADVISOR_SESSION", "SOFTWARETEAM_AGENTS_OPERATOR_SESSION",
+    "SOFTWARETEAM_FEED_SUBSCRIPTIONS_ACTION_REQUIRED", "SOFTWARETEAM_FEED_SUBSCRIPTIONS_APPROVALS",
+    "SOFTWARETEAM_FEED_SUBSCRIPTIONS_SHIPPED", "SOFTWARETEAM_FEED_SUBSCRIPTIONS_PROGRESS",
+    "SOFTWARETEAM_FEED_SUBSCRIPTIONS_AUDIT_LOG",
+    "SOFTWARETEAM_RUNTIME_CODEX_HOOKS_ENABLED",
+    "SOFTWARETEAM_RUNTIME_READINESS_TIMEOUT_SECONDS",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_ENABLED",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_PRE_COMPACT_INSTRUCTION",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_COMPACT_INSTRUCTION",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_MESSAGE_INLINE",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_MESSAGE_FILE_PATH",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_POST_RESTORE_AUDIT_INSTRUCTION",
+    "SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_SCAN_INTERVAL_SECONDS",
+    "SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_ACTIVE_WAKE_INTERVAL_SECONDS",
+    "SOFTWARETEAM_PORT", "SOFTWARETEAM_HOST", "SOFTWARETEAM_DB",
+    "SOFTWARETEAM_TRANSCRIPTS_ENABLED", "SOFTWARETEAM_TRANSCRIPTS_PATH",
   ];
   const saved: Record<string, string | undefined> = {};
   for (const k of keysToClear) {
@@ -99,9 +99,9 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "config-store-ext-"));
     configPath = join(tmpDir, "config.json");
     restoreEnv = clearEnv();
-    // Keep OPENRIG_HOME on the module-load temp (clearEnv cleared it); runtime home
+    // Keep SOFTWARETEAM_HOME on the module-load temp (clearEnv cleared it); runtime home
     // reads stay hermetic and consistent with the import-captured default.
-    process.env["OPENRIG_HOME"] = HOISTED_HOME;
+    process.env["SOFTWARETEAM_HOME"] = HOISTED_HOME;
   });
   afterEach(() => {
     rmSync(tmpDir, { recursive: true, force: true });
@@ -139,7 +139,7 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
       "recovery.provider_auth_env_allowlist",
       // V1 attempt-3 Phase 4 — Advisor/Operator placeholders.
       "agents.advisor_session", "agents.operator_session",
-      // V0.3.1 slice 05 kernel-rig-as-default — operator seat name
+      // V0.3.1 slice 05 kernel-software-team-as-default — operator seat name
       // read by daemon mission-control + UI; default
       // `operator-${USER}@kernel` derived in resolve().
       "workspace.operator_seat_name",
@@ -200,14 +200,14 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     expect([...VALID_KEYS]).toEqual(expected);
   });
 
-  it("resolves context.root from the canonical default and OPENRIG_CONTEXT_ROOT", () => {
+  it("resolves context.root from the canonical default and SOFTWARETEAM_CONTEXT_ROOT", () => {
     const store = new ConfigStore(configPath);
     expect(store.resolveWithSource("context.root")).toMatchObject({
       value: join(HOISTED_HOME, "context"),
       source: "default",
     });
 
-    process.env["OPENRIG_CONTEXT_ROOT"] = join(tmpDir, "context-library");
+    process.env["SOFTWARETEAM_CONTEXT_ROOT"] = join(tmpDir, "context-library");
     expect(store.resolve().context.root).toBe(join(tmpDir, "context-library"));
   });
 
@@ -221,7 +221,7 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     expect(store.resolveWithSource("context.system_world")).toMatchObject({ value: "default", source: "default" });
     store.set("context.system_world", "operator/system-world.yaml");
     expect(store.resolveWithSource("context.system_world")).toMatchObject({ value: "operator/system-world.yaml", source: "file" });
-    process.env["OPENRIG_CONTEXT_SYSTEM_WORLD"] = "disabled";
+    process.env["SOFTWARETEAM_CONTEXT_SYSTEM_WORLD"] = "disabled";
     expect(store.resolve().context.systemWorld).toBe("disabled");
   });
 
@@ -233,8 +233,8 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     expect(() => store.resolve()).toThrow(/context\.packs_root.*context\.root/i);
 
     writeFileSync(configPath, "{}\n");
-    process.env["OPENRIG_CONTEXT_PACKS_ROOT"] = "/legacy-env";
-    expect(() => store.resolve()).toThrow(/OPENRIG_CONTEXT_PACKS_ROOT.*OPENRIG_CONTEXT_ROOT/i);
+    process.env["SOFTWARETEAM_CONTEXT_PACKS_ROOT"] = "/legacy-env";
+    expect(() => store.resolve()).toThrow(/SOFTWARETEAM_CONTEXT_PACKS_ROOT.*SOFTWARETEAM_CONTEXT_ROOT/i);
   });
 
   it("W2c idle-gate-qitem cadence defaults to scan=60 and active-wake=900; B6 gate defaults off/empty", () => {
@@ -262,11 +262,11 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     expect(store.resolveWithSource("transport.verify_input_box")).toMatchObject({ value: false, source: "default", defaultValue: false });
     expect(store.resolve().transport).toEqual({ verifyInputBox: false });
     try {
-      process.env.OPENRIG_TRANSPORT_VERIFY_INPUT_BOX = "1";
+      process.env.SOFTWARETEAM_TRANSPORT_VERIFY_INPUT_BOX = "1";
       expect(store.resolveWithSource("transport.verify_input_box")).toMatchObject({ value: true, source: "env" });
       expect(store.resolve().transport).toEqual({ verifyInputBox: true });
     } finally {
-      delete process.env.OPENRIG_TRANSPORT_VERIFY_INPUT_BOX;
+      delete process.env.SOFTWARETEAM_TRANSPORT_VERIFY_INPUT_BOX;
     }
   });
 
@@ -275,7 +275,7 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     expect(store.resolveWithSource("runtime.readiness_timeout_seconds")).toMatchObject({ value: 30, source: "default" });
     store.set("runtime.readiness_timeout_seconds", "45");
     expect(store.resolve().runtime.readinessTimeoutSeconds).toBe(45);
-    process.env["OPENRIG_RUNTIME_READINESS_TIMEOUT_SECONDS"] = "60";
+    process.env["SOFTWARETEAM_RUNTIME_READINESS_TIMEOUT_SECONDS"] = "60";
     expect(store.resolveWithSource("runtime.readiness_timeout_seconds")).toMatchObject({ value: 60, source: "env" });
     for (const value of ["0", "601", "2.5", "45junk"]) {
       expect(() => store.set("runtime.readiness_timeout_seconds", value)).toThrow(/integer in \[1, 600\]/);
@@ -381,8 +381,8 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     expect(store.resolveWithSource("policies.idle_gate_qitem.active_wake_interval_seconds"))
       .toMatchObject({ value: 1800, source: "file" });
 
-    process.env.OPENRIG_POLICIES_IDLE_GATE_QITEM_SCAN_INTERVAL_SECONDS = "30";
-    process.env.OPENRIG_POLICIES_IDLE_GATE_QITEM_ACTIVE_WAKE_INTERVAL_SECONDS = "450";
+    process.env.SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_SCAN_INTERVAL_SECONDS = "30";
+    process.env.SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_ACTIVE_WAKE_INTERVAL_SECONDS = "450";
     expect(store.resolveWithSource("policies.idle_gate_qitem.scan_interval_seconds"))
       .toMatchObject({ value: 30, source: "env" });
     expect(store.resolveWithSource("policies.idle_gate_qitem.active_wake_interval_seconds"))
@@ -458,12 +458,12 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
   it("workspace.operator_seat_name env override beats file-stored value", () => {
     const store = new ConfigStore(configPath);
     store.set("workspace.operator_seat_name", "operator-file@kernel");
-    process.env.OPENRIG_WORKSPACE_OPERATOR_SEAT_NAME = "operator-env@kernel";
+    process.env.SOFTWARETEAM_WORKSPACE_OPERATOR_SEAT_NAME = "operator-env@kernel";
     try {
       const resolved = store.resolve();
       expect(resolved.workspace.operatorSeatName).toBe("operator-env@kernel");
     } finally {
-      delete process.env.OPENRIG_WORKSPACE_OPERATOR_SEAT_NAME;
+      delete process.env.SOFTWARETEAM_WORKSPACE_OPERATOR_SEAT_NAME;
     }
   });
 
@@ -489,10 +489,10 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     store.set("transcripts.enabled", "false");
     expect(store.get("transcripts.enabled")).toBe(false);
     store.reset("daemon.port");
-    expect(store.get("daemon.port")).toBe(7433);
+    expect(store.get("daemon.port")).toBe(7434);
   });
 
-  it("workspace.root default is <OPENRIG_HOME>/workspace; per-subdir defaults derive from it", () => {
+  it("workspace.root default is <SOFTWARETEAM_HOME>/workspace; per-subdir defaults derive from it", () => {
     const store = new ConfigStore(configPath);
     const cfg = store.resolve();
     expect(cfg.workspace.root).toBe(join(HOISTED_HOME, "workspace"));
@@ -557,37 +557,37 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     expect(store.resolveWithSource("workspace.slices_root").source).toBe("file");
 
     // Env set → env source
-    process.env["OPENRIG_WORKSPACE_SLICES_ROOT"] = "/from/env";
+    process.env["SOFTWARETEAM_WORKSPACE_SLICES_ROOT"] = "/from/env";
     try {
       const r = store.resolveWithSource("workspace.slices_root");
       expect(r.value).toBe("/from/env");
       expect(r.source).toBe("env");
     } finally {
-      delete process.env["OPENRIG_WORKSPACE_SLICES_ROOT"];
+      delete process.env["SOFTWARETEAM_WORKSPACE_SLICES_ROOT"];
     }
   });
 
-  it("UEP env-var graduation: OPENRIG_FILES_ALLOWLIST is the env override for files.allowlist", () => {
+  it("UEP env-var graduation: SOFTWARETEAM_FILES_ALLOWLIST is the env override for files.allowlist", () => {
     const store = new ConfigStore(configPath);
-    process.env["OPENRIG_FILES_ALLOWLIST"] = "ws:/Users/me,docs:/var/docs";
+    process.env["SOFTWARETEAM_FILES_ALLOWLIST"] = "ws:/Users/me,docs:/var/docs";
     try {
       const r = store.resolveWithSource("files.allowlist");
       expect(r.value).toBe("ws:/Users/me,docs:/var/docs");
       expect(r.source).toBe("env");
     } finally {
-      delete process.env["OPENRIG_FILES_ALLOWLIST"];
+      delete process.env["SOFTWARETEAM_FILES_ALLOWLIST"];
     }
   });
 
-  it("UEP env-var graduation: OPENRIG_PROGRESS_SCAN_ROOTS is the env override for progress.scan_roots", () => {
+  it("UEP env-var graduation: SOFTWARETEAM_PROGRESS_SCAN_ROOTS is the env override for progress.scan_roots", () => {
     const store = new ConfigStore(configPath);
-    process.env["OPENRIG_PROGRESS_SCAN_ROOTS"] = "main:/code/main";
+    process.env["SOFTWARETEAM_PROGRESS_SCAN_ROOTS"] = "main:/code/main";
     try {
       const r = store.resolveWithSource("progress.scan_roots");
       expect(r.value).toBe("main:/code/main");
       expect(r.source).toBe("env");
     } finally {
-      delete process.env["OPENRIG_PROGRESS_SCAN_ROOTS"];
+      delete process.env["SOFTWARETEAM_PROGRESS_SCAN_ROOTS"];
     }
   });
 
@@ -602,8 +602,8 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     expect(store.resolveWithSource("workspace.projects_root")).toMatchObject({ value: "/configured/projects", source: "file" });
     expect(store.resolveWithSource("workspace.catalog_path")).toMatchObject({ value: "/configured/workspace.yaml", source: "file" });
 
-    process.env["OPENRIG_WORKSPACE_PROJECTS_ROOT"] = "/project/worlds";
-    process.env["OPENRIG_WORKSPACE_CATALOG_PATH"] = "/catalog/workspace.yaml";
+    process.env["SOFTWARETEAM_WORKSPACE_PROJECTS_ROOT"] = "/project/worlds";
+    process.env["SOFTWARETEAM_WORKSPACE_CATALOG_PATH"] = "/catalog/workspace.yaml";
     try {
       expect(store.resolveWithSource("workspace.projects_root")).toMatchObject({
         value: "/project/worlds",
@@ -614,8 +614,8 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
         source: "env",
       });
     } finally {
-      delete process.env["OPENRIG_WORKSPACE_PROJECTS_ROOT"];
-      delete process.env["OPENRIG_WORKSPACE_CATALOG_PATH"];
+      delete process.env["SOFTWARETEAM_WORKSPACE_PROJECTS_ROOT"];
+      delete process.env["SOFTWARETEAM_WORKSPACE_CATALOG_PATH"];
     }
   });
 
@@ -702,7 +702,7 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
   });
 
   // Constraint gap (Slice 27 residue): daemon.port had no KEY_CONSTRAINTS
-  // entry, so `rig config set daemon.port 99999` stored 99999 and the next
+  // entry, so `SoftwareTeam config set daemon.port 99999` stored 99999 and the next
   // daemon start died with a raw ERR_SOCKET_BAD_PORT from serve(). The
   // contract: refuse only ports that cannot be bound, checked on the value
   // the runtime consumes (the same parseInt the boot path runs), never
@@ -722,9 +722,9 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
   it("daemon.port keeps resolving every input form that resolves today", () => {
     const store = new ConfigStore(configPath);
     for (const [raw, expected] of [
-      ["7433abc", 7433],
-      ["7433.5", 7433],
-      ["+7433", 7433],
+      ["7434abc", 7434],
+      ["7434.5", 7434],
+      ["+7434", 7434],
       ["1e4", 1],
       ["0x1D11", 0],
     ] as const) {
@@ -738,7 +738,7 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     try {
       writeFileSync(configPath, JSON.stringify({ daemon: { port: 99999 } }));
       const store = new ConfigStore(configPath);
-      expect(store.get("daemon.port")).toBe(7433);
+      expect(store.get("daemon.port")).toBe(7434);
       const warns = stderrSpy.mock.calls.map((c) => String(c[0]));
       expect(warns.some((w) => w.includes("file value for daemon.port rejected"))).toBe(true);
     } finally {
@@ -756,16 +756,16 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     expect(store.resolve().daemon.port).toBe("7434");
   });
 
-  it("OPENRIG_UI_PREVIEW_* env vars override file values", () => {
+  it("SOFTWARETEAM_UI_PREVIEW_* env vars override file values", () => {
     const store = new ConfigStore(configPath);
     store.set("ui.preview.refresh_interval_seconds", "5");
-    process.env["OPENRIG_UI_PREVIEW_REFRESH_INTERVAL_SECONDS"] = "10";
+    process.env["SOFTWARETEAM_UI_PREVIEW_REFRESH_INTERVAL_SECONDS"] = "10";
     try {
       const r = store.resolveWithSource("ui.preview.refresh_interval_seconds");
       expect(r.value).toBe(10);
       expect(r.source).toBe("env");
     } finally {
-      delete process.env["OPENRIG_UI_PREVIEW_REFRESH_INTERVAL_SECONDS"];
+      delete process.env["SOFTWARETEAM_UI_PREVIEW_REFRESH_INTERVAL_SECONDS"];
     }
   });
 
@@ -775,17 +775,17 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
     store.set("recovery.provider_auth_env_allowlist", "ANTHROPIC_API_KEY,CLAUDE_CODE_OAUTH_TOKEN");
     expect(store.resolve().recovery.providerAuthEnvAllowlist).toBe("ANTHROPIC_API_KEY,CLAUDE_CODE_OAUTH_TOKEN");
 
-    process.env["OPENRIG_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST"] = "OPENAI_API_KEY";
+    process.env["SOFTWARETEAM_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST"] = "OPENAI_API_KEY";
     try {
       const r = store.resolveWithSource("recovery.provider_auth_env_allowlist");
       expect(r.value).toBe("OPENAI_API_KEY");
       expect(r.source).toBe("env");
     } finally {
-      delete process.env["OPENRIG_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST"];
+      delete process.env["SOFTWARETEAM_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST"];
     }
   });
 
-  it("RiggedConfig.ui.preview shape exposed", () => {
+  it("SoftwareTeamConfig.ui.preview shape exposed", () => {
     const store = new ConfigStore(configPath);
     const cfg = store.resolve();
     expect(cfg.ui.preview.refreshIntervalSeconds).toBe(3);
@@ -803,7 +803,7 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
 
   // Slice 27 BLOCKING-FIX-2 — env override + file value validation.
   // Bypass-prevention at the RESOLVE path: an env override like
-  // OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT=80abc previously
+  // SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT=80abc previously
   // parseInt-coerced to 80 and shipped through resolveOne as a "valid"
   // env-sourced value. With BLOCKING-FIX-2 the env resolution validates;
   // bad env drops the override (falls to file/default) and warns on stderr.
@@ -812,7 +812,7 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
 
     for (const raw of reject) {
       it(`env=${JSON.stringify(raw)} → resolve returns default 80; warning emitted`, () => {
-        process.env["OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"] = raw;
+        process.env["SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"] = raw;
         const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
         try {
           const store = new ConfigStore(configPath);
@@ -822,14 +822,14 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
           expect(calls.some((c) => c.includes("env override for policies.claude_compaction.threshold_percent rejected"))).toBe(true);
         } finally {
           stderrSpy.mockRestore();
-          delete process.env["OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"];
+          delete process.env["SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"];
         }
       });
     }
 
     it("discriminator: env=80abc (rejected, source falls to default, warning) vs env=80 (accepted, source=env, no warning)", () => {
       // Case A: rejected → source=default, warning emitted
-      process.env["OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"] = "80abc";
+      process.env["SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"] = "80abc";
       let stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
       try {
         const a = new ConfigStore(configPath).resolveWithSource("policies.claude_compaction.threshold_percent");
@@ -841,11 +841,11 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
         expect(warns.length).toBe(1);
       } finally {
         stderrSpy.mockRestore();
-        delete process.env["OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"];
+        delete process.env["SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"];
       }
 
       // Case B: accepted → SAME numeric value (80) but source=env, NO warning
-      process.env["OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"] = "80";
+      process.env["SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"] = "80";
       stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
       try {
         const b = new ConfigStore(configPath).resolveWithSource("policies.claude_compaction.threshold_percent");
@@ -857,7 +857,7 @@ describe("ConfigStore — extended namespaces (User Settings v0)", () => {
         expect(warns.length).toBe(0);
       } finally {
         stderrSpy.mockRestore();
-        delete process.env["OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"];
+        delete process.env["SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"];
       }
     });
 
@@ -1011,8 +1011,8 @@ describe("init-workspace runner", () => {
     expect(parsed.subdirs.map((s) => s.name)).toEqual(["missions", "exhaust"]);
   });
 
-  it("rig-level --json emits parseable JSON for config init-workspace", async () => {
-    const cmd = new Command("rig");
+  it("software-team-level --json emits parseable JSON for config init-workspace", async () => {
+    const cmd = new Command("softwareTeam");
     cmd.exitOverride();
     cmd.option("--json", "emit machine-readable JSON");
     cmd.addCommand(configCommand(configPath));
@@ -1023,7 +1023,7 @@ describe("init-workspace runner", () => {
     try {
       await cmd.parseAsync([
         "node",
-        "rig",
+        "softwareTeam",
         "--json",
         "config",
         "init-workspace",
@@ -1052,13 +1052,13 @@ describe("init-workspace runner", () => {
     expect(projectSpec).toContain("intent:");
     expect(projectSpec).toContain("# Project");
     expect(parseYaml(readFileSync(join(workspaceRoot, "project.yaml"), "utf-8"))).toMatchObject({
-      schema: "openrig.project/v0alpha1",
+      schema: "softwareteam.project/v0alpha1",
       kind: "project",
       install: { intent: "SPEC.md", context: [], skills: [] },
       missions: { root: "missions" },
     });
     expect(parseYaml(readFileSync(join(workspaceRoot, "workspace.yaml"), "utf-8"))).toEqual({
-      schema: "openrig.workspace/v0alpha1",
+      schema: "softwareteam.workspace/v0alpha1",
       projects: [{ id: "default", root: "." }],
     });
     expect(readFileSync(join(workspaceRoot, ".gitignore"), "utf-8")).toContain("/exhaust/");
@@ -1140,11 +1140,11 @@ describe("init-workspace runner", () => {
   });
 });
 
-// GHOST-STAGE (d) — the CLI `rig config set` write-target must be the CANONICAL config the DAEMON
-// reads (getOpenRigHome/config.json), never the existence-based legacy ~/.rigged sidecar. The
+// GHOST-STAGE (d) — the CLI `SoftwareTeam config set` write-target must be the CANONICAL config the DAEMON
+// reads (getSoftwareTeamHome/config.json), never the existence-based legacy ~/.softwareteam sidecar. The
 // operator hit config-set-success-without-persist: the setter wrote the sidecar, the daemon read
-// canonical, so `disabled` never took. RED provenance: on a host WITH a legacy ~/.rigged/config.json
-// the OLD getCompatibleOpenRigPath returns that real-home sidecar while OPENRIG_HOME points at the
+// canonical, so `disabled` never took. RED provenance: on a host WITH a legacy ~/.softwareteam/config.json
+// the OLD getCompatibleSoftwareTeamPath returns that real-home sidecar while SOFTWARETEAM_HOME points at the
 // canonical home — so `configPath` diverges and this pin RED-fails. (A host-independent RED needs
 // os.homedir() mocking — harness note.)
 describe("ConfigStore — GHOST-STAGE (d): write-canonical + verify-readback", () => {
@@ -1153,21 +1153,21 @@ describe("ConfigStore — GHOST-STAGE (d): write-canonical + verify-readback", (
   let savedPort: string | undefined;
   beforeEach(() => {
     home = mkdtempSync(join(tmpdir(), "cfg-d-home-"));
-    savedHome = process.env["OPENRIG_HOME"];
-    savedPort = process.env["OPENRIG_PORT"];
-    delete process.env["OPENRIG_PORT"];
-    process.env["OPENRIG_HOME"] = home; // the canonical home the daemon resolves
+    savedHome = process.env["SOFTWARETEAM_HOME"];
+    savedPort = process.env["SOFTWARETEAM_PORT"];
+    delete process.env["SOFTWARETEAM_PORT"];
+    process.env["SOFTWARETEAM_HOME"] = home; // the canonical home the daemon resolves
   });
   afterEach(() => {
-    if (savedHome === undefined) delete process.env["OPENRIG_HOME"];
-    else process.env["OPENRIG_HOME"] = savedHome;
-    if (savedPort === undefined) delete process.env["OPENRIG_PORT"];
-    else process.env["OPENRIG_PORT"] = savedPort;
+    if (savedHome === undefined) delete process.env["SOFTWARETEAM_HOME"];
+    else process.env["SOFTWARETEAM_HOME"] = savedHome;
+    if (savedPort === undefined) delete process.env["SOFTWARETEAM_PORT"];
+    else process.env["SOFTWARETEAM_PORT"] = savedPort;
     rmSync(home, { recursive: true, force: true });
   });
 
-  it("a DEFAULT store writes to <OPENRIG_HOME>/config.json (where the daemon reads), not a legacy sidecar", () => {
-    const store = new ConfigStore(); // no explicit path -> getDefaultOpenRigPath (the fix)
+  it("a DEFAULT store writes to <SOFTWARETEAM_HOME>/config.json (where the daemon reads), not a legacy sidecar", () => {
+    const store = new ConfigStore(); // no explicit path -> getDefaultSoftwareTeamPath (the fix)
     const canonical = join(home, "config.json");
     expect(store.configPath).toBe(canonical); // writes EXACTLY where the daemon reads (the write-target fix)
     store.set("policies.claude_compaction.enabled", "false");

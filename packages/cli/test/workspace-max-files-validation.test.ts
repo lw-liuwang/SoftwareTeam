@@ -1,5 +1,5 @@
 // release-0.3.2 slice 01 BC repair — HG-6 discriminators.
-// Verifies that `rig workspace validate --max-files <garbage>` rejects
+// Verifies that `softwareTeam workspace validate --max-files <garbage>` rejects
 // CLI-side with a 3-part error AND does NOT call the daemon. Matches
 // the guard BC-1 fix recipe.
 
@@ -64,7 +64,7 @@ describe("parseMaxFilesStrict — pure helper", () => {
   });
 });
 
-describe("rig workspace validate --max-files — CLI-side discriminator (BLOCK 1)", () => {
+describe("SoftwareTeam workspace validate --max-files — CLI-side discriminator (BLOCK 1)", () => {
   it("rejects '12abc' with --json: exit=1, body.error has fact/consequence/action, client.post NOT called", async () => {
     const post = vi.fn();
     const deps = fakeRunningDeps(post);
@@ -72,7 +72,7 @@ describe("rig workspace validate --max-files — CLI-side discriminator (BLOCK 1
     const originalExitCode = process.exitCode;
     process.exitCode = 0;
     const root = workspaceCommand(deps);
-    await root.parseAsync(["node", "rig", "validate", "/tmp/ws", "--max-files", "12abc", "--json"]);
+    await root.parseAsync(["node", "softwareTeam", "validate", "/tmp/ws", "--max-files", "12abc", "--json"]);
     out.restore();
     const exitCode = process.exitCode;
     process.exitCode = originalExitCode;
@@ -94,7 +94,7 @@ describe("rig workspace validate --max-files — CLI-side discriminator (BLOCK 1
       const root = workspaceCommand(deps);
       const originalExitCode = process.exitCode;
       process.exitCode = 0;
-      await root.parseAsync(["node", "rig", "validate", "/tmp/ws", "--max-files", bad, "--json"]);
+      await root.parseAsync(["node", "softwareTeam", "validate", "/tmp/ws", "--max-files", bad, "--json"]);
       out.restore();
       const exitCode = process.exitCode;
       process.exitCode = originalExitCode;
@@ -110,7 +110,7 @@ describe("rig workspace validate --max-files — CLI-side discriminator (BLOCK 1
     const originalExitCode = process.exitCode;
     process.exitCode = 0;
     const root = workspaceCommand(deps);
-    await root.parseAsync(["node", "rig", "validate", "/tmp/ws", "--max-files", "12abc"]);
+    await root.parseAsync(["node", "softwareTeam", "validate", "/tmp/ws", "--max-files", "12abc"]);
     err.restore();
     const exitCode = process.exitCode;
     process.exitCode = originalExitCode;

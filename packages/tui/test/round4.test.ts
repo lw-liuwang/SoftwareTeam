@@ -13,7 +13,7 @@ function fresh() {
   return createViewState({ instanceId: "t", getSnapshot: () => snap });
 }
 
-describe("topology default expansion (item 4): rigs+pods visible, agents on demand", () => {
+describe("topology default expansion (item 4): softwareTeams+pods visible, agents on demand", () => {
   it("hides agents until their pod is expanded", () => {
     const s = fresh();
     const labels = computeExplorerRows(s.get(), snap).map((r) => r.label);
@@ -27,24 +27,24 @@ describe("topology default expansion (item 4): rigs+pods visible, agents on dema
     s.dispatch(parseCommand("pod dev50"));
     const rows = computeExplorerRows(s.get(), snap);
     expect(rows.map((r) => r.label).some((l) => l.includes("dev50.driver"))).toBe(true);
-    expect(rows[s.get().selection]?.key).toBe("pod:vm-host/openrig-build/dev50");
+    expect(rows[s.get().selection]?.key).toBe("pod:vm-host/softwareteam-build/dev50");
   });
 });
 
 describe("selection sync + cursor stability (item 2)", () => {
   it("a content-pane drill highlights the agent in the explorer (auto-expanding its pod)", () => {
     const s = fresh();
-    s.dispatch(parseCommand("rig openrig-build"));
+    s.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     // simulate the table-row click action shape
-    s.dispatch({ type: "drill", resource: "agent", name: "dev50.guard", target: { host: "vm-host", rig: "openrig-build", pod: "dev50" } });
+    s.dispatch({ type: "drill", resource: "agent", name: "dev50.guard", target: { host: "vm-host", softwareTeam: "softwareteam-build", pod: "dev50" } });
     const rows = computeExplorerRows(s.get(), snap);
-    expect(rows[s.get().selection]?.key).toBe("agent:vm-host/openrig-build/dev50/dev50.guard");
+    expect(rows[s.get().selection]?.key).toBe("agent:vm-host/softwareteam-build/dev50/dev50.guard");
   });
 
   it("the cursor never resets to the top across a navigation chain", () => {
     const s = fresh();
     const positions: number[] = [];
-    for (const cmd of ["rig openrig-build", "pod dev50", "agent dev50.qa", "spec-of dev50.qa"]) {
+    for (const cmd of ["SoftwareTeam softwareteam-build", "pod dev50", "agent dev50.qa", "spec-of dev50.qa"]) {
       s.dispatch(parseCommand(cmd));
       positions.push(s.get().selection);
     }
@@ -66,14 +66,14 @@ describe("filters are view-scoped (founder direct-drive catch)", () => {
     const s = fresh();
     s.dispatch(parseCommand(":specs"));
     s.dispatch(parseCommand("/independent-reviewer"));
-    s.dispatch(parseCommand("rig openrig-build"));
+    s.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     expect(s.get().section).toBe("topology");
     expect(s.get().filter).toBe("");
   });
 
-  it("a same-section drill keeps the filter (topology rig → pod)", () => {
+  it("a same-section drill keeps the filter (topology softwareTeam → pod)", () => {
     const s = fresh();
-    s.dispatch(parseCommand("rig openrig-build"));
+    s.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     s.dispatch(parseCommand("/dev50"));
     s.dispatch(parseCommand("pod dev50"));
     expect(s.get().filter).toBe("dev50");
@@ -81,7 +81,7 @@ describe("filters are view-scoped (founder direct-drive catch)", () => {
 
   it("cross-nav across sections clears the filter too (spec-of)", () => {
     const s = fresh();
-    s.dispatch(parseCommand("rig openrig-build"));
+    s.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     s.dispatch(parseCommand("/dev50"));
     s.dispatch(parseCommand("spec-of dev50.driver"));
     expect(s.get().section).toBe("specs");
@@ -93,23 +93,23 @@ describe("Specs kind disclosure with nested agent folders", () => {
   const nsSnap: FleetSnapshot = {
     ...snap,
     specs: [
-      { name: "rig-a", kind: "rig" },
-      { name: "rig-b", kind: "rig" },
+      { name: "software-team-a", kind: "softwareTeam" },
+      { name: "software-team-b", kind: "softwareTeam" },
       { name: "rev-1", kind: "agent", namespace: "review" },
       { name: "rev-2", kind: "agent", namespace: "review" },
       { name: "orch-1", kind: "agent", namespace: "orchestration" },
     ],
   };
 
-  it("shows the kind groups first, then every rig spec and collapsed agent folders when opened", () => {
+  it("shows the kind groups first, then every SoftwareTeam spec and collapsed agent folders when opened", () => {
     const s = createViewState({ instanceId: "t", getSnapshot: () => nsSnap });
     s.dispatch(parseCommand(":specs"));
     expect(computeExplorerRows(s.get(), nsSnap).some(r => r.key?.startsWith("spec:"))).toBe(false);
-    s.dispatch({ type: "toggle-expand", key: "specs-kind:rig" });
+    s.dispatch({ type: "toggle-expand", key: "specs-kind:softwareTeam" });
     s.dispatch({ type: "toggle-expand", key: "specs-kind:agent" });
     const labels = computeExplorerRows(s.get(), nsSnap).map((r) => r.label);
-    expect(labels.some((l) => l.includes("rig-a"))).toBe(true);
-    expect(labels.some((l) => l.includes("rig-b"))).toBe(true);
+    expect(labels.some((l) => l.includes("software-team-a"))).toBe(true);
+    expect(labels.some((l) => l.includes("software-team-b"))).toBe(true);
     expect(labels.some((l) => l.includes("review/ (2)"))).toBe(true);
     expect(labels.some((l) => l.includes("rev-1"))).toBe(false);
   });

@@ -92,7 +92,7 @@ describe("launchHarness — per-agent --model reaches the claude launch (51-07 A
   it("absent model → the resume command is exact bytes (no --model, posture intact)", async () => {
     const tmux = mockTmux();
     await adapterWith(tmux).launchHarness(withModel(undefined), { name: "seat", resumeToken: "tok-123" });
-    expect(lastCmd(tmux)).toBe(`OPENRIG_RESUME_LAUNCH='tok-123' CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 claude ${POSTURE} --resume 'tok-123' --name seat`);
+    expect(lastCmd(tmux)).toBe(`SOFTWARETEAM_RESUME_LAUNCH='tok-123' CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 claude ${POSTURE} --resume 'tok-123' --name seat`);
   });
 
   // D1 pin — posture BYTE-UNCHANGED both directions: the ONLY delta with/without model is the
@@ -155,7 +155,7 @@ describe("launchHarness — per-agent --effort reaches the claude launch (#75)",
 
 // OPR.0.5.3.1 slice 01 — Claude scrollback restore. Every managed launch path must prepend
 // CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 by default (classic renderer -> native scrollback);
-// an explicit OPENRIG_CLAUDE_DISABLE_ALTERNATE_SCREEN=0 opts back into fullscreen (byte-identical
+// an explicit SOFTWARETEAM_CLAUDE_DISABLE_ALTERNATE_SCREEN=0 opts back into fullscreen (byte-identical
 // to pre-change). RED-first: the default-prefix pins fail on main (adapter emits no prefix).
 describe("launchHarness — classic-renderer env prefix (OPR.0.5.3.1 scrollback restore)", () => {
   const POSTURE = claudePostureFlag(process.env, undefined);
@@ -167,7 +167,7 @@ describe("launchHarness — classic-renderer env prefix (OPR.0.5.3.1 scrollback 
   const PREFIX = "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 ";
 
   afterEach(() => {
-    delete process.env.OPENRIG_CLAUDE_DISABLE_ALTERNATE_SCREEN;
+    delete process.env.SOFTWARETEAM_CLAUDE_DISABLE_ALTERNATE_SCREEN;
   });
 
   it("FRESH launch prepends the classic-renderer prefix by default", async () => {
@@ -179,7 +179,7 @@ describe("launchHarness — classic-renderer env prefix (OPR.0.5.3.1 scrollback 
   it("RESUME launch carries the prefix", async () => {
     const tmux = mockTmux();
     await adapterWith(tmux).launchHarness(makeBinding(), { name: "seat", resumeToken: "tok-123" });
-    expect(lastCmd(tmux)).toBe(`OPENRIG_RESUME_LAUNCH='tok-123' ${PREFIX}claude ${POSTURE} --resume 'tok-123' --name seat`);
+    expect(lastCmd(tmux)).toBe(`SOFTWARETEAM_RESUME_LAUNCH='tok-123' ${PREFIX}claude ${POSTURE} --resume 'tok-123' --name seat`);
   });
 
   it("FORK launch carries the prefix", async () => {
@@ -188,11 +188,11 @@ describe("launchHarness — classic-renderer env prefix (OPR.0.5.3.1 scrollback 
     expect(lastCmd(tmux).startsWith(PREFIX + "claude ")).toBe(true);
   });
 
-  it("override OPENRIG_CLAUDE_DISABLE_ALTERNATE_SCREEN=0 omits the renderer prefix; the resume keeps its launch marker (#1077)", async () => {
-    process.env.OPENRIG_CLAUDE_DISABLE_ALTERNATE_SCREEN = "0";
+  it("override SOFTWARETEAM_CLAUDE_DISABLE_ALTERNATE_SCREEN=0 omits the renderer prefix; the resume keeps its launch marker (#1077)", async () => {
+    process.env.SOFTWARETEAM_CLAUDE_DISABLE_ALTERNATE_SCREEN = "0";
     const tmux = mockTmux();
     await adapterWith(tmux).launchHarness(makeBinding(), { name: "seat", resumeToken: "tok-123" });
-    expect(lastCmd(tmux)).toBe(`OPENRIG_RESUME_LAUNCH='tok-123' claude ${POSTURE} --resume 'tok-123' --name seat`);
+    expect(lastCmd(tmux)).toBe(`SOFTWARETEAM_RESUME_LAUNCH='tok-123' claude ${POSTURE} --resume 'tok-123' --name seat`);
   });
 });
 
@@ -240,7 +240,7 @@ describe("Claude Code runtime adapter", () => {
     const tmux = mockTmux();
     (tmux.getPaneCommand as ReturnType<typeof vi.fn>).mockResolvedValue("zsh");
     (tmux.getPanePid as ReturnType<typeof vi.fn>).mockResolvedValue(900);
-    (tmux.capturePaneContent as ReturnType<typeof vi.fn>).mockResolvedValue("user@example.test rigged %");
+    (tmux.capturePaneContent as ReturnType<typeof vi.fn>).mockResolvedValue("user@example.test softwareteam %");
     const adapter = new ClaudeCodeAdapter({
       tmux,
       fsOps: mockFs(),
@@ -324,10 +324,10 @@ describe("Claude Code runtime adapter", () => {
 
   // T3: auto guidance merge for .md file
   it("auto chooses guidance_merge for .md startup file", async () => {
-    const fs = mockFs({ "/rig/startup/guide.md": "# Guide content" });
+    const fs = mockFs({ "/softwareTeam/startup/guide.md": "# Guide content" });
     const adapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: fs });
     const file: ResolvedStartupFile = {
-      path: "startup/guide.md", absolutePath: "/rig/startup/guide.md", ownerRoot: "/rig",
+      path: "startup/guide.md", absolutePath: "/softwareTeam/startup/guide.md", ownerRoot: "/softwareTeam",
       deliveryHint: "auto", required: true, appliesOn: ["fresh_start", "restore"],
     };
     const result = await adapter.deliverStartup([file], makeBinding());
@@ -336,21 +336,21 @@ describe("Claude Code runtime adapter", () => {
     expect(store["/project/CLAUDE.md"]).toContain("Guide content");
   });
 
-  it("replaces legacy using-openrig managed block when delivering openrig-start guidance", async () => {
+  it("replaces legacy using-softwareteam managed block when delivering softwareteam-start guidance", async () => {
     const fs = mockFs({
-      "/rig/openrig-start.md": "# OpenRig Start\n\nNew guidance",
+      "/softwareTeam/softwareteam-start.md": "# SoftwareTeam Start\n\nNew guidance",
       "/project/CLAUDE.md": [
-        "<!-- BEGIN OpenRig MANAGED BLOCK: using-openrig.md -->",
-        "# Using OpenRig",
+        "<!-- BEGIN SoftwareTeam MANAGED BLOCK: using-softwareteam.md -->",
+        "# Using SoftwareTeam",
         "Old guidance",
-        "<!-- END OpenRig MANAGED BLOCK: using-openrig.md -->",
+        "<!-- END SoftwareTeam MANAGED BLOCK: using-softwareteam.md -->",
       ].join("\n"),
     });
     const adapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: fs });
     const file: ResolvedStartupFile = {
-      path: "openrig-start.md",
-      absolutePath: "/rig/openrig-start.md",
-      ownerRoot: "/rig",
+      path: "softwareteam-start.md",
+      absolutePath: "/softwareTeam/softwareteam-start.md",
+      ownerRoot: "/softwareTeam",
       deliveryHint: "guidance_merge",
       required: true,
       appliesOn: ["fresh_start", "restore"],
@@ -360,17 +360,17 @@ describe("Claude Code runtime adapter", () => {
 
     const store = (fs as unknown as { _store: Record<string, string> })._store;
     const content = store["/project/CLAUDE.md"]!;
-    expect(content).toContain("BEGIN OpenRig MANAGED BLOCK: openrig-start.md");
-    expect(content).not.toContain("BEGIN OpenRig MANAGED BLOCK: using-openrig.md");
+    expect(content).toContain("BEGIN SoftwareTeam MANAGED BLOCK: softwareteam-start.md");
+    expect(content).not.toContain("BEGIN SoftwareTeam MANAGED BLOCK: using-softwareteam.md");
     expect(content).toContain("New guidance");
   });
 
   // T4: auto skill install for SKILL.md
   it("auto chooses skill_install for SKILL.md content", async () => {
-    const fs = mockFs({ "/rig/skills/deep/SKILL.md": "# SKILL Deep PR Review" });
+    const fs = mockFs({ "/softwareTeam/skills/deep/SKILL.md": "# SKILL Deep PR Review" });
     const adapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: fs });
     const file: ResolvedStartupFile = {
-      path: "skills/deep/SKILL.md", absolutePath: "/rig/skills/deep/SKILL.md", ownerRoot: "/rig",
+      path: "skills/deep/SKILL.md", absolutePath: "/softwareTeam/skills/deep/SKILL.md", ownerRoot: "/softwareTeam",
       deliveryHint: "auto", required: true, appliesOn: ["fresh_start", "restore"],
     };
     const result = await adapter.deliverStartup([file], makeBinding());
@@ -380,10 +380,10 @@ describe("Claude Code runtime adapter", () => {
   // T5: auto send-text for generic content
   it("auto falls back to send_text for generic file", async () => {
     const tmux = mockTmux();
-    const fs = mockFs({ "/rig/startup/init.sh": "echo hello" });
+    const fs = mockFs({ "/softwareTeam/startup/init.sh": "echo hello" });
     const adapter = new ClaudeCodeAdapter({ tmux, fsOps: fs, sleep: async () => {} });
     const file: ResolvedStartupFile = {
-      path: "startup/init.sh", absolutePath: "/rig/startup/init.sh", ownerRoot: "/rig",
+      path: "startup/init.sh", absolutePath: "/softwareTeam/startup/init.sh", ownerRoot: "/softwareTeam",
       deliveryHint: "auto", required: true, appliesOn: ["fresh_start", "restore"],
     };
     await adapter.deliverStartup([file], makeBinding());
@@ -398,10 +398,10 @@ describe("Claude Code runtime adapter", () => {
   it("delivers a large (>100KB) send_text startup file via sendText then submits with Enter", async () => {
     const tmux = mockTmux();
     const big = "L".repeat(120 * 1024);
-    const fs = mockFs({ "/rig/startup/big-pack.md": big });
+    const fs = mockFs({ "/softwareTeam/startup/big-pack.md": big });
     const adapter = new ClaudeCodeAdapter({ tmux, fsOps: fs, sleep: async () => {} });
     const file: ResolvedStartupFile = {
-      path: "startup/big-pack.md", absolutePath: "/rig/startup/big-pack.md", ownerRoot: "/rig",
+      path: "startup/big-pack.md", absolutePath: "/softwareTeam/startup/big-pack.md", ownerRoot: "/softwareTeam",
       deliveryHint: "send_text", required: true, appliesOn: ["fresh_start", "restore"],
     };
 
@@ -470,7 +470,7 @@ describe("Claude Code runtime adapter", () => {
   // an unguarded probe lands the entry in ProjectionResult.failed and it is never
   // projected. This drives project() through a real-fs-backed listFiles.
   it("projects file-shaped subagent when listFiles throws ENOTDIR (production readdirSync semantics)", async () => {
-    const tempRoot = fs.mkdtempSync(nodePath.join(os.tmpdir(), "openrig-claude-projection-"));
+    const tempRoot = fs.mkdtempSync(nodePath.join(os.tmpdir(), "softwareteam-claude-projection-"));
     const srcFile = nodePath.join(tempRoot, "agents", "base", "subagents", "reviewer.yaml");
     fs.mkdirSync(nodePath.dirname(srcFile), { recursive: true });
     fs.writeFileSync(srcFile, "name: reviewer");
@@ -507,7 +507,7 @@ describe("Claude Code runtime adapter", () => {
         permissions: {
           defaultMode: "acceptEdits",
           allow: ["Bash(npm:*)"],
-          ask: ["Bash(rig up:*)"],
+          ask: ["Bash(SoftwareTeam up:*)"],
         },
         enabledMcpjsonServers: ["context7"],
       }),
@@ -541,7 +541,7 @@ describe("Claude Code runtime adapter", () => {
     expect(settings.customSetting).toBe(true);
     expect(settings.permissions.defaultMode).toBe("acceptEdits");
     expect(settings.permissions.allow).toEqual(["Bash(existing:*)", "Bash(npm:*)"]);
-    expect(settings.permissions.ask).toEqual(["Bash(existing-ask:*)", "Bash(rig up:*)"]);
+    expect(settings.permissions.ask).toEqual(["Bash(existing-ask:*)", "Bash(SoftwareTeam up:*)"]);
     expect(settings.enabledMcpjsonServers).toEqual(["existing", "context7"]);
     expect(store["/project/.claude/extensions/claude-settings/claude-settings.json"]).toBeUndefined();
   });
@@ -614,13 +614,13 @@ describe("Claude Code runtime adapter", () => {
       sessionIdFactory: () => "11111111-1111-4111-8111-111111111111",
     });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-rig" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-software-team" });
 
     expect(result.ok).toBe(true);
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
     expect(sendText).toHaveBeenCalledWith(
       "r01-impl",
-      "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 claude --permission-mode acceptEdits --session-id 11111111-1111-4111-8111-111111111111 --name dev-impl@test-rig"
+      "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 claude --permission-mode acceptEdits --session-id 11111111-1111-4111-8111-111111111111 --name dev-impl@test-software-team"
     );
     if (result.ok) {
       expect(result.resumeToken).toBe("11111111-1111-4111-8111-111111111111");
@@ -632,13 +632,13 @@ describe("Claude Code runtime adapter", () => {
     const tmux = mockTmux();
     const adapter = new ClaudeCodeAdapter({ tmux, fsOps: mockFs() });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-rig", resumeToken: "abc-123" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-software-team", resumeToken: "abc-123" });
 
     expect(result.ok).toBe(true);
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
     expect(sendText).toHaveBeenCalledWith(
       "r01-impl",
-      "OPENRIG_RESUME_LAUNCH='abc-123' CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 claude --permission-mode acceptEdits --resume 'abc-123' --name dev-impl@test-rig"
+      "SOFTWARETEAM_RESUME_LAUNCH='abc-123' CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 claude --permission-mode acceptEdits --resume 'abc-123' --name dev-impl@test-software-team"
     );
   });
 
@@ -650,7 +650,7 @@ describe("Claude Code runtime adapter", () => {
     );
     const adapter = new ClaudeCodeAdapter({ tmux, fsOps: mockFs(), sleep: async () => {} });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-rig", resumeToken: "abc-123" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-software-team", resumeToken: "abc-123" });
 
     expect(result).toEqual({
       ok: false,
@@ -669,7 +669,7 @@ describe("Claude Code runtime adapter", () => {
     capture.mockResolvedValue("No conversation found with session ID: abc-123\nuser@example.test %");
     const adapter = new ClaudeCodeAdapter({ tmux, fsOps: mockFs(), sleep: async () => {} });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-rig", resumeToken: "abc-123" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-software-team", resumeToken: "abc-123" });
 
     expect(capture).toHaveBeenCalledTimes(17);
     expect(result).toEqual({
@@ -686,7 +686,7 @@ describe("Claude Code runtime adapter", () => {
     (tmux.capturePaneContent as ReturnType<typeof vi.fn>).mockResolvedValue("Error: Claude exited\nuser@example.test %");
     const adapter = new ClaudeCodeAdapter({ tmux, fsOps: mockFs(), sleep: async () => {} });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-rig", resumeToken: "abc-123" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-software-team", resumeToken: "abc-123" });
 
     expect(result).toEqual({
       ok: false,
@@ -695,12 +695,12 @@ describe("Claude Code runtime adapter", () => {
     });
   });
 
-  describe("a resume still starting is watched, not failed (pane command is sh for every OpenRig launch)", () => {
+  describe("a resume still starting is watched, not failed (pane command is sh for every SoftwareTeam launch)", () => {
     const startedAt = "Fri Oct 16 15:00:00 2026";
     const pane = { pid: 10, ppid: 1, pgid: 10, tpgid: 10, command: "-zsh", executableName: "zsh", startedAt };
-    const launchScript = { pid: 11, ppid: 10, pgid: 11, tpgid: 11, command: "/bin/sh /tmp/openrig-tmux-send.txt", executableName: "sh", startedAt };
+    const launchScript = { pid: 11, ppid: 10, pgid: 11, tpgid: 11, command: "/bin/sh /tmp/softwareteam-tmux-send.txt", executableName: "sh", startedAt };
     const claude = { pid: 12, ppid: 11, pgid: 11, tpgid: 11, executableName: "claude", startedAt,
-      command: "claude --permission-mode acceptEdits --resume abc-123 --name dev-impl@test-rig" };
+      command: "claude --permission-mode acceptEdits --resume abc-123 --name dev-impl@test-software-team" };
     const occupied = [{ ...pane, tpgid: 11 }, launchScript, claude];
     const tui = ["Claude Code v2.1.89", "❯ Ready", "  ? for shortcuts"].join("\n");
     // 30 polls of 200 ms: the bound this test gives the wait (the daemon passes runtime.readiness_timeout_seconds).
@@ -715,7 +715,7 @@ describe("Claude Code runtime adapter", () => {
       (tmux as unknown as { getPanePid: unknown }).getPanePid = vi.fn(async () => 10);
       const adapter = new ClaudeCodeAdapter({ tmux, fsOps: mockFs(), sleep: async () => {}, autoDriveProviderPrompts: opts.autoDrive, readinessTimeoutMs: "readinessTimeoutMs" in opts ? opts.readinessTimeoutMs : WAIT_MS,
         listProcesses: () => (opts.rows ?? (() => occupied))(reads) });
-      const result = await adapter.launchHarness({ ...makeBinding(), tmuxPane: "%1" }, { name: "dev-impl@test-rig", resumeToken: "abc-123" });
+      const result = await adapter.launchHarness({ ...makeBinding(), tmuxPane: "%1" }, { name: "dev-impl@test-software-team", resumeToken: "abc-123" });
       return { result, reads, tmux };
     };
 
@@ -754,7 +754,7 @@ describe("Claude Code runtime adapter", () => {
       (tmux as unknown as { getPanePid: unknown }).getPanePid = vi.fn(async () => 10);
       const adapter = new ClaudeCodeAdapter({ tmux, fsOps: mockFs(), sleep: async () => {}, readinessTimeoutMs: WAIT_MS,
         listProcesses: () => { throw new Error("ps unavailable"); } });
-      const result = await adapter.launchHarness({ ...makeBinding(), tmuxPane: "%1" }, { name: "dev-impl@test-rig", resumeToken: "abc-123" });
+      const result = await adapter.launchHarness({ ...makeBinding(), tmuxPane: "%1" }, { name: "dev-impl@test-software-team", resumeToken: "abc-123" });
       expect(result).toMatchObject({ ok: false, recovery: "attention_required" });
       expect(tmux.capturePaneContent).toHaveBeenCalledTimes(31);
     });
@@ -1030,7 +1030,7 @@ describe("Claude Code runtime adapter", () => {
       autoDriveProviderPrompts: true,
     });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-rig", resumeToken: "abc-123" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-software-team", resumeToken: "abc-123" });
 
     expect(result).toEqual({
       ok: true,
@@ -1060,7 +1060,7 @@ describe("Claude Code runtime adapter", () => {
     const adapter = new ClaudeCodeAdapter({ tmux, fsOps: mockFs(), sleep: async () => {} });
 
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "dev-impl@test-rig",
+      name: "dev-impl@test-software-team",
       resumeToken: "abc-123",
     });
 
@@ -1081,8 +1081,8 @@ describe("Claude Code runtime adapter", () => {
     const assignedId = "11111111-1111-4111-8111-111111111111";
     const otherId = "22222222-2222-4222-8222-222222222222";
     const sessionData: Record<string, string> = {
-      "assigned.json": JSON.stringify({ pid: 12345, sessionId: assignedId, name: "dev-impl@test-rig" }),
-      "other.json": JSON.stringify({ pid: 67890, sessionId: otherId, name: "dev-impl@test-rig" }),
+      "assigned.json": JSON.stringify({ pid: 12345, sessionId: assignedId, name: "dev-impl@test-software-team" }),
+      "other.json": JSON.stringify({ pid: 67890, sessionId: otherId, name: "dev-impl@test-software-team" }),
     };
     const fs = mockFs({});
     const fsWithDir = {
@@ -1098,7 +1098,7 @@ describe("Claude Code runtime adapter", () => {
     };
     const adapter = new ClaudeCodeAdapter({ tmux, fsOps: fsWithDir, sessionIdFactory: () => assignedId });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-rig" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-software-team" });
 
     expect(tmux.sendText).toHaveBeenCalledWith("r01-impl", expect.stringContaining(`--session-id ${assignedId}`));
     expect(result).toMatchObject({ ok: true, resumeToken: assignedId, resumeType: "claude_id" });
@@ -1115,22 +1115,22 @@ describe("Claude Code runtime adapter", () => {
     if (!result.ok) expect(result.error).toContain("No tmux session");
   });
 
-  // --- Regenerator bug repair: rig-role managed-block skip ---
+  // --- Regenerator bug repair: software-team-role managed-block skip ---
   //
-  // The rig-role managed-block injector pairs target-file × spec independently
+  // The software-team-role managed-block injector pairs target-file × spec independently
   // of seat identity, causing CLAUDE.md to receive the wrong seat's body on
   // multi-seat pods. Per architect SHAPE 1: skip mergeManagedBlock when the
-  // block id is `rig-role`. Per-seat delivery travels via startup.files
+  // block id is `software-team-role`. Per-seat delivery travels via startup.files
   // send_text path instead. Skip must be logged (never silent).
 
-  it("projectEntry skips rig-role guidance managed block; CLAUDE.md is not written", async () => {
+  it("projectEntry skips software-team-role guidance managed block; CLAUDE.md is not written", async () => {
     const fs = mockFs({ "/agents/impl/guidance/role.md": "# You are `impl`\nTDD discipline." });
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const adapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: fs });
     const plan: ProjectionPlan = {
       runtime: "claude-code", cwd: "/project",
       entries: [makeEntry({
-        category: "guidance", effectiveId: "rig-role", mergeStrategy: "managed_block",
+        category: "guidance", effectiveId: "software-team-role", mergeStrategy: "managed_block",
         absolutePath: "/agents/impl/guidance/role.md", resourcePath: "guidance/role.md",
       })],
       startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [],
@@ -1140,42 +1140,42 @@ describe("Claude Code runtime adapter", () => {
 
     const store = (fs as unknown as { _store: Record<string, string> })._store;
     expect(store["/project/CLAUDE.md"]).toBeUndefined();
-    // ProjectionResult contract: rig-role must appear in `skipped`, NOT `projected` —
+    // ProjectionResult contract: software-team-role must appear in `skipped`, NOT `projected` —
     // otherwise the adapter reports work it did not do (violates honest-detection).
-    expect(result.skipped).toContain("rig-role");
-    expect(result.projected).not.toContain("rig-role");
+    expect(result.skipped).toContain("software-team-role");
+    expect(result.projected).not.toContain("software-team-role");
     expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining("skip: effectiveId is rig-role")
+      expect.stringContaining("skip: effectiveId is software-team-role")
     );
     logSpy.mockRestore();
   });
 
-  it("projectEntry reports non-rig-role guidance in `projected`, not `skipped` (regression on contract)", async () => {
-    const fs = mockFs({ "/agents/base/guidance/using-openrig.md": "# Using OpenRig\nhub guidance" });
+  it("projectEntry reports non-software-team-role guidance in `projected`, not `skipped` (regression on contract)", async () => {
+    const fs = mockFs({ "/agents/base/guidance/using-softwareteam.md": "# Using SoftwareTeam\nhub guidance" });
     const adapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: fs });
     const plan: ProjectionPlan = {
       runtime: "claude-code", cwd: "/project",
       entries: [makeEntry({
-        category: "guidance", effectiveId: "using-openrig.md", mergeStrategy: "managed_block",
-        absolutePath: "/agents/base/guidance/using-openrig.md", resourcePath: "guidance/using-openrig.md",
+        category: "guidance", effectiveId: "using-softwareteam.md", mergeStrategy: "managed_block",
+        absolutePath: "/agents/base/guidance/using-softwareteam.md", resourcePath: "guidance/using-softwareteam.md",
       })],
       startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [],
     };
 
     const result = await adapter.project(plan, makeBinding());
 
-    expect(result.projected).toContain("using-openrig.md");
-    expect(result.skipped).not.toContain("using-openrig.md");
+    expect(result.projected).toContain("using-softwareteam.md");
+    expect(result.skipped).not.toContain("using-softwareteam.md");
   });
 
-  it("projectEntry still merges non-rig-role guidance blocks (regression)", async () => {
-    const fs = mockFs({ "/agents/base/guidance/using-openrig.md": "# Using OpenRig\nhub guidance" });
+  it("projectEntry still merges non-software-team-role guidance blocks (regression)", async () => {
+    const fs = mockFs({ "/agents/base/guidance/using-softwareteam.md": "# Using SoftwareTeam\nhub guidance" });
     const adapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: fs });
     const plan: ProjectionPlan = {
       runtime: "claude-code", cwd: "/project",
       entries: [makeEntry({
-        category: "guidance", effectiveId: "using-openrig.md", mergeStrategy: "managed_block",
-        absolutePath: "/agents/base/guidance/using-openrig.md", resourcePath: "guidance/using-openrig.md",
+        category: "guidance", effectiveId: "using-softwareteam.md", mergeStrategy: "managed_block",
+        absolutePath: "/agents/base/guidance/using-softwareteam.md", resourcePath: "guidance/using-softwareteam.md",
       })],
       startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [],
     };
@@ -1183,16 +1183,16 @@ describe("Claude Code runtime adapter", () => {
     await adapter.project(plan, makeBinding());
 
     const store = (fs as unknown as { _store: Record<string, string> })._store;
-    expect(store["/project/CLAUDE.md"]).toContain("BEGIN OpenRig MANAGED BLOCK: using-openrig.md");
+    expect(store["/project/CLAUDE.md"]).toContain("BEGIN SoftwareTeam MANAGED BLOCK: using-softwareteam.md");
     expect(store["/project/CLAUDE.md"]).toContain("hub guidance");
   });
 
-  it("deliverStartup skips rig-role guidance_merge; delivered is NOT incremented (honest metrics)", async () => {
-    const fs = mockFs({ "/rig/rig-role": "# You are `impl`\nrole body" });
+  it("deliverStartup skips software-team-role guidance_merge; delivered is NOT incremented (honest metrics)", async () => {
+    const fs = mockFs({ "/softwareTeam/software-team-role": "# You are `impl`\nrole body" });
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const adapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: fs });
     const file: ResolvedStartupFile = {
-      path: "rig-role", absolutePath: "/rig/rig-role", ownerRoot: "/rig",
+      path: "software-team-role", absolutePath: "/softwareTeam/software-team-role", ownerRoot: "/softwareTeam",
       deliveryHint: "guidance_merge", required: true, appliesOn: ["fresh_start", "restore"],
     };
 
@@ -1205,13 +1205,13 @@ describe("Claude Code runtime adapter", () => {
     const store = (fs as unknown as { _store: Record<string, string> })._store;
     expect(store["/project/CLAUDE.md"]).toBeUndefined();
     expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining("skip: effectiveId is rig-role")
+      expect.stringContaining("skip: effectiveId is software-team-role")
     );
     logSpy.mockRestore();
   });
 
   // OPR.0.4.8.2 agnostic rip-out: the whole "Permission-config-at-spawn: Bash convenience
-  // baseline provisioning" section (7 provisionRigPermissions tests) is REMOVED — the writer
+  // baseline provisioning" section (7 provisionSoftwareTeamPermissions tests) is REMOVED — the writer
   // (assessment C2) is deleted. Replacement coverage: agnostic-rip-out.test.ts asserts (a) a
   // fresh startup authors no ~/.claude/settings.json for permissions; (b) a pre-existing
   // provenance-marked settings file is left byte-identical (no retro-scrub).
@@ -1220,8 +1220,8 @@ describe("Claude Code runtime adapter", () => {
   // existing local settings or persisting the hook token' test removed in
   // plugin-primitive Phase 3a slice 3.1 — activity-hook auto-injection
   // ripped (provisionActivityHooks gone). Replacement coverage:
-  // activity-hook-rip-proof.test.ts asserts (a) no .openrig/activity-hook-relay.cjs
-  // file written; (b) no OpenRig-injected hook entries in settings.local.json;
+  // activity-hook-rip-proof.test.ts asserts (a) no .softwareteam/activity-hook-relay.cjs
+  // file written; (b) no SoftwareTeam-injected hook entries in settings.local.json;
   // (c) pre-existing user-authored hooks PRESERVED untouched; (d) source
   // grep confirms provisionActivityHooks/upsertCommandHook/etc. removed
   // from adapter source.

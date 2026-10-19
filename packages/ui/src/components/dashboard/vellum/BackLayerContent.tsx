@@ -24,9 +24,9 @@ export function BackLayerContent({ hostname = "127.0.0.1" }: BackLayerContentPro
         {`OPERATOR\n04°·LIVE\n${hostname}`}
       </div>
 
-      {/* RIG·OS(s*) — full bleed right edge, balances OPERATOR */}
+      {/* SOFTWARE_TEAM·OS(s*) — full bleed right edge, balances OPERATOR */}
       <div className="absolute top-[42%] -right-10 font-headline font-black text-[14rem] leading-[0.82] tracking-[-0.06em] text-on-surface whitespace-nowrap">
-        RIG·OS<sup className="text-[6rem] tracking-[-0.04em] align-super">(s*)</sup>
+        SOFTWARE_TEAM·OS<sup className="text-[6rem] tracking-[-0.04em] align-super">(s*)</sup>
       </div>
 
       {/* 07/?? massive numeral — top-right anchor */}

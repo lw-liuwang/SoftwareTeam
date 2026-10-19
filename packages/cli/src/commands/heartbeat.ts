@@ -21,7 +21,7 @@ export interface HeartbeatProof {
 
 export interface HeartbeatItem {
   id: string;
-  rig: string;
+  softwareTeam: string;
   owner: string;
   session: string;
   title: string;
@@ -48,7 +48,7 @@ export interface HeartbeatSummary {
 export interface HeartbeatResult {
   generatedAt: string;
   sharedDocsRoot: string;
-  rigFilter: string | null;
+  softwareTeamFilter: string | null;
   windows: {
     firstProofSeconds: number;
     heartbeatSeconds: number;
@@ -68,7 +68,7 @@ export interface HeartbeatNudgeResult {
 
 interface QueueEntry {
   id: string;
-  rig: string;
+  softwareTeam: string;
   owner: string;
   session: string;
   title: string;
@@ -79,7 +79,7 @@ interface QueueEntry {
 }
 
 export interface HeartbeatOptions {
-  rig?: string;
+  softwareTeam?: string;
   firstProofSeconds?: number;
   heartbeatSeconds?: number;
   includeDone?: boolean;
@@ -111,24 +111,24 @@ export function heartbeatCommand(depsOverride?: HeartbeatDeps): Command {
     .description("Show workflow execution proof state from queue files")
     .addHelpText("after", `
 Examples:
-  rig heartbeat --rig openrig-pm
-  rig heartbeat --rig openrig-pm --json
-  rig heartbeat --rig openrig-pm --nudge
+  SoftwareTeam heartbeat --software-team softwareteam-pm
+  SoftwareTeam heartbeat --software-team softwareteam-pm --json
+  SoftwareTeam heartbeat --software-team softwareteam-pm --nudge
 
 Default mode is read-only. --nudge only sends informational proof instructions
 to stalled/unproven owners; it does not modify queue files or reroute work.`);
 
   cmd
-    .option("--rig <name>", "Limit to a single rig")
+    .option("--software-team <name>", "Limit to a single softwareTeam")
     .option("--json", "JSON output for agents")
     .option("--nudge", "Send informational nudges to stalled/unproven owners")
     .option("--include-done", "Include done/handed-off queue items in output")
-    .action(async (opts: { rig?: string; json?: boolean; nudge?: boolean; includeDone?: boolean }) => {
+    .action(async (opts: { softwareTeam?: string; json?: boolean; nudge?: boolean; includeDone?: boolean }) => {
       const deps = depsOverride ?? {};
       const env = deps.env ?? process.env;
       const sharedDocsRoot = deps.sharedDocsRoot ?? resolveSharedDocsRoot(env);
       if (!sharedDocsRoot) {
-        console.error("rig heartbeat: cannot resolve shared-docs root. Set RIGX_SHARED_DOCS_ROOT.");
+        console.error("SoftwareTeam heartbeat: cannot resolve shared-docs root. Set SOFTWARETEAM_SHARED_DOCS_ROOT.");
         process.exitCode = 1;
         return;
       }
@@ -138,7 +138,7 @@ to stalled/unproven owners; it does not modify queue files or reroute work.`);
       const now = deps.now?.() ?? new Date();
       const result = analyzeHeartbeat({
         sharedDocsRoot,
-        rig: opts.rig,
+        softwareTeam: opts.softwareTeam,
         firstProofSeconds,
         heartbeatSeconds,
         includeDone: !!opts.includeDone,
@@ -163,7 +163,7 @@ to stalled/unproven owners; it does not modify queue files or reroute work.`);
 
 export function analyzeHeartbeat(input: {
   sharedDocsRoot: string;
-  rig?: string;
+  softwareTeam?: string;
   firstProofSeconds?: number;
   heartbeatSeconds?: number;
   includeDone?: boolean;
@@ -173,7 +173,7 @@ export function analyzeHeartbeat(input: {
   const heartbeatSeconds = input.heartbeatSeconds ?? DEFAULT_HEARTBEAT_SECONDS;
   const now = input.now ?? new Date();
   const generatedAt = now.toISOString();
-  const queueFiles = discoverQueueFiles(input.sharedDocsRoot, input.rig);
+  const queueFiles = discoverQueueFiles(input.sharedDocsRoot, input.softwareTeam);
   const entries = queueFiles.flatMap((file) => parseQueueFile(input.sharedDocsRoot, file));
   const items = entries
     .map((entry) => classifyQueueEntry(entry, { now, firstProofSeconds, heartbeatSeconds }))
@@ -184,7 +184,7 @@ export function analyzeHeartbeat(input: {
   return {
     generatedAt,
     sharedDocsRoot: input.sharedDocsRoot,
-    rigFilter: input.rig ?? null,
+    softwareTeamFilter: input.softwareTeam ?? null,
     windows: { firstProofSeconds, heartbeatSeconds },
     summary: summarize(items),
     items,
@@ -193,9 +193,9 @@ export function analyzeHeartbeat(input: {
 
 export function parseQueueFile(sharedDocsRoot: string, queueFile: string): QueueEntry[] {
   const content = fs.readFileSync(queueFile, "utf8").replace(/\r\n/g, "\n");
-  const rig = deriveRigName(sharedDocsRoot, queueFile);
+  const softwareTeam = deriveSoftwareTeamName(sharedDocsRoot, queueFile);
   const owner = deriveOwner(queueFile);
-  const session = deriveSessionName(owner, rig);
+  const session = deriveSessionName(owner, softwareTeam);
   const entries: QueueEntry[] = [];
   const entryPattern = new RegExp(
     String.raw`(?:^|\n)---\nid:\s*(\S+)\n([\s\S]*?)\n---\n([\s\S]*?)(?=\n---\nid:\s*\S+\n|$)`,
@@ -211,7 +211,7 @@ export function parseQueueFile(sharedDocsRoot: string, queueFile: string): Queue
     const title = body.match(/^###\s+(.+)$/m)?.[1]?.trim() ?? id;
     entries.push({
       id,
-      rig,
+      softwareTeam,
       owner,
       session,
       title: title.slice(0, 120),
@@ -288,17 +288,17 @@ export async function sendHeartbeatNudges(
 }
 
 function resolveSharedDocsRoot(env: NodeJS.ProcessEnv): string | null {
-  for (const key of ["RIGX_SHARED_DOCS_ROOT", "OPENRIG_SHARED_DOCS_ROOT"]) {
+  for (const key of ["SOFTWARETEAM_SHARED_DOCS_ROOT", "SOFTWARETEAM_SHARED_DOCS_ROOT"]) {
     const value = env[key];
-    if (value && fs.existsSync(nodePath.join(value, "rigs"))) return value;
+    if (value && fs.existsSync(nodePath.join(value, "software-teams"))) return value;
   }
   return null;
 }
 
-function discoverQueueFiles(sharedDocsRoot: string, rig?: string): string[] {
-  const base = rig
-    ? nodePath.join(sharedDocsRoot, "rigs", rig, "state")
-    : nodePath.join(sharedDocsRoot, "rigs");
+function discoverQueueFiles(sharedDocsRoot: string, softwareTeam?: string): string[] {
+  const base = softwareTeam
+    ? nodePath.join(sharedDocsRoot, "software-teams", softwareTeam, "state")
+    : nodePath.join(sharedDocsRoot, "software-teams");
   const files: string[] = [];
   walk(base, files);
   return files.filter((file) => file.endsWith(".queue.md")).sort();
@@ -389,7 +389,7 @@ function baseItem(
 ): HeartbeatItem {
   return {
     id: entry.id,
-    rig: entry.rig,
+    softwareTeam: entry.softwareTeam,
     owner: entry.owner,
     session: entry.session,
     title: entry.title,
@@ -434,13 +434,13 @@ function compareHeartbeatItems(a: HeartbeatItem, b: HeartbeatItem): number {
   const rankA = STATE_RANK[a.executionState];
   const rankB = STATE_RANK[b.executionState];
   if (rankA !== rankB) return rankA - rankB;
-  if (a.rig !== b.rig) return a.rig.localeCompare(b.rig);
+  if (a.softwareTeam !== b.softwareTeam) return a.softwareTeam.localeCompare(b.softwareTeam);
   if (a.owner !== b.owner) return a.owner.localeCompare(b.owner);
   return a.id.localeCompare(b.id);
 }
 
-function deriveRigName(sharedDocsRoot: string, queueFile: string): string {
-  const rel = nodePath.relative(nodePath.join(sharedDocsRoot, "rigs"), queueFile);
+function deriveSoftwareTeamName(sharedDocsRoot: string, queueFile: string): string {
+  const rel = nodePath.relative(nodePath.join(sharedDocsRoot, "software-teams"), queueFile);
   return rel.split(nodePath.sep)[0] ?? "";
 }
 
@@ -453,9 +453,9 @@ function deriveOwner(queueFile: string): string {
   return `${pod}.${member}`;
 }
 
-function deriveSessionName(owner: string, rig: string): string {
+function deriveSessionName(owner: string, softwareTeam: string): string {
   const [pod, member] = owner.split(".", 2);
-  return pod && member ? `${pod}-${member}@${rig}` : `${owner}@${rig}`;
+  return pod && member ? `${pod}-${member}@${softwareTeam}` : `${owner}@${softwareTeam}`;
 }
 
 function cleanNullable(value: string | undefined): string | null {
@@ -478,9 +478,9 @@ function formatAge(seconds: number): string {
 }
 
 function printHumanHeartbeat(result: HeartbeatResult): void {
-  const title = result.rigFilter
-    ? `WORKFLOW EXECUTION HEARTBEAT - ${result.rigFilter}`
-    : "WORKFLOW EXECUTION HEARTBEAT - all rigs";
+  const title = result.softwareTeamFilter
+    ? `WORKFLOW EXECUTION HEARTBEAT - ${result.softwareTeamFilter}`
+    : "WORKFLOW EXECUTION HEARTBEAT - all softwareTeams";
   console.log(title);
   console.log(
     `items: ${result.summary.total} | proven-active: ${result.summary.provenActive} | checked-out: ${result.summary.checkedOut} | stalled: ${result.summary.stalled} | unproven: ${result.summary.unproven} | blocked: ${result.summary.blocked} | parked: ${result.summary.parked} | done: ${result.summary.done}`,
@@ -494,7 +494,7 @@ function printHumanHeartbeat(result: HeartbeatResult): void {
       const proof = item.lastProof ? `${formatAge(item.lastProof.ageSeconds)} ago` : "-";
       const age = item.checkoutAgeSeconds == null ? "-" : formatAge(item.checkoutAgeSeconds);
       console.log(
-        `${item.executionState.padEnd(15)} ${item.queueState.padEnd(12)} ${item.id.slice(0, 31).padEnd(32)} ${(item.rig + "/" + item.owner).padEnd(28)} ${proof.padEnd(12)} ${age}`,
+        `${item.executionState.padEnd(15)} ${item.queueState.padEnd(12)} ${item.id.slice(0, 31).padEnd(32)} ${(item.softwareTeam + "/" + item.owner).padEnd(28)} ${proof.padEnd(12)} ${age}`,
       );
     }
   }
@@ -510,7 +510,7 @@ function printHumanHeartbeat(result: HeartbeatResult): void {
 
 function defaultSend(session: string, text: string): Promise<{ ok: boolean; message: string }> {
   return new Promise((resolve) => {
-    execFile("rig", ["send", session, text], { timeout: 10_000 }, (error, stdout, stderr) => {
+    execFile("SoftwareTeam", ["send", session, text], { timeout: 10_000 }, (error, stdout, stderr) => {
       if (error) {
         resolve({ ok: false, message: (stderr || error.message).trim() });
       } else {

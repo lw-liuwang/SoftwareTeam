@@ -28,18 +28,18 @@ function harness(opts: { admitted?: boolean; failCreates?: number; newerRoot?: s
   const logs: string[] = [];
   let failures = opts.failCreates ?? 0;
   let lookupFailures = opts.failLookups ?? 0;
-  // One ask, posted in channel C1 as the root 400.0 of conversation qitem-ask-1 and owned by asker@rig.
+  // One ask, posted in channel C1 as the root 400.0 of conversation qitem-ask-1 and owned by asker@software-team.
   const threadMap = {
     resolveByThread: (ts: string) => {
       if (lookupFailures > 0) { lookupFailures--; throw new Error("database is locked"); }
-      return ts === "400.0" ? { seat: "asker@rig", channel: "C1", conversationId: "qitem-ask-1", threadTs: ts, state: "open" } : null;
+      return ts === "400.0" ? { seat: "asker@software-team", channel: "C1", conversationId: "qitem-ask-1", threadTs: ts, state: "open" } : null;
     },
     resolveByConversation: () => opts.newerRoot ? { threadTs: opts.newerRoot } : null,
-    // Messages OpenRig posted into a thread: a long ask's reply part (400.5), and a second ask posted
+    // Messages SoftwareTeam posted into a thread: a long ask's reply part (400.5), and a second ask posted
     // into the first ask's thread (400.7), which belongs to its own seat, not to the thread's root.
     partOf: (ts: string, channel: string) => channel !== "C1" ? null
-      : ts === "400.5" ? { threadTs: "400.0", seat: "asker@rig", conversationId: "qitem-ask-1" }
-      : ts === "400.7" ? { threadTs: "400.0", seat: "other@rig", conversationId: "qitem-ask-2" }
+      : ts === "400.5" ? { threadTs: "400.0", seat: "asker@software-team", conversationId: "qitem-ask-1" }
+      : ts === "400.7" ? { threadTs: "400.0", seat: "other@software-team", conversationId: "qitem-ask-2" }
       : null,
   } as never;
   const deadLetter = new DeadLetterStore<SlackEvent>("/d.jsonl", fs, clock);
@@ -79,7 +79,7 @@ describe("#899 reactions on an ask", () => {
     expect(await deliver(h, reaction())).toEqual({ status: "accepted", reason: "reaction" });
     expect(h.rows).toHaveLength(1);
     const row = h.rows[0]!;
-    expect(row).toMatchObject({ source: "founder@humans", destination: "asker@rig" });
+    expect(row).toMatchObject({ source: "founder@humans", destination: "asker@software-team" });
     expect(row.tags).toContain("human-reaction");
     expect(row.summary).toBe("Founder via Slack: reacted :white_check_mark: to qitem-ask-1");
     expect(row.body).toContain("founder@humans reacted :white_check_mark: to your ask qitem-ask-1");
@@ -102,21 +102,21 @@ describe("#899 reactions on an ask", () => {
   it("on an older root of the same ask still reach its seat", async () => {
     const h = harness({ newerRoot: "450.0" });
     expect(await deliver(h, reaction())).toEqual({ status: "accepted", reason: "reaction" });
-    expect(h.rows[0]).toMatchObject({ destination: "asker@rig", summary: "Founder via Slack: reacted :white_check_mark: to qitem-ask-1" });
+    expect(h.rows[0]).toMatchObject({ destination: "asker@software-team", summary: "Founder via Slack: reacted :white_check_mark: to qitem-ask-1" });
   });
 
-  it("on a reply part OpenRig posted for a long ask reach the seat that asked, as on the ask itself", async () => {
+  it("on a reply part SoftwareTeam posted for a long ask reach the seat that asked, as on the ask itself", async () => {
     const h = harness({ newerRoot: "400.0" });
     expect(await deliver(h, reaction({ item: { type: "message", channel: "C1", ts: "400.5" } }))).toEqual({ status: "accepted", reason: "reaction" });
     expect(h.rows).toHaveLength(1);
-    expect(h.rows[0]).toMatchObject({ destination: "asker@rig", summary: "Founder via Slack: reacted :white_check_mark: to qitem-ask-1" });
+    expect(h.rows[0]).toMatchObject({ destination: "asker@software-team", summary: "Founder via Slack: reacted :white_check_mark: to qitem-ask-1" });
   });
 
   it("on an ask posted into another ask's thread reach that ask's own seat, not the thread owner's", async () => {
     const h = harness();
     expect(await deliver(h, reaction({ item: { type: "message", channel: "C1", ts: "400.7" } }))).toEqual({ status: "accepted", reason: "reaction" });
     expect(h.rows).toHaveLength(1);
-    expect(h.rows[0]).toMatchObject({ destination: "other@rig", summary: "Founder via Slack: reacted :white_check_mark: to qitem-ask-2" });
+    expect(h.rows[0]).toMatchObject({ destination: "other@software-team", summary: "Founder via Slack: reacted :white_check_mark: to qitem-ask-2" });
   });
 
   it("are ignored on any message that isn't an ask, with no row for anyone", async () => {
@@ -141,7 +141,7 @@ describe("#899 reactions on an ask", () => {
     expect(h.deadLetter.readAll()).toHaveLength(1);
     expect(await h.router.retryDeadLetters()).toEqual({ retried: 1, landed: 1 });
     expect(h.rows).toHaveLength(1);
-    expect(h.rows[0]).toMatchObject({ destination: "asker@rig" });
+    expect(h.rows[0]).toMatchObject({ destination: "asker@software-team" });
   });
 
   it("from an unregistered person are refused", async () => {

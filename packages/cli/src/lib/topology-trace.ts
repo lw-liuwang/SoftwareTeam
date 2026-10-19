@@ -4,22 +4,22 @@
 // instance at the TOP of the root (D2):
 //
 //   <topology.root>/<NAME>                          — instance
-//   <topology.root>/rigs/<rig>/<NAME>               — rig
-//   <topology.root>/rigs/<rig>/pods/<pod>/<NAME>    — pod
-//   <topology.root>/rigs/<rig>/seats/<seat>/<NAME>  — seat
+//   <topology.root>/software-teams/<softwareTeam>/<NAME>               — softwareTeam
+//   <topology.root>/software-teams/<softwareTeam>/pods/<pod>/<NAME>    — pod
+//   <topology.root>/software-teams/<softwareTeam>/seats/<seat>/<NAME>  — seat
 //
 // The root comes from the typed `topology.root` config key — never a literal
-// (D1). The pre-convention location (resolveLegacyTopologyRigsRoot) stays
+// (D1). The pre-convention location (resolveLegacyTopologySoftwareTeamsRoot) stays
 // readable as a per-level fallback that MUST surface the named advisory: the
 // read succeeds, and the caller is told the content came from the legacy tree
 // and how to migrate. The legacy literal lives in ONE helper here (the CLI
-// twin of the daemon settings-store's resolveLegacyTopologyRigsRoot), so the
+// twin of the daemon settings-store's resolveLegacyTopologySoftwareTeamsRoot), so the
 // walk itself carries no path literal.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { resolveLegacyTopologyRigsRoot } from "../config-store.js";
+import { resolveLegacyTopologySoftwareTeamsRoot } from "../config-store.js";
 
-export type TraceAltitude = "instance" | "rig" | "pod" | "seat";
+export type TraceAltitude = "instance" | "softwareTeam" | "pod" | "seat";
 
 export interface TraceLevel {
   altitude: TraceAltitude;
@@ -37,7 +37,7 @@ export interface TraceLevel {
 export interface TraceResult {
   name: string;
   topologyRoot: string;
-  /** Root-first: instance, rig, optional pod, optional seat — general to specific. */
+  /** Root-first: instance, softwareTeam, optional pod, optional seat — general to specific. */
   levels: TraceLevel[];
 }
 
@@ -46,13 +46,13 @@ export interface TraceFs {
   read(path: string): string;
 }
 
-/** r2-B3: rig, seat, and name must each be ONE safe path segment. Unvalidated
- *  values joined into filesystem paths let `--rig ../../outside` resolve every
+/** r2-B3: softwareTeam, seat, and name must each be ONE safe path segment. Unvalidated
+ *  values joined into filesystem paths let `--software-team ../../outside` resolve every
  *  level OUTSIDE topology.root (proven by the reviewer's discriminator).
  *  Rejection happens BEFORE any filesystem contact. Dotted filenames
  *  (a.b.c.md) and dashed/underscored ids stay valid; separators, dot-segments,
  *  empties, and NULs do not. */
-function assertSafeSegment(value: string, field: "rig" | "pod" | "seat" | "name"): void {
+function assertSafeSegment(value: string, field: "softwareTeam" | "pod" | "seat" | "name"): void {
   if (
     value.trim().length === 0
     || value === "." || value === ".."
@@ -72,48 +72,48 @@ const realFs: TraceFs = {
 
 /**
  * Walk the topology tree for one chain filename. `seat` is optional (a
- * rig-level trace stops at the rig altitude). Pure given `fs` — tests inject.
+ * software-team-level trace stops at the softwareTeam altitude). Pure given `fs` — tests inject.
  */
 export function traceTopologyChain(input: {
   topologyRoot: string;
   name: string;
-  rig: string;
+  softwareTeam: string;
   pod?: string | null;
   seat?: string | null;
-  legacyRigsRoot?: string;
+  legacySoftwareTeamsRoot?: string;
   fs?: TraceFs;
 }): TraceResult {
-  assertSafeSegment(input.rig, "rig");
+  assertSafeSegment(input.softwareTeam, "softwareTeam");
   if (input.pod != null) assertSafeSegment(input.pod, "pod");
   // r2 residual: an explicitly EMPTY seat is user error — only true omission
-  // (undefined/null) means a rig-level trace.
+  // (undefined/null) means a software-team-level trace.
   if (input.seat != null) assertSafeSegment(input.seat, "seat");
   assertSafeSegment(input.name, "name");
 
   const fs = input.fs ?? realFs;
-  const legacyRigsRoot = input.legacyRigsRoot ?? resolveLegacyTopologyRigsRoot();
+  const legacySoftwareTeamsRoot = input.legacySoftwareTeamsRoot ?? resolveLegacyTopologySoftwareTeamsRoot();
 
   const levels: Array<{ altitude: TraceAltitude; canonical: string; legacy: string | null }> = [
     // The instance altitude IS the root of the tree — no legacy equivalent
-    // existed (the legacy layout began at rigs/).
+    // existed (the legacy layout began at software-teams/).
     { altitude: "instance", canonical: join(input.topologyRoot, input.name), legacy: null },
     {
-      altitude: "rig",
-      canonical: join(input.topologyRoot, "rigs", input.rig, input.name),
-      legacy: join(legacyRigsRoot, input.rig, input.name),
+      altitude: "softwareTeam",
+      canonical: join(input.topologyRoot, "software-teams", input.softwareTeam, input.name),
+      legacy: join(legacySoftwareTeamsRoot, input.softwareTeam, input.name),
     },
     ...(input.pod
       ? [{
           altitude: "pod" as const,
-          canonical: join(input.topologyRoot, "rigs", input.rig, "pods", input.pod, input.name),
+          canonical: join(input.topologyRoot, "software-teams", input.softwareTeam, "pods", input.pod, input.name),
           legacy: null,
         }]
       : []),
     ...(input.seat
       ? [{
           altitude: "seat" as const,
-          canonical: join(input.topologyRoot, "rigs", input.rig, "seats", input.seat, input.name),
-          legacy: join(legacyRigsRoot, input.rig, "seats", input.seat, input.name),
+          canonical: join(input.topologyRoot, "software-teams", input.softwareTeam, "seats", input.seat, input.name),
+          legacy: join(legacySoftwareTeamsRoot, input.softwareTeam, "seats", input.seat, input.name),
         }]
       : []),
   ];
@@ -135,7 +135,7 @@ export function traceTopologyChain(input: {
           advisory:
             `legacy-topology-read: ${altitude}-level "${input.name}" was found at the pre-convention location ` +
             `${legacy} — not under topology.root (${input.topologyRoot}). The read succeeded; migrate this file ` +
-            `to ${canonical} (see the chain-file convention doc; \`rig config get topology.root\` names the root).`,
+            `to ${canonical} (see the chain-file convention doc; \`SoftwareTeam config get topology.root\` names the root).`,
         };
       }
       return { altitude, path: canonical, source: "absent", resolvedPath: null, content: null };

@@ -1,4 +1,4 @@
-// rig plugin CLI commands (slice 3.4) — list/show/used-by/validate.
+// softwareTeam plugin CLI commands (slice 3.4) — list/show/used-by/validate.
 //
 // Per IMPL-PRD §4 + DESIGN.md §6 (CLI minimalism: read-only inspection only).
 // Consumes plugin-discovery-service from slice 3.3 via HTTP routes
@@ -78,40 +78,40 @@ function runningDeps(port: number): StatusDeps {
 // must update in lockstep with the CLI wire types in plugin.ts.
 
 const FIXTURE_PLUGIN_ENTRY = {
-  id: "openrig-core",
-  name: "openrig-core",
+  id: "softwareteam-core",
+  name: "softwareteam-core",
   version: "0.1.0",
-  description: "OpenRig canonical skills and hooks",
+  description: "SoftwareTeam canonical skills and hooks",
   source: "vendored" as const,
-  sourceLabel: "vendored:openrig-core",
+  sourceLabel: "vendored:softwareteam-core",
   runtimes: ["claude", "codex"] as const,
-  path: "/home/op/.openrig/plugins/openrig-core",
+  path: "/home/op/.softwareteam/plugins/softwareteam-core",
   lastSeenAt: "2026-05-11T05:00:00Z",
 };
 
 const FIXTURE_PLUGIN_DETAIL = {
   entry: FIXTURE_PLUGIN_ENTRY,
   claudeManifest: {
-    raw: { name: "openrig-core", version: "0.1.0", description: "OpenRig canonical skills and hooks", license: "Apache-2.0", repository: "github:mvschwarz/openrig-plugins" },
-    name: "openrig-core",
+    raw: { name: "softwareteam-core", version: "0.1.0", description: "SoftwareTeam canonical skills and hooks", license: "Apache-2.0", repository: "github:mvschwarz/softwareteam-plugins" },
+    name: "softwareteam-core",
     version: "0.1.0",
-    description: "OpenRig canonical skills and hooks",
+    description: "SoftwareTeam canonical skills and hooks",
     homepage: null,
-    repository: "github:mvschwarz/openrig-plugins",
+    repository: "github:mvschwarz/softwareteam-plugins",
     license: "Apache-2.0",
   },
   codexManifest: {
-    raw: { name: "openrig-core", version: "0.1.0", description: "OpenRig canonical skills and hooks", license: "Apache-2.0" },
-    name: "openrig-core",
+    raw: { name: "softwareteam-core", version: "0.1.0", description: "SoftwareTeam canonical skills and hooks", license: "Apache-2.0" },
+    name: "softwareteam-core",
     version: "0.1.0",
-    description: "OpenRig canonical skills and hooks",
+    description: "SoftwareTeam canonical skills and hooks",
     homepage: null,
     repository: null,
     license: "Apache-2.0",
   },
   skills: [
-    { name: "openrig-user", relativePath: "skills/openrig-user" },
-    { name: "openrig-architect", relativePath: "skills/openrig-architect" },
+    { name: "softwareteam-user", relativePath: "skills/softwareteam-user" },
+    { name: "softwareteam-architect", relativePath: "skills/softwareteam-architect" },
   ],
   hooks: [
     { runtime: "claude" as const, relativePath: "hooks/claude.json", events: ["SessionStart", "UserPromptSubmit", "Stop", "Notification"] },
@@ -123,12 +123,12 @@ const FIXTURE_PLUGIN_DETAIL = {
 const FIXTURE_USED_BY = [
   {
     agentName: "advisor-lead",
-    sourcePath: "/home/op/.openrig/specs/agents/advisor/lead/agent.yaml",
+    sourcePath: "/home/op/.softwareteam/specs/agents/advisor/lead/agent.yaml",
     profiles: ["default"],
   },
 ];
 
-describe("rig plugin CLI (slice 3.4)", () => {
+describe("SoftwareTeam plugin CLI (slice 3.4)", () => {
   let server: http.Server;
   let port: number;
   let lastQuery: Record<string, string | undefined>;
@@ -143,12 +143,12 @@ describe("rig plugin CLI (slice 3.4)", () => {
         res.end(JSON.stringify([FIXTURE_PLUGIN_ENTRY]));
         return;
       }
-      if (url.pathname === "/api/plugins/openrig-core" && req.method === "GET") {
+      if (url.pathname === "/api/plugins/softwareteam-core" && req.method === "GET") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(FIXTURE_PLUGIN_DETAIL));
         return;
       }
-      if (url.pathname === "/api/plugins/openrig-core/used-by" && req.method === "GET") {
+      if (url.pathname === "/api/plugins/softwareteam-core/used-by" && req.method === "GET") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(FIXTURE_USED_BY));
         return;
@@ -191,23 +191,23 @@ describe("rig plugin CLI (slice 3.4)", () => {
   });
 
   // ============================================================
-  // rig plugin list (HG-4.1)
+  // softwareTeam plugin list (HG-4.1)
   // ============================================================
 
-  describe("rig plugin list", () => {
+  describe("SoftwareTeam plugin list", () => {
     it("--json returns the plugin entries from /api/plugins", async () => {
       const program = new Command();
       program.exitOverride();
       program.addCommand(pluginCommand(runningDeps(port)));
 
       const { logs, exitCode } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "list", "--json"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "list", "--json"]);
       });
 
       expect(exitCode).toBeUndefined();
       const parsed = JSON.parse(logs.join("\n")) as Array<{ id: string }>;
       expect(parsed).toHaveLength(1);
-      expect(parsed[0]?.id).toBe("openrig-core");
+      expect(parsed[0]?.id).toBe("softwareteam-core");
     });
 
     it("default (table) output prints id + version + runtimes + source label + path (real PluginEntry fields)", async () => {
@@ -216,16 +216,16 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand(runningDeps(port)));
 
       const { logs, exitCode } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "list"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "list"]);
       });
 
       expect(exitCode).toBeUndefined();
       const out = logs.join("\n");
-      expect(out).toContain("openrig-core");
+      expect(out).toContain("softwareteam-core");
       expect(out).toContain("0.1.0");
-      expect(out).toContain("vendored:openrig-core");
+      expect(out).toContain("vendored:softwareteam-core");
       // Regression: real path field, not invented rootPath
-      expect(out).toContain("/home/op/.openrig/plugins/openrig-core");
+      expect(out).toContain("/home/op/.softwareteam/plugins/softwareteam-core");
       // Regression: must NOT print invented count fields (they don't exist on PluginEntry)
       expect(out).not.toMatch(/\bskillCount\b/);
       expect(out).not.toMatch(/\bhookEventCount\b/);
@@ -238,7 +238,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand(runningDeps(port)));
 
       await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "list", "--runtime", "claude", "--json"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "list", "--runtime", "claude", "--json"]);
       });
 
       expect(lastQuery.runtime).toBe("claude");
@@ -250,7 +250,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand(runningDeps(port)));
 
       await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "list", "--source", "vendored", "--json"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "list", "--source", "vendored", "--json"]);
       });
 
       expect(lastQuery.source).toBe("vendored");
@@ -258,23 +258,23 @@ describe("rig plugin CLI (slice 3.4)", () => {
   });
 
   // ============================================================
-  // rig plugin show <id> (HG-4.2)
+  // softwareTeam plugin show <id> (HG-4.2)
   // ============================================================
 
-  describe("rig plugin show <id>", () => {
+  describe("SoftwareTeam plugin show <id>", () => {
     it("--json returns the plugin detail from /api/plugins/:id", async () => {
       const program = new Command();
       program.exitOverride();
       program.addCommand(pluginCommand(runningDeps(port)));
 
       const { logs, exitCode } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "show", "openrig-core", "--json"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "show", "softwareteam-core", "--json"]);
       });
 
       expect(exitCode).toBeUndefined();
       const parsed = JSON.parse(logs.join("\n")) as { entry: { id: string; path: string; lastSeenAt: string | null }; skills: unknown[]; hooks: unknown[] };
-      expect(parsed.entry.id).toBe("openrig-core");
-      expect(parsed.entry.path).toBe("/home/op/.openrig/plugins/openrig-core"); // real PluginEntry.path
+      expect(parsed.entry.id).toBe("softwareteam-core");
+      expect(parsed.entry.path).toBe("/home/op/.softwareteam/plugins/softwareteam-core"); // real PluginEntry.path
       expect(parsed.skills).toHaveLength(2);
       expect(parsed.hooks).toHaveLength(2);
     });
@@ -285,29 +285,29 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand(runningDeps(port)));
 
       const { logs, exitCode } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "show", "openrig-core"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "show", "softwareteam-core"]);
       });
 
       expect(exitCode).toBeUndefined();
       const out = logs.join("\n");
 
       // PluginEntry fields
-      expect(out).toContain("openrig-core");
+      expect(out).toContain("softwareteam-core");
       expect(out).toContain("0.1.0");
-      expect(out).toContain("/home/op/.openrig/plugins/openrig-core"); // entry.path
+      expect(out).toContain("/home/op/.softwareteam/plugins/softwareteam-core"); // entry.path
       expect(out).toContain("2026-05-11T05:00:00Z"); // entry.lastSeenAt
 
       // Manifests — real PluginManifestSummary fields
       expect(out).toMatch(/claude:/);
       expect(out).toMatch(/codex:/);
       expect(out).toContain("Apache-2.0");
-      expect(out).toContain("github:mvschwarz/openrig-plugins");
+      expect(out).toContain("github:mvschwarz/softwareteam-plugins");
 
       // Skills — uses skill.name + skill.relativePath (not invented id/path/description)
-      expect(out).toContain("openrig-user");
-      expect(out).toContain("openrig-architect");
-      expect(out).toContain("skills/openrig-user");
-      expect(out).toContain("skills/openrig-architect");
+      expect(out).toContain("softwareteam-user");
+      expect(out).toContain("softwareteam-architect");
+      expect(out).toContain("skills/softwareteam-user");
+      expect(out).toContain("skills/softwareteam-architect");
 
       // Hooks — uses runtime + events array (not invented eventCount alone) +
       // relativePath
@@ -324,7 +324,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand(runningDeps(port)));
 
       const { errLogs, exitCode } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "show", "missing"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "show", "missing"]);
       });
 
       expect(exitCode).toBe(1);
@@ -333,20 +333,20 @@ describe("rig plugin CLI (slice 3.4)", () => {
   });
 
   // ============================================================
-  // rig plugin used-by <id> (HG-4.3)
+  // softwareTeam plugin used-by <id> (HG-4.3)
   //
   // Reverse query: AgentReference[] = { agentName, sourcePath, profiles[] }
   // (PluginDiscoveryService L134-141 verbatim shape).
   // Daemon route: GET /api/plugins/:id/used-by
   // ============================================================
 
-  describe("rig plugin used-by <id>", () => {
+  describe("SoftwareTeam plugin used-by <id>", () => {
     it("names an unknown plugin and exits non-zero", async () => {
       const program = new Command();
       program.exitOverride();
       program.addCommand(pluginCommand(runningDeps(port)));
       const { errLogs, exitCode } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "used-by", "no-such-plugin"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "used-by", "no-such-plugin"]);
       });
       expect(exitCode).toBe(1);
       expect(errLogs.join("\n")).toContain('Plugin "no-such-plugin" not found');
@@ -358,14 +358,14 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand(runningDeps(port)));
 
       const { logs, exitCode } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "used-by", "openrig-core", "--json"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "used-by", "softwareteam-core", "--json"]);
       });
 
       expect(exitCode).toBeUndefined();
       const parsed = JSON.parse(logs.join("\n")) as Array<{ agentName: string; sourcePath: string; profiles: string[] }>;
       expect(parsed).toHaveLength(1);
       expect(parsed[0]?.agentName).toBe("advisor-lead");
-      expect(parsed[0]?.sourcePath).toBe("/home/op/.openrig/specs/agents/advisor/lead/agent.yaml");
+      expect(parsed[0]?.sourcePath).toBe("/home/op/.softwareteam/specs/agents/advisor/lead/agent.yaml");
       expect(parsed[0]?.profiles).toEqual(["default"]);
     });
 
@@ -375,14 +375,14 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand(runningDeps(port)));
 
       const { logs, exitCode } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "used-by", "openrig-core"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "used-by", "softwareteam-core"]);
       });
 
       expect(exitCode).toBeUndefined();
       const out = logs.join("\n");
       // Real AgentReference fields verbatim — no invented fields
       expect(out).toContain("advisor-lead");
-      expect(out).toContain("/home/op/.openrig/specs/agents/advisor/lead/agent.yaml");
+      expect(out).toContain("/home/op/.softwareteam/specs/agents/advisor/lead/agent.yaml");
       expect(out).toContain("default");
     });
 
@@ -391,7 +391,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.exitOverride();
       program.addCommand(pluginCommand(runningDeps(port)));
       const { logs, exitCode } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "used-by", "with-definitions"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "used-by", "with-definitions"]);
       });
       expect(exitCode).toBeUndefined();
       const out = logs.join("\n");
@@ -408,7 +408,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
 
       const { logs, exitCode } = await captureLogs(async () => {
         // Use 'unreferenced' which the http server returns [] for
-        await program.parseAsync(["node", "rig", "plugin", "used-by", "unreferenced"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "used-by", "unreferenced"]);
       });
 
       expect(exitCode).toBeUndefined();
@@ -423,7 +423,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand(runningDeps(port)));
 
       const { logs, exitCode } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "used-by", "unreferenced", "--json"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "used-by", "unreferenced", "--json"]);
       });
 
       expect(exitCode).toBeUndefined();
@@ -433,21 +433,21 @@ describe("rig plugin CLI (slice 3.4)", () => {
   });
 
   // ============================================================
-  // rig plugin list — filter-value validation (pre-close punch from
+  // softwareTeam plugin list — filter-value validation (pre-close punch from
   // velocity-guard 3.4.A repair verdict)
   //
-  // CLI-side validation so typos like --source rig-cwd don't look
+  // CLI-side validation so typos like --source software-team-cwd don't look
   // filtered while the daemon silently returns all plugins.
   // ============================================================
 
-  describe("rig plugin list — filter validation", () => {
+  describe("SoftwareTeam plugin list — filter validation", () => {
     it("rejects invalid --runtime value with clear error + non-zero exit", async () => {
       const program = new Command();
       program.exitOverride();
       program.addCommand(pluginCommand(runningDeps(port)));
 
       const { errLogs, exitCode } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "list", "--runtime", "bogus"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "list", "--runtime", "bogus"]);
       });
 
       expect(exitCode).toBe(1);
@@ -458,19 +458,19 @@ describe("rig plugin CLI (slice 3.4)", () => {
       expect(err.toLowerCase()).toMatch(/claude|codex/);
     });
 
-    it("rejects invalid --source value (rig-cwd typo case) with clear error + non-zero exit", async () => {
+    it("rejects invalid --source value (software-team-cwd typo case) with clear error + non-zero exit", async () => {
       const program = new Command();
       program.exitOverride();
       program.addCommand(pluginCommand(runningDeps(port)));
 
       const { errLogs, exitCode } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "list", "--source", "rig-cwd"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "list", "--source", "software-team-cwd"]);
       });
 
       expect(exitCode).toBe(1);
       const err = errLogs.join("\n");
       expect(err).toMatch(/--source/);
-      expect(err).toMatch(/rig-cwd/);
+      expect(err).toMatch(/software-team-cwd/);
       // Should name the allowed values
       expect(err).toMatch(/vendored|claude-cache|codex-cache/);
     });
@@ -481,7 +481,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand(runningDeps(port)));
 
       const { exitCode } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "list", "--runtime", "claude", "--source", "vendored", "--json"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "list", "--runtime", "claude", "--source", "vendored", "--json"]);
       });
 
       expect(exitCode).toBeUndefined();
@@ -491,7 +491,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
   });
 
   // ============================================================
-  // rig plugin validate <path> (HG-4.4)
+  // softwareTeam plugin validate <path> (HG-4.4)
   //
   // Local file inspection — does NOT require daemon. Validates:
   //   - .claude-plugin/plugin.json + .codex-plugin/plugin.json shape
@@ -503,7 +503,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
   // Output: error list; exit code 0 when valid, 1 when any errors.
   // ============================================================
 
-  describe("rig plugin validate <path>", () => {
+  describe("SoftwareTeam plugin validate <path>", () => {
     let tmpRoot: string;
 
     beforeEach(() => {
@@ -540,7 +540,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand());
 
       const { exitCode, logs } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "validate", tmpRoot]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "validate", tmpRoot]);
       });
 
       expect(exitCode).toBeUndefined();
@@ -556,7 +556,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand());
 
       const { exitCode, errLogs } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "validate", tmpRoot]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "validate", tmpRoot]);
       });
 
       expect(exitCode).toBe(1);
@@ -574,7 +574,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand());
 
       const { exitCode, errLogs } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "validate", tmpRoot]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "validate", tmpRoot]);
       });
 
       expect(exitCode).toBe(1);
@@ -592,7 +592,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand());
 
       const { exitCode, errLogs } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "validate", tmpRoot]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "validate", tmpRoot]);
       });
 
       expect(exitCode).toBe(1);
@@ -610,7 +610,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand());
 
       const { exitCode, errLogs } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "validate", tmpRoot]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "validate", tmpRoot]);
       });
 
       expect(exitCode).toBe(1);
@@ -631,7 +631,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand());
 
       const { exitCode, errLogs } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "validate", tmpRoot]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "validate", tmpRoot]);
       });
 
       expect(exitCode).toBe(1);
@@ -651,7 +651,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand());
 
       const { exitCode, logs } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "validate", tmpRoot, "--json"]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "validate", tmpRoot, "--json"]);
       });
 
       expect(exitCode).toBeUndefined();
@@ -666,7 +666,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand());
 
       const { exitCode, errLogs } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "validate", join(tmpRoot, "nonexistent")]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "validate", join(tmpRoot, "nonexistent")]);
       });
 
       expect(exitCode).toBe(1);
@@ -689,7 +689,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand());
 
       const { exitCode, errLogs } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "validate", tmpRoot]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "validate", tmpRoot]);
       });
 
       expect(exitCode).toBe(1);
@@ -707,7 +707,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand());
 
       const { exitCode, errLogs } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "validate", tmpRoot]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "validate", tmpRoot]);
       });
 
       expect(exitCode).toBe(1);
@@ -726,7 +726,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand());
 
       const { exitCode, errLogs } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "validate", tmpRoot]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "validate", tmpRoot]);
       });
 
       expect(exitCode).toBe(1);
@@ -745,7 +745,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand());
 
       const { exitCode, errLogs } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "validate", tmpRoot]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "validate", tmpRoot]);
       });
 
       expect(exitCode).toBe(1);
@@ -764,7 +764,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand());
 
       const { exitCode, errLogs } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "validate", tmpRoot]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "validate", tmpRoot]);
       });
 
       expect(exitCode).toBe(1);
@@ -785,7 +785,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand());
 
       const { exitCode, errLogs } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "validate", tmpRoot]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "validate", tmpRoot]);
       });
 
       expect(exitCode).toBe(1);
@@ -804,7 +804,7 @@ describe("rig plugin CLI (slice 3.4)", () => {
       program.addCommand(pluginCommand());
 
       const { exitCode, errLogs } = await captureLogs(async () => {
-        await program.parseAsync(["node", "rig", "plugin", "validate", tmpRoot]);
+        await program.parseAsync(["node", "softwareTeam", "plugin", "validate", tmpRoot]);
       });
 
       expect(exitCode).toBe(1);

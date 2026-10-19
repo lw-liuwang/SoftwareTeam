@@ -28,7 +28,7 @@ describe("writeProviderUsageCacheAtomic — tmp+rename (no torn read)", () => {
       writeFile: (p) => ops.push(`write:${p}`),
       rename: (from, to) => ops.push(`rename:${from}->${to}`),
     };
-    const cache: ProviderUsageCache = { seatSession: "dev-impl@rig", asOf: CACHE_ASOF };
+    const cache: ProviderUsageCache = { seatSession: "dev-impl@software-team", asOf: CACHE_ASOF };
     writeProviderUsageCacheAtomic(fs, "/cache/acct.json", cache);
     expect(ops).toHaveLength(2);
     expect(ops[0]!.startsWith("write:/cache/acct.json.tmp-")).toBe(true); // tmp, NOT the target
@@ -41,44 +41,44 @@ describe("writeProviderUsageCacheAtomic — tmp+rename (no torn read)", () => {
 describe("collectClaudeStatuslineSignals — reader → provider_statusline / explicit unknown", () => {
   it("absent cache (pre-first-response) → explicit unknown(no_statusline_cache_yet)", () => {
     const sigs = collectClaudeStatuslineSignals(readerDeps({
-      listClaudeSeats: () => [{ seatSession: "dev-impl@rig" }],
+      listClaudeSeats: () => [{ seatSession: "dev-impl@software-team" }],
       readCacheRaw: () => null,
     }));
     expect(sigs).toHaveLength(1);
     expect(sigs[0]!.sourceClass).toBe("unknown");
     expect(sigs[0]!.unknownReason).toBe(CLAUDE_UNKNOWN_REASON.no_statusline_cache_yet);
     expect(sigs[0]!.usedPercent).toBeUndefined(); // never a fabricated zero
-    expect(sigs[0]!.seatSession).toBe("dev-impl@rig");
+    expect(sigs[0]!.seatSession).toBe("dev-impl@software-team");
     expect(sigs[0]!.accountRef).toBeUndefined();
   });
 
   it("subscription + windows → provider_statusline rows (five_hour + weekly), asOf = the cache's asOf", () => {
     const cache: ProviderUsageCache = {
-      seatSession: "dev-impl@rig", accountKind: "subscription", asOf: CACHE_ASOF,
+      seatSession: "dev-impl@software-team", accountKind: "subscription", asOf: CACHE_ASOF,
       rateLimits: { five_hour: { usedPercent: 42, resetsAt: "2026-08-03T17:00:00Z" }, seven_day: { usedPercent: 10, resetsAt: "2026-08-10T00:00:00Z" } },
     };
     const sigs = collectClaudeStatuslineSignals(readerDeps({
-      listClaudeSeats: () => [{ seatSession: "dev-impl@rig" }],
+      listClaudeSeats: () => [{ seatSession: "dev-impl@software-team" }],
       readCacheRaw: () => JSON.stringify(cache),
     }));
     expect(sigs.every((s) => s.sourceClass === "provider_statusline")).toBe(true);
     expect(sigs.every((s) => s.asOf === CACHE_ASOF)).toBe(true); // captured-at, not now
     expect(sigs.map((s) => s.window).sort()).toEqual(["five_hour", "weekly"]);
     expect(sigs.find((s) => s.window === "five_hour")!.usedPercent).toBe(42);
-    expect(sigs.every((s) => s.seatSession === "dev-impl@rig" && s.accountRef === undefined)).toBe(true);
+    expect(sigs.every((s) => s.seatSession === "dev-impl@software-team" && s.accountRef === undefined)).toBe(true);
   });
 
   it("cache present but no rate_limits → explicit unknown(empty_reading)", () => {
     const sigs = collectClaudeStatuslineSignals(readerDeps({
-      listClaudeSeats: () => [{ seatSession: "dev-impl@rig" }],
-      readCacheRaw: () => JSON.stringify({ seatSession: "dev-impl@rig", asOf: CACHE_ASOF }),
+      listClaudeSeats: () => [{ seatSession: "dev-impl@software-team" }],
+      readCacheRaw: () => JSON.stringify({ seatSession: "dev-impl@software-team", asOf: CACHE_ASOF }),
     }));
     expect(sigs[0]!.unknownReason).toBe(CLAUDE_UNKNOWN_REASON.empty_reading);
   });
 
   it("malformed cache JSON → unknown(empty_reading), never throws", () => {
     const sigs = collectClaudeStatuslineSignals(readerDeps({
-      listClaudeSeats: () => [{ seatSession: "dev-impl@rig" }],
+      listClaudeSeats: () => [{ seatSession: "dev-impl@software-team" }],
       readCacheRaw: () => "{ not json",
     }));
     expect(sigs[0]!.sourceClass).toBe("unknown");
@@ -99,25 +99,25 @@ describe("0.5.8 provider-usage compatibility bridge", () => {
       asOf: CACHE_ASOF,
       rateLimits: { five_hour: { usedPercent, resetsAt: "2026-08-03T17:00:00Z" } },
     });
-    fs.writeFileSync(path.join(legacy, "legacy@rig.json"), cache("legacy@rig", 22));
-    fs.writeFileSync(path.join(legacy, "both@rig.json"), cache("both@rig", 33));
-    fs.writeFileSync(path.join(canonical, "both@rig.json"), cache("both@rig", 77));
+    fs.writeFileSync(path.join(legacy, "legacy@software-team.json"), cache("legacy@software-team", 22));
+    fs.writeFileSync(path.join(legacy, "both@software-team.json"), cache("both@software-team", 33));
+    fs.writeFileSync(path.join(canonical, "both@software-team.json"), cache("both@software-team", 77));
 
     const signals = collectClaudeSignalsFromProviderUsageDirectory(canonical, () => ASOF, legacy);
-    expect(signals.find((signal) => signal.seatSession === "legacy@rig")?.usedPercent).toBe(22);
-    expect(signals.find((signal) => signal.seatSession === "both@rig")?.usedPercent).toBe(77);
+    expect(signals.find((signal) => signal.seatSession === "legacy@software-team")?.usedPercent).toBe(22);
+    expect(signals.find((signal) => signal.seatSession === "both@software-team")?.usedPercent).toBe(77);
 
-    fs.writeFileSync(path.join(canonical, "legacy@rig.json"), "not json");
+    fs.writeFileSync(path.join(canonical, "legacy@software-team.json"), "not json");
     const malformedCanonical = collectClaudeSignalsFromProviderUsageDirectory(canonical, () => ASOF, legacy);
-    expect(malformedCanonical.find((signal) => signal.seatSession === "legacy@rig")?.usedPercent).toBeUndefined();
-    expect(malformedCanonical.find((signal) => signal.seatSession === "legacy@rig")?.unknownReason)
+    expect(malformedCanonical.find((signal) => signal.seatSession === "legacy@software-team")?.usedPercent).toBeUndefined();
+    expect(malformedCanonical.find((signal) => signal.seatSession === "legacy@software-team")?.unknownReason)
       .toBe(CLAUDE_UNKNOWN_REASON.empty_reading);
 
-    fs.rmSync(path.join(canonical, "legacy@rig.json"));
-    fs.mkdirSync(path.join(canonical, "legacy@rig.json"));
+    fs.rmSync(path.join(canonical, "legacy@software-team.json"));
+    fs.mkdirSync(path.join(canonical, "legacy@software-team.json"));
     const wrongTypeCanonical = collectClaudeSignalsFromProviderUsageDirectory(canonical, () => ASOF, legacy);
-    expect(wrongTypeCanonical.find((signal) => signal.seatSession === "legacy@rig")?.usedPercent).toBeUndefined();
-    expect(wrongTypeCanonical.find((signal) => signal.seatSession === "legacy@rig")?.unknownReason)
+    expect(wrongTypeCanonical.find((signal) => signal.seatSession === "legacy@software-team")?.usedPercent).toBeUndefined();
+    expect(wrongTypeCanonical.find((signal) => signal.seatSession === "legacy@software-team")?.unknownReason)
       .toBe(CLAUDE_UNKNOWN_REASON.empty_reading);
     fs.rmSync(home, { recursive: true, force: true });
   });

@@ -6,7 +6,7 @@ import {
 } from "../domain/health-projection.js";
 import type { HealthProjectionService } from "../domain/health-detectors.js";
 
-const SCOPE_TYPES: HealthScope["type"][] = ["instance", "rig", "seat", "mission", "slice"];
+const SCOPE_TYPES: HealthScope["type"][] = ["instance", "softwareTeam", "seat", "mission", "slice"];
 
 export function healthRoutes(): Hono {
   const app = new Hono();

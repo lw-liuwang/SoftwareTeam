@@ -26,11 +26,11 @@ const SHARED_FIXTURES: Array<{ label: string; parsed: unknown; ok: boolean }> = 
     label: "valid: one ssh + one http (bearer_env)",
     parsed: { hosts: [
       { id: "vm-a", transport: "ssh", target: "vm-a.local", user: "admin" },
-      { id: "vps-b", transport: "http", url: "http://vps-b:7433", bearer_env: "VPS_B_TOKEN" },
+      { id: "vps-b", transport: "http", url: "http://vps-b:7434", bearer_env: "VPS_B_TOKEN" },
     ] },
     ok: true,
   },
-  { label: "valid: http with bearer_file", parsed: { hosts: [{ id: "h", transport: "http", url: "http://h:7433", bearer_file: "/tmp/tok" }] }, ok: true },
+  { label: "valid: http with bearer_file", parsed: { hosts: [{ id: "h", transport: "http", url: "http://h:7434", bearer_file: "/tmp/tok" }] }, ok: true },
   { label: "valid: empty hosts array", parsed: { hosts: [] }, ok: true },
   { label: "invalid: not an object", parsed: "nope", ok: false },
   { label: "invalid: hosts not an array", parsed: { hosts: {} }, ok: false },
@@ -57,9 +57,9 @@ const SHARED_FIXTURES: Array<{ label: string; parsed: unknown; ok: boolean }> = 
   // Slice 14 — the optional join key. A schema edit that lands on only ONE twin passes nothing:
   // these fixtures are what force the CLI validator and the daemon reader to agree about it.
   { label: "valid: ssh entry carrying the hostId join key", parsed: { hosts: [{ id: "vm-a", transport: "ssh", target: "a", hostId: "host-84c37990" }] }, ok: true },
-  { label: "valid: http entry carrying the hostId join key", parsed: { hosts: [{ id: "vps-b", transport: "http", url: "http://vps-b:7433", hostId: "host-deadbeef" }] }, ok: true },
-  { label: "valid: entry with NO hostId (every entry that exists today)", parsed: { hosts: [{ id: "legacy", transport: "http", url: "http://legacy:7433" }] }, ok: true },
-  { label: "valid: hostname-shaped hostId", parsed: { hosts: [{ id: "vm-a", transport: "ssh", target: "a", hostId: "mm2-openrig1.local" }] }, ok: true },
+  { label: "valid: http entry carrying the hostId join key", parsed: { hosts: [{ id: "vps-b", transport: "http", url: "http://vps-b:7434", hostId: "host-deadbeef" }] }, ok: true },
+  { label: "valid: entry with NO hostId (every entry that exists today)", parsed: { hosts: [{ id: "legacy", transport: "http", url: "http://legacy:7434" }] }, ok: true },
+  { label: "valid: hostname-shaped hostId", parsed: { hosts: [{ id: "vm-a", transport: "ssh", target: "a", hostId: "mm2-softwareteam1.local" }] }, ok: true },
   { label: "invalid: empty hostId", parsed: { hosts: [{ id: "vm-a", transport: "ssh", target: "a", hostId: "  " }] }, ok: false },
   { label: "invalid: non-string hostId", parsed: { hosts: [{ id: "vm-a", transport: "ssh", target: "a", hostId: 42 }] }, ok: false },
   { label: "invalid: path-bearing hostId 'a/b'", parsed: { hosts: [{ id: "vm-a", transport: "ssh", target: "a", hostId: "a/b" }] }, ok: false },
@@ -96,7 +96,7 @@ describe("hosts-registry reader — daemon behaviors", () => {
   it("loads + validates a real file from disk", () => {
     const dir = mkdtempSync(join(tmpdir(), "hosts-reg-"));
     const p = join(dir, "hosts.yaml");
-    writeFileSync(p, "hosts:\n  - id: vps-1\n    transport: http\n    url: http://vps-1:7433\n    bearer_env: VPS1_TOKEN\n");
+    writeFileSync(p, "hosts:\n  - id: vps-1\n    transport: http\n    url: http://vps-1:7434\n    bearer_env: VPS1_TOKEN\n");
     const res = loadHostRegistry(p);
     expect(res.ok).toBe(true);
     if (res.ok) expect(res.registry.hosts[0]).toMatchObject({ id: "vps-1", transport: "http" });
@@ -117,12 +117,12 @@ describe("hosts-registry reader — daemon behaviors", () => {
     const reg = {
       hosts: [
         { id: "ssh-host", transport: "ssh" as const, target: "x.local" },
-        { id: "http-host", transport: "http" as const, url: "http://y:7433", bearer_env: "T" },
+        { id: "http-host", transport: "http" as const, url: "http://y:7434", bearer_env: "T" },
       ],
     };
     const sshRes = resolvePlacementHost(reg, "ssh-host");
     expect(sshRes.ok).toBe(false);
-    if (!sshRes.ok) expect(sshRes.error).toContain("cannot carry remote rig-up");
+    if (!sshRes.ok) expect(sshRes.error).toContain("cannot carry remote software-team-up");
     expect(resolvePlacementHost(reg, "http-host").ok).toBe(true);
   });
 });

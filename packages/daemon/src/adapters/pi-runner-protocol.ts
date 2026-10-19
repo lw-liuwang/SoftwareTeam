@@ -180,10 +180,10 @@ export const PI_ENV_BASELINE_VARS = ["PATH", "HOME", "USER", "LOGNAME", "TERM", 
 // seats. Pi's shell tools inherit this child env: dropping these values makes
 // ordinary whoami/send/queue resolve as an unmanaged caller or another instance.
 // Preserve supplied runtime/generation and legacy context-root provenance too;
-// never synthesize identity or forward arbitrary OPENRIG_* settings/tokens.
-const PI_ENV_OPENRIG_VARS = [
-  "OPENRIG_NODE_ID", "OPENRIG_SESSION_NAME", "OPENRIG_RUNTIME", "OPENRIG_OCCUPANT_GENERATION",
-  "OPENRIG_HOME", "OPENRIG_URL", "OPENRIG_HOST", "OPENRIG_PORT", "OPENRIG_SHARED_DOCS_ROOT",
+// never synthesize identity or forward arbitrary SOFTWARETEAM_* settings/tokens.
+const PI_ENV_SOFTWARETEAM_VARS = [
+  "SOFTWARETEAM_NODE_ID", "SOFTWARETEAM_SESSION_NAME", "SOFTWARETEAM_RUNTIME", "SOFTWARETEAM_OCCUPANT_GENERATION",
+  "SOFTWARETEAM_HOME", "SOFTWARETEAM_URL", "SOFTWARETEAM_HOST", "SOFTWARETEAM_PORT", "SOFTWARETEAM_SHARED_DOCS_ROOT",
 ] as const;
 
 /** Model declaration: Pi accepts `--model provider/id`. The provider segment
@@ -199,10 +199,10 @@ export function providerFromModel(model: string | undefined): string | null {
  *  the runner's own env; only allowlisted names cross the boundary. */
 export function buildPiChildEnv(
   source: Record<string, string | undefined>,
-  opts: { agentDir: string; sessionsDir: string; model?: string; runtime?: RunnerRuntime; sessionName?: string; nodeId?: string; openrigHome?: string; openrigUrl?: string },
+  opts: { agentDir: string; sessionsDir: string; model?: string; runtime?: RunnerRuntime; sessionName?: string; nodeId?: string; softwareteamHome?: string; softwareteamUrl?: string },
 ): Record<string, string> {
   const env: Record<string, string> = {};
-  for (const name of [...PI_ENV_BASELINE_VARS, ...PI_ENV_OPENRIG_VARS]) {
+  for (const name of [...PI_ENV_BASELINE_VARS, ...PI_ENV_SOFTWARETEAM_VARS]) {
     const value = source[name];
     if (value !== undefined) env[name] = value;
   }
@@ -228,11 +228,11 @@ export function buildPiChildEnv(
     // OMP seats also pin their managed identity and daemon locator from the
     // runner's own arguments (never the hook token, which belongs to the
     // runner's POST client).
-    if (opts.sessionName) env.OPENRIG_SESSION_NAME = opts.sessionName;
-    env.OPENRIG_RUNTIME = "omp";
-    if (opts.nodeId) env.OPENRIG_NODE_ID = opts.nodeId;
-    if (opts.openrigHome) env.OPENRIG_HOME = opts.openrigHome;
-    if (opts.openrigUrl) env.OPENRIG_URL = opts.openrigUrl;
+    if (opts.sessionName) env.SOFTWARETEAM_SESSION_NAME = opts.sessionName;
+    env.SOFTWARETEAM_RUNTIME = "omp";
+    if (opts.nodeId) env.SOFTWARETEAM_NODE_ID = opts.nodeId;
+    if (opts.softwareteamHome) env.SOFTWARETEAM_HOME = opts.softwareteamHome;
+    if (opts.softwareteamUrl) env.SOFTWARETEAM_URL = opts.softwareteamUrl;
   }
   return env;
 }

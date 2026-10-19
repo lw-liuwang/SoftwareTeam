@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolveLibrarySpec } from "../src/commands/specs.js";
 import type { DaemonClient } from "../src/client.js";
 
-const starter = { id: "starter-id", kind: "rig", name: "starter", sourceType: "builtin", sourcePath: "/builtin/starter/rig.yaml" };
+const starter = { id: "starter-id", kind: "softwareTeam", name: "starter", sourceType: "builtin", sourcePath: "/builtin/starter/software-team.yaml" };
 const clientFor = (entries: object[]) => ({ get: vi.fn(async () => ({ status: 200, data: entries })) }) as unknown as DaemonClient;
 afterEach(() => vi.restoreAllMocks());
 
@@ -10,13 +10,13 @@ describe("first-project compatibility alias", () => {
   it("resolves the built-in starter without creating a second library entry, with a stderr notice", async () => {
     const stderr = vi.spyOn(console, "error").mockImplementation(() => {});
     const stdout = vi.spyOn(console, "log").mockImplementation(() => {});
-    expect(await resolveLibrarySpec(clientFor([starter]), "first-project", { kind: "rig" })).toEqual(starter);
-    expect(stderr).toHaveBeenCalledWith("first-project is now starter (a Claude builder and a Codex reviewer); on a Codex-only machine, ask your OpenRig operator to adapt it");
+    expect(await resolveLibrarySpec(clientFor([starter]), "first-project", { kind: "softwareTeam" })).toEqual(starter);
+    expect(stderr).toHaveBeenCalledWith("first-project is now starter (a Claude builder and a Codex reviewer); on a Codex-only machine, ask your SoftwareTeam operator to adapt it");
     expect(stdout).not.toHaveBeenCalled();
   });
   it.each(["builtin", "user_file"])("preserves an exact %s first-project name", async (sourceType) => {
     const original = { ...starter, id: "original", name: "first-project", sourceType };
-    expect(await resolveLibrarySpec(clientFor([starter, original]), "first-project", { kind: "rig" })).toEqual(original);
+    expect(await resolveLibrarySpec(clientFor([starter, original]), "first-project", { kind: "softwareTeam" })).toEqual(original);
   });
   it("preserves an exact ID ahead of the alias", async () => {
     const original = { ...starter, id: "first-project", name: "custom" };

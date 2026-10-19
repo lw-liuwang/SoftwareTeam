@@ -14,7 +14,7 @@ export const MISSION_CONTROL_VIEWS = [
 export type MissionControlViewName = (typeof MISSION_CONTROL_VIEWS)[number];
 
 export interface CompactStatusRow {
-  rigOrMissionName: string;
+  softwareTeamOrMissionName: string;
   currentPhase: string | null;
   state: "active" | "idle" | "attention" | "blocked" | "degraded";
   nextAction: string | null;
@@ -34,8 +34,8 @@ export interface MissionControlViewResult {
   rows: CompactStatusRow[];
   meta: {
     rowCount: number;
-    rigsRunningStaleCli?: number;
-    rigsWithUnknownCliCapabilities?: number;
+    softwareTeamsRunningStaleCli?: number;
+    softwareTeamsWithUnknownCliCapabilities?: number;
     degradedFields?: string[];
     sourceFallback?: string;
   };

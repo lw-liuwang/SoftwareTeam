@@ -3,7 +3,7 @@
 # Exercises per-seat script delivery: two seats get DIFFERENT scenario-resolved
 # scripts, the third is unmapped and must fall to 51-01's built-in default. The
 # relative closure (culture_file + local: agent_ref) is what makes staging a lone
-# YAML impossible — both resolve against the rig-spec directory, so the whole
+# YAML impossible — both resolve against the software-team-spec directory, so the whole
 # source root is staged.
 version: "0.2"
 name: scn-scripts

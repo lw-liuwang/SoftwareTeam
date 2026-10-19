@@ -11,7 +11,7 @@ import { createTestApp } from "./helpers/test-app.js";
 import { unpack } from "../src/domain/bundle-archive.js";
 import { materializePodBundle } from "../src/domain/bundle-source-resolver.js";
 
-// A pod bundle copies agent packages and declared rig files verbatim. Every byte must survive
+// A pod bundle copies agent packages and declared softwareTeam files verbatim. Every byte must survive
 // create -> archive -> install, whether or not the file is UTF-8 text.
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
@@ -49,9 +49,9 @@ const AGENT_YAML = [
   "      skills: [greet]",
 ].join("\n");
 
-const RIG_YAML = [
+const SOFTWARE_TEAM_YAML = [
   'version: "0.2"',
-  "name: bytes-rig",
+  "name: bytes-software-team",
   "pods:",
   "  - id: dev",
   "    label: Dev",
@@ -90,7 +90,7 @@ describe("pod bundle byte preservation (create -> archive -> install)", () => {
     const src = path.join(tmpDir, "mode-source");
     fs.mkdirSync(path.join(src, "agents/impl/bin"), { recursive: true });
     fs.writeFileSync(path.join(src, "agents/impl/agent.yaml"), AGENT_YAML);
-    fs.writeFileSync(path.join(src, "rig.yaml"), RIG_YAML);
+    fs.writeFileSync(path.join(src, "software-team.yaml"), SOFTWARE_TEAM_YAML);
     fs.mkdirSync(path.join(src, "startup"));
     fs.writeFileSync(path.join(src, "startup/blob.bin"), PAYLOADS["startup/blob.bin"]!);
     fs.mkdirSync(path.join(src, "agents/impl/skills/greet"), { recursive: true });
@@ -102,11 +102,11 @@ describe("pod bundle byte preservation (create -> archive -> install)", () => {
       fs.chmodSync(file, mode);
     }
 
-    const outputPath = path.join(tmpDir, "modes.rigbundle");
+    const outputPath = path.join(tmpDir, "modes.softwareteambundle");
     const created = await app.request("/api/bundles/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specPath: path.join(src, "rig.yaml"), rigRoot: src, bundleName: "modes", bundleVersion: "0.1.0", outputPath }),
+      body: JSON.stringify({ specPath: path.join(src, "software-team.yaml"), softwareTeamRoot: src, bundleName: "modes", bundleVersion: "0.1.0", outputPath }),
     });
     expect(created.status, await created.clone().text()).toBe(201);
     const extracted = path.join(tmpDir, "mode-extracted");
@@ -128,14 +128,14 @@ describe("pod bundle byte preservation (create -> archive -> install)", () => {
       fs.writeFileSync(path.join(src, rel), bytes);
     }
     fs.writeFileSync(path.join(src, "agents/impl/agent.yaml"), AGENT_YAML);
-    fs.writeFileSync(path.join(src, "rig.yaml"), RIG_YAML);
+    fs.writeFileSync(path.join(src, "software-team.yaml"), SOFTWARE_TEAM_YAML);
     const sourceBefore = Object.fromEntries(Object.keys(PAYLOADS).map((rel) => [rel, sha(fs.readFileSync(path.join(src, rel)))]));
 
-    const outputPath = path.join(tmpDir, "bytes.rigbundle");
+    const outputPath = path.join(tmpDir, "bytes.softwareteambundle");
     const created = await app.request("/api/bundles/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specPath: path.join(src, "rig.yaml"), rigRoot: src, bundleName: "bytes", bundleVersion: "0.1.0", outputPath }),
+      body: JSON.stringify({ specPath: path.join(src, "software-team.yaml"), softwareTeamRoot: src, bundleName: "bytes", bundleVersion: "0.1.0", outputPath }),
     });
     expect(created.status, await created.clone().text()).toBe(201);
     expect((await created.json()).schemaVersion).toBe(2);

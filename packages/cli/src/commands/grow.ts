@@ -6,8 +6,8 @@ import { realDeps } from "./daemon.js";
 import type { StatusDeps } from "./status.js";
 import { resolveDefaultAgentRef } from "./topology-default-agent.js";
 
-interface RigNode {
-  rigName: string;
+interface SoftwareTeamNode {
+  softwareTeamName: string;
   podNamespace: string | null;
 }
 
@@ -42,22 +42,22 @@ interface ExpandResult {
 }
 
 export function growCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("grow").description("Add one or more seats to a running rig");
+  const cmd = new Command("grow").description("Add one or more seats to a running softwareTeam");
   const getDeps = () => depsOverride ?? {
     lifecycleDeps: realDeps(),
     clientFactory: (url: string) => new DaemonClient(url),
   };
 
   cmd
-    .argument("<rig-id>", "Target rig ID")
+    .argument("<software-team-id>", "Target softwareTeam ID")
     .argument("<members...>", "Names for the new seats")
-    .option("--pod <pod>", "Target pod; inferred when the rig has one pod")
+    .option("--pod <pod>", "Target pod; inferred when the SoftwareTeam has one pod")
     .option("--new-pod <pod>", "Create a new pod for the seats")
     .option("--runtime <runtime>", "Agent runtime", "claude-code")
     .option("--cwd <path>", "Working directory for the seat", process.cwd())
     .option("--json", "JSON output for agents")
     .action(async (
-      rigId: string,
+      softwareTeamId: string,
       members: string[],
       opts: { pod?: string; newPod?: string; runtime: string; cwd: string; json?: boolean },
     ) => {
@@ -72,15 +72,15 @@ export function growCommand(depsOverride?: StatusDeps): Command {
       if (!daemonStatusGuard(status)) return;
       const client = deps.clientFactory(getDaemonUrl(status));
 
-      const rigRes = await client.get<RigNode[]>(`/api/rigs/${encodeURIComponent(rigId)}/nodes`);
-      if (rigRes.status >= 400) {
-        console.error(`Rig ${rigId} was not found.`);
+      const softwareTeamRes = await client.get<SoftwareTeamNode[]>(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/nodes`);
+      if (softwareTeamRes.status >= 400) {
+        console.error(`SoftwareTeam ${softwareTeamId} was not found.`);
         process.exitCode = 1;
         return;
       }
-      const rigName = rigRes.data[0]?.rigName;
+      const softwareTeamName = softwareTeamRes.data[0]?.softwareTeamName;
       const pods = [...new Set(
-        rigRes.data
+        softwareTeamRes.data
           .map((node) => node.podNamespace)
           .filter((namespace): namespace is string => typeof namespace === "string"),
       )];
@@ -128,10 +128,10 @@ export function growCommand(depsOverride?: StatusDeps): Command {
 
       if (opts.newPod) {
         const res = await client.post<ExpandResult>(
-          `/api/rigs/${encodeURIComponent(rigId)}/expand`,
+          `/api/software-teams/${encodeURIComponent(softwareTeamId)}/expand`,
           {
             pod: { id: pod, label: pod, members: memberSpecs, edges: [] },
-            rigRoot: cwd,
+            softwareTeamRoot: cwd,
           },
           { timeoutMs: 120_000 },
         );
@@ -158,8 +158,8 @@ export function growCommand(depsOverride?: StatusDeps): Command {
         const failures: string[] = [];
         for (const member of memberSpecs) {
           const res = await client.post<AddMemberResult>(
-            `/api/rigs/${encodeURIComponent(rigId)}/pods/${encodeURIComponent(pod)}/members`,
-            { member, rigRoot: cwd },
+            `/api/software-teams/${encodeURIComponent(softwareTeamId)}/pods/${encodeURIComponent(pod)}/members`,
+            { member, softwareTeamRoot: cwd },
             { timeoutMs: 120_000 },
           );
           const responseDetail = res.data.errors?.join("; ")
@@ -184,8 +184,8 @@ export function growCommand(depsOverride?: StatusDeps): Command {
       if (opts.json) {
         console.log(JSON.stringify({
           ok,
-          rigId,
-          rigName,
+          softwareTeamId,
+          softwareTeamName,
           pod,
           seats: nodes.map((node) => node.logicalId),
           source: agentRef,
@@ -196,7 +196,7 @@ export function growCommand(depsOverride?: StatusDeps): Command {
           retryTargets,
         }, null, 2));
       } else if (ok) {
-        console.log(`Grew rig ${rigName ?? rigId}`);
+        console.log(`Grew softwareTeam ${softwareTeamName ?? softwareTeamId}`);
         if (nodes.length === 1) {
           const node = nodes[0]!;
           console.log(`  Seat: ${node.logicalId}${node.sessionName ? ` (${node.sessionName})` : ""}`);
@@ -207,7 +207,7 @@ export function growCommand(depsOverride?: StatusDeps): Command {
           }
         }
       } else {
-        console.error(`Grow did not fully succeed for ${rigName ?? rigId}`);
+        console.error(`Grow did not fully succeed for ${softwareTeamName ?? softwareTeamId}`);
         for (const node of nodes) {
           const icon = node.status === "launched" ? "OK" : node.status === "attention_required" ? "ATTENTION" : "FAIL";
           const session = node.sessionName ? ` (${node.sessionName})` : "";
@@ -220,7 +220,7 @@ export function growCommand(depsOverride?: StatusDeps): Command {
         for (const warning of warnings) console.error(`  Warning: ${warning}`);
         if (retryTargets.length > 0) {
           console.error("  Failed nodes can be relaunched individually. Recover by:");
-          for (const target of retryTargets) console.error(`    rig launch ${rigId} ${target}`);
+          for (const target of retryTargets) console.error(`    SoftwareTeam launch ${softwareTeamId} ${target}`);
         }
       }
 

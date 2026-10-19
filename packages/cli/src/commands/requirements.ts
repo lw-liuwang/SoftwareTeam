@@ -6,7 +6,7 @@ import { realDeps } from "./daemon.js";
 import type { StatusDeps } from "./status.js";
 
 export function requirementsCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("requirements").description("Check requirements for a rig spec");
+  const cmd = new Command("requirements").description("Check requirements for a SoftwareTeam spec");
   const getDeps = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   async function getTarget(deps: StatusDeps) {
@@ -17,7 +17,7 @@ export function requirementsCommand(depsOverride?: StatusDeps): Command {
   }
 
   cmd
-    .argument("<spec>", "Path to rig spec YAML file")
+    .argument("<spec>", "Path to SoftwareTeam spec YAML file")
     .option("--json", "Output as parseable JSON")
     .action(async (spec: string, opts: { json?: boolean }) => {
       const deps = getDeps();

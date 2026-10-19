@@ -18,7 +18,7 @@ against the locked/ruled shape so it drops in when the dependency lands.
   `usage_limit` is deliberately absent (real-runtime-only).
 - **R-02. Scenario-resolved stub scripts (scripted-response contract) — LANDED (host
   mode).** A scenario maps a seat to a script path (relative to the scenario file) with
-  `env.stub_scripts`; the pipeline writes it to `<seat cwd>/.openrig/stub/script.json`,
+  `env.stub_scripts`; the pipeline writes it to `<seat cwd>/.softwareteam/stub/script.json`,
   which the stub reads at launch. Container mode refuses `env.stub_scripts`
   (`ScenarioModeUnsupportedError`). The default come-up-ready script (51-01 built-in)
   covers the lifecycle/queue/send scenarios now; no behavior scripts are authored under
@@ -40,15 +40,15 @@ against the locked/ruled shape so it drops in when the dependency lands.
   — no longer a rides-the-gate gap. #11 is authored in the ruled shape and is satisfied by
   the 51-02 v1 verb. The ops are `sigterm` and `restart` (`DAEMON_OPS` in
   `scenario-schema.ts`).
-- **R-12. Multi-rig `up` (#9) — OPEN.** #9 brings up two rigs to prove ps scope honesty.
+- **R-12. Multi-SoftwareTeam `up` (#9) — OPEN.** #9 brings up two SoftwareTeams to prove ps scope honesty.
   The locked format's `topology:` is scenario-singular; #9 uses a per-step
-  `up: {topology: ./rig-beta-stub.yaml}` override to name the second rig. The runner
-  ignores that override: every `up` runs `rig up` on the scenario's top-level `topology`
+  `up: {topology: ./software-team-beta-stub.yaml}` override to name the second SoftwareTeam. The runner
+  ignores that override: every `up` runs `SoftwareTeam up` on the scenario's top-level `topology`
   (`scenario-real-deps.ts`). Routed as a 51-02 spec question; #9 authored in the override
   shape.
 - **R-13. `equals` cross-surface normalizer (#10) — LANDED in the format; #10 not yet
   converted.** The declarative normalizer ships as a per-surface projection mapping,
-  `equals: {<surface>: {pluck, path, rig}}` (`scenario-normalizer.ts`), and it is the only
+  `equals: {<surface>: {pluck, path, SoftwareTeam}}` (`scenario-normalizer.ts`), and it is the only
   form the validator accepts. #10 still uses a bare list of surfaces, which the validator
   rejects (`EQUALS_NOT_DECLARATIVE`).
 - **R-14. `env.pre_existing_tmux` hermetic fixture (#5) — OPEN.** The hardest env fixture
@@ -61,13 +61,13 @@ against the locked/ruled shape so it drops in when the dependency lands.
   step fails validation (`UNKNOWN_STEP_VERB`). #5 no longer uses it: it asserts one
   outcome (`expect pane` contains `trust reached`) and leaves the failure-visible outcome
   to its `seed_regression` leg.
-- **R-16. `ps` scope selector on `expect` (#9) — OPEN.** Asserting current-rig-default vs
-  `-A` vs `--rig <name>` needs the runner to parameterize the shipped `rig ps` read. The
-  `ps` reader runs only `rig ps --json` and takes no selector, so #9 asserts the default
-  (current-rig) leg only; its `-A` / `--rig` legs are comments until the selector exists.
+- **R-16. `ps` scope selector on `expect` (#9) — OPEN.** Asserting current-software-team-default vs
+  `-A` vs `--software-team <name>` needs the runner to parameterize the shipped `SoftwareTeam ps` read. The
+  `ps` reader runs only `SoftwareTeam ps --json` and takes no selector, so #9 asserts the default
+  (current-SoftwareTeam) leg only; its `-A` / `--software-team` legs are comments until the selector exists.
 - **R-17. Handoff / queue-completion action (#11) — OPEN.** Faithfully reproducing the
   incident's `handoff-and-complete` closure may need a queue-completion action beyond
-  `send`. #11 drives the executed work via `send`, but `send` runs `rig send`, which
+  `send`. #11 drives the executed work via `send`, but `send` runs `SoftwareTeam send`, which
   creates no queue item, and the grammar has no queue action verb: queue items come only
   from an `env.queue` precondition, applied after the first `up`. #11 declares no
   `env.queue`, so its first `expect queue` has no item to match.
@@ -85,7 +85,7 @@ against the locked/ruled shape so it drops in when the dependency lands.
   SQLite, not a slice gate. Of #11's other blockers, the runner (R-10) and the
   `daemon:{op}` verb (R-11) have landed. Still open: its setup (R-17), and its
   post-restart `queue` and `stream` assertions, which match `items:` / `events:` mappings
-  while both reads (`rig queue list --json --full`, `rig stream list --json`) return lists.
+  while both reads (`SoftwareTeam queue list --json --full`, `SoftwareTeam stream list --json`) return lists.
 
 ## Path finalization
 These files live under `packages/test-system/` as a self-contained drop. The EXACT tree

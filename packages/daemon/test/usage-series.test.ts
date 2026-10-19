@@ -1,6 +1,6 @@
 // 51-08 A3 — the over-time query + top-N burn projection (plan-lock rev-1).
 // PM decisions 3+4: ONE daemon-side projection serves both the route and the
-// CLI — no fifth copy of thresholds; the rig serves FACTS (rates, spans,
+// CLI — no fifth copy of thresholds; the softwareTeam serves FACTS (rates, spans,
 // deltas), the detector owns judgments. RED-first: written before
 // usage-series.ts existed.
 import { describe, it, expect, beforeEach } from "vitest";
@@ -174,7 +174,7 @@ describe("computeTopBurn — tokens/hour + window velocity, facts not judgments"
 
 describe("top burn across same-name node histories", () => {
   function sample(store: UsageSamplesStore, nodeId: string, at: string, total: number) {
-    store.appendContextSample({ nodeId, seatSession: "dev.qa@reused-rig", source: "codex_token_count_jsonl",
+    store.appendContextSample({ nodeId, seatSession: "dev.qa@reused-software-team", source: "codex_token_count_jsonl",
       sampledAt: at, totalInputTokens: total, totalOutputTokens: 0, usedPercentage: 10 }, at);
   }
 
@@ -211,7 +211,7 @@ describe("top burn across same-name node histories", () => {
       sample(store, "new", "2026-08-07T12:00:00.000Z", 100000);
       const result = computeTopBurn(db, { windowHours: 4, nowIso: NOW });
       expect(result.ranked).toEqual([]);
-      expect(result.unknown).toEqual([{ seatSession: "dev.qa@reused-rig", reason: "insufficient_samples" }]);
+      expect(result.unknown).toEqual([{ seatSession: "dev.qa@reused-software-team", reason: "insufficient_samples" }]);
     } finally { db.close(); }
   });
 });

@@ -6,7 +6,7 @@ import { UsageSamplesStore } from "../src/domain/usage-samples-store.js";
 import { computeTopBurn } from "../src/domain/usage-series.js";
 
 const NOW = "2026-08-07T12:00:00.000Z";
-const SEAT = "dev@rig";
+const SEAT = "dev@software-team";
 let db: Database;
 let store: UsageSamplesStore;
 beforeEach(() => {

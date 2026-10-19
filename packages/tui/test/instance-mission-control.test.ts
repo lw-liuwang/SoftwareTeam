@@ -23,13 +23,13 @@ function agent(name: string, session: string, status: string, context: number | 
   };
 }
 
-function multiRigSnapshot(): FleetSnapshot {
+function multiSoftwareTeamSnapshot(): FleetSnapshot {
   return {
     hosts: [{
       id: "local",
-      name: "mm2-openrig1",
+      name: "mm2-softwareteam1",
       reachable: true,
-      rigs: [
+      softwareTeams: [
         {
           id: "r-build",
           name: "build",
@@ -60,7 +60,7 @@ function multiRigSnapshot(): FleetSnapshot {
         id: "OPR.0.5.9.12",
         dirName: "12-instance-mission-control",
         displayName: "Instance Mission Control",
-        intent: "watch all rigs",
+        intent: "watch all softwareTeams",
         status: "active",
         stage: "wip",
         locks: { spec: null, delivery: null },
@@ -74,8 +74,8 @@ function multiRigSnapshot(): FleetSnapshot {
     }],
     recentTransitionsScope: { kind: "instance" },
     recentTransitions: [
-      { transitionId: 1, qitemId: "q-build", ts: "2026-09-03T23:01:00.000Z", actorSession: "dev-driver@build", change: "claimed", summary: "Build the instance mission-control hierarchy", rig: "build", targetKind: "slice", target: "OPR.0.5.9.12" },
-      { transitionId: 2, qitemId: "q-docs", ts: "2026-09-03T23:02:00.000Z", actorSession: "write-editor@docs", change: "completed", summary: null, rig: "docs", targetKind: "qitem", target: "q-docs" },
+      { transitionId: 1, qitemId: "q-build", ts: "2026-09-03T23:01:00.000Z", actorSession: "dev-driver@build", change: "claimed", summary: "Build the instance mission-control hierarchy", softwareTeam: "build", targetKind: "slice", target: "OPR.0.5.9.12" },
+      { transitionId: 2, qitemId: "q-docs", ts: "2026-09-03T23:02:00.000Z", actorSession: "write-editor@docs", change: "completed", summary: null, softwareTeam: "docs", targetKind: "qitem", target: "q-docs" },
     ],
     attention: [{ qitemId: "q-build", state: "blocked", destinationSession: "dev-guard@build", blockedOn: "human@kernel", handedOffTo: null, tier: null, tags: ["slice:OPR.0.5.9.12"], summary: "needs founder", body: "", claimedAt: null, tsUpdated: "2026-09-03T23:00:00Z" }],
     blocked: [],
@@ -91,25 +91,25 @@ function multiRigSnapshot(): FleetSnapshot {
 
 function openInstance(snap: FleetSnapshot) {
   const view = createViewState({ instanceId: "tui-process-7", getSnapshot: () => snap });
-  const root = computeExplorerRows(view.get(), snap).find((row) => row.key === "host:mm2-openrig1");
+  const root = computeExplorerRows(view.get(), snap).find((row) => row.key === "host:mm2-softwareteam1");
   expect(root).toBeDefined();
   view.dispatch(root!.action);
   return view;
 }
 
 afterEach(() => {
-  delete process.env["OPENRIG_REDUCED_MOTION"];
+  delete process.env["SOFTWARETEAM_REDUCED_MOTION"];
 });
 
 describe("S12 instance mission control", () => {
-  it.each([[160, 42], [120, 34], [84, 28]])("renders every rig and seat with full scroll reach at %ix%i", (cols, rows) => {
-    const snap = multiRigSnapshot();
-    const buildRig = snap.hosts[0]!.rigs[0]!;
-    buildRig.pods[0]!.agents.push(...Array.from({ length: 36 }, (_, index) =>
+  it.each([[160, 42], [120, 34], [84, 28]])("renders every SoftwareTeam and seat with full scroll reach at %ix%i", (cols, rows) => {
+    const snap = multiSoftwareTeamSnapshot();
+    const buildSoftwareTeam = snap.hosts[0]!.softwareTeams[0]!;
+    buildSoftwareTeam.pods[0]!.agents.push(...Array.from({ length: 36 }, (_, index) =>
       agent(`dev.extra-${index}`, `dev-extra-${index}@build`, "active", 20 + index),
     ));
     const expectedAgents = new Set(
-      snap.hosts[0]!.rigs.flatMap((rig) => rig.pods.flatMap((pod) => pod.agents.map((candidate) => candidate.name))),
+      snap.hosts[0]!.softwareTeams.flatMap((softwareTeam) => softwareTeam.pods.flatMap((pod) => pod.agents.map((candidate) => candidate.name))),
     );
     const view = openInstance(snap);
     let screen = renderScreen(view.get(), snap, { cols, rows, nowMs: 0, colorMode: "none" });
@@ -121,20 +121,20 @@ describe("S12 instance mission control", () => {
       for (const target of screen.contentTargets) {
         if (target.action.type !== "drill" || target.action.resource !== "agent") continue;
         reached.add(target.action.name);
-        const rig = target.action.target?.rig;
+        const softwareTeam = target.action.target?.software_team;
         const content = stripAnsi(screen.lines[target.y - 1] ?? "").slice(screen.explorerWidth + 2);
-        if (!rig || !/\b(working|needs you|idle|detached|failed|unknown|blocked)\b/.test(content)) continue;
-        const headingVisible = screen.lines.some((line) => stripAnsi(line).slice(screen.explorerWidth + 2).includes(`RIG ${rig} ·`));
+        if (!softwareTeam || !/\b(working|needs you|idle|detached|failed|unknown|blocked)\b/.test(content)) continue;
+        const headingVisible = screen.lines.some((line) => stripAnsi(line).slice(screen.explorerWidth + 2).includes(`SOFTWARE_TEAM ${softwareTeam} ·`));
         if (headingVisible) continue;
         scrolledSeatRows += 1;
-        expect(content.trimStart().startsWith(rig), `${cols}: scrolled seat row retains rig identity`).toBe(true);
+        expect(content.trimStart().startsWith(softwareTeam), `${cols}: scrolled seat row retains SoftwareTeam identity`).toBe(true);
       }
       view.dispatch({ type: "content-scroll", delta: 1 });
     }
     const whole = renderScreen(view.get(), snap, { cols, rows: 120, nowMs: 0, colorMode: "none" }).lines.join("\n");
-    expect(whole).toContain("mm2-openrig1");
-    expect(whole).toMatch(/RIG\s+POD\s+SEAT/);
-    expect(whole).not.toMatch(/── RIG (?:build|docs|empty)/);
+    expect(whole).toContain("mm2-softwareteam1");
+    expect(whole).toMatch(/SOFTWARE_TEAM\s+POD\s+SEAT/);
+    expect(whole).not.toMatch(/── SOFTWARE_TEAM (?:build|docs|empty)/);
     expect(whole).toMatch(/build\s+dev\s+/);
     expect(whole).toMatch(/docs\s+write\s+/);
     expect(whole).toMatch(/empty\s+—\s+\(no seats\).*stopped/);
@@ -147,7 +147,7 @@ describe("S12 instance mission control", () => {
   });
 
   it("shares one ordered event set between the instance TABLE tail and RECENT tab", () => {
-    const snap = multiRigSnapshot();
+    const snap = multiSoftwareTeamSnapshot();
     const view = openInstance(snap);
     const table = renderScreen(view.get(), snap, { cols: 160, rows: 90 }).lines.join("\n");
     expect(table).toMatch(/TABLE.*RECENT.*OVERVIEW.*GRAPH/);
@@ -163,18 +163,18 @@ describe("S12 instance mission control", () => {
     expect((recent.match(/16:02/g) ?? [])).toHaveLength(1);
     expect(recent.indexOf("16:01")).toBeLessThan(recent.indexOf("16:02"));
     expect(recent).toContain("dev-driver@build");
-    expect(recent).toContain("rig build");
+    expect(recent).toContain("SoftwareTeam build");
     expect(recent).toContain("write-editor@docs");
-    expect(recent).toContain("rig docs");
+    expect(recent).toContain("SoftwareTeam docs");
     expect(recent).toContain("Document the operator journey");
     expect(recent).not.toContain("no summary served");
   });
 
-  it("uses the same actions for root, tabs, rig rows, seats, and transition targets", () => {
-    const snap = multiRigSnapshot();
+  it("uses the same actions for root, tabs, SoftwareTeam rows, seats, and transition targets", () => {
+    const snap = multiSoftwareTeamSnapshot();
     const byCommand = createViewState({ instanceId: "cmd", getSnapshot: () => snap });
-    byCommand.dispatch(parseCommand("host mm2-openrig1"));
-    expect(byCommand.get().drill).toEqual([{ kind: "host", name: "mm2-openrig1" }]);
+    byCommand.dispatch(parseCommand("host mm2-softwareteam1"));
+    expect(byCommand.get().drill).toEqual([{ kind: "host", name: "mm2-softwareteam1" }]);
 
     const bySurface = openInstance(snap);
     let screen = renderScreen(bySurface.get(), snap, { cols: 160, rows: 90 });
@@ -194,14 +194,14 @@ describe("S12 instance mission control", () => {
 
     const drill = openInstance(snap);
     screen = renderScreen(drill.get(), snap, { cols: 160, rows: 90 });
-    const docsRig = screen.contentTargets.find((target) => target.action.type === "drill" && target.action.resource === "rig" && target.action.name === "docs");
+    const docsSoftwareTeam = screen.contentTargets.find((target) => target.action.type === "drill" && target.action.resource === "softwareTeam" && target.action.name === "docs");
     const guard = screen.contentTargets.find((target) => target.action.type === "drill" && target.action.resource === "agent" && target.action.name === "dev.guard");
-    expect(docsRig).toBeDefined();
+    expect(docsSoftwareTeam).toBeDefined();
     expect(guard).toBeDefined();
   });
 
   it("reaches the RECENT tab identically by command, mouse, and keyboard", () => {
-    const snap = multiRigSnapshot();
+    const snap = multiSoftwareTeamSnapshot();
     const byCommand = openInstance(snap);
     byCommand.dispatch(parseCommand("tab recent"));
 
@@ -235,19 +235,19 @@ describe("S12 instance mission control", () => {
   });
 
   it("keeps no-color geometry and reduced-motion frames stable", () => {
-    const snap = multiRigSnapshot();
+    const snap = multiSoftwareTeamSnapshot();
     const view = openInstance(snap);
     const plain = renderScreen(view.get(), snap, { cols: 120, rows: 34, nowMs: 0, colorMode: "none" });
     const styled = stylizeLines(plain, createStyle("truecolor"));
     styled.forEach((line, index) => expect(stripAnsi(line)).toBe(plain.lines[index]));
-    process.env["OPENRIG_REDUCED_MOTION"] = "1";
+    process.env["SOFTWARETEAM_REDUCED_MOTION"] = "1";
     expect(renderScreen(view.get(), snap, { cols: 120, rows: 34, nowMs: 0 }).lines).toEqual(
       renderScreen(view.get(), snap, { cols: 120, rows: 34, nowMs: 500 }).lines,
     );
   });
 
-  it("keeps continuous rig rows semantically colored without changing geometry", () => {
-    const snap = multiRigSnapshot();
+  it("keeps continuous SoftwareTeam rows semantically colored without changing geometry", () => {
+    const snap = multiSoftwareTeamSnapshot();
     const screen = renderScreen(openInstance(snap).get(), snap, { cols: 160, rows: 120, nowMs: 0, colorMode: "none" });
     const docs = screen.lines.findIndex((line) => line.includes("docs") && line.includes("detached"));
     expect(docs).toBeGreaterThan(0);
@@ -264,14 +264,14 @@ describe("S12 view-aware hydration", () => {
       const route = String(url).replace("http://x", "");
       seen.push(route);
       const responses: Record<string, unknown> = {
-        "/healthz": { selfHostId: "mm2-openrig1" },
+        "/healthz": { selfHostId: "mm2-softwareteam1" },
         "/api/queue/attention-aggregate": { hosts: [{ hostId: "local", status: "ok" }] },
-        "/api/rigs/summary": [
+        "/api/software-teams/summary": [
           { id: "r-a", name: "build", lifecycleState: "running" },
           { id: "r-b", name: "docs", lifecycleState: "running" },
         ],
-        "/api/rigs/r-a/nodes": [],
-        "/api/rigs/r-b/nodes": [],
+        "/api/software-teams/r-a/nodes": [],
+        "/api/software-teams/r-b/nodes": [],
         "/api/review/fleet": { needsYou: { items: [] }, hosts: [{ hostId: "local", status: { status: "ok" } }] },
         "/api/stream/list?limit=5&direction=latest": [],
         "/api/queue/list?attention=1": [],
@@ -292,9 +292,9 @@ describe("S12 view-aware hydration", () => {
     const snap = await hydrateSnapshot(client, new Map(), null, null, null, {
       section: "topology",
       viewTab: "table",
-      drill: [{ kind: "host", name: "mm2-openrig1" }],
+      drill: [{ kind: "host", name: "mm2-softwareteam1" }],
     });
-    expect(snap.hosts[0]).toMatchObject({ id: "local", name: "mm2-openrig1" });
+    expect(snap.hosts[0]).toMatchObject({ id: "local", name: "mm2-softwareteam1" });
     expect(seen.filter((route) => route.includes("recent-transitions"))).toEqual([
       "/api/queue/recent-transitions?scope=instance&limit=20",
     ]);
@@ -305,7 +305,7 @@ describe("S12 view-aware hydration", () => {
     const client = new DaemonClient({ baseUrl: "http://x", fetchImpl: (async (url: unknown) => {
       const route = String(url).replace("http://x", "");
       const empty: Record<string, unknown> = {
-        "/healthz": {}, "/api/queue/attention-aggregate": { hosts: [] }, "/api/rigs/summary": [],
+        "/healthz": {}, "/api/queue/attention-aggregate": { hosts: [] }, "/api/software-teams/summary": [],
         "/api/review/fleet": { needsYou: { items: [] }, hosts: [] }, "/api/stream/list?limit=5&direction=latest": [],
         "/api/queue/list?attention=1": [], "/api/queue/list?state=blocked": [], "/api/queue/list?state=in-progress": [],
         "/api/queue/list?state=pending&limit=50": [], "/api/queue/list?state=done,handed-off&limit=20": [],

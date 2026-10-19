@@ -35,7 +35,7 @@ function harness() {
   const db = createDb();
   migrate(db, ALL_MIGRATIONS);
   const bus = new EventBus(db);
-  const repo = new QueueRepository(db, bus, { validateRig: () => true });
+  const repo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
   repo.attachOutbox(new OutboxHandler(db));
   const app = new Hono();
   app.use("*", async (c, next) => {
@@ -84,7 +84,7 @@ function harness() {
       deliveryVerify: { timeoutMs: 0 },
       clientFactory: () => new DaemonClient(endpoint ?? "http://queue.invalid", endpoint ? { timeoutMs: 1500 } : { fetchImpl, timeoutMs: 40 }),
     }));
-    const code = await runProgram(program, ["node", "rig", "queue", ...args, ...(json ? ["--json"] : [])], {
+    const code = await runProgram(program, ["node", "softwareTeam", "queue", ...args, ...(json ? ["--json"] : [])], {
       out: (line) => stdout.push(line), err: (line) => stderr.push(line), exit: () => {},
     });
     if (json) expect(stdout).toHaveLength(1); // no pre-request receipt on machine stdout
@@ -104,7 +104,7 @@ const createArgs = ["create", "--destination", "reader@fixture", "--body", BODY,
 describe("queue unknown-write reconciliation", () => {
   let h: ReturnType<typeof harness>;
   beforeEach(() => {
-    vi.stubEnv("OPENRIG_SESSION_NAME", "writer@fixture");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "writer@fixture");
     h = harness();
   });
   afterEach(async () => {
@@ -353,8 +353,8 @@ describe("queue unknown-write reconciliation", () => {
     expect(rendered).toContain("--id");
     expect(rendered).toContain("UNKNOWN");
     const action = json ? first.data.error.action : rendered;
-    expect(action).toContain("rig daemon status");
-    expect(action).toContain("rig daemon start");
+    expect(action).toContain("SoftwareTeam daemon status");
+    expect(action).toContain("SoftwareTeam daemon start");
     expect(action).toContain("before any retry");
   });
 

@@ -127,7 +127,7 @@ describe("views routes (PL-004 Phase B)", () => {
       body: JSON.stringify({
         viewName: "all-pending",
         definition: "SELECT qitem_id FROM queue_items WHERE state = 'pending'",
-        registeredBySession: "operator@rig",
+        registeredBySession: "operator@software-team",
       }),
     });
     expect(reg.status).toBe(201);
@@ -145,7 +145,7 @@ describe("views routes (PL-004 Phase B)", () => {
       body: JSON.stringify({
         viewName: "recently-active",
         definition: "SELECT 1",
-        registeredBySession: "operator@rig",
+        registeredBySession: "operator@software-team",
       }),
     });
     expect(res.status).toBe(409);
@@ -199,8 +199,8 @@ describe("views routes (PL-004 Phase B)", () => {
 
     // Mutate queue state in parallel: create a new qitem.
     await queueRepo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "trigger view.changed",
       nudge: false,
     });
@@ -231,8 +231,8 @@ describe("views routes (PL-004 Phase B)", () => {
         // first one may have raced past the SSE handler's subscription.
         if (Date.now() < deadline && !observed) {
           await queueRepo.create({
-            sourceSession: "alice@rig",
-            destinationSession: "bob@rig",
+            sourceSession: "alice@software-team",
+            destinationSession: "bob@software-team",
             body: `nudge-${Date.now()}`,
             nudge: false,
           });
@@ -256,12 +256,12 @@ describe("views routes (PL-004 Phase B)", () => {
 
     // Pre-create + claim a qitem so we can run an update path.
     const item = await queueRepo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "pre-existing for update",
       nudge: false,
     });
-    queueRepo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    queueRepo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
 
     // Subscribe to view SSE first so we don't miss the event.
     const sseResPromise = app.request("/api/views/recently-active/sse");
@@ -269,7 +269,7 @@ describe("views routes (PL-004 Phase B)", () => {
     // Run an update through the general state mutator (in-progress → done).
     queueRepo.update({
       qitemId: item.qitemId,
-      actorSession: "bob@rig",
+      actorSession: "bob@software-team",
       state: "done",
       closureReason: "no-follow-on",
     });
@@ -301,14 +301,14 @@ describe("views routes (PL-004 Phase B)", () => {
         }
         if (Date.now() < deadline && !observed) {
           const item2 = await queueRepo.create({
-            sourceSession: "alice@rig",
-            destinationSession: "bob@rig",
+            sourceSession: "alice@software-team",
+            destinationSession: "bob@software-team",
             body: `nudge-${Date.now()}`,
             nudge: false,
           });
           queueRepo.update({
             qitemId: item2.qitemId,
-            actorSession: "bob@rig",
+            actorSession: "bob@software-team",
             state: "blocked",
             transitionNote: "nudge",
           });

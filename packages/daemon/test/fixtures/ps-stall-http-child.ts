@@ -13,16 +13,16 @@
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import type Database from "better-sqlite3";
-import { RigRepository } from "../../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../../src/domain/software-team-repository.js";
 import { EventBus } from "../../src/domain/event-bus.js";
 import { AgentActivityStore } from "../../src/domain/agent-activity-store.js";
 import { PsProjectionService } from "../../src/domain/ps-projection.js";
 import { psRoutes } from "../../src/routes/ps.js";
-import { rigsRoutes } from "../../src/routes/rigs.js";
+import { softwareTeamsRoutes } from "../../src/routes/software-teams.js";
 import { createMigratedDb, seedHostShaped } from "../helpers/seed-host-shaped.js";
 
 export function buildStallApp(db: Database.Database): Hono {
-  const repo = new RigRepository(db);
+  const repo = new SoftwareTeamRepository(db);
   const eventBus = new EventBus(db);
   const agentActivity = new AgentActivityStore({ db, eventBus });
   const psService = new PsProjectionService({ db, agentActivity }); // agentActivity REQUIRED; seatActivity ABSENT
@@ -30,13 +30,13 @@ export function buildStallApp(db: Database.Database): Hono {
   const app = new Hono();
   app.use("*", async (c, next) => {
     c.set("psProjectionService" as never, psService as never);
-    c.set("rigRepo" as never, repo as never);
+    c.set("softwareTeamRepo" as never, repo as never);
     c.set("eventBus" as never, eventBus as never);
     c.set("agentActivityStore" as never, agentActivity as never);
     await next();
   });
   app.route("/api/ps", psRoutes);
-  app.route("/api/rigs", rigsRoutes);
+  app.route("/api/software-teams", softwareTeamsRoutes);
   // Trivial diagnostic /healthz — NOT daemon health semantics; it measures pure
   // event-loop availability (a synchronous ps/summary handler blocks even this).
   app.get("/healthz", (c) => c.json({ ok: true, diagnostic_stub: true }));

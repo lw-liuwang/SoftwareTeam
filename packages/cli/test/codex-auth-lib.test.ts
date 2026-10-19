@@ -1,4 +1,4 @@
-// OPR.0.4.1.29 — rig auth secret-safe core (CLI-local, daemon-free). Foundational primitives:
+// OPR.0.4.1.29 — softwareTeam auth secret-safe core (CLI-local, daemon-free). Foundational primitives:
 // fail-closed profile-name whitelist + CODEX_HOME path resolution (default $HOME/.codex, overridable).
 import { describe, it, expect } from "vitest";
 import { validateProfileName, resolveCodexHome } from "../src/lib/codex-auth.js";

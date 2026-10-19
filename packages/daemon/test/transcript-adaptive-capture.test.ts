@@ -152,12 +152,12 @@ describe("adaptive capture", () => {
       return "unchanged\n";
     });
     const store = new TranscriptStore({ transcriptsRoot: root });
-    const file = store.getTranscriptPath("rig", "seat");
+    const file = store.getTranscriptPath("softwareTeam", "seat");
     startTranscriptRotation(adapter as TmuxAdapter, "seat", file, { lines: 1000, pollIntervalMs: 2000 }, () => ({ lines: 1000, pollIntervalMs: 2000 }));
     await vi.advanceTimersByTimeAsync(8000);
     for (let n = 0; n < 300; n++) {
       await vi.advanceTimersByTimeAsync(100);
-      expect(store.getIngestHealth("rig", "seat").state).toBe("live");
+      expect(store.getIngestHealth("softwareTeam", "seat").state).toBe("live");
     }
   });
 

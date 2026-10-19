@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { slackCommand, type SlackDeps } from "../src/commands/slack.js";
-import { buildSlackAppManifest, FEATURE_SCOPES, BASELINE_REQUIRED_SCOPES } from "@openrig/daemon/gateway-slack";
+import { buildSlackAppManifest, FEATURE_SCOPES, BASELINE_REQUIRED_SCOPES } from "@softwareteam/daemon/gateway-slack";
 const homes: string[] = [];
 afterEach(() => homes.splice(0).forEach((home) => rmSync(home, { recursive: true, force: true })));
 
@@ -50,7 +50,7 @@ function makeDeps(overrides: Partial<SlackDeps> = {}): { deps: SlackDeps; logs: 
 }
 
 describe("S10 CLI cutover — retired relay runners refuse with teaching", () => {
-  it("`rig slack outbound` REFUSES (exit 1) and teaches the subsystem path — it does not sweep", async () => {
+  it("`SoftwareTeam slack outbound` REFUSES (exit 1) and teaches the subsystem path — it does not sweep", async () => {
     const { deps, logs } = makeDeps();
     process.exitCode = 0;
     await run(slackCommand(deps), ["outbound"]);
@@ -58,11 +58,11 @@ describe("S10 CLI cutover — retired relay runners refuse with teaching", () =>
     const out = logs.join("\n");
     expect(out).toContain("retired");
     expect(out).toContain("IN-DAEMON");
-    expect(out).toContain("rig slack status");
+    expect(out).toContain("SoftwareTeam slack status");
     process.exitCode = 0;
   });
 
-  it("`rig slack inbound` REFUSES (exit 1) with the same teaching — it does not open a socket loop", async () => {
+  it("`SoftwareTeam slack inbound` REFUSES (exit 1) with the same teaching — it does not open a socket loop", async () => {
     const { deps, logs } = makeDeps();
     process.exitCode = 0;
     await run(slackCommand(deps), ["inbound"]);
@@ -96,20 +96,20 @@ describe("S10 CLI cutover — admin verbs route to the daemon", () => {
     expect(process.exitCode).toBe(1);
     process.exitCode = 0;
   });
-  it("`rig slack enable` POSTs /api/gateway/slack/enable and prints the honest online-status", async () => {
+  it("`SoftwareTeam slack enable` POSTs /api/gateway/slack/enable and prints the honest online-status", async () => {
     const { deps, logs, posts } = makeDeps();
     await run(slackCommand(deps), ["enable"]);
     expect(posts.map((p) => p.path)).toEqual(["/api/gateway/slack/enable"]);
     expect(logs.join("\n")).toMatch(/ENABLED at enable-time: 2 pre-existing/);
   });
 
-  it("`rig slack disable` POSTs /api/gateway/slack/disable", async () => {
+  it("`SoftwareTeam slack disable` POSTs /api/gateway/slack/disable", async () => {
     const { deps, posts } = makeDeps();
     await run(slackCommand(deps), ["disable", "--reason", "maintenance"]);
     expect(posts.map((p) => p.path)).toEqual(["/api/gateway/slack/disable"]);
   });
 
-  it("`rig slack enable` against a DOWN daemon fails VISIBLY (exit 1), never silently", async () => {
+  it("`SoftwareTeam slack enable` against a DOWN daemon fails VISIBLY (exit 1), never silently", async () => {
     const { deps, logs } = makeDeps({
       clientFactory: () => ({ post: async () => { throw new Error("daemon unreachable"); } }),
     });
@@ -128,7 +128,7 @@ describe("S10 CLI cutover — config surfaces survive on the daemon-homed module
     expect(setup?.options.map((option) => option.long)).not.toContain("--alert-tag");
   });
 
-  it("`rig slack status` renders readiness from the surface (and names the in-daemon path)", async () => {
+  it("`SoftwareTeam slack status` renders readiness from the surface (and names the in-daemon path)", async () => {
     const { deps, logs } = makeDeps();
     await run(slackCommand(deps), ["status"]);
     expect(logs.join("\n")).toContain("IN-DAEMON");
@@ -146,7 +146,7 @@ describe("Slack verify reports optional capabilities from granted scopes", () =>
   ];
   for (const json of [false, true]) {
     it.each(cases)(`$name (${json ? "JSON" : "human"}) retains baseline readiness and shows only known missing features`, async ({ grants, ready, known, error }) => {
-      const surface = await import("@openrig/daemon/gateway-slack");
+      const surface = await import("@softwareteam/daemon/gateway-slack");
       const home = mkdtempSync(join(tmpdir(), "slack-scopes-"));
       homes.push(home);
       surface.saveConfig({ ...surface.DEFAULT_CONFIG, channel: "C-fixture" }, home);

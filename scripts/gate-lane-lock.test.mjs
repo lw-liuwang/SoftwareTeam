@@ -96,7 +96,7 @@ test("release frees the lane (kernel-released) so a subsequent acquire succeeds"
 });
 
 test("gate lock rejects ephemeral and invalid ports before announcing a holder", async () => {
-  const root = mkdtempSync(join(tmpdir(), "openrig-lock-invalid-"));
+  const root = mkdtempSync(join(tmpdir(), "softwareteam-lock-invalid-"));
   try {
     for (const port of [0, -1, 65536, 40404.5, NaN, Infinity, "40404"]) {
       const holderInfoPath = join(root, "holder.json");
@@ -118,16 +118,16 @@ test("gate lock rejects ephemeral and invalid ports before announcing a holder",
 test("configured gate port does not accept a partial numeric prefix", () => {
   const stdout = execFileSync(process.execPath, ["--input-type=module", "-e", `
     import { GATE_LANE_PORT, acquireGateLane } from ${JSON.stringify(new URL("./gate-lane-lock.mjs", import.meta.url).href)};
-    const result = await acquireGateLane({ holderInfoPath: "/unused/openrig-holder.json" });
+    const result = await acquireGateLane({ holderInfoPath: "/unused/softwareteam-holder.json" });
     if (result.ok) await result.release();
     console.log(JSON.stringify({ finite: Number.isFinite(GATE_LANE_PORT), ok: result.ok, reason: result.reason }));
-  `], { env: { ...process.env, OPENRIG_GATE_LANE_PORT: "40404typo" }, encoding: "utf8" });
+  `], { env: { ...process.env, SOFTWARETEAM_GATE_LANE_PORT: "40404typo" }, encoding: "utf8" });
   assert.deepEqual(JSON.parse(stdout), { finite: false, ok: false, reason: "bind-error" });
 });
 
 
 test("a local probe connection cannot delay gate release", async () => {
-  const root = mkdtempSync(join(tmpdir(), "openrig-lock-probe-"));
+  const root = mkdtempSync(join(tmpdir(), "softwareteam-lock-probe-"));
   const reservation = net.createServer();
   await new Promise((resolve) => reservation.listen(0, "127.0.0.1", resolve));
   const port = reservation.address().port;

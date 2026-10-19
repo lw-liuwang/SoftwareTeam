@@ -43,7 +43,7 @@ if (args[0] === "auth" && args[1] === "status") {
   const n = fs.existsSync(countFile) ? Number(fs.readFileSync(countFile, "utf8")) : 0;
   fs.writeFileSync(countFile, String(n + 1));
   fs.appendFileSync(path.join(dir, "auth-env.log"), JSON.stringify({ argv: args,
-    env: { TMUX: process.env.TMUX ?? null, TMUX_PANE: process.env.TMUX_PANE ?? null, OPENRIG_SESSION_NAME: process.env.OPENRIG_SESSION_NAME ?? null,
+    env: { TMUX: process.env.TMUX ?? null, TMUX_PANE: process.env.TMUX_PANE ?? null, SOFTWARETEAM_SESSION_NAME: process.env.SOFTWARETEAM_SESSION_NAME ?? null,
       CLAUDECODE: process.env.CLAUDECODE ?? null, cwd: process.cwd() } }) + "\\n");
   const answer = plan.auth[Math.min(n, plan.auth.length - 1)];
   if (answer === null) process.exit(1);

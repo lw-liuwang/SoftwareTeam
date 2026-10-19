@@ -20,8 +20,8 @@ vi.mock("../src/commands/daemon.js", () => ({ realDeps: () => { throw Error("rea
 // Actual command -> DaemonClient identity -> in-memory HTTP routes -> async worker.
 // Fake stores only: no daemon startup, schema/migration, socket, provider or terminal.
 function fixture() {
-  vi.stubEnv("OPENRIG_SESSION_NAME", "classifier@fixture");
-  vi.stubEnv("OPENRIG_URL", ""); vi.stubEnv("RIGGED_URL", "");
+  vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "classifier@fixture");
+  vi.stubEnv("SOFTWARETEAM_URL", ""); vi.stubEnv("RIGGED_URL", "");
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "worker-entry-")));
   fs.mkdirSync(path.join(root,"missions/not-the-id/slices/not-the-slice-id"), {recursive:true});
   fs.writeFileSync(path.join(root,"project.yaml"), "id: FIX\n");
@@ -44,7 +44,7 @@ function fixture() {
   };
   const db = {prepare(sql:string) {
     return {all(arg:string) {
-      if (sql.includes("o.generation_uuid AS generation")) return arg === "classifier@fixture" ? [{nodeId:"node-1",rigId:"rig-1",session:arg,generation}] : [];
+      if (sql.includes("o.generation_uuid AS generation")) return arg === "classifier@fixture" ? [{nodeId:"node-1",softwareTeamId:"software-team-1",session:arg,generation}] : [];
       if (sql.includes("ORDER BY session")) return [{session:"classifier@fixture"}];
       throw Error("unexpected SQL");
     }};
@@ -71,7 +71,7 @@ function fixture() {
   app.get("/api/stream/:id",c=>c.json(items.find(x=>x.streamItemId===c.req.param("id"))!));
   const client = new DaemonClient("http://offline.invalid",{fetchImpl:async(url,init)=>{
     const u=String(url), headers=new Headers(init?.headers);
-    requests.push({url:u,method:init?.method??"GET",sender:headers.get("x-openrig-session")}); hook(u);
+    requests.push({url:u,method:init?.method??"GET",sender:headers.get("x-softwareteam-session")}); hook(u);
     return app.request(u,init);
   }});
   const options=["--project","FIX","--taxonomy","taxonomy","--classifier-version","fixture-v1","--evidence-epoch","owner-epoch","--limit","1"];
@@ -184,16 +184,16 @@ describe("supported occupant wake entry",()=>{
     const db=new Database(":memory:");
     // Four tiny fixture tables only. No production migration or DB file is opened.
     try {
-      db.exec(`CREATE TABLE nodes(id TEXT,rig_id TEXT); CREATE TABLE bindings(node_id TEXT,tmux_session TEXT);
+      db.exec(`CREATE TABLE nodes(id TEXT,software_team_id TEXT); CREATE TABLE bindings(node_id TEXT,tmux_session TEXT);
         CREATE TABLE sessions(id TEXT,node_id TEXT,session_name TEXT,status TEXT);
         CREATE TABLE occupant_tenures(node_id TEXT,generation_ordinal INTEGER,generation_uuid TEXT);
-        INSERT INTO nodes VALUES('n','r'); INSERT INTO bindings VALUES('n','seat@rig');
-        INSERT INTO sessions VALUES('01','n','seat@rig','running');
+        INSERT INTO nodes VALUES('n','r'); INSERT INTO bindings VALUES('n','seat@software-team');
+        INSERT INTO sessions VALUES('01','n','seat@software-team','running');
         INSERT INTO occupant_tenures VALUES('n',1,'old'),('n',2,'current');`);
-      expect(classifierOccupant(db,"seat@rig")).toEqual({nodeId:"n",rigId:"r",session:"seat@rig",generation:"current"});
-      db.exec("INSERT INTO sessions VALUES('02','n','seat@rig','stopped')");
-      expect(classifierOccupant(db,"seat@rig")).toBeNull();
-      expect(classifierOccupant(db,"invented@rig")).toBeNull();
+      expect(classifierOccupant(db,"seat@software-team")).toEqual({nodeId:"n",softwareTeamId:"r",session:"seat@software-team",generation:"current"});
+      db.exec("INSERT INTO sessions VALUES('02','n','seat@software-team','stopped')");
+      expect(classifierOccupant(db,"seat@software-team")).toBeNull();
+      expect(classifierOccupant(db,"invented@software-team")).toBeNull();
     } finally {db.close();}
   });
   it("reaches the worker through real HTTP routes, retains wire provenance and catches up one page per command",async()=>{
@@ -204,7 +204,7 @@ describe("supported occupant wake entry",()=>{
     expect(first.result).toMatchObject({state:"processed",moreEligible:true,outcomes:[{streamItemId:"item-1",status:"written"}]});
     expect(first.registered).toBe(false);
     expect(first.wakeRequest).toMatchObject({targetSession:"classifier@fixture",targetGenerationUuid:"g1",policy:"periodic-reminder"});
-    expect(first.wakeRequest.specYaml).toContain("rig project wake");
+    expect(first.wakeRequest.specYaml).toContain("SoftwareTeam project wake");
     expect(f.writes[0]).toMatchObject({classifierSession:"classifier@fixture",identityProvenance:"transport:v1",leaseId:"lease-1",executionId:"exec-item-1",candidateSetVersion:p.candidates.version});
     expect(f.requests.every(x=>x.sender==="classifier@fixture")).toBe(true);
     const second=await f.command("wake",["--decisions","decisions"]);
@@ -241,7 +241,7 @@ describe("supported occupant wake entry",()=>{
     expect(out.error).toBe("worker_unavailable");expect(f.attempts.size).toBe(0);expect(f.writes).toHaveLength(0);
   });
   it("wire identity is necessary for the worker source, but no stronger sender provenance is invented",async()=>{
-    const f=fixture(); vi.stubEnv("OPENRIG_SESSION_NAME","");vi.stubEnv("RIGGED_SESSION_NAME","");
+    const f=fixture(); vi.stubEnv("SOFTWARETEAM_SESSION_NAME","");vi.stubEnv("RIGGED_SESSION_NAME","");
     expect((await f.command("candidates")).error).toBe("worker_unavailable");expect(f.attempts.size).toBe(0);
   });
   it("asynchronous transport error gives unavailable/backoff, with no write or success claim",async()=>{

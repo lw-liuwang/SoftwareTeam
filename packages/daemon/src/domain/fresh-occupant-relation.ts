@@ -5,16 +5,16 @@ import type Database from "better-sqlite3";
  * event still names the deliberate successor: timestamps and newest-row
  * guesses are unnecessary. No history or native identity is rewritten here.
  */
-export function readFreshOccupantRelations(db: Database.Database, rigId: string): Record<string, string | null> {
+export function readFreshOccupantRelations(db: Database.Database, softwareTeamId: string): Record<string, string | null> {
   const generations = db.prepare(`
     SELECT t.node_id AS nodeId, t.generation_uuid AS generation
     FROM occupant_tenures t JOIN nodes n ON n.id = t.node_id
-    WHERE n.rig_id = ? AND t.generation_ordinal =
+    WHERE n.software_team_id = ? AND t.generation_ordinal =
       (SELECT MAX(t2.generation_ordinal) FROM occupant_tenures t2 WHERE t2.node_id = t.node_id)
-  `).all(rigId) as Array<{ nodeId: string; generation: string }>;
+  `).all(softwareTeamId) as Array<{ nodeId: string; generation: string }>;
   const current = new Map(generations.map((row) => [row.nodeId, row.generation]));
-  const events = db.prepare("SELECT payload FROM events WHERE rig_id = ? AND type = 'seat.fresh_launched' ORDER BY seq")
-    .all(rigId) as Array<{ payload: string }>;
+  const events = db.prepare("SELECT payload FROM events WHERE software_team_id = ? AND type = 'seat.fresh_launched' ORDER BY seq")
+    .all(softwareTeamId) as Array<{ payload: string }>;
   const relation: Record<string, string | null> = {};
   for (const row of events) {
     const event = JSON.parse(row.payload) as Record<string, unknown>;

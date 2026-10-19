@@ -1,5 +1,5 @@
-// The binary's fast path: `rig <command> …` imports only that command's module, instead of the
-// ~85 that createProgram() imports, so a seat's `rig queue list` no longer pays for the MCP SDK,
+// The binary's fast path: `softwareTeam <command> …` imports only that command's module, instead of the
+// ~85 that createProgram() imports, so a seat's `SoftwareTeam queue list` no longer pays for the MCP SDK,
 // ajv or the daemon's mission code. Anything else (no argument, help, an unknown name) is left to
 // the full program, whose root help and suggestions need every command.
 import { Command } from "commander";
@@ -42,7 +42,7 @@ export const COMMAND_LOADERS: ReadonlyMap<string, Load> = new Map<string, Load>(
   ["roster", async () => (await import("./commands/roster.js")).rosterCommand()],
   ["mcp", async () => (await import("./commands/mcp.js")).mcpCommand()],
   ["agent", async () => (await import("./commands/agent.js")).agentCommand()],
-  ["spec", async () => (await import("./commands/rig.js")).rigCommand()],
+  ["spec", async () => (await import("./commands/software-team.js")).softwareTeamCommand()],
   ["transcript", async () => (await import("./commands/transcript.js")).transcriptCommand()],
   ["send", async () => (await import("./commands/send.js")).sendCommand()],
   ["stream", async () => (await import("./commands/stream.js")).streamCommand()],
@@ -66,7 +66,7 @@ export const COMMAND_LOADERS: ReadonlyMap<string, Load> = new Map<string, Load>(
   ["agent-app", async () => (await import("./commands/agent-app.js")).agentAppCommand()],
   ["fork", async () => (await import("./commands/fork.js")).forkCommand()],
   ["workspace", async () => (await import("./commands/workspace.js")).workspaceCommand()],
-  ["mode", async () => (await import("./commands/rig-mode.js")).rigModeCommand()],
+  ["mode", async () => (await import("./commands/software-team-mode.js")).softwareTeamModeCommand()],
   ["policy", async () => (await import("./commands/policy.js")).policyCommand()],
   ["whoami", async () => (await import("./commands/whoami.js")).whoamiCommand()],
   ["config", async () => (await import("./commands/config.js")).configCommand()],
@@ -103,7 +103,7 @@ export const COMMAND_LOADERS: ReadonlyMap<string, Load> = new Map<string, Load>(
   ["proof", async () => (await import("./commands/proof.js")).proofCommand()],
 ]);
 
-/** The program for `rig <first> …` with only what that call needs: the bare root for
+/** The program for `softwareTeam <first> …` with only what that call needs: the bare root for
  *  `--version`, the root and that one command for a known name; null for everything else. */
 export async function createLazyProgram(first: string | undefined): Promise<Command | null> {
   if (first === "--version" || first === "-V") return configureRoot(new Command());

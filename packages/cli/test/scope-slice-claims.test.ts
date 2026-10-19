@@ -21,14 +21,14 @@ describe("public slice creation ordinal claims", () => {
   let ownedEnv: NodeJS.ProcessEnv;
 
   beforeEach(() => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-slice-claims-"));
+    root = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-slice-claims-"));
     workspace = path.join(root, "internal-docs");
     mission = path.join(workspace, "missions", "release-0.3.2");
     const home = path.join(root, "owned-home");
     fs.mkdirSync(home);
     ownedEnv = {
       PATH: process.env.PATH, HOME: home, TMPDIR: root,
-      OPENRIG_HOME: path.join(home, ".openrig"),
+      SOFTWARETEAM_HOME: path.join(home, ".softwareteam"),
       CODEX_HOME: path.join(home, "codex"), CLAUDE_CONFIG_DIR: path.join(home, "claude"),
       GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: os.devNull,
     };
@@ -94,7 +94,7 @@ describe("public slice creation ordinal claims", () => {
     expect(new Set(ids).size).toBe(32);
     expect(fs.readdirSync(path.join(mission, "slices"), { withFileTypes: true }).filter((entry) => entry.isDirectory())).toHaveLength(33);
     expect(fs.readFileSync(path.join(mission, "README.md"), "utf8")).toBe(original);
-    expect(fs.existsSync(path.join(mission, ".openrig-slice-create-lock"))).toBe(false);
+    expect(fs.existsSync(path.join(mission, ".softwareteam-slice-create-lock"))).toBe(false);
   }, 30000);
 
   it("twenty eight-process manifest-backed batches preserve the admitted concurrency contract", async () => {
@@ -121,7 +121,7 @@ describe("public slice creation ordinal claims", () => {
         expect(fs.statSync(path.join(slice.path, "proof")).isDirectory()).toBe(true);
         const ordinal = slice.name.split("-")[0]!;
         expect(JSON.parse(fs.readFileSync(path.join(mission, "slices", `.nn-${ordinal}`), "utf8"))).toEqual({
-          schema: "openrig.slice-claim/v1", ref: `slices/${slice.name}/slice.yaml`, state: "verified",
+          schema: "softwareteam.slice-claim/v1", ref: `slices/${slice.name}/slice.yaml`, state: "verified",
         });
       }
       const bytes = fs.readFileSync(manifest, "utf8");
@@ -143,7 +143,7 @@ describe("public slice creation ordinal claims", () => {
     }
     expect(new Set(successful(results).map((slice) => slice.id)).size).toBe(160);
     expect(fs.readFileSync(path.join(unrelated, "PROOF.md"), "utf8")).toBe("# unrelated authored proof\n");
-    expect(fs.existsSync(path.join(mission, ".openrig-slice-create-lock"))).toBe(false);
+    expect(fs.existsSync(path.join(mission, ".softwareteam-slice-create-lock"))).toBe(false);
   }, 180000);
 
   it("a later create repairs only pending complete registrations and preserves authored membership", async () => {
@@ -158,8 +158,8 @@ describe("public slice creation ordinal claims", () => {
       fs.writeFileSync(path.join(mission, "slices", name, "slice.yaml"), "kind: slice\n");
       fs.writeFileSync(path.join(mission, "slices", name, "SPEC.md"), "# scaffold\n");
     }
-    fs.writeFileSync(path.join(mission, "slices", ".nn-02"), JSON.stringify({ schema: "openrig.slice-claim/v1", ref: "slices/02-complete/slice.yaml", state: "pending" }));
-    fs.writeFileSync(path.join(mission, "slices", ".nn-03"), JSON.stringify({ schema: "openrig.slice-claim/v1", ref: "slices/03-incomplete/slice.yaml", state: "pending" }));
+    fs.writeFileSync(path.join(mission, "slices", ".nn-02"), JSON.stringify({ schema: "softwareteam.slice-claim/v1", ref: "slices/02-complete/slice.yaml", state: "pending" }));
+    fs.writeFileSync(path.join(mission, "slices", ".nn-03"), JSON.stringify({ schema: "softwareteam.slice-claim/v1", ref: "slices/03-incomplete/slice.yaml", state: "pending" }));
     const proof = path.join(mission, "slices", "02-complete", "PROOF.md");
     fs.writeFileSync(proof, "# completed evidence\n");
     const created = successful([await create("repair")])[0]!;
@@ -201,7 +201,7 @@ describe("public slice creation ordinal claims", () => {
       fs.writeFileSync(path.join(mission, "slices", name, "PROOF.md"), "# complete\n");
     }
     fs.writeFileSync(path.join(mission, "slices", ".nn-03"), "");
-    fs.writeFileSync(path.join(mission, "slices", ".nn-04"), JSON.stringify({ schema: "openrig.slice-claim/v1", ref: "slices/04-verified/slice.yaml", state: "verified" }));
+    fs.writeFileSync(path.join(mission, "slices", ".nn-04"), JSON.stringify({ schema: "softwareteam.slice-claim/v1", ref: "slices/04-verified/slice.yaml", state: "verified" }));
     const next = successful([await create("new")])[0]!;
     expect(YAML.parse(fs.readFileSync(manifest, "utf8")).composition.slices).toEqual([
       authored, { ref: `slices/${next.name}/slice.yaml`, order: 80, active: true },
@@ -283,7 +283,7 @@ describe("public slice creation ordinal claims", () => {
       import { execFileSync } from "node:child_process";
       const original = fs.writeFileSync.bind(fs);
       fs.writeFileSync = (target, data, options) => {
-        if (/\\/PROOF\\.md(?:\\.openrig-.*\\.tmp)?$/.test(String(target))) {
+        if (/\\/PROOF\\.md(?:\\.softwareteam-.*\\.tmp)?$/.test(String(target))) {
           original(target, "# partial proof", options);
           execFileSync(process.execPath, ${JSON.stringify(competitorArgs)}, { env: ${JSON.stringify(ownedEnv)}, timeout: 15000 });
           original(${JSON.stringify(observed)}, fs.readFileSync(${JSON.stringify(manifest)}, "utf8"));
@@ -378,12 +378,12 @@ describe("public slice creation ordinal claims", () => {
     }
     expect(fs.existsSync(path.join(mission, "slices", "02-failed"))).toBe(false);
     expect(JSON.parse(fs.readFileSync(path.join(mission, "slices", ".nn-02"), "utf8"))).toEqual({
-      schema: "openrig.slice-claim/v1", ref: "slices/02-failed/slice.yaml", state: "pending",
+      schema: "softwareteam.slice-claim/v1", ref: "slices/02-failed/slice.yaml", state: "pending",
     });
   });
 
   it("an old mission guard is preserved but does not block a new creator", async () => {
-    const guard = path.join(mission, ".openrig-slice-create-lock");
+    const guard = path.join(mission, ".softwareteam-slice-create-lock");
     fs.mkdirSync(guard);
     fs.writeFileSync(path.join(guard, "inspection-required"), "interrupted guard\n");
     successful([await create("ignores-old-lock")]);

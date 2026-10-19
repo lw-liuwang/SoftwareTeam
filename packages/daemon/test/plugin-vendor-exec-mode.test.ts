@@ -1,5 +1,5 @@
 // OPR skills-vendoring exec-mode QA blocker — SECOND hop (review50-r1 NOT-CLEAR on ac34ed75).
-// PluginVendorService.ensureVendored stages assets (repo -> ~/.openrig/plugins) via text
+// PluginVendorService.ensureVendored stages assets (repo -> ~/.softwareteam/plugins) via text
 // readFile->writeFile, which drops executable mode — an UPSTREAM hop the adapter preserveMode
 // fix could not reach (the adapters faithfully preserve the already-644 staged copy). These are
 // REAL-fs pins over the same fsOps shape production wires in startup.ts, covering the fresh-write
@@ -44,7 +44,7 @@ function materializePreviousRelease(target: string) {
     import.meta.dirname,
     "fixtures",
     "plugin-vendor",
-    "openrig-core-835b700fc",
+    "softwareteam-core-835b700fc",
   );
   const paths = [
     ".claude-plugin/plugin.json",
@@ -63,16 +63,16 @@ function materializePreviousRelease(target: string) {
 }
 
 function seedAssets(root: string) {
-  const claudeManifest = nodePath.join(root, "openrig-core", ".claude-plugin", "plugin.json");
-  const codexManifest = nodePath.join(root, "openrig-core", ".codex-plugin", "plugin.json");
-  const skillDir = nodePath.join(root, "openrig-core", "skills", "compaction-restore", "scripts");
+  const claudeManifest = nodePath.join(root, "softwareteam-core", ".claude-plugin", "plugin.json");
+  const codexManifest = nodePath.join(root, "softwareteam-core", ".codex-plugin", "plugin.json");
+  const skillDir = nodePath.join(root, "softwareteam-core", "skills", "compaction-restore", "scripts");
   fs.mkdirSync(skillDir, { recursive: true });
   fs.mkdirSync(nodePath.dirname(claudeManifest), { recursive: true });
   fs.mkdirSync(nodePath.dirname(codexManifest), { recursive: true });
   const hook = nodePath.join(skillDir, "precompact-hook.mjs");
-  const skillMd = nodePath.join(root, "openrig-core", "skills", "compaction-restore", "SKILL.md");
-  fs.writeFileSync(claudeManifest, '{"name":"openrig-core","version":"0.1.0"}\n');
-  fs.writeFileSync(codexManifest, '{"name":"openrig-core","version":"0.1.0"}\n');
+  const skillMd = nodePath.join(root, "softwareteam-core", "skills", "compaction-restore", "SKILL.md");
+  fs.writeFileSync(claudeManifest, '{"name":"softwareteam-core","version":"0.1.0"}\n');
+  fs.writeFileSync(codexManifest, '{"name":"softwareteam-core","version":"0.1.0"}\n');
   fs.writeFileSync(hook, "#!/usr/bin/env node\nconsole.log('hook');\n");
   fs.writeFileSync(skillMd, "# compaction-restore\n");
   fs.chmodSync(hook, 0o755);
@@ -88,10 +88,10 @@ describe("PluginVendorService preserves executable mode during vendor staging (Q
     const userPlugins = nodePath.join(base, "home", "plugins");
     const svc = new PluginVendorService({ vendoredAssetsDir: assets, userPluginsDir: userPlugins, fs: realVendorFs(), httpClient });
 
-    await svc.ensureVendored("openrig-core");
+    await svc.ensureVendored("softwareteam-core");
 
-    const outHook = nodePath.join(userPlugins, "openrig-core", rel.hookRel);
-    const outSkill = nodePath.join(userPlugins, "openrig-core", rel.skillRel);
+    const outHook = nodePath.join(userPlugins, "softwareteam-core", rel.hookRel);
+    const outSkill = nodePath.join(userPlugins, "softwareteam-core", rel.skillRel);
     expect(fs.existsSync(outHook)).toBe(true);
     expect(perm(outHook)).toBe(0o755);
     expect(perm(outSkill)).toBe(0o644);
@@ -104,15 +104,15 @@ describe("PluginVendorService preserves executable mode during vendor staging (Q
     const userPlugins = nodePath.join(base, "home", "plugins");
     const svc = new PluginVendorService({ vendoredAssetsDir: assets, userPluginsDir: userPlugins, fs: realVendorFs(), httpClient });
 
-    await svc.ensureVendored("openrig-core");
+    await svc.ensureVendored("softwareteam-core");
 
     // Leave the equal-version installed bytes intact but reproduce the exact
     // QA state: a byte-identical executable helper carrying the WRONG mode.
-    const outHook = nodePath.join(userPlugins, "openrig-core", rel.hookRel);
+    const outHook = nodePath.join(userPlugins, "softwareteam-core", rel.hookRel);
     fs.chmodSync(outHook, 0o644);
     expect(perm(outHook)).toBe(0o644);
 
-    await svc.ensureVendored("openrig-core");
+    await svc.ensureVendored("softwareteam-core");
 
     // Content unchanged (write skipped) but mode reconciled to the source 0755.
     expect(perm(outHook)).toBe(0o755);
@@ -131,7 +131,7 @@ describe("PluginVendorService preserves executable mode during vendor staging (Q
       httpClient,
       logger: (...args) => logs.push(args.map(String).join(" ")),
     });
-    await svc.ensureVendored("openrig-core");
+    await svc.ensureVendored("softwareteam-core");
 
     const canonDir = nodePath.join(base, "shared-canon", "compaction-restore");
     const canonSkill = nodePath.join(canonDir, "SKILL.md");
@@ -141,10 +141,10 @@ describe("PluginVendorService preserves executable mode during vendor staging (Q
     fs.writeFileSync(canonSkill, "# newer shared canon\n");
     fs.symlinkSync(canonDir, nodePath.join(globalRoot, "compaction-restore"));
 
-    svc.ensureSkillGlobally("openrig-core", "compaction-restore", [globalRoot]);
+    svc.ensureSkillGlobally("softwareteam-core", "compaction-restore", [globalRoot]);
 
     expect(fs.readFileSync(canonSkill, "utf-8")).toBe("# newer shared canon\n");
-    expect(fs.existsSync(nodePath.join(canonDir, ".openrig-vendor-version"))).toBe(false);
+    expect(fs.existsSync(nodePath.join(canonDir, ".softwareteam-vendor-version"))).toBe(false);
     expect(logs.join("\n")).toMatch(/unversioned\/external authority.*unchanged/i);
   });
 
@@ -157,19 +157,19 @@ describe("PluginVendorService preserves executable mode during vendor staging (Q
     const targetDir = nodePath.join(globalRoot, "compaction-restore");
     fs.mkdirSync(targetDir, { recursive: true });
     fs.writeFileSync(nodePath.join(targetDir, "SKILL.md"), "# projected 0.0.1\n");
-    fs.writeFileSync(nodePath.join(targetDir, ".openrig-vendor-version"), "0.0.1\n");
+    fs.writeFileSync(nodePath.join(targetDir, ".softwareteam-vendor-version"), "0.0.1\n");
     const svc = new PluginVendorService({
       vendoredAssetsDir: assets,
       userPluginsDir: userPlugins,
       fs: realVendorFs(),
       httpClient,
     });
-    await svc.ensureVendored("openrig-core");
+    await svc.ensureVendored("softwareteam-core");
 
-    svc.ensureSkillGlobally("openrig-core", "compaction-restore", [globalRoot]);
+    svc.ensureSkillGlobally("softwareteam-core", "compaction-restore", [globalRoot]);
 
     expect(fs.readFileSync(nodePath.join(targetDir, "SKILL.md"), "utf-8")).toBe("# compaction-restore\n");
-    expect(fs.readFileSync(nodePath.join(targetDir, ".openrig-vendor-version"), "utf-8")).toBe("0.1.0\n");
+    expect(fs.readFileSync(nodePath.join(targetDir, ".softwareteam-vendor-version"), "utf-8")).toBe("0.1.0\n");
   });
 });
 
@@ -180,12 +180,12 @@ describe("PluginVendorService release-version authority", () => {
     );
     const assets = nodePath.resolve(import.meta.dirname, "../assets/plugins");
     const userPlugins = nodePath.join(base, "home", "plugins");
-    const installedPlugin = nodePath.join(userPlugins, "openrig-core");
+    const installedPlugin = nodePath.join(userPlugins, "softwareteam-core");
     const hookRel = "hooks/scripts/refocus.cjs";
     materializePreviousRelease(installedPlugin);
 
     const installedHook = nodePath.join(installedPlugin, hookRel);
-    const bundledHook = nodePath.join(assets, "openrig-core", hookRel);
+    const bundledHook = nodePath.join(assets, "softwareteam-core", hookRel);
     expect(sha256(fs.readFileSync(installedHook))).toBe(
       "09601be0c704da9bf49eb2c8b174f9caa2983fd11fc5df9333b49ab28d4d3bfc",
     );
@@ -199,7 +199,7 @@ describe("PluginVendorService release-version authority", () => {
       fs: realVendorFs(),
       httpClient,
     });
-    await svc.ensureVendored("openrig-core");
+    await svc.ensureVendored("softwareteam-core");
 
     expect(sha256(fs.readFileSync(installedHook))).toBe(
       sha256(fs.readFileSync(bundledHook)),
@@ -213,7 +213,7 @@ describe("PluginVendorService release-version authority", () => {
       ) as { version: string };
       const bundled = JSON.parse(
         fs.readFileSync(
-          nodePath.join(assets, "openrig-core", manifestDir, "plugin.json"),
+          nodePath.join(assets, "softwareteam-core", manifestDir, "plugin.json"),
           "utf-8",
         ),
       ) as { version: string };

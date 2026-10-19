@@ -66,11 +66,11 @@ describe("stub-runner activity POST (real-spawn wire proof, R2)", () => {
       "--session-name", SEAT, "--cwd", dir, "--launch-id", "act-1", "--posture", "floor"],
       { env: {
         ...process.env,
-        OPENRIG_HOME: join(dir, ".openrig"),
-        OPENRIG_URL: `http://127.0.0.1:${port}`,
-        OPENRIG_ACTIVITY_HOOK_TOKEN: TOKEN,
-        OPENRIG_NODE_ID: "node-xyz",
-        OPENRIG_TEST_CLOCK_NOW: INJECTED_ISO,
+        SOFTWARETEAM_HOME: join(dir, ".softwareteam"),
+        SOFTWARETEAM_URL: `http://127.0.0.1:${port}`,
+        SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: TOKEN,
+        SOFTWARETEAM_NODE_ID: "node-xyz",
+        SOFTWARETEAM_TEST_CLOCK_NOW: INJECTED_ISO,
       } as NodeJS.ProcessEnv });
 
     const events = () => captured.map((c) => String(c.body.hookEvent));

@@ -19,7 +19,7 @@ it("enters from a normal authenticated read slower than the recovery probe witho
   expect(f.controller.state.connection).toBe("up"); expect(f.controller.state.open).toBe(false);
   expect(f.onWork).toHaveBeenCalledOnce(); expect(f.probe).not.toHaveBeenCalled();
   expect(f.startDaemon).not.toHaveBeenCalled(); expect(fetchImpl).toHaveBeenCalledOnce();
-  expect(fetchImpl).toHaveBeenCalledWith("http://entry-fixture/api/rigs/summary",
+  expect(fetchImpl).toHaveBeenCalledWith("http://entry-fixture/api/software-teams/summary",
     expect.objectContaining({ headers: { Authorization: "Bearer fixture" }, signal: expect.any(AbortSignal) }));
 });
 it.each([401, 403])("keeps a %s catalog refusal visible even if the recovery probe says up", async status => {
@@ -34,7 +34,7 @@ it("does not treat a malformed successful catalog as a confirmed connection", as
   const f = fixture(vi.fn(async () => new Response(JSON.stringify([null]))), JSON.stringify({ state: "up" }));
   await f.controller.refresh();
   expect(f.controller.state.connection).toBe("unverified"); expect(f.controller.state.page).toBe("unavailable");
-  expect(f.controller.state.notice).toContain("usable rig list"); expect(f.onWork).not.toHaveBeenCalled();
+  expect(f.controller.state.notice).toContain("usable SoftwareTeam list"); expect(f.onWork).not.toHaveBeenCalled();
   expect(f.startDaemon).not.toHaveBeenCalled();
 });
 it("retains positive down discovery only after the ordinary read fails, without automatic effects", async () => {

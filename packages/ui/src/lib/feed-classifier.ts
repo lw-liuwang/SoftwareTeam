@@ -20,7 +20,7 @@ export interface FeedCard {
   title: string;
   body?: string;
   authorSession?: string;
-  rigId?: string;
+  softwareTeamId?: string;
   receivedAt: number;
   createdAt: string;
   // Original event for click-through to scope.
@@ -176,14 +176,14 @@ function classifyEvent(evt: ActivityEvent): FeedCard | null {
     "fromSession",
     "sender",
   );
-  const rigId = pickString(payload, "rig_id", "rigId");
+  const softwareTeamId = pickString(payload, "software_team_id", "softwareTeamId");
   const summary = pickString(payload, "summary", "body", "title");
   const base = {
     id: `${evt.type}-${evt.seq}`,
     title: summary ?? evt.type,
     body: asString(payload.body),
     authorSession: author,
-    rigId,
+    softwareTeamId,
     receivedAt: evt.receivedAt,
     createdAt: evt.createdAt,
     source: evt,

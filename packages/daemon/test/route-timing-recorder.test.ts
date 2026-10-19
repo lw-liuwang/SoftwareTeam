@@ -9,16 +9,16 @@ import {
 describe("expensiveRouteLabel", () => {
   it("labels the four expensive topology routes", () => {
     expect(expensiveRouteLabel("GET", "/api/ps")).toBe("GET /api/ps");
-    expect(expensiveRouteLabel("GET", "/api/rigs/summary")).toBe("GET /api/rigs/summary");
-    expect(expensiveRouteLabel("GET", "/api/rigs/abc-123/graph")).toBe("GET /api/rigs/:id/graph");
-    expect(expensiveRouteLabel("GET", "/api/rigs/abc-123/nodes")).toBe("GET /api/rigs/:id/nodes");
+    expect(expensiveRouteLabel("GET", "/api/software-teams/summary")).toBe("GET /api/software-teams/summary");
+    expect(expensiveRouteLabel("GET", "/api/software-teams/abc-123/graph")).toBe("GET /api/software-teams/:id/graph");
+    expect(expensiveRouteLabel("GET", "/api/software-teams/abc-123/nodes")).toBe("GET /api/software-teams/:id/nodes");
   });
 
   it("returns null for cheap routes, sub-paths, and non-GET verbs", () => {
     expect(expensiveRouteLabel("GET", "/healthz")).toBeNull();
-    expect(expensiveRouteLabel("GET", "/api/rigs")).toBe("GET /api/rigs");
-    expect(expensiveRouteLabel("GET", "/api/rigs/abc-123")).toBeNull();
-    expect(expensiveRouteLabel("GET", "/api/rigs/abc/nodes/deep")).toBeNull();
+    expect(expensiveRouteLabel("GET", "/api/software-teams")).toBe("GET /api/software-teams");
+    expect(expensiveRouteLabel("GET", "/api/software-teams/abc-123")).toBeNull();
+    expect(expensiveRouteLabel("GET", "/api/software-teams/abc/nodes/deep")).toBeNull();
     expect(expensiveRouteLabel("POST", "/api/ps")).toBeNull();
   });
 });

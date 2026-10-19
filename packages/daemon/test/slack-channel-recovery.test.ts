@@ -24,7 +24,7 @@ function fixture() {
   };
   const db = createFullTestDb(); closes.push(() => db.close());
   let queueDown = false;
-  const repo = new QueueRepository(db, new EventBus(db), { validateRig: () => !queueDown });
+  const repo = new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => !queueDown });
   const seen = new SeenStore("/s/slack-inbound-seen.jsonl", fsops);
   const receipts = new InboundReceiptStore("/s/slack-inbound-receipts.jsonl", fsops);
   const dead = new DeadLetterStore<SlackEvent>("/s/dead", fsops);

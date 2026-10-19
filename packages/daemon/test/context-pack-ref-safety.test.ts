@@ -1,4 +1,4 @@
-// Slice-03 rig-context v1 (OPR.0.5.0.3) — ref hardening (proof item 6 + R2 closure item 8).
+// Slice-03 software-team-context v1 (OPR.0.5.0.3) — ref hardening (proof item 6 + R2 closure item 8).
 // The addressing contract §2 calls "the ONE thing that must be right": PATH-LIKE MULTI-SEGMENT
 // refs (e.g. `packs/compaction-restore`) with PER-SEGMENT validation (salvaged assertSafePackName
 // charset, bent per `/`-segment, still banning traversal/absolute/empty/injection), and the

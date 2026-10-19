@@ -21,7 +21,7 @@ const DEFAULT_RESTORE_INSTRUCTION =
 const DEFAULT_AUDIT_INSTRUCTION =
   "Read the claude-compaction-restore skill and follow its \"Required Read-Depth Audit\" protocol.";
 const DEFAULT_EXTRA_INSTRUCTION_FILE_PATH =
-  "/Users/test/.openrig/compaction/post-compact-extra.md";
+  "/Users/test/.softwareteam/compaction/post-compact-extra.md";
 
 beforeEach(() => {
   globalThis.fetch = mockFetch as unknown as typeof fetch;

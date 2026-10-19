@@ -1,6 +1,6 @@
 // OPR.0.5.0.18 — the CANONICAL amendment-lineage derivation (ONE source of truth).
 //
-// The re-stamp verb (`rig scope … approve --re-approve`) writes
+// The re-stamp verb (`SoftwareTeam scope … approve --re-approve`) writes
 // `approved-spec-priors` / `approved-priors` atomically beside the current stamp,
 // so a filesystem-local audit can show lineage without DB access. Returns
 // undefined for never-amended scopes (first-approve output unchanged).

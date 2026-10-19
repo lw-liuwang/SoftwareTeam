@@ -5,7 +5,7 @@ export interface MissionControlDestination {
   sessionName: string;
   label: string;
   source: "topology" | "queue";
-  rigName?: string | null;
+  softwareTeamName?: string | null;
   logicalId?: string | null;
   runtime?: string | null;
   status?: string | null;

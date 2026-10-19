@@ -6,12 +6,12 @@ import { test } from "node:test";
 import { prepareWorkspaceBuild } from "./prepare-workspace-build.mjs";
 
 test("CLI build copies assets and root documents without shell utilities", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "openrig-build-assets-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "softwareteam-build-assets-"));
   try {
     for (const dir of ["packages/cli/dist", "packages/cli/src/schemas", "packages/cli/src/lib/scope-templates"])
       mkdirSync(path.join(root, dir), { recursive: true });
     const files = {
-      "LICENSE": "license", "README.md": "readme", "packages/cli/dist/bin-wrapper.js": "entry",
+      "LICENSE": "license", "NOTICE": "notice", "README.md": "readme", "packages/cli/dist/bin-wrapper.js": "entry",
       "packages/cli/src/schemas/spec.json": "{}", "packages/cli/src/schemas/ignored.txt": "ignore",
       "packages/cli/src/lib/scope-templates/team.md": "team",
       "packages/cli/src/schemas/.hidden.json": "hidden schema",
@@ -19,7 +19,7 @@ test("CLI build copies assets and root documents without shell utilities", () =>
     };
     for (const [name, content] of Object.entries(files)) writeFileSync(path.join(root, name), content);
     prepareWorkspaceBuild(root, "cli", process.platform);
-    for (const [name, content] of [["dist/schemas/spec.json", "{}"], ["dist/lib/scope-templates/team.md", "team"], ["LICENSE", "license"], ["README.md", "readme"]])
+    for (const [name, content] of [["dist/schemas/spec.json", "{}"], ["dist/lib/scope-templates/team.md", "team"], ["LICENSE", "license"], ["NOTICE", "notice"], ["README.md", "readme"]])
       assert.equal(readFileSync(path.join(root, "packages/cli", name), "utf8"), content);
     assert.throws(() => readFileSync(path.join(root, "packages/cli/dist/schemas/ignored.txt")));
     assert.equal(existsSync(path.join(root, "packages/cli/dist/schemas/.hidden.json")), false);
@@ -32,10 +32,10 @@ test("CLI build copies assets and root documents without shell utilities", () =>
 });
 
 function cliFixture() {
-  const root = mkdtempSync(path.join(os.tmpdir(), "openrig-build-selection-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "softwareteam-build-selection-"));
   for (const dir of ["packages/cli/dist", "packages/cli/src/schemas", "packages/cli/src/lib/scope-templates"])
     mkdirSync(path.join(root, dir), { recursive: true });
-  for (const name of ["LICENSE", "README.md", "packages/cli/dist/bin-wrapper.js"])
+  for (const name of ["LICENSE", "NOTICE", "README.md", "packages/cli/dist/bin-wrapper.js"])
     writeFileSync(path.join(root, name), "fixture");
   return root;
 }
@@ -76,7 +76,7 @@ test("CLI preparation fails when a source glob would have no matches", () => {
 });
 
 test("TUI preparation requires the compiled entry and rejects unknown workspaces", () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "openrig-build-tui-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "softwareteam-build-tui-"));
   try {
     assert.throws(() => prepareWorkspaceBuild(root, "tui"), /ENOENT/);
     mkdirSync(path.join(root, "packages/tui/dist"), { recursive: true });

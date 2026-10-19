@@ -5,8 +5,8 @@ export interface InspectProvenance {
   createdAt?: string;
   sourceHost?: string;
   authorSession?: string;
-  sourceRigId?: string;
-  sourceRigName?: string;
+  sourceSoftwareTeamId?: string;
+  sourceSoftwareTeamName?: string;
   daemonVersion?: string;
   cliVersion?: string;
   notes?: string;
@@ -23,7 +23,7 @@ export interface InspectResult {
   manifest: {
     name: string;
     version: string;
-    rigSpec: string;
+    softwareTeamSpec: string;
     schemaVersion?: number;
     packages?: Array<{ name: string; version: string; path: string }>;
     agents?: Array<{ name: string; version: string; path: string }>;
@@ -39,7 +39,7 @@ export interface InspectResult {
 export interface BundleInstallResult {
   runId: string;
   status: string;
-  rigId?: string;
+  softwareTeamId?: string;
   stages: Array<{ stage: string; status: string; detail?: { source?: string; [key: string]: unknown } }>;
   errors: string[];
 }

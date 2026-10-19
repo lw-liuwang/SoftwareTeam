@@ -32,13 +32,13 @@ const SPEC = `workflow:
   roles:
     producer:
       preferred_targets:
-        - producer@rig
+        - producer@software-team
     reviewer:
       preferred_targets:
-        - reviewer@rig
+        - reviewer@software-team
     orch:
       preferred_targets:
-        - orch-lead@rig
+        - orch-lead@software-team
   steps:
     - id: produce
       actor_role: producer
@@ -65,10 +65,10 @@ const LOOP_SPEC = `workflow:
   roles:
     producer:
       preferred_targets:
-        - producer@rig
+        - producer@software-team
     reviewer:
       preferred_targets:
-        - reviewer@rig
+        - reviewer@software-team
   steps:
     - id: produce
       actor_role: producer
@@ -109,8 +109,8 @@ describe("WF-5 FR-4: resume (redrive)", () => {
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
     const bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
@@ -133,7 +133,7 @@ describe("WF-5 FR-4: resume (redrive)", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "resume walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const packetId = inst.instance.currentFrontier[0]!;
     await runtime.project({
@@ -141,7 +141,7 @@ describe("WF-5 FR-4: resume (redrive)", () => {
       currentPacketId: packetId,
       exit: "failed",
       resultNote: "induced",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
     });
     return { instanceId: inst.instance.instanceId, failedPacketId: packetId };
   };
@@ -169,12 +169,12 @@ describe("WF-5 FR-4: resume (redrive)", () => {
     const r = await runtime.resume({
       instanceId,
       decision: "root cause fixed — retry",
-      actorSession: "orch-lead@rig",
+      actorSession: "orch-lead@software-team",
     });
     expect(r.stepId).toBe("produce");
     expect(r.resumeCount).toBe(1);
     expect(r.exceptionItemsClosed).toBe(1);
-    expect(r.ownerSession).toBe("producer@rig");
+    expect(r.ownerSession).toBe("producer@software-team");
 
     const inst = runtime.instanceStore.getByIdOrThrow(instanceId);
     expect(inst.status).toBe("active");
@@ -200,19 +200,19 @@ describe("WF-5 FR-4: resume (redrive)", () => {
   it("the redriven step completes and the flow continues deterministically downstream", async () => {
     build();
     const { instanceId } = await instantiateAndFail(seed(SPEC));
-    const r = await runtime.resume({ instanceId, actorSession: "orch-lead@rig" });
+    const r = await runtime.resume({ instanceId, actorSession: "orch-lead@software-team" });
     const advanced = await runtime.project({
       instanceId,
       currentPacketId: r.newPacketId,
       exit: "handoff",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
     });
     expect(advanced.nextStepId).toBe("review");
     await runtime.project({
       instanceId,
       currentPacketId: advanced.nextQitemId!,
       exit: "done",
-      actorSession: "reviewer@rig",
+      actorSession: "reviewer@software-team",
     });
     expect(runtime.instanceStore.getByIdOrThrow(instanceId).status).toBe("completed");
   });
@@ -226,34 +226,34 @@ describe("WF-5 FR-4: resume (redrive)", () => {
       .prepare(`SELECT spec_id, spec_json FROM workflow_specs WHERE name = 'wf5-resume-pipeline'`)
       .get() as { spec_id: string; spec_json: string };
     const spec = JSON.parse(row.spec_json);
-    spec.roles.producer.preferred_targets = ["producer-replacement@rig"];
+    spec.roles.producer.preferred_targets = ["producer-replacement@software-team"];
     db.prepare(`UPDATE workflow_specs SET spec_json = ? WHERE spec_id = ?`).run(
       JSON.stringify(spec),
       row.spec_id,
     );
-    const r = await runtime.resume({ instanceId, actorSession: "orch-lead@rig" });
-    expect(r.ownerSession).toBe("producer-replacement@rig");
+    const r = await runtime.resume({ instanceId, actorSession: "orch-lead@software-team" });
+    expect(r.ownerSession).toBe("producer-replacement@software-team");
   });
 
   it("rejection matrix: resume on active/waiting/completed = structured instance_not_failed naming the state", async () => {
     build();
     const specPath = seed(SPEC);
     // active
-    const a = await runtime.instantiate({ specPath, rootObjective: "a", createdBySession: "ops@rig" });
+    const a = await runtime.instantiate({ specPath, rootObjective: "a", createdBySession: "ops@software-team" });
     await expect(
-      runtime.resume({ instanceId: a.instance.instanceId, actorSession: "x@rig" }),
+      runtime.resume({ instanceId: a.instance.instanceId, actorSession: "x@software-team" }),
     ).rejects.toMatchObject({ code: "instance_not_failed" });
     // waiting (the shipped park) — REGRESSION PIN half 1: resume rejects it
-    const w = await runtime.instantiate({ specPath, rootObjective: "w", createdBySession: "ops@rig" });
+    const w = await runtime.instantiate({ specPath, rootObjective: "w", createdBySession: "ops@software-team" });
     await runtime.project({
       instanceId: w.instance.instanceId,
       currentPacketId: w.instance.currentFrontier[0]!,
       exit: "waiting",
       blockedOn: "external-thing",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
     });
     await expect(
-      runtime.resume({ instanceId: w.instance.instanceId, actorSession: "x@rig" }),
+      runtime.resume({ instanceId: w.instance.instanceId, actorSession: "x@software-team" }),
     ).rejects.toMatchObject({ code: "instance_not_failed" });
     // REGRESSION PIN half 2: the shipped waiting path continues via
     // project on the PRESERVED packet, exactly as before.
@@ -261,32 +261,32 @@ describe("WF-5 FR-4: resume (redrive)", () => {
       instanceId: w.instance.instanceId,
       currentPacketId: w.instance.currentFrontier[0]!,
       exit: "done",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
     });
     expect(cont.instance.status).toBe("completed");
     // completed
     await expect(
-      runtime.resume({ instanceId: w.instance.instanceId, actorSession: "x@rig" }),
+      runtime.resume({ instanceId: w.instance.instanceId, actorSession: "x@software-team" }),
     ).rejects.toMatchObject({ code: "instance_not_failed" });
   });
 
   it("sequential double-resume: the second resume rejects (the first made it active) — no double-drive", async () => {
     build();
     const { instanceId } = await instantiateAndFail(seed(SPEC));
-    await runtime.resume({ instanceId, actorSession: "orch-lead@rig" });
+    await runtime.resume({ instanceId, actorSession: "orch-lead@software-team" });
     await expect(
-      runtime.resume({ instanceId, actorSession: "orch-lead@rig" }),
+      runtime.resume({ instanceId, actorSession: "orch-lead@software-team" }),
     ).rejects.toMatchObject({ code: "instance_not_failed" });
   });
 
   it("THE LIVELOCK RAIL: a max_hops-failed instance resumed gets ONE fresh bounded window (hops-since-resume), the count is recorded, and re-exceed raises an honest NEW occurrence", async () => {
     build();
     const specPath = seed(LOOP_SPEC, "loop.yaml");
-    const inst = await runtime.instantiate({ specPath, rootObjective: "loop", createdBySession: "ops@rig" });
+    const inst = await runtime.instantiate({ specPath, rootObjective: "loop", createdBySession: "ops@software-team" });
     const id = inst.instance.instanceId;
     // Drive to the guard trip: max_hops=2 → hop 3 converts to failed.
     let packet = inst.instance.currentFrontier[0]!;
-    let actor = "producer@rig";
+    let actor = "producer@software-team";
     for (;;) {
       const res = await runtime.project({
         instanceId: id,
@@ -297,7 +297,7 @@ describe("WF-5 FR-4: resume (redrive)", () => {
       const now = runtime.instanceStore.getByIdOrThrow(id);
       if (now.status === "failed") break;
       packet = res.nextQitemId!;
-      actor = actor === "producer@rig" ? "reviewer@rig" : "producer@rig";
+      actor = actor === "producer@software-team" ? "reviewer@software-team" : "producer@software-team";
     }
     const failed1 = runtime.instanceStore.getByIdOrThrow(id);
     const hopsAtFail = failed1.hopCount;
@@ -308,7 +308,7 @@ describe("WF-5 FR-4: resume (redrive)", () => {
 
     // Resume: one fresh window — the FIRST post-resume projection must
     // NOT re-trip (without the rail it would: hopCount already > max).
-    const r = await runtime.resume({ instanceId: id, actorSession: "orch-lead@rig" });
+    const r = await runtime.resume({ instanceId: id, actorSession: "orch-lead@software-team" });
     const resumed = runtime.instanceStore.getByIdOrThrow(id);
     expect(resumed.status).toBe("active");
     expect(resumed.resumeCount).toBe(1);
@@ -318,7 +318,7 @@ describe("WF-5 FR-4: resume (redrive)", () => {
       instanceId: id,
       currentPacketId: r.newPacketId,
       exit: "handoff",
-      actorSession: resumed.currentStepId === "produce" ? "producer@rig" : "reviewer@rig",
+      actorSession: resumed.currentStepId === "produce" ? "producer@software-team" : "reviewer@software-team",
     });
     expect(runtime.instanceStore.getByIdOrThrow(id).status).toBe("active");
 

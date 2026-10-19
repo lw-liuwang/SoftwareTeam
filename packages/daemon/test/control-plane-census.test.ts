@@ -13,7 +13,7 @@ import { ResumeMetadataRefresher } from "../src/domain/resume-metadata-refresher
 import { PeriodicSnapshotScheduler } from "../src/domain/periodic-snapshot-scheduler.js";
 import { createFullTestDb } from "./helpers/test-app.js";
 import { seedCodexThreads } from "./helpers/codex-state.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
 
@@ -30,8 +30,8 @@ describe("OPR.0.5.3.10 — one census per cycle", () => {
     // freshness defeated by the advancing clock: only the cycle memo can dedupe.
     const census = new ProcessCensus({ list: underlying, freshnessMs: 0, now: advancingClock() });
     const seats = ["a", "b", "c"].map((id) => ({
-      nodeId: `n-${id}`, rigId: "r", rigName: "rig", runtime: "codex",
-      pinnedModel: "gpt-x", sessionName: `${id}@rig`, generation: `gen-${id}`,
+      nodeId: `n-${id}`, softwareTeamId: "r", softwareTeamName: "softwareTeam", runtime: "codex",
+      pinnedModel: "gpt-x", sessionName: `${id}@software-team`, generation: `gen-${id}`,
     }));
     const monitor = new ModelDivergenceMonitor({
       processCensus: census,
@@ -57,14 +57,14 @@ describe("OPR.0.5.3.10 — one census per cycle", () => {
     expect(underlying).toHaveBeenCalledTimes(1);
   });
 
-  it("mini-req 2: a snapshot tick over TWO rigs with codex seats runs the underlying enumeration ONCE, single-attempt", async () => {
+  it("mini-req 2: a snapshot tick over TWO softwareTeams with codex seats runs the underlying enumeration ONCE, single-attempt", async () => {
     const db = createFullTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const sessionRegistry = new SessionRegistry(db);
-    for (const rigName of ["rig-a", "rig-b"]) {
-      const rig = rigRepo.createRig(rigName);
-      const node = rigRepo.addNode(rig.id, "dev.qa", { runtime: "codex", cwd: "/w" });
-      const session = sessionRegistry.registerSession(node.id, `dev-qa@${rigName}`);
+    for (const softwareTeamName of ["software-team-a", "software-team-b"]) {
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam(softwareTeamName);
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { runtime: "codex", cwd: "/w" });
+      const session = sessionRegistry.registerSession(node.id, `dev-qa@${softwareTeamName}`);
       sessionRegistry.updateStatus(session.id, "running");
     }
 
@@ -93,7 +93,7 @@ describe("OPR.0.5.3.10 — one census per cycle", () => {
       processCensus: census,
     });
     await scheduler.tick();
-    // ONE enumeration for both rigs' seats…
+    // ONE enumeration for both softwareTeams' seats…
     expect(underlying).toHaveBeenCalledTimes(1);
     // …and SINGLE-ATTEMPT discovery: no inter-attempt sleeps at all (base ran
     // the 8-attempt loop: 7+ sleeps per tokenless codex seat).
@@ -582,7 +582,7 @@ describe("OPR.0.5.3.10 — one census per cycle", () => {
       readCodexThreadIdByPid: () => undefined,
       sleep,
     });
-    await refresher.captureCodexThreadId("seat@rig");
+    await refresher.captureCodexThreadId("seat@software-team");
     // The direct (non-snapshot) capture still makes its 8 attempts.
     expect(listProcesses).toHaveBeenCalledTimes(8);
     expect(sleep).toHaveBeenCalledTimes(7);

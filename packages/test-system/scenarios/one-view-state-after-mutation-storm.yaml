@@ -1,6 +1,6 @@
 # Defect class: the one-view-state invariant (PIN-1) as a standing machine-checked
 #   assertion — tui_socket == ps == queue must express the SAME truth.
-# Marathon origin: the TUI socket state, `rig ps`, and `rig queue` drifted out of sync
+# Marathon origin: the TUI socket state, `SoftwareTeam ps`, and `SoftwareTeam queue` drifted out of sync
 #   after a burst of activity, so three surfaces told three stories of one system.
 # SEED (class: view-state-divergence): the seeded regression makes one surface
 #   (tui_socket) lag/omit after the storm. The `equals` cross-surface leg MUST catch it

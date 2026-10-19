@@ -10,9 +10,9 @@ import { runCrossHostCommand, type RunCrossHostCommandOpts } from "../cross-host
 import { emitCrossHostError, emitCrossHostFailure, emitRemoteHttpFailure } from "../cross-host-cli-helpers.js";
 import { resolveCrossHostTarget } from "../cross-host-target.js";
 import { runRemoteHttpOp } from "../remote-host-ops.js";
-import { readOpenRigEnv } from "../openrig-compat.js";
+import { readSoftwareTeamEnv } from "../softwareteam-compat.js";
 import { resolveSenderSession, SENDER_FALLBACK } from "../sender-identity.js";
-import { COMPOSER_PROMPT_CLASS } from "@openrig/daemon/composer-prompts";
+import { COMPOSER_PROMPT_CLASS } from "@softwareteam/daemon/composer-prompts";
 import { resolveContextRef, walkSizedWarning } from "../context-resolve.js";
 
 const WAIT_FOR_IDLE_REQUEST_OVERHEAD_MS = 5_000;
@@ -27,14 +27,14 @@ const CROSS_HOST_SEND_TIMEOUT_MS = 30_000;
 const PROMPT_LINE_PATTERN = new RegExp(`^\\s*[${COMPOSER_PROMPT_CLASS}]`);
 
 /**
- * Wrap a `rig send` body with an email-style envelope so the recipient
+ * Wrap a `SoftwareTeam send` body with an email-style envelope so the recipient
  * pane has both the sender's identity and a copy-pasteable reply hint.
- * Cross-host sends do NOT wrap locally: the remote rig wraps when it
+ * Cross-host sends do NOT wrap locally: the remote softwareTeam wraps when it
  * runs the same command, and double-wrapping would nest envelopes.
  *
  * V0.3.1 slice 23 parity contract: `packages/daemon/src/lib/pane-envelope.ts`
  * exports `wrapPaneEnvelope` with BYTE-IDENTICAL output for the same inputs.
- * P18 (deletion atom) REVERSES A1: an env-less `rig send`/`broadcast` no longer
+ * P18 (deletion atom) REVERSES A1: an env-less `SoftwareTeam send`/`broadcast` no longer
  * refuses at the seat boundary — it DELIVERS carrying the honest `<unknown sender>`
  * fallback (the daemon half delivers-and-labels the header-absent write, so the
  * marker reaches the pane instead of a downstream 401). So this twin RE-GAINS the
@@ -46,9 +46,9 @@ const PROMPT_LINE_PATTERN = new RegExp(`^\\s*[${COMPOSER_PROMPT_CLASS}]`);
 /** Send/broadcast header envelope metadata (ruling 03c35295) — the BYTE-IDENTICAL twin of the daemon's
  *  pane-envelope EnvelopeMeta. Envelope = machine truth; rendered header = projection. */
 export interface EnvelopeScope {
-  kind: "dm" | "multi" | "rig-broadcast" | "topology";
+  kind: "dm" | "multi" | "software-team-broadcast" | "topology";
   recipients?: string[];
-  rig?: string;
+  softwareTeam?: string;
   seats?: number;
 }
 export interface EnvelopeMeta {
@@ -64,7 +64,7 @@ export interface EnvelopeMeta {
 export function renderToLine(recipient: string, scope?: EnvelopeScope): string {
   if (!scope || scope.kind === "dm") return `To: ${recipient}`;
   if (scope.kind === "multi") return `To: ${(scope.recipients ?? [recipient]).join(", ")}`;
-  if (scope.kind === "rig-broadcast") return `To: broadcast to ${scope.rig} (${scope.seats} seats)`;
+  if (scope.kind === "software-team-broadcast") return `To: broadcast to ${scope.softwareTeam} (${scope.seats} seats)`;
   return "To: broadcast to topology";
 }
 
@@ -85,7 +85,7 @@ export function wrapSendBody(
   // with the daemon twin wrapPaneEnvelope across the full input domain.
   //
   // FOUNDER ROOT INVARIANT (2026-08-27, supersedes 51-09 incr 3 always-suffix): the sender
-  // renders EXACTLY AS RECEIVED — bare member@rig locally (copy-paste reply hint), and a
+  // renders EXACTLY AS RECEIVED — bare member@software-team locally (copy-paste reply hint), and a
   // cross-host caller constructs the origin triple at the forwarding boundary before wrapping.
   const senderLabel = sender && sender.trim().length > 0 ? sender : SENDER_FALLBACK;
   const header = [`From: ${senderLabel}`, renderToLine(recipient, meta?.scope)];
@@ -99,8 +99,8 @@ export function wrapSendBody(
     header.push(`Sent: ${renderShortStamp(meta.stampISO)}${genSuffix}`);
   }
   const reply = senderLabel.endsWith("@external")
-    ? `↩ Reply if needed: rig queue create --destination ${senderLabel} --summary "<one line>" --body "..." --verify`
-    : `↩ Reply: rig send ${senderLabel} "..."`;
+    ? `↩ Reply if needed: SoftwareTeam queue create --destination ${senderLabel} --summary "<one line>" --body "..." --verify`
+    : `↩ Reply: SoftwareTeam send ${senderLabel} "..."`;
   return [...header, "---", body, "---", reply].join("\n");
 }
 
@@ -115,11 +115,11 @@ export function wrapSendBody(
  * A `DaemonConnectionError` proves the resolved target was UNREACHABLE — not
  * why. Daemon down, wrong port, wrong host, firewall, and a wedged event loop
  * are all live explanations, so the action stays diagnostic and asserts no
- * daemon state. It also refuses to oversell `rig status`: with an env URL set,
+ * daemon state. It also refuses to oversell `SoftwareTeam status`: with an env URL set,
  * that command's own probe can report `stopped` for a mere timeout
  * (`daemon-lifecycle.ts:575-585`) — the same false-stopped class this slice
  * exists to remove — so the copy names that limitation instead of hiding it,
- * and gates `rig daemon start` behind operator confirmation.
+ * and gates `SoftwareTeam daemon start` behind operator confirmation.
  *
  * Shared by both local paths so single-seat and fan-out remediation are
  * IDENTICAL BY CONSTRUCTION rather than by hand-maintained duplication.
@@ -140,11 +140,11 @@ function printTransportFailure(err: DaemonConnectionError, opts?: { json?: boole
     ? "Delivery UNCONFIRMED — the daemon may have received and delivered the message."
     : "The message was not sent.";
   const action = timedOut
-    ? "Reconcile by EFFECT before any resend: check the pane/target for the message (rig capture <session>). " +
-      "A resend without checking risks a duplicate. Then 'rig daemon status' for the probe picture."
-    : "Inspect the configured target with 'rig status'; a failed health probe does not prove the daemon is stopped. " +
-      "If the target is wrong, check OPENRIG_URL / RIGGED_URL or daemon.host + daemon.port. " +
-      "If the daemon is confirmed stopped, run 'rig daemon start'.";
+    ? "Reconcile by EFFECT before any resend: check the pane/target for the message (SoftwareTeam capture <session>). " +
+      "A resend without checking risks a duplicate. Then 'SoftwareTeam daemon status' for the probe picture."
+    : "Inspect the configured target with 'SoftwareTeam status'; a failed health probe does not prove the daemon is stopped. " +
+      "If the target is wrong, check SOFTWARETEAM_URL or daemon.host + daemon.port. " +
+      "If the daemon is confirmed stopped, run 'SoftwareTeam daemon start'.";
   if (opts?.json) {
     console.log(JSON.stringify({ error: { fact, consequence, action } }));
     return;
@@ -157,7 +157,7 @@ function printTransportFailure(err: DaemonConnectionError, opts?: { json?: boole
 /** Ordinary messages require content; explicit key input only requires nonzero bytes. */
 export function refuseEmptyMessage(body: string, verb: "send" | "broadcast", json = false, explicitInteraction = false): boolean {
   if (explicitInteraction ? body.length > 0 : body.trim().length > 0) return false;
-  const fact = `rig ${verb}: message is empty or whitespace-only.`;
+  const fact = `softwareTeam ${verb}: message is empty or whitespace-only.`;
   const consequence = "The message transport did not run and nothing was delivered.";
   const action = "Check whether shell backtick or $() substitution collapsed the argument, or whether a --body-file/stdin source resolved to 0 bytes; provide non-empty content.";
   if (json) {
@@ -172,8 +172,7 @@ export function refuseEmptyMessage(body: string, verb: "send" | "broadcast", jso
 /** qitem-c113bd41 — the LOCAL send target. The status probe is advisory,
  *  never authoritative: a busy/wedged daemon fails the probe while the
  *  transport would succeed (the false-daemon-down incident). Resolution:
- *  the configured env alias FIRST (exact string, custom port preserved;
- *  OPENRIG_URL wins over legacy RIGGED_URL), else the status/state-derived
+ *  SOFTWARETEAM_URL FIRST (exact string, custom port preserved), else the status/state-derived
  *  host:port when the probe found one, else the configured file/default
  *  target (arg-less DaemonClient resolution).
  *  The ACTUAL transport call decides success — its DaemonConnectionError
@@ -187,7 +186,7 @@ export function refuseEmptyMessage(body: string, verb: "send" | "broadcast", jso
  *  keeps the single-seat and fan-out callers from having to sequence it
  *  identically in two places. */
 async function resolveLocalDaemonUrl(deps: SendDeps): Promise<string> {
-  const envUrl = readOpenRigEnv("OPENRIG_URL", "RIGGED_URL");
+  const envUrl = readSoftwareTeamEnv("SOFTWARETEAM_URL");
   if (envUrl) return envUrl;
   const status = await getDaemonStatus(deps.lifecycleDeps);
   if (status.state === "running" && status.port !== undefined) return getDaemonUrl(status);
@@ -230,37 +229,37 @@ export function sendCommand(depsOverride?: SendDeps): Command {
 
   cmd
     // OPR.0.4.3.30 — both positionals are optional so the message can stand alone with a
-    // targeting flag (`rig send --pod x "text"`). Disambiguated in the action: with a
+    // targeting flag (`SoftwareTeam send --pod x "text"`). Disambiguated in the action: with a
     // targeting flag the FIRST positional IS the message; without one it's `<session> <text>`.
-    .argument("[session]", "Target session name for a single-seat send (e.g. dev-impl@my-rig)")
+    .argument("[session]", "Target session name for a single-seat send (e.g. dev-impl@my-software-team)")
     .argument("[text]", "Message text to send")
     .option("--to <sessions>", "Multi-recipient: comma-list or repeated (--to a,b or --to a --to b)", collectSessions, [] as string[])
     .option("--pod <name>", "Send to every seat in a pod (fan-out, per-recipient results)")
-    .option("--rig <name>", "Send to every seat in a rig (fan-out, per-recipient results)")
+    .option("--software-team <name>", "Send to every seat in a softwareTeam (fan-out, per-recipient results)")
     .option("--verify", "Verify pane only delivery by checking content after send")
     .option("--force", "Back-compat no-op: a mid-task/busy pane already sends-with-advisory by default; --force never bypasses the interactive-prompt/permission guard")
     .option("--wait-for-idle <seconds>", "Wait until the target is explicitly idle before sending")
     .option("--raw", "Send exact text/keystrokes without the From/To messaging envelope (still guarded against interactive prompts)")
     .option("--dangerously-interact", "DANGEROUS: type an answer as keystrokes into an interactive prompt (implies --raw; requires --reason). Letters can select menu shortcuts; CR/ESC act as keys. Enter is added only for the complete visibly staged answer.")
     .option("--reason <text>", "Why the prompt is being driven (required with --dangerously-interact; recorded in the audit log)")
-    .option("--host <id>", "Send on a remote host declared in ~/.openrig/hosts.yaml (ssh hosts shell out; http hosts go CLI-direct to the remote daemon)")
-    .option("--from <session>", "DEPRECATED + IGNORED (P21 I4). The rendered From:/actor now DERIVES from the transport identity ($OPENRIG_SESSION_NAME, stamped as X-OpenRig-Session) — never a caller-supplied string, which was specimen-5's forgeable surface. Cross-host origin is carried by the relay re-stamping from its authenticated context.")
+    .option("--host <id>", "Send on a remote host declared in ~/.softwareteam/hosts.yaml (ssh hosts shell out; http hosts go CLI-direct to the remote daemon)")
+    .option("--from <session>", "DEPRECATED + IGNORED (P21 I4). The rendered From:/actor now DERIVES from the transport identity ($SOFTWARETEAM_SESSION_NAME, stamped as X-SoftwareTeam-Session) — never a caller-supplied string, which was specimen-5's forgeable surface. Cross-host origin is carried by the relay re-stamping from its authenticated context.")
     .option("--context <ref>", "Deliver a context pack by its path-like ref (e.g. packs/compaction-restore). The resolved content is sent; an oversized ref is flagged as 'walk-sized'.")
     .option("--json", "JSON output for agents")
     .addHelpText("after", `
 Examples:
-  rig send dev-impl@my-rig "Context update: QA approved. Proceed."
-  rig send dev-impl@my-rig "message" --verify
-  rig send --to dev-impl@my-rig,dev-qa@my-rig "message to two seats"
-  rig send --pod dev "message to the whole dev pod"
-  rig send --rig my-rig "message to the whole rig"
-  rig send dev-impl@my-rig "safe proof prompt" --wait-for-idle 30 --verify
-  rig send dev-impl@my-rig "Stop and read the spec." --force
-  rig send dev-impl@my-rig "message" --json
-  rig send --host remote-dev dev-impl@my-rig "remote message" --verify
-  rig send dev-impl@my-rig@vps-b "host-qualified target sugar (suffix must be a registered host id)"
+  SoftwareTeam send dev-impl@my-software-team "Context update: QA approved. Proceed."
+  SoftwareTeam send dev-impl@my-software-team "message" --verify
+  SoftwareTeam send --to dev-impl@my-software-team,dev-qa@my-software-team "message to two seats"
+  SoftwareTeam send --pod dev "message to the whole dev pod"
+  SoftwareTeam send --software-team my-software-team "message to the whole softwareTeam"
+  SoftwareTeam send dev-impl@my-software-team "safe proof prompt" --wait-for-idle 30 --verify
+  SoftwareTeam send dev-impl@my-software-team "Stop and read the spec." --force
+  SoftwareTeam send dev-impl@my-software-team "message" --json
+  SoftwareTeam send --host remote-dev dev-impl@my-software-team "remote message" --verify
+  SoftwareTeam send dev-impl@my-software-team@vps-b "host-qualified target sugar (suffix must be a registered host id)"
 
-Targeting: a bare seat (single send), OR one of --to / --pod / --rig (fan-out).
+Targeting: a bare seat (single send), OR one of --to / --pod / --software-team (fan-out).
 Fan-out reports per-recipient results + an "N/M delivered" summary; one recipient's
 guard refusal does NOT block the others. Each recipient gets its own From/To envelope.
 
@@ -280,7 +279,7 @@ shows no version is evidence about the layout, not the version) and its input
 box held the exact text, word boundaries kept, before Enter and was empty after
 it: the box was cleared, normally by that Enter (a clear by anything else at
 that moment, or a text the agent runs as a command, looks the same). A Claude
-Code seat OpenRig launched counts as idle in any posture it launches when the
+Code seat SoftwareTeam launched counts as idle in any posture it launches when the
 row two above its empty box is the last turn's completion row ("✻ Cooked for 9s
 · done 5:24 PM", time of day today) or, before its first turn, blank under the
 welcome banner; a blank row under transcript text, or anything else there, reads
@@ -306,16 +305,16 @@ answer is visibly staged in a recognized text input. Combining --verify with
 did not detect a prompt or did not report its disposition. Unknown consumption
 is not a send failure.
 
---host sends on a remote host declared in ~/.openrig/hosts.yaml. The host
+--host sends on a remote host declared in ~/.softwareteam/hosts.yaml. The host
 entry's transport decides the path: ssh hosts run the same command via
-single-hop ssh (SSH success is NOT verify success: the remote rig's
+single-hop ssh (SSH success is NOT verify success: the remote softwareTeam's
 'Verified: yes/no' line is what counts and is surfaced verbatim); http hosts
 (e.g. pair-registered) go CLI-direct to the remote daemon's send route — the
 result and verify verdict are the REMOTE's, verbatim. A target of the form
-agent@rig@host is sugar for --host when the suffix is a REGISTERED host id
+agent@software-team@host is sugar for --host when the suffix is a REGISTERED host id
 (explicit --host > target sugar > persisted selection; a conflict between
 --host and the sugar is an error).`)
-    .action(async (session: string | undefined, text: string | undefined, opts: { to?: string[]; pod?: string; rig?: string; verify?: boolean; force?: boolean; waitForIdle?: string; raw?: boolean; dangerouslyInteract?: boolean; reason?: string; host?: string; from?: string; context?: string; json?: boolean }) => {
+    .action(async (session: string | undefined, text: string | undefined, opts: { to?: string[]; pod?: string; softwareTeam?: string; verify?: boolean; force?: boolean; waitForIdle?: string; raw?: boolean; dangerouslyInteract?: boolean; reason?: string; host?: string; from?: string; context?: string; json?: boolean }) => {
       // OPR.0.4.6.MH1 FR-2: selected-host routing — explicit --host wins;
       // else the persisted selection feeds the SHIPPED --host path; no
       // selection = today exactly. OPR.0.4.6.MH4 §4: the raw flag is kept
@@ -347,11 +346,11 @@ agent@rig@host is sugar for --host when the suffix is a REGISTERED host id
         return;
       }
 
-      // OPR.0.4.3.30 — targeting-mode resolution. Exactly one of: a bare seat, --to, --pod, --rig.
+      // OPR.0.4.3.30 — targeting-mode resolution. Exactly one of: a bare seat, --to, --pod, --software-team.
       const toList = opts.to && opts.to.length > 0 ? opts.to : undefined;
-      const fanModes = [toList ? "to" : null, opts.pod ? "pod" : null, opts.rig ? "rig" : null].filter(Boolean);
+      const fanModes = [toList ? "to" : null, opts.pod ? "pod" : null, opts.softwareTeam ? "softwareTeam" : null].filter(Boolean);
       if (fanModes.length > 1) {
-        console.error("Choose exactly ONE target: a seat, --to, --pod, or --rig (not several).");
+        console.error("Choose exactly ONE target: a seat, --to, --pod, or --software-team (not several).");
         process.exitCode = 1;
         return;
       }
@@ -361,7 +360,7 @@ agent@rig@host is sugar for --host when the suffix is a REGISTERED host id
       // cross-host --context are follow-ons). Reject loudly rather than silently
       // dropping the requested context.
       if (opts.context && (isFanOut || opts.host)) {
-        console.error("--context is supported on a single-seat LOCAL send in v1 (not with --to/--pod/--rig or --host).");
+        console.error("--context is supported on a single-seat LOCAL send in v1 (not with --to/--pod/--software-team or --host).");
         process.exitCode = 1;
         return;
       }
@@ -369,7 +368,7 @@ agent@rig@host is sugar for --host when the suffix is a REGISTERED host id
       const deps = getDeps();
 
       // P18 DELIVER-AND-LABEL — the seat boundary no longer refuses. Resolve the sender from the seat env
-      // (OPENRIG_SESSION_NAME/RIGGED_SESSION_NAME; --from is deprecated + ignored); when it is unresolvable
+      // (SOFTWARETEAM_SESSION_NAME/SOFTWARETEAM_SESSION_NAME; --from is deprecated + ignored); when it is unresolvable
       // the dispatch STILL proceeds carrying the honest `<unknown sender>` marker and a NULL actorSession —
       // never a forged actor. `seatSender` is therefore `string | undefined` and is threaded through every
       // dispatch path (fan-out, cross-host, single-seat). Mirrors the daemon half, which delivers-and-labels
@@ -380,7 +379,7 @@ agent@rig@host is sugar for --host when the suffix is a REGISTERED host id
         // With a targeting flag the FIRST positional IS the message; a second positional (or a
         // bare seat name) means the caller mixed a single-seat and a fan-out target — reject.
         if (text !== undefined) {
-          console.error("A bare seat name cannot be combined with --to/--pod/--rig. Provide only the message.");
+          console.error("A bare seat name cannot be combined with --to/--pod/--software-team. Provide only the message.");
           process.exitCode = 1;
           return;
         }
@@ -392,23 +391,23 @@ agent@rig@host is sugar for --host when the suffix is a REGISTERED host id
         }
         if (refuseEmptyMessage(message, "send", Boolean(opts.json), Boolean(opts.dangerouslyInteract))) return;
         if (opts.host) {
-          console.error("--host (cross-host) supports single-seat sends only; --to/--pod/--rig are local.");
+          console.error("--host (cross-host) supports single-seat sends only; --to/--pod/--software-team are local.");
           process.exitCode = 1;
           return;
         }
         if (waitForIdleMs !== undefined) {
-          console.error("--wait-for-idle is not supported with a multi/pod/rig target (cumulative wait risks a client timeout). Send single-seat, or drop --wait-for-idle.");
+          console.error("--wait-for-idle is not supported with a multi/pod/SoftwareTeam target (cumulative wait risks a client timeout). Send single-seat, or drop --wait-for-idle.");
           process.exitCode = 1;
           return;
         }
-        await runFanOutSend({ toList, pod: opts.pod, rig: opts.rig, message, opts, deps, seatSender });
+        await runFanOutSend({ toList, pod: opts.pod, softwareTeam: opts.softwareTeam, message, opts, deps, seatSender });
         return;
       }
 
       // --- Single-seat path (byte-identical to pre-0.4.3.30) ---
       // Atom 6b: --context supplies the payload, so <text> is optional with it.
       if (session === undefined || (text === undefined && !opts.context)) {
-        console.error("Usage: rig send <session> <text>  (or rig send <session> --context <ref>, or --to/--pod/--rig <message> for fan-out)");
+        console.error("Usage: SoftwareTeam send <session> <text>  (or SoftwareTeam send <session> --context <ref>, or --to/--pod/--software-team <message> for fan-out)");
         process.exitCode = 1;
         return;
       }
@@ -418,7 +417,7 @@ agent@rig@host is sugar for --host when the suffix is a REGISTERED host id
       const localDaemonUrl = await resolveLocalDaemonUrl(deps);
       const selfHostId = await fetchSelfHostId(deps.lifecycleDeps, localDaemonUrl);
 
-      // OPR.0.4.6.MH4 §4 — the `agent@rig@host` target sugar (single-seat
+      // OPR.0.4.6.MH4 §4 — the `agent@software-team@host` target sugar (single-seat
       // only; the fan-out positional is message text). Suffix must match a
       // REGISTERED host id, else the target passes through unchanged and
       // the hint rides any later failure. Precedence: explicit --host >
@@ -436,13 +435,13 @@ agent@rig@host is sugar for --host when the suffix is a REGISTERED host id
       opts.host = explicitHost ?? targetResolution.sugarHost ?? opts.host;
 
       // Atom 6b QA fix (root cause): re-reject --context on the cross-host path
-      // AFTER the agent@rig@host sugar host folds into opts.host. The early guard
+      // AFTER the agent@software-team@host sugar host folds into opts.host. The early guard
       // runs before resolveCrossHostTarget, so it cannot see the sugar host — the
       // hole that let a sugar-form --context reach the remote argv (shipping a
       // literal null with no message, or silently dropping the context with one).
       // --context is single-seat LOCAL in v1; it is never handed to a remote send.
       if (opts.context && opts.host) {
-        console.error("--context is supported on a LOCAL send in v1 (not with --host or an agent@rig@host cross-host target).");
+        console.error("--context is supported on a LOCAL send in v1 (not with --host or an agent@software-team@host cross-host target).");
         process.exitCode = 1;
         return;
       }
@@ -465,7 +464,7 @@ agent@rig@host is sugar for --host when the suffix is a REGISTERED host id
       const client = deps.clientFactory(localDaemonUrl);
       // P21 I4: the rendered From: (specimen-5's forged surface) derives from the SEAT ENV, never
       // --from. --from is deprecated + ignored here (its cross-host origin-carry is superseded by the
-      // relay re-stamping from its authenticated context). Env == the X-OpenRig-Session the DaemonClient
+      // relay re-stamping from its authenticated context). Env == the X-SoftwareTeam-Session the DaemonClient
       // stamps, so the client-side From: + the body actor stay consistent with the daemon's derived actor.
       const senderSession = seatSender; // P18: seat env identity, or undefined → delivers-and-labels (unknown marker, null actor).
       // --raw (and --dangerously-interact, which implies it) send EXACT text with no messaging envelope.
@@ -490,7 +489,7 @@ agent@rig@host is sugar for --host when the suffix is a REGISTERED host id
         if (warn && !opts.json) console.log(`Advisory: ${warn}`);
       }
       if (refuseEmptyMessage(payload, "send", Boolean(opts.json), Boolean(opts.dangerouslyInteract))) return;
-      // Send/broadcast header (ruling 03c35295): a directed `rig send` is a DM — stamp it at send-time
+      // Send/broadcast header (ruling 03c35295): a directed `SoftwareTeam send` is a DM — stamp it at send-time
       // (Sent: MM-DD HH:MMZ) so transcripts are timestamped; the To line stays the single recipient.
       const outboundText = raw ? payload : wrapSendBody(senderSession, session, payload, { stampISO: new Date().toISOString() });
       let res: { status: number; data: Record<string, unknown> };
@@ -580,7 +579,7 @@ agent@rig@host is sugar for --host when the suffix is a REGISTERED host id
           } else if (outcome === "delivered") {
             console.log("Delivery: delivered (message landed; render confirmed)");
           } else if (outcome === "rendered-unconfirmed") {
-            console.log(`Delivery: rendered-unconfirmed (landed; pane re-render not confirmed - confirm with: rig capture ${session})`);
+            console.log(`Delivery: rendered-unconfirmed (landed; pane re-render not confirmed - confirm with: SoftwareTeam capture ${session})`);
           }
           for (const line of effectHumanLines(effect, session)) console.log(line);
         }
@@ -687,8 +686,8 @@ function inputBoxDeliveryLine(outcome: string | undefined, inputBox: unknown, se
     return "Delivery: delivered (seat idle before the paste; input box: the exact text before Enter, empty after it, same pane process; not agent acknowledgement)";
   }
   if (outcome !== "rendered-unconfirmed") return null;
-  // `rig capture` is an optional look, never a required follow-up, and nothing here suggests sending again.
-  const look = `not a failure; to look, optionally: rig capture ${session}`;
+  // `SoftwareTeam capture` is an optional look, never a required follow-up, and nothing here suggests sending again.
+  const look = `not a failure; to look, optionally: SoftwareTeam capture ${session}`;
   if (box.before === "unchecked") {
     return `Delivery: rendered-unconfirmed (input box not checked: an audited prompt answer is typed as keys and its box is not read; ${look})`;
   }
@@ -708,9 +707,9 @@ function effectHumanLines(effect: EffectCheck, session: string): string[] {
   if (effect.remedy === "submitted-cleared") {
     out.push("Remedy: one guarded Enter submitted — the staged text left the prompt.");
   } else if (effect.remedy === "submitted-still-staged") {
-    out.push(`Remedy: one guarded Enter submitted, but the text is STILL at the prompt — not consumed; stopping here (one submit is the contract). Inspect with: rig capture ${session}`);
+    out.push(`Remedy: one guarded Enter submitted, but the text is STILL at the prompt — not consumed; stopping here (one submit is the contract). Inspect with: SoftwareTeam capture ${session}`);
   } else {
-    out.push(`Remedy: the single guarded Enter (submit path) was refused (${effect.detail}); stopping here — one submit is the contract. Inspect with: rig capture ${session}`);
+    out.push(`Remedy: the single guarded Enter (submit path) was refused (${effect.detail}); stopping here — one submit is the contract. Inspect with: SoftwareTeam capture ${session}`);
   }
   return out;
 }
@@ -817,26 +816,26 @@ async function runCrossHostSend(
     return;
   }
 
-  // Reconstruct argv for the remote `rig send` invocation. Order is positional
+  // Reconstruct argv for the remote `SoftwareTeam send` invocation. Order is positional
   // first so the remote Commander parses it the same way local does.
-  const argv: string[] = ["rig", "send", session, text];
+  const argv: string[] = ["SoftwareTeam", "send", session, text];
   if (opts.verify) argv.push("--verify");
   if (opts.force) argv.push("--force");
   if (opts.waitForIdle !== undefined) argv.push("--wait-for-idle", opts.waitForIdle);
   if (opts.raw) argv.push("--raw");
   if (opts.dangerouslyInteract) argv.push("--dangerously-interact");
   if (opts.reason !== undefined) argv.push("--reason", opts.reason);
-  // Sender provenance: the ssh relay re-runs `rig send` on the remote, which
+  // Sender provenance: the ssh relay re-runs `SoftwareTeam send` on the remote, which
   // would otherwise resolve ITS OWN session and degrade the envelope sender
   // to "unknown". Carry the origin so the remote envelope names the originating
   // session. Plumbing, not a gate.
-  // P21 I4 rail 2: the origin is THIS relay's authenticated context ($OPENRIG_SESSION_NAME),
+  // P21 I4 rail 2: the origin is THIS relay's authenticated context ($SOFTWARETEAM_SESSION_NAME),
   // never a caller-supplied --from string (deprecated + ignored). NOTE: the remote now derives
-  // From:/actor from ITS X-OpenRig-Session header, so the proper cross-host re-stamp is to set the
-  // remote env (OPENRIG_SESSION_NAME=originTriple) rather than the --from argv below — the argv is a
+  // From:/actor from ITS X-SoftwareTeam-Session header, so the proper cross-host re-stamp is to set the
+  // remote env (SOFTWARETEAM_SESSION_NAME=originTriple) rather than the --from argv below — the argv is a
   // deprecated no-op on the shipped remote pending that runner env-plumbing (flagged to orch).
   const originSender = seatSender; // P18: origin seat env, or undefined → remote renders the unknown-sender marker.
-  // 51-09 increment 3: carry the ORIGIN's full <member>@<rig>@<selfHostId> triple
+  // 51-09 increment 3: carry the ORIGIN's full <member>@<softwareTeam>@<selfHostId> triple
   // so the remote envelope names the ORIGIN host, not the relay's. Append this
   // host's self-id only when the origin isn't already a triple (a --from already
   // carrying an origin triple is preserved verbatim — never re-stamped).
@@ -847,8 +846,8 @@ async function runCrossHostSend(
   if (originTriple) argv.push("--from", originTriple);
   if (opts.json) argv.push("--json");
 
-  // A2 (P23): ADDITIVELY set OPENRIG_SESSION_NAME=<origin triple> on the remote command line so the
-  // remote's rig derives the ORIGIN identity from its env (the shipped derivation path), not its own
+  // A2 (P23): ADDITIVELY set SOFTWARETEAM_SESSION_NAME=<origin triple> on the remote command line so the
+  // remote's softwareTeam derives the ORIGIN identity from its env (the shipped derivation path), not its own
   // seat. --from STAYS on argv above (a pre-I4 remote still reads origin from it; the argv removal is a
   // separate P23-D1-gated increment). Same triple for both, composed once above.
   const result = await runner(host, argv, originTriple ? { originTriple } : {});
@@ -925,7 +924,7 @@ async function runHttpHostSend(
   const shown = unconfirmed ? { ...result, failedStep: "remote-outcome-unknown" as const } : result;
   const unconfirmedGuidance = {
     consequence: "Delivery UNCONFIRMED — the remote daemon may have received and delivered the message.",
-    action: `Check the target before any resend: rig capture ${session} --host ${host.id}. A resend without checking risks a duplicate.`,
+    action: `Check the target before any resend: SoftwareTeam capture ${session} --host ${host.id}. A resend without checking risks a duplicate.`,
   };
 
   if (opts.json) {
@@ -974,7 +973,7 @@ async function runHttpHostSend(
     } else if (outcome === "delivered") {
       console.log("Delivery: delivered (message landed; render confirmed)");
     } else if (outcome === "rendered-unconfirmed") {
-      console.log(`Delivery: rendered-unconfirmed (landed; pane re-render not confirmed - confirm with: rig capture ${session})`);
+      console.log(`Delivery: rendered-unconfirmed (landed; pane re-render not confirmed - confirm with: SoftwareTeam capture ${session})`);
     }
     // S3 wave-1 fix (r2 F2): honest cross-host limit — the verdict above is
     // the REMOTE transport's; the pane-effect check does not run cross-host.
@@ -982,18 +981,18 @@ async function runHttpHostSend(
   }
 }
 
-// OPR.0.4.3.30 — fan-out send (`--to` / `--pod` / `--rig`). Reuses the DAEMON's broadcast
+// OPR.0.4.3.30 — fan-out send (`--to` / `--pod` / `--software-team`). Reuses the DAEMON's broadcast
 // machinery (resolve → per-seat send loop → per-recipient results) via /api/transport/broadcast.
 // The message is sent BARE; the daemon wraps each recipient in its own From/To envelope
 // (envelopeSender). Ruling 03c35295: the daemon now renders the SCALE on the To line —
-// a `--to` multi-send shows the FULL recipient list (WHO got it), a `--rig`/`--pod` shows the
+// a `--to` multi-send shows the FULL recipient list (WHO got it), a `--software-team`/`--pod` shows the
 // broadcast scale — plus a Sent stamp, so a recipient tells DM from broadcast header-alone.
 // --raw / --dangerously-interact send exact text with NO envelope (envelopeSender omitted).
 // Each recipient is guarded INDEPENDENTLY server-side; one refusal never aborts the set.
 async function runFanOutSend(params: {
   toList: string[] | undefined;
   pod: string | undefined;
-  rig: string | undefined;
+  softwareTeam: string | undefined;
   message: string;
   // ba41fea2 — `from` was omitted here while the caller already forwarded it
   // at runtime, so an explicit --from was silently dropped on fan-out only
@@ -1004,7 +1003,7 @@ async function runFanOutSend(params: {
    *  DELIVERS with the `<unknown sender>` marker + null actorSession — no refusal). */
   seatSender: string | undefined;
 }): Promise<void> {
-  const { toList, pod, rig, message, opts, deps, seatSender } = params;
+  const { toList, pod, softwareTeam, message, opts, deps, seatSender } = params;
 
   // qitem-c113bd41 — same advisory-probe/transport-authoritative contract
   // as the single-seat path, including ff13bcdf's lazy probe (see
@@ -1013,7 +1012,7 @@ async function runFanOutSend(params: {
   // P21 I4: the fan-out From: (specimen-5's forged surface, rendered into every recipient's terminal) is
   // DERIVED daemon-side from the transport header — the body envelopeSender is now only the enveloped
   // MARKER (its presence, not its value). So the origin is the seat env, never --from (deprecated +
-  // ignored). Env == the stamped X-OpenRig-Session, so the body actor matches the derived actor.
+  // ignored). Env == the stamped X-SoftwareTeam-Session, so the body actor matches the derived actor.
   const senderSession = seatSender; // P18: seat env identity, or undefined → delivers-and-labels (unknown marker, null actor).
   const raw = Boolean(opts.raw || opts.dangerouslyInteract);
 
@@ -1027,7 +1026,7 @@ async function runFanOutSend(params: {
   };
   if (toList) body.sessions = toList;
   else if (pod) body.pod = pod;
-  else if (rig) body.rig = rig;
+  else if (softwareTeam) body.softwareTeam = softwareTeam;
   // Per-recipient envelope daemon-side unless raw/danger. The marker's PRESENCE (not its value) signals
   // the enveloped fan-out so the daemon derives From: from the transport header; its VALUE is ignored
   // daemon-side (I4). P18: fall open to the `<unknown sender>` marker when the seat is unresolvable so the
@@ -1101,7 +1100,7 @@ async function runFanOutSend(params: {
   // staged-unresolved recipient gets its staged verdict INSTEAD of "sent" —
   // the false delivery claim is suppressed entirely, not qualified.
   for (const r of results) {
-    if (r.outcome === "retained") { console.log(`${r.sessionName}: retained, not delivered; inspect with rig seat held-messages`); continue; }
+    if (r.outcome === "retained") { console.log(`${r.sessionName}: retained, not delivered; inspect with SoftwareTeam seat held-messages`); continue; }
     if (!r.ok) {
       console.log(`${r.sessionName}: FAILED — ${r.error ?? "unknown error"}`);
       continue;

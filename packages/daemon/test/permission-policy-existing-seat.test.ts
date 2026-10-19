@@ -1,4 +1,4 @@
-// `rig policy apply <name> --seat <seat>`: a seat's permission_policy can change after the rig was
+// `softwareTeam policy apply <name> --seat <seat>`: a seat's permission_policy can change after the softwareTeam was
 // instantiated. Restore, resume and launches that read the seat's stored state use its STORED
 // attachment, so editing the spec alone never reached an existing seat.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,12 +10,12 @@ import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { createTestApp, migrationsForFullTestDb, mockTmuxAdapter } from "./helpers/test-app.js";
 import type { Hono } from "hono";
-import type { PodRigInstantiator } from "../src/domain/rigspec-instantiator.js";
-import type { RigRepository } from "../src/domain/rig-repository.js";
+import type { PodSoftwareTeamInstantiator } from "../src/domain/software-team-spec-instantiator.js";
+import type { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { NodeLauncher } from "../src/domain/node-launcher.js";
 import { RestoreOrchestrator } from "../src/domain/restore-orchestrator.js";
 import { validatePermissionPolicyRef } from "../src/domain/permission-policy/policy-ref.js";
-import { RigSpecSchema as PodRigSpecSchema } from "../src/domain/rigspec-schema.js";
+import { SoftwareTeamSpecSchema as PodSoftwareTeamSpecSchema } from "../src/domain/software-team-spec-schema.js";
 import { SeatLifecycleService } from "../src/domain/seat-lifecycle-service.js";
 import type { RuntimeAdapter } from "../src/domain/runtime-adapter.js";
 import type { ClaudeResumeAdapter } from "../src/adapters/claude-resume.js";
@@ -80,12 +80,12 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-async function materialize(setup: { podInstantiator: PodRigInstantiator; rigRepo: RigRepository }, name: string, builderPolicy?: string) {
-  const outcome = await setup.podInstantiator.materializeStructured(spec(name, builderPolicy), "/project/rigs/spark");
+async function materialize(setup: { podInstantiator: PodSoftwareTeamInstantiator; softwareTeamRepo: SoftwareTeamRepository }, name: string, builderPolicy?: string) {
+  const outcome = await setup.podInstantiator.materializeStructured(spec(name, builderPolicy), "/project/software-teams/spark");
   if (!outcome.ok) throw new Error(`materialize failed: ${JSON.stringify(outcome)}`);
-  const rigId = outcome.result.rigId;
-  const builder = setup.rigRepo.getRig(rigId)!.nodes.find((n) => n.logicalId === "dev.builder")!;
-  return { rigId, builder };
+  const softwareTeamId = outcome.result.softwareTeamId;
+  const builder = setup.softwareTeamRepo.getSoftwareTeam(softwareTeamId)!.nodes.find((n) => n.logicalId === "dev.builder")!;
+  return { softwareTeamId, builder };
 }
 
 async function applyToSeat(setup: { app: Hono }, seat: string, body: Record<string, unknown>) {
@@ -97,29 +97,29 @@ async function applyToSeat(setup: { app: Hono }, seat: string, body: Record<stri
   const json: Record<string, unknown> = await res.json();
   return { status: res.status, body: json };
 }
-describe("rig policy apply --seat: an existing seat's policy reaches its next restore", () => {
+describe("SoftwareTeam policy apply --seat: an existing seat's policy reaches its next restore", () => {
   it("an OMP seat created with no policy restores at full_bypass after builtin:yolo is applied to it", async () => {
     const setup = createTestApp(db, { podInstantiatorFsOps: fsOps });
     // A seat created with no policy: nothing is attached, so every launch path binds the floor.
     // (No pod: the legacy resume path is the one a test can drive without a live runtime; the pod-aware
     // path reads the same RestoreOrchestrator.resolveRestorePosture.)
-    const rigId = setup.rigRepo.createRig("spark-rig").id;
-    const builder = setup.rigRepo.addNode(rigId, "dev.builder", { runtime: "omp", cwd: "/w" });
-    expect(setup.rigRepo.getNodePolicyProvenance(builder.id)).toBeNull();
-    const session = setup.sessionRegistry.registerSession(builder.id, "dev-builder@spark-rig");
+    const softwareTeamId = setup.softwareTeamRepo.createSoftwareTeam("spark-software-team").id;
+    const builder = setup.softwareTeamRepo.addNode(softwareTeamId, "dev.builder", { runtime: "omp", cwd: "/w" });
+    expect(setup.softwareTeamRepo.getNodePolicyProvenance(builder.id)).toBeNull();
+    const session = setup.sessionRegistry.registerSession(builder.id, "dev-builder@spark-software-team");
     setup.sessionRegistry.updateStatus(session.id, "running");
     db.prepare("UPDATE sessions SET resume_type = 'omp_session_file', resume_token = '/state/builder.jsonl' WHERE id = ?").run(session.id);
-    const snap = setup.snapshotCapture.captureSnapshot(rigId, "manual");
+    const snap = setup.snapshotCapture.captureSnapshot(softwareTeamId, "manual");
 
-    const applied = await applyToSeat(setup, "dev-builder@spark-rig", { ref: "builtin:yolo" });
+    const applied = await applyToSeat(setup, "dev-builder@spark-software-team", { ref: "builtin:yolo" });
     expect(applied.status, JSON.stringify(applied.body)).toBe(200);
     expect(applied.body).toMatchObject({ ok: true, changed: true, from: null, to: "builtin:yolo", launchPosture: "full_bypass" });
 
     // The stored seat now carries exactly what instantiating `permission_policy: builtin:yolo` stores.
-    const reference = await materialize(setup, "reference-rig", "builtin:yolo");
-    expect(setup.rigRepo.getNodePolicyProvenance(builder.id)).toEqual(setup.rigRepo.getNodePolicyProvenance(reference.builder.id));
-    // The seat's own ref (what export and `rig seat status` read) is the new one too.
-    expect(setup.rigRepo.getRig(rigId)!.nodes.find((n) => n.id === builder.id)!.permissionPolicy).toBe("builtin:yolo");
+    const reference = await materialize(setup, "reference-software-team", "builtin:yolo");
+    expect(setup.softwareTeamRepo.getNodePolicyProvenance(builder.id)).toEqual(setup.softwareTeamRepo.getNodePolicyProvenance(reference.builder.id));
+    // The seat's own ref (what export and `softwareTeam seat status` read) is the new one too.
+    expect(setup.softwareTeamRepo.getSoftwareTeam(softwareTeamId)!.nodes.find((n) => n.id === builder.id)!.permissionPolicy).toBe("builtin:yolo");
     const event = db.prepare("SELECT payload FROM events WHERE type = 'node.policy_changed'").get() as { payload: string };
     expect(JSON.parse(event.payload)).toMatchObject({ nodeId: builder.id, from: null, to: "builtin:yolo", reason: "builder needs to run unattended", operator: "operator@spark" });
 
@@ -130,9 +130,9 @@ describe("rig policy apply --seat: an existing seat's policy reaches its next re
       resume: vi.fn(async () => ({ ok: true as const })),
     } as unknown as OmpResumeAdapter;
     const orch = new RestoreOrchestrator({
-      db, rigRepo: setup.rigRepo, sessionRegistry: setup.sessionRegistry, eventBus: setup.eventBus,
+      db, softwareTeamRepo: setup.softwareTeamRepo, sessionRegistry: setup.sessionRegistry, eventBus: setup.eventBus,
       snapshotRepo: setup.snapshotRepo, snapshotCapture: setup.snapshotCapture, checkpointStore: setup.checkpointStore,
-      nodeLauncher: new NodeLauncher({ db, rigRepo: setup.rigRepo, sessionRegistry: setup.sessionRegistry, eventBus: setup.eventBus, tmuxAdapter: tmux }),
+      nodeLauncher: new NodeLauncher({ db, softwareTeamRepo: setup.softwareTeamRepo, sessionRegistry: setup.sessionRegistry, eventBus: setup.eventBus, tmuxAdapter: tmux }),
       tmuxAdapter: tmux,
       claudeResume: { canResume: vi.fn(() => false), resume: vi.fn() } as unknown as ClaudeResumeAdapter,
       codexResume: { canResume: vi.fn(() => false), resume: vi.fn() } as unknown as CodexResumeAdapter,
@@ -146,45 +146,45 @@ describe("rig policy apply --seat: an existing seat's policy reaches its next re
 
   it("validates the ref exactly like a spec does and changes nothing on refusal", async () => {
     const setup = createTestApp(db, { podInstantiatorFsOps: fsOps });
-    const { builder } = await materialize(setup, "spark-rig");
-    setup.sessionRegistry.registerSession(builder.id, "dev-builder@spark-rig");
+    const { builder } = await materialize(setup, "spark-software-team");
+    setup.sessionRegistry.registerSession(builder.id, "dev-builder@spark-software-team");
     for (const ref of ["yolo", "builtin:mystery", "../escape.md", ""]) {
-      const applied = await applyToSeat(setup, "dev-builder@spark-rig", { ref });
+      const applied = await applyToSeat(setup, "dev-builder@spark-software-team", { ref });
       expect(applied.status).toBe(400);
       expect(applied.body).toMatchObject({ ok: false, code: "invalid_policy", message: validatePermissionPolicyRef(ref, "permission_policy") });
     }
     // A custom policy file resolves relative to the spec that declares it; a seat has no such directory.
-    const custom = await applyToSeat(setup, "dev-builder@spark-rig", { ref: "policies/operator.md" });
+    const custom = await applyToSeat(setup, "dev-builder@spark-software-team", { ref: "policies/operator.md" });
     expect(custom).toMatchObject({ status: 400, body: { ok: false, code: "invalid_policy" } });
-    expect(String(custom.body["message"])).toContain("rig spec");
-    const noReason = await applyToSeat(setup, "dev-builder@spark-rig", { ref: "builtin:yolo", reason: " " });
+    expect(String(custom.body["message"])).toContain("SoftwareTeam spec");
+    const noReason = await applyToSeat(setup, "dev-builder@spark-software-team", { ref: "builtin:yolo", reason: " " });
     expect(noReason).toMatchObject({ status: 400, body: { ok: false, code: "missing_reason" } });
-    expect(setup.rigRepo.getNodePolicyProvenance(builder.id)).toBeNull();
+    expect(setup.softwareTeamRepo.getNodePolicyProvenance(builder.id)).toBeNull();
     expect(db.prepare("SELECT COUNT(*) AS n FROM events WHERE type = 'node.policy_changed'").get()).toEqual({ n: 0 });
   });
 
   it("refuses a terminal seat, as spec validation does", async () => {
     const setup = createTestApp(db, { podInstantiatorFsOps: fsOps });
-    const rig = setup.rigRepo.createRig("term-rig");
-    const terminal = setup.rigRepo.addNode(rig.id, "dev.shell", { runtime: "terminal", cwd: "/w" });
-    setup.sessionRegistry.registerSession(terminal.id, "dev-shell@term-rig");
-    const applied = await applyToSeat(setup, "dev-shell@term-rig", { ref: "builtin:yolo" });
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("term-software-team");
+    const terminal = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.shell", { runtime: "terminal", cwd: "/w" });
+    setup.sessionRegistry.registerSession(terminal.id, "dev-shell@term-software-team");
+    const applied = await applyToSeat(setup, "dev-shell@term-software-team", { ref: "builtin:yolo" });
     expect(applied).toMatchObject({ status: 400, body: { ok: false, code: "invalid_policy" } });
     expect(String(applied.body["message"])).toContain("not valid on terminal members");
-    expect(setup.rigRepo.getNodePolicyProvenance(terminal.id)).toBeNull();
+    expect(setup.softwareTeamRepo.getNodePolicyProvenance(terminal.id)).toBeNull();
   });
 
   it("records `none` as the deliberate choice (not absence) and an unchanged re-apply is a no-op", async () => {
     const setup = createTestApp(db, { podInstantiatorFsOps: fsOps });
-    const { builder } = await materialize(setup, "spark-rig", "builtin:yolo");
-    setup.sessionRegistry.registerSession(builder.id, "dev-builder@spark-rig");
-    const applied = await applyToSeat(setup, "dev-builder@spark-rig", { ref: "none" });
+    const { builder } = await materialize(setup, "spark-software-team", "builtin:yolo");
+    setup.sessionRegistry.registerSession(builder.id, "dev-builder@spark-software-team");
+    const applied = await applyToSeat(setup, "dev-builder@spark-software-team", { ref: "none" });
     expect(applied).toMatchObject({ status: 200, body: { ok: true, changed: true, from: "builtin:yolo", to: "none", launchPosture: "floor" } });
-    const reference = await materialize(setup, "reference-rig", "none");
-    expect(setup.rigRepo.getNodePolicyProvenance(builder.id)).toEqual(setup.rigRepo.getNodePolicyProvenance(reference.builder.id));
-    expect(setup.rigRepo.getNodePolicyProvenance(builder.id)).toMatchObject({ origin: "deliberate_none", nodeRef: "none" });
+    const reference = await materialize(setup, "reference-software-team", "none");
+    expect(setup.softwareTeamRepo.getNodePolicyProvenance(builder.id)).toEqual(setup.softwareTeamRepo.getNodePolicyProvenance(reference.builder.id));
+    expect(setup.softwareTeamRepo.getNodePolicyProvenance(builder.id)).toMatchObject({ origin: "deliberate_none", nodeRef: "none" });
 
-    const again = await applyToSeat(setup, "dev-builder@spark-rig", { ref: "none" });
+    const again = await applyToSeat(setup, "dev-builder@spark-software-team", { ref: "none" });
     expect(again).toMatchObject({ status: 200, body: { ok: true, changed: false } });
     expect(db.prepare("SELECT COUNT(*) AS n FROM events WHERE type = 'node.policy_changed'").get()).toEqual({ n: 1 });
   });
@@ -205,39 +205,39 @@ function readyAdapter(runtime: string): RuntimeAdapter {
 // spec's policy (existing behaviour): it rewrites the seat's stored attachment, which later restores
 // read, but not the seat's raw ref, which export reads. These pin that split as it is today; they do
 // not fix it.
-describe("rig policy apply --seat, then a launch from a spec that declares a policy", () => {
+describe("SoftwareTeam policy apply --seat, then a launch from a spec that declares a policy", () => {
   it("the launch and later restores use the spec's policy, while the stored ref and export keep the --seat value", async () => {
     const adapter = readyAdapter("omp");
     const setup = createTestApp(db, { tmux: mockTmuxAdapter(), adapters: { omp: adapter }, podInstantiatorFsOps: fsOps });
-    const { rigId, builder } = await materialize(setup, "spark-rig");
-    const applied = await applyToSeat(setup, "dev-builder@spark-rig", { ref: "builtin:yolo" });
+    const { softwareTeamId, builder } = await materialize(setup, "spark-software-team");
+    const applied = await applyToSeat(setup, "dev-builder@spark-software-team", { ref: "builtin:yolo" });
     expect(applied.status, JSON.stringify(applied.body)).toBe(200);
     // The reported effect says so instead of promising that --seat wins every next launch.
     expect(String(applied.body["effect"])).toContain("a launch from a spec that declares a policy replaces it with the spec's policy, which later restores then use");
-    expect(setup.rigRepo.getNodePolicyProvenance(builder.id)).toMatchObject({ origin: "builtin", launchPosture: "full_bypass", nodeRef: "builtin:yolo" });
+    expect(setup.softwareTeamRepo.getNodePolicyProvenance(builder.id)).toMatchObject({ origin: "builtin", launchPosture: "full_bypass", nodeRef: "builtin:yolo" });
 
     // Launch the same seat from a spec whose member declares `permission_policy: none` (the
     // materialized-seat launch, launchBinding, which the kernel first start also uses).
-    const declared = PodRigSpecSchema.normalize(spec("spark-rig", "none"));
+    const declared = PodSoftwareTeamSpecSchema.normalize(spec("spark-software-team", "none"));
     const pod = declared.pods[0]!;
     const launched = await setup.podInstantiator.launchBinding({
-      rigId, rigSpec: declared, rigRoot: "/project/rigs/spark", pod, member: pod.members[0]!, qualifiedId: "dev.builder", nodeId: builder.id,
+      softwareTeamId, softwareTeamSpec: declared, softwareTeamRoot: "/project/software-teams/spark", pod, member: pod.members[0]!, qualifiedId: "dev.builder", nodeId: builder.id,
     });
     expect(launched.status, JSON.stringify(launched)).toBe("launched");
     // The launch input carries the spec's policy, not the --seat one.
     expect(vi.mocked(adapter.launchHarness)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(adapter.launchHarness).mock.calls[0]![0]).toMatchObject({ nodeId: builder.id, launchPosture: "floor" });
     // The stored provenance is now the spec's; the stored raw ref still holds the --seat value.
-    const reference = await materialize(setup, "reference-rig", "none");
-    const referenceProvenance = setup.rigRepo.getNodePolicyProvenance(reference.builder.id)!;
+    const reference = await materialize(setup, "reference-software-team", "none");
+    const referenceProvenance = setup.softwareTeamRepo.getNodePolicyProvenance(reference.builder.id)!;
     expect(referenceProvenance).toMatchObject({ origin: "deliberate_none", launchPosture: "floor", nodeRef: "none" });
-    expect(setup.rigRepo.getNodePolicyProvenance(builder.id)).toEqual({ ...referenceProvenance, nodeRef: "builtin:yolo" });
-    expect(setup.rigRepo.getRig(rigId)!.nodes.find((n) => n.id === builder.id)!.permissionPolicy).toBe("builtin:yolo");
+    expect(setup.softwareTeamRepo.getNodePolicyProvenance(builder.id)).toEqual({ ...referenceProvenance, nodeRef: "builtin:yolo" });
+    expect(setup.softwareTeamRepo.getSoftwareTeam(softwareTeamId)!.nodes.find((n) => n.id === builder.id)!.permissionPolicy).toBe("builtin:yolo");
 
     // A later restore reads the stored provenance, so it resumes with the spec's policy too.
-    const session = setup.sessionRegistry.getSessionsForRig(rigId).find((s) => s.nodeId === builder.id)!;
+    const session = setup.sessionRegistry.getSessionsForSoftwareTeam(softwareTeamId).find((s) => s.nodeId === builder.id)!;
     db.prepare("UPDATE sessions SET resume_type = 'omp_session_file', resume_token = '/state/builder.jsonl' WHERE id = ?").run(session.id);
-    const snap = setup.snapshotCapture.captureSnapshot(rigId, "manual");
+    const snap = setup.snapshotCapture.captureSnapshot(softwareTeamId, "manual");
     setup.sessionRegistry.updateStatus(session.id, "exited");
     await setup.restoreOrchestrator.restore(snap.id, { adapters: { omp: adapter }, fsOps: { exists: () => true } });
     const resumed = vi.mocked(adapter.launchHarness).mock.calls.find((c) => c[1]?.resumeToken === "/state/builder.jsonl");
@@ -245,11 +245,11 @@ describe("rig policy apply --seat, then a launch from a spec that declares a pol
     expect(resumed![0]).toMatchObject({ nodeId: builder.id, launchPosture: "floor" });
 
     // Export reads the raw ref, so it emits the --seat value, not the policy the seat last launched with.
-    const exported = setup.rigSpecExporter.exportRig(rigId) as { pods: Array<{ members: Array<{ id: string; permissionPolicy?: string }> }> };
+    const exported = setup.softwareTeamSpecExporter.exportSoftwareTeam(softwareTeamId) as { pods: Array<{ members: Array<{ id: string; permissionPolicy?: string }> }> };
     expect(exported.pods[0]!.members.find((m) => m.id === "builder")!.permissionPolicy).toBe("builtin:yolo");
   });
 
-  // `rig launch --retry-startup-from <file>` compares the file's policy with the seat's stored ref,
+  // `SoftwareTeam launch --retry-startup-from <file>` compares the file's policy with the seat's stored ref,
   // so after --seat the file has to carry the new policy.
   async function failedFirstStart() {
     const root = "/fixture/spark";
@@ -269,13 +269,13 @@ describe("rig policy apply --seat, then a launch from a spec that declares a pol
       tmux, adapters: { omp: adapter },
       podInstantiatorFsOps: { exists: (p) => p in files, readFile: (p) => { if (!(p in files)) throw new Error(`Missing ${p}`); return files[p]!; } },
     });
-    const rig = setup.rigRepo.createRig("spark-retry");
-    const seeded = await setup.rigExpansionService.expand({ rigId: rig.id, pod: { id: "dev", label: "Dev", members: [{ id: "shell", agentRef: "builtin:terminal", profile: "none", runtime: "terminal", cwd: root }], edges: [] } });
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("spark-retry");
+    const seeded = await setup.softwareTeamExpansionService.expand({ softwareTeamId: softwareTeam.id, pod: { id: "dev", label: "Dev", members: [{ id: "shell", agentRef: "builtin:terminal", profile: "none", runtime: "terminal", cwd: root }], edges: [] } });
     expect(seeded.ok).toBe(true);
     const member = { id: "builder", agent_ref: "local:agent", profile: "default", runtime: "omp", cwd: root };
-    const added = await setup.podInstantiator.addMemberToPod(rig.id, "dev", member, root);
+    const added = await setup.podInstantiator.addMemberToPod(softwareTeam.id, "dev", member, root);
     expect(added).toMatchObject({ ok: true, result: { node: { status: "failed", logicalId: "dev.builder" } } });
-    const node = setup.rigRepo.getRig(rig.id)!.nodes.find((n) => n.logicalId === "dev.builder")!;
+    const node = setup.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find((n) => n.logicalId === "dev.builder")!;
     expect(adapter.launchHarness).not.toHaveBeenCalled();
     // The failed shell has exited and the seat is cleaned, as the retry requires.
     tmux.probeSession = vi.fn(async () => ({ state: "absent" as const }));
@@ -285,9 +285,9 @@ describe("rig policy apply --seat, then a launch from a spec that declares a pol
 
     const applied = await applyToSeat(setup, "dev-builder@spark-retry", { ref: "builtin:yolo" });
     expect(applied.status, JSON.stringify(applied.body)).toBe(200);
-    const retry = (retryMember: Record<string, unknown>) => setup.app.request(`/api/rigs/${rig.id}/nodes/dev.builder/launch`, {
+    const retry = (retryMember: Record<string, unknown>) => setup.app.request(`/api/software-teams/${softwareTeam.id}/nodes/dev.builder/launch`, {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ retryStartupFrom: { member: retryMember, rigRoot: root } }),
+      body: JSON.stringify({ retryStartupFrom: { member: retryMember, softwareTeamRoot: root } }),
     });
     return { setup, adapter, node, member, retry };
   }

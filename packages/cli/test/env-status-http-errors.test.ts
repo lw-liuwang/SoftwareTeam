@@ -8,7 +8,7 @@ import { STATE_FILE } from "../src/daemon-lifecycle.js";
 import type { StatusDeps } from "../src/commands/status.js";
 
 const cases = [
-  { status: 404, data: { error: "rig_not_found" }, exit: 1 },
+  { status: 404, data: { error: "software_team_not_found" }, exit: 1 },
   { status: 503, data: { error: "service_status_unavailable" }, exit: 2 },
   { status: 200, data: { hasServices: false }, exit: 0 },
   { status: 200, data: { hasServices: true, kind: "compose", projectName: "fixture",
@@ -20,7 +20,7 @@ it.each(cases.flatMap((entry) => [false, true].map((json) => ({ ...entry, json }
   async ({ status, data, exit, json }) => {
     const server = createServer((req, res) => {
       res.setHeader("content-type", "application/json");
-      if (req.url === "/api/rigs/summary") res.end(JSON.stringify([{ id: "fixture-id", name: "fixture" }]));
+      if (req.url === "/api/software-teams/summary") res.end(JSON.stringify([{ id: "fixture-id", name: "fixture" }]));
       else { res.statusCode = status; res.end(JSON.stringify(data)); }
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -40,7 +40,7 @@ it.each(cases.flatMap((entry) => [false, true].map((json) => ({ ...entry, json }
     try {
       const program = new Command();
       program.addCommand(envCommand(deps));
-      await program.parseAsync(["node", "rig", "env", "status", "fixture", ...(json ? ["--json"] : [])]);
+      await program.parseAsync(["node", "softwareTeam", "env", "status", "fixture", ...(json ? ["--json"] : [])]);
       expect(process.exitCode ?? 0).toBe(exit);
       if (json) expect(JSON.parse(String(output.mock.calls[0]?.[0]))).toEqual(data);
       else if (status >= 400) {
@@ -48,7 +48,7 @@ it.each(cases.flatMap((entry) => [false, true].map((json) => ({ ...entry, json }
         expect(output).not.toHaveBeenCalled();
       } else {
         expect(error).not.toHaveBeenCalled();
-        expect(output).toHaveBeenCalledWith(data.hasServices ? "Env: compose (fixture)" : "No services configured for this rig.");
+        expect(output).toHaveBeenCalledWith(data.hasServices ? "Env: compose (fixture)" : "No services configured for this softwareTeam.");
       }
     } finally {
       output.mockRestore(); error.mockRestore(); process.exitCode = previousExit;

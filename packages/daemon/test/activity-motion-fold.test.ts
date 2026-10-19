@@ -63,7 +63,7 @@ function mkMotion(
       isActiveWithinWindow === null
         ? null
         : {
-          paneId: "s@rig",
+          paneId: "s@software-team",
           isActiveWithinWindow,
           silenceWindowSeconds: 3,
           lastObservedAt: "2026-08-11T04:52:00.000Z",
@@ -95,7 +95,7 @@ function hook(state: AgentActivity["state"], reason: string, extra: Partial<Agen
 const store = (activity: AgentActivity | null) => ({ getLatestForNode: () => activity }) as never;
 
 async function activityOf(deps: Record<string, unknown>, runtime = "claude-code"): Promise<AgentActivity> {
-  const out = (await attachAgentActivity(entries("s@rig", runtime), { now: NOW, ...deps } as never)) as Array<{
+  const out = (await attachAgentActivity(entries("s@software-team", runtime), { now: NOW, ...deps } as never)) as Array<{
     agentActivity: AgentActivity;
   }>;
   return out[0]!.agentActivity;

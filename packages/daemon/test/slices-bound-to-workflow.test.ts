@@ -93,7 +93,7 @@ describe("GET /api/slices?boundToWorkflow=<name>:<version>", () => {
       workflowSpecsSchema, workflowInstancesSchema, workflowStepTrailsSchema,
       missionControlActionsSchema,
     ]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     const base = fs.mkdtempSync(path.join(os.tmpdir(), "slices-bound-test-"));
     cleanupDir = base;
     slicesRoot = path.join(base, "slices");
@@ -215,7 +215,7 @@ describe("qitem-ccf87c0d — boundToWorkflow total queue-scan load contract", ()
       queueTransitionsSchema, workflowSpecsSchema, workflowInstancesSchema,
       workflowStepTrailsSchema, missionControlActionsSchema,
     ]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-load', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-load', 'softwareTeam')`).run();
     ensureQitem(db, "q-lone", "matches nothing");
     const base = fs.mkdtempSync(path.join(os.tmpdir(), "btw-load-"));
     const slicesRoot = path.join(base, "missions");
@@ -228,10 +228,10 @@ describe("qitem-ccf87c0d — boundToWorkflow total queue-scan load contract", ()
     const projector = new SliceDetailProjector({ db, indexer });
     const app = buildApp({ indexer, projector });
     const scans = instrumentQueueScans(db);
-    const res = await app.request("/api/slices?boundToWorkflow=openrig-velocity:1.0");
+    const res = await app.request("/api/slices?boundToWorkflow=softwareteam-velocity:1.0");
     expect(res.status).toBe(200);
     const body = (await res.json()) as { boundToWorkflow: { matched: number; total: number }; slices: unknown[] };
-    expect(body.boundToWorkflow).toEqual({ specName: "openrig-velocity", specVersion: "1.0", matched: 0, total: 40 });
+    expect(body.boundToWorkflow).toEqual({ specName: "softwareteam-velocity", specVersion: "1.0", matched: 0, total: 40 });
     expect(body.slices).toHaveLength(0);
     // Pre-fix on 75245ed6: 2 (cold list batch) + 40x2 (uncached get per
     // filtered slice) = 82. Contract: constant.

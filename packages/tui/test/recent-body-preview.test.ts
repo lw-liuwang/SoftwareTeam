@@ -9,23 +9,23 @@ import type { FleetSnapshot } from "../src/types.js";
 // The recent-transitions route's entries, as the daemon serves them. `bodyPreview` is the daemon's display text
 // derived from the body when the row has no authored summary; an older daemon sends neither it nor a body line.
 const entry = (id: number, fields: Record<string, unknown>) => ({
-  transitionId: id, qitemId: `q-${id}`, ts: `2026-10-16T20:0${id}:00.000Z`, actorSession: "dev-b@rig-a", change: "claimed",
-  summary: null, rig: "rig-a", targetKind: "qitem", target: `q-${id}`, ...fields,
+  transitionId: id, qitemId: `q-${id}`, ts: `2026-10-16T20:0${id}:00.000Z`, actorSession: "dev-b@software-team-a", change: "claimed",
+  summary: null, softwareTeam: "software-team-a", targetKind: "qitem", target: `q-${id}`, ...fields,
 });
 
 async function recentText(entries: unknown[]): Promise<string> {
   const client = new DaemonClient({ baseUrl: "http://fixture", fetchImpl: (async (url) => {
     const u = new URL(String(url));
     if (u.pathname === "/api/queue/recent-transitions") return Response.json(entries);
-    if (u.pathname === "/api/rigs/summary") return Response.json([{ id: "01RIG", name: "rig-a", nodeCount: 2, hasServices: false, latestSnapshotAt: null, latestSnapshotId: null, archivedAt: null, lifecycleState: "running" }]);
-    if (u.pathname === "/api/rigs/01RIG/nodes") return Response.json([]);
+    if (u.pathname === "/api/software-teams/summary") return Response.json([{ id: "01RIG", name: "software-team-a", nodeCount: 2, hasServices: false, latestSnapshotAt: null, latestSnapshotId: null, archivedAt: null, lifecycleState: "running" }]);
+    if (u.pathname === "/api/software-teams/01RIG/nodes") return Response.json([]);
     throw new Error(`Unexpected request: ${u}`);
   }) as typeof fetch });
   let snap: FleetSnapshot = emptySnapshot();
   const view = createViewState({ instanceId: "recent", getSnapshot: () => snap });
-  const refresh = async () => { snap = await hydrateSnapshot(client, undefined, null, null, "rig-a", view.get()); };
+  const refresh = async () => { snap = await hydrateSnapshot(client, undefined, null, null, "software-team-a", view.get()); };
   await refresh();
-  view.dispatch({ type: "drill", resource: "rig", name: "rig-a" });
+  view.dispatch({ type: "drill", resource: "softwareTeam", name: "software-team-a" });
   view.dispatch(parseCommand("tab recent"));
   await refresh();
   const screen = renderScreen(view.get(), snap, { cols: 140, rows: 40 });

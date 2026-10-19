@@ -16,7 +16,7 @@ psRoutes.get("/resources", (c) => {
     return c.json({
       sampledAt: new Date().toISOString(), cpuCount,
       loadAverage: load, loadPerCpu: load ? load.map((value) => value / cpuCount) : null,
-      // Forced archival can hide a rig without stopping its seats. Host load
+      // Forced archival can hide a softwareTeam without stopping its seats. Host load
       // measurements must count those running processes as well.
       runningSeats: psService.getEntries({ includeArchived: true, archivedOnly: false }).reduce((n, entry) => n + entry.runningCount, 0),
       capture: getTranscriptCaptureStats(),
@@ -30,7 +30,7 @@ psRoutes.get("/", (c) => {
   const includeArchived = c.req.query("includeArchived") === "true";
   const archivedOnly = c.req.query("archived") === "only";
   // slice-04: the whole projection + JSON serialization runs as ONE cooperative
-  // lane job (shared with /api/rigs/summary) so a concurrent burst yields the event
+  // lane job (shared with /api/software-teams/summary) so a concurrent burst yields the event
   // loop between jobs and /healthz stays responsive. Only query-flag parsing is here.
   return projectionLane.run(() => c.json(psService.getEntries({ includeArchived, archivedOnly })));
 });

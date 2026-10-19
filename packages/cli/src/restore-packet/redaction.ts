@@ -5,9 +5,9 @@
 //   field-notes/2026-04-27-velocity-claude-from-codex-restore/tools/
 //   codex-jsonl-to-restore-packet.mjs:34-48 (sk-*, gh[pousr]_*,
 //   github_pat_*, Bearer *, base64 ≥40 chars).
-// - `openrig-v0`: the productized v0 policy, identical patterns to
+// - `softwareteam-v0`: the productized v0 policy, identical patterns to
 //   `velocity-v1` but with the canonical name. v0 generator emits
-//   `redaction_policy_id: "openrig-v0"`.
+//   `redaction_policy_id: "softwareteam-v0"`.
 //
 // Redaction is applied to:
 // - transcript content in transcript-latest.md and transcript.md.
@@ -37,7 +37,7 @@ export const SECRET_PATTERNS: readonly RegExp[] = [
 ];
 
 /**
- * Apply the openrig-v0 redaction policy to a string. Returns the input
+ * Apply the softwareteam-v0 redaction policy to a string. Returns the input
  * with each match of the secret patterns replaced by the literal
  * string `[REDACTED]`. Pure function; no side effects.
  *

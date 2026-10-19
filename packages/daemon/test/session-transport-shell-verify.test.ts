@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { TmuxAdapter } from "../src/adapters/tmux.js";
 import { SessionTransport } from "../src/domain/session-transport.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { createFullTestDb } from "./helpers/test-app.js";
 
@@ -24,7 +24,7 @@ describe.skipIf(!nativeAvailable)("terminal send verification through native Bas
   it("confirms a command at a glyph prompt before a later prompt appears", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "shell-verify-"));
     const socket = path.join(root, "tmux.sock");
-    const sessionName = "infra-ui@term-rig";
+    const sessionName = "infra-ui@term-software-team";
     const rc = path.join(root, "bashrc");
     fs.writeFileSync(rc, "PS1='❯ '; unset PROMPT_COMMAND; bind 'set enable-bracketed-paste on'\n");
     const run = async (command: string) => (await exec(command.replace(/^tmux /,
@@ -39,14 +39,14 @@ describe.skipIf(!nativeAvailable)("terminal send verification through native Bas
         await new Promise(resolve => setTimeout(resolve, 20));
       }
       expect(ready).toBe(true);
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const sessionRegistry = new SessionRegistry(db);
-      const rig = rigRepo.createRig("term-rig");
-      const node = rigRepo.addNode(rig.id, "infra.ui", { role: "ui", runtime: "terminal" });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("term-software-team");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "infra.ui", { role: "ui", runtime: "terminal" });
       const session = sessionRegistry.registerSession(node.id, sessionName);
       sessionRegistry.updateStatus(session.id, "running");
       sessionRegistry.updateBinding(node.id, { tmuxSession: sessionName });
-      const transport = new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux });
+      const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux });
       // Hold the command in flight so there is exactly one (historical) shell prompt.
       const result = await transport.send(sessionName, "printf 'SHELL_VERIFY_RECEIPT\\n'; sleep 15", { verify: true });
       const capture = await tmux.capturePaneContent(sessionName, 30);

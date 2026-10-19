@@ -53,7 +53,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
   let projector: ViewProjector;
   let tmp: string;
   let missionsRoot: string;
-  let rigsRoot: string;
+  let softwareTeamsRoot: string;
   let repoDir: string;
   let laneWorktree: string;
   let candidateSha: string;
@@ -70,7 +70,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
   beforeEach(() => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), "exec-view-"));
     missionsRoot = path.join(tmp, "missions");
-    rigsRoot = path.join(tmp, "rigs");
+    softwareTeamsRoot = path.join(tmp, "software-teams");
     fixedNow = new Date("2026-08-29T22:00:00.000Z");
 
     // ---- tmp git repo: candidate = first commit (ancestor of main tip) ----
@@ -124,7 +124,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
       "---\nid: OPR.9.9\nmission: release-9.9\n---\n\n# Fixture mission\n",
     );
     fs.writeFileSync(path.join(missionDir, "mission.yaml"), [
-      "schema: openrig.mission/v0alpha1",
+      "schema: softwareteam.mission/v0alpha1",
       "kind: mission",
       "composition:",
       "  slices:",
@@ -139,7 +139,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
       "",
     ].join("\n"));
     fs.writeFileSync(path.join(missionDir, "slices", "31-alpha", "slice.yaml"), [
-      "schema: openrig.slice/v0alpha1",
+      "schema: softwareteam.slice/v0alpha1",
       "kind: slice",
       "execution:",
       "  wave: WA",
@@ -147,7 +147,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
       "",
     ].join("\n"));
     fs.writeFileSync(path.join(missionDir, "slices", "32-beta", "slice.yaml"), [
-      "schema: openrig.slice/v0alpha1",
+      "schema: softwareteam.slice/v0alpha1",
       "kind: slice",
       "execution:",
       "  wave: WA",
@@ -156,7 +156,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
     ].join("\n"));
 
     // ---- review-artifact registry fixture for slice 31 ----
-    const reviewDir = path.join(rigsRoot, "exec-fixture", "state", "review-fixture");
+    const reviewDir = path.join(softwareTeamsRoot, "exec-fixture", "state", "review-fixture");
     fs.mkdirSync(reviewDir, { recursive: true });
     fs.writeFileSync(
       path.join(reviewDir, "S31-verdict.md"),
@@ -186,7 +186,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
     (projector as unknown as { setExecutionDeps?: (d: unknown) => void }).setExecutionDeps?.({
       db,
       slicesRoot: () => missionsRoot,
-      rigsRoot: () => rigsRoot,
+      softwareTeamsRoot: () => softwareTeamsRoot,
       buildInfo: { semver: null, commit: null, dirty: null, builtAt: null },
       now: () => fixedNow,
       seatActivity: {
@@ -234,9 +234,9 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
       'Wave map.\n```json\n{"format":"wave-map-v1","mission":"release-9.9","waves":[{"id":"WA","slices":["OPR.9.9.31","OPR.9.9.32"],"serialized_order":["OPR.9.9.31","OPR.9.9.32"],"review_model":"author-excluded-r1-r2-wave"}]}\n```\n',
       null, null,
     );
-    // Sessions: both seats present and running (nodes/rigs rows satisfy the FKs).
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('rig-x', 'exec-fixture')`).run();
-    const insertNode = db.prepare(`INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, 'rig-x', ?)`);
+    // Sessions: both seats present and running (nodes/softwareTeams rows satisfy the FKs).
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('software-team-x', 'exec-fixture')`).run();
+    const insertNode = db.prepare(`INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, 'software-team-x', ?)`);
     insertNode.run("n-a", "builder-a");
     insertNode.run("n-b", "builder-b");
     const insertSession = db.prepare(
@@ -261,7 +261,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
     return result.rows[0] as Record<string, unknown>;
   }
 
-  it("answers the six questions in ONE read over the fixture rig (RED at base: the view does not exist)", async () => {
+  it("answers the six questions in ONE read over the fixture softwareTeam (RED at base: the view does not exist)", async () => {
     const doc = await show();
     expect(doc.view).toBe("execution");
     expect(doc.mission).toBe(MISSION);
@@ -611,13 +611,13 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
     // Seat C: arbitration says idle-at-prompt, no rows held — sessions.status
     // deliberately 'superseded' so any status approximation would count 0.
     const t0 = "2026-08-29T21:00:00.000Z";
-    db.prepare(`INSERT INTO nodes (id, rig_id, logical_id) VALUES ('n-c', 'rig-x', 'builder-c')`).run();
+    db.prepare(`INSERT INTO nodes (id, software_team_id, logical_id) VALUES ('n-c', 'software-team-x', 'builder-c')`).run();
     db.prepare(
       `INSERT INTO sessions (id, node_id, session_name, status, last_seen_at, created_at) VALUES ('s-c', 'n-c', 'builder-c@exec-fixture', 'superseded', ?, ?)`,
     ).run(t0, t0);
     arbitratedBySession.set("builder-c@exec-fixture", { activity: "idle-at-prompt", needsInput: { count: 0, reason: null }, decidedBy: "window-sampling", changedAt: "2026-08-29T21:59:00.000Z" });
     // A needs-input seat is NOT capacity even when idle at the prompt.
-    db.prepare(`INSERT INTO nodes (id, rig_id, logical_id) VALUES ('n-d', 'rig-x', 'builder-d')`).run();
+    db.prepare(`INSERT INTO nodes (id, software_team_id, logical_id) VALUES ('n-d', 'software-team-x', 'builder-d')`).run();
     db.prepare(
       `INSERT INTO sessions (id, node_id, session_name, status, last_seen_at, created_at) VALUES ('s-d', 'n-d', 'builder-d@exec-fixture', 'running', ?, ?)`,
     ).run(t0, t0);
@@ -629,7 +629,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
   });
 
   it("Q4 joins candidate FORMS by commit identity: abbreviated built tag matches full and annotated artifacts; off-sha, malformed, and non-resolving inputs floor honestly", async () => {
-    const reviewDir = path.join(rigsRoot, "exec-fixture", "state", "review-fixture");
+    const reviewDir = path.join(softwareTeamsRoot, "exec-fixture", "state", "review-fixture");
     // The S20 production specimen: an ANNOTATED artifact form at the same commit.
     fs.writeFileSync(
       path.join(reviewDir, "S31-annotated.md"),
@@ -662,7 +662,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
   });
 
   it("joins local proof review drops when the shared review registry is unavailable", async () => {
-    fs.rmSync(rigsRoot, { recursive: true });
+    fs.rmSync(softwareTeamsRoot, { recursive: true });
     const proof = path.join(missionsRoot, MISSION, "slices", "31-alpha", "proof");
     fs.mkdirSync(proof);
     const drop = path.join(proof, "rev1-r1.md");
@@ -688,7 +688,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
     for (const daemonCommit of [candidateSha, "0000000000000000000000000000000000000000", null]) {
       const calls: string[][] = [];
       const deps = {
-        db, slicesRoot: () => missionsRoot, rigsRoot: () => rigsRoot,
+        db, slicesRoot: () => missionsRoot, softwareTeamsRoot: () => softwareTeamsRoot,
         buildInfo: { semver: null, commit: daemonCommit, dirty: null, builtAt: null },
         exec: (cmd: string, args: string[]) => {
           calls.push(args);
@@ -701,7 +701,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
       }
       expect(calls.filter(args => args.includes("merge-base")).every(args => args.at(-1) === "main")).toBe(true);
       expect((doc.sources as Record<string, unknown>).build_info).toMatchObject({
-        commit: daemonCommit ?? "INDETERMINATE", basis: expect.stringContaining("OpenRig daemon"),
+        commit: daemonCommit ?? "INDETERMINATE", basis: expect.stringContaining("SoftwareTeam daemon"),
       });
       const legacy = await buildExecutionView(deps, { mission: MISSION });
       const first = (legacy.q4_ladder as Record<string, unknown>[]).find(s => s.slice_id === "OPR.9.9.31")!;
@@ -714,7 +714,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
     const unfolded = git(laneWorktree, "rev-parse", "HEAD");
     db.prepare("UPDATE queue_items SET tags = ? WHERE qitem_id = 'qitem-lane-31'")
       .run(JSON.stringify([`mission:${MISSION}`, "slice:OPR.9.9.31", `candidate:${unfolded}`]));
-    projector.setExecutionDeps({ db, slicesRoot: () => missionsRoot, rigsRoot: () => rigsRoot,
+    projector.setExecutionDeps({ db, slicesRoot: () => missionsRoot, softwareTeamsRoot: () => softwareTeamsRoot,
       buildInfo: { semver: null, commit: candidateSha, dirty: null, builtAt: null } });
     const before = ((await show()).q4_ladder as Record<string, unknown>[]).find(s => s.slice_id === "OPR.9.9.31")!;
     expect(before).toMatchObject({ folded: { value: false }, adopted: { value: false } });
@@ -838,7 +838,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
       // Slice 32 depends on 31 and has its own unmerged build, so its next-up follows 31's merged answer.
       db.prepare("UPDATE queue_items SET tags = ?, state = 'done' WHERE qitem_id = 'qitem-lane-32'")
         .run(JSON.stringify([`mission:${MISSION}`, "slice:OPR.9.9.32", `candidate:${commitOnLane("slice 32 build")}`]));
-      const reviewDir = path.join(rigsRoot, "exec-fixture", "state", "review-fixture");
+      const reviewDir = path.join(softwareTeamsRoot, "exec-fixture", "state", "review-fixture");
       fs.writeFileSync(path.join(reviewDir, "S31-squashed.md"), `---\nslice: 31-alpha\nartifact_type: rev1-r2\nverdict: CLEAR\ncandidate_sha: ${sha}\n---\nCLEAR.\n`);
       return sha;
     };
@@ -987,7 +987,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
     let active = 0;
     let peak = 0;
     const calls: string[][] = [];
-    const doc = await buildExecutionView({ db, slicesRoot: () => missionsRoot, rigsRoot: () => rigsRoot,
+    const doc = await buildExecutionView({ db, slicesRoot: () => missionsRoot, softwareTeamsRoot: () => softwareTeamsRoot,
       buildInfo: { semver: null, commit: candidateSha, dirty: null, builtAt: null },
       exec: async (_cmd, args) => {
         calls.push(args);
@@ -1022,7 +1022,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
     expect(res.status, JSON.stringify(result)).toBe(200);
     expect(result.rows[0].q4_ladder).toHaveLength(3);
     expect(result.rows[0].q4_ladder.every((s: {adopted: {value: string}}) => s.adopted.value === "NOT_APPLICABLE")).toBe(true);
-    expect(result.rows[0].sources.build_info.basis).toContain("OpenRig daemon");
+    expect(result.rows[0].sources.build_info.basis).toContain("SoftwareTeam daemon");
   });
 
   it("uses project-local review drops without joining unbound global artifacts", async () => {
@@ -1034,8 +1034,8 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
     fs.mkdirSync(proof);
     const drop = path.join(proof, "local-review.md");
     fs.writeFileSync(drop, `---\nslice: OPR.9.9.31\nartifact_type: adjudication\nverdict: CLEAR\ncandidate_sha: ${candidateSha}\n---\nProject local.\n`);
-    fs.writeFileSync(path.join(rigsRoot, "exec-fixture", "state", "review-fixture", "S31-verdict.md"), `---\nslice: OPR.9.9.31\nartifact_type: rev1-r2\nverdict: BLOCKING\ncandidate_sha: ${candidateSha}\n---\nUnbound global record.\n`);
-    const doc = await buildExecutionView({ db, slicesRoot: () => missionsRoot, rigsRoot: () => rigsRoot }, { mission: MISSION, project: "demo" });
+    fs.writeFileSync(path.join(softwareTeamsRoot, "exec-fixture", "state", "review-fixture", "S31-verdict.md"), `---\nslice: OPR.9.9.31\nartifact_type: rev1-r2\nverdict: BLOCKING\ncandidate_sha: ${candidateSha}\n---\nUnbound global record.\n`);
+    const doc = await buildExecutionView({ db, slicesRoot: () => missionsRoot, softwareTeamsRoot: () => softwareTeamsRoot }, { mission: MISSION, project: "demo" });
     const local = (doc.q4_ladder as Record<string, unknown>[]).find(s => s.slice_id === "OPR.9.9.31")!.reviewed as Record<string, unknown>;
     expect(local.value).toBe(true);
     expect((local.legs as Record<string, unknown>[]).map(leg => leg.path)).toEqual([drop]);
@@ -1214,7 +1214,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
 
     // 5. Unrelated arrangement-validation failure: valid declared ref beside invalid waves does not fall back to main
     const invalidWavesYaml = [
-      "schema: openrig.mission/v0alpha1",
+      "schema: softwareteam.mission/v0alpha1",
       "kind: mission",
       "composition:",
       "  slices:",
@@ -1243,7 +1243,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
 
     // 5b. Unrelated composition-validation failure: valid declared ref beside invalid composition does not fall back to main
     const invalidCompositionYaml = [
-      "schema: openrig.mission/v0alpha1",
+      "schema: softwareteam.mission/v0alpha1",
       "kind: mission",
       "composition: not-a-mapping",
       "arrangement:",
@@ -1272,7 +1272,7 @@ describe("execution view — S27 (OPR.0.5.6.27)", () => {
     (projector as unknown as { setExecutionDeps: (d: unknown) => void }).setExecutionDeps({
       db,
       slicesRoot: () => missionsRoot,
-      rigsRoot: () => rigsRoot,
+      softwareTeamsRoot: () => softwareTeamsRoot,
       buildInfo: { semver: null, commit: "adopt-commit-sha", dirty: null, builtAt: null },
       now: () => fixedNow,
       seatActivity: { getSeatStateBySession: (s: string) => arbitratedBySession.get(s) ?? null },

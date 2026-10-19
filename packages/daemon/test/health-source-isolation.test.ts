@@ -8,7 +8,7 @@ import { healthRoutes } from "../src/routes/health.js";
 const at = "2026-10-03T12:00:00.000Z";
 const working: HealthObservationSource = {
   name: "context", detectors: ["context.pressure"],
-  read: () => [{ kind: "context-pressure", scope: { type: "seat", rigId: "rig", seatId: "seat" },
+  read: () => [{ kind: "context-pressure", scope: { type: "seat", softwareTeamId: "softwareTeam", seatId: "seat" },
     episodeStartedAt: at, lastObservedAt: at, sourceName: "test", continuity: "same",
     source: boundHealthEvidence([{ type: "context-usage", sourceOrder: 0, observedAt: at,
       nodeId: "seat", sessionId: "session", usedPercentage: 99, available: true, fresh: true }],

@@ -1,28 +1,28 @@
-import { selectCatalogProject, inferCatalogProject, rigFromSession, ProjectReadError } from "@openrig/daemon/project-catalog";
+import { selectCatalogProject, inferCatalogProject, softwareTeamFromSession, ProjectReadError } from "@softwareteam/daemon/project-catalog";
 import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { projectMissionsRoot, readFrontmatter, resolveNodeFile } from "./scope/scope-fs.js";
-import { readProjectSkillSelection } from "@openrig/daemon/skill-loadout";
+import { readProjectSkillSelection } from "@softwareteam/daemon/skill-loadout";
 import {
   parseContextSelection,
   resolveSystemWorld,
   type SystemWorldContextSelection,
   type SystemWorldSource,
-} from "@openrig/daemon/system-world";
+} from "@softwareteam/daemon/system-world";
 import {
   LifecycleManifestValidationError,
   validateMissionComposition,
-} from "@openrig/daemon/project-lifecycle";
+} from "@softwareteam/daemon/project-lifecycle";
 
 const SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
 export type WorkInstallSource = "explicit" | "manifest" | "default";
 export type WorkInstallAltitude = "project" | "mission" | "slice";
 /** How the project was chosen: --project, the only catalog entry, the calling
- *  rig's catalog association, the deepest catalog root containing the working
- *  directory, the only entry no rig claims, or the uncatalogued workspace itself. */
-export type WorkInstallSelectedBy = "explicit" | "single" | "rig" | "cwd" | "unclaimed" | "workspace";
+ *  softwareTeam's catalog association, the deepest catalog root containing the working
+ *  directory, the only entry no softwareTeam claims, or the uncatalogued workspace itself. */
+export type WorkInstallSelectedBy = "explicit" | "single" | "softwareTeam" | "cwd" | "unclaimed" | "workspace";
 
 export interface WorkInstallPiece {
   altitude: WorkInstallAltitude;
@@ -270,7 +270,7 @@ export function resolveWorkPosition(opts: {
     if (err.code !== "project_required") return failure(err.code, err.message, err.candidates);
     try {
       ({ id: projectId, root: projectRoot, selectedBy } = inferCatalogProject(
-        catalogPath, err, { rigName: rigFromSession(opts.sessionName), cwd: opts.cwd }, warnings));
+        catalogPath, err, { softwareTeamName: softwareTeamFromSession(opts.sessionName), cwd: opts.cwd }, warnings));
     } catch (inferErr) {
       if (!(inferErr instanceof ProjectReadError)) throw inferErr;
       return failure(inferErr.code, inferErr.message, inferErr.candidates);

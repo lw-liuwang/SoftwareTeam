@@ -7,14 +7,14 @@
 //
 //   local live       → `tmux attach -t <session>` (tmux = the daemon-resolved
 //                      absolute path when the context carries one)
-//   view-only / cross-rig (read-only)
+//   view-only / cross-softwareTeam (read-only)
 //                    → `tmux attach -r -t <session>`
 //   ssh host         → `ssh <dest> tmux attach [-r] -t <session>`
 //   http host        → NO pane; honest-degrade { seat, host, reason }
 //   dead / no session → absent[] (named, never silently dropped)
 //
 // The composer takes members that already carry a STRUCTURED `host` field (a
-// host id, never a `member@rig@host` string — MH BR-1). Host classification
+// host id, never a `member@software-team@host` string — MH BR-1). Host classification
 // (ssh vs http vs unknown) is resolved through the operator's read-only hosts
 // registry via the injected `resolveHost`.
 
@@ -29,14 +29,14 @@ import type {
 /**
  * Default panes per grid page (3×3), used when a provider declares no page size
  * of its own (cmux). Herdr declares 16 (4×4). Overflow spills to the next
- * provider tab/page. A future per-rig `terminal.tiles_per_page` config key is the
+ * provider tab/page. A future per-softwareTeam `terminal.tiles_per_page` config key is the
  * natural seam for a layout choice; no config key ships here.
  */
 export const PANES_PER_PAGE = 9;
 
 /**
  * One resolved member of a view, ready to compose. `alive` and `readOnly` are
- * decided upstream (liveness probe + cross-rig/saved-read-only policy); the
+ * decided upstream (liveness probe + cross-softwareTeam/saved-read-only policy); the
  * composer only routes on them. `host` is a structured host id or null (local).
  */
 export interface ViewMemberInput {
@@ -50,7 +50,7 @@ export interface ViewMemberInput {
   tmuxSession: string | null;
   /** Structured host id when remote; null for a local seat. */
   host: string | null;
-  /** View-only / cross-rig membership → read-only (`-r`) attach. */
+  /** View-only / cross-softwareTeam membership → read-only (`-r`) attach. */
   readOnly: boolean;
   /** Local liveness (has-session). Ignored for remote members (reachability is an ssh concern). */
   alive: boolean;

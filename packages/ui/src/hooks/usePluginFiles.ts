@@ -7,7 +7,7 @@
 //
 // Same react-query shape as useFilesList / useFilesRead but the daemon
 // returns response objects scoped to a single plugin (no allowlist root
-// concept). Plugins live outside the operator's OPENRIG_FILES_ALLOWLIST,
+// concept). Plugins live outside the operator's SOFTWARETEAM_FILES_ALLOWLIST,
 // so this is the only way to browse plugin folder contents at v0.
 
 import { useQuery } from "@tanstack/react-query";

@@ -1,4 +1,4 @@
-// OPR.0.3.4.1 — rig start: one-command recovery orchestrator tests.
+// OPR.0.3.4.1 — SoftwareTeam start: one-command recovery orchestrator tests.
 // Tests verify composition (slice-02 /api/up called, never private restore),
 // headless flags, honest reporting, kernel invariant, and idempotency.
 
@@ -41,7 +41,7 @@ function captureLogs(fn: () => Promise<void>): Promise<{ logs: string[]; exitCod
   });
 }
 
-describe("rig start (OPR.0.3.4.1)", () => {
+describe("SoftwareTeam start (OPR.0.3.4.1)", () => {
   let server: http.Server;
   let port: number;
   let upBodies: Array<Record<string, unknown>> = [];
@@ -69,24 +69,24 @@ describe("rig start (OPR.0.3.4.1)", () => {
           res.end(JSON.stringify(data));
           return;
         }
-        if (method === "GET" && url === "/api/rigs/summary") {
-          const handler = routes["/api/rigs/summary"];
+        if (method === "GET" && url === "/api/software-teams/summary") {
+          const handler = routes["/api/software-teams/summary"];
           const data = handler ? handler(req, body) : [];
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify(data));
           return;
         }
-        const nodesMatch = method === "GET" && url.match(/^\/api\/rigs\/([^/]+)\/nodes$/);
+        const nodesMatch = method === "GET" && url.match(/^\/api\/software-teams\/([^/]+)\/nodes$/);
         if (nodesMatch) nodesReads++;
-        if (nodesMatch && routes["/api/rigs/:id/nodes"]) {
-          const data = routes["/api/rigs/:id/nodes"]!(req, { _rigId: nodesMatch[1] });
+        if (nodesMatch && routes["/api/software-teams/:id/nodes"]) {
+          const data = routes["/api/software-teams/:id/nodes"]!(req, { _softwareTeamId: nodesMatch[1] });
           const httpStatus = (data as Record<string, unknown> | null)?._httpStatus as number | undefined;
           res.writeHead(httpStatus ?? 200, { "Content-Type": "application/json" });
           res.end(httpStatus ? "{}" : JSON.stringify(data));
           return;
         }
-        if (method === "GET" && url.match(/^\/api\/rigs\/[^/]+$/)) {
-          const handler = routes["/api/rigs/:id"];
+        if (method === "GET" && url.match(/^\/api\/software-teams\/[^/]+$/)) {
+          const handler = routes["/api/software-teams/:id"];
           const data = handler ? handler(req, body) : { sessions: [] };
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify(data));
@@ -100,12 +100,12 @@ describe("rig start (OPR.0.3.4.1)", () => {
           res.end(JSON.stringify(data));
           return;
         }
-        // Id-based plan preview: POST /api/rigs/:id/up (used by rig start candidate discovery)
-        const rigUpMatch = method === "POST" && url.match(/^\/api\/rigs\/([^/]+)\/up$/);
-        if (rigUpMatch) {
-          upBodies.push({ ...body, _rigIdRoute: rigUpMatch[1] });
-          const handler = routes["/api/rigs/:id/up"] ?? routes["/api/up"];
-          const data = handler ? handler(req, { ...body, _rigId: rigUpMatch[1] }) : {};
+        // Id-based plan preview: POST /api/software-teams/:id/up (used by SoftwareTeam start candidate discovery)
+        const softwareTeamUpMatch = method === "POST" && url.match(/^\/api\/software-teams\/([^/]+)\/up$/);
+        if (softwareTeamUpMatch) {
+          upBodies.push({ ...body, _softwareTeamIdRoute: softwareTeamUpMatch[1] });
+          const handler = routes["/api/software-teams/:id/up"] ?? routes["/api/up"];
+          const data = handler ? handler(req, { ...body, _softwareTeamId: softwareTeamUpMatch[1] }) : {};
           const httpStatus = (data as Record<string, unknown>)?._httpStatus as number | undefined;
           res.writeHead(httpStatus ?? 200, { "Content-Type": "application/json" });
           const { _httpStatus: _, ...cleanData } = data as Record<string, unknown>;
@@ -149,23 +149,23 @@ describe("rig start (OPR.0.3.4.1)", () => {
     return prog;
   }
 
-  function setupCandidateRig(name: string, opts?: { lifecycleState?: string; hasToken?: boolean }) {
+  function setupCandidateSoftwareTeam(name: string, opts?: { lifecycleState?: string; hasToken?: boolean }) {
     const lifecycleState = opts?.lifecycleState ?? "recoverable";
     const hasToken = opts?.hasToken ?? true;
-    routes["/api/rigs/summary"] = () => [
-      { id: "rig-1", name, nodeCount: 2, lifecycleState },
+    routes["/api/software-teams/summary"] = () => [
+      { id: "software-team-1", name, nodeCount: 2, lifecycleState },
     ];
-    routes["/api/rigs/:id"] = () => ({ sessions: [{ lastSeenAt: "2026-06-14T12:00:00Z" }] });
+    routes["/api/software-teams/:id"] = () => ({ sessions: [{ lastSeenAt: "2026-06-14T12:00:00Z" }] });
     // When tmux is lost, the boot reconciler marks each session detached: no recorded stop
-    // intent, so --last restores the rig.
-    routes["/api/rigs/:id/nodes"] = () => ["dev.impl", "dev.qa"].map((logicalId) => ({
+    // intent, so --last restores the softwareTeam.
+    routes["/api/software-teams/:id/nodes"] = () => ["dev.impl", "dev.qa"].map((logicalId) => ({
       logicalId, sessionStatus: "detached", storedSessionStatus: "detached", intentionallyStopped: false,
     })) as unknown as Record<string, unknown>;
     // Both plan preview AND apply go through the id-based route.
-    routes["/api/rigs/:id/up"] = (_req, body) => {
+    routes["/api/software-teams/:id/up"] = (_req, body) => {
       if (body.plan === true) {
         return {
-          status: "plan", mode: "restore", rigId: "rig-1", rigName: name,
+          status: "plan", mode: "restore", softwareTeamId: "software-team-1", softwareTeamName: name,
           snapshot: { id: "snap-1", kind: "auto-pre-down", createdAt: "2026-06-14T11:00:00Z" },
           wouldCaptureCurrentState: false,
           nodes: [
@@ -176,8 +176,8 @@ describe("rig start (OPR.0.3.4.1)", () => {
         };
       }
       return {
-        status: "restored", rigId: "rig-1", rigName: name,
-        rigResult: "fully_restored",
+        status: "restored", softwareTeamId: "software-team-1", softwareTeamName: name,
+        softwareTeamResult: "fully_restored",
         nodes: [
           { logicalId: "dev.impl", status: hasToken ? "resumed" : "awaiting-decision", error: hasToken ? undefined : "no token available" },
           { logicalId: "dev.qa", status: "resumed" },
@@ -190,31 +190,31 @@ describe("rig start (OPR.0.3.4.1)", () => {
   // ---- HEADLESS FLAGS ----
 
   it("--last restores all candidates with ZERO prompts", async () => {
-    setupCandidateRig("my-rig");
+    setupCandidateSoftwareTeam("my-software-team");
     const prompt = vi.fn(async () => true);
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd(prompt).parseAsync(["node", "rig", "start", "--last"]);
+      await makeCmd(prompt).parseAsync(["node", "softwareTeam", "start", "--last"]);
     });
     expect(prompt).not.toHaveBeenCalled();
-    const applyBodies = upBodies.filter((b) => b.plan !== true && b._rigIdRoute);
+    const applyBodies = upBodies.filter((b) => b.plan !== true && b._softwareTeamIdRoute);
     expect(applyBodies.length).toBeGreaterThanOrEqual(1);
-    expect(applyBodies[0]!._rigIdRoute).toBe("rig-1");
+    expect(applyBodies[0]!._softwareTeamIdRoute).toBe("software-team-1");
     const output = logs.join("\n");
-    expect(output).toContain("my-rig");
+    expect(output).toContain("my-software-team");
   });
 
-  // ---- --last respects `rig down` (S4-start-last-respects-down) ----
+  // ---- --last respects `SoftwareTeam down` (S4-start-last-respects-down) ----
 
-  // Stopped rigs with restore-usable snapshots. Each seat's /nodes entry carries what #1254
+  // Stopped softwareTeams with restore-usable snapshots. Each seat's /nodes entry carries what #1254
   // exposes: sessionStatus (null when never launched), storedSessionStatus and
-  // intentionallyStopped (set by `rig down` and `rig seat stop`). An all-flagged rig's summary
+  // intentionallyStopped (set by `SoftwareTeam down` and `softwareTeam seat stop`). An all-flagged softwareTeam's summary
   // reads lifecycleState "stopped"; restoreLifecycleState stays "recoverable", so it is a candidate.
   type SeatFixture = { logicalId?: string; sessionStatus?: unknown; storedSessionStatus?: unknown; intentionallyStopped?: unknown };
-  type RigFixture = {
+  type SoftwareTeamFixture = {
     id: string;
     name: string;
     seats: SeatFixture[];
-    // Replaces the /nodes body for this rig; `{ _httpStatus: 404 }` answers 404.
+    // Replaces the /nodes body for this softwareTeam; `{ _httpStatus: 404 }` answers 404.
     nodes?: () => unknown;
     // Answers the apply call instead of a clean restore.
     apply?: () => Record<string, unknown>;
@@ -222,60 +222,60 @@ describe("rig start (OPR.0.3.4.1)", () => {
   const S = (status: string | null, flag: boolean): SeatFixture => ({ sessionStatus: status, storedSessionStatus: status, intentionallyStopped: flag });
   const allFlagged = (seats: SeatFixture[]) => seats.some((s) => s.sessionStatus !== null) && seats.every((s) => s.sessionStatus === null || s.intentionallyStopped === true);
 
-  function setupStoppedRigs(rigs: RigFixture[]) {
-    routes["/api/rigs/summary"] = () => rigs.map((r) => ({
+  function setupStoppedSoftwareTeams(softwareTeams: SoftwareTeamFixture[]) {
+    routes["/api/software-teams/summary"] = () => softwareTeams.map((r) => ({
       id: r.id, name: r.name, nodeCount: r.seats.length,
       lifecycleState: allFlagged(r.seats) ? "stopped" : "recoverable",
       restoreLifecycleState: "recoverable",
     })) as unknown as Record<string, unknown>;
-    routes["/api/rigs/:id"] = () => ({ sessions: [] });
-    routes["/api/rigs/:id/nodes"] = (_req, body) => {
-      const rig = rigs.find((r) => r.id === body._rigId)!;
-      if (rig.nodes) return rig.nodes() as Record<string, unknown>;
-      return rig.seats.map((seat, i) => ({ logicalId: `dev.seat${i}`, ...seat })) as unknown as Record<string, unknown>;
+    routes["/api/software-teams/:id"] = () => ({ sessions: [] });
+    routes["/api/software-teams/:id/nodes"] = (_req, body) => {
+      const softwareTeam = softwareTeams.find((r) => r.id === body._softwareTeamId)!;
+      if (softwareTeam.nodes) return softwareTeam.nodes() as Record<string, unknown>;
+      return softwareTeam.seats.map((seat, i) => ({ logicalId: `dev.seat${i}`, ...seat })) as unknown as Record<string, unknown>;
     };
-    routes["/api/rigs/:id/up"] = (_req, body) => {
-      const rig = rigs.find((r) => r.id === body._rigId)!;
+    routes["/api/software-teams/:id/up"] = (_req, body) => {
+      const softwareTeam = softwareTeams.find((r) => r.id === body._softwareTeamId)!;
       if (body.plan === true) {
         return {
-          status: "plan", mode: "restore", rigId: rig.id, rigName: rig.name,
-          snapshot: { id: `snap-${rig.id}`, kind: "auto-pre-down", createdAt: "2026-06-14T11:00:00Z" },
+          status: "plan", mode: "restore", softwareTeamId: softwareTeam.id, softwareTeamName: softwareTeam.name,
+          snapshot: { id: `snap-${softwareTeam.id}`, kind: "auto-pre-down", createdAt: "2026-06-14T11:00:00Z" },
           wouldCaptureCurrentState: false,
           nodes: [{ logicalId: "dev.seat0", intendedAction: "resume-original" }],
           mutated: false,
         };
       }
-      if (rig.apply) return rig.apply();
-      return { status: "restored", rigId: rig.id, rigName: rig.name, rigResult: "fully_restored", nodes: [{ logicalId: "dev.seat0", status: "resumed" }], warnings: [] };
+      if (softwareTeam.apply) return softwareTeam.apply();
+      return { status: "restored", softwareTeamId: softwareTeam.id, softwareTeamName: softwareTeam.name, softwareTeamResult: "fully_restored", nodes: [{ logicalId: "dev.seat0", status: "resumed" }], warnings: [] };
     };
   }
-  const rigFixture = (name: string, seats: SeatFixture[], extra?: Partial<RigFixture>): RigFixture => ({ id: `rig-${name}`, name, seats, ...extra });
+  const softwareTeamFixture = (name: string, seats: SeatFixture[], extra?: Partial<SoftwareTeamFixture>): SoftwareTeamFixture => ({ id: `software-team-${name}`, name, seats, ...extra });
 
-  // A full `rig down`: every seat killed and flagged.
-  const DOWNED = rigFixture("downed", [S("exited", true), S("exited", true)]);
-  // `rig down` on a rig with one seat that was never launched.
-  const DOWNED_UNLAUNCHED = rigFixture("downed-unlaunched", [S("exited", true), S(null, false)]);
+  // A full `SoftwareTeam down`: every seat killed and flagged.
+  const DOWNED = softwareTeamFixture("downed", [S("exited", true), S("exited", true)]);
+  // `SoftwareTeam down` on a softwareTeam with one seat that was never launched.
+  const DOWNED_UNLAUNCHED = softwareTeamFixture("downed-unlaunched", [S("exited", true), S(null, false)]);
   // tmux was lost; the boot reconciler marked each session detached.
-  const CRASHED = rigFixture("crashed", [S("detached", false), S("detached", false)]);
-  // Detached, then `rig down` with tmux absence confirmed: flagged and exited on the wire.
-  const DETACHED_DOWN_OK = rigFixture("detached-down-ok", [S("exited", true), S("exited", true)]);
-  // Detached, then `rig down` with the tmux probe unavailable: one seat left detached, unflagged.
-  const DETACHED_DOWN_UNC = rigFixture("detached-down-unc", [S("exited", true), S("detached", false)]);
+  const CRASHED = softwareTeamFixture("crashed", [S("detached", false), S("detached", false)]);
+  // Detached, then `SoftwareTeam down` with tmux absence confirmed: flagged and exited on the wire.
+  const DETACHED_DOWN_OK = softwareTeamFixture("detached-down-ok", [S("exited", true), S("exited", true)]);
+  // Detached, then `SoftwareTeam down` with the tmux probe unavailable: one seat left detached, unflagged.
+  const DETACHED_DOWN_UNC = softwareTeamFixture("detached-down-unc", [S("exited", true), S("detached", false)]);
   // One seat flagged, one ordinary exit.
-  const PARTIAL_EXIT = rigFixture("partial-exit", [S("exited", true), S("exited", false)]);
-  // `rig down` whose kill failed for one seat: that seat stays live and unflagged.
-  const PARTIAL_LIVE = rigFixture("partial-live", [S("exited", true), S("running", false)], {
-    apply: () => ({ _httpStatus: 409, code: "rig_not_stopped", error: "Rig still has live sessions" }),
+  const PARTIAL_EXIT = softwareTeamFixture("partial-exit", [S("exited", true), S("exited", false)]);
+  // `SoftwareTeam down` whose kill failed for one seat: that seat stays live and unflagged.
+  const PARTIAL_LIVE = softwareTeamFixture("partial-live", [S("exited", true), S("running", false)], {
+    apply: () => ({ _httpStatus: 409, code: "software_team_not_stopped", error: "SoftwareTeam still has live sessions" }),
   });
-  // A crash, a failed launch's cleanup, or `rig seat clean`: exited without the flag.
-  const PLAIN_EXITED = rigFixture("plain-exited", [S("exited", false), S("exited", false)]);
+  // A crash, a failed launch's cleanup, or `softwareTeam seat clean`: exited without the flag.
+  const PLAIN_EXITED = softwareTeamFixture("plain-exited", [S("exited", false), S("exited", false)]);
   // A daemon before #1254: no intentionallyStopped key.
-  const OLD_DAEMON = rigFixture("old-daemon", [{ sessionStatus: "exited" }, { sessionStatus: "exited" }]);
+  const OLD_DAEMON = softwareTeamFixture("old-daemon", [{ sessionStatus: "exited" }, { sessionStatus: "exited" }]);
 
-  const appliedRigIds = () => upBodies.filter((b) => b.plan !== true && b._rigIdRoute).map((b) => b._rigIdRoute);
+  const appliedSoftwareTeamIds = () => upBodies.filter((b) => b.plan !== true && b._softwareTeamIdRoute).map((b) => b._softwareTeamIdRoute);
   const jsonResult = (logs: string[]) => JSON.parse(logs.find((l) => l.trim().startsWith("{"))!);
   const runStart = (...args: string[]) => captureLogs(async () => {
-    await makeCmd().parseAsync(["node", "rig", "start", ...args]);
+    await makeCmd().parseAsync(["node", "softwareTeam", "start", ...args]);
   });
 
   // T1 unreadable-status
@@ -284,17 +284,17 @@ describe("rig start (OPR.0.3.4.1)", () => {
     ["an entry with no sessionStatus key", () => [{ logicalId: "dev.seat0", storedSessionStatus: "exited", intentionallyStopped: true }, { logicalId: "dev.seat1", ...S("exited", true) }]],
     ["no inventory route (404)", () => ({ _httpStatus: 404 })],
     ["a non-boolean intentionallyStopped", () => [{ logicalId: "dev.seat0", ...S("exited", true), intentionallyStopped: "yes" }]],
-  ])("--last restores a rig whose seat statuses are unreadable (%s) and warns about it, exit 0", async (_label, nodes) => {
-    const unreadable = rigFixture("unreadable", [S("exited", true), S("exited", true)], { nodes });
-    setupStoppedRigs([unreadable, CRASHED]);
+  ])("--last restores a SoftwareTeam whose seat statuses are unreadable (%s) and warns about it, exit 0", async (_label, nodes) => {
+    const unreadable = softwareTeamFixture("unreadable", [S("exited", true), S("exited", true)], { nodes });
+    setupStoppedSoftwareTeams([unreadable, CRASHED]);
     const { logs, exitCode } = await runStart("--last", "--json");
-    expect(appliedRigIds().sort()).toEqual(["rig-crashed", "rig-unreadable"]);
+    expect(appliedSoftwareTeamIds().sort()).toEqual(["software-team-crashed", "software-team-unreadable"]);
     expect(exitCode).toBeUndefined();
     const parsed = jsonResult(logs);
     expect(parsed.status).toBe("started");
     expect(parsed.previewErrors).toBeUndefined();
     expect(parsed.warnings).toEqual([{
-      rigId: "rig-unreadable", rigName: "unreadable", code: "seat_status_unreadable",
+      softwareTeamId: "software-team-unreadable", softwareTeamName: "unreadable", code: "seat_status_unreadable",
       message: "selected for restore because its seat statuses could not be read",
     }]);
     expect(parsed.keptDown).toEqual([]);
@@ -302,132 +302,132 @@ describe("rig start (OPR.0.3.4.1)", () => {
     upBodies = [];
     const human = await runStart("--last");
     expect(human.exitCode).toBeUndefined();
-    expect(appliedRigIds().sort()).toEqual(["rig-crashed", "rig-unreadable"]);
+    expect(appliedSoftwareTeamIds().sort()).toEqual(["software-team-crashed", "software-team-unreadable"]);
     const output = human.logs.join("\n");
     expect(output).toContain("  unreadable: selected for restore because its seat statuses could not be read");
     expect(output).not.toContain("crashed: could not read");
   });
 
-  it("--all still restores a rig whose seat statuses are unreadable, without reading them", async () => {
-    setupStoppedRigs([rigFixture("unreadable", [S("exited", true)], { nodes: () => ({ error: "inventory unavailable" }) })]);
+  it("--all still restores a SoftwareTeam whose seat statuses are unreadable, without reading them", async () => {
+    setupStoppedSoftwareTeams([softwareTeamFixture("unreadable", [S("exited", true)], { nodes: () => ({ error: "inventory unavailable" }) })]);
     const { logs, exitCode } = await runStart("--all", "--json");
-    expect(appliedRigIds()).toEqual(["rig-unreadable"]);
+    expect(appliedSoftwareTeamIds()).toEqual(["software-team-unreadable"]);
     expect(exitCode).toBeUndefined();
     expect(jsonResult(logs).warnings).toBeUndefined();
     expect(nodesReads).toBe(0);
   });
 
   // T2 confirmed-deliberate-stop
-  it.each([DOWNED, DOWNED_UNLAUNCHED])("--last keeps $name down and names the command that brings it back", async (rig) => {
-    setupStoppedRigs([rig, CRASHED]);
+  it.each([DOWNED, DOWNED_UNLAUNCHED])("--last keeps $name down and names the command that brings it back", async (softwareTeam) => {
+    setupStoppedSoftwareTeams([softwareTeam, CRASHED]);
     const { logs, exitCode } = await runStart("--last");
-    expect(appliedRigIds()).toEqual(["rig-crashed"]);
+    expect(appliedSoftwareTeamIds()).toEqual(["software-team-crashed"]);
     expect(exitCode).toBeUndefined();
-    expect(logs.join("\n")).toContain(`  ${rig.name}: stopped on purpose (with rig down or rig seat stop), so --last leaves it down. Bring it back: rig start --rigs ${rig.name}`);
+    expect(logs.join("\n")).toContain(`  ${softwareTeam.name}: stopped on purpose (with SoftwareTeam down or SoftwareTeam seat stop), so --last leaves it down. Bring it back: SoftwareTeam start --software-teams ${softwareTeam.name}`);
 
     upBodies = [];
     const json = await runStart("--last", "--json");
-    expect(appliedRigIds()).toEqual(["rig-crashed"]);
+    expect(appliedSoftwareTeamIds()).toEqual(["software-team-crashed"]);
     expect(json.exitCode).toBeUndefined();
     const parsed = jsonResult(json.logs);
     expect(parsed.status).toBe("started");
-    expect(parsed.keptDown).toEqual([{ rigName: rig.name, restoreCommand: `rig start --rigs ${rig.name}` }]);
-    expect(parsed.restoredRigs.map((r: { rigName: string }) => r.rigName)).toEqual(["crashed"]);
+    expect(parsed.keptDown).toEqual([{ softwareTeamName: softwareTeam.name, restoreCommand: `SoftwareTeam start --software-teams ${softwareTeam.name}` }]);
+    expect(parsed.restoredSoftwareTeams.map((r: { softwareTeamName: string }) => r.softwareTeamName)).toEqual(["crashed"]);
   });
 
-  it("--last with only a downed rig restores nothing, says so, and exits 0", async () => {
-    setupStoppedRigs([DOWNED]);
+  it("--last with only a downed SoftwareTeam restores nothing, says so, and exits 0", async () => {
+    setupStoppedSoftwareTeams([DOWNED]);
     const { logs, exitCode } = await runStart("--last");
-    expect(appliedRigIds()).toEqual([]);
+    expect(appliedSoftwareTeamIds()).toEqual([]);
     expect(exitCode).toBeUndefined();
     const output = logs.join("\n");
-    expect(output).toContain("  downed: stopped on purpose (with rig down or rig seat stop), so --last leaves it down. Bring it back: rig start --rigs downed");
-    expect(output).toContain("No rigs selected for restore.");
-    expect(output.indexOf("downed: stopped on purpose")).toBeLessThan(output.indexOf("No rigs selected"));
+    expect(output).toContain("  downed: stopped on purpose (with SoftwareTeam down or SoftwareTeam seat stop), so --last leaves it down. Bring it back: SoftwareTeam start --software-teams downed");
+    expect(output).toContain("No softwareTeams selected for restore.");
+    expect(output.indexOf("downed: stopped on purpose")).toBeLessThan(output.indexOf("No softwareTeams selected"));
 
     const json = await runStart("--last", "--json");
     expect(json.exitCode).toBeUndefined();
     const parsed = jsonResult(json.logs);
     expect(parsed.status).toBe("started");
-    expect(parsed.keptDown).toEqual([{ rigName: "downed", restoreCommand: "rig start --rigs downed" }]);
-    expect(parsed.restoredRigs).toEqual([]);
+    expect(parsed.keptDown).toEqual([{ softwareTeamName: "downed", restoreCommand: "SoftwareTeam start --software-teams downed" }]);
+    expect(parsed.restoredSoftwareTeams).toEqual([]);
   });
 
   // T3 detached-then-down
-  it("--last keeps a detached rig down once rig down confirmed its sessions are gone", async () => {
-    setupStoppedRigs([DETACHED_DOWN_OK]);
+  it("--last keeps a detached SoftwareTeam down once SoftwareTeam down confirmed its sessions are gone", async () => {
+    setupStoppedSoftwareTeams([DETACHED_DOWN_OK]);
     const { logs } = await runStart("--last", "--json");
-    expect(appliedRigIds()).toEqual([]);
-    expect(jsonResult(logs).keptDown).toEqual([{ rigName: "detached-down-ok", restoreCommand: "rig start --rigs detached-down-ok" }]);
+    expect(appliedSoftwareTeamIds()).toEqual([]);
+    expect(jsonResult(logs).keptDown).toEqual([{ softwareTeamName: "detached-down-ok", restoreCommand: "SoftwareTeam start --software-teams detached-down-ok" }]);
   });
 
-  it("--last restores a rig with one seat stopped on purpose and one still detached", async () => {
-    setupStoppedRigs([DETACHED_DOWN_UNC]);
+  it("--last restores a SoftwareTeam with one seat stopped on purpose and one still detached", async () => {
+    setupStoppedSoftwareTeams([DETACHED_DOWN_UNC]);
     const { logs, exitCode } = await runStart("--last", "--json");
-    expect(appliedRigIds()).toEqual(["rig-detached-down-unc"]);
+    expect(appliedSoftwareTeamIds()).toEqual(["software-team-detached-down-unc"]);
     expect(exitCode).toBeUndefined();
     expect(jsonResult(logs).keptDown).toEqual([]);
   });
 
   // T4 failed-or-partial-stop
-  it("--last restores a rig with one seat stopped on purpose and one ordinary exit", async () => {
-    setupStoppedRigs([PARTIAL_EXIT]);
+  it("--last restores a SoftwareTeam with one seat stopped on purpose and one ordinary exit", async () => {
+    setupStoppedSoftwareTeams([PARTIAL_EXIT]);
     const { logs, exitCode } = await runStart("--last", "--json");
-    expect(appliedRigIds()).toEqual(["rig-partial-exit"]);
+    expect(appliedSoftwareTeamIds()).toEqual(["software-team-partial-exit"]);
     expect(exitCode).toBeUndefined();
     expect(jsonResult(logs).keptDown).toEqual([]);
   });
 
-  it("--last selects a rig whose rig down failed to kill a seat, and reports rig_not_stopped", async () => {
-    setupStoppedRigs([PARTIAL_LIVE]);
+  it("--last selects a SoftwareTeam whose SoftwareTeam down failed to kill a seat, and reports software_team_not_stopped", async () => {
+    setupStoppedSoftwareTeams([PARTIAL_LIVE]);
     const { logs, exitCode } = await runStart("--last", "--json");
-    expect(appliedRigIds()).toEqual(["rig-partial-live"]);
+    expect(appliedSoftwareTeamIds()).toEqual(["software-team-partial-live"]);
     expect(exitCode).toBe(1);
     const parsed = jsonResult(logs);
     expect(parsed.keptDown).toEqual([]);
-    expect(parsed.restoredRigs).toEqual([{ rigName: "partial-live", status: "rig_not_stopped", nodes: [] }]);
+    expect(parsed.restoredSoftwareTeams).toEqual([{ softwareTeamName: "partial-live", status: "software_team_not_stopped", nodes: [] }]);
   });
 
   // T5 no-CLI-memory
-  it("--last decides from the seats on each run: a rig kept down once is restored once its seats are detached", async () => {
-    const rig = rigFixture("flip", DOWNED.seats);
-    setupStoppedRigs([rig]);
+  it("--last decides from the seats on each run: a SoftwareTeam kept down once is restored once its seats are detached", async () => {
+    const softwareTeam = softwareTeamFixture("flip", DOWNED.seats);
+    setupStoppedSoftwareTeams([softwareTeam]);
     const first = await runStart("--last", "--json");
-    expect(appliedRigIds()).toEqual([]);
-    expect(jsonResult(first.logs).keptDown).toEqual([{ rigName: "flip", restoreCommand: "rig start --rigs flip" }]);
+    expect(appliedSoftwareTeamIds()).toEqual([]);
+    expect(jsonResult(first.logs).keptDown).toEqual([{ softwareTeamName: "flip", restoreCommand: "SoftwareTeam start --software-teams flip" }]);
 
-    rig.seats = CRASHED.seats;
+    softwareTeam.seats = CRASHED.seats;
     const second = await runStart("--last", "--json");
-    expect(appliedRigIds()).toEqual(["rig-flip"]);
+    expect(appliedSoftwareTeamIds()).toEqual(["software-team-flip"]);
     expect(jsonResult(second.logs).keptDown).toEqual([]);
   });
 
-  // T6 all-and-rigs-still-restore
-  it("--all, --rigs and --all --last still restore a rig that was taken down", async () => {
-    setupStoppedRigs([DOWNED, CRASHED]);
+  // T6 all-and-software-teams-still-restore
+  it("--all, --software-teams and --all --last still restore a SoftwareTeam that was taken down", async () => {
+    setupStoppedSoftwareTeams([DOWNED, CRASHED]);
     const all = await runStart("--all", "--json");
-    expect(appliedRigIds().sort()).toEqual(["rig-crashed", "rig-downed"]);
+    expect(appliedSoftwareTeamIds().sort()).toEqual(["software-team-crashed", "software-team-downed"]);
     expect(jsonResult(all.logs).keptDown).toBeUndefined();
 
     upBodies = [];
-    await runStart("--rigs", "downed");
-    expect(appliedRigIds()).toEqual(["rig-downed"]);
+    await runStart("--software-teams", "downed");
+    expect(appliedSoftwareTeamIds()).toEqual(["software-team-downed"]);
 
     upBodies = [];
     const allLast = await runStart("--all", "--last", "--json");
-    expect(appliedRigIds().sort()).toEqual(["rig-crashed", "rig-downed"]);
+    expect(appliedSoftwareTeamIds().sort()).toEqual(["software-team-crashed", "software-team-downed"]);
     expect(jsonResult(allLast.logs).keptDown).toBeUndefined();
   });
 
   // T7 last-only-fetch
-  it("reads /nodes only under --last: never for --all, --rigs or the interactive path", async () => {
-    setupStoppedRigs([DOWNED, CRASHED]);
+  it("reads /nodes only under --last: never for --all, --software-teams or the interactive path", async () => {
+    setupStoppedSoftwareTeams([DOWNED, CRASHED]);
     await runStart("--all");
     expect(nodesReads).toBe(0);
-    await runStart("--rigs", "downed");
+    await runStart("--software-teams", "downed");
     expect(nodesReads).toBe(0);
     await captureLogs(async () => {
-      await makeCmd(async () => false).parseAsync(["node", "rig", "start"]);
+      await makeCmd(async () => false).parseAsync(["node", "softwareTeam", "start"]);
     });
     expect(nodesReads).toBe(0);
     await runStart("--last");
@@ -435,10 +435,10 @@ describe("rig start (OPR.0.3.4.1)", () => {
   });
 
   // T8 pure-exited-restores
-  it.each([PLAIN_EXITED, OLD_DAEMON])("--last restores $name (exited without a recorded stop intent), with no warning", async (rig) => {
-    setupStoppedRigs([rig]);
+  it.each([PLAIN_EXITED, OLD_DAEMON])("--last restores $name (exited without a recorded stop intent), with no warning", async (softwareTeam) => {
+    setupStoppedSoftwareTeams([softwareTeam]);
     const { logs, exitCode } = await runStart("--last", "--json");
-    expect(appliedRigIds()).toEqual([rig.id]);
+    expect(appliedSoftwareTeamIds()).toEqual([softwareTeam.id]);
     expect(exitCode).toBeUndefined();
     const parsed = jsonResult(logs);
     expect(parsed.status).toBe("started");
@@ -469,64 +469,64 @@ describe("rig start (OPR.0.3.4.1)", () => {
   });
 
   it("--all restores all candidates with ZERO prompts", async () => {
-    setupCandidateRig("my-rig");
+    setupCandidateSoftwareTeam("my-software-team");
     const prompt = vi.fn(async () => true);
     const { logs } = await captureLogs(async () => {
-      await makeCmd(prompt).parseAsync(["node", "rig", "start", "--all"]);
+      await makeCmd(prompt).parseAsync(["node", "softwareTeam", "start", "--all"]);
     });
     expect(prompt).not.toHaveBeenCalled();
     const applyBodies = upBodies.filter((b) => b.plan !== true);
     expect(applyBodies.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("--rigs restores only the named rig", async () => {
-    routes["/api/rigs/summary"] = () => [
-      { id: "rig-1", name: "alpha", nodeCount: 1, lifecycleState: "recoverable" },
-      { id: "rig-2", name: "beta", nodeCount: 1, lifecycleState: "recoverable" },
+  it("--software-teams restores only the named softwareTeam", async () => {
+    routes["/api/software-teams/summary"] = () => [
+      { id: "software-team-1", name: "alpha", nodeCount: 1, lifecycleState: "recoverable" },
+      { id: "software-team-2", name: "beta", nodeCount: 1, lifecycleState: "recoverable" },
     ];
-    routes["/api/rigs/:id"] = () => ({ sessions: [] });
-    routes["/api/rigs/:id/up"] = (_req, body) => {
+    routes["/api/software-teams/:id"] = () => ({ sessions: [] });
+    routes["/api/software-teams/:id/up"] = (_req, body) => {
       if (body.plan === true) {
         return {
-          status: "plan", mode: "restore", rigId: body._rigId ?? "rig-x", rigName: "rig",
+          status: "plan", mode: "restore", softwareTeamId: body._softwareTeamId ?? "software-team-x", softwareTeamName: "softwareTeam",
           snapshot: { id: "snap-1", kind: "auto-pre-down", createdAt: "2026-06-14T00:00:00Z" },
           wouldCaptureCurrentState: false,
           nodes: [{ logicalId: "w", intendedAction: "resume-original" }],
           mutated: false,
         };
       }
-      return { status: "restored", rigResult: "fully_restored", nodes: [{ logicalId: "w", status: "resumed" }], warnings: [] };
+      return { status: "restored", softwareTeamResult: "fully_restored", nodes: [{ logicalId: "w", status: "resumed" }], warnings: [] };
     };
 
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "start", "--rigs", "alpha"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "start", "--software-teams", "alpha"]);
     });
-    const applyBodies = upBodies.filter((b) => b.plan !== true && b._rigIdRoute);
+    const applyBodies = upBodies.filter((b) => b.plan !== true && b._softwareTeamIdRoute);
     expect(applyBodies).toHaveLength(1);
-    expect(applyBodies[0]!._rigIdRoute).toBe("rig-1");
+    expect(applyBodies[0]!._softwareTeamIdRoute).toBe("software-team-1");
   });
 
   // ---- COMPOSE, NOT REIMPLEMENT ----
 
-  it("restore goes through /api/rigs/:id/up (id-based route), not a private implementation", async () => {
-    setupCandidateRig("my-rig");
+  it("restore goes through /api/software-teams/:id/up (id-based route), not a private implementation", async () => {
+    setupCandidateSoftwareTeam("my-software-team");
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "start", "--last"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "start", "--last"]);
     });
-    const applyBodies = upBodies.filter((b) => b.plan !== true && b._rigIdRoute);
+    const applyBodies = upBodies.filter((b) => b.plan !== true && b._softwareTeamIdRoute);
     expect(applyBodies.length).toBeGreaterThanOrEqual(1);
-    expect(applyBodies.some((b) => b._rigIdRoute === "rig-1")).toBe(true);
+    expect(applyBodies.some((b) => b._softwareTeamIdRoute === "software-team-1")).toBe(true);
   });
 
   // ---- TOKENLESS INCLUSION (guard rev1 discriminator) ----
 
-  it("a tokenless rig (no resume token, restore-usable snapshot) is LISTED and previewed as awaiting-decision", async () => {
-    setupCandidateRig("tokenless-rig", { hasToken: false });
+  it("a tokenless softwareTeam (no resume token, restore-usable snapshot) is LISTED and previewed as awaiting-decision", async () => {
+    setupCandidateSoftwareTeam("tokenless-software-team", { hasToken: false });
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "start", "--last"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "start", "--last"]);
     });
     const output = logs.join("\n");
-    expect(output).toContain("tokenless-rig");
+    expect(output).toContain("tokenless-software-team");
     expect(output).toContain("awaiting-decision");
     const applyBodies = upBodies.filter((b) => b.plan !== true);
     expect(applyBodies.length).toBeGreaterThanOrEqual(1);
@@ -536,9 +536,9 @@ describe("rig start (OPR.0.3.4.1)", () => {
 
   it("kernel failure -> honest hard-fail, restore NOT attempted", async () => {
     routes["/api/kernel/status"] = () => ({ kernel_state: "auth_blocked", detail: "Claude not authorized" });
-    setupCandidateRig("my-rig");
+    setupCandidateSoftwareTeam("my-software-team");
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "start", "--last"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "start", "--last"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("Kernel failed");
@@ -552,66 +552,66 @@ describe("rig start (OPR.0.3.4.1)", () => {
 
   describe.each([
     { flag: "--last", args: ["--last"] },
-    { flag: "--rigs", args: ["--rigs", "on-demand"] },
+    { flag: "--software-teams", args: ["--software-teams", "on-demand"] },
   ])("intentional stop with $flag", ({ args }) => {
-    it("lists the rig and reports rig_not_stopped even when its display is healthy", async () => {
-      setupCandidateRig("on-demand");
-      routes["/api/rigs/summary"] = () => [{
-        id: "rig-1", name: "on-demand", nodeCount: 2,
+    it("lists the SoftwareTeam and reports software_team_not_stopped even when its display is healthy", async () => {
+      setupCandidateSoftwareTeam("on-demand");
+      routes["/api/software-teams/summary"] = () => [{
+        id: "software-team-1", name: "on-demand", nodeCount: 2,
         lifecycleState: "running", restoreLifecycleState: "degraded",
       }];
-      const preview = routes["/api/rigs/:id/up"]!;
-      routes["/api/rigs/:id/up"] = (req, body) => body.plan === true ? preview(req, body) : {
-        _httpStatus: 409, code: "rig_not_stopped", error: "Rig still has live sessions",
+      const preview = routes["/api/software-teams/:id/up"]!;
+      routes["/api/software-teams/:id/up"] = (req, body) => body.plan === true ? preview(req, body) : {
+        _httpStatus: 409, code: "software_team_not_stopped", error: "SoftwareTeam still has live sessions",
       };
 
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "start", ...args, "--json"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "start", ...args, "--json"]);
       });
       expect(exitCode).toBe(1);
       const result = JSON.parse(logs.find((line) => line.startsWith("{"))!);
-      expect(result.candidates).toEqual([{ rigName: "on-demand", lifecycleState: "degraded" }]);
-      expect(result.restoredRigs).toEqual([{ rigName: "on-demand", status: "rig_not_stopped", nodes: [] }]);
+      expect(result.candidates).toEqual([{ softwareTeamName: "on-demand", lifecycleState: "degraded" }]);
+      expect(result.restoredSoftwareTeams).toEqual([{ softwareTeamName: "on-demand", status: "software_team_not_stopped", nodes: [] }]);
       expect(upBodies.map((body) => body.plan)).toEqual([true, false]);
     });
 
-    it("still skips a rig that becomes fully running after the preview", async () => {
-      setupCandidateRig("on-demand");
+    it("still skips a SoftwareTeam that becomes fully running after the preview", async () => {
+      setupCandidateSoftwareTeam("on-demand");
       let reads = 0;
-      routes["/api/rigs/summary"] = () => [{
-        id: "rig-1", name: "on-demand", nodeCount: 2, lifecycleState: "running",
+      routes["/api/software-teams/summary"] = () => [{
+        id: "software-team-1", name: "on-demand", nodeCount: 2, lifecycleState: "running",
         restoreLifecycleState: ++reads === 1 ? "degraded" : "running",
       }];
 
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "start", ...args, "--json"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "start", ...args, "--json"]);
       });
       expect(exitCode ?? 0).toBe(0);
       const result = JSON.parse(logs.find((line) => line.startsWith("{"))!);
-      expect(result.candidates).toEqual([{ rigName: "on-demand", lifecycleState: "degraded" }]);
-      expect(result.restoredRigs).toEqual([{ rigName: "on-demand", status: "already_running", nodes: [] }]);
+      expect(result.candidates).toEqual([{ softwareTeamName: "on-demand", lifecycleState: "degraded" }]);
+      expect(result.restoredSoftwareTeams).toEqual([{ softwareTeamName: "on-demand", status: "already_running", nodes: [] }]);
       expect(upBodies.map((body) => body.plan)).toEqual([true]);
     });
   });
 
-  it("already-running rig is SKIPPED (not relaunched)", async () => {
-    routes["/api/rigs/summary"] = () => [
-      { id: "rig-1", name: "live-rig", nodeCount: 2, lifecycleState: "running" },
+  it("already-running SoftwareTeam is SKIPPED (not relaunched)", async () => {
+    routes["/api/software-teams/summary"] = () => [
+      { id: "software-team-1", name: "live-software-team", nodeCount: 2, lifecycleState: "running" },
     ];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "start", "--all"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "start", "--all"]);
     });
     const output = logs.join("\n");
-    expect(output).toContain("No rigs to restore");
+    expect(output).toContain("No softwareTeams to restore");
     expect(upBodies.filter((b) => b.plan !== true)).toHaveLength(0);
   });
 
   // ---- UI URL HONESTY ----
 
   it("reports UI URL only when healthz is reachable", async () => {
-    routes["/api/rigs/summary"] = () => [];
+    routes["/api/software-teams/summary"] = () => [];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "start", "--last"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "start", "--last"]);
     });
     const output = logs.join("\n");
     expect(output).toContain(`http://127.0.0.1:${port}`);
@@ -619,16 +619,16 @@ describe("rig start (OPR.0.3.4.1)", () => {
 
   // ---- HONEST TIMEOUT ----
 
-  it("apply-mode timeout reports in-progress/unknown + rig ps, not bare failure", async () => {
-    setupCandidateRig("timeout-rig");
+  it("apply-mode timeout reports in-progress/unknown + SoftwareTeam ps, not bare failure", async () => {
+    setupCandidateSoftwareTeam("timeout-software-team");
     // Override /api/up to throw a timeout for apply
     const throwClient = new DaemonClient(`http://127.0.0.1:${port}`);
     const origPost = throwClient.post.bind(throwClient);
     let planCallCount = 0;
     throwClient.post = async (path: string, body?: unknown, opts?: unknown) => {
       const b = body as Record<string, unknown> | undefined;
-      // Apply now uses the id-based route; throw on any non-plan POST to /api/rigs/:id/up.
-      if (path.match(/^\/api\/rigs\/[^/]+\/up$/) && b?.plan !== true) {
+      // Apply now uses the id-based route; throw on any non-plan POST to /api/software-teams/:id/up.
+      if (path.match(/^\/api\/software-teams\/[^/]+\/up$/) && b?.plan !== true) {
         throw new (await import("../src/client.js")).DaemonConnectionError("request timed out");
       }
       return origPost(path, body, opts);
@@ -639,11 +639,11 @@ describe("rig start (OPR.0.3.4.1)", () => {
     prog.addCommand(startCommand({ ...d, clientFactory: () => throwClient }));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "start", "--last"]);
+      await prog.parseAsync(["node", "softwareTeam", "start", "--last"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("may still be processing");
-    expect(output).toContain("rig ps");
+    expect(output).toContain("SoftwareTeam ps");
     expect(exitCode).toBe(1);
   });
 
@@ -651,12 +651,12 @@ describe("rig start (OPR.0.3.4.1)", () => {
 
   it("only the five slice-02 terms appear in restore output (no new term invented)", async () => {
     const validTerms = ["resumed", "fresh-primed", "awaiting-decision", "attention_required", "failed"];
-    routes["/api/rigs/summary"] = () => [{ id: "r1", name: "term-rig", nodeCount: 3, lifecycleState: "recoverable" }];
-    routes["/api/rigs/:id"] = () => ({ sessions: [] });
-    routes["/api/rigs/:id/up"] = (_req, body) => {
+    routes["/api/software-teams/summary"] = () => [{ id: "r1", name: "term-software-team", nodeCount: 3, lifecycleState: "recoverable" }];
+    routes["/api/software-teams/:id"] = () => ({ sessions: [] });
+    routes["/api/software-teams/:id/up"] = (_req, body) => {
       if (body.plan === true) {
         return {
-          status: "plan", mode: "restore", rigId: "r1", rigName: "term-rig",
+          status: "plan", mode: "restore", softwareTeamId: "r1", softwareTeamName: "term-software-team",
           snapshot: { id: "s1", kind: "auto-pre-down", createdAt: "2026-06-14T00:00:00Z" },
           wouldCaptureCurrentState: false,
           nodes: [
@@ -668,7 +668,7 @@ describe("rig start (OPR.0.3.4.1)", () => {
         };
       }
       return {
-        status: "restored", rigResult: "partially_restored",
+        status: "restored", softwareTeamResult: "partially_restored",
         nodes: [
           { logicalId: "a", status: "resumed" },
           { logicalId: "b", status: "awaiting-decision", error: "no token" },
@@ -679,7 +679,7 @@ describe("rig start (OPR.0.3.4.1)", () => {
     };
 
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "start", "--last"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "start", "--last"]);
     });
     const output = logs.join("\n");
     const statusMatches = output.match(/\b(resumed|fresh-primed|awaiting-decision|attention_required|failed)\b/g) ?? [];
@@ -688,20 +688,20 @@ describe("rig start (OPR.0.3.4.1)", () => {
     }
   });
 
-  // ---- SAME-NAME RIG CANDIDATE DISCOVERY (guard BLOCKING f359e3a3) ----
+  // ---- SAME-NAME SOFTWARE_TEAM CANDIDATE DISCOVERY (guard BLOCKING f359e3a3) ----
 
-  it("two stopped rigs with the same name are BOTH listed as candidates (id-grounded preview, no ambiguous_name drop)", async () => {
-    routes["/api/rigs/summary"] = () => [
-      { id: "rig-1", name: "foo", nodeCount: 1, lifecycleState: "detached" },
-      { id: "rig-2", name: "foo", nodeCount: 1, lifecycleState: "detached" },
+  it("two stopped softwareTeams with the same name are BOTH listed as candidates (id-grounded preview, no ambiguous_name drop)", async () => {
+    routes["/api/software-teams/summary"] = () => [
+      { id: "software-team-1", name: "foo", nodeCount: 1, lifecycleState: "detached" },
+      { id: "software-team-2", name: "foo", nodeCount: 1, lifecycleState: "detached" },
     ];
-    routes["/api/rigs/:id"] = () => ({ sessions: [] });
-    routes["/api/rigs/:id/up"] = (_req, body) => {
-      if (body.plan === true || body._rigId) {
+    routes["/api/software-teams/:id"] = () => ({ sessions: [] });
+    routes["/api/software-teams/:id/up"] = (_req, body) => {
+      if (body.plan === true || body._softwareTeamId) {
         if (body.plan === true) {
           return {
             status: "plan", mode: "restore",
-            rigId: body._rigId ?? "unknown", rigName: "foo",
+            softwareTeamId: body._softwareTeamId ?? "unknown", softwareTeamName: "foo",
             snapshot: { id: "s1", kind: "auto-pre-down", createdAt: "2026-06-14T00:00:00Z" },
             wouldCaptureCurrentState: false,
             nodes: [{ logicalId: "w", intendedAction: "resume-original" }],
@@ -709,57 +709,57 @@ describe("rig start (OPR.0.3.4.1)", () => {
           };
         }
         return {
-          status: "restored", rigResult: "fully_restored",
+          status: "restored", softwareTeamResult: "fully_restored",
           nodes: [{ logicalId: "w", status: "resumed" }],
           warnings: [],
         };
       }
       return {
-        status: "restored", rigResult: "fully_restored",
+        status: "restored", softwareTeamResult: "fully_restored",
         nodes: [{ logicalId: "w", status: "resumed" }],
         warnings: [],
       };
     };
-    // Name-based /api/up would return ambiguous_name 409 for same-name rigs;
-    // rig start should never reach this path for restore since it uses id-based route.
+    // Name-based /api/up would return ambiguous_name 409 for same-name softwareTeams;
+    // SoftwareTeam start should never reach this path for restore since it uses id-based route.
     routes["/api/up"] = () => ({
       _httpStatus: 409,
-      error: 'Multiple rigs named "foo" found',
+      error: 'Multiple softwareTeams named "foo" found',
       code: "ambiguous_name",
     } as never);
 
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "start", "--all"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "start", "--all"]);
     });
     const output = logs.join("\n");
-    // Both should appear — never "No rigs to restore".
-    expect(output).not.toContain("No rigs to restore");
+    // Both should appear — never "No softwareTeams to restore".
+    expect(output).not.toContain("No softwareTeams to restore");
     expect(output).not.toContain("ambiguous_name");
     // The id-based route was used for both preview AND apply.
-    const idBodies = upBodies.filter((b) => b._rigIdRoute);
+    const idBodies = upBodies.filter((b) => b._softwareTeamIdRoute);
     expect(idBodies.length).toBeGreaterThanOrEqual(4); // 2 plan + 2 apply
-    expect(idBodies.some((b) => b._rigIdRoute === "rig-1")).toBe(true);
-    expect(idBodies.some((b) => b._rigIdRoute === "rig-2")).toBe(true);
+    expect(idBodies.some((b) => b._softwareTeamIdRoute === "software-team-1")).toBe(true);
+    expect(idBodies.some((b) => b._softwareTeamIdRoute === "software-team-2")).toBe(true);
     // Name-based /api/up was NOT called for restore.
-    const nameBodies = upBodies.filter((b) => !b._rigIdRoute);
+    const nameBodies = upBodies.filter((b) => !b._softwareTeamIdRoute);
     expect(nameBodies).toHaveLength(0);
   });
 
   // ---- PREVIEW ERROR STATE (guard BLOCKING bfed4ce3) ----
 
   it("preview 500 error under --json -> JSON contains previewErrors + exit 1, not clean empty candidates", async () => {
-    routes["/api/rigs/summary"] = () => [
-      { id: "err-rig-1", name: "broken-rig", nodeCount: 1, lifecycleState: "detached" },
+    routes["/api/software-teams/summary"] = () => [
+      { id: "err-software-team-1", name: "broken-software-team", nodeCount: 1, lifecycleState: "detached" },
     ];
-    routes["/api/rigs/:id"] = () => ({ sessions: [] });
-    routes["/api/rigs/:id/up"] = () => ({
+    routes["/api/software-teams/:id"] = () => ({ sessions: [] });
+    routes["/api/software-teams/:id/up"] = () => ({
       _httpStatus: 500,
       error: "internal server error",
       code: "restore_error",
     });
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "start", "--all", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "start", "--all", "--json"]);
     });
     const jsonLine = logs.find((l) => l.startsWith("{"));
     expect(jsonLine).toBeDefined();
@@ -767,22 +767,22 @@ describe("rig start (OPR.0.3.4.1)", () => {
     expect(parsed.status).toBe("started_with_errors");
     expect(parsed.previewErrors).toBeDefined();
     expect(parsed.previewErrors.length).toBe(1);
-    expect(parsed.previewErrors[0].rigName).toBe("broken-rig");
+    expect(parsed.previewErrors[0].softwareTeamName).toBe("broken-software-team");
     expect(parsed.previewErrors[0].code).toBe("restore_error");
     expect(parsed.candidates).toHaveLength(0);
     expect(exitCode).toBe(1);
   });
 
-  it("mixed case: rig A restores cleanly + rig B preview 500 -> JSON started_with_errors + previewErrors + exit 1", async () => {
-    routes["/api/rigs/summary"] = () => [
-      { id: "rig-ok", name: "ok-rig", nodeCount: 1, lifecycleState: "detached" },
-      { id: "rig-err", name: "err-rig", nodeCount: 1, lifecycleState: "detached" },
+  it("mixed case: softwareTeam A restores cleanly + softwareTeam B preview 500 -> JSON started_with_errors + previewErrors + exit 1", async () => {
+    routes["/api/software-teams/summary"] = () => [
+      { id: "software-team-ok", name: "ok-software-team", nodeCount: 1, lifecycleState: "detached" },
+      { id: "software-team-err", name: "err-software-team", nodeCount: 1, lifecycleState: "detached" },
     ];
-    routes["/api/rigs/:id"] = () => ({ sessions: [] });
-    routes["/api/rigs/:id/up"] = (_req, body) => {
-      if (body._rigId === "rig-ok") {
+    routes["/api/software-teams/:id"] = () => ({ sessions: [] });
+    routes["/api/software-teams/:id/up"] = (_req, body) => {
+      if (body._softwareTeamId === "software-team-ok") {
         return {
-          status: "plan", mode: "restore", rigId: "rig-ok", rigName: "ok-rig",
+          status: "plan", mode: "restore", softwareTeamId: "software-team-ok", softwareTeamName: "ok-software-team",
           snapshot: { id: "s1", kind: "auto-pre-down", createdAt: "2026-06-14T00:00:00Z" },
           wouldCaptureCurrentState: false,
           nodes: [{ logicalId: "w", intendedAction: "resume-original" }],
@@ -792,42 +792,42 @@ describe("rig start (OPR.0.3.4.1)", () => {
       return { _httpStatus: 500, error: "internal server error", code: "restore_error" };
     };
     routes["/api/up"] = () => ({
-      status: "restored", rigResult: "fully_restored",
+      status: "restored", softwareTeamResult: "fully_restored",
       nodes: [{ logicalId: "w", status: "resumed" }],
       warnings: [],
     });
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "start", "--all", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "start", "--all", "--json"]);
     });
     const jsonLine = logs.find((l) => l.startsWith("{"));
     expect(jsonLine).toBeDefined();
     const parsed = JSON.parse(jsonLine!);
     expect(parsed.status).toBe("started_with_errors");
     expect(parsed.previewErrors).toBeDefined();
-    expect(parsed.previewErrors.some((e: { rigName: string }) => e.rigName === "err-rig")).toBe(true);
-    expect(parsed.restoredRigs.some((r: { rigName: string }) => r.rigName === "ok-rig")).toBe(true);
+    expect(parsed.previewErrors.some((e: { softwareTeamName: string }) => e.softwareTeamName === "err-software-team")).toBe(true);
+    expect(parsed.restoredSoftwareTeams.some((r: { softwareTeamName: string }) => r.softwareTeamName === "ok-software-team")).toBe(true);
     expect(exitCode).toBe(1);
   });
 
   // ---- NON-2XX ERROR HANDLING (guard BLOCKING 25661f72) ----
 
-  it("non-2xx /api/up (rig_not_stopped) -> honest error output, nonzero exit, not undefined success", async () => {
-    routes["/api/rigs/summary"] = () => [{ id: "r1", name: "live-rig", nodeCount: 1, lifecycleState: "detached" }];
-    routes["/api/rigs/:id"] = () => ({ sessions: [] });
+  it("non-2xx /api/up (software_team_not_stopped) -> honest error output, nonzero exit, not undefined success", async () => {
+    routes["/api/software-teams/summary"] = () => [{ id: "r1", name: "live-software-team", nodeCount: 1, lifecycleState: "detached" }];
+    routes["/api/software-teams/:id"] = () => ({ sessions: [] });
     let planDone = false;
     routes["/api/up"] = (_req, body) => {
       if (body.plan === true && !planDone) {
         planDone = true;
         return {
-          status: "plan", mode: "restore", rigId: "r1", rigName: "live-rig",
+          status: "plan", mode: "restore", softwareTeamId: "r1", softwareTeamName: "live-software-team",
           snapshot: { id: "s1", kind: "auto-pre-down", createdAt: "2026-06-14T00:00:00Z" },
           wouldCaptureCurrentState: false,
           nodes: [{ logicalId: "w", intendedAction: "resume-original" }],
           mutated: false,
         };
       }
-      // Apply returns 409 rig_not_stopped (simulate live sessions blocking restore).
+      // Apply returns 409 software_team_not_stopped (simulate live sessions blocking restore).
       return "__409__" as never;
     };
     // Override server to return 409 for the apply call.
@@ -842,17 +842,17 @@ describe("rig start (OPR.0.3.4.1)", () => {
         const method = req.method ?? "GET";
         if (method === "GET" && url === "/healthz") { res.writeHead(200).end(JSON.stringify({ ok: true })); return; }
         if (method === "GET" && url === "/api/kernel/status") { res.writeHead(200).end(JSON.stringify({ kernel_state: "ready" })); return; }
-        if (method === "GET" && url === "/api/rigs/summary") { res.writeHead(200).end(JSON.stringify(routes["/api/rigs/summary"]!(req, body))); return; }
+        if (method === "GET" && url === "/api/software-teams/summary") { res.writeHead(200).end(JSON.stringify(routes["/api/software-teams/summary"]!(req, body))); return; }
         // The seat is detached (what the summary above reports), so --last attempts the restore.
-        if (method === "GET" && url.match(/^\/api\/rigs\/[^/]+\/nodes$/)) { res.writeHead(200).end(JSON.stringify([{ logicalId: "w", sessionStatus: "detached" }])); return; }
-        if (method === "GET" && url.match(/^\/api\/rigs\/[^/]+$/)) { res.writeHead(200).end(JSON.stringify({ sessions: [] })); return; }
-        const rigUpMatch2 = method === "POST" && url.match(/^\/api\/rigs\/([^/]+)\/up$/);
-        if (rigUpMatch2) {
-          upBodies.push({ ...body, _rigIdRoute: rigUpMatch2[1] });
+        if (method === "GET" && url.match(/^\/api\/software-teams\/[^/]+\/nodes$/)) { res.writeHead(200).end(JSON.stringify([{ logicalId: "w", sessionStatus: "detached" }])); return; }
+        if (method === "GET" && url.match(/^\/api\/software-teams\/[^/]+$/)) { res.writeHead(200).end(JSON.stringify({ sessions: [] })); return; }
+        const softwareTeamUpMatch2 = method === "POST" && url.match(/^\/api\/software-teams\/([^/]+)\/up$/);
+        if (softwareTeamUpMatch2) {
+          upBodies.push({ ...body, _softwareTeamIdRoute: softwareTeamUpMatch2[1] });
           if (body.plan === true) {
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify({
-              status: "plan", mode: "restore", rigId: rigUpMatch2[1], rigName: "live-rig",
+              status: "plan", mode: "restore", softwareTeamId: softwareTeamUpMatch2[1], softwareTeamName: "live-software-team",
               snapshot: { id: "s1", kind: "auto-pre-down", createdAt: "2026-06-14T00:00:00Z" },
               wouldCaptureCurrentState: false,
               nodes: [{ logicalId: "w", intendedAction: "resume-original" }],
@@ -860,7 +860,7 @@ describe("rig start (OPR.0.3.4.1)", () => {
             }));
           } else {
             res.writeHead(409, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ error: "Rig r1 has live sessions", code: "rig_not_stopped" }));
+            res.end(JSON.stringify({ error: "SoftwareTeam r1 has live sessions", code: "software_team_not_stopped" }));
           }
           return;
         }
@@ -869,11 +869,11 @@ describe("rig start (OPR.0.3.4.1)", () => {
     });
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "start", "--last"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "start", "--last"]);
     });
     const output = logs.join("\n");
-    expect(output).toContain("live-rig");
-    expect(output).toContain("rig_not_stopped");
+    expect(output).toContain("live-software-team");
+    expect(output).toContain("software_team_not_stopped");
     expect(output).not.toContain("undefined");
     expect(exitCode).toBe(1);
 
@@ -888,25 +888,25 @@ describe("rig start (OPR.0.3.4.1)", () => {
         const method = req.method ?? "GET";
         if (method === "GET" && url === "/healthz") { res.writeHead(200).end(JSON.stringify({ ok: true })); return; }
         if (method === "GET" && url === "/api/kernel/status") { const h = routes["/api/kernel/status"]; res.writeHead(200).end(JSON.stringify(h ? h(req, body) : { kernel_state: "ready" })); return; }
-        if (method === "GET" && url === "/api/rigs/summary") { const h = routes["/api/rigs/summary"]; res.writeHead(200).end(JSON.stringify(h ? h(req, body) : [])); return; }
-        const nodesMatch3 = method === "GET" && url.match(/^\/api\/rigs\/([^/]+)\/nodes$/);
-        if (nodesMatch3 && routes["/api/rigs/:id/nodes"]) { res.writeHead(200).end(JSON.stringify(routes["/api/rigs/:id/nodes"]!(req, { _rigId: nodesMatch3[1] }))); return; }
-        if (method === "GET" && url.match(/^\/api\/rigs\/[^/]+$/)) { const h = routes["/api/rigs/:id"]; res.writeHead(200).end(JSON.stringify(h ? h(req, body) : { sessions: [] })); return; }
+        if (method === "GET" && url === "/api/software-teams/summary") { const h = routes["/api/software-teams/summary"]; res.writeHead(200).end(JSON.stringify(h ? h(req, body) : [])); return; }
+        const nodesMatch3 = method === "GET" && url.match(/^\/api\/software-teams\/([^/]+)\/nodes$/);
+        if (nodesMatch3 && routes["/api/software-teams/:id/nodes"]) { res.writeHead(200).end(JSON.stringify(routes["/api/software-teams/:id/nodes"]!(req, { _softwareTeamId: nodesMatch3[1] }))); return; }
+        if (method === "GET" && url.match(/^\/api\/software-teams\/[^/]+$/)) { const h = routes["/api/software-teams/:id"]; res.writeHead(200).end(JSON.stringify(h ? h(req, body) : { sessions: [] })); return; }
         if (method === "POST" && url === "/api/up") { upBodies.push(body); const h = routes["/api/up"]; const d = h ? h(req, body) : {}; res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(d)); return; }
-        const rigUpRestore = method === "POST" && url.match(/^\/api\/rigs\/([^/]+)\/up$/);
-        if (rigUpRestore) { upBodies.push({ ...body, _rigIdRoute: rigUpRestore[1] }); const h = routes["/api/rigs/:id/up"] ?? routes["/api/up"]; const d = h ? h(req, { ...body, _rigId: rigUpRestore[1] }) : {}; res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(d)); return; }
+        const softwareTeamUpRestore = method === "POST" && url.match(/^\/api\/software-teams\/([^/]+)\/up$/);
+        if (softwareTeamUpRestore) { upBodies.push({ ...body, _softwareTeamIdRoute: softwareTeamUpRestore[1] }); const h = routes["/api/software-teams/:id/up"] ?? routes["/api/up"]; const d = h ? h(req, { ...body, _softwareTeamId: softwareTeamUpRestore[1] }) : {}; res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(d)); return; }
         res.writeHead(404).end();
       });
     });
   });
 
-  it("partially_restored rigResult -> nonzero exit (not treated as clean)", async () => {
-    setupCandidateRig("partial-rig");
+  it("partially_restored softwareTeamResult -> nonzero exit (not treated as clean)", async () => {
+    setupCandidateSoftwareTeam("partial-software-team");
     // Override both plan and apply to return partially_restored on apply.
-    routes["/api/rigs/:id/up"] = (_req, body) => {
+    routes["/api/software-teams/:id/up"] = (_req, body) => {
       if (body.plan === true) {
         return {
-          status: "plan", mode: "restore", rigId: "rig-1", rigName: "partial-rig",
+          status: "plan", mode: "restore", softwareTeamId: "software-team-1", softwareTeamName: "partial-software-team",
           snapshot: { id: "s1", kind: "auto-pre-down", createdAt: "2026-06-14T00:00:00Z" },
           wouldCaptureCurrentState: false,
           nodes: [{ logicalId: "dev.impl", intendedAction: "resume-original" }],
@@ -914,14 +914,14 @@ describe("rig start (OPR.0.3.4.1)", () => {
         };
       }
       return {
-        status: "restored", rigResult: "partially_restored",
+        status: "restored", softwareTeamResult: "partially_restored",
         nodes: [{ logicalId: "dev.impl", status: "fresh-primed" }],
         warnings: [],
       };
     };
 
     const { exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "start", "--last"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "start", "--last"]);
     });
     expect(exitCode).toBe(1);
   });
@@ -929,29 +929,29 @@ describe("rig start (OPR.0.3.4.1)", () => {
   // ---- JSON OUTPUT ----
 
   it("--json outputs structured result", async () => {
-    setupCandidateRig("json-rig");
+    setupCandidateSoftwareTeam("json-software-team");
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "start", "--last", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "start", "--last", "--json"]);
     });
     const jsonLine = logs.find((l) => l.startsWith("{"));
     expect(jsonLine).toBeDefined();
     const parsed = JSON.parse(jsonLine!);
     expect(parsed.status).toBe("started");
-    expect(parsed.restoredRigs).toBeDefined();
-    expect(parsed.restoredRigs.length).toBeGreaterThanOrEqual(1);
-    expect(parsed.restoredRigs[0].rigName).toBe("json-rig");
+    expect(parsed.restoredSoftwareTeams).toBeDefined();
+    expect(parsed.restoredSoftwareTeams.length).toBeGreaterThanOrEqual(1);
+    expect(parsed.restoredSoftwareTeams[0].softwareTeamName).toBe("json-software-team");
   });
 });
 
-// S20 (r2 NOT-CLEAR at 95150982d, blocker repair): `rig start`'s daemon auto-start ran
-// the pre-S20 predicate, converting env-sourced daemon.host (ENV_MAP ← OPENRIG_HOST —
+// S20 (r2 NOT-CLEAR at 95150982d, blocker repair): `SoftwareTeam start`'s daemon auto-start ran
+// the pre-S20 predicate, converting env-sourced daemon.host (ENV_MAP ← SOFTWARETEAM_HOST —
 // exactly the injected routing state a managed environment carries) into explicit bind
 // intent. Equivalent coverage to the up-side pin: routing env creates NO intent and
 // never crosses into the spawned daemon env.
 describe("S20 — start auto-start: routing env never becomes bind intent", () => {
-  it("env-sourced OPENRIG_HOST through rig start creates NO bind intent (no OPENRIG_BIND_HOST, routing scrubbed)", async () => {
-    const savedHost = process.env["OPENRIG_HOST"];
-    process.env["OPENRIG_HOST"] = "100.64.55.66"; // the distinct-value discriminator
+  it("env-sourced SOFTWARETEAM_HOST through SoftwareTeam start creates NO bind intent (no SOFTWARETEAM_BIND_HOST, routing scrubbed)", async () => {
+    const savedHost = process.env["SOFTWARETEAM_HOST"];
+    process.env["SOFTWARETEAM_HOST"] = "100.64.55.66"; // the distinct-value discriminator
     let spawnedEnv: Record<string, string> = {};
     let daemonStarted = false;
     const lifecycleDeps: LifecycleDeps = {
@@ -984,14 +984,14 @@ describe("S20 — start auto-start: routing env never becomes bind intent", () =
     }));
     try {
       await captureLogs(async () => {
-        try { await prog.parseAsync(["node", "rig", "start", "--last"]); } catch { /* restore-path errors are not this pin */ }
+        try { await prog.parseAsync(["node", "softwareTeam", "start", "--last"]); } catch { /* restore-path errors are not this pin */ }
       });
       expect(daemonStarted).toBe(true); // the auto-start branch actually ran
-      expect(spawnedEnv["OPENRIG_BIND_HOST"]).toBeUndefined(); // no intent minted from routing env
-      expect(spawnedEnv["OPENRIG_HOST"]).toBeUndefined();      // and the routing var never crosses
+      expect(spawnedEnv["SOFTWARETEAM_BIND_HOST"]).toBeUndefined(); // no intent minted from routing env
+      expect(spawnedEnv["SOFTWARETEAM_HOST"]).toBeUndefined();      // and the routing var never crosses
     } finally {
-      if (savedHost === undefined) delete process.env["OPENRIG_HOST"];
-      else process.env["OPENRIG_HOST"] = savedHost;
+      if (savedHost === undefined) delete process.env["SOFTWARETEAM_HOST"];
+      else process.env["SOFTWARETEAM_HOST"] = savedHost;
     }
   }, 30_000);
 });

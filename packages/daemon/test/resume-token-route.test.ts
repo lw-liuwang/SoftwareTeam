@@ -10,11 +10,11 @@ import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { sessionAdminRoutes } from "../src/routes/sessions.js";
 
-function seedRigNodes(db: Database.Database) {
-  db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "test-rig");
-  db.prepare("INSERT INTO nodes (id, rig_id, logical_id, role, runtime) VALUES (?, ?, ?, ?, ?)").run("node-1", "rig-1", "dev1.impl", "worker", "claude-code");
-  db.prepare("INSERT INTO nodes (id, rig_id, logical_id, role, runtime) VALUES (?, ?, ?, ?, ?)").run("node-2", "rig-1", "dev1.qa", "qa", "codex");
-  db.prepare("INSERT INTO nodes (id, rig_id, logical_id, role, runtime) VALUES (?, ?, ?, ?, ?)").run("node-3", "rig-1", "infra.term", "infra", "terminal");
+function seedSoftwareTeamNodes(db: Database.Database) {
+  db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "test-software-team");
+  db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, role, runtime) VALUES (?, ?, ?, ?, ?)").run("node-1", "software-team-1", "dev1.impl", "worker", "claude-code");
+  db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, role, runtime) VALUES (?, ?, ?, ?, ?)").run("node-2", "software-team-1", "dev1.qa", "qa", "codex");
+  db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, role, runtime) VALUES (?, ?, ?, ?, ?)").run("node-3", "software-team-1", "infra.term", "infra", "terminal");
 }
 
 function post(app: { request: (p: string, init?: RequestInit) => Promise<Response> }, name: string, body: unknown, headers?: Record<string, string>) {
@@ -35,15 +35,15 @@ describe("POST /api/sessions/:sessionName/resume-token", () => {
 
   beforeEach(() => {
     db = createFullTestDb();
-    seedRigNodes(db);
+    seedSoftwareTeamNodes(db);
   });
   afterEach(() => { db.close(); });
 
   it("sets a claude token (operator provenance), redacts the token, emits an audit event", async () => {
     const { app, sessionRegistry } = createTestApp(db);
-    sessionRegistry.registerSession("node-1", "dev1-impl@test-rig");
+    sessionRegistry.registerSession("node-1", "dev1-impl@test-software-team");
 
-    const res = await post(app, "dev1-impl@test-rig", { token: "claude-sess-abc123", reason: "founder re-authed, confirmed live" });
+    const res = await post(app, "dev1-impl@test-software-team", { token: "claude-sess-abc123", reason: "founder re-authed, confirmed live" });
     expect(res.status).toBe(200);
     const json = await res.json() as Record<string, unknown>;
     expect(json.ok).toBe(true);
@@ -53,7 +53,7 @@ describe("POST /api/sessions/:sessionName/resume-token", () => {
     expect(JSON.stringify(json)).not.toContain("claude-sess-abc123");
 
     // Persisted with operator provenance.
-    const ctx = sessionRegistry.findResumeContextByName("dev1-impl@test-rig");
+    const ctx = sessionRegistry.findResumeContextByName("dev1-impl@test-software-team");
     expect(ctx?.currentProvenance).toBe("operator");
     const row = db.prepare("SELECT resume_token, resume_type FROM sessions WHERE id = ?").get(ctx!.sessionId) as { resume_token: string; resume_type: string };
     expect(row.resume_token).toBe("claude-sess-abc123");
@@ -73,10 +73,10 @@ describe("POST /api/sessions/:sessionName/resume-token", () => {
 
   it("operator set OUTRANKS an existing hook token", async () => {
     const { app, sessionRegistry } = createTestApp(db);
-    const s = sessionRegistry.registerSession("node-1", "dev1-impl@test-rig");
+    const s = sessionRegistry.registerSession("node-1", "dev1-impl@test-software-team");
     sessionRegistry.updateResumeToken(s.id, "claude_id", "hook-token", "hook");
 
-    const res = await post(app, "dev1-impl@test-rig", { token: "operator-token", reason: "manual set" });
+    const res = await post(app, "dev1-impl@test-software-team", { token: "operator-token", reason: "manual set" });
     expect(res.status).toBe(200);
     const row = db.prepare("SELECT resume_token, resume_provenance FROM sessions WHERE id = ?").get(s.id) as { resume_token: string; resume_provenance: string };
     expect(row.resume_token).toBe("operator-token");
@@ -103,7 +103,7 @@ describe("POST /api/sessions/:sessionName/resume-token", () => {
     ] as const)("after a %s clock", (_name, delta) => {
       it.each(["running", "exited"])("writes only the latest %s registration", async (status) => {
         const { app, sessionRegistry } = createTestApp(db);
-        const name = "dev1-impl@test-rig";
+        const name = "dev1-impl@test-software-team";
         const old = sessionRegistry.registerSession("node-1", name);
         sessionRegistry.updateResumeToken(old.id, "claude_id", "historical-token", "adoption");
         sessionRegistry.markSuperseded(old.id);
@@ -133,10 +133,10 @@ describe("POST /api/sessions/:sessionName/resume-token", () => {
 
   it("rejects a malformed token (422) WITHOUT echoing it, and does not persist", async () => {
     const { app, sessionRegistry } = createTestApp(db);
-    const s = sessionRegistry.registerSession("node-1", "dev1-impl@test-rig");
+    const s = sessionRegistry.registerSession("node-1", "dev1-impl@test-software-team");
 
     const evil = "tok; rm -rf / #";
-    const res = await post(app, "dev1-impl@test-rig", { token: evil, reason: "x" });
+    const res = await post(app, "dev1-impl@test-software-team", { token: evil, reason: "x" });
     expect(res.status).toBe(422);
     const json = await res.json() as Record<string, unknown>;
     expect(JSON.stringify(json)).not.toContain("rm -rf");
@@ -149,28 +149,28 @@ describe("POST /api/sessions/:sessionName/resume-token", () => {
 
   it("requires --reason (400 when missing)", async () => {
     const { app, sessionRegistry } = createTestApp(db);
-    sessionRegistry.registerSession("node-1", "dev1-impl@test-rig");
-    const res = await post(app, "dev1-impl@test-rig", { token: "claude-tok" });
+    sessionRegistry.registerSession("node-1", "dev1-impl@test-software-team");
+    const res = await post(app, "dev1-impl@test-software-team", { token: "claude-tok" });
     expect(res.status).toBe(400);
   });
 
   it("404 when the session is not found", async () => {
     const { app } = createTestApp(db);
-    const res = await post(app, "ghost@test-rig", { token: "claude-tok", reason: "x" });
+    const res = await post(app, "ghost@test-software-team", { token: "claude-tok", reason: "x" });
     expect(res.status).toBe(404);
   });
 
   it("422 for a runtime with no resume token (terminal)", async () => {
     const { app, sessionRegistry } = createTestApp(db);
-    sessionRegistry.registerSession("node-3", "infra-term@test-rig");
-    const res = await post(app, "infra-term@test-rig", { token: "anything", reason: "x" });
+    sessionRegistry.registerSession("node-3", "infra-term@test-software-team");
+    const res = await post(app, "infra-term@test-software-team", { token: "anything", reason: "x" });
     expect(res.status).toBe(422);
   });
 
   it("AC-6: the route REQUIRES terminalAuthGuard (401 without the bearer, OK with it)", async () => {
     const sessionRegistry = new SessionRegistry(db);
     const eventBus = new EventBus(db);
-    sessionRegistry.registerSession("node-1", "dev1-impl@test-rig");
+    sessionRegistry.registerSession("node-1", "dev1-impl@test-software-team");
 
     const authApp = new Hono();
     authApp.use("*", async (c, next) => {
@@ -181,10 +181,10 @@ describe("POST /api/sessions/:sessionName/resume-token", () => {
     });
     authApp.route("/api/sessions", sessionAdminRoutes);
 
-    const noAuth = await post(authApp, "dev1-impl@test-rig", { token: "claude-tok", reason: "x" });
+    const noAuth = await post(authApp, "dev1-impl@test-software-team", { token: "claude-tok", reason: "x" });
     expect(noAuth.status).toBe(401);
 
-    const withAuth = await post(authApp, "dev1-impl@test-rig", { token: "claude-tok", reason: "x" }, { Authorization: "Bearer secret-terminal-token" });
+    const withAuth = await post(authApp, "dev1-impl@test-software-team", { token: "claude-tok", reason: "x" }, { Authorization: "Bearer secret-terminal-token" });
     expect(withAuth.status).toBe(200);
   });
 });

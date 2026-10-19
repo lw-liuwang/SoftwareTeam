@@ -81,7 +81,7 @@ function harness(opts?: {
     resolveSender: () => ({ admitted: true, source: "founder@humans" }),
     resolveRoute: makeThreadRouteResolver({
       map: threadMap,
-      unroutedDestination: "orch-lead@v-openrig-build",
+      unroutedDestination: "orch-lead@v-softwareteam-build",
       log: (m: string) => logs.push(m),
     }),
     files: filePort,
@@ -153,7 +153,7 @@ describe("inbound files: the row carries our local copy, never Slack's URL", () 
   it("single image into a MAPPED thread: row lands with a local path whose bytes hash-match the original", async () => {
     const h = harness({
       routes: { [F_IMG.url_private]: PNG_BYTES },
-      mapped: { "400.0": "dev50-driver@v-openrig-build" },
+      mapped: { "400.0": "dev50-driver@v-softwareteam-build" },
     });
     await deliver(h, fileEvent());
     expect(h.rows, "the reply row must land (RED: admission ignores file events today)").toHaveLength(1);
@@ -169,7 +169,7 @@ describe("inbound files: the row carries our local copy, never Slack's URL", () 
   it("multiple files stay individually attributable; image+text preserves the text", async () => {
     const h = harness({
       routes: { [F_IMG.url_private]: PNG_BYTES, [F_PDF.url_private]: PDF_BYTES },
-      mapped: { "400.0": "dev50-driver@v-openrig-build" },
+      mapped: { "400.0": "dev50-driver@v-softwareteam-build" },
     });
     await deliver(h, fileEvent({ text: "see attached, both of them", files: [F_IMG, F_PDF] }));
     expect(h.rows).toHaveLength(1);
@@ -266,7 +266,7 @@ describe("inbound files: unmapped threads reuse the slice-10 unrouted-signal pat
     await deliver(h, fileEvent({ thread_ts: "999.9" }));
     expect(h.rows).toHaveLength(1);
     const row = h.rows[0]!;
-    expect(row.destination).toBe("orch-lead@v-openrig-build");
+    expect(row.destination).toBe("orch-lead@v-softwareteam-build");
     expect(row.tags ?? [], "slice 10's unrouted-signal tag, no file special-case").toContain("unrouted-signal");
     expect([...h.media.keys()]).toHaveLength(1);
     expect(row.body).toContain([...h.media.keys()][0]!);

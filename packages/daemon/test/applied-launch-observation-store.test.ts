@@ -13,9 +13,9 @@ describe("AppliedLaunchObservationStore", () => {
 
   beforeEach(() => {
     db = createFullTestDb();
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "r1");
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id, role, runtime, cwd) VALUES (?, ?, ?, ?, ?, ?)")
-      .run("node-1", "rig-1", "dev.impl", "worker", "claude-code", "/tmp/project");
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "r1");
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, role, runtime, cwd) VALUES (?, ?, ?, ?, ?, ?)")
+      .run("node-1", "software-team-1", "dev.impl", "worker", "claude-code", "/tmp/project");
     registry = new SessionRegistry(db);
     store = new AppliedLaunchObservationStore(db);
   });

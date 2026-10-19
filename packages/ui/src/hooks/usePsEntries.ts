@@ -3,7 +3,7 @@ import { withHostParam } from "../lib/host-param.js";
 import { useSelectedHostId } from "./useHosts.js";
 
 export interface PsEntry {
-  rigId: string;
+  softwareTeamId: string;
   name: string;
   nodeCount: number;
   /** Process-alive count (legacy; unchanged semantics). */
@@ -22,7 +22,7 @@ export interface PsEntry {
    */
   hasWorkCount?: number;
   status: "running" | "partial" | "stopped";
-  /** OPR.0.4.3.22 — rig-level lifecycle folded from per-node states. The daemon
+  /** OPR.0.4.3.22 — software-team-level lifecycle folded from per-node states. The daemon
    *  /api/ps projection already populates this; carried here so surfaces can
    *  distinguish recoverable from plain stopped. */
   lifecycleState?: "running" | "recoverable" | "stopped" | "degraded" | "attention_required";

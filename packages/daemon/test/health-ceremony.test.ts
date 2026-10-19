@@ -11,7 +11,7 @@ import { HealthPolicyStore } from "../src/domain/health-policy.js";
 import { HealthCheckpointSource } from "../src/domain/health-checkpoints.js";
 import { HealthProjectionService, LiveContextHealthSource } from "../src/domain/health-detectors.js";
 
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { ContextUsageStore } from "../src/domain/context-usage-store.js";
 import { UsageSamplesStore } from "../src/domain/usage-samples-store.js";
@@ -28,13 +28,13 @@ async function setup() {
   const db = createDb(); migrate(db, ALL_MIGRATIONS); cleanups.push(() => db.close());
   const queue = new QueueRepository(db, new EventBus(db));
   const policy = new HealthPolicyStore(home, () => ({ warningPercent: 95, criticalPercent: 99 }));
-  const root = await queue.create({ qitemId: "product-root", sourceSession: "author@rig", destinationSession: "builder@rig", body: "Build one outcome", nudge: false });
+  const root = await queue.create({ qitemId: "product-root", sourceSession: "author@software-team", destinationSession: "builder@software-team", body: "Build one outcome", nudge: false });
   let parent = root.qitemId;
   const all = [parent];
   for (let i = 0; i < 8; i++) {
-    const child = await queue.create({ qitemId: `review-${i}`, handedOffFrom: parent, sourceSession: "builder@rig", destinationSession: "reviewer@rig", body: "Review the same outcome", tags: [i % 2 ? "gate:r2" : "gate:qa"], nudge: false });
-    queue.update({ qitemId: child.qitemId, actorSession: "reviewer@rig", state: "in-progress" });
-    queue.update({ qitemId: child.qitemId, actorSession: "reviewer@rig", state: "done", closureReason: "no-follow-on" });
+    const child = await queue.create({ qitemId: `review-${i}`, handedOffFrom: parent, sourceSession: "builder@software-team", destinationSession: "reviewer@software-team", body: "Review the same outcome", tags: [i % 2 ? "gate:r2" : "gate:qa"], nudge: false });
+    queue.update({ qitemId: child.qitemId, actorSession: "reviewer@software-team", state: "in-progress" });
+    queue.update({ qitemId: child.qitemId, actorSession: "reviewer@software-team", state: "done", closureReason: "no-follow-on" });
     parent = child.qitemId; all.push(parent);
   }
   const transitions = all.flatMap((id) => queue.listTransitions(id));
@@ -43,8 +43,8 @@ async function setup() {
   writeFileSync(join(workspace, "expectation.md"), "One whole-outcome review at completion; no per-increment gates.");
   const source = new HealthCheckpointSource(home, queue, policy, () => now);
   const projection = new HealthProjectionService(source, () => policy.read());
-  const cp = { schema: "openrig.health-checkpoint/v0alpha1", lineageQitemId: root.qitemId, includeHandoffs: true,
-    scope: { type: "rig", rigId: "rig" }, startedAt: transitions[0]!.ts, observedAt: now,
+  const cp = { schema: "softwareteam.health-checkpoint/v0alpha1", lineageQitemId: root.qitemId, includeHandoffs: true,
+    scope: { type: "softwareTeam", softwareTeamId: "softwareTeam" }, startedAt: transitions[0]!.ts, observedAt: now,
     transitionIds: transitions.map((t) => t.transitionId), productOutcomes: [{ id: "outcome", observedAt: now, evidenceRef: "outcome.md" }],
     productCensusRef: "outcome.md", boundedAuthority: { applies: false, evidenceRef: "outcome.md" },
     sdlc: { expectation: "One whole-outcome review at completion", evidenceRef: "expectation.md" },
@@ -55,7 +55,7 @@ async function setup() {
 it("follows real handoffs: the root alone is below threshold while the exact family exposes ceremony", async () => {
   const t = await setup();
   expect(t.queue.listTransitions(t.cp.lineageQitemId)).toHaveLength(1);
-  t.source.submit(t.cp, "author@rig");
+  t.source.submit(t.cp, "author@software-team");
   const changes = t.db.prepare("SELECT total_changes() AS n").get();
   const first = t.projection.list().records[0]!;
   expect(first).toMatchObject({ status: "active", detector: "process.ceremony-amplification", confidence: "medium" });
@@ -71,31 +71,31 @@ it("follows real handoffs: the root alone is below threshold while the exact fam
 
 it("refuses omitted descendants and does not infer a family from similar names", async () => {
   const t = await setup();
-  await t.queue.create({ qitemId: "product-root-lookalike", sourceSession: "author@rig", destinationSession: "builder@rig", body: "Unrelated", nudge: false });
-  expect(() => t.source.submit({ ...t.cp, transitionIds: t.cp.transitionIds.slice(0, 1) }, "author@rig")).toThrow("census");
-  t.source.submit(t.cp, "author@rig");
+  await t.queue.create({ qitemId: "product-root-lookalike", sourceSession: "author@software-team", destinationSession: "builder@software-team", body: "Unrelated", nudge: false });
+  expect(() => t.source.submit({ ...t.cp, transitionIds: t.cp.transitionIds.slice(0, 1) }, "author@software-team")).toThrow("census");
+  t.source.submit(t.cp, "author@software-team");
   expect(t.projection.list().records[0]!.evidence.some((e) => e.type === "queue-transition" && e.qitemId.endsWith("lookalike"))).toBe(false);
 });
 
 it("missing SDLC expectation is indeterminate, including legacy single-row checkpoints", async () => {
   const t = await setup();
   const { sdlc: _sdlc, ...without } = t.cp;
-  t.source.submit(without, "author@rig");
+  t.source.submit(without, "author@software-team");
   expect(t.projection.list().records[0]!.status).toBe("indeterminate");
   expect(t.projection.list().records[0]!.explanation).toContain("SDLC expectation unavailable");
-  t.source.submit({ ...t.cp, observedAt: t.tick(1), sdlc: { ...t.cp.sdlc, evidenceRef: "missing.md" } }, "author@rig");
+  t.source.submit({ ...t.cp, observedAt: t.tick(1), sdlc: { ...t.cp.sdlc, evidenceRef: "missing.md" } }, "author@software-team");
   expect(t.projection.list().records[0]!.status).toBe("indeterminate");
 });
 
 it("preserves one episode across refresh, bounded authority clears it, and recurrence starts a new one", async () => {
-  const t = await setup(); t.source.submit(t.cp, "author@rig");
+  const t = await setup(); t.source.submit(t.cp, "author@software-team");
   const id = t.projection.list().records[0]!.id;
-  t.source.submit({ ...t.cp, observedAt: t.tick(1) }, "author@rig");
+  t.source.submit({ ...t.cp, observedAt: t.tick(1) }, "author@software-team");
   expect(t.projection.get(id)?.status).toBe("active");
-  t.source.submit({ ...t.cp, observedAt: t.tick(1), boundedAuthority: { applies: true, evidenceRef: "outcome.md" } }, "author@rig");
+  t.source.submit({ ...t.cp, observedAt: t.tick(1), boundedAuthority: { applies: true, evidenceRef: "outcome.md" } }, "author@software-team");
   expect(t.projection.list().records).toEqual([]);
   expect(t.projection.get(id)?.status).toBe("cleared");
-  t.source.submit({ ...t.cp, observedAt: t.tick(1) }, "author@rig");
+  t.source.submit({ ...t.cp, observedAt: t.tick(1) }, "author@software-team");
   expect(t.projection.list().records[0]!.id).not.toBe(id);
 });
 
@@ -105,7 +105,7 @@ it("resolves diagnosis authority by episode when the root has no transition insi
   const dir = join(t.workspace, "missions", "mission", "slices", "work"); mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "SPEC.md"), "---\nid: slice-1\nmission: mission\n---\n# One outcome");
   t.source.submit({ ...t.cp, scope: { type: "slice", projectId: "project", missionId: "mission", sliceId: "slice-1" },
-    transitionIds: t.cp.transitionIds.slice(1), authorityPaths: { project: [], mission: [], slice: ["missions/mission/slices/work/SPEC.md"] } }, "author@rig");
+    transitionIds: t.cp.transitionIds.slice(1), authorityPaths: { project: [], mission: [], slice: ["missions/mission/slices/work/SPEC.md"] } }, "author@software-team");
   const finding = t.projection.list().records[0]!;
   expect(finding.evidence.some((e) => e.type === "queue-transition" && e.qitemId === t.cp.lineageQitemId)).toBe(false);
   expect(healthAuthority(t.workspace, t.source, finding)).toContainEqual(expect.objectContaining({ level: "slice", state: "available" }));
@@ -119,11 +119,11 @@ it("bounds recursive traversal even when the handoff family exceeds the admitted
 });
 
 it("100 live-source context seats remain quiet below 95, clear naturally, and never compete with delegated ceremony admission", async () => {
-  const t = await setup(); const rigs = new RigRepository(t.db); const sessions = new SessionRegistry(t.db);
-  const rig = rigs.createRig("context-scale"); const samples = new UsageSamplesStore(t.db);
+  const t = await setup(); const softwareTeams = new SoftwareTeamRepository(t.db); const sessions = new SessionRegistry(t.db);
+  const softwareTeam = softwareTeams.createSoftwareTeam("context-scale"); const samples = new UsageSamplesStore(t.db);
   const base = Date.now() - 60000;
   const seats = Array.from({ length: 100 }, (_, i) => {
-    const node = rigs.addNode(rig.id, `seat-${i}`, { role: "worker" });
+    const node = softwareTeams.addNode(softwareTeam.id, `seat-${i}`, { role: "worker" });
     const session = sessions.registerSession(node.id, `seat-${i}@context-scale`);
     t.db.prepare("UPDATE occupant_tenures SET boot_at = ? WHERE node_id = ?").run(new Date(base - 1000).toISOString(), node.id);
     return { node, session };
@@ -137,31 +137,31 @@ it("100 live-source context seats remain quiet below 95, clear naturally, and ne
       samples.appendContextSample({ nodeId: node.id, seatSession: session.sessionName, source: "codex_token_count_jsonl", sampledAt: at, totalInputTokens: 200000, totalOutputTokens: 0, usedPercentage: percent }, at);
     }
   })();
-  const context = new LiveContextHealthSource({ db: t.db, rigRepo: rigs, sessionRegistry: sessions, contextUsageStore: new ContextUsageStore(t.db, { stateDir: t.home }) });
+  const context = new LiveContextHealthSource({ db: t.db, softwareTeamRepo: softwareTeams, sessionRegistry: sessions, contextUsageStore: new ContextUsageStore(t.db, { stateDir: t.home }) });
   const projection = new HealthProjectionService({ read: () => [...context.read(), ...t.source.read()] }, () => t.policy.read(), delegatedPostureFixture);
   write(94, 0); expect(projection.list({ limit: 200 }).total).toBe(0);
   write(95, 10000); const ids = projection.list({ limit: 200 }).records.map((r) => r.id);
   expect(ids).toHaveLength(100);
   write(96, 20000); expect(projection.list({ limit: 200 }).records.map((r) => r.id)).toEqual(ids);
-  t.source.submit(t.cp, "author@rig");
-  const p = t.policy.read().policy; t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@rig", detectors: ["process.ceremony-amplification", "context.pressure"] } }, "author@rig");
+  t.source.submit(t.cp, "author@software-team");
+  const p = t.policy.read().policy; t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@software-team", detectors: ["process.ceremony-amplification", "context.pressure"] } }, "author@software-team");
   const service = new HealthDiagnosisService({ queue: t.queue, projection, policy: t.policy, authority: () => [] });
   const before = t.db.prepare("SELECT total_changes() AS n").get();
   expect(projection.list({ limit: 1 }).records[0]!.detector).toBe("process.ceremony-amplification");
   expect(projection.list({ limit: 200 }).records.filter((r) => r.detector === "context.pressure")).toHaveLength(100);
   expect(t.db.prepare("SELECT total_changes() AS n").get()).toEqual(before);
-  await service.evaluate("author@rig", true); await service.evaluate("author@rig", true);
+  await service.evaluate("author@software-team", true); await service.evaluate("author@software-team", true);
   expect(service.list()).toHaveLength(1);
   expect(service.list()[0]!.finding.detector).toBe("process.ceremony-amplification");
   write(30, 30000);
   expect(projection.list({ status: "cleared", limit: 200 }).records.map((r) => r.id)).toEqual(ids);
   expect(projection.list().records.filter((r) => r.detector === "context.pressure")).toHaveLength(0);
-  await service.evaluate("author@rig", true); expect(service.list()).toHaveLength(1);
+  await service.evaluate("author@software-team", true); expect(service.list()).toHaveLength(1);
 });
 
 it("does not present an unknown denominator as zero or compute a ratio from it", async () => {
   const t = await setup();
-  t.source.submit({ ...t.cp, productCensusRef: "missing.md" }, "author@rig");
+  t.source.submit({ ...t.cp, productCensusRef: "missing.md" }, "author@software-team");
   const finding = t.projection.list().records[0]!;
   expect(finding.status).toBe("indeterminate");
   expect(finding.explanation).toContain("no ratio is computed");
@@ -171,21 +171,21 @@ it("does not present an unknown denominator as zero or compute a ratio from it",
 
 it("unavailable suppression evidence cannot hide a potential condition", async () => {
   const t = await setup();
-  t.source.submit({ ...t.cp, boundedAuthority: { applies: true, evidenceRef: "missing-authority.md" } }, "author@rig");
+  t.source.submit({ ...t.cp, boundedAuthority: { applies: true, evidenceRef: "missing-authority.md" } }, "author@software-team");
   expect(t.projection.list().records[0]!.status).toBe("indeterminate");
 });
 
 it("derives and retains the complete census once without making the author enumerate handoffs", async () => {
   const t = await setup(); const input = { ...t.cp, transitionIds: "derive" };
-  const first = t.source.submit(input, "author@rig");
+  const first = t.source.submit(input, "author@software-team");
   expect(first.checkpoint.transitionIds).toEqual(t.cp.transitionIds);
   expect(input.transitionIds).toBe("derive");
-  expect(t.source.submit(input, "author@rig")).toEqual(first);
+  expect(t.source.submit(input, "author@software-team")).toEqual(first);
   expect(t.source.entries()[0]!.checkpoint.transitionIds).toEqual(t.cp.transitionIds);
 });
 
 it("refuses an explicitly different slice in a handoff census rather than mixing its product scope", async () => {
   const t = await setup();
   t.db.prepare("UPDATE queue_items SET tags = ? WHERE qitem_id = ?").run(JSON.stringify(["slice:another-slice"]), "review-7");
-  expect(() => t.source.submit({ ...t.cp, scope: { type: "slice", projectId: "project", missionId: "mission", sliceId: "slice-1" } }, "author@rig")).toThrow("crosses the declared checkpoint scope");
+  expect(() => t.source.submit({ ...t.cp, scope: { type: "slice", projectId: "project", missionId: "mission", sliceId: "slice-1" } }, "author@software-team")).toThrow("crosses the declared checkpoint scope");
 });

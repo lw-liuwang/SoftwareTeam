@@ -1,6 +1,6 @@
 import nodePath from "node:path";
-import { LegacyRigSpecCodec as RigSpecCodec } from "./rigspec-codec.js"; // TODO: AS-T08b — migrate to pod-aware RigSpec
-import { LegacyRigSpecSchema as RigSpecSchema } from "./rigspec-schema.js"; // TODO: AS-T08b — migrate to pod-aware RigSpec
+import { LegacySoftwareTeamSpecCodec as SoftwareTeamSpecCodec } from "./software-team-spec-codec.js"; // TODO: AS-T08b — migrate to pod-aware SoftwareTeamSpec
+import { LegacySoftwareTeamSpecSchema as SoftwareTeamSpecSchema } from "./software-team-spec-schema.js"; // TODO: AS-T08b — migrate to pod-aware SoftwareTeamSpec
 // TODO: AS-T12 — migrate to pod-aware bundle types
 import { serializeLegacyBundleManifest as serializeBundleManifest, type LegacyBundleManifest as BundleManifest, type BundleProvenance, type BundleCompatibility } from "./bundle-types.js";
 
@@ -28,8 +28,8 @@ export interface AssembleOptions {
   bundleVersion: string;
   /**
    * Optional Item-1 provenance input. Caller fills the fields it knows
-   * (sourceHost, authorSession, daemonVersion, cliVersion, sourceRigId,
-   * sourceRigName, notes). The assembler mirrors root createdAt into
+   * (sourceHost, authorSession, daemonVersion, cliVersion, sourceSoftwareTeamId,
+   * sourceSoftwareTeamName, notes). The assembler mirrors root createdAt into
    * provenance.createdAt unless caller pre-set it (caller value wins
    * for test determinism). Missing block = no provenance recorded
    * (backward compat).
@@ -58,17 +58,17 @@ export class LegacyBundleAssembler {
   }
 
   assemble(opts: AssembleOptions): BundleManifest {
-    // Validate rig spec exists
+    // Validate softwareTeam spec exists
     if (!this.fs.exists(opts.specPath)) {
-      throw new Error(`Rig spec not found: ${opts.specPath}`);
+      throw new Error(`SoftwareTeam spec not found: ${opts.specPath}`);
     }
 
-    // Validate rig spec content
+    // Validate softwareTeam spec content
     const specYaml = this.fs.readFile(opts.specPath);
-    const raw = RigSpecCodec.parse(specYaml);
-    const validation = RigSpecSchema.validate(raw);
+    const raw = SoftwareTeamSpecCodec.parse(specYaml);
+    const validation = SoftwareTeamSpecSchema.validate(raw);
     if (!validation.valid) {
-      throw new Error(`Invalid rig spec: ${validation.errors.join("; ")}`);
+      throw new Error(`Invalid SoftwareTeam spec: ${validation.errors.join("; ")}`);
     }
 
     // Deduplicate packages by name + manifestHash, preserving all original sources
@@ -101,8 +101,8 @@ export class LegacyBundleAssembler {
     // Create staging directory
     this.fs.mkdirp(opts.outputDir);
 
-    // Copy rig spec
-    this.fs.writeFile(nodePath.join(opts.outputDir, "rig.yaml"), specYaml);
+    // Copy softwareTeam spec
+    this.fs.writeFile(nodePath.join(opts.outputDir, "software-team.yaml"), specYaml);
 
     // Vendor packages
     const packageEntries: BundleManifest["packages"] = [];
@@ -127,7 +127,7 @@ export class LegacyBundleAssembler {
       name: opts.bundleName,
       version: opts.bundleVersion,
       createdAt,
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       packages: packageEntries,
     };
     if (opts.provenance) {

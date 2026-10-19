@@ -40,7 +40,7 @@ describe("S06 installed presentation contracts", () => {
         expect(body).toContain(`› ${COMMAND_REGISTRY[selection]!.name}`);
         expect(body.replace(/\s+/g, " ")).toContain(`Example: ${COMMAND_REGISTRY[selection]!.sample}`);
         expect(body).toContain("Esc return");
-        expect(body).toContain("rig <command> --help");
+        expect(body).toContain("softwareTeam <command> --help");
         expect(body).toContain("S returns to Startup");
         expect(screen.lines).toHaveLength(rows);
         expect(screen.lines.every(l => l.length <= cols)).toBe(true);
@@ -60,7 +60,7 @@ describe("S06 installed presentation contracts", () => {
       const styled = stylizeLines(screen, createStyle("truecolor"));
       expect(styled[0]!.replace(/\x1b\[[0-9;]*m/g, "")).toBe(screen.lines[0]);
     }
-    vi.stubEnv("OPENRIG_REDUCED_MOTION", "1");
+    vi.stubEnv("SOFTWARETEAM_REDUCED_MOTION", "1");
     const reduced = renderScreen(view.get(), snap, { nowMs: 2500 });
     expect(reduced.lines[0]).toContain("▊");
     expect(reduced.commandMotionActive).toBe(false);
@@ -95,7 +95,7 @@ describe("S06 installed presentation contracts", () => {
     expect(healthListLines(snap, scope, 130)[0]!.text).toContain("Unavailable");
     const reason = "No current context-usage sample was served";
     const path = "/exact/" + "unbroken-source-reference".repeat(8);
-    const record: HealthRecord = { schema: "openrig.health/v0alpha1", id: "fixture", detector: "context", category: "context", scope: { type: "instance", instanceId: "fixture" }, severity: "info", confidence: "medium", status: "indeterminate", startedAt: null, lastObservedAt: null,
+    const record: HealthRecord = { schema: "softwareteam.health/v0alpha1", id: "fixture", detector: "context", category: "context", scope: { type: "instance", instanceId: "fixture" }, severity: "info", confidence: "medium", status: "indeterminate", startedAt: null, lastObservedAt: null,
       window: { source: "context-usage", startedAt: "2026-09-10T00:00:00Z", endedAt: "2026-09-10T01:00:00Z", limit: 10, retentionSeconds: 3600 },
       freshness: { state: "unavailable", evaluatedAt: "2026-09-10T01:00:00Z", newestSourceAt: null, maxAgeSeconds: 30, ageSeconds: null }, summary: "Context usage", evidence: [], threshold: "policy", explanation: reason, suggestedInspection: path, indeterminateReason: reason };
     snap.health = { availability: "loaded", records: [record], total: 1, truncated: false, evaluatedAt: record.freshness.evaluatedAt };

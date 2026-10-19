@@ -37,14 +37,14 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
       humanQuestionsSchema,
     ]);
     bus = new EventBus(db);
-    repo = new QueueRepository(db, bus, { validateRig: () => true });
+    repo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
   });
 
   afterEach(() => db.close());
 
   it("allows updating summary on a pending human-intent row without changing its state", async () => {
     const item = await repo.create({
-      sourceSession: "orch@rig",
+      sourceSession: "orch@software-team",
       destinationSession: "founder@external",
       body: "Decision request",
       humanIntent: "decision",
@@ -57,7 +57,7 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
 
     const updated = repo.update({
       qitemId: item.qitemId,
-      actorSession: "orch@rig",
+      actorSession: "orch@software-team",
       summary: "Corrected operator-facing summary",
       transitionNote: "corrected wording in brief",
     });
@@ -77,21 +77,21 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
 
   it("allows updating summary on an in-progress row without state transition", async () => {
     const item = await repo.create({
-      sourceSession: "orch@rig",
-      destinationSession: "worker@rig",
+      sourceSession: "orch@software-team",
+      destinationSession: "worker@software-team",
       body: "Build task",
       summary: "Build step 1",
     });
 
     repo.update({
       qitemId: item.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       state: "in-progress",
     });
 
     const updated = repo.update({
       qitemId: item.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       summary: "Build step 1 (refined scope)",
     });
 
@@ -106,14 +106,14 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
 
   it("allows updating summary on a blocked row without altering its blocker or wake", async () => {
     const item = await repo.create({
-      sourceSession: "orch@rig",
-      destinationSession: "worker@rig",
+      sourceSession: "orch@software-team",
+      destinationSession: "worker@software-team",
       body: "Blocked item",
     });
 
     repo.update({
       qitemId: item.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       state: "blocked",
       blockedOn: "human@kernel",
       summary: "Initial park summary",
@@ -122,7 +122,7 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
 
     const updated = repo.update({
       qitemId: item.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       summary: "Refined park summary",
     });
 
@@ -134,27 +134,27 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
 
   it("allows updating summary on a non-human-blocked row without state transition", async () => {
     const blocker = await repo.create({
-      sourceSession: "orch@rig",
-      destinationSession: "worker-b@rig",
+      sourceSession: "orch@software-team",
+      destinationSession: "worker-b@software-team",
       body: "Blocker task",
     });
 
     const item = await repo.create({
-      sourceSession: "orch@rig",
-      destinationSession: "worker@rig",
+      sourceSession: "orch@software-team",
+      destinationSession: "worker@software-team",
       body: "Waiting item",
     });
 
     repo.update({
       qitemId: item.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       state: "blocked",
       blockedOn: blocker.qitemId,
     });
 
     const updated = repo.update({
       qitemId: item.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       summary: "Waiting on blocker task with updated notes",
     });
 
@@ -165,8 +165,8 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
 
   it("still rejects other state-write fields if supplied alongside summary without state change", async () => {
     const item = await repo.create({
-      sourceSession: "orch@rig",
-      destinationSession: "worker@rig",
+      sourceSession: "orch@software-team",
+      destinationSession: "worker@software-team",
       body: "Item",
       summary: "S",
     });
@@ -174,7 +174,7 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
     expect(() => {
       repo.update({
         qitemId: item.qitemId,
-        actorSession: "worker@rig",
+        actorSession: "worker@software-team",
         summary: "New S",
         blockedOn: "another@seat",
       });
@@ -184,8 +184,8 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
 
   it("allows updating summary in terminal states without reopening or mutating other fields", async () => {
     const item = await repo.create({
-      sourceSession: "orch@rig",
-      destinationSession: "worker@rig",
+      sourceSession: "orch@software-team",
+      destinationSession: "worker@software-team",
       body: "Terminal task",
       summary: "Initial summary",
       tags: ["qa", "release"],
@@ -193,13 +193,13 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
 
     repo.update({
       qitemId: item.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       state: "in-progress",
     });
 
     repo.update({
       qitemId: item.qitemId,
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       state: "done",
       closureReason: "no-follow-on",
     });
@@ -208,7 +208,7 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
 
     const updated = repo.update({
       qitemId: item.qitemId,
-      actorSession: "orch@rig",
+      actorSession: "orch@software-team",
       summary: "Updated post-close brief",
     });
 
@@ -216,15 +216,15 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
     expect(updated.closureReason).toBe("no-follow-on");
     expect(updated.summary).toBe("Updated post-close brief");
     expect(updated.body).toBe("Terminal task");
-    expect(updated.destinationSession).toBe("worker@rig");
+    expect(updated.destinationSession).toBe("worker@software-team");
     expect(updated.tags).toEqual(["qa", "release"]);
   });
 
   describe("malformed summaries write nothing (issue #1040)", () => {
     it("refuses summary: null with no note or state and writes nothing", async () => {
       const item = await repo.create({
-        sourceSession: "orch@rig",
-        destinationSession: "worker@rig",
+        sourceSession: "orch@software-team",
+        destinationSession: "worker@software-team",
         body: "Task",
         summary: "Original summary",
       });
@@ -233,7 +233,7 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
       expect(() => {
         repo.update({
           qitemId: item.qitemId,
-          actorSession: "worker@rig",
+          actorSession: "worker@software-team",
           summary: null,
         });
       }).toThrow(QueueRepositoryError);
@@ -246,8 +246,8 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
 
     it("refuses a non-string summary with no note or state and writes nothing", async () => {
       const item = await repo.create({
-        sourceSession: "orch@rig",
-        destinationSession: "worker@rig",
+        sourceSession: "orch@software-team",
+        destinationSession: "worker@software-team",
         body: "Task",
         summary: "Original summary",
       });
@@ -256,7 +256,7 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
       expect(() => {
         repo.update({
           qitemId: item.qitemId,
-          actorSession: "worker@rig",
+          actorSession: "worker@software-team",
           summary: 123 as unknown as string,
         });
       }).toThrow(QueueRepositoryError);
@@ -269,8 +269,8 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
 
     it("refuses an empty or whitespace-only summary and writes nothing", async () => {
       const item = await repo.create({
-        sourceSession: "orch@rig",
-        destinationSession: "worker@rig",
+        sourceSession: "orch@software-team",
+        destinationSession: "worker@software-team",
         body: "Task",
         summary: "Original summary",
       });
@@ -280,7 +280,7 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
       expect(() => {
         repo.update({
           qitemId: item.qitemId,
-          actorSession: "worker@rig",
+          actorSession: "worker@software-team",
           summary: "",
         });
       }).toThrow(QueueRepositoryError);
@@ -292,7 +292,7 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
       expect(() => {
         repo.update({
           qitemId: item.qitemId,
-          actorSession: "worker@rig",
+          actorSession: "worker@software-team",
           summary: "   \t\n  ",
         });
       }).toThrow(QueueRepositoryError);
@@ -303,8 +303,8 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
 
     it("refuses a malformed summary supplied alongside a transition note and writes nothing", async () => {
       const item = await repo.create({
-        sourceSession: "orch@rig",
-        destinationSession: "worker@rig",
+        sourceSession: "orch@software-team",
+        destinationSession: "worker@software-team",
         body: "Task",
         summary: "Original summary",
       });
@@ -313,7 +313,7 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
       expect(() => {
         repo.update({
           qitemId: item.qitemId,
-          actorSession: "worker@rig",
+          actorSession: "worker@software-team",
           summary: "",
           transitionNote: "some note",
         });
@@ -325,7 +325,7 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
       expect(() => {
         repo.update({
           qitemId: item.qitemId,
-          actorSession: "worker@rig",
+          actorSession: "worker@software-team",
           summary: 456 as unknown as string,
           transitionNote: "some note",
         });
@@ -339,15 +339,15 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
   describe("summary sent with explicit same state is refused (issue #1040)", () => {
     it("refuses summary sent with same state on a done item and writes nothing", async () => {
       const item = await repo.create({
-        sourceSession: "orch@rig",
-        destinationSession: "worker@rig",
+        sourceSession: "orch@software-team",
+        destinationSession: "worker@software-team",
         body: "Terminal task",
         summary: "Original summary",
       });
 
       repo.update({
         qitemId: item.qitemId,
-        actorSession: "worker@rig",
+        actorSession: "worker@software-team",
         state: "done",
         closureReason: "no-follow-on",
       });
@@ -357,7 +357,7 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
       expect(() => {
         repo.update({
           qitemId: item.qitemId,
-          actorSession: "worker@rig",
+          actorSession: "worker@software-team",
           state: "done",
           summary: "Attempted summary update with same state",
         });
@@ -371,15 +371,15 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
 
     it("refuses summary sent with same state on a canceled item and writes nothing", async () => {
       const item = await repo.create({
-        sourceSession: "orch@rig",
-        destinationSession: "worker@rig",
+        sourceSession: "orch@software-team",
+        destinationSession: "worker@software-team",
         body: "Canceled task",
         summary: "Original summary",
       });
 
       repo.update({
         qitemId: item.qitemId,
-        actorSession: "worker@rig",
+        actorSession: "worker@software-team",
         state: "canceled",
       });
 
@@ -388,7 +388,7 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
       expect(() => {
         repo.update({
           qitemId: item.qitemId,
-          actorSession: "worker@rig",
+          actorSession: "worker@software-team",
           state: "canceled",
           summary: "Attempted summary update with same state",
         });
@@ -402,15 +402,15 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
 
     it("refuses summary sent with same state on a handed-off item and writes nothing", async () => {
       const item = await repo.create({
-        sourceSession: "orch@rig",
-        destinationSession: "worker@rig",
+        sourceSession: "orch@software-team",
+        destinationSession: "worker@software-team",
         body: "Handoff task",
         summary: "Original summary",
       });
 
       repo.update({
         qitemId: item.qitemId,
-        actorSession: "worker@rig",
+        actorSession: "worker@software-team",
         state: "handed-off",
         closureReason: "handed_off_to",
         closureTarget: "qitem-target",
@@ -421,7 +421,7 @@ describe("Issue #1040: update existing queue summary without changing qitem stat
       expect(() => {
         repo.update({
           qitemId: item.qitemId,
-          actorSession: "worker@rig",
+          actorSession: "worker@software-team",
           state: "handed-off",
           summary: "Attempted summary update with same state",
         });

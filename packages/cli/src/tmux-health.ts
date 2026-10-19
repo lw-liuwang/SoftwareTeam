@@ -20,8 +20,8 @@ export function isTmuxNoServerMessage(message: string): boolean {
 export function buildTmuxControlFailure(message: string): { message: string; reason: string; fix: string } {
   return {
     message: "tmux installed, but the default control socket is unhealthy.",
-    reason: `OpenRig uses tmux control commands to launch, inspect, and manage agent sessions. The default tmux socket is returning: ${message}`,
-    fix: "Capture any needed state from visible tmux panes, then restart the default tmux server before retrying OpenRig. If this happened after a machine restore, treat it as attention required rather than a healthy running state.",
+    reason: `SoftwareTeam uses tmux control commands to launch, inspect, and manage agent sessions. The default tmux socket is returning: ${message}`,
+    fix: "Capture any needed state from visible tmux panes, then restart the default tmux server before retrying SoftwareTeam. If this happened after a machine restore, treat it as attention required rather than a healthy running state.",
   };
 }
 

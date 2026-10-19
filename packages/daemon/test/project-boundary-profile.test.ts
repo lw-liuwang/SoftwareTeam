@@ -143,7 +143,7 @@ describe("project-owned boundary profile", () => {
     try {
       migrate(db, ALL_MIGRATIONS);
       const bus = new EventBus(db);
-      const queue = new QueueRepository(db, bus, { validateRig: () => true });
+      const queue = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
       const runtime = new WorkflowRuntime({ db, eventBus: bus, queueRepo: queue });
       const created = await runtime.instantiateLifecycle({ missionPath, operationKey: "release", rootObjective: "Ship release", createdBySession: "orch@example" });
       const instanceId = created.instance.instanceId;

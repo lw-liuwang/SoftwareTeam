@@ -4,12 +4,12 @@ import type { DaemonClient } from "../src/client.js";
 import { STATE_FILE, type DaemonState, type LifecycleDeps } from "../src/daemon-lifecycle.js";
 import { createProgram } from "../src/index.js";
 import type { StatusDeps } from "../src/commands/status.js";
-import type { RigDeps } from "../src/commands/rig.js";
+import type { SoftwareTeamDeps } from "../src/commands/software-team.js";
 
 function lifecycleDeps(): LifecycleDeps {
   const state: DaemonState = {
     pid: 123,
-    port: 7433,
+    port: 7434,
     db: "test.sqlite",
     startedAt: "2026-08-31T00:00:00Z",
   };
@@ -59,12 +59,12 @@ const library = [{
   kind: "agent",
   name: "orchestrator",
   sourceType: "builtin",
-  sourcePath: "/opt/openrig/specs/agents/orchestration/orchestrator/agent.yaml",
+  sourcePath: "/opt/softwareteam/specs/agents/orchestration/orchestrator/agent.yaml",
 }];
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("rig create", () => {
+describe("SoftwareTeam create", () => {
   it("creates one launched seat from the shipped agent without user-authored YAML", async () => {
     let sentYaml = "";
     let sentHeaders: Record<string, string> | undefined;
@@ -76,7 +76,7 @@ describe("rig create", () => {
         return {
           status: 201,
           data: {
-            rigId: "rig-1",
+            softwareTeamId: "software-team-1",
             specName: "alpha",
             specVersion: "0.2",
             nodes: [{ logicalId: "main.lead", status: "launched", sessionName: "main-lead@alpha" }],
@@ -88,14 +88,14 @@ describe("rig create", () => {
     const program = createProgram({ createDeps: deps(client) });
     program.exitOverride();
     const { logs, exitCode } = await captureLogs(() =>
-      program.parseAsync(["node", "rig", "create", "alpha", "--cwd", "/work", "--json"]));
+      program.parseAsync(["node", "softwareTeam", "create", "alpha", "--cwd", "/work", "--json"]));
 
     expect(exitCode).toBeUndefined();
     expect(client.postText).toHaveBeenCalledWith(
-      "/api/rigs/import",
+      "/api/software-teams/import",
       expect.any(String),
       "text/yaml",
-      { "X-Rig-Root": "/work", "X-Cwd-Override": "/work" },
+      { "X-Software-Team-Root": "/work", "X-Cwd-Override": "/work" },
       { timeoutMs: 120_000 },
     );
     const spec = parseYaml(sentYaml);
@@ -107,7 +107,7 @@ describe("rig create", () => {
         label: "Main",
         members: [{
           id: "lead",
-          agent_ref: "path:/opt/openrig/specs/agents/orchestration/orchestrator",
+          agent_ref: "path:/opt/softwareteam/specs/agents/orchestration/orchestrator",
           runtime: "claude-code",
           profile: "default",
           cwd: "/work",
@@ -116,10 +116,10 @@ describe("rig create", () => {
       }],
       edges: [],
     });
-    expect(sentHeaders).toEqual({ "X-Rig-Root": "/work", "X-Cwd-Override": "/work" });
+    expect(sentHeaders).toEqual({ "X-Software-Team-Root": "/work", "X-Cwd-Override": "/work" });
     expect(JSON.parse(logs.join("\n"))).toMatchObject({
       ok: true,
-      rigId: "rig-1",
+      softwareTeamId: "software-team-1",
       pod: "main",
       seat: "main.lead",
     });
@@ -133,7 +133,7 @@ describe("rig create", () => {
     const program = createProgram({ createDeps: deps(client) });
     program.exitOverride();
     const { logs, exitCode } = await captureLogs(() =>
-      program.parseAsync(["node", "rig", "create", "alpha"]));
+      program.parseAsync(["node", "softwareTeam", "create", "alpha"]));
 
     expect(exitCode).toBe(1);
     expect(logs.join("\n")).toContain("shipped default agent is unavailable");
@@ -144,15 +144,15 @@ describe("rig create", () => {
     const client = { get: vi.fn(async () => ({ status: 200, data: library })), postText: vi.fn(async () => response) };
     const program = createProgram({ createDeps: deps(client) });
     program.exitOverride();
-    return captureLogs(() => program.parseAsync(["node", "rig", "create", "alpha", "--cwd", "/work", ...(json ? ["--json"] : [])]));
+    return captureLogs(() => program.parseAsync(["node", "softwareTeam", "create", "alpha", "--cwd", "/work", ...(json ? ["--json"] : [])]));
   }
 
   it.each([
     ["the daemon's errors", { status: 400, data: { errors: ["first problem", "second problem"] } }, "first problem; second problem"],
-    ["the daemon's message", { status: 409, data: { message: "rig alpha is running" } }, "rig alpha is running"],
+    ["the daemon's message", { status: 409, data: { message: "SoftwareTeam alpha is running" } }, "SoftwareTeam alpha is running"],
     ["a seat that needs attention", {
       status: 201,
-      data: { rigId: "rig-1", nodes: [{ logicalId: "main.lead", status: "attention_required", error: "Startup requires attention: log in" }] },
+      data: { softwareTeamId: "software-team-1", nodes: [{ logicalId: "main.lead", status: "attention_required", error: "Startup requires attention: log in" }] },
     }, "Startup requires attention: log in"],
     ["no detail at all", { status: 500, data: {} }, "Create failed (HTTP 500)"],
   ])("a failed create's --json carries the reason the text output prints: %s", async (_label, response, reason) => {
@@ -166,17 +166,17 @@ describe("rig create", () => {
   });
 
   it("a successful create's --json has no detail", async () => {
-    const { logs } = await createWith({ status: 201, data: { rigId: "rig-1", nodes: [{ logicalId: "main.lead", status: "launched" }] } }, true);
+    const { logs } = await createWith({ status: 201, data: { softwareTeamId: "software-team-1", nodes: [{ logicalId: "main.lead", status: "launched" }] } }, true);
     expect(JSON.parse(logs.join("\n"))).not.toHaveProperty("detail");
   });
 });
 
-describe("rig grow", () => {
+describe("SoftwareTeam grow", () => {
   it("infers the only pod and adds one launched seat through the existing member ingress", async () => {
     const client = {
       get: vi.fn(async (path: string) => path.includes("specs/library")
         ? { status: 200, data: library }
-        : { status: 200, data: [{ rigName: "alpha", podNamespace: "main" }] }),
+        : { status: 200, data: [{ softwareTeamName: "alpha", podNamespace: "main" }] }),
       post: vi.fn(async () => ({
         status: 201,
         data: {
@@ -192,26 +192,26 @@ describe("rig grow", () => {
     const program = createProgram({ growDeps: deps(client) });
     program.exitOverride();
     const { logs, exitCode } = await captureLogs(() =>
-      program.parseAsync(["node", "rig", "grow", "rig-1", "worker", "--cwd", "/work", "--json"]));
+      program.parseAsync(["node", "softwareTeam", "grow", "software-team-1", "worker", "--cwd", "/work", "--json"]));
 
     expect(exitCode).toBeUndefined();
     expect(client.post).toHaveBeenCalledWith(
-      "/api/rigs/rig-1/pods/main/members",
+      "/api/software-teams/software-team-1/pods/main/members",
       {
         member: {
           id: "worker",
-          agent_ref: "path:/opt/openrig/specs/agents/orchestration/orchestrator",
+          agent_ref: "path:/opt/softwareteam/specs/agents/orchestration/orchestrator",
           runtime: "claude-code",
           profile: "default",
           cwd: "/work",
         },
-        rigRoot: "/work",
+        softwareTeamRoot: "/work",
       },
       { timeoutMs: 120_000 },
     );
     expect(JSON.parse(logs.join("\n"))).toMatchObject({
       ok: true,
-      rigName: "alpha",
+      softwareTeamName: "alpha",
       pod: "main",
       seat: "main.worker",
     });
@@ -221,7 +221,7 @@ describe("rig grow", () => {
     const client = {
       get: vi.fn(async (path: string) => path.includes("specs/library")
         ? { status: 200, data: library }
-        : { status: 200, data: [{ rigName: "alpha", podNamespace: "main" }] }),
+        : { status: 200, data: [{ softwareTeamName: "alpha", podNamespace: "main" }] }),
       post: vi.fn(async (_path: string, body: { member: { id: string } }) => ({
         status: 201,
         data: {
@@ -241,19 +241,19 @@ describe("rig grow", () => {
     const program = createProgram({ growDeps: deps(client) });
     program.exitOverride();
     const { logs, exitCode } = await captureLogs(() =>
-      program.parseAsync(["node", "rig", "grow", "rig-1", "worker", "qa", "--pod", "main", "--cwd", "/work", "--json"]));
+      program.parseAsync(["node", "softwareTeam", "grow", "software-team-1", "worker", "qa", "--pod", "main", "--cwd", "/work", "--json"]));
 
     expect(exitCode).toBeUndefined();
     expect(client.post).toHaveBeenCalledTimes(2);
     expect(client.post).toHaveBeenNthCalledWith(
       1,
-      "/api/rigs/rig-1/pods/main/members",
+      "/api/software-teams/software-team-1/pods/main/members",
       expect.objectContaining({ member: expect.objectContaining({ id: "worker" }) }),
       { timeoutMs: 120_000 },
     );
     expect(client.post).toHaveBeenNthCalledWith(
       2,
-      "/api/rigs/rig-1/pods/main/members",
+      "/api/software-teams/software-team-1/pods/main/members",
       expect.objectContaining({ member: expect.objectContaining({ id: "qa" }) }),
       { timeoutMs: 120_000 },
     );
@@ -268,7 +268,7 @@ describe("rig grow", () => {
     const client = {
       get: vi.fn(async (path: string) => path.includes("specs/library")
         ? { status: 200, data: library }
-        : { status: 200, data: [{ rigName: "alpha", podNamespace: "main" }] }),
+        : { status: 200, data: [{ softwareTeamName: "alpha", podNamespace: "main" }] }),
       post: vi.fn(async (_path: string, body: { member: { id: string } }) => body.member.id === "lead"
         ? {
             status: 409,
@@ -296,7 +296,7 @@ describe("rig grow", () => {
     const program = createProgram({ growDeps: deps(client) });
     program.exitOverride();
     const { logs, exitCode } = await captureLogs(() =>
-      program.parseAsync(["node", "rig", "grow", "rig-1", "lead", "worker", "--pod", "main"]));
+      program.parseAsync(["node", "softwareTeam", "grow", "software-team-1", "lead", "worker", "--pod", "main"]));
 
     const output = logs.join("\n");
     expect(exitCode).toBe(1);
@@ -310,7 +310,7 @@ describe("rig grow", () => {
     const client = {
       get: vi.fn(async (path: string) => path.includes("specs/library")
         ? { status: 200, data: library }
-        : { status: 200, data: [{ rigName: "alpha", podNamespace: "main" }] }),
+        : { status: 200, data: [{ softwareTeamName: "alpha", podNamespace: "main" }] }),
       post: vi.fn(async (_path: string, _body: Record<string, unknown>) => {
         return {
           status: 201,
@@ -330,11 +330,11 @@ describe("rig grow", () => {
     const program = createProgram({ growDeps: deps(client) });
     program.exitOverride();
     const { logs, exitCode } = await captureLogs(() =>
-      program.parseAsync(["node", "rig", "grow", "rig-1", "reviewer", "qa", "--new-pod", "review", "--cwd", "/work", "--json"]));
+      program.parseAsync(["node", "softwareTeam", "grow", "software-team-1", "reviewer", "qa", "--new-pod", "review", "--cwd", "/work", "--json"]));
 
     expect(exitCode).toBeUndefined();
     expect(client.post).toHaveBeenCalledWith(
-      "/api/rigs/rig-1/expand",
+      "/api/software-teams/software-team-1/expand",
       expect.objectContaining({
         pod: {
           id: "review",
@@ -345,7 +345,7 @@ describe("rig grow", () => {
           ],
           edges: [],
         },
-        rigRoot: "/work",
+        softwareTeamRoot: "/work",
       }),
       { timeoutMs: 120_000 },
     );
@@ -360,7 +360,7 @@ describe("rig grow", () => {
     const client = {
       get: vi.fn(async (path: string) => path.includes("specs/library")
         ? { status: 200, data: library }
-        : { status: 200, data: [{ rigName: "alpha", podNamespace: "main" }] }),
+        : { status: 200, data: [{ softwareTeamName: "alpha", podNamespace: "main" }] }),
       post: vi.fn(async () => ({
         status: 207,
         data: {
@@ -380,7 +380,7 @@ describe("rig grow", () => {
     const program = createProgram({ growDeps: deps(client) });
     program.exitOverride();
     const { logs, exitCode } = await captureLogs(() =>
-      program.parseAsync(["node", "rig", "grow", "rig-1", "reviewer", "qa", "--new-pod", "review"]));
+      program.parseAsync(["node", "softwareTeam", "grow", "software-team-1", "reviewer", "qa", "--new-pod", "review"]));
 
     const output = logs.join("\n");
     expect(exitCode).toBe(1);
@@ -388,14 +388,14 @@ describe("rig grow", () => {
     expect(output).toContain("[FAIL] review.qa");
     expect(output).toContain("harness launch failed");
     expect(output).toContain("review.qa needs attention");
-    expect(output).toContain("rig launch rig-1 review.qa");
+    expect(output).toContain("SoftwareTeam launch software-team-1 review.qa");
   });
 
   it("keeps partial new-pod JSON actionable", async () => {
     const client = {
       get: vi.fn(async (path: string) => path.includes("specs/library")
         ? { status: 200, data: library }
-        : { status: 200, data: [{ rigName: "alpha", podNamespace: "main" }] }),
+        : { status: 200, data: [{ softwareTeamName: "alpha", podNamespace: "main" }] }),
       post: vi.fn(async () => ({
         status: 207,
         data: {
@@ -414,7 +414,7 @@ describe("rig grow", () => {
     const program = createProgram({ growDeps: deps(client) });
     program.exitOverride();
     const { logs, exitCode } = await captureLogs(() =>
-      program.parseAsync(["node", "rig", "grow", "rig-1", "reviewer", "qa", "--new-pod", "review", "--json"]));
+      program.parseAsync(["node", "softwareTeam", "grow", "software-team-1", "reviewer", "qa", "--new-pod", "review", "--json"]));
 
     expect(exitCode).toBe(1);
     expect(JSON.parse(logs.join("\n"))).toMatchObject({
@@ -432,8 +432,8 @@ describe("rig grow", () => {
       get: vi.fn(async () => ({
         status: 200,
         data: [
-          { rigName: "alpha", podNamespace: "main" },
-          { rigName: "alpha", podNamespace: "review" },
+          { softwareTeamName: "alpha", podNamespace: "main" },
+          { softwareTeamName: "alpha", podNamespace: "review" },
         ],
       })),
       post: vi.fn(),
@@ -442,7 +442,7 @@ describe("rig grow", () => {
     const program = createProgram({ growDeps: deps(client) });
     program.exitOverride();
     const { logs, exitCode } = await captureLogs(() =>
-      program.parseAsync(["node", "rig", "grow", "rig-1", "worker"]));
+      program.parseAsync(["node", "softwareTeam", "grow", "software-team-1", "worker"]));
 
     expect(exitCode).toBe(1);
     expect(logs.join("\n")).toContain("Choose a pod with --pod");
@@ -456,23 +456,23 @@ describe("rig grow", () => {
   });
 });
 
-describe("rig spec show", () => {
+describe("SoftwareTeam spec show", () => {
   it("prints a reusable template without adding an MCP surface", async () => {
     const yaml = `version: "0.2"\nname: alpha\npods:\n  - id: main\n    label: Main\n    members:\n      - id: lead\n        agent_ref: path:/opt/agent\n        profile: default\n        runtime: codex\n        cwd: /work\n        session_source:\n          mode: fork\n          ref:\n            kind: native_id\n            value: old\n        starter_ref:\n          name: old\n    edges: []\nedges: []\n`;
     const client = {
       getText: vi.fn(async () => ({ status: 200, data: yaml })),
     };
-    const rigDeps: RigDeps = {
+    const softwareTeamDeps: SoftwareTeamDeps = {
       ...deps(client),
       readFile: vi.fn(),
     };
-    const program = createProgram({ rigDeps });
+    const program = createProgram({ softwareTeamDeps });
     program.exitOverride();
     const { logs, exitCode } = await captureLogs(() =>
-      program.parseAsync(["node", "rig", "spec", "show", "rig-1", "--as-template", "--json"]));
+      program.parseAsync(["node", "softwareTeam", "spec", "show", "software-team-1", "--as-template", "--json"]));
 
     expect(exitCode).toBeUndefined();
-    expect(client.getText).toHaveBeenCalledWith("/api/rigs/rig-1/spec");
+    expect(client.getText).toHaveBeenCalledWith("/api/software-teams/software-team-1/spec");
     const template = JSON.parse(logs.join("\n"));
     expect(template.name).toBe("REPLACE-ME");
     expect(template.pods[0].members[0]).not.toHaveProperty("session_source");

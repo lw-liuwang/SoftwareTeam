@@ -17,11 +17,11 @@ beforeEach(() => {
 });
 afterEach(() => db.close());
 
-function seedRig(rigId: string, name: string) {
-  db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run(rigId, name);
+function seedSoftwareTeam(softwareTeamId: string, name: string) {
+  db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run(softwareTeamId, name);
 }
-function seedNode(nodeId: string, rigId: string, logicalId: string) {
-  db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)").run(nodeId, rigId, logicalId);
+function seedNode(nodeId: string, softwareTeamId: string, logicalId: string) {
+  db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)").run(nodeId, softwareTeamId, logicalId);
 }
 function seedSession(over: {
   id: string;
@@ -49,8 +49,8 @@ function seedSession(over: {
 }
 
 describe("readCrashCartDiscovery — FOUND ON THIS HOST", () => {
-  it("reports per-rig seat count, running count, resumable count, and last-active", () => {
-    seedRig("r1", "alpha");
+  it("reports per-software-team seat count, running count, resumable count, and last-active", () => {
+    seedSoftwareTeam("r1", "alpha");
     seedNode("n1", "r1", "worker");
     seedNode("n2", "r1", "guard");
     // n1: latest session running + resumable (probe=resumable); n2: stopped, not resumable.
@@ -59,17 +59,17 @@ describe("readCrashCartDiscovery — FOUND ON THIS HOST", () => {
 
     const { foundOnHost } = readCrashCartDiscovery(db);
     expect(foundOnHost).toHaveLength(1);
-    const rig = foundOnHost[0];
-    expect(rig.rigId).toBe("r1");
-    expect(rig.rigName).toBe("alpha");
-    expect(rig.seatCount).toBe(2);
-    expect(rig.runningCount).toBe(1);
-    expect(rig.resumableCount).toBe(1);
-    expect(rig.lastActiveAt).toBe("2026-08-06T07:00:00Z");
+    const softwareTeam = foundOnHost[0];
+    expect(softwareTeam.softwareTeamId).toBe("r1");
+    expect(softwareTeam.softwareTeamName).toBe("alpha");
+    expect(softwareTeam.seatCount).toBe(2);
+    expect(softwareTeam.runningCount).toBe(1);
+    expect(softwareTeam.resumableCount).toBe(1);
+    expect(softwareTeam.lastActiveAt).toBe("2026-08-06T07:00:00Z");
   });
 
   it("uses only the LATEST session per node (max ULID id) for status/resumable", () => {
-    seedRig("r1", "alpha");
+    seedSoftwareTeam("r1", "alpha");
     seedNode("n1", "r1", "worker");
     // older running+resumable, newer stopped+not — latest wins ⇒ not running, not resumable.
     seedSession({ id: "01A", nodeId: "n1", name: "w@a", status: "running", probe: "resumable", resumeToken: "t" });
@@ -79,12 +79,12 @@ describe("readCrashCartDiscovery — FOUND ON THIS HOST", () => {
     expect(foundOnHost[0].resumableCount).toBe(0);
   });
 
-  it("excludes archived rigs", () => {
-    seedRig("r1", "alpha");
-    seedRig("r2", "beta");
-    db.prepare("UPDATE rigs SET archived_at = ? WHERE id = 'r2'").run("2026-08-06T00:00:00Z");
+  it("excludes archived softwareTeams", () => {
+    seedSoftwareTeam("r1", "alpha");
+    seedSoftwareTeam("r2", "beta");
+    db.prepare("UPDATE software_teams SET archived_at = ? WHERE id = 'r2'").run("2026-08-06T00:00:00Z");
     const { foundOnHost } = readCrashCartDiscovery(db);
-    expect(foundOnHost.map((r) => r.rigId)).toEqual(["r1"]);
+    expect(foundOnHost.map((r) => r.softwareTeamId)).toEqual(["r1"]);
   });
 });
 
@@ -110,7 +110,7 @@ describe("readCrashCartDiscovery — HEADER (derived; honest-null for the unreco
     db.prepare(
       "INSERT INTO self_host_identity (singleton, host_id, minted_at, reconciled_at) VALUES (1, ?, ?, ?)",
     ).run("host-A", "2026-08-01T00:00:00Z", "2026-08-06T04:00:00Z");
-    seedRig("r1", "alpha");
+    seedSoftwareTeam("r1", "alpha");
     seedNode("n1", "r1", "worker");
     seedSession({ id: "01A", nodeId: "n1", name: "w@a", status: "running", lastSeenAt: "2026-08-06T07:30:00Z" });
 

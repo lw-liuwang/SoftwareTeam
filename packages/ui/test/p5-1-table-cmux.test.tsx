@@ -26,22 +26,22 @@ beforeEach(() => {
   navigateSpy.mockClear();
   mockFetch.mockReset();
   mockFetch.mockImplementation(async (url: string) => {
-    if (url.includes("/api/rigs/summary")) {
-      return new Response(JSON.stringify([{ id: "rig-1", name: "test-rig" }]));
+    if (url.includes("/api/software-teams/summary")) {
+      return new Response(JSON.stringify([{ id: "software-team-1", name: "test-software-team" }]));
     }
     if (url.includes("/open-cmux")) {
       return new Response(JSON.stringify({ ok: true, action: "created_new" }));
     }
-    if (url.includes("/api/rigs/rig-1/nodes")) {
+    if (url.includes("/api/software-teams/software-team-1/nodes")) {
       return new Response(
         JSON.stringify([
           {
-            rigId: "rig-1",
-            rigName: "test-rig",
+            softwareTeamId: "software-team-1",
+            softwareTeamName: "test-software-team",
             logicalId: "orch.lead",
             podId: "orch",
             podNamespace: "orch",
-            canonicalSessionName: "orch-lead@test-rig",
+            canonicalSessionName: "orch-lead@test-software-team",
             nodeKind: "agent",
             runtime: "claude-code",
             sessionStatus: "running",
@@ -95,7 +95,7 @@ describe("TopologyTableView P5.1-7 CMUX column + row click", () => {
     expect(tokens.getAttribute("title")).toContain("Tokens: 134,000");
   });
 
-  it("CMUX button click POSTs to /api/rigs/.../open-cmux (open-or-create launcher)", async () => {
+  it("CMUX button click POSTs to /api/software-teams/.../open-cmux (open-or-create launcher)", async () => {
     const { findByTestId } = withQueryClient(<TopologyTableView />);
     const cmux = await findByTestId("topology-table-cmux-orch.lead");
     fireEvent.click(cmux);
@@ -104,7 +104,7 @@ describe("TopologyTableView P5.1-7 CMUX column + row click", () => {
         (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("/open-cmux"),
       );
       expect(openCall).toBeDefined();
-      expect(openCall![0]).toBe("/api/rigs/rig-1/nodes/orch.lead/open-cmux");
+      expect(openCall![0]).toBe("/api/software-teams/software-team-1/nodes/orch.lead/open-cmux");
     });
   });
 
@@ -117,16 +117,16 @@ describe("TopologyTableView P5.1-7 CMUX column + row click", () => {
     expect(navigateSpy).not.toHaveBeenCalled();
   });
 
-  it("row click (away from action button) navigates to /topology/seat/$rigId/$logicalId", async () => {
+  it("row click (away from action button) navigates to /topology/seat/$softwareTeamId/$logicalId", async () => {
     const { findByTestId } = withQueryClient(<TopologyTableView />);
     const row = await findByTestId("topology-table-row-orch.lead");
     fireEvent.click(row);
     await waitFor(() => {
       expect(navigateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          to: "/topology/seat/$rigId/$logicalId",
+          to: "/topology/seat/$softwareTeamId/$logicalId",
           params: {
-            rigId: "rig-1",
+            softwareTeamId: "software-team-1",
             logicalId: encodeURIComponent("orch.lead"),
           },
         }),

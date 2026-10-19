@@ -1,6 +1,6 @@
 // OPR.0.4.4.23 originally pinned duplicate spec/plugin copies. The vendoring
-// placement ruling now makes mission-slice-sop and openrig-user plugin-only:
-// universal delivery comes from openrig-core, so recreating a spec copy would
+// placement ruling now makes mission-slice-sop and softwareteam-user plugin-only:
+// universal delivery comes from softwareteam-core, so recreating a spec copy would
 // reintroduce the drift this guard was meant to prevent.
 
 import { describe, expect, it } from "vitest";
@@ -13,14 +13,14 @@ const repoRoot = path.resolve(here, "..", "..", "..");
 
 const PLUGIN_COPY = path.join(
   repoRoot,
-  "packages/daemon/assets/plugins/openrig-core/skills/mission-slice-sop/SKILL.md",
+  "packages/daemon/assets/plugins/softwareteam-core/skills/mission-slice-sop/SKILL.md",
 );
 describe("OPR.0.4.7 vendoring — universal skills have one plugin home", () => {
-  for (const skill of ["mission-slice-sop", "openrig-user"] as const) {
+  for (const skill of ["mission-slice-sop", "softwareteam-user"] as const) {
     it(`${skill}: ships from the plugin and has no spec/canonical duplicate`, () => {
       const plugin = path.join(
         repoRoot,
-        `packages/daemon/assets/plugins/openrig-core/skills/${skill}/SKILL.md`,
+        `packages/daemon/assets/plugins/softwareteam-core/skills/${skill}/SKILL.md`,
       );
       const spec = path.join(
         repoRoot,
@@ -102,8 +102,8 @@ describe("scope convention teaching-site sweep", () => {
   });
 
   it("continuity teachers no longer prescribe altitude-specific mission notes", () => {
-    const retire = read("packages/daemon/assets/plugins/openrig-core/skills/retiring-and-inheriting-a-seat/SKILL.md");
-    const advisor = read("packages/daemon/specs/rigs/launch/kernel/agents/advisor/lead/guidance/role.md");
+    const retire = read("packages/daemon/assets/plugins/softwareteam-core/skills/retiring-and-inheriting-a-seat/SKILL.md");
+    const advisor = read("packages/daemon/specs/software-teams/launch/kernel/agents/advisor/lead/guidance/role.md");
     expect(retire).not.toContain("MISSION_NOTES");
     expect(advisor).not.toContain("MISSION_NOTES");
   });

@@ -9,15 +9,15 @@ export async function prepareDaemonAutoStart(
   const { ConfigStore } = await import("./config-store.js");
   const { SystemPreflight } = await import("./system-preflight.js");
   const { execSync } = await import("node:child_process");
-  const { OPENRIG_DIR, getDaemonStatus, resolveBindIntent } = await import("./daemon-lifecycle.js");
+  const { SOFTWARETEAM_DIR, getDaemonStatus, resolveBindIntent } = await import("./daemon-lifecycle.js");
   const configStore = new ConfigStore();
   const config = configStore.resolve();
   const hostResolution = configStore.resolveWithSource("daemon.host");
   // The inherited routing host is not bind intent. Keep the existing up rule:
-  // only a file-selected host or OPENRIG_BIND_HOST selects an explicit bind.
+  // only a file-selected host or SOFTWARETEAM_BIND_HOST selects an explicit bind.
   const host = resolveBindIntent({
     flagHost: undefined,
-    envBindHost: process.env["OPENRIG_BIND_HOST"],
+    envBindHost: process.env["SOFTWARETEAM_BIND_HOST"],
     configSource: hostResolution.source,
     configHost: config.daemon.host,
   }).host;
@@ -26,7 +26,7 @@ export async function prepareDaemonAutoStart(
       execSync(cmd, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] })),
     configStore,
     getDaemonStatus: () => getDaemonStatus(deps),
-    openrigHome: OPENRIG_DIR,
+    softwareteamHome: SOFTWARETEAM_DIR,
   }).run();
   return {
     preflight,

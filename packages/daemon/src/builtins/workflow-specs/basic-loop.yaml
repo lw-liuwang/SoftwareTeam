@@ -1,31 +1,31 @@
-# OpenRig 0.3.0 starter workflow.
+# SoftwareTeam 0.3.0 starter workflow.
 # A slower walkthrough loop for watching one work packet move end to end.
 workflow:
   id: basic-loop
   version: 1
   objective: >
-    Walk one work packet through the conveyor rig slowly enough for a new user
+    Walk one work packet through the conveyor software_team slowly enough for a new user
     to inspect each handoff.
   target:
-    rig: conveyor
+    software_team: conveyor
   entry:
     role: intake
   coordination_terminal_turn_rule: hot_potato
   roles:
     intake:
-      skill_refs: [openrig-user, backlog-capture]
+      skill_refs: [softwareteam-user, backlog-capture]
       preferred_targets: [intake-lead@conveyor]
     planner:
-      skill_refs: [openrig-user, verification-before-completion]
+      skill_refs: [softwareteam-user, verification-before-completion]
       preferred_targets: [plan-planner@conveyor]
     builder:
-      skill_refs: [openrig-user]
+      skill_refs: [softwareteam-user]
       preferred_targets: [build-builder@conveyor]
     reviewer:
-      skill_refs: [openrig-user, review-team]
+      skill_refs: [softwareteam-user, review-team]
       preferred_targets: [review-reviewer@conveyor]
     closer:
-      skill_refs: [openrig-user]
+      skill_refs: [softwareteam-user]
       preferred_targets: [intake-lead@conveyor]
   steps:
     - id: intake

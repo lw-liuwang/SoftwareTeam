@@ -16,7 +16,7 @@ import {
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 const TRACE_TO_ROOT = path.join(
   REPO_ROOT,
-  "packages/daemon/assets/plugins/openrig-core/skills/refocusing/scripts/trace-to-root.py",
+  "packages/daemon/assets/plugins/softwareteam-core/skills/refocusing/scripts/trace-to-root.py",
 );
 
 const PRODUCTION_CODE_ROOTS = [
@@ -58,7 +58,7 @@ const CLASSIFIER_FILES = [
   // (arch AR-1 ruling — one grammar, twin-pinned; see the module header).
   { cli: "packages/cli/src/lib/scope/scaffold-placeholder.ts", daemon: "packages/daemon/src/domain/scope/scaffold-placeholder.ts" },
   // KI-5.3-2: the shared logical-checkbox item grammar twin — one grammar for
-  // the review composer, the slice-detail projector, and `rig proof add`, so a
+  // the review composer, the slice-detail projector, and `softwareTeam proof add`, so a
   // byIndex evidence ref names the same promise everywhere (see module header).
   { cli: "packages/cli/src/lib/scope/logical-checkbox.ts", daemon: "packages/daemon/src/domain/scope/logical-checkbox.ts" },
 ];
@@ -205,7 +205,7 @@ describe("shipped refocus notes resolution", () => {
     const root = fs.mkdtempSync(path.join(process.env.TMPDIR ?? "/tmp", "scope-notes-refocus-"));
     const workNode = path.join(root, "work-node");
     const bin = path.join(root, "bin");
-    const rig = path.join(bin, "rig");
+    const softwareTeam = path.join(bin, "SoftwareTeam");
     const currentPath = path.join(workNode, "NOTES.md");
     const legacyPath = path.join(workNode, "MISSION_NOTES.md");
     fs.mkdirSync(workNode, { recursive: true });
@@ -214,25 +214,25 @@ describe("shipped refocus notes resolution", () => {
     fs.writeFileSync(path.join(workNode, "SPEC.md"), "---\nintent: Exercise resolution\n---\n", "utf8");
     const launcher = path.join(root, "scope-launcher.mjs");
     fs.writeFileSync(launcher, `import { pathToFileURL } from "node:url";
-const { scopeCommand } = await import(pathToFileURL(process.env.OPENRIG_TEST_SCOPE_COMMAND));
+const { scopeCommand } = await import(pathToFileURL(process.env.SOFTWARETEAM_TEST_SCOPE_COMMAND));
 await scopeCommand().parseAsync(process.argv);
 `, "utf8");
-    fs.writeFileSync(rig, `#!/bin/sh
-if [ "\${OPENRIG_TEST_SCOPE_RESOLVE_FAIL:-}" = "1" ] && [ "$1" = "scope" ] && [ "$2" = "resolve-notes" ]; then
+    fs.writeFileSync(softwareTeam, `#!/bin/sh
+if [ "\${SOFTWARETEAM_TEST_SCOPE_RESOLVE_FAIL:-}" = "1" ] && [ "$1" = "scope" ] && [ "$2" = "resolve-notes" ]; then
   printf '%s\n' 'forced resolver failure' >&2
   exit 23
 fi
 if [ "$1" = "scope" ]; then shift; fi
-exec "$OPENRIG_TEST_NODE" --import tsx "$OPENRIG_TEST_SCOPE_LAUNCHER" "$@"
+exec "$SOFTWARETEAM_TEST_NODE" --import tsx "$SOFTWARETEAM_TEST_SCOPE_LAUNCHER" "$@"
 `, "utf8");
-    fs.chmodSync(rig, 0o755);
+    fs.chmodSync(softwareTeam, 0o755);
     const baseEnv = {
       ...process.env,
       PATH: `${bin}:${process.env.PATH || ""}`,
-      OPENRIG_TEST_NODE: process.execPath,
-      OPENRIG_TEST_SCOPE_COMMAND: path.join(REPO_ROOT, "packages/cli/src/commands/scope.ts"),
-      OPENRIG_TEST_SCOPE_LAUNCHER: launcher,
-      OPENRIG_WORKSPACE_ROOT: workNode,
+      SOFTWARETEAM_TEST_NODE: process.execPath,
+      SOFTWARETEAM_TEST_SCOPE_COMMAND: path.join(REPO_ROOT, "packages/cli/src/commands/scope.ts"),
+      SOFTWARETEAM_TEST_SCOPE_LAUNCHER: launcher,
+      SOFTWARETEAM_WORKSPACE_ROOT: workNode,
     } as NodeJS.ProcessEnv;
 
     try {
@@ -279,7 +279,7 @@ exec "$OPENRIG_TEST_NODE" --import tsx "$OPENRIG_TEST_SCOPE_LAUNCHER" "$@"
       ], {
         cwd: REPO_ROOT,
         encoding: "utf8",
-        env: { ...baseEnv, OPENRIG_TEST_SCOPE_RESOLVE_FAIL: "1" },
+        env: { ...baseEnv, SOFTWARETEAM_TEST_SCOPE_RESOLVE_FAIL: "1" },
       });
       expect(failed.status).toBe(0);
       expect(failed.stdout).toContain("NOTES RESOLUTION GAP — resolver command exited 23");
@@ -317,7 +317,7 @@ describeFr10("FR-10 backstops (OPR.0.4.4.19)", () => {
     expectFr10(finding).toBeDefined();
     expectFr10(finding!.path).toBe("/w/.../proof/rogue.md");
     expectFr10(finding!.message).toContain("slice, candidate_sha, artifact_type, verdict, money_evidence");
-    expectFr10(finding!.remediation).toContain("rig proof add");
+    expectFr10(finding!.remediation).toContain("SoftwareTeam proof add");
   });
 
   itFr10("C1: out-of-set values are flagged naming the closed sets; valid headers are clean", () => {

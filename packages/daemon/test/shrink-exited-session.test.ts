@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
 it("shrinks a pod containing an already-exited native tmux session and preserves siblings", () => {
-  const home = mkdtempSync(join(tmpdir(), "openrig-shrink-exited-"));
+  const home = mkdtempSync(join(tmpdir(), "softwareteam-shrink-exited-"));
   try {
     const result = spawnSync(process.execPath, [
       fileURLToPath(new URL("./fixtures/shrink-exited-session.mjs", import.meta.url)), home,

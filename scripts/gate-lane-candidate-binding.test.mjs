@@ -33,12 +33,12 @@ function makeRepo() {
   write(join(root, "packages/cli/index.js"), "export {};\n");
   const packages = {
     "": { workspaces: ["packages/cli"] },
-    "node_modules/@openrig/cli": { resolved: "packages/cli", link: true },
-    "packages/cli": { name: "@openrig/cli" },
+    "node_modules/@softwareteam/cli": { resolved: "packages/cli", link: true },
+    "packages/cli": { name: "@softwareteam/cli" },
   };
   write(join(root, "package-lock.json"), `${JSON.stringify({ name: "fixture", lockfileVersion: 3, packages }, null, 2)}\n`);
-  mkdirSync(join(root, "node_modules/@openrig"), { recursive: true });
-  symlinkSync("../../packages/cli", join(root, "node_modules/@openrig/cli"));
+  mkdirSync(join(root, "node_modules/@softwareteam"), { recursive: true });
+  symlinkSync("../../packages/cli", join(root, "node_modules/@softwareteam/cli"));
   git(root, "init", "-q");
   git(root, "config", "user.email", "gate@example.invalid");
   git(root, "config", "user.name", "Gate Test");
@@ -62,9 +62,9 @@ async function runGate(root, extraEnv = {}) {
     encoding: "utf8",
     env: {
       ...process.env,
-      OPENRIG_GATE_LANE_PORT: String(port),
-      OPENRIG_GATE_LANE_SMOKE: "1",
-      OPENRIG_GATE_VERDICT: join(root, "gate-lane-verdict.json"),
+      SOFTWARETEAM_GATE_LANE_PORT: String(port),
+      SOFTWARETEAM_GATE_LANE_SMOKE: "1",
+      SOFTWARETEAM_GATE_VERDICT: join(root, "gate-lane-verdict.json"),
       ...extraEnv,
     },
   });
@@ -108,7 +108,7 @@ test("candidate binding: a foreign verdict destination is refused without replac
   const ownerData = "foreign owner data\n";
   write(verdictPath, ownerData);
 
-  const result = await runGate(root, { OPENRIG_GATE_VERDICT: verdictPath });
+  const result = await runGate(root, { SOFTWARETEAM_GATE_VERDICT: verdictPath });
 
   assertCandidateRefusal(result, /verdict.*(outside|worktree)|outside.*worktree/i);
   assert.equal(readFileSync(verdictPath, "utf8"), ownerData);
@@ -119,7 +119,7 @@ test("candidate binding: only the canonical verdict path may be present and the 
   const verdictPath = join(root, "receipts/current-verdict.json");
   write(verdictPath, "{}\n");
   const head = git(root, "rev-parse", "HEAD");
-  const result = await runGate(root, { OPENRIG_GATE_VERDICT: verdictPath });
+  const result = await runGate(root, { SOFTWARETEAM_GATE_VERDICT: verdictPath });
   assert.equal(result.status, 0, result.stderr);
   const verdict = JSON.parse(readFileSync(verdictPath, "utf8"));
   assert.equal(verdict.candidateSha, head);
@@ -132,7 +132,7 @@ test("candidate binding: HEAD drift during the gate refuses before writing a ver
   const fakeBin = mkdtempSync(join(tmpdir(), "gate-fake-npm-"));
   const marker = join(tmpdir(), `gate-drift-marker-${process.pid}-${Date.now()}`);
   const fakeNpm = join(fakeBin, "npm");
-  write(fakeNpm, `#!/bin/sh\n: > "$OPENRIG_TEST_MARKER"\nsleep 1\nexit 0\n`);
+  write(fakeNpm, `#!/bin/sh\n: > "$SOFTWARETEAM_TEST_MARKER"\nsleep 1\nexit 0\n`);
   chmodSync(fakeNpm, 0o755);
   const port = await freePort();
 
@@ -141,9 +141,9 @@ test("candidate binding: HEAD drift during the gate refuses before writing a ver
     env: {
       ...process.env,
       PATH: `${fakeBin}:${process.env.PATH}`,
-      OPENRIG_TEST_MARKER: marker,
-      OPENRIG_GATE_LANE_PORT: String(port),
-      OPENRIG_GATE_VERDICT: verdictPath,
+      SOFTWARETEAM_TEST_MARKER: marker,
+      SOFTWARETEAM_GATE_LANE_PORT: String(port),
+      SOFTWARETEAM_GATE_VERDICT: verdictPath,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -174,7 +174,7 @@ test("candidate binding: Git-visible input added during the gate refuses before 
   const marker = join(tmpdir(), `gate-dirty-marker-${process.pid}-${Date.now()}`);
   const release = join(tmpdir(), `gate-dirty-release-${process.pid}-${Date.now()}`);
   const fakeNpm = join(fakeBin, "npm");
-  write(fakeNpm, `#!/bin/sh\n: > "$OPENRIG_TEST_MARKER"\nwhile [ ! -e "$OPENRIG_TEST_RELEASE" ]; do sleep 0.02; done\nexit 0\n`);
+  write(fakeNpm, `#!/bin/sh\n: > "$SOFTWARETEAM_TEST_MARKER"\nwhile [ ! -e "$SOFTWARETEAM_TEST_RELEASE" ]; do sleep 0.02; done\nexit 0\n`);
   chmodSync(fakeNpm, 0o755);
   const port = await freePort();
 
@@ -183,10 +183,10 @@ test("candidate binding: Git-visible input added during the gate refuses before 
     env: {
       ...process.env,
       PATH: `${fakeBin}:${process.env.PATH}`,
-      OPENRIG_TEST_MARKER: marker,
-      OPENRIG_TEST_RELEASE: release,
-      OPENRIG_GATE_LANE_PORT: String(port),
-      OPENRIG_GATE_VERDICT: verdictPath,
+      SOFTWARETEAM_TEST_MARKER: marker,
+      SOFTWARETEAM_TEST_RELEASE: release,
+      SOFTWARETEAM_GATE_LANE_PORT: String(port),
+      SOFTWARETEAM_GATE_VERDICT: verdictPath,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

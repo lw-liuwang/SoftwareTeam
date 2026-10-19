@@ -39,7 +39,7 @@ export function renderCrashCartHeader(model: CrashCartModel): Line {
   ]);
 }
 
-/** `FOUND ON THIS HOST` + one row per rig: `▦ <name>  <n> seats · last active <t> · <r> sessions resumable`.
+/** `FOUND ON THIS HOST` + one row per softwareTeam: `▦ <name>  <n> seats · last active <t> · <r> sessions resumable`.
  *  Name column is padded to the widest name + a 4-space gap so the details align (the mock's fixed columns). */
 export function renderFoundOnHost(model: CrashCartModel): Line[] {
   const out: Line[] = [line([{ text: "FOUND ON THIS HOST", token: "dim" }])];
@@ -89,14 +89,14 @@ export function renderActions(): Line[] {
     line(
       [
         {
-          text: " ⏎ RESTORE EVERYTHING — daemon + kernel + all rigs, sessions resumed in their seats ",
+          text: " ⏎ RESTORE EVERYTHING — daemon + kernel + all softwareTeams, sessions resumed in their seats ",
           bg: "accent",
         },
       ],
       { selected: true },
     ),
     line([
-      { text: "  s start daemon only  ·  i inspect a rig  ·  n new here? onboarding" },
+      { text: "  s start daemon only  ·  i inspect a softwareTeam  ·  n new here? onboarding" },
       { text: " (policy menu lives here now)", token: "dim" },
     ]),
   ];
@@ -108,7 +108,7 @@ export function renderFirstRunView(): Line[] {
   return [
     line([
       { text: "◌ no daemon running", token: "warn" },
-      { text: " — no rigs found on this host yet (a fresh host)", token: "dim" },
+      { text: " — no softwareTeams found on this host yet (a fresh host)", token: "dim" },
     ]),
     { text: "" },
     line([{ text: "Nothing to restore — this looks like a first run.", token: "dim" }]),
@@ -147,7 +147,7 @@ function verdictGlyph(verdict: string): { glyph: string; token: Token } {
   }
 }
 
-/** Glyph for a per-rig progress row by its rollup outcome. */
+/** Glyph for a per-softwareTeam progress row by its rollup outcome. */
 function outcomeGlyph(outcome: string): { glyph: string; token: Token } {
   switch (outcome) {
     case "fully_restored":
@@ -161,9 +161,9 @@ function outcomeGlyph(outcome: string): { glyph: string; token: Token } {
   }
 }
 
-/** The RESTORE LIFECYCLE view (B1 ROUND 2). While running: a live header + a per-rig progress list
+/** The RESTORE LIFECYCLE view (B1 ROUND 2). While running: a live header + a per-softwareTeam progress list
  *  updated from each poll (the rollup stream) + the cancel affordance. When done: the verdict + counts
- *  and the SHIPPED keyboard-walkable triage list (renderTriage) — each seat/rig on its own row with its
+ *  and the SHIPPED keyboard-walkable triage list (renderTriage) — each seat/softwareTeam on its own row with its
  *  EXACT need, NOT a width-clipped one-line footer summary. */
 export function renderRestoreLifecycleView(vm: RestoreLifecycleVM): Line[] {
   const c = vm.counts;
@@ -182,18 +182,18 @@ export function renderRestoreLifecycleView(vm: RestoreLifecycleVM): Line[] {
       line([countsSeg]),
     ];
     // HIGH-1 — an ACCEPTED cancel is honestly rendered: the state SAYS cancellation was requested and
-    // the current rig will finish, and it no longer offers the initial `c cancel` affordance.
-    if (vm.cancelled) out.push(line([{ text: "⚠ cancellation requested — the current rig will finish, then stop", token: "warn" }]));
+    // the current softwareTeam will finish, and it no longer offers the initial `c cancel` affordance.
+    if (vm.cancelled) out.push(line([{ text: "⚠ cancellation requested — the current SoftwareTeam will finish, then stop", token: "warn" }]));
     out.push({ text: "" });
     for (const p of vm.progress) {
       const g = outcomeGlyph(p.outcome);
-      out.push(line([{ text: ` ${g.glyph} `, token: g.token }, { text: p.rigId, token: "bright" }, { text: `  ${p.outcome}`, token: "dim" }]));
+      out.push(line([{ text: ` ${g.glyph} `, token: g.token }, { text: p.softwareTeamId, token: "bright" }, { text: `  ${p.outcome}`, token: "dim" }]));
     }
     out.push({ text: "" });
     out.push(
       vm.cancelled
-        ? line([{ text: "  cancellation accepted — waiting for the current rig; the restore stops before the next", token: "dim" }])
-        : line([{ text: "  c cancel (stop-before-next-rig)  ·  restore continues per rig", token: "dim" }]),
+        ? line([{ text: "  cancellation accepted — waiting for the current softwareTeam; the restore stops before the next", token: "dim" }])
+        : line([{ text: "  c cancel (stop-before-next-software-team)  ·  restore continues per softwareTeam", token: "dim" }]),
     );
     return out;
   }
@@ -201,7 +201,7 @@ export function renderRestoreLifecycleView(vm: RestoreLifecycleVM): Line[] {
   if (vm.phase === "detached") {
     // The live view paused past its window (poll ceiling, or a sustained poll-error streak) — the
     // restore is CONTINUING on the daemon, not stopped. An explicit, OPERABLE state: reattach resumes
-    // the live view, cancel stops-before-next-rig by the retained id (both observable via the resumed poll).
+    // the live view, cancel stops-before-next-softwareTeam by the retained id (both observable via the resumed poll).
     const out: Line[] = [
       line([
         { text: "⚠ RESTORE STILL RUNNING ON THE DAEMON", token: "warn", bold: true },
@@ -215,13 +215,13 @@ export function renderRestoreLifecycleView(vm: RestoreLifecycleVM): Line[] {
     out.push({ text: "" });
     for (const p of vm.progress) {
       const g = outcomeGlyph(p.outcome);
-      out.push(line([{ text: ` ${g.glyph} `, token: g.token }, { text: p.rigId, token: "bright" }, { text: `  ${p.outcome}`, token: "dim" }]));
+      out.push(line([{ text: ` ${g.glyph} `, token: g.token }, { text: p.softwareTeamId, token: "bright" }, { text: `  ${p.outcome}`, token: "dim" }]));
     }
     out.push({ text: "" });
     out.push(
       vm.cancelled
         ? line([{ text: "  r reattach (confirm the cancellation)  ·  any key dismiss", token: "dim" }])
-        : line([{ text: "  r reattach (resume the live view)  ·  c cancel (stop-before-next-rig)  ·  any key dismiss", token: "dim" }]),
+        : line([{ text: "  r reattach (resume the live view)  ·  c cancel (stop-before-next-software-team)  ·  any key dismiss", token: "dim" }]),
     );
     return out;
   }
@@ -255,7 +255,7 @@ export function renderConfirmBanner(message: string): Line[] {
 }
 
 /** The UNVERIFIED screen (planner+PM ruling): a minimal DISTINCT view — evidence VERBATIM + retry +
- *  quit + the rig-status hint, and ZERO recovery actions (never the cockpit, never RESTORE). */
+ *  quit + the software-team-status hint, and ZERO recovery actions (never the cockpit, never RESTORE). */
 export function renderUnverifiedView(evidence: DaemonUnverifiedEvidence): Line[] {
   return [
     line([
@@ -267,7 +267,7 @@ export function renderUnverifiedView(evidence: DaemonUnverifiedEvidence): Line[]
     line([{ text: " probe:  ", token: "dim" }, { text: evidence.probeResult }]),
     line([{ text: " signal: ", token: "dim" }, { text: evidence.failedSignal }]),
     { text: "" },
-    line([{ text: "  r retry  ·  q quit  ·  try: rig status", token: "dim" }]),
+    line([{ text: "  r retry  ·  q quit  ·  try: SoftwareTeam status", token: "dim" }]),
   ];
 }
 

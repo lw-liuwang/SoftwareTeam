@@ -44,8 +44,8 @@ export interface SeatIdentityVerdictSummary {
 }
 
 export interface NodeInventoryEntry {
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   logicalId: string;
   podId: string | null;
   podNamespace?: string | null;
@@ -83,20 +83,20 @@ export interface NodeInventoryEntry {
   codexConfigProfile?: string | null;
 }
 
-async function fetchNodeInventory(rigId: string, hostId: string): Promise<NodeInventoryEntry[]> {
+async function fetchNodeInventory(softwareTeamId: string, hostId: string): Promise<NodeInventoryEntry[]> {
   // OPR.0.4.6.MH2 FR-2 — selected-host envelope; origin shape verbatim;
   // local path unchanged (withHostParam is identity for local).
-  const res = await fetch(withHostParam(`/api/rigs/${encodeURIComponent(rigId)}/nodes`, hostId));
+  const res = await fetch(withHostParam(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/nodes`, hostId));
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
-export function useNodeInventory(rigId: string | null) {
+export function useNodeInventory(softwareTeamId: string | null) {
   const hostId = useSelectedHostId();
   return useQuery({
-    queryKey: ["rig", rigId, "nodes", hostId],
-    queryFn: () => fetchNodeInventory(rigId!, hostId),
-    enabled: !!rigId,
+    queryKey: ["softwareTeam", softwareTeamId, "nodes", hostId],
+    queryFn: () => fetchNodeInventory(softwareTeamId!, hostId),
+    enabled: !!softwareTeamId,
     refetchInterval: 30_000,
     placeholderData: keepPreviousData,
   });

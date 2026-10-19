@@ -57,7 +57,7 @@ export function missionsRoutes(): Hono {
       return c.json(
         {
           error: "slices_root_not_configured",
-          hint: "Run rig config init-workspace, or set workspace.slices_root to workspace/missions. Supported shape: missions/<mission>/slices/<slice>.",
+          hint: "Run SoftwareTeam config init-workspace, or set workspace.slices_root to workspace/missions. Supported shape: missions/<mission>/slices/<slice>.",
         },
         503,
       );

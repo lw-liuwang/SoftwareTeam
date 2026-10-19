@@ -6,7 +6,7 @@ import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 import { eventsNodeTypeIndexSchema } from "../src/db/migrations/047_events_node_type_index.js";
 import { inventoryEventIndexesSchema } from "../src/db/migrations/084_inventory_event_indexes.js";
 import { sessionStopIntentSchema } from "../src/db/migrations/103_session_stop_intent.js";
-import { getNodeInventory, getNodeInventoryForRigs } from "../src/domain/node-inventory.js";
+import { getNodeInventory, getNodeInventoryForSoftwareTeams } from "../src/domain/node-inventory.js";
 
 // Current readers need the stop-intent column; only the index under test differs.
 const THROUGH = [...ALL_MIGRATIONS.filter(m => m.name <= inventoryEventIndexesSchema.name), sessionStopIntentSchema];
@@ -14,14 +14,14 @@ const BEFORE = THROUGH.filter(m => m.name !== inventoryEventIndexesSchema.name);
 const databases: Database.Database[] = [];
 afterEach(() => { for (const db of databases.splice(0)) db.close(); });
 function database() { const db = createDb(); databases.push(db); return db; }
-function emit(db: Database.Database, rig: string | null, node: string | null, type: string, payload: unknown) {
-  db.prepare("INSERT INTO events(rig_id,node_id,type,payload,created_at) VALUES(?,?,?,?,?)")
-    .run(rig, node, type, JSON.stringify(payload), "2026-09-12 00:00:00");
+function emit(db: Database.Database, softwareTeam: string | null, node: string | null, type: string, payload: unknown) {
+  db.prepare("INSERT INTO events(software_team_id,node_id,type,payload,created_at) VALUES(?,?,?,?,?)")
+    .run(softwareTeam, node, type, JSON.stringify(payload), "2026-09-12 00:00:00");
 }
 function seed(db: Database.Database) {
   for (const id of ["a", "b"]) {
-    db.prepare("INSERT INTO rigs(id,name) VALUES(?,?)").run(id, id);
-    db.prepare("INSERT INTO nodes(id,rig_id,logical_id,runtime) VALUES(?,?,?,?)").run(id, id, "worker", "codex");
+    db.prepare("INSERT INTO software_teams(id,name) VALUES(?,?)").run(id, id);
+    db.prepare("INSERT INTO nodes(id,software_team_id,logical_id,runtime) VALUES(?,?,?,?)").run(id, id, "worker", "codex");
   }
   emit(db, "a", null, "restore.completed", { result: { nodes: [{ nodeId: "a", status: "failed" }] } });
   emit(db, "b", null, "restore.subset_completed", { result: { nodes: [{ nodeId: "b", status: "resumed" }] } });
@@ -32,14 +32,14 @@ function seed(db: Database.Database) {
   emit(db, "a", "a", "node.startup_proof_rejected", { challengeId: "new" });
   emit(db, "b", "b", "node.startup_proof_skipped", { reason: "not_selected" });
   // Malformed history remains present; the existing fold skips it.
-  db.prepare("INSERT INTO events(rig_id,type,payload) VALUES('a','restore.completed','{')").run();
+  db.prepare("INSERT INTO events(software_team_id,type,payload) VALUES('a','restore.completed','{')").run();
   db.transaction(() => {
     for (let i = 0; i < 2000; i++) emit(db, i % 2 ? "a" : "b", null, "agent.activity", { i });
   })();
 }
 function rows(db: Database.Database) { return db.prepare("SELECT * FROM events ORDER BY seq").all(); }
 function projection(db: Database.Database) {
-  return { all: [...getNodeInventoryForRigs(db, new Set(["a", "b"]))], selected: getNodeInventory(db, "a") };
+  return { all: [...getNodeInventoryForSoftwareTeams(db, new Set(["a", "b"]))], selected: getNodeInventory(db, "a") };
 }
 function plansFromActualReads(db: Database.Database) {
   const original = db.prepare;
@@ -65,18 +65,18 @@ function expectIndexed(db: Database.Database) {
   const plans = plansFromActualReads(db);
   const restore = plans.filter(p => p.sql.includes("restore.outcome_reconciled"));
   expect(restore.find(p => !p.args.length)?.detail).toContain("idx_events_restore_seq");
-  expect(restore.find(p => p.args.length)?.detail).toContain("idx_events_restore_rig_seq");
+  expect(restore.find(p => p.args.length)?.detail).toContain("idx_events_restore_software_team_seq");
   // Attempt binding must not reintroduce a scan of unrelated activity events.
-  expect(restore).toHaveLength(2); // Fleet and selected-rig reads.
+  expect(restore).toHaveLength(2); // Fleet and selected-softwareTeam reads.
   for (const plan of restore) {
     expect(plan.detail).toContain("idx_events_node_type_seq (node_id=? AND type=?)");
-    expect(plan.detail).not.toContain("idx_events_rig_seq");
+    expect(plan.detail).not.toContain("idx_events_software_team_seq");
   }
   expect(plans.find(p => p.sql.includes("node.startup_challenged"))?.detail).toContain("idx_events_startup_node_seq");
 }
 
 describe("084 inventory event read indexes", () => {
-  it("preserves rig and fleet inventory when the optional node/type index is absent", () => {
+  it("preserves SoftwareTeam and fleet inventory when the optional node/type index is absent", () => {
     const db = database();
     migrate(db, THROUGH.filter(m => m.name !== eventsNodeTypeIndexSchema.name));
     seed(db);
@@ -102,7 +102,7 @@ describe("084 inventory event read indexes", () => {
     expect(projection(db)).toEqual(value);
     const added = (db.prepare("SELECT name FROM sqlite_master WHERE type='index' ORDER BY name").all() as { name: string }[])
       .map(r => r.name).filter(name => !indexes.some(r => r.name === name));
-    expect(added).toEqual(["idx_events_restore_rig_seq", "idx_events_restore_seq", "idx_events_startup_node_seq"]);
+    expect(added).toEqual(["idx_events_restore_seq", "idx_events_restore_software_team_seq", "idx_events_startup_node_seq"]);
     // Later real writes still change the projection; the indexes are not a cache.
     emit(db, "a", null, "restore.completed", { result: { nodes: [{ nodeId: "a", status: "rebuilt" }] } });
     expect(getNodeInventory(db, "a")[0]?.restoreOutcome).toBe("rebuilt");

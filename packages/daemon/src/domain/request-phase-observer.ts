@@ -5,10 +5,10 @@ import { performance } from "node:perf_hooks";
 import type { Context, MiddlewareHandler } from "hono";
 import type { SlowOperationInstrumentation } from "./slow-op-recorder.js";
 
-export const DIAGNOSTIC_ATTEMPT_HEADER = "x-openrig-diagnostic-attempt";
+export const DIAGNOSTIC_ATTEMPT_HEADER = "x-softwareteam-diagnostic-attempt";
 export const DIAGNOSTIC_LIMITS = { requestsPerMinute: 128, active: 128, phases: 16, ageMs: 60_000, tickWindow: 40 } as const;
 const UUID4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-type Route = "rigs_list" | "rig_nodes";
+type Route = "software_teams_list" | "software_team_nodes";
 type Phase = "node_arrival" | "hono_enter" | "hono_exit" | "handler_enter" | "handler_exit" | "sql_begin" | "sql_end" | "response_finish" | "response_close" | "request_aborted" | "trace_expired";
 type Fields = { status?: number; headersSent?: boolean; writableFinished?: boolean; failed?: boolean };
 export type QueryObservation = (phase: "begin" | "end", failed?: boolean) => void;
@@ -21,8 +21,8 @@ interface Trace {
 export function inventoryDiagnosticRoute(method: string | undefined, url: string | undefined): Route | null {
   if (method !== "GET" || !url) return null;
   const path = url.split("?", 1)[0];
-  if (path === "/api/rigs") return "rigs_list";
-  return /^\/api\/rigs\/[^/]+\/nodes$/.test(path ?? "") ? "rig_nodes" : null;
+  if (path === "/api/software-teams") return "software_teams_list";
+  return /^\/api\/software-teams\/[^/]+\/nodes$/.test(path ?? "") ? "software_team_nodes" : null;
 }
 
 /** Correlation only: never an identity, authorization or deduplication key. */
@@ -62,7 +62,7 @@ export class RequestPhaseObserver {
 
   private record(phase: string, fields: Record<string, unknown>): void {
     try {
-      this.sink.recordDiagnostic?.({ schema: "openrig.request-phase/v1", epoch: this.epoch,
+      this.sink.recordDiagnostic?.({ schema: "softwareteam.request-phase/v1", epoch: this.epoch,
         seq: ++this.seq, utc: this.utc(), elapsedMs: Math.max(0, this.now() - this.started), phase,
         rejected: this.rejected, expired: this.expired, observerErrors: this.observerErrors, ...fields });
     } catch { this.observerErrors++; }

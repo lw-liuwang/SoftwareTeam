@@ -1,4 +1,4 @@
-// The workspace context-pack root (`<workspace>/.openrig/context-packs`) is a
+// The workspace context-pack root (`<workspace>/.softwareteam/context-packs`) is a
 // discovery root even when it doesn't exist yet at daemon start. A pack added
 // there later must appear after `POST /library/sync`, without a restart.
 
@@ -7,7 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const ENV_KEYS = ["OPENRIG_HOME", "OPENRIG_WORKSPACE_ROOT", "OPENRIG_CONTEXT_ROOT"];
+const ENV_KEYS = ["SOFTWARETEAM_HOME", "SOFTWARETEAM_WORKSPACE_ROOT", "SOFTWARETEAM_CONTEXT_ROOT"];
 const REF = "late-workspace-pack";
 
 describe("workspace context-pack root and library sync", () => {
@@ -18,8 +18,8 @@ describe("workspace context-pack root and library sync", () => {
   beforeAll(() => {
     base = fs.mkdtempSync(path.join(os.tmpdir(), "pack-root-sync-"));
     for (const key of ENV_KEYS) saved[key] = process.env[key];
-    process.env.OPENRIG_HOME = path.join(base, "home");
-    fs.mkdirSync(process.env.OPENRIG_HOME, { recursive: true });
+    process.env.SOFTWARETEAM_HOME = path.join(base, "home");
+    fs.mkdirSync(process.env.SOFTWARETEAM_HOME, { recursive: true });
   });
 
   afterAll(() => {
@@ -34,9 +34,9 @@ describe("workspace context-pack root and library sync", () => {
     const caseDir = fs.mkdtempSync(path.join(base, "case-"));
     const workspace = path.join(caseDir, "workspace");
     fs.mkdirSync(workspace, { recursive: true });
-    workspacePacksRoot = path.join(workspace, ".openrig", "context-packs");
-    process.env.OPENRIG_WORKSPACE_ROOT = workspace;
-    process.env.OPENRIG_CONTEXT_ROOT = path.join(caseDir, "context");
+    workspacePacksRoot = path.join(workspace, ".softwareteam", "context-packs");
+    process.env.SOFTWARETEAM_WORKSPACE_ROOT = workspace;
+    process.env.SOFTWARETEAM_CONTEXT_ROOT = path.join(caseDir, "context");
   });
 
   function writeWorkspacePack(): void {

@@ -1,4 +1,4 @@
-// OPR.0.4.4.11 — the daemon-side remote single-rig leaf (FR-4).
+// OPR.0.4.4.11 — the daemon-side remote single-softwareTeam leaf (FR-4).
 //
 // A host-placed topology entry launches by POSTing the SHIPPED remote-up
 // surface: POST {host.url}/api/up with the same body shape the CLI's
@@ -20,7 +20,7 @@ export interface RemoteUpLeafDeps {
   env?: Record<string, string | undefined>;
   readFile?: (path: string) => string;
   /** Bounded remote-up deadline (rev1-r2 R2-B1). Defaults to the
-   *  long-running rig-up budget — remote bootstrap legitimately runs
+   *  long-running software-team-up budget — remote bootstrap legitimately runs
    *  minutes, but never forever. Passed EXPLICITLY to the shared core
    *  (the deadline class is this call-site's decision, per the arch
    *  required-argument sharpening). */
@@ -71,7 +71,7 @@ export async function remoteUpLeaf(
           }
         : {
             ok: false,
-            error: `[remote-daemon-unreachable] POST ${url} timed out after ${timeoutMs}ms for host ${host.id}: the remote daemon never settled the request within the rig-up budget`,
+            error: `[remote-daemon-unreachable] POST ${url} timed out after ${timeoutMs}ms for host ${host.id}: the remote daemon never settled the request within the software-team-up budget`,
           };
     case "network":
       return { ok: false, error: `[remote-daemon-unreachable] POST ${url} failed for host ${host.id}: ${res.detail}` };

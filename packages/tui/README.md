@@ -1,41 +1,41 @@
-# @openrig/tui — mission-control TUI
+# @softwareteam/tui — mission-control TUI
 
-The explorer / master-detail "k9s for rigs" surface: left Explorer (Topology ·
+The explorer / master-detail "k9s for SoftwareTeams" surface: left Explorer (Topology ·
 Specs · Scopes · Terminals · Needs-You · System, Config, Connections, Usage,
 Usage across hosts and Cost, the last six grouped as System; `src/sections.ts`), right content pane, top
-command bar, ambient rig-stream footer. OBSERVE / NAVIGATE / DRIVE-STRUCTURE
+command bar, ambient software-team-stream footer. OBSERVE / NAVIGATE / DRIVE-STRUCTURE
 only — ACT / PRODUCE / REVIEW-ARTIFACT surfaces live in Studio, not here. One
 runtime dependency (`yaml`); it reads the daemon's EXISTING projections (two renderers, one projection —
 `src/daemon-client.ts` is the entire HTTP surface).
 
 ## Run — one herdr tile, daemon-direct
 
-From an installed CLI, `rig tui` opens mission control in the current terminal.
+From an installed CLI, `SoftwareTeam tui` opens mission control in the current terminal.
 For “show me my agents” or the welcome screen, use
-`rig terminal open saved:kernel --window` to open the dashboard and conversations
-together. Only if that window cannot open, `rig tui --shared` is the dashboard-only
-fallback (detach with Ctrl-b d). The package's own bin is `openrig-tui` (`dist/main.js`).
+`SoftwareTeam terminal open saved:kernel --window` to open the dashboard and conversations
+together. Only if that window cannot open, `SoftwareTeam tui --shared` is the dashboard-only
+fallback (detach with Ctrl-b d). The package's own bin is `softwareteam-tui` (`dist/main.js`).
 
 The TUI runs as ONE pane/tile inside herdr's wall (any tmux pane works the
 same way — the tile IS a tmux pane; no extra multiplexer, no integration
 layer):
 
-    # inside a herdr tile / tmux pane, daemon-direct (OPENRIG_URL or default):
+    # inside a herdr tile / tmux pane, daemon-direct (SOFTWARETEAM_URL or default):
     node packages/tui/dist/main.js --instance tui-1
 
     # options:
     #   --instance <id>   instance id (socket address; multi-instance ready)
-    #   --url <daemon>    daemon base URL (default $OPENRIG_URL or http://127.0.0.1:7433)
-    #   --socket <path>   control socket (default $OPENRIG_TUI_SOCKET or $OPENRIG_HOME/run/tui-<id>.sock)
+    #   --url <daemon>    daemon base URL (default $SOFTWARETEAM_URL or http://127.0.0.1:7434)
+    #   --socket <path>   control socket (default $SOFTWARETEAM_TUI_SOCKET or $SOFTWARETEAM_HOME/run/tui-<id>.sock)
     #   --demo            labeled demo fixture instead of live reads (never mixes with live)
     #   --no-color        plain text, no color
 
-Inside an existing herdr or cmux workspace, `rig terminal open <view> --provider herdr`
+Inside an existing herdr or cmux workspace, `SoftwareTeam terminal open <view> --provider herdr`
 (or `--provider cmux`) adds terminal tiles without opening a desktop window. The view
-is a rig name, `mission:<id>`, `slice:<id>` or a saved-view id. For the first desktop
-view, use `rig terminal open saved:kernel --window` as above.
+is a SoftwareTeam name, `mission:<id>`, `slice:<id>` or a saved-view id. For the first desktop
+view, use `SoftwareTeam terminal open saved:kernel --window` as above.
 
-In the TUI, choose **Open terminals** above a rig's grid or in an agent's detail.
+In the TUI, choose **Open terminals** above a SoftwareTeam's grid or in an agent's detail.
 The Terminals section also offers it after a passive view preview. It uses the
 same desktop opener: herdr if installed, otherwise the composed layout in plain
 tmux. Run the TUI on the selected daemon's desktop for this action. Headless or
@@ -46,7 +46,7 @@ does not confirm visibility; check the new terminal shows the intended view.
 
 Command bar / keyboard / mouse / control socket all mutate ONE view-state
 through ONE path. Safe-core grammar: `:<section>` (any of the eight, e.g.
-`:topology` `:needs`) · `/<filter>` · `host|rig|pod|agent|spec <name>` ·
+`:topology` `:needs`) · `/<filter>` · `host|SoftwareTeam|pod|agent|spec <name>` ·
 `tab table|recent|overview|graph|health|topology|configuration|yaml|pulse` ·
 `spec-of <agent>` · `running <spec>`. Keys: arrows + Enter navigate the
 explorer, `F` toggles the footer, `q` quits.
@@ -69,17 +69,17 @@ history, it returns from a spec detail, an open file or an external link and
 restores the previous filter; otherwise it closes an open health view, then
 clears a filter, then goes back. On long spec pages,
 Up/Down scroll by default; Right enters links, then Up/Down and Enter follow them.
-`rig tui commands --json` lists the shared command registry.
+`SoftwareTeam tui commands --json` lists the shared command registry.
 
 Agents: `tmux send-keys` of any command is the always-available floor; the
 control socket is the addressable-screen API — one command per line, one JSON
 reply per line, plus two read-only queries, `state` and `commands` (the command
 registry with live availability):
 
-    printf 'agent dev.impl\n' | nc -U ~/.openrig/run/tui-tui-1.sock
+    printf 'agent dev.impl\n' | nc -U ~/.softwareteam/run/tui-tui-1.sock
 
-Terminals, Needs, System, Scopes, Config, Specs and file pages read no rigs. A
-`host`, `rig`, `pod` or `agent` address sent from one switches to Topology and
+Terminals, Needs, System, Scopes, Config, Specs and file pages read no SoftwareTeams. A
+`host`, `SoftwareTeam`, `pod` or `agent` address sent from one switches to Topology and
 resolves once that page's read settles. Until then the reply carries `resolving` and a `notice`; send `state`
 for the result (the drill, or the error).
 

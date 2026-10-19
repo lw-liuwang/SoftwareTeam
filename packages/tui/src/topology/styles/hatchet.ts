@@ -11,10 +11,10 @@ import type { GraphContainer, GraphLayout, PlacedNode } from "../layout.js";
 import type { Action, ResourceTarget } from "../../types.js";
 
 export interface StyleContext {
-  /** host/rig names for drill actions (the SAME Action vocabulary every
+  /** host/softwareTeam names for drill actions (the SAME Action vocabulary every
    * adapter dispatches — PIN-1) */
   host: string;
-  rig: string;
+  softwareTeam: string;
   /** logicalId of the selected node (accent border, like Hatchet) */
   selected?: string | null;
 }
@@ -22,7 +22,7 @@ export interface StyleContext {
 export function drillAction(node: PlacedNode, ctx: StyleContext): Action {
   const target: ResourceTarget = {
     host: ctx.host,
-    rig: ctx.rig,
+    softwareTeam: ctx.softwareTeam,
     ...(node.node.data.podNamespace ? { pod: node.node.data.podNamespace } : {}),
   };
   return { type: "drill", resource: "agent", name: node.node.data.logicalId, target };
@@ -114,22 +114,22 @@ export function drawEdge(canvas: GraphCanvas, from: PlacedNode, to: PlacedNode, 
 }
 
 /** R2 HIGH-1: the LOCKED containment hierarchy drawn as real container boxes
- * — the rig (double border, name tab) wraps pod containers (light border,
+ * — the softwareTeam (double border, name tab) wraps pod containers (light border,
  * ▾-name tab, header hit zone → drill pod) which wrap their agent boxes.
  * Containers are BACKGROUNDS (unprotected fills): edges may route across
  * their interiors; agent boxes stay opaque+protected on top. */
 export function drawContainers(canvas: GraphCanvas, layout: GraphLayout, ctx: StyleContext): void {
   for (const c of layout.containers) {
-    if (c.kind === "rig") {
+    if (c.kind === "softwareTeam") {
       canvas.box(c.x, c.y, c.w, c.h, "accent", true, false);
-      const tab = ` ▦ RIG ${c.name || ctx.rig} `; // round-3 rig glyph
+      const tab = ` ▦ SOFTWARE_TEAM ${c.name || ctx.softwareTeam} `; // round-3 softwareTeam glyph
       canvas.text(c.x + 2, c.y, tab, "accent", true);
-      canvas.zone(c.y, c.x + 2, c.x + 2 + tab.length, { type: "drill", resource: "rig", name: c.name || ctx.rig, target: { host: ctx.host } });
+      canvas.zone(c.y, c.x + 2, c.x + 2 + tab.length, { type: "drill", resource: "softwareTeam", name: c.name || ctx.softwareTeam, target: { host: ctx.host } });
     } else {
       canvas.box(c.x, c.y, c.w, c.h, "chrome", false, false);
       const tab = ` ≡ ${c.name} `; // round-3 pod glyph
       canvas.text(c.x + 1, c.y, tab, "accent", true);
-      canvas.zone(c.y, c.x + 1, c.x + 1 + tab.length, { type: "drill", resource: "pod", name: c.name, target: { host: ctx.host, rig: ctx.rig } });
+      canvas.zone(c.y, c.x + 1, c.x + 1 + tab.length, { type: "drill", resource: "pod", name: c.name, target: { host: ctx.host, softwareTeam: ctx.softwareTeam } });
     }
   }
 }

@@ -57,7 +57,7 @@ describe("destroy helpers", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "openrig-destroy-"));
+    tmpDir = mkdtempSync(join(tmpdir(), "softwareteam-destroy-"));
   });
 
   afterEach(() => {
@@ -65,9 +65,9 @@ describe("destroy helpers", () => {
   });
 
   it("buildBackupPath appends timestamp and resolves collisions", () => {
-    const target = join(tmpDir, ".openrig");
+    const target = join(tmpDir, ".softwareteam");
     const first = buildBackupPath(target, existsSync, new Date("2026-04-10T08:10:11Z"));
-    expect(basename(first)).toMatch(/^\.openrig\.backup-20260410-\d{6}$/);
+    expect(basename(first)).toMatch(/^\.softwareteam\.backup-20260410-\d{6}$/);
 
     mkdirSync(first, { recursive: true });
     const second = buildBackupPath(target, existsSync, new Date("2026-04-10T08:10:11Z"));
@@ -75,7 +75,7 @@ describe("destroy helpers", () => {
   });
 
   it("listManagedTmuxSessionsFromDb returns distinct tmux-backed sessions", () => {
-    const dbPath = join(tmpDir, "openrig.sqlite");
+    const dbPath = join(tmpDir, "softwareteam.sqlite");
     const db = new Database(dbPath);
     db.exec(`
       CREATE TABLE nodes (id TEXT PRIMARY KEY);
@@ -117,7 +117,7 @@ describe("destroy helpers", () => {
   });
 
   it("listManagedTmuxSessionsFromDb prefers the current session for a node over historical names", () => {
-    const dbPath = join(tmpDir, "openrig-current.sqlite");
+    const dbPath = join(tmpDir, "softwareteam-current.sqlite");
     const db = new Database(dbPath);
     db.exec(`
       CREATE TABLE nodes (id TEXT PRIMARY KEY);
@@ -153,8 +153,8 @@ describe("destroy helpers", () => {
   });
 
   it("buildDestroyPlan includes external db/transcript targets outside state root", () => {
-    const stateRoot = join(tmpDir, ".openrig");
-    const externalDb = join(tmpDir, "custom", "openrig.sqlite");
+    const stateRoot = join(tmpDir, ".softwareteam");
+    const externalDb = join(tmpDir, "custom", "softwareteam.sqlite");
     const externalTx = join(tmpDir, "custom", "transcripts");
     mkdirSync(stateRoot, { recursive: true });
     mkdirSync(join(tmpDir, "custom"), { recursive: true });
@@ -171,7 +171,7 @@ describe("destroy helpers", () => {
       dbPath: externalDb,
       transcriptsPath: externalTx,
       daemonHost: "127.0.0.1",
-      daemonPort: 7433,
+      daemonPort: 7434,
     }, deps);
 
     expect(plan.targets.map((target) => target.kind)).toEqual(["state_root", "db_file", "transcripts_dir"]);
@@ -179,10 +179,10 @@ describe("destroy helpers", () => {
   });
 
   it("executeDestroy stops daemon, kills managed tmux sessions, backs up state root, and recreates it", async () => {
-    const stateRoot = join(tmpDir, ".openrig");
+    const stateRoot = join(tmpDir, ".softwareteam");
     mkdirSync(stateRoot, { recursive: true });
     writeFileSync(join(stateRoot, "daemon.json"), "{}");
-    const dbPath = join(stateRoot, "openrig.sqlite");
+    const dbPath = join(stateRoot, "softwareteam.sqlite");
     const db = new Database(dbPath);
     db.exec(`
       CREATE TABLE nodes (id TEXT PRIMARY KEY);
@@ -222,7 +222,7 @@ describe("destroy helpers", () => {
       listManagedTmuxSessions: listManagedTmuxSessionsFromDb,
       killTmuxSession: (sessionName: string) => sessionName !== "dev1-impl@demo",
       inspectListener: vi.fn()
-        .mockResolvedValueOnce({ kind: "openrig" })
+        .mockResolvedValueOnce({ kind: "softwareteam" })
         .mockResolvedValueOnce({ kind: "unreachable" })
         .mockResolvedValueOnce({ kind: "unreachable" }),
       findListeningPid: () => 1234,
@@ -233,7 +233,7 @@ describe("destroy helpers", () => {
       dbPath,
       transcriptsPath: join(stateRoot, "transcripts"),
       daemonHost: "127.0.0.1",
-      daemonPort: 7433,
+      daemonPort: 7434,
     }, deps);
 
     const result = await executeDestroy(plan, deps);
@@ -248,7 +248,7 @@ describe("destroy helpers", () => {
   });
 
   it("executeDestroy leaves state untouched when a local listener is still live but cannot be safely cleared", async () => {
-    const stateRoot = join(tmpDir, ".openrig-live");
+    const stateRoot = join(tmpDir, ".softwareteam-live");
     mkdirSync(stateRoot, { recursive: true });
     const removePath = vi.fn();
     const mkdirp = vi.fn();
@@ -256,7 +256,7 @@ describe("destroy helpers", () => {
       exists: () => true,
       removePath,
       mkdirp,
-      inspectListener: vi.fn(async () => ({ kind: "openrig" })),
+      inspectListener: vi.fn(async () => ({ kind: "softwareteam" })),
       findListeningPid: () => null,
     });
 
@@ -265,7 +265,7 @@ describe("destroy helpers", () => {
       backup: false,
       stateRoot,
       daemonHost: "127.0.0.1",
-      daemonPort: 7433,
+      daemonPort: 7434,
       managedTmuxSessions: [],
       targets: [{ path: stateRoot, kind: "state_root" }],
       warnings: [],
@@ -277,7 +277,7 @@ describe("destroy helpers", () => {
     expect(mkdirp).not.toHaveBeenCalled();
   });
 
-  it("executeDestroy does not kill a live non-OpenRig HTTP listener", async () => {
+  it("executeDestroy does not kill a live non-software-team HTTP listener", async () => {
     const killProcess = vi.fn();
     const deps = makeDestroyDeps({
       exists: () => true,
@@ -291,11 +291,11 @@ describe("destroy helpers", () => {
     const result = await executeDestroy({
       scope: "state",
       backup: false,
-      stateRoot: join(tmpDir, ".openrig-http"),
+      stateRoot: join(tmpDir, ".softwareteam-http"),
       daemonHost: "127.0.0.1",
-      daemonPort: 7433,
+      daemonPort: 7434,
       managedTmuxSessions: [],
-      targets: [{ path: join(tmpDir, ".openrig-http"), kind: "state_root" }],
+      targets: [{ path: join(tmpDir, ".softwareteam-http"), kind: "state_root" }],
       warnings: [],
     }, deps);
 
@@ -304,7 +304,7 @@ describe("destroy helpers", () => {
   });
 
   it("executeDestroy does not enumerate or kill tmux sessions for --state", async () => {
-    const stateRoot = join(tmpDir, ".openrig-state-only");
+    const stateRoot = join(tmpDir, ".softwareteam-state-only");
     mkdirSync(stateRoot, { recursive: true });
     const listManagedTmuxSessions = vi.fn(() => ["orchestrator@demo"]);
     const killTmuxSession = vi.fn(() => true);
@@ -318,10 +318,10 @@ describe("destroy helpers", () => {
 
     const plan = buildDestroyPlan("state", false, {
       stateRoot,
-      dbPath: join(stateRoot, "openrig.sqlite"),
+      dbPath: join(stateRoot, "softwareteam.sqlite"),
       transcriptsPath: join(stateRoot, "transcripts"),
       daemonHost: "127.0.0.1",
-      daemonPort: 7433,
+      daemonPort: 7434,
     }, deps);
     await executeDestroy(plan, deps);
 
@@ -338,9 +338,9 @@ describe("destroy helpers", () => {
     const result = await executeDestroy({
       scope: "state",
       backup: false,
-      stateRoot: join(tmpDir, ".openrig-remote"),
+      stateRoot: join(tmpDir, ".softwareteam-remote"),
       daemonHost: "10.0.0.5",
-      daemonPort: 7433,
+      daemonPort: 7434,
       managedTmuxSessions: [],
       targets: [],
       warnings: [],
@@ -357,12 +357,12 @@ describe("destroy command", () => {
     const program = new Command();
     program.exitOverride();
     program.addCommand(destroyCommand({
-      configStore: { resolve: () => ({ daemon: { port: 7433, host: "127.0.0.1" }, db: { path: "/tmp/db" }, transcripts: { enabled: true, path: "/tmp/tx" } }) },
+      configStore: { resolve: () => ({ daemon: { port: 7434, host: "127.0.0.1" }, db: { path: "/tmp/db" }, transcripts: { enabled: true, path: "/tmp/tx" } }) },
       destroyDeps: makeDestroyDeps(),
     }));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "destroy", "--yes", "--confirm", DESTROY_CONFIRM_TOKEN]);
+      await program.parseAsync(["node", "softwareTeam", "destroy", "--yes", "--confirm", DESTROY_CONFIRM_TOKEN]);
     });
 
     expect(exitCode).toBe(1);
@@ -373,12 +373,12 @@ describe("destroy command", () => {
     const program = new Command();
     program.exitOverride();
     program.addCommand(destroyCommand({
-      configStore: { resolve: () => ({ daemon: { port: 7433, host: "127.0.0.1" }, db: { path: "/tmp/db" }, transcripts: { enabled: true, path: "/tmp/tx" } }) },
+      configStore: { resolve: () => ({ daemon: { port: 7434, host: "127.0.0.1" }, db: { path: "/tmp/db" }, transcripts: { enabled: true, path: "/tmp/tx" } }) },
       destroyDeps: makeDestroyDeps(),
     }));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "destroy", "--state", "--yes", "--confirm", "wrong"]);
+      await program.parseAsync(["node", "softwareTeam", "destroy", "--state", "--yes", "--confirm", "wrong"]);
     });
 
     expect(exitCode).toBe(1);
@@ -389,12 +389,12 @@ describe("destroy command", () => {
     const program = new Command();
     program.exitOverride();
     program.addCommand(destroyCommand({
-      configStore: { resolve: () => ({ daemon: { port: 7433, host: "127.0.0.1" }, db: { path: "/tmp/db" }, transcripts: { enabled: true, path: "/tmp/tx" } }) },
+      configStore: { resolve: () => ({ daemon: { port: 7434, host: "127.0.0.1" }, db: { path: "/tmp/db" }, transcripts: { enabled: true, path: "/tmp/tx" } }) },
       destroyDeps: makeDestroyDeps(),
     }));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "destroy", "--state", "--confirm", DESTROY_CONFIRM_TOKEN]);
+      await program.parseAsync(["node", "softwareTeam", "destroy", "--state", "--confirm", DESTROY_CONFIRM_TOKEN]);
     });
 
     expect(exitCode).toBe(1);
@@ -409,12 +409,12 @@ describe("destroy command", () => {
     const program = new Command();
     program.exitOverride();
     program.addCommand(destroyCommand({
-      configStore: { resolve: () => ({ daemon: { port: 7433, host: "127.0.0.1" }, db: { path: "/tmp/db" }, transcripts: { enabled: true, path: "/tmp/tx" } }) },
+      configStore: { resolve: () => ({ daemon: { port: 7434, host: "127.0.0.1" }, db: { path: "/tmp/db" }, transcripts: { enabled: true, path: "/tmp/tx" } }) },
       destroyDeps,
     }));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "destroy", "--state", "--backup", "--yes", "--confirm", DESTROY_CONFIRM_TOKEN]);
+      await program.parseAsync(["node", "softwareTeam", "destroy", "--state", "--backup", "--yes", "--confirm", DESTROY_CONFIRM_TOKEN]);
     });
 
     expect(exitCode).toBeUndefined();
@@ -438,7 +438,7 @@ describe("destroy command", () => {
     }));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "destroy", "--state", "--yes", "--confirm", DESTROY_CONFIRM_TOKEN]);
+      await program.parseAsync(["node", "softwareTeam", "destroy", "--state", "--yes", "--confirm", DESTROY_CONFIRM_TOKEN]);
     });
 
     expect(exitCode).toBeUndefined();

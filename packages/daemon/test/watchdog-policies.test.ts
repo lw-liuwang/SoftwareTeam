@@ -11,7 +11,7 @@ function makeJob(overrides: Partial<PolicyJob> & { context: Record<string, unkno
   return {
     jobId: "job-1",
     policy: "periodic-reminder",
-    target: { session: "a@rig" },
+    target: { session: "a@software-team" },
     intervalSeconds: 60,
     activeWakeIntervalSeconds: null,
     scanIntervalSeconds: null,
@@ -27,22 +27,22 @@ describe("periodicReminderPolicy (POC contract)", () => {
   it("returns send with target object + message from job.message", async () => {
     const out = await periodicReminderPolicy.evaluate(
       makeJob({
-        target: { session: "alice@rig" },
+        target: { session: "alice@software-team" },
         message: "ping",
         context: {},
       }),
     );
-    expect(out).toEqual({ action: "send", target: { session: "alice@rig" }, message: "ping" });
+    expect(out).toEqual({ action: "send", target: { session: "alice@software-team" }, message: "ping" });
   });
 
   it("returns send with message from context.message when job.message absent", async () => {
     const out = await periodicReminderPolicy.evaluate(
       makeJob({
-        target: { session: "alice@rig" },
+        target: { session: "alice@software-team" },
         context: { message: "ctx-ping" },
       }),
     );
-    expect(out).toEqual({ action: "send", target: { session: "alice@rig" }, message: "ctx-ping" });
+    expect(out).toEqual({ action: "send", target: { session: "alice@software-team" }, message: "ctx-ping" });
   });
 
   it("throws policy_spec_invalid when target.session is missing", async () => {
@@ -88,7 +88,7 @@ describe("artifactPoolReadyPolicy (POC contract)", () => {
     writeFileSync(join(tmp, "b.md"), "---\nstatus: ready\n---\nbody-b\n");
     const out = await artifactPoolReadyPolicy.evaluate(
       makeJob({
-        target: { session: "a@rig" },
+        target: { session: "a@software-team" },
         context: {
           pools: [{ path: tmp, include_statuses: ["ready"] }],
           label: "things",
@@ -97,7 +97,7 @@ describe("artifactPoolReadyPolicy (POC contract)", () => {
     );
     expect(out.action).toBe("send");
     if (out.action !== "send") return;
-    expect(out.target).toEqual({ session: "a@rig" });
+    expect(out.target).toEqual({ session: "a@software-team" });
     expect(out.message).toMatch(/things has 2 actionable artifact/);
     expect(out.message).toContain("a.md");
     expect(out.message).toContain("b.md");
@@ -345,7 +345,7 @@ describe("edgeArtifactRequiredPolicy (POC contract)", () => {
     );
     const out = await edgeArtifactRequiredPolicy.evaluate(
       makeJob({
-        target: { session: "delivery-orch-lead@openrig-velocity" },
+        target: { session: "delivery-orch-lead@softwareteam-velocity" },
         context: {
           edge_label: "delivery-to-lifecycle",
           source: { path: src, include_statuses: ["shipped"], key_field: "entry" },
@@ -367,7 +367,7 @@ describe("edgeArtifactRequiredPolicy (POC contract)", () => {
     );
     const out = await edgeArtifactRequiredPolicy.evaluate(
       makeJob({
-        target: { session: "delivery-orch-lead@openrig-velocity" },
+        target: { session: "delivery-orch-lead@softwareteam-velocity" },
         context: {
           edge_label: "delivery-to-lifecycle",
           source: { path: src, include_statuses: ["shipped"], key_field: "entry" },
@@ -377,7 +377,7 @@ describe("edgeArtifactRequiredPolicy (POC contract)", () => {
     );
     expect(out.action).toBe("send");
     if (out.action !== "send") return;
-    expect(out.target).toEqual({ session: "delivery-orch-lead@openrig-velocity" });
+    expect(out.target).toEqual({ session: "delivery-orch-lead@softwareteam-velocity" });
     expect(out.message).toContain("delivery-to-lifecycle");
     expect(out.message).toContain("coordination-stream-queue-view-intake-pilot-a-vertical");
     expect(out.message).toContain("Producer loop owns creating the missing downstream artifact");
@@ -387,7 +387,7 @@ describe("edgeArtifactRequiredPolicy (POC contract)", () => {
     writeFileSync(join(src, "no-frontmatter-key.md"), "---\nstatus: ready\n---\n");
     const out = await edgeArtifactRequiredPolicy.evaluate(
       makeJob({
-        target: { session: "a@rig" },
+        target: { session: "a@software-team" },
         context: {
           source: { path: src, include_statuses: ["ready"] },
           target: { path: tgt },
@@ -405,7 +405,7 @@ describe("edgeArtifactRequiredPolicy (POC contract)", () => {
     writeFileSync(join(tgt, "x-down.md"), "---\nstatus: rejected\n---\nReferences x here.\n");
     const out = await edgeArtifactRequiredPolicy.evaluate(
       makeJob({
-        target: { session: "a@rig" },
+        target: { session: "a@software-team" },
         context: {
           source: { path: src, include_statuses: ["ready"] },
           target: { path: tgt, include_statuses: ["accepted"] },
@@ -419,7 +419,7 @@ describe("edgeArtifactRequiredPolicy (POC contract)", () => {
     try {
       await edgeArtifactRequiredPolicy.evaluate(
         makeJob({
-          target: { session: "a@rig" },
+          target: { session: "a@software-team" },
           context: { target: { path: tgt } },
         }),
       );
@@ -433,7 +433,7 @@ describe("edgeArtifactRequiredPolicy (POC contract)", () => {
     try {
       await edgeArtifactRequiredPolicy.evaluate(
         makeJob({
-          target: { session: "a@rig" },
+          target: { session: "a@software-team" },
           context: { source: { path: src } },
         }),
       );

@@ -14,7 +14,7 @@ import { discoveryFkFix } from "../src/db/migrations/013_discovery_fk_fix.js";
 import { agentspecRebootSchema } from "../src/db/migrations/014_agentspec_reboot.js";
 import { podNamespaceSchema } from "../src/db/migrations/017_pod_namespace.js";
 import { externalCliAttachmentSchema } from "../src/db/migrations/019_external_cli_attachment.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { TranscriptStore } from "../src/domain/transcript-store.js";
 import { WhoamiService } from "../src/domain/whoami-service.js";
@@ -26,41 +26,41 @@ function setupDb(): Database.Database {
 
 describe("WhoamiService", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let transcriptStore: TranscriptStore;
   let svc: WhoamiService;
 
   beforeEach(() => {
     db = setupDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     transcriptStore = new TranscriptStore({ transcriptsRoot: "/tmp/transcripts", enabled: true });
-    svc = new WhoamiService({ db, rigRepo, sessionRegistry, transcriptStore });
+    svc = new WhoamiService({ db, softwareTeamRepo, sessionRegistry, transcriptStore });
   });
 
   afterEach(() => { db.close(); });
 
-  function seedRig() {
-    const rig = rigRepo.createRig("my-rig");
-    db.prepare("INSERT INTO pods (id, rig_id, namespace, label) VALUES (?, ?, ?, ?)").run("pod-dev", rig.id, "dev", "Development");
-    const nodeA = rigRepo.addNode(rig.id, "dev.impl", { role: "worker", runtime: "claude-code", label: "Implementer", podId: "pod-dev" });
-    const nodeB = rigRepo.addNode(rig.id, "dev.qa", { role: "reviewer", runtime: "codex", label: "QA", podId: "pod-dev" });
-    rigRepo.addEdge(rig.id, nodeA.id, nodeB.id, "delegates_to");
+  function seedSoftwareTeam() {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("my-software-team");
+    db.prepare("INSERT INTO pods (id, software_team_id, namespace, label) VALUES (?, ?, ?, ?)").run("pod-dev", softwareTeam.id, "dev", "Development");
+    const nodeA = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { role: "worker", runtime: "claude-code", label: "Implementer", podId: "pod-dev" });
+    const nodeB = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { role: "reviewer", runtime: "codex", label: "QA", podId: "pod-dev" });
+    softwareTeamRepo.addEdge(softwareTeam.id, nodeA.id, nodeB.id, "delegates_to");
 
-    const sessA = sessionRegistry.registerSession(nodeA.id, "dev-impl@my-rig");
+    const sessA = sessionRegistry.registerSession(nodeA.id, "dev-impl@my-software-team");
     sessionRegistry.updateStatus(sessA.id, "running");
-    sessionRegistry.updateBinding(nodeA.id, { tmuxSession: "dev-impl@my-rig" });
+    sessionRegistry.updateBinding(nodeA.id, { tmuxSession: "dev-impl@my-software-team" });
 
-    const sessB = sessionRegistry.registerSession(nodeB.id, "dev-qa@my-rig");
+    const sessB = sessionRegistry.registerSession(nodeB.id, "dev-qa@my-software-team");
     sessionRegistry.updateStatus(sessB.id, "running");
-    sessionRegistry.updateBinding(nodeB.id, { tmuxSession: "dev-qa@my-rig" });
+    sessionRegistry.updateBinding(nodeB.id, { tmuxSession: "dev-qa@my-software-team" });
 
-    return { rig, nodeA, nodeB, sessA, sessB };
+    return { softwareTeam, nodeA, nodeB, sessA, sessB };
   }
 
   it("resolve by nodeId returns full identity including memberLabel, peers, edges", () => {
-    const { nodeA } = seedRig();
+    const { nodeA } = seedSoftwareTeam();
     const result = svc.resolve({ nodeId: nodeA.id });
 
     expect(result).not.toBeNull();
@@ -69,14 +69,14 @@ describe("WhoamiService", () => {
     expect(result!.identity.memberId).toBe("impl");
     expect(result!.identity.memberLabel).toBe("Implementer");
     expect(result!.identity.podNamespace).toBe("dev");
-    expect(result!.identity.sessionName).toBe("dev-impl@my-rig");
+    expect(result!.identity.sessionName).toBe("dev-impl@my-software-team");
     expect(result!.identity.runtime).toBe("claude-code");
-    expect(result!.identity.rigName).toBe("my-rig");
+    expect(result!.identity.softwareTeamName).toBe("my-software-team");
   });
 
   it("resolve by sessionName returns same result", () => {
-    seedRig();
-    const result = svc.resolve({ sessionName: "dev-impl@my-rig" });
+    seedSoftwareTeam();
+    const result = svc.resolve({ sessionName: "dev-impl@my-software-team" });
 
     expect(result).not.toBeNull();
     expect(result!.resolvedBy).toBe("session_name");
@@ -84,7 +84,7 @@ describe("WhoamiService", () => {
   });
 
   it("edges classified correctly as outgoing/incoming relative to queried node", () => {
-    const { nodeA } = seedRig();
+    const { nodeA } = seedSoftwareTeam();
     const result = svc.resolve({ nodeId: nodeA.id });
 
     // nodeA delegates_to nodeB → outgoing from A's perspective
@@ -95,22 +95,22 @@ describe("WhoamiService", () => {
   });
 
   it("peers list excludes the queried node itself, uses current sessions", () => {
-    const { nodeA } = seedRig();
+    const { nodeA } = seedSoftwareTeam();
     const result = svc.resolve({ nodeId: nodeA.id });
 
     expect(result!.peers).toHaveLength(1);
     expect(result!.peers[0]!.logicalId).toBe("dev.qa");
-    expect(result!.peers[0]!.sessionName).toBe("dev-qa@my-rig");
+    expect(result!.peers[0]!.sessionName).toBe("dev-qa@my-software-team");
     expect(result!.peers[0]!.podNamespace).toBe("dev");
     // Should NOT include self
     expect(result!.peers.find((p) => p.logicalId === "dev.impl")).toBeUndefined();
   });
 
   // OPR.99.0.6.1 — the peers[] roster contract, stated and asserted.
-  it("peers[] is the same-rig roster excluding self, independent of directional edges (the contract)", () => {
-    const { rig, nodeA } = seedRig();
+  it("peers[] is the same-software-team roster excluding self, independent of directional edges (the contract)", () => {
+    const { softwareTeam, nodeA } = seedSoftwareTeam();
     // A third node with NO edge to/from the queried node: still a peer.
-    rigRepo.addNode(rig.id, "dev.unedged", { role: "worker", runtime: "terminal", podId: "pod-dev" });
+    softwareTeamRepo.addNode(softwareTeam.id, "dev.unedged", { role: "worker", runtime: "terminal", podId: "pod-dev" });
 
     const result = svc.resolve({ nodeId: nodeA.id });
 
@@ -127,16 +127,16 @@ describe("WhoamiService", () => {
   });
 
   it("result carries the additive peersNote stating the corrected meaning", () => {
-    const { nodeA } = seedRig();
+    const { nodeA } = seedSoftwareTeam();
     const result = svc.resolve({ nodeId: nodeA.id });
 
     expect(result!.peersNote).toContain("roster excluding self");
     expect(result!.peersNote).toContain("edges");
-    expect(result!.peersNote).toContain("rig ps --nodes");
+    expect(result!.peersNote).toContain("SoftwareTeam ps --nodes");
   });
 
   it("emits NO roster/podRoster field (advisor ruling: peers[] already IS the roster)", () => {
-    const { nodeA } = seedRig();
+    const { nodeA } = seedSoftwareTeam();
     const result = svc.resolve({ nodeId: nodeA.id }) as unknown as Record<string, unknown>;
 
     expect(result["roster"]).toBeUndefined();
@@ -144,43 +144,43 @@ describe("WhoamiService", () => {
   });
 
   it("unknown nodeId returns null", () => {
-    seedRig();
+    seedSoftwareTeam();
     const result = svc.resolve({ nodeId: "nonexistent" });
     expect(result).toBeNull();
   });
 
-  it("session name matching multiple rigs returns ambiguous error", () => {
-    // Create two rigs with same session name
-    const rig1 = rigRepo.createRig("rig-a");
-    const node1 = rigRepo.addNode(rig1.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+  it("session name matching multiple softwareTeams returns ambiguous error", () => {
+    // Create two softwareTeams with same session name
+    const rig1 = softwareTeamRepo.createSoftwareTeam("software-team-a");
+    const node1 = softwareTeamRepo.addNode(rig1.id, "dev.impl", { role: "worker", runtime: "claude-code" });
     sessionRegistry.registerSession(node1.id, "dev-impl@shared");
 
-    const rig2 = rigRepo.createRig("rig-b");
-    const node2 = rigRepo.addNode(rig2.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+    const rig2 = softwareTeamRepo.createSoftwareTeam("software-team-b");
+    const node2 = softwareTeamRepo.addNode(rig2.id, "dev.impl", { role: "worker", runtime: "claude-code" });
     sessionRegistry.registerSession(node2.id, "dev-impl@shared");
 
     expect(() => svc.resolve({ sessionName: "dev-impl@shared" })).toThrow(/ambiguous/i);
   });
 
   it("resolve surfaces external_cli attachment type and external session name", () => {
-    const rig = rigRepo.createRig("rigged-buildout");
-    const node = rigRepo.addNode(rig.id, "orch1.lead", { role: "orchestrator", runtime: "claude-code" });
-    sessionRegistry.registerClaimedSession(node.id, "orch1-lead@rigged-buildout");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("softwareteam-buildout");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "orch1.lead", { role: "orchestrator", runtime: "claude-code" });
+    sessionRegistry.registerClaimedSession(node.id, "orch1-lead@softwareteam-buildout");
     sessionRegistry.updateBinding(node.id, {
       attachmentType: "external_cli",
-      externalSessionName: "orch1-lead@rigged-buildout",
+      externalSessionName: "orch1-lead@softwareteam-buildout",
     });
 
     const result = svc.resolve({ nodeId: node.id });
 
     expect(result).not.toBeNull();
     expect(result!.identity.attachmentType).toBe("external_cli");
-    expect(result!.identity.sessionName).toBe("orch1-lead@rigged-buildout");
+    expect(result!.identity.sessionName).toBe("orch1-lead@softwareteam-buildout");
   });
 
   it("resolve returns null session and no transcript affordances for an unbound node", () => {
-    const rig = rigRepo.createRig("my-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("my-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", {
       role: "worker",
       runtime: "claude-code",
     });
@@ -200,7 +200,7 @@ describe("WhoamiService", () => {
   // --- PL-012 Token / Context Usage Surface v0: runtimeContext block ---
 
   it("PL-012: claude-code seat surfaces runtimeContext with resumeToken from sessions table", () => {
-    const { nodeA, sessA } = seedRig();
+    const { nodeA, sessA } = seedSoftwareTeam();
     db.prepare("UPDATE sessions SET resume_token = ? WHERE id = ?").run("claude-resume-abc", sessA.id);
     const result = svc.resolve({ nodeId: nodeA.id });
     expect(result).not.toBeNull();
@@ -212,7 +212,7 @@ describe("WhoamiService", () => {
   });
 
   it("PL-012: codex seat with no captured thread surfaces threadId null", () => {
-    const { nodeB } = seedRig();
+    const { nodeB } = seedSoftwareTeam();
     const result = svc.resolve({ nodeId: nodeB.id });
     expect(result).not.toBeNull();
     expect(result!.runtimeContext?.runtime).toBe("codex");
@@ -223,7 +223,7 @@ describe("WhoamiService", () => {
   });
 
   it("#122: codex seat surfaces its captured thread id from the stored resume token", () => {
-    const { nodeB, sessB } = seedRig();
+    const { nodeB, sessB } = seedSoftwareTeam();
     sessionRegistry.updateResumeToken(sessB.id, "codex_id", "019a-codex-thread");
     const result = svc.resolve({ nodeId: nodeB.id });
     expect(result!.runtimeContext?.runtime).toBe("codex");
@@ -234,7 +234,7 @@ describe("WhoamiService", () => {
   });
 
   it("#122: codex seat keeps threadId null for an unverified resume attempt or a failed probe", () => {
-    const { nodeB, sessB } = seedRig();
+    const { nodeB, sessB } = seedSoftwareTeam();
     sessionRegistry.recordResumeAttempt(sessB.id, "codex_id", "019a-attempted");
     const attempted = svc.resolve({ nodeId: nodeB.id });
     expect(attempted!.runtimeContext?.runtime).toBe("codex");
@@ -250,16 +250,16 @@ describe("WhoamiService", () => {
   });
 
   it("PL-012: terminal runtime surfaces null runtimeContext (no conversation)", () => {
-    const rig = rigRepo.createRig("term-rig");
-    const node = rigRepo.addNode(rig.id, "tools.shell", { role: "worker", runtime: "terminal", label: "Shell" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("term-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "tools.shell", { role: "worker", runtime: "terminal", label: "Shell" });
     const result = svc.resolve({ nodeId: node.id });
     expect(result).not.toBeNull();
     expect(result!.runtimeContext).toBeNull();
   });
 
   it("PL-012: unknown runtime surfaces null runtimeContext (honest degradation)", () => {
-    const rig = rigRepo.createRig("future-rig");
-    const node = rigRepo.addNode(rig.id, "future.experimental", { role: "worker", runtime: "future-runtime-xyz", label: "Future" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("future-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "future.experimental", { role: "worker", runtime: "future-runtime-xyz", label: "Future" });
     const result = svc.resolve({ nodeId: node.id });
     expect(result).not.toBeNull();
     expect(result!.runtimeContext).toBeNull();
@@ -276,8 +276,8 @@ describe("WhoamiService", () => {
 
   it("AC-4: compact resolve does NOT call the contextUsageStore lookup and omits contextUsage/runtimeContext", () => {
     const getForNode = vi.fn(() => sampleContextUsage as never);
-    const svcWithCtx = new WhoamiService({ db, rigRepo, sessionRegistry, transcriptStore, contextUsageStore: { getForNode } as never });
-    const { nodeA } = seedRig();
+    const svcWithCtx = new WhoamiService({ db, softwareTeamRepo, sessionRegistry, transcriptStore, contextUsageStore: { getForNode } as never });
+    const { nodeA } = seedSoftwareTeam();
 
     const result = svcWithCtx.resolve({ nodeId: nodeA.id, compact: true });
 
@@ -290,8 +290,8 @@ describe("WhoamiService", () => {
 
   it("AC-4 back-compat: full (no compact) performs the contextUsage lookup and builds runtimeContext", () => {
     const getForNode = vi.fn(() => sampleContextUsage as never);
-    const svcWithCtx = new WhoamiService({ db, rigRepo, sessionRegistry, transcriptStore, contextUsageStore: { getForNode } as never });
-    const { nodeA } = seedRig();
+    const svcWithCtx = new WhoamiService({ db, softwareTeamRepo, sessionRegistry, transcriptStore, contextUsageStore: { getForNode } as never });
+    const { nodeA } = seedSoftwareTeam();
 
     const result = svcWithCtx.resolve({ nodeId: nodeA.id });
 

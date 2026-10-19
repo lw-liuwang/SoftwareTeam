@@ -1,22 +1,22 @@
 # North Star Demo
 
-A complete multi-agent topology demonstrating OpenRig's core capabilities.
+A complete multi-agent topology demonstrating SoftwareTeam's core capabilities.
 
-This directory is the canonical authoring example for OpenRig. It is meant to be
-read by both humans and coding agents as the reference layout for a real rig:
+This directory is the canonical authoring example for SoftwareTeam. It is meant to be
+read by both humans and coding agents as the reference layout for a real SoftwareTeam:
 
-- `rig.yaml` — the topology source of truth
-- `culture.md` — rig-wide culture/guidance
+- `software-team.yaml` — the topology source of truth
+- `culture.md` — software-team-wide culture/guidance
 - `agents/*/agent.yaml` — per-agent package manifests
 - `scripts/` — baseline seeding, verification, and proof helpers
 
 The same tree is also the golden source for same-checkout bundle tests:
 
 ```bash
-rig bundle create demo/rig.yaml --rig-root demo -o /tmp/demo.rigbundle
-rig bundle inspect /tmp/demo.rigbundle
-rig bundle install /tmp/demo.rigbundle --yes --target /tmp/demo-install
-rig up /tmp/demo.rigbundle
+SoftwareTeam bundle create demo/software-team.yaml --software-team-root demo -o /tmp/demo.softwareteambundle
+SoftwareTeam bundle inspect /tmp/demo.softwareteambundle
+SoftwareTeam bundle install /tmp/demo.softwareteambundle --yes --target /tmp/demo-install
+SoftwareTeam up /tmp/demo.softwareteambundle
 ```
 
 ## Topology
@@ -33,7 +33,7 @@ rig up /tmp/demo.rigbundle
 
 - Node.js 22+
 - tmux 3+
-- OpenRig built: `npm run build` from repo root
+- SoftwareTeam built: `npm run build` from repo root
 - Claude Code and/or Codex CLI installed
 
 ## Quick Start
@@ -43,7 +43,7 @@ rig up /tmp/demo.rigbundle
 ```
 
 `run.sh` boots the topology and then establishes a restore-safe baseline for
-the demo rig. If fresh runtime sessions are not yet resumable, it seeds one
+the demo SoftwareTeam. If fresh runtime sessions are not yet resumable, it seeds one
 warmup turn per agent and re-verifies native resume before handing control back.
 
 ## Resume Baseline
@@ -52,10 +52,10 @@ Before treating restore as trustworthy, establish and verify the runtime resume
 baseline on a fresh boot:
 
 ```bash
-npx tsx demo/scripts/check-demo-health.ts --rig demo-rig
-npx tsx demo/scripts/verify-native-resume.ts --rig demo-rig
-npx tsx demo/scripts/seed-resume-baseline.ts --rig demo-rig
-npx tsx demo/scripts/verify-native-resume.ts --rig demo-rig
+npx tsx demo/scripts/check-demo-health.ts --software-team demo-SoftwareTeam
+npx tsx demo/scripts/verify-native-resume.ts --software-team demo-SoftwareTeam
+npx tsx demo/scripts/seed-resume-baseline.ts --software-team demo-SoftwareTeam
+npx tsx demo/scripts/verify-native-resume.ts --software-team demo-SoftwareTeam
 ```
 
 The baseline matters because Claude and Codex have different native resume
@@ -65,7 +65,7 @@ for the currently observed runtime caveats.
 Current known-good rule on macOS:
 
 - fresh Codex sessions in this demo are resumable immediately
-- fresh Claude sessions are not snapshot-safe immediately after `rig up`
+- fresh Claude sessions are not snapshot-safe immediately after `SoftwareTeam up`
 - one completed warmup turn is enough to make the current stored Claude IDs
   resumable on this fixture
 
@@ -79,8 +79,8 @@ This produces automated proof artifacts in `demo/proof/`:
 
 | Artifact | Source | Type |
 |----------|--------|------|
-| `up-transcript.txt` | `rig up demo/rig.yaml` output | Automatic |
-| `ps-nodes.txt` | `rig ps --nodes --rig <rig>` after boot | Automatic |
+| `up-transcript.txt` | `SoftwareTeam up demo/software-team.yaml` output | Automatic |
+| `ps-nodes.txt` | `SoftwareTeam ps --nodes --software-team <SoftwareTeam>` after boot | Automatic |
 | `health-after-boot.json` | `check-demo-health.ts` after boot | Automatic |
 | `native-resume-after-boot.txt` | immediate native probe after boot | Automatic |
 | `native-resume-after-boot.json` | immediate native probe machine output | Automatic |
@@ -88,10 +88,10 @@ This produces automated proof artifacts in `demo/proof/`:
 | `seed-resume-baseline.json` | baseline seeding machine output | Automatic, only if seeding was needed |
 | `native-resume-before-down.txt` | native Claude/Codex probe before down | Automatic |
 | `native-resume-before-down.json` | native probe machine output | Automatic |
-| `down-transcript.txt` | `rig down` output | Automatic |
+| `down-transcript.txt` | `SoftwareTeam down` output | Automatic |
 | `tmux-check.txt` | `tmux ls` after teardown | Automatic |
-| `restore-transcript.txt` | `rig restore <snapshotId> --rig <rigId>` output | Automatic |
-| `ps-restored.txt` | `rig ps --nodes --rig <rig>` after restore | Automatic |
+| `restore-transcript.txt` | `SoftwareTeam restore <snapshotId> --software-team <softwareTeamId>` output | Automatic |
+| `ps-restored.txt` | `SoftwareTeam ps --nodes --software-team <SoftwareTeam>` after restore | Automatic |
 | `browser-screenshot.png` | Explorer + Graph + Detail Panel | **Manual** |
 | `resume-test.txt` | Post-restore agent context check | **Manual** |
 
@@ -101,20 +101,20 @@ After `run-proof.sh` completes:
 
 1. **Browser screenshot:** Open `http://localhost:5173` → screenshot showing Explorer with all pods, Graph with pod grouping, Node Detail Panel open. Save to `demo/proof/browser-screenshot.png`.
 
-2. **Resume test:** Run `tmux attach -t orch-lead@demo-rig` → ask "What were you working on?" → copy response to `demo/proof/resume-test.txt`.
+2. **Resume test:** Run `tmux attach -t orch-lead@demo-SoftwareTeam` → ask "What were you working on?" → copy response to `demo/proof/resume-test.txt`.
 
 ## Expected Session Names
 
 After boot, `tmux list-sessions` should show:
 ```
-orch-lead@demo-rig
-dev-impl@demo-rig
-dev-qa@demo-rig
-dev-design@demo-rig
-rev-r1@demo-rig
-rev-r2@demo-rig
-infra-daemon@demo-rig
-infra-ui@demo-rig
+orch-lead@demo-SoftwareTeam
+dev-impl@demo-SoftwareTeam
+dev-qa@demo-SoftwareTeam
+dev-design@demo-SoftwareTeam
+rev-r1@demo-SoftwareTeam
+rev-r2@demo-SoftwareTeam
+infra-daemon@demo-SoftwareTeam
+infra-ui@demo-SoftwareTeam
 ```
 
 ## Expected Boot Time
@@ -124,7 +124,7 @@ infra-ui@demo-rig
 ## Restore Notes
 
 - For exact proof and repeated local testing, prefer explicit restore:
-  `rig restore <snapshotId> --rig <rigId>`
-- `rig up demo-rig` is only safe as a restore shortcut while there is a
-  single stopped historical rig with that name. Once multiple historical
-  `demo-rig` instances exist, OpenRig correctly returns an ambiguity error.
+  `SoftwareTeam restore <snapshotId> --software-team <softwareTeamId>`
+- `SoftwareTeam up demo-SoftwareTeam` is only safe as a restore shortcut while there is a
+  single stopped historical SoftwareTeam with that name. Once multiple historical
+  `demo-SoftwareTeam` instances exist, SoftwareTeam correctly returns an ambiguity error.

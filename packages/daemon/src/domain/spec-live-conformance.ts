@@ -1,16 +1,16 @@
-import type { RigSpec } from "./types.js";
+import type { SoftwareTeamSpec } from "./types.js";
 
 /**
  * Build B — spec-vs-live topology conformance.
  *
- * A rig spec is consumed as AUTHORITATIVE by everything that recreates or describes a rig
- * (instantiation, `rig validate`, bundle export, pod-bundle vendoring) and is MAINTAINED by nothing
- * that mutates one. `rig expand` adds a pod to a running rig through the daemon; no code path writes
- * the rigRoot spec back. So drift is not an accident to be prevented here — with no writer it is
+ * A softwareTeam spec is consumed as AUTHORITATIVE by everything that recreates or describes a softwareTeam
+ * (instantiation, `softwareTeam validate`, bundle export, pod-bundle vendoring) and is MAINTAINED by nothing
+ * that mutates one. `softwareTeam expand` adds a pod to a running softwareTeam through the daemon; no code path writes
+ * the softwareTeamRoot spec back. So drift is not an accident to be prevented here — with no writer it is
  * guaranteed — and this module does not try to prevent it.
  *
  * What it does is make the drift SAYABLE at the two moments it causes damage: a bundle export, which
- * copies the spec verbatim and would otherwise ship a smaller rig than the one running, in silence;
+ * copies the spec verbatim and would otherwise ship a smaller softwareTeam than the one running, in silence;
  * and an explicit conformance check, which is how a later spec write-back gets VERIFIED instead of
  * eyeballed.
  *
@@ -85,7 +85,7 @@ export function compareSpecToLive(spec: Topology, live: Topology): ConformanceRe
 
   // Name the actual delta. A generic "topology may differ" is the caution a reader learns to skip.
   const parts = [
-    `spec declares ${result.spec.pods} pods/${result.spec.seats} seats; live rig has ${result.live.pods}/${result.live.seats}`,
+    `spec declares ${result.spec.pods} pods/${result.spec.seats} seats; live SoftwareTeam has ${result.live.pods}/${result.live.seats}`,
   ];
   if (podsMissingFromSpec.length) parts.push(`pods running but ABSENT FROM THE SPEC: ${podsMissingFromSpec.join(", ")}`);
   if (seatsMissingFromSpec.length) parts.push(`seats absent from the spec: ${seatsMissingFromSpec.join(", ")}`);
@@ -96,7 +96,7 @@ export function compareSpecToLive(spec: Topology, live: Topology): ConformanceRe
 }
 
 /** Pods and seats as the SPEC declares them. */
-export function topologyFromRigSpec(spec: Pick<RigSpec, "pods">): Topology {
+export function topologyFromSoftwareTeamSpec(spec: Pick<SoftwareTeamSpec, "pods">): Topology {
   const pods: string[] = [];
   const seats: string[] = [];
   for (const pod of spec.pods ?? []) {
@@ -133,10 +133,10 @@ export function topologyFromLiveLogicalIds(logicalIds: readonly (string | null |
  * Seats as a LEGACY (v1) spec declares them — a flat `nodes:` list with no pods.
  *
  * A v1 spec exports through the same create endpoint and produces the same confidently-wrong
- * artifact, so it needs the same comparison. It does not need a second comparator: a legacy rig is
+ * artifact, so it needs the same comparison. It does not need a second comparator: a legacy softwareTeam is
  * just a topology with no pod level, and `compareSpecToLive` already handles an empty pod list.
  */
-export function topologyFromLegacyRigSpec(spec: { nodes?: ReadonlyArray<{ id?: unknown }> }): Topology {
+export function topologyFromLegacySoftwareTeamSpec(spec: { nodes?: ReadonlyArray<{ id?: unknown }> }): Topology {
   const seats: string[] = [];
   for (const node of spec.nodes ?? []) {
     if (typeof node?.id === "string" && node.id.trim() !== "") seats.push(node.id.trim());
@@ -148,9 +148,9 @@ export function topologyFromLegacyRigSpec(spec: { nodes?: ReadonlyArray<{ id?: u
  * Seats as the daemon is running them, read FLAT — the legacy counterpart to
  * `topologyFromLiveLogicalIds`.
  *
- * For a legacy rig a node's `logical_id` IS the spec's `node.id`; there is no `<pod>.<member>` to
+ * For a legacy softwareTeam a node's `logical_id` IS the spec's `node.id`; there is no `<pod>.<member>` to
  * split. Reusing the pod-aware reader here would parse every flat id as malformed and report an
- * empty live rig, which reads as "nothing is running" — a false absence, and the most dangerous
+ * empty live softwareTeam, which reads as "nothing is running" — a false absence, and the most dangerous
  * possible answer for a guard whose whole job is noticing what would be dropped.
  */
 export function topologyFromLiveNodeIds(logicalIds: readonly (string | null | undefined)[]): Topology {
@@ -166,5 +166,5 @@ export function topologyFromLiveNodeIds(logicalIds: readonly (string | null | un
 /** The one-line export banner. Null when there is nothing to say. */
 export function bundleExportWarning(result: ConformanceResult): string | null {
   if (result.message === null) return null;
-  return `WARNING: this bundle describes the SPEC, not the live rig — ${result.message}. The bundle will instantiate ${result.spec.pods} pods/${result.spec.seats} seats.`;
+  return `WARNING: this bundle describes the SPEC, not the live softwareTeam — ${result.message}. The bundle will instantiate ${result.spec.pods} pods/${result.spec.seats} seats.`;
 }

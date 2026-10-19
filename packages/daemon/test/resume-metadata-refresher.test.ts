@@ -106,7 +106,7 @@ describe("ResumeMetadataRefresher", () => {
     await refresher.refresh([
       {
         sessionId: "sess-1",
-        sessionName: "dev-qa@demo-rig",
+        sessionName: "dev-qa@demo-software-team",
         runtime: "codex",
         resumeType: null,
         resumeToken: null,
@@ -144,7 +144,7 @@ describe("ResumeMetadataRefresher", () => {
     await refresher.refresh([
       {
         sessionId: "sess-1",
-        sessionName: "dev-qa@demo-rig",
+        sessionName: "dev-qa@demo-software-team",
         runtime: "codex",
         resumeType: null,
         resumeToken: null,
@@ -160,7 +160,7 @@ describe("ResumeMetadataRefresher", () => {
   });
 
   it("refreshes missing Codex resume token from the child process home directory", async () => {
-    const tempRoot = fs.mkdtempSync(nodePath.join(os.tmpdir(), "rigged-codex-refresh-"));
+    const tempRoot = fs.mkdtempSync(nodePath.join(os.tmpdir(), "softwareteam-codex-refresh-"));
     const actualHome = nodePath.join(tempRoot, "actual-home");
     createCodexLogsDb(actualHome, 901, "019d45c3-e909-7152-b52e-34edab4070ed");
 
@@ -186,7 +186,7 @@ describe("ResumeMetadataRefresher", () => {
     await refresher.refresh([
       {
         sessionId: "sess-1",
-        sessionName: "dev-qa@demo-rig",
+        sessionName: "dev-qa@demo-software-team",
         runtime: "codex",
         resumeType: null,
         resumeToken: null,
@@ -202,7 +202,7 @@ describe("ResumeMetadataRefresher", () => {
   });
 
   it("refreshes missing Codex resume token from the current versioned logs database", async () => {
-    const tempRoot = fs.mkdtempSync(nodePath.join(os.tmpdir(), "rigged-codex-refresh-"));
+    const tempRoot = fs.mkdtempSync(nodePath.join(os.tmpdir(), "softwareteam-codex-refresh-"));
     const actualHome = nodePath.join(tempRoot, "actual-home");
     createCodexLogsDb(actualHome, 901, "019d45c3-e909-7152-b52e-34edab4070ed", "logs_2.sqlite");
 
@@ -228,7 +228,7 @@ describe("ResumeMetadataRefresher", () => {
     await refresher.refresh([
       {
         sessionId: "sess-1",
-        sessionName: "dev-qa@demo-rig",
+        sessionName: "dev-qa@demo-software-team",
         runtime: "codex",
         resumeType: null,
         resumeToken: null,
@@ -258,7 +258,7 @@ describe("ResumeMetadataRefresher", () => {
     await refresher.refresh([
       {
         sessionId: "sess-1",
-        sessionName: "dev-qa@demo-rig",
+        sessionName: "dev-qa@demo-software-team",
         runtime: "codex",
         resumeType: "codex_id",
         resumeToken: "existing-token",
@@ -269,7 +269,7 @@ describe("ResumeMetadataRefresher", () => {
   });
 
   // OPR.0.4.6.02 S1 EXCLUSION — the ephemeral native-resume PROBE session
-  // (`rigged-refresh-*`) is NOT a real operator/agent seat, so it must NEVER
+  // (`softwareteam-refresh-*`) is NOT a real operator/agent seat, so it must NEVER
   // receive the tmux option defaults. The refresher is deliberately not wired
   // with the shared applier; this pins that the refresh path calls no tmux
   // option-setter across a run (mouse/status/set-clipboard/copy-command).
@@ -294,7 +294,7 @@ describe("ResumeMetadataRefresher", () => {
     await refresher.refresh([
       {
         sessionId: "sess-1",
-        sessionName: "dev-design@demo-rig",
+        sessionName: "dev-design@demo-software-team",
         runtime: "claude-code",
         resumeType: "claude_native",
         resumeToken: "abc-123",
@@ -325,7 +325,7 @@ describe("ResumeMetadataRefresher", () => {
     await refresher.refresh([
       {
         sessionId: "sess-1",
-        sessionName: "dev-design@demo-rig",
+        sessionName: "dev-design@demo-software-team",
         runtime: "claude-code",
         resumeType: "claude_id",
         resumeToken: "abc-123",
@@ -333,7 +333,7 @@ describe("ResumeMetadataRefresher", () => {
       },
     ]);
 
-    expect(probeClaudeResume).toHaveBeenCalledWith("dev-design@demo-rig", "abc-123", "/repo");
+    expect(probeClaudeResume).toHaveBeenCalledWith("dev-design@demo-software-team", "abc-123", "/repo");
     expect(sessionRegistry.markResumeProbeResult).toHaveBeenCalledWith("sess-1", "not_resumable");
     expect(sessionRegistry.clearResumeToken).not.toHaveBeenCalled(); // token SURVIVES for FR-6 to surface
     expect(sessionRegistry.updateResumeToken).not.toHaveBeenCalled();
@@ -353,7 +353,7 @@ describe("ResumeMetadataRefresher", () => {
       sleep: async () => {},
     });
     await refresher.refresh([
-      { sessionId: "sess-1", sessionName: "dev-design@demo-rig", runtime: "claude-code", resumeType: "claude_id", resumeToken: "abc-123", cwd: "/repo" },
+      { sessionId: "sess-1", sessionName: "dev-design@demo-software-team", runtime: "claude-code", resumeType: "claude_id", resumeToken: "abc-123", cwd: "/repo" },
     ]);
     expect(sessionRegistry.markResumeProbeResult).toHaveBeenCalledWith("sess-1", "resumable");
     expect(sessionRegistry.clearResumeToken).not.toHaveBeenCalled();
@@ -369,7 +369,7 @@ describe("ResumeMetadataRefresher", () => {
       contextUsageStore: { readSidecar: () => ({ ok: true as const, data: { session_id: "claude-uuid-xyz" } }) },
     });
     await refresher.refresh([
-      { sessionId: "sess-c", sessionName: "seat@rig", runtime: "claude-code", resumeType: null, resumeToken: null },
+      { sessionId: "sess-c", sessionName: "seat@software-team", runtime: "claude-code", resumeType: null, resumeToken: null },
     ]);
     expect(sessionRegistry.updateResumeToken).toHaveBeenCalledWith("sess-c", "claude_id", "claude-uuid-xyz", "scrape");
   });
@@ -391,11 +391,11 @@ describe("ResumeMetadataRefresher", () => {
       claudeProcessStartedAt,
     } as never);
     await refresher.refresh([
-      { sessionId: "sess-c", sessionName: "seat@rig", runtime: "claude-code", resumeType: null, resumeToken: null },
+      { sessionId: "sess-c", sessionName: "seat@software-team", runtime: "claude-code", resumeType: null, resumeToken: null },
     ]);
     if (fills) expect(sessionRegistry.updateResumeToken).toHaveBeenCalledWith("sess-c", "claude_id", "claude-uuid-xyz", "scrape");
     else expect(sessionRegistry.updateResumeToken).not.toHaveBeenCalled();
-    expect(claudeProcessStartedAt).toHaveBeenCalledWith("seat@rig");
+    expect(claudeProcessStartedAt).toHaveBeenCalledWith("seat@software-team");
   });
 
   it("FR-4: a missing/parse-error sidecar leaves the Claude token null (no write, no throw)", async () => {
@@ -407,7 +407,7 @@ describe("ResumeMetadataRefresher", () => {
       contextUsageStore: { readSidecar: () => ({ ok: false as const, reason: "missing_sidecar" }) },
     });
     await refresher.refresh([
-      { sessionId: "sess-c", sessionName: "seat@rig", runtime: "claude-code", resumeType: null, resumeToken: null },
+      { sessionId: "sess-c", sessionName: "seat@software-team", runtime: "claude-code", resumeType: null, resumeToken: null },
     ]);
     expect(sessionRegistry.updateResumeToken).not.toHaveBeenCalled();
   });
@@ -421,7 +421,7 @@ describe("ResumeMetadataRefresher", () => {
       contextUsageStore: { readSidecar: () => ({ ok: true as const, data: { session_id: "   " } }) },
     });
     await refresher.refresh([
-      { sessionId: "sess-c", sessionName: "seat@rig", runtime: "claude-code", resumeType: null, resumeToken: null },
+      { sessionId: "sess-c", sessionName: "seat@software-team", runtime: "claude-code", resumeType: null, resumeToken: null },
     ]);
     expect(sessionRegistry.updateResumeToken).not.toHaveBeenCalled();
   });
@@ -437,7 +437,7 @@ describe("ResumeMetadataRefresher", () => {
       probeClaudeResume: async () => "resumable",
     });
     await refresher.refresh([
-      { sessionId: "sess-c", sessionName: "seat@rig", runtime: "claude-code", resumeType: "claude_id", resumeToken: "existing-tok" },
+      { sessionId: "sess-c", sessionName: "seat@software-team", runtime: "claude-code", resumeType: "claude_id", resumeToken: "existing-tok" },
     ]);
     expect(readSidecar).not.toHaveBeenCalled(); // present token → validate branch, no null-fill
     expect(sessionRegistry.updateResumeToken).not.toHaveBeenCalled();
@@ -448,7 +448,7 @@ describe("ResumeMetadataRefresher", () => {
       isForkClaimingHeldToken: vi.fn(() => false), updateResumeToken: vi.fn(), clearResumeToken: vi.fn() } as unknown as SessionRegistry;
     const refresher = new ResumeMetadataRefresher({ sessionRegistry, tmuxAdapter: mockTmux() });
     await refresher.refresh([
-      { sessionId: "sess-c", sessionName: "seat@rig", runtime: "claude-code", resumeType: null, resumeToken: null },
+      { sessionId: "sess-c", sessionName: "seat@software-team", runtime: "claude-code", resumeType: null, resumeToken: null },
     ]);
     expect(sessionRegistry.updateResumeToken).not.toHaveBeenCalled();
   });
@@ -469,7 +469,7 @@ describe("ResumeMetadataRefresher", () => {
       sleep: async () => {},
     });
     await refresher.refresh([
-      { sessionId: "sess-1", sessionName: "dev-design@demo-rig", runtime: "claude-code", resumeType: "claude_id", resumeToken: "present-tok", cwd: "/repo" },
+      { sessionId: "sess-1", sessionName: "dev-design@demo-software-team", runtime: "claude-code", resumeType: "claude_id", resumeToken: "present-tok", cwd: "/repo" },
     ], { fillNullOnly: true });
     expect(probeClaudeResume).not.toHaveBeenCalled();                // rev1-r1: no `claude --resume` spawn on the recurring path
     expect(sessionRegistry.clearResumeToken).not.toHaveBeenCalled(); // rev1-r2: present-but-not-resumable token SURVIVES for FR-6
@@ -493,7 +493,7 @@ describe("ResumeMetadataRefresher", () => {
       sleep: async () => {},
     });
     await refresher.refresh([
-      { sessionId: "sess-c", sessionName: "seat@rig", runtime: "claude-code", resumeType: null, resumeToken: null },
+      { sessionId: "sess-c", sessionName: "seat@software-team", runtime: "claude-code", resumeType: null, resumeToken: null },
     ], { fillNullOnly: true });
     expect(sessionRegistry.updateResumeToken).toHaveBeenCalledWith("sess-c", "claude_id", "claude-uuid-xyz", "scrape");
     expect(probeClaudeResume).not.toHaveBeenCalled();                // still no probe — null-fill is a pure sidecar read
@@ -514,7 +514,7 @@ describe("ResumeMetadataRefresher", () => {
       sleep: async () => {},
     });
     await refresher.refresh([
-      { sessionId: "sess-x", sessionName: "dev-qa@demo-rig", runtime: "codex", resumeType: null, resumeToken: null },
+      { sessionId: "sess-x", sessionName: "dev-qa@demo-software-team", runtime: "codex", resumeType: null, resumeToken: null },
     ], { fillNullOnly: true });
     expect(sessionRegistry.updateResumeToken).toHaveBeenCalledWith("sess-x", "codex_id", "019d45c3-e909-7152-b52e-34edab4070ed", "scrape");
   });
@@ -534,7 +534,7 @@ describe("ResumeMetadataRefresher", () => {
         sleep: async () => {},
       });
       await refresher.refresh([
-        { sessionId: "sess-1", sessionName: "dev-qa@demo-rig", runtime: "codex", resumeType: null, resumeToken: "codex-tok-A" },
+        { sessionId: "sess-1", sessionName: "dev-qa@demo-software-team", runtime: "codex", resumeType: null, resumeToken: "codex-tok-A" },
       ], { fillNullOnly: true });
       expect(sessionRegistry.markResumeProbeResult).toHaveBeenCalledWith("sess-1", "resumable");
       expect(sessionRegistry.updateResumeToken).not.toHaveBeenCalled(); // freshness-only, never re-writes the token
@@ -551,7 +551,7 @@ describe("ResumeMetadataRefresher", () => {
         sleep: async () => {},
       });
       await refresher.refresh([
-        { sessionId: "sess-1", sessionName: "dev-qa@demo-rig", runtime: "codex", resumeType: null, resumeToken: "codex-tok-A" },
+        { sessionId: "sess-1", sessionName: "dev-qa@demo-software-team", runtime: "codex", resumeType: null, resumeToken: "codex-tok-A" },
       ], { fillNullOnly: true });
       expect(sessionRegistry.markResumeProbeResult).not.toHaveBeenCalled();
       expect(sessionRegistry.updateResumeToken).not.toHaveBeenCalled();
@@ -568,7 +568,7 @@ describe("ResumeMetadataRefresher", () => {
         sleep: async () => {},
       });
       await refresher.refresh([
-        { sessionId: "sess-1", sessionName: "dev-qa@demo-rig", runtime: "codex", resumeType: null, resumeToken: "codex-tok-A" },
+        { sessionId: "sess-1", sessionName: "dev-qa@demo-software-team", runtime: "codex", resumeType: null, resumeToken: "codex-tok-A" },
       ], { fillNullOnly: true });
       expect(sessionRegistry.markResumeProbeResult).not.toHaveBeenCalled();
       expect(sessionRegistry.updateResumeToken).not.toHaveBeenCalled();
@@ -586,7 +586,7 @@ describe("ResumeMetadataRefresher", () => {
         sleep: async () => {},
       });
       await refresher.refresh([
-        { sessionId: "sess-c", sessionName: "dev-design@demo-rig", runtime: "claude-code", resumeType: null, resumeToken: "claude-tok-A", cwd: "/repo" },
+        { sessionId: "sess-c", sessionName: "dev-design@demo-software-team", runtime: "claude-code", resumeType: null, resumeToken: "claude-tok-A", cwd: "/repo" },
       ], { fillNullOnly: true });
       expect(sessionRegistry.markResumeProbeResult).toHaveBeenCalledWith("sess-c", "resumable");
       expect(probeClaudeResume).not.toHaveBeenCalled(); // NO heavyweight claude --resume on the periodic path
@@ -612,11 +612,11 @@ describe("ResumeMetadataRefresher", () => {
         sleep: async () => {},
       });
       await refresher.refresh([
-        { sessionId: "sess-c", sessionName: "dev-design@demo-rig", runtime: "claude-code", resumeType: null, resumeToken: "claude-tok-A", cwd: "/repo" },
+        { sessionId: "sess-c", sessionName: "dev-design@demo-software-team", runtime: "claude-code", resumeType: null, resumeToken: "claude-tok-A", cwd: "/repo" },
       ], { fillNullOnly: true });
       if (restamps) expect(sessionRegistry.markResumeProbeResult).toHaveBeenCalledWith("sess-c", "resumable");
       else expect(sessionRegistry.markResumeProbeResult).not.toHaveBeenCalled();
-      expect(claudeProcessStartedAt).toHaveBeenCalledWith("dev-design@demo-rig");
+      expect(claudeProcessStartedAt).toHaveBeenCalledWith("dev-design@demo-software-team");
     });
 
     it("Claude present + DIFFERENT sidecar derive → no re-stamp, no probe, no clobber", async () => {
@@ -631,7 +631,7 @@ describe("ResumeMetadataRefresher", () => {
         sleep: async () => {},
       });
       await refresher.refresh([
-        { sessionId: "sess-c", sessionName: "dev-design@demo-rig", runtime: "claude-code", resumeType: null, resumeToken: "claude-tok-A", cwd: "/repo" },
+        { sessionId: "sess-c", sessionName: "dev-design@demo-software-team", runtime: "claude-code", resumeType: null, resumeToken: "claude-tok-A", cwd: "/repo" },
       ], { fillNullOnly: true });
       expect(sessionRegistry.markResumeProbeResult).not.toHaveBeenCalled();
       expect(probeClaudeResume).not.toHaveBeenCalled();
@@ -650,7 +650,7 @@ describe("ResumeMetadataRefresher", () => {
         sleep: async () => {},
       });
       await refresher.refresh([
-        { sessionId: "sess-c", sessionName: "dev-design@demo-rig", runtime: "claude-code", resumeType: null, resumeToken: "claude-tok-A", cwd: "/repo" },
+        { sessionId: "sess-c", sessionName: "dev-design@demo-software-team", runtime: "claude-code", resumeType: null, resumeToken: "claude-tok-A", cwd: "/repo" },
       ], { fillNullOnly: true });
       expect(sessionRegistry.markResumeProbeResult).not.toHaveBeenCalled();
       expect(probeClaudeResume).not.toHaveBeenCalled();

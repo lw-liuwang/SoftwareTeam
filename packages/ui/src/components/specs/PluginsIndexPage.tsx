@@ -36,7 +36,7 @@ export function PluginsIndexPage() {
           <p className="font-bold uppercase tracking-wide text-on-surface">No plugins visible</p>
           <p className="mt-2">
             Plugins are discovered from Claude Code's global plugin cache, Codex's plugin cache, or
-            OpenRig's vendored set (openrig-core ships with the daemon).
+            SoftwareTeam's vendored set (softwareteam-core ships with the daemon).
           </p>
         </div>
       ) : (

@@ -19,26 +19,26 @@ describe("project lifecycle compiler", () => {
     root = mkdtempSync(join(tmpdir(), "lifecycle-compiler-"));
     missionDir = join(root, "missions", "release-1.0.0");
     mkdirSync(join(missionDir, "slices", "01-build"), { recursive: true });
-    writeFileSync(join(root, "project.yaml"), `schema: openrig.project/v0alpha1
+    writeFileSync(join(root, "project.yaml"), `schema: softwareteam.project/v0alpha1
 kind: project
 metadata: { id: demo }
 missions: { root: missions }
 lifecycle: { profile: release-boundary-v0 }
 `);
-    writeFileSync(join(missionDir, "mission.yaml"), `schema: openrig.mission/v0alpha1
+    writeFileSync(join(missionDir, "mission.yaml"), `schema: softwareteam.mission/v0alpha1
 kind: mission
 metadata: { name: release-1.0.0 }
 composition:
   slices:
     - { ref: slices/01-build/slice.yaml, order: 10, active: true }
 `);
-    writeFileSync(join(missionDir, "slices", "01-build", "slice.yaml"), `schema: openrig.slice/v0alpha1
+    writeFileSync(join(missionDir, "slices", "01-build", "slice.yaml"), `schema: softwareteam.slice/v0alpha1
 kind: slice
 metadata: { id: build }
 composition: { mission: ../../mission.yaml }
 execution:
   actor_role: builder
-  preferred_targets: [builder@rig]
+  preferred_targets: [builder@software-team]
   allowed_exits: [done, failed]
 `);
   });
@@ -49,7 +49,7 @@ execution:
     const db = createDb();
     migrate(db, ALL_MIGRATIONS);
     const bus = new EventBus(db);
-    const queue = new QueueRepository(db, bus, { validateRig: () => true });
+    const queue = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     return { db, runtime: new WorkflowRuntime({ db, eventBus: bus, queueRepo: queue }) };
   }
 
@@ -105,7 +105,7 @@ execution:
     const moved = join(parent, "release-1.0.0");
     renameSync(missionDir, moved);
     missionDir = moved;
-    writeFileSync(join(root, "project.yaml"), `schema: openrig.project/v0alpha1
+    writeFileSync(join(root, "project.yaml"), `schema: softwareteam.project/v0alpha1
 kind: project
 metadata: { id: demo }
 missions: { root: "${missionsRoot}" }
@@ -121,13 +121,13 @@ lifecycle: { profile: release-boundary-v0 }
   });
 
   it("keeps an invalid dependency graph inspectable but ineligible", () => {
-    writeFileSync(join(missionDir, "slices", "01-build", "slice.yaml"), `schema: openrig.slice/v0alpha1
+    writeFileSync(join(missionDir, "slices", "01-build", "slice.yaml"), `schema: softwareteam.slice/v0alpha1
 kind: slice
 metadata: { id: build }
 composition: { mission: ../../mission.yaml }
 execution:
   actor_role: builder
-  preferred_targets: [builder@rig]
+  preferred_targets: [builder@software-team]
   depends_on: [missing]
   allowed_exits: [done, failed]
 `);
@@ -142,7 +142,7 @@ execution:
   });
 
   it("keeps an active slice without an execution contract inspectable but ineligible", () => {
-    writeFileSync(join(missionDir, "slices", "01-build", "slice.yaml"), `schema: openrig.slice/v0alpha1
+    writeFileSync(join(missionDir, "slices", "01-build", "slice.yaml"), `schema: softwareteam.slice/v0alpha1
 kind: slice
 composition: { mission: ../../mission.yaml }
 `);
@@ -156,12 +156,12 @@ composition: { mission: ../../mission.yaml }
 
   it("includes a released slice in provenance without requiring an execution contract", () => {
     mkdirSync(join(missionDir, "slices", "00-released"), { recursive: true });
-    writeFileSync(join(missionDir, "slices", "00-released", "slice.yaml"), `schema: openrig.slice/v0alpha1
+    writeFileSync(join(missionDir, "slices", "00-released", "slice.yaml"), `schema: softwareteam.slice/v0alpha1
 kind: slice
 metadata: { id: released }
 composition: { mission: ../../mission.yaml }
 `);
-    writeFileSync(join(missionDir, "mission.yaml"), `schema: openrig.mission/v0alpha1
+    writeFileSync(join(missionDir, "mission.yaml"), `schema: softwareteam.mission/v0alpha1
 kind: mission
 metadata: { name: release-1.0.0 }
 composition:
@@ -205,12 +205,12 @@ composition:
   ])("refuses $name membership before actuation", ({ members, code, second }) => {
     if (second) {
       mkdirSync(join(missionDir, "slices", "02-other"), { recursive: true });
-      writeFileSync(join(missionDir, "slices", "02-other", "slice.yaml"), `schema: openrig.slice/v0alpha1
+      writeFileSync(join(missionDir, "slices", "02-other", "slice.yaml"), `schema: softwareteam.slice/v0alpha1
 kind: slice
 composition: { mission: ../../mission.yaml }
 `);
     }
-    writeFileSync(join(missionDir, "mission.yaml"), `schema: openrig.mission/v0alpha1
+    writeFileSync(join(missionDir, "mission.yaml"), `schema: softwareteam.mission/v0alpha1
 kind: mission
 metadata: { name: release-1.0.0 }
 composition:

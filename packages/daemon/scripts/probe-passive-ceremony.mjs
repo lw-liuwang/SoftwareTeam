@@ -33,15 +33,15 @@ import { parseCommand } from '../../tui/dist/grammar.js';
 const root = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const bytes = readFileSync(process.argv[2]); const replay = JSON.parse(bytes);
 const responsesBytes = readFileSync(process.argv[3]); const responses = JSON.parse(responsesBytes);
-assert.equal(replay.schema, 'openrig.passive-ceremony-replay/v1'); assert.ok(replay.cases.length);
+assert.equal(replay.schema, 'softwareteam.passive-ceremony-replay/v1'); assert.ok(replay.cases.length);
 const output = process.argv[4] ?? mkdtempSync(join(tmpdir(), 'passive-ceremony-results-')); mkdirSync(output, { recursive: true });
 const hash = (x) => createHash('sha256').update(x).digest('hex');
 // SQLite WAL reader marks are transient shared memory; compare DB/WAL and all owned files.
-const disk = (home) => readdirSync(home, { recursive: true, withFileTypes: true }).filter((e) => e.isFile() && e.name !== "openrig.sqlite-shm").map((e) => [join(e.parentPath, e.name), hash(readFileSync(join(e.parentPath, e.name)))]).sort(([a], [b]) => a.localeCompare(b));
+const disk = (home) => readdirSync(home, { recursive: true, withFileTypes: true }).filter((e) => e.isFile() && e.name !== "softwareteam.sqlite-shm").map((e) => [join(e.parentPath, e.name), hash(readFileSync(join(e.parentPath, e.name)))]).sort(([a], [b]) => a.localeCompare(b));
 const report = { replaySha256: hash(bytes), responsesSha256: hash(responsesBytes), responseAuthor: responses.author, cases: [] };
 for (const test of replay.cases) {
   const home = mkdtempSync(join(tmpdir(), 'passive-ceremony-')); const workspace = join(home, 'workspace'); mkdirSync(workspace);
-  const db = createDb(join(home, 'openrig.sqlite')); migrate(db, ALL_MIGRATIONS);
+  const db = createDb(join(home, 'softwareteam.sqlite')); migrate(db, ALL_MIGRATIONS);
   const queue = new QueueRepository(db, new EventBus(db), { loadHumanRegistry: () => ({ ok: true, entities: [
     { entityId: 'fixture', class: 'human', displayName: 'Fixture only', address: 'fixture@external', connectorBindings: [{ kind: 'slack', connectorRef: 'fixture', secretsRef: 'fixture', role: 'primary' }], prefs: { deliveryClass: 'A' } },
   ] }) });
@@ -65,9 +65,9 @@ for (const test of replay.cases) {
   app.use('*', async (c, next) => { c.set('healthProjection', projection); c.set('healthPolicy', policy); c.set('healthCheckpoints', checkpoints); c.set('healthDiagnosis', diagnosis); await next(); });
   app.route('/api/health', healthRoutes()); app.route('/api/health-diagnosis', healthDiagnosisRoutes());
   const server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: 0 }); await new Promise((done) => server.once('listening', done));
-  const port = server.address().port; writeFileSync(join(home, 'daemon.json'), JSON.stringify({ pid: process.pid, port, db: join(home, 'openrig.sqlite'), startedAt: test.now }));
-  const env = { ...process.env, OPENRIG_HOME: home, OPENRIG_DB: join(home, 'openrig.sqlite'), OPENRIG_URL: `http://127.0.0.1:${port}`, OPENRIG_SESSION_NAME: 'diagnoser@fixture' };
-  delete env.OPENRIG_NODE_ID; delete env.OPENRIG_RIG_NAME;
+  const port = server.address().port; writeFileSync(join(home, 'daemon.json'), JSON.stringify({ pid: process.pid, port, db: join(home, 'softwareteam.sqlite'), startedAt: test.now }));
+  const env = { ...process.env, SOFTWARETEAM_HOME: home, SOFTWARETEAM_DB: join(home, 'softwareteam.sqlite'), SOFTWARETEAM_URL: `http://127.0.0.1:${port}`, SOFTWARETEAM_SESSION_NAME: 'diagnoser@fixture' };
+  delete env.SOFTWARETEAM_NODE_ID; delete env.SOFTWARETEAM_SOFTWARE_TEAM_NAME;
   const cli = async (...args) => (await promisify(execFile)(process.execPath, [join(root, 'packages/cli/dist/index.js'), 'health', ...args], { env, maxBuffer: 8 * 1024 * 1024 })).stdout;
   const retain = async (label, finding) => {
     const current = projection.list(); assert.deepEqual(JSON.parse(await cli('--instance', '--json')), current);

@@ -35,12 +35,12 @@ function fixture() {
   writeFileSync(join(missionPath, "mission.yaml"), stringify({ kind: "mission", metadata: { name: mission }, composition: { slices: [] } }));
   const db = createDb(); migrate(db, ALL_MIGRATIONS);
   const bus = new EventBus(db);
-  const queue = new QueueRepository(db, bus, { validateRig: () => true });
+  const queue = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
   const jobs = new WatchdogJobsRepository(db); queue.attachWatchdogJobsRepository(jobs);
   const stop = queue.startWaitReminders();
   const runtime = new WorkflowRuntime({ db, eventBus: bus, queueRepo: queue, watchdogJobsRepo: jobs });
   const projection = async () => await buildExecutionView({ db, slicesRoot: () => join(root, "missions"), exec: () => { throw new Error("No repository in this fixture"); } }, { mission }) as unknown as ExecutionViewSnap;
-  const snapshot = async (): Promise<FleetSnapshot> => ({ ...emptySnapshot(), execution: await projection(), executionMission: mission, hydratedAt: new Date().toISOString(), hosts: [{ name: "fixture", reachable: true, rigs: [{ name: "example", pods: [{ name: "orch", agents: [{ name: "orch.lead", session: owner, spec: "analyst", runtime: "codex", model: "gpt-6", context: null, tokens: null, status: "active", live: true }] }] }] }] });
+  const snapshot = async (): Promise<FleetSnapshot> => ({ ...emptySnapshot(), execution: await projection(), executionMission: mission, hydratedAt: new Date().toISOString(), hosts: [{ name: "fixture", reachable: true, softwareTeams: [{ name: "example", pods: [{ name: "orch", agents: [{ name: "orch.lead", session: owner, spec: "analyst", runtime: "codex", model: "gpt-6", context: null, tokens: null, status: "active", live: true }] }] }] }] });
   return { root, missionPath, project, projectBytes, db, queue, jobs, runtime, projection, snapshot, close: () => { stop(); db.close(); rmSync(root, { recursive: true, force: true }); } };
 }
 

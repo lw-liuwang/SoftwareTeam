@@ -51,12 +51,12 @@ export async function resolveHumanDeliveryReadiness(
     nextAction: string | null,
   ): HumanDeliveryReadiness => ({ state, configured, enabled, active, ready: state === "ready", ...base, reason, nextAction });
 
-  if (primary.kind !== "slack") return result("not-ready", `primary connector kind '${primary.kind}' is unsupported`, "rig gateway human show " + input.human.entityId + " --json");
-  if (!input.botToken || !input.config.channel) return result("not-ready", "connector configuration is incomplete (bot token or channel missing)", "rig slack status --json");
-  if (!enabled) return result("not-ready", "connector is configured but disabled", "rig slack enable");
-  if (input.gatewayState !== "active") return result("not-ready", `gateway subsystem is ${input.gatewayState}`, "rig daemon logs");
+  if (primary.kind !== "slack") return result("not-ready", `primary connector kind '${primary.kind}' is unsupported`, "SoftwareTeam gateway human show " + input.human.entityId + " --json");
+  if (!input.botToken || !input.config.channel) return result("not-ready", "connector configuration is incomplete (bot token or channel missing)", "SoftwareTeam slack status --json");
+  if (!enabled) return result("not-ready", "connector is configured but disabled", "SoftwareTeam slack enable");
+  if (input.gatewayState !== "active") return result("not-ready", `gateway subsystem is ${input.gatewayState}`, "SoftwareTeam daemon logs");
   if (input.config.outboundDestinations.length > 0 && !input.config.outboundDestinations.includes(input.human.address)) {
-    return result("not-ready", `registered address ${input.human.address} is excluded by connector policy`, "rig slack status --json");
+    return result("not-ready", `registered address ${input.human.address} is excluded by connector policy`, "SoftwareTeam slack status --json");
   }
 
   try {
@@ -66,11 +66,11 @@ export async function resolveHumanDeliveryReadiness(
     );
     if (!scope.ok) {
       return scope.error
-        ? result("indeterminate", `scope verification unavailable: ${scope.error}`, "rig slack verify --json")
-        : result("not-ready", `connector is missing required scopes: ${scope.missing.join(", ")}`, "rig slack verify --json");
+        ? result("indeterminate", `scope verification unavailable: ${scope.error}`, "SoftwareTeam slack verify --json")
+        : result("not-ready", `connector is missing required scopes: ${scope.missing.join(", ")}`, "SoftwareTeam slack verify --json");
     }
     // #192: membership in every channel the connector posts to (the default plus each mapped
-    // channel), the same set `rig slack verify` checks. With no map this is the default alone.
+    // channel), the same set `softwareTeam slack verify` checks. With no map this is the default alone.
     const verifyMembership = deps.verifyMembership ?? ((token, channel) => verifyChannelMembership(token, channel));
     const channels = mappedChannels(input.config);
     const missing: string[] = [];
@@ -82,12 +82,12 @@ export async function resolveHumanDeliveryReadiness(
       else if (!membership.isMember) missing.push(label);
     }
     // A known non-member decides it: posts there would fail whatever the unavailable checks say.
-    if (missing.length) return result("not-ready", `connector is not a member of ${missing.join("; ")}`, "rig slack verify --json");
-    if (unavailable.length) return result("indeterminate", `channel membership verification unavailable: ${unavailable.join("; ")}`, "rig slack verify --json");
+    if (missing.length) return result("not-ready", `connector is not a member of ${missing.join("; ")}`, "SoftwareTeam slack verify --json");
+    if (unavailable.length) return result("indeterminate", `channel membership verification unavailable: ${unavailable.join("; ")}`, "SoftwareTeam slack verify --json");
     return result("ready", channels.length > 1
       ? `required scopes and channel membership verified (${channels.length} channels)`
       : "required scopes and channel membership verified", null);
   } catch (error) {
-    return result("indeterminate", `connector readiness could not be verified: ${(error as Error).message}`, "rig slack verify --json");
+    return result("indeterminate", `connector readiness could not be verified: ${(error as Error).message}`, "SoftwareTeam slack verify --json");
   }
 }

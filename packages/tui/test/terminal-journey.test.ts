@@ -28,7 +28,7 @@ beforeEach(() => {
     ...Array.from({ length: 19 }, (_, i) => ({ seat: `member-${i + 1}`, tmuxSession: `member-${i + 1}`, readOnly: i === 0 })),
     { seat: "missing", tmuxSession: "missing" }, { seat: "remote-http", host: "http" },
   ] };
-  service = new TerminalService({ resolveProvider: name => name === "herdr" ? provider : null, viewsStore: { get: id => id === "fixture" ? saved : null, list: () => [saved] }, listRigNames: () => ["fixture"], listRigSeats: name => name === "fixture" ? [{ canonicalSessionName: "derived", tmuxSession: "member-1", attachmentType: "tmux", rigName: "fixture", logicalId: "derived" }] : null, listPodSeats: () => null, listScopeSeats: () => null, resolveHost: () => ({ id: "http", transport: "http", url: "http://fixture" }) as any, hasSession: name => name !== "missing" && (alive || name !== "member-1") });
+  service = new TerminalService({ resolveProvider: name => name === "herdr" ? provider : null, viewsStore: { get: id => id === "fixture" ? saved : null, list: () => [saved] }, listSoftwareTeamNames: () => ["fixture"], listSoftwareTeamSeats: name => name === "fixture" ? [{ canonicalSessionName: "derived", tmuxSession: "member-1", attachmentType: "tmux", softwareTeamName: "fixture", logicalId: "derived" }] : null, listPodSeats: () => null, listScopeSeats: () => null, resolveHost: () => ({ id: "http", transport: "http", url: "http://fixture" }) as any, hasSession: name => name !== "missing" && (alive || name !== "member-1") });
   const app = new Hono();
   app.use("*", async (c, next) => { c.set("terminalService" as never, service); await next(); });
   app.route("/api/terminal", terminalRoutes());
@@ -123,7 +123,7 @@ describe("terminal browser → preview → explicit Open", () => {
     providerAlive = false;
     const remote = { id: "remote view", name: "Remote", members: [{ seat: "quoted-seat", tmuxSession: "seat with spaces", host: "remote", readOnly: true }] };
     const provider = new HerdrAdapter({ transportFactory: () => ({ probe: async () => ({ alive: false, version: null, protocol: null }), request: async () => { throw new Error("must remain passive"); } }) });
-    service = new TerminalService({ resolveProvider: () => provider, viewsStore: { get: () => remote, list: () => [remote] }, listRigNames: () => [], listRigSeats: () => null, listPodSeats: () => null, listScopeSeats: () => null, resolveHost: () => ({ id: "remote", transport: "ssh", target: "other.example", user: "viewer" }) as any, hasSession: () => { throw new Error("remote is not a local session"); } });
+    service = new TerminalService({ resolveProvider: () => provider, viewsStore: { get: () => remote, list: () => [remote] }, listSoftwareTeamNames: () => [], listSoftwareTeamSeats: () => null, listPodSeats: () => null, listScopeSeats: () => null, resolveHost: () => ({ id: "remote", transport: "ssh", target: "other.example", user: "viewer" }) as any, hasSession: () => { throw new Error("remote is not a local session"); } });
     client = new DaemonClient({ baseUrl: "http://selected.example:7654", fetchImpl: (async (url, init) => {
       const u = new URL(String(url));
       const app = new Hono(); app.use("*", async (c, next) => { c.set("terminalService" as never, service); await next(); }); app.route("/api/terminal", terminalRoutes());
@@ -156,8 +156,8 @@ describe("terminal browser → preview → explicit Open", () => {
     expect(terminalLines(view.get(), snap, 40).map(l => l.text).join(" ").replace(/\s+/g, " ")).toContain("Herdr refused page two.");
   });
 
-  it("shows the window outcome in the content pane for direct rig actions, across refresh", async () => {
-    const message = terminalWindowNotice("rig:fixture", {
+  it("shows the window outcome in the content pane for direct SoftwareTeam actions, across refresh", async () => {
+    const message = terminalWindowNotice("software-team:fixture", {
       provider: "tmux", ok: true, opened: ["advisor", "operator"], absent: [], degraded: [], pages: 1,
       notes: ["Check the new terminal shows the intended view."],
     });

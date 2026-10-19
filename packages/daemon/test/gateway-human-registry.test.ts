@@ -101,11 +101,11 @@ describe("A3 proof-5 — fragments -> generated projection; re-project; hand-edi
   beforeEach(() => { home = mkdtempSync(join(tmpdir(), "a3-humans-")); });
   afterEach(() => { rmSync(home, { recursive: true, force: true }); });
 
-  it("nobody registered (no fragments, no projection): still refused, saying so and naming rig gateway human add", () => {
+  it("nobody registered (no fragments, no projection): still refused, saying so and naming SoftwareTeam gateway human add", () => {
     const loaded = loadHumanRegistry(home);
     expect(loaded).toEqual({
       ok: false,
-      error: "no human configured yet — register one: rig gateway human add <entityId> --display-name … --binding … --delivery-class …",
+      error: "no human configured yet — register one: SoftwareTeam gateway human add <entityId> --display-name … --binding … --delivery-class …",
       noHumans: true,
     });
     expect(existsSync(projectionPath(home))).toBe(false); // a load never creates the projection
@@ -255,6 +255,6 @@ describe("A3 pt2 — hardening (r1 pooled notes)", () => {
   });
 });
 
-// (the `rig gateway human add` VERB integration tests moved to cli/test/
+// (the `softwareTeam gateway human add` VERB integration tests moved to cli/test/
 // gateway-human-registry-verb.test.ts — the verb lives in the cli package and
-// lazy-imports this module via the @openrig/daemon/gateway-human-registry subpath.)
+// lazy-imports this module via the @softwareteam/daemon/gateway-human-registry subpath.)

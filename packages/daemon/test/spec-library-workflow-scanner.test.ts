@@ -27,16 +27,16 @@ const SAMPLE_SPEC = (id: string) => `workflow:
   version: 1
   objective: Sample workflow
   target:
-    rig: sample-rig
+    software_team: sample-software-team
   entry:
     role: alpha
   roles:
     alpha:
       preferred_targets:
-        - alpha@sample-rig
+        - alpha@sample-software-team
     beta:
       preferred_targets:
-        - beta@sample-rig
+        - beta@sample-software-team
   steps:
     - id: step-1
       actor_role: alpha
@@ -99,7 +99,7 @@ describe("scanWorkflowSpecs (Workflows in Spec Library v0)", () => {
     expect(entry.id).toBe("workflow:alpha:1");
     expect(entry.rolesCount).toBe(2);
     expect(entry.stepsCount).toBe(2);
-    expect(entry.targetRig).toBe("sample-rig");
+    expect(entry.targetSoftwareTeam).toBe("sample-software-team");
   });
 
   it("classifies a spec outside workflowBuiltinSpecsDir as user_file", () => {
@@ -268,7 +268,7 @@ describe("getWorkflowReview — WF-4 C1 branch/terminal/optional-field projectio
   id: c1-branch
   version: 1
   objective: branch fixture
-  target: { rig: r }
+  target: { software_team: r }
   entry: { role: builder }
   roles:
     builder: { preferred_targets: [b@r] }
@@ -376,7 +376,7 @@ describe("workflowLibraryId / parseWorkflowLibraryId", () => {
   });
 
   it("returns null for non-workflow ids", () => {
-    expect(parseWorkflowLibraryId("rig:foo:1")).toBeNull();
+    expect(parseWorkflowLibraryId("software-team:foo:1")).toBeNull();
     expect(parseWorkflowLibraryId("workflow:no-version")).toBeNull();
   });
 });

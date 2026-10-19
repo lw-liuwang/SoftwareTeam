@@ -1,7 +1,7 @@
 // OPR.0.4.6.WF4 (C3) — the workflow SSE feed's binding contract:
-// Q5-P1 the subscription is UNSCOPED (never `?rigId=` — a scoped subscription
+// Q5-P1 the subscription is UNSCOPED (never `?softwareTeamId=` — a scoped subscription
 // silently drops the workflow spine since workflow.* events persist
-// rig_id=NULL), and a workflow.* event invalidates the ["workflow"] family.
+// software_team_id=NULL), and a workflow.* event invalidates the ["workflow"] family.
 
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { renderHook, act, cleanup } from "@testing-library/react";
@@ -37,20 +37,20 @@ afterEach(() => {
   cleanup();
 });
 
-describe("useWorkflowSse — Q5-P1 rig-unscoped primary feed", () => {
-  it("subscribes to /api/workflow/sse with NO rigId scoping (unscoped by contract)", () => {
+describe("useWorkflowSse — Q5-P1 software-team-unscoped primary feed", () => {
+  it("subscribes to /api/workflow/sse with NO softwareTeamId scoping (unscoped by contract)", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     renderHook(() => useWorkflowSse(), { wrapper: wrapperWith(qc) });
 
     expect(constructedUrls).toContain("/api/workflow/sse");
-    // The named negative: no subscription carrying workflow kinds ever scopes by rig.
+    // The named negative: no subscription carrying workflow kinds ever scopes by softwareTeam.
     for (const url of constructedUrls) {
-      expect(url).not.toContain("rigId");
+      expect(url).not.toContain("softwareTeamId");
       expect(url).not.toContain("?");
     }
     // The single source of the URL is the exported constant — unscoped, no query string.
     expect(WORKFLOW_SSE_URL).toBe("/api/workflow/sse");
-    expect(WORKFLOW_SSE_URL).not.toContain("rigId");
+    expect(WORKFLOW_SSE_URL).not.toContain("softwareTeamId");
   });
 
   it("invalidates the ['workflow'] query family on a workflow.* event", async () => {

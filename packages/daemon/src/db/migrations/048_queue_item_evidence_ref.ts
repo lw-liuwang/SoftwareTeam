@@ -5,8 +5,8 @@ import type { Migration } from "../migrate.js";
  *
  * Adds `evidence_ref TEXT` (NULLABLE) to queue_items: a pointer to the
  * durable artifact a human judges when the item is human-routed (convention
- * C3), authored via `--evidence-ref` on `rig queue create` / `handoff` and
- * persistable at park time (`rig queue block`, FR-6). Follows the 044
+ * C3), authored via `--evidence-ref` on `SoftwareTeam queue create` / `handoff` and
+ * persistable at park time (`SoftwareTeam queue block`, FR-6). Follows the 044
  * summary-column pattern exactly: additive, nullable, defensive
  * detectQueueColumn read so pre-048 fixtures degrade.
  *

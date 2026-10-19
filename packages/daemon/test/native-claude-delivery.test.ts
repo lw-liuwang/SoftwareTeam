@@ -1,7 +1,7 @@
 import { it, expect } from "vitest";
 import { verifyClaudePaneProcess } from "../src/domain/native-process-lineage.js";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SessionTransport } from "../src/domain/session-transport.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
@@ -39,8 +39,8 @@ const shimChild: Record<string, string> = {
 it.each(modes)("selector and ordinary transport: %s", async (mode) => {
   const db = createFullTestDb();
   try {
-    const rigRepo = new RigRepository(db), sessionRegistry = new SessionRegistry(db), eventBus = new EventBus(db);
-    const rig = rigRepo.createRig("native-test"), node = rigRepo.addNode(rig.id, "test.c", { runtime: "claude-code" });
+    const softwareTeamRepo = new SoftwareTeamRepository(db), sessionRegistry = new SessionRegistry(db), eventBus = new EventBus(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("native-test"), node = softwareTeamRepo.addNode(softwareTeam.id, "test.c", { runtime: "claude-code" });
     const name = "test-c@native-test", session = sessionRegistry.registerSession(node.id, name);
     sessionRegistry.updateStatus(session.id, "running");
     if (mode !== "missing-metadata") sessionRegistry.updateResumeToken(session.id, "claude_id", token, "scrape");
@@ -121,7 +121,7 @@ it.each(modes)("selector and ordinary transport: %s", async (mode) => {
     } as unknown as TmuxAdapter;
     const observation = await verifyClaudePaneProcess({ target: "%1", tmux, listProcesses, expectedToken: token });
     reads = 0; // Each consumer starts its own observation sequence.
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux, listProcesses, sleep: async () => {} });
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux, listProcesses, sleep: async () => {} });
     const sent = await transport.send(name, "harmless fixture message");
     const expectedSend = [
       "npm-name", "versioned", "pane-command-unavailable", "unknown-both", "versioned-direct-pane",

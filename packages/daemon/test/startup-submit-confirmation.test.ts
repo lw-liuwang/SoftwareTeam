@@ -3,7 +3,7 @@ import * as crypto from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { outboxEntriesSchema } from "../src/db/migrations/027_outbox_entries.js";
 import { seatDeliveryGuardSchema } from "../src/db/migrations/087_seat_delivery_guard.js";
@@ -26,8 +26,8 @@ describe("startup prompt submission", () => {
   function fixture(lostEnters: number | ReadonlySet<number>, runtime = "claude-code", challengeOnly = false, realDelivery = false) {
     const db = createFullTestDb(); dbs.push(db); db.exec(outboxEntriesSchema.sql); db.exec(seatDeliveryGuardSchema.sql);
     const registry = new SessionRegistry(db), eventBus = new EventBus(db);
-    const repo = new RigRepository(db), rig = repo.createRig("startup-submit");
-    const node = repo.addNode(rig.id, "worker", { runtime });
+    const repo = new SoftwareTeamRepository(db), softwareTeam = repo.createSoftwareTeam("startup-submit");
+    const node = repo.addNode(softwareTeam.id, "worker", { runtime });
     const name = "worker@startup-submit", session = registry.registerSession(node.id, name);
     registry.updateStatus(session.id, "running");
     registry.updateBinding(node.id, { tmuxSession: name, tmuxPane: "%1" });
@@ -63,12 +63,12 @@ describe("startup prompt submission", () => {
     } as unknown as RuntimeAdapter;
     const orch = new StartupOrchestrator({ db, sessionRegistry: registry, eventBus,
       tmuxAdapter: tmux as unknown as TmuxAdapter, readFile, sleep });
-    const start = (overrides: Partial<StartupInput> = {}) => orch.startNode({ rigId: rig.id, nodeId: node.id, sessionId: session.id,
+    const start = (overrides: Partial<StartupInput> = {}) => orch.startNode({ softwareTeamId: softwareTeam.id, nodeId: node.id, sessionId: session.id,
       binding: { id: "binding", nodeId: node.id, tmuxSession: name, tmuxPane: "%1", tmuxWindow: null,
         cmuxWorkspace: null, cmuxSurface: null, updatedAt: "", cwd: "/fixture" },
       adapter, plan: { runtime: "claude-code", cwd: "/fixture", entries: [], startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [] },
       resolvedStartupFiles: challengeOnly ? [] : [{ path: "role.md", absolutePath: "/fixture/role.md", ownerRoot: "/fixture", deliveryHint: "send_text", required: true, appliesOn: ["fresh_start"] }],
-      startupActions: challengeOnly ? [{ type: "startup_proof", value: "authenticated", phase: "after_ready", appliesOn: ["fresh_start"], idempotent: true }] : [{ type: "send_text", builtin: "session_identity", value: "OpenRig session identity: worker@startup-submit", phase: "after_ready", appliesOn: ["fresh_start"], idempotent: true }],
+      startupActions: challengeOnly ? [{ type: "startup_proof", value: "authenticated", phase: "after_ready", appliesOn: ["fresh_start"], idempotent: true }] : [{ type: "send_text", builtin: "session_identity", value: "SoftwareTeam session identity: worker@startup-submit", phase: "after_ready", appliesOn: ["fresh_start"], idempotent: true }],
       isRestore: false, ...overrides,
     });
     return { db, session, tmux, adapter, readFile, sleep, submitted, start, composer: () => composer };
@@ -322,7 +322,7 @@ describe("startup prompt submission", () => {
   it.each(["initial", "guarded recheck"])("does not retry a different body sharing the startup header at %s", async (point) => {
     const f = fixture(Infinity);
     const original = f.tmux.capturePaneContent.getMockImplementation()!;
-    const different = "❯ OpenRig session identity: worker@startup-submit\nA different body, left for the operator.\n────────────────────\n⏵⏵ accept edits on (shift+tab to cycle)\n";
+    const different = "❯ SoftwareTeam session identity: worker@startup-submit\nA different body, left for the operator.\n────────────────────\n⏵⏵ accept edits on (shift+tab to cycle)\n";
     f.tmux.capturePaneContent.mockResolvedValue(different);
     if (point === "guarded recheck") f.tmux.capturePaneContent.mockImplementationOnce(original);
     const result = await f.start();
@@ -375,7 +375,7 @@ describe("startup prompt submission", () => {
   // The Claude proof line follows only a startup prompt observed as submitted; it is never typed onto
   // pending input (controls from review50-r2's review of #719).
   const proofActions = (identity: boolean): StartupInput["startupActions"] => [
-    ...(identity ? [{ type: "send_text" as const, builtin: "session_identity" as const, value: "OpenRig session identity: fixture", phase: "after_ready" as const, appliesOn: ["fresh_start" as const], idempotent: true }] : []),
+    ...(identity ? [{ type: "send_text" as const, builtin: "session_identity" as const, value: "SoftwareTeam session identity: fixture", phase: "after_ready" as const, appliesOn: ["fresh_start" as const], idempotent: true }] : []),
     { type: "startup_proof", value: "authenticated", phase: "after_ready", appliesOn: ["fresh_start"], idempotent: true },
   ];
   const transientFrames = JSON.parse(readFileSync(new URL("./fixtures/claude-startup-paste-2.1.289.json", import.meta.url), "utf8")) as Array<{
@@ -639,7 +639,7 @@ describe("startup prompt submission", () => {
     const secret = "synthetic-private-credential-do-not-record";
     f.tmux.capturePaneContent.mockResolvedValue(screen(`other ${secret}`));
     const actions: StartupInput["startupActions"] = [
-      { type: "send_text", value: `OpenRig session identity: ${secret}`, builtin: "session_identity", phase: "after_ready", appliesOn: ["fresh_start"], idempotent: true },
+      { type: "send_text", value: `SoftwareTeam session identity: ${secret}`, builtin: "session_identity", phase: "after_ready", appliesOn: ["fresh_start"], idempotent: true },
       { type: "send_text", value: `after files ${secret}`, phase: "after_files", appliesOn: ["fresh_start"], idempotent: true },
       { type: "send_text", value: `after ready ${secret}`, phase: "after_ready", appliesOn: ["fresh_start"], idempotent: true },
     ];
@@ -663,7 +663,7 @@ describe("startup prompt submission", () => {
     const send = f.tmux.sendText.getMockImplementation()!;
     f.tmux.sendText.mockImplementationOnce(send).mockRejectedValueOnce(new Error("later action failed"));
     const actions: StartupInput["startupActions"] = [
-      { type: "send_text", value: "OpenRig session identity: fixture", phase: "after_ready", appliesOn: ["fresh_start"], idempotent: true },
+      { type: "send_text", value: "SoftwareTeam session identity: fixture", phase: "after_ready", appliesOn: ["fresh_start"], idempotent: true },
       { type: "send_text", value: "later", phase: "after_ready", appliesOn: ["fresh_start"], idempotent: true },
     ];
     expect(await f.start({ startupActions: actions })).toMatchObject({ ok: false, startupStatus: "failed" });
@@ -689,7 +689,7 @@ describe("startup prompt submission", () => {
     const f = fixture(Infinity);
     f.tmux.capturePaneContent.mockResolvedValue(screen("different composer"));
     const sink = vi.fn(() => { throw new Error("diagnostic sink unavailable"); });
-    const transport = new SessionTransport({ db: f.db, rigRepo: new RigRepository(f.db),
+    const transport = new SessionTransport({ db: f.db, softwareTeamRepo: new SoftwareTeamRepository(f.db),
       sessionRegistry: new SessionRegistry(f.db), eventBus: new EventBus(f.db), tmuxAdapter: f.tmux as unknown as TmuxAdapter });
     expect(await transport.send("worker@startup-submit", "", {
       submitOnly: true, requireFullStagedText: true, expectedStagedText: "original composer", onStartupMismatch: sink,

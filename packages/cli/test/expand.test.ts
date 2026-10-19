@@ -67,7 +67,7 @@ const PARTIAL_RESPONSE = {
   retryTargets: ["dev.qa"],
 };
 
-describe("rig expand", () => {
+describe("SoftwareTeam expand", () => {
   let server: http.Server;
   let port: number;
   let tmpDir: string;
@@ -82,7 +82,7 @@ describe("rig expand", () => {
           const parsed = JSON.parse(body);
           if (parsed.pod?.id === "fail-pod") {
             res.writeHead(404, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ ok: false, code: "rig_not_found", error: "Rig not found" }));
+            res.end(JSON.stringify({ ok: false, code: "software_team_not_found", error: "SoftwareTeam not found" }));
           } else if (parsed.pod?.id === "partial-pod") {
             res.writeHead(207, { "Content-Type": "application/json" });
             res.end(JSON.stringify(PARTIAL_RESPONSE));
@@ -136,9 +136,9 @@ describe("rig expand", () => {
   }
 
   // T1: Parses arguments
-  it("parses rig-id and pod-fragment-path", async () => {
+  it("parses software-team-id and pod-fragment-path", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "expand", "rig-123", fragmentPath]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "expand", "software-team-123", fragmentPath]);
     });
     expect(logs.join("\n")).toContain("infra");
     expect(logs.join("\n")).toContain("ok");
@@ -148,7 +148,7 @@ describe("rig expand", () => {
   // T2: --json returns raw API response
   it("--json returns raw API response", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "expand", "rig-123", fragmentPath, "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "expand", "software-team-123", fragmentPath, "--json"]);
     });
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed.ok).toBe(true);
@@ -162,18 +162,18 @@ describe("rig expand", () => {
   // (which every expand-created node is) through the managed subset launch
   // with full startup orchestration — the old refusal is gone from the
   // daemon. The honest recovery path is fix-the-cause + per-node
-  // `rig launch <rigId> <logicalId>`.
+  // `SoftwareTeam launch <softwareTeamId> <logicalId>`.
   it("partial result prints failed nodes with per-node relaunch recovery guidance", async () => {
     writeFileSync(fragmentPath, `id: partial-pod\nlabel: Dev\nmembers:\n  - id: impl\n    runtime: claude-code\n  - id: qa\n    runtime: codex\nedges: []\n`);
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "expand", "rig-123", fragmentPath]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "expand", "software-team-123", fragmentPath]);
     });
 
     const output = logs.join("\n");
     expect(output).toContain("FAIL");
     expect(output).toContain("dev.qa");
-    expect(output).toContain("rig launch rig-123 dev.qa");
+    expect(output).toContain("SoftwareTeam launch software-team-123 dev.qa");
     expect(output).toContain("Failed targets: dev.qa");
     expect(exitCode).toBe(1);
   });
@@ -182,11 +182,11 @@ describe("rig expand", () => {
     writeFileSync(fragmentPath, `id: partial-pod\nlabel: Dev\nmembers:\n  - id: impl\n    runtime: claude-code\n  - id: qa\n    runtime: codex\nedges: []\n`);
 
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "expand", "rig-123", fragmentPath]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "expand", "software-team-123", fragmentPath]);
     });
 
     const output = logs.join("\n");
-    expect(output).not.toContain("/api/rigs/");
+    expect(output).not.toContain("/api/software-teams/");
     expect(output).not.toContain("/launch");
   });
 
@@ -197,7 +197,7 @@ describe("rig expand", () => {
     writeFileSync(fragmentPath, `id: partial-pod\nlabel: Dev\nmembers:\n  - id: impl\n    runtime: claude-code\n  - id: qa\n    runtime: codex\nedges: []\n`);
 
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "expand", "rig-123", fragmentPath]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "expand", "software-team-123", fragmentPath]);
     });
 
     const output = logs.join("\n");
@@ -211,7 +211,7 @@ describe("rig expand", () => {
     writeFileSync(fragmentPath, `id: fail-pod\nlabel: Fail\nmembers:\n  - id: x\n    runtime: terminal\nedges: []\n`);
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "expand", "rig-123", fragmentPath]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "expand", "software-team-123", fragmentPath]);
     });
 
     expect(exitCode).toBe(1);
@@ -223,7 +223,7 @@ describe("rig expand", () => {
     writeFileSync(fragmentPath, `id: partial-pod\nlabel: Dev\nmembers:\n  - id: impl\n    runtime: claude-code\n  - id: qa\n    runtime: codex\nedges: []\n`);
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "expand", "rig-123", fragmentPath, "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "expand", "software-team-123", fragmentPath, "--json"]);
     });
 
     const parsed = JSON.parse(logs.join("\n"));
@@ -242,7 +242,7 @@ describe("rig expand", () => {
   // T6: Human output shows per-node status
   it("human output shows per-node status table", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "expand", "rig-123", fragmentPath]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "expand", "software-team-123", fragmentPath]);
     });
 
     const output = logs.join("\n");

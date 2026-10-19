@@ -6,11 +6,11 @@ import type { Migration } from "../migrate.js";
  * Per PRD § L5: built-in views (`recently-active`, `founder`, `pod-load`,
  * `escalations`, `held`, `activity`) are HARDCODED in view-projector.ts.
  * Operator-defined custom views are stored in this table and registered at
- * daemon startup from `~/.openrig/views.yaml` (or via API at runtime).
+ * daemon startup from `~/.softwareteam/views.yaml` (or via API at runtime).
  *
  * Built-in views are NOT inserted into this table — view-projector.ts
  * exposes them by name without DB lookup. Custom views are looked up here
- * when the operator queries `rig view show <custom-name>`.
+ * when the operator queries `softwareTeam view show <custom-name>`.
  */
 export const viewsCustomSchema: Migration = {
   name: "030_views_custom.sql",

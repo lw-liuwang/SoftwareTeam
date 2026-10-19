@@ -15,9 +15,9 @@ function fixture() {
   snapshot.stream = [];
   snapshot.recentTransitionsScope = { kind: "instance" };
   snapshot.recentTransitions = [
-    { transitionId: 31, qitemId: "q-one", ts: "2026-01-15T20:00:00Z", actorSession: "qa-checker@build", change: "launch requested; result unconfirmed", summary: "Inspect an unusually long activity title without losing what happened", rig: "build", targetKind: "qitem" as const, target: "q-one" },
-    { transitionId: 32, qitemId: "q-two", ts: "2026-07-15T20:00:00Z", actorSession: "orch-lead@build", change: "failed: destination unavailable", summary: "Report delivery failure", rig: "build", targetKind: "qitem" as const, target: "q-two" },
-    { transitionId: 33, qitemId: "q-three", ts: "malformed", actorSession: "dev-worker@build", change: "completed", summary: "Keep this recorded outcome attributed", rig: "build", targetKind: "qitem" as const, target: "q-three" },
+    { transitionId: 31, qitemId: "q-one", ts: "2026-01-15T20:00:00Z", actorSession: "qa-checker@build", change: "launch requested; result unconfirmed", summary: "Inspect an unusually long activity title without losing what happened", softwareTeam: "build", targetKind: "qitem" as const, target: "q-one" },
+    { transitionId: 32, qitemId: "q-two", ts: "2026-07-15T20:00:00Z", actorSession: "orch-lead@build", change: "failed: destination unavailable", summary: "Report delivery failure", softwareTeam: "build", targetKind: "qitem" as const, target: "q-two" },
+    { transitionId: 33, qitemId: "q-three", ts: "malformed", actorSession: "dev-worker@build", change: "completed", summary: "Keep this recorded outcome attributed", softwareTeam: "build", targetKind: "qitem" as const, target: "q-three" },
   ];
   const view = createViewState({ instanceId: "proof", getSnapshot: () => snapshot });
   view.dispatch({ type: "drill", resource: "host", name: snapshot.hosts[0]!.name });
@@ -60,7 +60,7 @@ describe("registry-backed command completion", () => {
   });
   it("qualifies duplicate seats rather than choosing a twin", () => {
     const { snapshot, view } = fixture();
-    const h = snapshot.hosts[0]!; const r = h.rigs[0]!;
+    const h = snapshot.hosts[0]!; const r = h.softwareTeams[0]!;
     const a = r.pods[0]!.agents[0]!;
     snapshot.hosts.push({ ...h, name: "second-host" });
     const candidates = completeCommand("agent ", { snapshot, state: view.get() }).candidates;
@@ -149,6 +149,6 @@ describe("named local time", () => {
     expect(healthDetailLines(snapshot, "h", 100, "Europe/London").map((l) => l.text).join("\n")).toContain("21:00:00 GMT+1");
     view.dispatch(parseCommand("timezone"));
     const help = renderScreen(view.get(), snapshot, { cols: 100, rows: 50 }).lines.join("\n");
-    expect(help).toContain("rig config set ui.timezone Europe/London");
+    expect(help).toContain("SoftwareTeam config set ui.timezone Europe/London");
   });
 });

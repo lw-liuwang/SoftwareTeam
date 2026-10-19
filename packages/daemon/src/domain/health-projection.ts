@@ -2,9 +2,9 @@ import { createHash } from "node:crypto";
 import type { QueueTransition } from "./queue-transition-log.js";
 import type { WatchdogHistoryEntry } from "./watchdog-history-log.js";
 import type { ContextUsage, NodeInventoryEntry } from "./types.js";
-import type { OperatingPosture } from "./rig-mode/operating-posture.js";
+import type { OperatingPosture } from "./software-team-mode/operating-posture.js";
 
-export const HEALTH_RECORD_SCHEMA = "openrig.health/v0alpha1" as const;
+export const HEALTH_RECORD_SCHEMA = "softwareteam.health/v0alpha1" as const;
 export const HEALTH_CATEGORIES = ["behavioral", "process", "governance", "epistemic", "context"] as const;
 export const HEALTH_SEVERITIES = ["info", "warning", "critical"] as const;
 export const HEALTH_CONFIDENCE = ["high", "medium"] as const;
@@ -17,8 +17,8 @@ export type HealthStatus = (typeof HEALTH_STATUSES)[number];
 
 export type HealthScope =
   | { type: "instance"; instanceId: string }
-  | { type: "rig"; rigId: string }
-  | { type: "seat"; rigId: string; seatId: string }
+  | { type: "softwareTeam"; softwareTeamId: string }
+  | { type: "seat"; softwareTeamId: string; seatId: string }
   | { type: "mission"; projectId: string; missionId: string }
   | { type: "slice"; projectId: string; missionId: string; sliceId: string };
 
@@ -476,10 +476,10 @@ function projectionIndeterminateReason(draft: HealthRecordDraft): string | null 
 function cloneScope(scope: HealthScope): HealthScope {
   switch (scope.type) {
     case "instance": return { type: "instance", instanceId: requiredText("scope.instanceId", scope.instanceId) };
-    case "rig": return { type: "rig", rigId: requiredText("scope.rigId", scope.rigId) };
+    case "softwareTeam": return { type: "softwareTeam", softwareTeamId: requiredText("scope.softwareTeamId", scope.softwareTeamId) };
     case "seat": return {
       type: "seat",
-      rigId: requiredText("scope.rigId", scope.rigId),
+      softwareTeamId: requiredText("scope.softwareTeamId", scope.softwareTeamId),
       seatId: requiredText("scope.seatId", scope.seatId),
     };
     case "mission": return {

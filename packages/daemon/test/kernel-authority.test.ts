@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse } from "yaml";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { NativePermissionStore } from "../src/domain/native-permission-store.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
@@ -23,15 +23,15 @@ import type { TmuxAdapter } from "../src/adapters/tmux.js";
 const dbs: ReturnType<typeof createFullTestDb>[] = [];
 afterEach(() => { for (const db of dbs.splice(0)) db.close(); vi.unstubAllEnvs(); });
 function fixture(runtime: string, name = "kernel") {
-  vi.stubEnv("OPENRIG_YOLO", "0");
+  vi.stubEnv("SOFTWARETEAM_YOLO", "0");
   const db = createFullTestDb(); dbs.push(db);
-  const rigRepo = new RigRepository(db), rig = rigRepo.createRig(name);
-  const node = rigRepo.addNode(rig.id, "operator.agent", { runtime, cwd: "/inert/kernel" });
+  const softwareTeamRepo = new SoftwareTeamRepository(db), softwareTeam = softwareTeamRepo.createSoftwareTeam(name);
+  const node = softwareTeamRepo.addNode(softwareTeam.id, "operator.agent", { runtime, cwd: "/inert/kernel" });
   const store = new NativePermissionStore(db), registry = new SessionRegistry(db);
   const session = registry.registerSession(node.id, "operator.agent@kernel");
   const binding = { id: "binding", nodeId: node.id, cwd: "/inert/kernel", tmuxSession: session.sessionName,
     launchPosture: "floor" } as NodeBinding;
-  return { db, rigRepo, rig, node, store, registry, session, binding };
+  return { db, softwareTeamRepo, softwareTeam, node, store, registry, session, binding };
 }
 function transport() {
   const send = vi.fn(async () => ({ ok: false as const, message: "inert transport: no native execution" }));
@@ -43,7 +43,7 @@ function transport() {
 function assertGrant(command: string, runtime: string) {
   if (runtime === "claude-code") {
     expect(command).toContain("--permission-mode acceptEdits");
-    expect(command).toContain("Bash(rig:*)"); expect(command).toContain("Bash(tmux:*)");
+    expect(command).toContain("Bash(SoftwareTeam:*)"); expect(command).toContain("Bash(tmux:*)");
     expect(command).toContain('"Skill"'); expect(command).not.toContain("--dangerously-skip-permissions");
     expect(command).not.toContain("skipDangerousModePermissionPrompt");
     const args = operationalLaunchArgs("claude-code", { kernelAuthority: true });
@@ -65,11 +65,11 @@ function assertGrant(command: string, runtime: string) {
   }
 }
 const modes = ["fresh", "resume", "fork"] as const;
-const variants = ["rig.yaml", "rig-claude-only.yaml", "rig-codex-only.yaml"];
+const variants = ["software-team.yaml", "software-team-claude-only.yaml", "software-team-codex-only.yaml"];
 describe("kernel operational launch default", () => {
   for (const variant of variants) for (const mode of modes) {
     it(`${variant} ${mode}: all shipped agent seats reach the real command builder without shared permission writes`, async () => {
-      const spec = parse(readFileSync(join(__dirname, "../specs/rigs/launch/kernel", variant), "utf8"));
+      const spec = parse(readFileSync(join(__dirname, "../specs/software-teams/launch/kernel", variant), "utf8"));
       for (const pod of spec.pods) for (const member of pod.members) {
         if (member.runtime === "terminal") continue;
         const f = fixture(member.runtime, spec.name), t = transport();
@@ -84,7 +84,7 @@ describe("kernel operational launch default", () => {
       }
     });
   }
-  it.each(["codex", "claude-code"])("%s other rigs with kernel-like cwd/pane keep the floor, even with a stale marker", async runtime => {
+  it.each(["codex", "claude-code"])("%s other softwareTeams with kernel-like cwd/pane keep the floor, even with a stale marker", async runtime => {
     const f = fixture(runtime, "project"), t = transport();
     const b = f.store.apply({ ...f.binding, kernelAuthority: true }, runtime);
     expect(b.kernelAuthority).toBe(false); expect(b.launchPosture).toBe("floor");
@@ -103,9 +103,9 @@ describe("kernel operational launch default", () => {
     expect(f.store.apply(f.binding, runtime).kernelAuthority).toBe(false);
     expect(f.store.resolve(f.node.id, runtime).source).toBe("explicit");
     f.store.write(f.node.id, null, "operator", "inherit");
-    f.rigRepo.setRigPermissionPolicy(f.rig.id, "builtin:locked");
+    f.softwareTeamRepo.setSoftwareTeamPermissionPolicy(f.softwareTeam.id, "builtin:locked");
     expect(f.store.apply(f.binding, runtime).kernelAuthority).toBe(false);
-    f.rigRepo.setRigPermissionPolicy(f.rig.id, null);
+    f.softwareTeamRepo.setSoftwareTeamPermissionPolicy(f.softwareTeam.id, null);
     f.db.prepare("UPDATE nodes SET permission_policy='builtin:locked' WHERE id=?").run(f.node.id);
     expect(f.store.apply(f.binding, runtime).kernelAuthority).toBe(false);
     f.db.prepare("UPDATE nodes SET permission_policy=NULL WHERE id=?").run(f.node.id);
@@ -136,7 +136,7 @@ describe("kernel operational launch default", () => {
       const adapter = { runtime, project: async () => ({ projected: [], skipped: [], failed: [] }),
         deliverStartup: async () => ({ delivered: [], failed: [] }), launchHarness } as unknown as RuntimeAdapter;
       const orchestrator = new StartupOrchestrator({ db: f.db, sessionRegistry: f.registry, eventBus: new EventBus(f.db), tmuxAdapter: {} as TmuxAdapter });
-      await orchestrator.startNode({ rigId: f.rig.id, nodeId: f.node.id, sessionId: f.session.id,
+      await orchestrator.startNode({ softwareTeamId: f.softwareTeam.id, nodeId: f.node.id, sessionId: f.session.id,
         binding: { ...f.binding, kernelAuthority: false }, adapter, plan: { entries: [] } as never,
         resolvedStartupFiles: [], startupActions: [], isRestore: mode === "resume",
         ...(mode === "resume" ? { resumeToken: "retained", resumeType: runtime === "codex" ? "codex_id" : "claude_id" } : {}),
@@ -149,7 +149,7 @@ describe("kernel operational launch default", () => {
     const f = fixture(runtime), t = transport();
     const actual = runtime === "codex" ? new CodexResumeAdapter(t.tmux) : new ClaudeResumeAdapter(t.tmux);
     const resume = vi.fn((...args: unknown[]) => (actual.resume as (...args: unknown[]) => unknown)(...args));
-    const ctx = { db: f.db, rigRepo: f.rigRepo, sessionRegistry: f.registry, appliedLaunchStore: new AppliedLaunchObservationStore(f.db),
+    const ctx = { db: f.db, softwareTeamRepo: f.softwareTeamRepo, sessionRegistry: f.registry, appliedLaunchStore: new AppliedLaunchObservationStore(f.db),
       claudeResume: { canResume: () => runtime === "claude-code", resume }, codexResume: { canResume: () => runtime === "codex", resume } };
     await (RestoreOrchestrator.prototype as any).attemptResume.call(ctx, f.node.id, "seat", runtime === "codex" ? "codex_id" : "claude_id", "original", "/inert", null, "model", "floor");
     assertGrant(t.send.mock.calls[0]![1], runtime);
@@ -163,7 +163,7 @@ describe("kernel operational launch default", () => {
   it("launch-only settings do not obscure exact Claude process identity; unrelated args still fail", async () => {
     const root = { pid: 10, ppid: 1, pgid: 10, tpgid: 10, executableName: "claude", startedAt: "start" };
     const input = { target: "seat", tmux: { getPanePid: async () => 10 }, expectedToken: "native-id" };
-    for (const settings of ['--settings \'{"permissions":{"allow":["Bash(rig:*)"]}}\'', "--settings=/inert/settings.json"]) {
+    for (const settings of ['--settings \'{"permissions":{"allow":["Bash(SoftwareTeam:*)"]}}\'', "--settings=/inert/settings.json"]) {
       const command = `claude --permission-mode acceptEdits ${settings} --session-id native-id`;
       expect(await observeClaudePaneProcess({ ...input, listProcesses: async () => [{ ...root, command }] })).not.toBeNull();
       expect(await observeClaudePaneProcess({ ...input, listProcesses: async () => [{ ...root, command: command + " --unknown" }] })).toBeNull();

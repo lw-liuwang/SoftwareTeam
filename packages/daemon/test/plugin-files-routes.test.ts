@@ -15,7 +15,7 @@ import { pluginsRoutes } from "../src/routes/plugins.js";
 interface TestEnv {
   root: string;
   service: PluginDiscoveryService;
-  openrigPluginsDir: string;
+  softwareteamPluginsDir: string;
   claudeCacheDir: string;
   codexCacheDir: string;
   specLibraryDir: string;
@@ -23,21 +23,21 @@ interface TestEnv {
 
 function setup(): TestEnv {
   const root = mkdtempSync(join(tmpdir(), "plugin-files-routes-"));
-  const openrigPluginsDir = join(root, "openrig-plugins");
+  const softwareteamPluginsDir = join(root, "softwareteam-plugins");
   const claudeCacheDir = join(root, "claude-cache");
   const codexCacheDir = join(root, "codex-cache");
   const specLibraryDir = join(root, "specs");
-  mkdirSync(openrigPluginsDir, { recursive: true });
+  mkdirSync(softwareteamPluginsDir, { recursive: true });
   mkdirSync(claudeCacheDir, { recursive: true });
   mkdirSync(codexCacheDir, { recursive: true });
   mkdirSync(specLibraryDir, { recursive: true });
   const service = new PluginDiscoveryService({
-    openrigPluginsDir,
+    softwareteamPluginsDir,
     claudeCacheDir,
     codexCacheDir,
     specLibraryDir,
   });
-  return { root, service, openrigPluginsDir, claudeCacheDir, codexCacheDir, specLibraryDir };
+  return { root, service, softwareteamPluginsDir, claudeCacheDir, codexCacheDir, specLibraryDir };
 }
 
 function writeClaudeManifest(pluginDir: string, manifest: Record<string, unknown>): void {
@@ -85,7 +85,7 @@ describe("PluginEntry.skillCount enrichment (slice 28)", () => {
   afterEach(() => { rmSync(env.root, { recursive: true, force: true }); });
 
   it("populates skillCount = 0 when plugin has no skills/ folder", async () => {
-    makePluginWithFolders(env.openrigPluginsDir, "skinny");
+    makePluginWithFolders(env.softwareteamPluginsDir, "skinny");
     const res = await createApp(env.service).request("/api/plugins");
     const body = (await res.json()) as Array<{ id: string; skillCount: number }>;
     const skinny = body.find((p) => p.id === "skinny");
@@ -94,25 +94,25 @@ describe("PluginEntry.skillCount enrichment (slice 28)", () => {
   });
 
   it("populates skillCount = N when plugin ships N skill folders", async () => {
-    makePluginWithFolders(env.openrigPluginsDir, "openrig-core", {
-      skills: ["openrig-user", "openrig-architect", "queue-handoff"],
+    makePluginWithFolders(env.softwareteamPluginsDir, "softwareteam-core", {
+      skills: ["softwareteam-user", "softwareteam-architect", "queue-handoff"],
     });
     const res = await createApp(env.service).request("/api/plugins");
     const body = (await res.json()) as Array<{ id: string; skillCount: number }>;
-    const core = body.find((p) => p.id === "openrig-core");
+    const core = body.find((p) => p.id === "softwareteam-core");
     expect(core).toBeDefined();
     expect(core!.skillCount).toBe(3);
   });
 
   it("populates skillCount on PluginDetail.entry too (detail endpoint parity)", async () => {
-    makePluginWithFolders(env.openrigPluginsDir, "openrig-core", { skills: ["alpha", "beta"] });
-    const res = await createApp(env.service).request("/api/plugins/openrig-core");
+    makePluginWithFolders(env.softwareteamPluginsDir, "softwareteam-core", { skills: ["alpha", "beta"] });
+    const res = await createApp(env.service).request("/api/plugins/softwareteam-core");
     const body = (await res.json()) as { entry: { skillCount: number } };
     expect(body.entry.skillCount).toBe(2);
   });
 
   it("skillCount counts only subdirectories under skills/ (ignores stray files)", async () => {
-    const pluginDir = makePluginWithFolders(env.openrigPluginsDir, "core-with-stray", { skills: ["a", "b"] });
+    const pluginDir = makePluginWithFolders(env.softwareteamPluginsDir, "core-with-stray", { skills: ["a", "b"] });
     // Drop a stray file inside skills/ — must NOT count.
     writeFileSync(join(pluginDir, "skills", "README.md"), "stray file");
     const res = await createApp(env.service).request("/api/plugins");
@@ -128,15 +128,15 @@ describe("GET /api/plugins/:id/files/list (slice 28)", () => {
   afterEach(() => { rmSync(env.root, { recursive: true, force: true }); });
 
   it("lists files + dirs at the plugin root (path='')", async () => {
-    makePluginWithFolders(env.openrigPluginsDir, "openrig-core", {
+    makePluginWithFolders(env.softwareteamPluginsDir, "softwareteam-core", {
       skills: ["alpha"],
-      readme: "# OpenRig Core\nplugin docs",
+      readme: "# SoftwareTeam Core\nplugin docs",
       hooks: true,
     });
-    const res = await createApp(env.service).request("/api/plugins/openrig-core/files/list?path=");
+    const res = await createApp(env.service).request("/api/plugins/softwareteam-core/files/list?path=");
     expect(res.status).toBe(200);
     const body = (await res.json()) as { pluginId: string; path: string; entries: Array<{ name: string; type: string }> };
-    expect(body.pluginId).toBe("openrig-core");
+    expect(body.pluginId).toBe("softwareteam-core");
     expect(body.path).toBe("");
     const names = body.entries.map((e) => e.name);
     // Dirs first (sorted by name), then files. Plugin root contains:
@@ -152,8 +152,8 @@ describe("GET /api/plugins/:id/files/list (slice 28)", () => {
   });
 
   it("lists nested directory contents (path='skills')", async () => {
-    makePluginWithFolders(env.openrigPluginsDir, "openrig-core", { skills: ["alpha", "beta"] });
-    const res = await createApp(env.service).request("/api/plugins/openrig-core/files/list?path=skills");
+    makePluginWithFolders(env.softwareteamPluginsDir, "softwareteam-core", { skills: ["alpha", "beta"] });
+    const res = await createApp(env.service).request("/api/plugins/softwareteam-core/files/list?path=skills");
     expect(res.status).toBe(200);
     const body = (await res.json()) as { entries: Array<{ name: string; type: string }> };
     const names = body.entries.map((e) => e.name);
@@ -168,29 +168,29 @@ describe("GET /api/plugins/:id/files/list (slice 28)", () => {
   });
 
   it("rejects '..' escape attempt with 400 path_escape", async () => {
-    makePluginWithFolders(env.openrigPluginsDir, "openrig-core", { skills: ["alpha"] });
-    const res = await createApp(env.service).request("/api/plugins/openrig-core/files/list?path=..%2Fsomewhere");
+    makePluginWithFolders(env.softwareteamPluginsDir, "softwareteam-core", { skills: ["alpha"] });
+    const res = await createApp(env.service).request("/api/plugins/softwareteam-core/files/list?path=..%2Fsomewhere");
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe("path_escape");
   });
 
   it("rejects absolute path with 400 path_invalid", async () => {
-    makePluginWithFolders(env.openrigPluginsDir, "openrig-core");
-    const res = await createApp(env.service).request("/api/plugins/openrig-core/files/list?path=%2Fetc");
+    makePluginWithFolders(env.softwareteamPluginsDir, "softwareteam-core");
+    const res = await createApp(env.service).request("/api/plugins/softwareteam-core/files/list?path=%2Fetc");
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe("path_invalid");
   });
 
   it("rejects symlink escape (realpath outside plugin folder)", async () => {
-    const pluginDir = makePluginWithFolders(env.openrigPluginsDir, "openrig-core");
+    const pluginDir = makePluginWithFolders(env.softwareteamPluginsDir, "softwareteam-core");
     // Create a symlink inside the plugin pointing OUTSIDE.
     const escapeTarget = join(env.root, "outside-target");
     mkdirSync(escapeTarget, { recursive: true });
     writeFileSync(join(escapeTarget, "secret.txt"), "out-of-bounds");
     symlinkSync(escapeTarget, join(pluginDir, "escape-link"));
-    const res = await createApp(env.service).request("/api/plugins/openrig-core/files/list?path=escape-link");
+    const res = await createApp(env.service).request("/api/plugins/softwareteam-core/files/list?path=escape-link");
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe("path_escape");
@@ -203,8 +203,8 @@ describe("GET /api/plugins/:id/files/read (slice 28)", () => {
   afterEach(() => { rmSync(env.root, { recursive: true, force: true }); });
 
   it("reads README.md at plugin root", async () => {
-    makePluginWithFolders(env.openrigPluginsDir, "openrig-core", { readme: "# Plugin docs body" });
-    const res = await createApp(env.service).request("/api/plugins/openrig-core/files/read?path=README.md");
+    makePluginWithFolders(env.softwareteamPluginsDir, "softwareteam-core", { readme: "# Plugin docs body" });
+    const res = await createApp(env.service).request("/api/plugins/softwareteam-core/files/read?path=README.md");
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       pluginId: string;
@@ -214,7 +214,7 @@ describe("GET /api/plugins/:id/files/read (slice 28)", () => {
       size: number;
       truncated: boolean;
     };
-    expect(body.pluginId).toBe("openrig-core");
+    expect(body.pluginId).toBe("softwareteam-core");
     expect(body.path).toBe("README.md");
     expect(body.content).toContain("Plugin docs body");
     expect(body.contentHash).toMatch(/^[0-9a-f]{64}$/);
@@ -222,16 +222,16 @@ describe("GET /api/plugins/:id/files/read (slice 28)", () => {
   });
 
   it("reads a nested skill SKILL.md file", async () => {
-    makePluginWithFolders(env.openrigPluginsDir, "openrig-core", { skills: ["openrig-user"] });
-    const res = await createApp(env.service).request("/api/plugins/openrig-core/files/read?path=skills%2Fopenrig-user%2FSKILL.md");
+    makePluginWithFolders(env.softwareteamPluginsDir, "softwareteam-core", { skills: ["softwareteam-user"] });
+    const res = await createApp(env.service).request("/api/plugins/softwareteam-core/files/read?path=skills%2Fsoftwareteam-user%2FSKILL.md");
     expect(res.status).toBe(200);
     const body = (await res.json()) as { content: string };
-    expect(body.content).toContain("# openrig-user");
+    expect(body.content).toContain("# softwareteam-user");
   });
 
   it("returns 400 path_required when path query missing", async () => {
-    makePluginWithFolders(env.openrigPluginsDir, "openrig-core");
-    const res = await createApp(env.service).request("/api/plugins/openrig-core/files/read");
+    makePluginWithFolders(env.softwareteamPluginsDir, "softwareteam-core");
+    const res = await createApp(env.service).request("/api/plugins/softwareteam-core/files/read");
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe("path_required");
@@ -243,16 +243,16 @@ describe("GET /api/plugins/:id/files/read (slice 28)", () => {
   });
 
   it("returns 404 stat_failed when file does not exist under plugin", async () => {
-    makePluginWithFolders(env.openrigPluginsDir, "openrig-core");
-    const res = await createApp(env.service).request("/api/plugins/openrig-core/files/read?path=nonexistent.md");
+    makePluginWithFolders(env.softwareteamPluginsDir, "softwareteam-core");
+    const res = await createApp(env.service).request("/api/plugins/softwareteam-core/files/read?path=nonexistent.md");
     expect(res.status).toBe(404);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe("stat_failed");
   });
 
   it("rejects '..' escape attempt with 400 path_escape", async () => {
-    makePluginWithFolders(env.openrigPluginsDir, "openrig-core");
-    const res = await createApp(env.service).request("/api/plugins/openrig-core/files/read?path=..%2Fsomewhere.md");
+    makePluginWithFolders(env.softwareteamPluginsDir, "softwareteam-core");
+    const res = await createApp(env.service).request("/api/plugins/softwareteam-core/files/read?path=..%2Fsomewhere.md");
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe("path_escape");
@@ -264,22 +264,22 @@ describe("Route-order discipline (slice 28): /files/list + /files/read mounted B
   beforeEach(() => { env = setup(); });
   afterEach(() => { rmSync(env.root, { recursive: true, force: true }); });
 
-  it("/api/plugins/openrig-core/files/list does NOT get caught by /:id catchall (404 vs detail)", async () => {
-    makePluginWithFolders(env.openrigPluginsDir, "openrig-core", { skills: ["alpha"] });
-    // /:id catchall would treat 'openrig-core' as the id + ignore the
+  it("/api/plugins/softwareteam-core/files/list does NOT get caught by /:id catchall (404 vs detail)", async () => {
+    makePluginWithFolders(env.softwareteamPluginsDir, "softwareteam-core", { skills: ["alpha"] });
+    // /:id catchall would treat 'softwareteam-core' as the id + ignore the
     // remainder. /files/list mounted earlier intercepts the sub-path
     // BEFORE that catchall. Discriminator: response shape includes
     // `entries` (list) not `entry` + `skills` (detail).
-    const res = await createApp(env.service).request("/api/plugins/openrig-core/files/list?path=");
+    const res = await createApp(env.service).request("/api/plugins/softwareteam-core/files/list?path=");
     expect(res.status).toBe(200);
     const body = (await res.json()) as { entries?: unknown; entry?: unknown };
     expect(body.entries).toBeDefined();
     expect(body.entry).toBeUndefined();
   });
 
-  it("/api/plugins/openrig-core/files/read does NOT get caught by /:id catchall", async () => {
-    makePluginWithFolders(env.openrigPluginsDir, "openrig-core", { readme: "doc" });
-    const res = await createApp(env.service).request("/api/plugins/openrig-core/files/read?path=README.md");
+  it("/api/plugins/softwareteam-core/files/read does NOT get caught by /:id catchall", async () => {
+    makePluginWithFolders(env.softwareteamPluginsDir, "softwareteam-core", { readme: "doc" });
+    const res = await createApp(env.service).request("/api/plugins/softwareteam-core/files/read?path=README.md");
     expect(res.status).toBe(200);
     const body = (await res.json()) as { content?: unknown; entry?: unknown };
     expect(body.content).toBeDefined();

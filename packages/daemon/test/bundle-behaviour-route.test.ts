@@ -26,13 +26,13 @@ describe("bundle behaviour through the existing inspect route", () => {
     owned.push(root);
     const staging = path.join(root, "staging");
     fs.mkdirSync(staging);
-    const rig = "name: demo\nversion: '1'\npods:\n- id: build\n  members:\n  - {id: shell, agent_ref: 'builtin:terminal', profile: none, runtime: terminal, cwd: .}\n";
-    fs.writeFileSync(path.join(staging, "rig.yaml"), rig);
+    const softwareTeam = "name: demo\nversion: '1'\npods:\n- id: build\n  members:\n  - {id: shell, agent_ref: 'builtin:terminal', profile: none, runtime: terminal, cwd: .}\n";
+    fs.writeFileSync(path.join(staging, "software-team.yaml"), softwareTeam);
     fs.writeFileSync(path.join(staging, "bundle.yaml"), stringify({
-      schema_version: 2, name: "demo", version: "1", created_at: "2026-01-01T00:00:00Z", rig_spec: "rig.yaml", agents: [],
-      integrity: { algorithm: "sha256", files: { "rig.yaml": createHash("sha256").update(rig).digest("hex") } },
+      schema_version: 2, name: "demo", version: "1", created_at: "2026-01-01T00:00:00Z", software_team_spec: "software-team.yaml", agents: [],
+      integrity: { algorithm: "sha256", files: { "software-team.yaml": createHash("sha256").update(softwareTeam).digest("hex") } },
     }));
-    const archive = path.join(root, "demo.rigbundle");
+    const archive = path.join(root, "demo.softwareteambundle");
     await pack(staging, archive);
     const forbidden = vi.fn(() => { throw new Error("The view touched bootstrap or a runtime probe"); });
     const app = new Hono();
@@ -51,7 +51,7 @@ describe("bundle behaviour through the existing inspect route", () => {
     expect(result.digestValid).toBe(true);
     expect(result.integrityResult.passed).toBe(true);
     expect(result.behaviour).toMatchObject({
-      schema: "openrig.bundle-behaviour/v1", state: "generated", team: [{ seat: "build.shell", runtime: "terminal" }],
+      schema: "softwareteam.bundle-behaviour/v1", state: "generated", team: [{ seat: "build.shell", runtime: "terminal" }],
     });
     expect(forbidden).not.toHaveBeenCalled();
   });
@@ -61,14 +61,14 @@ describe("bundle behaviour through the existing inspect route", () => {
     owned.push(root);
     const staging = path.join(root, "staging");
     fs.mkdirSync(staging);
-    const rig = "name: demo\nversion: '1'\npods: []\n";
-    fs.writeFileSync(path.join(staging, "rig.yaml"), rig);
+    const softwareTeam = "name: demo\nversion: '1'\npods: []\n";
+    fs.writeFileSync(path.join(staging, "software-team.yaml"), softwareTeam);
     fs.writeFileSync(path.join(staging, "bundle.yaml"), stringify({
-      schema_version: schemaVersion, name: "demo", version: "1", created_at: "2026-01-01T00:00:00Z", rig_spec: "rig.yaml",
+      schema_version: schemaVersion, name: "demo", version: "1", created_at: "2026-01-01T00:00:00Z", software_team_spec: "software-team.yaml",
       ...(schemaVersion === 2 ? { agents: [] } : { packages: [] }),
-      integrity: { algorithm: "sha256", files: { "rig.yaml": createHash("sha256").update(rig).digest("hex") } },
+      integrity: { algorithm: "sha256", files: { "software-team.yaml": createHash("sha256").update(softwareTeam).digest("hex") } },
     }));
-    const archive = path.join(root, "demo.rigbundle");
+    const archive = path.join(root, "demo.softwareteambundle");
     await pack(staging, archive);
     const app = new Hono().route("/api/bundles", bundleRoutes);
     const inspect = () => app.request("/api/bundles/inspect", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bundlePath: archive }) });
@@ -84,7 +84,7 @@ describe("bundle behaviour through the existing inspect route", () => {
     expect(remainingInspect).toEqual(priorInspect);
     expect(result.digestValid).toBe(true);
     expect(result.integrityResult.passed).toBe(true);
-    expect(behaviour).toMatchObject({ schema: "openrig.bundle-behaviour/v1", state: "not_generated", identity: { integrity: { digestValid: true, filesVerified: true } }, localInspectCommand: "rig bundle inspect <archive> --json" });
+    expect(behaviour).toMatchObject({ schema: "softwareteam.bundle-behaviour/v1", state: "not_generated", identity: { integrity: { digestValid: true, filesVerified: true } }, localInspectCommand: "SoftwareTeam bundle inspect <archive> --json" });
     expect(behaviour).not.toHaveProperty("posture");
     expect(priorView).toBeDefined();
   });

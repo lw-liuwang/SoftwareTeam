@@ -27,7 +27,7 @@ export function prepareWorkspaceBuild(root, workspace, platform = process.platfo
     }
     if (!copied) throw new Error(`No ${extension} files matched in ${source}`);
   }
-  for (const name of ["LICENSE", "README.md"]) copyFileSync(path.join(root, name), path.join(dir, name));
+  for (const name of ["LICENSE", "NOTICE", "README.md"]) copyFileSync(path.join(root, name), path.join(dir, name));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href)

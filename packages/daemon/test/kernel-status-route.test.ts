@@ -1,4 +1,4 @@
-// V0.3.1 slice 05 kernel-rig-as-default — forward-fix #3 architectural.
+// V0.3.1 slice 05 kernel-software-team-as-default — forward-fix #3 architectural.
 //
 // GET /api/kernel/status route tests. Verifies the route surfaces the
 // tracker's state via a stable JSON envelope and 503s cleanly when no
@@ -10,7 +10,7 @@ import { kernelStatusRoutes } from "../src/routes/kernel-status.js";
 import { KernelBootTracker } from "../src/domain/kernel-boot-tracker.js";
 import type { EventBus } from "../src/domain/event-bus.js";
 import type { SessionRegistry } from "../src/domain/session-registry.js";
-import type { RigRepository } from "../src/domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 
 function mountWithTracker(tracker: KernelBootTracker | undefined) {
   const app = new Hono();
@@ -23,25 +23,25 @@ function mountWithTracker(tracker: KernelBootTracker | undefined) {
 }
 
 function makeTracker(opts: {
-  rigs?: Array<{ id: string; name: string }>;
-  sessionsByRig?: Record<string, Array<{ sessionName: string; runtime: string; startupStatus: string; logicalId?: string }>>;
+  softwareTeams?: Array<{ id: string; name: string }>;
+  sessionsBySoftwareTeam?: Record<string, Array<{ sessionName: string; runtime: string; startupStatus: string; logicalId?: string }>>;
 } = {}) {
   const eventBus = { emit: () => undefined } as unknown as EventBus;
   // One node per session name; the runtime and the spec's `pod.member` (logicalId) live on the node row.
   const sessionRegistry = {
-    getSessionsForRig: (rigId: string) => (opts.sessionsByRig?.[rigId] ?? []).map((s, i) => ({
+    getSessionsForSoftwareTeam: (softwareTeamId: string) => (opts.sessionsBySoftwareTeam?.[softwareTeamId] ?? []).map((s, i) => ({
       ...s, nodeId: s.sessionName, id: `session-${i}`, createdAt: `2026-10-08T00:00:0${i}Z`,
     })),
   } as unknown as SessionRegistry;
-  const rigRepo = {
-    listRigs: () => opts.rigs ?? [],
-    findRigsByName: (name: string) => (opts.rigs ?? []).filter((r) => r.name === name),
-    findUnarchivedRigsByName: (name: string) => (opts.rigs ?? []).filter((r) => r.name === name),
-    getRig: (rigId: string) => ({
-      nodes: (opts.sessionsByRig?.[rigId] ?? []).map((s) => ({ id: s.sessionName, logicalId: s.logicalId ?? s.sessionName, runtime: s.runtime })),
+  const softwareTeamRepo = {
+    listSoftwareTeams: () => opts.softwareTeams ?? [],
+    findSoftwareTeamsByName: (name: string) => (opts.softwareTeams ?? []).filter((r) => r.name === name),
+    findUnarchivedSoftwareTeamsByName: (name: string) => (opts.softwareTeams ?? []).filter((r) => r.name === name),
+    getSoftwareTeam: (softwareTeamId: string) => ({
+      nodes: (opts.sessionsBySoftwareTeam?.[softwareTeamId] ?? []).map((s) => ({ id: s.sessionName, logicalId: s.logicalId ?? s.sessionName, runtime: s.runtime })),
     }),
-  } as unknown as RigRepository;
-  return new KernelBootTracker({ eventBus, sessionRegistry, rigRepo, degradedTimeoutMs: 0 });
+  } as unknown as SoftwareTeamRepository;
+  return new KernelBootTracker({ eventBus, sessionRegistry, softwareTeamRepo, degradedTimeoutMs: 0 });
 }
 
 describe("GET /api/kernel/status", () => {
@@ -78,17 +78,17 @@ describe("GET /api/kernel/status", () => {
   });
 
   it("projects agents[] with snake_case keys from tracker getStatus()", async () => {
-    const rigId = "rig-kernel-route-1";
+    const softwareTeamId = "software-team-kernel-route-1";
     const tracker = makeTracker({
-      rigs: [{ id: rigId, name: "kernel" }],
-      sessionsByRig: {
-        [rigId]: [
+      softwareTeams: [{ id: softwareTeamId, name: "kernel" }],
+      sessionsBySoftwareTeam: {
+        [softwareTeamId]: [
           { sessionName: "advisor-lead@kernel", runtime: "claude-code", startupStatus: "ready" },
           { sessionName: "operator-agent@kernel", runtime: "codex", startupStatus: "pending" },
         ],
       },
     });
-    tracker.startBooting("rig.yaml", Promise.resolve({
+    tracker.startBooting("software-team.yaml", Promise.resolve({
       runId: "t", status: "ok", stages: [], errors: [], warnings: [],
     } as never));
     await new Promise<void>((r) => setImmediate(r));
@@ -96,7 +96,7 @@ describe("GET /api/kernel/status", () => {
     const res = await app.request("/api/kernel/status");
     const body = await res.json();
     expect(body.kernel_state).toBe("partial_ready");
-    expect(body.variant).toBe("rig.yaml");
+    expect(body.variant).toBe("software-team.yaml");
     expect(body.agents).toHaveLength(2);
     expect(body.agents[0]).toMatchObject({
       session_name: "advisor-lead@kernel",
@@ -108,13 +108,13 @@ describe("GET /api/kernel/status", () => {
   });
 
   it("reports ready with last_boot_failure once a failed boot's expected seats are all ready (#1042)", async () => {
-    const rigId = "rig-kernel-route-recovered";
+    const softwareTeamId = "software-team-kernel-route-recovered";
     const sessions = [
       { sessionName: "operator-agent@kernel", runtime: "claude-code", startupStatus: "ready", logicalId: "operator.agent" },
       { sessionName: "queue-worker@kernel", runtime: "codex", startupStatus: "ready", logicalId: "queue.worker" },
     ];
-    const tracker = makeTracker({ rigs: [{ id: rigId, name: "kernel" }], sessionsByRig: { [rigId]: sessions } });
-    tracker.startBooting("rig.yaml", Promise.resolve({
+    const tracker = makeTracker({ softwareTeams: [{ id: softwareTeamId, name: "kernel" }], sessionsBySoftwareTeam: { [softwareTeamId]: sessions } });
+    tracker.startBooting("software-team.yaml", Promise.resolve({
       runId: "t", status: "failed", stages: [], errors: ["startup gate timed out after 30s"], warnings: [],
     } as never), ["operator.agent", "queue.worker"]);
     await new Promise<void>((r) => setImmediate(r));

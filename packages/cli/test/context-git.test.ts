@@ -12,10 +12,10 @@ function git(path: string, ...args: string[]) {
 }
 function commit(path: string, message: string) { git(path, "add", "."); git(path, "-c", "user.name=Context Test", "-c", "user.email=context@example.invalid", "commit", "-m", message); }
 function fixture() {
-  const home = mkdtempSync(join(tmpdir(), "openrig-git-context-")); homes.push(home);
+  const home = mkdtempSync(join(tmpdir(), "softwareteam-git-context-")); homes.push(home);
   const upstream = join(home, "upstream"); mkdirSync(upstream);
   git(upstream, "init", "-b", "main");
-  const pack = ".openrig/context-packs/guide";
+  const pack = ".softwareteam/context-packs/guide";
   mkdirSync(join(upstream, pack), { recursive: true });
   writeFileSync(join(upstream, pack, "manifest.yaml"), "name: guide\nversion: 1\ntaxonomy: world\nfiles:\n  - path: upstream.md\n    role: reference\n  - path: local.md\n    role: reference\n");
   writeFileSync(join(upstream, pack, "upstream.md"), "Revision A\n");
@@ -82,8 +82,8 @@ describe("Git context selections preserve author work", () => {
 
   it("reports ambiguous repository discovery and permits an explicit pack without copying unrelated data", () => {
     const f = fixture();
-    mkdirSync(join(f.upstream, ".openrig/context-packs/other"));
-    writeFileSync(join(f.upstream, ".openrig/context-packs/other/manifest.yaml"), "name: other\nversion: 1\ntaxonomy: world\nfiles: []\n");
+    mkdirSync(join(f.upstream, ".softwareteam/context-packs/other"));
+    writeFileSync(join(f.upstream, ".softwareteam/context-packs/other/manifest.yaml"), "name: other\nversion: 1\ntaxonomy: world\nfiles: []\n");
     writeFileSync(join(f.upstream, "private-unrelated.txt"), "must stay in checkout"); commit(f.upstream, "other");
     expect(() => addGitContext(f.upstream, {}, join(f.home, "second"))).toThrow(/Discovered 2/);
     const result = addGitContext(f.upstream, { pack: f.pack, name: "namespaced/guide" }, join(f.home, "third"));

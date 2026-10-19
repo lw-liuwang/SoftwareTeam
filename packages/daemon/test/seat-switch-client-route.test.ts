@@ -20,11 +20,11 @@ describe("POST /api/seat/switch-client/:seatRef", () => {
   afterEach(() => { db.close(); });
 
   function seedLiveSeat() {
-    const rig = setup.rigRepo.createRig("seat-rig");
-    const node = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime: "codex" });
-    const session = setup.sessionRegistry.registerSession(node.id, "dev-impl@seat-rig");
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("seat-software-team");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "codex" });
+    const session = setup.sessionRegistry.registerSession(node.id, "dev-impl@seat-software-team");
     setup.sessionRegistry.updateStatus(session.id, "running");
-    return { rig, node, session };
+    return { softwareTeam, node, session };
   }
 
   function tmux() {
@@ -44,22 +44,22 @@ describe("POST /api/seat/switch-client/:seatRef", () => {
     tmux().hasSession.mockResolvedValue(true);
     tmux().listClients.mockResolvedValue([{ name: "/dev/ttys003", session: "wrong-view" }]);
 
-    const res = await post("dev-impl@seat-rig");
+    const res = await post("dev-impl@seat-software-team");
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toMatchObject({
-      seat_ref: "dev-impl@seat-rig",
-      session: "dev-impl@seat-rig",
-      target: "dev-impl@seat-rig:0",
+      seat_ref: "dev-impl@seat-software-team",
+      session: "dev-impl@seat-software-team",
+      target: "dev-impl@seat-software-team:0",
       client: "/dev/ttys003",
       mutated: false,
       retargeted: true,
     });
-    expect(tmux().switchClient).toHaveBeenCalledWith("/dev/ttys003", "=dev-impl@seat-rig:0");
+    expect(tmux().switchClient).toHaveBeenCalledWith("/dev/ttys003", "=dev-impl@seat-software-team:0");
   });
 
   it("404 for an unknown seat", async () => {
-    const res = await post("ghost@seat-rig");
+    const res = await post("ghost@seat-software-team");
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.code).toBe("seat_not_found");
@@ -71,7 +71,7 @@ describe("POST /api/seat/switch-client/:seatRef", () => {
     tmux().hasSession.mockResolvedValue(true);
     tmux().listClients.mockResolvedValue([]);
 
-    const res = await post("dev-impl@seat-rig");
+    const res = await post("dev-impl@seat-software-team");
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.code).toBe("no_client");
@@ -86,7 +86,7 @@ describe("POST /api/seat/switch-client/:seatRef", () => {
       { name: "/dev/ttys007", session: "b" },
     ]);
 
-    const res = await post("dev-impl@seat-rig");
+    const res = await post("dev-impl@seat-software-team");
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.code).toBe("ambiguous_client");
@@ -99,7 +99,7 @@ describe("POST /api/seat/switch-client/:seatRef", () => {
     tmux().hasSession.mockResolvedValue(false);
     tmux().listClients.mockResolvedValue([{ name: "/dev/ttys003", session: "a" }]);
 
-    const res = await post("dev-impl@seat-rig");
+    const res = await post("dev-impl@seat-software-team");
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.code).toBe("session_not_found");
@@ -113,7 +113,7 @@ describe("POST /api/seat/switch-client/:seatRef", () => {
     tmux().listWindows.mockResolvedValue([{ index: 0, name: "main", panes: 1, active: true }]);
     tmux().listClients.mockResolvedValue([{ name: "/dev/ttys003", session: "a" }]);
 
-    const res = await post("dev-impl@seat-rig", { toWindow: 5 });
+    const res = await post("dev-impl@seat-software-team", { toWindow: 5 });
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.code).toBe("window_not_found");
@@ -125,7 +125,7 @@ describe("POST /api/seat/switch-client/:seatRef", () => {
     tmux().hasSession.mockResolvedValue(true);
     tmux().listClients.mockRejectedValue(new Error("error connecting to /private/tmp/tmux-501/default (Permission denied)"));
 
-    const res = await post("dev-impl@seat-rig");
+    const res = await post("dev-impl@seat-software-team");
     expect(res.status).toBe(502);
     const body = await res.json();
     expect(body.code).toBe("tmux_probe_failed");
@@ -138,7 +138,7 @@ describe("POST /api/seat/switch-client/:seatRef", () => {
     tmux().listWindows.mockRejectedValue(new Error("EACCES: permission denied"));
     tmux().listClients.mockResolvedValue([{ name: "/dev/ttys003", session: "a" }]);
 
-    const res = await post("dev-impl@seat-rig", { toWindow: 1 });
+    const res = await post("dev-impl@seat-software-team", { toWindow: 1 });
     expect(res.status).toBe(502);
     const body = await res.json();
     expect(body.code).toBe("tmux_probe_failed");
@@ -151,7 +151,7 @@ describe("POST /api/seat/switch-client/:seatRef", () => {
     tmux().listClients.mockResolvedValue([{ name: "/dev/ttys003", session: "a" }]);
     tmux().switchClient.mockResolvedValue({ ok: false, code: "session_not_found", message: "gone" });
 
-    const res = await post("dev-impl@seat-rig");
+    const res = await post("dev-impl@seat-software-team");
     expect(res.status).toBe(502);
     const body = await res.json();
     expect(body.code).toBe("switch_failed");

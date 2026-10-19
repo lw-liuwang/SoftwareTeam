@@ -5,29 +5,29 @@ import { migrate } from "../src/db/migrate.js";
 import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { ContextUsageStore, FRESHNESS_THRESHOLD_MS } from "../src/domain/context-usage-store.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 
 
 describe("ContextUsageStore", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let store: ContextUsageStore;
 
   beforeEach(() => {
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
-    rigRepo = new RigRepository(db);
-    store = new ContextUsageStore(db, { stateDir: "/tmp/openrig-test" });
+    softwareTeamRepo = new SoftwareTeamRepository(db);
+    store = new ContextUsageStore(db, { stateDir: "/tmp/softwareteam-test" });
   });
 
   afterEach(() => { db.close(); });
 
   function seedNode(logicalId = "dev.impl") {
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, logicalId, { runtime: "claude-code" });
-    return { rig, node };
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, logicalId, { runtime: "claude-code" });
+    return { softwareTeam, node };
   }
 
   const VALID_SIDECAR = {
@@ -40,7 +40,7 @@ describe("ContextUsageStore", () => {
       current_usage: "67% used",
     },
     session_id: "sess-123",
-    session_name: "dev-impl@test-rig",
+    session_name: "dev-impl@test-software-team",
     transcript_path: "/tmp/transcripts/test.log",
     sampled_at: new Date().toISOString(),
   };
@@ -71,7 +71,7 @@ describe("ContextUsageStore", () => {
     expect(usage.totalOutputTokens).toBe(14000);
     expect(usage.currentUsage).toBe("67% used");
     expect(usage.sessionId).toBe("sess-123");
-    expect(usage.sessionName).toBe("dev-impl@test-rig");
+    expect(usage.sessionName).toBe("dev-impl@test-software-team");
     expect(usage.transcriptPath).toBe("/tmp/transcripts/test.log");
     expect(usage.fresh).toBe(true);
   });
@@ -118,10 +118,10 @@ describe("ContextUsageStore", () => {
       }),
     ].join("\n"));
 
-    const codexStore = new ContextUsageStore(db, { stateDir: "/tmp/openrig-test", codexHomeDir: codexHome });
+    const codexStore = new ContextUsageStore(db, { stateDir: "/tmp/softwareteam-test", codexHomeDir: codexHome });
     const usage = codexStore.readCodexAndNormalize({
       threadId: "thread-1",
-      sessionName: "dev-qa@test-rig",
+      sessionName: "dev-qa@test-software-team",
     });
 
     expect(usage.availability).toBe("known");
@@ -133,7 +133,7 @@ describe("ContextUsageStore", () => {
     expect(usage.totalInputTokens).toBe(227139);
     expect(usage.totalOutputTokens).toBe(611);
     expect(usage.sessionId).toBe("thread-1");
-    expect(usage.sessionName).toBe("dev-qa@test-rig");
+    expect(usage.sessionName).toBe("dev-qa@test-software-team");
     expect(usage.transcriptPath).toBe(rolloutPath);
     expect(usage.currentUsage).toContain("\"model_context_window\":258400");
 
@@ -174,10 +174,10 @@ describe("ContextUsageStore", () => {
     const usage = store.normalizeSample(VALID_SIDECAR);
     store.persist(node.id, usage);
 
-    const retrieved = store.getForNode(node.id, "dev-impl@test-rig");
+    const retrieved = store.getForNode(node.id, "dev-impl@test-software-team");
     expect(retrieved.availability).toBe("known");
     expect(retrieved.usedPercentage).toBe(67);
-    expect(retrieved.sessionName).toBe("dev-impl@test-rig");
+    expect(retrieved.sessionName).toBe("dev-impl@test-software-team");
   });
 
   // T6: getForNode on nonexistent node -> unknown
@@ -198,10 +198,10 @@ describe("ContextUsageStore", () => {
   });
 
   // OPR.0.5.9.5 Wave A: runtime telemetry belongs beneath state/, leaving
-  // $OPENRIG_HOME/context available for the addressable context library.
+  // $SOFTWARETEAM_HOME/context available for the addressable context library.
   it("getSidecarPath returns path under state/context-usage/", () => {
-    const path = store.getSidecarPath("dev-impl@test-rig");
-    expect(path).toBe("/tmp/openrig-test/state/context-usage/dev-impl@test-rig.json");
+    const path = store.getSidecarPath("dev-impl@test-software-team");
+    expect(path).toBe("/tmp/softwareteam-test/state/context-usage/dev-impl@test-software-team.json");
   });
 
   // T9: Freshness threshold is centralized
@@ -212,7 +212,7 @@ describe("ContextUsageStore", () => {
 
   // T10: context_usage row cascades on node delete
   it("context_usage cascades on node delete", () => {
-    const { rig, node } = seedNode();
+    const { softwareTeam, node } = seedNode();
     store.persist(node.id, store.normalizeSample(VALID_SIDECAR));
 
     // Verify row exists
@@ -232,7 +232,7 @@ describe("ContextUsageStore", () => {
     const usage = store.normalizeSample(VALID_SIDECAR);
     store.persist(node.id, usage);
 
-    const result = store.getForNode(node.id, "different-session@new-rig");
+    const result = store.getForNode(node.id, "different-session@new-software-team");
     expect(result.availability).toBe("unknown");
     expect(result.reason).toBe("session_mismatch");
   });
@@ -273,7 +273,7 @@ describe("ContextUsageStore", () => {
 
   it("reads canonical context usage first and falls back to the legacy 0.5.8 sidecar only when canonical is absent", () => {
     const home = join(tmpdir(), `context-bridge-${Date.now()}`);
-    const sessionName = "dev-impl@test-rig";
+    const sessionName = "dev-impl@test-software-team";
     const canonical = join(home, "state", "context-usage", `${sessionName}.json`);
     const legacy = join(home, "context", `${sessionName}.json`);
     mkdirSync(join(home, "state", "context-usage"), { recursive: true });
@@ -340,7 +340,7 @@ describe("ContextUsageStore", () => {
     store.persist(node.id, usage);
 
     const results = store.getForNodes([
-      { nodeId: node.id, currentSessionName: "dev-impl@test-rig" },
+      { nodeId: node.id, currentSessionName: "dev-impl@test-software-team" },
     ]);
 
     expect(results.get(node.id)?.availability).toBe("known");
@@ -359,7 +359,7 @@ describe("ContextUsageStore", () => {
     beforeEach(() => {
       bootAtByNode = new Map();
       genStore = new ContextUsageStore(db, {
-        stateDir: "/tmp/openrig-test",
+        stateDir: "/tmp/softwareteam-test",
         resolveOccupantBootAt: (nodeId) => bootAtByNode.get(nodeId) ?? null,
       });
     });
@@ -369,7 +369,7 @@ describe("ContextUsageStore", () => {
     function persistFrozen(nodeId: string, sampledAtIso: string) {
       genStore.persist(nodeId, genStore.normalizeSample({
         ...VALID_SIDECAR,
-        session_name: "dev-impl@test-rig",
+        session_name: "dev-impl@test-software-team",
         sampled_at: sampledAtIso,
         context_window: { ...VALID_SIDECAR.context_window, used_percentage: 88, remaining_percentage: 12 },
       }));
@@ -381,7 +381,7 @@ describe("ContextUsageStore", () => {
       const { node } = seedNode();
       persistFrozen(node.id, "2026-08-07T08:00:00.000Z");
       bootAtByNode.set(node.id, "2026-08-07T08:05:00.000Z"); // successor booted 5m later
-      const result = genStore.getForNode(node.id, "dev-impl@test-rig");
+      const result = genStore.getForNode(node.id, "dev-impl@test-software-team");
       expect(result.availability).toBe("unknown");
       expect(result.reason).toBe("stale_generation");
       expect(result.usedPercentage).toBeNull(); // the 88 is not evaluated across the boundary
@@ -391,7 +391,7 @@ describe("ContextUsageStore", () => {
       const { node } = seedNode();
       persistFrozen(node.id, "2026-08-07T08:10:00.000Z"); // sampled after boot
       bootAtByNode.set(node.id, "2026-08-07T08:05:00.000Z");
-      const result = genStore.getForNode(node.id, "dev-impl@test-rig");
+      const result = genStore.getForNode(node.id, "dev-impl@test-software-team");
       expect(result.availability).toBe("known");
       expect(result.usedPercentage).toBe(88);
     });
@@ -400,7 +400,7 @@ describe("ContextUsageStore", () => {
       const { node } = seedNode();
       persistFrozen(node.id, "2026-08-07T08:05:00.000Z");
       bootAtByNode.set(node.id, "2026-08-07T08:05:00.000Z");
-      const result = genStore.getForNode(node.id, "dev-impl@test-rig");
+      const result = genStore.getForNode(node.id, "dev-impl@test-software-team");
       expect(result.availability).toBe("known");
     });
 
@@ -410,7 +410,7 @@ describe("ContextUsageStore", () => {
       const { node } = seedNode();
       persistFrozen(node.id, "2026-08-07T08:00:00.000Z");
       bootAtByNode.set(node.id, null);
-      const result = genStore.getForNode(node.id, "dev-impl@test-rig");
+      const result = genStore.getForNode(node.id, "dev-impl@test-software-team");
       expect(result.availability).toBe("known");
     });
 
@@ -418,17 +418,17 @@ describe("ContextUsageStore", () => {
       const { node } = seedNode();
       persistFrozen(node.id, "2026-08-07T08:00:00.000Z");
       bootAtByNode.set(node.id, "2026-08-07T08:05:00.000Z");
-      const results = genStore.getForNodes([{ nodeId: node.id, currentSessionName: "dev-impl@test-rig" }]);
+      const results = genStore.getForNodes([{ nodeId: node.id, currentSessionName: "dev-impl@test-software-team" }]);
       expect(results.get(node.id)?.reason).toBe("stale_generation");
     });
 
     it("never gates when no resolver is wired (opt-in)", () => {
-      const plain = new ContextUsageStore(db, { stateDir: "/tmp/openrig-test" });
+      const plain = new ContextUsageStore(db, { stateDir: "/tmp/softwareteam-test" });
       const { node } = seedNode();
       plain.persist(node.id, plain.normalizeSample({
-        ...VALID_SIDECAR, session_name: "dev-impl@test-rig", sampled_at: "2026-08-07T08:00:00.000Z",
+        ...VALID_SIDECAR, session_name: "dev-impl@test-software-team", sampled_at: "2026-08-07T08:00:00.000Z",
       }));
-      const result = plain.getForNode(node.id, "dev-impl@test-rig");
+      const result = plain.getForNode(node.id, "dev-impl@test-software-team");
       expect(result.availability).toBe("known");
     });
   });

@@ -20,10 +20,10 @@ function fixture(generation: string | null = GENERATION) {
   const db = new Database(":memory:");
   databases.push(db);
   db.exec(`
-    CREATE TABLE nodes (id TEXT, rig_id TEXT, runtime TEXT);
+    CREATE TABLE nodes (id TEXT, software_team_id TEXT, runtime TEXT);
     CREATE TABLE sessions (id INTEGER, node_id TEXT, session_name TEXT);
     CREATE TABLE events (seq INTEGER PRIMARY KEY, node_id TEXT, type TEXT, payload TEXT);
-    INSERT INTO nodes VALUES ('pi-node', 'rig', 'pi'), ('other-node', 'rig', 'pi');
+    INSERT INTO nodes VALUES ('pi-node', 'softwareTeam', 'pi'), ('other-node', 'softwareTeam', 'pi');
     INSERT INTO sessions VALUES (1, 'pi-node', 'worker@pi-test'), (2, 'other-node', 'other@pi-test');
   `);
   let liveGeneration: string | null = GENERATION;
@@ -120,12 +120,12 @@ describe("Pi occupant-bound activity (#29)", () => {
   });
 
   it("preserves the accepted child identity allowlist without forwarding hook credentials", () => {
-    const env = buildPiChildEnv({ OPENRIG_SESSION_NAME: SESSION, OPENRIG_NODE_ID: NODE,
-      OPENRIG_OCCUPANT_GENERATION: GENERATION, OPENRIG_ACTIVITY_HOOK_TOKEN: "fixture-only",
-      OPENRIG_TERMINAL_BEARER_TOKEN: "fixture-only", OPENRIG_UNREVIEWED_SETTING: "exclude",
+    const env = buildPiChildEnv({ SOFTWARETEAM_SESSION_NAME: SESSION, SOFTWARETEAM_NODE_ID: NODE,
+      SOFTWARETEAM_OCCUPANT_GENERATION: GENERATION, SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: "fixture-only",
+      SOFTWARETEAM_TERMINAL_BEARER_TOKEN: "fixture-only", SOFTWARETEAM_UNREVIEWED_SETTING: "exclude",
     }, { agentDir: "/fixture/agent", sessionsDir: "/fixture/sessions" });
-    expect(env).toEqual({ OPENRIG_SESSION_NAME: SESSION, OPENRIG_NODE_ID: NODE,
-      OPENRIG_OCCUPANT_GENERATION: GENERATION, PI_CODING_AGENT_DIR: "/fixture/agent", PI_CODING_AGENT_SESSION_DIR: "/fixture/sessions" });
-    expect(buildPiChildEnv({}, { agentDir: "/a", sessionsDir: "/s" })).not.toHaveProperty("OPENRIG_OCCUPANT_GENERATION");
+    expect(env).toEqual({ SOFTWARETEAM_SESSION_NAME: SESSION, SOFTWARETEAM_NODE_ID: NODE,
+      SOFTWARETEAM_OCCUPANT_GENERATION: GENERATION, PI_CODING_AGENT_DIR: "/fixture/agent", PI_CODING_AGENT_SESSION_DIR: "/fixture/sessions" });
+    expect(buildPiChildEnv({}, { agentDir: "/a", sessionsDir: "/s" })).not.toHaveProperty("SOFTWARETEAM_OCCUPANT_GENERATION");
   });
 });

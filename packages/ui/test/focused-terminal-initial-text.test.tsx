@@ -74,7 +74,7 @@ describe("FocusedTerminal initialText (delta-C)", () => {
   });
 
   it("sends exactly ONE text frame on connect, ending with the begins-here suffix, and NO keys frame", async () => {
-    render(<FocusedTerminal sessionName="dev-a@rig" initialText={PREAMBLE} />);
+    render(<FocusedTerminal sessionName="dev-a@software-team" initialText={PREAMBLE} />);
     await act(async () => { await vi.runOnlyPendingTimersAsync(); });
     expect(instances).toHaveLength(1);
     const frames = textFrames(instances[0]!);
@@ -85,7 +85,7 @@ describe("FocusedTerminal initialText (delta-C)", () => {
   });
 
   it("does NOT re-send the preamble on reconnect", async () => {
-    render(<FocusedTerminal sessionName="dev-a@rig" initialText={PREAMBLE} />);
+    render(<FocusedTerminal sessionName="dev-a@software-team" initialText={PREAMBLE} />);
     await act(async () => { await vi.runOnlyPendingTimersAsync(); });
     const first = instances[0]!;
     expect(textFrames(first)).toHaveLength(1);
@@ -99,7 +99,7 @@ describe("FocusedTerminal initialText (delta-C)", () => {
   });
 
   it("sends no text frame at all without initialText", async () => {
-    render(<FocusedTerminal sessionName="dev-a@rig" />);
+    render(<FocusedTerminal sessionName="dev-a@software-team" />);
     await act(async () => { await vi.runOnlyPendingTimersAsync(); });
     expect(textFrames(instances[0]!)).toHaveLength(0);
     expect(keysFrames(instances[0]!)).toHaveLength(0);

@@ -10,7 +10,7 @@ import {
 import { parseWatchdogSpec } from "../domain/watchdog-policy-engine.js";
 
 /**
- * Watchdog HTTP routes (PL-004 Phase C). Backs `rig watchdog` CLI verb.
+ * Watchdog HTTP routes (PL-004 Phase C). Backs `softwareTeam watchdog` CLI verb.
  *
  * Per Phase A R1 SSE route-order lesson: SSE/static routes mounted
  * BEFORE the bare-param /:job_id catchall so the literal `/sse` and

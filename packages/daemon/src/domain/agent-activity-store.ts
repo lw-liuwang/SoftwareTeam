@@ -42,7 +42,7 @@ interface AgentActivityStoreDeps {
 }
 
 interface SessionLookupRow {
-  rig_id: string;
+  software_team_id: string;
   node_id: string;
   session_name: string;
   runtime: string | null;
@@ -84,7 +84,7 @@ export class AgentActivityStore {
       return {
         ok: false,
         code: "session_not_found",
-        error: "Hook activity did not match a managed session. List seats with: rig ps --nodes",
+        error: "Hook activity did not match a managed session. List seats with: SoftwareTeam ps --nodes",
       };
     }
 
@@ -114,7 +114,7 @@ export class AgentActivityStore {
 
     const event = this.eventBus.emit({
       type: "agent.activity",
-      rigId: session.rig_id,
+      softwareTeamId: session.software_team_id,
       nodeId: session.node_id,
       sessionName: session.session_name,
       runtime: activity.runtime ?? session.runtime,
@@ -284,7 +284,7 @@ export class AgentActivityStore {
     };
   }
 
-  resolveSession(input: { sessionName?: string | null; nodeId?: string | null; runtime?: string | null }): { sessionId: string; rigId: string; nodeId: string; sessionName: string; runtime: string | null } | null {
+  resolveSession(input: { sessionName?: string | null; nodeId?: string | null; runtime?: string | null }): { sessionId: string; softwareTeamId: string; nodeId: string; sessionName: string; runtime: string | null } | null {
     const row = this._resolveSession(input);
     if (!row) return null;
     // OMP identity is node-scoped so a reused session name on another node can
@@ -293,13 +293,13 @@ export class AgentActivityStore {
       ? this.db.prepare("SELECT id FROM sessions WHERE session_name = ? AND node_id = ? ORDER BY id DESC LIMIT 1").get(row.session_name, row.node_id)
       : this.db.prepare("SELECT id FROM sessions WHERE session_name = ? ORDER BY id DESC LIMIT 1").get(row.session_name)) as { id: string } | undefined;
     if (!sessionRow) return null;
-    return { sessionId: sessionRow.id, rigId: row.rig_id, nodeId: row.node_id, sessionName: row.session_name, runtime: row.runtime };
+    return { sessionId: sessionRow.id, softwareTeamId: row.software_team_id, nodeId: row.node_id, sessionName: row.session_name, runtime: row.runtime };
   }
 
   private _resolveSession(input: { sessionName?: string | null; nodeId?: string | null }): SessionLookupRow | null {
     if (input.nodeId) {
       const row = this.db.prepare(`
-        SELECT n.rig_id, n.id AS node_id, s.session_name, n.runtime
+        SELECT n.software_team_id, n.id AS node_id, s.session_name, n.runtime
         FROM nodes n
         LEFT JOIN sessions s ON s.node_id = n.id
           AND s.id = (SELECT s2.id FROM sessions s2 WHERE s2.node_id = n.id ORDER BY s2.id DESC LIMIT 1)
@@ -311,7 +311,7 @@ export class AgentActivityStore {
 
     if (!input.sessionName) return null;
     const row = this.db.prepare(`
-      SELECT n.rig_id, n.id AS node_id, s.session_name, n.runtime
+      SELECT n.software_team_id, n.id AS node_id, s.session_name, n.runtime
       FROM sessions s
       JOIN nodes n ON n.id = s.node_id
       WHERE s.session_name = ?

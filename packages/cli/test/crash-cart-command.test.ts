@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { crashCartCommand, type CrashCartEmit } from "../src/commands/crash-cart.js";
 
-// Crash-cart C3 unit-B — the `rig crash-cart --json` verb (coupling ruling C, 4 rails). It prints ONE
+// Crash-cart C3 unit-B — the `softwareTeam crash-cart --json` verb (coupling ruling C, 4 rails). It prints ONE
 // JSON = emitCrashCartState's verdict (read-only). A fail-closed refusal still prints STRUCTURED JSON
 // (never exit-code-only). emit + write are injected → the action is deterministic; the real-dep
 // assembly is glue proven by the real daemon-down run.

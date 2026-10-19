@@ -19,8 +19,8 @@ const SPEC = `workflow:
   version: 1
   entry: { role: producer }
   roles:
-    producer: { preferred_targets: [producer@rig] }
-    reviewer: { preferred_targets: [reviewer@rig] }
+    producer: { preferred_targets: [producer@software-team] }
+    reviewer: { preferred_targets: [reviewer@software-team] }
   steps:
     - { id: produce, actor_role: producer, allowed_exits: [handoff, done, failed] }
     - { id: review, actor_role: reviewer, depends_on: [produce], allowed_exits: [handoff, done, failed] }
@@ -33,7 +33,7 @@ describe("migration 110 (workflow instance scope) on an install that already hol
 
   const runtimeOver = () => {
     const bus = new EventBus(db);
-    const queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    const queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     queueRepo.attachOutbox(new OutboxHandler(db));
     return new WorkflowRuntime({ db, eventBus: bus, queueRepo });
   };
@@ -55,13 +55,13 @@ describe("migration 110 (workflow instance scope) on an install that already hol
     const applied = () => (db.prepare(`SELECT name FROM schema_migrations`).all() as Array<{ name: string }>).map((r) => r.name);
     expect(applied()).toContain("109_mode_posture_coexist.sql");
     expect(applied()).not.toContain("110_workflow_instance_scope.sql");
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     const specPath = join(tmp, "spec.yaml");
     writeFileSync(specPath, SPEC);
     const before = runtimeOver();
-    const old = await before.instantiate({ specPath, rootObjective: "pre-migration", createdBySession: "ops@rig" });
+    const old = await before.instantiate({ specPath, rootObjective: "pre-migration", createdBySession: "ops@software-team" });
     const hop1 = await before.project({
-      instanceId: old.instance.instanceId, currentPacketId: old.entryQitemId, exit: "handoff", actorSession: "producer@rig",
+      instanceId: old.instance.instanceId, currentPacketId: old.entryQitemId, exit: "handoff", actorSession: "producer@software-team",
     });
     expect(db.prepare(`PRAGMA table_info(workflow_instances)`).all().some((c) => (c as { name: string }).name === "scope_json")).toBe(false);
 
@@ -76,13 +76,13 @@ describe("migration 110 (workflow instance scope) on an install that already hol
 
     // the old instance keeps projecting with exactly the tags it always had
     const hop2 = await after.project({
-      instanceId: old.instance.instanceId, currentPacketId: hop1.nextQitemId!, exit: "handoff", actorSession: "reviewer@rig",
+      instanceId: old.instance.instanceId, currentPacketId: hop1.nextQitemId!, exit: "handoff", actorSession: "reviewer@software-team",
     });
     expect(tagsOf(hop1.nextQitemId!)).toEqual(["workflow", "handoff", "workflow:pre-scope", `instance:${old.instance.instanceId}`, "step:review"]);
     expect(tagsOf(hop2.nextQitemId!)).toEqual(["workflow", "handoff", "workflow:pre-scope", `instance:${old.instance.instanceId}`, "step:ship"]);
 
     // and a new instance on the upgraded database can be scoped
-    const fresh = await after.instantiate({ specPath, rootObjective: "post", createdBySession: "ops@rig", scope: { project: "p1", slice: "s1" } });
+    const fresh = await after.instantiate({ specPath, rootObjective: "post", createdBySession: "ops@software-team", scope: { project: "p1", slice: "s1" } });
     expect(tagsOf(fresh.entryQitemId).slice(-2)).toEqual(["project:p1", "slice:s1"]);
   });
 });

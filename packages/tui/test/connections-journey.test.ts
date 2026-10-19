@@ -55,10 +55,10 @@ beforeEach(() => {
     if (path.startsWith("/api/gateway")) return http.request(path, init);
     const fixtures: Record<string, unknown> = {
       "/healthz": { status: "ok", semver: "0.5.11", commit: "fixture-daemon", selfHostId: "fixture-host", selfHostIdSource: "registry" },
-      "/api/rigs/summary": [{ id: "r1", name: "demo", lifecycleState: "running" }],
-      "/api/rigs/r1/nodes": [{ logicalId: "orch", podNamespace: "ops", nodeKind: "agent", runtime: "codex", lifecycleState: "running", canonicalSessionName: "orch@demo", resolvedSpecName: "worker" }],
-      "/api/rigs/r1/spec.json": { name: "demo-spec", pods: [] },
-      "/api/specs/library": [{ id: "s1", name: "demo-spec", kind: "rig" }],
+      "/api/software-teams/summary": [{ id: "r1", name: "demo", lifecycleState: "running" }],
+      "/api/software-teams/r1/nodes": [{ logicalId: "orch", podNamespace: "ops", nodeKind: "agent", runtime: "codex", lifecycleState: "running", canonicalSessionName: "orch@demo", resolvedSpecName: "worker" }],
+      "/api/software-teams/r1/spec.json": { name: "demo-spec", pods: [] },
+      "/api/specs/library": [{ id: "s1", name: "demo-spec", kind: "softwareTeam" }],
       "/api/review/fleet": { needsYou: { items: [] }, hosts: [] },
       "/api/queue/attention-aggregate": { hosts: [] },
       "/api/scopes": { missions: [] }, "/api/views/execution": { rows: [] },
@@ -123,7 +123,7 @@ describe("passive Connections journey", () => {
     }
     const snap = await hydrate();
     expect(snap.connections?.state).toBe(mode);
-    expect(snap.connections?.nextAction).toMatch(/^rig /);
+    expect(snap.connections?.nextAction).toMatch(/^softwareTeam /);
     const lines = connectionsLines(snap, 70).map((l) => l.text).join("\n");
     expect(lines).toContain(mode);
     expect(external).not.toHaveBeenCalled();
@@ -134,16 +134,16 @@ describe("passive Connections journey", () => {
     config.enabled = enabled; saveConfig(config, home);
     const before = [configPathFor(home), projectionPath(home)].map((p) => readFileSync(p, "utf8"));
     const pending = await hydrate();
-    expect(pending.connections).toMatchObject({ state: "unapplied", nextAction: "rig daemon logs",
+    expect(pending.connections).toMatchObject({ state: "unapplied", nextAction: "SoftwareTeam daemon logs",
       configuration: { enabled }, running: { applied: "changed", outboundReady: !enabled } });
     const lines = connectionsLines(pending, 140).map((l) => l.text).join("\n");
     expect(lines).toContain("Slack: unapplied");
     expect(lines).toMatch(/delivery.*unapplied/);
     expect(lines).toContain("current external reach is unverified");
-    expect(lines).not.toContain("rig slack enable");
+    expect(lines).not.toContain("SoftwareTeam slack enable");
     gateway.connector = { outboundReady: enabled, configurationDigest: channelStateDigest(config) };
     expect((await hydrate()).connections).toMatchObject({ state: enabled ? "unverified" : "disabled",
-      nextAction: enabled ? "rig slack verify --json" : "rig slack enable",
+      nextAction: enabled ? "SoftwareTeam slack verify --json" : "SoftwareTeam slack enable",
       running: { applied: "matching", outboundReady: enabled } });
     expect([configPathFor(home), projectionPath(home)].map((p) => readFileSync(p, "utf8"))).toEqual(before);
     expect(external).not.toHaveBeenCalled();
@@ -159,11 +159,11 @@ describe("passive Connections journey", () => {
       if (missing === "stopped" || missing === "failed") gateway.state = missing;
       const snap = await hydrate();
       const state = missing === "failed" ? "failed" : missing === "status" || missing === "stopped" ? "unavailable" : "unverified";
-      expect(snap.connections).toMatchObject({ state, nextAction: "rig daemon logs", configuration: { enabled } });
+      expect(snap.connections).toMatchObject({ state, nextAction: "SoftwareTeam daemon logs", configuration: { enabled } });
       const lines = connectionsLines(snap, 140).map((l) => l.text).join("\n");
       expect(lines).toContain(`Slack: ${state}`);
       expect(lines).not.toMatch(/delivery.*disabled/);
-      expect(lines).not.toContain("rig slack enable");
+      expect(lines).not.toContain("SoftwareTeam slack enable");
       expect(external).not.toHaveBeenCalled();
     },
   );
@@ -217,7 +217,7 @@ it("never resolves an external human blocker as a queue-item ID or poisons the p
 });
 
 describe("#192 channel map on the Connections page", () => {
-  it("shows each mapped rig or seat with its channel; an absent map shows nothing extra", async () => {
+  it("shows each mapped SoftwareTeam or seat with its channel; an absent map shows nothing extra", async () => {
     expect(connectionsLines(await hydrate(), 140).map((l) => l.text).join("\n")).not.toContain("channel map");
     config = { ...config, channelMap: [{ match: "demo", channel: "C-FIXTURE-2" }, { match: "pr@demo", channel: "C-FIXTURE-3" }] };
     saveConfig(config, home);

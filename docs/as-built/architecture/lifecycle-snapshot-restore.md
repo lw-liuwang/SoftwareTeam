@@ -5,7 +5,7 @@ status: active
 topics: [continuity, runtime-control]
 domains: [engineering-advisor, operating-advisor]
 applies-when: |
-  Need to know how OpenRig captures a snapshot, restores a rig (resume vs
+  Need to know how SoftwareTeam captures a snapshot, restores a SoftwareTeam (resume vs
   rebuild vs fresh-primed vs stop-and-ask), enforces restore honesty, consults
   live continuity state, or how the daemon-side restore-check readiness probe
   and the CLI restore-packet command work.
@@ -18,8 +18,8 @@ last-updated: 2026-10-08
 # Lifecycle — Snapshot, Restore, Continuity
 
 The durable-state half of the core product loop:
-`down (auto-snapshot) → up <rig-name> (auto-restore) → handoff`. Snapshot
-captures serialized rig state; restore replays it honestly (no silent
+`down (auto-snapshot) → up <software-team-name> (auto-restore) → handoff`. Snapshot
+captures serialized SoftwareTeam state; restore replays it honestly (no silent
 fresh-fallback); restore-check is a separate read-only readiness probe.
 
 > Verified against source at main `e8f0ab340db773392ec8be75b072d1c0f3068a50`. Each count below sits beside the
@@ -32,7 +32,7 @@ All in `packages/daemon/src/domain/types.ts`. The spec/projection types live in
 `agent-spec-and-startup.md`; the snapshot/restore types live here.
 
 - **NodeRestoreOutcome** (`types.ts:500`) — the per-node restore outcome
-  projected into `rig ps`. **9** values
+  projected into `SoftwareTeam ps`. **9** values
   (`grep '^export type NodeRestoreOutcome' packages/daemon/src/domain/types.ts | grep -o '"[^"]*"' | wc -l`):
   `resumed`, `rebuilt`, `fresh`, `fresh-primed`, `awaiting-decision`,
   `failed`, `attention_required`, `operator_recovered`, `n-a`. The restore
@@ -61,10 +61,10 @@ All in `packages/daemon/src/domain/types.ts`. The spec/projection types live in
     `:1292`, `:1300`).
   - `operator_recovered` — only from later reconciliation,
     `reconcileNodeRuntimeTruth` (`:1590`, event at `:1727`).
-- **RestoreRigResult** (`types.ts:444`) — the rig-level rollup, **4** values
-  (`grep '^export type RestoreRigResult' packages/daemon/src/domain/types.ts | grep -o '"[^"]*"' | wc -l`):
+- **RestoreSoftwareTeamResult** (`types.ts:444`) — the software-team-level rollup, **4** values
+  (`grep '^export type RestoreSoftwareTeamResult' packages/daemon/src/domain/types.ts | grep -o '"[^"]*"' | wc -l`):
   `fully_restored`, `partially_restored`, `failed`, `not_attempted`.
-  `rollupRestoreRigResult` (`restore-orchestrator.ts:81`) produces only the
+  `rollupRestoreSoftwareTeamResult` (`restore-orchestrator.ts:81`) produces only the
   first three; `not_attempted` is set when pre-restore validation fails
   (`:281`).
 - **SnapshotData** (`types.ts:351`) — the serialized snapshot payload. It has
@@ -90,7 +90,7 @@ All under `packages/daemon/src/domain/`:
   context, the latest env receipt, the active-occupant maps and the intended
   topology roster. `captureSnapshot` (`:60`) derives the occupant maps
   (`:73–79`), resolves the roster (`:81–90`), then reads `pods` (`:96`),
-  `continuity_state` (`:100`) and `node_startup_context` (`:106`) rows per rig
+  `continuity_state` (`:100`) and `node_startup_context` (`:106`) rows per SoftwareTeam
   and the env receipt (`:116–123`).
 - `snapshot-repository.ts` — snapshot CRUD and restore-source selection:
   `findLatestRestoreUsable` (`:72`) and `selectRestoreUsable` (`:94`), which
@@ -117,14 +117,14 @@ All under `packages/daemon/src/domain/`:
 Restore behavior, each point checked in `restore-orchestrator.ts`:
 
 - Selects the snapshot with `selectRestoreUsable` even when a snapshot id is
-  given (`:251–252`), so wrong-rig and unusable snapshots are refused before
+  given (`:251–252`), so wrong-SoftwareTeam and unusable snapshots are refused before
   any mutation. The selection (`RestoreSnapshotSelection`, `types.ts:396`)
   records whether it was explicit or automatic, why, and any newer usable
   alternative; it is carried on the result and on `restore.started`.
 - Restores only the nodes the snapshot's topology roster intends
   (`SnapshotData.topologyRoster`, `types.ts:370`). The roster comes from the
   latest `topology.roster_recorded` event (`snapshot-capture.ts:171`), from
-  `rig snapshot <rigId> --intended-seats` (`packages/cli/src/commands/snapshot.ts:20`),
+  `SoftwareTeam snapshot <softwareTeamId> --intended-seats` (`packages/cli/src/commands/snapshot.ts:20`),
   or, for older snapshots, all current nodes. `resolveSnapshotRestoreTopology`
   (`restore-topology.ts:12`) reports every other node as excluded with reason
   `historical_not_in_intended_roster` (`:27`); the result carries
@@ -152,7 +152,7 @@ Restore behavior, each point checked in `restore-orchestrator.ts`:
   `pre_restore_validation_failed`, `restore-orchestrator.ts:291`). Its other
   blockers are `invalid_snapshot_data` (`restore-preconditions.ts:27`),
   `invalid_topology_roster` (`:78`), `checkpoint_missing_node_cwd` (`:91`),
-  `startup_owner_root_missing` (`:139`), `service_rig_root_missing` (`:187`)
+  `startup_owner_root_missing` (`:139`), `service_software_team_root_missing` (`:187`)
   and `service_compose_file_missing` (`:197`). The `/api/up` route returns
   that outcome as HTTP 409 with `status: "not_attempted"`
   (`routes/up.ts:162`). A node that resumes its exact native session replays
@@ -163,8 +163,8 @@ Restore behavior, each point checked in `restore-orchestrator.ts`:
 - Writes a **transcript boundary marker before re-launch**
   (`writeBoundaryMarker`, `:900`, called before `launchNode` at `:911`) when
   the transcript store is enabled.
-- Refuses to restore over live sessions (`:259–262` — `rig_not_stopped`: "Rig …
-  has live sessions. Stop the rig with 'rig down' before restoring, or use the
+- Refuses to restore over live sessions (`:259–262` — `software_team_not_stopped`: "SoftwareTeam …
+  has live sessions. Stop the SoftwareTeam with 'SoftwareTeam down' before restoring, or use the
   latest auto-pre-down snapshot."). A tmux probe that fails also blocks it
   (`classifyRunningSessions`, `:612`).
 - Checks that the harness actually resumed. The resume adapters judge the
@@ -174,13 +174,13 @@ Restore behavior, each point checked in `restore-orchestrator.ts`:
   and token (`launchedSessionMatchesSnapshotResume`,
   `restore-orchestrator.ts:1390`); a reported `fresh` continuity without that
   proof rolls back to `awaiting-decision` (`:1228–1245`).
-- Saves a `rig up --non-interruptive` or `--no-non-interruptive` choice on
-  the rig only after the live-session check and pre-restore validation pass
+- Saves a `SoftwareTeam up --non-interruptive` or `--no-non-interruptive` choice on
+  the SoftwareTeam only after the live-session check and pre-restore validation pass
   (`:301`); see [adapters-and-runtimes.md](adapters-and-runtimes.md) for the
   launch flags.
 
 `launchNodeSubset` (`:392`) and `launchSingleNode` restore chosen seats rather
-than the whole rig; unlike a full restore, a failed tmux probe there proceeds
+than the whole SoftwareTeam; unlike a full restore, a failed tmux probe there proceeds
 with a `liveness_probe_unknown` warning (`:517`).
 
 **Restore-honesty rules** (texts in `architecture-rules-and-event-system.md`;
@@ -199,63 +199,63 @@ cited here by number with the code that carries them):
   (`rollbackToZeroSession`, `:940`) and returns `awaiting-decision`
   (`:1055`); pod-aware resume passes
   `allowFreshFallback: !(isPodAware && resumeRequested)` (`:1224`). Fresh
-  launch is explicit: `rig up --existing <rig> --fresh <seats...>`
-  (`packages/cli/src/commands/up.ts:99`). On a terminal, `rig up` asks
+  launch is explicit: `SoftwareTeam up --existing <SoftwareTeam> --fresh <seats...>`
+  (`packages/cli/src/commands/up.ts:99`). On a terminal, `SoftwareTeam up` asks
   yes or no for each `awaiting-decision` seat and re-posts with the accepted
   seats as fresh (`up.ts:589`).
-- Rule 16 — `rig down` prints the snapshot id and a restore command
-  (`packages/cli/src/commands/down.ts:293–303`); `rig up` on an existing rig
+- Rule 16 — `SoftwareTeam down` prints the snapshot id and a restore command
+  (`packages/cli/src/commands/down.ts:293–303`); `SoftwareTeam up` on an existing SoftwareTeam
   prints per-node statuses and the attach command
   (`packages/cli/src/commands/up.ts:554–587`).
 
 (The full rule list lives in `architecture-rules-and-event-system.md`.)
 
-## 4. Auto-snapshot and existing-rig power-on
+## 4. Auto-snapshot and existing-SoftwareTeam power-on
 
-- `rig down <rig>` (name or id, `packages/cli/src/commands/down.ts:144`)
-  first prints the rig's recorded agent sessions and their activity, best
+- `SoftwareTeam down <SoftwareTeam>` (name or id, `packages/cli/src/commands/down.ts:144`)
+  first prints the SoftwareTeam's recorded agent sessions and their activity, best
   effort and only without `--json` (`showAgentsBeforeDown`, `down.ts:28`), then
-  auto-captures an `auto-pre-down` snapshot before teardown when the rig has
-  live sessions (`packages/daemon/src/domain/rig-teardown.ts:117`, capture
+  auto-captures an `auto-pre-down` snapshot before teardown when the SoftwareTeam has
+  live sessions (`packages/daemon/src/domain/software-team-teardown.ts:117`, capture
   at `:128`, after refreshing resume metadata at `:119`; an already-stopped
-  rig returns at `:93–115` without one).
-- `rig up <rig-name>`: a source with no `/` and no
-  `.yaml`/`.yml`/`.rigbundle`/`.rigtopology` extension is a rig name
+  SoftwareTeam returns at `:93–115` without one).
+- `SoftwareTeam up <software-team-name>`: a source with no `/` and no
+  `.yaml`/`.yml`/`.softwareteambundle`/`.softwareteamtopology` extension is a SoftwareTeam name
   (`packages/daemon/src/domain/up-command-router.ts:49–50`). The CLI refuses
-  a name that matches only archived rigs, with `rig unarchive` guidance
+  a name that matches only archived SoftwareTeams, with `SoftwareTeam unarchive` guidance
   (`packages/cli/src/commands/up.ts:256`). It then checks the spec library
   unless `--existing` is given, and refuses a name that matches both
   (`up.ts:306–325`); when `first-project` resolves to the built-in `starter`
-  spec, the archived and existing-rig checks also apply to `starter`
-  (`up.ts:314–317`). The daemon finds the rig by name, preferring unarchived
-  rigs (`packages/daemon/src/routes/up.ts:223–226`), and restores from
+  spec, the archived and existing-SoftwareTeam checks also apply to `starter`
+  (`up.ts:314–317`). The daemon finds the SoftwareTeam by name, preferring unarchived
+  SoftwareTeams (`packages/daemon/src/routes/up.ts:223–226`), and restores from
   `selectRestoreUsable` (`routes/up.ts:106`), which prefers the newest
   `auto-pre-down` or `auto-periodic` snapshot, then the newest other usable
   one (`snapshot-repository.ts:75`).
-- `rig up <rig-name> --plan` is a read-only restore preview that never
+- `SoftwareTeam up <software-team-name> --plan` is a read-only restore preview that never
   captures a snapshot (`routes/up.ts:127`).
 - If no usable snapshot exists, or the chosen one names an older occupant
-  (`snapshotMatchesCurrentOccupants`, `routes/up.ts:110`), `rig up` captures
+  (`snapshotMatchesCurrentOccupants`, `routes/up.ts:110`), `SoftwareTeam up` captures
   an `auto-rehydrate` snapshot of current DB state when that state is
   eligible (`routes/up.ts:137–146`). Otherwise it errors with code
   `no_snapshot` and guidance ("… current DB state is insufficient for
-  rehydrate. Start fresh with: rig up <spec-path>", `routes/up.ts:118–123`).
+  rehydrate. Start fresh with: SoftwareTeam up <spec-path>", `routes/up.ts:118–123`).
 - Post-command handoff: `down` output includes the snapshot ID and
-  `To restore: rig up <name>` (or `rig restore <snapshotId> --rig <rigId>`
+  `To restore: SoftwareTeam up <name>` (or `SoftwareTeam restore <snapshotId> --software-team <softwareTeamId>`
   when the name is not unique); `up` output includes node statuses and an
   `Attach:` command (anchors under Rule 16 above).
-- `rig restore status <attemptId> --rig <rigId>`
+- `SoftwareTeam restore status <attemptId> --software-team <softwareTeamId>`
   (`packages/cli/src/commands/restore.ts:120`) reads
-  `GET /api/rigs/:rigId/restore/status/:attemptId`
+  `GET /api/SoftwareTeams/:softwareTeamId/restore/status/:attemptId`
   (`packages/daemon/src/routes/snapshots.ts:76`). `deriveRestoreAttemptReceipt`
   (`restore-attempt-receipt.ts:42`) folds that attempt's events into a
   per-node view without writing anything.
 
 ### Single-seat recovery and handover
 
-- **`rig seat continue <seat>`** — when a fresh launch stops at a native
+- **`SoftwareTeam seat continue <seat>`** — when a fresh launch stops at a native
   prompt before its startup context is delivered, the startup orchestrator
-  fails it as `attention_required` and adds "run: rig seat continue
+  fails it as `attention_required` and adds "run: SoftwareTeam seat continue
   <session>" (`startup-orchestrator.ts:600`). The command
   (`packages/cli/src/commands/seat.ts:633`) calls
   `POST /api/seat/continue/:seatRef` (`routes/seat.ts:293`), which runs
@@ -264,11 +264,11 @@ cited here by number with the code that carries them):
   conversation without relaunching. In a restore, a pod-aware seat in this
   state reports `attention_required` (`restore-orchestrator.ts:1265`). See
   [agent-spec-and-startup.md](agent-spec-and-startup.md) for the startup side.
-- **Per-seat startup decision** — `POST /api/startup/:rigId/:logicalId`
+- **Per-seat startup decision** — `POST /api/startup/:softwareTeamId/:logicalId`
   (`routes/startup.ts:142`) takes `resume`, `start`, `fresh` or `continue`
   for one seat. `resume` captures an eligibility-checked `auto-rehydrate`
   snapshot when none exists and goes through `launchSingleNode`.
-- **Seat handover** — `rig seat handover <seat> --source
+- **Seat handover** — `SoftwareTeam seat handover <seat> --source
   fresh|rebuild|fork:<id>|discovered:<id> --reason <reason> [--dry-run]`
   (the reason is required, dry run included; without it the command exits 2
   before contacting the daemon)
@@ -279,18 +279,18 @@ cited here by number with the code that carries them):
   the same pane in place, so the session name stays the same. The fresh
   source delivers a daemon-built restore packet (`buildRestorePacket`,
   `seat-handover-service.ts:1151`), which is separate from the CLI
-  `rig restore-packet` below. The rebuild source primes from the seat's
+  `SoftwareTeam restore-packet` below. The rebuild source primes from the seat's
   durable chain (`buildRebuildPrimingChain`, `rebuild-priming-chain.ts:22`).
 
 ## 5. Daemon-side restore-check and CLI restore-packet
 
-### 5.1 `rig restore-check` — readiness probe
+### 5.1 `SoftwareTeam restore-check` — readiness probe
 
-`GET /api/restore-check?rig=<name>&noQueue=true&noHooks=true&compact=1&ready=1`
+`GET /api/restore-check?SoftwareTeam=<name>&noQueue=true&noHooks=true&compact=1&ready=1`
 (`routes/restore-check.ts:220–221`). The route calls
 `createRestoreCheckService` (`:151`), which assembles a framework-free
 `RestoreCheckDeps` (`:155–216`) over existing daemon projections —
-`listRigs` from `rigRepo` (`:175–178`), `getNodeInventory` (joining
+`listSoftwareTeams` from `softwareTeamRepo` (`:175–178`), `getNodeInventory` (joining
 `node_id` by `logical_id`, `:26–31`, `:179–185`), `getStartupContext` (reads
 `node_startup_context`, parses `projection_entries_json` /
 `resolved_files_json` / `startup_actions_json`, `:49–143`), `hasSnapshot`
@@ -305,18 +305,18 @@ then runs `service.check(...)` (`:231–232`).
 1. **Host checks** — `checkDaemonReachable` (probe-throw → `verdict:
    unknown`, NOT `not_restorable`, `:270–280`), `checkStateDirWritable`
    (`:282`, impl `:498`), `checkHostInfraDeclaration` (`:283`, impl `:515`).
-2. **Rig enumeration** — `listRigs()` throw → `buildUnknown` (`:286–295`);
-   `--rig` filter; unknown rig → red `rig.<name>.exists` (`:297–305`).
-3. **Per-rig checks** — `checkSnapshot` (`:311`, impl `:784`),
+2. **SoftwareTeam enumeration** — `listSoftwareTeams()` throw → `buildUnknown` (`:286–295`);
+   `--software-team` filter; unknown SoftwareTeam → red `SoftwareTeam.<name>.exists` (`:297–305`).
+3. **Per-SoftwareTeam checks** — `checkSnapshot` (`:311`, impl `:784`),
    `checkSpecPresent` (`:316`, impl `:1161`), and
-   `rig.<name>.restore-preconditions` (`checkRestorePreconditions`, `:338`,
+   `SoftwareTeam.<name>.restore-preconditions` (`checkRestorePreconditions`, `:338`,
    impl `:422`). The last runs the same `validatePreRestore` that restore
    runs (`:446`) on the inputs from `getRestoreInputs`: red on a blocker,
    yellow on a warning, green otherwise. Without a usable snapshot it is
    yellow when current-state rehydrate is eligible and red when it isn't;
-   when the inputs can't be read it is yellow and the rig's rollup becomes
-   `unknown` (see Verdict). The rig-status route sets
-   `recoveryOnly` (`routes/rigs.ts:272`), which skips this check when every
+   when the inputs can't be read it is yellow and the SoftwareTeam's rollup becomes
+   `unknown` (see Verdict). The software-team-status route sets
+   `recoveryOnly` (`routes/SoftwareTeams.ts:272`), which skips this check when every
    seat is ready (`restore-check-service.ts:337`).
 4. **Per-seat checks** — `checkSeatReadiness` (`:346`), `checkStartupContext`
    (`:360`, impl `:886`; `unknownChecks` → `buildUnknown`, `:361–366`),
@@ -328,23 +328,23 @@ then runs `service.check(...)` (`:231–232`).
    (`routes/restore-check.ts:160–163`). Claude hook readiness follows the
    persisted `claude_activity_hooks` runtime-resource selection
    (`restore-check-service.ts:1053–1060`) and the adapter's projection: the
-   hook settings in the seat CWD and the activity relay under the OpenRig
+   hook settings in the seat CWD and the activity relay under the SoftwareTeam
    home's `state/claude-activity-hooks/` (`restore-check-service.ts:1071–1072`). A seat
    that deliberately omits that resource is not applicable. In compact mode
    without `ready=1`, a seat whose readiness check is green gets only the
    startup-context check (`restore-check-service.ts:358`, `:368–380`); that
    check still counts toward the verdict.
 5. **Verdict** — `buildResult` (`:1205`) aggregates: any red →
-   `not_restorable`; else any rig rollup with status `unknown` → `unknown`
+   `not_restorable`; else any SoftwareTeam rollup with status `unknown` → `unknown`
    (`:1223–1224`); else any yellow → `restorable_with_caveats`; else
-   `restorable` (`:1220–1229`). A rig rollup is `unknown` when its restore
+   `restorable` (`:1220–1229`). A SoftwareTeam rollup is `unknown` when its restore
    inputs could not be read (`:1549–1551`). A probe that can't be inspected
    at all also gives `unknown` (`buildUnknown`, `:1238`). Plus a
    `RecoveryPlan` (`buildRecovery`, `:1342`) and a `RepairStep[]` packet
    (`buildRepairPacket`, `:1581`; `null` when fully restorable, `:1582`).
 
 The result shape is `RestoreCheckResult` (`restore-check-service.ts:148–160`):
-`verdict`, `readiness`, `continuity`, `rigs[]`, `hostInfra`, `recovery`,
+`verdict`, `readiness`, `continuity`, `SoftwareTeams[]`, `hostInfra`, `recovery`,
 `counts {red,yellow,green}`, `classCounts`, `checks[]`, `repairPacket`. With
 `compact=1` the route returns a reduced body (`routes/restore-check.ts:234–261`).
 
@@ -360,13 +360,13 @@ unclassified remediations are NOT auto-execution-safe,
 
 CLI surface (`../cli-reference.md` `### restore-check`; options in
 `packages/cli/src/commands/restore-check.ts:222–227`):
-`rig restore-check [--rig <name>] [--full] [--ready] [--no-queue] [--no-hooks] [--json]`.
+`SoftwareTeam restore-check [--software-team <name>] [--full] [--ready] [--no-queue] [--no-hooks] [--json]`.
 Output is compact unless `--full` (`:313`). Exit codes: `0` restorable (or
 with caveats), `1` not restorable (red), `2` unknown / probe error
 (`:214–217`). When the daemon is down, the CLI builds a local
 `not_restorable` result and exits 1 (`:269`).
 
-### 5.2 `rig restore-packet` — cross-runtime restore packet
+### 5.2 `SoftwareTeam restore-packet` — cross-runtime restore packet
 
 CLI-side, no restore-packet daemon route. `commands/restore-packet.ts`
 (**541** lines, `wc -l < packages/cli/src/commands/restore-packet.ts`)

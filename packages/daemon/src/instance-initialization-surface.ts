@@ -1,8 +1,8 @@
 export {
-  ensureOpenRigInstance,
+  ensureSoftwareTeamInstance,
   formatInstanceInitializationConflicts,
-  type OpenRigInstanceInitializationOptions,
-  type OpenRigInstanceInitializationResult,
+  type SoftwareTeamInstanceInitializationOptions,
+  type SoftwareTeamInstanceInitializationResult,
 } from "./domain/instance-initialization.js";
 export {
   ensureDefaultWorkspace,

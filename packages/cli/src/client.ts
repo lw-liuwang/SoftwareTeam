@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ConfigStore } from "./config-store.js";
-import { getOpenRigHome, readOpenRigEnv } from "./openrig-compat.js";
+import { getSoftwareTeamHome, readSoftwareTeamEnv } from "./softwareteam-compat.js";
 import { fetchWithTimeout, FetchTimeoutError } from "./fetch-with-timeout.js";
 
 export function terminalAuthHeaders(): Record<string, string> {
@@ -10,7 +10,7 @@ export function terminalAuthHeaders(): Record<string, string> {
 }
 
 /** The header carrying the caller's seat identity, derived ONCE at the transport chokepoint. */
-export const SENDER_IDENTITY_HEADER = "X-OpenRig-Session";
+export const SENDER_IDENTITY_HEADER = "X-SoftwareTeam-Session";
 
 /**
  * P18 sender-provenance — derive the caller's identity from the seat ENV (never a request-body
@@ -21,7 +21,7 @@ export const SENDER_IDENTITY_HEADER = "X-OpenRig-Session";
  * chokepoint: `DaemonClient.fetch` stamps this on every request; callers never set it by hand.
  */
 export function senderIdentityHeaders(originSelfHostId?: string): Record<string, string> {
-  const session = readOpenRigEnv("OPENRIG_SESSION_NAME", "RIGGED_SESSION_NAME")?.trim();
+  const session = readSoftwareTeamEnv("SOFTWARETEAM_SESSION_NAME")?.trim();
   if (!session) return {};
   // Preserve qualified senders; append only a locally derived instance id.
   const value =
@@ -44,10 +44,10 @@ export function remoteDaemonClient(
 }
 
 function resolveTerminalToken(): string | null {
-  const env = process.env.OPENRIG_TERMINAL_BEARER_TOKEN?.trim();
+  const env = process.env.SOFTWARETEAM_TERMINAL_BEARER_TOKEN?.trim();
   if (env) return env;
   try {
-    const homeDir = process.env.OPENRIG_HOME ?? path.join(process.env.HOME ?? "", ".openrig");
+    const homeDir = process.env.SOFTWARETEAM_HOME ?? path.join(process.env.HOME ?? "", ".softwareteam");
     const tokenPath = path.join(homeDir, "terminal-token");
     const token = fs.readFileSync(tokenPath, "utf-8").trim();
     return token || null;
@@ -113,7 +113,7 @@ export interface DaemonResponse<T = unknown> {
 
 /**
  * Issue #425: wrap bare IPv6 literals in brackets for URL hosts. `::1` must
- * render as `[::1]` — `http://::1:7433` never parses in fetch. Hostnames,
+ * render as `[::1]` — `http://::1:7434` never parses in fetch. Hostnames,
  * IPv4, and already-bracketed literals pass through unchanged.
  */
 export function formatDaemonHostForUrl(host: string): string {
@@ -138,8 +138,8 @@ interface DaemonClientOptions {
 /** Routing state published by daemon start, not a health check or sibling-home discovery. */
 function localDaemonUrl(): string | undefined {
   try {
-    // Resolve at construction time: embedders may change OPENRIG_HOME after import.
-    const state = JSON.parse(fs.readFileSync(path.join(getOpenRigHome(), "daemon.json"), "utf-8"));
+    // Resolve at construction time: embedders may change SOFTWARETEAM_HOME after import.
+    const state = JSON.parse(fs.readFileSync(path.join(getSoftwareTeamHome(), "daemon.json"), "utf-8"));
     if (!state || !Number.isSafeInteger(state.pid) || state.pid <= 0
       || !Number.isInteger(state.port) || state.port < 1 || state.port > 65535
       || (state.host !== undefined && (typeof state.host !== "string" || !state.host.trim()))) return undefined;
@@ -165,13 +165,13 @@ export class DaemonClient {
     const localHeaders = senderIdentityHeaders();
     const session = localHeaders[SENDER_IDENTITY_HEADER];
     if (!session || session.split("@").length >= 3) return localHeaders;
-    const directTarget = readOpenRigEnv("OPENRIG_URL", "RIGGED_URL");
+    const directTarget = readSoftwareTeamEnv("SOFTWARETEAM_URL");
     if (!this.remoteTarget && !directTarget) return localHeaders;
     // Imported here, not at the top: it loads better-sqlite3 and yaml, which only a seat on a direct endpoint needs.
     const origin = this.originSelfHostId ?? (await import("./local-origin.js")).readLocalOrigin();
     if (!origin) {
       this.originUnknown = true;
-      return { ...localHeaders, "X-OpenRig-Origin-Unknown": "true" };
+      return { ...localHeaders, "X-SoftwareTeam-Origin-Unknown": "true" };
     }
     if (!this.remoteTarget) {
       // Loopback may be a forwarded endpoint. Only matching instance identity proves locality.
@@ -196,7 +196,7 @@ export class DaemonClient {
     if (baseUrl) {
       this.baseUrl = baseUrl;
     } else {
-      const envUrl = readOpenRigEnv("OPENRIG_URL", "RIGGED_URL");
+      const envUrl = readSoftwareTeamEnv("SOFTWARETEAM_URL");
       if (envUrl) {
         this.baseUrl = envUrl;
       } else {
@@ -302,14 +302,14 @@ export class DaemonClient {
       // the daemon may be up but saturated. Surface it as a subclass so callers
       // still catch DaemonConnectionError, but the CLI can say "slow, not stopped".
       if (err instanceof FetchTimeoutError) {
-        throw new DaemonTimeoutError(`The OpenRig daemon at ${this.baseUrl} did not respond in time: ${msg}`);
+        throw new DaemonTimeoutError(`The SoftwareTeam daemon at ${this.baseUrl} did not respond in time: ${msg}`);
       }
       // Headers prove that the daemon received the request, but not that a write
       // finished. A dropped body must preserve unknown-outcome guidance.
       if (responseStatus !== undefined) throw new DaemonResponseError(responseStatus, "");
       const causeCode = connectionErrorCode(err);
       throw new DaemonConnectionError(
-        `Cannot connect to the OpenRig daemon at ${this.baseUrl}: ${msg}${causeCode && !msg.includes(causeCode) ? ` (${causeCode})` : ""}`,
+        `Cannot connect to the SoftwareTeam daemon at ${this.baseUrl}: ${msg}${causeCode && !msg.includes(causeCode) ? ` (${causeCode})` : ""}`,
         causeCode,
       );
     }

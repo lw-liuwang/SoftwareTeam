@@ -19,10 +19,10 @@ function makeGroup(id: string): TestNode {
   };
 }
 
-function makeRigNode(id: string, parentId: string): TestNode {
+function makeSoftwareTeamNode(id: string, parentId: string): TestNode {
   return {
     id,
-    type: "rigNode",
+    type: "softwareTeamNode",
     parentId,
     position: { x: 0, y: 0 },
     data: { logicalId: id },
@@ -44,10 +44,10 @@ describe("applyTreeLayout", () => {
       makeGroup("pod-orch"),
       makeGroup("pod-dev"),
       makeGroup("pod-qa"),
-      makeRigNode("orch.lead", "pod-orch"),
-      makeRigNode("dev.impl", "pod-dev"),
-      makeRigNode("dev.design", "pod-dev"),
-      makeRigNode("dev.qa", "pod-qa"),
+      makeSoftwareTeamNode("orch.lead", "pod-orch"),
+      makeSoftwareTeamNode("dev.impl", "pod-dev"),
+      makeSoftwareTeamNode("dev.design", "pod-dev"),
+      makeSoftwareTeamNode("dev.qa", "pod-qa"),
     ];
     const edges: TestEdge[] = [
       makeDelegation("orch.lead", "dev.impl"),
@@ -70,10 +70,10 @@ describe("applyTreeLayout", () => {
       makeGroup("pod-dev"),
       makeGroup("pod-rev"),
       makeGroup("pod-infra"),
-      makeRigNode("orch.lead", "pod-orch"),
-      makeRigNode("dev.impl", "pod-dev"),
-      makeRigNode("rev.r1", "pod-rev"),
-      makeRigNode("infra.ui", "pod-infra"),
+      makeSoftwareTeamNode("orch.lead", "pod-orch"),
+      makeSoftwareTeamNode("dev.impl", "pod-dev"),
+      makeSoftwareTeamNode("rev.r1", "pod-rev"),
+      makeSoftwareTeamNode("infra.ui", "pod-infra"),
     ];
     const edges: TestEdge[] = [
       makeDelegation("orch.lead", "dev.impl"),
@@ -92,9 +92,9 @@ describe("applyTreeLayout", () => {
       makeGroup("pod-orch"),
       makeGroup("pod-dev"),
       makeGroup("pod-review"),
-      makeRigNode("orch.lead", "pod-orch"),
-      makeRigNode("dev.impl", "pod-dev"),
-      makeRigNode("rev.r1", "pod-review"),
+      makeSoftwareTeamNode("orch.lead", "pod-orch"),
+      makeSoftwareTeamNode("dev.impl", "pod-dev"),
+      makeSoftwareTeamNode("rev.r1", "pod-review"),
     ];
     const edges: TestEdge[] = [makeDelegation("orch.lead", "dev.impl")];
 
@@ -110,10 +110,10 @@ describe("applyTreeLayout", () => {
   it("wraps pod members after three columns", () => {
     const nodes: TestNode[] = [
       makeGroup("pod-dev"),
-      makeRigNode("dev.1", "pod-dev"),
-      makeRigNode("dev.2", "pod-dev"),
-      makeRigNode("dev.3", "pod-dev"),
-      makeRigNode("dev.4", "pod-dev"),
+      makeSoftwareTeamNode("dev.1", "pod-dev"),
+      makeSoftwareTeamNode("dev.2", "pod-dev"),
+      makeSoftwareTeamNode("dev.3", "pod-dev"),
+      makeSoftwareTeamNode("dev.4", "pod-dev"),
     ];
     const edges: TestEdge[] = [];
 

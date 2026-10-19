@@ -97,8 +97,8 @@ export class MissionControlNotificationDispatcher {
   }> {
     const payload: NotificationPayload = {
       title: "Mission Control test notification",
-      body: `Synthetic test from OpenRig daemon at ${this.now().toISOString()}`,
-      tags: ["openrig", "mission-control", "test"],
+      body: `Synthetic test from SoftwareTeam daemon at ${this.now().toISOString()}`,
+      tags: ["softwareteam", "mission-control", "test"],
     };
     const result = await this.adapter.send(payload);
     if (result.ok) {
@@ -127,7 +127,7 @@ export class MissionControlNotificationDispatcher {
         body:
           `New human-gate qitem ${qitem.qitem_id} from ${qitem.source_session} → ${qitem.destination_session}\n\n` +
           truncateBody(qitem.body, 280),
-        tags: ["openrig", "mission-control", "human-gate"],
+        tags: ["softwareteam", "mission-control", "human-gate"],
       });
       return;
     }
@@ -137,7 +137,7 @@ export class MissionControlNotificationDispatcher {
         qitemId: event.qitemId,
         title: `verb completed: ${event.actionVerb}`,
         body: `Mission Control verb ${event.actionVerb} on qitem ${event.qitemId ?? "(none)"} by ${event.actorSession}`,
-        tags: ["openrig", "mission-control", "verb-complete"],
+        tags: ["softwareteam", "mission-control", "verb-complete"],
       });
       return;
     }

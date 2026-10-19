@@ -8,7 +8,7 @@ import { STATE_FILE, type LifecycleDeps, type DaemonState } from "../src/daemon-
 
 /**
  * Slice 15 (OPR.0.7.0.15) P5 over SSH `--host`: the remote bounds its peer list, and the note's full-list
- * command must reach the same host and identity when copied at the origin. Hermetic: the real `rig whoami` runs
+ * command must reach the same host and identity when copied at the origin. Hermetic: the real `SoftwareTeam whoami` runs
  * on both sides against fixture daemons; the SSH boundary is faked by quoting the argv as the executor does and
  * splitting it as a remote shell would. No ssh, no host, no daemon process, no home but the test's own.
  */
@@ -25,16 +25,16 @@ function lifecycle(port: number): LifecycleDeps {
 
 const peer = (i: number) => ({ logicalId: `ops.o${i}`, sessionName: `ops-o${i}@big`, runtime: "claude-code", podId: "ops", podNamespace: "ops", memberId: `o${i}` });
 const PEERS = Array.from({ length: 12 }, (_, i) => peer(i));
-const NOTE = "peers = this rig's roster excluding self (no edge filter); edges = directional relationships; use `rig ps --nodes` for node inventory including self + live state";
+const NOTE = "peers = this softwareTeam's roster excluding self (no edge filter); edges = directional relationships; use `SoftwareTeam ps --nodes` for node inventory including self + live state";
 
 function identity(nodeId: string, sessionName: string) {
   return {
     resolvedBy: "node_id",
-    identity: { rigId: "rig-1", rigName: "big", nodeId, logicalId: "dev.impl", attachmentType: "tmux", podId: "dev", podNamespace: "dev",
+    identity: { softwareTeamId: "software-team-1", softwareTeamName: "big", nodeId, logicalId: "dev.impl", attachmentType: "tmux", podId: "dev", podNamespace: "dev",
       podLabel: null, memberId: "impl", memberLabel: null, sessionName, runtime: "claude-code", cwd: "/tmp", agentRef: null, profile: null,
       resolvedSpecName: null, resolvedSpecVersion: null },
     peers: PEERS, peersNote: NOTE, edges: { outgoing: [], incoming: [] },
-    transcript: { enabled: true, path: "/tmp/t.log", tailCommand: "rig transcript x --tail 100", grepCommand: null },
+    transcript: { enabled: true, path: "/tmp/t.log", tailCommand: "SoftwareTeam transcript x --tail 100", grepCommand: null },
     commands: { sendExamples: [], captureExamples: [] },
   };
 }
@@ -107,42 +107,42 @@ beforeAll(async () => {
 afterAll(() => { remoteD.server.close(); localD.server.close(); });
 beforeEach(() => {
   remoteD.asked.length = 0; localD.asked.length = 0; remoteEnv = {}; remoteOverride = null; sshCalls = [];
-  for (const k of ["OPENRIG_NODE_ID", "OPENRIG_SESSION_NAME", "TMUX_PANE", "OPENRIG_HOST_SELECTED"]) vi.stubEnv(k, "");
-  vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1"); // compact output on, default bound 8 (on both sides of this one process)
+  for (const k of ["SOFTWARETEAM_NODE_ID", "SOFTWARETEAM_SESSION_NAME", "TMUX_PANE", "SOFTWARETEAM_HOST_SELECTED"]) vi.stubEnv(k, "");
+  vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1"); // compact output on, default bound 8 (on both sides of this one process)
 });
 afterEach(() => { vi.unstubAllEnvs(); });
 
-/** The remote side of the fake SSH boundary: the real `rig whoami`, against the remote fixture daemon. */
+/** The remote side of the fake SSH boundary: the real `SoftwareTeam whoami`, against the remote fixture daemon. */
 const fakeSsh: NonNullable<WhoamiDeps["crossHostRun"]> = async (_host, argv) => {
   const line = argv.map(shellQuote).join(" "); // what the SSH executor sends
   sshCalls.push(line);
   const words = shellWords(line);
   const saved: Record<string, string | undefined> = {};
   // The remote host has its own configuration: no host selection of the origin's, plus anything a case sets.
-  for (const [k, v] of Object.entries({ OPENRIG_HOST_SELECTED: "", ...remoteEnv })) { saved[k] = process.env[k]; process.env[k] = v; }
+  for (const [k, v] of Object.entries({ SOFTWARETEAM_HOST_SELECTED: "", ...remoteEnv })) { saved[k] = process.env[k]; process.env[k] = v; }
   let result;
-  try { result = await capture(() => rig(words.slice(1), { lifecycleDeps: lifecycle(remoteD.port), clientFactory: (u) => new DaemonClient(u) })); }
+  try { result = await capture(() => softwareTeam(words.slice(1), { lifecycleDeps: lifecycle(remoteD.port), clientFactory: (u) => new DaemonClient(u) })); }
   finally { for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } }
   const stdout = remoteOverride ? remoteOverride(result.out) : result.out;
   return result.exitCode ? { ok: false, failedStep: "remote-command-failed", stdout, stderr: result.err, remoteExitCode: result.exitCode }
     : { ok: true, failedStep: "none", stdout, stderr: result.err, remoteExitCode: 0 };
 };
 
-async function rig(args: string[], deps: WhoamiDeps): Promise<void> {
+async function softwareTeam(args: string[], deps: WhoamiDeps): Promise<void> {
   const prog = new Command();
   prog.exitOverride();
   prog.addCommand(whoamiCommand(deps));
-  await prog.parseAsync(["node", "rig", ...args]);
+  await prog.parseAsync(["node", "softwareTeam", ...args]);
 }
 /** The origin: its own (local) fixture daemon, a registry with one SSH host, and the fake SSH boundary. */
-const origin = (args: string[]) => capture(() => rig(args, {
+const origin = (args: string[]) => capture(() => softwareTeam(args, {
   lifecycleDeps: lifecycle(localD.port), clientFactory: (u) => new DaemonClient(u),
   hostRegistryLoader: () => ({ ok: true, registry: { hosts: [{ id: "vm-a", transport: "ssh", target: "vm-a.local" }] } }),
   crossHostRun: fakeSsh,
 }));
-const hintOf = (stdout: string): string => /all: (rig whoami [^;]*);/.exec(JSON.parse(stdout).peersNote)![1]!;
+const hintOf = (stdout: string): string => /all: (SoftwareTeam whoami [^;]*);/.exec(JSON.parse(stdout).peersNote)![1]!;
 
-describe("rig whoami --json --host (SSH): the full-peer-list hint reaches the same host and identity", () => {
+describe("SoftwareTeam whoami --json --host (SSH): the full-peer-list hint reaches the same host and identity", () => {
   it("main's hint (the remote's own command) queries the local host; the corrected hint reaches the remote seat's full list", async () => {
     const first = await origin(["whoami", "--json", "--host", "vm-a", "--session", REMOTE.session]);
     const bounded = JSON.parse(first.out);
@@ -151,7 +151,7 @@ describe("rig whoami --json --host (SSH): the full-peer-list hint reaches the sa
     expect(bounded.peersOmitted).toBe(4);
 
     // What main printed: the remote's own command. Followed at the origin, it asks the local daemon.
-    const remoteOwn = `rig whoami --json --all-peers --session ${shellQuote(REMOTE.session)}`;
+    const remoteOwn = `SoftwareTeam whoami --json --all-peers --session ${shellQuote(REMOTE.session)}`;
     const mains = await origin(shellWords(remoteOwn).slice(1));
     expect(localD.asked.some((q) => q.startsWith("/api/whoami"))).toBe(true);
     expect(mains.exitCode).toBe(1); // that seat doesn't exist on the local host
@@ -159,7 +159,7 @@ describe("rig whoami --json --host (SSH): the full-peer-list hint reaches the sa
 
     // The corrected hint carries the host; followed at the origin it goes through SSH to the same seat, in full.
     const hint = hintOf(first.out);
-    expect(hint).toBe(`rig whoami --json --all-peers --host 'vm-a' --session ${shellQuote(REMOTE.session)}`);
+    expect(hint).toBe(`SoftwareTeam whoami --json --all-peers --host 'vm-a' --session ${shellQuote(REMOTE.session)}`);
     localD.asked.length = 0;
     const full = await origin(shellWords(hint).slice(1));
     expect(localD.asked).toEqual([]);
@@ -171,21 +171,21 @@ describe("rig whoami --json --host (SSH): the full-peer-list hint reaches the sa
   });
 
   it("a persisted host selection keeps the caller's context too: the hint names that host", async () => {
-    vi.stubEnv("OPENRIG_HOST_SELECTED", "vm-a");
+    vi.stubEnv("SOFTWARETEAM_HOST_SELECTED", "vm-a");
     const first = await origin(["whoami", "--json", "--node-id", REMOTE.nodeId]);
     const hint = hintOf(first.out);
-    expect(hint).toBe(`rig whoami --json --all-peers --host 'vm-a' --node-id 'node-remote'`);
-    vi.stubEnv("OPENRIG_HOST_SELECTED", ""); // even after the selection changes, the hint goes to the same host
+    expect(hint).toBe(`SoftwareTeam whoami --json --all-peers --host 'vm-a' --node-id 'node-remote'`);
+    vi.stubEnv("SOFTWARETEAM_HOST_SELECTED", ""); // even after the selection changes, the hint goes to the same host
     const all = JSON.parse((await origin(shellWords(hint).slice(1))).out);
     expect(all.identity.nodeId).toBe(REMOTE.nodeId);
     expect(all.peers).toHaveLength(12);
   });
 
   it("an identity the remote resolved itself (none asked for) is named in the hint, so it reaches the same seat", async () => {
-    remoteEnv = { OPENRIG_NODE_ID: REMOTE.nodeId };
+    remoteEnv = { SOFTWARETEAM_NODE_ID: REMOTE.nodeId };
     const first = await origin(["whoami", "--json", "--host", "vm-a"]);
     const hint = hintOf(first.out);
-    expect(hint).toBe(`rig whoami --json --all-peers --host 'vm-a' --node-id 'node-remote'`);
+    expect(hint).toBe(`SoftwareTeam whoami --json --all-peers --host 'vm-a' --node-id 'node-remote'`);
     remoteEnv = {};
     const all = JSON.parse((await origin(shellWords(hint).slice(1))).out);
     expect(all.identity.nodeId).toBe(REMOTE.nodeId);
@@ -195,7 +195,7 @@ describe("rig whoami --json --host (SSH): the full-peer-list hint reaches the sa
   it("controls: local, switch off, --all-peers, errors and plain output are unchanged", async () => {
     // Local: the hint stays the local command.
     const local = await origin(["whoami", "--json", "--session", LOCAL.session]);
-    expect(hintOf(local.out)).toBe(`rig whoami --json --all-peers --session 'local-impl@big'`);
+    expect(hintOf(local.out)).toBe(`SoftwareTeam whoami --json --all-peers --session 'local-impl@big'`);
     // Over SSH, everything that isn't a bounded note passes through byte for byte.
     const passthrough = async (args: string[]) => {
       let remoteOut = "";
@@ -204,11 +204,11 @@ describe("rig whoami --json --host (SSH): the full-peer-list hint reaches the sa
       remoteOverride = null;
       return { r, remoteOut };
     };
-    vi.stubEnv("OPENRIG_OUTPUT_COMPACT", ""); // switch off: unbounded
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", ""); // switch off: unbounded
     let { r, remoteOut } = await passthrough(["whoami", "--json", "--host", "vm-a", "--session", REMOTE.session]);
     expect(r.out).toBe(remoteOut);
     expect(JSON.parse(r.out).peers).toHaveLength(12);
-    vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
     ({ r, remoteOut } = await passthrough(["whoami", "--json", "--all-peers", "--host", "vm-a", "--session", REMOTE.session]));
     expect(r.out).toBe(remoteOut);
     ({ r, remoteOut } = await passthrough(["whoami", "--json", "--host", "vm-a", "--session", "nobody@big"])); // a remote error
@@ -222,7 +222,7 @@ describe("rig whoami --json --host (SSH): the full-peer-list hint reaches the sa
 
   it("older, unbounded or malformed remote output is passed through, never rejected or turned into a success", async () => {
     const cases: Array<[string, (s: string) => string]> = [
-      ["not JSON", () => "rig: unknown option --all-peers\n"],
+      ["not JSON", () => "softwareTeam: unknown option --all-peers\n"],
       ["an older remote (no peersOmitted)", (s) => { const o = JSON.parse(s); delete o.peersOmitted; return JSON.stringify(o); }],
       ["a note in another form", (s) => { const o = JSON.parse(s); o.peersNote = "peers trimmed; ask the operator"; return JSON.stringify(o); }],
       ["the command named twice", (s) => { const o = JSON.parse(s); o.peersNote = `${o.peersNote} ${o.peersNote}`; return JSON.stringify(o); }],
@@ -239,20 +239,20 @@ describe("rig whoami --json --host (SSH): the full-peer-list hint reaches the sa
 
   it("withOriginPeersCommand replaces only the remote's own command in a bounded note, escaped as the JSON carries it", () => {
     const opts = { session: `a"b'c d@big`, json: true };
-    const remote = `rig whoami --json --all-peers --session ${shellQuote(opts.session)}`;
+    const remote = `SoftwareTeam whoami --json --all-peers --session ${shellQuote(opts.session)}`;
     const body = { identity: { nodeId: "n" }, peersOmitted: 3, peersNote: `peers = 8 of 11; 3 not shown; all: ${remote}; edges = ...` };
     const out = withOriginPeersCommand(JSON.stringify(body), "vm-a", opts as never);
-    expect(JSON.parse(out).peersNote).toBe(`peers = 8 of 11; 3 not shown; all: rig whoami --json --all-peers --host 'vm-a' --session ${shellQuote(opts.session)}; edges = ...`);
-    expect(shellWords(/all: ([^;]*);/.exec(JSON.parse(out).peersNote)![1]!)).toEqual(["rig", "whoami", "--json", "--all-peers", "--host", "vm-a", "--session", opts.session]);
+    expect(JSON.parse(out).peersNote).toBe(`peers = 8 of 11; 3 not shown; all: SoftwareTeam whoami --json --all-peers --host 'vm-a' --session ${shellQuote(opts.session)}; edges = ...`);
+    expect(shellWords(/all: ([^;]*);/.exec(JSON.parse(out).peersNote)![1]!)).toEqual(["SoftwareTeam", "whoami", "--json", "--all-peers", "--host", "vm-a", "--session", opts.session]);
     const pretty = JSON.stringify(body, null, 2);
     expect(withOriginPeersCommand(pretty, "vm-a", opts as never)).toBe(pretty.replace(JSON.stringify(`all: ${remote};`).slice(1, -1),
-      JSON.stringify(`all: rig whoami --json --all-peers --host 'vm-a' --session ${shellQuote(opts.session)};`).slice(1, -1)));
+      JSON.stringify(`all: SoftwareTeam whoami --json --all-peers --host 'vm-a' --session ${shellQuote(opts.session)};`).slice(1, -1)));
     expect(withOriginPeersCommand(JSON.stringify({ ...body, peersOmitted: 0 }), "vm-a", opts as never)).toBe(JSON.stringify({ ...body, peersOmitted: 0 }));
   });
 
   it("F1: only the note's own value is rewritten; differently encoded or ambiguous output passes through byte for byte", () => {
     const opts = { session: "dev-impl@big", json: true };
-    const remote = `rig whoami --json --all-peers --session 'dev-impl@big'`;
+    const remote = `SoftwareTeam whoami --json --all-peers --session 'dev-impl@big'`;
     const note = `peers = 8 of 11; 3 not shown; all: ${remote}; edges = ...`;
     const escaped = JSON.stringify(note).replace(/ /g, "\\u0020"); // the note's command with Unicode escapes
     // The reviewer's case: the note carries the command escaped, another field carries it literally.
@@ -268,7 +268,7 @@ describe("rig whoami --json --host (SSH): the full-peer-list hint reaches the sa
     // The canonical note alone, with the command literal elsewhere too: only the note changes.
     const plain = JSON.stringify({ identity: { nodeId: "n" }, peersOmitted: 3, peersNote: note, debug: `ran: all: ${remote};` });
     const out = withOriginPeersCommand(plain, "vm-a", opts as never);
-    expect(JSON.parse(out)).toEqual({ ...JSON.parse(plain), peersNote: note.replace(remote, `rig whoami --json --all-peers --host 'vm-a' --session 'dev-impl@big'`) });
+    expect(JSON.parse(out)).toEqual({ ...JSON.parse(plain), peersNote: note.replace(remote, `SoftwareTeam whoami --json --all-peers --host 'vm-a' --session 'dev-impl@big'`) });
     expect(out.replace(/"peersNote":"[^"]*"/, "")).toBe(plain.replace(/"peersNote":"[^"]*"/, "")); // every other byte kept
   });
 });

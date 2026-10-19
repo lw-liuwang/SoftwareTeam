@@ -3,16 +3,16 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { verifyCodexProfileLoads } from "../src/domain/codex-profile-preflight.js";
-import { verifyCodexProfiles } from "../src/domain/rigspec-preflight.js";
-import type { RigSpec as PodRigSpec } from "../src/domain/types.js";
+import { verifyCodexProfiles } from "../src/domain/software-team-spec-preflight.js";
+import type { SoftwareTeamSpec as PodSoftwareTeamSpec } from "../src/domain/types.js";
 
 describe("verifyCodexProfileLoads", () => {
   it("PASS: valid profile loads successfully", async () => {
     const exec = vi.fn(async () => "");
-    const result = await verifyCodexProfileLoads("openrig_pm", exec);
+    const result = await verifyCodexProfileLoads("softwareteam_pm", exec);
     expect(result.ok).toBe(true);
-    expect(result.profile).toBe("openrig_pm");
-    expect(exec).toHaveBeenCalledWith("codex -p openrig_pm mcp list");
+    expect(result.profile).toBe("softwareteam_pm");
+    expect(exec).toHaveBeenCalledWith("codex -p softwareteam_pm mcp list");
   });
 
   it("PASS: missing profile file (Codex treats absent .config.toml as valid default-config layering)", async () => {
@@ -27,14 +27,14 @@ describe("verifyCodexProfileLoads", () => {
 
   it("FAIL: legacy [profiles.<name>] table blocks loading (the headline discriminator)", async () => {
     const exec = vi.fn(async () => {
-      throw new Error("Error: failed to load configuration: --profile openrig_pm cannot be used while config.toml contains legacy [profiles.openrig_pm] config; move those settings into ~/.codex/openrig_pm.config.toml and remove the legacy selector/table.");
+      throw new Error("Error: failed to load configuration: --profile softwareteam_pm cannot be used while config.toml contains legacy [profiles.softwareteam_pm] config; move those settings into ~/.codex/softwareteam_pm.config.toml and remove the legacy selector/table.");
     });
-    const result = await verifyCodexProfileLoads("openrig_pm", exec);
+    const result = await verifyCodexProfileLoads("softwareteam_pm", exec);
     expect(result.ok).toBe(false);
     expect(result.error).toContain("failed to load");
     expect(result.migrationHint).toContain("Move the profile settings");
-    expect(result.migrationHint).toContain("openrig_pm.config.toml");
-    expect(result.migrationHint).toContain("[profiles.openrig_pm]");
+    expect(result.migrationHint).toContain("softwareteam_pm.config.toml");
+    expect(result.migrationHint).toContain("[profiles.softwareteam_pm]");
   });
 
   it("FAIL: captures stderr from execSync-style errors (err.stderr)", async () => {
@@ -83,10 +83,10 @@ describe("verifyCodexProfileLoads", () => {
   });
 });
 
-describe("verifyCodexProfiles (rigspec integration)", () => {
-  function makeSpec(members: Array<{ id: string; runtime: string; codexConfigProfile?: string }>): PodRigSpec {
+describe("verifyCodexProfiles (software-team-spec integration)", () => {
+  function makeSpec(members: Array<{ id: string; runtime: string; codexConfigProfile?: string }>): PodSoftwareTeamSpec {
     return {
-      name: "test-rig",
+      name: "test-software-team",
       version: "0.2",
       pods: [{
         id: "dev",
@@ -101,7 +101,7 @@ describe("verifyCodexProfiles (rigspec integration)", () => {
         edges: [],
       }],
       edges: [],
-    } as unknown as PodRigSpec;
+    } as unknown as PodSoftwareTeamSpec;
   }
 
   it("skips non-codex members", async () => {
@@ -127,11 +127,11 @@ describe("verifyCodexProfiles (rigspec integration)", () => {
   it("probes codex member with a profile", async () => {
     const exec = vi.fn(async () => "");
     const errors = await verifyCodexProfiles(
-      makeSpec([{ id: "impl", runtime: "codex", codexConfigProfile: "openrig_pm" }]),
+      makeSpec([{ id: "impl", runtime: "codex", codexConfigProfile: "softwareteam_pm" }]),
       exec,
     );
     expect(errors).toHaveLength(0);
-    expect(exec).toHaveBeenCalledWith("codex -p openrig_pm mcp list");
+    expect(exec).toHaveBeenCalledWith("codex -p softwareteam_pm mcp list");
   });
 
   it("dedupes same profile across multiple members", async () => {

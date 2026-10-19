@@ -23,7 +23,7 @@ import { ProjectTreeView } from "../src/components/project/ProjectTreeView.js";
 import { SliceScopePage } from "../src/components/project/ScopePages.js";
 import { TopologyTableView } from "../src/components/topology/TopologyTableView.js";
 import { TopologyTerminalView } from "../src/components/topology/TopologyTerminalView.js";
-import { RigScopePage } from "../src/components/topology/ScopePages.js";
+import { SoftwareTeamScopePage } from "../src/components/topology/ScopePages.js";
 import { DiscoveryPanel } from "../src/components/DiscoveryPanel.js";
 import { useClearPlacementOnHostSwitch } from "../src/hooks/useHosts.js";
 
@@ -58,8 +58,8 @@ const HOSTS_TWO: HostsPayload = {
   ownName: "Linkpix Proof Host",
   selected: "local",
   hosts: [
-    { id: "vps-a", transport: "http", url: "http://vps-a:7433", selected: false, status: "reachable" },
-    { id: "vps-b", transport: "http", url: "http://vps-b:7433", selected: false, status: "unreachable" },
+    { id: "vps-a", transport: "http", url: "http://vps-a:7434", selected: false, status: "reachable" },
+    { id: "vps-b", transport: "http", url: "http://vps-b:7434", selected: false, status: "unreachable" },
   ],
 };
 
@@ -91,9 +91,9 @@ function renderWithRouter(node: () => ReactElement) {
     routeTree: rootRoute.addChildren([
       indexRoute,
       mk("/topology"),
-      mk("/topology/rig/$rigId"),
-      mk("/topology/pod/$rigId/$podName"),
-      mk("/topology/seat/$rigId/$logicalId"),
+      mk("/topology/softwareTeam/$softwareTeamId"),
+      mk("/topology/pod/$softwareTeamId/$podName"),
+      mk("/topology/seat/$softwareTeamId/$logicalId"),
     ]),
     history: createMemoryHistory({ initialEntries: ["/"] }),
   });
@@ -174,7 +174,7 @@ describe("TopologyTreeView host level (FR-1)", () => {
       expect(screen.getByTestId("topology-host-vps-a").getAttribute("data-selected")).toBe("true"),
     );
     expect(screen.getByTestId("topology-host-localhost").getAttribute("data-selected")).toBe("false");
-    // the archived-rigs read is not allowlisted — no Archive under a remote host
+    // the archived-softwareTeams read is not allowlisted — no Archive under a remote host
     expect(screen.queryByTestId("topology-archive-section")).toBeNull();
   });
 });
@@ -544,22 +544,22 @@ describe("rev1-r2 B1/B2 — remote action gates (topology table / terminal grid 
     if (OriginalEventSource) globalThis.EventSource = OriginalEventSource;
   });
 
-  const RIG_SUMMARY = [{ id: "r1", name: "rig-one", nodeCount: 1 }];
+  const SOFTWARE_TEAM_SUMMARY = [{ id: "r1", name: "software-team-one", nodeCount: 1 }];
   const NODES_R1 = [
     {
       logicalId: "a1",
       nodeKind: "agent",
-      canonicalSessionName: "a1@rig-one",
+      canonicalSessionName: "a1@software-team-one",
       runtime: "claude-code",
       sessionStatus: "running",
       startupStatus: "ready",
     },
   ];
   const NODE_DETAIL_MIN = {
-    rigId: "r1", rigName: "rig-one", logicalId: "a1", podId: null,
-    canonicalSessionName: "a1@rig-one", nodeKind: "agent", runtime: "claude-code",
+    softwareTeamId: "r1", softwareTeamName: "software-team-one", logicalId: "a1", podId: null,
+    canonicalSessionName: "a1@software-team-one", nodeKind: "agent", runtime: "claude-code",
     sessionStatus: "running", startupStatus: "ready", restoreOutcome: "n-a",
-    tmuxAttachCommand: "tmux attach -t a1@rig-one", resumeCommand: null,
+    tmuxAttachCommand: "tmux attach -t a1@software-team-one", resumeCommand: null,
     recoveryGuidance: null, latestError: null, model: null, agentRef: null,
     profile: null, resolvedSpecName: null, resolvedSpecVersion: null, cwd: null,
     startupFiles: [], startupActions: [], recentEvents: [],
@@ -577,7 +577,7 @@ describe("rev1-r2 B1/B2 — remote action gates (topology table / terminal grid 
     return {
       ownName: "Linkpix Proof Host",
       selected,
-      hosts: [{ id: "vps-a", transport: "http", url: "http://vps-a:7433", selected: selected === "vps-a", status: "reachable" }],
+      hosts: [{ id: "vps-a", transport: "http", url: "http://vps-a:7434", selected: selected === "vps-a", status: "reachable" }],
     };
   }
 
@@ -588,7 +588,7 @@ describe("rev1-r2 B1/B2 — remote action gates (topology table / terminal grid 
       if (u.startsWith("/api/hosts")) {
         return { ok: true, json: async () => hostsPayload(hostsSelected) };
       }
-      if (u.startsWith("/api/rigs/summary")) return { ok: true, json: async () => RIG_SUMMARY };
+      if (u.startsWith("/api/software-teams/summary")) return { ok: true, json: async () => SOFTWARE_TEAM_SUMMARY };
       if (u.includes("/nodes/")) return { ok: true, json: async () => NODE_DETAIL_MIN };
       if (u.includes("/nodes")) return { ok: true, json: async () => NODES_R1 };
       if (u.includes("/api/specs/library")) return { ok: true, json: async () => [] };
@@ -607,13 +607,13 @@ describe("rev1-r2 B1/B2 — remote action gates (topology table / terminal grid 
     qc.setQueryData(["hosts"], {
       ownName: "Linkpix Proof Host",
       selected,
-      hosts: [{ id: "vps-a", transport: "http", url: "http://vps-a:7433", selected: selected === "vps-a", status: "reachable" }],
+      hosts: [{ id: "vps-a", transport: "http", url: "http://vps-a:7434", selected: selected === "vps-a", status: "reachable" }],
     });
     const rootRoute = createRootRoute({ component: () => <Outlet /> });
     const nodePath = opts.path ?? "/";
     const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: nodePath, component: node });
     const mk = (path: string) => createRoute({ getParentRoute: () => rootRoute, path, component: () => null });
-    const extras = ["/topology", "/topology/rig/$rigId", "/topology/seat/$rigId/$logicalId", "/rigs/$rigId", "$"]
+    const extras = ["/topology", "/topology/softwareTeam/$softwareTeamId", "/topology/seat/$softwareTeamId/$logicalId", "/software-teams/$softwareTeamId", "$"]
       .filter((p) => p !== nodePath)
       .map(mk);
     const router = createRouter({
@@ -661,7 +661,7 @@ describe("rev1-r2 B1/B2 — remote action gates (topology table / terminal grid 
     expect(postCalls()).toEqual([]);
   });
 
-  it("TopologyTerminalView local CONTROL: the rig picker renders", async () => {
+  it("TopologyTerminalView local CONTROL: the SoftwareTeam picker renders", async () => {
     wireB1Fetch();
     renderPrimed(() => <TopologyTerminalView scope="host" />, LOCAL_HOST_ID);
     await waitFor(() => expect(screen.getByTestId("topology-terminal-host-picker")).toBeTruthy());
@@ -669,7 +669,7 @@ describe("rev1-r2 B1/B2 — remote action gates (topology table / terminal grid 
   });
 
   const SLICE_TOPOLOGY = {
-    affectedRigs: [{ rigId: "r1", rigName: "rig-one", sessionNames: ["a1@rig-one"] }],
+    affectedSoftwareTeams: [{ softwareTeamId: "r1", softwareTeamName: "software-team-one", sessionNames: ["a1@software-team-one"] }],
     totalSeats: 1,
     specGraph: null,
   } as Parameters<typeof TopologyTab>[0]["topology"];
@@ -677,20 +677,20 @@ describe("rev1-r2 B1/B2 — remote action gates (topology table / terminal grid 
   it("slice TopologyTab remote: seat rows read-only — NO preview toggle (click-to-live is a local session read)", async () => {
     wireB1Fetch();
     renderPrimed(() => <TopologyTab topology={SLICE_TOPOLOGY} />, "vps-a");
-    await waitFor(() => expect(screen.getByTestId("topology-seat-a1@rig-one")).toBeTruthy());
-    expect(screen.getByTestId("topology-seat-a1@rig-one").getAttribute("data-remote-readonly")).toBe("true");
-    expect(screen.queryByTestId("topology-seat-a1@rig-one-toggle")).toBeNull();
+    await waitFor(() => expect(screen.getByTestId("topology-seat-a1@software-team-one")).toBeTruthy());
+    expect(screen.getByTestId("topology-seat-a1@software-team-one").getAttribute("data-remote-readonly")).toBe("true");
+    expect(screen.queryByTestId("topology-seat-a1@software-team-one-toggle")).toBeNull();
   });
 
   it("slice TopologyTab local CONTROL: the preview toggle renders", async () => {
     wireB1Fetch();
     renderPrimed(() => <TopologyTab topology={SLICE_TOPOLOGY} />, LOCAL_HOST_ID);
-    await waitFor(() => expect(screen.getByTestId("topology-seat-a1@rig-one-toggle")).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("topology-seat-a1@software-team-one-toggle")).toBeTruthy());
   });
 
   it("seat page remote (B1+B2): host-keyed detail fetch, NO bare local URL, actions row read-only, inline terminal gated, ZERO POSTs", async () => {
     wireB1Fetch();
-    renderPrimed(() => <LiveNodeDetails rigId="r1" logicalId="a1" />, "vps-a");
+    renderPrimed(() => <LiveNodeDetails softwareTeamId="r1" logicalId="a1" />, "vps-a");
     await waitFor(() => expect(screen.getByTestId("live-node-actions-remote-readonly")).toBeTruthy());
     // B1: no local action affordances, terminal honestly gated
     expect(screen.queryByTestId("detail-cmux-open")).toBeNull();
@@ -699,40 +699,40 @@ describe("rev1-r2 B1/B2 — remote action gates (topology table / terminal grid 
     // B2: the detail read rides the host envelope; the bare local URL never fires
     const detailCalls = mockFetch.mock.calls.map(([u]) => String(u)).filter((u) => u.includes("/nodes/a1"));
     expect(detailCalls.length).toBeGreaterThan(0);
-    expect(detailCalls.every((u) => u === "/api/rigs/r1/nodes/a1?host=vps-a")).toBe(true);
+    expect(detailCalls.every((u) => u === "/api/software-teams/r1/nodes/a1?host=vps-a")).toBe(true);
     expect(postCalls()).toEqual([]);
   });
 
   it("seat page local CONTROL: bare detail URL + the cmux action renders", async () => {
     wireB1Fetch();
-    renderPrimed(() => <LiveNodeDetails rigId="r1" logicalId="a1" />, LOCAL_HOST_ID);
+    renderPrimed(() => <LiveNodeDetails softwareTeamId="r1" logicalId="a1" />, LOCAL_HOST_ID);
     await waitFor(() => expect(screen.getByTestId("detail-cmux-open")).toBeTruthy());
     expect(screen.queryByTestId("live-node-actions-remote-readonly")).toBeNull();
     const detailCalls = mockFetch.mock.calls.map(([u]) => String(u)).filter((u) => u.includes("/nodes/a1"));
     expect(detailCalls.length).toBeGreaterThan(0);
-    expect(detailCalls.every((u) => u === "/api/rigs/r1/nodes/a1")).toBe(true);
+    expect(detailCalls.every((u) => u === "/api/software-teams/r1/nodes/a1")).toBe(true);
   });
 
   // ── rev1-r2 RE-VERDICT B1 — the restore/launch class + the enumerated
   // same-class refresh affordance (mutation-verb enumeration, not feature
-  // family). RigGraph's placement-target sibling lives in rig-graph.test.tsx
+  // family). SoftwareTeamGraph's placement-target sibling lives in software-team-graph.test.tsx
   // next to its local-positive control.
 
-  const RIG_STATUS = {
-    // rigId rides IN the response — RigStatusCard testids derive from
-    // status.rigId, not the page param (run-4 field find: omitting it
-    // renders rig-primary-action-undefined).
-    rigId: "r1", rigName: "rig-one", isKernel: false, status: "down",
+  const SOFTWARE_TEAM_STATUS = {
+    // softwareTeamId rides IN the response — SoftwareTeamStatusCard testids derive from
+    // status.softwareTeamId, not the page param (run-4 field find: omitting it
+    // renders software-team-primary-action-undefined).
+    softwareTeamId: "r1", softwareTeamName: "software-team-one", isKernel: false, status: "down",
     seatsTotal: 1, seatsRunning: 0, recoverable: true, perSeat: [], src: ["daemon"],
   };
 
-  function wireRigScopeFetch(hostsSelected: string = LOCAL_HOST_ID) {
+  function wireSoftwareTeamScopeFetch(hostsSelected: string = LOCAL_HOST_ID) {
     mockFetch.mockImplementation(async (url: string, init?: RequestInit) => {
       if (init?.method === "POST") return { ok: true, json: async () => ({ ok: true }) };
       const u = String(url);
       if (u.startsWith("/api/hosts")) return { ok: true, json: async () => hostsPayload(hostsSelected) };
-      if (u.startsWith("/api/rigs/summary")) return { ok: true, json: async () => RIG_SUMMARY };
-      if (u.includes("/status")) return { ok: true, json: async () => RIG_STATUS };
+      if (u.startsWith("/api/software-teams/summary")) return { ok: true, json: async () => SOFTWARE_TEAM_SUMMARY };
+      if (u.includes("/status")) return { ok: true, json: async () => SOFTWARE_TEAM_STATUS };
       if (u.includes("/graph")) return { ok: true, json: async () => ({ nodes: [], edges: [] }) };
       if (u.includes("/nodes/")) return { ok: true, json: async () => NODE_DETAIL_MIN };
       if (u.includes("/nodes")) return { ok: true, json: async () => NODES_R1 };
@@ -740,23 +740,23 @@ describe("rev1-r2 B1/B2 — remote action gates (topology table / terminal grid 
     });
   }
 
-  it("rig-scope remote: NO restore/launch control (honest marker), NO rig-primary-action, NO bare local status read, ZERO POSTs", async () => {
-    wireRigScopeFetch("vps-a");
-    renderPrimed(() => <RigScopePage />, "vps-a", { path: "/topology/rig/$rigId", entry: "/topology/rig/r1" });
-    await waitFor(() => expect(screen.getByTestId("rig-status-remote-readonly")).toBeTruthy());
-    expect(document.querySelector('[data-testid^="rig-primary-action"]')).toBeNull();
+  it("software-team-scope remote: NO restore/launch control (honest marker), NO software-team-primary-action, NO bare local status read, ZERO POSTs", async () => {
+    wireSoftwareTeamScopeFetch("vps-a");
+    renderPrimed(() => <SoftwareTeamScopePage />, "vps-a", { path: "/topology/softwareTeam/$softwareTeamId", entry: "/topology/softwareTeam/r1" });
+    await waitFor(() => expect(screen.getByTestId("software-team-status-remote-readonly")).toBeTruthy());
+    expect(document.querySelector('[data-testid^="software-team-primary-action"]')).toBeNull();
     const statusCalls = mockFetch.mock.calls.map(([u]) => String(u)).filter((u) => u.includes("/status"));
     expect(statusCalls).toEqual([]);
     expect(postCalls()).toEqual([]);
   });
 
-  it("rig-scope local CONTROL: RigStatusControl mounts — status read fires + the primary action renders", async () => {
-    wireRigScopeFetch();
-    renderPrimed(() => <RigScopePage />, LOCAL_HOST_ID, { path: "/topology/rig/$rigId", entry: "/topology/rig/r1" });
-    await waitFor(() => expect(screen.getByTestId("rig-primary-action-r1")).toBeTruthy());
-    expect(screen.queryByTestId("rig-status-remote-readonly")).toBeNull();
+  it("software-team-scope local CONTROL: SoftwareTeamStatusControl mounts — status read fires + the primary action renders", async () => {
+    wireSoftwareTeamScopeFetch();
+    renderPrimed(() => <SoftwareTeamScopePage />, LOCAL_HOST_ID, { path: "/topology/softwareTeam/$softwareTeamId", entry: "/topology/softwareTeam/r1" });
+    await waitFor(() => expect(screen.getByTestId("software-team-primary-action-r1")).toBeTruthy());
+    expect(screen.queryByTestId("software-team-status-remote-readonly")).toBeNull();
     const statusCalls = mockFetch.mock.calls.map(([u]) => String(u)).filter((u) => u.includes("/status"));
-    expect(statusCalls).toContain("/api/rigs/r1/status");
+    expect(statusCalls).toContain("/api/software-teams/r1/status");
   });
 
   it("project tree remote: the local rescan (refresh) affordance never renders", async () => {
@@ -786,7 +786,7 @@ describe("rev1-r2 B1/B2 — remote action gates (topology table / terminal grid 
     const nodePath = opts.path ?? "/";
     const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: nodePath, component: node });
     const mk = (path: string) => createRoute({ getParentRoute: () => rootRoute, path, component: () => null });
-    const extras = ["/topology", "/topology/rig/$rigId", "/topology/seat/$rigId/$logicalId", "/rigs/$rigId", "$"]
+    const extras = ["/topology", "/topology/softwareTeam/$softwareTeamId", "/topology/seat/$softwareTeamId/$logicalId", "/software-teams/$softwareTeamId", "$"]
       .filter((p) => p !== nodePath)
       .map(mk);
     const router = createRouter({
@@ -803,21 +803,21 @@ describe("rev1-r2 B1/B2 — remote action gates (topology table / terminal grid 
     };
   }
 
-  it("rig-scope UNKNOWN selection (never-resolving /api/hosts): NO local lifecycle controls, NO bare status read, pending marker only (guard tri-state)", async () => {
+  it("software-team-scope UNKNOWN selection (never-resolving /api/hosts): NO local lifecycle controls, NO bare status read, pending marker only (guard tri-state)", async () => {
     mockFetch.mockImplementation(async (url: string, init?: RequestInit) => {
       if (init?.method === "POST") return { ok: true, json: async () => ({ ok: true }) };
       const u = String(url);
       if (u.startsWith("/api/hosts")) return new Promise(() => {}); // never resolves — selection stays UNKNOWN
-      if (u.startsWith("/api/rigs/summary")) return { ok: true, json: async () => RIG_SUMMARY };
-      if (u.includes("/status")) return { ok: true, json: async () => RIG_STATUS };
+      if (u.startsWith("/api/software-teams/summary")) return { ok: true, json: async () => SOFTWARE_TEAM_SUMMARY };
+      if (u.includes("/status")) return { ok: true, json: async () => SOFTWARE_TEAM_STATUS };
       if (u.includes("/graph")) return { ok: true, json: async () => ({ nodes: [], edges: [] }) };
       return { ok: true, json: async () => ({}) };
     });
-    renderUnprimed(() => <RigScopePage />, { path: "/topology/rig/$rigId", entry: "/topology/rig/r1" });
-    await waitFor(() => expect(screen.getByTestId("rig-status-selection-pending")).toBeTruthy());
-    expect(document.querySelector('[data-testid^="rig-primary-action"]')).toBeNull();
-    expect(document.querySelector('[data-testid^="rig-status-control"]')).toBeNull();
-    expect(screen.queryByTestId("rig-status-remote-readonly")).toBeNull();
+    renderUnprimed(() => <SoftwareTeamScopePage />, { path: "/topology/softwareTeam/$softwareTeamId", entry: "/topology/softwareTeam/r1" });
+    await waitFor(() => expect(screen.getByTestId("software-team-status-selection-pending")).toBeTruthy());
+    expect(document.querySelector('[data-testid^="software-team-primary-action"]')).toBeNull();
+    expect(document.querySelector('[data-testid^="software-team-status-control"]')).toBeNull();
+    expect(screen.queryByTestId("software-team-status-remote-readonly")).toBeNull();
     const statusCalls = mockFetch.mock.calls.map(([u]) => String(u)).filter((u) => u.includes("/status"));
     expect(statusCalls).toEqual([]);
     expect(postCalls()).toEqual([]);
@@ -825,7 +825,7 @@ describe("rev1-r2 B1/B2 — remote action gates (topology table / terminal grid 
 
   const ELIGIBLE_NODE_TARGET = {
     kind: "node" as const,
-    rigId: "r1",
+    softwareTeamId: "r1",
     logicalId: "a1",
     eligible: true,
   };
@@ -842,7 +842,7 @@ describe("rev1-r2 B1/B2 — remote action gates (topology table / terminal grid 
           tmuxWindow: "0",
           tmuxPane: "%7",
           pid: 111,
-          cwd: "/Users/example/code/openrig",
+          cwd: "/Users/example/code/softwareteam",
           activeCommand: "codex",
           runtimeHint: "codex",
           confidence: "high",
@@ -911,7 +911,7 @@ describe("rev1-r2 B1/B2 — remote action gates (topology table / terminal grid 
     qc.setQueryData(["hosts"], {
       ownName: "Linkpix Proof Host",
       selected: "local",
-      hosts: [{ id: "vps-a", transport: "http", url: "http://vps-a:7433", selected: false, status: "reachable" }],
+      hosts: [{ id: "vps-a", transport: "http", url: "http://vps-a:7434", selected: false, status: "reachable" }],
     });
     render(
       <QueryClientProvider client={qc}>
@@ -924,7 +924,7 @@ describe("rev1-r2 B1/B2 — remote action gates (topology table / terminal grid 
     qc.setQueryData(["hosts"], {
       ownName: "Linkpix Proof Host",
       selected: "vps-a",
-      hosts: [{ id: "vps-a", transport: "http", url: "http://vps-a:7433", selected: true, status: "reachable" }],
+      hosts: [{ id: "vps-a", transport: "http", url: "http://vps-a:7434", selected: true, status: "reachable" }],
     });
     await waitFor(() => expect(clear).toHaveBeenCalled());
   });

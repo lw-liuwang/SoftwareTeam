@@ -40,7 +40,7 @@ export function resolveAttachContext(tmuxExec: TmuxExecFn = defaultTmuxExec):
 }
 
 export function attachCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("attach").description("Attach the current shell or agent into a rig node");
+  const cmd = new Command("attach").description("Attach the current shell or agent into a SoftwareTeam node");
   const getDeps = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   async function getClient(deps: StatusDeps): Promise<DaemonClient | null> {
@@ -51,18 +51,18 @@ export function attachCommand(depsOverride?: StatusDeps): Command {
 
   cmd
     .requiredOption("--self", "Attach the current shell/agent (required in v1)")
-    .requiredOption("--rig <rigId>", "Target rig ID")
+    .requiredOption("--software-team <softwareTeamId>", "Target softwareTeam ID")
     .option("--node <logicalId>", "Attach to an existing logical node")
     .option("--pod <namespace>", "Attach by creating a new member in an existing pod")
     .option("--member <name>", "Member name for pod attach mode")
     .option("--runtime <runtime>", "Runtime for pod attach mode; optional guard for node mode")
     .option("--cwd <path>", "Working directory to record", process.cwd())
     .option("--display-name <name>", "External session/display name to record")
-    .option("--print-env", "Print shell exports for OPENRIG_NODE_ID and OPENRIG_SESSION_NAME")
+    .option("--print-env", "Print shell exports for SOFTWARETEAM_NODE_ID and SOFTWARETEAM_SESSION_NAME")
     .option("--json", "JSON output")
     .action(async (opts: {
       self?: boolean;
-      rig: string;
+      softwareTeam: string;
       node?: string;
       pod?: string;
       member?: string;
@@ -73,7 +73,7 @@ export function attachCommand(depsOverride?: StatusDeps): Command {
       json?: boolean;
     }) => {
       if (!opts.self) {
-        console.error("Only --self is supported right now. Use: rig attach --self ...");
+        console.error("Only --self is supported right now. Use: SoftwareTeam attach --self ...");
         process.exitCode = 1;
         return;
       }
@@ -130,7 +130,7 @@ export function attachCommand(depsOverride?: StatusDeps): Command {
         body["memberName"] = opts.member;
       }
 
-      const res = await client.post<Record<string, unknown>>(`/api/rigs/${encodeURIComponent(opts.rig)}/attach-self`, body);
+      const res = await client.post<Record<string, unknown>>(`/api/software-teams/${encodeURIComponent(opts.softwareTeam)}/attach-self`, body);
 
       if (opts.json) {
         console.log(JSON.stringify(res.data, null, 2));
@@ -145,28 +145,28 @@ export function attachCommand(depsOverride?: StatusDeps): Command {
       }
 
       const env = (res.data["env"] ?? {}) as Record<string, unknown>;
-      const nodeId = typeof env["OPENRIG_NODE_ID"] === "string" ? env["OPENRIG_NODE_ID"] : "";
-      const sessionName = typeof env["OPENRIG_SESSION_NAME"] === "string" ? env["OPENRIG_SESSION_NAME"] : "";
+      const nodeId = typeof env["SOFTWARETEAM_NODE_ID"] === "string" ? env["SOFTWARETEAM_NODE_ID"] : "";
+      const sessionName = typeof env["SOFTWARETEAM_SESSION_NAME"] === "string" ? env["SOFTWARETEAM_SESSION_NAME"] : "";
 
       if (opts.printEnv) {
-        console.log(`export OPENRIG_NODE_ID=${shellQuote(nodeId)}`);
-        console.log(`export OPENRIG_SESSION_NAME=${shellQuote(sessionName)}`);
+        console.log(`export SOFTWARETEAM_NODE_ID=${shellQuote(nodeId)}`);
+        console.log(`export SOFTWARETEAM_SESSION_NAME=${shellQuote(sessionName)}`);
         return;
       }
 
       const logicalId = String(res.data["logicalId"] ?? opts.node ?? `${opts.pod}.${opts.member}`);
       if (hasNode) {
-        console.log(`Attached this shell to node ${logicalId} in rig ${opts.rig}`);
+        console.log(`Attached this shell to node ${logicalId} in softwareTeam ${opts.softwareTeam}`);
       } else {
-        console.log(`Created node ${logicalId} and attached this shell in rig ${opts.rig}`);
+        console.log(`Created node ${logicalId} and attached this shell in softwareTeam ${opts.softwareTeam}`);
       }
       console.log(`Session:    ${sessionName}`);
       console.log(`Transport:  ${
         res.data["attachmentType"] === "tmux"
           ? "tmux"
-          : "external_cli (outbound rig commands available; inbound tmux transport unavailable)"
+          : "external_cli (outbound SoftwareTeam commands available; inbound tmux transport unavailable)"
       }`);
-      console.log("Identity:   rerun with --print-env and eval the output to persist OPENRIG_NODE_ID/OPENRIG_SESSION_NAME");
+      console.log("Identity:   rerun with --print-env and eval the output to persist SOFTWARETEAM_NODE_ID/SOFTWARETEAM_SESSION_NAME");
     });
 
   return cmd;

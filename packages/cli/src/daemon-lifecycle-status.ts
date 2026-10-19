@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { join } from "node:path";
-import { OPENRIG_HOME, readOpenRigEnv } from "./openrig-compat.js";
+import { SOFTWARETEAM_HOME, readSoftwareTeamEnv } from "./softwareteam-compat.js";
 
 /** The daemon's lifecycle record (mig-061), read CLI-side for the status render. */
 export interface DaemonLifecycleRecord {
@@ -44,10 +44,10 @@ export function describeLifecycle(record: DaemonLifecycleRecord | null): Lifecyc
  * Returns null if the db/table is absent or unreadable (→ "unknown").
  */
 /** The daemon's db path, resolved the SAME way the daemon resolves it (D15):
- *  explicit OPENRIG_DB/RIGGED_DB wins, else OPENRIG_HOME/openrig.sqlite. Never
+ *  explicit SOFTWARETEAM_DB/SOFTWARETEAM_DB wins, else SOFTWARETEAM_HOME/softwareteam.sqlite. Never
  *  CWD-relative. */
 export function resolveLifecycleDbPath(): string {
-  return readOpenRigEnv("OPENRIG_DB", "RIGGED_DB") || join(OPENRIG_HOME, "openrig.sqlite");
+  return readSoftwareTeamEnv("SOFTWARETEAM_DB") || join(SOFTWARETEAM_HOME, "softwareteam.sqlite");
 }
 
 /** Read + classify the lifecycle record from the resolved db path (crash-surviving). */
@@ -72,7 +72,7 @@ export function readDaemonLifecycle(dbPath: string): DaemonLifecycleRecord | nul
       stoppedAt: row.stopped_at ?? null,
     };
   } catch {
-    return null; // no db / no table / locked → unknown, never a crash of `rig status`
+    return null; // no db / no table / locked → unknown, never a crash of `SoftwareTeam status`
   } finally {
     try {
       db?.close();

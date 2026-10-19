@@ -153,7 +153,7 @@ export function SystemPanel({ onClose, events, initialTab = "log" }: SystemPanel
                       last-tick {healthSignal.evidence.lastTickAgeMs.toFixed(0)}ms
                     </div>
                   )}
-                  <div className="text-on-surface-variant">Controls the local OpenRig daemon connection.</div>
+                  <div className="text-on-surface-variant">Controls the local SoftwareTeam daemon connection.</div>
                 </div>
               </div>
 
@@ -164,7 +164,7 @@ export function SystemPanel({ onClose, events, initialTab = "log" }: SystemPanel
                   <div data-testid="system-cmux-status" className={statusTone(cmuxAvailable)}>
                     {statusLabel(cmuxAvailable, "available", "unavailable")}
                   </div>
-                  <div className="text-on-surface-variant">OpenRig can control cmux surfaces for node open-or-focus.</div>
+                  <div className="text-on-surface-variant">SoftwareTeam can control cmux surfaces for node open-or-focus.</div>
                 </div>
               </div>
             </div>

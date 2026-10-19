@@ -5,7 +5,7 @@ import { join } from "node:path";
 import Database from "better-sqlite3";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 import { migrate } from "../src/db/migrate.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { DiscoveryRepository } from "../src/domain/discovery-repository.js";
@@ -15,13 +15,13 @@ import { StartupOrchestrator } from "../src/domain/startup-orchestrator.js";
 import { RestoreOrchestrator } from "../src/domain/restore-orchestrator.js";
 import { SeatHandoverService } from "../src/domain/seat-handover-service.js";
 import { AppliedLaunchObservationStore } from "../src/domain/applied-launch-observation-store.js";
-import { RigSpecCodec } from "../src/domain/rigspec-codec.js";
-import { RigSpecSchema } from "../src/domain/rigspec-schema.js";
-import { RigSpecExporter } from "../src/domain/rigspec-exporter.js";
+import { SoftwareTeamSpecCodec } from "../src/domain/software-team-spec-codec.js";
+import { SoftwareTeamSpecSchema } from "../src/domain/software-team-spec-schema.js";
+import { SoftwareTeamSpecExporter } from "../src/domain/software-team-spec-exporter.js";
 import { PodRepository } from "../src/domain/pod-repository.js";
 import type { NodeBinding, RuntimeAdapter } from "../src/domain/runtime-adapter.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
-import type { RigSpec } from "../src/domain/types.js";
+import type { SoftwareTeamSpec } from "../src/domain/types.js";
 
 const opened: Database.Database[] = [];
 afterEach(() => {
@@ -44,20 +44,20 @@ function binding(nodeId: string): NodeBinding {
 }
 
 describe("Issue #611 Declarative Permission Policy Precedence & Cascade", () => {
-  it("Level 1: explicit per-seat selection overrides member, rig, and system defaults", () => {
+  it("Level 1: explicit per-seat selection overrides member, softwareTeam, and system defaults", () => {
     const db = createTestDb();
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("test-rig");
-    rigRepo.setRigPermissionPolicy(rig.id, "builtin:auto");
-    rigRepo.setRigPolicyProvenance(rig.id, {
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    softwareTeamRepo.setSoftwareTeamPermissionPolicy(softwareTeam.id, "builtin:auto");
+    softwareTeamRepo.setSoftwareTeamPolicyProvenance(softwareTeam.id, {
       origin: "builtin",
       resolvedTarget: "policies/builtin/auto.policy.md",
       declaringDir: null,
       launchPosture: "auto",
     });
 
-    const node = rigRepo.addNode(rig.id, "worker", { runtime: "claude-code", permissionPolicy: "builtin:locked" });
-    rigRepo.setNodePolicyProvenance(node.id, {
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code", permissionPolicy: "builtin:locked" });
+    softwareTeamRepo.setNodePolicyProvenance(node.id, {
       origin: "builtin",
       resolvedTarget: "policies/builtin/locked.policy.md",
       declaringDir: null,
@@ -66,7 +66,7 @@ describe("Issue #611 Declarative Permission Policy Precedence & Cascade", () => 
 
     const store = new NativePermissionStore(db);
 
-    // Before explicit selection, member-level policy wins over rig
+    // Before explicit selection, member-level policy wins over softwareTeam
     expect(store.resolve(node.id, "claude-code")).toEqual({
       effectiveMode: "acceptEdits",
       source: "member_spec",
@@ -101,10 +101,10 @@ describe("Issue #611 Declarative Permission Policy Precedence & Cascade", () => 
 
   it("Level 2: member-level permission_policy resolves with member_spec source", () => {
     const db = createTestDb();
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "worker", { runtime: "claude-code", permissionPolicy: "builtin:auto" });
-    rigRepo.setNodePolicyProvenance(node.id, {
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code", permissionPolicy: "builtin:auto" });
+    softwareTeamRepo.setNodePolicyProvenance(node.id, {
       origin: "builtin",
       resolvedTarget: "policies/builtin/auto.policy.md",
       declaringDir: null,
@@ -120,12 +120,12 @@ describe("Issue #611 Declarative Permission Policy Precedence & Cascade", () => 
     });
   });
 
-  it("Precedence: member's own permission_policy is NEVER silently outranked by a rig-wide default", () => {
+  it("Precedence: member's own permission_policy is NEVER silently outranked by a software-team-wide default", () => {
     const db = createTestDb();
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("test-rig");
-    rigRepo.setRigPermissionPolicy(rig.id, "builtin:auto");
-    rigRepo.setRigPolicyProvenance(rig.id, {
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    softwareTeamRepo.setSoftwareTeamPermissionPolicy(softwareTeam.id, "builtin:auto");
+    softwareTeamRepo.setSoftwareTeamPolicyProvenance(softwareTeam.id, {
       origin: "builtin",
       resolvedTarget: "policies/builtin/auto.policy.md",
       declaringDir: null,
@@ -133,8 +133,8 @@ describe("Issue #611 Declarative Permission Policy Precedence & Cascade", () => 
     });
 
     // Member declares builtin:locked
-    const lockedNode = rigRepo.addNode(rig.id, "locked-worker", { runtime: "claude-code", permissionPolicy: "builtin:locked" });
-    rigRepo.setNodePolicyProvenance(lockedNode.id, {
+    const lockedNode = softwareTeamRepo.addNode(softwareTeam.id, "locked-worker", { runtime: "claude-code", permissionPolicy: "builtin:locked" });
+    softwareTeamRepo.setNodePolicyProvenance(lockedNode.id, {
       origin: "builtin",
       resolvedTarget: "policies/builtin/locked.policy.md",
       declaringDir: null,
@@ -142,8 +142,8 @@ describe("Issue #611 Declarative Permission Policy Precedence & Cascade", () => 
     });
 
     // Member declares none
-    const noneNode = rigRepo.addNode(rig.id, "none-worker", { runtime: "claude-code", permissionPolicy: "none" });
-    rigRepo.setNodePolicyProvenance(noneNode.id, {
+    const noneNode = softwareTeamRepo.addNode(softwareTeam.id, "none-worker", { runtime: "claude-code", permissionPolicy: "none" });
+    softwareTeamRepo.setNodePolicyProvenance(noneNode.id, {
       origin: "deliberate_none",
       resolvedTarget: null,
       declaringDir: null,
@@ -151,8 +151,8 @@ describe("Issue #611 Declarative Permission Policy Precedence & Cascade", () => 
     });
 
     // Member declares builtin:yolo
-    const yoloNode = rigRepo.addNode(rig.id, "yolo-worker", { runtime: "claude-code", permissionPolicy: "builtin:yolo" });
-    rigRepo.setNodePolicyProvenance(yoloNode.id, {
+    const yoloNode = softwareTeamRepo.addNode(softwareTeam.id, "yolo-worker", { runtime: "claude-code", permissionPolicy: "builtin:yolo" });
+    softwareTeamRepo.setNodePolicyProvenance(yoloNode.id, {
       origin: "builtin",
       resolvedTarget: "policies/builtin/yolo.policy.md",
       declaringDir: null,
@@ -161,14 +161,14 @@ describe("Issue #611 Declarative Permission Policy Precedence & Cascade", () => 
 
     const store = new NativePermissionStore(db);
 
-    // Locked member retains floor acceptEdits despite rig being builtin:auto
+    // Locked member retains floor acceptEdits despite softwareTeam being builtin:auto
     expect(store.resolve(lockedNode.id, "claude-code")).toEqual({
       effectiveMode: "acceptEdits",
       source: "member_spec",
       launchPosture: "floor",
     });
 
-    // None member retains floor acceptEdits despite rig being builtin:auto
+    // None member retains floor acceptEdits despite softwareTeam being builtin:auto
     expect(store.resolve(noneNode.id, "claude-code")).toEqual({
       effectiveMode: "acceptEdits",
       source: "member_spec",
@@ -183,51 +183,51 @@ describe("Issue #611 Declarative Permission Policy Precedence & Cascade", () => 
     });
   });
 
-  it("Level 3: rig-level permission_policy: builtin:auto cascades to seats without member policy", () => {
+  it("Level 3: software-team-level permission_policy: builtin:auto cascades to seats without member policy", () => {
     const db = createTestDb();
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("test-rig");
-    rigRepo.setRigPermissionPolicy(rig.id, "builtin:auto");
-    rigRepo.setRigPolicyProvenance(rig.id, {
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    softwareTeamRepo.setSoftwareTeamPermissionPolicy(softwareTeam.id, "builtin:auto");
+    softwareTeamRepo.setSoftwareTeamPolicyProvenance(softwareTeam.id, {
       origin: "builtin",
       resolvedTarget: "policies/builtin/auto.policy.md",
       declaringDir: null,
       launchPosture: "auto",
     });
 
-    const node = rigRepo.addNode(rig.id, "unspecified-worker", { runtime: "claude-code" });
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "unspecified-worker", { runtime: "claude-code" });
 
     const store = new NativePermissionStore(db);
     expect(store.resolve(node.id, "claude-code")).toEqual({
       effectiveMode: "auto",
-      source: "rig_spec",
+      source: "software_team_spec",
       launchPosture: "auto",
       permissionMode: "auto",
     });
   });
 
-  it("Heterogeneous rig safety: Codex seats safely fall back to floor on a builtin:auto rig", () => {
+  it("Heterogeneous SoftwareTeam safety: Codex seats safely fall back to floor on a builtin:auto softwareTeam", () => {
     const db = createTestDb();
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("hetero-rig");
-    rigRepo.setRigPermissionPolicy(rig.id, "builtin:auto");
-    rigRepo.setRigPolicyProvenance(rig.id, {
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("hetero-software-team");
+    softwareTeamRepo.setSoftwareTeamPermissionPolicy(softwareTeam.id, "builtin:auto");
+    softwareTeamRepo.setSoftwareTeamPolicyProvenance(softwareTeam.id, {
       origin: "builtin",
       resolvedTarget: "policies/builtin/auto.policy.md",
       declaringDir: null,
       launchPosture: "auto",
     });
 
-    const claudeNode = rigRepo.addNode(rig.id, "claude-lead", { runtime: "claude-code" });
-    const codexNode = rigRepo.addNode(rig.id, "codex-dev", { runtime: "codex" });
-    const codexExplicitAuto = rigRepo.addNode(rig.id, "codex-auto", { runtime: "codex", permissionPolicy: "builtin:auto" });
+    const claudeNode = softwareTeamRepo.addNode(softwareTeam.id, "claude-lead", { runtime: "claude-code" });
+    const codexNode = softwareTeamRepo.addNode(softwareTeam.id, "codex-dev", { runtime: "codex" });
+    const codexExplicitAuto = softwareTeamRepo.addNode(softwareTeam.id, "codex-auto", { runtime: "codex", permissionPolicy: "builtin:auto" });
 
     const store = new NativePermissionStore(db);
 
     // Claude seat gets auto
     expect(store.resolve(claudeNode.id, "claude-code")).toEqual({
       effectiveMode: "auto",
-      source: "rig_spec",
+      source: "software_team_spec",
       launchPosture: "auto",
       permissionMode: "auto",
     });
@@ -235,7 +235,7 @@ describe("Issue #611 Declarative Permission Policy Precedence & Cascade", () => 
     // Codex seat falls back to floor because Codex does not support --permission-mode auto
     expect(store.resolve(codexNode.id, "codex")).toEqual({
       effectiveMode: "floor",
-      source: "rig_spec",
+      source: "software_team_spec",
       launchPosture: "floor",
       fallbackReason: "Codex has no auto mode and launches at the floor",
     });
@@ -249,26 +249,26 @@ describe("Issue #611 Declarative Permission Policy Precedence & Cascade", () => 
     });
   });
 
-  it("Heterogeneous rig safety: Pi seats safely fall back to floor on a builtin:auto rig", () => {
+  it("Heterogeneous SoftwareTeam safety: Pi seats safely fall back to floor on a builtin:auto softwareTeam", () => {
     const db = createTestDb();
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("pi-hetero-rig");
-    rigRepo.setRigPermissionPolicy(rig.id, "builtin:auto");
-    rigRepo.setRigPolicyProvenance(rig.id, {
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("pi-hetero-software-team");
+    softwareTeamRepo.setSoftwareTeamPermissionPolicy(softwareTeam.id, "builtin:auto");
+    softwareTeamRepo.setSoftwareTeamPolicyProvenance(softwareTeam.id, {
       origin: "builtin",
       resolvedTarget: "policies/builtin/auto.policy.md",
       declaringDir: null,
       launchPosture: "auto",
     });
 
-    const piNode = rigRepo.addNode(rig.id, "pi-dev", { runtime: "pi" });
-    const piExplicitAuto = rigRepo.addNode(rig.id, "pi-auto", { runtime: "pi", permissionPolicy: "builtin:auto" });
+    const piNode = softwareTeamRepo.addNode(softwareTeam.id, "pi-dev", { runtime: "pi" });
+    const piExplicitAuto = softwareTeamRepo.addNode(softwareTeam.id, "pi-auto", { runtime: "pi", permissionPolicy: "builtin:auto" });
 
     const store = new NativePermissionStore(db);
 
     expect(store.resolve(piNode.id, "pi")).toEqual({
       effectiveMode: "floor",
-      source: "rig_spec",
+      source: "software_team_spec",
       launchPosture: "floor",
       fallbackReason: "Pi has no auto mode and launches at the floor",
     });
@@ -281,12 +281,12 @@ describe("Issue #611 Declarative Permission Policy Precedence & Cascade", () => 
     });
   });
 
-  it("Level 4: system default floor applies when neither member nor rig declares a policy", () => {
+  it("Level 4: system default floor applies when neither member nor SoftwareTeam declares a policy", () => {
     const db = createTestDb();
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("default-rig");
-    const claudeNode = rigRepo.addNode(rig.id, "claude-seat", { runtime: "claude-code" });
-    const codexNode = rigRepo.addNode(rig.id, "codex-seat", { runtime: "codex" });
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("default-software-team");
+    const claudeNode = softwareTeamRepo.addNode(softwareTeam.id, "claude-seat", { runtime: "claude-code" });
+    const codexNode = softwareTeamRepo.addNode(softwareTeam.id, "codex-seat", { runtime: "codex" });
 
     const store = new NativePermissionStore(db);
 
@@ -305,10 +305,10 @@ describe("Issue #611 Declarative Permission Policy Precedence & Cascade", () => 
 
   it("Custom flag policy: policy with launch_posture: auto resolves correctly", () => {
     const db = createTestDb();
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("custom-rig");
-    const node = rigRepo.addNode(rig.id, "custom-seat", { runtime: "claude-code", permissionPolicy: "policies/my-auto.policy.md" });
-    rigRepo.setNodePolicyProvenance(node.id, {
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("custom-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "custom-seat", { runtime: "claude-code", permissionPolicy: "policies/my-auto.policy.md" });
+    softwareTeamRepo.setNodePolicyProvenance(node.id, {
       origin: "custom",
       resolvedTarget: "/workspace/policies/my-auto.policy.md",
       declaringDir: "/workspace",
@@ -325,11 +325,11 @@ describe("Issue #611 Declarative Permission Policy Precedence & Cascade", () => 
   });
 });
 
-describe("RigSpec Schema, Codec & Validation for permission_policy", () => {
-  it("parses, validates and serializes permission_policy: builtin:auto in rig.yaml", () => {
+describe("SoftwareTeamSpec Schema, Codec & Validation for permission_policy", () => {
+  it("parses, validates and serializes permission_policy: builtin:auto in software-team.yaml", () => {
     const yaml = `
 version: "0.2"
-name: test-rig
+name: test-software-team
 permission_policy: builtin:auto
 pods:
   - id: team
@@ -350,17 +350,17 @@ pods:
     edges: []
 edges: []
 `;
-    const parsed = RigSpecCodec.parse(yaml);
-    const validation = RigSpecSchema.validate(parsed);
+    const parsed = SoftwareTeamSpecCodec.parse(yaml);
+    const validation = SoftwareTeamSpecSchema.validate(parsed);
     expect(validation.errors).toEqual([]);
     expect(validation.valid).toBe(true);
 
-    const spec = RigSpecSchema.normalize(parsed);
+    const spec = SoftwareTeamSpecSchema.normalize(parsed);
     expect(spec.permissionPolicy).toBe("builtin:auto");
     expect(spec.pods[0]?.members[0]?.permissionPolicy).toBe("builtin:locked");
     expect(spec.pods[0]?.members[1]?.permissionPolicy).toBe("builtin:auto");
 
-    const serialized = RigSpecCodec.serialize(spec);
+    const serialized = SoftwareTeamSpecCodec.serialize(spec);
     expect(serialized).toContain("permission_policy: builtin:auto");
     expect(serialized).toContain("permission_policy: builtin:locked");
   });
@@ -368,43 +368,43 @@ edges: []
   it("rejects unknown built-in policies and bare un-prefixed names", () => {
     const unknownYaml = `
 version: "0.2"
-name: test-rig
+name: test-software-team
 permission_policy: builtin:nonexistent
 pods: []
 edges: []
 `;
-    const unknownParsed = RigSpecCodec.parse(unknownYaml);
-    const unknownValidation = RigSpecSchema.validate(unknownParsed);
+    const unknownParsed = SoftwareTeamSpecCodec.parse(unknownYaml);
+    const unknownValidation = SoftwareTeamSpecSchema.validate(unknownParsed);
     expect(unknownValidation.valid).toBe(false);
     expect(unknownValidation.errors.some(e => e.includes("unknown built-in policy 'nonexistent'"))).toBe(true);
 
     const bareYaml = `
 version: "0.2"
-name: test-rig
+name: test-software-team
 permission_policy: auto
 pods: []
 edges: []
 `;
-    const bareParsed = RigSpecCodec.parse(bareYaml);
-    const bareValidation = RigSpecSchema.validate(bareParsed);
+    const bareParsed = SoftwareTeamSpecCodec.parse(bareYaml);
+    const bareValidation = SoftwareTeamSpecSchema.validate(bareParsed);
     expect(bareValidation.valid).toBe(false);
     expect(bareValidation.errors.some(e => e.includes("is a built-in policy name — use 'builtin:auto'"))).toBe(true);
   });
 
-  it("roundtrips permission_policy through RigSpecExporter", () => {
+  it("roundtrips permission_policy through SoftwareTeamSpecExporter", () => {
     const db = createTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const podRepo = new PodRepository(db);
     const sessionRegistry = new SessionRegistry(db);
 
-    const rig = rigRepo.createRig("export-rig");
-    rigRepo.setRigPermissionPolicy(rig.id, "builtin:auto");
-    const pod = podRepo.createPod(rig.id, "default", "Default Team");
-    const node1 = rigRepo.addNode(rig.id, "agent1", { runtime: "claude-code", permissionPolicy: "builtin:locked", podId: pod.id });
-    const node2 = rigRepo.addNode(rig.id, "agent2", { runtime: "claude-code", podId: pod.id });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("export-software-team");
+    softwareTeamRepo.setSoftwareTeamPermissionPolicy(softwareTeam.id, "builtin:auto");
+    const pod = podRepo.createPod(softwareTeam.id, "default", "Default Team");
+    const node1 = softwareTeamRepo.addNode(softwareTeam.id, "agent1", { runtime: "claude-code", permissionPolicy: "builtin:locked", podId: pod.id });
+    const node2 = softwareTeamRepo.addNode(softwareTeam.id, "agent2", { runtime: "claude-code", podId: pod.id });
 
-    const exporter = new RigSpecExporter({ rigRepo, podRepo, sessionRegistry });
-    const exported = exporter.exportRig(rig.id) as RigSpec;
+    const exporter = new SoftwareTeamSpecExporter({ softwareTeamRepo, podRepo, sessionRegistry });
+    const exported = exporter.exportSoftwareTeam(softwareTeam.id) as SoftwareTeamSpec;
     expect(exported.permissionPolicy).toBe("builtin:auto");
     expect(exported.pods[0]?.members.find(m => m.id === "agent1")?.permissionPolicy).toBe("builtin:locked");
     expect(exported.pods[0]?.members.find(m => m.id === "agent2")?.permissionPolicy).toBeUndefined();
@@ -414,20 +414,20 @@ edges: []
 describe("StartupOrchestrator Declarative Integration", () => {
   it("delivers declarative permission_policy: builtin:auto to launchHarness on fresh start", async () => {
     const db = createTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const registry = new SessionRegistry(db);
     const eventBus = new EventBus(db);
-    const rig = rigRepo.createRig("start-rig");
-    rigRepo.setRigPermissionPolicy(rig.id, "builtin:auto");
-    rigRepo.setRigPolicyProvenance(rig.id, {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("start-software-team");
+    softwareTeamRepo.setSoftwareTeamPermissionPolicy(softwareTeam.id, "builtin:auto");
+    softwareTeamRepo.setSoftwareTeamPolicyProvenance(softwareTeam.id, {
       origin: "builtin",
       resolvedTarget: "policies/builtin/auto.policy.md",
       declaringDir: null,
       launchPosture: "auto",
     });
 
-    const node = rigRepo.addNode(rig.id, "worker", { runtime: "claude-code" });
-    const session = registry.registerSession(node.id, "worker@start-rig");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code" });
+    const session = registry.registerSession(node.id, "worker@start-software-team");
 
     const launchHarness = vi.fn(async () => ({ ok: false as const, error: "offline stop" }));
     const adapter = {
@@ -445,7 +445,7 @@ describe("StartupOrchestrator Declarative Integration", () => {
     });
 
     await orchestrator.startNode({
-      rigId: rig.id,
+      softwareTeamId: softwareTeam.id,
       nodeId: node.id,
       sessionId: session.id,
       binding: { ...binding(node.id), launchPosture: "auto" },
@@ -469,23 +469,23 @@ describe("StartupOrchestrator Declarative Integration", () => {
 describe("Restore & Handover Continuity", () => {
   it("RestoreOrchestrator.attemptResume passes declarative auto mode to Claude resume", async () => {
     const db = createTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const registry = new SessionRegistry(db);
-    const rig = rigRepo.createRig("restore-rig");
-    rigRepo.setRigPermissionPolicy(rig.id, "builtin:auto");
-    rigRepo.setRigPolicyProvenance(rig.id, {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("restore-software-team");
+    softwareTeamRepo.setSoftwareTeamPermissionPolicy(softwareTeam.id, "builtin:auto");
+    softwareTeamRepo.setSoftwareTeamPolicyProvenance(softwareTeam.id, {
       origin: "builtin",
       resolvedTarget: "policies/builtin/auto.policy.md",
       declaringDir: null,
       launchPosture: "auto",
     });
 
-    const node = rigRepo.addNode(rig.id, "worker", { runtime: "claude-code" });
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code" });
 
     const resume = vi.fn(async () => ({ ok: false, code: "offline", message: "stop" }));
     const ctx = {
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry: registry,
       appliedLaunchStore: new AppliedLaunchObservationStore(db),
       claudeResume: { canResume: () => true, resume },
@@ -495,7 +495,7 @@ describe("Restore & Handover Continuity", () => {
     const resolvedPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(
       ctx,
       node.id,
-      rig.id,
+      softwareTeam.id,
     );
     expect(resolvedPosture).toBe("auto");
 
@@ -526,11 +526,11 @@ describe("Restore & Handover Continuity", () => {
   describe("Restore custom policy re-reading", () => {
     it("restore re-reads custom member policy changes: floor -> full_bypass", () => {
       const db = createTestDb();
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const registry = new SessionRegistry(db);
-      const rig = rigRepo.createRig("restore-custom-rig");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("restore-custom-software-team");
 
-      const dir = mkdtempSync(join(tmpdir(), "openrig-policy-test-"));
+      const dir = mkdtempSync(join(tmpdir(), "softwareteam-policy-test-"));
       try {
         const policyPath = join(dir, "member.policy.md");
         writeFileSync(policyPath, `---
@@ -543,8 +543,8 @@ description: Custom member policy
 ---
 `);
 
-        const node = rigRepo.addNode(rig.id, "worker", { runtime: "claude-code", permissionPolicy: "member.policy.md" });
-        rigRepo.setNodePolicyProvenance(node.id, {
+        const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code", permissionPolicy: "member.policy.md" });
+        softwareTeamRepo.setNodePolicyProvenance(node.id, {
           origin: "custom",
           resolvedTarget: policyPath,
           declaringDir: dir,
@@ -554,7 +554,7 @@ description: Custom member policy
         const resume = vi.fn(async () => ({ ok: false, code: "offline", message: "stop" }));
         const ctx = {
           db,
-          rigRepo,
+          softwareTeamRepo,
           sessionRegistry: registry,
           appliedLaunchStore: new AppliedLaunchObservationStore(db),
           claudeResume: { canResume: () => true, resume },
@@ -562,7 +562,7 @@ description: Custom member policy
         };
 
         // Before edit: resolves floor
-        const initialPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, rig.id);
+        const initialPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, softwareTeam.id);
         expect(initialPosture).toBe("floor");
 
         // Edit on disk: floor -> full_bypass
@@ -577,7 +577,7 @@ description: Custom member policy
 `);
 
         // Re-read during restore resolves full_bypass
-        const updatedPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, rig.id);
+        const updatedPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, softwareTeam.id);
         expect(updatedPosture).toBe("full_bypass");
 
         // attemptResume uses the re-read posture instead of launch DB columns
@@ -610,11 +610,11 @@ description: Custom member policy
 
     it("restore re-reads custom member policy changes: full_bypass -> floor", () => {
       const db = createTestDb();
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const registry = new SessionRegistry(db);
-      const rig = rigRepo.createRig("restore-custom-rig");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("restore-custom-software-team");
 
-      const dir = mkdtempSync(join(tmpdir(), "openrig-policy-test-"));
+      const dir = mkdtempSync(join(tmpdir(), "softwareteam-policy-test-"));
       try {
         const policyPath = join(dir, "member.policy.md");
         writeFileSync(policyPath, `---
@@ -627,8 +627,8 @@ description: Custom member policy
 ---
 `);
 
-        const node = rigRepo.addNode(rig.id, "worker", { runtime: "claude-code", permissionPolicy: "member.policy.md" });
-        rigRepo.setNodePolicyProvenance(node.id, {
+        const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code", permissionPolicy: "member.policy.md" });
+        softwareTeamRepo.setNodePolicyProvenance(node.id, {
           origin: "custom",
           resolvedTarget: policyPath,
           declaringDir: dir,
@@ -638,7 +638,7 @@ description: Custom member policy
         const resume = vi.fn(async () => ({ ok: false, code: "offline", message: "stop" }));
         const ctx = {
           db,
-          rigRepo,
+          softwareTeamRepo,
           sessionRegistry: registry,
           appliedLaunchStore: new AppliedLaunchObservationStore(db),
           claudeResume: { canResume: () => true, resume },
@@ -646,7 +646,7 @@ description: Custom member policy
         };
 
         // Before edit: resolves full_bypass
-        const initialPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, rig.id);
+        const initialPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, softwareTeam.id);
         expect(initialPosture).toBe("full_bypass");
 
         // Edit on disk: full_bypass -> floor
@@ -661,7 +661,7 @@ description: Custom member policy
 `);
 
         // Re-read during restore resolves floor
-        const updatedPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, rig.id);
+        const updatedPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, softwareTeam.id);
         expect(updatedPosture).toBe("floor");
 
         // attemptResume uses the re-read posture instead of launch DB columns
@@ -692,40 +692,40 @@ description: Custom member policy
       }
     });
 
-    it("restore re-reads rig-level custom policy changes", () => {
+    it("restore re-reads software-team-level custom policy changes", () => {
       const db = createTestDb();
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const registry = new SessionRegistry(db);
-      const rig = rigRepo.createRig("restore-rig-policy");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("restore-software-team-policy");
 
-      const dir = mkdtempSync(join(tmpdir(), "openrig-policy-test-"));
+      const dir = mkdtempSync(join(tmpdir(), "softwareteam-policy-test-"));
       try {
-        const policyPath = join(dir, "rig.policy.md");
+        const policyPath = join(dir, "softwareTeam.policy.md");
         writeFileSync(policyPath, `---
 source: custom
-name: rig-policy
+name: software-team-policy
 surface: flag
 launch_posture: floor
 policy_schema_version: 1
-description: Custom rig policy
+description: Custom SoftwareTeam policy
 ---
 `);
 
-        rigRepo.setRigPermissionPolicy(rig.id, "rig.policy.md");
-        rigRepo.setRigPolicyProvenance(rig.id, {
+        softwareTeamRepo.setSoftwareTeamPermissionPolicy(softwareTeam.id, "softwareTeam.policy.md");
+        softwareTeamRepo.setSoftwareTeamPolicyProvenance(softwareTeam.id, {
           origin: "custom",
           resolvedTarget: policyPath,
           declaringDir: dir,
           launchPosture: "floor",
         });
 
-        // Member without its own policy inherits from rig
-        const node = rigRepo.addNode(rig.id, "worker", { runtime: "claude-code" });
+        // Member without its own policy inherits from softwareTeam
+        const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code" });
 
         const resume = vi.fn(async () => ({ ok: false, code: "offline", message: "stop" }));
         const ctx = {
           db,
-          rigRepo,
+          softwareTeamRepo,
           sessionRegistry: registry,
           appliedLaunchStore: new AppliedLaunchObservationStore(db),
           claudeResume: { canResume: () => true, resume },
@@ -733,22 +733,22 @@ description: Custom rig policy
         };
 
         // Before edit: resolves floor
-        const initialPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, rig.id);
+        const initialPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, softwareTeam.id);
         expect(initialPosture).toBe("floor");
 
         // Edit on disk: floor -> full_bypass
         writeFileSync(policyPath, `---
 source: custom
-name: rig-policy
+name: software-team-policy
 surface: flag
 launch_posture: full_bypass
 policy_schema_version: 1
-description: Custom rig policy
+description: Custom SoftwareTeam policy
 ---
 `);
 
         // Re-read during restore resolves full_bypass
-        const updatedPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, rig.id);
+        const updatedPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, softwareTeam.id);
         expect(updatedPosture).toBe("full_bypass");
 
         (RestoreOrchestrator.prototype as any).attemptResume.call(
@@ -780,12 +780,12 @@ description: Custom rig policy
 
     it("pod-aware restore startNode preserves re-read member policy: floor -> full_bypass", async () => {
       const db = createTestDb();
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const registry = new SessionRegistry(db);
       const eventBus = new EventBus(db);
-      const rig = rigRepo.createRig("restore-custom-rig");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("restore-custom-software-team");
 
-      const dir = mkdtempSync(join(tmpdir(), "openrig-policy-test-"));
+      const dir = mkdtempSync(join(tmpdir(), "softwareteam-policy-test-"));
       try {
         const policyPath = join(dir, "member.policy.md");
         writeFileSync(policyPath, `---
@@ -798,24 +798,24 @@ description: Custom member policy
 ---
 `);
 
-        const node = rigRepo.addNode(rig.id, "worker", { runtime: "claude-code", permissionPolicy: "member.policy.md" });
-        rigRepo.setNodePolicyProvenance(node.id, {
+        const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code", permissionPolicy: "member.policy.md" });
+        softwareTeamRepo.setNodePolicyProvenance(node.id, {
           origin: "custom",
           resolvedTarget: policyPath,
           declaringDir: dir,
           launchPosture: "floor",
         });
-        const session = registry.registerSession(node.id, "worker@restore-custom-rig");
+        const session = registry.registerSession(node.id, "worker@restore-custom-software-team");
 
         const ctx = {
           db,
-          rigRepo,
+          softwareTeamRepo,
           sessionRegistry: registry,
           appliedLaunchStore: new AppliedLaunchObservationStore(db),
         };
 
         // Before edit: resolves floor
-        expect((RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, rig.id)).toBe("floor");
+        expect((RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, softwareTeam.id)).toBe("floor");
 
         // Edit on disk: floor -> full_bypass
         writeFileSync(policyPath, `---
@@ -829,7 +829,7 @@ description: Custom member policy
 `);
 
         // Re-read during restore resolves full_bypass
-        const updatedPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, rig.id);
+        const updatedPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, softwareTeam.id);
         expect(updatedPosture).toBe("full_bypass");
 
         // Pod-aware restore calls startNode with binding.launchPosture = updatedPosture
@@ -849,7 +849,7 @@ description: Custom member policy
         });
 
         await startupOrch.startNode({
-          rigId: rig.id,
+          softwareTeamId: softwareTeam.id,
           nodeId: node.id,
           sessionId: session.id,
           binding: {
@@ -877,12 +877,12 @@ description: Custom member policy
 
     it("pod-aware restore startNode preserves re-read member policy: full_bypass -> floor", async () => {
       const db = createTestDb();
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const registry = new SessionRegistry(db);
       const eventBus = new EventBus(db);
-      const rig = rigRepo.createRig("restore-custom-rig");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("restore-custom-software-team");
 
-      const dir = mkdtempSync(join(tmpdir(), "openrig-policy-test-"));
+      const dir = mkdtempSync(join(tmpdir(), "softwareteam-policy-test-"));
       try {
         const policyPath = join(dir, "member.policy.md");
         writeFileSync(policyPath, `---
@@ -895,24 +895,24 @@ description: Custom member policy
 ---
 `);
 
-        const node = rigRepo.addNode(rig.id, "worker", { runtime: "claude-code", permissionPolicy: "member.policy.md" });
-        rigRepo.setNodePolicyProvenance(node.id, {
+        const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code", permissionPolicy: "member.policy.md" });
+        softwareTeamRepo.setNodePolicyProvenance(node.id, {
           origin: "custom",
           resolvedTarget: policyPath,
           declaringDir: dir,
           launchPosture: "full_bypass",
         });
-        const session = registry.registerSession(node.id, "worker@restore-custom-rig");
+        const session = registry.registerSession(node.id, "worker@restore-custom-software-team");
 
         const ctx = {
           db,
-          rigRepo,
+          softwareTeamRepo,
           sessionRegistry: registry,
           appliedLaunchStore: new AppliedLaunchObservationStore(db),
         };
 
         // Before edit: resolves full_bypass
-        expect((RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, rig.id)).toBe("full_bypass");
+        expect((RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, softwareTeam.id)).toBe("full_bypass");
 
         // Edit on disk: full_bypass -> floor
         writeFileSync(policyPath, `---
@@ -926,7 +926,7 @@ description: Custom member policy
 `);
 
         // Re-read during restore resolves floor
-        const updatedPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, rig.id);
+        const updatedPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, softwareTeam.id);
         expect(updatedPosture).toBe("floor");
 
         // Pod-aware restore calls startNode with binding.launchPosture = updatedPosture
@@ -946,7 +946,7 @@ description: Custom member policy
         });
 
         await startupOrch.startNode({
-          rigId: rig.id,
+          softwareTeamId: softwareTeam.id,
           nodeId: node.id,
           sessionId: session.id,
           binding: {
@@ -972,61 +972,61 @@ description: Custom member policy
       }
     });
 
-    it("pod-aware restore startNode preserves re-read rig-level custom policy changes", async () => {
+    it("pod-aware restore startNode preserves re-read software-team-level custom policy changes", async () => {
       const db = createTestDb();
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const registry = new SessionRegistry(db);
       const eventBus = new EventBus(db);
-      const rig = rigRepo.createRig("restore-rig-policy");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("restore-software-team-policy");
 
-      const dir = mkdtempSync(join(tmpdir(), "openrig-policy-test-"));
+      const dir = mkdtempSync(join(tmpdir(), "softwareteam-policy-test-"));
       try {
-        const policyPath = join(dir, "rig.policy.md");
+        const policyPath = join(dir, "softwareTeam.policy.md");
         writeFileSync(policyPath, `---
 source: custom
-name: rig-policy
+name: software-team-policy
 surface: flag
 launch_posture: floor
 policy_schema_version: 1
-description: Custom rig policy
+description: Custom SoftwareTeam policy
 ---
 `);
 
-        rigRepo.setRigPermissionPolicy(rig.id, "rig.policy.md");
-        rigRepo.setRigPolicyProvenance(rig.id, {
+        softwareTeamRepo.setSoftwareTeamPermissionPolicy(softwareTeam.id, "softwareTeam.policy.md");
+        softwareTeamRepo.setSoftwareTeamPolicyProvenance(softwareTeam.id, {
           origin: "custom",
           resolvedTarget: policyPath,
           declaringDir: dir,
           launchPosture: "floor",
         });
 
-        // Member without its own policy inherits from rig
-        const node = rigRepo.addNode(rig.id, "worker", { runtime: "claude-code" });
-        const session = registry.registerSession(node.id, "worker@restore-rig-policy");
+        // Member without its own policy inherits from softwareTeam
+        const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code" });
+        const session = registry.registerSession(node.id, "worker@restore-software-team-policy");
 
         const ctx = {
           db,
-          rigRepo,
+          softwareTeamRepo,
           sessionRegistry: registry,
           appliedLaunchStore: new AppliedLaunchObservationStore(db),
         };
 
         // Before edit: resolves floor
-        expect((RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, rig.id)).toBe("floor");
+        expect((RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, softwareTeam.id)).toBe("floor");
 
         // Edit on disk: floor -> full_bypass
         writeFileSync(policyPath, `---
 source: custom
-name: rig-policy
+name: software-team-policy
 surface: flag
 launch_posture: full_bypass
 policy_schema_version: 1
-description: Custom rig policy
+description: Custom SoftwareTeam policy
 ---
 `);
 
         // Re-read during restore resolves full_bypass
-        const updatedPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, rig.id);
+        const updatedPosture = (RestoreOrchestrator.prototype as any).resolveRestorePosture.call(ctx, node.id, softwareTeam.id);
         expect(updatedPosture).toBe("full_bypass");
 
         const launchHarness = vi.fn(async () => ({ ok: false as const, error: "offline stop" }));
@@ -1045,7 +1045,7 @@ description: Custom rig policy
         });
 
         await startupOrch.startNode({
-          rigId: rig.id,
+          softwareTeamId: softwareTeam.id,
           nodeId: node.id,
           sessionId: session.id,
           binding: {
@@ -1073,22 +1073,22 @@ description: Custom rig policy
 
   it("SeatHandoverService passes declarative auto mode to successor launcher", async () => {
     const db = createTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const registry = new SessionRegistry(db);
     const eventBus = new EventBus(db);
     const discoveryRepo = new DiscoveryRepository(db);
 
-    const rig = rigRepo.createRig("handover-rig");
-    rigRepo.setRigPermissionPolicy(rig.id, "builtin:auto");
-    rigRepo.setRigPolicyProvenance(rig.id, {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("handover-software-team");
+    softwareTeamRepo.setSoftwareTeamPermissionPolicy(softwareTeam.id, "builtin:auto");
+    softwareTeamRepo.setSoftwareTeamPolicyProvenance(softwareTeam.id, {
       origin: "builtin",
       resolvedTarget: "policies/builtin/auto.policy.md",
       declaringDir: null,
       launchPosture: "auto",
     });
 
-    const node = rigRepo.addNode(rig.id, "incumbent-seat", { runtime: "claude-code", cwd: "/test" });
-    const incumbentSession = registry.registerSession(node.id, "incumbent-seat@handover-rig");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "incumbent-seat", { runtime: "claude-code", cwd: "/test" });
+    const incumbentSession = registry.registerSession(node.id, "incumbent-seat@handover-software-team");
 
     const createSuccessor = vi.fn(async () => ({
       ok: false as const,
@@ -1100,7 +1100,7 @@ description: Custom rig policy
 
     const handoverService = new SeatHandoverService({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry: registry,
       discoveryRepo,
       eventBus,
@@ -1109,10 +1109,10 @@ description: Custom rig policy
     });
 
     // Provide departing occupant
-    rigRepo.recordHandoverResult?.(node.id, "resumed");
+    softwareTeamRepo.recordHandoverResult?.(node.id, "resumed");
 
     const result = await handoverService.handover({
-      seatRef: "incumbent-seat@handover-rig",
+      seatRef: "incumbent-seat@handover-software-team",
       reason: "rotation",
       operator: "test",
       source: "fresh",
@@ -1132,34 +1132,34 @@ description: Custom rig policy
 describe("SeatStatusService Provenance Reporting", () => {
   it("reports honest effective permission provenance across cascade levels", () => {
     const db = createTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const registry = new SessionRegistry(db);
 
-    const rig = rigRepo.createRig("provenance-rig");
-    rigRepo.setRigPermissionPolicy(rig.id, "builtin:auto");
-    rigRepo.setRigPolicyProvenance(rig.id, {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("provenance-software-team");
+    softwareTeamRepo.setSoftwareTeamPermissionPolicy(softwareTeam.id, "builtin:auto");
+    softwareTeamRepo.setSoftwareTeamPolicyProvenance(softwareTeam.id, {
       origin: "builtin",
       resolvedTarget: "policies/builtin/auto.policy.md",
       declaringDir: null,
       launchPosture: "auto",
     });
 
-    const memberNode = rigRepo.addNode(rig.id, "member-seat", { runtime: "claude-code", permissionPolicy: "builtin:locked" });
-    rigRepo.setNodePolicyProvenance(memberNode.id, {
+    const memberNode = softwareTeamRepo.addNode(softwareTeam.id, "member-seat", { runtime: "claude-code", permissionPolicy: "builtin:locked" });
+    softwareTeamRepo.setNodePolicyProvenance(memberNode.id, {
       origin: "builtin",
       resolvedTarget: "policies/builtin/locked.policy.md",
       declaringDir: null,
       launchPosture: "floor",
     });
 
-    const rigNode = rigRepo.addNode(rig.id, "rig-seat", { runtime: "claude-code" });
-    registry.registerSession(memberNode.id, "member-seat@provenance-rig");
-    registry.registerSession(rigNode.id, "rig-seat@provenance-rig");
+    const softwareTeamNode = softwareTeamRepo.addNode(softwareTeam.id, "software-team-seat", { runtime: "claude-code" });
+    registry.registerSession(memberNode.id, "member-seat@provenance-software-team");
+    registry.registerSession(softwareTeamNode.id, "software-team-seat@provenance-software-team");
 
-    const statusService = new SeatStatusService({ rigRepo });
+    const statusService = new SeatStatusService({ softwareTeamRepo });
 
-    // Member-level provenance: member's own builtin:locked is NOT outranked by rig
-    const memberStatus = statusService.getStatus("member-seat@provenance-rig");
+    // Member-level provenance: member's own builtin:locked is NOT outranked by softwareTeam
+    const memberStatus = statusService.getStatus("member-seat@provenance-software-team");
     expect(memberStatus).toMatchObject({
       ok: true,
       status: {
@@ -1174,16 +1174,16 @@ describe("SeatStatusService Provenance Reporting", () => {
       },
     });
 
-    // Rig-level provenance: inherits auto from rig
-    const rigStatus = statusService.getStatus("rig-seat@provenance-rig");
-    expect(rigStatus).toMatchObject({
+    // SoftwareTeam-level provenance: inherits auto from softwareTeam
+    const softwareTeamStatus = statusService.getStatus("software-team-seat@provenance-software-team");
+    expect(softwareTeamStatus).toMatchObject({
       ok: true,
       status: {
         permissions: {
           selectionState: "inherit",
           effective: {
             effectiveMode: "auto",
-            source: "rig_spec",
+            source: "software_team_spec",
             launchPosture: "auto",
             permissionMode: "auto",
           },
@@ -1193,8 +1193,8 @@ describe("SeatStatusService Provenance Reporting", () => {
 
     // Explicit override provenance
     const store = new NativePermissionStore(db);
-    store.write(rigNode.id, { runtime: "claude-code", mode: "full_bypass" }, "admin", "test");
-    const explicitStatus = statusService.getStatus("rig-seat@provenance-rig");
+    store.write(softwareTeamNode.id, { runtime: "claude-code", mode: "full_bypass" }, "admin", "test");
+    const explicitStatus = statusService.getStatus("software-team-seat@provenance-software-team");
     expect(explicitStatus).toMatchObject({
       ok: true,
       status: {
@@ -1212,26 +1212,26 @@ describe("SeatStatusService Provenance Reporting", () => {
 
   it("reports fallbackReason for Codex and Pi seats inheriting or declaring builtin:auto", () => {
     const db = createTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const registry = new SessionRegistry(db);
 
-    const rig = rigRepo.createRig("fallback-rig");
-    rigRepo.setRigPermissionPolicy(rig.id, "builtin:auto");
-    rigRepo.setRigPolicyProvenance(rig.id, {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("fallback-software-team");
+    softwareTeamRepo.setSoftwareTeamPermissionPolicy(softwareTeam.id, "builtin:auto");
+    softwareTeamRepo.setSoftwareTeamPolicyProvenance(softwareTeam.id, {
       origin: "builtin",
       resolvedTarget: "policies/builtin/auto.policy.md",
       declaringDir: null,
       launchPosture: "auto",
     });
 
-    const codexNode = rigRepo.addNode(rig.id, "codex-seat", { runtime: "codex" });
-    const piNode = rigRepo.addNode(rig.id, "pi-seat", { runtime: "pi" });
-    registry.registerSession(codexNode.id, "codex-seat@fallback-rig");
-    registry.registerSession(piNode.id, "pi-seat@fallback-rig");
+    const codexNode = softwareTeamRepo.addNode(softwareTeam.id, "codex-seat", { runtime: "codex" });
+    const piNode = softwareTeamRepo.addNode(softwareTeam.id, "pi-seat", { runtime: "pi" });
+    registry.registerSession(codexNode.id, "codex-seat@fallback-software-team");
+    registry.registerSession(piNode.id, "pi-seat@fallback-software-team");
 
-    const statusService = new SeatStatusService({ rigRepo });
+    const statusService = new SeatStatusService({ softwareTeamRepo });
 
-    const codexStatus = statusService.getStatus("codex-seat@fallback-rig");
+    const codexStatus = statusService.getStatus("codex-seat@fallback-software-team");
     expect(codexStatus).toMatchObject({
       ok: true,
       status: {
@@ -1239,7 +1239,7 @@ describe("SeatStatusService Provenance Reporting", () => {
           selectionState: "inherit",
           effective: {
             effectiveMode: "floor",
-            source: "rig_spec",
+            source: "software_team_spec",
             launchPosture: "floor",
             fallbackReason: "Codex has no auto mode and launches at the floor",
           },
@@ -1247,7 +1247,7 @@ describe("SeatStatusService Provenance Reporting", () => {
       },
     });
 
-    const piStatus = statusService.getStatus("pi-seat@fallback-rig");
+    const piStatus = statusService.getStatus("pi-seat@fallback-software-team");
     expect(piStatus).toMatchObject({
       ok: true,
       status: {
@@ -1255,7 +1255,7 @@ describe("SeatStatusService Provenance Reporting", () => {
           selectionState: "inherit",
           effective: {
             effectiveMode: "floor",
-            source: "rig_spec",
+            source: "software_team_spec",
             launchPosture: "floor",
             fallbackReason: "Pi has no auto mode and launches at the floor",
           },

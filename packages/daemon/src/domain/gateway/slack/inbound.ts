@@ -10,7 +10,7 @@
 // subsystem — the CLI runner retired); this module is the pure, fully-testable core:
 // shouldIngest (filter), route (land + dedup + dead-letter), retryDeadLetters, and
 // handleEnvelope (fast-ack + dispatch). S10 re-home: the queue seam is an in-process PORT
-// (queue-access.ts adapts QueueRepository) — the rig-CLI shell-out bridge retired with the
+// (queue-access.ts adapts QueueRepository) — the software-team-CLI shell-out bridge retired with the
 // relay runners; the durability semantics around it are unchanged.
 import type { SeenStore, DeadLetterStore, DeadLetterEntry } from "./state-store.js";
 import type { InboundQueuePort } from "./queue-access.js";
@@ -52,16 +52,16 @@ export interface SlackBlockActions {
 
 export type RecordHumanAnswer = (input: { qitemId: string; actorSession: string; questionId: string; optionId: string }) => RecordHumanAnswerResult;
 
-/** What a person reads in the thread when OpenRig refuses a click or can't record it. Plain words: what happened, and
+/** What a person reads in the thread when SoftwareTeam refuses a click or can't record it. Plain words: what happened, and
  *  who may answer or what to do instead. The same clicks are refused as before; they just aren't silent. */
 export const CLICK_REPLIES = {
-  unregistered: "This click wasn't recorded: only the person this decision was sent to can answer it, and your Slack account isn't registered with this OpenRig.",
-  unmapped: "This click wasn't recorded: OpenRig can't find the decision this message belongs to. Reply in this thread in words instead.",
+  unregistered: "This click wasn't recorded: only the person this decision was sent to can answer it, and your Slack account isn't registered with this SoftwareTeam.",
+  unmapped: "This click wasn't recorded: SoftwareTeam can't find the decision this message belongs to. Reply in this thread in words instead.",
   closed: "This decision is no longer waiting for answers, so this click wasn't recorded.",
   onRecord: "Your answer is recorded, and this decision is no longer waiting for answers.",
   someoneElse: "This click wasn't recorded: this decision was sent to someone else, and only they can answer it.",
   stale: "This click wasn't recorded: the button no longer matches this decision's questions. Reply in this thread in words instead.",
-  unavailable: "This click wasn't recorded: OpenRig couldn't record a button answer here. Reply in this thread in words instead.",
+  unavailable: "This click wasn't recorded: SoftwareTeam couldn't record a button answer here. Reply in this thread in words instead.",
   notClosed: "Your answers were recorded and sent to the agent that asked, but the decision itself didn't close.",
 } as const;
 
@@ -205,7 +205,7 @@ export class InboundRouter {
     const headline = text.trim() ? text : firstFileName ? `[file] ${firstFileName}` : text;
     return {
       summary: `${ev.recoveredAfterGap ? "[Recovered after gap] " : ""}Founder via Slack: ${headline.slice(0, 90)}`,
-      body: `${sections.filter((s) => s.length > 0).join("\n\n")}\n\n---\nSource: ${meta}${correlationQitemId ? `\nIn reply to: ${correlationQitemId}` : ""}\nRouted by openrig slack-inbound. Default destination per config; re-route via queue as needed.`,
+      body: `${sections.filter((s) => s.length > 0).join("\n\n")}\n\n---\nSource: ${meta}${correlationQitemId ? `\nIn reply to: ${correlationQitemId}` : ""}\nRouted by softwareteam slack-inbound. Default destination per config; re-route via queue as needed.`,
     };
   }
 
@@ -420,12 +420,12 @@ export class InboundRouter {
         tags: [...route.tags ?? ["founder-slack", "inbound"], "human-answer"],
         inReplyTo: qitemId,
         summary: `Founder via Slack: answered ${lines.length === 1 ? "1 question" : `${lines.length} questions`}`,
-        body: `${lines.join("\n")}\n\n---\nAnswers (question id → option id): ${JSON.stringify(recorded.answers)}\nIn reply to: ${qitemId} (its humanAnswers field holds the same)\nRouted by openrig slack-inbound (button click).`,
+        body: `${lines.join("\n")}\n\n---\nAnswers (question id → option id): ${JSON.stringify(recorded.answers)}\nIn reply to: ${qitemId} (its humanAnswers field holds the same)\nRouted by softwareteam slack-inbound (button click).`,
       });
       resolution = await this.deps.resolveHumanReply?.({ qitemId, actorSession: who.source, decision: lines.join("; ") });
     } catch (e) {
       this.deps.log?.(`answer continuation failed qitem=${qitemId}: ${(e as Error).message}`);
-      if (live) await acknowledge("Your answers are recorded, but handing them back failed. OpenRig will retry.");
+      if (live) await acknowledge("Your answers are recorded, but handing them back failed. SoftwareTeam will retry.");
       return { status: "handler-failed", reason: "answer-continuation-failed" };
     }
     if (resolution === "not-applicable") {
@@ -442,7 +442,7 @@ export class InboundRouter {
 
   /**
    * #899 — a reaction on an ask. The ask is the root message the thread map is keyed on, so the
-   * lookup that routes a typed reply names the asking seat; a reaction on a message OpenRig posted
+   * lookup that routes a typed reply names the asking seat; a reaction on a message SoftwareTeam posted
    * into a thread for an ask (a long ask's part, or an ask posted as a reply) names that ask's own
    * seat. The row carries the fact (who, which
    * emoji, which ask) and leaves its meaning to that seat: a reaction neither answers nor closes
@@ -499,7 +499,7 @@ export class InboundRouter {
           "---",
           `Source: slack channel=${ev.item?.channel} user=${ev.user} message_ts=${ev.item?.ts} event_ts=${ev.event_ts}`,
           `In reply to: ${ask}`,
-          "Routed by openrig slack-inbound (reaction).",
+          "Routed by softwareteam slack-inbound (reaction).",
         ].join("\n"),
       });
       this.deps.seen.mark(eventId, "landed");

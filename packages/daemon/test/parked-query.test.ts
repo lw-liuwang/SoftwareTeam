@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   diagnoseSeatParked,
-  diagnoseRigParked,
+  diagnoseSoftwareTeamParked,
   PARKED_OBLIGATION_LIMIT,
   type ParkedQueryDeps,
   type ObligationRow,
@@ -12,7 +12,7 @@ import type { ArbitratedSeatState } from "../src/domain/activity-taxonomy.js";
 // surface answers "are we parked?" — these pins define the derived diagnosis with
 // per-input confidence, named obligation scope, and the limit guard.
 
-const SEAT = { seatNodeId: "node-1", sessionName: "dev50-qa@v-openrig-build" };
+const SEAT = { seatNodeId: "node-1", sessionName: "dev50-qa@v-softwareteam-build" };
 
 function oracleState(overrides: Partial<ArbitratedSeatState>): ArbitratedSeatState {
   return {
@@ -172,35 +172,35 @@ describe("S19 A7 — AM-3: both-sided confidence, named scope, limit guard", () 
   });
 });
 
-describe("S19 A7 — rig-level: 'are we parked?'", () => {
-  it("a rig is parked when ANY seat is parked; the parked seats are named", () => {
+describe("S19 A7 — software-team-level: 'are we parked?'", () => {
+  it("a SoftwareTeam is parked when ANY seat is parked; the parked seats are named", () => {
     const seats = [
-      { seatNodeId: "node-1", sessionName: "a@rig" },
-      { seatNodeId: "node-2", sessionName: "b@rig" },
+      { seatNodeId: "node-1", sessionName: "a@software-team" },
+      { seatNodeId: "node-2", sessionName: "b@software-team" },
     ];
     const states: Record<string, ArbitratedSeatState> = {
       "node-1": oracleState({ seatNodeId: "node-1", activity: "working" }),
       "node-2": oracleState({ seatNodeId: "node-2" }), // idle
     };
-    const d = diagnoseRigParked({
+    const d = diagnoseSoftwareTeamParked({
       getSeatState: (id) => states[id] ?? null,
-      listOpenObligations: (dest) => ({ rows: dest === "b@rig" ? [pendingRow] : [], limit: PARKED_OBLIGATION_LIMIT }),
+      listOpenObligations: (dest) => ({ rows: dest === "b@software-team" ? [pendingRow] : [], limit: PARKED_OBLIGATION_LIMIT }),
     }, seats);
     expect(d.parked).toBe(true);
     expect(d.seats.find((s) => s.seatNodeId === "node-2")!.parked).toBe(true);
     expect(d.seats.find((s) => s.seatNodeId === "node-1")!.parked).toBe(false);
   });
 
-  it("all seats working or clean → NOT parked; any indeterminate seat makes the RIG verdict indeterminate (never a false all-clear)", () => {
+  it("all seats working or clean → NOT parked; any indeterminate seat makes the SOFTWARE_TEAM verdict indeterminate (never a false all-clear)", () => {
     const seats = [
-      { seatNodeId: "node-1", sessionName: "a@rig" },
-      { seatNodeId: "node-2", sessionName: "b@rig" },
+      { seatNodeId: "node-1", sessionName: "a@software-team" },
+      { seatNodeId: "node-2", sessionName: "b@software-team" },
     ];
     const states: Record<string, ArbitratedSeatState | null> = {
       "node-1": oracleState({ seatNodeId: "node-1", activity: "working" }),
       "node-2": null, // oracle has nothing — indeterminate
     };
-    const d = diagnoseRigParked({
+    const d = diagnoseSoftwareTeamParked({
       getSeatState: (id) => states[id] ?? null,
       listOpenObligations: () => ({ rows: [pendingRow], limit: PARKED_OBLIGATION_LIMIT }),
     }, seats);

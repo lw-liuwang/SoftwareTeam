@@ -11,8 +11,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -57,7 +57,7 @@ function makeHarness(opts: HarnessOpts) {
   let traceCall = 0;
   let streamCall = 0;
   const client = {
-    baseUrl: "http://localhost:7433",
+    baseUrl: "http://localhost:7434",
     get: async (_path: string) => {
       const res = opts.traceResponses[Math.min(traceCall, opts.traceResponses.length - 1)];
       traceCall += 1;
@@ -289,7 +289,7 @@ describe("run proceeds to follow on the daemon's NESTED instantiate shape (walk-
     const program = createProgram({ workflowDeps: deps as never });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "workflow", "run", "spec.yaml",
+      "node", "softwareTeam", "workflow", "run", "spec.yaml",
       "--root-objective", "x", "--created-by", "a@r",
     ]);
     logSpy.mockRestore();

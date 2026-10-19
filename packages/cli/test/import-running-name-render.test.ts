@@ -1,5 +1,5 @@
 // S5b final-fix round 2 (r2 artifact 8d9ec788) — every CLI consumer of the
-// direct instantiate/materialize routes must render the locked rig_name_running
+// direct instantiate/materialize routes must render the locked software_team_name_running
 // teaching refusal VERBATIM, not wrap it in check-your-spec/validate noise.
 // The stub serves the daemon's post-fix 409 outcome shape.
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
@@ -14,10 +14,10 @@ import { DaemonClient } from "../src/client.js";
 import { STATE_FILE, type DaemonState, type LifecycleDeps } from "../src/daemon-lifecycle.js";
 
 const TEACHING =
-  'A rig named "dupe-cli" is already RUNNING: 01RIGID with 1 running session(s) ' +
-  "(checked: existing rigs with this name for sessions in status 'running'). " +
-  "Nothing was created or launched. Alternatives: work with the running rig " +
-  "(rig ps --nodes / rig send), stop it first with 'rig down dupe-cli', " +
+  'A SoftwareTeam named "dupe-cli" is already RUNNING: 01RIGID with 1 running session(s) ' +
+  "(checked: existing softwareTeams with this name for sessions in status 'running'). " +
+  "Nothing was created or launched. Alternatives: work with the running softwareTeam " +
+  "(SoftwareTeam ps --nodes / SoftwareTeam send), stop it first with 'SoftwareTeam down dupe-cli', " +
   "or launch this spec under a different name.";
 
 function mockLifecycleDeps(port: number): LifecycleDeps {
@@ -40,7 +40,7 @@ function mockLifecycleDeps(port: number): LifecycleDeps {
   };
 }
 
-describe("rig import rendering — rig_name_running teaching refusal (S5b r2)", () => {
+describe("SoftwareTeam import rendering — software_team_name_running teaching refusal (S5b r2)", () => {
   let server: http.Server;
   let port: number;
   let specPath: string;
@@ -50,13 +50,13 @@ describe("rig import rendering — rig_name_running teaching refusal (S5b r2)", 
     server = http.createServer(async (req, res) => {
       let body = "";
       for await (const chunk of req) body += chunk;
-      if ((req.url === "/api/rigs/import" || req.url === "/api/rigs/import/materialize") && req.method === "POST") {
+      if ((req.url === "/api/software-teams/import" || req.url === "/api/software-teams/import/materialize") && req.method === "POST") {
         res.writeHead(409, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           ok: false,
-          code: "rig_name_running",
+          code: "software_team_name_running",
           error: TEACHING,
-          runningRig: { id: "01RIGID", name: "dupe-cli", runningSessionCount: 1 },
+          runningSoftwareTeam: { id: "01RIGID", name: "dupe-cli", runningSessionCount: 1 },
         }));
         return;
       }
@@ -66,7 +66,7 @@ describe("rig import rendering — rig_name_running teaching refusal (S5b r2)", 
     await new Promise<void>((resolve) => { server.listen(0, resolve); });
     port = (server.address() as { port: number }).port;
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "import-rnr-"));
-    specPath = path.join(tempDir, "rig.yaml");
+    specPath = path.join(tempDir, "software-team.yaml");
     fs.writeFileSync(specPath, 'version: "0.2"\nname: dupe-cli\npods: []\nedges: []\n');
   });
 
@@ -90,8 +90,8 @@ describe("rig import rendering — rig_name_running teaching refusal (S5b r2)", 
         readFile: (p: string) => fs.readFileSync(p, "utf-8"),
       };
       const args = mode === "adopt"
-        ? ["node", "rig", "adopt", specPath, "--bind", "crew.a=existing-session"]
-        : ["node", "rig", "import", specPath, mode];
+        ? ["node", "softwareTeam", "adopt", specPath, "--bind", "crew.a=existing-session"]
+        : ["node", "softwareTeam", "import", specPath, mode];
       prog.addCommand(mode === "adopt" ? adoptCommand(deps as never) : importCommand(deps as never));
       await prog.parseAsync(args).catch(() => {});
     } finally {

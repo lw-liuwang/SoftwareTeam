@@ -11,7 +11,7 @@ import type { FleetSnapshot, Screen, ViewState, ViewStateStore } from "../src/ty
 // (a visible table cell, a spec member line), not a labeled control.
 
 const snap = demoSnapshot();
-snap.specs.find(s => s.name === "openrig-build-rig")!.pods = [{ id: "build", namespace: "build", members: [{ id: "guard", agentRef: "guard-agent", runtime: "codex" }], edges: [] }];
+snap.specs.find(s => s.name === "softwareteam-build-software-team")!.pods = [{ id: "build", namespace: "build", members: [{ id: "guard", agentRef: "guard-agent", runtime: "codex" }], edges: [] }];
 // Explicit human request from the Attention authority, not a converted agent signal.
 snap.attentionRead = {
   scope: "instance", readAt: "2026-09-10T00:00:00Z", sources: [{ source: "queue", state: "available", detail: "fixture" }],
@@ -70,7 +70,7 @@ describe("content-pane parity (Phase 3): click the surface, not a control", () =
     const byMouse = fresh("ui");
     byCommand.dispatch(parseCommand("agent dev50.guard"));
 
-    byMouse.dispatch(parseCommand("rig openrig-build"));
+    byMouse.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     const row = findContentLine(byMouse, /guard.*idle/);
     // click INSIDE the STATUS cell text (a non-label visible cell, far from the AGENT column)
     const statusX = row.text.indexOf("idle") + 1;
@@ -78,12 +78,12 @@ describe("content-pane parity (Phase 3): click the surface, not a control", () =
     expect(comparable(byMouse.get())).toEqual(comparable(byCommand.get()));
   });
 
-  it("clicking a rig-spec member line opens that agent spec — identical to the command", () => {
+  it("clicking a software-team-spec member line opens that agent spec — identical to the command", () => {
     const byCommand = fresh("cmd");
     const byMouse = fresh("ui");
     byCommand.dispatch(parseCommand("spec guard-agent"));
 
-    byMouse.dispatch(parseCommand("spec openrig-build-rig"));
+    byMouse.dispatch(parseCommand("spec softwareteam-build-software-team"));
     byMouse.dispatch(parseCommand("tab configuration"));
     const layout = renderScreen(byMouse.get(), snap, { cols: 120, rows: 32 });
     byMouse.dispatch({ type: "layout", contentMaxOffset: layout.contentMaxOffset, contentTargetCount: layout.contentTargets.length });
@@ -97,10 +97,10 @@ describe("content-pane parity (Phase 3): click the surface, not a control", () =
   it("clicking the tabs line toggles TABLE→OVERVIEW — identical to `tab overview`", () => {
     const byCommand = fresh("cmd");
     const byMouse = fresh("ui");
-    byCommand.dispatch(parseCommand("rig openrig-build"));
+    byCommand.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     byCommand.dispatch(parseCommand("tab overview"));
 
-    byMouse.dispatch(parseCommand("rig openrig-build"));
+    byMouse.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     const tabs = findContentLine(byMouse, /TABLE.*OVERVIEW/);
     expect(clickAt(byMouse, tabs.text.indexOf("OVERVIEW") + 1, tabs.y)).toBe(true);
     expect(byMouse.get().viewTab).toBe("overview");
@@ -122,7 +122,7 @@ describe("content-pane parity (Phase 3): click the surface, not a control", () =
 
   it("renders NO resolve/reply affordance anywhere (B3: those are Studio's)", () => {
     const s = fresh("t");
-    for (const cmd of [":topology", "rig openrig-build", ":specs", "spec openrig-build-rig", ":needs"]) {
+    for (const cmd of [":topology", "SoftwareTeam softwareteam-build", ":specs", "spec softwareteam-build-software-team", ":needs"]) {
       s.dispatch(parseCommand(cmd));
       const screen = renderScreen(s.get(), snap, { cols: 120, rows: 32 });
       expect(screen.lines.join("\n")).not.toMatch(/resolve|reply/i);
@@ -131,7 +131,7 @@ describe("content-pane parity (Phase 3): click the surface, not a control", () =
 
   it("drilling resets the view tab to TABLE (FR-3 default)", () => {
     const s = fresh("t");
-    s.dispatch(parseCommand("rig openrig-build"));
+    s.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     s.dispatch(parseCommand("tab overview"));
     s.dispatch(parseCommand("agent dev50.driver"));
     expect(s.get().viewTab).toBe("table");
@@ -153,23 +153,23 @@ describe("content-pane parity (Phase 3): click the surface, not a control", () =
     const structured: FleetSnapshot = {
       ...snap,
       specs: [{
-        name: "openrig-build-rig",
-        kind: "rig",
+        name: "softwareteam-build-software-team",
+        kind: "softwareTeam",
         format: "pod_aware",
         pods: [{ id: "dev50", members: [{ id: "guard", agentRef: "guard-agent", runtime: "codex" }], edges: [] }],
         graph: { nodes: [], edges: [] },
-        raw: "name: openrig-build-rig",
-      }, ...snap.specs.filter((spec) => spec.name !== "openrig-build-rig")],
+        raw: "name: softwareteam-build-software-team",
+      }, ...snap.specs.filter((spec) => spec.name !== "softwareteam-build-software-team")],
     };
 
     const tab = createViewState({ instanceId: "tab", getSnapshot: () => structured });
-    tab.dispatch(parseCommand("spec openrig-build-rig"));
+    tab.dispatch(parseCommand("spec softwareteam-build-software-team"));
     press(tab, "\x1b[C", structured);
     press(tab, "\r", structured);
     expect(tab.get().viewTab).toBe("graph");
 
     const row = fresh("row");
-    row.dispatch(parseCommand("rig openrig-build"));
+    row.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     press(row, "\x1b[C");
     let screen = syncedScreen(row);
     const rowTarget = screen.contentTargets.findIndex((target) => target.action.type === "drill" && target.action.resource === "agent" && target.action.name === "dev50.guard");
@@ -178,7 +178,7 @@ describe("content-pane parity (Phase 3): click the surface, not a control", () =
     expect(row.get().drill.at(-1)).toEqual({ kind: "agent", name: "dev50.guard" });
 
     const ref = createViewState({ instanceId: "ref", getSnapshot: () => structured });
-    ref.dispatch(parseCommand("spec openrig-build-rig"));
+    ref.dispatch(parseCommand("spec softwareteam-build-software-team"));
     ref.dispatch(parseCommand("tab configuration"));
     press(ref, "\x1b[C", structured);
     screen = syncedScreen(ref, structured);
@@ -196,7 +196,7 @@ describe("content-pane parity (Phase 3): click the surface, not a control", () =
   });
 });
 
-describe("rig-stream footer (FR-10): ambient, toggleable, never a view", () => {
+describe("software-team-stream footer (FR-10): ambient, toggleable, never a view", () => {
   it("renders the latest stream item when ON and hides when toggled OFF", () => {
     const s = fresh("t");
     let screen = renderScreen(s.get(), snap, { cols: 120, rows: 32 });

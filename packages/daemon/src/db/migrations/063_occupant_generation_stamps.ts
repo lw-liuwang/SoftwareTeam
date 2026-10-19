@@ -3,7 +3,7 @@ import type { Migration } from "../migrate.js";
 /**
  * GHOST-STAGE (e/Class-B) — occupant-generation stamps on the durable seat-ROLE stores.
  *
- * Class-B stores (queue_items, watchdog_jobs) are keyed by seat NAME (member@rig), which continues
+ * Class-B stores (queue_items, watchdog_jobs) are keyed by seat NAME (member@software-team), which continues
  * across a handover — so a name-scoped drop would neutralize the SUCCESSOR's own legitimate role
  * entries. Only an entry bound to the RETIRING generation's specific in-flight work is a ghost. These
  * columns carry the occupant-generation (atom-B `generation_uuid`) of the CONTEXT-BINDING act, so the

@@ -9,8 +9,8 @@ import { useNodePreview, isNodePreviewUnavailable } from "../../hooks/useNodePre
 import { usePreviewPins } from "./usePreviewPins.js";
 
 interface PreviewPaneProps {
-  rigId: string;
-  rigName?: string;
+  softwareTeamId: string;
+  softwareTeamName?: string;
   logicalId: string;
   /** Optional: override line count from settings. */
   lines?: number;
@@ -24,8 +24,8 @@ interface PreviewPaneProps {
 }
 
 export function PreviewPane({
-  rigId,
-  rigName,
+  softwareTeamId,
+  softwareTeamName,
   logicalId,
   lines,
   paused,
@@ -33,16 +33,16 @@ export function PreviewPane({
   compact,
   testIdPrefix = "preview",
 }: PreviewPaneProps) {
-  const preview = useNodePreview({ rigId, logicalId, lines, paused });
+  const preview = useNodePreview({ softwareTeamId, logicalId, lines, paused });
   const { isPinned, pin, unpin } = usePreviewPins();
 
-  const pinned = isPinned(rigId, logicalId);
+  const pinned = isPinned(softwareTeamId, logicalId);
   const onTogglePin = () => {
     if (pinned) {
-      unpin(rigId, logicalId);
+      unpin(softwareTeamId, logicalId);
     } else {
       const sessionName = !isNodePreviewUnavailable(preview.data) ? preview.data?.sessionName ?? "" : "";
-      pin({ rigId, rigName: rigName ?? rigId, logicalId, sessionName });
+      pin({ softwareTeamId, softwareTeamName: softwareTeamName ?? softwareTeamId, logicalId, sessionName });
     }
   };
 
@@ -51,7 +51,7 @@ export function PreviewPane({
   return (
     <div
       data-testid={`${testIdPrefix}-pane`}
-      data-rig-id={rigId}
+      data-software-team-id={softwareTeamId}
       data-logical-id={logicalId}
       data-paused={paused ? "true" : "false"}
       className="border border-outline-variant/40 bg-surface-lowest/[0.08] px-3 py-2 space-y-1"
@@ -85,7 +85,7 @@ export function PreviewPane({
         <div data-testid={`${testIdPrefix}-unavailable`} className="font-mono text-[9px] text-on-surface-variant space-y-0.5">
           <div>Preview unavailable: {preview.data.reason}.</div>
           {preview.data.hint && <div className="text-on-surface-variant">{preview.data.hint}</div>}
-          <div className="text-on-surface-variant">Use <code>rig capture {logicalId}</code> from terminal as a fallback.</div>
+          <div className="text-on-surface-variant">Use <code>SoftwareTeam capture {logicalId}</code> from terminal as a fallback.</div>
         </div>
       )}
       {!isNodePreviewUnavailable(preview.data) && preview.data && (

@@ -6,14 +6,14 @@ import { AgentActivityStore } from "../src/domain/agent-activity-store.js";
 import { SeatActivityService } from "../src/domain/seat-activity-service.js";
 import { CODEX_ACTIVITY_RUNG_INVENTORY } from "../src/domain/activity-taxonomy.js";
 import { EventBus } from "../src/domain/event-bus.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
 import { probeSessionActivity } from "../src/domain/session-transport.js";
 import { createFullTestDb } from "./helpers/test-app.js";
 
 const require = createRequire(import.meta.url);
-const { buildOpenRigPayload } = require("../assets/plugins/openrig-core/hooks/scripts/activity-relay.cjs");
+const { buildSoftwareTeamPayload } = require("../assets/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs");
 
 describe("Codex pending permission requests", () => {
   function setup(options: { noReader?: boolean; reader?: () => Promise<boolean | null> } = {}) {
@@ -202,9 +202,9 @@ describe("real Codex permission hook chain", () => {
   function setup(attachmentType: "tmux" | "external_cli" = "tmux") {
     const db = createFullTestDb();
     databases.push(db);
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("permission-test");
-    const node = rigRepo.addNode(rig.id, "worker", { runtime: "codex" });
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("permission-test");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "codex" });
     const registry = new SessionRegistry(db);
     const sessionName = "worker@permission-test";
     const session = registry.registerSession(node.id, sessionName);
@@ -243,11 +243,11 @@ describe("real Codex permission hook chain", () => {
     });
     app.route("/activity", activityRoutes);
     const hook = async (hookEvent: string, turnId = "turn") => {
-      const payload = buildOpenRigPayload({
+      const payload = buildSoftwareTeamPayload({
         hook_event_name: hookEvent, session_id: "codex-session", turn_id: turnId,
         transcript_path: null, cwd: "/project", model: "test-model", permission_mode: "default",
         tool_name: "shell", tool_input: { command: "echo hello" },
-      }, { OPENRIG_SESSION_NAME: sessionName, OPENRIG_RUNTIME: "codex" }, now);
+      }, { SOFTWARETEAM_SESSION_NAME: sessionName, SOFTWARETEAM_RUNTIME: "codex" }, now);
       const response = await app.request("/activity/hooks", {
         method: "POST", headers: { "content-type": "application/json", authorization: "Bearer test-token" },
         body: JSON.stringify(payload),

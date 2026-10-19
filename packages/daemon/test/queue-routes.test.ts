@@ -87,7 +87,7 @@ describe("queue routes", () => {
       sourceSession: "a@r", destinationSession: "a@r", body: "source", nudge: false,
     });
     const response = await app.request(source ? `/api/queue/${source.qitemId}/${verb}` : "/api/queue/create", {
-      method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+      method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
       body: JSON.stringify(source ? { toSession: "typo@r", nudge: false } : { destinationSession: "typo@r", body: "committed", nudge: false }),
     });
     expect(response.status).toBe(201);
@@ -128,7 +128,7 @@ describe("queue routes", () => {
       const events = bus.replayAll(0);
       const closureTarget = mode === "remote-qualified" ? `${successor!.qitemId}@remote` : "next@r";
       const res = await app.request(`/api/queue/${source.qitemId}/update`, {
-        method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+        method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
         body: JSON.stringify({ state, closureReason: "handed_off_to", closureTarget,
           transitionNote: "handoff" }),
       });
@@ -150,7 +150,7 @@ describe("queue routes", () => {
       const successor = await queueRepo.create({ sourceSession: "b@r", destinationSession: "next@r", body: "follow-on",
         chainOfRecord: [source.qitemId], nudge: false });
       const res = await app.request(`/api/queue/${source.qitemId}/update`, {
-        method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+        method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
         body: JSON.stringify({ state, closureReason: "handed_off_to",
           closureTarget: targetKind === "seat" ? "next@r" : successor.qitemId }),
       });
@@ -185,7 +185,7 @@ describe("queue routes", () => {
       }
       const count = queueRepo.list({ limit: 100 }).length;
       const res = await app.request(`/api/queue/${source.qitemId}/update`, {
-        method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+        method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
         body: JSON.stringify({ state: closureState, closureReason: "handed_off_to", closureTarget: "next@r" }),
       });
       expect(res.status).toBe(200);
@@ -206,7 +206,7 @@ describe("queue routes", () => {
     });
     try {
       const res = await app.request(`/api/queue/${source.qitemId}/update`, {
-        method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+        method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
         body: JSON.stringify({ state, closureReason: "handed_off_to", closureTarget: "next@r" }),
       });
       expect(res.status).toBe(200);
@@ -228,7 +228,7 @@ describe("queue routes", () => {
       expect(queueRepo.getById(source.qitemId)?.state).toBe("handed-off");
       queueRepo.list({ limit: 100 });
       const res = await app.request(`/api/queue/${source.qitemId}/update`, {
-        method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+        method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
         body: JSON.stringify({ transitionNote: "receipt appended" }),
       });
       expect(res.status).toBe(200);
@@ -244,7 +244,7 @@ describe("queue routes", () => {
     const dependent = await queueRepo.create({ sourceSession: "a@r", destinationSession: "held@r", body: "wait", nudge: false });
     queueRepo.update({ qitemId: dependent.qitemId, actorSession: "held@r", state: "blocked", blockedOn: source.qitemId });
     const res = await app.request(`/api/queue/${source.qitemId}/update`, {
-      method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+      method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
       body: JSON.stringify({ state: "done", closureReason: "handed_off_to", closureTarget: "next@r" }),
     });
     expect(res.status).toBe(200);
@@ -253,16 +253,16 @@ describe("queue routes", () => {
     expect(queueRepo.list({ limit: 100 })).toHaveLength(2);
   });
 
-  it("handoffAdvisory guides callers to rig queue handoff commands", async () => {
+  it("handoffAdvisory guides callers to SoftwareTeam queue handoff commands", async () => {
     const source = await queueRepo.create({ sourceSession: "a@r", destinationSession: "b@r", body: "task", nudge: false });
     const res = await app.request(`/api/queue/${source.qitemId}/update`, {
-      method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+      method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
       body: JSON.stringify({ state: "done", closureReason: "handed_off_to", closureTarget: "next@r" }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.handoffAdvisory?.status).toBe("unverified");
-    expect(body.handoffAdvisory?.message).toContain("rig queue handoff");
+    expect(body.handoffAdvisory?.message).toContain("SoftwareTeam queue handoff");
     expect(body.handoffAdvisory?.message).toContain("handoff-and-complete");
     expect(body.handoffAdvisory?.message).toContain("a local handoff is atomic");
     expect(body.handoffAdvisory?.message).toContain("across hosts the successor is created first and the source closed after");
@@ -275,13 +275,13 @@ describe("queue routes", () => {
     db.prepare("UPDATE queue_items SET chain_of_record = 'not-valid-json' WHERE qitem_id = ?").run(candidate.qitemId);
 
     const res = await app.request(`/api/queue/${source.qitemId}/update`, {
-      method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+      method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
       body: JSON.stringify({ state: "done", closureReason: "handed_off_to", closureTarget: "next@r" }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.handoffAdvisory?.status).toBe("unverified");
-    expect(body.handoffAdvisory?.message).toContain("rig queue handoff");
+    expect(body.handoffAdvisory?.message).toContain("SoftwareTeam queue handoff");
   });
 
   it("keeps legacy custody note appends and explicit reopen/repair available", async () => {
@@ -289,7 +289,7 @@ describe("queue routes", () => {
     queueRepo.update({ qitemId: source.qitemId, actorSession: "b@r",
       state: "done", closureReason: "handed_off_to", closureTarget: "qitem-old@remote" });
     const post = (body: Record<string, unknown>) => app.request(`/api/queue/${source.qitemId}/update`, {
-      method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" }, body: JSON.stringify(body),
+      method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" }, body: JSON.stringify(body),
     });
     expect((await post({ transitionNote: "custody verification remains an append-only fact" })).status).toBe(200);
     expect(queueRepo.getById(source.qitemId)).toMatchObject({ state: "done", closureTarget: "qitem-old@remote" });
@@ -304,7 +304,7 @@ describe("queue routes", () => {
     const row = await queueRepo.create({ sourceSession: "a@r", destinationSession: "b@r", body: "x", nudge: false });
     const res = await app.request(`/api/queue/${row.qitemId}/update`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
       body: JSON.stringify({
         state: "blocked",
         blockedOn: "external:cooldown",
@@ -329,7 +329,7 @@ describe("queue routes", () => {
   describe("update resolution", () => {
     type Start = "pending" | "in-progress" | "blocked" | "done" | "canceled" | "handed-off" | "failed" | "denied";
     const post = (qitemId: string, body: Record<string, unknown>, session = "b@r") => app.request(`/api/queue/${qitemId}/update`, {
-      method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": session },
+      method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": session },
       body: JSON.stringify(body),
     });
     const show = async (qitemId: string) => (await app.request(`/api/queue/${qitemId}`)).json() as Promise<Record<string, any>>;
@@ -580,7 +580,7 @@ describe("queue routes", () => {
       // with a ".0"), and create takes any chainOfRecord. The earlier line is found without either.
       describe("whatever the route received for the destination, the chain and the reason", () => {
         const createRow = (extra: Record<string, unknown> = {}) => app.request("/api/queue/create", {
-          method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+          method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
           body: JSON.stringify({ sourceSession: "a@r", destinationSession: "b@r", body: "x", nudge: false, ...extra }),
         }).then(async (res) => { expect(res.status).toBe(201); return (await res.json() as { qitemId: string }).qitemId; });
         const fallbackTo = (qitemId: string, to: unknown, reason: unknown) => app.request(`/api/queue/${qitemId}/fallback`, {
@@ -646,7 +646,7 @@ describe("queue routes", () => {
       // The update route takes the actor and the note from the request, so a note-only update can carry both of a
       // reroute's marks; only the reroute's own transition (written in-process, with no identity provenance) counts.
       describe("a note-only update that carries a reroute's actor and note", () => {
-        const FORGED = { transitionNote: "fallback-routed: worker@rig \u2192 next@rig (user text)" };
+        const FORGED = { transitionNote: "fallback-routed: worker@software-team \u2192 next@software-team (user text)" };
 
         it.each([
           ["with the fallback actor", "system:queue-fallback"],
@@ -795,7 +795,7 @@ describe("queue routes", () => {
 
   describe("GET /:qitemId closing transition", () => {
     const update = (qitemId: string, body: Record<string, unknown>) => app.request(`/api/queue/${qitemId}/update`, {
-      method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+      method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
       body: JSON.stringify(body),
     });
     const show = async (qitemId: string) => (await app.request(`/api/queue/${qitemId}`)).json() as Promise<Record<string, any>>;
@@ -845,9 +845,9 @@ describe("queue routes", () => {
 
   // 0.5.1-54 DR-1 — the create-path failed-nudge surface (the NAMED, human/agent-visible read path).
   it("DR-1: GET /undelivered surfaces the failed-nudge pending strand, V1-only", async () => {
-    const failed = await queueRepo.create({ sourceSession: "a@rig", destinationSession: "b@rig", body: "x" });
-    queueRepo.recordNudgeAttempt(failed.qitemId, "failed:Session 'b@rig' not found");
-    const delivered = await queueRepo.create({ sourceSession: "a@rig", destinationSession: "b@rig", body: "y" });
+    const failed = await queueRepo.create({ sourceSession: "a@software-team", destinationSession: "b@software-team", body: "x" });
+    queueRepo.recordNudgeAttempt(failed.qitemId, "failed:Session 'b@software-team' not found");
+    const delivered = await queueRepo.create({ sourceSession: "a@software-team", destinationSession: "b@software-team", body: "y" });
     queueRepo.recordNudgeAttempt(delivered.qitemId, "verified");
     const res = await app.request("/api/queue/undelivered");
     expect(res.status).toBe(200);
@@ -861,42 +861,42 @@ describe("queue routes", () => {
   });
 
   // ── P18 sender-provenance: /inbox/drop derives the sender from the authenticated transport
-  // header (X-OpenRig-Session), never a request-body claim; refuses-unattributable LOUD when absent. ──
+  // header (X-SoftwareTeam-Session), never a request-body claim; refuses-unattributable LOUD when absent. ──
   describe("P18 sender-provenance", () => {
     it("records the TRANSPORT-DERIVED sender (header), IGNORING a forged body senderSession/authenticatedSender", async () => {
       const res = await app.request("/api/queue/inbox/drop", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@rig" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@software-team" },
         body: JSON.stringify({
-          destinationSession: "bob@rig", body: "hi",
-          senderSession: "mallory@rig", authenticatedSender: "mallory@rig", // forged body claims — must be ignored
+          destinationSession: "bob@software-team", body: "hi",
+          senderSession: "mallory@software-team", authenticatedSender: "mallory@software-team", // forged body claims — must be ignored
         }),
       });
       expect(res.status).toBe(201);
       const entry = await res.json() as { senderSession: string };
-      expect(entry.senderSession).toBe("alice@rig"); // the header wins; the forged body claim never lands
+      expect(entry.senderSession).toBe("alice@software-team"); // the header wins; the forged body claim never lands
     });
 
     it("header absent (no body sender read) → 400 actor_required (P18 sweep: parameter completeness, not the retired 401 refusal)", async () => {
       const res = await app.request("/api/queue/inbox/drop", {
         method: "POST",
-        headers: { "Content-Type": "application/json" }, // NO X-OpenRig-Session
-        body: JSON.stringify({ destinationSession: "bob@rig", body: "hi", senderSession: "mallory@rig" }),
+        headers: { "Content-Type": "application/json" }, // NO X-SoftwareTeam-Session
+        body: JSON.stringify({ destinationSession: "bob@software-team", body: "hi", senderSession: "mallory@software-team" }),
       });
       // inbox/drop never reads a body sender (forgeable), so with no header there is no actor to LABEL →
       // 400 actor_required (the queue.ts:215 class), NOT the retired 401 refusal-of-an-uncertifiable-sender.
       expect(res.status).toBe(400);
       const err = await res.json() as { error: string; message: string };
       expect(err.error).toBe("actor_required");
-      expect(err.message).toMatch(/X-OpenRig-Session/);
+      expect(err.message).toMatch(/X-SoftwareTeam-Session/);
     });
   });
 
   it("inbox drop — era-stamps inbox_entries transport:v1 (P21 §4 derived-era boundary)", async () => {
     const res = await app.request("/api/queue/inbox/drop", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "sender@rig" },
-      body: JSON.stringify({ destinationSession: "dest@rig", body: "hi" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "sender@software-team" },
+      body: JSON.stringify({ destinationSession: "dest@software-team", body: "hi" }),
     });
     expect(res.status).toBe(201);
     const { inboxId } = (await res.json()) as { inboxId: string };
@@ -912,7 +912,7 @@ describe("queue routes", () => {
   async function dropEntry(dest: string, sender: string): Promise<string> {
     const res = await app.request("/api/queue/inbox/drop", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": sender },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": sender },
       body: JSON.stringify({ destinationSession: dest, body: "hi" }),
     });
     return ((await res.json()) as { inboxId: string }).inboxId;
@@ -921,18 +921,18 @@ describe("queue routes", () => {
   it("outbox record — still accepts a normal (non-reserved) outboxId", async () => {
     const res = await app.request("/api/queue/outbox/record", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "sender@rig" },
-      body: JSON.stringify({ destinationSession: "dest@rig", body: "ordinary audit" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "sender@software-team" },
+      body: JSON.stringify({ destinationSession: "dest@software-team", body: "ordinary audit" }),
     });
     expect(res.status).toBe(201);
   });
 
   it("inbox absorb — header absent + body receiverSession → delivers under the claimed actor, transition claimed:v1 (deliver-and-label)", async () => {
-    const inboxId = await dropEntry("dest@rig", "sender@rig");
+    const inboxId = await dropEntry("dest@software-team", "sender@software-team");
     const res = await app.request(`/api/queue/inbox/${inboxId}/absorb`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ receiverSession: "dest@rig" }),
+      body: JSON.stringify({ receiverSession: "dest@software-team" }),
     });
     expect(res.status).toBe(200);
     const { qitemId } = (await res.json()) as { qitemId: string };
@@ -942,12 +942,12 @@ describe("queue routes", () => {
     expect(row?.identity_provenance).toBe("claimed:v1");
   });
 
-  it("inbox absorb — header present + differing body receiverSession → wire supersedes (delivers under dest@rig, transport:v1); 409 retired", async () => {
-    const inboxId = await dropEntry("dest@rig", "sender@rig");
+  it("inbox absorb — header present + differing body receiverSession → wire supersedes (delivers under dest@software-team, transport:v1); 409 retired", async () => {
+    const inboxId = await dropEntry("dest@software-team", "sender@software-team");
     const res = await app.request(`/api/queue/inbox/${inboxId}/absorb`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "dest@rig" },
-      body: JSON.stringify({ receiverSession: "mallory@rig" }), // superseded by the wire identity
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "dest@software-team" },
+      body: JSON.stringify({ receiverSession: "mallory@software-team" }), // superseded by the wire identity
     });
     expect(res.status).toBe(200);
     const { qitemId } = (await res.json()) as { qitemId: string };
@@ -958,11 +958,11 @@ describe("queue routes", () => {
   });
 
   it("inbox absorb — derives receiver from the header + era-stamps the absorbed qitem transport:v1", async () => {
-    const inboxId = await dropEntry("dest@rig", "sender@rig");
+    const inboxId = await dropEntry("dest@software-team", "sender@software-team");
     const res = await app.request(`/api/queue/inbox/${inboxId}/absorb`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "dest@rig" },
-      body: JSON.stringify({ receiverSession: "dest@rig" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "dest@software-team" },
+      body: JSON.stringify({ receiverSession: "dest@software-team" }),
     });
     expect(res.status).toBe(200);
     const { qitemId } = (await res.json()) as { qitemId: string };
@@ -974,31 +974,31 @@ describe("queue routes", () => {
   });
 
   it("inbox deny — header absent + body receiverSession → delivers under the claimed actor (200); 401 retired", async () => {
-    const inboxId = await dropEntry("dest@rig", "sender@rig");
+    const inboxId = await dropEntry("dest@software-team", "sender@software-team");
     const res = await app.request(`/api/queue/inbox/${inboxId}/deny`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ receiverSession: "dest@rig", reason: "nope" }),
+      body: JSON.stringify({ receiverSession: "dest@software-team", reason: "nope" }),
     });
     expect(res.status).toBe(200);
   });
 
   it("inbox deny — header present + differing body receiverSession → wire supersedes, delivers (200); 409 retired", async () => {
-    const inboxId = await dropEntry("dest@rig", "sender@rig");
+    const inboxId = await dropEntry("dest@software-team", "sender@software-team");
     const res = await app.request(`/api/queue/inbox/${inboxId}/deny`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "dest@rig" },
-      body: JSON.stringify({ receiverSession: "mallory@rig", reason: "nope" }), // superseded by the wire identity
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "dest@software-team" },
+      body: JSON.stringify({ receiverSession: "mallory@software-team", reason: "nope" }), // superseded by the wire identity
     });
     expect(res.status).toBe(200);
   });
 
   it("inbox deny — derives receiver from the header (200)", async () => {
-    const inboxId = await dropEntry("dest@rig", "sender@rig");
+    const inboxId = await dropEntry("dest@software-team", "sender@software-team");
     const res = await app.request(`/api/queue/inbox/${inboxId}/deny`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "dest@rig" },
-      body: JSON.stringify({ receiverSession: "dest@rig", reason: "not mine" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "dest@software-team" },
+      body: JSON.stringify({ receiverSession: "dest@software-team", reason: "not mine" }),
     });
     expect(res.status).toBe(200);
   });
@@ -1007,7 +1007,7 @@ describe("queue routes", () => {
     const res = await app.request("/api/queue/outbox/record", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ senderSession: "me@rig", destinationSession: "you@rig", body: "hi" }),
+      body: JSON.stringify({ senderSession: "me@software-team", destinationSession: "you@software-team", body: "hi" }),
     });
     expect(res.status).toBe(201);
     const { outboxId } = (await res.json()) as { outboxId: string };
@@ -1020,8 +1020,8 @@ describe("queue routes", () => {
   it("outbox record — header present + differing body senderSession → wire supersedes (transport:v1); 409 retired", async () => {
     const res = await app.request("/api/queue/outbox/record", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "me@rig" },
-      body: JSON.stringify({ senderSession: "evil@rig", destinationSession: "you@rig", body: "hi" }), // superseded
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "me@software-team" },
+      body: JSON.stringify({ senderSession: "evil@software-team", destinationSession: "you@software-team", body: "hi" }), // superseded
     });
     expect(res.status).toBe(201);
     const { outboxId } = (await res.json()) as { outboxId: string };
@@ -1034,8 +1034,8 @@ describe("queue routes", () => {
   it("outbox record — derives sender from the header + era-stamps outbox_entries transport:v1", async () => {
     const res = await app.request("/api/queue/outbox/record", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "me@rig" },
-      body: JSON.stringify({ senderSession: "me@rig", destinationSession: "you@rig", body: "hi" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "me@software-team" },
+      body: JSON.stringify({ senderSession: "me@software-team", destinationSession: "you@software-team", body: "hi" }),
     });
     expect(res.status).toBe(201);
     const { outboxId } = (await res.json()) as { outboxId: string };
@@ -1048,10 +1048,10 @@ describe("queue routes", () => {
   it("POST /api/queue/create creates a qitem", async () => {
     const res = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@rig" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@software-team" },
       body: JSON.stringify({
-        sourceSession: "alice@rig",
-        destinationSession: "bob@rig",
+        sourceSession: "alice@software-team",
+        destinationSession: "bob@software-team",
         body: "do thing",
         priority: "urgent",
       }),
@@ -1062,13 +1062,13 @@ describe("queue routes", () => {
     expect(data.priority).toBe("urgent");
   });
 
-  // P21 I3 — create's sender is the transport header (X-OpenRig-Session), NEVER a body claim.
+  // P21 I3 — create's sender is the transport header (X-SoftwareTeam-Session), NEVER a body claim.
   // Adopt-drop window: a body sourceSession is tolerated ONLY when it EQUALS the transport identity.
   it("create — header absent + body sourceSession → delivers under the claimed actor, transition claimed:v1", async () => {
     const res = await app.request("/api/queue/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sourceSession: "bob@rig", destinationSession: "dst@rig", body: "hi" }),
+      body: JSON.stringify({ sourceSession: "bob@software-team", destinationSession: "dst@software-team", body: "hi" }),
     });
     expect(res.status).toBe(201);
     const { qitemId } = (await res.json()) as { qitemId: string };
@@ -1078,18 +1078,18 @@ describe("queue routes", () => {
     expect(t?.identity_provenance).toBe("claimed:v1");
   });
 
-  it("create — header present + differing body sourceSession → wire supersedes (source alice@rig, transport:v1); 409 retired", async () => {
+  it("create — header present + differing body sourceSession → wire supersedes (source alice@software-team, transport:v1); 409 retired", async () => {
     const res = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@rig" },
-      body: JSON.stringify({ sourceSession: "bob@rig", destinationSession: "dst@rig", body: "hi" }), // superseded
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@software-team" },
+      body: JSON.stringify({ sourceSession: "bob@software-team", destinationSession: "dst@software-team", body: "hi" }), // superseded
     });
     expect(res.status).toBe(201);
     const { qitemId } = (await res.json()) as { qitemId: string };
     const row = db
       .prepare("SELECT source_session FROM queue_items WHERE qitem_id = ?")
       .get(qitemId) as { source_session: string } | undefined;
-    expect(row?.source_session).toBe("alice@rig");
+    expect(row?.source_session).toBe("alice@software-team");
     const t = db
       .prepare("SELECT identity_provenance FROM queue_transitions WHERE qitem_id = ? ORDER BY rowid ASC LIMIT 1")
       .get(qitemId) as { identity_provenance: string | null } | undefined;
@@ -1099,22 +1099,22 @@ describe("queue routes", () => {
   it("create — derives source_session from the transport header, never the body (equal claim tolerated)", async () => {
     const res = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@rig" },
-      body: JSON.stringify({ sourceSession: "alice@rig", destinationSession: "dst@rig", body: "hi" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@software-team" },
+      body: JSON.stringify({ sourceSession: "alice@software-team", destinationSession: "dst@software-team", body: "hi" }),
     });
     expect(res.status).toBe(201);
     const { qitemId } = (await res.json()) as { qitemId: string };
     const row = db
       .prepare("SELECT source_session FROM queue_items WHERE qitem_id = ?")
       .get(qitemId) as { source_session: string } | undefined;
-    expect(row?.source_session).toBe("alice@rig");
+    expect(row?.source_session).toBe("alice@software-team");
   });
 
   it("create — era-stamps the created transition transport:v1 (P21 §4 derived-era boundary)", async () => {
     const res = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@rig" },
-      body: JSON.stringify({ sourceSession: "alice@rig", destinationSession: "dst@rig", body: "hi" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@software-team" },
+      body: JSON.stringify({ sourceSession: "alice@software-team", destinationSession: "dst@software-team", body: "hi" }),
     });
     expect(res.status).toBe(201);
     const { qitemId } = (await res.json()) as { qitemId: string };
@@ -1125,11 +1125,11 @@ describe("queue routes", () => {
     expect(row?.identity_provenance).toBe("transport:v1");
   });
 
-  // P21 I3 — update's actor is the transport header (X-OpenRig-Session), NEVER a body claim.
+  // P21 I3 — update's actor is the transport header (X-SoftwareTeam-Session), NEVER a body claim.
   async function createForUpdate(session: string): Promise<string> {
     const create = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": session },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": session },
       body: JSON.stringify({ sourceSession: session, destinationSession: "worker@r", body: "x" }),
     });
     return ((await create.json()) as { qitemId: string }).qitemId;
@@ -1154,7 +1154,7 @@ describe("queue routes", () => {
     const qitemId = await createForUpdate("a@r");
     const res = await app.request(`/api/queue/${qitemId}/update`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "worker@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "worker@r" },
       body: JSON.stringify({ actorSession: "mallory@r", state: "in-progress" }), // superseded by the wire identity
     });
     expect(res.status).toBe(200);
@@ -1169,7 +1169,7 @@ describe("queue routes", () => {
     const qitemId = await createForUpdate("a@r");
     const res = await app.request(`/api/queue/${qitemId}/update`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "worker@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "worker@r" },
       body: JSON.stringify({ actorSession: "worker@r", state: "in-progress" }),
     });
     expect(res.status).toBe(200);
@@ -1185,7 +1185,7 @@ describe("queue routes", () => {
   async function createForHandoff(dest: string): Promise<string> {
     const create = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "orch@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "orch@r" },
       body: JSON.stringify({ sourceSession: "orch@r", destinationSession: dest, body: "x" }),
     });
     return ((await create.json()) as { qitemId: string }).qitemId;
@@ -1210,7 +1210,7 @@ describe("queue routes", () => {
       const qitemId = await createForHandoff("b@r");
       const res = await app.request(`/api/queue/${qitemId}/${verb}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
         body: JSON.stringify({ fromSession: "mallory@r", toSession: "c@r" }), // superseded by the wire identity
       });
       expect(res.status).toBe(201);
@@ -1224,7 +1224,7 @@ describe("queue routes", () => {
       const qitemId = await createForHandoff("b@r");
       const res = await app.request(`/api/queue/${qitemId}/${verb}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
         body: JSON.stringify({ fromSession: "b@r", toSession: "c@r" }),
       });
       expect(res.status).toBe(201);
@@ -1237,7 +1237,7 @@ describe("queue routes", () => {
   }
 
   // #131 — under load the CLI's locality probe can time out and stamp THIS daemon's own self-host id
-  // onto the sender (member@rig@<selfHostId>). The daemon must canonicalize that back to the bare local
+  // onto the sender (member@software-team@<selfHostId>). The daemon must canonicalize that back to the bare local
   // seat before every actor compare/record; a FOREIGN host qualifier stays verbatim.
   describe("self-host-suffixed transport identity (#131)", () => {
     const SELF = "host-self-131";
@@ -1246,7 +1246,7 @@ describe("queue routes", () => {
     afterEach(() => setSelfHostId(priorSelfId));
     const post = (url: string, session: string, body: unknown) => app.request(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": session },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": session },
       body: JSON.stringify(body),
     });
     const lastActor = (qitemId: string) => (db
@@ -1296,7 +1296,7 @@ describe("queue routes", () => {
     const qitemId = await createForHandoff(dest);
     await app.request(`/api/queue/${qitemId}/claim`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": dest },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": dest },
       body: JSON.stringify({ destinationSession: dest }),
     });
     return qitemId;
@@ -1321,7 +1321,7 @@ describe("queue routes", () => {
     const qitemId = await createForHandoff("b@r");
     const res = await app.request(`/api/queue/${qitemId}/claim`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
       body: JSON.stringify({ destinationSession: "mallory@r" }), // superseded by the wire identity
     });
     expect(res.status).toBe(200);
@@ -1336,7 +1336,7 @@ describe("queue routes", () => {
     const qitemId = await createForHandoff("b@r");
     const res = await app.request(`/api/queue/${qitemId}/claim`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
       body: JSON.stringify({ destinationSession: "b@r" }),
     });
     expect(res.status).toBe(200);
@@ -1366,7 +1366,7 @@ describe("queue routes", () => {
     const qitemId = await createAndClaim("b@r");
     const res = await app.request(`/api/queue/${qitemId}/unclaim`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
       body: JSON.stringify({ destinationSession: "mallory@r" }), // superseded by the wire identity
     });
     expect(res.status).toBe(200);
@@ -1381,7 +1381,7 @@ describe("queue routes", () => {
     const qitemId = await createAndClaim("b@r");
     const res = await app.request(`/api/queue/${qitemId}/unclaim`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
       body: JSON.stringify({ destinationSession: "b@r" }),
     });
     expect(res.status).toBe(200);
@@ -1395,14 +1395,14 @@ describe("queue routes", () => {
   it("POST /api/queue/:id/update with state=done WITHOUT closure_reason returns 400 with validReasons", async () => {
     const create = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
       body: JSON.stringify({ sourceSession: "a@r", destinationSession: "b@r", body: "x" }),
     });
     const item = (await create.json()) as { qitemId: string };
 
     const update = await app.request(`/api/queue/${item.qitemId}/update`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
       body: JSON.stringify({ actorSession: "b@r", state: "done" }),
     });
     expect(update.status).toBe(400);
@@ -1415,7 +1415,7 @@ describe("queue routes", () => {
     for (const reason of CLOSURE_REASONS) {
       const create = await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
         body: JSON.stringify({ sourceSession: "a@r", destinationSession: "b@r", body: `for-${reason}` }),
       });
       const item = (await create.json()) as { qitemId: string };
@@ -1428,7 +1428,7 @@ describe("queue routes", () => {
       });
       const update = await app.request(`/api/queue/${item.qitemId}/update`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
         body: JSON.stringify({
           actorSession: "b@r",
           state: "done",
@@ -1446,14 +1446,14 @@ describe("queue routes", () => {
   it("POST /api/queue/:id/handoff returns closed + created in one transaction", async () => {
     const create = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
       body: JSON.stringify({ sourceSession: "a@r", destinationSession: "b@r", body: "x" }),
     });
     const item = (await create.json()) as { qitemId: string };
 
     const handoff = await app.request(`/api/queue/${item.qitemId}/handoff`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" }, // P21 I3: handoff actor from the transport header
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" }, // P21 I3: handoff actor from the transport header
       body: JSON.stringify({ fromSession: "b@r", toSession: "c@r", transitionNote: "specialty" }),
     });
     expect(handoff.status).toBe(201);
@@ -1472,7 +1472,7 @@ describe("queue routes", () => {
   it("GET /api/queue/:id returns the qitem; transitions endpoint returns the log", async () => {
     const create = await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
       body: JSON.stringify({ sourceSession: "a@r", destinationSession: "b@r", body: "x" }),
     });
     const item = (await create.json()) as { qitemId: string };
@@ -1490,7 +1490,7 @@ describe("queue routes", () => {
   it("inbox drop / absorb / deny round-trip", async () => {
     const drop = await app.request("/api/queue/inbox/drop", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" }, // P18: transport-derived sender
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" }, // P18: transport-derived sender
       body: JSON.stringify({
         destinationSession: "b@r",
         body: "async",
@@ -1501,7 +1501,7 @@ describe("queue routes", () => {
 
     const absorb = await app.request(`/api/queue/inbox/${entry.inboxId}/absorb`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" }, // P21 I3: receiver from the transport header
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" }, // P21 I3: receiver from the transport header
       body: JSON.stringify({ receiverSession: "b@r" }),
     });
     expect(absorb.status).toBe(200);
@@ -1511,13 +1511,13 @@ describe("queue routes", () => {
     // Second drop + deny path
     const drop2 = await app.request("/api/queue/inbox/drop", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" }, // P18: transport-derived sender
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" }, // P18: transport-derived sender
       body: JSON.stringify({ destinationSession: "b@r", body: "skip" }),
     });
     const entry2 = (await drop2.json()) as { inboxId: string };
     const deny = await app.request(`/api/queue/inbox/${entry2.inboxId}/deny`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" }, // P21 I3: receiver from the transport header
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" }, // P21 I3: receiver from the transport header
       body: JSON.stringify({ receiverSession: "b@r", reason: "off-topic" }),
     });
     expect(deny.status).toBe(200);
@@ -1526,7 +1526,7 @@ describe("queue routes", () => {
   it("outbox record + list round-trip", async () => {
     const record = await app.request("/api/queue/outbox/record", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" }, // P21 I3: outbox sender from the transport header
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" }, // P21 I3: outbox sender from the transport header
       body: JSON.stringify({ senderSession: "a@r", destinationSession: "b@r", body: "fyi" }),
     });
     expect(record.status).toBe(201);
@@ -1541,7 +1541,7 @@ describe("queue routes", () => {
   it("queue, inbox and outbox list refuse only a non-numeric or unbindable limit (#586)", async () => {
     for (const body of ["one", "two", "three"]) {
       const res = await app.request("/api/queue/create", {
-        method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+        method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
         body: JSON.stringify({ destinationSession: "b@r", body, nudge: false }),
       });
       expect(res.status).toBe(201);
@@ -1554,12 +1554,12 @@ describe("queue routes", () => {
   it("GET /api/queue/list filters by destination + state", async () => {
     await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
       body: JSON.stringify({ sourceSession: "a@r", destinationSession: "b@r", body: "1" }),
     });
     await app.request("/api/queue/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
       body: JSON.stringify({ sourceSession: "a@r", destinationSession: "c@r", body: "2" }),
     });
     const res = await app.request("/api/queue/list?destinationSession=b@r");
@@ -1579,7 +1579,7 @@ describe("queue routes", () => {
     it("tier-only agent rows do not create a human approval obligation", async () => {
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
         body: JSON.stringify({
           sourceSession: "a@r",
           destinationSession: "b@r",
@@ -1598,7 +1598,7 @@ describe("queue routes", () => {
     it("HG-4 positive (action-required class): destination=human-foo@kernel open qitem is returned", async () => {
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
         body: JSON.stringify({
           sourceSession: "a@r",
           destinationSession: "human-bob@kernel",
@@ -1616,7 +1616,7 @@ describe("queue routes", () => {
     it("HG-4 positive: destination=human@host (bare human prefix) open qitem is returned", async () => {
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
         body: JSON.stringify({
           sourceSession: "a@r",
           destinationSession: "human@host",
@@ -1633,7 +1633,7 @@ describe("queue routes", () => {
     it("HG-4 negative: routine pending qitem (non-attention tier + non-human destination) is NOT returned", async () => {
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
         body: JSON.stringify({
           sourceSession: "a@r",
           destinationSession: "b@r",
@@ -1648,7 +1648,7 @@ describe("queue routes", () => {
     it("HG-4 negative: closed attention qitem (state=done) is NOT returned", async () => {
       const create = await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
         body: JSON.stringify({
           sourceSession: "a@r",
           destinationSession: "human-x@kernel",
@@ -1660,7 +1660,7 @@ describe("queue routes", () => {
       const item = (await create.json()) as { qitemId: string };
       await app.request(`/api/queue/${item.qitemId}/update`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "human-x@kernel" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "human-x@kernel" },
         body: JSON.stringify({
           actorSession: "human-x@kernel",
           state: "done",
@@ -1677,7 +1677,7 @@ describe("queue routes", () => {
       for (let i = 0; i < 5; i++) {
         await app.request("/api/queue/create", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+          headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
           body: JSON.stringify({
             sourceSession: "a@r",
             destinationSession: `human-${i}@kernel`,
@@ -1694,7 +1694,7 @@ describe("queue routes", () => {
       // Seed ONE attention-class item first
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
         body: JSON.stringify({
           sourceSession: "a@r",
           destinationSession: "human-founder@external",
@@ -1711,7 +1711,7 @@ describe("queue routes", () => {
       for (let i = 0; i < 110; i++) {
         await app.request("/api/queue/create", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "X-OpenRig-Session": `routine-${i}@r` },
+          headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": `routine-${i}@r` },
           body: JSON.stringify({
             sourceSession: `routine-${i}@r`,
             destinationSession: `other-${i}@r`,
@@ -1737,7 +1737,7 @@ describe("queue routes", () => {
       // Seed 2 attention items at different destinations.
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "advisor@r1" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "advisor@r1" },
         body: JSON.stringify({
           sourceSession: "advisor@r1",
           destinationSession: "human-alice@kernel",
@@ -1748,7 +1748,7 @@ describe("queue routes", () => {
       });
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "advisor@r2" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "advisor@r2" },
         body: JSON.stringify({
           sourceSession: "advisor@r2",
           destinationSession: "human-bob@kernel",
@@ -1762,7 +1762,7 @@ describe("queue routes", () => {
       // it must not appear.
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "advisor@r1" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "advisor@r1" },
         body: JSON.stringify({
           sourceSession: "advisor@r1",
           destinationSession: "human-alice@kernel",
@@ -1786,7 +1786,7 @@ describe("queue routes", () => {
     it("BLOCKER re-verify-2: attention=1 + sourceSession=X returns only X-sourced attention items", async () => {
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "advisor-a@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "advisor-a@r" },
         body: JSON.stringify({
           sourceSession: "advisor-a@r",
           destinationSession: "human-x@kernel",
@@ -1797,7 +1797,7 @@ describe("queue routes", () => {
       });
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "advisor-b@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "advisor-b@r" },
         body: JSON.stringify({
           sourceSession: "advisor-b@r",
           destinationSession: "human-y@kernel",
@@ -1817,7 +1817,7 @@ describe("queue routes", () => {
     it("BLOCKER re-verify-2: attention=1 unscoped still returns the global attention set (composition is OPT-IN, not required)", async () => {
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
         body: JSON.stringify({
           sourceSession: "a@r",
           destinationSession: "human-x@kernel",
@@ -1828,7 +1828,7 @@ describe("queue routes", () => {
       });
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "b@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "b@r" },
         body: JSON.stringify({
           sourceSession: "b@r",
           destinationSession: "human-y@kernel",
@@ -1863,7 +1863,7 @@ describe("queue routes", () => {
       // Seed 1 valid attention item.
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "advisor@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "advisor@r" },
         body: JSON.stringify({
           sourceSession: "advisor@r",
           destinationSession: "human-alice@kernel",
@@ -1887,7 +1887,7 @@ describe("queue routes", () => {
               : "human-x/@kernel";   // slash (forbidden char)
         await app.request("/api/queue/create", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "X-OpenRig-Session": `garbage-${i}@r` },
+          headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": `garbage-${i}@r` },
           body: JSON.stringify({
             sourceSession: `garbage-${i}@r`,
             destinationSession: dest,
@@ -1920,7 +1920,7 @@ describe("queue routes", () => {
       // Seed attention items in different repos.
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
         body: JSON.stringify({
           sourceSession: "a@r",
           destinationSession: "human-bob@kernel",
@@ -1932,7 +1932,7 @@ describe("queue routes", () => {
       });
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
         body: JSON.stringify({
           sourceSession: "a@r",
           destinationSession: "human-carol@kernel",
@@ -1954,7 +1954,7 @@ describe("queue routes", () => {
       // Seed 1 attention item with targetRepo=repo-X.
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "a@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "a@r" },
         body: JSON.stringify({
           sourceSession: "a@r",
           destinationSession: "human-z@kernel",
@@ -1970,7 +1970,7 @@ describe("queue routes", () => {
       for (let i = 0; i < 1100; i++) {
         await app.request("/api/queue/create", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "X-OpenRig-Session": `routine-${i}@r` },
+          headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": `routine-${i}@r` },
           body: JSON.stringify({
             sourceSession: `routine-${i}@r`,
             destinationSession: `other-${i}@r`,
@@ -1989,7 +1989,7 @@ describe("queue routes", () => {
     it("BLOCKER-1: attention item surfaces even when >1100 newer routine OPEN qitems exist (SQL predicate pushdown)", async () => {
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "old@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "old@r" },
         body: JSON.stringify({
           sourceSession: "old@r",
           destinationSession: "human-founder@external",
@@ -2006,7 +2006,7 @@ describe("queue routes", () => {
       for (let i = 0; i < 1100; i++) {
         await app.request("/api/queue/create", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "X-OpenRig-Session": `routine-${i}@r` },
+          headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": `routine-${i}@r` },
           body: JSON.stringify({
             sourceSession: `routine-${i}@r`,
             destinationSession: `other-${i}@r`,
@@ -2025,7 +2025,7 @@ describe("queue routes", () => {
 
   // ---- PL-004 Phase A revision (R1) route tests ----
 
-  describe("R1 cross-rig validation rejection", () => {
+  describe("R1 cross-software-team validation rejection", () => {
     let strictDb: Database.Database;
     let strictBus: EventBus;
     let strictRepo: QueueRepository;
@@ -2045,8 +2045,8 @@ describe("queue routes", () => {
       ]);
       strictBus = new EventBus(strictDb);
       strictRepo = new QueueRepository(strictDb, strictBus, {
-        // Topology-backed validator stub: only `@known-rig` is recognized.
-        validateRig: (s) => /^[^@]+@known-rig$/.test(s),
+        // Topology-backed validator stub: only `@known-softwareTeam` is recognized.
+        validateSoftwareTeam: (s) => /^[^@]+@known-softwareTeam$/.test(s),
       });
       const strictInbox = new InboxHandler(strictDb, strictBus, strictRepo);
       const strictOutbox = new OutboxHandler(strictDb);
@@ -2061,81 +2061,81 @@ describe("queue routes", () => {
 
     afterEach(() => strictDb.close());
 
-    it("POST /api/queue/create rejects unknown rig with 400 + structured error", async () => {
+    it("POST /api/queue/create rejects unknown SoftwareTeam with 400 + structured error", async () => {
       const res = await strictApp.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@known-rig" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@known-software-team" },
         body: JSON.stringify({
-          sourceSession: "alice@known-rig",
-          destinationSession: "bob@phantom-rig",
+          sourceSession: "alice@known-software-team",
+          destinationSession: "bob@phantom-software-team",
           body: "x",
         }),
       });
       expect(res.status).toBe(400);
       const body = (await res.json()) as { error: string; message: string };
-      expect(body.error).toBe("unknown_destination_rig");
-      expect(body.message).toMatch(/phantom-rig/);
+      expect(body.error).toBe("unknown_destination_software_team");
+      expect(body.message).toMatch(/phantom-softwareTeam/);
     });
 
-    it("POST /api/queue/create accepts known rig with 201", async () => {
+    it("POST /api/queue/create accepts known SoftwareTeam with 201", async () => {
       const res = await strictApp.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@known-rig" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@known-software-team" },
         body: JSON.stringify({
-          sourceSession: "alice@known-rig",
-          destinationSession: "bob@known-rig",
+          sourceSession: "alice@known-software-team",
+          destinationSession: "bob@known-software-team",
           body: "ok",
         }),
       });
       expect(res.status).toBe(201);
     });
 
-    it("POST /api/queue/:id/handoff rejects unknown destination rig", async () => {
+    it("POST /api/queue/:id/handoff rejects unknown destination softwareTeam", async () => {
       const created = await strictApp.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@known-rig" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@known-software-team" },
         body: JSON.stringify({
-          sourceSession: "alice@known-rig",
-          destinationSession: "bob@known-rig",
+          sourceSession: "alice@known-software-team",
+          destinationSession: "bob@known-software-team",
           body: "x",
         }),
       });
       const item = (await created.json()) as { qitemId: string };
       const res = await strictApp.request(`/api/queue/${item.qitemId}/handoff`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "bob@known-rig" }, // P21 I3: handoff actor from the transport header
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "bob@known-software-team" }, // P21 I3: handoff actor from the transport header
         body: JSON.stringify({
-          fromSession: "bob@known-rig",
-          toSession: "carol@phantom-rig",
+          fromSession: "bob@known-software-team",
+          toSession: "carol@phantom-software-team",
         }),
       });
       expect(res.status).toBe(400);
       const body = (await res.json()) as { error: string };
-      expect(body.error).toBe("unknown_destination_rig");
+      expect(body.error).toBe("unknown_destination_software_team");
     });
 
-    it("POST /api/queue/:id/handoff-and-complete rejects unknown destination rig", async () => {
+    it("POST /api/queue/:id/handoff-and-complete rejects unknown destination softwareTeam", async () => {
       const created = await strictApp.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@known-rig" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@known-software-team" },
         body: JSON.stringify({
-          sourceSession: "alice@known-rig",
-          destinationSession: "bob@known-rig",
+          sourceSession: "alice@known-software-team",
+          destinationSession: "bob@known-software-team",
           body: "x",
         }),
       });
       const item = (await created.json()) as { qitemId: string };
       const res = await strictApp.request(`/api/queue/${item.qitemId}/handoff-and-complete`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "bob@known-rig" }, // P21 I3: handoff actor from the transport header
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "bob@known-software-team" }, // P21 I3: handoff actor from the transport header
         body: JSON.stringify({
-          fromSession: "bob@known-rig",
-          toSession: "carol@phantom-rig",
+          fromSession: "bob@known-software-team",
+          toSession: "carol@phantom-software-team",
         }),
       });
       expect(res.status).toBe(400);
       const body = (await res.json()) as { error: string };
-      expect(body.error).toBe("unknown_destination_rig");
+      expect(body.error).toBe("unknown_destination_software_team");
     });
   });
 
@@ -2143,13 +2143,13 @@ describe("queue routes", () => {
     it("POST /api/queue/:id/handoff-and-complete closes source as done + creates new", async () => {
       const created = await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@r" },
         body: JSON.stringify({ sourceSession: "alice@r", destinationSession: "bob@r", body: "x" }),
       });
       const item = (await created.json()) as { qitemId: string };
       const res = await app.request(`/api/queue/${item.qitemId}/handoff-and-complete`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "bob@r" }, // P21 I3: handoff actor from the transport header
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "bob@r" }, // P21 I3: handoff actor from the transport header
         body: JSON.stringify({
           fromSession: "bob@r",
           toSession: "carol@r",
@@ -2172,7 +2172,7 @@ describe("queue routes", () => {
     it("POST /api/queue/:id/handoff-and-complete returns 400 on missing toSession (fromSession is header-derived; missing-sender is the 401 path)", async () => {
       const res = await app.request("/api/queue/some-id/handoff-and-complete", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "bob@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "bob@r" },
         body: JSON.stringify({ fromSession: "bob@r" }),
       });
       expect(res.status).toBe(400);
@@ -2186,23 +2186,23 @@ describe("queue routes", () => {
       // Seed: 2 pending + 1 in-progress for bob; 1 unrelated for carol.
       const a = await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@r" },
         body: JSON.stringify({ sourceSession: "alice@r", destinationSession: "bob@r", body: "1" }),
       });
       const itemA = (await a.json()) as { qitemId: string };
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@r" },
         body: JSON.stringify({ sourceSession: "alice@r", destinationSession: "bob@r", body: "2" }),
       });
       await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@r" },
         body: JSON.stringify({ sourceSession: "alice@r", destinationSession: "carol@r", body: "3" }),
       });
       await app.request(`/api/queue/${itemA.qitemId}/claim`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "bob@r" }, // P21 I3: claimant from the transport header
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "bob@r" }, // P21 I3: claimant from the transport header
         body: JSON.stringify({ destinationSession: "bob@r" }),
       });
 
@@ -2224,7 +2224,7 @@ describe("queue routes", () => {
     it("GET /api/queue/whoami adds workCandidates only with candidates=1, read-only", async () => {
       const created = await app.request("/api/queue/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@r" },
         body: JSON.stringify({ sourceSession: "alice@r", destinationSession: "bob@r", body: "x", tags: ["mission:m"] }),
       });
       expect(created.status).toBe(201);
@@ -2249,7 +2249,7 @@ describe("queue routes", () => {
       const create = async (body: string) => {
         const res = await app.request("/api/queue/create", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@r" },
+          headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@r" },
           body: JSON.stringify({ sourceSession: "alice@r", destinationSession: "bob@r", body }),
         });
         return ((await res.json()) as { qitemId: string }).qitemId;

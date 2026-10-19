@@ -51,7 +51,7 @@ async function run(port: number, argv: string[]): Promise<{ logs: string[]; errL
     const program = new Command();
     program.exitOverride();
     program.addCommand(contextCommand(deps));
-    await program.parseAsync(["node", "rig", "context", ...argv]);
+    await program.parseAsync(["node", "softwareTeam", "context", ...argv]);
   } catch { /* commander exitOverride */ } finally {
     console.log = origLog;
     console.error = origErr;
@@ -61,7 +61,7 @@ async function run(port: number, argv: string[]): Promise<{ logs: string[]; errL
   return { logs, errLogs, writes };
 }
 
-describe("rig context — address fork + profile verb (Atom 4d)", () => {
+describe("SoftwareTeam context — address fork + profile verb (Atom 4d)", () => {
   let server: http.Server;
   let port: number;
   let hits: string[];
@@ -162,7 +162,7 @@ describe("rig context — address fork + profile verb (Atom 4d)", () => {
     // a piece's bytes came from outside its root. The header line is framing,
     // not content, so the marker costs zero composed bytes.
     hits.length = 0;
-    const out = await run(port, ["profile", "packs/smoke", "--situation", "handover", "--runtime", "claude", "--rig", "r1", "--seat", "s1"]);
+    const out = await run(port, ["profile", "packs/smoke", "--situation", "handover", "--runtime", "claude", "--software-team", "r1", "--seat", "s1"]);
     const stdout = out.logs.join("\n");
     const recapHeader = stdout.split("\n").find((l) => l.startsWith("=== recap"))!;
     expect(recapHeader).toMatch(/ESCAPED|escape/i);
@@ -171,7 +171,7 @@ describe("rig context — address fork + profile verb (Atom 4d)", () => {
   });
 
   it("route warnings ride stderr, and the recap's write time rides its framing header", async () => {
-    const out = await run(port, ["profile", "packs/smoke", "--situation", "post-compaction", "--runtime", "claude", "--rig", "r1", "--seat", "s1"]);
+    const out = await run(port, ["profile", "packs/smoke", "--situation", "post-compaction", "--runtime", "claude", "--software-team", "r1", "--seat", "s1"]);
     expect(out.errLogs).toContain("WARNING fixture warning kept off stdout");
     const stdout = out.logs.join("\n");
     expect(stdout).not.toContain("fixture warning");
@@ -179,24 +179,24 @@ describe("rig context — address fork + profile verb (Atom 4d)", () => {
     expect(stdout.split("\n").find((l) => l.startsWith("=== welcome"))!).not.toMatch(/written/);
   });
 
-  it("r1 4d obs (2): --runtime defaults from OPENRIG_RUNTIME (a codex seat that forgets the flag must not silently get a claude profile); the flag beats the env", async () => {
-    const saved = process.env["OPENRIG_RUNTIME"];
+  it("r1 4d obs (2): --runtime defaults from SOFTWARETEAM_RUNTIME (a codex seat that forgets the flag must not silently get a claude profile); the flag beats the env", async () => {
+    const saved = process.env["SOFTWARETEAM_RUNTIME"];
     try {
-      process.env["OPENRIG_RUNTIME"] = "codex";
+      process.env["SOFTWARETEAM_RUNTIME"] = "codex";
       hits.length = 0;
       await run(port, ["profile", "packs/smoke", "--situation", "fresh"]);
       expect(hits.find((h) => h.includes("/profile"))!).toContain("runtime=codex");
       // r1 F2: the product's vocabulary is "claude-code" (the adapters' value,
       // live on real seats), never "claude" — it must map EXPLICITLY, not fall
       // through the unknown-value fallback that happens to coincide.
-      process.env["OPENRIG_RUNTIME"] = "claude-code";
+      process.env["SOFTWARETEAM_RUNTIME"] = "claude-code";
       hits.length = 0;
       const cc = await run(port, ["profile", "packs/smoke", "--situation", "fresh"]);
       expect(hits.find((h) => h.includes("/profile"))!).toContain("runtime=claude");
       expect(cc.errLogs.join("\n")).not.toMatch(/unrecognized/i); // recognized, no warning
       // A genuinely UNKNOWN value falls back to claude WITH A VOICE — a future
       // third runtime must not silently get a claude profile.
-      process.env["OPENRIG_RUNTIME"] = "gemini-cli";
+      process.env["SOFTWARETEAM_RUNTIME"] = "gemini-cli";
       hits.length = 0;
       const unknown = await run(port, ["profile", "packs/smoke", "--situation", "fresh"]);
       expect(hits.find((h) => h.includes("/profile"))!).toContain("runtime=claude");
@@ -205,27 +205,27 @@ describe("rig context — address fork + profile verb (Atom 4d)", () => {
       await run(port, ["profile", "packs/smoke", "--situation", "fresh", "--runtime", "claude"]);
       expect(hits.find((h) => h.includes("/profile"))!).toContain("runtime=claude");
     } finally {
-      if (saved === undefined) delete process.env["OPENRIG_RUNTIME"];
-      else process.env["OPENRIG_RUNTIME"] = saved;
+      if (saved === undefined) delete process.env["SOFTWARETEAM_RUNTIME"];
+      else process.env["SOFTWARETEAM_RUNTIME"] = saved;
     }
   });
 
   it.each(["claude-code", "claude", "codex"])("maps explicit %s to the existing profile runtime while preserving seat grants", async (runtime) => {
     hits.length = 0;
-    await run(port, ["profile", "packs/smoke", "--situation", "handover", "--runtime", runtime, "--rig", "r1", "--seat", "s1"]);
+    await run(port, ["profile", "packs/smoke", "--situation", "handover", "--runtime", runtime, "--software-team", "r1", "--seat", "s1"]);
     const hit = hits.find((path) => path.startsWith("/api/context-packs/library/by-ref/profile"))!;
     const params = new URL(hit, "http://localhost").searchParams;
     expect(params.get("runtime")).toBe(runtime === "codex" ? "codex" : "claude");
-    expect(params.get("rig")).toBe("r1");
+    expect(params.get("softwareTeam")).toBe("r1");
     expect(params.get("seat")).toBe("s1");
   });
 
   it("PROFILE VERB: composes by situation with the grant params threaded, pieces labeled on stdout, budget + provenance warnings on stderr", async () => {
     hits.length = 0;
-    const out = await run(port, ["profile", "packs/smoke", "--situation", "handover", "--runtime", "claude", "--profile", "codex-coverage", "--rig", "r1", "--seat", "s1", "--mission", "release-x", "--slice", "slice-y", "--budget", "4"]);
+    const out = await run(port, ["profile", "packs/smoke", "--situation", "handover", "--runtime", "claude", "--profile", "codex-coverage", "--software-team", "r1", "--seat", "s1", "--mission", "release-x", "--slice", "slice-y", "--budget", "4"]);
     const profileHit = hits.find((h) => h.startsWith("/api/context-packs/library/by-ref/profile"))!;
     expect(profileHit).toBeDefined();
-    for (const frag of ["situation=handover", "runtime=claude", "profile=codex-coverage", "rig=r1", "seat=s1", "mission=release-x", "slice=slice-y", "budget=4"]) {
+    for (const frag of ["situation=handover", "runtime=claude", "profile=codex-coverage", "softwareTeam=r1", "seat=s1", "mission=release-x", "slice=slice-y", "budget=4"]) {
       expect(profileHit).toContain(frag);
     }
     const stdout = out.logs.join("\n");

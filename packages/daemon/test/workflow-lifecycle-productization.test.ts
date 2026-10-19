@@ -21,10 +21,10 @@ const PARALLEL_SPEC = `workflow:
   entry:
     role: root
   roles:
-    root: { preferred_targets: [root@rig] }
-    left: { preferred_targets: [left@rig] }
-    right: { preferred_targets: [right@rig] }
-    join: { preferred_targets: [join@rig] }
+    root: { preferred_targets: [root@software-team] }
+    left: { preferred_targets: [left@software-team] }
+    right: { preferred_targets: [right@software-team] }
+    join: { preferred_targets: [join@software-team] }
   exception_routing: { orchestrator_role: root }
   steps:
     - id: root
@@ -49,8 +49,8 @@ const ACCEPTANCE_SPEC = `workflow:
   version: 1
   entry: { role: producer }
   roles:
-    producer: { preferred_targets: [producer@rig] }
-    gate: { preferred_targets: [gate@rig] }
+    producer: { preferred_targets: [producer@software-team] }
+    gate: { preferred_targets: [gate@software-team] }
   steps:
     - id: produce
       actor_role: producer
@@ -71,10 +71,10 @@ const MAPPED_FAILURE_SPEC = `workflow:
   version: 1
   entry: { role: root }
   roles:
-    root: { preferred_targets: [root@rig] }
-    left: { preferred_targets: [left@rig] }
-    right: { preferred_targets: [right@rig] }
-    repair: { preferred_targets: [repair@rig] }
+    root: { preferred_targets: [root@software-team] }
+    left: { preferred_targets: [left@software-team] }
+    right: { preferred_targets: [right@software-team] }
+    repair: { preferred_targets: [repair@software-team] }
   exception_routing: { orchestrator_role: root }
   steps:
     - id: root
@@ -108,9 +108,9 @@ const GUARDED_CYCLE_SPEC = `workflow:
   loop_guards:
     max_hops: 1
   roles:
-    root: { preferred_targets: [root@rig] }
-    left: { preferred_targets: [left@rig] }
-    right: { preferred_targets: [right@rig] }
+    root: { preferred_targets: [root@software-team] }
+    left: { preferred_targets: [left@software-team] }
+    right: { preferred_targets: [right@software-team] }
   exception_routing: { orchestrator_role: root }
   steps:
     - id: root
@@ -141,10 +141,10 @@ describe("S06 lifecycle productization", () => {
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
     const bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     sentNudges = [];
     queueRepo = new QueueRepository(db, bus, {
-      validateRig: () => true,
+      validateSoftwareTeam: () => true,
       transport: {
         send: async (session) => {
           sentNudges.push(session);
@@ -192,22 +192,22 @@ describe("S06 lifecycle productization", () => {
     const first = await runtime.instantiate({
       specPath,
       rootObjective: "release",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
       lifecycle: {
         operationKey: "opaque-release-operation",
         compiledInputDigest: "digest-a",
-        binding: { project: "openrig", mission: "release-0.5.9" },
+        binding: { project: "softwareteam", mission: "release-0.5.9" },
       },
     });
     const before = mutationCounts();
     const replay = await runtime.instantiate({
       specPath,
       rootObjective: "release",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
       lifecycle: {
         operationKey: "opaque-release-operation",
         compiledInputDigest: "digest-a",
-        binding: { project: "openrig", mission: "release-0.5.9" },
+        binding: { project: "softwareteam", mission: "release-0.5.9" },
       },
     });
     expect(replay.instance.instanceId).toBe(first.instance.instanceId);
@@ -218,11 +218,11 @@ describe("S06 lifecycle productization", () => {
     await expect(runtime.instantiate({
       specPath,
       rootObjective: "release",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
       lifecycle: {
         operationKey: "opaque-release-operation",
         compiledInputDigest: "digest-b",
-        binding: { project: "openrig", mission: "release-0.5.9" },
+        binding: { project: "softwareteam", mission: "release-0.5.9" },
       },
     })).rejects.toMatchObject({ code: "lifecycle_operation_conflict" });
     expect(mutationCounts()).toEqual(before);
@@ -233,7 +233,7 @@ describe("S06 lifecycle productization", () => {
     const input = {
       specPath,
       rootObjective: "release",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
       lifecycle: {
         operationKey: "concurrent-release-operation",
         compiledInputDigest: "same-digest",
@@ -257,13 +257,13 @@ describe("S06 lifecycle productization", () => {
     const created = await runtime.instantiate({
       specPath: spec(PARALLEL_SPEC),
       rootObjective: "parallel",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
     });
     const fanout = await runtime.project({
       instanceId: created.instance.instanceId,
       currentPacketId: created.entryQitemId,
       exit: "done",
-      actorSession: "root@rig",
+      actorSession: "root@software-team",
     });
     expect(fanout.nextQitemIds).toHaveLength(2);
     const before = runtime.inspect(created.instance.instanceId);
@@ -273,15 +273,15 @@ describe("S06 lifecycle productization", () => {
 
     await expect(runtime.route({
       instanceId: created.instance.instanceId,
-      toSession: "left2@rig",
-      actorSession: "orch@rig",
+      toSession: "left2@software-team",
+      actorSession: "orch@software-team",
     })).rejects.toMatchObject({ code: "frontier_packet_required" });
 
     const routed = await runtime.route({
       instanceId: created.instance.instanceId,
       packetId: left.packetId,
-      toSession: "left2@rig",
-      actorSession: "orch@rig",
+      toSession: "left2@software-team",
+      actorSession: "orch@software-team",
     });
     expect(routed.closedPacketId).toBe(left.packetId);
     expect(runtime.instanceStore.getByIdOrThrow(created.instance.instanceId).currentFrontier)
@@ -294,23 +294,23 @@ describe("S06 lifecycle productization", () => {
     const created = await runtime.instantiate({
       specPath: spec(PARALLEL_SPEC),
       rootObjective: "recover",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
     });
-    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: created.entryQitemId, exit: "done", actorSession: "root@rig" });
+    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: created.entryQitemId, exit: "done", actorSession: "root@software-team" });
     let view = runtime.inspect(created.instance.instanceId);
     const left = view.frontier.find((p) => p.stepId === "left")!;
     const right = view.frontier.find((p) => p.stepId === "right")!;
 
-    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: left.packetId, exit: "failed", actorSession: "left@rig" });
+    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: left.packetId, exit: "failed", actorSession: "left@software-team" });
     view = runtime.inspect(created.instance.instanceId);
     expect(view.instance.status).toBe("active");
     expect(view.frontier.map((p) => p.packetId)).toEqual([right.packetId]);
     expect(view.failures).toMatchObject([{ occurrenceId: left.packetId, stepId: "left", status: "unresolved" }]);
 
-    const resumed = await runtime.resume({ instanceId: created.instance.instanceId, occurrenceId: left.packetId, decision: "retry left", actorSession: "orch@rig" });
+    const resumed = await runtime.resume({ instanceId: created.instance.instanceId, occurrenceId: left.packetId, decision: "retry left", actorSession: "orch@software-team" });
     expect(runtime.instanceStore.getByIdOrThrow(created.instance.instanceId).currentFrontier)
       .toEqual(expect.arrayContaining([right.packetId, resumed.newPacketId]));
-    const replay = await runtime.resume({ instanceId: created.instance.instanceId, occurrenceId: left.packetId, decision: "retry left", actorSession: "orch@rig" });
+    const replay = await runtime.resume({ instanceId: created.instance.instanceId, occurrenceId: left.packetId, decision: "retry left", actorSession: "orch@software-team" });
     expect(replay.absorbedReplay).toBe(true);
     expect(replay.newPacketId).toBe(resumed.newPacketId);
     const beforeConflict = mutationCounts();
@@ -318,12 +318,12 @@ describe("S06 lifecycle productization", () => {
       instanceId: created.instance.instanceId,
       occurrenceId: left.packetId,
       decision: "different retry",
-      actorSession: "orch@rig",
+      actorSession: "orch@software-team",
     })).rejects.toMatchObject({ code: "failure_occurrence_replay_conflict" });
     expect(mutationCounts()).toEqual(beforeConflict);
 
-    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: right.packetId, exit: "done", actorSession: "right@rig" });
-    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: resumed.newPacketId, exit: "done", actorSession: "left@rig" });
+    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: right.packetId, exit: "done", actorSession: "right@software-team" });
+    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: resumed.newPacketId, exit: "done", actorSession: "left@software-team" });
     view = runtime.inspect(created.instance.instanceId);
     expect(view.frontier).toHaveLength(1);
     expect(view.frontier[0]!.stepId).toBe("join");
@@ -336,9 +336,9 @@ describe("S06 lifecycle productization", () => {
     const created = await runtime.instantiate({
       specPath: spec(MAPPED_FAILURE_SPEC),
       rootObjective: "mapped repair",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
     });
-    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: created.entryQitemId, exit: "done", actorSession: "root@rig" });
+    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: created.entryQitemId, exit: "done", actorSession: "root@software-team" });
     const before = runtime.inspect(created.instance.instanceId);
     const left = before.frontier.find((packet) => packet.stepId === "left")!;
     const right = before.frontier.find((packet) => packet.stepId === "right")!;
@@ -348,7 +348,7 @@ describe("S06 lifecycle productization", () => {
       instanceId: created.instance.instanceId,
       currentPacketId: left.packetId,
       exit: "failed",
-      actorSession: "left@rig",
+      actorSession: "left@software-team",
     });
 
     expect(result.nextStepIds).toEqual(["repair"]);
@@ -363,13 +363,13 @@ describe("S06 lifecycle productization", () => {
     const created = await runtime.instantiate({
       specPath: spec(GUARDED_CYCLE_SPEC, "guarded-cycle.yaml"),
       rootObjective: "bounded cycle",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
     });
     await runtime.project({
       instanceId: created.instance.instanceId,
       currentPacketId: created.entryQitemId,
       exit: "done",
-      actorSession: "root@rig",
+      actorSession: "root@software-team",
     });
     const before = runtime.inspect(created.instance.instanceId);
     const left = before.frontier.find((packet) => packet.stepId === "left")!;
@@ -381,7 +381,7 @@ describe("S06 lifecycle productization", () => {
       instanceId: created.instance.instanceId,
       currentPacketId: left.packetId,
       exit: "done",
-      actorSession: "left@rig",
+      actorSession: "left@software-team",
     });
 
     expect(tripped.closureReason).toBe("failed");
@@ -412,7 +412,7 @@ describe("S06 lifecycle productization", () => {
       instanceId: created.instance.instanceId,
       occurrenceId: left.packetId,
       decision: "retry bounded branch",
-      actorSession: "orch@rig",
+      actorSession: "orch@software-team",
     });
     expect(runtime.instanceStore.getFrontierBinding(created.instance.instanceId, resumed.newPacketId)).toMatchObject({
       stepId: "left",
@@ -423,7 +423,7 @@ describe("S06 lifecycle productization", () => {
       instanceId: created.instance.instanceId,
       currentPacketId: resumed.newPacketId,
       exit: "done",
-      actorSession: "left@rig",
+      actorSession: "left@software-team",
     });
     expect(advanced.closureReason).toBe("done");
     expect(advanced.nextStepIds).toEqual(["root"]);
@@ -439,9 +439,9 @@ describe("S06 lifecycle productization", () => {
     const waiting = await runtime.instantiate({
       specPath: spec(WAITING_SPEC, "waiting.yaml"),
       rootObjective: "aggregate waiting",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
     });
-    await runtime.project({ instanceId: waiting.instance.instanceId, currentPacketId: waiting.entryQitemId, exit: "done", actorSession: "root@rig" });
+    await runtime.project({ instanceId: waiting.instance.instanceId, currentPacketId: waiting.entryQitemId, exit: "done", actorSession: "root@software-team" });
     let packets = runtime.inspect(waiting.instance.instanceId).frontier;
     await runtime.project({ instanceId: waiting.instance.instanceId, currentPacketId: packets[0]!.packetId, exit: "waiting", actorSession: packets[0]!.ownerSession! });
     expect(runtime.inspect(waiting.instance.instanceId).instance.status).toBe("active");
@@ -453,9 +453,9 @@ describe("S06 lifecycle productization", () => {
     const failed = await runtime.instantiate({
       specPath: spec(PARALLEL_SPEC, "failed.yaml"),
       rootObjective: "aggregate failure",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
     });
-    await runtime.project({ instanceId: failed.instance.instanceId, currentPacketId: failed.entryQitemId, exit: "done", actorSession: "root@rig" });
+    await runtime.project({ instanceId: failed.instance.instanceId, currentPacketId: failed.entryQitemId, exit: "done", actorSession: "root@software-team" });
     for (const packet of runtime.inspect(failed.instance.instanceId).frontier) {
       await runtime.project({ instanceId: failed.instance.instanceId, currentPacketId: packet.packetId, exit: "failed", actorSession: packet.ownerSession! });
     }
@@ -464,9 +464,9 @@ describe("S06 lifecycle productization", () => {
     const completed = await runtime.instantiate({
       specPath: spec(PARALLEL_SPEC, "completed.yaml"),
       rootObjective: "aggregate completion",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
     });
-    await runtime.project({ instanceId: completed.instance.instanceId, currentPacketId: completed.entryQitemId, exit: "done", actorSession: "root@rig" });
+    await runtime.project({ instanceId: completed.instance.instanceId, currentPacketId: completed.entryQitemId, exit: "done", actorSession: "root@software-team" });
     for (const packet of runtime.inspect(completed.instance.instanceId).frontier) {
       await runtime.project({ instanceId: completed.instance.instanceId, currentPacketId: packet.packetId, exit: "done", actorSession: packet.ownerSession! });
     }
@@ -479,15 +479,15 @@ describe("S06 lifecycle productization", () => {
     const created = await runtime.instantiate({
       specPath: spec(PARALLEL_SPEC),
       rootObjective: "two failures",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
     });
-    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: created.entryQitemId, exit: "done", actorSession: "root@rig" });
+    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: created.entryQitemId, exit: "done", actorSession: "root@software-team" });
     const packets = runtime.inspect(created.instance.instanceId).frontier;
     for (const packet of packets) {
       await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: packet.packetId, exit: "failed", actorSession: packet.ownerSession! });
     }
     const before = mutationCounts();
-    await expect(runtime.resume({ instanceId: created.instance.instanceId, actorSession: "orch@rig" }))
+    await expect(runtime.resume({ instanceId: created.instance.instanceId, actorSession: "orch@software-team" }))
       .rejects.toMatchObject({
         code: "failure_occurrence_required",
         details: { candidates: expect.arrayContaining(packets.map((packet) => expect.objectContaining({ occurrenceId: packet.packetId }))) },
@@ -499,14 +499,14 @@ describe("S06 lifecycle productization", () => {
     const accepted = await runtime.instantiate({
       specPath: spec(ACCEPTANCE_SPEC),
       rootObjective: "accept",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
       lifecycle: {
         operationKey: "acceptance-cli",
         compiledInputDigest: "acceptance-cli-digest",
         binding: { identity: { mission: "release-0.5.9" } },
       },
     });
-    const next = await runtime.project({ instanceId: accepted.instance.instanceId, currentPacketId: accepted.entryQitemId, exit: "handoff", actorSession: "producer@rig" });
+    const next = await runtime.project({ instanceId: accepted.instance.instanceId, currentPacketId: accepted.entryQitemId, exit: "handoff", actorSession: "producer@software-team" });
     const execution = await buildExecutionView({
       db,
       slicesRoot: () => null,
@@ -519,7 +519,7 @@ describe("S06 lifecycle productization", () => {
     expect(acceptanceAction).toContain("--acceptance-candidate 'abc123'");
     expect(acceptanceAction).toContain("--acceptance-verdict 'CLEAR'");
     expect(acceptanceAction).toContain("--acceptance-evidence-ref 'proof/review.md'");
-    await expect(runtime.project({ instanceId: accepted.instance.instanceId, currentPacketId: next.nextQitemId!, exit: "done", actorSession: "gate@rig" }))
+    await expect(runtime.project({ instanceId: accepted.instance.instanceId, currentPacketId: next.nextQitemId!, exit: "done", actorSession: "gate@software-team" }))
       .rejects.toMatchObject({ code: "acceptance_payload_required" });
     const beforeMismatch = mutationCounts();
     for (const acceptance of [
@@ -531,7 +531,7 @@ describe("S06 lifecycle productization", () => {
         instanceId: accepted.instance.instanceId,
         currentPacketId: next.nextQitemId!,
         exit: "done",
-        actorSession: "gate@rig",
+        actorSession: "gate@software-team",
         closureEvidence: { acceptance },
       })).rejects.toMatchObject({ code: "acceptance_payload_mismatch" });
       expect(mutationCounts()).toEqual(beforeMismatch);
@@ -540,14 +540,14 @@ describe("S06 lifecycle productization", () => {
       instanceId: accepted.instance.instanceId,
       currentPacketId: next.nextQitemId!,
       exit: "done",
-      actorSession: "gate@rig",
+      actorSession: "gate@software-team",
       closureEvidence: { acceptance: { candidate: "abc123", verdict: "CLEAR", evidence_ref: "proof/review.md" } },
     });
     expect(runtime.instanceStore.getByIdOrThrow(accepted.instance.instanceId).status).toBe("completed");
 
-    const parallel = await runtime.instantiate({ specPath: spec(PARALLEL_SPEC, "parallel.yaml"), rootObjective: "abort", createdBySession: "orch@rig" });
-    await runtime.project({ instanceId: parallel.instance.instanceId, currentPacketId: parallel.entryQitemId, exit: "done", actorSession: "root@rig" });
-    const aborted = await runtime.abort({ instanceId: parallel.instance.instanceId, reason: "operator stopped", actorSession: "orch@rig" });
+    const parallel = await runtime.instantiate({ specPath: spec(PARALLEL_SPEC, "parallel.yaml"), rootObjective: "abort", createdBySession: "orch@software-team" });
+    await runtime.project({ instanceId: parallel.instance.instanceId, currentPacketId: parallel.entryQitemId, exit: "done", actorSession: "root@software-team" });
+    const aborted = await runtime.abort({ instanceId: parallel.instance.instanceId, reason: "operator stopped", actorSession: "orch@software-team" });
     expect(aborted.closedPacketIds).toHaveLength(2);
     expect(runtime.instanceStore.getByIdOrThrow(parallel.instance.instanceId).status).toBe("aborted");
     for (const id of aborted.closedPacketIds) expect(queueRepo.getById(id)?.state).toBe("canceled");
@@ -557,7 +557,7 @@ describe("S06 lifecycle productization", () => {
     const created = await runtime.instantiate({
       specPath: spec(PARALLEL_SPEC, "abort-occurrence.yaml"),
       rootObjective: "abort after branch failure",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
       lifecycle: {
         operationKey: "abort-occurrence",
         compiledInputDigest: "abort-occurrence-digest",
@@ -568,7 +568,7 @@ describe("S06 lifecycle productization", () => {
       instanceId: created.instance.instanceId,
       currentPacketId: created.entryQitemId,
       exit: "done",
-      actorSession: "root@rig",
+      actorSession: "root@software-team",
     });
     const before = runtime.inspect(created.instance.instanceId);
     const left = before.frontier.find((packet) => packet.stepId === "left")!;
@@ -576,14 +576,14 @@ describe("S06 lifecycle productization", () => {
       instanceId: created.instance.instanceId,
       currentPacketId: left.packetId,
       exit: "failed",
-      actorSession: "left@rig",
+      actorSession: "left@software-team",
     });
     expect(runtime.inspect(created.instance.instanceId).failures[0]?.targetedAction).toBe("resume");
 
     await runtime.abort({
       instanceId: created.instance.instanceId,
       reason: "operator stopped",
-      actorSession: "orch@rig",
+      actorSession: "orch@software-team",
     });
     const aborted = runtime.inspect(created.instance.instanceId);
     expect(aborted.instance.status).toBe("aborted");
@@ -605,19 +605,19 @@ describe("S06 lifecycle productization", () => {
       occurrence_id: left.packetId,
       targeted_action: null,
     }]);
-    expect(JSON.stringify(projected)).not.toContain("rig workflow resume");
+    expect(JSON.stringify(projected)).not.toContain("SoftwareTeam workflow resume");
     await expect(runtime.resume({
       instanceId: created.instance.instanceId,
       occurrenceId: left.packetId,
-      actorSession: "orch@rig",
+      actorSession: "orch@software-team",
     })).rejects.toMatchObject({ code: "instance_not_resumable" });
   });
 
   it("arms and retires liveness independently for every frontier packet", async () => {
-    const created = await runtime.instantiate({ specPath: spec(PARALLEL_SPEC), rootObjective: "liveness", createdBySession: "orch@rig" });
+    const created = await runtime.instantiate({ specPath: spec(PARALLEL_SPEC), rootObjective: "liveness", createdBySession: "orch@software-team" });
     expect(watchdogRepo.listActive()).toHaveLength(1);
     expect(watchdogRepo.listActive()[0]!.specYaml).toContain(`workflow_packet_id: ${created.entryQitemId}`);
-    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: created.entryQitemId, exit: "done", actorSession: "root@rig" });
+    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: created.entryQitemId, exit: "done", actorSession: "root@software-team" });
     const before = runtime.inspect(created.instance.instanceId);
     expect(watchdogRepo.listActive()).toHaveLength(2);
     for (const packet of before.frontier) {
@@ -648,24 +648,24 @@ describe("S06 lifecycle productization", () => {
     });
     expect(swept.keepalivesArmed).toBe(2);
     expect(swept.lostNudgesReissued).toBe(2);
-    expect(sentNudges.sort()).toEqual(["left@rig", "right@rig"]);
+    expect(sentNudges.sort()).toEqual(["left@software-team", "right@software-team"]);
 
-    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: left.packetId, exit: "done", actorSession: "left@rig" });
+    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: left.packetId, exit: "done", actorSession: "left@software-team" });
     expect(watchdogRepo.listActive()).toHaveLength(1);
     expect(watchdogRepo.listActive()[0]!.specYaml).toContain(right.packetId);
-    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: right.packetId, exit: "done", actorSession: "right@rig" });
+    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: right.packetId, exit: "done", actorSession: "right@software-team" });
     expect(watchdogRepo.listActive()).toHaveLength(1);
     const join = runtime.inspect(created.instance.instanceId).frontier;
     expect(join).toHaveLength(1);
     expect(join[0]!.stepId).toBe("join");
     expect(watchdogRepo.listActive().filter((job) => job.specYaml.includes(join[0]!.packetId))).toHaveLength(1);
-    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: join[0]!.packetId, exit: "done", actorSession: "join@rig" });
+    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: join[0]!.packetId, exit: "done", actorSession: "join@software-team" });
     expect(watchdogRepo.listActive()).toHaveLength(0);
   });
 
   it("serializes concurrent sibling completion into one fan-in packet with no live queue orphan", async () => {
-    const created = await runtime.instantiate({ specPath: spec(PARALLEL_SPEC), rootObjective: "concurrent fan-in", createdBySession: "orch@rig" });
-    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: created.entryQitemId, exit: "done", actorSession: "root@rig" });
+    const created = await runtime.instantiate({ specPath: spec(PARALLEL_SPEC), rootObjective: "concurrent fan-in", createdBySession: "orch@software-team" });
+    await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: created.entryQitemId, exit: "done", actorSession: "root@software-team" });
     const siblings = runtime.inspect(created.instance.instanceId).frontier;
 
     await Promise.all(siblings.map((packet) => runtime.project({

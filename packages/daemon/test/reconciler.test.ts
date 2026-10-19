@@ -8,7 +8,7 @@ import { eventsSchema } from "../src/db/migrations/003_events.js";
 import { nodeSpecFieldsSchema } from "../src/db/migrations/007_node_spec_fields.js";
 import { checkpointsSchema } from "../src/db/migrations/005_checkpoints.js";
 import { agentspecRebootSchema } from "../src/db/migrations/014_agentspec_reboot.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { Reconciler } from "../src/domain/reconciler.js";
@@ -46,13 +46,13 @@ function mockTmuxAdapter(
 
 describe("Reconciler", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let eventBus: EventBus;
 
   beforeEach(() => {
     db = setupDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     eventBus = new EventBus(db);
   });
@@ -65,47 +65,47 @@ describe("Reconciler", () => {
     return new Reconciler({ db, sessionRegistry, eventBus, tmuxAdapter: tmux });
   }
 
-  function seedRigWithSessions(statuses: { logicalId: string; sessionName: string; status: string }[]) {
-    const rig = rigRepo.createRig("r01");
+  function seedSoftwareTeamWithSessions(statuses: { logicalId: string; sessionName: string; status: string }[]) {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
     const nodes: { id: string; logicalId: string }[] = [];
     for (const s of statuses) {
-      const node = rigRepo.addNode(rig.id, s.logicalId, { role: "worker" });
+      const node = softwareTeamRepo.addNode(softwareTeam.id, s.logicalId, { role: "worker" });
       const session = sessionRegistry.registerSession(node.id, s.sessionName);
       sessionRegistry.updateStatus(session.id, s.status);
       nodes.push({ id: node.id, logicalId: s.logicalId });
     }
-    return { rig, nodes };
+    return { softwareTeam, nodes };
   }
 
   it("session still alive: tmux confirms, status stays unchanged", async () => {
-    const { rig } = seedRigWithSessions([
+    const { softwareTeam } = seedSoftwareTeamWithSessions([
       { logicalId: "dev1-impl", sessionName: "r01-dev1-impl", status: "running" },
     ]);
 
     const reconciler = createReconciler(mockTmuxAdapter({ "r01-dev1-impl": true }));
-    const result = await reconciler.reconcile(rig.id);
+    const result = await reconciler.reconcile(softwareTeam.id);
 
     expect(result.checked).toBe(1);
     expect(result.detached).toBe(0);
 
-    const sessions = sessionRegistry.getSessionsForRig(rig.id);
+    const sessions = sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id);
     expect(sessions[0]!.status).toBe("running");
   });
 
   it("session gone: status updated to detached + event emitted", async () => {
-    const { rig } = seedRigWithSessions([
+    const { softwareTeam } = seedSoftwareTeamWithSessions([
       { logicalId: "dev1-impl", sessionName: "r01-dev1-impl", status: "running" },
     ]);
     const notifications: PersistedEvent[] = [];
     eventBus.subscribe((e) => notifications.push(e));
 
     const reconciler = createReconciler(mockTmuxAdapter({ "r01-dev1-impl": false }));
-    const result = await reconciler.reconcile(rig.id);
+    const result = await reconciler.reconcile(softwareTeam.id);
 
     expect(result.checked).toBe(1);
     expect(result.detached).toBe(1);
 
-    const sessions = sessionRegistry.getSessionsForRig(rig.id);
+    const sessions = sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id);
     expect(sessions[0]!.status).toBe("detached");
 
     // Event persisted
@@ -120,9 +120,9 @@ describe("Reconciler", () => {
   });
 
   it("no sessions in DB: no changes, no events", async () => {
-    const rig = rigRepo.createRig("r01");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
     const reconciler = createReconciler(mockTmuxAdapter({}));
-    const result = await reconciler.reconcile(rig.id);
+    const result = await reconciler.reconcile(softwareTeam.id);
 
     expect(result.checked).toBe(0);
     expect(result.detached).toBe(0);
@@ -133,12 +133,12 @@ describe("Reconciler", () => {
   });
 
   it("already-detached sessions skipped (not re-checked)", async () => {
-    const { rig } = seedRigWithSessions([
+    const { softwareTeam } = seedSoftwareTeamWithSessions([
       { logicalId: "dev1-impl", sessionName: "r01-dev1-impl", status: "detached" },
     ]);
 
     const reconciler = createReconciler(mockTmuxAdapter({}));
-    const result = await reconciler.reconcile(rig.id);
+    const result = await reconciler.reconcile(softwareTeam.id);
 
     // Not checked — already detached
     expect(result.checked).toBe(0);
@@ -146,33 +146,33 @@ describe("Reconciler", () => {
   });
 
   it("already-exited sessions skipped (not re-checked)", async () => {
-    const { rig } = seedRigWithSessions([
+    const { softwareTeam } = seedSoftwareTeamWithSessions([
       { logicalId: "dev1-impl", sessionName: "r01-dev1-impl", status: "exited" },
     ]);
 
     const reconciler = createReconciler(mockTmuxAdapter({}));
-    const result = await reconciler.reconcile(rig.id);
+    const result = await reconciler.reconcile(softwareTeam.id);
 
     expect(result.checked).toBe(0);
     expect(result.detached).toBe(0);
   });
 
   it("superseded occupant history stays terminal when its old pane is absent", async () => {
-    const { rig } = seedRigWithSessions([
+    const { softwareTeam } = seedSoftwareTeamWithSessions([
       { logicalId: "dev1-impl", sessionName: "r01-dev1-impl", status: "superseded" },
     ]);
 
     const reconciler = createReconciler(mockTmuxAdapter({}));
-    const result = await reconciler.reconcile(rig.id);
+    const result = await reconciler.reconcile(softwareTeam.id);
 
     expect(result.checked).toBe(0);
     expect(result.detached).toBe(0);
-    expect(sessionRegistry.getSessionsForRig(rig.id)[0]!.status).toBe("superseded");
+    expect(sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id)[0]!.status).toBe("superseded");
     expect(db.prepare("SELECT * FROM events WHERE type = 'session.detached'").all()).toHaveLength(0);
   });
 
   it("multiple nodes: 3 sessions, 2 alive, 1 gone -> only gone one detached", async () => {
-    const { rig } = seedRigWithSessions([
+    const { softwareTeam } = seedSoftwareTeamWithSessions([
       { logicalId: "dev1-impl", sessionName: "r01-dev1-impl", status: "running" },
       { logicalId: "dev1-qa", sessionName: "r01-dev1-qa", status: "running" },
       { logicalId: "orch1-lead", sessionName: "r01-orch1-lead", status: "running" },
@@ -185,12 +185,12 @@ describe("Reconciler", () => {
         "r01-orch1-lead": true,
       })
     );
-    const result = await reconciler.reconcile(rig.id);
+    const result = await reconciler.reconcile(softwareTeam.id);
 
     expect(result.checked).toBe(3);
     expect(result.detached).toBe(1);
 
-    const sessions = sessionRegistry.getSessionsForRig(rig.id);
+    const sessions = sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id);
     const qa = sessions.find((s) => s.sessionName === "r01-dev1-qa");
     expect(qa!.status).toBe("detached");
     const impl = sessions.find((s) => s.sessionName === "r01-dev1-impl");
@@ -198,14 +198,14 @@ describe("Reconciler", () => {
   });
 
   it("idempotent: reconcile twice with same state -> no duplicate events", async () => {
-    const { rig } = seedRigWithSessions([
+    const { softwareTeam } = seedSoftwareTeamWithSessions([
       { logicalId: "dev1-impl", sessionName: "r01-dev1-impl", status: "running" },
     ]);
 
     const reconciler = createReconciler(mockTmuxAdapter({ "r01-dev1-impl": false }));
 
-    await reconciler.reconcile(rig.id);
-    const result2 = await reconciler.reconcile(rig.id);
+    await reconciler.reconcile(softwareTeam.id);
+    const result2 = await reconciler.reconcile(softwareTeam.id);
 
     // Second run: session is already detached, so skipped
     expect(result2.checked).toBe(0);
@@ -237,36 +237,36 @@ describe("Reconciler", () => {
   });
 
   it("markDetached + event persistence is atomic (sabotage events -> no partial state)", async () => {
-    const { rig } = seedRigWithSessions([
+    const { softwareTeam } = seedSoftwareTeamWithSessions([
       { logicalId: "dev1-impl", sessionName: "r01-dev1-impl", status: "running" },
     ]);
 
     // Sabotage events table so persistWithinTransaction fails after markDetached
     db.exec("DROP TABLE events");
     db.exec(
-      "CREATE TABLE events (seq INTEGER PRIMARY KEY AUTOINCREMENT, rig_id TEXT, node_id TEXT, type TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), CONSTRAINT force_fail CHECK(length(type) < 1))"
+      "CREATE TABLE events (seq INTEGER PRIMARY KEY AUTOINCREMENT, software_team_id TEXT, node_id TEXT, type TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), CONSTRAINT force_fail CHECK(length(type) < 1))"
     );
 
     const reconciler = createReconciler(mockTmuxAdapter({ "r01-dev1-impl": false }));
-    const result = await reconciler.reconcile(rig.id);
+    const result = await reconciler.reconcile(softwareTeam.id);
 
     // Should have errored on this session
     expect(result.errors).toHaveLength(1);
 
     // Session status NOT changed to detached (transaction rolled back)
-    const sessions = sessionRegistry.getSessionsForRig(rig.id);
+    const sessions = sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id);
     expect(sessions[0]!.status).toBe("running");
   });
 
   it("unexpected tmux error: session not marked detached, error in result", async () => {
-    const { rig } = seedRigWithSessions([
+    const { softwareTeam } = seedSoftwareTeamWithSessions([
       { logicalId: "dev1-impl", sessionName: "r01-dev1-impl", status: "running" },
     ]);
 
     const reconciler = createReconciler(
       mockTmuxAdapter({}, { "r01-dev1-impl": new Error("unexpected tmux failure") })
     );
-    const result = await reconciler.reconcile(rig.id);
+    const result = await reconciler.reconcile(softwareTeam.id);
 
     expect(result.checked).toBe(0); // couldn't check it
     expect(result.detached).toBe(0);
@@ -274,7 +274,7 @@ describe("Reconciler", () => {
     expect(result.errors[0]!.error).toContain("unexpected tmux failure");
 
     // Session NOT marked detached
-    const sessions = sessionRegistry.getSessionsForRig(rig.id);
+    const sessions = sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id);
     expect(sessions[0]!.status).toBe("running");
   });
 
@@ -283,17 +283,17 @@ describe("Reconciler", () => {
   // state as detachable at its own call site (OPR.0.5.4.2 mini-req 2), so DB
   // state still matches tmux reality after a reboot.
   it("socket-absent at adapter layer (probe not-present): session detached + event emitted", async () => {
-    const { rig } = seedRigWithSessions([
+    const { softwareTeam } = seedSoftwareTeamWithSessions([
       { logicalId: "dev1-impl", sessionName: "r01-dev1-impl", status: "running" },
     ]);
 
     const reconciler = createReconciler(mockTmuxAdapter({ "r01-dev1-impl": false }));
-    const result = await reconciler.reconcile(rig.id);
+    const result = await reconciler.reconcile(softwareTeam.id);
 
     expect(result.checked).toBe(1);
     expect(result.detached).toBe(1);
 
-    const sessions = sessionRegistry.getSessionsForRig(rig.id);
+    const sessions = sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id);
     expect(sessions[0]!.status).toBe("detached");
 
     const events = db
@@ -303,7 +303,7 @@ describe("Reconciler", () => {
   });
 
   it("permission error at adapter layer (hasSession rethrows): session NOT detached, error recorded", async () => {
-    const { rig } = seedRigWithSessions([
+    const { softwareTeam } = seedSoftwareTeamWithSessions([
       { logicalId: "dev1-impl", sessionName: "r01-dev1-impl", status: "running" },
     ]);
 
@@ -311,14 +311,14 @@ describe("Reconciler", () => {
     const reconciler = createReconciler(
       mockTmuxAdapter({}, { "r01-dev1-impl": permErr })
     );
-    const result = await reconciler.reconcile(rig.id);
+    const result = await reconciler.reconcile(softwareTeam.id);
 
     expect(result.checked).toBe(0);
     expect(result.detached).toBe(0);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]!.error).toContain("Operation not permitted");
 
-    const sessions = sessionRegistry.getSessionsForRig(rig.id);
+    const sessions = sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id);
     expect(sessions[0]!.status).toBe("running");
   });
 });

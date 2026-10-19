@@ -33,13 +33,13 @@ function installLocaleAwarePs(): string {
     '  *) started="Mi 30 Sep 21:44:48 2026" ;;',
     "esac",
     'case "$2" in',
-    '  *ucomm*) printf \'%s\\n\' "PID PPID PGID TPGID UCOMM STARTED COMMAND" "101 1 101 101 codex $started codex resume tok-1 $OPENRIG_PS_MARKER" "102 1 102 102 zsh $started -zsh" ;;',
-    '  *) printf \'%s\\n\' "PID PPID STARTED COMMAND" "101 1 $started codex resume tok-1 $OPENRIG_PS_MARKER" "102 1 $started -zsh" ;;',
+    '  *ucomm*) printf \'%s\\n\' "PID PPID PGID TPGID UCOMM STARTED COMMAND" "101 1 101 101 codex $started codex resume tok-1 $SOFTWARETEAM_PS_MARKER" "102 1 102 102 zsh $started -zsh" ;;',
+    '  *) printf \'%s\\n\' "PID PPID STARTED COMMAND" "101 1 $started codex resume tok-1 $SOFTWARETEAM_PS_MARKER" "102 1 $started -zsh" ;;',
     "esac",
     "",
   ].join("\n"), { mode: 0o755 });
   vi.stubEnv("PATH", scratch);
-  vi.stubEnv("OPENRIG_PS_MARKER", MARKER);
+  vi.stubEnv("SOFTWARETEAM_PS_MARKER", MARKER);
   return envLog;
 }
 
@@ -70,7 +70,7 @@ describe.each(LISTERS)("%s under an inherited non-English locale", (_name, list)
 
       const childEnv = fs.readFileSync(envLog, "utf8").split("\n");
       expect(childEnv).toContain("LC_ALL=C");
-      expect(childEnv).toContain(`OPENRIG_PS_MARKER=${MARKER}`);
+      expect(childEnv).toContain(`SOFTWARETEAM_PS_MARKER=${MARKER}`);
       expect(childEnv).toContain(`PATH=${scratch}`);
 
       // The override is child-only: the daemon's own environment is untouched.

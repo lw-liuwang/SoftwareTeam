@@ -22,7 +22,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type Database from "better-sqlite3";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { SnapshotRepository } from "../src/domain/snapshot-repository.js";
@@ -96,7 +96,7 @@ type RelationMode =
 
 describe("OPR.0.5.7.1 repair child — D1 four-way occupant truth + D6a unconditional zero replay", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let eventBus: EventBus;
   let snapshotRepo: SnapshotRepository;
@@ -105,12 +105,12 @@ describe("OPR.0.5.7.1 repair child — D1 four-way occupant truth + D6a uncondit
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     eventBus = new EventBus(db);
     snapshotRepo = new SnapshotRepository(db);
     checkpointStore = new CheckpointStore(db);
-    snapshotCapture = new SnapshotCapture({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
+    snapshotCapture = new SnapshotCapture({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
   });
 
   afterEach(() => {
@@ -119,9 +119,9 @@ describe("OPR.0.5.7.1 repair child — D1 four-way occupant truth + D6a uncondit
 
   function createOrchestrator(opts?: { claude?: ClaudeResumeAdapter; tmux?: TmuxAdapter }) {
     const tmux = opts?.tmux ?? mockTmux();
-    const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+    const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
     return new RestoreOrchestrator({
-      db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+      db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
       checkpointStore, nodeLauncher, tmuxAdapter: tmux,
       claudeResume: opts?.claude ?? mockClaudeResume(),
       codexResume: mockCodexResume(),
@@ -129,8 +129,8 @@ describe("OPR.0.5.7.1 repair child — D1 four-way occupant truth + D6a uncondit
   }
 
   function seedSnapshot(opts?: { startupContext?: { entries: unknown[]; files: unknown[]; actions: unknown[] } }): { snap: Snapshot; nodeId: string } {
-    const rig = rigRepo.createRig("r77");
-    const node = rigRepo.addNode(rig.id, "seat", { role: "worker", runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r77");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "seat", { role: "worker", runtime: "claude-code" });
     const sess = sessionRegistry.registerSession(node.id, "r77-seat");
     db.prepare("UPDATE sessions SET resume_type = ?, resume_token = ?, restore_policy = ? WHERE id = ?")
       .run("claude_name", "tok-seed", "resume_if_possible", sess.id);
@@ -138,7 +138,7 @@ describe("OPR.0.5.7.1 repair child — D1 four-way occupant truth + D6a uncondit
       db.prepare("INSERT INTO node_startup_context (node_id, projection_entries_json, resolved_files_json, startup_actions_json, runtime) VALUES (?, ?, ?, ?, ?)")
         .run(node.id, JSON.stringify(opts.startupContext.entries), JSON.stringify(opts.startupContext.files), JSON.stringify(opts.startupContext.actions), "claude-code");
     }
-    const snap = snapshotCapture.captureSnapshot(rig.id, "manual");
+    const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
     sessionRegistry.updateStatus(sess.id, "exited");
     db.prepare("DELETE FROM bindings WHERE node_id = ?").run(node.id);
     return { snap, nodeId: node.id };
@@ -300,23 +300,23 @@ describe("OPR.0.5.7.1 repair child — D1 four-way occupant truth + D6a uncondit
     // (Desk ruling on 0ecd79a3: registerSession's default 'unknown' is a
     // fixture premise, not an occupant — capture semantics stay
     // exactly-one-running, so the fixture states the occupancy explicitly.)
-    const rigA = rigRepo.createRig("rt-a");
-    const nodeA = rigRepo.addNode(rigA.id, "seat", { role: "worker", runtime: "claude-code" });
+    const softwareTeamA = softwareTeamRepo.createSoftwareTeam("rt-a");
+    const nodeA = softwareTeamRepo.addNode(softwareTeamA.id, "seat", { role: "worker", runtime: "claude-code" });
     const sessA = sessionRegistry.registerSession(nodeA.id, "r78-seat");
     sessionRegistry.updateStatus(sessA.id, "running");
-    const snapA = snapshotCapture.captureSnapshot(rigA.id, "manual");
+    const snapA = snapshotCapture.captureSnapshot(softwareTeamA.id, "manual");
     const rawA = db.prepare("SELECT data FROM snapshots WHERE id = ?").get(snapA.id) as { data: string };
     expect(JSON.parse(rawA.data).activeSessionIdByNode[nodeA.id]).toBe(sessA.id);
 
     // (b) several rows, none uniquely running: capture records an EXPLICIT
     // null (ambiguous at source, recorded honestly) and JSON keeps it.
-    const rigB = rigRepo.createRig("rt-b");
-    const nodeB = rigRepo.addNode(rigB.id, "seat", { role: "worker", runtime: "claude-code" });
+    const softwareTeamB = softwareTeamRepo.createSoftwareTeam("rt-b");
+    const nodeB = softwareTeamRepo.addNode(softwareTeamB.id, "seat", { role: "worker", runtime: "claude-code" });
     const s1 = sessionRegistry.registerSession(nodeB.id, "r79-seat");
     const s2 = sessionRegistry.registerSession(nodeB.id, "r79-seat-v2");
     sessionRegistry.updateStatus(s1.id, "running");
     sessionRegistry.updateStatus(s2.id, "running");
-    const snapB = snapshotCapture.captureSnapshot(rigB.id, "manual");
+    const snapB = snapshotCapture.captureSnapshot(softwareTeamB.id, "manual");
     const rawB = db.prepare("SELECT data FROM snapshots WHERE id = ?").get(snapB.id) as { data: string };
     const mapB = JSON.parse(rawB.data).activeSessionIdByNode;
     expect(Object.prototype.hasOwnProperty.call(mapB, nodeB.id)).toBe(true);

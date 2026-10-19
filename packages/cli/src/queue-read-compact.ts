@@ -1,6 +1,6 @@
 /**
- * Slice 15 (OPR.0.7.0.15) P2 and P3 — the compact status reads `rig queue show` and
- * `rig queue transitions` print when the `output.compact` switch is on and `--full` was not given.
+ * Slice 15 (OPR.0.7.0.15) P2 and P3 — the compact status reads `SoftwareTeam queue show` and
+ * `SoftwareTeam queue transitions` print when the `output.compact` switch is on and `--full` was not given.
  * CLI-side projections of the daemon's response: routes are untouched, and with the switch off (the
  * default) or with `--full` both commands print today's output byte for byte.
  */

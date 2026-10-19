@@ -37,7 +37,7 @@ function queueEvidence(
       qitemId: "qitem-a",
       transitionId: sourceOrder + 1,
       state: "in-progress",
-      actorSession: "builder@rig",
+      actorSession: "builder@software-team",
       identityProvenance: "transport:v1",
     };
   }
@@ -46,7 +46,7 @@ function queueEvidence(
     transitionId: sourceOrder + 1,
     ts: observedAt,
     state: "in-progress",
-    actorSession: "builder@rig",
+    actorSession: "builder@software-team",
     identityProvenance: "transport:v1",
   }, sourceOrder);
 }
@@ -63,7 +63,7 @@ function draft(source: BoundedHealthEvidence = freshSource()): HealthRecordDraft
   return {
     detector: "process.repeated-handoff",
     category: "process",
-    scope: { type: "mission", projectId: "openrig", missionId: "release-0.5.9" },
+    scope: { type: "mission", projectId: "softwareteam", missionId: "release-0.5.9" },
     severity: "warning",
     confidence: "high",
     status: "active",
@@ -179,7 +179,7 @@ describe("health projection contract", () => {
       }),
       adaptTopologyActivityEvidence({
         logicalId: "seat-a",
-        canonicalSessionName: "builder@rig",
+        canonicalSessionName: "builder@software-team",
         lastActivityAt: "2026-09-03T00:33:00Z",
         agentActivity: undefined,
         activityState: {
@@ -203,7 +203,7 @@ describe("health projection contract", () => {
         currentUsage: "213000",
         transcriptPath: "/redacted/rollout.jsonl",
         sessionId: "session-a",
-        sessionName: "builder@rig",
+        sessionName: "builder@software-team",
         sampledAt: "2026-09-03T00:34:00Z",
         fresh: true,
       }, 4),
@@ -319,7 +319,7 @@ describe("release 0.5.9 replay corpus", () => {
   const corpus = JSON.parse(raw) as ReplayCorpus;
 
   it("pins facts to the exact public source cut without expected detector answers", () => {
-    expect(corpus.schema).toBe("openrig.health-replay/v0alpha1");
+    expect(corpus.schema).toBe("softwareteam.health-replay/v0alpha1");
     expect(corpus.sourceCut).toBe("dbf05f9d59ef3b0ae14fc00174c643df4858d45a");
     expect(raw).not.toContain("expectedFindings");
   });
@@ -348,7 +348,7 @@ describe("release 0.5.9 replay corpus", () => {
     const s13 = corpus.cases.scopeAdmissionCandidate;
     expect(s13.scope).toEqual({
       type: "slice",
-      projectId: "openrig",
+      projectId: "softwareteam",
       missionId: "release-0.5.9",
       sliceId: "OPR.0.5.9.13",
     });

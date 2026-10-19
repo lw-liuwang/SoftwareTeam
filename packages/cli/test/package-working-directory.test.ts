@@ -23,7 +23,7 @@ const clientEntry = pathToFileURL(join(import.meta.dirname, "../src/client.ts"))
 const tsx = pathToFileURL(join(import.meta.dirname, "../../../node_modules/tsx/dist/loader.mjs")).href;
 
 describe("package commands from a directory different from the daemon", () => {
-  const owned = mkdtempSync(join(tmpdir(), "openrig-package-cwd-"));
+  const owned = mkdtempSync(join(tmpdir(), "softwareteam-package-cwd-"));
   const caller = join(owned, "caller");
   const packageDir = join(caller, "pkg");
   const db = createDb();
@@ -101,7 +101,7 @@ exports:
       PATH: process.env.PATH,
       TMPDIR: process.env.TMPDIR,
       SystemRoot: process.env.SystemRoot,
-      OPENRIG_HOME: join(owned, "home"),
+      SOFTWARETEAM_HOME: join(owned, "home"),
     };
     return (await execute(process.execPath, ["--import", tsx, "--input-type=module", "-e", script], {
       cwd: caller, env, timeout: 10_000,

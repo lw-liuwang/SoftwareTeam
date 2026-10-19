@@ -20,7 +20,7 @@ function renderFlow() {
     createAppTestRouter({
       routes: [
         { path: "/bundles/install", component: BundleInstallFlow },
-        { path: "/rigs/$rigId", component: () => <div data-testid="rig-page">Rig</div> },
+        { path: "/software-teams/$softwareTeamId", component: () => <div data-testid="software-team-page">SoftwareTeam</div> },
       ],
       initialPath: "/bundles/install",
     })
@@ -54,7 +54,7 @@ describe("BundleInstallFlow", () => {
     await waitFor(() => expect(screen.getByTestId("bundle-install-flow")).toBeTruthy());
 
     act(() => {
-      fireEvent.change(screen.getByTestId("bundle-input"), { target: { value: "/tmp/pod.rigbundle" } });
+      fireEvent.change(screen.getByTestId("bundle-input"), { target: { value: "/tmp/pod.softwareteambundle" } });
       fireEvent.change(screen.getByTestId("target-input"), { target: { value: "/tmp/target" } });
     });
 
@@ -67,7 +67,7 @@ describe("BundleInstallFlow", () => {
       json: async () => ({
         runId: "run-2",
         status: "completed",
-        rigId: "rig-abc",
+        softwareTeamId: "software-team-abc",
         stages: [
           { stage: "resolve_spec", status: "ok", detail: { source: "pod_bundle" } },
           { stage: "instantiate", status: "ok" },
@@ -99,7 +99,7 @@ describe("BundleInstallFlow", () => {
     await waitFor(() => expect(screen.getByTestId("bundle-install-flow")).toBeTruthy());
 
     act(() => {
-      fireEvent.change(screen.getByTestId("bundle-input"), { target: { value: "/tmp/legacy.rigbundle" } });
+      fireEvent.change(screen.getByTestId("bundle-input"), { target: { value: "/tmp/legacy.softwareteambundle" } });
       fireEvent.change(screen.getByTestId("target-input"), { target: { value: "/tmp/target" } });
     });
 
@@ -111,7 +111,7 @@ describe("BundleInstallFlow", () => {
       json: async () => ({
         runId: "run-2",
         status: "completed",
-        rigId: "rig-legacy",
+        softwareTeamId: "software-team-legacy",
         stages: [{ stage: "resolve_spec", status: "ok" }, { stage: "instantiate", status: "ok" }],
         errors: [],
       }),

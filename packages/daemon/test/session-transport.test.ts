@@ -13,7 +13,7 @@ import { discoverySchema } from "../src/db/migrations/012_discovery.js";
 import { discoveryFkFix } from "../src/db/migrations/013_discovery_fk_fix.js";
 import { agentspecRebootSchema } from "../src/db/migrations/014_agentspec_reboot.js";
 import { externalCliAttachmentSchema } from "../src/db/migrations/019_external_cli_attachment.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { classifyPaneActivity, classifyStyledFrame, hasExpectedStagedText, inspectStartupStagedText, probeSessionActivity, promptTextIsFaint, SessionTransport, type TransportReadinessChecker } from "../src/domain/session-transport.js";
 import { SeatDeliveryGuard, resolveGuardTarget, type GuardTarget } from "../src/domain/seat-delivery-guard.js";
@@ -57,7 +57,7 @@ describe("agent pane activity classifier", () => {
       "  2. Skip this version",
       "  3. Remind me later",
       "",
-      "  gpt-5.5 xhigh fast · Context [████ ] · ~/code/projects/openrig",
+      "  gpt-5.5 xhigh fast · Context [████ ] · ~/code/projects/softwareteam",
     ].join("\n"));
 
     expect(result.state).toBe("attention");
@@ -68,7 +68,7 @@ describe("agent pane activity classifier", () => {
     const result = classifyPaneActivity([
       "› Summarize recent commits",
       "",
-      "  gpt-5.5 xhigh fast · Context [████ ] · ~/code/projects/openrig",
+      "  gpt-5.5 xhigh fast · Context [████ ] · ~/code/projects/softwareteam",
     ].join("\n"));
 
     expect(result.state).toBe("agent_idle");
@@ -82,7 +82,7 @@ describe("agent pane activity classifier", () => {
     const result = classifyPaneActivity([
       "  Tip: You can resume a previous conversation by running codex resume",
       "› Ask Codex to do anything",
-      "  GPT-5.5 medium · ~/code/projects/openrig · Verify assigned outcome",
+      "  GPT-5.5 medium · ~/code/projects/softwareteam · Verify assigned outcome",
       "  ← for agents · ? for shortcuts                       ⚠ 1 warning · f2 to view",
     ].join("\n"));
 
@@ -94,7 +94,7 @@ describe("agent pane activity classifier", () => {
     const result = classifyPaneActivity([
       "  Tip: You can resume a previous conversation by running codex resume",
       "» Ask Codex to do anything",
-      "  GPT-5.5 medium · ~/code/projects/openrig · Verify assigned outcome",
+      "  GPT-5.5 medium · ~/code/projects/softwareteam · Verify assigned outcome",
       "  ← for agents · ? for shortcuts                       ⚠ 1 warning · f2 to view",
     ].join("\n"));
 
@@ -106,7 +106,7 @@ describe("agent pane activity classifier", () => {
     const result = classifyPaneActivity([
       "◦ Working (11s • esc to interrupt) · 1 background terminal running · /ps to view",
       "› Ask Codex to do anything",
-      "  GPT-5.5 medium · ~/code/projects/openrig · Verify assigned outcome",
+      "  GPT-5.5 medium · ~/code/projects/softwareteam · Verify assigned outcome",
       "  ← for agents · ? for shortcuts                       ⚠ 1 warning · f2 to view",
     ].join("\n"));
 
@@ -120,7 +120,7 @@ describe("agent pane activity classifier", () => {
   const CODEX_0158_FOOTER = [
     "› Ask Codex to do anything",
     "",
-    "  gpt-6-sol high · ~/code/projects/openrig · Read the task",
+    "  gpt-6-sol high · ~/code/projects/softwareteam · Read the task",
     "  ? for shortcuts                                     ⚠ 3 warnings · f2 to view",
   ];
 
@@ -206,7 +206,7 @@ describe("agent pane activity classifier", () => {
   it("does not treat typed Codex 0.157 composer text as the idle placeholder", () => {
     const result = classifyPaneActivity([
       "› run the test suite and report",
-      "  GPT-5.5 medium · ~/code/projects/openrig · Verify assigned outcome",
+      "  GPT-5.5 medium · ~/code/projects/softwareteam · Verify assigned outcome",
       "  ← for agents · ? for shortcuts",
     ].join("\n"));
 
@@ -314,7 +314,7 @@ describe("agent pane activity classifier", () => {
     const result = classifyPaneActivity([
       "› Summarize recent commits",
       "",
-      "  gpt-5.5 xhigh fast · Context [████ ] · ~/code/projects/openrig",
+      "  gpt-5.5 xhigh fast · Context [████ ] · ~/code/projects/softwareteam",
     ].join("\n"));
 
     expect(result.state).toBe("agent_idle");
@@ -327,7 +327,7 @@ describe("agent pane activity classifier", () => {
       "",
       "› Use /skills to list available skills",
       "",
-      "  gpt-5.5 xhigh fast · Context [█▉   ] · ~/code/projects/openrig",
+      "  gpt-5.5 xhigh fast · Context [█▉   ] · ~/code/projects/softwareteam",
     ].join("\n"));
 
     expect(result.state).toBe("agent_idle");
@@ -338,7 +338,7 @@ describe("agent pane activity classifier", () => {
     "✢ Reviewing... (3s · ↓ 107 tokens · thinking)",
   ])("classifies Claude Code thinking status as agent_active without depending on the status verb: %s", (statusLine) => {
     const result = classifyPaneActivity([
-      "⏺ Skill(openrig-user)",
+      "⏺ Skill(softwareteam-user)",
       "  ⎿  Successfully loaded skill",
       "",
       statusLine,
@@ -363,7 +363,7 @@ describe("agent pane activity classifier", () => {
 
   it("does not classify stale idle footer as idle when current active work is below it", () => {
     const result = classifyPaneActivity([
-      "  gpt-5.5 xhigh fast · Context [████ ] · ~/code/projects/openrig",
+      "  gpt-5.5 xhigh fast · Context [████ ] · ~/code/projects/softwareteam",
       "",
       "• Reading 1 file...",
       "",
@@ -393,7 +393,7 @@ describe("agent pane activity classifier", () => {
     const result = classifyPaneActivity([
       "prior output",
       "» half typed input",
-      "  gpt-5.5 xhigh fast · Context [████ ] · ~/code/projects/openrig",
+      "  gpt-5.5 xhigh fast · Context [████ ] · ~/code/projects/softwareteam",
     ].join("\n"));
 
     expect(result.state).toBe("attention");
@@ -523,12 +523,12 @@ function mockTmux(overrides?: Partial<{
 
 describe("SessionTransport", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
 
   beforeEach(() => {
     db = setupDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
   });
 
@@ -546,52 +546,52 @@ describe("SessionTransport", () => {
   }) {
     return new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: tmux ?? mockTmux(),
       ...overrides,
     });
   }
 
-  function seedCanonicalRig(runtime = "claude-code") {
-    const rig = rigRepo.createRig("my-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", {
+  function seedCanonicalSoftwareTeam(runtime = "claude-code") {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("my-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", {
       role: "worker", runtime,
     });
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@my-rig");
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@my-software-team");
     sessionRegistry.updateStatus(session.id, "running");
-    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@my-rig" });
-    return { rig, node, session };
+    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@my-software-team" });
+    return { softwareTeam, node, session };
   }
 
-  function seedLegacyRig() {
-    const rig = rigRepo.createRig("r00-legacy");
-    const node = rigRepo.addNode(rig.id, "worker-a", {
+  function seedLegacySoftwareTeam() {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r00-legacy");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker-a", {
       role: "worker", runtime: "claude-code",
     });
     const session = sessionRegistry.registerSession(node.id, "r00-legacy-worker-a");
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateBinding(node.id, { tmuxSession: "r00-legacy-worker-a" });
-    return { rig, node, session };
+    return { softwareTeam, node, session };
   }
 
-  function seedExternalCliRig() {
-    const rig = rigRepo.createRig("rigged-buildout");
-    const node = rigRepo.addNode(rig.id, "orch1.lead", {
+  function seedExternalCliSoftwareTeam() {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("softwareteam-buildout");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "orch1.lead", {
       role: "orchestrator",
       runtime: "claude-code",
     });
-    const session = sessionRegistry.registerClaimedSession(node.id, "orch1-lead@rigged-buildout");
+    const session = sessionRegistry.registerClaimedSession(node.id, "orch1-lead@softwareteam-buildout");
     sessionRegistry.updateBinding(node.id, {
       attachmentType: "external_cli",
-      externalSessionName: "orch1-lead@rigged-buildout",
+      externalSessionName: "orch1-lead@softwareteam-buildout",
     });
-    return { rig, node, session };
+    return { softwareTeam, node, session };
   }
 
   // Test 1: send calls sendText -> delay -> sendKeys Enter
   it("send calls sendText then sendKeys Enter with delay", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const callOrder: string[] = [];
     const tmux = mockTmux({
       sendText: async () => { callOrder.push("sendText"); return { ok: true }; },
@@ -599,7 +599,7 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
     expect(result.ok).toBe(true);
     expect(callOrder).toEqual(["sendText", "sendKeys:Enter"]);
   });
@@ -618,31 +618,31 @@ describe("SessionTransport", () => {
     }
 
     it("leaves the mode, then sends the text and Enter", async () => {
-      seedCanonicalRig();
+      seedCanonicalSoftwareTeam();
       const callOrder: string[] = [];
       const transport = createTransport(modalPane({ leaves: true, callOrder }));
 
-      const result = await transport.send("dev-impl@my-rig", "hello");
+      const result = await transport.send("dev-impl@my-software-team", "hello");
       expect(result.ok).toBe(true);
       expect(callOrder).toEqual(["cancelPaneMode", "sendText", "sendKeys:Enter"]);
     });
 
     it("leaves the mode before a submitOnly Enter", async () => {
-      seedCanonicalRig();
+      seedCanonicalSoftwareTeam();
       const callOrder: string[] = [];
       const transport = createTransport(modalPane({ leaves: true, callOrder, capture: "❯ staged message" }));
 
-      const result = await transport.send("dev-impl@my-rig", "", { submitOnly: true, expectedStagedText: "staged message" });
+      const result = await transport.send("dev-impl@my-software-team", "", { submitOnly: true, expectedStagedText: "staged message" });
       expect(result.ok).toBe(true);
       expect(callOrder).toEqual(["cancelPaneMode", "sendKeys:Enter"]);
     });
 
     it("types nothing when the pane cannot leave the mode", async () => {
-      seedCanonicalRig();
+      seedCanonicalSoftwareTeam();
       const callOrder: string[] = [];
       const transport = createTransport(modalPane({ leaves: false, callOrder }));
 
-      const result = await transport.send("dev-impl@my-rig", "hello");
+      const result = await transport.send("dev-impl@my-software-team", "hello");
       expect(result).toMatchObject({ ok: false, reason: "pane_in_mode", sent: false });
       expect(result.error).toContain("could not leave it");
       expect(result.error).toContain("No text was sent.");
@@ -650,18 +650,18 @@ describe("SessionTransport", () => {
     });
 
     it("sends no submitOnly Enter when the pane cannot leave the mode", async () => {
-      seedCanonicalRig();
+      seedCanonicalSoftwareTeam();
       const callOrder: string[] = [];
       const transport = createTransport(modalPane({ leaves: false, callOrder, capture: "❯ staged message" }));
 
-      const result = await transport.send("dev-impl@my-rig", "", { submitOnly: true, expectedStagedText: "staged message" });
+      const result = await transport.send("dev-impl@my-software-team", "", { submitOnly: true, expectedStagedText: "staged message" });
       expect(result).toMatchObject({ ok: false, reason: "pane_in_mode" });
       expect(result.error).toContain("Nothing was submitted.");
       expect(callOrder).toEqual(["cancelPaneMode"]);
     });
 
     it("sends as before when the mode is unknown", async () => {
-      seedCanonicalRig();
+      seedCanonicalSoftwareTeam();
       const callOrder: string[] = [];
       const cancelPaneMode = vi.fn(async () => ({ ok: true as const }));
       const transport = createTransport(mockTmux({
@@ -671,7 +671,7 @@ describe("SessionTransport", () => {
         cancelPaneMode,
       }));
 
-      const result = await transport.send("dev-impl@my-rig", "hello");
+      const result = await transport.send("dev-impl@my-software-team", "hello");
       expect(result.ok).toBe(true);
       expect(callOrder).toEqual(["sendText", "sendKeys:Enter"]);
       expect(cancelPaneMode).not.toHaveBeenCalled();
@@ -680,19 +680,19 @@ describe("SessionTransport", () => {
 
   // Test 2: send to canonical session name resolves correctly
   it("send to canonical session name resolves correctly", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({ sendText: sendTextSpy });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "message");
+    const result = await transport.send("dev-impl@my-software-team", "message");
     expect(result.ok).toBe(true);
-    expect(sendTextSpy).toHaveBeenCalledWith("dev-impl@my-rig", "message");
+    expect(sendTextSpy).toHaveBeenCalledWith("dev-impl@my-software-team", "message");
   });
 
   // Test 3: send to legacy session name resolves correctly
   it("send to legacy session name resolves correctly", async () => {
-    seedLegacyRig();
+    seedLegacySoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({ sendText: sendTextSpy });
     const transport = createTransport(tmux);
@@ -711,18 +711,18 @@ describe("SessionTransport", () => {
     expect(result.ok).toBe(false);
     expect(result.reason).toBe("session_missing");
     expect(result.error).toContain("not found");
-    expect(result.error).toContain("rig ps");
+    expect(result.error).toContain("SoftwareTeam ps");
   });
 
   // Test 5: send where sendKeys Enter fails returns "text visible but not submitted"
   it("send where Enter fails returns submit_failed with guidance", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const tmux = mockTmux({
       sendKeys: async () => ({ ok: false, code: "session_not_found", message: "session died" }),
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
     expect(result.ok).toBe(false);
     expect(result.reason).toBe("submit_failed");
     expect(result.error).toContain("visible");
@@ -731,7 +731,7 @@ describe("SessionTransport", () => {
 
   // Test 6: send with verify captures pane and checks for text
   it("send with verify checks pane for sent text", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     let captureCount = 0;
     const tmux = mockTmux({
       capturePaneContent: async () => {
@@ -741,7 +741,7 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello", { verify: true });
+    const result = await transport.send("dev-impl@my-software-team", "hello", { verify: true });
     expect(result.ok).toBe(true);
     expect(result.verified).toBe(true);
     // OPR.99.0.6.3: a confirmed render is the strong positive outcome.
@@ -751,8 +751,8 @@ describe("SessionTransport", () => {
   it.each(["new render", "unchanged render", "additional render", "indentation-only redraw", "different message"])(
     "send with verify compares indented multiline envelopes: %s",
     async (mode) => {
-      seedCanonicalRig();
-      const message = "From: sender-agent@demo\nTo: dev-impl@my-rig\nSent: 2026-10-11T05:00:00Z\n---\nPlease check this task.";
+      seedCanonicalSoftwareTeam();
+      const message = "From: sender-agent@demo\nTo: dev-impl@my-software-team\nSent: 2026-10-11T05:00:00Z\n---\nPlease check this task.";
       // Claude renders submitted multiline messages with two-space continuation indentation.
       const rendered = "❯ " + message.split("\n").join("\n  ");
       let submitted = false;
@@ -770,7 +770,7 @@ describe("SessionTransport", () => {
       });
       const transport = createTransport(tmux, { sleep: async () => undefined });
 
-      const result = await transport.send("dev-impl@my-rig", message, { verify: true });
+      const result = await transport.send("dev-impl@my-software-team", message, { verify: true });
 
       expect(result.ok).toBe(true);
       const expectedVerified = mode === "new render" || mode === "additional render";
@@ -780,13 +780,13 @@ describe("SessionTransport", () => {
   );
 
   it("send with verify does not false-positive on pre-existing pane content", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const tmux = mockTmux({
       capturePaneContent: async () => "prior output\nhello\n❯ ",
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello", { verify: true });
+    const result = await transport.send("dev-impl@my-software-team", "hello", { verify: true });
 
     expect(result.ok).toBe(true);
     expect(result.verified).toBe(false);
@@ -798,8 +798,8 @@ describe("SessionTransport", () => {
   it.each(["same envelope, different body", "unsent composer", "old transcript plus unsent copy", "quoted prompt in composer"])(
     "send with verify rejects false confirmation: %s",
     async (mode) => {
-      seedCanonicalRig();
-      const message = "From: sender-agent@demo\nTo: dev-impl@my-rig\nSent: 10-11 05:00Z\n---\nPlease check this task.";
+      seedCanonicalSoftwareTeam();
+      const message = "From: sender-agent@demo\nTo: dev-impl@my-software-team\nSent: 10-11 05:00Z\n---\nPlease check this task.";
       const rendered = "❯ " + message.split("\n").join("\n  ");
       const composer = "────────────────────\n" + rendered +
         (mode === "quoted prompt in composer" ? "\n  ❯ quoted prompt" : "") + "\n────────────────────\n? for shortcuts";
@@ -814,7 +814,7 @@ describe("SessionTransport", () => {
           : "❯ "),
       });
       const result = await createTransport(tmux, { sleep: async () => undefined })
-        .send("dev-impl@my-rig", message, { verify: true });
+        .send("dev-impl@my-software-team", message, { verify: true });
       expect(result).toMatchObject({ ok: true, verified: false, outcome: "rendered-unconfirmed" });
     },
   );
@@ -822,8 +822,8 @@ describe("SessionTransport", () => {
   it.each(["different tail", "full message", "truncated message"])(
     "send with verify compares the full envelope after a long shared opening: %s",
     async (mode) => {
-      seedCanonicalRig();
-      const message = "From: sender-agent@demo\nTo: dev-impl@my-rig\nSent: 10-11 05:00Z\n---\n" +
+      seedCanonicalSoftwareTeam();
+      const message = "From: sender-agent@demo\nTo: dev-impl@my-software-team\nSent: 10-11 05:00Z\n---\n" +
         "A shared opening longer than forty characters belongs to both messages.\nRequested tail.";
       const rendered = "❯ " + message.split("\n").join("\n  ");
       let submitted = false;
@@ -834,7 +834,7 @@ describe("SessionTransport", () => {
             : mode === "truncated message" ? rendered.split("\n").slice(0, -1).join("\n") : rendered) + "\n❯ ",
       });
       const result = await createTransport(tmux, { sleep: async () => undefined })
-        .send("dev-impl@my-rig", message, { verify: true });
+        .send("dev-impl@my-software-team", message, { verify: true });
       expect(result).toMatchObject({ ok: true, verified: mode === "full message",
         outcome: mode === "full message" ? "delivered" : "rendered-unconfirmed" });
     },
@@ -843,8 +843,8 @@ describe("SessionTransport", () => {
   it.each(["wrapped full", "wrapped wrong tail", "wrapped staged", "wrapped redraw"])(
     "send with verify compares full envelopes across wrapping: %s",
     async (mode) => {
-      seedCanonicalRig();
-      const message = "From: sender-agent@demo\nTo: dev-impl@my-rig\nSent: 10-11 05:00Z\n---\n" +
+      seedCanonicalSoftwareTeam();
+      const message = "From: sender-agent@demo\nTo: dev-impl@my-software-team\nSent: 10-11 05:00Z\n---\n" +
         "This long shared opening exceeds forty characters and wraps at a word boundary. Requested tail.";
       const rendered = "❯ " + message.split("\n").join("\n  ");
       const wrapped = rendered.replace("and wraps", "and\n  wraps");
@@ -857,7 +857,7 @@ describe("SessionTransport", () => {
             (mode === "wrapped staged" ? "\n────────────────────\n? for shortcuts" : "\n❯ "),
       });
       const result = await createTransport(tmux, { sleep: async () => undefined })
-        .send("dev-impl@my-rig", message, { verify: true });
+        .send("dev-impl@my-software-team", message, { verify: true });
       expect(result).toMatchObject({ ok: true, verified: mode === "wrapped full",
         outcome: mode === "wrapped full" ? "delivered" : "rendered-unconfirmed" });
     },
@@ -866,9 +866,9 @@ describe("SessionTransport", () => {
   it.each(["same-line suffix", "next-line suffix", "exact block", "canonical suffix", "canonical exact", "footer suffix"])(
     "send with verify counts complete envelope blocks: %s",
     async (mode) => {
-      seedCanonicalRig();
-      const header = "From: sender-agent@demo\nTo: dev-impl@my-rig\nSent: 10-11 05:00Z\n---\n";
-      const footer = "\n---\n↩ Reply: rig send sender-agent@demo \"...\"";
+      seedCanonicalSoftwareTeam();
+      const header = "From: sender-agent@demo\nTo: dev-impl@my-software-team\nSent: 10-11 05:00Z\n---\n";
+      const footer = "\n---\n↩ Reply: SoftwareTeam send sender-agent@demo \"...\"";
       const canonical = mode.startsWith("canonical") || mode === "footer suffix";
       const message = header + "Requested body." + (canonical ? footer : "");
       let rendered = message;
@@ -882,7 +882,7 @@ describe("SessionTransport", () => {
         capturePaneContent: async () => !submitted ? "❯ " : "❯ " + rendered.split("\n").join("\n  ") + "\n❯ ",
       });
       const result = await createTransport(tmux, { sleep: async () => undefined })
-        .send("dev-impl@my-rig", message, { verify: true });
+        .send("dev-impl@my-software-team", message, { verify: true });
       const verified = mode === "exact block" || mode === "canonical exact";
       expect(result).toMatchObject({ ok: true, verified, outcome: verified ? "delivered" : "rendered-unconfirmed" });
     },
@@ -891,8 +891,8 @@ describe("SessionTransport", () => {
   it.each(["From suffix", "Claude quote suffix", "Codex quote suffix", "empty framed input", "quoted framed draft"])(
     "send with verify retains columns at envelope and composer boundaries: %s",
     async (mode) => {
-      seedCanonicalRig();
-      const message = "From: sender-agent@demo\nTo: dev-impl@my-rig\n---\nRequested body.\n---\n↩ Reply: rig send sender-agent@demo \"...\"";
+      seedCanonicalSoftwareTeam();
+      const message = "From: sender-agent@demo\nTo: dev-impl@my-software-team\n---\nRequested body.\n---\n↩ Reply: SoftwareTeam send sender-agent@demo \"...\"";
       const suffix = mode === "From suffix" ? "\nFrom: extra body text"
         : mode === "Claude quote suffix" ? "\n❯ extra quoted body"
         : mode === "Codex quote suffix" ? "\n› extra quoted body" : "";
@@ -906,7 +906,7 @@ describe("SessionTransport", () => {
         capturePaneContent: async () => !submitted ? "❯ " : rendered + (verified ? framed : "\n❯ "),
       });
       const result = await createTransport(tmux, { sleep: async () => undefined })
-        .send("dev-impl@my-rig", message, { verify: true });
+        .send("dev-impl@my-software-team", message, { verify: true });
       expect(result).toMatchObject({ ok: true, verified, outcome: verified ? "delivered" : "rendered-unconfirmed" });
     },
   );
@@ -914,8 +914,8 @@ describe("SessionTransport", () => {
   it.each(["Claude reply", "Claude status", "Claude spinner", "Claude dotted status", "Claude thinking", "Codex plain output", "blank-separated reply", "Codex reply", "Codex status", "quoted reply suffix", "quoted status suffix", "plain suffix", "assistant quotes envelope", "assistant quotes prompt then envelope", "next incoming after reply"])(
     "send with verify separates user envelopes from agent output: %s",
     async (mode) => {
-      seedCanonicalRig();
-      const message = "From: sender-agent@demo\nTo: dev-impl@my-rig\n---\nRequested body.\n---\n↩ Reply: rig send sender-agent@demo \"...\"";
+      seedCanonicalSoftwareTeam();
+      const message = "From: sender-agent@demo\nTo: dev-impl@my-software-team\n---\nRequested body.\n---\n↩ Reply: SoftwareTeam send sender-agent@demo \"...\"";
       const render = (text: string) => "❯ " + text.split("\n").join("\n  ");
       const marker = mode === "Claude status" ? "✻ Working… (2s · thinking)"
         : mode === "Claude spinner" ? "⠋ Processing"
@@ -939,14 +939,14 @@ describe("SessionTransport", () => {
         capturePaneContent: async () => !submitted ? "❯ " : output + "\n────────────────────\n❯ \n────────────────────\n? for shortcuts",
       });
       const result = await createTransport(tmux, { sleep: async () => undefined })
-        .send("dev-impl@my-rig", message, { verify: true });
+        .send("dev-impl@my-software-team", message, { verify: true });
       const verified = ["Claude reply", "Claude status", "Claude spinner", "Claude dotted status", "Claude thinking", "Codex plain output", "blank-separated reply", "Codex reply", "Codex status", "next incoming after reply"].includes(mode);
       expect(result).toMatchObject({ ok: true, verified, outcome: verified ? "delivered" : "rendered-unconfirmed" });
     },
   );
 
   it("send with verify keeps raw multiline captures free of joined-line padding", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const message = "First logical line.\nSecond logical line crosses forty characters.";
     let submitted = false;
     const captures: unknown[] = [];
@@ -959,22 +959,22 @@ describe("SessionTransport", () => {
       },
     });
     const result = await createTransport(tmux, { sleep: async () => undefined })
-      .send("dev-impl@my-rig", message, { verify: true });
+      .send("dev-impl@my-software-team", message, { verify: true });
     expect(result).toMatchObject({ ok: true, verified: true, outcome: "delivered" });
     expect(captures.every(options => options === undefined)).toBe(true);
   });
 
   it.each(["raw", "envelope without timestamp"])("send with verify excludes current input: %s", async (mode) => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const message = mode === "raw" ? "Please check this task."
-      : "From: sender-agent@demo\nTo: dev-impl@my-rig\n---\nPlease check this task.";
+      : "From: sender-agent@demo\nTo: dev-impl@my-software-team\n---\nPlease check this task.";
     let submitted = false;
     const tmux = mockTmux({
       sendKeys: async () => { submitted = true; return { ok: true }; },
       capturePaneContent: async () => submitted ? "❯ " + message.split("\n").join("\n  ") : "❯ ",
     });
     const result = await createTransport(tmux, { sleep: async () => undefined })
-      .send("dev-impl@my-rig", message, { verify: true });
+      .send("dev-impl@my-software-team", message, { verify: true });
     expect(result).toMatchObject({ ok: true, verified: false, outcome: "rendered-unconfirmed" });
   });
 
@@ -982,9 +982,9 @@ describe("SessionTransport", () => {
     ["raw staged", "raw submitted", "envelope staged", "envelope submitted", "quoted draft", "quoted prompt in draft", "after reply", "flat transcript boundary"]
       .map(mode => [glyph, mode] as const),
   ))("send verification recognises composer %s: %s", async (glyph, mode) => {
-    seedCanonicalRig(glyph === "❯" ? "claude-code" : "codex");
+    seedCanonicalSoftwareTeam(glyph === "❯" ? "claude-code" : "codex");
     const message = mode.startsWith("raw") ? "Please check this task."
-      : "From: sender-agent@demo\nTo: dev-impl@my-rig\n---\nPlease check this task.";
+      : "From: sender-agent@demo\nTo: dev-impl@my-software-team\n---\nPlease check this task.";
     const render = (text: string) => glyph + " " + text.split("\n").join("\n  ");
     const verified = mode === "raw submitted" || mode === "envelope submitted" || mode === "after reply" || mode === "flat transcript boundary";
     let submitted = false;
@@ -1001,7 +1001,7 @@ describe("SessionTransport", () => {
       },
     });
     const result = await createTransport(tmux, { sleep: async () => undefined })
-      .send("dev-impl@my-rig", message, { verify: true });
+      .send("dev-impl@my-software-team", message, { verify: true });
     expect(result).toMatchObject({ ok: true, verified,
       outcome: verified ? "delivered" : "rendered-unconfirmed" });
   });
@@ -1012,14 +1012,14 @@ describe("SessionTransport", () => {
     ["envelope", "assistant quoted envelope"],
     ["envelope", "flat body »"], ["envelope", "flat body ›"], ["envelope", "flat body ❯"],
   ])("Claude verification keeps existing boundaries: %s %s", async (kind, shape) => {
-    const rig = rigRepo.createRig("verification");
-    const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("verification");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
     const address = "worker@verification";
     const session = sessionRegistry.registerSession(node.id, address);
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateBinding(node.id, { tmuxSession: address });
     let message = kind === "raw" ? "Check the blue ledger, then report its total."
-      : `From: sender@fixture\nTo: ${address}\nSent: 10-13 10:00Z\n---\nCheck the blue ledger.\nReport its total.\n---\n↩ Reply: rig send sender@fixture "..."`;
+      : `From: sender@fixture\nTo: ${address}\nSent: 10-13 10:00Z\n---\nCheck the blue ledger.\nReport its total.\n---\n↩ Reply: SoftwareTeam send sender@fixture "..."`;
     const render = (glyph: string, text: string) => glyph + " " + text.split("\n").join("\n  ");
     let post = render("❯", message) + "\n» reply quotation below live input";
     if (shape === "below framed draft") post = "────────────────────\n" + render("❯", message) + "\n────────────────────\n? for shortcuts\n» later quote";
@@ -1040,7 +1040,7 @@ describe("SessionTransport", () => {
   });
 
   it("unknown-runtime verification keeps existing boundaries", async () => {
-    const { node } = seedCanonicalRig();
+    const { node } = seedCanonicalSoftwareTeam();
     db.prepare("UPDATE nodes SET runtime = NULL WHERE id = ?").run(node.id);
     expect(db.prepare("SELECT runtime FROM nodes WHERE id = ?").get(node.id)).toEqual({ runtime: null });
     const message = "Check the blue ledger, then report its total.";
@@ -1050,13 +1050,13 @@ describe("SessionTransport", () => {
       capturePaneContent: async () => submitted ? "❯ " + message + "\n» reply quotation below live input" : "❯ ",
     });
     const result = await createTransport(tmux, { sleep: async () => undefined })
-      .send("dev-impl@my-rig", message, { verify: true });
+      .send("dev-impl@my-software-team", message, { verify: true });
     expect(result).toMatchObject({ ok: true, verified: false, outcome: "rendered-unconfirmed" });
   });
 
   // OPR.99.0.6.3 — honest delivery-outcome vocabulary
   it("verify capture throwing after a successful send is the middle outcome, not a failure", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     let captureCount = 0;
     const tmux = mockTmux({
       capturePaneContent: async () => {
@@ -1069,25 +1069,25 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello", { verify: true });
+    const result = await transport.send("dev-impl@my-software-team", "hello", { verify: true });
     expect(result.ok).toBe(true);
     expect(result.verified).toBe(false);
     expect(result.outcome).toBe("rendered-unconfirmed");
   });
 
   it("DISCRIMINATOR: a redraw-race send and a genuine transport failure surface differently", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     // Redraw-race: send + submit succeed, post-capture cannot re-confirm.
     const racyTmux = mockTmux({
       capturePaneContent: async () => "prior output\nhello\n❯ ",
     });
-    const middle = await createTransport(racyTmux).send("dev-impl@my-rig", "hello", { verify: true });
+    const middle = await createTransport(racyTmux).send("dev-impl@my-software-team", "hello", { verify: true });
 
     // Genuine transport failure: Enter does not land.
     const brokenTmux = mockTmux({
       sendKeys: async () => ({ ok: false, code: "session_not_found", message: "session died" }),
     });
-    const failure = await createTransport(brokenTmux).send("dev-impl@my-rig", "hello", { verify: true });
+    const failure = await createTransport(brokenTmux).send("dev-impl@my-software-team", "hello", { verify: true });
 
     // The acceptance criterion: the two states are NOT equal in surfaced outcome.
     expect(middle.ok).toBe(true);
@@ -1098,11 +1098,11 @@ describe("SessionTransport", () => {
   });
 
   it("send_failed and submit_failed carry outcome 'failed' (vocabulary symmetry, ok:false unchanged)", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const noPaste = mockTmux({
       sendText: async () => ({ ok: false, code: "session_not_found", message: "gone" }),
     });
-    const sendFailed = await createTransport(noPaste).send("dev-impl@my-rig", "hello");
+    const sendFailed = await createTransport(noPaste).send("dev-impl@my-software-team", "hello");
     expect(sendFailed.ok).toBe(false);
     expect(sendFailed.reason).toBe("send_failed");
     expect(sendFailed.outcome).toBe("failed");
@@ -1110,16 +1110,16 @@ describe("SessionTransport", () => {
     const noEnter = mockTmux({
       sendKeys: async () => ({ ok: false, code: "session_not_found", message: "gone" }),
     });
-    const submitFailed = await createTransport(noEnter).send("dev-impl@my-rig", "hello");
+    const submitFailed = await createTransport(noEnter).send("dev-impl@my-software-team", "hello");
     expect(submitFailed.ok).toBe(false);
     expect(submitFailed.reason).toBe("submit_failed");
     expect(submitFailed.outcome).toBe("failed");
   });
 
   it("send without verify carries no outcome field (additive, verify-scoped)", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const transport = createTransport(mockTmux());
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
     expect(result.ok).toBe(true);
     expect(result.outcome).toBeUndefined();
   });
@@ -1127,7 +1127,7 @@ describe("SessionTransport", () => {
   // Test 7: send with mid-work detected → DELIVER WITH ADVISORY (OPR.0.4.3.28 fast-follow —
   // mid_work downgraded from a hard refuse to a non-blocking advisory; busy is not a block).
   it("send with mid-work detected DELIVERS with a non-blocking advisory (not a refusal)", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({
       capturePaneContent: async () => "Working on task...\n⠋ Processing files\nesc to interrupt",
@@ -1135,7 +1135,7 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
     expect(result.ok).toBe(true);
     expect(result.warning).toContain("mid-task");
     expect(result.warning).toContain("busy is advisory");
@@ -1145,7 +1145,7 @@ describe("SessionTransport", () => {
   // Test 8: --force on a mid-work pane still sends (now a back-compat no-op — the default path
   // already delivers-with-advisory, so --force changes nothing but must not break).
   it("send with mid-work + force still sends anyway (--force is a back-compat no-op now)", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({
       capturePaneContent: async () => "Working on task...\n⠋ Processing\nesc to interrupt",
@@ -1153,13 +1153,13 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello", { force: true });
+    const result = await transport.send("dev-impl@my-software-team", "hello", { force: true });
     expect(result.ok).toBe(true);
     expect(sendTextSpy).toHaveBeenCalled();
   });
 
   it("send with wait-for-idle waits through running pane activity and sends after idle", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const callOrder: string[] = [];
     let captureCount = 0;
     const sendTextSpy = vi.fn(async () => {
@@ -1172,7 +1172,7 @@ describe("SessionTransport", () => {
         captureCount++;
         return captureCount === 1
           ? "Working on task...\n⠋ Processing files\nesc to interrupt"
-          : "› Use /skills to list available skills\n\n  gpt-5.5 high · Context [████ ] · ~/code/projects/openrig";
+          : "› Use /skills to list available skills\n\n  gpt-5.5 high · Context [████ ] · ~/code/projects/softwareteam";
       },
       sendText: sendTextSpy,
       sendKeys: async () => {
@@ -1185,18 +1185,18 @@ describe("SessionTransport", () => {
       waitForIdlePollMs: 1,
     });
 
-    const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 });
+    const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 });
 
     expect(result.ok).toBe(true);
     expect(result.sent).toBe(true);
     expect(result.attempts).toBe(2);
     expect(result.activity?.state).toBe("idle");
-    expect(sendTextSpy).toHaveBeenCalledWith("dev-impl@my-rig", "hello");
+    expect(sendTextSpy).toHaveBeenCalledWith("dev-impl@my-software-team", "hello");
     expect(callOrder).toEqual(["capture", "capture", "sendText", "sendKeys"]);
   });
 
   it("send with wait-for-idle waits through current Claude thinking evidence and sends after idle", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const callOrder: string[] = [];
     let captureCount = 0;
     const sendTextSpy = vi.fn(async () => {
@@ -1209,7 +1209,7 @@ describe("SessionTransport", () => {
         captureCount++;
         return captureCount === 1
           ? [
-              "⏺ Skill(openrig-user)",
+              "⏺ Skill(softwareteam-user)",
               "  ⎿  Successfully loaded skill",
               "",
               "✶ Synthesizing… (6s · ↑ 284 tokens · thinking)",
@@ -1239,18 +1239,18 @@ describe("SessionTransport", () => {
       waitForIdlePollMs: 1,
     });
 
-    const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 });
+    const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 });
 
     expect(result.ok).toBe(true);
     expect(result.sent).toBe(true);
     expect(result.attempts).toBe(2);
     expect(result.activity?.state).toBe("idle");
-    expect(sendTextSpy).toHaveBeenCalledWith("dev-impl@my-rig", "hello");
+    expect(sendTextSpy).toHaveBeenCalledWith("dev-impl@my-software-team", "hello");
     expect(callOrder).toEqual(["capture", "capture", "sendText", "sendKeys"]);
   });
 
   it.each([0, 5])("send with wait-for-idle times out on running activity without sending text (capture cost %ims)", async (captureCostMs) => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     // These cases test expiry AFTER a running observation, not classification speed.
     // Freeze both the deadline clock and its race timer; advance only at the poll.
     vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
@@ -1267,7 +1267,7 @@ describe("SessionTransport", () => {
       const sleep = vi.fn(async (ms: number) => { await vi.advanceTimersByTimeAsync(ms); });
       const transport = createTransport(tmux, { sleep, waitForIdlePollMs: 1 });
 
-      const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 1 });
+      const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 1 });
 
       expect(result.ok).toBe(false);
       expect(result.reason).toBe("wait_for_idle_timeout");
@@ -1283,7 +1283,7 @@ describe("SessionTransport", () => {
   });
 
   it.each([0, 5])("send with wait-for-idle times out on persistent Claude thinking evidence without sending text (capture cost %ims)", async (captureCostMs) => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     // These cases test expiry AFTER a running observation, not classification speed.
     // Freeze both the deadline clock and its race timer; advance only at the poll.
     vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
@@ -1294,7 +1294,7 @@ describe("SessionTransport", () => {
           const end = performance.now() + captureCostMs;
           while (performance.now() < end) { /* controlled classification CPU cost */ }
           return [
-            "⏺ Skill(openrig-user)",
+            "⏺ Skill(softwareteam-user)",
             "  ⎿  Initializing…",
             "",
             "✢ Reviewing... (3s · ↓ 107 tokens · thinking)",
@@ -1310,7 +1310,7 @@ describe("SessionTransport", () => {
       const sleep = vi.fn(async (ms: number) => { await vi.advanceTimersByTimeAsync(ms); });
       const transport = createTransport(tmux, { sleep, waitForIdlePollMs: 1 });
 
-      const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 1 });
+      const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 1 });
 
       expect(result.ok).toBe(false);
       expect(result.reason).toBe("wait_for_idle_timeout");
@@ -1326,7 +1326,7 @@ describe("SessionTransport", () => {
   });
 
   it("send with wait-for-idle hard-stops on attention prompts without sending text", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({
       capturePaneContent: async () => [
@@ -1336,7 +1336,7 @@ describe("SessionTransport", () => {
         "  2. Skip this version",
         "  3. Remind me later",
         "",
-        "  gpt-5.5 high · Context [████ ] · ~/code/projects/openrig",
+        "  gpt-5.5 high · Context [████ ] · ~/code/projects/softwareteam",
       ].join("\n"),
       sendText: sendTextSpy,
     });
@@ -1345,7 +1345,7 @@ describe("SessionTransport", () => {
       waitForIdlePollMs: 1,
     });
 
-    const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 });
+    const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 });
 
     expect(result.ok).toBe(false);
     expect(result.reason).toBe("target_needs_input");
@@ -1364,10 +1364,10 @@ describe("SessionTransport", () => {
     const slept: number[] = [];
     return { sleep: async (ms: number) => { slept.push(ms); t += ms; }, slept, restore: () => spy.mockRestore() };
   }
-  const IDLE_PANE = "› Use /skills to list available skills\n\n  gpt-5.5 high · Context [████ ] · ~/code/projects/openrig";
+  const IDLE_PANE = "› Use /skills to list available skills\n\n  gpt-5.5 high · Context [████ ] · ~/code/projects/softwareteam";
   const BUSY_PANE = "Working on task...\n⠋ Processing files\nesc to interrupt";
   const MENU_PANE = ["Codex update available.", "", "› 1. Update now", "  2. Skip this version", "",
-    "  gpt-5.5 high · Context [████ ] · ~/code/projects/openrig"].join("\n");
+    "  gpt-5.5 high · Context [████ ] · ~/code/projects/softwareteam"].join("\n");
   const UNREADABLE = Symbol("unreadable");
   function scriptedPanes(script: Array<string | typeof UNREADABLE>) {
     let i = 0;
@@ -1379,13 +1379,13 @@ describe("SessionTransport", () => {
   }
 
   it("send with wait-for-idle retries an unknown observation and sends once explicit idle arrives", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const clock = steppedClock();
     try {
       const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
       const tmux = mockTmux({ capturePaneContent: scriptedPanes([UNREADABLE, IDLE_PANE]), sendText: sendTextSpy });
       const transport = createTransport(tmux, { sleep: clock.sleep, waitForIdlePollMs: 10 });
-      const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 });
+      const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 });
       expect(result).toMatchObject({ ok: true, sent: true, attempts: 2, activity: { state: "idle" } });
       expect(clock.slept[0]).toBe(10); // one poll interval; the later sleep is the paste→Enter delay
       expect(sendTextSpy).toHaveBeenCalledTimes(1);
@@ -1393,26 +1393,26 @@ describe("SessionTransport", () => {
   });
 
   it("send with wait-for-idle still refuses a positive prompt that appears after an unknown observation", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const clock = steppedClock();
     try {
       const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
       const tmux = mockTmux({ capturePaneContent: scriptedPanes([UNREADABLE, MENU_PANE]), sendText: sendTextSpy });
       const transport = createTransport(tmux, { sleep: clock.sleep, waitForIdlePollMs: 10 });
-      const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 });
+      const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 });
       expect(result).toMatchObject({ ok: false, reason: "target_needs_input", sent: false, attempts: 2, activity: { state: "needs_input" } });
       expect(sendTextSpy).not.toHaveBeenCalled();
     } finally { clock.restore(); }
   });
 
   it("send with wait-for-idle on perpetual unknown keeps ONE deadline and reports the last unknown observation", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const clock = steppedClock();
     try {
       const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
       const tmux = mockTmux({ capturePaneContent: scriptedPanes([UNREADABLE]), sendText: sendTextSpy });
       const transport = createTransport(tmux, { sleep: clock.sleep, waitForIdlePollMs: 10 });
-      const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 });
+      const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 });
       expect(result).toMatchObject({ ok: false, reason: "target_activity_unknown", sent: false, attempts: 6, waitedMs: 50,
         activity: { state: "unknown", reason: "capture_failed" } });
       expect(result.error).toBe("Target activity could not be determined (capture_failed) when the 50ms wait ended (6 observations). No text was sent.");
@@ -1426,13 +1426,13 @@ describe("SessionTransport", () => {
     ["busy then unknown", [BUSY_PANE, BUSY_PANE, BUSY_PANE, BUSY_PANE, BUSY_PANE, UNREADABLE], "target_activity_unknown", "unknown", /could not be determined \(capture_failed\) when the 50ms wait ended \(6 observations\)/],
     ["unknown then busy", [UNREADABLE, UNREADABLE, UNREADABLE, UNREADABLE, UNREADABLE, BUSY_PANE], "wait_for_idle_timeout", "running", /still busy \(.+\) when the 50ms wait ended \(6 observations\)/],
   ] as const)("send with wait-for-idle at the deadline names the LAST observation (%s)", async (_label, script, reason, state, message) => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const clock = steppedClock();
     try {
       const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
       const tmux = mockTmux({ capturePaneContent: scriptedPanes([...script]), sendText: sendTextSpy });
       const transport = createTransport(tmux, { sleep: clock.sleep, waitForIdlePollMs: 10 });
-      const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 });
+      const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 });
       expect(result).toMatchObject({ ok: false, reason, sent: false, attempts: 6, activity: { state } });
       expect(result.error).toMatch(message);
       expect(sendTextSpy).not.toHaveBeenCalled();
@@ -1440,7 +1440,7 @@ describe("SessionTransport", () => {
   });
 
   it("send with wait-for-idle refuses when the recipient binding changes during an unknown retry", async () => {
-    const { node } = seedCanonicalRig();
+    const { node } = seedCanonicalSoftwareTeam();
     const clock = steppedClock();
     try {
       const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
@@ -1449,7 +1449,7 @@ describe("SessionTransport", () => {
         sleep: async (ms) => { await clock.sleep(ms); sessionRegistry.updateBinding(node.id, { tmuxPane: "%rebound" }); },
         waitForIdlePollMs: 10,
       });
-      const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 });
+      const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 });
       expect(result).toMatchObject({ ok: false, reason: "target_runtime_conflict", sent: false });
       expect(sendTextSpy).not.toHaveBeenCalled();
     } finally { clock.restore(); }
@@ -1457,13 +1457,13 @@ describe("SessionTransport", () => {
 
   // review-r1's controls on #603 (bbf35f0a), kept verbatim in substance.
   it("R1-a: a deadline shorter than one poll still keeps ONE deadline (2 observations, total sleep = deadline)", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const clock = steppedClock();
     try {
       const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
       const tmux = mockTmux({ capturePaneContent: scriptedPanes([UNREADABLE]), sendText: sendTextSpy });
       const transport = createTransport(tmux, { sleep: clock.sleep, waitForIdlePollMs: 10 });
-      const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 5 });
+      const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 5 });
       expect(result).toMatchObject({ ok: false, reason: "target_activity_unknown", sent: false, attempts: 2, waitedMs: 5 });
       expect(clock.slept).toEqual([5]);
       expect(sendTextSpy).not.toHaveBeenCalled();
@@ -1471,13 +1471,13 @@ describe("SessionTransport", () => {
   });
 
   it("R1-b: unknown up to the deadline, then explicit idle AT the deadline observation, sends exactly once", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const clock = steppedClock();
     try {
       const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
       const tmux = mockTmux({ capturePaneContent: scriptedPanes([UNREADABLE, UNREADABLE, UNREADABLE, UNREADABLE, UNREADABLE, IDLE_PANE]), sendText: sendTextSpy });
       const transport = createTransport(tmux, { sleep: clock.sleep, waitForIdlePollMs: 10 });
-      const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 });
+      const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 });
       expect(result).toMatchObject({ ok: true, sent: true, attempts: 6, activity: { state: "idle" } });
       expect(clock.slept.slice(0, 5).reduce((a, b) => a + b, 0)).toBe(50);
       expect(sendTextSpy).toHaveBeenCalledTimes(1);
@@ -1485,25 +1485,25 @@ describe("SessionTransport", () => {
   });
 
   it("R1-c: a positive prompt AT the deadline observation still refuses as needs-input, not as a timeout", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const clock = steppedClock();
     try {
       const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
       const tmux = mockTmux({ capturePaneContent: scriptedPanes([UNREADABLE, UNREADABLE, UNREADABLE, UNREADABLE, UNREADABLE, MENU_PANE]), sendText: sendTextSpy });
       const transport = createTransport(tmux, { sleep: clock.sleep, waitForIdlePollMs: 10 });
-      const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 });
+      const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 });
       expect(result).toMatchObject({ ok: false, reason: "target_needs_input", sent: false, attempts: 6 });
       expect(sendTextSpy).not.toHaveBeenCalled();
     } finally { clock.restore(); }
   });
 
   it("R1-d: REAL timers: perpetual unknown never sends and returns within the deadline plus scheduling slack", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({ capturePaneContent: scriptedPanes([UNREADABLE]), sendText: sendTextSpy });
     const transport = createTransport(tmux, { waitForIdlePollMs: 10 });
     const t0 = performance.now();
-    const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 60 });
+    const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 60 });
     const wall = performance.now() - t0;
     expect(result).toMatchObject({ ok: false, reason: "target_activity_unknown", sent: false });
     expect(result.waitedMs!).toBeGreaterThanOrEqual(60);
@@ -1513,12 +1513,12 @@ describe("SessionTransport", () => {
   });
 
   it("R1-e: a non-positive or non-finite wait is still refused before any observation (no infinite loop)", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const capture = vi.fn(async () => { throw new Error("capture failed"); });
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const transport = createTransport(mockTmux({ capturePaneContent: capture, sendText: sendTextSpy }), { sleep: async () => undefined, waitForIdlePollMs: 10 });
     for (const bad of [0, -5, Number.NaN, Number.POSITIVE_INFINITY]) {
-      const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: bad });
+      const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: bad });
       expect(result.ok).toBe(false);
       expect(result.sent).toBe(false);
     }
@@ -1533,7 +1533,7 @@ describe("SessionTransport", () => {
     ["a slow idle capture after an unknown", [UNREADABLE, IDLE_PANE], 80, 0],
     ["a slow unreadable capture after an unknown", [UNREADABLE, UNREADABLE], 80, 0],
   ] as const)("QA603: %s never pastes or presses Enter after the 50ms deadline", async (_label, script, cost, oversleep) => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     let t = 1_000_000;
     let captures = 0;
     const spy = vi.spyOn(Date, "now").mockImplementation(() => t);
@@ -1551,7 +1551,7 @@ describe("SessionTransport", () => {
         },
       });
       const transport = createTransport(tmux, { waitForIdlePollMs: 10, sleep: async (ms) => { t += oversleep || ms; } });
-      const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 });
+      const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 });
       expect(result).toMatchObject({ ok: false, sent: false, reason: "target_activity_unknown", activity: { state: "unknown" } });
       expect(result.waitedMs).toBeLessThanOrEqual(50);
       expect(sendTextSpy).not.toHaveBeenCalled();
@@ -1560,7 +1560,7 @@ describe("SessionTransport", () => {
   });
 
   it("QA603_ASYNC: an unresolved retry observation cannot outlive the 50ms wait and later authorize input", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     vi.useFakeTimers();
     vi.setSystemTime(1_000_000);
     try {
@@ -1576,7 +1576,7 @@ describe("SessionTransport", () => {
       });
       const transport = createTransport(tmux, { sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)), waitForIdlePollMs: 10 });
       let result: Awaited<ReturnType<typeof transport.send>> | null = null;
-      const pending = transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 }).then((r) => { result = r; });
+      const pending = transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 }).then((r) => { result = r; });
       await vi.advanceTimersByTimeAsync(51);
       expect(result).not.toBeNull();
       await vi.advanceTimersByTimeAsync(300);
@@ -1587,14 +1587,14 @@ describe("SessionTransport", () => {
   });
 
   it("D1 cancellation before waiting starts no observation or input", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const controller = new AbortController();
     controller.abort();
     const capture = vi.fn(async () => IDLE_PANE);
     const sendText = vi.fn(async () => ({ ok: true as const }));
     const sendKeys = vi.fn(async () => ({ ok: true as const }));
     const transport = createTransport(mockTmux({ capturePaneContent: capture, sendText, sendKeys }));
-    const result = await transport.waitUntilIdle("dev-impl@my-rig", 50, controller.signal);
+    const result = await transport.waitUntilIdle("dev-impl@my-software-team", 50, controller.signal);
     expect(result).toMatchObject({ ok: false, reason: "preparation_cancelled", attempts: 0 });
     expect(capture).not.toHaveBeenCalled();
     expect(sendText).not.toHaveBeenCalled();
@@ -1602,7 +1602,7 @@ describe("SessionTransport", () => {
   });
 
   it("D1 cancellation during an in-flight observation discards idle and never observes again", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const controller = new AbortController();
     let entered!: () => void;
     const started = new Promise<void>((resolve) => { entered = resolve; });
@@ -1612,7 +1612,7 @@ describe("SessionTransport", () => {
     const sendText = vi.fn(async () => ({ ok: true as const }));
     const sendKeys = vi.fn(async () => ({ ok: true as const }));
     const transport = createTransport(mockTmux({ capturePaneContent: capture, sendText, sendKeys }));
-    const pending = transport.waitUntilIdle("dev-impl@my-rig", 1000, controller.signal);
+    const pending = transport.waitUntilIdle("dev-impl@my-software-team", 1000, controller.signal);
     await started;
     controller.abort();
     release(IDLE_PANE);
@@ -1624,7 +1624,7 @@ describe("SessionTransport", () => {
   });
 
   it("D1 cancellation between retries starts no second observation", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const controller = new AbortController();
     const capture = vi.fn(async () => { throw new Error("controlled unreadable pane"); });
     const sendText = vi.fn(async () => ({ ok: true as const }));
@@ -1632,7 +1632,7 @@ describe("SessionTransport", () => {
     const transport = createTransport(mockTmux({ capturePaneContent: capture, sendText, sendKeys }), {
       waitForIdlePollMs: 10, sleep: async () => { controller.abort(); },
     });
-    const result = await transport.waitUntilIdle("dev-impl@my-rig", 1000, controller.signal);
+    const result = await transport.waitUntilIdle("dev-impl@my-software-team", 1000, controller.signal);
     expect(result).toMatchObject({ ok: false, reason: "preparation_cancelled", attempts: 1 });
     expect(capture).toHaveBeenCalledTimes(1);
     expect(sendText).not.toHaveBeenCalled();
@@ -1640,11 +1640,11 @@ describe("SessionTransport", () => {
   });
 
   it("an ordinary send (no wait) is unchanged: one unknown observation proceeds with an advisory, no retry loop", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({ capturePaneContent: async () => { throw new Error("capture failed"); }, sendText: sendTextSpy });
     const transport = createTransport(tmux, { sleep: async () => undefined, waitForIdlePollMs: 10 });
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
     expect(result.ok).toBe(true);
     expect(result.warning).toBeDefined();
     expect(result.attempts).toBeUndefined();
@@ -1652,12 +1652,12 @@ describe("SessionTransport", () => {
   });
 
   it("send with wait-for-idle prefers fresh hook activity and waits for hook idle", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const eventBus = new EventBus(db);
     const agentActivityStore = new AgentActivityStore({ db, eventBus });
     agentActivityStore.recordHookEvent({
       runtime: "claude-code",
-      sessionName: "dev-impl@my-rig",
+      sessionName: "dev-impl@my-software-team",
       hookEvent: "PreToolUse",
     });
     let sleepCount = 0;
@@ -1673,7 +1673,7 @@ describe("SessionTransport", () => {
         if (sleepCount === 1) {
           agentActivityStore.recordHookEvent({
             runtime: "claude-code",
-            sessionName: "dev-impl@my-rig",
+            sessionName: "dev-impl@my-software-team",
             hookEvent: "Stop",
           });
         }
@@ -1681,7 +1681,7 @@ describe("SessionTransport", () => {
       waitForIdlePollMs: 1,
     });
 
-    const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 });
+    const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 });
 
     expect(result.ok).toBe(true);
     expect(result.sent).toBe(true);
@@ -1692,12 +1692,12 @@ describe("SessionTransport", () => {
   });
 
   it("send with wait-for-idle treats fresh UserPromptSubmit hook evidence as running", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const eventBus = new EventBus(db);
     const agentActivityStore = new AgentActivityStore({ db, eventBus });
     agentActivityStore.recordHookEvent({
       runtime: "claude-code",
-      sessionName: "dev-impl@my-rig",
+      sessionName: "dev-impl@my-software-team",
       hookEvent: "UserPromptSubmit",
     });
     // This tests the classification of fresh hook evidence and expiry AFTER a running observation, not
@@ -1718,7 +1718,7 @@ describe("SessionTransport", () => {
         waitForIdlePollMs: 1,
       });
 
-      const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 1 });
+      const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 1 });
 
       expect(result.ok).toBe(false);
       expect(result.reason).toBe("wait_for_idle_timeout");
@@ -1736,12 +1736,12 @@ describe("SessionTransport", () => {
   });
 
   it("send with wait-for-idle hard-stops on fresh permission prompt hook evidence", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const eventBus = new EventBus(db);
     const agentActivityStore = new AgentActivityStore({ db, eventBus });
     agentActivityStore.recordHookEvent({
       runtime: "claude-code",
-      sessionName: "dev-impl@my-rig",
+      sessionName: "dev-impl@my-software-team",
       hookEvent: "Notification",
       subtype: "permission_prompt",
     });
@@ -1756,7 +1756,7 @@ describe("SessionTransport", () => {
       waitForIdlePollMs: 1,
     });
 
-    const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 });
+    const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 });
 
     expect(result.ok).toBe(false);
     expect(result.reason).toBe("target_needs_input");
@@ -1768,17 +1768,17 @@ describe("SessionTransport", () => {
   });
 
   it("send with wait-for-idle treats fresh unknown hook evidence as unknown and does not fall through to pane idle", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const eventBus = new EventBus(db);
     const agentActivityStore = new AgentActivityStore({ db, eventBus });
     agentActivityStore.recordHookEvent({
       runtime: "claude-code",
-      sessionName: "dev-impl@my-rig",
+      sessionName: "dev-impl@my-software-team",
       hookEvent: "SessionStart",
     });
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({
-      capturePaneContent: async () => "› idle\n\n  gpt-5.5 high · Context [████ ] · ~/code/projects/openrig",
+      capturePaneContent: async () => "› idle\n\n  gpt-5.5 high · Context [████ ] · ~/code/projects/softwareteam",
       sendText: sendTextSpy,
     });
     const transport = createTransport(tmux, {
@@ -1787,7 +1787,7 @@ describe("SessionTransport", () => {
       waitForIdlePollMs: 1,
     });
 
-    const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 });
+    const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 });
 
     expect(result.ok).toBe(false);
     expect(result.reason).toBe("target_activity_unknown");
@@ -1797,7 +1797,7 @@ describe("SessionTransport", () => {
   });
 
   it("send does not refuse on idle codex status lines truncated with unicode ellipsis", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({
       capturePaneContent: async () => [
@@ -1807,20 +1807,20 @@ describe("SessionTransport", () => {
         "",
         "› Summarize recent commits",
         "",
-        "  gpt-5.4 xhigh fast · Context [████ ] · ~/.openrig/shared-docs/rigs/kerne…",
+        "  gpt-5.4 xhigh fast · Context [████ ] · ~/.softwareteam/shared-docs/software-teams/kerne…",
       ].join("\n"),
       sendText: sendTextSpy,
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
 
     expect(result.ok).toBe(true);
     expect(sendTextSpy).toHaveBeenCalled();
   });
 
   it("send does not refuse on idle prompt lines ending in ascii ellipsis", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({
       capturePaneContent: async () => "ready prompt...\n❯ ",
@@ -1828,14 +1828,14 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
 
     expect(result.ok).toBe(true);
     expect(sendTextSpy).toHaveBeenCalled();
   });
 
   it("send does not refuse when Working text is stale scrollback above an idle Codex prompt", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({
       capturePaneContent: async () => [
@@ -1843,20 +1843,20 @@ describe("SessionTransport", () => {
         "",
         "› Use /skills to list available skills",
         "",
-        "  gpt-5.4 xhigh fast · Context [█▉   ] · ~/code/projects/openrig-hub · Fas…",
+        "  gpt-5.4 xhigh fast · Context [█▉   ] · ~/code/projects/softwareteam-hub · Fas…",
       ].join("\n"),
       sendText: sendTextSpy,
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
 
     expect(result.ok).toBe(true);
     expect(sendTextSpy).toHaveBeenCalled();
   });
 
   it("send does not refuse when Working text is stale scrollback above an idle Claude Code prompt", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({
       capturePaneContent: async () => [
@@ -1870,14 +1870,14 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
 
     expect(result.ok).toBe(true);
     expect(sendTextSpy).toHaveBeenCalled();
   });
 
   it("send still refuses when prompt char line contains mid-work text (active Claude input)", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const tmux = mockTmux({
       capturePaneContent: async () => [
         "❯ Working on a task.",
@@ -1886,14 +1886,14 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
 
     expect(result.ok).toBe(true); // OPR.0.4.3.28 fast-follow — mid_work downgraded to deliver-with-advisory
     expect(result.warning).toContain("mid-task");
   });
 
   it("send refuses when Codex trust-prompt choice line is the active pane content", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const tmux = mockTmux({
       capturePaneContent: async () => [
         "› 1. Yes, continue",
@@ -1903,7 +1903,7 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
 
     // OPR.0.4.1.10: an interactive prompt now refuses with the precise target_needs_input (not the
     // generic mid_work) so the prompt/permission guard is independent of --force.
@@ -1913,7 +1913,7 @@ describe("SessionTransport", () => {
   });
 
   it("send refuses when a full-screen Codex trust prompt has blank padding below it", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const tmux = mockTmux({
       capturePaneContent: async () => [
         "> You are in /Users/admin/workspace",
@@ -1933,7 +1933,7 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
 
     // OPR.0.4.1.10: trust prompt → target_needs_input (precise prompt/permission guard).
     expect(result.ok).toBe(false);
@@ -1942,7 +1942,7 @@ describe("SessionTransport", () => {
   });
 
   it("send refuses when Claude Code trust-prompt choice line is the active pane content", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const tmux = mockTmux({
       capturePaneContent: async () => [
         "❯ 1. Yes",
@@ -1952,7 +1952,7 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
 
     // OPR.0.4.1.10: trust prompt → target_needs_input (precise prompt/permission guard).
     expect(result.ok).toBe(false);
@@ -1961,7 +1961,7 @@ describe("SessionTransport", () => {
   });
 
   it("send still refuses when Working footer is present with no idle prompt below it", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const tmux = mockTmux({
       capturePaneContent: async () => [
         "Reading file…",
@@ -1973,14 +1973,14 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
 
     expect(result.ok).toBe(true); // OPR.0.4.3.28 fast-follow — mid_work downgraded to deliver-with-advisory
     expect(result.warning).toContain("mid-task");
   });
 
   it("send refuses when a Claude prompt draft is present above an idle footer", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const tmux = mockTmux({
       capturePaneContent: async () => [
         "❯ I am typing a human message",
@@ -1989,7 +1989,7 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "/compact Preserve current task.");
+    const result = await transport.send("dev-impl@my-software-team", "/compact Preserve current task.");
 
     // OPR.0.4.1.10: a prompt draft above the idle footer is an interactive-prompt state →
     // target_needs_input (a stray send must not land on the human's in-progress input).
@@ -2029,14 +2029,14 @@ describe("SessionTransport", () => {
   // lines above the working footer DOES expose a gap — filed as residual
   // in the return handoff.
   it("realistic: full-screen Codex active-working pane with scrollback + padding blocks", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const tmux = mockTmux({
       capturePaneContent: async () => buildPaneFixture({
         scrollback: [
-          "• Ran npm test --workspace @openrig/daemon",
+          "• Ran npm test --workspace @softwareteam/daemon",
           "  └ 1784 tests passed",
           "",
-          "  gpt-5.4 high · Context [████ ] · ~/code/projects/openrig-hub",
+          "  gpt-5.4 high · Context [████ ] · ~/code/projects/softwareteam-hub",
           "",
           "• I'll read the session-transport.ts file.",
           "",
@@ -2054,19 +2054,19 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
 
     expect(result.ok).toBe(true); // OPR.0.4.3.28 fast-follow — mid_work downgraded to deliver-with-advisory
     expect(result.warning).toContain("mid-task");
   });
 
   it("realistic: full-screen Codex idle-at-prompt with stale Working in scrollback + padding allows", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({
       capturePaneContent: async () => buildPaneFixture({
         scrollback: [
-          "• Ran npm test --workspace @openrig/daemon",
+          "• Ran npm test --workspace @softwareteam/daemon",
           "  └ 1784 tests passed",
           "",
           "◦ Working (9m 26s • esc to interrupt) · 6 background terminals running",
@@ -2076,7 +2076,7 @@ describe("SessionTransport", () => {
         content: [
           "› Use /skills to list available skills",
           "",
-          "  gpt-5.4 xhigh fast · Context [█▉   ] · ~/code/projects/openrig-hub · Fast off",
+          "  gpt-5.4 xhigh fast · Context [█▉   ] · ~/code/projects/softwareteam-hub · Fast off",
         ],
         trailingBlanks: 4,
       }),
@@ -2084,14 +2084,14 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
 
     expect(result.ok).toBe(true);
     expect(sendTextSpy).toHaveBeenCalled();
   });
 
   it("realistic: full-screen Claude Code active-working pane with tool output + padding blocks", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const tmux = mockTmux({
       capturePaneContent: async () => buildPaneFixture({
         scrollback: [
@@ -2111,14 +2111,14 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
 
     expect(result.ok).toBe(true); // OPR.0.4.3.28 fast-follow — mid_work downgraded to deliver-with-advisory
     expect(result.warning).toContain("mid-task");
   });
 
   it("realistic: full-screen Claude Code idle-at-prompt with stale Working in scrollback + edit-bar allows", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({
       capturePaneContent: async () => buildPaneFixture({
@@ -2141,14 +2141,14 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
 
     expect(result.ok).toBe(true);
     expect(sendTextSpy).toHaveBeenCalled();
   });
 
   it("realistic: full-screen Codex trust-prompt with multi-line instructions + heavy padding blocks", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const tmux = mockTmux({
       capturePaneContent: async () => buildPaneFixture({
         content: [
@@ -2167,7 +2167,7 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
 
     // OPR.0.4.1.10: full-screen trust prompt → target_needs_input (precise prompt/permission guard).
     expect(result.ok).toBe(false);
@@ -2182,13 +2182,13 @@ describe("SessionTransport", () => {
     // the status bar matches IDLE_STATUS_BAR_PATTERNS. The fix should tighten
     // the status-bar check to last-non-blank-line only so stale bars above
     // active work don't override.
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const tmux = mockTmux({
       capturePaneContent: async () => buildPaneFixture({
         scrollback: [
           "› Use /skills to list available skills",
           "",
-          "  gpt-5.4 high · Context [████ ] · ~/code/projects/openrig-hub",
+          "  gpt-5.4 high · Context [████ ] · ~/code/projects/softwareteam-hub",
         ],
         content: [
           "• Reading 1 file…",
@@ -2200,20 +2200,20 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
 
     expect(result.ok).toBe(true); // OPR.0.4.3.28 fast-follow — mid_work downgraded to deliver-with-advisory
     expect(result.warning).toContain("mid-task");
   });
 
   it("send to terminal session with foreground non-shell command refuses with mid_work", async () => {
-    const rig = rigRepo.createRig("term-rig");
-    const node = rigRepo.addNode(rig.id, "infra.ui", {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("term-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "infra.ui", {
       role: "ui", runtime: "terminal",
     });
-    const session = sessionRegistry.registerSession(node.id, "infra-ui@term-rig");
+    const session = sessionRegistry.registerSession(node.id, "infra-ui@term-software-team");
     sessionRegistry.updateStatus(session.id, "running");
-    sessionRegistry.updateBinding(node.id, { tmuxSession: "infra-ui@term-rig" });
+    sessionRegistry.updateBinding(node.id, { tmuxSession: "infra-ui@term-software-team" });
 
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({
@@ -2223,7 +2223,7 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("infra-ui@term-rig", "printf 'hello\\n'");
+    const result = await transport.send("infra-ui@term-software-team", "printf 'hello\\n'");
     // OPR.0.4.3.28 fast-follow — a terminal foreground command maps to `running`, which now
     // delivers-with-advisory (was: mid_work refuse + no send). Busy is not a block.
     expect(result.ok).toBe(true);
@@ -2240,18 +2240,18 @@ describe("SessionTransport", () => {
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.send("dev-impl@my-rig", "hello");
+    const result = await transport.send("dev-impl@my-software-team", "hello");
     expect(result.ok).toBe(false);
     expect(result.reason).toBe("tmux_unavailable");
     expect(result.error).toContain("tmux");
   });
 
   it("send to external_cli target fails honestly before tmux transport", async () => {
-    seedExternalCliRig();
+    seedExternalCliSoftwareTeam();
     const hasSessionSpy = vi.fn(async () => true);
     const transport = createTransport(mockTmux({ hasSession: hasSessionSpy }));
 
-    const result = await transport.send("orch1-lead@rigged-buildout", "hello");
+    const result = await transport.send("orch1-lead@softwareteam-buildout", "hello");
 
     expect(result.ok).toBe(false);
     expect(result.reason).toBe("transport_unavailable");
@@ -2261,47 +2261,47 @@ describe("SessionTransport", () => {
 
   // Test 10: capture returns pane content
   it("capture returns pane content for existing session", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const tmux = mockTmux({
       capturePaneContent: async () => "line1\nline2\nline3",
     });
     const transport = createTransport(tmux);
 
-    const result = await transport.capture("dev-impl@my-rig");
+    const result = await transport.capture("dev-impl@my-software-team");
     expect(result.ok).toBe(true);
     expect(result.content).toContain("line1");
   });
 
   it("capture for external_cli target fails honestly before tmux transport", async () => {
-    seedExternalCliRig();
+    seedExternalCliSoftwareTeam();
     const hasSessionSpy = vi.fn(async () => true);
     const transport = createTransport(mockTmux({ hasSession: hasSessionSpy }));
 
-    const result = await transport.capture("orch1-lead@rigged-buildout");
+    const result = await transport.capture("orch1-lead@softwareteam-buildout");
 
     expect(result.ok).toBe(false);
     expect(result.error).toContain("external CLI");
     expect(hasSessionSpy).not.toHaveBeenCalled();
   });
 
-  // Test 11: resolveSessions by rig returns running sessions
-  it("resolveSessions by rig returns running sessions", async () => {
-    seedCanonicalRig();
+  // Test 11: resolveSessions by softwareTeam returns running sessions
+  it("resolveSessions by SoftwareTeam returns running sessions", async () => {
+    seedCanonicalSoftwareTeam();
     const transport = createTransport();
 
-    const result = await transport.resolveSessions({ rig: "my-rig" });
+    const result = await transport.resolveSessions({ softwareTeam: "my-software-team" });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.sessions.length).toBe(1);
-      expect(result.sessions[0]!.sessionName).toBe("dev-impl@my-rig");
+      expect(result.sessions[0]!.sessionName).toBe("dev-impl@my-software-team");
     }
   });
 
-  // Test 12: resolveSessions global returns all running sessions across all rigs
-  it("resolveSessions global returns all running sessions across all rigs", async () => {
-    seedCanonicalRig(); // rig "my-rig" with dev-impl@my-rig
-    seedLegacyRig();    // rig "r00-legacy" with r00-legacy-worker-a
-    seedExternalCliRig();
+  // Test 12: resolveSessions global returns all running sessions across all softwareTeams
+  it("resolveSessions global returns all running sessions across all softwareTeams", async () => {
+    seedCanonicalSoftwareTeam(); // softwareTeam "my-softwareTeam" with dev-impl@my-softwareTeam
+    seedLegacySoftwareTeam();    // softwareTeam "r00-legacy" with r00-legacy-worker-a
+    seedExternalCliSoftwareTeam();
     const transport = createTransport();
 
     const result = await transport.resolveSessions({ global: true });
@@ -2309,38 +2309,38 @@ describe("SessionTransport", () => {
     if (result.ok) {
       expect(result.sessions.length).toBe(3);
       const names = result.sessions.map((s) => s.sessionName).sort();
-      expect(names).toContain("dev-impl@my-rig");
+      expect(names).toContain("dev-impl@my-software-team");
       expect(names).toContain("r00-legacy-worker-a");
-      expect(names).toContain("orch1-lead@rigged-buildout");
+      expect(names).toContain("orch1-lead@softwareteam-buildout");
     }
   });
 
   // Test 13: resolveSessions by pod filters by logicalId prefix
   it("resolveSessions by pod filters by logicalId prefix", async () => {
-    const rig = rigRepo.createRig("multi-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("multi-software-team");
     // dev pod
-    const devNode = rigRepo.addNode(rig.id, "dev.impl", { role: "worker", runtime: "claude-code" });
-    const devSess = sessionRegistry.registerSession(devNode.id, "dev-impl@multi-rig");
+    const devNode = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+    const devSess = sessionRegistry.registerSession(devNode.id, "dev-impl@multi-software-team");
     sessionRegistry.updateStatus(devSess.id, "running");
-    sessionRegistry.updateBinding(devNode.id, { tmuxSession: "dev-impl@multi-rig" });
+    sessionRegistry.updateBinding(devNode.id, { tmuxSession: "dev-impl@multi-software-team" });
     // orch pod
-    const orchNode = rigRepo.addNode(rig.id, "orch.lead", { role: "orchestrator", runtime: "claude-code" });
-    const orchSess = sessionRegistry.registerSession(orchNode.id, "orch-lead@multi-rig");
+    const orchNode = softwareTeamRepo.addNode(softwareTeam.id, "orch.lead", { role: "orchestrator", runtime: "claude-code" });
+    const orchSess = sessionRegistry.registerSession(orchNode.id, "orch-lead@multi-software-team");
     sessionRegistry.updateStatus(orchSess.id, "running");
-    sessionRegistry.updateBinding(orchNode.id, { tmuxSession: "orch-lead@multi-rig" });
+    sessionRegistry.updateBinding(orchNode.id, { tmuxSession: "orch-lead@multi-software-team" });
 
     const transport = createTransport();
-    const result = await transport.resolveSessions({ pod: "dev", rig: "multi-rig" });
+    const result = await transport.resolveSessions({ pod: "dev", softwareTeam: "multi-software-team" });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.sessions.length).toBe(1);
-      expect(result.sessions[0]!.sessionName).toBe("dev-impl@multi-rig");
+      expect(result.sessions[0]!.sessionName).toBe("dev-impl@multi-software-team");
     }
   });
 
   it("broadcast includes external_cli targets as explicit transport_unavailable failures", async () => {
-    seedCanonicalRig();
-    seedExternalCliRig();
+    seedCanonicalSoftwareTeam();
+    seedExternalCliSoftwareTeam();
     const transport = createTransport();
 
     const result = await transport.broadcast({ global: true }, "hello", { force: true });
@@ -2351,7 +2351,7 @@ describe("SessionTransport", () => {
     expect(result.results).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          sessionName: "orch1-lead@rigged-buildout",
+          sessionName: "orch1-lead@softwareteam-buildout",
           ok: false,
           reason: "transport_unavailable",
         }),
@@ -2362,33 +2362,33 @@ describe("SessionTransport", () => {
   // Send/broadcast header (ruling 03c35295) — the fan-out threads the scale scope + a Sent stamp
   // through the daemon-side wrap, so every recipient's header carries the same envelope facts.
   it("multi-send fan-out renders the FULL recipient list + a Sent stamp on each recipient's To header", async () => {
-    seedCanonicalRig(); // dev-impl@my-rig
-    seedLegacyRig(); // r00-legacy-worker-a
+    seedCanonicalSoftwareTeam(); // dev-impl@my-softwareTeam
+    seedLegacySoftwareTeam(); // r00-legacy-worker-a
     const sent: string[] = [];
     const tmux = mockTmux({ sendText: async (_t, text) => { sent.push(text); return { ok: true }; } });
     const transport = createTransport(tmux);
 
     await transport.broadcast(
-      { sessions: ["dev-impl@my-rig", "r00-legacy-worker-a"] },
+      { sessions: ["dev-impl@my-software-team", "r00-legacy-worker-a"] },
       "status",
-      { envelopeSender: "orch@my-rig", stampISO: "2026-08-06T17:42:09Z" },
+      { envelopeSender: "orch@my-software-team", stampISO: "2026-08-06T17:42:09Z" },
     );
 
     expect(sent).toHaveLength(2);
     for (const text of sent) {
-      expect(text).toContain("To: dev-impl@my-rig, r00-legacy-worker-a"); // full list (WHO got it)
+      expect(text).toContain("To: dev-impl@my-software-team, r00-legacy-worker-a"); // full list (WHO got it)
       expect(text).toContain("Sent: 08-06 17:42Z"); // the transport stamp
       expect(text).toContain("status");
     }
   });
 
   it("raw broadcast (no envelopeSender) is delivered unwrapped — no header change", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const sent: string[] = [];
     const tmux = mockTmux({ sendText: async (_t, text) => { sent.push(text); return { ok: true }; } });
     const transport = createTransport(tmux);
 
-    await transport.broadcast({ rig: "my-rig" }, "raw ping", {});
+    await transport.broadcast({ softwareTeam: "my-software-team" }, "raw ping", {});
 
     expect(sent).toHaveLength(1);
     expect(sent[0]).toBe("raw ping"); // unchanged (the --raw carve-out)
@@ -2396,25 +2396,25 @@ describe("SessionTransport", () => {
 
   // ── GHOST-STAGE (h): delivered-at latency stamped at the WRITE moment ──
   const H_ENVELOPE =
-    'From: a@r\nTo: dev-impl@my-rig\nSent: 08-06 17:42Z\n---\nhi\n---\n↩ Reply: rig send a@r "..."';
+    'From: a@r\nTo: dev-impl@my-software-team\nSent: 08-06 17:42Z\n---\nhi\n---\n↩ Reply: SoftwareTeam send a@r "..."';
 
   it("(h) send() flags a delayed delivery on the Sent: line when the compose→write gap exceeds 10s", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({ sendText: sendTextSpy });
     // write-moment clock is 30s after the compose stamp (opts.stampISO)
     const transport = createTransport(tmux, { now: () => new Date("2026-08-06T17:42:39Z") });
-    await transport.send("dev-impl@my-rig", H_ENVELOPE, { stampISO: "2026-08-06T17:42:09Z" });
+    await transport.send("dev-impl@my-software-team", H_ENVELOPE, { stampISO: "2026-08-06T17:42:09Z" });
     expect(sendTextSpy).toHaveBeenCalledTimes(1);
     expect(sendTextSpy.mock.calls[0]![1]).toContain("Sent: 08-06 17:42Z · delivered +30s");
   });
 
   it("(h) send() adds no delivered segment for a sub-threshold (3s) gap", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({ sendText: sendTextSpy });
     const transport = createTransport(tmux, { now: () => new Date("2026-08-06T17:42:12Z") });
-    await transport.send("dev-impl@my-rig", H_ENVELOPE, { stampISO: "2026-08-06T17:42:09Z" });
+    await transport.send("dev-impl@my-software-team", H_ENVELOPE, { stampISO: "2026-08-06T17:42:09Z" });
     expect(sendTextSpy.mock.calls[0]![1]).not.toContain(" · delivered ");
   });
 
@@ -2438,7 +2438,7 @@ describe("SessionTransport", () => {
   }
 
   it("#1084: a wait-for-idle send does not hold the delivery lease while waiting", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     let bSent = false;
     let waitPolling = false;
     const order: string[] = [];
@@ -2461,9 +2461,9 @@ describe("SessionTransport", () => {
     });
     attachGuard(tmux);
 
-    const a = transport.send("dev-impl@my-rig", "A", { waitForIdleMs: 500 });
+    const a = transport.send("dev-impl@my-software-team", "A", { waitForIdleMs: 500 });
     while (!waitPolling) await new Promise((resolve) => setTimeout(resolve, 1));
-    const b = await transport.send("dev-impl@my-rig", "B");
+    const b = await transport.send("dev-impl@my-software-team", "B");
     const aResult = await a;
 
     expect(b.ok).toBe(true);
@@ -2475,7 +2475,7 @@ describe("SessionTransport", () => {
   });
 
   it("#1084: a pre-waited send re-checks readiness just before typing and refuses a new prompt", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     // The wait sees busy then idle (resolves); the in-lease re-check sees a
     // freshly posted picker and must refuse with the existing reason.
@@ -2484,7 +2484,7 @@ describe("SessionTransport", () => {
       sendText: sendTextSpy,
     });
     const transport = transportWithGuard(tmux);
-    const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 });
+    const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 });
 
     expect(result.ok).toBe(false);
     expect(result.reason).toBe("target_needs_input");
@@ -2494,7 +2494,7 @@ describe("SessionTransport", () => {
   });
 
   it("#1084: a wait-mode send with the typing guard enabled retains immediately without waiting", async () => {
-    const { node } = seedCanonicalRig();
+    const { node } = seedCanonicalSoftwareTeam();
     let captures = 0;
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const tmux = mockTmux({
@@ -2505,7 +2505,7 @@ describe("SessionTransport", () => {
     await guard.set(node.id, true, "test", "test holds the seat");
     const transport = createTransport(tmux, { sleep: async () => undefined, waitForIdlePollMs: 1 });
 
-    const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 50 });
+    const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 50 });
 
     expect(result.ok).toBe(true);
     expect(result.outcome).toBe("retained");
@@ -2515,7 +2515,7 @@ describe("SessionTransport", () => {
   });
 
   it("#1084: a late wait failure surfaces instead of silently waiting twice", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     let sleeps = 0;
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const localTmux = mockTmux({
@@ -2529,7 +2529,7 @@ describe("SessionTransport", () => {
       waitForIdlePollMs: 1,
     });
 
-    const result = await localTransport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 1000 });
+    const result = await localTransport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 1000 });
 
     expect(result.ok).toBe(false);
     expect(result.reason).toBe("guard_unavailable");
@@ -2537,7 +2537,7 @@ describe("SessionTransport", () => {
   });
 
   it("#1084: idle at a dead budget still sends via one unraced observation", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const started = Date.now();
     const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
     const localTmux = mockTmux({
@@ -2556,7 +2556,7 @@ describe("SessionTransport", () => {
       waitForIdlePollMs: 300,
     });
 
-    const result = await localTransport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 3000 });
+    const result = await localTransport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 3000 });
 
     expect(result.ok).toBe(true);
     expect(result.sent).toBe(true);
@@ -2565,7 +2565,7 @@ describe("SessionTransport", () => {
   });
 
   it("#1103 follow-up: a rewait timeout names the original --wait-for-idle value, not the remaining budget", async () => {
-    seedCanonicalRig();
+    seedCanonicalSoftwareTeam();
     const clock = steppedClock();
     try {
       const sendTextSpy = vi.fn(async () => ({ ok: true as const }));
@@ -2578,7 +2578,7 @@ describe("SessionTransport", () => {
         sendText: sendTextSpy,
       });
       const transport = transportWithGuard(tmux, { sleep: clock.sleep, waitForIdlePollMs: 10 });
-      const result = await transport.send("dev-impl@my-rig", "hello", { waitForIdleMs: 100 });
+      const result = await transport.send("dev-impl@my-software-team", "hello", { waitForIdleMs: 100 });
 
       expect(result.ok).toBe(false);
       expect(result.reason).toBe("wait_for_idle_timeout");
@@ -2593,9 +2593,9 @@ describe("SessionTransport", () => {
 // credit theirs): a real SeatDeliveryGuard, a stub pane whose busy/idle
 // state the test flips, and writes that call guard.checkInput() the way the
 // real adapter does.
-const LEASE_SEAT = "dev-impl@my-rig";
+const LEASE_SEAT = "dev-impl@my-software-team";
 const LEASE_BUSY = "Working on task...\n⠋ Processing files\nesc to interrupt";
-const LEASE_IDLE = "› Use /skills to list available skills\n\n  gpt-5.5 high · Context [████ ] · ~/code/projects/openrig";
+const LEASE_IDLE = "› Use /skills to list available skills\n\n  gpt-5.5 high · Context [████ ] · ~/code/projects/softwareteam";
 
 function leaseGate() {
   let open!: () => void;
@@ -2625,10 +2625,10 @@ describe("wait-for-idle outside the seat delivery lease (review cases)", () => {
   beforeEach(() => {
     db = createDb(":memory:");
     migrate(db, ALL_MIGRATIONS);
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
-    const rig = rigRepo.createRig("my-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { role: "worker", runtime: "codex" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("my-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { role: "worker", runtime: "codex" });
     const session = sessionRegistry.registerSession(node.id, LEASE_SEAT);
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateBinding(node.id, { tmuxSession: LEASE_SEAT });
@@ -2656,7 +2656,7 @@ describe("wait-for-idle outside the seat delivery lease (review cases)", () => {
       listPanes: async () => [],
     };
     transport = new SessionTransport({
-      db, rigRepo, sessionRegistry, tmuxAdapter: tmux as unknown as TmuxAdapter,
+      db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux as unknown as TmuxAdapter,
       sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
       waitForIdlePollMs: 5,
     });
@@ -2820,13 +2820,13 @@ describe("a Claude prompt suggestion is not a person's draft", () => {
 
 describe("startup readiness reconciliation on session interaction (#7)", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let eventBus: EventBus;
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     eventBus = new EventBus(db);
   });
@@ -2835,18 +2835,18 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     db.close();
   });
 
-  function seedRig(runtime = "codex") {
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "worker-1", { role: "worker", runtime });
-    const session = sessionRegistry.registerSession(node.id, "worker-1@test-rig");
+  function seedSoftwareTeam(runtime = "codex") {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker-1", { role: "worker", runtime });
+    const session = sessionRegistry.registerSession(node.id, "worker-1@test-software-team");
     sessionRegistry.updateStatus(session.id, "running");
-    sessionRegistry.updateBinding(node.id, { tmuxSession: "worker-1@test-rig" });
-    return { rig, node, session };
+    sessionRegistry.updateBinding(node.id, { tmuxSession: "worker-1@test-software-team" });
+    return { softwareTeam, node, session };
   }
 
-  function seedStartupFailureEvent(rigId: string, nodeId: string, sessionId: string, overrides?: Record<string, unknown>) {
-    return db.prepare("INSERT INTO events (rig_id, node_id, type, payload) VALUES (?, ?, ?, ?)").run(
-      rigId,
+  function seedStartupFailureEvent(softwareTeamId: string, nodeId: string, sessionId: string, overrides?: Record<string, unknown>) {
+    return db.prepare("INSERT INTO events (software_team_id, node_id, type, payload) VALUES (?, ?, ?, ?)").run(
+      softwareTeamId,
       nodeId,
       "node.startup_failed",
       JSON.stringify({
@@ -2863,16 +2863,16 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
   }
 
   it("reconciles failed startup status to ready on successful send when adapter reports ready", async () => {
-    const { rig, node, session } = seedRig("codex");
+    const { softwareTeam, node, session } = seedSoftwareTeam("codex");
     sessionRegistry.updateStartupStatus(session.id, "failed");
 
-    seedStartupFailureEvent(rig.id, node.id, session.id, {
+    seedStartupFailureEvent(softwareTeam.id, node.id, session.id, {
       stage: "readiness_check",
       hasPendingWork: false,
       error: "Readiness timeout after 30s — harness did not become interactive: transient auth delay",
     });
 
-    const initialInventory = getNodeInventory(db, rig.id);
+    const initialInventory = getNodeInventory(db, softwareTeam.id);
     expect(initialInventory[0]?.startupStatus).toBe("failed");
     expect(initialInventory[0]?.latestError).toBe("Readiness timeout after 30s — harness did not become interactive: transient auth delay");
 
@@ -2884,7 +2884,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     const checkReadyMock = vi.fn().mockResolvedValue({ ready: true });
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux(),
       eventBus,
@@ -2893,7 +2893,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       },
     });
 
-    const result = await transport.send("worker-1@test-rig", "echo ping");
+    const result = await transport.send("worker-1@test-software-team", "echo ping");
     expect(result.ok).toBe(true);
     expect(checkReadyMock).toHaveBeenCalledTimes(1);
 
@@ -2904,14 +2904,14 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     expect(sessionRow.startup_status).toBe("ready");
     expect(sessionRow.startup_completed_at).not.toBeNull();
 
-    const updatedInventory = getNodeInventory(db, rig.id);
+    const updatedInventory = getNodeInventory(db, softwareTeam.id);
     expect(updatedInventory[0]?.startupStatus).toBe("ready");
     expect(updatedInventory[0]?.latestError).toBeNull();
 
     expect(emittedEvents).toEqual([
       expect.objectContaining({
         type: "node.startup_ready",
-        rigId: rig.id,
+        softwareTeamId: softwareTeam.id,
         nodeId: node.id,
         previousStatus: "failed",
       }),
@@ -2919,10 +2919,10 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
   });
 
   it("reconciles attention_required startup status to ready without routing through attention-cleared path", async () => {
-    const { rig, node, session } = seedRig("codex");
+    const { softwareTeam, node, session } = seedSoftwareTeam("codex");
     sessionRegistry.updateStartupStatus(session.id, "attention_required");
 
-    seedStartupFailureEvent(rig.id, node.id, session.id, {
+    seedStartupFailureEvent(softwareTeam.id, node.id, session.id, {
       stage: "readiness_check",
       hasPendingWork: false,
       error: "Startup requires attention",
@@ -2937,7 +2937,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
 
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux(),
       eventBus,
@@ -2946,7 +2946,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       },
     });
 
-    const result = await transport.send("worker-1@test-rig", "hello");
+    const result = await transport.send("worker-1@test-software-team", "hello");
     expect(result.ok).toBe(true);
 
     const sessionRow = db.prepare("SELECT startup_status FROM sessions WHERE id = ?").get(session.id) as { startup_status: string };
@@ -2956,7 +2956,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     expect(emittedReady).toEqual([
       expect.objectContaining({
         type: "node.startup_ready",
-        rigId: rig.id,
+        softwareTeamId: softwareTeam.id,
         nodeId: node.id,
         previousStatus: "attention_required",
       }),
@@ -2964,10 +2964,10 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
   });
 
   it("reconciles failed startup status to ready on successful capture", async () => {
-    const { rig, node, session } = seedRig("claude-code");
+    const { softwareTeam, node, session } = seedSoftwareTeam("claude-code");
     sessionRegistry.updateStartupStatus(session.id, "failed");
 
-    seedStartupFailureEvent(rig.id, node.id, session.id, {
+    seedStartupFailureEvent(softwareTeam.id, node.id, session.id, {
       stage: "readiness_check",
       hasPendingWork: false,
       error: "Readiness timeout after 30s",
@@ -2980,7 +2980,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
 
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux({
         capturePaneContent: async () => "› Current idle prompt\n────────────\n",
@@ -2991,7 +2991,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       },
     });
 
-    const captured = await transport.capture("worker-1@test-rig");
+    const captured = await transport.capture("worker-1@test-software-team");
     expect(captured).not.toBeNull();
 
     const sessionRow = db.prepare("SELECT startup_status FROM sessions WHERE id = ?").get(session.id) as { startup_status: string };
@@ -2999,7 +2999,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     expect(emittedReady).toEqual([
       expect.objectContaining({
         type: "node.startup_ready",
-        rigId: rig.id,
+        softwareTeamId: softwareTeam.id,
         nodeId: node.id,
         previousStatus: "failed",
       }),
@@ -3007,10 +3007,10 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
   });
 
   it("does not reconcile non-recoverable startup failure even if prompt is responsive", async () => {
-    const { rig, node, session } = seedRig("codex");
+    const { softwareTeam, node, session } = seedSoftwareTeam("codex");
     sessionRegistry.updateStartupStatus(session.id, "failed");
 
-    seedStartupFailureEvent(rig.id, node.id, session.id, {
+    seedStartupFailureEvent(softwareTeam.id, node.id, session.id, {
       stage: "post_launch_files",
       hasPendingWork: true,
       error: "Post-launch file delivery failed: /workspace/file.txt: write error",
@@ -3024,7 +3024,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     const checkReadyMock = vi.fn().mockResolvedValue({ ready: true });
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux(),
       eventBus,
@@ -3033,7 +3033,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       },
     });
 
-    const result = await transport.send("worker-1@test-rig", "echo ping");
+    const result = await transport.send("worker-1@test-software-team", "echo ping");
     expect(result.ok).toBe(true);
 
     expect(checkReadyMock).not.toHaveBeenCalled();
@@ -3043,10 +3043,10 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
   });
 
   it("does not reconcile if startup work is still pending according to attempt record", async () => {
-    const { rig, node, session } = seedRig("codex");
+    const { softwareTeam, node, session } = seedSoftwareTeam("codex");
     sessionRegistry.updateStartupStatus(session.id, "failed");
 
-    seedStartupFailureEvent(rig.id, node.id, session.id, {
+    seedStartupFailureEvent(softwareTeam.id, node.id, session.id, {
       stage: "readiness_check",
       hasPendingWork: true,
       error: "Readiness timeout after 30s",
@@ -3060,7 +3060,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     const checkReadyMock = vi.fn().mockResolvedValue({ ready: true });
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux(),
       eventBus,
@@ -3069,7 +3069,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       },
     });
 
-    const result = await transport.send("worker-1@test-rig", "echo ping");
+    const result = await transport.send("worker-1@test-software-team", "echo ping");
     expect(result.ok).toBe(true);
 
     expect(checkReadyMock).not.toHaveBeenCalled();
@@ -3079,7 +3079,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
   });
 
   it("recovers after delivered actions through send or capture without clearing the saved plan", async () => {
-    const { rig, node, session } = seedRig("codex");
+    const { softwareTeam, node, session } = seedSoftwareTeam("codex");
 
     // Drive real StartupOrchestrator: step 6 passes, actions delivered, step 10 post-delivery gate fails
     let stepCount = 0;
@@ -3105,13 +3105,13 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     });
 
     const startResult = await orchestrator.startNode({
-      rigId: rig.id,
+      softwareTeamId: softwareTeam.id,
       nodeId: node.id,
       sessionId: session.id,
       binding: {
         id: "b1",
         nodeId: node.id,
-        tmuxSession: "worker-1@test-rig",
+        tmuxSession: "worker-1@test-software-team",
         tmuxWindow: null,
         tmuxPane: null,
         cmuxWorkspace: null,
@@ -3158,7 +3158,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     // Gate clears: adapter reports ready on interaction
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux(),
       eventBus,
@@ -3167,7 +3167,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       },
     });
 
-    const result = await transport.send("worker-1@test-rig", "echo recovered");
+    const result = await transport.send("worker-1@test-software-team", "echo recovered");
     expect(result.ok).toBe(true);
 
     const sessionRow = db.prepare("SELECT startup_status, startup_completed_at FROM sessions WHERE id = ?").get(session.id) as {
@@ -3184,9 +3184,9 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
 
   describe("attempt fence across probe and write", () => {
     it("does not overwrite a newer startup attempt when probe returns ready", async () => {
-      const { rig, node, session } = seedRig("codex");
+      const { softwareTeam, node, session } = seedSoftwareTeam("codex");
       sessionRegistry.updateStartupStatus(session.id, "failed");
-      seedStartupFailureEvent(rig.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
+      seedStartupFailureEvent(softwareTeam.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
 
       let onProbeStart!: () => void;
       const probeStarted = new Promise<void>((r) => {
@@ -3199,7 +3199,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
 
       const transport = new SessionTransport({
         db,
-        rigRepo,
+        softwareTeamRepo,
         sessionRegistry,
         tmuxAdapter: mockTmux(),
         eventBus,
@@ -3214,7 +3214,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
         },
       });
 
-      const sendPromise = transport.send("worker-1@test-rig", "echo ping");
+      const sendPromise = transport.send("worker-1@test-software-team", "echo ping");
 
       await probeStarted;
 
@@ -3237,14 +3237,14 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       });
 
       const secondStartupPromise = orchestrator.startNode({
-        rigId: rig.id,
+        softwareTeamId: softwareTeam.id,
         nodeId: node.id,
         sessionId: session.id,
         binding: {
           id: "b1",
           nodeId: node.id,
           attachmentType: "tmux",
-          tmuxSession: "worker-1@test-rig",
+          tmuxSession: "worker-1@test-software-team",
           tmuxWindow: null,
           tmuxPane: null,
           cmuxWorkspace: null,
@@ -3292,9 +3292,9 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     });
 
     it("does not overwrite a newer startup attempt when probe returns attention code", async () => {
-      const { rig, node, session } = seedRig("codex");
+      const { softwareTeam, node, session } = seedSoftwareTeam("codex");
       sessionRegistry.updateStartupStatus(session.id, "failed");
-      seedStartupFailureEvent(rig.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
+      seedStartupFailureEvent(softwareTeam.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
 
       let resolveProbe!: (value: { ready: boolean; code?: string }) => void;
       const probePromise = new Promise<{ ready: boolean; code?: string }>((res) => {
@@ -3303,7 +3303,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
 
       const transport = new SessionTransport({
         db,
-        rigRepo,
+        softwareTeamRepo,
         sessionRegistry,
         tmuxAdapter: mockTmux(),
         eventBus,
@@ -3312,13 +3312,13 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
         },
       });
 
-      const sendPromise = transport.send("worker-1@test-rig", "echo ping");
+      const sendPromise = transport.send("worker-1@test-software-team", "echo ping");
 
       await new Promise((r) => setTimeout(r, 20));
 
       // Newer startup attempt starts
-      db.prepare("INSERT INTO events (rig_id, node_id, type, payload) VALUES (?, ?, 'node.startup_pending', ?)").run(
-        rig.id,
+      db.prepare("INSERT INTO events (software_team_id, node_id, type, payload) VALUES (?, ?, 'node.startup_pending', ?)").run(
+        softwareTeam.id,
         node.id,
         JSON.stringify({ type: "node.startup_pending", sessionId: session.id }),
       );
@@ -3342,7 +3342,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     };
 
     async function startWithPanes(panes: string[]) {
-      const { rig, node, session } = seedRig("claude-code");
+      const { softwareTeam, node, session } = seedSoftwareTeam("claude-code");
       let reads = 0;
       const adapter: RuntimeAdapter = {
         runtime: "claude-code",
@@ -3354,8 +3354,8 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       };
       const orchestrator = new StartupOrchestrator({ db, sessionRegistry, eventBus, tmuxAdapter: mockTmux(), sleep: async () => {} });
       const result = await orchestrator.startNode({
-        rigId: rig.id, nodeId: node.id, sessionId: session.id,
-        binding: { id: "b1", nodeId: node.id, tmuxSession: "worker-1@test-rig", tmuxWindow: null, tmuxPane: null,
+        softwareTeamId: softwareTeam.id, nodeId: node.id, sessionId: session.id,
+        binding: { id: "b1", nodeId: node.id, tmuxSession: "worker-1@test-software-team", tmuxWindow: null, tmuxPane: null,
           cmuxWorkspace: null, cmuxSurface: null, updatedAt: "", cwd: "." },
         adapter,
         plan: { runtime: "claude-code", cwd: ".", entries: [], startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [] },
@@ -3394,7 +3394,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
 
   describe("remaining Claude resume identity work at both readiness points", () => {
     it("counts remaining Claude resume identity check as required work at initial readiness check (point 1)", async () => {
-      const { rig, node, session } = seedRig("claude-code");
+      const { softwareTeam, node, session } = seedSoftwareTeam("claude-code");
       db.prepare("UPDATE sessions SET resume_token = ?, resume_type = ? WHERE id = ?").run(
         "token-abc",
         "codex_thread_id",
@@ -3419,13 +3419,13 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       });
 
       const startResult = await orchestrator.startNode({
-        rigId: rig.id,
+        softwareTeamId: softwareTeam.id,
         nodeId: node.id,
         sessionId: session.id,
         binding: {
           id: "b1",
           nodeId: node.id,
-          tmuxSession: "worker-1@test-rig",
+          tmuxSession: "worker-1@test-software-team",
           tmuxWindow: null,
           tmuxPane: null,
           cmuxWorkspace: null,
@@ -3460,7 +3460,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
 
       const transport = new SessionTransport({
         db,
-        rigRepo,
+        softwareTeamRepo,
         sessionRegistry,
         tmuxAdapter: mockTmux(),
         eventBus,
@@ -3469,13 +3469,13 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
         },
       });
 
-      await transport.send("worker-1@test-rig", "echo ping");
+      await transport.send("worker-1@test-software-team", "echo ping");
       const sessionRow = db.prepare("SELECT startup_status FROM sessions WHERE id = ?").get(session.id) as { startup_status: string };
       expect(sessionRow.startup_status).not.toBe("ready");
     });
 
     it("counts remaining Claude resume identity check as required work at post-delivery gate (point 2)", async () => {
-      const { rig, node, session } = seedRig("claude-code");
+      const { softwareTeam, node, session } = seedSoftwareTeam("claude-code");
       db.prepare("UPDATE sessions SET resume_token = ?, resume_type = ? WHERE id = ?").run(
         "token-abc",
         "codex_thread_id",
@@ -3505,13 +3505,13 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       });
 
       const startResult = await orchestrator.startNode({
-        rigId: rig.id,
+        softwareTeamId: softwareTeam.id,
         nodeId: node.id,
         sessionId: session.id,
         binding: {
           id: "b1",
           nodeId: node.id,
-          tmuxSession: "worker-1@test-rig",
+          tmuxSession: "worker-1@test-software-team",
           tmuxWindow: null,
           tmuxPane: null,
           cmuxWorkspace: null,
@@ -3545,7 +3545,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
 
       const transport = new SessionTransport({
         db,
-        rigRepo,
+        softwareTeamRepo,
         sessionRegistry,
         tmuxAdapter: mockTmux(),
         eventBus,
@@ -3554,13 +3554,13 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
         },
       });
 
-      await transport.send("worker-1@test-rig", "echo ping");
+      await transport.send("worker-1@test-software-team", "echo ping");
       const sessionRow = db.prepare("SELECT startup_status FROM sessions WHERE id = ?").get(session.id) as { startup_status: string };
       expect(sessionRow.startup_status).not.toBe("ready");
     });
 
     it("leaves seat failed when stored Claude session identity changes during initial readiness read and that read fails", async () => {
-      const { rig, node, session } = seedRig("claude-code");
+      const { softwareTeam, node, session } = seedSoftwareTeam("claude-code");
       db.prepare("UPDATE sessions SET resume_token = ?, resume_type = ? WHERE id = ?").run(
         "token-A",
         "claude_id",
@@ -3593,14 +3593,14 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       });
 
       const startResult = await orchestrator.startNode({
-        rigId: rig.id,
+        softwareTeamId: softwareTeam.id,
         nodeId: node.id,
         sessionId: session.id,
         binding: {
           id: "b1",
           nodeId: node.id,
           attachmentType: "tmux",
-          tmuxSession: "worker-1@test-rig",
+          tmuxSession: "worker-1@test-software-team",
           tmuxWindow: null,
           tmuxPane: null,
           cmuxWorkspace: null,
@@ -3639,7 +3639,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
 
       const transport = new SessionTransport({
         db,
-        rigRepo,
+        softwareTeamRepo,
         sessionRegistry,
         tmuxAdapter: mockTmux(),
         eventBus,
@@ -3648,7 +3648,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
         },
       });
 
-      await transport.capture("worker-1@test-rig");
+      await transport.capture("worker-1@test-software-team");
       const sessionRow = db.prepare("SELECT startup_status, startup_completed_at FROM sessions WHERE id = ?").get(session.id) as {
         startup_status: string;
         startup_completed_at: string | null;
@@ -3661,7 +3661,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     });
 
     it("leaves seat in non-ready state without completion stamp when startup_failed event lacks requested identity fields", async () => {
-      const { rig, node, session } = seedRig("claude-code");
+      const { softwareTeam, node, session } = seedSoftwareTeam("claude-code");
       sessionRegistry.updateStartupStatus(session.id, "failed");
       db.prepare("UPDATE sessions SET resume_token = ?, resume_type = ? WHERE id = ?").run(
         "token-stored",
@@ -3670,7 +3670,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       );
 
       // Failure event without requestedResumeToken and requestedResumeType
-      seedStartupFailureEvent(rig.id, node.id, session.id, {
+      seedStartupFailureEvent(softwareTeam.id, node.id, session.id, {
         stage: "readiness_check",
         hasPendingWork: false,
         requestedResumeToken: undefined,
@@ -3680,7 +3680,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       const checkReadyMock = vi.fn().mockResolvedValue({ ready: true });
       const transport = new SessionTransport({
         db,
-        rigRepo,
+        softwareTeamRepo,
         sessionRegistry,
         tmuxAdapter: mockTmux(),
         eventBus,
@@ -3689,7 +3689,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
         },
       });
 
-      const result = await transport.send("worker-1@test-rig", "echo ping");
+      const result = await transport.send("worker-1@test-software-team", "echo ping");
       expect(result.ok).toBe(true);
 
       const sessionRow = db.prepare("SELECT startup_status, startup_completed_at FROM sessions WHERE id = ?").get(session.id) as {
@@ -3704,10 +3704,10 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     });
 
     it("recovers explicit fresh launch when startup_failed event carries requestedResumeToken as null", async () => {
-      const { rig, node, session } = seedRig("claude-code");
+      const { softwareTeam, node, session } = seedSoftwareTeam("claude-code");
       sessionRegistry.updateStartupStatus(session.id, "failed");
 
-      seedStartupFailureEvent(rig.id, node.id, session.id, {
+      seedStartupFailureEvent(softwareTeam.id, node.id, session.id, {
         stage: "readiness_check",
         hasPendingWork: false,
         requestedResumeToken: null,
@@ -3717,7 +3717,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       const checkReadyMock = vi.fn().mockResolvedValue({ ready: true });
       const transport = new SessionTransport({
         db,
-        rigRepo,
+        softwareTeamRepo,
         sessionRegistry,
         tmuxAdapter: mockTmux(),
         eventBus,
@@ -3726,7 +3726,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
         },
       });
 
-      const result = await transport.send("worker-1@test-rig", "echo ping");
+      const result = await transport.send("worker-1@test-software-team", "echo ping");
       expect(result.ok).toBe(true);
 
       const sessionRow = db.prepare("SELECT startup_status, startup_completed_at FROM sessions WHERE id = ?").get(session.id) as {
@@ -3741,11 +3741,11 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     });
 
     it("recovers when startup_failed event carries matching requested identity", async () => {
-      const { rig, node, session } = seedRig("claude-code");
+      const { softwareTeam, node, session } = seedSoftwareTeam("claude-code");
       sessionRegistry.updateStartupStatus(session.id, "failed");
       sessionRegistry.updateResumeToken(session.id, "claude_id", "token-match", "hook");
 
-      seedStartupFailureEvent(rig.id, node.id, session.id, {
+      seedStartupFailureEvent(softwareTeam.id, node.id, session.id, {
         stage: "readiness_check",
         hasPendingWork: false,
         requestedResumeToken: "token-match",
@@ -3755,7 +3755,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       const checkReadyMock = vi.fn().mockResolvedValue({ ready: true });
       const transport = new SessionTransport({
         db,
-        rigRepo,
+        softwareTeamRepo,
         sessionRegistry,
         tmuxAdapter: mockTmux(),
         eventBus,
@@ -3765,7 +3765,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
         },
       });
 
-      const result = await transport.send("worker-1@test-rig", "echo ping");
+      const result = await transport.send("worker-1@test-software-team", "echo ping");
       expect(result.ok).toBe(true);
 
       const sessionRow = db.prepare("SELECT startup_status, startup_completed_at FROM sessions WHERE id = ?").get(session.id) as {
@@ -3780,13 +3780,13 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     });
 
     it("recovers when startup_failed event carries verified rotated identity", async () => {
-      const { rig, node, session } = seedRig("claude-code");
+      const { softwareTeam, node, session } = seedSoftwareTeam("claude-code");
       sessionRegistry.updateStartupStatus(session.id, "failed");
       sessionRegistry.updateResumeToken(session.id, "claude_id", "token-new", "hook");
       db.prepare("UPDATE sessions SET resume_rotated_from = ?, resume_rotated_process = ?, resume_launch_process = ? WHERE id = ?")
         .run("token-old", JSON.stringify({ pid: 11, startedAt: "start" }), JSON.stringify({ token: "token-old", pid: 11, startedAt: "start" }), session.id);
 
-      seedStartupFailureEvent(rig.id, node.id, session.id, {
+      seedStartupFailureEvent(softwareTeam.id, node.id, session.id, {
         stage: "readiness_check",
         hasPendingWork: false,
         requestedResumeToken: "token-old",
@@ -3796,7 +3796,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       const checkReadyMock = vi.fn().mockResolvedValue({ ready: true });
       const transport = new SessionTransport({
         db,
-        rigRepo,
+        softwareTeamRepo,
         sessionRegistry,
         tmuxAdapter: mockTmux(),
         eventBus,
@@ -3806,7 +3806,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
         },
       });
 
-      const result = await transport.send("worker-1@test-rig", "echo ping");
+      const result = await transport.send("worker-1@test-software-team", "echo ping");
       expect(result.ok).toBe(true);
 
       const sessionRow = db.prepare("SELECT startup_status, startup_completed_at FROM sessions WHERE id = ?").get(session.id) as {
@@ -3823,11 +3823,11 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
 
   describe("missing or ambiguous provenance is not proof of completion", () => {
     it("does not recover when event has error prefix but missing stage", async () => {
-      const { rig, node, session } = seedRig("codex");
+      const { softwareTeam, node, session } = seedSoftwareTeam("codex");
       sessionRegistry.updateStartupStatus(session.id, "failed");
 
-      db.prepare("INSERT INTO events (rig_id, node_id, type, payload) VALUES (?, ?, ?, ?)").run(
-        rig.id,
+      db.prepare("INSERT INTO events (software_team_id, node_id, type, payload) VALUES (?, ?, ?, ?)").run(
+        softwareTeam.id,
         node.id,
         "node.startup_failed",
         JSON.stringify({ type: "node.startup_failed", sessionId: session.id, error: "Readiness timeout after 30s" }),
@@ -3836,14 +3836,14 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       const checkReadyMock = vi.fn().mockResolvedValue({ ready: true });
       const transport = new SessionTransport({
         db,
-        rigRepo,
+        softwareTeamRepo,
         sessionRegistry,
         tmuxAdapter: mockTmux(),
         eventBus,
         runtimeAdapters: { codex: { checkReady: checkReadyMock } },
       });
 
-      await transport.send("worker-1@test-rig", "echo ping");
+      await transport.send("worker-1@test-software-team", "echo ping");
       expect(checkReadyMock).not.toHaveBeenCalled();
 
       const sessionRow = db.prepare("SELECT startup_status FROM sessions WHERE id = ?").get(session.id) as { startup_status: string };
@@ -3851,20 +3851,20 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     });
 
     it("does not recover when no startup event exists in the events table", async () => {
-      const { rig, node, session } = seedRig("codex");
+      const { softwareTeam, node, session } = seedSoftwareTeam("codex");
       sessionRegistry.updateStartupStatus(session.id, "failed");
 
       const checkReadyMock = vi.fn().mockResolvedValue({ ready: true });
       const transport = new SessionTransport({
         db,
-        rigRepo,
+        softwareTeamRepo,
         sessionRegistry,
         tmuxAdapter: mockTmux(),
         eventBus,
         runtimeAdapters: { codex: { checkReady: checkReadyMock } },
       });
 
-      await transport.send("worker-1@test-rig", "echo ping");
+      await transport.send("worker-1@test-software-team", "echo ping");
       expect(checkReadyMock).not.toHaveBeenCalled();
 
       const sessionRow = db.prepare("SELECT startup_status FROM sessions WHERE id = ?").get(session.id) as { startup_status: string };
@@ -3872,11 +3872,11 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     });
 
     it("does not recover when latest event belongs to an older completed attempt or different session", async () => {
-      const { rig, node, session } = seedRig("codex");
+      const { softwareTeam, node, session } = seedSoftwareTeam("codex");
       sessionRegistry.updateStartupStatus(session.id, "failed");
 
-      db.prepare("INSERT INTO events (rig_id, node_id, type, payload) VALUES (?, ?, ?, ?)").run(
-        rig.id,
+      db.prepare("INSERT INTO events (software_team_id, node_id, type, payload) VALUES (?, ?, ?, ?)").run(
+        softwareTeam.id,
         node.id,
         "node.startup_ready",
         JSON.stringify({ type: "node.startup_ready", sessionId: "old-session-999" }),
@@ -3885,14 +3885,14 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       const checkReadyMock = vi.fn().mockResolvedValue({ ready: true });
       const transport = new SessionTransport({
         db,
-        rigRepo,
+        softwareTeamRepo,
         sessionRegistry,
         tmuxAdapter: mockTmux(),
         eventBus,
         runtimeAdapters: { codex: { checkReady: checkReadyMock } },
       });
 
-      await transport.send("worker-1@test-rig", "echo ping");
+      await transport.send("worker-1@test-software-team", "echo ping");
       expect(checkReadyMock).not.toHaveBeenCalled();
 
       const sessionRow = db.prepare("SELECT startup_status FROM sessions WHERE id = ?").get(session.id) as { startup_status: string };
@@ -3901,9 +3901,9 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
   });
 
   it("seat rebound to another pane that sits at a trust gate while probe runs is not committed", async () => {
-    const { rig, node, session } = seedRig("codex");
+    const { softwareTeam, node, session } = seedSoftwareTeam("codex");
     sessionRegistry.updateStartupStatus(session.id, "failed");
-    seedStartupFailureEvent(rig.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
+    seedStartupFailureEvent(softwareTeam.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
 
     const checkReadyMock = vi.fn().mockImplementation(async () => {
       sessionRegistry.updateBinding(node.id, { tmuxPane: "%99" });
@@ -3912,7 +3912,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
 
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux(),
       eventBus,
@@ -3921,7 +3921,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       },
     });
 
-    const result = await transport.send("worker-1@test-rig", "echo ping");
+    const result = await transport.send("worker-1@test-software-team", "echo ping");
     expect(result.ok).toBe(true);
 
     const sessionRow = db.prepare("SELECT startup_status FROM sessions WHERE id = ?").get(session.id) as { startup_status: string };
@@ -3929,9 +3929,9 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
   });
 
   it("newer ready written while probe runs stays ready and is not changed to attention", async () => {
-    const { rig, node, session } = seedRig("codex");
+    const { softwareTeam, node, session } = seedSoftwareTeam("codex");
     sessionRegistry.updateStartupStatus(session.id, "failed");
-    seedStartupFailureEvent(rig.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
+    seedStartupFailureEvent(softwareTeam.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
 
     const checkReadyMock = vi.fn().mockImplementation(async () => {
       sessionRegistry.updateStartupStatus(session.id, "ready");
@@ -3940,7 +3940,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
 
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux(),
       eventBus,
@@ -3949,7 +3949,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       },
     });
 
-    const result = await transport.send("worker-1@test-rig", "echo ping");
+    const result = await transport.send("worker-1@test-software-team", "echo ping");
     expect(result.ok).toBe(true);
 
     const sessionRow = db.prepare("SELECT startup_status FROM sessions WHERE id = ?").get(session.id) as { startup_status: string };
@@ -3957,9 +3957,9 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
   });
 
   it("session exits while probe runs is not rewritten to ready", async () => {
-    const { rig, node, session } = seedRig("codex");
+    const { softwareTeam, node, session } = seedSoftwareTeam("codex");
     sessionRegistry.updateStartupStatus(session.id, "failed");
-    seedStartupFailureEvent(rig.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
+    seedStartupFailureEvent(softwareTeam.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
 
     const checkReadyMock = vi.fn().mockImplementation(async () => {
       sessionRegistry.updateStatus(session.id, "exited");
@@ -3968,7 +3968,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
 
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux(),
       eventBus,
@@ -3977,7 +3977,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       },
     });
 
-    const result = await transport.send("worker-1@test-rig", "echo ping");
+    const result = await transport.send("worker-1@test-software-team", "echo ping");
     expect(result.ok).toBe(true);
 
     const sessionRow = db.prepare("SELECT startup_status FROM sessions WHERE id = ?").get(session.id) as { startup_status: string };
@@ -3985,9 +3985,9 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
   });
 
   it("new occupant generation starts while probe runs is not committed", async () => {
-    const { rig, node, session } = seedRig("codex");
+    const { softwareTeam, node, session } = seedSoftwareTeam("codex");
     sessionRegistry.updateStartupStatus(session.id, "failed");
-    seedStartupFailureEvent(rig.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
+    seedStartupFailureEvent(softwareTeam.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
 
     const currentMax = (db.prepare("SELECT MAX(generation_ordinal) as m FROM occupant_tenures WHERE node_id = ?").get(node.id) as { m: number | null }).m ?? 0;
 
@@ -4004,7 +4004,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
 
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux(),
       eventBus,
@@ -4013,7 +4013,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       },
     });
 
-    const result = await transport.send("worker-1@test-rig", "echo ping");
+    const result = await transport.send("worker-1@test-software-team", "echo ping");
     expect(result.ok).toBe(true);
 
     const sessionRow = db.prepare("SELECT startup_status FROM sessions WHERE id = ?").get(session.id) as { startup_status: string };
@@ -4021,18 +4021,18 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
   });
 
   it("new session starts while probe runs is not committed to old session", async () => {
-    const { rig, node, session } = seedRig("codex");
+    const { softwareTeam, node, session } = seedSoftwareTeam("codex");
     sessionRegistry.updateStartupStatus(session.id, "failed");
-    seedStartupFailureEvent(rig.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
+    seedStartupFailureEvent(softwareTeam.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
 
     const checkReadyMock = vi.fn().mockImplementation(async () => {
-      sessionRegistry.registerSession(node.id, "worker-1-v2@test-rig");
+      sessionRegistry.registerSession(node.id, "worker-1-v2@test-software-team");
       return { ready: true };
     });
 
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux(),
       eventBus,
@@ -4041,7 +4041,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       },
     });
 
-    const result = await transport.send("worker-1@test-rig", "echo ping");
+    const result = await transport.send("worker-1@test-software-team", "echo ping");
     expect(result.ok).toBe(true);
 
     const sessionRow = db.prepare("SELECT startup_status FROM sessions WHERE id = ?").get(session.id) as { startup_status: string };
@@ -4049,14 +4049,14 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
   });
 
   it("capture and send return normally when the readiness check itself fails or throws", async () => {
-    const { rig, node, session } = seedRig("codex");
+    const { softwareTeam, node, session } = seedSoftwareTeam("codex");
     sessionRegistry.updateStartupStatus(session.id, "failed");
-    seedStartupFailureEvent(rig.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
+    seedStartupFailureEvent(softwareTeam.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
 
     const checkReadyMock = vi.fn().mockRejectedValue(new Error("tmux probe failure"));
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux({
         capturePaneContent: async () => "output content\n",
@@ -4067,18 +4067,18 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       },
     });
 
-    const sendResult = await transport.send("worker-1@test-rig", "echo ping");
+    const sendResult = await transport.send("worker-1@test-software-team", "echo ping");
     expect(sendResult.ok).toBe(true);
 
-    const captureResult = await transport.capture("worker-1@test-rig");
+    const captureResult = await transport.capture("worker-1@test-software-team");
     expect(captureResult.ok).toBe(true);
     expect(captureResult.content).toBe("output content\n");
   });
 
   it("reuses in-flight readiness check across concurrent interactions", async () => {
-    const { rig, node, session } = seedRig("codex");
+    const { softwareTeam, node, session } = seedSoftwareTeam("codex");
     sessionRegistry.updateStartupStatus(session.id, "failed");
-    seedStartupFailureEvent(rig.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
+    seedStartupFailureEvent(softwareTeam.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
 
     let resolveProbe!: (value: { ready: boolean }) => void;
     const probePromise = new Promise<{ ready: boolean }>((res) => {
@@ -4088,7 +4088,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
 
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux({
         capturePaneContent: async () => "prompt\n",
@@ -4100,8 +4100,8 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     });
 
     const [sendPromise, capturePromise] = [
-      transport.send("worker-1@test-rig", "echo ping"),
-      transport.capture("worker-1@test-rig"),
+      transport.send("worker-1@test-software-team", "echo ping"),
+      transport.capture("worker-1@test-software-team"),
     ];
 
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -4116,10 +4116,10 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
   });
 
   it("does not reconcile to ready if hasPendingFreshStartup is true", async () => {
-    const { rig, node, session } = seedRig("codex");
+    const { softwareTeam, node, session } = seedSoftwareTeam("codex");
     sessionRegistry.updateStartupStatus(session.id, "failed");
 
-    seedStartupFailureEvent(rig.id, node.id, session.id, {
+    seedStartupFailureEvent(softwareTeam.id, node.id, session.id, {
       freshContextPending: true,
       stage: "readiness_check",
       hasPendingWork: false,
@@ -4133,7 +4133,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
     const checkReadyMock = vi.fn().mockResolvedValue({ ready: true });
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux(),
       eventBus,
@@ -4142,7 +4142,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       },
     });
 
-    const result = await transport.send("worker-1@test-rig", "echo ping");
+    const result = await transport.send("worker-1@test-software-team", "echo ping");
     expect(result.ok).toBe(true);
 
     expect(checkReadyMock).not.toHaveBeenCalled();
@@ -4153,14 +4153,14 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
   });
 
   it("updates to attention_required if adapter checkReady returns attention code", async () => {
-    const { rig, node, session } = seedRig("codex");
+    const { softwareTeam, node, session } = seedSoftwareTeam("codex");
     sessionRegistry.updateStartupStatus(session.id, "failed");
-    seedStartupFailureEvent(rig.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
+    seedStartupFailureEvent(softwareTeam.id, node.id, session.id, { stage: "readiness_check", hasPendingWork: false });
 
     const checkReadyMock = vi.fn().mockResolvedValue({ ready: false, code: "update_gate" });
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux(),
       eventBus,
@@ -4169,7 +4169,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       },
     });
 
-    const result = await transport.send("worker-1@test-rig", "echo ping");
+    const result = await transport.send("worker-1@test-software-team", "echo ping");
     expect(result.ok).toBe(true);
 
     const sessionRow = db.prepare("SELECT startup_status FROM sessions WHERE id = ?").get(session.id) as { startup_status: string };
@@ -4177,13 +4177,13 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
   });
 
   it("does not check adapter readiness if startup_status is already ready", async () => {
-    const { session } = seedRig("codex");
+    const { session } = seedSoftwareTeam("codex");
     sessionRegistry.updateStartupStatus(session.id, "ready");
 
     const checkReadyMock = vi.fn().mockResolvedValue({ ready: true });
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: mockTmux(),
       eventBus,
@@ -4192,13 +4192,13 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       },
     });
 
-    const result = await transport.send("worker-1@test-rig", "echo ping");
+    const result = await transport.send("worker-1@test-software-team", "echo ping");
     expect(result.ok).toBe(true);
     expect(checkReadyMock).not.toHaveBeenCalled();
   });
 
   it("does not reconcile if message is retained by delivery guard", async () => {
-    const { node, session } = seedRig("codex");
+    const { node, session } = seedSoftwareTeam("codex");
     sessionRegistry.updateStartupStatus(session.id, "failed");
 
     db.exec(outboxEntriesSchema.sql);
@@ -4212,7 +4212,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
 
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: tmux,
       eventBus,
@@ -4221,7 +4221,7 @@ describe("startup readiness reconciliation on session interaction (#7)", () => {
       },
     });
 
-    const result = await transport.send("worker-1@test-rig", "echo ping");
+    const result = await transport.send("worker-1@test-software-team", "echo ping");
     expect(result.ok).toBe(true);
     expect(result.outcome).toBe("retained");
     expect(result.sent).toBe(false);

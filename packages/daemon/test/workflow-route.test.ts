@@ -40,10 +40,10 @@ const SPEC = `workflow:
   roles:
     producer:
       preferred_targets:
-        - producer@rig
+        - producer@software-team
     reviewer:
       preferred_targets:
-        - reviewer@rig
+        - reviewer@software-team
   steps:
     - id: produce
       actor_role: producer
@@ -78,10 +78,10 @@ const SPEC_GATED = `workflow:
   roles:
     producer:
       preferred_targets:
-        - producer@rig
+        - producer@software-team
     handler:
       preferred_targets:
-        - handler@rig
+        - handler@software-team
   steps:
     - id: produce
       actor_role: producer
@@ -140,8 +140,8 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
       workflowInstanceVersionSchema, workflowSpecJsonSchema,
     ]);
     bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
@@ -161,7 +161,7 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
     const r = await runtime.instantiate({
       specPath,
       rootObjective: "route pins",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
     });
     return { instanceId: r.instance.instanceId, entryPacket: r.entryQitemId };
   }
@@ -170,8 +170,8 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
     const { instanceId, entryPacket } = await instantiate();
     const routed = await runtime.route({
       instanceId,
-      toSession: "producer2@rig",
-      actorSession: "orch@rig",
+      toSession: "producer2@software-team",
+      actorSession: "orch@software-team",
       reason: "owner seat dead",
     });
 
@@ -184,7 +184,7 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
         instanceId,
         currentPacketId: entryPacket,
         exit: "handoff",
-        actorSession: "producer@rig",
+        actorSession: "producer@software-team",
       }),
     });
     expect(zombie.status).toBe(409);
@@ -196,7 +196,7 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
       instanceId,
       currentPacketId: routed.newPacketId,
       exit: "handoff",
-      actorSession: "producer2@rig",
+      actorSession: "producer2@software-team",
     });
     expect(advanced.nextStepId).toBe("review");
   });
@@ -206,8 +206,8 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
     const before = runtime.instanceStore.getByIdOrThrow(instanceId);
     const routed = await runtime.route({
       instanceId,
-      toSession: "producer2@rig",
-      actorSession: "orch@rig",
+      toSession: "producer2@software-team",
+      actorSession: "orch@software-team",
       reason: "rebalance",
     });
     const after = runtime.instanceStore.getByIdOrThrow(instanceId);
@@ -217,7 +217,7 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
     const qrow = (id: string) =>
       db.prepare(`SELECT destination_session, state, closure_reason, closure_target, blocked_on, chain_of_record FROM queue_items WHERE qitem_id = ?`).get(id) as Record<string, string | null> | undefined;
     const newPacket = qrow(routed.newPacketId);
-    expect(newPacket?.destination_session).toBe("producer2@rig");
+    expect(newPacket?.destination_session).toBe("producer2@software-team");
     // (2) step identity unchanged
     expect(after.currentStepId).toBe(before.currentStepId);
     expect(after.currentStepId).toBe("produce");
@@ -225,14 +225,14 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
     const oldPacket = qrow(entryPacket);
     expect(oldPacket?.state).toBe("handed-off");
     expect(oldPacket?.closure_reason).toBe("handed_off_to");
-    expect(oldPacket?.closure_target).toBe("producer2@rig");
+    expect(oldPacket?.closure_target).toBe("producer2@software-team");
     // (3) provenance queryable: actor + reason + old→new in the transition
     const transition = db
       .prepare(`SELECT transition_note FROM queue_transitions WHERE qitem_id = ? ORDER BY rowid DESC LIMIT 1`)
       .get(entryPacket) as { transition_note?: string } | undefined;
-    expect(transition?.transition_note).toContain("orch@rig");
-    expect(transition?.transition_note).toContain("producer@rig");
-    expect(transition?.transition_note).toContain("producer2@rig");
+    expect(transition?.transition_note).toContain("orch@software-team");
+    expect(transition?.transition_note).toContain("producer@software-team");
+    expect(transition?.transition_note).toContain("producer2@software-team");
     expect(transition?.transition_note).toContain("rebalance");
     // (5) frontier non-dangling
     expect(after.currentFrontier).toEqual([routed.newPacketId]);
@@ -249,30 +249,30 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
     bus.subscribe((e) => {
       if ((e as { type?: string }).type === "workflow.routing_table_changed") seen.push(e as never);
     });
-    await runtime.route({ instanceId, toSession: "producer2@rig", actorSession: "orch@rig" });
+    await runtime.route({ instanceId, toSession: "producer2@software-team", actorSession: "orch@software-team" });
     expect(seen).toHaveLength(1);
     expect(seen[0]).toMatchObject({
       cause: "workflow_route",
       instanceId,
       stepId: "produce",
-      from: "producer@rig",
-      to: "producer2@rig",
+      from: "producer@software-team",
+      to: "producer2@software-team",
     });
     void entryPacket;
   });
 
   it("rejection matrix: completed instance → instance_not_active; empty-frontier handled; HTTP mapping 409/400", async () => {
     const { instanceId, entryPacket } = await instantiate();
-    await runtime.project({ instanceId, currentPacketId: entryPacket, exit: "failed", actorSession: "producer@rig" });
+    await runtime.project({ instanceId, currentPacketId: entryPacket, exit: "failed", actorSession: "producer@software-team" });
     await expect(
-      runtime.route({ instanceId, toSession: "x@rig", actorSession: "orch@rig" }),
+      runtime.route({ instanceId, toSession: "x@software-team", actorSession: "orch@software-team" }),
     ).rejects.toMatchObject({ code: "instance_not_active" });
 
     // HTTP surface: 409 for the terminal instance; 400 for missing fields.
     const res409 = await app.request(`/api/workflow/${instanceId}/route`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ toSession: "x@rig", actorSession: "orch@rig" }),
+      body: JSON.stringify({ toSession: "x@software-team", actorSession: "orch@software-team" }),
     });
     expect(res409.status).toBe(409);
     const res400 = await app.request(`/api/workflow/${instanceId}/route`, {
@@ -289,10 +289,10 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
       instanceId,
       currentPacketId: entryPacket,
       exit: "waiting",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
       blockedOn: "founder-gate",
     });
-    const routed = await runtime.route({ instanceId, toSession: "producer2@rig", actorSession: "orch@rig" });
+    const routed = await runtime.route({ instanceId, toSession: "producer2@software-team", actorSession: "orch@software-team" });
     const successor = db.prepare(`SELECT state, blocked_on FROM queue_items WHERE qitem_id = ?`).get(routed.newPacketId) as Record<string, string | null> | undefined;
     expect(successor?.state).toBe("blocked");
     expect(successor?.blocked_on).toBe("founder-gate");
@@ -304,7 +304,7 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
   it("concurrency: the version guard serializes — a stale-versioned frontier write after route conflicts", async () => {
     const { instanceId } = await instantiate();
     const stale = runtime.instanceStore.getByIdOrThrow(instanceId);
-    await runtime.route({ instanceId, toSession: "producer2@rig", actorSession: "orch@rig" });
+    await runtime.route({ instanceId, toSession: "producer2@software-team", actorSession: "orch@software-team" });
     // A writer holding the PRE-route version loses (the WF-1 guard —
     // same mechanism the projector rides; true same-instant commits are
     // impossible under better-sqlite3's synchronous single-writer, so
@@ -331,7 +331,7 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
   roles:
     producer:
       preferred_targets:
-        - producer@rig
+        - producer@software-team
   steps:
     - id: produce
       actor_role: producer
@@ -350,7 +350,7 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
     const r = await runtime.instantiate({
       specPath: gatedSpecPath,
       rootObjective: "human-park route",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
     });
     const iid = r.instance.instanceId;
     // Entry parked on the human seat WITH the required fields.
@@ -364,12 +364,12 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
     // Route the parked step to a new role-owner seat: must SUCCEED.
     const routed = await runtime.route({
       instanceId: iid,
-      toSession: "producer2@rig",
-      actorSession: "orch@rig",
+      toSession: "producer2@software-team",
+      actorSession: "orch@software-team",
       reason: "role owner seat dead",
     });
     const successor = qrow(routed.newPacketId);
-    expect(successor.destination_session).toBe("producer2@rig");
+    expect(successor.destination_session).toBe("producer2@software-team");
     expect(successor.state).toBe("blocked");
     expect(successor.blocked_on).toBe("human@kernel");
     // THE FIX: the human-route fields survive the re-route.
@@ -397,14 +397,14 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
     // Seed managed nodes so nodeRuntimeOf resolves runtimes (the WF-2
     // seedSeat pattern).
     const seedSeat = (sessionName: string, runtimeName: string, nodeId: string): void => {
-      db.prepare(`INSERT INTO nodes (id, rig_id, logical_id, runtime) VALUES (?, 'r-1', ?, ?)`)
+      db.prepare(`INSERT INTO nodes (id, software_team_id, logical_id, runtime) VALUES (?, 'r-1', ?, ?)`)
         .run(nodeId, sessionName.split("@")[0], runtimeName);
       db.prepare(`INSERT INTO sessions (id, node_id, session_name, status) VALUES (?, ?, ?, 'running')`)
         .run(`s-${nodeId}`, nodeId, sessionName);
     };
-    seedSeat("codex-seat@rig", "codex", "n-codex");
-    seedSeat("codex-seat2@rig", "codex", "n-codex2");
-    seedSeat("claude-seat@rig", "claude-code", "n-claude");
+    seedSeat("codex-seat@software-team", "codex", "n-codex");
+    seedSeat("codex-seat2@software-team", "codex", "n-codex2");
+    seedSeat("claude-seat@software-team", "claude-code", "n-claude");
     const pinnedSpecPath = join(tmp, "pinned.yaml");
     writeFileSync(pinnedSpecPath, `workflow:
   id: route-pinned
@@ -414,7 +414,7 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
   roles:
     builder:
       preferred_targets:
-        - codex-seat@rig
+        - codex-seat@software-team
   steps:
     - id: build
       actor_role: builder
@@ -430,7 +430,7 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
     const r = await runtime.instantiate({
       specPath: pinnedSpecPath,
       rootObjective: "pin pins",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
     });
     const iid = r.instance.instanceId;
 
@@ -438,7 +438,7 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
     const res = await app.request(`/api/workflow/${iid}/route`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ toSession: "claude-seat@rig", actorSession: "orch@rig" }),
+      body: JSON.stringify({ toSession: "claude-seat@software-team", actorSession: "orch@software-team" }),
     });
     expect(res.status).toBe(409);
     const body = await res.json() as { error: string };
@@ -447,13 +447,13 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
     expect(untouched.currentFrontier).toEqual([r.entryQitemId]);
 
     // Matching harness routes fine.
-    const routed = await runtime.route({ instanceId: iid, toSession: "codex-seat2@rig", actorSession: "orch@rig" });
-    expect(routed.toSession).toBe("codex-seat2@rig");
+    const routed = await runtime.route({ instanceId: iid, toSession: "codex-seat2@software-team", actorSession: "orch@software-team" });
+    expect(routed.toSession).toBe("codex-seat2@software-team");
   });
 
   it("route on an unknown instance throws instance_not_found (404 at the route layer)", async () => {
     await expect(
-      runtime.route({ instanceId: "nope", toSession: "x@rig", actorSession: "orch@rig" }),
+      runtime.route({ instanceId: "nope", toSession: "x@software-team", actorSession: "orch@software-team" }),
     ).rejects.toSatisfy((e: unknown) => {
       // instanceStore.getByIdOrThrow throws its own store error class;
       // the HTTP mapper turns it into 404 — pinned at the HTTP level:
@@ -462,7 +462,7 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
     const res = await app.request(`/api/workflow/nope/route`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ toSession: "x@rig", actorSession: "orch@rig" }),
+      body: JSON.stringify({ toSession: "x@software-team", actorSession: "orch@software-team" }),
     });
     expect(res.status).toBe(404);
     void WorkflowProjectorError;
@@ -477,15 +477,15 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
   it("D2×route: a handler-gated metadata packet WAITING on a non-human blocker routes cleanly (no 500, metadata retained, frontier rebound)", async () => {
     const gatedPath = join(tmp, "gated.yaml");
     writeFileSync(gatedPath, SPEC_GATED);
-    const inst = await runtime.instantiate({ specPath: gatedPath, rootObjective: "repark", createdBySession: "orch@rig" });
+    const inst = await runtime.instantiate({ specPath: gatedPath, rootObjective: "repark", createdBySession: "orch@software-team" });
     const instanceId = inst.instance.instanceId;
     const frontier = (): string[] => runtime.instanceStore.getByIdOrThrow(instanceId).currentFrontier;
 
-    // produce -> review (handler-gated: summary/evidence ride the review packet, dest handler@rig)
-    await runtime.project({ instanceId, currentPacketId: inst.entryQitemId, exit: "handoff", actorSession: "producer@rig" });
+    // produce -> review (handler-gated: summary/evidence ride the review packet, dest handler@software-team)
+    await runtime.project({ instanceId, currentPacketId: inst.entryQitemId, exit: "handoff", actorSession: "producer@software-team" });
     const reviewPacket = frontier()[0]!;
     // review projected WAITING -> blocked on the NON-HUMAN "external-gate", metadata retained
-    await runtime.project({ instanceId, currentPacketId: reviewPacket, exit: "waiting", actorSession: "handler@rig" });
+    await runtime.project({ instanceId, currentPacketId: reviewPacket, exit: "waiting", actorSession: "handler@software-team" });
     const waited = queueRepo.getByIdOrThrow(reviewPacket);
     expect(waited.state).toBe("blocked");
     expect(waited.blockedOn).toBe("external-gate");
@@ -499,7 +499,7 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
     const res = await app.request(`/api/workflow/${instanceId}/route`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ toSession: "handler2@rig", actorSession: "orch@rig", reason: "rebalance" }),
+      body: JSON.stringify({ toSession: "handler2@software-team", actorSession: "orch@software-team", reason: "rebalance" }),
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { newPacketId: string };
@@ -510,9 +510,9 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
     expect(after.currentStepId).toBe("review");
     expect(after.currentStepId).toBe(before.currentStepId);
     expect(after.status).toBe("waiting");
-    // successor: owner=handler2@rig, still blocked on the EXACT non-human blocker, metadata RETAINED
+    // successor: owner=handler2@software-team, still blocked on the EXACT non-human blocker, metadata RETAINED
     const successor = queueRepo.getByIdOrThrow(body.newPacketId);
-    expect(successor.destinationSession).toBe("handler2@rig");
+    expect(successor.destinationSession).toBe("handler2@software-team");
     expect(successor.state).toBe("blocked");
     expect(successor.blockedOn).toBe("external-gate");
     expect(successor.summary).toBe("needs handler sign-off");
@@ -521,8 +521,8 @@ describe("workflow route (WF3 FR-4 — close+recreate+rebind)", () => {
     const old = queueRepo.getByIdOrThrow(reviewPacket);
     expect(old.state).toBe("handed-off");
     expect(old.closureReason).toBe("handed_off_to");
-    expect(old.closureTarget).toBe("handler2@rig");
-    expect(old.handedOffTo).toBe("handler2@rig");
+    expect(old.closureTarget).toBe("handler2@software-team");
+    expect(old.handedOffTo).toBe("handler2@software-team");
     expect(after.currentFrontier).not.toContain(reviewPacket);
   });
 });

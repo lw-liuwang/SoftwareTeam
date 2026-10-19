@@ -2,7 +2,7 @@
 // (OPR.0.4.4.20). ONE contract, all consumers: the slice Review tab, the
 // mission board's U5 row expansion, and the For-You expansion read these
 // same hooks; the agents projection is scope-parameterized
-// (slice:<id> | mission:<id> | rig) on one endpoint.
+// (slice:<id> | mission:<id> | softwareTeam) on one endpoint.
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
@@ -102,7 +102,7 @@ export interface NeedsYouBand {
   provenance: string;
 }
 
-export type AgentsScope = `slice:${string}` | `mission:${string}` | "rig";
+export type AgentsScope = `slice:${string}` | `mission:${string}` | "softwareTeam";
 
 export interface AgentRow {
   agentName: string;
@@ -205,7 +205,7 @@ export interface ComposedMissionReview {
   composedAt: string;
 }
 
-// --- OPR.0.4.4.22: the rig-scope standalone altitude root (same family) ---
+// --- OPR.0.4.4.22: the software-team-scope standalone altitude root (same family) ---
 
 export interface SettledRow {
   fromSession: string;
@@ -215,8 +215,8 @@ export interface SettledRow {
   qitemId: string;
 }
 
-export interface ComposedRigAgents {
-  scope: "rig";
+export interface ComposedSoftwareTeamAgents {
+  scope: "softwareTeam";
   needsYou: NeedsYouBand;
   agents: AgentsBand;
   settled: SettledRow[];
@@ -267,13 +267,13 @@ export function useReviewAgents(scope: AgentsScope | null) {
   });
 }
 
-/** OPR.0.4.4.22 — the composed rig-agents root (FR-1..FR-4). Standing cost
+/** OPR.0.4.4.22 — the composed software-team-agents root (FR-1..FR-4). Standing cost
  *  is queue+ps only; transcript drill-in fetches ride separate on-demand
  *  requests, never this query. */
-export function useRigAgents() {
+export function useSoftwareTeamAgents() {
   return useQuery({
-    queryKey: ["review", "rig-agents"],
-    queryFn: () => fetchJson<ComposedRigAgents>("/api/review/rig"),
+    queryKey: ["review", "software-team-agents"],
+    queryFn: () => fetchJson<ComposedSoftwareTeamAgents>("/api/review/softwareTeam"),
     staleTime: 15_000,
   });
 }

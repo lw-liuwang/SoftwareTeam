@@ -4,7 +4,7 @@ import { hydrateSnapshot } from "../src/hydrate.js";
 import { createViewState, emptySnapshot, computeExplorerRows } from "../src/state.js";
 import { attentionLines } from "../src/attention/attention-model.js";
 import { parseCommand } from "../src/grammar.js";
-import type { AttentionRead } from "@openrig/daemon/attention";
+import type { AttentionRead } from "@softwareteam/daemon/attention";
 import type { FleetSnapshot } from "../src/types.js";
 
 it.each([140, 80])("keeps readable summaries, passive exact source navigation and Back at width %i", async width => {

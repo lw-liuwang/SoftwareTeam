@@ -1,13 +1,13 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { OPENRIG_HOME } from "../src/openrig-compat.js";
+import { SOFTWARETEAM_HOME } from "../src/softwareteam-compat.js";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type Database from "better-sqlite3";
 import type { Hono } from "hono";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
 import { createApp } from "../src/server.js";
-import type { RigRepository } from "../src/domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import type { SessionRegistry } from "../src/domain/session-registry.js";
 import type { SnapshotRepository } from "../src/domain/snapshot-repository.js";
 import { createRestoreCheckService } from "../src/routes/restore-check.js";
@@ -20,14 +20,14 @@ const VALID_HOST_INFRA_DECLARATION = JSON.stringify({
   daemonBootstrap: {
     declared: true,
     mechanism: "launchd",
-    evidence: "com.openrig.daemon",
+    evidence: "com.softwareteam.daemon",
   },
   supportingInfra: [
     {
       id: "supervisor-wake",
       declared: true,
       required: true,
-      evidence: "kernel rig infra seat or host launch agent",
+      evidence: "kernel SoftwareTeam infra seat or host launch agent",
     },
   ],
 });
@@ -41,26 +41,26 @@ function v2HostInfraDeclaration(overrides?: {
     daemonBootstrap: {
       declared: true,
       mechanism: "launchd",
-      evidence: "com.openrig.daemon",
-      evidencePaths: overrides?.daemonEvidencePaths ?? ["${OPENRIG_HOME}/daemon/launchd.plist"],
+      evidence: "com.softwareteam.daemon",
+      evidencePaths: overrides?.daemonEvidencePaths ?? ["${SOFTWARETEAM_HOME}/daemon/launchd.plist"],
     },
     supportingInfra: [
       {
         id: "supervisor-wake",
         declared: true,
         required: true,
-        evidence: "kernel rig infra seat or host launch agent",
-        evidencePaths: overrides?.supportingInfraEvidencePaths ?? ["${OPENRIG_HOME}/supervisor-wake/README.md"],
+        evidence: "kernel SoftwareTeam infra seat or host launch agent",
+        evidencePaths: overrides?.supportingInfraEvidencePaths ?? ["${SOFTWARETEAM_HOME}/supervisor-wake/README.md"],
       },
     ],
   });
 }
 
-function minimalSnapshotData(rigId: string, rigName: string) {
+function minimalSnapshotData(softwareTeamId: string, softwareTeamName: string) {
   return {
-    rig: {
-      id: rigId,
-      name: rigName,
+    softwareTeam: {
+      id: softwareTeamId,
+      name: softwareTeamName,
       createdAt: "2026-04-23T00:00:00.000Z",
       updatedAt: "2026-04-23T00:00:00.000Z",
     },
@@ -91,82 +91,82 @@ function insertStartupContextRow(db: Database.Database, nodeId: string, options?
 describe("Restore check routes", () => {
   let db: Database.Database;
   let app: Hono;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let snapshotRepo: SnapshotRepository;
-  let openRigHome: string;
-  let originalOpenRigHome: string | undefined;
+  let softwareTeamHome: string;
+  let originalSoftwareTeamHome: string | undefined;
 
   beforeEach(() => {
-    originalOpenRigHome = process.env["OPENRIG_HOME"];
-    openRigHome = fs.mkdtempSync(path.join(os.tmpdir(), "restore-check-route-openrig-home-"));
-    process.env["OPENRIG_HOME"] = openRigHome;
+    originalSoftwareTeamHome = process.env["SOFTWARETEAM_HOME"];
+    softwareTeamHome = fs.mkdtempSync(path.join(os.tmpdir(), "restore-check-route-softwareteam-home-"));
+    process.env["SOFTWARETEAM_HOME"] = softwareTeamHome;
 
     db = createFullTestDb();
     const setup = createTestApp(db);
     app = createApp(setup);
-    rigRepo = setup.rigRepo;
+    softwareTeamRepo = setup.softwareTeamRepo;
     sessionRegistry = setup.sessionRegistry;
     snapshotRepo = setup.snapshotRepo;
   });
 
   afterEach(() => {
     db.close();
-    if (originalOpenRigHome === undefined) delete process.env["OPENRIG_HOME"];
-    else process.env["OPENRIG_HOME"] = originalOpenRigHome;
-    fs.rmSync(openRigHome, { recursive: true, force: true });
+    if (originalSoftwareTeamHome === undefined) delete process.env["SOFTWARETEAM_HOME"];
+    else process.env["SOFTWARETEAM_HOME"] = originalSoftwareTeamHome;
+    fs.rmSync(softwareTeamHome, { recursive: true, force: true });
   });
 
   // These fixtures isolate other diagnostics from snapshot-availability/occupant failures.
-  function seedCurrentSnapshot(rigId: string) {
-    const rig = rigRepo.getRig(rigId)!;
-    const sessions = sessionRegistry.getSessionsForRig(rigId);
-    return snapshotRepo.createSnapshot(rigId, "auto-pre-down", {
-      rig: rig.rig, nodes: rig.nodes, edges: rig.edges, sessions, checkpoints: {},
+  function seedCurrentSnapshot(softwareTeamId: string) {
+    const softwareTeam = softwareTeamRepo.getSoftwareTeam(softwareTeamId)!;
+    const sessions = sessionRegistry.getSessionsForSoftwareTeam(softwareTeamId);
+    return snapshotRepo.createSnapshot(softwareTeamId, "auto-pre-down", {
+      softwareTeam: softwareTeam.softwareTeam, nodes: softwareTeam.nodes, edges: softwareTeam.edges, sessions, checkpoints: {},
       activeSessionIdByNode: Object.fromEntries(sessions.map((s) => [s.nodeId, s.id])),
     });
   }
 
   it("uses restore's ranked snapshot and reports missing service inputs in compact output", async () => {
-    const rig = rigRepo.createRig("service-rig");
-    const selected = snapshotRepo.createSnapshot(rig.id, "auto-pre-down", minimalSnapshotData(rig.id, rig.name) as never);
-    snapshotRepo.createSnapshot(rig.id, "manual", minimalSnapshotData(rig.id, rig.name) as never);
-    rigRepo.setServicesRecord(rig.id, {
-      kind: "compose", specJson: "{}", rigRoot: path.join(openRigHome, "missing-service"),
-      composeFile: path.join(openRigHome, "missing-compose.yaml"),
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("service-software-team");
+    const selected = snapshotRepo.createSnapshot(softwareTeam.id, "auto-pre-down", minimalSnapshotData(softwareTeam.id, softwareTeam.name) as never);
+    snapshotRepo.createSnapshot(softwareTeam.id, "manual", minimalSnapshotData(softwareTeam.id, softwareTeam.name) as never);
+    softwareTeamRepo.setServicesRecord(softwareTeam.id, {
+      kind: "compose", specJson: "{}", softwareTeamRoot: path.join(softwareTeamHome, "missing-service"),
+      composeFile: path.join(softwareTeamHome, "missing-compose.yaml"),
     });
     const before = db.prepare("SELECT COUNT(*) AS n FROM snapshots").get();
-    const response = await app.request("/api/restore-check?rig=service-rig&compact=1&noQueue=true&noHooks=true");
+    const response = await app.request("/api/restore-check?softwareTeam=service-software-team&compact=1&noQueue=true&noHooks=true");
     const body = await response.json();
-    const check = body.checks.find((c: { check: string }) => c.check === "rig.service-rig.restore-preconditions");
+    const check = body.checks.find((c: { check: string }) => c.check === "softwareTeam.service-software-team.restore-preconditions");
     expect(response.status).toBe(200);
     expect(check.status).toBe("red");
     expect(check.evidence).toContain(`Snapshot ${selected.id}`);
-    expect(check.evidence).toContain("service_rig_root_missing");
+    expect(check.evidence).toContain("service_software_team_root_missing");
     expect(check.evidence).toContain("service_compose_file_missing");
     expect(body.recovery.status).toBe("blocked");
     expect(db.prepare("SELECT COUNT(*) AS n FROM snapshots").get()).toEqual(before);
   });
 
   it("reports eligible current-state recovery for an older-occupant snapshot without capture", async () => {
-    const rig = rigRepo.createRig("changed-occupant");
-    const node = rigRepo.addNode(rig.id, "seat", { runtime: "terminal" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("changed-occupant");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "seat", { runtime: "terminal" });
     sessionRegistry.registerSession(node.id, "seat@changed-occupant");
     insertStartupContextRow(db, node.id, { runtime: "terminal" });
-    snapshotRepo.createSnapshot(rig.id, "auto-pre-down", minimalSnapshotData(rig.id, rig.name) as never);
+    snapshotRepo.createSnapshot(softwareTeam.id, "auto-pre-down", minimalSnapshotData(softwareTeam.id, softwareTeam.name) as never);
     const before = db.prepare("SELECT COUNT(*) AS n FROM snapshots").get();
-    const body = await (await app.request("/api/restore-check?rig=changed-occupant&noQueue=true&noHooks=true")).json();
+    const body = await (await app.request("/api/restore-check?softwareTeam=changed-occupant&noQueue=true&noHooks=true")).json();
     expect(body.recovery.status).toBe("actionable");
     const input = body.checks.find((c: { check: string }) => c.check.endsWith(".restore-preconditions"));
     expect(input.status).toBe("yellow");
     expect(input.evidence).toContain("older occupant");
-    expect(body.recovery.actions[0].command).toBe("rig up --existing changed-occupant");
+    expect(body.recovery.actions[0].command).toBe("SoftwareTeam up --existing changed-occupant");
     expect(db.prepare("SELECT COUNT(*) AS n FROM snapshots").get()).toEqual(before);
   });
 
-  it("isolates a real factory snapshot read error to its rig", () => {
-    const broken = rigRepo.createRig("broken-read");
-    const good = rigRepo.createRig("good-read");
+  it("isolates a real factory snapshot read error to its softwareTeam", () => {
+    const broken = softwareTeamRepo.createSoftwareTeam("broken-read");
+    const good = softwareTeamRepo.createSoftwareTeam("good-read");
     snapshotRepo.createSnapshot(good.id, "manual", minimalSnapshotData(good.id, good.name) as never);
     const original = snapshotRepo.selectRestoreUsable.bind(snapshotRepo);
     const selection = vi.spyOn(snapshotRepo, "selectRestoreUsable").mockImplementation((id) => {
@@ -174,9 +174,9 @@ describe("Restore check routes", () => {
       return original(id);
     });
     try {
-      const result = createRestoreCheckService(rigRepo, snapshotRepo).check({ noQueue: true, noHooks: true });
-      expect(result.rigs.find((r) => r.rigId === broken.id)?.status).toBe("unknown");
-      expect(result.checks.find((c) => c.check === "rig.good-read.restore-preconditions")?.status).toBe("green");
+      const result = createRestoreCheckService(softwareTeamRepo, snapshotRepo).check({ noQueue: true, noHooks: true });
+      expect(result.softwareTeams.find((r) => r.softwareTeamId === broken.id)?.status).toBe("unknown");
+      expect(result.checks.find((c) => c.check === "softwareTeam.good-read.restore-preconditions")?.status).toBe("green");
       expect(result.recovery.unknown[0]?.reason).toContain("fixture snapshot read failure");
     } finally {
       selection.mockRestore();
@@ -184,18 +184,18 @@ describe("Restore check routes", () => {
   });
 
   it("does not add snapshot selection to a running-ready composed status poll", async () => {
-    const rig = rigRepo.createRig("ready-poll");
-    const node = rigRepo.addNode(rig.id, "seat", { runtime: "terminal" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("ready-poll");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "seat", { runtime: "terminal" });
     const session = sessionRegistry.registerSession(node.id, "seat@ready-poll");
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateStartupStatus(session.id, "ready");
     insertStartupContextRow(db, node.id, { runtime: "terminal" });
-    seedCurrentSnapshot(rig.id);
+    seedCurrentSnapshot(softwareTeam.id);
     const selection = vi.spyOn(snapshotRepo, "selectRestoreUsable");
     try {
-      expect((await app.request(`/api/rigs/${rig.id}/status`)).status).toBe(200);
+      expect((await app.request(`/api/software-teams/${softwareTeam.id}/status`)).status).toBe(200);
       expect(selection).not.toHaveBeenCalled();
-      await app.request("/api/restore-check?rig=ready-poll&noQueue=true&noHooks=true");
+      await app.request("/api/restore-check?softwareTeam=ready-poll&noQueue=true&noHooks=true");
       expect(selection).toHaveBeenCalledTimes(1);
     } finally {
       selection.mockRestore();
@@ -203,25 +203,25 @@ describe("Restore check routes", () => {
   });
 
   it.each(["configured", "legacy"])("resolves the spec root and probes the SQLite queue store for %s shared-docs", async (layout) => {
-    const home = path.join(openRigHome, "isolated-home");
+    const home = path.join(softwareTeamHome, "isolated-home");
     const sharedDocs = layout === "configured"
-      ? path.join(openRigHome, "custom shared-docs")
-      : path.join(home, ".openrig", "shared-docs");
+      ? path.join(softwareTeamHome, "custom shared-docs")
+      : path.join(home, ".softwareteam", "shared-docs");
     vi.stubEnv("HOME", home);
     vi.stubEnv("USERPROFILE", home);
-    vi.stubEnv("OPENRIG_SHARED_DOCS_ROOT", layout === "configured" ? `  ${sharedDocs}  ` : "");
+    vi.stubEnv("SOFTWARETEAM_SHARED_DOCS_ROOT", layout === "configured" ? `  ${sharedDocs}  ` : "");
     try {
-      const rig = rigRepo.createRig("test-rig");
-      rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-      const rigRoot = path.join(sharedDocs, "rigs", "test-rig");
-      fs.mkdirSync(rigRoot, { recursive: true });
-      fs.writeFileSync(path.join(rigRoot, "rig.yaml"), "name: test-rig\n");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+      softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+      const softwareTeamRoot = path.join(sharedDocs, "software-teams", "test-software-team");
+      fs.mkdirSync(softwareTeamRoot, { recursive: true });
+      fs.writeFileSync(path.join(softwareTeamRoot, "software-team.yaml"), "name: test-software-team\n");
 
       const res = await app.request("/api/restore-check?noHooks=true");
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.checks).toEqual(expect.arrayContaining([
-        expect.objectContaining({ check: "rig.test-rig.spec-present", status: "green", evidence: `Spec present at ${path.join(rigRoot, "rig.yaml")}` }),
+        expect.objectContaining({ check: "softwareTeam.test-software-team.spec-present", status: "green", evidence: `Spec present at ${path.join(softwareTeamRoot, "software-team.yaml")}` }),
         expect.objectContaining({
           check: "seat.dev.impl.queue-store", status: "green",
           evidence: "Daemon SQLite queue_items store is queryable; an empty queue is valid",
@@ -232,21 +232,21 @@ describe("Restore check routes", () => {
     }
   });
 
-  it("reports a rig launched from a spec outside the shared-docs root as not checked, not red (#130)", async () => {
-    const sharedDocs = path.join(openRigHome, "empty shared-docs");
+  it("reports a SoftwareTeam launched from a spec outside the shared-docs root as not checked, not red (#130)", async () => {
+    const sharedDocs = path.join(softwareTeamHome, "empty shared-docs");
     fs.mkdirSync(sharedDocs, { recursive: true });
-    vi.stubEnv("OPENRIG_SHARED_DOCS_ROOT", sharedDocs);
+    vi.stubEnv("SOFTWARETEAM_SHARED_DOCS_ROOT", sharedDocs);
     try {
-      const rig = rigRepo.createRig("outside-rig");
-      seedCurrentSnapshot(rig.id);
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("outside-software-team");
+      seedCurrentSnapshot(softwareTeam.id);
 
-      const res = await app.request("/api/restore-check?rig=outside-rig&noQueue=true&noHooks=true");
+      const res = await app.request("/api/restore-check?softwareTeam=outside-software-team&noQueue=true&noHooks=true");
       expect(res.status).toBe(200);
       const body = await res.json();
-      const spec = body.checks.find((c: { check: string }) => c.check === "rig.outside-rig.spec-present");
+      const spec = body.checks.find((c: { check: string }) => c.check === "softwareTeam.outside-software-team.spec-present");
       expect(spec).toEqual(expect.objectContaining({ status: "yellow", remediationSafe: true }));
       expect(spec.evidence).toContain("Not checked: no launch spec location could be established");
-      expect(spec.evidence).toContain(path.join(sharedDocs, "rigs", "outside-rig", "rig.yaml"));
+      expect(spec.evidence).toContain(path.join(sharedDocs, "software-teams", "outside-software-team", "software-team.yaml"));
       expect(body.counts.red).toBe(0);
       expect(body.verdict).toBe("restorable_with_caveats");
     } finally {
@@ -255,7 +255,7 @@ describe("Restore check routes", () => {
   });
 
   it("GET /api/restore-check returns JSON with verdict + checks + repairPacket", async () => {
-    rigRepo.createRig("test-rig");
+    softwareTeamRepo.createSoftwareTeam("test-software-team");
 
     const res = await app.request("/api/restore-check");
     expect(res.status).toBe(200);
@@ -266,7 +266,7 @@ describe("Restore check routes", () => {
     expect(body.readiness).toBeDefined();
     expect(["ready", "ready_with_caveats", "not_ready", "unknown"]).toContain(body.readiness.status);
     expect(body.continuity).toBeDefined();
-    expect(body.rigs).toBeInstanceOf(Array);
+    expect(body.softwareTeams).toBeInstanceOf(Array);
     expect(body.hostInfra).toBeDefined();
     expect(body.counts).toBeDefined();
     expect(body.checks).toBeInstanceOf(Array);
@@ -286,21 +286,21 @@ describe("Restore check routes", () => {
     }
   });
 
-  it("GET /api/restore-check?rig=test-rig filters to named rig", async () => {
-    rigRepo.createRig("rig-a");
-    rigRepo.createRig("rig-b");
+  it("GET /api/restore-check?softwareTeam=test-software-team filters to named softwareTeam", async () => {
+    softwareTeamRepo.createSoftwareTeam("software-team-a");
+    softwareTeamRepo.createSoftwareTeam("software-team-b");
 
-    const res = await app.request("/api/restore-check?rig=rig-a");
+    const res = await app.request("/api/restore-check?softwareTeam=software-team-a");
     const body = await res.json();
 
-    const rigChecks = body.checks.filter((c: { check: string }) => c.check.includes("rig."));
-    expect(rigChecks.every((c: { check: string }) => !c.check.includes("rig-b"))).toBe(true);
+    const softwareTeamChecks = body.checks.filter((c: { check: string }) => c.check.includes("softwareTeam."));
+    expect(softwareTeamChecks.every((c: { check: string }) => !c.check.includes("software-team-b"))).toBe(true);
   });
 
-  it("GET /api/restore-check?rig=unknown returns not_restorable with red check", async () => {
-    rigRepo.createRig("real-rig");
+  it("GET /api/restore-check?softwareTeam=unknown returns not_restorable with red check", async () => {
+    softwareTeamRepo.createSoftwareTeam("real-software-team");
 
-    const res = await app.request("/api/restore-check?rig=nonexistent");
+    const res = await app.request("/api/restore-check?softwareTeam=nonexistent");
     const body = await res.json();
 
     expect(body.verdict).toBe("not_restorable");
@@ -310,8 +310,8 @@ describe("Restore check routes", () => {
   });
 
   it("GET /api/restore-check?noQueue=true skips queue checks", async () => {
-    const rig = rigRepo.createRig("test-rig");
-    rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
 
     const res = await app.request("/api/restore-check?noQueue=true");
     const body = await res.json();
@@ -321,8 +321,8 @@ describe("Restore check routes", () => {
   });
 
   it("GET /api/restore-check?noHooks=true skips hook checks", async () => {
-    const rig = rigRepo.createRig("test-rig");
-    rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
 
     const res = await app.request("/api/restore-check?noHooks=true");
     const body = await res.json();
@@ -336,13 +336,13 @@ describe("Restore check routes", () => {
     const settingsDir = path.join(projectDir, ".claude");
     const settingsPath = path.join(settingsDir, "settings.local.json");
     // beforeEach changes the environment; delivery and this reader must retain the daemon root.
-    expect(openRigHome).not.toBe(OPENRIG_HOME);
-    const relayPath = path.join(OPENRIG_HOME, "state", "claude-activity-hooks", "activity-relay.cjs");
+    expect(softwareTeamHome).not.toBe(SOFTWARETEAM_HOME);
+    const relayPath = path.join(SOFTWARETEAM_HOME, "state", "claude-activity-hooks", "activity-relay.cjs");
     const previousRelay = fs.existsSync(relayPath) ? fs.readFileSync(relayPath) : null;
     fs.mkdirSync(settingsDir, { recursive: true });
     fs.mkdirSync(path.dirname(relayPath), { recursive: true });
     fs.writeFileSync(relayPath, "// test relay\n");
-    const manifestPath = path.resolve(import.meta.dirname, "../assets/plugins/openrig-core/hooks/claude.json");
+    const manifestPath = path.resolve(import.meta.dirname, "../assets/plugins/softwareteam-core/hooks/claude.json");
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8")) as { hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>> };
     const relayEvents = Object.entries(manifest.hooks)
       .filter(([, groups]) => groups.some((group) => group.hooks.some((hook) => hook.command.includes("activity-relay.cjs"))))
@@ -350,8 +350,8 @@ describe("Restore check routes", () => {
     fs.writeFileSync(settingsPath, JSON.stringify({ hooks: Object.fromEntries(relayEvents.map((event) => [
       event, [{ hooks: [{ type: "command", command: `node '${relayPath}'` }] }],
     ])) }));
-    const rig = rigRepo.createRig("hooked-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code", cwd: projectDir });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("hooked-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code", cwd: projectDir });
     insertStartupContextRow(db, node.id, {
       projectionEntriesJson: JSON.stringify([{
         category: "runtime_resource", effectiveId: "shared:claude_activity_hooks",
@@ -361,7 +361,7 @@ describe("Restore check routes", () => {
     });
 
     try {
-      const res = await app.request("/api/restore-check?rig=hooked-rig");
+      const res = await app.request("/api/restore-check?softwareTeam=hooked-software-team");
       const body = await res.json();
       const hook = body.checks.find((c: { check: string }) => c.check.includes(".hooks"));
 
@@ -379,28 +379,28 @@ describe("Restore check routes", () => {
     }
   });
 
-  it("GET /api/restore-check returns actionable recovery for a snapshot-backed stopped rig", async () => {
-    const rig = rigRepo.createRig("recoverable-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@recoverable-rig");
+  it("GET /api/restore-check returns actionable recovery for a snapshot-backed stopped softwareTeam", async () => {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("recoverable-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@recoverable-software-team");
     sessionRegistry.updateStatus(session.id, "stopped");
     sessionRegistry.updateStartupStatus(session.id, "failed");
     insertStartupContextRow(db, node.id);
-    seedCurrentSnapshot(rig.id);
+    seedCurrentSnapshot(softwareTeam.id);
 
-    const res = await app.request("/api/restore-check?rig=recoverable-rig&noQueue=true&noHooks=true");
+    const res = await app.request("/api/restore-check?softwareTeam=recoverable-software-team&noQueue=true&noHooks=true");
     expect(res.status).toBe(200);
 
     const body = await res.json();
     expect(body.recovery).toEqual({
       status: "actionable",
-      summary: expect.stringContaining("1 rig can be recovered"),
+      summary: expect.stringContaining("1 SoftwareTeam can be recovered"),
       actions: [
         expect.objectContaining({
-          scope: "rig",
-          rigId: rig.id,
-          rigName: "recoverable-rig",
-          command: "rig up --existing recoverable-rig",
+          scope: "softwareTeam",
+          softwareTeamId: softwareTeam.id,
+          softwareTeamName: "recoverable-software-team",
+          command: "SoftwareTeam up --existing recoverable-software-team",
           safe: false,
           blocking: true,
         }),
@@ -410,19 +410,19 @@ describe("Restore check routes", () => {
     });
   });
 
-  it("GET /api/restore-check blocks recovery when a stopped snapshot-backed rig is missing startup context", async () => {
-    const rig = rigRepo.createRig("recoverable-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@recoverable-rig");
+  it("GET /api/restore-check blocks recovery when a stopped snapshot-backed SoftwareTeam is missing startup context", async () => {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("recoverable-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@recoverable-software-team");
     sessionRegistry.updateStatus(session.id, "stopped");
     sessionRegistry.updateStartupStatus(session.id, "failed");
-    seedCurrentSnapshot(rig.id);
+    seedCurrentSnapshot(softwareTeam.id);
 
-    const res = await app.request("/api/restore-check?rig=recoverable-rig&noQueue=true&noHooks=true");
+    const res = await app.request("/api/restore-check?softwareTeam=recoverable-software-team&noQueue=true&noHooks=true");
     expect(res.status).toBe(200);
 
     const body = await res.json();
-    const startup = body.checks.find((c: { check: string }) => c.check === "seat.dev-impl@recoverable-rig.startup-context");
+    const startup = body.checks.find((c: { check: string }) => c.check === "seat.dev-impl@recoverable-software-team.startup-context");
 
     expect(startup).toEqual(expect.objectContaining({
       status: "red",
@@ -430,13 +430,13 @@ describe("Restore check routes", () => {
     expect(startup.evidence).toContain("startup context");
     expect(body.recovery).toEqual({
       status: "blocked",
-      summary: expect.stringContaining("1 rig blocked"),
+      summary: expect.stringContaining("1 SoftwareTeam blocked"),
       actions: [],
       blocked: [
         expect.objectContaining({
-          scope: "rig",
-          rigId: rig.id,
-          rigName: "recoverable-rig",
+          scope: "softwareTeam",
+          softwareTeamId: softwareTeam.id,
+          softwareTeamName: "recoverable-software-team",
           reason: expect.stringContaining("startup context"),
         }),
       ],
@@ -445,21 +445,21 @@ describe("Restore check routes", () => {
   });
 
   it("GET /api/restore-check returns structured JSON for malformed startup-context rows", async () => {
-    const rig = rigRepo.createRig("malformed-startup-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@malformed-startup-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("malformed-startup-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@malformed-startup-software-team");
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateStartupStatus(session.id, "ready");
     insertStartupContextRow(db, node.id, {
       resolvedFilesJson: "{",
     });
-    seedCurrentSnapshot(rig.id);
+    seedCurrentSnapshot(softwareTeam.id);
 
-    const res = await app.request("/api/restore-check?rig=malformed-startup-rig&noQueue=true&noHooks=true");
+    const res = await app.request("/api/restore-check?softwareTeam=malformed-startup-software-team&noQueue=true&noHooks=true");
     expect(res.status).toBe(200);
 
     const body = await res.json();
-    const startup = body.checks.find((c: { check: string }) => c.check === "seat.dev-impl@malformed-startup-rig.startup-context");
+    const startup = body.checks.find((c: { check: string }) => c.check === "seat.dev-impl@malformed-startup-software-team.startup-context");
 
     expect(startup).toEqual(expect.objectContaining({
       status: "yellow",
@@ -475,37 +475,37 @@ describe("Restore check routes", () => {
     [null],
     [{ category: "runtime_resource", resourceType: "claude_activity_hooks" }],
   ])("GET /api/restore-check preserves malformed selection members as hook caveats: %j", async (member) => {
-    const rig = rigRepo.createRig("malformed-selection-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@malformed-selection-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("malformed-selection-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@malformed-selection-software-team");
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateStartupStatus(session.id, "ready");
     insertStartupContextRow(db, node.id, { projectionEntriesJson: JSON.stringify([member]) });
-    const res = await app.request("/api/restore-check?rig=malformed-selection-rig&noQueue=true");
+    const res = await app.request("/api/restore-check?softwareTeam=malformed-selection-software-team&noQueue=true");
     expect(res.status).toBe(200);
     const body = await res.json();
-    const hook = body.checks.find((c: { check: string }) => c.check === "seat.dev-impl@malformed-selection-rig.hooks");
+    const hook = body.checks.find((c: { check: string }) => c.check === "seat.dev-impl@malformed-selection-software-team.hooks");
     expect(hook.status).toBe("yellow");
     expect(hook.evidence).not.toContain("not selected");
     expect(body.checks.find((c: { check: string }) => c.check.endsWith(".startup-context")).evidence).toContain("projection_entries_json");
   });
 
   it("GET /api/restore-check does not false-green malformed startup_actions_json", async () => {
-    const rig = rigRepo.createRig("malformed-startup-actions-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@malformed-startup-actions-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("malformed-startup-actions-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@malformed-startup-actions-software-team");
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateStartupStatus(session.id, "ready");
     insertStartupContextRow(db, node.id, {
       startupActionsJson: "{",
     });
-    seedCurrentSnapshot(rig.id);
+    seedCurrentSnapshot(softwareTeam.id);
 
-    const res = await app.request("/api/restore-check?rig=malformed-startup-actions-rig&noQueue=true&noHooks=true");
+    const res = await app.request("/api/restore-check?softwareTeam=malformed-startup-actions-software-team&noQueue=true&noHooks=true");
     expect(res.status).toBe(200);
 
     const body = await res.json();
-    const startup = body.checks.find((c: { check: string }) => c.check === "seat.dev-impl@malformed-startup-actions-rig.startup-context");
+    const startup = body.checks.find((c: { check: string }) => c.check === "seat.dev-impl@malformed-startup-actions-software-team.startup-context");
 
     expect(startup).toBeDefined();
     expect(startup.status).not.toBe("green");
@@ -519,7 +519,7 @@ describe("Restore check routes", () => {
   });
 
   it("daemon.reachable is green inside daemon route (self-proof)", async () => {
-    rigRepo.createRig("test-rig");
+    softwareTeamRepo.createSoftwareTeam("test-software-team");
 
     const res = await app.request("/api/restore-check");
     const body = await res.json();
@@ -531,21 +531,21 @@ describe("Restore check routes", () => {
   });
 
   it("GET /api/restore-check returns non-null repairPacket with blocking field for broken fixture", async () => {
-    // Create a rig with a node and no persisted startup context, producing a
+    // Create a softwareTeam with a node and no persisted startup context, producing a
     // non-null repairPacket without treating an uninspected hook selection as ready.
-    const rig = rigRepo.createRig("broken-rig");
-    rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("broken-software-team");
+    softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
 
-    const res = await app.request("/api/restore-check?rig=broken-rig");
+    const res = await app.request("/api/restore-check?softwareTeam=broken-software-team");
     expect(res.status).toBe(200);
 
     const body = await res.json();
     expect(body.readiness).toBeDefined();
     expect(body.readiness.status).not.toBe("ready");
-    expect(body.rigs).toBeInstanceOf(Array);
-    expect(body.rigs[0]).toEqual(expect.objectContaining({
-      rigId: rig.id,
-      rigName: "broken-rig",
+    expect(body.softwareTeams).toBeInstanceOf(Array);
+    expect(body.softwareTeams[0]).toEqual(expect.objectContaining({
+      softwareTeamId: softwareTeam.id,
+      softwareTeamName: "broken-software-team",
       expectedNodes: 1,
       runningReadyNodes: expect.any(Number),
       blockedNodes: expect.any(Number),
@@ -576,11 +576,11 @@ describe("Restore check routes", () => {
     }
   });
 
-  it("GET /api/restore-check surfaces declared host-infra state from OPENRIG_HOME", async () => {
-    fs.writeFileSync(path.join(openRigHome, "host-infra.json"), VALID_HOST_INFRA_DECLARATION);
-    rigRepo.createRig("declared-rig");
+  it("GET /api/restore-check surfaces declared host-infra state from SOFTWARETEAM_HOME", async () => {
+    fs.writeFileSync(path.join(softwareTeamHome, "host-infra.json"), VALID_HOST_INFRA_DECLARATION);
+    softwareTeamRepo.createSoftwareTeam("declared-software-team");
 
-    const res = await app.request("/api/restore-check?rig=declared-rig");
+    const res = await app.request("/api/restore-check?softwareTeam=declared-software-team");
     expect(res.status).toBe(200);
 
     const body = await res.json();
@@ -588,7 +588,7 @@ describe("Restore check routes", () => {
     expect(check).toEqual(expect.objectContaining({
       status: "green",
     }));
-    expect(check.evidence).toContain(path.join(openRigHome, "host-infra.json"));
+    expect(check.evidence).toContain(path.join(softwareTeamHome, "host-infra.json"));
     expect(check.evidence).toContain("declared, not verified");
     expect(body.hostInfra).toEqual(expect.objectContaining({
       status: "declared",
@@ -597,16 +597,16 @@ describe("Restore check routes", () => {
   });
 
   it("GET /api/restore-check surfaces schemaVersion 2 evidence paths present", async () => {
-    const daemonPath = path.join(openRigHome, "daemon", "launchd.plist");
-    const supportPath = path.join(openRigHome, "supervisor-wake", "README.md");
+    const daemonPath = path.join(softwareTeamHome, "daemon", "launchd.plist");
+    const supportPath = path.join(softwareTeamHome, "supervisor-wake", "README.md");
     fs.mkdirSync(path.dirname(daemonPath), { recursive: true });
     fs.mkdirSync(path.dirname(supportPath), { recursive: true });
-    fs.writeFileSync(path.join(openRigHome, "host-infra.json"), v2HostInfraDeclaration());
+    fs.writeFileSync(path.join(softwareTeamHome, "host-infra.json"), v2HostInfraDeclaration());
     fs.writeFileSync(daemonPath, "daemon evidence");
     fs.writeFileSync(supportPath, "support evidence");
-    rigRepo.createRig("declared-rig");
+    softwareTeamRepo.createSoftwareTeam("declared-software-team");
 
-    const res = await app.request("/api/restore-check?rig=declared-rig");
+    const res = await app.request("/api/restore-check?softwareTeam=declared-software-team");
     expect(res.status).toBe(200);
 
     const body = await res.json();
@@ -624,14 +624,14 @@ describe("Restore check routes", () => {
   });
 
   it("GET /api/restore-check surfaces schemaVersion 2 missing evidence path as caveat", async () => {
-    const daemonPath = path.join(openRigHome, "daemon", "launchd.plist");
-    const supportPath = path.join(openRigHome, "supervisor-wake", "README.md");
+    const daemonPath = path.join(softwareTeamHome, "daemon", "launchd.plist");
+    const supportPath = path.join(softwareTeamHome, "supervisor-wake", "README.md");
     fs.mkdirSync(path.dirname(daemonPath), { recursive: true });
-    fs.writeFileSync(path.join(openRigHome, "host-infra.json"), v2HostInfraDeclaration());
+    fs.writeFileSync(path.join(softwareTeamHome, "host-infra.json"), v2HostInfraDeclaration());
     fs.writeFileSync(daemonPath, "daemon evidence");
-    rigRepo.createRig("declared-rig");
+    softwareTeamRepo.createSoftwareTeam("declared-software-team");
 
-    const res = await app.request("/api/restore-check?rig=declared-rig&noQueue=true&noHooks=true");
+    const res = await app.request("/api/restore-check?softwareTeam=declared-software-team&noQueue=true&noHooks=true");
     expect(res.status).toBe(200);
 
     const body = await res.json();
@@ -646,10 +646,10 @@ describe("Restore check routes", () => {
     ))).toBe(true);
   });
 
-  it("GET /api/restore-check?rig=nonexistent preserves missing host-infra state", async () => {
-    rigRepo.createRig("real-rig");
+  it("GET /api/restore-check?softwareTeam=nonexistent preserves missing host-infra state", async () => {
+    softwareTeamRepo.createSoftwareTeam("real-software-team");
 
-    const res = await app.request("/api/restore-check?rig=nonexistent&noQueue=true&noHooks=true");
+    const res = await app.request("/api/restore-check?softwareTeam=nonexistent&noQueue=true&noHooks=true");
     expect(res.status).toBe(200);
 
     const body = await res.json();
@@ -657,7 +657,7 @@ describe("Restore check routes", () => {
     expect(body.verdict).toBe("not_restorable");
     expect(check).toEqual(expect.objectContaining({
       status: "yellow",
-      evidence: expect.stringContaining(path.join(openRigHome, "host-infra.json")),
+      evidence: expect.stringContaining(path.join(softwareTeamHome, "host-infra.json")),
     }));
     expect(body.hostInfra).toEqual(expect.objectContaining({
       status: "not_declared",
@@ -665,11 +665,11 @@ describe("Restore check routes", () => {
     }));
   });
 
-  it("GET /api/restore-check?rig=nonexistent preserves declared host-infra state", async () => {
-    fs.writeFileSync(path.join(openRigHome, "host-infra.json"), VALID_HOST_INFRA_DECLARATION);
-    rigRepo.createRig("real-rig");
+  it("GET /api/restore-check?softwareTeam=nonexistent preserves declared host-infra state", async () => {
+    fs.writeFileSync(path.join(softwareTeamHome, "host-infra.json"), VALID_HOST_INFRA_DECLARATION);
+    softwareTeamRepo.createSoftwareTeam("real-software-team");
 
-    const res = await app.request("/api/restore-check?rig=nonexistent&noQueue=true&noHooks=true");
+    const res = await app.request("/api/restore-check?softwareTeam=nonexistent&noQueue=true&noHooks=true");
     expect(res.status).toBe(200);
 
     const body = await res.json();
@@ -677,7 +677,7 @@ describe("Restore check routes", () => {
     expect(body.verdict).toBe("not_restorable");
     expect(check).toEqual(expect.objectContaining({
       status: "green",
-      evidence: expect.stringContaining(path.join(openRigHome, "host-infra.json")),
+      evidence: expect.stringContaining(path.join(softwareTeamHome, "host-infra.json")),
     }));
     expect(body.hostInfra).toEqual(expect.objectContaining({
       status: "declared",
@@ -713,12 +713,12 @@ describe("Restore check routes", () => {
       expect(body.checks[0]).toEqual(expect.objectContaining({
         check: "probe.error",
         status: "red",
-        remediation: "Check daemon logs with: rig daemon logs",
+        remediation: "Check daemon logs with: SoftwareTeam daemon logs",
       }));
       expect(body.checks[0].evidence).toContain("route boom");
       expect(body.repairPacket).toEqual([{
         step: 1,
-        command: "Check daemon logs with: rig daemon logs",
+        command: "Check daemon logs with: SoftwareTeam daemon logs",
         rationale: expect.stringContaining("route boom"),
         safe: true,
         blocking: true,
@@ -728,23 +728,23 @@ describe("Restore check routes", () => {
     }
   });
 
-  it("GET /api/restore-check?rig=nonexistent returns repairPacket with blocking:true entry", async () => {
-    rigRepo.createRig("real-rig");
+  it("GET /api/restore-check?softwareTeam=nonexistent returns repairPacket with blocking:true entry", async () => {
+    softwareTeamRepo.createSoftwareTeam("real-software-team");
 
-    const res = await app.request("/api/restore-check?rig=nonexistent");
+    const res = await app.request("/api/restore-check?softwareTeam=nonexistent");
     const body = await res.json();
 
     expect(body.verdict).toBe("not_restorable");
     expect(body.repairPacket).toBeInstanceOf(Array);
     const blocker = body.repairPacket.find((s: { blocking: boolean }) => s.blocking);
     expect(blocker).toBeDefined();
-    expect(blocker.command).toContain("rig ps");
+    expect(blocker.command).toContain("SoftwareTeam ps");
   });
 
   // --- H62 absence proofs ---
 
   it("GET /api/restore-check response has no fullyBack or assertion fields", async () => {
-    rigRepo.createRig("test-rig");
+    softwareTeamRepo.createSoftwareTeam("test-software-team");
 
     const res = await app.request("/api/restore-check");
     const body = await res.json();
@@ -779,7 +779,7 @@ describe("Restore check routes", () => {
   });
 
   it("continuity is always not_proven in route responses", async () => {
-    rigRepo.createRig("test-rig");
+    softwareTeamRepo.createSoftwareTeam("test-software-team");
 
     const res = await app.request("/api/restore-check");
     const body = await res.json();
@@ -792,7 +792,7 @@ describe("Restore check routes", () => {
   // OPR.0.4.0.29 — compact vs --ready (ready=1) at the PRODUCTION route (finding 3:
   // exercise restoreCheckRoutes, not a duplicate test-only path).
   it("?compact=1 drops green checks (token win); ?compact=1&ready=1 keeps the ready detail", async () => {
-    rigRepo.createRig("test-rig");
+    softwareTeamRepo.createSoftwareTeam("test-software-team");
 
     const compact = await (await app.request("/api/restore-check?compact=1")).json();
     // Green checks (e.g. daemon.reachable) are dropped in compact mode.

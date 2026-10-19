@@ -1,5 +1,5 @@
 // P16 — STARTUP-WIRING PIN GRADUATION (the UNINJECTED-SERVICE class, twice
-// recurred: validateRig-uninjected + the dead occupant-invalidator). A service
+// recurred: validateSoftwareTeam-uninjected + the dead occupant-invalidator). A service
 // with an optional safety dep passes every unit test while production startup
 // silently never injects it — the feature is OFF in prod and nothing notices.
 //
@@ -33,14 +33,14 @@ const savedEnv: Record<string, string | undefined> = {};
 beforeAll(async () => {
   // D15 isolation: the composition writes real state — anchor it in scratch.
   scratch = fs.mkdtempSync(path.join(os.tmpdir(), "p16-wiring-"));
-  for (const k of ["OPENRIG_HOME", "OPENRIG_DB", "OPENRIG_URL", "OPENRIG_PORT", "OPENRIG_NO_KERNEL"]) {
+  for (const k of ["SOFTWARETEAM_HOME", "SOFTWARETEAM_DB", "SOFTWARETEAM_URL", "SOFTWARETEAM_PORT", "SOFTWARETEAM_NO_KERNEL"]) {
     savedEnv[k] = process.env[k];
   }
-  process.env.OPENRIG_HOME = path.join(scratch, "home");
-  process.env.OPENRIG_DB = path.join(scratch, "wiring.sqlite");
-  delete process.env.OPENRIG_URL;
-  delete process.env.OPENRIG_PORT;
-  process.env.OPENRIG_NO_KERNEL = "1";
+  process.env.SOFTWARETEAM_HOME = path.join(scratch, "home");
+  process.env.SOFTWARETEAM_DB = path.join(scratch, "wiring.sqlite");
+  delete process.env.SOFTWARETEAM_URL;
+  delete process.env.SOFTWARETEAM_PORT;
+  process.env.SOFTWARETEAM_NO_KERNEL = "1";
   const cmuxFactory: CmuxTransportFactory = async () => {
     throw Object.assign(new Error("no socket"), { code: "ENOENT" });
   };
@@ -48,7 +48,7 @@ beforeAll(async () => {
   // production passes the RESOLVED file dbPath (index.ts) — :memory: is the
   // test-friendly default that deliberately skips the slow-op recorder; the
   // wiring pin must compose like production.
-  const result = await createDaemon({ cmuxFactory, tmuxExec, dbPath: process.env.OPENRIG_DB! });
+  const result = await createDaemon({ cmuxFactory, tmuxExec, dbPath: process.env.SOFTWARETEAM_DB! });
   db = result.db;
   deps = result.deps;
   contextMonitor = result.contextMonitor;
@@ -74,7 +74,7 @@ describe("P16 — AppDeps members with safety semantics are composed (definednes
     "transcriptStore", "providerService", "seatIdentityReconciler",
     "seatActivityService", "watchdogJobsRepo", "watchdogHistoryLog",
     "watchdogPolicyEngine", "watchdogScheduler", "periodicSnapshotScheduler",
-    "workflowRuntime", "selfAttachService", "rigLifecycleService",
+    "workflowRuntime", "selfAttachService", "softwareTeamLifecycleService",
     "resumeMetadataRefresher", "runtimeAdapters",
     "seatStructuralActivityService",
     "streamStore", "askService", "wakeResolveService", "projectClassifier",
@@ -88,15 +88,15 @@ describe("P16 — AppDeps members with safety semantics are composed (definednes
 });
 
 describe("P16 — domain-internal safety injections (the recurred class, pinned at the wire)", () => {
-  it("QueueRepository.validateRig is the topology gate, not the permissive default (recurrence #1)", async () => {
-    // behavioral probe through the composed object: an unknown-rig destination must refuse.
+  it("QueueRepository.validateSoftwareTeam is the topology gate, not the permissive default (recurrence #1)", async () => {
+    // behavioral probe through the composed object: an unknown-softwareTeam destination must refuse.
     await expect(
       deps.queueRepo!.create({
         sourceSession: "a@known-nowhere",
-        destinationSession: "b@definitely-unregistered-rig",
+        destinationSession: "b@definitely-unregistered-software-team",
         body: "wiring probe",
       } as never),
-    ).rejects.toThrow(/unknown rig/);
+    ).rejects.toThrow(/unknown softwareTeam/);
   });
 
   it("QueueRepository.workflowFrontierPredicate is injected (the close-path guard)", () => {
@@ -131,9 +131,9 @@ describe("P16 — domain-internal safety injections (the recurred class, pinned 
     try {
       for (const name of names) startTranscriptRotation(capture, name, path.join(scratch, `${name}.log`), { lines: 1, pollIntervalMs: 60_000 });
       const before = getActiveRotationCount();
-      deps.eventBus.emit({ type: "session.stopped", rigId: "r", nodeId: "n1", sessionName: names[0]!, reason: "pin", operator: null });
-      deps.eventBus.emit({ type: "session.detached", rigId: "r", nodeId: "n2", sessionName: names[1]! });
-      deps.eventBus.emit({ type: "session.cleaned", rigId: "r", nodeId: "n3", sessionName: names[2]!, reason: "pin", operator: null,
+      deps.eventBus.emit({ type: "session.stopped", softwareTeamId: "r", nodeId: "n1", sessionName: names[0]!, reason: "pin", operator: null });
+      deps.eventBus.emit({ type: "session.detached", softwareTeamId: "r", nodeId: "n2", sessionName: names[1]! });
+      deps.eventBus.emit({ type: "session.cleaned", softwareTeamId: "r", nodeId: "n3", sessionName: names[2]!, reason: "pin", operator: null,
         actions: { sessionsExited: [names[2]!], bindingCleared: true } });
       expect(getActiveRotationCount()).toBe(before - names.length);
     } finally {
@@ -144,7 +144,7 @@ describe("P16 — domain-internal safety injections (the recurred class, pinned 
 
 describe("P16 — UNINJECTED-SERVICE findings ledger (routed to desk; todo graduates to a pin when the fix lands)", () => {
   it.todo("FINDING A1: SeatHandoverService.occupantInvalidator UNINJECTED (routes/seat.ts construction) — every handover commits with zero state invalidation; ghost-stage atom-B lane owns the impl");
-  it.todo("FINDING A2: projection-planner resolveTargetPath UNINJECTED (rigspec-instantiator.ts:1672) — hash_conflict classification dead; operator-modified files silently overwritten");
+  it.todo("FINDING A2: projection-planner resolveTargetPath UNINJECTED (software-team-spec-instantiator.ts:1672) — hash_conflict classification dead; operator-modified files silently overwritten");
   it.todo("FINDING A3: InboxHandler.authenticate UNINJECTED (startup.ts:950) — sender-spoofing gate is allow-all; route forwards client-supplied authenticatedSender");
   it.todo("FINDING A4: WorkflowValidator seatLivenessCheck never constructed — role_no_live_preferred_target advisory dead; instances stall at step 1 unwarned");
   it("A5 GRADUATED (P19): AskService's PsProjectionService carries seatActivity — one terminalActive truth across both paths", () => {

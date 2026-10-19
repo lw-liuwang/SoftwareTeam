@@ -1,21 +1,21 @@
 import { parseAgentSpec, validateAgentSpec } from "./agent-manifest.js";
-import { RigSpecCodec } from "./rigspec-codec.js";
-import { LegacyRigSpecSchema, RigSpecSchema } from "./rigspec-schema.js";
+import { SoftwareTeamSpecCodec } from "./software-team-spec-codec.js";
+import { LegacySoftwareTeamSpecSchema, SoftwareTeamSpecSchema } from "./software-team-spec-schema.js";
 import type { ValidationResult } from "./types.js";
 
 /** Only parser failures are client input errors; validator exceptions remain internal failures. */
-export class RigSpecParseError extends Error {}
+export class SoftwareTeamSpecParseError extends Error {}
 
 /** Shared CLI/import validation with a distinct parser-error boundary. */
-export function validateRigSpecImport(yaml: string): ValidationResult {
+export function validateSoftwareTeamSpecImport(yaml: string): ValidationResult {
   let raw: unknown;
   try {
-    raw = RigSpecCodec.parse(yaml);
+    raw = SoftwareTeamSpecCodec.parse(yaml);
   } catch (err) {
-    throw new RigSpecParseError(err instanceof Error ? err.message : String(err), { cause: err });
+    throw new SoftwareTeamSpecParseError(err instanceof Error ? err.message : String(err), { cause: err });
   }
   const isPodAware = raw && typeof raw === "object" && Array.isArray((raw as Record<string, unknown>).pods);
-  return isPodAware ? RigSpecSchema.validate(raw) : LegacyRigSpecSchema.validate(raw);
+  return isPodAware ? SoftwareTeamSpecSchema.validate(raw) : LegacySoftwareTeamSpecSchema.validate(raw);
 }
 
 /**
@@ -34,15 +34,15 @@ export function validateAgentSpecFromYaml(yaml: string): { valid: boolean; error
 }
 
 /**
- * Validate a pod-aware RigSpec from raw YAML text.
+ * Validate a pod-aware SoftwareTeamSpec from raw YAML text.
  * No filesystem access, no side effects.
- * @param yaml - raw rig.yaml content
+ * @param yaml - raw software-team.yaml content
  * @returns validation result
  */
-export function validateRigSpecFromYaml(yaml: string): { valid: boolean; errors: string[] } {
+export function validateSoftwareTeamSpecFromYaml(yaml: string): { valid: boolean; errors: string[] } {
   try {
-    const raw = RigSpecCodec.parse(yaml);
-    return RigSpecSchema.validate(raw);
+    const raw = SoftwareTeamSpecCodec.parse(yaml);
+    return SoftwareTeamSpecSchema.validate(raw);
   } catch (err) {
     return { valid: false, errors: [`Parse error: ${(err as Error).message}`] };
   }

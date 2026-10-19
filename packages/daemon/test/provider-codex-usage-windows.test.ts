@@ -108,7 +108,7 @@ describe("CodexUsageWindows: rows, failed refresh, identity, coalescing", () => 
   it("before any read: one explicit unavailable row, never an empty answer", () => {
     const { windows } = scripted([okRead(rateLimitsAnswer({}))]);
     const rows = windows.project(T0);
-    expect(rows).toEqual([expect.objectContaining({ identity: null, windows: [], currentAvailability: "unknown", unavailableReason: `no reading since the daemon started at ${T0}; refresh with rig provider status --refresh` })]);
+    expect(rows).toEqual([expect.objectContaining({ identity: null, windows: [], currentAvailability: "unknown", unavailableReason: `no reading since the daemon started at ${T0}; refresh with SoftwareTeam provider status --refresh` })]);
   });
 
   it("U2: a Codex account at its weekly limit reads exhausted, fresh, with its own observation time", async () => {

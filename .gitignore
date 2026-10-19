@@ -21,16 +21,19 @@ notes/*
 *.sqlite-shm
 *.sqlite-wal
 *.sqlite.pre-reboot-backup
+.softwareteam/
+# Preserve legacy local state without exposing credentials or importing it.
 .openrig/
+.rigged/
 .claude/*
 !.claude/skills/
 .claude/skills/*
-!.claude/skills/developing-openrig/
+!.claude/skills/developing-softwareteam/
 .agents/*
 !.agents/skills/
 .agents/skills/*
-!.agents/skills/developing-openrig/
-.openrig
+!.agents/skills/developing-softwareteam/
+.softwareteam
 .worktrees/
 
 # Local demo proof artifacts
@@ -47,5 +50,6 @@ packages/daemon/context-packs/
 /.evidence/
 
 # Host-local team launch paths and per-expert projected runtime files.
-/team/rig.local.yaml
+/team/software-team.local.yaml
+/team/PROJECT.local.md
 /team/workspaces/

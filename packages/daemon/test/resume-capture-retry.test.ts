@@ -12,7 +12,7 @@ const roots: string[] = [];
 afterEach(() => { vi.useRealTimers(); for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 const identity = "Sun Sep  6 23:52:32 2026";
 const token = "019d45c3-e909-7152-b52e-34edab4070ed";
-const session = { sessionId: "session-1", sessionName: "codex@rig", runtime: "codex", resumeType: null, resumeToken: null };
+const session = { sessionId: "session-1", sessionName: "codex@software-team", runtime: "codex", resumeType: null, resumeToken: null };
 function fixture(reason?: string) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "resume-capture-retry-")); roots.push(home);
   const codexHome = path.join(home, ".codex"); fs.mkdirSync(codexHome);
@@ -43,13 +43,13 @@ describe("S11 Codex capture diagnostics and retry", () => {
     const f = fixture();
     expect(await f.refresher.captureCodexThreadId(session.sessionName, { attempts: 1 })).toBeUndefined();
     expect(await f.refresher.captureCodexThreadId(session.sessionName, { attempts: 1 })).toBeUndefined();
-    expect(f.lines).toEqual(["[resume-capture] codex@rig: no_log_row"]);
+    expect(f.lines).toEqual(["[resume-capture] codex@software-team: no_log_row"]);
     expect(f.lines.join("\n")).not.toContain(token);
   });
   it("S11-2: ambiguous CLI threads are reported with count, never selected", async () => {
     const f = fixture(); f.add(token); f.add("019d45c3-e909-7152-b52e-34edab4070ee");
     expect(await f.refresher.captureCodexThreadId(session.sessionName, { attempts: 1 })).toBeUndefined();
-    expect(f.lines).toEqual(["[resume-capture] codex@rig: ambiguous_threads count=2"]);
+    expect(f.lines).toEqual(["[resume-capture] codex@software-team: ambiguous_threads count=2"]);
     expect(f.lines.join("\n")).not.toContain(token);
   });
   it("S11-3: a late SQLite row fills a null token on the next tick and logs redacted success once", async () => {
@@ -60,7 +60,7 @@ describe("S11 Codex capture diagnostics and retry", () => {
     await f.refresher.refresh([session], { fillNullOnly: true });
     expect(f.registry.updateResumeToken).toHaveBeenCalledWith(session.sessionId, "codex_id", token, "scrape");
     await f.refresher.refresh([{ ...session, resumeToken: token }], { fillNullOnly: true });
-    expect(f.lines).toEqual(["[resume-capture] codex@rig: no_log_row", "[resume-capture] codex@rig: captured"]);
+    expect(f.lines).toEqual(["[resume-capture] codex@software-team: no_log_row", "[resume-capture] codex@software-team: captured"]);
     expect(f.lines.join("\n")).not.toContain(token);
     expect(f.lines.join("\n")).not.toContain(token.slice(0, 8));
     console.log(f.lines.join("\n"));
@@ -109,7 +109,7 @@ describe("S11 Codex capture diagnostics and retry", () => {
       tmuxAdapter: { getPanePid: async () => 900 } as TmuxAdapter,
       listProcesses: () => { throw new Error("ps exploded " + token); }, log: line => lines.push(line) });
     await expect(refresher.refresh([session], { fillNullOnly: true })).rejects.toThrow("ps exploded");
-    expect(lines).toEqual(["[resume-capture] codex@rig: process_unreadable"]);
+    expect(lines).toEqual(["[resume-capture] codex@software-team: process_unreadable"]);
     expect(lines.join("\n")).not.toContain("exploded");
     expect(lines.join("\n")).not.toContain(token);
   });
@@ -123,7 +123,7 @@ describe("S11 Codex capture diagnostics and retry", () => {
     await vi.waitFor(() => expect(release).toBeTypeOf("function"));
     refresher.stop(); release();
     expect(await capture).toBeUndefined();
-    expect(lines).toEqual(["[resume-capture] codex@rig: shutdown"]);
+    expect(lines).toEqual(["[resume-capture] codex@software-team: shutdown"]);
   });
   it("S11-5: shutdown cancels an unresolved adoption read, with retry by a new refresher", async () => {
     const read = vi.fn(() => new Promise<string | undefined>(() => {}));
@@ -150,6 +150,6 @@ describe("S11 Codex capture diagnostics and retry", () => {
     if (reason === "no_cli_thread") f.add(token, "exec");
     if (reason === "sqlite_unreadable") fs.writeFileSync(f.logsPath, "not sqlite");
     expect(await f.refresher.captureCodexThreadId(session.sessionName, { attempts: 1 })).toBeUndefined();
-    expect(f.lines).toEqual([`[resume-capture] codex@rig: ${reason}`]);
+    expect(f.lines).toEqual([`[resume-capture] codex@software-team: ${reason}`]);
   });
 });

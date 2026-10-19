@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { PodRepository } from "../src/domain/pod-repository.js";
-import { PodRigInstantiator } from "../src/domain/rigspec-instantiator.js";
+import { PodSoftwareTeamInstantiator } from "../src/domain/software-team-spec-instantiator.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { SnapshotRepository } from "../src/domain/snapshot-repository.js";
@@ -18,18 +18,18 @@ import type { TmuxAdapter } from "../src/adapters/tmux.js";
 import type { ClaudeResumeAdapter } from "../src/adapters/claude-resume.js";
 import type { CodexResumeAdapter } from "../src/adapters/codex-resume.js";
 import type { ResolvedAgentSpec } from "../src/domain/agent-resolver.js";
-import type { RigSpecPodMember } from "../src/domain/types.js";
+import type { SoftwareTeamSpecPodMember } from "../src/domain/types.js";
 
 function setup() {
   const db = createFullTestDb();
-  const rigRepo = new RigRepository(db);
+  const softwareTeamRepo = new SoftwareTeamRepository(db);
   const podRepo = new PodRepository(db);
   const sessionRegistry = new SessionRegistry(db);
   const eventBus = new EventBus(db);
   const snapshotRepo = new SnapshotRepository(db);
   const checkpointStore = new CheckpointStore(db);
-  const snapshotCapture = new SnapshotCapture({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
-  return { db, rigRepo, podRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore, snapshotCapture };
+  const snapshotCapture = new SnapshotCapture({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
+  return { db, softwareTeamRepo, podRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore, snapshotCapture };
 }
 
 function mockFs() {
@@ -67,10 +67,10 @@ function mockResolvedSpec(preferences?: { runtime?: string; model?: string; effo
 describe("Effort Lifecycle E2E: profile -> launch -> snapshot -> restore (#75)", () => {
   it("Claude: resolves effort from profile, persists on node, launches with --effort, snapshots, and restores with effort", async () => {
     const ctx = setup();
-    const rig = ctx.rigRepo.createRig("e2e-rig");
-    const pod = ctx.podRepo.createPod(rig.id, "dev", "Dev", {});
+    const softwareTeam = ctx.softwareTeamRepo.createSoftwareTeam("e2e-software-team");
+    const pod = ctx.podRepo.createPod(softwareTeam.id, "dev", "Dev", {});
 
-    const member: RigSpecPodMember = {
+    const member: SoftwareTeamSpecPodMember = {
       id: "analyst",
       agentRef: "local:agents/analyst",
       profile: "reasoner",
@@ -86,7 +86,7 @@ describe("Effort Lifecycle E2E: profile -> launch -> snapshot -> restore (#75)",
       profileName: "reasoner",
       member,
       pod: { id: "dev", label: "Dev", members: [member], edges: [] },
-      rig: { version: "0.2", name: "e2e-rig", pods: [], edges: [] },
+      softwareTeam: { version: "0.2", name: "e2e-software-team", pods: [], edges: [] },
     };
     const configResult = resolveNodeConfig(resCtx);
     expect(configResult.ok).toBe(true);
@@ -94,7 +94,7 @@ describe("Effort Lifecycle E2E: profile -> launch -> snapshot -> restore (#75)",
     expect(configResult.config.effort).toBe("high");
 
     // 2. Add node persisting effective effort into SQLite
-    const node = ctx.rigRepo.addNode(rig.id, "analyst", {
+    const node = ctx.softwareTeamRepo.addNode(softwareTeam.id, "analyst", {
       runtime: "claude-code",
       agentRef: member.agentRef,
       profile: member.profile,
@@ -104,7 +104,7 @@ describe("Effort Lifecycle E2E: profile -> launch -> snapshot -> restore (#75)",
     });
 
     // Verify database column effort was populated
-    const dbNode = ctx.rigRepo.getRig(rig.id)!.nodes.find((n) => n.id === node.id);
+    const dbNode = ctx.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find((n) => n.id === node.id);
     expect(dbNode).toBeDefined();
     expect(dbNode!.effort).toBe("high");
 
@@ -130,11 +130,11 @@ describe("Effort Lifecycle E2E: profile -> launch -> snapshot -> restore (#75)",
 
     const launchResult = await claudeAdapter.launchHarness({
       id: "bind-1",
-      rigId: rig.id,
+      softwareTeamId: softwareTeam.id,
       nodeId: node.id,
       logicalId: "analyst",
       runtime: "claude-code",
-      sessionName: "dev-analyst@e2e-rig",
+      sessionName: "dev-analyst@e2e-software-team",
       tmuxSession: "e2e-session",
       tmuxPane: "%0",
       cmuxSurface: null,
@@ -149,13 +149,13 @@ describe("Effort Lifecycle E2E: profile -> launch -> snapshot -> restore (#75)",
     expect(lastClaudeCmd).toContain("--model 'claude-3-7-sonnet-20250219'");
 
     // Register running session and snapshot
-    const session = ctx.sessionRegistry.registerSession(node.id, "dev-analyst@e2e-rig");
+    const session = ctx.sessionRegistry.registerSession(node.id, "dev-analyst@e2e-software-team");
     ctx.sessionRegistry.updateStatus(session.id, "running");
     ctx.sessionRegistry.updateStartupStatus(session.id, "ready", new Date().toISOString());
     ctx.db.prepare("UPDATE sessions SET resume_type = 'claude_name', resume_token = 'tok-123' WHERE id = ?").run(session.id);
 
     // 4. Snapshot capture captures node.effort
-    const snapshot = ctx.snapshotCapture.captureSnapshot(rig.id, "manual");
+    const snapshot = ctx.snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
     expect(snapshot.data.nodes).toHaveLength(1);
     expect(snapshot.data.nodes[0]!.effort).toBe("high");
 
@@ -182,10 +182,10 @@ describe("Effort Lifecycle E2E: profile -> launch -> snapshot -> restore (#75)",
       getPaneCommand: vi.fn(async () => "claude"),
     } as any;
 
-    const nodeLauncher = new NodeLauncher({ db: ctx.db, rigRepo: ctx.rigRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus, tmuxAdapter: mockTmux });
+    const nodeLauncher = new NodeLauncher({ db: ctx.db, softwareTeamRepo: ctx.softwareTeamRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus, tmuxAdapter: mockTmux });
     const restoreOrch = new RestoreOrchestrator({
       db: ctx.db,
-      rigRepo: ctx.rigRepo,
+      softwareTeamRepo: ctx.softwareTeamRepo,
       sessionRegistry: ctx.sessionRegistry,
       eventBus: ctx.eventBus,
       snapshotRepo: ctx.snapshotRepo,
@@ -213,10 +213,10 @@ describe("Effort Lifecycle E2E: profile -> launch -> snapshot -> restore (#75)",
 
   it("Codex: resolves effort from profile, persists on node, launches with -c model_reasoning_effort, snapshots, and restores with effort", async () => {
     const ctx = setup();
-    const rig = ctx.rigRepo.createRig("e2e-codex-rig");
-    const pod = ctx.podRepo.createPod(rig.id, "dev", "Dev", {});
+    const softwareTeam = ctx.softwareTeamRepo.createSoftwareTeam("e2e-codex-software-team");
+    const pod = ctx.podRepo.createPod(softwareTeam.id, "dev", "Dev", {});
 
-    const member: RigSpecPodMember = {
+    const member: SoftwareTeamSpecPodMember = {
       id: "coder",
       agentRef: "local:agents/coder",
       profile: "reasoner",
@@ -231,14 +231,14 @@ describe("Effort Lifecycle E2E: profile -> launch -> snapshot -> restore (#75)",
       profileName: "reasoner",
       member,
       pod: { id: "dev", label: "Dev", members: [member], edges: [] },
-      rig: { version: "0.2", name: "e2e-codex-rig", pods: [], edges: [] },
+      softwareTeam: { version: "0.2", name: "e2e-codex-software-team", pods: [], edges: [] },
     };
     const configResult = resolveNodeConfig(resCtx);
     expect(configResult.ok).toBe(true);
     if (!configResult.ok) throw new Error("Config resolution failed");
     expect(configResult.config.effort).toBe("medium");
 
-    const node = ctx.rigRepo.addNode(rig.id, "coder", {
+    const node = ctx.softwareTeamRepo.addNode(softwareTeam.id, "coder", {
       runtime: "codex",
       agentRef: member.agentRef,
       profile: member.profile,
@@ -247,7 +247,7 @@ describe("Effort Lifecycle E2E: profile -> launch -> snapshot -> restore (#75)",
       cwd: configResult.config.cwd,
     });
 
-    const dbNode = ctx.rigRepo.getRig(rig.id)!.nodes.find((n) => n.id === node.id);
+    const dbNode = ctx.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find((n) => n.id === node.id);
     expect(dbNode!.effort).toBe("medium");
 
     // Launch verification: Codex runtime adapter includes -c model_reasoning_effort="medium"
@@ -273,11 +273,11 @@ describe("Effort Lifecycle E2E: profile -> launch -> snapshot -> restore (#75)",
 
     const launchResult = await codexAdapter.launchHarness({
       id: "bind-2",
-      rigId: rig.id,
+      softwareTeamId: softwareTeam.id,
       nodeId: node.id,
       logicalId: "coder",
       runtime: "codex",
-      sessionName: "dev-coder@e2e-codex-rig",
+      sessionName: "dev-coder@e2e-codex-software-team",
       tmuxSession: "e2e-session",
       tmuxPane: "%0",
       cmuxSurface: null,
@@ -292,12 +292,12 @@ describe("Effort Lifecycle E2E: profile -> launch -> snapshot -> restore (#75)",
     expect(lastCodexCmd).toContain("-m 'o3-mini'");
 
     // Register running session and snapshot
-    const session = ctx.sessionRegistry.registerSession(node.id, "dev-coder@e2e-codex-rig");
+    const session = ctx.sessionRegistry.registerSession(node.id, "dev-coder@e2e-codex-software-team");
     ctx.sessionRegistry.updateStatus(session.id, "running");
     ctx.sessionRegistry.updateStartupStatus(session.id, "ready", new Date().toISOString());
     ctx.db.prepare("UPDATE sessions SET resume_type = 'codex_id', resume_token = 'sess-codex-1' WHERE id = ?").run(session.id);
 
-    const snapshot = ctx.snapshotCapture.captureSnapshot(rig.id, "manual");
+    const snapshot = ctx.snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
     expect(snapshot.data.nodes[0]!.effort).toBe("medium");
 
     // Restore verification: verify effort is passed through to CodexResumeAdapter
@@ -319,10 +319,10 @@ describe("Effort Lifecycle E2E: profile -> launch -> snapshot -> restore (#75)",
       getPaneCommand: vi.fn(async () => "codex"),
     } as any;
 
-    const nodeLauncher = new NodeLauncher({ db: ctx.db, rigRepo: ctx.rigRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus, tmuxAdapter: mockTmux });
+    const nodeLauncher = new NodeLauncher({ db: ctx.db, softwareTeamRepo: ctx.softwareTeamRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus, tmuxAdapter: mockTmux });
     const restoreOrch = new RestoreOrchestrator({
       db: ctx.db,
-      rigRepo: ctx.rigRepo,
+      softwareTeamRepo: ctx.softwareTeamRepo,
       sessionRegistry: ctx.sessionRegistry,
       eventBus: ctx.eventBus,
       snapshotRepo: ctx.snapshotRepo,
@@ -352,13 +352,13 @@ describe("Effort clear: removing effort from resolved config clears stored node 
   it("setNodeEffort then clearNodeEffort produces NULL in the DB", () => {
     const ctx = (() => {
       const db = createFullTestDb();
-      const rigRepo = new RigRepository(db);
-      return { db, rigRepo };
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
+      return { db, softwareTeamRepo };
     })();
 
-    // Set up rig + node with effort = "high"
-    const rig = ctx.rigRepo.createRig("clear-test-rig");
-    const node = ctx.rigRepo.addNode(rig.id, "worker", {
+    // Set up softwareTeam + node with effort = "high"
+    const softwareTeam = ctx.softwareTeamRepo.createSoftwareTeam("clear-test-software-team");
+    const node = ctx.softwareTeamRepo.addNode(softwareTeam.id, "worker", {
       runtime: "claude-code",
       agentRef: "agents/worker.yaml",
       profile: "default",
@@ -366,13 +366,13 @@ describe("Effort clear: removing effort from resolved config clears stored node 
       effort: "high",
     });
 
-    const before = ctx.rigRepo.getRig(rig.id)!.nodes.find((n) => n.id === node.id);
+    const before = ctx.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find((n) => n.id === node.id);
     expect(before!.effort).toBe("high");
 
     // Now simulate updateNodeResolvedConfig with effort absent — should call clearNodeEffort
-    ctx.rigRepo.clearNodeEffort(node.id);
+    ctx.softwareTeamRepo.clearNodeEffort(node.id);
 
-    const after = ctx.rigRepo.getRig(rig.id)!.nodes.find((n) => n.id === node.id);
+    const after = ctx.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find((n) => n.id === node.id);
     expect(after!.effort).toBeNull();
 
     ctx.db.close();
@@ -380,10 +380,10 @@ describe("Effort clear: removing effort from resolved config clears stored node 
 
   it("high → removed → relaunch: clearing effort updates DB and subsequent launch/restore omits effort flag", async () => {
     const ctx = setup();
-    const rig = ctx.rigRepo.createRig("relaunch-rig");
-    ctx.podRepo.createPod(rig.id, "dev", "Dev", {});
+    const softwareTeam = ctx.softwareTeamRepo.createSoftwareTeam("relaunch-software-team");
+    ctx.podRepo.createPod(softwareTeam.id, "dev", "Dev", {});
 
-    const member: RigSpecPodMember = {
+    const member: SoftwareTeamSpecPodMember = {
       id: "analyst",
       agentRef: "local:agents/analyst",
       profile: "reasoner",
@@ -392,7 +392,7 @@ describe("Effort clear: removing effort from resolved config clears stored node 
     };
 
     // 1. Initial launch with effort = "high"
-    const node = ctx.rigRepo.addNode(rig.id, "analyst", {
+    const node = ctx.softwareTeamRepo.addNode(softwareTeam.id, "analyst", {
       runtime: "claude-code",
       agentRef: member.agentRef,
       profile: member.profile,
@@ -423,11 +423,11 @@ describe("Effort clear: removing effort from resolved config clears stored node 
     // Launch with initial high effort
     await claudeAdapter.launchHarness({
       id: "bind-1",
-      rigId: rig.id,
+      softwareTeamId: softwareTeam.id,
       nodeId: node.id,
       logicalId: "analyst",
       runtime: "claude-code",
-      sessionName: "dev-analyst@relaunch-rig",
+      sessionName: "dev-analyst@relaunch-software-team",
       tmuxSession: "relaunch-session",
       tmuxPane: "%0",
       cmuxSurface: null,
@@ -440,10 +440,10 @@ describe("Effort clear: removing effort from resolved config clears stored node 
     expect((tmux.sendText as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]).toContain("--effort 'high'");
 
     // 2. Config refresh: effort is removed from the resolved config
-    const nodeLauncher = new NodeLauncher({ db: ctx.db, rigRepo: ctx.rigRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus, tmuxAdapter: tmux });
-    const instantiator = new PodRigInstantiator({
+    const nodeLauncher = new NodeLauncher({ db: ctx.db, softwareTeamRepo: ctx.softwareTeamRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus, tmuxAdapter: tmux });
+    const instantiator = new PodSoftwareTeamInstantiator({
       db: ctx.db,
-      rigRepo: ctx.rigRepo,
+      softwareTeamRepo: ctx.softwareTeamRepo,
       podRepo: ctx.podRepo,
       sessionRegistry: ctx.sessionRegistry,
       eventBus: ctx.eventBus,
@@ -464,18 +464,18 @@ describe("Effort clear: removing effort from resolved config clears stored node 
     });
 
     // Verify stored effort is now null in DB
-    const refreshedNode = ctx.rigRepo.getRig(rig.id)!.nodes.find((n) => n.id === node.id)!;
+    const refreshedNode = ctx.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find((n) => n.id === node.id)!;
     expect(refreshedNode.effort).toBeNull();
 
     // 3. Relaunch: launch harness again using refreshed node state
     vi.mocked(tmux.sendText).mockClear();
     await claudeAdapter.launchHarness({
       id: "bind-2",
-      rigId: rig.id,
+      softwareTeamId: softwareTeam.id,
       nodeId: node.id,
       logicalId: "analyst",
       runtime: "claude-code",
-      sessionName: "dev-analyst@relaunch-rig",
+      sessionName: "dev-analyst@relaunch-software-team",
       tmuxSession: "relaunch-session",
       tmuxPane: "%0",
       cmuxSurface: null,
@@ -489,12 +489,12 @@ describe("Effort clear: removing effort from resolved config clears stored node 
     expect(relaunchCmd).not.toContain("--effort");
 
     // 4. Fresh restore: snapshot and restore should also omit effort
-    const session = ctx.sessionRegistry.registerSession(node.id, "dev-analyst@relaunch-rig");
+    const session = ctx.sessionRegistry.registerSession(node.id, "dev-analyst@relaunch-software-team");
     ctx.sessionRegistry.updateStatus(session.id, "running");
     ctx.sessionRegistry.updateStartupStatus(session.id, "ready", new Date().toISOString());
     ctx.db.prepare("UPDATE sessions SET resume_type = 'claude_name', resume_token = 'tok-456' WHERE id = ?").run(session.id);
 
-    const snapshot = ctx.snapshotCapture.captureSnapshot(rig.id, "manual");
+    const snapshot = ctx.snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
     expect(snapshot.data.nodes[0]!.effort).toBeNull();
 
     const mockClaudeResume = {
@@ -514,10 +514,10 @@ describe("Effort clear: removing effort from resolved config clears stored node 
       getPaneCommand: vi.fn(async () => "claude"),
     } as any;
 
-    const restoreNodeLauncher = new NodeLauncher({ db: ctx.db, rigRepo: ctx.rigRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus, tmuxAdapter: mockTmux });
+    const restoreNodeLauncher = new NodeLauncher({ db: ctx.db, softwareTeamRepo: ctx.softwareTeamRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus, tmuxAdapter: mockTmux });
     const restoreOrch = new RestoreOrchestrator({
       db: ctx.db,
-      rigRepo: ctx.rigRepo,
+      softwareTeamRepo: ctx.softwareTeamRepo,
       sessionRegistry: ctx.sessionRegistry,
       eventBus: ctx.eventBus,
       snapshotRepo: ctx.snapshotRepo,
@@ -548,14 +548,14 @@ describe("Effort clear: removing effort from resolved config clears stored node 
 describe("Effort precedence, latest wins: a choice saved after the snapshot (OPR.0.7.0.7)", () => {
   it("restore launches the seat's saved choice, not the snapshot's effort, says so, and keeps the choice", async () => {
     const ctx = setup();
-    const rig = ctx.rigRepo.createRig("prec-rig");
-    const node = ctx.rigRepo.addNode(rig.id, "coder", { runtime: "codex", model: "o3-mini", effort: "medium", cwd: "/workspace" });
-    const session = ctx.sessionRegistry.registerSession(node.id, "coder@prec-rig");
+    const softwareTeam = ctx.softwareTeamRepo.createSoftwareTeam("prec-software-team");
+    const node = ctx.softwareTeamRepo.addNode(softwareTeam.id, "coder", { runtime: "codex", model: "o3-mini", effort: "medium", cwd: "/workspace" });
+    const session = ctx.sessionRegistry.registerSession(node.id, "coder@prec-software-team");
     ctx.sessionRegistry.updateStatus(session.id, "running");
     ctx.sessionRegistry.updateStartupStatus(session.id, "ready", new Date().toISOString());
     ctx.db.prepare("UPDATE sessions SET resume_type = 'codex_id', resume_token = 'sess-codex-1' WHERE id = ?").run(session.id);
-    const snapshot = ctx.snapshotCapture.captureSnapshot(rig.id, "manual");
-    ctx.rigRepo.setNodeEffortChoice(node.id, "high");
+    const snapshot = ctx.snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
+    ctx.softwareTeamRepo.setNodeEffortChoice(node.id, "high");
 
     const mockCodexResume = { canResume: vi.fn(() => true), resume: vi.fn(async () => ({ ok: true, code: "resumed" })) } as unknown as CodexResumeAdapter;
     const mockTmux = {
@@ -564,9 +564,9 @@ describe("Effort precedence, latest wins: a choice saved after the snapshot (OPR
       sendText: vi.fn(async () => ({ ok: true })), sendKeys: vi.fn(async () => ({ ok: true })),
       listWindows: vi.fn(async () => []), listPanes: vi.fn(async () => []), getPaneCommand: vi.fn(async () => "codex"),
     } as any;
-    const nodeLauncher = new NodeLauncher({ db: ctx.db, rigRepo: ctx.rigRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus, tmuxAdapter: mockTmux });
+    const nodeLauncher = new NodeLauncher({ db: ctx.db, softwareTeamRepo: ctx.softwareTeamRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus, tmuxAdapter: mockTmux });
     const restoreOrch = new RestoreOrchestrator({
-      db: ctx.db, rigRepo: ctx.rigRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus,
+      db: ctx.db, softwareTeamRepo: ctx.softwareTeamRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus,
       snapshotRepo: ctx.snapshotRepo, snapshotCapture: ctx.snapshotCapture, checkpointStore: ctx.checkpointStore,
       nodeLauncher, tmuxAdapter: mockTmux,
       claudeResume: { canResume: vi.fn(() => false), resume: vi.fn() } as unknown as ClaudeResumeAdapter,
@@ -577,21 +577,21 @@ describe("Effort precedence, latest wins: a choice saved after the snapshot (OPR
     expect(result.ok).toBe(true);
     expect((mockCodexResume.resume as any).mock.calls[0]![7]).toBe("high");
     expect(JSON.stringify(result)).toContain("this restore launched the seat's saved choice high, not medium from the snapshot");
-    expect(ctx.rigRepo.getRig(rig.id)!.nodes.find((n) => n.id === node.id)!.effortChoice).toBe("high");
+    expect(ctx.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find((n) => n.id === node.id)!.effortChoice).toBe("high");
     ctx.db.close();
   });
 
   it("Claude: snapshot authored medium, then high saved on the live node: an ordinary restore launches high, says so, keeps it", async () => {
     const ctx = setup();
-    const rig = ctx.rigRepo.createRig("prec-claude");
-    const node = ctx.rigRepo.addNode(rig.id, "analyst", { runtime: "claude-code", model: "opus", effort: "medium", cwd: "/workspace" });
+    const softwareTeam = ctx.softwareTeamRepo.createSoftwareTeam("prec-claude");
+    const node = ctx.softwareTeamRepo.addNode(softwareTeam.id, "analyst", { runtime: "claude-code", model: "opus", effort: "medium", cwd: "/workspace" });
     const session = ctx.sessionRegistry.registerSession(node.id, "analyst@prec-claude");
     ctx.sessionRegistry.updateStatus(session.id, "running");
     ctx.sessionRegistry.updateStartupStatus(session.id, "ready", new Date().toISOString());
     ctx.db.prepare("UPDATE sessions SET resume_type = 'claude_name', resume_token = 'tok-prec' WHERE id = ?").run(session.id);
-    const snapshot = ctx.snapshotCapture.captureSnapshot(rig.id, "manual");
+    const snapshot = ctx.snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
     expect(snapshot.data.nodes[0]!.effort).toBe("medium");
-    ctx.rigRepo.setNodeEffortChoice(node.id, "high");
+    ctx.softwareTeamRepo.setNodeEffortChoice(node.id, "high");
 
     const mockClaudeResume = { canResume: vi.fn(() => true), resume: vi.fn(async () => ({ ok: true, code: "resumed" })) } as unknown as ClaudeResumeAdapter;
     const mockTmux = {
@@ -600,9 +600,9 @@ describe("Effort precedence, latest wins: a choice saved after the snapshot (OPR
       sendText: vi.fn(async () => ({ ok: true })), sendKeys: vi.fn(async () => ({ ok: true })),
       listWindows: vi.fn(async () => []), listPanes: vi.fn(async () => []), getPaneCommand: vi.fn(async () => "claude"),
     } as any;
-    const nodeLauncher = new NodeLauncher({ db: ctx.db, rigRepo: ctx.rigRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus, tmuxAdapter: mockTmux });
+    const nodeLauncher = new NodeLauncher({ db: ctx.db, softwareTeamRepo: ctx.softwareTeamRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus, tmuxAdapter: mockTmux });
     const restoreOrch = new RestoreOrchestrator({
-      db: ctx.db, rigRepo: ctx.rigRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus,
+      db: ctx.db, softwareTeamRepo: ctx.softwareTeamRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus,
       snapshotRepo: ctx.snapshotRepo, snapshotCapture: ctx.snapshotCapture, checkpointStore: ctx.checkpointStore,
       nodeLauncher, tmuxAdapter: mockTmux,
       claudeResume: mockClaudeResume,
@@ -614,28 +614,28 @@ describe("Effort precedence, latest wins: a choice saved after the snapshot (OPR
     // (sessionName, resumeType, resumeToken, cwd, resolvedPosture, model, permissionMode, nodeId, effort)
     expect((mockClaudeResume.resume as any).mock.calls[0]![8]).toBe("high");
     expect(JSON.stringify(result)).toContain("this restore launched the seat's saved choice high, not medium from the snapshot");
-    expect(ctx.rigRepo.getRig(rig.id)!.nodes.find((n) => n.id === node.id)!.effortChoice).toBe("high");
+    expect(ctx.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find((n) => n.id === node.id)!.effortChoice).toBe("high");
     ctx.db.close();
   });
 
   for (const runtime of ["claude-code", "codex"] as const) {
     it(`${runtime}: a seat removed and grown back (new node id, same logical id) keeps its latest choice on restore`, async () => {
       const ctx = setup();
-      const rig = ctx.rigRepo.createRig(`regrow-${runtime}`);
+      const softwareTeam = ctx.softwareTeamRepo.createSoftwareTeam(`regrow-${runtime}`);
       const opts = { runtime, model: runtime === "codex" ? "o3-mini" : "opus", effort: "medium", cwd: "/workspace" };
-      const old = ctx.rigRepo.addNode(rig.id, "seat", opts);
+      const old = ctx.softwareTeamRepo.addNode(softwareTeam.id, "seat", opts);
       const first = ctx.sessionRegistry.registerSession(old.id, `seat@regrow-${runtime}`);
       ctx.sessionRegistry.updateStatus(first.id, "running");
       ctx.sessionRegistry.updateStartupStatus(first.id, "ready", new Date().toISOString());
       ctx.db.prepare("UPDATE sessions SET resume_type = ?, resume_token = 'tok-regrow' WHERE id = ?")
         .run(runtime === "codex" ? "codex_id" : "claude_name", first.id);
-      const snapshot = ctx.snapshotCapture.captureSnapshot(rig.id, "manual"); // authored medium, no choice
+      const snapshot = ctx.snapshotCapture.captureSnapshot(softwareTeam.id, "manual"); // authored medium, no choice
 
       // The seat is removed and grown back: a new node id under the same logical id, with high saved on it.
-      ctx.rigRepo.deleteNode(old.id);
-      const regrown = ctx.rigRepo.addNode(rig.id, "seat", opts);
+      ctx.softwareTeamRepo.deleteNode(old.id);
+      const regrown = ctx.softwareTeamRepo.addNode(softwareTeam.id, "seat", opts);
       expect(regrown.id).not.toBe(old.id);
-      ctx.rigRepo.setNodeEffortChoice(regrown.id, "high");
+      ctx.softwareTeamRepo.setNodeEffortChoice(regrown.id, "high");
 
       const claudeResume = { canResume: vi.fn(() => runtime === "claude-code"), resume: vi.fn(async () => ({ ok: true, code: "resumed" })) } as unknown as ClaudeResumeAdapter;
       const codexResume = { canResume: vi.fn(() => runtime === "codex"), resume: vi.fn(async () => ({ ok: true, code: "resumed" })) } as unknown as CodexResumeAdapter;
@@ -645,9 +645,9 @@ describe("Effort precedence, latest wins: a choice saved after the snapshot (OPR
         sendText: vi.fn(async () => ({ ok: true })), sendKeys: vi.fn(async () => ({ ok: true })),
         listWindows: vi.fn(async () => []), listPanes: vi.fn(async () => []), getPaneCommand: vi.fn(async () => runtime === "codex" ? "codex" : "claude"),
       } as any;
-      const nodeLauncher = new NodeLauncher({ db: ctx.db, rigRepo: ctx.rigRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus, tmuxAdapter: mockTmux });
+      const nodeLauncher = new NodeLauncher({ db: ctx.db, softwareTeamRepo: ctx.softwareTeamRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus, tmuxAdapter: mockTmux });
       const restoreOrch = new RestoreOrchestrator({
-        db: ctx.db, rigRepo: ctx.rigRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus,
+        db: ctx.db, softwareTeamRepo: ctx.softwareTeamRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus,
         snapshotRepo: ctx.snapshotRepo, snapshotCapture: ctx.snapshotCapture, checkpointStore: ctx.checkpointStore,
         nodeLauncher, tmuxAdapter: mockTmux, claudeResume, codexResume,
       });
@@ -665,15 +665,15 @@ describe("Effort precedence, latest wins: a choice saved after the snapshot (OPR
 
   it("a choice cleared after the snapshot stays cleared: restore launches the snapshot's authored effort, silently", async () => {
     const ctx = setup();
-    const rig = ctx.rigRepo.createRig("prec-clear");
-    const node = ctx.rigRepo.addNode(rig.id, "coder", { runtime: "codex", model: "o3-mini", effort: "medium", cwd: "/workspace" });
-    ctx.rigRepo.setNodeEffortChoice(node.id, "high"); // the snapshot holds the choice high
+    const softwareTeam = ctx.softwareTeamRepo.createSoftwareTeam("prec-clear");
+    const node = ctx.softwareTeamRepo.addNode(softwareTeam.id, "coder", { runtime: "codex", model: "o3-mini", effort: "medium", cwd: "/workspace" });
+    ctx.softwareTeamRepo.setNodeEffortChoice(node.id, "high"); // the snapshot holds the choice high
     const session = ctx.sessionRegistry.registerSession(node.id, "coder@prec-clear");
     ctx.sessionRegistry.updateStatus(session.id, "running");
     ctx.sessionRegistry.updateStartupStatus(session.id, "ready", new Date().toISOString());
     ctx.db.prepare("UPDATE sessions SET resume_type = 'codex_id', resume_token = 'sess-codex-2' WHERE id = ?").run(session.id);
-    const snapshot = ctx.snapshotCapture.captureSnapshot(rig.id, "manual");
-    ctx.rigRepo.setNodeEffortChoice(node.id, null); // then cleared: the latest explicit act
+    const snapshot = ctx.snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
+    ctx.softwareTeamRepo.setNodeEffortChoice(node.id, null); // then cleared: the latest explicit act
     const mockCodexResume = { canResume: vi.fn(() => true), resume: vi.fn(async () => ({ ok: true, code: "resumed" })) } as unknown as CodexResumeAdapter;
     const mockTmux = {
       createSession: vi.fn(async () => ({ ok: true })), killSession: vi.fn(async () => ({ ok: true })),
@@ -681,9 +681,9 @@ describe("Effort precedence, latest wins: a choice saved after the snapshot (OPR
       sendText: vi.fn(async () => ({ ok: true })), sendKeys: vi.fn(async () => ({ ok: true })),
       listWindows: vi.fn(async () => []), listPanes: vi.fn(async () => []), getPaneCommand: vi.fn(async () => "codex"),
     } as any;
-    const nodeLauncher = new NodeLauncher({ db: ctx.db, rigRepo: ctx.rigRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus, tmuxAdapter: mockTmux });
+    const nodeLauncher = new NodeLauncher({ db: ctx.db, softwareTeamRepo: ctx.softwareTeamRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus, tmuxAdapter: mockTmux });
     const restoreOrch = new RestoreOrchestrator({
-      db: ctx.db, rigRepo: ctx.rigRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus,
+      db: ctx.db, softwareTeamRepo: ctx.softwareTeamRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus,
       snapshotRepo: ctx.snapshotRepo, snapshotCapture: ctx.snapshotCapture, checkpointStore: ctx.checkpointStore,
       nodeLauncher, tmuxAdapter: mockTmux,
       claudeResume: { canResume: vi.fn(() => false), resume: vi.fn() } as unknown as ClaudeResumeAdapter,
@@ -693,23 +693,23 @@ describe("Effort precedence, latest wins: a choice saved after the snapshot (OPR
     expect(result.ok).toBe(true);
     expect((mockCodexResume.resume as any).mock.calls[0]![7]).toBe("medium");
     expect(JSON.stringify(result)).not.toContain("saved choice");
-    expect(ctx.rigRepo.getRig(rig.id)!.nodes.find((n) => n.id === node.id)!.effortChoice ?? null).toBeNull();
+    expect(ctx.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find((n) => n.id === node.id)!.effortChoice ?? null).toBeNull();
     ctx.db.close();
   });
 
   it("spec refresh rewrites the authored effort and keeps the saved choice", () => {
     const ctx = setup();
-    const rig = ctx.rigRepo.createRig("prec-refresh");
-    const node = ctx.rigRepo.addNode(rig.id, "worker", { runtime: "claude-code", effort: "medium", cwd: "/w" });
-    ctx.rigRepo.setNodeEffortChoice(node.id, "high");
-    const instantiator = new PodRigInstantiator({
-      db: ctx.db, rigRepo: ctx.rigRepo, podRepo: ctx.podRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus,
+    const softwareTeam = ctx.softwareTeamRepo.createSoftwareTeam("prec-refresh");
+    const node = ctx.softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code", effort: "medium", cwd: "/w" });
+    ctx.softwareTeamRepo.setNodeEffortChoice(node.id, "high");
+    const instantiator = new PodSoftwareTeamInstantiator({
+      db: ctx.db, softwareTeamRepo: ctx.softwareTeamRepo, podRepo: ctx.podRepo, sessionRegistry: ctx.sessionRegistry, eventBus: ctx.eventBus,
       nodeLauncher: { db: ctx.db } as any, startupOrchestrator: {} as any, fsOps: mockFs(), adapters: {}, tmuxAdapter: {} as any,
     });
     (instantiator as any).updateNodeResolvedConfig(node.id, {
       restorePolicy: "checkpoint_only", resolvedSpecName: "w", resolvedSpecVersion: "1", resolvedSpecHash: "sha256:x", effort: "low",
     });
-    const refreshed = ctx.rigRepo.getRig(rig.id)!.nodes.find((n) => n.id === node.id)!;
+    const refreshed = ctx.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find((n) => n.id === node.id)!;
     expect(refreshed.effort).toBe("low");
     expect(refreshed.effortChoice).toBe("high");
     ctx.db.close();

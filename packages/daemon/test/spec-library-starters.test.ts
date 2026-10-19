@@ -4,25 +4,25 @@ import { dirname, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { SpecReviewService } from "../src/domain/spec-review-service.js";
 import { SpecLibraryService } from "../src/domain/spec-library-service.js";
-import { rigPreflight, type RigPreflightInput } from "../src/domain/rigspec-preflight.js";
+import { softwareTeamPreflight, type SoftwareTeamPreflightInput } from "../src/domain/software-team-spec-preflight.js";
 import { parseAgentSpec, validateAgentSpec } from "../src/domain/agent-manifest.js";
 
 const SPECS_ROOT = resolve(import.meta.dirname, "../specs");
 
-const RIG_SPECS = [
-  "rigs/launch/starter/rig.yaml",
-  "rigs/launch/factory/rig.yaml",
-  "rigs/focused/code-review/rig.yaml",
-  "rigs/focused/research/rig.yaml",
-  "rigs/focused/pm/rig.yaml",
-  "rigs/launch/kernel/rig.yaml",
-  "rigs/launch/kernel/rig-claude-only.yaml",
-  "rigs/launch/kernel/rig-codex-only.yaml",
-  "rigs/launch/secrets-manager/rig.yaml",
+const SOFTWARE_TEAM_SPECS = [
+  "software-teams/launch/starter/software-team.yaml",
+  "software-teams/launch/factory/software-team.yaml",
+  "software-teams/focused/code-review/software-team.yaml",
+  "software-teams/focused/research/software-team.yaml",
+  "software-teams/focused/pm/software-team.yaml",
+  "software-teams/launch/kernel/software-team.yaml",
+  "software-teams/launch/kernel/software-team-claude-only.yaml",
+  "software-teams/launch/kernel/software-team-codex-only.yaml",
+  "software-teams/launch/secrets-manager/software-team.yaml",
   // Retained for the world migration, deliberately absent from the built-in shelf.
-  "rigs/launch/factory-rsi/world-bundle.yaml",
+  "software-teams/launch/factory-rsi/world-bundle.yaml",
 ];
-const PROOF_RIG_SPECS: string[] = [];
+const PROOF_SOFTWARE_TEAM_SPECS: string[] = [];
 
 const AGENT_SPECS = [
   "agents/conveyor/lead/agent.yaml",
@@ -48,15 +48,15 @@ const OBSOLETE_OBRA_SKILLS = [
   "executing-plans",
 ];
 
-// V0.3.1 slice 05 kernel-rig-as-default + bug-fix slice
+// V0.3.1 slice 05 kernel-software-team-as-default + bug-fix slice
 // deprecation-check-keys-widening: kernel agents are built-in product
 // surface and pass through the same deprecation regression gates as
 // starter agents. Hoisted from the prior inline declaration so the
 // new key-path check (below) can walk both lists from a single source.
 const KERNEL_AGENT_SPECS = [
-  "rigs/launch/kernel/agents/advisor/lead/agent.yaml",
-  "rigs/launch/kernel/agents/operator/agent/agent.yaml",
-  "rigs/launch/kernel/agents/queue/worker/agent.yaml",
+  "software-teams/launch/kernel/agents/advisor/lead/agent.yaml",
+  "software-teams/launch/kernel/agents/operator/agent/agent.yaml",
+  "software-teams/launch/kernel/agents/queue/worker/agent.yaml",
 ];
 
 const RUNNABLE_SHIPPED_AGENT_SPECS = [
@@ -171,11 +171,11 @@ function assertAcyclicLaunchDependencyGraph(file: string, parsed: Record<string,
 describe("Starter specs", () => {
   const specReviewService = new SpecReviewService();
 
-  it("all rig specs pass SpecReviewService validation", () => {
-    for (const file of RIG_SPECS) {
+  it("all SoftwareTeam specs pass SpecReviewService validation", () => {
+    for (const file of SOFTWARE_TEAM_SPECS) {
       const yaml = readFileSync(join(SPECS_ROOT, file), "utf-8");
-      const review = specReviewService.reviewRigSpec(yaml, "library_item");
-      expect(review.kind).toBe("rig");
+      const review = specReviewService.reviewSoftwareTeamSpec(yaml, "library_item");
+      expect(review.kind).toBe("softwareTeam");
       expect(review.format).toBe("pod_aware");
       expect(review.name).toBeTruthy();
     }
@@ -190,29 +190,29 @@ describe("Starter specs", () => {
     }
   });
 
-  it("built-in library scan discovers all bundled rig specs", () => {
+  it("built-in library scan discovers all bundled SoftwareTeam specs", () => {
     const lib = new SpecLibraryService({
       roots: [{ path: SPECS_ROOT, sourceType: "builtin" }],
       specReviewService,
     });
     lib.scan();
 
-    const rigs = lib.list({ kind: "rig" });
-    expect(rigs.map((entry) => entry.name).sort()).toEqual([
+    const softwareTeams = lib.list({ kind: "softwareTeam" });
+    expect(softwareTeams.map((entry) => entry.name).sort()).toEqual([
       "code-review", "factory", "kernel", "pm", "research", "secrets-manager", "starter",
     ]);
   });
 
-  it("service-backed rigs expose hasServices, non-service rigs do not", () => {
+  it("service-backed softwareTeams expose hasServices, non-service softwareTeams do not", () => {
     const lib = new SpecLibraryService({
       roots: [{ path: SPECS_ROOT, sourceType: "builtin" }],
       specReviewService,
     });
     lib.scan();
 
-    const rigs = lib.list({ kind: "rig" });
-    const secretsManager = rigs.find((entry) => entry.name === "secrets-manager");
-    const starter = rigs.find((entry) => entry.name === "starter");
+    const softwareTeams = lib.list({ kind: "softwareTeam" });
+    const secretsManager = softwareTeams.find((entry) => entry.name === "secrets-manager");
+    const starter = softwareTeams.find((entry) => entry.name === "starter");
 
     expect(secretsManager).toBeDefined();
     expect(secretsManager!.hasServices).toBe(true);
@@ -220,8 +220,8 @@ describe("Starter specs", () => {
     expect(starter!.hasServices).toBeFalsy();
   });
 
-  it("secrets-manager rig uses canonical vault.specialist topology", () => {
-    const yaml = readFileSync(join(SPECS_ROOT, "rigs/launch/secrets-manager/rig.yaml"), "utf-8");
+  it("secrets-manager SoftwareTeam uses canonical vault.specialist topology", () => {
+    const yaml = readFileSync(join(SPECS_ROOT, "software-teams/launch/secrets-manager/software-team.yaml"), "utf-8");
     const parsed = parseYaml(yaml) as Record<string, unknown>;
     const pods = parsed["pods"] as Array<Record<string, unknown>>;
     expect(pods).toHaveLength(1);
@@ -243,27 +243,27 @@ describe("Starter specs", () => {
   it("starter and factory summaries describe their different team sizes", () => {
     const lib = new SpecLibraryService({ roots: [{ path: SPECS_ROOT, sourceType: "builtin" }], specReviewService });
     lib.scan();
-    const rigs = lib.list({ kind: "rig" });
-    expect(rigs.find((entry) => entry.name === "starter")?.summary).toContain("Claude Code builder and a Codex reviewer");
-    expect(rigs.find((entry) => entry.name === "factory")?.summary).toContain("PM advisor");
+    const softwareTeams = lib.list({ kind: "softwareTeam" });
+    expect(softwareTeams.find((entry) => entry.name === "starter")?.summary).toContain("Claude Code builder and a Codex reviewer");
+    expect(softwareTeams.find((entry) => entry.name === "factory")?.summary).toContain("PM advisor");
   });
 
-  it("all rig specs pass canonical rigPreflight with explicit cwdOverride", async () => {
+  it("all SoftwareTeam specs pass canonical softwareTeamPreflight with explicit cwdOverride", async () => {
     const fsOps = {
       readFile: (p: string) => readFileSync(p, "utf-8"),
       exists: (p: string) => existsSync(p),
     };
 
-    for (const file of RIG_SPECS) {
+    for (const file of SOFTWARE_TEAM_SPECS) {
       const yaml = readFileSync(join(SPECS_ROOT, file), "utf-8");
-      const input: RigPreflightInput = {
-        rigSpecYaml: yaml,
-        rigRoot: dirname(join(SPECS_ROOT, file)),
+      const input: SoftwareTeamPreflightInput = {
+        softwareTeamSpecYaml: yaml,
+        softwareTeamRoot: dirname(join(SPECS_ROOT, file)),
         cwdOverride: "/workspace/project",
         fsOps,
       };
 
-      const result = await rigPreflight(input);
+      const result = await softwareTeamPreflight(input);
       // Should be ready with no blocking errors (warnings are acceptable)
       expect(result.ready).toBe(true);
       if (result.errors.length > 0) {
@@ -272,30 +272,30 @@ describe("Starter specs", () => {
     }
   });
 
-  it("all rig specs have acyclic launch-dependency edges", () => {
-    for (const file of RIG_SPECS) {
+  it("all SoftwareTeam specs have acyclic launch-dependency edges", () => {
+    for (const file of SOFTWARE_TEAM_SPECS) {
       const yaml = readFileSync(join(SPECS_ROOT, file), "utf-8");
       const parsed = parseYaml(yaml) as Record<string, unknown>;
       assertAcyclicLaunchDependencyGraph(file, parsed);
     }
   });
 
-  it("service-backed proof rigs pass canonical rigPreflight with explicit cwdOverride", async () => {
+  it("service-backed proof softwareTeams pass canonical softwareTeamPreflight with explicit cwdOverride", async () => {
     const fsOps = {
       readFile: (p: string) => readFileSync(p, "utf-8"),
       exists: (p: string) => existsSync(p),
     };
 
-    for (const file of PROOF_RIG_SPECS) {
+    for (const file of PROOF_SOFTWARE_TEAM_SPECS) {
       const yaml = readFileSync(join(SPECS_ROOT, file), "utf-8");
-      const input: RigPreflightInput = {
-        rigSpecYaml: yaml,
-        rigRoot: dirname(join(SPECS_ROOT, file)),
+      const input: SoftwareTeamPreflightInput = {
+        softwareTeamSpecYaml: yaml,
+        softwareTeamRoot: dirname(join(SPECS_ROOT, file)),
         cwdOverride: "/workspace/project",
         fsOps,
       };
 
-      const result = await rigPreflight(input);
+      const result = await softwareTeamPreflight(input);
       expect(result.ready).toBe(true);
       if (result.errors.length > 0) {
         throw new Error(`Preflight failed for ${file}: ${result.errors.join("; ")}`);
@@ -351,21 +351,21 @@ describe("Starter specs", () => {
   it("vault-specialist startup context grounds identity before topology claims", () => {
     const context = readFileSync(join(SPECS_ROOT, "agents/apps/vault-specialist/startup/context.md"), "utf-8").toLowerCase();
 
-    expect(context).toContain("rig whoami --json");
+    expect(context).toContain("softwareteam whoami --json");
     expect(context).toContain("before making topology or registration claims");
   });
 
-  it("openrig-user documents agent-managed apps and current cwd/env operation", () => {
-    const content = readFileSync(join(import.meta.dirname, "../assets/plugins/openrig-core/skills/openrig-user/SKILL.md"), "utf-8");
+  it("softwareteam-user documents agent-managed apps and current cwd/env operation", () => {
+    const content = readFileSync(join(import.meta.dirname, "../assets/plugins/softwareteam-core/skills/softwareteam-user/SKILL.md"), "utf-8");
 
     expect(content).toContain("agent-managed app");
-    expect(content).toContain("rig up secrets-manager");
+    expect(content).toContain("SoftwareTeam up secrets-manager");
     expect(content).toContain("vault.specialist");
-    expect(content).toContain("rig send vault-specialist@secrets-manager");
-    expect(content).toContain("rig env status secrets-manager");
-    expect(content).toContain("rig env logs secrets-manager");
-    expect(content).toContain("`rig up --cwd`");
-    expect(content).not.toContain("there is no shipped `rig up --cwd` override yet");
+    expect(content).toContain("SoftwareTeam send vault-specialist@secrets-manager");
+    expect(content).toContain("SoftwareTeam env status secrets-manager");
+    expect(content).toContain("SoftwareTeam env logs secrets-manager");
+    expect(content).toContain("`SoftwareTeam up --cwd`");
+    expect(content).not.toContain("there is no shipped `SoftwareTeam up --cwd` override yet");
   });
 
   it("shared packaged starter skills exist and builtin agents opt into the right ones", () => {
@@ -395,8 +395,8 @@ describe("Starter specs", () => {
     }
     const deprecatedHaSkill = ["mental", "model", "ha"].join("-");
     expect(sharedSkills.map((entry) => entry.id)).not.toContain(deprecatedHaSkill);
-    expect(sharedSkills.map((entry) => entry.id)).not.toContain("openrig-operator");
-    expect(sharedSkills.map((entry) => entry.id)).not.toContain("openrig-user");
+    expect(sharedSkills.map((entry) => entry.id)).not.toContain("softwareteam-operator");
+    expect(sharedSkills.map((entry) => entry.id)).not.toContain("softwareteam-user");
     expect(sharedSkills.map((entry) => entry.id)).not.toContain("mission-slice-sop");
     for (const skillId of OBSOLETE_OBRA_SKILLS) {
       expect(sharedSkills.map((entry) => entry.id)).not.toContain(skillId);
@@ -417,7 +417,7 @@ describe("Starter specs", () => {
     const claudeSettingsResource = sharedRuntimeResources.find((entry) => entry.id === "claude-default-settings");
     const claudeSettings = JSON.parse(readFileSync(join(SPECS_ROOT, "agents/shared", claudeSettingsResource!.path), "utf-8"));
     // OPR.0.4.8.2 agnostic rip-out: the fragment's 13-entry allow-list (assessment C1b) and the
-    // rig up/down ask gates (C1c) are RIPPED. OpenRig bakes NO config-file permission policy
+    // SoftwareTeam up/down ask gates (C1c) are RIPPED. SoftwareTeam bakes NO config-file permission policy
     // beyond the acceptEdits floor — post-rip the fragment carries only defaultMode.
     expect(claudeSettings.permissions.allow).toBeUndefined();
     expect(claudeSettings.permissions.ask).toBeUndefined();
@@ -498,7 +498,7 @@ describe("Starter specs", () => {
     }
   });
 
-  it("declares the vendored openrig-core plugin once in the shared resource pool", () => {
+  it("declares the vendored softwareteam-core plugin once in the shared resource pool", () => {
     const shared = parseYaml(
       readFileSync(join(SPECS_ROOT, SHARED_AGENT_SPEC), "utf-8"),
     ) as {
@@ -511,15 +511,15 @@ describe("Starter specs", () => {
     };
 
     expect(shared.resources?.plugins ?? []).toContainEqual({
-      id: "openrig-core",
+      id: "softwareteam-core",
       source: {
         kind: "local",
-        path: "openrig-home:plugins/openrig-core",
+        path: "softwareteam-home:plugins/softwareteam-core",
       },
     });
   });
 
-  it("all 18 runnable shipped default profiles explicitly select openrig-core", () => {
+  it("all 18 runnable shipped default profiles explicitly select softwareteam-core", () => {
     expect(RUNNABLE_SHIPPED_AGENT_SPECS).toHaveLength(18);
 
     const missing = RUNNABLE_SHIPPED_AGENT_SPECS.filter((file) => {
@@ -527,7 +527,7 @@ describe("Starter specs", () => {
         profiles?: Record<string, { uses?: { plugins?: string[] } }>;
       };
       return !raw.profiles?.default?.uses?.plugins?.includes(
-        "shared:openrig-core",
+        "shared:softwareteam-core",
       );
     });
 
@@ -559,7 +559,7 @@ describe("Starter specs", () => {
 
   it("public builtin agent profiles do not reference deprecated HA skill", () => {
     const deprecatedHaSkill = ["mental", "model", "ha"].join("-");
-    // V0.3.1 slice 05 kernel-rig-as-default: kernel agents are now
+    // V0.3.1 slice 05 kernel-software-team-as-default: kernel agents are now
     // built-in product surface and must respect the same deprecation
     // curation as starter agents. Caught at Phase 05d forward-fix #2
     // when advisor.lead reintroduced the deprecated skill reference.
@@ -760,7 +760,7 @@ describe("Starter specs", () => {
   });
 
   it("factory and orchestration enter selected work without waiting for unneeded seats", () => {
-    const demoCulture = readFileSync(join(SPECS_ROOT, "rigs/launch/factory/CULTURE.md"), "utf-8").replace(/\s+/g, " ");
+    const demoCulture = readFileSync(join(SPECS_ROOT, "software-teams/launch/factory/CULTURE.md"), "utf-8").replace(/\s+/g, " ");
     const orchestrationSkill = readFileSync(
       join(SPECS_ROOT, "agents/shared/skills/pods/orchestration-team/SKILL.md"),
       "utf-8",

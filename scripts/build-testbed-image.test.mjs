@@ -9,7 +9,7 @@ import { dirname, join } from "node:path";
 // docker; the locus ruling puts the container runtime host-side). Its real logic lives in the
 // tested node helpers (testbed-emit-manifest / build-inputs / manifest); this guard is the
 // VM-authorable proof that the shell wrapper honors the plan §1 + FENCES contract, so a later edit
-// that pushes the image, floats the build, or pulls openrig from the registry breaks here.
+// that pushes the image, floats the build, or pulls softwareteam from the registry breaks here.
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = join(HERE, "build-testbed-image.sh");
@@ -29,20 +29,20 @@ test("is a strict bash script (shebang + set -euo pipefail)", () => {
   assert.match(text, /set -euo pipefail/, "must fail-fast (set -euo pipefail)");
 });
 
-test("derives the image tag from the git sha (openrig-testbed:<git-sha>)", () => {
+test("derives the image tag from the git sha (softwareteam-testbed:<git-sha>)", () => {
   const text = readScript();
   assert.match(text, /git\s+(?:-C\s+\S+\s+)?rev-parse/, "must resolve the git sha via git rev-parse");
-  assert.match(text, /openrig-testbed:/, "must tag openrig-testbed:<git-sha>");
+  assert.match(text, /softwareteam-testbed:/, "must tag softwareteam-testbed:<git-sha>");
 });
 
-test("builds OpenRig from the tree via npm pack — never npm publish, never the registry", () => {
+test("builds SoftwareTeam from the tree via npm pack — never npm publish, never the registry", () => {
   const text = readScript();
   assert.match(text, /npm pack/, "must build the tarball from the tree via npm pack");
   assert.doesNotMatch(text, /npm\s+publish/, "must NOT npm publish");
   assert.doesNotMatch(
     text,
-    /npm\s+(?:install|i|add)\s+(?:-g\s+)?openrig(?:@|\s|$)/m,
-    "must NOT install openrig from the npm registry",
+    /npm\s+(?:install|i|add)\s+(?:-g\s+)?softwareteam(?:@|\s|$)/m,
+    "must NOT install softwareteam from the npm registry",
   );
 });
 
@@ -50,14 +50,14 @@ test("runs docker build with the digest-pinned base + tarball build-args", () =>
   const text = readScript();
   assert.match(text, /docker build/, "must docker build");
   assert.match(text, /--build-arg\s+BASE_IMAGE=/, "must pass BASE_IMAGE (the digest-pinned base)");
-  assert.match(text, /--build-arg\s+OPENRIG_TARBALL=/, "must pass OPENRIG_TARBALL (the local pack)");
+  assert.match(text, /--build-arg\s+SOFTWARETEAM_TARBALL=/, "must pass SOFTWARETEAM_TARBALL (the local pack)");
 });
 
-test("Q2 fix A: packs the ASSEMBLED @openrig/cli (has the `rig` bin), NEVER the private monorepo root", () => {
+test("Q2 fix A: packs the ASSEMBLED @softwareteam/cli (has the `softwareTeam` bin), NEVER the private monorepo root", () => {
   const text = readScript();
   // must assemble the publishable CLI first (bundles daemon/ui/tui + the bin) ...
-  assert.match(text, /build-package\.sh/, "must run scripts/build-package.sh to assemble @openrig/cli");
-  // ... and pack packages/cli, not the repo root (root = openrig@0.5.0, no bin -> rig --version exit 127)
+  assert.match(text, /build-package\.sh/, "must run scripts/build-package.sh to assemble @softwareteam/cli");
+  // ... and pack packages/cli, not the repo root (root = softwareteam@0.5.0, no bin -> SoftwareTeam --version exit 127)
   assert.match(text, /packages\/cli["'}\s]*&&\s*npm pack|cd\s+"?\$\{REPO_ROOT\}\/packages\/cli/, "npm pack must run with cwd packages/cli");
   assert.doesNotMatch(text, /cd\s+"?\$\{REPO_ROOT\}"?\s*&&\s*npm pack/, "must NOT pack the monorepo root");
 });
@@ -102,14 +102,14 @@ test("Q2 fix (break #4): the image installs the better-sqlite3 native-build tool
   assert.match(df, /python3 make g\+\+/, "layer 1 must install python3 make g++ (node-gyp toolchain)");
 });
 
-test("Q2 rider (effect proof): the build verb LOADS the daemon inside the container, not just `rig --version`", () => {
+test("Q2 rider (effect proof): the build verb LOADS the daemon inside the container, not just `SoftwareTeam --version`", () => {
   // assert-the-EFFECT-not-the-command: a green build over a broken native install is the break-#4 CLASS.
   // Only a CONTAINER load catches it (the host has the toolchain, the image must not need it). The verb
   // must run the freshly-built image and START the daemon (opens the DB → better-sqlite3 must have
-  // bound), failing the build if it can't. `rig --version` alone never opens the DB.
+  // bound), failing the build if it can't. `SoftwareTeam --version` alone never opens the DB.
   const text = readScript();
   assert.match(text, /docker run\b[\s\S]*\$\{IMAGE_TAG\}/, "must run the freshly-built image (effect proof)");
-  assert.match(text, /rig daemon start --no-kernel/, "must LOAD the daemon (better-sqlite3 binds) via the operator-corrected start, not merely check rig exists");
+  assert.match(text, /SoftwareTeam daemon start --no-kernel/, "must LOAD the daemon (better-sqlite3 binds) via the operator-corrected start, not merely check SoftwareTeam exists");
   assert.match(text, /\/healthz/, "must confirm readiness deterministically via /healthz (operator correction — no fixed sleep)");
 });
 
@@ -158,7 +158,7 @@ else if(args[0]==='rm'){
       });
       assert.equal(run.status, status, `${mode}: ${run.stderr}`);
       assert.equal(Number(readFileSync(join(out, "image-load.exit-code.txt"), "utf8")), status);
-      assert.match(readFileSync(join(out, "image-load.container-name.txt"), "utf8"), /^openrig-testbed-load-/);
+      assert.match(readFileSync(join(out, "image-load.container-name.txt"), "utf8"), /^softwareteam-testbed-load-/);
       assert.equal(existsSync(marker), false, `${mode}: container must be removed even after timeout`);
       assert.equal(existsSync(join(out, "manifest.json")), status === 0);
     }

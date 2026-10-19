@@ -18,7 +18,7 @@ import type { FleetComposeDeps, FleetHostInput } from "../src/domain/review/flee
 import { LOCAL_HOST_ID } from "../src/domain/hosts/fanout-contract.js";
 import type { PerHostStatus } from "../src/domain/hosts/fanout-contract.js";
 import type { HostRegistry } from "../src/domain/hosts/hosts-registry-reader.js";
-import type { ComposedRigAgents, NeedsYouItem } from "../src/domain/review/types.js";
+import type { ComposedSoftwareTeamAgents, NeedsYouItem } from "../src/domain/review/types.js";
 
 const NOW = "2026-07-08T14:00:00.000Z";
 
@@ -27,7 +27,7 @@ function item(overrides: Partial<NeedsYouItem> & { identity: string }): NeedsYou
     source: "agent",
     summary: `summary ${overrides.identity}`,
     leg: "human-gate",
-    where: "rig",
+    where: "softwareTeam",
     ageIso: "2026-07-08T13:00:00.000Z",
     priority: null,
     tier: null,
@@ -54,7 +54,7 @@ function hostInput(hostId: string, overrides: Partial<FleetHostInput> = {}): Fle
 const OK = (hostId: string): PerHostStatus => ({ hostId, status: "ok" });
 
 describe("unionFleet — the Q4 one-count key (hostId|identity)", () => {
-  it("same identity from slice+mission+rig on ONE host collapses to ONE row with 3-altitude provenance", () => {
+  it("same identity from slice+mission+SoftwareTeam on ONE host collapses to ONE row with 3-altitude provenance", () => {
     const shared = item({ identity: "qi-1" });
     const fleet = unionFleet(
       [
@@ -62,7 +62,7 @@ describe("unionFleet — the Q4 one-count key (hostId|identity)", () => {
           scopedNeedsYou: [
             { scope: "slice", items: [shared] },
             { scope: "mission", items: [shared] },
-            { scope: "rig", items: [shared] },
+            { scope: "softwareTeam", items: [shared] },
           ],
         }),
       ],
@@ -71,15 +71,15 @@ describe("unionFleet — the Q4 one-count key (hostId|identity)", () => {
     );
     expect(fleet.needsYou.items).toHaveLength(1);
     expect(fleet.needsYou.items[0]!.fleetKey).toBe("vps-a|qi-1");
-    expect(fleet.needsYou.items[0]!.seenFrom).toEqual(["slice", "mission", "rig"]);
+    expect(fleet.needsYou.items[0]!.seenFrom).toEqual(["slice", "mission", "softwareTeam"]);
     expect(fleet.rollup.needsYouCount).toBe(1);
   });
 
   it("the SAME identity string on TWO hosts stays TWO rows (the host dimension distinguishes)", () => {
     const fleet = unionFleet(
       [
-        hostInput("vps-a", { scopedNeedsYou: [{ scope: "rig", items: [item({ identity: "qi-same" })] }] }),
-        hostInput("vps-b", { scopedNeedsYou: [{ scope: "rig", items: [item({ identity: "qi-same" })] }] }),
+        hostInput("vps-a", { scopedNeedsYou: [{ scope: "softwareTeam", items: [item({ identity: "qi-same" })] }] }),
+        hostInput("vps-b", { scopedNeedsYou: [{ scope: "softwareTeam", items: [item({ identity: "qi-same" })] }] }),
       ],
       [OK(LOCAL_HOST_ID), OK("vps-a"), OK("vps-b")],
       NOW,
@@ -93,8 +93,8 @@ describe("unionFleet — the Q4 one-count key (hostId|identity)", () => {
     // closed on handoff) — the fixture mirrors that construction.
     const fleet = unionFleet(
       [
-        hostInput("vps-a", { scopedNeedsYou: [{ scope: "rig", items: [item({ identity: "qi-forwarded" })] }] }),
-        hostInput("vps-b", { scopedNeedsYou: [{ scope: "rig", items: [] }] }),
+        hostInput("vps-a", { scopedNeedsYou: [{ scope: "softwareTeam", items: [item({ identity: "qi-forwarded" })] }] }),
+        hostInput("vps-b", { scopedNeedsYou: [{ scope: "softwareTeam", items: [] }] }),
       ],
       [OK(LOCAL_HOST_ID), OK("vps-a"), OK("vps-b")],
       NOW,
@@ -107,16 +107,16 @@ describe("unionFleet — the Q4 one-count key (hostId|identity)", () => {
 describe("unionFleet — permutation-stable (input order never changes rows/counts)", () => {
   const inputs: FleetHostInput[] = [
     hostInput(LOCAL_HOST_ID, {
-      scopedNeedsYou: [{ scope: "rig", items: [item({ identity: "qi-l1", priority: "urgent" })] }],
+      scopedNeedsYou: [{ scope: "softwareTeam", items: [item({ identity: "qi-l1", priority: "urgent" })] }],
     }),
     hostInput("vps-a", {
       scopedNeedsYou: [
-        { scope: "rig", items: [item({ identity: "qi-a1" }), item({ identity: "qi-a2", source: "derived", derived: { kind: "stuck", evidence: "idle 47m >= 30m", threshold: "stuck >= 30m idle" } })] },
+        { scope: "softwareTeam", items: [item({ identity: "qi-a1" }), item({ identity: "qi-a2", source: "derived", derived: { kind: "stuck", evidence: "idle 47m >= 30m", threshold: "stuck >= 30m idle" } })] },
         { scope: "slice", items: [item({ identity: "qi-a1" })] },
       ],
     }),
     hostInput("vps-b", {
-      scopedNeedsYou: [{ scope: "rig", items: [item({ identity: "qi-b1", priority: "low" })] }],
+      scopedNeedsYou: [{ scope: "softwareTeam", items: [item({ identity: "qi-b1", priority: "low" })] }],
     }),
   ];
   const statuses = [OK(LOCAL_HOST_ID), OK("vps-a"), OK("vps-b")];
@@ -155,7 +155,7 @@ describe("unionFleet — kind-agnostic carry + workflow passthrough (D-2)", () =
       derived: { kind: "future-kind" as never, evidence: "synthetic evidence", threshold: "synthetic threshold" },
     });
     const fleet = unionFleet(
-      [hostInput("vps-a", { scopedNeedsYou: [{ scope: "rig", items: [synthetic] }] })],
+      [hostInput("vps-a", { scopedNeedsYou: [{ scope: "softwareTeam", items: [synthetic] }] })],
       [OK(LOCAL_HOST_ID), OK("vps-a")],
       NOW,
     );
@@ -170,7 +170,7 @@ describe("unionFleet — kind-agnostic carry + workflow passthrough (D-2)", () =
     });
     const without = item({ identity: "qi-plain" });
     const fleet = unionFleet(
-      [hostInput("vps-a", { scopedNeedsYou: [{ scope: "rig", items: [withPointer, without] }] })],
+      [hostInput("vps-a", { scopedNeedsYou: [{ scope: "softwareTeam", items: [withPointer, without] }] })],
       [OK(LOCAL_HOST_ID), OK("vps-a")],
       NOW,
     );
@@ -185,7 +185,7 @@ describe("unionFleet — per-host honesty + rollup math", () => {
   it("an unreachable host has its status PRESENT and its counts ABSENT (not zero); rollup reflects it", () => {
     const down: PerHostStatus = { hostId: "vps-b", status: "unreachable", error: "ECONNREFUSED", failedStep: "remote-daemon-unreachable" };
     const fleet = unionFleet(
-      [hostInput("vps-a", { scopedNeedsYou: [{ scope: "rig", items: [item({ identity: "qi-a1" })] }] })],
+      [hostInput("vps-a", { scopedNeedsYou: [{ scope: "softwareTeam", items: [item({ identity: "qi-a1" })] }] })],
       [OK(LOCAL_HOST_ID), OK("vps-a"), down],
       NOW,
     );
@@ -204,7 +204,7 @@ describe("unionFleet — per-host honesty + rollup math", () => {
     const fleet = unionFleet(
       [
         hostInput(LOCAL_HOST_ID, {
-          scopedNeedsYou: [{ scope: "rig", items: [item({ identity: "qi-l1" })] }],
+          scopedNeedsYou: [{ scope: "softwareTeam", items: [item({ identity: "qi-l1" })] }],
           agents: [
             { agentName: "lead", runtime: "claude-code", stateGlyph: "active", doing: null, holdsCount: 1, lastTransitionIso: null, exception: null, sessionName: "lead@acme-build", slices: [] },
             { agentName: "builder", runtime: "codex", stateGlyph: "idle", doing: null, holdsCount: 0, lastTransitionIso: null, exception: null, sessionName: "builder@acme-web", slices: [] },
@@ -213,7 +213,7 @@ describe("unionFleet — per-host honesty + rollup math", () => {
         hostInput("vps-a", {
           scopedNeedsYou: [
             {
-              scope: "rig",
+              scope: "softwareTeam",
               items: [
                 item({ identity: "qi-a1" }),
                 item({ identity: "qi-a2|stuck|t0", source: "derived", derived: { kind: "stuck", evidence: "idle 47m >= 30m", threshold: "stuck >= 30m idle" } }),
@@ -240,10 +240,10 @@ describe("unionFleet — per-host honesty + rollup math", () => {
     const perHostExceptions = fleet.hosts.flatMap((h) => h.exceptionsByKind ?? []).reduce((n, k) => n + k.count, 0);
     expect(perHostNeedsYou).toBe(fleet.rollup.needsYouCount);
     expect(perHostExceptions).toBe(fleet.rollup.exceptionCount);
-    // seat/rig counts derive from the host's own agents band (BR-1 grammar).
+    // seat/softwareTeam counts derive from the host's own agents band (BR-1 grammar).
     const localRow = fleet.hosts.find((h) => h.hostId === LOCAL_HOST_ID)!;
     expect(localRow.seatCount).toBe(2);
-    expect(localRow.rigCount).toBe(2);
+    expect(localRow.softwareTeamCount).toBe(2);
     // topLine is worst-first and deterministic.
     const aRow = fleet.hosts.find((h) => h.hostId === "vps-a")!;
     expect(aRow.topLine).toBe("● summary qi-a1");
@@ -268,17 +268,17 @@ describe("fleet-compose purity pin — no clock, no random (arch/C5)", () => {
 
 const REGISTRY: HostRegistry = {
   hosts: [
-    { id: "vps-a", transport: "http", url: "http://vps-a:7433", bearer_env: "A" },
-    { id: "vps-b", transport: "http", url: "http://vps-b:7433", bearer_env: "B" },
+    { id: "vps-a", transport: "http", url: "http://vps-a:7434", bearer_env: "A" },
+    { id: "vps-b", transport: "http", url: "http://vps-b:7434", bearer_env: "B" },
     { id: "ssh-1", transport: "ssh", target: "x.local" },
   ],
 };
 
-function composedRigResponse(items: NeedsYouItem[]): Response {
-  const body: ComposedRigAgents = {
-    scope: "rig",
-    needsYou: { items, provenance: "composed from the rig read root" },
-    agents: { scope: "rig", rows: [], provenance: "seats", coordinationHealth: null },
+function composedSoftwareTeamResponse(items: NeedsYouItem[]): Response {
+  const body: ComposedSoftwareTeamAgents = {
+    scope: "softwareTeam",
+    needsYou: { items, provenance: "composed from the SoftwareTeam read root" },
+    agents: { scope: "softwareTeam", rows: [], provenance: "seats", coordinationHealth: null },
     settled: [],
     settledProvenance: "today's closed handoffs",
     composedAt: NOW,
@@ -286,11 +286,11 @@ function composedRigResponse(items: NeedsYouItem[]): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
 }
 
-function localComposed(items: NeedsYouItem[]): ComposedRigAgents {
+function localComposed(items: NeedsYouItem[]): ComposedSoftwareTeamAgents {
   return {
-    scope: "rig",
-    needsYou: { items, provenance: "composed from the rig read root" },
-    agents: { scope: "rig", rows: [], provenance: "seats", coordinationHealth: null },
+    scope: "softwareTeam",
+    needsYou: { items, provenance: "composed from the SoftwareTeam read root" },
+    agents: { scope: "softwareTeam", rows: [], provenance: "seats", coordinationHealth: null },
     settled: [],
     settledProvenance: "today's closed handoffs",
     composedAt: NOW,
@@ -299,7 +299,7 @@ function localComposed(items: NeedsYouItem[]): ComposedRigAgents {
 
 function fanoutDeps(overrides: Partial<FleetComposeDeps> = {}): FleetComposeDeps {
   return {
-    composeLocalRig: () => localComposed([item({ identity: "qi-local-1" })]),
+    composeLocalSoftwareTeam: () => localComposed([item({ identity: "qi-local-1" })]),
     loadRegistry: () => ({ ok: true, registry: REGISTRY }),
     registryExists: () => true,
     nowIso: NOW,
@@ -309,18 +309,18 @@ function fanoutDeps(overrides: Partial<FleetComposeDeps> = {}): FleetComposeDeps
 }
 
 describe("composeFleet — the fan-out shell (D-1/D-7 + per-host honesty)", () => {
-  it("local joins IN-PROCESS (zero self-transport) and every registered host is fanned out to /api/review/rig", async () => {
+  it("local joins IN-PROCESS (zero self-transport) and every registered host is fanned out to /api/review/softwareTeam", async () => {
     const urls: string[] = [];
     const fleet = await composeFleet(
       fanoutDeps({
         fetchImpl: (async (url: string | URL | Request) => {
           urls.push(String(url));
-          return composedRigResponse([item({ identity: String(url).includes("vps-a") ? "qi-a1" : "qi-b1" })]);
+          return composedSoftwareTeamResponse([item({ identity: String(url).includes("vps-a") ? "qi-a1" : "qi-b1" })]);
         }) as typeof fetch,
       }),
     );
-    expect(urls.some((u) => u.includes("vps-a") && u.endsWith("/api/review/rig"))).toBe(true);
-    expect(urls.some((u) => u.includes("vps-b") && u.endsWith("/api/review/rig"))).toBe(true);
+    expect(urls.some((u) => u.includes("vps-a") && u.endsWith("/api/review/softwareTeam"))).toBe(true);
+    expect(urls.some((u) => u.includes("vps-b") && u.endsWith("/api/review/softwareTeam"))).toBe(true);
     // Local + both http hosts contributed; the ssh host is a status row only.
     expect(fleet.needsYou.items.map((r) => r.fleetKey).sort()).toEqual(["local|qi-local-1", "vps-a|qi-a1", "vps-b|qi-b1"]);
     expect(fleet.hosts.map((h) => [h.hostId, h.status.status])).toEqual([
@@ -329,8 +329,8 @@ describe("composeFleet — the fan-out shell (D-1/D-7 + per-host honesty)", () =
       ["vps-b", "ok"],
       ["ssh-1", "unsupported-transport"],
     ]);
-    // Every row from the v1 fan-out carries rig-root provenance.
-    for (const r of fleet.needsYou.items) expect(r.seenFrom).toEqual(["rig"]);
+    // Every row from the v1 fan-out carries software-team-root provenance.
+    for (const r of fleet.needsYou.items) expect(r.seenFrom).toEqual(["softwareTeam"]);
   });
 
   it("one unreachable host degrades to its structured status; the rest still compose (never all-or-nothing)", async () => {
@@ -338,7 +338,7 @@ describe("composeFleet — the fan-out shell (D-1/D-7 + per-host honesty)", () =
       fanoutDeps({
         fetchImpl: (async (url: string | URL | Request) => {
           if (String(url).includes("vps-a")) throw new Error("ECONNREFUSED");
-          return composedRigResponse([item({ identity: "qi-b1" })]);
+          return composedSoftwareTeamResponse([item({ identity: "qi-b1" })]);
         }) as typeof fetch,
       }),
     );
@@ -355,7 +355,7 @@ describe("composeFleet — the fan-out shell (D-1/D-7 + per-host honesty)", () =
         fetchImpl: (async (url: string | URL | Request) =>
           String(url).includes("vps-a")
             ? new Response(JSON.stringify({ nonsense: true }), { status: 200 })
-            : composedRigResponse([])) as typeof fetch,
+            : composedSoftwareTeamResponse([])) as typeof fetch,
       }),
     );
     const aRow = fleet.hosts.find((h) => h.hostId === "vps-a")!;
@@ -369,7 +369,7 @@ describe("composeFleet — the fan-out shell (D-1/D-7 + per-host honesty)", () =
         fetchImpl: (async (url: string | URL | Request) =>
           String(url).includes("vps-a")
             ? new Response("forbidden", { status: 403 })
-            : composedRigResponse([])) as typeof fetch,
+            : composedSoftwareTeamResponse([])) as typeof fetch,
       }),
     );
     expect(fleet.hosts.find((h) => h.hostId === "vps-a")!.status.status).toBe("auth-failed");
@@ -419,7 +419,7 @@ describe("composeFleet — one elapsed budget, including local work and worker w
     const deps = fanoutDeps({
       timeoutMs: 100,
       loadRegistry: () => ({ ok: true, registry: registry(count) }),
-      composeLocalRig: () => {
+      composeLocalSoftwareTeam: () => {
         vi.advanceTimersByTime(localMs);
         return localComposed([item({ identity: "qi-kept-local" })]);
       },
@@ -467,7 +467,7 @@ describe("composeFleet — one elapsed budget, including local work and worker w
   it("keeps timely results from multiple waves and their original host order", async () => {
     const { deps } = timedDeps(10);
     deps.fetchImpl = ((url) => new Promise<Response>(resolve => {
-      setTimeout(() => resolve(composedRigResponse([item({ identity: new URL(String(url)).hostname })])), 20);
+      setTimeout(() => resolve(composedSoftwareTeamResponse([item({ identity: new URL(String(url)).hostname })])), 20);
     })) as typeof fetch;
     const pending = composeFleet(deps);
     await vi.runAllTimersAsync();
@@ -484,7 +484,7 @@ describe("composeFleet — one elapsed budget, including local work and worker w
     const { deps, aborts } = timedDeps(0, 2);
     const stalled = deps.fetchImpl!;
     deps.fetchImpl = ((url, init) => String(url).includes("h0.")
-      ? Promise.resolve(composedRigResponse([item({ identity: "qi-timely" })]))
+      ? Promise.resolve(composedSoftwareTeamResponse([item({ identity: "qi-timely" })]))
       : stalled(url, init)) as typeof fetch;
     const pending = composeFleet(deps);
     await vi.runAllTimersAsync();

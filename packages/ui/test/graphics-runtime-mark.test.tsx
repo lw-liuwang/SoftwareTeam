@@ -87,12 +87,12 @@ describe("graphics runtime package", () => {
   it("centralizes human actor detection for author and project chips", () => {
     expect(isHumanActor("human@host")).toBe(true);
     expect(isHumanActor("operator@local")).toBe(true);
-    expect(isHumanActor("dev.driver@openrig-build")).toBe(false);
+    expect(isHumanActor("dev.driver@softwareteam-build")).toBe(false);
   });
 
   it("uses a neutral terminal-like mark for non-human session actors without runtime identity", () => {
-    render(<ActorMark actor="dev.driver@openrig-build" />);
-    expect(screen.getByRole("img", { name: "dev.driver@openrig-build" })).toBeTruthy();
+    render(<ActorMark actor="dev.driver@softwareteam-build" />);
+    expect(screen.getByRole("img", { name: "dev.driver@softwareteam-build" })).toBeTruthy();
   });
 
   it("ships the operator mask asset in public graphics", () => {

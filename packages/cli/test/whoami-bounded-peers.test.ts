@@ -11,7 +11,7 @@ import { STATE_FILE, type LifecycleDeps, type DaemonState } from "../src/daemon-
 import type { StatusDeps } from "../src/commands/status.js";
 
 /**
- * Slice 15 (OPR.0.7.0.15) P5 — `rig whoami --json` lists a bounded, edge-first set of peers when
+ * Slice 15 (OPR.0.7.0.15) P5 — `SoftwareTeam whoami --json` lists a bounded, edge-first set of peers when
  * `output.compact` is on. Switch off (the default) and `--all-peers` print today's compact output.
  */
 
@@ -25,7 +25,7 @@ function lifecycle(port: number): LifecycleDeps {
   };
 }
 
-const DAEMON_NOTE = "peers = this rig's roster excluding self (no edge filter); edges = directional relationships; use `rig ps --nodes` for node inventory including self + live state";
+const DAEMON_NOTE = "peers = this softwareTeam's roster excluding self (no edge filter); edges = directional relationships; use `SoftwareTeam ps --nodes` for node inventory including self + live state";
 
 const peer = (logicalId: string, podId: string) => ({
   logicalId, sessionName: `${logicalId.replace(".", "-")}@big`, runtime: "claude-code", podId, podNamespace: podId, memberId: logicalId.split(".")[1],
@@ -46,14 +46,14 @@ function response(peers: ReturnType<typeof peer>[], edges = {
   return {
     resolvedBy: "node_id",
     identity: {
-      rigId: "rig-1", rigName: "big", nodeId: "node-1", logicalId: "dev.impl", attachmentType: "tmux", podId: "dev",
+      softwareTeamId: "software-team-1", softwareTeamName: "big", nodeId: "node-1", logicalId: "dev.impl", attachmentType: "tmux", podId: "dev",
       podNamespace: "dev", podLabel: null, memberId: "impl", memberLabel: null, sessionName: "dev-impl@big", runtime: "claude-code",
       cwd: "/tmp", agentRef: null, profile: null, resolvedSpecName: null, resolvedSpecVersion: null,
     },
     peers,
     peersNote: DAEMON_NOTE,
     edges,
-    transcript: { enabled: true, path: "/tmp/t.log", tailCommand: "rig transcript dev-impl@big --tail 100", grepCommand: null },
+    transcript: { enabled: true, path: "/tmp/t.log", tailCommand: "SoftwareTeam transcript dev-impl@big --tail 100", grepCommand: null },
     commands: { sendExamples: [], captureExamples: [] },
   };
 }
@@ -65,7 +65,7 @@ function todaysCompact(data: ReturnType<typeof response>): string {
   return JSON.stringify({
     resolvedBy: data.resolvedBy,
     identity: {
-      rigName: data.identity.rigName, nodeId: data.identity.nodeId, logicalId: data.identity.logicalId, podId: data.identity.podId,
+      softwareTeamName: data.identity.softwareTeamName, nodeId: data.identity.nodeId, logicalId: data.identity.logicalId, podId: data.identity.podId,
       podNamespace: data.identity.podNamespace, memberId: data.identity.memberId, sessionName: data.identity.sessionName,
       runtime: data.identity.runtime,
     },
@@ -76,7 +76,7 @@ function todaysCompact(data: ReturnType<typeof response>): string {
   });
 }
 
-describe("rig whoami --json: bounded peers (output.compact, output.whoami_peers)", () => {
+describe("SoftwareTeam whoami --json: bounded peers (output.compact, output.whoami_peers)", () => {
   let server: http.Server;
   let port: number;
   let served: ReturnType<typeof response> | Record<string, unknown>;
@@ -100,8 +100,8 @@ describe("rig whoami --json: bounded peers (output.compact, output.whoami_peers)
   beforeEach(() => {
     served = response(BIG_PEERS);
     status = 200;
-    vi.stubEnv("OPENRIG_NODE_ID", "");
-    vi.stubEnv("OPENRIG_SESSION_NAME", "");
+    vi.stubEnv("SOFTWARETEAM_NODE_ID", "");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "");
     vi.stubEnv("TMUX_PANE", "");
   });
   afterEach(() => { vi.unstubAllEnvs(); });
@@ -114,14 +114,14 @@ describe("rig whoami --json: bounded peers (output.compact, output.whoami_peers)
     const logs: string[] = [];
     const spy = vi.spyOn(console, "log").mockImplementation((...a: unknown[]) => { logs.push(a.join(" ")); });
     try {
-      await prog.parseAsync(["node", "rig", "whoami", "--node-id", "node-1", ...args]);
+      await prog.parseAsync(["node", "SoftwareTeam", "whoami", "--node-id", "node-1", ...args]);
     } finally {
       spy.mockRestore();
     }
     return logs.join("\n");
   }
 
-  it("switch off (default): today's compact output byte for byte, on a large and a small rig", async () => {
+  it("switch off (default): today's compact output byte for byte, on a large and a small softwareTeam", async () => {
     expect(await run("--json")).toBe(todaysCompact(served as ReturnType<typeof response>));
     served = response(SMALL_PEERS);
     expect(await run("--json")).toBe(todaysCompact(served as ReturnType<typeof response>));
@@ -131,8 +131,8 @@ describe("rig whoami --json: bounded peers (output.compact, output.whoami_peers)
     expect(await run("--json", "--all-peers")).toBe(todaysCompact(served as ReturnType<typeof response>));
   });
 
-  it("switch on, large rig: 8 peers, edge peers (both directions) first, then the seat's pod, then roster order", async () => {
-    vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+  it("switch on, large softwareTeam: 8 peers, edge peers (both directions) first, then the seat's pod, then roster order", async () => {
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
     const out = JSON.parse(await run("--json"));
     expect(out.peers.map((p: { logicalId: string }) => p.logicalId)).toEqual([
       "review.r1", "orch.lead", "dev.a", "dev.b", "ops.o0", "ops.o1", "ops.o2", "ops.o3",
@@ -140,9 +140,9 @@ describe("rig whoami --json: bounded peers (output.compact, output.whoami_peers)
     expect(out.peers[0]).toEqual({ logicalId: "review.r1", sessionName: "review-r1@big", runtime: "claude-code" });
     expect(out.peersOmitted).toBe(15);
     expect(out.peersNote).toBe(
-      "peers = 8 of this rig's 23 (roster excluding self; edge peers first, then your pod, then roster order; "
-      + "bound output.whoami_peers=8); 15 not shown; all: rig whoami --json --all-peers --node-id 'node-1'; "
-      + "edges = directional relationships (always complete); use `rig ps --nodes` for node inventory including self + live state",
+      "peers = 8 of this softwareTeam's 23 (roster excluding self; edge peers first, then your pod, then roster order; "
+      + "bound output.whoami_peers=8); 15 not shown; all: SoftwareTeam whoami --json --all-peers --node-id 'node-1'; "
+      + "edges = directional relationships (always complete); use `SoftwareTeam ps --nodes` for node inventory including self + live state",
     );
     // Identity, edges and transcript stay at today's paths, complete.
     const today = JSON.parse(todaysCompact(served as ReturnType<typeof response>));
@@ -152,8 +152,8 @@ describe("rig whoami --json: bounded peers (output.compact, output.whoami_peers)
     expect(Object.keys(out)).toEqual(["resolvedBy", "identity", "peers", "peersNote", "peersOmitted", "edges", "transcript"]);
   });
 
-  it("switch on, small rig: today's peers and note verbatim, plus only peersOmitted: 0", async () => {
-    vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+  it("switch on, small softwareTeam: today's peers and note verbatim, plus only peersOmitted: 0", async () => {
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
     served = response(SMALL_PEERS);
     const out = await run("--json");
     const today = JSON.parse(todaysCompact(served as ReturnType<typeof response>));
@@ -162,8 +162,8 @@ describe("rig whoami --json: bounded peers (output.compact, output.whoami_peers)
     expect(Buffer.byteLength(out) - Buffer.byteLength(todaysCompact(served as ReturnType<typeof response>))).toBe('"peersOmitted":0,'.length);
   });
 
-  it("a rig of exactly the bound is shown whole, unchanged", async () => {
-    vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+  it("a SoftwareTeam of exactly the bound is shown whole, unchanged", async () => {
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
     served = response(BIG_PEERS.slice(0, 8));
     const out = JSON.parse(await run("--json"));
     expect(out.peers).toEqual(JSON.parse(todaysCompact(served as ReturnType<typeof response>)).peers);
@@ -172,7 +172,7 @@ describe("rig whoami --json: bounded peers (output.compact, output.whoami_peers)
   });
 
   it("switch on: an error answer prints exactly as main does (no bounding, no rewritten note, no peersOmitted)", async () => {
-    vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
     for (const code of [404, 409, 500]) {
       status = code;
       served = { error: "Session not found", peers: BIG_PEERS, peersNote: DAEMON_NOTE };
@@ -185,13 +185,13 @@ describe("rig whoami --json: bounded peers (output.compact, output.whoami_peers)
   });
 
   it("the setting changes the bound", async () => {
-    vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
-    vi.stubEnv("OPENRIG_OUTPUT_WHOAMI_PEERS", "3");
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_WHOAMI_PEERS", "3");
     let out = JSON.parse(await run("--json"));
     expect(out.peers.map((p: { logicalId: string }) => p.logicalId)).toEqual(["review.r1", "orch.lead", "dev.a"]);
     expect(out.peersOmitted).toBe(20);
     expect(out.peersNote).toContain("bound output.whoami_peers=3); 20 not shown");
-    vi.stubEnv("OPENRIG_OUTPUT_WHOAMI_PEERS", "30");
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_WHOAMI_PEERS", "30");
     out = JSON.parse(await run("--json"));
     expect(out.peers).toEqual(JSON.parse(todaysCompact(served as ReturnType<typeof response>)).peers);
     expect(out.peersNote).toBe(DAEMON_NOTE);
@@ -199,28 +199,28 @@ describe("rig whoami --json: bounded peers (output.compact, output.whoami_peers)
   });
 
   it("switch on: --all-peers prints today's compact output byte for byte", async () => {
-    vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
     expect(await run("--json", "--all-peers")).toBe(todaysCompact(served as ReturnType<typeof response>));
   });
 
   it("switch on: --full keeps today's whole payload", async () => {
-    vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
     expect(await run("--json", "--full")).toBe(JSON.stringify(served, null, 2));
   });
 
   it("switch on: plain text still lists every peer (out of P5)", async () => {
-    vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
     const out = await run();
     for (const p of BIG_PEERS) expect(out).toContain(p.logicalId);
   });
 
   it("the full-list command names the identity the call used: --session, quoted", () => {
-    const bounded = boundPeers(response(BIG_PEERS), 2, "rig whoami --json --all-peers --session 'dev-impl@big'");
-    expect(bounded.note).toContain("all: rig whoami --json --all-peers --session 'dev-impl@big';");
+    const bounded = boundPeers(response(BIG_PEERS), 2, "SoftwareTeam whoami --json --all-peers --session 'dev-impl@big'");
+    expect(bounded.note).toContain("all: SoftwareTeam whoami --json --all-peers --session 'dev-impl@big';");
   });
 
   it("edge peers past the bound are cut like any other, and edges still name them", () => {
-    const bounded = boundPeers(response(BIG_PEERS), 1, "rig whoami --json --all-peers");
+    const bounded = boundPeers(response(BIG_PEERS), 1, "SoftwareTeam whoami --json --all-peers");
     expect(bounded.peers.map((p) => (p as { logicalId: string }).logicalId)).toEqual(["review.r1"]);
     expect(bounded.omitted).toBe(22);
   });
@@ -233,10 +233,10 @@ describe("rig whoami --json: bounded peers (output.compact, output.whoami_peers)
     expect(noEdges.peers.map((p) => (p as { logicalId: string }).logicalId)).toEqual(["dev.a", "dev.b", "ops.o0", "ops.o1"]);
   });
 
-  it("the bound set in the config file applies, as `rig config get` reports it", async () => {
-    // Its own scratch home, so the test never depends on the suite's (or the caller's) OPENRIG_HOME.
+  it("the bound set in the config file applies, as `SoftwareTeam config get` reports it", async () => {
+    // Its own scratch home, so the test never depends on the suite's (or the caller's) SOFTWARETEAM_HOME.
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "whoami-peers-home-"));
-    vi.stubEnv("OPENRIG_HOME", home);
+    vi.stubEnv("SOFTWARETEAM_HOME", home);
     try {
       expect(new ConfigStore().configPath).toBe(path.join(home, "config.json"));
       new ConfigStore().set("output.compact", "true");
@@ -246,7 +246,7 @@ describe("rig whoami --json: bounded peers (output.compact, output.whoami_peers)
       expect(out.peers).toHaveLength(5);
       expect(out.peersOmitted).toBe(18);
     } finally {
-      // OPENRIG_HOME is restored by afterEach's vi.unstubAllEnvs(); remove only this test's own home.
+      // SOFTWARETEAM_HOME is restored by afterEach's vi.unstubAllEnvs(); remove only this test's own home.
       fs.rmSync(home, { recursive: true, force: true });
     }
   });
@@ -267,10 +267,10 @@ describe("output.whoami_peers: registered like output.compact", () => {
     }
   });
 
-  it("an invalid OPENRIG_OUTPUT_WHOAMI_PEERS is rejected with the store's warning and falls back", () => {
+  it("an invalid SOFTWARETEAM_OUTPUT_WHOAMI_PEERS is rejected with the store's warning and falls back", () => {
     const stderr: string[] = [];
     vi.spyOn(process.stderr, "write").mockImplementation(((s: string) => { stderr.push(String(s)); return true; }) as typeof process.stderr.write);
-    vi.stubEnv("OPENRIG_OUTPUT_WHOAMI_PEERS", "0");
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_WHOAMI_PEERS", "0");
     expect(new ConfigStore(path.join(home, "config.json")).get("output.whoami_peers")).toBe(8);
     expect(stderr.join("")).toContain("output.whoami_peers");
   });

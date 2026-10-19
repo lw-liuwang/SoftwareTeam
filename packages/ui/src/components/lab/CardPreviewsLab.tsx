@@ -126,7 +126,7 @@ export function CardPreviewsLab() {
       />
       <EmptyState
         label="ALL CAUGHT UP"
-        description="No new events. Spin up a rig or declare a slice to populate this feed."
+        description="No new events. Spin up a SoftwareTeam or declare a slice to populate this feed."
         variant="card"
         testId="card-previews-empty-state"
       />

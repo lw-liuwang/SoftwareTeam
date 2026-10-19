@@ -7,7 +7,7 @@ import type { ColorMode } from "./theme.js";
 
 /** the env kill-switch — any of the accepted flags disables ALL motion */
 export function reducedMotion(env: NodeJS.ProcessEnv = process.env): boolean {
-  return env["OPENRIG_REDUCED_MOTION"] === "1" || env["REDUCED_MOTION"] === "1" || env["NO_MOTION"] === "1";
+  return env["SOFTWARETEAM_REDUCED_MOTION"] === "1" || env["REDUCED_MOTION"] === "1" || env["NO_MOTION"] === "1";
 }
 
 /** Quiet command focus: two seconds visible, one off; typing stays steady. */

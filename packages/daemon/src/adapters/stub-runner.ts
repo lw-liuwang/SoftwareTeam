@@ -82,7 +82,7 @@ export interface StubRunnerIO {
   /** Kill the seat MID-TURN (mid_turn_death): record the exited sidecar + EXIT marker,
    *  then terminate the process. The real runner never returns from this. */
   die(code: number): void;
-  /** Injectable clock (OPENRIG_TEST_CLOCK_NOW when set, real wall-clock otherwise). */
+  /** Injectable clock (SOFTWARETEAM_TEST_CLOCK_NOW when set, real wall-clock otherwise). */
   now(): string;
 }
 
@@ -185,7 +185,7 @@ export function executeStubScript(script: StubScript, io: StubRunnerIO, identity
 }
 
 /** Resolve the seat's behavior script: the scenario-resolved script at
- *  <cwd>/.openrig/stub/script.json when present, else the built-in default. A
+ *  <cwd>/.softwareteam/stub/script.json when present, else the built-in default. A
  *  malformed scenario script fails LOUDLY (parseStubScript throws) — never a silent
  *  fallback to the default that would mask a broken scenario. */
 export function resolveStubScript(
@@ -222,45 +222,45 @@ export function buildStubTranscript(
 }
 
 /** Resolve the shipped precompact-hook.mjs the compaction behavior fires. An env
- *  override (OPENRIG_STUB_PRECOMPACT_HOOK) wins for hermetic tests; otherwise the
+ *  override (SOFTWARETEAM_STUB_PRECOMPACT_HOOK) wins for hermetic tests; otherwise the
  *  packaged asset relative to this entry — the SAME relative path from src/adapters
  *  (tsx) and dist/adapters (compiled), matching the daemon's asset-resolution idiom. */
 export function resolveStubHookScriptPath(env: NodeJS.ProcessEnv = process.env): string {
-  const override = env.OPENRIG_STUB_PRECOMPACT_HOOK;
+  const override = env.SOFTWARETEAM_STUB_PRECOMPACT_HOOK;
   if (typeof override === "string" && override.trim().length > 0) return override;
   return nodePath.resolve(
     import.meta.dirname,
-    "../../assets/plugins/openrig-core/skills/claude-compaction-restore/scripts/precompact-hook.mjs",
+    "../../assets/plugins/softwareteam-core/skills/claude-compaction-restore/scripts/precompact-hook.mjs",
   );
 }
 
 /** Resolve the shipped compaction-restore-bridge.cjs the restore behavior fires. An env
- *  override (OPENRIG_STUB_RESTORE_BRIDGE) wins for hermetic tests; otherwise the packaged
+ *  override (SOFTWARETEAM_STUB_RESTORE_BRIDGE) wins for hermetic tests; otherwise the packaged
  *  asset relative to this entry — the SAME relative path from src/adapters (tsx) and
  *  dist/adapters (compiled), matching the daemon's asset-resolution idiom. */
 export function resolveStubRestoreBridgePath(env: NodeJS.ProcessEnv = process.env): string {
-  const override = env.OPENRIG_STUB_RESTORE_BRIDGE;
+  const override = env.SOFTWARETEAM_STUB_RESTORE_BRIDGE;
   if (typeof override === "string" && override.trim().length > 0) return override;
   return nodePath.resolve(
     import.meta.dirname,
-    "../../assets/plugins/openrig-core/hooks/scripts/compaction-restore-bridge.cjs",
+    "../../assets/plugins/softwareteam-core/hooks/scripts/compaction-restore-bridge.cjs",
   );
 }
 
 /** Resolve the daemon's activity endpoint (mirror pi-runner): env first
- *  (OPENRIG_URL + OPENRIG_ACTIVITY_HOOK_TOKEN, or OPENRIG_HOST:OPENRIG_PORT), then
- *  the <OPENRIG_HOME>/activity-endpoint.json fallback. Returns null when neither is
+ *  (SOFTWARETEAM_URL + SOFTWARETEAM_ACTIVITY_HOOK_TOKEN, or SOFTWARETEAM_HOST:SOFTWARETEAM_PORT), then
+ *  the <SOFTWARETEAM_HOME>/activity-endpoint.json fallback. Returns null when neither is
  *  available — activity POSTs then no-op (the sidecar + pane still work). */
 export function resolveStubActivityEndpoint(env: NodeJS.ProcessEnv): { baseUrl: string; token: string } | null {
-  let baseUrl = env.OPENRIG_URL?.trim() || null;
-  let token = env.OPENRIG_ACTIVITY_HOOK_TOKEN?.trim() || null;
-  if (!baseUrl && env.OPENRIG_PORT) {
-    const rawHost = env.OPENRIG_HOST?.trim() || "127.0.0.1";
-    baseUrl = `http://${formatDaemonHostForUrl(rawHost)}:${env.OPENRIG_PORT.trim()}`;
+  let baseUrl = env.SOFTWARETEAM_URL?.trim() || null;
+  let token = env.SOFTWARETEAM_ACTIVITY_HOOK_TOKEN?.trim() || null;
+  if (!baseUrl && env.SOFTWARETEAM_PORT) {
+    const rawHost = env.SOFTWARETEAM_HOST?.trim() || "127.0.0.1";
+    baseUrl = `http://${formatDaemonHostForUrl(rawHost)}:${env.SOFTWARETEAM_PORT.trim()}`;
   }
   if (!baseUrl || !token) {
     try {
-      const home = env.OPENRIG_HOME?.trim() || nodePath.join(env.HOME ?? "", ".openrig");
+      const home = env.SOFTWARETEAM_HOME?.trim() || nodePath.join(env.HOME ?? "", ".softwareteam");
       const parsed = JSON.parse(nodeFs.readFileSync(nodePath.join(home, "activity-endpoint.json"), "utf8"));
       if (!baseUrl && typeof parsed.baseUrl === "string") baseUrl = parsed.baseUrl;
       if (!token && typeof parsed.token === "string") token = parsed.token;
@@ -272,22 +272,22 @@ export function resolveStubActivityEndpoint(env: NodeJS.ProcessEnv): { baseUrl: 
 }
 
 /** The loud stderr line both the stub runner AND the shipped precompact hook emit when
- *  OPENRIG_TEST_CLOCK_NOW is active. A leaked test-clock var silently FREEZES production
+ *  SOFTWARETEAM_TEST_CLOCK_NOW is active. A leaked test-clock var silently FREEZES production
  *  timestamps; this makes any leak visible in seat logs (safety, per review-r1's
  *  escalation). MUST stay byte-identical to the literal in precompact-hook.mjs. */
-export const STUB_CLOCK_ANNOUNCEMENT = "OPENRIG_TEST_CLOCK_NOW active — timestamps are injected";
+export const STUB_CLOCK_ANNOUNCEMENT = "SOFTWARETEAM_TEST_CLOCK_NOW active — timestamps are injected";
 
 export async function runStubRunner(args: StubRunnerArgs): Promise<void> {
   // PRD §5 (no wall-clock in the stub's OWN behavior): the runner's own stamps honor
-  // the same A3-R3 injectable clock the compaction assets use — OPENRIG_TEST_CLOCK_NOW
+  // the same A3-R3 injectable clock the compaction assets use — SOFTWARETEAM_TEST_CLOCK_NOW
   // (an ISO instant) when set, real wall-clock otherwise (absent = production).
-  const injectedClock = process.env.OPENRIG_TEST_CLOCK_NOW;
+  const injectedClock = process.env.SOFTWARETEAM_TEST_CLOCK_NOW;
   if (typeof injectedClock === "string" && injectedClock.trim().length > 0) {
     // eslint-disable-next-line no-console
     console.error(STUB_CLOCK_ANNOUNCEMENT); // loud-on-active; absence stays silent (production)
   }
   const nowIso = () => {
-    const injected = process.env.OPENRIG_TEST_CLOCK_NOW;
+    const injected = process.env.SOFTWARETEAM_TEST_CLOCK_NOW;
     return typeof injected === "string" && injected.trim().length > 0 ? injected : new Date().toISOString();
   };
   try {
@@ -305,11 +305,11 @@ export async function runStubRunner(args: StubRunnerArgs): Promise<void> {
   // default) and EXECUTE its steps against the real IO seam. `emit compaction` fires
   // the exact shipped precompact seam (arch R3: TRIGGER, never fabricate). A broken
   // scenario script fails LOUDLY on the pane rather than silently no-opping.
-  const openrigHome = process.env.OPENRIG_HOME?.trim() || nodePath.join(process.env.HOME ?? "", ".openrig");
+  const softwareteamHome = process.env.SOFTWARETEAM_HOME?.trim() || nodePath.join(process.env.HOME ?? "", ".softwareteam");
   // The stub compacts its OWN authored transcript (never a foreign one discovered
   // under ~/.claude/projects) — authored below from the resolved script.
-  const transcriptPath = nodePath.join(args.cwd, ".openrig", "stub", "transcript.jsonl");
-  const identity: StubActivityIdentity = { sessionName: args.sessionName, nodeId: process.env.OPENRIG_NODE_ID };
+  const transcriptPath = nodePath.join(args.cwd, ".softwareteam", "stub", "transcript.jsonl");
+  const identity: StubActivityIdentity = { sessionName: args.sessionName, nodeId: process.env.SOFTWARETEAM_NODE_ID };
   const endpoint = resolveStubActivityEndpoint(process.env);
   const io: StubRunnerIO = {
     // eslint-disable-next-line no-console
@@ -317,10 +317,10 @@ export async function runStubRunner(args: StubRunnerArgs): Promise<void> {
     fireCompaction: () => fireCompaction({
       hookScriptPath: resolveStubHookScriptPath(),
       sessionName: args.sessionName,
-      openrigHome,
+      softwareteamHome,
       cwd: args.cwd,
       transcriptPath,
-      injectClockNow: process.env.OPENRIG_TEST_CLOCK_NOW,
+      injectClockNow: process.env.SOFTWARETEAM_TEST_CLOCK_NOW,
     }),
     fireRestore: () => fireRestore({
       bridgeScriptPath: resolveStubRestoreBridgePath(),
@@ -328,9 +328,9 @@ export async function runStubRunner(args: StubRunnerArgs): Promise<void> {
       // Same authored transcript the compaction seam recorded on the marker — the identity
       // the bridge's R5 premise gate matches to deliver (drive it through, never weaken it).
       transcriptPath,
-      openrigHome,
+      softwareteamHome,
       cwd: args.cwd,
-      injectClockNow: process.env.OPENRIG_TEST_CLOCK_NOW,
+      injectClockNow: process.env.SOFTWARETEAM_TEST_CLOCK_NOW,
     }),
     postActivity: (payload) => {
       if (!endpoint || typeof fetch !== "function") return;

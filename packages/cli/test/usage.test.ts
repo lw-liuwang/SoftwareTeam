@@ -1,4 +1,4 @@
-// 51-08 A4 — `rig usage` CLI (plan-lock rev-1, PM decision 4: the SAME projection
+// 51-08 A4 — `softwareTeam usage` CLI (plan-lock rev-1, PM decision 4: the SAME projection
 // serves CLI + HTTP). Param-faithful daemon-backed grammar per the provider.ts
 // precedent: values must ARRIVE at the route (option-parity doctrine), --json is
 // verbatim, and the human render keeps the honest-unknown rail explicit.
@@ -44,7 +44,7 @@ async function run(args: string[], deps: StatusDeps): Promise<{ logs: string[]; 
   console.log = (...a: unknown[]) => logs.push(a.join(" "));
   console.error = (...a: unknown[]) => errors.push(a.join(" "));
   try {
-    await usageCommand(deps).parseAsync(["node", "rig", ...args]);
+    await usageCommand(deps).parseAsync(["node", "softwareTeam", ...args]);
   } finally {
     console.log = origLog;
     console.error = origErr;
@@ -70,7 +70,7 @@ const ADVISED_PAYLOAD = {
   advisories: ['since "garbage" was not recognised as a date or time; the existing text comparison against captured_at was used'],
 };
 
-describe("rig usage CLI grammar (daemon-backed)", () => {
+describe("SoftwareTeam usage CLI grammar (daemon-backed)", () => {
   let server: http.Server;
   let port: number;
   const seen: Array<{ url: string }> = [];
@@ -178,7 +178,7 @@ describe("rig usage CLI grammar (daemon-backed)", () => {
   });
 });
 
-describe("rig usage cost lines (OPR.0.7.0.2)", () => {
+describe("SoftwareTeam usage cost lines (OPR.0.7.0.2)", () => {
   it("labels a Claude estimate, its window and staleness; never prints a dollar figure for absent or Codex seats", async () => {
     const { costLine } = await import("../src/commands/usage.js");
     const reported = costLine({ seatSession: "dev@r", status: "reported", costUsd: 1.5, resets: 1, stale: true, ageSeconds: 900,
@@ -195,7 +195,7 @@ describe("rig usage cost lines (OPR.0.7.0.2)", () => {
   });
 });
 
-describe("rig usage cost: a tiny estimate never reads as zero (OPR.0.7.0.2)", () => {
+describe("SoftwareTeam usage cost: a tiny estimate never reads as zero (OPR.0.7.0.2)", () => {
   it("prints <$0.01 below half a cent, rounds normally above, and keeps an exact reported zero", async () => {
     const { formatUsd, costLine } = await import("../src/commands/usage.js");
     expect(formatUsd(0.0004)).toBe("<$0.01");
@@ -210,7 +210,7 @@ describe("rig usage cost: a tiny estimate never reads as zero (OPR.0.7.0.2)", ()
   });
 });
 
-describe("rig usage cost: Pi seats (OPR.0.7.0.2)", () => {
+describe("SoftwareTeam usage cost: Pi seats (OPR.0.7.0.2)", () => {
   it("names the model-priced estimate, its session and what isn't in it", async () => {
     const { costLine } = await import("../src/commands/usage.js");
     const line = costLine({ seatSession: "devpi@r", runtime: "pi", status: "reported", costUsd: 0.0675,
@@ -228,16 +228,16 @@ describe("rig usage cost: Pi seats (OPR.0.7.0.2)", () => {
   });
 });
 
-describe("rig usage cost: OpenRouter charge beside the Pi estimate (OPR.0.7.0.2 K4)", () => {
+describe("SoftwareTeam usage cost: OpenRouter charge beside the Pi estimate (OPR.0.7.0.2 K4)", () => {
   const seat = (providerCharge: Record<string, unknown>) => ({ seatSession: "devpi@r", runtime: "pi", status: "reported", costUsd: 0.18,
     window: { piSessionId: "s1" }, entries: { own: 4 }, tokens: { input: 1, output: 1 }, providerCharge });
   it("names the provider charge, its coverage and account context, apart from the estimate", async () => {
     const { costLine } = await import("../src/commands/usage.js");
     const line = costLine(seat({ status: "partial", costUsd: 0.042, estimateForChargedUsd: 0.03,
       requests: { covered: 3, charged: 2, pending: 0, unavailable: { count: 1, reasons: { "not available after 5 lookups (last: HTTP 404)": 1 } }, notCovered: { count: 1 } },
-      accountContext: { credentialSources: ["OPENROUTER_API_KEY (forwarded by OpenRig)"] } }));
+      accountContext: { credentialSources: ["OPENROUTER_API_KEY (forwarded by SoftwareTeam)"] } }));
     expect(line).toContain("$0.18 model-priced estimate");
-    expect(line).toContain("OpenRouter charge $0.04 USD for 2 of 3 requests via OPENROUTER_API_KEY (forwarded by OpenRig), Pi estimate for them $0.03");
+    expect(line).toContain("OpenRouter charge $0.04 USD for 2 of 3 requests via OPENROUTER_API_KEY (forwarded by SoftwareTeam), Pi estimate for them $0.03");
     expect(line).toContain("1 unavailable (not available after 5 lookups (last: HTTP 404)), 1 not covered (provider-reported, not added to the estimate)");
   });
   it("says unavailable or not looked up, never a $0 charge", async () => {

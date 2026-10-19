@@ -74,7 +74,7 @@ export function formatWatchdogDeliveryMessage(
   source: WatchdogDeliverySource,
   message: string,
 ): string {
-  return `[OpenRig watchdog scheduler · policy: ${source.policy} · job: ${source.jobId}]\n${message}`;
+  return `[SoftwareTeam watchdog scheduler · policy: ${source.policy} · job: ${source.jobId}]\n${message}`;
 }
 
 export interface PolicyContextParser {
@@ -164,7 +164,7 @@ const QUIET_SKIP_REASONS = new Set<string>([
   // emits it.
   "gate_condition_unchanged",
   // OPR.0.5.6.24 — the parked-owner consumer's clean-scan no-op: nothing
-  // parked, nothing closed, nothing deferred. Suppressed so a routine rig
+  // parked, nothing closed, nothing deferred. Suppressed so a routine softwareTeam
   // scan writes no history (the loud, audited signals are the SENT wake,
   // episode-ended, and all-parked-owners-deferred).
   "no-parked-owner",

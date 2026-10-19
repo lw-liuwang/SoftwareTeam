@@ -38,7 +38,7 @@ function paintExplorer(text: string, s: Style, focused: boolean): string {
   return paintExplorerBody(text, s);
 }
 
-/** row-body treatment (VISUAL-TARGETS: rig teal · pod dim · meta faint ·
+/** row-body treatment (VISUAL-TARGETS: softwareTeam teal · pod dim · meta faint ·
  * names default ink); the right-aligned meta column always dims */
 function paintExplorerBody(text: string, s: Style): string {
   const meta = text.match(/^(.*?\S)( +)((?:\S+ · )?(?:[0-9]+%|—)|[0-9]+)$/);
@@ -94,13 +94,13 @@ function paintContent(text: string, s: Style): string {
   // detail vocabulary: field row "  label:      value" → dim label, inline-painted value
   const field = text.match(/^( {2})([a-z][a-z0-9 -]{0,14}:)( +)(\S.*)$/);
   if (field) return `${field[1]}${s.paint("dim", field[2]!)}${field[3]}${paintInline(field[4]!, s)}`;
-  if (/^(SPEC LIBRARY|NEEDS-YOU|agent spec |rig spec |agent |seats running spec )/.test(text.trimStart()) && !text.includes("│"))
+  if (/^(SPEC LIBRARY|NEEDS-YOU|agent spec |SoftwareTeam spec |agent |seats running spec )/.test(text.trimStart()) && !text.includes("│"))
     return paintTitleLine(text, s);
   if (/^\s*\/ filter/.test(text)) return s.paint("dim", text);
   if (/^\s*─+$/.test(text)) return s.paint("chrome", text);
   if (text.includes("⚑")) return paintAlertLine(text, "warn", s);
   if (text.includes("✖")) return paintAlertLine(text, "error", s);
-  if (/hosts\/rigs down:/.test(text)) return s.paint("warn", text, { bold: true });
+  if (/hosts\/softwareTeams down:/.test(text)) return s.paint("warn", text, { bold: true });
   if (/human-queue:|honest-empty|read pending|proven empty|not in the current snapshot|library read pending/.test(text))
     return s.paint("dim", text);
   if (/^\s*(source|attach):/.test(text)) return s.paint("dim", text);
@@ -110,7 +110,7 @@ function paintContent(text: string, s: Style): string {
 
 function paintTitleLine(text: string, s: Style): string {
   // headings: bright-bold the heading token, leave the rest to inline painting
-  const m = text.match(/^(\s*)(SPEC LIBRARY|NEEDS-YOU|agent spec \S+|rig spec \S+|agent \S+|seats running spec "[^"]*")(.*)$/);
+  const m = text.match(/^(\s*)(SPEC LIBRARY|NEEDS-YOU|agent spec \S+|SoftwareTeam spec \S+|agent \S+|seats running spec "[^"]*")(.*)$/);
   if (!m) return paintInline(text, s);
   return `${m[1]}${s.paint("bright", m[2]!, { bold: true })}${paintInline(m[3] ?? "", s)}`;
 }
@@ -129,7 +129,7 @@ export function stylizeLines(screen: Screen, s: Style): string[] {
   // second source of truth to drift
   const explorerFocused = (screen.lines.find((line) => line.includes("╋")) ?? "").includes("{ EXPLORER }");
 
-  const rigRows = new Set(screen.explorerRows.filter(row => row.key?.startsWith("rig:")).map(row => row.y));
+  const softwareTeamRows = new Set(screen.explorerRows.filter(row => row.key?.startsWith("software-team:")).map(row => row.y));
 
   return screen.lines.map((line, index) => {
     if (index === 0) {
@@ -158,7 +158,7 @@ export function stylizeLines(screen: Screen, s: Style): string[] {
         .join("");
     }
     if (line.startsWith("≋")) {
-      // round-5 (guard): the ambient rig-stream ticker is NOT a pane-output
+      // round-5 (guard): the ambient software-team-stream ticker is NOT a pane-output
       // event source — it never flashes; the activity flash lives on the
       // flashed agent's explorer row (flashRows) instead
       const m = line.match(/^≋ (\S+) (\S+) (.*)$/);
@@ -196,8 +196,8 @@ export function stylizeLines(screen: Screen, s: Style): string[] {
       const em = screen.explorerMeta?.[index + 1];
       const selected = left.startsWith("▶") || left.startsWith("◆");
       let paintedLeft = paintExplorer(left, s, explorerFocused);
-      // Presence stays legible on a rig's selection bar; other row selections keep their treatment.
-      if (em?.length && (!selected || rigRows.has(index + 1))) {
+      // Presence stays legible on a softwareTeam's selection bar; other row selections keep their treatment.
+      if (em?.length && (!selected || softwareTeamRows.has(index + 1))) {
         paintedLeft = "";
         let pos = 0;
         const selection = selected ? { bg: "selection" as const, bold: explorerFocused } : {};

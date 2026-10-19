@@ -10,7 +10,7 @@ describe("activity-endpoint (OPR.0.4.3.28 B2)", () => {
   let stateDir: string;
 
   beforeEach(() => {
-    stateDir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "openrig-s28-"));
+    stateDir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "softwareteam-s28-"));
   });
   afterEach(() => {
     try { fs.rmSync(stateDir, { recursive: true, force: true }); } catch { /* ignore */ }
@@ -33,34 +33,34 @@ describe("activity-endpoint (OPR.0.4.3.28 B2)", () => {
   });
 
   it("writes + reads back the endpoint snapshot {baseUrl, token}", () => {
-    writeActivityEndpointFile(stateDir, { baseUrl: "http://127.0.0.1:7433", token: "abc123" });
+    writeActivityEndpointFile(stateDir, { baseUrl: "http://127.0.0.1:7434", token: "abc123" });
     const endpointPath = nodePath.join(stateDir, "activity-endpoint.json");
     expect(fs.statSync(endpointPath).mode & 0o777).toBe(0o600);
     const read = readActivityEndpointFile(stateDir);
-    expect(read).toEqual({ baseUrl: "http://127.0.0.1:7433", token: "abc123" });
+    expect(read).toEqual({ baseUrl: "http://127.0.0.1:7434", token: "abc123" });
   });
 
   // OPR.0.4.3.28 Blocker 2 — the URL must honor an explicit daemon bind host
   // (the daemon binds only that host), with wildcard/absent → loopback.
   it("deriveActivityUrl uses an explicit (tailnet/hostname) host verbatim", () => {
-    expect(deriveActivityUrl("100.64.0.5", "7433")).toBe("http://100.64.0.5:7433");
-    expect(deriveActivityUrl("my-box.tail-scale.ts.net", "7433")).toBe("http://my-box.tail-scale.ts.net:7433");
-    expect(deriveActivityUrl("localhost", "7433")).toBe("http://localhost:7433");
+    expect(deriveActivityUrl("100.64.0.5", "7434")).toBe("http://100.64.0.5:7434");
+    expect(deriveActivityUrl("my-box.tail-scale.ts.net", "7434")).toBe("http://my-box.tail-scale.ts.net:7434");
+    expect(deriveActivityUrl("localhost", "7434")).toBe("http://localhost:7434");
   });
 
   it("deriveActivityUrl brackets specific IPv6 hosts (#493)", () => {
-    expect(deriveActivityUrl("::1", "7433")).toBe("http://[::1]:7433");
+    expect(deriveActivityUrl("::1", "7434")).toBe("http://[::1]:7434");
     expect(deriveActivityUrl("2001:db8::1", "9000")).toBe("http://[2001:db8::1]:9000");
-    expect(deriveActivityUrl("[::1]", "7433")).toBe("http://[::1]:7433");
+    expect(deriveActivityUrl("[::1]", "7434")).toBe("http://[::1]:7434");
   });
 
   it("deriveActivityUrl maps wildcard/bind-all hosts to loopback (not connectable)", () => {
-    expect(deriveActivityUrl("0.0.0.0", "7433")).toBe("http://127.0.0.1:7433");
-    expect(deriveActivityUrl("::", "7433")).toBe("http://127.0.0.1:7433");
+    expect(deriveActivityUrl("0.0.0.0", "7434")).toBe("http://127.0.0.1:7434");
+    expect(deriveActivityUrl("::", "7434")).toBe("http://127.0.0.1:7434");
   });
 
   it("deriveActivityUrl falls back to loopback + DEFAULT_PORT when host/port absent", () => {
-    expect(deriveActivityUrl(undefined, undefined)).toBe("http://127.0.0.1:7433");
+    expect(deriveActivityUrl(undefined, undefined)).toBe("http://127.0.0.1:7434");
     expect(deriveActivityUrl(undefined, "9001")).toBe("http://127.0.0.1:9001");
   });
 

@@ -11,7 +11,7 @@ Two gates, one per question-kind — the legible split the desk ruled
 
 ONE eval harness serves BOTH slices through one portable `EvalCase` shape (anti-fork — the ruling
 also amends slice-05 Q3 so there is one eval convention, not two):
-- slice-07: SELECTION-before-LOADING — does the seat pull `rig context get <ref>` for a natural prompt?
+- slice-07: SELECTION-before-LOADING — does the seat pull `SoftwareTeam context get <ref>` for a natural prompt?
 - slice-05: BEHAVIOR-after-DELIVERY — does it follow what it loaded?
 
 Grading:
@@ -28,10 +28,10 @@ Layout:
   package (built by `generate-context-packs.mjs`), so fixture-vs-production drift fails structurally.
 - runner + grader code lives in `packages/daemon/test/helpers/eval-*.ts` (vitest-wired); the standalone
   entry is `packages/daemon/scripts/run-evals.mjs` (`--provider fake`, the default, grades transcripts
-  from `--transcripts`; `--provider rig` drives a live seat), run via
+  from `--transcripts`; `--provider SoftwareTeam` drives a live seat), run via
   `npm run eval -w packages/daemon -- [args]`
   (the TS helpers need the tsx loader, which that command supplies) — mirroring the scenario system's
   split, node/tsx/vitest.
 
 Status: built. `npm test` covers the harness without a model (`packages/daemon/test/eval-*.test.ts`);
-live `--provider rig` runs are manual, and CI does not run them.
+live `--provider SoftwareTeam` runs are manual, and CI does not run them.

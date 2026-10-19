@@ -1,5 +1,5 @@
-import { RigSpecCodec } from "./rigspec-codec.js";
-import { RigSpecSchema, LegacyRigSpecSchema } from "./rigspec-schema.js";
+import { SoftwareTeamSpecCodec } from "./software-team-spec-codec.js";
+import { SoftwareTeamSpecSchema, LegacySoftwareTeamSpecSchema } from "./software-team-spec-schema.js";
 import { parseAgentSpec, validateAgentSpec } from "./agent-manifest.js";
 import type { ValidationResult } from "./types.js";
 
@@ -12,9 +12,9 @@ export interface SpecGraphData {
   edges: Array<{ source: string; target: string; kind: string }>;
 }
 
-// -- RigSpec review --
+// -- SoftwareTeamSpec review --
 
-export interface RigSpecServicesReview {
+export interface SoftwareTeamSpecServicesReview {
   kind: "compose";
   composeFile: string;
   projectName?: string;
@@ -34,19 +34,19 @@ export interface RigSpecServicesReview {
   };
 }
 
-interface RigSpecReviewBase {
+interface SoftwareTeamSpecReviewBase {
   sourceState: SourceState;
-  kind: "rig";
+  kind: "softwareTeam";
   name: string;
   version: string;
   summary?: string;
   cultureFile?: string;
-  services?: RigSpecServicesReview;
+  services?: SoftwareTeamSpecServicesReview;
   graph: SpecGraphData;
   raw: string;
 }
 
-export interface PodAwareRigSpecReview extends RigSpecReviewBase {
+export interface PodAwareSoftwareTeamSpecReview extends SoftwareTeamSpecReviewBase {
   format: "pod_aware";
   pods: Array<{
     id: string;
@@ -58,13 +58,13 @@ export interface PodAwareRigSpecReview extends RigSpecReviewBase {
   edges: Array<{ from: string; to: string; kind: string }>;
 }
 
-export interface LegacyRigSpecReview extends RigSpecReviewBase {
+export interface LegacySoftwareTeamSpecReview extends SoftwareTeamSpecReviewBase {
   format: "legacy";
   nodes: Array<{ id: string; runtime: string; role?: string; model?: string }>;
   edges: Array<{ from: string; to: string; kind: string }>;
 }
 
-export type RigSpecReview = PodAwareRigSpecReview | LegacyRigSpecReview;
+export type SoftwareTeamSpecReview = PodAwareSoftwareTeamSpecReview | LegacySoftwareTeamSpecReview;
 
 // -- AgentSpec review --
 
@@ -108,10 +108,10 @@ function inferNodeKind(runtime: string): "agent" | "infrastructure" {
 }
 
 export class SpecReviewService {
-  reviewRigSpec(yaml: string, sourceState: SourceState): RigSpecReview {
+  reviewSoftwareTeamSpec(yaml: string, sourceState: SourceState): SoftwareTeamSpecReview {
     let raw: unknown;
     try {
-      raw = RigSpecCodec.parse(yaml);
+      raw = SoftwareTeamSpecCodec.parse(yaml);
     } catch (err) {
       throw new SpecReviewError([`YAML parse error: ${(err as Error).message}`]);
     }
@@ -122,17 +122,17 @@ export class SpecReviewService {
     const obj = raw as Record<string, unknown>;
 
     if (isPodAware(obj)) {
-      return this.reviewPodAwareRigSpec(obj, yaml, sourceState);
+      return this.reviewPodAwareSoftwareTeamSpec(obj, yaml, sourceState);
     }
-    return this.reviewLegacyRigSpec(obj, yaml, sourceState);
+    return this.reviewLegacySoftwareTeamSpec(obj, yaml, sourceState);
   }
 
-  private reviewPodAwareRigSpec(
+  private reviewPodAwareSoftwareTeamSpec(
     obj: Record<string, unknown>,
     yaml: string,
     sourceState: SourceState,
-  ): PodAwareRigSpecReview {
-    const validation = RigSpecSchema.validate(obj);
+  ): PodAwareSoftwareTeamSpecReview {
+    const validation = SoftwareTeamSpecSchema.validate(obj);
     if (!validation.valid) {
       throw new SpecReviewError(validation.errors);
     }
@@ -199,7 +199,7 @@ export class SpecReviewService {
     }
 
     // Extract services metadata if present
-    let services: RigSpecServicesReview | undefined;
+    let services: SoftwareTeamSpecServicesReview | undefined;
     const rawServices = obj["services"] as Record<string, unknown> | undefined;
     if (rawServices && typeof rawServices === "object" && rawServices["kind"] === "compose") {
       const rawWaitFor = (rawServices["wait_for"] as Array<Record<string, unknown>>) ?? [];
@@ -227,7 +227,7 @@ export class SpecReviewService {
 
     return {
       sourceState,
-      kind: "rig",
+      kind: "softwareTeam",
       name,
       version,
       summary,
@@ -241,12 +241,12 @@ export class SpecReviewService {
     };
   }
 
-  private reviewLegacyRigSpec(
+  private reviewLegacySoftwareTeamSpec(
     obj: Record<string, unknown>,
     yaml: string,
     sourceState: SourceState,
-  ): LegacyRigSpecReview {
-    const validation = LegacyRigSpecSchema.validate(obj);
+  ): LegacySoftwareTeamSpecReview {
+    const validation = LegacySoftwareTeamSpecSchema.validate(obj);
     if (!validation.valid) {
       throw new SpecReviewError(validation.errors);
     }
@@ -284,7 +284,7 @@ export class SpecReviewService {
 
     return {
       sourceState,
-      kind: "rig",
+      kind: "softwareTeam",
       name,
       version,
       format: "legacy",
@@ -332,7 +332,7 @@ export class SpecReviewService {
 
     // Plugin entries have a different shape: { id, source: { kind, path } }.
     // The id is the human-readable handle for the review surface (operator
-    // recognizes "openrig-core" not "/Users/op/.openrig/plugins/openrig-core").
+    // recognizes "softwareteam-core" not "/Users/op/.softwareteam/plugins/softwareteam-core").
     const extractPluginIds = (raw: unknown): string[] => {
       if (!Array.isArray(raw)) return [];
       return raw.map((item) => {

@@ -27,7 +27,7 @@ import { MissionControlWriteContract } from "../src/domain/mission-control/missi
 
 const human = "human-founder@external";
 const registry = { ok: true as const, entities: [{ entityId: "human-founder", class: "human" as const, displayName: "Founder", address: human, connectorBindings: [{ kind: "slack" as const, connectorRef: "primary", secretsRef: "env:SLACK_BOT_TOKEN", role: "primary" as const, handle: "UFOUNDER" }], prefs: { deliveryClass: "A" as const } }] };
-const request = { sourceSession: "author@rig", destinationSession: human, summary: "Merge the fix?", body: "Approve or hold?", evidenceRef: "/private/proof.md", nudge: false };
+const request = { sourceSession: "author@software-team", destinationSession: human, summary: "Merge the fix?", body: "Approve or hold?", evidenceRef: "/private/proof.md", nudge: false };
 const reply = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 
 describe("update --reply-to an earlier item's thread (#96)", () => {
@@ -48,11 +48,11 @@ describe("update --reply-to an earlier item's thread (#96)", () => {
     repo.update({ qitemId, actorSession: human, state: "done", closureReason: "no-follow-on", transitionNote: "human approved" });
   // The leg-1 park shape: an agent row blocked on the human seat; resolve returns it to in-progress.
   const park = async () => {
-    const work = await repo.create({ sourceSession: "author@rig", destinationSession: "worker@rig", body: "Ship the fix.", nudge: false });
-    repo.update({ qitemId: work.qitemId, actorSession: "worker@rig", state: "blocked", blockedOn: "human-founder@kernel", summary: "Merge the fix?", evidenceRef: "/proof/PR.md", transitionNote: "parked for approval" });
+    const work = await repo.create({ sourceSession: "author@software-team", destinationSession: "worker@software-team", body: "Ship the fix.", nudge: false });
+    repo.update({ qitemId: work.qitemId, actorSession: "worker@software-team", state: "blocked", blockedOn: "human-founder@kernel", summary: "Merge the fix?", evidenceRef: "/proof/PR.md", transitionNote: "parked for approval" });
     return work;
   };
-  // The real `rig queue resolve` path: Mission Control unparks blocked -> in-progress and keeps blocked_on.
+  // The real `SoftwareTeam queue resolve` path: Mission Control unparks blocked -> in-progress and keeps blocked_on.
   const resolvePark = (qitemId: string) =>
     new MissionControlWriteContract({ db, eventBus: bus, queueRepo: repo, actionLog: new MissionControlActionLog(db) })
       .act({ verb: "resolve", qitemId, actorSession: "human-founder@kernel", decision: "approved" });
@@ -85,13 +85,13 @@ describe("update --reply-to an earlier item's thread (#96)", () => {
       expect(repo.getById(work.qitemId)?.state).toBe("in-progress");
       expect(hasLiveHumanGate(repo.getById(work.qitemId)!)).toBe(false);
       // Mission Control's resolve documents keeping blocked_on as provenance; that shape is not a gate either.
-      expect(hasLiveHumanGate({ humanIntent: null, state: "in-progress", destinationSession: "worker@rig", blockedOn: "human-founder@kernel" })).toBe(false);
-      expect(hasLiveHumanGate({ humanIntent: null, state: "blocked", destinationSession: "worker@rig", blockedOn: "human-founder@kernel" })).toBe(true);
+      expect(hasLiveHumanGate({ humanIntent: null, state: "in-progress", destinationSession: "worker@software-team", blockedOn: "human-founder@kernel" })).toBe(false);
+      expect(hasLiveHumanGate({ humanIntent: null, state: "blocked", destinationSession: "worker@software-team", blockedOn: "human-founder@kernel" })).toBe(true);
     });
 
     it("#822: an inbound reply's thread item is recorded only when it exists; the public replyTo rule is unchanged", async () => {
       const decision = await repo.create(request);
-      const inbound = { sourceSession: human, destinationSession: "author@rig", body: "thanks", nudge: false };
+      const inbound = { sourceSession: human, destinationSession: "author@software-team", body: "thanks", nudge: false };
       const a = await repo.create({ ...inbound, inboundReplyTo: decision.qitemId });
       const b = await repo.create({ ...inbound, inboundReplyTo: "no-such-qitem" });
       expect(repo.getById(a.qitemId)?.replyTo).toBe(decision.qitemId);
@@ -161,7 +161,7 @@ describe("update --reply-to an earlier item's thread (#96)", () => {
       expect(posts[0]?.thread_ts).toBeUndefined();
       await resolvePark(work.qitemId);
 
-      const update = await repo.create({ ...request, sourceSession: "worker@rig", humanIntent: "update", body: "Merged.", replyTo: work.qitemId });
+      const update = await repo.create({ ...request, sourceSession: "worker@software-team", humanIntent: "update", body: "Merged.", replyTo: work.qitemId });
       await deliver(update.qitemId);
       expect(posts.at(-1)?.thread_ts).toBe("1.1");
       expect(repo.getById(update.qitemId)).toMatchObject({ state: "done", replyToFallback: null });
@@ -171,11 +171,11 @@ describe("update --reply-to an earlier item's thread (#96)", () => {
       const work = await park();
       await deliver(work.qitemId);
       await resolvePark(work.qitemId);
-      const update = await repo.create({ ...request, sourceSession: "worker@rig", humanIntent: "update", body: "Merged.", replyTo: work.qitemId });
+      const update = await repo.create({ ...request, sourceSession: "worker@software-team", humanIntent: "update", body: "Merged.", replyTo: work.qitemId });
       await deliver(update.qitemId);
       expect(posts.at(-1)?.thread_ts).toBe("1.1");
 
-      repo.update({ qitemId: work.qitemId, actorSession: "worker@rig", state: "blocked", blockedOn: "human-founder@kernel", summary: "Deploy it too?", evidenceRef: "/proof/deploy.md", transitionNote: "parked again" });
+      repo.update({ qitemId: work.qitemId, actorSession: "worker@software-team", state: "blocked", blockedOn: "human-founder@kernel", summary: "Deploy it too?", evidenceRef: "/proof/deploy.md", transitionNote: "parked again" });
       await deliver(work.qitemId);
       expect(posts.at(-1)?.thread_ts).toBeUndefined();
       expect(new ThreadSeatMap(db).resolveByThread(`${posts.length}.1`)?.conversationId).toBe(work.qitemId);
@@ -215,9 +215,9 @@ describe("update --reply-to an earlier item's thread (#96)", () => {
       const work = await park();
       await deliver(work.qitemId);
       await resolvePark(work.qitemId);
-      const update = await repo.create({ ...request, sourceSession: "worker@rig", humanIntent: "update", body: "Merged.", replyTo: work.qitemId });
+      const update = await repo.create({ ...request, sourceSession: "worker@software-team", humanIntent: "update", body: "Merged.", replyTo: work.qitemId });
       await deliver(update.qitemId);
-      repo.update({ qitemId: work.qitemId, actorSession: "worker@rig", state: "blocked", blockedOn: "human-founder@kernel", summary: "Deploy it too?", evidenceRef: "/proof/deploy.md", transitionNote: "parked again" });
+      repo.update({ qitemId: work.qitemId, actorSession: "worker@software-team", state: "blocked", blockedOn: "human-founder@kernel", summary: "Deploy it too?", evidenceRef: "/proof/deploy.md", transitionNote: "parked again" });
       await deliver(work.qitemId);
       const freshRoot = `${posts.length}.1`;
 
@@ -233,7 +233,7 @@ describe("update --reply-to an earlier item's thread (#96)", () => {
       await deliver(work.qitemId); // root 1.1
       await resolvePark(work.qitemId);
       new ThreadSeatMap(db).close("1.1"); // the conversation's first root is closed ...
-      repo.update({ qitemId: work.qitemId, actorSession: "worker@rig", state: "blocked", blockedOn: "human-founder@kernel", summary: "Deploy it too?", evidenceRef: "/proof/deploy.md", transitionNote: "parked again" });
+      repo.update({ qitemId: work.qitemId, actorSession: "worker@software-team", state: "blocked", blockedOn: "human-founder@kernel", summary: "Deploy it too?", evidenceRef: "/proof/deploy.md", transitionNote: "parked again" });
       await deliver(work.qitemId); // ... so the re-park opens a second root for the SAME conversation
       const newerRoot = `${posts.length}.1`;
       expect(posts.at(-1)?.thread_ts).toBeUndefined();
@@ -263,7 +263,7 @@ describe("update --reply-to an earlier item's thread (#96)", () => {
     const inboundRow = (ts: string) =>
       repo.getById(`qitem-slack-inbound-${createHash("sha256").update(`C-TEST:${ts}`).digest("hex").slice(0, 20)}`);
 
-    it("#822: an answer to a reply the person typed in an OpenRig thread posts in that thread", async () => {
+    it("#822: an answer to a reply the person typed in an SoftwareTeam thread posts in that thread", async () => {
       const humanReply = await connectInbound();
       const decision = await repo.create(request);
       await deliver(decision.qitemId);
@@ -271,7 +271,7 @@ describe("update --reply-to an earlier item's thread (#96)", () => {
       await vi.waitFor(() => expect(repo.getById(decision.qitemId)?.state).toBe("done"));
       await postPendingNotice(decision.qitemId);
       const inbound = inboundRow("903.1")!;
-      expect(inbound).toMatchObject({ destinationSession: "author@rig", replyTo: decision.qitemId });
+      expect(inbound).toMatchObject({ destinationSession: "author@software-team", replyTo: decision.qitemId });
 
       const answer = await repo.create({ ...request, humanIntent: "update", body: "On it.", replyTo: inbound.qitemId });
       await deliver(answer.qitemId);
@@ -298,7 +298,7 @@ describe("update --reply-to an earlier item's thread (#96)", () => {
       await vi.waitFor(() => expect(repo.getById(answerId)).not.toBeNull());
       await vi.waitFor(() => expect(repo.getById(decision.qitemId)?.state).toBe("done"));
       const inbound = repo.getById(answerId)!;
-      expect(inbound).toMatchObject({ destinationSession: "author@rig", replyTo: decision.qitemId });
+      expect(inbound).toMatchObject({ destinationSession: "author@software-team", replyTo: decision.qitemId });
       expect(repo.getById(decision.qitemId)?.humanAnswers).toEqual({ q1: "yes" });
       const answer = await repo.create({ ...request, humanIntent: "update", body: "Shipping.", replyTo: answerId });
       await deliver(answer.qitemId);
@@ -327,7 +327,7 @@ describe("update --reply-to an earlier item's thread (#96)", () => {
       await deliver(decision.qitemId);
       resolveDecision(decision.qitemId);
       const reactionId = await reactToAsk(decision.qitemId, "911.1");
-      expect(repo.getById(reactionId)).toMatchObject({ destinationSession: "author@rig", replyTo: decision.qitemId });
+      expect(repo.getById(reactionId)).toMatchObject({ destinationSession: "author@software-team", replyTo: decision.qitemId });
       const answer = await repo.create({ ...request, humanIntent: "update", body: "Acknowledged.", replyTo: reactionId });
       await deliver(answer.qitemId);
       expect(posts.at(-1)?.thread_ts).toBe("1.1");
@@ -371,7 +371,7 @@ describe("update --reply-to an earlier item's thread (#96)", () => {
       const inbound = inboundRow("905.1")!;
       expect(inbound.replyTo).toBe(decision.qitemId);
 
-      repo.update({ qitemId: inbound.qitemId, actorSession: "author@rig", state: "blocked", blockedOn: "human-founder@kernel", summary: "Which branch?", evidenceRef: "/proof/branches.md", transitionNote: "parked for a question" });
+      repo.update({ qitemId: inbound.qitemId, actorSession: "author@software-team", state: "blocked", blockedOn: "human-founder@kernel", summary: "Which branch?", evidenceRef: "/proof/branches.md", transitionNote: "parked for a question" });
       await deliver(inbound.qitemId);
       expect(posts.at(-1)?.thread_ts).toBeUndefined();
       const parkRoot = `${posts.length}.1`;
@@ -389,7 +389,7 @@ describe("update --reply-to an earlier item's thread (#96)", () => {
       expect(posts.length).toBe(before + 1); // the notice did post ...
       expect(posts.at(-1)?.thread_ts).toBe("1.1"); // ... inside the park's root, opening none of its own
 
-      const update = await repo.create({ ...request, sourceSession: "worker@rig", humanIntent: "update", body: "Merged.", replyTo: work.qitemId });
+      const update = await repo.create({ ...request, sourceSession: "worker@software-team", humanIntent: "update", body: "Merged.", replyTo: work.qitemId });
       await deliver(update.qitemId);
       expect(posts.at(-1)?.thread_ts).toBe("1.1");
       expect(repo.getById(update.qitemId)?.replyToFallback).toBeNull();
@@ -436,7 +436,7 @@ describe("update --reply-to an earlier item's thread (#96)", () => {
     it("posts top-level when the referenced row is parked on the human", async () => {
       const work = await park();
       await postPendingNotice(work.qitemId);
-      const update = await repo.create({ ...request, sourceSession: "worker@rig", humanIntent: "update", body: "FYI.", replyTo: work.qitemId });
+      const update = await repo.create({ ...request, sourceSession: "worker@software-team", humanIntent: "update", body: "FYI.", replyTo: work.qitemId });
       await deliver(update.qitemId);
       expect(posts.at(-1)?.thread_ts).toBeUndefined();
       expect(repo.getById(update.qitemId)?.replyToFallback).toMatch(/reference-has-live-gate/);
@@ -458,7 +458,7 @@ describe("update --reply-to an earlier item's thread (#96)", () => {
       await deliver(first.qitemId);
       const update = await repo.create({ ...request, humanIntent: "update", replyTo: first.qitemId });
       // Both an agent-labelled note and one claiming the daemon's name over HTTP carry an identity provenance.
-      repo.update({ qitemId: update.qitemId, actorSession: "author@rig", transitionNote: "slack-reply-to-choice kind=thread thread_ts=9.9", identityProvenance: "transport:v1" });
+      repo.update({ qitemId: update.qitemId, actorSession: "author@software-team", transitionNote: "slack-reply-to-choice kind=thread thread_ts=9.9", identityProvenance: "transport:v1" });
       repo.update({ qitemId: update.qitemId, actorSession: "daemon@kernel", transitionNote: "slack-reply-to-choice kind=thread thread_ts=9.9", identityProvenance: "transport:v1" });
       expect(repo.replyToChoiceFor(update.qitemId)).toBeNull();
       await deliver(update.qitemId);
@@ -484,7 +484,7 @@ describe("update --reply-to an earlier item's thread (#96)", () => {
       const decision = await repo.create(request);
       await deliver(decision.qitemId);
       resolveDecision(decision.qitemId);
-      const update = await repo.create({ ...request, sourceSession: "other@rig", humanIntent: "update", replyTo: decision.qitemId });
+      const update = await repo.create({ ...request, sourceSession: "other@software-team", humanIntent: "update", replyTo: decision.qitemId });
       await deliver(update.qitemId);
       expect(posts.at(-1)?.thread_ts).toBeUndefined();
       expect(repo.getById(update.qitemId)?.replyToFallback).toBe("root-other-seat (thread 1.1)");
@@ -552,7 +552,7 @@ describe("update --reply-to an earlier item's thread (#96)", () => {
     const app = new Hono();
     app.use("*", async (c, next) => { (c.set as (k: string, v: unknown) => void)("queueRepo", repo); await next(); });
     app.route("/api/queue", queueRoutes());
-    const create = (value: unknown) => app.request("/api/queue/create", { method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": request.sourceSession }, body: JSON.stringify(value) });
+    const create = (value: unknown) => app.request("/api/queue/create", { method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": request.sourceSession }, body: JSON.stringify(value) });
     const earlier = await (await create({ ...request, humanIntent: "update" })).json();
     const ok = await create({ ...request, humanIntent: "update", replyTo: earlier.qitemId });
     expect(ok.status).toBe(201);

@@ -61,8 +61,8 @@ function runningDeps(port: number): StatusDeps {
 }
 
 const NODE_RUNNING = {
-  rigId: "rig-1",
-  rigName: "demo",
+  softwareTeamId: "software-team-1",
+  softwareTeamName: "demo",
   logicalId: "alpha",
   podId: "p-1",
   canonicalSessionName: "demo-alpha",
@@ -84,8 +84,8 @@ const NODE_RUNNING = {
 };
 
 const NODE_IDLE = {
-  rigId: "rig-1",
-  rigName: "demo",
+  softwareTeamId: "software-team-1",
+  softwareTeamName: "demo",
   logicalId: "beta",
   podId: "p-1",
   canonicalSessionName: "demo-beta",
@@ -107,8 +107,8 @@ const NODE_IDLE = {
 };
 
 const NODE_NEEDS_INPUT = {
-  rigId: "rig-1",
-  rigName: "demo",
+  softwareTeamId: "software-team-1",
+  softwareTeamName: "demo",
   logicalId: "gamma",
   podId: "p-1",
   canonicalSessionName: "demo-gamma",
@@ -130,8 +130,8 @@ const NODE_NEEDS_INPUT = {
 };
 
 const NODE_UNKNOWN = {
-  rigId: "rig-1",
-  rigName: "demo",
+  softwareTeamId: "software-team-1",
+  softwareTeamName: "demo",
   logicalId: "delta",
   podId: "p-1",
   canonicalSessionName: "demo-delta",
@@ -155,21 +155,21 @@ const NODE_UNKNOWN = {
 describe("PL-019 ps --filter agentActivity.state + --active", () => {
   let server: http.Server;
   let port: number;
-  let nodesByRig: Record<string, unknown[]>;
+  let nodesBySoftwareTeam: Record<string, unknown[]>;
   let savedSessionName: string | undefined;
 
   beforeAll(async () => {
-    savedSessionName = process.env.OPENRIG_SESSION_NAME;
-    delete process.env.OPENRIG_SESSION_NAME;
-    nodesByRig = {};
+    savedSessionName = process.env.SOFTWARETEAM_SESSION_NAME;
+    delete process.env.SOFTWARETEAM_SESSION_NAME;
+    nodesBySoftwareTeam = {};
     server = http.createServer((req, res) => {
-      const m = req.url?.match(/^\/api\/rigs\/([^/]+)\/nodes(?:\?.*)?$/);
+      const m = req.url?.match(/^\/api\/software-teams\/([^/]+)\/nodes(?:\?.*)?$/);
       if (m && req.method === "GET") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(nodesByRig[decodeURIComponent(m[1]!)] ?? []));
+        res.end(JSON.stringify(nodesBySoftwareTeam[decodeURIComponent(m[1]!)] ?? []));
       } else if (req.url === "/api/ps" && req.method === "GET") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify([{ rigId: "rig-1", name: "demo", nodeCount: 4, runningCount: 4, status: "running", uptime: "1h", latestSnapshot: null }]));
+        res.end(JSON.stringify([{ softwareTeamId: "software-team-1", name: "demo", nodeCount: 4, runningCount: 4, status: "running", uptime: "1h", latestSnapshot: null }]));
       } else {
         res.writeHead(404);
         res.end();
@@ -181,7 +181,7 @@ describe("PL-019 ps --filter agentActivity.state + --active", () => {
 
   afterAll(() => {
     server.close();
-    if (savedSessionName !== undefined) process.env.OPENRIG_SESSION_NAME = savedSessionName;
+    if (savedSessionName !== undefined) process.env.SOFTWARETEAM_SESSION_NAME = savedSessionName;
   });
 
   function makeCmd(): Command {
@@ -192,9 +192,9 @@ describe("PL-019 ps --filter agentActivity.state + --active", () => {
   }
 
   it("--filter agentActivity.state=running narrows to the running node", async () => {
-    nodesByRig["rig-1"] = [NODE_RUNNING, NODE_IDLE, NODE_NEEDS_INPUT, NODE_UNKNOWN];
+    nodesBySoftwareTeam["software-team-1"] = [NODE_RUNNING, NODE_IDLE, NODE_NEEDS_INPUT, NODE_UNKNOWN];
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--filter", "agentActivity.state=running"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--filter", "agentActivity.state=running"]);
     });
     expect(exitCode).toBeUndefined();
     const env = JSON.parse(logs.join(""));
@@ -205,12 +205,12 @@ describe("PL-019 ps --filter agentActivity.state + --active", () => {
   });
 
   it("--active is identical to --filter agentActivity.state=running on same fixture", async () => {
-    nodesByRig["rig-1"] = [NODE_RUNNING, NODE_IDLE, NODE_NEEDS_INPUT, NODE_UNKNOWN];
+    nodesBySoftwareTeam["software-team-1"] = [NODE_RUNNING, NODE_IDLE, NODE_NEEDS_INPUT, NODE_UNKNOWN];
     const a = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--filter", "agentActivity.state=running"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--filter", "agentActivity.state=running"]);
     });
     const b = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--active"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--active"]);
     });
     expect(a.exitCode).toBeUndefined();
     expect(b.exitCode).toBeUndefined();
@@ -218,9 +218,9 @@ describe("PL-019 ps --filter agentActivity.state + --active", () => {
   });
 
   it("--filter agentActivity.state=needs_input picks the amber-state node", async () => {
-    nodesByRig["rig-1"] = [NODE_RUNNING, NODE_IDLE, NODE_NEEDS_INPUT, NODE_UNKNOWN];
+    nodesBySoftwareTeam["software-team-1"] = [NODE_RUNNING, NODE_IDLE, NODE_NEEDS_INPUT, NODE_UNKNOWN];
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--filter", "agentActivity.state=needs_input"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--filter", "agentActivity.state=needs_input"]);
     });
     expect(exitCode).toBeUndefined();
     const env = JSON.parse(logs.join(""));
@@ -230,9 +230,9 @@ describe("PL-019 ps --filter agentActivity.state + --active", () => {
   });
 
   it("--filter agentActivity.state=invalid fails fast with three-part error and exit 1", async () => {
-    nodesByRig["rig-1"] = [NODE_RUNNING];
+    nodesBySoftwareTeam["software-team-1"] = [NODE_RUNNING];
     const { errLogs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--filter", "agentActivity.state=lol-no"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--filter", "agentActivity.state=lol-no"]);
     });
     expect(exitCode).toBe(1);
     const errOutput = errLogs.join("\n");
@@ -241,13 +241,13 @@ describe("PL-019 ps --filter agentActivity.state + --active", () => {
     // What's allowed (sorted enum)
     expect(errOutput).toContain("idle, needs_input, running, unknown");
     // What to do (next-step pointer)
-    expect(errOutput).toContain("rig ps --nodes --fields agentActivity --json");
+    expect(errOutput).toContain("SoftwareTeam ps --nodes --fields agentActivity --json");
   });
 
   it("--active combined with --filter is rejected explicitly with exit 1", async () => {
-    nodesByRig["rig-1"] = [NODE_RUNNING];
+    nodesBySoftwareTeam["software-team-1"] = [NODE_RUNNING];
     const { errLogs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--active", "--filter", "status=running"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--active", "--filter", "status=running"]);
     });
     expect(exitCode).toBe(1);
     expect(errLogs.join("\n")).toContain("--active and --filter cannot be combined");
@@ -260,9 +260,9 @@ describe("PL-019 ps --filter agentActivity.state + --active", () => {
       canonicalSessionName: "demo-epsilon",
       agentActivity: undefined,
     };
-    nodesByRig["rig-1"] = [NODE_RUNNING, NODE_NO_ACTIVITY];
+    nodesBySoftwareTeam["software-team-1"] = [NODE_RUNNING, NODE_NO_ACTIVITY];
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--active"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--active"]);
     });
     expect(exitCode).toBeUndefined();
     const env = JSON.parse(logs.join(""));

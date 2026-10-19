@@ -1,4 +1,4 @@
-// A first `rig daemon start` on a machine with no tmux server yet printed tmux's "error connecting to …" line: the
+// A first `SoftwareTeam daemon start` on a machine with no tmux server yet printed tmux's "error connecting to …" line: the
 // preflight's execSync had no stdio, so Node copied the probe's stderr to the terminal. The probe still needs that
 // text to tell "no server yet" from a broken server, so it must arrive in the thrown error and nowhere else.
 import { describe, it, expect, vi, afterEach } from "vitest";

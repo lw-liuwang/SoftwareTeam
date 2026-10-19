@@ -29,11 +29,11 @@ describe("daemon startServer", () => {
       deps: {},
       injectWebSocket: vi.fn(),
     });
-    delete process.env.OPENRIG_HOST;
-    delete process.env.RIGGED_HOST;
-    delete process.env.OPENRIG_BIND_HOST;
-    delete process.env.OPENRIG_AUTH_BEARER_TOKEN;
-    delete process.env.OPENRIG_TERMINAL_BEARER_TOKEN;
+    delete process.env.SOFTWARETEAM_HOST;
+    delete process.env.SOFTWARETEAM_HOST;
+    delete process.env.SOFTWARETEAM_BIND_HOST;
+    delete process.env.SOFTWARETEAM_AUTH_BEARER_TOKEN;
+    delete process.env.SOFTWARETEAM_TERMINAL_BEARER_TOKEN;
   });
 
   afterEach(() => {
@@ -45,11 +45,11 @@ describe("daemon startServer", () => {
         }
       }
     }
-    delete process.env.OPENRIG_HOST;
-    delete process.env.RIGGED_HOST;
-    delete process.env.OPENRIG_BIND_HOST;
-    delete process.env.OPENRIG_AUTH_BEARER_TOKEN;
-    delete process.env.OPENRIG_TERMINAL_BEARER_TOKEN;
+    delete process.env.SOFTWARETEAM_HOST;
+    delete process.env.SOFTWARETEAM_HOST;
+    delete process.env.SOFTWARETEAM_BIND_HOST;
+    delete process.env.SOFTWARETEAM_AUTH_BEARER_TOKEN;
+    delete process.env.SOFTWARETEAM_TERMINAL_BEARER_TOKEN;
   });
 
   it("binds the daemon to loopback", async () => {
@@ -78,8 +78,8 @@ describe("daemon startServer", () => {
   });
 
   it("uses the daemon bearer token for terminal routes on explicit public binds", async () => {
-    process.env.OPENRIG_BIND_HOST = "0.0.0.0";
-    process.env.OPENRIG_AUTH_BEARER_TOKEN = "daemon-token";
+    process.env.SOFTWARETEAM_BIND_HOST = "0.0.0.0";
+    process.env.SOFTWARETEAM_AUTH_BEARER_TOKEN = "daemon-token";
     const { startServer } = await import("../src/index.js");
 
     await startServer(7441);

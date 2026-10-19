@@ -21,7 +21,7 @@ import {
 
 // Each shipped skill has one editable home in this repo: its copy under
 // packages/daemon/specs/agents/shared/skills/ when it has a spec edge, otherwise its copy under
-// packages/daemon/assets/plugins/openrig-core/skills/. `npm run mirror-skills` regenerates every
+// packages/daemon/assets/plugins/softwareteam-core/skills/. `npm run mirror-skills` regenerates every
 // other declared copy (skills/_canonical/ and the plugin copies of spec skills) from that home, and
 // `--check` fails when a copy differs from it. Hand-authored files at <repo-root>/skills/
 // (README, CHANGELOG, LICENSE, plugin manifests) live alongside _canonical/
@@ -406,7 +406,7 @@ export async function checkAuthoredSources({
   );
   const { skills, problems } = planSkillSources({ repoRoot, layout, shipping });
   const changes = problems.map(({ edge, path, reason }) => ({ edge, path, reason }));
-  const temporaryRoot = mkdtempSync(join(tmpdir(), "openrig-skill-sources-"));
+  const temporaryRoot = mkdtempSync(join(tmpdir(), "softwareteam-skill-sources-"));
   try {
     const stagingRoot = join(temporaryRoot, "staging");
     await stageHomes({ repoRoot, layout, skills, stagingRoot, membership, rules, scan: null });
@@ -444,7 +444,7 @@ export async function regeneratePublicSkills({
     throw new Error(problems.map(({ message }) => message).join("\n"));
   }
 
-  const temporaryRoot = mkdtempSync(join(tmpdir(), "openrig-public-skills-"));
+  const temporaryRoot = mkdtempSync(join(tmpdir(), "softwareteam-public-skills-"));
   try {
     // Every home is read and staged before any output is replaced.
     const stagingRoot = join(temporaryRoot, "staging");
@@ -583,9 +583,9 @@ function defaultGenerateControlPlaneJson() {
 
 function defaultReadAuthoringInputs() {
   const repoRoot = process.cwd();
-  if (process.env.OPENRIG_SKILL_CANON_ROOT) {
+  if (process.env.SOFTWARETEAM_SKILL_CANON_ROOT) {
     console.warn(
-      "OPENRIG_SKILL_CANON_ROOT is ignored: product skills regenerate from their sources in this repository. To bring in an outside skill change, edit the skill's source and open a pull request.",
+      "SOFTWARETEAM_SKILL_CANON_ROOT is ignored: product skills regenerate from their sources in this repository. To bring in an outside skill change, edit the skill's source and open a pull request.",
     );
   }
   return {
@@ -711,7 +711,7 @@ function containsInternalValue(value, rules) {
   const lower = value.toLowerCase();
   return [
     ...(rules.path_prefixes ?? []),
-    ...(rules.seat_and_rig_patterns ?? []),
+    ...(rules.seat_and_software_team_patterns ?? []),
     ...(rules.host_patterns ?? []),
     ...(rules.charged_terms ?? []),
   ].some((token) => lower.includes(token.toLowerCase()));

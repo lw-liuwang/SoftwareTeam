@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 import { resolveActiveOccupantRow, resolveActiveSnapshotSession } from "./active-occupant.js";
 import { readFreshOccupantRelations } from "./fresh-occupant-relation.js";
-import type { RigWithRelations, Snapshot } from "./types.js";
+import type { SoftwareTeamWithRelations, Snapshot } from "./types.js";
 
 export interface CurrentStateRehydrateEligibility {
   ok: boolean;
@@ -19,17 +19,17 @@ export interface CurrentStateRehydrateEligibility {
  */
 export function snapshotMatchesCurrentOccupants(
   db: Database.Database,
-  rig: RigWithRelations,
+  softwareTeam: SoftwareTeamWithRelations,
   snapshot: Snapshot,
 ): boolean {
-  if (rig.nodes.length === 0) return true;
+  if (softwareTeam.nodes.length === 0) return true;
   const rows = db.prepare(
     `SELECT s.id, s.node_id AS nodeId, s.status,
             s.resume_type AS resumeType, s.resume_token AS resumeToken
        FROM sessions s
        JOIN nodes n ON n.id = s.node_id
-       WHERE n.rig_id = ? AND s.status != 'superseded'`
-  ).all(rig.rig.id) as Array<{
+       WHERE n.software_team_id = ? AND s.status != 'superseded'`
+  ).all(softwareTeam.softwareTeam.id) as Array<{
     id: string;
     nodeId: string;
     status: string;
@@ -37,11 +37,11 @@ export function snapshotMatchesCurrentOccupants(
     resumeToken: string | null;
   }>;
 
-  const recorded = readFreshOccupantRelations(db, rig.rig.id);
+  const recorded = readFreshOccupantRelations(db, softwareTeam.softwareTeam.id);
   // A clean down exits the fresh occupant without revoking its relation.
   // Keep that row for snapshot comparison, but exclude unrelated exited history.
   const candidates = rows.filter((row) => row.status !== "exited" || recorded[row.nodeId] === row.id);
-  for (const node of rig.nodes) {
+  for (const node of softwareTeam.nodes) {
     const current = resolveActiveOccupantRow(candidates, Object.prototype.hasOwnProperty.call(recorded, node.id) ? recorded : undefined, node.id);
     if (current.kind === "none") continue;
     if (current.kind === "ambiguous") return false;
@@ -68,24 +68,24 @@ export function snapshotMatchesCurrentOccupants(
  */
 export function assessCurrentStateRehydrateEligibility(
   db: Database.Database,
-  rig: RigWithRelations,
+  softwareTeam: SoftwareTeamWithRelations,
 ): CurrentStateRehydrateEligibility {
   const blockers: string[] = [];
 
-  if (rig.nodes.length === 0) {
-    blockers.push("rig has no nodes to rehydrate");
+  if (softwareTeam.nodes.length === 0) {
+    blockers.push("SoftwareTeam has no nodes to rehydrate");
   }
 
   const sessions = db.prepare(
     `SELECT node_id, resume_token
        FROM sessions
-       WHERE node_id IN (${rig.nodes.map(() => "?").join(",") || "NULL"})
+       WHERE node_id IN (${softwareTeam.nodes.map(() => "?").join(",") || "NULL"})
          AND status NOT IN ('superseded', 'exited')
        ORDER BY id DESC`
-  ).all(...rig.nodes.map((node) => node.id)) as Array<{ node_id: string; resume_token: string | null }>;
+  ).all(...softwareTeam.nodes.map((node) => node.id)) as Array<{ node_id: string; resume_token: string | null }>;
 
-  if (rig.nodes.length > 0 && sessions.length === 0) {
-    blockers.push("rig has no persisted sessions to rehydrate");
+  if (softwareTeam.nodes.length > 0 && sessions.length === 0) {
+    blockers.push("SoftwareTeam has no persisted sessions to rehydrate");
   }
 
   const sessionByNode = new Map<string, Array<{ resume_token: string | null }>>();
@@ -95,7 +95,7 @@ export function assessCurrentStateRehydrateEligibility(
     sessionByNode.set(session.node_id, rows);
   }
 
-  for (const node of rig.nodes) {
+  for (const node of softwareTeam.nodes) {
     const runtime = node.runtime ?? "";
     const isAgentRuntime = runtime.length > 0 && runtime !== "terminal";
     const hasStartupContext = !!db.prepare(

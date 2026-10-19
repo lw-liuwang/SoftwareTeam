@@ -18,7 +18,7 @@ describe.skipIf(!nativeAvailable)("claimed-session custody with native tmux", ()
   let run: (...args: string[]) => Promise<string>;
 
   beforeEach(async () => {
-    const socket = `openrig-unclaim-test-${process.pid}-${Date.now()}`;
+    const socket = `softwareteam-unclaim-test-${process.pid}-${Date.now()}`;
     const execute = promisify(execFile);
     run = async (...args) => (await execute("tmux", ["-L", socket, "-f", "/dev/null", ...args], { timeout: 5000 })).stdout;
     db = createDb();
@@ -35,14 +35,14 @@ describe.skipIf(!nativeAvailable)("claimed-session custody with native tmux", ()
   });
 
   async function claimSeat() {
-    const rig = setup.rigRepo.createRig("native-adoption");
-    const node = setup.rigRepo.addNode(rig.id, "external.helper", { runtime: "terminal" });
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("native-adoption");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "external.helper", { runtime: "terminal" });
     const pane = (await run("display-message", "-p", "-t", "=manual-adoption:", "#{pane_id}")).trim();
     const discovered = setup.discoveryRepo.upsertDiscoveredSession({
       tmuxSession: "manual-adoption", tmuxPane: pane, cwd: "/tmp",
       activeCommand: "cat", runtimeHint: "terminal", confidence: "high",
     });
-    const bind = () => setup.claimService.bind({ discoveredId: discovered.id, rigId: rig.id, logicalId: node.logicalId });
+    const bind = () => setup.claimService.bind({ discoveredId: discovered.id, softwareTeamId: softwareTeam.id, logicalId: node.logicalId });
     const first = await bind();
     expect(first.ok).toBe(true);
     if (!first.ok) throw new Error(first.error);
@@ -60,13 +60,13 @@ describe.skipIf(!nativeAvailable)("claimed-session custody with native tmux", ()
 
   it("preserves the physical session and its new metadata after an old-ID retry", async () => {
     const { node, first, bind } = await claimSeat();
-    expect((await setup.rigLifecycleService.unclaimSession(first.sessionId)).ok).toBe(true);
+    expect((await setup.softwareTeamLifecycleService.unclaimSession(first.sessionId)).ok).toBe(true);
     expect((await bind()).ok).toBe(true);
-    const before = await run("show-options", "-qv", "-t", "=manual-adoption:", "@rigged_node_id");
+    const before = await run("show-options", "-qv", "-t", "=manual-adoption:", "@softwareteam_node_id");
     expect(before.trim()).toBe(node.id);
     const pid = await livePanePid();
     const response = await setup.app.request(`/api/sessions/${first.sessionId}/unclaim`, { method: "POST" });
-    expect(await run("show-options", "-qv", "-t", "=manual-adoption:", "@rigged_node_id")).toBe(before);
+    expect(await run("show-options", "-qv", "-t", "=manual-adoption:", "@softwareteam_node_id")).toBe(before);
     expect(await livePanePid()).toBe(pid);
     expect(() => process.kill(pid, 0)).not.toThrow();
     expect(response.status).toBe(409);
@@ -75,11 +75,11 @@ describe.skipIf(!nativeAvailable)("claimed-session custody with native tmux", ()
 
   it("ordinary unclaim clears only managed metadata and leaves the external process alive", async () => {
     const { node, discovered, first } = await claimSeat();
-    expect((await run("show-options", "-qv", "-t", "=manual-adoption:", "@rigged_node_id")).trim()).toBe(node.id);
+    expect((await run("show-options", "-qv", "-t", "=manual-adoption:", "@softwareteam_node_id")).trim()).toBe(node.id);
     const pid = await livePanePid();
     const response = await setup.app.request(`/api/sessions/${first.sessionId}/unclaim`, { method: "POST" });
     expect(response.status).toBe(200);
-    expect((await run("show-options", "-qv", "-t", "=manual-adoption:", "@rigged_node_id")).trim()).toBe("");
+    expect((await run("show-options", "-qv", "-t", "=manual-adoption:", "@softwareteam_node_id")).trim()).toBe("");
     expect(await livePanePid()).toBe(pid);
     expect(() => process.kill(pid, 0)).not.toThrow();
     expect(setup.sessionRegistry.getBindingForNode(node.id)).toBeNull();
@@ -88,7 +88,7 @@ describe.skipIf(!nativeAvailable)("claimed-session custody with native tmux", ()
 
   it("keeps successor metadata through a real claim lease and a queued stale unclaim", async () => {
     const { node, discovered, first, bind } = await claimSeat();
-    expect((await setup.rigLifecycleService.unclaimSession(first.sessionId)).ok).toBe(true);
+    expect((await setup.softwareTeamLifecycleService.unclaimSession(first.sessionId)).ok).toBe(true);
     const pid = await livePanePid();
     let entered!: () => void, finish!: () => void;
     const paused = new Promise<void>(resolve => { entered = resolve; });
@@ -98,7 +98,7 @@ describe.skipIf(!nativeAvailable)("claimed-session custody with native tmux", ()
     let waiting = true;
     vi.spyOn(adapter, "setSessionOption").mockImplementation(async (name, key, value) => {
       const result = await setOption(name, key, value);
-      if (waiting && key === "@rigged_node_id" && value === node.id) {
+      if (waiting && key === "@softwareteam_node_id" && value === node.id) {
         waiting = false;
         entered();
         await resume;
@@ -107,7 +107,7 @@ describe.skipIf(!nativeAvailable)("claimed-session custody with native tmux", ()
     });
     const claim = bind();
     await paused;
-    expect((await run("show-options", "-qv", "-t", "=manual-adoption:", "@rigged_node_id")).trim()).toBe(node.id);
+    expect((await run("show-options", "-qv", "-t", "=manual-adoption:", "@softwareteam_node_id")).trim()).toBe(node.id);
     const binding = setup.sessionRegistry.getBindingForNode(node.id);
     const discovery = setup.discoveryRepo.getDiscoveredSession(discovered.id);
     const detached = db.prepare("SELECT count(*) AS n FROM events WHERE type = 'session.detached'").get();
@@ -122,10 +122,10 @@ describe.skipIf(!nativeAvailable)("claimed-session custody with native tmux", ()
     const response = await request;
     expect(successor.ok).toBe(true);
     if (!successor.ok) throw new Error(successor.error);
-    const rig = setup.rigRepo.getRig(node.rigId)!;
+    const softwareTeam = setup.softwareTeamRepo.getSoftwareTeam(node.softwareTeamId)!;
     const expected: Record<string, string> = {
-      "@rigged_node_id": node.id, "@rigged_session_name": "manual-adoption",
-      "@rigged_rig_id": node.rigId, "@rigged_rig_name": rig.rig.name, "@rigged_logical_id": node.logicalId,
+      "@softwareteam_node_id": node.id, "@softwareteam_session_name": "manual-adoption",
+      "@softwareteam_software_team_id": node.softwareTeamId, "@softwareteam_software_team_name": softwareTeam.softwareTeam.name, "@softwareteam_logical_id": node.logicalId,
     };
     for (const [key, value] of Object.entries(expected)) {
       expect((await run("show-options", "-qv", "-t", "=manual-adoption:", key)).trim()).toBe(value);

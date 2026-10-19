@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 import { createHash } from "node:crypto";
-import type { RigEvent, PersistedEvent } from "./types.js";
+import type { SoftwareTeamEvent, PersistedEvent } from "./types.js";
 
 type Subscriber = (event: PersistedEvent) => void;
 
@@ -54,7 +54,7 @@ export class EventBus {
    * Persist an event and notify subscribers. Use this for standalone emit
    * outside of a caller-managed transaction.
    */
-  emit(event: RigEvent): PersistedEvent {
+  emit(event: SoftwareTeamEvent): PersistedEvent {
     const persisted = this.persistWithinTransaction(event);
     this.notifySubscribers(persisted);
     return persisted;
@@ -67,15 +67,15 @@ export class EventBus {
    * Does NOT notify subscribers. A notify envelope drains after commit;
    * legacy single-event callers retain their explicit post-commit notify.
    */
-  persistWithinTransaction(event: RigEvent): NotifyToken {
-    const rigId = "rigId" in event ? (event as { rigId: string }).rigId : null;
+  persistWithinTransaction(event: SoftwareTeamEvent): NotifyToken {
+    const softwareTeamId = "softwareTeamId" in event ? (event as { softwareTeamId: string }).softwareTeamId : null;
     const nodeId = "nodeId" in event ? event.nodeId : null;
 
     const result = this.db
       .prepare(
-        "INSERT INTO events (rig_id, node_id, type, payload) VALUES (?, ?, ?, ?)"
+        "INSERT INTO events (software_team_id, node_id, type, payload) VALUES (?, ?, ?, ?)"
       )
-      .run(rigId, nodeId, event.type, JSON.stringify(event));
+      .run(softwareTeamId, nodeId, event.type, JSON.stringify(event));
 
     const seq = Number(result.lastInsertRowid);
 
@@ -193,12 +193,12 @@ export class EventBus {
     };
   }
 
-  replaySince(seq: number, rigId: string): PersistedEvent[] {
+  replaySince(seq: number, softwareTeamId: string): PersistedEvent[] {
     const rows = this.db
       .prepare(
-        "SELECT seq, rig_id, node_id, type, payload, created_at FROM events WHERE rig_id = ? AND seq > ? ORDER BY seq"
+        "SELECT seq, software_team_id, node_id, type, payload, created_at FROM events WHERE software_team_id = ? AND seq > ? ORDER BY seq"
       )
-      .all(rigId, seq) as EventRow[];
+      .all(softwareTeamId, seq) as EventRow[];
 
     return rows.map((row) => this.rowToPersistedEvent(row));
   }
@@ -209,27 +209,27 @@ export class EventBus {
     return rows.map((row) => this.rowToPersistedEvent(row));
   }
 
-  private pageStatements?: { all: Database.Statement; rig: Database.Statement };
+  private pageStatements?: { all: Database.Statement; softwareTeam: Database.Statement };
 
-  /** Up to `limit` events after `seq` and up to `upTo`, oldest first, of one rig when `rigId` is given: a replay read a
+  /** Up to `limit` events after `seq` and up to `upTo`, oldest first, of one softwareTeam when `softwareTeamId` is given: a replay read a
    *  page at a time, which events stored meanwhile never lengthen. */
-  replayPage(seq: number, upTo: number, limit: number, rigId?: string): PersistedEvent[] {
+  replayPage(seq: number, upTo: number, limit: number, softwareTeamId?: string): PersistedEvent[] {
     this.pageStatements ??= {
-      all: this.db.prepare("SELECT seq, rig_id, node_id, type, payload, created_at FROM events WHERE seq > ? AND seq <= ? ORDER BY seq LIMIT ?"),
-      rig: this.db.prepare("SELECT seq, rig_id, node_id, type, payload, created_at FROM events WHERE rig_id = ? AND seq > ? AND seq <= ? ORDER BY seq LIMIT ?"),
+      all: this.db.prepare("SELECT seq, software_team_id, node_id, type, payload, created_at FROM events WHERE seq > ? AND seq <= ? ORDER BY seq LIMIT ?"),
+      softwareTeam: this.db.prepare("SELECT seq, software_team_id, node_id, type, payload, created_at FROM events WHERE software_team_id = ? AND seq > ? AND seq <= ? ORDER BY seq LIMIT ?"),
     };
-    const rows = (rigId ? this.pageStatements.rig.all(rigId, seq, upTo, limit) : this.pageStatements.all.all(seq, upTo, limit)) as EventRow[];
+    const rows = (softwareTeamId ? this.pageStatements.softwareTeam.all(softwareTeamId, seq, upTo, limit) : this.pageStatements.all.all(seq, upTo, limit)) as EventRow[];
     return rows.map((row) => this.rowToPersistedEvent(row));
   }
 
-  /** The seq after which the newest `count` events start (of one rig when `rigId` is given): 0 when there are no more
+  /** The seq after which the newest `count` events start (of one softwareTeam when `softwareTeamId` is given): 0 when there are no more
    *  than `count`, the newest seq for 0. A count past a safe integer is more than any log holds: never an OFFSET SQLite
    *  cannot take. */
-  seqBeforeNewest(count: number, rigId?: string): number {
+  seqBeforeNewest(count: number, softwareTeamId?: string): number {
     if (count === 0) return this.maxSeq();
     if (!Number.isSafeInteger(count)) return 0;
-    const row = (rigId
-      ? this.db.prepare("SELECT seq FROM events WHERE rig_id = ? ORDER BY seq DESC LIMIT 1 OFFSET ?").get(rigId, count)
+    const row = (softwareTeamId
+      ? this.db.prepare("SELECT seq FROM events WHERE software_team_id = ? ORDER BY seq DESC LIMIT 1 OFFSET ?").get(softwareTeamId, count)
       : this.db.prepare("SELECT seq FROM events ORDER BY seq DESC LIMIT 1 OFFSET ?").get(count)) as { seq: number } | undefined;
     return row?.seq ?? 0;
   }
@@ -285,7 +285,7 @@ export class EventBus {
   private rowsAfter(seq: number): EventRow[] {
     return this.db
       .prepare(
-        "SELECT seq, rig_id, node_id, type, payload, created_at FROM events WHERE seq > ? ORDER BY seq",
+        "SELECT seq, software_team_id, node_id, type, payload, created_at FROM events WHERE seq > ? ORDER BY seq",
       )
       .all(seq) as EventRow[];
   }
@@ -301,7 +301,7 @@ export class EventBus {
     ) {
       throw new Error("invalid event payload shape");
     }
-    const event = parsed as RigEvent;
+    const event = parsed as SoftwareTeamEvent;
     return {
       ...event,
       seq: row.seq,
@@ -312,7 +312,7 @@ export class EventBus {
 
 interface EventRow {
   seq: number;
-  rig_id: string | null;
+  software_team_id: string | null;
   node_id: string | null;
   type: string;
   payload: string;

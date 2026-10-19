@@ -72,7 +72,7 @@ function makeCmd(deps: StatusDeps): Command {
   return prog;
 }
 
-describe("rig ask --wake (L3 CLI)", () => {
+describe("SoftwareTeam ask --wake (L3 CLI)", () => {
   it("help distinguishes full seat targets from runtime IDs and titles", () => {
     const runner: WakeRunner = vi.fn();
     const cmd = askCommand(tokenDeps(runner));
@@ -80,18 +80,18 @@ describe("rig ask --wake (L3 CLI)", () => {
     cmd.configureOutput({ writeOut: text => { output += text; } });
     cmd.outputHelp();
     const help = output.replace(/\s+/g, " ");
-    expect(help).toContain("member@rig or member@rig@N (1 = newest tenure)");
+    expect(help).toContain("member@software-team or member@software-team@N (1 = newest tenure)");
     expect(help).toContain("Values without @ go unchanged to the runtime as a session ID or title");
-    expect(help).toContain("a bare member name is not resolved within <rig>");
-    expect(help).toContain("--wake dev-planner@my-rig");
-    expect(help).toContain("--wake dev-planner@my-rig@2");
+    expect(help).toContain("a bare member name is not resolved within <softwareTeam>");
+    expect(help).toContain("--wake dev-planner@my-software-team");
+    expect(help).toContain("--wake dev-planner@my-software-team@2");
     expect(runner).not.toHaveBeenCalled();
   });
 
   it("passes a bare session title unchanged to the runtime without seat resolution", async () => {
     const runner: WakeRunner = vi.fn(async () => ({ stdout: "answer", stderr: "", code: 0, timedOut: false }));
     const { exitCode } = await captureLogs(async () => {
-      await makeCmd(tokenDeps(runner)).parseAsync(["node", "rig", "ask", "my-rig", "q", "--wake", "dev-build"]);
+      await makeCmd(tokenDeps(runner)).parseAsync(["node", "softwareTeam", "ask", "my-software-team", "q", "--wake", "dev-build"]);
     });
     expect(runner).toHaveBeenCalledWith("claude", ["-p", "--resume", "dev-build", expect.any(String)], expect.any(Object));
     expect(exitCode).toBeUndefined();
@@ -102,16 +102,16 @@ describe("rig ask --wake (L3 CLI)", () => {
   // hand-rolled literal render — the epistemic 3-part lands, the wake-specific
   // raw-token tip survives as a supplementary line.
   it("seat-form --wake with the daemon DOWN renders the chokepoint 3-part + the raw-token tip", async () => {
-    // hermetic: a leaked OPENRIG_URL/PORT routes getDaemonStatus at the LIVE daemon
+    // hermetic: a leaked SOFTWARETEAM_URL/PORT routes getDaemonStatus at the LIVE daemon
     const saved: Record<string, string | undefined> = {};
-    for (const k of ["OPENRIG_URL", "OPENRIG_PORT", "RIGGED_URL", "RIGGED_PORT"]) {
+    for (const k of ["SOFTWARETEAM_URL", "SOFTWARETEAM_PORT", "SOFTWARETEAM_URL", "SOFTWARETEAM_PORT"]) {
       saved[k] = process.env[k];
       delete process.env[k];
     }
     const runner: WakeRunner = vi.fn(async () => ({ stdout: "", stderr: "", code: 0, timedOut: false }));
     // positive-down: the default-port probe must REFUSE (ok:true would fake a live daemon)
     const refused = vi.fn(async () => {
-      const e = new Error("connect ECONNREFUSED 127.0.0.1:7433") as Error & { code: string };
+      const e = new Error("connect ECONNREFUSED 127.0.0.1:7434") as Error & { code: string };
       e.code = "ECONNREFUSED";
       throw e;
     });
@@ -122,11 +122,11 @@ describe("rig ask --wake (L3 CLI)", () => {
       wakeFileLocator: () => null,
     } as unknown as StatusDeps;
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd(downDeps).parseAsync(["node", "rig", "ask", "my-rig", "q", "--wake", "dev-qa@my-rig"]);
+      await makeCmd(downDeps).parseAsync(["node", "softwareTeam", "ask", "my-software-team", "q", "--wake", "dev-qa@my-software-team"]);
     });
     const out = logs.join("\n");
     expect(exitCode).toBe(1);
-    expect(out).toMatch(/rig daemon start/); // the shared guard's action line
+    expect(out).toMatch(/SoftwareTeam daemon start/); // the shared guard's action line
     expect(out).toMatch(/Error: /); // 3-part structure, not the old single-line literal
     expect(out).toMatch(/raw session token.*--wake/i); // the site-specific tip survives
     expect(runner).not.toHaveBeenCalled();
@@ -139,7 +139,7 @@ describe("rig ask --wake (L3 CLI)", () => {
   it("wakes by raw token and prints the snapshot answer (checked-not-believed)", async () => {
     const runner: WakeRunner = vi.fn(async () => ({ stdout: "the gateway plan is A2 first", stderr: "", code: 0, timedOut: false }));
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd(tokenDeps(runner)).parseAsync(["node", "rig", "ask", "my-rig", "summarize", "--wake", "3f2a-abc"]);
+      await makeCmd(tokenDeps(runner)).parseAsync(["node", "softwareTeam", "ask", "my-software-team", "summarize", "--wake", "3f2a-abc"]);
     });
     const out = logs.join("\n");
     expect(runner).toHaveBeenCalled();
@@ -151,7 +151,7 @@ describe("rig ask --wake (L3 CLI)", () => {
   it("reports a wake timeout honestly with a non-zero exit — never a silent hang", async () => {
     const runner: WakeRunner = vi.fn(async () => ({ stdout: "", stderr: "", code: null, timedOut: true }));
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd(tokenDeps(runner)).parseAsync(["node", "rig", "ask", "my-rig", "q", "--wake", "tok", "--wake-timeout", "5"]);
+      await makeCmd(tokenDeps(runner)).parseAsync(["node", "softwareTeam", "ask", "my-software-team", "q", "--wake", "tok", "--wake-timeout", "5"]);
     });
     const out = logs.join("\n");
     expect(out).toMatch(/did not return|bounded timeout/i);
@@ -162,7 +162,7 @@ describe("rig ask --wake (L3 CLI)", () => {
     // NaN reached execFile's timeout option, which throws ERR_OUT_OF_RANGE (a stack trace, no JSON).
     const runner: WakeRunner = vi.fn(async () => ({ stdout: "x", stderr: "", code: 0, timedOut: false }));
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd(tokenDeps(runner)).parseAsync(["node", "rig", "ask", "my-rig", "q", "--wake", "tok", "--wake-timeout", "abc"]);
+      await makeCmd(tokenDeps(runner)).parseAsync(["node", "softwareTeam", "ask", "my-software-team", "q", "--wake", "tok", "--wake-timeout", "abc"]);
     });
     expect(runner).not.toHaveBeenCalled();
     expect(logs.join("\n")).toContain("--wake-timeout must be a number of seconds from 1 to 2147483; got 'abc'");
@@ -176,7 +176,7 @@ describe("rig ask --wake (L3 CLI)", () => {
     const runner: WakeRunner = vi.fn(async () => ({ stdout: "x", stderr: "", code: 0, timedOut: false }));
     const deps = seatDeps(runner, { resolved: true, token: "t", runtime: "claude", sessionId: 1 });
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ask", "my-rig", "q", "--wake", "dev@my-rig", "--wake-timeout", value]);
+      await makeCmd(deps).parseAsync(["node", "softwareTeam", "ask", "my-software-team", "q", "--wake", "dev@my-software-team", "--wake-timeout", value]);
     });
     expect((deps as unknown as { __post: ReturnType<typeof vi.fn> }).__post).not.toHaveBeenCalled();
     expect(runner).not.toHaveBeenCalled();
@@ -187,7 +187,7 @@ describe("rig ask --wake (L3 CLI)", () => {
   it("accepts the largest --wake-timeout a Node timer can honour", async () => {
     const runner: WakeRunner = vi.fn(async () => ({ stdout: "x", stderr: "", code: 0, timedOut: false }));
     await captureLogs(async () => {
-      await makeCmd(tokenDeps(runner)).parseAsync(["node", "rig", "ask", "my-rig", "q", "--wake", "tok", "--wake-timeout", "2147483"]);
+      await makeCmd(tokenDeps(runner)).parseAsync(["node", "softwareTeam", "ask", "my-software-team", "q", "--wake", "tok", "--wake-timeout", "2147483"]);
     });
     const call = (runner as unknown as { mock: { calls: [string, string[], { timeoutMs: number }][] } }).mock.calls[0]!;
     expect(call[2].timeoutMs).toBe(2_147_483_000);
@@ -197,7 +197,7 @@ describe("rig ask --wake (L3 CLI)", () => {
     // execFile also rejects a fractional timeout: 1.0005s must not become 1000.5ms.
     const runner: WakeRunner = vi.fn(async () => ({ stdout: "x", stderr: "", code: 0, timedOut: false }));
     await captureLogs(async () => {
-      await makeCmd(tokenDeps(runner)).parseAsync(["node", "rig", "ask", "my-rig", "q", "--wake", "tok", "--wake-timeout", "1.0005"]);
+      await makeCmd(tokenDeps(runner)).parseAsync(["node", "softwareTeam", "ask", "my-software-team", "q", "--wake", "tok", "--wake-timeout", "1.0005"]);
     });
     const call = (runner as unknown as { mock: { calls: [string, string[], { timeoutMs: number }][] } }).mock.calls[0]!;
     expect(Number.isInteger(call[2].timeoutMs)).toBe(true);
@@ -206,7 +206,7 @@ describe("rig ask --wake (L3 CLI)", () => {
   it("renders a FAILED wake honestly (exit N + stderr), non-zero exit — never a fake success", async () => {
     const runner: WakeRunner = vi.fn(async () => ({ stdout: "", stderr: "resume: invalid session token", code: 1, timedOut: false }));
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd(tokenDeps(runner)).parseAsync(["node", "rig", "ask", "my-rig", "q", "--wake", "bad"]);
+      await makeCmd(tokenDeps(runner)).parseAsync(["node", "softwareTeam", "ask", "my-software-team", "q", "--wake", "bad"]);
     });
     const out = logs.join("\n");
     expect(out).toMatch(/wake failed.*exit 1/i);
@@ -218,7 +218,7 @@ describe("rig ask --wake (L3 CLI)", () => {
     const runner: WakeRunner = vi.fn(async () => ({ stdout: "resolved-and-woke", stderr: "", code: 0, timedOut: false }));
     const deps = seatDeps(runner, { resolved: true, token: "resolved-tok", runtime: "codex", sessionId: 7 });
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ask", "my-rig", "q", "--wake", "dev-planner@my-rig"]);
+      await makeCmd(deps).parseAsync(["node", "softwareTeam", "ask", "my-software-team", "q", "--wake", "dev-planner@my-software-team"]);
     });
     const out = logs.join("\n");
     // resolved runtime (codex) and token used; answer rendered
@@ -234,14 +234,14 @@ describe("rig ask --wake (L3 CLI)", () => {
     const runner: WakeRunner = vi.fn(async () => ({ stdout: "x", stderr: "", code: 0, timedOut: false }));
     const deps = seatDeps(runner, {
       resolved: false,
-      reason: "Generation 5 does not exist for seat 'dev-planner@my-rig' — only 2 tenure(s) recorded.",
+      reason: "Generation 5 does not exist for seat 'dev-planner@my-software-team' — only 2 tenure(s) recorded.",
       known: [
         { generation: 1, sessionId: 20, tokenPresent: true, createdAt: "2026-08-06" },
         { generation: 2, sessionId: 10, tokenPresent: false, createdAt: "2026-08-05" },
       ],
     });
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "ask", "my-rig", "q", "--wake", "dev-planner@my-rig@5"]);
+      await makeCmd(deps).parseAsync(["node", "softwareTeam", "ask", "my-software-team", "q", "--wake", "dev-planner@my-software-team@5"]);
     });
     const out = logs.join("\n");
     expect(runner).not.toHaveBeenCalled(); // never a guessed wake

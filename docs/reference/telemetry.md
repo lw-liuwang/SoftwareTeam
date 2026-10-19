@@ -1,16 +1,16 @@
 # Finite telemetry metadata
 
-`rig telemetry` reads one bounded page of retained history from the daemon. It is
-useful for collectors and operators that need a cursor without reading OpenRig's
+`SoftwareTeam telemetry` reads one bounded page of retained history from the daemon. It is
+useful for collectors and operators that need a cursor without reading SoftwareTeam's
 private SQLite schema. It neither watches nor automatically drains history.
 
 ```sh
-rig telemetry events --json
-rig telemetry events --start retained --node NODE_ID --limit 128 --json
-rig telemetry events --start retained --rig RIG_ID --json
-rig telemetry events --cursor CURSOR --node NODE_ID --json
-rig telemetry transitions --start retained --qitem QUEUE_ITEM_ID --json
-rig telemetry tenures NODE_ID --json
+SoftwareTeam telemetry events --json
+SoftwareTeam telemetry events --start retained --node NODE_ID --limit 128 --json
+SoftwareTeam telemetry events --start retained --software-team SOFTWARE_TEAM_ID --json
+SoftwareTeam telemetry events --cursor CURSOR --node NODE_ID --json
+SoftwareTeam telemetry transitions --start retained --qitem QUEUE_ITEM_ID --json
+SoftwareTeam telemetry tenures NODE_ID --json
 ```
 
 Events and transitions initially return an empty checkpoint at the current high
@@ -27,7 +27,7 @@ These reads use the daemon's existing browser/access boundary:
 
 | GET path | Query parameters |
 | --- | --- |
-| `/api/telemetry/v1/events` | `cursor`, `limit`, `start=latest\|retained`, `nodeId`, `rigId` |
+| `/api/telemetry/v1/events` | `cursor`, `limit`, `start=latest\|retained`, `nodeId`, `softwareTeamId` |
 | `/api/telemetry/v1/queue-transitions` | `cursor`, `limit`, `start=latest\|retained`, `qitemId` |
 | `/api/telemetry/v1/nodes/:nodeId/tenures` | `cursor`, `limit` |
 
@@ -35,7 +35,7 @@ The envelope contains `schemaVersion: 1`, `stream`, `observedAt`, `source`, `row
 `page`, and `coverage`. Integer IDs are **decimal strings**, including values larger
 than JavaScript's safe integer range. `--json` preserves the complete envelope.
 
-- Events: `seq`, `rigId`, `nodeId`, `type`, `originalTimestamp`, `createdAt`.
+- Events: `seq`, `softwareTeamId`, `nodeId`, `type`, `originalTimestamp`, `createdAt`.
 - Transitions: original `transitionId`, `qitemId`, `state`, `actorSession`,
   `identityProvenance`, `closureReason`, `closureTarget`, `originalTimestamp`, `createdAt`.
 - Tenures: `nodeId`, `generationOrdinal`, `generationUuid`, `kind`,

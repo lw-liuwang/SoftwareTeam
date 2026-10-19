@@ -1,23 +1,23 @@
 import {
-  getCurrentRigSummary,
-  listRigNodes,
+  getCurrentSoftwareTeamSummary,
+  listSoftwareTeamNodes,
   parseArgs,
   isAgentRuntime,
 } from "./common.js";
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  const rig = String(args["rig"] ?? args["rig-id"] ?? "demo-rig");
+  const softwareTeam = String(args["softwareTeam"] ?? args["software-team-id"] ?? "demo-software-team");
   const json = args["json"] === true;
 
-  const rigSummary = getCurrentRigSummary(rig);
-  const nodes = listRigNodes(rig);
+  const softwareTeamSummary = getCurrentSoftwareTeamSummary(softwareTeam);
+  const nodes = listSoftwareTeamNodes(softwareTeam);
 
   const summary = {
-    rig,
-    rigId: rigSummary?.rigId ?? null,
-    status: rigSummary?.status ?? null,
-    exists: Boolean(rigSummary),
+    softwareTeam,
+    softwareTeamId: softwareTeamSummary?.softwareTeamId ?? null,
+    status: softwareTeamSummary?.status ?? null,
+    exists: Boolean(softwareTeamSummary),
     nodeCount: nodes.length,
     agentCount: nodes.filter((node) => isAgentRuntime(node.runtime)).length,
     startupReady: nodes.filter((node) => node.startupStatus === "ready").map((node) => node.logicalId),
@@ -40,9 +40,9 @@ async function main(): Promise<void> {
   if (json) {
     console.log(JSON.stringify(summary, null, 2));
   } else {
-    console.log(`Demo health: ${rig}`);
-    if (summary.rigId) {
-      console.log(`- rigId: ${summary.rigId}`);
+    console.log(`Demo health: ${softwareTeam}`);
+    if (summary.softwareTeamId) {
+      console.log(`- softwareTeamId: ${summary.softwareTeamId}`);
     }
     if (summary.status) {
       console.log(`- status: ${summary.status}`);

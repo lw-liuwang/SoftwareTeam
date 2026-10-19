@@ -27,12 +27,12 @@ export function CliDriftIndicator({
       {staleCliCount > 0 ? (
         <div data-testid="mc-cli-drift-stale-count">
           <span className="font-mono uppercase text-[9px] tracking-[0.12em]">stale-cli</span>{" "}
-          {staleCliCount} {staleCliCount === 1 ? "rig" : "rigs"} running stale CLI
+          {staleCliCount} {staleCliCount === 1 ? "SoftwareTeam" : "SoftwareTeams"} running stale CLI
         </div>
       ) : null}
       {unknownCliCount > 0 ? (
         <div data-testid="mc-cli-drift-unknown-count">
-          {unknownCliCount} {unknownCliCount === 1 ? "rig" : "rigs"} with unknown CLI capabilities
+          {unknownCliCount} {unknownCliCount === 1 ? "softwareTeam" : "softwareTeams"} with unknown CLI capabilities
         </div>
       ) : null}
       {degradedFields.length > 0 ? (
@@ -60,9 +60,9 @@ export function MissingFieldPlaceholder({ fieldName }: MissingFieldPlaceholderPr
     <span
       data-testid="mc-missing-field-placeholder"
       className="font-mono text-[10px] text-amber-700"
-      title="field unavailable on this rig"
+      title="field unavailable on this softwareTeam"
     >
-      {fieldName}: field unavailable on this rig
+      {fieldName}: field unavailable on this softwareTeam
     </span>
   );
 }

@@ -1,21 +1,21 @@
 import { describe, it, expect, vi } from "vitest";
 import { AskService, type AskDeps } from "../src/domain/ask-service.js";
 import type { PsEntry } from "../src/domain/ps-projection.js";
-import type { Rig } from "../src/domain/types.js";
+import type { SoftwareTeam } from "../src/domain/types.js";
 import type { SearchResult } from "../src/domain/history-query.js";
 
 function makeDeps(overrides?: Partial<AskDeps>): AskDeps {
   return {
     psProjectionService: {
       getEntries: vi.fn((): PsEntry[] => [
-        { rigId: "rig-1", name: "my-rig", nodeCount: 2, runningCount: 2, status: "running", uptime: "1h 30m", latestSnapshot: "5m ago" },
+        { softwareTeamId: "software-team-1", name: "my-software-team", nodeCount: 2, runningCount: 2, status: "running", uptime: "1h 30m", latestSnapshot: "5m ago" },
       ]),
     },
-    rigRepo: {
-      findRigsByName: vi.fn((_name: string): Rig[] => [
-        { id: "rig-1", name: "my-rig", createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+    softwareTeamRepo: {
+      findSoftwareTeamsByName: vi.fn((_name: string): SoftwareTeam[] => [
+        { id: "software-team-1", name: "my-software-team", createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
       ]),
-      getRig: vi.fn(() => null),
+      getSoftwareTeam: vi.fn(() => null),
     },
     historyQuery: {
       search: vi.fn(async (): Promise<SearchResult> => ({
@@ -34,21 +34,21 @@ describe("AskService", () => {
   it("assembles evidence pack with question, topology, and excerpts", async () => {
     const deps = makeDeps();
     const svc = new AskService(deps);
-    const result = await svc.ask("my-rig", "what about deployment?");
+    const result = await svc.ask("my-software-team", "what about deployment?");
 
     expect(result.question).toBe("what about deployment?");
-    expect(result.rig).toBeDefined();
-    expect(result.rig!.name).toBe("my-rig");
-    expect(result.rig!.status).toBe("running");
+    expect(result.softwareTeam).toBeDefined();
+    expect(result.softwareTeam!.name).toBe("my-software-team");
+    expect(result.softwareTeam!.status).toBe("running");
     expect(result.evidence.excerpts).toEqual(["deployment started", "deployment finished"]);
     expect(result.evidence.backend).toBe("rg");
     expect(result.insufficient).toBe(false);
   });
 
-  it("returns guidance when rig is not found", async () => {
+  it("returns guidance when SoftwareTeam is not found", async () => {
     const deps = makeDeps({
-      rigRepo: {
-        findRigsByName: vi.fn(() => []),
+      softwareTeamRepo: {
+        findSoftwareTeamsByName: vi.fn(() => []),
       },
       psProjectionService: {
         getEntries: vi.fn(() => []),
@@ -57,21 +57,21 @@ describe("AskService", () => {
     const svc = new AskService(deps);
     const result = await svc.ask("nonexistent", "any question");
 
-    expect(result.rig).toBeNull();
+    expect(result.softwareTeam).toBeNull();
     expect(result.guidance).toContain("not found");
   });
 
-  it("returns guidance when rig is ambiguous", async () => {
+  it("returns guidance when SoftwareTeam is ambiguous", async () => {
     const deps = makeDeps({
-      rigRepo: {
-        findRigsByName: vi.fn(() => [
-          { id: "rig-1", name: "my-rig", createdAt: "2026-01-01", updatedAt: "2026-01-01" },
-          { id: "rig-2", name: "my-rig", createdAt: "2026-01-02", updatedAt: "2026-01-02" },
+      softwareTeamRepo: {
+        findSoftwareTeamsByName: vi.fn(() => [
+          { id: "software-team-1", name: "my-software-team", createdAt: "2026-01-01", updatedAt: "2026-01-01" },
+          { id: "software-team-2", name: "my-software-team", createdAt: "2026-01-02", updatedAt: "2026-01-02" },
         ]),
       },
     });
     const svc = new AskService(deps);
-    const result = await svc.ask("my-rig", "any question");
+    const result = await svc.ask("my-software-team", "any question");
 
     expect(result.guidance).toContain("ambiguous");
   });
@@ -79,7 +79,7 @@ describe("AskService", () => {
   it("returns guidance when transcripts are disabled", async () => {
     const deps = makeDeps({ transcriptsEnabled: false });
     const svc = new AskService(deps);
-    const result = await svc.ask("my-rig", "any question");
+    const result = await svc.ask("my-software-team", "any question");
 
     expect(result.insufficient).toBe(true);
     expect(result.guidance).toContain("disabled");
@@ -97,7 +97,7 @@ describe("AskService", () => {
       },
     });
     const svc = new AskService(deps);
-    const result = await svc.ask("my-rig", "what is the");
+    const result = await svc.ask("my-software-team", "what is the");
 
     expect(result.insufficient).toBe(true);
   });
@@ -116,7 +116,7 @@ describe("AskService", () => {
       },
     });
     const svc = new AskService(deps);
-    const result = await svc.ask("my-rig", "what about deployment?");
+    const result = await svc.ask("my-software-team", "what about deployment?");
 
     expect(result.evidence.chatExcerpts).toBeDefined();
     expect(result.evidence.chatExcerpts!.length).toBe(1);
@@ -139,7 +139,7 @@ describe("AskService", () => {
       },
     });
     const svc = new AskService(deps);
-    const result = await svc.ask("my-rig", "what about deployment?");
+    const result = await svc.ask("my-software-team", "what about deployment?");
 
     expect(result.insufficient).toBe(false);
     expect(result.evidence.chatExcerpts!.length).toBe(1);
@@ -158,7 +158,7 @@ describe("AskService", () => {
       },
     });
     const svc = new AskService(deps);
-    const result = await svc.ask("my-rig", "deployment question");
+    const result = await svc.ask("my-software-team", "deployment question");
 
     expect(result.insufficient).toBe(true);
     expect(result.guidance).toContain("transcript");
@@ -179,8 +179,8 @@ describe("AskService", () => {
         resolve: vi.fn(() => ({
           resolvedBy: "session_name",
           identity: {
-            rigId: "rig-1",
-            rigName: "my-rig",
+            softwareTeamId: "software-team-1",
+            softwareTeamName: "my-software-team",
             nodeId: "node-1",
             logicalId: "dev.impl",
             attachmentType: "tmux",
@@ -189,7 +189,7 @@ describe("AskService", () => {
             podLabel: "Development",
             memberId: "impl",
             memberLabel: "Implementer",
-            sessionName: "dev-impl@my-rig",
+            sessionName: "dev-impl@my-software-team",
             runtime: "claude-code",
             cwd: "/tmp",
             agentRef: null,
@@ -200,7 +200,7 @@ describe("AskService", () => {
           peers: [
             {
               logicalId: "dev.qa",
-              sessionName: "dev-qa@my-rig",
+              sessionName: "dev-qa@my-software-team",
               runtime: "codex",
               podId: "pod-dev",
               podNamespace: "dev",
@@ -215,11 +215,11 @@ describe("AskService", () => {
     });
     const svc = new AskService(deps);
 
-    const result = await svc.ask("my-rig", "who are my peers?", { sessionName: "dev-impl@my-rig" });
+    const result = await svc.ask("my-software-team", "who are my peers?", { sessionName: "dev-impl@my-software-team" });
 
     expect(result.evidence.backend).toBe("structured");
     expect(result.evidence.excerpts[0]).toContain("dev.qa");
-    expect(result.evidence.excerpts[0]).toContain("dev-qa@my-rig");
+    expect(result.evidence.excerpts[0]).toContain("dev-qa@my-software-team");
     expect(result.evidence.excerpts.join("\n")).not.toContain("dev.impl");
     expect(result.insufficient).toBe(false);
     expect(searchSpy).not.toHaveBeenCalled();
@@ -236,15 +236,15 @@ describe("AskService", () => {
         search: searchSpy,
         searchChat: vi.fn(() => []),
       },
-      rigRepo: {
-        findRigsByName: vi.fn((_name: string): Rig[] => [
-          { id: "rig-1", name: "my-rig", createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+      softwareTeamRepo: {
+        findSoftwareTeamsByName: vi.fn((_name: string): SoftwareTeam[] => [
+          { id: "software-team-1", name: "my-software-team", createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
         ]),
-        getRig: vi.fn(() => ({
-          rig: { id: "rig-1", name: "my-rig", createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+        getSoftwareTeam: vi.fn(() => ({
+          softwareTeam: { id: "software-team-1", name: "my-software-team", createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
           nodes: [
-            { id: "node-1", logicalId: "dev.impl", runtime: "claude-code", podId: "pod-dev", binding: { tmuxSession: "dev-impl@my-rig" } },
-            { id: "node-2", logicalId: "dev.qa", runtime: "codex", podId: "pod-dev", binding: { tmuxSession: "dev-qa@my-rig" } },
+            { id: "node-1", logicalId: "dev.impl", runtime: "claude-code", podId: "pod-dev", binding: { tmuxSession: "dev-impl@my-software-team" } },
+            { id: "node-2", logicalId: "dev.qa", runtime: "codex", podId: "pod-dev", binding: { tmuxSession: "dev-qa@my-software-team" } },
           ],
           edges: [],
         }) as never),
@@ -255,7 +255,7 @@ describe("AskService", () => {
     });
     const svc = new AskService(deps);
 
-    const result = await svc.ask("my-rig", "who are my peers?");
+    const result = await svc.ask("my-software-team", "who are my peers?");
 
     expect(result.insufficient).toBe(true);
     expect(result.evidence.excerpts).toEqual([]);

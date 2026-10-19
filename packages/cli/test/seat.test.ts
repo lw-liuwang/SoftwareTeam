@@ -12,7 +12,7 @@ function mockLifecycleDeps(): LifecycleDeps {
     kill: vi.fn(() => true),
     readFile: vi.fn((p: string) => {
       if (p === STATE_FILE) {
-        return JSON.stringify({ pid: 123, port: 7433, db: "test.sqlite", startedAt: "2026-04-20T00:00:00Z" } as DaemonState);
+        return JSON.stringify({ pid: 123, port: 7434, db: "test.sqlite", startedAt: "2026-04-20T00:00:00Z" } as DaemonState);
       }
       return null;
     }),
@@ -75,14 +75,14 @@ async function captureLogs(fn: () => Promise<void>): Promise<{ logs: string[]; e
 }
 
 const STATUS = {
-  seat_ref: "dev-impl@seat-rig",
-  rig_id: "rig-1",
-  rig_name: "seat-rig",
+  seat_ref: "dev-impl@seat-software-team",
+  software_team_id: "software-team-1",
+  software_team_name: "seat-software-team",
   logical_id: "dev.impl",
   pod_id: "pod-1",
   pod_namespace: "dev",
   runtime: "codex",
-  current_occupant: "dev-impl@seat-rig",
+  current_occupant: "dev-impl@seat-software-team",
   session_status: "running",
   startup_status: "ready",
   occupant_lifecycle: "active",
@@ -98,9 +98,9 @@ const HANDOVER_PLAN = {
   dryRun: true,
   willMutate: false,
   seat: {
-    ref: "dev-impl@seat-rig",
-    rigId: "rig-1",
-    rigName: "seat-rig",
+    ref: "dev-impl@seat-software-team",
+    softwareTeamId: "software-team-1",
+    softwareTeamName: "seat-software-team",
     logicalId: "dev.impl",
     podId: "pod-1",
     podNamespace: "dev",
@@ -108,8 +108,8 @@ const HANDOVER_PLAN = {
   },
   source: { mode: "fresh", ref: null, raw: "fresh", defaulted: true },
   reason: "context-wall",
-  operator: "orch-lead@seat-rig",
-  currentOccupant: "dev-impl@seat-rig",
+  operator: "orch-lead@seat-software-team",
+  currentOccupant: "dev-impl@seat-software-team",
   currentStatus: {
     sessionStatus: "running",
     startupStatus: "ready",
@@ -148,9 +148,9 @@ const HANDOVER_RESULT = {
   mutated: true,
   continuityTransferred: false,
   seat: {
-    ref: "dev-impl@seat-rig",
-    rigId: "rig-1",
-    rigName: "seat-rig",
+    ref: "dev-impl@seat-software-team",
+    softwareTeamId: "software-team-1",
+    softwareTeamName: "seat-software-team",
     logicalId: "dev.impl",
     podId: "pod-1",
     podNamespace: "dev",
@@ -158,8 +158,8 @@ const HANDOVER_RESULT = {
   },
   source: { mode: "discovered", ref: "disc-1", raw: "discovered:disc-1", defaulted: false },
   reason: "mvp-proof",
-  operator: "orch-lead@seat-rig",
-  previousOccupant: "dev-impl@seat-rig",
+  operator: "orch-lead@seat-software-team",
+  previousOccupant: "dev-impl@seat-software-team",
   currentOccupant: "successor-session",
   previousSessionIdsSuperseded: ["sess-old"],
   newSessionId: "sess-new",
@@ -170,7 +170,7 @@ const HANDOVER_RESULT = {
     occupantLifecycle: "active",
     continuityOutcome: null,
     handoverResult: "complete",
-    previousOccupant: "dev-impl@seat-rig",
+    previousOccupant: "dev-impl@seat-software-team",
     handoverAt: "2026-04-24T18:30:00.000Z",
     restoreOutcome: "n-a",
   },
@@ -186,8 +186,8 @@ const HANDOVER_RESULT = {
 const HANDOVER_RESULT_FRESH = {
   ...HANDOVER_RESULT,
   source: { mode: "fresh", ref: null, raw: "fresh", defaulted: true },
-  currentOccupant: "dev-impl@seat-rig-h1SUCCID0",
-  discovery: { id: "disc-fresh", status: "claimed", tmuxSession: "dev-impl@seat-rig-h1SUCCID0", tmuxPane: "%9" },
+  currentOccupant: "dev-impl@seat-software-team-h1SUCCID0",
+  discovery: { id: "disc-fresh", status: "claimed", tmuxSession: "dev-impl@seat-software-team-h1SUCCID0", tmuxPane: "%9" },
   sideEffects: {
     departingSessionKilled: false,
     startupContextDelivered: true,
@@ -199,7 +199,7 @@ const FRESH_LAUNCH_RESULT = {
   ok: true,
   seat: HANDOVER_PLAN.seat,
   status: "ready",
-  sessionName: "dev-impl@seat-rig",
+  sessionName: "dev-impl@seat-software-team",
   sessionId: "sess-fresh",
   generation: "gen-fresh",
   model: "gpt-5.6-codex",
@@ -207,7 +207,7 @@ const FRESH_LAUNCH_RESULT = {
   supersededSessionIds: ["sess-old"],
 };
 
-describe("rig seat status", () => {
+describe("SoftwareTeam seat status", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
@@ -218,15 +218,15 @@ describe("rig seat status", () => {
     const deps = makeDeps({ status: 200, data: STATUS }, paths);
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "status", "dev-impl@seat-rig", "--json"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "status", "dev-impl@seat-software-team", "--json"]);
     });
 
     expect(exitCode).toBeUndefined();
-    expect(paths).toEqual(["/api/seat/status/dev-impl%40seat-rig"]);
+    expect(paths).toEqual(["/api/seat/status/dev-impl%40seat-software-team"]);
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed).toMatchObject({
-      seat_ref: "dev-impl@seat-rig",
-      current_occupant: "dev-impl@seat-rig",
+      seat_ref: "dev-impl@seat-software-team",
+      current_occupant: "dev-impl@seat-software-team",
       occupant_lifecycle: "active",
       continuity_outcome: null,
       handover_result: null,
@@ -239,7 +239,7 @@ describe("rig seat status", () => {
     const deps = makeDeps({ status: 200, data: STATUS }, []);
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "status", "dev-impl@seat-rig"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "status", "dev-impl@seat-software-team"]);
     });
 
     const output = logs.join("\n");
@@ -257,7 +257,7 @@ describe("rig seat status", () => {
     }, []);
 
     const { logs } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "status", "dev-impl@seat-rig"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "status", "dev-impl@seat-software-team"]);
     });
 
     expect(logs.join("\n")).toContain("Reason: tmux session missing; restore or relaunch the seat");
@@ -269,18 +269,18 @@ describe("rig seat status", () => {
       data: {
         ok: false,
         code: "seat_not_found",
-        message: "Seat \"missing@seat-rig\" not found",
-        guidance: "List seats with: rig ps --nodes",
+        message: "Seat \"missing@seat-software-team\" not found",
+        guidance: "List seats with: SoftwareTeam ps --nodes",
       },
     }, []);
 
     const { errors, exitCode } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "status", "missing@seat-rig"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "status", "missing@seat-software-team"]);
     });
 
     expect(exitCode).toBe(1);
-    expect(errors.join("\n")).toContain("Seat \"missing@seat-rig\" not found");
-    expect(errors.join("\n")).toContain("List seats with: rig ps --nodes");
+    expect(errors.join("\n")).toContain("Seat \"missing@seat-software-team\" not found");
+    expect(errors.join("\n")).toContain("List seats with: SoftwareTeam ps --nodes");
   });
 
   it("launch --fresh posts the explicit no-continuity contract and prints stable JSON", async () => {
@@ -290,19 +290,19 @@ describe("rig seat status", () => {
 
     const { logs, exitCode } = await captureLogs(async () => {
       await makeCommand(deps).parseAsync([
-        "node", "rig", "seat", "launch", "dev-impl@seat-rig",
+        "node", "softwareTeam", "seat", "launch", "dev-impl@seat-software-team",
         "--fresh", "--stop", "--reason", "deliberate blank restart",
-        "--operator", "orch-lead@seat-rig", "--json",
+        "--operator", "orch-lead@seat-software-team", "--json",
       ]);
     });
 
     expect(exitCode).toBeUndefined();
-    expect(paths).toEqual(["/api/seat/launch/dev-impl%40seat-rig"]);
+    expect(paths).toEqual(["/api/seat/launch/dev-impl%40seat-software-team"]);
     expect(bodies).toEqual([{
       fresh: true,
       reason: "deliberate blank restart",
       stop: true,
-      operator: "orch-lead@seat-rig",
+      operator: "orch-lead@seat-software-team",
     }]);
     expect(JSON.parse(logs.join("\n"))).toMatchObject({
       status: "ready",
@@ -322,7 +322,7 @@ describe("rig seat status", () => {
       seat.commands.find((candidate) => candidate.name() === "launch")!.exitOverride();
       try {
         await command.parseAsync([
-          "node", "rig", "seat", "launch", "dev-impl@seat-rig",
+          "node", "softwareTeam", "seat", "launch", "dev-impl@seat-software-team",
           "--reason", "deliberate blank restart",
         ]);
       } catch (error) {
@@ -342,14 +342,14 @@ describe("rig seat status", () => {
 
     const { logs, exitCode } = await captureLogs(async () => {
       await makeCommand(deps).parseAsync([
-        "node", "rig", "seat", "launch", "dev-impl@seat-rig",
+        "node", "softwareTeam", "seat", "launch", "dev-impl@seat-software-team",
         "--fresh", "--reason", "deliberate blank restart",
       ]);
     });
 
     const output = logs.join("\n");
     expect(exitCode).toBeUndefined();
-    expect(output).toContain("Fresh occupant ready: dev.impl@seat-rig (dev-impl@seat-rig)");
+    expect(output).toContain("Fresh occupant ready: dev.impl@seat-software-team (dev-impl@seat-software-team)");
     expect(output).toContain("Generation: gen-fresh; model: gpt-5.6-codex");
     expect(output).toContain("No continuity source was used; siblings and durable work were preserved.");
   });
@@ -366,7 +366,7 @@ describe("rig seat status", () => {
     const deps = makeDeps({ status: 200, data: FRESH_LAUNCH_RESULT }, []);
     deps.clientFactory = url => new DaemonClient(url, { fetchImpl });
     const result = captureLogs(() => makeCommand(deps).parseAsync([
-      "node", "rig", "seat", "launch", "dev-impl@seat-rig",
+      "node", "softwareTeam", "seat", "launch", "dev-impl@seat-software-team",
       "--fresh", "--stop", "--reason", "deliberate blank restart", "--json",
     ]).then(() => undefined)).catch(error => ({ error }));
 
@@ -387,7 +387,7 @@ describe("rig seat status", () => {
     const deps = makeDeps({ status: 200, data: FRESH_LAUNCH_RESULT }, []);
     deps.clientFactory = url => new DaemonClient(url, { fetchImpl });
     const result = captureLogs(() => makeCommand(deps).parseAsync([
-      "node", "rig", "seat", "launch", "dev-impl@seat-rig",
+      "node", "softwareTeam", "seat", "launch", "dev-impl@seat-software-team",
       "--fresh", "--stop", "--reason", "deliberate blank restart", ...(json ? ["--json"] : []), ...(plan ? ["--plan"] : []),
     ]).then(() => undefined)).catch(error => ({ error }));
 
@@ -401,12 +401,12 @@ describe("rig seat status", () => {
       expect(JSON.parse(output.logs.join("\n"))).toMatchObject({
         status: "unknown",
         code: plan ? "launch_plan_timeout" : "launch_outcome_unknown",
-        guidance: expect.stringContaining(plan ? "Retry the preview" : "rig seat status dev-impl@seat-rig"),
+        guidance: expect.stringContaining(plan ? "Retry the preview" : "SoftwareTeam seat status dev-impl@seat-software-team"),
       });
     } else {
       expect(output.logs).toEqual([]);
       expect(output.errors.join("\n")).toContain(plan ? "no launch was requested" : "may still be in progress");
-      expect(output.errors.join("\n")).toContain(plan ? "Retry the preview" : "rig seat status dev-impl@seat-rig");
+      expect(output.errors.join("\n")).toContain(plan ? "Retry the preview" : "SoftwareTeam seat status dev-impl@seat-software-team");
     }
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
@@ -419,7 +419,7 @@ describe("rig seat status", () => {
     const deps = makeDeps({ status: 200, data: FRESH_LAUNCH_RESULT }, []);
     deps.clientFactory = url => new DaemonClient(url, { fetchImpl });
     const result = captureLogs(() => makeCommand(deps).parseAsync([
-      "node", "rig", "seat", "continue", "dev-impl@seat-rig", ...(json ? ["--json"] : []),
+      "node", "softwareTeam", "seat", "continue", "dev-impl@seat-software-team", ...(json ? ["--json"] : []),
     ]).then(() => undefined)).catch(error => ({ error }));
 
     await vi.advanceTimersByTimeAsync(120_000);
@@ -432,12 +432,12 @@ describe("rig seat status", () => {
       expect(JSON.parse(output.logs.join("\n"))).toMatchObject({
         status: "unknown",
         code: "continue_outcome_unknown",
-        guidance: expect.stringContaining("rig seat status dev-impl@seat-rig"),
+        guidance: expect.stringContaining("SoftwareTeam seat status dev-impl@seat-software-team"),
       });
     } else {
       expect(output.logs).toEqual([]);
       expect(output.errors.join("\n")).toContain("may still be in progress");
-      expect(output.errors.join("\n")).toContain("rig seat status dev-impl@seat-rig");
+      expect(output.errors.join("\n")).toContain("SoftwareTeam seat status dev-impl@seat-software-team");
     }
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
@@ -448,16 +448,16 @@ describe("rig seat status", () => {
 
     const { logs, exitCode } = await captureLogs(async () => {
       await makeCommand(deps).parseAsync([
-        "node", "rig", "seat", "handover", "dev-impl@seat-rig",
+        "node", "softwareTeam", "seat", "handover", "dev-impl@seat-software-team",
         "--reason", "context-wall",
-        "--operator", "orch-lead@seat-rig",
+        "--operator", "orch-lead@seat-software-team",
         "--dry-run",
         "--json",
       ]);
     });
 
     expect(exitCode).toBeUndefined();
-    expect(paths).toEqual(["/api/seat/handover/dev-impl%40seat-rig"]);
+    expect(paths).toEqual(["/api/seat/handover/dev-impl%40seat-software-team"]);
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed).toMatchObject({
       ok: true,
@@ -465,8 +465,8 @@ describe("rig seat status", () => {
       willMutate: false,
       source: { mode: "fresh", ref: null, defaulted: true },
       reason: "context-wall",
-      operator: "orch-lead@seat-rig",
-      currentOccupant: "dev-impl@seat-rig",
+      operator: "orch-lead@seat-software-team",
+      currentOccupant: "dev-impl@seat-software-team",
       currentStatus: { sessionStatus: "running", startupStatus: "ready" },
     });
     expect(parsed.phases.map((phase: { id: string }) => phase.id)).toEqual(["prepare", "commit"]);
@@ -477,7 +477,7 @@ describe("rig seat status", () => {
 
     const { logs, exitCode } = await captureLogs(async () => {
       await makeCommand(deps).parseAsync([
-        "node", "rig", "seat", "handover", "dev-impl@seat-rig",
+        "node", "softwareTeam", "seat", "handover", "dev-impl@seat-software-team",
         "--reason", "context-wall",
         "--dry-run",
       ]);
@@ -485,7 +485,7 @@ describe("rig seat status", () => {
 
     const output = logs.join("\n");
     expect(exitCode).toBeUndefined();
-    expect(output).toContain("Seat handover dry run: dev-impl@seat-rig");
+    expect(output).toContain("Seat handover dry run: dev-impl@seat-software-team");
     expect(output).toContain("Phase A - prepare successor");
     expect(output).toContain("Phase B - commit atomic seat rebind");
     expect(output).toContain("No changes were made.");
@@ -496,7 +496,7 @@ describe("rig seat status", () => {
     const deps = makeDeps({ status: 200, data: HANDOVER_PLAN }, paths);
 
     const { errors, exitCode } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "handover", "dev-impl@seat-rig", "--dry-run"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "handover", "dev-impl@seat-software-team", "--dry-run"]);
     });
 
     expect(exitCode).toBe(2);
@@ -510,22 +510,22 @@ describe("rig seat status", () => {
       data: {
         ok: false,
         code: "seat_not_found",
-        message: "Seat \"missing@seat-rig\" not found",
-        guidance: "List seats with: rig ps --nodes",
+        message: "Seat \"missing@seat-software-team\" not found",
+        guidance: "List seats with: SoftwareTeam ps --nodes",
       },
     }, []);
 
     const { errors, exitCode } = await captureLogs(async () => {
       await makeCommand(deps).parseAsync([
-        "node", "rig", "seat", "handover", "missing@seat-rig",
+        "node", "softwareTeam", "seat", "handover", "missing@seat-software-team",
         "--reason", "context-wall",
         "--dry-run",
       ]);
     });
 
     expect(exitCode).toBe(1);
-    expect(errors.join("\n")).toContain("Seat \"missing@seat-rig\" not found");
-    expect(errors.join("\n")).toContain("List seats with: rig ps --nodes");
+    expect(errors.join("\n")).toContain("Seat \"missing@seat-software-team\" not found");
+    expect(errors.join("\n")).toContain("List seats with: SoftwareTeam ps --nodes");
   });
 
   it("handover non-dry-run JSON prints mutation result for discovered source", async () => {
@@ -534,23 +534,23 @@ describe("rig seat status", () => {
 
     const { logs, exitCode } = await captureLogs(async () => {
       await makeCommand(deps).parseAsync([
-        "node", "rig", "seat", "handover", "dev-impl@seat-rig",
+        "node", "softwareTeam", "seat", "handover", "dev-impl@seat-software-team",
         "--source", "discovered:disc-1",
         "--reason", "mvp-proof",
-        "--operator", "orch-lead@seat-rig",
+        "--operator", "orch-lead@seat-software-team",
         "--json",
       ]);
     });
 
     expect(exitCode).toBeUndefined();
-    expect(paths).toEqual(["/api/seat/handover/dev-impl%40seat-rig"]);
+    expect(paths).toEqual(["/api/seat/handover/dev-impl%40seat-software-team"]);
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed).toMatchObject({
       ok: true,
       dryRun: false,
       mutated: true,
       continuityTransferred: false,
-      previousOccupant: "dev-impl@seat-rig",
+      previousOccupant: "dev-impl@seat-software-team",
       currentOccupant: "successor-session",
       currentStatus: { handoverResult: "complete" },
       sideEffects: {
@@ -566,7 +566,7 @@ describe("rig seat status", () => {
 
     const { logs, exitCode } = await captureLogs(async () => {
       await makeCommand(deps).parseAsync([
-        "node", "rig", "seat", "handover", "dev-impl@seat-rig",
+        "node", "softwareTeam", "seat", "handover", "dev-impl@seat-software-team",
         "--source", "discovered:disc-1",
         "--reason", "mvp-proof",
       ]);
@@ -574,9 +574,9 @@ describe("rig seat status", () => {
 
     const output = logs.join("\n");
     expect(exitCode).toBeUndefined();
-    expect(output).toContain("Seat handover complete: dev-impl@seat-rig");
+    expect(output).toContain("Seat handover complete: dev-impl@seat-software-team");
     expect(output).toContain("Source: discovered:disc-1");
-    expect(output).toContain("Previous occupant: dev-impl@seat-rig");
+    expect(output).toContain("Previous occupant: dev-impl@seat-software-team");
     expect(output).toContain("Current occupant: successor-session");
     expect(output).toContain("Seat binding and inventory provenance were updated.");
     // startupContextDelivered:false — the message must include "startup context delivery" in the NOT-performed list.
@@ -590,7 +590,7 @@ describe("rig seat status", () => {
 
     const { logs, exitCode } = await captureLogs(async () => {
       await makeCommand(deps).parseAsync([
-        "node", "rig", "seat", "handover", "dev-impl@seat-rig",
+        "node", "softwareTeam", "seat", "handover", "dev-impl@seat-software-team",
         "--source", "fresh",
         "--reason", "context-wall",
       ]);
@@ -600,7 +600,7 @@ describe("rig seat status", () => {
     expect(exitCode).toBeUndefined();
     // Source rendered honestly from result.source (not always discovered:<id>).
     expect(output).toContain("Source: fresh");
-    expect(output).toContain("Current occupant: dev-impl@seat-rig-h1SUCCID0");
+    expect(output).toContain("Current occupant: dev-impl@seat-software-team-h1SUCCID0");
     // The fresh path DID deliver context — the surface must say so, not deny it.
     expect(output).toContain("The captured startup context (restore packet) was delivered to the successor.");
     expect(output).not.toContain("No conversation continuity, startup context delivery,");
@@ -619,7 +619,7 @@ describe("rig seat status", () => {
 
     const { errors, exitCode } = await captureLogs(async () => {
       await makeCommand(deps).parseAsync([
-        "node", "rig", "seat", "handover", "dev-impl@seat-rig",
+        "node", "softwareTeam", "seat", "handover", "dev-impl@seat-software-team",
         "--source", "fresh",
         "--reason", "context-wall",
       ]);
@@ -630,13 +630,13 @@ describe("rig seat status", () => {
     expect(errors.join("\n")).toContain("original seat/binding is untouched");
   });
 
-  it("top-level `rig handover` posts to the same route and requires --reason", async () => {
+  it("top-level `SoftwareTeam handover` posts to the same route and requires --reason", async () => {
     const paths: string[] = [];
     const deps = makeDeps({ status: 200, data: HANDOVER_RESULT }, paths);
 
     const { exitCode } = await captureLogs(async () => {
       await makeCommand(deps).parseAsync([
-        "node", "rig", "handover", "dev-impl@seat-rig",
+        "node", "softwareTeam", "handover", "dev-impl@seat-software-team",
         "--source", "fresh",
         "--reason", "context-wall",
         "--json",
@@ -644,20 +644,20 @@ describe("rig seat status", () => {
     });
 
     expect(exitCode).toBeUndefined();
-    expect(paths).toEqual(["/api/seat/handover/dev-impl%40seat-rig"]);
+    expect(paths).toEqual(["/api/seat/handover/dev-impl%40seat-software-team"]);
 
     // --reason is enforced before any daemon contact.
     const paths2: string[] = [];
     const deps2 = makeDeps({ status: 200, data: HANDOVER_RESULT }, paths2);
     const { exitCode: exit2, errors } = await captureLogs(async () => {
-      await makeCommand(deps2).parseAsync(["node", "rig", "handover", "dev-impl@seat-rig"]);
+      await makeCommand(deps2).parseAsync(["node", "softwareTeam", "handover", "dev-impl@seat-software-team"]);
     });
     expect(exit2).toBe(2);
     expect(paths2).toEqual([]);
     expect(errors.join("\n")).toContain("Missing required option: --reason <reason>");
   });
 
-  it("`rig seat handover` help describes the mutation and documents --dry-run for planning", () => {
+  it("`SoftwareTeam seat handover` help describes the mutation and documents --dry-run for planning", () => {
     const seatCmd = seatCommand();
     const handoverSubcmd = seatCmd.commands.find((c) => c.name() === "handover");
     expect(handoverSubcmd).toBeDefined();
@@ -669,10 +669,10 @@ describe("rig seat status", () => {
 
 // OPR.0.4.3.26 — seat-recovery switch-client VIEW retarget.
 const SWITCH_CLIENT_OK = {
-  seat_ref: "dev-impl@seat-rig",
-  session: "dev-impl@seat-rig",
+  seat_ref: "dev-impl@seat-software-team",
+  session: "dev-impl@seat-software-team",
   window: 0,
-  target: "dev-impl@seat-rig:0",
+  target: "dev-impl@seat-software-team:0",
   client: "/dev/ttys003",
   mutated: false,
   retargeted: true,
@@ -692,7 +692,7 @@ function makeDepsCapturingBody(
   };
 }
 
-describe("rig seat switch-client", () => {
+describe("SoftwareTeam seat switch-client", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -703,13 +703,13 @@ describe("rig seat switch-client", () => {
     const deps = makeDepsCapturingBody({ status: 200, data: SWITCH_CLIENT_OK }, paths, bodies);
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "switch-client", "dev-impl@seat-rig"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "switch-client", "dev-impl@seat-software-team"]);
     });
 
     expect(exitCode).toBeUndefined();
-    expect(paths).toEqual(["/api/seat/switch-client/dev-impl%40seat-rig"]);
+    expect(paths).toEqual(["/api/seat/switch-client/dev-impl%40seat-software-team"]);
     const output = logs.join("\n");
-    expect(output).toContain("Retargeted client /dev/ttys003 -> dev-impl@seat-rig:0");
+    expect(output).toContain("Retargeted client /dev/ttys003 -> dev-impl@seat-software-team:0");
     expect(output).toContain("View only");
     expect(output).not.toContain("routing changed");
   });
@@ -717,11 +717,11 @@ describe("rig seat switch-client", () => {
   it("passes --client and parsed --to-window in the request body", async () => {
     const paths: string[] = [];
     const bodies: unknown[] = [];
-    const deps = makeDepsCapturingBody({ status: 200, data: { ...SWITCH_CLIENT_OK, window: 1, target: "dev-impl@seat-rig:1" } }, paths, bodies);
+    const deps = makeDepsCapturingBody({ status: 200, data: { ...SWITCH_CLIENT_OK, window: 1, target: "dev-impl@seat-software-team:1" } }, paths, bodies);
 
     await captureLogs(async () => {
       await makeCommand(deps).parseAsync([
-        "node", "rig", "seat", "switch-client", "dev-impl@seat-rig",
+        "node", "softwareTeam", "seat", "switch-client", "dev-impl@seat-software-team",
         "--client", "/dev/ttys003", "--to-window", "1",
       ]);
     });
@@ -734,12 +734,12 @@ describe("rig seat switch-client", () => {
 
     const { logs, exitCode } = await captureLogs(async () => {
       await makeCommand(deps).parseAsync([
-        "node", "rig", "seat", "switch-client", "dev-impl@seat-rig", "--json",
+        "node", "softwareTeam", "seat", "switch-client", "dev-impl@seat-software-team", "--json",
       ]);
     });
 
     expect(exitCode).toBeUndefined();
-    expect(JSON.parse(logs.join("\n"))).toMatchObject({ mutated: false, retargeted: true, target: "dev-impl@seat-rig:0" });
+    expect(JSON.parse(logs.join("\n"))).toMatchObject({ mutated: false, retargeted: true, target: "dev-impl@seat-software-team:0" });
   });
 
   it("rejects a non-integer --to-window before contacting the daemon", async () => {
@@ -749,7 +749,7 @@ describe("rig seat switch-client", () => {
 
     const { errors, exitCode } = await captureLogs(async () => {
       await makeCommand(deps).parseAsync([
-        "node", "rig", "seat", "switch-client", "dev-impl@seat-rig", "--to-window", "abc",
+        "node", "softwareTeam", "seat", "switch-client", "dev-impl@seat-software-team", "--to-window", "abc",
       ]);
     });
 
@@ -773,7 +773,7 @@ describe("rig seat switch-client", () => {
     }, [], []);
 
     const { errors, exitCode } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "switch-client", "dev-impl@seat-rig"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "switch-client", "dev-impl@seat-software-team"]);
     });
 
     expect(exitCode).toBe(1);
@@ -790,7 +790,7 @@ describe("rig seat switch-client", () => {
     }, [], []);
 
     const { errors, exitCode } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "switch-client", "dev-impl@seat-rig"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "switch-client", "dev-impl@seat-software-team"]);
     });
 
     expect(exitCode).toBe(2);
@@ -826,14 +826,14 @@ describe("seat request deadlines (#260)", () => {
   }
 
   async function run(deps: StatusDeps, argv: string[], advanceMs: number) {
-    const result = captureLogs(() => makeCommand(deps).parseAsync(["node", "rig", ...argv]).then(() => undefined))
+    const result = captureLogs(() => makeCommand(deps).parseAsync(["node", "softwareTeam", ...argv]).then(() => undefined))
       .catch(error => ({ error: error as Error }));
     await vi.advanceTimersByTimeAsync(advanceMs);
     return result;
   }
 
-  const SET_PERMISSIONS = ["seat", "set-permissions", "dev-impl@seat-rig", "--mode", "auto", "--reason", "slow help", "--json"];
-  const HANDOVER = ["seat", "handover", "dev-impl@seat-rig", "--reason", "context-wall", "--json"];
+  const SET_PERMISSIONS = ["seat", "set-permissions", "dev-impl@seat-software-team", "--mode", "auto", "--reason", "slow help", "--json"];
+  const HANDOVER = ["seat", "handover", "dev-impl@seat-software-team", "--reason", "context-wall", "--json"];
 
   it("set-permissions receives the daemon's capability-query refusal after the 5 s default would have aborted", async () => {
     vi.useFakeTimers();
@@ -860,8 +860,8 @@ describe("seat request deadlines (#260)", () => {
     "a mutating handover (%j) reports an unknown outcome at the 120 s bound with one request (json=%s)", async (alias, json) => {
       vi.useFakeTimers();
       const { deps, fetchImpl } = slowClient(null, () => Response.json({}));
-      const argv = [...alias, "dev-impl@seat-rig", "--reason", "context-wall", ...(json ? ["--json"] : [])];
-      const result = captureLogs(() => makeCommand(deps).parseAsync(["node", "rig", ...argv]).then(() => undefined))
+      const argv = [...alias, "dev-impl@seat-software-team", "--reason", "context-wall", ...(json ? ["--json"] : [])];
+      const result = captureLogs(() => makeCommand(deps).parseAsync(["node", "softwareTeam", ...argv]).then(() => undefined))
         .catch(error => ({ error: error as Error }));
       await vi.advanceTimersByTimeAsync(119_999);
       const signal = (fetchImpl.mock.calls[0]![1] as RequestInit).signal!;
@@ -878,12 +878,12 @@ describe("seat request deadlines (#260)", () => {
           ok: false,
           code: "handover_outcome_unknown",
           status: "unknown",
-          guidance: expect.stringContaining("rig seat status dev-impl@seat-rig"),
+          guidance: expect.stringContaining("SoftwareTeam seat status dev-impl@seat-software-team"),
         });
       } else {
         expect(output.logs).toEqual([]);
         expect(text).toContain("handover outcome is unknown");
-        expect(text).toContain("rig seat status dev-impl@seat-rig");
+        expect(text).toContain("SoftwareTeam seat status dev-impl@seat-software-team");
       }
       expect(text).toContain("may still be working");
       expect(text).not.toMatch(/cancel|handover failed|safe to retry/i);
@@ -895,7 +895,7 @@ describe("seat request deadlines (#260)", () => {
     const fetchImpl = vi.fn(async () => { throw new TypeError("fetch failed"); });
     const deps = makeDeps({ status: 200, data: {} }, []);
     deps.clientFactory = url => new DaemonClient(url, { fetchImpl: fetchImpl as unknown as typeof fetch });
-    const output = await captureLogs(() => makeCommand(deps).parseAsync(["node", "rig", ...HANDOVER]).then(() => undefined))
+    const output = await captureLogs(() => makeCommand(deps).parseAsync(["node", "softwareTeam", ...HANDOVER]).then(() => undefined))
       .catch(error => ({ error: error as Error }));
     expect(output).toHaveProperty("error");
     expect((output as { error: Error }).error.name).toBe("DaemonConnectionError");
@@ -913,7 +913,7 @@ describe("seat request deadlines (#260)", () => {
 
   it.each([
     ["dry-run handover", [...HANDOVER, "--dry-run"]],
-    ["set-model", ["seat", "set-model", "dev-impl@seat-rig", "--model", "m", "--reason", "r", "--json"]],
+    ["set-model", ["seat", "set-model", "dev-impl@seat-software-team", "--model", "m", "--reason", "r", "--json"]],
   ])("%s keeps the 5 s default deadline", async (_name, argv) => {
     vi.useFakeTimers();
     const { deps } = slowClient(null, () => Response.json({}));

@@ -1,5 +1,5 @@
 // Slice-03 V3 delivery-free noun gate: context packs are composed and managed
-// by `rig context`; startup_files must never turn one into a send_text action.
+// by `SoftwareTeam context`; startup_files must never turn one into a send_text action.
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -25,7 +25,7 @@ describe("startup_files rejects the retired delivery-coupled context_pack repres
       "../src/domain/startup-validation.ts",
       "../src/domain/runtime-adapter.ts",
       "../src/domain/types.ts",
-      "../src/domain/rigspec-instantiator.ts",
+      "../src/domain/software-team-spec-instantiator.ts",
     ];
     const source = paths.map((path) => readFileSync(new URL(path, import.meta.url), "utf8")).join("\n");
     expect(source).not.toContain("contextPackRef");

@@ -1,6 +1,6 @@
 // OPR.0.4.1.10 FR-A — config-layer Codex activity-hook projection.
 // ensureCodexActivityHooks() writes inline [hooks] for the four lifecycle events into
-// ~/.codex/config.toml so an OpenRig-launched Codex seat is hook-PRIMARY from clean
+// ~/.codex/config.toml so an SoftwareTeam-launched Codex seat is hook-PRIMARY from clean
 // shipped config. Verified-firsthand on Codex 0.139 (VM de-risk 2026-06-30): this TOML
 // shape is discovered + trusted (via the "2 Trust all and continue" launch gate) and
 // the turn-scope hooks (incl. the PermissionRequest keystone) FIRE.
@@ -8,7 +8,7 @@ import { describe, it, expect, vi } from "vitest";
 import { CodexRuntimeAdapter, type CodexAdapterFsOps } from "../src/adapters/codex-runtime-adapter.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
 
-const RELAY = "/daemon/assets/plugins/openrig-core/hooks/scripts/activity-relay.cjs";
+const RELAY = "/daemon/assets/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs";
 const CONFIG = "/home/test/.codex/config.toml";
 const EVENTS = ["SessionStart", "UserPromptSubmit", "Stop", "PermissionRequest"] as const;
 
@@ -55,12 +55,12 @@ describe("OPR.0.4.1.10 FR-A — Codex config-layer activity hooks", () => {
     });
 
     adapter.ensureCodexActivityHooks();
-    expect(fs._store[customConfig]).toContain("# BEGIN OPENRIG MANAGED ACTIVITY HOOKS");
+    expect(fs._store[customConfig]).toContain("# BEGIN SOFTWARETEAM MANAGED ACTIVITY HOOKS");
     expect(fs._store[customConfig]).toContain("[hooks.state.");
     expect(fs._store[CONFIG]).toBeUndefined();
 
     adapter.removeCodexActivityHooks();
-    expect(fs._store[customConfig]).not.toContain("# BEGIN OPENRIG MANAGED ACTIVITY HOOKS");
+    expect(fs._store[customConfig]).not.toContain("# BEGIN SOFTWARETEAM MANAGED ACTIVITY HOOKS");
     expect(fs._store[CONFIG]).toBeUndefined();
   });
 
@@ -103,11 +103,11 @@ describe("OPR.0.4.1.10 FR-A — Codex config-layer activity hooks", () => {
     const cfg = fs._store[CONFIG]!;
     expect(cfg).toContain(`command = 'node "/new/relay.cjs"'`);
     expect(cfg).not.toContain(`command = 'node "${RELAY}"'`);
-    expect(cfg.match(/# BEGIN OPENRIG MANAGED ACTIVITY HOOKS/g)?.length).toBe(1);
+    expect(cfg.match(/# BEGIN SOFTWARETEAM MANAGED ACTIVITY HOOKS/g)?.length).toBe(1);
   });
 
   it("keeps $ sequences in the relay path literal when the block is rewritten", () => {
-    const dollarRelay = "/opt/rig$&$$/`x`/activity-relay.cjs";
+    const dollarRelay = "/opt/softwareTeam$&$$/`x`/activity-relay.cjs";
     const fs = mockCodexFs({
       [dollarRelay]: "// relay",
       [CONFIG]: '[projects."/some/project"]\ntrust_level = "trusted"\n',
@@ -119,7 +119,7 @@ describe("OPR.0.4.1.10 FR-A — Codex config-layer activity hooks", () => {
     const second = fs._store[CONFIG]!;
     expect(second).toBe(first);
     expect(second.split(`command = 'node "${dollarRelay}"'`).length - 1).toBe(EVENTS.length);
-    expect(second.match(/# BEGIN OPENRIG MANAGED ACTIVITY HOOKS/g)?.length).toBe(1);
+    expect(second.match(/# BEGIN SOFTWARETEAM MANAGED ACTIVITY HOOKS/g)?.length).toBe(1);
     expect(second.startsWith('[projects."/some/project"]\ntrust_level = "trusted"\n')).toBe(true);
   });
 
@@ -219,11 +219,11 @@ describe("OPR.0.4.1.10 B3 — durable disable via removeCodexActivityHooks", () 
     });
     const adapter = makeAdapter(fs);
     adapter.ensureCodexActivityHooks();
-    expect(fs._store[CONFIG]!).toContain("# BEGIN OPENRIG MANAGED ACTIVITY HOOKS");
+    expect(fs._store[CONFIG]!).toContain("# BEGIN SOFTWARETEAM MANAGED ACTIVITY HOOKS");
     adapter.removeCodexActivityHooks();
     const cfg = fs._store[CONFIG]!;
-    expect(cfg).not.toContain("# BEGIN OPENRIG MANAGED ACTIVITY HOOKS");
-    expect(cfg).not.toContain("# END OPENRIG MANAGED ACTIVITY HOOKS");
+    expect(cfg).not.toContain("# BEGIN SOFTWARETEAM MANAGED ACTIVITY HOOKS");
+    expect(cfg).not.toContain("# END SOFTWARETEAM MANAGED ACTIVITY HOOKS");
     expect(cfg).not.toContain(`command = 'node "${RELAY}"'`); // managed hooks removed
     expect(cfg).toContain("[[hooks.PreToolUse]]"); // user-owned hook preserved
     expect(cfg).toContain('command = "/usr/bin/true"');
@@ -242,10 +242,10 @@ describe("OPR.0.4.1.10 B3 — durable disable via removeCodexActivityHooks", () 
   // Regression: the strip must excise ONLY the managed block (plus the blank-line separator it was
   // appended with). A global \n{3,} collapse on the whole document silently mutated user content.
   const MANAGED_BLOCK =
-    "# BEGIN OPENRIG MANAGED ACTIVITY HOOKS\n" +
+    "# BEGIN SOFTWARETEAM MANAGED ACTIVITY HOOKS\n" +
     "[[hooks.Stop]]\n" +
     `command = 'node "${RELAY}"'\n` +
-    "# END OPENRIG MANAGED ACTIVITY HOOKS\n";
+    "# END SOFTWARETEAM MANAGED ACTIVITY HOOKS\n";
 
   it("preserves runs of 3+ newlines between unrelated user sections when stripping the block", () => {
     const userContent = '[features]\nhooks = true\n\n\n\n[projects."/x"]\ntrust_level = "trusted"\n';

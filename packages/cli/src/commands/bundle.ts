@@ -6,7 +6,7 @@ import { Command } from "commander";
 import { DaemonClient } from "../client.js";
 import { getDaemonStatus, getDaemonUrl , daemonStatusGuard} from "../daemon-lifecycle.js";
 import { realDeps } from "./daemon.js";
-import { isGitHubBundleLink, importGitHubBundle, bundleIdentityLines, printBundleLinkError, rigSpecName } from "../lib/bundle-source.js";
+import { isGitHubBundleLink, importGitHubBundle, bundleIdentityLines, printBundleLinkError, softwareTeamSpecName } from "../lib/bundle-source.js";
 import { checkBundleFolder } from "../lib/bundle-check.js";
 import type { StatusDeps } from "./status.js";
 import { showBundleBehaviourBeforeAction } from "../bundle-behaviour.js";
@@ -47,7 +47,7 @@ export function bundleInstallError(data: Record<string, unknown>, includeWarning
 
 /**
  * Build the provenance block the CLI sends to /api/bundles/create. Reads
- * hostname, session name (from canonical OPENRIG_SESSION_NAME env), and
+ * hostname, session name (from canonical SOFTWARETEAM_SESSION_NAME env), and
  * CLI version at call time. Operator notes come from the --notes flag.
  * Daemon adds daemonVersion server-side.
  */
@@ -56,14 +56,14 @@ function buildClientProvenance(notes: string | undefined): Record<string, string
     sourceHost: os.hostname(),
     cliVersion: getCliVersion(),
   };
-  const session = process.env.OPENRIG_SESSION_NAME;
+  const session = process.env.SOFTWARETEAM_SESSION_NAME;
   if (typeof session === "string" && session.length > 0) out.authorSession = session;
   if (typeof notes === "string" && notes.length > 0) out.notes = notes;
   return out;
 }
 
 export function bundleCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("bundle").description("Manage rig bundles");
+  const cmd = new Command("bundle").description("Manage SoftwareTeam bundles");
   const getDepsF = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   async function getClient(deps: StatusDeps): Promise<DaemonClient | null> {
@@ -72,24 +72,24 @@ export function bundleCommand(depsOverride?: StatusDeps): Command {
     return deps.clientFactory(getDaemonUrl(status));
   }
 
-  // rig bundle create <spec> -o <path>
+  // softwareTeam bundle create <spec> -o <path>
   cmd.command("create <spec>")
-    .description("Create a .rigbundle from a rig spec or GitHub folder link")
-    .requiredOption("-o, --output <path>", "Output path for .rigbundle")
-    .option("--name <name>", "Bundle name (default: the rig's name in rig.yaml)")
+    .description("Create a .softwareteambundle from a SoftwareTeam spec or GitHub folder link")
+    .requiredOption("-o, --output <path>", "Output path for .softwareteambundle")
+    .option("--name <name>", "Bundle name (default: the softwareTeam's name in software-team.yaml)")
     .option("--bundle-version <ver>", "Bundle version", "0.1.0")
     .option("--include-packages <refs...>", "Package refs to include (default: all from spec)")
-    .option("--rig-root <root>", "Root directory for pod-aware resolution")
-    .option("--context-pack <dir>", "Carry the context pack in <dir> (its manifest.yaml and declared files), which may sit outside the rig folder; repeatable", (dir: string, dirs: string[]) => [...dirs, dir], [] as string[])
-    .option("--project-dir <dir>", "Carry the project this rig works in: the folder holding its project.yaml (with an id) and files such as SPEC.md. Install registers it in the workspace catalog and associates the rig with it")
+    .option("--software-team-root <root>", "Root directory for pod-aware resolution")
+    .option("--context-pack <dir>", "Carry the context pack in <dir> (its manifest.yaml and declared files), which may sit outside the SoftwareTeam folder; repeatable", (dir: string, dirs: string[]) => [...dirs, dir], [] as string[])
+    .option("--project-dir <dir>", "Carry the project this SoftwareTeam works in: the folder holding its project.yaml (with an id) and files such as SPEC.md. Install registers it in the workspace catalog and associates the SoftwareTeam with it")
     .option("--preset <name>", "Build one of the configurations the bundle declares in configurations.yaml (for example all-claude)")
     .option("--seat <member=runtime>", "Use this runtime for one seat, within what configurations.yaml allows (pod.member=runtime); repeatable", (v: string, all: string[]) => [...all, v], [] as string[])
     .option("--notes <text>", "Operator notes captured in bundle provenance metadata")
     .option("--min-daemon-version <ver>", "Minimum daemon version required to install this bundle (Item 2 compatibility)")
     .option("--min-cli-version <ver>", "Minimum CLI version required to install this bundle (Item 2 compatibility)")
-    .option("--allow-drift", "Bundle a spec that disagrees with the running rig of the same name; the divergence is stamped into bundle provenance")
+    .option("--allow-drift", "Bundle a spec that disagrees with the running SoftwareTeam of the same name; the divergence is stamped into bundle provenance")
     .option("--json", "JSON output")
-    .action(async (spec: string, opts: { output: string; name?: string; bundleVersion: string; includePackages?: string[]; rigRoot?: string; contextPack?: string[]; projectDir?: string; preset?: string; seat?: string[]; notes?: string; minDaemonVersion?: string; minCliVersion?: string; allowDrift?: boolean; json?: boolean }) => {
+    .action(async (spec: string, opts: { output: string; name?: string; bundleVersion: string; includePackages?: string[]; softwareTeamRoot?: string; contextPack?: string[]; projectDir?: string; preset?: string; seat?: string[]; notes?: string; minDaemonVersion?: string; minCliVersion?: string; allowDrift?: boolean; json?: boolean }) => {
       const deps = getDepsF();
       if (isGitHubBundleLink(spec)) {
         try {
@@ -126,22 +126,22 @@ export function bundleCommand(depsOverride?: StatusDeps): Command {
       // surface (not in slice-05 scope).
       // Paths are resolved here, against the operator's cwd: the daemon would otherwise resolve
       // them against ITS cwd. Nothing is uploaded — the files must exist on the daemon's host.
-      // A chosen configuration is applied to an owned copy of the rig folder; the author's folder is never changed.
+      // A chosen configuration is applied to an owned copy of the softwareTeam folder; the author's folder is never changed.
       let specPath = nodePath.resolve(spec);
-      const bundleName = opts.name ?? rigSpecName(specPath) ?? "my-bundle";
-      let rigRoot = opts.rigRoot ? nodePath.resolve(opts.rigRoot) : undefined;
+      const bundleName = opts.name ?? softwareTeamSpecName(specPath) ?? "my-bundle";
+      let softwareTeamRoot = opts.softwareTeamRoot ? nodePath.resolve(opts.softwareTeamRoot) : undefined;
       let chosen: ChosenConfiguration | undefined;
       let stagingDir: string | undefined;
       if (opts.preset !== undefined || (opts.seat?.length ?? 0) > 0) {
         try {
-          const rigDir = rigRoot ?? nodePath.dirname(specPath);
+          const softwareTeamDir = softwareTeamRoot ?? nodePath.dirname(specPath);
           const declared = readDeclaredConfigurations(nodePath.dirname(specPath));
           if (!declared) throw new ConfigurationError(`${nodePath.join(nodePath.dirname(specPath), "configurations.yaml")} doesn't exist, so this bundle offers no other configurations`);
           chosen = resolveConfiguration(declared, authoredMapping(specPath), { preset: opts.preset, seats: opts.seat });
-          const staged = stageConfiguration(rigDir, specPath, declared, chosen);
+          const staged = stageConfiguration(softwareTeamDir, specPath, declared, chosen);
           stagingDir = staged.stagingDir;
-          specPath = staged.rigSpecPath;
-          if (rigRoot) rigRoot = staged.stagingDir;
+          specPath = staged.softwareTeamSpecPath;
+          if (softwareTeamRoot) softwareTeamRoot = staged.stagingDir;
         } catch (err) {
           if (!(err instanceof ConfigurationError)) throw err;
           console.error(err.message);
@@ -152,7 +152,7 @@ export function bundleCommand(depsOverride?: StatusDeps): Command {
       const res = await client.post<Record<string, unknown>>("/api/bundles/create", {
         specPath, bundleName, bundleVersion: opts.bundleVersion, outputPath: nodePath.resolve(opts.output),
         includePackages: opts.includePackages,
-        rigRoot,
+        softwareTeamRoot,
         ...(opts.contextPack?.length ? { contextPackDirs: opts.contextPack.map((dir) => nodePath.resolve(dir)) } : {}),
         ...(opts.projectDir ? { projectDir: nodePath.resolve(opts.projectDir) } : {}),
         ...(chosen ? { configuration: { id: chosen.configurationId, ...(chosen.preset ? { preset: chosen.preset } : {}) } } : {}),
@@ -173,13 +173,13 @@ export function bundleCommand(depsOverride?: StatusDeps): Command {
       console.log(`  Name: ${res.data["bundleName"]} v${res.data["bundleVersion"]}`);
       console.log(`  Hash: ${res.data["archiveHash"]}`);
       // The daemon has returned this on every drifted export since Build B and the human path
-      // dropped it — the operator saw a clean success while shipping a rig that does not exist.
+      // dropped it — the operator saw a clean success while shipping a softwareTeam that does not exist.
       if (typeof res.data["warning"] === "string") console.warn(`\n${res.data["warning"]}`);
     });
 
-  // rig bundle configurations <spec>
+  // softwareTeam bundle configurations <spec>
   cmd.command("configurations <spec>")
-    .description("List the configurations a rig spec's configurations.yaml declares, with their configuration IDs")
+    .description("List the configurations a SoftwareTeam spec's configurations.yaml declares, with their configuration IDs")
     .option("--json", "JSON output")
     .action((spec: string, opts: { json?: boolean }) => {
       const specPath = nodePath.resolve(spec);
@@ -203,16 +203,16 @@ export function bundleCommand(depsOverride?: StatusDeps): Command {
         console.log(JSON.stringify({ declared: Boolean(declared), configurations }));
         return;
       }
-      if (!declared) { console.log("No configurations.yaml: the bundle builds only as rig.yaml is written."); return; }
+      if (!declared) { console.log("No configurations.yaml: the bundle builds only as software-team.yaml is written."); return; }
       for (const c of configurations) {
-        const notes = [c.recommended ? "recommended" : "", c.authored ? "as rig.yaml is written" : ""].filter(Boolean).join(", ");
+        const notes = [c.recommended ? "recommended" : "", c.authored ? "as software-team.yaml is written" : ""].filter(Boolean).join(", ");
         console.log(`${c.preset}: ${c.configurationId}${notes ? `  (${notes})` : ""}`);
       }
     });
 
-  // rig bundle inspect <path>
+  // softwareTeam bundle inspect <path>
   cmd.command("inspect <path>")
-    .description("Inspect a .rigbundle or build and inspect a GitHub folder link")
+    .description("Inspect a .softwareteambundle or build and inspect a GitHub folder link")
     .option("--preset <name>", "For a GitHub link, choose a declared configuration")
     .option("--seat <member=runtime>", "For a GitHub link, choose a declared seat runtime; repeatable", (v: string, all: string[]) => [...all, v], [] as string[])
     .option("--json", "JSON output")
@@ -261,22 +261,22 @@ export function bundleCommand(depsOverride?: StatusDeps): Command {
       const packs = m["contextPacks"] as string[] | undefined;
       if (packs?.length) console.log(`Context packs: ${packs.join(", ")}`);
       const project = m["project"] as { id?: string; path?: string } | undefined;
-      if (project?.id) console.log(`Project: ${project.id} (registered in the workspace catalog on install, with this rig associated)`);
+      if (project?.id) console.log(`Project: ${project.id} (registered in the workspace catalog on install, with this SoftwareTeam associated)`);
       await showBundleBehaviourBeforeAction(async () => res, console.log);
       if (!digestValid || !integrityPassed) process.exitCode = 2;
     });
 
-  // rig bundle install <path>
+  // softwareTeam bundle install <path>
   cmd.command("install <path>")
-    .description("Install a .rigbundle or GitHub folder link (bootstrap from bundle)")
+    .description("Install a .softwareteambundle or GitHub folder link (bootstrap from bundle)")
     .option("--preset <name>", "For a GitHub link, choose a declared configuration")
     .option("--seat <member=runtime>", "For a GitHub link, choose a declared seat runtime; repeatable", (v: string, all: string[]) => [...all, v], [] as string[])
-    .option("--non-interruptive", "Accept harness first-launch warnings for this rig at full bypass; saved for later launches")
-    .option("--no-non-interruptive", "Turn off this rig's saved warning-acceptance choice (stop an existing rig with rig down first)")
+    .option("--non-interruptive", "Accept harness first-launch warnings for this SoftwareTeam at full bypass; saved for later launches")
+    .option("--no-non-interruptive", "Turn off this softwareTeam's saved warning-acceptance choice (stop an existing SoftwareTeam with SoftwareTeam down first)")
     .option("--plan", "Plan mode")
     .option("--yes", "Auto-approve")
     .option("--target <root>", "Target root directory")
-    .option("--cwd <path>", "Launch working directory for every member, for this install (for example, the repository the rig works on)")
+    .option("--cwd <path>", "Launch working directory for every member, for this install (for example, the repository the SoftwareTeam works on)")
     .option("--skip-version-check", "Operator-explicit override of the Item-2 install-time compatibility check (NOT recommended for routine use)")
     .option("--force", "Operator-explicit override of the Item-3 install-time conflict check (NOT recommended; conflicts may produce partial install state)")
     .option("--json", "JSON output")
@@ -300,11 +300,11 @@ export function bundleCommand(depsOverride?: StatusDeps): Command {
       ));
 
       // QA-20260601 A1 repair: /install completes a full bootstrap run
-      // (resolve → vendor sibling primitives → boot rig sessions) which
+      // (resolve → vendor sibling primitives → boot softwareTeam sessions) which
       // can take many seconds for real bundles. Default 5000ms CLI
       // timeout (client.ts:31) caused CLI to report failure while
       // daemon completed the mutating install — operator-unsafe retry
-      // path (rig_name_collision on second attempt). Bumped to 120s.
+      // path (software_team_name_collision on second attempt). Bumped to 120s.
       let res: { status: number; data: Record<string, unknown> };
       try {
       res = await client.post<Record<string, unknown>>("/api/bundles/install", {
@@ -322,14 +322,14 @@ export function bundleCommand(depsOverride?: StatusDeps): Command {
       }, { timeoutMs: 120_000 });
       } catch (err) {
         if (!imported) throw err;
-        printBundleLinkError(new Error(`Bundle install outcome is unknown. Archive retained at ${bundlePath}; check rig ps and rig bundle history before retrying.`), opts.json);
+        printBundleLinkError(new Error(`Bundle install outcome is unknown. Archive retained at ${bundlePath}; check SoftwareTeam ps and SoftwareTeam bundle history before retrying.`), opts.json);
         return;
       }
       if (imported) {
         const { source, configurationId, packageDigest, archiveHash, assembler } = imported.res.data;
         res.data = { ...res.data, source, configurationId, packageDigest, archiveHash, assembler };
       }
-      if (imported && ["failed", "partial", "partially_restored", "not_attempted"].includes(String(res.data.status ?? res.data.rigResult))) process.exitCode = 2;
+      if (imported && ["failed", "partial", "partially_restored", "not_attempted"].includes(String(res.data.status ?? res.data.softwareTeamResult))) process.exitCode = 2;
       if (behaviour) res.data = { ...res.data, behaviour };
 
 
@@ -348,7 +348,7 @@ export function bundleCommand(depsOverride?: StatusDeps): Command {
       console.log(`Status: ${status}`);
       for (const line of startupAttentionSummary(res.data)) console.log(line);
       if (imported) for (const line of bundleIdentityLines(res.data)) console.log(line);
-      if (res.data["rigId"]) console.log(`Rig: ${res.data["rigId"]}`);
+      if (res.data["softwareTeamId"]) console.log(`SoftwareTeam: ${res.data["softwareTeamId"]}`);
       for (const line of bundleRoutingSummary(res.data)) console.log(line);
       for (const w of (res.data["warnings"] as string[] | undefined) ?? []) console.log(`Warning: ${w}`);
     });
@@ -366,19 +366,19 @@ export function bundleCommand(depsOverride?: StatusDeps): Command {
       if (result.checks.some(check => check.status === "finding")) process.exitCode = 1;
     });
 
-  // rig bundle history — Item 4 / slice-05 Checkpoint 5.2
+  // softwareTeam bundle history — Item 4 / slice-05 Checkpoint 5.2
   cmd.command("history")
-    .description("List bundle install audit records from ~/.openrig/bundle-audit.jsonl")
-    .option("--rig <name>", "Filter to records whose targetRigName matches")
+    .description("List bundle install audit records from ~/.softwareteam/bundle-audit.jsonl")
+    .option("--software-team <name>", "Filter to records whose targetSoftwareTeamName matches")
     .option("--since <iso>", "Filter to records installedAt >= this ISO timestamp")
     .option("--json", "JSON output")
-    .action(async (opts: { rig?: string; since?: string; json?: boolean }) => {
+    .action(async (opts: { softwareTeam?: string; since?: string; json?: boolean }) => {
       const deps = getDepsF();
       const client = await getClient(deps);
       if (!client) { process.exitCode = 1; return; }
 
       const qs = new URLSearchParams();
-      if (opts.rig) qs.set("rig", opts.rig);
+      if (opts.softwareTeam) qs.set("softwareTeam", opts.softwareTeam);
       if (opts.since) qs.set("since", opts.since);
       const query = qs.toString();
       const path = query.length > 0 ? `/api/bundles/history?${query}` : "/api/bundles/history";
@@ -406,10 +406,10 @@ export function bundleCommand(depsOverride?: StatusDeps): Command {
       console.log(`Bundle install history (${records.length} record${records.length === 1 ? "" : "s"}):`);
       for (const r of records) {
         const at = r["installedAt"] ?? "?";
-        const rig = r["targetRigName"] ?? "?";
+        const softwareTeam = r["targetSoftwareTeamName"] ?? "?";
         const outcome = r["outcome"] ?? "?";
         const bundle = r["bundlePath"] ?? "?";
-        console.log(`  ${at}  ${outcome.toString().padEnd(8)}  rig=${rig}  ${bundle}`);
+        console.log(`  ${at}  ${outcome.toString().padEnd(8)}  softwareTeam=${softwareTeam}  ${bundle}`);
       }
     });
 
@@ -452,9 +452,9 @@ export function bundleRoutingSummary(data: Record<string, unknown>): string[] {
     // Each entry's own explanation, which can carry the command that resolves it
     for (const r of rejected) if (r.detail) lines.push(`  ${r.declaredPath ?? r.id ?? "?"}: ${r.detail}`);
   }
-  const project = data["projectRegistration"] as { status?: string; projectId?: string; projectRoot?: string; rigName?: string; catalogPath?: string; projectFolderKept?: boolean } | undefined;
+  const project = data["projectRegistration"] as { status?: string; projectId?: string; projectRoot?: string; softwareTeamName?: string; catalogPath?: string; projectFolderKept?: boolean } | undefined;
   if (project && project.status !== "conflict") {
-    lines.push(`Project: ${project.projectId} (${project.status}) at ${project.projectRoot}; rig ${project.rigName} is associated with it in ${project.catalogPath}`);
+    lines.push(`Project: ${project.projectId} (${project.status}) at ${project.projectRoot}; softwareTeam ${project.softwareTeamName} is associated with it in ${project.catalogPath}`);
     if (project.projectFolderKept) lines.push(`Project: kept the existing folder at ${project.projectRoot}, which differs from the bundle's copy`);
   }
   return lines;

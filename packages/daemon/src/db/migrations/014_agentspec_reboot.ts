@@ -3,10 +3,10 @@ import type { Migration } from "../migrate.js";
 export const agentspecRebootSchema: Migration = {
   name: "014_agentspec_reboot.sql",
   sql: `
-    -- pods: bounded context domains within a rig
+    -- pods: bounded context domains within a softwareTeam
     CREATE TABLE pods (
       id                      TEXT PRIMARY KEY,
-      rig_id                  TEXT NOT NULL REFERENCES rigs(id) ON DELETE CASCADE,
+      software_team_id                  TEXT NOT NULL REFERENCES software_teams(id) ON DELETE CASCADE,
       label                   TEXT NOT NULL,
       summary                 TEXT,
       continuity_policy_json  TEXT,

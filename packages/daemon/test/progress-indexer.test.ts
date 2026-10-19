@@ -27,7 +27,7 @@ describe("UI Enhancement Pack v0 — readProgressRootsFromEnv", () => {
 
   it("parses comma-separated name:path pairs", () => {
     const roots = readProgressRootsFromEnv({
-      OPENRIG_PROGRESS_SCAN_ROOTS: "shared:/abs/shared, hub:/abs/hub",
+      SOFTWARETEAM_PROGRESS_SCAN_ROOTS: "shared:/abs/shared, hub:/abs/hub",
     });
     expect(roots.map((r) => r.name)).toEqual(["shared", "hub"]);
   });

@@ -23,7 +23,7 @@ function makeDeps(auditResponse: { status: number; data: unknown }) {
   };
 }
 
-describe("rig skill audit", () => {
+describe("SoftwareTeam skill audit", () => {
   let logs: string[];
   let errors: string[];
 
@@ -47,7 +47,7 @@ describe("rig skill audit", () => {
     });
 
     const cmd = skillCommand(deps);
-    await cmd.parseAsync(["node", "rig", "audit"]);
+    await cmd.parseAsync(["node", "softwareTeam", "audit"]);
 
     expect(process.exitCode).toBe(1);
     expect(logs.some((l) => l.includes("MIRROR DRIFT CHECK UNAVAILABLE"))).toBe(true);
@@ -67,7 +67,7 @@ describe("rig skill audit", () => {
     });
 
     const cmd = skillCommand(deps);
-    await cmd.parseAsync(["node", "rig", "audit", "--json"]);
+    await cmd.parseAsync(["node", "softwareTeam", "audit", "--json"]);
 
     expect(process.exitCode).toBe(1);
     expect(logs.some((l) => l.includes("mirrorDriftError"))).toBe(true);
@@ -80,12 +80,12 @@ describe("rig skill audit", () => {
         ok: true,
         entries: [],
         totalFindings: 0,
-        mirrorDriftSkipped: "Mirror drift check skipped: no scripts/mirror-skills.mjs under /pkg; it runs only in an OpenRig source checkout",
+        mirrorDriftSkipped: "Mirror drift check skipped: no scripts/mirror-skills.mjs under /pkg; it runs only in an SoftwareTeam source checkout",
       },
     });
 
     const cmd = skillCommand(deps);
-    await cmd.parseAsync(["node", "rig", "audit"]);
+    await cmd.parseAsync(["node", "softwareTeam", "audit"]);
 
     expect(process.exitCode).toBeUndefined();
     expect(logs.some((l) => l.includes("MIRROR DRIFT CHECK SKIPPED"))).toBe(true);
@@ -104,7 +104,7 @@ describe("rig skill audit", () => {
     });
 
     const cmd = skillCommand(deps);
-    await cmd.parseAsync(["node", "rig", "audit"]);
+    await cmd.parseAsync(["node", "softwareTeam", "audit"]);
 
     expect(process.exitCode).toBeUndefined();
     expect(logs.some((l) => l.includes("PASS"))).toBe(true);

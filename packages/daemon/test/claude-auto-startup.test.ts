@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { StartupOrchestrator } from "../src/domain/startup-orchestrator.js";
@@ -24,8 +24,8 @@ describe("auto-mode startup content requires the launched Claude identity", () =
     const resumes = mode === "resume-missing" || mode === "native-resume";
     const executable = mode === "selected-title" ? "claude" : ["selected-wrong-named", "selected-wrong-conventional"].includes(mode) ? "/other/claude" : mode.startsWith("selected-") ? "/fixture/custom/2.1.285" : "/fixture/.local/share/claude/versions/2.1.285";
     const db = createFullTestDb(); dbs.push(db);
-    const rigRepo = new RigRepository(db), sessionRegistry = new SessionRegistry(db), eventBus = new EventBus(db);
-    const rig = rigRepo.createRig("auto-startup"), node = rigRepo.addNode(rig.id, "test.c", { runtime: "claude-code" });
+    const softwareTeamRepo = new SoftwareTeamRepository(db), sessionRegistry = new SessionRegistry(db), eventBus = new EventBus(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("auto-startup"), node = softwareTeamRepo.addNode(softwareTeam.id, "test.c", { runtime: "claude-code" });
     const name = "test-c@auto-startup", session = sessionRegistry.registerSession(node.id, name);
     sessionRegistry.updateBinding(node.id, { tmuxSession: name, tmuxPane: "%1" });
     const calls: { kind: string; text?: string; keys?: string[] }[] = [];
@@ -60,7 +60,7 @@ describe("auto-mode startup content requires the launched Claude identity", () =
     const binding: NodeBinding = { id: "binding", nodeId: node.id, tmuxSession: name, tmuxPane: "%1", tmuxWindow: null,
       cmuxWorkspace: null, cmuxSurface: null, updatedAt: "", cwd: "/fixture", permissionMode: "auto" };
     const result = await new StartupOrchestrator({ db, sessionRegistry, eventBus, tmuxAdapter: tmux }).startNode({
-      rigId: rig.id, nodeId: node.id, sessionId: session.id, binding, adapter,
+      softwareTeamId: softwareTeam.id, nodeId: node.id, sessionId: session.id, binding, adapter,
       plan: { runtime: "claude-code", cwd: "/fixture", entries: [], startup: { files: [], actions: [] }, conflicts: [], noOps: [] } as never,
       resolvedStartupFiles: [{ path: "startup.txt", absolutePath: "/fixture/startup.txt", ownerRoot: "/fixture", deliveryHint: "send_text", required: true, appliesOn: ["fresh_start"] }],
       startupActions: [], isRestore: false, sessionName: name, readinessTimeoutMs: 1,
@@ -78,7 +78,7 @@ describe("auto-mode startup content requires the launched Claude identity", () =
     if (mode === "plain-shell") expect(result.ok ? [] : result.errors.join(" ")).toContain("not a proven idle shell");
     if (good) {
       // The shared proof must stay tied to the exact launch binding/generation.
-      for (const changed of [{ id: "replacement" }, { tmuxSession: "replacement@rig" },
+      for (const changed of [{ id: "replacement" }, { tmuxSession: "replacement@software-team" },
         { tmuxPane: "%2" }, { launchGeneration: "replacement" }]) {
         expect((await adapter.checkReady({ ...binding, ...changed })).ready).toBe(false);
       }

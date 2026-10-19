@@ -39,7 +39,7 @@ export interface RoutePluginsInput {
   bundleRoot: string;
   /** Plugin references declared in the manifest. */
   declaredPlugins: PluginRoutingInput[];
-  /** Absolute path to the operator plugins library (default ~/.openrig/plugins). */
+  /** Absolute path to the operator plugins library (default ~/.softwareteam/plugins). */
   targetPluginsDir: string;
 }
 

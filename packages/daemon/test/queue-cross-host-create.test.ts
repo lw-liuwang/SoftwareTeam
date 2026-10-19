@@ -32,8 +32,8 @@ import { setSelfHostId } from "../src/domain/hosts/fanout-contract.js";
 
 const REGISTRY: HostRegistry = {
   hosts: [
-    { id: "vps-b", transport: "http", url: "http://vps-b:7433", bearer_env: "MH3B" },
-    { id: "anon-b", transport: "http", url: "http://anon-b:7433" },
+    { id: "vps-b", transport: "http", url: "http://vps-b:7434", bearer_env: "MH3B" },
+    { id: "anon-b", transport: "http", url: "http://anon-b:7434" },
     { id: "ssh-1", transport: "ssh", target: "x.local" },
   ],
 };
@@ -52,7 +52,7 @@ function makeApp(opts: {
   fetchImpl?: typeof fetch;
   registry?: HostRegistry;
 }): Hono {
-  const queueRepo = new QueueRepository(opts.db, opts.bus, { validateRig: () => true });
+  const queueRepo = new QueueRepository(opts.db, opts.bus, { validateSoftwareTeam: () => true });
   const app = new Hono();
   app.use("*", async (c, next) => {
     const set = c.set.bind(c) as (k: string, v: unknown) => void;
@@ -74,7 +74,7 @@ function post(app: Hono, body: Record<string, unknown>) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(sender ? { "X-OpenRig-Session": String(sender) } : {}),
+      ...(sender ? { "X-SoftwareTeam-Session": String(sender) } : {}),
     },
     body: JSON.stringify(body),
   });
@@ -84,7 +84,7 @@ function rowCount(db: Database.Database): number {
   return (db.prepare("SELECT COUNT(*) c FROM queue_items").get() as { c: number }).c;
 }
 
-const BASE = { sourceSession: "orch@rig-a", destinationSession: "dev@rig-b", body: "do the thing" };
+const BASE = { sourceSession: "orch@software-team-a", destinationSession: "dev@software-team-b", body: "do the thing" };
 
 describe("MH-3 C1 — cross-host queue create (route)", () => {
   let db: Database.Database;
@@ -103,7 +103,7 @@ describe("MH-3 C1 — cross-host queue create (route)", () => {
     expect(res.status).toBe(201);
     expect(rowCount(db)).toBe(1);
     const item = (await res.json()) as { destinationSession: string; hostId?: unknown };
-    expect(item.destinationSession).toBe("dev@rig-b");
+    expect(item.destinationSession).toBe("dev@software-team-b");
     expect("hostId" in item).toBe(false);
   });
 
@@ -124,7 +124,7 @@ describe("MH-3 C1 — cross-host queue create (route)", () => {
       fetchImpl: (async (url: string | URL | Request, init?: RequestInit) => {
         capture.url = String(url);
         capture.body = JSON.parse(String(init?.body));
-        return jsonResponse({ qitemId: "qitem-origin-1", destinationSession: "dev@rig-b", state: "pending" }, 201);
+        return jsonResponse({ qitemId: "qitem-origin-1", destinationSession: "dev@software-team-b", state: "pending" }, 201);
       }) as unknown as typeof fetch,
     });
     const res = await post(app, { ...BASE, hostId: "vps-b", nudge: true, tags: ["existing"] });
@@ -149,7 +149,7 @@ describe("MH-3 C1 — cross-host queue create (route)", () => {
   // 51-09 incr 4a correction — STAMP-AT-FORWARD: the forwarding daemon IS the
   // origin/sender host, so it stamps its OWN self-id onto sourceSession when
   // building the forward body. Otherwise the DESTINATION daemon's create() would
-  // stamp the RECEIVER's host onto a bare member@rig — sender-identity FORGERY on
+  // stamp the RECEIVER's host onto a bare member@software-team — sender-identity FORGERY on
   // exactly the cross-host path this slice exists to make honest (replies would
   // route to the wrong host). The not-bare guard then protects it at the remote.
   it("cross-host create STAMPS the ORIGIN self-id onto sourceSession at FORWARD (never the receiver)", async () => {
@@ -160,13 +160,13 @@ describe("MH-3 C1 — cross-host queue create (route)", () => {
         db, bus,
         fetchImpl: (async (_url: string | URL | Request, init?: RequestInit) => {
           capture.body = JSON.parse(String(init?.body)) as Record<string, unknown>;
-          return jsonResponse({ qitemId: "qitem-fwd", destinationSession: "dev@rig-b" }, 201);
+          return jsonResponse({ qitemId: "qitem-fwd", destinationSession: "dev@software-team-b" }, 201);
         }) as unknown as typeof fetch,
       });
-      const res = await post(app, { ...BASE, hostId: "vps-b" }); // BASE.sourceSession = "orch@rig-a" (bare)
+      const res = await post(app, { ...BASE, hostId: "vps-b" }); // BASE.sourceSession = "orch@software-team-a" (bare)
       expect(res.status).toBe(201);
       // origin-stamped (host-origin), NOT the receiver vps-b.
-      expect(capture.body?.["sourceSession"]).toBe("orch@rig-a@host-origin");
+      expect(capture.body?.["sourceSession"]).toBe("orch@software-team-a@host-origin");
     } finally {
       setSelfHostId(null);
     }
@@ -180,11 +180,11 @@ describe("MH-3 C1 — cross-host queue create (route)", () => {
         db, bus,
         fetchImpl: (async (_url: string | URL | Request, init?: RequestInit) => {
           capture.body = JSON.parse(String(init?.body)) as Record<string, unknown>;
-          return jsonResponse({ qitemId: "qitem-fwd", destinationSession: "dev@rig-b" }, 201);
+          return jsonResponse({ qitemId: "qitem-fwd", destinationSession: "dev@software-team-b" }, 201);
         }) as unknown as typeof fetch,
       });
-      await post(app, { ...BASE, sourceSession: "orch@rig-a@host-elsewhere", hostId: "vps-b" });
-      expect(capture.body?.["sourceSession"]).toBe("orch@rig-a@host-elsewhere");
+      await post(app, { ...BASE, sourceSession: "orch@software-team-a@host-elsewhere", hostId: "vps-b" });
+      expect(capture.body?.["sourceSession"]).toBe("orch@software-team-a@host-elsewhere");
     } finally {
       setSelfHostId(null);
     }
@@ -197,7 +197,7 @@ describe("MH-3 C1 — cross-host queue create (route)", () => {
       bus,
       fetchImpl: (async (_url: string | URL | Request, init?: RequestInit) => {
         anonHeaders.value = init?.headers;
-        return jsonResponse({ qitemId: "qitem-anon-1", destinationSession: "dev@rig-b", state: "pending" }, 201);
+        return jsonResponse({ qitemId: "qitem-anon-1", destinationSession: "dev@software-team-b", state: "pending" }, 201);
       }) as unknown as typeof fetch,
     });
     const anonRes = await post(anonApp, { ...BASE, hostId: "anon-b" });
@@ -210,7 +210,7 @@ describe("MH-3 C1 — cross-host queue create (route)", () => {
       bus,
       fetchImpl: (async (_url: string | URL | Request, init?: RequestInit) => {
         bearerHeaders.value = init?.headers;
-        return jsonResponse({ qitemId: "qitem-b-1", destinationSession: "dev@rig-b", state: "pending" }, 201);
+        return jsonResponse({ qitemId: "qitem-b-1", destinationSession: "dev@software-team-b", state: "pending" }, 201);
       }) as unknown as typeof fetch,
     });
     const bearerRes = await post(bearerApp, { ...BASE, hostId: "vps-b" });
@@ -300,7 +300,7 @@ describe("MH-3 C1 — origin-side PK identity handling (repo)", () => {
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, queueItemsSchema, queueTransitionsSchema, queueTargetRepoSchema]);
     bus = new EventBus(db);
-    repo = new QueueRepository(db, bus, { validateRig: () => true });
+    repo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
   });
   afterEach(() => db.close());
 
@@ -315,10 +315,10 @@ describe("MH-3 C1 — origin-side PK identity handling (repo)", () => {
   it("id-reuse: same id, DIFFERENT destination = structured qitem_id_reuse conflict; original untouched", async () => {
     await repo.create({ qitemId: "qitem-x", ...BASE, nudge: false });
     await expect(
-      repo.create({ qitemId: "qitem-x", sourceSession: "orch@rig-a", destinationSession: "SOMEONE@rig-z", body: "different", nudge: false }),
+      repo.create({ qitemId: "qitem-x", sourceSession: "orch@software-team-a", destinationSession: "SOMEONE@software-team-z", body: "different", nudge: false }),
     ).rejects.toMatchObject({ code: "qitem_id_reuse" });
     const row = db.prepare("SELECT destination_session d FROM queue_items WHERE qitem_id = 'qitem-x'").get() as { d: string };
-    expect(row.d).toBe("dev@rig-b"); // never overwritten
+    expect(row.d).toBe("dev@software-team-b"); // never overwritten
     expect(rowCount(db)).toBe(1);
   });
 });
@@ -377,7 +377,7 @@ describe("cross-host queue create addressed to the receiving daemon's own host i
     expect(rowCount(db)).toBe(1);
     const item = (await res.json()) as { sourceSession: string; tags: string[] | null };
     // Local semantics: no cross-host provenance, sender not re-stamped.
-    expect(item.sourceSession).toBe("orch@rig-a");
+    expect(item.sourceSession).toBe("orch@software-team-a");
     expect(item.tags ?? []).not.toContain(CROSS_HOST_TAG);
   });
 
@@ -385,7 +385,7 @@ describe("cross-host queue create addressed to the receiving daemon's own host i
     const urls: string[] = [];
     const res = await post(makeApp({ db, bus, fetchImpl: recordingFetch(urls) }), { ...BASE, hostId: "vps-b" });
     expect(res.status).toBe(201);
-    expect(urls).toEqual(["http://vps-b:7433/api/queue/create"]);
+    expect(urls).toEqual(["http://vps-b:7434/api/queue/create"]);
     expect(rowCount(db)).toBe(0);
   });
 
@@ -403,10 +403,10 @@ describe("cross-host queue create addressed to the receiving daemon's own host i
 
   it("a registered host at a loopback URL is still forwarded: URL spelling never implies self", async () => {
     const urls: string[] = [];
-    const registry: HostRegistry = { hosts: [{ id: "tunnel", transport: "http", url: "http://127.0.0.1:7433" }] };
+    const registry: HostRegistry = { hosts: [{ id: "tunnel", transport: "http", url: "http://127.0.0.1:7434" }] };
     const res = await post(makeApp({ db, bus, fetchImpl: recordingFetch(urls), registry }), { ...BASE, hostId: "tunnel" });
     expect(res.status).toBe(201);
-    expect(urls).toEqual(["http://127.0.0.1:7433/api/queue/create"]);
+    expect(urls).toEqual(["http://127.0.0.1:7434/api/queue/create"]);
     expect(rowCount(db)).toBe(0);
   });
 });

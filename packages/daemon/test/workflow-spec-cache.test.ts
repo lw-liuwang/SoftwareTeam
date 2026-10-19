@@ -14,7 +14,7 @@ const SAMPLE_SPEC = `workflow:
   version: 1
   objective: A 3-step test fixture
   target:
-    rig: workflow-fixture
+    software_team: workflow-fixture
   entry:
     role: producer
   roles:
@@ -127,7 +127,7 @@ describe("WorkflowSpecCache (PL-004 Phase D)", () => {
     // diagnostic migration. Name-resolution must NOT return such a row's path.
     db.prepare(
       `INSERT INTO workflow_specs
-         (spec_id, name, version, purpose, target_rig, roles_json, steps_json,
+         (spec_id, name, version, purpose, target_software_team, roles_json, steps_json,
           coordination_terminal_turn_rule, source_path, source_hash, cached_at)
        VALUES (?, ?, '', NULL, NULL, '{}', '[]', 'hot_potato', ?, ?, ?)`,
     ).run("diag-1", "broken.yaml", join(tmp, "broken.yaml"), "deadbeef", new Date().toISOString());
@@ -187,7 +187,7 @@ describe("WorkflowSpecCache (PL-004 Phase D)", () => {
   // source_path lives in noise directories that walkYamlFiles' new
   // SKIP_DIRS guard now refuses to scan. Without this prune, stale
   // rows from before SKIP_DIRS shipped would survive forever and keep
-  // showing up in `rig specs show` / `rig specs preview` candidates.
+  // showing up in `softwareTeam specs show` / `softwareTeam specs preview` candidates.
   it("pruneNoiseDirRows removes cache rows from .worktrees/node_modules paths and preserves canonical-path rows", () => {
     const fixtures: Array<{ path: string; specName: string; noise: boolean }> = [
       { path: join(tmp, "workflows", "canon.yaml"), specName: "canonical-spec", noise: false },
@@ -231,7 +231,7 @@ describe("WorkflowSpecCache (PL-004 Phase D)", () => {
   // boot. The installRoot guard preserves rows whose source_path
   // starts with the install root.
   it("pruneNoiseDirRows with installRoot preserves built-in rows under <installRoot>/dist while removing user noise", () => {
-    const installRoot = join(tmp, "install", "@openrig", "daemon");
+    const installRoot = join(tmp, "install", "@softwareteam", "daemon");
     const builtinPath = join(installRoot, "dist", "builtins", "workflow-specs", "shipped.yaml");
     const userNoisePath = join(tmp, "user-workspace", "some-project", "dist", "stale.yaml");
 

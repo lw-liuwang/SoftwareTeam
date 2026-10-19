@@ -1,12 +1,12 @@
-// OPR.0.4.1.10 — rig send interactive-prompt / permission-block guard: KEYSTONE regression.
-// Reproduces the 2026-06-20 footgun (a peer rig-send submitted an open AskUserQuestion default and
+// OPR.0.4.1.10 — SoftwareTeam send interactive-prompt / permission-block guard: KEYSTONE regression.
+// Reproduces the 2026-06-20 footgun (a peer software-team-send submitted an open AskUserQuestion default and
 // shipped a release) and proves it is impossible by default. K-1..K-6 from the impl-prd plus the
 // guard-required amendment tests (audit all-or-nothing, danger+wait rejection, send-readiness
 // freshness fallback). Detector covered on BOTH the fresh-runtime-hook path and the capture-pane
 // fallback (Codex's sole prompt guard — exact render from qa-codex-approval-render-research-20260627).
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type Database from "better-sqlite3";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SessionTransport, classifyPaneActivity } from "../src/domain/session-transport.js";
 import { AgentActivityStore } from "../src/domain/agent-activity-store.js";
@@ -67,32 +67,32 @@ function mockTmux(overrides?: Partial<{
   } as unknown as TmuxAdapter;
 }
 
-describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
+describe("OPR.0.4.1.10 SoftwareTeam send prompt/permission guard (keystone)", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let eventBus: EventBus;
   let agentActivityStore: AgentActivityStore;
-  let rigId: string;
+  let softwareTeamId: string;
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     eventBus = new EventBus(db);
     agentActivityStore = new AgentActivityStore({ db, eventBus });
-    const rig = rigRepo.createRig("my-rig");
-    rigId = rig.id;
-    const node = rigRepo.addNode(rig.id, "dev.impl", { role: "worker", runtime: "claude-code" });
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@my-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("my-software-team");
+    softwareTeamId = softwareTeam.id;
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@my-software-team");
     sessionRegistry.updateStatus(session.id, "running");
-    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@my-rig" });
+    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@my-software-team" });
   });
 
   // Seed a Codex seat (Codex emits no needs_input Notification — its guard is the PermissionRequest
   // hook (hook-primary) + the capture-pane fallback).
-  function seedCodexSeat(name = "dev-qa@my-rig") {
-    const node = rigRepo.addNode(rigId, "dev.qa", { role: "worker", runtime: "codex" });
+  function seedCodexSeat(name = "dev-qa@my-software-team") {
+    const node = softwareTeamRepo.addNode(softwareTeamId, "dev.qa", { role: "worker", runtime: "codex" });
     const session = sessionRegistry.registerSession(node.id, name);
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateBinding(node.id, { tmuxSession: name });
@@ -106,7 +106,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     activityEndpointFile?: () => { baseUrl: string; token: string } | null;
   }) {
     return new SessionTransport({
-      db, rigRepo, sessionRegistry, tmuxAdapter: tmux, agentActivityStore,
+      db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux, agentActivityStore,
       ...(opts?.withBus === false ? {} : { eventBus }),
       ...(opts?.now ? { now: opts.now } : {}),
       ...(opts?.activityEndpointFile ? { activityEndpointFile: opts.activityEndpointFile } : {}),
@@ -128,7 +128,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   it("K-1: default send to an AskUserQuestion refuses (target_needs_input) and never types or submits", async () => {
     const { sendText, sendKeys } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => SHIP_PROMPT, sendText, sendKeys }));
-    const r = await t.send("dev-impl@my-rig", "STAND DOWN, do not ship");
+    const r = await t.send("dev-impl@my-software-team", "STAND DOWN, do not ship");
     expect(r.ok).toBe(false);
     expect(r.reason).toBe("target_needs_input");
     expect(r.activity?.state).toBe("needs_input");
@@ -138,11 +138,11 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
 
   // K-1 via fresh runtime hook (Claude permission_prompt) — primary detector path.
   it("K-1(hook): default send refuses on a fresh permission_prompt hook, no type/submit", async () => {
-    agentActivityStore.recordHookEvent({ runtime: "claude-code", sessionName: "dev-impl@my-rig", hookEvent: "Notification", subtype: "permission_prompt" });
+    agentActivityStore.recordHookEvent({ runtime: "claude-code", sessionName: "dev-impl@my-software-team", hookEvent: "Notification", subtype: "permission_prompt" });
     const { sendText, sendKeys } = spies();
     // Pane looks idle, but the fresh hook is authoritative → still refuses.
     const t = makeTransport(mockTmux({ capturePaneContent: async () => "❯ \n  ⏵⏵ accept edits on", sendText, sendKeys }));
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(false);
     expect(r.reason).toBe("target_needs_input");
     expect(r.activity?.evidenceSource).toBe("runtime_hook");
@@ -153,7 +153,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   it("K-3: --force to an interactive prompt is STILL refused (force does not bypass the prompt guard)", async () => {
     const { sendText, sendKeys } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => SHIP_PROMPT, sendText, sendKeys }));
-    const r = await t.send("dev-impl@my-rig", "STAND DOWN", { force: true });
+    const r = await t.send("dev-impl@my-software-team", "STAND DOWN", { force: true });
     expect(r.ok).toBe(false);
     expect(r.reason).toBe("target_needs_input");
     expect(sendText).not.toHaveBeenCalled();
@@ -164,18 +164,18 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   it("K-4: --dangerously-interact --reason drives the prompt AND writes a transport.prompt_override audit", async () => {
     const { sendText, sendKeys } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => SHIP_PROMPT, sendText, sendKeys }));
-    const r = await t.send("dev-impl@my-rig", "1", {
-      dangerouslyInteract: true, reason: "unblock stuck release prompt", actorSession: "orch-lead@my-rig",
+    const r = await t.send("dev-impl@my-software-team", "1", {
+      dangerouslyInteract: true, reason: "unblock stuck release prompt", actorSession: "orch-lead@my-software-team",
     });
     expect(r.ok).toBe(true);
-    expect(sendText).toHaveBeenCalledWith("dev-impl@my-rig", "1", undefined, { bracketed: false });
+    expect(sendText).toHaveBeenCalledWith("dev-impl@my-software-team", "1", undefined, { bracketed: false });
     expect(sendKeys).not.toHaveBeenCalled(); // A numbered choice may already have submitted.
     const events = overrideEvents();
     expect(events.length).toBe(1);
     expect(events[0]).toMatchObject({
       type: "transport.prompt_override",
-      sessionName: "dev-impl@my-rig",
-      actorSession: "orch-lead@my-rig",
+      sessionName: "dev-impl@my-software-team",
+      actorSession: "orch-lead@my-software-team",
       detectedState: "needs_input",
       overrideReason: "unblock stuck release prompt",
     });
@@ -188,11 +188,11 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   it("K-5: a Codex command-approval render is detected via the capture-pane fallback and blocks default/force", async () => {
     const { sendText } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => CODEX_APPROVAL, sendText }));
-    const def = await t.send("dev-impl@my-rig", "hi");
+    const def = await t.send("dev-impl@my-software-team", "hi");
     expect(def.ok).toBe(false);
     expect(def.reason).toBe("target_needs_input");
     expect(def.activity?.evidenceSource).toBe("pane_heuristic");
-    const forced = await t.send("dev-impl@my-rig", "hi", { force: true });
+    const forced = await t.send("dev-impl@my-software-team", "hi", { force: true });
     expect(forced.ok).toBe(false);
     expect(forced.reason).toBe("target_needs_input");
     expect(sendText).not.toHaveBeenCalled();
@@ -241,7 +241,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     expect(sendText).not.toHaveBeenCalled();
     expect(sendKeys).not.toHaveBeenCalled();
 
-    const drive = await t.send(seat, "1", { dangerouslyInteract: true, reason: "approve the blocked command", actorSession: "orch-lead@my-rig" });
+    const drive = await t.send(seat, "1", { dangerouslyInteract: true, reason: "approve the blocked command", actorSession: "orch-lead@my-software-team" });
     expect(drive.ok).toBe(true);
     expect(sendText).toHaveBeenCalledWith(seat, "1", undefined, { bracketed: false });
     const ev = overrideEvents();
@@ -331,7 +331,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   // BOTH PATHS: when the hook is ABSENT (or stale), the capture-pane fallback still catches a Codex
   // approval render — so the guard holds via EITHER path.
   it("K-5(both-paths): with NO hook, a Codex approval render is still caught by the capture-pane fallback", async () => {
-    const seat = seedCodexSeat("dev-qa2@my-rig");
+    const seat = seedCodexSeat("dev-qa2@my-software-team");
     const { sendText } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => CODEX_APPROVAL, sendText }));
     const def = await t.send(seat, "hi");
@@ -345,7 +345,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   it("K-6: a stand-down message to a ship-authorizing AskUserQuestion does NOT submit it", async () => {
     const { sendText, sendKeys } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => SHIP_PROMPT, sendText, sendKeys }));
-    const r = await t.send("advisor@my-rig".replace("advisor@my-rig", "dev-impl@my-rig"), "STAND DOWN, brief-gated, do not ship");
+    const r = await t.send("advisor@my-software-team".replace("advisor@my-software-team", "dev-impl@my-software-team"), "STAND DOWN, brief-gated, do not ship");
     expect(r.ok).toBe(false);
     expect(r.reason).toBe("target_needs_input");
     // The release-authorizing default was NEVER selected/submitted.
@@ -357,7 +357,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   it("AMEND: --dangerously-interact with no audit sink refuses (prompt_override_audit_unavailable), no send", async () => {
     const { sendText, sendKeys } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => SHIP_PROMPT, sendText, sendKeys }), { withBus: false });
-    const r = await t.send("dev-impl@my-rig", "1", { dangerouslyInteract: true, reason: "x" });
+    const r = await t.send("dev-impl@my-software-team", "1", { dangerouslyInteract: true, reason: "x" });
     expect(r.ok).toBe(false);
     expect(r.reason).toBe("prompt_override_audit_unavailable");
     expect(sendText).not.toHaveBeenCalled();
@@ -368,7 +368,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   it("AMEND: --dangerously-interact without --reason refuses, no send", async () => {
     const { sendText } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => SHIP_PROMPT, sendText }));
-    const r = await t.send("dev-impl@my-rig", "1", { dangerouslyInteract: true });
+    const r = await t.send("dev-impl@my-software-team", "1", { dangerouslyInteract: true });
     expect(r.ok).toBe(false);
     expect(r.reason).toBe("dangerously_interact_requires_reason");
     expect(sendText).not.toHaveBeenCalled();
@@ -387,7 +387,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   function seedStaleIdleHook(fixedNow: Date) {
     // Hook says idle, recorded 90s ago: display-fresh (<5min) but send-stale (>15s).
     agentActivityStore.recordHookEvent({
-      runtime: "claude-code", sessionName: "dev-impl@my-rig", hookEvent: "Stop",
+      runtime: "claude-code", sessionName: "dev-impl@my-software-team", hookEvent: "Stop",
       occurredAt: new Date(fixedNow.getTime() - 90_000).toISOString(),
     });
   }
@@ -397,7 +397,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     seedStaleIdleHook(fixedNow);
     const { sendText } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => "idle\n❯ ", sendText }), { now: () => fixedNow });
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(true);
     expect(sendText).toHaveBeenCalled();
   });
@@ -407,7 +407,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     seedStaleIdleHook(fixedNow);
     const { sendText } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => "xyzzy no prompt here", sendText }), { now: () => fixedNow });
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(true); // unknown pane does NOT veto → trust the stale-idle hook
     expect(sendText).toHaveBeenCalled();
   });
@@ -419,7 +419,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     seedStaleIdleHook(fixedNow);
     const { sendText, sendKeys } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => SHIP_PROMPT, sendText, sendKeys }), { now: () => fixedNow });
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(false);
     expect(r.reason).toBe("target_needs_input");
     expect(sendText).not.toHaveBeenCalled();
@@ -431,7 +431,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     seedStaleIdleHook(fixedNow);
     const { sendText, sendKeys } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => CODEX_APPROVAL, sendText, sendKeys }), { now: () => fixedNow });
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(false);
     expect(r.reason).toBe("target_needs_input");
     expect(sendText).not.toHaveBeenCalled();
@@ -442,13 +442,13 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   it("Part A: a stale NON-idle (running) hook falls through to the pane probe", async () => {
     const fixedNow = new Date("2026-06-27T12:00:00.000Z");
     agentActivityStore.recordHookEvent({
-      runtime: "claude-code", sessionName: "dev-impl@my-rig", hookEvent: "UserPromptSubmit",
+      runtime: "claude-code", sessionName: "dev-impl@my-software-team", hookEvent: "UserPromptSubmit",
       occurredAt: new Date(fixedNow.getTime() - 90_000).toISOString(), // stale + running
     });
     const { sendText } = spies();
     // Pane is idle: the stale running hook did NOT block; the send proceeds via the pane.
     const t = makeTransport(mockTmux({ capturePaneContent: async () => "idle\n❯ ", sendText }), { now: () => fixedNow });
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     // Had the stale running hook been trusted, the send would refuse (mid_work).
     // It proceeded → the stale non-idle hook fell through to the pane (not trusted).
     expect(r.ok).toBe(true);
@@ -463,7 +463,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   const UNRECOGNIZED_PANE = "xyzzy no prompt here";
   function seedPersonWaitingHook(fixedNow: Date, ageMs: number) {
     agentActivityStore.recordHookEvent({
-      runtime: "claude-code", sessionName: "dev-impl@my-rig", hookEvent: "Notification", subtype: "permission_prompt",
+      runtime: "claude-code", sessionName: "dev-impl@my-software-team", hookEvent: "Notification", subtype: "permission_prompt",
       occurredAt: new Date(fixedNow.getTime() - ageMs).toISOString(),
     });
   }
@@ -477,7 +477,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     expect(classifyPaneActivity(UNRECOGNIZED_PANE).state).toBe("unknown");
     const { sendText, sendKeys } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => UNRECOGNIZED_PANE, sendText, sendKeys }), { now: () => fixedNow });
-    const r = await t.send("dev-impl@my-rig", "You are parked while holding 1 open obligation");
+    const r = await t.send("dev-impl@my-software-team", "You are parked while holding 1 open obligation");
     expect(r.ok).toBe(false);
     expect(r.reason).toBe("target_needs_input");
     expect(r.activity).toMatchObject({ state: "needs_input", evidenceSource: "runtime_hook" });
@@ -492,7 +492,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     seedPersonWaitingHook(fixedNow, 36_000);
     const { sendText } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => "idle\n❯ ", sendText }), { now: () => fixedNow });
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(true);
     expect(sendText).toHaveBeenCalled();
   });
@@ -504,7 +504,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     expect(classifyPaneActivity(pane).state).toBe("agent_active");
     const { sendText } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => pane, sendText }), { now: () => fixedNow });
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(true);
     expect(sendText).toHaveBeenCalled();
   });
@@ -512,12 +512,12 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   it("a stale RUNNING hook + an unrecognized pane still sends (only a person-waiting hook holds)", async () => {
     const fixedNow = new Date("2026-10-08T06:47:16.000Z");
     agentActivityStore.recordHookEvent({
-      runtime: "claude-code", sessionName: "dev-impl@my-rig", hookEvent: "UserPromptSubmit",
+      runtime: "claude-code", sessionName: "dev-impl@my-software-team", hookEvent: "UserPromptSubmit",
       occurredAt: new Date(fixedNow.getTime() - 36_000).toISOString(),
     });
     const { sendText } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => UNRECOGNIZED_PANE, sendText }), { now: () => fixedNow });
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(true);
     expect(sendText).toHaveBeenCalled();
   });
@@ -527,7 +527,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   // while a display-fresh running hook says the turn is still in progress.
   const CODEX_PLACEHOLDER_PANE = [
     "› Ask Codex to do anything",
-    "  GPT-5.5 medium · ~/code/projects/openrig · Verify assigned outcome",
+    "  GPT-5.5 medium · ~/code/projects/softwareteam · Verify assigned outcome",
     "  ← for agents · ? for shortcuts",
   ].join("\n");
 
@@ -614,12 +614,12 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   it("Claude Code is unchanged: a bare ❯ pane still sends past a send-stale running hook", async () => {
     const fixedNow = new Date("2026-06-27T12:00:00.000Z");
     agentActivityStore.recordHookEvent({
-      runtime: "claude-code", sessionName: "dev-impl@my-rig", hookEvent: "UserPromptSubmit",
+      runtime: "claude-code", sessionName: "dev-impl@my-software-team", hookEvent: "UserPromptSubmit",
       occurredAt: new Date(fixedNow.getTime() - 90_000).toISOString(),
     });
     const { sendText } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => "idle\n❯ ", sendText }), { now: () => fixedNow });
-    const r = await t.send("dev-impl@my-rig", "hi", { waitForIdleMs: 50 });
+    const r = await t.send("dev-impl@my-software-team", "hi", { waitForIdleMs: 50 });
     expect(r.ok).toBe(true);
     expect(sendText).toHaveBeenCalled();
   });
@@ -633,7 +633,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   it("Part C (inverted): unknown PROCEEDS with an advisory that no hook is stored, without claiming ingest is DOWN (no token leak)", async () => {
     const { sendText } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => "xyzzy no prompt here", sendText }));
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(true);
     expect(r.warning).toContain("producer-link:");
     expect(r.warning).toContain("no activity hook is stored for this seat");
@@ -649,9 +649,9 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     const base = mockTmux({ capturePaneContent: async () => "xyzzy no prompt here", sendText });
     const tmux = Object.assign({}, base, { hasSessionEnv: async () => false }) as unknown as TmuxAdapter;
     const t = makeTransport(tmux);
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(true);
-    expect(r.warning).toContain("seat-env UNKNOWN — relay URL, activity token, OPENRIG_RUNTIME absent from the tmux session environment");
+    expect(r.warning).toContain("seat-env UNKNOWN — relay URL, activity token, SOFTWARETEAM_RUNTIME absent from the tmux session environment");
     expect(r.warning).toContain("the agent process environment was not inspected");
     expect(r.warning).not.toContain("DOWN");
     expect(r.warning).not.toContain("Relaunch");
@@ -663,12 +663,12 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     const base = mockTmux({ capturePaneContent: async () => "xyzzy no prompt here", sendText });
     const tmux = Object.assign({}, base, { hasSessionEnv: async () => false }) as unknown as TmuxAdapter;
     const t = makeTransport(tmux, {
-      activityEndpointFile: () => ({ baseUrl: "http://127.0.0.1:7433", token: "present-but-never-rendered" }),
+      activityEndpointFile: () => ({ baseUrl: "http://127.0.0.1:7434", token: "present-but-never-rendered" }),
     });
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(true);
     expect(r.warning).toContain("no activity hook is stored for this seat");
-    expect(r.warning).toContain("seat-env UNKNOWN — OPENRIG_RUNTIME absent from the tmux session environment");
+    expect(r.warning).toContain("seat-env UNKNOWN — SOFTWARETEAM_RUNTIME absent from the tmux session environment");
     expect(r.warning).not.toContain("relay URL,");
     expect(r.warning).not.toContain("Relaunch");
     expect(r.warning).not.toContain("present-but-never-rendered");
@@ -680,9 +680,9 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     const base = mockTmux({ capturePaneContent: async () => "xyzzy no prompt here", sendText });
     const tmux = Object.assign({}, base, { hasSessionEnv: async () => null }) as unknown as TmuxAdapter;
     const t = makeTransport(tmux);
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(true);
-    expect(r.warning).toContain("seat-env UNKNOWN — session-environment lookup failed for relay URL, activity token, OPENRIG_RUNTIME");
+    expect(r.warning).toContain("seat-env UNKNOWN — session-environment lookup failed for relay URL, activity token, SOFTWARETEAM_RUNTIME");
     expect(r.warning).not.toContain("absent from");
     expect(r.warning).not.toContain("Relaunch");
     expect(sendText).toHaveBeenCalled();
@@ -693,10 +693,10 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     const base = mockTmux({ capturePaneContent: async () => "xyzzy no prompt here", sendText });
     const tmux = Object.assign({}, base, {
       hasSessionEnv: async (_sessionName: string, varName: string) =>
-        varName === "OPENRIG_PORT" || varName === "RIGGED_ACTIVITY_HOOK_TOKEN" || varName === "RIGGED_RUNTIME",
+        varName === "SOFTWARETEAM_PORT" || varName === "SOFTWARETEAM_ACTIVITY_HOOK_TOKEN" || varName === "SOFTWARETEAM_RUNTIME",
     }) as unknown as TmuxAdapter;
     const t = makeTransport(tmux);
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(true);
     expect(r.warning).toContain("no activity hook is stored for this seat");
     expect(r.warning).not.toContain("seat-env");
@@ -704,16 +704,16 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     expect(sendText).toHaveBeenCalled();
   });
 
-  it("B1: names a missing OPENRIG_RUNTIME (the relay posts nothing without it) when the URL and token are present", async () => {
+  it("B1: names a missing SOFTWARETEAM_RUNTIME (the relay posts nothing without it) when the URL and token are present", async () => {
     const { sendText } = spies();
     const base = mockTmux({ capturePaneContent: async () => "xyzzy no prompt here", sendText });
     const tmux = Object.assign({}, base, {
       hasSessionEnv: async (_sessionName: string, varName: string) =>
-        varName === "OPENRIG_URL" || varName === "OPENRIG_ACTIVITY_HOOK_TOKEN",
+        varName === "SOFTWARETEAM_URL" || varName === "SOFTWARETEAM_ACTIVITY_HOOK_TOKEN",
     }) as unknown as TmuxAdapter;
-    const r = await makeTransport(tmux).send("dev-impl@my-rig", "hi");
+    const r = await makeTransport(tmux).send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(true);
-    expect(r.warning).toContain("seat-env UNKNOWN — OPENRIG_RUNTIME absent from the tmux session environment");
+    expect(r.warning).toContain("seat-env UNKNOWN — SOFTWARETEAM_RUNTIME absent from the tmux session environment");
     expect(r.warning).not.toContain("relay URL,");
     expect(sendText).toHaveBeenCalled();
   });
@@ -731,13 +731,13 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     }
     async function adviseWith(store: AgentActivityStore, ageMs: number, generation: string | null,
       hasSessionEnv?: (sessionName: string, varName: string) => Promise<boolean | null>) {
-      store.recordHookEvent({ runtime: "claude-code", sessionName: "dev-impl@my-rig", hookEvent: "UserPromptSubmit",
+      store.recordHookEvent({ runtime: "claude-code", sessionName: "dev-impl@my-software-team", hookEvent: "UserPromptSubmit",
         occurredAt: new Date(now.getTime() - ageMs).toISOString(), generation });
       const { sendText } = spies();
       const base = mockTmux({ capturePaneContent: async () => "xyzzy no prompt here", sendText });
       const tmuxAdapter = (hasSessionEnv ? Object.assign({}, base, { hasSessionEnv }) : base) as unknown as TmuxAdapter;
-      const t = new SessionTransport({ db, rigRepo, sessionRegistry, eventBus, agentActivityStore: store, now: () => now, tmuxAdapter });
-      const r = await t.send("dev-impl@my-rig", "hi");
+      const t = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, eventBus, agentActivityStore: store, now: () => now, tmuxAdapter });
+      const r = await t.send("dev-impl@my-software-team", "hi");
       expect(r.ok).toBe(true);
       expect(sendText).toHaveBeenCalled();
       return r.warning ?? "";
@@ -762,9 +762,9 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     // LIVE occupant's says nothing about this occupant's producer, so the env uncertainty stays.
     it("keeps missing-runtime uncertainty when a recent prior-generation hook is stored", async () => {
       const w = await adviseWith(storeWith({ generation: "dead-gen", live: "live-gen" }), 20_000, "dead-gen",
-        async (_s, name) => name === "OPENRIG_URL" || name === "OPENRIG_ACTIVITY_HOOK_TOKEN");
+        async (_s, name) => name === "SOFTWARETEAM_URL" || name === "SOFTWARETEAM_ACTIVITY_HOOK_TOKEN");
       expect(w).toContain("PRIOR occupant generation");
-      expect(w).toContain("seat-env UNKNOWN — OPENRIG_RUNTIME absent from the tmux session environment");
+      expect(w).toContain("seat-env UNKNOWN — SOFTWARETEAM_RUNTIME absent from the tmux session environment");
       expect(w).not.toContain("producer link OK");
     });
 
@@ -772,7 +772,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
       const w = await adviseWith(storeWith({ generation: "some-gen", live: null }), 20_000, "some-gen",
         async () => { throw new Error("synthetic unavailable lookup"); });
       expect(w).toContain("generation UNRESOLVABLE");
-      expect(w).toContain("seat-env UNKNOWN — session-environment lookup failed for relay URL, activity token, OPENRIG_RUNTIME");
+      expect(w).toContain("seat-env UNKNOWN — session-environment lookup failed for relay URL, activity token, SOFTWARETEAM_RUNTIME");
       expect(w).toContain("the agent process environment was not inspected");
       expect(w).not.toContain("producer link OK");
     });
@@ -797,7 +797,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   it("correction: --dangerously-interact WITHOUT --reason PROCEEDS on unknown telemetry (no picker) AND still carries the advisory", async () => {
     const { sendText } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => "xyzzy no prompt here", sendText }));
-    const r = await t.send("dev-impl@my-rig", "hi", { dangerouslyInteract: true });
+    const r = await t.send("dev-impl@my-software-team", "hi", { dangerouslyInteract: true });
     expect(r.ok).toBe(true);
     // B1 code-review fix: the advisory attaches on unknown telemetry REGARDLESS of
     // --dangerously-interact — the override branch no longer bypasses unknown handling.
@@ -812,7 +812,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   it("B1: --dangerously-interact + --reason on unknown telemetry returns ok:true WITH the advisory", async () => {
     const { sendText } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => "xyzzy no prompt here", sendText }));
-    const r = await t.send("dev-impl@my-rig", "hi", { dangerouslyInteract: true, reason: "driving anyway", actorSession: "orch-lead@my-rig" });
+    const r = await t.send("dev-impl@my-software-team", "hi", { dangerouslyInteract: true, reason: "driving anyway", actorSession: "orch-lead@my-software-team" });
     expect(r.ok).toBe(true);
     expect(r.warning).toContain("producer-link:");
     expect(sendText).toHaveBeenCalled();
@@ -835,7 +835,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     });
     genStore.recordHookEvent({
       runtime: "claude-code",
-      sessionName: "dev-impl@my-rig",
+      sessionName: "dev-impl@my-software-team",
       hookEvent: "UserPromptSubmit",
       occurredAt: now.toISOString(),
       // deliberately NO generation carried ⇒ recorded null ⇒ unverifiable
@@ -843,14 +843,14 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     const { sendText } = spies();
     const t = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       eventBus,
       tmuxAdapter: mockTmux({ capturePaneContent: async () => "xyzzy no prompt here", sendText }),
       agentActivityStore: genStore,
       now: () => now,
     });
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(true);
     expect(r.warning).toContain("producer-link:");
     expect(r.warning).toContain("carried NO occupant generation"); // generation-distinct, not clock-stale
@@ -865,12 +865,12 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   it("AMEND: a hook fresh within the send window (idle) is authoritative and the send proceeds", async () => {
     const fixedNow = new Date("2026-06-27T12:00:00.000Z");
     agentActivityStore.recordHookEvent({
-      runtime: "claude-code", sessionName: "dev-impl@my-rig", hookEvent: "Stop",
+      runtime: "claude-code", sessionName: "dev-impl@my-software-team", hookEvent: "Stop",
       occurredAt: new Date(fixedNow.getTime() - 10_000).toISOString(),
     });
     const { sendText } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => SHIP_PROMPT, sendText }), { now: () => fixedNow });
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(true);
     expect(r.activity === undefined || r.activity?.evidenceSource === "runtime_hook").toBe(true);
     expect(sendText).toHaveBeenCalled();
@@ -883,7 +883,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
       capturePaneContent: async () => ["Do you want to proceed with this deploy?", "", "  gpt-5.5 · Context [████ ] · ~/code"].join("\n"),
       sendText,
     }));
-    const r = await t.send("dev-impl@my-rig", "hi");
+    const r = await t.send("dev-impl@my-software-team", "hi");
     expect(r.ok).toBe(false);
     expect(r.reason).toBe("target_needs_input");
     expect(sendText).not.toHaveBeenCalled();
@@ -904,7 +904,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     "",
     "  Use ↑↓ to choose, enter to confirm",
     "",
-    "──────────────── dev-impl@my-rig ────────────────",
+    "──────────────── dev-impl@my-software-team ────────────────",
     "❯ ",
     "──────────────────────────────────────────────────",
     "  ⏵⏵ accept edits on (shift+tab to cycle)",
@@ -919,7 +919,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
   it("FORWARD-FIX 1: a default send to a footer-pushed prompt is refused (no false-idle send)", async () => {
     const { sendText, sendKeys } = spies();
     const t = makeTransport(mockTmux({ capturePaneContent: async () => FOOTER_PUSHED_PROMPT, sendText, sendKeys }));
-    const r = await t.send("dev-impl@my-rig", "looks good");
+    const r = await t.send("dev-impl@my-software-team", "looks good");
     expect(r.ok).toBe(false);
     expect(r.reason).toBe("target_needs_input");
     expect(sendText).not.toHaveBeenCalled();
@@ -931,7 +931,7 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     const runtimeAdvisory = "runtime: Claude runtime observation or older launch binding is unavailable; delivery proceeds without verified native identity.";
     const idleSpy = vi.fn(async () => ({ ok: true as const }));
     const idle = makeTransport(mockTmux({ capturePaneContent: async () => "Done.\n❯ \n  ⏵⏵ accept edits on (shift+tab to cycle)", sendText: idleSpy }));
-    const idleRes = await idle.send("dev-impl@my-rig", "hi");
+    const idleRes = await idle.send("dev-impl@my-software-team", "hi");
     expect(idleRes.ok).toBe(true);
     expect(idleRes.warning).toContain(runtimeAdvisory);
     expect(idleRes.warning).not.toContain("mid-task");
@@ -942,13 +942,13 @@ describe("OPR.0.4.1.10 rig send prompt/permission guard (keystone)", () => {
     const running = makeTransport(mockTmux({ capturePaneContent: async () => "Working on task...\n⠋ Processing\nesc to interrupt", sendText: runSpy }));
     // Default (non-force) send on a running/busy pane now PROCEEDS with a non-blocking advisory
     // (was: ok:false mid_work). The existing prompt refusal remains in force.
-    const def = await running.send("dev-impl@my-rig", "hi");
+    const def = await running.send("dev-impl@my-software-team", "hi");
     expect(def.ok).toBe(true);
     expect(def.warning).toContain(runtimeAdvisory);
     expect(def.warning).toContain("mid-task");
     expect(def.warning).toContain("busy is advisory");
     // --force is now a no-op on this path (kept for back-compat) — still delivers.
-    const forced = await running.send("dev-impl@my-rig", "hi", { force: true });
+    const forced = await running.send("dev-impl@my-software-team", "hi", { force: true });
     expect(forced.ok).toBe(true);
     expect(forced.warning).toContain(runtimeAdvisory);
     expect(forced.warning).toContain("mid-task");

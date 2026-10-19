@@ -24,12 +24,12 @@ describe("single topology-creation ingress (OPR.0.5.8.9)", () => {
   });
 
   it("routes pod expansion and ordinary member growth through the same materialize and launch effects", async () => {
-    const rig = setup.rigRepo.createRig("shared-ingress");
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("shared-ingress");
     const materialize = vi.spyOn(setup.podInstantiator, "materializeValidatedSpec");
     const launch = vi.spyOn(setup.podInstantiator, "launchValidatedSpec");
 
-    const expanded = await setup.rigExpansionService.expand({
-      rigId: rig.id,
+    const expanded = await setup.softwareTeamExpansionService.expand({
+      softwareTeamId: softwareTeam.id,
       pod: {
         id: "dev",
         label: "Development",
@@ -46,7 +46,7 @@ describe("single topology-creation ingress (OPR.0.5.8.9)", () => {
     expect(expanded.ok).toBe(true);
 
     const added = await setup.podInstantiator.addMemberToPod(
-      rig.id,
+      softwareTeam.id,
       "dev",
       terminalMember("two"),
       ".",
@@ -62,9 +62,9 @@ describe("single topology-creation ingress (OPR.0.5.8.9)", () => {
   });
 
   it("keeps a member cwd override identical in durable state and the runtime launch binding", async () => {
-    const rig = setup.rigRepo.createRig("cwd-override");
-    const expanded = await setup.rigExpansionService.expand({
-      rigId: rig.id,
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("cwd-override");
+    const expanded = await setup.softwareTeamExpansionService.expand({
+      softwareTeamId: softwareTeam.id,
       pod: {
         id: "dev",
         label: "Development",
@@ -82,7 +82,7 @@ describe("single topology-creation ingress (OPR.0.5.8.9)", () => {
     const startNode = vi.spyOn(setup.startupOrchestrator, "startNode");
 
     const added = await setup.podInstantiator.addMemberToPod(
-      rig.id,
+      softwareTeam.id,
       "dev",
       { ...terminalMember("worker"), cwd: "." },
       "/",
@@ -90,7 +90,7 @@ describe("single topology-creation ingress (OPR.0.5.8.9)", () => {
     );
 
     expect(added.ok).toBe(true);
-    expect(setup.rigRepo.getRig(rig.id)?.nodes.find((node) => node.logicalId === "dev.worker")?.cwd)
+    expect(setup.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)?.nodes.find((node) => node.logicalId === "dev.worker")?.cwd)
       .toBe("/private/tmp");
     expect(startNode).toHaveBeenCalledTimes(1);
     expect(startNode.mock.calls[0]?.[0].binding.cwd).toBe("/private/tmp");
@@ -98,7 +98,7 @@ describe("single topology-creation ingress (OPR.0.5.8.9)", () => {
 
   it("keeps one construction call site for each topology-creation effect", () => {
     const source = readFileSync(
-      resolve(import.meta.dirname, "../src/domain/rigspec-instantiator.ts"),
+      resolve(import.meta.dirname, "../src/domain/software-team-spec-instantiator.ts"),
       "utf8",
     );
     const census = {

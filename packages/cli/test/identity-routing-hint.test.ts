@@ -5,20 +5,20 @@ import { healthCommand } from "../src/commands/health.js";
 
 vi.mock("../src/daemon-lifecycle.js", async () => ({
   ...await vi.importActual("../src/daemon-lifecycle.js"),
-  getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, port: 7433 })),
-  getDaemonUrl: vi.fn(() => "http://selected-daemon:7433"),
+  getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, port: 7434 })),
+  getDaemonUrl: vi.fn(() => "http://selected-daemon:7434"),
 }));
 
-const original = { error: "Session or node 'missing-node' not found in any managed rig. Check available sessions with: rig ps --nodes" };
-const hint = 'Reached daemon "selected-host" at "http://selected-daemon:7433/". '
-  + "Seat routing may point to a different OpenRig install. "
-  + "Compare OPENRIG_URL and OPENRIG_HOME in this shell with the daemon that launched this seat.";
+const original = { error: "Session or node 'missing-node' not found in any managed softwareTeam. Check available sessions with: SoftwareTeam ps --nodes" };
+const hint = 'Reached daemon "selected-host" at "http://selected-daemon:7434/". '
+  + "Seat routing may point to a different SoftwareTeam install. "
+  + "Compare SOFTWARETEAM_URL and SOFTWARETEAM_HOME in this shell with the daemon that launched this seat.";
 let out: string[], err: string[];
 
 beforeEach(() => {
-  vi.stubEnv("OPENRIG_NODE_ID", "missing-node");
-  vi.stubEnv("OPENRIG_SESSION_NAME", "seat@rig");
-  vi.stubEnv("OPENRIG_ACTIVITY_HOOK_TOKEN", "must-not-print-token");
+  vi.stubEnv("SOFTWARETEAM_NODE_ID", "missing-node");
+  vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "seat@software-team");
+  vi.stubEnv("SOFTWARETEAM_ACTIVITY_HOOK_TOKEN", "must-not-print-token");
   out = []; err = [];
   vi.spyOn(console, "log").mockImplementation((...args) => out.push(args.join(" ")));
   vi.spyOn(console, "error").mockImplementation((...args) => err.push(args.join(" ")));
@@ -31,7 +31,7 @@ afterEach(() => {
 
 function setup(status = 404, data: Record<string, unknown> = original,
   identity: unknown = { status: 200, data: { selfHostId: "selected-host" } },
-  baseUrl = "http://selected-daemon:7433") {
+  baseUrl = "http://selected-daemon:7434") {
   const get = vi.fn(async (path: string, _options?: unknown) => {
     if (path === "/healthz") {
       if (identity instanceof Error) throw identity;
@@ -49,7 +49,7 @@ function setup(status = 404, data: Record<string, unknown> = original,
 async function run(command: "whoami" | "health", deps: WhoamiDeps, args: string[]) {
   const cmd = command === "whoami" ? whoamiCommand(deps)
     : healthCommand({ ...deps, resolveIdentity: () => ({ nodeId: "missing-node" }) });
-  await cmd.parseAsync(["node", "rig", ...args]);
+  await cmd.parseAsync(["node", "softwareTeam", ...args]);
 }
 
 it.each([{ args: [] }, { args: ["--json"] }, { args: ["--json", "--full"] }])("whoami unknown node adds routing guidance (%j)", async ({ args }) => {
@@ -67,11 +67,11 @@ it.each([{ args: [] }, { args: ["--json"] }, { args: ["--json", "--full"] }])("w
 });
 
 it("whoami unknown session uses the same hint without switching to a node lookup", async () => {
-  vi.stubEnv("OPENRIG_NODE_ID", "");
+  vi.stubEnv("SOFTWARETEAM_NODE_ID", "");
   const { deps, get } = setup();
   await run("whoami", deps, ["--json"]);
   expect(JSON.parse(out.join("\n"))).toEqual({ ...original, hint });
-  expect(get.mock.calls[0]).toEqual(["/api/whoami?sessionName=seat%40rig&compact=1"]);
+  expect(get.mock.calls[0]).toEqual(["/api/whoami?sessionName=seat%40software-team&compact=1"]);
   expect(get).toHaveBeenCalledTimes(2);
   expect(process.exitCode).toBe(1);
 });
@@ -80,13 +80,13 @@ it.each([false, true])("health self keeps its error envelope and shows routing g
   const { deps, get } = setup();
   await run("health", deps, json ? ["--json"] : []);
   if (json) expect(JSON.parse(out.join("\n"))).toEqual({
-    schema: "openrig.health-error/v0alpha1", error: "health_identity_unavailable",
+    schema: "softwareteam.health-error/v0alpha1", error: "health_identity_unavailable",
     message: "The daemon could not resolve the current seat identity.",
-    nextInspection: "rig whoami --json", details: original, hint,
+    nextInspection: "SoftwareTeam whoami --json", details: original, hint,
   });
   else expect(err).toEqual([
     "Error: The daemon could not resolve the current seat identity.",
-    "  Next inspection: rig whoami --json", `  ${hint}`,
+    "  Next inspection: SoftwareTeam whoami --json", `  ${hint}`,
   ]);
   expect(process.exitCode).toBe(1);
   expect(get.mock.calls).toEqual([
@@ -133,10 +133,10 @@ it("full identity success remains byte-equivalent and makes no enrichment read",
 
 it("omits URL credentials, query and fragment from the additive hint", async () => {
   const { deps } = setup(404, original, undefined,
-    "https://private-user:private-password@selected-daemon:7433/proxy?token=private-query#private-fragment");
+    "https://private-user:private-password@selected-daemon:7434/proxy?token=private-query#private-fragment");
   await run("whoami", deps, ["--json"]);
   const body = JSON.parse(out.join("\n"));
-  expect(body.hint).toBe(hint.replace("http://selected-daemon:7433/", "https://selected-daemon:7433/proxy"));
+  expect(body.hint).toBe(hint.replace("http://selected-daemon:7434/", "https://selected-daemon:7434/proxy"));
   expect(body.error).toBe(original.error);
 });
 
@@ -151,7 +151,7 @@ it("bounds a hanging identity response with the actual DaemonClient timeout", as
       init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
     });
   });
-  const client = new DaemonClient("http://selected-daemon:7433", { fetchImpl: fetchImpl as typeof fetch });
+  const client = new DaemonClient("http://selected-daemon:7434", { fetchImpl: fetchImpl as typeof fetch });
   const { deps } = setup();
   deps.clientFactory = () => client;
   const pending = run("whoami", deps, ["--json"]);

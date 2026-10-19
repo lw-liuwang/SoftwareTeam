@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { InboundRouter, type SlackEvent } from "../src/domain/gateway/slack/inbound.js";
 import { makeInboundSenderResolver, type RegistrySurface } from "../src/domain/gateway/slack/inbound-admission.js";
 import { SeenStore, DeadLetterStore, type StateFsOps } from "../src/domain/gateway/slack/state-store.js";
-import { resolveSlackHandle } from "@openrig/daemon/gateway-human-registry";
-import type { HumanFragment } from "@openrig/daemon/gateway-human-registry";
+import { resolveSlackHandle } from "@softwareteam/daemon/gateway-human-registry";
+import type { HumanFragment } from "@softwareteam/daemon/gateway-human-registry";
 
 // M1 A6 v3 — the inbound REGISTRATION gate. admit-iff-registered: an inbound Slack message
 // becomes a human-provenance qitem ONLY when its sender resolves to a REGISTERED human; the
@@ -27,7 +27,7 @@ function makeRouter(resolveSender: (u: string) => { admitted: true; source: stri
   const fs = memFs();
   const creates: { source: string; destination: string }[] = [];
   const logs: string[] = [];
-  // S10 port: the queue seam is the in-process port now (the rig-CLI runner retired).
+  // S10 port: the queue seam is the in-process port now (the software-team-CLI runner retired).
   const queue = {
     createQitem: async (input: { source: string; destination: string }) => {
       creates.push({ source: input.source, destination: input.destination });
@@ -50,7 +50,7 @@ describe("A6 v3 inbound registration gate (InboundRouter)", () => {
   });
 
   it("UNREGISTERED sender is REFUSED — no qitem created, no dead-letter, LOUD teaching logged", async () => {
-    const { router, creates, logs, dead } = makeRouter((u) => ({ admitted: false, teaching: `'${u}' is not a registered human — rig gateway human add …` }));
+    const { router, creates, logs, dead } = makeRouter((u) => ({ admitted: false, teaching: `'${u}' is not a registered human — SoftwareTeam gateway human add …` }));
     const r = await router.route(ev("USTRANGER"));
     expect(r.landed).toBe(false);
     expect(creates).toHaveLength(0); // never attempted a create

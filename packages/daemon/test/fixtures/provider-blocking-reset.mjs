@@ -24,7 +24,7 @@ for (const test of cases) {
   const signals = collectClaudeStatuslineSignals({ listClaudeSeats: () => [{ seatSession: seat }],
     readCacheRaw: () => readFileSync(file, "utf8"), now: () => now });
   const model = collectFourBlockReadModel({ readCodexAuth: () => ({ profiles: [], seats: [] }),
-    listSeats: () => [{ seatSession: seat, rigName: "reset-fixture", runtime: "claude-code", lifecycleState: "running" }],
+    listSeats: () => [{ seatSession: seat, softwareTeamName: "reset-fixture", runtime: "claude-code", lifecycleState: "running" }],
     collectSignals: () => signals, now: () => now });
   const app = new Hono();
   app.use("*", async (c, next) => { c.set("providerService", { getReadModel: async () => model }); await next(); });

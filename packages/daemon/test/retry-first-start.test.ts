@@ -33,41 +33,41 @@ async function failedAdd(memberOverrides?: Record<string, unknown>) {
     tmux, adapters: { pi: adapter },
     podInstantiatorFsOps: { exists: path => path in files, readFile: path => { if (!(path in files)) throw new Error(`Missing ${path}`); return files[path]!; } },
   });
-  const rig = setup.rigRepo.createRig("first-start");
-  const seeded = await setup.rigExpansionService.expand({ rigId: rig.id, pod: { id: "dev", label: "Dev", members: [{ id: "sibling", agentRef: "builtin:terminal", profile: "none", runtime: "terminal", cwd: root }], edges: [] } });
+  const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("first-start");
+  const seeded = await setup.softwareTeamExpansionService.expand({ softwareTeamId: softwareTeam.id, pod: { id: "dev", label: "Dev", members: [{ id: "sibling", agentRef: "builtin:terminal", profile: "none", runtime: "terminal", cwd: root }], edges: [] } });
   expect(seeded.ok).toBe(true);
-  const added = await setup.podInstantiator.addMemberToPod(rig.id, "dev", effectiveMember, root);
+  const added = await setup.podInstantiator.addMemberToPod(softwareTeam.id, "dev", effectiveMember, root);
   expect(added).toMatchObject({ ok: true, result: { node: { status: "failed", logicalId: "dev.pi" } } });
-  const node = setup.rigRepo.getRig(rig.id)!.nodes.find(n => n.logicalId === "dev.pi")!;
+  const node = setup.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find(n => n.logicalId === "dev.pi")!;
   expect(db.prepare("SELECT * FROM node_startup_context WHERE node_id = ?").get(node.id)).toBeUndefined();
   expect(adapter.launchHarness).not.toHaveBeenCalled();
-  const firstSession = setup.sessionRegistry.getSessionsForRig(rig.id).find(s => s.nodeId === node.id)!;
+  const firstSession = setup.sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id).find(s => s.nodeId === node.id)!;
   const failure = db.prepare("SELECT * FROM events WHERE node_id = ? AND type = 'node.startup_failed'").get(node.id);
   expect(firstSession.resumeToken).toBeNull();
-  setup.snapshotCapture.captureSnapshot(rig.id, "manual");
+  setup.snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
   const lifecycle = new SeatLifecycleService({ ...setup, db, tmuxAdapter: tmux });
   // Models the separately authorized normal shell exit; no real process exists.
   tmux.probeSession = vi.fn(async () => ({ state: "absent" as const }));
   const clean = await lifecycle.cleanSeat({ seatRef: "dev-pi@first-start", reason: "Projection failed before native launch; shell has exited" });
   expect(clean.ok).toBe(true);
   projectionBlocked = false;
-  const request = (retryMember: Record<string, unknown> = effectiveMember) => setup.app.request(`/api/rigs/${rig.id}/nodes/dev.pi/launch`, {
+  const request = (retryMember: Record<string, unknown> = effectiveMember) => setup.app.request(`/api/software-teams/${softwareTeam.id}/nodes/dev.pi/launch`, {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ retryStartupFrom: { member: retryMember, rigRoot: root } }),
+    body: JSON.stringify({ retryStartupFrom: { member: retryMember, softwareTeamRoot: root } }),
   });
-  return { ...setup, db, rig, node, adapter, tmux, files, firstSession, failure, request, effectiveMember };
+  return { ...setup, db, softwareTeam, node, adapter, tmux, files, firstSession, failure, request, effectiveMember };
 }
 
 describe("explicit first-start retry after projection failure", () => {
-  // A seat's saved effort choice (rig seat set-effort reaches a never-started seat) is what its first
+  // A seat's saved effort choice (softwareTeam seat set-effort reaches a never-started seat) is what its first
   // start sends; without one, the authored value just resolved, exactly as before.
   it("a first start sends the seat's saved effort choice, and keeps the authored value apart", async () => {
     const f = await failedAdd({ effort: "medium" });
-    f.rigRepo.setNodeEffortChoice(f.node.id, "high");
+    f.softwareTeamRepo.setNodeEffortChoice(f.node.id, "high");
     const res = await f.request({ ...f.effectiveMember });
     expect(res.status, JSON.stringify(await res.clone().json())).toBe(201);
     expect(vi.mocked(f.adapter.launchHarness).mock.calls[0]![0]).toMatchObject({ effort: "high" });
-    const node = f.rigRepo.getRig(f.rig.id)!.nodes.find(n => n.id === f.node.id)!;
+    const node = f.softwareTeamRepo.getSoftwareTeam(f.softwareTeam.id)!.nodes.find(n => n.id === f.node.id)!;
     expect(node).toMatchObject({ effort: "medium", effortChoice: "high" });
   });
 
@@ -80,28 +80,28 @@ describe("explicit first-start retry after projection failure", () => {
 
   it("the materialized-seat launch (launchBinding, used by the kernel first start) sends the saved choice too", async () => {
     const f = await failedAdd({ effort: "medium" });
-    f.rigRepo.setNodeEffortChoice(f.node.id, "low");
+    f.softwareTeamRepo.setNodeEffortChoice(f.node.id, "low");
     const pod = { id: "dev", label: "Dev", members: [{ id: "pi", agentRef: "local:agent", profile: "default", runtime: "pi", model: "provider/model", cwd: root, effort: "medium" }], edges: [] };
-    const rigSpec = { version: "0.2", name: "first-start", pods: [pod], edges: [] };
-    const result = await f.podInstantiator.launchBinding({ rigId: f.rig.id, rigSpec: rigSpec as never, rigRoot: root, pod: pod as never, member: pod.members[0] as never, qualifiedId: "dev.pi", nodeId: f.node.id });
+    const softwareTeamSpec = { version: "0.2", name: "first-start", pods: [pod], edges: [] };
+    const result = await f.podInstantiator.launchBinding({ softwareTeamId: f.softwareTeam.id, softwareTeamSpec: softwareTeamSpec as never, softwareTeamRoot: root, pod: pod as never, member: pod.members[0] as never, qualifiedId: "dev.pi", nodeId: f.node.id });
     expect(result.status, JSON.stringify(result)).toBe("launched");
     expect(vi.mocked(f.adapter.launchHarness).mock.calls.at(-1)![0]).toMatchObject({ effort: "low" });
   });
 
   it("reprojects and delivers required startup on the same node without touching its sibling or history", async () => {
     const f = await failedAdd();
-    const before = f.rigRepo.getRig(f.rig.id)!;
+    const before = f.softwareTeamRepo.getSoftwareTeam(f.softwareTeam.id)!;
     const sibling = before.nodes.find(n => n.logicalId === "dev.sibling")!;
-    const siblingSessions = f.sessionRegistry.getSessionsForRig(f.rig.id).filter(s => s.nodeId === sibling.id);
+    const siblingSessions = f.sessionRegistry.getSessionsForSoftwareTeam(f.softwareTeam.id).filter(s => s.nodeId === sibling.id);
     const res = await f.request();
     const body = await res.json();
     expect({ status: res.status, body }, JSON.stringify(body)).toMatchObject({ status: 201, body: { ok: true, nodeId: f.node.id, status: "launched" } });
-    const after = f.rigRepo.getRig(f.rig.id)!;
+    const after = f.softwareTeamRepo.getSoftwareTeam(f.softwareTeam.id)!;
     expect(after.nodes.map(n => n.id)).toEqual(before.nodes.map(n => n.id));
     expect(after.nodes.find(n => n.id === sibling.id)).toEqual(sibling);
-    expect(f.sessionRegistry.getSessionsForRig(f.rig.id).filter(s => s.nodeId === sibling.id)).toEqual(siblingSessions);
+    expect(f.sessionRegistry.getSessionsForSoftwareTeam(f.softwareTeam.id).filter(s => s.nodeId === sibling.id)).toEqual(siblingSessions);
     expect(f.db.prepare("SELECT * FROM events WHERE node_id = ? AND type = 'node.startup_failed'").get(f.node.id)).toEqual(f.failure);
-    expect(f.sessionRegistry.getSessionsForRig(f.rig.id).find(s => s.id === f.firstSession.id)?.startupStatus).toBe("failed");
+    expect(f.sessionRegistry.getSessionsForSoftwareTeam(f.softwareTeam.id).find(s => s.id === f.firstSession.id)?.startupStatus).toBe("failed");
     expect(f.adapter.launchHarness).toHaveBeenCalledTimes(1);
     expect(vi.mocked(f.adapter.launchHarness).mock.calls[0]![1]?.resumeToken).toBeUndefined();
     const projected = vi.mocked(f.adapter.project).mock.calls.at(-1)![0].entries;
@@ -114,7 +114,7 @@ describe("explicit first-start retry after projection failure", () => {
     expect(vi.mocked(f.adapter.deliverStartup).mock.calls.flatMap(call => call[0])).toEqual(expect.arrayContaining([
       expect.objectContaining({ absolutePath: `${root}/agent/role.md`, required: true, deliveryHint: "send_text" }),
     ]));
-    expect(f.sessionRegistry.getSessionsForRig(f.rig.id).filter(s => s.nodeId === f.node.id).every(s => s.resumeToken === null)).toBe(true);
+    expect(f.sessionRegistry.getSessionsForSoftwareTeam(f.softwareTeam.id).filter(s => s.nodeId === f.node.id).every(s => s.resumeToken === null)).toBe(true);
     expect(f.tmux.killSession).not.toHaveBeenCalled();
     // Ready occupants can never be reclassified as a failed first start.
     expect((await f.request()).status).toBe(409);
@@ -123,14 +123,14 @@ describe("explicit first-start retry after projection failure", () => {
 
   it("reprojects and delivers required startup on the same node when member declares effort", async () => {
     const f = await failedAdd({ effort: "high" });
-    const before = f.rigRepo.getRig(f.rig.id)!;
+    const before = f.softwareTeamRepo.getSoftwareTeam(f.softwareTeam.id)!;
     const nodeBefore = before.nodes.find(n => n.id === f.node.id)!;
     expect(nodeBefore.effort).toBe("high");
 
     const res = await f.request();
     const body = await res.json();
     expect({ status: res.status, body }, JSON.stringify(body)).toMatchObject({ status: 201, body: { ok: true, nodeId: f.node.id, status: "launched" } });
-    const after = f.rigRepo.getRig(f.rig.id)!;
+    const after = f.softwareTeamRepo.getSoftwareTeam(f.softwareTeam.id)!;
     const nodeAfter = after.nodes.find(n => n.id === f.node.id)!;
     expect(nodeAfter.effort).toBe("high");
     expect(f.adapter.launchHarness).toHaveBeenCalledTimes(1);

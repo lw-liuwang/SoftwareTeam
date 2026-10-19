@@ -9,7 +9,7 @@ export interface StoredNativePermissionSelection extends NativePermissionSelecti
   updatedAt: string;
 }
 
-export type PermissionModeSource = "explicit" | "member_spec" | "rig_spec" | "kernel_default" | "system_default";
+export type PermissionModeSource = "explicit" | "member_spec" | "software_team_spec" | "kernel_default" | "system_default";
 
 export interface ResolvedSeatPermission {
   effectiveMode: string;
@@ -23,17 +23,17 @@ export interface ResolvedSeatPermission {
 export class NativePermissionStore {
   constructor(private readonly db: Database.Database) {}
 
-  /** Kernel is the persisted class-of-one rig, never a pane-name or cwd heuristic.
+  /** Kernel is the persisted class-of-one softwareTeam, never a pane-name or cwd heuristic.
    * Authored policies and named Codex profiles keep their existing meaning. */
   private launchDefault(nodeId: string, runtime: string): "kernel" | "team" | undefined {
     if (runtime !== "claude-code" && runtime !== "codex") return undefined;
     try {
       const row = this.db.prepare(`SELECT r.name, n.permission_policy AS member_policy,
-        r.permission_policy AS rig_policy, n.codex_config_profile AS profile
-        FROM nodes n JOIN rigs r ON r.id = n.rig_id WHERE n.id = ?`).get(nodeId) as {
-          name: string; member_policy: string | null; rig_policy: string | null; profile: string | null;
+        r.permission_policy AS software_team_policy, n.codex_config_profile AS profile
+        FROM nodes n JOIN software_teams r ON r.id = n.software_team_id WHERE n.id = ?`).get(nodeId) as {
+          name: string; member_policy: string | null; software_team_policy: string | null; profile: string | null;
         } | undefined;
-      if (!row || row.member_policy != null || row.rig_policy != null
+      if (!row || row.member_policy != null || row.software_team_policy != null
         || (runtime === "codex" && row.profile?.trim())) return undefined;
       return row.name === "kernel" ? "kernel" : "team";
     } catch {
@@ -81,7 +81,7 @@ export class NativePermissionStore {
   }
 
   resolve(nodeId: string, runtime: string): ResolvedSeatPermission {
-    // Level 1: Explicit per-seat selection (records actor + reason, overrides member and rig)
+    // Level 1: Explicit per-seat selection (records actor + reason, overrides member and softwareTeam)
     const explicit = this.read(nodeId);
     if (explicit) {
       if (explicit.runtime !== runtime) {
@@ -99,47 +99,47 @@ export class NativePermissionStore {
       };
     }
 
-    // Query node for member-level policy, resolved posture, and rig_id
+    // Query node for member-level policy, resolved posture, and software_team_id
     let memberPolicy: string | null = null;
     let nodePosture: string | null = null;
-    let rigId: string | null = null;
-    let rigPolicy: string | null = null;
-    let rigPosture: string | null = null;
+    let softwareTeamId: string | null = null;
+    let softwareTeamPolicy: string | null = null;
+    let softwareTeamPosture: string | null = null;
 
     try {
       const nodeRow = this.db.prepare(
-        "SELECT permission_policy, policy_launch_posture, rig_id FROM nodes WHERE id = ?"
+        "SELECT permission_policy, policy_launch_posture, software_team_id FROM nodes WHERE id = ?"
       ).get(nodeId) as {
         permission_policy?: string | null;
         policy_launch_posture?: string | null;
-        rig_id?: string | null;
+        software_team_id?: string | null;
       } | undefined;
 
       if (nodeRow) {
         memberPolicy = nodeRow.permission_policy ?? null;
         nodePosture = nodeRow.policy_launch_posture ?? null;
-        rigId = nodeRow.rig_id ?? null;
+        softwareTeamId = nodeRow.software_team_id ?? null;
       }
 
-      if (rigId) {
-        const rigRow = this.db.prepare(
-          "SELECT permission_policy, rig_policy_launch_posture FROM rigs WHERE id = ?"
-        ).get(rigId) as {
+      if (softwareTeamId) {
+        const softwareTeamRow = this.db.prepare(
+          "SELECT permission_policy, software_team_policy_launch_posture FROM software_teams WHERE id = ?"
+        ).get(softwareTeamId) as {
           permission_policy?: string | null;
-          rig_policy_launch_posture?: string | null;
+          software_team_policy_launch_posture?: string | null;
         } | undefined;
 
-        if (rigRow) {
-          rigPolicy = rigRow.permission_policy ?? null;
-          rigPosture = rigRow.rig_policy_launch_posture ?? null;
+        if (softwareTeamRow) {
+          softwareTeamPolicy = softwareTeamRow.permission_policy ?? null;
+          softwareTeamPosture = softwareTeamRow.software_team_policy_launch_posture ?? null;
         }
       }
     } catch {
       // Table or column might be missing in minimal/legacy test environments
     }
 
-    // Level 2: Member-level declaration in rig.yaml
-    // Precedence: member's own declaration must never be silently outranked by a rig-wide default.
+    // Level 2: Member-level declaration in software-team.yaml
+    // Precedence: member's own declaration must never be silently outranked by a software-team-wide default.
     if (memberPolicy !== null) {
       const effectivePosture = nodePosture ?? builtinLaunchPosture(memberPolicy);
 
@@ -183,29 +183,29 @@ export class NativePermissionStore {
         launchPosture: runtime === "codex" ? "full_bypass" : "floor" };
     }
 
-    // Level 3: Rig-level declaration in rig.yaml
+    // Level 3: SoftwareTeam-level declaration in software-team.yaml
     // Applied when the member did not declare its own policy.
-    const effectiveRigPosture = rigPosture ?? (
-      rigPolicy !== null ? builtinLaunchPosture(rigPolicy)
+    const effectiveSoftwareTeamPosture = softwareTeamPosture ?? (
+      softwareTeamPolicy !== null ? builtinLaunchPosture(softwareTeamPolicy)
       : (nodePosture && nodePosture !== "floor" ? nodePosture : null)
     );
 
-    if (rigPolicy !== null || effectiveRigPosture !== null) {
-      const posture = effectiveRigPosture ?? "floor";
+    if (softwareTeamPolicy !== null || effectiveSoftwareTeamPosture !== null) {
+      const posture = effectiveSoftwareTeamPosture ?? "floor";
 
       if (posture === "auto") {
         if (runtime !== "claude-code") {
           const runtimeName = runtime === "codex" ? "Codex" : runtime === "pi" ? "Pi" : runtime;
           return {
             effectiveMode: "floor",
-            source: "rig_spec",
+            source: "software_team_spec",
             launchPosture: "floor",
             fallbackReason: `${runtimeName} has no auto mode and launches at the floor`,
           };
         }
         return {
           effectiveMode: "auto",
-          source: "rig_spec",
+          source: "software_team_spec",
           launchPosture: "auto",
           permissionMode: "auto",
         };
@@ -214,7 +214,7 @@ export class NativePermissionStore {
       if (posture === "full_bypass") {
         return {
           effectiveMode: "full_bypass",
-          source: "rig_spec",
+          source: "software_team_spec",
           launchPosture: "full_bypass",
         };
       }
@@ -222,7 +222,7 @@ export class NativePermissionStore {
       // posture === "floor" (e.g. builtin:locked, none)
       return {
         effectiveMode: runtime === "codex" ? "floor" : "acceptEdits",
-        source: "rig_spec",
+        source: "software_team_spec",
         launchPosture: "floor",
       };
     }

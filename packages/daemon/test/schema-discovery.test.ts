@@ -100,9 +100,9 @@ describe("DS-T00: Discovery schema", () => {
     const stagedDb = createDb();
     migrate(stagedDb, PRE_DISCOVERY_MIGRATIONS);
 
-    // Seed a rig + node + session BEFORE 012
-    stagedDb.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "test-rig");
-    stagedDb.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)").run("node-1", "rig-1", "dev");
+    // Seed a softwareTeam + node + session BEFORE 012
+    stagedDb.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "test-software-team");
+    stagedDb.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)").run("node-1", "software-team-1", "dev");
     stagedDb.prepare("INSERT INTO sessions (id, node_id, session_name) VALUES (?, ?, ?)").run("sess-1", "node-1", "r01-dev");
 
     // Now apply migration 012
@@ -177,19 +177,19 @@ describe("DS-T00: Discovery schema", () => {
     }).toThrow(/FOREIGN KEY/);
   });
 
-  // T10: Rig deletion with claimed discovery row — ON DELETE SET NULL
-  it("rig deletion nulls claimed_node_id via ON DELETE SET NULL", () => {
-    // Create rig + node
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "test-rig");
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)").run("node-1", "rig-1", "dev");
+  // T10: SoftwareTeam deletion with claimed discovery row — ON DELETE SET NULL
+  it("SoftwareTeam deletion nulls claimed_node_id via ON DELETE SET NULL", () => {
+    // Create softwareTeam + node
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "test-software-team");
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)").run("node-1", "software-team-1", "dev");
 
     // Create claimed discovery row
     db.prepare(
       "INSERT INTO discovered_sessions (id, tmux_session, tmux_pane, status, claimed_node_id) VALUES (?, ?, ?, 'claimed', ?)"
     ).run("ds-1", "sess", "%0", "node-1");
 
-    // Delete rig (cascades to node)
-    db.prepare("DELETE FROM rigs WHERE id = ?").run("rig-1");
+    // Delete softwareTeam (cascades to node)
+    db.prepare("DELETE FROM software_teams WHERE id = ?").run("software-team-1");
 
     // Discovery row should survive with claimed_node_id = NULL
     const row = db.prepare("SELECT * FROM discovered_sessions WHERE id = ?")

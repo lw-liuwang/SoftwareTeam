@@ -13,12 +13,12 @@ describe("private archive text reader", () => {
     owned.push(root);
     const archive = path.join(root, "archive");
     fs.mkdirSync(archive);
-    fs.writeFileSync(path.join(archive, "rig.yaml"), "name: demo\nversion: '1'\npods:\n- id: team\n  members:\n  - {id: shell, agent_ref: 'builtin:terminal', profile: none, runtime: terminal, cwd: .}\n");
+    fs.writeFileSync(path.join(archive, "software-team.yaml"), "name: demo\nversion: '1'\npods:\n- id: team\n  members:\n  - {id: shell, agent_ref: 'builtin:terminal', profile: none, runtime: terminal, cwd: .}\n");
     fs.writeFileSync(path.join(root, "outside.txt"), "https://outside-link.invalid/private");
     fs.symlinkSync(path.join(root, "outside.txt"), path.join(archive, "linked.txt"));
     fs.writeFileSync(path.join(archive, "binary.bin"), Buffer.from([0, 65, 66]));
     fs.writeFileSync(path.join(archive, "large.txt"), "x".repeat(1024 * 1024 + 1));
-    const view = inspectBundleBehaviour(archive, { manifest: { schema_version: 2, rig_spec: "rig.yaml" }, generator: { openrigVersion: "0.6.6" }, digestValid: true, filesVerified: true });
+    const view = inspectBundleBehaviour(archive, { manifest: { schema_version: 2, software_team_spec: "software-team.yaml" }, generator: { softwareteamVersion: "0.6.6" }, digestValid: true, filesVerified: true });
     expect(view.state).toBe("generated");
     if (view.state !== "generated") throw new Error(view.reason);
     expect(view.outsideAddresses).toEqual([]);
@@ -28,10 +28,10 @@ describe("private archive text reader", () => {
     expect(fs.readFileSync(path.join(root, "outside.txt"), "utf8")).toBe("https://outside-link.invalid/private");
   });
 
-  it("keeps an unreadable rig diagnostic rather than manufacturing an empty team", () => {
+  it("keeps an unreadable SoftwareTeam diagnostic rather than manufacturing an empty team", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-view-missing-"));
     owned.push(root);
-    const view = inspectBundleBehaviour(root, { manifest: { schema_version: 2, rig_spec: "absent.yaml" }, generator: { openrigVersion: "0.6.6" }, digestValid: false, filesVerified: false });
+    const view = inspectBundleBehaviour(root, { manifest: { schema_version: 2, software_team_spec: "absent.yaml" }, generator: { softwareteamVersion: "0.6.6" }, digestValid: false, filesVerified: false });
     expect(view).toMatchObject({ state: "not_generated", reason: expect.stringContaining("not readable") });
     expect(view).not.toHaveProperty("team");
   });

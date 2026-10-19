@@ -43,9 +43,9 @@ describe("launch --plan guard", () => {
     expect(answerShowsAction(false, undefined)).toBe(false);
   });
 
-  it("names a rig ps form that runs outside a managed session and over --host", () => {
-    expect(notAPlanMessage()).toContain("`rig ps --nodes -A`");
-    expect(notAPlanMessage("host-b")).toContain("`rig ps --host host-b --nodes -A`");
+  it("names a SoftwareTeam ps form that runs outside a managed session and over --host", () => {
+    expect(notAPlanMessage()).toContain("`SoftwareTeam ps --nodes -A`");
+    expect(notAPlanMessage("host-b")).toContain("`SoftwareTeam ps --host host-b --nodes -A`");
   });
 
   it("accepts only an answer that says planOnly: true", () => {

@@ -69,8 +69,8 @@ describe("WatchdogPolicyEngine (PL-004 Phase C R1)", () => {
   it.each(["stopped", "terminal"] as const)("does not evaluate a job made %s after the scheduler selected it", async (state) => {
     const engine = makeEngine();
     const job = jobsRepo.register({
-      policy: "periodic-reminder", specYaml: "target: { session: alice@rig }\nmessage: ping\n",
-      targetSession: "alice@rig", intervalSeconds: 60, registeredBySession: "ops@kernel",
+      policy: "periodic-reminder", specYaml: "target: { session: alice@software-team }\nmessage: ping\n",
+      targetSession: "alice@software-team", intervalSeconds: 60, registeredBySession: "ops@kernel",
     });
     if (state === "stopped") jobsRepo.stop(job.jobId, "work finished");
     else jobsRepo.markTerminal(job.jobId, "park ended");
@@ -92,8 +92,8 @@ describe("WatchdogPolicyEngine (PL-004 Phase C R1)", () => {
   ] as const)("preserves a %s job when its in-flight policy returns %s", async (state, action) => {
     const engine = makeEngine();
     const job = jobsRepo.register({
-      policy: "periodic-reminder", specYaml: "target: { session: alice@rig }\nmessage: ping\n",
-      targetSession: "alice@rig", intervalSeconds: 60, registeredBySession: "ops@kernel",
+      policy: "periodic-reminder", specYaml: "target: { session: alice@software-team }\nmessage: ping\n",
+      targetSession: "alice@software-team", intervalSeconds: 60, registeredBySession: "ops@kernel",
     });
     let finish!: (outcome: PolicyEvaluation) => void;
     const policy = engine.resolvePolicy(job.policy)!;
@@ -105,7 +105,7 @@ describe("WatchdogPolicyEngine (PL-004 Phase C R1)", () => {
       else jobsRepo.markTerminal(job.jobId, "park ended");
       const before = jobsRepo.getByIdOrThrow(job.jobId);
       finish(action === "send"
-        ? { action, target: { session: "alice@rig" }, message: "ping" }
+        ? { action, target: { session: "alice@software-team" }, message: "ping" }
         : { action, reason: "policy result" });
       const result = await evaluation;
 
@@ -125,13 +125,13 @@ describe("WatchdogPolicyEngine (PL-004 Phase C R1)", () => {
     const job = jobsRepo.register({
       policy: "periodic-reminder",
       specYaml:
-        "policy: periodic-reminder\ntarget:\n  session: alice@rig\ninterval_seconds: 60\nmessage: ping\n",
-      targetSession: "alice@rig",
+        "policy: periodic-reminder\ntarget:\n  session: alice@software-team\ninterval_seconds: 60\nmessage: ping\n",
+      targetSession: "alice@software-team",
       intervalSeconds: 60,
       registeredBySession: "ops@kernel",
     });
     await engine.evaluate(job);
-    expect(deliveryCalls).toEqual([{ targetSession: "alice@rig", message: "ping" }]);
+    expect(deliveryCalls).toEqual([{ targetSession: "alice@software-team", message: "ping" }]);
     expect(log.countForJob(job.jobId)).toBe(1);
     const list = log.listForJob(job.jobId);
     expect(list[0]?.outcome).toBe("sent");
@@ -155,8 +155,8 @@ describe("WatchdogPolicyEngine (PL-004 Phase C R1)", () => {
       const job = jobsRepo.register({
         policy: "artifact-pool-ready",
         specYaml:
-          `policy: artifact-pool-ready\ntarget:\n  session: alice@rig\ninterval_seconds: 60\ncontext:\n  pools:\n    - path: ${tmp}\n      include_statuses: [ready]\n`,
-        targetSession: "alice@rig",
+          `policy: artifact-pool-ready\ntarget:\n  session: alice@software-team\ninterval_seconds: 60\ncontext:\n  pools:\n    - path: ${tmp}\n      include_statuses: [ready]\n`,
+        targetSession: "alice@software-team",
         intervalSeconds: 60,
         registeredBySession: "ops@kernel",
       });
@@ -183,8 +183,8 @@ describe("WatchdogPolicyEngine (PL-004 Phase C R1)", () => {
     const job = jobsRepo.register({
       policy: "periodic-reminder",
       specYaml:
-        "policy: periodic-reminder\ntarget:\n  session: alice@rig\ninterval_seconds: 60\nmessage: ping\n",
-      targetSession: "alice@rig",
+        "policy: periodic-reminder\ntarget:\n  session: alice@software-team\ninterval_seconds: 60\nmessage: ping\n",
+      targetSession: "alice@software-team",
       intervalSeconds: 60,
       registeredBySession: "ops@kernel",
     });
@@ -199,8 +199,8 @@ describe("WatchdogPolicyEngine (PL-004 Phase C R1)", () => {
     const engine = makeEngine({ onWakeAttempt: (attempt) => attempts.push(attempt) });
     const job = jobsRepo.register({
       policy: "periodic-reminder",
-      specYaml: "policy: periodic-reminder\ntarget:\n  session: alice@rig\nmessage: resume\n",
-      targetSession: "alice@rig",
+      specYaml: "policy: periodic-reminder\ntarget:\n  session: alice@software-team\nmessage: resume\n",
+      targetSession: "alice@software-team",
       intervalSeconds: 60,
       registeredBySession: "ops@kernel",
     });
@@ -213,8 +213,8 @@ describe("WatchdogPolicyEngine (PL-004 Phase C R1)", () => {
     const job = jobsRepo.register({
       policy: "periodic-reminder",
       specYaml:
-        "policy: periodic-reminder\ntarget:\n  session: a@rig\nmessage: x\n",
-      targetSession: "a@rig",
+        "policy: periodic-reminder\ntarget:\n  session: a@software-team\nmessage: x\n",
+      targetSession: "a@software-team",
       intervalSeconds: 60,
       registeredBySession: "ops@kernel",
     });
@@ -239,14 +239,14 @@ describe("WatchdogPolicyEngine (PL-004 Phase C R1)", () => {
     const job = jobsRepo.register({
       policy: "periodic-reminder",
       specYaml:
-        "policy: periodic-reminder\ntarget:\n  session: parsed-session@rig\nmessage: parsed-message\ninterval_seconds: 60\n",
-      targetSession: "registered-fallback@rig",
+        "policy: periodic-reminder\ntarget:\n  session: parsed-session@software-team\nmessage: parsed-message\ninterval_seconds: 60\n",
+      targetSession: "registered-fallback@software-team",
       intervalSeconds: 60,
       registeredBySession: "ops@kernel",
     });
     await engine.evaluate(job);
     expect(deliveryCalls).toEqual([
-      { targetSession: "parsed-session@rig", message: "parsed-message" },
+      { targetSession: "parsed-session@software-team", message: "parsed-message" },
     ]);
   });
 
@@ -256,12 +256,12 @@ describe("WatchdogPolicyEngine (PL-004 Phase C R1)", () => {
       policy: "periodic-reminder",
       // No top-level target. Engine should synthesize {session: targetSession}.
       specYaml: "policy: periodic-reminder\nmessage: ping\ninterval_seconds: 60\n",
-      targetSession: "fallback@rig",
+      targetSession: "fallback@software-team",
       intervalSeconds: 60,
       registeredBySession: "ops@kernel",
     });
     await engine.evaluate(job);
-    expect(deliveryCalls).toEqual([{ targetSession: "fallback@rig", message: "ping" }]);
+    expect(deliveryCalls).toEqual([{ targetSession: "fallback@software-team", message: "ping" }]);
   });
 
   it.each([
@@ -300,8 +300,8 @@ describe("WatchdogPolicyEngine (PL-004 Phase C R1)", () => {
     });
     const job = jobsRepo.register({
       policy: "periodic-reminder",
-      specYaml: "policy: periodic-reminder\ntarget:\n  session: alice@rig\nmessage: Inspect the queue\n",
-      targetSession: "alice@rig",
+      specYaml: "policy: periodic-reminder\ntarget:\n  session: alice@software-team\nmessage: Inspect the queue\n",
+      targetSession: "alice@software-team",
       intervalSeconds: 60,
       registeredBySession: "ops@kernel",
     });
@@ -313,9 +313,9 @@ describe("WatchdogPolicyEngine (PL-004 Phase C R1)", () => {
       policy: "periodic-reminder",
       occurrenceId: createHash("sha256").update(JSON.stringify([job.jobId, null, job.lastFireAt])).digest("hex"),
     });
-    expect(deliveryCalls).toEqual([{ targetSession: "alice@rig", message: "Inspect the queue" }]);
+    expect(deliveryCalls).toEqual([{ targetSession: "alice@software-team", message: "Inspect the queue" }]);
     expect(formatWatchdogDeliveryMessage(source!, deliveryCalls[0]!.message)).toBe(
-      `[OpenRig watchdog scheduler · policy: periodic-reminder · job: ${job.jobId}]\nInspect the queue`,
+      `[SoftwareTeam watchdog scheduler · policy: periodic-reminder · job: ${job.jobId}]\nInspect the queue`,
     );
     expect(log.listForJob(job.jobId)[0]?.deliveryMessage).toBe("Inspect the queue");
   });
@@ -413,8 +413,8 @@ describe("WatchdogPolicyEngine (PL-004 Phase C R1)", () => {
       const job = jobsRepo.register({
         policy: "artifact-pool-ready",
         specYaml:
-          `policy: artifact-pool-ready\ntarget:\n  session: x@rig\ninterval_seconds: 30\ncontext:\n  pools:\n    - path: ${tmp}\n      include_statuses: [ready]\n`,
-        targetSession: "x@rig",
+          `policy: artifact-pool-ready\ntarget:\n  session: x@software-team\ninterval_seconds: 30\ncontext:\n  pools:\n    - path: ${tmp}\n      include_statuses: [ready]\n`,
+        targetSession: "x@software-team",
         intervalSeconds: 30,
         registeredBySession: "ops@kernel",
       });
@@ -468,27 +468,27 @@ describe("WatchdogPolicyEngine — fire-time target-generation gate (i-c)", () =
 
   const armReminder = (targetGenerationUuid?: string | null) => jobsRepo.register({
     policy: "periodic-reminder",
-    specYaml: "policy: periodic-reminder\ntarget:\n  session: alice@rig\ninterval_seconds: 60\nmessage: ping\n",
-    targetSession: "alice@rig",
+    specYaml: "policy: periodic-reminder\ntarget:\n  session: alice@software-team\ninterval_seconds: 60\nmessage: ping\n",
+    targetSession: "alice@software-team",
     intervalSeconds: 60,
     registeredBySession: "ops@kernel",
     targetGenerationUuid,
   });
 
   it("ROLE-bound (NULL target gen) fires unchanged regardless of the live generation", async () => {
-    liveGenBySession.set("alice@rig", "gen-anything");
+    liveGenBySession.set("alice@software-team", "gen-anything");
     await makeEngine().evaluate(armReminder(null));
-    expect(deliveryCalls).toEqual([{ targetSession: "alice@rig", message: "ping" }]);
+    expect(deliveryCalls).toEqual([{ targetSession: "alice@software-team", message: "ping" }]);
   });
 
   it("generation-bound + live generation MATCHES → delivers (still the intended target)", async () => {
-    liveGenBySession.set("alice@rig", "gen-A");
+    liveGenBySession.set("alice@software-team", "gen-A");
     await makeEngine().evaluate(armReminder("gen-A"));
     expect(deliveryCalls.length).toBe(1);
   });
 
   it("generation-bound + live generation MISMATCH → SKIP-LOUD, no delivery, audit names both gens", async () => {
-    liveGenBySession.set("alice@rig", "gen-B"); // target handed over since arm (armed for gen-A)
+    liveGenBySession.set("alice@software-team", "gen-B"); // target handed over since arm (armed for gen-A)
     const job = armReminder("gen-A");
     const result = await makeEngine().evaluate(job);
     expect(deliveryCalls).toEqual([]); // NEVER fired at the successor
@@ -502,7 +502,7 @@ describe("WatchdogPolicyEngine — fire-time target-generation gate (i-c)", () =
   });
 
   it("generation-bound + live generation UNKNOWN (null tenure) → DELIVERS (fail-open, unknown never skips)", async () => {
-    // no entry for alice@rig → resolveTargetGeneration returns null
+    // no entry for alice@software-team → resolveTargetGeneration returns null
     await makeEngine().evaluate(armReminder("gen-A"));
     expect(deliveryCalls.length).toBe(1);
   });
@@ -530,8 +530,8 @@ describe("engine effects for the parked-owner consumer (OPR.0.5.6.24)", () => {
     const job = jobsRepo.register({
       policy: "parked-owner-consumer",
       specYaml:
-        "policy: parked-owner-consumer\ntarget:\n  session: parked-owner-consumer@test-rig\ninterval_seconds: 120\n",
-      targetSession: "parked-owner-consumer@test-rig",
+        "policy: parked-owner-consumer\ntarget:\n  session: parked-owner-consumer@test-software-team\ninterval_seconds: 120\n",
+      targetSession: "parked-owner-consumer@test-software-team",
       intervalSeconds: 120,
       activeWakeIntervalSeconds: null,
       registeredBySession: "daemon@kernel",
@@ -541,7 +541,7 @@ describe("engine effects for the parked-owner consumer (OPR.0.5.6.24)", () => {
 
   it("quiet pin: a no-parked-owner skip writes ZERO history rows and emits no watchdog.* event", async () => {
     const h = makeHarness({
-      policyResult: async () => ({ action: "skip", reason: "no-parked-owner", notes: { rig: "test-rig" } }),
+      policyResult: async () => ({ action: "skip", reason: "no-parked-owner", notes: { softwareTeam: "test-software-team" } }),
     });
     await h.engine.evaluate(h.job);
     expect(h.log.countForJob(h.job.jobId)).toBe(0);
@@ -550,14 +550,14 @@ describe("engine effects for the parked-owner consumer (OPR.0.5.6.24)", () => {
   });
 
   it("delivery-reason pin: the delivery error string is persisted EXACTLY into the sent row's evaluationNotes.deliveryReason", async () => {
-    const refusal = "Refused: 'dev-planner@test-rig' is at an interactive prompt (target_needs_input). No text was sent.";
+    const refusal = "Refused: 'dev-planner@test-software-team' is at an interactive prompt (target_needs_input). No text was sent.";
     const h = makeHarness({
       deliver: async () => ({ status: "failed" as const, error: refusal }),
       policyResult: async () => ({
         action: "send",
-        target: { session: "dev-planner@test-rig" },
+        target: { session: "dev-planner@test-software-team" },
         message: "wake",
-        notes: { episodeSeat: "dev-planner@test-rig", idsHash: "abc", episodeKey: "k#1" },
+        notes: { episodeSeat: "dev-planner@test-software-team", idsHash: "abc", episodeKey: "k#1" },
       }),
     });
     await h.engine.evaluate(h.job);

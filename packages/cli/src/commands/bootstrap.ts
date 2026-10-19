@@ -25,7 +25,7 @@ function logStageDetailErrors(data: Record<string, unknown>) {
 }
 
 export function bootstrapCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("bootstrap").description("Bootstrap a rig from a spec file or bundle");
+  const cmd = new Command("bootstrap").description("Bootstrap a SoftwareTeam from a spec file or bundle");
   const getDeps = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   async function getTarget(deps: StatusDeps) {
@@ -36,7 +36,7 @@ export function bootstrapCommand(depsOverride?: StatusDeps): Command {
   }
 
   cmd
-    .argument("<spec>", "Path to rig spec YAML file or .rigbundle archive")
+    .argument("<spec>", "Path to SoftwareTeam spec YAML file or .softwareteambundle archive")
     .option("--plan", "Plan mode — show reviewed plan without executing")
     .option("--yes", "Auto-approve trusted deterministic actions")
     .option("--cwd <path>", "Override launch working directory for all members for this run only")
@@ -51,7 +51,7 @@ export function bootstrapCommand(depsOverride?: StatusDeps): Command {
       const { client, local } = target;
 
       // Library name resolution: if spec looks like a name (not a path), check library
-      const isPath = spec.includes("/") || /\.(ya?ml|rigbundle)$/i.test(spec);
+      const isPath = spec.includes("/") || /\.(ya?ml|softwareteambundle)$/i.test(spec);
       // Resolve caller paths only for the local daemon. Explicit URLs (even loopback
       // tunnels), stateless targets and catalog sources keep daemon-side addressing.
       let sourceRef = isPath && local ? nodePath.resolve(spec) : spec;
@@ -72,7 +72,7 @@ export function bootstrapCommand(depsOverride?: StatusDeps): Command {
 
       // Reuse bundle install's source-kind, compatibility checks, audit and
       // stable materialization. The archive's extraction directory is temporary.
-      const bundleRequest = /\.rigbundle$/i.test(sourceRef) ? {
+      const bundleRequest = /\.softwareteambundle$/i.test(sourceRef) ? {
         bundlePath: nodePath.resolve(sourceRef),
         plan: opts.plan ?? false,
         autoApprove: opts.yes ?? false,
@@ -137,8 +137,8 @@ export function bootstrapCommand(depsOverride?: StatusDeps): Command {
         for (const s of stages) {
           console.log(`  ${s.stage}: ${s.status}`);
         }
-        const rigId = res.data["rigId"] as string | undefined;
-        if (rigId) console.log(`\nRig: ${rigId}`);
+        const softwareTeamId = res.data["softwareTeamId"] as string | undefined;
+        if (softwareTeamId) console.log(`\nSoftwareTeam: ${softwareTeamId}`);
         console.log(`Status: ${status}`);
 
         const errors = (res.data["errors"] as string[]) ?? [];

@@ -8,7 +8,7 @@ the real runner's format differs from my sketch-authored set in these ways. This
 drives the conformance pass over all 11 scenarios + fixtures.
 
 ## The deltas (real runner form)
-1. **Topology path** — `topology: ./<rig>.yaml` (sibling `./` relative), not `fixtures/<rig>.yaml`.
+1. **Topology path** — `topology: ./<SoftwareTeam>.yaml` (sibling `./` relative), not `fixtures/<SoftwareTeam>.yaml`.
 2. **Queue setup = `env.queue` PRECONDITION, not a `send` action.** There is NO queue
    action verb (verb set is topology/seat lifecycle + `daemon:{op}`). A claimed baton is
    established up front via:
@@ -16,12 +16,12 @@ drives the conformance pass over all 11 scenarios + fixtures.
    env:
      queue:
        - id: baton-1
-         source: harness@<rig>
-         destination: <pod>-<member>@<rig>
+         source: harness@<SoftwareTeam>
+         destination: <pod>-<member>@<SoftwareTeam>
          summary: "..."
          claim: true
    ```
-   The pipeline runs the shipped `rig queue create`/`claim` writes BEFORE the steps.
+   The pipeline runs the shipped `SoftwareTeam queue create`/`claim` writes BEFORE the steps.
    → My #2 (used `send`) and #11 (used `send`) must move baton creation to `env.queue`.
 3. **`expect queue` is a LIST** keyed on the real shipped fields: `qitemId`, `state`,
    `destinationSession` (NOT my `{items:[{destination,state,owner}]}`).
@@ -32,7 +32,7 @@ drives the conformance pass over all 11 scenarios + fixtures.
        match:
          - qitemId: baton-1
            state: in-progress
-           destinationSession: <pod>-<member>@<rig>
+           destinationSession: <pod>-<member>@<SoftwareTeam>
    ```
 4. **`equals` = a LIST under a nominal `surface` anchor.** The schema requires a valid
    `surface` on every expect, so #10 anchors with `surface: ps` and lists compared
@@ -49,8 +49,8 @@ drives the conformance pass over all 11 scenarios + fixtures.
    `any_of` as a 51-02 v2 format addition. FLAGGED to PM/51-02 — not shimmed, not
    silently split.
 8. **`select` on `expect` (R-16, my #9) is silently ignored** (not a schema key). #9's
-   `-A`/`--rig` legs need a ps scope selector the runner honors. The CORE leak-catch
-   (default ps = current-rig only, beta absent) IS expressible now; the -A/--rig
+   `-A`/`--software-team` legs need a ps scope selector the runner honors. The CORE leak-catch
+   (default ps = current-SoftwareTeam only, beta absent) IS expressible now; the -A/--software-team
    confirmatory legs route to 51-02 (R-16). Adapt #9 to the default-scope core + flag the
    selector legs.
 9. **`seed_regression` stays on every 51-03 scenario** (mini-req 3) — dev-driver's 51-02
@@ -77,13 +77,13 @@ Ran 2026-08-06 against the CLEARED runner's real validator:
   Schema-pass ≠ runtime-correct. That pass is the next increment.
 
 ## dev-driver's source-grounded answers to #9 / #5 (2026-08-06) — for the runtime pass
-- **#9 (R-16 ps scope selector):** `rig ps` DOES support scope — per-rig `ps --nodes --rig <name>`,
-  all-rigs `ps --nodes -A` (FR-3: `-A` is the `--nodes` fleet-widener). The reader CAN map an
+- **#9 (R-16 ps scope selector):** `SoftwareTeam ps` DOES support scope — per-SoftwareTeam `ps --nodes --software-team <name>`,
+  all-SoftwareTeams `ps --nodes -A` (FR-3: `-A` is the `--nodes` fleet-widener). The reader CAN map an
   optional scope selector to these. BUT the daemon may SILENTLY IGNORE the selector in its
   projection → asserting the scoped legs risks a FALSE GREEN (selector dropped). **RESOLUTION
-  (dev-driver v1 rec, adopt):** #9 asserts the current-rig-DEFAULT leg LIVE (honest, shipped); the
-  all-rigs/per-rig legs become VISIBLY-ANNOTATED R-16 deferrals (same discipline as #2 pane-restored),
-  lighting up when R-16 honors the selector end-to-end. Also: #9's leak-catch core needs multi-rig
+  (dev-driver v1 rec, adopt):** #9 asserts the current-software-team-DEFAULT leg LIVE (honest, shipped); the
+  all-SoftwareTeams/per-SoftwareTeam legs become VISIBLY-ANNOTATED R-16 deferrals (same discipline as #2 pane-restored),
+  lighting up when R-16 honors the selector end-to-end. Also: #9's leak-catch core needs multi-SoftwareTeam
   `up` (R-12) — still open; note it as the core dep. No scope param added until R-16 is honored.
 - **#5 (any_of):** NOT in the locked grammar (match/contains/equals are single-outcome) → a real
   FORMAT AMENDMENT, and in tension with FLAG-3 determinism (a disjunctive verdict accepts a race).
@@ -96,8 +96,8 @@ Ran 2026-08-06 against the CLEARED runner's real validator:
 - #5 RE-SCOPED per the era-split ruling (GAP-7 folded d0668d5f in main): GREEN leg pins
   preseed-reaches (deterministic at fixed tip); seed_regression{gap7-home-divergence} leg pins
   failure-visible-on-stream. NO any_of (validator refusal correct). 
-- #9 adapted to endorsed v1: current-rig-default leg LIVE; -A/--rig scoped legs VISIBLY-DEFERRED
-  (R-16, false-green risk if selector silently dropped); R-12 multi-rig-up noted as core dep.
+- #9 adapted to endorsed v1: current-software-team-default leg LIVE; -A/--software-team scoped legs VISIBLY-DEFERRED
+  (R-16, false-green risk if selector silently dropped); R-12 multi-software-team-up noted as core dep.
 - **All 11 now PASS the real 51-02 validateScenario (11/11).**
 - REMAINING (next increment, needs verify-at-source of real --json shapes): runtime field-name pass
   for the sketch scenarios #1/#3/#4/#7/#8/#11 (queue→qitemId/state/destinationSession, ps shape,
@@ -110,7 +110,7 @@ Ran 2026-08-06 against the CLEARED runner's real validator:
   compaction-restore-bridge.cjs → one-shot directive) → expect pane contains "restore
   delivered" (the runner's real mirror line). Seed wrong-seat-restore exploits seat-keying.
 - #8 stream-emit-durable-replay-live: emit slow_output → deterministic chunks + activity set;
-  expect stream (rig stream list --json = durable/replayable bare array) match [{runtime:stub}]
+  expect stream (SoftwareTeam stream list --json = durable/replayable bare array) match [{runtime:stub}]
   (intent-level; exact event field names verify-at-source) + expect pane contains "slow_output
   chunk 3/3" (deterministic last chunk). Seed stream-not-durable drops the durable-store event.
 - **All 11 STILL PASS the real validator (11/11).** Manifest YAML-only c0ba79aa.
@@ -121,18 +121,18 @@ Ran 2026-08-06 against the CLEARED runner's real validator:
 
 ## INCREMENT 4 (2026-08-06) — grounded the real read-surface shapes (verify-at-source, VERIFY-AT-SOURCE-51-02)
 REAL --json shapes the runner binds to (dumb-reader):
-- **ps** default `rig ps --json` = BARE ARRAY of PER-RIG PsEntry {rigId,name,nodeCount,runningCount,activeCount,
+- **ps** default `SoftwareTeam ps --json` = BARE ARRAY of PER-SOFTWARE_TEAM PsEntry {softwareTeamId,name,nodeCount,runningCount,activeCount,
   hasWorkCount,status:"running"|"partial"|"stopped",lifecycleState,uptime,...} — NOT per-seat (seats via `--nodes`
-  = different endpoint/NodeEntry). So #1/#9 assert per-RIG summary, not per-seat.
+  = different endpoint/NodeEntry). So #1/#9 assert per-SOFTWARE_TEAM summary, not per-seat.
 - **queue** list = BARE ARRAY QueueItem[] (qitemId/state/destinationSession…); compact BLANKS body/summary → read
   via --full/show. (#2 already correct.)
-- **stream** `rig stream list --json` = BARE ARRAY StreamItem {streamItemId,tsEmitted,sourceSession,body,format,
+- **stream** `SoftwareTeam stream list --json` = BARE ARRAY StreamItem {streamItemId,tsEmitted,sourceSession,body,format,
   hintType,…}. NOTE: this is the SEND/BROADCAST coordination stream, NOT the activity/hooks stream that
   emit-behaviors write. FLAG-#8: `emit slow_output` writes ACTIVITY (/api/activity/hooks), not StreamItem — so
   #8's "stream durable" premise needs a decision: model it with `send` (which DOES create a durable StreamItem)
   OR confirm whether the runner's `stream` surface should also read activity. ROUTE to dev-driver/orch (surface
   semantics), don't guess. My #8 currently uses emit slow_output + a StreamItem match — mismatched; HELD pending the ruling.
-- **policy_provenance** = `rig policy effective --json` → {effective:{binding,resolvedScope}|null,
+- **policy_provenance** = `SoftwareTeam policy effective --json` → {effective:{binding,resolvedScope}|null,
   posture:"known"|"unknown_posture",hint?}; binding carries setBy/setAt/record.evidence_citation. #3/#4 must assert
   {posture, effective:{binding:{…}}} — NOT my sketch {policy,source}. (Adapt in the next pass.)
 - **pane** capture → CaptureResult{content}; `contains` = substring on content (#2/#6/#7/#8-pane already correct).
@@ -157,15 +157,15 @@ Ran the eleven against the REAL runner (main 5dc70f0e, run-scenarios.mjs) in a h
 Form CONFIRMED by review50-r1: green-through-bound-product-steps + LOUD unbound verb + route the
 unbound runner verbs = the honest ledger (a seed-bearing clean-PASS pre-binding would be the shim).
 
-CO-LOCATION (fixture-form pass, DONE): the runner resolves `topology: ./<rig>.yaml` as a
+CO-LOCATION (fixture-form pass, DONE): the runner resolves `topology: ./<SoftwareTeam>.yaml` as a
 scenario-file SIBLING and needs `culture.md` + `agents/<seat>/agent.yaml` siblings. Absorbed
 fixtures/ into scenarios/ (flat, matches shipped scenario-02-baton layout): fixed topos (version
 "0.2", culture_file, per-pod edges, no top-level edges, no summary), added culture.md + agents/
 {impl,qa,worker,lead}, normalized all `topology:` refs to `./`.
 
-RUNTIME FIELD-NAME PASS (this increment): send `to:` → canonical `<pod>-<member>@<rig>` (#7/#10/#11);
-`expect pane seat:` → canonical session (#5/#7); #1 `expect ps` → bare-array PsEntry (per-RIG, not
-sketch {rigs:[{seats}]}); #11 first `expect queue` → bare-array {qitemId,state,destinationSession}.
+RUNTIME FIELD-NAME PASS (this increment): send `to:` → canonical `<pod>-<member>@<SoftwareTeam>` (#7/#10/#11);
+`expect pane seat:` → canonical session (#5/#7); #1 `expect ps` → bare-array PsEntry (per-SOFTWARE_TEAM, not
+sketch {SoftwareTeams:[{seats}]}); #11 first `expect queue` → bare-array {qitemId,state,destinationSession}.
 
 COMPOSITION LEDGER (live runner):
 - GREEN THROUGH EVERY BOUND PRODUCT STEP (block only at the routed seed_regression): #1, #2, #9.
@@ -181,6 +181,6 @@ ROUTED RUNNER/STUB GAPS (never shimmed in 51-03):
 - 51-02 verb bindings: seed_regression (ALL 11), emit-step (#6/#8), mutate (#3/#10), policy (#3/#4),
   restore (#4). scenario-real-deps default-throws these (main 5dc70f0e).
 - 51-02 format: F-#1 emptiness/absent/count assertion (#1 second leg); R-16 ps scope selector +
-  R-12 multi-rig up (#9 scoped legs); R-17 queue-establish verb (#11).
+  R-12 multi-SoftwareTeam up (#9 scoped legs); R-17 queue-establish verb (#11).
 - 51-01 stub behavior: preseed emit (#5 "trust reached"), pane echo of sent text (#7), send `from`.
 - 51-06: #11 executed-unclosed closure surface (R-20).

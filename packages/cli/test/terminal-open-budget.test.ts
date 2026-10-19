@@ -51,8 +51,8 @@ describe("terminal open request budget", () => {
     const adapter = new HerdrAdapter({
       transportFactory: createHerdrSocketTransport(createHerdrSocketRpc(socketPath)),
     });
-    const view = composeView("rig:owned-rig", Array.from({ length: 17 }, (_, index) => ({
-      seat: `agent-${index}@owned-rig`, label: `Agent ${index}`, tmuxSession: `owned-${index}`,
+    const view = composeView("software-team:owned-software-team", Array.from({ length: 17 }, (_, index) => ({
+      seat: `agent-${index}@owned-software-team`, label: `Agent ${index}`, tmuxSession: `owned-${index}`,
       host: null, alive: true, readOnly: false,
     })), { resolveHost: () => null, panesPerPage: HERDR_PANES_PER_PAGE });
     const app = new Hono();
@@ -92,7 +92,7 @@ describe("terminal open request budget", () => {
     process.exitCode = undefined;
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     try {
-      await command.parseAsync(["terminal", "open", "owned-rig", "--json"], { from: "user" });
+      await command.parseAsync(["terminal", "open", "owned-software-team", "--json"], { from: "user" });
       expect(process.exitCode).toBeUndefined();
       const result = JSON.parse(String(log.mock.calls[0]?.[0]));
       expect(result.opened).toHaveLength(17);

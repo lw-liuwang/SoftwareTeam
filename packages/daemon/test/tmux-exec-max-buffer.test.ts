@@ -7,7 +7,7 @@ import { execArgvCommand, execCommand } from "../src/adapters/tmux-exec.js";
 // A batched capture chains 24 panes, past exec's 1 MiB stdout default (#161). A fake `tmux` on a private PATH prints
 // 2 MiB: the tmux argv transport carries the larger bound, and the shell exec, which other callers share, keeps the
 // default.
-const bin = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-tmux-maxbuf-"));
+const bin = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-tmux-maxbuf-"));
 const bytes = 2 * 1024 * 1024;
 fs.writeFileSync(path.join(bin, "tmux"), `#!/bin/sh\nyes x | head -c ${bytes}\n`, { mode: 0o755 });
 afterAll(() => fs.rmSync(bin, { recursive: true, force: true }));

@@ -250,7 +250,7 @@ export class ContextMonitor {
         (SELECT MAX(seq) FROM events e WHERE e.node_id = n.id
           AND e.type IN ('node.startup_pending', 'node.startup_ready', 'node.startup_failed')) AS startup_event_seq
       FROM nodes n
-      JOIN rigs r ON r.id = n.rig_id
+      JOIN software_teams r ON r.id = n.software_team_id
       JOIN sessions s ON s.node_id = n.id
         AND s.id = (SELECT s2.id FROM sessions s2 WHERE s2.node_id = n.id ORDER BY s2.id DESC LIMIT 1)
       LEFT JOIN bindings b ON b.node_id = n.id

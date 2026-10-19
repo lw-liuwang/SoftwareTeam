@@ -51,7 +51,7 @@ const FOUNDER_FRAGMENT = {
   prefs: {},
 } as unknown as HumanFragment;
 
-const EVIDENCE = "shared-docs/rigs/v-openrig-build/state/evidence-s14.md";
+const EVIDENCE = "shared-docs/software-teams/v-softwareteam-build/state/evidence-s14.md";
 
 function makeHarness(opts?: { registryReadable?: () => boolean; entities?: () => HumanFragment[] }) {
   const db = createDb();
@@ -69,7 +69,7 @@ function makeHarness(opts?: { registryReadable?: () => boolean; entities?: () =>
         // Real-tmux behavior for anything without a live pane in this fixture:
         return sessionName === "dev-a@rig1"
           ? { ok: true, verified: true }
-          : { ok: false, error: `Session '${sessionName}' not found: tmux reports no session with this name. No text was sent. Check available sessions with: rig ps --nodes` };
+          : { ok: false, error: `Session '${sessionName}' not found: tmux reports no session with this name. No text was sent. Check available sessions with: SoftwareTeam ps --nodes` };
       },
     },
     loadHumanRegistry: () => opts?.registryReadable?.() === false
@@ -78,8 +78,8 @@ function makeHarness(opts?: { registryReadable?: () => boolean; entities?: () =>
   });
   repo.attachOutbox(new OutboxHandler(db));
   // Topology fixture: exactly one known pane-bound seat, dev-a@rig1.
-  db.prepare("INSERT INTO rigs (id, name) VALUES ('rig-1', 'rig1')").run();
-  db.prepare("INSERT INTO nodes (id, rig_id, logical_id, runtime) VALUES ('node-a', 'rig-1', 'dev.a', 'claude-code')").run();
+  db.prepare("INSERT INTO software_teams (id, name) VALUES ('software-team-1', 'rig1')").run();
+  db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, runtime) VALUES ('node-a', 'software-team-1', 'dev.a', 'claude-code')").run();
   db.prepare("INSERT INTO sessions (id, node_id, session_name) VALUES ('sess-a', 'node-a', 'dev-a@rig1')").run();
   db.prepare("INSERT INTO bindings (id, node_id, attachment_type, tmux_session) VALUES ('binding-a', 'node-a', 'tmux', 'dev-a@rig1')").run();
   return { db, repo, sends };
@@ -118,7 +118,7 @@ describe("OPR.0.5.6.14 — one destination resolver, no fall-through", () => {
 
   it("THE 4-ROW CLASS DIES: a registry-resolved human ALIAS (kernel virtual seat) never touches tmux and records gateway-owned", async () => {
     const item = await h.repo.create({
-      sourceSession: "orch-lead@v-openrig-build",
+      sourceSession: "orch-lead@v-softwareteam-build",
       destinationSession: "human-founder@kernel",
       body: "escalation for the founder via the kernel alias",
       summary: "Founder decision ask (alias-addressed)",
@@ -134,7 +134,7 @@ describe("OPR.0.5.6.14 — one destination resolver, no fall-through", () => {
 
   it("FLOOR: the @external class stays gateway-owned (folded behavior unchanged)", async () => {
     const item = await h.repo.create({
-      sourceSession: "orch-lead@v-openrig-build",
+      sourceSession: "orch-lead@v-softwareteam-build",
       destinationSession: "human-founder@external",
       body: "direct external alert",
       summary: "Founder alert",
@@ -147,7 +147,7 @@ describe("OPR.0.5.6.14 — one destination resolver, no fall-through", () => {
 
   it("UNROUTABLE STAYS LOUD AND STRUCTURED: an unknown destination gets a teaching refusal, never raw tmux wording", async () => {
     const item = await h.repo.create({
-      sourceSession: "orch-lead@v-openrig-build",
+      sourceSession: "orch-lead@v-softwareteam-build",
       destinationSession: "ghost-writer@nowhere",
       body: "row to a destination that is neither topology nor registry",
       nudge: true,
@@ -161,7 +161,7 @@ describe("OPR.0.5.6.14 — one destination resolver, no fall-through", () => {
 
   it("FLOOR: pane-bound dispatch is byte-identical — the known seat rides terminal transport unchanged", async () => {
     const item = await h.repo.create({
-      sourceSession: "orch-lead@v-openrig-build",
+      sourceSession: "orch-lead@v-softwareteam-build",
       destinationSession: "dev-a@rig1",
       body: "ordinary seat nudge",
       nudge: true,
@@ -175,11 +175,11 @@ describe("OPR.0.5.6.14 — one destination resolver, no fall-through", () => {
   });
 
   it("FLOOR: a registered human with a real pane stays pane-bound; only its paneless alias is gateway-routable", async () => {
-    h.db.prepare("INSERT INTO nodes (id, rig_id, logical_id, runtime) VALUES ('node-human', 'rig-1', 'human.founder', 'terminal')").run();
+    h.db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, runtime) VALUES ('node-human', 'software-team-1', 'human.founder', 'terminal')").run();
     h.db.prepare("INSERT INTO sessions (id, node_id, session_name) VALUES ('sess-human', 'node-human', 'human-founder@rig1')").run();
     h.db.prepare("INSERT INTO bindings (id, node_id, attachment_type, tmux_session) VALUES ('binding-human', 'node-human', 'tmux', 'human-founder@rig1')").run();
     const item = await h.repo.create({
-      sourceSession: "orch-lead@v-openrig-build",
+      sourceSession: "orch-lead@v-softwareteam-build",
       destinationSession: "human-founder@rig1",
       body: "pane-backed founder seat",
     });
@@ -189,12 +189,12 @@ describe("OPR.0.5.6.14 — one destination resolver, no fall-through", () => {
   });
 
   it("PANELLESS TOPOLOGY IS NOT A TERMINAL: an external_cli-bound registered human stays gateway-routable", async () => {
-    h.db.prepare("INSERT INTO nodes (id, rig_id, logical_id, runtime) VALUES ('node-external', 'rig-1', 'human.founder', 'external')").run();
+    h.db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, runtime) VALUES ('node-external', 'software-team-1', 'human.founder', 'external')").run();
     h.db.prepare("INSERT INTO sessions (id, node_id, session_name) VALUES ('sess-external', 'node-external', 'human-founder@kernel')").run();
     h.db.prepare("INSERT INTO bindings (id, node_id, attachment_type, external_session_name) VALUES ('binding-external', 'node-external', 'external_cli', 'human-founder@kernel')").run();
 
     const item = await h.repo.create({
-      sourceSession: "orch-lead@v-openrig-build",
+      sourceSession: "orch-lead@v-softwareteam-build",
       destinationSession: "human-founder@kernel",
       body: "founder decision through a known paneless node",
       summary: "Founder decision",
@@ -249,7 +249,7 @@ describe("OPR.0.5.6.14 — the delivery ledger is universal and consulted", () =
   async function humanPark(qitemId: string, note: string): Promise<string> {
     h.repo.update({
       qitemId,
-      actorSession: "orch-lead@v-openrig-build",
+      actorSession: "orch-lead@v-softwareteam-build",
       state: "blocked",
       blockedOn: "human-founder@kernel",
       summary: "Founder decision required",
@@ -318,7 +318,7 @@ describe("OPR.0.5.6.14 — the delivery ledger is universal and consulted", () =
       summary: "s",
       body: "b",
       destinationSession: "human-founder@external",
-      sourceSession: "orch-lead@v-openrig-build",
+      sourceSession: "orch-lead@v-softwareteam-build",
     },
   });
 
@@ -435,10 +435,10 @@ describe("OPR.0.5.6.14 — the delivery ledger is universal and consulted", () =
   });
 
   it("CURRENT EPISODE WINS: an old posted receipt cannot mask a later failed human-park episode", async () => {
-    const row = await h.repo.create({ sourceSession: "s@r", destinationSession: "orch-lead@v-openrig-build", body: "ask", nudge: false });
+    const row = await h.repo.create({ sourceSession: "s@r", destinationSession: "orch-lead@v-softwareteam-build", body: "ask", nudge: false });
     const firstKey = await humanPark(row.qitemId, "episode A");
     receipt(row.qitemId, "posted", "message_ts=100.1 thread_ts=100.1");
-    h.repo.update({ qitemId: row.qitemId, actorSession: "orch-lead@v-openrig-build", state: "in-progress", transitionNote: "episode A consumed" });
+    h.repo.update({ qitemId: row.qitemId, actorSession: "orch-lead@v-softwareteam-build", state: "in-progress", transitionNote: "episode A consumed" });
     const secondKey = await humanPark(row.qitemId, "episode B");
     expect(secondKey).not.toBe(firstKey);
     receipt(row.qitemId, "transport-failed", "class=http-500 error=episode-b-needle");
@@ -454,10 +454,10 @@ describe("OPR.0.5.6.14 — the delivery ledger is universal and consulted", () =
   it("REGISTRY UNREADABLE IS INDETERMINATE: it cannot revive episode A posted over episode B failed", async () => {
     let registryReadable = true;
     h = makeHarness({ registryReadable: () => registryReadable });
-    const row = await h.repo.create({ sourceSession: "s@r", destinationSession: "orch-lead@v-openrig-build", body: "ask", nudge: false });
+    const row = await h.repo.create({ sourceSession: "s@r", destinationSession: "orch-lead@v-softwareteam-build", body: "ask", nudge: false });
     await humanPark(row.qitemId, "episode A");
     receipt(row.qitemId, "posted", "message_ts=300.1 thread_ts=300.1");
-    h.repo.update({ qitemId: row.qitemId, actorSession: "orch-lead@v-openrig-build", state: "in-progress", transitionNote: "episode A consumed" });
+    h.repo.update({ qitemId: row.qitemId, actorSession: "orch-lead@v-softwareteam-build", state: "in-progress", transitionNote: "episode A consumed" });
     await humanPark(row.qitemId, "episode B");
     receipt(row.qitemId, "transport-failed", "class=http-500 error=episode-b-registry-needle");
     registryReadable = false;
@@ -470,10 +470,10 @@ describe("OPR.0.5.6.14 — the delivery ledger is universal and consulted", () =
   });
 
   it("CONSUMED EPISODE CLEARS: a resumed nonhuman row cannot inherit its old failed human-park receipt", async () => {
-    const row = await h.repo.create({ sourceSession: "s@r", destinationSession: "orch-lead@v-openrig-build", body: "ask", nudge: false });
+    const row = await h.repo.create({ sourceSession: "s@r", destinationSession: "orch-lead@v-softwareteam-build", body: "ask", nudge: false });
     await humanPark(row.qitemId, "episode A");
     receipt(row.qitemId, "transport-failed", "class=http-500 error=episode-a-consumed");
-    h.repo.update({ qitemId: row.qitemId, actorSession: "orch-lead@v-openrig-build", state: "in-progress", transitionNote: "episode A consumed" });
+    h.repo.update({ qitemId: row.qitemId, actorSession: "orch-lead@v-softwareteam-build", state: "in-progress", transitionNote: "episode A consumed" });
 
     const surfaced = h.repo.findUndelivered({}).some((item) => item.qitemId === row.qitemId);
     expect({ outcome: h.repo.deliveryOutcomeFor(row.qitemId)?.outcome ?? null, surfaced }).toEqual({
@@ -483,10 +483,10 @@ describe("OPR.0.5.6.14 — the delivery ledger is universal and consulted", () =
   });
 
   it("CURRENT EPISODE WINDOW: receiptless re-parks and direct no-nudge humans become never-posted from episode time", async () => {
-    const parked = await h.repo.create({ sourceSession: "s@r", destinationSession: "orch-lead@v-openrig-build", body: "ask", nudge: false });
+    const parked = await h.repo.create({ sourceSession: "s@r", destinationSession: "orch-lead@v-softwareteam-build", body: "ask", nudge: false });
     await humanPark(parked.qitemId, "episode A");
     receipt(parked.qitemId, "posted", "message_ts=200.1 thread_ts=200.1");
-    h.repo.update({ qitemId: parked.qitemId, actorSession: "orch-lead@v-openrig-build", state: "in-progress", transitionNote: "episode A consumed" });
+    h.repo.update({ qitemId: parked.qitemId, actorSession: "orch-lead@v-softwareteam-build", state: "in-progress", transitionNote: "episode A consumed" });
     const secondKey = await humanPark(parked.qitemId, "episode B");
     h.repo.update({ qitemId: parked.qitemId, actorSession: "watchdog@system", transitionNote: "unchanged wake" });
     expect(currentEpisodeKey(parked.qitemId), "an unchanged wake stays inside episode B").toBe(secondKey);
@@ -541,7 +541,7 @@ describe("OPR.0.5.6.14 — the delivery ledger is universal and consulted", () =
 });
 
 // #1029 — the single-row read carries the resolver's own routing decision, so a reader such as
-// `rig queue create --verify` never has to guess a registered person's alias from its
+// `SoftwareTeam queue create --verify` never has to guess a registered person's alias from its
 // spelling, even when no wake result exists yet (--no-nudge). getById itself stays unchanged.
 describe("GET /api/queue/:qitemId carries the destination class", () => {
   const MIKE = { ...FOUNDER_FRAGMENT, entityId: "mike", displayName: "Mike", address: "mike@external" } as unknown as HumanFragment;

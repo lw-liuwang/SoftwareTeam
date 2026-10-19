@@ -1,4 +1,4 @@
-// F2 — `rig slack status` shows the durable inbound dead-letter backlog. The
+// F2 — `softwareTeam slack status` shows the durable inbound dead-letter backlog. The
 // connector status reported Socket, Recovery and per-process recovery counts,
 // but never the backlog sitting in the dead-letter files: inbound events and
 // button clicks that failed to land and await the retry loop. Across a restart

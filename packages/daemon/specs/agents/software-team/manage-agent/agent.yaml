@@ -1,0 +1,33 @@
+name: software-team-manage-agent
+version: "1.0"
+description: Resident project manage-agent and default human contact
+
+defaults:
+  runtime: codex
+  lifecycle:
+    execution_mode: interactive_resident
+    restore_policy: resume_if_possible
+
+imports:
+  - ref: local:../shared
+
+profiles:
+  default:
+    uses:
+      skills: [software-team-manage-agent, software-team-shared:software-team-contract]
+      guidance: []
+      subagents: []
+      plugins: []
+      runtime_resources: []
+
+resources:
+  skills:
+    - id: software-team-manage-agent
+      path: skills/software-team-manage-agent
+
+startup:
+  files:
+    - path: skills/software-team-manage-agent/SKILL.md
+      delivery_hint: send_text
+      required: true
+  actions: []

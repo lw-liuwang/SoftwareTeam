@@ -27,24 +27,24 @@ function fixture() {
   const bin = path.join(root, "current bin's"); const userBin = path.join(root, "user-bin");
   for (const dir of [bin, userBin, path.join(root, "workspace"), path.join(root, "home")]) mkdirSync(dir);
   const writeExe = (file: string, body: string) => writeFileSync(file, body, { mode: 0o700 });
-  writeExe(path.join(userBin, "rig"), "#!/bin/sh\necho wrong-rig\n");
+  writeExe(path.join(userBin, "SoftwareTeam"), "#!/bin/sh\necho wrong-software-team\n");
   writeExe(path.join(userBin, "codex"), "#!/bin/sh\necho wrong-codex\n");
   writeExe(path.join(userBin, "user-tool"), "#!/bin/sh\necho user-tool-preserved\n");
-  writeExe(path.join(bin, "rig"), `#!${process.execPath}\nconst http=require('node:http');const r=http.get(process.env.OPENRIG_URL+'/whoami',{headers:{authorization:'Bearer '+process.env.OPENRIG_ACTIVITY_HOOK_TOKEN}},s=>{let b='';s.on('data',c=>b+=c);s.on('end',()=>{console.log(JSON.stringify({body:JSON.parse(b),home:process.env.OPENRIG_HOME,node:process.env.OPENRIG_NODE_ID,runtime:process.env.OPENRIG_RUNTIME,generation:process.env.OPENRIG_OCCUPANT_GENERATION,PATH:process.env.PATH,HOME:process.env.HOME,CODEX_HOME:process.env.CODEX_HOME,CLAUDE_CONFIG_DIR:process.env.CLAUDE_CONFIG_DIR,USER_VALUE:process.env.USER_VALUE}));});});r.on('error',e=>{console.error(e.message);process.exitCode=1;});\n`);
-  for (const name of ["claude", "codex"]) writeExe(path.join(bin, name), `#!/bin/sh\nif [ "$1" = --help ]; then printf '%s\\n' '--permission-mode <mode> (choices: "auto", "default")'; else rig whoami; user-tool >/dev/null; fi\n`);
-  const identity: Record<string, string> = { OPENRIG_NODE_ID: "node-current", OPENRIG_SESSION_NAME: "seat@rig", OPENRIG_RUNTIME: "claude-code", OPENRIG_OCCUPANT_GENERATION: "successor-generation" };
+  writeExe(path.join(bin, "SoftwareTeam"), `#!${process.execPath}\nconst http=require('node:http');const r=http.get(process.env.SOFTWARETEAM_URL+'/whoami',{headers:{authorization:'Bearer '+process.env.SOFTWARETEAM_ACTIVITY_HOOK_TOKEN}},s=>{let b='';s.on('data',c=>b+=c);s.on('end',()=>{console.log(JSON.stringify({body:JSON.parse(b),home:process.env.SOFTWARETEAM_HOME,node:process.env.SOFTWARETEAM_NODE_ID,runtime:process.env.SOFTWARETEAM_RUNTIME,generation:process.env.SOFTWARETEAM_OCCUPANT_GENERATION,PATH:process.env.PATH,HOME:process.env.HOME,CODEX_HOME:process.env.CODEX_HOME,CLAUDE_CONFIG_DIR:process.env.CLAUDE_CONFIG_DIR,USER_VALUE:process.env.USER_VALUE}));});});r.on('error',e=>{console.error(e.message);process.exitCode=1;});\n`);
+  for (const name of ["claude", "codex"]) writeExe(path.join(bin, name), `#!/bin/sh\nif [ "$1" = --help ]; then printf '%s\\n' '--permission-mode <mode> (choices: "auto", "default")'; else SoftwareTeam whoami; user-tool >/dev/null; fi\n`);
+  const identity: Record<string, string> = { SOFTWARETEAM_NODE_ID: "node-current", SOFTWARETEAM_SESSION_NAME: "seat@software-team", SOFTWARETEAM_RUNTIME: "claude-code", SOFTWARETEAM_OCCUPANT_GENERATION: "successor-generation" };
   const tmux = new TmuxAdapter(async cmd => {
     expect(cmd).toMatch(/^tmux show-environment /);
     const key = Object.keys(identity).find(k => cmd.endsWith(shellQuote(k)));
     if (!key) throw Error("unexpected environment read");
     return `${key}=${identity[key]}\n`;
   });
-  const env = { PATH: `${bin}:/usr/bin:/bin`, HOME: path.join(root, "home"), OPENRIG_HOME: path.join(root, "instance"), OPENRIG_URL: "http://127.0.0.1:1", OPENRIG_ACTIVITY_HOOK_TOKEN: "synthetic-channel-secret", ANTHROPIC_API_KEY: "synthetic-provider-secret", CODEX_HOME: "/daemon/codex" };
+  const env = { PATH: `${bin}:/usr/bin:/bin`, HOME: path.join(root, "home"), SOFTWARETEAM_HOME: path.join(root, "instance"), SOFTWARETEAM_URL: "http://127.0.0.1:1", SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: "synthetic-channel-secret", ANTHROPIC_API_KEY: "synthetic-provider-secret", CODEX_HOME: "/daemon/codex" };
   const rc = path.join(root, "rc");
-  writeFileSync(rc, `export OPENRIG_HOME=/wrong OPENRIG_URL=http://127.0.0.1:1 OPENRIG_NODE_ID=wrong OPENRIG_OCCUPANT_GENERATION=wrong\nexport PATH=${shellQuote(userBin + ":" + bin + ":/usr/bin:/bin")}\nexport HOME=/user/home CODEX_HOME=/user/codex CLAUDE_CONFIG_DIR=/user/claude USER_VALUE=keep\n`);
-  const launch = new SeatLaunchEnvironment(tmux, env, root, path.join(bin, "rig"));
+  writeFileSync(rc, `export SOFTWARETEAM_HOME=/wrong SOFTWARETEAM_URL=http://127.0.0.1:1 SOFTWARETEAM_NODE_ID=wrong SOFTWARETEAM_OCCUPANT_GENERATION=wrong\nexport PATH=${shellQuote(userBin + ":" + bin + ":/usr/bin:/bin")}\nexport HOME=/user/home CODEX_HOME=/user/codex CLAUDE_CONFIG_DIR=/user/claude USER_VALUE=keep\n`);
+  const launch = new SeatLaunchEnvironment(tmux, env, root, path.join(bin, "SoftwareTeam"));
   const commands: string[] = [];
-  const binding: NodeBinding = { id: "b", nodeId: "node-current", tmuxSession: "seat@rig", tmuxPane: "%1", tmuxWindow: null, cmuxWorkspace: null, cmuxSurface: null, updatedAt: "", cwd: path.join(root, "workspace") };
+  const binding: NodeBinding = { id: "b", nodeId: "node-current", tmuxSession: "seat@software-team", tmuxPane: "%1", tmuxWindow: null, cmuxWorkspace: null, cmuxSurface: null, updatedAt: "", cwd: path.join(root, "workspace") };
   const send = async (_session: string, command: string) => { commands.push(command); return { ok: true as const }; };
   vi.spyOn(tmux, "sendText").mockImplementation(send);
   vi.spyOn(tmux, "sendShellCommand").mockImplementation(send);
@@ -56,19 +56,19 @@ function fixture() {
     const server = createServer((req, res) => { res.writeHead(req.headers.authorization === "Bearer synthetic-channel-secret" ? 200 : 401); res.end(JSON.stringify({ node: req.headers.authorization === "Bearer synthetic-channel-secret" ? "node-current" : "unauthorized" })); });
     await new Promise<void>(r => server.listen(0, "127.0.0.1", r));
     cleanup.push(() => new Promise<void>((r, reject) => server.close(e => e ? reject(e) : r())));
-    env.OPENRIG_URL = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+    env.SOFTWARETEAM_URL = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
   }
   async function execute(command: string, managed = false) {
-    expect(command).not.toContain(env.OPENRIG_ACTIVITY_HOOK_TOKEN);
+    expect(command).not.toContain(env.SOFTWARETEAM_ACTIVITY_HOOK_TOKEN);
     expect(command).not.toContain(env.ANTHROPIC_API_KEY);
     const { stdout } = await exec("/bin/bash", ["--noprofile", "--rcfile", rc, "-ic", command], { env, cwd: binding.cwd, timeout: 5000 });
     const observed = JSON.parse(stdout);
-    expect(observed).toMatchObject({ body: { node: "node-current" }, home: env.OPENRIG_HOME, node: "node-current" });
+    expect(observed).toMatchObject({ body: { node: "node-current" }, home: env.SOFTWARETEAM_HOME, node: "node-current" });
     if (!managed) expect(observed).toMatchObject({ generation: "successor-generation", HOME: "/user/home", CODEX_HOME: "/user/codex", CLAUDE_CONFIG_DIR: "/user/claude", USER_VALUE: "keep" });
     if (!managed) {
       const [owned, ...rest] = observed.PATH.split(":");
       expect(rest.join(":")).toBe(`${userBin}:${bin}:/usr/bin:/bin`);
-      expect(readlinkSync(path.join(owned, "rig"))).toBe(path.join(bin, "rig"));
+      expect(readlinkSync(path.join(owned, "SoftwareTeam"))).toBe(path.join(bin, "SoftwareTeam"));
     }
     return observed;
   }
@@ -86,7 +86,7 @@ describe.skipIf(process.platform === "win32")("seat launch environment after she
     expect(f.tmux.sendKeys).not.toHaveBeenCalled(); // staged helper owns the one submit
   });
   it.each(["fresh", "resume", "fork"] as const)("Codex %s pins its probed executable but preserves the child tool PATH", async kind => {
-    const f = fixture(); await f.serve(); f.identity.OPENRIG_RUNTIME = "codex";
+    const f = fixture(); await f.serve(); f.identity.SOFTWARETEAM_RUNTIME = "codex";
     const adapter = new CodexRuntimeAdapter({ tmux: f.tmux, fsOps: f.fsOps, seatLaunchEnvironment: f.launch, launchPath: f.env.PATH,
       detectDaemonSupport: async () => ({ kind: "supported" }), resolveGitAddDirs: async () => [], listProcesses: () => [], sleep: async () => {} });
     vi.spyOn(adapter as any, "dismissSkippableCodexUpdatePrompt").mockResolvedValue(undefined);
@@ -101,7 +101,7 @@ describe.skipIf(process.platform === "win32")("seat launch environment after she
     const f = fixture(); await f.serve();
     const adapter = runtime === "claude" ? new ClaudeResumeAdapter(f.tmux, { seatLaunchEnvironment: f.launch }) : new CodexResumeAdapter(f.tmux, { seatLaunchEnvironment: f.launch, launchPath: f.env.PATH });
     vi.spyOn(adapter as any, "verifyResume").mockResolvedValue({ ok: true });
-    expect((await adapter.resume("seat@rig", runtime === "claude" ? "claude_id" : "codex_id", "native-id", f.binding.cwd)).ok).toBe(true);
+    expect((await adapter.resume("seat@software-team", runtime === "claude" ? "claude_id" : "codex_id", "native-id", f.binding.cwd)).ok).toBe(true);
     await f.execute(f.commands[0]!);
   });
   it("managed Claude has the same public-channel override defect, without changing its bound native environment", async () => {
@@ -109,46 +109,46 @@ describe.skipIf(process.platform === "win32")("seat launch environment after she
     const db = new Database(":memory:"); cleanup.push(() => { db.close(); });
     db.exec("CREATE TABLE nodes(id TEXT,runtime TEXT,cwd TEXT); CREATE TABLE bindings(id TEXT,node_id TEXT,tmux_session TEXT,tmux_pane TEXT); CREATE TABLE occupant_tenures(node_id TEXT,generation_uuid TEXT,generation_ordinal INTEGER)");
     db.prepare("INSERT INTO nodes VALUES ('node-current','claude-code',?)").run(f.binding.cwd);
-    db.exec("INSERT INTO bindings VALUES ('b','node-current','seat@rig','%1'); INSERT INTO occupant_tenures VALUES ('node-current','current-generation',1)");
+    db.exec("INSERT INTO bindings VALUES ('b','node-current','seat@software-team','%1'); INSERT INTO occupant_tenures VALUES ('node-current','current-generation',1)");
     // Include the same user-tool dir in the existing managed PATH; managed PATH/HOME stay bound.
     f.env.PATH += ":" + path.join(f.root, "user-bin");
     const managed = new ClaudeManagedLaunch(db, f.env, {});
-    const prepared = await managed.prepare({ nodeId: "node-current", session: "seat@rig", pane: "%1" }, "auto");
+    const prepared = await managed.prepare({ nodeId: "node-current", session: "seat@software-team", pane: "%1" }, "auto");
     const observed = await f.execute(prepared.command(["--permission-mode", "auto"]), true);
     expect(observed.HOME).toBe(f.env.HOME); expect(observed.PATH).toBe(f.env.PATH);
     expect(observed.generation).toBe("current-generation");
   });
   it("managed Claude keeps a non-public URL on its inherited channel without changing the native context", async () => {
     const f = fixture();
-    f.env.OPENRIG_URL = "http://user:synthetic-private-value@localhost:7433";
+    f.env.SOFTWARETEAM_URL = "http://user:synthetic-private-value@localhost:7434";
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const db = new Database(":memory:"); cleanup.push(() => { db.close(); });
     db.exec("CREATE TABLE nodes(id TEXT,runtime TEXT,cwd TEXT); CREATE TABLE bindings(id TEXT,node_id TEXT,tmux_session TEXT,tmux_pane TEXT); CREATE TABLE occupant_tenures(node_id TEXT,generation_uuid TEXT,generation_ordinal INTEGER)");
     db.prepare("INSERT INTO nodes VALUES ('node-current','claude-code',?)").run(f.binding.cwd);
-    db.exec("INSERT INTO bindings VALUES ('b','node-current','seat@rig','%1'); INSERT INTO occupant_tenures VALUES ('node-current','current-generation',1)");
-    const prepared = await new ClaudeManagedLaunch(db, f.env, {}).prepare({ nodeId: "node-current", session: "seat@rig", pane: "%1" }, "auto");
+    db.exec("INSERT INTO bindings VALUES ('b','node-current','seat@software-team','%1'); INSERT INTO occupant_tenures VALUES ('node-current','current-generation',1)");
+    const prepared = await new ClaudeManagedLaunch(db, f.env, {}).prepare({ nodeId: "node-current", session: "seat@software-team", pane: "%1" }, "auto");
     const command = prepared.command(["--permission-mode", "auto"]);
-    expect(command).not.toContain(f.env.OPENRIG_URL);
-    expect(command).toContain('"OPENRIG_URL=${OPENRIG_URL-}"');
+    expect(command).not.toContain(f.env.SOFTWARETEAM_URL);
+    expect(command).toContain('"SOFTWARETEAM_URL=${SOFTWARETEAM_URL-}"');
     expect(command).toContain(shellQuote(`HOME=${f.env.HOME}`));
     expect(command).toContain(shellQuote(`PATH=${f.env.PATH}`));
     expect(warn).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(warn.mock.calls)).not.toContain("synthetic-private-value");
   });
   it("same-pane successor reasserts its reserved generation, not tmux's predecessor environment", async () => {
-    const f = fixture(); await f.serve(); f.identity.OPENRIG_OCCUPANT_GENERATION = "predecessor-generation"; f.identity.OPENRIG_RUNTIME = "codex";
+    const f = fixture(); await f.serve(); f.identity.SOFTWARETEAM_OCCUPANT_GENERATION = "predecessor-generation"; f.identity.SOFTWARETEAM_RUNTIME = "codex";
     const adapter = new ClaudeCodeAdapter({ tmux: f.tmux, fsOps: f.fsOps, seatLaunchEnvironment: f.launch });
     expect((await adapter.launchHarness({ ...f.binding, launchGeneration: "successor-generation" }, { name: "seat" })).ok).toBe(true);
     expect((await f.execute(f.commands[0]!)).runtime).toBe("claude-code");
-    expect(await f.launch.command("seat@rig", "claude", { nodeId: "different-node" })).toBe("claude");
+    expect(await f.launch.command("seat@software-team", "claude", { nodeId: "different-node" })).toBe("claude");
   });
   it("preserves the previous command if the metadata transport is unavailable", async () => {
     const f = fixture(); vi.spyOn(f.tmux, "getSessionEnv").mockRejectedValue(Error("unavailable"));
-    expect(await f.launch.command("seat@rig", "claude")).toBe("claude");
+    expect(await f.launch.command("seat@software-team", "claude")).toBe("claude");
     expect(f.commands).toEqual([]);
   });
   it("explicit allowlist never types unknown secrets or runtime/user variables", () => {
-    expect(publicSeatEnvironment({ OPENRIG_HOME: "/instance", OPENRIG_URL: "http://127.0.0.1:1234", OPENRIG_NEW_SECRET: "secret", OPENRIG_ACTIVITY_HOOK_TOKEN: "token", ANTHROPIC_API_KEY: "key", HOME: "/home", CLAUDE_CONFIG_DIR: "/claude", CODEX_HOME: "/codex" })).toEqual({ OPENRIG_HOME: "/instance", OPENRIG_URL: "http://127.0.0.1:1234" });
-    expect(publicSeatEnvironment({ OPENRIG_URL: "http://user:secret@127.0.0.1" })).toEqual({});
+    expect(publicSeatEnvironment({ SOFTWARETEAM_HOME: "/instance", SOFTWARETEAM_URL: "http://127.0.0.1:1234", SOFTWARETEAM_NEW_SECRET: "secret", SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: "token", ANTHROPIC_API_KEY: "key", HOME: "/home", CLAUDE_CONFIG_DIR: "/claude", CODEX_HOME: "/codex" })).toEqual({ SOFTWARETEAM_HOME: "/instance", SOFTWARETEAM_URL: "http://127.0.0.1:1234" });
+    expect(publicSeatEnvironment({ SOFTWARETEAM_URL: "http://user:secret@127.0.0.1" })).toEqual({});
   });
 });

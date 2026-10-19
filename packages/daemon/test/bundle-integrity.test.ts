@@ -51,20 +51,20 @@ describe("Bundle integrity", () => {
   function makeManifest(integrity?: { algorithm: "sha256"; files: Record<string, string> }): BundleManifest {
     return {
       schemaVersion: 1, name: "test", version: "1.0", createdAt: "2026-01-01",
-      rigSpec: "rig.yaml", packages: [{ name: "pkg", version: "1.0", path: "packages/pkg", originalSource: "" }],
+      softwareTeamSpec: "software-team.yaml", packages: [{ name: "pkg", version: "1.0", path: "packages/pkg", originalSource: "" }],
       integrity,
     };
   }
 
   // T1: Computes correct SHA-256
   it("computes correct SHA-256 for each file", () => {
-    writeFile("rig.yaml", "spec content");
+    writeFile("software-team.yaml", "spec content");
     writeFile("packages/pkg/SKILL.md", "skill content");
 
     const integrity = computeIntegrity(tmpDir, realFsOps());
 
     expect(integrity.algorithm).toBe("sha256");
-    expect(integrity.files["rig.yaml"]).toBe(sha256("spec content"));
+    expect(integrity.files["software-team.yaml"]).toBe(sha256("spec content"));
     expect(integrity.files["packages/pkg/SKILL.md"]).toBe(sha256("skill content"));
   });
 
@@ -72,7 +72,7 @@ describe("Bundle integrity", () => {
   it("writes integrity section to existing bundle.yaml", () => {
     const manifest = makeManifest();
     writeFile("bundle.yaml", serializeBundleManifest(manifest));
-    writeFile("rig.yaml", "spec");
+    writeFile("software-team.yaml", "spec");
 
     const integrity = computeIntegrity(tmpDir, realFsOps());
     writeIntegrity(tmpDir, integrity, realFsOps());
@@ -84,7 +84,7 @@ describe("Bundle integrity", () => {
 
   // T3: Verifier passes on clean bundle
   it("verifier passes on clean bundle", () => {
-    writeFile("rig.yaml", "spec");
+    writeFile("software-team.yaml", "spec");
     writeFile("packages/pkg/package.yaml", "name: pkg");
     const manifest = makeManifest();
     writeFile("bundle.yaml", serializeBundleManifest(manifest));
@@ -101,7 +101,7 @@ describe("Bundle integrity", () => {
 
   // T4: Verifier fails on tampered file
   it("verifier fails on tampered file (hash mismatch)", () => {
-    writeFile("rig.yaml", "original");
+    writeFile("software-team.yaml", "original");
     const manifest = makeManifest();
     writeFile("bundle.yaml", serializeBundleManifest(manifest));
 
@@ -109,17 +109,17 @@ describe("Bundle integrity", () => {
     writeIntegrity(tmpDir, integrity, realFsOps());
 
     // Tamper the file
-    fs.writeFileSync(path.join(tmpDir, "rig.yaml"), "tampered!");
+    fs.writeFileSync(path.join(tmpDir, "software-team.yaml"), "tampered!");
 
     const result = verifyIntegrity(tmpDir, { ...manifest, integrity }, realFsOps());
 
     expect(result.passed).toBe(false);
-    expect(result.mismatches).toContain("rig.yaml");
+    expect(result.mismatches).toContain("software-team.yaml");
   });
 
   // T5: Verifier fails on missing file
   it("verifier fails on missing file", () => {
-    writeFile("rig.yaml", "spec");
+    writeFile("software-team.yaml", "spec");
     const manifest = makeManifest();
     writeFile("bundle.yaml", serializeBundleManifest(manifest));
 
@@ -127,17 +127,17 @@ describe("Bundle integrity", () => {
     writeIntegrity(tmpDir, integrity, realFsOps());
 
     // Delete a file
-    fs.unlinkSync(path.join(tmpDir, "rig.yaml"));
+    fs.unlinkSync(path.join(tmpDir, "software-team.yaml"));
 
     const result = verifyIntegrity(tmpDir, { ...manifest, integrity }, realFsOps());
 
     expect(result.passed).toBe(false);
-    expect(result.missing).toContain("rig.yaml");
+    expect(result.missing).toContain("software-team.yaml");
   });
 
   // T6: Extra unexpected file -> passed=false
   it("verifier fails on extra unexpected file", () => {
-    writeFile("rig.yaml", "spec");
+    writeFile("software-team.yaml", "spec");
     const manifest = makeManifest();
     writeFile("bundle.yaml", serializeBundleManifest(manifest));
 
@@ -155,7 +155,7 @@ describe("Bundle integrity", () => {
 
   // T6b: .DS_Store ignored
   it(".DS_Store is ignored during compute and verify", () => {
-    writeFile("rig.yaml", "spec");
+    writeFile("software-team.yaml", "spec");
     writeFile(".DS_Store", "junk");
     const manifest = makeManifest();
     writeFile("bundle.yaml", serializeBundleManifest(manifest));
@@ -170,7 +170,7 @@ describe("Bundle integrity", () => {
 
   // T7: .env -> throws (hard fail)
   it("sensitive .env file throws during compute", () => {
-    writeFile("rig.yaml", "spec");
+    writeFile("software-team.yaml", "spec");
     writeFile(".env", "SECRET=bad");
 
     expect(() => computeIntegrity(tmpDir, realFsOps())).toThrow(/Sensitive paths/);

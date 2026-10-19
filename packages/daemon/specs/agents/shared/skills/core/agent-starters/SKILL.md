@@ -2,7 +2,7 @@
 name: agent-starters
 description: Use when creating, refreshing, packaging, inspecting, promoting, or deprecating a named per-seat starting point — Agent Starter manifest authoring, the 6-state lifecycle (captured → named → inspectable → used → promoted → deprecated), provenance honesty, and refusal rules. NOT a VM image; a managed starting point composed from agent role + startup context + optional native session source + provenance.
 metadata:
-  openrig:
+  softwareteam:
     stage: factory-approved
     sibling_skills:
       - claude-compaction-restore
@@ -16,16 +16,16 @@ metadata:
 
 A named, reusable per-seat starting point. Composes an agent role, startup
 context, optional native session source, and provenance into something a
-user or rig can choose when creating, refreshing, or packaging a seat.
+user or SoftwareTeam can choose when creating, refreshing, or packaging a seat.
 
-This registry-backed startup context is distinct from the `rig agent-image`
+This registry-backed startup context is distinct from the `SoftwareTeam agent-image`
 surface and from a VM image. See the current behavior below before treating
 optional session provenance as an executable native session source.
 
 ## Use this when
 
 - Creating a new seat from a known-good starting context.
-- Refreshing a seat with `rig expand` and `starter_ref`.
+- Refreshing a seat with `SoftwareTeam expand` and `starter_ref`.
 - Authoring a new starter (registry entry).
 - Inspecting an existing starter's provenance, freshness, or recommended status.
 - Promoting / deprecating starters in the registry.
@@ -49,7 +49,7 @@ Never compact, summarize, or shrink a seat in order to make or "lean" a starter.
 1. **Captured** — a useful seat/session/context pattern is identified.
 2. **Named** — it becomes an Agent Starter with stable id and owner.
 3. **Inspectable** — runtime, context inputs, session source, and provenance are visible.
-4. **Used** — a rig member or `rig expand` operation starts from it.
+4. **Used** — a SoftwareTeam member or `SoftwareTeam expand` operation starts from it.
 5. **Promoted** — evidence shows it is recommended for a role or bundle.
 6. **Deprecated** — replaced, stale, unsafe, or incompatible.
 
@@ -64,8 +64,8 @@ Never compact, summarize, or shrink a seat in order to make or "lean" a starter.
 ## Registry entry and current behavior
 
 Save one entry as `<registry-root>/reviewer-v1.yaml`. The resolver selects an
-explicit root or `OPENRIG_AGENT_STARTER_ROOT`; absent those, it checks the home
-registry `~/.openrig/agent-starters` and a configured fallback.
+explicit root or `SOFTWARETEAM_AGENT_STARTER_ROOT`; absent those, it checks the home
+registry `~/.softwareteam/agent-starters` and a configured fallback.
 
 ```yaml
 starter_id: reviewer-v1
@@ -76,7 +76,7 @@ context: Read the current task and the source needed to judge it.
 The current resolver checks the entry shape and credential boundary, then
 delivers this YAML itself as one required `guidance_merge` startup file on a
 fresh start. It does not interpret arbitrary context refs, load a native
-conversation from this example, or seal an image. A RigSpec member combining
+conversation from this example, or seal an image. A SoftwareTeamSpec member combining
 `starter_ref` with `session_source.mode: fork` is currently rejected; use a
 separate supported session-source path when native continuity is the outcome.
 
@@ -112,7 +112,7 @@ Priming Pack, record:
 
 - **Separate path**: `session-source-fork` — native conversation-source continuity; currently not composable with `starter_ref`
 - **Firm**: `specification-system` — declarative starter and member references
-- **Soft**: `rig-bundles-and-shareable-artifacts` — shareable starter packaging
+- **Soft**: `software-team-bundles-and-shareable-artifacts` — shareable starter packaging
 - **Soft**: `context-engineering-and-retrieval` — richer declarative context assembly
 - **Soft**: `seat-continuity-and-handover` — refresh and swap workflows over starters
 

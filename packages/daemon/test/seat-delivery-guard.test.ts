@@ -3,19 +3,19 @@ import { TerminalSessionBroker } from "../src/terminal/TerminalSessionBroker.js"
 import { ClaudeCompactionEnforcer } from "../src/domain/claude-compaction-enforcer.js";
 import { ModelDivergenceMonitor } from "../src/domain/model-divergence/model-divergence-monitor.js";
 import { NodeLauncher } from "../src/domain/node-launcher.js";
-import { RigTeardownOrchestrator } from "../src/domain/rig-teardown.js";
+import { SoftwareTeamTeardownOrchestrator } from "../src/domain/software-team-teardown.js";
 import { downRoutes } from "../src/routes/down.js";
-import { rigsRoutes } from "../src/routes/rigs.js";
+import { softwareTeamsRoutes } from "../src/routes/software-teams.js";
 import { WatchdogJobsRepository } from "../src/domain/watchdog-jobs-repository.js";
 import { WatchdogHistoryLog } from "../src/domain/watchdog-history-log.js";
 import { WatchdogPolicyEngine, formatWatchdogDeliveryMessage } from "../src/domain/watchdog-policy-engine.js";
 import { Hono } from "hono";
 import { seatRoutes } from "../src/routes/seat.js";
 import { transportRoutes } from "../src/routes/transport.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { DiscoveryRepository } from "../src/domain/discovery-repository.js";
-import { RigLifecycleService } from "../src/domain/rig-lifecycle-service.js";
+import { SoftwareTeamLifecycleService } from "../src/domain/software-team-lifecycle-service.js";
 import { TmuxAdapter } from "../src/adapters/tmux.js";
 import { SessionTransport } from "../src/domain/session-transport.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
@@ -125,7 +125,7 @@ function transportFixture() {
     const target = f.guard.maybeTarget(name);
     return target?.pane ? [{ id: target.pane } as never] : [];
   });
-  const transport = new SessionTransport({ db: f.db, tmuxAdapter: tmux, rigRepo: {} as never, sessionRegistry: {} as never, sleep: async () => {} });
+  const transport = new SessionTransport({ db: f.db, tmuxAdapter: tmux, softwareTeamRepo: {} as never, sessionRegistry: {} as never, sleep: async () => {} });
   return { ...f, tmux, transport, commands, files };
 }
 
@@ -159,7 +159,7 @@ describe("real adapter/transport guard boundaries with no external effects", () 
     expect(await f.tmux.sendText("a","automatic")).toMatchObject({ok:false,code:"typing_guard_enabled"});
     expect(await f.tmux.sendKeys("%1",["Enter"])).toMatchObject({ok:false,code:"typing_guard_enabled"});
     expect(await f.tmux.sendShellCommand("a","command")).toMatchObject({ok:false,code:"typing_guard_enabled"});
-    expect(await f.tmux.createSession("a",undefined,{OPENRIG_NODE_ID:"a"})).toMatchObject({ok:false,code:"guard_lease_required"});
+    expect(await f.tmux.createSession("a",undefined,{SOFTWARETEAM_NODE_ID:"a"})).toMatchObject({ok:false,code:"guard_lease_required"});
     expect(f.commands).toEqual([]);
     expect(await f.tmux.humanInput("a",()=>f.tmux.sendKeys("a",["x"]))).toEqual({ok:true});
     expect(await f.tmux.sendKeys("b",["Enter"])).toEqual({ok:true});
@@ -202,23 +202,23 @@ describe("real adapter/transport guard boundaries with no external effects", () 
 
 function queueFixture() {
   const db = new Database(":memory:"); migrate(db, ALL_MIGRATIONS);
-  db.exec(`INSERT INTO rigs(id,name) VALUES ('rig','test');
-    INSERT INTO nodes(id,rig_id,logical_id) VALUES ('a','rig','worker'),('b','rig','sibling');
+  db.exec(`INSERT INTO software_teams(id,name) VALUES ('softwareTeam','test');
+    INSERT INTO nodes(id,software_team_id,logical_id) VALUES ('a','softwareTeam','worker'),('b','softwareTeam','sibling');
     INSERT INTO bindings(id,node_id,tmux_session,tmux_pane) VALUES ('ba','a','worker@test','%1'),('bb','b','sibling@test','%2');
     INSERT INTO occupant_tenures(id,node_id,generation_ordinal,generation_uuid,kind) VALUES ('ga','a',1,'g1','fresh'),('gb','b',1,'g2','fresh');`);
   const guard = new SeatDeliveryGuard(db, name=>resolveGuardTarget(db,name));
   const writes:string[]=[];
   const tmux = new TmuxAdapter(async command=>{writes.push(command);return "";}); tmux.deliveryGuard=guard;
-  const rigRepo=new RigRepository(db), sessionRegistry=new SessionRegistry(db);
+  const softwareTeamRepo=new SoftwareTeamRepository(db), sessionRegistry=new SessionRegistry(db);
   db.exec("INSERT INTO sessions(id,node_id,session_name,status) VALUES ('sa','a','worker@test','running'),('sb','b','sibling@test','running');");
   vi.spyOn(tmux,"probeSession").mockResolvedValue({state:"present"});
   vi.spyOn(tmux,"getPaneCommand").mockResolvedValue("bash");
   vi.spyOn(tmux,"listPanes").mockImplementation(async name=>[{id:guard.target(name).pane!} as never]);
-  const transport=new SessionTransport({db,tmuxAdapter:tmux,rigRepo,sessionRegistry,sleep:async()=>{}});
+  const transport=new SessionTransport({db,tmuxAdapter:tmux,softwareTeamRepo,sessionRegistry,sleep:async()=>{}});
   const bus=new EventBus(db), outbox=new OutboxHandler(db);
-  const repo=new QueueRepository(db,bus,{validateRig:()=>true,transport,loadHumanRegistry:()=>({ok:true,entities:[],warnings:[]})});
+  const repo=new QueueRepository(db,bus,{validateSoftwareTeam:()=>true,transport,loadHumanRegistry:()=>({ok:true,entities:[],warnings:[]})});
   repo.attachOutbox(outbox);
-  return {db,guard,transport,outbox,bus,repo,writes,tmux,rigRepo,sessionRegistry};
+  return {db,guard,transport,outbox,bus,repo,writes,tmux,softwareTeamRepo,sessionRegistry};
 }
 
 describe("real queue transaction and retained delivery",()=>{
@@ -306,12 +306,12 @@ describe("real queue transaction and retained delivery",()=>{
 function httpFixture() {
   const f=queueFixture();const app=new Hono();
   app.use("*",async(c,next)=>{
-    c.set("tmuxAdapter" as never,f.tmux);c.set("rigRepo" as never,f.rigRepo);
+    c.set("tmuxAdapter" as never,f.tmux);c.set("softwareTeamRepo" as never,f.softwareTeamRepo);
     c.set("sessionRegistry" as never,f.sessionRegistry);c.set("eventBus" as never,f.bus);
     c.set("sessionTransport" as never,f.transport);c.set("outboxHandler" as never,f.outbox);await next();
   });
-  app.route("/api/rigs",rigsRoutes);app.route("/api/seat",seatRoutes);app.route("/api/transport",transportRoutes());
-  const post=async(path:string,body:unknown)=>app.request(path,{method:"POST",headers:{"content-type":"application/json","x-openrig-session":"human@test"},body:JSON.stringify(body)});
+  app.route("/api/software-teams",softwareTeamsRoutes);app.route("/api/seat",seatRoutes);app.route("/api/transport",transportRoutes());
+  const post=async(path:string,body:unknown)=>app.request(path,{method:"POST",headers:{"content-type":"application/json","x-softwareteam-session":"human@test"},body:JSON.stringify(body)});
   return {...f,app,post};
 }
 describe("supported route effects and lifecycle preflight",()=>{
@@ -344,11 +344,11 @@ describe("supported route effects and lifecycle preflight",()=>{
   });
   it("remove refuses before fallback queue mutation and any terminal effect",async()=>{
     const f=queueFixture();const work=await f.repo.create({sourceSession:"sender@test",destinationSession:"worker@test",body:"owned",nudge:false});
-    const lifecycle=new RigLifecycleService({db:f.db,rigRepo:f.rigRepo,sessionRegistry:f.sessionRegistry,discoveryRepo:new DiscoveryRepository(f.db),eventBus:f.bus,queueRepo:f.repo,tmuxAdapter:f.tmux});
+    const lifecycle=new SoftwareTeamLifecycleService({db:f.db,softwareTeamRepo:f.softwareTeamRepo,sessionRegistry:f.sessionRegistry,discoveryRepo:new DiscoveryRepository(f.db),eventBus:f.bus,queueRepo:f.repo,tmuxAdapter:f.tmux});
     await f.guard.set("a",true,"person","draft");
-    await expect(lifecycle.removeNode("rig","a",{fallbackDestination:"sibling@test"})).rejects.toMatchObject({code:"typing_guard_enabled"});
+    await expect(lifecycle.removeNode("softwareTeam","a",{fallbackDestination:"sibling@test"})).rejects.toMatchObject({code:"typing_guard_enabled"});
     expect(f.repo.getById(work.qitemId)!.destinationSession).toBe("worker@test");
-    expect(f.rigRepo.getRig("rig")!.nodes).toHaveLength(2);expect(f.writes).toEqual([]);f.db.close();
+    expect(f.softwareTeamRepo.getSoftwareTeam("softwareTeam")!.nodes).toHaveLength(2);expect(f.writes).toEqual([]);f.db.close();
   });
   it("reopens persisted preference/retention and reconciles attempted wakes without replay",async()=>{
     const f=queueFixture();await f.guard.set("a",true,"person","draft");await f.transport.send("worker@test","held",{deliveryId:"survivor"});
@@ -383,24 +383,24 @@ it("automatic reminder records retained custody and no delivered fire or input",
  it("whole lifecycle refuses launch, teardown, stop, clean and delete before effects with typed HTTP refusal",async()=>{
   const f=httpFixture();await f.guard.set("a",true,"person","draft");
   const snapshot={db:f.db,capture:vi.fn()} as never;
-  const launcher=new NodeLauncher({db:f.db,rigRepo:f.rigRepo,sessionRegistry:f.sessionRegistry,eventBus:f.bus,tmuxAdapter:f.tmux});
-  const teardown=new RigTeardownOrchestrator({db:f.db,rigRepo:f.rigRepo,sessionRegistry:f.sessionRegistry,eventBus:f.bus,tmuxAdapter:f.tmux,snapshotCapture:snapshot});
-  await expect(launcher.launchNode("rig","worker")).rejects.toMatchObject({code:"typing_guard_enabled"});
-  await expect(teardown.teardown("rig",{delete:true,force:true})).rejects.toMatchObject({code:"typing_guard_enabled"});
+  const launcher=new NodeLauncher({db:f.db,softwareTeamRepo:f.softwareTeamRepo,sessionRegistry:f.sessionRegistry,eventBus:f.bus,tmuxAdapter:f.tmux});
+  const teardown=new SoftwareTeamTeardownOrchestrator({db:f.db,softwareTeamRepo:f.softwareTeamRepo,sessionRegistry:f.sessionRegistry,eventBus:f.bus,tmuxAdapter:f.tmux,snapshotCapture:snapshot});
+  await expect(launcher.launchNode("softwareTeam","worker")).rejects.toMatchObject({code:"typing_guard_enabled"});
+  await expect(teardown.teardown("softwareTeam",{delete:true,force:true})).rejects.toMatchObject({code:"typing_guard_enabled"});
   for(const verb of ["stop","clean","launch"]) {
     const res=await f.post(`/api/seat/${verb}/worker@test`,{reason:"test",fresh:true,stop:true});
     expect(res.status).toBe(409);expect(await res.json()).toMatchObject({code:"typing_guard_enabled"});
   }
   const down=new Hono();down.use("*",async(c,next)=>{c.set("teardownOrchestrator" as never,teardown);await next();});down.route("/",downRoutes);
-  expect((await down.request("/",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({rigId:"rig",delete:true,force:true})})).status).toBe(409);
-  expect((await f.app.request("/api/rigs/rig",{method:"DELETE"})).status).toBe(409);
-  expect(f.rigRepo.getRig("rig")!.nodes).toHaveLength(2);expect(f.writes).toEqual([]);expect((snapshot as any).capture).not.toHaveBeenCalled();f.db.close();
+  expect((await down.request("/",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({softwareTeamId:"softwareTeam",delete:true,force:true})})).status).toBe(409);
+  expect((await f.app.request("/api/software-teams/softwareTeam",{method:"DELETE"})).status).toBe(409);
+  expect(f.softwareTeamRepo.getSoftwareTeam("softwareTeam")!.nodes).toHaveLength(2);expect(f.writes).toEqual([]);expect((snapshot as any).capture).not.toHaveBeenCalled();f.db.close();
  });
  it("fresh launch off rebinds the original lease, then protection prevents lifecycle and stale writes",async()=>{
-  const f=queueFixture();f.db.exec("INSERT INTO nodes(id,rig_id,logical_id) VALUES ('c','rig','fresh');");
+  const f=queueFixture();f.db.exec("INSERT INTO nodes(id,software_team_id,logical_id) VALUES ('c','softwareTeam','fresh');");
   vi.mocked(f.tmux.listPanes).mockImplementation(async name=>[{id:name==="r00-test-fresh"?"%3":f.guard.target(name).pane!} as never]);
-  const launcher=new NodeLauncher({db:f.db,rigRepo:f.rigRepo,sessionRegistry:f.sessionRegistry,eventBus:f.bus,tmuxAdapter:f.tmux});
-  const launched=await launcher.launchNode("rig","fresh");expect(launched.ok).toBe(true);
+  const launcher=new NodeLauncher({db:f.db,softwareTeamRepo:f.softwareTeamRepo,sessionRegistry:f.sessionRegistry,eventBus:f.bus,tmuxAdapter:f.tmux});
+  const launched=await launcher.launchNode("softwareTeam","fresh");expect(launched.ok).toBe(true);
   expect(f.guard.target("c")).toMatchObject({pane:"%3",session:"r00-test-fresh"});
   await f.guard.set("c",true,"person","draft");const count=f.writes.length;
   expect(await f.tmux.sendText("r00-test-fresh","no")).toMatchObject({ok:false,code:"typing_guard_enabled"});expect(f.writes).toHaveLength(count);f.db.close();
@@ -414,12 +414,12 @@ it("automatic reminder records retained custody and no delivered fire or input",
  });
 
  it("failed first binding compensates only its proven fresh session under the same lifecycle lease",async()=>{
-  const f=queueFixture();f.db.exec("INSERT INTO nodes(id,rig_id,logical_id) VALUES ('c','rig','fresh');");
+  const f=queueFixture();f.db.exec("INSERT INTO nodes(id,software_team_id,logical_id) VALUES ('c','softwareTeam','fresh');");
   const commands:string[]=[];const tmux=new TmuxAdapter(async command=>{commands.push(command);return command.includes("display-message")?"$44\n":"";});tmux.deliveryGuard=f.guard;
   vi.spyOn(tmux,"listPanes").mockResolvedValue([{id:"%3"} as never]);
   vi.spyOn(f.bus,"persistWithinTransaction").mockImplementation(()=>{throw Error("injected DB failure");});
-  const launcher=new NodeLauncher({db:f.db,rigRepo:f.rigRepo,sessionRegistry:f.sessionRegistry,eventBus:f.bus,tmuxAdapter:tmux});
-  expect(await launcher.launchNode("rig","fresh")).toMatchObject({ok:false,code:"db_error"});
+  const launcher=new NodeLauncher({db:f.db,softwareTeamRepo:f.softwareTeamRepo,sessionRegistry:f.sessionRegistry,eventBus:f.bus,tmuxAdapter:tmux});
+  expect(await launcher.launchNode("softwareTeam","fresh")).toMatchObject({ok:false,code:"db_error"});
   expect(commands.at(-1)).toBe("tmux kill-session -t '$44'");expect(f.guard.target("c").pane).toBeNull();f.db.close();
  });
  it("private probe termination uses only its positively allocated session identity",async()=>{
@@ -433,8 +433,8 @@ it("automatic reminder records retained custody and no delivered fire or input",
 
  it("claim hint is one retained notification, not an injected adoption message",async()=>{
   const f=queueFixture();await f.guard.set("a",true,"person","draft");
-  const claim=new ClaimService({db:f.db,rigRepo:f.rigRepo,sessionRegistry:f.sessionRegistry,discoveryRepo:new DiscoveryRepository(f.db),eventBus:f.bus,tmuxAdapter:f.tmux});
-  for(let i=0;i<2;i++)await (claim as any).deliverClaimHint("worker@test",{rigName:"test",logicalId:"worker"});
+  const claim=new ClaimService({db:f.db,softwareTeamRepo:f.softwareTeamRepo,sessionRegistry:f.sessionRegistry,discoveryRepo:new DiscoveryRepository(f.db),eventBus:f.bus,tmuxAdapter:f.tmux});
+  for(let i=0;i<2;i++)await (claim as any).deliverClaimHint("worker@test",{softwareTeamName:"test",logicalId:"worker"});
   expect(f.outbox.heldForNode("a").total).toBe(1);expect(f.outbox.heldForNode("a").items[0]).toMatchObject({senderSession:"claim@system",deliveryState:"retained",deliveredAt:null});
   expect(f.writes).toEqual([]);f.db.close();
  });
@@ -449,7 +449,7 @@ it("automatic reminder records retained custody and no delivered fire or input",
     resolveClaudeCompactionPolicy:()=>({enabled:true,thresholdPercent:80,preCompactInstruction:"prep",compactInstruction:"",messageInline:"",messageFilePath:"",postRestoreAuditInstruction:"audit"}),
     resolveOne:()=>{throw Error("unexpected individual setting read while guarded");},
   } as never;
-  const enforcer=new ClaudeCompactionEnforcer(settings,f.transport,{openrigHome:process.env.OPENRIG_HOME});
+  const enforcer=new ClaudeCompactionEnforcer(settings,f.transport,{softwareteamHome:process.env.SOFTWARETEAM_HOME});
   const input={sessionName:"worker@test",runtime:"claude-code",usedPercentage:99};
   expect(await enforcer.maybeAutoCompact(input)).toMatchObject({triggered:false,reason:"typing_guard_enabled"});
   expect(await enforcer.triggerManualCompact(input,{operatorInitiated:true})).toMatchObject({triggered:false,reason:"typing_guard_enabled"});
@@ -457,7 +457,7 @@ it("automatic reminder records retained custody and no delivered fire or input",
  });
  it("model notice channels label retained custody and reuse producer identity without delivery claim",async()=>{
   const f=queueFixture();await f.guard.set("a",true,"person","draft");const recorded:any[]=[];
-  const monitor=new ModelDivergenceMonitor({listPinnedSeats:()=>[{nodeId:"b",sessionName:"sibling@test",rigId:"rig",rigName:"test",runtime:"codex",pinnedModel:"gpt-5.1-codex-mini",generation:"g2"}],
+  const monitor=new ModelDivergenceMonitor({listPinnedSeats:()=>[{nodeId:"b",sessionName:"sibling@test",softwareTeamId:"softwareTeam",softwareTeamName:"test",runtime:"codex",pinnedModel:"gpt-5.1-codex-mini",generation:"g2"}],
    readEffectiveModel:()=>({ok:true,model:"gpt-5.4-mini"}),resolveOrchSeats:()=>["worker@test"],resolveOperatorSeat:()=>null,resolveOversightSeat:()=>null,recordProclamation:p=>recorded.push(p),warn:()=>{},
    sendToSession:async(target,message,id)=>{
     const result=await f.transport.send(target,f.outbox.getById(id!)?.body??message,{deliveryId:id,actorSession:"model-monitor@system",auditPointer:id});return {ok:result.ok,outcome:result.outcome};

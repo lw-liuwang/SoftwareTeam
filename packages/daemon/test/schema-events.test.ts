@@ -11,9 +11,9 @@ describe("003_events", () => {
   beforeEach(() => {
     db = createDb();
     migrate(db, [coreSchema, eventsSchema]);
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run(
-      "rig-1",
-      "test-rig"
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run(
+      "software-team-1",
+      "test-software-team"
     );
   });
 
@@ -32,11 +32,11 @@ describe("003_events", () => {
 
   it("can insert an event with type and JSON payload", () => {
     db.prepare(
-      "INSERT INTO events (rig_id, type, payload) VALUES (?, ?, ?)"
-    ).run("rig-1", "node.added", JSON.stringify({ logicalId: "worker" }));
+      "INSERT INTO events (software_team_id, type, payload) VALUES (?, ?, ?)"
+    ).run("software-team-1", "node.added", JSON.stringify({ logicalId: "worker" }));
 
-    const event = db.prepare("SELECT * FROM events WHERE rig_id = ?").get(
-      "rig-1"
+    const event = db.prepare("SELECT * FROM events WHERE software_team_id = ?").get(
+      "software-team-1"
     ) as { seq: number; type: string; payload: string };
     expect(event.type).toBe("node.added");
     expect(JSON.parse(event.payload)).toEqual({ logicalId: "worker" });
@@ -45,14 +45,14 @@ describe("003_events", () => {
 
   it("seq is auto-incrementing and monotonic", () => {
     db.prepare(
-      "INSERT INTO events (rig_id, type, payload) VALUES (?, ?, ?)"
-    ).run("rig-1", "event.a", "{}");
+      "INSERT INTO events (software_team_id, type, payload) VALUES (?, ?, ?)"
+    ).run("software-team-1", "event.a", "{}");
     db.prepare(
-      "INSERT INTO events (rig_id, type, payload) VALUES (?, ?, ?)"
-    ).run("rig-1", "event.b", "{}");
+      "INSERT INTO events (software_team_id, type, payload) VALUES (?, ?, ?)"
+    ).run("software-team-1", "event.b", "{}");
     db.prepare(
-      "INSERT INTO events (rig_id, type, payload) VALUES (?, ?, ?)"
-    ).run("rig-1", "event.c", "{}");
+      "INSERT INTO events (software_team_id, type, payload) VALUES (?, ?, ?)"
+    ).run("software-team-1", "event.c", "{}");
 
     const events = db
       .prepare("SELECT seq FROM events ORDER BY seq")
@@ -65,8 +65,8 @@ describe("003_events", () => {
   it("primary invariant: query WHERE seq > N returns correct replay set", () => {
     for (let i = 0; i < 5; i++) {
       db.prepare(
-        "INSERT INTO events (rig_id, type, payload) VALUES (?, ?, ?)"
-      ).run("rig-1", `event.${i}`, JSON.stringify({ index: i }));
+        "INSERT INTO events (software_team_id, type, payload) VALUES (?, ?, ?)"
+      ).run("software-team-1", `event.${i}`, JSON.stringify({ index: i }));
     }
 
     const allEvents = db
@@ -77,9 +77,9 @@ describe("003_events", () => {
     // Replay after seq2: should get events 3, 4, 5 (indices 2, 3, 4)
     const replay = db
       .prepare(
-        "SELECT seq, type, payload FROM events WHERE rig_id = ? AND seq > ? ORDER BY seq"
+        "SELECT seq, type, payload FROM events WHERE software_team_id = ? AND seq > ? ORDER BY seq"
       )
-      .all("rig-1", seq2) as { seq: number; type: string; payload: string }[];
+      .all("software-team-1", seq2) as { seq: number; type: string; payload: string }[];
 
     expect(replay).toHaveLength(3);
     expect(JSON.parse(replay[0]!.payload)).toEqual({ index: 2 });
@@ -91,33 +91,33 @@ describe("003_events", () => {
     expect(replay[1]!.seq).toBeLessThan(replay[2]!.seq);
   });
 
-  it("query by rig_id filters correctly", () => {
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run(
-      "rig-2",
-      "other-rig"
+  it("query by software_team_id filters correctly", () => {
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run(
+      "software-team-2",
+      "other-software-team"
     );
     db.prepare(
-      "INSERT INTO events (rig_id, type, payload) VALUES (?, ?, ?)"
-    ).run("rig-1", "event.a", "{}");
+      "INSERT INTO events (software_team_id, type, payload) VALUES (?, ?, ?)"
+    ).run("software-team-1", "event.a", "{}");
     db.prepare(
-      "INSERT INTO events (rig_id, type, payload) VALUES (?, ?, ?)"
-    ).run("rig-2", "event.b", "{}");
+      "INSERT INTO events (software_team_id, type, payload) VALUES (?, ?, ?)"
+    ).run("software-team-2", "event.b", "{}");
     db.prepare(
-      "INSERT INTO events (rig_id, type, payload) VALUES (?, ?, ?)"
-    ).run("rig-1", "event.c", "{}");
+      "INSERT INTO events (software_team_id, type, payload) VALUES (?, ?, ?)"
+    ).run("software-team-1", "event.c", "{}");
 
     const rig1Events = db
-      .prepare("SELECT * FROM events WHERE rig_id = ? ORDER BY seq")
-      .all("rig-1") as { type: string }[];
+      .prepare("SELECT * FROM events WHERE software_team_id = ? ORDER BY seq")
+      .all("software-team-1") as { type: string }[];
     expect(rig1Events).toHaveLength(2);
     expect(rig1Events[0]!.type).toBe("event.a");
     expect(rig1Events[1]!.type).toBe("event.c");
   });
 
-  it("node_id is nullable — rig-level events work", () => {
+  it("node_id is nullable — software-team-level events work", () => {
     db.prepare(
-      "INSERT INTO events (rig_id, type, payload) VALUES (?, ?, ?)"
-    ).run("rig-1", "rig.created", "{}");
+      "INSERT INTO events (software_team_id, type, payload) VALUES (?, ?, ?)"
+    ).run("software-team-1", "software-team.created", "{}");
 
     const event = db.prepare("SELECT node_id FROM events WHERE seq = 1").get() as {
       node_id: string | null;
@@ -135,9 +135,9 @@ describe("003_events", () => {
     expect(() =>
       db
         .prepare(
-          "INSERT INTO events (rig_id, node_id, type, payload) VALUES (?, ?, ?, ?)"
+          "INSERT INTO events (software_team_id, node_id, type, payload) VALUES (?, ?, ?, ?)"
         )
-        .run("rig-1", "nonexistent-node", "node.added", "{}")
+        .run("software-team-1", "nonexistent-node", "node.added", "{}")
     ).not.toThrow();
 
     const event = db
@@ -149,15 +149,15 @@ describe("003_events", () => {
   it("events survive node deletion (append-only history preserved)", () => {
     // Create a node, emit events for it, delete the node — events must remain
     db.prepare(
-      "INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)"
-    ).run("node-1", "rig-1", "worker");
+      "INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)"
+    ).run("node-1", "software-team-1", "worker");
 
     db.prepare(
-      "INSERT INTO events (rig_id, node_id, type, payload) VALUES (?, ?, ?, ?)"
-    ).run("rig-1", "node-1", "node.added", '{"logicalId":"worker"}');
+      "INSERT INTO events (software_team_id, node_id, type, payload) VALUES (?, ?, ?, ?)"
+    ).run("software-team-1", "node-1", "node.added", '{"logicalId":"worker"}');
     db.prepare(
-      "INSERT INTO events (rig_id, node_id, type, payload) VALUES (?, ?, ?, ?)"
-    ).run("rig-1", "node-1", "session.status_changed", '{"status":"running"}');
+      "INSERT INTO events (software_team_id, node_id, type, payload) VALUES (?, ?, ?, ?)"
+    ).run("software-team-1", "node-1", "session.status_changed", '{"status":"running"}');
 
     // Delete the node
     db.prepare("DELETE FROM nodes WHERE id = ?").run("node-1");
@@ -173,37 +173,37 @@ describe("003_events", () => {
     expect(events[1]!.type).toBe("session.status_changed");
   });
 
-  it("events survive rig deletion (audit trail preserved)", () => {
+  it("events survive SoftwareTeam deletion (audit trail preserved)", () => {
     db.prepare(
-      "INSERT INTO events (rig_id, type, payload) VALUES (?, ?, ?)"
-    ).run("rig-1", "event.a", "{}");
+      "INSERT INTO events (software_team_id, type, payload) VALUES (?, ?, ?)"
+    ).run("software-team-1", "event.a", "{}");
     db.prepare(
-      "INSERT INTO events (rig_id, type, payload) VALUES (?, ?, ?)"
-    ).run("rig-1", "event.b", "{}");
+      "INSERT INTO events (software_team_id, type, payload) VALUES (?, ?, ?)"
+    ).run("software-team-1", "event.b", "{}");
 
-    db.prepare("DELETE FROM rigs WHERE id = ?").run("rig-1");
+    db.prepare("DELETE FROM software_teams WHERE id = ?").run("software-team-1");
 
-    // Events must still exist with original rig_id intact
+    // Events must still exist with original software_team_id intact
     const events = db
-      .prepare("SELECT rig_id, type FROM events ORDER BY seq")
-      .all() as { rig_id: string; type: string }[];
+      .prepare("SELECT software_team_id, type FROM events ORDER BY seq")
+      .all() as { software_team_id: string; type: string }[];
     expect(events).toHaveLength(2);
-    expect(events[0]!.rig_id).toBe("rig-1");
-    expect(events[1]!.rig_id).toBe("rig-1");
+    expect(events[0]!.software_team_id).toBe("software-team-1");
+    expect(events[1]!.software_team_id).toBe("software-team-1");
   });
 
-  it("allows event with rig_id referencing nonexistent rig (orphan refs)", () => {
+  it("allows event with software_team_id referencing nonexistent softwareTeam (orphan refs)", () => {
     expect(() =>
       db
         .prepare(
-          "INSERT INTO events (rig_id, type, payload) VALUES (?, ?, ?)"
+          "INSERT INTO events (software_team_id, type, payload) VALUES (?, ?, ?)"
         )
-        .run("nonexistent-rig", "rig.created", "{}")
+        .run("nonexistent-software-team", "software-team.created", "{}")
     ).not.toThrow();
 
     const event = db
-      .prepare("SELECT rig_id FROM events WHERE rig_id = ?")
-      .get("nonexistent-rig") as { rig_id: string };
-    expect(event.rig_id).toBe("nonexistent-rig");
+      .prepare("SELECT software_team_id FROM events WHERE software_team_id = ?")
+      .get("nonexistent-software-team") as { software_team_id: string };
+    expect(event.software_team_id).toBe("nonexistent-software-team");
   });
 });

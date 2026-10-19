@@ -22,7 +22,7 @@ function snapshot(tokens: "missing" | "resolved" | "unavailable", manifest = tru
       configSource: { state: "default", path: null },
       configuration: { enabled: false, channel: null, inboundDestination: null, outboundDestinations: [], postLevel: "NOTICE", interruptLevel: "ALERT", botToken: tokens, appToken: tokens },
       running: { state: "active", activatedAt: null, outboundReady: false, inboundReady: false, inboundState: "idle", applied: "matching" },
-      state: "disabled", nextAction: tokens === "missing" ? "rig slack manifest --url" : "rig slack enable",
+      state: "disabled", nextAction: tokens === "missing" ? "SoftwareTeam slack manifest --url" : "SoftwareTeam slack enable",
       verification: { state: "none", at: null, actor: null }, registry: { state: "available", path: null }, humans: [],
     },
   } as FleetSnapshot;
@@ -85,7 +85,7 @@ describe("Print link to copy — real key path to the action", () => {
     v.dispatch(parseCommand("connections"));
     const sc = renderScreen(v.get(), snap, { cols: 100, rows: 60 });
     expect(sc.contentTargets.some((t) => t.action?.type === "print-for-copy")).toBe(false);
-    expect(sc.lines.join("\n")).toContain("rig slack manifest --url");
+    expect(sc.lines.join("\n")).toContain("SoftwareTeam slack manifest --url");
   });
 
   it("dispatching the action to view state changes nothing (only perform runs it)", () => {
@@ -204,7 +204,7 @@ describe("runCopySession — the main boundary", () => {
       expect(await runCopySession(deps)).toBe("failed");
       await tick(); await tick();
       expect(unhandled).toEqual([]);
-      expect(log).toEqual(["suspended:true", "notice:Could not print the link (closed). Run: rig slack manifest --url", "suspended:false", "draw"]);
+      expect(log).toEqual(["suspended:true", "notice:Could not print the link (closed). Run: SoftwareTeam slack manifest --url", "suspended:false", "draw"]);
       expect(out.endsWith(RESTORE)).toBe(true);
       expect(raw).toEqual([false, true]);
     } finally { process.off("unhandledRejection", onUnhandled); }

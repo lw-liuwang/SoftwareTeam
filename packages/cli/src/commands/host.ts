@@ -17,7 +17,7 @@ import { existsSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { hostname as osHostname, userInfo } from "node:os";
 import { connect } from "node:net";
-import { getOpenRigHome } from "../openrig-compat.js";
+import { getSoftwareTeamHome } from "../softwareteam-compat.js";
 import { addHostEntry, defaultHostRegistryPath, loadHostRegistry, validateHostRegistry, hostDisplayTarget, resolveHost, resolveRemoteBearer, bearerAuthHeaders, type HostEntry, type HttpHostEntry } from "../host-registry.js";
 import { runCrossHostCommand, type CrossHostResult } from "../cross-host-executor.js";
 import { recordHostObservation, loadHostBindings, describeBindingConflict, defaultHostBindingsPath, type HostObservationOutcome } from "../host-bindings.js";
@@ -25,11 +25,11 @@ import { DaemonClient } from "../client.js";
 import { readOwnHostName, readSelectedHost } from "../host-selection.js";
 
 // ---------------------------------------------------------------------------
-// rig host pair — the approval wait is BOUNDED.
+// softwareTeam host pair — the approval wait is BOUNDED.
 // ---------------------------------------------------------------------------
 
 /** The largest poll deadline honored: the 32-bit signed millisecond cap that
- *  Node timers and `rig ask --wake-timeout` already use (2_147_483_647 ms,
+ *  Node timers and `softwareTeam ask --wake-timeout` already use (2_147_483_647 ms,
  *  ~24.8 days). Node runs a delay above it after 1 ms, and an `Infinity`
  *  deadline would make the retry loop in `pair` never exit. */
 export const MAX_PAIR_TIMEOUT_MS = 2_147_483_647;
@@ -45,7 +45,7 @@ export function resolvePairTimeoutMs(raw: string | undefined): number {
 }
 
 // ---------------------------------------------------------------------------
-// rig host doctor — stepwise, honest, three-valued (FR-1 + FR-2).
+// softwareTeam host doctor — stepwise, honest, three-valued (FR-1 + FR-2).
 // ---------------------------------------------------------------------------
 
 export type CheckStatus = "pass" | "fail" | "unknown";
@@ -119,7 +119,7 @@ function defaultDoctorDeps(): DoctorDeps {
 
 /** FR-1 doctor legs — each failing step maps to a DISTINCT actionable error:
  *  "SSH works but daemon is down" ≠ "daemon works but registry is wrong" ≠
- *  "remote rig binary missing/old". */
+ *  "remote softwareTeam binary missing/old". */
 /** OPR.0.4.6.MH1 FR-3 — the coarse ls status word: a BOUNDED tcp dial
  *  against the host's transport endpoint (ssh: target:22; http: the
  *  URL's host:port). Coarse by design (the kubectl STATUS / docker
@@ -167,19 +167,19 @@ export async function doctorLegs(host: HostEntry, deps: DoctorDeps): Promise<Che
     }
     rows.push({ step: "transport-reachability", status: "pass", detail: `ssh to ${host.target} ok` });
 
-    const version = await deps.run(host, ["rig", "--version"]);
+    const version = await deps.run(host, ["SoftwareTeam", "--version"]);
     if (!version.ok) {
       rows.push({
-        step: "remote-rig-binary",
+        step: "remote-software-team-binary",
         status: "fail",
-        detail: "reached the remote shell, but `rig --version` failed — remote rig binary missing or broken",
-        fix: "install the published artifact on the host: npm install -g @openrig/cli (see the product-factory runbook)",
+        detail: "reached the remote shell, but `SoftwareTeam --version` failed — remote SoftwareTeam binary missing or broken",
+        fix: "install the published artifact on the host: npm install -g @softwareteam/cli (see the product-factory runbook)",
       });
       return rows;
     }
-    rows.push({ step: "remote-rig-binary", status: "pass", detail: `remote rig ${version.stdout.trim() || "(version unreadable)"}` });
+    rows.push({ step: "remote-software-team-binary", status: "pass", detail: `remote softwareTeam ${version.stdout.trim() || "(version unreadable)"}` });
 
-    const daemon = await deps.run(host, ["rig", "daemon", "status"]);
+    const daemon = await deps.run(host, ["SoftwareTeam", "daemon", "status"]);
     const daemonUp = daemon.ok && /^Daemon running\b/im.test(daemon.stdout)
       && !/\bUNHEALTHY\b/i.test(daemon.stdout);
     if (daemonUp) {
@@ -189,7 +189,7 @@ export async function doctorLegs(host: HostEntry, deps: DoctorDeps): Promise<Che
         step: "remote-daemon-health",
         status: "unknown",
         detail: "remote daemon status could not confirm health; SSH reachability alone cannot determine daemon health",
-        fix: "on the host: verify with `rig daemon status` and an actual daemon-backed operation such as `rig ps --json`",
+        fix: "on the host: verify with `SoftwareTeam daemon status` and an actual daemon-backed operation such as `SoftwareTeam ps --json`",
       });
       return rows;
     } else if (/\bUNHEALTHY\b/i.test(daemon.stdout)) {
@@ -197,31 +197,31 @@ export async function doctorLegs(host: HostEntry, deps: DoctorDeps): Promise<Che
         step: "remote-daemon-health",
         status: "fail",
         detail: "remote daemon reports a present process but unhealthy control plane",
-        fix: "on the host: inspect `rig daemon status` and /healthz; follow the reported recovery guidance",
+        fix: "on the host: inspect `SoftwareTeam daemon status` and /healthz; follow the reported recovery guidance",
       });
       return rows;
     } else {
       rows.push({
           step: "remote-daemon-health",
           status: "fail",
-          detail: "SSH works and rig is installed, but the remote daemon is not running",
-          fix: "on the host: rig daemon start (then re-run doctor)",
+          detail: "SSH works and SoftwareTeam is installed, but the remote daemon is not running",
+          fix: "on the host: SoftwareTeam daemon start (then re-run doctor)",
       });
     }
     if (!daemonUp) return rows;
 
-    const whoami = await deps.run(host, ["rig", "ps", "--json", "--limit", "5"]);
+    const whoami = await deps.run(host, ["SoftwareTeam", "ps", "--json", "--limit", "5"]);
     let identityOk = false;
     if (whoami.ok) {
       try { identityOk = typeof JSON.parse(whoami.stdout) === "object"; } catch { identityOk = false; }
     }
     rows.push(identityOk
-      ? { step: "remote-identity", status: "pass", detail: "remote daemon identity/list resolves (rig ps --json parses)" }
+      ? { step: "remote-identity", status: "pass", detail: "remote daemon identity/list resolves (SoftwareTeam ps --json parses)" }
       : {
           step: "remote-identity",
           status: "fail",
           detail: "daemon is up but remote identity/list did not resolve",
-          fix: "on the host: check `rig ps --json` directly; the daemon API may be unhealthy even though status says running",
+          fix: "on the host: check `SoftwareTeam ps --json` directly; the daemon API may be unhealthy even though status says running",
         });
     return rows;
   }
@@ -229,7 +229,7 @@ export async function doctorLegs(host: HostEntry, deps: DoctorDeps): Promise<Che
   // http transport
   const bearer = resolveRemoteBearer(host as HttpHostEntry);
   if (!bearer.ok) {
-    rows.push({ step: "transport-reachability", status: "fail", detail: bearer.error, fix: "set the bearer env var / file the registry entry points at (pointer names: rig host list)" });
+    rows.push({ step: "transport-reachability", status: "fail", detail: bearer.error, fix: "set the bearer env var / file the registry entry points at (pointer names: SoftwareTeam host list)" });
     return rows;
   }
   try {
@@ -237,7 +237,7 @@ export async function doctorLegs(host: HostEntry, deps: DoctorDeps): Promise<Che
     if (health.status === 401 || health.status === 403) {
       rows.push(bearer.token
         ? { step: "transport-reachability", status: "fail", detail: `daemon reachable but rejected the bearer (HTTP ${health.status})`, fix: "registry is reachable but the token is wrong — rotate/set the bearer the entry points at" }
-        : { step: "transport-reachability", status: "fail", detail: `daemon reachable but requires Authorization (HTTP ${health.status}); this host entry is anonymous (no bearer configured)`, fix: "the remote daemon enforces a bearer — add a bearer_env or bearer_file pointer to this host's entry in ~/.openrig/hosts.yaml, then set that env var / file" });
+        : { step: "transport-reachability", status: "fail", detail: `daemon reachable but requires Authorization (HTTP ${health.status}); this host entry is anonymous (no bearer configured)`, fix: "the remote daemon enforces a bearer — add a bearer_env or bearer_file pointer to this host's entry in ~/.softwareteam/hosts.yaml, then set that env var / file" });
       return rows;
     }
     if (health.status < 200 || health.status >= 300) {
@@ -275,14 +275,14 @@ export async function doctorLegs(host: HostEntry, deps: DoctorDeps): Promise<Che
       }
     }
   } catch (err) {
-    rows.push({ step: "transport-reachability", status: "fail", detail: `daemon unreachable at ${(host as HttpHostEntry).url}: ${(err as Error).message}`, fix: "check tailnet connectivity and that the remote daemon is running (rig daemon start on the host)" });
+    rows.push({ step: "transport-reachability", status: "fail", detail: `daemon unreachable at ${(host as HttpHostEntry).url}: ${(err as Error).message}`, fix: "check tailnet connectivity and that the remote daemon is running (SoftwareTeam daemon start on the host)" });
     return rows;
   }
   rows.push({
-    step: "remote-rig-binary",
+    step: "remote-software-team-binary",
     status: "unknown",
     detail: "not determinable over http transport (no shell)",
-    fix: "verify via an ssh-transport entry for this host, or on the host directly: rig --version",
+    fix: "verify via an ssh-transport entry for this host, or on the host directly: SoftwareTeam --version",
   });
   try {
     const ps = await deps.httpGet(`${(host as HttpHostEntry).url}/api/ps`, bearerAuthHeaders(bearer.token));
@@ -318,14 +318,14 @@ export async function postureCheck(
   const rows: CheckRow[] = [];
   const sh = async (cmd: string) => deps.run(host, ["sh", "-c", cmd]);
 
-  // 1. non-root openrig user
-  const idOut = await sh("id -u openrig 2>/dev/null");
+  // 1. non-root softwareteam user
+  const idOut = await sh("id -u softwareteam 2>/dev/null");
   if (idOut.ok && idOut.stdout.trim() !== "") {
     rows.push(idOut.stdout.trim() === "0"
-      ? { step: "nonroot-openrig-user", status: "fail", detail: "user 'openrig' resolves to uid 0", fix: "create a non-root openrig user per the runbook" }
-      : { step: "nonroot-openrig-user", status: "pass", detail: `user 'openrig' uid ${idOut.stdout.trim()}` });
+      ? { step: "nonroot-softwareteam-user", status: "fail", detail: "user 'softwareteam' resolves to uid 0", fix: "create a non-root softwareteam user per the runbook" }
+      : { step: "nonroot-softwareteam-user", status: "pass", detail: `user 'softwareteam' uid ${idOut.stdout.trim()}` });
   } else {
-    rows.push({ step: "nonroot-openrig-user", status: "fail", detail: "user 'openrig' does not exist", fix: "adduser openrig + key-only SSH per the runbook" });
+    rows.push({ step: "nonroot-softwareteam-user", status: "fail", detail: "user 'softwareteam' does not exist", fix: "adduser softwareteam + key-only SSH per the runbook" });
   }
 
   // 2+3. sshd effective config (root SSH off, password auth off)
@@ -337,7 +337,7 @@ export async function postureCheck(
     }
     return sshdOut.includes(`${key} ${want}`)
       ? { step, status: "pass", detail: `${key} ${want}` }
-      : { step, status: "fail", detail: `sshd -T reports ${key} != ${want}`, fix: `set ${key} ${want} in /etc/ssh/sshd_config.d/99-openrig-hardening.conf and reload sshd` };
+      : { step, status: "fail", detail: `sshd -T reports ${key} != ${want}`, fix: `set ${key} ${want} in /etc/ssh/sshd_config.d/99-softwareteam-hardening.conf and reload sshd` };
   };
   rows.push(sshdItem("root-ssh-disabled", "permitrootlogin", "no"));
   rows.push(sshdItem("key-only-ssh", "passwordauthentication", "no"));
@@ -411,14 +411,14 @@ export async function postureCheck(
   // public IP bind must fail exactly like a wildcard — pass is an
   // ALLOWLIST (loopback or the tailnet CGNAT range 100.64.0.0/10), never
   // "not wildcard".
-  const ss = await sh("ss -tln 2>/dev/null | grep ':7433' || true");
+  const ss = await sh("ss -tln 2>/dev/null | grep ':7434' || true");
   const ssOut = ss.ok ? ss.stdout : "";
   const listenAddrs = ssOut
     .split("\n")
-    .map((line) => line.match(/(\S+):7433\b/)?.[1])
+    .map((line) => line.match(/(\S+):7434\b/)?.[1])
     .filter((a): a is string => a !== undefined);
   if (listenAddrs.length === 0) {
-    rows.push({ step: "daemon-bind-not-public", status: "unknown", detail: "no listener on :7433 observed (daemon may be down)", fix: "start the daemon, then re-check: ss -tln | grep 7433" });
+    rows.push({ step: "daemon-bind-not-public", status: "unknown", detail: "no listener on :7434 observed (daemon may be down)", fix: "start the daemon, then re-check: ss -tln | grep 7434" });
   } else {
     const isLoopbackOrTailnet = (addr: string): boolean => {
       const a = addr.replace(/^\[|\]$/g, "");
@@ -429,15 +429,15 @@ export async function postureCheck(
     const offending = listenAddrs.filter((a) => !isLoopbackOrTailnet(a));
     rows.push(offending.length === 0
       ? { step: "daemon-bind-not-public", status: "pass", detail: `listener(s) bound loopback/tailnet only: ${listenAddrs.join(", ")}` }
-      : { step: "daemon-bind-not-public", status: "fail", detail: `daemon listens on a non-loopback/non-tailnet address: ${offending.join(", ")}`, fix: "bind the daemon to loopback/tailnet only (OPENRIG daemon host config); never expose :7433 publicly" });
+      : { step: "daemon-bind-not-public", status: "fail", detail: `daemon listens on a non-loopback/non-tailnet address: ${offending.join(", ")}`, fix: "bind the daemon to loopback/tailnet only (SOFTWARETEAM daemon host config); never expose :7434 publicly" });
   }
 
   // 8+9. public reachability probes — only meaningful with a known PUBLIC address.
   if (opts.publicAddr) {
-    for (const [step, port] of [["public-daemon-port-unreachable", 7433], ["public-ssh-unreachable-or-accepted", 22]] as const) {
+    for (const [step, port] of [["public-daemon-port-unreachable", 7434], ["public-ssh-unreachable-or-accepted", 22]] as const) {
       const probe = await deps.tcpProbe(opts.publicAddr, port, 5000);
       rows.push(probe === "open"
-        ? { step, status: "fail", detail: `${opts.publicAddr}:${port} is publicly reachable`, fix: "remove the public allow rule / firewall the port (the smoke-test hardening bar: public :22/:7433 time out)" }
+        ? { step, status: "fail", detail: `${opts.publicAddr}:${port} is publicly reachable`, fix: "remove the public allow rule / firewall the port (the smoke-test hardening bar: public :22/:7434 time out)" }
         : { step, status: "pass", detail: `${opts.publicAddr}:${port} not reachable (${probe})` });
     }
   } else {
@@ -446,7 +446,7 @@ export async function postureCheck(
       detail: `public reachability of :${port} not probed (no public address known — the registry target may be a tailnet alias)`,
       fix: `re-run with --public-addr <ip> to probe from this vantage`,
     });
-    rows.push(unknownProbe("public-daemon-port-unreachable", 7433));
+    rows.push(unknownProbe("public-daemon-port-unreachable", 7434));
     rows.push(unknownProbe("public-ssh-unreachable-or-accepted", 22));
   }
 
@@ -454,7 +454,7 @@ export async function postureCheck(
 }
 
 export const POSTURE_ITEM_IDS = [
-  "nonroot-openrig-user",
+  "nonroot-softwareteam-user",
   "root-ssh-disabled",
   "key-only-ssh",
   "ufw-default-deny-incoming",
@@ -482,7 +482,7 @@ function authPointer(h: HostEntry): string {
 }
 
 export function hostCommand(doctorDepsOverride?: DoctorDeps): Command {
-  const cmd = new Command("host").description("Manage the multi-host registry (~/.openrig/hosts.yaml)");
+  const cmd = new Command("host").description("Manage the multi-host registry (~/.softwareteam/hosts.yaml)");
 
   cmd
     .command("add")
@@ -516,7 +516,7 @@ export function hostCommand(doctorDepsOverride?: DoctorDeps): Command {
         return;
       }
       console.log(`Added host '${res.entry.id}' (${res.entry.transport}) to ${res.path}`);
-      console.log(`Verify it: rig host doctor ${res.entry.id}`);
+      console.log(`Verify it: SoftwareTeam host doctor ${res.entry.id}`);
     });
 
   cmd
@@ -534,7 +534,7 @@ export function hostCommand(doctorDepsOverride?: DoctorDeps): Command {
           console.error(
             loaded && !loaded.ok
               ? loaded.error
-              : `cannot select '${id}': no hosts registered (no registry at ${registryPath}). Add one first: rig host add --id <id> --transport <ssh|http> ...`,
+              : `cannot select '${id}': no hosts registered (no registry at ${registryPath}). Add one first: SoftwareTeam host add --id <id> --transport <ssh|http> ...`,
           );
           process.exitCode = 1;
           return;
@@ -542,7 +542,7 @@ export function hostCommand(doctorDepsOverride?: DoctorDeps): Command {
         const ids = loaded.registry.hosts.map((h) => h.id);
         if (!ids.includes(id)) {
           console.error(
-            `cannot select '${id}': not a registered host id. Registered: ${ids.length > 0 ? ids.join(", ") : "(none)"}. Add it first: rig host add --id ${id} --transport <ssh|http> ... (or select 'local').`,
+            `cannot select '${id}': not a registered host id. Registered: ${ids.length > 0 ? ids.join(", ") : "(none)"}. Add it first: SoftwareTeam host add --id ${id} --transport <ssh|http> ... (or select 'local').`,
           );
           process.exitCode = 1;
           return;
@@ -575,7 +575,7 @@ export function hostCommand(doctorDepsOverride?: DoctorDeps): Command {
         return;
       }
       console.log(id === "local" ? "Selected host: local (this host)" : `Selected host: ${id}`);
-      console.log(id === "local" ? "Commands run against this host." : `Flagless commands that support --host now run against '${id}'. Return with: rig host select local`);
+      console.log(id === "local" ? "Commands run against this host." : `Flagless commands that support --host now run against '${id}'. Return with: SoftwareTeam host select local`);
     });
 
   cmd
@@ -628,7 +628,7 @@ export function hostCommand(doctorDepsOverride?: DoctorDeps): Command {
     .action(async (rawUrl: string, opts: { id?: string; timeout?: string; json?: boolean; human?: string }) => {
       // OPR.0.4.6.MH1 FR-6 — THE founder-simple add path: one pasted
       // address, one approval ON the target, done. The flag-heavy
-      // `rig host add` stays as the unchanged advanced path. B1: the CLI
+      // `softwareTeam host add` stays as the unchanged advanced path. B1: the CLI
       // keeps its direct-fs write (addHostEntry); the browser surface
       // pairs through its local daemon — both converge on the ONE write
       // contract.
@@ -636,7 +636,7 @@ export function hostCommand(doctorDepsOverride?: DoctorDeps): Command {
       try {
         target = new URL(/^https?:\/\//.test(rawUrl.trim()) ? rawUrl.trim() : `http://${rawUrl.trim()}`);
       } catch {
-        console.error(`'${rawUrl}' is not a usable address. Paste the target daemon's URL, e.g. http://vps-a:7433`);
+        console.error(`'${rawUrl}' is not a usable address. Paste the target daemon's URL, e.g. http://vps-a:7434`);
         process.exitCode = 1;
         return;
       }
@@ -651,7 +651,7 @@ export function hostCommand(doctorDepsOverride?: DoctorDeps): Command {
       // pre-existing CREDENTIAL STATE: rejected, never overwritten, and
       // never deleted by this request's cleanup.
       const id = (opts.id ?? "").trim() || target.hostname.toLowerCase().replace(/[^a-z0-9.-]/g, "-").replace(/\./g, "-").replace(/^-+|-+$/g, "") || "paired-host";
-      const secretsDir = join(getOpenRigHome(), "secrets");
+      const secretsDir = join(getSoftwareTeamHome(), "secrets");
       const tokenPath = join(secretsDir, `host-${id}.token`);
       {
         const registryPath = defaultHostRegistryPath();
@@ -715,7 +715,7 @@ export function hostCommand(doctorDepsOverride?: DoctorDeps): Command {
       if (!opts.json) {
         console.log(`Pairing code: ${issued.code}`);
         console.log(`Waiting for approval on the target (its attention queue carries item ${issued.approvalQitemId ?? "?"}).`);
-        console.log(`On the target: rig queue update ${issued.approvalQitemId ?? "<qitem-id>"} --state done --closure-reason no-follow-on`);
+        console.log(`On the target: SoftwareTeam queue update ${issued.approvalQitemId ?? "<qitem-id>"} --state done --closure-reason no-follow-on`);
       }
 
       // The wait is BOUNDED: a non-finite or overflowing --timeout is clamped to
@@ -786,13 +786,13 @@ export function hostCommand(doctorDepsOverride?: DoctorDeps): Command {
         return;
       }
       console.log(`Paired. Host '${id}' registered (${targetBase}, bearer_file ${tokenPath}).`);
-      console.log(`Verify it: rig host doctor ${id}`);
+      console.log(`Verify it: SoftwareTeam host doctor ${id}`);
     });
 
   cmd
     .command("list")
     // OPR.0.4.6.MH1 QA fixback: the PRD/proof contract spells the verb
-    // `rig host ls` (FR-3); `list` stays the canonical name, `ls` is the
+    // `softwareTeam host ls` (FR-3); `list` stays the canonical name, `ls` is the
     // contract-required alias (same action, same --json).
     .alias("ls")
     .description("List registered hosts w/ status + selected marker (config pointers only — never secret values)")
@@ -804,7 +804,7 @@ export function hostCommand(doctorDepsOverride?: DoctorDeps): Command {
           console.log(JSON.stringify([]));
           return;
         }
-        console.log(`No hosts registered in ${registryPath}. Pair one from a single address: rig host pair <url> (advanced/manual path: rig host add --id <id> --transport <ssh|http> ...)`);
+        console.log(`No hosts registered in ${registryPath}. Pair one from a single address: SoftwareTeam host pair <url> (advanced/manual path: SoftwareTeam host add --id <id> --transport <ssh|http> ...)`);
         return;
       }
       const loaded = loadHostRegistry(registryPath);
@@ -826,7 +826,7 @@ export function hostCommand(doctorDepsOverride?: DoctorDeps): Command {
         // ADDITIVE ONLY (the shipped bare-array shape is a contract —
         // pre-MH1 consumers keep working): each row gains `selected` +
         // `status`; the scriptable selection pointer is the true row (or
-        // `rig config get host.selected`).
+        // `SoftwareTeam config get host.selected`).
         // Slice 14: `hostId` rides through the spread when present, but ABSENT-as-missing-key makes
         // "never learned this peer's identity" indistinguishable from a consumer that forgot to
         // look. Emit it explicitly as null so unbound is a value, not an absence. `learnedHostId`
@@ -843,12 +843,12 @@ export function hostCommand(doctorDepsOverride?: DoctorDeps): Command {
         return;
       }
       if (loaded.registry.hosts.length === 0) {
-        console.log(`No hosts registered in ${registryPath}. Pair one from a single address: rig host pair <url> (advanced/manual path: rig host add --id <id> --transport <ssh|http> ...)`);
+        console.log(`No hosts registered in ${registryPath}. Pair one from a single address: SoftwareTeam host pair <url> (advanced/manual path: SoftwareTeam host add --id <id> --transport <ssh|http> ...)`);
         return;
       }
       // OPR.0.4.6.MH1 FR-4: the own-host name renders here when RENAMED;
       // unnamed (default "localhost") keeps today's output byte-identical
-      // (the FR-4 zero-regression AC). Scriptable read: rig config get
+      // (the FR-4 zero-regression AC). Scriptable read: SoftwareTeam config get
       // host.name — the --json array stays registry rows only (shipped
       // bare-array contract).
       const ownName = readOwnHostName();
@@ -875,7 +875,7 @@ export function hostCommand(doctorDepsOverride?: DoctorDeps): Command {
         if (binding?.conflict) console.log(`\n! ${describeBindingConflict(h.id, binding)}`);
       }
       if (selected !== "local") {
-        console.log(`\nSelected host: ${selected} (return with: rig host select local)`);
+        console.log(`\nSelected host: ${selected} (return with: SoftwareTeam host select local)`);
       }
     });
 

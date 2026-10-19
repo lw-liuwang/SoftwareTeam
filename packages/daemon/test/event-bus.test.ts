@@ -5,14 +5,14 @@ import { migrate } from "../src/db/migrate.js";
 import { coreSchema } from "../src/db/migrations/001_core_schema.js";
 import { eventsSchema } from "../src/db/migrations/003_events.js";
 import { EventBus } from "../src/domain/event-bus.js";
-import type { RigEvent, PersistedEvent } from "../src/domain/types.js";
+import type { SoftwareTeamEvent, PersistedEvent } from "../src/domain/types.js";
 import { createFullTestDb } from "./helpers/test-app.js";
 
 function setupDb(): Database.Database {
   const db = createFullTestDb();
-  db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run(
-    "rig-1",
-    "test-rig"
+  db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run(
+    "software-team-1",
+    "test-software-team"
   );
   return db;
 }
@@ -31,8 +31,8 @@ describe("EventBus", () => {
   });
 
   it("emit persists event to DB with monotonic seq", () => {
-    const e1 = bus.emit({ type: "rig.created", rigId: "rig-1" });
-    const e2 = bus.emit({ type: "node.added", rigId: "rig-1", nodeId: "n1", logicalId: "worker" });
+    const e1 = bus.emit({ type: "software-team.created", softwareTeamId: "software-team-1" });
+    const e2 = bus.emit({ type: "node.added", softwareTeamId: "software-team-1", nodeId: "n1", logicalId: "worker" });
 
     expect(typeof e1.seq).toBe("number");
     expect(typeof e2.seq).toBe("number");
@@ -46,23 +46,23 @@ describe("EventBus", () => {
   });
 
   it("emit returns PersistedEvent with seq and createdAt", () => {
-    const persisted = bus.emit({ type: "rig.created", rigId: "rig-1" });
+    const persisted = bus.emit({ type: "software-team.created", softwareTeamId: "software-team-1" });
 
     expect(persisted.seq).toBeDefined();
     expect(persisted.createdAt).toBeDefined();
-    expect(persisted.type).toBe("rig.created");
-    expect(persisted.rigId).toBe("rig-1");
+    expect(persisted.type).toBe("software-team.created");
+    expect(persisted.softwareTeamId).toBe("software-team-1");
   });
 
   it("subscribe receives PersistedEvent with seq", () => {
     const received: PersistedEvent[] = [];
     bus.subscribe((event) => received.push(event));
 
-    const emitted = bus.emit({ type: "rig.created", rigId: "rig-1" });
+    const emitted = bus.emit({ type: "software-team.created", softwareTeamId: "software-team-1" });
 
     expect(received).toHaveLength(1);
     expect(received[0]!.seq).toBe(emitted.seq);
-    expect(received[0]!.type).toBe("rig.created");
+    expect(received[0]!.type).toBe("software-team.created");
     expect(received[0]!.createdAt).toBeDefined();
   });
 
@@ -72,7 +72,7 @@ describe("EventBus", () => {
     bus.subscribe((event) => received1.push(event));
     bus.subscribe((event) => received2.push(event));
 
-    bus.emit({ type: "rig.created", rigId: "rig-1" });
+    bus.emit({ type: "software-team.created", softwareTeamId: "software-team-1" });
 
     expect(received1).toHaveLength(1);
     expect(received2).toHaveLength(1);
@@ -83,11 +83,11 @@ describe("EventBus", () => {
     const received: PersistedEvent[] = [];
     const unsubscribe = bus.subscribe((event) => received.push(event));
 
-    bus.emit({ type: "rig.created", rigId: "rig-1" });
+    bus.emit({ type: "software-team.created", softwareTeamId: "software-team-1" });
     expect(received).toHaveLength(1);
 
     unsubscribe();
-    bus.emit({ type: "rig.deleted", rigId: "rig-1" });
+    bus.emit({ type: "software-team.deleted", softwareTeamId: "software-team-1" });
     expect(received).toHaveLength(1); // no new events
   });
 
@@ -102,7 +102,7 @@ describe("EventBus", () => {
 
     // Should not throw despite first subscriber erroring
     expect(() =>
-      bus.emit({ type: "rig.created", rigId: "rig-1" })
+      bus.emit({ type: "software-team.created", softwareTeamId: "software-team-1" })
     ).not.toThrow();
 
     // Second subscriber still received the event
@@ -115,7 +115,7 @@ describe("EventBus", () => {
     const received: PersistedEvent[] = [];
     bus.subscribe((event) => received.push(event));
 
-    bus.emit({ type: "node.added", rigId: "rig-1", nodeId: "n1", logicalId: "worker" });
+    bus.emit({ type: "node.added", softwareTeamId: "software-team-1", nodeId: "n1", logicalId: "worker" });
 
     const event = received[0]!;
     if (event.type === "node.added") {
@@ -137,47 +137,47 @@ describe("EventBus", () => {
       seqFoundInDb = row?.seq === event.seq;
     });
 
-    bus.emit({ type: "rig.created", rigId: "rig-1" });
+    bus.emit({ type: "software-team.created", softwareTeamId: "software-team-1" });
 
     expect(seqFoundInDb).toBe(true);
   });
 
   it("replaySince returns events after given seq in order", () => {
-    const e1 = bus.emit({ type: "rig.created", rigId: "rig-1" });
-    const e2 = bus.emit({ type: "node.added", rigId: "rig-1", nodeId: "n1", logicalId: "a" });
-    const e3 = bus.emit({ type: "node.added", rigId: "rig-1", nodeId: "n2", logicalId: "b" });
+    const e1 = bus.emit({ type: "software-team.created", softwareTeamId: "software-team-1" });
+    const e2 = bus.emit({ type: "node.added", softwareTeamId: "software-team-1", nodeId: "n1", logicalId: "a" });
+    const e3 = bus.emit({ type: "node.added", softwareTeamId: "software-team-1", nodeId: "n2", logicalId: "b" });
 
-    const replay = bus.replaySince(e1.seq, "rig-1");
+    const replay = bus.replaySince(e1.seq, "software-team-1");
     expect(replay).toHaveLength(2);
     expect(replay[0]!.seq).toBe(e2.seq);
     expect(replay[1]!.seq).toBe(e3.seq);
     expect(replay[0]!.type).toBe("node.added");
   });
 
-  it("replaySince filters by rigId", () => {
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run(
-      "rig-2",
-      "other-rig"
+  it("replaySince filters by softwareTeamId", () => {
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run(
+      "software-team-2",
+      "other-software-team"
     );
 
-    bus.emit({ type: "rig.created", rigId: "rig-1" });
-    bus.emit({ type: "rig.created", rigId: "rig-2" });
-    bus.emit({ type: "node.added", rigId: "rig-1", nodeId: "n1", logicalId: "worker" });
+    bus.emit({ type: "software-team.created", softwareTeamId: "software-team-1" });
+    bus.emit({ type: "software-team.created", softwareTeamId: "software-team-2" });
+    bus.emit({ type: "node.added", softwareTeamId: "software-team-1", nodeId: "n1", logicalId: "worker" });
 
-    const replay = bus.replaySince(0, "rig-1");
-    expect(replay).toHaveLength(2); // rig.created + node.added for rig-1 only
-    expect(replay.every((e) => e.rigId === "rig-1")).toBe(true);
+    const replay = bus.replaySince(0, "software-team-1");
+    expect(replay).toHaveLength(2); // software-team.created + node.added for software-team-1 only
+    expect(replay.every((e) => e.softwareTeamId === "software-team-1")).toBe(true);
   });
 
   it("persistWithinTransaction inserts row, returns PersistedEvent with seq", () => {
     const persisted = bus.persistWithinTransaction({
-      type: "rig.created",
-      rigId: "rig-1",
+      type: "software-team.created",
+      softwareTeamId: "software-team-1",
     });
 
     expect(persisted.seq).toBeDefined();
     expect(typeof persisted.seq).toBe("number");
-    expect(persisted.type).toBe("rig.created");
+    expect(persisted.type).toBe("software-team.created");
     expect(persisted.createdAt).toBeDefined();
 
     // Verify it's in the DB
@@ -190,14 +190,14 @@ describe("EventBus", () => {
 
   // T12: AgentSpec reboot event types persist and round-trip
   it("new AgentSpec reboot event types persist via EventBus", () => {
-    const events: RigEvent[] = [
-      { type: "pod.created", rigId: "rig-1", podId: "p1", namespace: "dev", label: "Dev" },
-      { type: "pod.deleted", rigId: "rig-1", podId: "p1" },
-      { type: "node.startup_pending", rigId: "rig-1", nodeId: "n1" },
-      { type: "node.startup_ready", rigId: "rig-1", nodeId: "n1" },
-      { type: "node.startup_failed", rigId: "rig-1", nodeId: "n1", error: "timeout" },
-      { type: "continuity.sync", rigId: "rig-1", podId: "p1", nodeId: "n1" },
-      { type: "continuity.degraded", rigId: "rig-1", podId: "p1", nodeId: "n1", reason: "stale artifacts" },
+    const events: SoftwareTeamEvent[] = [
+      { type: "pod.created", softwareTeamId: "software-team-1", podId: "p1", namespace: "dev", label: "Dev" },
+      { type: "pod.deleted", softwareTeamId: "software-team-1", podId: "p1" },
+      { type: "node.startup_pending", softwareTeamId: "software-team-1", nodeId: "n1" },
+      { type: "node.startup_ready", softwareTeamId: "software-team-1", nodeId: "n1" },
+      { type: "node.startup_failed", softwareTeamId: "software-team-1", nodeId: "n1", error: "timeout" },
+      { type: "continuity.sync", softwareTeamId: "software-team-1", podId: "p1", nodeId: "n1" },
+      { type: "continuity.degraded", softwareTeamId: "software-team-1", podId: "p1", nodeId: "n1", reason: "stale artifacts" },
     ];
 
     for (const event of events) {
@@ -228,8 +228,8 @@ describe("EventBus", () => {
 
     // Create a fake persisted event (not from DB)
     const fakeEvent: PersistedEvent = {
-      type: "rig.created",
-      rigId: "rig-1",
+      type: "software-team.created",
+      softwareTeamId: "software-team-1",
       seq: 9999,
       createdAt: "2026-03-23T00:00:00",
     };

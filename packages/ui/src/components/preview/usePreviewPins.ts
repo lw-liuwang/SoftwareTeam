@@ -10,8 +10,8 @@ export function usePreviewPins(): {
   pins: PreviewPin[];
   maxPins: number;
   pin: (pin: PreviewPin) => boolean;
-  unpin: (rigId: string, logicalId: string) => void;
-  isPinned: (rigId: string, logicalId: string) => boolean;
+  unpin: (softwareTeamId: string, logicalId: string) => void;
+  isPinned: (softwareTeamId: string, logicalId: string) => boolean;
 } {
   const { data: settings } = useSettings();
   const settingMaxPins = settings?.settings?.["ui.preview.max_pins"]?.value as number | undefined;
@@ -33,7 +33,7 @@ export function usePreviewPins(): {
     pins,
     maxPins: previewPinStore.getMaxPins(),
     pin: (p) => previewPinStore.pin(p),
-    unpin: (rigId, logicalId) => previewPinStore.unpin(rigId, logicalId),
-    isPinned: (rigId, logicalId) => previewPinStore.isPinned(rigId, logicalId),
+    unpin: (softwareTeamId, logicalId) => previewPinStore.unpin(softwareTeamId, logicalId),
+    isPinned: (softwareTeamId, logicalId) => previewPinStore.isPinned(softwareTeamId, logicalId),
   };
 }

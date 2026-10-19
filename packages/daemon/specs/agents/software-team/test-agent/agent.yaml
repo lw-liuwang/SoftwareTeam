@@ -1,0 +1,33 @@
+name: software-team-test-agent
+version: "1.0"
+description: Resident actual test-agent, defect reproduction, and regression owner
+
+defaults:
+  runtime: codex
+  lifecycle:
+    execution_mode: interactive_resident
+    restore_policy: resume_if_possible
+
+imports:
+  - ref: local:../shared
+
+profiles:
+  default:
+    uses:
+      skills: [software-team-test-agent, software-team-shared:software-team-contract]
+      guidance: []
+      subagents: []
+      plugins: []
+      runtime_resources: []
+
+resources:
+  skills:
+    - id: software-team-test-agent
+      path: skills/software-team-test-agent
+
+startup:
+  files:
+    - path: skills/software-team-test-agent/SKILL.md
+      delivery_hint: send_text
+      required: true
+  actions: []

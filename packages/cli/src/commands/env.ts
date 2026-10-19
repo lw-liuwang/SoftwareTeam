@@ -8,12 +8,12 @@ const LONG_RUNNING_TIMEOUT_MS = 45_000;
 
 export function envCommand(depsOverride?: StatusDeps): Command {
   const cmd = new Command("env")
-    .description("Inspect and control rig environment services for service-backed rigs and managed apps")
+    .description("Inspect and control SoftwareTeam environment services for service-backed softwareTeams and managed apps")
     .addHelpText("after", `
 Examples:
-  rig env status secrets-manager
-  rig env logs secrets-manager vault
-  rig env down secrets-manager
+  SoftwareTeam env status secrets-manager
+  SoftwareTeam env logs secrets-manager vault
+  SoftwareTeam env down secrets-manager
 `);
   const getDeps = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
@@ -23,34 +23,34 @@ Examples:
     return deps.clientFactory(getDaemonUrl(status));
   }
 
-  async function resolveRigId(client: DaemonClient, rigRef: string): Promise<string> {
-    const summaries = await client.get<Array<{ id: string; name: string }> | { error?: string }>("/api/rigs/summary");
+  async function resolveSoftwareTeamId(client: DaemonClient, softwareTeamRef: string): Promise<string> {
+    const summaries = await client.get<Array<{ id: string; name: string }> | { error?: string }>("/api/software-teams/summary");
     if (summaries.status >= 400) {
       const error = !Array.isArray(summaries.data) ? summaries.data?.error : undefined;
-      throw new Error(error ?? `Failed to list rigs (HTTP ${summaries.status})`);
+      throw new Error(error ?? `Failed to list softwareTeams (HTTP ${summaries.status})`);
     }
-    if (!Array.isArray(summaries.data)) throw new Error("The daemon returned an invalid rig summary.");
-    const match = summaries.data.find((r) => r.name === rigRef || r.id === rigRef);
-    if (!match) throw new Error(`Rig '${rigRef}' not found`);
+    if (!Array.isArray(summaries.data)) throw new Error("The daemon returned an invalid SoftwareTeam summary.");
+    const match = summaries.data.find((r) => r.name === softwareTeamRef || r.id === softwareTeamRef);
+    if (!match) throw new Error(`SoftwareTeam '${softwareTeamRef}' not found`);
     return match.id;
   }
 
-  // rig env status <rig>
+  // softwareTeam env status <softwareTeam>
   cmd
     .command("status")
-    .argument("<rig>", "Rig name or ID")
+    .argument("<softwareTeam>", "SoftwareTeam name or ID")
     .option("--json", "JSON output")
-    .action(async (rig: string, opts: { json?: boolean }) => {
+    .action(async (softwareTeam: string, opts: { json?: boolean }) => {
       const deps = getDeps();
       const client = await getClient(deps);
       if (!client) { process.exitCode = 1; return; }
 
-      let rigId: string;
-      try { rigId = await resolveRigId(client, rig); } catch (err) {
+      let softwareTeamId: string;
+      try { softwareTeamId = await resolveSoftwareTeamId(client, softwareTeam); } catch (err) {
         console.error((err as Error).message); process.exitCode = 1; return;
       }
 
-      const res = await client.get<Record<string, unknown>>(`/api/rigs/${encodeURIComponent(rigId)}/env`);
+      const res = await client.get<Record<string, unknown>>(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/env`);
 
       if (res.status >= 400) {
         if (opts.json) console.log(JSON.stringify(res.data, null, 2));
@@ -65,7 +65,7 @@ Examples:
       }
 
       if (!res.data["hasServices"]) {
-        console.log("No services configured for this rig.");
+        console.log("No services configured for this softwareTeam.");
         return;
       }
 
@@ -91,19 +91,19 @@ Examples:
       }
     });
 
-  // rig env logs <rig> [service]
+  // softwareTeam env logs <softwareTeam> [service]
   cmd
     .command("logs")
-    .argument("<rig>", "Rig name or ID")
+    .argument("<softwareTeam>", "SoftwareTeam name or ID")
     .argument("[service]", "Specific service name")
     .option("--tail <n>", "Number of lines", "100")
-    .action(async (rig: string, service: string | undefined, opts: { tail: string }) => {
+    .action(async (softwareTeam: string, service: string | undefined, opts: { tail: string }) => {
       const deps = getDeps();
       const client = await getClient(deps);
       if (!client) { process.exitCode = 1; return; }
 
-      let rigId: string;
-      try { rigId = await resolveRigId(client, rig); } catch (err) {
+      let softwareTeamId: string;
+      try { softwareTeamId = await resolveSoftwareTeamId(client, softwareTeam); } catch (err) {
         console.error((err as Error).message); process.exitCode = 1; return;
       }
 
@@ -111,7 +111,7 @@ Examples:
       if (service) params.set("service", service);
 
       const res = await client.get<{ ok: boolean; output?: string; error?: string }>(
-        `/api/rigs/${encodeURIComponent(rigId)}/env/logs?${params}`,
+        `/api/software-teams/${encodeURIComponent(softwareTeamId)}/env/logs?${params}`,
       );
 
       if (res.status >= 400 || !res.data.ok) {
@@ -123,23 +123,23 @@ Examples:
       console.log(res.data.output ?? "");
     });
 
-  // rig env down <rig> [--volumes]
+  // softwareTeam env down <softwareTeam> [--volumes]
   cmd
     .command("down")
-    .argument("<rig>", "Rig name or ID")
+    .argument("<softwareTeam>", "SoftwareTeam name or ID")
     .option("--volumes", "Also remove volumes")
-    .action(async (rig: string, opts: { volumes?: boolean }) => {
+    .action(async (softwareTeam: string, opts: { volumes?: boolean }) => {
       const deps = getDeps();
       const client = await getClient(deps);
       if (!client) { process.exitCode = 1; return; }
 
-      let rigId: string;
-      try { rigId = await resolveRigId(client, rig); } catch (err) {
+      let softwareTeamId: string;
+      try { softwareTeamId = await resolveSoftwareTeamId(client, softwareTeam); } catch (err) {
         console.error((err as Error).message); process.exitCode = 1; return;
       }
 
       const res = await client.post<{ ok: boolean; error?: string; kept?: string }>(
-        `/api/rigs/${encodeURIComponent(rigId)}/env/down`,
+        `/api/software-teams/${encodeURIComponent(softwareTeamId)}/env/down`,
         { volumes: opts.volumes ?? false },
         { timeoutMs: LONG_RUNNING_TIMEOUT_MS },
       );
@@ -150,7 +150,7 @@ Examples:
         return;
       }
 
-      console.log(res.data.kept ?? `Services stopped for ${rig}.`);
+      console.log(res.data.kept ?? `Services stopped for ${softwareTeam}.`);
     });
 
   return cmd;

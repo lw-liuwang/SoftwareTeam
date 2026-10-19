@@ -7,7 +7,7 @@ import { Hono } from "hono";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { AgentActivityStore } from "../src/domain/agent-activity-store.js";
@@ -22,15 +22,15 @@ import type { TmuxAdapter } from "../src/adapters/tmux.js";
 
 const T1 = "00000000-0000-4000-8000-000000001080";
 const T2 = "00000000-0000-4000-8000-000000001081";
-const relayPath = fileURLToPath(new URL("../assets/plugins/openrig-core/hooks/scripts/activity-relay.cjs", import.meta.url));
+const relayPath = fileURLToPath(new URL("../assets/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs", import.meta.url));
 
 describe("resume launch marker binds the reporting process", () => {
   it.each([true, false])("a child cannot rotate the parent identity (parent first hook delivered: %s)", async delivered => {
     const db = createFullTestDb();
     try {
-      const rigRepo = new RigRepository(db), registry = new SessionRegistry(db), eventBus = new EventBus(db);
-      const rig = rigRepo.createRig("process-review");
-      const node = rigRepo.addNode(rig.id, "dev.worker", { runtime: "claude-code" });
+      const softwareTeamRepo = new SoftwareTeamRepository(db), registry = new SessionRegistry(db), eventBus = new EventBus(db);
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("process-review");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.worker", { runtime: "claude-code" });
       const name = "dev-worker@process-review", session = registry.registerSession(node.id, name);
       registry.updateStatus(session.id, "running");
       registry.updateStartupStatus(session.id, "attention_required");
@@ -49,7 +49,7 @@ describe("resume launch marker binds the reporting process", () => {
       });
       app.route("/api/activity", activityRoutes);
       const postHook = async (payload: unknown) => {
-        const response = await app.request("/api/activity/hooks", { method: "POST", headers: { "content-type": "application/json", "x-openrig-activity-token": "fixture" }, body: JSON.stringify(payload) });
+        const response = await app.request("/api/activity/hooks", { method: "POST", headers: { "content-type": "application/json", "x-softwareteam-activity-token": "fixture" }, body: JSON.stringify(payload) });
         expect(response.status).toBe(200);
       };
       if (delivered) await postHook({ eventFamily: "session_identity", hookEvent: "SessionStart", runtime: "claude-code", sessionName: name, nodeId: node.id, sessionId: T1, source: "resume", generation, resumeLaunch: T1 });
@@ -59,8 +59,8 @@ describe("resume launch marker binds the reporting process", () => {
       const childScript = `const relay = require(${JSON.stringify(relayPath)}); process.stdout.write(JSON.stringify(relay.buildSessionIdentityPayload({ hook_event_name: 'SessionStart', session_id: ${JSON.stringify(T2)}, source: 'resume' })));`;
       const parentScript = `const child = require('node:child_process').spawnSync(process.execPath, ['-e', ${JSON.stringify(childScript)}], {encoding:'utf8'}); if(child.status !== 0) throw Error(child.stderr); process.stdout.write(child.stdout);`;
       const inherited = spawnSync(process.execPath, ["-e", parentScript], { encoding: "utf8", env: {
-        ...claudeResumeLaunchEnv(T1), OPENRIG_SESSION_NAME: name, OPENRIG_NODE_ID: node.id,
-        OPENRIG_RUNTIME: "claude-code", OPENRIG_OCCUPANT_GENERATION: generation,
+        ...claudeResumeLaunchEnv(T1), SOFTWARETEAM_SESSION_NAME: name, SOFTWARETEAM_NODE_ID: node.id,
+        SOFTWARETEAM_RUNTIME: "claude-code", SOFTWARETEAM_OCCUPANT_GENERATION: generation,
       } });
       expect(inherited.status, inherited.stderr).toBe(0);
       const childPayload = JSON.parse(inherited.stdout);
@@ -92,7 +92,7 @@ describe("resume launch marker binds the reporting process", () => {
       admin.route("/api/sessions", sessionAdminRoutes);
       const cleared = await admin.request(`/api/sessions/${encodeURIComponent(name)}/clear-attention`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer fixture" }, body: "{}" });
       const clearBody = await cleared.json();
-      const sent = await new SessionTransport({ db, rigRepo, sessionRegistry: registry, eventBus, tmuxAdapter: tmux, listProcesses, sleep: async () => {} }).send(name, "offline review");
+      const sent = await new SessionTransport({ db, softwareTeamRepo, sessionRegistry: registry, eventBus, tmuxAdapter: tmux, listProcesses, sleep: async () => {} }).send(name, "offline review");
       const stored = db.prepare("SELECT resume_token, resume_launch_token, resume_rotated_from, startup_status FROM sessions WHERE id = ?").get(session.id);
       expect.soft(stored).toMatchObject({ resume_rotated_from: null });
       expect.soft(identity?.verdict).toBe("mismatch");

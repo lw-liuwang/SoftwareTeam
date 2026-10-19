@@ -42,8 +42,8 @@ describe("007_node_spec_fields", () => {
 
   it("existing nodes get NULL for all new columns", () => {
     migrate(db, [coreSchema]);
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "r01");
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)").run("node-1", "rig-1", "worker");
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "r01");
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)").run("node-1", "software-team-1", "worker");
 
     migrate(db, [coreSchema, nodeSpecFieldsSchema]);
 

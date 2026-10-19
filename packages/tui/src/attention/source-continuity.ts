@@ -1,4 +1,4 @@
-import type { AttentionItem, AttentionRead } from "@openrig/daemon/attention";
+import type { AttentionItem, AttentionRead } from "@softwareteam/daemon/attention";
 
 /** The aggregate's declared dependencies, not a classification of queue intent. */
 function dependsOn(item: AttentionItem, source: string): boolean {

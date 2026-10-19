@@ -9,19 +9,19 @@ import { DaemonClient, launchNodeNotice, StartupRequestError } from "../src/daem
 // reads. This test pins the audit: exercise every wrapper, collect every URL.
 
 const SPEC_4A_ROUTES = [
-  "/api/rigs/openrig-build/graph",
+  "/api/software-teams/softwareteam-build/graph",
   "/api/ps",
-  "/api/rigs/summary",
-  "/api/rigs/openrig-build/nodes",
-  "/api/review/agents?scope=rig",
-  "/api/specs/library?kind=rig",
-  "/api/rigs/openrig-build/spec.json",
+  "/api/software-teams/summary",
+  "/api/software-teams/softwareteam-build/nodes",
+  "/api/review/agents?scope=softwareTeam",
+  "/api/specs/library?kind=softwareTeam",
+  "/api/software-teams/softwareteam-build/spec.json",
   "/api/specs/library/a2/review",
   "/api/queue/list?attention=1",
-  "/api/review/rig",
+  "/api/review/softwareTeam",
   "/api/review/fleet",
   "/api/queue/attention-aggregate",
-  "/api/rigs/openrig-build/status",
+  "/api/software-teams/softwareteam-build/status",
   "/api/stream/list?limit=100",
   "/api/stream/list?limit=100&afterSortKey=k1",
   "/api/stream/list?limit=5&direction=latest",
@@ -29,7 +29,7 @@ const SPEC_4A_ROUTES = [
   "/api/views/execution?mission=release-0.5.8",
   "/api/slices/11-production-tui-composed-system",
   "/healthz",
-  "/api/queue/recent-transitions?scope=rig&rig=openrig-build&limit=20",
+  "/api/queue/recent-transitions?scope=softwareTeam&softwareTeam=softwareteam-build&limit=20",
   "/api/queue/recent-transitions?scope=instance&limit=20",
   "/api/health?limit=200",
   "/api/provider/status",
@@ -47,26 +47,26 @@ describe("daemon client = the §4.A table, one module, nothing else (FR-8/FR-9)"
     const c = new DaemonClient({ baseUrl: "http://x", fetchImpl });
 
     await c.health();
-    await c.rigGraph("openrig-build");
+    await c.softwareTeamGraph("softwareteam-build");
     await c.ps();
-    await c.rigsSummary();
-    await c.rigNodes("openrig-build");
-    await c.reviewAgents("rig");
-    await c.specsLibrary("rig");
-    await c.rigSpec("openrig-build");
+    await c.softwareTeamsSummary();
+    await c.softwareTeamNodes("softwareteam-build");
+    await c.reviewAgents("softwareTeam");
+    await c.specsLibrary("softwareTeam");
+    await c.softwareTeamSpec("softwareteam-build");
     await c.specLibraryReview("a2");
     await c.queueAttention();
-    await c.reviewRig();
+    await c.reviewSoftwareTeam();
     await c.reviewFleet();
     await c.attentionAggregate();
-    await c.rigStatus("openrig-build");
+    await c.softwareTeamStatus("softwareteam-build");
     await c.streamList();
     await c.streamList(100, "k1");
     await c.streamLatest();
     await c.execution();
     await c.execution("release-0.5.8");
     await c.sliceDetail("11-production-tui-composed-system");
-    await c.queueRecentTransitions({ kind: "rig", rig: "openrig-build" });
+    await c.queueRecentTransitions({ kind: "softwareTeam", softwareTeam: "softwareteam-build" });
     await c.queueRecentTransitions({ kind: "instance" });
     await (c as unknown as { healthFindings(): Promise<unknown> }).healthFindings();
     await c.providerStatus();
@@ -102,7 +102,7 @@ describe("daemon client = the §4.A table, one module, nothing else (FR-8/FR-9)"
     const c = new DaemonClient({ baseUrl: "http://x", fetchImpl });
     await c.openTerminal("pod:dev");
     await c.launchNode("myrig", "dev.qa");
-    expect(seen).toEqual(["/api/terminal/open", "/api/rigs/myrig/nodes/dev.qa/launch"]);
+    expect(seen).toEqual(["/api/terminal/open", "/api/software-teams/myrig/nodes/dev.qa/launch"]);
     // and no other method on the client POSTs
     const postCalls = Object.getOwnPropertyNames(Object.getPrototypeOf(c)).filter((m) =>
       ["openTerminal", "launchNode"].includes(m),

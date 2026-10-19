@@ -13,8 +13,8 @@ export function helpScreen(palette: NonNullable<ViewState["palette"]>, context: 
     { text: "HELP · Command bar, common tasks & CLI" },
     ...wrapDetailLines([
       { text: "At cmd ▸ type then Enter; Tab completes. <arg> required, [arg] optional." },
-      { text: "CLI in your terminal: rig --help · rig <command> --help · rig tui commands" },
-      { text: "Recovery diagnosis in your terminal: rig doctor · rig doctor --help" },
+      { text: "CLI in your terminal: SoftwareTeam --help · SoftwareTeam <command> --help · SoftwareTeam tui commands" },
+      { text: "Recovery diagnosis in your terminal: SoftwareTeam doctor · SoftwareTeam doctor --help" },
       { text: "Startup: ? Help · w Skip · L Local · d details. Esc returns from Help." },
       { text: "After Skip: S returns to Startup; L reads locally. Down/unverified needs no recovery to read Help." },
     ], cols),

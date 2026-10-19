@@ -33,7 +33,7 @@ describe("Slack sweep selection", () => {
   function row(id: string, state = "pending", destination = "human-owner@external") {
     const ts = new Date(Date.UTC(2026, 0, 1, 0, 0, serial++)).toISOString();
     db.prepare(`INSERT INTO queue_items(qitem_id,ts_created,ts_updated,source_session,destination_session,state,body,summary,tags,human_detail,reply_to,human_questions)
-      VALUES (?, ?, ?, 'author@rig', ?, ?, ?, ?, '[]', 'full detail', 'prior', ?)`)
+      VALUES (?, ?, ?, 'author@software-team', ?, ?, ?, ?, '[]', 'full detail', 'prior', ?)`)
       .run(id, ts, ts, destination, state, `full body ${id}`, `summary ${id}`, JSON.stringify(questions));
   }
   function notify(id: string, level = "ALERT", kind = "human-required", archive = false) {
@@ -57,19 +57,19 @@ describe("Slack sweep selection", () => {
   it("preserves routing, complete fields, levels, active states and creation ordering", async () => {
     row("direct"); const direct = notify("direct");
     row("alias", "in-progress", "human-owner@kernel"); notify("alias", "NOTICE");
-    row("blocked", "blocked", "worker@rig"); notify("blocked");
+    row("blocked", "blocked", "worker@software-team"); notify("blocked");
     db.prepare("UPDATE queue_items SET blocked_on='human-owner@kernel' WHERE qitem_id='blocked'").run();
-    row("resolved", "pending", "worker@rig"); notify("resolved", "NOTICE", "human-decision-resolved");
-    row("ordinary"); row("nonhuman", "pending", "worker@rig"); notify("nonhuman");
+    row("resolved", "pending", "worker@software-team"); notify("resolved", "NOTICE", "human-decision-resolved");
+    row("ordinary"); row("nonhuman", "pending", "worker@software-team"); notify("nonhuman");
     row("record"); notify("record", "RECORD");
     for (const state of ["done", "failed", "handed-off", "denied", "canceled"]) { row(state, state); notify(state); }
     const selected = await ports().listHumanAlerts({ minimumLevel: "NOTICE" });
     expect(selected.map(q => q.qitemId)).toEqual(["resolved", "blocked", "alias", "direct"]);
     expect(selected.find(q => q.qitemId === "direct")).toEqual({ qitemId: "direct", destinationSession: "human-owner@external",
-      sourceSession: "author@rig", tags: [], state: "pending", tier: null, humanIntent: null, humanDetail: "full detail",
+      sourceSession: "author@software-team", tags: [], state: "pending", tier: null, humanIntent: null, humanDetail: "full detail",
       replyTo: "prior", humanQuestions: questions, summary: "summary direct", body: "full body direct", evidenceRef: null,
       notificationKey: direct, ownerNotificationKind: "human-required", ownerNotificationLevel: "ALERT" });
-    expect(selected.slice(0, 2).map(q => q.sourceSession)).toEqual(["worker@rig", "worker@rig"]);
+    expect(selected.slice(0, 2).map(q => q.sourceSession)).toEqual(["worker@software-team", "worker@software-team"]);
     expect((await ports().listHumanAlerts({ minimumLevel: "ALERT" })).map(q => q.qitemId)).toEqual(["blocked", "direct"]);
   });
 
@@ -155,11 +155,11 @@ describe("Slack sweep selection", () => {
   });
 
   it("#1013 — a gate parked on a human sweeps with state + gate tag, and its payload renders the question, not the packet", async () => {
-    row("gate", "blocked", "worker@rig");
+    row("gate", "blocked", "worker@software-team");
     db.prepare("UPDATE queue_items SET blocked_on='human-owner@kernel', tags=? WHERE qitem_id='gate'")
       .run(JSON.stringify(["workflow", "gate", "workflow:mission"]));
     db.prepare("UPDATE queue_items SET body=?, evidence_ref='https://example.invalid/plan.md' WHERE qitem_id='gate'").run(
-      "### Workflow gate: mission@1 step plan_signoff\n\nWorkflow instance: 01M4EXAMPLE\nContinuation: rig workflow project --instance 01M4EXAMPLE",
+      "### Workflow gate: mission@1 step plan_signoff\n\nWorkflow instance: 01M4EXAMPLE\nContinuation: SoftwareTeam workflow project --instance 01M4EXAMPLE",
     );
     notify("gate");
     const seen = new SeenStore(join(home, "seen"));

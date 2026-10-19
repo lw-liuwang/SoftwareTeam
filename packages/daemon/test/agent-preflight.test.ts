@@ -13,30 +13,30 @@ function validAgentYaml(name: string): string {
   return `name: ${name}\nversion: "1.0.0"\nresources:\n  skills: []\nprofiles:\n  default:\n    uses:\n      skills: []`;
 }
 
-const RIG_ROOT = "/project/rigs/my-rig";
+const SOFTWARE_TEAM_ROOT = "/project/software-teams/my-software-team";
 
 describe("Agent preflight", () => {
   it("resolves valid agent ref successfully", () => {
     const files = {
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
     };
-    const result = agentPreflight("local:agents/impl", RIG_ROOT, mockFs(files));
+    const result = agentPreflight("local:agents/impl", SOFTWARE_TEAM_ROOT, mockFs(files));
     expect(result.ready).toBe(true);
     expect(result.errors).toEqual([]);
   });
 
   it("fails on missing agent.yaml", () => {
-    const result = agentPreflight("local:agents/missing", RIG_ROOT, mockFs({}));
+    const result = agentPreflight("local:agents/missing", SOFTWARE_TEAM_ROOT, mockFs({}));
     expect(result.ready).toBe(false);
     expect(result.errors[0]).toMatch(/agent\.yaml/);
   });
 
   it("reports import collisions as warnings", () => {
     const files = {
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: `name: impl\nversion: "1.0.0"\nimports:\n  - ref: local:../lib\nresources:\n  skills:\n    - id: shared\n      path: skills/shared\nprofiles:\n  default:\n    uses:\n      skills: [shared]`,
-      [`${RIG_ROOT}/agents/lib/agent.yaml`]: `name: lib\nversion: "1.0.0"\nresources:\n  skills:\n    - id: shared\n      path: skills/shared\nprofiles: {}`,
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: `name: impl\nversion: "1.0.0"\nimports:\n  - ref: local:../lib\nresources:\n  skills:\n    - id: shared\n      path: skills/shared\nprofiles:\n  default:\n    uses:\n      skills: [shared]`,
+      [`${SOFTWARE_TEAM_ROOT}/agents/lib/agent.yaml`]: `name: lib\nversion: "1.0.0"\nresources:\n  skills:\n    - id: shared\n      path: skills/shared\nprofiles: {}`,
     };
-    const result = agentPreflight("local:agents/impl", RIG_ROOT, mockFs(files));
+    const result = agentPreflight("local:agents/impl", SOFTWARE_TEAM_ROOT, mockFs(files));
     expect(result.ready).toBe(true);
     expect(result.warnings.some((w) => w.includes("collision"))).toBe(true);
   });

@@ -19,7 +19,7 @@ import { queryLimit } from "./query-limit.js";
 /**
  * Coordination L2 — Project (Classifier) HTTP routes (PL-004 Phase B).
  *
- * Backs `rig project` CLI verb. Lease lifecycle endpoints + project
+ * Backs `softwareTeam project` CLI verb. Lease lifecycle endpoints + project
  * (idempotent classify) + operator-verb reclaim + SSE.
  *
  * Per Phase A R1 SSE route-order lesson (slice IMPL § Audit Row 12):
@@ -44,7 +44,7 @@ export function projectsRoutes(): Hono {
   // JSON is untrusted in shape, even where the session may use the claimed fallback.
   // Never pass an object to the shared helper's string trim. Wire identity still wins.
   function sender(c: Context, claim: unknown, field = "classifierSession") {
-    if (!c.req.header("x-openrig-session")?.trim() && claim !== undefined && typeof claim !== "string") {
+    if (!c.req.header("x-softwareteam-session")?.trim() && claim !== undefined && typeof claim !== "string") {
       return { ok: false as const, response: c.json({ error: "invalid_field", field, message: `${field} must be a string` }, 400) };
     }
     const actor = requireSenderIdentity(c, { verb: "classification", bodyClaim: typeof claim === "string" ? claim : undefined });

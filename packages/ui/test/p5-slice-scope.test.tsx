@@ -98,8 +98,8 @@ function makeQueueItem(qitemId: string, body: string) {
     qitemId,
     tsCreated: "2026-05-06T18:00:00Z",
     tsUpdated: "2026-05-06T18:00:00Z",
-    sourceSession: "source@rig",
-    destinationSession: "dest@rig",
+    sourceSession: "source@software-team",
+    destinationSession: "dest@software-team",
     state: "in-progress",
     priority: "routine",
     tier: "mode2",
@@ -137,7 +137,7 @@ function makeDetail(overrides: Partial<SliceDetail> = {}): SliceDetail {
     decisions: { rows: [] },
     docs: { tree: [{ name: "README.md", relPath: "README.md", type: "file" } as any] },
     tests: { proofPackets: [], aggregate: { passCount: 0, failCount: 0 } },
-    topology: { affectedRigs: [], totalSeats: 0, specGraph: null },
+    topology: { affectedSoftwareTeams: [], totalSeats: 0, specGraph: null },
     ...overrides,
   };
 }
@@ -251,8 +251,8 @@ describe("SliceScopePage P5-2 tab content piping", () => {
       type: "qitem",
       data: {
         qitemId: "qitem-A",
-        source: "source@rig",
-        destination: "dest@rig",
+        source: "source@software-team",
+        destination: "dest@software-team",
         state: "in-progress",
         tags: ["demo"],
         createdAt: "2026-05-06T18:00:00Z",
@@ -278,7 +278,7 @@ describe("SliceScopePage P5-2 tab content piping", () => {
     });
     await findByTestId("project-tab-nav");
     fireEvent.click(container.querySelector("[data-testid='project-tab-topology']")!);
-    // TopologyTab renders empty state when no rigs + no specGraph; the
+    // TopologyTab renders empty state when no softwareTeams + no specGraph; the
     // tab panel itself just must exist + have no placeholder.
     await waitFor(() => {
       expect(container.querySelector("[data-testid='project-tab-placeholder-slice topology']")).toBeNull();

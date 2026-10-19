@@ -1,6 +1,6 @@
 // Maintainer-owned file/launch fixtures only: no native Claude, daemon, tmux,
 // provider or real user configuration. The fake reads the selected state; this
-// proves OpenRig's routing, not Claude ingestion or successful login.
+// proves SoftwareTeam's routing, not Claude ingestion or successful login.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import Database from "better-sqlite3";
 import { execFileSync } from "node:child_process";
@@ -128,7 +128,7 @@ describe.skipIf(process.platform === "win32")("Claude managed bootstrap selects 
     const orchestrator = new StartupOrchestrator({ db: f.db, sessionRegistry: registry, eventBus, tmuxAdapter: f.tmux });
     const binding = { ...f.binding };
     delete (binding as Partial<NodeBinding>).cwd;
-    const result = await orchestrator.startNode({ rigId: "rig", nodeId: "node", sessionId: "session",
+    const result = await orchestrator.startNode({ softwareTeamId: "softwareTeam", nodeId: "node", sessionId: "session",
       binding, adapter: f.adapter,
       plan: { runtime: "claude-code", cwd: f.cwd, entries: [], startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [] },
       resolvedStartupFiles: [], startupActions: [], isRestore: false });
@@ -173,7 +173,7 @@ describe.skipIf(process.platform === "win32")("Claude managed bootstrap selects 
   for (const selection of selections) for (const separateHomes of [false, true]) for (const populated of [false, true]) {
     it(`${selection}; ${separateHomes ? "two homes" : "same home"}; ${populated ? "populated" : "fresh"}`, async () => {
       const f = fixture(selection, separateHomes, populated);
-      // The ordinary prelaunch delivery + launch seams, with no rigbundle involved.
+      // The ordinary prelaunch delivery + launch seams, with no softwareteambundle involved.
       expect(await f.adapter.deliverStartup([], f.binding)).toEqual({ delivered: 0, failed: [] });
       expect(await f.adapter.launchHarness(f.binding, { name: "seat" })).toMatchObject({ ok: true });
       const observed = f.launches[0];

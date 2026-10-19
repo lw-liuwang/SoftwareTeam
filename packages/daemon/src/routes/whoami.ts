@@ -18,7 +18,7 @@ export function whoamiRoutes(): Hono {
 
     if (!nodeId && !sessionName) {
       return c.json({
-        error: "Missing query parameter: provide nodeId or sessionName. Run rig ps --nodes to find available sessions.",
+        error: "Missing query parameter: provide nodeId or sessionName. Run SoftwareTeam ps --nodes to find available sessions.",
       }, 400);
     }
 
@@ -33,7 +33,7 @@ export function whoamiRoutes(): Hono {
       if (!result) {
         const identifier = nodeId ?? sessionName;
         return c.json({
-          error: `Session or node '${identifier}' not found in any managed rig. Check available sessions with: rig ps --nodes`,
+          error: `Session or node '${identifier}' not found in any managed softwareTeam. Check available sessions with: SoftwareTeam ps --nodes`,
         }, 404);
       }
 

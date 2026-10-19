@@ -26,7 +26,7 @@ const AGENTS = [
 
 function snap(): FleetSnapshot {
   return {
-    hosts: [{ name: "h", reachable: true, rigs: [{ name: "r", pods: [{ name: "p", agents: AGENTS.map((a) => ({
+    hosts: [{ name: "h", reachable: true, softwareTeams: [{ name: "r", pods: [{ name: "p", agents: AGENTS.map((a) => ({
       name: a.name, runtime: a.runtime, spec: "", context: 12, tokens: null, status: a.status, live: true,
     })) }] }] }],
     specs: [], needs: [], humanQueueProbed: true, hostsDown: [], stream: [], readErrors: [],
@@ -62,7 +62,7 @@ function explorerRowsFor(view: ReturnType<typeof createViewState>, s: FleetSnaps
 describe("POSITIVE explorer-absence regression — claude/codex/terminal rows carry NO mark glyph, mark SGR, or runtime word", () => {
   const s = snap();
   const view = createViewState({ instanceId: "abs", getSnapshot: () => s });
-  view.dispatch({ type: "drill", resource: "pod", name: "p", target: { host: "h", rig: "r" } }); // expands the pod → agent rows visible
+  view.dispatch({ type: "drill", resource: "pod", name: "p", target: { host: "h", softwareTeam: "r" } }); // expands the pod → agent rows visible
 
   it("plain layer: every runtime's agent row is free of mark glyphs and spelled runtime words", () => {
     for (const { agent, plain } of explorerRowsFor(view, s)) {
@@ -81,7 +81,7 @@ describe("POSITIVE explorer-absence regression — claude/codex/terminal rows ca
   it("CONTROL-POSITIVE: the same snapshot's agent-detail pages DO render each mark the explorer lacks (matcher sensitivity)", () => {
     const detail = (name: string): string => {
       const v = createViewState({ instanceId: `abs-${name}`, getSnapshot: () => s });
-      v.dispatch({ type: "drill", resource: "agent", name, target: { host: "h", rig: "r", pod: "p" } });
+      v.dispatch({ type: "drill", resource: "agent", name, target: { host: "h", softwareTeam: "r", pod: "p" } });
       const screen = renderScreen(v.get(), s, { cols: 150, rows: 40 });
       return stylizeLines(screen, createStyle("truecolor")).join("\n");
     };

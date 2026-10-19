@@ -6,13 +6,13 @@ import { SeatAttentionReconciler } from "../src/domain/seat-attention-reconciler
 import { sessionAdminRoutes } from "../src/routes/sessions.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { SnapshotRepository } from "../src/domain/snapshot-repository.js";
 import { CheckpointStore } from "../src/domain/checkpoint-store.js";
 import { SnapshotCapture } from "../src/domain/snapshot-capture.js";
-import { RigTeardownOrchestrator } from "../src/domain/rig-teardown.js";
+import { SoftwareTeamTeardownOrchestrator } from "../src/domain/software-team-teardown.js";
 import { NodeLauncher } from "../src/domain/node-launcher.js";
 import { RestoreOrchestrator } from "../src/domain/restore-orchestrator.js";
 import { SeatIdentityReconciler } from "../src/domain/seat-identity-reconciler.js";
@@ -43,15 +43,15 @@ describe("managed Claude full down/up", () => {
     "real restore hook ordering: %s", async (timing) => {
       const mode: string = "exact";
       const db = createFullTestDb(); dbs.push(db);
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const sessionRegistry = new SessionRegistry(db);
       const eventBus = new EventBus(db);
       const snapshotRepo = new SnapshotRepository(db);
       const checkpointStore = new CheckpointStore(db);
-      const snapshotCapture = new SnapshotCapture({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
-      const rig = rigRepo.createRig("restore-test");
-      db.prepare("INSERT INTO pods (id, rig_id, label) VALUES (?, ?, ?)").run("restore-pod", rig.id, "Test");
-      const node = rigRepo.addNode(rig.id, "test.c", { runtime: "claude-code", podId: "restore-pod" });
+      const snapshotCapture = new SnapshotCapture({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("restore-test");
+      db.prepare("INSERT INTO pods (id, software_team_id, label) VALUES (?, ?, ?)").run("restore-pod", softwareTeam.id, "Test");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "test.c", { runtime: "claude-code", podId: "restore-pod" });
       new NativePermissionStore(db).write(node.id, { runtime: "claude-code", mode: "auto" }, "fixture", "retained Fleet posture");
       const name = "test-c@restore-test";
       const old = sessionRegistry.registerSession(node.id, name);
@@ -75,7 +75,7 @@ describe("managed Claude full down/up", () => {
       const row = () => db.prepare("SELECT id, resume_token, resume_provenance, resume_rotated_from, startup_status FROM sessions WHERE node_id = ? ORDER BY id DESC LIMIT 1").get(node.id) as Record<string, unknown>;
       const hook = async () => {
         const response = await hooks.request("/api/activity/hooks", { method: "POST",
-          headers: { "content-type": "application/json", "x-openrig-activity-token": "fixture" },
+          headers: { "content-type": "application/json", "x-softwareteam-activity-token": "fixture" },
           body: JSON.stringify({ eventFamily: "session_identity", hookEvent: "SessionStart", sessionName: name, nodeId: node.id,
             runtime: "claude-code", generation: sessionRegistry.currentOccupantTenure(node.id)!.generationUuid,
             source: timing.startsWith("clear") ? "clear" : "resume", resumeLaunch: launchMarker, resumeLaunchFirst: true, hookPid: 111, sessionId: rotated }) });
@@ -84,7 +84,7 @@ describe("managed Claude full down/up", () => {
       };
       // The relay forwards the marker the launched process's command carried, as the real one does.
       let launchMarker: string | undefined;
-      const launched = (cmd: string) => { launchMarker = /OPENRIG_RESUME_LAUNCH='?([^' ]+)/.exec(cmd)?.[1]; };
+      const launched = (cmd: string) => { launchMarker = /SOFTWARETEAM_RESUME_LAUNCH='?([^' ]+)/.exec(cmd)?.[1]; };
       let live = true;
       const tmux = {
         hasSession: vi.fn(async () => live),
@@ -117,7 +117,7 @@ describe("managed Claude full down/up", () => {
         { pid: 110, ppid: 102, pgid: 110, tpgid: 101, executableName: "sh", command: "/bin/sh -c node relay.cjs", startedAt },
         { pid: 111, ppid: 110, pgid: 110, tpgid: 101, executableName: "node", command: "node relay.cjs", startedAt }];
       // Real teardown captures the running occupant, exits the old row and clears bindings.
-      const down = await new RigTeardownOrchestrator({ db, rigRepo, sessionRegistry, eventBus, snapshotCapture, tmuxAdapter: tmux }).teardown(rig.id);
+      const down = await new SoftwareTeamTeardownOrchestrator({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotCapture, tmuxAdapter: tmux }).teardown(softwareTeam.id);
       expect(down.errors).toEqual([]);
       expect(down.sessionsKilled).toBe(1);
       expect(snapshotRepo.getSnapshot(down.snapshotId!)?.kind).toBe("auto-pre-down");
@@ -127,8 +127,8 @@ describe("managed Claude full down/up", () => {
         fsOps: {
         exists: () => false, readFile: () => "", writeFile: () => {}, mkdirp: () => {}, copyFile: () => {},
       } });
-      const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
-      const restore = new RestoreOrchestrator({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+      const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+      const restore = new RestoreOrchestrator({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
         checkpointStore, nodeLauncher, tmuxAdapter: tmux, claudeResume: new ClaudeResumeAdapter(tmux),
         codexResume: new CodexResumeAdapter(tmux), listProcesses });
       const up = await restore.restore(down.snapshotId!, { adapters: { "claude-code": adapter } });
@@ -138,7 +138,7 @@ describe("managed Claude full down/up", () => {
       await new SeatIdentityReconciler({ db, tmux, listProcesses }).reconcileAll();
       const identity = new SeatIdentityStore(db).getForNode(node.id);
       const clear = new SeatAttentionReconciler({ db, sessionRegistry, eventBus, agentActivityStore: activity, tmux, listProcesses,
-        reconcileRestoreOutcome: (rigId, nodeId) => restore.reconcileNodeRuntimeTruth(rigId, nodeId),
+        reconcileRestoreOutcome: (softwareTeamId, nodeId) => restore.reconcileNodeRuntimeTruth(softwareTeamId, nodeId),
         sendVerify: async () => { throw new Error("unexpected input from clear-attention"); } });
       const admin = new Hono();
       admin.use("*", async (c,next) => {
@@ -149,7 +149,7 @@ describe("managed Claude full down/up", () => {
       const cleared = await admin.request(`/api/sessions/${encodeURIComponent(name)}/clear-attention`, {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer fixture" }, body: "{}" });
       const clearBody = await cleared.json();
-      const transport = new SessionTransport({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux, listProcesses, sleep: async () => {} });
+      const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux, listProcesses, sleep: async () => {} });
       const sent = await transport.send(name, "isolated QA restore message");
       const resumed = timing.startsWith("resume");
       expect(up.result.nodes[0].status).toBe(resumed ? "resumed" : "attention_required");

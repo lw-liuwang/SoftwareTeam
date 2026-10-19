@@ -1,10 +1,10 @@
-// OPR.0.7.0.7 — rig seat set-effort: save one seat's effort for its next managed continuation.
+// OPR.0.7.0.7 — softwareTeam seat set-effort: save one seat's effort for its next managed continuation.
 // Requested, saved, emitted at launch and observed natively stay four separate values; this
 // verb only knows the first two, and never reports a change that didn't happen.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
@@ -33,26 +33,26 @@ function nodeRow(db: Database.Database, nodeId: string) {
 
 describe("SeatLifecycleService.setEffort", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let tmux: ReturnType<typeof fakeTmux>;
   let service: SeatLifecycleService;
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     const eventBus = new EventBus(db);
     tmux = fakeTmux();
-    service = new SeatLifecycleService({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux.adapter });
+    service = new SeatLifecycleService({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux.adapter });
   });
 
   afterEach(() => db.close());
 
   function seat(logicalId: string, opts?: { runtime?: string; effort?: string; alive?: boolean }) {
-    const rig = rigRepo.findRigsByName("eff-rig")[0] ?? rigRepo.createRig("eff-rig");
-    const sessionName = `${logicalId.replace(".", "-")}@eff-rig`;
-    const node = rigRepo.addNode(rig.id, logicalId, {
+    const softwareTeam = softwareTeamRepo.findSoftwareTeamsByName("eff-software-team")[0] ?? softwareTeamRepo.createSoftwareTeam("eff-software-team");
+    const sessionName = `${logicalId.replace(".", "-")}@eff-software-team`;
+    const node = softwareTeamRepo.addNode(softwareTeam.id, logicalId, {
       runtime: opts?.runtime ?? "claude-code", cwd: "/project", model: "claude-fable-5",
       ...(opts?.effort ? { effort: opts.effort } : {}),
     });
@@ -60,17 +60,17 @@ describe("SeatLifecycleService.setEffort", () => {
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateResumeToken(session.id, "claude_session_id", "resume-uuid-1", "hook");
     tmux.setAlive(sessionName, opts?.alive ?? true);
-    return { rig, node, sessionName };
+    return { softwareTeam, node, sessionName };
   }
 
   it("saves the seat's choice apart from its authored effort, audits it, and touches nothing else", async () => {
-    const { rig, node, sessionName } = seat("dev.impl", { effort: "medium" });
+    const { softwareTeam, node, sessionName } = seat("dev.impl", { effort: "medium" });
     const peer = seat("dev.peer", { effort: "medium" });
     const peerBefore = nodeRow(db, peer.node.id);
     const sessionsBefore = db.prepare("SELECT * FROM sessions ORDER BY id").all();
     const before = nodeRow(db, node.id);
 
-    const result = await service.setEffort({ seatRef: sessionName, effort: "high", reason: "long refactor", operator: "orch-lead@eff-rig" });
+    const result = await service.setEffort({ seatRef: sessionName, effort: "high", reason: "long refactor", operator: "orch-lead@eff-software-team" });
 
     if (!result.ok) throw new Error(result.message);
     expect(result).toMatchObject({
@@ -84,10 +84,10 @@ describe("SeatLifecycleService.setEffort", () => {
     expect(nodeRow(db, peer.node.id)).toEqual(peerBefore);
     expect(db.prepare("SELECT * FROM sessions ORDER BY id").all()).toEqual(sessionsBefore);
     expect(eventsOfType(db, "node.effort_changed")).toEqual([{
-      type: "node.effort_changed", rigId: rig.id, nodeId: node.id, logicalId: "dev.impl",
-      from: null, to: "high", reason: "long refactor", operator: "orch-lead@eff-rig",
+      type: "node.effort_changed", softwareTeamId: softwareTeam.id, nodeId: node.id, logicalId: "dev.impl",
+      from: null, to: "high", reason: "long refactor", operator: "orch-lead@eff-software-team",
     }]);
-    expect(rigRepo.getRig(rig.id)!.nodes.find((n) => n.id === node.id)!.effortChoice).toBe("high");
+    expect(softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find((n) => n.id === node.id)!.effortChoice).toBe("high");
   });
 
   it("the same choice again is changed: false and mints no event", async () => {
@@ -141,7 +141,7 @@ describe("SeatLifecycleService.setEffort", () => {
       [{ seatRef: sessionName, effort: "high", reason: " " }, "missing_reason"],
       [{ seatRef: sessionName, effort: "  ", reason: "x" }, "missing_effort"],
       [{ seatRef: sessionName, effort: "high; rm -rf /", reason: "x" }, "invalid_effort"],
-      [{ seatRef: "ghost@eff-rig", effort: "high", reason: "x" }, "seat_not_found"],
+      [{ seatRef: "ghost@eff-software-team", effort: "high", reason: "x" }, "seat_not_found"],
       [{ seatRef: term.sessionName, effort: "high", reason: "x" }, "effort_unsupported_runtime"],
     ];
     for (const [input, code] of cases) {

@@ -7,7 +7,7 @@
 export interface NotificationPayload {
   /** Short human-readable title (e.g., "human-gate qitem arrived"). */
   title: string;
-  /** Longer body. May contain qitem id, source rig, action verb. */
+  /** Longer body. May contain qitem id, source softwareTeam, action verb. */
   body: string;
   /** Optional qitem reference (URL or id) for click-through. */
   qitemRef?: string;

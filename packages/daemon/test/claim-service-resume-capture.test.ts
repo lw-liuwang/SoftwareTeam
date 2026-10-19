@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type Database from "better-sqlite3";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { DiscoveryRepository } from "../src/domain/discovery-repository.js";
@@ -31,7 +31,7 @@ function lstart(d: Date): string {
 
 describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let eventBus: EventBus;
   let discoveryRepo: DiscoveryRepository;
@@ -44,7 +44,7 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
     claudeProcessStartedAt = undefined;
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     eventBus = new EventBus(db);
     discoveryRepo = new DiscoveryRepository(db);
@@ -66,7 +66,7 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
 
   function buildService(): ClaimService {
     return new ClaimService({
-      db, rigRepo, sessionRegistry, discoveryRepo, eventBus, tmuxAdapter: mockTmux,
+      db, softwareTeamRepo, sessionRegistry, discoveryRepo, eventBus, tmuxAdapter: mockTmux,
       contextUsageStore: { readSidecar: readSidecar as unknown as (n: string) => SidecarResult },
       resumeTokenCapturer: { captureCodexThreadId: captureCodexThreadId as unknown as (n: string) => Promise<string | undefined> },
       ...(claudeProcessStartedAt ? { claudeProcessStartedAt } : {}),
@@ -75,7 +75,7 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
 
   function seedDiscovery(opts?: { runtimeHint?: string; tmuxSession?: string }) {
     return discoveryRepo.upsertDiscoveredSession({
-      tmuxSession: opts?.tmuxSession ?? "seat@test-rig",
+      tmuxSession: opts?.tmuxSession ?? "seat@test-software-team",
       tmuxPane: "%0",
       runtimeHint: (opts?.runtimeHint ?? "claude-code") as never,
       confidence: "high",
@@ -99,11 +99,11 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
 
   it("bind captures a Claude resume token from the sidecar session_id (provenance=adoption)", async () => {
     readSidecar.mockReturnValue({ ok: true, data: { session_id: "claude-uuid-1234" } });
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "orch.lead", { runtime: "claude-code", cwd: "/projects/app" });
-    const discovered = seedDiscovery({ runtimeHint: "claude-code", tmuxSession: "orch-lead@test-rig" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "orch.lead", { runtime: "claude-code", cwd: "/projects/app" });
+    const discovered = seedDiscovery({ runtimeHint: "claude-code", tmuxSession: "orch-lead@test-software-team" });
 
-    const result = await buildService().bind({ discoveredId: discovered.id, rigId: rig.id, logicalId: "orch.lead" });
+    const result = await buildService().bind({ discoveredId: discovered.id, softwareTeamId: softwareTeam.id, logicalId: "orch.lead" });
     expect(result.ok).toBe(true);
 
     const row = tokenRow(node.id);
@@ -121,37 +121,37 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
 
   it("bind captures a Codex resume token from the thread-id capturer (provenance=adoption)", async () => {
     captureCodexThreadId.mockResolvedValue("codex-thread-abcd");
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.qa", { runtime: "codex", cwd: "/projects/app" });
-    const discovered = seedDiscovery({ runtimeHint: "codex", tmuxSession: "dev-qa@test-rig" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { runtime: "codex", cwd: "/projects/app" });
+    const discovered = seedDiscovery({ runtimeHint: "codex", tmuxSession: "dev-qa@test-software-team" });
 
-    const result = await buildService().bind({ discoveredId: discovered.id, rigId: rig.id, logicalId: "dev.qa" });
+    const result = await buildService().bind({ discoveredId: discovered.id, softwareTeamId: softwareTeam.id, logicalId: "dev.qa" });
     expect(result.ok).toBe(true);
 
     const row = tokenRow(node.id);
     expect(row.resume_token).toBe("codex-thread-abcd");
     expect(row.resume_type).toBe("codex_id");
     expect(row.resume_provenance).toBe("adoption");
-    expect(captureCodexThreadId).toHaveBeenCalledWith("dev-qa@test-rig");
+    expect(captureCodexThreadId).toHaveBeenCalledWith("dev-qa@test-software-team");
   });
 
   it("bind captures only an OMP seat's own runner session file", async () => {
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.omp", { runtime: "omp", cwd: "/projects/app" });
-    const discovered = seedDiscovery({ runtimeHint: "omp", tmuxSession: "dev-omp@test-rig" });
-    const sessionFile = "/openrig/state/omp/dev-omp@test-rig/sessions/live.jsonl";
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.omp", { runtime: "omp", cwd: "/projects/app" });
+    const discovered = seedDiscovery({ runtimeHint: "omp", tmuxSession: "dev-omp@test-software-team" });
+    const sessionFile = "/softwareteam/state/omp/dev-omp@test-software-team/sessions/live.jsonl";
     const ompRead = vi.fn((name: string) => {
-      expect(name).toBe("dev-omp@test-rig");
+      expect(name).toBe("dev-omp@test-software-team");
       return { ok: true as const, sessionFile };
     });
     const piRead = vi.fn(() => { throw new Error("Pi state must not be read for OMP"); });
     const service = new ClaimService({
-      db, rigRepo, sessionRegistry, discoveryRepo, eventBus, tmuxAdapter: mockTmux,
+      db, softwareTeamRepo, sessionRegistry, discoveryRepo, eventBus, tmuxAdapter: mockTmux,
       ompRunnerStateStore: { readSessionFile: ompRead },
       piRunnerStateStore: { readSessionFile: piRead },
     });
 
-    expect((await service.bind({ discoveredId: discovered.id, rigId: rig.id, logicalId: "dev.omp" })).ok).toBe(true);
+    expect((await service.bind({ discoveredId: discovered.id, softwareTeamId: softwareTeam.id, logicalId: "dev.omp" })).ok).toBe(true);
     expect(tokenRow(node.id)).toMatchObject({ resume_type: "omp_session_file", resume_token: sessionFile, resume_provenance: "adoption" });
     expect(ompRead).toHaveBeenCalledOnce();
     expect(piRead).not.toHaveBeenCalled();
@@ -159,11 +159,11 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
 
   it("bind honest-skips when the Claude sidecar is missing (no token persisted, skip event with reason)", async () => {
     readSidecar.mockReturnValue({ ok: false, reason: "missing_sidecar" });
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "orch.lead", { runtime: "claude-code", cwd: "/projects/app" });
-    const discovered = seedDiscovery({ runtimeHint: "claude-code", tmuxSession: "orch-lead@test-rig" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "orch.lead", { runtime: "claude-code", cwd: "/projects/app" });
+    const discovered = seedDiscovery({ runtimeHint: "claude-code", tmuxSession: "orch-lead@test-software-team" });
 
-    const result = await buildService().bind({ discoveredId: discovered.id, rigId: rig.id, logicalId: "orch.lead" });
+    const result = await buildService().bind({ discoveredId: discovered.id, softwareTeamId: softwareTeam.id, logicalId: "orch.lead" });
     expect(result.ok).toBe(true);
 
     expect(tokenRow(node.id).resume_token).toBeNull();
@@ -181,10 +181,10 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
 
     async function bindClaude(sidecar: SidecarResult) {
       readSidecar.mockReturnValue(sidecar);
-      const rig = rigRepo.createRig("test-rig");
-      const node = rigRepo.addNode(rig.id, "orch.lead", { runtime: "claude-code", cwd: "/projects/app" });
-      const discovered = seedDiscovery({ runtimeHint: "claude-code", tmuxSession: "orch-lead@test-rig" });
-      expect((await buildService().bind({ discoveredId: discovered.id, rigId: rig.id, logicalId: "orch.lead" })).ok).toBe(true);
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "orch.lead", { runtime: "claude-code", cwd: "/projects/app" });
+      const discovered = seedDiscovery({ runtimeHint: "claude-code", tmuxSession: "orch-lead@test-software-team" });
+      expect((await buildService().bind({ discoveredId: discovered.id, softwareTeamId: softwareTeam.id, logicalId: "orch.lead" })).ok).toBe(true);
       return { row: tokenRow(node.id), event: latestEvent() };
     }
 
@@ -194,7 +194,7 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
       const { row, event } = await bindClaude({ ok: true, data: { session_id: "claude-earlier-process", sampled_at: new Date(2026, 9, 2, 10, 0, 0).toISOString() } });
       expect(row.resume_token).toBeNull();
       expect(event?.payload).toMatchObject({ outcome: "skipped", reason: "stale_sidecar" });
-      expect(startedAt).toHaveBeenCalledWith("orch-lead@test-rig");
+      expect(startedAt).toHaveBeenCalledWith("orch-lead@test-software-team");
     });
 
     it("captures a long-running session's own sample taken after its process started (re-adoption)", async () => {
@@ -217,11 +217,11 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
 
   it("bind honest-skips with process_unreadable when Codex discovery throws (matches the capture log reason)", async () => {
     captureCodexThreadId.mockRejectedValue(new Error("ps failed with secret-text"));
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.qa", { runtime: "codex", cwd: "/projects/app" });
-    const discovered = seedDiscovery({ runtimeHint: "codex", tmuxSession: "dev-qa@test-rig" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { runtime: "codex", cwd: "/projects/app" });
+    const discovered = seedDiscovery({ runtimeHint: "codex", tmuxSession: "dev-qa@test-software-team" });
 
-    const result = await buildService().bind({ discoveredId: discovered.id, rigId: rig.id, logicalId: "dev.qa" });
+    const result = await buildService().bind({ discoveredId: discovered.id, softwareTeamId: softwareTeam.id, logicalId: "dev.qa" });
     expect(result.ok).toBe(true);
 
     expect(tokenRow(node.id).resume_token).toBeNull();
@@ -231,11 +231,11 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
 
   it("bind honest-skips when the Codex probe times out (undefined → reason=probe_timeout)", async () => {
     captureCodexThreadId.mockResolvedValue(undefined);
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.qa", { runtime: "codex", cwd: "/projects/app" });
-    const discovered = seedDiscovery({ runtimeHint: "codex", tmuxSession: "dev-qa@test-rig" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { runtime: "codex", cwd: "/projects/app" });
+    const discovered = seedDiscovery({ runtimeHint: "codex", tmuxSession: "dev-qa@test-software-team" });
 
-    const result = await buildService().bind({ discoveredId: discovered.id, rigId: rig.id, logicalId: "dev.qa" });
+    const result = await buildService().bind({ discoveredId: discovered.id, softwareTeamId: softwareTeam.id, logicalId: "dev.qa" });
     expect(result.ok).toBe(true);
 
     expect(tokenRow(node.id).resume_token).toBeNull();
@@ -244,11 +244,11 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
 
   it("bind honest-skips an invalid/malformed derived token (validity-before-persist → reason=invalid_token)", async () => {
     readSidecar.mockReturnValue({ ok: true, data: { session_id: "bad token with spaces!" } });
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "orch.lead", { runtime: "claude-code", cwd: "/projects/app" });
-    const discovered = seedDiscovery({ runtimeHint: "claude-code", tmuxSession: "orch-lead@test-rig" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "orch.lead", { runtime: "claude-code", cwd: "/projects/app" });
+    const discovered = seedDiscovery({ runtimeHint: "claude-code", tmuxSession: "orch-lead@test-software-team" });
 
-    const result = await buildService().bind({ discoveredId: discovered.id, rigId: rig.id, logicalId: "orch.lead" });
+    const result = await buildService().bind({ discoveredId: discovered.id, softwareTeamId: softwareTeam.id, logicalId: "orch.lead" });
     expect(result.ok).toBe(true);
 
     expect(tokenRow(node.id).resume_token).toBeNull();
@@ -256,11 +256,11 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
   });
 
   it("bind on a terminal-runtime node is exempt: no capture, no event, not a failure", async () => {
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "infra.term", { runtime: "terminal", cwd: "/tmp" });
-    const discovered = seedDiscovery({ runtimeHint: "terminal", tmuxSession: "infra-term@test-rig" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "infra.term", { runtime: "terminal", cwd: "/tmp" });
+    const discovered = seedDiscovery({ runtimeHint: "terminal", tmuxSession: "infra-term@test-software-team" });
 
-    const result = await buildService().bind({ discoveredId: discovered.id, rigId: rig.id, logicalId: "infra.term" });
+    const result = await buildService().bind({ discoveredId: discovered.id, softwareTeamId: softwareTeam.id, logicalId: "infra.term" });
     expect(result.ok).toBe(true);
 
     expect(tokenRow(node.id).resume_token).toBeNull();
@@ -272,11 +272,11 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
 
   it("bind is best-effort: a throw inside capture does NOT fail the adoption", async () => {
     readSidecar.mockImplementation(() => { throw new Error("sidecar read blew up"); });
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "orch.lead", { runtime: "claude-code", cwd: "/projects/app" });
-    const discovered = seedDiscovery({ runtimeHint: "claude-code", tmuxSession: "orch-lead@test-rig" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "orch.lead", { runtime: "claude-code", cwd: "/projects/app" });
+    const discovered = seedDiscovery({ runtimeHint: "claude-code", tmuxSession: "orch-lead@test-software-team" });
 
-    const result = await buildService().bind({ discoveredId: discovered.id, rigId: rig.id, logicalId: "orch.lead" });
+    const result = await buildService().bind({ discoveredId: discovered.id, softwareTeamId: softwareTeam.id, logicalId: "orch.lead" });
     expect(result.ok).toBe(true);
     expect(tokenRow(node.id).resume_token).toBeNull();
   });
@@ -287,12 +287,12 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
     // the async probe window). The writer returns false; the event must reflect
     // that the ledger was preserved, never falsely claim a captured adoption write.
     readSidecar.mockReturnValue({ ok: true, data: { session_id: "claude-uuid-preserve" } });
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "orch.lead", { runtime: "claude-code", cwd: "/projects/app" });
-    const discovered = seedDiscovery({ runtimeHint: "claude-code", tmuxSession: "orch-lead@test-rig" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "orch.lead", { runtime: "claude-code", cwd: "/projects/app" });
+    const discovered = seedDiscovery({ runtimeHint: "claude-code", tmuxSession: "orch-lead@test-software-team" });
     const writeSpy = vi.spyOn(sessionRegistry, "updateResumeToken").mockReturnValue(false);
 
-    const result = await buildService().bind({ discoveredId: discovered.id, rigId: rig.id, logicalId: "orch.lead" });
+    const result = await buildService().bind({ discoveredId: discovered.id, softwareTeamId: softwareTeam.id, logicalId: "orch.lead" });
     expect(result.ok).toBe(true);
     // Adoption capture DID attempt the write with the derived token + provenance.
     expect(writeSpy).toHaveBeenCalledWith(expect.any(String), "claude_id", "claude-uuid-preserve", "adoption");
@@ -310,12 +310,12 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
 
   it("createAndBindToPod captures a Claude token from the sidecar", async () => {
     readSidecar.mockReturnValue({ ok: true, data: { session_id: "claude-uuid-cbp" } });
-    const rig = rigRepo.createRig("test-rig");
-    db.prepare("INSERT INTO pods (id, rig_id, namespace, label) VALUES (?, ?, ?, ?)").run("pod-dev", rig.id, "dev", "Dev");
-    const discovered = seedDiscovery({ runtimeHint: "claude-code", tmuxSession: "dev-coder@test-rig" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    db.prepare("INSERT INTO pods (id, software_team_id, namespace, label) VALUES (?, ?, ?, ?)").run("pod-dev", softwareTeam.id, "dev", "Dev");
+    const discovered = seedDiscovery({ runtimeHint: "claude-code", tmuxSession: "dev-coder@test-software-team" });
 
     const result = await buildService().createAndBindToPod({
-      discoveredId: discovered.id, rigId: rig.id, podId: "pod-dev", podNamespace: "dev", memberName: "coder",
+      discoveredId: discovered.id, softwareTeamId: softwareTeam.id, podId: "pod-dev", podNamespace: "dev", memberName: "coder",
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -331,19 +331,19 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
    *  node, then mark its session detached (the outage), so reconcileSession can
    *  re-adopt the live session by name. */
   function seedDetachedManagedSeat(runtime: string, sessionName: string) {
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.driver", { runtime, cwd: "/projects/app" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.driver", { runtime, cwd: "/projects/app" });
     sessionRegistry.updateBinding(node.id, { tmuxSession: sessionName });
     const s = sessionRegistry.registerClaimedSession(node.id, sessionName);
     sessionRegistry.markDetached(s.id);
-    return { rig, node, session: s };
+    return { softwareTeam, node, session: s };
   }
 
   it("reconcileSession captures a Codex token at the no-launch adoption boundary", async () => {
     captureCodexThreadId.mockResolvedValue("codex-thread-reconcile");
-    const { node } = seedDetachedManagedSeat("codex", "dev-driver@test-rig");
+    const { node } = seedDetachedManagedSeat("codex", "dev-driver@test-software-team");
 
-    const result = await buildService().reconcileSession({ sessionName: "dev-driver@test-rig" });
+    const result = await buildService().reconcileSession({ sessionName: "dev-driver@test-software-team" });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     // FR-3 captures a token; it never asserts conversation continuity.
@@ -358,11 +358,11 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
   it("reconcileSession replaces a stale Claude token only on the newly bound occupant row", async () => {
     const stale = "9e1ac0df-505a-4050-857b-a494b46dabc6";
     const current = "f16594c5-179a-4be7-bf5e-fd759b2b87a3";
-    const { node, session } = seedDetachedManagedSeat("claude-code", "dev-driver@test-rig");
+    const { node, session } = seedDetachedManagedSeat("claude-code", "dev-driver@test-software-team");
     sessionRegistry.updateResumeToken(session.id, "claude_id", stale, "scrape");
     readSidecar.mockReturnValue({ ok: true, data: { session_id: current } });
 
-    const result = await buildService().reconcileSession({ sessionName: "dev-driver@test-rig" });
+    const result = await buildService().reconcileSession({ sessionName: "dev-driver@test-software-team" });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
@@ -371,8 +371,8 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
       resume_token: current,
       resume_provenance: "adoption",
     });
-    expect(sessionRegistry.getBindingForNode(node.id)?.tmuxSession).toBe("dev-driver@test-rig");
-    expect(sessionRegistry.getSessionsForRig(result.result.rigId).find((row) => row.id === session.id)).toMatchObject({
+    expect(sessionRegistry.getBindingForNode(node.id)?.tmuxSession).toBe("dev-driver@test-software-team");
+    expect(sessionRegistry.getSessionsForSoftwareTeam(result.result.softwareTeamId).find((row) => row.id === session.id)).toMatchObject({
       status: "detached",
       resumeToken: stale,
     });
@@ -380,13 +380,13 @@ describe("ClaimService FR-3 — adoption-boundary resume-token capture", () => {
 
   it("reconcileSession capture is idempotent: re-reconcile refreshes to a single coherent adoption entry", async () => {
     captureCodexThreadId.mockResolvedValue("codex-thread-v1");
-    const { node } = seedDetachedManagedSeat("codex", "dev-driver@test-rig");
+    const { node } = seedDetachedManagedSeat("codex", "dev-driver@test-software-team");
     const svc = buildService();
 
-    await svc.reconcileSession({ sessionName: "dev-driver@test-rig" });
+    await svc.reconcileSession({ sessionName: "dev-driver@test-software-team" });
     // Simulate the token rolling; re-adopt again.
     captureCodexThreadId.mockResolvedValue("codex-thread-v2");
-    const again = await svc.reconcileSession({ sessionName: "dev-driver@test-rig" });
+    const again = await svc.reconcileSession({ sessionName: "dev-driver@test-software-team" });
     expect(again.ok).toBe(true);
 
     // The latest (running) session row carries the refreshed token, still adoption.

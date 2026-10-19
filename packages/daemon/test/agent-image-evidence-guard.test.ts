@@ -3,7 +3,7 @@
 // behaviors:
 //   - pinned image protected
 //   - image referenced by an agent.yaml protected
-//   - image referenced by a rig.yaml protected
+//   - image referenced by a software-team.yaml protected
 //   - lineage descendants of protected images transitively protected
 //   - non-referenced + non-pinned + non-descendant images are evictable
 //   - the YAML scanner tolerates unrelated/large files
@@ -93,9 +93,9 @@ session_source:
     expect(evictable.protected).toBe(false);
   });
 
-  it("protects images referenced by a rig.yaml", () => {
-    writeFileSync(join(specRoot, "rig.yaml"), `
-name: my-rig
+  it("protects images referenced by a software-team.yaml", () => {
+    writeFileSync(join(specRoot, "software-team.yaml"), `
+name: my-software-team
 pods:
   - id: dev
     members:
@@ -105,14 +105,14 @@ pods:
           mode: agent_image
           ref:
             kind: image_name
-            value: rig-referenced
+            value: software-team-referenced
 `);
     const result = evaluateProtection({
-      images: [makeImage({ name: "rig-referenced" })],
+      images: [makeImage({ name: "software-team-referenced" })],
       specRoots: [specRoot],
     });
     expect(result[0]!.protected).toBe(true);
-    expect(result[0]!.reasons).toContain("referenced_by_rig_spec");
+    expect(result[0]!.reasons).toContain("referenced_by_software_team_spec");
   });
 
   it("transitively protects lineage descendants of protected images", () => {
@@ -143,8 +143,8 @@ pods:
   });
 
   it("ignores YAML that doesn't reference agent_image", () => {
-    writeFileSync(join(specRoot, "rig.yaml"), `
-name: my-rig
+    writeFileSync(join(specRoot, "software-team.yaml"), `
+name: my-software-team
 pods:
   - id: dev
     members:

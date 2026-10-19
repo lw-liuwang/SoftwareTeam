@@ -1,5 +1,5 @@
 // Mechanics-gate fix (desk BLOCKING ruling qitem-20260825153441-d9b3989a) — the two daemon
-// primitives behind `rig walk`'s per-piece consumption verification:
+// primitives behind `softwareTeam walk`'s per-piece consumption verification:
 //   1. SessionTransport submitOnly — the single bare-Enter retry for staged text, safe by
 //      construction: the pane must show the EXPECTED staged content or the Enter is refused
 //      (a bare Enter at a permission prompt would APPROVE it — the mismatch gate exists for
@@ -17,7 +17,7 @@ import { walkCommand } from "../../cli/src/commands/walk.js";
 import { STATE_FILE } from "../../cli/src/daemon-lifecycle.js";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SessionTransport } from "../src/domain/session-transport.js";
 import { AgentActivityStore } from "../src/domain/agent-activity-store.js";
@@ -59,27 +59,27 @@ function mockTmux(overrides?: Partial<{
 
 describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let eventBus: EventBus;
   let agentActivityStore: AgentActivityStore;
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     eventBus = new EventBus(db);
     agentActivityStore = new AgentActivityStore({ db, eventBus });
-    const rig = rigRepo.createRig("my-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { role: "worker", runtime: "claude-code" });
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@my-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("my-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@my-software-team");
     sessionRegistry.updateStatus(session.id, "running");
-    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@my-rig" });
+    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@my-software-team" });
   });
   afterEach(() => db.close());
 
   const makeTransport = (tmux: TmuxAdapter) =>
-    new SessionTransport({ db, rigRepo, sessionRegistry, tmuxAdapter: tmux, agentActivityStore, eventBus });
+    new SessionTransport({ db, softwareTeamRepo, sessionRegistry, tmuxAdapter: tmux, agentActivityStore, eventBus });
 
   const STAGED_PIECE = "# World from primitives\n\nThe seat learns the world by composing…";
 
@@ -90,12 +90,12 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
       sendText, sendKeys,
       capturePaneContent: async () => `❯ ${STAGED_PIECE.slice(0, 50)}\n  paste again to expand`,
     }));
-    const res = await transport.send("dev-impl@my-rig", "", { submitOnly: true, expectedStagedText: STAGED_PIECE.slice(0, 200) });
+    const res = await transport.send("dev-impl@my-software-team", "", { submitOnly: true, expectedStagedText: STAGED_PIECE.slice(0, 200) });
     expect(res.ok).toBe(true);
     expect(res.submitOnly).toBe(true);
     expect(sendText).not.toHaveBeenCalled();                       // nothing typed — ever
     expect(sendKeys).toHaveBeenCalledTimes(1);
-    expect(sendKeys).toHaveBeenCalledWith("dev-impl@my-rig", ["Enter"]);
+    expect(sendKeys).toHaveBeenCalledWith("dev-impl@my-software-team", ["Enter"]);
   });
 
   it("REFUSES (staged_mismatch) when the pane shows something else — a bare Enter at a permission prompt would approve it", async () => {
@@ -104,7 +104,7 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
       sendKeys,
       capturePaneContent: async () => "Authorize the 0.4.0 release?\n\n❯ 1. Authorize publish → @latest (Recommended)\n  2. Roll back\n",
     }));
-    const res = await transport.send("dev-impl@my-rig", "", { submitOnly: true, expectedStagedText: STAGED_PIECE });
+    const res = await transport.send("dev-impl@my-software-team", "", { submitOnly: true, expectedStagedText: STAGED_PIECE });
     expect(res.ok).toBe(false);
     expect(res.reason).toBe("staged_mismatch");
     expect(sendKeys).not.toHaveBeenCalled();                       // the Enter never lands
@@ -120,7 +120,7 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
         sendKeys,
         capturePaneContent: async () => "Choose an option\n❯ 1.Yes\n────────────\nshift+tab to cycle\n",
       }));
-      const res = await transport.send("dev-impl@my-rig", "", {
+      const res = await transport.send("dev-impl@my-software-team", "", {
         submitOnly: true,
         expectedStagedText: "1.Yes",
         requireFullStagedText,
@@ -135,11 +135,11 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
   // which mixed-glyph line is the live composer. The union read must fail
   // closed exactly as the pre-shared-matcher check did, in both modes.
   it("unknown-runtime full-match refuses a mixed-glyph block with zero Enter calls", async () => {
-    const rig = rigRepo.createRig("unknown-runtime-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { role: "worker" });
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@unknown-runtime-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("unknown-runtime-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { role: "worker" });
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@unknown-runtime-software-team");
     sessionRegistry.updateStatus(session.id, "running");
-    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@unknown-runtime-rig" });
+    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@unknown-runtime-software-team" });
     const separators: string[][] = [[], [""], ["────────────"]];
     for (const separator of separators) {
       for (const glyph of ["›", "»"]) {
@@ -156,7 +156,7 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
               "",
             ].join("\n"),
           }));
-          const res = await transport.send("dev-impl@unknown-runtime-rig", "", {
+          const res = await transport.send("dev-impl@unknown-runtime-software-team", "", {
             submitOnly: true,
             expectedStagedText: "expected text",
             requireFullStagedText,
@@ -175,7 +175,7 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
       sendKeys,
       capturePaneContent: async () => "❯ [Pasted text #4 +112 lines]\n  paste again to expand",
     }));
-    const res = await transport.send("dev-impl@my-rig", "", { submitOnly: true, expectedStagedText: STAGED_PIECE, expectedStagedLineCount: 112 });
+    const res = await transport.send("dev-impl@my-software-team", "", { submitOnly: true, expectedStagedText: STAGED_PIECE, expectedStagedLineCount: 112 });
     expect(res.ok).toBe(false); // round-4: no residual -> no identity -> fail closed
     expect(res.reason).toBe("staged_mismatch");
     expect(sendKeys).not.toHaveBeenCalled();
@@ -192,7 +192,7 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
       // prompt occupying the current input. An Enter here approves the prompt.
       capturePaneContent: async () => "❯ [Pasted text #2 +112 lines]\nold output scrolled past\n\nAuthorize the next action?\n❯ 1. Continue\n  2. Cancel\n",
     }));
-    const res = await transport.send("dev-impl@my-rig", "", { submitOnly: true, expectedStagedText: STAGED_PIECE, expectedStagedLineCount: 112 });
+    const res = await transport.send("dev-impl@my-software-team", "", { submitOnly: true, expectedStagedText: STAGED_PIECE, expectedStagedLineCount: 112 });
     expect(res.ok).toBe(false);
     expect(res.reason).toBe("staged_mismatch");
     expect(sendKeys).not.toHaveBeenCalled(); // zero Enter calls — the forbidden effect never happens
@@ -205,7 +205,7 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
       capturePaneContent: async () => "❯ [Pasted text #4 +112 lines]\n  paste again to expand",
     }));
     // The walked piece is 6 lines; the staged blob is 112 — someone else's paste.
-    const res = await transport.send("dev-impl@my-rig", "", { submitOnly: true, expectedStagedText: STAGED_PIECE, expectedStagedLineCount: 6 });
+    const res = await transport.send("dev-impl@my-software-team", "", { submitOnly: true, expectedStagedText: STAGED_PIECE, expectedStagedLineCount: 6 });
     expect(res.ok).toBe(false);
     expect(res.reason).toBe("staged_mismatch");
     expect(sendKeys).not.toHaveBeenCalled();
@@ -217,7 +217,7 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
       sendKeys,
       capturePaneContent: async () => "❯ [Pasted text #3 +112 lines] [Pasted text #4 +112 lines]\n  paste again to expand",
     }));
-    const res = await transport.send("dev-impl@my-rig", "", { submitOnly: true, expectedStagedText: STAGED_PIECE, expectedStagedLineCount: 112 });
+    const res = await transport.send("dev-impl@my-software-team", "", { submitOnly: true, expectedStagedText: STAGED_PIECE, expectedStagedLineCount: 112 });
     expect(res.ok).toBe(false);
     expect(res.reason).toBe("staged_mismatch");
     expect(sendKeys).not.toHaveBeenCalled();
@@ -238,7 +238,7 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
   it("R3 SPECIMEN — the preserved single-piece staged rendering (8 placeholders + literal tail) ACCEPTS and submits exactly once [GREEN — rendering-true identity]", async () => {
     const sendKeys = vi.fn(async () => ({ ok: true as const }));
     const transport = makeTransport(mockTmux({ sendKeys, capturePaneContent: async () => PANE_SINGLE() }));
-    const res = await transport.send("dev-impl@my-rig", "", {
+    const res = await transport.send("dev-impl@my-software-team", "", {
       submitOnly: true,
       expectedStagedText: PIECE_2(),
       expectedStagedLineCount: PIECE_2().split("\n").length, // 142 — none of the displayed counts equals this
@@ -250,7 +250,7 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
   it("R3 SPECIMEN GUARD — the preserved COALESCED region (pieces 2 AND 3 staged) refuses for piece 2 with zero Enter calls: submitting would coalesce two pieces into one message", async () => {
     const sendKeys = vi.fn(async () => ({ ok: true as const }));
     const transport = makeTransport(mockTmux({ sendKeys, capturePaneContent: async () => PANE_COALESCED() }));
-    const res = await transport.send("dev-impl@my-rig", "", {
+    const res = await transport.send("dev-impl@my-software-team", "", {
       submitOnly: true,
       expectedStagedText: PIECE_2(),
       expectedStagedLineCount: PIECE_2().split("\n").length,
@@ -270,7 +270,7 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
       sendKeys,
       capturePaneContent: async () => "❯ [Pasted text #9 +100 lines]\n\n────────────────────────────────────────\n  ⏵⏵ accept edits on",
     }));
-    const res = await transport.send("dev-impl@my-rig", "", {
+    const res = await transport.send("dev-impl@my-software-team", "", {
       submitOnly: true,
       expectedStagedText: PIECE_2(),
       expectedStagedLineCount: PIECE_2().split("\n").length,
@@ -286,7 +286,7 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
       sendKeys,
       capturePaneContent: async () => "❯ [Pasted text #3 +12 lines]What are your options?\n\n────────────────────────────────────────\n  ⏵⏵ accept edits on",
     }));
-    const res = await transport.send("dev-impl@my-rig", "", {
+    const res = await transport.send("dev-impl@my-software-team", "", {
       submitOnly: true,
       expectedStagedText: PIECE_2(),
       expectedStagedLineCount: PIECE_2().split("\n").length,
@@ -309,7 +309,7 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
       sendKeys,
       capturePaneContent: async () => `❯ [Pasted text #5 +1 lines]${pieceTail()}\n\n────────────────────────────────────────\n  ⏵⏵ accept edits on`,
     }));
-    const res = await transport.send("dev-impl@my-rig", "", {
+    const res = await transport.send("dev-impl@my-software-team", "", {
       submitOnly: true, expectedStagedText: PIECE_2(), expectedStagedLineCount: PIECE_2().split("\n").length,
     });
     expect(res.ok).toBe(false);
@@ -323,7 +323,7 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
       sendKeys,
       capturePaneContent: async () => `❯ [Pasted text #5 +100 lines]${pieceTail()}\n\n────────────────────────────────────────\n  ⏵⏵ accept edits on`,
     }));
-    const res = await transport.send("dev-impl@my-rig", "", {
+    const res = await transport.send("dev-impl@my-software-team", "", {
       submitOnly: true, expectedStagedText: PIECE_2(), expectedStagedLineCount: PIECE_2().split("\n").length,
     });
     expect(res.ok).toBe(false);
@@ -347,14 +347,14 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
 
   it("R6 — the exact boundary (+139) accepts once", async () => {
     const { transport, sendKeys } = submitTail(139);
-    const res = await transport.send("dev-impl@my-rig", "", submitOpts());
+    const res = await transport.send("dev-impl@my-software-team", "", submitOpts());
     expect(res.ok).toBe(true);
     expect(sendKeys).toHaveBeenCalledTimes(1);
   });
 
   it("R6 — one under the boundary (+138) REFUSES with zero Enter calls [GREEN — exact equality]", async () => {
     const { transport, sendKeys } = submitTail(138);
-    const res = await transport.send("dev-impl@my-rig", "", submitOpts());
+    const res = await transport.send("dev-impl@my-software-team", "", submitOpts());
     expect(res.ok).toBe(false);
     expect(res.reason).toBe("staged_mismatch");
     expect(sendKeys).not.toHaveBeenCalled();
@@ -362,7 +362,7 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
 
   it("R6 — one over the boundary (+140) REFUSES with zero Enter calls [GREEN — exact equality]", async () => {
     const { transport, sendKeys } = submitTail(140);
-    const res = await transport.send("dev-impl@my-rig", "", submitOpts());
+    const res = await transport.send("dev-impl@my-software-team", "", submitOpts());
     expect(res.ok).toBe(false);
     expect(res.reason).toBe("staged_mismatch");
     expect(sendKeys).not.toHaveBeenCalled();
@@ -370,10 +370,10 @@ describe("SessionTransport submitOnly — the guarded bare-Enter retry", () => {
 
   it("REFUSES (invalid_submit_only) without expectedStagedText, and when text is supplied", async () => {
     const transport = makeTransport(mockTmux());
-    const noExpected = await transport.send("dev-impl@my-rig", "", { submitOnly: true });
+    const noExpected = await transport.send("dev-impl@my-software-team", "", { submitOnly: true });
     expect(noExpected.ok).toBe(false);
     expect(noExpected.reason).toBe("invalid_submit_only");
-    const withText = await transport.send("dev-impl@my-rig", "some text", { submitOnly: true, expectedStagedText: "some text" });
+    const withText = await transport.send("dev-impl@my-software-team", "some text", { submitOnly: true, expectedStagedText: "some text" });
     expect(withText.ok).toBe(false);
     expect(withText.reason).toBe("invalid_submit_only");
   });
@@ -403,10 +403,10 @@ describe("GET /api/sessions/:sessionName/generation-record — the consumption-b
   afterEach(() => { vi.restoreAllMocks(); db.close(); rmSync(stateDir, { recursive: true, force: true }); });
 
   function seedCodex(metaId = threadId) {
-    const repo = new RigRepository(db);
-    const rig = repo.createRig("codex-rig");
-    const node = repo.addNode(rig.id, "dev.codex", { runtime: "codex" });
-    const seat = "dev-codex@codex-rig";
+    const repo = new SoftwareTeamRepository(db);
+    const softwareTeam = repo.createSoftwareTeam("codex-software-team");
+    const node = repo.addNode(softwareTeam.id, "dev.codex", { runtime: "codex" });
+    const seat = "dev-codex@codex-software-team";
     const session = registry.registerSession(node.id, seat);
     registry.updateStatus(session.id, "running");
     registry.updateBinding(node.id, { tmuxSession: seat, tmuxPane: "%42" });
@@ -483,7 +483,7 @@ describe("GET /api/sessions/:sessionName/generation-record — the consumption-b
     "integrated CLI → route → native record: %s", async (scenario) => {
       const { record, node } = seedCodex();
       const piece = "Shared heading. ".repeat(8) + "The complete middle matters.\n".repeat(9) + "unique tail Ω";
-      const seat = scenario === "claude" ? "dev-claude@r" : "dev-codex@codex-rig";
+      const seat = scenario === "claude" ? "dev-claude@r" : "dev-codex@codex-software-team";
       const claudePath = scenario === "claude" ? seedSidecar(seat, "claude-gen", "") : null;
       const records = (text: string) => scenario === "claude" ? [
         { type: "user", uuid: "input", message: { role: "user", content: text } },
@@ -531,7 +531,7 @@ describe("GET /api/sessions/:sessionName/generation-record — the consumption-b
           }) as never,
           sleep: async () => {},
         }));
-        await command.parseAsync(["node", "rig", "walk", seat, "--through", "piece.md", "--json", "--pace", "0ms",
+        await command.parseAsync(["node", "softwareTeam", "walk", seat, "--through", "piece.md", "--json", "--pace", "0ms",
           "--consume-timeout", "20ms", "--consume-poll", "1ms", "--turn-timeout", "20ms"]);
         const positive = scenario === "complete" || scenario === "claude";
         expect(process.exitCode).toBe(positive ? undefined : 1);

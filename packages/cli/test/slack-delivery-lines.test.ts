@@ -1,4 +1,4 @@
-// `rig slack status` names inbound delivery beside the socket state, so "connected" is never the only word.
+// `softwareTeam slack status` names inbound delivery beside the socket state, so "connected" is never the only word.
 import { describe, it, expect } from "vitest";
 import { socketDeliveryLines } from "../src/commands/slack.js";
 

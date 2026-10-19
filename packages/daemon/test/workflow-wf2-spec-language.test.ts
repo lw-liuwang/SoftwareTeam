@@ -45,11 +45,11 @@ const BRANCHED_SPEC = `workflow:
     max_hops: 8
   roles:
     builder:
-      preferred_targets: [builder@rig]
+      preferred_targets: [builder@software-team]
     fixer:
-      preferred_targets: [fixer@rig]
+      preferred_targets: [fixer@software-team]
     prover:
-      preferred_targets: [prover@rig]
+      preferred_targets: [prover@software-team]
   steps:
     - id: build
       actor_role: builder
@@ -74,9 +74,9 @@ const LINEAR_SPEC = `workflow:
   version: 1
   roles:
     builder:
-      preferred_targets: [builder@rig]
+      preferred_targets: [builder@software-team]
     prover:
-      preferred_targets: [prover@rig]
+      preferred_targets: [prover@software-team]
   steps:
     - id: build
       actor_role: builder
@@ -91,9 +91,9 @@ const HARNESS_SPEC = `workflow:
   version: 1
   roles:
     builder:
-      preferred_targets: [claude-seat@rig, codex-seat@rig]
+      preferred_targets: [claude-seat@software-team, codex-seat@software-team]
     prover:
-      preferred_targets: [codex-seat@rig]
+      preferred_targets: [codex-seat@software-team]
   steps:
     - id: build
       actor_role: builder
@@ -109,9 +109,9 @@ const GATED_HUMAN_SPEC = `workflow:
   version: 1
   roles:
     builder:
-      preferred_targets: [builder@rig]
+      preferred_targets: [builder@software-team]
     prover:
-      preferred_targets: [prover@rig]
+      preferred_targets: [prover@software-team]
   steps:
     - id: build
       actor_role: builder
@@ -130,9 +130,9 @@ const GATED_HANDLER_SPEC = `workflow:
   version: 1
   roles:
     builder:
-      preferred_targets: [builder@rig]
+      preferred_targets: [builder@software-team]
     checker:
-      preferred_targets: [checker@rig]
+      preferred_targets: [checker@software-team]
   steps:
     - id: build
       actor_role: builder
@@ -153,9 +153,9 @@ const GATED_HANDLER_PINNED_SPEC = `workflow:
   version: 1
   roles:
     builder:
-      preferred_targets: [builder@rig]
+      preferred_targets: [builder@software-team]
     checker:
-      preferred_targets: [claude-check@rig, codex-check@rig]
+      preferred_targets: [claude-check@software-team, codex-check@software-team]
   steps:
     - id: build
       actor_role: builder
@@ -201,8 +201,8 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
       missionControlActionsSchema,
     ]);
     bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
@@ -218,7 +218,7 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
   /** Seed a managed node + session so nodeRuntimeOf resolves a runtime. */
   function seedSeat(sessionName: string, runtimeName: string, nodeId: string): void {
     db.prepare(
-      `INSERT INTO nodes (id, rig_id, logical_id, runtime) VALUES (?, 'r-1', ?, ?)`,
+      `INSERT INTO nodes (id, software_team_id, logical_id, runtime) VALUES (?, 'r-1', ?, ?)`,
     ).run(nodeId, sessionName.split("@")[0], runtimeName);
     db.prepare(
       `INSERT INTO sessions (id, node_id, session_name, status) VALUES (?, ?, ?, 'running')`,
@@ -233,7 +233,7 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
   id: legacy-gates
   version: 1
   roles:
-    a: { preferred_targets: [a@rig] }
+    a: { preferred_targets: [a@software-team] }
   steps:
     - id: s1
       actor_role: a
@@ -255,7 +255,7 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
   id: legacy-prefer
   version: 1
   roles:
-    a: { preferred_targets: [a@rig] }
+    a: { preferred_targets: [a@software-team] }
   steps:
     - id: s1
       actor_role: a
@@ -279,7 +279,7 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
   id: bad-branch-key
   version: 1
   roles:
-    a: { preferred_targets: [a@rig] }
+    a: { preferred_targets: [a@software-team] }
   steps:
     - id: s1
       actor_role: a
@@ -296,7 +296,7 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
   id: bad-harness
   version: 1
   roles:
-    a: { preferred_targets: [a@rig] }
+    a: { preferred_targets: [a@software-team] }
   steps:
     - id: s1
       actor_role: a
@@ -318,7 +318,7 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
   id: bad-gate-key
   version: 1
   roles:
-    a: { preferred_targets: [a@rig] }
+    a: { preferred_targets: [a@software-team] }
   steps:
     - id: s1
       actor_role: a
@@ -404,7 +404,7 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
       const result = await runtime.instantiate({
         specPath,
         rootObjective: "branch walk",
-        createdBySession: "ops@rig",
+        createdBySession: "ops@software-team",
       });
       return { instanceId: result.instance.instanceId, entryQitemId: result.entryQitemId };
     }
@@ -416,13 +416,13 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
         instanceId,
         currentPacketId: entryQitemId,
         exit: "failed",
-        actorSession: "builder@rig",
+        actorSession: "builder@software-team",
         resultNote: "build broke",
       });
       // Routed, not terminal:
       expect(result.nextQitemId).not.toBeNull();
       expect(result.nextStepId).toBe("remediate");
-      expect(result.nextOwnerSession).toBe("fixer@rig");
+      expect(result.nextOwnerSession).toBe("fixer@software-team");
       const instance = runtime.instanceStore.getByIdOrThrow(instanceId);
       expect(instance.status).toBe("active");
       expect(instance.currentStepId).toBe("remediate");
@@ -445,7 +445,7 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
       expect(row?.nextQitemId).toBe(result.nextQitemId);
       // The new packet exists, destined to the branch-target owner:
       const next = queueRepo.getById(result.nextQitemId!);
-      expect(next?.destinationSession).toBe("fixer@rig");
+      expect(next?.destinationSession).toBe("fixer@software-team");
       expect(next?.state).toBe("pending");
     });
 
@@ -454,13 +454,13 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
       const { instance, entryQitemId } = await runtime.instantiate({
         specPath,
         rootObjective: "negative",
-        createdBySession: "ops@rig",
+        createdBySession: "ops@software-team",
       });
       const result = await runtime.project({
         instanceId: instance.instanceId,
         currentPacketId: entryQitemId,
         exit: "failed",
-        actorSession: "builder@rig",
+        actorSession: "builder@software-team",
       });
       expect(result.nextQitemId).toBeNull();
       const after = runtime.instanceStore.getByIdOrThrow(instance.instanceId);
@@ -475,14 +475,14 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
         instanceId,
         currentPacketId: entryQitemId,
         exit: "failed",
-        actorSession: "builder@rig",
+        actorSession: "builder@software-team",
       });
       await expect(
         runtime.project({
           instanceId,
           currentPacketId: entryQitemId,
           exit: "failed",
-          actorSession: "builder@rig",
+          actorSession: "builder@software-team",
         }),
       ).rejects.toMatchObject({ code: "packet_not_on_frontier" });
     });
@@ -493,21 +493,21 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
       const { instance, entryQitemId } = await runtime.instantiate({
         specPath,
         rootObjective: "guard walk",
-        createdBySession: "ops@rig",
+        createdBySession: "ops@software-team",
       });
       // hop 1: build --failed--> remediate (branch route)
       const r1 = await runtime.project({
         instanceId: instance.instanceId,
         currentPacketId: entryQitemId,
         exit: "failed",
-        actorSession: "builder@rig",
+        actorSession: "builder@software-team",
       });
       // hop 2: remediate --handoff--> verify (structural)
       const r2 = await runtime.project({
         instanceId: instance.instanceId,
         currentPacketId: r1.nextQitemId!,
         exit: "handoff",
-        actorSession: "fixer@rig",
+        actorSession: "fixer@software-team",
       });
       // hop 3 would exceed max_hops=2 → engine-authored honest failure,
       // even though the exit is branch-mapped.
@@ -515,7 +515,7 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
         instanceId: instance.instanceId,
         currentPacketId: r2.nextQitemId!,
         exit: "failed",
-        actorSession: "prover@rig",
+        actorSession: "prover@software-team",
       });
       expect(r3.closureReason).toBe("failed");
       expect(r3.nextQitemId).toBeNull();
@@ -533,44 +533,44 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
 
   describe("FR-2 harness pin", () => {
     it("routes a pinned step to the first preferred_target whose runtime matches", async () => {
-      seedSeat("claude-seat@rig", "claude-code", "n-claude");
-      seedSeat("codex-seat@rig", "codex", "n-codex");
+      seedSeat("claude-seat@software-team", "claude-code", "n-claude");
+      seedSeat("codex-seat@software-team", "codex", "n-codex");
       const specPath = writeSpec(tmp, "harness.yaml", HARNESS_SPEC);
       const result = await runtime.instantiate({
         specPath,
         rootObjective: "harness walk",
-        createdBySession: "ops@rig",
+        createdBySession: "ops@software-team",
       });
       // Entry step pins codex; claude-seat is FIRST in preferred_targets
       // but codex-seat matches the pin.
-      expect(result.entryOwnerSession).toBe("codex-seat@rig");
+      expect(result.entryOwnerSession).toBe("codex-seat@software-team");
       const entry = queueRepo.getById(result.entryQitemId);
-      expect(entry?.destinationSession).toBe("codex-seat@rig");
+      expect(entry?.destinationSession).toBe("codex-seat@software-team");
     });
 
     it("an unsatisfiable pin fails loud naming the pin and each candidate's runtime", async () => {
-      seedSeat("claude-seat@rig", "claude-code", "n-claude");
-      seedSeat("codex-seat@rig", "claude-code", "n-codex-mislabeled");
+      seedSeat("claude-seat@software-team", "claude-code", "n-claude");
+      seedSeat("codex-seat@software-team", "claude-code", "n-codex-mislabeled");
       const specPath = writeSpec(tmp, "harness.yaml", HARNESS_SPEC);
       await expect(
         runtime.instantiate({
           specPath,
           rootObjective: "unsatisfiable",
-          createdBySession: "ops@rig",
+          createdBySession: "ops@software-team",
         }),
       ).rejects.toMatchObject({ code: "harness_pin_unsatisfied" });
     });
 
     it("an explicit owner override that violates the pin is rejected (never silently defeats a pin)", async () => {
-      seedSeat("claude-seat@rig", "claude-code", "n-claude");
-      seedSeat("codex-seat@rig", "codex", "n-codex");
+      seedSeat("claude-seat@software-team", "claude-code", "n-claude");
+      seedSeat("codex-seat@software-team", "codex", "n-codex");
       const specPath = writeSpec(tmp, "harness.yaml", HARNESS_SPEC);
       await expect(
         runtime.instantiate({
           specPath,
           rootObjective: "override",
-          createdBySession: "ops@rig",
-          entryOwnerSession: "claude-seat@rig",
+          createdBySession: "ops@software-team",
+          entryOwnerSession: "claude-seat@software-team",
         }),
       ).rejects.toMatchObject({ code: "harness_pin_unsatisfied" });
     });
@@ -580,9 +580,9 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
       const result = await runtime.instantiate({
         specPath,
         rootObjective: "no pin",
-        createdBySession: "ops@rig",
+        createdBySession: "ops@software-team",
       });
-      expect(result.entryOwnerSession).toBe("builder@rig");
+      expect(result.entryOwnerSession).toBe("builder@software-team");
     });
   });
 
@@ -598,7 +598,7 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
       const result = await runtime.instantiate({
         specPath,
         rootObjective: "local host",
-        createdBySession: "ops@rig",
+        createdBySession: "ops@software-team",
       });
       expect(result.instance.status).toBe("active");
     });
@@ -626,38 +626,38 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
         "      allowed_exits: [handoff, waiting, done, failed]\n      host: vps-1\n    - id: verify",
       );
       const specPath = writeSpec(tmp, "remote.yaml", remote);
-      // Synthetic OPENRIG_HOME registry (never a real remote): vps-1 IS
+      // Synthetic SOFTWARETEAM_HOME registry (never a real remote): vps-1 IS
       // registered, so registry-membership validation PASSES and the
       // MH-3 execution boundary is what fires — proving no qitem is
       // ever minted into a queue that cannot route it, and no silent
       // local fallback happens.
-      const prevHome = process.env.OPENRIG_HOME;
+      const prevHome = process.env.SOFTWARETEAM_HOME;
       writeFileSync(
         join(tmp, "hosts.yaml"),
         "hosts:\n  - id: vps-1\n    transport: ssh\n    target: vps-1.invalid\n",
       );
-      process.env.OPENRIG_HOME = tmp;
+      process.env.SOFTWARETEAM_HOME = tmp;
       try {
         const qitemsBefore = db.prepare(`SELECT COUNT(*) as c FROM queue_items`).get() as { c: number };
         await expect(
           runtime.instantiate({
             specPath,
             rootObjective: "remote host",
-            createdBySession: "ops@rig",
+            createdBySession: "ops@software-team",
           }),
         ).rejects.toMatchObject({ code: "host_pin_remote_unsupported" });
         const qitemsAfter = db.prepare(`SELECT COUNT(*) as c FROM queue_items`).get() as { c: number };
         expect(qitemsAfter.c).toBe(qitemsBefore.c);
         try {
-          await runtime.instantiate({ specPath, rootObjective: "remote host", createdBySession: "ops@rig" });
+          await runtime.instantiate({ specPath, rootObjective: "remote host", createdBySession: "ops@software-team" });
           expect.unreachable("should have thrown");
         } catch (e) {
           expect((e as Error).message).toContain("MH-3");
           expect((e as Error).message).toContain("local");
         }
       } finally {
-        if (prevHome === undefined) delete process.env.OPENRIG_HOME;
-        else process.env.OPENRIG_HOME = prevHome;
+        if (prevHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+        else process.env.SOFTWARETEAM_HOME = prevHome;
       }
     });
   });
@@ -670,21 +670,21 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
       const { instance, entryQitemId } = await runtime.instantiate({
         specPath,
         rootObjective: "human gate",
-        createdBySession: "ops@rig",
+        createdBySession: "ops@software-team",
       });
       const result = await runtime.project({
         instanceId: instance.instanceId,
         currentPacketId: entryQitemId,
         exit: "handoff",
-        actorSession: "builder@rig",
+        actorSession: "builder@software-team",
       });
       // Guard blocker 1: the leg-1 park shape — the packet belongs to the
       // gated step's ROLE OWNER and parks blocked_on the HUMAN seat (the
-      // exact shape `rig queue resolve` acts on) — never an unresolvable
+      // exact shape `SoftwareTeam queue resolve` acts on) — never an unresolvable
       // pending human-destined item.
-      expect(result.nextOwnerSession).toBe("prover@rig");
+      expect(result.nextOwnerSession).toBe("prover@software-team");
       const gateItem = queueRepo.getById(result.nextQitemId!)!;
-      expect(gateItem.destinationSession).toBe("prover@rig");
+      expect(gateItem.destinationSession).toBe("prover@software-team");
       expect(gateItem.state).toBe("blocked");
       expect(gateItem.blockedOn).toBe("human@kernel");
       expect(gateItem.summary).toBe("Sign off the release");
@@ -715,7 +715,7 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
         instanceId: instance.instanceId,
         currentPacketId: result.nextQitemId!,
         exit: "done",
-        actorSession: "prover@rig",
+        actorSession: "prover@software-team",
       });
       expect(done.nextQitemId).toBeNull();
       const finished = runtime.instanceStore.getByIdOrThrow(instance.instanceId);
@@ -727,17 +727,17 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
       const { instance, entryQitemId } = await runtime.instantiate({
         specPath,
         rootObjective: "handler gate",
-        createdBySession: "ops@rig",
+        createdBySession: "ops@software-team",
       });
       const result = await runtime.project({
         instanceId: instance.instanceId,
         currentPacketId: entryQitemId,
         exit: "handoff",
-        actorSession: "builder@rig",
+        actorSession: "builder@software-team",
       });
-      expect(result.nextOwnerSession).toBe("checker@rig");
+      expect(result.nextOwnerSession).toBe("checker@software-team");
       const gateItem = queueRepo.getById(result.nextQitemId!);
-      expect(gateItem?.destinationSession).toBe("checker@rig");
+      expect(gateItem?.destinationSession).toBe("checker@software-team");
       // Ordinary agent item — NOT forced through the human path:
       expect(gateItem?.tier).not.toBe("human-gate");
       const after = runtime.instanceStore.getByIdOrThrow(instance.instanceId);
@@ -749,43 +749,43 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
     });
 
     it("rev1-r2 blocker: a harness pin on a handler-gated step binds the HANDLER seat — routes to the first runtime-matching target, never preferred_targets[0] blindly", async () => {
-      seedSeat("claude-check@rig", "claude-code", "n-cc");
-      seedSeat("codex-check@rig", "codex", "n-cx");
+      seedSeat("claude-check@software-team", "claude-code", "n-cc");
+      seedSeat("codex-check@software-team", "codex", "n-cx");
       const specPath = writeSpec(tmp, "gated-handler-pinned.yaml", GATED_HANDLER_PINNED_SPEC);
       const { instance, entryQitemId } = await runtime.instantiate({
         specPath,
         rootObjective: "pinned handler gate",
-        createdBySession: "ops@rig",
+        createdBySession: "ops@software-team",
       });
       const result = await runtime.project({
         instanceId: instance.instanceId,
         currentPacketId: entryQitemId,
         exit: "handoff",
-        actorSession: "builder@rig",
+        actorSession: "builder@software-team",
       });
-      // claude-check@rig is FIRST in preferred_targets, but the step pins
+      // claude-check@software-team is FIRST in preferred_targets, but the step pins
       // codex — the codex seat must win.
-      expect(result.nextOwnerSession).toBe("codex-check@rig");
-      expect(queueRepo.getById(result.nextQitemId!)?.destinationSession).toBe("codex-check@rig");
+      expect(result.nextOwnerSession).toBe("codex-check@software-team");
+      expect(queueRepo.getById(result.nextQitemId!)?.destinationSession).toBe("codex-check@software-team");
     });
 
     it("rev1-r2 blocker: an unsatisfiable pin on a handler-gated step fails loud at INSTANTIATE naming the pin and candidates (the static loop covers gated steps)", async () => {
-      seedSeat("claude-check@rig", "claude-code", "n-cc");
-      seedSeat("codex-check@rig", "claude-code", "n-cx-mislabeled");
+      seedSeat("claude-check@software-team", "claude-code", "n-cc");
+      seedSeat("codex-check@software-team", "claude-code", "n-cx-mislabeled");
       const specPath = writeSpec(tmp, "gated-handler-pinned.yaml", GATED_HANDLER_PINNED_SPEC);
       await expect(
         runtime.instantiate({
           specPath,
           rootObjective: "unsatisfiable pinned handler gate",
-          createdBySession: "ops@rig",
+          createdBySession: "ops@software-team",
         }),
       ).rejects.toMatchObject({ code: "harness_pin_unsatisfied" });
       try {
-        await runtime.instantiate({ specPath, rootObjective: "x", createdBySession: "ops@rig" });
+        await runtime.instantiate({ specPath, rootObjective: "x", createdBySession: "ops@software-team" });
         expect.unreachable("should have thrown");
       } catch (e) {
         expect((e as Error).message).toContain("codex");
-        expect((e as Error).message).toContain("claude-check@rig");
+        expect((e as Error).message).toContain("claude-check@software-team");
       }
     });
 
@@ -850,21 +850,21 @@ describe("OPR.0.4.6.WF2 — spec language", () => {
       const { instance, entryQitemId } = await runtime.instantiate({
         specPath,
         rootObjective: "regression spine",
-        createdBySession: "ops@rig",
+        createdBySession: "ops@software-team",
       });
       const r1 = await runtime.project({
         instanceId: instance.instanceId,
         currentPacketId: entryQitemId,
         exit: "handoff",
-        actorSession: "builder@rig",
+        actorSession: "builder@software-team",
       });
-      expect(r1.nextOwnerSession).toBe("prover@rig");
+      expect(r1.nextOwnerSession).toBe("prover@software-team");
       expect(queueRepo.getById(entryQitemId)?.closureReason).toBe("handed_off_to");
       const r2 = await runtime.project({
         instanceId: instance.instanceId,
         currentPacketId: r1.nextQitemId!,
         exit: "done",
-        actorSession: "prover@rig",
+        actorSession: "prover@software-team",
       });
       expect(r2.nextQitemId).toBeNull();
       const after = runtime.instanceStore.getByIdOrThrow(instance.instanceId);

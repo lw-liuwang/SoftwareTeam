@@ -6,7 +6,7 @@ import type Database from "better-sqlite3";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { ContextUsageStore } from "../src/domain/context-usage-store.js";
 import { ContextMonitor } from "../src/domain/context-monitor.js";
@@ -26,7 +26,7 @@ function deferred<T>() {
 describe("context observations retain their compaction target", () => {
   let db: Database.Database;
   let home: string;
-  let repo: RigRepository;
+  let repo: SoftwareTeamRepository;
   let registry: SessionRegistry;
   let store: ContextUsageStore;
   let guard: SeatDeliveryGuard;
@@ -38,7 +38,7 @@ describe("context observations retain their compaction target", () => {
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
     home = mkdtempSync(join(tmpdir(), "context-compaction-race-"));
-    repo = new RigRepository(db);
+    repo = new SoftwareTeamRepository(db);
     registry = new SessionRegistry(db);
     store = new ContextUsageStore(db, { stateDir: home });
     guard = new SeatDeliveryGuard(db, name => resolveGuardTarget(db, name));
@@ -51,7 +51,7 @@ describe("context observations retain their compaction target", () => {
     }));
     transport = { deliveryGuard: guard, send } as unknown as SessionTransport;
     enforcer = new ClaudeCompactionEnforcer(settings, transport, {
-      openrigHome: home,
+      softwareteamHome: home,
       resolveOccupantGeneration: seat => registry.currentOccupantGenerationForSession(seat),
     });
   });
@@ -62,14 +62,14 @@ describe("context observations retain their compaction target", () => {
   });
 
   function seed(name = "writer@fixture", startup: "ready" | "failed" = "failed") {
-    const rig = repo.createRig(name);
-    const node = repo.addNode(rig.id, "writer", { runtime: "claude-code", cwd: home });
+    const softwareTeam = repo.createSoftwareTeam(name);
+    const node = repo.addNode(softwareTeam.id, "writer", { runtime: "claude-code", cwd: home });
     const session = registry.registerSession(node.id, name);
     registry.updateStatus(session.id, "running");
     registry.updateStartupStatus(session.id, startup);
     registry.updateBinding(node.id, { tmuxSession: name, tmuxPane: `%${node.id}` });
     usage(name, 90);
-    return { rig, node, session, name };
+    return { softwareTeam, node, session, name };
   }
   function usage(name: string, percentage: number) {
     const dir = join(home, "state", "context-usage");
@@ -86,7 +86,7 @@ describe("context observations retain their compaction target", () => {
 
   it.each(["generation", "replacement", "stopped", "pane", "retry"] as const)(
     "does not prepare compaction after %s changes during readiness observation", async change => {
-      const { rig, node, session, name } = seed();
+      const { softwareTeam, node, session, name } = seed();
       const entered = deferred<void>();
       const probe = deferred<ReadinessResult>();
       const poller = monitor(() => { entered.resolve(); return probe.promise; });
@@ -103,8 +103,8 @@ describe("context observations retain their compaction target", () => {
         if (change === "pane") registry.updateBinding(node.id, { tmuxPane: "%new" });
         if (change === "retry") {
           const events = new EventBus(db);
-          events.emit({ type: "node.startup_pending", rigId: rig.id, nodeId: node.id });
-          events.emit({ type: "node.startup_failed", rigId: rig.id, nodeId: node.id, sessionId: session.id, error: "fixture retry" });
+          events.emit({ type: "node.startup_pending", softwareTeamId: softwareTeam.id, nodeId: node.id });
+          events.emit({ type: "node.startup_failed", softwareTeamId: softwareTeam.id, nodeId: node.id, sessionId: session.id, error: "fixture retry" });
         }
         guard.rebindLifecycle(node.id);
       });
@@ -220,6 +220,6 @@ describe("context observations retain their compaction target", () => {
     registry.updateStatus(session.id, "running");
     await poller.pollOnce();
     expect(send).toHaveBeenCalledTimes(3);
-    expect(send.mock.calls[2]?.[1]).toContain("OpenRig post-compaction turn boundary.");
+    expect(send.mock.calls[2]?.[1]).toContain("SoftwareTeam post-compaction turn boundary.");
   });
 });

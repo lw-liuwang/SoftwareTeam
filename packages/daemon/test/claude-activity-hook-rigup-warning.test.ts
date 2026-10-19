@@ -1,25 +1,25 @@
 // OPR activity-hook r3 Part 3 — production-altitude: a managed-activity-hook DELIVERY gap
 // (missing relay / missing/malformed/zero-relay-event canonical manifest) must surface as a
-// NONFATAL rig-up warning on the READY path — rig up succeeds (ok:true, rc0) and the warning
+// NONFATAL software-team-up warning on the READY path — SoftwareTeam up succeeds (ok:true, rc0) and the warning
 // rides along in the materialize result (→ up route → CLI). It must NOT gate startup, and it
 // must NOT appear when delivery is possible. Validation is the SHARED module the adapter uses.
 
 import { describe, it, expect, vi } from "vitest";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { PodRepository } from "../src/domain/pod-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { NodeLauncher } from "../src/domain/node-launcher.js";
 import { StartupOrchestrator } from "../src/domain/startup-orchestrator.js";
-import { PodRigInstantiator } from "../src/domain/rigspec-instantiator.js";
-import { RigSpecCodec } from "../src/domain/rigspec-codec.js";
+import { PodSoftwareTeamInstantiator } from "../src/domain/software-team-spec-instantiator.js";
+import { SoftwareTeamSpecCodec } from "../src/domain/software-team-spec-codec.js";
 import type { AgentResolverFsOps } from "../src/domain/agent-resolver.js";
 import type { RuntimeAdapter } from "../src/domain/runtime-adapter.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
-import type { RigSpec } from "../src/domain/types.js";
+import type { SoftwareTeamSpec } from "../src/domain/types.js";
 
-const RIG_ROOT = "/project/rigs/my-rig";
+const SOFTWARE_TEAM_ROOT = "/project/software-teams/my-software-team";
 const RELAY_FIX = "/fixtures/activity-relay.cjs";
 const MANIFEST_FIX = "/fixtures/claude.json";
 const GOOD_MANIFEST = JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: "command", command: 'node "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/activity-relay.cjs"', timeout: 5 }] }] } });
@@ -61,26 +61,26 @@ function mockFs(files: Record<string, string>): AgentResolverFsOps {
     exists: (p: string) => p in files,
   };
 }
-function makeRigSpec(): RigSpec {
+function makeSoftwareTeamSpec(): SoftwareTeamSpec {
   return {
-    version: "0.2", name: "test-rig",
+    version: "0.2", name: "test-software-team",
     pods: [{ id: "dev", label: "Dev", members: [{ id: "impl", agentRef: "local:agents/impl", profile: "default", runtime: "claude-code", cwd: "." }], edges: [] }],
     edges: [],
-  } as RigSpec;
+  } as SoftwareTeamSpec;
 }
 
 function setup(activityAssets: { relayPath?: string; manifestPath?: string }, extraFiles?: Record<string, string>) {
   const db = createFullTestDb();
-  const rigRepo = new RigRepository(db);
+  const softwareTeamRepo = new SoftwareTeamRepository(db);
   const podRepo = new PodRepository(db);
   const sessionRegistry = new SessionRegistry(db);
   const eventBus = new EventBus(db);
   const tmux = mockTmux();
-  const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+  const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
   const startupOrch = new StartupOrchestrator({ db, sessionRegistry, eventBus, tmuxAdapter: tmux });
-  const files: Record<string, string> = { [`${RIG_ROOT}/agents/impl/agent.yaml`]: AGENT_YAML, ...extraFiles };
-  const inst = new PodRigInstantiator({
-    db, rigRepo, podRepo, sessionRegistry, eventBus, nodeLauncher, startupOrchestrator: startupOrch,
+  const files: Record<string, string> = { [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: AGENT_YAML, ...extraFiles };
+  const inst = new PodSoftwareTeamInstantiator({
+    db, softwareTeamRepo, podRepo, sessionRegistry, eventBus, nodeLauncher, startupOrchestrator: startupOrch,
     fsOps: mockFs(files), claudeActivityAssets: activityAssets,
     adapters: { "claude-code": mockAdapter(), "codex": mockAdapter("codex"), "terminal": mockAdapter("terminal") },
     tmuxAdapter: tmux,
@@ -88,11 +88,11 @@ function setup(activityAssets: { relayPath?: string; manifestPath?: string }, ex
   return { db, inst };
 }
 
-describe("rig up — managed activity-hook delivery-gap warning (nonfatal, rc0)", () => {
-  it("MISSING relay/manifest assets → rig up SUCCEEDS (ok:true) with the exact nonfatal warning", async () => {
+describe("SoftwareTeam up — managed activity-hook delivery-gap warning (nonfatal, rc0)", () => {
+  it("MISSING relay/manifest assets → SoftwareTeam up SUCCEEDS (ok:true) with the exact nonfatal warning", async () => {
     // claudeActivityAssets point at paths absent from fsOps → not deliverable.
     const { db, inst } = setup({ relayPath: "/nope/relay.cjs", manifestPath: "/nope/claude.json" });
-    const result = await inst.instantiate(RigSpecCodec.serialize(makeRigSpec()), RIG_ROOT);
+    const result = await inst.instantiate(SoftwareTeamSpecCodec.serialize(makeSoftwareTeamSpec()), SOFTWARE_TEAM_ROOT);
     expect(result.ok).toBe(true); // rc0 — NOT a hard failure
     if (!result.ok) return;
     const warnings = result.result.warnings ?? [];
@@ -101,12 +101,12 @@ describe("rig up — managed activity-hook delivery-gap warning (nonfatal, rc0)"
     db.close();
   });
 
-  it("DELIVERABLE assets (relay + valid manifest present) → rig up SUCCEEDS with NO activity-hook warning", async () => {
+  it("DELIVERABLE assets (relay + valid manifest present) → SoftwareTeam up SUCCEEDS with NO activity-hook warning", async () => {
     const { db, inst } = setup(
       { relayPath: RELAY_FIX, manifestPath: MANIFEST_FIX },
       { [RELAY_FIX]: "// relay", [MANIFEST_FIX]: GOOD_MANIFEST },
     );
-    const result = await inst.instantiate(RigSpecCodec.serialize(makeRigSpec()), RIG_ROOT);
+    const result = await inst.instantiate(SoftwareTeamSpecCodec.serialize(makeSoftwareTeamSpec()), SOFTWARE_TEAM_ROOT);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const warnings = result.result.warnings ?? [];

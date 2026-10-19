@@ -4,7 +4,7 @@
 //
 // Configuration honesty: an unconfigured/disabled connector yields an INERT wire — delivery
 // refuses with a named class, no ops advertised, no drivers started — never a throw (boot
-// proceeds; `rig slack status` names what is missing) and never a silent pretend-active
+// proceeds; `softwareTeam slack status` names what is missing) and never a silent pretend-active
 // delivery path.
 //
 // Durable-state continuity through the cutover: the SAME slice-11 state files carry over
@@ -208,7 +208,7 @@ export function buildSlackGatewayWire(opts: SlackWireOpts): GatewayWire {
   const log = opts.log ?? (() => {});
   const cfg = loadConfig(opts.home);
   const ignored = unsupportedChannelMapFields(cfg);
-  if (ignored.length) log(`slack channel map: IGNORING unsupported field(s) ${ignored.join(", ")} (written by a newer OpenRig?); \`rig slack status\` names them`);
+  if (ignored.length) log(`slack channel map: IGNORING unsupported field(s) ${ignored.join(", ")} (written by a newer SoftwareTeam?); \`SoftwareTeam slack status\` names them`);
   const envFile = cfg.secretsEnvFile ?? undefined;
   const bot = resolveSecret(SECRET_BOT, { envFile });
   const app = resolveSecret(SECRET_APP, { envFile });
@@ -217,7 +217,7 @@ export function buildSlackGatewayWire(opts: SlackWireOpts): GatewayWire {
   const inboundReady = cfg.enabled && app !== null;
 
   if (!outboundReady && !inboundReady) {
-    const missing = !cfg.enabled ? "connector disabled (rig slack enable)" : !bot ? "SLACK_BOT_TOKEN unresolved" : "channel unconfigured";
+    const missing = !cfg.enabled ? "connector disabled (SoftwareTeam slack enable)" : !bot ? "SLACK_BOT_TOKEN unresolved" : "channel unconfigured";
     log(`slack delivery not configured (${missing}) — wire is inert; dispatches would be refused honestly`);
     const inert = buildInProcessWire({
       home: opts.home,
@@ -262,7 +262,7 @@ export function buildSlackGatewayWire(opts: SlackWireOpts): GatewayWire {
 
   // S10 thread routing — the map shares the daemon DB (queue rows carry the rebuild stamps).
   const threadMap = new ThreadSeatMap(opts.queueRepo.db);
-  // #192 — the channel a payload posts to: its seat's (or rig's) mapped channel, else the
+  // #192 — the channel a payload posts to: its seat's (or softwareTeam's) mapped channel, else the
   // default. The seat is the row's agent side (queue-access projects it into sourceSession for
   // requests, blocked items and resolved decisions alike); an aggregate digest has none and
   // posts to the default. Only called when outbound is ready, so the default is set.
@@ -286,8 +286,8 @@ export function buildSlackGatewayWire(opts: SlackWireOpts): GatewayWire {
       summary: `Not delivered to ${human}: ${p.summary ?? p.qitemId}`,
       body: [
         partlyPosted
-          ? `Part of your ask ${p.qitemId} may already be in Slack, but OpenRig could not post the rest, so ${human} has not seen all of it.`
-          : `OpenRig could not post your ask ${p.qitemId} to Slack, so ${human} has not seen it.`,
+          ? `Part of your ask ${p.qitemId} may already be in Slack, but SoftwareTeam could not post the rest, so ${human} has not seen all of it.`
+          : `SoftwareTeam could not post your ask ${p.qitemId} to Slack, so ${human} has not seen it.`,
         "",
         `Reason: ${detail}`,
         "",
@@ -295,7 +295,7 @@ export function buildSlackGatewayWire(opts: SlackWireOpts): GatewayWire {
           ? "Check the thread in Slack and send what's missing as a new ask. The original row stays open until you close it."
           : "Shorten it and send it as a new ask. The original row stays open until you close it.",
       ].join("\n"),
-      evidenceRef: `rig queue show ${p.qitemId}`,
+      evidenceRef: `SoftwareTeam queue show ${p.qitemId}`,
       tags: ["slack-undeliverable"],
     }).catch((e) => log(`undeliverable notice FAILED for ${p.qitemId}: ${(e as Error).message}`));
   };

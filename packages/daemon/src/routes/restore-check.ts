@@ -2,31 +2,31 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type Database from "better-sqlite3";
 import { Hono } from "hono";
-import { OPENRIG_HOME } from "../openrig-compat.js";
+import { SOFTWARETEAM_HOME } from "../softwareteam-compat.js";
 import { RestoreCheckService, type RestoreCheckDeps, type NodeInventoryEntry, type StartupContextProbeResult } from "../domain/restore-check-service.js";
 import { deriveRelayEvents } from "../domain/claude-activity-hooks.js";
 import { getNodeInventory } from "../domain/node-inventory.js";
-import { resolveLegacyTopologyRigsRoot } from "../domain/user-settings/settings-store.js";
-import type { RigRepository } from "../domain/rig-repository.js";
+import { resolveLegacyTopologySoftwareTeamsRoot } from "../domain/user-settings/settings-store.js";
+import type { SoftwareTeamRepository } from "../domain/software-team-repository.js";
 import type { SnapshotRepository } from "../domain/snapshot-repository.js";
 import { assessCurrentStateRehydrateEligibility, snapshotMatchesCurrentOccupants } from "../domain/rehydrate-eligibility.js";
 
 function getDeps(c: { get(key: never): unknown }): {
-  rigRepo: RigRepository;
+  softwareTeamRepo: SoftwareTeamRepository;
   snapshotRepo: SnapshotRepository;
 } {
   return {
-    rigRepo: c.get("rigRepo" as never) as RigRepository,
+    softwareTeamRepo: c.get("softwareTeamRepo" as never) as SoftwareTeamRepository,
     snapshotRepo: c.get("snapshotRepo" as never) as SnapshotRepository,
   };
 }
 
 export const restoreCheckRoutes = new Hono();
 
-function getNodeIdMap(db: Database.Database, rigId: string): Map<string, string> {
+function getNodeIdMap(db: Database.Database, softwareTeamId: string): Map<string, string> {
   const rows = db.prepare(
-    "SELECT id, logical_id FROM nodes WHERE rig_id = ?"
-  ).all(rigId) as Array<{ id: string; logical_id: string }>;
+    "SELECT id, logical_id FROM nodes WHERE software_team_id = ?"
+  ).all(softwareTeamId) as Array<{ id: string; logical_id: string }>;
   return new Map(rows.map((row) => [row.logical_id, row.id]));
 }
 
@@ -144,22 +144,22 @@ function getStartupContext(db: Database.Database, nodeId: string): StartupContex
 
 /**
  * OPR.0.4.3.22 — build a RestoreCheckService wired to the live daemon
- * repositories. Extracted so the rig-status compose route can consume the SAME
+ * repositories. Extracted so the software-team-status compose route can consume the SAME
  * restore-check readiness signal (RecoveryPlan) the `/api/restore-check` route
  * emits, rather than re-implementing it (ponytail: one restore-check, composed).
  */
 export function createRestoreCheckService(
-  rigRepo: RigRepository,
+  softwareTeamRepo: SoftwareTeamRepository,
   snapshotRepo: SnapshotRepository,
 ): RestoreCheckService {
   const serviceDeps: RestoreCheckDeps = {
-    stateDir: OPENRIG_HOME,
-    substrateRoot: dirname(resolveLegacyTopologyRigsRoot()),
+    stateDir: SOFTWARETEAM_HOME,
+    substrateRoot: dirname(resolveLegacyTopologySoftwareTeamsRoot()),
     probeQueueStore: () => {
       try {
         // The durable queue is the daemon's SQLite table. Empty is a valid
         // state; restore-check only proves the store can be queried.
-        rigRepo.db.prepare("SELECT qitem_id FROM queue_items LIMIT 0").all();
+        softwareTeamRepo.db.prepare("SELECT qitem_id FROM queue_items LIMIT 0").all();
         return { available: true, evidence: "Daemon SQLite queue_items store is queryable; an empty queue is valid" };
       } catch (err) {
         return {
@@ -170,40 +170,40 @@ export function createRestoreCheckService(
     },
     getClaudeActivityHookEvents: () => deriveRelayEvents(
       { exists: existsSync, readFile: (path) => readFileSync(path, "utf-8") },
-      resolve(import.meta.dirname, "../../assets/plugins/openrig-core/hooks/claude.json"),
+      resolve(import.meta.dirname, "../../assets/plugins/softwareteam-core/hooks/claude.json"),
     ).map(({ event }) => event),
-    listRigs: () => {
-      const rigs = rigRepo.listRigs();
-      return rigs.map((r) => ({ rigId: r.id, name: r.name }));
+    listSoftwareTeams: () => {
+      const softwareTeams = softwareTeamRepo.listSoftwareTeams();
+      return softwareTeams.map((r) => ({ softwareTeamId: r.id, name: r.name }));
     },
-    getNodeInventory: (rigId: string) => {
-      const nodeIdByLogicalId = getNodeIdMap(rigRepo.db, rigId);
-      return getNodeInventory(rigRepo.db, rigId).map((entry) => ({
+    getNodeInventory: (softwareTeamId: string) => {
+      const nodeIdByLogicalId = getNodeIdMap(softwareTeamRepo.db, softwareTeamId);
+      return getNodeInventory(softwareTeamRepo.db, softwareTeamId).map((entry) => ({
         ...entry,
         nodeId: nodeIdByLogicalId.get(entry.logicalId) ?? null,
       })) as NodeInventoryEntry[];
     },
     getStartupContext: (nodeId: string) => {
-      return getStartupContext(rigRepo.db, nodeId);
+      return getStartupContext(softwareTeamRepo.db, nodeId);
     },
-    hasSnapshot: (rigId: string) => {
-      return snapshotRepo.listSnapshots(rigId).length > 0;
+    hasSnapshot: (softwareTeamId: string) => {
+      return snapshotRepo.listSnapshots(softwareTeamId).length > 0;
     },
-    getLatestSnapshot: (rigId: string) => {
-      const snapshot = snapshotRepo.getLatestSnapshot(rigId);
+    getLatestSnapshot: (softwareTeamId: string) => {
+      const snapshot = snapshotRepo.getLatestSnapshot(softwareTeamId);
       return snapshot ? { id: snapshot.id, kind: snapshot.kind } : null;
     },
-    getRestoreInputs: (rigId: string) => {
-      const rig = rigRepo.getRig(rigId);
-      if (!rig) return { unavailable: `Rig ${rigId} no longer exists` };
-      const selected = snapshotRepo.selectRestoreUsable(rigId);
-      if (!selected.ok || !snapshotMatchesCurrentOccupants(snapshotRepo.db, rig, selected.snapshot)) {
+    getRestoreInputs: (softwareTeamId: string) => {
+      const softwareTeam = softwareTeamRepo.getSoftwareTeam(softwareTeamId);
+      if (!softwareTeam) return { unavailable: `SoftwareTeam ${softwareTeamId} no longer exists` };
+      const selected = snapshotRepo.selectRestoreUsable(softwareTeamId);
+      if (!selected.ok || !snapshotMatchesCurrentOccupants(snapshotRepo.db, softwareTeam, selected.snapshot)) {
         return {
-          currentStateRehydrate: assessCurrentStateRehydrateEligibility(snapshotRepo.db, rig),
+          currentStateRehydrate: assessCurrentStateRehydrateEligibility(snapshotRepo.db, softwareTeam),
           reason: selected.ok ? "Selected snapshot names an older occupant" : selected.message,
         };
       }
-      return { snapshot: selected.snapshot, servicesRecord: rigRepo.getServicesRecord(rigId) };
+      return { snapshot: selected.snapshot, servicesRecord: softwareTeamRepo.getServicesRecord(softwareTeamId) };
     },
     probeDaemonHealth: () => {
       // We're inside the daemon — if this route is responding, daemon is healthy
@@ -217,10 +217,10 @@ export function createRestoreCheckService(
   return new RestoreCheckService(serviceDeps);
 }
 
-// GET /api/restore-check?rig=<name>&noQueue=true&noHooks=true&compact=1
+// GET /api/restore-check?softwareTeam=<name>&noQueue=true&noHooks=true&compact=1
 restoreCheckRoutes.get("/", (c) => {
   const deps = getDeps(c);
-  const rigFilter = c.req.query("rig") ?? undefined;
+  const softwareTeamFilter = c.req.query("softwareTeam") ?? undefined;
   const noQueue = c.req.query("noQueue") === "true";
   const noHooks = c.req.query("noHooks") === "true";
   const compact = c.req.query("compact") === "1";
@@ -228,8 +228,8 @@ restoreCheckRoutes.get("/", (c) => {
   const includeReady = c.req.query("ready") === "1";
 
   try {
-    const service = createRestoreCheckService(deps.rigRepo, deps.snapshotRepo);
-    const result = service.check({ rig: rigFilter, noQueue, noHooks, compact, includeReady });
+    const service = createRestoreCheckService(deps.softwareTeamRepo, deps.snapshotRepo);
+    const result = service.check({ softwareTeam: softwareTeamFilter, noQueue, noHooks, compact, includeReady });
 
     if (compact) {
       const compactResult = {
@@ -237,9 +237,9 @@ restoreCheckRoutes.get("/", (c) => {
         readiness: result.readiness,
         counts: result.counts,
         classCounts: result.classCounts,
-        rigs: result.rigs.map((r) => ({
-          rigId: r.rigId,
-          rigName: r.rigName,
+        softwareTeams: result.softwareTeams.map((r) => ({
+          softwareTeamId: r.softwareTeamId,
+          softwareTeamName: r.softwareTeamName,
           status: r.status,
           verdict: r.verdict,
           expectedNodes: r.expectedNodes,
@@ -269,9 +269,9 @@ restoreCheckRoutes.get("/", (c) => {
       readiness: {
         status: "unknown",
         reason: "unknown_probe_state",
-        blockingRigCount: 0,
-        caveatRigCount: 0,
-        unknownRigCount: 0,
+        blockingSoftwareTeamCount: 0,
+        caveatSoftwareTeamCount: 0,
+        unknownSoftwareTeamCount: 0,
       },
       continuity: {
         status: "not_proven",
@@ -279,7 +279,7 @@ restoreCheckRoutes.get("/", (c) => {
         provenCapabilities: [],
         unprovenCapabilities: ["provider_session_resume", "context_window_preservation", "interrupted_work_functional_resume"],
       },
-      rigs: [],
+      softwareTeams: [],
       hostInfra: {
         status: "unknown",
         evidence: "Host bootstrap/autostart source could not be inspected because restore-check route failed",
@@ -299,11 +299,11 @@ restoreCheckRoutes.get("/", (c) => {
         check: "probe.error",
         status: "red",
         evidence,
-        remediation: "Check daemon logs with: rig daemon logs",
+        remediation: "Check daemon logs with: SoftwareTeam daemon logs",
       }],
       repairPacket: [{
         step: 1,
-        command: "Check daemon logs with: rig daemon logs",
+        command: "Check daemon logs with: SoftwareTeam daemon logs",
         rationale: evidence,
         safe: true,
         blocking: true,

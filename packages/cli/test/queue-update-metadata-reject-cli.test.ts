@@ -34,12 +34,12 @@ let server: any;
 let port = 0;
 
 // HERMETIC ISOLATION (Guard test-isolation binding): getDaemonStatus() resolves ambient
-// OPENRIG_URL / RIGGED_URL (and OPENRIG_PORT) BEFORE the injected state file. The managed seat
-// exports OPENRIG_URL=http://127.0.0.1:7433 (the canonical daemon), so without neutralizing these
+// SOFTWARETEAM_URL / SOFTWARETEAM_URL (and SOFTWARETEAM_PORT) BEFORE the injected state file. The managed seat
+// exports SOFTWARETEAM_URL=http://127.0.0.1:7434 (the canonical daemon), so without neutralizing these
 // the CLI would talk to the real daemon, not this test's loopback repo. Save the originals, delete
 // them so the injected state file supplies the fresh loopback port, and restore them in teardown
 // even on failure. The env is neutralized only for the CLI-invocation window (runCli).
-const AMBIENT_KEYS = ["OPENRIG_URL", "RIGGED_URL", "OPENRIG_PORT"] as const;
+const AMBIENT_KEYS = ["SOFTWARETEAM_URL", "SOFTWARETEAM_URL", "SOFTWARETEAM_PORT"] as const;
 const savedEnv: Record<string, string | undefined> = {};
 function neutralizeAmbient(): void { for (const k of AMBIENT_KEYS) { savedEnv[k] = process.env[k]; delete process.env[k]; } }
 function restoreAmbient(): void { for (const k of AMBIENT_KEYS) { if (savedEnv[k] === undefined) delete process.env[k]; else process.env[k] = savedEnv[k]; } }
@@ -48,7 +48,7 @@ beforeAll(async () => {
   db = createDb();
   migrate(db, [coreSchema, eventsSchema, queueItemsSchema, queueTransitionsSchema, inboxEntriesSchema, outboxEntriesSchema, queueTargetRepoSchema, queueItemSummarySchema, queueItemEvidenceRefSchema]);
   bus = new EventBus(db);
-  repo = new QueueRepository(db, bus, { validateRig: () => true });
+  repo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
   const app = new Hono();
   app.use("*", async (c, next) => { c.set("eventBus" as never, bus); c.set("queueRepo" as never, repo); await next(); });
   app.route("/api/queue", queueRoutes());
@@ -86,7 +86,7 @@ async function runCli(args: string[]): Promise<{ out: string; exit: number | und
   process.exitCode = undefined;
   neutralizeAmbient(); // bind CLI status resolution to the injected loopback state file
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  try { await queueCommand(deps() as any).parseAsync(["node", "rig", ...args]); }
+  try { await queueCommand(deps() as any).parseAsync(["node", "softwareTeam", ...args]); }
   finally { restoreAmbient(); console.log = ol; console.error = oe; }
   const exit = process.exitCode; process.exitCode = 0;
   return { out: out.join("\n"), exit };
@@ -97,19 +97,19 @@ const eventCount = () => (db.prepare("SELECT count(*) c FROM events").get() as {
 
 describe("51-06 D2 — real CLI->loopback HTTP->queueRoutes/QueueRepository acceptance", () => {
   let id: string;
-  // P21 HERMETIC: the update route derives the actor from the seat env (X-OpenRig-Session, stamped by the
+  // P21 HERMETIC: the update route derives the actor from the seat env (X-SoftwareTeam-Session, stamped by the
   // CLI DaemonClient); --actor is deprecated + ignored. Stub a deterministic seat so the real loopback call
   // reaches the 400-reject path instead of aborting pre-POST on an env-less harness. Unstubbed per test so
   // it never leaks across files (singleFork shares the process).
   beforeEach(async () => {
-    vi.stubEnv("OPENRIG_SESSION_NAME", "dev-x@rig");
-    id = (await repo.create({ sourceSession: "orch@rig", destinationSession: "dev-x@rig", body: "e2e" })).qitemId;
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "dev-x@software-team");
+    id = (await repo.create({ sourceSession: "orch@software-team", destinationSession: "dev-x@software-team", body: "e2e" })).qitemId;
   });
   afterEach(() => { vi.unstubAllEnvs(); });
 
   it("normal: --summary on a non-park update -> real 400, nonzero exit, item/transition/event UNCHANGED", async () => {
     const beforeTxns = txnCount(id), beforeEvents = eventCount();
-    const { out, exit } = await runCli(["update", id, "--actor", "dev-x@rig", "--state", "in-progress", "--summary", "DROPME"]);
+    const { out, exit } = await runCli(["update", id, "--actor", "dev-x@software-team", "--state", "in-progress", "--summary", "DROPME"]);
     expect(exit).toBe(1);
     expect(out).toContain("summary_evidence_not_persistable");
     expect(out).toContain("invalidFields");
@@ -122,7 +122,7 @@ describe("51-06 D2 — real CLI->loopback HTTP->queueRoutes/QueueRepository acce
   });
 
   it("--json: same reject as structured JSON with nonzero exit, state UNCHANGED", async () => {
-    const { out, exit } = await runCli(["update", id, "--actor", "dev-x@rig", "--state", "in-progress", "--evidence-ref", "/e.md", "--json"]);
+    const { out, exit } = await runCli(["update", id, "--actor", "dev-x@software-team", "--state", "in-progress", "--evidence-ref", "/e.md", "--json"]);
     expect(exit).toBe(1);
     const body = JSON.parse(out) as { error: string; invalidFields?: string[] };
     expect(body.error).toBe("summary_evidence_not_persistable");
@@ -131,7 +131,7 @@ describe("51-06 D2 — real CLI->loopback HTTP->queueRoutes/QueueRepository acce
   });
 
   it("CONTROL: real-CLI human-seat park PERSISTS summary + evidence (exit 0)", async () => {
-    const { exit } = await runCli(["update", id, "--actor", "orch@rig", "--state", "blocked", "--blocked-on", "human@kernel", "--summary", "PARK-KEEP", "--evidence-ref", "/proof/park.md"]);
+    const { exit } = await runCli(["update", id, "--actor", "orch@software-team", "--state", "blocked", "--blocked-on", "human@kernel", "--summary", "PARK-KEEP", "--evidence-ref", "/proof/park.md"]);
     expect(exit).toBeFalsy(); // success
     const item = repo.getByIdOrThrow(id);
     expect(item.summary).toBe("PARK-KEEP");
@@ -166,15 +166,15 @@ describe("51-06 D2 — real CLI->loopback HTTP->queueRoutes/QueueRepository acce
   });
 
   it.each(["block", "update"] as const)("%s still accepts a live local qitem blocker", async (verb) => {
-    const blocker = await repo.create({ sourceSession: "orch@rig", destinationSession: "dev-x@rig", body: "live blocker" });
+    const blocker = await repo.create({ sourceSession: "orch@software-team", destinationSession: "dev-x@software-team", body: "live blocker" });
     const { exit } = await runCli([...parkArgs(verb, blocker.qitemId), "--json"]);
     expect(exit).toBeFalsy();
     expect(repo.getByIdOrThrow(id)).toMatchObject({ state: "blocked", blockedOn: blocker.qitemId });
   });
 
   it.each(["block", "update"] as const)("%s still refuses a terminal local qitem blocker", async (verb) => {
-    const blocker = await repo.create({ sourceSession: "orch@rig", destinationSession: "dev-x@rig", body: "closed blocker" });
-    repo.update({ qitemId: blocker.qitemId, actorSession: "dev-x@rig", state: "done", closureReason: "no-follow-on", transitionNote: "finished" });
+    const blocker = await repo.create({ sourceSession: "orch@software-team", destinationSession: "dev-x@software-team", body: "closed blocker" });
+    repo.update({ qitemId: blocker.qitemId, actorSession: "dev-x@software-team", state: "done", closureReason: "no-follow-on", transitionNote: "finished" });
     const before = repo.getByIdOrThrow(id);
     const { out, exit } = await runCli([...parkArgs(verb, blocker.qitemId), "--json"]);
     expect(exit).toBe(2);

@@ -22,36 +22,36 @@ describe("S02 P3 project sender identity",()=>{
     return {status:r.status,body:await r.json() as Record<string,any>};
   };
   it("transport actor wins across acquire, heartbeat, begin, classify, fail/abstain and reclaim",async()=>{
-    const headers={"x-openrig-session":"wire@rig"};
-    const lease=await post("/lease/acquire",{classifierSession:"body@rig",evaluateDeadnessFirst:true},headers);
-    expect(lease.status).toBe(201);expect(lease.body.classifierSession).toBe("wire@rig");
-    const common={leaseId:lease.body.leaseId,classifierSession:"body@rig"};
+    const headers={"x-softwareteam-session":"wire@software-team"};
+    const lease=await post("/lease/acquire",{classifierSession:"body@software-team",evaluateDeadnessFirst:true},headers);
+    expect(lease.status).toBe(201);expect(lease.body.classifierSession).toBe("wire@software-team");
+    const common={leaseId:lease.body.leaseId,classifierSession:"body@software-team"};
     expect((await post("/lease/heartbeat",common,headers)).status).toBe(200);
     const begin=await post("/attempts/begin",{...V,...common,streamItemId:"a"},headers);
-    expect(begin.status).toBe(201);expect(begin.body.classifierSession).toBe("wire@rig");
+    expect(begin.status).toBe(201);expect(begin.body.classifierSession).toBe("wire@software-team");
     const projected=await post("/project",{...V,...common,streamItemId:"a",attemptId:begin.body.attemptId,executionId:begin.body.executionId,identityProvenance:"claimed:v1"},headers);
-    expect(projected.status).toBe(201);expect(projected.body).toMatchObject({classifierSession:"wire@rig",identityProvenance:"transport:v1"});
+    expect(projected.status).toBe(201);expect(projected.body).toMatchObject({classifierSession:"wire@software-team",identityProvenance:"transport:v1"});
     const begun=await post("/attempts/begin",{...V,...common,streamItemId:"b"},headers);
     const finish={...common,executionId:begun.body.executionId,reason:"unclear"};
     expect((await post(`/attempts/${begun.body.attemptId}/fail`,finish,headers)).status).toBe(200);
     w.clock.ms+=1_000;
     const retry=await post("/attempts/begin",{...V,...common,streamItemId:"b"},headers);
     expect((await post(`/attempts/${retry.body.attemptId}/abstain`,{...finish,executionId:retry.body.executionId},headers)).status).toBe(200);
-    const reclaimed=await post("/reclaim-classifier",{byClassifierSession:"body@rig",reason:"test"},{"x-openrig-session":"operator@rig"});
-    expect(reclaimed.status).toBe(200);expect(reclaimed.body.reclaimedBySession).toBe("operator@rig");
+    const reclaimed=await post("/reclaim-classifier",{byClassifierSession:"body@software-team",reason:"test"},{"x-softwareteam-session":"operator@software-team"});
+    expect(reclaimed.status).toBe(200);expect(reclaimed.body.reclaimedBySession).toBe("operator@software-team");
   });
   it("keeps claimed fallback and does not promote a body provenance field",async()=>{
-    const lease=await post("/lease/acquire",{classifierSession:"claimed@rig"});
-    const result=await post("/project",{streamItemId:"a",leaseId:lease.body.leaseId,classifierSession:"claimed@rig",identityProvenance:"transport:v1"});
-    expect(result.status).toBe(201);expect(result.body).toMatchObject({classifierSession:"claimed@rig",identityProvenance:"claimed:v1"});
+    const lease=await post("/lease/acquire",{classifierSession:"claimed@software-team"});
+    const result=await post("/project",{streamItemId:"a",leaseId:lease.body.leaseId,classifierSession:"claimed@software-team",identityProvenance:"transport:v1"});
+    expect(result.status).toBe(201);expect(result.body).toMatchObject({classifierSession:"claimed@software-team",identityProvenance:"claimed:v1"});
   });
   it.each([
-    [{"x-openrig-relay":"true","x-openrig-provenance":"transport:v1"},"relay:v1"],
-    [{"x-openrig-relay":"true"},"claimed:v1"],
-    [{"x-openrig-relay":"true","x-openrig-provenance":"claimed:v1"},"claimed:v1"],
-    [{"x-openrig-origin-unknown":"true"},"origin-unknown:v1"],
+    [{"x-softwareteam-relay":"true","x-softwareteam-provenance":"transport:v1"},"relay:v1"],
+    [{"x-softwareteam-relay":"true"},"claimed:v1"],
+    [{"x-softwareteam-relay":"true","x-softwareteam-provenance":"claimed:v1"},"claimed:v1"],
+    [{"x-softwareteam-origin-unknown":"true"},"origin-unknown:v1"],
   ] as Array<[Record<string,string>,string]>)("records existing relay degradation %j",async(extra,expected)=>{
-    const headers={"x-openrig-session":"wire@rig",...extra};
+    const headers={"x-softwareteam-session":"wire@software-team",...extra};
     const lease=await post("/lease/acquire",{},headers);
     const r=await post("/project",{streamItemId:"a",leaseId:lease.body.leaseId},headers);
     expect(r.status).toBe(201);expect(r.body.identityProvenance).toBe(expected);
@@ -60,14 +60,14 @@ describe("S02 P3 project sender identity",()=>{
   it("requires an actor, validates claim shape, but a wire actor supersedes malformed body claims",async()=>{
     for(const value of [42,{},null])expect((await post("/lease/acquire",{classifierSession:value}))).toMatchObject({status:400,body:{field:"classifierSession"}});
     expect((await post("/lease/acquire",{}))).toMatchObject({status:400,body:{error:"actor_required"}});
-    const headers={"x-openrig-session":"wire@rig"};
+    const headers={"x-softwareteam-session":"wire@software-team"};
     const lease=await post("/lease/acquire",{classifierSession:{}},headers);
     expect(lease.status).toBe(201);
     expect((await post("/project",{streamItemId:"a",leaseId:lease.body.leaseId,classifierSession:{}},headers)).status).toBe(201);
   });
   it("a different wire actor cannot finish using the body holder or revive its lease",async()=>{
-    const lease=w.leases.acquire("holder@rig");const common={leaseId:lease.leaseId,classifierSession:"holder@rig"};
-    const attempt=w.attempts.begin({...common,...V,streamItemId:"a"});const headers={"x-openrig-session":"different@rig"};
+    const lease=w.leases.acquire("holder@software-team");const common={leaseId:lease.leaseId,classifierSession:"holder@software-team"};
+    const attempt=w.attempts.begin({...common,...V,streamItemId:"a"});const headers={"x-softwareteam-session":"different@software-team"};
     expect((await post("/project",{...common,...V,streamItemId:"a",attemptId:attempt.attemptId,executionId:attempt.executionId},headers)).status).toBe(409);
     expect((await post("/lease/heartbeat",common,headers)).status).toBe(403);
     expect((await post(`/attempts/${attempt.attemptId}/abstain`,{...common,executionId:attempt.executionId,reason:"no"},headers)).status).toBe(409);

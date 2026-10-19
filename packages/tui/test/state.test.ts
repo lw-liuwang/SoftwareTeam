@@ -45,8 +45,8 @@ describe("one instance-scoped view-state (PIN 1, FR-12/13)", () => {
 
   it("rejects ambiguous fleet shorthand and accepts an exact scoped agent target", () => {
     const duplicate = demoSnapshot();
-    duplicate.hosts[0]!.rigs.push({
-      name: "other-rig",
+    duplicate.hosts[0]!.softwareTeams.push({
+      name: "other-software-team",
       pods: [{ name: "dev50", agents: [{ name: "dev50.qa", runtime: "codex", spec: "qa-agent", context: null, tokens: null, status: "idle", live: true }] }],
     });
     const s = createViewState({ instanceId: "t", getSnapshot: () => duplicate });
@@ -55,10 +55,10 @@ describe("one instance-scoped view-state (PIN 1, FR-12/13)", () => {
       type: "drill",
       resource: "agent",
       name: "dev50.qa",
-      target: { host: "vm-host", rig: "other-rig", pod: "dev50" },
-    }).drill.map((part) => part.name)).toEqual(["vm-host", "other-rig", "dev50", "dev50.qa"]);
-    expect(s.dispatch(parseCommand("agent vm-host/openrig-build/dev50/dev50.qa")).drill.map((part) => part.name))
-      .toEqual(["vm-host", "openrig-build", "dev50", "dev50.qa"]);
+      target: { host: "vm-host", softwareTeam: "other-software-team", pod: "dev50" },
+    }).drill.map((part) => part.name)).toEqual(["vm-host", "other-software-team", "dev50", "dev50.qa"]);
+    expect(s.dispatch(parseCommand("agent vm-host/softwareteam-build/dev50/dev50.qa")).drill.map((part) => part.name))
+      .toEqual(["vm-host", "softwareteam-build", "dev50", "dev50.qa"]);
   });
 
   it("cross-navs spec-of: running agent → its agent spec", () => {
@@ -77,13 +77,13 @@ describe("one instance-scoped view-state (PIN 1, FR-12/13)", () => {
 
   it("filters spec reverse navigation to genuinely live seats", () => {
     const copy = demoSnapshot();
-    copy.hosts[0]!.rigs[0]!.pods[0]!.agents[0]!.live = false;
+    copy.hosts[0]!.softwareTeams[0]!.pods[0]!.agents[0]!.live = false;
     expect(agentsRunningSpec(copy, "driver-agent")).toEqual([]);
   });
 
   it("keeps a missing spec-of target in place with a named error", () => {
     const copy = demoSnapshot();
-    copy.hosts[0]!.rigs[0]!.pods[0]!.agents[0]!.spec = "materialized-only";
+    copy.hosts[0]!.softwareTeams[0]!.pods[0]!.agents[0]!.spec = "materialized-only";
     const s = createViewState({ instanceId: "t", getSnapshot: () => copy });
     const before = s.get().section;
     const next = s.dispatch({ type: "cross", kind: "spec-of", name: "dev50.driver" });
@@ -94,7 +94,7 @@ describe("one instance-scoped view-state (PIN 1, FR-12/13)", () => {
   it("rejects tabs that do not exist in the current content context", () => {
     const s = createViewState({ instanceId: "t", ...withSnap });
     expect(s.dispatch({ type: "tab", tab: "yaml" }).lastError).toMatch(/not available/);
-    s.dispatch({ type: "drill", resource: "spec", name: "openrig-build-rig" });
+    s.dispatch({ type: "drill", resource: "spec", name: "softwareteam-build-software-team" });
     expect(s.dispatch({ type: "tab", tab: "yaml" }).lastError).toBeNull();
   });
 

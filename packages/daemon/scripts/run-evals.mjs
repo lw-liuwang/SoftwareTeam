@@ -6,17 +6,17 @@
  * fail/error.
  *
  *   RUN IT (the TS helpers need the tsx loader, so use the package command, which supplies it):
- *     npm run eval -w packages/daemon -- [--provider fake|rig] [--transcripts <json>] [--out <json>]
+ *     npm run eval -w packages/daemon -- [--provider fake|softwareTeam] [--transcripts <json>] [--out <json>]
  *   Or directly: node --import tsx packages/daemon/scripts/run-evals.mjs [args]
  *   (The file ships executable; ./run-evals.mjs works where `env -S` is supported.)
  *
  * --provider fake (default): a deterministic provider whose transcripts come from --transcripts
  *   (a JSON map of prompt -> transcript); absent prompts ERROR (never a silent green). This is the
  *   CI-runnable path.
- * --provider rig: the LIVE-seat provider (the proof-contract door). Requires ONE of:
+ * --provider softwareTeam: the LIVE-seat provider (the proof-contract door). Requires ONE of:
  *     --seat <session>      attach to an existing live seat (never torn down), or
- *     --seat-spec <rig.yaml> `rig up` a scratch rig and drive its single seat
- *                            (torn down via `rig down` at the end).
+ *     --seat-spec <software-team.yaml> `SoftwareTeam up` a scratch softwareTeam and drive its single seat
+ *                            (torn down via `SoftwareTeam down` at the end).
  *   One persistent seat/generation serves every case; the boundary is the seat's
  *   append-only transcript (read out-of-band, no marker send — round-5 custody);
  *   the leading input echo is excluded from grading by the provider.
@@ -27,7 +27,7 @@ import { fileURLToPath } from "node:url";
 import { loadEvalCasesFromDir } from "../test/helpers/eval-cases.ts";
 import { runEvals } from "../test/helpers/eval-runner.ts";
 import { FakeProvider } from "../test/helpers/eval-provider.ts";
-import { RigSeatProvider } from "../test/helpers/eval-rig-provider.ts";
+import { SoftwareTeamSeatProvider } from "../test/helpers/eval-software-team-provider.ts";
 import { recordedGrade } from "../test/helpers/eval-report.ts";
 import { buildProductionPackage, resolveCaseRefs, unresolvedCases } from "../test/helpers/eval-ref-resolution.ts";
 
@@ -36,7 +36,7 @@ const REPO = resolve(HERE, "..", "..", "..");
 const CASES_DIR = resolve(HERE, "..", "..", "test-system", "evals", "cases");
 // REPAIR (re-review HIGH-1): the eval RUN resolves refs against the EXACT production package, BUILT
 // hermetically into a temp dir (never the gitignored context-packs residue), and validates them in
-// its OWN preflight for EVERY provider — not just rig.
+// its OWN preflight for EVERY provider — not just softwareTeam.
 // The temp package is removed on process exit (fail-safe registered inside buildProductionPackage).
 const PRODUCTION_PACKAGE = buildProductionPackage(REPO).dir;
 
@@ -67,25 +67,25 @@ if (unresolved.length > 0) {
 }
 
 let provider;
-if (providerName === "rig") {
+if (providerName === "softwareTeam") {
   const seat = opt("--seat", null);
   const spec = opt("--seat-spec", null);
   if ((seat === null) === (spec === null)) {
     console.error(
-      "[REFUSED] --provider rig drives ONE persistent real seat and needs exactly one of:\n" +
+      "[REFUSED] --provider SoftwareTeam drives ONE persistent real seat and needs exactly one of:\n" +
         "  --seat <session>       attach to an existing live seat (never torn down)\n" +
-        "  --seat-spec <rig.yaml> spawn a scratch rig via `rig up` and drive its seat",
+        "  --seat-spec <software-team.yaml> spawn a scratch SoftwareTeam via `SoftwareTeam up` and drive its seat",
     );
     process.exit(2);
   }
-  const { buildRigProviderSession } = await import("../test/helpers/eval-rig-runner.ts");
-  provider = new RigSeatProvider({
+  const { buildSoftwareTeamProviderSession } = await import("../test/helpers/eval-software-team-runner.ts");
+  provider = new SoftwareTeamSeatProvider({
     productionPackage: PRODUCTION_PACKAGE,
     // Round-6 Option B (r2 round-6 HIGH-1): the out-of-band boundary binds to the seat's
     // CURRENT-generation append-only Claude conversation record via the authoritative default reader,
     // wired HERE in the shipped entry (not only in tests). A Codex/unprimed seat or a rolled generation
     // refuses loud — never a silent degrade, never the bounded-overwrite pane.
-    session: buildRigProviderSession({ seat, spec }),
+    session: buildSoftwareTeamProviderSession({ seat, spec }),
   });
 } else {
   const tPath = opt("--transcripts", null);
@@ -99,12 +99,12 @@ try {
 } finally {
   // Retire the persistent seat exactly once (idempotent; no-op for fake/attach).
   // A teardown failure must NOT destroy the run's results — the grades are the
-  // product; a leftover rig is a named warning for manual `rig down`.
+  // product; a leftover softwareTeam is a named warning for manual `SoftwareTeam down`.
   if (typeof provider.dispose === "function") {
     try {
       await provider.dispose();
     } catch (e) {
-      console.error(`[WARN] seat retirement failed — tear the scratch rig down manually with 'rig down': ${e.message}`);
+      console.error(`[WARN] seat retirement failed — tear the scratch SoftwareTeam down manually with 'SoftwareTeam down': ${e.message}`);
     }
   }
 }

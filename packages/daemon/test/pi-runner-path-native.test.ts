@@ -52,7 +52,7 @@ else { process.stdin.resume(); console.error('Error: Unknown options: --name, --
         fileURLToPath(new URL("../src/adapters/pi-runner.ts", import.meta.url)),
         "--session-name", "fixture", "--state-root", stateRoot, "--cwd", temp,
         "--launch-id", "path-attempt", "--no-approve"], {
-        env: { PATH: searchPath, HOME: temp, OPENRIG_HOME: path.join(temp, "home") },
+        env: { PATH: searchPath, HOME: temp, SOFTWARETEAM_HOME: path.join(temp, "home") },
         detached: true, stdio: ["pipe", "pipe", "pipe"],
       });
       let output = "", ready = false, timedOut = false;

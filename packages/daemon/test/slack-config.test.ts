@@ -46,24 +46,24 @@ describe("Slice-11 config — first-class + honest unconfigured (item 5)", () =>
   });
 
   it("#192: channelMap round-trips through save and load and adds one readiness row", () => {
-    const channelMap = [{ match: "my-rig", channel: "C0EXAMPLE1" }, { match: "pr@my-rig", channel: "C0EXAMPLE1" }];
+    const channelMap = [{ match: "my-software-team", channel: "C0EXAMPLE1" }, { match: "pr@my-software-team", channel: "C0EXAMPLE1" }];
     saveConfig({ ...DEFAULT_CONFIG, channel: "C0DEFAULT", channelMap }, home);
     const cfg = loadConfig(home);
     expect(cfg.channelMap).toEqual(channelMap);
     expect(staticReadiness(cfg, true, true).find((r) => r.label === "channel-map"))
-      .toEqual({ ok: true, label: "channel-map", detail: "2 entries over 1 channel(s); `rig slack verify` checks membership in each" });
+      .toEqual({ ok: true, label: "channel-map", detail: "2 entries over 1 channel(s); `SoftwareTeam slack verify` checks membership in each" });
   });
 
   it("#192: an invalid channelMap is refused on save (nothing written) and on load", () => {
-    const bad = { ...DEFAULT_CONFIG, channel: "C0DEFAULT", channelMap: [{ match: "my-rig", channel: "C1" }, { match: "my-rig", channel: "C2" }] };
-    expect(() => saveConfig(bad, home)).toThrow(/two entries for 'my-rig'/);
+    const bad = { ...DEFAULT_CONFIG, channel: "C0DEFAULT", channelMap: [{ match: "my-software-team", channel: "C1" }, { match: "my-software-team", channel: "C2" }] };
+    expect(() => saveConfig(bad, home)).toThrow(/two entries for 'my-software-team'/);
     expect(configFileExists(home)).toBe(false);
     fs.writeFileSync(path.join(home, "slack-connector.json"), JSON.stringify(bad));
-    expect(() => loadConfig(home)).toThrow(/two entries for 'my-rig'/);
+    expect(() => loadConfig(home)).toThrow(/two entries for 'my-software-team'/);
   });
 
-  it("#192: an entry field from a newer OpenRig loads (ignored, reported loudly) but is never saved", () => {
-    const newer = { ...DEFAULT_CONFIG, enabled: true, channel: "C0DEFAULT", channelMap: [{ match: "my-rig", channel: "C0EXAMPLE1", inbound: "lead@my-rig" }] };
+  it("#192: an entry field from a newer SoftwareTeam loads (ignored, reported loudly) but is never saved", () => {
+    const newer = { ...DEFAULT_CONFIG, enabled: true, channel: "C0DEFAULT", channelMap: [{ match: "my-software-team", channel: "C0EXAMPLE1", inbound: "lead@my-software-team" }] };
     fs.writeFileSync(path.join(home, "slack-connector.json"), JSON.stringify(newer));
     const cfg = loadConfig(home); // a downgrade keeps the connector loading
     expect(cfg.channelMap?.[0]?.channel).toBe("C0EXAMPLE1");
@@ -71,7 +71,7 @@ describe("Slice-11 config — first-class + honest unconfigured (item 5)", () =>
     expect(row.ok).toBe(false);
     expect(row.detail).toContain("IGNORED unsupported field(s) channelMap[0].inbound");
     const before = fs.readFileSync(path.join(home, "slack-connector.json"), "utf8");
-    expect(() => saveConfig(cfg, home)).toThrow(/channelMap\[0\] \('my-rig'\) has unsupported field\(s\) inbound: slack-connector\.json was written by a newer OpenRig version\. Upgrade OpenRig, or edit the file by hand/);
+    expect(() => saveConfig(cfg, home)).toThrow(/channelMap\[0\] \('my-software-team'\) has unsupported field\(s\) inbound: slack-connector\.json was written by a newer SoftwareTeam version\. Upgrade SoftwareTeam, or edit the file by hand/);
     expect(fs.readFileSync(path.join(home, "slack-connector.json"), "utf8")).toBe(before); // nothing lost
   });
 
@@ -104,11 +104,11 @@ describe("Slice-11 secrets — resolution + hygiene (item 7 + 10)", () => {
     expect(resolveSecret("SLACK_WEBHOOK_URL", { env: { SLACK_WEBHOOK_URL: "https://from-env" }, envFile: "/x", fsops })).toBe("https://from-env");
     // env-file fallback
     expect(resolveSecret("SLACK_WEBHOOK_URL", { env: {}, envFile: "/x", fsops })).toBe("https://from-file");
-    // B4: the NORMAL OPENRIG_SLACK_* alias (OPENRIG_ + name) resolves
-    expect(resolveSecret("SLACK_APP_TOKEN", { env: { OPENRIG_SLACK_APP_TOKEN: "xapp-EXAMPLE-fake" } })).toBe("xapp-EXAMPLE-fake");
-    expect(resolveSecret("SLACK_WEBHOOK_URL", { env: { OPENRIG_SLACK_WEBHOOK_URL: "https://from-alias" } })).toBe("https://from-alias");
-    // B4 regression pin: the DOUBLED OPENRIG_SLACK_SLACK_* form must NOT resolve
-    expect(resolveSecret("SLACK_APP_TOKEN", { env: { OPENRIG_SLACK_SLACK_APP_TOKEN: "doubled-wrong" } })).toBeNull();
+    // B4: the NORMAL SOFTWARETEAM_SLACK_* alias (SOFTWARETEAM_ + name) resolves
+    expect(resolveSecret("SLACK_APP_TOKEN", { env: { SOFTWARETEAM_SLACK_APP_TOKEN: "xapp-EXAMPLE-fake" } })).toBe("xapp-EXAMPLE-fake");
+    expect(resolveSecret("SLACK_WEBHOOK_URL", { env: { SOFTWARETEAM_SLACK_WEBHOOK_URL: "https://from-alias" } })).toBe("https://from-alias");
+    // B4 regression pin: the DOUBLED SOFTWARETEAM_SLACK_SLACK_* form must NOT resolve
+    expect(resolveSecret("SLACK_APP_TOKEN", { env: { SOFTWARETEAM_SLACK_SLACK_APP_TOKEN: "doubled-wrong" } })).toBeNull();
     // unresolved → null (honest)
     expect(resolveSecret("MISSING", { env: {} })).toBeNull();
   });

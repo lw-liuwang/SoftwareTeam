@@ -3,7 +3,7 @@
 //
 // ONE contract, all consumers: the slice Review tab, the mission board's
 // U5 row expansion, and the For-You expansion all read these shapes; the
-// agents projection is scope-parameterized (slice:<id> | mission:<id> | rig)
+// agents projection is scope-parameterized (slice:<id> | mission:<id> | softwareTeam)
 // on the same contract — never a second endpoint.
 //
 // CORRECTIVE §3.1 — a slice review is ONE vertical stack of three sections:
@@ -195,7 +195,7 @@ export interface NeedsYouBand {
 
 // --- FR-4 SSOT: the shared agent-row anatomy (both scopes render exactly this) ---
 
-export type AgentsScope = `slice:${string}` | `mission:${string}` | "rig";
+export type AgentsScope = `slice:${string}` | `mission:${string}` | "softwareTeam";
 
 export interface AgentRow {
   agentName: string;
@@ -221,7 +221,7 @@ export interface AgentsBand {
   coordinationHealth: string | null;
 }
 
-// --- OPR.0.4.4.22 (slice 22): the RIG-scope standalone altitude root (KEEP) ---
+// --- OPR.0.4.4.22 (slice 22): the SOFTWARE_TEAM-scope standalone altitude root (KEEP) ---
 // Same contract family as ComposedSliceReview / ComposedMissionReview — the
 // agent-scope query members the slice-22 PRD adds; never a second family.
 
@@ -236,11 +236,11 @@ export interface SettledRow {
   qitemId: string;
 }
 
-/** The composed rig-agents read root (slice 22 FR-1..FR-4): NEEDS YOU +
- *  AGENTS (with coordination health) + SETTLED at rig scope. Pure
+/** The composed software-team-agents read root (slice 22 FR-1..FR-4): NEEDS YOU +
+ *  AGENTS (with coordination health) + SETTLED at SoftwareTeam scope. Pure
  *  projection over queue + ps — agents author nothing for it. */
-export interface ComposedRigAgents {
-  scope: "rig";
+export interface ComposedSoftwareTeamAgents {
+  scope: "softwareTeam";
   needsYou: NeedsYouBand;
   agents: AgentsBand;
   settled: SettledRow[];
@@ -252,7 +252,7 @@ export interface ComposedRigAgents {
 // --- OPR.0.4.6.MH5: the FLEET aggregate contract (arch Q2 — a SIBLING
 // aggregate surface ABOVE the per-host ladder, never a fourth AgentsScope
 // value; AgentsScope stays exactly 3-valued). The contract HOME is here
-// beside ComposedRigAgents (plan D-3 — the twin's fixture module was the
+// beside ComposedSoftwareTeamAgents (plan D-3 — the twin's fixture module was the
 // mock stand-in). The fleet root only UNIONS + HOST-DIMENSIONS + COUNTS
 // each host's own composed set (arch Q1 — each host is authoritative for
 // its own time-derived ▲; the fleet never recomputes exception truth). ---
@@ -270,7 +270,7 @@ export interface FleetNeedsYouItem extends NeedsYouItem {
   fleetKey: string;
   /** FR-3 provenance: the altitude scopes this identity was visible from on
    *  its host — recorded from what the fan-out actually READ (v1 reads each
-   *  host's rig root, D-1), so the one-count is INSPECTABLE, not asserted. */
+   *  host's softwareTeam root, D-1), so the one-count is INSPECTABLE, not asserted. */
   seenFrom: string[];
 }
 
@@ -290,9 +290,9 @@ export interface FleetHostRollup {
   exceptionsByKind?: Array<{ kind: string; count: number }>;
   /** From the host's own composed agents band. */
   seatCount?: number;
-  /** Distinct rig names across the host's agent rows (the BR-1 member@rig
+  /** Distinct softwareTeam names across the host's agent rows (the BR-1 member@software-team
    *  session grammar — a structured parse, never prose). */
-  rigCount?: number;
+  softwareTeamCount?: number;
   /** The worst line — what you'd say out loud about this factory; derived
    *  deterministically from the host's deduped rows ("quiet" at zero). */
   topLine?: string;

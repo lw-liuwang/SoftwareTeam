@@ -43,8 +43,8 @@ describe("0.3.0 conveyor starter workflow specs", () => {
       workflowStepTrailsSchema,
     ]);
     eventBus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-conveyor', 'conveyor')`).run();
-    const queueRepo = new QueueRepository(db, eventBus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-conveyor', 'conveyor')`).run();
+    const queueRepo = new QueueRepository(db, eventBus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
@@ -64,7 +64,7 @@ describe("0.3.0 conveyor starter workflow specs", () => {
     // packages/daemon/src/builtins/workflow-specs/*.yaml.
     // OPR.0.4.6.WF2: + the three spec-language example shapes
     // (linear / gated / branched — the FR-6 hand-authorability set).
-    // OPR.0.4.6.FAC2: + factory-rsi (the canonical single-rig RSI
+    // OPR.0.4.6.FAC2: + factory-rsi (the canonical single-softwareTeam RSI
     // factory workflow — the demo/dogfood vehicle).
     // DRIFT VERDICT: STALE ASSERTION (test-ordering), not a product change —
     // all six specs correctly ship and load. When 0.4.6 FAC2 (commit 8250d702)
@@ -91,10 +91,10 @@ describe("0.3.0 conveyor starter workflow specs", () => {
     for (const specPath of [CONVEYOR_SPEC, BASIC_LOOP_SPEC]) {
       const raw = readFileSync(specPath, "utf-8");
       expect(raw).not.toMatch(/\brsi\b/i);
-      expect(raw).not.toContain("openrig-velocity");
+      expect(raw).not.toContain("softwareteam-velocity");
 
       const spec = parseWorkflowSpec(raw, specPath);
-      expect(spec.target?.rig).toBe("conveyor");
+      expect(spec.target?.software_team).toBe("conveyor");
       expect(spec.coordination_terminal_turn_rule).toBe("hot_potato");
       expect(spec.steps.map((step) => step.id)).toEqual(["intake", "plan", "build", "review", "close"]);
 
@@ -105,7 +105,7 @@ describe("0.3.0 conveyor starter workflow specs", () => {
     }
   });
 
-  it("conveyor can run multiple active instances on the same rig", async () => {
+  it("conveyor can run multiple active instances on the same softwareTeam", async () => {
     const first = await runtime.instantiate({
       specPath: CONVEYOR_SPEC,
       rootObjective: "packet A",

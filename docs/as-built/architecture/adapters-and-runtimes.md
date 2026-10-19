@@ -5,7 +5,7 @@ status: active
 topics: [agent-runtime, runtime-control]
 domains: [engineering-advisor, operating-advisor]
 applies-when: |
-  Need the runtime-adapter contract — how OpenRig launches and resumes a
+  Need the runtime-adapter contract — how SoftwareTeam launches and resumes a
   Claude Code, Codex, Pi, Oh My Pi, stub or terminal harness inside tmux, what
   the five required adapter methods do, or how the daemon honestly assesses
   whether a harness actually resumed vs fresh-launched (the resume-honesty
@@ -18,7 +18,7 @@ last-updated: 2026-10-08
 
 # Adapters and Runtimes
 
-How OpenRig drives the agent harnesses. Pod-aware launches go through a
+How SoftwareTeam drives the agent harnesses. Pod-aware launches go through a
 `RuntimeAdapter`: five adapter classes implement one contract of five required
 methods. Legacy (non-pod-aware) restore resumes through separate resume
 adapters (`ClaudeResumeAdapter`, `CodexResumeAdapter`, `PiResumeAdapter` and
@@ -104,17 +104,17 @@ Hono, `git grep -l 'from "hono' -- packages/daemon/src/adapters | wc -l`).
 ### Launch posture
 
 A seat's launch posture is `floor`, `auto` or `full_bypass`. It comes from the
-member's or rig's `permission_policy`: `builtinLaunchPosture()`
+member's or SoftwareTeam's `permission_policy`: `builtinLaunchPosture()`
 (`packages/daemon/src/domain/permission-policy/policy-ref.ts:165`) maps
 `builtin:yolo` to `full_bypass`, `builtin:auto` to `auto`, and every other
 built-in (`locked`, `standard`, `open`) to `floor`.
 `resolvePermissionPolicyAttachment()` (`:172`) resolves the attachment, and
-`rigspec-instantiator.ts` binds the result: the member attachment
-(`resolveMemberPolicyAttachment`, `:1922`), then the persisted node or rig
+`software-team-spec-instantiator.ts` binds the result: the member attachment
+(`resolveMemberPolicyAttachment`, `:1922`), then the persisted node or SoftwareTeam
 attachment (`:2007`), then the floor, set on the binding as `launchPosture`
 (`:2159`). `NativePermissionStore.apply()`
 (`native-permission-store.ts:238`) then overlays a seat's explicit
-`rig seat set-permissions` choice, or the kernel operational or team default
+`SoftwareTeam seat set-permissions` choice, or the kernel operational or team default
 described below. `bundle-behaviour.ts` is the read-only
 preview of the same mapping for an unopened bundle (see
 `packaging-bootstrap-bundles.md`).
@@ -126,30 +126,30 @@ preview of the same mapping for an unopened bundle (see
   `--permission-mode auto` (`:47`); `full_bypass` becomes
   `--dangerously-skip-permissions`; otherwise the floor is
   `--permission-mode acceptEdits` (`:50`). For a seat with no resolved
-  posture, the instance-wide YOLO setting `OPENRIG_YOLO=1` (`:27`; off by
+  posture, the instance-wide YOLO setting `SOFTWARETEAM_YOLO=1` (`:27`; off by
   default) selects the bypass; a resolved posture always wins (`:26`).
 - **Codex** (`codexPostureArg`, `:62`): `full_bypass` becomes
   `-s danger-full-access -a never` (`:67`); for a seat with no resolved
-  posture, `OPENRIG_YOLO=1` becomes `-s danger-full-access`; otherwise the
+  posture, `SOFTWARETEAM_YOLO=1` becomes `-s danger-full-access`; otherwise the
   seat's `-p <profile>` or `-s workspace-write`. Codex with `auto` gets the
   same: its selected profile, or the `-s workspace-write` floor without one.
 
 **Non-interruptive mode** (`nonInterruptiveArgs()` in
 `packages/daemon/src/adapters/non-interruptive.ts:12`) adds per-launch
-arguments only for a `full_bypass` seat whose rig has it on
-(`rigs.non_interruptive`): Claude Code gets
+arguments only for a `full_bypass` seat whose SoftwareTeam has it on
+(`SoftwareTeams.non_interruptive`): Claude Code gets
 `--settings '{"skipDangerousModePermissionPrompt":true}'` (unless an explicit
 non-bypass `permissionMode` is set), and Codex gets
 `-c notice.hide_full_access_warning=true -c notice.hide_gpt5_1_migration_prompt=true`.
-It never changes permissions or native settings files. `rig up
+It never changes permissions or native settings files. `SoftwareTeam up
 --non-interruptive` and `--no-non-interruptive` save the choice; otherwise the
-rig spec's `non_interruptive`, then the setting `launch.non_interruptive`,
+SoftwareTeam spec's `non_interruptive`, then the setting `launch.non_interruptive`,
 supplies the default (`packages/daemon/src/domain/bootstrap-orchestrator.ts:739`).
 
 **Kernel operational default.** `NativePermissionStore.launchOverride()`
 (`native-permission-store.ts:47`) gives a Claude Code or Codex seat in the
-persisted rig named `kernel` operational launch arguments when the seat has no
-explicit permission choice, its member and rig declare no permission policy,
+persisted SoftwareTeam named `kernel` operational launch arguments when the seat has no
+explicit permission choice, its member and SoftwareTeam declare no permission policy,
 and (for Codex) it has no `-p` profile (`launchDefault`, `:28`). Fresh start,
 continue, restore and handover all take this decision per launch.
 `operationalLaunchArgs()` (`packages/daemon/src/adapters/kernel-authority.ts:56`)
@@ -158,7 +158,7 @@ then replaces the non-interruptive arguments for that seat:
 - Claude Code keeps the floor, `--permission-mode acceptEdits`, and gets
   `--settings` whose `permissions.allow` is `KERNEL_CLAUDE_ALLOW`
   (`:9`): `Skill`, `Read`, `Edit`, `Write`, `Glob`, `Grep`, `WebFetch`, `Bash(<command>:*)`
-  for 39 operational commands (`rig`, `tmux`, `node`, `npm`, `git`, `ssh`, `python3` and
+  for 39 operational commands (`SoftwareTeam`, `tmux`, `node`, `npm`, `git`, `ssh`, `python3` and
   others), `Bash(command -v:*)` (`:16`), two read-only provider login checks (`Bash(claude auth status:*)`,
   `Bash(codex login status:*)`, `:18`), and `Read(~/**)` (`:19`), plus the `PreToolUse`
   hook described under the team default. It is not
@@ -166,18 +166,18 @@ then replaces the non-interruptive arguments for that seat:
 - Codex gets the `full_bypass` posture, `-s danger-full-access -a never`, plus
   the two notice flags above.
 
-It writes no settings file. If the rig lookup fails, the seat keeps its floor.
-`rig seat status` reports the source as "kernel operational default"
+It writes no settings file. If the SoftwareTeam lookup fails, the seat keeps its floor.
+`SoftwareTeam seat status` reports the source as "kernel operational default"
 (`kernel_default`, `native-permission-store.ts:182`).
 
 **Team default.** Under the same conditions, a Claude Code or Codex seat in any
-other rig gets `teamPermissionDefault` instead (`native-permission-store.ts:38`,
+other SoftwareTeam gets `teamPermissionDefault` instead (`native-permission-store.ts:38`,
 `:56`), on the same launch paths. A Claude Code seat at the floor with no native
 permission mode keeps `--permission-mode acceptEdits` and gets
 `--settings` (`kernel-authority.ts:64–66`):
 `TEAM_CLAUDE_ALLOW` (`:25`) is `Skill`, `Read(./**)`, `Glob`, `Grep`,
-`Bash(rig:*)`, eight read-only shell commands and 17 test-runner commands, and
-`TEAM_CLAUDE_ASK` (`:32`) asks before 41 `rig` lifecycle commands such as `up`,
+`Bash(SoftwareTeam:*)`, eight read-only shell commands and 17 test-runner commands, and
+`TEAM_CLAUDE_ASK` (`:32`) asks before 41 `SoftwareTeam` lifecycle commands such as `up`,
 `down`, `seat stop` and `bundle install`. The settings carry the allow list and a
 `PreToolUse` Bash hook, `packages/daemon/assets/claude-team-permissions.cjs`, that applies
 both lists (`kernel-authority.ts:43–53`): it asks before a lifecycle command unless the
@@ -196,7 +196,7 @@ resume launches (`codex-runtime-adapter.ts:378`, `codex-resume.ts:103`).
 - `readonly runtime = "claude-code"` (`:56`).
 - **Projects** to `.claude/` targets: guidance managed blocks →
   `<cwd>/CLAUDE.md` by default (`:194`, `:501`; default at
-  `domain/managed-blocks.ts:17`, and the rig may select `CLAUDE.local.md`
+  `domain/managed-blocks.ts:17`, and the SoftwareTeam may select `CLAUDE.local.md`
   instead with `managed_blocks: { claude-code: <file> }`,
   `managed-blocks.ts:15`); `skill_install` → `<cwd>/.claude/skills/<name>/`
   (`:200`, `:582`); subagents → `.claude/agents`, plugins →
@@ -211,7 +211,7 @@ resume launches (`codex-runtime-adapter.ts:378`, `codex-resume.ts:103`).
   later. `<posture>` is the flag above plus any non-interruptive,
   kernel operational or team default argument. Each command may carry a `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1`
   env prefix (`yolo-mode.ts:101–103`; on by default, off with
-  `OPENRIG_CLAUDE_DISABLE_ALTERNATE_SCREEN=0`), a `--model <model>` argument
+  `SOFTWARETEAM_CLAUDE_DISABLE_ALTERNATE_SCREEN=0`), a `--model <model>` argument
   (`:275`) and `--effort <effort>` (`:277`). A fresh launch and a fork both
   return the generated `--session-id` as their `claude_id` token, so a forked
   seat's process names its own conversation and strict proof can verify it.
@@ -221,7 +221,7 @@ resume launches (`codex-runtime-adapter.ts:378`, `codex-resume.ts:103`).
   (`domain/claude-managed-launch.ts:97`), which resolves `claude` on the
   managed `PATH`, validates the mode against `claude --help` (5-second limit),
   and launches through `/usr/bin/env -i` with only the seat's environment
-  (`PATH`, `HOME`, an optional `CLAUDE_CONFIG_DIR`, the OpenRig seat identity
+  (`PATH`, `HOME`, an optional `CLAUDE_CONFIG_DIR`, the SoftwareTeam seat identity
   and forwarded keys).
 - **Managed bootstrap.** Before delivery the adapter marks the seat's working
   directory as trusted and onboarding as completed in Claude's state file,
@@ -287,7 +287,7 @@ resume launches (`codex-runtime-adapter.ts:378`, `codex-resume.ts:103`).
 - `StubRuntimeAdapter` (`stub-runtime-adapter.ts:69`), `runtime` defaulting to
   `"stub"` (`:81`).
 
-Pi and stub launch an OpenRig runner inside the seat's tmux pane (header
+Pi and stub launch an SoftwareTeam runner inside the seat's tmux pane (header
 comments `pi-runtime-adapter.ts:1–10`, `stub-runtime-adapter.ts:1–14`). Pi
 and Oh My Pi support fork and report `pi_session_file` or `omp_session_file`
 resume tokens; the stub refuses fork and reports `stub_session`.
@@ -362,7 +362,7 @@ exactly. `refresh(sessions, opts?)` (`:124`) works in two modes:
   id captured. For a Claude session with a token, it first reads Claude's live
   per-process session file, and only if that read fails runs
   `probeClaudeResume` (`:216`) — a real launch of the resume command in a
-  throwaway probe tmux session (`rigged-refresh-<name>-<ts>`, `:301`),
+  throwaway probe tmux session (`softwareteam-refresh-<name>-<ts>`, `:301`),
   returning `"resumable" | "not_resumable" | "inconclusive"`. The probe result
   is recorded without clearing the token.
 - **`fillNullOnly`** (`:127`): a missing Claude token is filled from the

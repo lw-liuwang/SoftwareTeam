@@ -25,10 +25,10 @@ const spec = (version: string) => `workflow:
   roles:
     anyone:
       preferred_targets:
-        - anyone@rig
+        - anyone@software-team
     next:
       preferred_targets:
-        - next@rig
+        - next@software-team
   steps:
     - id: act
       actor_role: anyone
@@ -58,8 +58,8 @@ describe("workflow spec file removal keeps versions pinned by unfinished work (#
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
     bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    const queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    const queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     queueRepo.attachOutbox(new OutboxHandler(db));
     runtime = new WorkflowRuntime({ exceptionDial: { hostDefault: () => null, humanFallbackSeat: "human@host" }, db, eventBus: bus, queueRepo });
     tick = 0;
@@ -82,14 +82,14 @@ describe("workflow spec file removal keeps versions pinned by unfinished work (#
   async function activeOnV1() {
     write(file, spec("1"));
     scan();
-    const inst = await runtime.instantiate({ specPath: file, rootObjective: "retention", createdBySession: "ops@rig" });
+    const inst = await runtime.instantiate({ specPath: file, rootObjective: "retention", createdBySession: "ops@software-team" });
     write(file, spec("2"));
     scan();
     return { inst, v1: version("1"), v2: version("2") };
   }
   async function projects(inst: Awaited<ReturnType<typeof activeOnV1>>["inst"]) {
     try {
-      await runtime.project({ instanceId: inst.instance.instanceId, currentPacketId: inst.entryQitemId, exit: "handoff", actorSession: "anyone@rig", resultNote: "retention" });
+      await runtime.project({ instanceId: inst.instance.instanceId, currentPacketId: inst.entryQitemId, exit: "handoff", actorSession: "anyone@software-team", resultNote: "retention" });
       return "ok";
     } catch (err) {
       return (err as { code?: string }).code ?? String(err);
@@ -131,7 +131,7 @@ describe("workflow spec file removal keeps versions pinned by unfinished work (#
     expect(storedBefore).toBeTruthy();
     db.prepare(
       `UPDATE workflow_specs SET status = 'error', error_message = 'old parse error', name = 'flow.yaml', version = '',
-         purpose = NULL, target_rig = NULL, roles_json = '{}', steps_json = '[]', coordination_terminal_turn_rule = 'hot_potato'
+         purpose = NULL, target_software_team = NULL, roles_json = '{}', steps_json = '[]', coordination_terminal_turn_rule = 'hot_potato'
        WHERE spec_id = ?`,
     ).run(v1!.specId);
 
@@ -154,7 +154,7 @@ describe("workflow spec file removal keeps versions pinned by unfinished work (#
     const storedBefore = storedSpec();
     db.prepare(
       `UPDATE workflow_specs SET status = 'error', error_message = 'old parse error', name = 'flow.yaml', version = '',
-         purpose = NULL, target_rig = NULL, roles_json = '{}', steps_json = '[]', coordination_terminal_turn_rule = 'hot_potato'
+         purpose = NULL, target_software_team = NULL, roles_json = '{}', steps_json = '[]', coordination_terminal_turn_rule = 'hot_potato'
        WHERE spec_id = ?`,
     ).run(v1!.specId);
     unlinkSync(file);

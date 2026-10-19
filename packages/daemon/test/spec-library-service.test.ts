@@ -5,9 +5,9 @@ import { tmpdir } from "node:os";
 import { SpecLibraryService } from "../src/domain/spec-library-service.js";
 import { SpecReviewService } from "../src/domain/spec-review-service.js";
 
-const VALID_RIG_YAML = `
+const VALID_SOFTWARE_TEAM_YAML = `
 version: "0.2"
-name: test-rig
+name: test-software-team
 pods:
   - id: dev
     label: Dev
@@ -62,18 +62,18 @@ describe("SpecLibraryService", () => {
     });
   }
 
-  it("scan discovers rig specs validated by SpecReviewService", () => {
-    writeFileSync(join(tmpDir, "my-rig.yaml"), VALID_RIG_YAML);
+  it("scan discovers SoftwareTeam specs validated by SpecReviewService", () => {
+    writeFileSync(join(tmpDir, "my-software-team.yaml"), VALID_SOFTWARE_TEAM_YAML);
 
     const lib = createLibrary();
     lib.scan();
 
     const entries = lib.list();
     expect(entries).toHaveLength(1);
-    expect(entries[0]!.kind).toBe("rig");
-    expect(entries[0]!.name).toBe("test-rig");
+    expect(entries[0]!.kind).toBe("softwareTeam");
+    expect(entries[0]!.name).toBe("test-software-team");
     expect(entries[0]!.sourceType).toBe("user_file");
-    expect(entries[0]!.sourcePath).toContain("my-rig.yaml");
+    expect(entries[0]!.sourcePath).toContain("my-software-team.yaml");
   });
 
   it("scan discovers agent specs validated by SpecReviewService", () => {
@@ -88,8 +88,8 @@ describe("SpecLibraryService", () => {
     expect(entries[0]!.name).toBe("test-agent");
   });
 
-  it("scan skips files that fail both rig and agent validation", () => {
-    writeFileSync(join(tmpDir, "valid.yaml"), VALID_RIG_YAML);
+  it("scan skips files that fail both SoftwareTeam and agent validation", () => {
+    writeFileSync(join(tmpDir, "valid.yaml"), VALID_SOFTWARE_TEAM_YAML);
     writeFileSync(join(tmpDir, "invalid.yaml"), INVALID_YAML);
     writeFileSync(join(tmpDir, "not-yaml.txt"), "just text");
 
@@ -98,23 +98,23 @@ describe("SpecLibraryService", () => {
 
     const entries = lib.list();
     expect(entries).toHaveLength(1);
-    expect(entries[0]!.name).toBe("test-rig");
+    expect(entries[0]!.name).toBe("test-software-team");
   });
 
   it("list with kind filter returns only matching entries", () => {
-    writeFileSync(join(tmpDir, "rig.yaml"), VALID_RIG_YAML);
+    writeFileSync(join(tmpDir, "software-team.yaml"), VALID_SOFTWARE_TEAM_YAML);
     writeFileSync(join(tmpDir, "agent.yaml"), VALID_AGENT_YAML);
 
     const lib = createLibrary();
     lib.scan();
 
-    expect(lib.list({ kind: "rig" })).toHaveLength(1);
+    expect(lib.list({ kind: "softwareTeam" })).toHaveLength(1);
     expect(lib.list({ kind: "agent" })).toHaveLength(1);
     expect(lib.list()).toHaveLength(2);
   });
 
   it("get returns entry with YAML content from disk", () => {
-    writeFileSync(join(tmpDir, "rig.yaml"), VALID_RIG_YAML);
+    writeFileSync(join(tmpDir, "software-team.yaml"), VALID_SOFTWARE_TEAM_YAML);
 
     const lib = createLibrary();
     lib.scan();
@@ -122,12 +122,12 @@ describe("SpecLibraryService", () => {
     const entries = lib.list();
     const result = lib.get(entries[0]!.id);
     expect(result).not.toBeNull();
-    expect(result!.entry.name).toBe("test-rig");
-    expect(result!.yaml).toContain("test-rig");
+    expect(result!.entry.name).toBe("test-software-team");
+    expect(result!.yaml).toContain("test-software-team");
   });
 
   it("IDs are deterministic across rescans", () => {
-    writeFileSync(join(tmpDir, "rig.yaml"), VALID_RIG_YAML);
+    writeFileSync(join(tmpDir, "software-team.yaml"), VALID_SOFTWARE_TEAM_YAML);
 
     const lib = createLibrary();
     lib.scan();
@@ -153,42 +153,42 @@ describe("SpecLibraryService", () => {
     expect(lib.list({ kind: "agent" })[0]!.id).toBe(entries[0]!.id);
   });
 
-  it("builtin scan ignores nested template yaml that is not a rig or agent entrypoint", () => {
-    mkdirSync(join(tmpDir, "rigs", "launch", "demo"), { recursive: true });
+  it("builtin scan ignores nested template yaml that is not a SoftwareTeam or agent entrypoint", () => {
+    mkdirSync(join(tmpDir, "software-teams", "launch", "demo"), { recursive: true });
     mkdirSync(join(tmpDir, "agents", "shared", "skills", "process", "containerized-e2e", "templates"), { recursive: true });
-    writeFileSync(join(tmpDir, "rigs", "launch", "demo", "rig.yaml"), VALID_RIG_YAML);
+    writeFileSync(join(tmpDir, "software-teams", "launch", "demo", "software-team.yaml"), VALID_SOFTWARE_TEAM_YAML);
     writeFileSync(
       join(tmpDir, "agents", "shared", "skills", "process", "containerized-e2e", "templates", "control-plane-test.yaml"),
-      VALID_RIG_YAML,
+      VALID_SOFTWARE_TEAM_YAML,
     );
 
     const lib = createLibrary([{ path: tmpDir, sourceType: "builtin" }]);
     lib.scan();
 
-    const rigs = lib.list({ kind: "rig" });
-    expect(rigs).toHaveLength(1);
-    expect(rigs[0]!.relativePath).toBe("rigs/launch/demo/rig.yaml");
+    const softwareTeams = lib.list({ kind: "softwareTeam" });
+    expect(softwareTeams).toHaveLength(1);
+    expect(softwareTeams[0]!.relativePath).toBe("software-teams/launch/demo/software-team.yaml");
   });
 
   // OPR.0.3.2.22 Bug 4 — walkYamlFiles now skips noise directories
   // (.worktrees, node_modules, .git, dist, build, .turbo, .next). The
   // conveyor.yaml under .worktrees/release-0.3.0-... is the load-bearing
-  // case from the openrig-comms paper-cut report; this pins the
+  // case from the softwareteam-comms paper-cut report; this pins the
   // SKIP_DIRS guard at the SpecLibraryService.scan() seam.
   it("scan skips yaml files inside noise directories (SKIP_DIRS)", () => {
-    writeFileSync(join(tmpDir, "canonical.yaml"), VALID_RIG_YAML);
+    writeFileSync(join(tmpDir, "canonical.yaml"), VALID_SOFTWARE_TEAM_YAML);
 
     const NOISE_DIRS = [".worktrees", "node_modules", ".git", "dist", "build", ".turbo", ".next"];
     for (const dir of NOISE_DIRS) {
       mkdirSync(join(tmpDir, dir, "deeper"), { recursive: true });
-      writeFileSync(join(tmpDir, dir, "deeper", "noise.yaml"), VALID_RIG_YAML.replace("test-rig", `noise-${dir}`));
+      writeFileSync(join(tmpDir, dir, "deeper", "noise.yaml"), VALID_SOFTWARE_TEAM_YAML.replace("test-software-team", `noise-${dir}`));
     }
 
     const lib = createLibrary();
     lib.scan();
 
     const entries = lib.list();
-    expect(entries, `expected only canonical rig (got ${JSON.stringify(entries.map((e) => e.relativePath))})`).toHaveLength(1);
+    expect(entries, `expected only canonical softwareTeam (got ${JSON.stringify(entries.map((e) => e.relativePath))})`).toHaveLength(1);
     expect(entries[0]!.sourcePath).toContain("canonical.yaml");
     for (const dir of NOISE_DIRS) {
       expect(entries.every((e) => !e.sourcePath.includes(`/${dir}/`)), `entry from ${dir} leaked through SKIP_DIRS`).toBe(true);

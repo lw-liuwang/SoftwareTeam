@@ -9,7 +9,7 @@
 //
 // Contract summary:
 // - The adapter launches `node <runnerEntry> …` inside the seat's tmux pane.
-// - The runner writes the readiness sidecar `<cwd>/.openrig/stub/state.json` and
+// - The runner writes the readiness sidecar `<cwd>/.softwareteam/stub/state.json` and
 //   prints the READY marker to the pane; the daemon reads ONLY runner-authored
 //   surfaces (the sidecar), never pane heuristics, for the readiness decision.
 // - Step-4 scope: the runner becomes ready + persists the readiness sidecar. The
@@ -20,11 +20,11 @@ import nodePath from "node:path";
 import { shellQuote } from "./shell-quote.js";
 
 // ── Readiness sidecar layout ────────────────────────────────────────────────
-// <cwd>/.openrig/stub/state.json → the runner's readiness sidecar (the daemon's
+// <cwd>/.softwareteam/stub/state.json → the runner's readiness sidecar (the daemon's
 // authoritative liveness source; distinct from the ctx% context sidecar under
-// <OPENRIG_HOME>/context/ consumed by ContextUsageStore in a later increment).
+// <SOFTWARETEAM_HOME>/context/ consumed by ContextUsageStore in a later increment).
 
-export const STUB_READINESS_SIDECAR_SUBPATH = nodePath.join(".openrig", "stub", "state.json");
+export const STUB_READINESS_SIDECAR_SUBPATH = nodePath.join(".softwareteam", "stub", "state.json");
 
 /** Absolute path to the readiness sidecar for a seat whose managed cwd is `cwd`. */
 export function stubSeatSidecarPath(cwd: string): string {
@@ -32,13 +32,13 @@ export function stubSeatSidecarPath(cwd: string): string {
 }
 
 // ── Scenario-resolved behavior script ───────────────────────────────────────
-// <cwd>/.openrig/stub/script.json → the per-seat behavior script the runner
+// <cwd>/.softwareteam/stub/script.json → the per-seat behavior script the runner
 // executes (pane outputs + hook/behavior emissions; PRD §4.2). A scenario harness
 // (51-02) drops it into the managed cwd; a standalone stub seat has none and the
 // runner falls back to the built-in DEFAULT_STUB_SCRIPT. A cwd convention (not a
 // launch flag) so the launch command stays byte-stable across fresh/resume.
 
-export const STUB_SCRIPT_SUBPATH = nodePath.join(".openrig", "stub", "script.json");
+export const STUB_SCRIPT_SUBPATH = nodePath.join(".softwareteam", "stub", "script.json");
 
 /** Absolute path to the scenario-resolved behavior script for a seat whose managed
  *  cwd is `cwd` (absent = the runner uses DEFAULT_STUB_SCRIPT). */

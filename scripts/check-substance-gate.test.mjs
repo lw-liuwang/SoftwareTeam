@@ -103,7 +103,7 @@ test("the named substance gate writes a cut-bound, per-surface receipt and recor
     assert.deepEqual(output.activeRulesByClass, {
       content: {
         path_prefixes: 2,
-        seat_and_rig_patterns: 1,
+        seat_and_software_team_patterns: 1,
         host_patterns: 1,
         charged_terms: 1,
         internal_path_globs: 3,
@@ -127,7 +127,7 @@ test("the named substance gate writes a cut-bound, per-surface receipt and recor
 
 test("an internal-path contribution is refused with its class and all fix paths", () => {
   withFixture(({ repo, rules, review, receipt }) => {
-    write(join(repo, "public/guide.md"), "Continue at substrate/shared-docs/rigs/private.\n");
+    write(join(repo, "public/guide.md"), "Continue at substrate/shared-docs/software-teams/private.\n");
     commitAll(repo, "internal specimen");
     const cutSha = gitHead(repo);
     writeFileSync(review, JSON.stringify({ surfaces: [] }));
@@ -415,7 +415,7 @@ function writeGateHarness(root, source, invocationPath) {
 }
 
 function withFixture(run) {
-  const root = mkdtempSync(join(tmpdir(), "openrig-substance-gate-"));
+  const root = mkdtempSync(join(tmpdir(), "softwareteam-substance-gate-"));
   const repo = join(root, "repo");
   const rules = join(root, "rules.json");
   const review = join(root, "review.json");
@@ -425,7 +425,7 @@ function withFixture(run) {
   execFileSync("git", ["config", "user.email", "qa@example.invalid"], { cwd: repo });
   execFileSync("git", ["config", "user.name", "QA"], { cwd: repo });
   writeFileSync(join(repo, "package.json"), JSON.stringify({
-    name: "openrig-substance-gate-fixture",
+    name: "softwareteam-substance-gate-fixture",
     version: "1.0.0",
     files: ["public", "dist", "outside.md", "substance-surfaces.json"],
   }));
@@ -435,7 +435,7 @@ function withFixture(run) {
   }));
   writeFileSync(rules, JSON.stringify({
     path_prefixes: ["substrate/shared-docs/", "/Users/example/"],
-    seat_and_rig_patterns: ["operator-agent@"],
+    seat_and_software_team_patterns: ["operator-agent@"],
     host_patterns: ["mm2-"],
     charged_terms: ["founder"],
     internal_path_globs: ["*.internal.*", "**/internal/**", "*-internal/**"],

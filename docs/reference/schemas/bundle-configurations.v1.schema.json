@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://openrig.dev/schemas/bundle-configurations.v1.json",
-  "title": "Declared configurations (configurations.yaml beside rig.yaml)",
+  "$id": "https://github.com/lw-liuwang/SoftwareTeam/schemas/bundle-configurations.v1.json",
+  "title": "Declared configurations (configurations.yaml beside software-team.yaml)",
   "type": "object",
   "required": [
     "schema",
@@ -11,7 +11,7 @@
   ],
   "properties": {
     "schema": {
-      "const": "openrig.bundle-configurations/v1"
+      "const": "softwareteam.bundle-configurations/v1"
     },
     "recommended": {
       "type": "string",
@@ -22,7 +22,7 @@
       "minProperties": 1,
       "description": "pod.member -> the runtimes that seat may use, each with the profile it uses.",
       "propertyNames": {
-        "$ref": "https://openrig.dev/schemas/bundle-common.v1.json#/$defs/member"
+        "$ref": "https://github.com/lw-liuwang/SoftwareTeam/schemas/bundle-common.v1.json#/$defs/member"
       },
       "additionalProperties": {
         "type": "object",
@@ -34,7 +34,7 @@
             "type": "object",
             "minProperties": 1,
             "propertyNames": {
-              "$ref": "https://openrig.dev/schemas/bundle-common.v1.json#/$defs/runtime"
+              "$ref": "https://github.com/lw-liuwang/SoftwareTeam/schemas/bundle-common.v1.json#/$defs/runtime"
             },
             "additionalProperties": {
               "type": "string",
@@ -56,10 +56,10 @@
         "type": "object",
         "minProperties": 1,
         "propertyNames": {
-          "$ref": "https://openrig.dev/schemas/bundle-common.v1.json#/$defs/member"
+          "$ref": "https://github.com/lw-liuwang/SoftwareTeam/schemas/bundle-common.v1.json#/$defs/member"
         },
         "additionalProperties": {
-          "$ref": "https://openrig.dev/schemas/bundle-common.v1.json#/$defs/runtime"
+          "$ref": "https://github.com/lw-liuwang/SoftwareTeam/schemas/bundle-common.v1.json#/$defs/runtime"
         }
       }
     }

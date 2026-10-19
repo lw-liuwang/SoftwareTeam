@@ -3,8 +3,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
 
-import { RigSpecSchema } from "../src/domain/rigspec-schema.js";
-import { RigSpecCodec } from "../src/domain/rigspec-codec.js";
+import { SoftwareTeamSpecSchema } from "../src/domain/software-team-spec-schema.js";
+import { SoftwareTeamSpecCodec } from "../src/domain/software-team-spec-codec.js";
 import { ClaudeCodeAdapter, type ClaudeAdapterFsOps } from "../src/adapters/claude-code-adapter.js";
 import { shellQuote } from "../src/adapters/shell-quote.js";
 import { CodexRuntimeAdapter } from "../src/adapters/codex-runtime-adapter.js";
@@ -12,11 +12,11 @@ import { TerminalAdapter } from "../src/adapters/terminal-adapter.js";
 import { StartupOrchestrator, type StartupInput } from "../src/domain/startup-orchestrator.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import type { RuntimeAdapter, NodeBinding, ForkSource } from "../src/domain/runtime-adapter.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
 import type { ProjectionPlan } from "../src/domain/projection-planner.js";
-import type { RigSpec, SessionSourceSpec } from "../src/domain/types.js";
+import type { SoftwareTeamSpec, SessionSourceSpec } from "../src/domain/types.js";
 
 // ============================================================================
 // Fixtures
@@ -25,7 +25,7 @@ import type { RigSpec, SessionSourceSpec } from "../src/domain/types.js";
 function baseValidSpec(): Record<string, unknown> {
   return {
     version: "0.2",
-    name: "fork-test-rig",
+    name: "fork-test-software-team",
     pods: [
       {
         id: "dev",
@@ -66,7 +66,7 @@ describe("session_source schema validation", () => {
         ref: { kind: "native_id", value: "0b0165d7-cb4d-4650-90de-15c0a1ede9e6" },
       },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
   });
@@ -76,7 +76,7 @@ describe("session_source schema validation", () => {
       runtime: "codex",
       session_source: { mode: "fork", ref: { kind: "native_id", value: "thread-id-abc" } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(true);
   });
 
@@ -87,7 +87,7 @@ describe("session_source schema validation", () => {
       profile: "none",
       session_source: { mode: "fork", ref: { kind: "native_id", value: "x" } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes("terminal runtime has no native fork primitive"))).toBe(true);
   });
@@ -96,7 +96,7 @@ describe("session_source schema validation", () => {
     const spec = withMember(baseValidSpec(), {
       session_source: { mode: "snapshot", ref: { kind: "native_id", value: "x" } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     // PL-016 Item 4: error message names the now-three valid modes.
     expect(result.errors.some((e) => e.includes('supports "fork", "rebuild", or "agent_image"'))).toBe(true);
@@ -106,7 +106,7 @@ describe("session_source schema validation", () => {
     const spec = withMember(baseValidSpec(), {
       session_source: { mode: "fork", ref: { kind: "artifact_path", value: "/some/path" } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('"artifact_path" deferred to follow-up slice'))).toBe(true);
   });
@@ -115,7 +115,7 @@ describe("session_source schema validation", () => {
     const spec = withMember(baseValidSpec(), {
       session_source: { mode: "fork", ref: { kind: "name", value: "x" } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('weaker than "native_id"'))).toBe(true);
   });
@@ -124,7 +124,7 @@ describe("session_source schema validation", () => {
     const spec = withMember(baseValidSpec(), {
       session_source: { mode: "fork", ref: { kind: "last" } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('weaker than "native_id"'))).toBe(true);
   });
@@ -133,7 +133,7 @@ describe("session_source schema validation", () => {
     const spec = withMember(baseValidSpec(), {
       session_source: { mode: "fork", ref: { kind: "native_id" } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes("ref.value: required non-empty string"))).toBe(true);
   });
@@ -142,7 +142,7 @@ describe("session_source schema validation", () => {
     const spec = withMember(baseValidSpec(), {
       session_source: { mode: "fork", ref: { kind: "native_id", value: "   " } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes("ref.value: required non-empty string"))).toBe(true);
   });
@@ -151,7 +151,7 @@ describe("session_source schema validation", () => {
     const spec = withMember(baseValidSpec(), {
       session_source: { mode: "fork" },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes(".ref:"))).toBe(true);
   });
@@ -160,7 +160,7 @@ describe("session_source schema validation", () => {
     const spec = withMember(baseValidSpec(), {
       session_source: { mode: "fork", ref: { kind: "magic" } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('v1 fork mode supports "native_id" only'))).toBe(true);
   });
@@ -171,18 +171,18 @@ describe("session_source schema validation", () => {
 // ============================================================================
 
 describe("session_source normalization", () => {
-  it("normalizes valid session_source onto RigSpecPodMember.sessionSource", () => {
+  it("normalizes valid session_source onto SoftwareTeamSpecPodMember.sessionSource", () => {
     const spec = withMember(baseValidSpec(), {
       session_source: { mode: "fork", ref: { kind: "native_id", value: "abc" } },
     });
-    const normalized = RigSpecSchema.normalize(spec) as RigSpec;
+    const normalized = SoftwareTeamSpecSchema.normalize(spec) as SoftwareTeamSpec;
     const member = normalized.pods[0]!.members[0]!;
     expect(member.sessionSource).toEqual({ mode: "fork", ref: { kind: "native_id", value: "abc" } });
   });
 
   it("normalizes absent session_source to undefined", () => {
     const spec = baseValidSpec();
-    const normalized = RigSpecSchema.normalize(spec) as RigSpec;
+    const normalized = SoftwareTeamSpecSchema.normalize(spec) as SoftwareTeamSpec;
     expect(normalized.pods[0]!.members[0]!.sessionSource).toBeUndefined();
   });
 });
@@ -193,9 +193,9 @@ describe("session_source normalization", () => {
 
 describe("session_source codec roundtrip", () => {
   it("preserves session_source through serialize → parse → normalize", () => {
-    const seed: RigSpec = {
+    const seed: SoftwareTeamSpec = {
       version: "0.2",
-      name: "fork-test-rig",
+      name: "fork-test-software-team",
       pods: [{
         id: "dev",
         label: "Dev pod",
@@ -211,17 +211,17 @@ describe("session_source codec roundtrip", () => {
       }],
       edges: [],
     };
-    const yaml = RigSpecCodec.serialize(seed);
+    const yaml = SoftwareTeamSpecCodec.serialize(seed);
     expect(yaml).toContain("session_source:");
     expect(yaml).toContain("mode: fork");
     expect(yaml).toContain("kind: native_id");
     expect(yaml).toContain("0b0165d7-cb4d-4650-90de-15c0a1ede9e6");
 
-    const parsed = RigSpecCodec.parse(yaml);
-    const validation = RigSpecSchema.validate(parsed);
+    const parsed = SoftwareTeamSpecCodec.parse(yaml);
+    const validation = SoftwareTeamSpecSchema.validate(parsed);
     expect(validation.valid).toBe(true);
 
-    const normalized = RigSpecSchema.normalize(parsed as Record<string, unknown>) as RigSpec;
+    const normalized = SoftwareTeamSpecSchema.normalize(parsed as Record<string, unknown>) as SoftwareTeamSpec;
     expect(normalized.pods[0]!.members[0]!.sessionSource).toEqual(seed.pods[0]!.members[0]!.sessionSource);
   });
 });
@@ -250,7 +250,7 @@ function mockClaudeFs(captured?: string): ClaudeAdapterFsOps {
   return {
     readFile: (p: string) => {
       if (captured && p.includes(`12345.json`)) {
-        return JSON.stringify({ pid: 12345, sessionId: captured, name: "dev-impl@test-rig" });
+        return JSON.stringify({ pid: 12345, sessionId: captured, name: "dev-impl@test-software-team" });
       }
       if (p in store) return store[p]!;
       throw new Error(`Not found: ${p}`);
@@ -278,7 +278,7 @@ describe("ClaudeCodeAdapter.launchHarness fork branch", () => {
     const adapter = new ClaudeCodeAdapter({ tmux, fsOps: mockClaudeFs(), sessionIdFactory: () => "33333333-3333-4333-8333-333333333333" });
 
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "dev-impl@test-rig",
+      name: "dev-impl@test-software-team",
       forkSource: { kind: "native_id", value: "PARENT-TOKEN-ABC" },
     });
 
@@ -286,7 +286,7 @@ describe("ClaudeCodeAdapter.launchHarness fork branch", () => {
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
     expect(sendText).toHaveBeenCalledWith(
       "r01-impl",
-      "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 claude --permission-mode acceptEdits --resume 'PARENT-TOKEN-ABC' --fork-session --session-id 33333333-3333-4333-8333-333333333333 --name dev-impl@test-rig",
+      "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 claude --permission-mode acceptEdits --resume 'PARENT-TOKEN-ABC' --fork-session --session-id 33333333-3333-4333-8333-333333333333 --name dev-impl@test-software-team",
     );
     if (result.ok) {
       // The returned token MUST be the fork's own new id, NOT the parent.
@@ -301,7 +301,7 @@ describe("ClaudeCodeAdapter.launchHarness fork branch", () => {
     const adapter = new ClaudeCodeAdapter({ tmux, fsOps: mockClaudeFs("STALE-SAME-NAME-ID"), sessionIdFactory: () => "33333333-3333-4333-8333-333333333333" });
 
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "dev-impl@test-rig",
+      name: "dev-impl@test-software-team",
       forkSource: { kind: "native_id", value: "PARENT-TOKEN-ABC" },
     });
 
@@ -312,9 +312,9 @@ describe("ClaudeCodeAdapter.launchHarness fork branch", () => {
     const tmux = mockTmux();
     const adapter = new ClaudeCodeAdapter({ tmux, fsOps: mockClaudeFs(), sessionIdFactory: () => "33333333-3333-4333-8333-333333333333" });
 
-    const hostileParent = "ABC-123'; touch /tmp/OPENRIG_PWNED; '";
+    const hostileParent = "ABC-123'; touch /tmp/SOFTWARETEAM_PWNED; '";
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "dev-impl@test-rig",
+      name: "dev-impl@test-software-team",
       forkSource: { kind: "native_id", value: hostileParent },
     });
 
@@ -336,7 +336,7 @@ describe("ClaudeCodeAdapter.launchHarness fork branch", () => {
     const tmux = mockTmux();
     const adapter = new ClaudeCodeAdapter({ tmux, fsOps: mockClaudeFs() });
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "dev-impl@test-rig",
+      name: "dev-impl@test-software-team",
       forkSource: { kind: "artifact_path", value: "/some/path" },
     });
     expect(result.ok).toBe(false);
@@ -349,7 +349,7 @@ describe("ClaudeCodeAdapter.launchHarness fork branch", () => {
     const tmux = mockTmux();
     const adapter = new ClaudeCodeAdapter({ tmux, fsOps: mockClaudeFs() });
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "dev-impl@test-rig",
+      name: "dev-impl@test-software-team",
       resumeToken: "abc",
       forkSource: { kind: "native_id", value: "xyz" },
     });
@@ -363,7 +363,7 @@ describe("ClaudeCodeAdapter.launchHarness fork branch", () => {
     const tmux = mockTmux();
     const adapter = new ClaudeCodeAdapter({ tmux, fsOps: mockClaudeFs() });
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "dev-impl@test-rig",
+      name: "dev-impl@test-software-team",
       forkSource: { kind: "native_id", value: "  " },
     });
     expect(result.ok).toBe(false);
@@ -379,10 +379,10 @@ describe("ClaudeCodeAdapter.launchHarness fork branch", () => {
       fsOps: mockClaudeFs(),
       sessionIdFactory: () => "fresh-uuid-aaa",
     });
-    const fresh = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-rig" });
+    const fresh = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-software-team" });
     expect(fresh.ok).toBe(true);
 
-    const resume = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-rig", resumeToken: "resume-abc" });
+    const resume = await adapter.launchHarness(makeBinding(), { name: "dev-impl@test-software-team", resumeToken: "resume-abc" });
     expect(resume.ok).toBe(true);
   });
 });
@@ -416,7 +416,7 @@ describe("ClaudeCodeAdapter.launchHarness resume-selection menu (OPR.0.3.4.5)", 
     });
 
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "dev-impl@test-rig",
+      name: "dev-impl@test-software-team",
       resumeToken: "resume-tok",
     });
 
@@ -483,7 +483,7 @@ describe("CodexRuntimeAdapter.launchHarness fork branch", () => {
   it("builds codex fork <parent> for forkSource.kind=native_id and captures the NEW thread id", async () => {
     const { tmux, adapter } = makeCodexAdapter("NEW-CODEX-THREAD-XYZ");
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "dev-impl@test-rig",
+      name: "dev-impl@test-software-team",
       forkSource: { kind: "native_id", value: "PARENT-THREAD-ABC" },
     });
     expect(result.ok).toBe(true);
@@ -502,7 +502,7 @@ describe("CodexRuntimeAdapter.launchHarness fork branch", () => {
   it("refuses forkSource.kind=artifact_path", async () => {
     const { adapter } = makeCodexAdapter();
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "dev-impl@test-rig",
+      name: "dev-impl@test-software-team",
       forkSource: { kind: "artifact_path", value: "/x" },
     });
     expect(result.ok).toBe(false);
@@ -514,7 +514,7 @@ describe("CodexRuntimeAdapter.launchHarness fork branch", () => {
   it("refuses both resumeToken and forkSource together", async () => {
     const { adapter } = makeCodexAdapter();
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "dev-impl@test-rig",
+      name: "dev-impl@test-software-team",
       resumeToken: "r",
       forkSource: { kind: "native_id", value: "p" },
     });
@@ -527,7 +527,7 @@ describe("CodexRuntimeAdapter.launchHarness fork branch", () => {
   it("refuses fork when capture fails (identity-honesty: no token == no honest seat)", async () => {
     const { adapter } = makeCodexAdapter(); // no thread id captured
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "dev-impl@test-rig",
+      name: "dev-impl@test-software-team",
       forkSource: { kind: "native_id", value: "PARENT-X" },
     });
     expect(result.ok).toBe(false);
@@ -539,7 +539,7 @@ describe("CodexRuntimeAdapter.launchHarness fork branch", () => {
   it("for a handover (pendingIdAllowed) a missed capture is pending metadata: ok with no token", async () => {
     const { adapter } = makeCodexAdapter(); // no thread id captured
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "dev-impl@test-rig",
+      name: "dev-impl@test-software-team",
       forkSource: { kind: "native_id", value: "PARENT-X", pendingIdAllowed: true },
     });
     expect(result.ok).toBe(true);
@@ -589,7 +589,7 @@ describe("CodexRuntimeAdapter.launchHarness fork branch", () => {
     });
 
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "dev-impl@test-rig",
+      name: "dev-impl@test-software-team",
       forkSource: { kind: "native_id", value: "PARENT-THREAD-ABC" },
     });
 
@@ -649,7 +649,7 @@ describe("CodexRuntimeAdapter.launchHarness fork branch", () => {
     });
 
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "dev-impl@test-rig",
+      name: "dev-impl@test-software-team",
       forkSource: { kind: "native_id", value: "PARENT-DELAYED" },
     });
 
@@ -671,7 +671,7 @@ describe("TerminalAdapter.launchHarness fork refusal", () => {
   it("refuses forkSource (terminal has no native fork primitive)", async () => {
     const adapter = new TerminalAdapter();
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "term@rig",
+      name: "term@software-team",
       forkSource: { kind: "native_id", value: "x" },
     });
     expect(result.ok).toBe(false);
@@ -682,7 +682,7 @@ describe("TerminalAdapter.launchHarness fork refusal", () => {
 
   it("still succeeds for the no-fork path", async () => {
     const adapter = new TerminalAdapter();
-    const result = await adapter.launchHarness(makeBinding(), { name: "term@rig" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "term@software-team" });
     expect(result.ok).toBe(true);
   });
 });
@@ -734,27 +734,27 @@ describe("StartupOrchestrator forkSource integration", () => {
   let db: Database.Database;
   let sessionRegistry: SessionRegistry;
   let eventBus: EventBus;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
 
   beforeEach(() => {
     db = createFullTestDb();
     sessionRegistry = new SessionRegistry(db);
     eventBus = new EventBus(db);
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
   });
   afterEach(() => { db.close(); });
 
-  function seed(): { rigId: string; nodeId: string; sessionId: string } {
-    const rig = rigRepo.createRig("fork-rig");
-    const node = rigRepo.addNode(rig.id, "impl", { runtime: "claude-code" });
+  function seed(): { softwareTeamId: string; nodeId: string; sessionId: string } {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("fork-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "impl", { runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, "r01-impl");
     sessionRegistry.updateStatus(session.id, "running");
-    return { rigId: rig.id, nodeId: node.id, sessionId: session.id };
+    return { softwareTeamId: softwareTeam.id, nodeId: node.id, sessionId: session.id };
   }
 
-  function makeInput(s: { rigId: string; nodeId: string; sessionId: string }, overrides?: Partial<StartupInput>): StartupInput {
+  function makeInput(s: { softwareTeamId: string; nodeId: string; sessionId: string }, overrides?: Partial<StartupInput>): StartupInput {
     return {
-      rigId: s.rigId,
+      softwareTeamId: s.softwareTeamId,
       nodeId: s.nodeId,
       sessionId: s.sessionId,
       binding: { id: "b1", nodeId: s.nodeId, tmuxSession: "r01-impl", tmuxWindow: null, tmuxPane: null, cmuxWorkspace: null, cmuxSurface: null, updatedAt: "", cwd: "." },
@@ -875,17 +875,17 @@ describe("StartupOrchestrator forkSource integration", () => {
 });
 
 // ============================================================================
-// rig-expansion-service session_source pass-through (structured spec)
+// software-team-expansion-service session_source pass-through (structured spec)
 // ============================================================================
 
 // OPR.0.3.3.24: expand passes a structured spec OBJECT (no synthetic YAML
 // round-trip) through materializeStructured + launchValidatedSpec. This is the
 // session_source analogue of the realigned starterRef pass-through tests: assert
 // snake_case session_source on the structured spec member, not a YAML string.
-describe("rig-expansion session_source pass-through (structured spec)", () => {
+describe("software-team-expansion session_source pass-through (structured spec)", () => {
   it("emits session_source on the structured spec member when member.sessionSource is set", async () => {
-    const { RigExpansionService } = await import("../src/domain/rig-expansion-service.js");
-    const fakeRigRepo = { getRig: () => ({ rig: { name: "rig-x" }, nodes: [] }) } as never;
+    const { SoftwareTeamExpansionService } = await import("../src/domain/software-team-expansion-service.js");
+    const fakeSoftwareTeamRepo = { getSoftwareTeam: () => ({ softwareTeam: { name: "software-team-x" }, nodes: [] }) } as never;
     const fakeEventBus = { emit: () => {} } as never;
     const capturedSpecs: Array<Record<string, unknown>> = [];
     const fakePodInstantiator = {
@@ -896,16 +896,16 @@ describe("rig-expansion session_source pass-through (structured spec)", () => {
       launchValidatedSpec: async () => ({ ok: true as const, result: { nodes: [], warnings: [] } }),
     } as never;
 
-    const svc = new RigExpansionService({
+    const svc = new SoftwareTeamExpansionService({
       db: {} as never,
-      rigRepo: fakeRigRepo,
+      softwareTeamRepo: fakeSoftwareTeamRepo,
       eventBus: fakeEventBus,
       nodeLauncher: {} as never,
       podInstantiator: fakePodInstantiator,
       sessionRegistry: {} as never,
     });
     const result = await svc.expand({
-      rigId: "rig-x",
+      softwareTeamId: "software-team-x",
       pod: {
         id: "dev",
         label: "Dev",
@@ -959,9 +959,9 @@ describe("identity-honesty literal contract", () => {
 // ============================================================================
 
 describe("session_source Pi rows (OPR.0.4.6.PI1)", () => {
-  const PI_STATE_ROOT = "/openrig-home/state/pi";
+  const PI_STATE_ROOT = "/softwareteam-home/state/pi";
   const PI_RUNNER = "/daemon-dist/adapters/pi-runner.js";
-  const PI_SESSION = "dev-impl@fork-test-rig";
+  const PI_SESSION = "dev-impl@fork-test-software-team";
   const PI_PARENT = "/prior-seat/sessions/parent_0196.jsonl";
   const PI_CHILD = `${PI_STATE_ROOT}/${PI_SESSION}/sessions/child_0197.jsonl`;
 
@@ -970,7 +970,7 @@ describe("session_source Pi rows (OPR.0.4.6.PI1)", () => {
       runtime: "pi",
       session_source: { mode: "fork", ref: { kind: "native_id", value: PI_PARENT } },
     });
-    const result = RigSpecSchema.validate(spec);
+    const result = SoftwareTeamSpecSchema.validate(spec);
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
   });

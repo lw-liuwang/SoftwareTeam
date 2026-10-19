@@ -7,7 +7,7 @@ domains: [engineering-advisor, operating-advisor, review]
 applies-when: |
   Need the cross-cutting architecture invariants the codebase enforces (the
   25 architecture rules + startup/import constraints), the shape of the
-  RigEvent union and its SSE delivery surfaces, or the intentional
+  SoftwareTeamEvent union and its SSE delivery surfaces, or the intentional
   compatibility limits that still describe the shipped system.
 siblings: [daemon-core.md, coordination-primitive.md]
 prerequisite-reads: [../README.md, daemon-core.md]
@@ -44,8 +44,8 @@ system-level invariants.
 4. The reboot is engine-first: domain services land before public-surface
    rewiring.
 5. Runtime is member-authoritative in the pod-aware model.
-6. Startup layering is additive and ordered: agent base → profile → rig
-   culture file → rig startup → pod startup → member startup → operator debug
+6. Startup layering is additive and ordered: agent base → profile → SoftwareTeam
+   culture file → SoftwareTeam startup → pod startup → member startup → operator debug
    append.
 7. Restore-policy narrowing is one-way only: `resume_if_possible` →
    `relaunch_fresh` → `checkpoint_only`.
@@ -74,11 +74,11 @@ system-level invariants.
 15. Restore honesty: a failed resume stops loudly as `awaiting-decision`, with
     the blank session rolled back and no session running
     (`restore-orchestrator.ts:1055`). No automatic fresh fallback. Fresh launch
-    is explicit follow-up only (`rig up --fresh <seats...>`,
+    is explicit follow-up only (`SoftwareTeam up --fresh <seats...>`,
     `packages/cli/src/commands/up.ts:99`).
 16. Post-command handoff required on `up`, `down`, `restore`,
     `snapshot create`: what happened + current state + next action.
-17. Session naming: `{pod}-{member}@{rig}` — human-authored,
+17. Session naming: `{pod}-{member}@{SoftwareTeam}` — human-authored,
     system-validated. No generation, no slugification.
 18. Communication: tmux is transport, not truth. `send/capture/broadcast`
     wrap tmux reliably with honest errors.
@@ -89,14 +89,14 @@ system-level invariants.
     less often, within the 10-second freshness window (`:29`–`33`,
     `:162`–`163`), and the file is rewritten only when the captured bytes
     change (`:270`). `readTail` and `grep` strip ANSI; `readFull` returns the
-    content unfiltered. `rig ask` transcript search: `rg`
+    content unfiltered. `SoftwareTeam ask` transcript search: `rg`
     preferred, `grep -E` fallback.
 20. Config precedence: CLI flag > env var > config file
-    (`~/.openrig/config.json`, or `$OPENRIG_HOME/config.json` when
-    `OPENRIG_HOME` is set; `packages/cli/src/config-store.ts:939`) > default.
+    (`~/.softwareteam/config.json`, or `$SOFTWARETEAM_HOME/config.json` when
+    `SOFTWARETEAM_HOME` is set; `packages/cli/src/config-store.ts:939`) > default.
 21. Semi-deterministic calibration: build what agents use constantly. Agent
     handles edge cases from error messages.
-22. `rig ask` is context engineering: gathers evidence, does NOT call an
+22. `SoftwareTeam ask` is context engineering: gathers evidence, does NOT call an
     external LLM. The agent IS the LLM. The exception is the explicit `--wake`
     flag (`packages/cli/src/commands/ask.ts:88`), which runs one headless
     question against an existing agent session (`codex exec resume` or
@@ -119,7 +119,7 @@ system-level invariants.
 
 The reboot supports `local:...` and `path:/abs/...` agent refs. Remote
 `agent_ref` sources remain unsupported and fail in preflight (schema
-validation, `rigspec-schema.ts:563`; restated in compat note 1).
+validation, `software-team-spec-schema.ts:563`; restated in compat note 1).
 
 ### Startup, delivery and launch invariants
 
@@ -140,9 +140,9 @@ comments:
   audited `--dangerously-interact` override is the only way past an open prompt.
 - **Non-interruptive mode is per-launch flags only.** It never changes
   permissions or native settings files, applies only to full-bypass Claude Code
-  and Codex seats, and is saved per rig, off by default
-  (`adapters/non-interruptive.ts:9`–`26`; `rigs.non_interruptive`, migration
-  `095`). A rig spec can author it as `non_interruptive` (`rigspec-schema.ts:179`).
+  and Codex seats, and is saved per SoftwareTeam, off by default
+  (`adapters/non-interruptive.ts:9`–`26`; `SoftwareTeams.non_interruptive`, migration
+  `095`). A SoftwareTeam spec can author it as `non_interruptive` (`software-team-spec-schema.ts:179`).
 - **Inside a notify envelope, events are delivered from the log.** Within
   `withNotifyEnvelope` (`event-bus.ts:106`–`112`), every event persisted through
   the event bus must be registered before the callback returns; after commit
@@ -153,17 +153,17 @@ comments:
 
 ## 2. Event system
 
-The daemon's event surface is the single `RigEvent` discriminated union.
+The daemon's event surface is the single `SoftwareTeamEvent` discriminated union.
 
-`RigEvent` is declared at `packages/daemon/src/domain/types.ts:108`
-(`export type RigEvent =`) and runs through `types.ts:313`. It has **98 union
+`SoftwareTeamEvent` is declared at `packages/daemon/src/domain/types.ts:108`
+(`export type SoftwareTeamEvent =`) and runs through `types.ts:313`. It has **98 union
 members** declaring **99** `type` literals: one member (`types.ts:109`) carries
 both `proof.judged` and `proof.sources_changed`.
 
 - Members:
-  `sed -n '/^export type RigEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -c 'type: "'`
+  `sed -n '/^export type SoftwareTeamEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -c 'type: "'`
 - Type literals:
-  `sed -n '/^export type RigEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -oE '"[a-z_]+(\.[a-z_]+)+"' | sort -u | wc -l`
+  `sed -n '/^export type SoftwareTeamEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -oE '"[a-z_]+(\.[a-z_]+)+"' | sort -u | wc -l`
 
 **96** of the 99 literals appear as a `type: "<x>"` literal somewhere in
 `packages/daemon/src` outside `types.ts` (mostly in `domain/` and `routes/`;
@@ -173,20 +173,20 @@ constructed: `session.status_changed`, `continuity.sync`, and `continuity.degrad
 when swept by `queue-stuck-sweep`, and `mission_control.view_refreshed` was retired).
 List them with:
 
-`for t in $(sed -n '/^export type RigEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -oE '"[a-z_]+(\.[a-z_]+)+"' | tr -d '"'); do git grep -q -F "type: \"$t\"" -- packages/daemon/src ':!packages/daemon/src/domain/types.ts' || echo "$t"; done`
+`for t in $(sed -n '/^export type SoftwareTeamEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -oE '"[a-z_]+(\.[a-z_]+)+"' | tr -d '"'); do git grep -q -F "type: \"$t\"" -- packages/daemon/src ':!packages/daemon/src/domain/types.ts' || echo "$t"; done`
 
 ### Per-prefix event families
 
 Each count below is the number of `type` literals per prefix in the union body
 (`types.ts:108`–`313`):
-`sed -n '/^export type RigEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -oE '"[a-z_]+(\.[a-z_]+)+"' | tr -d '"' | cut -d. -f1 | sort | uniq -c | sort -rn`.
+`sed -n '/^export type SoftwareTeamEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -oE '"[a-z_]+(\.[a-z_]+)+"' | tr -d '"' | cut -d. -f1 | sort | uniq -c | sort -rn`.
 
 | Prefix | Types | Sample / role |
 |---|---|---|
 | `node.*` | 15 | `node.added` (`types.ts:126`) … `node.startup_proof_rejected` (`:229`) — lifecycle/startup |
 | `workflow.*` | 8 | workflow runtime (detail in `workflow-runtime.md`) |
 | `session.*` | 8 | session discovery / status / detach / vanish / stop / clean / resume-token audit |
-| `rig.*` | 7 | `rig.created` / `rig.deleted` / `rig.imported` / `rig.stopped` / `rig.archived` / `rig.unarchived` / `rig.expanded` (`:241`) |
+| `SoftwareTeam.*` | 7 | `SoftwareTeam.created` / `SoftwareTeam.deleted` / `SoftwareTeam.imported` / `SoftwareTeam.stopped` / `SoftwareTeam.archived` / `SoftwareTeam.unarchived` / `SoftwareTeam.expanded` (`:241`) |
 | `watchdog.*` | 5 | `watchdog.evaluation_fired` (`:280`) … `watchdog.job_stopped` (`:284`) |
 | `seat.*` | 5 | `seat.model_divergence` (`:115`) … `seat.handover_completed` (`:200`) — model divergence, fresh launch, attention clear, handover |
 | `queue.*` | 5 | queue lifecycle (`:249`–`:252`, `:262`; detail in `coordination-primitive.md`) |
@@ -221,13 +221,13 @@ SSE delivery surfaces include the following. The daemon has **11**
 `git grep -l 'streamSSE(' -- packages/daemon/src/routes | wc -l`).
 
 - `GET /api/events` — global stream of all events (`server.ts:730`
-  `app.route("/api/events", eventsRoute)`); `?rigId=` keeps one rig's. Each
+  `app.route("/api/events", eventsRoute)`); `?softwareTeamId=` keeps one SoftwareTeam's. Each
   event's SSE `id` is its `seq`. Before going live, a connection replays
   stored events, read and written 500 at a time (`routes/events.ts`):
   - with a `Last-Event-ID` header (an `EventSource` sends it when it
     reconnects), every event after that `seq`, whatever `replay` says;
-  - otherwise `?replay=<n>`: the newest `n` events (of the rig, with
-    `rigId`); `replay=0` starts from now; `replay=all`, no `replay`, a
+  - otherwise `?replay=<n>`: the newest `n` events (of the SoftwareTeam, with
+    `softwareTeamId`); `replay=0` starts from now; `replay=all`, no `replay`, a
     count past the log's size, or any other value, replays the whole log.
 
   Either way the replay ends at the newest event stored as the connection
@@ -236,9 +236,9 @@ SSE delivery surfaces include the following. The daemon has **11**
 - `GET /api/stream/watch` — new stream items (`routes/stream.ts:194`).
 - `GET /api/queue/watch` — queue/inbox coordination events
   (`routes/queue.ts:1054`, with a `/sse` alias at `:1055`).
-- The chat SSE stream `GET /api/rigs/:rigId/chat/watch` delivers
-  `chat.message` for one rig (`routes/chat.ts:82`, mounted at `server.ts:782`;
-  rig-scoped; see compat note 6).
+- The chat SSE stream `GET /api/SoftwareTeams/:softwareTeamId/chat/watch` delivers
+  `chat.message` for one SoftwareTeam (`routes/chat.ts:82`, mounted at `server.ts:782`;
+  software-team-scoped; see compat note 6).
 - The other SSE routes are activity events and the watch or `sse` routes for
   mission control, projects, views, watchdog and workflow; list them with
   `git grep -n 'streamSSE(' -- packages/daemon/src/routes`.
@@ -258,8 +258,8 @@ daemon restart boundary or rows before the retained floor) instead of
 presenting a partial history as complete. The page records the source host and
 the daemon's boot epoch. Bad input returns `400 telemetry_invalid_request`; a
 failed read returns `503 telemetry_read_unavailable`. The same route also
-serves the usage series behind `rig usage` (`/usage/series`, `/usage/top`).
-`rig telemetry events|transitions|tenures`
+serves the usage series behind `SoftwareTeam usage` (`/usage/series`, `/usage/top`).
+`SoftwareTeam telemetry events|transitions|tenures`
 (`packages/cli/src/commands/telemetry.ts`) prints one bounded page.
 
 ## 3. Remaining compatibility notes
@@ -272,12 +272,12 @@ Intentional limits that still describe the shipped system:
    `send_text`, `startup_proof`).
 3. Legacy compatibility seams still ship for pre-reboot data and v1
    artifacts.
-4. `rig ask` gathers context only — does not call an external LLM — unless
+4. `SoftwareTeam ask` gathers context only — does not call an external LLM — unless
    `--wake` is passed (rule 22).
-5. `rig ask` transcript search prefers `rg`, falls back to `grep -E`
+5. `SoftwareTeam ask` transcript search prefers `rg`, falls back to `grep -E`
    (`history-query.ts:252`, `:267`); quality/perf varies by backend.
-6. Chat is rig-scoped only — no cross-rig channels or DMs.
-7. `--verify` on `rig send` reports what the pane shows, not agent
+6. Chat is software-team-scoped only — no cross-SoftwareTeam channels or DMs.
+7. `--verify` on `SoftwareTeam send` reports what the pane shows, not agent
    acknowledgement. By default it compares the message (whole for a
    header-carrying send, the first 40 characters for a raw one) in captures
    before and after the send, leaving out the current input box; with
@@ -287,7 +287,7 @@ Intentional limits that still describe the shipped system:
    step 5).
    When it cannot confirm, it reports `rendered-unconfirmed`, not a failure.
 8. Terminal node readiness is shell-ready only — no service health probes.
-9. Managed-app service surfaces are descriptive only — OpenRig does not
+9. Managed-app service surfaces are descriptive only — SoftwareTeam does not
    auto-inject service URLs/tokens into agent prompts beyond authored
    startup/context files.
 10. Specialist delegation is conventional, not automatic — addressed by
@@ -304,7 +304,7 @@ Under the modular as-built, this module owns the invariants and event shape;
 - `coordination-primitive.md` — queue/stream/inbox/outbox events.
 - `workflow-runtime.md` — `workflow.*` events.
 - `mission-control.md` — `mission_control.*` events.
-- Source roots: `packages/daemon/src/domain/types.ts` (RigEvent union),
+- Source roots: `packages/daemon/src/domain/types.ts` (SoftwareTeamEvent union),
   `packages/daemon/src/domain/event-bus.ts` (emit/persist),
   `packages/daemon/src/routes/{stream,queue}.ts` (SSE watch),
   `packages/daemon/src/server.ts` (`/api/events`).

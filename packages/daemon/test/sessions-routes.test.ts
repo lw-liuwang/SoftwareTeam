@@ -91,13 +91,13 @@ describe("Session routes", () => {
     db.close();
   });
 
-  it("GET /api/rigs/:rigId/sessions -> session list", async () => {
-    const { app, rigRepo, sessionRegistry } = createTestApp(db);
-    const rig = rigRepo.createRig("r01");
-    const node = rigRepo.addNode(rig.id, "dev1-impl");
+  it("GET /api/software-teams/:softwareTeamId/sessions -> session list", async () => {
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev1-impl");
     sessionRegistry.registerSession(node.id, "r01-dev1-impl");
 
-    const res = await app.request(`/api/rigs/${rig.id}/sessions`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/sessions`);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveLength(1);
@@ -114,15 +114,15 @@ describe("Session routes", () => {
       getPaneCommand: vi.fn(async () => "claude"),
       capturePaneContent: vi.fn(async () => "Claude Code v2.1.89\n ❯ accept edits on"),
     } as unknown as TmuxAdapter;
-    const { app, rigRepo, sessionRegistry, eventBus } = createTestApp(db, {
+    const { app, softwareTeamRepo, sessionRegistry, eventBus } = createTestApp(db, {
       tmux,
       listProcesses: async () => [
         { pid: 1234, ppid: 1, command: "zsh" },
         { pid: 1235, ppid: 1234, command: "claude.exe --resume tok-abc-123" },
       ],
     });
-    const rig = rigRepo.createRig("r90");
-    const node = rigRepo.addNode(rig.id, "worker", { runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r90");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code" });
     const sessionName = "r90-worker";
     sessionRegistry.updateBinding(node.id, { tmuxSession: sessionName });
     const session = sessionRegistry.registerSession(node.id, sessionName);
@@ -132,25 +132,25 @@ describe("Session routes", () => {
       .run("tok-abc-123", session.id);
     const started = eventBus.emit({
       type: "restore.started",
-      rigId: rig.id,
+      softwareTeamId: softwareTeam.id,
       snapshotId: "snap-1",
       intendedRoster: [{ nodeId: node.id, logicalId: "worker" }],
     });
     eventBus.emit({
       type: "restore.completed",
-      rigId: rig.id,
+      softwareTeamId: softwareTeam.id,
       snapshotId: "snap-1",
       result: {
         snapshotId: "snap-1",
         preRestoreSnapshotId: null,
-        rigResult: "partially_restored",
+        softwareTeamResult: "partially_restored",
         nodes: [{ nodeId: node.id, logicalId: "worker", status: "attention_required" }],
         warnings: [],
       },
     });
     eventBus.emit({
       type: "restore.outcome_reconciled",
-      rigId: rig.id,
+      softwareTeamId: softwareTeam.id,
       nodeId: node.id,
       attemptId: 0,
       from: "attention_required",
@@ -176,7 +176,7 @@ describe("Session routes", () => {
       },
     });
 
-    const status = await app.request(`/api/rigs/${rig.id}/restore/status/${started.seq}`);
+    const status = await app.request(`/api/software-teams/${softwareTeam.id}/restore/status/${started.seq}`);
     expect(status.status).toBe(200);
     expect(await status.json()).toMatchObject({
       ok: true,
@@ -191,11 +191,11 @@ describe("Session routes", () => {
   });
 
   it("POST .../launch -> 201 + sessionName + session + binding, binding.tmuxSession === sessionName", async () => {
-    const { app, rigRepo } = createTestApp(db);
-    const rig = rigRepo.createRig("r01");
-    rigRepo.addNode(rig.id, "dev1-impl", { role: "worker" });
+    const { app, softwareTeamRepo } = createTestApp(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+    softwareTeamRepo.addNode(softwareTeam.id, "dev1-impl", { role: "worker" });
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/dev1-impl/launch`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/dev1-impl/launch`, {
       method: "POST",
     });
     expect(res.status).toBe(201);
@@ -209,34 +209,34 @@ describe("Session routes", () => {
   });
 
   it("POST .../launch already-bound -> 409", async () => {
-    const { app, rigRepo, sessionRegistry } = createTestApp(db);
-    const rig = rigRepo.createRig("r01");
-    const node = rigRepo.addNode(rig.id, "dev1-impl");
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev1-impl");
     sessionRegistry.updateBinding(node.id, { tmuxSession: "r01-dev1-impl" });
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/dev1-impl/launch`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/dev1-impl/launch`, {
       method: "POST",
     });
     expect(res.status).toBe(409);
   });
 
   it("POST .../launch nonexistent node -> 404", async () => {
-    const { app, rigRepo } = createTestApp(db);
-    const rig = rigRepo.createRig("r01");
+    const { app, softwareTeamRepo } = createTestApp(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/nonexistent/launch`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/nonexistent/launch`, {
       method: "POST",
     });
     expect(res.status).toBe(404);
   });
 
-  it("POST .../launch with ordinary rig name normalizes to r00-managed session name", async () => {
-    const { app, rigRepo } = createTestApp(db);
-    // Ordinary rig names are normalized into the managed r00- namespace.
-    const rig = rigRepo.createRig("badname");
-    rigRepo.addNode(rig.id, "worker");
+  it("POST .../launch with ordinary SoftwareTeam name normalizes to r00-managed session name", async () => {
+    const { app, softwareTeamRepo } = createTestApp(db);
+    // Ordinary softwareTeam names are normalized into the managed r00- namespace.
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("badname");
+    softwareTeamRepo.addNode(softwareTeam.id, "worker");
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/worker/launch`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/worker/launch`, {
       method: "POST",
     });
     expect(res.status).toBe(201);
@@ -247,18 +247,18 @@ describe("Session routes", () => {
   });
 
   it("POST .../launch routes pod-aware nodes through launchNodeSubset (OPR.0.3.4.11)", async () => {
-    const { app, rigRepo, sessionRegistry } = createTestApp(db);
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db);
     const podRepo = new PodRepository(db);
-    const rig = rigRepo.createRig("pod-rig");
-    const pod = podRepo.createPod(rig.id, "dev", "Development");
-    const node = rigRepo.addNode(rig.id, "dev.impl", {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("pod-software-team");
+    const pod = podRepo.createPod(softwareTeam.id, "dev", "Development");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", {
       runtime: "claude-code",
       podId: pod.id,
       agentRef: "local:agents/impl",
       profile: "default",
     });
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/${encodeURIComponent("dev.impl")}/launch`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/${encodeURIComponent("dev.impl")}/launch`, {
       method: "POST",
     });
 
@@ -284,30 +284,30 @@ describe("Session routes", () => {
       startPipePane: vi.fn(async () => true),
       killSession: vi.fn(async () => {}),
     };
-    const { app, rigRepo, sessionRegistry } = createTestApp(db, { tmux: tmuxMock as any });
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db, { tmux: tmuxMock as any });
     const podRepo = new PodRepository(db);
-    const rig = rigRepo.createRig("probe-fail-rig");
-    const pod = podRepo.createPod(rig.id, "dev", "Development");
-    const node = rigRepo.addNode(rig.id, "dev.impl", {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("probe-fail-software-team");
+    const pod = podRepo.createPod(softwareTeam.id, "dev", "Development");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", {
       runtime: "claude-code",
       podId: pod.id,
       agentRef: "local:agents/impl",
       profile: "default",
     });
     // Seed a running session + usable snapshot so launchNodeSubset reaches the probe
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@probe-fail-rig");
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@probe-fail-software-team");
     sessionRegistry.updateStatus(session.id, "running");
     const { SnapshotRepository } = await import("../src/domain/snapshot-repository.js");
     const snapRepo = new SnapshotRepository(db);
-    snapRepo.createSnapshot(rig.id, "manual", {
-      rig: { id: rig.id, name: "probe-fail-rig" },
-      nodes: [{ id: node.id, logicalId: "dev.impl", rigId: rig.id, runtime: "claude-code", podId: pod.id }],
-      sessions: [{ id: session.id, nodeId: node.id, sessionName: "dev-impl@probe-fail-rig", status: "running", resumeType: "claude-native", resumeToken: "tok" }],
+    snapRepo.createSnapshot(softwareTeam.id, "manual", {
+      softwareTeam: { id: softwareTeam.id, name: "probe-fail-software-team" },
+      nodes: [{ id: node.id, logicalId: "dev.impl", softwareTeamId: softwareTeam.id, runtime: "claude-code", podId: pod.id }],
+      sessions: [{ id: session.id, nodeId: node.id, sessionName: "dev-impl@probe-fail-software-team", status: "running", resumeType: "claude-native", resumeToken: "tok" }],
       edges: [],
       checkpoints: {},
     } as any);
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/${encodeURIComponent("dev.impl")}/launch`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/${encodeURIComponent("dev.impl")}/launch`, {
       method: "POST",
     });
 
@@ -320,14 +320,14 @@ describe("Session routes", () => {
   });
 
   it("POST .../nodes/launch-subset returns no_usable_snapshot without snapshot", async () => {
-    const { app, rigRepo } = createTestApp(db);
+    const { app, softwareTeamRepo } = createTestApp(db);
     const podRepo = new PodRepository(db);
-    const rig = rigRepo.createRig("subset-rig");
-    const pod = podRepo.createPod(rig.id, "dev", "Development");
-    rigRepo.addNode(rig.id, "dev.driver", { runtime: "claude-code", podId: pod.id });
-    rigRepo.addNode(rig.id, "dev.guard", { runtime: "codex", podId: pod.id });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("subset-software-team");
+    const pod = podRepo.createPod(softwareTeam.id, "dev", "Development");
+    softwareTeamRepo.addNode(softwareTeam.id, "dev.driver", { runtime: "claude-code", podId: pod.id });
+    softwareTeamRepo.addNode(softwareTeam.id, "dev.guard", { runtime: "codex", podId: pod.id });
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/launch-subset`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/launch-subset`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ seats: ["dev.driver", "dev.guard"] }),
@@ -341,27 +341,27 @@ describe("Session routes", () => {
   it("POST .../nodes/launch-subset launches multiple targets with usable snapshot (OPR.0.3.4.11)", async () => {
     // A successful fresh launch starts each harness: the route needs runtime adapters (as startup
     // wires them) and the snapshot needs each node's startup context (#107).
-    const { app, rigRepo } = createTestApp(db, { wireRuntimeAdapters: true });
+    const { app, softwareTeamRepo } = createTestApp(db, { wireRuntimeAdapters: true });
     const podRepo = new PodRepository(db);
-    const rig = rigRepo.createRig("multi-rig");
-    const pod = podRepo.createPod(rig.id, "dev", "Development");
-    const n1 = rigRepo.addNode(rig.id, "dev.driver", { runtime: "claude-code", podId: pod.id });
-    const n2 = rigRepo.addNode(rig.id, "dev.guard", { runtime: "codex", podId: pod.id });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("multi-software-team");
+    const pod = podRepo.createPod(softwareTeam.id, "dev", "Development");
+    const n1 = softwareTeamRepo.addNode(softwareTeam.id, "dev.driver", { runtime: "claude-code", podId: pod.id });
+    const n2 = softwareTeamRepo.addNode(softwareTeam.id, "dev.guard", { runtime: "codex", podId: pod.id });
     // Seed a usable snapshot
     const { SnapshotRepository } = await import("../src/domain/snapshot-repository.js");
     const snapRepo = new SnapshotRepository(db);
-    snapRepo.createSnapshot(rig.id, "manual", {
-      rig: { id: rig.id, name: "multi-rig" },
+    snapRepo.createSnapshot(softwareTeam.id, "manual", {
+      softwareTeam: { id: softwareTeam.id, name: "multi-software-team" },
       nodes: [
-        { id: n1.id, logicalId: "dev.driver", rigId: rig.id, runtime: "claude-code", podId: pod.id },
-        { id: n2.id, logicalId: "dev.guard", rigId: rig.id, runtime: "codex", podId: pod.id },
+        { id: n1.id, logicalId: "dev.driver", softwareTeamId: softwareTeam.id, runtime: "claude-code", podId: pod.id },
+        { id: n2.id, logicalId: "dev.guard", softwareTeamId: softwareTeam.id, runtime: "codex", podId: pod.id },
       ],
       sessions: [
         // Deliberate fresh (relaunch_fresh) → a genuine successful launch. FR-7: a
         // resume_if_possible seat with a token but no adapter to verify would instead
         // land awaiting-decision (covered by the next test).
-        { id: "s1", nodeId: n1.id, sessionName: "dev-driver@multi-rig", status: "running", resumeType: "claude-native", resumeToken: "t1", restorePolicy: "relaunch_fresh" },
-        { id: "s2", nodeId: n2.id, sessionName: "dev-guard@multi-rig", status: "running", resumeType: "codex-native", resumeToken: "t2", restorePolicy: "relaunch_fresh" },
+        { id: "s1", nodeId: n1.id, sessionName: "dev-driver@multi-software-team", status: "running", resumeType: "claude-native", resumeToken: "t1", restorePolicy: "relaunch_fresh" },
+        { id: "s2", nodeId: n2.id, sessionName: "dev-guard@multi-software-team", status: "running", resumeType: "codex-native", resumeToken: "t2", restorePolicy: "relaunch_fresh" },
       ],
       edges: [],
       checkpoints: {},
@@ -371,7 +371,7 @@ describe("Session routes", () => {
       },
     } as any);
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/launch-subset`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/launch-subset`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ seats: ["dev.driver", "dev.guard"], holdReason: "test" }),
@@ -393,15 +393,15 @@ describe("Session routes", () => {
   });
 
   it("POST .../nodes/launch-subset plan discloses non-target effects before mutation", async () => {
-    const { app, rigRepo } = createTestApp(db);
+    const { app, softwareTeamRepo } = createTestApp(db);
     const podRepo = new PodRepository(db);
-    const rig = rigRepo.createRig("plan-rig");
-    const pod = podRepo.createPod(rig.id, "dev", "Development");
-    const driver = rigRepo.addNode(rig.id, "dev.driver", { runtime: "claude-code", podId: pod.id });
-    const guard = rigRepo.addNode(rig.id, "dev.guard", { runtime: "codex", podId: pod.id });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("plan-software-team");
+    const pod = podRepo.createPod(softwareTeam.id, "dev", "Development");
+    const driver = softwareTeamRepo.addNode(softwareTeam.id, "dev.driver", { runtime: "claude-code", podId: pod.id });
+    const guard = softwareTeamRepo.addNode(softwareTeam.id, "dev.guard", { runtime: "codex", podId: pod.id });
     const { SnapshotRepository } = await import("../src/domain/snapshot-repository.js");
-    new SnapshotRepository(db).createSnapshot(rig.id, "manual", {
-      rig: { id: rig.id, name: "plan-rig" },
+    new SnapshotRepository(db).createSnapshot(softwareTeam.id, "manual", {
+      softwareTeam: { id: softwareTeam.id, name: "plan-software-team" },
       nodes: [driver, guard],
       sessions: [],
       edges: [],
@@ -412,7 +412,7 @@ describe("Session routes", () => {
       events: db.prepare("SELECT COUNT(*) AS n FROM events").get(),
     };
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/launch-subset`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/launch-subset`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ seats: ["dev.driver"], holdReason: "operator hold", plan: true }),
@@ -434,24 +434,24 @@ describe("Session routes", () => {
   });
 
   it("POST .../nodes/launch-subset does NOT report an awaiting-decision restore as a successful launch (FR-7)", async () => {
-    const { app, rigRepo } = createTestApp(db);
+    const { app, softwareTeamRepo } = createTestApp(db);
     const podRepo = new PodRepository(db);
-    const rig = rigRepo.createRig("fr7-rig");
-    const pod = podRepo.createPod(rig.id, "dev", "Development");
-    const n1 = rigRepo.addNode(rig.id, "dev.driver", { runtime: "claude-code", podId: pod.id });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("fr7-software-team");
+    const pod = podRepo.createPod(softwareTeam.id, "dev", "Development");
+    const n1 = softwareTeamRepo.addNode(softwareTeam.id, "dev.driver", { runtime: "claude-code", podId: pod.id });
     const { SnapshotRepository } = await import("../src/domain/snapshot-repository.js");
     const snapRepo = new SnapshotRepository(db);
-    snapRepo.createSnapshot(rig.id, "manual", {
-      rig: { id: rig.id, name: "fr7-rig" },
-      nodes: [{ id: n1.id, logicalId: "dev.driver", rigId: rig.id, runtime: "claude-code", podId: pod.id }],
+    snapRepo.createSnapshot(softwareTeam.id, "manual", {
+      softwareTeam: { id: softwareTeam.id, name: "fr7-software-team" },
+      nodes: [{ id: n1.id, logicalId: "dev.driver", softwareTeamId: softwareTeam.id, runtime: "claude-code", podId: pod.id }],
       // resume_if_possible + token, but the route harness wires NO runtime adapter →
       // continuity cannot be verified → the seat lands awaiting-decision, NOT a 201.
-      sessions: [{ id: "s1", nodeId: n1.id, sessionName: "dev-driver@fr7-rig", status: "running", resumeType: "claude-native", resumeToken: "t1", restorePolicy: "resume_if_possible" }],
+      sessions: [{ id: "s1", nodeId: n1.id, sessionName: "dev-driver@fr7-software-team", status: "running", resumeType: "claude-native", resumeToken: "t1", restorePolicy: "resume_if_possible" }],
       edges: [],
       checkpoints: {},
     } as any);
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/launch-subset`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/launch-subset`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ seats: ["dev.driver"] }),
@@ -467,10 +467,10 @@ describe("Session routes", () => {
   });
 
   it("POST .../nodes/launch-subset rejects empty seats array", async () => {
-    const { app, rigRepo } = createTestApp(db);
-    const rig = rigRepo.createRig("empty-rig");
+    const { app, softwareTeamRepo } = createTestApp(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("empty-software-team");
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/launch-subset`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/launch-subset`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ seats: [] }),
@@ -485,12 +485,12 @@ describe("Session routes", () => {
     const cmux = connectedCmux();
     await cmux.connect();
     const focusSpy = vi.spyOn(cmux, "focusSurface");
-    const { app, rigRepo, sessionRegistry } = createTestApp(db, { cmux });
-    const rig = rigRepo.createRig("r01");
-    const node = rigRepo.addNode(rig.id, "dev1-impl");
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db, { cmux });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev1-impl");
     sessionRegistry.updateBinding(node.id, { cmuxSurface: "surface-42" });
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/dev1-impl/focus`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/dev1-impl/focus`, {
       method: "POST",
     });
     expect(res.status).toBe(200);
@@ -505,11 +505,11 @@ describe("Session routes", () => {
     const cmux = connectedCmux();
     await cmux.connect();
     const focusSpy = vi.spyOn(cmux, "focusSurface");
-    const { app, rigRepo } = createTestApp(db, { cmux });
-    const rig = rigRepo.createRig("r01");
-    rigRepo.addNode(rig.id, "dev1-impl");
+    const { app, softwareTeamRepo } = createTestApp(db, { cmux });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+    softwareTeamRepo.addNode(softwareTeam.id, "dev1-impl");
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/dev1-impl/focus`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/dev1-impl/focus`, {
       method: "POST",
     });
     expect(res.status).toBe(409);
@@ -518,10 +518,10 @@ describe("Session routes", () => {
   });
 
   it("POST .../focus nonexistent logicalId -> 404", async () => {
-    const { app, rigRepo } = createTestApp(db);
-    const rig = rigRepo.createRig("r01");
+    const { app, softwareTeamRepo } = createTestApp(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/nonexistent/focus`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/nonexistent/focus`, {
       method: "POST",
     });
     expect(res.status).toBe(404);
@@ -530,12 +530,12 @@ describe("Session routes", () => {
   it("POST .../focus cmux unavailable -> 200 { ok: false, code: 'unavailable' }", async () => {
     const cmux = unavailableCmux();
     await cmux.connect();
-    const { app, rigRepo, sessionRegistry } = createTestApp(db, { cmux });
-    const rig = rigRepo.createRig("r01");
-    const node = rigRepo.addNode(rig.id, "dev1-impl");
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db, { cmux });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev1-impl");
     sessionRegistry.updateBinding(node.id, { cmuxSurface: "surface-42" });
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/dev1-impl/focus`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/dev1-impl/focus`, {
       method: "POST",
     });
     expect(res.status).toBe(200);
@@ -549,16 +549,16 @@ describe("Session routes", () => {
   it("POST .../open-cmux with existing cmuxSurface -> focused_existing, no create/send side effects", async () => {
     const { adapter: cmux, calls } = trackingCmux();
     await cmux.connect();
-    const { app, rigRepo, sessionRegistry } = createTestApp(db, { cmux });
-    const rig = rigRepo.createRig("r01");
-    const node = rigRepo.addNode(rig.id, "dev1-impl");
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db, { cmux });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev1-impl");
     sessionRegistry.registerSession(node.id, "r01-dev1-impl");
     sessionRegistry.updateBinding(node.id, { cmuxSurface: "surface:42", cmuxWorkspace: "workspace:1" });
 
     // Clear capability call from connect
     calls.length = 0;
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/dev1-impl/open-cmux`, { method: "POST" });
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/dev1-impl/open-cmux`, { method: "POST" });
     expect(res.status).toBe(200);
     const body = await res.json() as Record<string, unknown>;
     expect(body["ok"]).toBe(true);
@@ -575,9 +575,9 @@ describe("Session routes", () => {
   it("POST .../open-cmux with stale existing cmuxSurface -> recreates, rebinds, and focuses new surface", async () => {
     const { adapter: cmux, calls } = staleBindingCmux();
     await cmux.connect();
-    const { app, rigRepo, sessionRegistry } = createTestApp(db, { cmux });
-    const rig = rigRepo.createRig("r01");
-    const node = rigRepo.addNode(rig.id, "dev1-impl");
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db, { cmux });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev1-impl");
     sessionRegistry.registerSession(node.id, "r01-dev1-impl");
     sessionRegistry.updateBinding(node.id, {
       attachmentType: "tmux",
@@ -588,7 +588,7 @@ describe("Session routes", () => {
 
     calls.length = 0;
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/dev1-impl/open-cmux`, { method: "POST" });
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/dev1-impl/open-cmux`, { method: "POST" });
     expect(res.status).toBe(200);
     const body = await res.json() as Record<string, unknown>;
     expect(body["ok"]).toBe(true);
@@ -608,15 +608,15 @@ describe("Session routes", () => {
   it("POST .../open-cmux tmux-backed node without cmuxSurface -> created_new, binds workspace+surface, sends tmux attach", async () => {
     const { adapter: cmux, calls } = trackingCmux();
     await cmux.connect();
-    const { app, rigRepo, sessionRegistry } = createTestApp(db, { cmux });
-    const rig = rigRepo.createRig("r01");
-    const node = rigRepo.addNode(rig.id, "dev1-impl");
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db, { cmux });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev1-impl");
     sessionRegistry.registerSession(node.id, "r01-dev1-impl");
     sessionRegistry.updateBinding(node.id, { tmuxSession: "r01-dev1-impl", attachmentType: "tmux" });
 
     calls.length = 0;
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/dev1-impl/open-cmux`, { method: "POST" });
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/dev1-impl/open-cmux`, { method: "POST" });
     expect(res.status).toBe(200);
     const body = await res.json() as Record<string, unknown>;
     expect(body["ok"]).toBe(true);
@@ -650,15 +650,15 @@ describe("Session routes", () => {
   it("POST .../open-cmux external-cli node -> created_helper, honest helper text, no tmux attach", async () => {
     const { adapter: cmux, calls } = trackingCmux();
     await cmux.connect();
-    const { app, rigRepo, sessionRegistry } = createTestApp(db, { cmux });
-    const rig = rigRepo.createRig("r01");
-    const node = rigRepo.addNode(rig.id, "ext-node");
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db, { cmux });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "ext-node");
     sessionRegistry.registerSession(node.id, "r01-ext-node");
     sessionRegistry.updateBinding(node.id, { attachmentType: "external_cli", externalSessionName: "r01-ext-node" });
 
     calls.length = 0;
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/ext-node/open-cmux`, { method: "POST" });
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/ext-node/open-cmux`, { method: "POST" });
     expect(res.status).toBe(200);
     const body = await res.json() as Record<string, unknown>;
     expect(body["ok"]).toBe(true);
@@ -669,22 +669,22 @@ describe("Session routes", () => {
     expect(sendCall).toBeDefined();
     const text = String((sendCall!.params as Record<string, unknown>)["text"]);
     expect(text).not.toContain("tmux attach");
-    expect(text).toContain("rig capture r01-ext-node");
-    expect(text).toContain("rig transcript r01-ext-node --tail 100");
-    expect(text).toContain("rig send r01-ext-node");
+    expect(text).toContain("SoftwareTeam capture r01-ext-node");
+    expect(text).toContain("SoftwareTeam transcript r01-ext-node --tail 100");
+    expect(text).toContain("SoftwareTeam send r01-ext-node");
     expect(text).toContain("--verify");
   });
 
   it("POST .../open-cmux sendText failure -> does not report ok:true, cmuxSurface NOT persisted for tmux-backed (deferred until attach succeeds)", async () => {
     const { adapter: cmux } = failingCmux("surface.sendText");
     await cmux.connect();
-    const { app, rigRepo, sessionRegistry } = createTestApp(db, { cmux });
-    const rig = rigRepo.createRig("r01");
-    const node = rigRepo.addNode(rig.id, "dev1-impl");
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db, { cmux });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev1-impl");
     sessionRegistry.registerSession(node.id, "r01-dev1-impl");
     sessionRegistry.updateBinding(node.id, { tmuxSession: "r01-dev1-impl", attachmentType: "tmux" });
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/dev1-impl/open-cmux`, { method: "POST" });
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/dev1-impl/open-cmux`, { method: "POST" });
     expect(res.status).toBe(200);
     const body = await res.json() as Record<string, unknown>;
     expect(body["ok"]).toBe(false);
@@ -699,13 +699,13 @@ describe("Session routes", () => {
   it("POST .../open-cmux focusSurface failure after creation -> does not report ok:true", async () => {
     const { adapter: cmux } = failingCmux("surface.focus");
     await cmux.connect();
-    const { app, rigRepo, sessionRegistry } = createTestApp(db, { cmux });
-    const rig = rigRepo.createRig("r01");
-    const node = rigRepo.addNode(rig.id, "dev1-impl");
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db, { cmux });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r01");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev1-impl");
     sessionRegistry.registerSession(node.id, "r01-dev1-impl");
     sessionRegistry.updateBinding(node.id, { tmuxSession: "r01-dev1-impl", attachmentType: "tmux" });
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/dev1-impl/open-cmux`, { method: "POST" });
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/dev1-impl/open-cmux`, { method: "POST" });
     expect(res.status).toBe(200);
     const body = await res.json() as Record<string, unknown>;
     expect(body["ok"]).toBe(false);
@@ -713,13 +713,13 @@ describe("Session routes", () => {
   });
 
   // NS-T08: node inventory route
-  it("GET /api/rigs/:rigId/nodes -> node inventory array", async () => {
-    const { app, rigRepo, sessionRegistry } = createTestApp(db);
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    sessionRegistry.registerSession(node.id, "dev-impl@test-rig");
+  it("GET /api/software-teams/:softwareTeamId/nodes -> node inventory array", async () => {
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    sessionRegistry.registerSession(node.id, "dev-impl@test-software-team");
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes`);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(Array.isArray(body)).toBe(true);
@@ -727,7 +727,7 @@ describe("Session routes", () => {
     expect(body[0].nodeId).toBe(node.id);
     expect(body[0].logicalId).toBe("dev.impl");
     expect(body[0].nodeKind).toBe("agent");
-    expect(body[0].canonicalSessionName).toBe("dev-impl@test-rig");
+    expect(body[0].canonicalSessionName).toBe("dev-impl@test-software-team");
   });
 
   it("keeps permission observation off the fleet list and attaches it only to single-node detail", async () => {
@@ -738,37 +738,37 @@ describe("Session routes", () => {
       enforcement: { axis: "sandbox" as const, state: "aligned" as const, expected: "workspace-write", effective: "workspace-write", sourcePath: null },
       observedAt: "2026-08-08T00:00:00.000Z",
     }));
-    const { app, rigRepo, sessionRegistry } = createTestApp(db, { permissionDriftObserver: { diagnose } });
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "codex" });
-    sessionRegistry.registerClaimedSession(node.id, "dev-impl@test-rig");
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db, { permissionDriftObserver: { diagnose } });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "codex" });
+    sessionRegistry.registerClaimedSession(node.id, "dev-impl@test-software-team");
 
-    const list = await app.request(`/api/rigs/${rig.id}/nodes?full=true`);
+    const list = await app.request(`/api/software-teams/${softwareTeam.id}/nodes?full=true`);
     expect(list.status).toBe(200);
     expect((await list.json())[0].permissionDrift).toBeUndefined();
     expect(diagnose).not.toHaveBeenCalled();
 
-    const detail = await app.request(`/api/rigs/${rig.id}/nodes/${encodeURIComponent("dev.impl")}`);
+    const detail = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/${encodeURIComponent("dev.impl")}`);
     expect(detail.status).toBe(200);
     expect((await detail.json()).permissionDrift).toMatchObject({ enforcement: { axis: "sandbox", state: "aligned" } });
     expect(diagnose).toHaveBeenCalledOnce();
     expect(diagnose).toHaveBeenCalledWith(node.id);
   });
 
-  it("GET /api/rigs/:rigId/nodes includes read-only agent activity evidence", async () => {
+  it("GET /api/software-teams/:softwareTeamId/nodes includes read-only agent activity evidence", async () => {
     const tmux = {
       hasSession: vi.fn(async () => true),
       capturePaneContent: vi.fn(async () => "Working on task...\n⠋ Processing files\nesc to interrupt"),
     } as unknown as TmuxAdapter;
-    const { app, rigRepo, sessionRegistry } = createTestApp(db, { tmux });
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    sessionRegistry.registerSession(node.id, "dev-impl@test-rig");
-    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@test-rig", attachmentType: "tmux" });
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db, { tmux });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    sessionRegistry.registerSession(node.id, "dev-impl@test-software-team");
+    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@test-software-team", attachmentType: "tmux" });
 
     // OPR.0.4.3 healthz-wedge: the per-node tmux pane-heuristic is now behind
     // ?full=true (cheap-default skips it) — request full to exercise the probe.
-    const res = await app.request(`/api/rigs/${rig.id}/nodes?full=true`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes?full=true`);
 
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -779,26 +779,26 @@ describe("Session routes", () => {
       fallback: true,
     });
     expect(typeof body[0].agentActivity.sampledAt).toBe("string");
-    expect(tmux.capturePaneContent).toHaveBeenCalledWith("dev-impl@test-rig", 20);
+    expect(tmux.capturePaneContent).toHaveBeenCalledWith("dev-impl@test-software-team", 20);
   });
 
-  it("GET /api/rigs/:rigId/nodes prefers fresh hook activity over pane fallback", async () => {
+  it("GET /api/software-teams/:softwareTeamId/nodes prefers fresh hook activity over pane fallback", async () => {
     const tmux = {
       hasSession: vi.fn(async () => true),
       capturePaneContent: vi.fn(async () => "› idle\n\ngpt-5.5 xhigh fast · Context [████ ]"),
     } as unknown as TmuxAdapter;
-    const { app, rigRepo, sessionRegistry, agentActivityStore } = createTestApp(db, {
+    const { app, softwareTeamRepo, sessionRegistry, agentActivityStore } = createTestApp(db, {
       tmux,
       activityHookToken: "test-token",
     });
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@test-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@test-software-team");
     sessionRegistry.updateStatus(session.id, "running");
-    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@test-rig", attachmentType: "tmux" });
+    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@test-software-team", attachmentType: "tmux" });
     agentActivityStore.recordHookEvent({
       runtime: "claude-code",
-      sessionName: "dev-impl@test-rig",
+      sessionName: "dev-impl@test-software-team",
       hookEvent: "Notification",
       subtype: "permission_prompt",
       occurredAt: new Date().toISOString(),
@@ -807,7 +807,7 @@ describe("Session routes", () => {
       generation: sessionRegistry.currentOccupantTenure(node.id)?.generationUuid ?? null,
     });
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes`);
 
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -822,24 +822,24 @@ describe("Session routes", () => {
     expect(tmux.capturePaneContent).not.toHaveBeenCalled();
   });
 
-  it("GET /api/rigs/:rigId/nodes reports stale hook evidence as unknown without pane fallback", async () => {
+  it("GET /api/software-teams/:softwareTeamId/nodes reports stale hook evidence as unknown without pane fallback", async () => {
     const tmux = {
       hasSession: vi.fn(async () => true),
       capturePaneContent: vi.fn(async () => "Working on task...\n⠋ Processing files\nesc to interrupt"),
     } as unknown as TmuxAdapter;
-    const { app, rigRepo, sessionRegistry, agentActivityStore } = createTestApp(db, {
+    const { app, softwareTeamRepo, sessionRegistry, agentActivityStore } = createTestApp(db, {
       tmux,
       activityHookToken: "test-token",
       activityFreshnessMs: 1,
     });
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@test-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@test-software-team");
     sessionRegistry.updateStatus(session.id, "running");
-    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@test-rig", attachmentType: "tmux" });
+    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@test-software-team", attachmentType: "tmux" });
     agentActivityStore.recordHookEvent({
       runtime: "claude-code",
-      sessionName: "dev-impl@test-rig",
+      sessionName: "dev-impl@test-software-team",
       hookEvent: "UserPromptSubmit",
       occurredAt: "2000-01-01T00:00:00.000Z",
       // W2a-1 — carry the emitting generation so the read RESOLVES, letting the CLOCK-staleness verdict
@@ -847,7 +847,7 @@ describe("Session routes", () => {
       generation: sessionRegistry.currentOccupantTenure(node.id)?.generationUuid ?? null,
     });
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes`);
 
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -860,18 +860,18 @@ describe("Session routes", () => {
     expect(tmux.capturePaneContent).not.toHaveBeenCalled();
   });
 
-  it("GET /api/rigs/:rigId/nodes marks external CLI activity unsupported instead of idle", async () => {
-    const { app, rigRepo, sessionRegistry } = createTestApp(db);
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "orch.lead", { runtime: "claude-code" });
-    sessionRegistry.registerClaimedSession(node.id, "orch-lead@test-rig");
+  it("GET /api/software-teams/:softwareTeamId/nodes marks external CLI activity unsupported instead of idle", async () => {
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "orch.lead", { runtime: "claude-code" });
+    sessionRegistry.registerClaimedSession(node.id, "orch-lead@test-software-team");
     sessionRegistry.updateBinding(node.id, {
       attachmentType: "external_cli",
-      externalSessionName: "orch-lead@test-rig",
+      externalSessionName: "orch-lead@test-software-team",
     });
 
     // OPR.0.4.3 healthz-wedge: probe classification is behind ?full=true now.
-    const res = await app.request(`/api/rigs/${rig.id}/nodes?full=true`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes?full=true`);
 
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -882,19 +882,19 @@ describe("Session routes", () => {
     });
   });
 
-  it("GET /api/rigs/:rigId/nodes is CHEAP by default (OPR.0.4.3 healthz-wedge) — a hook-less seat gets the unknown/no_runtime_hook placeholder and NO per-node tmux capture", async () => {
+  it("GET /api/software-teams/:softwareTeamId/nodes is CHEAP by default (OPR.0.4.3 healthz-wedge) — a hook-less seat gets the unknown/no_runtime_hook placeholder and NO per-node tmux capture", async () => {
     const tmux = {
       hasSession: vi.fn(async () => true),
       capturePaneContent: vi.fn(async () => "Working on task...\nesc to interrupt"),
     } as unknown as TmuxAdapter;
-    const { app, rigRepo, sessionRegistry } = createTestApp(db, { tmux });
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    sessionRegistry.registerSession(node.id, "dev-impl@test-rig");
-    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@test-rig", attachmentType: "tmux" });
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db, { tmux });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    sessionRegistry.registerSession(node.id, "dev-impl@test-software-team");
+    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@test-software-team", attachmentType: "tmux" });
 
     // No ?full → cheap default.
-    const res = await app.request(`/api/rigs/${rig.id}/nodes`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes`);
 
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -916,7 +916,7 @@ describe("Session routes", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         runtime: "claude-code",
-        sessionName: "dev-impl@test-rig",
+        sessionName: "dev-impl@test-software-team",
         hookEvent: "UserPromptSubmit",
       }),
     });
@@ -927,10 +927,10 @@ describe("Session routes", () => {
   });
 
   it("POST /api/activity/hooks ingests authenticated runtime hook events", async () => {
-    const { app, rigRepo, sessionRegistry } = createTestApp(db, { activityHookToken: "test-token" });
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@test-rig");
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db, { activityHookToken: "test-token" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@test-software-team");
     sessionRegistry.updateStatus(session.id, "running");
 
     const res = await app.request("/api/activity/hooks", {
@@ -941,7 +941,7 @@ describe("Session routes", () => {
       },
       body: JSON.stringify({
         runtime: "claude-code",
-        sessionName: "dev-impl@test-rig",
+        sessionName: "dev-impl@test-software-team",
         hookEvent: "PreToolUse",
         occurredAt: "2026-04-24T11:59:00.000Z",
       }),
@@ -956,22 +956,22 @@ describe("Session routes", () => {
     });
   });
 
-  it("GET /api/rigs/:rigId/nodes -> 404 for unknown rig", async () => {
+  it("GET /api/software-teams/:softwareTeamId/nodes -> 404 for unknown softwareTeam", async () => {
     const { app } = createTestApp(db);
-    const res = await app.request("/api/rigs/nonexistent/nodes");
+    const res = await app.request("/api/software-teams/nonexistent/nodes");
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.error).toContain("not found");
   });
 
   // NS-T09: node detail route
-  it("GET /api/rigs/:rigId/nodes/:logicalId -> node detail", async () => {
-    const { app, rigRepo, sessionRegistry } = createTestApp(db);
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    sessionRegistry.registerSession(node.id, "dev-impl@test-rig");
+  it("GET /api/software-teams/:softwareTeamId/nodes/:logicalId -> node detail", async () => {
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    sessionRegistry.registerSession(node.id, "dev-impl@test-software-team");
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/${encodeURIComponent("dev.impl")}`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/${encodeURIComponent("dev.impl")}`);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.logicalId).toBe("dev.impl");
@@ -980,25 +980,25 @@ describe("Session routes", () => {
     expect(Array.isArray(body.recentEvents)).toBe(true);
   });
 
-  it("GET /api/rigs/:rigId/nodes/:logicalId -> 404 for unknown node", async () => {
-    const { app, rigRepo } = createTestApp(db);
-    const rig = rigRepo.createRig("test-rig");
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/nonexistent`);
+  it("GET /api/software-teams/:softwareTeamId/nodes/:logicalId -> 404 for unknown node", async () => {
+    const { app, softwareTeamRepo } = createTestApp(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/nonexistent`);
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.error).toContain("not found");
   });
 
   // Task 5: node detail returns peers, edges, transcript, compactSpec
-  it("node detail returns peers for other nodes in same rig", async () => {
-    const { app, rigRepo, sessionRegistry } = createTestApp(db);
-    const rig = rigRepo.createRig("test-rig");
-    const n1 = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    const n2 = rigRepo.addNode(rig.id, "dev.qa", { runtime: "codex" });
+  it("node detail returns peers for other nodes in same softwareTeam", async () => {
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const n1 = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    const n2 = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { runtime: "codex" });
     sessionRegistry.registerSession(n1.id, "dev-impl@test");
     sessionRegistry.registerSession(n2.id, "dev-qa@test");
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/${encodeURIComponent("dev.impl")}`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/${encodeURIComponent("dev.impl")}`);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.peers).toHaveLength(1);
@@ -1008,15 +1008,15 @@ describe("Session routes", () => {
   });
 
   it("node detail returns outgoing and incoming edges", async () => {
-    const { app, rigRepo, sessionRegistry } = createTestApp(db);
-    const rig = rigRepo.createRig("test-rig");
-    const n1 = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    const n2 = rigRepo.addNode(rig.id, "dev.qa", { runtime: "codex" });
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const n1 = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    const n2 = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { runtime: "codex" });
     sessionRegistry.registerSession(n1.id, "dev-impl@test");
     sessionRegistry.registerSession(n2.id, "dev-qa@test");
-    rigRepo.addEdge(rig.id, n1.id, n2.id, "delegates_to");
+    softwareTeamRepo.addEdge(softwareTeam.id, n1.id, n2.id, "delegates_to");
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/${encodeURIComponent("dev.impl")}`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/${encodeURIComponent("dev.impl")}`);
     const body = await res.json();
     expect(body.edges.outgoing).toHaveLength(1);
     expect(body.edges.outgoing[0].kind).toBe("delegates_to");
@@ -1024,7 +1024,7 @@ describe("Session routes", () => {
     expect(body.edges.incoming).toHaveLength(0);
 
     // Check from qa perspective
-    const res2 = await app.request(`/api/rigs/${rig.id}/nodes/${encodeURIComponent("dev.qa")}`);
+    const res2 = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/${encodeURIComponent("dev.qa")}`);
     const body2 = await res2.json();
     expect(body2.edges.incoming).toHaveLength(1);
     expect(body2.edges.incoming[0].from.logicalId).toBe("dev.impl");
@@ -1032,15 +1032,15 @@ describe("Session routes", () => {
   });
 
   it("node detail returns compact spec summary", async () => {
-    const { app, rigRepo, sessionRegistry } = createTestApp(db);
-    const rig = rigRepo.createRig("test-rig");
-    const n1 = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code", profile: "default" });
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const n1 = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code", profile: "default" });
     // Set resolved spec fields
     db.prepare("UPDATE nodes SET resolved_spec_name = ?, resolved_spec_version = ? WHERE id = ?")
       .run("impl-agent", "1.0.0", n1.id);
     sessionRegistry.registerSession(n1.id, "dev-impl@test");
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/${encodeURIComponent("dev.impl")}`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/${encodeURIComponent("dev.impl")}`);
     const body = await res.json();
     expect(body.compactSpec).toBeDefined();
     expect(body.compactSpec.name).toBe("impl-agent");
@@ -1051,12 +1051,12 @@ describe("Session routes", () => {
   });
 
   it("node detail returns transcript info (defaults to disabled without TranscriptStore)", async () => {
-    const { app, rigRepo, sessionRegistry } = createTestApp(db);
-    const rig = rigRepo.createRig("test-rig");
-    const n1 = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const n1 = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
     sessionRegistry.registerSession(n1.id, "dev-impl@test");
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/${encodeURIComponent("dev.impl")}`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/${encodeURIComponent("dev.impl")}`);
     const body = await res.json();
     expect(body.transcript).toBeDefined();
     expect(body.transcript.enabled).toBe(false);
@@ -1069,25 +1069,25 @@ describe("Session routes", () => {
     const os = await import("node:os");
     const path = await import("node:path");
     const fs = await import("node:fs");
-    const tmpDir = path.join(os.tmpdir(), `rigged-test-transcript-${Date.now()}`);
+    const tmpDir = path.join(os.tmpdir(), `softwareteam-test-transcript-${Date.now()}`);
     fs.mkdirSync(tmpDir, { recursive: true });
 
     const transcriptStore = new TranscriptStore(tmpDir);
     const { createApp } = await import("../src/server.js");
     const setup = createTestApp(db);
-    const rig = setup.rigRepo.createRig("test-rig");
-    const n1 = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-    setup.sessionRegistry.registerSession(n1.id, "dev-impl@test-rig");
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const n1 = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+    setup.sessionRegistry.registerSession(n1.id, "dev-impl@test-software-team");
 
     // Build a minimal app with TranscriptStore wired
     const appWithTranscript = createApp({ ...setup, transcriptStore });
 
-    const res = await appWithTranscript.request(`/api/rigs/${rig.id}/nodes/${encodeURIComponent("dev.impl")}`);
+    const res = await appWithTranscript.request(`/api/software-teams/${softwareTeam.id}/nodes/${encodeURIComponent("dev.impl")}`);
     const body = await res.json();
     expect(body.transcript.enabled).toBe(true);
-    expect(body.transcript.path).toContain("test-rig");
-    expect(body.transcript.path).toContain("dev-impl@test-rig");
-    expect(body.transcript.tailCommand).toBe("rig transcript dev-impl@test-rig --tail 100");
+    expect(body.transcript.path).toContain("test-software-team");
+    expect(body.transcript.path).toContain("dev-impl@test-software-team");
+    expect(body.transcript.tailCommand).toBe("SoftwareTeam transcript dev-impl@test-software-team --tail 100");
 
     // Cleanup
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -1095,46 +1095,46 @@ describe("Session routes", () => {
 
   // --- Context refresh route tests ---
 
-  it("GET /api/rigs/:id/nodes?refresh=true calls contextMonitor.pollOnce before projection", async () => {
+  it("GET /api/software-teams/:id/nodes?refresh=true calls contextMonitor.pollOnce before projection", async () => {
     const db2 = createFullTestDb();
     const pollOnceSpy = vi.fn(async () => {});
     const setup = createTestApp(db2);
     const { createApp } = await import("../src/server.js");
     const appWithMonitor = createApp({ ...setup, contextMonitor: { pollOnce: pollOnceSpy } });
-    const rig = setup.rigRepo.createRig("refresh-rig");
-    setup.rigRepo.addNode(rig.id, "worker", { runtime: "claude-code" });
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("refresh-software-team");
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code" });
 
-    await appWithMonitor.request(`/api/rigs/${rig.id}/nodes?refresh=true`);
+    await appWithMonitor.request(`/api/software-teams/${softwareTeam.id}/nodes?refresh=true`);
 
     expect(pollOnceSpy).toHaveBeenCalledOnce();
     db2.close();
   });
 
-  it("GET /api/rigs/:id/nodes without refresh does not call pollOnce", async () => {
+  it("GET /api/software-teams/:id/nodes without refresh does not call pollOnce", async () => {
     const db2 = createFullTestDb();
     const pollOnceSpy = vi.fn(async () => {});
     const setup = createTestApp(db2);
     const { createApp } = await import("../src/server.js");
     const appWithMonitor = createApp({ ...setup, contextMonitor: { pollOnce: pollOnceSpy } });
-    const rig = setup.rigRepo.createRig("no-refresh-rig");
-    setup.rigRepo.addNode(rig.id, "worker", { runtime: "claude-code" });
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("no-refresh-software-team");
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code" });
 
-    await appWithMonitor.request(`/api/rigs/${rig.id}/nodes`);
+    await appWithMonitor.request(`/api/software-teams/${softwareTeam.id}/nodes`);
 
     expect(pollOnceSpy).not.toHaveBeenCalled();
     db2.close();
   });
 
-  it("GET /api/rigs/:id/nodes?refresh=true returns 502 when pollOnce throws", async () => {
+  it("GET /api/software-teams/:id/nodes?refresh=true returns 502 when pollOnce throws", async () => {
     const db2 = createFullTestDb();
     const pollOnceSpy = vi.fn(async () => { throw new Error("statusline read failed"); });
     const setup = createTestApp(db2);
     const { createApp } = await import("../src/server.js");
     const appWithMonitor = createApp({ ...setup, contextMonitor: { pollOnce: pollOnceSpy } });
-    const rig = setup.rigRepo.createRig("fail-refresh-rig");
-    setup.rigRepo.addNode(rig.id, "worker", { runtime: "claude-code" });
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("fail-refresh-software-team");
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code" });
 
-    const res = await appWithMonitor.request(`/api/rigs/${rig.id}/nodes?refresh=true`);
+    const res = await appWithMonitor.request(`/api/software-teams/${softwareTeam.id}/nodes?refresh=true`);
 
     expect(res.status).toBe(502);
     const body = await res.json();
@@ -1143,15 +1143,15 @@ describe("Session routes", () => {
     db2.close();
   });
 
-  it("GET /api/rigs/:id/nodes?refresh=true works when no contextMonitor is wired", async () => {
+  it("GET /api/software-teams/:id/nodes?refresh=true works when no contextMonitor is wired", async () => {
     const db2 = createFullTestDb();
     const setup = createTestApp(db2);
     const { createApp } = await import("../src/server.js");
     const appNoMonitor = createApp({ ...setup }); // no contextMonitor
-    const rig = setup.rigRepo.createRig("no-monitor-rig");
-    setup.rigRepo.addNode(rig.id, "worker", { runtime: "claude-code" });
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("no-monitor-software-team");
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code" });
 
-    const res = await appNoMonitor.request(`/api/rigs/${rig.id}/nodes?refresh=true`);
+    const res = await appNoMonitor.request(`/api/software-teams/${softwareTeam.id}/nodes?refresh=true`);
 
     // Should succeed (no monitor = nothing to poll; returns stale data honestly)
     expect(res.status).toBe(200);

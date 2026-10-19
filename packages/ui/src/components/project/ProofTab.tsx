@@ -3,7 +3,7 @@
 //
 // Mechanism: each slice's proof lives at the byte-identical PATH CONTRACT
 // `<slicePath>/PROOF.md` (slice root, like PROGRESS.md) + `<slicePath>/proof/`
-// (media), scaffolded by `rig scope` (Part-1, shipped) and populated by the
+// (media), scaffolded by `SoftwareTeam scope` (Part-1, shipped) and populated by the
 // closeout SOP (Part-2, skill-library) — NO curator in the read path. This tab
 // projects whatever is there: PROOF.md rendered + an artifact gallery of the
 // proof/ captures + a self-explanatory empty-state for a scaffolded-but-unpopulated
@@ -127,7 +127,7 @@ function ProofSliceCard({
               micro: null as string | null,
               label: "PROOF.MD OUTSIDE FILE ROOTS",
               description:
-                "This slice's path is not under any of the daemon's allowlisted file roots, so PROOF.md cannot be read. Check OPENRIG_FILES_ALLOWLIST / the daemon's file-roots settings.",
+                "This slice's path is not under any of the daemon's allowlisted file roots, so PROOF.md cannot be read. Check SOFTWARETEAM_FILES_ALLOWLIST / the daemon's file-roots settings.",
               testId: `proof-unresolved-${sliceId}`,
             }
           : {

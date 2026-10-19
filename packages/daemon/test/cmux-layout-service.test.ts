@@ -1,5 +1,5 @@
 // Slice 24 Checkpoint B — CmuxLayoutService.
-// Pure algorithm pieces (computeLayout / chunkAgents / orderAgentsFromRigSpec)
+// Pure algorithm pieces (computeLayout / chunkAgents / orderAgentsFromSoftwareTeamSpec)
 // + buildWorkspace coordinated through a mocked CmuxAdapter.
 
 import { describe, it, expect, vi } from "vitest";
@@ -182,35 +182,35 @@ describe("CmuxLayoutService.chunkAgents", () => {
   });
 });
 
-describe("CmuxLayoutService.orderAgentsFromRigSpec", () => {
+describe("CmuxLayoutService.orderAgentsFromSoftwareTeamSpec", () => {
   it("returns pod-then-member order (deterministic across runs)", () => {
-    const rigSpec = {
+    const softwareTeamSpec = {
       pods: [
         { id: "orch", members: [{ id: "lead" }, { id: "peer" }] },
         { id: "dev", members: [{ id: "impl" }, { id: "qa" }, { id: "design" }] },
       ],
     };
-    const ordered = CmuxLayoutService.orderAgentsFromRigSpec(rigSpec);
+    const ordered = CmuxLayoutService.orderAgentsFromSoftwareTeamSpec(softwareTeamSpec);
     expect(ordered).toEqual(["orch.lead", "orch.peer", "dev.impl", "dev.qa", "dev.design"]);
   });
 
-  it("returns empty for empty rig spec", () => {
-    expect(CmuxLayoutService.orderAgentsFromRigSpec({ pods: [] })).toEqual([]);
+  it("returns empty for empty SoftwareTeam spec", () => {
+    expect(CmuxLayoutService.orderAgentsFromSoftwareTeamSpec({ pods: [] })).toEqual([]);
   });
 
   it("works with one pod / one member", () => {
-    const rigSpec = { pods: [{ id: "solo", members: [{ id: "only" }] }] };
-    expect(CmuxLayoutService.orderAgentsFromRigSpec(rigSpec)).toEqual(["solo.only"]);
+    const softwareTeamSpec = { pods: [{ id: "solo", members: [{ id: "only" }] }] };
+    expect(CmuxLayoutService.orderAgentsFromSoftwareTeamSpec(softwareTeamSpec)).toEqual(["solo.only"]);
   });
 
   it("preserves pod order from spec (not alphabetical)", () => {
-    const rigSpec = {
+    const softwareTeamSpec = {
       pods: [
         { id: "zulu", members: [{ id: "z1" }] },
         { id: "alpha", members: [{ id: "a1" }] },
       ],
     };
-    const ordered = CmuxLayoutService.orderAgentsFromRigSpec(rigSpec);
+    const ordered = CmuxLayoutService.orderAgentsFromSoftwareTeamSpec(softwareTeamSpec);
     expect(ordered).toEqual(["zulu.z1", "alpha.a1"]);
   });
 });
@@ -220,7 +220,7 @@ describe("CmuxLayoutService.buildWorkspacePanes (terminal-provider paneCommand c
     const { adapter, calls } = makeMockAdapter();
     const { sleep } = makeSleepRecorder();
     const service = new CmuxLayoutService(adapter as never, { sleep });
-    const result = await service.buildWorkspacePanes("openrig:v#l1", undefined, [
+    const result = await service.buildWorkspacePanes("softwareteam:v#l1", undefined, [
       "tmux attach -t 'a@r'",
       "ssh 'user@host' tmux attach -r -t 'b@r'",
     ]);
@@ -328,7 +328,7 @@ describe("CmuxLayoutService.buildWorkspace", () => {
     const { adapter, calls } = makeMockAdapter();
     const { sleep } = makeSleepRecorder();
     const service = new CmuxLayoutService(adapter as never, { sleep });
-    const result = await service.buildWorkspace("my-rig", "/cwd", ["session-a"]);
+    const result = await service.buildWorkspace("my-software-team", "/cwd", ["session-a"]);
 
     expect(result.ok).toBe(true);
     const splits = calls.filter((c) => c.method === "splitSurface");
@@ -342,7 +342,7 @@ describe("CmuxLayoutService.buildWorkspace", () => {
     const { adapter, calls } = makeMockAdapter();
     const { sleep } = makeSleepRecorder();
     const service = new CmuxLayoutService(adapter as never, { sleep });
-    const result = await service.buildWorkspace("my-rig", "/cwd", ["s1", "s2"]);
+    const result = await service.buildWorkspace("my-software-team", "/cwd", ["s1", "s2"]);
 
     expect(result.ok).toBe(true);
     const splits = calls.filter((c) => c.method === "splitSurface");
@@ -356,7 +356,7 @@ describe("CmuxLayoutService.buildWorkspace", () => {
     const { adapter, calls } = makeMockAdapter();
     const { sleep } = makeSleepRecorder();
     const service = new CmuxLayoutService(adapter as never, { sleep });
-    const result = await service.buildWorkspace("my-rig", "/cwd", ["s1", "s2", "s3", "s4"]);
+    const result = await service.buildWorkspace("my-software-team", "/cwd", ["s1", "s2", "s3", "s4"]);
 
     expect(result.ok).toBe(true);
     const splits = calls.filter((c) => c.method === "splitSurface");
@@ -373,7 +373,7 @@ describe("CmuxLayoutService.buildWorkspace", () => {
     const { sleep } = makeSleepRecorder();
     const service = new CmuxLayoutService(adapter as never, { sleep });
     const agents = Array.from({ length: 12 }, (_, i) => `s${i + 1}`);
-    const result = await service.buildWorkspace("my-rig", "/cwd", agents);
+    const result = await service.buildWorkspace("my-software-team", "/cwd", agents);
 
     expect(result.ok).toBe(true);
     const splits = calls.filter((c) => c.method === "splitSurface");
@@ -390,7 +390,7 @@ describe("CmuxLayoutService.buildWorkspace", () => {
     const { adapter } = makeMockAdapter();
     const { sleep } = makeSleepRecorder();
     const service = new CmuxLayoutService(adapter as never, { sleep });
-    const result = await service.buildWorkspace("my-rig", "/cwd", ["s1", "s2", "s3"]);
+    const result = await service.buildWorkspace("my-software-team", "/cwd", ["s1", "s2", "s3"]);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -404,7 +404,7 @@ describe("CmuxLayoutService.buildWorkspace", () => {
     });
     const { sleep } = makeSleepRecorder();
     const service = new CmuxLayoutService(adapter as never, { sleep });
-    const result = await service.buildWorkspace("my-rig", "/cwd", ["s1"]);
+    const result = await service.buildWorkspace("my-software-team", "/cwd", ["s1"]);
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.message).toMatch(/duplicate/i);
@@ -416,7 +416,7 @@ describe("CmuxLayoutService.buildWorkspace", () => {
     });
     const { sleep } = makeSleepRecorder();
     const service = new CmuxLayoutService(adapter as never, { sleep });
-    const result = await service.buildWorkspace("my-rig", "/cwd", ["s1", "s2"]);
+    const result = await service.buildWorkspace("my-software-team", "/cwd", ["s1", "s2"]);
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.message).toMatch(/split failed/);
@@ -426,7 +426,7 @@ describe("CmuxLayoutService.buildWorkspace", () => {
     const { adapter, calls } = makeMockAdapter();
     const { sleep } = makeSleepRecorder();
     const service = new CmuxLayoutService(adapter as never, { sleep });
-    const result = await service.buildWorkspace("my-rig", "/cwd", []);
+    const result = await service.buildWorkspace("my-software-team", "/cwd", []);
     expect(result.ok).toBe(true);
     expect(calls.filter((c) => c.method === "splitSurface")).toHaveLength(0);
     expect(calls.filter((c) => c.method === "sendText")).toHaveLength(0);
@@ -442,7 +442,7 @@ describe("CmuxLayoutService.buildWorkspace", () => {
       const { sleep, sleeps } = makeSleepRecorder();
       const service = new CmuxLayoutService(adapter as never, { sleep });
       // N=4 (2×2): 3 splits → expect 3 OP_DELAY_MS sleeps after splits
-      await service.buildWorkspace("my-rig", "/cwd", ["s1", "s2", "s3", "s4"]);
+      await service.buildWorkspace("my-software-team", "/cwd", ["s1", "s2", "s3", "s4"]);
       const opDelays = sleeps.filter((ms) => ms === OP_DELAY_MS);
       expect(opDelays).toHaveLength(3);
     });
@@ -451,7 +451,7 @@ describe("CmuxLayoutService.buildWorkspace", () => {
       const { adapter } = makeMockAdapter();
       const { sleep, sleeps } = makeSleepRecorder();
       const service = new CmuxLayoutService(adapter as never, { sleep });
-      await service.buildWorkspace("my-rig", "/cwd", ["s1", "s2", "s3", "s4"]);
+      await service.buildWorkspace("my-software-team", "/cwd", ["s1", "s2", "s3", "s4"]);
       const finalSettles = sleeps.filter((ms) => ms === FINAL_SETTLE_MS);
       expect(finalSettles).toHaveLength(1);
     });
@@ -460,7 +460,7 @@ describe("CmuxLayoutService.buildWorkspace", () => {
       const { adapter } = makeMockAdapter();
       const { sleep, sleeps } = makeSleepRecorder();
       const service = new CmuxLayoutService(adapter as never, { sleep });
-      await service.buildWorkspace("my-rig", "/cwd", ["s1", "s2"]);
+      await service.buildWorkspace("my-software-team", "/cwd", ["s1", "s2"]);
       expect(sleeps[sleeps.length - 1]).toBe(FINAL_SETTLE_MS);
     });
 
@@ -477,7 +477,7 @@ describe("CmuxLayoutService.buildWorkspace", () => {
       });
       const { sleep, sleeps } = makeSleepRecorder();
       const service = new CmuxLayoutService(adapter as never, { sleep });
-      const result = await service.buildWorkspace("my-rig", "/cwd", ["s1"]);
+      const result = await service.buildWorkspace("my-software-team", "/cwd", ["s1"]);
       expect(result.ok).toBe(true);
       expect(listCallCount).toBe(3);
       // 2 retry-backoff sleeps before the third (successful) list
@@ -491,7 +491,7 @@ describe("CmuxLayoutService.buildWorkspace", () => {
       });
       const { sleep } = makeSleepRecorder();
       const service = new CmuxLayoutService(adapter as never, { sleep });
-      const result = await service.buildWorkspace("my-rig", "/cwd", ["s1"]);
+      const result = await service.buildWorkspace("my-software-team", "/cwd", ["s1"]);
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.code).toBe("request_failed");
@@ -530,7 +530,7 @@ describe("CmuxLayoutService.buildWorkspace", () => {
       });
       const { sleep } = makeSleepRecorder();
       const service = new CmuxLayoutService(adapter as never, { sleep });
-      await service.buildWorkspace("my-rig", "/cwd", ["agent-1", "agent-2", "agent-3"]);
+      await service.buildWorkspace("my-software-team", "/cwd", ["agent-1", "agent-2", "agent-3"]);
 
       // Verify the split sequence: 1 right + 2 downs.
       expect(splitCalls).toHaveLength(3);
@@ -584,7 +584,7 @@ describe("CmuxLayoutService.buildWorkspace", () => {
       });
       const { sleep } = makeSleepRecorder();
       const service = new CmuxLayoutService(adapter as never, { sleep });
-      await service.buildWorkspace("my-rig", "/cwd", ["a1", "a2", "a3", "a4"]);
+      await service.buildWorkspace("my-software-team", "/cwd", ["a1", "a2", "a3", "a4"]);
       const sends = calls.filter((c) => c.method === "sendText");
       expect(sends.map((s) => s.args[0])).toEqual([
         "surface:initial",
@@ -601,7 +601,7 @@ describe("CmuxLayoutService.buildWorkspace", () => {
       });
       const { sleep } = makeSleepRecorder();
       const service = new CmuxLayoutService(adapter as never, { sleep });
-      await service.buildWorkspace("my-rig", "/cwd", ["agent-1", "agent-2"]);
+      await service.buildWorkspace("my-software-team", "/cwd", ["agent-1", "agent-2"]);
       const sends = calls.filter((c) => c.method === "sendText");
       expect(sends[0]!.args[0]).toBe("surface:initial");
       expect((sends[0]!.args[1] as string)).toContain("agent-1");

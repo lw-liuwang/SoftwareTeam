@@ -5,7 +5,7 @@ import type { DaemonClient } from "../../cli/src/client.js";
 import { TmuxAdapter } from "../src/adapters/tmux.js";
 import { AgentActivityStore } from "../src/domain/agent-activity-store.js";
 import { EventBus } from "../src/domain/event-bus.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SessionTransport, type SendOpts } from "../src/domain/session-transport.js";
 import { createFullTestDb } from "./helpers/test-app.js";
@@ -21,10 +21,10 @@ describe("explicit prompt answer delivery", () => {
 
   function fixture(mode: "choice" | "text" | "ordinary" | "overview" = "choice", runtime: "claude-code" | "codex" = "claude-code", withBus = true) {
     const marker = runtime === "codex" ? "›" : "❯";
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const registry = new SessionRegistry(db);
-    const rig = rigRepo.createRig("answer-test");
-    const node = rigRepo.addNode(rig.id, "worker", { runtime });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("answer-test");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime });
     const name = "worker@answer-test";
     const session = registry.registerSession(node.id, name);
     registry.updateStatus(session.id, "running");
@@ -69,7 +69,7 @@ describe("explicit prompt answer delivery", () => {
       // synthetically. This proves parsing, not native typed-answer consumption.
       : runtime === "codex" ? `› ${state.input}\n\n  test-model · ~/example`
       : `────────────────────\n❯\u00a0${state.input}\n────────────────────\n\n  ⏵⏵ accept edits on (shift+tab to cycle) · ← for agents`;
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry: registry, ...(withBus ? { eventBus } : {}),
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry: registry, ...(withBus ? { eventBus } : {}),
       agentActivityStore: activity, tmuxAdapter: tmux, sleep: async () => {} });
     return { name, state, tmux, transport, eventBus, activity };
   }
@@ -170,8 +170,8 @@ describe("explicit prompt answer delivery", () => {
     const logs: string[] = [];
     const previousExit = process.exitCode;
     process.exitCode = undefined;
-    vi.stubEnv("OPENRIG_URL", "http://127.0.0.1:1");
-    vi.stubEnv("OPENRIG_SESSION_NAME", "operator@answer-test");
+    vi.stubEnv("SOFTWARETEAM_URL", "http://127.0.0.1:1");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "operator@answer-test");
     const client = { baseUrl: "http://127.0.0.1:1", post: async (path: string, body: Record<string, unknown>) => {
       calls.push({ path, body });
       if (path.endsWith("/capture")) return { status: 200, data: { content: await f.tmux.capturePaneContent(f.name) } };
@@ -195,7 +195,7 @@ describe("explicit prompt answer delivery", () => {
     const log = vi.spyOn(console, "log").mockImplementation((...args) => { logs.push(args.join(" ")); });
     const error = vi.spyOn(console, "error").mockImplementation((...args) => { logs.push(args.join(" ")); });
     try {
-      await new Command().addCommand(sendCommand(deps)).parseAsync(["node", "rig", "send",
+      await new Command().addCommand(sendCommand(deps)).parseAsync(["node", "softwareTeam", "send",
         ...(fanout ? ["--to", f.name] : [f.name]), answer,
         ...(override ? ["--dangerously-interact", "--reason", "harmless answer control"] : ["--raw"]), "--verify", ...(json ? ["--json"] : [])]);
       return { calls, logs, exit: process.exitCode ?? 0 };

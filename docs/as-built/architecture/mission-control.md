@@ -41,7 +41,7 @@ table. In the web UI the old `/mission-control` page now redirects to
 Views: **7** — `sed -n '/^export const MISSION_CONTROL_VIEWS = \[/,/\] as const;/p' packages/daemon/src/domain/mission-control/mission-control-read-layer.ts | grep -c '^  "'`
 
 All seven return rows in the 9-field phone-friendly content model,
-`CompactStatusRow` (`mission-control-read-layer.ts:60`): rig/mission name,
+`CompactStatusRow` (`mission-control-read-layer.ts:60`): SoftwareTeam/mission name,
 current phase, active|idle|attention|blocked|degraded, next-action,
 pending-human-decision, read-cost, last-update timestamp,
 confidence/freshness, evidence link. The type's doc comment
@@ -63,9 +63,9 @@ each view to its source:
   `routes/mission-control.ts:521`).
 - `fleet` calls `MissionControlFleetCliCapability.rollupFleet()`
   (`mission-control-read-layer.ts:197`;
-  `mission-control-fleet-cli-capability.ts:109`), which walks the rig
-  registry (`:110`), summarises each rig's `queue_items` (`:135`), and runs a
-  per-rig CLI capability probe (`makeLocalCliCapabilityProbe`, `:77`, wired
+  `mission-control-fleet-cli-capability.ts:109`), which walks the SoftwareTeam
+  registry (`:110`), summarises each SoftwareTeam's `queue_items` (`:135`), and runs a
+  per-SoftwareTeam CLI capability probe (`makeLocalCliCapabilityProbe`, `:77`, wired
   at `startup.ts:1597`).
 - `recently-active` delegates to the view projector's built-in
   `ViewProjector.show("recently-active")` (`mission-control-read-layer.ts:246`).
@@ -82,7 +82,7 @@ There is no filesystem fallback. When no `StreamStore` is wired,
 > Scope note: this module describes the daemon's verb vocabulary. It does
 > NOT enumerate which verbs the For You cards offer; that surface is
 > described in `../ui/project-and-for-you.md`. The terminal UI opened by bare
-> `rig` or `rig tui` is called the "mission-control TUI" in source
+> `SoftwareTeam` or `SoftwareTeam tui` is called the "mission-control TUI" in source
 > (`packages/tui/README.md:1`), but it does not call these routes.
 
 ## 2. The eight verbs (the write contract)
@@ -103,7 +103,7 @@ Verbs: **8** — `sed -n '/^export const MISSION_CONTROL_VERBS = \[/,/\] as cons
 | `hold` | `state="blocked"`, `closure_reason="blocked_on"` |
 | `drop` | `state="done"`, `closure_reason="canceled"` |
 | `handoff` | same closure and new destination item as `route`; the 4-step shape (see below) |
-| `resolve` | only for a `blocked` item parked on a human seat: moves it to `in-progress` with the required decision text as the transition note; no closure and no new item (`:369`, `:386`, `:410–411`). After commit it sends a best-effort nudge with the decision text to the item's owner unless `notify: false` (`:450–467`); the CLI wrapper is `rig queue resolve <qitemId> --decision <text>` (`packages/cli/src/commands/queue.ts:828`) |
+| `resolve` | only for a `blocked` item parked on a human seat: moves it to `in-progress` with the required decision text as the transition note; no closure and no new item (`:369`, `:386`, `:410–411`). After commit it sends a best-effort nudge with the decision text to the item's owner unless `notify: false` (`:450–467`); the CLI wrapper is `SoftwareTeam queue resolve <qitemId> --decision <text>` (`packages/cli/src/commands/queue.ts:828`) |
 
 `annotate` requires `annotation`, `hold` and `drop` require `reason`, `route`
 and `handoff` require `destinationSession`, and `resolve` requires a non-empty
@@ -154,7 +154,7 @@ indexes `(acted_at DESC, action_verb)`, `(qitem_id, acted_at DESC)`,
 `(actor_session, acted_at DESC)` (`037_mission_control_actions.ts:72–77`).
 One later migration adds a nullable `identity_provenance` column
 (`db/migrations/065_identity_provenance.ts:18`). The acting session comes
-from the `X-OpenRig-Session` header when present (the CLI sends it); a
+from the `X-SoftwareTeam-Session` header when present (the CLI sends it); a
 headerless browser request falls back to the body `actorSession`. The row
 records how the actor was established: `transport:v1`, `relay:v1` for a
 forwarded request, `claimed:v1` for a headerless body actor, or
@@ -172,7 +172,7 @@ in `audit_notes_json` (`domain/scope/scope-approve.ts:292`). The audit browse
   Constant-time comparison via Node `crypto.timingSafeEqual`
   (`constantTimeEqual`, `:36`, `:50`). `authBearerTokenMiddleware` (`:93`)
   passes every request through when no token is configured (`:98`). The
-  token comes from `OPENRIG_AUTH_BEARER_TOKEN` (`index.ts:288`). The daemon
+  token comes from `SOFTWARETEAM_AUTH_BEARER_TOKEN` (`index.ts:288`). The daemon
   refuses to start when the bind host is set explicitly, is neither loopback
   nor Tailscale (a hostname is resolved first), and no bearer token is set
   (`assertBindAuthInvariant`, `auth-bearer-token.ts:240`, called at
@@ -184,20 +184,20 @@ in `audit_notes_json` (`domain/scope/scope-approve.ts:292`). The audit browse
   write, first passes the daemon's `/api/*` browser boundary
   (`server.ts:647`; `middleware/browser-boundary.ts`): only known target host
   names, and, when an `Origin` header is present, only the daemon's own UI
-  origin or an `OPENRIG_ALLOWED_ORIGINS` entry. A valid bearer token waives
+  origin or an `SOFTWARETEAM_ALLOWED_ORIGINS` entry. A valid bearer token waives
   only the host-name check.
 - **Notification dispatcher** — two adapters
   (`notification-adapter-ntfy.ts`, `notification-adapter-webhook.ts`) plus
-  `notification-dispatcher.ts`. `OPENRIG_NOTIFICATIONS_MECHANISM` selects
+  `notification-dispatcher.ts`. `SOFTWARETEAM_NOTIFICATIONS_MECHANISM` selects
   `ntfy`, `webhook` or `none`, and the default is `none`
   (`startup.ts:1642`). A dispatcher starts only when
-  `OPENRIG_NOTIFICATIONS_TARGET` is also set (`:1643`, `:1650`) and the
+  `SOFTWARETEAM_NOTIFICATIONS_TARGET` is also set (`:1643`, `:1650`) and the
   target URL passes validation (`:1661`); an unrecognized mechanism with a
   target set throws during daemon startup (`:1656–1659`). The ntfy adapter
   posts to a topic URL that the ntfy phone app subscribes to
   (`notification-adapter-ntfy.ts:1–6`). Notifications fire when a
   `human-gate` queue item is created, and also on each completed verb when
-  `OPENRIG_NOTIFICATIONS_INCLUDE_VERB_COMPLETION=1` (`startup.ts:1648–1649`);
+  `SOFTWARETEAM_NOTIFICATIONS_INCLUDE_VERB_COMPLETION=1` (`startup.ts:1648–1649`);
   each item, trigger and mechanism is sent at most once per daemon run
   (`notification-dispatcher.ts:119–134`, `:156–158`). `POST
   /notifications/test` returns 503 `notifications_unconfigured` when no
@@ -214,12 +214,12 @@ in `audit_notes_json` (`domain/scope/scope-approve.ts:292`). The audit browse
 
 ## 5. Mission Control events
 
-The `RigEvent` union starts at `domain/types.ts:108`; its four
+The `SoftwareTeamEvent` union starts at `domain/types.ts:108`; its four
 `mission_control.*` members are at `domain/types.ts:308–313`.
 
-`RigEvent` members: **98** — `sed -n '/^export type RigEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -c 'type: "'`
+`SoftwareTeamEvent` members: **98** — `sed -n '/^export type SoftwareTeamEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -c 'type: "'`
 
-`mission_control.*` members: **4** — `sed -n '/^export type RigEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -c 'type: "mission_control\.'`
+`mission_control.*` members: **4** — `sed -n '/^export type SoftwareTeamEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -c 'type: "mission_control\.'`
 
 - `mission_control.action_executed` — written by the write contract
   (`mission-control-write-contract.ts:225`).

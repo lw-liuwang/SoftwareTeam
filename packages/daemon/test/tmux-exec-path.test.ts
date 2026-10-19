@@ -6,7 +6,7 @@ import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { execArgvCommand, execCommand } from "../src/adapters/tmux-exec.js";
 
 // A fake `tmux` in a private home: it prints its argv, so a call shows the binary ran with the arguments unchanged.
-const home = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-tmux-path-"));
+const home = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-tmux-path-"));
 fs.mkdirSync(path.join(home, "bin"));
 fs.writeFileSync(path.join(home, "bin", "tmux"), `#!/bin/sh\nfor a in "$@"; do printf '[%s]' "$a"; done\necho\n`, { mode: 0o755 });
 afterAll(() => fs.rmSync(home, { recursive: true, force: true }));

@@ -46,7 +46,7 @@ describe("affected-skills AC-3b - v0.3.2 expected affected-skills fixture", () =
     expect(fixture.affected_skills.length).toBe(11);
     expect(notAffected.length).toBe(34);
     // representative not-affected skills (no queue-create / bundle / workspace token)
-    for (const n of ["openrig-upgrade", "rig-lifecycle", "feature-rollout", "openrig-architect"]) {
+    for (const n of ["softwareteam-upgrade", "software-team-lifecycle", "feature-rollout", "softwareteam-architect"]) {
       expect(fixture.affected_skills).not.toContain(n);
     }
   });
@@ -57,7 +57,7 @@ describe("affected-skills AC-3b - v0.3.2 expected affected-skills fixture", () =
     const roots = new Set(["queue", "bundle", "workspace", "scope", "policy"]);
     for (const name of fixture.affected_skills) {
       const tokens = fixture.skills[name] ?? [];
-      const explained = tokens.some((t) => roots.has(t.replace(/^rig\s+/, "").split(/\s+/)[0]!));
+      const explained = tokens.some((t) => roots.has(t.replace(/^softwareTeam\s+/, "").split(/\s+/)[0]!));
       expect(explained, `${name} should carry a v0.3.2-root token`).toBe(true);
     }
   });

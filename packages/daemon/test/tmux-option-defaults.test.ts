@@ -27,13 +27,13 @@ describe("TmuxOptionDefaultsApplier", () => {
     const { adapter, setSessionOption, setServerOption } = mockAdapter();
     // default reader (omitted) → statusBar false.
     const warnings = await new TmuxOptionDefaultsApplier({ tmuxAdapter: adapter, platform: "darwin", hasCommand: () => true })
-      .applyToFreshSession("r01-dev1@rig");
+      .applyToFreshSession("r01-dev1@software-team");
 
     expect(warnings).toEqual([]);
     // mouse + status are SESSION-scope on the exact session name.
-    expect(setSessionOption).toHaveBeenCalledWith("r01-dev1@rig", "mouse", "on");
-    expect(setSessionOption).toHaveBeenCalledWith("r01-dev1@rig", "status", "off");
-    expect(setSessionOption).toHaveBeenCalledWith("r01-dev1@rig", "detach-on-destroy", "on");
+    expect(setSessionOption).toHaveBeenCalledWith("r01-dev1@software-team", "mouse", "on");
+    expect(setSessionOption).toHaveBeenCalledWith("r01-dev1@software-team", "status", "off");
+    expect(setSessionOption).toHaveBeenCalledWith("r01-dev1@software-team", "detach-on-destroy", "on");
     // set-clipboard + copy-command are SERVER-scope — never via setSessionOption.
     const sessionKeys = setSessionOption.mock.calls.map((c) => c[1]);
     expect(sessionKeys).not.toContain("set-clipboard");
@@ -49,8 +49,8 @@ describe("TmuxOptionDefaultsApplier", () => {
       platform: "linux",
       hasCommand: () => false,
     });
-    await applier.applyToFreshSession("r01-dev1@rig");
-    expect(setSessionOption).toHaveBeenCalledWith("r01-dev1@rig", "status", "on");
+    await applier.applyToFreshSession("r01-dev1@software-team");
+    expect(setSessionOption).toHaveBeenCalledWith("r01-dev1@software-team", "status", "on");
   });
 
   it("falls back to status off when the reader throws", async () => {
@@ -61,8 +61,8 @@ describe("TmuxOptionDefaultsApplier", () => {
       platform: "darwin",
       hasCommand: () => false,
     });
-    await applier.applyToFreshSession("r01-dev1@rig");
-    expect(setSessionOption).toHaveBeenCalledWith("r01-dev1@rig", "status", "off");
+    await applier.applyToFreshSession("r01-dev1@software-team");
+    expect(setSessionOption).toHaveBeenCalledWith("r01-dev1@software-team", "status", "off");
   });
 
   it("asserts server defaults ONCE per applier (memoized) but re-applies session opts every call", async () => {

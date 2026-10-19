@@ -7,7 +7,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { assertDestinationNamespaceContained, assertSafeInstallRef, assertTreeHasNoSymlinks, validateContextPackManifestForInstall } from "./context-install.js";
 
-const RECEIPT = ".openrig-git-source.json";
+const RECEIPT = ".softwareteam-git-source.json";
 interface Selection {
   format: 1;
   checkout: string;
@@ -81,7 +81,7 @@ function discoverPack(checkout: string, selected?: string): string {
       else walk(child);
     }
   };
-  walk(join(checkout, ".openrig", "context-packs"));
+  walk(join(checkout, ".softwareteam", "context-packs"));
   if (candidates.length !== 1) throw new Error(`Select a pack with --pack <relative-path>. Discovered ${candidates.length}: ${candidates.join(", ") || "none"}. Checkout retained at ${checkout}.`);
   return candidates[0]!;
 }

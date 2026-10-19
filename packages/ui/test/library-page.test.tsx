@@ -66,10 +66,10 @@ describe("Library page taxonomy", () => {
         return {
           ok: true,
           json: async () => [
-            { id: "rig-1", kind: "rig", name: "openrig-build", version: "1", sourceType: "builtin", sourcePath: "/pkg/rig.yaml", relativePath: "rigs/build/rig.yaml" },
+            { id: "software-team-1", kind: "softwareTeam", name: "softwareteam-build", version: "1", sourceType: "builtin", sourcePath: "/pkg/software-team.yaml", relativePath: "software-teams/build/software-team.yaml" },
             { id: "agent-1", kind: "agent", name: "implementer", version: "1", sourceType: "builtin", sourcePath: "/pkg/agent.yaml", relativePath: "agents/impl/agent.yaml" },
             { id: "workflow:conveyor:1", kind: "workflow", name: "conveyor", version: "1", sourceType: "builtin", sourcePath: "/pkg/workflow.yaml", relativePath: "workflow.yaml" },
-            { id: "app-1", kind: "rig", name: "vault-app", version: "1", sourceType: "builtin", sourcePath: "/pkg/app/rig.yaml", relativePath: "apps/vault/rig.yaml", hasServices: true },
+            { id: "app-1", kind: "softwareTeam", name: "vault-app", version: "1", sourceType: "builtin", sourcePath: "/pkg/app/software-team.yaml", relativePath: "apps/vault/software-team.yaml", hasServices: true },
           ],
         };
       }
@@ -77,7 +77,7 @@ describe("Library page taxonomy", () => {
         return {
           ok: true,
           json: async () => [
-            { id: "context-pack:demo", kind: "context-pack", name: "demo-pack", version: "1", sourceType: "workspace", sourcePath: "/workspace/.openrig/context-packs/demo", relativePath: "demo", updatedAt: "2026-05-07T00:00:00.000Z", manifestEstimatedTokens: null, derivedEstimatedTokens: 120, files: [] },
+            { id: "context-pack:demo", kind: "context-pack", name: "demo-pack", version: "1", sourceType: "workspace", sourcePath: "/workspace/.softwareteam/context-packs/demo", relativePath: "demo", updatedAt: "2026-05-07T00:00:00.000Z", manifestEstimatedTokens: null, derivedEstimatedTokens: 120, files: [] },
           ],
         };
       }
@@ -85,7 +85,7 @@ describe("Library page taxonomy", () => {
         return {
           ok: true,
           json: async () => [
-            { id: "agent-image:driver:1", kind: "agent-image", name: "driver-image", version: "1", runtime: "claude-code", sourceSeat: "driver", sourceSessionId: "s", sourceCwd: null, notes: null, createdAt: "2026-05-07T00:00:00.000Z", sourceType: "workspace", sourcePath: "/workspace/.openrig/agent-images/driver", relativePath: "driver", updatedAt: "2026-05-07T00:00:00.000Z", manifestEstimatedTokens: null, derivedEstimatedTokens: 200, files: [], sourceResumeToken: "(redacted)", stats: { forkCount: 0, lastUsedAt: null, estimatedSizeBytes: 0, lineage: [] }, lineage: [], pinned: false },
+            { id: "agent-image:driver:1", kind: "agent-image", name: "driver-image", version: "1", runtime: "claude-code", sourceSeat: "driver", sourceSessionId: "s", sourceCwd: null, notes: null, createdAt: "2026-05-07T00:00:00.000Z", sourceType: "workspace", sourcePath: "/workspace/.softwareteam/agent-images/driver", relativePath: "driver", updatedAt: "2026-05-07T00:00:00.000Z", manifestEstimatedTokens: null, derivedEstimatedTokens: 200, files: [], sourceResumeToken: "(redacted)", stats: { forkCount: 0, lastUsedAt: null, estimatedSizeBytes: 0, lineage: [] }, lineage: [], pinned: false },
           ],
         };
       }
@@ -110,9 +110,9 @@ describe("Library page taxonomy", () => {
               files: [{ name: "SKILL.md", path: "SKILL.md", size: 28, mtime: "2026-05-07T00:00:00.000Z" }],
             },
             {
-              id: "openrig-managed:openrig-user",
-              name: "openrig-user",
-              source: "openrig-managed",
+              id: "softwareteam-managed:softwareteam-user",
+              name: "softwareteam-user",
+              source: "softwareteam-managed",
               files: [{ name: "SKILL.md", path: "SKILL.md", size: 32, mtime: "2026-05-07T00:00:00.000Z" }],
             },
           ],
@@ -125,7 +125,7 @@ describe("Library page taxonomy", () => {
 
     expect(await screen.findByRole("heading", { name: "Library" })).toBeDefined();
     await waitFor(() => {
-      expect(screen.getByTestId("library-section-rig-specs")).toBeDefined();
+      expect(screen.getByTestId("library-section-software-team-specs")).toBeDefined();
       expect(screen.getByTestId("library-section-workspace-specs")).toBeDefined();
       expect(screen.getByTestId("library-section-workflow-specs")).toBeDefined();
       expect(screen.getByTestId("library-section-context-packs")).toBeDefined();
@@ -139,10 +139,10 @@ describe("Library page taxonomy", () => {
 
     expect(screen.getByText("implementer")).toBeDefined();
     expect(screen.getByText("driver-image")).toBeDefined();
-    const rigRow = screen.getByTestId("library-row-rig-specs-rig-1");
-    expect(rigRow.textContent).toContain("openrig-build");
-    expect(rigRow.textContent).not.toContain("builtin");
-    expect(rigRow.textContent).not.toContain("1");
+    const softwareTeamRow = screen.getByTestId("library-row-software-team-specs-software-team-1");
+    expect(softwareTeamRow.textContent).toContain("softwareteam-build");
+    expect(softwareTeamRow.textContent).not.toContain("builtin");
+    expect(softwareTeamRow.textContent).not.toContain("1");
     const contextPackRow = screen.getByTestId("library-row-context-packs-context-pack:demo");
     expect(contextPackRow.textContent).toBe("demo-pack");
     const imageRow = screen.getByTestId("library-row-agent-images-agent-image:driver:1");
@@ -151,10 +151,10 @@ describe("Library page taxonomy", () => {
     expect(imageRow.textContent).toContain("~200 tok");
     const skillLink = screen.getByTestId("library-skill-operator-skill") as HTMLAnchorElement;
     expect(skillLink).toBeDefined();
-    // C-4: ID format is now source:rootName:skillName (no .openrig/skills/ prefix).
+    // C-4: ID format is now source:rootName:skillName (no .softwareteam/skills/ prefix).
     expect(skillLink.getAttribute("href")).toBe(librarySkillHref("workspace:workspace:operator-skill"));
     expect(screen.queryByRole("img", { name: "operator-skill skill" })).toBeNull();
-    expect(screen.getAllByTestId("library-skill-openrig-user")).toHaveLength(1);
+    expect(screen.getAllByTestId("library-skill-softwareteam-user")).toHaveLength(1);
     expect(screen.queryByText("workspace")).toBeNull();
     expect(screen.queryByTestId("library-skill-file-panel")).toBeNull();
     expect(screen.queryByTestId("library-skill-document-panel")).toBeNull();
@@ -201,32 +201,32 @@ describe("Library page taxonomy", () => {
           ok: true,
           json: async () => [
             {
-              id: "openrig-managed:openrig-user",
-              name: "openrig-user",
-              source: "openrig-managed",
+              id: "softwareteam-managed:softwareteam-user",
+              name: "softwareteam-user",
+              source: "softwareteam-managed",
               files: [{ name: "SKILL.md", path: "SKILL.md", size: 32, mtime: "2026-05-07T00:00:00.000Z" }],
             },
           ],
         };
       }
-      if (url === "/api/skills/openrig-managed%3Aopenrig-user/files/list?path=") {
+      if (url === "/api/skills/softwareteam-managed%3Asoftwareteam-user/files/list?path=") {
         return {
           ok: true,
           json: async () => ({
-            skillId: "openrig-managed:openrig-user",
+            skillId: "softwareteam-managed:softwareteam-user",
             path: "",
             ...fileList([{ name: "SKILL.md", type: "file" }]),
           }),
         };
       }
-      if (url === "/api/skills/openrig-managed%3Aopenrig-user/files/read?path=SKILL.md") {
+      if (url === "/api/skills/softwareteam-managed%3Asoftwareteam-user/files/read?path=SKILL.md") {
         return {
           ok: true,
           json: async () => ({
-            skillId: "openrig-managed:openrig-user",
+            skillId: "softwareteam-managed:softwareteam-user",
             path: "SKILL.md",
             absolutePath: "/abs/SKILL.md",
-            content: "# OpenRig User\nPackaged skill.",
+            content: "# SoftwareTeam User\nPackaged skill.",
             mtime: "2026-05-07T00:00:00.000Z",
             contentHash: "hash",
             size: 32,
@@ -239,7 +239,7 @@ describe("Library page taxonomy", () => {
       throw new Error(`unexpected fetch ${url}`);
     });
 
-    const packagedSkillId = "openrig-managed:openrig-user";
+    const packagedSkillId = "softwareteam-managed:softwareteam-user";
     renderSkillDetail(librarySkillToken(packagedSkillId));
 
     expect(await screen.findByTestId("skill-detail-page")).toBeDefined();
@@ -313,14 +313,14 @@ describe("Library page taxonomy", () => {
           ok: true,
           json: async () => [
             {
-              id: "openrig-core",
-              name: "openrig-core",
+              id: "softwareteam-core",
+              name: "softwareteam-core",
               version: "0.1.0",
-              description: "Canonical OpenRig content",
+              description: "Canonical SoftwareTeam content",
               source: "vendored",
-              sourceLabel: "vendored:openrig-core",
+              sourceLabel: "vendored:softwareteam-core",
               runtimes: ["claude", "codex"],
-              path: "/x/openrig-core",
+              path: "/x/softwareteam-core",
               lastSeenAt: null,
             },
             {
@@ -353,14 +353,14 @@ describe("Library page taxonomy", () => {
     await waitFor(() => {
       expect(screen.getByTestId("library-section-plugins")).toBeDefined();
     });
-    const openrigPlugin = await screen.findByTestId("library-plugin-openrig-core");
+    const softwareteamPlugin = await screen.findByTestId("library-plugin-softwareteam-core");
     const githubPlugin = await screen.findByTestId("library-plugin-claude-cache:anthropics/github/1.0.0");
-    expect(openrigPlugin).toBeDefined();
+    expect(softwareteamPlugin).toBeDefined();
     expect(githubPlugin).toBeDefined();
 
-    expect(within(openrigPlugin).getByText("openrig-core")).toBeDefined();
-    expect(openrigPlugin.textContent).not.toContain("0.1.0");
-    expect(openrigPlugin.textContent).not.toContain("vendored:openrig-core");
+    expect(within(softwareteamPlugin).getByText("softwareteam-core")).toBeDefined();
+    expect(softwareteamPlugin.textContent).not.toContain("0.1.0");
+    expect(softwareteamPlugin.textContent).not.toContain("vendored:softwareteam-core");
     expect(githubPlugin.textContent).not.toContain("1.0.0");
     expect(githubPlugin.textContent).not.toContain("claude-cache:anthropics/github/1.0.0");
   });

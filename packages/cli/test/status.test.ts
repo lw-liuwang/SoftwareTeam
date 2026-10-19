@@ -53,7 +53,7 @@ function createDaemonServer(
   const server = http.createServer((req, res) => {
     const url = new URL(req.url!, "http://localhost");
 
-    if (url.pathname === "/api/rigs/summary") {
+    if (url.pathname === "/api/software-teams/summary") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(summaryData));
       return;
@@ -97,9 +97,9 @@ function runningState(port: number): DaemonState {
   return { pid: 123, port, db: "test.sqlite", startedAt: "2026-03-24T00:00:00Z" };
 }
 
-describe("rig status", () => {
-  // Test 1: Running daemon with rigs -> formatted summary
-  describe("with running daemon and rigs", () => {
+describe("SoftwareTeam status", () => {
+  // Test 1: Running daemon with softwareTeams -> formatted summary
+  describe("with running daemon and softwareTeams", () => {
     let srv: ReturnType<typeof createDaemonServer>;
     let port: number;
 
@@ -115,7 +115,7 @@ describe("rig status", () => {
     });
     afterAll(async () => { await srv.close(); });
 
-    it("formats rig summary with node counts and snapshot info", async () => {
+    it("formats SoftwareTeam summary with node counts and snapshot info", async () => {
       const deps: StatusDeps = {
         lifecycleDeps: mockLifecycleDeps({
           exists: vi.fn((p: string) => p === STATE_FILE),
@@ -130,7 +130,7 @@ describe("rig status", () => {
 
       const program = new Command();
       program.addCommand(statusCommand(deps));
-      const logs = await captureLogs(() => program.parseAsync(["node", "rig", "status"]));
+      const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "status"]));
       const output = logs.join("\n");
 
       expect(output).toContain("alpha");
@@ -165,12 +165,12 @@ describe("rig status", () => {
     }
 
     it("surfaces daemon port + kernel readiness (distinct from daemon health) + effective workspace root with its source", async () => {
-      const prev = process.env.OPENRIG_WORKSPACE_ROOT;
-      delete process.env.OPENRIG_WORKSPACE_ROOT; // not env-overridden in this case
+      const prev = process.env.SOFTWARETEAM_WORKSPACE_ROOT;
+      delete process.env.SOFTWARETEAM_WORKSPACE_ROOT; // not env-overridden in this case
       try {
         const program = new Command();
         program.addCommand(statusCommand(statusDeps()));
-        const logs = await captureLogs(() => program.parseAsync(["node", "rig", "status"]));
+        const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "status"]));
         const output = logs.join("\n");
         expect(output).toMatch(/Daemon running on port \d+/);
         expect(output).toContain("Kernel: ready");
@@ -179,8 +179,8 @@ describe("rig status", () => {
         // (host-independent: a host may legitimately carry a file-level override).
         expect(output).toMatch(/Workspace root: .+ \((default|override via (env|file))\)/);
       } finally {
-        if (prev === undefined) delete process.env.OPENRIG_WORKSPACE_ROOT;
-        else process.env.OPENRIG_WORKSPACE_ROOT = prev;
+        if (prev === undefined) delete process.env.SOFTWARETEAM_WORKSPACE_ROOT;
+        else process.env.SOFTWARETEAM_WORKSPACE_ROOT = prev;
       }
     });
 
@@ -203,7 +203,7 @@ describe("rig status", () => {
           }),
           clientFactory: (baseUrl) => new DaemonClient(baseUrl),
         }));
-        const output = (await captureLogs(() => program.parseAsync(["node", "rig", "status"]))).join("\n");
+        const output = (await captureLogs(() => program.parseAsync(["node", "softwareTeam", "status"]))).join("\n");
         expect(output).toContain("Kernel: ready");
         expect(output).toContain("  Recovered from an earlier boot failure (bootstrap_failed at 2026-10-08T12:00:00.000Z): startup gate timed out after 30s");
       } finally {
@@ -211,24 +211,24 @@ describe("rig status", () => {
       }
     });
 
-    it("marks the workspace root as an override when OPENRIG_WORKSPACE_ROOT is set", async () => {
-      const prev = process.env.OPENRIG_WORKSPACE_ROOT;
-      process.env.OPENRIG_WORKSPACE_ROOT = process.cwd(); // a real existing dir
+    it("marks the workspace root as an override when SOFTWARETEAM_WORKSPACE_ROOT is set", async () => {
+      const prev = process.env.SOFTWARETEAM_WORKSPACE_ROOT;
+      process.env.SOFTWARETEAM_WORKSPACE_ROOT = process.cwd(); // a real existing dir
       try {
         const program = new Command();
         program.addCommand(statusCommand(statusDeps()));
-        const logs = await captureLogs(() => program.parseAsync(["node", "rig", "status"]));
+        const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "status"]));
         const output = logs.join("\n");
         expect(output).toContain(`Workspace root: ${process.cwd()} (override via env)`);
       } finally {
-        if (prev === undefined) delete process.env.OPENRIG_WORKSPACE_ROOT;
-        else process.env.OPENRIG_WORKSPACE_ROOT = prev;
+        if (prev === undefined) delete process.env.SOFTWARETEAM_WORKSPACE_ROOT;
+        else process.env.SOFTWARETEAM_WORKSPACE_ROOT = prev;
       }
     });
   });
 
-  // Test 2: Running daemon with no rigs -> 'No rigs'
-  describe("with running daemon and no rigs", () => {
+  // Test 2: Running daemon with no softwareTeams -> 'No softwareTeams'
+  describe("with running daemon and no softwareTeams", () => {
     let srv: ReturnType<typeof createDaemonServer>;
     let port: number;
 
@@ -238,7 +238,7 @@ describe("rig status", () => {
     });
     afterAll(async () => { await srv.close(); });
 
-    it("shows 'No rigs' message", async () => {
+    it("shows 'No softwareTeams' message", async () => {
       const deps: StatusDeps = {
         lifecycleDeps: mockLifecycleDeps({
           exists: vi.fn((p: string) => p === STATE_FILE),
@@ -253,9 +253,9 @@ describe("rig status", () => {
 
       const program = new Command();
       program.addCommand(statusCommand(deps));
-      const logs = await captureLogs(() => program.parseAsync(["node", "rig", "status"]));
+      const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "status"]));
 
-      expect(logs.join("\n")).toMatch(/no rigs/i);
+      expect(logs.join("\n")).toMatch(/no SoftwareTeams/i);
     });
   });
 
@@ -273,7 +273,7 @@ describe("rig status", () => {
 
     const program = new Command();
     program.addCommand(statusCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "status"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "status"]));
 
     expect(logs.join("\n")).toMatch(/not running/i);
     expect(clientFactory).not.toHaveBeenCalled();
@@ -286,7 +286,7 @@ describe("rig status", () => {
       lifecycleDeps: mockLifecycleDeps({
         exists: vi.fn((p: string) => p === STATE_FILE),
         readFile: vi.fn((p: string) => {
-          if (p === STATE_FILE) return JSON.stringify(runningState(7433));
+          if (p === STATE_FILE) return JSON.stringify(runningState(7434));
           return null;
         }),
         isProcessAlive: vi.fn(() => false), // pid dead -> stale
@@ -296,7 +296,7 @@ describe("rig status", () => {
 
     const program = new Command();
     program.addCommand(statusCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "status"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "status"]));
 
     expect(logs.join("\n")).toMatch(/not running/i);
     expect(clientFactory).not.toHaveBeenCalled();
@@ -315,7 +315,7 @@ describe("rig status", () => {
 
     const program = new Command();
     program.addCommand(statusCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "status"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "status"]));
     const output = logs.join("\n");
 
     expect(output).toMatch(/did not respond/i);
@@ -325,19 +325,19 @@ describe("rig status", () => {
 
   it("unverified daemon with sibling hint -> renders note with sibling home", async () => {
     const clientFactory = vi.fn();
-    const resolvedHome = path.join("/fake", "home", ".openrig");
-    const siblingHome = path.join("/fake", "home", ".openrig-vm");
+    const resolvedHome = path.join("/fake", "home", ".softwareteam");
+    const siblingHome = path.join("/fake", "home", ".softwareteam-vm");
     const siblingDaemon = path.join(siblingHome, "daemon.json");
     const parentDir = path.join("/fake", "home");
 
     const deps: StatusDeps = {
       lifecycleDeps: mockLifecycleDeps({
         homeDir: resolvedHome,
-        listDir: vi.fn((p: string) => (p === parentDir ? [".openrig", ".openrig-vm"] : [])),
+        listDir: vi.fn((p: string) => (p === parentDir ? [".softwareteam", ".softwareteam-vm"] : [])),
         exists: vi.fn((p: string) => p === siblingDaemon),
         readFile: vi.fn((p: string) => {
           if (p === siblingDaemon) {
-            return JSON.stringify({ pid: 1234, port: 7433 });
+            return JSON.stringify({ pid: 1234, port: 7434 });
           }
           return null;
         }),
@@ -349,11 +349,11 @@ describe("rig status", () => {
 
     const program = new Command();
     program.addCommand(statusCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "status"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "status"]));
     const output = logs.join("\n");
 
     expect(output).toMatch(/did not respond/i);
-    expect(output).toContain(`note: OPENRIG_HOME may be wrong — resolved ${resolvedHome}, live sibling ${siblingHome}`);
+    expect(output).toContain(`note: SOFTWARETEAM_HOME may be wrong — resolved ${resolvedHome}, live sibling ${siblingHome}`);
     expect(output).not.toContain("undefined");
     expect(clientFactory).not.toHaveBeenCalled();
   });
@@ -387,7 +387,7 @@ describe("rig status", () => {
 
       const program = new Command();
       program.addCommand(statusCommand(deps));
-      const logs = await captureLogs(() => program.parseAsync(["node", "rig", "status"]));
+      const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "status"]));
 
       expect(logs.join("\n")).toMatch(/cmux/i);
     });
@@ -423,10 +423,10 @@ describe("rig status", () => {
 
       const program = new Command();
       program.addCommand(statusCommand(deps));
-      await captureLogs(() => program.parseAsync(["node", "rig", "status"]));
+      await captureLogs(() => program.parseAsync(["node", "softwareTeam", "status"]));
 
       expect(usedUrls[0]).toBe(`http://127.0.0.1:${port}`);
-      expect(usedUrls[0]).not.toBe("http://127.0.0.1:7433");
+      expect(usedUrls[0]).not.toBe("http://127.0.0.1:7434");
     });
   });
 
@@ -437,7 +437,7 @@ describe("rig status", () => {
       lifecycleDeps: mockLifecycleDeps({
         exists: vi.fn((p: string) => p === STATE_FILE),
         readFile: vi.fn((p: string) => {
-          if (p === STATE_FILE) return JSON.stringify(runningState(7433));
+          if (p === STATE_FILE) return JSON.stringify(runningState(7434));
           return null;
         }),
         isProcessAlive: vi.fn(() => true),
@@ -448,14 +448,14 @@ describe("rig status", () => {
 
     const program = new Command();
     program.addCommand(statusCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "status"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "status"]));
 
     expect(logs.join("\n")).toMatch(/unhealthy|healthz failed/i);
     expect(clientFactory).not.toHaveBeenCalled();
   });
 
-  // Test 8: root-level rig status is mounted (uses real createProgram from index.ts)
-  it("rig status is wired via createProgram (real index.ts wiring)", async () => {
+  // Test 8: root-level SoftwareTeam status is mounted (uses real createProgram from index.ts)
+  it("SoftwareTeam status is wired via createProgram (real index.ts wiring)", async () => {
 
     const statusDeps: StatusDeps = {
       lifecycleDeps: mockLifecycleDeps({
@@ -467,7 +467,7 @@ describe("rig status", () => {
 
     const program = createProgram({ statusDeps });
 
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "status"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "status"]));
 
     // Should have output (not crash or "unknown command")
     expect(logs.join("\n")).toMatch(/not running/i);
@@ -481,7 +481,7 @@ describe("rig status", () => {
     beforeAll(async () => {
       const server = http.createServer((req, res) => {
         const url = new URL(req.url!, "http://localhost");
-        if (url.pathname === "/api/rigs/summary") {
+        if (url.pathname === "/api/software-teams/summary") {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "internal" }));
           return;
@@ -524,14 +524,14 @@ describe("rig status", () => {
 
       const program = new Command();
       program.addCommand(statusCommand(deps));
-      const logs = await captureLogs(() => program.parseAsync(["node", "rig", "status"]));
+      const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "status"]));
 
       expect(logs.join("\n")).toMatch(/failed.*summary|HTTP 500/i);
     });
   });
 });
 
-describe("rig status --json", () => {
+describe("SoftwareTeam status --json", () => {
   function runningDeps(port: number): StatusDeps {
     return {
       lifecycleDeps: mockLifecycleDeps({
@@ -546,28 +546,28 @@ describe("rig status --json", () => {
   async function run(deps: StatusDeps, args: string[]): Promise<string> {
     const program = new Command();
     program.addCommand(statusCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "status", ...args]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "status", ...args]));
     return logs.join("\n");
   }
 
   describe("with a running daemon", () => {
-    const rigs = [
+    const softwareTeams = [
       { id: "r1", name: "alpha", nodeCount: 3, latestSnapshotAt: "2026-03-24 01:00:00", latestSnapshotId: "snap-1" },
       { id: "r2", name: "beta", nodeCount: 1, latestSnapshotAt: null, latestSnapshotId: null },
     ];
     let srv: ReturnType<typeof createDaemonServer>;
     let port: number;
     beforeAll(async () => {
-      srv = createDaemonServer(rigs, { available: true }, { code: 200, body: { kernel_state: "ready" } });
+      srv = createDaemonServer(softwareTeams, { available: true }, { code: 200, body: { kernel_state: "ready" } });
       port = await srv.listen();
     });
     afterAll(async () => { await srv.close(); });
 
-    it("prints one JSON object with daemon, kernel, rigs and cmux", async () => {
+    it("prints one JSON object with daemon, kernel, softwareTeams and cmux", async () => {
       const out = await run(runningDeps(port), ["--json"]);
       const parsed = JSON.parse(out);
       expect(parsed.daemon).toEqual({ state: "running", reachable: true, pid: 123, port, healthy: true });
-      expect(parsed.rigs).toEqual(rigs);
+      expect(parsed.softwareTeams).toEqual(softwareTeams);
       expect(parsed.cmux).toEqual({ available: true });
       expect(parsed.kernel).toEqual({ state: "ready", lastBootFailure: null });
     });
@@ -576,7 +576,7 @@ describe("rig status --json", () => {
       const out = await run(runningDeps(port), []);
       expect(out).toContain(`Daemon running on port ${port}`);
       expect(out).toContain("Kernel: ready (boots on daemon-start; distinct from daemon health)");
-      expect(out).toContain("2 rig(s):");
+      expect(out).toContain("2 softwareTeam(s):");
       expect(out).toContain("cmux: available");
       expect(() => JSON.parse(out)).toThrow();
     });
@@ -603,7 +603,7 @@ describe("rig status --json", () => {
 
   describe("when the daemon is not answering", () => {
     const noLifecycle = { kind: "unknown", lastSeen: null, stoppedAt: null };
-    const refused = () => Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:7433"), { code: "ECONNREFUSED" });
+    const refused = () => Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:7434"), { code: "ECONNREFUSED" });
     const noClient = () => vi.fn() as unknown as StatusDeps["clientFactory"];
 
     async function parsedJson(deps: StatusDeps) {
@@ -611,7 +611,7 @@ describe("rig status --json", () => {
       const parsed = JSON.parse(await run(deps, ["--json"]));
       expect(process.exitCode).toBeUndefined();
       expect(deps.clientFactory).not.toHaveBeenCalled();
-      expect(parsed).toMatchObject({ kernel: null, workspaceRoot: null, rigs: null, cmux: null });
+      expect(parsed).toMatchObject({ kernel: null, workspaceRoot: null, softwareTeams: null, cmux: null });
       return parsed;
     }
 
@@ -627,7 +627,7 @@ describe("rig status --json", () => {
       const parsed = await parsedJson({
         lifecycleDeps: mockLifecycleDeps({
           exists: vi.fn((p: string) => p === STATE_FILE),
-          readFile: vi.fn((p: string) => (p === STATE_FILE ? JSON.stringify(runningState(7433)) : null)),
+          readFile: vi.fn((p: string) => (p === STATE_FILE ? JSON.stringify(runningState(7434)) : null)),
           isProcessAlive: vi.fn(() => false),
         }),
         clientFactory: noClient(),
@@ -650,9 +650,9 @@ describe("rig status --json", () => {
     it("unverified with a live sibling home: reachable null and the sibling hint", async () => {
       const parsed = await parsedJson({
         lifecycleDeps: mockLifecycleDeps({
-          homeDir: "/home/x/.openrig",
-          exists: vi.fn((p: string) => p === "/home/x/.openrig/HOME-MOVED"),
-          readFile: vi.fn((p: string) => (p === "/home/x/.openrig/HOME-MOVED" ? "/home/x/.openrig-new\n" : null)),
+          homeDir: "/home/x/.softwareteam",
+          exists: vi.fn((p: string) => p === "/home/x/.softwareteam/HOME-MOVED"),
+          readFile: vi.fn((p: string) => (p === "/home/x/.softwareteam/HOME-MOVED" ? "/home/x/.softwareteam-new\n" : null)),
           fetch: vi.fn(async () => { throw refused(); }),
         }),
         clientFactory: noClient(),
@@ -662,7 +662,7 @@ describe("rig status --json", () => {
         reachable: null,
         message: "Daemon did not respond — it may be busy or stopped (state not confirmed).",
         probeErrorCode: "ECONNREFUSED",
-        siblingHint: { resolvedHome: "/home/x/.openrig", siblingHome: "/home/x/.openrig-new" },
+        siblingHint: { resolvedHome: "/home/x/.softwareteam", siblingHome: "/home/x/.softwareteam-new" },
       });
     });
 
@@ -671,7 +671,7 @@ describe("rig status --json", () => {
       const parsed = await parsedJson({
         lifecycleDeps: mockLifecycleDeps({
           exists: vi.fn((p: string) => p === STATE_FILE),
-          readFile: vi.fn((p: string) => (p === STATE_FILE ? JSON.stringify(runningState(7433)) : null)),
+          readFile: vi.fn((p: string) => (p === STATE_FILE ? JSON.stringify(runningState(7434)) : null)),
           fetch: vi.fn(async () => ({ ok: true, json: async () => ({ eventLoop }) })),
         }),
         clientFactory: noClient(),
@@ -680,7 +680,7 @@ describe("rig status --json", () => {
         state: "running",
         reachable: true,
         pid: 123,
-        port: 7433,
+        port: 7434,
         healthy: false,
         reason: "event-loop-starved",
         eventLoop,
@@ -691,20 +691,20 @@ describe("rig status --json", () => {
       const parsed = await parsedJson({
         lifecycleDeps: mockLifecycleDeps({
           exists: vi.fn((p: string) => p === STATE_FILE),
-          readFile: vi.fn((p: string) => (p === STATE_FILE ? JSON.stringify(runningState(7433)) : null)),
+          readFile: vi.fn((p: string) => (p === STATE_FILE ? JSON.stringify(runningState(7434)) : null)),
           isProcessAlive: vi.fn(() => true),
           fetch: vi.fn(async () => { throw new Error("timed out"); }),
         }),
         clientFactory: noClient(),
       });
-      expect(parsed.daemon).toEqual({ state: "running", reachable: null, pid: 123, port: 7433, healthy: false, reason: "unresponsive" });
+      expect(parsed.daemon).toEqual({ state: "running", reachable: null, pid: 123, port: 7434, healthy: false, reason: "unresponsive" });
     });
   });
 
-  it("keeps exit code 1 and names the failure when the rig summary fails", async () => {
+  it("keeps exit code 1 and names the failure when the SoftwareTeam summary fails", async () => {
     const server = http.createServer((req, res) => {
       const url = new URL(req.url!, "http://localhost");
-      if (url.pathname === "/api/rigs/summary") { res.writeHead(500, { "Content-Type": "application/json" }); res.end("{}"); return; }
+      if (url.pathname === "/api/software-teams/summary") { res.writeHead(500, { "Content-Type": "application/json" }); res.end("{}"); return; }
       if (url.pathname === "/healthz") { res.writeHead(200, { "Content-Type": "application/json" }); res.end("{}"); return; }
       res.writeHead(404); res.end();
     });
@@ -712,8 +712,8 @@ describe("rig status --json", () => {
     try {
       process.exitCode = undefined;
       const parsed = JSON.parse(await run(runningDeps(port), ["--json"]));
-      expect(parsed.error).toMatch(/rig summary \(HTTP 500\)/);
-      expect(parsed.rigs).toBeNull();
+      expect(parsed.error).toMatch(/SoftwareTeam summary \(HTTP 500\)/);
+      expect(parsed.softwareTeams).toBeNull();
       expect(process.exitCode).toBe(1);
     } finally {
       process.exitCode = undefined;

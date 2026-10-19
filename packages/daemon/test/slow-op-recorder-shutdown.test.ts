@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const tempDirs: string[] = [];
 function tempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-slow-op-shutdown-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-slow-op-shutdown-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -109,11 +109,11 @@ describe("drainSlowOpRecorderOnShutdown — bounded shutdown drain", () => {
     const child = spawn(process.execPath, ["--import", "tsx", indexPath], {
       env: {
         ...process.env,
-        OPENRIG_NO_KERNEL: "1",
-        OPENRIG_HOME: home,
-        OPENRIG_DB: path.join(home, "openrig.sqlite"),
-        OPENRIG_PORT: String(port),
-        OPENRIG_URL: "",
+        SOFTWARETEAM_NO_KERNEL: "1",
+        SOFTWARETEAM_HOME: home,
+        SOFTWARETEAM_DB: path.join(home, "softwareteam.sqlite"),
+        SOFTWARETEAM_PORT: String(port),
+        SOFTWARETEAM_URL: "",
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

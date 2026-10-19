@@ -5,9 +5,9 @@ import { migrate } from "../src/db/migrate.js";
 import { coreSchema } from "../src/db/migrations/001_core_schema.js";
 import { eventsSchema } from "../src/db/migrations/003_events.js";
 import { queueItemsSchema } from "../src/db/migrations/024_queue_items.js";
-import { rigArchiveSchema } from "../src/db/migrations/042_rig_archive.js";
+import { softwareTeamArchiveSchema } from "../src/db/migrations/042_software_team_archive.js";
 import { EventBus } from "../src/domain/event-bus.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import {
   MissionControlFleetCliCapability,
   MISSION_CONTROL_DESIRED_FIELDS,
@@ -17,21 +17,21 @@ import {
 describe("MissionControlFleetCliCapability (PL-005 Phase A; 4 sub-clauses of graceful degradation)", () => {
   let db: Database.Database;
   let bus: EventBus;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
 
   beforeEach(() => {
     db = createDb();
-    migrate(db, [coreSchema, eventsSchema, queueItemsSchema, rigArchiveSchema]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig-alpha')`).run();
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-2', 'rig-beta')`).run();
+    migrate(db, [coreSchema, eventsSchema, queueItemsSchema, softwareTeamArchiveSchema]);
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'software-team-alpha')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-2', 'software-team-beta')`).run();
     bus = new EventBus(db);
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
   });
 
   afterEach(() => db.close());
 
-  it("rollupFleet returns one row per registered rig", async () => {
-    const cli = new MissionControlFleetCliCapability({ db, eventBus: bus, rigRepo });
+  it("rollupFleet returns one row per registered softwareTeam", async () => {
+    const cli = new MissionControlFleetCliCapability({ db, eventBus: bus, softwareTeamRepo });
     const fleet = await cli.rollupFleet();
     expect(fleet.rows).toHaveLength(2);
   });
@@ -40,15 +40,15 @@ describe("MissionControlFleetCliCapability (PL-005 Phase A; 4 sub-clauses of gra
     const cli = new MissionControlFleetCliCapability({
       db,
       eventBus: bus,
-      rigRepo,
-      probeRig: async (name) => ({
-        cliVersionLabel: name === "rig-alpha" ? "v0.1.12" : "head",
-        unsupportedFields: name === "rig-alpha" ? ["agentActivity"] : [],
+      softwareTeamRepo,
+      probeSoftwareTeam: async (name) => ({
+        cliVersionLabel: name === "software-team-alpha" ? "v0.1.12" : "head",
+        unsupportedFields: name === "software-team-alpha" ? ["agentActivity"] : [],
       }),
     });
     const fleet = await cli.rollupFleet();
-    const alpha = fleet.rows.find((r) => r.rigName === "rig-alpha");
-    const beta = fleet.rows.find((r) => r.rigName === "rig-beta");
+    const alpha = fleet.rows.find((r) => r.softwareTeamName === "software-team-alpha");
+    const beta = fleet.rows.find((r) => r.softwareTeamName === "software-team-beta");
     expect(alpha?.cliDriftDetected).toBe(true);
     expect(alpha?.cliCapabilityStatus).toBe("unavailable");
     expect(alpha?.cliVersionOutdated).toBe(false);
@@ -59,24 +59,24 @@ describe("MissionControlFleetCliCapability (PL-005 Phase A; 4 sub-clauses of gra
     expect(fleet.degradedFields).toEqual(["agentActivity"]);
   });
 
-  it("SUB-CLAUSE 3: once-per-session-per-rig logging — drift event emitted only once per (rig, field)", async () => {
+  it("SUB-CLAUSE 3: once-per-session-per-software-team logging — drift event emitted only once per (softwareTeam, field)", async () => {
     const events: Array<{ type: string }> = [];
     bus.subscribe((e) => events.push(e));
     const cli = new MissionControlFleetCliCapability({
       db,
       eventBus: bus,
-      rigRepo,
-      probeRig: async () => ({
+      softwareTeamRepo,
+      probeSoftwareTeam: async () => ({
         cliVersionLabel: "v0.1.12",
         unsupportedFields: ["agentActivity"],
       }),
     });
-    // 5 rollup calls = 10 (rig, field) observations, but only 2 drift events (one per rig).
+    // 5 rollup calls = 10 (softwareTeam, field) observations, but only 2 drift events (one per softwareTeam).
     for (let i = 0; i < 5; i++) {
       await cli.rollupFleet();
     }
     const driftEvents = events.filter((e) => e.type === "mission_control.cli_drift_detected");
-    expect(driftEvents).toHaveLength(2); // 2 rigs × 1 missing field × ONCE
+    expect(driftEvents).toHaveLength(2); // 2 softwareTeams × 1 missing field × ONCE
   });
 
   it("SUB-CLAUSE 3: resetDriftLogForTest re-arms once-per-session log", async () => {
@@ -85,8 +85,8 @@ describe("MissionControlFleetCliCapability (PL-005 Phase A; 4 sub-clauses of gra
     const cli = new MissionControlFleetCliCapability({
       db,
       eventBus: bus,
-      rigRepo,
-      probeRig: async () => ({
+      softwareTeamRepo,
+      probeSoftwareTeam: async () => ({
         cliVersionLabel: "v0.1.12",
         unsupportedFields: ["agentActivity"],
       }),
@@ -98,42 +98,42 @@ describe("MissionControlFleetCliCapability (PL-005 Phase A; 4 sub-clauses of gra
     expect(events.filter((e) => e.type === "mission_control.cli_drift_detected")).toHaveLength(4);
   });
 
-  it("SUB-CLAUSE 2: per-rig honesty — different rigs report different capabilities", async () => {
+  it("SUB-CLAUSE 2: per-software-team honesty — different softwareTeams report different capabilities", async () => {
     const cli = new MissionControlFleetCliCapability({
       db,
       eventBus: bus,
-      rigRepo,
-      probeRig: async (name) => {
-        if (name === "rig-alpha") return { cliVersionLabel: "v0.1.12", unsupportedFields: [...MISSION_CONTROL_DESIRED_FIELDS] };
+      softwareTeamRepo,
+      probeSoftwareTeam: async (name) => {
+        if (name === "software-team-alpha") return { cliVersionLabel: "v0.1.12", unsupportedFields: [...MISSION_CONTROL_DESIRED_FIELDS] };
         return { cliVersionLabel: "head", unsupportedFields: [] };
       },
     });
     const fleet = await cli.rollupFleet();
-    const alpha = fleet.rows.find((r) => r.rigName === "rig-alpha");
-    const beta = fleet.rows.find((r) => r.rigName === "rig-beta");
+    const alpha = fleet.rows.find((r) => r.softwareTeamName === "software-team-alpha");
+    const beta = fleet.rows.find((r) => r.softwareTeamName === "software-team-beta");
     expect(alpha?.cliVersionLabel).toBe("v0.1.12");
     expect(beta?.cliVersionLabel).toBe("head");
   });
 
-  it("rig with active in-progress queue item summarizes activityState=active", async () => {
+  it("SoftwareTeam with active in-progress queue item summarizes activityState=active", async () => {
     db.prepare(
       `INSERT INTO queue_items (qitem_id, ts_created, ts_updated, source_session, destination_session, state, priority, body)
-       VALUES ('q-1', '2026-05-04T01:00:00Z', '2026-05-04T01:00:00Z', 'a@rig-alpha', 'b@rig-alpha', 'in-progress', 'routine', 'x')`,
+       VALUES ('q-1', '2026-05-04T01:00:00Z', '2026-05-04T01:00:00Z', 'a@software-team-alpha', 'b@software-team-alpha', 'in-progress', 'routine', 'x')`,
     ).run();
-    const cli = new MissionControlFleetCliCapability({ db, eventBus: bus, rigRepo });
+    const cli = new MissionControlFleetCliCapability({ db, eventBus: bus, softwareTeamRepo });
     const fleet = await cli.rollupFleet();
-    const alpha = fleet.rows.find((r) => r.rigName === "rig-alpha");
+    const alpha = fleet.rows.find((r) => r.softwareTeamName === "software-team-alpha");
     expect(alpha?.activityState).toBe("active");
   });
 
-  it("rig with blocked queue item summarizes activityState=blocked + attentionReason", async () => {
+  it("SoftwareTeam with blocked queue item summarizes activityState=blocked + attentionReason", async () => {
     db.prepare(
       `INSERT INTO queue_items (qitem_id, ts_created, ts_updated, source_session, destination_session, state, priority, body, blocked_on)
-       VALUES ('q-1', '2026-05-04T01:00:00Z', '2026-05-04T01:00:00Z', 'a@rig-alpha', 'b@rig-alpha', 'blocked', 'routine', 'x', 'gate-x')`,
+       VALUES ('q-1', '2026-05-04T01:00:00Z', '2026-05-04T01:00:00Z', 'a@software-team-alpha', 'b@software-team-alpha', 'blocked', 'routine', 'x', 'gate-x')`,
     ).run();
-    const cli = new MissionControlFleetCliCapability({ db, eventBus: bus, rigRepo });
+    const cli = new MissionControlFleetCliCapability({ db, eventBus: bus, softwareTeamRepo });
     const fleet = await cli.rollupFleet();
-    const alpha = fleet.rows.find((r) => r.rigName === "rig-alpha");
+    const alpha = fleet.rows.find((r) => r.softwareTeamName === "software-team-alpha");
     expect(alpha?.activityState).toBe("blocked");
     expect(alpha?.attentionReason).toContain("gate-x");
   });
@@ -144,8 +144,8 @@ describe("MissionControlFleetCliCapability (PL-005 Phase A; 4 sub-clauses of gra
     const cli = new MissionControlFleetCliCapability({
       db,
       eventBus: bus,
-      rigRepo,
-      probeRig: observation === "absent" ? undefined
+      softwareTeamRepo,
+      probeSoftwareTeam: observation === "absent" ? undefined
         : observation === "production" ? makeLocalCliCapabilityProbe()
         : async () => { throw new Error("CLI observation unavailable"); },
     });
@@ -168,8 +168,8 @@ describe("MissionControlFleetCliCapability (PL-005 Phase A; 4 sub-clauses of gra
     const cli = new MissionControlFleetCliCapability({
       db,
       eventBus: bus,
-      rigRepo,
-      probeRig: makeLocalCliCapabilityProbe({
+      softwareTeamRepo,
+      probeSoftwareTeam: makeLocalCliCapabilityProbe({
         versionLabel: "0.6.3 (90970a9, dirty)",
         knownNodeFields: new Set(["agentActivity"]),
       }),
@@ -188,7 +188,7 @@ describe("MissionControlFleetCliCapability (PL-005 Phase A; 4 sub-clauses of gra
 
   it("a version observation alone does not establish field support", async () => {
     const probe = makeLocalCliCapabilityProbe({ versionLabel: "0.6.3" });
-    expect(await probe("rig-alpha")).toMatchObject({
+    expect(await probe("software-team-alpha")).toMatchObject({
       cliVersionLabel: "0.6.3",
       unsupportedFields: null,
     });
@@ -198,8 +198,8 @@ describe("MissionControlFleetCliCapability (PL-005 Phase A; 4 sub-clauses of gra
     const cli = new MissionControlFleetCliCapability({
       db,
       eventBus: bus,
-      rigRepo,
-      probeRig: makeLocalCliCapabilityProbe({
+      softwareTeamRepo,
+      probeSoftwareTeam: makeLocalCliCapabilityProbe({
         versionLabel,
         knownNodeFields: new Set(),
         versionOutdated: true,
@@ -219,18 +219,18 @@ describe("MissionControlFleetCliCapability (PL-005 Phase A; 4 sub-clauses of gra
     const cli = new MissionControlFleetCliCapability({
       db,
       eventBus: bus,
-      rigRepo,
-      probeRig: async (name) => ({
-        cliVersionLabel: name === "rig-alpha" ? "0.1.12" : "0.6.3",
+      softwareTeamRepo,
+      probeSoftwareTeam: async (name) => ({
+        cliVersionLabel: name === "software-team-alpha" ? "0.1.12" : "0.6.3",
         unsupportedFields: [],
-        versionOutdated: name === "rig-alpha",
+        versionOutdated: name === "software-team-alpha",
       }),
     });
     const fleet = await cli.rollupFleet();
     expect(fleet.staleCliCount).toBe(1);
     expect(fleet.unknownCliCount).toBe(0);
     expect(fleet.degradedFields).toEqual([]);
-    expect(fleet.rows.find((row) => row.rigName === "rig-alpha")).toMatchObject({
+    expect(fleet.rows.find((row) => row.softwareTeamName === "software-team-alpha")).toMatchObject({
       cliVersionOutdated: true,
       cliCapabilityStatus: "available",
       cliDriftDetected: false,

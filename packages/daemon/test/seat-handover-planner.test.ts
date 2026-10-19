@@ -1,21 +1,21 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SeatHandoverPlanner, parseHandoverSource } from "../src/domain/seat-handover-planner.js";
 
 describe("SeatHandoverPlanner", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let planner: SeatHandoverPlanner;
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
-    planner = new SeatHandoverPlanner({ rigRepo });
+    planner = new SeatHandoverPlanner({ softwareTeamRepo });
   });
 
   afterEach(() => {
@@ -23,13 +23,13 @@ describe("SeatHandoverPlanner", () => {
   });
 
   function seedSeat() {
-    const rig = rigRepo.createRig("seat-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "codex", cwd: "/project" });
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@seat-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("seat-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "codex", cwd: "/project" });
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@seat-software-team");
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateStartupStatus(session.id, "ready", "2026-04-20T12:00:00Z");
-    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@seat-rig" });
-    return { rig, node, session };
+    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@seat-software-team" });
+    return { softwareTeam, node, session };
   }
 
   function durableRows(): string {
@@ -45,10 +45,10 @@ describe("SeatHandoverPlanner", () => {
     const before = durableRows();
 
     const result = planner.plan({
-      seatRef: "dev-impl@seat-rig",
+      seatRef: "dev-impl@seat-software-team",
       reason: "context-wall",
       source: "fork:0b0165d7",
-      operator: "orch-lead@seat-rig",
+      operator: "orch-lead@seat-software-team",
       dryRun: true,
     });
 
@@ -59,15 +59,15 @@ describe("SeatHandoverPlanner", () => {
       dryRun: true,
       willMutate: false,
       seat: {
-        ref: "dev-impl@seat-rig",
-        rigName: "seat-rig",
+        ref: "dev-impl@seat-software-team",
+        softwareTeamName: "seat-software-team",
         logicalId: "dev.impl",
         runtime: "codex",
       },
       source: { mode: "fork", ref: "0b0165d7", raw: "fork:0b0165d7", defaulted: false },
       reason: "context-wall",
-      operator: "orch-lead@seat-rig",
-      currentOccupant: "dev-impl@seat-rig",
+      operator: "orch-lead@seat-software-team",
+      currentOccupant: "dev-impl@seat-software-team",
       currentStatus: {
         sessionStatus: "running",
         startupStatus: "ready",
@@ -117,7 +117,7 @@ describe("SeatHandoverPlanner", () => {
   it("requires a reason before planning", () => {
     seedSeat();
 
-    const result = planner.plan({ seatRef: "dev-impl@seat-rig", dryRun: true });
+    const result = planner.plan({ seatRef: "dev-impl@seat-software-team", dryRun: true });
 
     expect(result).toMatchObject({
       ok: false,
@@ -128,7 +128,7 @@ describe("SeatHandoverPlanner", () => {
 
   it("returns seat lookup guidance for an unknown seat", () => {
     const result = planner.plan({
-      seatRef: "missing@seat-rig",
+      seatRef: "missing@seat-software-team",
       reason: "context-wall",
       dryRun: true,
     });
@@ -136,7 +136,7 @@ describe("SeatHandoverPlanner", () => {
     expect(result).toMatchObject({
       ok: false,
       code: "seat_not_found",
-      guidance: "List seats with: rig ps --nodes",
+      guidance: "List seats with: SoftwareTeam ps --nodes",
     });
   });
 
@@ -144,7 +144,7 @@ describe("SeatHandoverPlanner", () => {
     seedSeat();
 
     const result = planner.plan({
-      seatRef: "dev-impl@seat-rig",
+      seatRef: "dev-impl@seat-software-team",
       reason: "context-wall",
       dryRun: false,
     });
@@ -158,12 +158,12 @@ describe("SeatHandoverPlanner", () => {
 
   it("wires the daemon /api/seat/handover route", async () => {
     const setup = createTestApp(db);
-    const rig = setup.rigRepo.createRig("seat-rig");
-    const node = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime: "codex" });
-    const session = setup.sessionRegistry.registerSession(node.id, "dev-impl@seat-rig");
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("seat-software-team");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "codex" });
+    const session = setup.sessionRegistry.registerSession(node.id, "dev-impl@seat-software-team");
     setup.sessionRegistry.updateStatus(session.id, "running");
 
-    const res = await setup.app.request("/api/seat/handover/dev-impl%40seat-rig", {
+    const res = await setup.app.request("/api/seat/handover/dev-impl%40seat-software-team", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reason: "context-wall", source: "rebuild", dryRun: true }),
@@ -176,7 +176,7 @@ describe("SeatHandoverPlanner", () => {
       dryRun: true,
       willMutate: false,
       source: { mode: "rebuild", ref: null },
-      currentOccupant: "dev-impl@seat-rig",
+      currentOccupant: "dev-impl@seat-software-team",
     });
   });
 });

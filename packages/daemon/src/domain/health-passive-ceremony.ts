@@ -3,7 +3,7 @@ import { dirname, join, relative } from "node:path";
 import { parse as parseYaml } from "yaml";
 import type { QueueRepository } from "./queue-repository.js";
 import type { HealthCheckpointSource } from "./health-checkpoints.js";
-import type { OperatingPostureService } from "./rig-mode/operating-posture.js";
+import type { OperatingPostureService } from "./software-team-mode/operating-posture.js";
 import { readHealthArtifact, healthSelectedContext } from "./health-context.js";
 import { validateMissionComposition } from "./lifecycle-manifest.js";
 import { healthHash, type HealthPolicyStore } from "./health-policy.js";

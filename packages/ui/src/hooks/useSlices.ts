@@ -32,7 +32,7 @@ export interface SliceListEntry {
   hasProofPacket: boolean;
   lastActivityAt: string | null;
   /** PL-007: absolute filesystem path of the slice folder, used by the UI
-   *  to resolve workspace kind against the rig's RigSpec.workspace block. */
+   *  to resolve workspace kind against the softwareTeam's SoftwareTeamSpec.workspace block. */
   slicePath?: string;
 }
 
@@ -247,9 +247,9 @@ export interface ProofPacketRendered {
   passFailBadge: "pass" | "fail" | "partial" | "unknown";
 }
 
-export interface TopologyRigEntry {
-  rigId: string;
-  rigName: string;
+export interface TopologySoftwareTeamEntry {
+  softwareTeamId: string;
+  softwareTeamName: string;
   sessionNames: string[];
 }
 
@@ -287,10 +287,10 @@ export interface SliceDetail {
   docs: { tree: DocsTreeEntry[] };
   tests: { proofPackets: ProofPacketRendered[]; aggregate: { passCount: number; failCount: number } };
   topology: {
-    affectedRigs: TopologyRigEntry[];
+    affectedSoftwareTeams: TopologySoftwareTeamEntry[];
     totalSeats: number;
     /** v1: spec graph (nodes + edges) derived from the bound instance's
-     *  workflow_spec; null when unbound (UI falls back to per-rig
+     *  workflow_spec; null when unbound (UI falls back to per-softwareTeam
      *  session listing). */
     specGraph: SpecGraphPayload | null;
   };

@@ -39,10 +39,10 @@ const SPEC = `workflow:
   roles:
     worker:
       preferred_targets:
-        - worker@rig
+        - worker@software-team
     next:
       preferred_targets:
-        - next@rig
+        - next@software-team
   steps:
     - id: work
       actor_role: worker
@@ -74,8 +74,8 @@ describe("FR-8: continue is an honest read-only inspector — label AND wire agr
       workflowSpecJsonSchema,
     ]);
     const bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    const queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    const queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     runtime = new WorkflowRuntime({ db, eventBus: bus, queueRepo });
     tmp = mkdtempSync(join(tmpdir(), "wf-honesty-"));
     specPath = join(tmp, "spec.yaml");
@@ -91,7 +91,7 @@ describe("FR-8: continue is an honest read-only inspector — label AND wire agr
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "honesty walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const before = runtime.instanceStore.getByIdOrThrow(inst.instance.instanceId);
     const qitemCountBefore = (
@@ -125,7 +125,7 @@ describe("FR-8: continue is an honest read-only inspector — label AND wire agr
     expect(cliSource).toContain(
       "Inspect an instance's current frontier + step trail (read-only",
     );
-    expect(cliSource).toContain("rig workflow project");
+    expect(cliSource).toContain("SoftwareTeam workflow project");
 
     const routeSource = readFileSync(
       join(__dirname, "..", "src", "routes", "workflow.ts"),
@@ -153,7 +153,7 @@ describe("FR-9: every inert key produces the fail-open declared_not_enforced_v1 
     worker:
       skill_refs: [some-skill]
       preferred_targets:
-        - worker@rig
+        - worker@software-team
   steps:
     - id: only
       actor_role: worker
@@ -195,7 +195,7 @@ describe("FR-9: every inert key produces the fail-open declared_not_enforced_v1 
   roles:
     worker:
       preferred_targets:
-        - worker@rig
+        - worker@software-team
   steps:
     - id: only
       actor_role: worker

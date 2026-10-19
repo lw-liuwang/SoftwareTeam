@@ -30,7 +30,7 @@ const wf = (over: Partial<WorkflowExceptionInput> = {}): WorkflowExceptionInput 
 
 const orchItem = {
   qitemId: "qitem-exc-1",
-  destinationSession: "orch-lead@rig",
+  destinationSession: "orch-lead@software-team",
   humanRouted: false,
   createdAtIso: "2026-07-07T05:30:00.000Z",
   summary: "workflow step failed with no remediation branch",
@@ -39,33 +39,33 @@ const orchItem = {
 describe("WF-5 FR-3: deriveWorkflowExceptions", () => {
   it("healthy instances render ZERO rows (the band's zero-noise negative)", () => {
     expect(
-      deriveWorkflowExceptions([wf({ status: "active" })], "rig", NOW),
+      deriveWorkflowExceptions([wf({ status: "active" })], "softwareTeam", NOW),
     ).toHaveLength(0);
   });
 
   it("ORCHESTRATOR-routed exception → exactly ONE awareness row: holder + age + evidence, distinct-from-to-do", () => {
-    const rows = deriveWorkflowExceptions([wf({ openItem: orchItem })], "rig", NOW);
+    const rows = deriveWorkflowExceptions([wf({ openItem: orchItem })], "softwareTeam", NOW);
     expect(rows).toHaveLength(1);
     const r = rows[0]!;
     expect(r.derived?.kind).toBe("awareness");
-    expect(r.summary).toContain("held by orch-lead@rig");
+    expect(r.summary).toContain("held by orch-lead@software-team");
     expect(r.derived?.evidence).toContain("qitem-exc-1");
     expect(r.derived?.evidence).toContain("30m");
     expect(r.derived?.threshold).toContain("awareness");
-    expect(r.evidenceRef).toContain("rig workflow trace 01WFX");
+    expect(r.evidenceRef).toContain("SoftwareTeam workflow trace 01WFX");
   });
 
   it("HUMAN-routed exception → NO row (the ● item IS the human's row — no double render)", () => {
     const rows = deriveWorkflowExceptions(
       [wf({ openItem: { ...orchItem, destinationSession: "human@host", humanRouted: true } })],
-      "rig",
+      "softwareTeam",
       NOW,
     );
     expect(rows).toHaveLength(0);
   });
 
   it("failed with NO item → the ▲ backstop naming the exception AND the missing-item anomaly", () => {
-    const rows = deriveWorkflowExceptions([wf()], "rig", NOW);
+    const rows = deriveWorkflowExceptions([wf()], "softwareTeam", NOW);
     expect(rows).toHaveLength(1);
     expect(rows[0]!.derived?.kind).toBe("workflow-failed");
     expect(rows[0]!.derived?.evidence).toContain("MISSING-ITEM ANOMALY");
@@ -77,10 +77,10 @@ describe("WF-5 FR-3: deriveWorkflowExceptions", () => {
         wf({
           status: "active",
           deadlineState: "overdue-unclaimed",
-          deadlineEvidence: "step review packet qitem-9 held by reviewer@rig — 3600s past the created_at anchor",
+          deadlineEvidence: "step review packet qitem-9 held by reviewer@software-team — 3600s past the created_at anchor",
         }),
       ],
-      "rig",
+      "softwareTeam",
       NOW,
     );
     expect(rows).toHaveLength(1);
@@ -91,7 +91,7 @@ describe("WF-5 FR-3: deriveWorkflowExceptions", () => {
   it("frontier-references-non-open-packet → the ANOMALY row (detection behind the WF-3 FR-6 prevention guard)", () => {
     const rows = deriveWorkflowExceptions(
       [wf({ status: "active", frontierRefsNonOpenPacket: true })],
-      "rig",
+      "softwareTeam",
       NOW,
     );
     expect(rows).toHaveLength(1);
@@ -100,16 +100,16 @@ describe("WF-5 FR-3: deriveWorkflowExceptions", () => {
   });
 
   it("recomposition clears: the same instance recomposed after resolution renders nothing (state-exit, never hand-clearing)", () => {
-    const before = deriveWorkflowExceptions([wf({ openItem: orchItem })], "rig", NOW);
+    const before = deriveWorkflowExceptions([wf({ openItem: orchItem })], "softwareTeam", NOW);
     expect(before).toHaveLength(1);
-    const after = deriveWorkflowExceptions([wf({ status: "active", openItem: null })], "rig", NOW);
+    const after = deriveWorkflowExceptions([wf({ status: "active", openItem: null })], "softwareTeam", NOW);
     expect(after).toHaveLength(0);
   });
 
   it("one-count through the band: the awareness row survives composeNeedsYou dedup exactly once", () => {
     const derived = deriveWorkflowExceptions(
       [wf({ openItem: orchItem }), wf({ openItem: orchItem })],
-      "rig",
+      "softwareTeam",
       NOW,
     );
     const band = composeNeedsYou([], derived, [], "test", NOW);
@@ -137,7 +137,7 @@ const att = (over: Partial<AttentionInput> = {}): AttentionInput => ({
 
 describe("WF-4 Q6: row.workflow identity stamp", () => {
   it("P2 pointer-only — a derived row's workflow is EXACTLY the identity keys (no status/deadline/class)", () => {
-    const rows = deriveWorkflowExceptions([wf({ openItem: orchItem })], "rig", NOW);
+    const rows = deriveWorkflowExceptions([wf({ openItem: orchItem })], "softwareTeam", NOW);
     // currentStepId null → stepId OMITTED (never null-stamped)
     expect(rows[0]!.workflow).toEqual({ instanceId: "01WFX", workflowName: "wf5-pipeline" });
     expect(Object.keys(rows[0]!.workflow!).sort()).toEqual(["instanceId", "workflowName"]);
@@ -146,16 +146,16 @@ describe("WF-4 Q6: row.workflow identity stamp", () => {
   it("P2 — stepId rides the pointer when the instance carries a current step", () => {
     const rows = deriveWorkflowExceptions(
       [wf({ status: "active", currentStepId: "verify", frontierRefsNonOpenPacket: true })],
-      "rig",
+      "softwareTeam",
       NOW,
     );
     expect(rows[0]!.workflow).toEqual({ instanceId: "01WFX", workflowName: "wf5-pipeline", stepId: "verify" });
   });
 
   it("uniform stamp — all THREE derived kinds (anomaly / awareness / backstop) carry the pointer", () => {
-    const anomaly = deriveWorkflowExceptions([wf({ status: "active", frontierRefsNonOpenPacket: true })], "rig", NOW);
-    const awareness = deriveWorkflowExceptions([wf({ openItem: orchItem })], "rig", NOW);
-    const backstop = deriveWorkflowExceptions([wf()], "rig", NOW);
+    const anomaly = deriveWorkflowExceptions([wf({ status: "active", frontierRefsNonOpenPacket: true })], "softwareTeam", NOW);
+    const awareness = deriveWorkflowExceptions([wf({ openItem: orchItem })], "softwareTeam", NOW);
+    const backstop = deriveWorkflowExceptions([wf()], "softwareTeam", NOW);
     expect(anomaly[0]!.derived?.kind).toBe("anomaly");
     expect(awareness[0]!.derived?.kind).toBe("awareness");
     expect(backstop[0]!.derived?.kind).toBe("workflow-failed");

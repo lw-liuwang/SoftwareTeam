@@ -46,14 +46,14 @@ describe("S8a — a note is not a state write", () => {
   afterEach(() => db.close());
 
   async function createTerminal(state: "done" | "canceled" | "handed-off") {
-    const item = await repo.create({ sourceSession: "author@rig", destinationSession: "owner@rig", body: "work" });
+    const item = await repo.create({ sourceSession: "author@software-team", destinationSession: "owner@software-team", body: "work" });
     repo.update({
       qitemId: item.qitemId,
-      actorSession: "owner@rig",
+      actorSession: "owner@software-team",
       state,
       ...(state === "done" ? { closureReason: "no-follow-on" as const } : {}),
       ...(state === "handed-off"
-        ? { closureReason: "handed_off_to" as const, closureTarget: "review@rig" }
+        ? { closureReason: "handed_off_to" as const, closureTarget: "review@software-team" }
         : {}),
     });
     return item.qitemId;
@@ -62,7 +62,7 @@ describe("S8a — a note is not a state write", () => {
   function update(qitemId: string, body: Record<string, unknown>) {
     return app.request(`/api/queue/${qitemId}/update`, {
       method: "POST",
-      headers: { "content-type": "application/json", "X-OpenRig-Session": "auditor@rig" },
+      headers: { "content-type": "application/json", "X-SoftwareTeam-Session": "auditor@software-team" },
       body: JSON.stringify(body),
     });
   }
@@ -82,7 +82,7 @@ describe("S8a — a note is not a state write", () => {
     const transitions = repo.transitionLog.listForQitem(qitemId);
     expect(transitions.at(-1)).toMatchObject({
       state: "handed-off",
-      actorSession: "auditor@rig",
+      actorSession: "auditor@software-team",
       transitionNote: note,
       identityProvenance: "transport:v1",
     });
@@ -124,7 +124,7 @@ describe("S8a — a note is not a state write", () => {
     expect(transitions).toHaveLength(transitionCount + 1);
     expect(transitions.at(-1)).toMatchObject({
       state: "pending",
-      actorSession: "auditor@rig",
+      actorSession: "auditor@software-team",
       transitionNote: "reopen acknowledged: repair the mistaken handoff",
       identityProvenance: "transport:v1",
     });
@@ -143,7 +143,7 @@ describe("S8a — a note is not a state write", () => {
 
     const result = repo.update({
       qitemId,
-      actorSession: "auditor@rig",
+      actorSession: "auditor@software-team",
       state: "canceled" as QueueState,
       transitionNote: "confirm cancellation",
     });

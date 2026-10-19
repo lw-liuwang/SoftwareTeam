@@ -1,4 +1,4 @@
-import type { SnapshotData, RestoreValidationBlocker, RigServicesRecord } from "./types.js";
+import type { SnapshotData, RestoreValidationBlocker, SoftwareTeamServicesRecord } from "./types.js";
 import { resolveSnapshotRestoreTopology } from "./restore-topology.js";
 import { resolveActiveSnapshotSession } from "./active-occupant.js";
 import { effectiveRestorePolicy } from "./restore-policy.js";
@@ -9,7 +9,7 @@ export function validatePreRestore(
   data: SnapshotData,
   opts: {
     fsOps?: { exists(path: string): boolean };
-    servicesRecord?: RigServicesRecord | null;
+    servicesRecord?: SoftwareTeamServicesRecord | null;
     freshLogicalIds?: string[];
     /** The runtime each seat has now, by logical id. A seat not listed is read as its saved runtime. */
     currentRuntimes?: Record<string, string | null | undefined>;
@@ -25,12 +25,12 @@ export function validatePreRestore(
   const edges = Array.isArray(data.edges) ? data.edges : null;
   const checkpoints = data.checkpoints && typeof data.checkpoints === "object" ? data.checkpoints : null;
 
-  if (!data.rig || typeof data.rig.id !== "string") {
+  if (!data.softwareTeam || typeof data.softwareTeam.id !== "string") {
     add({
       code: "invalid_snapshot_data",
       severity: "critical",
-      target: "snapshot.rig",
-      message: "Snapshot is missing the rig record needed for restore.",
+      target: "snapshot.softwareTeam",
+      message: "Snapshot is missing the SoftwareTeam record needed for restore.",
       remediation: "Capture a new snapshot or restore from a structurally valid snapshot.",
     });
   }
@@ -97,7 +97,7 @@ export function validatePreRestore(
         logicalId: node.logicalId,
         target: "checkpoint",
         message: `Checkpoint exists for ${node.logicalId}, but the node has no cwd to receive it.`,
-        remediation: "Update the rig spec to include a cwd for this node, then capture a new snapshot or restore manually.",
+        remediation: "Update the SoftwareTeam spec to include a cwd for this node, then capture a new snapshot or restore manually.",
       });
     }
 
@@ -189,14 +189,14 @@ export function validatePreRestore(
 
   const servicesRecord = opts.servicesRecord ?? null;
   if (servicesRecord) {
-    if (pathLike(servicesRecord.rigRoot) && !exists(servicesRecord.rigRoot)) {
+    if (pathLike(servicesRecord.softwareTeamRoot) && !exists(servicesRecord.softwareTeamRoot)) {
       add({
-        code: "service_rig_root_missing",
+        code: "service_software_team_root_missing",
         severity: "critical",
-        target: "services.rigRoot",
-        path: servicesRecord.rigRoot,
-        message: `Service rig root is missing: ${servicesRecord.rigRoot}`,
-        remediation: "Restore the service rig root or update the services record before retrying restore.",
+        target: "services.softwareTeamRoot",
+        path: servicesRecord.softwareTeamRoot,
+        message: `Service SoftwareTeam root is missing: ${servicesRecord.softwareTeamRoot}`,
+        remediation: "Restore the service SoftwareTeam root or update the services record before retrying restore.",
       });
     }
     if (pathLike(servicesRecord.composeFile) && !exists(servicesRecord.composeFile)) {

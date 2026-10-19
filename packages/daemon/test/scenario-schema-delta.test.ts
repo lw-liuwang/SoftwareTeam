@@ -72,7 +72,7 @@ describe("D1 — env.stub_scripts shape (per-seat script map)", () => {
   });
 });
 
-describe("D3 — scope expects require env.scope_mission (rig scope audit --mission is required)", () => {
+describe("D3 — scope expects require env.scope_mission (SoftwareTeam scope audit --mission is required)", () => {
   const scopeStep = { expect: { surface: "scope", match: {} } };
 
   it("teaches when a scope expect exists and scope_mission is missing", () => {
@@ -126,8 +126,8 @@ describe("D7 — env.tui opt-in gates the tui_socket surface", () => {
 // D11 (found by the D1 e2e) — `contains` against the SHIPPED text surfaces.
 //
 // containsMatch required a raw string, but the shipped text reads return an
-// OBJECT carrying the text in `content`: `rig capture --json` =>
-// {ok, sessionName, content, lines}; `rig transcript --json` =>
+// OBJECT carrying the text in `content`: `SoftwareTeam capture --json` =>
+// {ok, sessionName, content, lines}; `SoftwareTeam transcript --json` =>
 // {session, lines, content, ingestHealth}. So the contains mode could never
 // match the only two surfaces it exists for (pane/transcript). Uncaught because
 // no landed scenario asserted on a real pane — scenario-02's pane leg is an

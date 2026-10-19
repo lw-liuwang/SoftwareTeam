@@ -4,14 +4,14 @@
 //   - my-queue            → queue_items where destination_session = operator
 //                            AND tier='human-gate'
 //   - human-gate          → queue_items where tier='human-gate'
-//   - fleet               → daemon rig registry + queue, with optional CLI observations
+//   - fleet               → daemon softwareTeam registry + queue, with optional CLI observations
 //   - active-work         → queue_items where state in (pending, in-progress,
 //                            blocked) sorted by priority
 //   - recent-ships        → queue_items where state in (done, handed-off)
 //                            ORDER BY ts_updated DESC LIMIT 10
 //   - recently-active     → PL-004 Phase B ViewProjector built-in view
 //   - recent-observations → stream_items table (Phase A daemon-backed source)
-//                            with ~/.openrig/stream/<date>.jsonl as graceful
+//                            with ~/.softwareteam/stream/<date>.jsonl as graceful
 //                            degradation fallback
 //
 // Each row carries the 9-field phone-friendly content model (PRD § Acceptance
@@ -47,7 +47,7 @@ export type MissionControlViewName = (typeof MISSION_CONTROL_VIEWS)[number];
  * all 9 fields.
  *
  * 9 fields verbatim from PRD:
- *   1. rig/mission name
+ *   1. softwareTeam/mission name
  *   2. current phase
  *   3. active/idle/attention/blocked/degraded
  *   4. next-action
@@ -58,7 +58,7 @@ export type MissionControlViewName = (typeof MISSION_CONTROL_VIEWS)[number];
  *   9. evidence link
  */
 export interface CompactStatusRow {
-  rigOrMissionName: string;
+  softwareTeamOrMissionName: string;
   currentPhase: string | null;
   state: "active" | "idle" | "attention" | "blocked" | "degraded";
   nextAction: string | null;
@@ -79,13 +79,13 @@ export interface MissionControlReadResult {
   viewName: MissionControlViewName;
   rows: CompactStatusRow[];
   /**
-   * Per-view metadata. Includes "rigs running stale CLI" indicator on
+   * Per-view metadata. Includes "softwareTeams running stale CLI" indicator on
    * the fleet view (sub-clause 4 of graceful-degradation acceptance).
    */
   meta: {
     rowCount: number;
-    rigsRunningStaleCli?: number;
-    rigsWithUnknownCliCapabilities?: number;
+    softwareTeamsRunningStaleCli?: number;
+    softwareTeamsWithUnknownCliCapabilities?: number;
     degradedFields?: string[];
     sourceFallback?: string;
   };
@@ -133,7 +133,7 @@ export class MissionControlReadLayer {
   /** V0.3.1 slice 05 — public getter for the resolved operator seat
    *  session. Route handlers (listDestinations, audit history) read
    *  this so the picker + audit filter always offer the configured
-   *  operator seat even when the kernel rig isn't booted yet. */
+   *  operator seat even when the kernel softwareTeam isn't booted yet. */
   getDefaultOperatorSession(): string {
     if (this.defaultOperatorSession) return this.defaultOperatorSession;
     const registry = loadHumanRegistry();
@@ -165,7 +165,7 @@ export class MissionControlReadLayer {
   private readMyQueue(operatorSession: string): MissionControlReadResult {
     if (!operatorSession) return {
       viewName: "my-queue", rows: [],
-      meta: { rowCount: 0, degradedFields: ["operator identity unavailable or ambiguous: inspect rig gateway human list --json and select an address"] },
+      meta: { rowCount: 0, degradedFields: ["operator identity unavailable or ambiguous: inspect SoftwareTeam gateway human list --json and select an address"] },
     };
     const items = this.queueRepo.list({
       destinationSession: operatorSession,
@@ -201,8 +201,8 @@ export class MissionControlReadLayer {
       rows,
       meta: {
         rowCount: rows.length,
-        rigsRunningStaleCli: fleet.staleCliCount,
-        rigsWithUnknownCliCapabilities: fleet.unknownCliCount,
+        softwareTeamsRunningStaleCli: fleet.staleCliCount,
+        softwareTeamsWithUnknownCliCapabilities: fleet.unknownCliCount,
         degradedFields: fleet.degradedFields.length > 0 ? fleet.degradedFields : undefined,
         sourceFallback: fleet.sourceFallback ?? undefined,
       },
@@ -283,7 +283,7 @@ function qitemToRow(
   const nextAction = q.state === "blocked" ? `unblock: ${q.blockedOn ?? "external-gate"}` : null;
   const pendingHumanDecision = q.tier === "human-gate" ? `${q.priority} human-gate item` : null;
   return {
-    rigOrMissionName: q.destinationSession,
+    softwareTeamOrMissionName: q.destinationSession,
     currentPhase: q.tier ?? null,
     state,
     nextAction,
@@ -325,7 +325,7 @@ function qitemStateToCompactState(state: QueueState): CompactStatusRow["state"] 
 
 function fleetRowToCompactRow(r: FleetRollupRow): CompactStatusRow {
   return {
-    rigOrMissionName: r.rigName,
+    softwareTeamOrMissionName: r.softwareTeamName,
     currentPhase: r.lifecycleState ?? null,
     state: r.activityState,
     nextAction: r.attentionReason ?? null,
@@ -335,7 +335,7 @@ function fleetRowToCompactRow(r: FleetRollupRow): CompactStatusRow {
     confidenceFreshness: r.cliVersionLabel,
     evidenceLink: null,
     qitemId: null,
-    rawSourceRef: r.rigName,
+    rawSourceRef: r.softwareTeamName,
   };
 }
 
@@ -349,8 +349,8 @@ function builtinViewRowToCompactRow(
     return String(v);
   };
   return {
-    rigOrMissionName:
-      get("destination_session") ?? get("rig_name") ?? get("rigName") ?? viewName,
+    softwareTeamOrMissionName:
+      get("destination_session") ?? get("software_team_name") ?? get("softwareTeamName") ?? viewName,
     currentPhase: get("tier") ?? get("state") ?? null,
     state: "idle",
     nextAction: null,
@@ -366,7 +366,7 @@ function builtinViewRowToCompactRow(
 
 function streamItemToCompactRow(s: StreamItem): CompactStatusRow {
   return {
-    rigOrMissionName: s.sourceSession,
+    softwareTeamOrMissionName: s.sourceSession,
     currentPhase: s.hintType ?? null,
     state: s.hintUrgency === "critical" ? "attention" : "idle",
     nextAction: s.hintDestination ?? null,

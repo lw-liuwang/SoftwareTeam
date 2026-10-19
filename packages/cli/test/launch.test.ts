@@ -1,4 +1,4 @@
-// OPR.0.3.4.11 — CLI rig launch --seats tests.
+// OPR.0.3.4.11 — CLI SoftwareTeam launch --seats tests.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { launchCommand } from "../src/commands/launch.js";
@@ -40,7 +40,7 @@ function makeDeps(clientResponses: Record<string, { status: number; data: unknow
   };
 }
 
-describe("rig launch --seats", () => {
+describe("SoftwareTeam launch --seats", () => {
   let logs: string[];
   let errors: string[];
 
@@ -72,10 +72,10 @@ describe("rig launch --seats", () => {
     });
 
     const cmd = launchCommand(deps);
-    await cmd.parseAsync(["node", "rig", "rig-1", "--seats", "dev.driver,dev.guard", "--hold-reason", "codex auth expired"]);
+    await cmd.parseAsync(["node", "softwareTeam", "software-team-1", "--seats", "dev.driver,dev.guard", "--hold-reason", "codex auth expired"]);
 
     expect(deps._client.post).toHaveBeenCalledWith(
-      "/api/rigs/rig-1/nodes/launch-subset",
+      "/api/software-teams/software-team-1/nodes/launch-subset",
       { seats: ["dev.driver", "dev.guard"], holdReason: "codex auth expired" },
       { timeoutMs: 120_000 },
     );
@@ -88,9 +88,9 @@ describe("rig launch --seats", () => {
     const fragment = join(directory, "member.yaml");
     writeFileSync(fragment, "member:\n  id: pi\n  runtime: pi\n  agent_ref: local:agent\n  profile: default\n  cwd: /project\n");
     const deps = makeDeps({ "dev.pi/launch": { status: 201, data: { ok: true, nodeId: "same-node", logicalId: "dev.pi", status: "launched" } } });
-    await launchCommand(deps).parseAsync(["node", "rig", "rig-1", "dev.pi", "--retry-startup-from", fragment, "--rig-root", directory]);
-    expect(deps._client.post).toHaveBeenCalledWith("/api/rigs/rig-1/nodes/dev.pi/launch", {
-      retryStartupFrom: { member: { id: "pi", runtime: "pi", agent_ref: "local:agent", profile: "default", cwd: "/project" }, rigRoot: directory },
+    await launchCommand(deps).parseAsync(["node", "softwareTeam", "software-team-1", "dev.pi", "--retry-startup-from", fragment, "--software-team-root", directory]);
+    expect(deps._client.post).toHaveBeenCalledWith("/api/software-teams/software-team-1/nodes/dev.pi/launch", {
+      retryStartupFrom: { member: { id: "pi", runtime: "pi", agent_ref: "local:agent", profile: "default", cwd: "/project" }, softwareTeamRoot: directory },
     }, { timeoutMs: 120_000 });
     expect(logs.join("\n")).toContain("Launched node dev.pi");
     expect(process.exitCode).toBeUndefined();
@@ -98,7 +98,7 @@ describe("rig launch --seats", () => {
 
   it.each([["--snapshot-id", "s"], ["--seats", "dev.pi"], ["--plan"], ["--hold-reason", "reason"]])("refuses ambiguous retry options %j before a request", async (...extra) => {
     const deps = makeDeps({});
-    await launchCommand(deps).parseAsync(["node", "rig", "rig-1", "dev.pi", "--retry-startup-from", "/absent", "--rig-root", "/project", ...extra]);
+    await launchCommand(deps).parseAsync(["node", "softwareTeam", "software-team-1", "dev.pi", "--retry-startup-from", "/absent", "--software-team-root", "/project", ...extra]);
     expect(deps._client.post).not.toHaveBeenCalled();
     expect(process.exitCode).toBe(1);
   });
@@ -108,7 +108,7 @@ describe("rig launch --seats", () => {
     const fragment = join(directory, "member.json");
     writeFileSync(fragment, JSON.stringify({ id: "pi" }));
     const deps = makeDeps({ "dev.pi/launch": { status: 409, data: { ok: false, code: "first_start_retry_refused", message: "Seat is still bound" } } });
-    await launchCommand(deps).parseAsync(["node", "rig", "rig-1", "dev.pi", "--retry-startup-from", fragment, "--rig-root", directory]);
+    await launchCommand(deps).parseAsync(["node", "softwareTeam", "software-team-1", "dev.pi", "--retry-startup-from", fragment, "--software-team-root", directory]);
     expect(process.exitCode).toBe(1);
     expect(errors.join("\n")).toContain("Seat is still bound");
     expect(logs.join("\n")).not.toContain("Launched");
@@ -134,12 +134,12 @@ describe("rig launch --seats", () => {
     deps._client.get.mockResolvedValue({ status: 200, data: { version: "0.6.8" } });
 
     await launchCommand(deps).parseAsync([
-      "node", "rig", "rig-1", "--seats", "dev.driver", "--hold-reason", "operator hold", "--plan",
+      "node", "softwareTeam", "software-team-1", "--seats", "dev.driver", "--hold-reason", "operator hold", "--plan",
     ]);
 
     expect(deps._client.get).toHaveBeenCalledWith("/api/health-summary/version");
     expect(deps._client.post).toHaveBeenCalledWith(
-      "/api/rigs/rig-1/nodes/launch-subset",
+      "/api/software-teams/software-team-1/nodes/launch-subset",
       { seats: ["dev.driver"], holdReason: "operator hold", plan: true },
       undefined,
     );
@@ -156,7 +156,7 @@ describe("rig launch --seats", () => {
     const deps = makeDeps({ "launch-subset": { status: 201, data: { ok: true, launched: [{ nodeId: "n1", logicalId: "dev.driver", status: "fresh" }] } } });
     deps._client.get.mockResolvedValue(versionAnswer);
 
-    await launchCommand(deps).parseAsync(["node", "rig", "rig-1", "--seats", "dev.driver", "--plan", "--json"]);
+    await launchCommand(deps).parseAsync(["node", "softwareTeam", "software-team-1", "--seats", "dev.driver", "--plan", "--json"]);
 
     expect(deps._client.post).not.toHaveBeenCalled();
     expect(process.exitCode).toBe(1);
@@ -171,7 +171,7 @@ describe("rig launch --seats", () => {
       ? { status: 200, data: { status: "ok", semver: "0.6.4-rc.1" } }
       : { status: 200, data: { version: "unknown" } });
 
-    await launchCommand(deps).parseAsync(["node", "rig", "rig-1", "--seats", "dev.driver", "--plan"]);
+    await launchCommand(deps).parseAsync(["node", "softwareTeam", "software-team-1", "--seats", "dev.driver", "--plan"]);
 
     expect(deps._client.post).toHaveBeenCalledOnce();
     expect(logs.join("\n")).toContain("Plan only; no changes made.");
@@ -180,20 +180,20 @@ describe("rig launch --seats", () => {
 
   it("names the version-read failure when it refuses --plan locally", async () => {
     const deps = makeDeps({});
-    deps._client.get.mockRejectedValue(new Error("connect ECONNREFUSED 127.0.0.1:7433"));
+    deps._client.get.mockRejectedValue(new Error("connect ECONNREFUSED 127.0.0.1:7434"));
 
-    await launchCommand(deps).parseAsync(["node", "rig", "rig-1", "--seats", "dev.driver", "--plan"]);
+    await launchCommand(deps).parseAsync(["node", "softwareTeam", "software-team-1", "--seats", "dev.driver", "--plan"]);
 
     expect(deps._client.post).not.toHaveBeenCalled();
     expect(process.exitCode).toBe(1);
-    expect(errors.join("\n")).toContain("(version read: connect ECONNREFUSED 127.0.0.1:7433)");
+    expect(errors.join("\n")).toContain("(version read: connect ECONNREFUSED 127.0.0.1:7434)");
   });
 
   it("warns that the daemon may have acted when a --plan request gets a 409 launch answer", async () => {
     const deps = makeDeps({ "launch-subset": { status: 409, data: { ok: false, launched: [{ nodeId: "n1", logicalId: "dev.driver", status: "attention_required" }] } } });
     deps._client.get.mockResolvedValue({ status: 200, data: { status: "ok", semver: "0.6.8" } });
 
-    await launchCommand(deps).parseAsync(["node", "rig", "rig-1", "--seats", "dev.driver", "--plan"]);
+    await launchCommand(deps).parseAsync(["node", "softwareTeam", "software-team-1", "--seats", "dev.driver", "--plan"]);
 
     expect(process.exitCode).toBe(1);
     expect(errors.join("\n")).toContain("did not return a plan");
@@ -203,7 +203,7 @@ describe("rig launch --seats", () => {
     const deps = makeDeps({ "launch-subset": { status: 404, data: { ok: false, code: "no_matching_nodes", error: "no seats match dev.typo" } } });
     deps._client.get.mockResolvedValue({ status: 200, data: { status: "ok", semver: "0.6.8" } });
 
-    await launchCommand(deps).parseAsync(["node", "rig", "rig-1", "--seats", "dev.typo", "--plan"]);
+    await launchCommand(deps).parseAsync(["node", "softwareTeam", "software-team-1", "--seats", "dev.typo", "--plan"]);
 
     expect(process.exitCode).toBe(1);
     expect(errors.join("\n")).toContain("no seats match dev.typo");
@@ -216,7 +216,7 @@ describe("rig launch --seats", () => {
     const deps = makeDeps({ "launch-subset": { status: 201, data: launched } });
     deps._client.get.mockResolvedValue({ status: 200, data: { version: "0.6.8" } });
 
-    await launchCommand(deps).parseAsync(["node", "rig", "rig-1", "--seats", "dev.driver", "--plan", ...extra]);
+    await launchCommand(deps).parseAsync(["node", "softwareTeam", "software-team-1", "--seats", "dev.driver", "--plan", ...extra]);
 
     expect(process.exitCode).toBe(1);
     expect(errors.join("\n")).toContain("did not return a plan");
@@ -244,12 +244,12 @@ describe("rig launch --seats", () => {
     deps._client.get.mockResolvedValue({ status: 200, data: { version: "0.6.8" } });
 
     await launchCommand(deps).parseAsync([
-      "node", "rig", "rig-1", "dev.driver", "--plan",
+      "node", "softwareTeam", "software-team-1", "dev.driver", "--plan",
     ]);
 
     expect(deps._client.get).toHaveBeenCalledWith("/api/health-summary/version");
     expect(deps._client.post).toHaveBeenCalledWith(
-      "/api/rigs/rig-1/nodes/launch-subset",
+      "/api/software-teams/software-team-1/nodes/launch-subset",
       { seats: ["dev.driver"], plan: true, nonTargetMode: "unchanged" },
       undefined,
     );
@@ -261,7 +261,7 @@ describe("rig launch --seats", () => {
   it("refuses --hold-reason with single-target --plan form (#887)", async () => {
     const deps = makeDeps({});
     await launchCommand(deps).parseAsync([
-      "node", "rig", "rig-1", "dev.driver", "--plan", "--hold-reason", "hold other seats",
+      "node", "softwareTeam", "software-team-1", "dev.driver", "--plan", "--hold-reason", "hold other seats",
     ]);
     expect(errors.join("\n")).toContain("single-seat launch never changes non-targets");
     expect(process.exitCode).toBe(1);
@@ -282,12 +282,12 @@ describe("rig launch --seats", () => {
     deps._client.get.mockResolvedValue({ status: 200, data: { version: "0.6.8" } });
 
     await launchCommand(deps).parseAsync([
-      "node", "rig", "rig-1", "dev.driver", "--seats", "dev.driver,dev.guard", "--plan", "--hold-reason", "hold other seats",
+      "node", "softwareTeam", "software-team-1", "dev.driver", "--seats", "dev.driver,dev.guard", "--plan", "--hold-reason", "hold other seats",
     ]);
 
     expect(errors.join("\n")).not.toContain("single-seat launch never changes non-targets");
     expect(deps._client.post).toHaveBeenCalledWith(
-      "/api/rigs/rig-1/nodes/launch-subset",
+      "/api/software-teams/software-team-1/nodes/launch-subset",
       { seats: ["dev.driver", "dev.guard"], plan: true, holdReason: "hold other seats" },
       undefined,
     );
@@ -313,7 +313,7 @@ describe("rig launch --seats", () => {
     deps._client.get.mockResolvedValue({ status: 200, data: { version: "0.6.8" } });
 
     await launchCommand(deps).parseAsync([
-      "node", "rig", "rig-1", "dev.driver", "--plan", ...extra,
+      "node", "softwareTeam", "software-team-1", "dev.driver", "--plan", ...extra,
     ]);
 
     expect(process.exitCode).toBe(1);
@@ -325,7 +325,7 @@ describe("rig launch --seats", () => {
   it("refuses empty filtered --seats with --plan without sending requests (#887)", async () => {
     const deps = makeDeps({});
     await launchCommand(deps).parseAsync([
-      "node", "rig", "rig-1", "dev.driver", "--seats", ",,,", "--plan",
+      "node", "softwareTeam", "software-team-1", "dev.driver", "--seats", ",,,", "--plan",
     ]);
     expect(errors.join("\n")).toContain("--seats requires a non-empty comma-separated list of seat IDs");
     expect(deps._client.post).not.toHaveBeenCalled();
@@ -341,11 +341,11 @@ describe("rig launch --seats", () => {
     });
 
     await launchCommand(deps).parseAsync([
-      "node", "rig", "rig-1", "dev.driver", "--seats", ",,,",
+      "node", "softwareTeam", "software-team-1", "dev.driver", "--seats", ",,,",
     ]);
 
     expect(deps._client.post).toHaveBeenCalledWith(
-      "/api/rigs/rig-1/nodes/dev.driver/launch",
+      "/api/software-teams/software-team-1/nodes/dev.driver/launch",
       {},
       { timeoutMs: 120_000 },
     );
@@ -367,7 +367,7 @@ describe("rig launch --seats", () => {
     });
 
     const cmd = launchCommand(deps);
-    await cmd.parseAsync(["node", "rig", "rig-1", "--seats", "dev.driver,dev.guard,dev.reviewer"]);
+    await cmd.parseAsync(["node", "softwareTeam", "software-team-1", "--seats", "dev.driver,dev.guard,dev.reviewer"]);
 
     expect(logs.some((l) => l.includes("Launched") && l.includes("dev.driver"))).toBe(true);
     expect(logs.some((l) => l.includes("Held") && l.includes("dev.guard") && l.includes("codex auth expired"))).toBe(true);
@@ -392,7 +392,7 @@ describe("rig launch --seats", () => {
       },
     });
     const cmd = launchCommand(deps);
-    await cmd.parseAsync(["node", "rig", "rig-1", "--seats", "dev.driver,dev.guard"]);
+    await cmd.parseAsync(["node", "softwareTeam", "software-team-1", "--seats", "dev.driver,dev.guard"]);
     // The running seat is Launched; the awaiting-decision seat is NOT reported as launched.
     expect(logs.some((l) => l.includes("Launched") && l.includes("dev.driver"))).toBe(true);
     expect(logs.some((l) => l.includes("Launched") && l.includes("dev.guard"))).toBe(false);
@@ -409,22 +409,22 @@ describe("rig launch --seats", () => {
       },
     });
     const cmd = launchCommand(deps);
-    await cmd.parseAsync(["node", "rig", "rig-1", "dev.driver"]);
+    await cmd.parseAsync(["node", "softwareTeam", "software-team-1", "dev.driver"]);
     expect(logs.some((l) => l.includes("Launched node"))).toBe(false);
     expect(errors.some((l) => l.includes("--fresh"))).toBe(true);
     expect(process.exitCode).toBe(1);
   });
 
   it.each([["dev.driver"], ["--seats", "dev.driver"]])("explains a missing snapshot for launch %j", async (...args) => {
-    const message = "No usable snapshot for rig rig-1";
+    const message = "No usable snapshot for SoftwareTeam software-team-1";
     const deps = makeDeps({
-      "/api/rigs/rig-1/nodes/": {
+      "/api/software-teams/software-team-1/nodes/": {
         status: 404,
         data: { ok: false, code: "no_usable_snapshot", message },
       },
     });
 
-    await launchCommand(deps).parseAsync(["node", "rig", "rig-1", ...args]);
+    await launchCommand(deps).parseAsync(["node", "softwareTeam", "software-team-1", ...args]);
 
     expect(errors).toContain(message);
     expect(logs.some((line) => line.includes("Launched"))).toBe(false);
@@ -434,7 +434,7 @@ describe("rig launch --seats", () => {
   it("requires nodeRef or --seats", async () => {
     const deps = makeDeps({});
     const cmd = launchCommand(deps);
-    await cmd.parseAsync(["node", "rig", "rig-1"]);
+    await cmd.parseAsync(["node", "softwareTeam", "software-team-1"]);
 
     expect(errors.some((l) => l.includes("--seats"))).toBe(true);
     expect(process.exitCode).toBe(1);
@@ -446,7 +446,7 @@ describe("rig launch --seats", () => {
         status: 200,
         data: {
           ok: true,
-          rigId: "rig-1",
+          softwareTeamId: "software-team-1",
           nodeId: "n1",
           logicalId: "dev.driver",
           code: "already_running",
@@ -458,7 +458,7 @@ describe("rig launch --seats", () => {
     });
 
     const cmd = launchCommand(deps);
-    await cmd.parseAsync(["node", "rig", "rig-1", "dev.driver"]);
+    await cmd.parseAsync(["node", "softwareTeam", "software-team-1", "dev.driver"]);
 
     expect(logs.some((l) => l.includes("already running"))).toBe(true);
     expect(logs.some((l) => l.includes("Launched"))).toBe(false);
@@ -468,7 +468,7 @@ describe("rig launch --seats", () => {
     const deps = makeDeps({});
 
     await launchCommand(deps).parseAsync([
-      "node", "rig", "rig-1", "dev.driver", "--hold-reason", "hold everyone else",
+      "node", "softwareTeam", "software-team-1", "dev.driver", "--hold-reason", "hold everyone else",
     ]);
 
     expect(deps._client.post).not.toHaveBeenCalled();
@@ -493,7 +493,7 @@ describe("rig launch --seats", () => {
       },
     });
     const cmd = launchCommand(deps);
-    await cmd.parseAsync(["node", "rig", "rig-1", "--seats", "dev.driver"]);
+    await cmd.parseAsync(["node", "softwareTeam", "software-team-1", "--seats", "dev.driver"]);
     expect(errors.some((l) => l.includes("Warning") && l.includes("liveness_probe_unknown") && l.includes("dev.driver"))).toBe(true);
     expect(process.exitCode).toBeUndefined();
   });
@@ -504,7 +504,7 @@ describe("rig launch --seats", () => {
         status: 201,
         data: {
           ok: true,
-          rigId: "rig-1",
+          softwareTeamId: "software-team-1",
           nodeId: "n1",
           logicalId: "dev.driver",
           launched: [{ nodeId: "n1", logicalId: "dev.driver", status: "fresh" }],
@@ -524,7 +524,7 @@ describe("rig launch --seats", () => {
       },
     });
     const cmd = launchCommand(deps);
-    await cmd.parseAsync(["node", "rig", "rig-1", "dev.driver"]);
+    await cmd.parseAsync(["node", "softwareTeam", "software-team-1", "dev.driver"]);
     expect(logs.some((l) => l.includes("Launched node") && l.includes("dev.driver"))).toBe(true);
     expect(logs.some((l) => l.includes("snap-manual") && l.includes("manual") && l.includes("explicit"))).toBe(true);
     expect(logs.some((l) => l.includes("operator selected this exact restore-usable snapshot"))).toBe(true);
@@ -548,7 +548,7 @@ describe("rig launch --seats", () => {
     });
 
     const cmd = launchCommand(deps);
-    await cmd.parseAsync(["node", "rig", "rig-1", "--seats", "dev.driver,typo.seat"]);
+    await cmd.parseAsync(["node", "softwareTeam", "software-team-1", "--seats", "dev.driver,typo.seat"]);
 
     expect(errors.some((l) => l.includes("Unmatched") && l.includes("typo.seat"))).toBe(true);
     expect(process.exitCode).toBe(1);

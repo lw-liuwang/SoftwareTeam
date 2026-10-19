@@ -41,7 +41,7 @@ function listenStateServer(path: string): Promise<net.Server> {
     conn.on("error", () => {});
     conn.on("data", () => {
       // reply then END: a half-open connection would hang server.close() in cleanup
-      conn.end(JSON.stringify({ ok: true, screen: "rigs", drill: [] }) + "\n");
+      conn.end(JSON.stringify({ ok: true, screen: "softwareTeams", drill: [] }) + "\n");
     });
   });
   servers.push(server);
@@ -178,24 +178,24 @@ describe("D7 — provisioning is wired THROUGH runScenarioFile (opt-in, torn dow
       readEnv: upEnv, baseUrl: "http://127.0.0.1:1",
       sigterm: async () => {}, restart: async () => {}, stop: async () => {},
     });
-    // a rig bin that succeeds for `up` so provisioning is reached
-    const fakeRig = join(d, "rig.mjs");
-    writeFileSync(fakeRig, 'process.stdout.write(JSON.stringify({rigId:"r1",rigName:"scn-tui"}));\n');
+    // a softwareTeam bin that succeeds for `up` so provisioning is reached
+    const fakeSoftwareTeam = join(d, "softwareTeam.mjs");
+    writeFileSync(fakeSoftwareTeam, 'process.stdout.write(JSON.stringify({softwareTeamId:"r1",softwareTeamName:"scn-tui"}));\n');
 
     const result = await runScenarioFile(scenarioPath, {
-      rigBin: fakeRig,
+      softwareTeamBin: fakeSoftwareTeam,
       baseEnv: { HOME: d, PATH: process.env.PATH, TERM: "xterm" },
       daemon: fakeDaemon as never,
       spawnTui: (env) => {
         spawnedWith = env;
         // start answering `state` immediately at the path the pipeline chose
-        void listenStateServer(env.OPENRIG_TUI_SOCKET!);
+        void listenStateServer(env.SOFTWARETEAM_TUI_SOCKET!);
         return proc;
       },
       deps: { defaults: { withinMs: 2000, pollIntervalMs: 20 } },
     });
 
-    expect(spawnedWith?.OPENRIG_TUI_SOCKET).toMatch(/tui\.sock$/);
+    expect(spawnedWith?.SOFTWARETEAM_TUI_SOCKET).toMatch(/tui\.sock$/);
     expect(result.verdict).toBe("PASS"); // the tui_socket expect read a real state reply
     expect(proc.killed).toBe(true);      // torn down on the success path
   });
@@ -213,11 +213,11 @@ describe("D7 — provisioning is wired THROUGH runScenarioFile (opt-in, torn dow
     writeFileSync(scenarioPath, [
       "scenario: no-tui", "topology: ./topo.yaml", "steps:", "  - up: {}", "",
     ].join("\n"));
-    const fakeRig = join(d, "rig.mjs");
-    writeFileSync(fakeRig, 'process.stdout.write("{}");\n');
+    const fakeSoftwareTeam = join(d, "softwareTeam.mjs");
+    writeFileSync(fakeSoftwareTeam, 'process.stdout.write("{}");\n');
     let spawned = false;
     await runScenarioFile(scenarioPath, {
-      rigBin: fakeRig,
+      softwareTeamBin: fakeSoftwareTeam,
       baseEnv: { HOME: d, PATH: process.env.PATH, TERM: "xterm" },
       daemon: (async () => ({
         readEnv: { PATH: process.env.PATH }, baseUrl: "http://127.0.0.1:1",
@@ -246,7 +246,7 @@ describe("D7 — the FAILURE matrix crosses runScenarioFile (named outcome + tea
       "steps:", "  - up: {}",
       "  - expect: { surface: tui_socket, within: 1s, match: { ok: true } }", "",
     ].join("\n"));
-    writeFileSync(join(d, "rig.mjs"), 'process.stdout.write(JSON.stringify({rigId:"r1",rigName:"scn-tuifail"}));\n');
+    writeFileSync(join(d, "softwareTeam.mjs"), 'process.stdout.write(JSON.stringify({softwareTeamId:"r1",softwareTeamName:"scn-tuifail"}));\n');
     return d;
   };
 
@@ -257,7 +257,7 @@ describe("D7 — the FAILURE matrix crosses runScenarioFile (named outcome + tea
     const idx = daemonStops.length - 1;
     return {
       spawn: (async (scaffold: { env: Record<string, string | undefined> }) => ({
-        readEnv: { ...scaffold.env, OPENRIG_URL: "http://127.0.0.1:1" },
+        readEnv: { ...scaffold.env, SOFTWARETEAM_URL: "http://127.0.0.1:1" },
         baseUrl: "http://127.0.0.1:1",
         sigterm: async () => {}, restart: async () => {},
         stop: async () => { stops++; daemonStops[idx] = stops; },
@@ -272,13 +272,13 @@ describe("D7 — the FAILURE matrix crosses runScenarioFile (named outcome + tea
     const proc = fakeProc();
     const dae = spawner();
     const result = await runScenarioFile(join(d, "s.yaml"), {
-      rigBin: join(d, "rig.mjs"),
+      softwareTeamBin: join(d, "softwareTeam.mjs"),
       baseEnv: { HOME: d, PATH: process.env.PATH, TERM: "xterm" },
       daemon: dae.spawn,
       tuiReadiness: { readinessTimeoutMs: 5_000, probeIntervalMs: 20 },
       spawnTui: (env) => {
         // starts listening only after a real delay — the race that aborted #10
-        setTimeout(() => { void listenStateServer(env.OPENRIG_TUI_SOCKET!); }, 150);
+        setTimeout(() => { void listenStateServer(env.SOFTWARETEAM_TUI_SOCKET!); }, 150);
         return proc;
       },
       deps: { defaults: { withinMs: 3000, pollIntervalMs: 25 } },
@@ -297,7 +297,7 @@ describe("D7 — the FAILURE matrix crosses runScenarioFile (named outcome + tea
     let err: TuiProvisioningError | undefined;
     try {
       await runScenarioFile(join(d, "s.yaml"), {
-        rigBin: join(d, "rig.mjs"),
+        softwareTeamBin: join(d, "softwareTeam.mjs"),
         baseEnv: { HOME: d, PATH: process.env.PATH, TERM: "xterm" },
         daemon: dae.spawn,
         tuiReadiness: { readinessTimeoutMs: 5_000, probeIntervalMs: 10 },
@@ -317,7 +317,7 @@ describe("D7 — the FAILURE matrix crosses runScenarioFile (named outcome + tea
     let err: TuiProvisioningError | undefined;
     try {
       await runScenarioFile(join(d, "s.yaml"), {
-        rigBin: join(d, "rig.mjs"),
+        softwareTeamBin: join(d, "softwareTeam.mjs"),
         baseEnv: { HOME: d, PATH: process.env.PATH, TERM: "xterm" },
         daemon: dae.spawn,
         tuiReadiness: { readinessTimeoutMs: 120, probeIntervalMs: 20 },

@@ -9,7 +9,7 @@ import { PiRuntimeAdapter } from "../src/adapters/pi-runtime-adapter.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
 import type { ClaudeResumeAdapter } from "../src/adapters/claude-resume.js";
 import type { CodexResumeAdapter } from "../src/adapters/codex-resume.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { SnapshotRepository } from "../src/domain/snapshot-repository.js";
@@ -34,7 +34,7 @@ describe("contained Claude restore activity resources", () => {
   let fsOps: ClaudeAdapterFsOps;
   let adapter: ClaudeCodeAdapter;
   let tmux: TmuxAdapter;
-  let rigs: RigRepository;
+  let softwareTeams: SoftwareTeamRepository;
   let registry: SessionRegistry;
   let events: EventBus;
   let snapshots: SnapshotRepository;
@@ -43,7 +43,7 @@ describe("contained Claude restore activity resources", () => {
   const token = "74398f0a-6dbd-41b6-897e-e3ed4d36787f";
   const userHook = { matcher: "user-only", hooks: [{ type: "command", command: "echo user-hook" }] };
   const originalSettings = { env: { USER_SETTING: "keep" }, hooks: { Stop: [userHook] } };
-  const shipped = path.resolve(import.meta.dirname, "../assets/plugins/openrig-core/hooks");
+  const shipped = path.resolve(import.meta.dirname, "../assets/plugins/softwareteam-core/hooks");
 
   beforeEach(() => {
     db = createFullTestDb();
@@ -74,9 +74,9 @@ describe("contained Claude restore activity resources", () => {
     vi.spyOn(adapter, "checkReady").mockResolvedValue({ ready: true });
     vi.spyOn(adapter, "launchHarness").mockImplementation(async (_binding, opts) => ({ ok: true,
       ...(opts.resumeToken ? { resumeToken: opts.resumeToken, resumeType: "claude_id" } : {}) }));
-    rigs = new RigRepository(db); registry = new SessionRegistry(db); events = new EventBus(db);
+    softwareTeams = new SoftwareTeamRepository(db); registry = new SessionRegistry(db); events = new EventBus(db);
     snapshots = new SnapshotRepository(db); checkpoints = new CheckpointStore(db);
-    capture = new SnapshotCapture({ db, rigRepo: rigs, sessionRegistry: registry, eventBus: events,
+    capture = new SnapshotCapture({ db, softwareTeamRepo: softwareTeams, sessionRegistry: registry, eventBus: events,
       snapshotRepo: snapshots, checkpointStore: checkpoints });
   });
 
@@ -100,9 +100,9 @@ describe("contained Claude restore activity resources", () => {
       .map((h: any) => h.command as string).filter(c => c.includes("state/claude-activity-hooks/activity-relay.cjs"));
   }
   function seed(pod: boolean, selected = true, runtime = "claude-code") {
-    const rig = rigs.createRig("restore");
-    if (pod) db.prepare("INSERT INTO pods (id, rig_id, label) VALUES (?, ?, ?)").run("pod", rig.id, "P");
-    const node = rigs.addNode(rig.id, pod ? "p.seat" : "seat", { runtime, cwd, ...(pod ? { podId: "pod" } : {}) });
+    const softwareTeam = softwareTeams.createSoftwareTeam("restore");
+    if (pod) db.prepare("INSERT INTO pods (id, software_team_id, label) VALUES (?, ?, ?)").run("pod", softwareTeam.id, "P");
+    const node = softwareTeams.addNode(softwareTeam.id, pod ? "p.seat" : "seat", { runtime, cwd, ...(pod ? { podId: "pod" } : {}) });
     const session = registry.registerSession(node.id, "seat@restore");
     registry.updateStatus(session.id, "running");
     registry.updateResumeToken(session.id, runtime === "codex" ? "codex_id" : runtime === "pi" ? "pi_session_file" : "claude_id", token);
@@ -115,15 +115,15 @@ describe("contained Claude restore activity resources", () => {
     db.prepare("INSERT INTO node_startup_context (node_id, projection_entries_json, resolved_files_json, startup_actions_json, runtime) VALUES (?, ?, ?, ?, ?)")
       .run(node.id, JSON.stringify(entries), JSON.stringify(files), JSON.stringify(actions), runtime);
     const saved = db.prepare("SELECT * FROM node_startup_context WHERE node_id=?").get(node.id);
-    const snap = capture.captureSnapshot(rig.id, "manual");
+    const snap = capture.captureSnapshot(softwareTeam.id, "manual");
     registry.updateStatus(session.id, "exited");
     db.prepare("DELETE FROM bindings WHERE node_id=?").run(node.id);
-    return { rig, node, snap, saved };
+    return { softwareTeam, node, snap, saved };
   }
   function restore(f: ReturnType<typeof seed>, runtimeAdapter: RuntimeAdapter = adapter, beforeResume = () => {}) {
     const claude = { canResume: () => true, resume: vi.fn(async () => { beforeResume(); return { ok: true }; }) } as unknown as ClaudeResumeAdapter;
-    const nodeLauncher = new NodeLauncher({ db, rigRepo: rigs, sessionRegistry: registry, eventBus: events, tmuxAdapter: tmux });
-    const orch = new RestoreOrchestrator({ db, rigRepo: rigs, sessionRegistry: registry, eventBus: events,
+    const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo: softwareTeams, sessionRegistry: registry, eventBus: events, tmuxAdapter: tmux });
+    const orch = new RestoreOrchestrator({ db, softwareTeamRepo: softwareTeams, sessionRegistry: registry, eventBus: events,
       snapshotRepo: snapshots, snapshotCapture: capture, checkpointStore: checkpoints, nodeLauncher, tmuxAdapter: tmux,
       claudeResume: claude, codexResume: { canResume: () => true, resume: async () => ({ ok: true }) } as unknown as CodexResumeAdapter });
     return orch.restore(f.snap.id, { adapters: { [runtimeAdapter.runtime]: runtimeAdapter }, fsOps: { exists: fs.existsSync } });
@@ -158,7 +158,7 @@ describe("contained Claude restore activity resources", () => {
     expect(settings().hooks.Stop).toContainEqual(userHook);
     expect(settings().env).toEqual(originalSettings.env);
     // A poll that does refresh the status line (here a stale collector command) keeps the selected hooks in its write.
-    fs.writeFileSync(settingsPath, JSON.stringify({ ...settings(), statusLine: { type: "command", command: "node /old/.openrig/context-collector.cjs /old/ctx /old/prov" } }));
+    fs.writeFileSync(settingsPath, JSON.stringify({ ...settings(), statusLine: { type: "command", command: "node /old/.softwareteam/context-collector.cjs /old/ctx /old/prov" } }));
     await monitor.pollOnce(); monitor.stop();
     expect(writes.filter(w => w.file === settingsPath).length).toBe(writeCount + 1);
     expect(owned()).toEqual(beforePoll);

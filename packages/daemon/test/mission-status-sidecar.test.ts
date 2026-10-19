@@ -36,7 +36,7 @@ id: OPR.0.4.7
 mission: release-0.4.7
 release: 0.4.7
 stage: wip
-verified: 2026-07-10 against scaffold (rig scope create)
+verified: 2026-07-10 against scaffold (SoftwareTeam scope create)
 created: 2026-07-10
 ---
 

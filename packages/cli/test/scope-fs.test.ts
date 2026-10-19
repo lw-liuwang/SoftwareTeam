@@ -23,7 +23,7 @@ import {
 import { ScopeCliError } from "../src/lib/scope/types.js";
 
 function mktemp(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "rig-scope-test-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "software-team-scope-test-"));
 }
 
 function writeFile(p: string, content: string): void {
@@ -196,24 +196,24 @@ describe("resolveMissionsRoot", () => {
     expect(strict).toThrow(ScopeCliError);
     expect(strict).toThrow("named by --workspace has no missions tree");
     // Dropping the flag does not clear the variable, so the flag's remedy says so.
-    expect(strict).toThrow(/OPENRIG_WORK_ROOT in the environment still applies/);
+    expect(strict).toThrow(/SOFTWARETEAM_WORK_ROOT in the environment still applies/);
   });
 
-  it("strictOverride names OPENRIG_WORK_ROOT, and how to clear it, when the override came from the env", () => {
+  it("strictOverride names SOFTWARETEAM_WORK_ROOT, and how to clear it, when the override came from the env", () => {
     const configuredRoot = mktemp();
     const configuredMissions = path.join(configuredRoot, "missions");
     fs.mkdirSync(configuredMissions);
     const configPath = path.join(configuredRoot, "config.json");
     fs.writeFileSync(configPath, JSON.stringify({ workspace: { slicesRoot: configuredMissions } }));
-    const prior = process.env.OPENRIG_WORK_ROOT;
-    process.env.OPENRIG_WORK_ROOT = mktemp();
+    const prior = process.env.SOFTWARETEAM_WORK_ROOT;
+    process.env.SOFTWARETEAM_WORK_ROOT = mktemp();
     try {
       const strict = () => resolveMissionsRoot({ configPath, strictOverride: true });
-      expect(strict).toThrow("named by OPENRIG_WORK_ROOT has no missions tree");
+      expect(strict).toThrow("named by SOFTWARETEAM_WORK_ROOT has no missions tree");
       expect(strict).toThrow(/unset it to use the configured workspace/);
     } finally {
-      if (prior === undefined) delete process.env.OPENRIG_WORK_ROOT;
-      else process.env.OPENRIG_WORK_ROOT = prior;
+      if (prior === undefined) delete process.env.SOFTWARETEAM_WORK_ROOT;
+      else process.env.SOFTWARETEAM_WORK_ROOT = prior;
     }
   });
 

@@ -62,14 +62,14 @@ describe("Design System Compliance", () => {
   // Test 3: Data displays use monospace font classes
   it("data display components use font-mono for IDs and values", () => {
     // Check key components that display data
-    const rigCard = readFileSync(resolve(SRC_DIR, "components/RigCard.tsx"), "utf-8");
-    expect(rigCard).toContain("font-mono");
+    const softwareTeamCard = readFileSync(resolve(SRC_DIR, "components/SoftwareTeamCard.tsx"), "utf-8");
+    expect(softwareTeamCard).toContain("font-mono");
 
     const snapshotPanel = readFileSync(resolve(SRC_DIR, "components/SnapshotPanel.tsx"), "utf-8");
     expect(snapshotPanel).toContain("font-mono");
 
-    const rigNode = readFileSync(resolve(SRC_DIR, "components/RigNode.tsx"), "utf-8");
-    expect(rigNode).toContain("font-mono");
+    const softwareTeamNode = readFileSync(resolve(SRC_DIR, "components/SoftwareTeamNode.tsx"), "utf-8");
+    expect(softwareTeamNode).toContain("font-mono");
 
     // V1 polish slice Phase 5.1 P5.1-1: NodeDetailPanel.tsx RETIRED;
     // canonical agent-detail surface is LiveNodeDetails.tsx now (which

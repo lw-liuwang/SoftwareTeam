@@ -55,10 +55,10 @@ export interface LiveRefresh {
 function paneActivity(snap: FleetSnapshot): Map<string, boolean | null | undefined> {
   const map = new Map<string, boolean | null | undefined>();
   for (const host of snap.hosts)
-    for (const rig of host.rigs)
-      for (const pod of rig.pods)
+    for (const softwareTeam of host.softwareTeams)
+      for (const pod of softwareTeam.pods)
         for (const agent of pod.agents)
-          map.set(`agent:${host.name}/${rig.name}/${pod.name}/${agent.name}`, agent.paneActive);
+          map.set(`agent:${host.name}/${softwareTeam.name}/${pod.name}/${agent.name}`, agent.paneActive);
   return map;
 }
 

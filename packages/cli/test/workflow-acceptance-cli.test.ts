@@ -22,8 +22,8 @@ const ACCEPTANCE_SPEC = `workflow:
   version: 1
   entry: { role: producer }
   roles:
-    producer: { preferred_targets: [producer@rig] }
-    gate: { preferred_targets: [gate@rig] }
+    producer: { preferred_targets: [producer@software-team] }
+    gate: { preferred_targets: [gate@software-team] }
   steps:
     - id: produce
       actor_role: producer
@@ -48,9 +48,9 @@ describe("workflow project typed acceptance — real CLI to HTTP boundary", () =
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
     const bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     const queueRepo = new QueueRepository(db, bus, {
-      validateRig: () => true,
+      validateSoftwareTeam: () => true,
       transport: { send: async () => ({ ok: true, verified: true }) },
     });
     queueRepo.attachOutbox(new OutboxHandler(db));
@@ -70,8 +70,8 @@ describe("workflow project typed acceptance — real CLI to HTTP boundary", () =
         resolve();
       });
     });
-    vi.stubEnv("OPENRIG_URL", url);
-    vi.stubEnv("OPENRIG_SESSION_NAME", "gate@rig");
+    vi.stubEnv("SOFTWARETEAM_URL", url);
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "gate@software-team");
     dir = mkdtempSync(join(tmpdir(), "workflow-acceptance-cli-"));
   });
 
@@ -104,11 +104,11 @@ describe("workflow project typed acceptance — real CLI to HTTP boundary", () =
       const command = workflowCommand(deps());
       command.exitOverride();
       await command.parseAsync([
-        "node", "rig", "project",
+        "node", "softwareTeam", "project",
         "--instance", instanceId,
         "--current-packet", packetId,
         "--exit", "done",
-        "--actor-session", "gate@rig",
+        "--actor-session", "gate@software-team",
         "--acceptance-candidate", acceptance.candidate,
         "--acceptance-verdict", acceptance.verdict,
         "--acceptance-evidence-ref", acceptance.evidence,
@@ -134,12 +134,12 @@ describe("workflow project typed acceptance — real CLI to HTTP boundary", () =
   it("advances the matching acceptance and rejects each mismatching field without mutation", async () => {
     const specPath = join(dir, "workflow.yaml");
     writeFileSync(specPath, ACCEPTANCE_SPEC);
-    const created = await runtime.instantiate({ specPath, rootObjective: "accept", createdBySession: "orch@rig" });
+    const created = await runtime.instantiate({ specPath, rootObjective: "accept", createdBySession: "orch@software-team" });
     const projected = await runtime.project({
       instanceId: created.instance.instanceId,
       currentPacketId: created.entryQitemId,
       exit: "handoff",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
     });
     const packetId = projected.nextQitemId!;
 

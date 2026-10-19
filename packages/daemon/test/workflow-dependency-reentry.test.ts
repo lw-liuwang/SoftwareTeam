@@ -16,7 +16,7 @@ const BUILD = `workflow:
   entry: {role: owner}
   loop_guards: {max_hops: 7}
   roles:
-    owner: {preferred_targets: [owner@rig]}
+    owner: {preferred_targets: [owner@software-team]}
   exception_routing: {orchestrator_role: owner}
   steps:
     - id: implement
@@ -46,7 +46,7 @@ const STRAIGHT = `workflow:
   version: 1
   entry: {role: owner}
   roles:
-    owner: {preferred_targets: [owner@rig]}
+    owner: {preferred_targets: [owner@software-team]}
   exception_routing: {orchestrator_role: owner}
   steps:
     - id: a
@@ -76,9 +76,9 @@ describe("dependency graph re-entry through a routed exit", () => {
   let clock: Date | undefined;
   beforeEach(() => {
     db = createDb(); migrate(db, ALL_MIGRATIONS);
-    db.prepare("INSERT INTO rigs(id,name) VALUES('rig','rig')").run();
+    db.prepare("INSERT INTO software_teams(id,name) VALUES('softwareTeam','softwareTeam')").run();
     const bus = new EventBus(db);
-    const queue = new QueueRepository(db, bus, { validateRig: () => true, transport: {
+    const queue = new QueueRepository(db, bus, { validateSoftwareTeam: () => true, transport: {
       send: async () => ({ ok: false, reason: "controlled terminal is stopped" }),
     } });
     queue.attachOutbox(new OutboxHandler(db));
@@ -90,11 +90,11 @@ describe("dependency graph re-entry through a routed exit", () => {
 
   async function start(source: string) {
     const specPath = join(dir, "workflow.yaml"); writeFileSync(specPath, source);
-    const started = await runtime.instantiate({ specPath, rootObjective: "re-run dependents after a routed exit", createdBySession: "owner@rig" });
+    const started = await runtime.instantiate({ specPath, rootObjective: "re-run dependents after a routed exit", createdBySession: "owner@software-team" });
     return { id: started.instance.instanceId, entry: started.entryQitemId };
   }
   const project = (instanceId: string, packet: string, exit: "handoff" | "done" | "failed") =>
-    runtime.project({ instanceId, currentPacketId: packet, actorSession: "owner@rig", exit });
+    runtime.project({ instanceId, currentPacketId: packet, actorSession: "owner@software-team", exit });
   const packetFor = (result: { nextStepIds: string[]; nextQitemIds: string[] }, stepId: string) =>
     result.nextQitemIds[result.nextStepIds.indexOf(stepId)]!;
 

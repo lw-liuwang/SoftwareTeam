@@ -1,5 +1,5 @@
 {
-  "name": "@openrig/cli",
+  "name": "@softwareteam/cli",
   "version": "0.6.12",
   "type": "module",
   "description": "Build your own network of agents from Claude Code, Codex and Pi: persistent teams with roles, shared context and owned work.",
@@ -12,13 +12,13 @@
     "codex",
     "tmux",
     "control-plane",
-    "rig",
+    "softwareTeam",
     "agentspec"
   ],
-  "homepage": "https://openrig.dev",
+  "homepage": "https://github.com/lw-liuwang/SoftwareTeam",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mvschwarz/openrig"
+    "url": "https://github.com/lw-liuwang/SoftwareTeam"
   },
   "license": "Apache-2.0",
   "author": {
@@ -26,11 +26,12 @@
     "url": "https://esoteric.run"
   },
   "bin": {
-    "rig": "dist/bin-wrapper.js",
-    "openrig-tui": "tui/dist/main.js"
+    "SoftwareTeam": "dist/bin-wrapper.js",
+    "softwareteam-tui": "tui/dist/main.js"
   },
   "files": [
     "LICENSE",
+    "NOTICE",
     "dist",
     "daemon",
     "ui",

@@ -7,7 +7,7 @@ import type { StatusDeps } from "./status.js";
 type ShrinkResponse = {
   ok: boolean;
   status?: "ok" | "partial";
-  rigId?: string;
+  softwareTeamId?: string;
   podId?: string;
   namespace?: string;
   removedLogicalIds?: string[];
@@ -26,7 +26,7 @@ type ShrinkResponse = {
 };
 
 export function shrinkCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("shrink").description("Remove an entire pod from a running rig");
+  const cmd = new Command("shrink").description("Remove an entire pod from a running softwareTeam");
   const getDeps = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   async function getClient(deps: StatusDeps): Promise<DaemonClient | null> {
@@ -36,11 +36,11 @@ export function shrinkCommand(depsOverride?: StatusDeps): Command {
   }
 
   cmd
-    .argument("<rigId>", "Target rig ID")
+    .argument("<softwareTeamId>", "Target softwareTeam ID")
     .argument("<podRef>", "Pod namespace or pod ID")
     .option("--fallback <live-seat>", "Reroute active qitems to this running seat before removing the pod")
     .option("--json", "JSON output")
-    .action(async (rigId: string, podRef: string, opts: { fallback?: string; json?: boolean }) => {
+    .action(async (softwareTeamId: string, podRef: string, opts: { fallback?: string; json?: boolean }) => {
       const deps = getDeps();
       const client = await getClient(deps);
       if (!client) {
@@ -50,7 +50,7 @@ export function shrinkCommand(depsOverride?: StatusDeps): Command {
 
       const fallbackQuery = opts.fallback ? `?fallback=${encodeURIComponent(opts.fallback)}` : "";
       const res = await client.delete<ShrinkResponse>(
-        `/api/rigs/${encodeURIComponent(rigId)}/pods/${encodeURIComponent(podRef)}${fallbackQuery}`,
+        `/api/software-teams/${encodeURIComponent(softwareTeamId)}/pods/${encodeURIComponent(podRef)}${fallbackQuery}`,
       );
       if (opts.json) {
         console.log(JSON.stringify(res.data, null, 2));
@@ -70,7 +70,7 @@ export function shrinkCommand(depsOverride?: StatusDeps): Command {
 
       if (res.data.status === "partial") {
         console.log(
-          `Partially removed pod ${res.data.namespace} from rig ${res.data.rigId} (${res.data.removedLogicalIds?.length ?? 0} node(s), ${res.data.sessionsKilled} session killed)`
+          `Partially removed pod ${res.data.namespace} from SoftwareTeam ${res.data.softwareTeamId} (${res.data.removedLogicalIds?.length ?? 0} node(s), ${res.data.sessionsKilled} session killed)`
         );
         for (const node of res.data.nodes ?? []) {
           const icon = node.status === "removed" ? "OK" : "FAIL";
@@ -83,7 +83,7 @@ export function shrinkCommand(depsOverride?: StatusDeps): Command {
       }
 
       console.log(
-        `Removed pod ${res.data.namespace} from rig ${res.data.rigId} (${res.data.removedLogicalIds?.length ?? 0} node(s), ${res.data.sessionsKilled} session killed)`
+        `Removed pod ${res.data.namespace} from SoftwareTeam ${res.data.softwareTeamId} (${res.data.removedLogicalIds?.length ?? 0} node(s), ${res.data.sessionsKilled} session killed)`
       );
       for (const node of res.data.nodes ?? []) {
         if (node.sessionKeptFor) console.log(`  ${node.logicalId}: session kept, owned by ${node.sessionKeptFor}`);

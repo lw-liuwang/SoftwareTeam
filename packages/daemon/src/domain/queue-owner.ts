@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 
 /** The durable session→node binding (the session-registry precedent: latest sessions row
- *  for the canonical name). Canonical session names (dash form, `review-r2@rig`) and node
+ *  for the canonical name). Canonical session names (dash form, `review-r2@software-team`) and node
  *  logical ids (dotted form, `review.r2`) are INDEPENDENT identities — the live fleet has
  *  zero cases where they match — so resolution NEVER string-converts between them. */
 export function resolveSessionNodeId(db: Database.Database, session: string): string | null {

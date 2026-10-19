@@ -1,10 +1,10 @@
-// #188 — the snapshot refresh's private Claude probe (`rigged-refresh-*`) must not outlive the probe.
+// #188 — the snapshot refresh's private Claude probe (`softwareteam-refresh-*`) must not outlive the probe.
 // Real ResumeMetadataRefresher + real TmuxAdapter + real SeatDeliveryGuard over a fixture DB; only the
 // tmux executor is faked, as a tiny in-memory tmux server. No real tmux is touched.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SeatDeliveryGuard, resolveGuardTarget } from "../src/domain/seat-delivery-guard.js";
 import { ResumeMetadataRefresher } from "../src/domain/resume-metadata-refresher.js";
@@ -77,30 +77,30 @@ class FakeTmux {
     this.create(name);
   }
 
-  probes(): string[] { return [...this.sessions.keys()].filter((name) => name.startsWith("rigged-refresh-")); }
+  probes(): string[] { return [...this.sessions.keys()].filter((name) => name.startsWith("softwareteam-refresh-")); }
 }
 
 const fileOps: TmuxFileOps = {
   writeFile: async () => {}, unlink: async () => {},
-  tmpName: () => "/nonexistent/openrig-test-buffer", bufferName: () => "openrig-test-buffer",
+  tmpName: () => "/nonexistent/softwareteam-test-buffer", bufferName: () => "softwareteam-test-buffer",
 };
 
 describe("#188 snapshot refresh probe cleanup", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
   });
   afterEach(() => db.close());
 
-  /** A Claude seat with a resume token, as `rig down` hands it to the refresher. */
+  /** A Claude seat with a resume token, as `SoftwareTeam down` hands it to the refresher. */
   function claudeSeat(pane: string | null) {
-    const rig = rigRepo.createRig("first-project-claude");
-    const node = rigRepo.addNode(rig.id, "dev.check", { role: "checker", runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("first-project-claude");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.check", { role: "checker", runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, "dev-check@first-project-claude");
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-check@first-project-claude", ...(pane ? { tmuxPane: pane } : {}) });
@@ -118,12 +118,12 @@ describe("#188 snapshot refresh probe cleanup", () => {
     const seat = claudeSeat("%7");
     await refresher(tmux).refresh([seat]);
 
-    expect(tmux.commands.some((c) => c.startsWith("tmux new-session") && c.includes("rigged-refresh-"))).toBe(true);
+    expect(tmux.commands.some((c) => c.startsWith("tmux new-session") && c.includes("softwareteam-refresh-"))).toBe(true);
     expect(tmux.probes()).toEqual([]);
   });
 
   it("a fresh server reuses a stale seat binding's pane id: the probe must still be removed", async () => {
-    // The seats' tmux server died; the rig records (and the binding's pane id %1) persisted. The new
+    // The seats' tmux server died; the softwareTeam records (and the binding's pane id %1) persisted. The new
     // server numbers panes from %0 again, so the probe's own pane can carry the stale binding's id.
     const tmux = new FakeTmux(1);
     const seat = claudeSeat("%1");
@@ -137,9 +137,9 @@ describe("#188 snapshot refresh probe cleanup", () => {
     const seat = claudeSeat("%7");
     tmux.onCommand = (command) => {
       if (!command.startsWith("tmux send-keys")) return;
-      const [name, probe] = [...tmux.sessions.entries()].find(([n]) => n.startsWith("rigged-refresh-"))!;
-      const rig = rigRepo.createRig("adopter");
-      const node = rigRepo.addNode(rig.id, "dev.adopted", { role: "worker", runtime: "claude-code" });
+      const [name, probe] = [...tmux.sessions.entries()].find(([n]) => n.startsWith("softwareteam-refresh-"))!;
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("adopter");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.adopted", { role: "worker", runtime: "claude-code" });
       sessionRegistry.updateBinding(node.id, { tmuxSession: name, tmuxPane: probe.pane });
     };
     await expect(refresher(tmux).refresh([seat])).resolves.toBeUndefined();
@@ -153,9 +153,9 @@ describe("#188 snapshot refresh probe cleanup", () => {
     const seat = claudeSeat("%7");
     tmux.onCommand = (command) => {
       if (!command.startsWith("tmux send-keys")) return;
-      const probe = [...tmux.sessions.values()].find((_, i) => [...tmux.sessions.keys()][i]!.startsWith("rigged-refresh-"))!;
-      const rig = rigRepo.createRig("stale-writer");
-      const node = rigRepo.addNode(rig.id, "dev.stale", { role: "worker", runtime: "claude-code" });
+      const probe = [...tmux.sessions.values()].find((_, i) => [...tmux.sessions.keys()][i]!.startsWith("softwareteam-refresh-"))!;
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("stale-writer");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.stale", { role: "worker", runtime: "claude-code" });
       sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-stale@stale-writer", tmuxPane: probe.pane });
     };
     await expect(refresher(tmux).refresh([seat])).resolves.toBeUndefined();
@@ -169,7 +169,7 @@ describe("#188 snapshot refresh probe cleanup", () => {
     const seat = claudeSeat("%7");
     tmux.onCommand = (command) => {
       if (!command.startsWith("tmux send-keys")) return;
-      const probe = [...tmux.sessions.entries()].find(([n]) => n.startsWith("rigged-refresh-"))![1];
+      const probe = [...tmux.sessions.entries()].find(([n]) => n.startsWith("softwareteam-refresh-"))![1];
       probe.pane = "%99";
     };
     await expect(refresher(tmux).refresh([seat])).resolves.toBeUndefined();
@@ -182,10 +182,10 @@ describe("#188 snapshot refresh probe cleanup", () => {
     const tmux = new FakeTmux(40);
     const seat = claudeSeat("%7");
     tmux.onCommand = (command) => {
-      const name = /list-panes -t '=(rigged-refresh-[^':]+):'/.exec(command)?.[1];
+      const name = /list-panes -t '=(softwareteam-refresh-[^':]+):'/.exec(command)?.[1];
       if (!name || tmux.sessions.get(name) === undefined) return;
-      const rig = rigRepo.createRig("adopter");
-      const node = rigRepo.addNode(rig.id, "dev.adopted", { role: "worker", runtime: "claude-code" });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("adopter");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.adopted", { role: "worker", runtime: "claude-code" });
       sessionRegistry.updateBinding(node.id, { tmuxSession: name, tmuxPane: tmux.sessions.get(name)!.pane });
     };
     await expect(refresher(tmux).refresh([seat])).resolves.toBeUndefined();
@@ -200,7 +200,7 @@ describe("#188 snapshot refresh probe cleanup", () => {
     const seat = claudeSeat("%7");
     let replacement: { id: string; pane: string } | undefined;
     tmux.onCommand = (command) => {
-      const name = /list-panes -t '=(rigged-refresh-[^':]+):'/.exec(command)?.[1];
+      const name = /list-panes -t '=(softwareteam-refresh-[^':]+):'/.exec(command)?.[1];
       if (!name || replacement) return;
       tmux.replace(name);
       replacement = { ...tmux.sessions.get(name)! };
@@ -217,7 +217,7 @@ describe("#188 snapshot refresh probe cleanup", () => {
     tmux.listPanesFails = true;
     const seat = claudeSeat("%7");
     tmux.onCommand = (command) => {
-      if (!/list-panes -t '=rigged-refresh-/.test(command) || tmux.sessions.has("unrelated")) return;
+      if (!/list-panes -t '=softwareteam-refresh-/.test(command) || tmux.sessions.has("unrelated")) return;
       tmux.resetServer();
       tmux.create("unrelated"); // the new server hands out the helper's id again
     };
@@ -237,7 +237,7 @@ describe("#188 snapshot refresh probe cleanup", () => {
     // same command; it never kills by name.
     expect(tmux.commands.filter((c) => c.startsWith("tmux kill-session"))).toEqual([]);
     expect(tmux.commands.filter((c) => c.startsWith("tmux if-shell"))).toEqual([
-      expect.stringMatching(/^tmux if-shell -F -t '\$\d+' '#\{&&:#\{==:#\{session_name\},rigged-refresh-[^}]+\},#\{==:#\{session_created\},\d+\}\}'/),
+      expect.stringMatching(/^tmux if-shell -F -t '\$\d+' '#\{&&:#\{==:#\{session_name\},softwareteam-refresh-[^}]+\},#\{==:#\{session_created\},\d+\}\}'/),
     ]);
   });
 });

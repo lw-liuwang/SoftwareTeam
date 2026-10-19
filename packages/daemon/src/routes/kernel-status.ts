@@ -1,4 +1,4 @@
-// V0.3.1 slice 05 kernel-rig-as-default — forward-fix #3 architectural.
+// V0.3.1 slice 05 kernel-software-team-as-default — forward-fix #3 architectural.
 //
 // GET /api/kernel/status — read-only observability surface for the
 // background kernel-boot. Pairs with the architectural decoupling in

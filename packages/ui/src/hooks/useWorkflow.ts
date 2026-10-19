@@ -71,7 +71,7 @@ export interface WorkflowSpecSummary {
   name: string;
   version: string;
   purpose: string | null;
-  targetRig: string | null;
+  targetSoftwareTeam: string | null;
   coordinationTerminalTurnRule: string;
   sourcePath: string;
   cachedAt: string;
@@ -120,7 +120,7 @@ export function useWorkflowSpecs() {
 }
 
 /** GET /api/workflow/:id/trace — instance + full routing trail (the same read
- *  `rig workflow trace` projects; the daemon's read-only continue(), no write). */
+ *  `SoftwareTeam workflow trace` projects; the daemon's read-only continue(), no write). */
 export function useWorkflowTrace(instanceId: string | null) {
   return useQuery({
     queryKey: ["workflow", "trace", instanceId],

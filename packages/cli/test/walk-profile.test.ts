@@ -1,5 +1,5 @@
 // Test-A pre-drive (row 782b467a) — the WALK/PROFILE join: WALK consumes the
-// AUTHORITATIVE composed profile (rig context profile's output, per-piece
+// AUTHORITATIVE composed profile (SoftwareTeam context profile's output, per-piece
 // provenance intact) and reports delivered pieces BY IDENTITY (atomId+address),
 // so the profile piece set and the delivered set are exact-comparable. The
 // piece set is NEVER hand-authored; the smallest glue is a --through-profile
@@ -86,7 +86,7 @@ async function runWalk(port: number, argv: string[], failTransportAt?: number, p
     const program = new Command();
     program.exitOverride();
     program.addCommand(walkCommand(deps));
-    await program.parseAsync(["node", "rig", "walk", ...argv]);
+    await program.parseAsync(["node", "softwareTeam", "walk", ...argv]);
   } catch { /* exitOverride */ } finally {
     exitCode = process.exitCode;
     process.exitCode = undefined;
@@ -96,8 +96,8 @@ async function runWalk(port: number, argv: string[], failTransportAt?: number, p
   return { logs, errLogs, exitCode, transportPayloads, profileRequestUrls };
 }
 
-describe("rig walk --through-profile — the walk/profile join (Test-A)", () => {
-  const ARGS = ["seat@rig", "--through-profile", "packs/world", "--situation", "handover", "--runtime", "claude", "--rig", "r1", "--seat-grant", "s1", "--pace", "0s", "--json"];
+describe("SoftwareTeam walk --through-profile — the walk/profile join (Test-A)", () => {
+  const ARGS = ["seat@software-team", "--through-profile", "packs/world", "--situation", "handover", "--runtime", "claude", "--software-team", "r1", "--seat-grant", "s1", "--pace", "0s", "--json"];
 
   it("IDENTITY EQUALITY: the delivered report equals the profile's piece identity list, in order, never hand-authored", async () => {
     const { logs, exitCode, transportPayloads } = await runWalk(0, ARGS);
@@ -157,7 +157,7 @@ describe("rig walk --through-profile — the walk/profile join (Test-A)", () => 
   });
 
   it("mixing --through and --through-profile is rejected loud before any send", async () => {
-    const { errLogs, exitCode, transportPayloads } = await runWalk(0, ["seat@rig", "--through", "a.md", "--through-profile", "packs/world", "--situation", "fresh"]);
+    const { errLogs, exitCode, transportPayloads } = await runWalk(0, ["seat@software-team", "--through", "a.md", "--through-profile", "packs/world", "--situation", "fresh"]);
     expect(exitCode).toBe(1);
     expect(errLogs.join("\n")).toMatch(/either .*--through|not both|mix/i);
     expect(transportPayloads).toHaveLength(0);

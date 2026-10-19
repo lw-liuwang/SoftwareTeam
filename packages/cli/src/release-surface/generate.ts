@@ -3,7 +3,7 @@
 // Runnable after `npm run build`:
 //   node dist/release-surface/generate.js --from v0.3.1 --to v0.3.2 --out <path>
 // Emits the deterministic release-surface diff to --out (or stdout). Not wired
-// into the shipped `rig` binary (that placement is a 13.3 decision); this is the
+// into the shipped `softwareTeam` binary (that placement is a 13.3 decision); this is the
 // POC proof-artifact generator.
 
 import fs from "node:fs";

@@ -8,7 +8,7 @@ import { parseEnvFile, resolveSecret } from "../src/domain/gateway/slack/secrets
 import { callWebApi, type FetchImpl } from "../src/domain/gateway/slack/slack-api.js";
 
 it("authenticates with unquoted, single-quoted and double-quoted file secrets", async () => {
-  const scratch = mkdtempSync(join(tmpdir(), "openrig-slack-secret-"));
+  const scratch = mkdtempSync(join(tmpdir(), "softwareteam-slack-secret-"));
   const token = "synthetic-fixture-token";
   const server = createServer((req, res) => {
     res.setHeader("content-type", "application/json");

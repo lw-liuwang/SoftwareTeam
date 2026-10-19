@@ -10,7 +10,7 @@ import type { HealthDetectorObservation, HealthObservationSource } from "./healt
 /** Authored outcome-boundary census, not a per-edit event feed. Queue references
  * are verified locally; product/authority meaning remains attributed testimony. */
 export interface HealthCheckpoint {
-  schema: "openrig.health-checkpoint/v0alpha1";
+  schema: "softwareteam.health-checkpoint/v0alpha1";
   lineageQitemId: string;
   includeHandoffs?: boolean;
   scope: HealthScope;
@@ -28,7 +28,7 @@ function text(value: unknown): asserts value is string { if (typeof value !== "s
 function timestamp(value: unknown): number { text(value); const time = Date.parse(value); if (!Number.isFinite(time)) throw new Error("Invalid checkpoint timestamp"); return time; }
 function scope(value: unknown): asserts value is HealthScope {
   const type = (value as HealthScope)?.type;
-  const fields = { instance: ["instanceId"], rig: ["rigId"], seat: ["rigId", "seatId"], mission: ["projectId", "missionId"], slice: ["projectId", "missionId", "sliceId"] }[type];
+  const fields = { instance: ["instanceId"], softwareTeam: ["softwareTeamId"], seat: ["softwareTeamId", "seatId"], mission: ["projectId", "missionId"], slice: ["projectId", "missionId", "sliceId"] }[type];
   if (!fields) throw new Error("Unknown health scope");
   const s = object(value, ["type", ...fields]); fields.forEach((f) => text(s[f]));
 }
@@ -41,7 +41,7 @@ export class HealthCheckpointSource implements HealthObservationSource {
   }
   private validate(value: unknown, allowDerive = false): HealthCheckpoint {
     const c = object(value, ["schema", "lineageQitemId", "scope", "startedAt", "observedAt", "transitionIds", "productOutcomes", "productCensusRef", "boundedAuthority", "authorityPaths", ...["includeHandoffs", "sdlc"].filter((key) => Object.hasOwn(value ?? {}, key))]);
-    if (c.schema !== "openrig.health-checkpoint/v0alpha1") throw new Error("Unsupported checkpoint schema");
+    if (c.schema !== "softwareteam.health-checkpoint/v0alpha1") throw new Error("Unsupported checkpoint schema");
     text(c.lineageQitemId); text(c.productCensusRef); scope(c.scope);
     const start = timestamp(c.startedAt); const end = timestamp(c.observedAt);
     if (end < start || end > Date.parse(this.now())) throw new Error("Checkpoint window is reversed or future");

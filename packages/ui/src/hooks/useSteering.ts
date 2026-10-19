@@ -138,7 +138,7 @@ export interface SpecReviewResponse {
   [k: string]: unknown;
 }
 
-async function fetchSpecReview(kind: "rig" | "agent", yaml: string): Promise<SpecReviewResponse> {
+async function fetchSpecReview(kind: "softwareTeam" | "agent", yaml: string): Promise<SpecReviewResponse> {
   const res = await fetch(`/api/specs/review/${kind}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -154,7 +154,7 @@ async function fetchSpecReview(kind: "rig" | "agent", yaml: string): Promise<Spe
   return (await res.json()) as SpecReviewResponse;
 }
 
-export function useSpecReview(kind: "rig" | "agent" | null, yaml: string | null) {
+export function useSpecReview(kind: "softwareTeam" | "agent" | null, yaml: string | null) {
   return useQuery({
     queryKey: ["spec-review", kind, yaml ? yaml.length : 0, yaml ? yaml.slice(0, 64) : ""],
     queryFn: () => fetchSpecReview(kind!, yaml!),

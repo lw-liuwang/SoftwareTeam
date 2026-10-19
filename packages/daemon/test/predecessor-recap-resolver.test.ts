@@ -27,7 +27,7 @@ describe("makePredecessorRecapResolver", () => {
         lookupResumeToken: () => "departing-thread",
         maxExchanges: 2,
       });
-      expect(resolve({ nodeId: "n", runtime: "codex", sessionName: "worker@rig" })).toEqual({
+      expect(resolve({ nodeId: "n", runtime: "codex", sessionName: "worker@software-team" })).toEqual({
         recordPath: path,
         recap: [{ role: "user", content: "finish the review" }, { role: "assistant", content: "first result\nsecond result" }],
       });
@@ -37,7 +37,7 @@ describe("makePredecessorRecapResolver", () => {
         lookupResumeToken: () => "departing-thread",
         maxExchanges: 1,
         maxCharsPerExchange: 5,
-      })({ nodeId: "n", runtime: "codex", sessionName: "worker@rig" });
+      })({ nodeId: "n", runtime: "codex", sessionName: "worker@software-team" });
       expect("recap" in bounded && bounded.recap).toEqual([{ role: "assistant", content: "first… [truncated; full text in the predecessor record]" }]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -61,9 +61,9 @@ describe("makePredecessorRecapResolver", () => {
       maxExchanges: 6,
     });
 
-    const out = resolve({ nodeId: "n1", runtime: "claude-code", sessionName: "dev-impl@rig" });
+    const out = resolve({ nodeId: "n1", runtime: "claude-code", sessionName: "dev-impl@software-team" });
 
-    expect(readClaudeRecord).toHaveBeenCalledWith("dev-impl@rig");
+    expect(readClaudeRecord).toHaveBeenCalledWith("dev-impl@software-team");
     expect(readCodexTranscriptPath).not.toHaveBeenCalled();
     expect(parseExchanges).toHaveBeenCalledWith("/home/.claude/projects/x/abc.jsonl", 6);
     expect(out).toEqual({
@@ -118,10 +118,10 @@ describe("makePredecessorRecapResolver", () => {
       parseExchanges,
     });
 
-    const out = resolve({ nodeId: "n2", runtime: "codex", sessionName: "dev-impl@rig" });
+    const out = resolve({ nodeId: "n2", runtime: "codex", sessionName: "dev-impl@software-team" });
 
-    expect(lookupResumeToken).toHaveBeenCalledWith("n2", "dev-impl@rig");
-    expect(readCodexTranscriptPath).toHaveBeenCalledWith({ threadId: "codex-thread-xyz", sessionName: "dev-impl@rig" });
+    expect(lookupResumeToken).toHaveBeenCalledWith("n2", "dev-impl@software-team");
+    expect(readCodexTranscriptPath).toHaveBeenCalledWith({ threadId: "codex-thread-xyz", sessionName: "dev-impl@software-team" });
     expect(readClaudeRecord).not.toHaveBeenCalled();
     expect(out).toEqual({ recap: [{ role: "assistant", content: "handing over" }], recordPath: "/home/.codex/sessions/roll.jsonl" });
   });

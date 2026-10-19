@@ -15,7 +15,7 @@ export interface HealthDisposition {
   };
 }
 export interface AuthorityReference { level?: "project" | "mission" | "slice"; path: string; state: "available" | "unavailable"; sha256?: string; content?: string; role?: string; selectedBy?: string; reason?: string; }
-interface Packet { schema: "openrig.health-diagnosis/v0alpha1"; finding: HealthRecord; policyVersion: string; authority: AuthorityReference[]; presentedAt: string; instructions: string; }
+interface Packet { schema: "softwareteam.health-diagnosis/v0alpha1"; finding: HealthRecord; policyVersion: string; authority: AuthorityReference[]; presentedAt: string; instructions: string; }
 interface Receipt { kind: "health-diagnosis"; at: string; action: "presented" | "observed" | "disposition" | "notification-readiness"; finding?: HealthRecord; disposition?: HealthDisposition; authority?: AuthorityReference[]; episodeCleared?: boolean; progressEvidence?: AuthorityReference[]; correctionEvidence?: AuthorityReference[]; actor?: string; transitionId?: number; notificationReadiness?: { ready: boolean; reason: string }; }
 interface DiagnosisAction { qitemId: string; findingId: string; action: "create" | "represent" | "observe" | "retained" | "deferred" | "notify" | "notification-deferred"; reason?: string; operatingPosture?: HealthRecord["operatingPosture"]; }
 const instructions = "This packet is a shortcut, not the whole story. Start with the exact evidence and current project/mission/slice authority below; read those sources again before acting. You may extend the investigation. The deterministic signal is not a psychological or epistemic diagnosis. Self-scout is supported: trace the earliest causal point, examine your own contribution, distinguish another seat or stale control-plane source, and request a second agent only when useful. Record one bounded disposition with causal start (or unknown), smallest corrective steering, evidence and remaining uncertainty. Advice is not authorization to cancel work, change scope/rigor/ownership/lifecycle, restart agents, or relax safety. Human escalation requires explicit policy and verified delivery readiness.";
@@ -60,7 +60,7 @@ export class HealthDiagnosisService {
     const invalid = () => new Error(`health_diagnosis_invalid_packet: ${qitemId}`);
     let packet: Packet;
     try { packet = JSON.parse(row.body) as Packet; } catch { throw invalid(); }
-    if (packet?.schema !== "openrig.health-diagnosis/v0alpha1" || packet.finding?.schema !== HEALTH_RECORD_SCHEMA
+    if (packet?.schema !== "softwareteam.health-diagnosis/v0alpha1" || packet.finding?.schema !== HEALTH_RECORD_SCHEMA
       || typeof packet.finding.id !== "string" || qitemId !== this.id(packet.finding.id)
       || typeof packet.policyVersion !== "string" || !packet.policyVersion || !Array.isArray(packet.authority)
       || typeof packet.instructions !== "string" || !packet.instructions
@@ -159,8 +159,8 @@ export class HealthDiagnosisService {
         this.receipt(qitemId, actor, { action: "presented", finding, authority: this.deps.authority(finding) });
         await this.deps.queue.maybeNudge(qitemId, old.row.destinationSession, true, actor);
       } else {
-        const packet: Packet = { schema: "openrig.health-diagnosis/v0alpha1", finding, policyVersion: effective.version,
-          authority: this.deps.authority(finding), presentedAt: this.now(), instructions: `${instructions} ${correctionGuidance}${finding.ceremony ? " This is provisional suspicion, not a confirmed warning. Resolve product progress from normal scope/proof/workflow evidence and the selected SDLC boundary; do not count approvals, C1 pairing, proof files, commits, tests or generic closures as outcomes. In the existing disposition, optionally include progress: {basis, conclusion: established|false-positive|indeterminate, outcomes: [{id, observedAt, evidenceRefs}], boundedAuthority: boolean|null, boundary, evidenceRefs, missingFacts}. Bind basis to the CURRENT finding.ceremony.basis from diagnosis show; establish a complete outcome census for the exact transition window or return indeterminate with the missing fact. This census assesses that window, not whether a specific challenged rule remains useful; it is not a prerequisite to recording a correction. Outcome and bounded-authority semantics are your attributed judgment. An empty outcomes list means you affirm no outcomes, never that you could not find them. No separate checkpoint is needed." : ""} Read current context and disposition with rig health diagnosis show ${qitemId} --full --json (complete retained evidence; may be large).` };
+        const packet: Packet = { schema: "softwareteam.health-diagnosis/v0alpha1", finding, policyVersion: effective.version,
+          authority: this.deps.authority(finding), presentedAt: this.now(), instructions: `${instructions} ${correctionGuidance}${finding.ceremony ? " This is provisional suspicion, not a confirmed warning. Resolve product progress from normal scope/proof/workflow evidence and the selected SDLC boundary; do not count approvals, C1 pairing, proof files, commits, tests or generic closures as outcomes. In the existing disposition, optionally include progress: {basis, conclusion: established|false-positive|indeterminate, outcomes: [{id, observedAt, evidenceRefs}], boundedAuthority: boolean|null, boundary, evidenceRefs, missingFacts}. Bind basis to the CURRENT finding.ceremony.basis from diagnosis show; establish a complete outcome census for the exact transition window or return indeterminate with the missing fact. This census assesses that window, not whether a specific challenged rule remains useful; it is not a prerequisite to recording a correction. Outcome and bounded-authority semantics are your attributed judgment. An empty outcomes list means you affirm no outcomes, never that you could not find them. No separate checkpoint is needed." : ""} Read current context and disposition with SoftwareTeam health diagnosis show ${qitemId} --full --json (complete retained evidence; may be large).` };
         await this.deps.queue.create({ qitemId, sourceSession: actor, destinationSession: policy.owner, body: JSON.stringify(packet, null, 2),
           tags: ["health-diagnosis", finding.id, `policy:${effective.version}`, ...(finding.ceremony ? [`health-lineage:${finding.ceremony.lineageId}`] : [])], summary: `System Health: inspect ${finding.detector}`, evidenceRef: finding.id });
       }
@@ -246,7 +246,7 @@ export class HealthDiagnosisService {
     if (!human.address || !allowed) throw new Error("health_human_policy_does_not_admit");
     const id = `qitem-health-human-${diagnosis.packet.finding.id}`;
     const existing = this.deps.queue.getById(id);
-    if (existing) return { qitemId: existing.qitemId, deliveryOutcome: existing.deliveryOutcome ?? "pending", nextInspection: `rig queue transitions ${id}` };
+    if (existing) return { qitemId: existing.qitemId, deliveryOutcome: existing.deliveryOutcome ?? "pending", nextInspection: `SoftwareTeam queue transitions ${id}` };
     const ready = await this.deps.humanReadiness?.(human.address) ?? { ready: false, reason: "no verified delivery readiness" };
     if (healthHash(diagnosis.notificationReadiness) !== healthHash(ready)) this.receipt(qitemId, actor, { action: "notification-readiness", notificationReadiness: ready }, identityProvenance);
     if (!ready?.ready) throw new Error(`health_human_readiness_unavailable: ${ready?.reason ?? "no verified delivery readiness"}`);
@@ -259,6 +259,6 @@ export class HealthDiagnosisService {
     const row = this.deps.queue.getById(id) ?? await this.deps.queue.create({ qitemId: id, sourceSession: actor, destinationSession: human.address, identityProvenance,
       body: JSON.stringify({ diagnosis: qitemId, finding: diagnosis.finding, disposition: diagnosis.disposition }, null, 2),
       summary: `System Health: ${diagnosis.finding.summary}`, evidenceRef: qitemId, tags: ["health-human", diagnosis.finding.id] });
-    return { qitemId: row.qitemId, deliveryOutcome: row.deliveryOutcome ?? "pending", nextInspection: `rig queue transitions ${row.qitemId}` };
+    return { qitemId: row.qitemId, deliveryOutcome: row.deliveryOutcome ?? "pending", nextInspection: `SoftwareTeam queue transitions ${row.qitemId}` };
   }
 }

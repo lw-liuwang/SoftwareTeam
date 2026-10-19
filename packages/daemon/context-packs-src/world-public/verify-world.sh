@@ -1,9 +1,9 @@
 #!/bin/sh
 
-# The only optional surface is rig itself. Skip before using any external command so the
+# The only optional surface is SoftwareTeam itself. Skip before using any external command so the
 # missing-command case is honest even under an empty PATH.
-if ! command -v rig >/dev/null 2>&1; then
-  printf '%s\n' '[skip] rig-command-surface — rig is unavailable; command claims were not evaluated'
+if ! command -v SoftwareTeam >/dev/null 2>&1; then
+  printf '%s\n' '[skip] software-team-command-surface — SoftwareTeam is unavailable; command claims were not evaluated'
   printf '%s\n' '0 passed · 0 failed · 1 skipped'
   exit 0
 fi
@@ -157,7 +157,7 @@ done
 for id in $expected_markdown_claim_ids; do
   printf '%s\n' "$prose" | grep -Fq "<!-- world-claim: $id -->" || claims_ok=0
 done
-known_checks=' author-derive-rule derive-identity derive-topology rig-command-surface trust-source-table agents-md-complement authoring-convention taxonomy-layout atom-regions coverage-map-contract retrieve-public-pack compose-fresh-profile no-region-selector derived-reading-cost retrieve-world-example derive-pack-path run-public-verifier boundary-coverage boundary-exclusions private-ref-boundary world-example-install world-example-consistency public-manifest-authored-claims example-manifest-authored-claims '
+known_checks=' author-derive-rule derive-identity derive-topology software-team-command-surface trust-source-table agents-md-complement authoring-convention taxonomy-layout atom-regions coverage-map-contract retrieve-public-pack compose-fresh-profile no-region-selector derived-reading-cost retrieve-world-example derive-pack-path run-public-verifier boundary-coverage boundary-exclusions private-ref-boundary world-example-install world-example-consistency public-manifest-authored-claims example-manifest-authored-claims '
 check_ids=$(sed -n 's/^[[:space:]]*check:[[:space:]]*//p' "$root/claims.yaml")
 for check_id in $check_ids; do
   case "$known_checks" in *" $check_id "*) ;; *) claims_ok=0 ;; esac
@@ -190,12 +190,12 @@ has_manifest_block_line "$root/manifest.yaml" '  - path: build-your-world.md' ' 
 has_manifest_block_line "$root/manifest.yaml" '  - path: boundaries.md' '    summary: "What this public world covers, excludes, and cannot decide."' || public_manifest_ok=0
 has_manifest_block_line "$root/manifest.yaml" '  - path: claims.yaml' '    summary: "Every authored claim mapped to a failing check or an explicit honesty flag."' || public_manifest_ok=0
 has_manifest_block_line "$root/manifest.yaml" '  - path: verify-world.sh' '    summary: "Portable named checks with loud failures and skips."' || public_manifest_ok=0
-has_manifest_block_line "$root/manifest.yaml" '  - id: enter-the-world' '      prompt: "You just arrived in an unfamiliar OpenRig environment. What do you derive before acting?"' || public_manifest_ok=0
+has_manifest_block_line "$root/manifest.yaml" '  - id: enter-the-world' '      prompt: "You just arrived in an unfamiliar SoftwareTeam environment. What do you derive before acting?"' || public_manifest_ok=0
 has_manifest_block_line "$root/manifest.yaml" '  - id: enter-the-world' '      expect: "The agent derives its identity, live topology, available context, and command surface instead of guessing."' || public_manifest_ok=0
 has_manifest_block_line "$root/manifest.yaml" '  - id: author-a-world' '      prompt: "Create a world for a book-writing project without turning the eight regions into folders."' || public_manifest_ok=0
 has_manifest_block_line "$root/manifest.yaml" '  - id: author-a-world' '      expect: "The agent starts with a small manifest and authored files, tags atoms by region, and keeps other context kinds separate."' || public_manifest_ok=0
 has_manifest_block_line "$root/manifest.yaml" '  - id: know-the-edges' '      prompt: "Which gaps can this public world answer, and which still require local sources or human judgment?"' || public_manifest_ok=0
-has_manifest_block_line "$root/manifest.yaml" '  - id: know-the-edges' '      expect: "The agent distinguishes public structure from rig-local facts, current state, mission context, and irreversible judgment."' || public_manifest_ok=0
+has_manifest_block_line "$root/manifest.yaml" '  - id: know-the-edges' '      expect: "The agent distinguishes public structure from software-team-local facts, current state, mission context, and irreversible judgment."' || public_manifest_ok=0
 if [ "$public_manifest_ok" -eq 1 ]; then
   pass public-manifest-authored-claims 'the public purpose, file summaries, and probe semantics match the frozen authored census'
 else
@@ -203,7 +203,7 @@ else
 fi
 
 example_manifest_ok=1
-grep -Fqx 'purpose: "A fill-in template showing the anatomy of an OpenRig world pack."' "$example/manifest.yaml" || example_manifest_ok=0
+grep -Fqx 'purpose: "A fill-in template showing the anatomy of an SoftwareTeam world pack."' "$example/manifest.yaml" || example_manifest_ok=0
 has_manifest_block_line "$example/manifest.yaml" '  - path: your-world.md' '    summary: "A minimal fill-in template for describing an agent'"'"'s world."' || example_manifest_ok=0
 has_manifest_block_line "$example/manifest.yaml" '  - id: your-world' '      prompt: "Describe the operating world for a book-writing project."' || example_manifest_ok=0
 has_manifest_block_line "$example/manifest.yaml" '  - id: your-world' '      expect: "The agent fills one coherent world file and derives volatile state instead of creating a folder per region."' || example_manifest_ok=0
@@ -246,8 +246,8 @@ else
 fi
 
 boundary_exclusions_ok=1
-grep -Fq 'This public pack does not supply rig-specific reality, current work, local lore, repository instructions, or irreversible judgment.' "$root/boundaries.md" || boundary_exclusions_ok=0
-grep -Fq -- '- the purpose, actors, topology, paths, or current state of a particular rig;' "$root/boundaries.md" || boundary_exclusions_ok=0
+grep -Fq 'This public pack does not supply software-team-specific reality, current work, local lore, repository instructions, or irreversible judgment.' "$root/boundaries.md" || boundary_exclusions_ok=0
+grep -Fq -- '- the purpose, actors, topology, paths, or current state of a particular SoftwareTeam;' "$root/boundaries.md" || boundary_exclusions_ok=0
 grep -Fq -- '- the mission you currently own;' "$root/boundaries.md" || boundary_exclusions_ok=0
 grep -Fq -- '- local lore earned by a seat or team;' "$root/boundaries.md" || boundary_exclusions_ok=0
 grep -Fq -- '- harness-specific repository instructions;' "$root/boundaries.md" || boundary_exclusions_ok=0
@@ -271,19 +271,19 @@ else
   fail authoring-convention 'the public authoring convention drifted'
 fi
 
-if rig --help >/dev/null 2>&1 &&
-   rig context list --help >/dev/null 2>&1 &&
-   rig context show --help >/dev/null 2>&1 &&
-   rig context get --help >/dev/null 2>&1 &&
-   rig context profile --help >/dev/null 2>&1 &&
-   rig context add --help >/dev/null 2>&1 &&
-   rig context rm --help >/dev/null 2>&1; then
-  pass rig-command-surface 'every taught rig command exists on the live CLI'
+if SoftwareTeam --help >/dev/null 2>&1 &&
+   SoftwareTeam context list --help >/dev/null 2>&1 &&
+   SoftwareTeam context show --help >/dev/null 2>&1 &&
+   SoftwareTeam context get --help >/dev/null 2>&1 &&
+   SoftwareTeam context profile --help >/dev/null 2>&1 &&
+   SoftwareTeam context add --help >/dev/null 2>&1 &&
+   SoftwareTeam context rm --help >/dev/null 2>&1; then
+  pass software-team-command-surface 'every taught SoftwareTeam command exists on the live CLI'
 else
-  fail rig-command-surface 'a taught rig command is absent from the live CLI'
+  fail software-team-command-surface 'a taught SoftwareTeam command is absent from the live CLI'
 fi
 
-public_get_output=$(rig context get world-public 2>/dev/null)
+public_get_output=$(SoftwareTeam context get world-public 2>/dev/null)
 public_get_status=$?
 public_get_ok=1
 [ "$public_get_status" -eq 0 ] || public_get_ok=0
@@ -296,7 +296,7 @@ else
   fail retrieve-public-pack 'context get did not return the assembled public world content'
 fi
 
-profile_output=$(rig context profile world-public --situation fresh --json 2>/dev/null)
+profile_output=$(SoftwareTeam context profile world-public --situation fresh --json 2>/dev/null)
 profile_status=$?
 profile_tokens=$(printf '%s\n' "$profile_output" | sed -n 's/.*"totalEstimatedTokens"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | sed -n '1p')
 profile_ok=1
@@ -311,7 +311,7 @@ else
   fail compose-fresh-profile 'context profile did not return the fresh atom graph and derived token total'
 fi
 
-example_get_output=$(rig context get world-example 2>/dev/null)
+example_get_output=$(SoftwareTeam context get world-example 2>/dev/null)
 example_get_status=$?
 example_get_ok=1
 [ "$example_get_status" -eq 0 ] || example_get_ok=0
@@ -324,7 +324,7 @@ else
   fail retrieve-world-example 'context get did not return the worked book-world template'
 fi
 
-pack_output=$(rig context show world-public --json 2>/dev/null)
+pack_output=$(SoftwareTeam context show world-public --json 2>/dev/null)
 pack_status=$?
 pack_source_path=$(printf '%s\n' "$pack_output" | sed -n 's/.*"sourcePath"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sed -n '1p')
 pack_source_root=$(CDPATH= cd "$pack_source_path" 2>/dev/null && pwd)
@@ -345,18 +345,18 @@ else
   fail run-public-verifier 'the directory returned by context show does not contain this verifier'
 fi
 
-list_output=$(rig context list --json 2>/dev/null)
+list_output=$(SoftwareTeam context list --json 2>/dev/null)
 list_status=$?
 namespace_ok=1
 [ "$list_status" -eq 0 ] || namespace_ok=0
 printf '%s\n' "$list_output" | grep -Eq '"relativePath"[[:space:]]*:[[:space:]]*"world-public"' || namespace_ok=0
 printf '%s\n' "$pack_output" | grep -Eq '"sourceType"[[:space:]]*:[[:space:]]*"builtin"' || namespace_ok=0
-grep -Fq 'Private world installs remain rig-local under their own refs and are never shadowed by this builtin.' "$root/boundaries.md" || namespace_ok=0
+grep -Fq 'Private world installs remain software-team-local under their own refs and are never shadowed by this builtin.' "$root/boundaries.md" || namespace_ok=0
 grep -Fq 'This pack is `world-public`.' "$root/boundaries.md" || namespace_ok=0
 grep -Fq 'A local world may use a different ref and carry instance-specific' "$root/boundaries.md" || namespace_ok=0
 grep -Fq 'substance without inheriting or being replaced by these public bytes.' "$root/boundaries.md" || namespace_ok=0
 if printf '%s\n' "$list_output" | grep -Eq '"relativePath"[[:space:]]*:[[:space:]]*"world/install"'; then
-  private_output=$(rig context show world/install --json 2>/dev/null)
+  private_output=$(SoftwareTeam context show world/install --json 2>/dev/null)
   private_status=$?
   [ "$private_status" -eq 0 ] || namespace_ok=0
   printf '%s\n' "$private_output" | grep -Eq '"relativePath"[[:space:]]*:[[:space:]]*"world/install"' || namespace_ok=0
@@ -368,23 +368,23 @@ else
   fail private-ref-boundary 'the world-public or local-world namespace projection is false'
 fi
 
-configured_context_root=$(rig config get context.root 2>/dev/null)
+configured_context_root=$(SoftwareTeam config get context.root 2>/dev/null)
 configured_context_status=$?
 example_install_ok=1
 [ "$configured_context_status" -eq 0 ] || example_install_ok=0
 [ -n "$configured_context_root" ] || example_install_ok=0
-if [ -n "${OPENRIG_CONTEXT_ROOT:-}" ] && [ "$configured_context_root" != "$OPENRIG_CONTEXT_ROOT" ]; then
+if [ -n "${SOFTWARETEAM_CONTEXT_ROOT:-}" ] && [ "$configured_context_root" != "$SOFTWARETEAM_CONTEXT_ROOT" ]; then
   example_install_ok=0
 fi
-rig context add --help >/dev/null 2>&1 || example_install_ok=0
-rig context list --help >/dev/null 2>&1 || example_install_ok=0
+SoftwareTeam context add --help >/dev/null 2>&1 || example_install_ok=0
+SoftwareTeam context list --help >/dev/null 2>&1 || example_install_ok=0
 
 probe_ref="world-public-verify-$$"
 probe_target="$configured_context_root/$probe_ref"
 probe_installed=0
 cleanup_probe() {
   [ "$probe_installed" -eq 1 ] || return 0
-  if rig context rm "$probe_ref" --json >/dev/null 2>&1; then
+  if SoftwareTeam context rm "$probe_ref" --json >/dev/null 2>&1; then
     probe_installed=0
     return 0
   fi
@@ -401,13 +401,13 @@ else
   trap 'cleanup_probe >/dev/null 2>&1 || :' 0
   trap 'cleanup_probe >/dev/null 2>&1 || :; exit 130' 1 2 15
 
-  probe_add_output=$(rig context add "$example" --name "$probe_ref" --json 2>/dev/null)
+  probe_add_output=$(SoftwareTeam context add "$example" --name "$probe_ref" --json 2>/dev/null)
   probe_add_status=$?
   probe_installed_at=$(printf '%s\n' "$probe_add_output" | sed -n 's/.*"installedAt"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sed -n '1p')
   [ "$probe_add_status" -eq 0 ] || example_install_ok=0
   [ "$probe_installed_at" = "$probe_target" ] || example_install_ok=0
 
-  probe_list_output=$(rig context list --json 2>/dev/null)
+  probe_list_output=$(SoftwareTeam context list --json 2>/dev/null)
   probe_list_status=$?
   if [ -d "$probe_target" ] || printf '%s\n' "$probe_list_output" | grep -Eq "\"relativePath\"[[:space:]]*:[[:space:]]*\"$probe_ref\""; then
     probe_installed=1
@@ -418,7 +418,7 @@ else
   if [ "$probe_installed" -eq 1 ]; then
     cleanup_probe || example_install_ok=0
   fi
-  probe_cleanup_output=$(rig context list --json 2>/dev/null)
+  probe_cleanup_output=$(SoftwareTeam context list --json 2>/dev/null)
   probe_cleanup_status=$?
   [ "$probe_cleanup_status" -eq 0 ] || example_install_ok=0
   if [ -d "$probe_target" ] || printf '%s\n' "$probe_cleanup_output" | grep -Eq "\"relativePath\"[[:space:]]*:[[:space:]]*\"$probe_ref\""; then
@@ -431,40 +431,40 @@ else
   fail world-example-install 'the typed context store or taught add/list effect is false'
 fi
 
-expected_session=${OPENRIG_SESSION_NAME:-${RIGGED_SESSION_NAME:-}}
-identity_output=$(rig whoami --json 2>/dev/null)
+expected_session=${SOFTWARETEAM_SESSION_NAME:-}
+identity_output=$(SoftwareTeam whoami --json 2>/dev/null)
 identity_status=$?
 identity_ok=1
 [ "$identity_status" -eq 0 ] || identity_ok=0
-printf '%s\n' "$identity_output" | grep -Eq '"rigName"[[:space:]]*:[[:space:]]*"[^"]+"' || identity_ok=0
+printf '%s\n' "$identity_output" | grep -Eq '"softwareTeamName"[[:space:]]*:[[:space:]]*"[^"]+"' || identity_ok=0
 printf '%s\n' "$identity_output" | grep -Eq '"memberId"[[:space:]]*:[[:space:]]*"[^"]+"' || identity_ok=0
 printf '%s\n' "$identity_output" | grep -Eq '"sessionName"[[:space:]]*:[[:space:]]*"[^"]+@[^"]+"' || identity_ok=0
 if [ -n "$expected_session" ]; then
   printf '%s\n' "$identity_output" | grep -Fq "\"sessionName\":\"$expected_session\"" || identity_ok=0
 fi
 if [ "$identity_ok" -eq 1 ]; then
-  pass derive-identity 'rig whoami returned a complete managed-seat identity'
+  pass derive-identity 'SoftwareTeam whoami returned a complete managed-seat identity'
 else
-  fail derive-identity 'rig whoami did not return a complete managed-seat identity'
+  fail derive-identity 'SoftwareTeam whoami did not return a complete managed-seat identity'
 fi
 
-topology_output=$(rig ps --nodes --json 2>/dev/null)
+topology_output=$(SoftwareTeam ps --nodes --json 2>/dev/null)
 topology_status=$?
 topology_ok=1
 [ "$topology_status" -eq 0 ] || topology_ok=0
 [ -n "$expected_session" ] || topology_ok=0
 printf '%s\n' "$topology_output" | grep -Eq "\"canonicalSessionName\"[[:space:]]*:[[:space:]]*\"$expected_session\"" || topology_ok=0
-printf '%s\n' "$topology_output" | grep -Eq '"rigName"[[:space:]]*:[[:space:]]*"[^\"]+"' || topology_ok=0
+printf '%s\n' "$topology_output" | grep -Eq '"softwareTeamName"[[:space:]]*:[[:space:]]*"[^\"]+"' || topology_ok=0
 if [ "$topology_ok" -eq 1 ]; then
-  pass derive-topology 'rig ps node detail returned this seat under its canonical session identity'
+  pass derive-topology 'SoftwareTeam ps node detail returned this seat under its canonical session identity'
 else
-  fail derive-topology 'rig ps node detail did not include this seat under its canonical session identity'
+  fail derive-topology 'SoftwareTeam ps node detail did not include this seat under its canonical session identity'
 fi
 
-if grep -Fq 'rig whoami --json' "$root/start-here.md" &&
-   grep -Fq 'rig ps --nodes --json' "$root/start-here.md" &&
-   grep -Fq 'rig context list' "$root/start-here.md" &&
-   grep -Fq 'rig --help' "$root/start-here.md"; then
+if grep -Fq 'SoftwareTeam whoami --json' "$root/start-here.md" &&
+   grep -Fq 'SoftwareTeam ps --nodes --json' "$root/start-here.md" &&
+   grep -Fq 'SoftwareTeam context list' "$root/start-here.md" &&
+   grep -Fq 'SoftwareTeam --help' "$root/start-here.md"; then
   pass taught-commands 'volatile facts point at their deriving commands'
 else
   fail taught-commands 'one or more deriving commands are not taught'
@@ -488,7 +488,7 @@ else
   fail derived-reading-cost 'the live composer did not report a positive reading cost'
 fi
 
-profile_help=$(rig context profile --help 2>/dev/null)
+profile_help=$(SoftwareTeam context profile --help 2>/dev/null)
 profile_help_status=$?
 if [ "$profile_help_status" -eq 0 ] &&
    ! printf '%s\n' "$profile_help" | grep -Eq -- '--region([[:space:]=]|$)' &&
@@ -514,12 +514,12 @@ for region in identity ontology terrain actors laws history state affordances; d
 done
 if [ "$example_regions_ok" -eq 1 ] &&
    grep -Fq 'Book world' "$example/your-world.md" &&
-   grep -Fq 'rig context get world-example' "$example/your-world.md" &&
-   grep -Fq 'rig context add <pack-directory>' "$example/your-world.md" &&
-   grep -Fq 'rig context list' "$example/your-world.md" &&
-   grep -Fq 'rig config get context.root' "$example/your-world.md" &&
+   grep -Fq 'SoftwareTeam context get world-example' "$example/your-world.md" &&
+   grep -Fq 'SoftwareTeam context add <pack-directory>' "$example/your-world.md" &&
+   grep -Fq 'SoftwareTeam context list' "$example/your-world.md" &&
+   grep -Fq 'SoftwareTeam config get context.root' "$example/your-world.md" &&
    grep -Fq "Copy this pack, update its manifest, and replace each prompt below with your world's facts." "$example/your-world.md" &&
-   grep -Fq 'Run `rig context get world-example`, copy this pack, and make the project a book world by describing the writer, manuscript, sources, editorial rules, decisions, current draft state, and next useful actions in a few coherent files.' "$example/your-world.md" &&
+   grep -Fq 'Run `SoftwareTeam context get world-example`, copy this pack, and make the project a book world by describing the writer, manuscript, sources, editorial rules, decisions, current draft state, and next useful actions in a few coherent files.' "$example/your-world.md" &&
    grep -Fq "Name the world and the agent's place in it." "$example/your-world.md" &&
    grep -Fq 'Define the important kinds of things and what each is for.' "$example/your-world.md" &&
    grep -Fq 'Name who else is present, what they own, and how to reach them.' "$example/your-world.md" &&

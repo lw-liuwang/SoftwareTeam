@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Boxes, ChevronLeft, ChevronRight, CircleDot, Globe, Layers3, Server, Activity } from "lucide-react";
-import { useRigSummary, type RigSummary } from "../hooks/useRigSummary.js";
+import { useSoftwareTeamSummary, type SoftwareTeamSummary } from "../hooks/useSoftwareTeamSummary.js";
 import { usePsEntries, type PsEntry } from "../hooks/usePsEntries.js";
 import { useNodeInventory, type NodeInventoryEntry } from "../hooks/useNodeInventory.js";
 import { cn } from "../lib/utils.js";
@@ -83,7 +83,7 @@ function statusColor(startupStatus: string | null): string {
   }
 }
 
-function rigStatusColor(status: string): string {
+function softwareTeamStatusColor(status: string): string {
   switch (status) {
     case "running": return "text-green-600";
     case "partial": return "text-amber-500";
@@ -100,8 +100,8 @@ function aggregateStatus(nodes: NodeInventoryEntry[]): "ready" | "pending" | "at
   return null;
 }
 
-function parseCurrentRigId(pathname: string): string | null {
-  const match = pathname.match(/^\/rigs\/([^/]+)/);
+function parseCurrentSoftwareTeamId(pathname: string): string | null {
+  const match = pathname.match(/^\/software-teams\/([^/]+)/);
   return match?.[1] ?? null;
 }
 
@@ -130,13 +130,13 @@ function TreeToggle({
 }
 
 // PL-019 item 3: per-row activity indicator that sits next to the
-// startup-status icon. Uses the same shared palette as RigNode (item 2)
+// startup-status icon. Uses the same shared palette as SoftwareTeamNode (item 2)
 // so the operator's mental model is the same on both surfaces.
 //
 // "Owns active work" tag (qitem tooltip) renders only when the daemon
 // attached one or more in-progress qitems on the node-detail/inventory
 // payload — currentQitems comes from the read-side join in routes/sessions.ts
-// + routes/rigs.ts.
+// + routes/software-teams.ts.
 function NodeActivityIndicator({ node }: { node: NodeInventoryEntry }) {
   const activity = node.agentActivity;
   const { state, source: activitySource } = getActivityStateWithSource(activity, node.terminalActive);
@@ -183,11 +183,11 @@ function ExplorerKindIcon({
   statusClass,
   testId,
 }: {
-  kind: "environment" | "rig" | "pod" | "agent" | "infrastructure";
+  kind: "environment" | "softwareTeam" | "pod" | "agent" | "infrastructure";
   statusClass: string;
   testId?: string;
 }) {
-  const sizeClass = kind === "rig" ? "h-3.5 w-3.5" : "h-2.5 w-2.5";
+  const sizeClass = kind === "softwareTeam" ? "h-3.5 w-3.5" : "h-2.5 w-2.5";
   const sharedProps = {
     "data-testid": testId,
     className: cn(sizeClass, "shrink-0", statusClass),
@@ -197,7 +197,7 @@ function ExplorerKindIcon({
   switch (kind) {
     case "environment":
       return <Globe {...sharedProps} />;
-    case "rig":
+    case "softwareTeam":
       return <Boxes {...sharedProps} />;
     case "pod":
       return <Layers3 {...sharedProps} />;
@@ -216,20 +216,20 @@ function ExplorerKindIcon({
 // is not rendered at all.
 function SurfaceBody({
   surface,
-  rigs,
+  softwareTeams,
   psMap,
   selection,
   onSelect,
   onClose,
-  currentRigId,
+  currentSoftwareTeamId,
 }: {
   surface: ExplorerSurface;
-  rigs: RigSummary[] | undefined;
+  softwareTeams: SoftwareTeamSummary[] | undefined;
   psMap: Map<string, PsEntry>;
   selection: DrawerSelection;
   onSelect: (sel: DrawerSelection) => void;
   onClose: () => void;
-  currentRigId: string | null;
+  currentSoftwareTeamId: string | null;
 }) {
   if (surface === "topology") {
     return <TopologyTreeView />;
@@ -277,11 +277,11 @@ export function Explorer({
 }: ExplorerProps) {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
-  const currentRigId = parseCurrentRigId(currentPath);
-  const { data: rigs } = useRigSummary();
+  const currentSoftwareTeamId = parseCurrentSoftwareTeamId(currentPath);
+  const { data: softwareTeams } = useSoftwareTeamSummary();
   const { data: psEntries } = usePsEntries();
 
-  const psMap = new Map((psEntries ?? []).map((entry) => [entry.rigId, entry]));
+  const psMap = new Map((psEntries ?? []).map((entry) => [entry.softwareTeamId, entry]));
 
   // Surface "none" (Dashboard only — Settings has its own Explorer
   // surface as of slice 26) — Explorer is not rendered.
@@ -387,12 +387,12 @@ export function Explorer({
 
         <SurfaceBody
           surface={surface}
-          rigs={rigs}
+          softwareTeams={softwareTeams}
           psMap={psMap}
           selection={selection}
           onSelect={onSelect}
           onClose={onClose}
-          currentRigId={currentRigId}
+          currentSoftwareTeamId={currentSoftwareTeamId}
         />
       </div>
     </aside>

@@ -8,12 +8,12 @@ import { STATE_FILE } from "../src/daemon-lifecycle.js";
 import type { StatusDeps } from "../src/commands/status.js";
 
 const failures = [
-  { status: 503, data: { error: "rig_summary_unavailable" }, message: "rig_summary_unavailable" },
-  { status: 503, data: {}, message: "Failed to list rigs (HTTP 503)" },
-  { status: 200, data: {}, message: "The daemon returned an invalid rig summary." },
+  { status: 503, data: { error: "software_team_summary_unavailable" }, message: "software_team_summary_unavailable" },
+  { status: 503, data: {}, message: "Failed to list softwareTeams (HTTP 503)" },
+  { status: 200, data: {}, message: "The daemon returned an invalid SoftwareTeam summary." },
 ];
 it.each(failures.flatMap((failure) => ["status", "logs", "down"].map((operation) => ({ ...failure, operation }))))(
-  "preserves rig summary $status when running env $operation", async ({ operation, status, data, message }) => {
+  "preserves SoftwareTeam summary $status when running env $operation", async ({ operation, status, data, message }) => {
   const requests: string[] = [];
   const server = createServer((req, res) => {
     requests.push(`${req.method} ${req.url}`);
@@ -34,10 +34,10 @@ it.each(failures.flatMap((failure) => ["status", "logs", "down"].map((operation)
   process.exitCode = undefined;
   try {
     const program = new Command(); program.addCommand(envCommand(deps));
-    await program.parseAsync(["node", "rig", "env", operation, "fixture"]);
+    await program.parseAsync(["node", "softwareTeam", "env", operation, "fixture"]);
     expect(error).toHaveBeenCalledWith(message);
     expect(process.exitCode).toBe(1);
-    expect(requests).toEqual(["GET /api/rigs/summary"]);
+    expect(requests).toEqual(["GET /api/software-teams/summary"]);
   } finally {
     error.mockRestore(); process.exitCode = previousExit;
     server.closeAllConnections();

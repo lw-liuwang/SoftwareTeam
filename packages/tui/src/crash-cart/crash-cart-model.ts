@@ -1,5 +1,5 @@
 // Crash-cart cockpit view MODEL (5.2 Wave B, plan c015d9ed §C3). The pre-daemon recovery view:
-// bare `rig` with the daemon DOWN. View-local data model + builders (mirrors pulse-model.ts) — the
+// bare `softwareTeam` with the daemon DOWN. View-local data model + builders (mirrors pulse-model.ts) — the
 // renderer (render-crash-cart.ts) turns it into rows. Live data comes from the C2 daemon-down direct
 // read (readCrashCartDiscovery); this builder adapts that discovery into the view model, keeping the
 // renderer pure + testable.
@@ -20,7 +20,7 @@ export interface CrashCartHeaderVM {
   reasonText: string;
 }
 
-export interface CrashCartRigVM {
+export interface CrashCartSoftwareTeamVM {
   name: string;
   seatCount: number;
   lastActive: string; // HH:MM or "unknown"
@@ -34,11 +34,11 @@ export interface CrashCartStoppedVM {
 }
 
 export interface CrashCartModel {
-  /** recovery = evidence of prior life (rigs and/or last activity) → the crash cockpit.
-   *  first-run = DOWN + no DB (no rigs, no prior activity) → onboarding framing, never a crash story. */
+  /** recovery = evidence of prior life (softwareTeams and/or last activity) → the crash cockpit.
+   *  first-run = DOWN + no DB (no softwareTeams, no prior activity) → onboarding framing, never a crash story. */
   mode: "recovery" | "first-run";
   header: CrashCartHeaderVM;
-  foundOnHost: CrashCartRigVM[];
+  foundOnHost: CrashCartSoftwareTeamVM[];
   /** In-progress work at crash time; empty ⇒ the renderer shows only the idle-clean line. */
   whereWorkStopped: CrashCartStoppedVM[];
 }
@@ -48,7 +48,7 @@ export interface CrashCartModel {
 export interface CrashCartDiscoveryInput {
   header: { lastActivityAt: string | null };
   foundOnHost: Array<{
-    rigName: string;
+    softwareTeamName: string;
     seatCount: number;
     resumableCount: number;
     lastActiveAt: string | null;
@@ -70,7 +70,7 @@ export function hhmm(ts: string | null): string {
 
 /** Adapt the C2 daemon-down discovery into the crash-cart view model. */
 export function buildCrashCartModel(discovery: CrashCartDiscoveryInput): CrashCartModel {
-  // Crash language requires evidence of PRIOR LIFE: no rigs AND no last-activity ⇒ a fresh host, not
+  // Crash language requires evidence of PRIOR LIFE: no softwareTeams AND no last-activity ⇒ a fresh host, not
   // a crash — render onboarding framing (PM ruling), never a crash story.
   const mode: CrashCartModel["mode"] =
     discovery.foundOnHost.length === 0 && !discovery.header.lastActivityAt ? "first-run" : "recovery";
@@ -82,7 +82,7 @@ export function buildCrashCartModel(discovery: CrashCartDiscoveryInput): CrashCa
       reasonText: NO_SHUTDOWN_RECORD,
     },
     foundOnHost: discovery.foundOnHost.map((r) => ({
-      name: r.rigName,
+      name: r.softwareTeamName,
       seatCount: r.seatCount,
       lastActive: hhmm(r.lastActiveAt),
       resumableCount: r.resumableCount,
@@ -102,10 +102,10 @@ export function demoCrashCartModel(): CrashCartModel {
     mode: "recovery",
     header: { lastSeen: "08:12", uptimeText: NO_SHUTDOWN_RECORD, reasonText: NO_SHUTDOWN_RECORD },
     foundOnHost: [
-      { name: "openrig-pm", seatCount: 13, lastActive: "08:11", resumableCount: 7 },
+      { name: "softwareteam-pm", seatCount: 13, lastActive: "08:11", resumableCount: 7 },
       { name: "kernel", seatCount: 4, lastActive: "08:12", resumableCount: 4 },
       { name: "oversight", seatCount: 3, lastActive: "07:58", resumableCount: 3 },
     ],
-    whereWorkStopped: [{ session: "pm-openrig", summary: "cut packet assembly", time: "08:09" }],
+    whereWorkStopped: [{ session: "pm-softwareteam", summary: "cut packet assembly", time: "08:09" }],
   };
 }

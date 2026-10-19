@@ -7,11 +7,11 @@ function spec(overrides: Partial<WorkflowSpec> = {}): WorkflowSpec {
     id: "test",
     version: "1",
     objective: "Test workflow",
-    target: { rig: "test-rig" },
+    target: { software_team: "test-software-team" },
     entry: { role: "producer" },
     roles: {
-      producer: { preferred_targets: ["producer@rig"] },
-      reviewer: { preferred_targets: ["reviewer@rig"] },
+      producer: { preferred_targets: ["producer@software-team"] },
+      reviewer: { preferred_targets: ["reviewer@software-team"] },
     },
     steps: [
       { id: "produce", actor_role: "producer", allowed_exits: ["handoff"] },

@@ -20,8 +20,8 @@ export function specLibraryRoutes(): Hono {
 
   function refreshWorkflowEntries(c: { get: (k: string) => unknown }): SpecLibraryService {
     const lib = c.get("specLibraryService" as never) as SpecLibraryService;
-    const db = c.get("rigRepoDb" as never) as Database.Database | undefined
-      ?? (c.get("rigRepo" as never) as { db: Database.Database } | undefined)?.db;
+    const db = c.get("softwareTeamRepoDb" as never) as Database.Database | undefined
+      ?? (c.get("softwareTeamRepo" as never) as { db: Database.Database } | undefined)?.db;
     const builtinDir = c.get("workflowBuiltinSpecsDir" as never) as string | undefined;
     if (db) {
       // Slice 11 (workflow-spec-folder-discovery) — opportunistically
@@ -80,7 +80,7 @@ export function specLibraryRoutes(): Hono {
   // GET / — list library entries
   router.get("/", (c) => {
     const lib = refreshWorkflowEntries(c);
-    const kind = c.req.query("kind") as "rig" | "agent" | "workflow" | undefined;
+    const kind = c.req.query("kind") as "softwareTeam" | "agent" | "workflow" | undefined;
     const entries = lib.list(kind ? { kind } : undefined);
     return c.json(entries.map((entry) => {
       // Preserve the authored/catalog path and also identify its actual source.
@@ -123,7 +123,7 @@ export function specLibraryRoutes(): Hono {
     if (result.entry.kind === "workflow") {
       const parsed = parseWorkflowLibraryId(id);
       if (!parsed) return c.json({ error: `Workflow library id '${id}' could not be parsed` }, 400);
-      const db = (c.get("rigRepo" as never) as { db: Database.Database } | undefined)?.db;
+      const db = (c.get("softwareTeamRepo" as never) as { db: Database.Database } | undefined)?.db;
       const builtinDir = c.get("workflowBuiltinSpecsDir" as never) as string | undefined;
       if (!db) return c.json({ error: "workflow_specs_db_unavailable" }, 503);
       const review = getWorkflowReview({
@@ -140,13 +140,13 @@ export function specLibraryRoutes(): Hono {
 
     try {
       let review: Record<string, unknown>;
-      if (result.entry.kind === "rig") {
-        review = svc.reviewRigSpec(result.yaml, "library_item") as unknown as Record<string, unknown>;
+      if (result.entry.kind === "softwareTeam") {
+        review = svc.reviewSoftwareTeamSpec(result.yaml, "library_item") as unknown as Record<string, unknown>;
       } else {
         review = svc.reviewAgentSpec(result.yaml, "library_item") as unknown as Record<string, unknown>;
       }
 
-      // Enrich service-backed rigs with composePreview (best-effort)
+      // Enrich service-backed softwareTeams with composePreview (best-effort)
       const services = review["services"] as Record<string, unknown> | undefined;
       if (services && services["composeFile"]) {
         try {

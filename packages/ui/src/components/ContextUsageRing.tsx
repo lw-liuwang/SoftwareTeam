@@ -5,7 +5,7 @@
 // to read as "two parallel signals" rather than competing badges.
 //
 // Tiers (lockstep with daemon-side computeContextHealthSummary +
-// existing RigNode big-number colors):
+// existing SoftwareTeamNode big-number colors):
 //   - >= 80% → red    (critical)
 //   - >= 60% → amber  (warning)
 //   - <  60% → green  (low / ok)

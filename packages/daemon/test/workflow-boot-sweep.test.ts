@@ -44,10 +44,10 @@ const SPEC = `workflow:
   roles:
     worker:
       preferred_targets:
-        - worker@rig
+        - worker@software-team
     next:
       preferred_targets:
-        - next@rig
+        - next@software-team
   steps:
     - id: work
       actor_role: worker
@@ -86,10 +86,10 @@ describe("runWorkflowBootSweep (FR-4)", () => {
       workflowSpecJsonSchema,
     ]);
     const bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     sentNudges = [];
     queueRepo = new QueueRepository(db, bus, {
-      validateRig: () => true,
+      validateSoftwareTeam: () => true,
       transport: {
         send: async (session: string, text: string) => {
           sentNudges.push({ session, text });
@@ -142,7 +142,7 @@ describe("runWorkflowBootSweep (FR-4)", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "re-arm walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     // Simulate pre-WF-1: no active job for the instance.
     const armed = findArmedKeepaliveJob(watchdogRepo, inst.instance.instanceId)!;
@@ -158,7 +158,7 @@ describe("runWorkflowBootSweep (FR-4)", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "lost nudge walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     // Simulate the lost post-commit nudge: NULL the ledger (instantiate's
     // own nudge stamped it via the test transport above).
@@ -169,7 +169,7 @@ describe("runWorkflowBootSweep (FR-4)", () => {
 
     const result = await sweep();
     expect(result.lostNudgesReissued).toBe(1);
-    expect(sentNudges.some((n) => n.session === "worker@rig")).toBe(true);
+    expect(sentNudges.some((n) => n.session === "worker@software-team")).toBe(true);
     // The nudge ledger is stamped again — a second sweep does NOT re-reissue.
     const again = await sweep();
     expect(again.lostNudgesReissued).toBe(0);
@@ -179,7 +179,7 @@ describe("runWorkflowBootSweep (FR-4)", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "stuck walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const past = new Date(
       Date.now() - (WORKFLOW_STEP_STUCK_THRESHOLD_SECONDS + 120) * 1000,
@@ -196,8 +196,8 @@ describe("runWorkflowBootSweep (FR-4)", () => {
     expect(stuckLine).toBeDefined();
     expect(stuckLine).toContain(inst.instance.instanceId);
     expect(stuckLine).toContain("overdue-unclaimed");
-    expect(stuckLine).toContain("worker@rig");
-    expect(sentNudges.some((n) => n.session === "worker@rig")).toBe(true);
+    expect(stuckLine).toContain("worker@software-team");
+    expect(sentNudges.some((n) => n.session === "worker@software-team")).toBe(true);
     // Summary line names counts.
     expect(
       logLines.some((l) => l.includes("1 in-flight") && l.includes("1 stuck")),
@@ -208,7 +208,7 @@ describe("runWorkflowBootSweep (FR-4)", () => {
     await runtime.instantiate({
       specPath,
       rootObjective: "healthy walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const result = await sweep();
     expect(result.instancesSwept).toBe(1);

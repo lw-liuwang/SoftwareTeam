@@ -20,8 +20,8 @@ import type {
  * never has to fabricate account/binding data for an unbound seat.
  */
 export type RawSeatBinding =
-  | { accountId: string; seatSession: string; rigName: string; boundAt: string; bindingSource: string }
-  | { accountId: null; seatSession: string; rigName: string; boundAt: null; bindingSource: null };
+  | { accountId: string; seatSession: string; softwareTeamName: string; boundAt: string; bindingSource: string }
+  | { accountId: null; seatSession: string; softwareTeamName: string; boundAt: null; bindingSource: null };
 
 export interface AssembleInput {
   accounts: ProviderAccount[];
@@ -63,14 +63,14 @@ export function assembleFourBlock(input: AssembleInput): FourBlockReadModel {
       const anomaly: SeatWithNoAccountAnomaly = {
         kind: "seat_with_no_account",
         seat: rb.seatSession,
-        evidence: `seat ${rb.seatSession} in rig ${rb.rigName} has no bound account`,
+        evidence: `seat ${rb.seatSession} in softwareTeam ${rb.softwareTeamName} has no bound account`,
         asOf,
       };
       // Non-empty tuple: the seat_with_no_account anomaly is required and always first.
       return {
         accountId: null,
         seatSession: rb.seatSession,
-        rigName: rb.rigName,
+        softwareTeamName: rb.softwareTeamName,
         boundAt: null,
         bindingSource: null,
         anomalies: [anomaly],
@@ -81,7 +81,7 @@ export function assembleFourBlock(input: AssembleInput): FourBlockReadModel {
     return {
       accountId: rb.accountId,
       seatSession: rb.seatSession,
-      rigName: rb.rigName,
+      softwareTeamName: rb.softwareTeamName,
       boundAt: rb.boundAt,
       bindingSource: rb.bindingSource,
       anomalies,

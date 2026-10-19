@@ -5,14 +5,14 @@ import type { WindowDeps } from "../src/terminal-window.js";
 
 vi.mock("../src/daemon-lifecycle.js", async () => ({
   ...await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js"),
-  getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-  getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+  getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+  getDaemonUrl: vi.fn(() => "http://localhost:7434"),
 }));
 
 const planId = "0123456789abcdef".repeat(4);
-const label = (id = "kernel", token = "l1") => `openrig:${id}#${planId.slice(0, 16)}#${token}`;
+const label = (id = "kernel", token = "l1") => `softwareteam:${id}#${planId.slice(0, 16)}#${token}`;
 interface Tab { workspace_id: string; tab_id: string; label: string }
-const spaceLabels: Record<string, string> = { "openrig-kernel": "openrig kernel", "old-name": "switchboard" };
+const spaceLabels: Record<string, string> = { "softwareteam-kernel": "softwareteam kernel", "old-name": "switchboard" };
 function fixture(tabs: Tab[] = [], id = "kernel") {
   const panes = ["tui", "advisor", "operator"].map(seat => ({ seat, label: seat, paneCommand: `tmux attach -t 'fixture-${seat}'` }));
   const composed = { id, opened: panes, pages: [panes], absent: [] as Array<{ seat: string; host: string | null; reason: string }>, degraded: [] as Array<{ seat: string; host: string; reason: string }> };
@@ -53,7 +53,7 @@ function fixture(tabs: Tab[] = [], id = "kernel") {
   };
   const deps: TerminalDeps = {
     lifecycleDeps: {} as TerminalDeps["lifecycleDeps"], windowDeps,
-    clientFactory: () => ({ baseUrl: "http://localhost:7433", get, post }) as unknown as ReturnType<TerminalDeps["clientFactory"]>,
+    clientFactory: () => ({ baseUrl: "http://localhost:7434", get, post }) as unknown as ReturnType<TerminalDeps["clientFactory"]>,
   };
   return { tabs, composed, workspaces, list, focus, paneList, processInfo, clients, exec, post, windowDeps, run: (args: string[] = ["--json"]) => new Command().addCommand(terminalCommand(deps)).parseAsync(["terminal", "open", `saved:${id}`, ...args], { from: "user" }) };
 }
@@ -128,15 +128,15 @@ describe("reopening a Herdr view in a desktop window", () => {
 
   it("does not reuse a live space with the same tab names under another space name", async () => {
     const f = fixture([{ workspace_id: "old-name", tab_id: "named", label: "tui · advisor · operator" }]);
-    (f.composed as typeof f.composed & { spaceLabel?: string }).spaceLabel = "openrig kernel";
+    (f.composed as typeof f.composed & { spaceLabel?: string }).spaceLabel = "softwareteam kernel";
     await f.run();
     expect(f.focus).not.toHaveBeenCalled();
     expect(f.post).toHaveBeenCalledTimes(1);
   });
 
   it.each([["live", true], ["plain shells", false]] as const)("finds a named view's space by its tab names and reuses it only when attached: %s", async (state, reused) => {
-    const f = fixture([{ workspace_id: "openrig-kernel", tab_id: "named", label: "tui · advisor · operator" }]);
-    (f.composed as typeof f.composed & { spaceLabel?: string }).spaceLabel = "openrig kernel";
+    const f = fixture([{ workspace_id: "softwareteam-kernel", tab_id: "named", label: "tui · advisor · operator" }]);
+    (f.composed as typeof f.composed & { spaceLabel?: string }).spaceLabel = "softwareteam kernel";
     if (state === "plain shells") f.processInfo.mockImplementation(async paneId => JSON.stringify({ result: { process_info: { pane_id: paneId, foreground_processes: [{ pid: 999, name: "zsh" }] } } }));
     await f.run();
     if (reused) {
@@ -254,7 +254,7 @@ describe("reopening a Herdr view in a desktop window", () => {
     expect(JSON.parse(logs[0]!)).toMatchObject({ ok: true, reusedWorkspace: { tabId: "operator" } });
   });
 
-  it.each(["kernel-other", "kernel#other", "rig:kernel"])("does not reuse the different view %s", async other => {
+  it.each(["kernel-other", "kernel#other", "software-team:kernel"])("does not reuse the different view %s", async other => {
     const f = fixture([{ workspace_id: "same-human-name", tab_id: "unrelated", label: label(other) }]);
     await f.run();
     expect(f.focus).not.toHaveBeenCalled();
@@ -263,7 +263,7 @@ describe("reopening a Herdr view in a desktop window", () => {
   });
 
   it("does not treat a label without the layout delimiter as a view marker", async () => {
-    const f = fixture([{ workspace_id: "unrelated", tab_id: "plain", label: "openrig:kernelx" }]);
+    const f = fixture([{ workspace_id: "unrelated", tab_id: "plain", label: "softwareteam:kernelx" }]);
     await f.run();
     expect(f.focus).not.toHaveBeenCalled();
     expect(f.post).toHaveBeenCalledTimes(1);
@@ -304,7 +304,7 @@ describe("reopening a Herdr view in a desktop window", () => {
     expect(JSON.parse(logs[0]!)).toMatchObject({ ok: true, notes: expect.arrayContaining([expect.stringContaining("Could not check existing Herdr workspaces")]) });
   });
 
-  it.each(["openrig:kernel#l1", "openrig:kernel#fedcba9876543210#l1/1"])("creates the current plan and names the retained stale workspace for %s", async oldLabel => {
+  it.each(["softwareteam:kernel#l1", "softwareteam:kernel#fedcba9876543210#l1/1"])("creates the current plan and names the retained stale workspace for %s", async oldLabel => {
     const old = { workspace_id: "old-space", tab_id: "old-tab", label: oldLabel };
     const f = fixture([old]);
     await f.run();

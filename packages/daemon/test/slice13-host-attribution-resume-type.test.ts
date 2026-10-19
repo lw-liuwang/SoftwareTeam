@@ -7,30 +7,30 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it, expect, afterEach } from "vitest";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { setSelfHostId } from "../src/domain/hosts/fanout-contract.js";
 
 afterEach(() => setSelfHostId(null));
 
-function seedRig(db: ReturnType<typeof createFullTestDb>) {
-  const rigRepo = new RigRepository(db);
+function seedSoftwareTeam(db: ReturnType<typeof createFullTestDb>) {
+  const softwareTeamRepo = new SoftwareTeamRepository(db);
   const reg = new SessionRegistry(db);
-  const rig = rigRepo.createRig("r");
-  const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
+  const softwareTeam = softwareTeamRepo.createSoftwareTeam("r");
+  const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
   const sess = reg.registerSession(node.id, "dev-impl@r");
   reg.updateStatus(sess.id, "running");
-  return { rigRepo, reg, rig, node, sess };
+  return { softwareTeamRepo, reg, softwareTeam, node, sess };
 }
 
 describe("fix 2 — host attribution on node records", () => {
   it("every /nodes row carries the serving daemon's boot-reconciled self-id", async () => {
     const db = createFullTestDb();
-    const { rig } = seedRig(db);
+    const { softwareTeam } = seedSoftwareTeam(db);
     setSelfHostId("host-84c37990");
     const { app } = createTestApp(db);
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes`);
     expect(res.status).toBe(200);
     const nodes = (await res.json()) as Array<{ hostSelfId?: string | null }>;
     expect(nodes.length).toBeGreaterThan(0);
@@ -40,11 +40,11 @@ describe("fix 2 — host attribution on node records", () => {
 
   it("before the boot reconcile the key is PRESENT with null — unknown is a value, not an absence", async () => {
     const db = createFullTestDb();
-    const { rig } = seedRig(db);
+    const { softwareTeam } = seedSoftwareTeam(db);
     setSelfHostId(null);
     const { app } = createTestApp(db);
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes`);
     const nodes = (await res.json()) as Array<Record<string, unknown>>;
     expect(nodes.length).toBeGreaterThan(0);
     for (const n of nodes) {
@@ -56,11 +56,11 @@ describe("fix 2 — host attribution on node records", () => {
 
   it("node DETAIL carries the same attribution", async () => {
     const db = createFullTestDb();
-    const { rig } = seedRig(db);
+    const { softwareTeam } = seedSoftwareTeam(db);
     setSelfHostId("host-84c37990");
     const { app } = createTestApp(db);
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/dev.impl`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/dev.impl`);
     expect(res.status).toBe(200);
     const detail = (await res.json()) as { hostSelfId?: string | null };
     expect(detail.hostSelfId).toBe("host-84c37990");
@@ -72,14 +72,14 @@ describe("fix 3 — resume_type derives from the runtime on the identity hook", 
   async function postIdentity(app: { request: (p: string, init?: RequestInit) => Promise<Response> }, body: Record<string, unknown>) {
     return app.request("/api/activity/hooks", {
       method: "POST",
-      headers: { "content-type": "application/json", "x-openrig-activity-token": "tok" },
+      headers: { "content-type": "application/json", "x-softwareteam-activity-token": "tok" },
       body: JSON.stringify({ eventFamily: "session_identity", ...body }),
     });
   }
 
   it("a claude-code seat's hook stamps claude_id (the lived mislabel: it stamped codex_id)", async () => {
     const db = createFullTestDb();
-    seedRig(db);
+    seedSoftwareTeam(db);
     const { app } = createTestApp(db, { activityHookToken: "tok" });
 
     const res = await postIdentity(app, {
@@ -98,10 +98,10 @@ describe("fix 3 — resume_type derives from the runtime on the identity hook", 
 
   it("a codex seat's hook still stamps codex_id", async () => {
     const db = createFullTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const reg = new SessionRegistry(db);
-    const rig = rigRepo.createRig("r2");
-    const node = rigRepo.addNode(rig.id, "dev.worker", { runtime: "codex" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r2");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.worker", { runtime: "codex" });
     const sess = reg.registerSession(node.id, "dev-worker@r2");
     reg.updateStatus(sess.id, "running");
     const { app } = createTestApp(db, { activityHookToken: "tok" });
@@ -116,7 +116,7 @@ describe("fix 3 — resume_type derives from the runtime on the identity hook", 
 
   it("an unmapped runtime SKIPS the persist instead of guessing a label (tokenPersisted: false)", async () => {
     const db = createFullTestDb();
-    seedRig(db);
+    seedSoftwareTeam(db);
     const { app } = createTestApp(db, { activityHookToken: "tok" });
 
     const res = await postIdentity(app, { sessionId: "some-id-123", sessionName: "dev-impl@r", runtime: "mystery-runtime" });
@@ -131,7 +131,7 @@ describe("fix 3 — resume_type derives from the runtime on the identity hook", 
 
   it("rejects an OMP identity aimed at a claude-code seat without persisting", async () => {
     const db = createFullTestDb();
-    seedRig(db);
+    seedSoftwareTeam(db);
     const { app } = createTestApp(db, { activityHookToken: "tok" });
 
     const res = await postIdentity(app, { sessionId: "rpc-id", sessionName: "dev-impl@r", runtime: "omp", sessionFile: "/tmp/state/omp/seat/sessions/turn.jsonl" });
@@ -145,7 +145,7 @@ describe("fix 3 — resume_type derives from the runtime on the identity hook", 
 
   it("keeps main's 200 for a pi-labelled hook on a claude-code seat (refusals are OMP-only)", async () => {
     const db = createFullTestDb();
-    const { sess } = seedRig(db);
+    const { sess } = seedSoftwareTeam(db);
     const reg = new SessionRegistry(db);
     const { app } = createTestApp(db, { activityHookToken: "tok" });
     const generation = reg.currentOccupantTenure(sess.nodeId)?.generationUuid ?? null;
@@ -157,10 +157,10 @@ describe("fix 3 — resume_type derives from the runtime on the identity hook", 
 
   it("does not persist an OMP session-file token against a Pi seat", async () => {
     const db = createFullTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const reg = new SessionRegistry(db);
-    const rig = rigRepo.createRig("r3");
-    const node = rigRepo.addNode(rig.id, "dev.worker", { runtime: "pi" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r3");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.worker", { runtime: "pi" });
     const sess = reg.registerSession(node.id, "dev-worker@r3");
     reg.updateStatus(sess.id, "running");
     const { app } = createTestApp(db, { activityHookToken: "tok" });
@@ -176,10 +176,10 @@ describe("fix 3 — resume_type derives from the runtime on the identity hook", 
 
   it("defers an OMP identity token until its session JSONL exists", async () => {
     const db = createFullTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const reg = new SessionRegistry(db);
-    const rig = rigRepo.createRig("r4");
-    const node = rigRepo.addNode(rig.id, "dev.worker", { runtime: "omp" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r4");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.worker", { runtime: "omp" });
     const sess = reg.registerSession(node.id, "dev-worker@r4");
     reg.updateStatus(sess.id, "running");
     const ownFile = { current: "" };

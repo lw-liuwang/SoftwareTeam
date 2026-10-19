@@ -53,7 +53,7 @@ describe("PluginDetailPage", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       return { ok: true, json: async () => null };
     });
-    renderPluginDetail("openrig-core");
+    renderPluginDetail("softwareteam-core");
     expect(await screen.findByTestId("plugin-detail-loading")).toBeDefined();
   });
 
@@ -70,26 +70,26 @@ describe("PluginDetailPage", () => {
 
   it("renders header (name + version + runtime badges + source + skill-count + used-by-count) and surfaces plugin folder files via real file-browser tree", async () => {
     mockFetch.mockImplementation(async (url: string) => {
-      if (url === "/api/plugins/openrig-core") {
+      if (url === "/api/plugins/softwareteam-core") {
         return {
           ok: true,
           json: async () => ({
             entry: {
-              id: "openrig-core",
-              name: "openrig-core",
+              id: "softwareteam-core",
+              name: "softwareteam-core",
               version: "0.1.0",
-              description: "Canonical OpenRig content",
+              description: "Canonical SoftwareTeam content",
               source: "vendored",
-              sourceLabel: "vendored:openrig-core",
+              sourceLabel: "vendored:softwareteam-core",
               runtimes: ["claude", "codex"],
-              path: "/x/openrig-core",
+              path: "/x/softwareteam-core",
               lastSeenAt: "2026-05-10T00:00:00.000Z",
               skillCount: 2,
             },
             claudeManifest: null,
             codexManifest: null,
             skills: [
-              { name: "openrig-user", relativePath: "skills/openrig-user" },
+              { name: "softwareteam-user", relativePath: "skills/softwareteam-user" },
               { name: "queue-handoff", relativePath: "skills/queue-handoff" },
             ],
             hooks: [{ runtime: "claude", relativePath: "hooks/claude.json", events: ["SessionStart"] }],
@@ -97,7 +97,7 @@ describe("PluginDetailPage", () => {
           }),
         };
       }
-      if (url === "/api/plugins/openrig-core/used-by") {
+      if (url === "/api/plugins/softwareteam-core/used-by") {
         return {
           ok: true,
           json: async () => [
@@ -106,11 +106,11 @@ describe("PluginDetailPage", () => {
           ],
         };
       }
-      if (url === "/api/plugins/openrig-core/files/list?path=") {
+      if (url === "/api/plugins/softwareteam-core/files/list?path=") {
         return {
           ok: true,
           json: async () => ({
-            pluginId: "openrig-core",
+            pluginId: "softwareteam-core",
             path: "",
             ...fileList([
               { name: ".claude-plugin", type: "dir" },
@@ -121,14 +121,14 @@ describe("PluginDetailPage", () => {
           }),
         };
       }
-      if (url === "/api/plugins/openrig-core/files/read?path=README.md") {
+      if (url === "/api/plugins/softwareteam-core/files/read?path=README.md") {
         return {
           ok: true,
           json: async () => ({
-            pluginId: "openrig-core",
+            pluginId: "softwareteam-core",
             path: "README.md",
-            absolutePath: "/x/openrig-core/README.md",
-            content: "# OpenRig Core\nCanonical content.",
+            absolutePath: "/x/softwareteam-core/README.md",
+            content: "# SoftwareTeam Core\nCanonical content.",
             mtime: "2026-05-10T00:00:00.000Z",
             contentHash: "h",
             size: 30,
@@ -137,16 +137,16 @@ describe("PluginDetailPage", () => {
       }
       throw new Error(`unexpected ${url}`);
     });
-    renderPluginDetail("openrig-core");
+    renderPluginDetail("softwareteam-core");
 
     expect(await screen.findByTestId("plugin-detail-page")).toBeDefined();
     // Header content preserved across the C-2 refactor.
-    expect(screen.getByRole("heading", { name: "openrig-core" })).toBeDefined();
+    expect(screen.getByRole("heading", { name: "softwareteam-core" })).toBeDefined();
     expect(screen.getByText("v0.1.0")).toBeDefined();
-    expect(screen.getByText("Canonical OpenRig content")).toBeDefined();
+    expect(screen.getByText("Canonical SoftwareTeam content")).toBeDefined();
     expect(screen.getByTestId("plugin-detail-runtime-claude")).toBeDefined();
     expect(screen.getByTestId("plugin-detail-runtime-codex")).toBeDefined();
-    expect(screen.getByText("vendored:openrig-core")).toBeDefined();
+    expect(screen.getByText("vendored:softwareteam-core")).toBeDefined();
     expect(screen.getByTestId("plugin-detail-skill-count").textContent).toBe("2 skills");
     expect(screen.getByTestId("plugin-detail-used-by-count").textContent).toBe("used by 2 agents");
 
@@ -210,19 +210,19 @@ describe("PluginDetailPage", () => {
 
   it("folder navigation: clicking a directory enters it; '..' returns to parent", async () => {
     mockFetch.mockImplementation(async (url: string) => {
-      if (url === "/api/plugins/openrig-core") {
+      if (url === "/api/plugins/softwareteam-core") {
         return {
           ok: true,
           json: async () => ({
             entry: {
-              id: "openrig-core",
-              name: "openrig-core",
+              id: "softwareteam-core",
+              name: "softwareteam-core",
               version: "0.1.0",
               description: null,
               source: "vendored",
-              sourceLabel: "vendored:openrig-core",
+              sourceLabel: "vendored:softwareteam-core",
               runtimes: ["claude"],
-              path: "/x/openrig-core",
+              path: "/x/softwareteam-core",
               lastSeenAt: null,
               skillCount: 1,
             },
@@ -234,28 +234,28 @@ describe("PluginDetailPage", () => {
           }),
         };
       }
-      if (url === "/api/plugins/openrig-core/used-by") return { ok: true, json: async () => [] };
-      if (url === "/api/plugins/openrig-core/files/list?path=") {
+      if (url === "/api/plugins/softwareteam-core/used-by") return { ok: true, json: async () => [] };
+      if (url === "/api/plugins/softwareteam-core/files/list?path=") {
         return {
           ok: true,
-          json: async () => ({ pluginId: "openrig-core", path: "", ...fileList([{ name: "skills", type: "dir" }]) }),
+          json: async () => ({ pluginId: "softwareteam-core", path: "", ...fileList([{ name: "skills", type: "dir" }]) }),
         };
       }
-      if (url === "/api/plugins/openrig-core/files/list?path=skills") {
+      if (url === "/api/plugins/softwareteam-core/files/list?path=skills") {
         return {
           ok: true,
-          json: async () => ({ pluginId: "openrig-core", path: "skills", ...fileList([{ name: "openrig-user", type: "dir" }]) }),
+          json: async () => ({ pluginId: "softwareteam-core", path: "skills", ...fileList([{ name: "softwareteam-user", type: "dir" }]) }),
         };
       }
       throw new Error(`unexpected ${url}`);
     });
-    renderPluginDetail("openrig-core");
+    renderPluginDetail("softwareteam-core");
     await waitFor(() => {
       expect(screen.getByTestId("plugin-detail-tree-entry-skills")).toBeDefined();
     });
     fireEvent.click(screen.getByTestId("plugin-detail-tree-entry-skills"));
     await waitFor(() => {
-      expect(screen.getByTestId("plugin-detail-tree-entry-skills/openrig-user")).toBeDefined();
+      expect(screen.getByTestId("plugin-detail-tree-entry-skills/softwareteam-user")).toBeDefined();
     });
     expect(screen.getByTestId("plugin-detail-tree-up")).toBeDefined();
     fireEvent.click(screen.getByTestId("plugin-detail-tree-up"));

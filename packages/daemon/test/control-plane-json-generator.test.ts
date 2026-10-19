@@ -76,7 +76,7 @@ describe("control-plane JSON generator", () => {
           layout: "mirror-of-spec",
         },
         plugin: {
-          path: "packages/daemon/assets/plugins/openrig-core/skills",
+          path: "packages/daemon/assets/plugins/softwareteam-core/skills",
           layout: "flat",
         },
       },
@@ -194,7 +194,7 @@ describe("control-plane JSON generator", () => {
     write(outside, "outside edge bytes\n");
     const link = join(
       root,
-      "packages/daemon/assets/plugins/openrig-core/skills/alpha/references/linked.txt",
+      "packages/daemon/assets/plugins/softwareteam-core/skills/alpha/references/linked.txt",
     );
     mkdirSync(dirname(link), { recursive: true });
     symlinkSync(outside, link, "file");
@@ -254,7 +254,7 @@ async function loadGenerator(): Promise<Record<string, any>> {
 }
 
 function tempRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), "openrig-control-json-red-"));
+  const root = mkdtempSync(join(tmpdir(), "softwareteam-control-json-red-"));
   roots.push(root);
   return root;
 }
@@ -274,14 +274,14 @@ function seedEdges(root: string): void {
   write(
     join(
       root,
-      "packages/daemon/assets/plugins/openrig-core/skills/alpha/SKILL.md",
+      "packages/daemon/assets/plugins/softwareteam-core/skills/alpha/SKILL.md",
     ),
     "# Plugin alpha\n",
   );
   write(
     join(
       root,
-      "packages/daemon/assets/plugins/openrig-core/skills/pluginOnly/SKILL.md",
+      "packages/daemon/assets/plugins/softwareteam-core/skills/pluginOnly/SKILL.md",
     ),
     "# Plugin only\n",
   );
@@ -304,7 +304,7 @@ function seedGeneratorInput(root: string): {
     vendored_ship_with_provenance: [], not_public: {}, pending_author_public: [],
   }));
   write(denylistPath, JSON.stringify({
-    version: 1, path_prefixes: [], seat_and_rig_patterns: [], host_patterns: [], charged_terms: [],
+    version: 1, path_prefixes: [], seat_and_software_team_patterns: [], host_patterns: [], charged_terms: [],
     frontmatter_drop_keys: [], internal_path_globs: [],
     section_fence: { begin: "<!-- internal:begin -->", end: "<!-- internal:end -->" },
     allowed_context_substrings: [], allowed_context_lines: ["  Generic <path> placeholder"],
@@ -327,7 +327,7 @@ function edgeConfig(): Record<string, unknown> {
       layout: "mirror-of-spec",
     },
     plugin: {
-      path: "packages/daemon/assets/plugins/openrig-core/skills",
+      path: "packages/daemon/assets/plugins/softwareteam-core/skills",
       layout: "flat",
     },
   };

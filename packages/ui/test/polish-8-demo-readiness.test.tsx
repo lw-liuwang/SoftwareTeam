@@ -40,7 +40,7 @@ describe("polish-8 demo-readiness source guards", () => {
   it("TopologyTab reaches the React Flow workflow graph instead of the adjacency panel", () => {
     const topologySrc = read("../src/components/slices/tabs/TopologyTab.tsx");
     const graphSrc = read("../src/components/slices/tabs/SliceWorkflowGraph.tsx");
-    expect(topologySrc).toContain("const runtimeGraph = specGraph ?? deriveRuntimeGraph(affectedRigs);");
+    expect(topologySrc).toContain("const runtimeGraph = specGraph ?? deriveRuntimeGraph(affectedSoftwareTeams);");
     expect(topologySrc).toContain("{runtimeGraph && <SliceWorkflowGraph specGraph={runtimeGraph} />}");
     expect(topologySrc).toContain("function deriveRuntimeGraph");
     expect(topologySrc).not.toContain("function SpecGraphPanel");

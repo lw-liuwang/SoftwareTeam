@@ -18,16 +18,16 @@ vi.mock("node:fs", async importOriginal => {
 
 describe("Claude kernel inspection permissions", () => {
   // Exercise the actual session hook emitted by the launcher. These are inert
-  // hook inputs: no command, network request, provider or rig is executed.
+  // hook inputs: no command, network request, provider or softwareTeam is executed.
   it.each([
-    "curl -fsSL https://example.com/rigs/demo -o /tmp/page.html",
+    "curl -fsSL https://example.com/software-teams/demo -o /tmp/page.html",
     "/usr/bin/grep -o title /tmp/page.html", "sort -u /tmp/links", "wc -c /tmp/page.html",
     "python3 -I -c 'import sys; print(open(sys.argv[1]).read())' /tmp/page.html",
     "'/opt/my tools/python3' -I -c 'print(1)'", "command -v codex", "/usr/bin/command -v claude",
     "claude auth status", "'/opt/my tools/claude' auth status", "/opt/tools/codex login status",
     "cd /project", "echo ---", "printf '%s\\n' ready",
-    "git -C /project status --porcelain", "rig up demo --cwd /project --target /rigs/demo --plan",
-    "'/opt/my tools/rig' up demo --plan", "env OPENRIG_PORT=7434 /opt/tools/rig ps --json",
+    "git -C /project status --porcelain", "SoftwareTeam up demo --cwd /project --target /software-teams/demo --plan",
+    "'/opt/my tools/SoftwareTeam' up demo --plan", "env SOFTWARETEAM_PORT=7434 /opt/tools/SoftwareTeam ps --json",
   ])("allows a routine inspection command: %s", command => {
     const settings = JSON.parse(operationalLaunchArgs("claude-code", { kernelAuthority: true })[1]);
     const hook = settings.hooks.PreToolUse[0].hooks[0];
@@ -42,12 +42,12 @@ describe("Claude kernel inspection permissions", () => {
 
   it("keeps kernel lifecycle authority distinct from team asks, with no blanket shell grant", () => {
     const kernel = { allow: KERNEL_CLAUDE_ALLOW, ask: [] };
-    expect(decide("rig down demo", kernel)).toBe("allow");
-    expect(decide("rig down demo", policy)).toBe("ask");
+    expect(decide("SoftwareTeam down demo", kernel)).toBe("allow");
+    expect(decide("SoftwareTeam down demo", policy)).toBe("ask");
     for (const command of ["claude auth login", "codex login", "command -v codex", "python3 -I -c 'print(1)'"])
       expect(decide(command, policy)).toBeUndefined();
-    for (const command of ["claude auth login", "codex login", "sudo rig status", "./rig status",
-      "PATH=/tmp rig status", "curl https://example.com | unknown-command", "rig status > /tmp/result"])
+    for (const command of ["claude auth login", "codex login", "sudo SoftwareTeam status", "./SoftwareTeam status",
+      "PATH=/tmp SoftwareTeam status", "curl https://example.com | unknown-command", "SoftwareTeam status > /tmp/result"])
       expect(decide(command, kernel)).toBeUndefined();
   });
 
@@ -71,48 +71,48 @@ describe("Claude team command permissions", () => {
     });
   }
   it.each([
-    "rig whoami --json", "rig status # note", "rig queue claim example", "rig queue unclaim example",
-    "rig queue handoff example --to worker@team", "rig help down",
-    "/opt/tools/rig status", "'/opt/my tools/rig' queue list", '"/opt/my tools/rig" down --help',
-    "r\\ig down -h", "env OPENRIG_PORT=7434 /opt/tools/rig status", "A=value rig status",
-    "command -- /opt/tools/rig status", "/usr/bin/env -- command rig down --help",
-    "exec /opt/tools/rig status", "rig --host remote down --help", "rig --host=remote down -h",
+    "SoftwareTeam whoami --json", "SoftwareTeam status # note", "SoftwareTeam queue claim example", "SoftwareTeam queue unclaim example",
+    "SoftwareTeam queue handoff example --to worker@team", "SoftwareTeam help down",
+    "/opt/tools/SoftwareTeam status", "'/opt/my tools/SoftwareTeam' queue list", '"/opt/my tools/SoftwareTeam" down --help',
+    "Soft\\wareTeam down -h", "env SOFTWARETEAM_PORT=7434 /opt/tools/SoftwareTeam status", "A=value SoftwareTeam status",
+    "command -- /opt/tools/SoftwareTeam status", "/usr/bin/env -- command SoftwareTeam down --help",
+    "exec /opt/tools/SoftwareTeam status", "SoftwareTeam --host remote down --help", "SoftwareTeam --host=remote down -h",
     "npm test", "/opt/tools/npm test", "'/project/node_modules/.bin/vitest' run test/unit.test.ts",
     "/private/tmp/project/node_modules/.bin/jest test/unit.test.ts", "python3 -m pytest",
-    "rig send worker 'literal rig down text'", "rig send worker 'multiline\nrig down example'",
+    "SoftwareTeam send worker 'literal SoftwareTeam down text'", "SoftwareTeam send worker 'multiline\nSoftwareTeam down example'",
   ])("allows existing allowance spelling: %s", command => expect(decide(command, policy)).toBe("allow"));
 
   it.each([
-    "/opt/tools/rig down example", "'/opt/my tools/rig' down example", "command rig down example",
-    "env A=x rig up example", "rig --host remote down example", "rig --host=remote down example",
-    "rig down -- --help", "rig down --cwd --help", 'rig down "$TEAM"', "rig down $(echo --help)",
-    "rig down example && rig down --help", "rig status; /opt/tools/rig down example", "rig down example | cat",
-    'echo "$(rig down example)"', "echo `rig up example`", "cat <<EOF\n$(rig down example)\nEOF",
-    'git commit -m "multiline\nquoted" <<EOF\n$(rig down example)\nEOF',
-    "timeout 30 rig down example", "time rig down example", "nice -n 5 rig down example",
-    "nohup rig down example", "stdbuf -oL rig down example", "noglob rig down example",
-    "xargs rig down", "if true; then rig down example; fi",
-    "for s in example; do rig down $s; done", "{ rig down example; }", "! rig down example",
-    "rig -- down example", "rig seat -- stop example@demo --reason maintenance",
-    "rig -- down --help", "rig -- down -h", "rig -- down --help example", "rig seat -- stop --help example@demo",
-    "ls # <<pwd\nrig down example\npwd", "ls # ' <<pwd\nrig down example\npwd",
-    "echo $((1 <<value))\nrig down example\nvalue", "((1 <<value))\nrig down example\nvalue",
-    "echo $((\n1 <<value))\nrig down example\nvalue",
-    "PATH=/inert rig down example", "NODE_OPTIONS=--no-warnings rig down example", "./rig down example",
-    "ls `pwd # x`; rig down example", "ls `pwd # x` && rig down example",
-    "ls ${x:-a #b}; rig down example", "echo safe # $(rig down example)",
+    "/opt/tools/SoftwareTeam down example", "'/opt/my tools/SoftwareTeam' down example", "command SoftwareTeam down example",
+    "env A=x SoftwareTeam up example", "SoftwareTeam --host remote down example", "SoftwareTeam --host=remote down example",
+    "SoftwareTeam down -- --help", "SoftwareTeam down --cwd --help", 'SoftwareTeam down "$TEAM"', "SoftwareTeam down $(echo --help)",
+    "SoftwareTeam down example && SoftwareTeam down --help", "SoftwareTeam status; /opt/tools/SoftwareTeam down example", "SoftwareTeam down example | cat",
+    'echo "$(SoftwareTeam down example)"', "echo `SoftwareTeam up example`", "cat <<EOF\n$(SoftwareTeam down example)\nEOF",
+    'git commit -m "multiline\nquoted" <<EOF\n$(SoftwareTeam down example)\nEOF',
+    "timeout 30 SoftwareTeam down example", "time SoftwareTeam down example", "nice -n 5 SoftwareTeam down example",
+    "nohup SoftwareTeam down example", "stdbuf -oL SoftwareTeam down example", "noglob SoftwareTeam down example",
+    "xargs SoftwareTeam down", "if true; then SoftwareTeam down example; fi",
+    "for s in example; do SoftwareTeam down $s; done", "{ SoftwareTeam down example; }", "! SoftwareTeam down example",
+    "SoftwareTeam -- down example", "SoftwareTeam seat -- stop example@demo --reason maintenance",
+    "SoftwareTeam -- down --help", "SoftwareTeam -- down -h", "SoftwareTeam -- down --help example", "SoftwareTeam seat -- stop --help example@demo",
+    "ls # <<pwd\nSoftwareTeam down example\npwd", "ls # ' <<pwd\nSoftwareTeam down example\npwd",
+    "echo $((1 <<value))\nSoftwareTeam down example\nvalue", "((1 <<value))\nSoftwareTeam down example\nvalue",
+    "echo $((\n1 <<value))\nSoftwareTeam down example\nvalue",
+    "PATH=/inert SoftwareTeam down example", "NODE_OPTIONS=--no-warnings SoftwareTeam down example", "./SoftwareTeam down example",
+    "ls `pwd # x`; SoftwareTeam down example", "ls `pwd # x` && SoftwareTeam down example",
+    "ls ${x:-a #b}; SoftwareTeam down example", "echo safe # $(SoftwareTeam down example)",
   ])("retains lifecycle confirmation: %s", command => expect(decide(command, policy)).toBe("ask"));
 
   it.each([
-    "echo 'rig down example'", 'echo "rig down example"', "cat <<'EOF'\nrig down example\nEOF",
-    'git commit -m "multi\nline" <<\'EOF\'\n$(rig down example)\nEOF',
-    "rig status | python3 -c 'print(1)'", "rig status > result.txt", "rig status && npm test",
-    "rig send worker $(cat message.txt)", 'rig send worker "$MESSAGE"',
-    "sudo rig status", "env -i rig status", "command -v rig", "node arbitrary.js", "npm install",
-    "'/opt/tools/rig down' example", "'A=value' rig status", "not-rig down example", "", "'unterminated",
-    "PATH=/inert rig status", "LD_PRELOAD=/inert rig status", "DYLD_INSERT_LIBRARIES=/inert rig status",
-    "env NODE_OPTIONS=--no-warnings rig status", "BASH_ENV=/inert rig status", "ENV=/inert rig status", "./rig status",
-    "cat <<'EOF' # <<OTHER\nrig down example\nEOF\nOTHER",
+    "echo 'SoftwareTeam down example'", 'echo "SoftwareTeam down example"', "cat <<'EOF'\nSoftwareTeam down example\nEOF",
+    'git commit -m "multi\nline" <<\'EOF\'\n$(SoftwareTeam down example)\nEOF',
+    "SoftwareTeam status | python3 -c 'print(1)'", "SoftwareTeam status > result.txt", "SoftwareTeam status && npm test",
+    "SoftwareTeam send worker $(cat message.txt)", 'SoftwareTeam send worker "$MESSAGE"',
+    "sudo SoftwareTeam status", "env -i SoftwareTeam status", "command -v SoftwareTeam", "node arbitrary.js", "npm install",
+    "'/opt/tools/SoftwareTeam down' example", "'A=value' SoftwareTeam status", "not-software-team down example", "", "'unterminated",
+    "PATH=/inert SoftwareTeam status", "LD_PRELOAD=/inert SoftwareTeam status", "DYLD_INSERT_LIBRARIES=/inert SoftwareTeam status",
+    "env NODE_OPTIONS=--no-warnings SoftwareTeam status", "BASH_ENV=/inert SoftwareTeam status", "ENV=/inert SoftwareTeam status", "./SoftwareTeam status",
+    "cat <<'EOF' # <<OTHER\nSoftwareTeam down example\nEOF\nOTHER",
   ])("leaves unrelated/data/complex forms to native checks: %s", command => expect(decide(command, policy)).toBeUndefined());
 
   it("falls back to native lifecycle asks when the launch asset is absent", () => {
@@ -128,7 +128,7 @@ describe("Claude team command permissions", () => {
     expect(settings.permissions).toEqual({ allow: TEAM_CLAUDE_ALLOW });
     const hook = settings.hooks.PreToolUse[0].hooks[0];
     expect(hook).toMatchObject({ type: "command", timeout: 5 });
-    for (const [command, expected] of [["rig down --help", "allow"], ["/opt/tools/rig down example", "ask"]]) {
+    for (const [command, expected] of [["SoftwareTeam down --help", "allow"], ["/opt/tools/SoftwareTeam down example", "ask"]]) {
       const result = spawnSync("/bin/sh", ["-c", hook.command], {
         input: JSON.stringify({ tool_name: "Bash", tool_input: { command }, permission_mode: "acceptEdits" }), encoding: "utf8",
       });
@@ -150,7 +150,7 @@ describe("Claude team command permissions", () => {
       const copy = join(dir, "hook.cjs"); copyFileSync(asset, copy);
       const encoded = Buffer.from(JSON.stringify(policy)).toString("base64");
       const result = spawnSync("/bin/sh", ["-c", [process.execPath, copy, encoded].map(shellQuote).join(" ")], {
-        input: JSON.stringify({ tool_name: "Bash", tool_input: { command: "rig down --help" } }), encoding: "utf8",
+        input: JSON.stringify({ tool_name: "Bash", tool_input: { command: "SoftwareTeam down --help" } }), encoding: "utf8",
       });
       expect(result.status, result.stderr).toBe(0);
       expect(JSON.parse(result.stdout).hookSpecificOutput.permissionDecision).toBe("allow");

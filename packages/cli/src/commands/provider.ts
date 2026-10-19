@@ -4,11 +4,11 @@ import { getDaemonStatus, getDaemonUrl , daemonStatusGuard} from "../daemon-life
 import { realDeps } from "./daemon.js";
 import type { StatusDeps } from "./status.js";
 
-// Slice-04 (OPR.0.5.0.4) — the `rig provider` CLI verb surface (packet 3ffa3c22 §3), grammar per
+// Slice-04 (OPR.0.5.0.4) — the `softwareTeam provider` CLI verb surface (packet 3ffa3c22 §3), grammar per
 // the auth.ts precedent (conventions/cli-read-command-grammar). Daemon-backed: reads/precheck go
 // through the DaemonClient to the daemon's four-block read model + precheck; switch POSTs the
-// orchestration route. NOTE: this CLI seam does NOT itself compose `rig auth` — it only calls the
-// route; the real precheck-gated switch + rig-auth codex composition + durable action record live
+// orchestration route. NOTE: this CLI seam does NOT itself compose `softwareTeam auth` — it only calls the
+// route; the real precheck-gated switch + software-team-auth codex composition + durable action record live
 // in the daemon routes/service (seams B/C/D), where seam D resolves the CLI-local auth
 // composition/package boundary. Every verb is --json-stable for agents.
 
@@ -169,7 +169,7 @@ export function providerCommand(depsOverride?: StatusDeps): Command {
   }
 
   function renderUsage(rows: Array<Record<string, unknown>>): void {
-    console.log("USAGE (read on request: rig provider status --refresh)");
+    console.log("USAGE (read on request: SoftwareTeam provider status --refresh)");
     for (const r of rows) renderUsageRow(r);
     const saved = rows.find((r) => r["savedProfiles"])?.["savedProfiles"] as Record<string, unknown> | undefined;
     if (saved) console.log(`  ${saved["note"]}: ${((saved["names"] as string[]) ?? []).join(", ")}`);
@@ -222,7 +222,7 @@ export function providerCommand(depsOverride?: StatusDeps): Command {
   // windows, then one entry per allowance with every host's own observation (never summed), then each host's
   // configured seats. Nothing here re-derives a level, a freshness or a link.
   function renderAcrossHosts(v: Record<string, unknown>): void {
-    console.log("USAGE ACROSS HOSTS (what each host already holds; read them now: rig provider status --all-hosts --refresh)");
+    console.log("USAGE ACROSS HOSTS (what each host already holds; read them now: SoftwareTeam provider status --all-hosts --refresh)");
     console.log("HOSTS");
     for (const h of (v["hosts"] as Array<Record<string, unknown>>) ?? []) {
       const transport = h["status"] === "ok" ? "answered" : `${h["status"]}${h["error"] ? ` (${h["error"]})` : ""}`;

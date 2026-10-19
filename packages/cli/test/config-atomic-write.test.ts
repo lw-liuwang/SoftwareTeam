@@ -55,10 +55,11 @@ it.each(stores)("%s retains a native config symlink and its target permissions o
 });
 
 const alternateGroup = process.getgroups?.().find((gid) => gid !== process.getgid?.());
-it.skipIf(process.platform === "win32" || alternateGroup === undefined).each(stores)("%s preserves actual nondefault POSIX group ownership and writes in place if preservation is denied", (Store) => {
+it.skipIf(process.platform === "win32" || alternateGroup === undefined).for(stores)("%s preserves actual nondefault POSIX group ownership and writes in place if preservation is denied", (Store, context) => {
   const file = join(dir, "config.json");
   fs.writeFileSync(file, "{}");
-  fs.chownSync(file, process.getuid!(), alternateGroup!);
+  try { fs.chownSync(file, process.getuid!(), alternateGroup!); }
+  catch (error) { if (["EINVAL", "EPERM"].includes((error as NodeJS.ErrnoException).code ?? "")) { context.skip("native supplementary group is unmapped or unavailable in this user namespace"); return; } throw error; }
   fs.chmodSync(file, 0o640);
   const owner = fs.statSync(file);
   new Store(file).set("transcripts.lines", "20");

@@ -44,8 +44,8 @@ describe("QueueRepository", () => {
 
   it("create stamps qitem_id + transition + queue.created event", async () => {
     const item = await repo.create({
-      sourceSession: "alice@rig-a",
-      destinationSession: "bob@rig-b",
+      sourceSession: "alice@software-team-a",
+      destinationSession: "bob@software-team-b",
       body: "do the thing",
     });
     expect(item.qitemId).toMatch(/^qitem-\d{14}-[a-f0-9]{8}$/);
@@ -64,12 +64,12 @@ describe("QueueRepository", () => {
   // row and a never-attempted (NULL) cold-park are both excluded; the never-attempted class stays deferred
   // behind a forward create-time intent bit (FP-dominated). DR-1 only READS (no retry, no unwind).
   it("DR-1 findUndelivered: surfaces pending failed:% strands, excludes delivered + never-attempted", async () => {
-    const failed = await repo.create({ sourceSession: "a@rig", destinationSession: "b@rig", body: "failed nudge" });
-    repo.recordNudgeAttempt(failed.qitemId, "failed:Session 'b@rig' not found");
-    const delivered = await repo.create({ sourceSession: "a@rig", destinationSession: "b@rig", body: "delivered" });
+    const failed = await repo.create({ sourceSession: "a@software-team", destinationSession: "b@software-team", body: "failed nudge" });
+    repo.recordNudgeAttempt(failed.qitemId, "failed:Session 'b@software-team' not found");
+    const delivered = await repo.create({ sourceSession: "a@software-team", destinationSession: "b@software-team", body: "delivered" });
     repo.recordNudgeAttempt(delivered.qitemId, "verified");
     // never-attempted: this harness has no transport → maybeNudge no-ops → last_nudge_result stays NULL.
-    const neverAttempted = await repo.create({ sourceSession: "a@rig", destinationSession: "b@rig", body: "cold park" });
+    const neverAttempted = await repo.create({ sourceSession: "a@software-team", destinationSession: "b@software-team", body: "cold park" });
     const ids = repo.findUndelivered().map((s) => s.qitemId);
     expect(ids, "(a) the failed-nudge strand is surfaced").toContain(failed.qitemId);
     expect(ids, "(b) V1-only: a delivered row is NOT surfaced").not.toContain(delivered.qitemId);
@@ -85,7 +85,7 @@ describe("QueueRepository", () => {
   // found"), route to the addressing family, NOT retry. transient = a live seat refused this attempt.
   it("DR-1 classifyNudgeFailure: three POSITIVE classes + null; an unrecognized failure is UNKNOWN, never a silent transient", () => {
     expect(classifyNudgeFailure("failed:Session 'operator-agent@kernel' not found. Check available sessions"), "not-found = unresolvable on this daemon").toBe("permanent-topology");
-    expect(classifyNudgeFailure("failed:Refused: 'orch-advisor@v-openrig-build' is at an interactive prompt"), "a live seat refusing this attempt is transient").toBe("transient");
+    expect(classifyNudgeFailure("failed:Refused: 'orch-advisor@v-softwareteam-build' is at an interactive prompt"), "a live seat refusing this attempt is transient").toBe("transient");
     expect(classifyNudgeFailure("failed:timeout after 5000ms"), "a timeout to a resolvable seat is transient").toBe("transient");
     // The ship-block assertion (PM ruling): an unrecognized failure text is NEITHER known class. It must
     // NOT collapse into transient (that would assert a claim the text does not support). If someone later
@@ -96,27 +96,27 @@ describe("QueueRepository", () => {
     expect(classifyNudgeFailure(null), "no nudge record is not a failure").toBeNull();
   });
 
-  it("create rejects unknown rig when validateRig denies", async () => {
+  it("create rejects unknown SoftwareTeam when validateSoftwareTeam denies", async () => {
     const strictRepo = new QueueRepository(db, bus, {
-      validateRig: (s) => s.endsWith("@known-rig"),
+      validateSoftwareTeam: (s) => s.endsWith("@known-software-team"),
     });
     await expect(
       strictRepo.create({
-        sourceSession: "alice@known-rig",
-        destinationSession: "bob@phantom-rig",
+        sourceSession: "alice@known-software-team",
+        destinationSession: "bob@phantom-software-team",
         body: "x",
       })
-    ).rejects.toThrow(/unknown rig/);
+    ).rejects.toThrow(/unknown softwareTeam/);
   });
 
   it("claim transitions pending → in-progress and computes closure_required_at from tier", async () => {
     const item = await repo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "x",
       tier: "fast",
     });
-    const claimed = repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    const claimed = repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
     expect(claimed.state).toBe("in-progress");
     expect(claimed.claimedAt).toBeTruthy();
     expect(claimed.closureRequiredAt).toBeTruthy();
@@ -124,7 +124,7 @@ describe("QueueRepository", () => {
   });
 
   describe("lastNudgeResult presents a claim over an unconfirmed wake (#165)", () => {
-    const createRow = () => repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "x" });
+    const createRow = () => repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "x" });
     const storedResult = (qitemId: string) =>
       (db.prepare("SELECT last_nudge_result FROM queue_items WHERE qitem_id = ?").get(qitemId) as { last_nudge_result: string | null }).last_nudge_result;
 
@@ -133,7 +133,7 @@ describe("QueueRepository", () => {
         ["delivered-ack-pending", "claimed"],
         ["indeterminate:send timed out", "claimed"],
         ["verified", "verified"],
-        ["failed:Session 'bob@rig' not found", "failed:Session 'bob@rig' not found"],
+        ["failed:Session 'bob@software-team' not found", "failed:Session 'bob@software-team' not found"],
         ["retained:typing_guard", "retained:typing_guard"],
         ["gateway-owned:slack", "gateway-owned:slack"],
       ];
@@ -141,19 +141,19 @@ describe("QueueRepository", () => {
         const item = await createRow();
         repo.recordNudgeAttempt(item.qitemId, recorded);
         expect(repo.getById(item.qitemId)!.lastNudgeResult).toBe(recorded);
-        const claimed = repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+        const claimed = repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
         expect(claimed.lastNudgeResult).toBe(expected);
         expect(claimed.lastNudgeWireResult).toBe(recorded);
         expect(storedResult(item.qitemId)).toBe(recorded);
       }
       const unnudged = await createRow();
       db.prepare("UPDATE queue_items SET last_nudge_result = NULL WHERE qitem_id = ?").run(unnudged.qitemId);
-      expect(repo.claim({ qitemId: unnudged.qitemId, destinationSession: "bob@rig" }).lastNudgeResult).toBeNull();
+      expect(repo.claim({ qitemId: unnudged.qitemId, destinationSession: "bob@software-team" }).lastNudgeResult).toBeNull();
     });
 
     it("claim then wake: a wake recorded on a claimed row reads claimed", async () => {
       const item = await createRow();
-      repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+      repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
       repo.recordNudgeAttempt(item.qitemId, "delivered-ack-pending");
       const row = repo.getById(item.qitemId)!;
       expect(row.lastNudgeResult).toBe("claimed");
@@ -163,19 +163,19 @@ describe("QueueRepository", () => {
     it("a re-wake after the claim is stored as sent and still presented against the claim", async () => {
       const item = await createRow();
       repo.recordNudgeAttempt(item.qitemId, "delivered-ack-pending");
-      repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+      repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
       repo.recordNudgeAttempt(item.qitemId, "indeterminate:pane render unconfirmed");
       expect(storedResult(item.qitemId)).toBe("indeterminate:pane render unconfirmed");
       expect(repo.getById(item.qitemId)!.lastNudgeResult).toBe("claimed");
-      repo.recordNudgeAttempt(item.qitemId, "failed:Session 'bob@rig' not found");
-      expect(repo.getById(item.qitemId)!.lastNudgeResult).toBe("failed:Session 'bob@rig' not found");
+      repo.recordNudgeAttempt(item.qitemId, "failed:Session 'bob@software-team' not found");
+      expect(repo.getById(item.qitemId)!.lastNudgeResult).toBe("failed:Session 'bob@software-team' not found");
     });
 
     it("unclaim returns the row to its wire result", async () => {
       const item = await createRow();
       repo.recordNudgeAttempt(item.qitemId, "delivered-ack-pending");
-      repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
-      const unclaimed = repo.unclaim(item.qitemId, "bob@rig", "handing back");
+      repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
+      const unclaimed = repo.unclaim(item.qitemId, "bob@software-team", "handing back");
       expect(unclaimed.lastNudgeResult).toBe("delivered-ack-pending");
       expect(unclaimed.lastNudgeWireResult).toBe("delivered-ack-pending");
     });
@@ -183,26 +183,26 @@ describe("QueueRepository", () => {
 
   it("claim rejects mismatched destination", async () => {
     const item = await repo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "x",
     });
-    expect(() => repo.claim({ qitemId: item.qitemId, destinationSession: "carol@rig" })).toThrow(
+    expect(() => repo.claim({ qitemId: item.qitemId, destinationSession: "carol@software-team" })).toThrow(
       /destination/
     );
   });
 
   it("R2: update emits queue.updated event with fromState + toState + closure metadata", async () => {
     const item = await repo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "x",
     });
-    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
     captured.length = 0;
     repo.update({
       qitemId: item.qitemId,
-      actorSession: "bob@rig",
+      actorSession: "bob@software-team",
       state: "done",
       closureReason: "no-follow-on",
       transitionNote: "wrapping up",
@@ -221,19 +221,19 @@ describe("QueueRepository", () => {
     expect(evt.fromState).toBe("in-progress");
     expect(evt.toState).toBe("done");
     expect(evt.closureReason).toBe("no-follow-on");
-    expect(evt.actorSession).toBe("bob@rig");
+    expect(evt.actorSession).toBe("bob@software-team");
   });
 
   it("R2: update emits queue.updated for blocked transition (fromState=pending, toState=blocked)", async () => {
     const item = await repo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "x",
     });
     captured.length = 0;
     repo.update({
       qitemId: item.qitemId,
-      actorSession: "bob@rig",
+      actorSession: "bob@software-team",
       state: "blocked",
       transitionNote: "blocked on dep",
     });
@@ -248,24 +248,24 @@ describe("QueueRepository", () => {
   // PRESERVES the old blocker. A non-blocked row must NEVER carry a blocker — a stale
   // blocked_on is a dead-blocker strand (nothing audits it; the desk sat on one for hours).
   it("Atom 1b(i): exiting blocked CLEARS blocked_on (no stale dead-blocker)", async () => {
-    const blocker = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "blocker" });
-    const item = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "work" });
+    const blocker = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "blocker" });
+    const item = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "work" });
     // Park it on the blocker qitem.
-    repo.update({ qitemId: item.qitemId, actorSession: "bob@rig", state: "blocked", blockedOn: blocker.qitemId });
+    repo.update({ qitemId: item.qitemId, actorSession: "bob@software-team", state: "blocked", blockedOn: blocker.qitemId });
     expect(repo.getById(item.qitemId)!.blockedOn).toBe(blocker.qitemId);
     // Exit blocked (unpark). RED at base: blocked_on still reads the blocker (COALESCE preserved it).
-    repo.update({ qitemId: item.qitemId, actorSession: "bob@rig", state: "in-progress" });
+    repo.update({ qitemId: item.qitemId, actorSession: "bob@software-team", state: "in-progress" });
     expect(repo.getById(item.qitemId)!.blockedOn, "a non-blocked row must not carry a blocker").toBeNull();
   });
 
   // 0.5.1-53 Atom 1b(ii) — validate-at-park. A park on a QITEM-reference blocker must name a real,
   // LIVE blocker; a nonexistent or terminal blocker is a dead-blocker park that can never self-clear
-  // (the exact 21-22 day strands). Scoped to qitem-refs ("qitem-…"): human-seat blockers (member@rig)
+  // (the exact 21-22 day strands). Scoped to qitem-refs ("qitem-…"): human-seat blockers (member@software-team)
   // and bare gate-names ("external-gate", handled by Atom 1a) are NOT validated here.
   it("Atom 1b(ii): parking on a NONEXISTENT qitem blocker is refused loud", async () => {
-    const item = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "work" });
+    const item = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "work" });
     try {
-      repo.update({ qitemId: item.qitemId, actorSession: "bob@rig", state: "blocked", blockedOn: "qitem-19990101000000-deadbeef" });
+      repo.update({ qitemId: item.qitemId, actorSession: "bob@software-team", state: "blocked", blockedOn: "qitem-19990101000000-deadbeef" });
       throw new Error("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(QueueRepositoryError);
@@ -274,12 +274,12 @@ describe("QueueRepository", () => {
   });
 
   it("Atom 1b(ii): parking on a TERMINAL (done) qitem blocker is refused loud", async () => {
-    const blocker = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "blocker" });
-    repo.claim({ qitemId: blocker.qitemId, destinationSession: "bob@rig" });
-    repo.update({ qitemId: blocker.qitemId, actorSession: "bob@rig", state: "done", closureReason: "no-follow-on" });
-    const item = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "work" });
+    const blocker = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "blocker" });
+    repo.claim({ qitemId: blocker.qitemId, destinationSession: "bob@software-team" });
+    repo.update({ qitemId: blocker.qitemId, actorSession: "bob@software-team", state: "done", closureReason: "no-follow-on" });
+    const item = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "work" });
     try {
-      repo.update({ qitemId: item.qitemId, actorSession: "bob@rig", state: "blocked", blockedOn: blocker.qitemId });
+      repo.update({ qitemId: item.qitemId, actorSession: "bob@software-team", state: "blocked", blockedOn: blocker.qitemId });
       throw new Error("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(QueueRepositoryError);
@@ -291,13 +291,13 @@ describe("QueueRepository", () => {
   // that promise never fired (the desk sat on a done blocker for hours). When B reaches a terminal
   // state, the rows blocked ON it must auto-unpark — the semantic blocked_on always owed.
   it("Atom 1b(iii): terminalizing a blocker auto-unparks the rows blocked on it", async () => {
-    const blocker = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "blocker" });
-    const item = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "work" });
-    repo.update({ qitemId: item.qitemId, actorSession: "bob@rig", state: "blocked", blockedOn: blocker.qitemId });
+    const blocker = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "blocker" });
+    const item = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "work" });
+    repo.update({ qitemId: item.qitemId, actorSession: "bob@software-team", state: "blocked", blockedOn: blocker.qitemId });
     expect(repo.getById(item.qitemId)!.state).toBe("blocked");
     // Complete the blocker.
-    repo.claim({ qitemId: blocker.qitemId, destinationSession: "bob@rig" });
-    repo.update({ qitemId: blocker.qitemId, actorSession: "bob@rig", state: "done", closureReason: "no-follow-on" });
+    repo.claim({ qitemId: blocker.qitemId, destinationSession: "bob@software-team" });
+    repo.update({ qitemId: blocker.qitemId, actorSession: "bob@software-team", state: "done", closureReason: "no-follow-on" });
     // RED at 1b(ii): the blocked row stays blocked forever (completion never propagated).
     const after = repo.getById(item.qitemId)!;
     expect(after.state, "a row blocked on a now-terminal blocker must auto-unpark").toBe("pending");
@@ -310,17 +310,17 @@ describe("QueueRepository", () => {
   // and the ruling detail rides a transition. A well-formed typed blocker is ACCEPTED; a malformed
   // one (a bare prefix with no gate body) is refused loud so a typo cannot masquerade as a gate.
   it("Atom 1a: a well-formed typed non-qitem blocker (fold:) is accepted and legible", async () => {
-    const item = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "gated work" });
-    repo.update({ qitemId: item.qitemId, actorSession: "bob@rig", state: "blocked", blockedOn: "fold:one-home+attestation" });
+    const item = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "gated work" });
+    repo.update({ qitemId: item.qitemId, actorSession: "bob@software-team", state: "blocked", blockedOn: "fold:one-home+attestation" });
     const row = repo.getById(item.qitemId)!;
     expect(row.state).toBe("blocked");
     expect(row.blockedOn, "the typed gate is legible on the row (compact-carried)").toBe("fold:one-home+attestation");
   });
 
   it("Atom 1a: a malformed typed blocker (bare prefix, empty body) is refused loud", async () => {
-    const item = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "gated work" });
+    const item = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "gated work" });
     try {
-      repo.update({ qitemId: item.qitemId, actorSession: "bob@rig", state: "blocked", blockedOn: "fold:" });
+      repo.update({ qitemId: item.qitemId, actorSession: "bob@software-team", state: "blocked", blockedOn: "fold:" });
       throw new Error("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(QueueRepositoryError);
@@ -334,11 +334,11 @@ describe("QueueRepository", () => {
   // so state=canceled + a reason is refused (closure_fields_not_admitted) — which is exactly why a
   // superseded row is indistinguishable from an abandoned one (both closureReason=null).
   it("Atom 2a: a supersession-cancel (canceled + reason=superseded + target) is admitted and recorded", async () => {
-    const successor = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "successor" });
-    const item = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "original" });
-    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    const successor = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "successor" });
+    const item = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "original" });
+    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
     repo.update({
-      qitemId: item.qitemId, actorSession: "bob@rig", state: "canceled",
+      qitemId: item.qitemId, actorSession: "bob@software-team", state: "canceled",
       closureReason: "superseded", closureTarget: successor.qitemId,
     });
     const row = repo.getById(item.qitemId)!;
@@ -348,17 +348,17 @@ describe("QueueRepository", () => {
   });
 
   it("Atom 2a: a plain cancel (no reason) stays abandoned — closureReason null", async () => {
-    const item = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "abandon me" });
-    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
-    repo.update({ qitemId: item.qitemId, actorSession: "bob@rig", state: "canceled" });
+    const item = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "abandon me" });
+    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
+    repo.update({ qitemId: item.qitemId, actorSession: "bob@software-team", state: "canceled" });
     expect(repo.getById(item.qitemId)!.closureReason, "abandoned = no supersession reason").toBeNull();
   });
 
   it("Atom 2a: superseded WITHOUT a successor target is refused loud (no silent no-op)", async () => {
-    const item = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "orig" });
-    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    const item = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "orig" });
+    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
     try {
-      repo.update({ qitemId: item.qitemId, actorSession: "bob@rig", state: "canceled", closureReason: "superseded" });
+      repo.update({ qitemId: item.qitemId, actorSession: "bob@software-team", state: "canceled", closureReason: "superseded" });
       throw new Error("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(QueueRepositoryError);
@@ -373,12 +373,12 @@ describe("QueueRepository", () => {
   // successor back to what it replaced (proof e). Combined with 2a's forward link (original.closureTarget
   // = successor), a supersession is fully traversable in both directions and never reads as abandonment.
   it("Atom 2b: a supersession successor records handedOffFrom = the original (both links present)", async () => {
-    const original = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "original (metadata wrong)" });
-    const successor = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "corrected", handedOffFrom: original.qitemId });
+    const original = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "original (metadata wrong)" });
+    const successor = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "corrected", handedOffFrom: original.qitemId });
     expect(successor.handedOffFrom, "successor -> original back-link").toBe(original.qitemId);
     // supersede the original toward the successor (2a forward link).
-    repo.claim({ qitemId: original.qitemId, destinationSession: "bob@rig" });
-    repo.update({ qitemId: original.qitemId, actorSession: "bob@rig", state: "canceled", closureReason: "superseded", closureTarget: successor.qitemId });
+    repo.claim({ qitemId: original.qitemId, destinationSession: "bob@software-team" });
+    repo.update({ qitemId: original.qitemId, actorSession: "bob@software-team", state: "canceled", closureReason: "superseded", closureTarget: successor.qitemId });
     const orig = repo.getById(original.qitemId)!;
     expect(orig.closureReason, "superseded, not abandoned").toBe("superseded");
     expect(orig.closureTarget, "original -> successor forward link").toBe(successor.qitemId);
@@ -387,13 +387,13 @@ describe("QueueRepository", () => {
 
   it("update state=done WITHOUT closure_reason rejected with missing_closure_reason", async () => {
     const item = await repo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "x",
     });
-    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
     try {
-      repo.update({ qitemId: item.qitemId, actorSession: "bob@rig", state: "done" });
+      repo.update({ qitemId: item.qitemId, actorSession: "bob@software-team", state: "done" });
       throw new Error("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(QueueRepositoryError);
@@ -406,15 +406,15 @@ describe("QueueRepository", () => {
   it("update accepts each of the 6 valid closure reasons", async () => {
     for (const reason of CLOSURE_REASONS) {
       const item = await repo.create({
-        sourceSession: "alice@rig",
-        destinationSession: "bob@rig",
+        sourceSession: "alice@software-team",
+        destinationSession: "bob@software-team",
         body: `for ${reason}`,
       });
-      repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+      repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
       const requiresTarget = reason === "handed_off_to" || reason === "blocked_on" || reason === "escalation";
       const closed = repo.update({
         qitemId: item.qitemId,
-        actorSession: "bob@rig",
+        actorSession: "bob@software-team",
         state: "done",
         closureReason: reason,
         closureTarget: requiresTarget ? "downstream-target" : undefined,
@@ -426,22 +426,22 @@ describe("QueueRepository", () => {
 
   it("handoff is transactional: closes source as handed-off + creates new qitem", async () => {
     const item = await repo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "do it",
     });
     const result = await repo.handoff({
       qitemId: item.qitemId,
-      fromSession: "bob@rig",
-      toSession: "carol@rig",
+      fromSession: "bob@software-team",
+      toSession: "carol@software-team",
       transitionNote: "specialty needed",
     });
     expect(result.closed.state).toBe("handed-off");
     expect(result.closed.closureReason).toBe("handed_off_to");
-    expect(result.closed.handedOffTo).toBe("carol@rig");
+    expect(result.closed.handedOffTo).toBe("carol@software-team");
     expect(result.created.state).toBe("pending");
     expect(result.created.handedOffFrom).toBe(item.qitemId);
-    expect(result.created.destinationSession).toBe("carol@rig");
+    expect(result.created.destinationSession).toBe("carol@software-team");
     expect(result.created.chainOfRecord).toEqual([item.qitemId]);
 
     expect(captured.filter((e) => e.type === "queue.handed_off")).toHaveLength(1);
@@ -455,12 +455,12 @@ describe("QueueRepository", () => {
     async (verb) => {
       const scope = ["project:p", "mission:m", "slice:s"];
       const fresh = async () => repo.create({
-        sourceSession: "alice@rig", destinationSession: "bob@rig", body: "x", tags: scope,
+        sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "x", tags: scope,
       });
-      const keep = await repo[verb]({ qitemId: (await fresh()).qitemId, fromSession: "bob@rig", toSession: "carol@rig" });
+      const keep = await repo[verb]({ qitemId: (await fresh()).qitemId, fromSession: "bob@software-team", toSession: "carol@software-team" });
       expect(keep.created.tags).toEqual(scope);
       const gated = await repo[verb]({
-        qitemId: (await fresh()).qitemId, fromSession: "bob@rig", toSession: "carol@rig", tags: ["gate:guard"],
+        qitemId: (await fresh()).qitemId, fromSession: "bob@software-team", toSession: "carol@software-team", tags: ["gate:guard"],
       });
       expect(gated.created.tags).toEqual(["gate:guard"]);
     },
@@ -468,38 +468,38 @@ describe("QueueRepository", () => {
 
   it("handoff refuses on already-terminal qitem", async () => {
     const item = await repo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "x",
     });
-    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
     repo.update({
       qitemId: item.qitemId,
-      actorSession: "bob@rig",
+      actorSession: "bob@software-team",
       state: "done",
       closureReason: "no-follow-on",
     });
     await expect(
       repo.handoff({
         qitemId: item.qitemId,
-        fromSession: "bob@rig",
-        toSession: "carol@rig",
+        fromSession: "bob@software-team",
+        toSession: "carol@software-team",
       })
     ).rejects.toThrow(/terminal/);
   });
 
   it("transitions are append-only — every state change adds a row", async () => {
     const item = await repo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "x",
     });
-    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
-    repo.unclaim(item.qitemId, "bob@rig", "lunch");
-    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
+    repo.unclaim(item.qitemId, "bob@software-team", "lunch");
+    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
     repo.update({
       qitemId: item.qitemId,
-      actorSession: "bob@rig",
+      actorSession: "bob@software-team",
       state: "done",
       closureReason: "no-follow-on",
     });
@@ -515,33 +515,33 @@ describe("QueueRepository", () => {
 
   it("findOverdue surfaces in-progress qitems past closure_required_at", async () => {
     const item = await repo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "x",
       tier: "fast",
     });
-    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
     // Slice-15 contract: findOverdue takes an OPTIONS OBJECT (the shape the
     // runtime caller routes/queue.ts uses) — the old positional timestamp is
     // not a supported API (broad-suite-residue atom 1).
     const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     const overdue = repo.findOverdue({ now: future });
     expect(overdue.map((q) => q.qitemId)).toContain(item.qitemId);
-    // scoped/bounded discriminator: a rig scope that matches nothing returns
+    // scoped/bounded discriminator: a SoftwareTeam scope that matches nothing returns
     // empty, and limit bounds the result — the options are honored, not ignored
-    expect(repo.findOverdue({ now: future, rig: "no-such-rig" })).toEqual([]);
+    expect(repo.findOverdue({ now: future, softwareTeam: "no-such-software-team" })).toEqual([]);
     expect(repo.findOverdue({ now: future, limit: 1 }).length).toBeLessThanOrEqual(1);
   });
 
   it("routeToFallback emits qitem.fallback_routed and rewrites destination", async () => {
     const item = await repo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "x",
     });
-    const rerouted = repo.routeToFallback(item.qitemId, "pod-fallback@rig", "seat-unreachable");
-    expect(rerouted.destinationSession).toBe("pod-fallback@rig");
-    expect(rerouted.chainOfRecord).toEqual(["fallback-from:bob@rig"]);
+    const rerouted = repo.routeToFallback(item.qitemId, "pod-fallback@software-team", "seat-unreachable");
+    expect(rerouted.destinationSession).toBe("pod-fallback@software-team");
+    expect(rerouted.chainOfRecord).toEqual(["fallback-from:bob@software-team"]);
     expect(captured.some((e) => e.type === "qitem.fallback_routed")).toBe(true);
   });
 
@@ -569,12 +569,12 @@ describe("QueueRepository", () => {
       };
       const nudgingRepo = new QueueRepository(db, bus, { transport: stubTransport });
       const item = await nudgingRepo.create({
-        sourceSession: "alice@rig",
-        destinationSession: "bob@rig",
+        sourceSession: "alice@software-team",
+        destinationSession: "bob@software-team",
         body: "ping me",
       });
       expect(sends).toHaveLength(1);
-      expect(sends[0]!.session).toBe("bob@rig");
+      expect(sends[0]!.session).toBe("bob@software-team");
       expect(sends[0]!.text).toContain(item.qitemId);
       const fresh = nudgingRepo.getById(item.qitemId)!;
       expect(fresh.lastNudgeAttempt).not.toBeNull();
@@ -591,9 +591,9 @@ describe("QueueRepository", () => {
       };
       const nudgingRepo = new QueueRepository(db, bus, {
         transport: stubTransport,
-        resolveOccupantGeneration: (s) => (s === "alice@rig" ? "a1b2c3d4-e5f6-7890-abcd-ef0123456789" : null),
+        resolveOccupantGeneration: (s) => (s === "alice@software-team" ? "a1b2c3d4-e5f6-7890-abcd-ef0123456789" : null),
       });
-      await nudgingRepo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "ping" });
+      await nudgingRepo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "ping" });
       expect(sends).toHaveLength(1);
       const { text, opts } = sends[0]!;
       expect(text).toContain("\nSent: "); // now stamped (was absent — the deferred HG-5 change lands here)
@@ -607,7 +607,7 @@ describe("QueueRepository", () => {
         send: async (_s: string, text: string) => { sends.push(text); return { ok: true, verified: true }; },
       };
       const nudgingRepo = new QueueRepository(db, bus, { transport: stubTransport }); // no resolver wired
-      await nudgingRepo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "ping" });
+      await nudgingRepo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "ping" });
       expect(sends[0]).toContain("\nSent: ");
       expect(sends[0]).not.toContain(" · gen ");
     });
@@ -622,8 +622,8 @@ describe("QueueRepository", () => {
       };
       const nudgingRepo = new QueueRepository(db, bus, { transport: stubTransport });
       const item = await nudgingRepo.create({
-        sourceSession: "alice@rig",
-        destinationSession: "bob@rig",
+        sourceSession: "alice@software-team",
+        destinationSession: "bob@software-team",
         body: "cold",
         nudge: false,
       });
@@ -639,8 +639,8 @@ describe("QueueRepository", () => {
       };
       const nudgingRepo = new QueueRepository(db, bus, { transport: stubTransport });
       const item = await nudgingRepo.create({
-        sourceSession: "alice@rig",
-        destinationSession: "bob@rig",
+        sourceSession: "alice@software-team",
+        destinationSession: "bob@software-team",
         body: "x",
       });
       const fresh = nudgingRepo.getById(item.qitemId)!;
@@ -660,8 +660,8 @@ describe("QueueRepository", () => {
       };
       const nudgingRepo = new QueueRepository(db, bus, { transport: stubTransport });
       const item = await nudgingRepo.create({
-        sourceSession: "alice@rig",
-        destinationSession: "bob@rig",
+        sourceSession: "alice@software-team",
+        destinationSession: "bob@software-team",
         body: "delivered but ack window expired",
       });
       const fresh = nudgingRepo.getById(item.qitemId)!;
@@ -683,18 +683,18 @@ describe("QueueRepository", () => {
       const nudgingRepo = new QueueRepository(db, bus, { transport: stubTransport });
       nudgingRepo.attachOutbox(new OutboxHandler(db)); // W1 MF2: handoff needs a wake-intent store
       const original = await nudgingRepo.create({
-        sourceSession: "alice@rig",
-        destinationSession: "bob@rig",
+        sourceSession: "alice@software-team",
+        destinationSession: "bob@software-team",
         body: "x",
         nudge: false, // suppress create-time nudge so we count only handoff
       });
       const result = await nudgingRepo.handoff({
         qitemId: original.qitemId,
-        fromSession: "bob@rig",
-        toSession: "carol@rig",
+        fromSession: "bob@software-team",
+        toSession: "carol@software-team",
       });
       expect(sends).toHaveLength(1);
-      expect(sends[0]!.session).toBe("carol@rig");
+      expect(sends[0]!.session).toBe("carol@software-team");
       await vi.waitFor(() => expect(nudgingRepo.getById(result.created.qitemId)!.lastNudgeResult).toBe("verified"));
     });
 
@@ -706,16 +706,16 @@ describe("QueueRepository", () => {
       };
       // First create: no transport, no nudge
       await repoNoTransport.create({
-        sourceSession: "alice@rig",
-        destinationSession: "bob@rig",
+        sourceSession: "alice@software-team",
+        destinationSession: "bob@software-team",
         body: "before",
       });
       expect(sends).toHaveLength(0);
       // Attach + create again
       repoNoTransport.attachTransport(stubTransport);
       await repoNoTransport.create({
-        sourceSession: "alice@rig",
-        destinationSession: "bob@rig",
+        sourceSession: "alice@software-team",
+        destinationSession: "bob@software-team",
         body: "after",
       });
       expect(sends).toHaveLength(1);
@@ -725,64 +725,64 @@ describe("QueueRepository", () => {
   describe("R1 handoff-and-complete", () => {
     it("closes source as state=done with closure_reason=handed_off_to (terminal) and creates new qitem", async () => {
       const original = await repo.create({
-        sourceSession: "alice@rig",
-        destinationSession: "bob@rig",
+        sourceSession: "alice@software-team",
+        destinationSession: "bob@software-team",
         body: "review then route",
       });
       const result = await repo.handoffAndComplete({
         qitemId: original.qitemId,
-        fromSession: "bob@rig",
-        toSession: "carol@rig",
+        fromSession: "bob@software-team",
+        toSession: "carol@software-team",
         body: "carol's follow-on",
       });
       expect(result.closed.state).toBe("done"); // not "handed-off"
       expect(result.closed.closureReason).toBe("handed_off_to");
-      expect(result.closed.handedOffTo).toBe("carol@rig");
+      expect(result.closed.handedOffTo).toBe("carol@software-team");
       expect(result.created.state).toBe("pending");
       expect(result.created.handedOffFrom).toBe(original.qitemId);
-      expect(result.created.destinationSession).toBe("carol@rig");
+      expect(result.created.destinationSession).toBe("carol@software-team");
       expect(result.created.body).toBe("carol's follow-on");
       expect(result.created.chainOfRecord).toEqual([original.qitemId]);
     });
 
     it("refuses on already-terminal qitem", async () => {
       const item = await repo.create({
-        sourceSession: "alice@rig",
-        destinationSession: "bob@rig",
+        sourceSession: "alice@software-team",
+        destinationSession: "bob@software-team",
         body: "x",
       });
-      repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+      repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
       repo.update({
         qitemId: item.qitemId,
-        actorSession: "bob@rig",
+        actorSession: "bob@software-team",
         state: "done",
         closureReason: "no-follow-on",
       });
       await expect(
         repo.handoffAndComplete({
           qitemId: item.qitemId,
-          fromSession: "bob@rig",
-          toSession: "carol@rig",
+          fromSession: "bob@software-team",
+          toSession: "carol@software-team",
         })
       ).rejects.toThrow(/terminal/);
     });
 
-    it("respects validateRig (rejects unknown destination rig)", async () => {
+    it("respects validateSoftwareTeam (rejects unknown destination softwareTeam)", async () => {
       const strictRepo = new QueueRepository(db, bus, {
-        validateRig: (s) => s.endsWith("@known-rig"),
+        validateSoftwareTeam: (s) => s.endsWith("@known-software-team"),
       });
       const original = await strictRepo.create({
-        sourceSession: "alice@known-rig",
-        destinationSession: "bob@known-rig",
+        sourceSession: "alice@known-software-team",
+        destinationSession: "bob@known-software-team",
         body: "x",
       });
       await expect(
         strictRepo.handoffAndComplete({
           qitemId: original.qitemId,
-          fromSession: "bob@known-rig",
-          toSession: "carol@phantom-rig",
+          fromSession: "bob@known-software-team",
+          toSession: "carol@phantom-software-team",
         })
-      ).rejects.toThrow(/unknown rig/);
+      ).rejects.toThrow(/unknown softwareTeam/);
     });
   });
 
@@ -837,8 +837,8 @@ describe("QueueRepository summary column (OPR.0.4.1.18)", () => {
 
   it("persists --summary on create and round-trips it through getById", async () => {
     const item = await repo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "agent-speak body that is long and detailed",
       summary: "Wire the dashboard version row to the real daemon version.",
       nudge: false,
@@ -851,8 +851,8 @@ describe("QueueRepository summary column (OPR.0.4.1.18)", () => {
 
   it("summary is null when --summary is omitted (degrade contract)", async () => {
     const item = await repo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "no summary here",
       nudge: false,
     });
@@ -862,16 +862,16 @@ describe("QueueRepository summary column (OPR.0.4.1.18)", () => {
 
   it("handoff persists the new qitem's own summary, not inherited from source", async () => {
     const src = await repo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "source body",
       summary: "Source summary.",
       nudge: false,
     });
     const result = await repo.handoff({
       qitemId: src.qitemId,
-      fromSession: "bob@rig",
-      toSession: "carol@rig",
+      fromSession: "bob@software-team",
+      toSession: "carol@software-team",
       summary: "Handoff summary for the new owner.",
       nudge: false,
     });
@@ -879,8 +879,8 @@ describe("QueueRepository summary column (OPR.0.4.1.18)", () => {
     // Omitted on the next handoff → null (degrade), NOT inherited from source.
     const result2 = await repo.handoff({
       qitemId: result.created.qitemId,
-      fromSession: "carol@rig",
-      toSession: "dan@rig",
+      fromSession: "carol@software-team",
+      toSession: "dan@software-team",
       nudge: false,
     });
     expect(result2.created.summary).toBeNull();
@@ -909,8 +909,8 @@ describe("queue.* event payloads carry summary (OPR.0.4.4.19 FR-1)", () => {
 
   it("queue.created carries the provided summary", async () => {
     await repo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "body",
       summary: "Approve the 0.4.4 cut",
       nudge: false,
@@ -922,22 +922,22 @@ describe("queue.* event payloads carry summary (OPR.0.4.4.19 FR-1)", () => {
 
   it("every queue.* event carries summary: null when omitted — present, never absent", async () => {
     const item = await repo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "no summary",
       nudge: false,
     });
-    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
-    repo.unclaim(item.qitemId, "bob@rig", "requeue");
+    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
+    repo.unclaim(item.qitemId, "bob@software-team", "requeue");
     repo.update({
       qitemId: item.qitemId,
-      actorSession: "bob@rig",
+      actorSession: "bob@software-team",
       state: "in-progress",
     });
     await repo.handoff({
       qitemId: item.qitemId,
-      fromSession: "bob@rig",
-      toSession: "carol@rig",
+      fromSession: "bob@software-team",
+      toSession: "carol@software-team",
       nudge: false,
     });
     for (const type of [
@@ -956,23 +956,23 @@ describe("queue.* event payloads carry summary (OPR.0.4.4.19 FR-1)", () => {
 
   it("claim/unclaim/updated events carry the row's persisted summary; handed_off carries the SOURCE summary and the handoff's queue.created carries the NEW summary", async () => {
     const item = await repo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "body",
       summary: "Source summary.",
       nudge: false,
     });
-    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
     expect(eventOf("queue.claimed")!.summary).toBe("Source summary.");
-    repo.unclaim(item.qitemId, "bob@rig", "requeue");
+    repo.unclaim(item.qitemId, "bob@software-team", "requeue");
     expect(eventOf("queue.unclaimed")!.summary).toBe("Source summary.");
-    repo.update({ qitemId: item.qitemId, actorSession: "bob@rig", state: "in-progress" });
+    repo.update({ qitemId: item.qitemId, actorSession: "bob@software-team", state: "in-progress" });
     expect(eventOf("queue.updated")!.summary).toBe("Source summary.");
     captured.length = 0;
     await repo.handoff({
       qitemId: item.qitemId,
-      fromSession: "bob@rig",
-      toSession: "carol@rig",
+      fromSession: "bob@software-team",
+      toSession: "carol@software-team",
       summary: "New owner summary.",
       nudge: false,
     });
@@ -988,8 +988,8 @@ describe("queue.* event payloads carry summary (OPR.0.4.4.19 FR-1)", () => {
     const legacyCaptured: PersistedEvent[] = [];
     legacyBus.subscribe((e) => legacyCaptured.push(e));
     await legacyRepo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "legacy",
       nudge: false,
     });
@@ -1014,7 +1014,7 @@ describe("queue_items.evidence_ref column (OPR.0.4.4.19 FR-5 storage)", () => {
 
   it("persists --evidence-ref on create and round-trips it through getById", async () => {
     const item = await repo.create({
-      sourceSession: "pm@rig",
+      sourceSession: "pm@software-team",
       destinationSession: "human-review@kernel",
       body: "please judge",
       summary: "Approve the 0.4.4 cut",
@@ -1027,8 +1027,8 @@ describe("queue_items.evidence_ref column (OPR.0.4.4.19 FR-5 storage)", () => {
 
   it("evidence_ref is null when omitted (BR-1: ordinary items never require it)", async () => {
     const item = await repo.create({
-      sourceSession: "a@rig",
-      destinationSession: "b@rig",
+      sourceSession: "a@software-team",
+      destinationSession: "b@software-team",
       body: "ordinary agent-to-agent work",
       nudge: false,
     });
@@ -1037,23 +1037,23 @@ describe("queue_items.evidence_ref column (OPR.0.4.4.19 FR-5 storage)", () => {
 
   it("handoff authors its OWN evidence_ref; not inherited from source (summary semantics)", async () => {
     const src = await repo.create({
-      sourceSession: "a@rig",
-      destinationSession: "b@rig",
+      sourceSession: "a@software-team",
+      destinationSession: "b@software-team",
       body: "src",
       evidenceRef: "proof/source.md",
       nudge: false,
     });
     const result = await repo.handoff({
       qitemId: src.qitemId,
-      fromSession: "b@rig",
-      toSession: "c@rig",
+      fromSession: "b@software-team",
+      toSession: "c@software-team",
       nudge: false,
     });
     expect(result.created.evidenceRef).toBeNull();
     const result2 = await repo.handoff({
       qitemId: result.created.qitemId,
-      fromSession: "c@rig",
-      toSession: "d@rig",
+      fromSession: "c@software-team",
+      toSession: "d@software-team",
       evidenceRef: "proof/new.md",
       nudge: false,
     });
@@ -1062,7 +1062,7 @@ describe("queue_items.evidence_ref column (OPR.0.4.4.19 FR-5 storage)", () => {
 
   it("listAttention JSON carries evidence_ref for human-routed items (FR-5 read-path AC)", async () => {
     await repo.create({
-      sourceSession: "pm@rig",
+      sourceSession: "pm@software-team",
       destinationSession: "human-review@kernel",
       body: "judge me",
       summary: "s",
@@ -1079,8 +1079,8 @@ describe("queue_items.evidence_ref column (OPR.0.4.4.19 FR-5 storage)", () => {
     migrate(legacyDb, [coreSchema, eventsSchema, queueItemsSchema, queueTransitionsSchema]);
     const legacyRepo = new QueueRepository(legacyDb, new EventBus(legacyDb));
     const item = await legacyRepo.create({
-      sourceSession: "a@rig",
-      destinationSession: "b@rig",
+      sourceSession: "a@software-team",
+      destinationSession: "b@software-team",
       body: "legacy",
       evidenceRef: "proof/x.md",
       nudge: false,
@@ -1111,24 +1111,24 @@ describe("QueueRepository — generation stamps (Class-B)", () => {
     (db.prepare(`SELECT ${name} AS v FROM queue_items WHERE qitem_id = ?`).get(qitemId) as { v: string | null }).v;
 
   it("stamps minting_generation_uuid from the SOURCE occupant at create", async () => {
-    genBySession.set("alice@rig", "gen-src");
-    const item = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "x" });
+    genBySession.set("alice@software-team", "gen-src");
+    const item = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "x" });
     expect(col(item.qitemId, "minting_generation_uuid")).toBe("gen-src");
   });
 
   it("stamps claimed_by_generation_uuid from the CLAIMANT at claim, and clears it on unclaim", async () => {
-    const item = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "x" });
-    genBySession.set("bob@rig", "gen-claimant");
-    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    const item = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "x" });
+    genBySession.set("bob@software-team", "gen-claimant");
+    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
     expect(col(item.qitemId, "claimed_by_generation_uuid")).toBe("gen-claimant");
-    repo.unclaim(item.qitemId, "bob@rig", "stepping away");
+    repo.unclaim(item.qitemId, "bob@software-team", "stepping away");
     expect(col(item.qitemId, "claimed_by_generation_uuid")).toBeNull();
   });
 
   it("RELEASES retired-gen in-progress items to pending (never drops), clears the claim, and audits", async () => {
-    const item = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "x" });
-    genBySession.set("bob@rig", "gen-retired");
-    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    const item = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "x" });
+    genBySession.set("bob@software-team", "gen-retired");
+    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
 
     const released = repo.releaseClaimsByGeneration("gen-retired");
     expect(released).toBe(1);
@@ -1140,24 +1140,24 @@ describe("QueueRepository — generation stamps (Class-B)", () => {
   });
 
   it("does NOT release the SUCCESSOR's own claim (same seat name, live gen) — gen-scoped, not name-scoped", async () => {
-    const item = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "x" });
-    genBySession.set("bob@rig", "gen-live"); // the successor claims under the SAME name, a new generation
-    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    const item = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "x" });
+    genBySession.set("bob@software-team", "gen-live"); // the successor claims under the SAME name, a new generation
+    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
     expect(repo.releaseClaimsByGeneration("gen-retired")).toBe(0);
     expect(repo.getById(item.qitemId)!.state).toBe("in-progress"); // untouched
   });
 
   it("an empty generation is a no-op (never a catch-all release)", async () => {
-    const item = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "x" });
-    genBySession.set("bob@rig", "gen-1");
-    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    const item = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "x" });
+    genBySession.set("bob@software-team", "gen-1");
+    repo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
     expect(repo.releaseClaimsByGeneration("")).toBe(0);
     expect(repo.getById(item.qitemId)!.state).toBe("in-progress");
   });
 
   it("a PENDING (never-claimed) item is never released — claimed_by is NULL (UNKNOWN != retired)", async () => {
-    const pending = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "y" });
-    genBySession.set("bob@rig", "gen-retired");
+    const pending = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "y" });
+    genBySession.set("bob@software-team", "gen-retired");
     expect(repo.releaseClaimsByGeneration("gen-retired")).toBe(0);
     expect(repo.getById(pending.qitemId)!.state).toBe("pending");
   });
@@ -1190,13 +1190,13 @@ describe("QueueRepository — S26 blocker-actuation unification (OPR.0.5.6.26)",
   // already produces (transition, wake intent, event).
 
   it("S26 RED 1: a result returned to the waiting owner VIA THE HANDOFF VERB auto-unparks its attached rows", async () => {
-    const blocker = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "blocker A" });
-    const parked = await repo.create({ sourceSession: "alice@rig", destinationSession: "carol@rig", body: "work B" });
-    repo.update({ qitemId: parked.qitemId, actorSession: "carol@rig", state: "blocked", blockedOn: blocker.qitemId });
+    const blocker = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "blocker A" });
+    const parked = await repo.create({ sourceSession: "alice@software-team", destinationSession: "carol@software-team", body: "work B" });
+    repo.update({ qitemId: parked.qitemId, actorSession: "carol@software-team", state: "blocked", blockedOn: blocker.qitemId });
     expect(repo.getById(parked.qitemId)!.state).toBe("blocked");
 
     // Close the blocker through the handoff verb (terminal state 'handed-off', clear successor).
-    await repo.handoff({ qitemId: blocker.qitemId, fromSession: "bob@rig", toSession: "carol@rig", nudge: false });
+    await repo.handoff({ qitemId: blocker.qitemId, fromSession: "bob@software-team", toSession: "carol@software-team", nudge: false });
     expect(repo.getById(blocker.qitemId)!.state).toBe("handed-off");
 
     // PINNED RED REASON (specimen-1 shape): at base the parked row stays blocked — the
@@ -1233,13 +1233,13 @@ describe("QueueRepository — S26 blocker-actuation unification (OPR.0.5.6.26)",
   // statement in place (dated, wrong version kept visible) and keep this test as the
   // regression floor. A base pass is a finding, never something to paper over.
   it("S26 RED 2 (confirm-or-refute): a blocker closed done VIA HANDOFF-AND-COMPLETE auto-unparks its attached rows", async () => {
-    const blocker = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "blocker A2" });
-    const parked = await repo.create({ sourceSession: "alice@rig", destinationSession: "carol@rig", body: "work B2" });
-    repo.update({ qitemId: parked.qitemId, actorSession: "carol@rig", state: "blocked", blockedOn: blocker.qitemId });
+    const blocker = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "blocker A2" });
+    const parked = await repo.create({ sourceSession: "alice@software-team", destinationSession: "carol@software-team", body: "work B2" });
+    repo.update({ qitemId: parked.qitemId, actorSession: "carol@software-team", state: "blocked", blockedOn: blocker.qitemId });
     expect(repo.getById(parked.qitemId)!.state).toBe("blocked");
 
     // Close the blocker through handoff-and-complete (terminal state 'done', same bypass family).
-    await repo.handoffAndComplete({ qitemId: blocker.qitemId, fromSession: "bob@rig", toSession: "dave@rig", nudge: false });
+    await repo.handoffAndComplete({ qitemId: blocker.qitemId, fromSession: "bob@software-team", toSession: "dave@software-team", nudge: false });
     expect(repo.getById(blocker.qitemId)!.state).toBe("done");
 
     // PINNED RED REASON (the derived prediction): at base the parked row stays blocked.
@@ -1272,17 +1272,17 @@ describe("QueueRepository — S26 blocker-actuation unification (OPR.0.5.6.26)",
   // floor: an idempotent repeat (same closureTarget -> absorbed:true) must NOT
   // actuate twice — exactly one auto-unpark transition, ever.
   it("S26 RED 3: a blocker closed via the cross-host terminal close actuates its attached rows, and an absorbed redrive never double-actuates", async () => {
-    const blocker = await repo.create({ sourceSession: "alice@rig", destinationSession: "bob@rig", body: "blocker A3" });
-    const parked = await repo.create({ sourceSession: "alice@rig", destinationSession: "carol@rig", body: "work B3" });
-    repo.update({ qitemId: parked.qitemId, actorSession: "carol@rig", state: "blocked", blockedOn: blocker.qitemId });
+    const blocker = await repo.create({ sourceSession: "alice@software-team", destinationSession: "bob@software-team", body: "blocker A3" });
+    const parked = await repo.create({ sourceSession: "alice@software-team", destinationSession: "carol@software-team", body: "work B3" });
+    repo.update({ qitemId: parked.qitemId, actorSession: "carol@software-team", state: "blocked", blockedOn: blocker.qitemId });
     expect(repo.getById(parked.qitemId)!.state).toBe("blocked");
 
     // Close the blocker through the cross-host terminal close (terminal state
     // 'handed-off'; host-qualified successor key rides closure_target per BR-1).
     const first = repo.closeCrossHostHandoffSource({
       qitemId: blocker.qitemId,
-      fromSession: "bob@rig",
-      toSession: "dave@rig",
+      fromSession: "bob@software-team",
+      toSession: "dave@software-team",
       closureTarget: "qitem-19990101000000-cafef00d@other-host",
       terminalState: "handed-off",
     });
@@ -1320,8 +1320,8 @@ describe("QueueRepository — S26 blocker-actuation unification (OPR.0.5.6.26)",
     // absorbs and must not actuate again — one auto-unpark transition, ever.
     const redrive = repo.closeCrossHostHandoffSource({
       qitemId: blocker.qitemId,
-      fromSession: "bob@rig",
-      toSession: "dave@rig",
+      fromSession: "bob@software-team",
+      toSession: "dave@software-team",
       closureTarget: "qitem-19990101000000-cafef00d@other-host",
       terminalState: "handed-off",
     });
@@ -1356,7 +1356,7 @@ describe("QueueRepository — S26 blocker-actuation unification (OPR.0.5.6.26)",
         state, priority, body, closure_required_at, claimed_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      qitemId, nowIso, nowIso, "alice@rig-a", "bob@rig-b",
+      qitemId, nowIso, nowIso, "alice@software-team-a", "bob@software-team-b",
       "in-progress", "routine", "test minimal schema dedup", claimTime1, claimTime1,
     );
 

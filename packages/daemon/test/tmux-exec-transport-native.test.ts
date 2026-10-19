@@ -28,7 +28,7 @@ async function spawnedFiles(fn: () => Promise<void>): Promise<string[]> {
 }
 
 async function scenario(mode: "shell" | "argv") {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-exec-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-exec-"));
   roots.push(root);
   const serverDir = path.join(root, "server");
   const emptyDir = path.join(root, "empty");
@@ -39,6 +39,7 @@ async function scenario(mode: "shell" | "argv") {
   delete anchorEnv.ENV;
   // The anchor starts the server without the user's config; later clients only connect to it.
   await runFile("tmux", ["-f", "/dev/null", "new-session", "-d", "-s", "anchor", "sleep 600"], { env: anchorEnv });
+  await runFile("tmux", ["set-option", "-g", "default-command", "env PS1= /bin/sh"], { env: anchorEnv });
   vi.stubEnv("TMUX", undefined);
   vi.stubEnv("TMUX_TMPDIR", serverDir);
   let calls = 0;
@@ -49,11 +50,11 @@ async function scenario(mode: "shell" | "argv") {
     const files = await spawnedFiles(async () => {
       const created = await adapter.createSession("seat a", root);
       const duplicate = await adapter.createSession("seat a", root);
-      const typed = await adapter.sendText("seat a", "echo 'openrig-'native", undefined, { bracketed: false });
+      const typed = await adapter.sendText("seat a", "echo 'softwareteam-'native", undefined, { bracketed: false });
       const entered = await adapter.sendKeys("seat a", ["Enter"]);
       // The quotes keep the typed line from matching: only the command's output contains the marker.
       let single: string | null = null;
-      for (let i = 0; i < 100 && !single?.includes("openrig-native"); i++) {
+      for (let i = 0; i < 100 && !single?.includes("softwareteam-native"); i++) {
         await new Promise((resolve) => setTimeout(resolve, 50));
         single = await adapter.capturePaneContent("seat a", 50);
       }
@@ -64,7 +65,7 @@ async function scenario(mode: "shell" | "argv") {
         duplicate: duplicate.ok ? duplicate : duplicate.code,
         typed,
         entered,
-        captured: single!.split("\n").filter((line) => line === "openrig-native"),
+        captured: single!.split("\n").filter((line) => line === "softwareteam-native"),
         batchMatchesSingle: batch?.get("seat a")?.text === single,
         batchMissing: batch?.get("missing")?.text,
         sessions: (await adapter.listSessions()).map((s) => [s.name, s.windows, s.attached]).sort(),
@@ -115,7 +116,7 @@ describe.skipIf(!nativeAvailable)("tmux shell and argv transports against a real
       noServerProbe: "transport_unavailable",
       noServerSessions: [],
     });
-    expect(shell.result.captured).toEqual(["openrig-native"]);
+    expect(shell.result.captured).toEqual(["softwareteam-native"]);
     // The first line names the command, which each transport renders its own way; the tmux stderr after it,
     // which every error classifier reads, is the same apart from each run's private directory.
     const stderr = ({ result: r, root }: typeof shell) => {

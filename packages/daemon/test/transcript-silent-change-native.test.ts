@@ -16,7 +16,7 @@ import { startTranscriptRotation, stopTranscriptRotation } from "../src/domain/t
 import type { TranscriptIngestHealth } from "../src/domain/transcript-store.js";
 import { SeatStructuralActivityService } from "../src/domain/seat-structural-activity-service.js";
 import { classifyPaneActivity } from "../src/domain/session-transport.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { createFullTestDb } from "./helpers/test-app.js";
 
@@ -85,8 +85,8 @@ async function seat(name: string, opts: { history: number; screen: string; listi
   await run("new-session", "-d", "-s", name, "-x", "100", "-y", "20", "sh", "-c", `${opts.screen}; exec sleep 100000`);
   await wait(800);
   const db = createFullTestDb();
-  const rigRepo = new RigRepository(db), reg = new SessionRegistry(db);
-  const node = rigRepo.addNode(rigRepo.createRig("r").id, `dev.${name}`, { runtime: "claude-code" });
+  const softwareTeamRepo = new SoftwareTeamRepository(db), reg = new SessionRegistry(db);
+  const node = softwareTeamRepo.addNode(softwareTeamRepo.createSoftwareTeam("r").id, `dev.${name}`, { runtime: "claude-code" });
   const sess = reg.registerSession(node.id, name);
   reg.updateStatus(sess.id, "running");
   reg.updateBinding(node.id, { tmuxSession: name, attachmentType: "tmux" });

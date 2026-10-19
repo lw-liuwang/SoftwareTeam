@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { ConfigStore } from "../config-store.js";
 import { formatDaemonHostForUrl } from "../client.js";
 import { realDeps } from "./daemon.js";
-import { getDefaultOpenRigPath, getPreferredOpenRigHome, readOpenRigEnv } from "../openrig-compat.js";
+import { getDefaultSoftwareTeamPath, getPreferredSoftwareTeamHome, readSoftwareTeamEnv } from "../softwareteam-compat.js";
 import {
   DESTROY_CONFIRM_TOKEN,
   buildDestroyPlan,
@@ -31,14 +31,14 @@ interface ResolvedDestroyRuntime {
 
 function resolveRuntimeConfig(configStore: Pick<ConfigStore, "resolve">): ResolvedDestroyRuntime {
   const warnings: string[] = [];
-  const stateRoot = getPreferredOpenRigHome();
-  const defaultDbPath = getDefaultOpenRigPath("openrig.sqlite");
-  const defaultTranscriptsPath = getDefaultOpenRigPath("transcripts");
-  const effectiveDefaultDbPath = join(stateRoot, "openrig.sqlite");
+  const stateRoot = getPreferredSoftwareTeamHome();
+  const defaultDbPath = getDefaultSoftwareTeamPath("softwareteam.sqlite");
+  const defaultTranscriptsPath = getDefaultSoftwareTeamPath("transcripts");
+  const effectiveDefaultDbPath = join(stateRoot, "softwareteam.sqlite");
   const effectiveDefaultTranscriptsPath = join(stateRoot, "transcripts");
-  const overrideUrl = readOpenRigEnv("OPENRIG_URL", "RIGGED_URL")?.trim();
+  const overrideUrl = readSoftwareTeamEnv("SOFTWARETEAM_URL")?.trim();
   if (overrideUrl) {
-    warnings.push(`Ignoring ${overrideUrl} from OPENRIG_URL/RIGGED_URL because rig destroy only operates on local state.`);
+    warnings.push(`Ignoring ${overrideUrl} from SOFTWARETEAM_URL/SOFTWARETEAM_URL because SoftwareTeam destroy only operates on local state.`);
   }
 
   try {
@@ -61,7 +61,7 @@ function resolveRuntimeConfig(configStore: Pick<ConfigStore, "resolve">): Resolv
         dbPath: effectiveDefaultDbPath,
         transcriptsPath: effectiveDefaultTranscriptsPath,
         daemonHost: "127.0.0.1",
-        daemonPort: 7433,
+        daemonPort: 7434,
       },
       warnings,
     };
@@ -90,18 +90,18 @@ function realDestroyDeps(): DestroyDeps {
           return {
             kind: "other_http",
             healthy: false,
-            detail: "Response body was not valid OpenRig health JSON.",
+            detail: "Response body was not valid SoftwareTeam health JSON.",
           };
         }
 
         if (body && typeof body === "object" && (body as Record<string, unknown>).status === "ok") {
-          return { kind: "openrig", healthy: true };
+          return { kind: "softwareteam", healthy: true };
         }
 
         return {
           kind: "other_http",
           healthy: false,
-          detail: "Response body did not match the OpenRig health contract.",
+          detail: "Response body did not match the SoftwareTeam health contract.",
         };
       } catch {
         return { kind: "unreachable" };
@@ -165,11 +165,11 @@ function printResult(result: Awaited<ReturnType<typeof executeDestroy>>): void {
 }
 
 export function destroyCommand(depsOverride?: DestroyCommandDeps): Command {
-  const cmd = new Command("destroy").description("Destroy OpenRig local state for recovery");
+  const cmd = new Command("destroy").description("Destroy SoftwareTeam local state for recovery");
 
   cmd
-    .option("--state", "Destroy OpenRig state and recreate an empty state root")
-    .option("--all", "Destroy OpenRig state and remove managed tmux sessions")
+    .option("--state", "Destroy SoftwareTeam state and recreate an empty state root")
+    .option("--all", "Destroy SoftwareTeam state and remove managed tmux sessions")
     .option("--backup", "Move state aside instead of deleting it")
     .option("--yes", "Confirm the destructive operation")
     .option("--confirm <token>", `Exact confirmation token: ${DESTROY_CONFIRM_TOKEN}`)

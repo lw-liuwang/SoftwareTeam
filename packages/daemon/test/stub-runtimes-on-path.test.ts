@@ -9,7 +9,7 @@ import { prepareHermeticEnv, type HermeticScaffold } from "./helpers/hermetic-en
 // Daemon tests must never run the host's real `codex` or `claude`. Under a fixture HOME the host's
 // ~/.local/bin/codex wrapper can hang (mise use -g), and every daemon start probes `codex --version`.
 // The shared vitest setup and prepareHermeticEnv put stubs first on PATH instead.
-const realRuntimes = process.env["OPENRIG_E2E_REAL_CODEX"] === "1";
+const realRuntimes = process.env["SOFTWARETEAM_E2E_REAL_CODEX"] === "1";
 
 function resolveOnPath(binary: string, pathVar: string): string | undefined {
   for (const dir of pathVar.split(delimiter)) {
@@ -21,7 +21,7 @@ function resolveOnPath(binary: string, pathVar: string): string | undefined {
 
 describe.skipIf(realRuntimes)("stub codex and claude on the test PATH", () => {
   it("resolves codex and claude inside the fixture root under the vitest setup", () => {
-    const root = realpathSync(process.env["OPENRIG_HOME"]!);
+    const root = realpathSync(process.env["SOFTWARETEAM_HOME"]!);
     for (const binary of ["codex", "claude"]) {
       const resolved = resolveOnPath(binary, process.env["PATH"] ?? "");
       expect(resolved, `${binary} on PATH`).toBeDefined();
@@ -87,7 +87,7 @@ describe.skipIf(realRuntimes)("stub codex and claude on the test PATH", () => {
     });
 
     it("leaves the host's binaries alone when real runtimes are opted in", () => {
-      const s = prepareHermeticEnv({ baseEnv: { HOME: "/real-home", PATH: "/usr/bin", OPENRIG_E2E_REAL_CODEX: "1" } });
+      const s = prepareHermeticEnv({ baseEnv: { HOME: "/real-home", PATH: "/usr/bin", SOFTWARETEAM_E2E_REAL_CODEX: "1" } });
       scaffolds.push(s);
       expect(s.env["PATH"]?.split(delimiter).some((dir) => dir.startsWith(s.root) && existsSync(join(dir, "codex")))).toBe(false);
     });

@@ -121,7 +121,7 @@ export function PackageList() {
             data-testid="empty-import-btn"
             onClick={() => navigate({ to: "/import" })}
           >
-            IMPORT RIGSPEC
+            IMPORT SOFTWARE_TEAM_SPEC
           </Button>
           <Button
             variant="ghost"
@@ -155,7 +155,7 @@ export function PackageList() {
             data-testid="header-import-btn"
             onClick={() => navigate({ to: "/import" })}
           >
-            IMPORT RIGSPEC
+            IMPORT SOFTWARE_TEAM_SPEC
           </Button>
           <Button
             variant="ghost"

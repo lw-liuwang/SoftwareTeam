@@ -1,6 +1,6 @@
-# Demo Rig Culture
+# Demo SoftwareTeam Culture
 
-This is a demonstration rig for the Rigged North Star.
+This is a demonstration SoftwareTeam for the SoftwareTeam North Star.
 
 ## Principles
 - Quality over speed

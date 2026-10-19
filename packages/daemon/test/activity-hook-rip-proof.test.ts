@@ -1,14 +1,14 @@
 // Test suite for plugin-primitive Phase 3a slice 3.1 — activity-hook
 // injection rip-proof. Per velocity-guard cadence boundary (d) Checkpoint
 // D.2 2026-05-10. Negative assertions: after rip, deliverStartup MUST
-// NOT write OpenRig activity-hook content to provider config locations.
+// NOT write SoftwareTeam activity-hook content to provider config locations.
 //
 // What's gone:
-//   - .openrig/activity-hook-relay.cjs file at project cwd
-//   - OpenRig-injected entries in .claude/settings.local.json hooks block
+//   - .softwareteam/activity-hook-relay.cjs file at project cwd
+//   - SoftwareTeam-injected entries in .claude/settings.local.json hooks block
 //     (any pre-existing user-authored hooks STAY untouched)
-//   - .codex/hooks.json with OpenRig SessionStart/UserPromptSubmit/Stop
-//     (file may not even exist; if it does, OpenRig doesn't write to it)
+//   - .codex/hooks.json with SoftwareTeam SessionStart/UserPromptSubmit/Stop
+//     (file may not even exist; if it does, SoftwareTeam doesn't write to it)
 //   - activityHookRelayAssetPath constructor option no longer accepted
 //
 // What stays:
@@ -68,16 +68,16 @@ function makeBinding(cwd = "/project"): NodeBinding {
 }
 
 describe("Activity-hook injection rip-proof — Claude Code adapter", () => {
-  it("HG-1.5 — deliverStartup does NOT create .openrig/activity-hook-relay.cjs at project cwd", async () => {
+  it("HG-1.5 — deliverStartup does NOT create .softwareteam/activity-hook-relay.cjs at project cwd", async () => {
     const fs = mockClaudeFs();
     const adapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: fs });
 
     await adapter.deliverStartup([], makeBinding("/project"));
 
-    expect(fs._store["/project/.openrig/activity-hook-relay.cjs"]).toBeUndefined();
+    expect(fs._store["/project/.softwareteam/activity-hook-relay.cjs"]).toBeUndefined();
   });
 
-  it("HG-1.5 — deliverStartup does NOT add OpenRig-injected hook entries to settings.local.json", async () => {
+  it("HG-1.5 — deliverStartup does NOT add SoftwareTeam-injected hook entries to settings.local.json", async () => {
     const fs = mockClaudeFs();
     const adapter = new ClaudeCodeAdapter({ tmux: mockTmux(), fsOps: fs });
 
@@ -87,7 +87,7 @@ describe("Activity-hook injection rip-proof — Claude Code adapter", () => {
     if (settings !== undefined) {
       const parsed = JSON.parse(settings);
       // If settings.local.json is created/touched at all, its hooks block must
-      // not contain references to activity-hook-relay.cjs (the OpenRig-injected
+      // not contain references to activity-hook-relay.cjs (the SoftwareTeam-injected
       // command).
       const hookJson = JSON.stringify(parsed.hooks ?? {});
       expect(hookJson).not.toContain("activity-hook-relay");
@@ -105,16 +105,16 @@ describe("Activity-hook injection rip-proof — Claude Code adapter", () => {
 
     await adapter.deliverStartup([], makeBinding("/project"));
 
-    // User's pre-existing Stop hook is still there (post-rip OpenRig doesn't
+    // User's pre-existing Stop hook is still there (post-rip SoftwareTeam doesn't
     // mutate the hooks block at all).
     const after = JSON.parse(fs._store["/project/.claude/settings.local.json"]!);
     const hookJson = JSON.stringify(after.hooks);
     expect(hookJson).toContain("node ./my-stop-hook.cjs");
-    // OpenRig-injected entries are NOT added
+    // SoftwareTeam-injected entries are NOT added
     expect(hookJson).not.toContain("activity-hook-relay");
   });
 
-  it("HG-1.6 — Claude adapter source no longer references provisionActivityHooks / upsertCommandHook / activityHookRelayAssetPath / openrig-activity-hook-relay", async () => {
+  it("HG-1.6 — Claude adapter source no longer references provisionActivityHooks / upsertCommandHook / activityHookRelayAssetPath / softwareteam-activity-hook-relay", async () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const src = fs.readFileSync(path.resolve(import.meta.dirname, "../src/adapters/claude-code-adapter.ts"), "utf-8");
@@ -122,21 +122,21 @@ describe("Activity-hook injection rip-proof — Claude Code adapter", () => {
     expect(src).not.toMatch(/upsertCommandHook/);
     expect(src).not.toMatch(/hookEntryContainsCommand/);
     expect(src).not.toMatch(/activityHookRelayAssetPath/);
-    expect(src).not.toMatch(/openrig-activity-hook-relay/);
+    expect(src).not.toMatch(/softwareteam-activity-hook-relay/);
   });
 });
 
 describe("Activity-hook injection rip-proof — Codex adapter", () => {
-  it("HG-1.5 — deliverStartup does NOT create .openrig/activity-hook-relay.cjs at project cwd", async () => {
+  it("HG-1.5 — deliverStartup does NOT create .softwareteam/activity-hook-relay.cjs at project cwd", async () => {
     const fs = mockCodexFs();
     const adapter = new CodexRuntimeAdapter({ tmux: mockTmux(), fsOps: fs });
 
     await adapter.deliverStartup([], makeBinding("/project"));
 
-    expect(fs._store["/project/.openrig/activity-hook-relay.cjs"]).toBeUndefined();
+    expect(fs._store["/project/.softwareteam/activity-hook-relay.cjs"]).toBeUndefined();
   });
 
-  it("HG-1.5 — deliverStartup does NOT write OpenRig-injected events to .codex/hooks.json at project cwd", async () => {
+  it("HG-1.5 — deliverStartup does NOT write SoftwareTeam-injected events to .codex/hooks.json at project cwd", async () => {
     const fs = mockCodexFs();
     const adapter = new CodexRuntimeAdapter({ tmux: mockTmux(), fsOps: fs });
 
@@ -148,7 +148,7 @@ describe("Activity-hook injection rip-proof — Codex adapter", () => {
     expect(fs._store["/project/.codex/hooks.json"]).toBeUndefined();
   });
 
-  it("HG-1.6 — Codex adapter source no longer references provisionActivityHooks / upsertCommandHook / activityHookRelayAssetPath / openrig-activity-hook-relay", async () => {
+  it("HG-1.6 — Codex adapter source no longer references provisionActivityHooks / upsertCommandHook / activityHookRelayAssetPath / softwareteam-activity-hook-relay", async () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const src = fs.readFileSync(path.resolve(import.meta.dirname, "../src/adapters/codex-runtime-adapter.ts"), "utf-8");
@@ -156,7 +156,7 @@ describe("Activity-hook injection rip-proof — Codex adapter", () => {
     expect(src).not.toMatch(/upsertCommandHook/);
     expect(src).not.toMatch(/hookEntryContainsCommand/);
     expect(src).not.toMatch(/activityHookRelayAssetPath/);
-    expect(src).not.toMatch(/openrig-activity-hook-relay/);
+    expect(src).not.toMatch(/softwareteam-activity-hook-relay/);
     // upsertCodexHooksFeature STAYS — slice 3.5 ensureCodexFeatureFlag uses it
     expect(src).toMatch(/upsertCodexHooksFeature/);
   });

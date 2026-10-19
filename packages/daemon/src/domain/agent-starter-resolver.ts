@@ -14,7 +14,7 @@ import type { ResolvedStartupFile } from "./runtime-adapter.js";
  * v0 wrapper references:
  * - Schema spec: `specs/agent-starters/SCHEMA.md` § No-Credentials Proof
  *   (path-aware + content-aware; allowlist for transcript_path under
- *   ~/.claude/projects/ or ~/.openrig/transcripts/).
+ *   ~/.claude/projects/ or ~/.softwareteam/transcripts/).
  * - Refusal verb: `specs/agent-starters/bin/agent-starter-resolve` lines
  *   22-31 (preflights via `scan_starter_file`; refuses with
  *   credential_path_disallowed / credential_content_disallowed).
@@ -31,12 +31,12 @@ export interface AgentStarterResolverOpts {
   registryRoot?: string;
   /**
    * Env var consulted second in the lookup chain. Defaults to
-   * `OPENRIG_AGENT_STARTER_ROOT`.
+   * `SOFTWARETEAM_AGENT_STARTER_ROOT`.
    */
   envVarName?: string;
   /**
    * Home-directory root consulted third. Defaults to
-   * `~/.openrig/agent-starters/` (resolved against `process.env.HOME` or
+   * `~/.softwareteam/agent-starters/` (resolved against `process.env.HOME` or
    * `os.homedir()`).
    */
   homeDirRoot?: string;
@@ -70,8 +70,8 @@ export class AgentStarterCredentialScanFailedError extends Error {
   }
 }
 
-const DEFAULT_ENV_VAR = "OPENRIG_AGENT_STARTER_ROOT";
-const DEFAULT_HOME_SUBPATH = ".openrig/agent-starters";
+const DEFAULT_ENV_VAR = "SOFTWARETEAM_AGENT_STARTER_ROOT";
+const DEFAULT_HOME_SUBPATH = ".softwareteam/agent-starters";
 export class AgentStarterResolver {
   private readonly registryRoot: string;
   private readonly exists: ExistsFn;
@@ -217,7 +217,7 @@ function scanForCredentials(
   filePath: string,
 ): { ok: true } | { ok: false; reason: string } {
   // Allowlist exception: `transcript_path` field values under
-  // `~/.claude/projects/` or `~/.openrig/transcripts/` are accepted
+  // `~/.claude/projects/` or `~/.softwareteam/transcripts/` are accepted
   // (mirrors the v0 wrapper); same paths under any other field/key/comment
   // are rejected as suspicious copying.
   const transcriptPath = extractFieldValue(content, "transcript_path");
@@ -233,7 +233,7 @@ function scanForCredentials(
     if (transcriptPath && stripped.startsWith("transcript_path:")) {
       if (
         transcriptPath.includes("/.claude/projects/")
-        || transcriptPath.includes("/.openrig/transcripts/")
+        || transcriptPath.includes("/.softwareteam/transcripts/")
       ) {
         isAllowlistedTranscript = true;
       }

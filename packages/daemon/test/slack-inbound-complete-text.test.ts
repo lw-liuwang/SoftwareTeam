@@ -12,10 +12,10 @@ import { makeQueuePorts } from "../src/domain/gateway/slack/queue-access.js";
 import { SeenStore, DeadLetterStore } from "../src/domain/gateway/slack/state-store.js";
 
 it("keeps complete short and long human briefs durable while bounding summaries and deduplicating retries", async () => {
-  const home = mkdtempSync(join(tmpdir(), "openrig-slack-complete-"));
+  const home = mkdtempSync(join(tmpdir(), "softwareteam-slack-complete-"));
   const db = createDb(join(home, "state.sqlite"));
   migrate(db, ALL_MIGRATIONS);
-  const repo = new QueueRepository(db, new EventBus(db), { validateRig: () => true });
+  const repo = new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => true });
   const seen = new SeenStore(join(home, "seen.jsonl"));
   const deadLetter = new DeadLetterStore<SlackEvent>(join(home, "dead.jsonl"));
   const router = new InboundRouter({
@@ -28,7 +28,7 @@ it("keeps complete short and long human briefs durable while bounding summaries 
       const result = await router.route(event);
       expect(result.disposition).toBe("accepted");
       const row = repo.getById(result.qitemId!)!;
-      expect(row.body).toBe(`${text}\n\n---\nSource: slack channel=C-FIXTURE user=U-FIXTURE ts=${event.ts}\nRouted by openrig slack-inbound. Default destination per config; re-route via queue as needed.`);
+      expect(row.body).toBe(`${text}\n\n---\nSource: slack channel=C-FIXTURE user=U-FIXTURE ts=${event.ts}\nRouted by softwareteam slack-inbound. Default destination per config; re-route via queue as needed.`);
       expect(row.summary).toBe(`Founder via Slack: ${text.slice(0, 90)}`);
       expect(seen.load().has(`${event.channel}:${event.ts}`)).toBe(true);
       expect((await router.route(event)).disposition).toBe("ignored");

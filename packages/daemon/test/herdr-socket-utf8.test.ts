@@ -56,7 +56,7 @@ describe("herdr socket RPC keeps UTF-8 across chunk boundaries", () => {
     const socketPath = await serve((req) => splitInside(line(req.id), char, into));
     const rpc = createHerdrSocketRpc(socketPath, 2000);
 
-    await expect(rpc({ id: "openrig-1", method: "pane.read", params: {} }))
+    await expect(rpc({ id: "softwareteam-1", method: "pane.read", params: {} }))
       .resolves.toEqual({ type: "pane_output", text: TEXT });
   });
 
@@ -68,7 +68,7 @@ describe("herdr socket RPC keeps UTF-8 across chunk boundaries", () => {
     });
     const rpc = createHerdrSocketRpc(socketPath, 2000);
 
-    await expect(rpc({ id: "openrig-1", method: "pane.read", params: {} }))
+    await expect(rpc({ id: "softwareteam-1", method: "pane.read", params: {} }))
       .resolves.toEqual({ type: "pane_output", text: TEXT });
   });
 });

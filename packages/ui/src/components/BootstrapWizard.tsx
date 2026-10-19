@@ -104,7 +104,7 @@ export function BootstrapWizard() {
       <WorkflowHeader
         eyebrow="Bootstrap"
         title="Bootstrap"
-        description="Plan environment requirements, approve install actions, then import the rig into a running topology."
+        description="Plan environment requirements, approve install actions, then import the SoftwareTeam into a running topology."
       />
       <WorkflowStepIndicator data-testid="step-indicator" steps={STEPS} currentStep={currentStepNumber(step)} />
 
@@ -112,7 +112,7 @@ export function BootstrapWizard() {
       {step === "enter" && (
         <WorkflowSection
           title="Source"
-          description="Provide a rig spec or bundle path. Bootstrap will inspect requirements before it imports anything."
+          description="Provide a SoftwareTeam spec or bundle path. Bootstrap will inspect requirements before it imports anything."
         >
         <div data-testid="step-enter">
           <label className="text-label-md uppercase block mb-spacing-2">SPEC OR BUNDLE PATH</label>
@@ -121,11 +121,11 @@ export function BootstrapWizard() {
             type="text"
             value={sourceRef}
             onChange={(e) => setSourceRef(e.target.value)}
-            placeholder="/path/to/rig.yaml or /path/to/bundle.rigbundle"
+            placeholder="/path/to/software-team.yaml or /path/to/bundle.softwareteambundle"
             className="font-mono text-body-md"
           />
           <p className="text-label-sm text-foreground-muted mt-spacing-1">
-            Accepts .yaml rig specs or .rigbundle archives.{" "}
+            Accepts .yaml softwareTeam specs or .softwareteambundle archives.{" "}
             <span
               role="link"
               tabIndex={0}
@@ -246,7 +246,7 @@ export function BootstrapWizard() {
       {step === "applying" && planResult && (
         <WorkflowSection
           title="Applying"
-          description="Bootstrap is executing the approved actions and importing the rig."
+          description="Bootstrap is executing the approved actions and importing the softwareTeam."
         >
         <div data-testid="step-applying">
           <h3 className="text-headline-md uppercase mb-spacing-3">APPLYING</h3>
@@ -267,7 +267,7 @@ export function BootstrapWizard() {
             </div>
             <div className="flex items-center gap-spacing-3 text-label-sm font-mono">
               <span className="text-foreground-muted">○</span>
-              <span>import_rig</span>
+              <span>import_software_team</span>
             </div>
           </div>
           <p className="text-body-sm text-foreground-muted">Bootstrapping...</p>
@@ -279,7 +279,7 @@ export function BootstrapWizard() {
       {step === "done" && planResult && (
         <WorkflowSection
           title="Result"
-          description="Bootstrap finished and returned the managed rig identity."
+          description="Bootstrap finished and returned the managed SoftwareTeam identity."
         >
         <div data-testid="step-done">
           <h3 className="text-headline-md uppercase mb-spacing-3">
@@ -287,17 +287,17 @@ export function BootstrapWizard() {
           </h3>
           <div className="text-label-sm font-mono space-y-spacing-1 mb-spacing-4">
             <div>Status: <span className={planResult.status === "completed" ? "text-success" : "text-warning"}>{planResult.status.toUpperCase()}</span></div>
-            {(planResult as { rigId?: string }).rigId && (
-              <div data-testid="result-rig-id">Rig: {(planResult as { rigId?: string }).rigId}</div>
+            {(planResult as { softwareTeamId?: string }).softwareTeamId && (
+              <div data-testid="result-software-team-id">SoftwareTeam: {(planResult as { softwareTeamId?: string }).softwareTeamId}</div>
             )}
           </div>
-          {(planResult as { rigId?: string }).rigId && (
+          {(planResult as { softwareTeamId?: string }).softwareTeamId && (
             <Button
               variant="tactical"
-              data-testid="view-rig-btn"
-              onClick={() => navigate({ to: "/rigs/$rigId", params: { rigId: (planResult as unknown as { rigId: string }).rigId } })}
+              data-testid="view-software-team-btn"
+              onClick={() => navigate({ to: "/software-teams/$softwareTeamId", params: { softwareTeamId: (planResult as unknown as { softwareTeamId: string }).softwareTeamId } })}
             >
-              VIEW RIG
+              VIEW SOFTWARE_TEAM
             </Button>
           )}
         </div>

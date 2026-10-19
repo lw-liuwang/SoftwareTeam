@@ -114,7 +114,7 @@ describe("For-You quick actions — bare APPROVE + CHAT only (N-1, BR-12)", () =
       source: {
         seq: 7,
         type: "queue.enqueued",
-        payload: { qitem_id: "q-chat-1", source_session: "dev-owner@rig" },
+        payload: { qitem_id: "q-chat-1", source_session: "dev-owner@software-team" },
       } as unknown as FeedCardModel["source"],
     } as FeedCardModel;
   }
@@ -150,8 +150,8 @@ describe("For-You quick actions — bare APPROVE + CHAT only (N-1, BR-12)", () =
     // Human-action cards chat with the SENDER (the owning agent).
     expect(terminalMounts).toHaveLength(1);
     expect(terminalMounts[0]).toEqual({
-      sessionName: "dev-owner@rig",
-      initialText: buildChatPreamble({ sessionName: "dev-owner@rig", itemRef: "q-chat-1" }),
+      sessionName: "dev-owner@software-team",
+      initialText: buildChatPreamble({ sessionName: "dev-owner@software-team", itemRef: "q-chat-1" }),
     });
 
     // BR-12 dead-component wall: no chat panel, no compose box, no bubbles.

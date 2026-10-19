@@ -11,9 +11,9 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const INSPECT_RESPONSE = {
   manifest: {
-    name: "test-bundle", version: "0.1.0", rigSpec: "rig.yaml",
+    name: "test-bundle", version: "0.1.0", softwareTeamSpec: "software-team.yaml",
     packages: [{ name: "review-kit", version: "1.0.0", path: "packages/review-kit" }],
-    integrity: { algorithm: "sha256", files: { "rig.yaml": "abc", "packages/review-kit/SKILL.md": "def" } },
+    integrity: { algorithm: "sha256", files: { "software-team.yaml": "abc", "packages/review-kit/SKILL.md": "def" } },
   },
   digestValid: true,
   integrityResult: { passed: true, mismatches: [], missing: [], extra: [], errors: [] },
@@ -21,12 +21,12 @@ const INSPECT_RESPONSE = {
 
 describe("BundleInspector", () => {
   // T1: Shows manifest details
-  it("shows manifest name, version, and rig_spec", async () => {
+  it("shows manifest name, version, and software_team_spec", async () => {
     fetchMock.mockResolvedValueOnce({ ok: true, json: async () => INSPECT_RESPONSE });
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     render(<QueryClientProvider client={qc}><BundleInspector /></QueryClientProvider>);
 
-    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/test.rigbundle" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/test.softwareteambundle" } }); });
     act(() => { fireEvent.click(screen.getByTestId("inspect-btn")); });
 
     await waitFor(() => {
@@ -42,7 +42,7 @@ describe("BundleInspector", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     render(<QueryClientProvider client={qc}><BundleInspector /></QueryClientProvider>);
 
-    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/test.rigbundle" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/test.softwareteambundle" } }); });
     act(() => { fireEvent.click(screen.getByTestId("inspect-btn")); });
 
     await waitFor(() => {
@@ -56,7 +56,7 @@ describe("BundleInspector", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     render(<QueryClientProvider client={qc}><BundleInspector /></QueryClientProvider>);
 
-    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/x.rigbundle" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/x.softwareteambundle" } }); });
     act(() => { fireEvent.click(screen.getByTestId("inspect-btn")); });
 
     await waitFor(() => {
@@ -72,7 +72,7 @@ describe("BundleInspector", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     render(<QueryClientProvider client={qc}><BundleInspector /></QueryClientProvider>);
 
-    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/x.rigbundle" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/x.softwareteambundle" } }); });
     act(() => { fireEvent.click(screen.getByTestId("inspect-btn")); });
 
     await waitFor(() => {
@@ -87,7 +87,7 @@ describe("BundleInspector", () => {
         schemaVersion: 2,
         name: "pod-bundle",
         version: "0.2.0",
-        rigSpec: "rig.yaml",
+        softwareTeamSpec: "software-team.yaml",
         agents: [
           { name: "impl-agent", version: "1.0.0", path: "agents/impl" },
           { name: "review-agent", version: "1.1.0", path: "agents/review" },
@@ -100,7 +100,7 @@ describe("BundleInspector", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     render(<QueryClientProvider client={qc}><BundleInspector /></QueryClientProvider>);
 
-    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/v2.rigbundle" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/v2.softwareteambundle" } }); });
     act(() => { fireEvent.click(screen.getByTestId("inspect-btn")); });
 
     await waitFor(() => {
@@ -125,14 +125,14 @@ describe("BundleInspector", () => {
       manifest: {
         name: "with-prov",
         version: "0.1.0",
-        rigSpec: "rig.yaml",
+        softwareTeamSpec: "software-team.yaml",
         packages: [{ name: "pkg", version: "1.0", path: "packages/pkg" }],
         provenance: {
           createdAt: "2026-05-18T12:00:00Z",
           sourceHost: "test-host.local",
-          authorSession: "velocity-driver@openrig-velocity",
-          sourceRigId: "01H000000000000000PROV001",
-          sourceRigName: "openrig-velocity",
+          authorSession: "velocity-driver@softwareteam-velocity",
+          sourceSoftwareTeamId: "01H000000000000000PROV001",
+          sourceSoftwareTeamName: "softwareteam-velocity",
           daemonVersion: "0.3.2",
           cliVersion: "0.3.2",
           notes: "fixture for B1 repair",
@@ -145,16 +145,16 @@ describe("BundleInspector", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     render(<QueryClientProvider client={qc}><BundleInspector /></QueryClientProvider>);
 
-    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/with-prov.rigbundle" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/with-prov.softwareteambundle" } }); });
     act(() => { fireEvent.click(screen.getByTestId("inspect-btn")); });
 
     await waitFor(() => {
       expect(screen.getByTestId("provenance-block")).toBeTruthy();
       expect(screen.getByTestId("provenance-createdAt").textContent).toContain("2026-05-18T12:00:00Z");
       expect(screen.getByTestId("provenance-sourceHost").textContent).toContain("test-host.local");
-      expect(screen.getByTestId("provenance-authorSession").textContent).toContain("velocity-driver@openrig-velocity");
-      expect(screen.getByTestId("provenance-sourceRigName").textContent).toContain("openrig-velocity");
-      expect(screen.getByTestId("provenance-sourceRigName").textContent).toContain("01H000000000000000PROV001");
+      expect(screen.getByTestId("provenance-authorSession").textContent).toContain("velocity-driver@softwareteam-velocity");
+      expect(screen.getByTestId("provenance-sourceSoftwareTeamName").textContent).toContain("softwareteam-velocity");
+      expect(screen.getByTestId("provenance-sourceSoftwareTeamName").textContent).toContain("01H000000000000000PROV001");
       expect(screen.getByTestId("provenance-versions").textContent).toContain("daemon 0.3.2");
       expect(screen.getByTestId("provenance-versions").textContent).toContain("cli 0.3.2");
       expect(screen.getByTestId("provenance-notes").textContent).toContain("fixture for B1 repair");
@@ -169,7 +169,7 @@ describe("BundleInspector", () => {
       manifest: {
         name: "with-compat",
         version: "0.1.0",
-        rigSpec: "rig.yaml",
+        softwareTeamSpec: "software-team.yaml",
         packages: [{ name: "pkg", version: "1.0", path: "packages/pkg" }],
         compatibility: {
           minDaemonVersion: "0.3.2",
@@ -184,7 +184,7 @@ describe("BundleInspector", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     render(<QueryClientProvider client={qc}><BundleInspector /></QueryClientProvider>);
 
-    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/with-compat.rigbundle" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/with-compat.softwareteambundle" } }); });
     act(() => { fireEvent.click(screen.getByTestId("inspect-btn")); });
 
     await waitFor(() => {
@@ -204,7 +204,7 @@ describe("BundleInspector", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     render(<QueryClientProvider client={qc}><BundleInspector /></QueryClientProvider>);
 
-    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/bc.rigbundle" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/bc.softwareteambundle" } }); });
     act(() => { fireEvent.click(screen.getByTestId("inspect-btn")); });
 
     await waitFor(() => {
@@ -222,7 +222,7 @@ describe("BundleInspector", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     render(<QueryClientProvider client={qc}><BundleInspector /></QueryClientProvider>);
 
-    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/bad.rigbundle" } }); });
+    act(() => { fireEvent.change(screen.getByTestId("bundle-path-input"), { target: { value: "/tmp/bad.softwareteambundle" } }); });
     act(() => { fireEvent.click(screen.getByTestId("inspect-btn")); });
 
     await waitFor(() => {

@@ -21,30 +21,31 @@ import {
 } from "../src/adapters/codex-runtime-adapter.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
 
-const RELAY = "/daemon/assets/plugins/openrig-core/hooks/scripts/activity-relay.cjs";
+const RELAY = "/daemon/assets/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs";
 const CONFIG = "/home/test/.codex/config.toml";
 const COMMAND = `node "${RELAY}"`;
 const EVENTS = ["SessionStart", "UserPromptSubmit", "Stop", "PermissionRequest"] as const;
 
+// SoftwareTeam relay path changes the command identity; vectors regenerated 2026-10-19.
 // PIN TO VM READ-BACK (qa gate) — PROVISIONAL from open-source reproduction (PR #20321 / commits
 // 0452dca, ffcc9cc; codex-rs fingerprint.rs version_for_toml). keySource here is the NON-canonical
 // mock path `/home/test/.codex/config.toml`; the real key_source is std::fs::canonicalize(config.toml).
 const PROVISIONAL_FIXTURE: Record<(typeof EVENTS)[number], { key: string; hash: string }> = {
   SessionStart: {
     key: "/home/test/.codex/config.toml:session_start:0:0",
-    hash: "sha256:bbe395fdcffc4448b019a7621ff4c4ca57c43107e775ea286394724944fd4fe1",
+    hash: "sha256:888947cd824099a3e75b9e6468a9c4cf2088db4d9228f6066e960ba46e48acb2",
   },
   UserPromptSubmit: {
     key: "/home/test/.codex/config.toml:user_prompt_submit:0:0",
-    hash: "sha256:88a4916f162eb0fb90e90ebfe5844c4d552efb7e9b70f4616ea497026f6b61d4",
+    hash: "sha256:f25957a2e688594bcd44ed092f540b9f3943d26e6cf57ec6c99ce94c3eaf0d97",
   },
   Stop: {
     key: "/home/test/.codex/config.toml:stop:0:0",
-    hash: "sha256:7349b4836f7c53f7fbe92917a5a598b25a0e699b98a91cf5909bb40dc60da822",
+    hash: "sha256:065671600317ff77dfaa5106f780a8567fd56c4a9997b6ff81f478352098c277",
   },
   PermissionRequest: {
     key: "/home/test/.codex/config.toml:permission_request:0:0",
-    hash: "sha256:f3e7b08eef7376efd47d8cd066a2d7284d5ee12b54c7bac2d484b8bbe6ab803c",
+    hash: "sha256:279d3236aac802d59a2bfde6b9d79ded9a9cca3ec0455c3fb6190ab157b295a1",
   },
 };
 
@@ -163,7 +164,7 @@ describe("OPR.0.4.3.33 — provisioning-seam coupling (ensureCodexActivityHooks 
     const cfg = fs._store[CONFIG]!;
     expect(cfg).toBeDefined();
     // the managed hook block is present
-    expect(cfg).toContain("# BEGIN OPENRIG MANAGED ACTIVITY HOOKS");
+    expect(cfg).toContain("# BEGIN SOFTWARETEAM MANAGED ACTIVITY HOOKS");
     for (const ev of EVENTS) expect(cfg).toContain(`[[hooks.${ev}]]`);
     // and exactly the 4 trust state entries (keySource falls back to the plain config path
     // because the mock fs never lands the file on the real disk for realpathSync)
@@ -213,7 +214,7 @@ describe("OPR.0.4.3.33 — provisioning-seam coupling (ensureCodexActivityHooks 
     const cfg = fs._store[CONFIG]!;
     expect(cfg).toContain('[projects."/some/project"]');
     expect(cfg).toContain('trust_level = "trusted"');
-    expect(cfg).toContain("# BEGIN OPENRIG MANAGED ACTIVITY HOOKS");
+    expect(cfg).toContain("# BEGIN SOFTWARETEAM MANAGED ACTIVITY HOOKS");
     expect(cfg.match(/^\[hooks\.state\./gm)?.length).toBe(4);
   });
 });

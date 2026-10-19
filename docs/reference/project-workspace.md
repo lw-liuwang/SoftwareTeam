@@ -1,16 +1,16 @@
 # Project Workspace Contract
 
-OpenRig's Project TUI is a file-backed view over a workspace root. The folder
+SoftwareTeam's Project TUI is a file-backed view over a workspace root. The folder
 shape is intentionally simple so humans and agents can create or repair it
 without daemon-internal knowledge.
 
-This subtree is part of the wider [OpenRig Instance Layout](instance-layout.md).
+This subtree is part of the wider [SoftwareTeam Instance Layout](instance-layout.md).
 The instance initializer delegates these exact workspace bytes to this owner.
 
 ## Default Shape
 
-`rig config init-workspace` creates the default workspace at
-`~/.openrig/workspace` unless `--root` or `workspace.root` points elsewhere.
+`SoftwareTeam config init-workspace` creates the default workspace at
+`~/.softwareteam/workspace` unless `--root` or `workspace.root` points elsewhere.
 
 ```text
 workspace/
@@ -24,22 +24,22 @@ workspace/
 
 The scaffold is additive: it creates missing canonical entries and never
 overwrites existing files, including with the deprecated `--force` flag.
-`exhaust/` and local `.openrig/` runtime projections are ignored; authored
+`exhaust/` and local `.softwareteam/` runtime projections are ignored; authored
 project context and mission/slice files remain versionable. `workspace.yaml`
 is the project-location catalog. The project manifest exposes empty
 `install.context` and `install.skills` selectors for ordered Markdown
 addresses and stable managed-catalog skill IDs, but neither skill source nor a
 System World belongs in this tree.
 
-Installing a bundle that carries a project (`rig bundle create --project-dir`)
+Installing a bundle that carries a project (`SoftwareTeam bundle create --project-dir`)
 copies the project folder to `<workspace.projects_root>/<id>/`, adds its catalog
-entry, and lists the bundle's rig under that entry's `rigs` (see "Work-install
+entry, and lists the bundle's SoftwareTeam under that entry's `SoftwareTeams` (see "Work-install
 project selection"), before any seat launches. Every byte already in the
 catalog stays: the entry is appended in the file's own indentation and line
-endings, and a later rig joins it by a one-line edit of its `rigs: [...]`.
+endings, and a later SoftwareTeam joins it by a one-line edit of its `SoftwareTeams: [...]`.
 Reinstalling changes nothing. If the file's shape doesn't allow that (for
 example a flow-style list), if the id is already taken by another root, if the
-folder is registered under a different id, or if the rig is already listed
+folder is registered under a different id, or if the SoftwareTeam is already listed
 under another project, install writes nothing to the catalog and prints what to
 change, and the folder isn't copied either. An existing folder at
 `<workspace.projects_root>/<id>/` is never overwritten: if its files differ from
@@ -53,7 +53,7 @@ bundle's project id, install reports a conflict and writes no catalog.
 `project.yaml` may select project context and managed skills together:
 
 ```yaml
-schema: openrig.project/v0alpha1
+schema: softwareteam.project/v0alpha1
 kind: project
 install:
   intent: SPEC.md
@@ -68,7 +68,7 @@ A project can also name world packs to read after the System World, in order:
 ```yaml
 install:
   worlds:
-    - ref: openrig-world
+    - ref: softwareteam-world
     - ref: project-world
       profiles: { claude: guided }
 ```
@@ -76,25 +76,25 @@ install:
 Each `install.worlds` entry has the same `{ ref, profiles }` shape as a System
 World `context` entry. `work-install` lists them as `context world <ref>` lines
 and `worlds` in `--json`; it never delivers their content, so read each with
-`rig context get <ref>`. An invalid entry, or a ref the System World or an
+`SoftwareTeam context get <ref>`. An invalid entry, or a ref the System World or an
 earlier entry already lists, is ignored with a warning. Without the key, the
 output is unchanged. The list holds pack names only, resolved from the local
 library when read, so naming a world copies none of its content.
 
 `install.context` contains project-relative Markdown addresses. `install.skills`
 contains stable skill identities only. Skill source bytes live in the single
-configured managed catalog (`skills.root`, default `$OPENRIG_HOME/skills`),
-never under the project or workspace. `rig context work-install --runtime
+configured managed catalog (`skills.root`, default `$SOFTWARETEAM_HOME/skills`),
+never under the project or workspace. `SoftwareTeam context work-install --runtime
 <claude-code|codex>` resolves both parts; add `--apply-skills` to reconcile the
 selected exact bytes into `.claude/skills/` or `.agents/skills/` under the
 caller's current working directory. Use `--cwd` when the receiving agent works
 somewhere else; the project-world metadata root is never assumed to be its code
 working directory.
 
-The generated harness directories and `.openrig/skill-loadouts/` ownership
+The generated harness directories and `.softwareteam/skill-loadouts/` ownership
 receipts are projections, not source. Product repositories should ignore them.
 Reconciliation removes a deselected entry only when its current bytes still
-match OpenRig's last owned projection; unrelated and locally modified entries
+match SoftwareTeam's last owned projection; unrelated and locally modified entries
 are preserved or reported as conflicts.
 
 Seats of the same runtime commonly share one working directory. Their topology
@@ -110,7 +110,7 @@ an explicit install whose `install.skills` is empty clears it. This keeps
 
 ## Work-install project selection
 
-`rig context work-install` picks one project from the catalog at
+`SoftwareTeam context work-install` picks one project from the catalog at
 `workspace.catalog_path` (default `workspace.yaml`), in the order below. Without a
 catalog, the workspace root itself is the project (`selectedBy: workspace`, or
 `explicit` with a matching `--project`), and `--project` must match its
@@ -120,29 +120,29 @@ the same way when a task names no project (see
 
 1. `--project <id>`;
 2. the only declared project;
-3. the project whose entry lists the calling seat's rig under `rigs`;
+3. the project whose entry lists the calling seat's SoftwareTeam under `SoftwareTeams`;
 4. the deepest declared project root that contains the working directory
    (`--cwd`, else the current directory);
-5. the only project whose entry lists no `rigs`, so a rig that isn't listed
+5. the only project whose entry lists no `SoftwareTeams`, so a SoftwareTeam that isn't listed
    anywhere keeps its project after a claimed project is added beside it;
 6. otherwise it stops with `project_required` and prints each candidate's exact
    command.
 
 ```yaml
-schema: openrig.workspace/v0alpha1
+schema: softwareteam.workspace/v0alpha1
 projects:
   - id: default
     root: .
   - id: contributor
     root: projects/contributor
-    rigs: [openrig-dev]
+    SoftwareTeams: [softwareteam-dev]
 ```
 
-`rigs` is optional. A `rigs` value that isn't a list of rig names is ignored
+`SoftwareTeams` is optional. A `SoftwareTeams` value that isn't a list of SoftwareTeam names is ignored
 with a warning; the entry can still be chosen by `--project`, as the only entry
-or by working directory, but never counts as unclaimed in step 5. A rig listed under two projects, or two projects sharing the
+or by working directory, but never counts as unclaimed in step 5. A SoftwareTeam listed under two projects, or two projects sharing the
 deepest root, leave the choice to `--project`. Step 3 reads the seat's
-`OPENRIG_SESSION_NAME`, so a plain shell skips it. `--json` reports the step
+`SOFTWARETEAM_SESSION_NAME`, so a plain shell skips it. `--json` reports the step
 that chose the project as `position.selectedBy`.
 
 ## TUI project selection
@@ -216,20 +216,20 @@ slice without adding a separate project database schema.
 
 ### Workflow packets
 
-Packets that `rig workflow` projects carry the scope of their instance. Pass the
+Packets that `SoftwareTeam workflow` projects carry the scope of their instance. Pass the
 scope when the instance is created and every packet it creates (the entry, each
 hand-off and gate, exception items, and resume packets) is tagged, so they show
 on the slice's Queue tab:
 
 ```bash
-rig workflow instantiate ./spec.workflow.md \
-  --root-objective "Build the capture flow" --created-by orch@my-rig \
+SoftwareTeam workflow instantiate ./spec.workflow.md \
+  --root-objective "Build the capture flow" --created-by orch@my-SoftwareTeam \
   --project my-project --mission idea-ledger --slice capture-product-ideas \
   --tags ticket-7
 ```
 
 - `--project` should name a project in the workspace catalog. `--mission` and
-  `--slice` take the same ids as the slice routes. `rig workflow run` takes the
+  `--slice` take the same ids as the slice routes. `SoftwareTeam workflow run` takes the
   same flags. The CLI refuses what it can check itself (an id of the wrong shape,
   a reserved tag, a tag that contradicts a flag) as a usage error, before
   anything is sent. Only the daemon knows the catalog, so a mistyped `--project`
@@ -239,7 +239,7 @@ rig workflow instantiate ./spec.workflow.md \
   retry; instantiating again creates a second instance.
 - Packets carry `project:<id>`, `mission:<id>` and `slice:<id>` for the parts
   you set, then your `--tags`, after the tags the workflow system writes. Tags
-  compose as in `rig queue create`: duplicates collapse, so `--slice S --tags
+  compose as in `SoftwareTeam queue create`: duplicates collapse, so `--slice S --tags
   slice:S` is one tag.
 - `--tags` is refused locally when it carries what the workflow runtime reads
   back to route packets: `workflow`, `handoff`, `gate`, `entry`, `resume`,
@@ -247,7 +247,7 @@ rig workflow instantiate ./spec.workflow.md \
   `exception:`, `occurrence:` and `recovery-for:` prefixes, a `project:`,
   `mission:` or `slice:` tag that contradicts its flag, or a second value of
   the same key.
-- `rig workflow instantiate-lifecycle` needs no flags: it takes the project and
+- `SoftwareTeam workflow instantiate-lifecycle` needs no flags: it takes the project and
   mission from the lifecycle identity it compiles. A compiled step's packets
   carry the `slice:<directory>` of the slice that step was compiled from, even
   when another slice's directory has the same name as its `metadata.id`. A step
@@ -269,7 +269,7 @@ rig workflow instantiate ./spec.workflow.md \
   did before the field existed and creates one unscoped instance, records
   nothing the scope named, and never lets a rejected tag reach a packet. The
   response `advisories` then carry a `Scope not applied (...)` note that names
-  the instance (`scopeIgnored` repeats it); `rig workflow run` prints
+  the instance (`scopeIgnored` repeats it); `SoftwareTeam workflow run` prints
   `advisories`. Bare `project`, `mission`, `slice` or `tags` fields in the body
   are ignored the same way, with a note. A failure unrelated to the scope still
   fails the request.
@@ -291,14 +291,14 @@ default setup contract.
 
 If Project shows a mission discovery warning:
 
-1. Run `rig config get workspace.root --show-source`.
-2. Run `rig config get workspace.catalog_path --show-source`.
-3. Run `rig config get workspace.slices_root --show-source`.
+1. Run `SoftwareTeam config get workspace.root --show-source`.
+2. Run `SoftwareTeam config get workspace.catalog_path --show-source`.
+3. Run `SoftwareTeam config get workspace.slices_root --show-source`.
 4. Confirm `workspace.slices_root` points at a folder containing mission
    directories with `slices/` children.
 5. Confirm `files.allowlist` includes `workspace:<workspace.root>` so the TUI
    can read mission `PROGRESS.md`.
-6. If the workspace is missing, run `rig config init-workspace` after operator
+6. If the workspace is missing, run `SoftwareTeam config init-workspace` after operator
    approval.
 
 No daemon restart is required for most config reads. Restart when changing

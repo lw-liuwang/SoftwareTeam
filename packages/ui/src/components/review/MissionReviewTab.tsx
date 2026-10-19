@@ -204,14 +204,14 @@ function Board({ review }: { review: ComposedMissionReview }) {
                         <span className="font-mono text-[10px] text-on-surface-variant">{slot.stageCell}</span>
                       </button>
                       {/* OPR.0.4.4.22 FR-5: the board agent-count chip is a
-                          front door — zooms to the AGENTS altitude at rig
+                          front door — zooms to the AGENTS altitude at SoftwareTeam
                           scope, as a sibling control so the row expansion
                           button keeps valid interactive markup. */}
                       <a
                         href="/agents"
                         data-testid={`board-agents-zoom-${slot.slice}`}
                         className="font-mono text-[10px] text-on-surface-variant underline-offset-2 hover:underline"
-                        title="Zoom to the AGENTS altitude (rig scope)"
+                        title="Zoom to the AGENTS altitude (SoftwareTeam scope)"
                       >
                         agents {slot.agentsCount}
                       </a>

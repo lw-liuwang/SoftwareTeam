@@ -30,8 +30,8 @@ describe("ClassifierLeaseManager (PL-004 Phase B; L2 lease lifecycle)", () => {
   afterEach(() => db.close());
 
   it("acquire creates an active lease + emits classifier.lease_acquired", () => {
-    const lease = mgr.acquire("alice@rig");
-    expect(lease.classifierSession).toBe("alice@rig");
+    const lease = mgr.acquire("alice@software-team");
+    expect(lease.classifierSession).toBe("alice@software-team");
     expect(lease.state).toBe("active");
     expect(lease.acquiredAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(lease.expiresAt > lease.acquiredAt).toBe(true);
@@ -39,21 +39,21 @@ describe("ClassifierLeaseManager (PL-004 Phase B; L2 lease lifecycle)", () => {
   });
 
   it("acquire is idempotent for the same classifier session (returns existing lease unchanged)", () => {
-    const a = mgr.acquire("alice@rig");
-    const b = mgr.acquire("alice@rig");
+    const a = mgr.acquire("alice@software-team");
+    const b = mgr.acquire("alice@software-team");
     expect(b.leaseId).toBe(a.leaseId);
     // Only ONE lease.acquired event (idempotent path doesn't re-emit).
     expect(captured.filter((e) => e.type === "classifier.lease_acquired")).toHaveLength(1);
   });
 
   it("acquire by a different session when one is active throws lease_held (409)", () => {
-    mgr.acquire("alice@rig");
-    expect(() => mgr.acquire("bob@rig")).toThrow(ClassifierLeaseError);
+    mgr.acquire("alice@software-team");
+    expect(() => mgr.acquire("bob@software-team")).toThrow(ClassifierLeaseError);
     try {
-      mgr.acquire("bob@rig");
+      mgr.acquire("bob@software-team");
     } catch (err) {
       expect((err as ClassifierLeaseError).code).toBe("lease_held");
-      expect((err as ClassifierLeaseError).meta?.holder).toBe("alice@rig");
+      expect((err as ClassifierLeaseError).meta?.holder).toBe("alice@software-team");
     }
   });
 
@@ -63,19 +63,19 @@ describe("ClassifierLeaseManager (PL-004 Phase B; L2 lease lifecycle)", () => {
       return () => { const d = new Date(t); t += 100; return d; };
     })();
     const m = new ClassifierLeaseManager(db, bus, { ttlMs: 1000, now: fakeNow });
-    const acquired = m.acquire("alice@rig");
-    const beat = m.heartbeat(acquired.leaseId, "alice@rig");
+    const acquired = m.acquire("alice@software-team");
+    const beat = m.heartbeat(acquired.leaseId, "alice@software-team");
     expect(beat.lastHeartbeat > acquired.lastHeartbeat).toBe(true);
     expect(beat.expiresAt > acquired.expiresAt).toBe(true);
   });
 
   it("heartbeat by mismatched session throws lease_session_mismatch (403)", () => {
-    const lease = mgr.acquire("alice@rig");
-    expect(() => mgr.heartbeat(lease.leaseId, "bob@rig")).toThrow(/lease_session_mismatch|alice@rig/);
+    const lease = mgr.acquire("alice@software-team");
+    expect(() => mgr.heartbeat(lease.leaseId, "bob@software-team")).toThrow(/lease_session_mismatch|alice@software-team/);
   });
 
   it("evaluateDeadness on alive holder returns null (no expiry)", () => {
-    mgr.acquire("alice@rig");
+    mgr.acquire("alice@software-team");
     const result = mgr.evaluateDeadness();
     expect(result).toBeNull();
   });
@@ -83,9 +83,9 @@ describe("ClassifierLeaseManager (PL-004 Phase B; L2 lease lifecycle)", () => {
   it("evaluateDeadness on dead holder marks lease expired + emits classifier.dead", () => {
     const m = new ClassifierLeaseManager(db, bus, {
       ttlMs: 1000,
-      isAlive: (s) => s !== "alice@rig", // alice is reported dead
+      isAlive: (s) => s !== "alice@software-team", // alice is reported dead
     });
-    m.acquire("alice@rig");
+    m.acquire("alice@software-team");
     const result = m.evaluateDeadness();
     expect(result).not.toBeNull();
     expect(result!.state).toBe("expired");
@@ -99,7 +99,7 @@ describe("ClassifierLeaseManager (PL-004 Phase B; L2 lease lifecycle)", () => {
       ttlMs: 100,
       now: () => new Date(t),
     });
-    m.acquire("alice@rig");
+    m.acquire("alice@software-team");
     t += 200; // advance past TTL
     const result = m.evaluateDeadness();
     expect(result).not.toBeNull();
@@ -111,28 +111,28 @@ describe("ClassifierLeaseManager (PL-004 Phase B; L2 lease lifecycle)", () => {
   it("after evaluateDeadness expires the lease, a new session can acquire", () => {
     const m = new ClassifierLeaseManager(db, bus, {
       ttlMs: 1000,
-      isAlive: (s) => s !== "alice@rig",
+      isAlive: (s) => s !== "alice@software-team",
     });
-    m.acquire("alice@rig");
+    m.acquire("alice@software-team");
     m.evaluateDeadness(); // marks alice's lease expired
-    const fresh = m.acquire("bob@rig");
-    expect(fresh.classifierSession).toBe("bob@rig");
+    const fresh = m.acquire("bob@software-team");
+    expect(fresh.classifierSession).toBe("bob@software-team");
     expect(fresh.state).toBe("active");
   });
 
   it("reclaim takes the active lease away from previous holder + emits classifier.reclaimed", () => {
-    mgr.acquire("alice@rig");
-    const result = mgr.reclaim("operator@rig", { reason: "alice unresponsive" });
+    mgr.acquire("alice@software-team");
+    const result = mgr.reclaim("operator@software-team", { reason: "alice unresponsive" });
     expect(result.state).toBe("reclaimed");
-    expect(result.reclaimedBySession).toBe("operator@rig");
+    expect(result.reclaimedBySession).toBe("operator@software-team");
     expect(result.reclaimReason).toBe("alice unresponsive");
     expect(captured.some((e) => e.type === "classifier.reclaimed")).toBe(true);
   });
 
   it("reclaim --if-dead refuses when holder is alive", () => {
-    mgr.acquire("alice@rig"); // default isAlive returns true
+    mgr.acquire("alice@software-team"); // default isAlive returns true
     try {
-      mgr.reclaim("operator@rig", { ifDead: true });
+      mgr.reclaim("operator@software-team", { ifDead: true });
       throw new Error("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(ClassifierLeaseError);
@@ -143,27 +143,27 @@ describe("ClassifierLeaseManager (PL-004 Phase B; L2 lease lifecycle)", () => {
   it("reclaim --if-dead succeeds when holder is dead", () => {
     const m = new ClassifierLeaseManager(db, bus, {
       ttlMs: 1000,
-      isAlive: (s) => s !== "alice@rig",
+      isAlive: (s) => s !== "alice@software-team",
     });
-    m.acquire("alice@rig");
-    const result = m.reclaim("operator@rig", { ifDead: true });
+    m.acquire("alice@software-team");
+    const result = m.reclaim("operator@software-team", { ifDead: true });
     expect(result.state).toBe("reclaimed");
   });
 
   it("requireActiveHolder validates the supplied session holds the active lease", () => {
-    const lease = mgr.acquire("alice@rig");
-    const checked = mgr.requireActiveHolder("alice@rig");
+    const lease = mgr.acquire("alice@software-team");
+    const checked = mgr.requireActiveHolder("alice@software-team");
     expect(checked.leaseId).toBe(lease.leaseId);
   });
 
   it("requireActiveHolder throws lease_held when supplied a different session", () => {
-    mgr.acquire("alice@rig");
-    expect(() => mgr.requireActiveHolder("bob@rig")).toThrow(ClassifierLeaseError);
+    mgr.acquire("alice@software-team");
+    expect(() => mgr.requireActiveHolder("bob@software-team")).toThrow(ClassifierLeaseError);
   });
 
   it("requireActiveHolder throws no_active_lease when nothing is held", () => {
     try {
-      mgr.requireActiveHolder("alice@rig");
+      mgr.requireActiveHolder("alice@software-team");
       throw new Error("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(ClassifierLeaseError);
@@ -172,7 +172,7 @@ describe("ClassifierLeaseManager (PL-004 Phase B; L2 lease lifecycle)", () => {
   });
 
   it("partial UNIQUE index enforces single-writer at DB layer", () => {
-    mgr.acquire("alice@rig");
+    mgr.acquire("alice@software-team");
     // Manual INSERT with state='active' via raw SQL would be blocked by the
     // partial UNIQUE index `idx_classifier_leases_active_singleton`.
     expect(() => {
@@ -180,7 +180,7 @@ describe("ClassifierLeaseManager (PL-004 Phase B; L2 lease lifecycle)", () => {
         `INSERT INTO classifier_leases (
           lease_id, classifier_session, acquired_at, expires_at, last_heartbeat, state
         ) VALUES (?, ?, ?, ?, ?, 'active')`
-      ).run("dup-lease", "bob@rig", "2026-05-03T00:00:00Z", "2026-05-03T00:00:01Z", "2026-05-03T00:00:00Z");
+      ).run("dup-lease", "bob@software-team", "2026-05-03T00:00:00Z", "2026-05-03T00:00:01Z", "2026-05-03T00:00:00Z");
     }).toThrow(/UNIQUE constraint/);
   });
 });

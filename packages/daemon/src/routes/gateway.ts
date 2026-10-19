@@ -17,7 +17,7 @@ import { loadConfig, saveConfig } from "../domain/gateway/slack/config.js";
 import { SeenStore } from "../domain/gateway/slack/state-store.js";
 import { makeQueuePorts, seedBacklogAsHistory } from "../domain/gateway/slack/queue-access.js";
 import { DispatchBuffer } from "../domain/gateway/dispatch-buffer.js";
-import { OPENRIG_HOME } from "../openrig-compat.js";
+import { SOFTWARETEAM_HOME } from "../softwareteam-compat.js";
 import { loadHumanRegistry } from "../domain/gateway/human-registry.js";
 import { resolveSecret } from "../domain/gateway/slack/secrets.js";
 import { resolveHumanDeliveryReadiness, type HumanDeliveryReadiness } from "../domain/gateway/human-readiness.js";
@@ -42,11 +42,11 @@ export function gatewayRoutes(opts: {
     const subsystem = c.get("gatewaySubsystem" as never) as SubsystemHandle | undefined;
     let status: Record<string, unknown> | null = null;
     try { status = subsystem?.status() ?? null; } catch { /* unavailable is preserved */ }
-    return c.json(connectionsProjection(opts.home ?? OPENRIG_HOME, status,
+    return c.json(connectionsProjection(opts.home ?? SOFTWARETEAM_HOME, status,
       c.get("settingsStore" as never) as SettingsStore | undefined));
   });
 
-  // OPR.0.6.0.5 — read-only: the same manifest `rig slack manifest` prints. No config, no secrets.
+  // OPR.0.6.0.5 — read-only: the same manifest `softwareTeam slack manifest` prints. No config, no secrets.
   app.get("/slack/status", (c) => {
     const subsystem = c.get("gatewaySubsystem" as never) as SubsystemHandle | undefined;
     const snapshot = subsystem?.connectorStatus?.();
@@ -63,7 +63,7 @@ export function gatewayRoutes(opts: {
       const readiness = await opts.readiness(entityId, gatewayState);
       return readiness ? c.json({ ok: true, readiness }) : c.json({ error: "human_not_found", entityId }, 404);
     }
-    const home = opts.home ?? OPENRIG_HOME;
+    const home = opts.home ?? SOFTWARETEAM_HOME;
     const registry = loadHumanRegistry(home);
     if (!registry.ok) return c.json({ error: "human_registry_unavailable", message: registry.error }, 503);
     const human = registry.entities.find((candidate) => candidate.entityId === entityId);
@@ -85,7 +85,7 @@ export function gatewayRoutes(opts: {
     const queueRepo = c.get("queueRepo" as never) as QueueRepository | undefined;
     const subsystem = c.get("gatewaySubsystem" as never) as SubsystemHandle | undefined;
     if (!subsystem || (operation === "enable" && !queueRepo)) return c.json({ error: "gateway_admin_unavailable" }, 503);
-    const home = opts.home ?? OPENRIG_HOME;
+    const home = opts.home ?? SOFTWARETEAM_HOME;
     const pending = adminTail.then(async () => {
       const cfg = loadConfig(home);
       const enabled = operation === "enable";
@@ -101,7 +101,7 @@ export function gatewayRoutes(opts: {
             if (!registry.ok) throw new HTTPException(503, { res: c.json({
               error: "human_registry_unavailable",
               message: `Cannot seed the existing delivery backlog: ${registry.error}. ` +
-                "Register a human with rig gateway human add, or repair and re-project the existing human registry before enabling delivery.",
+                "Register a human with SoftwareTeam gateway human add, or repair and re-project the existing human registry before enabling delivery.",
             }, 503) });
             const seen = new SeenStore(path.join(home, "state", "slack-outbound-seen.jsonl"));
             value = await seedBacklogAsHistory({

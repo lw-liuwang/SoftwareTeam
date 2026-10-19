@@ -25,9 +25,9 @@ export interface CaseRefResolution {
   resolved: boolean;
 }
 
-/** Extract the ref a `rig context get <ref>` pattern pulls. */
+/** Extract the ref a `SoftwareTeam context get <ref>` pattern pulls. */
 export function extractRef(pattern: string): string | null {
-  const m = /rig context get\\s\+(\S+)/.exec(pattern);
+  const m = /SoftwareTeam context get\\s\+(\S+)/.exec(pattern);
   return m ? m[1]! : null;
 }
 
@@ -79,7 +79,7 @@ export function buildProductionPackage(repoRoot: string): BuiltProductionPackage
   };
   process.once("exit", cleanup);
   execFileSync("node", [join(repoRoot, "scripts/generate-context-packs.mjs")], {
-    env: { ...process.env, OPENRIG_PACKS_OUT: out },
+    env: { ...process.env, SOFTWARETEAM_PACKS_OUT: out },
     stdio: "pipe",
   });
   return { dir: out, cleanup };

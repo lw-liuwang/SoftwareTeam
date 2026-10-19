@@ -11,7 +11,7 @@ import {
   resolvePermissionPolicyAttachment,
   validatePermissionPolicyRef,
 } from "../src/domain/permission-policy/policy-ref.js";
-import { rigPreflight } from "../src/domain/rigspec-preflight.js";
+import { softwareTeamPreflight } from "../src/domain/software-team-spec-preflight.js";
 import type { AgentResolverFsOps } from "../src/domain/agent-resolver.js";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
 
@@ -35,7 +35,7 @@ function fsOps(): AgentResolverFsOps {
   };
 }
 
-function rigYaml(policyLine: string): string {
+function softwareTeamYaml(policyLine: string): string {
   return `version: "0.2"
 name: deliberate-none-probe
 ${policyLine}pods:
@@ -80,9 +80,9 @@ describe("deliberate-none resolution (ruled form 5f37e40f)", () => {
 
 describe("P1 HONESTY CRUX — an ABSENT spec is NEVER rewritten, upgraded, or reported as deliberate_none", () => {
   it("preflight discovery on an ABSENT-policy spec reports absence verbatim — no deliberate_none anywhere", async () => {
-    const result = await rigPreflight({
-      rigSpecYaml: rigYaml(""),
-      rigRoot: "/probe/root",
+    const result = await softwareTeamPreflight({
+      softwareTeamSpecYaml: softwareTeamYaml(""),
+      softwareTeamRoot: "/probe/root",
       fsOps: fsOps(),
     });
     expect(result.ready).toBe(true);
@@ -96,7 +96,7 @@ describe("P1 HONESTY CRUX — an ABSENT spec is NEVER rewritten, upgraded, or re
     const db = createFullTestDb();
     try {
       const setup = createTestApp(db, { podInstantiatorFsOps: fsOps() });
-      const outcome = await setup.podInstantiator.materialize(rigYaml(""), "/probe/root");
+      const outcome = await setup.podInstantiator.materialize(softwareTeamYaml(""), "/probe/root");
       expect(outcome.ok).toBe(true);
       if (!outcome.ok) return;
       const row = db.prepare(
@@ -104,8 +104,8 @@ describe("P1 HONESTY CRUX — an ABSENT spec is NEVER rewritten, upgraded, or re
       ).get() as { policy_origin: string | null; policy_launch_posture: string | null };
       expect(row.policy_origin).toBeNull(); // absent means absent — a legacy spec never claims a choice nobody made
       expect(row.policy_launch_posture).toBeNull();
-      const rig = db.prepare("SELECT permission_policy FROM rigs LIMIT 1").get() as { permission_policy: string | null };
-      expect(rig.permission_policy).toBeNull();
+      const softwareTeam = db.prepare("SELECT permission_policy FROM software_teams LIMIT 1").get() as { permission_policy: string | null };
+      expect(softwareTeam.permission_policy).toBeNull();
     } finally {
       db.close();
     }
@@ -114,8 +114,8 @@ describe("P1 HONESTY CRUX — an ABSENT spec is NEVER rewritten, upgraded, or re
 
 describe("P2 POSTURE-IDENTITY — absent and none differ ONLY in the record", () => {
   it("discovery: both report launch_posture=floor; only the record wording differs; materialize succeeds identically (201-class outcome both)", async () => {
-    const absent = await rigPreflight({ rigSpecYaml: rigYaml(""), rigRoot: "/probe/root", fsOps: fsOps() });
-    const none = await rigPreflight({ rigSpecYaml: rigYaml("permission_policy: none\n"), rigRoot: "/probe/root", fsOps: fsOps() });
+    const absent = await softwareTeamPreflight({ softwareTeamSpecYaml: softwareTeamYaml(""), softwareTeamRoot: "/probe/root", fsOps: fsOps() });
+    const none = await softwareTeamPreflight({ softwareTeamSpecYaml: softwareTeamYaml("permission_policy: none\n"), softwareTeamRoot: "/probe/root", fsOps: fsOps() });
     expect(absent.ready).toBe(true);
     expect(none.ready).toBe(true);
     const a = absent.warnings.find((w) => w.startsWith("dev.impl: permission_policy"))!;
@@ -132,7 +132,7 @@ describe("P2 POSTURE-IDENTITY — absent and none differ ONLY in the record", ()
     const db = createFullTestDb();
     try {
       const setup = createTestApp(db, { podInstantiatorFsOps: fsOps() });
-      const outcome = await setup.podInstantiator.materialize(rigYaml("permission_policy: none\n"), "/probe/root");
+      const outcome = await setup.podInstantiator.materialize(softwareTeamYaml("permission_policy: none\n"), "/probe/root");
       expect(outcome.ok).toBe(true);
       const row = db.prepare(
         "SELECT policy_origin, policy_launch_posture FROM nodes WHERE logical_id = 'dev.impl'",

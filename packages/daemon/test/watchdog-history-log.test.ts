@@ -23,7 +23,7 @@ describe("WatchdogHistoryLog (PL-004 Phase C; append-only audit)", () => {
     jobId = jobsRepo.register({
       policy: "periodic-reminder",
       specYaml: "policy: periodic-reminder",
-      targetSession: "a@rig",
+      targetSession: "a@software-team",
       intervalSeconds: 60,
       registeredBySession: "ops@kernel",
     }).jobId;
@@ -36,13 +36,13 @@ describe("WatchdogHistoryLog (PL-004 Phase C; append-only audit)", () => {
       jobId,
       evaluatedAt: "2026-05-03T07:00:00.000Z",
       outcome: "sent",
-      deliveryTargetSession: "a@rig",
+      deliveryTargetSession: "a@software-team",
       deliveryStatus: "ok",
       deliveryMessage: "hello",
     });
     expect(e.historyId).toMatch(/^[0-9A-Z]{26}$/);
     expect(e.outcome).toBe("sent");
-    expect(e.deliveryTargetSession).toBe("a@rig");
+    expect(e.deliveryTargetSession).toBe("a@software-team");
     expect(e.deliveryStatus).toBe("ok");
     expect(e.deliveryMessage).toBe("hello");
   });
@@ -75,7 +75,7 @@ describe("WatchdogHistoryLog (PL-004 Phase C; append-only audit)", () => {
       jobId,
       evaluatedAt: "2026-05-03T07:00:00.000Z",
       outcome: "sent",
-      deliveryTargetSession: "a@rig",
+      deliveryTargetSession: "a@software-team",
       deliveryStatus: "ok",
       deliveryMessage: "x",
       evaluationNotes: { artifact_count: 7, label: "foo" },
@@ -85,8 +85,8 @@ describe("WatchdogHistoryLog (PL-004 Phase C; append-only audit)", () => {
   });
 
   it("listForJob returns DESC by evaluated_at", () => {
-    log.record({ jobId, evaluatedAt: "2026-05-03T07:00:00.000Z", outcome: "sent", deliveryTargetSession: "a@rig", deliveryStatus: "ok", deliveryMessage: "first" });
-    log.record({ jobId, evaluatedAt: "2026-05-03T07:01:00.000Z", outcome: "sent", deliveryTargetSession: "a@rig", deliveryStatus: "ok", deliveryMessage: "second" });
+    log.record({ jobId, evaluatedAt: "2026-05-03T07:00:00.000Z", outcome: "sent", deliveryTargetSession: "a@software-team", deliveryStatus: "ok", deliveryMessage: "first" });
+    log.record({ jobId, evaluatedAt: "2026-05-03T07:01:00.000Z", outcome: "sent", deliveryTargetSession: "a@software-team", deliveryStatus: "ok", deliveryMessage: "second" });
     const list = log.listForJob(jobId);
     expect(list[0]?.deliveryMessage).toBe("second");
     expect(list[1]?.deliveryMessage).toBe("first");

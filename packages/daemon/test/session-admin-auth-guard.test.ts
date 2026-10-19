@@ -19,12 +19,12 @@ const TOKEN = "secret-terminal-token-abc123";
 function stubDeps() {
   return {
     // reconcile → convergeOp(reconcile_session) calls claimService.reconcileSession
-    claimService: { reconcileSession: async () => ({ ok: true, sessionName: "dev1-impl@test-rig", projectionDrift: [], continuity: "unverified" }) },
+    claimService: { reconcileSession: async () => ({ ok: true, sessionName: "dev1-impl@test-software-team", projectionDrift: [], continuity: "unverified" }) },
     podInstantiator: {}, // presence-checked only
     // clear-attention
     seatAttentionReconciler: { clearAttention: async () => ({ ok: true, from: "attention_required", clearedBy: "evidence" }) },
     // unclaim
-    rigLifecycleService: { unclaimSession: async () => ({ ok: true, sessionName: "dev1-impl@test-rig", logicalId: "dev1.impl", rigId: "rig-1" }) },
+    softwareTeamLifecycleService: { unclaimSession: async () => ({ ok: true, sessionName: "dev1-impl@test-software-team", logicalId: "dev1.impl", softwareTeamId: "software-team-1" }) },
   };
 }
 
@@ -38,7 +38,7 @@ function mountApp(bearerToken: string | null): { request: (p: string, init?: Req
     c.set("claimService" as never, deps.claimService);
     c.set("podInstantiator" as never, deps.podInstantiator);
     c.set("seatAttentionReconciler" as never, deps.seatAttentionReconciler);
-    c.set("rigLifecycleService" as never, deps.rigLifecycleService);
+    c.set("softwareTeamLifecycleService" as never, deps.softwareTeamLifecycleService);
     await next();
   });
   app.route("/api/sessions", sessionAdminRoutes);
@@ -54,9 +54,9 @@ function post(app: { request: (p: string, init?: RequestInit) => Promise<Respons
 }
 
 const ROUTES: Array<{ name: string; path: string }> = [
-  { name: "reconcile", path: "/api/sessions/dev1-impl%40test-rig/reconcile" },
-  { name: "clear-attention", path: "/api/sessions/dev1-impl%40test-rig/clear-attention" },
-  { name: "unclaim", path: "/api/sessions/dev1-impl%40test-rig/unclaim" },
+  { name: "reconcile", path: "/api/sessions/dev1-impl%40test-software-team/reconcile" },
+  { name: "clear-attention", path: "/api/sessions/dev1-impl%40test-software-team/clear-attention" },
+  { name: "unclaim", path: "/api/sessions/dev1-impl%40test-software-team/unclaim" },
 ];
 
 describe("session-admin mutation auth guard (OPR.0.4.3.02)", () => {
@@ -98,13 +98,13 @@ describe("session-admin mutation auth guard (OPR.0.4.3.02)", () => {
   describe("no regression: sibling routes keep their existing posture", () => {
     it("the already-guarded resume-token write still 401s without a bearer", async () => {
       const app = mountApp(TOKEN);
-      const res = await post(app, "/api/sessions/dev1-impl%40test-rig/resume-token");
+      const res = await post(app, "/api/sessions/dev1-impl%40test-software-team/resume-token");
       expect(res.status).toBe(401);
     });
 
     it("the already-guarded GET preview still 401s without a bearer", async () => {
       const app = mountApp(TOKEN);
-      const res = await app.request("/api/sessions/dev1-impl%40test-rig/preview");
+      const res = await app.request("/api/sessions/dev1-impl%40test-software-team/preview");
       expect(res.status).toBe(401);
     });
   });

@@ -4,7 +4,7 @@
 // restarts + browser refresh. The PRD bounce conditions explicitly
 // reject ephemeral state.
 //
-// Implementation: a small JSON file under OPENRIG_HOME/active-workflow
+// Implementation: a small JSON file under SOFTWARETEAM_HOME/active-workflow
 // -lens.json. Same env-var-aware persistence pattern as UI Enhancement
 // Pack v0's file-edit-audit JSONL — no new SQLite table, no new
 // migration. The file is rewritten atomically on every set so concurrent
@@ -30,7 +30,7 @@ export interface ActiveLens {
 }
 
 export interface ActiveLensStoreOpts {
-  /** Absolute file path. Should fall under the daemon's OPENRIG_HOME so
+  /** Absolute file path. Should fall under the daemon's SOFTWARETEAM_HOME so
    *  the lens stays isolated per host. */
   filePath: string;
   /** Test seam — defaults to () => new Date(). */

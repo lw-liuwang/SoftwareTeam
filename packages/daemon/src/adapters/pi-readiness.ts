@@ -14,7 +14,7 @@ export function piVersionNotice(output: string): string {
   const baseline = TESTED_PI_VERSION.split(".").map(Number);
   const difference = parts.map((part, i) => part - baseline[i]!).find(value => value !== 0) ?? 0;
   return difference < 0
-    ? `Pi version ${version} is older than OpenRig's tested baseline ${TESTED_PI_VERSION}; compatibility is unverified and launch continues. Update with 'npm install -g @earendil-works/pi-coding-agent', then check 'command -v pi' in the pane's shell.`
+    ? `Pi version ${version} is older than SoftwareTeam's tested baseline ${TESTED_PI_VERSION}; compatibility is unverified and launch continues. Update with 'npm install -g @earendil-works/pi-coding-agent', then check 'command -v pi' in the pane's shell.`
     : `Pi version ${version} answered on the daemon's PATH; this does not verify the pane's executable or provider access. Credentials are checked for the managed seat before Pi starts.`;
 }
 
@@ -150,7 +150,7 @@ export type PiCredentialEvidence = {
   source: PiCredentialSource;
   /** Whether a Pi extension could load (and so register a provider or a runtime key): Pi 0.87.1 discovers
    *  <agentDir>/extensions, <cwd>/.pi/extensions, and `packages`/`extensions` entries in either settings.json.
-   *  OpenRig passes no -e flags. */
+   *  SoftwareTeam passes no -e flags. */
   extensions: "none" | "present" | "unknown";
   /** Whether models.json has an OpenRouter provider entry that can change authentication (providerEntryAuth),
    *  whichever credential wins and whether or not its key is literal: Pi's provider composer holds it from load
@@ -246,7 +246,7 @@ export function credentialTaint(e: PiCredentialEvidence): { sticky: string } | n
   return null;
 }
 
-/** Whether a request's credential is established as the key OpenRig forwarded: it was persisted after `before`
+/** Whether a request's credential is established as the key SoftwareTeam forwarded: it was persisted after `before`
  *  and observed by `after`, both show Pi's OpenRouter credential as that key with no extension able to replace
  *  it, and nothing changed in between. Otherwise the reason it isn't. */
 export function judgeChargeProvenance(before: PiCredentialEvidence | null, after: PiCredentialEvidence, entryTimestamp: string):
@@ -257,7 +257,7 @@ export function judgeChargeProvenance(before: PiCredentialEvidence | null, after
   }
   for (const e of [before, after]) {
     if (e.source.kind !== "managed-env" || e.source.provider !== "openrouter") {
-      return { ok: false, reason: `Pi's OpenRouter credential around the request was ${e.source.kind}, not the key OpenRig forwarded` };
+      return { ok: false, reason: `Pi's OpenRouter credential around the request was ${e.source.kind}, not the key SoftwareTeam forwarded` };
     }
     if (e.extensions !== "none") {
       return { ok: false, reason: e.extensions === "present"
@@ -272,5 +272,5 @@ export function judgeChargeProvenance(before: PiCredentialEvidence | null, after
   }
   if (before.fingerprint !== after.fingerprint) return { ok: false, reason: "Pi's credential or extension files changed around the request" };
   const envVar = before.source.kind === "managed-env" ? before.source.envVar : "OPENROUTER_API_KEY";
-  return { ok: true, credentialSource: `${envVar} (forwarded by OpenRig; Pi's credential observed before and after the request)` };
+  return { ok: true, credentialSource: `${envVar} (forwarded by SoftwareTeam; Pi's credential observed before and after the request)` };
 }

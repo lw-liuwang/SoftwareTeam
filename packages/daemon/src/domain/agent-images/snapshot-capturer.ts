@@ -2,7 +2,7 @@
 //
 // Captures a productive seat's resumable state into a new agent_image:
 // runtime-specific resume token + manifest + optional cwd-deltas. Used
-// by `rig agent-image create <source-session> --name <name>` and the
+// by `softwareTeam agent-image create <source-session> --name <name>` and the
 // daemon HTTP route /api/agent-images/snapshot.
 //
 // Resume-token discovery routes through resume-token-discovery.ts so
@@ -14,7 +14,7 @@
 
 import type Database from "better-sqlite3";
 import type { SessionRegistry } from "../session-registry.js";
-import type { RigRepository } from "../rig-repository.js";
+import type { SoftwareTeamRepository } from "../software-team-repository.js";
 import {
   AgentImageError,
   type AgentImageManifest,
@@ -40,10 +40,10 @@ export interface CaptureSnapshotResult {
 
 export interface SnapshotCapturerDeps {
   db: Database.Database;
-  rigRepo: RigRepository;
+  softwareTeamRepo: SoftwareTeamRepository;
   sessionRegistry: SessionRegistry;
   agentImageLibrary: AgentImageLibraryService;
-  /** Target install root — typically ~/.openrig/agent-images/. */
+  /** Target install root — typically ~/.softwareteam/agent-images/. */
   targetRoot: string;
   /** Test seam — defaults to () => new Date(). */
   now?: () => Date;
@@ -74,7 +74,7 @@ export class SnapshotCapturer {
     if (!nativeId) {
       throw new AgentImageError(
         "image_not_found",
-        `Could not discover a resume token for ${runtime} source session '${sourceSession}'. The session may not have a native conversation id yet — try again after the seat has produced output, or use rig context --refresh to re-sample.`,
+        `Could not discover a resume token for ${runtime} source session '${sourceSession}'. The session may not have a native conversation id yet — try again after the seat has produced output, or use SoftwareTeam context --refresh to re-sample.`,
         { sourceSession, runtime },
       );
     }

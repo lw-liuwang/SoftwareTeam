@@ -7,7 +7,7 @@
 //      authority hashes;
 //   3. the COMPILED assembled startup boundary: invoking the assembled
 //      dist's exported createDaemon() (no listen) under a fresh temporary
-//      OPENRIG_HOME + isolated state materializes EXACTLY the four stable
+//      SOFTWARETEAM_HOME + isolated state materializes EXACTLY the four stable
 //      files at reference/policies/builtin/ — byte-equal, mode 0444.
 // The probe NEVER touches the live daemon, its port, or the operator home.
 //
@@ -60,14 +60,14 @@ ok("assembled daemon/policies/builtin: exactly the known five, all authority has
 // ---- 3. compiled assembled startup boundary (guard finding 1) ----
 const home = mkdtempSync(join(tmpdir(), "builtins-probe-home-"));
 const state = mkdtempSync(join(tmpdir(), "builtins-probe-state-"));
-process.env.OPENRIG_HOME = home;
+process.env.SOFTWARETEAM_HOME = home;
 // QA finding (qitem 03a6194b): createDaemon() fires the background kernel
 // bootstrap by default, which can create/replace tmux sessions on the SHARED
 // server — the probe must deterministically opt out BEFORE importing the
 // compiled startup, and PIN the skip so a regression fails loudly.
-process.env.OPENRIG_NO_KERNEL = "1";
-delete process.env.OPENRIG_URL;
-delete process.env.OPENRIG_PORT;
+process.env.SOFTWARETEAM_NO_KERNEL = "1";
+delete process.env.SOFTWARETEAM_URL;
+delete process.env.SOFTWARETEAM_PORT;
 try {
   const startup = await import(pathToFileURL(join(cli, "daemon", "dist", "startup.js")).href);
   if (typeof startup.createDaemon !== "function") fail("assembled dist/startup.js does not export createDaemon");
@@ -90,7 +90,7 @@ try {
     fail("kernel auto-boot skip NOT observed — the probe must never start the background kernel bootstrap");
   if (bootLog.includes("kernel-boot: booting"))
     fail("kernel-boot attempted to BOOT during the probe — shared tmux was at risk");
-  ok("kernel auto-boot deterministically SKIPPED (OPENRIG_NO_KERNEL=1 pinned in probe output)");
+  ok("kernel auto-boot deterministically SKIPPED (SOFTWARETEAM_NO_KERNEL=1 pinned in probe output)");
   const refDir = join(home, "reference", "policies", "builtin");
   const files = readdirSync(refDir).sort();
   if (JSON.stringify(files) !== JSON.stringify(expectedFiles))

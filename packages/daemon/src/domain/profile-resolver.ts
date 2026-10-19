@@ -4,7 +4,7 @@ import { canonicalCompactionStrategy, canonicalContinuityMechanic } from "./agen
 import { homedir as osHomedir } from "node:os";
 import type {
   AgentSpec, AgentResources, ProfileSpec, LifecycleDefaults,
-  RigSpec, RigSpecPod, RigSpecPodMember, StartupBlock,
+  SoftwareTeamSpec, SoftwareTeamSpecPod, SoftwareTeamSpecPodMember, StartupBlock,
   SkillResource, GuidanceResource, SubagentResource, RuntimeResource, PluginResource,
 } from "./types.js";
 import type { ResolvedAgentSpec, ResourceCollision } from "./agent-resolver.js";
@@ -73,12 +73,12 @@ export interface ResolutionContext {
   profileName: string;
   specRoot?: string;
   cwdOverride?: string;
-  member: RigSpecPodMember;
-  pod: RigSpecPod;
-  rig: RigSpec;
+  member: SoftwareTeamSpecPodMember;
+  pod: SoftwareTeamSpecPod;
+  softwareTeam: SoftwareTeamSpec;
   operatorStartup?: StartupBlock;
   /** V0.3.0 daemon-skill-discovery (SC-29 #7): operator home directory
-   *  used to scan filesystem-discovered skills (~/.openrig/skills/,
+   *  used to scan filesystem-discovered skills (~/.softwareteam/skills/,
    *  ~/.claude/skills/, ~/.agents/skills/). Defaults to os.homedir()
    *  in production; tests inject a fixture root. */
   homedir?: string;
@@ -119,14 +119,14 @@ const RESTORE_POLICY_LEVEL: Record<string, number> = {
 // -- Public API --
 
 /**
- * Resolve effective node configuration from agent spec, profile, and rig context.
+ * Resolve effective node configuration from agent spec, profile, and SoftwareTeam context.
  * @param ctx - resolution context with all inputs
  * @returns resolved config or errors
  */
 export function resolveNodeConfig(ctx: ResolutionContext): ResolutionResult {
   const errors: string[] = [];
   if (ctx.systemWorldError) return { ok: false, errors: [`system_world_invalid: ${ctx.systemWorldError}`] };
-  const { baseSpec, importedSpecs, profileName, member, pod, rig } = ctx;
+  const { baseSpec, importedSpecs, profileName, member, pod, softwareTeam } = ctx;
   const spec = baseSpec.spec;
 
   // 1. Validate profile exists
@@ -163,14 +163,14 @@ export function resolveNodeConfig(ctx: ResolutionContext): ResolutionResult {
     ? nodePath.resolve(ctx.cwdOverride)
     : resolveAuthoredCwd(member.cwd, ctx.specRoot || null);
 
-  // 2b. Augment the pool with filesystem-discovered skills. Rig-local
+  // 2b. Augment the pool with filesystem-discovered skills. SoftwareTeam-local
   // resources.skills (already in the pool from buildResourcePool) win
   // over discovered same-id entries. Most-specific-wins precedence:
-  // rig-local agent.yaml > rig-bundled cwd > spec-install-dir >
-  // runtime-specific user library > shared ~/.openrig/skills/. The
+  // software-team-local agent.yaml > software-team-bundled cwd > spec-install-dir >
+  // runtime-specific user library > shared ~/.softwareteam/skills/. The
   // internal ordering among discovery roots lives in
   // skill-discovery.listScanRoots; here we only enforce that
-  // rig-local declarations are not overwritten by discovery.
+  // software-team-local declarations are not overwritten by discovery.
   let rejectedSkillsByBasename: Map<string, { path: string; reason: string }> = new Map();
   if (runtime === "claude-code" || runtime === "codex" || runtime === "pi") {
     const discovery = discoverSkillsForRuntime({
@@ -181,7 +181,7 @@ export function resolveNodeConfig(ctx: ResolutionContext): ResolutionResult {
       ...(ctx.skillsRoot ? { skillsRoot: ctx.skillsRoot } : {}),
     });
     for (const discovered of discovery.skills) {
-      if (pool.skills.has(discovered.id)) continue; // rig-local-wins
+      if (pool.skills.has(discovered.id)) continue; // software-team-local-wins
       pool.skills.set(discovered.id, [{
         effectiveId: discovered.id,
         sourceSpec: "discovered",
@@ -203,7 +203,7 @@ export function resolveNodeConfig(ctx: ResolutionContext): ResolutionResult {
   // topology selector (profile.uses.skills). System comes from catalog.yaml;
   // project comes from project.yaml install.skills. Topology resources that
   // are not catalog-managed retain the established AgentSpec/local behavior.
-  const catalogRoot = ctx.skillsRoot ?? nodePath.join(ctx.homedir ?? osHomedir(), ".openrig", "skills");
+  const catalogRoot = ctx.skillsRoot ?? nodePath.join(ctx.homedir ?? osHomedir(), ".softwareteam", "skills");
   const catalogResult = resolveSkillLoadout({
     catalogRoot,
     ...(ctx.systemSkills !== undefined ? { systemSkills: ctx.systemSkills } : {}),
@@ -242,7 +242,7 @@ export function resolveNodeConfig(ctx: ResolutionContext): ResolutionResult {
   const skillWarnings: string[] = skips.map((skip) => skip.message);
   // Filesystem discovery scans the catalog's working tree too, and a profile may declare a source inside a catalog
   // folder, so a skipped folder's bytes could still reach the adapter through the profile's selection. Drop a
-  // selection whose source is a skipped folder or inside one; a source elsewhere, such as a rig bundle, keeps it.
+  // selection whose source is a skipped folder or inside one; a source elsewhere, such as a softwareTeam bundle, keeps it.
   const skippedDirs = skips.map((skip) => ({ real: realDir(skip.sourceDir), dir: skip.sourceDir }));
   for (let i = selectedResult!.skills.length - 1; i >= 0 && skippedDirs.length > 0; i--) {
     const entry = selectedResult!.skills[i]!;
@@ -357,8 +357,8 @@ export function resolveNodeConfig(ctx: ResolutionContext): ResolutionResult {
   const startup = resolveStartup({
     specStartup: spec.startup,
     profileStartup: profile.startup,
-    rigCultureFile: rig.cultureFile,
-    rigStartup: rig.startup,
+    softwareTeamCultureFile: softwareTeam.cultureFile,
+    softwareTeamStartup: softwareTeam.startup,
     podStartup: pod.startup,
     memberStartup: member.startup,
     operatorStartup: ctx.operatorStartup,
@@ -546,7 +546,7 @@ function resolveProfileUses(
 function resolveCompactionStrategy(
   spec: AgentSpec,
   profile: ProfileSpec,
-  member: RigSpecPodMember,
+  member: SoftwareTeamSpecPodMember,
 ): { ok: true; strategy: string } | { ok: false; error: string } {
   let current = "default-compaction";
   const specValue = spec.defaults?.lifecycle?.compactionStrategy;
@@ -573,7 +573,7 @@ function resolveCompactionStrategy(
 function resolveContinuityMechanic(
   spec: AgentSpec,
   profile: ProfileSpec,
-  member: RigSpecPodMember,
+  member: SoftwareTeamSpecPodMember,
 ): { ok: true; mechanic: string | undefined } | { ok: false; error: string } {
   let current: string | undefined;
   for (const [level, value] of [
@@ -594,7 +594,7 @@ function resolveContinuityMechanic(
 function resolveRestorePolicy(
   spec: AgentSpec,
   profile: ProfileSpec,
-  member: RigSpecPodMember,
+  member: SoftwareTeamSpecPodMember,
 ): { ok: true; policy: string } | { ok: false; error: string } {
   let current: string = spec.defaults?.lifecycle?.restorePolicy ?? "resume_if_possible";
   let currentLevel = RESTORE_POLICY_LEVEL[current] ?? 0;

@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
  */
 
 /** The coverage of `packageDigest`, named so it is shown wherever the digest is. */
-export const PACKAGE_DIGEST_COVERAGE = "openrig.package-digest/v1";
+export const PACKAGE_DIGEST_COVERAGE = "softwareteam.package-digest/v1";
 
 export interface PackageDigest {
   algorithm: "sha256";
@@ -17,7 +17,7 @@ export interface PackageDigest {
 
 /**
  * The configuration ID: every member's `pod.member=runtime`, sorted by `pod.member` in plain code-unit
- * order and joined with `,`. Runtimes are spelled as in rig.yaml. Preset names are aliases beside the ID.
+ * order and joined with `,`. Runtimes are spelled as in software-team.yaml. Preset names are aliases beside the ID.
  */
 export function configurationId(mapping: Record<string, string>): string {
   return Object.keys(mapping)

@@ -1,0 +1,33 @@
+name: software-team-review-agent
+version: "1.0"
+description: Resident independent technical review-agent and finding closure owner
+
+defaults:
+  runtime: codex
+  lifecycle:
+    execution_mode: interactive_resident
+    restore_policy: resume_if_possible
+
+imports:
+  - ref: local:../shared
+
+profiles:
+  default:
+    uses:
+      skills: [software-team-review-agent, software-team-shared:software-team-contract]
+      guidance: []
+      subagents: []
+      plugins: []
+      runtime_resources: []
+
+resources:
+  skills:
+    - id: software-team-review-agent
+      path: skills/software-team-review-agent
+
+startup:
+  files:
+    - path: skills/software-team-review-agent/SKILL.md
+      delivery_hint: send_text
+      required: true
+  actions: []

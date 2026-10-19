@@ -13,7 +13,7 @@ import type { AgentActivity } from "../src/domain/types.js";
 const NOW = "2026-08-04T12:00:00.000Z";
 const EVENT_AT = "2026-08-04T11:59:00.000Z";
 const STALE_AFTER = "2026-08-04T12:04:00.000Z";
-const SESSION = "dev-impl@test-rig";
+const SESSION = "dev-impl@test-software-team";
 const ACCOUNT = "work";
 
 interface FixtureOptions {
@@ -29,7 +29,7 @@ interface Fixture {
   bus: EventBus;
   store: AgentActivityStore;
   service: ProviderServiceImpl;
-  rigId: string;
+  softwareTeamId: string;
   nodeId: string;
   sessionName: string;
 }
@@ -58,16 +58,16 @@ function fixture(options: FixtureOptions = {}): Fixture {
   if (includeRegistry) {
     fs.writeFileSync(
       path.join(codexHome, "auth-seat-registry.tsv"),
-      `seat\trig\truntime\tcwd\tauth_profile\tupdated_ts\n${SESSION}\ttest-rig\t${registryRuntime}\t/project\t${accountRef}\t${EVENT_AT}\n`,
+      `seat\trig\truntime\tcwd\tauth_profile\tupdated_ts\n${SESSION}\ttest-software-team\t${registryRuntime}\t/project\t${accountRef}\t${EVENT_AT}\n`,
     );
   }
 
-  db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "test-rig");
-  db.prepare("INSERT INTO pods (id, rig_id, namespace, label) VALUES (?, ?, ?, ?)")
-    .run("pod-1", "rig-1", "dev", "Dev");
+  db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "test-software-team");
+  db.prepare("INSERT INTO pods (id, software_team_id, namespace, label) VALUES (?, ?, ?, ?)")
+    .run("pod-1", "software-team-1", "dev", "Dev");
   db.prepare(
-    "INSERT INTO nodes (id, rig_id, logical_id, runtime, cwd, pod_id, agent_ref, profile, resolved_spec_name, resolved_spec_version, resolved_spec_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-  ).run("node-1", "rig-1", "dev.impl", runtime, "/project", "pod-1", "local:agents/impl", "default", "impl", "1.0.0", "abc123");
+    "INSERT INTO nodes (id, software_team_id, logical_id, runtime, cwd, pod_id, agent_ref, profile, resolved_spec_name, resolved_spec_version, resolved_spec_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  ).run("node-1", "software-team-1", "dev.impl", runtime, "/project", "pod-1", "local:agents/impl", "default", "impl", "1.0.0", "abc123");
   db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status) VALUES (?, ?, ?, ?, ?)")
     .run("session-1", "node-1", SESSION, "running", "ready");
   db.prepare("INSERT INTO bindings (id, node_id, tmux_session) VALUES (?, ?, ?)")
@@ -85,13 +85,13 @@ function fixture(options: FixtureOptions = {}): Fixture {
   // startup also supplies this singleton, preventing the C3-style "test-only injection" false green.
   const serviceDeps = {
     db,
-    listRigs: () => [{ id: "rig-1" }],
+    listSoftwareTeams: () => [{ id: "software-team-1" }],
     env: { CODEX_HOME: codexHome } as NodeJS.ProcessEnv,
     now: () => now,
     agentActivityStore: store,
   };
   const service = new ProviderServiceImpl(serviceDeps);
-  return { db, bus, store, service, rigId: "rig-1", nodeId: "node-1", sessionName: SESSION };
+  return { db, bus, store, service, softwareTeamId: "software-team-1", nodeId: "node-1", sessionName: SESSION };
 }
 
 function recordToken(fx: Fixture, token: string, source: "rawSubtype" | "rawEvent" = "rawEvent", occurredAt = EVENT_AT): void {
@@ -109,7 +109,7 @@ function recordToken(fx: Fixture, token: string, source: "rawSubtype" | "rawEven
 function emitActivity(fx: Fixture, activity: AgentActivity): void {
   fx.bus.emit({
     type: "agent.activity",
-    rigId: fx.rigId,
+    softwareTeamId: fx.softwareTeamId,
     nodeId: fx.nodeId,
     sessionName: fx.sessionName,
     runtime: "codex",
@@ -164,7 +164,7 @@ function tapOutcome(
       profiles: options.profiles ?? [ACCOUNT],
       seats: [{
         seat: SESSION,
-        rig: "test-rig",
+        softwareTeam: "test-software-team",
         runtime: options.registryRuntime ?? "codex",
         cwd: "/project",
         authProfile: ACCOUNT,
@@ -430,14 +430,14 @@ describe("Slice-04 C4 correction — public-altitude eligibility gate + producer
     }
     fs.writeFileSync(
       path.join(codexHome, "auth-seat-registry.tsv"),
-      `seat\trig\truntime\tcwd\tauth_profile\tupdated_ts\n${SESSION}\ttest-rig\t${options.registryRuntime ?? "codex"}\t/project\t${ACCOUNT}\t${EVENT_AT}\n`,
+      `seat\trig\truntime\tcwd\tauth_profile\tupdated_ts\n${SESSION}\ttest-software-team\t${options.registryRuntime ?? "codex"}\t/project\t${ACCOUNT}\t${EVENT_AT}\n`,
     );
 
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "test-rig");
-    db.prepare("INSERT INTO pods (id, rig_id, namespace, label) VALUES (?, ?, ?, ?)").run("pod-1", "rig-1", "dev", "Dev");
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "test-software-team");
+    db.prepare("INSERT INTO pods (id, software_team_id, namespace, label) VALUES (?, ?, ?, ?)").run("pod-1", "software-team-1", "dev", "Dev");
     db.prepare(
-      "INSERT INTO nodes (id, rig_id, logical_id, runtime, cwd, pod_id, agent_ref, profile, resolved_spec_name, resolved_spec_version, resolved_spec_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    ).run("node-1", "rig-1", "dev.impl", options.seatRuntime ?? "codex", "/project", "pod-1", "local:agents/impl", "default", "impl", "1.0.0", "abc123");
+      "INSERT INTO nodes (id, software_team_id, logical_id, runtime, cwd, pod_id, agent_ref, profile, resolved_spec_name, resolved_spec_version, resolved_spec_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run("node-1", "software-team-1", "dev.impl", options.seatRuntime ?? "codex", "/project", "pod-1", "local:agents/impl", "default", "impl", "1.0.0", "abc123");
     db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status) VALUES (?, ?, ?, ?, ?)").run("session-1", "node-1", SESSION, "running", "ready");
     db.prepare("INSERT INTO bindings (id, node_id, tmux_session) VALUES (?, ?, ?)").run("binding-1", "node-1", SESSION);
     if (options.mintTenure !== false) {
@@ -452,7 +452,7 @@ describe("Slice-04 C4 correction — public-altitude eligibility gate + producer
     const warnings: string[] = [];
     const service = new ProviderServiceImpl({
       db,
-      listRigs: () => [{ id: "rig-1" }],
+      listSoftwareTeams: () => [{ id: "software-team-1" }],
       env: { CODEX_HOME: codexHome } as NodeJS.ProcessEnv,
       now: () => options.now ?? NOW,
       agentActivityStore: testApp.agentActivityStore,
@@ -532,7 +532,7 @@ describe("Slice-04 C4 correction — public-altitude eligibility gate + producer
 
   it("the shipped managed Codex hook set contains no structured interruption producer", () => {
     const config = fs.readFileSync(
-      path.join(import.meta.dirname, "../assets/plugins/openrig-core/hooks/codex.json"),
+      path.join(import.meta.dirname, "../assets/plugins/softwareteam-core/hooks/codex.json"),
       "utf8",
     );
     const managedEvents = Object.keys((JSON.parse(config) as { hooks: Record<string, unknown> }).hooks);

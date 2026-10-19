@@ -4,7 +4,7 @@ import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
-import { makeParkedOwnerConsumerPolicy, makeRigAnchor, PARKED_OWNER_POLICY_NAME, REFUSED_PREFIX } from "../src/domain/policies/parked-owner-consumer.js";
+import { makeParkedOwnerConsumerPolicy, makeSoftwareTeamAnchor, PARKED_OWNER_POLICY_NAME, REFUSED_PREFIX } from "../src/domain/policies/parked-owner-consumer.js";
 import type { PolicyJob } from "../src/domain/policies/types.js";
 import type { WatchdogHistoryEntry } from "../src/domain/watchdog-history-log.js";
 import { runWakeLadderTick, queueRecoveryOwnsWake, classifyPromptAfterRefusal, readWakeLadderBackstop } from "../src/domain/queue-wake-ladder.js";
@@ -30,12 +30,12 @@ describe("original wake continuation after prompt clearing", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(at(0));
     // Readback and execution deliberately resolve the SAME configuration.
-    vi.stubEnv("OPENRIG_QUEUE_WAKE_RETRY_INTERVAL_SECONDS", "60");
-    vi.stubEnv("OPENRIG_QUEUE_WAKE_RETRY_CAP", "3");
-    vi.stubEnv("OPENRIG_WAKE_SUSPEND", "");
+    vi.stubEnv("SOFTWARETEAM_QUEUE_WAKE_RETRY_INTERVAL_SECONDS", "60");
+    vi.stubEnv("SOFTWARETEAM_QUEUE_WAKE_RETRY_CAP", "3");
+    vi.stubEnv("SOFTWARETEAM_WAKE_SUSPEND", "");
     db = new Database(":memory:");
     migrate(db, ALL_MIGRATIONS);
-    repo = new QueueRepository(db, new EventBus(db), { validateRig: () => true });
+    repo = new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => true });
   });
   afterEach(() => { db.close(); vi.useRealTimers(); vi.unstubAllEnvs(); });
 
@@ -59,7 +59,7 @@ describe("original wake continuation after prompt clearing", () => {
         changedAt: at(second).toISOString(), rungs: [{ rung: "needs-input-chrome", sourceId: "fixture", trust: "authoritative", lastEvidenceAt: at(second).toISOString() }] };
     };
     const policy = makeParkedOwnerConsumerPolicy({
-      diagnoseRig: () => ({ seats: [{ sessionName: seat, parked: true,
+      diagnoseSoftwareTeam: () => ({ seats: [{ sessionName: seat, parked: true,
         activity: { value: "idle-at-prompt", needsInput: observed?.needsInput ?? { count: 0, reason: null } },
         obligations: { items: [{ qitemId: id, state: repo.getById(id)!.state, summary: "work" }], held: [] },
       }] }),
@@ -71,7 +71,7 @@ describe("original wake continuation after prompt clearing", () => {
         listOpenIds: () => [id], recoveryOwnsWake: x => queueRecoveryOwnsWake(db, repo.getById(x)),
       },
     });
-    const job = { jobId: "fixture-job", policy: PARKED_OWNER_POLICY_NAME, target: { session: makeRigAnchor("fixture") }, context: {} } as PolicyJob;
+    const job = { jobId: "fixture-job", policy: PARKED_OWNER_POLICY_NAME, target: { session: makeSoftwareTeamAnchor("fixture") }, context: {} } as PolicyJob;
     observe("blocked", 1);
     if (withRefusal) {
       if (kind.startsWith("claimed")) {

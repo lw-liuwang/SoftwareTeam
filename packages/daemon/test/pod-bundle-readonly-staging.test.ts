@@ -8,20 +8,20 @@ import { PodBundleAssembler, type PodAssemblerFsOps } from "../src/domain/pod-bu
 describe.skipIf(process.platform === "win32" || process.getuid?.() === 0)("read-only bundle sources", () => {
   it.each([0o444, 0o555])("rewrites vendored agent YAML without modifying source permissions (%i)", mode => {
     const root = fs.mkdtempSync(path.join(tmpdir(), "bundle-readonly-"));
-    const rigRoot = path.join(root, "rig");
+    const softwareTeamRoot = path.join(root, "software-team");
     const outputDir = path.join(root, "staging");
-    const agentDir = path.join(rigRoot, "agents", "impl");
+    const agentDir = path.join(softwareTeamRoot, "agents", "impl");
     const agentFile = path.join(agentDir, "agent.yaml");
     const scriptFile = path.join(agentDir, "run.sh");
-    const startupFile = path.join(rigRoot, "startup.sh");
+    const startupFile = path.join(softwareTeamRoot, "startup.sh");
     fs.mkdirSync(agentDir, { recursive: true });
     fs.writeFileSync(agentFile, 'name: impl\nversion: "1.0.0"\nresources:\n  skills: []\nprofiles:\n  default:\n    uses:\n      skills: []\n');
     fs.writeFileSync(scriptFile, "#!/bin/sh\necho hello\n");
     fs.writeFileSync(startupFile, "#!/bin/sh\necho startup\n");
     for (const file of [agentFile, scriptFile, startupFile]) fs.chmodSync(file, mode);
-    const rigSpecPath = path.join(rigRoot, "rig.yaml");
-    fs.writeFileSync(rigSpecPath, `version: "0.2"
-name: readonly-rig
+    const softwareTeamSpecPath = path.join(softwareTeamRoot, "software-team.yaml");
+    fs.writeFileSync(softwareTeamSpecPath, `version: "0.2"
+name: readonly-software-team
 culture_file: startup.sh
 pods:
   - id: dev
@@ -55,9 +55,9 @@ edges: []
     };
     try {
       const assembler = new PodBundleAssembler({ fsOps });
-      assembler.assemble({ rigRoot, rigSpecPath, outputDir, bundleName: "readonly", bundleVersion: "1.0.0" });
+      assembler.assemble({ softwareTeamRoot, softwareTeamSpecPath, outputDir, bundleName: "readonly", bundleVersion: "1.0.0" });
       // Reusing staging exercises repeated writes, including already-vendored files.
-      assembler.assemble({ rigRoot, rigSpecPath, outputDir, bundleName: "readonly", bundleVersion: "1.0.0" });
+      assembler.assemble({ softwareTeamRoot, softwareTeamSpecPath, outputDir, bundleName: "readonly", bundleVersion: "1.0.0" });
       for (const file of ["agent.yaml", "run.sh"]) {
         expect(fs.statSync(path.join(outputDir, "agents", "impl", file)).mode & 0o777).toBe(mode | 0o600);
         expect(fs.statSync(path.join(agentDir, file)).mode & 0o777).toBe(mode);

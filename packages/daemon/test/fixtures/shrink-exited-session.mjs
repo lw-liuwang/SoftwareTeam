@@ -11,13 +11,13 @@ const load = (name) => import(pathToFileURL(join(moduleRoot, name + (sourceRoot 
 const { migrate } = await load("db/migrate");
 const { ALL_MIGRATIONS } = await load("db/all-migrations");
 const { TmuxAdapter } = await load("adapters/tmux");
-const { RigRepository } = await load("domain/rig-repository");
+const { SoftwareTeamRepository } = await load("domain/software-team-repository");
 const { PodRepository } = await load("domain/pod-repository");
 const { SessionRegistry } = await load("domain/session-registry");
 const { EventBus } = await load("domain/event-bus");
 const { DiscoveryRepository } = await load("domain/discovery-repository");
 const { QueueRepository } = await load("domain/queue-repository");
-const { RigLifecycleService } = await load("domain/rig-lifecycle-service");
+const { SoftwareTeamLifecycleService } = await load("domain/software-team-lifecycle-service");
 const { SeatDeliveryGuard, resolveGuardTarget } = await load("domain/seat-delivery-guard");
 const execute = promisify(execFile);
 const socket = join(home, "tmux.sock");
@@ -25,19 +25,19 @@ const native = async (args) => (await execute("tmux", ["-S", socket, ...args], {
 const db = new Database(":memory:");
 try {
   migrate(db, ALL_MIGRATIONS);
-  const rigRepo = new RigRepository(db), sessionRegistry = new SessionRegistry(db), eventBus = new EventBus(db);
+  const softwareTeamRepo = new SoftwareTeamRepository(db), sessionRegistry = new SessionRegistry(db), eventBus = new EventBus(db);
   const podRepo = new PodRepository(db);
-  const rig = rigRepo.createRig("shrink-fixture"), pod = podRepo.createPod(rig.id, "crew", "Crew");
+  const softwareTeam = softwareTeamRepo.createSoftwareTeam("shrink-fixture"), pod = podRepo.createPod(softwareTeam.id, "crew", "Crew");
   const tmux = new TmuxAdapter(async () => { throw Error("shell path unused"); }, undefined, args => native(args.slice(1)));
   tmux.deliveryGuard = new SeatDeliveryGuard(db, name => resolveGuardTarget(db, name));
-  const lifecycle = new RigLifecycleService({ db, rigRepo, sessionRegistry, eventBus,
+  const lifecycle = new SoftwareTeamLifecycleService({ db, softwareTeamRepo, sessionRegistry, eventBus,
     discoveryRepo: new DiscoveryRepository(db), queueRepo: new QueueRepository(db, eventBus), tmuxAdapter: tmux });
   const seats = new Map();
   for (const member of ["a", "b", "c", "sibling"]) {
     const name = `${member}@shrink-fixture`;
     await native(["new-session", "-d", "-s", name, "sleep 120"]);
     const pane = (await native(["list-panes", "-t", name, "-F", "#{pane_id}"])).trim();
-    const node = rigRepo.addNode(rig.id, member, { runtime: "terminal", ...(member === "sibling" ? {} : { podId: pod.id }) });
+    const node = softwareTeamRepo.addNode(softwareTeam.id, member, { runtime: "terminal", ...(member === "sibling" ? {} : { podId: pod.id }) });
     const session = sessionRegistry.registerSession(node.id, name);
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateBinding(node.id, { tmuxSession: name, tmuxPane: pane });
@@ -46,7 +46,7 @@ try {
   const stopped = seats.get("b");
   await native(["kill-session", "-t", stopped.name]);
   sessionRegistry.updateStatus(stopped.session.id, "exited");
-  const result = await lifecycle.shrinkPod(rig.id, pod.id);
+  const result = await lifecycle.shrinkPod(softwareTeam.id, pod.id);
   assert.equal(result.ok && result.status, "ok", JSON.stringify(result));
   assert.deepEqual(result.removedLogicalIds, ["a", "b", "c"]);
   assert.equal(result.sessionsKilled, 2);
@@ -55,7 +55,7 @@ try {
   assert.equal((await tmux.probeSession(seats.get("sibling").name)).state, "present");
   assert.equal(sessionRegistry.getBindingForNode(seats.get("sibling").node.id).tmuxPane,
     (await native(["list-panes", "-t", seats.get("sibling").name, "-F", "#{pane_id}"])).trim());
-  assert.ok(podRepo.createPod(rig.id, "crew", "Replacement"), "the removed namespace can be reused");
+  assert.ok(podRepo.createPod(softwareTeam.id, "crew", "Replacement"), "the removed namespace can be reused");
   // Inject failures only for conservative refusal controls. The recovery above
   // used native tmux, real absence and the actual three-seat shrink path.
   for (const failure of ["present", "transport", "permission", "changed"]) {

@@ -1,6 +1,6 @@
 // Fork Primitive + Starter Agent Images v0 (PL-016) — manifest parser.
 //
-// Parses ~/.openrig/agent-images/<name>/manifest.yaml into a typed
+// Parses ~/.softwareteam/agent-images/<name>/manifest.yaml into a typed
 // AgentImageManifest. Pure (no fs touches in the parser; caller hands
 // in raw YAML). Validation guards: required field checks, runtime
 // allow-list, path-traversal rejection on supplementary files.

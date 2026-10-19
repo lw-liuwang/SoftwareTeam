@@ -6,8 +6,8 @@ const freshSample = () => new Date(Date.now() - 60_000).toISOString();
 const staleSample = () => new Date(Date.now() - 3_600_000).toISOString();
 
 interface TestNode {
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   logicalId: string;
   canonicalSessionName: string | null;
   runtime: string | null;
@@ -27,10 +27,10 @@ interface TestNode {
 }
 
 function node(overrides: Partial<TestNode> = {}): TestNode {
-  const session = overrides.canonicalSessionName ?? "orch-lead@test-rig";
+  const session = overrides.canonicalSessionName ?? "orch-lead@test-software-team";
   return {
-    rigId: "rig-0",
-    rigName: "test-rig",
+    softwareTeamId: "software-team-0",
+    softwareTeamName: "test-software-team",
     logicalId: "orch.lead",
     canonicalSessionName: session,
     runtime: "claude-code",
@@ -55,7 +55,7 @@ function defaultNodes(): TestNode[] {
   return [
     node({
       logicalId: "orch.lead",
-      canonicalSessionName: "orch-lead@test-rig",
+      canonicalSessionName: "orch-lead@test-software-team",
       contextUsage: {
         usedPercentage: 85,
         remainingPercentage: 15,
@@ -68,7 +68,7 @@ function defaultNodes(): TestNode[] {
     }),
     node({
       logicalId: "dev.impl",
-      canonicalSessionName: "dev-impl@test-rig",
+      canonicalSessionName: "dev-impl@test-software-team",
       contextUsage: {
         usedPercentage: 30,
         remainingPercentage: 70,
@@ -81,7 +81,7 @@ function defaultNodes(): TestNode[] {
     }),
     node({
       logicalId: "dev.qa",
-      canonicalSessionName: "dev-qa@test-rig",
+      canonicalSessionName: "dev-qa@test-software-team",
       runtime: "codex",
       contextUsage: {
         usedPercentage: 90,
@@ -97,13 +97,13 @@ function defaultNodes(): TestNode[] {
 }
 
 function makeDeps(overrides?: {
-  rigNames?: string[];
-  nodesByRig?: Record<string, TestNode[]>;
+  softwareTeamNames?: string[];
+  nodesBySoftwareTeam?: Record<string, TestNode[]>;
   refreshStatus?: number;
   refreshThrows?: boolean;
 }): { deps: CompactPlanDeps; requestedPaths: string[]; mutationMethods: Record<string, ReturnType<typeof vi.fn>> } {
-  const rigs = (overrides?.rigNames ?? ["test-rig"]).map((name, i) => ({ rigId: `rig-${i}`, name }));
-  const nodesByRig = overrides?.nodesByRig ?? { "rig-0": defaultNodes() };
+  const softwareTeams = (overrides?.softwareTeamNames ?? ["test-software-team"]).map((name, i) => ({ softwareTeamId: `software-team-${i}`, name }));
+  const nodesBySoftwareTeam = overrides?.nodesBySoftwareTeam ?? { "software-team-0": defaultNodes() };
   const requestedPaths: string[] = [];
   const mutationMethods = {
     post: vi.fn(() => { throw new Error("compact-plan must not mutate daemon state"); }),
@@ -120,13 +120,13 @@ function makeDeps(overrides?: {
       clientFactory: () => ({
         get: vi.fn(async (path: string) => {
           requestedPaths.push(path);
-          if (path === "/api/ps") return { status: 200, data: rigs };
+          if (path === "/api/ps") return { status: 200, data: softwareTeams };
           if (path.includes("refresh=true")) {
             if (overrides?.refreshThrows) throw new Error("statusline unavailable");
             return { status: overrides?.refreshStatus ?? 200, data: overrides?.refreshStatus && overrides.refreshStatus >= 400 ? { error: "refresh failed" } : [] };
           }
-          for (const [rigId, nodes] of Object.entries(nodesByRig)) {
-            if (path === `/api/rigs/${rigId}/nodes`) return { status: 200, data: nodes };
+          for (const [softwareTeamId, nodes] of Object.entries(nodesBySoftwareTeam)) {
+            if (path === `/api/software-teams/${softwareTeamId}/nodes`) return { status: 200, data: nodes };
           }
           return { status: 200, data: [] };
         }),
@@ -144,12 +144,12 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
-describe("rig compact-plan", () => {
+describe("SoftwareTeam compact-plan", () => {
   let logs: string[];
   let errors: string[];
 
@@ -159,7 +159,7 @@ describe("rig compact-plan", () => {
     vi.spyOn(console, "log").mockImplementation((...args) => logs.push(args.join(" ")));
     vi.spyOn(console, "error").mockImplementation((...args) => errors.push(args.join(" ")));
     const { getDaemonStatus } = await import("../src/daemon-lifecycle.js");
-    (getDaemonStatus as ReturnType<typeof vi.fn>).mockResolvedValue({ state: "running", healthy: true, pid: 1234, port: 7433 });
+    (getDaemonStatus as ReturnType<typeof vi.fn>).mockResolvedValue({ state: "running", healthy: true, pid: 1234, port: 7434 });
     process.exitCode = undefined;
   });
 
@@ -168,17 +168,17 @@ describe("rig compact-plan", () => {
     const program = createProgram({ compactPlanDeps: deps });
     program.exitOverride();
 
-    await program.parseAsync(["node", "rig", "compact-plan", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "compact-plan", "--json"]);
 
     const json = JSON.parse(logs.join(""));
     expect(json.policy.mode).toBe("read_only_plan");
-    expect(json.candidates[0].session).toBe("orch-lead@test-rig");
+    expect(json.candidates[0].session).toBe("orch-lead@test-software-team");
   });
 
   it("returns read-only JSON policy, candidates, recommended order, and skipped Codex seats", async () => {
     const { deps, mutationMethods } = makeDeps();
     const cmd = compactPlanCommand(deps);
-    await cmd.parseAsync(["node", "rig", "--json"]);
+    await cmd.parseAsync(["node", "softwareTeam", "--json"]);
 
     const json = JSON.parse(logs.join(""));
     expect(json.policy).toEqual({
@@ -193,7 +193,7 @@ describe("rig compact-plan", () => {
     });
     expect(json.summary.requiresAuthorization).toBe(true);
 
-    const candidate = json.candidates.find((entry: { session: string }) => entry.session === "orch-lead@test-rig");
+    const candidate = json.candidates.find((entry: { session: string }) => entry.session === "orch-lead@test-software-team");
     expect(candidate.status).toBe("candidate_with_caveats");
     expect(candidate.estimatedUsedTokens).toBe(850_000);
     expect(candidate.thresholdReason).toBe("above_token_threshold");
@@ -206,14 +206,14 @@ describe("rig compact-plan", () => {
       autoCompactAllowed: false,
       explicitAuthorizationRequired: true,
     });
-    expect(candidate.notificationPacket.recipient).toBe("orch-lead@test-rig");
+    expect(candidate.notificationPacket.recipient).toBe("orch-lead@test-software-team");
     expect(candidate.notificationPacket.text).toContain("No automatic compaction has been run");
-    expect(json.recommendedOrder).toEqual(["orch-lead@test-rig"]);
+    expect(json.recommendedOrder).toEqual(["orch-lead@test-software-team"]);
 
-    const belowThreshold = json.skipped.find((entry: { session: string }) => entry.session === "dev-impl@test-rig");
+    const belowThreshold = json.skipped.find((entry: { session: string }) => entry.session === "dev-impl@test-software-team");
     expect(belowThreshold.reason).toBe("below_threshold");
 
-    const codex = json.skipped.find((entry: { session: string }) => entry.session === "dev-qa@test-rig");
+    const codex = json.skipped.find((entry: { session: string }) => entry.session === "dev-qa@test-software-team");
     expect(codex.reason).toBe("codex_not_managed_by_claude_compact_in_place");
     for (const mutate of Object.values(mutationMethods)) {
       expect(mutate).not.toHaveBeenCalled();
@@ -222,10 +222,10 @@ describe("rig compact-plan", () => {
 
   it("uses percent fallback only for Claude seats at or above 80 percent when context window is missing", async () => {
     const { deps } = makeDeps({
-      nodesByRig: {
-        "rig-0": [
+      nodesBySoftwareTeam: {
+        "software-team-0": [
           node({
-            canonicalSessionName: "high-missing-window@test-rig",
+            canonicalSessionName: "high-missing-window@test-software-team",
             contextUsage: {
               usedPercentage: 85,
               remainingPercentage: 15,
@@ -238,7 +238,7 @@ describe("rig compact-plan", () => {
           }),
           node({
             logicalId: "mid.missing",
-            canonicalSessionName: "mid-missing-window@test-rig",
+            canonicalSessionName: "mid-missing-window@test-software-team",
             contextUsage: {
               usedPercentage: 79,
               remainingPercentage: 21,
@@ -253,25 +253,25 @@ describe("rig compact-plan", () => {
       },
     });
     const cmd = compactPlanCommand(deps);
-    await cmd.parseAsync(["node", "rig", "--json"]);
+    await cmd.parseAsync(["node", "softwareTeam", "--json"]);
 
     const json = JSON.parse(logs.join(""));
-    expect(json.candidates.map((entry: { session: string }) => entry.session)).toContain("high-missing-window@test-rig");
-    const candidate = json.candidates.find((entry: { session: string }) => entry.session === "high-missing-window@test-rig");
+    expect(json.candidates.map((entry: { session: string }) => entry.session)).toContain("high-missing-window@test-software-team");
+    const candidate = json.candidates.find((entry: { session: string }) => entry.session === "high-missing-window@test-software-team");
     expect(candidate.status).toBe("candidate_with_caveats");
     expect(candidate.thresholdReason).toBe("above_percent_threshold_missing_window");
     expect(candidate.estimatedUsedTokens).toBeNull();
     expect(candidate.missingEvidence).toContain("context_window_size");
-    expect(json.skipped.find((entry: { session: string }) => entry.session === "mid-missing-window@test-rig").reason).toBe("below_threshold");
+    expect(json.skipped.find((entry: { session: string }) => entry.session === "mid-missing-window@test-software-team").reason).toBe("below_threshold");
   });
 
   it("honors custom token and percent thresholds in JSON policy and candidate selection", async () => {
     const { deps } = makeDeps({
-      nodesByRig: {
-        "rig-0": [
+      nodesBySoftwareTeam: {
+        "software-team-0": [
           node({
             logicalId: "lower.token",
-            canonicalSessionName: "lower-token@test-rig",
+            canonicalSessionName: "lower-token@test-software-team",
             contextUsage: {
               usedPercentage: 30,
               remainingPercentage: 70,
@@ -284,7 +284,7 @@ describe("rig compact-plan", () => {
           }),
           node({
             logicalId: "lower.percent",
-            canonicalSessionName: "lower-percent@test-rig",
+            canonicalSessionName: "lower-percent@test-software-team",
             contextUsage: {
               usedPercentage: 75,
               remainingPercentage: 25,
@@ -299,24 +299,24 @@ describe("rig compact-plan", () => {
       },
     });
     const cmd = compactPlanCommand(deps);
-    await cmd.parseAsync(["node", "rig", "--threshold-tokens", "250000", "--threshold-percent", "70", "--json"]);
+    await cmd.parseAsync(["node", "softwareTeam", "--threshold-tokens", "250000", "--threshold-percent", "70", "--json"]);
 
     const json = JSON.parse(logs.join(""));
     expect(json.policy.thresholdTokens).toBe(250_000);
     expect(json.policy.thresholdPercent).toBe(70);
     expect(json.candidates.map((entry: { session: string }) => entry.session)).toEqual([
-      "lower-token@test-rig",
-      "lower-percent@test-rig",
+      "lower-token@test-software-team",
+      "lower-percent@test-software-team",
     ]);
-    expect(json.candidates.find((entry: { session: string }) => entry.session === "lower-token@test-rig").thresholdReason).toBe("above_token_threshold");
-    expect(json.candidates.find((entry: { session: string }) => entry.session === "lower-percent@test-rig").thresholdReason).toBe("above_percent_threshold_missing_window");
+    expect(json.candidates.find((entry: { session: string }) => entry.session === "lower-token@test-software-team").thresholdReason).toBe("above_token_threshold");
+    expect(json.candidates.find((entry: { session: string }) => entry.session === "lower-percent@test-software-team").thresholdReason).toBe("above_percent_threshold_missing_window");
   });
 
   it("rejects invalid threshold options before reading daemon inventory", async () => {
     const { deps, requestedPaths } = makeDeps();
     const cmd = compactPlanCommand(deps);
 
-    await cmd.parseAsync(["node", "rig", "--threshold-tokens", "0"]);
+    await cmd.parseAsync(["node", "softwareTeam", "--threshold-tokens", "0"]);
 
     expect(process.exitCode).toBe(1);
     expect(errors.join("\n")).toContain("--threshold-tokens");
@@ -325,9 +325,9 @@ describe("rig compact-plan", () => {
 
   it("surfaces stale context and missing attach or resume evidence as candidate caveats", async () => {
     const { deps } = makeDeps({
-      nodesByRig: {
-        "rig-0": [node({
-          canonicalSessionName: "stale-no-attach@test-rig",
+      nodesBySoftwareTeam: {
+        "software-team-0": [node({
+          canonicalSessionName: "stale-no-attach@test-software-team",
           tmuxAttachCommand: null,
           resumeCommand: null,
           contextUsage: {
@@ -343,7 +343,7 @@ describe("rig compact-plan", () => {
       },
     });
     const cmd = compactPlanCommand(deps);
-    await cmd.parseAsync(["node", "rig", "--json"]);
+    await cmd.parseAsync(["node", "softwareTeam", "--json"]);
 
     const json = JSON.parse(logs.join(""));
     const candidate = json.candidates[0];
@@ -355,11 +355,11 @@ describe("rig compact-plan", () => {
 
   it("blocks unknown context and missing canonical session, and excludes them from recommended order", async () => {
     const { deps } = makeDeps({
-      nodesByRig: {
-        "rig-0": [
+      nodesBySoftwareTeam: {
+        "software-team-0": [
           node({
             logicalId: "unknown.context",
-            canonicalSessionName: "unknown-context@test-rig",
+            canonicalSessionName: "unknown-context@test-software-team",
             contextUsage: { usedPercentage: null, remainingPercentage: null, contextWindowSize: null, source: null, availability: "unknown", sampledAt: null, fresh: false },
           }),
           node({
@@ -379,7 +379,7 @@ describe("rig compact-plan", () => {
       },
     });
     const cmd = compactPlanCommand(deps);
-    await cmd.parseAsync(["node", "rig", "--json"]);
+    await cmd.parseAsync(["node", "softwareTeam", "--json"]);
 
     const json = JSON.parse(logs.join(""));
     expect(json.candidates).toHaveLength(0);
@@ -393,39 +393,39 @@ describe("rig compact-plan", () => {
 
   it("does not recommend non-running or not-ready Claude seats", async () => {
     const { deps } = makeDeps({
-      nodesByRig: {
-        "rig-0": [
-          node({ canonicalSessionName: "stopped@test-rig", sessionStatus: "stopped" }),
-          node({ canonicalSessionName: "pending@test-rig", startupStatus: "pending" }),
+      nodesBySoftwareTeam: {
+        "software-team-0": [
+          node({ canonicalSessionName: "stopped@test-software-team", sessionStatus: "stopped" }),
+          node({ canonicalSessionName: "pending@test-software-team", startupStatus: "pending" }),
         ],
       },
     });
     const cmd = compactPlanCommand(deps);
-    await cmd.parseAsync(["node", "rig", "--json"]);
+    await cmd.parseAsync(["node", "softwareTeam", "--json"]);
 
     const json = JSON.parse(logs.join(""));
     expect(json.recommendedOrder).toEqual([]);
     expect(json.blocked.map((entry: { reasons: string[] }) => entry.reasons).flat()).toContain("seat_not_running_or_ready");
   });
 
-  it("--rig filters to one rig and unknown rig exits before refresh", async () => {
+  it("--software-team filters to one SoftwareTeam and unknown SoftwareTeam exits before refresh", async () => {
     const { deps, requestedPaths } = makeDeps({
-      rigNames: ["rig-a", "rig-b"],
-      nodesByRig: {
-        "rig-0": [node({ rigId: "rig-0", rigName: "rig-a", canonicalSessionName: "lead@rig-a" })],
-        "rig-1": [node({ rigId: "rig-1", rigName: "rig-b", canonicalSessionName: "lead@rig-b" })],
+      softwareTeamNames: ["software-team-a", "software-team-b"],
+      nodesBySoftwareTeam: {
+        "software-team-0": [node({ softwareTeamId: "software-team-0", softwareTeamName: "software-team-a", canonicalSessionName: "lead@software-team-a" })],
+        "software-team-1": [node({ softwareTeamId: "software-team-1", softwareTeamName: "software-team-b", canonicalSessionName: "lead@software-team-b" })],
       },
     });
     const cmd = compactPlanCommand(deps);
-    await cmd.parseAsync(["node", "rig", "--rig", "rig-b", "--json"]);
+    await cmd.parseAsync(["node", "softwareTeam", "--software-team", "software-team-b", "--json"]);
     let json = JSON.parse(logs.join(""));
-    expect(json.candidates.map((entry: { session: string }) => entry.session)).toEqual(["lead@rig-b"]);
+    expect(json.candidates.map((entry: { session: string }) => entry.session)).toEqual(["lead@software-team-b"]);
 
     logs = [];
     errors = [];
     process.exitCode = undefined;
     const unknownCmd = compactPlanCommand(deps);
-    await unknownCmd.parseAsync(["node", "rig", "--rig", "missing", "--refresh"]);
+    await unknownCmd.parseAsync(["node", "softwareTeam", "--software-team", "missing", "--refresh"]);
     expect(process.exitCode).toBe(1);
     expect(errors.join(" ")).toContain("not found");
     expect(requestedPaths.some((path) => path.includes("refresh=true"))).toBe(false);
@@ -434,7 +434,7 @@ describe("rig compact-plan", () => {
   it("--refresh calls refresh before inventory and hard-fails without printing a plan on refresh failure", async () => {
     const success = makeDeps();
     const cmd = compactPlanCommand(success.deps);
-    await cmd.parseAsync(["node", "rig", "--refresh", "--json"]);
+    await cmd.parseAsync(["node", "softwareTeam", "--refresh", "--json"]);
     const nodeCalls = success.requestedPaths.filter((path) => path.includes("/nodes"));
     expect(nodeCalls[0]).toContain("refresh=true");
     expect(nodeCalls[1]).not.toContain("refresh=true");
@@ -444,7 +444,7 @@ describe("rig compact-plan", () => {
     process.exitCode = undefined;
     const failure = makeDeps({ refreshStatus: 502 });
     const failCmd = compactPlanCommand(failure.deps);
-    await failCmd.parseAsync(["node", "rig", "--refresh"]);
+    await failCmd.parseAsync(["node", "softwareTeam", "--refresh"]);
     expect(process.exitCode).toBe(2);
     expect(errors.join("\n")).toContain("Compact-plan refresh failed");
     expect(logs.join("\n")).not.toContain("READ-ONLY PLAN");
@@ -456,24 +456,24 @@ describe("rig compact-plan", () => {
 
     const { deps } = makeDeps();
     const cmd = compactPlanCommand(deps);
-    await cmd.parseAsync(["node", "rig"]);
+    await cmd.parseAsync(["node", "softwareTeam"]);
 
     expect(process.exitCode).toBe(1);
     expect(errors.join("\n")).toContain("Daemon is not running");
-    expect(errors.join("\n")).toContain("rig daemon start");
+    expect(errors.join("\n")).toContain("SoftwareTeam daemon start");
   });
 
   it("human output is explicit that this is a read-only triage plan, not compact permission", async () => {
     const { deps } = makeDeps();
     const cmd = compactPlanCommand(deps);
-    await cmd.parseAsync(["node", "rig"]);
+    await cmd.parseAsync(["node", "softwareTeam"]);
 
     const output = logs.join("\n");
     expect(output).toContain("READ-ONLY PLAN");
     expect(output).toContain("does not compact");
     expect(output).toContain("Thresholds:");
     expect(output).toContain("one-seat-at-a-time");
-    expect(output).toContain("orch-lead@test-rig");
+    expect(output).toContain("orch-lead@test-software-team");
     expect(output).toContain("authorization");
     expect(output).toContain("checkpoint/restore");
     expect(output).toContain("claude-compaction-restore");

@@ -1,4 +1,4 @@
-// #132 — rig proof show/judge carry a catalog project to the daemon (--project or a <project>: prefix).
+// #132 — softwareTeam proof show/judge carry a catalog project to the daemon (--project or a <project>: prefix).
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const calls: Array<{ method: string; url: string; body?: Record<string, unknown> }> = [];
@@ -20,7 +20,7 @@ const { proofCommand } = await import("../src/commands/proof.js");
 const run = (args: string[]) => proofCommand().parseAsync(["node", "proof", ...args]);
 beforeEach(() => { calls.length = 0; readExtra = {}; vi.spyOn(console, "log").mockImplementation(() => {}); });
 
-describe("rig proof --project (#132)", () => {
+describe("SoftwareTeam proof --project (#132)", () => {
   it("show passes --project and the scope as query parameters", async () => {
     await run(["show", "m0/slices/01-t001", "--project", "alpha"]);
     expect(calls[0]!.url).toBe("/api/proof?project=alpha&scope=m0%2Fslices%2F01-t001");

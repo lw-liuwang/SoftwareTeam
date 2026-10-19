@@ -5,17 +5,17 @@ import nodePath from "node:path";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { migrationsForFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { PodRepository } from "../src/domain/pod-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { NodeLauncher } from "../src/domain/node-launcher.js";
 import { StartupOrchestrator } from "../src/domain/startup-orchestrator.js";
-import { PodRigInstantiator } from "../src/domain/rigspec-instantiator.js";
-import { RigSpecSchema } from "../src/domain/rigspec-schema.js";
-import { RigSpecCodec } from "../src/domain/rigspec-codec.js";
-import { RigSpecExporter } from "../src/domain/rigspec-exporter.js";
-import { RigTeardownOrchestrator } from "../src/domain/rig-teardown.js";
+import { PodSoftwareTeamInstantiator } from "../src/domain/software-team-spec-instantiator.js";
+import { SoftwareTeamSpecSchema } from "../src/domain/software-team-spec-schema.js";
+import { SoftwareTeamSpecCodec } from "../src/domain/software-team-spec-codec.js";
+import { SoftwareTeamSpecExporter } from "../src/domain/software-team-spec-exporter.js";
+import { SoftwareTeamTeardownOrchestrator } from "../src/domain/software-team-teardown.js";
 import { SnapshotRepository } from "../src/domain/snapshot-repository.js";
 import { CheckpointStore } from "../src/domain/checkpoint-store.js";
 import { SnapshotCapture } from "../src/domain/snapshot-capture.js";
@@ -29,12 +29,12 @@ import type { AgentResolverFsOps } from "../src/domain/agent-resolver.js";
 import type { NodeBinding, RuntimeAdapter } from "../src/domain/runtime-adapter.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
 
-// #25 — a rig can send Claude Code's OpenRig-managed blocks to CLAUDE.local.md
+// #25 — a softwareTeam can send Claude Code's SoftwareTeam-managed blocks to CLAUDE.local.md
 // instead of the (often git-tracked) CLAUDE.md. These drive the real
 // instantiate/restore/expand/teardown paths with the real Claude adapter
 // writing into a temporary cwd.
 
-const BEGIN = "<!-- BEGIN OpenRig MANAGED BLOCK:";
+const BEGIN = "<!-- BEGIN SoftwareTeam MANAGED BLOCK:";
 const LOCAL = "managed_blocks:\n  claude-code: CLAUDE.local.md";
 // A tracked CLAUDE.md that already carries blocks from an earlier default-target run.
 const OLD_BLOCKS_CLAUDE_MD = [
@@ -42,9 +42,9 @@ const OLD_BLOCKS_CLAUDE_MD = [
   "",
   "Keep this file short.",
   "",
-  "<!-- BEGIN OpenRig MANAGED BLOCK: openrig-start.md -->",
+  "<!-- BEGIN SoftwareTeam MANAGED BLOCK: softwareteam-start.md -->",
   "old managed text",
-  "<!-- END OpenRig MANAGED BLOCK: openrig-start.md -->",
+  "<!-- END SoftwareTeam MANAGED BLOCK: softwareteam-start.md -->",
   "",
 ].join("\n");
 
@@ -91,7 +91,7 @@ afterEach(() => {
   for (const d of tmpDirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
 });
 
-function rigYaml(managedBlocksYaml: string, cwd: string, name = "issue25-rig"): string {
+function softwareTeamYaml(managedBlocksYaml: string, cwd: string, name = "issue25-software-team"): string {
   return [
     `version: "0.2"`,
     `name: ${name}`,
@@ -113,14 +113,14 @@ function rigYaml(managedBlocksYaml: string, cwd: string, name = "issue25-rig"): 
 function fixture(managedBlocksYaml: string, opts?: { claudeMd?: string; claudeLocalMd?: string }) {
   const root = fs.mkdtempSync(nodePath.join(os.tmpdir(), "or-issue25-"));
   tmpDirs.push(root);
-  const rigRoot = nodePath.join(root, "rig");
+  const softwareTeamRoot = nodePath.join(root, "software-team");
   const cwd = nodePath.join(root, "repo");
   const home = nodePath.join(root, "home");
-  const dbFile = nodePath.join(root, "openrig.sqlite");
-  fs.mkdirSync(nodePath.join(rigRoot, "agents", "impl"), { recursive: true });
+  const dbFile = nodePath.join(root, "softwareteam.sqlite");
+  fs.mkdirSync(nodePath.join(softwareTeamRoot, "agents", "impl"), { recursive: true });
   fs.mkdirSync(cwd, { recursive: true });
   fs.mkdirSync(home, { recursive: true });
-  fs.writeFileSync(nodePath.join(rigRoot, "agents", "impl", "agent.yaml"),
+  fs.writeFileSync(nodePath.join(softwareTeamRoot, "agents", "impl", "agent.yaml"),
     `name: impl\nversion: "1.0.0"\nresources:\n  skills: []\nprofiles:\n  default:\n    uses:\n      skills: []\n`);
   if (opts?.claudeMd !== undefined) fs.writeFileSync(nodePath.join(cwd, "CLAUDE.md"), opts.claudeMd);
   if (opts?.claudeLocalMd !== undefined) fs.writeFileSync(nodePath.join(cwd, "CLAUDE.local.md"), opts.claudeLocalMd);
@@ -132,37 +132,37 @@ function fixture(managedBlocksYaml: string, opts?: { claudeMd?: string; claudeLo
     const p = nodePath.join(dir, name);
     return fs.existsSync(p) ? fs.readFileSync(p, "utf-8") : null;
   };
-  return { ...services, db, dbFile, root, rigRoot, cwd, home, yaml: rigYaml(managedBlocksYaml, cwd), read };
+  return { ...services, db, dbFile, root, softwareTeamRoot, cwd, home, yaml: softwareTeamYaml(managedBlocksYaml, cwd), read };
 }
 
 function wire(db: ReturnType<typeof createDb>, home: string) {
-  const rigRepo = new RigRepository(db);
+  const softwareTeamRepo = new SoftwareTeamRepository(db);
   const podRepo = new PodRepository(db);
   const sessionRegistry = new SessionRegistry(db);
   const eventBus = new EventBus(db);
   const tmux = mockTmux();
-  const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+  const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
   const startupOrchestrator = new StartupOrchestrator({ db, sessionRegistry, eventBus, tmuxAdapter: tmux });
   const claude = new ClaudeCodeAdapter({ tmux, fsOps: realFs(home), sleep: async () => {} });
   const resolverFs: AgentResolverFsOps = {
     readFile: (p) => fs.readFileSync(p, "utf-8"),
     exists: (p) => fs.existsSync(p),
   };
-  const inst = new PodRigInstantiator({
-    db, rigRepo, podRepo, sessionRegistry, eventBus, nodeLauncher, startupOrchestrator,
+  const inst = new PodSoftwareTeamInstantiator({
+    db, softwareTeamRepo, podRepo, sessionRegistry, eventBus, nodeLauncher, startupOrchestrator,
     fsOps: resolverFs, tmuxAdapter: tmux,
     adapters: { "claude-code": claude, codex: noopAdapter("codex"), terminal: noopAdapter("terminal") },
   } as never);
-  return { rigRepo, podRepo, sessionRegistry, eventBus, tmux, nodeLauncher, startupOrchestrator, claude, inst };
+  return { softwareTeamRepo, podRepo, sessionRegistry, eventBus, tmux, nodeLauncher, startupOrchestrator, claude, inst };
 }
 
 async function launched(f: ReturnType<typeof fixture>): Promise<string> {
-  const result = await f.inst.instantiate(f.yaml, f.rigRoot);
+  const result = await f.inst.instantiate(f.yaml, f.softwareTeamRoot);
   expect(result.ok, JSON.stringify(result)).toBe(true);
-  return (result as { ok: true; result: { rigId: string } }).result.rigId;
+  return (result as { ok: true; result: { softwareTeamId: string } }).result.softwareTeamId;
 }
 
-describe("#25 journey — rig YAML selects the Claude managed-block destination", () => {
+describe("#25 journey — softwareTeam YAML selects the Claude managed-block destination", () => {
   it("managed_blocks: { claude-code: CLAUDE.local.md } writes the blocks to CLAUDE.local.md and never touches CLAUDE.md", async () => {
     const tracked = "# Project rules\n\nKeep this file short.\n";
     const f = fixture(LOCAL, { claudeMd: tracked });
@@ -198,15 +198,15 @@ describe("#25 schema — accepted keys and values, rejected before launch", () =
   });
 
   it("accepts both supported destinations and absence", () => {
-    expect(RigSpecSchema.validate(base(undefined)).errors).toEqual([]);
-    expect(RigSpecSchema.validate(base({ "claude-code": "CLAUDE.md" })).errors).toEqual([]);
-    expect(RigSpecSchema.validate(base({ "claude-code": "CLAUDE.local.md" })).errors).toEqual([]);
-    expect(RigSpecSchema.validate(base({})).errors).toEqual([]);
+    expect(SoftwareTeamSpecSchema.validate(base(undefined)).errors).toEqual([]);
+    expect(SoftwareTeamSpecSchema.validate(base({ "claude-code": "CLAUDE.md" })).errors).toEqual([]);
+    expect(SoftwareTeamSpecSchema.validate(base({ "claude-code": "CLAUDE.local.md" })).errors).toEqual([]);
+    expect(SoftwareTeamSpecSchema.validate(base({})).errors).toEqual([]);
   });
 
   it("rejects an unsupported value, naming both supported files", () => {
     for (const bad of ["AGENTS.md", "docs/CLAUDE.md", "../CLAUDE.local.md", "", 7, null]) {
-      const errors = RigSpecSchema.validate(base({ "claude-code": bad })).errors;
+      const errors = SoftwareTeamSpecSchema.validate(base({ "claude-code": bad })).errors;
       expect(errors).toHaveLength(1);
       expect(errors[0]).toContain("managed_blocks.claude-code: must be one of CLAUDE.md, CLAUDE.local.md");
     }
@@ -214,20 +214,20 @@ describe("#25 schema — accepted keys and values, rejected before launch", () =
 
   it("rejects any other runtime key, naming the supported key (Codex stays on AGENTS.md)", () => {
     for (const key of ["codex", "pi", "terminal", "claude"]) {
-      const errors = RigSpecSchema.validate(base({ [key]: "CLAUDE.local.md" })).errors;
+      const errors = SoftwareTeamSpecSchema.validate(base({ [key]: "CLAUDE.local.md" })).errors;
       expect(errors).toEqual([`managed_blocks.${key}: unsupported runtime "${key}"; only "claude-code" is configurable`]);
     }
   });
 
   it("rejects a non-mapping value", () => {
     for (const bad of ["CLAUDE.local.md", ["CLAUDE.local.md"], null]) {
-      expect(RigSpecSchema.validate(base(bad)).errors).toEqual(["managed_blocks: must be a mapping such as { claude-code: CLAUDE.local.md }"]);
+      expect(SoftwareTeamSpecSchema.validate(base(bad)).errors).toEqual(["managed_blocks: must be a mapping such as { claude-code: CLAUDE.local.md }"]);
     }
   });
 
   it("an invalid value is refused by instantiate before any seat launches or file is written", async () => {
     const f = fixture("managed_blocks:\n  claude-code: AGENTS.md");
-    const result = await f.inst.instantiate(f.yaml, f.rigRoot);
+    const result = await f.inst.instantiate(f.yaml, f.softwareTeamRoot);
     expect(result).toMatchObject({ ok: false, code: "validation_failed" });
     expect(f.tmux.createSession).not.toHaveBeenCalled();
     expect(fs.readdirSync(f.cwd)).toEqual([]);
@@ -249,12 +249,12 @@ describe("#25 selected-file semantics — preservation, idempotence, the other f
 
   it("repeated projection into CLAUDE.local.md is idempotent", async () => {
     const f = fixture(LOCAL, { claudeLocalMd: "user line\n" });
-    const rigId = await launched(f);
+    const softwareTeamId = await launched(f);
     const first = f.read("CLAUDE.local.md");
-    const node = f.rigRepo.getRig(rigId)!.nodes[0]!;
+    const node = f.softwareTeamRepo.getSoftwareTeam(softwareTeamId)!.nodes[0]!;
     const ctx = f.db.prepare("SELECT projection_entries_json, resolved_files_json FROM node_startup_context WHERE node_id = ?")
       .get(node.id) as { projection_entries_json: string; resolved_files_json: string };
-    const binding = { cwd: f.cwd } as NodeBinding; // no destination on the binding: the rig row decides
+    const binding = { cwd: f.cwd } as NodeBinding; // no destination on the binding: the softwareTeam row decides
     const files = JSON.parse(ctx.resolved_files_json).filter((file: { deliveryHint: string }) => file.deliveryHint === "guidance_merge");
     await f.claude.deliverStartup(files, { ...binding, claudeManagedBlockFile: "CLAUDE.local.md" });
     await f.claude.deliverStartup(files, { ...binding, claudeManagedBlockFile: "CLAUDE.local.md" });
@@ -315,16 +315,16 @@ describe("#25 carriage — the selection holds across the lifecycle", () => {
   // an exact native resume replays nothing by design (D6a containment).
   async function restoreAfterRestart(withResumeToken: boolean) {
     const f = fixture(LOCAL, { claudeMd: OLD_BLOCKS_CLAUDE_MD });
-    const rigId = await launched(f);
-    const node = f.rigRepo.getRig(rigId)!.nodes[0]!;
-    const session = f.sessionRegistry.getSessionsForRig(rigId).find((s) => s.nodeId === node.id)!;
+    const softwareTeamId = await launched(f);
+    const node = f.softwareTeamRepo.getSoftwareTeam(softwareTeamId)!.nodes[0]!;
+    const session = f.sessionRegistry.getSessionsForSoftwareTeam(softwareTeamId).find((s) => s.nodeId === node.id)!;
     f.sessionRegistry.updateStatus(session.id, "running");
     if (!withResumeToken) f.db.prepare("UPDATE sessions SET resume_type = NULL, resume_token = NULL WHERE node_id = ?").run(node.id);
     const snapshotRepo = new SnapshotRepository(f.db);
     const checkpointStore = new CheckpointStore(f.db);
-    const snap = new SnapshotCapture({ db: f.db, rigRepo: f.rigRepo, sessionRegistry: f.sessionRegistry, eventBus: f.eventBus, snapshotRepo, checkpointStore })
-      .captureSnapshot(rigId, "manual");
-    f.sessionRegistry.updateStatus(session.id, "exited"); // the rig is down before restore
+    const snap = new SnapshotCapture({ db: f.db, softwareTeamRepo: f.softwareTeamRepo, sessionRegistry: f.sessionRegistry, eventBus: f.eventBus, snapshotRepo, checkpointStore })
+      .captureSnapshot(softwareTeamId, "manual");
+    f.sessionRegistry.updateStatus(session.id, "exited"); // the softwareTeam is down before restore
     f.db.close();
     fs.rmSync(nodePath.join(f.cwd, "CLAUDE.local.md"));
 
@@ -333,9 +333,9 @@ describe("#25 carriage — the selection holds across the lifecycle", () => {
     const snapshotRepo2 = new SnapshotRepository(db2);
     const checkpointStore2 = new CheckpointStore(db2);
     const orch = new RestoreOrchestrator({
-      db: db2, rigRepo: s2.rigRepo, sessionRegistry: s2.sessionRegistry, eventBus: s2.eventBus,
+      db: db2, softwareTeamRepo: s2.softwareTeamRepo, sessionRegistry: s2.sessionRegistry, eventBus: s2.eventBus,
       snapshotRepo: snapshotRepo2, checkpointStore: checkpointStore2,
-      snapshotCapture: new SnapshotCapture({ db: db2, rigRepo: s2.rigRepo, sessionRegistry: s2.sessionRegistry, eventBus: s2.eventBus, snapshotRepo: snapshotRepo2, checkpointStore: checkpointStore2 }),
+      snapshotCapture: new SnapshotCapture({ db: db2, softwareTeamRepo: s2.softwareTeamRepo, sessionRegistry: s2.sessionRegistry, eventBus: s2.eventBus, snapshotRepo: snapshotRepo2, checkpointStore: checkpointStore2 }),
       nodeLauncher: s2.nodeLauncher, tmuxAdapter: s2.tmux,
       claudeResume: { canResume: vi.fn(() => false), resume: vi.fn() } as unknown as ClaudeResumeAdapter,
       codexResume: { canResume: vi.fn(() => false), resume: vi.fn() } as unknown as CodexResumeAdapter,
@@ -354,27 +354,27 @@ describe("#25 carriage — the selection holds across the lifecycle", () => {
   });
 
   // Was "restore by exact native resume writes neither file (containment unchanged)". Now an exact
-  // resume puts back only the MISSING managed guidance blocks, into the rig's selected Claude file
+  // resume puts back only the MISSING managed guidance blocks, into the softwareTeam's selected Claude file
   // (CLAUDE.md by default; this fixture selects CLAUDE.local.md), before the harness starts. The
   // other file is still never written.
-  it("restore by exact native resume puts the missing blocks back in the rig's selected file (here CLAUDE.local.md), never the other", { timeout: 30000 }, async () => {
+  it("restore by exact native resume puts the missing blocks back in the softwareTeam's selected file (here CLAUDE.local.md), never the other", { timeout: 30000 }, async () => {
     const { f, restored } = await restoreAfterRestart(true);
     expect(restored.result.nodes[0]!.status, JSON.stringify(restored)).not.toBe("failed");
     expect(f.read("CLAUDE.local.md")).toContain(BEGIN);
     expect(f.read("CLAUDE.md")).toBe(OLD_BLOCKS_CLAUDE_MD);
   });
 
-  it("relaunch/continue replay of the persisted startup context binds the rig's selection even when the caller's binding omits it", async () => {
+  it("relaunch/continue replay of the persisted startup context binds the softwareTeam's selection even when the caller's binding omits it", async () => {
     const f = fixture(LOCAL, { claudeMd: OLD_BLOCKS_CLAUDE_MD });
-    const rigId = await launched(f);
+    const softwareTeamId = await launched(f);
     fs.rmSync(nodePath.join(f.cwd, "CLAUDE.local.md"));
-    const node = f.rigRepo.getRig(rigId)!.nodes[0]!;
-    const session = f.sessionRegistry.getSessionsForRig(rigId).find((s) => s.nodeId === node.id)!;
+    const node = f.softwareTeamRepo.getSoftwareTeam(softwareTeamId)!.nodes[0]!;
+    const session = f.sessionRegistry.getSessionsForSoftwareTeam(softwareTeamId).find((s) => s.nodeId === node.id)!;
     const ctx = f.db.prepare("SELECT projection_entries_json, resolved_files_json, startup_actions_json FROM node_startup_context WHERE node_id = ?")
       .get(node.id) as { projection_entries_json: string; resolved_files_json: string; startup_actions_json: string };
     // Same startNode inputs seat-lifecycle-service builds for launchFresh/continueFreshStartup.
     const result = await f.startupOrchestrator.startNode({
-      rigId, nodeId: node.id, sessionId: session.id,
+      softwareTeamId, nodeId: node.id, sessionId: session.id,
       binding: { cwd: f.cwd, tmuxSession: session.sessionName } as NodeBinding,
       adapter: f.claude,
       plan: { runtime: "claude-code", cwd: f.cwd, entries: JSON.parse(ctx.projection_entries_json), startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [] },
@@ -388,14 +388,14 @@ describe("#25 carriage — the selection holds across the lifecycle", () => {
     f.db.close();
   });
 
-  it("expand/add: a member added to the running rig receives CLAUDE.local.md", async () => {
+  it("expand/add: a member added to the running SoftwareTeam receives CLAUDE.local.md", async () => {
     const f = fixture(LOCAL);
-    const rigId = await launched(f);
+    const softwareTeamId = await launched(f);
     const cwd2 = nodePath.join(f.root, "repo2");
     fs.mkdirSync(cwd2);
     fs.writeFileSync(nodePath.join(cwd2, "CLAUDE.md"), OLD_BLOCKS_CLAUDE_MD);
-    const outcome = await f.inst.addMemberToPod(rigId, "dev",
-      { id: "helper", agent_ref: "local:agents/impl", profile: "default", runtime: "claude-code", cwd: cwd2 }, f.rigRoot);
+    const outcome = await f.inst.addMemberToPod(softwareTeamId, "dev",
+      { id: "helper", agent_ref: "local:agents/impl", profile: "default", runtime: "claude-code", cwd: cwd2 }, f.softwareTeamRoot);
     expect(outcome.ok, JSON.stringify(outcome)).toBe(true);
     expect(f.read("CLAUDE.local.md", cwd2)).toContain(BEGIN);
     expect(f.read("CLAUDE.md", cwd2)).toBe(OLD_BLOCKS_CLAUDE_MD);
@@ -404,43 +404,43 @@ describe("#25 carriage — the selection holds across the lifecycle", () => {
 
   it("export → YAML → import round trip keeps the selection (and the default exports nothing)", async () => {
     const f = fixture(LOCAL);
-    const rigId = await launched(f);
-    const exported = new RigSpecExporter({ rigRepo: f.rigRepo, sessionRegistry: f.sessionRegistry, podRepo: f.podRepo }).exportRig(rigId);
-    const yaml = RigSpecCodec.serialize(exported as never);
+    const softwareTeamId = await launched(f);
+    const exported = new SoftwareTeamSpecExporter({ softwareTeamRepo: f.softwareTeamRepo, sessionRegistry: f.sessionRegistry, podRepo: f.podRepo }).exportSoftwareTeam(softwareTeamId);
+    const yaml = SoftwareTeamSpecCodec.serialize(exported as never);
     expect(yaml).toContain("managed_blocks:\n  claude-code: CLAUDE.local.md");
-    const reparsed = RigSpecSchema.normalize(RigSpecCodec.parse(yaml) as Record<string, unknown>);
+    const reparsed = SoftwareTeamSpecSchema.normalize(SoftwareTeamSpecCodec.parse(yaml) as Record<string, unknown>);
     expect(reparsed.managedBlocks).toEqual({ "claude-code": "CLAUDE.local.md" });
 
     const g = fixture("");
-    const defaultRig = await launched(g);
-    const defaultYaml = RigSpecCodec.serialize(new RigSpecExporter({ rigRepo: g.rigRepo, sessionRegistry: g.sessionRegistry, podRepo: g.podRepo }).exportRig(defaultRig) as never);
+    const defaultSoftwareTeam = await launched(g);
+    const defaultYaml = SoftwareTeamSpecCodec.serialize(new SoftwareTeamSpecExporter({ softwareTeamRepo: g.softwareTeamRepo, sessionRegistry: g.sessionRegistry, podRepo: g.podRepo }).exportSoftwareTeam(defaultSoftwareTeam) as never);
     expect(defaultYaml).not.toContain("managed_blocks");
     f.db.close();
     g.db.close();
   });
 
-  it("bundle rig.yaml rewrite (normalize → serialize) keeps the selection", () => {
+  it("bundle software-team.yaml rewrite (normalize → serialize) keeps the selection", () => {
     const f = fixture(LOCAL);
-    const raw = RigSpecCodec.parse(f.yaml) as Record<string, unknown>;
-    const rewritten = RigSpecCodec.serialize(RigSpecSchema.normalize(raw));
-    expect(RigSpecCodec.parse(rewritten)).toMatchObject({ managed_blocks: { "claude-code": "CLAUDE.local.md" } });
+    const raw = SoftwareTeamSpecCodec.parse(f.yaml) as Record<string, unknown>;
+    const rewritten = SoftwareTeamSpecCodec.serialize(SoftwareTeamSpecSchema.normalize(raw));
+    expect(SoftwareTeamSpecCodec.parse(rewritten)).toMatchObject({ managed_blocks: { "claude-code": "CLAUDE.local.md" } });
     f.db.close();
   });
 });
 
 describe("#25 teardown — cleans the selected file only", () => {
   function teardown(f: ReturnType<typeof fixture>) {
-    return new RigTeardownOrchestrator({
-      db: f.db, rigRepo: f.rigRepo, sessionRegistry: f.sessionRegistry, tmuxAdapter: f.tmux, eventBus: f.eventBus,
+    return new SoftwareTeamTeardownOrchestrator({
+      db: f.db, softwareTeamRepo: f.softwareTeamRepo, sessionRegistry: f.sessionRegistry, tmuxAdapter: f.tmux, eventBus: f.eventBus,
       snapshotCapture: { db: f.db, captureSnapshot: vi.fn(() => ({ id: "snap" })) } as never,
     });
   }
 
   it("strips blocks from CLAUDE.local.md, keeps its user text, and leaves CLAUDE.md with old blocks byte-identical", async () => {
     const f = fixture(LOCAL, { claudeMd: OLD_BLOCKS_CLAUDE_MD, claudeLocalMd: "my local line\n" });
-    const rigId = await launched(f);
-    for (const s of f.sessionRegistry.getSessionsForRig(rigId)) f.sessionRegistry.updateStatus(s.id, "running");
-    await teardown(f).teardown(rigId);
+    const softwareTeamId = await launched(f);
+    for (const s of f.sessionRegistry.getSessionsForSoftwareTeam(softwareTeamId)) f.sessionRegistry.updateStatus(s.id, "running");
+    await teardown(f).teardown(softwareTeamId);
     expect(f.read("CLAUDE.local.md")).toBe("my local line\n");
     expect(f.read("CLAUDE.md")).toBe(OLD_BLOCKS_CLAUDE_MD);
     f.db.close();
@@ -448,18 +448,18 @@ describe("#25 teardown — cleans the selected file only", () => {
 
   it("removes a CLAUDE.local.md that held only managed blocks", async () => {
     const f = fixture(LOCAL, { claudeMd: OLD_BLOCKS_CLAUDE_MD });
-    const rigId = await launched(f);
-    await teardown(f).teardown(rigId);
+    const softwareTeamId = await launched(f);
+    await teardown(f).teardown(softwareTeamId);
     expect(f.read("CLAUDE.local.md")).toBeNull();
     expect(f.read("CLAUDE.md")).toBe(OLD_BLOCKS_CLAUDE_MD);
     f.db.close();
   });
 
-  it("default rig teardown still cleans CLAUDE.md and never creates or touches CLAUDE.local.md", async () => {
+  it("default SoftwareTeam teardown still cleans CLAUDE.md and never creates or touches CLAUDE.local.md", async () => {
     const f = fixture("", { claudeLocalMd: OLD_BLOCKS_CLAUDE_MD });
-    const rigId = await launched(f);
+    const softwareTeamId = await launched(f);
     expect(f.read("CLAUDE.md")).toContain(BEGIN);
-    await teardown(f).teardown(rigId);
+    await teardown(f).teardown(softwareTeamId);
     expect(f.read("CLAUDE.md")).toBeNull();
     expect(f.read("CLAUDE.local.md")).toBe(OLD_BLOCKS_CLAUDE_MD);
     f.db.close();

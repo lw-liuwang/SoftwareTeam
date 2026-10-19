@@ -5,13 +5,13 @@
 //
 // The three arch teeth are NAMED tests below:
 //   TOOTH 1 — human-seat classification runs BEFORE any parse at the
-//             queue-destination gate (zero rig lookups for human seats).
-//   TOOTH 2 — a three-part "member@rig@x" keeps parsing with the greedy
-//             rig ("rig@x"), so the registry lookup misses and the queue
-//             gate rejects with the SAME unknown_destination_rig error as
+//             queue-destination gate (zero softwareTeam lookups for human seats).
+//   TOOTH 2 — a three-part "member@software-team@x" keeps parsing with the greedy
+//             softwareTeam ("softwareTeam@x"), so the registry lookup misses and the queue
+//             gate rejects with the SAME unknown_destination_software_team error as
 //             before the contract existed (BR-1: host never in-band).
 //   TOOTH 3 — the legacy r{NN}-suffix grammar keeps validating as a
-//             session name (and keeps carrying NO rig binding).
+//             session name (and keeps carrying NO softwareTeam binding).
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
@@ -34,7 +34,7 @@ type ContractCopy = {
   parseSessionName: typeof daemonCopy.parseSessionName;
   isHumanSeatSessionRef: typeof daemonCopy.isHumanSeatSessionRef;
   sessionMemberLabel: typeof daemonCopy.sessionMemberLabel;
-  sessionRigOf: typeof daemonCopy.sessionRigOf;
+  sessionSoftwareTeamOf: typeof daemonCopy.sessionSoftwareTeamOf;
 };
 
 const COPIES: Array<[string, ContractCopy]> = [
@@ -46,132 +46,132 @@ const COPIES: Array<[string, ContractCopy]> = [
 const malformed = (input: string) =>
   ({ kind: "malformed", error: "malformed_session_name", input }) as const;
 
-// ONE vector set, run against every copy. `memberLabel`/`rigOf` pin the
+// ONE vector set, run against every copy. `memberLabel`/`softwareTeamOf` pin the
 // display helpers; `human` pins classification.
 const SHARED_VECTORS = [
   {
     label: "canonical pod-member session",
-    input: "dev46-driver2@openrig-delivery",
-    parsed: { kind: "canonical", member: "dev46-driver2", rig: "openrig-delivery" },
-    human: false, memberLabel: "dev46-driver2", rigOf: "openrig-delivery",
+    input: "dev46-driver2@softwareteam-delivery",
+    parsed: { kind: "canonical", member: "dev46-driver2", softwareTeam: "softwareteam-delivery" },
+    human: false, memberLabel: "dev46-driver2", softwareTeamOf: "softwareteam-delivery",
   },
   {
-    label: "canonical simple member@rig",
-    input: "member@rig",
-    parsed: { kind: "canonical", member: "member", rig: "rig" },
-    human: false, memberLabel: "member", rigOf: "rig",
+    label: "canonical simple member@software-team",
+    input: "member@software-team",
+    parsed: { kind: "canonical", member: "member", softwareTeam: "softwareTeam" },
+    human: false, memberLabel: "member", softwareTeamOf: "softwareTeam",
   },
   {
-    label: "TOOTH 2 (parse leg): member@rig@x parses with the GREEDY rig 'rig@x'",
-    input: "member@rig@x",
-    parsed: { kind: "canonical", member: "member", rig: "rig@x" },
-    human: false, memberLabel: "member", rigOf: "rig@x",
+    label: "TOOTH 2 (parse leg): member@software-team@x parses with the GREEDY softwareTeam 'softwareTeam@x'",
+    input: "member@software-team@x",
+    parsed: { kind: "canonical", member: "member", softwareTeam: "softwareTeam@x" },
+    human: false, memberLabel: "member", softwareTeamOf: "softwareTeam@x",
   },
   {
-    label: "TOOTH 3: legacy r{NN}-suffix keeps validating (non-canonical, no rig binding)",
+    label: "TOOTH 3: legacy r{NN}-suffix keeps validating (non-canonical, no SoftwareTeam binding)",
     input: "r03-worker",
     parsed: { kind: "legacy", name: "r03-worker" },
-    human: false, memberLabel: "r03-worker", rigOf: undefined,
+    human: false, memberLabel: "r03-worker", softwareTeamOf: undefined,
   },
   {
     label: "TOOTH 1 (classification leg): human@kernel is a human seat",
     input: "human@kernel",
-    parsed: { kind: "canonical", member: "human", rig: "kernel" },
-    human: true, memberLabel: "human", rigOf: "kernel",
+    parsed: { kind: "canonical", member: "human", softwareTeam: "kernel" },
+    human: true, memberLabel: "human", softwareTeamOf: "kernel",
   },
   {
     label: "suffixed human seat on host",
     input: "human-mvs@host",
-    parsed: { kind: "canonical", member: "human-mvs", rig: "host" },
-    human: true, memberLabel: "human-mvs", rigOf: "host",
+    parsed: { kind: "canonical", member: "human-mvs", softwareTeam: "host" },
+    human: true, memberLabel: "human-mvs", softwareTeamOf: "host",
   },
   {
-    label: "human@<ordinary-rig> is NOT a human seat",
-    input: "human@some-rig",
-    parsed: { kind: "canonical", member: "human", rig: "some-rig" },
-    human: false, memberLabel: "human", rigOf: "some-rig",
+    label: "human@<ordinary-software-team> is NOT a human seat",
+    input: "human@some-software-team",
+    parsed: { kind: "canonical", member: "human", softwareTeam: "some-software-team" },
+    human: false, memberLabel: "human", softwareTeamOf: "some-software-team",
   },
   {
     label: "humanoid@kernel is NOT a human seat (prefix must be exact)",
     input: "humanoid@kernel",
-    parsed: { kind: "canonical", member: "humanoid", rig: "kernel" },
-    human: false, memberLabel: "humanoid", rigOf: "kernel",
+    parsed: { kind: "canonical", member: "humanoid", softwareTeam: "kernel" },
+    human: false, memberLabel: "humanoid", softwareTeamOf: "kernel",
   },
   {
     label: "malformed: bare non-legacy id",
     input: "bare",
     parsed: malformed("bare"),
-    human: false, memberLabel: "bare", rigOf: undefined,
+    human: false, memberLabel: "bare", softwareTeamOf: undefined,
   },
   {
-    label: "malformed: empty member (@rig)",
-    input: "@rig",
-    parsed: malformed("@rig"),
-    human: false, memberLabel: "", rigOf: undefined,
+    label: "malformed: empty member (@software-team)",
+    input: "@software-team",
+    parsed: malformed("@software-team"),
+    human: false, memberLabel: "", softwareTeamOf: undefined,
   },
   {
-    label: "malformed: empty rig (member@)",
+    label: "malformed: empty softwareTeam (member@)",
     input: "member@",
     parsed: malformed("member@"),
-    human: false, memberLabel: "member", rigOf: undefined,
+    human: false, memberLabel: "member", softwareTeamOf: undefined,
   },
   {
     label: "malformed: empty string",
     input: "",
     parsed: malformed(""),
-    human: false, memberLabel: "", rigOf: undefined,
+    human: false, memberLabel: "", softwareTeamOf: undefined,
   },
   {
     label: "malformed: r3-worker (legacy needs exactly two digits)",
     input: "r3-worker",
     parsed: malformed("r3-worker"),
-    human: false, memberLabel: "r3-worker", rigOf: undefined,
+    human: false, memberLabel: "r3-worker", softwareTeamOf: undefined,
   },
   // ── A2 4th leg: virtual-domain (@external). Contract 2cf541c6 / verdict 8cd30094.
   // kind 'external' {local, domain}; the human-CLASS predicate returns TRUE (no silent
-  // agent-class downgrade); rigOf undefined (a virtual domain is NOT a routing rig).
+  // agent-class downgrade); softwareTeamOf undefined (a virtual domain is NOT a routing softwareTeam).
   // Admission (registered vs scheme, refuse-if-unregistered) is the A1/A4 GATEWAY's job.
   {
     label: "4TH LEG: registered virtual-domain ref mike@external",
     input: "mike@external",
     parsed: { kind: "external", local: "mike", domain: "external" },
-    human: true, memberLabel: "mike", rigOf: undefined,
+    human: true, memberLabel: "mike", softwareTeamOf: undefined,
   },
   {
     label: "4TH LEG: scheme-form local rides the leg LEXICALLY (slack:U012AB3CD@external)",
     input: "slack:U012AB3CD@external",
     parsed: { kind: "external", local: "slack:U012AB3CD", domain: "external" },
-    human: true, memberLabel: "slack:U012AB3CD", rigOf: undefined,
+    human: true, memberLabel: "slack:U012AB3CD", softwareTeamOf: undefined,
   },
   {
     label: "4TH LEG: dotted local (my.name@external)",
     input: "my.name@external",
     parsed: { kind: "external", local: "my.name", domain: "external" },
-    human: true, memberLabel: "my.name", rigOf: undefined,
+    human: true, memberLabel: "my.name", softwareTeamOf: undefined,
   },
   {
     label: "4TH LEG: hyphenated local (my-name@external)",
     input: "my-name@external",
     parsed: { kind: "external", local: "my-name", domain: "external" },
-    human: true, memberLabel: "my-name", rigOf: undefined,
+    human: true, memberLabel: "my-name", softwareTeamOf: undefined,
   },
   {
     label: "4TH LEG decided human@external: local 'human' is valid -> external (human-class), refused-at-gateway if unregistered",
     input: "human@external",
     parsed: { kind: "external", local: "human", domain: "external" },
-    human: true, memberLabel: "human", rigOf: undefined,
+    human: true, memberLabel: "human", softwareTeamOf: undefined,
   },
   {
     label: "4TH LEG neg: empty local (@external) -> malformed (not agent-downgraded)",
     input: "@external",
     parsed: malformed("@external"),
-    human: false, memberLabel: "", rigOf: undefined,
+    human: false, memberLabel: "", softwareTeamOf: undefined,
   },
   {
     label: "4TH LEG neg: domain not in the closed set (mike@externalx) -> canonical, NOT external",
     input: "mike@externalx",
-    parsed: { kind: "canonical", member: "mike", rig: "externalx" },
-    human: false, memberLabel: "mike", rigOf: "externalx",
+    parsed: { kind: "canonical", member: "mike", softwareTeam: "externalx" },
+    human: false, memberLabel: "mike", softwareTeamOf: "externalx",
   },
 ] as const;
 
@@ -183,7 +183,7 @@ describe("session-name contract — three-copy parity (shared vectors)", () => {
           expect(copy.parseSessionName(v.input)).toEqual(v.parsed);
           expect(copy.isHumanSeatSessionRef(v.input)).toBe(v.human);
           expect(copy.sessionMemberLabel(v.input)).toBe(v.memberLabel);
-          expect(copy.sessionRigOf(v.input)).toBe(v.rigOf);
+          expect(copy.sessionSoftwareTeamOf(v.input)).toBe(v.softwareTeamOf);
         });
       }
     });
@@ -213,39 +213,39 @@ describe("session-name contract — three-copy parity (shared vectors)", () => {
 
 describe("session-name contract — the queue-destination gate teeth", () => {
   // The gate composition EXACTLY as packages/daemon/src/startup.ts wires it
-  // (topologyValidateRig): human classification first, then the shared
-  // parse, then the rig-registry lookup.
-  function gateWith(findRigsByName: (rigName: string) => unknown[]) {
+  // (topologyValidateSoftwareTeam): human classification first, then the shared
+  // parse, then the software-team-registry lookup.
+  function gateWith(findSoftwareTeamsByName: (softwareTeamName: string) => unknown[]) {
     return (sessionRef: string): boolean => {
       if (daemonCopy.isHumanSeatSessionRef(sessionRef)) return true;
       const parsed = daemonCopy.parseSessionName(sessionRef);
       if (parsed.kind !== "canonical") return false;
-      return findRigsByName(parsed.rig).length > 0;
+      return findSoftwareTeamsByName(parsed.softwareTeam).length > 0;
     };
   }
 
-  it("TOOTH 1: human-seat classification runs BEFORE any parse — zero rig lookups for human seats", () => {
+  it("TOOTH 1: human-seat classification runs BEFORE any parse — zero SoftwareTeam lookups for human seats", () => {
     const lookups: string[] = [];
-    const gate = gateWith((rigName) => { lookups.push(rigName); return []; });
+    const gate = gateWith((softwareTeamName) => { lookups.push(softwareTeamName); return []; });
     expect(gate("human@kernel")).toBe(true);
     expect(gate("human-mvs@host")).toBe(true);
     expect(lookups).toEqual([]);
   });
 
-  it("TOOTH 2 (lookup leg): member@rig@x looks up EXACTLY the greedy rig 'rig@x' and fails the gate", () => {
+  it("TOOTH 2 (lookup leg): member@software-team@x looks up EXACTLY the greedy softwareTeam 'softwareTeam@x' and fails the gate", () => {
     const lookups: string[] = [];
-    const gate = gateWith((rigName) => { lookups.push(rigName); return []; });
-    expect(gate("member@rig@x")).toBe(false);
-    expect(lookups).toEqual(["rig@x"]);
+    const gate = gateWith((softwareTeamName) => { lookups.push(softwareTeamName); return []; });
+    expect(gate("member@software-team@x")).toBe(false);
+    expect(lookups).toEqual(["softwareTeam@x"]);
   });
 
-  it("TOOTH 3 (gate leg): a legacy r{NN} name stays valid AS A NAME but carries no rig binding — the gate rejects it exactly as before", () => {
+  it("TOOTH 3 (gate leg): a legacy r{NN} name stays valid AS A NAME but carries no SoftwareTeam binding — the gate rejects it exactly as before", () => {
     expect(daemonCopy.validateSessionName("r03-worker")).toBe(true);
     const gate = gateWith(() => [{ id: "any" }]);
     expect(gate("r03-worker")).toBe(false);
   });
 
-  describe("TOOTH 2 (error leg): the queue rejects member@rig@x with the SAME unknown_destination_rig", () => {
+  describe("TOOTH 2 (error leg): the queue rejects member@software-team@x with the SAME unknown_destination_software_team", () => {
     let db: Database.Database;
 
     beforeEach(() => {
@@ -255,22 +255,22 @@ describe("session-name contract — the queue-destination gate teeth", () => {
 
     afterEach(() => db.close());
 
-    it("rejects the three-part destination; accepts the same member@rig when the rig exists", async () => {
-      const known = new Set(["rig"]);
+    it("rejects the three-part destination; accepts the same member@software-team when the SoftwareTeam exists", async () => {
+      const known = new Set(["softwareTeam"]);
       const eventBus = new EventBus(db);
       const queueRepo = new QueueRepository(db, eventBus, {
-        validateRig: gateWith((rigName) => (known.has(rigName) ? [{ id: "r-1" }] : [])),
+        validateSoftwareTeam: gateWith((softwareTeamName) => (known.has(softwareTeamName) ? [{ id: "r-1" }] : [])),
       });
 
       await expect(
-        queueRepo.create({ sourceSession: "src@rig", destinationSession: "member@rig@x", body: "x" }),
-      ).rejects.toMatchObject({ code: "unknown_destination_rig" });
+        queueRepo.create({ sourceSession: "src@software-team", destinationSession: "member@software-team@x", body: "x" }),
+      ).rejects.toMatchObject({ code: "unknown_destination_software_team" });
       await expect(
-        queueRepo.create({ sourceSession: "src@rig", destinationSession: "member@rig@x", body: "x" }),
+        queueRepo.create({ sourceSession: "src@software-team", destinationSession: "member@software-team@x", body: "x" }),
       ).rejects.toBeInstanceOf(QueueRepositoryError);
 
-      const item = await queueRepo.create({ sourceSession: "src@rig", destinationSession: "member@rig", body: "ok" });
-      expect(item.destinationSession).toBe("member@rig");
+      const item = await queueRepo.create({ sourceSession: "src@software-team", destinationSession: "member@software-team", body: "ok" });
+      expect(item.destinationSession).toBe("member@software-team");
     });
   });
 });

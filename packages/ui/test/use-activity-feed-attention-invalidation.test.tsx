@@ -189,7 +189,7 @@ describe("useActivityFeed — attention-items invalidation on queue events (QA B
     await act(() => Promise.resolve());
     const source = instances[0]!;
 
-    for (const type of ["rig.imported", "snapshot.created", "session.discovered", "chat.message"]) {
+    for (const type of ["softwareTeam.imported", "snapshot.created", "session.discovered", "chat.message"]) {
       act(() => {
         source.simulateMessage(JSON.stringify({
           seq: 500,

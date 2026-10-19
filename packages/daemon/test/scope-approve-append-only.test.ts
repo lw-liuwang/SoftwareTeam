@@ -27,7 +27,7 @@ slice: 51-08-token-telemetry-over-time
 mission: release-0.5.1
 status: spec
 verified: >-
-  2026-08-07 against scaffold (rig scope create) + the desk pin
+  2026-08-07 against scaffold (SoftwareTeam scope create) + the desk pin
   "062+ sequencing" — $VAR and \\1 backrefs ride along
 created: 2026-08-07
 tags: ["a b", 'c,d']
@@ -93,7 +93,7 @@ describe("P15 — append-only approve stamping (writer-exceeds-its-ownership fix
     scopeTier: "slice" as const,
     scopePath: "release-0.5.1/slices/51-08-token-telemetry-over-time",
     approvalScope: "spec" as const,
-    actorSession: "dev50-planner@v-openrig-build",
+    actorSession: "dev50-planner@v-softwareteam-build",
   };
 
   /** Textually remove ONLY the writer-owned lines: the approved-spec stamp pair
@@ -145,7 +145,7 @@ describe("P15 — append-only approve stamping (writer-exceeds-its-ownership fix
     service().approve(specInput);
     const after = fs.readFileSync(readmePath, "utf8");
     const fm = YAML.parse(/^---\s*\n([\s\S]*?)\n---/.exec(after)![1]!) as Record<string, unknown>;
-    expect(fm["approved-spec-by"]).toBe("dev50-planner@v-openrig-build");
+    expect(fm["approved-spec-by"]).toBe("dev50-planner@v-softwareteam-build");
     expect(fm["approved-spec-at"]).toBe("2026-08-07T08:36:50.598Z");
     expect(fm["id"]).toBe("OPR.0.5.1.8");
     expect(String(fm["verified"])).toContain("$VAR"); // survived byte-verbatim, still parseable
@@ -179,7 +179,7 @@ describe("P15 — append-only approve stamping (writer-exceeds-its-ownership fix
     fs.writeFileSync(readmePath, amendedBeforeRestamp);
     service().approve({
       ...specInput,
-      actorSession: "orch-advisor@v-openrig-build",
+      actorSession: "orch-advisor@v-softwareteam-build",
       reApprove: true,
       reason: "amended after generation zero",
     });
@@ -192,7 +192,7 @@ describe("P15 — append-only approve stamping (writer-exceeds-its-ownership fix
   it("delivery approve on the already-spec-stamped file stays append-only too (two writers, zero drift)", () => {
     service().approve(specInput);
     const afterSpec = fs.readFileSync(readmePath, "utf8");
-    service().approve({ ...specInput, approvalScope: "delivery" as const, actorSession: "dev50-qa@v-openrig-build" });
+    service().approve({ ...specInput, approvalScope: "delivery" as const, actorSession: "dev50-qa@v-softwareteam-build" });
     const after = fs.readFileSync(readmePath, "utf8");
     const strippedDelivery = after
       .replace(/^approved-by:[^\n]*\n/m, "")

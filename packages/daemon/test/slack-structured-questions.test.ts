@@ -27,7 +27,7 @@ import { formatHumanAnswers, unansweredQuestions } from "../src/domain/human-que
 
 const human = "human-founder@external";
 const registry = { ok: true as const, entities: [{ entityId: "human-founder", class: "human" as const, displayName: "Founder", address: human, connectorBindings: [{ kind: "slack" as const, connectorRef: "primary", secretsRef: "env:SLACK_BOT_TOKEN", role: "primary" as const, handle: "UFOUNDER" }], prefs: { deliveryClass: "A" as const } }] };
-const request = { sourceSession: "author@rig", destinationSession: human, summary: "Two quick questions", body: "Pick one for each; my recommendation is marked.", evidenceRef: "/private/proof.md", nudge: false };
+const request = { sourceSession: "author@software-team", destinationSession: human, summary: "Two quick questions", body: "Pick one for each; my recommendation is marked.", evidenceRef: "/private/proof.md", nudge: false };
 const questions = [
   { id: "db", question: "Which database?", options: [{ id: "pg", label: "Postgres", recommended: true }, { id: "sqlite", label: "SQLite" }] },
   { id: "ship", question: "Ship this week?", options: [{ id: "yes", label: "Yes" }, { id: "no", label: "No" }] },
@@ -60,7 +60,7 @@ describe("structured human questions (#193)", () => {
       const app = new Hono();
       app.use("*", async (c, next) => { (c.set as (k: string, v: unknown) => void)("queueRepo", repo); await next(); });
       app.route("/api/queue", queueRoutes());
-      const create = (value: unknown) => app.request("/api/queue/create", { method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": request.sourceSession }, body: JSON.stringify(value) });
+      const create = (value: unknown) => app.request("/api/queue/create", { method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": request.sourceSession }, body: JSON.stringify(value) });
       const ok = await create({ ...request, humanIntent: "decision", humanQuestions: questions });
       expect(ok.status).toBe(201);
       expect((await ok.json()).humanQuestions).toEqual(questions);
@@ -74,7 +74,7 @@ describe("structured human questions (#193)", () => {
     });
 
     it("refuses questions sent to an agent: no human is there to click", async () => {
-      await expect(repo.create({ ...request, destinationSession: "worker@rig", humanQuestions: questions })).rejects.toMatchObject({ code: "invalid_human_questions" });
+      await expect(repo.create({ ...request, destinationSession: "worker@software-team", humanQuestions: questions })).rejects.toMatchObject({ code: "invalid_human_questions" });
     });
 
     it("accepts questions when the intent is omitted: that is a decision (the CLI's documented default)", async () => {
@@ -249,7 +249,7 @@ describe("structured human questions (#193)", () => {
       await vi.waitFor(() => expect(finals(`e-${actionTs}`).length).toBe(before + 1));
       return finals(`e-${actionTs}`).at(-1)!;
     }
-    const repliesToSeat = () => repo.list({ limit: 100 }).filter((q) => q.destinationSession === "author@rig");
+    const repliesToSeat = () => repo.list({ limit: 100 }).filter((q) => q.destinationSession === "author@software-team");
 
     async function postDecision(humanQuestions?: typeof questions): Promise<{ id: string; root: string }> {
       const item = await repo.create({ ...request, humanIntent: "decision", humanQuestions });

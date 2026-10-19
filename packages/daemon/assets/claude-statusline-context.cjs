@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// OpenRig Claude Status Line Context Collector
+// SoftwareTeam Claude Status Line Context Collector
 // Reads Claude status line JSON from stdin, extracts context window data,
 // and writes atomically to a sidecar file.
 //
@@ -16,7 +16,7 @@ if (!outputTarget) {
 
 function logFailure(message, error) {
   const suffix = error && error.message ? `: ${error.message}` : "";
-  console.error(`[openrig][collector] ${message}${suffix}`);
+  console.error(`[softwareteam][collector] ${message}${suffix}`);
 }
 
 let input = "";
@@ -42,7 +42,7 @@ process.stdin.on("end", () => {
       },
       session_id: raw.session_id ?? null,
       session_name: raw.session_name ?? null,
-      occupant_generation: process.env.OPENRIG_OCCUPANT_GENERATION || process.env.RIGGED_OCCUPANT_GENERATION || null,
+      occupant_generation: process.env.SOFTWARETEAM_OCCUPANT_GENERATION || null,
       transcript_path: raw.transcript_path ?? null,
       // Claude's own client-side cost estimate for this session (cumulative; not an invoice).
       cost: raw.cost && typeof raw.cost.total_cost_usd === "number" ? { total_cost_usd: raw.cost.total_cost_usd } : null,

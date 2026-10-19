@@ -7,7 +7,7 @@ observable from memory; verdict against the captured bytes.
 ## Setup
 
 ```bash
-GIT_SHA="$(git rev-parse HEAD)"; IMAGE="openrig-testbed:${GIT_SHA}"; EVID="dist/testbed-image/evidence/${GIT_SHA}"; mkdir -p "${EVID}"
+GIT_SHA="$(git rev-parse HEAD)"; IMAGE="softwareteam-testbed:${GIT_SHA}"; EVID="dist/testbed-image/evidence/${GIT_SHA}"; mkdir -p "${EVID}"
 docker image inspect "${IMAGE}" >/dev/null   # built by scripts/build-testbed-image.sh (FAIL loudly if absent)
 NAME="orig-l1-${GIT_SHA:0:8}"
 ```

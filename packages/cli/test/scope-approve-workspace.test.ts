@@ -1,4 +1,4 @@
-// #995 — `rig scope <tier> approve` writes inside the DAEMON, which used to
+// #995 — `SoftwareTeam scope <tier> approve` writes inside the DAEMON, which used to
 // resolve the relative scopePath against its OWN root: with a --workspace the
 // daemon did not share, the stamp landed in the daemon's copy of the same
 // relative path while the command reported success. The CLI now sends the root
@@ -14,8 +14,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -49,7 +49,7 @@ vi.mock("../src/client.js", async () => {
 const { scopeCommand } = await import("../src/commands/scope.js");
 
 function mktemp(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "rig-approve-ws-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "software-team-approve-ws-"));
 }
 
 /** A workspace holding one mission at the same relative path as every other. */
@@ -78,7 +78,7 @@ async function run(args: string[]): Promise<{ exitCode: number; stdout: string; 
   program.addCommand(scopeCommand());
   program.exitOverride();
   try {
-    await program.parseAsync(["node", "rig", "scope", ...args]);
+    await program.parseAsync(["node", "softwareTeam", "scope", ...args]);
   } catch (err) {
     const msg = (err as Error).message ?? "";
     if (!msg.startsWith("__EXIT__")) stderrBuf.push(msg + "\n");
@@ -104,9 +104,9 @@ describe("scope approve sends the resolved missions root (#995)", () => {
       JSON.stringify({ workspace: { slicesRoot: daemonWs.missionsRoot } }),
       "utf8",
     );
-    vi.stubEnv("OPENRIG_HOME", home);
-    vi.stubEnv("OPENRIG_WORK_ROOT", "");
-    vi.stubEnv("OPENRIG_SESSION_NAME", "test-seat");
+    vi.stubEnv("SOFTWARETEAM_HOME", home);
+    vi.stubEnv("SOFTWARETEAM_WORK_ROOT", "");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "test-seat");
   });
 
   afterEach(() => {
@@ -130,8 +130,8 @@ describe("scope approve sends the resolved missions root (#995)", () => {
     expect(posted[0]!.body.missionsRoot).toBe(daemonWs.missionsRoot);
   });
 
-  it("sends an OPENRIG_WORK_ROOT override's root", async () => {
-    vi.stubEnv("OPENRIG_WORK_ROOT", otherWs.workRoot);
+  it("sends an SOFTWARETEAM_WORK_ROOT override's root", async () => {
+    vi.stubEnv("SOFTWARETEAM_WORK_ROOT", otherWs.workRoot);
 
     await run(["mission", "approve", "release-0.5.0", "--scope", "delivery"]);
 

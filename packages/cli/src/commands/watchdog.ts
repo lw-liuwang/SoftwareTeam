@@ -8,7 +8,7 @@ import { realDeps } from "./daemon.js";
 import type { StatusDeps } from "./status.js";
 
 /**
- * `rig watchdog` — coordination primitive Watchdog (PL-004 Phase C).
+ * `softwareTeam watchdog` — coordination primitive Watchdog (PL-004 Phase C).
  *
  * Backed by `/api/watchdog`. Operates only via the daemon HTTP API.
  *
@@ -78,7 +78,7 @@ export function watchdogCommand(depsOverride?: WatchdogDeps): Command {
     )
     .option("--spec <path>", "Path to YAML spec file (optional for context-usage-threshold)")
     .requiredOption("--policy <policy>", "Policy name (one of: periodic-reminder, artifact-pool-ready, edge-artifact-required, workflow-keepalive, idle-gate-qitem, context-usage-threshold)")
-    .requiredOption("--target-session <session>", "Canonical <member>@<rig> target")
+    .requiredOption("--target-session <session>", "Canonical <member>@<softwareTeam> target")
     .requiredOption("--interval-seconds <n>", "Evaluation interval (positive integer)")
     .requiredOption("--registered-by <session>", "Registering session (for audit)")
     .option("--threshold-bytes <n>", "(context-usage-threshold) transcript byte threshold")
@@ -89,7 +89,7 @@ export function watchdogCommand(depsOverride?: WatchdogDeps): Command {
     .option("--active-wake-interval-seconds <n>", "(pool-ready-specific) wake-up cadence when actionable artifacts exist")
     .option("--scan-interval-seconds <n>", "(pool-ready-specific) artifact pool scan cadence")
     .option("--json", "JSON output for agents")
-    .addHelpText("after", "\nTranscript density varies by session shape; do not tune a context threshold near the context wall.\n\nThe returned job id can be attached to a deliberate park with: rig queue block <qitemId> --on <blocker> --continuation <what-resumes> --wake-watchdog <jobId>")
+    .addHelpText("after", "\nTranscript density varies by session shape; do not tune a context threshold near the context wall.\n\nThe returned job id can be attached to a deliberate park with: SoftwareTeam queue block <qitemId> --on <blocker> --continuation <what-resumes> --wake-watchdog <jobId>")
     .action(async (opts: {
       spec?: string;
       policy: string;
@@ -190,7 +190,7 @@ export function watchdogCommand(depsOverride?: WatchdogDeps): Command {
     .addHelpText("after", `
 Default: active jobs, compact fields, at most 100 records.
 Use --all for stopped/terminal history and --full for complete per-job fields.
-The pre-0.5.8 complete array remains available with: rig watchdog list --all --full`)
+The pre-0.5.8 complete array remains available with: SoftwareTeam watchdog list --all --full`)
     .action(async (opts: { all?: boolean; full?: boolean; limit?: number; json?: boolean }) => {
       const deps = getDeps();
       await withClient(deps, async (client) => {

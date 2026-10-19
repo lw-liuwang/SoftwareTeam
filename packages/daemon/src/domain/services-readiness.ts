@@ -1,8 +1,8 @@
 import type { ComposeServicesAdapter, ComposeServiceStatus } from "../adapters/compose-services-adapter.js";
-import type { RigServicesWaitTarget } from "./types.js";
+import type { SoftwareTeamServicesWaitTarget } from "./types.js";
 
 export interface WaitTargetResult {
-  target: RigServicesWaitTarget;
+  target: SoftwareTeamServicesWaitTarget;
   status: "healthy" | "unhealthy" | "pending";
   detail: string | null;
 }
@@ -17,10 +17,10 @@ export interface WaitTargetResult {
  *
  * Deferred:
  * - background health monitor (not yet implemented)
- * - rig ps env summary (not yet implemented)
+ * - SoftwareTeam ps env summary (not yet implemented)
  */
 export async function evaluateWaitTargets(
-  targets: RigServicesWaitTarget[],
+  targets: SoftwareTeamServicesWaitTarget[],
   adapter: ComposeServicesAdapter,
   composeStatuses?: ComposeServiceStatus[],
 ): Promise<WaitTargetResult[]> {

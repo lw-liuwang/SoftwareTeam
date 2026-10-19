@@ -6,8 +6,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -38,7 +38,7 @@ function makeDeps(opts?: { routes?: Record<string, StubResponse> }): { deps: Vie
   };
 }
 
-describe("rig view CLI (PL-004 Phase B)", () => {
+describe("SoftwareTeam view CLI (PL-004 Phase B)", () => {
   let logs: string[];
   let errors: string[];
 
@@ -67,25 +67,25 @@ describe("rig view CLI (PL-004 Phase B)", () => {
     });
     const program = createProgram({ viewDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "view", "list", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "view", "list", "--json"]);
     const call = calls.find((c) => c.path === "/api/views/list");
     expect(call).toBeDefined();
   });
 
-  it("show GETs /api/views/<viewName> with rig + limit query", async () => {
+  it("show GETs /api/views/<viewName> with softwareTeam + limit query", async () => {
     const { deps, calls } = makeDeps({
-      routes: { "GET /api/views/recently-active?rig=product-lab&limit=50": { status: 200, data: { rowCount: 0 } } },
+      routes: { "GET /api/views/recently-active?softwareTeam=product-lab&limit=50": { status: 200, data: { rowCount: 0 } } },
     });
     const program = createProgram({ viewDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "view", "show", "recently-active",
-      "--rig", "product-lab",
+      "node", "softwareTeam", "view", "show", "recently-active",
+      "--software-team", "product-lab",
       "--limit", "50",
       "--json",
     ]);
     const call = calls.find((c) => c.method === "GET" && c.path.startsWith("/api/views/recently-active"));
-    expect(call!.path).toContain("rig=product-lab");
+    expect(call!.path).toContain("softwareTeam=product-lab");
     expect(call!.path).toContain("limit=50");
   });
 
@@ -97,7 +97,7 @@ describe("rig view CLI (PL-004 Phase B)", () => {
     const program = createProgram({ viewDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "view", "show", "execution",
+      "node", "softwareTeam", "view", "show", "execution",
       "--project", "alpha",
       "--mission", "release-next",
       "--json",
@@ -115,7 +115,7 @@ describe("rig view CLI (PL-004 Phase B)", () => {
     const program = createProgram({ viewDeps: deps });
     program.exitOverride();
     // Note: --limit has a default of "100"; so this test needs explicit limit empty OR we accept default.
-    await program.parseAsync(["node", "rig", "view", "show", "founder"]);
+    await program.parseAsync(["node", "softwareTeam", "view", "show", "founder"]);
     const call = calls.find((c) => c.method === "GET" && c.path.startsWith("/api/views/founder"));
     expect(call).toBeDefined();
     // Default limit appended.
@@ -130,7 +130,7 @@ describe("rig view CLI (PL-004 Phase B)", () => {
     });
     const program = createProgram({ viewDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "view", "show", "nonexistent"]);
+    await program.parseAsync(["node", "softwareTeam", "view", "show", "nonexistent"]);
     expect(process.exitCode).toBe(1);
     const out = logs.join("\n");
     expect(out).toContain("view_not_found");
@@ -143,16 +143,16 @@ describe("rig view CLI (PL-004 Phase B)", () => {
     const program = createProgram({ viewDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "view", "register",
+      "node", "softwareTeam", "view", "register",
       "--name", "my-view",
       "--definition", "SELECT 1",
-      "--session", "operator@rig",
+      "--session", "operator@software-team",
       "--json",
     ]);
     const call = calls.find((c) => c.path === "/api/views/custom/register");
     const body = call!.body as Record<string, unknown>;
     expect(body.viewName).toBe("my-view");
     expect(body.definition).toBe("SELECT 1");
-    expect(body.registeredBySession).toBe("operator@rig");
+    expect(body.registeredBySession).toBe("operator@software-team");
   });
 });

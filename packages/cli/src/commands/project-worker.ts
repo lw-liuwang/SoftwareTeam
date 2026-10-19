@@ -2,13 +2,13 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { parse } from "yaml";
 import { StreamClassificationWorker, ClassifierLeaseError, ClassificationAttemptError, ProjectClassifierError,
-  LABEL_FIELDS, type WorkerOptions, type ClassificationCandidates, type ClassificationDecision } from "@openrig/daemon/stream-classifier";
+  LABEL_FIELDS, type WorkerOptions, type ClassificationCandidates, type ClassificationDecision } from "@softwareteam/daemon/stream-classifier";
 import type { DaemonClient } from "../client.js";
 
 type Client = Pick<DaemonClient, "get" | "post">;
 export interface WakeOptions { project: string; taxonomy: string; classifierVersion: string; evidenceEpoch: string; decisions?: string; limit?: string }
 type SourceSnapshot = {
-  occupant: { session: string; nodeId: string; generation: string; rigId: string };
+  occupant: { session: string; nodeId: string; generation: string; softwareTeamId: string };
   version: string; observedAt: string; unavailable: string[];
   sources: { project: unknown; scopes: {id: string; source: string; hash: string}[];
     roster: {session: string; nodeId: string; generation: string}[];
@@ -108,14 +108,14 @@ export async function runProjectWake(client: Client, opts: WakeOptions, read = l
   // Descriptor only. A message requests this entry; it never executes a wake by itself.
   let wakeRequest: unknown = null;
   // A copied argument vector, never an interpolated shell command. The occupant still owns judgment.
-  const nextCommand = ["rig", "project", "candidates", "--project", opts.project, "--taxonomy", opts.taxonomy,
+  const nextCommand = ["SoftwareTeam", "project", "candidates", "--project", opts.project, "--taxonomy", opts.taxonomy,
     "--classifier-version", opts.classifierVersion, "--evidence-epoch", opts.evidenceEpoch, "--limit", opts.limit ?? "20", "--json"];
   try {
     if (experiment) return {occupant: snapshot.occupant, candidateSetVersion: candidates.version, evidenceEpoch: opts.evidenceEpoch,
       result, nextCommand: null, wakeRequest: null, registered: false, sourceSnapshot: snapshot,
       continuation: "Foreground experiment only; no automatic retry or wake registration. Inspect this result before another explicit run."};
     const descriptor = worker.wakeRegistration(session, generation);
-    descriptor.specYaml = JSON.stringify({target: {session}, message: `Run ${JSON.stringify(nextCommand)} as an argument vector, read the exact eligible stream items with rig stream show, then supply source-bound decisions to rig project wake with these same options plus --decisions. One bounded wake only; honor returned nextWakeAt. Never change evidence epoch without owner authorization.`});
+    descriptor.specYaml = JSON.stringify({target: {session}, message: `Run ${JSON.stringify(nextCommand)} as an argument vector, read the exact eligible stream items with SoftwareTeam stream show, then supply source-bound decisions to SoftwareTeam project wake with these same options plus --decisions. One bounded wake only; honor returned nextWakeAt. Never change evidence epoch without owner authorization.`});
     wakeRequest = descriptor;
   } catch { /* no acquired lease */ }
   return {occupant: snapshot.occupant, candidateSetVersion: candidates.version, evidenceEpoch: opts.evidenceEpoch,

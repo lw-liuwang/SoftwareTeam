@@ -17,7 +17,7 @@ it.each(["healthy", "unhealthy", "unverified", "stopped"] as const)(
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const address = server.address() as AddressInfo;
-    vi.stubEnv("OPENRIG_URL", `http://127.0.0.1:${address.port}`);
+    vi.stubEnv("SOFTWARETEAM_URL", `http://127.0.0.1:${address.port}`);
     if (mode === "stopped") await new Promise<void>((resolve) => server.close(() => resolve()));
     const calls: string[][] = [];
     const run: DoctorDeps["run"] = async (_host, argv) => {
@@ -31,7 +31,7 @@ it.each(["healthy", "unhealthy", "unverified", "stopped"] as const)(
           command.addCommand(daemonCommand({
             fetch, readFile: () => null, exists: () => false, isProcessAlive: () => false,
           } as LifecycleDeps));
-          await command.parseAsync(["node", "rig", "daemon", "status"]);
+          await command.parseAsync(["node", "softwareTeam", "daemon", "status"]);
         } finally { output.mockRestore(); }
         stdout = lines.join("\n");
       } else if (argv[1] === "--version") stdout = "0.6.3";
@@ -47,7 +47,7 @@ it.each(["healthy", "unhealthy", "unverified", "stopped"] as const)(
       expect(health.status).toBe(mode === "healthy" ? "pass" : mode === "unverified" ? "unknown" : "fail");
       if (mode === "unverified") {
         expect(health.detail).not.toContain("not running");
-        expect(health.fix).not.toContain("rig daemon start");
+        expect(health.fix).not.toContain("SoftwareTeam daemon start");
       }
       if (mode === "unhealthy") expect(health.detail).not.toContain("not running");
       expect(calls.some((argv) => argv[1] === "ps")).toBe(mode === "healthy");

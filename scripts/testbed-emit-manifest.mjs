@@ -7,7 +7,7 @@
 // tested node) makes the whole identity story unit-testable in the VM.
 //
 // Identity sources: baseDigest = the host-resolved digest from docker/testbed/base-image (the pin
-// fence); stubAssetsHash = the census over the exact staged stub-asset set; gitSha/openrigSha/
+// fence); stubAssetsHash = the census over the exact staged stub-asset set; gitSha/softwareteamSha/
 // nodeVersion supplied by the shell (git rev-parse / the tree / the Dockerfile pin). REBUILD
 // CONTRACT: same inputs => byte-identical manifest.json + receipt. Any missing input fails loudly.
 
@@ -31,7 +31,7 @@ export function emitTestbedManifest(opts) {
   if (opts === null || typeof opts !== "object") {
     throw new TestbedBuildInputsError("emitTestbedManifest requires an options object");
   }
-  const { gitSha, openrigSha, nodeVersion, baseImagePath, stubAssetsRoot, stubAssetFiles, outDir } = opts;
+  const { gitSha, softwareteamSha, nodeVersion, baseImagePath, stubAssetsRoot, stubAssetFiles, outDir } = opts;
 
   for (const [name, val] of Object.entries({ baseImagePath, stubAssetsRoot, outDir })) {
     if (typeof val !== "string" || val.trim().length === 0) {
@@ -48,7 +48,7 @@ export function emitTestbedManifest(opts) {
   const manifest = computeTestbedManifest({
     baseDigest: base.digest,
     nodeVersion,
-    openrigSha,
+    softwareteamSha,
     stubAssetsHash,
     gitSha,
   });
@@ -75,7 +75,7 @@ function isMainModule() {
 
 // CLI shim — the shell build verb's manifest-emit step:
 //   node scripts/testbed-emit-manifest.mjs <inputs.json> <outDir>
-// inputs.json carries the identity the shell assembled (gitSha, openrigSha, nodeVersion,
+// inputs.json carries the identity the shell assembled (gitSha, softwareteamSha, nodeVersion,
 // baseImagePath, stubAssetsRoot, stubAssetFiles). Any failure exits non-zero with a loud stderr
 // line — never a silent partial manifest.
 if (isMainModule()) {

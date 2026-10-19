@@ -35,7 +35,7 @@ function dispatch(button: number, action: Action, startupOpen = false) {
   return { perform, key };
 }
 
-const open: Action = { type: "act", act: "open-terminal", view: "rig:example" };
+const open: Action = { type: "act", act: "open-terminal", view: "software-team:example" };
 const start: Action = { type: "startup", key: "enter" };
 const copy: Action = { type: "print-for-copy", label: "Socket", value: "owned.sock" };
 

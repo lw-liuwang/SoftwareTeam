@@ -22,7 +22,7 @@ afterEach(() => {
   cleanup();
 });
 
-const VALID_YAML = "schema_version: 1\nname: test-rig\nnodes: []\n";
+const VALID_YAML = "schema_version: 1\nname: test-software-team\nnodes: []\n";
 
 async function renderImportFlow() {
   const result = render(createTestRouter({
@@ -42,11 +42,11 @@ describe("ImportFlow", () => {
     expect(screen.getByTestId("workspace-page-inner")).toBeDefined();
   });
 
-  it("hydrates the yaml editor from the current Specs rig draft", async () => {
-    window.localStorage.setItem(SPECS_WORKSPACE_STORAGE_KEYS.currentRigDraft, JSON.stringify({
-      id: "rig-current",
-      kind: "rig",
-      label: "demo-rig",
+  it("hydrates the yaml editor from the current Specs SoftwareTeam draft", async () => {
+    window.localStorage.setItem(SPECS_WORKSPACE_STORAGE_KEYS.currentSoftwareTeamDraft, JSON.stringify({
+      id: "software-team-current",
+      kind: "softwareTeam",
+      label: "demo-software-team",
       yaml: VALID_YAML,
       updatedAt: Date.now(),
     }));
@@ -81,7 +81,7 @@ describe("ImportFlow", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("valid-message")).toBeDefined();
-      const call = mockFetch.mock.calls.find((c: unknown[]) => c[0] === "/api/rigs/import/validate");
+      const call = mockFetch.mock.calls.find((c: unknown[]) => c[0] === "/api/software-teams/import/validate");
       expect(call).toBeDefined();
     });
   });
@@ -136,7 +136,7 @@ describe("ImportFlow", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ ready: true, errors: [], warnings: [] }) })
       .mockResolvedValueOnce({
         ok: true, status: 201,
-        json: async () => ({ rigId: "rig-1", specName: "imported-rig", specVersion: "0.1.0", nodes: [{ logicalId: "orchestrator", status: "launched" }, { logicalId: "worker", status: "failed" }] }),
+        json: async () => ({ softwareTeamId: "software-team-1", specName: "imported-software-team", specVersion: "0.1.0", nodes: [{ logicalId: "orchestrator", status: "launched" }, { logicalId: "worker", status: "failed" }] }),
       });
     await renderImportFlow();
 
@@ -149,7 +149,7 @@ describe("ImportFlow", () => {
 
     await waitFor(() => {
       const result = screen.getByTestId("import-result");
-      expect(result.textContent).toContain("imported-rig");
+      expect(result.textContent).toContain("imported-software-team");
 
       const launchedEl = screen.getByTestId("inst-status-orchestrator");
       expect(launchedEl.className).toContain("text-success");
@@ -214,7 +214,7 @@ describe("ImportFlow", () => {
     fireEvent.click(screen.getByTestId("validate-btn"));
 
     await waitFor(() => {
-      const call = mockFetch.mock.calls.find((c: unknown[]) => c[0] === "/api/rigs/import/validate");
+      const call = mockFetch.mock.calls.find((c: unknown[]) => c[0] === "/api/software-teams/import/validate");
       expect(call).toBeDefined();
       const [, opts] = call as [string, RequestInit];
       expect(opts.headers).toMatchObject({ "Content-Type": "text/yaml" });
@@ -264,7 +264,7 @@ describe("ImportFlow", () => {
     mockFetch
       .mockResolvedValueOnce({ ok: true, json: async () => ({ valid: true, errors: [] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ ready: true, errors: [], warnings: [] }) })
-      .mockResolvedValueOnce({ ok: false, status: 409, json: async () => ({ ok: false, code: "preflight_failed", errors: ["rig name collision"], warnings: [] }) });
+      .mockResolvedValueOnce({ ok: false, status: 409, json: async () => ({ ok: false, code: "preflight_failed", errors: ["SoftwareTeam name collision"], warnings: [] }) });
     await renderImportFlow();
 
     fireEvent.change(screen.getByTestId("yaml-input"), { target: { value: VALID_YAML } });
@@ -275,7 +275,7 @@ describe("ImportFlow", () => {
     fireEvent.click(screen.getByTestId("instantiate-btn"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("import-errors").textContent).toContain("rig name collision");
+      expect(screen.getByTestId("import-errors").textContent).toContain("SoftwareTeam name collision");
     });
     expect(screen.queryByTestId("import-result")).toBeNull();
   });
@@ -284,7 +284,7 @@ describe("ImportFlow", () => {
   it("preflight errors block instantiate", async () => {
     mockFetch
       .mockResolvedValueOnce({ ok: true, json: async () => ({ valid: true, errors: [] }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ ready: false, errors: ["rig name exists"], warnings: [] }) });
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ready: false, errors: ["SoftwareTeam name exists"], warnings: [] }) });
     await renderImportFlow();
 
     fireEvent.change(screen.getByTestId("yaml-input"), { target: { value: VALID_YAML } });
@@ -293,7 +293,7 @@ describe("ImportFlow", () => {
     fireEvent.click(screen.getByTestId("preflight-btn"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("import-errors").textContent).toContain("rig name exists");
+      expect(screen.getByTestId("import-errors").textContent).toContain("SoftwareTeam name exists");
     });
     expect(screen.queryByTestId("instantiate-btn")).toBeNull();
   });
@@ -302,7 +302,7 @@ describe("ImportFlow", () => {
   it("preflight with both warnings and errors shows warnings above errors", async () => {
     mockFetch
       .mockResolvedValueOnce({ ok: true, json: async () => ({ valid: true, errors: [] }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ ready: false, errors: ["rig name exists"], warnings: ["cmux unavailable"] }) });
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ready: false, errors: ["SoftwareTeam name exists"], warnings: ["cmux unavailable"] }) });
     await renderImportFlow();
 
     fireEvent.change(screen.getByTestId("yaml-input"), { target: { value: VALID_YAML } });
@@ -313,18 +313,18 @@ describe("ImportFlow", () => {
     await waitFor(() => {
       // Errors should be shown
       const errEl = screen.getByTestId("import-errors");
-      expect(errEl.textContent).toContain("rig name exists");
+      expect(errEl.textContent).toContain("SoftwareTeam name exists");
       // Warnings should also be shown (above errors)
       const warnEl = screen.getByTestId("error-warnings");
       expect(warnEl.textContent).toContain("cmux unavailable");
     });
   });
 
-  // T1-AS-T14: Step indicator shows "VALIDATE RIGSPEC" label
-  it("step indicator shows VALIDATE RIGSPEC label", async () => {
+  // T1-AS-T14: Step indicator shows "VALIDATE SOFTWARE_TEAM_SPEC" label
+  it("step indicator shows VALIDATE SOFTWARE_TEAM_SPEC label", async () => {
     await renderImportFlow();
     const step1 = screen.getByTestId("step-1");
-    expect(step1.textContent).toContain("VALIDATE RIGSPEC");
+    expect(step1.textContent).toContain("VALIDATE SOFTWARE_TEAM_SPEC");
   });
 
   // T2-AS-T14: Validation errors render as structured list
@@ -375,7 +375,7 @@ describe("ImportFlow", () => {
   it("preflight collision/ambiguity warnings rendered", async () => {
     mockFetch
       .mockResolvedValueOnce({ ok: true, json: async () => ({ valid: true, errors: [] }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ ready: true, errors: [], warnings: ["rig name collision detected", "ambiguous node ref"] }) });
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ready: true, errors: [], warnings: ["SoftwareTeam name collision detected", "ambiguous node ref"] }) });
     await renderImportFlow();
 
     fireEvent.change(screen.getByTestId("yaml-input"), { target: { value: VALID_YAML } });
@@ -385,7 +385,7 @@ describe("ImportFlow", () => {
 
     await waitFor(() => {
       const warningsEl = screen.getByTestId("preflight-warnings");
-      expect(warningsEl.textContent).toContain("rig name collision detected");
+      expect(warningsEl.textContent).toContain("SoftwareTeam name collision detected");
       expect(warningsEl.textContent).toContain("ambiguous node ref");
     });
   });
@@ -397,7 +397,7 @@ describe("ImportFlow", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ ready: true, errors: [], warnings: [] }) })
       .mockResolvedValueOnce({
         ok: true, status: 201,
-        json: async () => ({ rigId: "rig-2", specName: "test", specVersion: "0.1.0", nodes: [{ logicalId: "a", status: "launched" }] }),
+        json: async () => ({ softwareTeamId: "software-team-2", specName: "test", specVersion: "0.1.0", nodes: [{ logicalId: "a", status: "launched" }] }),
       });
     await renderImportFlow();
 
@@ -421,7 +421,7 @@ describe("ImportFlow", () => {
     mockFetch
       .mockResolvedValueOnce({ ok: true, json: async () => ({ valid: true, errors: [] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ ready: true, errors: [], warnings: [] }) })
-      .mockResolvedValueOnce({ ok: false, status: 400, json: async () => ({ ok: false, code: "cycle_error", errors: ["Cycle detected in rig topology"], warnings: [] }) });
+      .mockResolvedValueOnce({ ok: false, status: 400, json: async () => ({ ok: false, code: "cycle_error", errors: ["Cycle detected in SoftwareTeam topology"], warnings: [] }) });
     await renderImportFlow();
 
     fireEvent.change(screen.getByTestId("yaml-input"), { target: { value: VALID_YAML } });

@@ -83,7 +83,7 @@ describe("ControlReplies", () => {
 });
 
 /** The line the exec writes to ask whether only control sessions are left on the server. */
-const ALONE_CHECK = "'list-sessions' '-F' '#{@openrig-control}'";
+const ALONE_CHECK = "'list-sessions' '-F' '#{@softwareteam-control}'";
 
 /** A control client that records the command lines written to it and answers only when told to. It attaches at once
  *  unless told to wait. The checks for control sessions alone are answered from `checks` in turn (by default, one
@@ -120,7 +120,7 @@ function fakeClient(options: { attach?: boolean; checks?: string[][] } = {}) {
 
 /** The tag a listing's own rows were marked with: the line is `before`, the owner d4e5's mark, then `after`. */
 function tagOf(line: string, before: string, after: string): string {
-  const own = "#{?#{==:#{@openrig-control},d4e5},";
+  const own = "#{?#{==:#{@softwareteam-control},d4e5},";
   expect(line.startsWith(`${before}${own}`) && line.endsWith(`,}${after}`), line).toBe(true);
   const tag = line.slice(before.length + own.length, line.length - after.length - 2);
   expect(tag).toMatch(/^[0-9a-f]{16}:$/);
@@ -153,9 +153,9 @@ describe("tmuxControlExec", () => {
     let clock = 0;
     const exec = tmuxControlExec(fallback, { spawnClient: () => clients[started++]!.child, replyTimeoutMs: 50, now: () => clock });
 
-    const stuckRead = exec(["tmux", "capture-pane", "-p", "-J", "-t", "=seat@rig:", "-S", "-", "-E", "-"]);
+    const stuckRead = exec(["tmux", "capture-pane", "-p", "-J", "-t", "=seat@software-team:", "-S", "-", "-E", "-"]);
     await vi.waitFor(() => expect(clients[0]!.written).toHaveLength(1));
-    const writeError = exec(["tmux", "send-keys", "-t", "=seat@rig:", "Enter"]).then(() => null, (err: Error) => err.message);
+    const writeError = exec(["tmux", "send-keys", "-t", "=seat@software-team:", "Enter"]).then(() => null, (err: Error) => err.message);
     await vi.waitFor(() => expect(clients[0]!.written).toHaveLength(2), { interval: 5 });
     clock += 50; // the read at the head of the line is now overdue
 
@@ -167,7 +167,7 @@ describe("tmuxControlExec", () => {
     expect(spawned.map((argv) => argv[1])).toEqual(["capture-pane"]);
 
     // The clock stands still: the new client's reply is never overdue, however late it comes.
-    const read = exec(["tmux", "display-message", "-p", "-t", "=seat@rig:", "x"]);
+    const read = exec(["tmux", "display-message", "-p", "-t", "=seat@software-team:", "x"]);
     await vi.waitFor(() => expect(clients[1]!.written).toHaveLength(1));
     clients[1]!.answer("x");
     expect(await read).toBe("x\n");
@@ -181,11 +181,11 @@ describe("tmuxControlExec", () => {
     const exec = tmuxControlExec(fallback, { spawnClient: () => client.child, replyTimeoutMs: 1000 });
 
     // The control session is killed while the write waits for its reply: the seat is still there.
-    const first = exec(["tmux", "send-keys", "-t", "=seat@rig:", "-l", "hello"]).then(() => null, (err: Error) => err.message);
+    const first = exec(["tmux", "send-keys", "-t", "=seat@software-team:", "-l", "hello"]).then(() => null, (err: Error) => err.message);
     await vi.waitFor(() => expect(client.written).toHaveLength(1), { interval: 5 });
     client.exit();
     expect(await first).toBe("tmux control client ended: exited (SIGTERM)");
-    expect(spawned).toEqual([["tmux", "display-message", "-p", "-t", "=seat@rig:", ""]]);
+    expect(spawned).toEqual([["tmux", "display-message", "-p", "-t", "=seat@software-team:", ""]]);
     await exec.close();
   });
 
@@ -196,12 +196,12 @@ describe("tmuxControlExec", () => {
     const { spawned, fallback } = fakeSpawned(() => { throw gone; });
     const exec = tmuxControlExec(fallback, { spawnClient: () => client.child, replyTimeoutMs: 1000 });
     // Connected first, then the server goes while a write waits.
-    const read = exec(["tmux", "has-session", "-t", "=seat@rig"]);
+    const read = exec(["tmux", "has-session", "-t", "=seat@software-team"]);
     await vi.waitFor(() => expect(client.written).toHaveLength(1), { interval: 5 });
     client.answer();
     await read;
     const adapter = new TmuxAdapter(async () => "", undefined, exec);
-    const sent = adapter.sendKeys("=seat@rig:", ["Enter"]);
+    const sent = adapter.sendKeys("=seat@software-team:", ["Enter"]);
     await vi.waitFor(() => expect(client.written).toHaveLength(2), { interval: 5 });
     client.exit();
     expect(await sent).toMatchObject({ ok: false, code: "session_not_found" });
@@ -220,10 +220,10 @@ describe("tmuxControlExec", () => {
         spawned.push(argv);
         return argv[1] === "list-sessions" ? server() : "";
       }, { spawnClient: () => { throw new Error("no client expected"); }, now: () => clock });
-      await exec(["tmux", "has-session", "-t", "=seat@rig"]);
-      await exec(["tmux", "has-session", "-t", "=seat@rig"]);
+      await exec(["tmux", "has-session", "-t", "=seat@software-team"]);
+      await exec(["tmux", "has-session", "-t", "=seat@software-team"]);
       clock = 1_000;
-      await exec(["tmux", "has-session", "-t", "=seat@rig"]);
+      await exec(["tmux", "has-session", "-t", "=seat@software-team"]);
       expect(spawned.map((argv) => argv[1])).toEqual(["list-sessions", "has-session", "has-session", "list-sessions", "has-session"]);
       await exec.close();
     }
@@ -234,7 +234,7 @@ describe("tmuxControlExec", () => {
     const { spawned, fallback } = fakeSpawned();
     const exec = tmuxControlExec(fallback, { spawnClient: () => client.child, replyTimeoutMs: 200 });
 
-    const reads = [1, 2, 3].map((n) => exec(["tmux", "display-message", "-p", "-t", "=seat@rig:", `r${n}`]));
+    const reads = [1, 2, 3].map((n) => exec(["tmux", "display-message", "-p", "-t", "=seat@software-team:", `r${n}`]));
     await vi.waitFor(() => expect(client.written).toHaveLength(3), { interval: 5 });
     // 360 ms in all, each reply within 120 ms of the one before.
     for (const n of [1, 2, 3]) {
@@ -252,7 +252,7 @@ describe("tmuxControlExec", () => {
     const { spawned, fallback } = fakeSpawned();
     const exec = tmuxControlExec(fallback, { spawnClient: () => client.child, replyTimeoutMs: 50 });
 
-    const chain = exec(["tmux", "paste-buffer", "-b", "b1", "-t", "=seat@rig:", ";", "delete-buffer", "-b", "b1"]);
+    const chain = exec(["tmux", "paste-buffer", "-b", "b1", "-t", "=seat@software-team:", ";", "delete-buffer", "-b", "b1"]);
     await vi.waitFor(() => expect(client.written).toHaveLength(1));
     // The client ends as soon as its reply to the first command is read, before the chain goes on.
     client.child.stdout.once("data", client.exit);
@@ -301,12 +301,12 @@ describe("tmuxControlExec", () => {
     const { spawned, fallback } = fakeSpawned();
     const exec = tmuxControlExec(fallback, { spawnClient: () => client.child, replyTimeoutMs: 50 });
 
-    const read = exec(["tmux", "display-message", "-p", "-t", "=seat@rig:", "x"]);
+    const read = exec(["tmux", "display-message", "-p", "-t", "=seat@software-team:", "x"]);
     await vi.waitFor(() => expect(client.written).toHaveLength(1));
     client.answer("x");
     await read;
     await exec(["tmux", "load-buffer", "-b", "b1", "/tmp/fifo"]);
-    await exec(["tmux", "load-buffer", "-b", "b1", "/tmp/fifo", ";", "paste-buffer", "-b", "b1", "-t", "=seat@rig:"]);
+    await exec(["tmux", "load-buffer", "-b", "b1", "/tmp/fifo", ";", "paste-buffer", "-b", "b1", "-t", "=seat@software-team:"]);
     expect(spawned.map((argv) => argv[1])).toEqual(["load-buffer", "load-buffer"]);
     expect(client.written).toHaveLength(1);
     await exec.close();
@@ -321,20 +321,20 @@ describe("tmuxControlExec", () => {
       spawnClient: (a) => { args.push(a); return clients[args.length - 1]!.child; }, owner: "d4e5", now: () => clock, replyTimeoutMs: 1000,
     });
     expect(exec.owner).toBe("d4e5");
-    const first = exec(["tmux", "has-session", "-t", "=seat@rig"]);
+    const first = exec(["tmux", "has-session", "-t", "=seat@software-team"]);
     await vi.waitFor(() => expect(args).toHaveLength(1));
-    expect(args[0]).toEqual(["-C", "new-session", "-s", "openrig-control-d4e5", "-x", "80", "-y", "24", "-f", "no-output,ignore-size",
+    expect(args[0]).toEqual(["-C", "new-session", "-s", "softwareteam-control-d4e5", "-x", "80", "-y", "24", "-f", "no-output,ignore-size",
       "--", "sh", "-c", "while :; do sleep 86400; done",
-      ";", "set-option", "@openrig-control", "d4e5", ";", "set-option", "destroy-unattached", "on", ";", "set-option", "detach-on-destroy", "on"]);
+      ";", "set-option", "@softwareteam-control", "d4e5", ";", "set-option", "destroy-unattached", "on", ";", "set-option", "detach-on-destroy", "on"]);
     // Its name is taken (a session of someone else's, or one left by a daemon with the same id): tmux makes nothing,
     // and nothing is adopted. The command is spawned, and a client tried again only later.
-    clients[0]!.child.stdout.write("%begin 1 1 0\nduplicate session: openrig-control-d4e5\n%error 1 1 0\n");
+    clients[0]!.child.stdout.write("%begin 1 1 0\nduplicate session: softwareteam-control-d4e5\n%error 1 1 0\n");
     expect(await first).toBe("spawned\n");
     expect(clients[0]!.kill).toHaveBeenCalled();
-    expect(await exec(["tmux", "has-session", "-t", "=seat@rig"])).toBe("spawned\n");
+    expect(await exec(["tmux", "has-session", "-t", "=seat@software-team"])).toBe("spawned\n");
     expect(args).toHaveLength(1);
     clock = 1_000;
-    const read = exec(["tmux", "has-session", "-t", "=seat@rig"]);
+    const read = exec(["tmux", "has-session", "-t", "=seat@software-team"]);
     await vi.waitFor(() => expect(clients[1]!.written).toHaveLength(1));
     clients[1]!.answer();
     expect(await read).toBe("");
@@ -348,14 +348,14 @@ describe("tmuxControlExec", () => {
     const { spawned, fallback } = fakeSpawned(() => "spawned\n");
     let started = 0;
     const exec = tmuxControlExec(fallback, { spawnClient: () => { started++; return client.child; }, replyTimeoutMs: 1000 });
-    const read = exec(["tmux", "has-session", "-t", "=seat@rig"]);
+    const read = exec(["tmux", "has-session", "-t", "=seat@software-team"]);
     await vi.waitFor(() => expect(started).toBe(1));
     const closing = exec.close();
     client.attach();
     await closing;
     expect(client.kill).toHaveBeenCalled();
     expect(await read).toBe("spawned\n");
-    expect(await exec(["tmux", "has-session", "-t", "=seat@rig"])).toBe("spawned\n");
+    expect(await exec(["tmux", "has-session", "-t", "=seat@software-team"])).toBe("spawned\n");
     expect(spawned).toHaveLength(2);
     expect(started).toBe(1);
     expect(client.written).toEqual([]);
@@ -481,14 +481,14 @@ describe("tmuxControlExec", () => {
 
   it("leaves out of a listing only the rows of its own session and client, from the first listing on", async () => {
     const client = fakeClient();
-    const { spawned, fallback } = fakeSpawned((argv) => argv[1] === "list-sessions" ? "seat@rig\nopenrig-control-other\n" : "");
+    const { spawned, fallback } = fakeSpawned((argv) => argv[1] === "list-sessions" ? "seat@software-team\nsoftwareteam-control-other\n" : "");
     const exec = tmuxControlExec(fallback, { spawnClient: () => client.child, owner: "d4e5", replyTimeoutMs: 1000 });
     // The first call is a listing, and its client is made for it: the session it makes is left out already.
     const listing = exec(["tmux", "list-sessions", "-F", "#{session_name}"]);
     await vi.waitFor(() => expect(client.written).toHaveLength(1));
     const tag = tagOf(client.written[0]!, "'list-sessions' '-F' '", "#{session_name}'");
-    client.answer(`${tag}openrig-control-d4e5`, "seat@rig", "openrig-control", "openrig-control-d4e5:", "openrig-control-other");
-    expect(await listing).toBe("seat@rig\nopenrig-control\nopenrig-control-d4e5:\nopenrig-control-other\n");
+    client.answer(`${tag}softwareteam-control-d4e5`, "seat@software-team", "softwareteam-control", "softwareteam-control-d4e5:", "softwareteam-control-other");
+    expect(await listing).toBe("seat@software-team\nsoftwareteam-control\nsoftwareteam-control-d4e5:\nsoftwareteam-control-other\n");
     // A listing spawned (no -a: it would read the control client's own session) is marked as well, with a tag of its own.
     expect(await exec(["tmux", "list-windows", "-F", "#{window_index}"])).toBe("");
     expect(tagOf(spawned[0]!.join(" "), "tmux list-windows -F ", "#{window_index}")).not.toBe(tag);
@@ -499,15 +499,15 @@ describe("tmuxControlExec", () => {
     const client = fakeClient();
     const { fallback } = fakeSpawned();
     const exec = tmuxControlExec(fallback, { spawnClient: () => client.child, owner: "d4e5", replyTimeoutMs: 1000 });
-    const chain = exec(["tmux", "list-sessions", "-F", "openrig-control-d4e5:#{session_name}", ";", "display-message", "-p", "-t", "=seat@rig:", "x"]);
+    const chain = exec(["tmux", "list-sessions", "-F", "softwareteam-control-d4e5:#{session_name}", ";", "display-message", "-p", "-t", "=seat@software-team:", "x"]);
     await vi.waitFor(() => expect(client.written).toHaveLength(1));
-    const tag = tagOf(client.written[0]!, "'list-sessions' '-F' '", "openrig-control-d4e5:#{session_name}'");
-    client.answer(`${tag}openrig-control-d4e5:openrig-control-d4e5`, "openrig-control-d4e5:seat@rig");
+    const tag = tagOf(client.written[0]!, "'list-sessions' '-F' '", "softwareteam-control-d4e5:#{session_name}'");
+    client.answer(`${tag}softwareteam-control-d4e5:softwareteam-control-d4e5`, "softwareteam-control-d4e5:seat@software-team");
     await vi.waitFor(() => expect(client.written).toHaveLength(2));
-    expect(client.written[1]).toBe("'display-message' '-p' '-t' '=seat@rig:' 'x'");
+    expect(client.written[1]).toBe("'display-message' '-p' '-t' '=seat@software-team:' 'x'");
     // Even a line that starts with the listing's tag is another command's output, and kept.
-    client.answer(`${tag}openrig-control-d4e5:x`, "openrig-control-d4e5:y");
-    expect(await chain).toBe(`openrig-control-d4e5:seat@rig\n${tag}openrig-control-d4e5:x\nopenrig-control-d4e5:y\n`);
+    client.answer(`${tag}softwareteam-control-d4e5:x`, "softwareteam-control-d4e5:y");
+    expect(await chain).toBe(`softwareteam-control-d4e5:seat@software-team\n${tag}softwareteam-control-d4e5:x\nsoftwareteam-control-d4e5:y\n`);
     await exec.close();
   });
 });
@@ -548,7 +548,7 @@ describe("control-mode rules", () => {
   });
 
   it("marks its own rows in each listing's format, on its owner's mark, and drops only those rows", () => {
-    const own = "#{?#{==:#{@openrig-control},d4e5},t1:,}";
+    const own = "#{?#{==:#{@softwareteam-control},d4e5},t1:,}";
     expect(markOwnRows(["list-sessions", "-F", "#{session_name}"], "d4e5", "t1:")).toEqual(["list-sessions", "-F", `${own}#{session_name}`]);
     expect(markOwnRows(["list-panes", "-a", "-F", "x"], "d4e5", "t1:")).toEqual(["list-panes", "-a", "-F", `${own}x`]);
     expect(markOwnRows(["list-clients", "-F", "x", ";", "list-windows", "-a", "-F", "y"], "d4e5", "t1:"))
@@ -556,7 +556,7 @@ describe("control-mode rules", () => {
     expect(markOwnRows(["display-message", "-p", "-F", "x"], "d4e5", "t1:")).toEqual(["display-message", "-p", "-F", "x"]);
     expect(markOwnRows(["capture-pane", "-p", "-t", "=s:;", "list-sessions"], "d4e5", "t1:")).toEqual(["capture-pane", "-p", "-t", "=s:;", "list-sessions"]);
     expect(withoutOwnRows("t1:a\nb\nt1:c\n", "t1:")).toBe("b\n");
-    expect(withoutOwnRows("openrig-control-d4e5:a\nt2:b\n", "t1:")).toBe("openrig-control-d4e5:a\nt2:b\n");
+    expect(withoutOwnRows("softwareteam-control-d4e5:a\nt2:b\n", "t1:")).toBe("softwareteam-control-d4e5:a\nt2:b\n");
     expect(ownRowTag()).toMatch(/^[0-9a-f]{16}:$/);
     expect(ownRowTag()).not.toBe(ownRowTag());
   });

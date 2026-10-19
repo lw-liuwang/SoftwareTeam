@@ -1,9 +1,9 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { withHostParam } from "../lib/host-param.js";
 import { useSelectedHostId } from "./useHosts.js";
-import type { RigSpecReview, AgentSpecReview } from "./useSpecReview.js";
+import type { SoftwareTeamSpecReview, AgentSpecReview } from "./useSpecReview.js";
 
-export type SpecLibraryKind = "rig" | "agent" | "workflow";
+export type SpecLibraryKind = "softwareTeam" | "agent" | "workflow";
 
 export interface SpecLibraryEntry {
   id: string;
@@ -21,7 +21,7 @@ export interface SpecLibraryEntry {
   rolesCount?: number;
   stepsCount?: number;
   terminalTurnRule?: string;
-  targetRig?: string | null;
+  targetSoftwareTeam?: string | null;
   // Slice 11 (workflow-spec-folder-discovery) — diagnostic state for
   // workflow rows surfaced by the operator's specs/workflows folder.
   status?: "valid" | "error";
@@ -34,7 +34,7 @@ export interface LibraryReview {
   sourceState: "library_item";
 }
 
-export type LibraryRigReview = RigSpecReview & LibraryReview;
+export type LibrarySoftwareTeamReview = SoftwareTeamSpecReview & LibraryReview;
 export type LibraryAgentReview = AgentSpecReview & LibraryReview;
 
 // Workflows in Spec Library v0 — workflow review payload shape.
@@ -44,7 +44,7 @@ export interface LibraryWorkflowReview {
   name: string;
   version: string;
   purpose: string | null;
-  targetRig: string | null;
+  targetSoftwareTeam: string | null;
   terminalTurnRule: string;
   rolesCount: number;
   stepsCount: number;
@@ -96,7 +96,7 @@ async function fetchLibraryEntries(kind: SpecLibraryKind | undefined, hostId: st
   return res.json();
 }
 
-async function fetchLibraryReview(id: string, hostId: string): Promise<LibraryRigReview | LibraryAgentReview | LibraryWorkflowReview> {
+async function fetchLibraryReview(id: string, hostId: string): Promise<LibrarySoftwareTeamReview | LibraryAgentReview | LibraryWorkflowReview> {
   const res = await fetch(withHostParam(`/api/specs/library/${encodeURIComponent(id)}/review`, hostId));
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

@@ -13,7 +13,7 @@ export interface OutboundUrlValidationResult {
  *
  * URLs with embedded credentials (e.g. https://user:pass@host) are permitted;
  * adapters strip credentials from the URL and transmit them via Authorization headers.
- * Self-hosted notifiers on localhost or the local network are standard OpenRig
+ * Self-hosted notifiers on localhost or the local network are standard SoftwareTeam
  * configurations and are explicitly permitted without restriction.
  */
 export function validateOutboundUrl(rawUrl: string): OutboundUrlValidationResult {

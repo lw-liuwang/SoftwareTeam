@@ -1,23 +1,23 @@
-# Naming rigs, pods and seats
+# Naming SoftwareTeams, pods and seats
 
 Names tell people and agents what a team does and who does each part. Use the
-team's purpose for the rig, a domain for each pod, and a role for each seat.
+team's purpose for the SoftwareTeam, a domain for each pod, and a role for each seat.
 These are authoring conventions, not additional parser restrictions.
 
 ## What each name means
 
 | Level | Meaning | Example |
 | --- | --- | --- |
-| Fleet | A group of OpenRig instances | Your development fleet |
-| Instance | One daemon and its rigs; several instances can share a machine | The instance selected by a registered host route |
-| Rig | A team or project purpose | `starter`, `workshop`, `factory`, or your project's name |
+| Fleet | A group of SoftwareTeam instances | Your development fleet |
+| Instance | One daemon and its SoftwareTeams; several instances can share a machine | The instance selected by a registered host route |
+| SoftwareTeam | A team or project purpose | `starter`, `workshop`, `factory`, or your project's name |
 | Pod | A domain or shared context | `orch`, `dev`, `review`, `research`, `sre` |
 | Seat (member) | A role within that pod | `lead`, `advisor`, `build`, `qa`, `design`, `review` |
 
 The logical seat ID is `pod.member`: `dev.build`. Its session address is
-`pod-member@rig`: `dev-build@workshop`. A cross-instance command also selects the
+`pod-member@software-team`: `dev-build@workshop`. A cross-instance command also selects the
 registered host route; a display label is not a route. Discover actual addresses
-with `rig ps --nodes` and host routes with `rig host list` before sending work.
+with `SoftwareTeam ps --nodes` and host routes with `SoftwareTeam host list` before sending work.
 
 Runtime, model and account belong in configuration. Changing a provider does not
 change the role's name. Keep machine and instance identifiers stable rather than
@@ -33,7 +33,7 @@ renaming them whenever their workload changes.
 
 Starter and Factory are built-in teams. Workshop is a
 [bundle](https://github.com/mvschwarz/openrig-world/tree/main/rigs/workshop).
-The built-in specs live under `packages/daemon/specs/rigs/launch/` in the product
+The built-in specs live under `packages/daemon/specs/SoftwareTeams/launch/` in the product
 source. Runtime presets keep these logical names.
 
 Workshop's one code reviewer is `dev.review`; Factory has an independent review
@@ -45,16 +45,16 @@ need every pod or role from a larger one.
 Start with the outcome, then group its work by domain. For a team studying a
 dataset, `research.analyst` and `research.synthesizer` describe useful roles.
 For operating a service, `sre.admin` describes the domain and responsibility.
-Use a project-specific rig name when that helps distinguish two teams.
+Use a project-specific SoftwareTeam name when that helps distinguish two teams.
 
 Avoid a generic operation such as `check` as the pod name: it does not say whether
 the team owns software quality, research validation or service health. Put the
 role in its domain, such as `dev.qa`. This is a rule for choosing new names, not a
 word blacklist or a demand that all teams share one roster.
 
-Use the same IDs in the rig spec, edges, workflow targets, configuration presets,
+Use the same IDs in the SoftwareTeam spec, edges, workflow targets, configuration presets,
 startup instructions and terminal views. Validate those references together.
-See [RigSpec](rig-spec.md) and [publishing a bundle](publishing-a-rig-bundle.md).
+See [SoftwareTeamSpec](software-team-spec.md) and [publishing a bundle](publishing-a-software-team-bundle.md).
 
 ## Existing identities and retained references
 

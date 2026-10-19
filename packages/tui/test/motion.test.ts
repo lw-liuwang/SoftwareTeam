@@ -11,7 +11,7 @@ import { demoSnapshot } from "../src/demo-data.js";
 
 describe("motion primitives", () => {
   it("reducedMotion honors the env kill-switch", () => {
-    expect(reducedMotion({ OPENRIG_REDUCED_MOTION: "1" })).toBe(true);
+    expect(reducedMotion({ SOFTWARETEAM_REDUCED_MOTION: "1" })).toBe(true);
     expect(reducedMotion({ REDUCED_MOTION: "1" })).toBe(true);
     expect(reducedMotion({})).toBe(false);
   });
@@ -55,18 +55,18 @@ describe("motion wiring + region discipline", () => {
 
   it("the detail context line shows a quiet DETERMINATE bar for the real ctx fraction (and none when unknown)", () => {
     const s = createViewState({ instanceId: "m2", getSnapshot: () => snap });
-    s.dispatch({ type: "drill", resource: "agent", name: "dev50.driver", target: { host: "vm-host", rig: "openrig-build", pod: "dev50" } });
+    s.dispatch({ type: "drill", resource: "agent", name: "dev50.driver", target: { host: "vm-host", softwareTeam: "softwareteam-build", pod: "dev50" } });
     const body = renderScreen(s.get(), snap, { cols: 150, rows: 40 }).lines.join("\n");
     expect(body).toMatch(/62% used[^\n]*[█░]{10}/); // driver ctx 62 → a real 10-cell bar
     const s2 = createViewState({ instanceId: "m3", getSnapshot: () => snap });
-    s2.dispatch({ type: "drill", resource: "agent", name: "dev50.qa", target: { host: "vm-host", rig: "openrig-build", pod: "dev50" } });
+    s2.dispatch({ type: "drill", resource: "agent", name: "dev50.qa", target: { host: "vm-host", softwareTeam: "softwareteam-build", pod: "dev50" } });
     const body2 = renderScreen(s2.get(), snap, { cols: 150, rows: 40 }).lines.join("\n");
     expect(body2).not.toMatch(/— \(not yet known\)[^\n]*█/); // no fabricated bar
   });
 
   it("typing keeps command focus steady without terminal-dependent blink", () => {
     const s = createViewState({ instanceId: "m4", getSnapshot: () => snap });
-    const screen = renderScreen(s.get(), snap, { cols: 140, rows: 34 }, "rig x");
+    const screen = renderScreen(s.get(), snap, { cols: 140, rows: 34 }, "SoftwareTeam x");
     const styled = stylizeLines(screen, createStyle("truecolor"));
     expect((styled[0]!.match(/\[[0-9;]*5;[0-9;]*m|\[5m/g) ?? []).length).toBe(0);
     expect(screen.commandMotionActive).toBe(false);
@@ -79,7 +79,7 @@ describe("motion rides the LOAD LIFECYCLE — guard round-5 finding 1 (spinner =
   function graphTabStore(base = snap) {
     const noGraph = structuredClone(base);
     const s = createViewState({ instanceId: "sp", getSnapshot: () => noGraph });
-    s.dispatch({ type: "drill", resource: "rig", name: "openrig-build", target: { host: "vm-host" } });
+    s.dispatch({ type: "drill", resource: "softwareTeam", name: "softwareteam-build", target: { host: "vm-host" } });
     s.dispatch({ type: "tab", tab: "graph" });
     return { s, noGraph };
   }
@@ -107,7 +107,7 @@ describe("motion rides the LOAD LIFECYCLE — guard round-5 finding 1 (spinner =
 
   it("SETTLED NAMED read failure does not spin: the graph line reports the failure statically", () => {
     const { s, noGraph } = graphTabStore();
-    noGraph.readErrors.push("graph(openrig-build): fetch failed");
+    noGraph.readErrors.push("graph(softwareteam-build): fetch failed");
     const screen = renderScreen(s.get(), noGraph, { cols: 140, rows: 34, nowMs: 0, colorMode: "truecolor" });
     const line = screen.lines.find((l) => l.includes("topology graph"))!;
     expect(line).toMatch(/✕ topology graph read failed/);
@@ -150,13 +150,13 @@ describe("motion rides the LOAD LIFECYCLE — guard round-5 finding 1 (spinner =
     const { s, noGraph } = graphTabStore();
     const line16 = renderScreen(s.get(), noGraph, { cols: 140, rows: 34, nowMs: 0, colorMode: "16", load: LOADING }).lines.find((l) => l.includes("read pending"))!;
     expect(line16).toMatch(/[|/\-\\] topology read pending/);
-    process.env["OPENRIG_REDUCED_MOTION"] = "1";
+    process.env["SOFTWARETEAM_REDUCED_MOTION"] = "1";
     try {
       const reduced = renderScreen(s.get(), noGraph, { cols: 140, rows: 34, nowMs: 0, colorMode: "truecolor", load: LOADING });
       expect(reduced.lines.find((l) => l.includes("read pending"))!).toMatch(/· topology read pending/);
       expect(reduced.motionActive).toBeFalsy();
     } finally {
-      delete process.env["OPENRIG_REDUCED_MOTION"];
+      delete process.env["SOFTWARETEAM_REDUCED_MOTION"];
     }
   });
 
@@ -173,13 +173,13 @@ describe("motion rides the LOAD LIFECYCLE — guard round-5 finding 1 (spinner =
 
 describe("fresh pane-output ROW FLASH — guard round-5 finding 2 (exact agent row, never the ambient stream footer)", () => {
   const snap = demoSnapshot();
-  const DRIVER_KEY = "agent:vm-host/openrig-build/dev50/dev50.driver";
+  const DRIVER_KEY = "agent:vm-host/softwareteam-build/dev50/dev50.driver";
   // inverse = a STANDALONE SGR param 7 (never the 7 inside e.g. 77;189;178)
   const INVERSE = /\x1b\[(?:[0-9;]+;)?7(?:;[0-9;]+)?m/;
   function agentRowsStore() {
     const s = createViewState({ instanceId: "fl", getSnapshot: () => snap });
     // drilling the pod auto-expands it — agent rows become visible explorer rows
-    s.dispatch({ type: "drill", resource: "pod", name: "dev50", target: { host: "vm-host", rig: "openrig-build" } });
+    s.dispatch({ type: "drill", resource: "pod", name: "dev50", target: { host: "vm-host", softwareTeam: "softwareteam-build" } });
     return s;
   }
 
@@ -214,7 +214,7 @@ describe("fresh pane-output ROW FLASH — guard round-5 finding 2 (exact agent r
   it("reduced motion keeps a STABLE static fresh-output acknowledgement — plain-layer glyph, no SGR flash, no geometry drift (guard round-6 finding 2)", () => {
     const s = agentRowsStore();
     const base = renderScreen(s.get(), snap, { cols: 140, rows: 34, nowMs: 1300 }); // same frame, no event
-    process.env["OPENRIG_REDUCED_MOTION"] = "1";
+    process.env["SOFTWARETEAM_REDUCED_MOTION"] = "1";
     try {
       const reduced = renderScreen(s.get(), snap, { cols: 140, rows: 34, nowMs: 1300, rowFlashes: [{ key: DRIVER_KEY, at: 1000 }] });
       expect(reduced.flashRows ?? []).toHaveLength(0); // no SGR animation under reduced motion…
@@ -231,7 +231,7 @@ describe("fresh pane-output ROW FLASH — guard round-5 finding 2 (exact agent r
       expect(after.lines[y]!.startsWith("≈")).toBe(false);
       expect(after.motionActive).toBeFalsy();
     } finally {
-      delete process.env["OPENRIG_REDUCED_MOTION"];
+      delete process.env["SOFTWARETEAM_REDUCED_MOTION"];
     }
   });
 
@@ -240,7 +240,7 @@ describe("fresh pane-output ROW FLASH — guard round-5 finding 2 (exact agent r
     const idx = computeExplorerRows(s.get(), snap).findIndex((r) => r.key === DRIVER_KEY);
     expect(idx).toBeGreaterThan(0);
     s.dispatch({ type: "select", index: idx, rowCount: computeExplorerRows(s.get(), snap).length });
-    process.env["OPENRIG_REDUCED_MOTION"] = "1";
+    process.env["SOFTWARETEAM_REDUCED_MOTION"] = "1";
     try {
       const base = renderScreen(s.get(), snap, { cols: 140, rows: 34, nowMs: 1300 });
       const ev = renderScreen(s.get(), snap, { cols: 140, rows: 34, nowMs: 1300, rowFlashes: [{ key: DRIVER_KEY, at: 1000 }] });
@@ -255,11 +255,11 @@ describe("fresh pane-output ROW FLASH — guard round-5 finding 2 (exact agent r
       const after = renderScreen(s.get(), snap, { cols: 140, rows: 34, nowMs: 1700, rowFlashes: [{ key: DRIVER_KEY, at: 1000 }] });
       expect(after.lines[y]).toBe(base.lines[y]); // expiry returns EXACTLY to baseline
     } finally {
-      delete process.env["OPENRIG_REDUCED_MOTION"];
+      delete process.env["SOFTWARETEAM_REDUCED_MOTION"];
     }
   });
 
-  it("the ambient rig-stream footer ticker NEVER inverse-flashes (round-4 wiring rejected: wrong event source)", () => {
+  it("the ambient software-team-stream footer ticker NEVER inverse-flashes (round-4 wiring rejected: wrong event source)", () => {
     const s = createViewState({ instanceId: "ft", getSnapshot: () => snap }); // footer ticker is on by default
     const screen = renderScreen(s.get(), snap, { cols: 140, rows: 34, nowMs: 1300 });
     const styled = stylizeLines(screen, createStyle("truecolor"));

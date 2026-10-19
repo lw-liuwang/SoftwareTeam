@@ -1,4 +1,4 @@
-// Slice-03 rig-context v1 (OPR.0.5.0.3) — the addressing-contract hardening (§2 "the ONE thing
+// Slice-03 software-team-context v1 (OPR.0.5.0.3) — the addressing-contract hardening (§2 "the ONE thing
 // that must be right"). Salvaged from the frozen candidate (assertSafePackName @ 37972eb6,
 // isSafePackVersion @ b10c1618) with the mandated BEND: refs are PATH-LIKE MULTI-SEGMENT, so the
 // single-component name check becomes a PER-SEGMENT check over the same charset. This keeps every

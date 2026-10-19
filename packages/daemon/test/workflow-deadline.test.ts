@@ -53,7 +53,7 @@ function fakeInstance(overrides: Partial<WorkflowInstance> = {}): WorkflowInstan
     instanceId: "inst-1",
     workflowName: "wf",
     workflowVersion: "1",
-    createdBySession: "ops@rig",
+    createdBySession: "ops@software-team",
     createdAt: T0.toISOString(),
     status: "active",
     currentFrontier: ["q-1"],
@@ -71,8 +71,8 @@ function fakePacket(overrides: Partial<QueueItem> = {}): QueueItem {
     qitemId: "q-1",
     tsCreated: T0.toISOString(),
     tsUpdated: T0.toISOString(),
-    sourceSession: "ops@rig",
-    destinationSession: "owner@rig",
+    sourceSession: "ops@software-team",
+    destinationSession: "owner@software-team",
     state: "pending",
     priority: "routine",
     tier: "mode2",
@@ -118,7 +118,7 @@ describe("evaluateStepDeadline (FR-2 — the four-sub-state anchor classificatio
     const after = evaluateStepDeadline(inst, [packet], at(T0, 16 * 60 * 1000));
     expect(after.state).toBe("overdue-claimed");
     expect(after.evidence?.anchor).toBe("closure_required_at");
-    expect(after.evidence?.ownerSession).toBe("owner@rig");
+    expect(after.evidence?.ownerSession).toBe("owner@software-team");
     expect(after.evidence?.stepId).toBe("step-a");
     expect(after.evidence?.overdueBySeconds).toBe(60);
   });
@@ -206,10 +206,10 @@ const SPEC = `workflow:
   roles:
     worker:
       preferred_targets:
-        - worker@rig
+        - worker@software-team
     next:
       preferred_targets:
-        - next@rig
+        - next@software-team
   steps:
     - id: work
       actor_role: worker
@@ -246,8 +246,8 @@ describe("FR-2 named test: claimed → unclaimed → overdue (the arch third sta
       workflowSpecJsonSchema,
     ]);
     const bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
@@ -266,16 +266,16 @@ describe("FR-2 named test: claimed → unclaimed → overdue (the arch third sta
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "third-state walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
 
     // Claim, then unclaim — the unclaim NULLs claimed_at AND
     // closure_required_at (queue-repository :908-917), leaving the row
     // indistinguishable from never-claimed.
-    queueRepo.claim({ qitemId: inst.entryQitemId, destinationSession: "worker@rig" });
+    queueRepo.claim({ qitemId: inst.entryQitemId, destinationSession: "worker@software-team" });
     const claimed = queueRepo.getById(inst.entryQitemId)!;
     expect(claimed.state).toBe("in-progress");
-    queueRepo.unclaim(inst.entryQitemId, "worker@rig", "seat died mid-claim");
+    queueRepo.unclaim(inst.entryQitemId, "worker@software-team", "seat died mid-claim");
     const unclaimed = queueRepo.getById(inst.entryQitemId)!;
     expect(unclaimed.state).toBe("pending");
     expect(unclaimed.claimedAt).toBeNull();
@@ -301,7 +301,7 @@ describe("FR-2 named test: claimed → unclaimed → overdue (the arch third sta
       instanceId: instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "handoff",
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
     });
     const advanced = runtime.instanceStore.getByIdOrThrow(instance.instanceId);
     const nextPacket = queueRepo.getById(projected.nextQitemId!)!;
@@ -320,10 +320,10 @@ const CYCLIC_SPEC = `workflow:
   roles:
     ping:
       preferred_targets:
-        - ping@rig
+        - ping@software-team
     pong:
       preferred_targets:
-        - pong@rig
+        - pong@software-team
   steps:
     - id: ping-step
       actor_role: ping
@@ -365,8 +365,8 @@ describe("FR-6: loop_guards.max_hops enforced at projection (G4 — migration 03
       workflowSpecJsonSchema,
     ]);
     const bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
@@ -395,12 +395,12 @@ describe("FR-6: loop_guards.max_hops enforced at projection (G4 — migration 03
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "loop until the guard",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
 
     // Hops 1..3 succeed (max_hops: 3).
     let packetId = inst.entryQitemId;
-    const owners = ["ping@rig", "pong@rig", "ping@rig"];
+    const owners = ["ping@software-team", "pong@software-team", "ping@software-team"];
     for (let hop = 0; hop < 3; hop++) {
       const projected = await runtime.project({
         instanceId: inst.instance.instanceId,
@@ -422,7 +422,7 @@ describe("FR-6: loop_guards.max_hops enforced at projection (G4 — migration 03
       instanceId: inst.instance.instanceId,
       currentPacketId: packetId,
       exit: "handoff",
-      actorSession: "pong@rig",
+      actorSession: "pong@software-team",
     });
     expect(tripped.closureReason).toBe("failed");
     expect(tripped.nextQitemId).toBeNull();
@@ -467,10 +467,10 @@ describe("FR-6: loop_guards.max_hops enforced at projection (G4 — migration 03
   roles:
     ping:
       preferred_targets:
-        - ping@rig
+        - ping@software-team
     pong:
       preferred_targets:
-        - pong@rig
+        - pong@software-team
   steps:
     - id: first
       actor_role: ping
@@ -491,10 +491,10 @@ describe("FR-6: loop_guards.max_hops enforced at projection (G4 — migration 03
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "no guard declared",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     let packetId = inst.entryQitemId;
-    const owners = ["ping@rig", "pong@rig"];
+    const owners = ["ping@software-team", "pong@software-team"];
     for (let hop = 0; hop < 2; hop++) {
       const projected = await runtime.project({
         instanceId: inst.instance.instanceId,

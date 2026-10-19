@@ -39,6 +39,6 @@ export function spawnGatewayProcess(opts: SpawnGatewayOpts): ChildProcess {
     ...(opts.env ?? process.env),
     [GATEWAY_SOCKET_ENV]: opts.socketPath,
   };
-  if (opts.home) env.OPENRIG_HOME = opts.home;
+  if (opts.home) env.SOFTWARETEAM_HOME = opts.home;
   return spawn(process.execPath, [entry], { env, stdio: ["ignore", "pipe", "pipe"] });
 }

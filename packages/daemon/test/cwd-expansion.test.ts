@@ -4,16 +4,16 @@ import { homedir, tmpdir } from "node:os";
 import nodePath from "node:path";
 import { expandCwd, resolveAuthoredCwd, resolveLaunchCwd } from "../src/domain/cwd-resolution.js";
 import { resolveNodeConfig, type ResolutionContext } from "../src/domain/profile-resolver.js";
-import { RigSpecPreflight } from "../src/domain/rigspec-preflight.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamSpecPreflight } from "../src/domain/software-team-spec-preflight.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { coreSchema } from "../src/db/migrations/001_core_schema.js";
 import { bindingsSessionsSchema } from "../src/db/migrations/002_bindings_sessions.js";
 import { nodeSpecFieldsSchema } from "../src/db/migrations/007_node_spec_fields.js";
-import { rigArchiveSchema } from "../src/db/migrations/042_rig_archive.js";
+import { softwareTeamArchiveSchema } from "../src/db/migrations/042_software_team_archive.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
-import type { RigSpecPodMember } from "../src/domain/types.js";
+import type { SoftwareTeamSpecPodMember } from "../src/domain/types.js";
 
 describe("expandCwd", () => {
   const env = { WORK: "/srv/work", NAME: "proj" };
@@ -42,15 +42,15 @@ describe("expandCwd", () => {
   });
 });
 
-// Real directories literally named `~` and `$OPENRIG_CWD_VAR` prove the existence check end to end.
+// Real directories literally named `~` and `$SOFTWARETEAM_CWD_VAR` prove the existence check end to end.
 describe("cwd resolution: an existing literal path wins, otherwise the expansion", () => {
-  const VAR = "OPENRIG_CWD_VAR";
+  const VAR = "SOFTWARETEAM_CWD_VAR";
   let root: string;
   let specRoot: string;
   let target: string;
 
   beforeAll(() => {
-    root = realpathSync(mkdtempSync(nodePath.join(tmpdir(), "openrig-cwd-")));
+    root = realpathSync(mkdtempSync(nodePath.join(tmpdir(), "softwareteam-cwd-")));
     specRoot = nodePath.join(root, "spec");
     target = nodePath.join(root, "target");
     mkdirSync(nodePath.join(target, "app"), { recursive: true });
@@ -96,8 +96,8 @@ describe("cwd resolution: an existing literal path wins, otherwise the expansion
   });
 
   it("leaves an unset reference as written, under the spec root", () => {
-    expect(resolveAuthoredCwd("$OPENRIG_CWD_UNSET/app", specRoot, undefined, env(), "/h"))
-      .toBe(nodePath.join(specRoot, "$OPENRIG_CWD_UNSET/app"));
+    expect(resolveAuthoredCwd("$SOFTWARETEAM_CWD_UNSET/app", specRoot, undefined, env(), "/h"))
+      .toBe(nodePath.join(specRoot, "$SOFTWARETEAM_CWD_UNSET/app"));
   });
 
   it("without a spec root keeps a relative literal relative", () => {
@@ -112,13 +112,13 @@ describe("cwd resolution: an existing literal path wins, otherwise the expansion
       expect(resolveLaunchCwd(`$${VAR}/app`, specRoot)).toBe(nodePath.join(specRoot, `$${VAR}/app`));
       expect(resolveLaunchCwd("~/app", specRoot)).toBe(nodePath.join(specRoot, "~/app"));
       expect(resolveLaunchCwd(`$${VAR}/app`, root)).toBe(nodePath.join(target, "app"));
-      expect(resolveLaunchCwd("~/openrig-cwd-absent", root)).toBe(nodePath.join(homedir(), "openrig-cwd-absent"));
+      expect(resolveLaunchCwd("~/softwareteam-cwd-absent", root)).toBe(nodePath.join(homedir(), "softwareteam-cwd-absent"));
       expect(resolveLaunchCwd(`$${VAR}/app`, specRoot, "/override")).toBe("/override");
       expect(resolveLaunchCwd("sub", "/spec/root")).toBe("/spec/root/sub");
     });
 
     function profileCwd(cwd: string, specRoot?: string, cwdOverride?: string): string {
-      const member: RigSpecPodMember = { id: "impl", agentRef: "local:agents/test", profile: "default", runtime: "claude-code", cwd };
+      const member: SoftwareTeamSpecPodMember = { id: "impl", agentRef: "local:agents/test", profile: "default", runtime: "claude-code", cwd };
       const pod = { id: "dev", label: "Dev", members: [member], edges: [] };
       const ctx: ResolutionContext = {
         baseSpec: {
@@ -132,7 +132,7 @@ describe("cwd resolution: an existing literal path wins, otherwise the expansion
         },
         importedSpecs: [], collisions: [], profileName: "default",
         specRoot, cwdOverride, member, pod,
-        rig: { version: "0.2", name: "test-rig", pods: [pod], edges: [] },
+        softwareTeam: { version: "0.2", name: "test-software-team", pods: [pod], edges: [] },
         homedir: root,
       };
       const result = resolveNodeConfig(ctx);
@@ -150,10 +150,10 @@ describe("cwd resolution: an existing literal path wins, otherwise the expansion
 
     async function preflightErrors(cwd: string): Promise<string[]> {
       const db = createDb();
-      migrate(db, [coreSchema, bindingsSessionsSchema, nodeSpecFieldsSchema, rigArchiveSchema]);
+      migrate(db, [coreSchema, bindingsSessionsSchema, nodeSpecFieldsSchema, softwareTeamArchiveSchema]);
       try {
         const tmuxAdapter = { hasSession: async () => false } as unknown as TmuxAdapter;
-        const pf = new RigSpecPreflight({ rigRepo: new RigRepository(db), tmuxAdapter, exec: async () => "", cmuxExec: async () => "" });
+        const pf = new SoftwareTeamSpecPreflight({ softwareTeamRepo: new SoftwareTeamRepository(db), tmuxAdapter, exec: async () => "", cmuxExec: async () => "" });
         const result = await pf.check({ schemaVersion: 1, name: "r99", version: "1.0.0", nodes: [{ id: "worker", runtime: "claude-code", cwd }], edges: [] });
         return result.errors.filter((e) => e.includes("cwd"));
       } finally { db.close(); }

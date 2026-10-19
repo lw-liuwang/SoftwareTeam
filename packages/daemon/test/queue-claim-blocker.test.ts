@@ -21,7 +21,7 @@ describe.each(["current", "without generation stamps"])("claim park exit (%s sch
     db = createDb();
     migrate(db, schema === "current" ? ALL_MIGRATIONS : ALL_MIGRATIONS.filter((m) => m.name !== "063_occupant_generation_stamps.sql"));
     const bus = new EventBus(db);
-    repo = new QueueRepository(db, bus, { validateRig: () => true, resolveOccupantGeneration: () => "owned-generation" });
+    repo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true, resolveOccupantGeneration: () => "owned-generation" });
     jobs = new WatchdogJobsRepository(db);
     app = new Hono();
     app.use("*", async (c, next) => { c.set("queueRepo" as never, repo); await next(); });
@@ -30,10 +30,10 @@ describe.each(["current", "without generation stamps"])("claim park exit (%s sch
   afterEach(() => db.close());
 
   const claim = (id: string) => app.request(`/api/queue/${id}/claim`, {
-    method: "POST", headers: { "content-type": "application/json", "X-OpenRig-Session": "worker@rig" }, body: "{}",
+    method: "POST", headers: { "content-type": "application/json", "X-SoftwareTeam-Session": "worker@software-team" }, body: "{}",
   });
-  const create = (destinationSession = "worker@rig") => repo.create({
-    sourceSession: "orch@rig", destinationSession, body: "owned work", nudge: false,
+  const create = (destinationSession = "worker@software-team") => repo.create({
+    sourceSession: "orch@software-team", destinationSession, body: "owned work", nudge: false,
   });
   const timerFor = (id: string) => (db.prepare(
     "SELECT wake_ref FROM queue_transition_wakes WHERE qitem_id = ? AND wake_kind = 'timer' ORDER BY transition_id DESC LIMIT 1",
@@ -43,21 +43,21 @@ describe.each(["current", "without generation stamps"])("claim park exit (%s sch
   ]));
 
   it("clears a qitem blocker and returns liveness to the claimant while preserving the sibling park", async () => {
-    const blocker = await create("gate@rig");
+    const blocker = await create("gate@software-team");
     const row = await create();
     const sibling = await create();
     for (const item of [row, sibling]) repo.update({
-      qitemId: item.qitemId, actorSession: "worker@rig", state: "blocked", blockedOn: blocker.qitemId,
+      qitemId: item.qitemId, actorSession: "worker@software-team", state: "blocked", blockedOn: blocker.qitemId,
     });
-    expect(repo.waitingView(row.qitemId)?.liveness.subject).toBe("gate@rig");
+    expect(repo.waitingView(row.qitemId)?.liveness.subject).toBe("gate@software-team");
     const response = await claim(row.qitemId);
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ state: "in-progress", blockedOn: null });
     expect(repo.getById(row.qitemId)).toMatchObject({ state: "in-progress", blockedOn: null });
     expect(repo.list().find((item) => item.qitemId === row.qitemId)?.blockedOn).toBeNull();
-    expect(repo.waitingView(row.qitemId)).toMatchObject({ blocker: null, liveness: { subject: "worker@rig" } });
+    expect(repo.waitingView(row.qitemId)).toMatchObject({ blocker: null, liveness: { subject: "worker@software-team" } });
     expect(repo.listTransitions(row.qitemId).at(-1)).toMatchObject({ transitionNote: "claimed", closureTarget: blocker.qitemId });
-    expect(repo.waitingView(sibling.qitemId)).toMatchObject({ blocker: { ref: blocker.qitemId }, liveness: { subject: "gate@rig" } });
+    expect(repo.waitingView(sibling.qitemId)).toMatchObject({ blocker: { ref: blocker.qitemId }, liveness: { subject: "gate@software-team" } });
     if (schema === "current") expect(db.prepare("SELECT claimed_by_generation_uuid AS generation FROM queue_items WHERE qitem_id = ?").get(row.qitemId)).toEqual({ generation: "owned-generation" });
   });
 
@@ -65,26 +65,26 @@ describe.each(["current", "without generation stamps"])("claim park exit (%s sch
     const row = await create();
     const sibling = await create();
     for (const item of [row, sibling]) repo.update({
-      qitemId: item.qitemId, actorSession: "worker@rig", state: "blocked", blockedOn: "external:owned-window", wakeAfterSeconds: 90,
+      qitemId: item.qitemId, actorSession: "worker@software-team", state: "blocked", blockedOn: "external:owned-window", wakeAfterSeconds: 90,
     });
     const timer = timerFor(row.qitemId);
     const siblingTimer = timerFor(sibling.qitemId);
     const response = await claim(row.qitemId);
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ state: "in-progress", blockedOn: null });
-    expect(repo.waitingView(row.qitemId)).toMatchObject({ blocker: null, liveness: { subject: "worker@rig" } });
+    expect(repo.waitingView(row.qitemId)).toMatchObject({ blocker: null, liveness: { subject: "worker@software-team" } });
     expect(jobs.getById(timer)).toMatchObject({ state: "terminal", terminalReason: "park_ended:claimed" });
     expect(jobs.getById(siblingTimer)?.state).toBe("active");
     expect(repo.listTransitions(row.qitemId).at(-1)).toMatchObject({ transitionNote: "claimed", closureTarget: "external:owned-window" });
-    repo.unclaim(row.qitemId, "worker@rig", "owned release");
+    repo.unclaim(row.qitemId, "worker@software-team", "owned release");
     expect(repo.getById(row.qitemId)).toMatchObject({ state: "pending", blockedOn: null });
-    repo.update({ qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked" });
+    repo.update({ qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked" });
     expect(repo.getById(row.qitemId)?.blockedOn).toBeNull();
   });
 
   it("keeps a custom-note park blocker in claim history and reuses it on a human re-park", async () => {
     const row = await create();
-    repo.update({ qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked",
+    repo.update({ qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: "human-review@kernel", transitionNote: "custom continuation",
       summary: "Review requested", evidenceRef: "evidence:before" });
     await claim(row.qitemId);
@@ -93,31 +93,31 @@ describe.each(["current", "without generation stamps"])("claim park exit (%s sch
       transitionNote: "claimed", closureTarget: "human-review@kernel", closureReason: null,
     });
     const response = await app.request(`/api/queue/${row.qitemId}/update`, {
-      method: "POST", headers: { "content-type": "application/json", "X-OpenRig-Session": "worker@rig" },
+      method: "POST", headers: { "content-type": "application/json", "X-SoftwareTeam-Session": "worker@software-team" },
       body: JSON.stringify({ state: "blocked", summary: "Still awaiting review", evidenceRef: "evidence:after" }),
     });
     expect(response.status).toBe(200);
     expect(repo.getById(row.qitemId)).toMatchObject({ blockedOn: "human-review@kernel", summary: "Still awaiting review", evidenceRef: "evidence:after" });
     await claim(row.qitemId);
-    repo.update({ qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked", blockedOn: "external:new-gate" });
+    repo.update({ qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked", blockedOn: "external:new-gate" });
     expect(repo.getById(row.qitemId)?.blockedOn).toBe("external:new-gate");
   });
 
   it("keeps a claim gate through ordinary note appends, without changing claim notes", async () => {
     const row = await create();
-    repo.update({ qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked",
+    repo.update({ qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked",
       blockedOn: "human-review@kernel", summary: "Review requested", evidenceRef: "evidence:before" });
     await claim(row.qitemId);
     for (const note of ["progress evidence", "more evidence"]) {
       const response = await app.request(`/api/queue/${row.qitemId}/update`, {
-        method: "POST", headers: { "content-type": "application/json", "X-OpenRig-Session": "worker@rig" },
+        method: "POST", headers: { "content-type": "application/json", "X-SoftwareTeam-Session": "worker@software-team" },
         body: JSON.stringify({ transitionNote: note }),
       });
       expect(response.status).toBe(200);
       expect(repo.getById(row.qitemId)?.blockedOn).toBeNull();
     }
     const response = await app.request(`/api/queue/${row.qitemId}/update`, {
-      method: "POST", headers: { "content-type": "application/json", "X-OpenRig-Session": "worker@rig" },
+      method: "POST", headers: { "content-type": "application/json", "X-SoftwareTeam-Session": "worker@software-team" },
       body: JSON.stringify({ state: "blocked", summary: "Still waiting", evidenceRef: "evidence:after" }),
     });
     expect(response.status).toBe(200);
@@ -128,10 +128,10 @@ describe.each(["current", "without generation stamps"])("claim park exit (%s sch
 
   it.each([false, true])("does not resurrect a claim gate after a state write clears it (later note: %s)", async (laterNote) => {
     const row = await create();
-    repo.update({ qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked", blockedOn: "external:old-gate" });
+    repo.update({ qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked", blockedOn: "external:old-gate" });
     await claim(row.qitemId);
     const update = (body: object) => app.request(`/api/queue/${row.qitemId}/update`, {
-      method: "POST", headers: { "content-type": "application/json", "X-OpenRig-Session": "worker@rig" },
+      method: "POST", headers: { "content-type": "application/json", "X-SoftwareTeam-Session": "worker@software-team" },
       body: JSON.stringify(body),
     });
     // The same-state write is distinct from a note-only history append.
@@ -146,10 +146,10 @@ describe.each(["current", "without generation stamps"])("claim park exit (%s sch
   });
 
   it.each([false, true])("preserves only an unchanged claim gate through an overdue audit (cleared: %s)", async (cleared) => {
-    const row = await repo.create({ sourceSession: "orch@rig", destinationSession: "worker@rig", body: "owned overdue work", tier: "fast", nudge: false });
-    repo.update({ qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked", blockedOn: "external:old-gate" });
+    const row = await repo.create({ sourceSession: "orch@software-team", destinationSession: "worker@software-team", body: "owned overdue work", tier: "fast", nudge: false });
+    repo.update({ qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked", blockedOn: "external:old-gate" });
     await claim(row.qitemId);
-    if (cleared) repo.update({ qitemId: row.qitemId, actorSession: "worker@rig", state: "in-progress", transitionNote: "gate no longer needed" });
+    if (cleared) repo.update({ qitemId: row.qitemId, actorSession: "worker@software-team", state: "in-progress", transitionNote: "gate no longer needed" });
     expect(repo.recordClosureOverdue(row.qitemId, { now: "9999-01-01T00:00:00.000Z" })).not.toBeNull();
     expect(repo.listTransitions(row.qitemId).at(-1)).toMatchObject({
       state: "in-progress", actorSession: "daemon@system", transitionNote: "closure-overdue",
@@ -157,7 +157,7 @@ describe.each(["current", "without generation stamps"])("claim park exit (%s sch
     });
     expect(repo.recordClosureOverdue(row.qitemId, { now: "9999-01-01T00:00:00.000Z" })).toBeNull();
     const response = await app.request(`/api/queue/${row.qitemId}/update`, {
-      method: "POST", headers: { "content-type": "application/json", "X-OpenRig-Session": "worker@rig" },
+      method: "POST", headers: { "content-type": "application/json", "X-SoftwareTeam-Session": "worker@software-team" },
       body: JSON.stringify({ state: "blocked" }),
     });
     expect(response.status).toBe(200);
@@ -172,28 +172,28 @@ describe.each(["current", "without generation stamps"])("claim park exit (%s sch
   ] as const)("keeps only an unchanged claim gate through %s (%s, cleared: %s)", async (receipt, gateKind, cleared) => {
     const row = await create();
     const gate = gateKind === "human" ? "human-review@kernel" : "external:old-gate";
-    repo.update({ qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked", blockedOn: gate,
+    repo.update({ qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked", blockedOn: gate,
       ...(gateKind === "human" ? { summary: "await review", evidenceRef: "owned-evidence" } : {}) });
     await claim(row.qitemId);
-    if (cleared) repo.update({ qitemId: row.qitemId, actorSession: "worker@rig", state: "in-progress", transitionNote: "gate no longer needed" });
+    if (cleared) repo.update({ qitemId: row.qitemId, actorSession: "worker@software-team", state: "in-progress", transitionNote: "gate no longer needed" });
     if (receipt === "wake retry") {
       // Supported admission: a claimed owner has a durable failed-delivery note
       // and current failed nudge. The actual scheduler must append the retry.
-      repo.update({ qitemId: row.qitemId, actorSession: "worker@rig", transitionNote: "parked-owner wake delivery failed: owned-key; controlled failure" });
+      repo.update({ qitemId: row.qitemId, actorSession: "worker@software-team", transitionNote: "parked-owner wake delivery failed: owned-key; controlled failure" });
       db.prepare("UPDATE queue_items SET last_nudge_result = ?, last_nudge_attempt = ? WHERE qitem_id = ?")
         .run("failed:controlled transport refusal", "2000-01-01T00:00:00.000Z", row.qitemId);
       const result = await runWakeLadderTick({ db, queueRepo: repo, attemptWake: async () => "failed:controlled retry refusal",
-        resolveOrchestrator: () => "orch@rig", retryIntervalSeconds: 300, retryCap: 3, log: () => {} });
-      expect(result.actions).toContainEqual({ qitemId: row.qitemId, action: "retry", target: "worker@rig" });
+        resolveOrchestrator: () => "orch@software-team", retryIntervalSeconds: 300, retryCap: 3, log: () => {} });
+      expect(result.actions).toContainEqual({ qitemId: row.qitemId, action: "retry", target: "worker@software-team" });
       expect(repo.listTransitions(row.qitemId).at(-1)?.transitionNote).toMatch(/^wake-attempt:/);
     } else {
-      repo.routeToFallback(row.qitemId, "fallback@rig", "owned destination reroute");
-      expect(repo.getById(row.qitemId)?.destinationSession).toBe("fallback@rig");
+      repo.routeToFallback(row.qitemId, "fallback@software-team", "owned destination reroute");
+      expect(repo.getById(row.qitemId)?.destinationSession).toBe("fallback@software-team");
     }
     expect(repo.listTransitions(row.qitemId).at(-1)).toMatchObject({ closureReason: null, closureTarget: cleared ? null : gate });
     const destination = repo.getById(row.qitemId)!.destinationSession;
     const response = await app.request(`/api/queue/${row.qitemId}/update`, {
-      method: "POST", headers: { "content-type": "application/json", "X-OpenRig-Session": destination },
+      method: "POST", headers: { "content-type": "application/json", "X-SoftwareTeam-Session": destination },
       body: JSON.stringify({ state: "blocked", ...(!cleared && gateKind === "human" ? { summary: "still awaiting review", evidenceRef: "owned-new-evidence" } : {}) }),
     });
     expect(response.status).toBe(200);
@@ -206,19 +206,19 @@ describe.each(["current", "without generation stamps"])("claim park exit (%s sch
     ["human", false], ["typed", false], ["human", true], ["typed", true],
   ] as const)("keeps only an unchanged claim gate through aggregate escalation refresh (%s, cleared: %s)", async (gateKind, cleared) => {
     const baton = async () => {
-      const source = await create("relay@rig");
-      const { created } = await repo.handoff({ qitemId: source.qitemId, fromSession: "relay@rig", toSession: "worker@rig", nudge: false });
+      const source = await create("relay@software-team");
+      const { created } = await repo.handoff({ qitemId: source.qitemId, fromSession: "relay@software-team", toSession: "worker@software-team", nudge: false });
       db.prepare("UPDATE queue_items SET last_nudge_result = ?, last_nudge_attempt = ? WHERE qitem_id = ?")
         .run("failed:controlled transport refusal", "2000-01-01T00:00:00.000Z", created.qitemId);
       return created;
     };
     const tick = () => runWakeLadderTick({ db, queueRepo: repo, attemptWake: async () => "failed:controlled transport refusal",
-      resolveOrchestrator: () => "orch@rig", retryCap: 0, log: () => {} });
+      resolveOrchestrator: () => "orch@software-team", retryCap: 0, log: () => {} });
     await baton();
     await tick();
-    const aggregate = repo.list().find((row) => row.tags?.includes(escalationDedupTag("worker@rig")))!;
+    const aggregate = repo.list().find((row) => row.tags?.includes(escalationDedupTag("worker@software-team")))!;
     const post = (suffix: string, body: object) => app.request(`/api/queue/${aggregate.qitemId}/${suffix}`, {
-      method: "POST", headers: { "content-type": "application/json", "X-OpenRig-Session": "orch@rig" },
+      method: "POST", headers: { "content-type": "application/json", "X-SoftwareTeam-Session": "orch@software-team" },
       body: JSON.stringify(body),
     });
     const gate = gateKind === "human" ? "human-review@kernel" : "external:old-gate";
@@ -240,7 +240,7 @@ describe.each(["current", "without generation stamps"])("claim park exit (%s sch
 
   it("rolls back the complete park exit if recording the claim fails", async () => {
     const row = await create();
-    repo.update({ qitemId: row.qitemId, actorSession: "worker@rig", state: "blocked", blockedOn: "external:owned-window", wakeAfterSeconds: 90 });
+    repo.update({ qitemId: row.qitemId, actorSession: "worker@software-team", state: "blocked", blockedOn: "external:owned-window", wakeAfterSeconds: 90 });
     const before = rows();
     db.exec("CREATE TRIGGER reject_owned_claim BEFORE INSERT ON queue_transitions WHEN NEW.state = 'in-progress' BEGIN SELECT RAISE(ABORT, 'owned claim rejected'); END");
     const response = await claim(row.qitemId);
@@ -254,6 +254,6 @@ describe.each(["current", "without generation stamps"])("claim park exit (%s sch
     const response = await claim(row.qitemId);
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ state: "in-progress", blockedOn: null });
-    expect(repo.listTransitions(row.qitemId).at(-1)).toMatchObject({ state: "in-progress", actorSession: "worker@rig", transitionNote: "claimed" });
+    expect(repo.listTransitions(row.qitemId).at(-1)).toMatchObject({ state: "in-progress", actorSession: "worker@software-team", transitionNote: "claimed" });
   });
 });

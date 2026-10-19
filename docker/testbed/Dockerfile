@@ -1,7 +1,7 @@
-# 51-04 testbed image (openrig-testbed) — see IMPL-PLAN §1. Built HOST-side by
+# 51-04 testbed image (softwareteam-testbed) — see IMPL-PLAN §1. Built HOST-side by
 # scripts/build-testbed-image.sh, which resolves + records the base digest, pins node, stages the
-# stub assets, and COPYs the local openrig pack tarball. Byte-reproducible BY CONTRACT: the base is
-# digest-pinned (the verb refuses a tag-floating reference), node is pinned, and openrig comes from
+# stub assets, and COPYs the local softwareteam pack tarball. Byte-reproducible BY CONTRACT: the base is
+# digest-pinned (the verb refuses a tag-floating reference), node is pinned, and softwareteam comes from
 # the tree — never the npm registry (0.5.1 is unreleased). Layers are ordered stable -> volatile.
 
 # --- base: a digest-pinned LTS-slim Linux, supplied by the build verb (docker/testbed/base-image,
@@ -39,26 +39,26 @@ RUN set -eux; \
     rm -f /tmp/node.tar.xz; \
     node --version; npm --version
 
-# --- layer 3: the OpenRig package from the LOCAL pack tarball, never the npm registry ---
-ARG OPENRIG_TARBALL
-COPY ${OPENRIG_TARBALL} /tmp/openrig.tgz
+# --- layer 3: the SoftwareTeam package from the LOCAL pack tarball, never the npm registry ---
+ARG SOFTWARETEAM_TARBALL
+COPY ${SOFTWARETEAM_TARBALL} /tmp/softwareteam.tgz
 RUN set -eux; \
-    npm install -g /tmp/openrig.tgz; \
-    rm -f /tmp/openrig.tgz; \
-    rig --version
+    npm install -g /tmp/softwareteam.tgz; \
+    rm -f /tmp/softwareteam.tgz; \
+    SoftwareTeam --version
 
 # --- layer 4: stub runtime assets (zero-token by construction; staged by the build verb into the
 #     build context as ./stub-assets/, hashed into the manifest via deriveStubAssetsHash) ---
-COPY stub-assets/ /opt/openrig-testbed/stub-assets/
+COPY stub-assets/ /opt/softwareteam-testbed/stub-assets/
 
-# --- layer 5: a non-root openrig user + a tini entrypoint into tmux-server-friendly init ---
+# --- layer 5: a non-root softwareteam user + a tini entrypoint into tmux-server-friendly init ---
 RUN set -eux; \
-    useradd --create-home --shell /bin/bash openrig; \
-    mkdir -p /opt/openrig-testbed; \
-    chown -R openrig:openrig /opt/openrig-testbed
-COPY entrypoint.sh /opt/openrig-testbed/entrypoint.sh
-RUN chmod 0755 /opt/openrig-testbed/entrypoint.sh
-USER openrig
-WORKDIR /home/openrig
-ENTRYPOINT ["/usr/bin/tini", "--", "/opt/openrig-testbed/entrypoint.sh"]
+    useradd --create-home --shell /bin/bash softwareteam; \
+    mkdir -p /opt/softwareteam-testbed; \
+    chown -R softwareteam:softwareteam /opt/softwareteam-testbed
+COPY entrypoint.sh /opt/softwareteam-testbed/entrypoint.sh
+RUN chmod 0755 /opt/softwareteam-testbed/entrypoint.sh
+USER softwareteam
+WORKDIR /home/softwareteam
+ENTRYPOINT ["/usr/bin/tini", "--", "/opt/softwareteam-testbed/entrypoint.sh"]
 CMD ["sleep", "infinity"]

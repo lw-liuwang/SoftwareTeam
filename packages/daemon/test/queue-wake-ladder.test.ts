@@ -54,13 +54,13 @@ describe("S01 wake-or-escalate — retry ladder, named rungs, derived suspension
   beforeEach(() => {
     db = new Database(":memory:");
     migrate(db, ALL_MIGRATIONS);
-    repo = new QueueRepository(db, new EventBus(db), { validateRig: () => true });
+    repo = new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => true });
     calls = [];
     outcomes = {};
-    delete process.env.OPENRIG_WAKE_SUSPEND;
+    delete process.env.SOFTWARETEAM_WAKE_SUSPEND;
   });
   afterEach(() => {
-    delete process.env.OPENRIG_WAKE_SUSPEND;
+    delete process.env.SOFTWARETEAM_WAKE_SUSPEND;
     db.close();
   });
 
@@ -114,12 +114,12 @@ describe("S01 wake-or-escalate — retry ladder, named rungs, derived suspension
    *  where they match, so any fixture deriving one from the other is fixture-blind.
    *  The durable link is the sessions-table binding, never a string transform. */
   let nodeSeq = 0;
-  function bindSeat(sessionName: string, dottedLogicalId: string, rigName = "r"): string {
+  function bindSeat(sessionName: string, dottedLogicalId: string, softwareTeamName = "r"): string {
     const nodeId = `node-${++nodeSeq}`;
-    db.prepare("INSERT OR IGNORE INTO rigs (id, name) VALUES (?, ?)").run(`rig-${rigName}`, rigName);
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)").run(
+    db.prepare("INSERT OR IGNORE INTO software_teams (id, name) VALUES (?, ?)").run(`software-team-${softwareTeamName}`, softwareTeamName);
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)").run(
       nodeId,
-      `rig-${rigName}`,
+      `software-team-${softwareTeamName}`,
       dottedLogicalId,
     );
     db.prepare(
@@ -298,10 +298,10 @@ describe("S01 wake-or-escalate — retry ladder, named rungs, derived suspension
     expect(calls).toEqual([{ qitemId: baton.qitemId, target: "worker@r" }]);
   });
 
-  it("DECLARED WINDOW IS OPERATOR OVERRIDE ONLY: OPENRIG_WAKE_SUSPEND suspends a destination with no swap in sight", async () => {
+  it("DECLARED WINDOW IS OPERATOR OVERRIDE ONLY: SOFTWARETEAM_WAKE_SUSPEND suspends a destination with no swap in sight", async () => {
     const baton = await mkBaton();
     setNudgeResult(baton.qitemId, "failed:tmux session not found", 60);
-    process.env.OPENRIG_WAKE_SUSPEND = `worker@r:${new Date(Date.now() + 3600_000).toISOString()}`;
+    process.env.SOFTWARETEAM_WAKE_SUSPEND = `worker@r:${new Date(Date.now() + 3600_000).toISOString()}`;
     await tick();
     expect(calls).toHaveLength(0);
     expect(markersOf(baton.qitemId, "ladder-suspend:")).toHaveLength(1);
@@ -523,16 +523,16 @@ describe("S01 wake-or-escalate — retry ladder, named rungs, derived suspension
 
   it("HUMAN RUNG SETTING: defaults to always; explicit-only resolves from the env; other values are refused", async () => {
     const mod = await ladderMod();
-    const missingConfig = `/tmp/openrig-811-missing-${process.pid}-${Date.now()}.json`;
+    const missingConfig = `/tmp/softwareteam-811-missing-${process.pid}-${Date.now()}.json`;
     const store = new SettingsStore(missingConfig);
     expect(store.resolveOne("queue.wake_human_rung" as never)).toMatchObject({ value: "always", source: "default" });
     expect(mod.DEFAULT_WAKE_HUMAN_RUNG).toBe("always");
-    process.env.OPENRIG_QUEUE_WAKE_HUMAN_RUNG = "explicit-only";
+    process.env.SOFTWARETEAM_QUEUE_WAKE_HUMAN_RUNG = "explicit-only";
     try {
       expect(store.resolveOne("queue.wake_human_rung" as never)).toMatchObject({ value: "explicit-only", source: "env" });
       expect(() => store.set("queue.wake_human_rung" as never, "never")).toThrow(/always.*explicit-only/);
     } finally {
-      delete process.env.OPENRIG_QUEUE_WAKE_HUMAN_RUNG;
+      delete process.env.SOFTWARETEAM_QUEUE_WAKE_HUMAN_RUNG;
     }
   });
 
@@ -703,7 +703,7 @@ describe("S01 wake-or-escalate — retry ladder, named rungs, derived suspension
     });
     const svc = new ProviderServiceImpl({
       db,
-      listRigs: () => [],
+      listSoftwareTeams: () => [],
       env: { CODEX_HOME: fake.codexHome } as NodeJS.ProcessEnv,
       usageWindows: { enabled: () => true, windows },
     });
@@ -802,7 +802,7 @@ describe("S01 wake-or-escalate — retry ladder, named rungs, derived suspension
     const orchNode = bindSeat("orch-lead@r", "orch.lead");
     const workerNode = bindSeat("worker-b2@r", "worker.b2");
     db.prepare(
-      "INSERT INTO edges (id, rig_id, source_id, target_id, kind) VALUES ('e1', 'rig-r', ?, ?, 'delegates_to')",
+      "INSERT INTO edges (id, software_team_id, source_id, target_id, kind) VALUES ('e1', 'software-team-r', ?, ?, 'delegates_to')",
     ).run(orchNode, workerNode);
     const row = await mkBaton("worker-b2@r");
     setNudgeResult(row.qitemId, "failed:tmux session not found", 120);
@@ -819,7 +819,7 @@ describe("S01 wake-or-escalate — retry ladder, named rungs, derived suspension
     await tick({ resolveOrchestrator: undefined }); // exercise the default
     const escRows = await escalationRowsFor("worker-b2@r");
     expect(escRows).toHaveLength(1);
-    // The parent's CURRENT canonical session binding — never a synthesized logical_id@rig.
+    // The parent's CURRENT canonical session binding — never a synthesized logical_id@software-team.
     expect(escRows[0]!.destinationSession).toBe("orch-lead@r");
     const rungs = markersOf(row.qitemId, LADDER_RUNG_PREFIX);
     expect(rungs.some((r) => /orchestrator -> orch-lead@r/.test(r))).toBe(true);
@@ -864,7 +864,7 @@ describe("S01 wake-or-escalate — retry ladder, named rungs, derived suspension
     expect(mod.DEFAULT_WAKE_SWAP_GRACE_SECONDS).toBe(180);
     expect(mod.drawUsageLimitJitterSeconds(() => 0)).toBe(30);
     expect(mod.drawUsageLimitJitterSeconds(() => 0.999_999)).toBe(90);
-    const missingConfig = `/tmp/openrig-s01-missing-${process.pid}-${Date.now()}.json`;
+    const missingConfig = `/tmp/softwareteam-s01-missing-${process.pid}-${Date.now()}.json`;
     const store = new SettingsStore(missingConfig);
     expect(store.resolveOne("queue.wake_retry_interval_seconds" as never)).toMatchObject({ value: 300, source: "default" });
     expect(store.resolveOne("queue.wake_retry_cap" as never)).toMatchObject({ value: 3, source: "default" });

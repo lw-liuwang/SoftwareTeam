@@ -2,7 +2,7 @@ import { sectionRule, wrapDetailLines, type ContentLine } from "../detail.js";
 import type { FleetSnapshot } from "../types.js";
 
 // Slice 01 — System → Usage: this daemon's usage windows and configured seat accounts, from the provider read
-// model the daemon serves (the same body `rig provider status --json` prints). Passive: the daemon answers that
+// model the daemon serves (the same body `softwareTeam provider status --json` prints). Passive: the daemon answers that
 // read from memory, and this view never asks for a refresh. Fields and the daemon's own strings (notes, reasons,
 // levelReason, freshnessReason, times) are shown as served; nothing is matched, summed, thresholded or re-timed here.
 
@@ -19,7 +19,7 @@ export interface UsageRead {
 }
 
 export const USAGE_HEADER = "this host's daemon only · not fleet-wide · not proof of the login a running session uses";
-export const USAGE_REFRESH_HINT = "This view shows what this daemon already holds and never reads the logins itself. To read them now: rig provider status --refresh [--provider codex|claude]";
+export const USAGE_REFRESH_HINT = "This view shows what this daemon already holds and never reads the logins itself. To read them now: SoftwareTeam provider status --refresh [--provider codex|claude]";
 
 export const str = (v: unknown, fallback = "unknown"): string => (v === null || v === undefined || v === "" ? fallback : String(v));
 
@@ -29,7 +29,7 @@ function windowName(w: Row): string {
   return label ? `${label} (${str(w["window"])})` : str(w["window"]);
 }
 
-/** A failure's reason and detail as served, worded as `rig provider status` words them. Both are optional in the read
+/** A failure's reason and detail as served, worded as `softwareTeam provider status` words them. Both are optional in the read
  *  model: an absent reason reads "no reason given" and an absent detail drops its clause. When both are served, as this
  *  daemon always serves them, the text is "reason (detail)". */
 export function failureText(f: Row): string {
@@ -127,7 +127,7 @@ function absentLines(read: UsageRead): ContentLine[] {
   if (s === null || s === undefined) return [{ text: "  No usage windows served. Whether they're off or not supported by this daemon couldn't be read." }];
   if (s.value === true) return [{ text: `  provider.usage_windows is on (${str(s.source)}), but this daemon served no usage windows.` }];
   return [{ text: `  Usage windows are off on this daemon (provider.usage_windows = ${str(s.value)}${s.source ? `, ${s.source}` : ""}).` },
-    { text: "  Turn them on with: rig config set provider.usage_windows true" }];
+    { text: "  Turn them on with: SoftwareTeam config set provider.usage_windows true" }];
 }
 
 export function usageLines(snap: FleetSnapshot, width: number): ContentLine[] {

@@ -8,7 +8,7 @@ import { resolveQueueBody, previewBody, waitForDeliveryOutcome } from "../src/co
 import { createProgram } from "../src/index.js";
 
 /**
- * `rig queue` CLI tests — PL-004 Phase A revision (R1).
+ * `SoftwareTeam queue` CLI tests — PL-004 Phase A revision (R1).
  *
  * Pattern mirrors compact-plan.test.ts: mock daemon-lifecycle to fake a
  * running daemon, inject a clientFactory that returns a stubbed HTTP client.
@@ -20,8 +20,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -71,17 +71,17 @@ function makeDeps(opts?: {
   };
 }
 
-describe("rig queue CLI", () => {
+describe("SoftwareTeam queue CLI", () => {
   let logs: string[];
   let errors: string[];
 
   beforeEach(() => {
     vi.unstubAllEnvs();
-    // P21 HERMETIC: the queue verbs derive source/actor from the seat env (X-OpenRig-Session), so an
+    // P21 HERMETIC: the queue verbs derive source/actor from the seat env (X-SoftwareTeam-Session), so an
     // env-less harness aborts pre-POST. Stub a deterministic seat so these tests never depend on the
-    // AMBIENT OPENRIG_SESSION_NAME (which masked the env-less break in a managed runner). Per-test stubs
+    // AMBIENT SOFTWARETEAM_SESSION_NAME (which masked the env-less break in a managed runner). Per-test stubs
     // that need a specific seat override this.
-    vi.stubEnv("OPENRIG_SESSION_NAME", "seat@rig");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "seat@software-team");
     logs = [];
     errors = [];
     vi.spyOn(console, "log").mockImplementation((...args) => logs.push(args.join(" ")));
@@ -108,9 +108,9 @@ describe("rig queue CLI", () => {
     expect(subs).toContain("show");
   });
 
-  it("create sends NO body sourceSession — the source derives from the transport header (X-OpenRig-Session); an explicit --source is dropped, never forwarded as a body claim", async () => {
-    const saved = process.env["OPENRIG_SESSION_NAME"];
-    process.env["OPENRIG_SESSION_NAME"] = "alice@rig"; // the seat env == the X-OpenRig-Session the DaemonClient stamps
+  it("create sends NO body sourceSession — the source derives from the transport header (X-SoftwareTeam-Session); an explicit --source is dropped, never forwarded as a body claim", async () => {
+    const saved = process.env["SOFTWARETEAM_SESSION_NAME"];
+    process.env["SOFTWARETEAM_SESSION_NAME"] = "alice@software-team"; // the seat env == the X-SoftwareTeam-Session the DaemonClient stamps
     try {
       const { deps, calls } = makeDeps({
         routes: { "POST /api/queue/create": { status: 201, data: { qitemId: "qitem-x", state: "pending" } } },
@@ -118,9 +118,9 @@ describe("rig queue CLI", () => {
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "queue", "create",
+        "node", "softwareTeam", "queue", "create",
         "--source", "forged@evil", // P21: IGNORED — must not ride the body
-        "--destination", "bob@rig",
+        "--destination", "bob@software-team",
         "--body", "do thing",
         "--json",
       ]);
@@ -130,52 +130,52 @@ describe("rig queue CLI", () => {
       // P21 I3 reconcile: no body identity claim — the daemon derives the source from the header, and
       // the forged --source is DROPPED (not forwarded). The destination is the TARGET, a legit body field.
       expect(body.sourceSession).toBeUndefined();
-      expect(body.destinationSession).toBe("bob@rig");
+      expect(body.destinationSession).toBe("bob@software-team");
       expect(body.body).toBe("do thing");
       // R1: commander's --no-nudge sets opts.nudge to true by default.
       // The CLI sends nudge: true, and the daemon treats nudge !== false as nudging.
       expect(body.nudge).toBe(true);
     } finally {
-      if (saved === undefined) delete process.env["OPENRIG_SESSION_NAME"];
-      else process.env["OPENRIG_SESSION_NAME"] = saved;
+      if (saved === undefined) delete process.env["SOFTWARETEAM_SESSION_NAME"];
+      else process.env["SOFTWARETEAM_SESSION_NAME"] = saved;
     }
   });
 
   it("create accepts an explicit source outside a managed seat as a body claim", async () => {
-    vi.stubEnv("OPENRIG_SESSION_NAME", "");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "");
     vi.stubEnv("RIGGED_SESSION_NAME", "");
     const { deps, calls } = makeDeps();
     const program = createProgram({ queueDeps: deps });
-    await program.parseAsync(["node", "rig", "queue", "create", "--source", "external@rig",
-      "--destination", "bob@rig", "--body", "external work", "--summary", "External work", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "queue", "create", "--source", "external@software-team",
+      "--destination", "bob@software-team", "--body", "external work", "--summary", "External work", "--json"]);
     expect(process.exitCode).toBeUndefined();
     const body = calls.find(c => c.path === "/api/queue/create")?.body as Record<string, unknown>;
-    expect(body.sourceSession).toBe("external@rig");
-    expect(body.destinationSession).toBe("bob@rig");
+    expect(body.sourceSession).toBe("external@software-team");
+    expect(body.destinationSession).toBe("bob@software-team");
   });
 
   it("create still requires a source when neither the managed env nor explicit claim is supplied", async () => {
-    vi.stubEnv("OPENRIG_SESSION_NAME", "");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "");
     vi.stubEnv("RIGGED_SESSION_NAME", "");
     const { deps, calls } = makeDeps();
     const program = createProgram({ queueDeps: deps });
-    await program.parseAsync(["node", "rig", "queue", "create", "--destination", "bob@rig",
+    await program.parseAsync(["node", "softwareTeam", "queue", "create", "--destination", "bob@software-team",
       "--body", "external work", "--summary", "External work", "--json"]);
     expect(process.exitCode).toBe(1);
     expect(calls).toEqual([]);
     expect(errors.join("\n")).toContain("--source is required");
   });
 
-  it("create preserves the legacy managed source env without forwarding an explicit body claim", async () => {
-    vi.stubEnv("OPENRIG_SESSION_NAME", "");
-    vi.stubEnv("RIGGED_SESSION_NAME", "legacy@rig");
+  it("create ignores legacy managed source env and forwards an explicit external source claim", async () => {
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "");
+    vi.stubEnv("RIGGED_SESSION_NAME", "legacy@software-team");
     const { deps, calls } = makeDeps();
     const program = createProgram({ queueDeps: deps });
-    await program.parseAsync(["node", "rig", "queue", "create", "--source", "ignored@rig",
-      "--destination", "bob@rig", "--body", "legacy work", "--summary", "Legacy work", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "queue", "create", "--source", "ignored@software-team",
+      "--destination", "bob@software-team", "--body", "legacy work", "--summary", "Legacy work", "--json"]);
     expect(process.exitCode).toBeUndefined();
     const body = calls.find(c => c.path === "/api/queue/create")?.body as Record<string, unknown>;
-    expect(body.sourceSession).toBeUndefined();
+    expect(body.sourceSession).toBe("ignored@software-team");
   });
 
   it("create --human-questions-file sends the parsed questions; unreadable JSON is refused before any request", async () => {
@@ -187,11 +187,11 @@ describe("rig queue CLI", () => {
     fs.writeFileSync(broken, "{ not json");
     try {
       const { deps, calls } = makeDeps();
-      await createProgram({ queueDeps: deps }).parseAsync(["node", "rig", "queue", "create", "--destination", "human-founder@external", "--body", "Pick one.", "--human-intent", "decision", "--human-questions-file", file, "--json"]);
+      await createProgram({ queueDeps: deps }).parseAsync(["node", "softwareTeam", "queue", "create", "--destination", "human-founder@external", "--body", "Pick one.", "--human-intent", "decision", "--human-questions-file", file, "--json"]);
       expect(calls.find((c) => c.path === "/api/queue/create")?.body).toMatchObject({ humanIntent: "decision", humanQuestions: questions });
 
       const again = makeDeps();
-      await createProgram({ queueDeps: again.deps }).parseAsync(["node", "rig", "queue", "create", "--destination", "human-founder@external", "--body", "Pick one.", "--human-intent", "decision", "--human-questions-file", broken, "--json"]);
+      await createProgram({ queueDeps: again.deps }).parseAsync(["node", "softwareTeam", "queue", "create", "--destination", "human-founder@external", "--body", "Pick one.", "--human-intent", "decision", "--human-questions-file", broken, "--json"]);
       expect(process.exitCode).toBe(1);
       expect(again.calls.find((c) => c.path === "/api/queue/create")).toBeUndefined();
     } finally { process.exitCode = undefined; fs.rmSync(directory, { recursive: true, force: true }); }
@@ -205,7 +205,7 @@ describe("rig queue CLI", () => {
     fs.writeFileSync(file, detail);
     try {
       const { deps, calls } = makeDeps();
-      await createProgram({ queueDeps: deps }).parseAsync(["node", "rig", "queue", "create", "--destination", "human-founder@external", "--body", "No action needed.", "--human-intent", "update", "--human-detail-file", file, "--json"]);
+      await createProgram({ queueDeps: deps }).parseAsync(["node", "softwareTeam", "queue", "create", "--destination", "human-founder@external", "--body", "No action needed.", "--human-intent", "update", "--human-detail-file", file, "--json"]);
       expect(calls.find((c) => c.path === "/api/queue/create")?.body).toMatchObject({ humanIntent: "update", humanDetail: detail, body: "No action needed." });
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
   });
@@ -213,7 +213,7 @@ describe("rig queue CLI", () => {
   // #96 — --reply-to posts an update into an earlier item's Slack thread.
   it("create --reply-to without --human-intent update fails locally with a named error and never contacts the daemon", async () => {
     const { deps, calls } = makeDeps();
-    await createProgram({ queueDeps: deps }).parseAsync(["node", "rig", "queue", "create", "--destination", "human-founder@external", "--body", "Merged.", "--reply-to", "qitem-earlier", "--json"]);
+    await createProgram({ queueDeps: deps }).parseAsync(["node", "softwareTeam", "queue", "create", "--destination", "human-founder@external", "--body", "Merged.", "--reply-to", "qitem-earlier", "--json"]);
     expect(process.exitCode).toBe(1);
     expect(errors.join("\n")).toMatch(/reply_to_requires_update/);
     expect(calls.filter((c) => c.path === "/api/queue/create")).toHaveLength(0);
@@ -222,7 +222,7 @@ describe("rig queue CLI", () => {
 
   it("create --reply-to with --human-intent update sends replyTo", async () => {
     const { deps, calls } = makeDeps();
-    await createProgram({ queueDeps: deps }).parseAsync(["node", "rig", "queue", "create", "--destination", "human-founder@external", "--body", "Merged.", "--human-intent", "update", "--reply-to", "qitem-earlier", "--json"]);
+    await createProgram({ queueDeps: deps }).parseAsync(["node", "softwareTeam", "queue", "create", "--destination", "human-founder@external", "--body", "Merged.", "--human-intent", "update", "--reply-to", "qitem-earlier", "--json"]);
     expect(calls.find((c) => c.path === "/api/queue/create")?.body).toMatchObject({ humanIntent: "update", replyTo: "qitem-earlier" });
   });
 
@@ -251,8 +251,8 @@ describe("rig queue CLI", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "create",
-      "--source", "alice@rig", "--destination", "bob@rig",
+      "node", "softwareTeam", "queue", "create",
+      "--source", "alice@software-team", "--destination", "bob@software-team",
       "--body-context", "packs/brief", "--summary", "onboarding",
     ]);
     const create = calls.find((c) => c.path === "/api/queue/create");
@@ -275,8 +275,8 @@ describe("rig queue CLI", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "create",
-      "--source", "alice@rig", "--destination", "bob@rig",
+      "node", "softwareTeam", "queue", "create",
+      "--source", "alice@software-team", "--destination", "bob@software-team",
       "--body-context", "packs/broken", "--summary", "x",
     ]);
     expect(calls.find((c) => c.path === "/api/queue/create"), "no qitem created on a broken pack").toBeUndefined();
@@ -289,8 +289,8 @@ describe("rig queue CLI", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "create",
-      "--source", "alice@rig", "--destination", "bob@rig",
+      "node", "softwareTeam", "queue", "create",
+      "--source", "alice@software-team", "--destination", "bob@software-team",
       "--body", "x", "--body-context", "packs/brief", "--summary", "x",
     ]);
     expect(calls.find((c) => c.path === "/api/queue/create")).toBeUndefined();
@@ -303,9 +303,9 @@ describe("rig queue CLI", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "create",
-      "--source", "alice@rig",
-      "--destination", "bob@rig",
+      "node", "softwareTeam", "queue", "create",
+      "--source", "alice@software-team",
+      "--destination", "bob@software-team",
       "--body", "cold",
       "--no-nudge",
     ]);
@@ -328,7 +328,7 @@ describe("rig queue CLI", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "create",
+      "node", "softwareTeam", "queue", "create",
       "--destination", "founder@external",
       "--body", "Please decide",
       "--summary", "Founder decision",
@@ -365,7 +365,7 @@ describe("rig queue CLI", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "create",
+      "node", "softwareTeam", "queue", "create",
       "--destination", "founder@external", "--body", "Please decide", "--summary", "Founder decision", "--evidence-ref", "proof/decision.md", "--verify", "--json",
     ]);
     const out = JSON.parse(logs.at(-1)!) as Record<string, unknown>;
@@ -378,7 +378,7 @@ describe("rig queue CLI", () => {
         outcome: "still-pending",
         connectorAccepted: null,
         humanReadership: "unknown",
-        nextAction: `rig queue show ${id} --json`,
+        nextAction: `SoftwareTeam queue show ${id} --json`,
       },
     });
     expect(calls.filter((call) => call.method === "POST" && call.path === "/api/queue/create")).toHaveLength(1);
@@ -397,7 +397,7 @@ describe("rig queue CLI", () => {
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "queue", "create",
+        "node", "softwareTeam", "queue", "create",
         "--destination", "founder@external", "--body", "Please decide", "--summary", "Founder decision", "--evidence-ref", "proof/decision.md", "--verify", "--json",
       ]);
       expect(JSON.parse(logs.at(-1)!)).toMatchObject({
@@ -455,7 +455,7 @@ describe("rig queue CLI", () => {
       let now = 0;
       return { timeoutMs, intervalMs: 1, sleep: async (ms: number) => { now += ms; }, now: () => now };
     }
-    const verify = (rows: Array<Record<string, unknown>>, target: { destinationSession?: string; nudge?: boolean } = { destinationSession: "bob@rig" }) => {
+    const verify = (rows: Array<Record<string, unknown>>, target: { destinationSession?: string; nudge?: boolean } = { destinationSession: "bob@software-team" }) => {
       const client = rowsClient(rows);
       return waitForDeliveryOutcome(client, "qitem-t", boundedDeps(), target).then((result) => ({ result, reads: client.reads }));
     };
@@ -469,14 +469,14 @@ describe("rig queue CLI", () => {
       ];
       const { deps, calls } = makeDeps({
         routes: {
-          "POST /api/queue/create": { status: 201, data: { qitemId: id, state: "pending", destinationSession: "bob@rig" } },
+          "POST /api/queue/create": { status: 201, data: { qitemId: id, state: "pending", destinationSession: "bob@software-team" } },
           [`GET /api/queue/${id}`]: rows.map((row) => ({ status: 200, data: { ...ROW, qitemId: id, ...row } })),
         },
       });
       deps.deliveryVerify = boundedDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "create", "--destination", "bob@rig", "--body", "Review this", "--summary", "Review", "--verify", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "create", "--destination", "bob@software-team", "--body", "Review this", "--summary", "Review", "--verify", "--json"]);
       const out = JSON.parse(logs.at(-1)!) as { persisted: boolean; delivery: Record<string, unknown> };
       expect(out.persisted).toBe(true);
       expect(out.delivery).toEqual({
@@ -486,7 +486,7 @@ describe("rig queue CLI", () => {
         wakeResult: "delivered-ack-pending",
         claim: { observed: false, claimedAt: null, pickup: "unclaimed" },
         detail: "The qitem is saved. Terminal receipt unconfirmed (delivered-ack-pending): the wake was sent, but its render could not be confirmed. No claim observed yet. This is not a failed handoff.",
-        nextAction: `rig queue show ${id} --json`,
+        nextAction: `SoftwareTeam queue show ${id} --json`,
       });
       expect(process.exitCode).toBeUndefined();
       expect(calls.filter((call) => call.method === "POST")).toHaveLength(1);
@@ -497,7 +497,7 @@ describe("rig queue CLI", () => {
     it("persisted row with an unconfirmed receipt and no claim: saved, unconfirmed, not a failed handoff, at once", async () => {
       const { result, reads } = await verify([{ lastNudgeResult: "delivered-ack-pending" }]);
       expect(reads).toBe(1);
-      expect(result).toMatchObject({ receiptSource: "terminal", destinationKind: "agent", outcome: "delivered-ack-pending", claim: { observed: false, claimedAt: null, pickup: "unclaimed" }, nextAction: "rig queue show qitem-t --json" });
+      expect(result).toMatchObject({ receiptSource: "terminal", destinationKind: "agent", outcome: "delivered-ack-pending", claim: { observed: false, claimedAt: null, pickup: "unclaimed" }, nextAction: "SoftwareTeam queue show qitem-t --json" });
       expect(result).not.toHaveProperty("humanReadership");
       expect(result).not.toHaveProperty("connectorAccepted");
       expect(result.detail).toBe("The qitem is saved. Terminal receipt unconfirmed (delivered-ack-pending): the wake was sent, but its render could not be confirmed. No claim observed yet. This is not a failed handoff.");
@@ -520,7 +520,7 @@ describe("rig queue CLI", () => {
 
     it.each([
       "failed:tmux reports no session",
-      "unroutable: 'revieweer@rig' has no terminal transport on this daemon and names no registered human",
+      "unroutable: 'revieweer@software-team' has no terminal transport on this daemon and names no registered human",
     ])("a %s wake is a failed wake on a saved row, reported at once", async (wakeResult) => {
       const { result, reads } = await verify([{ lastNudgeResult: wakeResult }]);
       expect(result).toMatchObject({ outcome: "failed", wakeResult });
@@ -546,7 +546,7 @@ describe("rig queue CLI", () => {
     it("an indeterminate:* wake is reported unconfirmed at once", async () => {
       const { result, reads } = await verify([{ lastNudgeResult: "indeterminate:timeout" }]);
       expect(reads).toBe(1);
-      expect(result).toMatchObject({ outcome: "indeterminate", nextAction: "rig queue show qitem-t --json" });
+      expect(result).toMatchObject({ outcome: "indeterminate", nextAction: "SoftwareTeam queue show qitem-t --json" });
       expect(result.detail).toContain("Terminal receipt unconfirmed (indeterminate:timeout)");
       expect(result.detail).toContain("This is not a failed handoff.");
     });
@@ -554,7 +554,7 @@ describe("rig queue CLI", () => {
     it("a retained wake is reported at once, points at the held message and does not promise a retry", async () => {
       const { result, reads } = await verify([{ lastNudgeResult: "retained:typing_guard" }]);
       expect(reads).toBe(1);
-      expect(result).toMatchObject({ outcome: "retained", nextAction: "rig seat held-messages bob@rig" });
+      expect(result).toMatchObject({ outcome: "retained", nextAction: "SoftwareTeam seat held-messages bob@software-team" });
       expect(result.detail).toContain("nothing was typed into the pane");
       expect(result.detail).toContain("not retried automatically");
       expect(result.detail).not.toMatch(/ladder retries/);
@@ -585,7 +585,7 @@ describe("rig queue CLI", () => {
       deps.deliveryVerify = boundedDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "create", "--destination", "bob@rig", "--body", "cold", "--summary", "Cold", "--no-nudge", "--verify", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "create", "--destination", "bob@software-team", "--body", "cold", "--summary", "Cold", "--no-nudge", "--verify", "--json"]);
       expect((calls.find((c) => c.path === "/api/queue/create")!.body as { nudge: boolean }).nudge).toBe(false);
       const out = JSON.parse(logs.at(-1)!) as { delivery: Record<string, unknown> };
       expect(out.delivery).toMatchObject({ receiptSource: "terminal", outcome: "not-requested", claim: { observed: false } });
@@ -605,7 +605,7 @@ describe("rig queue CLI", () => {
     });
 
     it("--no-nudge to a seat the daemon classes pane-bound reads once as not-requested", async () => {
-      const { result, reads } = await verify([{ destinationClass: "pane-bound" }], { destinationSession: "bob@rig", nudge: false });
+      const { result, reads } = await verify([{ destinationClass: "pane-bound" }], { destinationSession: "bob@software-team", nudge: false });
       expect(result).toMatchObject({ receiptSource: "terminal", destinationKind: "agent", outcome: "not-requested" });
       expect(reads).toBe(1);
     });
@@ -641,7 +641,7 @@ describe("rig queue CLI", () => {
       it("keeps the bounded wait when Slack has not posted, without failing the terminal side", async () => {
         const { result, reads } = await verify([{ ...PANE_PERSON, lastNudgeResult: "verified" }], target);
         expect(reads).toBeGreaterThan(1);
-        expect(result).toMatchObject({ outcome: "verified", gateway: { outcome: "still-pending", connectorAccepted: null }, nextAction: "rig queue show qitem-t --json" });
+        expect(result).toMatchObject({ outcome: "verified", gateway: { outcome: "still-pending", connectorAccepted: null }, nextAction: "SoftwareTeam queue show qitem-t --json" });
         expect(result.detail).toContain("No Slack receipt within 10ms.");
       });
 
@@ -676,7 +676,7 @@ describe("rig queue CLI", () => {
       it("a claim with Slack still pending keeps the bounded Slack wait", async () => {
         const { result, reads } = await verify([{ ...PANE_PERSON, state: "in-progress", claimedAt: "2026-10-08T10:00:02.000Z" }], target);
         expect(reads).toBeGreaterThan(1);
-        expect(result).toMatchObject({ claim: { observed: true }, gateway: { outcome: "still-pending" }, nextAction: "rig queue show qitem-t --json" });
+        expect(result).toMatchObject({ claim: { observed: true }, gateway: { outcome: "still-pending" }, nextAction: "SoftwareTeam queue show qitem-t --json" });
       });
 
       it("a recorded terminal wake still wins over a gateway-routable class read later (#1029 order)", async () => {
@@ -708,13 +708,13 @@ describe("rig queue CLI", () => {
       deps.deliveryVerify = boundedDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "create", "--destination", "bob@rig", "--body", "b", "--summary", "s", "--id", id, "--verify", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "create", "--destination", "bob@software-team", "--body", "b", "--summary", "s", "--id", id, "--verify", "--json"]);
       expect((calls.find((c) => c.path === "/api/queue/create")!.body as { qitemId: string }).qitemId).toBe(id);
       expect(JSON.parse(logs.at(-1)!).delivery).toMatchObject({ outcome: "verified", claim: { observed: true } });
       expect(calls.filter((call) => call.method === "POST")).toHaveLength(1);
     });
 
-    it("a registry alias (<entityId>@<rig>) moves to the gateway receipt once gateway-owned lands", async () => {
+    it("a registry alias (<entityId>@<softwareTeam>) moves to the gateway receipt once gateway-owned lands", async () => {
       const { result } = await verify([{}, { lastNudgeResult: "gateway-owned: 'mike@kernel' is a virtual paneless human destination" }, { lastNudgeResult: "gateway-owned: x", deliveryOutcome: "posted" }], { destinationSession: "mike@kernel" });
       expect(result).toMatchObject({ receiptSource: "gateway", destinationKind: "human", outcome: "posted", connectorAccepted: true, humanReadership: "unknown" });
     });
@@ -727,8 +727,8 @@ describe("rig queue CLI", () => {
     });
 
     it("an unreadable receipt for a terminal destination is indeterminate with no readership claim", async () => {
-      const result = await waitForDeliveryOutcome({ get: async () => { throw new Error("daemon read timed out"); } } as never, "qitem-t", boundedDeps(), { destinationSession: "bob@rig" });
-      expect(result).toMatchObject({ receiptSource: "terminal", destinationKind: "agent", outcome: "indeterminate", wakeResult: null, claim: { observed: false }, nextAction: "rig queue show qitem-t --json" });
+      const result = await waitForDeliveryOutcome({ get: async () => { throw new Error("daemon read timed out"); } } as never, "qitem-t", boundedDeps(), { destinationSession: "bob@software-team" });
+      expect(result).toMatchObject({ receiptSource: "terminal", destinationKind: "agent", outcome: "indeterminate", wakeResult: null, claim: { observed: false }, nextAction: "SoftwareTeam queue show qitem-t --json" });
       expect(result.detail).toContain("daemon read timed out");
       expect(result).not.toHaveProperty("humanReadership");
     });
@@ -849,8 +849,8 @@ describe("rig queue CLI", () => {
         const program = createProgram({ queueDeps: deps });
         program.exitOverride();
         await program.parseAsync([
-          "node", "rig", "queue", "create",
-          "--destination", "bob@rig",
+          "node", "softwareTeam", "queue", "create",
+          "--destination", "bob@software-team",
           "--body-file", bodyPath,
           "--json",
         ]);
@@ -864,7 +864,7 @@ describe("rig queue CLI", () => {
     it("create --body-file <file-with-backticks> POSTs the file content as body (operator-copy-paste-safe)", async () => {
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "queue-create-body-file-"));
       const bodyPath = path.join(tmp, "body.txt");
-      const content = "Per-commit handoff for OPR.X.Y.Z\n\n```bash\nrig queue handoff qitem-1 --to next@rig\n```\n\nDone.";
+      const content = "Per-commit handoff for OPR.X.Y.Z\n\n```bash\nrig queue handoff qitem-1 --to next@software-team\n```\n\nDone.";
       fs.writeFileSync(bodyPath, content, "utf8");
       try {
         const { deps, calls } = makeDeps({
@@ -873,9 +873,9 @@ describe("rig queue CLI", () => {
         const program = createProgram({ queueDeps: deps });
         program.exitOverride();
         await program.parseAsync([
-          "node", "rig", "queue", "create",
-          "--source", "alice@rig",
-          "--destination", "bob@rig",
+          "node", "softwareTeam", "queue", "create",
+          "--source", "alice@software-team",
+          "--destination", "bob@software-team",
           "--body-file", bodyPath,
           "--json",
         ]);
@@ -903,9 +903,9 @@ describe("rig queue CLI", () => {
         process.exitCode = undefined;
         try {
           await program.parseAsync([
-            "node", "rig", "queue", "create",
-            "--source", "alice@rig",
-            "--destination", "bob@rig",
+            "node", "softwareTeam", "queue", "create",
+            "--source", "alice@software-team",
+            "--destination", "bob@software-team",
             "--body", "inline",
             "--body-file", bodyPath,
             "--json",
@@ -928,9 +928,9 @@ describe("rig queue CLI", () => {
       process.exitCode = undefined;
       try {
         await program.parseAsync([
-          "node", "rig", "queue", "create",
-          "--source", "alice@rig",
-          "--destination", "bob@rig",
+          "node", "softwareTeam", "queue", "create",
+          "--source", "alice@software-team",
+          "--destination", "bob@software-team",
           "--json",
         ]);
         expect(process.exitCode).toBe(1);
@@ -953,9 +953,9 @@ describe("rig queue CLI", () => {
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "queue", "create",
-        "--source", "alice@rig",
-        "--destination", "bob@rig",
+        "node", "softwareTeam", "queue", "create",
+        "--source", "alice@software-team",
+        "--destination", "bob@software-team",
         "--body", "x",
         "--mission", "release-0.3.2",
         "--json",
@@ -971,9 +971,9 @@ describe("rig queue CLI", () => {
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "queue", "create",
-        "--source", "alice@rig",
-        "--destination", "bob@rig",
+        "node", "softwareTeam", "queue", "create",
+        "--source", "alice@software-team",
+        "--destination", "bob@software-team",
         "--body", "x",
         "--slice", "21-fr-4-queue-ergonomics",
         "--json",
@@ -989,9 +989,9 @@ describe("rig queue CLI", () => {
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "queue", "create",
-        "--source", "alice@rig",
-        "--destination", "bob@rig",
+        "node", "softwareTeam", "queue", "create",
+        "--source", "alice@software-team",
+        "--destination", "bob@software-team",
         "--body", "x",
         "--mission", "release-0.3.2",
         "--slice", "21-fr-4-queue-ergonomics",
@@ -1014,9 +1014,9 @@ describe("rig queue CLI", () => {
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "queue", "create",
-        "--source", "alice@rig",
-        "--destination", "bob@rig",
+        "node", "softwareTeam", "queue", "create",
+        "--source", "alice@software-team",
+        "--destination", "bob@software-team",
         "--body", "x",
         "--mission", "release-0.3.2",
         "--tags", "mission:release-0.3.2,gate:guard",
@@ -1035,9 +1035,9 @@ describe("rig queue CLI", () => {
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "queue", "create",
-        "--source", "alice@rig",
-        "--destination", "bob@rig",
+        "node", "softwareTeam", "queue", "create",
+        "--source", "alice@software-team",
+        "--destination", "bob@software-team",
         "--body", "x",
         "--json",
       ]);
@@ -1056,9 +1056,9 @@ describe("rig queue CLI", () => {
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "queue", "create",
-        "--source", "dev@rig",
-        "--destination", "dev-guard@rig",
+        "node", "softwareTeam", "queue", "create",
+        "--source", "dev@software-team",
+        "--destination", "dev-guard@software-team",
         "--body", "review this diff",
         "--gate", "guard",
         "--json",
@@ -1074,9 +1074,9 @@ describe("rig queue CLI", () => {
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "queue", "create",
-        "--source", "dev@rig",
-        "--destination", "spec-guard@rig",
+        "node", "softwareTeam", "queue", "create",
+        "--source", "dev@software-team",
+        "--destination", "spec-guard@software-team",
         "--body", "x",
         "--slice", "16",
         "--gate", "spec-review",
@@ -1098,9 +1098,9 @@ describe("rig queue CLI", () => {
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "queue", "handoff", "q-src",
-        "--from", "dev@rig",
-        "--to", "dev-guard@rig",
+        "node", "softwareTeam", "queue", "handoff", "q-src",
+        "--from", "dev@software-team",
+        "--to", "dev-guard@software-team",
         "--gate", "guard",
         "--summary", "code review",
         "--json",
@@ -1126,8 +1126,8 @@ describe("rig queue CLI", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "update", "qitem-x",
-      "--actor", "bob@rig",
+      "node", "softwareTeam", "queue", "update", "qitem-x",
+      "--actor", "bob@software-team",
       "--state", "done",
       "--json",
     ]);
@@ -1143,7 +1143,7 @@ describe("rig queue CLI", () => {
     program.exitOverride();
 
     await program.parseAsync([
-      "node", "rig", "queue", "update", "qitem-note",
+      "node", "softwareTeam", "queue", "update", "qitem-note",
       "--note", "audit bytes",
       "--json",
     ]);
@@ -1166,7 +1166,7 @@ describe("rig queue CLI", () => {
     program.exitOverride();
 
     await program.parseAsync([
-      "node", "rig", "queue", "update", "qitem-reopen",
+      "node", "softwareTeam", "queue", "update", "qitem-reopen",
       "--state", "pending",
       "--note", "repair",
       "--reopen",
@@ -1185,7 +1185,7 @@ describe("rig queue CLI", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "block", "qitem-park",
+      "node", "softwareTeam", "queue", "block", "qitem-park",
       "--on", "external:cooldown",
       "--continuation", "resume after the cooldown",
       "--wake-after", "90s",
@@ -1214,9 +1214,9 @@ describe("rig queue CLI", () => {
     expect(help).toMatch(/workspace.*not.imminent/i);
   });
 
-  it("handoff-and-complete sends NO body fromSession — the handing-off seat derives from the transport header (X-OpenRig-Session); --from is dropped, --to stays the target", async () => {
-    const saved = process.env["OPENRIG_SESSION_NAME"];
-    process.env["OPENRIG_SESSION_NAME"] = "bob@rig"; // the seat env == the X-OpenRig-Session the DaemonClient stamps
+  it("handoff-and-complete sends NO body fromSession — the handing-off seat derives from the transport header (X-SoftwareTeam-Session); --from is dropped, --to stays the target", async () => {
+    const saved = process.env["SOFTWARETEAM_SESSION_NAME"];
+    process.env["SOFTWARETEAM_SESSION_NAME"] = "bob@software-team"; // the seat env == the X-SoftwareTeam-Session the DaemonClient stamps
     try {
       const { deps, calls } = makeDeps({
         routes: {
@@ -1232,9 +1232,9 @@ describe("rig queue CLI", () => {
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "queue", "handoff-and-complete", "qitem-src",
+        "node", "softwareTeam", "queue", "handoff-and-complete", "qitem-src",
         "--from", "forged@evil", // P21: IGNORED — must not ride the body
-        "--to", "carol@rig",
+        "--to", "carol@software-team",
         "--body", "carol's piece",
         "--json",
       ]);
@@ -1244,21 +1244,21 @@ describe("rig queue CLI", () => {
       // P21 I3 reconcile: no body identity claim — the daemon derives fromSession from the header, and
       // the forged --from is DROPPED. toSession is the TARGET, a legit body field.
       expect(body.fromSession).toBeUndefined();
-      expect(body.toSession).toBe("carol@rig");
+      expect(body.toSession).toBe("carol@software-team");
       expect(body.body).toBe("carol's piece");
     } finally {
-      if (saved === undefined) delete process.env["OPENRIG_SESSION_NAME"];
-      else process.env["OPENRIG_SESSION_NAME"] = saved;
+      if (saved === undefined) delete process.env["SOFTWARETEAM_SESSION_NAME"];
+      else process.env["SOFTWARETEAM_SESSION_NAME"] = saved;
     }
   });
 
   it("whoami GETs /api/queue/whoami with session + recentLimit query params", async () => {
     const { deps, calls } = makeDeps({
       routes: {
-        "GET /api/queue/whoami?session=bob%40rig&recentLimit=10": {
+        "GET /api/queue/whoami?session=bob%40software-team&recentLimit=10": {
           status: 200,
           data: {
-            session: "bob@rig",
+            session: "bob@software-team",
             asDestination: { pending: 2, inProgress: 1, blocked: 0, recent: [] },
             asSource: { total: 5 },
           },
@@ -1268,27 +1268,27 @@ describe("rig queue CLI", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "whoami",
-      "--session", "bob@rig",
+      "node", "softwareTeam", "queue", "whoami",
+      "--session", "bob@software-team",
       "--recent-limit", "10",
       "--json",
     ]);
     const call = calls.find((c) => c.method === "GET" && c.path.startsWith("/api/queue/whoami"));
     expect(call).toBeDefined();
-    expect(call!.path).toContain("session=bob%40rig");
+    expect(call!.path).toContain("session=bob%40software-team");
     expect(call!.path).toContain("recentLimit=10");
   });
 
-  it("whoami defaults the session from OPENRIG_SESSION_NAME when --session is omitted", async () => {
-    const saved = process.env["OPENRIG_SESSION_NAME"];
-    process.env["OPENRIG_SESSION_NAME"] = "bob@rig";
+  it("whoami defaults the session from SOFTWARETEAM_SESSION_NAME when --session is omitted", async () => {
+    const saved = process.env["SOFTWARETEAM_SESSION_NAME"];
+    process.env["SOFTWARETEAM_SESSION_NAME"] = "bob@software-team";
     try {
       const { deps, calls } = makeDeps({
         routes: {
-          "GET /api/queue/whoami?session=bob%40rig&recentLimit=25": {
+          "GET /api/queue/whoami?session=bob%40software-team&recentLimit=25": {
             status: 200,
             data: {
-              session: "bob@rig",
+              session: "bob@software-team",
               asDestination: { pending: 1, inProgress: 0, blocked: 0, recent: [] },
               asSource: { total: 0 },
             },
@@ -1297,48 +1297,48 @@ describe("rig queue CLI", () => {
       });
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "whoami", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "whoami", "--json"]);
 
       const call = calls.find((c) => c.method === "GET" && c.path.startsWith("/api/queue/whoami"));
       expect(call).toBeDefined();
-      expect(call!.path).toContain("session=bob%40rig");
+      expect(call!.path).toContain("session=bob%40software-team");
       expect(call!.path).toContain("recentLimit=25");
     } finally {
-      if (saved === undefined) delete process.env["OPENRIG_SESSION_NAME"];
-      else process.env["OPENRIG_SESSION_NAME"] = saved;
+      if (saved === undefined) delete process.env["SOFTWARETEAM_SESSION_NAME"];
+      else process.env["SOFTWARETEAM_SESSION_NAME"] = saved;
     }
   });
 
-  it("claim sends NO body destinationSession — the claimant derives from the transport header (X-OpenRig-Session); env present ⇒ POST fires", async () => {
-    const saved = process.env["OPENRIG_SESSION_NAME"];
-    process.env["OPENRIG_SESSION_NAME"] = "bob@rig";
+  it("claim sends NO body destinationSession — the claimant derives from the transport header (X-SoftwareTeam-Session); env present ⇒ POST fires", async () => {
+    const saved = process.env["SOFTWARETEAM_SESSION_NAME"];
+    process.env["SOFTWARETEAM_SESSION_NAME"] = "bob@software-team";
     try {
       const { deps, calls } = makeDeps({
         routes: {
           "POST /api/queue/qitem-x/claim": {
             status: 200,
-            data: { qitemId: "qitem-x", destinationSession: "bob@rig", state: "in-progress" },
+            data: { qitemId: "qitem-x", destinationSession: "bob@software-team", state: "in-progress" },
           },
         },
       });
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "claim", "qitem-x", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "claim", "qitem-x", "--json"]);
 
       const call = calls.find((c) => c.path === "/api/queue/qitem-x/claim");
       expect(call).toBeDefined();
       // P21 I3 reconcile: the claimant is NOT a body claim — the daemon derives it from the
-      // X-OpenRig-Session header (env present ⇒ pre-check passes ⇒ POST fires). No forgeable body field.
+      // X-SoftwareTeam-Session header (env present ⇒ pre-check passes ⇒ POST fires). No forgeable body field.
       expect((call!.body as Record<string, unknown>).destinationSession).toBeUndefined();
     } finally {
-      if (saved === undefined) delete process.env["OPENRIG_SESSION_NAME"];
-      else process.env["OPENRIG_SESSION_NAME"] = saved;
+      if (saved === undefined) delete process.env["SOFTWARETEAM_SESSION_NAME"];
+      else process.env["SOFTWARETEAM_SESSION_NAME"] = saved;
     }
   });
 
-  it("update sends NO body actorSession — the actor derives from the transport header (X-OpenRig-Session); env present ⇒ POST fires", async () => {
-    const saved = process.env["OPENRIG_SESSION_NAME"];
-    process.env["OPENRIG_SESSION_NAME"] = "bob@rig";
+  it("update sends NO body actorSession — the actor derives from the transport header (X-SoftwareTeam-Session); env present ⇒ POST fires", async () => {
+    const saved = process.env["SOFTWARETEAM_SESSION_NAME"];
+    process.env["SOFTWARETEAM_SESSION_NAME"] = "bob@software-team";
     try {
       const { deps, calls } = makeDeps({
         routes: {
@@ -1351,7 +1351,7 @@ describe("rig queue CLI", () => {
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "queue", "update", "qitem-x",
+        "node", "softwareTeam", "queue", "update", "qitem-x",
         "--state", "done",
         "--closure-reason", "no-follow-on",
         "--json",
@@ -1362,14 +1362,14 @@ describe("rig queue CLI", () => {
       // P21 I3 reconcile: the actor is NOT a body claim — the daemon derives it from the header.
       expect((call!.body as Record<string, unknown>).actorSession).toBeUndefined();
     } finally {
-      if (saved === undefined) delete process.env["OPENRIG_SESSION_NAME"];
-      else process.env["OPENRIG_SESSION_NAME"] = saved;
+      if (saved === undefined) delete process.env["SOFTWARETEAM_SESSION_NAME"];
+      else process.env["SOFTWARETEAM_SESSION_NAME"] = saved;
     }
   });
 
-  it("handoff sends NO body fromSession — the handing-off seat derives from the transport header (X-OpenRig-Session); env present ⇒ POST fires", async () => {
-    const saved = process.env["OPENRIG_SESSION_NAME"];
-    process.env["OPENRIG_SESSION_NAME"] = "bob@rig";
+  it("handoff sends NO body fromSession — the handing-off seat derives from the transport header (X-SoftwareTeam-Session); env present ⇒ POST fires", async () => {
+    const saved = process.env["SOFTWARETEAM_SESSION_NAME"];
+    process.env["SOFTWARETEAM_SESSION_NAME"] = "bob@software-team";
     try {
       const { deps, calls } = makeDeps({
         routes: {
@@ -1382,8 +1382,8 @@ describe("rig queue CLI", () => {
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "queue", "handoff", "qitem-x",
-        "--to", "carol@rig",
+        "node", "softwareTeam", "queue", "handoff", "qitem-x",
+        "--to", "carol@software-team",
         "--json",
       ]);
 
@@ -1392,19 +1392,19 @@ describe("rig queue CLI", () => {
       // P21 I3 reconcile: the handing-off seat is NOT a body claim — the daemon derives it from the header.
       expect((call!.body as Record<string, unknown>).fromSession).toBeUndefined();
     } finally {
-      if (saved === undefined) delete process.env["OPENRIG_SESSION_NAME"];
-      else process.env["OPENRIG_SESSION_NAME"] = saved;
+      if (saved === undefined) delete process.env["SOFTWARETEAM_SESSION_NAME"];
+      else process.env["SOFTWARETEAM_SESSION_NAME"] = saved;
     }
   });
 
-  it("create against unknown destination rig surfaces 400 error and exits non-zero", async () => {
+  it("create against unknown destination SoftwareTeam surfaces 400 error and exits non-zero", async () => {
     const { deps } = makeDeps({
       routes: {
         "POST /api/queue/create": {
           status: 400,
           data: {
-            error: "unknown_destination_rig",
-            message: "destination_session bob@phantom-rig references an unknown rig",
+            error: "unknown_destination_software_team",
+            message: "destination_session bob@phantom-software-team references an unknown softwareTeam",
           },
         },
       },
@@ -1412,19 +1412,19 @@ describe("rig queue CLI", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "create",
-      "--source", "alice@known-rig",
-      "--destination", "bob@phantom-rig",
+      "node", "softwareTeam", "queue", "create",
+      "--source", "alice@known-software-team",
+      "--destination", "bob@phantom-software-team",
       "--body", "x",
       "--json",
     ]);
     expect(process.exitCode).toBe(1);
     const out = logs.join("\n");
-    expect(out).toContain("unknown_destination_rig");
+    expect(out).toContain("unknown_destination_software_team");
   });
 
   it("queue create --host attempts the real write when the local health probe is inconclusive and surfaces the daemon response", async () => {
-    vi.stubEnv("OPENRIG_URL", "http://127.0.0.1:7766");
+    vi.stubEnv("SOFTWARETEAM_URL", "http://127.0.0.1:7766");
     const { getDaemonStatus } = await import("../src/daemon-lifecycle.js");
     vi.mocked(getDaemonStatus).mockResolvedValueOnce({ state: "stopped" });
     const { deps, calls } = makeDeps({
@@ -1432,8 +1432,8 @@ describe("rig queue CLI", () => {
         "POST /api/queue/create": {
           status: 400,
           data: {
-            error: "unknown_destination_rig",
-            message: "destination_session bob@phantom-rig references an unknown rig",
+            error: "unknown_destination_software_team",
+            message: "destination_session bob@phantom-software-team references an unknown softwareTeam",
           },
         },
       },
@@ -1447,9 +1447,9 @@ describe("rig queue CLI", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "create",
-      "--source", "alice@known-rig",
-      "--destination", "bob@phantom-rig",
+      "node", "softwareTeam", "queue", "create",
+      "--source", "alice@known-software-team",
+      "--destination", "bob@phantom-software-team",
       "--host", "remote-a",
       "--body", "x",
       "--json",
@@ -1461,7 +1461,7 @@ describe("rig queue CLI", () => {
       body: expect.objectContaining({ hostId: "remote-a" }),
     });
     expect(clientUrls).toEqual(["http://127.0.0.1:7766"]);
-    expect(logs.join("\n")).toContain("unknown_destination_rig");
+    expect(logs.join("\n")).toContain("unknown_destination_software_team");
     expect(errors.join("\n")).not.toContain("Daemon not running");
     expect(process.exitCode).toBe(1);
   });
@@ -1474,9 +1474,9 @@ describe("rig queue CLI", () => {
     program.exitOverride();
 
     await program.parseAsync([
-      "node", "rig", "queue", "create",
-      "--source", "alice@known-rig",
-      "--destination", "bob@known-rig",
+      "node", "softwareTeam", "queue", "create",
+      "--source", "alice@known-software-team",
+      "--destination", "bob@known-software-team",
       "--body", "x",
       "--json",
     ]);
@@ -1498,9 +1498,9 @@ describe("rig queue CLI", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "handoff", "qitem-x",
-      "--from", "bob@rig",
-      "--to", "carol@rig",
+      "node", "softwareTeam", "queue", "handoff", "qitem-x",
+      "--from", "bob@software-team",
+      "--to", "carol@software-team",
       "--no-nudge",
     ]);
     const call = calls.find((c) => c.path === "/api/queue/qitem-x/handoff");
@@ -1512,100 +1512,100 @@ describe("rig queue CLI", () => {
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "list",
-      "--destination", "bob@rig",
+      "node", "softwareTeam", "queue", "list",
+      "--destination", "bob@software-team",
       "--state", "pending",
       "--limit", "50",
       "--json",
     ]);
     const call = calls.find((c) => c.method === "GET" && c.path.startsWith("/api/queue/list"));
     expect(call).toBeDefined();
-    expect(call!.path).toContain("destinationSession=bob%40rig");
+    expect(call!.path).toContain("destinationSession=bob%40software-team");
     expect(call!.path).toContain("state=pending");
     expect(call!.path).toContain("limit=50");
     expect(call!.path).toContain("compact=1");
     expect(call!.path).not.toContain("as=");
-    expect(call!.path).not.toContain("rig=");
+    expect(call!.path).not.toContain("softwareTeam=");
   });
 
   it("list -a includes history (no activeOnly param)", async () => {
-    const saved = process.env.OPENRIG_SESSION_NAME;
-    process.env.OPENRIG_SESSION_NAME = "dev1@my-rig";
+    const saved = process.env.SOFTWARETEAM_SESSION_NAME;
+    process.env.SOFTWARETEAM_SESSION_NAME = "dev1@my-software-team";
     try {
       const { deps, calls } = makeDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "list", "-a", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "list", "-a", "--json"]);
       const call = calls.find((c) => c.method === "GET" && c.path.startsWith("/api/queue/list"));
       expect(call).toBeDefined();
       expect(call!.path).not.toContain("activeOnly=");
-      expect(call!.path).toContain("rig=my-rig");
+      expect(call!.path).toContain("softwareTeam=my-software-team");
       expect(call!.path).toContain("compact=1");
     } finally {
-      if (saved === undefined) delete process.env.OPENRIG_SESSION_NAME;
-      else process.env.OPENRIG_SESSION_NAME = saved;
+      if (saved === undefined) delete process.env.SOFTWARETEAM_SESSION_NAME;
+      else process.env.SOFTWARETEAM_SESSION_NAME = saved;
     }
   });
 
-  it("list -A is cross-rig (no rig param)", async () => {
-    const saved = process.env.OPENRIG_SESSION_NAME;
-    process.env.OPENRIG_SESSION_NAME = "dev1@my-rig";
+  it("list -A is cross-software-team (no SoftwareTeam param)", async () => {
+    const saved = process.env.SOFTWARETEAM_SESSION_NAME;
+    process.env.SOFTWARETEAM_SESSION_NAME = "dev1@my-software-team";
     try {
       const { deps, calls } = makeDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "list", "-A", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "list", "-A", "--json"]);
       const call = calls.find((c) => c.method === "GET" && c.path.startsWith("/api/queue/list"));
       expect(call).toBeDefined();
-      expect(call!.path).not.toContain("rig=");
+      expect(call!.path).not.toContain("softwareTeam=");
       expect(call!.path).toContain("activeOnly=1");
       expect(call!.path).toContain("compact=1");
     } finally {
-      if (saved === undefined) delete process.env.OPENRIG_SESSION_NAME;
-      else process.env.OPENRIG_SESSION_NAME = saved;
+      if (saved === undefined) delete process.env.SOFTWARETEAM_SESSION_NAME;
+      else process.env.SOFTWARETEAM_SESSION_NAME = saved;
     }
   });
 
-  it("list --full --all --all-rigs = firehose (no compact, no active, no rig)", async () => {
+  it("list --full --all --all-software-teams = firehose (no compact, no active, no softwareTeam)", async () => {
     const { deps, calls } = makeDeps();
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "queue", "list", "--full", "--all", "--all-rigs", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "queue", "list", "--full", "--all", "--all-software-teams", "--json"]);
     const call = calls.find((c) => c.method === "GET" && c.path.startsWith("/api/queue/list"));
     expect(call).toBeDefined();
     expect(call!.path).not.toContain("compact=");
     expect(call!.path).not.toContain("activeOnly=");
-    expect(call!.path).not.toContain("rig=");
+    expect(call!.path).not.toContain("softwareTeam=");
     expect(call!.path).not.toContain("as=");
   });
 
-  it("list with --destination does not inject implicit rig scope", async () => {
-    const saved = process.env.OPENRIG_SESSION_NAME;
-    process.env.OPENRIG_SESSION_NAME = "my-seat@my-rig";
+  it("list with --destination does not inject implicit SoftwareTeam scope", async () => {
+    const saved = process.env.SOFTWARETEAM_SESSION_NAME;
+    process.env.SOFTWARETEAM_SESSION_NAME = "my-seat@my-software-team";
     try {
       const { deps, calls } = makeDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "list", "--destination", "bob@rig", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "list", "--destination", "bob@software-team", "--json"]);
       const call = calls.find((c) => c.method === "GET" && c.path.startsWith("/api/queue/list"));
       expect(call).toBeDefined();
-      expect(call!.path).toContain("destinationSession=bob%40rig");
+      expect(call!.path).toContain("destinationSession=bob%40software-team");
       expect(call!.path).toContain("compact=1");
-      expect(call!.path).not.toContain("rig=");
+      expect(call!.path).not.toContain("softwareTeam=");
       expect(call!.path).not.toContain("as=");
     } finally {
-      if (saved === undefined) delete process.env.OPENRIG_SESSION_NAME;
-      else process.env.OPENRIG_SESSION_NAME = saved;
+      if (saved === undefined) delete process.env.SOFTWARETEAM_SESSION_NAME;
+      else process.env.SOFTWARETEAM_SESSION_NAME = saved;
     }
   });
 
-  it("recipe command 'rig queue list --destination <seat>' parses successfully and rejects --session", async () => {
+  it("recipe command 'SoftwareTeam queue list --destination <seat>' parses successfully and rejects --session", async () => {
     const { deps, calls } = makeDeps();
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
 
     // The generated recipe from queue-stuck-sweep uses --destination <seat>
-    await program.parseAsync(["node", "rig", "queue", "list", "--destination", "next@r"]);
+    await program.parseAsync(["node", "softwareTeam", "queue", "list", "--destination", "next@r"]);
     const call = calls.find((c) => c.method === "GET" && c.path.startsWith("/api/queue/list"));
     expect(call).toBeDefined();
     expect(call!.path).toContain("destinationSession=next%40r");
@@ -1614,59 +1614,59 @@ describe("rig queue CLI", () => {
     const failProgram = createProgram({ queueDeps: deps });
     failProgram.exitOverride();
     await expect(
-      failProgram.parseAsync(["node", "rig", "queue", "list", "--session", "next@r"])
+      failProgram.parseAsync(["node", "softwareTeam", "queue", "list", "--session", "next@r"])
     ).rejects.toThrow();
   });
 
   it("list --mine scopes to caller session", async () => {
-    const saved = process.env.OPENRIG_SESSION_NAME;
-    process.env.OPENRIG_SESSION_NAME = "dev1-driver@openrig-delivery";
+    const saved = process.env.SOFTWARETEAM_SESSION_NAME;
+    process.env.SOFTWARETEAM_SESSION_NAME = "dev1-driver@softwareteam-delivery";
     try {
       const { deps, calls } = makeDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "list", "--mine", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "list", "--mine", "--json"]);
       const call = calls.find((c) => c.method === "GET" && c.path.startsWith("/api/queue/list"));
       expect(call).toBeDefined();
-      expect(call!.path).toContain("as=dev1-driver%40openrig-delivery");
-      expect(call!.path).not.toContain("rig=");
+      expect(call!.path).toContain("as=dev1-driver%40softwareteam-delivery");
+      expect(call!.path).not.toContain("softwareTeam=");
     } finally {
-      if (saved === undefined) delete process.env.OPENRIG_SESSION_NAME;
-      else process.env.OPENRIG_SESSION_NAME = saved;
+      if (saved === undefined) delete process.env.SOFTWARETEAM_SESSION_NAME;
+      else process.env.SOFTWARETEAM_SESSION_NAME = saved;
     }
   });
 
   it("S4b RED: list --owned scopes only to rows whose destination is the caller", async () => {
-    const saved = process.env.OPENRIG_SESSION_NAME;
-    process.env.OPENRIG_SESSION_NAME = "dev1-driver@openrig-delivery";
+    const saved = process.env.SOFTWARETEAM_SESSION_NAME;
+    process.env.SOFTWARETEAM_SESSION_NAME = "dev1-driver@softwareteam-delivery";
     try {
       const { deps, calls } = makeDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "list", "--owned", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "list", "--owned", "--json"]);
       const call = calls.find((c) => c.method === "GET" && c.path.startsWith("/api/queue/list"));
       expect(call).toBeDefined();
-      expect(call!.path).toContain("destinationSession=dev1-driver%40openrig-delivery");
+      expect(call!.path).toContain("destinationSession=dev1-driver%40softwareteam-delivery");
       expect(call!.path).not.toContain("as=");
       expect(call!.path).not.toContain("sourceSession=");
-      expect(call!.path).not.toContain("rig=");
+      expect(call!.path).not.toContain("softwareTeam=");
     } finally {
-      if (saved === undefined) delete process.env.OPENRIG_SESSION_NAME;
-      else process.env.OPENRIG_SESSION_NAME = saved;
+      if (saved === undefined) delete process.env.SOFTWARETEAM_SESSION_NAME;
+      else process.env.SOFTWARETEAM_SESSION_NAME = saved;
     }
   });
 
   it("S4b final RED: list --owned without either seat identity refuses before any GET", async () => {
-    vi.stubEnv("OPENRIG_SESSION_NAME", "");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "");
     vi.stubEnv("RIGGED_SESSION_NAME", "");
     const { deps, calls } = makeDeps();
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
 
-    await program.parseAsync(["node", "rig", "queue", "list", "--owned", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "queue", "list", "--owned", "--json"]);
 
     expect(process.exitCode).toBe(1);
-    expect(errors.join("\n")).toMatch(/--owned.*OPENRIG_SESSION_NAME.*RIGGED_SESSION_NAME/i);
+    expect(errors.join("\n")).toMatch(/--owned.*SOFTWARETEAM_SESSION_NAME.*SOFTWARETEAM_SESSION_NAME/i);
     expect(calls.some((call) => call.method === "GET" && call.path.startsWith("/api/queue/list"))).toBe(false);
   });
 
@@ -1680,27 +1680,27 @@ describe("rig queue CLI", () => {
     expect(help).toMatch(/--mine[^\n]*(source or destination|authored.*do not own)/i);
   });
 
-  it("list default injects rig=<rigName> + activeOnly=1 + compact=1", async () => {
-    const saved = process.env.OPENRIG_SESSION_NAME;
-    process.env.OPENRIG_SESSION_NAME = "dev1-driver@openrig-delivery";
+  it("list default injects softwareTeam=<softwareTeamName> + activeOnly=1 + compact=1", async () => {
+    const saved = process.env.SOFTWARETEAM_SESSION_NAME;
+    process.env.SOFTWARETEAM_SESSION_NAME = "dev1-driver@softwareteam-delivery";
     try {
       const { deps, calls } = makeDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "list", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "list", "--json"]);
       const call = calls.find((c) => c.method === "GET" && c.path.startsWith("/api/queue/list"));
       expect(call).toBeDefined();
-      expect(call!.path).toContain("rig=openrig-delivery");
+      expect(call!.path).toContain("softwareTeam=softwareteam-delivery");
       expect(call!.path).toContain("activeOnly=1");
       expect(call!.path).toContain("compact=1");
       expect(call!.path).not.toContain("as=");
     } finally {
-      if (saved === undefined) delete process.env.OPENRIG_SESSION_NAME;
-      else process.env.OPENRIG_SESSION_NAME = saved;
+      if (saved === undefined) delete process.env.SOFTWARETEAM_SESSION_NAME;
+      else process.env.SOFTWARETEAM_SESSION_NAME = saved;
     }
   });
 
-  // OPR.0.4.3.03 — `rig queue show` body preview + `--full` compatibility.
+  // OPR.0.4.3.03 — `SoftwareTeam queue show` body preview + `--full` compatibility.
   // Bound + bodyTruncated are CODE-POINT-count based (IMPL-SPEC §2.3-2.4);
   // bodyBytes is the honest TRUE total UTF-8 byte size.
   describe("queue show body preview (OPR.0.4.3.03)", () => {
@@ -1765,14 +1765,14 @@ describe("rig queue CLI", () => {
       const { deps } = showRoute({ qitemId: "qitem-1", state: "pending", body: full });
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "show", "qitem-1"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "show", "qitem-1"]);
       const printed = JSON.parse(logs[0]);
       expect(printed.bodyTruncated).toBe(true);
       expect(printed.bodyBytes).toBe(1000);
       expect(Array.from(printed.body).length).toBe(512);
       // marker line on its OWN line, with the honest total byte size
       expect(logs.join("\n")).toContain("bounded preview — complete body is 1000 bytes; full record");
-      expect(logs.join("\n")).toContain("rig queue show 'qitem-1' --full --json");
+      expect(logs.join("\n")).toContain("SoftwareTeam queue show 'qitem-1' --full --json");
       expect(logs.join("\n")).not.toMatch(/\btruncated\b/i);
     });
 
@@ -1780,7 +1780,7 @@ describe("rig queue CLI", () => {
       const { deps } = showRoute({ qitemId: "qitem-1", body: "short body" });
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "show", "qitem-1"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "show", "qitem-1"]);
       const printed = JSON.parse(logs[0]);
       expect(printed.body).toBe("short body");
       expect(printed.bodyTruncated).toBe(false);
@@ -1792,7 +1792,7 @@ describe("rig queue CLI", () => {
       const { deps } = showRoute({ qitemId: "qitem-1", body: "" });
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "show", "qitem-1"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "show", "qitem-1"]);
       const printed = JSON.parse(logs[0]);
       expect(printed.body).toBe("");
       expect(printed.bodyBytes).toBe(0);
@@ -1806,7 +1806,7 @@ describe("rig queue CLI", () => {
       const { deps } = showRoute({ qitemId: "qitem-1", body: full });
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "show", "qitem-1", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "show", "qitem-1", "--json"]);
       expect(logs.length).toBe(1); // compact single-line JSON, no separate marker line
       const printed = JSON.parse(logs[0]);
       expect(printed.bodyTruncated).toBe(true);
@@ -1819,7 +1819,7 @@ describe("rig queue CLI", () => {
       const { deps } = showRoute(item);
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "show", "qitem-1", "--full", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "show", "qitem-1", "--full", "--json"]);
       // Byte-identical to a raw JSON.stringify of the item (today's shape).
       expect(logs[0]).toBe(JSON.stringify(item));
       const printed = JSON.parse(logs[0]);
@@ -1832,7 +1832,7 @@ describe("rig queue CLI", () => {
       const { deps, calls } = makeDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "update", "qitem-x", "--state", "done", "--closure-reason", "no-follow-on", "--resolution", "Fixed in #42"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "update", "qitem-x", "--state", "done", "--closure-reason", "no-follow-on", "--resolution", "Fixed in #42"]);
       expect(calls.find((c) => c.path === "/api/queue/qitem-x/update")?.body).toMatchObject({ state: "done", resolution: "Fixed in #42" });
     });
 
@@ -1840,12 +1840,12 @@ describe("rig queue CLI", () => {
       ["canceled", []],
       ["denied", []],
       ["failed", []],
-      ["handed-off", ["--closure-reason", "handed_off_to", "--closure-target", "next@rig"]],
+      ["handed-off", ["--closure-reason", "handed_off_to", "--closure-target", "next@software-team"]],
     ])("update --state %s --resolution posts the text, kept as typed", async (state, extra) => {
       const { deps, calls } = makeDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "update", "qitem-x", "--state", state, ...extra, "--resolution", "  two\nlines \u2713 "]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "update", "qitem-x", "--state", state, ...extra, "--resolution", "  two\nlines \u2713 "]);
       expect(calls.find((c) => c.path === "/api/queue/qitem-x/update")?.body).toMatchObject({ state, resolution: "  two\nlines \u2713 " });
       expect(process.exitCode).toBeUndefined();
     });
@@ -1860,7 +1860,7 @@ describe("rig queue CLI", () => {
       const { deps, calls } = makeDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "update", "qitem-x", ...args]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "update", "qitem-x", ...args]);
       expect(calls).toEqual([]);
       expect(process.exitCode).toBe(1);
       expect(errors.join("\n")).toContain("--resolution");
@@ -1871,7 +1871,7 @@ describe("rig queue CLI", () => {
       const { deps, calls } = makeDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "update", "qitem-x", "--state", "done", "--closure-reason", "no-follow-on", "--resolution", text]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "update", "qitem-x", "--state", "done", "--closure-reason", "no-follow-on", "--resolution", text]);
       expect(calls).toEqual([]);
       expect(process.exitCode).toBe(1);
       expect(errors.join("\n")).toContain("needs text");
@@ -1881,7 +1881,7 @@ describe("rig queue CLI", () => {
       const { deps, calls } = makeDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "update", "qitem-x", "--state", "pending", "--resolution", "x", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "update", "qitem-x", "--state", "pending", "--resolution", "x", "--json"]);
       expect(calls).toEqual([]);
       expect(JSON.parse(errors[0])).toMatchObject({ error: "resolution_needs_closing_state" });
     });
@@ -1899,7 +1899,7 @@ describe("rig queue CLI", () => {
       const { deps, calls } = makeDeps();
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "update", "qitem-x", "--note", "n"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "update", "qitem-x", "--note", "n"]);
       expect((calls.find((c) => c.path === "/api/queue/qitem-x/update")?.body as Record<string, unknown>).resolution).toBeUndefined();
     });
 
@@ -1912,7 +1912,7 @@ describe("rig queue CLI", () => {
       const { deps } = showRoute({ qitemId: "qitem-1", state: "pending", body: "work" });
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "show", "qitem-1", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "show", "qitem-1", "--json"]);
       expect(JSON.parse(logs[0]).readView).toMatchObject({ complete: true, omittedFields: [] });
     });
 
@@ -1922,7 +1922,7 @@ describe("rig queue CLI", () => {
         const { deps } = showRoute(closed);
         const program = createProgram({ queueDeps: deps });
         program.exitOverride();
-        await program.parseAsync(["node", "rig", "queue", "show", "qitem-1", "--full", ...flags]);
+        await program.parseAsync(["node", "softwareTeam", "queue", "show", "qitem-1", "--full", ...flags]);
         expect(JSON.parse(logs[0]).closingTransition).toMatchObject({ closureReason: "no-follow-on", transitionNote: "shipped it", actorSession: "b@r" });
       }
     });
@@ -1933,7 +1933,7 @@ describe("rig queue CLI", () => {
         const { deps } = showRoute(closed);
         const program = createProgram({ queueDeps: deps });
         program.exitOverride();
-        await program.parseAsync(["node", "rig", "queue", "show", "qitem-1", ...flags]);
+        await program.parseAsync(["node", "softwareTeam", "queue", "show", "qitem-1", ...flags]);
         const printed = JSON.parse(logs[0]);
         expect(printed.state).toBe("done");
         expect(printed).not.toHaveProperty("closingTransition");
@@ -1941,7 +1941,7 @@ describe("rig queue CLI", () => {
         // The omission is declared, so a reader that trusts readView runs --full.
         expect(printed.readView.complete).toBe(false);
         expect(printed.readView.omittedFields).toEqual([{ path: "closingTransition", jsonBytes: JSON.stringify(closed.closingTransition).length }]);
-        expect(printed.readView.fullCommand).toBe("rig queue show 'qitem-1' --full --json");
+        expect(printed.readView.fullCommand).toBe("SoftwareTeam queue show 'qitem-1' --full --json");
       }
     });
 
@@ -1951,7 +1951,7 @@ describe("rig queue CLI", () => {
       const { deps } = showRoute(item);
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "show", "qitem-1", "--full"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "show", "qitem-1", "--full"]);
       const printed = JSON.parse(logs[0]);
       expect(printed.body).toBe(full);
       expect(printed).not.toHaveProperty("bodyBytes");
@@ -2013,29 +2013,29 @@ describe("rig queue CLI", () => {
     }
 
     // Endpoints + required flags grounded at 4b05f970. `argv` is everything after
-    // `rig` except the body flags; `neither` is the verb's no-body contract.
+    // `softwareTeam` except the body flags; `neither` is the verb's no-body contract.
     const VERBS = [
       {
         name: "handoff",
-        argv: ["queue", "handoff", "q1", "--from", "a@rig", "--to", "b@rig"],
+        argv: ["queue", "handoff", "q1", "--from", "a@software-team", "--to", "b@software-team"],
         pathMatch: (p: string) => p === "/api/queue/q1/handoff",
         neither: "undefined-body" as const,
       },
       {
         name: "handoff-and-complete",
-        argv: ["queue", "handoff-and-complete", "q1", "--from", "a@rig", "--to", "b@rig"],
+        argv: ["queue", "handoff-and-complete", "q1", "--from", "a@software-team", "--to", "b@software-team"],
         pathMatch: (p: string) => p === "/api/queue/q1/handoff-and-complete",
         neither: "undefined-body" as const,
       },
       {
         name: "inbox-drop",
-        argv: ["queue", "inbox-drop", "b@rig", "--sender", "a@rig"],
+        argv: ["queue", "inbox-drop", "b@software-team", "--sender", "a@software-team"],
         pathMatch: (p: string) => p === "/api/queue/inbox/drop",
         neither: "reject" as const,
       },
       {
         name: "outbox-record",
-        argv: ["queue", "outbox-record", "--sender", "a@rig", "--destination", "b@rig"],
+        argv: ["queue", "outbox-record", "--sender", "a@software-team", "--destination", "b@software-team"],
         pathMatch: (p: string) => p === "/api/queue/outbox/record",
         neither: "reject" as const,
       },
@@ -2050,7 +2050,7 @@ describe("rig queue CLI", () => {
       const program = createProgram({ queueDeps: deps });
       program.exitOverride();
       await withStdin(DISCRIMINATOR, async () => {
-        await program.parseAsync(["node", "rig", "queue", "create", "--source", "a@rig", "--destination", "b@rig", "--body", "-", "--json"]);
+        await program.parseAsync(["node", "softwareTeam", "queue", "create", "--source", "a@software-team", "--destination", "b@software-team", "--body", "-", "--json"]);
       });
       const post = calls.find((c) => c.path === "/api/queue/create");
       expect(post, "create should POST after consuming stdin").toBeDefined();
@@ -2071,7 +2071,7 @@ describe("rig queue CLI", () => {
           // Commander rejection so the discriminator is the missing/incorrect
           // POST body, not an uncaught parser throw.
           try {
-            await program.parseAsync(["node", "rig", ...v.argv, "--body-file", bodyPath, "--json"]);
+            await program.parseAsync(["node", "softwareTeam", ...v.argv, "--body-file", bodyPath, "--json"]);
           } catch {
             /* expected Commander unknown-option today */
           }
@@ -2092,7 +2092,7 @@ describe("rig queue CLI", () => {
         program.exitOverride();
         await withStdin(DISCRIMINATOR, async () => {
           try {
-            await program.parseAsync(["node", "rig", ...v.argv, "--body", "-", "--json"]);
+            await program.parseAsync(["node", "softwareTeam", ...v.argv, "--body", "-", "--json"]);
           } catch {
             /* no throw expected today (--body exists); guarded for symmetry */
           }
@@ -2122,7 +2122,7 @@ describe("rig queue CLI", () => {
         const program = createProgram({ queueDeps: deps });
         program.exitOverride();
         try {
-          await program.parseAsync(["node", "rig", ...v.argv, "--json"]);
+          await program.parseAsync(["node", "softwareTeam", ...v.argv, "--json"]);
         } catch {
           /* not expected */
         }
@@ -2143,7 +2143,7 @@ describe("rig queue CLI", () => {
         process.exitCode = undefined;
         let errored = false;
         try {
-          await program.parseAsync(["node", "rig", ...v.argv, "--json"]);
+          await program.parseAsync(["node", "softwareTeam", ...v.argv, "--json"]);
         } catch {
           errored = true; // Commander requiredOption throws today
         }
@@ -2170,7 +2170,7 @@ describe("rig queue CLI", () => {
         process.exitCode = undefined;
         let errored = false;
         try {
-          await program.parseAsync(["node", "rig", ...v.argv, "--body", "inline", "--body-file", bodyPath, "--json"]);
+          await program.parseAsync(["node", "softwareTeam", ...v.argv, "--body", "inline", "--body-file", bodyPath, "--json"]);
         } catch {
           errored = true;
         }
@@ -2185,7 +2185,7 @@ describe("rig queue CLI", () => {
     }
 
     // ── GENUINE RED: shared resolver errors must be command-NEUTRAL.
-    // Today all four say "rig queue create did not run" — false once handoff/
+    // Today all four say "SoftwareTeam queue create did not run" — false once handoff/
     // inbox/outbox share the helper. Pin generic wording; no stale "queue create".
     it("RED: resolveQueueBody 'neither' error wording is command-neutral (no 'queue create')", async () => {
       await expect(resolveQueueBody({})).rejects.toMatchObject({
@@ -2208,7 +2208,7 @@ describe("rig queue CLI", () => {
     });
 
     // BLOCKER-1 fix: the FOURTH stale consequence — the not-a-regular-file /
-    // directory branch — was unguarded. A negative search found FOUR 'rig queue
+    // directory branch — was unguarded. A negative search found FOUR 'SoftwareTeam queue
     // create did not run' occurrences; the packet must pin all four, not three.
     it("RED: resolveQueueBody not-a-regular-file error wording is command-neutral (no 'queue create')", async () => {
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "s08-notregular-wording-"));
@@ -2263,8 +2263,8 @@ describe("P3 — authored-summary teaching layer (advisory + --summary hint)", (
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "create",
-      "--source", "a@rig", "--destination", "b@rig", "--body", "x", "--json",
+      "node", "softwareTeam", "queue", "create",
+      "--source", "a@software-team", "--destination", "b@software-team", "--body", "x", "--json",
     ]);
     const warn = stderrOut.join("");
     expect(warn).toMatch(TEACHES_WHERE);
@@ -2289,8 +2289,8 @@ describe("P3 — authored-summary teaching layer (advisory + --summary hint)", (
       program.exitOverride();
       try {
         await program.parseAsync([
-          "node", "rig", "queue", sub, "qitem-src-1",
-          "--from", "a@rig", "--to", "b@rig", "--body", "y", "--json",
+          "node", "softwareTeam", "queue", sub, "qitem-src-1",
+          "--from", "a@software-team", "--to", "b@software-team", "--body", "y", "--json",
         ]);
       } catch { /* exitOverride / downstream mock — the warn fires before the daemon call */ }
       return stderrOut.join("");
@@ -2337,8 +2337,8 @@ describe("P3 — authored-summary teaching layer (advisory + --summary hint)", (
     const program = createProgram({ queueDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "queue", "create",
-      "--source", "a@rig", "--destination", "b@rig", "--body", "x", "--json",
+      "node", "softwareTeam", "queue", "create",
+      "--source", "a@software-team", "--destination", "b@software-team", "--body", "x", "--json",
     ]);
     const warn = stderrOut.join("");
     for (const surface of SUBJECT_SURFACES) expect(warn).toMatch(surface);

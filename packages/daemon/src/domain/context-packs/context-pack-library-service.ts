@@ -1,4 +1,4 @@
-// Rig Context / Composable Context Injection v0 (PL-014) — library
+// SoftwareTeam Context / Composable Context Injection v0 (PL-014) — library
 // service.
 //
 // Walks the configured discovery roots, parses each pack's

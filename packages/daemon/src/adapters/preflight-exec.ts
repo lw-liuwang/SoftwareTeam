@@ -18,7 +18,7 @@ export function runtimeVersionProbeCwd(cmd: string): string | undefined {
 }
 
 /** Runtime version probes: bounded, and their process group is ended, like the verifier's probes. A hung
- *  runtime binary otherwise holds a rig launch (or the daemon's startup) indefinitely and outlives the daemon. */
+ *  runtime binary otherwise holds a SoftwareTeam launch (or the daemon's startup) indefinitely and outlives the daemon. */
 const versionProbe = boundedProbeExec(undefined, undefined, { cwd: runtimeVersionProbeCwd });
 
 /** Production preflight only; callers still prefer an explicitly injected exec. */

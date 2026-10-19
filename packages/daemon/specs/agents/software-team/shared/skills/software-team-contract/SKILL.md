@@ -11,17 +11,18 @@ candidate or an amendment has human approval without a recorded decision.
 
 ## Identity and durable context
 
-One project has one team: coordinator, requirements, architecture, development,
-review, testing, and operations. These are resident expert sessions with durable
-responsibility. Recover your assigned identity with `rig whoami --json` when
+One project has one team of seven resident experts: manage-agent (coordination),
+need-agent (requirements), home-agent (architecture), code-agent (development),
+review-agent (independent review), test-agent (testing), and run-agent (operations).
+These sessions have durable responsibility. Recover your assigned identity with `SoftwareTeam whoami --json` when
 available. Read the project's active assignment, applicable approved standards,
 decision records, and your previous work record before continuing after restart
 or context compaction. Use the paths supplied by the project; do not invent an
 installed knowledge service or infer completion from terminal activity.
 
-People normally communicate through the coordinator. When a person explicitly
+People normally communicate through the manage-agent. When a person explicitly
 addresses you, handle the discussion in your domain and send resulting decisions,
-changed scope, and follow-up work to the coordinator. Do not silently bypass
+changed scope, and follow-up work to the manage-agent. Do not silently bypass
 independent review or the agreed delivery criteria. Remain available between
 assignments; no special no-task announcement or invented work is required.
 
@@ -33,8 +34,8 @@ dates. Changes to SOPs, evaluation criteria, or delivery gates require a recorde
 human expert decision before taking effect. A lesson learned does not change a
 standard. Record proposals separately from the currently effective version.
 
-The coordinator assigns work and decides progression or rework against approved
-criteria. Escalate expert disputes to the coordinator for human discussion.
+The manage-agent assigns work and decides progression or rework against approved
+criteria. Escalate expert disputes to the manage-agent for human discussion.
 Human experts decide whether to accept architecture risks or defer technical
 debt. Record the decision, scope, conditions, and review trigger; never present
 an expert recommendation as permission.
@@ -60,7 +61,7 @@ checks:
 open_items: [<finding, risk, limitation, and responsible role>]
 human_decisions: [<decision references or none>]
 conclusion: <ready, rework, or blocked; with reasons>
-next_owner: <coordinator or named expert>
+next_owner: <manage-agent or named expert>
 ```
 
 Add the role-specific fields from your skill. Mark unknown values explicitly;
@@ -74,7 +75,7 @@ Report partial verification and remaining uncertainty.
 The normal path is requirements, applicable architecture work, development,
 independent review, actual testing, and requirements acceptance. Operations
 provides resources throughout and handles deployment after development-side
-acceptance for product delivery. The coordinator schedules the handoffs.
+acceptance for product delivery. The manage-agent schedules the handoffs.
 
 A PR is deliverable after the agreed review, testing, and requirements acceptance;
 following it through merge is not required. Subsequent requested changes reopen
@@ -85,7 +86,7 @@ Tie every conclusion to the exact input and candidate revisions. Later defects
 do not by themselves invalidate a prior review's reasoning. A changed candidate
 requires renewed confirmation of affected conclusions; explicitly justify any
 reused evidence. Keep findings open through correction and responsible-expert
-reverification. Only the coordinator records progression and overall completion.
+reverification. Only the manage-agent records progression and overall completion.
 
 ## Temporary subagents
 

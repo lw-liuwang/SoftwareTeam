@@ -15,12 +15,12 @@ import { makeInboundFilePort } from "../src/domain/gateway/slack/slack-subsystem
 import { SeenStore, DeadLetterStore } from "../src/domain/gateway/slack/state-store.js";
 
 it("retains new and still-failing events across overlapping retries while successful work lands once", async () => {
-  const home = mkdtempSync(join(tmpdir(), "openrig-dead-retry-"));
+  const home = mkdtempSync(join(tmpdir(), "softwareteam-dead-retry-"));
   const db = createDb(join(home, "state.sqlite"));
   migrate(db, ALL_MIGRATIONS);
   let unavailable = true;
   const repo = new QueueRepository(db, new EventBus(db), {
-    validateRig: (destination) => !unavailable || destination !== "worker@missing-rig",
+    validateSoftwareTeam: (destination) => !unavailable || destination !== "worker@missing-software-team",
   });
   const seen = new SeenStore(join(home, "seen.jsonl"));
   const dead = new DeadLetterStore<SlackEvent>(join(home, "dead.jsonl"));
@@ -47,7 +47,7 @@ it("retains new and still-failing events across overlapping retries while succes
       queue: makeQueuePorts(repo), seen, deadLetter: dead, files,
       destination: "operator-agent@kernel",
       resolveSender: () => ({ admitted: true, source: "human-fixture@external" }),
-      resolveRoute: (event) => ({ destination: event.ts === "1000.1" ? "operator-agent@kernel" : "worker@missing-rig" }),
+      resolveRoute: (event) => ({ destination: event.ts === "1000.1" ? "operator-agent@kernel" : "worker@missing-software-team" }),
     });
     const old = { type: "message", user: "U-FIXTURE", channel: "C-FIXTURE", text: "recover attachment", ts: "1000.1",
       files: [{ name: "fixture.txt", url_private: "https://files.slack.com/fixture" }] };
@@ -83,7 +83,7 @@ it("retains new and still-failing events across overlapping retries while succes
 });
 
 it("keeps later identical appends when replacing a processed action snapshot", () => {
-  const home = mkdtempSync(join(tmpdir(), "openrig-action-batch-"));
+  const home = mkdtempSync(join(tmpdir(), "softwareteam-action-batch-"));
   try {
     const store = new DeadLetterStore(join(home, "actions.jsonl"), undefined, () => new Date("2026-10-01T00:00:00Z"));
     store.append({ type: "block_actions", action: "first" }, 1);

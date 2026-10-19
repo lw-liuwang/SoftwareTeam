@@ -14,8 +14,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const HOOK = resolve(HERE, "../assets/plugins/openrig-core/hooks/scripts/refocus.cjs");
-const SEAT = "dev50-driver@test-rig";
+const HOOK = resolve(HERE, "../assets/plugins/softwareteam-core/hooks/scripts/refocus.cjs");
+const SEAT = "dev50-driver@test-software-team";
 const SEAT_KEY = SEAT.replace(/[^A-Za-z0-9@._-]/g, "_");
 const THRESHOLD = 1000;
 
@@ -49,16 +49,16 @@ function runHook(home: string, input: Record<string, unknown>, event = "UserProm
     input: JSON.stringify({ hook_event_name: event, ...input }),
     env: {
       ...process.env,
-      OPENRIG_HOME: home,
-      OPENRIG_SESSION_NAME: SEAT,
-      OPENRIG_REFOCUS_BYTES: String(THRESHOLD),
-      OPENRIG_REFOCUS_ENABLED: "1",
-      OPENRIG_REFOCUS_NOW: "",
-      OPENRIG_REFOCUS_CONTENT_REF: "",
-      OPENRIG_REFOCUS_CONTENT_FILE: "",
-      OPENRIG_REFOCUS_TREES: "work",
-      OPENRIG_REFOCUS_WORK_NODE: home,
-      OPENRIG_WORKSPACE_ROOT: home,
+      SOFTWARETEAM_HOME: home,
+      SOFTWARETEAM_SESSION_NAME: SEAT,
+      SOFTWARETEAM_REFOCUS_BYTES: String(THRESHOLD),
+      SOFTWARETEAM_REFOCUS_ENABLED: "1",
+      SOFTWARETEAM_REFOCUS_NOW: "",
+      SOFTWARETEAM_REFOCUS_CONTENT_REF: "",
+      SOFTWARETEAM_REFOCUS_CONTENT_FILE: "",
+      SOFTWARETEAM_REFOCUS_TREES: "work",
+      SOFTWARETEAM_REFOCUS_WORK_NODE: home,
+      SOFTWARETEAM_WORKSPACE_ROOT: home,
       PYTHON: join(home, "trace-success"),
     },
     timeout: 15_000,

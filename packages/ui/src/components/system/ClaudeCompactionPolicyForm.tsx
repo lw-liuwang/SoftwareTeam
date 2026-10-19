@@ -150,9 +150,9 @@ function PolicyFormBody({ data, setSetting }: PolicyFormBodyProps) {
       </h2>
       <p className="mt-2 text-sm text-on-surface-variant max-w-prose">
         When a Claude seat's context usage crosses the configured threshold,
-        OpenRig first sends a preparation message, then sends
+        SoftwareTeam first sends a preparation message, then sends
         <code className="font-mono text-[12px]"> /compact</code> on the next
-        eligible observation. After compaction, OpenRig sends one restore prompt
+        eligible observation. After compaction, SoftwareTeam sends one restore prompt
         that points the seat at its restore packet, followed by a read-depth
         audit prompt.
       </p>
@@ -211,7 +211,7 @@ function PolicyFormBody({ data, setSetting }: PolicyFormBodyProps) {
             className="border border-outline-variant px-2 py-1 font-mono text-sm"
           />
           <span className="text-xs text-on-surface-variant">
-            OpenRig wraps this with the current context usage, threshold, and
+            SoftwareTeam wraps this with the current context usage, threshold, and
             operator-authorized user-channel framing.
           </span>
         </div>
@@ -226,12 +226,12 @@ function PolicyFormBody({ data, setSetting }: PolicyFormBodyProps) {
             rows={3}
             value={form.compactInstruction}
             onChange={(e) => setForm((s) => ({ ...s, compactInstruction: e.target.value }))}
-            placeholder="Optional. Sent as /compact <instruction> when OpenRig triggers compaction."
+            placeholder="Optional. Sent as /compact <instruction> when SoftwareTeam triggers compaction."
             className="border border-outline-variant px-2 py-1 font-mono text-sm"
           />
           <span className="text-xs text-on-surface-variant">
             Optional advanced override. Leave blank to rely on Claude's native
-            compaction summary; OpenRig still appends a trust-channel note.
+            compaction summary; SoftwareTeam still appends a trust-channel note.
           </span>
         </div>
 
@@ -250,7 +250,7 @@ function PolicyFormBody({ data, setSetting }: PolicyFormBodyProps) {
           />
           <span className="text-xs text-on-surface-variant">
             Default asks Claude to read the claude-compaction-restore skill.
-            OpenRig wraps this with marker, transcript, and current-task
+            SoftwareTeam wraps this with marker, transcript, and current-task
             framing.
           </span>
         </div>
@@ -289,7 +289,7 @@ function PolicyFormBody({ data, setSetting }: PolicyFormBodyProps) {
             className="border border-outline-variant px-2 py-1 font-mono text-sm"
           />
           <span className="text-xs text-on-surface-variant">
-            OpenRig wraps this with the required FULL/PARTIAL/NOT_READ table
+            SoftwareTeam wraps this with the required FULL/PARTIAL/NOT_READ table
             and no-token-conservation language.
           </span>
         </div>

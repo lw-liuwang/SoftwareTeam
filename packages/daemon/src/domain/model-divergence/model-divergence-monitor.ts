@@ -13,7 +13,7 @@
 // Every-occurrence semantics live at the generation grain: every new occupant of a diverged seat
 // proclaims again (founder-classed every-occurrence, not digest), while one generation never spams.
 //
-// FOUR CHANNELS, per the desk's target ruling (2026-08-21): orchestrator = the seat's own rig's
+// FOUR CHANNELS, per the desk's target ruling (2026-08-21): orchestrator = the seat's own softwareTeam's
 // orch.* seats; operator = the seat resolved from the workspace operator config (derived, never
 // hardcoded — may be cross-host); oversight = the fleet oversight judgment seat (cross-host via the
 // registered route); human-via-Slack = NAMED DEFERRAL ("deferred: M1 not landed") until the M1
@@ -26,8 +26,8 @@ import { CANONICAL_MODEL_PINS } from "../spec-validation-advisory.js";
 export interface PinnedSeat {
   nodeId: string;
   sessionName: string;
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   runtime: string | null;
   pinnedModel: string;
   /** Occupant generation (null = unknown; falls back to sessionName grain). */
@@ -44,8 +44,8 @@ export interface ChannelOutcome {
 export interface ModelDivergenceProclamation {
   nodeId: string;
   sessionName: string;
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   runtime: string | null;
   pinnedModel: string;
   effectiveModel: string;
@@ -74,8 +74,8 @@ export interface ModelDivergenceMonitorDeps {
   processCensus?: { cycleLister(): () => Promise<Array<{ pid: number; ppid: number; command: string }>> };
   /** In-daemon send to a session (the watchdog delivery seam). */
   sendToSession: (sessionName: string, message: string, occurrenceId?: string) => Promise<{ ok: boolean; error?: string; outcome?: string }>;
-  /** The seat's own rig's orchestrator seats (session names). */
-  resolveOrchSeats: (rigName: string) => string[];
+  /** The seat's own softwareTeam's orchestrator seats (session names). */
+  resolveOrchSeats: (softwareTeamName: string) => string[];
   /** The configured operator seat (derived from config, never hardcoded). Null = unconfigured. */
   resolveOperatorSeat: () => string | null;
   /** The fleet oversight judgment seat (cross-host target), or null when unroutable. */
@@ -205,8 +205,8 @@ export class ModelDivergenceMonitor {
     const base = {
       nodeId: seat.nodeId,
       sessionName: seat.sessionName,
-      rigId: seat.rigId,
-      rigName: seat.rigName,
+      softwareTeamId: seat.softwareTeamId,
+      softwareTeamName: seat.softwareTeamName,
       runtime: seat.runtime,
       pinnedModel: seat.pinnedModel,
       effectiveModel,
@@ -217,9 +217,9 @@ export class ModelDivergenceMonitor {
     const occurrenceId = createHash("sha256").update(JSON.stringify([seat.nodeId, seat.generation ?? seat.sessionName, seat.pinnedModel, effectiveModel])).digest("hex");
     const channels: ChannelOutcome[] = [];
 
-    const orchSeats = this.deps.resolveOrchSeats(seat.rigName);
+    const orchSeats = this.deps.resolveOrchSeats(seat.softwareTeamName);
     if (orchSeats.length === 0) {
-      channels.push({ channel: "orchestrator", target: null, status: "failed", detail: `no orch seats found in rig ${seat.rigName}` });
+      channels.push({ channel: "orchestrator", target: null, status: "failed", detail: `no orch seats found in softwareTeam ${seat.softwareTeamName}` });
     } else {
       for (const target of orchSeats) channels.push(await this.deliver("orchestrator", target, message, occurrenceId));
     }

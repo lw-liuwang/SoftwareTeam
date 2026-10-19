@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from "vitest";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SeatStructuralActivityService } from "../src/domain/seat-structural-activity-service.js";
 
@@ -23,22 +23,22 @@ function mkTmux(content: string | null, counter?: { captures: number }) {
 describe("SeatStructuralActivityService — classification", () => {
   it("classifies a mid-work spinner pane (incl. a 'Drizzling' gerund) as agent_active + caches it", async () => {
     const svc = new SeatStructuralActivityService(mkTmux("some output\n⠋ Drizzling… (esc to interrupt)"));
-    expect((await svc.pollSeat("dev@rig"))?.state).toBe("agent_active"); // structural markers, NOT a verb allowlist
-    expect(svc.getStructuralActivity("dev@rig")?.state).toBe("agent_active");
-    expect(svc.getStructuralActivity("dev@rig")?.observedAt).toBeTruthy();
+    expect((await svc.pollSeat("dev@software-team"))?.state).toBe("agent_active"); // structural markers, NOT a verb allowlist
+    expect(svc.getStructuralActivity("dev@software-team")?.state).toBe("agent_active");
+    expect(svc.getStructuralActivity("dev@software-team")?.observedAt).toBeTruthy();
   });
 
   it("classifies an empty idle prompt as agent_idle", async () => {
     const svc = new SeatStructuralActivityService(mkTmux("output above\n❯ "));
-    expect((await svc.pollSeat("dev@rig"))?.state).toBe("agent_idle");
+    expect((await svc.pollSeat("dev@software-team"))?.state).toBe("agent_idle");
   });
 
   it("getStructuralActivity is capture-FREE (reads the cache, never re-captures)", async () => {
     const counter = { captures: 0 };
     const svc = new SeatStructuralActivityService(mkTmux("⠹ Working… esc to interrupt", counter));
-    await svc.pollSeat("dev@rig");
-    svc.getStructuralActivity("dev@rig");
-    svc.getStructuralActivity("dev@rig");
+    await svc.pollSeat("dev@software-team");
+    svc.getStructuralActivity("dev@software-team");
+    svc.getStructuralActivity("dev@software-team");
     expect(counter.captures).toBe(1); // reads do not capture — no per-request storm
   });
 });
@@ -47,11 +47,11 @@ describe("SeatStructuralActivityService — MF1: a stale positive never survives
   it("null capture after a positive verdict INVALIDATES the row (no false-live)", async () => {
     let content: string | null = "⠋ Working… esc to interrupt";
     const svc = new SeatStructuralActivityService({ capturePaneContent: async () => content } as never);
-    await svc.pollSeat("s@rig");
-    expect(svc.getStructuralActivity("s@rig")?.state).toBe("agent_active");
+    await svc.pollSeat("s@software-team");
+    expect(svc.getStructuralActivity("s@software-team")?.state).toBe("agent_active");
     content = null; // capture goes unavailable
-    await svc.pollSeat("s@rig");
-    expect(svc.getStructuralActivity("s@rig")).toBeNull(); // invalidated, not a stale positive
+    await svc.pollSeat("s@software-team");
+    expect(svc.getStructuralActivity("s@software-team")).toBeNull(); // invalidated, not a stale positive
   });
 
   it("THROWING capture after a positive verdict invalidates the row", async () => {
@@ -62,11 +62,11 @@ describe("SeatStructuralActivityService — MF1: a stale positive never survives
         return "⠋ Working… esc to interrupt";
       },
     } as never);
-    await svc.pollSeat("s@rig");
-    expect(svc.getStructuralActivity("s@rig")?.state).toBe("agent_active");
+    await svc.pollSeat("s@software-team");
+    expect(svc.getStructuralActivity("s@software-team")?.state).toBe("agent_active");
     mode = "throw";
-    await svc.pollSeat("s@rig");
-    expect(svc.getStructuralActivity("s@rig")).toBeNull();
+    await svc.pollSeat("s@software-team");
+    expect(svc.getStructuralActivity("s@software-team")).toBeNull();
   });
 
   it("a read REFUSES + evicts an observation past the freshness window (poller made no progress)", async () => {
@@ -77,21 +77,21 @@ describe("SeatStructuralActivityService — MF1: a stale positive never survives
       20,
       5000, // staleAfterMs
     );
-    await svc.pollSeat("s@rig");
-    expect(svc.getStructuralActivity("s@rig")?.state).toBe("agent_active"); // fresh
+    await svc.pollSeat("s@software-team");
+    expect(svc.getStructuralActivity("s@software-team")?.state).toBe("agent_active"); // fresh
     t += 5000; // advance past the window; no fresh capture happened
-    expect(svc.getStructuralActivity("s@rig")).toBeNull(); // refused + evicted
+    expect(svc.getStructuralActivity("s@software-team")).toBeNull(); // refused + evicted
   });
 });
 
 describe("SeatStructuralActivityService — MF2: single-flight, held until settle", () => {
   function dbWith2RunningSeats() {
     const db = createFullTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const reg = new SessionRegistry(db);
-    const rig = rigRepo.createRig("r");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r");
     for (const m of ["a", "b"]) {
-      const node = rigRepo.addNode(rig.id, `dev.${m}`, { runtime: "claude-code" });
+      const node = softwareTeamRepo.addNode(softwareTeam.id, `dev.${m}`, { runtime: "claude-code" });
       const sess = reg.registerSession(node.id, `${m}@r`);
       reg.updateStatus(sess.id, "running");
       reg.updateBinding(node.id, { tmuxSession: `${m}@r`, attachmentType: "tmux" });
@@ -145,11 +145,11 @@ describe("SeatStructuralActivityService — MF2: single-flight, held until settl
 describe("SeatStructuralActivityService: a pane with no output since its last capture is not captured again", () => {
   function dbWithSeats(n: number) {
     const db = createFullTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const reg = new SessionRegistry(db);
-    const rig = rigRepo.createRig("r");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r");
     for (let i = 0; i < n; i++) {
-      const node = rigRepo.addNode(rig.id, `dev.s${i}`, { runtime: "claude-code" });
+      const node = softwareTeamRepo.addNode(softwareTeam.id, `dev.s${i}`, { runtime: "claude-code" });
       const sess = reg.registerSession(node.id, `s${i}@r`);
       reg.updateStatus(sess.id, "running");
       reg.updateBinding(node.id, { tmuxSession: `s${i}@r`, attachmentType: "tmux" });
@@ -224,10 +224,10 @@ describe("SeatStructuralActivityService: a pane with no output since its last ca
 describe("SeatStructuralActivityService: the skip yields the same states as capturing every sweep", () => {
   function dbWithSeat() {
     const db = createFullTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const reg = new SessionRegistry(db);
-    const rig = rigRepo.createRig("r");
-    const node = rigRepo.addNode(rig.id, "dev.s0", { runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.s0", { runtime: "claude-code" });
     const sess = reg.registerSession(node.id, "s0@r");
     reg.updateStatus(sess.id, "running");
     reg.updateBinding(node.id, { tmuxSession: "s0@r", attachmentType: "tmux" });
@@ -274,10 +274,10 @@ describe("SeatStructuralActivityService: the skip yields the same states as capt
 describe("SeatStructuralActivityService: what the skip must not hide", () => {
   function dbWith(runtime: string) {
     const db = createFullTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const reg = new SessionRegistry(db);
-    const rig = rigRepo.createRig("r");
-    const node = rigRepo.addNode(rig.id, "dev.s0", { runtime });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.s0", { runtime });
     const sess = reg.registerSession(node.id, "s0@r");
     reg.updateStatus(sess.id, "running");
     reg.updateBinding(node.id, { tmuxSession: "s0@r", attachmentType: "tmux" });

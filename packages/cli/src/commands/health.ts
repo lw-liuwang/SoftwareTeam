@@ -5,8 +5,8 @@ import {
   HEALTH_STATUSES,
   type HealthRecord,
   type HealthScope,
-} from "@openrig/daemon/health-projection";
-import type { HealthListProjection } from "@openrig/daemon/health-detectors";
+} from "@softwareteam/daemon/health-projection";
+import type { HealthListProjection } from "@softwareteam/daemon/health-detectors";
 import {
   DaemonClient,
   DaemonConnectionError,
@@ -72,10 +72,10 @@ function diagnosisPreview(entry: DiagnosisEntry) {
     };
   }
   result.authority = entry.authority.map((ref, index) => without(ref, ["content"], `authority[${index}].`));
-  return { ...result, readView: readView(entry, `rig health diagnosis show ${shellQuote(entry.row.qitemId)} --full --json`, omitted) };
+  return { ...result, readView: readView(entry, `SoftwareTeam health diagnosis show ${shellQuote(entry.row.qitemId)} --full --json`, omitted) };
 }
 
-const HEALTH_ERROR_SCHEMA = "openrig.health-error/v0alpha1" as const;
+const HEALTH_ERROR_SCHEMA = "softwareteam.health-error/v0alpha1" as const;
 
 type IdentitySource = { nodeId?: string; sessionName?: string };
 
@@ -86,7 +86,7 @@ export interface HealthDeps extends StatusDeps {
 interface HealthListOptions {
   self?: boolean;
   seat?: string;
-  rig?: string;
+  softwareTeam?: string;
   instance?: string | boolean;
   severity?: string;
   status?: string;
@@ -135,7 +135,7 @@ function daemonError(details: unknown): HealthCliError {
     schema: HEALTH_ERROR_SCHEMA,
     error: "health_daemon_unavailable",
     message: "The health projection could not be read because the daemon did not respond.",
-    nextInspection: "rig daemon status",
+    nextInspection: "SoftwareTeam daemon status",
     details,
   };
 }
@@ -149,7 +149,7 @@ function responseError(status: number, data: unknown): HealthCliError {
       schema: HEALTH_ERROR_SCHEMA,
       error: daemonCode,
       message: "The daemon is reachable, but its health projection is unavailable.",
-      nextInspection: "rig daemon status",
+      nextInspection: "SoftwareTeam daemon status",
     };
   }
   if (status === 404 && daemonCode === "health_finding_not_found") {
@@ -157,7 +157,7 @@ function responseError(status: number, data: unknown): HealthCliError {
       schema: HEALTH_ERROR_SCHEMA,
       error: daemonCode,
       message: "No health finding exists with that ID in the current projection.",
-      nextInspection: "rig health --instance --json",
+      nextInspection: "SoftwareTeam health --instance --json",
     };
   }
   if (status === 404 && daemonCode === "not_found") {
@@ -165,7 +165,7 @@ function responseError(status: number, data: unknown): HealthCliError {
       schema: HEALTH_ERROR_SCHEMA,
       error: "health_projection_unavailable",
       message: "The daemon is reachable, but it does not expose the health projection.",
-      nextInspection: "rig --version",
+      nextInspection: "SoftwareTeam --version",
       details: data,
     };
   }
@@ -173,7 +173,7 @@ function responseError(status: number, data: unknown): HealthCliError {
     schema: HEALTH_ERROR_SCHEMA,
     error: "health_query_failed",
     message: `The daemon rejected the health query (HTTP ${status}).`,
-    nextInspection: "rig health --help",
+    nextInspection: "SoftwareTeam health --help",
     details: data,
   };
 }
@@ -194,7 +194,7 @@ async function readSelfSeatId(client: DaemonClient, deps: HealthDeps, json: bool
       schema: HEALTH_ERROR_SCHEMA,
       error: "health_identity_unavailable",
       message: "The current seat identity is unavailable, so self health cannot be scoped safely.",
-      nextInspection: "rig whoami --json",
+      nextInspection: "SoftwareTeam whoami --json",
     }, json);
     return null;
   }
@@ -209,7 +209,7 @@ async function readSelfSeatId(client: DaemonClient, deps: HealthDeps, json: bool
       schema: HEALTH_ERROR_SCHEMA,
       error: "health_identity_ambiguous",
       message: "More than one managed seat matches the current identity.",
-      nextInspection: "rig ps --nodes -A",
+      nextInspection: "SoftwareTeam ps --nodes -A",
       details: response.data,
     }, json);
     return null;
@@ -219,7 +219,7 @@ async function readSelfSeatId(client: DaemonClient, deps: HealthDeps, json: bool
       schema: HEALTH_ERROR_SCHEMA,
       error: "health_identity_unavailable",
       message: "The daemon could not resolve the current seat identity.",
-      nextInspection: "rig whoami --json",
+      nextInspection: "SoftwareTeam whoami --json",
       details: response.data,
       ...(response.status === 404 ? { hint: await identityRoutingHint(client) } : {}),
     }, json);
@@ -234,7 +234,7 @@ async function readSelfSeatId(client: DaemonClient, deps: HealthDeps, json: bool
       schema: HEALTH_ERROR_SCHEMA,
       error: "health_identity_indeterminate",
       message: "The identity response did not carry a stable node ID, so self health is indeterminate.",
-      nextInspection: "rig whoami --full --json",
+      nextInspection: "SoftwareTeam whoami --full --json",
       details: response.data,
     }, json);
     return null;
@@ -245,7 +245,7 @@ async function readSelfSeatId(client: DaemonClient, deps: HealthDeps, json: bool
 function scopeLabel(scope: HealthScope): string {
   switch (scope.type) {
     case "instance": return `instance:${scope.instanceId}`;
-    case "rig": return `rig:${scope.rigId}`;
+    case "softwareTeam": return `software-team:${scope.softwareTeamId}`;
     case "seat": return `seat:${scope.seatId}`;
     case "mission": return `mission:${scope.missionId}`;
     case "slice": return `slice:${scope.sliceId}`;
@@ -265,7 +265,7 @@ function renderList(projection: HealthListProjection): void {
   }
   if (projection.records.length === 0) {
     console.log("No health findings match this bounded query. This is not a healthy assertion.");
-    console.log("Next inspection: widen only as needed with `rig health --instance --json`.");
+    console.log("Next inspection: widen only as needed with `SoftwareTeam health --instance --json`.");
     return;
   }
   for (const record of projection.records) {
@@ -320,10 +320,10 @@ export function healthCommand(depsOverride?: HealthDeps): Command {
   const deps = depsOverride ?? defaultDeps();
   const command = new Command("health")
     .description("Inspect read-only, explainable system health records")
-    .addOption(new Option("--self", "Inspect the current seat (default)").conflicts(["seat", "rig", "instance"]))
-    .addOption(new Option("--seat <node-id>", "Inspect one seat by stable node ID").conflicts(["self", "rig", "instance"]))
-    .addOption(new Option("--rig <rig-id>", "Inspect findings whose canonical scope is this rig").conflicts(["self", "seat", "instance"]))
-    .addOption(new Option("--instance [instance-id]", "Inspect the whole local instance, or one canonical instance scope by ID").conflicts(["self", "seat", "rig"]))
+    .addOption(new Option("--self", "Inspect the current seat (default)").conflicts(["seat", "softwareTeam", "instance"]))
+    .addOption(new Option("--seat <node-id>", "Inspect one seat by stable node ID").conflicts(["self", "softwareTeam", "instance"]))
+    .addOption(new Option("--software-team <software-team-id>", "Inspect findings whose canonical scope is this softwareTeam").conflicts(["self", "seat", "instance"]))
+    .addOption(new Option("--instance [instance-id]", "Inspect the whole local instance, or one canonical instance scope by ID").conflicts(["self", "seat", "softwareTeam"]))
     .addOption(new Option("--severity <severity>", "Filter by severity").choices([...HEALTH_SEVERITIES]))
     .addOption(new Option("--status <status>", "Filter by finding status").choices([...HEALTH_STATUSES]))
     .option("--limit <count>", "Maximum findings (1-200)", parseLimit, 100)
@@ -344,9 +344,9 @@ list/explain never mutate. Diagnosis mutations use explicit subcommands; automat
     if (options.seat) {
       scopeType = "seat";
       scopeId = options.seat;
-    } else if (options.rig) {
-      scopeType = "rig";
-      scopeId = options.rig;
+    } else if (options.softwareTeam) {
+      scopeType = "softwareTeam";
+      scopeId = options.softwareTeam;
     } else if (typeof options.instance === "string") {
       scopeType = "instance";
       scopeId = options.instance;

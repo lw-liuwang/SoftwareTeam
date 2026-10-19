@@ -13,7 +13,7 @@ beforeAll(async () => {
   const daemon = new Hono();
   daemon.use("/api/*", browserBoundary({ webUiEnabled: false, bearerTokens: [], warn: () => {} }));
   daemon.all("/api/*", (c) => c.json({ ok: true }));
-  const body = await (await daemon.request("/api/health", { headers: { Host: "unlisted.example:7433" } })).text();
+  const body = await (await daemon.request("/api/health", { headers: { Host: "unlisted.example:7434" } })).text();
   server = http.createServer((_q, r) => { r.writeHead(403, { "content-type": "application/json" }); r.end(body); });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
   port = (server.address() as AddressInfo).port;
@@ -24,5 +24,5 @@ it("a refused read names the remedy", async () => {
   const client = new DaemonClient({ baseUrl: `http://127.0.0.1:${port}` } as never);
   const message = await client.healthFindings(5).then(() => "", (e: Error) => e.message);
   expect(message).toContain("403");
-  expect(message).toContain("OPENRIG_ALLOWED_HOSTS");
+  expect(message).toContain("SOFTWARETEAM_ALLOWED_HOSTS");
 });

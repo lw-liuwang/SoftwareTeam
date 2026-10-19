@@ -8,7 +8,7 @@ import { experimentStatus, setExperiment, readBounded, JevRun, streamDecision, c
 import fs from "node:fs";
 
 /**
- * `rig project` — coordination primitive L2 (classifier) commands (PL-004 Phase B).
+ * `softwareTeam project` — coordination primitive L2 (classifier) commands (PL-004 Phase B).
  *
  * Coordination uses `/api/projects`; optional experiment configuration/provider
  * processing is local to the invoking occupant.

@@ -16,7 +16,7 @@ import { renderMissionProgressTemplate, renderSliceProgressTemplate } from "../s
 import { addProgressRow, setProgressRow } from "../src/lib/scope/progress-edit.js";
 
 let root: string;
-beforeEach(() => { root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "rig-ui-conf-"))); });
+beforeEach(() => { root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "software-team-ui-conf-"))); });
 afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
 
 function indexerFor(): ProgressIndexer {

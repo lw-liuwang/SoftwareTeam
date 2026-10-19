@@ -5,9 +5,9 @@ status: active
 topics: [coordination, observability]
 domains: [engineering-advisor, operating-advisor]
 applies-when: |
-  Need to know how rig send/capture/broadcast works, how transcript capture
-  (periodic tmux capture-pane) and rg/grep search behave, how durable rig chat
-  (SQLite + SSE) is modeled, what rig ask gathers, or the exact MCP-tool-name
+  Need to know how SoftwareTeam send/capture/broadcast works, how transcript capture
+  (periodic tmux capture-pane) and rg/grep search behave, how durable SoftwareTeam chat
+  (SQLite + SSE) is modeled, what SoftwareTeam ask gathers, or the exact MCP-tool-name
   vs tmux-metadata-key naming distinction.
 siblings: [daemon-core.md, lifecycle-snapshot-restore.md]
 prerequisite-reads: [../README.md, daemon-core.md]
@@ -20,7 +20,7 @@ last-updated: 2026-10-08
 The communication-and-history layer: tmux is transport, not truth. Send/
 capture/broadcast wrap tmux with honest errors; transcripts are bounded
 `tmux capture-pane` snapshots written to files; chat is daemon-backed SQLite;
-the daemon's `rig ask` service gathers evidence and never calls an LLM.
+the daemon's `SoftwareTeam ask` service gathers evidence and never calls an LLM.
 
 > Verified against source at main `e8f0ab340db773392ec8be75b072d1c0f3068a50`. Each count below sits beside the
 > command that produces it; run the command from the repository root to refresh
@@ -29,25 +29,25 @@ the daemon's `rig ask` service gathers evidence and never calls an LLM.
 ## 1. The naming axes (read this first)
 
 Two independent naming axes meet in this layer. They must not be conflated or
-blanket-replaced: `rigged` → `rig` is a per-occurrence question, not a global
+blanket-replaced: `softwareteam` → `SoftwareTeam` is a per-occurrence question, not a global
 substitution.
 
-**Axis 1 — MCP tool names are `rig_*`.** `packages/cli/src/mcp-server.ts`
-registers **18** tools, all named `rig_*`
+**Axis 1 — MCP tool names are `software_team_*`.** `packages/cli/src/mcp-server.ts`
+registers **18** tools, all named `software_team_*`
 (`grep -c 'server.tool(' packages/cli/src/mcp-server.ts`), including
-`rig_rig_nodes` (`mcp-server.ts:288`), `rig_send` (`:305`),
-`rig_capture` (`:339`), `rig_chatroom_send` (`:364`) and `rig_chatroom_watch`
-(`:400`). No `rigged_*` name other than the tmux keys below remains in product
+`software_team_software_team_nodes` (`mcp-server.ts:288`), `software_team_send` (`:305`),
+`software_team_capture` (`:339`), `software_team_chatroom_send` (`:364`) and `software_team_chatroom_watch`
+(`:400`). No `softwareteam_*` name other than the tmux keys below remains in product
 source: **0** hits
-(`git grep -n 'rigged_' -- ':(glob)packages/*/src/**' | grep -v -c '@rigged_'`).
+(`git grep -n 'softwareteam_' -- ':(glob)packages/*/src/**' | grep -v -c '@softwareteam_'`).
 
-**Axis 2 — tmux metadata keys are `@rigged_*`, and are correct as-is.** The
+**Axis 2 — tmux metadata keys are `@softwareteam_*`, and are correct as-is.** The
 tmux metadata keys written at claim/bind time are a separate thing from MCP
-tool names and were not renamed. `setRiggedMetadata` in
+tool names and were not renamed. `setSoftwareTeamMetadata` in
 `packages/daemon/src/domain/claim-service.ts:182`–`186` writes exactly **5**
-keys (`grep -c '@rigged_' packages/daemon/src/domain/claim-service.ts`):
-`@rigged_node_id`, `@rigged_session_name`, `@rigged_rig_id`,
-`@rigged_rig_name`, `@rigged_logical_id`. Do not blanket-sed `rigged` → `rig`.
+keys (`grep -c '@softwareteam_' packages/daemon/src/domain/claim-service.ts`):
+`@softwareteam_node_id`, `@softwareteam_session_name`, `@softwareteam_software_team_id`,
+`@softwareteam_software_team_name`, `@softwareteam_logical_id`. Do not blanket-sed `softwareteam` → `SoftwareTeam`.
 The metadata-key axis is detailed in `agent-spec-and-startup.md` (identity:
 whoami, bind, adopt).
 
@@ -57,7 +57,7 @@ All under `packages/daemon/src/domain/`:
 
 - `session-transport.ts` — communication primitives: send/capture/broadcast
   with session resolution, send-readiness classification (interactive-prompt
-  and mid-work detection), honest error reporting, and list/pod/rig/global
+  and mid-work detection), honest error reporting, and list/pod/SoftwareTeam/global
   targeting.
 - `transcript-store.ts` — transcript file management: path convention, ANSI
   stripping for tail and grep reads, boundary markers, `readTail`, `readFull`, `grep`.
@@ -66,12 +66,12 @@ All under `packages/daemon/src/domain/`:
 - `history-query.ts` — transcript + chat search. Prefers `rg`, falls back to
   `grep -E`, surfaces which backend was used: `history-query.ts:8`
   `backend: "rg" | "grep" | "none"`; `:252` runs
-  `rg -i --no-filename -e <pattern>` over the rig's transcript directory;
+  `rg -i --no-filename -e <pattern>` over the SoftwareTeam's transcript directory;
   `:267` falls back to `grep -E -i -h -e <pattern>`.
-- `ask-service.ts` — context-engineering evidence pack: gathers rig summary
+- `ask-service.ts` — context-engineering evidence pack: gathers SoftwareTeam summary
   plus transcript excerpts, chat excerpts, insufficiency state, guidance.
   Does NOT call an external LLM.
-- `chat-repository.ts` — durable rig-scoped chat over the `chat_messages`
+- `chat-repository.ts` — durable software-team-scoped chat over the `chat_messages`
   table (`send`, `sendTopic`, `history`, `latest`, `searchChat`, `clear`). The
   repository emits no events: `routes/chat.ts` emits `chat.message` on the
   event bus after each send or topic, and `/watch` streams those as SSE.
@@ -81,21 +81,21 @@ Routes: `packages/daemon/src/routes/{transport,transcripts,ask,chat,whoami}.ts`
 
 ## 3. Communication flow
 
-`rig send <session> "message"` → CLI → `POST /api/transport/send` →
+`SoftwareTeam send <session> "message"` → CLI → `POST /api/transport/send` →
 `SessionTransport.send()`:
 
 1. Resolve the session name (`resolveBySessionName`,
    `session-transport.ts:963`): not found → 404; the same name in more than
-   one rig → 409. A tmux probe of the session can also refuse it as missing or
-   tmux as unavailable (`:1317`–`1334`). Pod, rig, global and `--to` list
+   one SoftwareTeam → 409. A tmux probe of the session can also refuse it as missing or
+   tmux as unavailable (`:1317`–`1334`). Pod, SoftwareTeam, global and `--to` list
    targets go through `POST /api/transport/broadcast`, which resolves them
    with `resolveSessions` and sends to each recipient in turn.
 2. Take the seat's delivery lease. Every write runs under a per-seat,
    serialized lease from the seat delivery guard, installed at daemon start
    (`send`, `:1155`). With the seat's typing guard on, the message is held
    instead of typed: the result is `outcome: "retained"` with HTTP 200
-   (`routes/transport.ts:115`); operators use `rig seat set-typing-guard` and
-   `rig seat held-messages`.
+   (`routes/transport.ts:115`); operators use `SoftwareTeam seat set-typing-guard` and
+   `SoftwareTeam seat held-messages`.
 3. Classify send readiness. Only a positive interactive-prompt reading
    (`needs_input`) refuses, with `target_needs_input`
    (`session-transport.ts:1482`), unless the caller passes
@@ -121,7 +121,7 @@ Routes: `packages/daemon/src/routes/{transport,transcripts,ask,chat,whoami}.ts`
 5. Optional `--verify`: capture the last 30 pane lines before the paste and,
    500 ms after Enter, again, leaving out the current input box (the last
    prompt line and its continuation, `verificationTranscript`). A send
-   carrying OpenRig's From/To header is matched as the whole message with
+   carrying SoftwareTeam's From/To header is matched as the whole message with
    whitespace normalized (`countEnvelopeOccurrences`); a raw send is matched
    by its first 40 characters (`verificationSnippet`). More occurrences after
    the send report `outcome: "delivered"`; otherwise the outcome is
@@ -136,17 +136,17 @@ Routes: `packages/daemon/src/routes/{transport,transcripts,ask,chat,whoami}.ts`
      capture taken before the paste (the whole screen) must match an idle
      allow-list (`SEAT_IDLE_SHAPES`) built from real Claude Code 2.1.296 and
      Codex 0.160.0 frames and, where no frame was captured, from the Claude
-     Code 2.1.296 bundle, the Codex 0.160.0 source and OpenRig's own launch
+     Code 2.1.296 bundle, the Codex 0.160.0 source and SoftwareTeam's own launch
      code. Claude Code: the empty box or its `Try "…"` suggestion between two
      rules; the opening rule plain, or carrying this seat's own session name
      the way Claude Code draws `--name` (`─…─ <session> ─`, or `──` as in
-     earlier versions, as wide as the closing rule; OpenRig launches every
+     earlier versions, as wide as the closing rule; SoftwareTeam launches every
      Claude seat with `--name`); the footer row of the seat's permission
-     posture, one for each mode OpenRig can launch: bypass
+     posture, one for each mode SoftwareTeam can launch: bypass
      (`⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents`), accept
-     edits (OpenRig's default), auto, don't ask, plan, and default
+     edits (SoftwareTeam's default), auto, don't ask, plan, and default
      (`⏸ manual mode on · ← for agents`); no statusLine row between the
-     closing rule and the footer (OpenRig's statusLine collector prints
+     closing rule and the footer (SoftwareTeam's statusLine collector prints
      nothing); a blank, effort or tmux-notice row above the box; and above
      that, in the status slot, the completion row of the seat's last turn
      (`✻ <verb> for <duration> · done <time>` at column 0, matched by the
@@ -155,10 +155,10 @@ Routes: `packages/daemon/src/routes/{transport,transcripts,ask,chat,whoami}.ts`
      24-hour en-US clock). A blank slot counts only under that completion
      row, with only blank rows between them (as in the fullscreen renderer),
      or, before the first turn, under the last row of the Claude Code v2.1.296
-     welcome banner. OpenRig launches Claude in the classic renderer, where the
+     welcome banner. SoftwareTeam launches Claude in the classic renderer, where the
      box follows the transcript, so an idle seat that has finished a turn
      shows that turn's completion row in the slot; real frames of idle seats
-     OpenRig launched show it. A configured statusLine, which OpenRig installs
+     SoftwareTeam launched show it. A configured statusLine, which SoftwareTeam installs
      on every Claude seat, makes Claude Code drop the footer's hints, so a
      running turn draws the same footer row as an idle one, without
      `esc to interrupt`: the status slot is what tells them apart. The 2.1.296
@@ -202,8 +202,8 @@ Routes: `packages/daemon/src/routes/{transport,transcripts,ask,chat,whoami}.ts`
      version: another version that draws the same rows reads the same. There is
      no version discovery and no extra read for it.
 
-     Which Claude seats OpenRig launches can verify: an idle Claude Code
-     seat in any posture OpenRig launches, after any number of turns, whose
+     Which Claude seats SoftwareTeam launches can verify: an idle Claude Code
+     seat in any posture SoftwareTeam launches, after any number of turns, whose
      status slot holds its last turn's completion row as above, or a fresh
      seat whose slot is blank under the welcome banner. It reads `unknown`
      when that row is anything else: a blank row under transcript text, a
@@ -212,7 +212,7 @@ Routes: `packages/daemon/src/routes/{transport,transcripts,ask,chat,whoami}.ts`
      earlier day, another locale's or a custom time format, an interrupted
      turn, or a row printed after the turn. And only a text Claude Code shows
      inline in its box can verify (see the box reading below): a multi-line
-     text, which includes every `rig send` envelope and every queue wake,
+     text, which includes every `SoftwareTeam send` envelope and every queue wake,
      collapses to a paste label and stays unconfirmed.
    - **The box held exactly this message before Enter.** One extra capture
      between the paste and Enter must show exactly the sent text in the input
@@ -312,7 +312,7 @@ Routes: `packages/daemon/src/routes/{transport,transcripts,ask,chat,whoami}.ts`
    route's status map (among them the runtime-identity refusals) are returned
    with HTTP 500 (`routes/transport.ts:118`–`140`).
 
-The sender comes from the `X-OpenRig-Session` header; an unsigned send gets an
+The sender comes from the `X-SoftwareTeam-Session` header; an unsigned send gets an
 unknown-sender notice. The CLI adds a From/To envelope, and the daemon appends
 a delivered-latency note for delays of 10 s or more.
 
@@ -321,7 +321,7 @@ transport, not truth — `send/capture/broadcast` wrap tmux reliably with honest
 errors.
 
 The daemon runs tmux without a shell: argv straight to the tmux binary found on
-`PATH`. `OPENRIG_TMUX_SHELL=1` at daemon start runs every tmux call through
+`PATH`. `SOFTWARETEAM_TMUX_SHELL=1` at daemon start runs every tmux call through
 `/bin/sh` instead (Linux and macOS; Windows always uses argv). A binary that
 can't be started at all (a script without `#!`, a missing interpreter) runs
 through `/bin/sh -c 'exec "$0" "$@"' tmux …`, which finds tmux as the shell
@@ -331,7 +331,7 @@ daemon restart.
 
 ### 3b. Cross-host coordination verbs
 
-`rig send/capture/transcript/broadcast --host <id>` (and the `agent@rig@host`
+`SoftwareTeam send/capture/transcript/broadcast --host <id>` (and the `agent@software-team@host`
 target sugar on the session-target verbs) cross the host boundary through the
 remote daemon's ordinary local routes; the cross-host logic is in the CLI.
 
@@ -339,7 +339,7 @@ remote daemon's ordinary local routes; the cross-host logic is in the CLI.
   caller that can resolve the registry bearer locally (the CLI) go
   **CLI-direct** through `runRemoteHttpOp`
   (`packages/cli/src/remote-host-ops.ts:25`) — one hop, no local-daemon
-  involvement, as `rig ps --all-hosts` does. Two-sided operations (a
+  involvement, as `SoftwareTeam ps --all-hosts` does. Two-sided operations (a
   cross-host queue handoff closes the local source and creates the remote
   successor, so the local daemon owns half the transaction) and callers
   without the bearer (the browser: Mission Control actions and the `?host=`
@@ -348,7 +348,7 @@ remote daemon's ordinary local routes; the cross-host logic is in the CLI.
 - **The host entry dictates the transport (ssh or http), never a per-call
   choice.** ssh hosts shell out over ssh for send/capture
   (`packages/cli/src/cross-host-executor.ts`); http hosts (the kind
-  `rig host pair` registers) go CLI-direct to
+  `SoftwareTeam host pair` registers) go CLI-direct to
   `POST /api/transport/send|capture|broadcast` / `GET /api/transcripts/*` with
   the same bodies and paths the local CLI uses. transcript and broadcast are
   http-only (no ssh path exists for them); on an ssh host they fail with a
@@ -356,13 +356,13 @@ remote daemon's ordinary local routes; the cross-host logic is in the CLI.
   (`remote-host-ops.ts:47`), never a fallback.
 - **Terminal-bearer posture (`/api/transport/*` only).** The remote's
   transport routes (send/capture/broadcast) gate on its terminal bearer
-  (`routes/transport.ts:26`; `OPENRIG_TERMINAL_BEARER_TOKEN`,
+  (`routes/transport.ts:26`; `SOFTWARETEAM_TERMINAL_BEARER_TOKEN`,
   `packages/daemon/src/index.ts:291`). With no token configured the
   middleware passes every request through
   (`packages/daemon/src/middleware/auth-bearer-token.ts:99`) — the tailnet is
   the auth boundary by design — except that a daemon bound to an explicit
   address that is neither local nor tailnet falls back to
-  `OPENRIG_AUTH_BEARER_TOKEN`
+  `SOFTWARETEAM_AUTH_BEARER_TOKEN`
   (`index.ts:297`). The CLI presents the registry bearer from `hosts.yaml`
   when one is configured; for a URL-only anonymous host the `Authorization`
   header is omitted. A remote enforcing a different terminal bearer answers
@@ -382,11 +382,11 @@ remote daemon's ordinary local routes; the cross-host logic is in the CLI.
 - **The 3-part form is CLI-edge sugar only.** `resolveCrossHostTarget`
   (`packages/cli/src/cross-host-target.ts:58`) strips the suffix only when it
   resolves to a registered host, or equals this host's own id, which routes
-  home (`:95`; only `rig send` passes the self id,
+  home (`:95`; only `SoftwareTeam send` passes the self id,
   `packages/cli/src/commands/send.ts:398`, so `capture` and `transcript` treat
   their own id as unknown); otherwise the string passes through unchanged with a loud
   host hint. Every session string that reaches any daemon stays
-  `member@rig`; the host travels out-of-band. Durable cross-host
+  `member@software-team`; the host travels out-of-band. Durable cross-host
   coordination stays the queue's cross-host routing
   (`coordination-primitive.md`); these four verbs add no queue surface.
 
@@ -397,12 +397,12 @@ remote daemon's ordinary local routes; the cross-host logic is in the CLI.
    (`NodeLauncher`, `startTranscriptRotation`).
 2. Each rotation tick captures the trailing lines and atomically overwrites
    (temp file + rename in `startTranscriptRotation`)
-   `transcripts/{rig-name}/{session-name}.log` under the OpenRig home (or
+   `transcripts/{software-team-name}/{session-name}.log` under the SoftwareTeam home (or
    the `transcripts.path` setting). It skips the write when the captured bytes
    are unchanged. Defaults: 1000 trailing lines every 2 s
    (`DEFAULT_TRANSCRIPT_LINES`, `DEFAULT_TRANSCRIPT_POLL_INTERVAL_MS`); an idle seat is captured less often,
    within the 10-second freshness window. Both are tunable with
-   `OPENRIG_TRANSCRIPTS_LINES` and `OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS`
+   `SOFTWARETEAM_TRANSCRIPTS_LINES` and `SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS`
    or the matching `transcripts.*` settings. This bounded capture replaced the
    earlier `tmux pipe-pane` stream (see the header comment of `transcript-rotation.ts`), so the file
    holds a trailing window, not the whole session. Sessions on one adapter
@@ -419,60 +419,60 @@ remote daemon's ordinary local routes; the cross-host logic is in the CLI.
    (`TranscriptStore.readFull`); the `/full` route redacts them. The transcript
    routes check capture health first and can start capture lazily for a seat
    that has none.
-4. `rig transcript <session> --tail N / --grep "pattern"` provides
+4. `SoftwareTeam transcript <session> --tail N / --grep "pattern"` provides
    agent-facing access.
 5. On restore: a `--- SESSION BOUNDARY: … ---` marker is written before
    re-launch (`RestoreOrchestrator`); each rotation tick keeps each
    distinct boundary line once, as a header above the fresh capture
    (`startTranscriptRotation`, boundary header). (Restore-side detail in
    `lifecycle-snapshot-restore.md`.)
-6. `rig ask` gathers rig summary plus transcript excerpts, chat excerpts,
+6. `SoftwareTeam ask` gathers SoftwareTeam summary plus transcript excerpts, chat excerpts,
    insufficiency state, and guidance.
 
 Architecture rule 19, as the code implements it: transcripts are a bounded
 `capture-pane` snapshot (not pipe-pane), ANSI-stripped on tail and grep reads; `rg`
-preferred, `grep -E` fallback. Rule 22: the daemon's `rig ask` is context
+preferred, `grep -E` fallback. Rule 22: the daemon's `SoftwareTeam ask` is context
 engineering — it gathers evidence and does NOT call an external LLM; the
-agent IS the LLM. The one exception is the explicit CLI flag `rig ask --wake`
+agent IS the LLM. The one exception is the explicit CLI flag `SoftwareTeam ask --wake`
 (`packages/cli/src/commands/ask.ts:88`), which runs a headless resume of a
 Claude or Codex session (`claude -p --resume` / `codex exec resume`,
 `packages/cli/src/ask-wake.ts:58`–`60`) to answer one question.
 
 ## 5. Chat flow
 
-1. `rig chatroom send <rig> "message"` → `POST
-   /api/rigs/:rigId/chat/send` → `ChatRepository.send()`
+1. `SoftwareTeam chatroom send <SoftwareTeam> "message"` → `POST
+   /api/SoftwareTeams/:softwareTeamId/chat/send` → `ChatRepository.send()`
    (`routes/chat.ts:43`); the route then emits `chat.message` (`:45`).
-2. SSE: `GET /api/rigs/:rigId/chat/watch` delivers real-time messages.
-3. History: `GET /api/rigs/:rigId/chat/history` returns channel history in id
+2. SSE: `GET /api/SoftwareTeams/:softwareTeamId/chat/watch` delivers real-time messages.
+3. History: `GET /api/SoftwareTeams/:softwareTeamId/chat/history` returns channel history in id
    order, 100 messages unless `limit` says otherwise
    (`chat-repository.ts:68`), filterable by `topic`, `after`, `since` and
    `sender` (a `since` SQLite cannot parse is refused with 400,
-   `routes/chat.ts:73`); `POST /api/rigs/:rigId/chat/topic` persists topic markers.
-4. UI: a `RigChatPanel` component exists
-   (`packages/ui/src/components/RigChatPanel.tsx`), but no UI view mounts it:
+   `routes/chat.ts:73`); `POST /api/SoftwareTeams/:softwareTeamId/chat/topic` persists topic markers.
+4. UI: a `SoftwareTeamChatPanel` component exists
+   (`packages/ui/src/components/SoftwareTeamChatPanel.tsx`), but no UI view mounts it:
    **1** file under `packages/ui/src` names it, its own
-   (`git grep -l 'RigChatPanel' -- packages/ui/src | wc -l`).
-5. MCP: **`rig_chatroom_send` + `rig_chatroom_watch`** (`mcp-server.ts:364`,
+   (`git grep -l 'SoftwareTeamChatPanel' -- packages/ui/src | wc -l`).
+5. MCP: **`software_team_chatroom_send` + `software_team_chatroom_watch`** (`mcp-server.ts:364`,
    `:400`).
 6. Source of truth: daemon-backed SQLite (`chat_messages` table), NOT tmux
    scrollback.
 
-**ChatMessage** type (`chat-repository.ts:6`): durable rig-scoped message —
-`id`, `rigId`, `sender`, `kind`, `body`, `topic`, `createdAt`.
+**ChatMessage** type (`chat-repository.ts:6`): durable software-team-scoped message —
+`id`, `softwareTeamId`, `sender`, `kind`, `body`, `topic`, `createdAt`.
 
 ## 6. Compatibility notes
 
 The intentional limits in this layer (numbered as in
 `architecture-rules-and-event-system.md`):
 
-- Note 4 — the daemon's `rig ask` gathers context only; it does not call an
+- Note 4 — the daemon's `SoftwareTeam ask` gathers context only; it does not call an
   external LLM. The agent reasons about the gathered evidence. Only the
   explicit `--wake` flag executes a runtime (§4).
 - Note 5 — transcript search prefers `rg` but falls back to `grep -E`;
   search quality/performance varies by backend.
-- Note 6 — chat is rig-scoped only: no cross-rig channels or DMs.
-- Note 7 — `--verify` on `rig send` reports what the pane shows, not agent
+- Note 6 — chat is software-team-scoped only: no cross-SoftwareTeam channels or DMs.
+- Note 7 — `--verify` on `SoftwareTeam send` reports what the pane shows, not agent
   acknowledgement. By default it compares the message (whole for a
   header-carrying send, the first 40 characters for a raw one) in captures
   before and after the send, leaving out the current input box; with
@@ -488,14 +488,14 @@ The intentional limits in this layer (numbered as in
 
 - `daemon-core.md` — the route-mount surface these routes sit in, and the MCP
   tool count.
-- `agent-spec-and-startup.md` — the tmux `@rigged_*` metadata-key axis detail
+- `agent-spec-and-startup.md` — the tmux `@softwareteam_*` metadata-key axis detail
   (whoami/adopt).
 - `lifecycle-snapshot-restore.md` — restore-side transcript boundary
   markers.
 - `coordination-primitive.md` — cross-host queue routing (the two-sided
   daemon-forward twin of §3b's one-sided CLI-direct verbs).
 - `../cli-reference.md` — each verb's registered `--host <id>` option; run
-  `rig <verb> --help` for its cross-host behaviour.
+  `SoftwareTeam <verb> --help` for its cross-host behaviour.
 - Source roots: `packages/daemon/src/domain/{session-transport,transcript-store,transcript-rotation,history-query,ask-service,chat-repository}.ts`,
   `packages/daemon/src/routes/{transport,transcripts,ask,chat}.ts`,
   `packages/cli/src/mcp-server.ts`,

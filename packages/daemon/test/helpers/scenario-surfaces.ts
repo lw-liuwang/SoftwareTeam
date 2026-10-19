@@ -1,7 +1,7 @@
 /**
  * Slice 51-02 (L2 test-system) — the shipped-surface READERS.
  *
- * For an `expect` step, the runner reads the named surface via the SHIPPED `rig`
+ * For an `expect` step, the runner reads the named surface via the SHIPPED `softwareTeam`
  * invocation (or the TUI control socket) and returns the observable to assert on.
  * Reads only — never a direct DB poke (the honesty guarantee). Shape traps handled
  * per the verify-at-source record (ps/queue/stream are BARE ARRAYS; queue uses
@@ -17,11 +17,11 @@
  */
 
 import net from "node:net";
-import { runRig } from "./scenario-daemon.js";
+import { runSoftwareTeam } from "./scenario-daemon.js";
 import type { ExpectSurface } from "./scenario-schema.js";
 
 export interface SurfaceContext {
-  rigBin: string;
+  softwareTeamBin: string;
   readEnv: Record<string, string | undefined>;
   baseUrl: string;
 }
@@ -31,7 +31,7 @@ export interface ReadSurfaceOptions {
   seat?: string;
   /** Timeout for a socket/CLI read (ms). */
   timeoutMs?: number;
-  /** The mission a scope read audits (D3): `rig scope audit` has --mission as a
+  /** The mission a scope read audits (D3): `SoftwareTeam scope audit` has --mission as a
    *  requiredOption, so a scope read without it can never succeed. Sourced from
    *  the scenario's env.scope_mission (validator-required for scope expects). */
   scopeMission?: string;
@@ -73,31 +73,31 @@ export async function readSurface(
 ): Promise<unknown> {
   switch (surface) {
     case "ps":
-      return jsonRig(["ps", "--json"], ctx);
+      return jsonSoftwareTeam(["ps", "--json"], ctx);
     case "queue":
       // --full so compact-list does not blank body/summary/evidenceRef.
-      return jsonRig(["queue", "list", "--json", "--full"], ctx);
+      return jsonSoftwareTeam(["queue", "list", "--json", "--full"], ctx);
     case "stream":
-      return jsonRig(["stream", "list", "--json"], ctx);
+      return jsonSoftwareTeam(["stream", "list", "--json"], ctx);
     case "scope": {
       // --mission is a requiredOption on the shipped read (scope.ts) — absent
       // here means the pipeline failed to thread env.scope_mission through.
       if (!opts.scopeMission) {
         throw new Error(
-          `expect surface "scope" requires a mission — declare env.scope_mission (the shipped read is \`rig scope audit --mission <name> --json\`)`,
+          `expect surface "scope" requires a mission — declare env.scope_mission (the shipped read is \`SoftwareTeam scope audit --mission <name> --json\`)`,
         );
       }
-      return jsonRig(["scope", "audit", "--mission", opts.scopeMission, "--json"], ctx);
+      return jsonSoftwareTeam(["scope", "audit", "--mission", opts.scopeMission, "--json"], ctx);
     }
     case "pane":
-      return jsonRig(["capture", requireSeat(surface, opts), "--json"], ctx);
+      return jsonSoftwareTeam(["capture", requireSeat(surface, opts), "--json"], ctx);
     case "transcript":
       // `--tail <lines>` takes a REQUIRED value: `--tail --json` makes Commander
       // consume "--json" AS the tail value ({"tail":"--json"}), so JSON mode is
       // never set and the read returns human text. Pass an explicit tail count.
-      return jsonRig(transcriptReadArgv(requireSeat(surface, opts), opts.transcriptTail), ctx);
+      return jsonSoftwareTeam(transcriptReadArgv(requireSeat(surface, opts), opts.transcriptTail), ctx);
     case "policy_provenance":
-      return jsonRig(["policy", "effective", "--json"], ctx);
+      return jsonSoftwareTeam(["policy", "effective", "--json"], ctx);
     case "tui_socket":
       return readTuiSocket(ctx, opts);
     default:
@@ -113,29 +113,29 @@ function requireSeat(surface: string, opts: ReadSurfaceOptions): string {
   return opts.seat;
 }
 
-async function jsonRig(args: string[], ctx: SurfaceContext): Promise<unknown> {
-  const r = await runRig(args, ctx.readEnv, ctx.rigBin);
+async function jsonSoftwareTeam(args: string[], ctx: SurfaceContext): Promise<unknown> {
+  const r = await runSoftwareTeam(args, ctx.readEnv, ctx.softwareTeamBin);
   if (r.code !== 0) {
-    throw new Error(`\`rig ${args.join(" ")}\` failed (exit ${r.code}): ${r.stderr || r.stdout}`);
+    throw new Error(`\`softwareTeam ${args.join(" ")}\` failed (exit ${r.code}): ${r.stderr || r.stdout}`);
   }
   try {
     return JSON.parse(r.stdout);
   } catch {
-    throw new Error(`\`rig ${args.join(" ")}\` did not return valid JSON: ${r.stdout.slice(0, 200)}`);
+    throw new Error(`\`softwareTeam ${args.join(" ")}\` did not return valid JSON: ${r.stdout.slice(0, 200)}`);
   }
 }
 
 /**
  * Query the TUI control socket's OBSERVE verb: connect, send exactly `state`, and
  * parse the one-line JSON reply. Sending any other line is a MUTATION — the reader
- * sends only `state`. Path from OPENRIG_TUI_SOCKET (the scenario helper sets it
+ * sends only `state`. Path from SOFTWARETEAM_TUI_SOCKET (the scenario helper sets it
  * when a TUI is up).
  */
 function readTuiSocket(ctx: SurfaceContext, opts: ReadSurfaceOptions): Promise<unknown> {
-  const sockPath = ctx.readEnv.OPENRIG_TUI_SOCKET;
+  const sockPath = ctx.readEnv.SOFTWARETEAM_TUI_SOCKET;
   if (!sockPath) {
     return Promise.reject(
-      new Error("tui_socket read requires OPENRIG_TUI_SOCKET (the TUI control socket path)"),
+      new Error("tui_socket read requires SOFTWARETEAM_TUI_SOCKET (the TUI control socket path)"),
     );
   }
   const timeoutMs = opts.timeoutMs ?? 5000;

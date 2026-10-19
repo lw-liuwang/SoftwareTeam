@@ -16,7 +16,7 @@ import { UpCommandRouter } from "../src/domain/up-command-router.js";
 
 const VALID_SPEC = `
 schema_version: 1
-name: test-rig
+name: test-software-team
 version: "1.0"
 nodes:
   - id: dev
@@ -58,7 +58,7 @@ function makeApp(opts: { bootstrapResult?: (call: BootstrapCall) => { status: st
     bootstrap: async (o: BootstrapCall & Record<string, unknown>) => {
       calls.push({ sourceRef: o.sourceRef, sourceKind: o.sourceKind, autoApprove: o.autoApprove as boolean | undefined });
       const shaped = opts.bootstrapResult?.(o) ?? { status: "completed", errors: [] };
-      return { runId: "run-1", rigId: "rig-1", stages: [], warnings: [], ...shaped };
+      return { runId: "run-1", softwareTeamId: "software-team-1", stages: [], warnings: [], ...shaped };
     },
   };
   const app = new Hono();
@@ -68,7 +68,7 @@ function makeApp(opts: { bootstrapResult?: (call: BootstrapCall) => { status: st
     set("bootstrapRepo", {});
     set("eventBus", { emit: () => {} });
     set("upRouter", new UpCommandRouter({ fsOps: realFsOps() }));
-    set("rigRepo", {});
+    set("softwareTeamRepo", {});
     await next();
   });
   app.route("/api/up", upRoutes);
@@ -86,7 +86,7 @@ describe("POST /api/up — topology branch", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  function writeManifest(content: string, name = "factory.rigtopology"): string {
+  function writeManifest(content: string, name = "factory.softwareteamtopology"): string {
     const p = path.join(tmpDir, name);
     fs.writeFileSync(p, content);
     return p;
@@ -95,7 +95,7 @@ describe("POST /api/up — topology branch", () => {
   it("launches an all-local topology through the injected bootstrap seam; entries resolve against the MANIFEST dir; 200 + closed aggregate", async () => {
     fs.writeFileSync(path.join(tmpDir, "a.yaml"), VALID_SPEC);
     fs.writeFileSync(path.join(tmpDir, "b.yaml"), VALID_SPEC);
-    const manifest = writeManifest("rigs:\n  - source: ./a.yaml\n  - source: ./b.yaml\n");
+    const manifest = writeManifest("softwareTeams:\n  - source: ./a.yaml\n  - source: ./b.yaml\n");
     const { app, calls, locks } = makeApp();
 
     const res = await app.request("/api/up", {
@@ -108,17 +108,17 @@ describe("POST /api/up — topology branch", () => {
     expect(data["ok"]).toBe(true);
     expect(data["topology"]).toBe(manifest);
     expect(data["entries"]).toEqual([
-      { rigRef: "./a.yaml", host: "local", status: "ok" },
-      { rigRef: "./b.yaml", host: "local", status: "ok" },
+      { softwareTeamRef: "./a.yaml", host: "local", status: "ok" },
+      { softwareTeamRef: "./b.yaml", host: "local", status: "ok" },
     ]);
     // The leaf was INVOKED with manifest-dir-resolved refs + the request's autoApprove.
     expect(calls).toEqual([
-      { sourceRef: path.join(tmpDir, "a.yaml"), sourceKind: "rig_spec", autoApprove: true },
-      { sourceRef: path.join(tmpDir, "b.yaml"), sourceKind: "rig_spec", autoApprove: true },
+      { sourceRef: path.join(tmpDir, "a.yaml"), sourceKind: "software_team_spec", autoApprove: true },
+      { sourceRef: path.join(tmpDir, "b.yaml"), sourceKind: "software_team_spec", autoApprove: true },
     ]);
     // Route-side lock discipline per entry (guard G-2), sequential order —
     // and the lock key IS the launched ref (guard F1): a concurrent
-    // standalone `rig up <resolved path>` shares this exact lock domain.
+    // standalone `SoftwareTeam up <resolved path>` shares this exact lock domain.
     expect(locks).toEqual([
       `acquire:${path.join(tmpDir, "a.yaml")}`,
       `release:${path.join(tmpDir, "a.yaml")}`,
@@ -132,7 +132,7 @@ describe("POST /api/up — topology branch", () => {
 
   it("a request that carries envOverride is answered as it is without one (the field is not read for a topology)", async () => {
     fs.writeFileSync(path.join(tmpDir, "a.yaml"), VALID_SPEC);
-    const manifest = writeManifest("rigs:\n  - source: ./a.yaml\n");
+    const manifest = writeManifest("softwareTeams:\n  - source: ./a.yaml\n");
     const send = async (extra: Record<string, unknown>) => {
       const { app, calls } = makeApp();
       const res = await app.request("/api/up", {
@@ -148,7 +148,7 @@ describe("POST /api/up — topology branch", () => {
 
   it("R11-2 daemon side: host flag + topology source → 400 naming per-entry host: (public write path)", async () => {
     fs.writeFileSync(path.join(tmpDir, "a.yaml"), VALID_SPEC);
-    const manifest = writeManifest("rigs:\n  - source: ./a.yaml\n");
+    const manifest = writeManifest("softwareTeams:\n  - source: ./a.yaml\n");
     const { app, calls } = makeApp();
     const res = await app.request("/api/up", {
       method: "POST",
@@ -163,7 +163,7 @@ describe("POST /api/up — topology branch", () => {
   });
 
   it("invalid manifest → 400 invalid_topology_manifest with the per-entry errors (edge key names the non-goal)", async () => {
-    const manifest = writeManifest("rigs:\n  - source: ./a.yaml\nedges:\n  - from: a\n");
+    const manifest = writeManifest("softwareTeams:\n  - source: ./a.yaml\nedges:\n  - from: a\n");
     const { app, calls } = makeApp();
     const res = await app.request("/api/up", {
       method: "POST",
@@ -181,10 +181,10 @@ describe("POST /api/up — topology branch", () => {
     fs.writeFileSync(path.join(tmpDir, "a.yaml"), VALID_SPEC);
     fs.writeFileSync(path.join(tmpDir, "bad.yaml"), VALID_SPEC);
     fs.writeFileSync(path.join(tmpDir, "c.yaml"), VALID_SPEC);
-    const manifest = writeManifest("rigs:\n  - source: ./a.yaml\n  - source: ./bad.yaml\n  - source: ./c.yaml\n");
+    const manifest = writeManifest("softwareTeams:\n  - source: ./a.yaml\n  - source: ./bad.yaml\n  - source: ./c.yaml\n");
     const { app } = makeApp({
       bootstrapResult: (call) =>
-        call.sourceRef.endsWith("bad.yaml") ? { status: "failed", errors: ["Stage IMPORT_RIG failed: boom"] } : { status: "completed", errors: [] },
+        call.sourceRef.endsWith("bad.yaml") ? { status: "failed", errors: ["Stage IMPORT_SOFTWARE_TEAM failed: boom"] } : { status: "completed", errors: [] },
     });
     const res = await app.request("/api/up", {
       method: "POST",
@@ -195,13 +195,13 @@ describe("POST /api/up — topology branch", () => {
     const data = (await res.json()) as { ok: boolean; entries: Array<Record<string, unknown>> };
     expect(data.ok).toBe(false);
     expect(data.entries[0]).toMatchObject({ status: "ok" });
-    expect(data.entries[1]).toMatchObject({ status: "failed", error: "Stage IMPORT_RIG failed: boom" });
+    expect(data.entries[1]).toMatchObject({ status: "failed", error: "Stage IMPORT_SOFTWARE_TEAM failed: boom" });
     expect(data.entries[2]).toMatchObject({ status: "skipped" }); // explicit, never absent
   });
 
   it("plan + topology → 400 topology_plan_unsupported (no silent half-support)", async () => {
     fs.writeFileSync(path.join(tmpDir, "a.yaml"), VALID_SPEC);
-    const manifest = writeManifest("rigs:\n  - source: ./a.yaml\n");
+    const manifest = writeManifest("softwareTeams:\n  - source: ./a.yaml\n");
     const { app } = makeApp();
     const res = await app.request("/api/up", {
       method: "POST",
@@ -213,7 +213,7 @@ describe("POST /api/up — topology branch", () => {
   });
 
   it("bare-name entry rejects at PARSE time (arch ruling: spec paths only) — 400, nothing launched", async () => {
-    const manifest = writeManifest("rigs:\n  - source: some-existing-rig\n");
+    const manifest = writeManifest("softwareTeams:\n  - source: some-existing-software-team\n");
     const { app, calls } = makeApp();
     const res = await app.request("/api/up", {
       method: "POST",
@@ -223,13 +223,13 @@ describe("POST /api/up — topology branch", () => {
     expect(res.status).toBe(400);
     const data = (await res.json()) as Record<string, unknown>;
     expect(data["code"]).toBe("invalid_topology_manifest");
-    expect(String((data["errors"] as string[])[0])).toContain("bare library/rig name");
-    expect(String((data["errors"] as string[])[0])).toContain("rig up some-existing-rig");
+    expect(String((data["errors"] as string[])[0])).toContain("bare library/SoftwareTeam name");
+    expect(String((data["errors"] as string[])[0])).toContain("SoftwareTeam up some-existing-software-team");
     expect(calls).toEqual([]); // bootstrap never invoked
   });
 
-  it(".rigbundle entry rejects at PARSE time with the direct single-rig rig-up workaround — 400, nothing launched", async () => {
-    const manifest = writeManifest("rigs:\n  - source: ./workers.rigbundle\n");
+  it(".softwareteambundle entry rejects at PARSE time with the direct single-software-team software-team-up workaround — 400, nothing launched", async () => {
+    const manifest = writeManifest("softwareTeams:\n  - source: ./workers.softwareteambundle\n");
     const { app, calls } = makeApp();
     const res = await app.request("/api/up", {
       method: "POST",
@@ -239,7 +239,7 @@ describe("POST /api/up — topology branch", () => {
     expect(res.status).toBe(400);
     const data = (await res.json()) as Record<string, unknown>;
     expect(data["code"]).toBe("invalid_topology_manifest");
-    expect(String((data["errors"] as string[])[0])).toContain("single-rig 'rig up ./workers.rigbundle' accepts all source kinds unchanged");
+    expect(String((data["errors"] as string[])[0])).toContain("single-software-team 'SoftwareTeam up ./workers.softwareteambundle' accepts all source kinds unchanged");
     expect(calls).toEqual([]);
   });
 });

@@ -54,7 +54,7 @@ export interface ScopeApproveInput {
   reApprove?: boolean;
   /** REQUIRED with reApprove (a reasoned deliberate act, never an accident). */
   reason?: string | null;
-  /** The missions root the CALLER named (`rig scope --workspace`), absolute and
+  /** The missions root the CALLER named (`SoftwareTeam scope --workspace`), absolute and
    *  already resolved client-side. When given it is the tree this approval
    *  stamps, so a second worktree of the same repo is stamped where the caller
    *  asked instead of in the daemon's own workspace (#995). Omitted (the TUI,
@@ -227,7 +227,7 @@ export class ScopeApproveService {
       throw new ScopeApproveError(
         "scope_id_missing",
         `${input.scopePath} has no frontmatter id (dot-ID) — the audit target contract requires a stable scope_id.`,
-        { scopePath: input.scopePath, action: "Run: rig scope " + input.scopeTier + " reconcile <path> to mint the id, then re-approve." },
+        { scopePath: input.scopePath, action: "Run: SoftwareTeam scope " + input.scopeTier + " reconcile <path> to mint the id, then re-approve." },
       );
     }
 
@@ -300,7 +300,7 @@ export class ScopeApproveService {
             `${input.scopePath}: the derived locked-artifacts set contains only a contentless ${nodeFileName} — the lock would freeze content nobody chose.`,
             {
               scopePath: input.scopePath,
-              action: "Author SPEC.md so the plan carries real content, or name the real set explicitly: rig scope slice approve <slice> --scope spec --locked-artifacts \"SPEC.md,PLAN-….md\".",
+              action: "Author SPEC.md so the plan carries real content, or name the real set explicitly: SoftwareTeam scope slice approve <slice> --scope spec --locked-artifacts \"SPEC.md,PLAN-….md\".",
             },
           );
         }

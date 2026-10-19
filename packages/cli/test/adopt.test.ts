@@ -65,7 +65,7 @@ function runningDeps(port: number, fileContent: string | Record<string, string>)
   };
 }
 
-describe("rig adopt", () => {
+describe("SoftwareTeam adopt", () => {
   let server: http.Server;
   let port: number;
   let capturedMaterializeHeaders: Record<string, string | string[] | undefined> = {};
@@ -76,14 +76,14 @@ describe("rig adopt", () => {
       let body = "";
       for await (const chunk of req) body += chunk;
 
-      if (req.method === "POST" && req.url === "/api/rigs/import/materialize") {
+      if (req.method === "POST" && req.url === "/api/software-teams/import/materialize") {
         capturedMaterializeHeaders = {
-          "x-rig-root": req.headers["x-rig-root"],
-          "x-target-rig-id": req.headers["x-target-rig-id"],
+          "x-software-team-root": req.headers["x-software-team-root"],
+          "x-target-software-team-id": req.headers["x-target-software-team-id"],
         };
         res.writeHead(201, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
-          rigId: req.headers["x-target-rig-id"] ?? "rig-new",
+          softwareTeamId: req.headers["x-target-software-team-id"] ?? "software-team-new",
           specName: "captured-dev-pod",
           specVersion: "0.2",
           nodes: [
@@ -142,20 +142,20 @@ describe("rig adopt", () => {
 
     const { logs, exitCode } = await captureLogs(async () => {
       await program.parseAsync([
-        "node", "rig", "adopt", "rig.yaml",
-        "--target-rig", "rig-123",
-        "--rig-root", "/tmp/captured-dev-pod",
+        "node", "softwareTeam", "adopt", "software-team.yaml",
+        "--target-software-team", "software-team-123",
+        "--software-team-root", "/tmp/captured-dev-pod",
         "--bind", "research.scout=proof-research-scout2",
         "--bind", "research.mapper=proof-research-mapper2",
       ]);
     });
 
     expect(exitCode).toBeUndefined();
-    expect(capturedMaterializeHeaders["x-target-rig-id"]).toBe("rig-123");
-    expect(capturedMaterializeHeaders["x-rig-root"]).toBe("/tmp/captured-dev-pod");
+    expect(capturedMaterializeHeaders["x-target-software-team-id"]).toBe("software-team-123");
+    expect(capturedMaterializeHeaders["x-software-team-root"]).toBe("/tmp/captured-dev-pod");
     expect(bindRequests).toHaveLength(2);
-    expect(bindRequests[0]!.body).toEqual({ rigId: "rig-123", logicalId: "research.scout" });
-    expect(bindRequests[1]!.body).toEqual({ rigId: "rig-123", logicalId: "research.mapper" });
+    expect(bindRequests[0]!.body).toEqual({ softwareTeamId: "software-team-123", logicalId: "research.scout" });
+    expect(bindRequests[1]!.body).toEqual({ softwareTeamId: "software-team-123", logicalId: "research.mapper" });
     const output = logs.join("\n");
     expect(output).toContain("captured-dev-pod");
     expect(output).toContain("research.scout");
@@ -170,8 +170,8 @@ describe("rig adopt", () => {
 
     const { logs, exitCode } = await captureLogs(async () => {
       await program.parseAsync([
-        "node", "rig", "adopt", "rig.yaml",
-        "--rig-root", "/tmp/captured-dev-pod",
+        "node", "softwareTeam", "adopt", "software-team.yaml",
+        "--software-team-root", "/tmp/captured-dev-pod",
         "--bind", "research.scout=proof-research-scout2",
         "--bind", "research.synth=missing-session",
       ]);
@@ -191,8 +191,8 @@ describe("rig adopt", () => {
 
     const { logs, exitCode } = await captureLogs(async () => {
       await program.parseAsync([
-        "node", "rig", "adopt", "rig.yaml",
-        "--rig-root", "/tmp/captured-dev-pod",
+        "node", "softwareTeam", "adopt", "software-team.yaml",
+        "--software-team-root", "/tmp/captured-dev-pod",
         "--bind", "research.scout=proof-research-scout2",
         "--json",
       ]);
@@ -200,7 +200,7 @@ describe("rig adopt", () => {
 
     expect(exitCode).toBeUndefined();
     const parsed = JSON.parse(logs.join(""));
-    expect(parsed.rigId).toBe("rig-new");
+    expect(parsed.softwareTeamId).toBe("software-team-new");
     expect(parsed.bindings).toHaveLength(1);
     expect(parsed.bindings[0]).toMatchObject({
       logicalId: "research.scout",
@@ -214,21 +214,21 @@ describe("rig adopt", () => {
     const program = new Command();
     program.exitOverride();
     program.addCommand(adoptCommand(runningDeps(port, {
-      "rig.yaml": `version: "0.2"\nname: captured-dev-pod\npods: []\n`,
+      "software-team.yaml": `version: "0.2"\nname: captured-dev-pod\npods: []\n`,
       "bindings.yaml": `bindings:\n  research.scout: proof-research-scout2\n  research.mapper: ds-mapper\n`,
     })));
 
     const { exitCode } = await captureLogs(async () => {
       await program.parseAsync([
-        "node", "rig", "adopt", "rig.yaml",
+        "node", "softwareTeam", "adopt", "software-team.yaml",
         "--bindings-file", "bindings.yaml",
       ]);
     });
 
     expect(exitCode).toBeUndefined();
     expect(bindRequests).toHaveLength(2);
-    expect(bindRequests[0]!.body).toEqual({ rigId: "rig-new", logicalId: "research.scout" });
-    expect(bindRequests[1]!.body).toEqual({ rigId: "rig-new", logicalId: "research.mapper" });
+    expect(bindRequests[0]!.body).toEqual({ softwareTeamId: "software-team-new", logicalId: "research.scout" });
+    expect(bindRequests[1]!.body).toEqual({ softwareTeamId: "software-team-new", logicalId: "research.mapper" });
   });
 
   it("fails when both --bind and --bindings-file are supplied", async () => {
@@ -236,13 +236,13 @@ describe("rig adopt", () => {
     const program = new Command();
     program.exitOverride();
     program.addCommand(adoptCommand(runningDeps(port, {
-      "rig.yaml": `version: "0.2"\nname: captured-dev-pod\npods: []\n`,
+      "software-team.yaml": `version: "0.2"\nname: captured-dev-pod\npods: []\n`,
       "bindings.yaml": `bindings:\n  research.scout: proof-research-scout2\n`,
     })));
 
     const { logs, exitCode } = await captureLogs(async () => {
       await program.parseAsync([
-        "node", "rig", "adopt", "rig.yaml",
+        "node", "softwareTeam", "adopt", "software-team.yaml",
         "--bind", "research.mapper=proof-research-mapper2",
         "--bindings-file", "bindings.yaml",
       ]);

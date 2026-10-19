@@ -1,6 +1,6 @@
-// OPR.0.4.0.25 — rig ps token-safe defaults (compact-by-default projection-trim).
-// Large multi-rig fixture exercises compact default, --full byte-equivalence,
-// --rig/--session filters, and field-set honesty. Mirrors ps.test.ts harness.
+// OPR.0.4.0.25 — SoftwareTeam ps token-safe defaults (compact-by-default projection-trim).
+// Large multi-softwareTeam fixture exercises compact default, --full byte-equivalence,
+// --software-team/--session filters, and field-set honesty. Mirrors ps.test.ts harness.
 
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
 import http from "node:http";
@@ -59,12 +59,12 @@ function runningDeps(port: number): StatusDeps {
   };
 }
 
-// --- Large multi-rig fixture ---
-// 3 rigs, ~15 nodes total, with fat fields (contextUsage, agentActivity,
+// --- Large multi-softwareTeam fixture ---
+// 3 softwareTeams, ~15 nodes total, with fat fields (contextUsage, agentActivity,
 // resumeCommand, tmuxAttachCommand, extra [key:string]:unknown fields).
 // This is the minimum to prove the compact-default token regression.
 
-function makeFatNode(rigId: string, rigName: string, logicalId: string, opts?: {
+function makeFatNode(softwareTeamId: string, softwareTeamName: string, logicalId: string, opts?: {
   lifecycleState?: string;
   sessionStatus?: string;
   startupStatus?: string;
@@ -80,12 +80,12 @@ function makeFatNode(rigId: string, rigName: string, logicalId: string, opts?: {
   contextPercent?: number | null;
 }) {
   return {
-    rigId,
-    rigName,
+    softwareTeamId,
+    softwareTeamName,
     logicalId,
     podId: `pod-${logicalId.split(".")[0]}`,
     podNamespace: logicalId.split(".")[0],
-    canonicalSessionName: `${logicalId.replace(".", "-")}@${rigName}`,
+    canonicalSessionName: `${logicalId.replace(".", "-")}@${softwareTeamName}`,
     // Slice 13 fix 2 — the daemon stamps every served row with its boot-reconciled
     // self-id; the fixture mirrors the served shape so the compact/full ratio guard
     // measures real surfaces.
@@ -97,7 +97,7 @@ function makeFatNode(rigId: string, rigName: string, logicalId: string, opts?: {
     restoreOutcome: "n-a",
     lifecycleState: opts?.lifecycleState ?? "running",
     identityVerdict: opts?.identityReason ? { reason: opts.identityReason } : null,
-    tmuxAttachCommand: `tmux attach -t ${logicalId.replace(".", "-")}@${rigName}`,
+    tmuxAttachCommand: `tmux attach -t ${logicalId.replace(".", "-")}@${softwareTeamName}`,
     resumeCommand: `claude --resume /path/to/session/${logicalId}`,
     latestError: opts?.latestError ?? null,
     terminalActive: true,
@@ -124,19 +124,19 @@ function makeFatNode(rigId: string, rigName: string, logicalId: string, opts?: {
     // survive in --full but be dropped in compact.
     resolvedSpecHash: "abc123def456",
     agentRef: { provider: "anthropic", model: "claude-opus-4-20250514" },
-    recoveryGuidance: "If this node is stuck, try: rig restart --session " + `${logicalId.replace(".", "-")}@${rigName}` + ". Detailed recovery steps: check tmux session, verify daemon health, ensure the agent process is running and responsive to signals. Additional context: this is a long recovery guidance string that adds significant token weight to every node entry in the default output.",
+    recoveryGuidance: "If this node is stuck, try: SoftwareTeam restart --session " + `${logicalId.replace(".", "-")}@${softwareTeamName}` + ". Detailed recovery steps: check tmux session, verify daemon health, ensure the agent process is running and responsive to signals. Additional context: this is a long recovery guidance string that adds significant token weight to every node entry in the default output.",
   };
 }
 
-const RIG_A_NODES = [
-  makeFatNode("rig-a", "openrig-build", "orch1.lead"),
-  makeFatNode("rig-a", "openrig-build", "orch1.peer"),
-  makeFatNode("rig-a", "openrig-build", "dev1.impl"),
-  makeFatNode("rig-a", "openrig-build", "dev1.qa"),
-  makeFatNode("rig-a", "openrig-build", "rev1.r1"),
-  makeFatNode("rig-a", "openrig-build", "rev1.r2"),
+const SOFTWARE_TEAM_A_NODES = [
+  makeFatNode("software-team-a", "softwareteam-build", "orch1.lead"),
+  makeFatNode("software-team-a", "softwareteam-build", "orch1.peer"),
+  makeFatNode("software-team-a", "softwareteam-build", "dev1.impl"),
+  makeFatNode("software-team-a", "softwareteam-build", "dev1.qa"),
+  makeFatNode("software-team-a", "softwareteam-build", "rev1.r1"),
+  makeFatNode("software-team-a", "softwareteam-build", "rev1.r2"),
   // One attention node — reason must appear in compact
-  makeFatNode("rig-a", "openrig-build", "dev1.design", {
+  makeFatNode("software-team-a", "softwareteam-build", "dev1.design", {
     lifecycleState: "attention_required",
     startupStatus: "attention_required",
     activityState: "needs_input",
@@ -149,61 +149,61 @@ const RIG_A_NODES = [
     blockedWorkCount: 1,
     contextPercent: 92,
   }),
-  makeFatNode("rig-a", "openrig-build", "ops.missing", {
+  makeFatNode("software-team-a", "softwareteam-build", "ops.missing", {
     lifecycleState: "detached", sessionStatus: "detached", activityState: "unknown",
     identityReason: "session_missing",
   }),
 ];
 
-const RIG_B_NODES = [
-  makeFatNode("rig-b", "openrig-comms", "orch1.lead"),
-  makeFatNode("rig-b", "openrig-comms", "orch1.peer"),
-  makeFatNode("rig-b", "openrig-comms", "content1.writer"),
-  makeFatNode("rig-b", "openrig-comms", "content1.editor"),
-  makeFatNode("rig-b", "openrig-comms", "comm1.social"),
+const SOFTWARE_TEAM_B_NODES = [
+  makeFatNode("software-team-b", "softwareteam-comms", "orch1.lead"),
+  makeFatNode("software-team-b", "softwareteam-comms", "orch1.peer"),
+  makeFatNode("software-team-b", "softwareteam-comms", "content1.writer"),
+  makeFatNode("software-team-b", "softwareteam-comms", "content1.editor"),
+  makeFatNode("software-team-b", "softwareteam-comms", "comm1.social"),
 ];
 
-const RIG_C_NODES = [
-  makeFatNode("rig-c", "openrig-velocity", "orch1.lead", {
+const SOFTWARE_TEAM_C_NODES = [
+  makeFatNode("software-team-c", "softwareteam-velocity", "orch1.lead", {
     hasAssignedWork: true,
     assignedWorkCount: 7,
     pendingWorkCount: 5,
     inProgressWorkCount: 1,
     blockedWorkCount: 1,
   }),
-  makeFatNode("rig-c", "openrig-velocity", "dev1.driver"),
-  makeFatNode("rig-c", "openrig-velocity", "dev1.qa"),
+  makeFatNode("software-team-c", "softwareteam-velocity", "dev1.driver"),
+  makeFatNode("software-team-c", "softwareteam-velocity", "dev1.qa"),
 ];
 
-const ALL_NODES = [...RIG_A_NODES, ...RIG_B_NODES, ...RIG_C_NODES];
+const ALL_NODES = [...SOFTWARE_TEAM_A_NODES, ...SOFTWARE_TEAM_B_NODES, ...SOFTWARE_TEAM_C_NODES];
 const TOTAL_NODE_COUNT = ALL_NODES.length; // 15
 
 const PS_DATA = [
-  { rigId: "rig-a", name: "openrig-build", rigName: "openrig-build", nodeCount: 7, runningCount: 7, status: "running", lifecycleState: "attention_required", uptime: "2h", latestSnapshot: null },
-  { rigId: "rig-b", name: "openrig-comms", rigName: "openrig-comms", nodeCount: 5, runningCount: 5, status: "running", lifecycleState: "running", uptime: "1h", latestSnapshot: null },
-  { rigId: "rig-c", name: "openrig-velocity", rigName: "openrig-velocity", nodeCount: 3, runningCount: 3, status: "running", lifecycleState: "running", uptime: "30m", latestSnapshot: null },
+  { softwareTeamId: "software-team-a", name: "softwareteam-build", softwareTeamName: "softwareteam-build", nodeCount: 7, runningCount: 7, status: "running", lifecycleState: "attention_required", uptime: "2h", latestSnapshot: null },
+  { softwareTeamId: "software-team-b", name: "softwareteam-comms", softwareTeamName: "softwareteam-comms", nodeCount: 5, runningCount: 5, status: "running", lifecycleState: "running", uptime: "1h", latestSnapshot: null },
+  { softwareTeamId: "software-team-c", name: "softwareteam-velocity", softwareTeamName: "softwareteam-velocity", nodeCount: 3, runningCount: 3, status: "running", lifecycleState: "running", uptime: "30m", latestSnapshot: null },
 ];
 
-const NODES_BY_RIG: Record<string, unknown[]> = {
-  "rig-a": RIG_A_NODES,
-  "rig-b": RIG_B_NODES,
-  "rig-c": RIG_C_NODES,
+const NODES_BY_SOFTWARE_TEAM: Record<string, unknown[]> = {
+  "software-team-a": SOFTWARE_TEAM_A_NODES,
+  "software-team-b": SOFTWARE_TEAM_B_NODES,
+  "software-team-c": SOFTWARE_TEAM_C_NODES,
 };
 
-describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
+describe("OPR.0.4.0.25 — SoftwareTeam ps token-safe defaults", () => {
   let server: http.Server;
   let port: number;
   let savedSessionName: string | undefined;
 
   beforeAll(async () => {
-    savedSessionName = process.env.OPENRIG_SESSION_NAME;
-    delete process.env.OPENRIG_SESSION_NAME;
+    savedSessionName = process.env.SOFTWARETEAM_SESSION_NAME;
+    delete process.env.SOFTWARETEAM_SESSION_NAME;
     server = http.createServer((req, res) => {
-      const m = req.url?.match(/^\/api\/rigs\/([^/]+)\/nodes(?:\?.*)?$/);
+      const m = req.url?.match(/^\/api\/software-teams\/([^/]+)\/nodes(?:\?.*)?$/);
       if (m && req.method === "GET") {
-        const rigId = decodeURIComponent(m[1]!);
+        const softwareTeamId = decodeURIComponent(m[1]!);
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(NODES_BY_RIG[rigId] ?? []));
+        res.end(JSON.stringify(NODES_BY_SOFTWARE_TEAM[softwareTeamId] ?? []));
       } else if (req.url === "/api/ps" && req.method === "GET") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(PS_DATA));
@@ -218,7 +218,7 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
 
   afterAll(() => {
     server.close();
-    if (savedSessionName !== undefined) process.env.OPENRIG_SESSION_NAME = savedSessionName;
+    if (savedSessionName !== undefined) process.env.SOFTWARETEAM_SESSION_NAME = savedSessionName;
   });
 
   function makeCmd(): Command {
@@ -231,10 +231,10 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
   // -- AC-1: token-safe default (the regression) --
   it("AC-1: default --nodes --json is an order of magnitude smaller than --full", async () => {
     const { logs: defaultLogs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json"]);
     });
     const { logs: fullLogs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--full"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--full"]);
     });
 
     const defaultOutput = defaultLogs.join("");
@@ -254,10 +254,10 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
   // -- AC-2: same breadth (no node dropped) --
   it("AC-2: compact default lists ALL nodes (same count as --full)", async () => {
     const { logs: defaultLogs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json"]);
     });
     const { logs: fullLogs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--full"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--full"]);
     });
 
     const defaultNodes = JSON.parse(defaultLogs.join(""));
@@ -276,7 +276,7 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
     // Today's default IS the full raw array (no compact yet).
     // After slice-25, --full must produce the same output as today's default.
     const { logs: fullLogs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--full"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--full"]);
     });
 
     const fullOutput = fullLogs.join("");
@@ -305,13 +305,13 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
   // -- AC-4: compact field set --
   it("AC-4: compact projection includes the specified field set", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json"]);
     });
     const nodes = JSON.parse(logs.join(""));
 
     for (const node of nodes) {
       // Required fields present
-      expect(node).toHaveProperty("rigName");
+      expect(node).toHaveProperty("softwareTeamName");
       expect(node).toHaveProperty("canonicalSessionName");
       expect(node).toHaveProperty("lifecycleState");
       expect(node.agentActivity).toBeDefined();
@@ -341,13 +341,13 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
 
   it("AC-4: attention node includes reason + latestError; healthy node omits reason", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json"]);
     });
     const nodes = JSON.parse(logs.join(""));
 
     // dev1.design is the attention node
     const attentionNode = nodes.find((n: { canonicalSessionName: string }) =>
-      n.canonicalSessionName === "dev1-design@openrig-build"
+      n.canonicalSessionName === "dev1-design@softwareteam-build"
     );
     expect(attentionNode).toBeDefined();
     expect(attentionNode.agentActivity.state).toBe("needs_input");
@@ -356,7 +356,7 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
 
     // orch1.lead is healthy — reason should be omitted
     const healthyNode = nodes.find((n: { canonicalSessionName: string }) =>
-      n.canonicalSessionName === "orch1-lead@openrig-build"
+      n.canonicalSessionName === "orch1-lead@softwareteam-build"
     );
     expect(healthyNode).toBeDefined();
     expect(healthyNode.agentActivity.state).toBe("running");
@@ -365,7 +365,7 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
   });
 
   it.each([[false, false], [true, false], [false, true]])("shows current limits without hiding startup failures (stale: %s, failed: %s)", async (stale, failed) => {
-    const node = RIG_B_NODES[0]!;
+    const node = SOFTWARE_TEAM_B_NODES[0]!;
     const original = { agentActivity: node.agentActivity, startupStatus: node.startupStatus, latestError: node.latestError };
     node.agentActivity = {
       ...original.agentActivity, state: "unknown", reason: "usage_limit", evidenceSource: "runtime_hook",
@@ -373,11 +373,11 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
     } as typeof original.agentActivity;
     if (failed) Object.assign(node, { startupStatus: "failed", latestError: "startup failure" });
     try {
-      const json = await captureLogs(() => makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "--rig", "openrig-comms", "--json"]).then(() => {}));
+      const json = await captureLogs(() => makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "--software-team", "softwareteam-comms", "--json"]).then(() => {}));
       const activity = JSON.parse(json.logs.join(""))[0].agentActivity;
       expect(activity.state).toBe("unknown");
       expect.soft(activity.reason).toBe(stale ? undefined : "usage_limit");
-      const text = await captureLogs(() => makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "--rig", "openrig-comms"]).then(() => {}));
+      const text = await captureLogs(() => makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "--software-team", "softwareteam-comms"]).then(() => {}));
       expect(text.logs.join("\n").includes("usage_limit")).toBe(!stale && !failed);
       if (failed) expect(text.logs.join("\n")).toContain("startup failure");
     } finally {
@@ -385,33 +385,33 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
     }
   });
 
-  // -- AC-5: --rig and --session filters compose --
-  it("AC-5: --rig narrows to nodes of that rig", async () => {
+  // -- AC-5: --software-team and --session filters compose --
+  it("AC-5: --software-team narrows to nodes of that softwareTeam", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "--json", "--rig", "openrig-comms"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "--json", "--software-team", "softwareteam-comms"]);
     });
     const nodes = JSON.parse(logs.join(""));
-    expect(nodes.length).toBe(RIG_B_NODES.length);
+    expect(nodes.length).toBe(SOFTWARE_TEAM_B_NODES.length);
     for (const n of nodes) {
-      expect(n.rigName).toBe("openrig-comms");
+      expect(n.softwareTeamName).toBe("softwareteam-comms");
     }
   });
 
   it("AC-5: --session narrows to matching session", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--session", "dev1-driver@openrig-velocity"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--session", "dev1-driver@softwareteam-velocity"]);
     });
     const nodes = JSON.parse(logs.join(""));
     expect(nodes.length).toBe(1);
-    expect(nodes[0].canonicalSessionName).toBe("dev1-driver@openrig-velocity");
+    expect(nodes[0].canonicalSessionName).toBe("dev1-driver@softwareteam-velocity");
   });
 
-  it("AC-5: --rig composes with --full (full payload, rig-filtered)", async () => {
+  it("AC-5: --software-team composes with --full (full payload, software-team-filtered)", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "--json", "--rig", "openrig-velocity", "--full"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "--json", "--software-team", "softwareteam-velocity", "--full"]);
     });
     const nodes = JSON.parse(logs.join(""));
-    expect(nodes.length).toBe(RIG_C_NODES.length);
+    expect(nodes.length).toBe(SOFTWARE_TEAM_C_NODES.length);
     // Full payload has the heavy fields
     expect(nodes[0].contextUsage).toBeDefined();
     expect(nodes[0].recoveryGuidance).toBeDefined();
@@ -420,7 +420,7 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
 
   it("AC-5: --session composes with compact (compact payload, session-filtered)", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--session", "orch1-lead@openrig-build"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--session", "orch1-lead@softwareteam-build"]);
     });
     const nodes = JSON.parse(logs.join(""));
     expect(nodes.length).toBe(1);
@@ -430,25 +430,25 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
   });
 
   // -- AC-6: help text --
-  it("AC-6: help text documents compact default, --full, --rig, --session, queue frontier", () => {
+  it("AC-6: help text documents compact default, --full, --software-team, --session, queue frontier", () => {
     const psCmd = psCommand(runningDeps(port));
     let helpOutput = "";
     psCmd.configureOutput({ writeOut: (s) => { helpOutput += s; } });
     psCmd.outputHelp();
     expect(helpOutput).toContain("--full");
-    expect(helpOutput).toContain("--rig");
+    expect(helpOutput).toContain("--software-team");
     expect(helpOutput).toContain("--session");
-    expect(helpOutput).toContain("current-rig");
+    expect(helpOutput).toContain("current-software-team");
     expect(helpOutput).toContain("compact");
   });
 
   // -- AC-7: both paths in one suite --
   it("AC-7: default compact and --full exercised on same fixture (regression guard)", async () => {
     const { logs: compactLogs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json"]);
     });
     const { logs: fullLogs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--full"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--full"]);
     });
 
     const compact = JSON.parse(compactLogs.join(""));
@@ -472,27 +472,27 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
   // -- Composition: --fields overrides compact (existing behavior preserved) --
   it("--fields overrides compact (explicit projection takes precedence)", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--fields", "rigName,canonicalSessionName"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--fields", "softwareTeamName,canonicalSessionName"]);
     });
     const parsed = JSON.parse(logs.join(""));
     // --fields triggers envelope
     const entries = parsed.entries;
     expect(entries.length).toBe(TOTAL_NODE_COUNT);
-    expect(Object.keys(entries[0])).toEqual(["rigName", "canonicalSessionName"]);
+    expect(Object.keys(entries[0])).toEqual(["softwareTeamName", "canonicalSessionName"]);
   });
 
   it("--fields exposes the exact assigned-work state breakdown omitted from compact rows", async () => {
     const { logs } = await captureLogs(async () => {
       await makeCmd().parseAsync([
-        "node", "rig", "ps", "--nodes", "-A", "--json", "--fields",
+        "node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--fields",
         "canonicalSessionName,assignedWorkCount,pendingWorkCount,inProgressWorkCount,blockedWorkCount",
       ]);
     });
     const entries = JSON.parse(logs.join("")).entries;
     const assigned = entries.find((entry: Record<string, unknown>) =>
-      entry.canonicalSessionName === "dev1-design@openrig-build");
+      entry.canonicalSessionName === "dev1-design@softwareteam-build");
     expect(assigned).toEqual({
-      canonicalSessionName: "dev1-design@openrig-build",
+      canonicalSessionName: "dev1-design@softwareteam-build",
       assignedWorkCount: 6,
       pendingWorkCount: 3,
       inProgressWorkCount: 2,
@@ -507,15 +507,15 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
   ])(
     "preserves explicit stop intent in $mode node JSON",
     async ({ args: extra }) => {
-      const original = NODES_BY_RIG["rig-c"];
-      NODES_BY_RIG["rig-c"] = [
-        { ...RIG_C_NODES[0], intentionallyStopped: true, sessionStatus: "exited" },
-        { ...RIG_C_NODES[1], intentionallyStopped: false },
-        RIG_C_NODES[2], // Older daemons omit the field.
+      const original = NODES_BY_SOFTWARE_TEAM["software-team-c"];
+      NODES_BY_SOFTWARE_TEAM["software-team-c"] = [
+        { ...SOFTWARE_TEAM_C_NODES[0], intentionallyStopped: true, sessionStatus: "exited" },
+        { ...SOFTWARE_TEAM_C_NODES[1], intentionallyStopped: false },
+        SOFTWARE_TEAM_C_NODES[2], // Older daemons omit the field.
       ];
       try {
         const { logs, errLogs, exitCode } = await captureLogs(async () => {
-          await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "--rig", "openrig-velocity", "--json", ...extra]);
+          await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "--software-team", "softwareteam-velocity", "--json", ...extra]);
         });
         expect(exitCode ?? 0, errLogs.join("\n")).toBe(0);
         const output = JSON.parse(logs.join(""));
@@ -524,7 +524,7 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
         expect(entries[1].intentionallyStopped).toBe(false);
         expect(entries[2]).not.toHaveProperty("intentionallyStopped");
       } finally {
-        NODES_BY_RIG["rig-c"] = original;
+        NODES_BY_SOFTWARE_TEAM["software-team-c"] = original;
       }
     },
   );
@@ -532,10 +532,10 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
   // -- --verbose alias --
   it("--verbose is an alias for --full", async () => {
     const { logs: fullLogs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--full"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--full"]);
     });
     const { logs: verboseLogs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--verbose"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--verbose"]);
     });
     expect(fullLogs.join("")).toBe(verboseLogs.join(""));
   });
@@ -543,7 +543,7 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
   // -- Default shape is bare array (back-compat) --
   it("compact default --json stays a bare array (not envelope)", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json"]);
     });
     const parsed = JSON.parse(logs.join(""));
     expect(Array.isArray(parsed)).toBe(true);
@@ -553,13 +553,13 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
 
   // -- Human table compact --
   it.each(["compact", "full", "json"])("preserves a pending startup continuation in %s node output", async mode => {
-    const node = RIG_A_NODES.find(n => n.startupStatus === "attention_required")!;
+    const node = SOFTWARE_TEAM_A_NODES.find(n => n.startupStatus === "attention_required")!;
     const previous = node.latestError;
-    const command = `rig seat continue '${node.canonicalSessionName}'`;
+    const command = `SoftwareTeam seat continue '${node.canonicalSessionName}'`;
     node.latestError = `Startup requires attention: resolve the native provider prerequisite before startup context can be delivered; After resolving it in ${node.canonicalSessionName}, run: ${command}`;
     try {
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", ...(mode === "full" ? ["--full"] : mode === "json" ? ["--json"] : [])]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", ...(mode === "full" ? ["--full"] : mode === "json" ? ["--json"] : [])]);
       });
       const output = logs.join("\n");
       expect(output).toContain(command);
@@ -571,11 +571,11 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
 
   it("compact default human table uses compact columns and omits full-only columns", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A"]);
     });
     const output = logs.join("\n");
     // Compact headers present
-    expect(output).toContain("RIG");
+    expect(output).toContain("SOFTWARE_TEAM");
     expect(output).toContain("SESSION");
     expect(output).toContain("LIFECYCLE");
     expect(output).toContain("ACTIVITY");
@@ -589,11 +589,11 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
     expect(output).not.toContain("POD");
     expect(output).not.toContain("MEMBER");
     // All nodes rendered (same breadth)
-    expect(output).toContain("orch1-lead@openrig-build");
-    expect(output).toContain("dev1-driver@openrig-velocity");
-    const assignedLine = output.split("\n").find((line) => line.includes("dev1-design@openrig-build"));
+    expect(output).toContain("orch1-lead@softwareteam-build");
+    expect(output).toContain("dev1-driver@softwareteam-velocity");
+    const assignedLine = output.split("\n").find((line) => line.includes("dev1-design@softwareteam-build"));
     expect(assignedLine).toBeDefined();
-    // WORK begins after the fixed RIG/SESSION/LIFECYCLE/ACTIVITY columns.
+    // WORK begins after the fixed SOFTWARE_TEAM/SESSION/LIFECYCLE/ACTIVITY columns.
     // It renders the total active assignment count (6), never the pending-only count (3).
     expect(assignedLine!.slice(22 + 38 + 11 + 14, 22 + 38 + 11 + 14 + 6).trim()).toBe("6");
   });
@@ -601,7 +601,7 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
   it("human node views explain a missing tmux session and the recovery path", async () => {
     for (const extra of [[], ["--full"]]) {
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--session", "ops-missing@openrig-build", ...extra]);
+        await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--session", "ops-missing@softwareteam-build", ...extra]);
       });
       expect(logs.join("\n")).toContain("tmux session missing; restore or relaunch the seat");
     }
@@ -609,7 +609,7 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
 
   it("--full human table uses full-detail columns", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--full"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--full"]);
     });
     const output = logs.join("\n");
     // Full headers present
@@ -620,10 +620,9 @@ describe("OPR.0.4.0.25 — rig ps token-safe defaults", () => {
     expect(output).toContain("TERMINAL");
     expect(output).toContain("POD");
     expect(output).toContain("MEMBER");
-    const assignedLine = output.split("\n").find((line) => line.includes("dev1-design@openrig-build"));
+    const assignedLine = output.split("\n").find((line) => line.includes("dev1-design@softwareteam-build"));
     expect(assignedLine).toBeDefined();
-    // WORK begins after the fixed columns through TERMINAL in the full table.
-    expect(assignedLine!.slice(30 + 10 + 14 + 34 + 12 + 17 + 10 + 10 + 9 + 11 + 9,
-      30 + 10 + 14 + 34 + 12 + 17 + 10 + 10 + 9 + 11 + 9 + 6).trim()).toBe("6");
+    const header = output.split("\n").find(line => line.includes("MODEL(DECLARED)"))!;
+    expect(assignedLine!.slice(header.indexOf("WORK"), header.indexOf("ACTIVITY")).trim()).toBe("6");
   });
 });

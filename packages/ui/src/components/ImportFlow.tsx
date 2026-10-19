@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useImportRig, ImportError } from "../hooks/mutations.js";
+import { useImportSoftwareTeam, ImportError } from "../hooks/mutations.js";
 import { getInstantiateStatusColorClass } from "@/lib/instantiate-status-colors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,7 @@ interface PreflightResult {
 }
 
 interface InstantiateResult {
-  rigId: string;
+  softwareTeamId: string;
   specName: string;
   specVersion: string;
   nodes: Array<{ logicalId: string; status: string; error?: string }>;
@@ -50,7 +50,7 @@ interface ImportFlowProps {
 }
 
 const STEPS = [
-  { num: 1, label: "VALIDATE RIGSPEC" },
+  { num: 1, label: "VALIDATE SOFTWARE_TEAM_SPEC" },
   { num: 2, label: "PREFLIGHT" },
   { num: 3, label: "INSTANTIATE" },
 ] as const;
@@ -65,16 +65,16 @@ function getStepNumber(step: Step): number {
 }
 
 export function ImportFlow({ onBack }: ImportFlowProps = {}) {
-  const importRig = useImportRig();
+  const importSoftwareTeam = useImportSoftwareTeam();
   const {
-    currentRigDraft,
-    selectedRigDraft,
-    saveRigDraft,
-    rememberRigDraft,
-    clearSelectedRigDraft,
+    currentSoftwareTeamDraft,
+    selectedSoftwareTeamDraft,
+    saveSoftwareTeamDraft,
+    rememberSoftwareTeamDraft,
+    clearSelectedSoftwareTeamDraft,
   } = useSpecsWorkspace();
-  const [yaml, setYaml] = useState(() => selectedRigDraft?.yaml ?? currentRigDraft?.yaml ?? "");
-  const [rigRoot, setRigRoot] = useState("");
+  const [yaml, setYaml] = useState(() => selectedSoftwareTeamDraft?.yaml ?? currentSoftwareTeamDraft?.yaml ?? "");
+  const [softwareTeamRoot, setSoftwareTeamRoot] = useState("");
   const [step, setStep] = useState<Step>("input");
   const [errorAtStep, setErrorAtStep] = useState<number>(0);
   const [errors, setErrors] = useState<string[]>([]);
@@ -82,21 +82,21 @@ export function ImportFlow({ onBack }: ImportFlowProps = {}) {
   const [result, setResult] = useState<InstantiateResult | null>(null);
 
   useEffect(() => {
-    saveRigDraft(yaml);
-  }, [saveRigDraft, yaml]);
+    saveSoftwareTeamDraft(yaml);
+  }, [saveSoftwareTeamDraft, yaml]);
 
   useEffect(() => {
-    if (!selectedRigDraft) return;
-    setYaml(selectedRigDraft.yaml);
-    clearSelectedRigDraft();
-  }, [clearSelectedRigDraft, selectedRigDraft]);
+    if (!selectedSoftwareTeamDraft) return;
+    setYaml(selectedSoftwareTeamDraft.yaml);
+    clearSelectedSoftwareTeamDraft();
+  }, [clearSelectedSoftwareTeamDraft, selectedSoftwareTeamDraft]);
 
   const handleValidate = async () => {
-    rememberRigDraft(yaml);
+    rememberSoftwareTeamDraft(yaml);
     setStep("validating");
     setErrors([]);
     try {
-      const res = await fetch("/api/rigs/import/validate", {
+      const res = await fetch("/api/software-teams/import/validate", {
         method: "POST",
         headers: { "Content-Type": "text/yaml" },
         body: yaml,
@@ -122,8 +122,8 @@ export function ImportFlow({ onBack }: ImportFlowProps = {}) {
     setWarnings([]);
     try {
       const headers: Record<string, string> = { "Content-Type": "text/yaml" };
-      if (rigRoot) headers["X-Rig-Root"] = rigRoot;
-      const res = await fetch("/api/rigs/import/preflight", {
+      if (softwareTeamRoot) headers["X-Software-Team-Root"] = softwareTeamRoot;
+      const res = await fetch("/api/software-teams/import/preflight", {
         method: "POST",
         headers,
         body: yaml,
@@ -149,13 +149,13 @@ export function ImportFlow({ onBack }: ImportFlowProps = {}) {
     setStep("instantiating");
     setErrors([]);
     try {
-      const data = await importRig.mutateAsync({ yaml, rigRoot: rigRoot.trim() || undefined }) as InstantiateResult;
+      const data = await importSoftwareTeam.mutateAsync({ yaml, softwareTeamRoot: softwareTeamRoot.trim() || undefined }) as InstantiateResult;
       setResult(data);
       setStep("done");
     } catch (err) {
       if (err instanceof ImportError) {
         if (err.code === "cycle_error") {
-          setErrors(["Cycle detected in rig topology"]);
+          setErrors(["Cycle detected in SoftwareTeam topology"]);
         } else {
           setErrors(err.errors);
         }
@@ -172,9 +172,9 @@ export function ImportFlow({ onBack }: ImportFlowProps = {}) {
     <WorkspacePage>
       <div data-testid="import-flow" className="space-y-8">
       <WorkflowHeader
-        eyebrow="Rig Import"
-        title="Import Rig"
-        description="Validate a RigSpec, run preflight checks, then instantiate a topology from YAML."
+        eyebrow="SoftwareTeam Import"
+        title="Import SoftwareTeam"
+        description="Validate a SoftwareTeamSpec, run preflight checks, then instantiate a topology from YAML."
       />
 
       <WorkflowStepIndicator
@@ -186,23 +186,23 @@ export function ImportFlow({ onBack }: ImportFlowProps = {}) {
 
       {/* Step 1: Input */}
       {step === "input" && (
-        <WorkflowSection title="Rig YAML" description="Paste a rig spec and optionally provide a rig root to anchor relative references during import.">
+        <WorkflowSection title="SoftwareTeam YAML" description="Paste a SoftwareTeam spec and optionally provide a SoftwareTeam root to anchor relative references during import.">
           <Textarea
             data-testid="yaml-input"
             value={yaml}
             onChange={(e) => setYaml(e.target.value)}
-            placeholder="Paste YAML rig spec here..."
+            placeholder="Paste YAML SoftwareTeam spec here..."
             rows={14}
             className="font-mono text-body-sm mb-spacing-4"
           />
           <div className="mb-spacing-4">
-            <label className="text-label-sm text-foreground-muted uppercase tracking-[0.04em] block mb-spacing-1">RIG ROOT (OPTIONAL)</label>
+            <label className="text-label-sm text-foreground-muted uppercase tracking-[0.04em] block mb-spacing-1">SOFTWARE_TEAM ROOT (OPTIONAL)</label>
             <Input
-              data-testid="rig-root-input"
+              data-testid="software-team-root-input"
               type="text"
-              value={rigRoot}
-              onChange={(e) => setRigRoot(e.target.value)}
-              placeholder="/path/to/rig/root"
+              value={softwareTeamRoot}
+              onChange={(e) => setSoftwareTeamRoot(e.target.value)}
+              placeholder="/path/to/softwareTeam/root"
               className="font-mono text-body-sm"
             />
           </div>
@@ -212,7 +212,7 @@ export function ImportFlow({ onBack }: ImportFlowProps = {}) {
             onClick={handleValidate}
             disabled={!yaml.trim()}
           >
-            VALIDATE RIGSPEC
+            VALIDATE SOFTWARE_TEAM_SPEC
           </Button>
         </WorkflowSection>
       )}
@@ -224,9 +224,9 @@ export function ImportFlow({ onBack }: ImportFlowProps = {}) {
 
       {/* Step 2: Valid -> Preflight */}
       {step === "valid" && (
-        <WorkflowSection title="Validation Passed" description="The RigSpec is valid. Run preflight checks before you instantiate it.">
+        <WorkflowSection title="Validation Passed" description="The SoftwareTeamSpec is valid. Run preflight checks before you instantiate it.">
           <Alert className="mb-spacing-4" data-testid="valid-message">
-            <AlertDescription className="text-primary">RigSpec valid. Run preflight checks?</AlertDescription>
+            <AlertDescription className="text-primary">SoftwareTeamSpec valid. Run preflight checks?</AlertDescription>
           </Alert>
           <Button variant="tactical" data-testid="preflight-btn" onClick={handlePreflight}>
             RUN PREFLIGHT
@@ -241,7 +241,7 @@ export function ImportFlow({ onBack }: ImportFlowProps = {}) {
 
       {/* Step 3: Preflight done -> Instantiate */}
       {step === "preflight_done" && (
-        <WorkflowSection title="Preflight Results" description="Review warnings before you instantiate the rig into live runtime sessions.">
+        <WorkflowSection title="Preflight Results" description="Review warnings before you instantiate the SoftwareTeam into live runtime sessions.">
           {warnings.length > 0 && (
             <Alert className="mb-spacing-4" data-testid="preflight-warnings">
               <AlertDescription className="text-warning">
@@ -275,7 +275,7 @@ export function ImportFlow({ onBack }: ImportFlowProps = {}) {
           <Alert className="mb-spacing-4">
             <AlertDescription>
               <span className="text-primary font-mono">{result.specName}</span>
-              <span className="text-foreground-muted"> ({result.rigId})</span>
+              <span className="text-foreground-muted"> ({result.softwareTeamId})</span>
             </AlertDescription>
           </Alert>
 
@@ -331,7 +331,7 @@ export function ImportFlow({ onBack }: ImportFlowProps = {}) {
           <Button
             variant="tactical"
             className="mt-spacing-4"
-            onClick={() => { setStep("input"); setErrors([]); setWarnings([]); setResult(null); setErrorAtStep(0); setRigRoot(""); }}
+            onClick={() => { setStep("input"); setErrors([]); setWarnings([]); setResult(null); setErrorAtStep(0); setSoftwareTeamRoot(""); }}
           >
             TRY AGAIN
           </Button>

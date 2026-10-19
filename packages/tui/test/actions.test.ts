@@ -12,7 +12,7 @@ const snap = demoSnapshot();
 
 function drilledScreen() {
   const s = createViewState({ instanceId: "t", getSnapshot: () => snap });
-  s.dispatch(parseCommand("rig openrig-build"));
+  s.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
   return { store: s, screen: renderScreen(s.get(), snap, { cols: 140, rows: 32 }) };
 }
 
@@ -35,7 +35,7 @@ describe("ACTIONS column = real drive-structure acts (BR-9)", () => {
     const row = screen.lines[rowIdx]!;
     const x = row.indexOf("run ▸") + 1;
     const hit = hitAt(screen, x, rowIdx + 1);
-    expect(hit?.action).toEqual({ type: "act", act: "run", rigId: "openrig-build", agent: "dev50.qa" });
+    expect(hit?.action).toEqual({ type: "act", act: "run", softwareTeamId: "softwareteam-build", agent: "dev50.qa" });
   });
 
   it("term ▸ zone dispatches open-terminal for the row's pod; clicking elsewhere still drills", () => {
@@ -43,21 +43,21 @@ describe("ACTIONS column = real drive-structure acts (BR-9)", () => {
     const rowIdx = screen.lines.findIndex((l) => /· guard\s/.test(l));
     const row = screen.lines[rowIdx]!;
     const termHit = hitAt(screen, row.indexOf("term ▸") + 1, rowIdx + 1);
-    expect(termHit?.action).toEqual({ type: "act", act: "open-terminal", view: "pod:openrig-build/dev50" });
+    expect(termHit?.action).toEqual({ type: "act", act: "open-terminal", view: "pod:softwareteam-build/dev50" });
     const cellHit = hitAt(screen, row.indexOf("gpt-5.6") + 1, rowIdx + 1);
     expect(cellHit?.action).toEqual({
       type: "drill",
       resource: "agent",
       name: "dev50.guard",
-      target: { host: "vm-host", rig: "openrig-build", pod: "dev50" },
+      target: { host: "vm-host", softwareTeam: "softwareteam-build", pod: "dev50" },
     });
   });
 
   it("acts NEVER mutate the view-state; the outcome arrives as a notice (PIN 1 intact)", () => {
     const s = createViewState({ instanceId: "t", getSnapshot: () => snap });
-    s.dispatch(parseCommand("rig openrig-build"));
+    s.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     const before = s.get();
-    s.dispatch({ type: "act", act: "open-terminal", view: "pod:openrig-build/dev50" });
+    s.dispatch({ type: "act", act: "open-terminal", view: "pod:softwareteam-build/dev50" });
     expect(s.get()).toMatchObject({ section: before.section, drill: before.drill, selection: before.selection });
     s.dispatch({ type: "notice", message: "terminal opened: pod:dev50" });
     expect(s.get().notice).toBe("terminal opened: pod:dev50");
@@ -73,11 +73,11 @@ describe("ACTIONS column = real drive-structure acts (BR-9)", () => {
     expect(screen.lines.some((l) => l.includes("attach: "))).toBe(true);
     const termLine = screen.lines.findIndex((l) => l.includes("Open terminals"));
     const hit = hitAt(screen, 40, termLine + 1);
-    expect(hit?.action).toEqual({ type: "act", act: "open-terminal", view: "pod:openrig-build/dev50" });
+    expect(hit?.action).toEqual({ type: "act", act: "open-terminal", view: "pod:softwareteam-build/dev50" });
   });
 
   it("the grammar carries NO act verbs — acts are click-surfaces only; socket stays observe/navigate", () => {
-    for (const cmd of ["run openrig-build", "term dev50", "up openrig-build", "open-terminal pod:dev50"]) {
+    for (const cmd of ["run softwareteam-build", "term dev50", "up softwareteam-build", "open-terminal pod:dev50"]) {
       const parsed = parseCommand(cmd);
       // "run" etc. are not resources/verbs; anything not the safe core is a named error
       expect(parsed.type, cmd).toBe("error");
@@ -87,7 +87,7 @@ describe("ACTIONS column = real drive-structure acts (BR-9)", () => {
   it("keeps run and term visible and clickable across the 120-column fallback boundary", () => {
     for (const cols of [120, 121]) {
       const s = createViewState({ instanceId: "t", getSnapshot: () => snap });
-      s.dispatch(parseCommand("rig openrig-build"));
+      s.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
       const screen = renderScreen(s.get(), snap, { cols, rows: 34 });
       const runningRow = screen.lines.find((line) => line.includes("┃ dev50") && line.includes("driver"));
       const runnableRow = screen.lines.find((line) => /\? qa\s/.test(line));
@@ -98,10 +98,10 @@ describe("ACTIONS column = real drive-structure acts (BR-9)", () => {
       expect(acts.every((target) => target.x1 >= 1 && target.x2 <= cols), `act bounds at ${cols}`).toBe(true);
       const runY = screen.lines.findIndex((line) => /\? qa\s/.test(line)) + 1;
       const runX = runnableRow!.indexOf("run ▸") + 1;
-      expect(hitAt(screen, runX, runY)?.action).toEqual({ type: "act", act: "run", rigId: "openrig-build", agent: "dev50.qa" });
+      expect(hitAt(screen, runX, runY)?.action).toEqual({ type: "act", act: "run", softwareTeamId: "softwareteam-build", agent: "dev50.qa" });
     }
     const s = createViewState({ instanceId: "t", getSnapshot: () => snap });
-    s.dispatch(parseCommand("rig openrig-build"));
+    s.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     const fallback = renderScreen(s.get(), snap, { cols: 119, rows: 34 }).lines.join("\n");
     expect(fallback).toContain("MODEL/NOW/ACTIONS on drill");
   });

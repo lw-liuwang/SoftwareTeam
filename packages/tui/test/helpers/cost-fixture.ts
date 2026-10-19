@@ -43,7 +43,7 @@ export function seed(d: Database.Database) {
   const charge = (entryId: string, status: "charged" | "unavailable", total: number | null, reason: string | null = null) => ({
     entryId, generationId: `gen-${entryId}`, status, totalCostUsd: total, upstreamInferenceCostUsd: null, cacheDiscountUsd: null, isByok: false,
     providerName: "Z.AI", model: "z-ai/glm-5.2", apiType: "completions", workspaceId: status === "charged" ? "ws-1" : null, generationCreatedAt: at(10),
-    credentialSource: "OPENROUTER_API_KEY (forwarded by OpenRig; Pi's credential observed before and after the request)", reason });
+    credentialSource: "OPENROUTER_API_KEY (forwarded by SoftwareTeam; Pi's credential observed before and after the request)", reason });
   pi.recordCharges({ seatSession: "dev-pi@r", piSessionId: "pi-s1", charges: [
     charge("a1", "charged", 0.012), charge("a2", "charged", 0.0004),
     charge("a3", "unavailable", null, "not available after 5 lookups (last: HTTP 404)"),

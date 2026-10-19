@@ -9,13 +9,13 @@ import { renderScreen } from "../src/render.js";
 import { createStyle, stripAnsi } from "../src/theme.js";
 import { stylizeLines } from "../src/stylize.js";
 import { demoSnapshot } from "../src/demo-data.js";
-import { spikeFixtureGraph, FIXTURE_RIG_NAME } from "../src/topology/fixture.js";
+import { spikeFixtureGraph, FIXTURE_SOFTWARE_TEAM_NAME } from "../src/topology/fixture.js";
 import { hydrateSnapshot } from "../src/hydrate.js";
 import { DaemonClient } from "../src/daemon-client.js";
 import type { FleetSnapshot } from "../src/types.js";
 
-/** demo shell snapshot with the full-vocabulary graph attached to the rig —
- * the graph rides RigNode.graph, hydrated from the EXISTING /graph read */
+/** demo shell snapshot with the full-vocabulary graph attached to the softwareTeam —
+ * the graph rides SoftwareTeamNode.graph, hydrated from the EXISTING /graph read */
 function graphSnap(): FleetSnapshot {
   const snap = demoSnapshot();
   const graph = spikeFixtureGraph();
@@ -28,8 +28,8 @@ function graphSnap(): FleetSnapshot {
     hosts: [{
       name: "vm-host",
       reachable: true,
-      rigs: [{
-        name: FIXTURE_RIG_NAME,
+      softwareTeams: [{
+        name: FIXTURE_SOFTWARE_TEAM_NAME,
         hasLiveAgents: true,
         pods: [
           { name: "orch", agents: [agentRow("orch.lead", "claude-code", 18)] },
@@ -44,7 +44,7 @@ function graphSnap(): FleetSnapshot {
 
 function makeStore(snap: FleetSnapshot) {
   const view = createViewState({ instanceId: "topo-test", getSnapshot: () => snap });
-  view.dispatch({ type: "drill", resource: "rig", name: snap.hosts[0]!.rigs[0]!.name, target: { host: snap.hosts[0]!.name } });
+  view.dispatch({ type: "drill", resource: "softwareTeam", name: snap.hosts[0]!.softwareTeams[0]!.name, target: { host: snap.hosts[0]!.name } });
   return view;
 }
 
@@ -93,7 +93,7 @@ describe("hatchet mainline in the SHIPPED content pane (frame-01 visual contract
     return { s, snap, screen: renderScreen(s.get(), snap, { cols: 150, rows: 40 }) };
   }
 
-  it("renders boxed nodes with info-in-node over the rig's graph projection", () => {
+  it("renders boxed nodes with info-in-node over the softwareTeam's graph projection", () => {
     const { screen } = graphScreen();
     const body = screen.lines.join("\n");
     expect(body).toMatch(/┌─+┐/);
@@ -121,9 +121,9 @@ describe("hatchet mainline in the SHIPPED content pane (frame-01 visual contract
     expect(fallback).toMatch(/[─┼]+▸/);
   });
 
-  it("a rig without a hydrated graph renders honest-empty, never fabricated boxes", () => {
+  it("a SoftwareTeam without a hydrated graph renders honest-empty, never fabricated boxes", () => {
     const snap = graphSnap();
-    delete (snap.hosts[0]!.rigs[0]! as { graph?: unknown }).graph;
+    delete (snap.hosts[0]!.softwareTeams[0]! as { graph?: unknown }).graph;
     const s = makeStore(snap);
     s.dispatch({ type: "tab", tab: "graph" });
     const body = renderScreen(s.get(), snap, { cols: 150, rows: 40 }).lines.join("\n");
@@ -154,14 +154,14 @@ describe("PIN-1 on the SHIPPED path — click === keyboard, one store, one reduc
     const clicked = s1.dispatch(target!.action);
     expect(clicked.drill).toEqual([
       { kind: "host", name: "vm-host" },
-      { kind: "rig", name: FIXTURE_RIG_NAME },
+      { kind: "softwareTeam", name: FIXTURE_SOFTWARE_TEAM_NAME },
       { kind: "pod", name: "dev" },
       { kind: "agent", name: "dev.qa" },
     ]);
 
     const s2 = makeStore(snap);
     s2.dispatch({ type: "tab", tab: "graph" });
-    const byCommand = s2.dispatch(parseCommand("agent vm-host/openrig-build/dev/dev.qa"));
+    const byCommand = s2.dispatch(parseCommand("agent vm-host/softwareteam-build/dev/dev.qa"));
     expect(byCommand.drill).toEqual(clicked.drill);
     // byte-identical rendered screens — parity on the SHIPPED renderer
     const a = renderScreen(clicked, snap, { cols: 150, rows: 40 }).lines;
@@ -171,13 +171,13 @@ describe("PIN-1 on the SHIPPED path — click === keyboard, one store, one reduc
 });
 
 describe("hydrate consumes the DECLARED /graph read (R7 — no new data)", () => {
-  it("populates RigNode.graph from client.rigGraph; a failed graph read is a NAMED error, honest-empty view", async () => {
+  it("populates SoftwareTeamNode.graph from client.softwareTeamGraph; a failed graph read is a NAMED error, honest-empty view", async () => {
     const graph = spikeFixtureGraph();
     const routes: Record<string, unknown> = {
-      "/api/rigs/summary": [{ id: "r1", name: "openrig-build" }],
-      "/api/rigs/r1/nodes": [],
-      "/api/rigs/r1/graph": graph,
-      "/api/rigs/r1/spec.json": {},
+      "/api/software-teams/summary": [{ id: "r1", name: "softwareteam-build" }],
+      "/api/software-teams/r1/nodes": [],
+      "/api/software-teams/r1/graph": graph,
+      "/api/software-teams/r1/spec.json": {},
       "/api/specs/library": [],
       "/api/review/fleet": { needsYou: { items: [] }, hosts: [] },
       "/api/stream/list?limit=5": [],
@@ -190,11 +190,11 @@ describe("hydrate consumes the DECLARED /graph read (R7 — no new data)", () =>
       }) as unknown as typeof fetch,
     });
     const snap = await hydrateSnapshot(client);
-    expect(snap.hosts[0]!.rigs[0]!.graph?.nodes.length).toBe(graph.nodes.length);
+    expect(snap.hosts[0]!.softwareTeams[0]!.graph?.nodes.length).toBe(graph.nodes.length);
 
-    delete routes["/api/rigs/r1/graph"];
+    delete routes["/api/software-teams/r1/graph"];
     const snap2 = await hydrateSnapshot(client);
-    expect(snap2.hosts[0]!.rigs[0]!.graph).toBeUndefined();
+    expect(snap2.hosts[0]!.softwareTeams[0]!.graph).toBeUndefined();
     expect(snap2.readErrors.join("\n")).toMatch(/graph/);
   });
 });
@@ -226,7 +226,7 @@ describe("box opacity is a CLASS invariant, not a draw-order artifact (pm kickba
   function crossingGraph() {
     const node = (id: string, name: string) => ({
       id,
-      type: "rigNode",
+      type: "softwareTeamNode",
       parentId: "pod-X",
       data: {
         logicalId: name, podNamespace: "p", runtime: "codex", model: null,
@@ -251,7 +251,7 @@ describe("box opacity is a CLASS invariant, not a draw-order artifact (pm kickba
   it("an edge corridor crossing an intermediate box never paints inside it — hatchet AND braille", async () => {
     const { renderGraphStyle } = await import("../src/topology/render-graph.js");
     for (const style of ["hatchet", "braille", "braille-fallback"] as const) {
-      const plain = renderGraphStyle(style, crossingGraph(), { host: "h", rig: "r", selected: null }, 140).plainLines();
+      const plain = renderGraphStyle(style, crossingGraph(), { host: "h", softwareTeam: "r", selected: null }, 140).plainLines();
       const nameIdx = plain.findIndex((l) => l.includes("bb.mid"));
       expect(nameIdx, `${style}: bb.mid renders`).toBeGreaterThanOrEqual(0);
       const nameRow = plain[nameIdx]!;
@@ -322,18 +322,18 @@ describe("MR8 — width-clip honesty indicator (founder GO; indicator ONLY)", ()
   it("a graph wider than the viewport renders the visible clipped-content indicator at the right edge", async () => {
     const { renderGraphStyle } = await import("../src/topology/render-graph.js");
     // 40 cols cannot hold the fixture's three ranked columns
-    const plain = renderGraphStyle("hatchet", spikeFixtureGraph(), { host: "h", rig: "r", selected: null }, 40).plainLines().join("\n");
+    const plain = renderGraphStyle("hatchet", spikeFixtureGraph(), { host: "h", softwareTeam: "r", selected: null }, 40).plainLines().join("\n");
     expect(plain).toMatch(/content clipped ▸/);
   });
 
   it("a graph that fits renders WITHOUT the indicator (no false alarm)", async () => {
     const { renderGraphStyle } = await import("../src/topology/render-graph.js");
-    const plain = renderGraphStyle("hatchet", spikeFixtureGraph(), { host: "h", rig: "r", selected: null }, 200).plainLines().join("\n");
+    const plain = renderGraphStyle("hatchet", spikeFixtureGraph(), { host: "h", softwareTeam: "r", selected: null }, 200).plainLines().join("\n");
     expect(plain).not.toMatch(/content clipped/);
   });
 });
 
-describe("R2 HIGH-1 — the locked agent-in-pod-in-rig containment is VISIBLE", () => {
+describe("R2 HIGH-1 — the locked agent-in-pod-in-software-team containment is VISIBLE", () => {
   function containScreen() {
     const snap = graphSnap();
     const s = makeStore(snap);
@@ -341,12 +341,12 @@ describe("R2 HIGH-1 — the locked agent-in-pod-in-rig containment is VISIBLE", 
     return { s, snap, screen: renderScreen(s.get(), snap, { cols: 160, rows: 44 }) };
   }
 
-  it("pod containers wrap their member agent boxes and the rig container wraps all (nesting fingerprint on every agent row)", () => {
+  it("pod containers wrap their member agent boxes and the SoftwareTeam container wraps all (nesting fingerprint on every agent row)", () => {
     const { screen } = containScreen();
     const body = screen.lines.join("\n");
-    expect(body).toMatch(/▦ RIG openrig-build/); // rig container tab (round-3 glyph)
+    expect(body).toMatch(/▦ SOFTWARE_TEAM softwareteam-build/); // softwareTeam container tab (round-3 glyph)
     for (const pod of ["orch", "dev", "review"]) expect(body, `pod ${pod} header`).toMatch(new RegExp(`≡ ${pod}`)); // round-3 pod glyph
-    // the fingerprint: rig double-border ║, then a pod border │, then the
+    // the fingerprint: softwareTeam double-border ║, then a pod border │, then the
     // agent's OWN box border │ — three nested walls left of every agent glyph
     // S19 MR1: titles are member-only — the fingerprint (three nested walls
     // before glyph+member) is unchanged in intent
@@ -355,7 +355,7 @@ describe("R2 HIGH-1 — the locked agent-in-pod-in-rig containment is VISIBLE", 
     }
   });
 
-  it("nested hit zones DISCRIMINATE: rig tab → rig drill, pod header → pod drill, agent cell → agent drill", () => {
+  it("nested hit zones DISCRIMINATE: SoftwareTeam tab → SoftwareTeam drill, pod header → pod drill, agent cell → agent drill", () => {
     const { s, screen } = containScreen();
     const podZone = screen.contentTargets.find((t) => t.action.type === "drill" && t.action.resource === "pod" && t.action.name === "dev");
     expect(podZone, "pod-header hit zone").toBeDefined();
@@ -376,7 +376,7 @@ describe("R2 HIGH-1 — the locked agent-in-pod-in-rig containment is VISIBLE", 
     expect(agentIdx).toBeGreaterThanOrEqual(0);
     // Enter on the selected index dispatches EXACTLY the zone's action — the
     // same object the mouse path uses (PIN-1, keyboard leg)
-    expect(screen.contentTargets[podIdx]!.action).toEqual({ type: "drill", resource: "pod", name: "dev", target: { host: "vm-host", rig: FIXTURE_RIG_NAME } });
+    expect(screen.contentTargets[podIdx]!.action).toEqual({ type: "drill", resource: "pod", name: "dev", target: { host: "vm-host", softwareTeam: FIXTURE_SOFTWARE_TEAM_NAME } });
   });
 });
 
@@ -430,18 +430,18 @@ describe("R2 c47219f1 — offscreen nodes are neither keyboard-selectable nor ac
 });
 
 describe("PER-VIEW eligibility (PM concurrence on b7f95c4b): visibility truth re-evaluates per view", () => {
-  it("an agent fully clipped at rig level becomes eligible when its pod is drilled, and ineligible again at rig level", () => {
+  it("an agent fully clipped at SoftwareTeam level becomes eligible when its pod is drilled, and ineligible again at SoftwareTeam level", () => {
     const snap = graphSnap();
     const s = makeStore(snap);
     s.dispatch({ type: "tab", tab: "graph" });
     // S19 density shrank the cards, so the old 80-col premise no longer
     // clips anything — 56 cols (24-col content pane) restores a genuinely
     // fully-clipped last pod for this eligibility pin
-    const rigLevel = renderScreen(s.get(), snap, { cols: 56, rows: 34 });
-    const atRig = rigLevel.contentTargets.some((t) => t.action.type === "drill" && t.action.resource === "agent" && t.action.name === "dev.qa");
-    expect(atRig, "dev.qa ineligible while fully clipped at rig level").toBe(false);
+    const softwareTeamLevel = renderScreen(s.get(), snap, { cols: 56, rows: 34 });
+    const atSoftwareTeam = softwareTeamLevel.contentTargets.some((t) => t.action.type === "drill" && t.action.resource === "agent" && t.action.name === "dev.qa");
+    expect(atSoftwareTeam, "dev.qa ineligible while fully clipped at SoftwareTeam level").toBe(false);
     // drill the dev pod → the pod-scoped view fits → dev.qa is visible AND eligible
-    s.dispatch({ type: "drill", resource: "pod", name: "dev", target: { host: "vm-host", rig: FIXTURE_RIG_NAME } });
+    s.dispatch({ type: "drill", resource: "pod", name: "dev", target: { host: "vm-host", softwareTeam: FIXTURE_SOFTWARE_TEAM_NAME } });
     s.dispatch({ type: "tab", tab: "graph" });
     const podLevel = renderScreen(s.get(), snap, { cols: 80, rows: 34 });
     expect(podLevel.lines.join("\n")).toContain("◐ qa"); // visible pixels (member-only, S19 MR1)
@@ -496,13 +496,13 @@ describe("S19 MR3 — activity design language (role-level, palette-value-agnost
 describe("S19 MR4 — detail pane shows the full absolute working directory", () => {
   it("an agent with a served cwd renders it verbatim; absent cwd renders honest —", () => {
     const snap = graphSnap();
-    (snap.hosts[0]!.rigs[0]!.pods[1]!.agents[0]! as { cwd?: string | null }).cwd = "/Users/admin/code/openrig-build-source";
+    (snap.hosts[0]!.softwareTeams[0]!.pods[1]!.agents[0]! as { cwd?: string | null }).cwd = "/Users/admin/code/softwareteam-build-source";
     const s = makeStore(snap);
-    s.dispatch({ type: "drill", resource: "agent", name: "dev.driver", target: { host: "vm-host", rig: FIXTURE_RIG_NAME, pod: "dev" } });
+    s.dispatch({ type: "drill", resource: "agent", name: "dev.driver", target: { host: "vm-host", softwareTeam: FIXTURE_SOFTWARE_TEAM_NAME, pod: "dev" } });
     const body = renderScreen(s.get(), snap, { cols: 150, rows: 40 }).lines.join("\n");
-    expect(body).toContain("/Users/admin/code/openrig-build-source"); // full absolute path, verbatim
+    expect(body).toContain("/Users/admin/code/softwareteam-build-source"); // full absolute path, verbatim
     const s2 = makeStore(graphSnap());
-    s2.dispatch({ type: "drill", resource: "agent", name: "dev.qa", target: { host: "vm-host", rig: FIXTURE_RIG_NAME, pod: "dev" } });
+    s2.dispatch({ type: "drill", resource: "agent", name: "dev.qa", target: { host: "vm-host", softwareTeam: FIXTURE_SOFTWARE_TEAM_NAME, pod: "dev" } });
     const body2 = renderScreen(s2.get(), graphSnap(), { cols: 150, rows: 40 }).lines.join("\n");
     expect(body2).toContain("— (not served)"); // the literal honest absent value (guard strengthening)
   });
@@ -520,8 +520,8 @@ describe("Command focus + guide contrast", () => {
     expect(empty.commandMotionActive).toBe(true);
     styledE.forEach((l, i) => expect(stripAnsi(l)).toBe(empty.lines[i]));
     // NON-EMPTY: the cursor rides the end of the text
-    const composing = renderScreen(s.get(), snap, { cols: 120, rows: 30 }, "rig ope");
-    expect(composing.lines[0]).toContain("rig ope▊");
+    const composing = renderScreen(s.get(), snap, { cols: 120, rows: 30 }, "SoftwareTeam ope");
+    expect(composing.lines[0]).toContain("SoftwareTeam ope▊");
     const styledC = stylizeLines(composing, createStyle("truecolor"));
     expect(styledC[0]).toContain("▊");
     expect(composing.commandMotionActive).toBe(false);
@@ -542,7 +542,7 @@ describe("ROUND-3 LOCKED SET (orch locked-scope GO; pins 02259adb/29a10b62)", ()
   it("runtime marks are OFF explorer rows: agent meta is ctx% only; marks live on detail + topology cards", () => {
     const snap = graphSnap();
     const s = makeStore(snap);
-    s.dispatch({ type: "drill", resource: "pod", name: "dev", target: { host: "vm-host", rig: FIXTURE_RIG_NAME } });
+    s.dispatch({ type: "drill", resource: "pod", name: "dev", target: { host: "vm-host", softwareTeam: FIXTURE_SOFTWARE_TEAM_NAME } });
     const explorer = renderScreen(s.get(), snap, { cols: 150, rows: 40 });
     const pane = explorer.lines.map((l) => l.slice(0, explorer.explorerWidth)).join("\n");
     expect(pane).not.toMatch(/▐▌|>_|▝▘|▘▝|></); // no marks in the explorer (quadrant orders AND the picks-v4 eyes)
@@ -552,7 +552,7 @@ describe("ROUND-3 LOCKED SET (orch locked-scope GO; pins 02259adb/29a10b62)", ()
     const body = renderScreen(s.get(), snap, { cols: 150, rows: 40 }).lines.join("\n");
     expect(body).toMatch(/>< 24%|>< 63%/); // picks-v4 clawd mark in card meta
     // detail page shows the mark as the runtime field — spelled runtime is dead
-    s.dispatch({ type: "drill", resource: "agent", name: "dev.driver", target: { host: "vm-host", rig: FIXTURE_RIG_NAME, pod: "dev" } });
+    s.dispatch({ type: "drill", resource: "agent", name: "dev.driver", target: { host: "vm-host", softwareTeam: FIXTURE_SOFTWARE_TEAM_NAME, pod: "dev" } });
     const detail = renderScreen(s.get(), snap, { cols: 150, rows: 40 }).lines.join("\n");
     // a4c9548a (S19 follow-on founder ruling, bounds the marks ruling): on the detail
     // page there is room, so the runtime NAME is the VALUE; the mark only accompanies
@@ -575,7 +575,7 @@ describe("ROUND-3 LOCKED SET (orch locked-scope GO; pins 02259adb/29a10b62)", ()
 
   it("agent-detail runtime NAME is the value AND the mark keeps its OWN styling in compiled output (a4c9548a + guard round-4 finding 2)", () => {
     const node = (id: string, name: string, runtime: string) => ({
-      id, type: "rigNode", parentId: "pod-D",
+      id, type: "softwareTeamNode", parentId: "pod-D",
       data: { logicalId: name, podNamespace: "d", runtime, model: null, status: "running",
         nodeKind: "agent" as const, startupStatus: "ready" as const, contextUsedPercentage: 10,
         agentActivity: { state: "running" }, terminalActive: true, canonicalSessionName: `${name}@r` },
@@ -589,7 +589,7 @@ describe("ROUND-3 LOCKED SET (orch locked-scope GO; pins 02259adb/29a10b62)", ()
     };
     const trioSnap = {
       ...graphSnap(),
-      hosts: [{ name: "h", reachable: true, rigs: [{ name: "r", pods: [{ name: "d", agents: [
+      hosts: [{ name: "h", reachable: true, softwareTeams: [{ name: "r", pods: [{ name: "d", agents: [
         { name: "d.cl", runtime: "claude-code", spec: "", context: 10, tokens: null, status: "active", live: true },
         { name: "d.tty", runtime: "terminal", spec: "", context: 10, tokens: null, status: "active", live: true },
         { name: "d.cx", runtime: "codex", spec: "", context: 10, tokens: null, status: "active", live: true },
@@ -597,7 +597,7 @@ describe("ROUND-3 LOCKED SET (orch locked-scope GO; pins 02259adb/29a10b62)", ()
     };
     const drillDetail = (agent: string) => {
       const s = makeStore(trioSnap);
-      s.dispatch({ type: "drill", resource: "agent", name: agent, target: { host: "h", rig: "r", pod: "d" } });
+      s.dispatch({ type: "drill", resource: "agent", name: agent, target: { host: "h", softwareTeam: "r", pod: "d" } });
       const screen = renderScreen(s.get(), trioSnap, { cols: 150, rows: 40 });
       const styled = stylizeLines(screen, createStyle("truecolor"));
       const idx = screen.lines.findIndex((l) => l.slice(31).includes("runtime:"));
@@ -623,27 +623,27 @@ describe("ROUND-3 LOCKED SET (orch locked-scope GO; pins 02259adb/29a10b62)", ()
     expect(cx.plain).not.toMatch(/❯/); // no ❯ outline (the codex name renders as the value, not an icon substitute)
   });
 
-  it("rig glyph is ▦ and pod glyph is ≡ (founder picks of record)", () => {
+  it("SoftwareTeam glyph is ▦ and pod glyph is ≡ (founder picks of record)", () => {
     const snap = graphSnap();
     const s = makeStore(snap);
     const pane = renderScreen(s.get(), snap, { cols: 150, rows: 40 }).lines.map((l) => l.slice(0, 30)).join("\n");
-    expect(pane).toContain("▦ openrig-build"); // rig icon
+    expect(pane).toContain("▦ softwareteam-build"); // softwareTeam icon
     expect(pane).not.toMatch(/▚ /);
     s.dispatch({ type: "tab", tab: "graph" });
     const body = renderScreen(s.get(), snap, { cols: 150, rows: 40 }).lines.join("\n");
-    expect(body).toMatch(/▦ RIG openrig-build/);
+    expect(body).toMatch(/▦ SOFTWARE_TEAM softwareteam-build/);
     expect(body).toMatch(/≡ dev/); // pod container tab carries the pod glyph
   });
 
-  it("live rig icons are bright monochrome (color is for status only)", () => {
+  it("live SoftwareTeam icons are bright monochrome (color is for status only)", () => {
     const snap = graphSnap();
     const s = makeStore(snap);
     s.dispatch({ type: "select", index: 0 }); // inspect an unselected icon, not selection paint
     const screen = renderScreen(s.get(), snap, { cols: 150, rows: 40 });
     const styled = stylizeLines(screen, createStyle("truecolor"));
-    const rigLine = styled.find((l) => stripAnsi(l).includes("▦ openrig-build"))!;
-    expect(rigLine).not.toMatch(/38;2;77;189;178m[^m]*▦/); // NOT the old accent teal
-    expect(rigLine).toContain(createStyle("truecolor").paint("bright", "▦"));
+    const softwareTeamLine = styled.find((l) => stripAnsi(l).includes("▦ softwareteam-build"))!;
+    expect(softwareTeamLine).not.toMatch(/38;2;77;189;178m[^m]*▦/); // NOT the old accent teal
+    expect(softwareTeamLine).toContain(createStyle("truecolor").paint("bright", "▦"));
   });
 
   it("the official codex blue token is #6867aa and the three hint CANDIDATES exist unpicked", async () => {

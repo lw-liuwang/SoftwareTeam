@@ -24,8 +24,8 @@ function item(overrides: Partial<QueueItemDetail> = {}): QueueItemDetail {
     qitemId: "qitem-x",
     tsCreated: "2026-07-04T00:00:00Z",
     tsUpdated: "2026-07-04T00:00:00Z",
-    sourceSession: "a@rig",
-    destinationSession: "b@rig",
+    sourceSession: "a@software-team",
+    destinationSession: "b@software-team",
     state: "pending",
     priority: "routine",
     tier: null,
@@ -62,7 +62,7 @@ describe("hydratedCardKind — FR-3 structured signals only", () => {
   it("strict human-seat destination → action-required; sloppy prefix match retired", () => {
     expect(hydratedCardKind(card(), item({ destinationSession: "human-review@kernel" }), undefined)).toBe("action-required");
     // Previously destination.startsWith("human-") promoted this non-seat:
-    expect(hydratedCardKind(card(), item({ destinationSession: "human-ish@other-rig" }), undefined)).toBe("progress");
+    expect(hydratedCardKind(card(), item({ destinationSession: "human-ish@other-software-team" }), undefined)).toBe("progress");
   });
 
   it("terminal states still map to shipped", () => {

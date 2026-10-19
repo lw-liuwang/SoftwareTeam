@@ -4,7 +4,7 @@ import { SessionTransport, classifyPaneActivity } from "../src/domain/session-tr
 import { SeatStructuralActivityService } from "../src/domain/seat-structural-activity-service.js";
 import { AgentActivityStore } from "../src/domain/agent-activity-store.js";
 import { EventBus } from "../src/domain/event-bus.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { createFullTestDb } from "./helpers/test-app.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
@@ -117,7 +117,7 @@ describe("current Claude question picker", () => {
 
   it("shares native picker recognition with the structural consumer", async () => {
     const service = new SeatStructuralActivityService({ capturePaneContent: async () => native.picker100! });
-    expect(await service.pollSeat("seat@rig")).toMatchObject({ state: "attention", reason: "selection_prompt" });
+    expect(await service.pollSeat("seat@software-team")).toMatchObject({ state: "attention", reason: "selection_prompt" });
   });
 });
 
@@ -126,8 +126,8 @@ describe("ordinary transport under current and historical questions", () => {
     for (const hook of hooks) it(`${shape} / ${hook.name}`, async () => {
       const db = createFullTestDb();
       try {
-        const repo = new RigRepository(db), registry = new SessionRegistry(db), rig = repo.createRig("picker-test");
-        const node = repo.addNode(rig.id, "worker.a", { runtime: "claude-code", role: "worker" });
+        const repo = new SoftwareTeamRepository(db), registry = new SessionRegistry(db), softwareTeam = repo.createSoftwareTeam("picker-test");
+        const node = repo.addNode(softwareTeam.id, "worker.a", { runtime: "claude-code", role: "worker" });
         const name = "worker-a@picker-test";
         const session = registry.registerSession(node.id, name);
         registry.updateStatus(session.id, "running");
@@ -149,7 +149,7 @@ describe("ordinary transport under current and historical questions", () => {
           getPaneCommand: async () => "claude", getPanePid: async () => null, listPanes: async () => [],
           hasSessionEnv: async () => false, capturePaneContent: capture, sendText: paste, sendKeys: enter,
         } as unknown as TmuxAdapter;
-        const transport = new SessionTransport({ db, rigRepo: repo, sessionRegistry: registry, tmuxAdapter: adapter,
+        const transport = new SessionTransport({ db, softwareTeamRepo: repo, sessionRegistry: registry, tmuxAdapter: adapter,
           agentActivityStore: store, now: () => now, sleep: async () => undefined, activityEndpointFile: () => null });
         const result = await transport.send(name, "Ordinary synthetic peer message");
 

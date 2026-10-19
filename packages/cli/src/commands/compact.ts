@@ -13,28 +13,28 @@ export interface CompactDeps {
 }
 
 /**
- * OPR.0.4.3.14 — `rig compact <session>`: manually run the guided compaction
+ * OPR.0.4.3.14 — `softwareTeam compact <session>`: manually run the guided compaction
  * lifecycle (prep → /compact → restore → audit) for one Claude seat, on demand,
- * independent of the auto threshold. Distinct from the read-only `rig
+ * independent of the auto threshold. Distinct from the read-only `softwareTeam
  * compact-plan` triage command.
  */
 export function compactCommand(depsOverride?: CompactDeps): Command {
   const cmd = new Command("compact")
     .description("Manually run the guided compaction sequence (prep → /compact → restore → audit) for one Claude seat")
-    .argument("<session>", "Target Claude session name (e.g. dev-impl@my-rig)")
+    .argument("<session>", "Target Claude session name (e.g. dev-impl@my-software-team)")
     .option("--json", "JSON output for agents")
     .option("--skip-map", "Skip the restore-map prerequisite once; keep target, idle and permission checks")
     .option("--cancel", "End the current preparation and disarm its future compact")
     .option("--state", "Show the current preparation, expected map and deadline without triggering")
     .addHelpText("after", `
 Examples:
-  rig compact dev-impl@my-rig          Manually compact one Claude seat now
-  rig compact dev-impl@my-rig --json   JSON output for agents
+  SoftwareTeam compact dev-impl@my-software-team          Manually compact one Claude seat now
+  SoftwareTeam compact dev-impl@my-software-team --json   JSON output for agents
 
 Runs the SAME guided lifecycle the auto-compaction policy runs (pre-compact
 prep → /compact with the trust-bridge → restore-from-marker → read-depth audit)
 on demand, for ONE Claude seat, without waiting for the context threshold. It is
-NOT a bare /compact and NOT the read-only 'rig compact-plan' triage. Non-Claude
+NOT a bare /compact and NOT the read-only 'SoftwareTeam compact-plan' triage. Non-Claude
 seats are rejected. Managed /compact waits for the exact attempt/occupant restore
 map named by preparation, published atomically with its completion marker. This
 checks completion identity, not map quality. Manual preparation and idle wait share
@@ -59,7 +59,7 @@ already submitted. Raw provider /compact and normal messages are unchanged.`);
 
     const status = await getDaemonStatus(deps.lifecycleDeps);
     if (status.state !== "running" || status.healthy === false) {
-      console.error("Daemon is not running. Start it with: rig daemon start");
+      console.error("Daemon is not running. Start it with: SoftwareTeam daemon start");
       process.exitCode = 1;
       return;
     }

@@ -32,7 +32,7 @@ describe.skipIf(process.platform === "win32")("parent-session cleanup with an af
         expect(cmd).toMatch(/^tmux /);
         return (await run(`tmux -S ${shellQuote(socket)} ${cmd.slice(5)}`, { env })).stdout;
       });
-      const result = await adapter.createSession("seat", temp, { OPENRIG_NODE_ID: "n1" });
+      const result = await adapter.createSession("seat", temp, { SOFTWARETEAM_NODE_ID: "n1" });
       expect(result).toMatchObject({ ok: true });
 
       // The hook did bring the owner's window in, and made it the seat session's current window.
@@ -49,7 +49,7 @@ describe.skipIf(process.platform === "win32")("parent-session cleanup with an af
       if (process.platform === "linux") {
         const environ = fs.readFileSync(`/proc/${own[0]![1]}/environ`, "utf8").split("\0");
         expect(environ.filter(entry => entry.startsWith("CLAUDECODE="))).toEqual([]);
-        expect(environ).toContain("OPENRIG_NODE_ID=n1");
+        expect(environ).toContain("SOFTWARETEAM_NODE_ID=n1");
       }
     } finally {
       // This socket belongs to this test, never the user's terminal server.

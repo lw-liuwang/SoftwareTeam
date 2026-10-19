@@ -13,9 +13,9 @@ import { QueueTransitionLog } from "../src/domain/queue-transition-log.js";
 
 // OPR.0.7.0.12 — refocus knows the seat's work. The candidates sit beside the strict
 // derivation (current-work.test.ts keeps its own contract); the trace renders them only in
-// --packet mode, and the hook passes them only with OPENRIG_REFOCUS_WORK_PACKET on.
+// --packet mode, and the hook passes them only with SOFTWARETEAM_REFOCUS_WORK_PACKET on.
 const HERE = dirname(fileURLToPath(import.meta.url));
-const PLUGIN = resolve(HERE, "../assets/plugins/openrig-core");
+const PLUGIN = resolve(HERE, "../assets/plugins/softwareteam-core");
 const HOOK = resolve(PLUGIN, "hooks/scripts/refocus.cjs");
 const TRACE = resolve(PLUGIN, "skills/refocusing/scripts/trace-to-root.py");
 
@@ -32,7 +32,7 @@ function world() {
   const workspace = join(root, "workspace");
   const missions = join(workspace, "missions");
   const topology = join(root, "topology");
-  const seat = join(topology, "rigs/demo/seats/builder");
+  const seat = join(topology, "software-teams/demo/seats/builder");
   const slice = join(missions, "release-a/slices/12-refocus");
   const bin = join(root, "bin");
   for (const dir of [slice, join(missions, "release-b"), join(missions, "release-a-old"), seat, bin]) {
@@ -42,18 +42,18 @@ function world() {
   writeFileSync(join(missions, "release-a/SPEC.md"), "---\nintent: \"Ship A\"\n---\n# A\n", "utf8");
   writeFileSync(join(missions, "release-b/SPEC.md"), "---\nintent: Ship B\n---\n# B\n", "utf8");
   writeFileSync(join(slice, "SPEC.md"), "---\nintent: Refocus knows the work\n---\n# 12\n", "utf8");
-  writeFileSync(join(topology, "rigs/demo/LEARNED.md"), "# Demo rig\nrig practice\n", "utf8");
+  writeFileSync(join(topology, "software-teams/demo/LEARNED.md"), "# Demo softwareTeam\nrig practice\n", "utf8");
   writeFileSync(join(seat, "LEARNED.md"),
     "# Builder\nintro\n\n## MY JOB HERE\nLead T2 and own its packets.\n\n## STANDING DUTIES\n- keep rows honest\n\n## Other\nnot duties\n", "utf8");
-  const rig = join(bin, "rig");
-  const calls = join(root, "rig-calls.log");
-  writeFileSync(rig, `#!/bin/sh
-printf '%s\\n' "$*" >> "$RIG_CALL_LOG"
+  const softwareTeam = join(bin, "SoftwareTeam");
+  const calls = join(root, "software-team-calls.log");
+  writeFileSync(softwareTeam, `#!/bin/sh
+printf '%s\\n' "$*" >> "$SOFTWARE_TEAM_CALL_LOG"
 if [ "$1 $2" = "queue whoami" ]; then
-  case " $* " in *" --work-candidates "*) if [ -n "$RIG_REJECT_CANDIDATES" ]; then echo "error: unknown option '--work-candidates'" >&2; exit 1; fi;; esac
-  printf '%s' "$RIG_QUEUE_WHOAMI_STDOUT"; exit 0
+  case " $* " in *" --work-candidates "*) if [ -n "$SOFTWARE_TEAM_REJECT_CANDIDATES" ]; then echo "error: unknown option '--work-candidates'" >&2; exit 1; fi;; esac
+  printf '%s' "$SOFTWARE_TEAM_QUEUE_WHOAMI_STDOUT"; exit 0
 fi
-if [ "$1 $2" = "whoami --json" ]; then printf '{"identity":{"rigName":"demo","sessionName":"builder@demo"}}\\n'; exit 0; fi
+if [ "$1 $2" = "whoami --json" ]; then printf '{"identity":{"softwareTeamName":"demo","sessionName":"builder@demo"}}\\n'; exit 0; fi
 if [ "$1 $2" = "config --json" ]; then printf '{}'; exit 0; fi
 if [ "$1 $2" = "scope resolve-notes" ]; then
   if [ -r "$3/NOTES.md" ]; then printf '{"ok":true,"resolution":{"path":"%s","name":"NOTES.md"}}\\n' "$3/NOTES.md"; exit 0; fi
@@ -61,16 +61,16 @@ if [ "$1 $2" = "scope resolve-notes" ]; then
 fi
 exit 1
 `, "utf8");
-  chmodSync(rig, 0o755);
+  chmodSync(softwareTeam, 0o755);
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     PATH: `${bin}:${process.env.PATH || ""}`,
-    OPENRIG_TOPOLOGY_ROOT: topology,
-    OPENRIG_WORKSPACE_ROOT: workspace,
-    OPENRIG_REFOCUS_WORK_NODE: undefined,
-    OPENRIG_REFOCUS_TOPOLOGY_NODE: undefined,
-    OPENRIG_REFOCUS_NOTES_MAX_AGE_DAYS: undefined,
-    RIG_CALL_LOG: calls,
+    SOFTWARETEAM_TOPOLOGY_ROOT: topology,
+    SOFTWARETEAM_WORKSPACE_ROOT: workspace,
+    SOFTWARETEAM_REFOCUS_WORK_NODE: undefined,
+    SOFTWARETEAM_REFOCUS_TOPOLOGY_NODE: undefined,
+    SOFTWARETEAM_REFOCUS_NOTES_MAX_AGE_DAYS: undefined,
+    SOFTWARE_TEAM_CALL_LOG: calls,
   };
   const trace = (args: string[], evidence?: unknown, extra: NodeJS.ProcessEnv = {}) => spawnSync("python3", [TRACE, ...args], {
     encoding: "utf8", env: { ...env, ...extra }, input: evidence === undefined ? "" : JSON.stringify(evidence),
@@ -163,7 +163,7 @@ describe("currentParkContinuation — the held row's recorded plan, bounded", ()
     const db = createDb();
     migrate(db, [queueTransitionsSchema, queueTransitionsQitemIdOrderSchema]);
     const transitions = new QueueTransitionLog(db);
-    for (const [state, transitionNote] of states) transitions.append({ qitemId: "q-1", state, transitionNote, actorSession: "seat@rig" } as never);
+    for (const [state, transitionNote] of states) transitions.append({ qitemId: "q-1", state, transitionNote, actorSession: "seat@software-team" } as never);
     return transitions;
   }
 
@@ -172,7 +172,7 @@ describe("currentParkContinuation — the held row's recorded plan, bounded", ()
     expect(log([
       ["in-progress", "claimed"],
       ["blocked", "continuation: resume the build"],
-      ["blocked", "parked-owner episode closed: seat@rig (seat resumed)"],
+      ["blocked", "parked-owner episode closed: seat@software-team (seat resumed)"],
     ]).currentParkContinuation("q-1")).toBe("resume the build");
   });
 
@@ -308,15 +308,15 @@ describe("trace-to-root --packet — the work packet as text", () => {
     const trace = (flags: Record<string, boolean>) =>
       w.trace(["--trees", "work", "--packet", "--work-candidates", "-"], { ...evidence, ...flags }).stdout;
     const nextCut = trace({ heldTruncated: false, nextTruncated: true, heldAndNextTruncated: true });
-    expect(nextCut).toContain("(the next list was cut; `rig queue list --owned --state pending` has the rest)");
+    expect(nextCut).toContain("(the next list was cut; `SoftwareTeam queue list --owned --state pending` has the rest)");
     expect(nextCut).not.toContain("held list was cut");
     expect(nextCut).not.toContain("held and next lists were cut");
     const heldCut = trace({ heldTruncated: true, nextTruncated: false, heldAndNextTruncated: true });
-    expect(heldCut).toContain("(the held list was cut; `rig queue list --owned --state blocked` has the rest)");
+    expect(heldCut).toContain("(the held list was cut; `SoftwareTeam queue list --owned --state blocked` has the rest)");
     expect(heldCut).not.toContain("next list was cut");
     expect(trace({ heldTruncated: false, nextTruncated: false, heldAndNextTruncated: false })).not.toContain("was cut");
     // A daemon from before the per-list flags sends only the combined one.
-    expect(trace({ heldAndNextTruncated: true })).toContain("(held and next lists were cut; `rig queue list` has the rest)");
+    expect(trace({ heldAndNextTruncated: true })).toContain("(held and next lists were cut; `SoftwareTeam queue list` has the rest)");
   });
 
   it("carries the seat's job and duties as text, or says the section was not found (W6)", () => {
@@ -344,7 +344,7 @@ describe("trace-to-root --packet — the work packet as text", () => {
     // A fresh file earns no cue; the threshold is configurable.
     expect(out.match(/OLD NOTES/g)).toHaveLength(1);
     const strict = w.trace(["--trees", "work", "--packet", "--work-start", w.slice], undefined,
-      { OPENRIG_REFOCUS_NOTES_MAX_AGE_DAYS: "100000" }).stdout;
+      { SOFTWARETEAM_REFOCUS_NOTES_MAX_AGE_DAYS: "100000" }).stdout;
     expect(strict).not.toContain("OLD NOTES");
   });
 
@@ -409,7 +409,7 @@ describe("trace-to-root --packet — the work packet as text", () => {
   });
 });
 
-describe("refocus hook — OPENRIG_REFOCUS_WORK_PACKET switch", () => {
+describe("refocus hook — SOFTWARETEAM_REFOCUS_WORK_PACKET switch", () => {
   function fire(w: ReturnType<typeof world>, extra: NodeJS.ProcessEnv) {
     const home = join(w.root, "home");
     mkdirSync(home, { recursive: true });
@@ -427,9 +427,9 @@ describe("refocus hook — OPENRIG_REFOCUS_WORK_PACKET switch", () => {
     const result = spawnSync(process.execPath, [HOOK, "--runtime", "claude"], {
       input: JSON.stringify({ hook_event_name: "UserPromptSubmit", session_id: "packet-fixture", transcript_path: "" }),
       encoding: "utf8",
-      env: { ...w.env, OPENRIG_HOME: home, OPENRIG_SESSION_NAME: "builder@demo", OPENRIG_REFOCUS_NOW: "1",
-        OPENRIG_REFOCUS_TREES: "work", OPENRIG_REFOCUS_CONTENT_REF: "", OPENRIG_REFOCUS_CONTENT_FILE: "",
-        PYTHON: python, RIG_QUEUE_WHOAMI_STDOUT: JSON.stringify(whoami), ...extra },
+      env: { ...w.env, SOFTWARETEAM_HOME: home, SOFTWARETEAM_SESSION_NAME: "builder@demo", SOFTWARETEAM_REFOCUS_NOW: "1",
+        SOFTWARETEAM_REFOCUS_TREES: "work", SOFTWARETEAM_REFOCUS_CONTENT_REF: "", SOFTWARETEAM_REFOCUS_CONTENT_FILE: "",
+        PYTHON: python, SOFTWARE_TEAM_QUEUE_WHOAMI_STDOUT: JSON.stringify(whoami), ...extra },
     });
     expect(result.status, result.stderr).toBe(0);
     return {
@@ -440,7 +440,7 @@ describe("refocus hook — OPENRIG_REFOCUS_WORK_PACKET switch", () => {
 
   it("is off by default: no candidates are requested and the trace argv is unchanged", () => {
     const w = world();
-    const { argv, stdin } = fire(w, { OPENRIG_REFOCUS_WORK_PACKET: undefined });
+    const { argv, stdin } = fire(w, { SOFTWARETEAM_REFOCUS_WORK_PACKET: undefined });
     expect(w.calls()).toContain("queue whoami --json\n");
     expect(w.calls()).not.toContain("--work-candidates");
     expect(argv).toContain(`--work-start ${w.slice}`);
@@ -450,7 +450,7 @@ describe("refocus hook — OPENRIG_REFOCUS_WORK_PACKET switch", () => {
 
   it("when on, passes the daemon's candidates to the trace instead of the strict node", () => {
     const w = world();
-    const { argv, stdin } = fire(w, { OPENRIG_REFOCUS_WORK_PACKET: "1" });
+    const { argv, stdin } = fire(w, { SOFTWARETEAM_REFOCUS_WORK_PACKET: "1" });
     expect(w.calls()).toContain("queue whoami --json --work-candidates");
     expect(argv).toContain("--packet");
     expect(argv).toContain("--work-candidates -");
@@ -458,12 +458,12 @@ describe("refocus hook — OPENRIG_REFOCUS_WORK_PACKET switch", () => {
     expect(JSON.parse(stdin).candidates[0].mission).toBe("release-a");
   });
 
-  it("when on with an older rig CLI that rejects the flag, falls back to the plain whoami (N2)", () => {
+  it("when on with an older softwareTeam CLI that rejects the flag, falls back to the plain whoami (N2)", () => {
     const w = world();
     // An older CLI's plain answer has no workCandidates field.
     const older = JSON.stringify({ currentWork: { mission: "release-a", slice: "12-refocus", workNodePath: w.slice, basis: "one typed" },
       currentWorkBasis: "one typed", role: { state: "not-declared", files: [] } });
-    const { argv, stdin } = fire(w, { OPENRIG_REFOCUS_WORK_PACKET: "1", RIG_REJECT_CANDIDATES: "1", RIG_QUEUE_WHOAMI_STDOUT: older });
+    const { argv, stdin } = fire(w, { SOFTWARETEAM_REFOCUS_WORK_PACKET: "1", SOFTWARE_TEAM_REJECT_CANDIDATES: "1", SOFTWARE_TEAM_QUEUE_WHOAMI_STDOUT: older });
     expect(w.calls()).toContain("queue whoami --json --work-candidates\nqueue whoami --json\n");
     // The strict answer still arrives, so the trace gets the work node rather than an UNKNOWN.
     expect(argv).toContain(`--work-start ${w.slice}`);
@@ -473,7 +473,7 @@ describe("refocus hook — OPENRIG_REFOCUS_WORK_PACKET switch", () => {
 
   it("when on, an explicit work node still wins and the evidence adds only held and next work", () => {
     const w = world();
-    const { argv } = fire(w, { OPENRIG_REFOCUS_WORK_PACKET: "1", OPENRIG_REFOCUS_WORK_NODE: w.slice });
+    const { argv } = fire(w, { SOFTWARETEAM_REFOCUS_WORK_PACKET: "1", SOFTWARETEAM_REFOCUS_WORK_NODE: w.slice });
     expect(argv).toContain(`--work-start ${w.slice} --work-candidates -`);
   });
 });

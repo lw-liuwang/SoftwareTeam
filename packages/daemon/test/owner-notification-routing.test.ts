@@ -82,13 +82,13 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
       expect(columns).toContain("owner_notification_level");
     }
 
-    const ordinary = await repo.create({ sourceSession: "a@rig", destinationSession: "b@rig", body: "ordinary", nudge: false });
+    const ordinary = await repo.create({ sourceSession: "a@software-team", destinationSession: "b@software-team", body: "ordinary", nudge: false });
     expect(db.prepare(
       "SELECT owner_notification_kind, owner_notification_level FROM queue_transitions WHERE qitem_id=? ORDER BY transition_id DESC LIMIT 1",
     ).get(ordinary.qitemId)).toEqual({ owner_notification_kind: null, owner_notification_level: null });
 
     const direct = await repo.create({
-      sourceSession: "orch-lead@v-openrig-build",
+      sourceSession: "orch-lead@v-softwareteam-build",
       destinationSession: "human-founder@kernel",
       body: "direct decision",
       summary: "Direct founder decision",
@@ -101,7 +101,7 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
 
     const handed = await repo.handoff({
       qitemId: ordinary.qitemId,
-      fromSession: "b@rig",
+      fromSession: "b@software-team",
       toSession: "human-founder@kernel",
       body: "handoff decision",
       summary: "Handoff founder decision",
@@ -131,8 +131,8 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
 
   it("routes the live human-blocker shape once, resolves aliases, and returns replies to the row owner", async () => {
     const row = await repo.create({
-      sourceSession: "dev-qa@v-openrig-build",
-      destinationSession: "orch-lead@v-openrig-build",
+      sourceSession: "dev-qa@v-softwareteam-build",
+      destinationSession: "orch-lead@v-softwareteam-build",
       body: "two founder decisions remain",
       priority: "critical",
       tier: "deep",
@@ -141,7 +141,7 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
     });
     repo.update({
       qitemId: row.qitemId,
-      actorSession: "orch-lead@v-openrig-build",
+      actorSession: "orch-lead@v-softwareteam-build",
       state: "blocked",
       blockedOn: "human-founder@kernel",
       summary: "Founder decision required",
@@ -160,7 +160,7 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
     expect(first[0]).toMatchObject({
       qitemId: row.qitemId,
       destinationSession: "human-founder@external",
-      sourceSession: "orch-lead@v-openrig-build",
+      sourceSession: "orch-lead@v-softwareteam-build",
       ownerNotificationLevel: "ALERT",
     });
     expect(first[0]!.notificationKey).toContain(`${row.qitemId}:`);
@@ -179,10 +179,10 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
     });
     expect((await quiet.sweepOnce()).fresh).toBe(0);
 
-    repo.update({ qitemId: row.qitemId, actorSession: "orch-lead@v-openrig-build", state: "in-progress", transitionNote: "decision consumed" });
+    repo.update({ qitemId: row.qitemId, actorSession: "orch-lead@v-softwareteam-build", state: "in-progress", transitionNote: "decision consumed" });
     repo.update({
       qitemId: row.qitemId,
-      actorSession: "orch-lead@v-openrig-build",
+      actorSession: "orch-lead@v-softwareteam-build",
       state: "blocked",
       blockedOn: "human-founder@kernel",
       transitionNote: "a distinct later founder decision",
@@ -201,14 +201,14 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
 
   it("classifies the dedicated queue resolve act as NOTICE without re-reading its prose", async () => {
     const row = await repo.create({
-      sourceSession: "dev-qa@v-openrig-build",
-      destinationSession: "orch-lead@v-openrig-build",
+      sourceSession: "dev-qa@v-softwareteam-build",
+      destinationSession: "orch-lead@v-softwareteam-build",
       body: "await decision",
       nudge: false,
     });
     repo.update({
       qitemId: row.qitemId,
-      actorSession: "orch-lead@v-openrig-build",
+      actorSession: "orch-lead@v-softwareteam-build",
       state: "blocked",
       blockedOn: "human-founder@kernel",
       summary: "Choose A or B",
@@ -240,7 +240,7 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
       expect.objectContaining({
         qitemId: row.qitemId,
         destinationSession: "human-founder@external",
-        sourceSession: "orch-lead@v-openrig-build",
+        sourceSession: "orch-lead@v-softwareteam-build",
         ownerNotificationLevel: "NOTICE",
       }),
     ] satisfies QueueItem[]);
@@ -248,14 +248,14 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
 
   it("writes a same-row receipt for root and threaded posts; ALERT interrupts while NOTICE stays quiet", async () => {
     const row = await repo.create({
-      sourceSession: "dev-qa@v-openrig-build",
-      destinationSession: "orch-lead@v-openrig-build",
+      sourceSession: "dev-qa@v-softwareteam-build",
+      destinationSession: "orch-lead@v-softwareteam-build",
       body: "await decision",
       nudge: false,
     });
     repo.update({
       qitemId: row.qitemId,
-      actorSession: "orch-lead@v-openrig-build",
+      actorSession: "orch-lead@v-softwareteam-build",
       state: "blocked",
       blockedOn: "human-founder@kernel",
       summary: "Choose A or B",
@@ -323,14 +323,14 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
 
   it("retains and replays an ok response without a message timestamp before writing the row receipt", async () => {
     const row = await repo.create({
-      sourceSession: "dev-qa@v-openrig-build",
-      destinationSession: "orch-lead@v-openrig-build",
+      sourceSession: "dev-qa@v-softwareteam-build",
+      destinationSession: "orch-lead@v-softwareteam-build",
       body: "await decision",
       nudge: false,
     });
     repo.update({
       qitemId: row.qitemId,
-      actorSession: "orch-lead@v-openrig-build",
+      actorSession: "orch-lead@v-softwareteam-build",
       state: "blocked",
       blockedOn: "human-founder@kernel",
       summary: "Choose A or B",
@@ -400,14 +400,14 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
 
   it("reconciles an already-landed root with its real Slack timestamp before routing the reply", async () => {
     const row = await repo.create({
-      sourceSession: "dev-qa@v-openrig-build",
-      destinationSession: "orch-lead@v-openrig-build",
+      sourceSession: "dev-qa@v-softwareteam-build",
+      destinationSession: "orch-lead@v-softwareteam-build",
       body: "await decision",
       nudge: false,
     });
     repo.update({
       qitemId: row.qitemId,
-      actorSession: "orch-lead@v-openrig-build",
+      actorSession: "orch-lead@v-softwareteam-build",
       state: "blocked",
       blockedOn: "human-founder@kernel",
       summary: "Choose A or B",
@@ -490,7 +490,7 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
         channel: "C-OWNER",
       };
       expect(resolveRoute(reply)).toMatchObject({
-        destination: "orch-lead@v-openrig-build",
+        destination: "orch-lead@v-softwareteam-build",
         routeClass: "existing-thread",
         correlationQitemId: row.qitemId,
       });
@@ -531,7 +531,7 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
   it("resolves a direct human-owned request and wakes its originating seat exactly once", async () => {
     let nudges = 0;
     const directRepo = new QueueRepository(db, bus, {
-      validateRig: () => true,
+      validateSoftwareTeam: () => true,
       loadHumanRegistry: () => registry,
       transport: {
         async send() {
@@ -541,7 +541,7 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
       },
     });
     const direct = await directRepo.create({
-      sourceSession: "driver@rig",
+      sourceSession: "driver@software-team",
       destinationSession: "human-founder@external",
       body: "Choose the release option.",
       summary: "Release choice",
@@ -554,7 +554,7 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
       threadTs: "T-DIRECT",
       channel: "C-OWNER",
       human: "human-founder@external",
-      seat: "driver@rig",
+      seat: "driver@software-team",
       conversationId: direct.qitemId,
     });
     const resolver = makeHumanReplyResolver(directRepo, new MissionControlWriteContract({
@@ -608,8 +608,8 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
     expect(nudges).toBe(1);
 
     const ordinary = await directRepo.create({
-      sourceSession: "requester@rig",
-      destinationSession: "driver@rig",
+      sourceSession: "requester@software-team",
+      destinationSession: "driver@software-team",
       body: "ordinary",
       nudge: false,
     });
@@ -621,7 +621,7 @@ describe("S14 owner notifications — system notices, not remembered tags", () =
     expect(directRepo.getById(ordinary.qitemId)?.state).toBe("pending");
 
     const mismatched = await directRepo.create({
-      sourceSession: "driver@rig",
+      sourceSession: "driver@software-team",
       destinationSession: "human-founder@external",
       body: "another choice",
       summary: "Another choice",

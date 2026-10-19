@@ -41,7 +41,7 @@ describe("S19 A5 — per-harness rung inventories (one data source)", () => {
 
 describe("S19 A5 — readClaudeSelfReportEvidence: the pid.json rung, undocumented-internal discipline", () => {
   const SEAT = "node-sr-1";
-  const NAME = "dev50-qa@v-openrig-build";
+  const NAME = "dev50-qa@v-softwareteam-build";
   const record = (over: Record<string, unknown>) => JSON.stringify({
     pid: 123, name: NAME, status: "busy", statusUpdatedAt: 1_787_787_000_000, ...over,
   });
@@ -72,7 +72,7 @@ describe("S19 A5 — readClaudeSelfReportEvidence: the pid.json rung, undocument
 
   it("resolves by the seat's canonical NAME; other seats' files never match; the freshest record wins", () => {
     const ev = readClaudeSelfReportEvidence(input(readOf({
-      "1.json": record({ name: "someone-else@rig", status: "busy" }),
+      "1.json": record({ name: "someone-else@software-team", status: "busy" }),
       "2.json": record({ status: "idle", statusUpdatedAt: 1_787_787_000_000 }),
       "3.json": record({ status: "busy", statusUpdatedAt: 1_787_787_999_000 }),
     })))!;
@@ -89,7 +89,7 @@ describe("S19 A5 — readClaudeSelfReportEvidence: the pid.json rung, undocument
 
 describe("S19 A5 — production wiring: the sweep auto-declares, consults self-report, falls silently", () => {
   const SEAT = "node-sw-1";
-  const NAME = "dev50-qa@v-openrig-build";
+  const NAME = "dev50-qa@v-softwareteam-build";
 
   function harness(opts: { runtime: string; selfReport?: "busy" | "null" }) {
     const clock = { now: 5_000_000 };

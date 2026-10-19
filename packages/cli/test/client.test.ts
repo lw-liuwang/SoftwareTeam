@@ -14,10 +14,10 @@ function createEchoServer(): { server: http.Server; port: number; close: () => P
       return;
     }
 
-    // GET /api/rigs/:id/spec -> text/yaml (for getText test)
+    // GET /api/software-teams/:id/spec -> text/yaml (for getText test)
     if (req.method === "GET" && url.pathname.endsWith("/spec")) {
       res.writeHead(200, { "Content-Type": "text/yaml" });
-      res.end("schema_version: 1\nname: test-rig\n");
+      res.end("schema_version: 1\nname: test-software-team\n");
       return;
     }
 
@@ -94,21 +94,21 @@ describe("DaemonClient", () => {
   // http://::1:port before contacting anyone, so assert the helper-built
   // URL parses with the right host (a live socket is covered by repo CI).
   it("builds a parseable URL from an IPv6 host", () => {
-    const built = `http://${formatDaemonHostForUrl("::1")}:7433`;
-    expect(() => new URL("http://::1:7433")).toThrow();
+    const built = `http://${formatDaemonHostForUrl("::1")}:7434`;
+    expect(() => new URL("http://::1:7434")).toThrow();
     expect(new URL(built).hostname).toBe("[::1]");
-    expect(new URL(built).port).toBe("7433");
+    expect(new URL(built).port).toBe("7434");
   });
 
   // Test 2: Client GET returns { status, data } with parsed JSON
   it("GET returns { status, data } with parsed JSON", async () => {
     const client = new DaemonClient(baseUrl);
-    const res = await client.get("/api/rigs");
+    const res = await client.get("/api/software-teams");
 
     expect(res.status).toBe(200);
     expect(res.data).toEqual({
       method: "GET",
-      path: "/api/rigs",
+      path: "/api/software-teams",
       body: null,
     });
   });
@@ -116,20 +116,20 @@ describe("DaemonClient", () => {
   // Test 3: Client POST sends body, returns { status, data }
   it("POST sends body and returns { status, data }", async () => {
     const client = new DaemonClient(baseUrl);
-    const res = await client.post("/api/rigs", { name: "test-rig" });
+    const res = await client.post("/api/software-teams", { name: "test-software-team" });
 
     expect(res.status).toBe(200);
     expect(res.data).toEqual({
       method: "POST",
-      path: "/api/rigs",
-      body: JSON.stringify({ name: "test-rig" }),
+      path: "/api/software-teams",
+      body: JSON.stringify({ name: "test-software-team" }),
     });
   });
 
   // Test 4: Client handles connection refused -> throws DaemonConnectionError
   it("connection refused throws DaemonConnectionError", async () => {
     const client = new DaemonClient("http://localhost:1");
-    await expect(client.get("/api/rigs")).rejects.toThrow(DaemonConnectionError);
+    await expect(client.get("/api/software-teams")).rejects.toThrow(DaemonConnectionError);
   });
 
   it("bounded timeout throws DaemonConnectionError instead of hanging forever", async () => {
@@ -140,8 +140,8 @@ describe("DaemonClient", () => {
     })) as typeof fetch;
     const client = new DaemonClient("http://localhost:9999", { fetchImpl: neverFetch, timeoutMs: 20 });
 
-    await expect(client.get("/api/rigs")).rejects.toThrow(DaemonConnectionError);
-    await expect(client.get("/api/rigs")).rejects.toThrow(/timed out/i);
+    await expect(client.get("/api/software-teams")).rejects.toThrow(DaemonConnectionError);
+    await expect(client.get("/api/software-teams")).rejects.toThrow(/timed out/i);
   });
 
   it("per-request timeout override can extend a long-running call", async () => {
@@ -159,32 +159,32 @@ describe("DaemonClient", () => {
     })) as typeof fetch;
     const client = new DaemonClient("http://localhost:9999", { fetchImpl: delayedFetch, timeoutMs: 20 });
 
-    await expect(client.get("/api/rigs")).rejects.toThrow(/timed out/i);
+    await expect(client.get("/api/software-teams")).rejects.toThrow(/timed out/i);
 
-    const res = await client.get<{ ok: boolean; url: string }>("/api/rigs", { timeoutMs: 100 });
+    const res = await client.get<{ ok: boolean; url: string }>("/api/software-teams", { timeoutMs: 100 });
     expect(res.status).toBe(200);
     expect(res.data.ok).toBe(true);
-    expect(res.data.url).toContain("/api/rigs");
+    expect(res.data.url).toContain("/api/software-teams");
   });
 
-  // Test 5: Client uses OPENRIG_URL env, falls back to http://127.0.0.1:7433
-  it("uses OPENRIG_URL env when set, falls back to http://127.0.0.1:7433", () => {
+  // Test 5: Client uses SOFTWARETEAM_URL env, falls back to http://127.0.0.1:7434
+  it("uses SOFTWARETEAM_URL env when set, falls back to http://127.0.0.1:7434", () => {
     // Default (no env)
-    const saved = process.env["OPENRIG_URL"];
-    delete process.env["OPENRIG_URL"];
+    const saved = process.env["SOFTWARETEAM_URL"];
+    delete process.env["SOFTWARETEAM_URL"];
     const defaultClient = new DaemonClient();
-    expect(defaultClient.baseUrl).toBe("http://127.0.0.1:7433");
+    expect(defaultClient.baseUrl).toBe("http://127.0.0.1:7434");
 
     // With env
-    process.env["OPENRIG_URL"] = "http://custom:9000";
+    process.env["SOFTWARETEAM_URL"] = "http://custom:9000";
     const envClient = new DaemonClient();
     expect(envClient.baseUrl).toBe("http://custom:9000");
 
     // Cleanup
     if (saved !== undefined) {
-      process.env["OPENRIG_URL"] = saved;
+      process.env["SOFTWARETEAM_URL"] = saved;
     } else {
-      delete process.env["OPENRIG_URL"];
+      delete process.env["SOFTWARETEAM_URL"];
     }
   });
 
@@ -226,9 +226,9 @@ describe("DaemonClient", () => {
   // Test 9: getText returns raw text body for non-JSON content (YAML export)
   it("getText returns raw text body for text/yaml response", async () => {
     const client = new DaemonClient(baseUrl);
-    const res = await client.getText("/api/rigs/r1/spec");
+    const res = await client.getText("/api/software-teams/r1/spec");
 
     expect(res.status).toBe(200);
-    expect(res.data).toBe("schema_version: 1\nname: test-rig\n");
+    expect(res.data).toBe("schema_version: 1\nname: test-software-team\n");
   });
 });

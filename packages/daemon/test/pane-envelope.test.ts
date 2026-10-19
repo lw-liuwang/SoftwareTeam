@@ -7,7 +7,7 @@
 // packages/cli/test/send-header.test.ts so if either implementation
 // drifts, this test (or its CLI counterpart) fails.
 //
-// HG-2 from IMPL-PRD §5: "Envelope format byte-identical to rig send
+// HG-2 from IMPL-PRD §5: "Envelope format byte-identical to SoftwareTeam send
 // envelope".
 
 import { describe, it, expect } from "vitest";
@@ -15,19 +15,19 @@ import { wrapPaneEnvelope, appendDeliveredSegment, DELIVERED_LATENCY_FLAG_MS } f
 
 describe("wrapPaneEnvelope — slice 23 envelope renderer (daemon-side)", () => {
   it("renders From / To / body / reply hint with both session names", () => {
-    const out = wrapPaneEnvelope("driver-3@my-rig", "guard-3@my-rig", "Status: ready.");
-    expect(out).toContain("From: driver-3@my-rig");
-    expect(out).toContain("To: guard-3@my-rig");
+    const out = wrapPaneEnvelope("driver-3@my-software-team", "guard-3@my-software-team", "Status: ready.");
+    expect(out).toContain("From: driver-3@my-software-team");
+    expect(out).toContain("To: guard-3@my-software-team");
     expect(out).toContain("Status: ready.");
-    expect(out).toContain('↩ Reply: rig send driver-3@my-rig "..."');
+    expect(out).toContain('↩ Reply: SoftwareTeam send driver-3@my-software-team "..."');
   });
 
   it("routes an external sender's reply through the durable human queue", () => {
-    const out = wrapPaneEnvelope("decision-maker@external", "driver@rig", "Decision received.");
+    const out = wrapPaneEnvelope("decision-maker@external", "driver@software-team", "Decision received.");
     expect(out).toContain("From: decision-maker@external");
-    expect(out).toContain('↩ Reply if needed: rig queue create --destination decision-maker@external --summary "<one line>" --body "..." --verify');
-    expect(out).not.toContain("rig send decision-maker@external");
-    expect(wrapPaneEnvelope("driver@external-tools", "guard@rig", "Status.")).toContain('↩ Reply: rig send driver@external-tools "..."');
+    expect(out).toContain('↩ Reply if needed: SoftwareTeam queue create --destination decision-maker@external --summary "<one line>" --body "..." --verify');
+    expect(out).not.toContain("SoftwareTeam send decision-maker@external");
+    expect(wrapPaneEnvelope("driver@external-tools", "guard@software-team", "Status.")).toContain('↩ Reply: SoftwareTeam send driver@external-tools "..."');
   });
 
   it("preserves the original body verbatim between the dash separators", () => {
@@ -43,34 +43,34 @@ describe("wrapPaneEnvelope — slice 23 envelope renderer (daemon-side)", () => 
     expect(out).toContain("From: a@r");
     expect(out).toContain("To: b@r");
     expect(out).toContain("---\n\n---");
-    expect(out).toContain('↩ Reply: rig send a@r "..."');
+    expect(out).toContain('↩ Reply: SoftwareTeam send a@r "..."');
   });
 
   it("falls back to a marker when the sender is undefined or empty", () => {
     const undef = wrapPaneEnvelope(undefined, "b@r", "hi");
     expect(undef).toContain("From: <unknown sender>");
-    expect(undef).toContain('↩ Reply: rig send <unknown sender> "..."');
+    expect(undef).toContain('↩ Reply: SoftwareTeam send <unknown sender> "..."');
     const blank = wrapPaneEnvelope("   ", "b@r", "hi");
     expect(blank).toContain("From: <unknown sender>");
   });
 
-  it("uses the literal recipient string in the To header so cross-rig addresses survive", () => {
+  it("uses the literal recipient string in the To header so cross-software-team addresses survive", () => {
     const out = wrapPaneEnvelope("from@a", "to@b", "x");
     expect(out).toMatch(/^From: from@a\nTo: to@b\n---\n/);
   });
 
   // A4 PIN 2 — the preserve branch, now REACHABLE. A4 makes the CLI stamp a 3-part origin triple on
-  // X-OpenRig-Session; the remote daemon derives that 3-part actor and renders it HERE. This asserts the
+  // X-SoftwareTeam-Session; the remote daemon derives that 3-part actor and renders it HERE. This asserts the
   // daemon renders an already-3-part sender VERBATIM — never re-stamped with THIS (destination) host's
   // selfHostId, which would forge the origin as the destination (the receipt's exact bug). Previously
   // this branch never fired (nothing 3-part arrived); A4 relies on it, so it is covered explicitly.
   it("A4 pin 2 — an arriving 3-part origin sender is rendered VERBATIM, never re-stamped with this host", () => {
     // Root invariant 2026-08-27: the wrapper no longer takes (or appends) a self-host id at
     // all — verbatim rendering of an arriving origin triple is now guaranteed by deletion.
-    const out = wrapPaneEnvelope("dev50@v-rig@origin-host", "guard@my-rig", "hi");
-    expect(out).toContain("From: dev50@v-rig@origin-host"); // the ORIGIN host, preserved
+    const out = wrapPaneEnvelope("dev50@v-software-team@origin-host", "guard@my-software-team", "hi");
+    expect(out).toContain("From: dev50@v-software-team@origin-host"); // the ORIGIN host, preserved
     expect(out).not.toContain("@destination-host"); // NOT re-stamped with the destination's id (no forgery)
-    expect(out).toContain('↩ Reply: rig send dev50@v-rig@origin-host "..."'); // reply hint round-trips the origin
+    expect(out).toContain('↩ Reply: SoftwareTeam send dev50@v-software-team@origin-host "..."'); // reply hint round-trips the origin
   });
 
   // V0.3.1 slice 23 — the queue-handoff nudge body MUST remain a
@@ -90,12 +90,12 @@ describe("wrapPaneEnvelope — slice 23 envelope renderer (daemon-side)", () => 
 
   // ── Send/broadcast header (ruling 03c35295) — recipient-visibility projection + timestamp ──
   // Envelope = truth; render = projection. The To-line + scale is the anti-storm teeth (a recipient
-  // tells DM vs multi vs rig-broadcast vs topology from the header alone). Stamp is stamped ONCE at
+  // tells DM vs multi vs software-team-broadcast vs topology from the header alone). Stamp is stamped ONCE at
   // transport send-time (an INPUT — render reads it, never re-derives).
 
   it("backward-compat: with no meta, the output is exactly today's 6-line DM envelope (no Sent line)", () => {
     const out = wrapPaneEnvelope("a@r", "b@r", "hi");
-    expect(out).toBe("From: a@r\nTo: b@r\n---\nhi\n---\n↩ Reply: rig send a@r \"...\"");
+    expect(out).toBe("From: a@r\nTo: b@r\n---\nhi\n---\n↩ Reply: SoftwareTeam send a@r \"...\"");
   });
 
   it("multi-send renders the FULL recipient list on the To line (WHO got it)", () => {
@@ -103,9 +103,9 @@ describe("wrapPaneEnvelope — slice 23 envelope renderer (daemon-side)", () => 
     expect(out).toContain("To: b@r, c@r, d@r");
   });
 
-  it("rig-broadcast renders 'broadcast to <rig> (N seats)' — the anti-storm scale", () => {
-    const out = wrapPaneEnvelope("a@r", "openrig-pm", "hi", { scope: { kind: "rig-broadcast", rig: "openrig-pm", seats: 11 } });
-    expect(out).toContain("To: broadcast to openrig-pm (11 seats)");
+  it("software-team-broadcast renders 'broadcast to <softwareTeam> (N seats)' — the anti-storm scale", () => {
+    const out = wrapPaneEnvelope("a@r", "softwareteam-pm", "hi", { scope: { kind: "software-team-broadcast", softwareTeam: "softwareteam-pm", seats: 11 } });
+    expect(out).toContain("To: broadcast to softwareteam-pm (11 seats)");
   });
 
   it("topology-broadcast renders 'broadcast to topology'", () => {
@@ -118,13 +118,13 @@ describe("wrapPaneEnvelope — slice 23 envelope renderer (daemon-side)", () => 
     expect(out).toContain("Sent: 08-06 17:42Z");
   });
 
-  it("header-alone distinguishability (storm test): DM / multi / rig-bcast / topology each render distinct To lines", () => {
+  it("header-alone distinguishability (storm test): DM / multi / software-team-bcast / topology each render distinct To lines", () => {
     const to = (out: string) => out.split("\n").find((l) => l.startsWith("To:"));
     const dm = to(wrapPaneEnvelope("a@r", "b@r", "x"));
     const multi = to(wrapPaneEnvelope("a@r", "b@r", "x", { scope: { kind: "multi", recipients: ["b@r", "c@r"] } }));
-    const rig = to(wrapPaneEnvelope("a@r", "r", "x", { scope: { kind: "rig-broadcast", rig: "r", seats: 4 } }));
+    const softwareTeam = to(wrapPaneEnvelope("a@r", "r", "x", { scope: { kind: "software-team-broadcast", softwareTeam: "r", seats: 4 } }));
     const topo = to(wrapPaneEnvelope("a@r", "*", "x", { scope: { kind: "topology" } }));
-    expect(new Set([dm, multi, rig, topo]).size).toBe(4); // all four visually distinct, zero context
+    expect(new Set([dm, multi, softwareTeam, topo]).size).toBe(4); // all four visually distinct, zero context
   });
 
   // ── GHOST-STAGE (g): sender-generation suffix on the Sent: line ──
@@ -139,7 +139,7 @@ describe("wrapPaneEnvelope — slice 23 envelope renderer (daemon-side)", () => 
 
   it("(g) byte-exact full envelope with gen (cross-package parity anchor)", () => {
     const out = wrapPaneEnvelope("a@r", "b@r", "hi", { stampISO: "2026-08-06T17:42:09Z", genUuid: GEN });
-    expect(out).toBe('From: a@r\nTo: b@r\nSent: 08-06 17:42Z · gen a1b2c3d4\n---\nhi\n---\n↩ Reply: rig send a@r "..."');
+    expect(out).toBe('From: a@r\nTo: b@r\nSent: 08-06 17:42Z · gen a1b2c3d4\n---\nhi\n---\n↩ Reply: SoftwareTeam send a@r "..."');
   });
 
   it("(g) pin-a: OMITS the suffix entirely when the generation is UNKNOWN (never 'gen unknown', never forged)", () => {
@@ -168,7 +168,7 @@ describe("wrapPaneEnvelope — slice 23 envelope renderer (daemon-side)", () => 
   });
 
   // (g) INTERIM PIN (orch scope ruling): g renders the gen ONLY where a Sent: line already exists
-  // (the rig-send seam). The queue-handoff nudge (queue-repository:537) passes NO meta today, so it
+  // (the software-team-send seam). The queue-handoff nudge (queue-repository:537) passes NO meta today, so it
   // carries no Sent:/gen line — absent=omit, honestly. FOLLOW-ON (h): the delivered-at stamp adds a
   // Sent: line to the nudge, at which point the gen rides this same render for free (one HG-5
   // baseline change, in h, not two). This pin documents the interim gap and its closer.

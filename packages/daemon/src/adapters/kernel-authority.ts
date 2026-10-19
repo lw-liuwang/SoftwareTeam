@@ -6,11 +6,11 @@ import { shellQuote } from "./shell-quote.js";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 
-// Command families used for rig lifecycle, substrate inspection, remote operations and upgrades.
+// Command families used for softwareTeam lifecycle, substrate inspection, remote operations and upgrades.
 // These are tool allowances, not containment: node/npm/python/ssh can themselves run arbitrary code.
 export const KERNEL_CLAUDE_ALLOW = [
   "Skill", "Read", "Edit", "Write", "Glob", "Grep", "WebFetch",
-  ...["rig", "tmux", "node", "npm", "git", "ssh", "scp", "rsync", "curl",
+  ...["SoftwareTeam", "tmux", "node", "npm", "git", "ssh", "scp", "rsync", "curl",
     "uname", "ps", "pgrep", "lsof", "df", "du", "ls", "cat", "head", "tail", "rg", "grep",
     "find", "stat", "date", "sleep", "mkdir", "cp", "mv", "chmod", "tar", "shasum",
     "cd", "pwd", "echo", "printf", "wc", "sort", "python", "python3"]
@@ -25,7 +25,7 @@ export const KERNEL_CLAUDE_ALLOW = [
 // Native deny/ask rules remain in force. The session hook owns generated lifecycle
 // asks so that a help invocation is not caught by an unconditional ask prefix.
 export const TEAM_CLAUDE_ALLOW = [
-  "Skill", "Read(./**)", "Glob", "Grep", "Bash(rig:*)",
+  "Skill", "Read(./**)", "Glob", "Grep", "Bash(SoftwareTeam:*)",
   ...["pwd", "ls", "cat", "head", "tail", "rg", "grep", "find"].map(command => `Bash(${command}:*)`),
   ...["npm test", "npm run test", "pnpm test", "pnpm run test", "yarn test", "yarn run test",
     "bun test", "bun run test", "node --test", "npx vitest", "npx jest", "pytest", "python -m pytest",
@@ -38,14 +38,14 @@ export const TEAM_CLAUDE_ASK = [
   "policy apply", "config set", "config reset",
   "daemon start", "daemon stop", "bundle install", "seat launch", "seat continue", "seat stop",
   "seat clean", "seat handover", "seat switch-client", "seat set-permissions", "seat set-model", "seat set-effort",
-].map(command => `Bash(rig ${command}:*)`);
+].map(command => `Bash(SoftwareTeam ${command}:*)`);
 
 type LaunchChoice = Pick<NodeBinding, "kernelAuthority" | "teamPermissionDefault" | "nonInterruptive" | "launchPosture" | "permissionMode"> & {
-  /** Whether OpenRig's managed compaction acts on this Claude launch; read from the policy when absent. */
+  /** Whether SoftwareTeam's managed compaction acts on this Claude launch; read from the policy when absent. */
   managedCompaction?: boolean;
 };
 
-/** OpenRig's managed compaction acts on Claude seats while its policy is on with a threshold the enforcer accepts (it
+/** SoftwareTeam's managed compaction acts on Claude seats while its policy is on with a threshold the enforcer accepts (it
  *  treats any other threshold as off). Read fresh at each launch; an unreadable policy reads as off. */
 export function managedCompactionActive(store: Pick<SettingsStore, "resolveClaudeCompactionPolicy"> = new SettingsStore()): boolean {
   try {
@@ -57,7 +57,7 @@ export function managedCompactionActive(store: Pick<SettingsStore, "resolveClaud
 }
 
 /** While managed compaction acts on a Claude session, Claude's own idle compaction is turned off in the session's one
- *  --settings value (merged into it, or as the only one), so the session compacts through OpenRig's sequence. Claude
+ *  --settings value (merged into it, or as the only one), so the session compacts through SoftwareTeam's sequence. Claude
  *  Code before 2.1.290 ignores the key. Higher-precedence managed settings still win. */
 function withIdleCompactionOff(args: string[], on: boolean): string[] {
   if (!on) return args;

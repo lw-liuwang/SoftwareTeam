@@ -1,7 +1,7 @@
 // OPR.0.4.6.MH1 FR-5 — the dashboard host-config data layer.
 //
 // READS ride GET /api/hosts (pointers-only rows + selected marker +
-// coarse status — the daemon-side sibling of `rig host ls --json`).
+// coarse status — the daemon-side sibling of `softwareTeam host ls --json`).
 // WRITES ride the narrow named add/pair route family (arch P1) with the
 // mission-control bearer posture; the SWITCHER and RENAME deliberately
 // do NOT live here — they are plain settings writes (host.selected /
@@ -116,7 +116,7 @@ export function useClearPlacementOnHostSwitch(clear: () => void) {
   }, [hostId, clear]);
 }
 
-/** Selection WRITE — the same one write path as the CLI (`rig host select`
+/** Selection WRITE — the same one write path as the CLI (`softwareTeam host select`
  *  is a thin client of POST /api/config/host.selected). Invalidate the
  *  hosts query so indicator + all host-keyed reads retarget immediately
  *  instead of waiting out the 5s poll. */

@@ -16,15 +16,15 @@ const ROOT = join(HERE, "fixtures");
 
 // ref = library path (ns/name); the pack dir sits at fixtures/<ref>/, served at that ref.
 const ENTRIES = [
-  { ref: "skills/core/rig-lifecycle", purpose: "bring rigs and the whole fleet up/down/back", teaches: "For a whole-box bring-back after a reboot, use `rig start` (not per-rig `rig up`)." },
-  { ref: "skills/core/topology-mutation-and-seat-management", purpose: "replace a seat's occupant without losing the address", teaches: "Swap an occupant with `rig handover <seat>` — the seat, name, edges and queue stay put." },
-  { ref: "skills/core/agent-startup-and-context-ingestion", purpose: "orient a freshly-woken seat", teaches: "Run `rig whoami --json` first; it is ground truth for who and where you are." },
-  { ref: "skills/core/watchdog", purpose: "arm a wake you cannot perform yourself", teaches: "You cannot wake yourself; arm `rig watchdog register --spec <yaml>` before you stop." },
-  { ref: "skills/core/cross-host-rig-commands", purpose: "reach agents on other machines", teaches: "Address a remote seat bare plus `--host <id>` (see `rig host ls`)." },
-  { ref: "skills/core/rig-bundles-and-shareable-artifacts", purpose: "package a rig for a machine that never had the source", teaches: "Build a portable rig with `rig bundle create`; install with `rig bundle install`." },
-  { ref: "skills/core/openrig-upgrade", purpose: "upgrade a running daemon without downtime", teaches: "Use the sidecar-operator upgrade path so the rig stays up while the daemon upgrades." },
+  { ref: "skills/core/software-team-lifecycle", purpose: "bring softwareTeams and the whole fleet up/down/back", teaches: "For a whole-box bring-back after a reboot, use `SoftwareTeam start` (not per-software-team `SoftwareTeam up`)." },
+  { ref: "skills/core/topology-mutation-and-seat-management", purpose: "replace a seat's occupant without losing the address", teaches: "Swap an occupant with `SoftwareTeam handover <seat>` — the seat, name, edges and queue stay put." },
+  { ref: "skills/core/agent-startup-and-context-ingestion", purpose: "orient a freshly-woken seat", teaches: "Run `SoftwareTeam whoami --json` first; it is ground truth for who and where you are." },
+  { ref: "skills/core/watchdog", purpose: "arm a wake you cannot perform yourself", teaches: "You cannot wake yourself; arm `SoftwareTeam watchdog register --spec <yaml>` before you stop." },
+  { ref: "skills/core/cross-host-software-team-commands", purpose: "reach agents on other machines", teaches: "Address a remote seat bare plus `--host <id>` (see `SoftwareTeam host ls`)." },
+  { ref: "skills/core/software-team-bundles-and-shareable-artifacts", purpose: "package a SoftwareTeam for a machine that never had the source", teaches: "Build a portable SoftwareTeam with `SoftwareTeam bundle create`; install with `SoftwareTeam bundle install`." },
+  { ref: "skills/core/softwareteam-upgrade", purpose: "upgrade a running daemon without downtime", teaches: "Use the sidecar-operator upgrade path so the SoftwareTeam stays up while the daemon upgrades." },
   { ref: "skills/process/systematic-debugging", purpose: "chase a failure methodically", teaches: "Instrument every boundary once and read where it actually breaks — one run beats five hypotheses." },
-  { ref: "skills/openrig-operating-model", purpose: "place durable knowledge at the right context altitude", teaches: "Put context at the narrowest scope that needs it, and trace one filename toward the root." },
+  { ref: "skills/softwareteam-operating-model", purpose: "place durable knowledge at the right context altitude", teaches: "Put context at the narrowest scope that needs it, and trace one filename toward the root." },
   { ref: "skills/queue-handoff", purpose: "pass active work durably before a turn ends", teaches: "Active work ends by handing off a queue baton, not by going idle at the prompt." },
   // distractors — present so selection is a real choice, not a singleton
   { ref: "skills/core/human-in-the-loop", purpose: "when and how to reach the human", teaches: "Reach the human by exception; orchestrators use discretion, others route through them." },

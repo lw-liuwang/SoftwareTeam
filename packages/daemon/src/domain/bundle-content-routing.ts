@@ -3,7 +3,7 @@ import os from "node:os";
 import nodePath from "node:path";
 import { unpack } from "./bundle-archive.js";
 import { parsePodBundleManifest } from "./bundle-types.js";
-import { getDefaultOpenRigPath } from "../openrig-compat.js";
+import { getDefaultSoftwareTeamPath } from "../softwareteam-compat.js";
 import { routeSkills, type SkillsRouterFsOps, type RouteSkillsResult } from "./bundle-skills-router.js";
 import { routePlugins, type PluginsRouterFsOps, type RoutePluginsResult, type PluginRoutingInput } from "./bundle-plugins-router.js";
 import { routeWorkflowSpecs, type WorkflowSpecsRouterFsOps, type RouteWorkflowSpecsResult } from "./bundle-workflow-specs-router.js";
@@ -14,10 +14,10 @@ import { parse as parseYaml } from "yaml";
 import { registerBundleProject, type ProjectRegistrationResult } from "./workspace/project-registration.js";
 
 /**
- * Routes the primitives a .rigbundle declares (skills, plugins, workflow
+ * Routes the primitives a .softwareteambundle declares (skills, plugins, workflow
  * specs, context packs, agent images) into the operator's libraries.
  *
- * Bootstrap runs this in the pre-launch hook, after the rig record exists and
+ * Bootstrap runs this in the pre-launch hook, after the softwareTeam record exists and
  * before any seat launches, so a seat's first turn can already see what the
  * bundle carried. It never throws: each kind is routed independently and a
  * failure is recorded in `routingFailures` rather than hidden.
@@ -31,7 +31,7 @@ export interface BundleContentRouting {
   workflowSpecsRouting?: RouteWorkflowSpecsResult;
   contextPacksRouting?: RouteContextPacksResult;
   agentImagesRouting?: RouteAgentImagesResult;
-  /** The bundle's project in the workspace catalog, and this rig's association with it. */
+  /** The bundle's project in the workspace catalog, and this softwareTeam's association with it. */
   projectRegistration?: ProjectRegistrationResult;
   routingFailures?: Array<{ kind: BundleContentKind; error: string }>;
 }
@@ -114,7 +114,7 @@ export async function routeBundleContents(
       const declaredSkills = stringEntries(manifest["skills"]);
       if (declaredSkills.length > 0) {
         routing.skillsRouting = attempt("skills", () => routeSkills(
-          { bundleRoot, declaredSkills, targetSkillsDir: getDefaultOpenRigPath("packages"), targetPrefixToStrip: "packages/" },
+          { bundleRoot, declaredSkills, targetSkillsDir: getDefaultSoftwareTeamPath("packages"), targetPrefixToStrip: "packages/" },
           skillsRouterFsOps(),
         ));
       }
@@ -122,7 +122,7 @@ export async function routeBundleContents(
       const declaredPlugins = pluginEntries(manifest["plugins"]);
       if (declaredPlugins.length > 0) {
         routing.pluginsRouting = attempt("plugins", () => routePlugins(
-          { bundleRoot, declaredPlugins, targetPluginsDir: getDefaultOpenRigPath("plugins") },
+          { bundleRoot, declaredPlugins, targetPluginsDir: getDefaultSoftwareTeamPath("plugins") },
           pluginsRouterFsOps(),
         ));
       }
@@ -171,20 +171,20 @@ export async function routeBundleContents(
         }
       }
 
-      // The project this rig works in: registered in the workspace catalog with
-      // this rig associated, so work-install resolves it at the first turn.
+      // The project this softwareTeam works in: registered in the workspace catalog with
+      // this softwareTeam associated, so work-install resolves it at the first turn.
       const project = manifest["project"];
       if (project && typeof project === "object" && !Array.isArray(project)) {
         const { id, path: projectPath } = project as { id?: unknown; path?: unknown };
         attempt("project", () => {
           if (typeof id !== "string" || typeof projectPath !== "string") throw new Error("bundle project entry needs an id and a path");
-          const rigSpec = parseYaml(fs.readFileSync(nodePath.join(bundleRoot, String(manifest!["rig_spec"])), "utf-8")) as { name?: unknown };
-          if (typeof rigSpec?.name !== "string") throw new Error("bundle rig spec has no name");
+          const softwareTeamSpec = parseYaml(fs.readFileSync(nodePath.join(bundleRoot, String(manifest!["software_team_spec"])), "utf-8")) as { name?: unknown };
+          if (typeof softwareTeamSpec?.name !== "string") throw new Error("bundle SoftwareTeam spec has no name");
           const settings = new SettingsStore();
           const result = registerBundleProject({
             bundleProjectDir: nodePath.join(bundleRoot, projectPath),
             projectId: id,
-            rigName: rigSpec.name,
+            softwareTeamName: softwareTeamSpec.name,
             projectsRoot: settings.resolveOne("workspace.projects_root").value as string,
             workspaceRoot: settings.resolveOne("workspace.root").value as string,
             catalogPath: settings.resolveOne("workspace.catalog_path").value as string,
@@ -194,12 +194,12 @@ export async function routeBundleContents(
         });
       }
 
-      // Agent images are image DIRECTORIES under <openrigHome>/agent-images,
+      // Agent images are image DIRECTORIES under <softwareteamHome>/agent-images,
       // the root the live AgentImageLibraryService reads.
       const declaredAgentImages = stringEntries(manifest["agent_images"]);
       if (declaredAgentImages.length > 0) {
         routing.agentImagesRouting = attempt("agentImages", () => routeAgentImages(
-          { bundleRoot, declaredAgentImages, targetAgentImagesDir: getDefaultOpenRigPath("agent-images") },
+          { bundleRoot, declaredAgentImages, targetAgentImagesDir: getDefaultSoftwareTeamPath("agent-images") },
           agentImagesRouterFsOps(),
         ));
       }

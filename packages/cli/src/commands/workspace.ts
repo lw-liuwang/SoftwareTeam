@@ -1,10 +1,10 @@
-// PL-007 Workspace Primitive — `rig workspace` CLI surface.
+// PL-007 Workspace Primitive — `softwareTeam workspace` CLI surface.
 //
 // Verbs:
-//   - `rig workspace validate` (slice-01) — walks a workspace root,
+//   - `softwareTeam workspace validate` (slice-01) — walks a workspace root,
 //     parses each .md file's YAML frontmatter, emits a structured gap
 //     report. Advisory only — never modifies. curate-steward consumes.
-//   - `rig workspace doctor` (slice-21 FR-5; +1 check OPR.0.4.4.23) — runs
+//   - `softwareTeam workspace doctor` (slice-21 FR-5; +1 check OPR.0.4.4.23) — runs
 //     the 8-check workspace-readiness diagnostic against the daemon's
 //     resolved workspace (or a --workspace override). Reports state + fix-hints.
 
@@ -55,7 +55,7 @@ export function parseMaxFilesStrict(raw: string): number {
       `--max-files must be a positive integer (got "${raw}").`,
     ) as Error & { fact: string; consequence: string; action: string };
     err.fact = `--max-files must be a positive integer (got "${raw}").`;
-    err.consequence = "rig workspace validate did not run; daemon was not contacted.";
+    err.consequence = "SoftwareTeam workspace validate did not run; daemon was not contacted.";
     err.action = "Pass a positive integer like --max-files 10000.";
     throw err;
   }
@@ -141,7 +141,7 @@ export function workspaceCommand(depsOverride?: WorkspaceDeps): Command {
       },
     );
 
-  // Slice-21 FR-5 — `rig workspace doctor`.
+  // Slice-21 FR-5 — `softwareTeam workspace doctor`.
   cmd
     .command("doctor")
     .description(
@@ -163,13 +163,13 @@ export function workspaceCommand(depsOverride?: WorkspaceDeps): Command {
         if (opts.workspace) requestBody.workspaceRoot = path.resolve(opts.workspace);
         // FR-5e A2 — CLI-side env overlay for files.allowlist. The
         // daemon runs in its own process with its own env; an
-        // operator who sets OPENRIG_FILES_ALLOWLIST in their CLI
+        // operator who sets SOFTWARETEAM_FILES_ALLOWLIST in their CLI
         // shell expects the doctor result to reflect that override
         // even though the daemon's env is unchanged. We mirror the
         // --workspace override pattern: read the env at request
         // time and forward as a per-request overlay; the daemon
         // route applies it to check #3 with source="env".
-        const cliAllowlistEnv = process.env.OPENRIG_FILES_ALLOWLIST;
+        const cliAllowlistEnv = process.env.SOFTWARETEAM_FILES_ALLOWLIST;
         if (typeof cliAllowlistEnv === "string" && cliAllowlistEnv.length > 0) {
           requestBody.filesAllowlistOverride = cliAllowlistEnv;
         }
@@ -215,7 +215,7 @@ function renderHumanReport(r: ValidationReport): void {
   }
 }
 
-// --- slice-21 FR-5 — `rig workspace doctor` types + human formatter ---
+// --- slice-21 FR-5 — `softwareTeam workspace doctor` types + human formatter ---
 //
 // DoctorReport shape mirrors the daemon's runWorkspaceDoctor output
 // at packages/daemon/src/domain/workspace/workspace-doctor.ts. Type

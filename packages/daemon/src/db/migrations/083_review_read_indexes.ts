@@ -1,6 +1,6 @@
 import type { Migration } from "../migrate.js";
 
-/** Access paths for the rig review's recent roster and settled handoffs. */
+/** Access paths for the softwareTeam review's recent roster and settled handoffs. */
 export const reviewReadIndexesSchema: Migration = {
   name: "083_review_read_indexes.sql",
   sql: `

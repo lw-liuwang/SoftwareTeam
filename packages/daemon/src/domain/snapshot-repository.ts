@@ -5,7 +5,7 @@ import { parseSqliteUtcMs } from "./sqlite-time.js";
 
 export type RestoreSnapshotSelectionOutcome =
   | { ok: true; snapshot: Snapshot; selection: RestoreSnapshotSelection }
-  | { ok: false; code: "snapshot_not_found" | "snapshot_wrong_rig" | "snapshot_unusable" | "no_usable_snapshot"; message: string };
+  | { ok: false; code: "snapshot_not_found" | "snapshot_wrong_software_team" | "snapshot_unusable" | "no_usable_snapshot"; message: string };
 
 interface ListOptions {
   kind?: string;
@@ -19,13 +19,13 @@ export class SnapshotRepository {
     this.db = db;
   }
 
-  createSnapshot(rigId: string, kind: string, data: SnapshotData): Snapshot {
+  createSnapshot(softwareTeamId: string, kind: string, data: SnapshotData): Snapshot {
     const id = ulid();
     this.db
       .prepare(
-        "INSERT INTO snapshots (id, rig_id, kind, data) VALUES (?, ?, ?, ?)"
+        "INSERT INTO snapshots (id, software_team_id, kind, data) VALUES (?, ?, ?, ?)"
       )
-      .run(id, rigId, kind, JSON.stringify(data));
+      .run(id, softwareTeamId, kind, JSON.stringify(data));
 
     return this.rowToSnapshot(
       this.db.prepare("SELECT * FROM snapshots WHERE id = ?").get(id) as SnapshotRow
@@ -39,12 +39,12 @@ export class SnapshotRepository {
     return row ? this.rowToSnapshot(row) : null;
   }
 
-  findLatestAutoPreDown(rigId: string): Snapshot | null {
+  findLatestAutoPreDown(softwareTeamId: string): Snapshot | null {
     const row = this.db
       .prepare(
-        "SELECT * FROM snapshots WHERE rig_id = ? AND kind = 'auto-pre-down' ORDER BY created_at DESC LIMIT 1"
+        "SELECT * FROM snapshots WHERE software_team_id = ? AND kind = 'auto-pre-down' ORDER BY created_at DESC LIMIT 1"
       )
-      .get(rigId) as SnapshotRow | undefined;
+      .get(softwareTeamId) as SnapshotRow | undefined;
     return row ? this.rowToSnapshot(row) : null;
   }
 
@@ -63,18 +63,18 @@ export class SnapshotRepository {
    * skips snapshots with corrupted JSON or missing topology metadata, returning
    * the first usable row. Returns null when no usable snapshot exists.
    *
-   * Distinct from `findLatestUsableSnapshot` (rig-repository.ts, L2): that
+   * Distinct from `findLatestUsableSnapshot` (software-team-repository.ts, L2): that
    * helper requires at least one persisted resume token and is consumed by
    * the lifecycle projection. This helper only requires structural metadata
    * `RestoreOrchestrator.restore` actually inspects, so terminal-only or
-   * resume-tokenless rigs still resolve.
+   * resume-tokenless softwareTeams still resolve.
    */
-  findLatestRestoreUsable(rigId: string): Snapshot | null {
+  findLatestRestoreUsable(softwareTeamId: string): Snapshot | null {
     const rows = this.db
       .prepare(
-        "SELECT * FROM snapshots WHERE rig_id = ? ORDER BY (kind IN ('auto-pre-down', 'auto-periodic')) DESC, created_at DESC, rowid DESC"
+        "SELECT * FROM snapshots WHERE software_team_id = ? ORDER BY (kind IN ('auto-pre-down', 'auto-periodic')) DESC, created_at DESC, rowid DESC"
       )
-      .all(rigId) as SnapshotRow[];
+      .all(softwareTeamId) as SnapshotRow[];
 
     for (const row of rows) {
       let data: SnapshotData;
@@ -91,27 +91,27 @@ export class SnapshotRepository {
 
   /** Resolve an exact or policy-ranked restore source and return the evidence
    * needed to make that decision legible before any restore mutation. */
-  selectRestoreUsable(rigId: string, snapshotId?: string, nowMs: number = Date.now()): RestoreSnapshotSelectionOutcome {
+  selectRestoreUsable(softwareTeamId: string, snapshotId?: string, nowMs: number = Date.now()): RestoreSnapshotSelectionOutcome {
     let snapshot: Snapshot | null;
     if (snapshotId) {
       const row = this.db.prepare("SELECT * FROM snapshots WHERE id = ?").get(snapshotId) as SnapshotRow | undefined;
       if (!row) return { ok: false, code: "snapshot_not_found", message: `Snapshot ${snapshotId} not found` };
-      if (row.rig_id !== rigId) {
-        return { ok: false, code: "snapshot_wrong_rig", message: `Snapshot ${snapshotId} belongs to rig ${row.rig_id}, not ${rigId}` };
+      if (row.software_team_id !== softwareTeamId) {
+        return { ok: false, code: "snapshot_wrong_software_team", message: `Snapshot ${snapshotId} belongs to softwareTeam ${row.software_team_id}, not ${softwareTeamId}` };
       }
       snapshot = this.restoreUsableRow(row);
       if (!snapshot) {
         return { ok: false, code: "snapshot_unusable", message: `Snapshot ${snapshotId} is not structurally restore-usable` };
       }
     } else {
-      snapshot = this.findLatestRestoreUsable(rigId);
-      if (!snapshot) return { ok: false, code: "no_usable_snapshot", message: `No usable snapshot for rig ${rigId}` };
+      snapshot = this.findLatestRestoreUsable(softwareTeamId);
+      if (!snapshot) return { ok: false, code: "no_usable_snapshot", message: `No usable snapshot for softwareTeam ${softwareTeamId}` };
     }
 
     // Equal second-resolution timestamps still have an insertion order. Scan
     // only newer rows, retaining restore's tolerant parse for damaged captures.
-    const candidates = this.db.prepare("SELECT * FROM snapshots WHERE rig_id = ? ORDER BY created_at DESC, rowid DESC")
-      .all(rigId) as SnapshotRow[];
+    const candidates = this.db.prepare("SELECT * FROM snapshots WHERE software_team_id = ? ORDER BY created_at DESC, rowid DESC")
+      .all(softwareTeamId) as SnapshotRow[];
     const selectedIndex = candidates.findIndex((candidate) => candidate.id === snapshot!.id);
     // A concurrent pruner can remove the selected row after it was read. Its
     // insertion position is then unknown, so only strictly newer timestamps count.
@@ -138,18 +138,18 @@ export class SnapshotRepository {
     };
   }
 
-  getLatestSnapshot(rigId: string): Snapshot | null {
+  getLatestSnapshot(softwareTeamId: string): Snapshot | null {
     const row = this.db
       .prepare(
-        "SELECT * FROM snapshots WHERE rig_id = ? ORDER BY created_at DESC LIMIT 1"
+        "SELECT * FROM snapshots WHERE software_team_id = ? ORDER BY created_at DESC LIMIT 1"
       )
-      .get(rigId) as SnapshotRow | undefined;
+      .get(softwareTeamId) as SnapshotRow | undefined;
     return row ? this.rowToSnapshot(row) : null;
   }
 
-  listSnapshots(rigId: string, opts?: ListOptions): Snapshot[] {
-    let sql = "SELECT * FROM snapshots WHERE rig_id = ?";
-    const params: unknown[] = [rigId];
+  listSnapshots(softwareTeamId: string, opts?: ListOptions): Snapshot[] {
+    let sql = "SELECT * FROM snapshots WHERE software_team_id = ?";
+    const params: unknown[] = [softwareTeamId];
 
     if (opts?.kind) {
       sql += " AND kind = ?";
@@ -167,26 +167,26 @@ export class SnapshotRepository {
     return rows.map((r) => this.rowToSnapshot(r));
   }
 
-  pruneSnapshots(rigId: string, keepCount: number): number {
+  pruneSnapshots(softwareTeamId: string, keepCount: number): number {
     // Select the small keeper set in SQLite: expanding every discarded ID into
     // a parameter makes retention fail above SQLite's variable-number limit.
     return this.db.prepare(`DELETE FROM snapshots
-      WHERE rig_id = ? AND id NOT IN (
-        SELECT id FROM snapshots WHERE rig_id = ?
+      WHERE software_team_id = ? AND id NOT IN (
+        SELECT id FROM snapshots WHERE software_team_id = ?
         ORDER BY created_at DESC, rowid DESC LIMIT ?
-      )`).run(rigId, rigId, keepCount).changes;
+      )`).run(softwareTeamId, softwareTeamId, keepCount).changes;
   }
 
   /** OPR.0.3.4.9 — kind-scoped retention. Keeps the newest `keepCount` rows
    *  of the given kind and deletes only older rows of THAT kind. Never touches
    *  other kinds. Hard floor: keepCount >= 1 (never prune to zero). */
-  pruneSnapshotsByKind(rigId: string, kind: string, keepCount: number): number {
+  pruneSnapshotsByKind(softwareTeamId: string, kind: string, keepCount: number): number {
     const effectiveKeep = Math.max(1, keepCount);
     return this.db.prepare(`DELETE FROM snapshots
-      WHERE rig_id = ? AND kind = ? AND id NOT IN (
-        SELECT id FROM snapshots WHERE rig_id = ? AND kind = ?
+      WHERE software_team_id = ? AND kind = ? AND id NOT IN (
+        SELECT id FROM snapshots WHERE software_team_id = ? AND kind = ?
         ORDER BY created_at DESC, rowid DESC LIMIT ?
-      )`).run(rigId, kind, rigId, kind, effectiveKeep).changes;
+      )`).run(softwareTeamId, kind, softwareTeamId, kind, effectiveKeep).changes;
   }
 
   private restoreUsableRow(row: SnapshotRow): Snapshot | null {
@@ -202,7 +202,7 @@ export class SnapshotRepository {
   private rowToSnapshot(row: SnapshotRow): Snapshot {
     return {
       id: row.id,
-      rigId: row.rig_id,
+      softwareTeamId: row.software_team_id,
       kind: row.kind,
       status: row.status,
       data: JSON.parse(row.data) as SnapshotData,
@@ -222,7 +222,7 @@ export function summarizeSnapshot(snapshot: Snapshot, nowMs: number = Date.now()
 
 interface SnapshotRow {
   id: string;
-  rig_id: string;
+  software_team_id: string;
   kind: string;
   status: string;
   data: string;
@@ -234,11 +234,11 @@ interface SnapshotRow {
 //
 // Per the L3b orch amendment: validate against actual SnapshotData. There is
 // NO `data.bindings[]` field and `Session` has NO `runtime` field (runtime
-// lives on nodes). Resume tokens are NOT required (resume-tokenless rigs are
+// lives on nodes). Resume tokens are NOT required (resume-tokenless softwareTeams are
 // still restorable).
 //
 // Required:
-//   - rig with non-empty id
+//   - softwareTeam with non-empty id
 //   - nodes array (may be empty — restore handles empty topologies)
 //   - edges array (may be empty)
 //   - sessions array (may be empty — `validatePreRestore` accepts empty)
@@ -250,7 +250,7 @@ interface SnapshotRow {
 export function isRestoreUsableSnapshotData(data: unknown): data is SnapshotData {
   if (!data || typeof data !== "object") return false;
   const d = data as SnapshotData;
-  if (!d.rig || typeof d.rig.id !== "string" || d.rig.id.length === 0) return false;
+  if (!d.softwareTeam || typeof d.softwareTeam.id !== "string" || d.softwareTeam.id.length === 0) return false;
   if (!Array.isArray(d.nodes)) return false;
   if (!Array.isArray(d.edges)) return false;
   if (!Array.isArray(d.sessions)) return false;

@@ -5,7 +5,7 @@ import { migrate } from "../src/db/migrate.js";
 import { watchdogJobsSchema } from "../src/db/migrations/031_watchdog_jobs.js";
 import { watchdogHistorySchema } from "../src/db/migrations/032_watchdog_history.js";
 import { idleGateFiredConditionSchema } from "../src/db/migrations/078_idle_gate_fired_condition.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { AgentActivityStore } from "../src/domain/agent-activity-store.js";
@@ -19,7 +19,7 @@ import type { PolicyJob } from "../src/domain/policies/types.js";
 const NOW = new Date("2026-07-03T12:00:00.000Z");
 const FRESH = "2026-07-03T11:59:00.000Z"; // 1 min ago — within 5 min freshness
 const STALE = "2026-07-03T11:50:00.000Z"; // 10 min ago — past freshness
-const SEAT = "dev-guard@test-rig";
+const SEAT = "dev-guard@test-software-team";
 
 function makeJob(overrides: Partial<PolicyJob> = {}): PolicyJob {
   return {
@@ -65,10 +65,10 @@ describe("idle-gate-qitem policy (OPR.0.4.3.16)", () => {
   }
 
   function seedSeat(): void {
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const sessionRegistry = new SessionRegistry(db);
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "dev.guard", { runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.guard", { runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, SEAT);
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateBinding(node.id, { tmuxSession: SEAT, attachmentType: "tmux" });
@@ -186,7 +186,7 @@ describe("idle-gate-qitem policy (OPR.0.4.3.16)", () => {
   function appendTransition(qitemId: string, note: string, id: number): void {
     db.prepare(
       `INSERT INTO queue_transitions (transition_id, qitem_id, ts, state, actor_session, transition_note)
-       VALUES (?, ?, '2026-07-03T08:00:00Z', 'blocked', 'someone@rig', ?)`,
+       VALUES (?, ?, '2026-07-03T08:00:00Z', 'blocked', 'someone@software-team', ?)`,
     ).run(id, qitemId, note);
   }
 
@@ -280,7 +280,7 @@ describe("idle-gate-qitem policy (OPR.0.4.3.16)", () => {
     seedGateQitem("q-gate-1");
     db.prepare(
       `INSERT INTO queue_items (qitem_id, ts_created, ts_updated, source_session, destination_session, state, priority, tier, body)
-       VALUES ('q-blocker', '2026-07-03T07:00:00Z', '2026-07-03T07:00:00Z', 'src@r', 'other@rig', 'in-progress', 'routine', null, 'the blocker')`,
+       VALUES ('q-blocker', '2026-07-03T07:00:00Z', '2026-07-03T07:00:00Z', 'src@r', 'other@software-team', 'in-progress', 'routine', null, 'the blocker')`,
     ).run();
     db.prepare("UPDATE queue_items SET state = 'blocked', blocked_on = 'q-blocker' WHERE qitem_id = 'q-gate-1'").run();
     seedActivity("Stop", FRESH);
@@ -304,7 +304,7 @@ describe("idle-gate-qitem policy (OPR.0.4.3.16)", () => {
     seedGateQitem("q-gate-1");
     db.prepare(
       `INSERT INTO queue_items (qitem_id, ts_created, ts_updated, source_session, destination_session, state, priority, tier, body)
-       VALUES ('q-blocker', '2026-07-03T07:00:00Z', '2026-07-03T07:00:00Z', 'src@r', 'other@rig', 'in-progress', 'routine', null, 'the blocker')`,
+       VALUES ('q-blocker', '2026-07-03T07:00:00Z', '2026-07-03T07:00:00Z', 'src@r', 'other@software-team', 'in-progress', 'routine', null, 'the blocker')`,
     ).run();
     db.prepare("UPDATE queue_items SET state = 'blocked', blocked_on = 'q-blocker' WHERE qitem_id = 'q-gate-1'").run();
     seedActivity("Stop", FRESH);
@@ -340,7 +340,7 @@ describe("idle-gate-qitem policy (OPR.0.4.3.16)", () => {
     const { attempts, evaluate, advance } = engineFor(() => "ok");
     await evaluate();
     appendTransition("q-gate-1", "wake-attempt: 1/3 outcome=delivered", 9002);
-    appendTransition("q-gate-1", "escalation-rung: orchestrator -> orch@rig", 9003);
+    appendTransition("q-gate-1", "escalation-rung: orchestrator -> orch@software-team", 9003);
     // Past the window, so a skip here can only be the CONDITION gate — otherwise
     // this pin would pass on the throttle and prove nothing.
     advance(301);
@@ -378,7 +378,7 @@ describe("idle-gate-qitem policy (OPR.0.4.3.16)", () => {
   it("no pending gate qitem for the seat → skip no_pending_gate", async () => {
     // A non-gate pending qitem + a gate qitem for a DIFFERENT seat.
     seedGateQitem("q-plain", { tags: ["mission:x"] });
-    seedGateQitem("q-other", { destination: "someone-else@test-rig" });
+    seedGateQitem("q-other", { destination: "someone-else@test-software-team" });
     seedActivity("Stop", FRESH);
     const policy = makeIdleGateQitemPolicy({ db, seatActivity });
     const out = await policy.evaluate(makeJob());

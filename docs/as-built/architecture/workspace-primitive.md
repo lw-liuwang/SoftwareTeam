@@ -1,11 +1,11 @@
 ---
 kind: as-built
-title: Workspace Primitive — RigSpec.workspace, Migrations 038/039, Missions/Projects/Slices
+title: Workspace Primitive — SoftwareTeamSpec.workspace, Migrations 038/039, Missions/Projects/Slices
 status: active
 topics: [specification-and-bundles, observability]
 domains: [engineering-advisor, operating-advisor]
 applies-when: |
-  Need to know how a rig declares a typed workspace (workspaceRoot / repos /
+  Need to know how a SoftwareTeam declares a typed workspace (workspaceRoot / repos /
   defaultRepo / knowledgeRoot), how that block is persisted and resolved into
   whoami / node-inventory, how per-item target_repo scope is validated, or how
   the file-backed missions/slices tree is indexed and projected into the
@@ -16,9 +16,9 @@ last-verified-against-source: e8f0ab340db773392ec8be75b072d1c0f3068a50
 last-updated: 2026-10-08
 ---
 
-# Workspace Primitive — RigSpec.workspace, Migrations 038/039, Missions/Projects/Slices
+# Workspace Primitive — SoftwareTeamSpec.workspace, Migrations 038/039, Missions/Projects/Slices
 
-The **workspace primitive** is the typed declaration that lets a rig name
+The **workspace primitive** is the typed declaration that lets a SoftwareTeam name
 *where its work lives* — a workspace root, a set of named repos with kinds, an
 optional default repo, and an optional knowledge root — and have that surface
 through `whoami` / node-inventory and gate per-item repo scope. Alongside it, a
@@ -57,16 +57,16 @@ Workspace initialization no longer seeds a getting-started mission (§3).
 
 ## 1. The typed workspace declaration — 0.3.0
 
-`RigSpec.workspace` is an **optional** typed block. Rigs without it stay valid;
+`SoftwareTeamSpec.workspace` is an **optional** typed block. SoftwareTeams without it stay valid;
 `whoami` / node-inventory return a null workspace block in that case.
 
 > Source: `domain/types.ts:1163–1170` (`WorkspaceSpec`), `:1153–1159`
-> (`WorkspaceRepoSpec`), `:1188` (`RigSpec.workspace?`).
+> (`WorkspaceRepoSpec`), `:1188` (`SoftwareTeamSpec.workspace?`).
 
 | Field | Shape | Notes |
 |---|---|---|
 | `workspaceRoot` | string | Verbatim from spec |
-| `repos[]` | `{ name, path, kind }[]` | `path` resolved to absolute at parse time (`domain/rigspec-schema.ts:361–363`); authors may declare it relative to `workspaceRoot` in YAML |
+| `repos[]` | `{ name, path, kind }[]` | `path` resolved to absolute at parse time (`domain/software-team-spec-schema.ts:361–363`); authors may declare it relative to `workspaceRoot` in YAML |
 | `defaultRepo?` | string | active repo when no env override / cwd match |
 | `knowledgeRoot?` | string | treated as `kind=knowledge` when surfaced |
 
@@ -82,40 +82,40 @@ non-empty `workspace_root`, a `repos` array whose names are unique and whose
 `kind` is one of the five kinds, a `default_repo` that names a declared repo,
 and a non-empty `knowledge_root` when present.
 
-> Source: `domain/rigspec-schema.ts:288–347`.
+> Source: `domain/software-team-spec-schema.ts:288–347`.
 
-### 1.1 Persistence — migration 038 + RigRepository
+### 1.1 Persistence — migration 038 + SoftwareTeamRepository
 
-Migration **038** adds `workspace_json TEXT` to the `rigs` table. It holds the
-typed `RigSpec.workspace` block as JSON when a rig declares one; NULL for rigs
+Migration **038** adds `workspace_json TEXT` to the `SoftwareTeams` table. It holds the
+typed `SoftwareTeamSpec.workspace` block as JSON when a SoftwareTeam declares one; NULL for SoftwareTeams
 without a workspace block.
 
 > Source: `db/migrations/038_workspace_primitive.ts:16–21`
-> (`ALTER TABLE rigs ADD COLUMN workspace_json TEXT` at `:19`); doc comment
+> (`ALTER TABLE software_teams ADD COLUMN workspace_json TEXT` at `:19`); doc comment
 > `:3–15`.
 
-`RigRepository.setRigWorkspace(rigId, workspace)` persists it (UPDATE
-`workspace_json` + `updated_at`); `getRigWorkspace(rigId)` reads it back,
+`SoftwareTeamRepository.setSoftwareTeamWorkspace(softwareTeamId, workspace)` persists it (UPDATE
+`workspace_json` + `updated_at`); `getSoftwareTeamWorkspace(softwareTeamId)` reads it back,
 JSON-parsing to `WorkspaceSpec` and returning `null` on parse failure. Both
-are **defensive no-ops** when the column is absent (`hasRigColumn` probe) —
+are **defensive no-ops** when the column is absent (`hasSoftwareTeamColumn` probe) —
 older test fixtures that bypass the canonical migration list don't have the
 column; the setter's contract is "best-effort persistence".
 
-> Source: `domain/rig-repository.ts:184–189` (setter; column probe `:185`),
+> Source: `domain/software-team-repository.ts:184–189` (setter; column probe `:185`),
 > `:192–202` (getter; probe `:193`; parse failure → null `:199–201`);
-> `hasRigColumn` `:347`.
+> `hasSoftwareTeamColumn` `:347`.
 
 The block is written only when declared. **3** call sites write it
-(`git grep -n 'setRigWorkspace(' -- packages/daemon/src | grep -v 'rig-repository.ts' | wc -l`):
-the instantiator's two rig-persist paths, `materializeValidatedSpec` and
-`instantiateOnce`, each guarded by `if (rigSpec.workspace)`; and the
-workspace-only import route `POST /api/rigs/import/workspace`
-(`rig import --workspace-only --target-rig <rigId>`), which validates and
+(`git grep -n 'setSoftwareTeamWorkspace(' -- packages/daemon/src | grep -v 'software-team-repository.ts' | wc -l`):
+the instantiator's two software-team-persist paths, `materializeValidatedSpec` and
+`instantiateOnce`, each guarded by `if (softwareTeamSpec.workspace)`; and the
+workspace-only import route `POST /api/SoftwareTeams/import/workspace`
+(`SoftwareTeam import --workspace-only --target-SoftwareTeam <softwareTeamId>`), which validates and
 normalizes the block and writes it only when it differs from the stored one.
 
-> Source: `domain/rigspec-instantiator.ts:619` (`materializeValidatedSpec`),
+> Source: `domain/software-team-spec-instantiator.ts:619` (`materializeValidatedSpec`),
 > `:655–657`; `:1260` (`instantiateOnce`), `:1349–1351`;
-> `routes/rigspec.ts:134–173` (validation `:158`; compare-and-write
+> `routes/software-team-spec.ts:134–173` (validation `:158`; compare-and-write
 > `:168–170`), mounted `server.ts:734`; CLI
 > `packages/cli/src/commands/import.ts:82`.
 
@@ -124,11 +124,11 @@ normalizes the block and writes it only when it differs from the stored one.
 `resolveWorkspaceContext({ spec, cwd, envOverride })` (consumed by
 `whoami-service`) returns the `WhoamiWorkspaceBlock` or `null` when no spec.
 `activeRepo` resolution: a non-blank `envOverride` wins **verbatim** — even an
-unknown repo name is honored, because operators set `OPENRIG_TARGET_REPO`
+unknown repo name is honored, because operators set `SOFTWARETEAM_TARGET_REPO`
 consciously (the comment at `workspace-resolver.ts:35–36`); otherwise `defaultRepo` is used **only
 if it names a declared repo**. `knowledgeKind` is `"knowledge"` when
 `knowledgeRoot` is declared, else `null`. The resolver accepts `cwd` but does
-not use it (`workspace-resolver.ts:31`), so `rig whoami` reports the env
+not use it (`workspace-resolver.ts:31`), so `SoftwareTeam whoami` reports the env
 override or the declared `defaultRepo`, never the repo containing the seat's
 working directory; node-inventory's per-node `activeRepo` (below) is the one
 that follows cwd.
@@ -139,11 +139,11 @@ that follows cwd.
 
 `whoami-service` reads the persisted spec and resolves with the query's
 `targetRepoOverride`, falling back to the daemon's own
-`process.env["OPENRIG_TARGET_REPO"]`. `rig whoami` forwards the caller's
-`OPENRIG_TARGET_REPO` as `?targetRepo=`, which the route passes on as
+`process.env["SOFTWARETEAM_TARGET_REPO"]`. `SoftwareTeam whoami` forwards the caller's
+`SOFTWARETEAM_TARGET_REPO` as `?targetRepo=`, which the route passes on as
 `targetRepoOverride`.
 
-> Source: `domain/whoami-service.ts:333–338` (`getRigWorkspace` +
+> Source: `domain/whoami-service.ts:333–338` (`getSoftwareTeamWorkspace` +
 > `resolveWorkspaceContext`, env fallback `:337`); `whoami` returns
 > `workspace` in its payload `:350`; `routes/whoami.ts:29`;
 > `packages/cli/src/commands/whoami.ts:281–282`.
@@ -152,16 +152,16 @@ that follows cwd.
 per-node `NodeWorkspaceInfo` by picking the **longest declared repo path that
 contains** the node's `cwd`. When no repo contains it, `kind` falls back to
 `knowledge` if cwd is under `knowledgeRoot`; `activeRepo` then falls back to
-the rig's `defaultRepo` (taking that repo's kind if `kind` is still unset).
+the SoftwareTeam's `defaultRepo` (taking that repo's kind if `kind` is still unset).
 Containment uses a `path.relative` boundary check (not a string `startsWith`)
 so `/foo/bar` does not match `/foo/bar-other`. Node-inventory reads
-`workspace_json` with its own queries rather than through `RigRepository`.
+`workspace_json` with its own queries rather than through `SoftwareTeamRepository`.
 
 > Source: `domain/workspace/workspace-resolver.ts:57–95` (longest match
 > `:67–73`; knowledge fallback `:77–79`; default-repo fallback `:82–88`),
 > `isInside` `:97–103`; `domain/node-inventory.ts:705`
 > (`workspace: resolveNodeWorkspace(...)`), readers `:790–799`
-> (`readRigWorkspaceJson`) and `:716–726` (`readAllRigWorkspaceJson`,
+> (`readSoftwareTeamWorkspaceJson`) and `:716–726` (`readAllSoftwareTeamWorkspaceJson`,
 > batched); `NodeWorkspaceInfo` `domain/types.ts:795–799`.
 
 ### 1.3 Per-item repo scope — migration 039 + queue validation
@@ -169,9 +169,9 @@ so `/foo/bar` does not match `/foo/bar-other`. Node-inventory reads
 Migration **039** adds `target_repo TEXT` to `queue_items` plus
 `idx_queue_items_target_repo`. Per the migration's comment it carries the
 per-item typed repo scope when an operator passes `--target-repo <name>`; it
-is NULL when the item is unambiguous against the rig's `default_repo` or no
+is NULL when the item is unambiguous against the SoftwareTeam's `default_repo` or no
 workspace is declared, and Mission Control views surface the field for
-cross-rig handoff clarity. At M nothing in the daemon's Mission Control code
+cross-SoftwareTeam handoff clarity. At M nothing in the daemon's Mission Control code
 reads it; the UI shows it as "Target repo" in the queue item viewer's full
 detail (`packages/ui/src/components/drawer-viewers/QueueItemViewer.tsx:157`).
 
@@ -181,30 +181,30 @@ detail (`packages/ui/src/components/drawer-viewers/QueueItemViewer.tsx:157`).
 > `:3–15`; CLI flag `packages/cli/src/commands/queue.ts:461`.
 
 `validateTargetRepo` checks an explicit `targetRepo` against the **source
-rig's** `RigSpec.workspace.repos[]`: it parses the source session with
-`parseSessionName`, looks the rig up by name, reads `getRigWorkspace`, and
+SoftwareTeam's** `SoftwareTeamSpec.workspace.repos[]`: it parses the source session with
+`parseSessionName`, looks the SoftwareTeam up by name, reads `getSoftwareTeamWorkspace`, and
 rejects an unknown repo with 400 `unknown_target_repo` plus the `knownRepos`
-list. It **fails open** (`{ ok: true }`) when there is no rigRepo, the session
-is not a canonical `<member>@<rig>` name, the rig is unknown, or no workspace
+list. It **fails open** (`{ ok: true }`) when there is no softwareTeamRepo, the session
+is not a canonical `<member>@<SoftwareTeam>` name, the SoftwareTeam is unknown, or no workspace
 is declared — validation only bites when a workspace actively declares repos.
 
 It runs on **3** routes (`grep -c 'validateTargetRepo(c,' packages/daemon/src/routes/queue.ts`):
 `POST /create` (through the shared `createInputRefusal` check, which also
 requires `destinationSession` and `body`), `POST /:qitemId/handoff` and
 `POST /:qitemId/handoff-and-complete`, each before any cross-host forwarding,
-because the source rig's workspace lives on the source host.
+because the source SoftwareTeam's workspace lives on the source host.
 `createInputRefusal` also runs in the in-process create that finishes a
 handoff an earlier self-forward started (a `hostId` equal to this daemon's own
 id). A handoff that inherits the source row's `targetRepo` without an override
 is not re-validated.
 
-`--target-repo` is accepted by `rig queue create`, `handoff` and
-`handoff-and-complete`. `rig queue list --target-repo <name>`
+`--target-repo` is accepted by `SoftwareTeam queue create`, `handoff` and
+`handoff-and-complete`. `SoftwareTeam queue list --target-repo <name>`
 (`GET /api/queue/list?targetRepo=`) filters rows by exact `target_repo`
 match; the filter is skipped when the column is absent.
 
 > Source: `routes/queue.ts:96–123` (fail-open guards `:102`, `:106`, `:109`,
-> `:112`; `getRigWorkspace` `:111`; `unknown_target_repo` + `knownRepos`
+> `:112`; `getSoftwareTeamWorkspace` `:111`; `unknown_target_repo` + `knownRepos`
 > `:114–120`); `createInputRefusal` `:128–141` (call `:136`), used by
 > `/create` `:490` and the self-forward create `:436`; handoff calls `:679`,
 > `:758` in handlers `:650`, `:732` (`/create` handler `:450`); ordering note
@@ -262,7 +262,7 @@ hard cap `maxFiles` default 10000.
 > (missing-frontmatter behavior), `:201–226` (required + status check), `:239`
 > (opening delimiter).
 
-CLI surface: `rig workspace validate [root]` and `rig workspace doctor`.
+CLI surface: `SoftwareTeam workspace validate [root]` and `SoftwareTeam workspace doctor`.
 
 > Source: `packages/cli/src/commands/workspace.ts:86` (`validate`), `:146`
 > (`doctor`); `docs/as-built/cli-reference.md#workspace`.
@@ -270,7 +270,7 @@ CLI surface: `rig workspace validate [root]` and `rig workspace doctor`.
 ## 3. Default project-workspace scaffold
 
 `workspaceScaffoldDirs()` / `workspaceScaffoldFiles()` produce the repo-ready
-default workspace (`~/.openrig/workspace/`, the default `workspace.root`, or
+default workspace (`~/.softwareteam/workspace/`, the default `workspace.root`, or
 `--root`). It emits exactly **2** directories
 (`grep '^const WORKSPACE_DIRS' packages/daemon/src/domain/workspace/default-workspace-scaffold.ts | grep -o '"[a-z]*"' | wc -l`):
 `missions/`, `exhaust/`; and **4** files
@@ -279,7 +279,7 @@ default workspace (`~/.openrig/workspace/`, the default `workspace.root`, or
 (`workspace.yaml`) points its single `default` project at `.`; `project.yaml`
 names `SPEC.md` as project intent, roots mission discovery at `missions`, and
 exposes empty `install.context` / `install.skills` selectors. The ignore file
-excludes `exhaust/` and local `.openrig/` projection state while keeping
+excludes `exhaust/` and local `.softwareteam/` projection state while keeping
 authored project context versionable.
 
 `ensureDefaultWorkspace()` applies the scaffold additively: it creates only
@@ -287,14 +287,14 @@ missing paths and never deletes or overwrites an existing file. It checks
 every managed path first; if one exists with the wrong kind (a file where a
 directory belongs, or the reverse) it writes nothing and returns `ok: false`
 with the conflicts. Its callers are the shared instance initializer
-`ensureOpenRigInstance()`, which both CLI daemon start and direct daemon start
-run (so the scaffold is reconciled on every start); `rig config
+`ensureSoftwareTeamInstance()`, which both CLI daemon start and direct daemon start
+run (so the scaffold is reconciled on every start); `SoftwareTeam config
 init-workspace`; and `POST /api/config/init-workspace` (409
 `init_workspace_conflict`). The retained `--force` spelling is a
 compatibility no-op. The CLI command re-exports the daemon's owner from
-`@openrig/daemon/instance-initialization` rather than keeping its own copy,
+`@softwareteam/daemon/instance-initialization` rather than keeping its own copy,
 and a parity test pins the CLI and daemon layouts as byte-identical. Mission
-and slice content is created explicitly through `rig scope`, not seeded by
+and slice content is created explicitly through `SoftwareTeam scope`, not seeded by
 workspace initialization. Instance context, System World, skill source,
 runtime state, and the retired `artifacts/`, `evidence/`, `progress/`,
 `field-notes/`, `dogfood-evidence/`, `README.md`, and `STEERING.md` entries
@@ -305,13 +305,13 @@ are not emitted.
 > (`.gitignore`), `:43–54` (`workspaceScaffoldDirs`,
 > `workspaceScaffoldFiles`), `:100–153` (`ensureDefaultWorkspace`; conflicts
 > checked before writes `:117–135`; write-if-missing `:140`);
-> `domain/instance-initialization.ts:39` (`ensureOpenRigInstance`; default
+> `domain/instance-initialization.ts:39` (`ensureSoftwareTeamInstance`; default
 > workspace root `:44`; dry-run plan `:83`; apply `:103`); default
 > `workspace.root` `domain/user-settings/settings-store.ts:28–31`; daemon
 > `index.ts:250`; CLI `packages/cli/src/daemon-lifecycle.ts:658`;
 > `packages/cli/src/commands/config-init-workspace.ts:10` (import), `:13`
 > (re-export), `:28` (`--force`), `:56–67` (`runInitWorkspace`);
-> `routes/config.ts:56–65`, mounted `server.ts:772`; `rig scope`
+> `routes/config.ts:56–65`, mounted `server.ts:772`; `SoftwareTeam scope`
 > `packages/cli/src/commands/scope.ts:2071`; parity
 > `packages/daemon/test/getting-started-narrative-parity.test.ts:15–25`,
 > retired entries `:43–57`.
@@ -320,20 +320,20 @@ are not emitted.
 
 `workspace.yaml` at `workspace.catalog_path` (default
 `<workspace.root>/workspace.yaml`) lists `projects[]`, each with a string `id`,
-a `root` relative to the catalog file, and an optional `rigs` list naming the
-rigs that work in that project. With one entry, that project is selected
-implicitly. With several, `rig context work-install` and the daemon's
-operating posture use an explicit `--project` first, then the calling rig's
-`rigs` association, then the unique deepest project root that contains the
-working directory, then the only entry no rig claims; otherwise they stop with
+a `root` relative to the catalog file, and an optional `SoftwareTeams` list naming the
+SoftwareTeams that work in that project. With one entry, that project is selected
+implicitly. With several, `SoftwareTeam context work-install` and the daemon's
+operating posture use an explicit `--project` first, then the calling SoftwareTeam's
+`SoftwareTeams` association, then the unique deepest project root that contains the
+working directory, then the only entry no SoftwareTeam claims; otherwise they stop with
 `project_required` and the candidate ids. Duplicate ids are refused
 (`project_identity_ambiguous`), and a root that does not exist gives
 `project_root_missing`.
 
 Installing a bundle that carries a project places it at
 `<workspace.projects_root>/<id>/` (default `<workspace.root>/projects`) and
-records it in the catalog before the rig's seats launch: a new entry is
-appended as text, or the rig is added to an entry's `rigs` list. Existing
+records it in the catalog before the SoftwareTeam's seats launch: a new entry is
+appended as text, or the SoftwareTeam is added to an entry's `SoftwareTeams` list. Existing
 catalog bytes are never rewritten; a conflict writes nothing for that part and
 reports the exact line to add.
 
@@ -376,7 +376,7 @@ the caches when it changes. When the indexer is ready, startup also watches the
 workspace and invalidates the indexer when proof sources change, emitting
 `proof.sources_changed`.
 `isReady()` is true when any configured slice root exists on disk. A set
-`OPENRIG_SLICES_ROOT` still takes precedence over `workspace.slices_root`.
+`SOFTWARETEAM_SLICES_ROOT` still takes precedence over `workspace.slices_root`.
 
 Slices are keyed by folder name alone: when two missions (or two roots) hold a
 slice with the same name, only the first one walked is indexed, and
@@ -395,7 +395,7 @@ historical rows are not attributed to a selected project.
 > `proofPacket` `:81`), `:90–111` (`SliceListEntry`, which carries
 > `qitemCount` / `hasProofPacket` instead), `:865–875` and `:936–946` (queue
 > membership; project filter `:870`, `:942`); `domain/workspace/project-catalog.ts:132–138`
-> (`belongsToProject`); startup `startup.ts:1705`, `:1718` (`OPENRIG_SLICES_ROOT`
+> (`belongsToProject`); startup `startup.ts:1705`, `:1718` (`SOFTWARETEAM_SLICES_ROOT`
 > first), `:1725–1730`, `:1743–1748`, proof-source watch `:1762–1765`
 > (`domain/proof/source-watch.ts:16`); default
 > `domain/user-settings/settings-store.ts:486`.
@@ -502,7 +502,7 @@ optimistic localStorage mirror. 404 `mission_not_found` when no slices match;
 ### 4.5 Projects route — stream classifier — 0.3.0
 
 `projectsRoutes()` (mounted `server.ts:786` as `/api/projects`) backs the
-`rig project` CLI verb — the **stream-item classifier** (lease lifecycle +
+`SoftwareTeam project` CLI verb — the **stream-item classifier** (lease lifecycle +
 idempotent classify + operator-verb reclaim + attempt ledger + SSE), NOT the
 Project *workspace UI* (that is the slices/missions surface above; the naming
 overlap is a documented seam). Endpoints:
@@ -569,12 +569,12 @@ through the `/project*` destinations; it does not call `/api/projects`
 
 ## 6. Cross-cutting properties
 
-- **Optional + valid-without:** rigs without a `workspace` block stay valid;
+- **Optional + valid-without:** SoftwareTeams without a `workspace` block stay valid;
   whoami / node-inventory return null and queue target-repo validation fails
-  open (`workspace-resolver.ts:32`, `:62`; `rig-repository.ts:185`, `:193`;
+  open (`workspace-resolver.ts:32`, `:62`; `software-team-repository.ts:185`, `:193`;
   `routes/queue.ts:112`).
-- **Defensive column access:** `RigRepository` probes for `workspace_json`
-  (`rig-repository.ts:185`, `:193`), node-inventory's own reads fall back to
+- **Defensive column access:** `SoftwareTeamRepository` probes for `workspace_json`
+  (`software-team-repository.ts:185`, `:193`), node-inventory's own reads fall back to
   null on error (`node-inventory.ts:724`, `:796–798`), and the queue
   repository detects `target_repo` (`queue-repository.ts:758`), so partial
   test fixtures don't crash. Migrations 038/039 ship separately so a fixture

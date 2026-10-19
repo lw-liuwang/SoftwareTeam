@@ -11,7 +11,7 @@
 //
 // Why this exists: see velocity-qa BLOCKING verdict for slice 28 C-final
 // (qitem-20260513045711-39ccfdf3) — on the founder-walk VM the daemon's
-// allowlist doesn't include the openrig source tree, so the prior
+// allowlist doesn't include the softwareteam source tree, so the prior
 // useLibrarySkills 3-path probe over /api/files/list couldn't reach
 // `packages/daemon/specs/agents/shared/skills`. Daemon-owned discovery
 // resolves shared-skills via the daemon install path (symmetric with how
@@ -65,7 +65,7 @@ function pathSafetyErrorResponse(
 export function skillsRoutes(): Hono {
   const router = new Hono();
 
-  // GET /library — consolidated skill list (workspace + openrig-managed).
+  // GET /library — consolidated skill list (workspace + softwareteam-managed).
   router.get("/library", (c) => {
     const service = getService(c);
     if (!service) return c.json({ error: "skill_library_unavailable" }, 503);
@@ -154,12 +154,12 @@ export function skillsRoutes(): Hono {
 
     const { discoverSkillsWithProvenance } = await import("../domain/skill-discovery.js");
     const { auditSkills, listBundledSkillSources } = await import("../domain/skill-audit.js");
-    const { getDefaultOpenRigPath } = await import("../openrig-compat.js");
+    const { getDefaultSoftwareTeamPath } = await import("../softwareteam-compat.js");
 
     const homedir = c.get("homedir" as never) as string | undefined ?? process.env.HOME ?? "/tmp";
     const cwd = c.get("cwd" as never) as string | undefined ?? process.cwd();
     // The installed plugins the daemon projects bundled skills from (startup's userPluginsDir).
-    const pluginsDir = c.get("pluginsDir" as never) as string | undefined ?? getDefaultOpenRigPath("plugins");
+    const pluginsDir = c.get("pluginsDir" as never) as string | undefined ?? getDefaultSoftwareTeamPath("plugins");
     const mirrorRepoRoot = c.get("mirrorRepoRoot" as never) as string | undefined;
 
     const claudeResult = discoverSkillsWithProvenance({ runtime: "claude-code", homedir, cwd });

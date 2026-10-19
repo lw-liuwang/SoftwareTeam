@@ -74,7 +74,7 @@ function harness(fetchImpl: FetchImpl) {
   });
   return { deliver, outboundSeen };
 }
-const payload: OutboundPostPayload = { qitemId: "qitem-dur-1", summary: "Decide X", body: "b", destinationSession: "mike@external", sourceSession: "dev-driver@v-openrig-build" };
+const payload: OutboundPostPayload = { qitemId: "qitem-dur-1", summary: "Decide X", body: "b", destinationSession: "mike@external", sourceSession: "dev-driver@v-softwareteam-build" };
 const decision: OutboundDecision = { kind: "outbound_decision", decisionId: "d-dur-1", op: OUTBOUND_OP, entityBindingRef: "mike#slack", payload };
 
 describe("H1 — induced timeout → reconcile-by-marker, never a blind repost", () => {

@@ -1,12 +1,12 @@
 // Slice Story View v0 + v1 — Topology tab.
 //
-// v0: per-rig session-name list grouped by rig with click-through to
+// v0: per-softwareTeam session-name list grouped by softwareTeam with click-through to
 // the main topology surface. The tab remains a read-current-state view
 // and links out to the canonical topology surface for deeper action.
 //
 // v1 dimension #1: when a workflow_instance is bound to the slice,
 // renders the spec graph (one node per spec step; edges from each
-// step's next_hop.suggested_roles). Composes with the v0 per-rig
+// step's next_hop.suggested_roles). Composes with the v0 per-softwareTeam
 // listing. The current step is highlighted, the entry step is marked,
 // terminal steps are marked, and loop-back edges are styled differently
 // from forward edges.
@@ -27,9 +27,9 @@ import { useSelectedHostId } from "../../../hooks/useHosts.js";
 import { LOCAL_HOST_ID } from "../../../lib/host-param.js";
 
 export function TopologyTab({ topology }: { topology: SliceDetail["topology"] }) {
-  const { affectedRigs, totalSeats, specGraph } = topology;
-  const runtimeGraph = specGraph ?? deriveRuntimeGraph(affectedRigs);
-  const hasAnything = affectedRigs.length > 0 || specGraph !== null;
+  const { affectedSoftwareTeams, totalSeats, specGraph } = topology;
+  const runtimeGraph = specGraph ?? deriveRuntimeGraph(affectedSoftwareTeams);
+  const hasAnything = affectedSoftwareTeams.length > 0 || specGraph !== null;
   if (!hasAnything) {
     return (
       <div className="p-4 font-mono text-[10px] text-on-surface-variant" data-testid="topology-empty">
@@ -45,7 +45,7 @@ export function TopologyTab({ topology }: { topology: SliceDetail["topology"] })
         </div>
         <div className="font-mono text-[10px] text-on-surface-variant" data-testid="topology-aggregate">
           {totalSeats} seat{totalSeats === 1 ? "" : "s"}
-          {" · "}{affectedRigs.length} rig{affectedRigs.length === 1 ? "" : "s"}
+          {" · "}{affectedSoftwareTeams.length} softwareTeam{affectedSoftwareTeams.length === 1 ? "" : "s"}
           {specGraph && (
             <>
               {" · spec "}
@@ -58,32 +58,32 @@ export function TopologyTab({ topology }: { topology: SliceDetail["topology"] })
 
       {runtimeGraph && <SliceWorkflowGraph specGraph={runtimeGraph} />}
 
-      {affectedRigs.length > 0 && (
-        <div data-testid="topology-rig-listing" className="space-y-3">
+      {affectedSoftwareTeams.length > 0 && (
+        <div data-testid="topology-software-team-listing" className="space-y-3">
           {runtimeGraph && (
             <div className="font-mono text-[10px] uppercase tracking-[0.10em] text-on-surface-variant">
               Active seats
             </div>
           )}
-          {affectedRigs.map((rig) => (
+          {affectedSoftwareTeams.map((softwareTeam) => (
             <section
-              key={rig.rigName}
-              data-testid={`topology-rig-${rig.rigName}`}
+              key={softwareTeam.softwareTeamName}
+              data-testid={`topology-software-team-${softwareTeam.softwareTeamName}`}
               className="border border-outline-variant bg-surface-lowest"
             >
               <header className="flex items-center justify-between border-b border-outline-variant bg-background px-3 py-2">
-                <div className="font-mono text-[10px] font-bold text-on-surface">{rig.rigName}</div>
+                <div className="font-mono text-[10px] font-bold text-on-surface">{softwareTeam.softwareTeamName}</div>
                 <Link
-                  to="/rigs/$rigId"
-                  params={{ rigId: rig.rigId }}
-                  data-testid={`topology-rig-${rig.rigName}-open`}
+                  to="/software-teams/$softwareTeamId"
+                  params={{ softwareTeamId: softwareTeam.softwareTeamId }}
+                  data-testid={`topology-software-team-${softwareTeam.softwareTeamName}-open`}
                   className="font-mono text-[9px] uppercase tracking-[0.10em] text-blue-700 hover:underline"
                 >
                   Open topology →
                 </Link>
               </header>
               <ul className="divide-y divide-outline-variant">
-                {rig.sessionNames.map((session) => (
+                {softwareTeam.sessionNames.map((session) => (
                   <SeatRow key={session} session={session} />
                 ))}
               </ul>
@@ -95,16 +95,16 @@ export function TopologyTab({ topology }: { topology: SliceDetail["topology"] })
   );
 }
 
-function deriveRuntimeGraph(affectedRigs: SliceDetail["topology"]["affectedRigs"]): SpecGraphPayload | null {
-  if (affectedRigs.length === 0) return null;
-  const nodes = affectedRigs.map((rig, index) => ({
-    stepId: rig.rigName || rig.rigId || `rig-${index + 1}`,
-    label: rig.rigName || rig.rigId || `Rig ${index + 1}`,
-    role: `${rig.sessionNames.length} seat${rig.sessionNames.length === 1 ? "" : "s"}`,
-    preferredTarget: rig.sessionNames[0] ?? null,
+function deriveRuntimeGraph(affectedSoftwareTeams: SliceDetail["topology"]["affectedSoftwareTeams"]): SpecGraphPayload | null {
+  if (affectedSoftwareTeams.length === 0) return null;
+  const nodes = affectedSoftwareTeams.map((softwareTeam, index) => ({
+    stepId: softwareTeam.softwareTeamName || softwareTeam.softwareTeamId || `software-team-${index + 1}`,
+    label: softwareTeam.softwareTeamName || softwareTeam.softwareTeamId || `SoftwareTeam ${index + 1}`,
+    role: `${softwareTeam.sessionNames.length} seat${softwareTeam.sessionNames.length === 1 ? "" : "s"}`,
+    preferredTarget: softwareTeam.sessionNames[0] ?? null,
     isEntry: index === 0,
-    isCurrent: index === affectedRigs.length - 1,
-    isTerminal: index === affectedRigs.length - 1,
+    isCurrent: index === affectedSoftwareTeams.length - 1,
+    isTerminal: index === affectedSoftwareTeams.length - 1,
   }));
   return {
     specName: "runtime-handoff-map",

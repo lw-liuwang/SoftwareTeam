@@ -1,9 +1,9 @@
 import type { Migration } from "../migrate.js";
 
 // A Claude seat resumed with `--resume T1` whose conversation continues as T2 (#1077).
-// resume_launch_token arms that launch: the token OpenRig is about to resume, recorded before the
+// resume_launch_token arms that launch: the token SoftwareTeam is about to resume, recorded before the
 // launch. The first current-generation SessionStart hook for the row consumes it; when that hook
-// reports `source: "resume"`, T2 and the launch marker OpenRig's resume command set, resume_rotated_from
+// reports `source: "resume"`, T2 and the launch marker SoftwareTeam's resume command set, resume_rotated_from
 // keeps T1, the one launch identity the proof may still accept in argv, and resume_rotated_process the
 // process that sent that hook (JSON pid and start time), the only one whose argv may name T1. Any
 // write that changes the stored token clears both. resume_launch_process is the launch path's own

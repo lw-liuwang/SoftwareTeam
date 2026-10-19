@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { ComposeServicesAdapter } from "../src/adapters/compose-services-adapter.js";
 import { ServiceOrchestrator } from "../src/domain/service-orchestrator.js";
 import type { ExecFn } from "../src/adapters/tmux.js";
@@ -45,7 +45,7 @@ describe("Bootstrap service gate (T03)", () => {
   });
 
   function writeSpec(specYaml: string): string {
-    const specPath = path.join(tmpDir, "rig.yaml");
+    const specPath = path.join(tmpDir, "software-team.yaml");
     fs.writeFileSync(specPath, specYaml);
     return specPath;
   }
@@ -53,7 +53,7 @@ describe("Bootstrap service gate (T03)", () => {
   it("services-free spec launches through existing path with no service overhead", async () => {
     const specPath = writeSpec(`
 version: "0.2"
-name: no-services-rig
+name: no-services-software-team
 pods:
   - id: infra
     label: Infra
@@ -83,7 +83,7 @@ pods:
 
     const specPath = writeSpec(`
 version: "0.2"
-name: services-rig
+name: services-software-team
 services:
   kind: compose
   compose_file: docker-compose.yml
@@ -107,13 +107,13 @@ pods:
       "ps --format json": COMPOSE_PS_HEALTHY,
       "curl": "200",
     }));
-    const rigRepo = new RigRepository(db);
-    const serviceOrch = new ServiceOrchestrator({ rigRepo, composeAdapter });
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const serviceOrch = new ServiceOrchestrator({ softwareTeamRepo, composeAdapter });
 
     const setup = createTestApp(db);
     // Inject service deps into bootstrap orchestrator via reflection
     (setup.bootstrapOrchestrator as any).deps.serviceOrchestrator = serviceOrch;
-    (setup.bootstrapOrchestrator as any).deps.rigRepo = rigRepo;
+    (setup.bootstrapOrchestrator as any).deps.softwareTeamRepo = softwareTeamRepo;
 
     const result = await setup.bootstrapOrchestrator.bootstrap({
       sourceRef: specPath,
@@ -133,7 +133,7 @@ pods:
 
     const specPath = writeSpec(`
 version: "0.2"
-name: failing-services-rig
+name: failing-services-software-team
 services:
   kind: compose
   compose_file: docker-compose.yml
@@ -153,8 +153,8 @@ pods:
 
     // Wire a ServiceOrchestrator that always fails boot
     const composeAdapter = new ComposeServicesAdapter(mockExec());
-    const rigRepo = new RigRepository(db);
-    const serviceOrch = new ServiceOrchestrator({ rigRepo, composeAdapter });
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const serviceOrch = new ServiceOrchestrator({ softwareTeamRepo, composeAdapter });
     // Mock boot() to return immediate failure
     vi.spyOn(serviceOrch, "boot").mockResolvedValue({
       ok: false,
@@ -163,7 +163,7 @@ pods:
       receipt: {
         kind: "compose",
         composeFile: "docker-compose.yml",
-        projectName: "failing-services-rig",
+        projectName: "failing-services-software-team",
         services: [{ name: "vault", status: "running", health: "starting" }],
         waitFor: [{ target: { url: "http://localhost:8200/v1/sys/health" }, status: "unhealthy", detail: "HTTP probe failed" }],
         capturedAt: new Date().toISOString(),
@@ -172,7 +172,7 @@ pods:
 
     const setup = createTestApp(db);
     (setup.bootstrapOrchestrator as any).deps.serviceOrchestrator = serviceOrch;
-    (setup.bootstrapOrchestrator as any).deps.rigRepo = rigRepo;
+    (setup.bootstrapOrchestrator as any).deps.softwareTeamRepo = softwareTeamRepo;
 
     const result = await setup.bootstrapOrchestrator.bootstrap({
       sourceRef: specPath,
@@ -185,31 +185,31 @@ pods:
     // Service boot stage should show failed
     const serviceStage = result.stages.find((s) => s.stage === "service_boot");
     expect(serviceStage).toBeDefined();
-    // OPR.0.3.2.22 Bug 2: pre-fix, a service_boot_failed left an orphan rig
-    // record (no sessions, but the rig existed) that produced the
+    // OPR.0.3.2.22 Bug 2: pre-fix, a service_boot_failed left an orphan softwareTeam
+    // record (no sessions, but the softwareTeam existed) that produced the
     // "ambiguous library-spec vs restore-target" UX trap on the next retry.
-    // Post-fix, the prelaunch-hook failure rolls back the rig record, so
+    // Post-fix, the prelaunch-hook failure rolls back the softwareTeam record, so
     // the spec name stays free for a clean retry — and the "no agent
-    // sessions launched" guarantee follows transitively from "no rig".
-    const orphans = rigRepo.findRigsByName("failing-services-rig");
-    expect(orphans, `expected no orphan rig records after service_boot_failed, found ${JSON.stringify(orphans)}`).toHaveLength(0);
+    // sessions launched" guarantee follows transitively from "no softwareTeam".
+    const orphans = softwareTeamRepo.findSoftwareTeamsByName("failing-services-software-team");
+    expect(orphans, `expected no orphan SoftwareTeam records after service_boot_failed, found ${JSON.stringify(orphans)}`).toHaveLength(0);
     expect(serviceStage!.status).toBe("failed");
   });
 
   // OPR.0.3.2.22 Bug 2 follow-up (guard BLOCKING on a29c7883) — when
   // boot returns ok:false after compose may have started (e.g.
   // wait_timeout), the prelaunch-hook MUST call teardown best-effort
-  // before the rig record is deleted. Otherwise compose resources
-  // orphan: rig_services cascade-removes with the rig, taking the
+  // before the softwareTeam record is deleted. Otherwise compose resources
+  // orphan: software_team_services cascade-removes with the softwareTeam, taking the
   // normal teardown handle with it. Discriminator: assert teardown
-  // was called on boot failure AND the rig record is still removed.
-  it("service boot failure tears down compose before rig record is deleted (no compose orphan)", async () => {
+  // was called on boot failure AND the softwareTeam record is still removed.
+  it("service boot failure tears down compose before SoftwareTeam record is deleted (no compose orphan)", async () => {
     const composePath = path.join(tmpDir, "docker-compose.yml");
     fs.writeFileSync(composePath, "version: '3'\nservices:\n  vault:\n    image: vault:1.15\n");
 
     const specPath = writeSpec(`
 version: "0.2"
-name: teardown-on-boot-failure-rig
+name: teardown-on-boot-failure-software-team
 services:
   kind: compose
   compose_file: docker-compose.yml
@@ -228,8 +228,8 @@ pods:
 `);
 
     const composeAdapter = new ComposeServicesAdapter(mockExec());
-    const rigRepo = new RigRepository(db);
-    const serviceOrch = new ServiceOrchestrator({ rigRepo, composeAdapter });
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const serviceOrch = new ServiceOrchestrator({ softwareTeamRepo, composeAdapter });
 
     vi.spyOn(serviceOrch, "boot").mockResolvedValue({
       ok: false,
@@ -238,7 +238,7 @@ pods:
       receipt: {
         kind: "compose",
         composeFile: "docker-compose.yml",
-        projectName: "teardown-on-boot-failure-rig",
+        projectName: "teardown-on-boot-failure-software-team",
         services: [{ name: "vault", status: "running", health: "starting" }],
         waitFor: [{ target: { url: "http://localhost:8200/v1/sys/health" }, status: "unhealthy", detail: "HTTP probe failed" }],
         capturedAt: new Date().toISOString(),
@@ -248,7 +248,7 @@ pods:
 
     const setup = createTestApp(db);
     (setup.bootstrapOrchestrator as any).deps.serviceOrchestrator = serviceOrch;
-    (setup.bootstrapOrchestrator as any).deps.rigRepo = rigRepo;
+    (setup.bootstrapOrchestrator as any).deps.softwareTeamRepo = softwareTeamRepo;
 
     const result = await setup.bootstrapOrchestrator.bootstrap({
       sourceRef: specPath,
@@ -257,10 +257,10 @@ pods:
 
     expect(result.status).toBe("failed");
     // Discriminator: teardown MUST be called when boot fails — that is
-    // the bug guard caught (compose orphan downstream of rig deletion).
+    // the bug guard caught (compose orphan downstream of softwareTeam deletion).
     expect(teardownSpy, "expected serviceOrch.teardown to be called best-effort on boot failure").toHaveBeenCalledTimes(1);
-    // And the rig record is still rolled back (Bug 2 original contract).
-    const orphans = rigRepo.findRigsByName("teardown-on-boot-failure-rig");
+    // And the softwareTeam record is still rolled back (Bug 2 original contract).
+    const orphans = softwareTeamRepo.findSoftwareTeamsByName("teardown-on-boot-failure-software-team");
     expect(orphans).toHaveLength(0);
   });
 
@@ -270,7 +270,7 @@ pods:
 
     const specPath = writeSpec(`
 version: "0.2"
-name: plan-services-rig
+name: plan-services-software-team
 services:
   kind: compose
   compose_file: docker-compose.yml
@@ -288,12 +288,12 @@ pods:
 
     const exec = vi.fn<ExecFn>().mockResolvedValue("");
     const composeAdapter = new ComposeServicesAdapter(exec);
-    const rigRepo = new RigRepository(db);
-    const serviceOrch = new ServiceOrchestrator({ rigRepo, composeAdapter });
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const serviceOrch = new ServiceOrchestrator({ softwareTeamRepo, composeAdapter });
 
     const setup = createTestApp(db);
     (setup.bootstrapOrchestrator as any).deps.serviceOrchestrator = serviceOrch;
-    (setup.bootstrapOrchestrator as any).deps.rigRepo = rigRepo;
+    (setup.bootstrapOrchestrator as any).deps.softwareTeamRepo = softwareTeamRepo;
 
     const result = await setup.bootstrapOrchestrator.bootstrap({
       sourceRef: specPath,

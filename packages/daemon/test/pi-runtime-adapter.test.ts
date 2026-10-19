@@ -14,9 +14,9 @@ import {
   providerFromModel, parsePiRunnerState, buildPendingRunnerState, PI_RUNNER_READY_MARKER,
 } from "../src/adapters/pi-runner-protocol.js";
 
-const STATE_ROOT = "/openrig-home/state/pi";
+const STATE_ROOT = "/softwareteam-home/state/pi";
 const RUNNER = "/daemon-dist/adapters/pi-runner.js";
-const SESSION = "devpi-a@some-rig";
+const SESSION = "devpi-a@some-software-team";
 const SESSION_FILE = `${STATE_ROOT}/${SESSION}/sessions/2026-07-06T10-00-00_0197a2f0.jsonl`;
 const PI_FLOOR_EFFECT = {
   runtime: "pi",
@@ -102,7 +102,7 @@ describe("pi-runner-protocol", () => {
     expect(cmd).toContain("--no-approve");
     expect(cmd).toContain("--model 'zai/glm-5.2'");
     // No ARG starts with "@" (Pi's @file form). "@" INSIDE a value is fine —
-    // the canonical session name (pod-member@rig) always carries one.
+    // the canonical session name (pod-member@software-team) always carries one.
     expect(cmd).not.toMatch(/ '@| @/);
   });
 
@@ -163,29 +163,29 @@ describe("pi-runner-protocol", () => {
 describe("buildPiChildEnv — deny-by-default allowlist (BR-3)", () => {
   const source = {
     PATH: "/usr/bin", HOME: "/home/seat", TERM: "xterm",
-    AWS_SECRET_ACCESS_KEY: "leak-me", OPENRIG_ACTIVITY_HOOK_TOKEN: "secret",
+    AWS_SECRET_ACCESS_KEY: "leak-me", SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: "secret",
     GITHUB_TOKEN: "leak-me-too", ZAI_API_KEY: "zai-key", KIMI_API_KEY: "kimi-key",
     OPENROUTER_API_KEY: "or-key", MINIMAX_API_KEY: "minimax-key",
   };
 
-  it("preserves managed identity and instance/context provenance, not ambient OpenRig settings", () => {
+  it("preserves managed identity and instance/context provenance, not ambient SoftwareTeam settings", () => {
     const managed = {
-      OPENRIG_NODE_ID: "node-17", OPENRIG_SESSION_NAME: SESSION,
-      OPENRIG_HOME: "/private/instance", OPENRIG_URL: "http://127.0.0.1:17433",
-      OPENRIG_HOST: "127.0.0.1", OPENRIG_PORT: "17433",
-      OPENRIG_RUNTIME: "pi", OPENRIG_OCCUPANT_GENERATION: "generation-current",
-      OPENRIG_SHARED_DOCS_ROOT: "/private/context",
+      SOFTWARETEAM_NODE_ID: "node-17", SOFTWARETEAM_SESSION_NAME: SESSION,
+      SOFTWARETEAM_HOME: "/private/instance", SOFTWARETEAM_URL: "http://127.0.0.1:17433",
+      SOFTWARETEAM_HOST: "127.0.0.1", SOFTWARETEAM_PORT: "17433",
+      SOFTWARETEAM_RUNTIME: "pi", SOFTWARETEAM_OCCUPANT_GENERATION: "generation-current",
+      SOFTWARETEAM_SHARED_DOCS_ROOT: "/private/context",
     };
     const env = buildPiChildEnv({
-      ...source, ...managed, OPENRIG_UNREVIEWED_SETTING: "exclude",
-      OPENRIG_TERMINAL_BEARER_TOKEN: "exclude", OPENAI_API_KEY: "exclude",
+      ...source, ...managed, SOFTWARETEAM_UNREVIEWED_SETTING: "exclude",
+      SOFTWARETEAM_TERMINAL_BEARER_TOKEN: "exclude", OPENAI_API_KEY: "exclude",
       BASH_ENV: "/untrusted/startup", ENV: "/untrusted/startup", NODE_OPTIONS: "--inspect",
       TMUX: "/some/socket", TMUX_PANE: "%7", RIGGED_SESSION_NAME: "stale@other",
     }, { agentDir: "/seat/agent", sessionsDir: "/seat/sessions", model: "openrouter/example" });
     expect(env).toMatchObject(managed);
     expect(env.OPENROUTER_API_KEY).toBe("or-key");
-    for (const name of ["OPENRIG_UNREVIEWED_SETTING", "OPENRIG_TERMINAL_BEARER_TOKEN",
-      "OPENRIG_ACTIVITY_HOOK_TOKEN", "OPENAI_API_KEY", "ZAI_API_KEY", "KIMI_API_KEY",
+    for (const name of ["SOFTWARETEAM_UNREVIEWED_SETTING", "SOFTWARETEAM_TERMINAL_BEARER_TOKEN",
+      "SOFTWARETEAM_ACTIVITY_HOOK_TOKEN", "OPENAI_API_KEY", "ZAI_API_KEY", "KIMI_API_KEY",
       "MINIMAX_API_KEY",
       "BASH_ENV", "ENV", "NODE_OPTIONS", "TMUX", "TMUX_PANE", "RIGGED_SESSION_NAME"]) {
       expect(env).not.toHaveProperty(name);
@@ -194,9 +194,9 @@ describe("buildPiChildEnv — deny-by-default allowlist (BR-3)", () => {
 
   it("does not invent missing or empty managed identity", () => {
     const opts = { agentDir: "/seat/agent", sessionsDir: "/seat/sessions" };
-    expect(buildPiChildEnv({}, opts)).not.toHaveProperty("OPENRIG_SESSION_NAME");
-    expect(buildPiChildEnv({}, opts)).not.toHaveProperty("OPENRIG_NODE_ID");
-    expect(buildPiChildEnv({ OPENRIG_SESSION_NAME: "" }, opts).OPENRIG_SESSION_NAME).toBe("");
+    expect(buildPiChildEnv({}, opts)).not.toHaveProperty("SOFTWARETEAM_SESSION_NAME");
+    expect(buildPiChildEnv({}, opts)).not.toHaveProperty("SOFTWARETEAM_NODE_ID");
+    expect(buildPiChildEnv({ SOFTWARETEAM_SESSION_NAME: "" }, opts).SOFTWARETEAM_SESSION_NAME).toBe("");
   });
 
   it("passes baseline vars + seat isolation roots, and NOTHING else", () => {
@@ -206,7 +206,7 @@ describe("buildPiChildEnv — deny-by-default allowlist (BR-3)", () => {
     expect(env.PI_CODING_AGENT_SESSION_DIR).toBe("/seat/sessions");
     expect(env).not.toHaveProperty("AWS_SECRET_ACCESS_KEY");
     expect(env).not.toHaveProperty("GITHUB_TOKEN");
-    expect(env).not.toHaveProperty("OPENRIG_ACTIVITY_HOOK_TOKEN");
+    expect(env).not.toHaveProperty("SOFTWARETEAM_ACTIVITY_HOOK_TOKEN");
     // No declared provider — neither key crosses the boundary.
     expect(env).not.toHaveProperty("ZAI_API_KEY");
     expect(env).not.toHaveProperty("KIMI_API_KEY");
@@ -450,7 +450,7 @@ describe("PiRuntimeAdapter.checkReady / readSessionFile", () => {
     const fs = memFs({ [piSeatPaths(STATE_ROOT, SESSION).runnerStatePath]: readyState() });
     const adapter = adapterWith(fs, mockTmux());
     expect(adapter.readSessionFile(SESSION)).toEqual({ ok: true, sessionFile: SESSION_FILE });
-    expect(adapter.readSessionFile("missing@rig")).toEqual({ ok: false, reason: "missing_sidecar" });
+    expect(adapter.readSessionFile("missing@software-team")).toEqual({ ok: false, reason: "missing_sidecar" });
   });
 
   it("reports parse_error for a corrupt sidecar", () => {
@@ -714,17 +714,17 @@ describe("durable catch-up cursor survives launch-attempt resets", () => {
       return cmd;
     }
     try {
-      delete process.env.OPENRIG_YOLO;
+      delete process.env.SOFTWARETEAM_YOLO;
       const off = await resumeCmd();
       expect(off).toContain("--no-approve");
       expect(off).not.toContain("--approve"); // "--no-approve" does not contain the "--approve" token
 
-      process.env.OPENRIG_YOLO = "1";
+      process.env.SOFTWARETEAM_YOLO = "1";
       const on = await resumeCmd();
       expect(on).toContain("--approve");
       expect(on).not.toContain("--no-approve");
     } finally {
-      delete process.env.OPENRIG_YOLO;
+      delete process.env.SOFTWARETEAM_YOLO;
     }
   });
 });

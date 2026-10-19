@@ -5,7 +5,7 @@ import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { ContextUsageStore } from "../src/domain/context-usage-store.js";
 import { UsageSamplesStore } from "../src/domain/usage-samples-store.js";
@@ -20,7 +20,7 @@ import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 
 describe("ContextMonitor", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let store: ContextUsageStore;
   let monitor: ContextMonitor;
@@ -32,7 +32,7 @@ describe("ContextMonitor", () => {
   beforeEach(() => {
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     tmpDir = join(tmpdir(), `context-monitor-${Date.now()}`);
     mkdirSync(join(tmpDir, "state", "context-usage"), { recursive: true });
@@ -55,48 +55,48 @@ describe("ContextMonitor", () => {
   });
 
   function seedClaudeNode(logicalId = "dev.impl", sessionName = "dev-impl@test") {
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, logicalId, { runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, logicalId, { runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, sessionName);
     // Mark as running so the monitor considers it eligible
     db.prepare("UPDATE sessions SET status = 'running' WHERE id = ?").run(session.id);
-    return { rig, node, sessionName };
+    return { softwareTeam, node, sessionName };
   }
 
   function seedCodexNode(status: "running" | "detached" = "running") {
-    const rig = rigRepo.createRig("test-rig-2");
-    const node = rigRepo.addNode(rig.id, "dev.qa", { runtime: "codex" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team-2");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { runtime: "codex" });
     const session = sessionRegistry.registerSession(node.id, "dev-qa@test");
     db.prepare("UPDATE sessions SET status = ?, resume_type = 'codex_id', resume_token = ? WHERE id = ?")
       .run(status, "thread-1", session.id);
-    return { rig, node, sessionName: "dev-qa@test", threadId: "thread-1" };
+    return { softwareTeam, node, sessionName: "dev-qa@test", threadId: "thread-1" };
   }
 
   function seedClaimedNode() {
-    const rig = rigRepo.createRig("test-rig-3");
-    const node = rigRepo.addNode(rig.id, "adopted.node", { runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team-3");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "adopted.node", { runtime: "claude-code" });
     const session = sessionRegistry.registerClaimedSession(node.id, "adopted-session");
     db.prepare("UPDATE sessions SET status = 'running' WHERE id = ?").run(session.id);
     sessionRegistry.updateBinding(node.id, { tmuxSession: "adopted-session" });
-    return { rig, node };
+    return { softwareTeam, node };
   }
 
   function seedExternalCliClaudeNode() {
-    const rig = rigRepo.createRig("test-rig-4");
-    const node = rigRepo.addNode(rig.id, "orch.lead", { runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team-4");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "orch.lead", { runtime: "claude-code" });
     const session = sessionRegistry.registerClaimedSession(node.id, "orch-lead@test");
     db.prepare("UPDATE sessions SET status = 'running' WHERE id = ?").run(session.id);
     sessionRegistry.updateBinding(node.id, { attachmentType: "external_cli", externalSessionName: "orch-lead@test" });
-    return { rig, node };
+    return { softwareTeam, node };
   }
 
   function seedStubNode(logicalId = "dev.stub", sessionName = "dev-stub@test") {
-    const rig = rigRepo.createRig("test-rig-stub");
-    const node = rigRepo.addNode(rig.id, logicalId, { runtime: "stub" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team-stub");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, logicalId, { runtime: "stub" });
     const session = sessionRegistry.registerSession(node.id, sessionName);
     // Mark as running so the monitor considers it eligible
     db.prepare("UPDATE sessions SET status = 'running' WHERE id = ?").run(session.id);
-    return { rig, node, sessionName };
+    return { softwareTeam, node, sessionName };
   }
 
   function writeSidecar(sessionName: string, data: Record<string, unknown>) {
@@ -155,7 +155,7 @@ describe("ContextMonitor", () => {
     settings.set("policies.claude_compaction.enabled", "true");
     settings.set("policies.claude_compaction.threshold_percent", "80");
     const send = vi.fn(async (_session: string, text: string) => {
-      const marker = text.match(/<!-- openrig-compaction-complete .*? -->/)?.[0];
+      const marker = text.match(/<!-- softwareteam-compaction-complete .*? -->/)?.[0];
       const target = text.match(/Write this attempt's complete restore map to ("(?:[^"\\]|\\.)*")/);
       if (marker && target) {
         const file = JSON.parse(target[1]!); mkdirSync(dirname(file), { recursive: true });
@@ -164,7 +164,7 @@ describe("ContextMonitor", () => {
       return { ok: true };
     });
     const transport = { send } as unknown as SessionTransport;
-    const enforcer = new ClaudeCompactionEnforcer(settings, transport, { openrigHome: tmpDir, resolveOccupantGeneration: () => "fixture-generation" });
+    const enforcer = new ClaudeCompactionEnforcer(settings, transport, { softwareteamHome: tmpDir, resolveOccupantGeneration: () => "fixture-generation" });
     monitor = new ContextMonitor(db, store, undefined, enforcer);
     return send;
   }
@@ -196,7 +196,7 @@ describe("ContextMonitor", () => {
     writeUsage(80, now);
     await monitor.pollOnce();
     expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0]?.[1]).toContain("OpenRig automatic compaction preparation is now required");
+    expect(send.mock.calls[0]?.[1]).toContain("SoftwareTeam automatic compaction preparation is now required");
     await monitor.pollOnce();
     expect(send).toHaveBeenCalledTimes(2);
     expect(send.mock.calls[1]?.[1]).toContain("/compact");
@@ -212,7 +212,7 @@ describe("ContextMonitor", () => {
     writeUsage(30, now - 600_001);
     await monitor.pollOnce();
     expect(send).toHaveBeenCalledTimes(3);
-    expect(send.mock.calls[2]?.[1]).toContain("OpenRig post-compaction turn boundary.");
+    expect(send.mock.calls[2]?.[1]).toContain("SoftwareTeam post-compaction turn boundary.");
     await monitor.pollOnce();
     expect(send).toHaveBeenCalledTimes(4);
     expect(send.mock.calls[3]?.[1]).toContain("restoring this Claude session after compaction");
@@ -233,7 +233,7 @@ describe("ContextMonitor", () => {
     await monitor.pollOnce();
     expect(store.getForNode(node.id, sessionName).availability).toBe("unknown");
     expect(send).toHaveBeenCalledTimes(3);
-    expect(send.mock.calls[2]?.[1]).toContain("OpenRig post-compaction turn boundary.");
+    expect(send.mock.calls[2]?.[1]).toContain("SoftwareTeam post-compaction turn boundary.");
   });
 
   it("a stale sample above the threshold drains the pending stage once and starts no new compaction", async () => {
@@ -245,7 +245,7 @@ describe("ContextMonitor", () => {
     for (let i = 0; i < 4; i++) await monitor.pollOnce();
     expect(send).toHaveBeenCalledTimes(5);
     const texts = send.mock.calls.slice(2).map((call) => String(call[1]));
-    expect(texts[0]).toContain("OpenRig post-compaction turn boundary.");
+    expect(texts[0]).toContain("SoftwareTeam post-compaction turn boundary.");
     expect(texts[1]).toContain("restoring this Claude session after compaction");
     expect(texts[2]).toContain("Now audit your compaction restore");
     expect(texts.some((text) => text.includes("preparation is now required") || text.startsWith("/compact"))).toBe(false);
@@ -305,21 +305,21 @@ describe("ContextMonitor", () => {
   it("does not capture archived Codex nodes, but resumes reads after unarchive", async () => {
     const { node: codexNode, sessionName, threadId } = seedCodexNode("detached");
     writeCodexTokenCount(threadId);
-    const rigId = (db.prepare("SELECT rig_id FROM nodes WHERE id = ?").get(codexNode.id) as { rig_id: string }).rig_id;
+    const softwareTeamId = (db.prepare("SELECT software_team_id FROM nodes WHERE id = ?").get(codexNode.id) as { software_team_id: string }).software_team_id;
     const samples = new UsageSamplesStore(db);
     const nativeMonitor = new ContextMonitor(db, store, undefined, undefined, undefined, samples);
-    rigRepo.archiveRig(rigId);
+    softwareTeamRepo.archiveSoftwareTeam(softwareTeamId);
     await nativeMonitor.pollOnce();
     expect(db.prepare("SELECT COUNT(*) AS n FROM context_usage WHERE node_id = ?").get(codexNode.id)).toEqual({ n: 0 });
     expect(db.prepare("SELECT COUNT(*) AS n FROM usage_samples WHERE node_id = ?").get(codexNode.id)).toEqual({ n: 0 });
-    rigRepo.unarchiveRig(rigId);
+    softwareTeamRepo.unarchiveSoftwareTeam(softwareTeamId);
     await nativeMonitor.pollOnce();
     expect(store.getForNode(codexNode.id, sessionName).availability).toBe("known");
     expect(db.prepare("SELECT COUNT(*) AS n FROM usage_samples WHERE node_id = ?").get(codexNode.id)).toEqual({ n: 1 });
   });
 
-  it.each(["claude-code", "codex"])("still polls a running %s seat in an archived rig", async (runtime) => {
-    const { rig, node, sessionName } = runtime === "codex" ? seedCodexNode() : seedClaudeNode();
+  it.each(["claude-code", "codex"])("still polls a running %s seat in an archived softwareTeam", async (runtime) => {
+    const { softwareTeam, node, sessionName } = runtime === "codex" ? seedCodexNode() : seedClaudeNode();
     if (runtime === "codex") {
       writeCodexTokenCount("thread-1");
     } else {
@@ -329,7 +329,7 @@ describe("ContextMonitor", () => {
     const maybeAutoCompact = vi.fn(async () => {});
     const nativeMonitor = new ContextMonitor(db, store, undefined,
       { maybeAutoCompact } as unknown as ClaudeCompactionEnforcer, undefined, samples);
-    rigRepo.archiveRig(rig.id);
+    softwareTeamRepo.archiveSoftwareTeam(softwareTeam.id);
 
     await nativeMonitor.pollOnce();
 
@@ -407,8 +407,8 @@ describe("ContextMonitor", () => {
   // T7: One bad session doesn't prevent polling other sessions
   it("one bad session does not prevent polling others", async () => {
     const { node: node1, sessionName: s1 } = seedClaudeNode("dev.impl1", "impl1@test");
-    const rig2 = rigRepo.createRig("rig2");
-    const node2 = rigRepo.addNode(rig2.id, "dev.impl2", { runtime: "claude-code" });
+    const rig2 = softwareTeamRepo.createSoftwareTeam("rig2");
+    const node2 = softwareTeamRepo.addNode(rig2.id, "dev.impl2", { runtime: "claude-code" });
     const s2 = sessionRegistry.registerSession(node2.id, "impl2@test");
     db.prepare("UPDATE sessions SET status = 'running' WHERE id = ?").run(s2.id);
 
@@ -428,8 +428,8 @@ describe("ContextMonitor", () => {
     await monitor.pollOnce();
 
     // No new nodes or sessions should have been created
-    const rig = rigRepo.getRig(rigRepo.listRigs()[0]!.id);
-    expect(rig!.nodes).toHaveLength(1); // Only the one we seeded
+    const softwareTeam = softwareTeamRepo.getSoftwareTeam(softwareTeamRepo.listSoftwareTeams()[0]!.id);
+    expect(softwareTeam!.nodes).toHaveLength(1); // Only the one we seeded
   });
 
   // T9: Claimed/adopted Claude tmux sessions are polled
@@ -456,17 +456,17 @@ describe("ContextMonitor", () => {
   });
 
   it.each(["before", "during", "delivering", "other occupant"])("default-path consent protects pending context (%s)", async timing => {
-    const { rig, node, sessionName } = seedClaudeNode();
-    const session = sessionRegistry.getSessionsForRig(rig.id)[0]!;
+    const { softwareTeam, node, sessionName } = seedClaudeNode();
+    const session = sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id)[0]!;
     db.prepare("UPDATE sessions SET startup_status='attention_required' WHERE id=?").run(session.id);
     const events = new EventBus(db);
-    const pending = () => events.emit({ type: "node.startup_failed", rigId: rig.id, nodeId: node.id,
+    const pending = () => events.emit({ type: "node.startup_failed", softwareTeamId: softwareTeam.id, nodeId: node.id,
       error: "consent", sessionId: timing === "other occupant" ? "old-occupant" : session.id, freshContextPending: true });
     if (timing === "before" || timing === "other occupant") pending();
     checkReadySpy.mockImplementation(async () => {
       if (timing === "during") pending();
       if (timing === "delivering") {
-        events.emit({ type: "node.startup_pending", rigId: rig.id, nodeId: node.id });
+        events.emit({ type: "node.startup_pending", softwareTeamId: softwareTeam.id, nodeId: node.id });
         db.prepare("UPDATE sessions SET startup_status='pending' WHERE id=?").run(session.id);
       }
       return { ready: true };
@@ -480,8 +480,8 @@ describe("ContextMonitor", () => {
 
   it("pollOnce normalizes stale Claude startup failures back to ready when the runtime is live", async () => {
     const { sessionName, session } = (() => {
-      const rig = rigRepo.createRig("test-rig-5");
-      const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code", cwd: "/project" });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team-5");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code", cwd: "/project" });
       const session = sessionRegistry.registerSession(node.id, "dev-impl@test");
       db.prepare("UPDATE sessions SET status = 'running', startup_status = 'failed' WHERE id = ?").run(session.id);
       return { sessionName: "dev-impl@test", session };
@@ -502,8 +502,8 @@ describe("ContextMonitor", () => {
 
   it("pollOnce normalizes stale Claude startup failures to attention_required when the runtime is blocked on trust", async () => {
     const { sessionName, session } = (() => {
-      const rig = rigRepo.createRig("test-rig-5b");
-      const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code", cwd: "/project" });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team-5b");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code", cwd: "/project" });
       const session = sessionRegistry.registerSession(node.id, "dev-impl-trust@test");
       db.prepare("UPDATE sessions SET status = 'running', startup_status = 'failed' WHERE id = ?").run(session.id);
       return { sessionName: "dev-impl-trust@test", session };
@@ -523,8 +523,8 @@ describe("ContextMonitor", () => {
 
   it("pollOnce leaves stale Claude startup failures as failed when the runtime has really fallen back to shell", async () => {
     const { sessionName, session } = (() => {
-      const rig = rigRepo.createRig("test-rig-5c");
-      const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code", cwd: "/project" });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team-5c");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code", cwd: "/project" });
       const session = sessionRegistry.registerSession(node.id, "dev-impl-shell@test");
       db.prepare("UPDATE sessions SET status = 'running', startup_status = 'failed' WHERE id = ?").run(session.id);
       return { sessionName: "dev-impl-shell@test", session };
@@ -543,8 +543,8 @@ describe("ContextMonitor", () => {
   });
 
   it("pollOnce normalizes stale Codex attention_required state after the trust prompt is cleared", async () => {
-    const rig = rigRepo.createRig("test-rig-codex-trust");
-    const node = rigRepo.addNode(rig.id, "dev.qa", { runtime: "codex", cwd: "/project" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team-codex-trust");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { runtime: "codex", cwd: "/project" });
     const session = sessionRegistry.registerSession(node.id, "dev-qa-trust@test");
     db.prepare("UPDATE sessions SET status = 'running', startup_status = 'attention_required', resume_token = NULL WHERE id = ?")
       .run(session.id);
@@ -575,8 +575,8 @@ describe("ContextMonitor", () => {
 
   it("pollOnce does not overwrite pending Claude startup state", async () => {
     const { sessionName, session } = (() => {
-      const rig = rigRepo.createRig("test-rig-6");
-      const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code", cwd: "/project" });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team-6");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code", cwd: "/project" });
       const session = sessionRegistry.registerSession(node.id, "dev-impl-pending@test");
       db.prepare("UPDATE sessions SET status = 'running', startup_status = 'pending' WHERE id = ?").run(session.id);
       return { sessionName: "dev-impl-pending@test", session };

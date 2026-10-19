@@ -9,22 +9,22 @@ interface SharedTuiClient {
 /** Resolve the terminal on the selected instance, not a remembered tmux name. */
 export async function sharedTuiTarget(client: SharedTuiClient = new DaemonClient()): Promise<string> {
   if (client.baseUrl && !["localhost", "127.0.0.1", "[::1]"].includes(new URL(client.baseUrl).hostname)) {
-    throw new Error("Shared attachment uses local tmux. Run rig tui --shared on the selected daemon's machine; standalone rig tui can use this remote connection.");
+    throw new Error("Shared attachment uses local tmux. Run SoftwareTeam tui --shared on the selected daemon's machine; standalone SoftwareTeam tui can use this remote connection.");
   }
-  const rigs = await client.get<Array<{ rigId: string; rigName?: string; name?: string }>>("/api/ps");
-  if (rigs.status >= 400) throw new Error(`Cannot read rigs (HTTP ${rigs.status}); run rig status.`);
-  const kernels = rigs.data.filter((r) => (r.rigName ?? r.name) === "kernel");
-  if (kernels.length > 1) throw new Error("Multiple kernels are registered. Inspect rig ps and reconcile the intended binding before shared attachment.");
+  const softwareTeams = await client.get<Array<{ softwareTeamId: string; softwareTeamName?: string; name?: string }>>("/api/ps");
+  if (softwareTeams.status >= 400) throw new Error(`Cannot read softwareTeams (HTTP ${softwareTeams.status}); run SoftwareTeam status.`);
+  const kernels = softwareTeams.data.filter((r) => (r.softwareTeamName ?? r.name) === "kernel");
+  if (kernels.length > 1) throw new Error("Multiple kernels are registered. Inspect SoftwareTeam ps and reconcile the intended binding before shared attachment.");
   const kernel = kernels[0];
-  if (!kernel) throw new Error("No kernel is registered on this instance. Run rig status; complete runtime authentication before starting the daemon. Standalone: rig tui.");
+  if (!kernel) throw new Error("No kernel is registered on this instance. Run SoftwareTeam status; complete runtime authentication before starting the daemon. Standalone: SoftwareTeam tui.");
   const nodes = await client.get<Array<{
     logicalId: string; runtime: string | null;
     canonicalSessionName: string | null; tmuxAttachCommand: string | null;
-  }>>(`/api/rigs/${encodeURIComponent(kernel.rigId)}/nodes`);
-  if (nodes.status >= 400) throw new Error(`Cannot read kernel terminals (HTTP ${nodes.status}); run rig status.`);
+  }>>(`/api/software-teams/${encodeURIComponent(kernel.softwareTeamId)}/nodes`);
+  if (nodes.status >= 400) throw new Error(`Cannot read kernel terminals (HTTP ${nodes.status}); run SoftwareTeam status.`);
   const terminal = nodes.data.find((n) => n.logicalId === "operator.human" && n.runtime === "terminal");
   if (!terminal?.canonicalSessionName || !terminal.tmuxAttachCommand) {
-    throw new Error("The kernel has no bound shared terminal. Inspect rig ps --nodes --rig kernel; restore the existing terminal rather than launching another kernel. Standalone: rig tui.");
+    throw new Error("The kernel has no bound shared terminal. Inspect SoftwareTeam ps --nodes --software-team kernel; restore the existing terminal rather than launching another kernel. Standalone: SoftwareTeam tui.");
   }
   return terminal.canonicalSessionName;
 }

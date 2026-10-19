@@ -1,18 +1,18 @@
-// #192 — the Slack CHANNEL MAP: one install, one channel per rig or seat. Pure lookups over the
+// #192 — the Slack CHANNEL MAP: one install, one channel per softwareTeam or seat. Pure lookups over the
 // connector config, shared by every place that needs "which channel": outbound posts and
-// `rig slack verify`.
+// `softwareTeam slack verify`.
 //
-//   outbound: exact seat entry → rig entry → the default `channel`
+//   outbound: exact seat entry → softwareTeam entry → the default `channel`
 //
 // An absent or empty map is today's single-channel behaviour exactly. Inbound routing does not
 // consult the map: a known thread routes to its seat in whatever channel it lives, and every
 // other message lands at `inboundDestination` (thread-routing.ts).
-import { parseSessionName, sessionRigOf, validateSessionNameChars } from "../../session-name.js";
+import { parseSessionName, sessionSoftwareTeamOf, validateSessionNameChars } from "../../session-name.js";
 
 export interface ChannelMapEntry {
-  /** A rig name (`my-rig`) or a full seat session name (`lead@my-rig`). */
+  /** A softwareTeam name (`my-softwareTeam`) or a full seat session name (`lead@my-softwareTeam`). */
   match: string;
-  /** Slack channel ID this rig's or seat's human-bound items post to. */
+  /** Slack channel ID this softwareTeam's or seat's human-bound items post to. */
   channel: string;
 }
 
@@ -28,7 +28,7 @@ function isSeatMatch(match: string): boolean {
 }
 
 /** Fields this version does not know, per entry ("channelMap[0].inbound"). A config written by a
- *  newer OpenRig can carry them; reading it ignores them (see validateChannelMap). */
+ *  newer SoftwareTeam can carry them; reading it ignores them (see validateChannelMap). */
 export function unsupportedChannelMapFields(cfg: ChannelMapConfig): string[] {
   if (!Array.isArray(cfg.channelMap)) return [];
   return cfg.channelMap.flatMap((entry, index) => entry && typeof entry === "object" && !Array.isArray(entry)
@@ -37,7 +37,7 @@ export function unsupportedChannelMapFields(cfg: ChannelMapConfig): string[] {
 }
 
 /** Validate an authored channel map. Throws one teaching error naming the offending entry.
- *  `allowUnknownFields` is for READING a config: a field written by a newer OpenRig is ignored
+ *  `allowUnknownFields` is for READING a config: a field written by a newer SoftwareTeam is ignored
  *  there (and reported by unsupportedChannelMapFields) so a downgrade keeps Slack running.
  *  Writing a config never allows one. */
 export function validateChannelMap(cfg: ChannelMapConfig, opts: { allowUnknownFields?: boolean } = {}): void {
@@ -53,17 +53,17 @@ export function validateChannelMap(cfg: ChannelMapConfig, opts: { allowUnknownFi
       const named = typeof (entry as { match?: unknown }).match === "string" ? ` ('${(entry as { match: string }).match}')` : "";
       throw new Error(
         `${where}${named} has unsupported field(s) ${unknown.join(", ")}: slack-connector.json was written by a newer ` +
-        `OpenRig version. Upgrade OpenRig, or edit the file by hand to remove them; nothing was changed.`,
+        `SoftwareTeam version. Upgrade SoftwareTeam, or edit the file by hand to remove them; nothing was changed.`,
       );
     }
     const { match, channel } = entry as unknown as Record<string, unknown>;
-    if (typeof match !== "string" || !match) throw new Error(`${where}.match must be a rig name (my-rig) or a seat (lead@my-rig)`);
+    if (typeof match !== "string" || !match) throw new Error(`${where}.match must be a SoftwareTeam name (my-software-team) or a seat (lead@my-software-team)`);
     if (isSeatMatch(match)) {
       if (parseSessionName(match).kind !== "canonical") {
-        throw new Error(`${where}.match '${match}' is not a seat: use member@rig (lead@my-rig) or a bare rig name (my-rig)`);
+        throw new Error(`${where}.match '${match}' is not a seat: use member@software-team (lead@my-software-team) or a bare SoftwareTeam name (my-software-team)`);
       }
     } else {
-      const charError = validateSessionNameChars(match, "rig name");
+      const charError = validateSessionNameChars(match, "SoftwareTeam name");
       if (charError) throw new Error(`${where}.match: ${charError}`);
     }
     if (typeof channel !== "string" || !channel || /\s/.test(channel)) {
@@ -74,15 +74,15 @@ export function validateChannelMap(cfg: ChannelMapConfig, opts: { allowUnknownFi
   }
 }
 
-/** The channel a seat's human-bound items post to: seat entry → rig entry → default. */
+/** The channel a seat's human-bound items post to: seat entry → softwareTeam entry → default. */
 export function resolveOutboundChannel(cfg: ChannelMapConfig, session: string | null | undefined): string | null {
   const map = cfg.channelMap ?? [];
   if (session && map.length) {
     const seat = map.find((e) => isSeatMatch(e.match) && e.match === session);
     if (seat) return seat.channel;
-    const rig = sessionRigOf(session);
-    const rigEntry = rig ? map.find((e) => !isSeatMatch(e.match) && e.match === rig) : undefined;
-    if (rigEntry) return rigEntry.channel;
+    const softwareTeam = sessionSoftwareTeamOf(session);
+    const softwareTeamEntry = softwareTeam ? map.find((e) => !isSeatMatch(e.match) && e.match === softwareTeam) : undefined;
+    if (softwareTeamEntry) return softwareTeamEntry.channel;
   }
   return cfg.channel;
 }

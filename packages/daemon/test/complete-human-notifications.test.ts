@@ -22,7 +22,7 @@ import type { OutboundDecision } from "../src/domain/gateway/protocol.js";
 import type { FetchImpl } from "../src/domain/gateway/slack/slack-api.js";
 
 const registry = { ok: true as const, entities: [{ entityId: "human-founder", class: "human" as const, displayName: "Founder", address: "human-founder@external", connectorBindings: [{ kind: "slack" as const, connectorRef: "primary", secretsRef: "env:SLACK_BOT_TOKEN", role: "primary" as const, handle: "UFOUNDER" }], prefs: { deliveryClass: "A" as const } }] };
-const request = { sourceSession: "author@rig", destinationSession: "human-founder@external", summary: "Use the repaired view?", body: "Why: restores readable status. Recommendation: proceed; status briefly pauses. Approve or hold?", evidenceRef: "/private/retained-proof.md", nudge: false };
+const request = { sourceSession: "author@software-team", destinationSession: "human-founder@external", summary: "Use the repaired view?", body: "Why: restores readable status. Recommendation: proceed; status briefly pauses. Approve or hold?", evidenceRef: "/private/retained-proof.md", nudge: false };
 const reply = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 
 describe("complete human notifications", () => {
@@ -70,19 +70,19 @@ describe("complete human notifications", () => {
     expect(rows.find((q) => q.qitemId === update.qitemId)).toMatchObject({ humanIntent: "update", humanDetail: "Retained supplemental context.", ownerNotificationKind: "human-update", ownerNotificationLevel: "NOTICE" });
     expect(repo.listAttention().map((q) => q.qitemId)).toEqual([legacy.qitemId]);
     expect(repo.list({ compact: true }).find((q) => q.qitemId === update.qitemId)?.humanIntent).toBe("update");
-    const work = await repo.create({ ...request, destinationSession: "worker@rig" });
-    expect(() => repo.update({ qitemId: work.qitemId, actorSession: "worker@rig", state: "blocked", blockedOn: update.qitemId, transitionNote: "await update" })).toThrow(/not an approval dependency/);
+    const work = await repo.create({ ...request, destinationSession: "worker@software-team" });
+    expect(() => repo.update({ qitemId: work.qitemId, actorSession: "worker@software-team", state: "blocked", blockedOn: update.qitemId, transitionNote: "await update" })).toThrow(/not an approval dependency/);
     await expect(repo.create({ ...request, humanIntent: "urgent" as never })).rejects.toThrow(/decision or update/);
-    await expect(repo.create({ ...request, destinationSession: "worker@rig", humanIntent: "update" })).rejects.toThrow(/human destination/);
+    await expect(repo.create({ ...request, destinationSession: "worker@software-team", humanIntent: "update" })).rejects.toThrow(/human destination/);
   });
 
   it("applies the canonical external/legacy predicate before LIMIT; tier/malformed/nonhuman rows cannot crowd it out", async () => {
     const external = await repo.create(request);
     const legacy = await repo.create({ ...request, destinationSession: "human-founder@kernel" });
-    const parked = await repo.create({ ...request, destinationSession: "worker@rig" });
+    const parked = await repo.create({ ...request, destinationSession: "worker@software-team" });
     db.prepare("UPDATE queue_items SET state='blocked', blocked_on='human-founder@external' WHERE qitem_id=?").run(parked.qitemId);
-    for (const destinationSession of ["human-@kernel", "@external", "x@external@host", "worker@rig", "human-founder@external.invalid"]) {
-      const row = await repo.create({ ...request, destinationSession: "worker@rig" });
+    for (const destinationSession of ["human-@kernel", "@external", "x@external@host", "worker@software-team", "human-founder@external.invalid"]) {
+      const row = await repo.create({ ...request, destinationSession: "worker@software-team" });
       db.prepare("UPDATE queue_items SET destination_session=?, tier='human-gate', ts_created='2099-01-01' WHERE qitem_id=?").run(destinationSession, row.qitemId);
     }
     expect(repo.listAttention({ limit: 3 }).map((q) => q.qitemId).sort()).toEqual([external.qitemId, legacy.qitemId, parked.qitemId].sort());
@@ -169,7 +169,7 @@ describe("complete human notifications", () => {
     const app = new Hono();
     app.use("*", async (c, next) => { (c.set as (k: string, v: unknown) => void)("queueRepo", repo); await next(); });
     app.route("/api/queue", queueRoutes());
-    const create = (value: unknown) => app.request("/api/queue/create", { method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": request.sourceSession }, body: JSON.stringify(value) });
+    const create = (value: unknown) => app.request("/api/queue/create", { method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": request.sourceSession }, body: JSON.stringify(value) });
     expect((await create({ ...request, humanIntent: "arbitrary" })).status).toBe(400);
     for (let i = 0; i < 2; i++) {
       const response = await create({ ...request, humanIntent: "update", humanDetail: `Supplement ${i}` });

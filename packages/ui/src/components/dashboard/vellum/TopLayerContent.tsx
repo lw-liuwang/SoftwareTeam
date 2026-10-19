@@ -1,14 +1,14 @@
 // LAYER 4 — top content (crisp printed top of stack).
 //
 // Fine line crisp elements only:
-//   - Classification eyebrow (top): Operator + OpenRig version + Field Station hostname
-//   - Hero block: WELCOME BACK + stats line (rigs / agents / active)
+//   - Classification eyebrow (top): Operator + SoftwareTeam version + Field Station hostname
+//   - Hero block: WELCOME BACK + stats line (softwareTeams / agents / active)
 //   - EYES EVERYWHERE bottom-right printed mark
 //   - AUTHOR REDACTED rotated marginalia (left margin)
 //   - Footer marginalia (bottom): End Surface · Dashboard · 01°
 //   - Scattered floating top-layer marks
 //
-// All four real-data inputs (hostname / totalRigs / totalAgents /
+// All four real-data inputs (hostname / totalSoftwareTeams / totalAgents /
 // activeAgents) flow in as props. Lab defaults preserve the hardcoded
 // 127.0.0.1 + placeholder counts (01 / 04 / 04 active).
 
@@ -16,14 +16,14 @@ import { FloatingTopMarks } from "./marks.js";
 
 interface TopLayerContentProps {
   hostname?: string;
-  totalRigs?: number;
+  totalSoftwareTeams?: number;
   totalAgents?: number;
   activeAgents?: number;
 }
 
 export function TopLayerContent({
   hostname = "127.0.0.1",
-  totalRigs = 1,
+  totalSoftwareTeams = 1,
   totalAgents = 4,
   activeAgents = 4,
 }: TopLayerContentProps = {}) {
@@ -42,7 +42,7 @@ export function TopLayerContent({
             <span className="inline-block w-1.5 h-1.5 bg-success rounded-none" />
             Operator
           </span>
-          <span className="hidden sm:inline">▪ OpenRig · 0.3.1</span>
+          <span className="hidden sm:inline">▪ SoftwareTeam · 0.3.1</span>
           <span className="hidden md:inline">▪ Field Station {hostname}</span>
           <span className="hidden md:inline">▪ Session 04°</span>
           <span className="text-on-surface-variant">04°</span>
@@ -63,11 +63,11 @@ export function TopLayerContent({
           data-testid="dashboard-stats"
           className="font-mono text-xs text-on-surface mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1"
         >
-          <span data-testid="stat-rigs" className="inline-flex items-baseline gap-1.5">
+          <span data-testid="stat-softwareTeams" className="inline-flex items-baseline gap-1.5">
             <span className="text-on-surface font-bold tabular-nums text-sm">
-              {String(totalRigs).padStart(2, "0")}
+              {String(totalSoftwareTeams).padStart(2, "0")}
             </span>
-            <span className="uppercase tracking-[0.12em] text-[10px]">rigs</span>
+            <span className="uppercase tracking-[0.12em] text-[10px]">softwareTeams</span>
           </span>
           <span aria-hidden="true" className="text-on-surface-variant">·</span>
           <span data-testid="stat-agents" className="inline-flex items-baseline gap-1.5">
@@ -110,7 +110,7 @@ export function TopLayerContent({
         <div className="mx-auto max-w-[1180px] px-6 py-2 flex items-center justify-between gap-4 font-mono text-[10px] uppercase tracking-[0.24em] text-on-surface">
           <span>▪▪▪ End Surface · Dashboard · 01°</span>
           <span className="hidden sm:inline">Operator-Grade · ConfigStore-Backed</span>
-          <span>OpenRig · 0.3.1</span>
+          <span>SoftwareTeam · 0.3.1</span>
         </div>
       </div>
     </div>

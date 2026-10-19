@@ -1,4 +1,4 @@
-// Rig Context / Composable Context Injection v0 (PL-014) — manifest
+// SoftwareTeam Context / Composable Context Injection v0 (PL-014) — manifest
 // parser.
 //
 // Parses <context.root>/<ref>/manifest.yaml into a typed

@@ -23,7 +23,7 @@ const REQUIRED_MEMBERSHIP_CATEGORIES = [
 ];
 const REQUIRED_DENYLIST_ARRAYS = [
   "path_prefixes",
-  "seat_and_rig_patterns",
+  "seat_and_software_team_patterns",
   "host_patterns",
   "charged_terms",
   "frontmatter_drop_keys",

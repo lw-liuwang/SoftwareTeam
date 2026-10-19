@@ -28,10 +28,10 @@ function project(root: string, id: string, judge: string, missionsDir = "mission
 function fixture(alphaMissions = "missions") {
   const workspace = fs.mkdtempSync(join(tmpdir(), "proof-catalog-")); fixtures.push(workspace);
   write(join(workspace, "workspace.yaml"), { projects: [{ id: "alpha", root: "alpha" }, { id: "beta", root: "beta" }] });
-  const alpha = project(join(workspace, "alpha"), "alpha", "judge@rig", alphaMissions);
-  const beta = project(join(workspace, "beta"), "beta", "judge@rig");
+  const alpha = project(join(workspace, "alpha"), "alpha", "judge@software-team", alphaMissions);
+  const beta = project(join(workspace, "beta"), "beta", "judge@software-team");
   // The daemon's single selected slices root is a different (legacy) project.
-  const legacy = project(join(workspace, "legacy"), "legacy", "judge@rig");
+  const legacy = project(join(workspace, "legacy"), "legacy", "judge@software-team");
   const app = new Hono();
   app.use("*", async (c, next) => {
     c.set("sliceIndexer" as never, { isReady: () => true, slicesRoot: legacy.missions, invalidate: () => {} } as never);
@@ -45,7 +45,7 @@ function fixture(alphaMissions = "missions") {
     const item = readSliceReadiness(readDir).items[0]!;
     return app.request("/api/proof/judge", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "judge@rig" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "judge@software-team" },
       body: JSON.stringify({ scope, item: item.id, verdict: "accept", reason: "Observed", evidence: ["proof/evidence.md"], expectedRevision: item.revision, expectedPrevious: null, ...extra }),
     });
   };
@@ -77,7 +77,7 @@ describe("project-qualified proof scope (#132)", () => {
     const f = fixture();
     const res = await f.judge("alpha:m0/slices/01-t001");
     expect(res.status).toBe(201);
-    expect((await res.json()).judgment).toMatchObject({ scope: "missions/m0/slices/01-t001", actor: "judge@rig" });
+    expect((await res.json()).judgment).toMatchObject({ scope: "missions/m0/slices/01-t001", actor: "judge@software-team" });
     expect(fs.existsSync(join(f.alpha.slice, "proof/judgments/00000001.md"))).toBe(true);
     for (const other of [f.beta.slice, f.legacy.slice]) expect(fs.existsSync(join(other, "proof/judgments"))).toBe(false);
     const flagged = await f.judge("m0/slices/01-t001", { project: "beta" }, f.beta.slice);
@@ -168,13 +168,13 @@ describe("project-qualified proof scope (#132)", () => {
   it("a README-only catalog project under an ancestor project.yaml can't reach evidence outside its own root (CodeRabbit, CWE-22)", async () => {
     const ws = fs.mkdtempSync(join(tmpdir(), "proof-ancestor-")); fixtures.push(ws);
     // the workspace itself has a project.yaml whose policy would authorise the judge; the catalog project has none
-    write(join(ws, "project.yaml"), { kind: "project", metadata: { id: "outer" }, proofPolicy: { judges: ["judge@rig"] } });
+    write(join(ws, "project.yaml"), { kind: "project", metadata: { id: "outer" }, proofPolicy: { judges: ["judge@software-team"] } });
     write(join(ws, "workspace.yaml"), { projects: [{ id: "readme-only", root: "readme-only" }] });
     const root = join(ws, "readme-only");
     write(join(root, "README.md"), "# readme-only\n");
     const slice = join(root, "missions", "m0", "slices", "01-t001");
     write(join(root, "missions", "m0", "mission.yaml"), { kind: "mission", metadata: { name: "m0", status: "active" }, composition: { slices: [{ ref: "slices/01-t001/slice.yaml", order: 1, active: true }] } });
-    write(join(slice, "slice.yaml"), { kind: "slice", metadata: { id: "01-t001", status: "draft" }, proofPolicy: { judges: ["judge@rig"] } });
+    write(join(slice, "slice.yaml"), { kind: "slice", metadata: { id: "01-t001", status: "draft" }, proofPolicy: { judges: ["judge@software-team"] } });
     write(join(slice, "SPEC.md"), "---\nid: 01-t001\n---\n# x\n\n## Proof contract\n- [ ] Prove it.\n");
     write(join(slice, "proof", "evidence.md"), "Observed.\n");
     const sibling = join(ws, "other-project", "secret.md"); write(sibling, "not this project's evidence\n");
@@ -187,7 +187,7 @@ describe("project-qualified proof scope (#132)", () => {
     app.route("/api/proof", proofRoutes());
     const read = await (await app.request(`/api/proof?scope=${encodeURIComponent("readme-only:m0/slices/01-t001")}`)).json();
     const item = read.items[0];
-    const judge = (evidence: string[]) => app.request("/api/proof/judge", { method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "judge@rig" },
+    const judge = (evidence: string[]) => app.request("/api/proof/judge", { method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "judge@software-team" },
       body: JSON.stringify({ scope: "readme-only:m0/slices/01-t001", item: item.id, verdict: "accept", reason: "Observed", evidence, expectedRevision: item.revision, expectedPrevious: null }) });
     for (const ref of [sibling, "../../../../../other-project/secret.md"]) {
       const res = await judge([ref]);
@@ -206,7 +206,7 @@ describe("project-qualified proof scope (#132)", () => {
   // (no SPEC, no project.yaml of its own) sits under a workspace whose own project.yaml has a different judge.
   function readmeProject() {
     const ws = fs.mkdtempSync(join(tmpdir(), "proof-scopes-")); fixtures.push(ws);
-    write(join(ws, "project.yaml"), { kind: "project", metadata: { id: "outer" }, proofPolicy: { judges: ["outer@rig"] } });
+    write(join(ws, "project.yaml"), { kind: "project", metadata: { id: "outer" }, proofPolicy: { judges: ["outer@software-team"] } });
     write(join(ws, "workspace.yaml"), { projects: [{ id: "readme-only", root: "readme-only" }, { id: "bare", root: "bare" }] });
     const mission = (root: string, policy: object) => {
       write(join(root, "README.md"), "# project\n");
@@ -218,7 +218,7 @@ describe("project-qualified proof scope (#132)", () => {
       write(join(slice, "proof", "evidence.md"), "Observed.\n");
       return slice;
     };
-    const slice = mission(join(ws, "readme-only"), { proofPolicy: { judges: ["judge@rig"] } });
+    const slice = mission(join(ws, "readme-only"), { proofPolicy: { judges: ["judge@software-team"] } });
     mission(join(ws, "bare"), {});   // no policy anywhere under its own root
     const app = new Hono();
     app.use("*", async (c, next) => {
@@ -236,7 +236,7 @@ describe("project-qualified proof scope (#132)", () => {
     const scope = "readme-only:m0/slices/01-t001";
     const read = await (await app.request(`/api/proof?scope=${encodeURIComponent(scope)}`)).json();
     const item = read.items[0];
-    const judged = await app.request("/api/proof/judge", { method: "POST", headers: { "Content-Type": "application/json", "X-OpenRig-Session": "judge@rig" },
+    const judged = await app.request("/api/proof/judge", { method: "POST", headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "judge@software-team" },
       body: JSON.stringify({ scope, item: item.id, verdict: "accept", reason: "Observed", evidence: ["proof/evidence.md"], expectedRevision: item.revision, expectedPrevious: null }) });
     expect(judged.status).toBe(201);
     const shown = await (await app.request(`/api/proof?scope=${encodeURIComponent(scope)}`)).json();
@@ -253,7 +253,7 @@ describe("project-qualified proof scope (#132)", () => {
     expect(tree.missions[0].slices[0].readiness.state).toBe("ready");
     const detail = await (await app.request("/api/scopes/slice?project=readme-only&mission=m0&slice=01-t001")).json();
     expect(detail.readiness.items[0].state).toBe("accepted");
-    expect(detail.readiness.policy.judges).toEqual(["judge@rig"]);
+    expect(detail.readiness.policy.judges).toEqual(["judge@software-team"]);
   });
 
   it("a catalogued project never inherits the workspace's policy, in scopes or in proof", async () => {

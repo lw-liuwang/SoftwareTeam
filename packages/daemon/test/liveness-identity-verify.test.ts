@@ -2,7 +2,7 @@
 //
 // A persisted identity verdict of `mismatch`/`pane_missing` must down-rank a
 // `running` session away from running/active across node-inventory (which
-// feeds `rig ps --nodes` + node detail) and the topology graph — carrying the
+// feeds `SoftwareTeam ps --nodes` + node detail) and the topology graph — carrying the
 // evidence. `verified`, `tmux_unavailable`, and an ABSENT verdict must leave
 // the existing projection unchanged (no false-green flip; no-regression).
 
@@ -10,17 +10,17 @@ import { describe, it, expect } from "vitest";
 import type Database from "better-sqlite3";
 import { ulid } from "ulid";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { getNodeInventory, getNodeInventoryForAllRigs, getNodeInventoryForRigs, getNodeDetail, deriveNodeLifecycleState, attachAgentActivity, attachTerminalActivityAndWork } from "../src/domain/node-inventory.js";
+import { getNodeInventory, getNodeInventoryForAllSoftwareTeams, getNodeInventoryForSoftwareTeams, getNodeDetail, deriveNodeLifecycleState, attachAgentActivity, attachTerminalActivityAndWork } from "../src/domain/node-inventory.js";
 import { SeatIdentityStore } from "../src/domain/seat-identity-store.js";
-import { projectRigToGraph, type InventoryOverlay } from "../src/domain/graph-projection.js";
+import { projectSoftwareTeamToGraph, type InventoryOverlay } from "../src/domain/graph-projection.js";
 import type { SeatIdentityVerdict, SeatIdentityVerdictKind } from "../src/domain/types.js";
 import { identityVerdictDownranksRunning } from "../src/domain/types.js";
 
 function seedRunningSeat(db: Database.Database): void {
-  db.prepare("INSERT INTO rigs (id, name) VALUES ('rig-1','test-rig')").run();
-  db.prepare("INSERT INTO nodes (id, rig_id, logical_id, runtime, cwd) VALUES ('n1','rig-1','dev.impl','claude-code','/tmp')").run();
-  db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status, created_at) VALUES ('sess1','n1','dev-impl@rig','running','ready','2026-07-01 00:00:00')").run();
-  db.prepare("INSERT INTO bindings (id, node_id, attachment_type, tmux_session, tmux_pane) VALUES ('bind1','n1','tmux','dev-impl@rig','%1')").run();
+  db.prepare("INSERT INTO software_teams (id, name) VALUES ('software-team-1','test-software-team')").run();
+  db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, runtime, cwd) VALUES ('n1','software-team-1','dev.impl','claude-code','/tmp')").run();
+  db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status, created_at) VALUES ('sess1','n1','dev-impl@software-team','running','ready','2026-07-01 00:00:00')").run();
+  db.prepare("INSERT INTO bindings (id, node_id, attachment_type, tmux_session, tmux_pane) VALUES ('bind1','n1','tmux','dev-impl@software-team','%1')").run();
 }
 
 function verdict(kind: SeatIdentityVerdictKind, reason: SeatIdentityVerdict["reason"] = null): SeatIdentityVerdict {
@@ -30,7 +30,7 @@ function verdict(kind: SeatIdentityVerdictKind, reason: SeatIdentityVerdict["rea
     evidenceSource: kind === "verified" ? "pane_process" : (reason === "session_missing" ? "tmux_session" : "pane_process"),
     reason,
     evidence: { registeredPane: "%1", observedPid: 1, observedCommand: "zsh", matchedLayer: 1 },
-    sessionName: "dev-impl@rig",
+    sessionName: "dev-impl@software-team",
     observedAt: "2026-07-02T12:00:00.000Z",
   };
 }
@@ -72,19 +72,19 @@ describe("getNodeInventory identity gating", () => {
       const identities = new SeatIdentityStore(db);
       for (const kind of ["mismatch", "pane_missing"] as const) {
         identities.upsert(verdict(kind));
-        expect(getNodeInventory(db, "rig-1")[0].startupStatus).toBe("attention_required");
-        expect(getNodeDetail(db, "rig-1", "dev.impl")?.startupStatus).toBe("attention_required");
+        expect(getNodeInventory(db, "software-team-1")[0].startupStatus).toBe("attention_required");
+        expect(getNodeDetail(db, "software-team-1", "dev.impl")?.startupStatus).toBe("attention_required");
         expect(db.prepare("SELECT startup_status FROM sessions WHERE id = 'sess1'").get())
           .toEqual({ startup_status: "ready" });
       }
       identities.upsert(verdict("verified"));
-      expect(getNodeInventory(db, "rig-1")[0].startupStatus).toBe("ready");
+      expect(getNodeInventory(db, "software-team-1")[0].startupStatus).toBe("ready");
       // Process identity alone cannot erase a real startup/context-delivery failure.
       db.prepare("UPDATE sessions SET startup_status = 'failed' WHERE id = 'sess1'").run();
-      expect(getNodeInventory(db, "rig-1")[0].startupStatus).toBe("failed");
+      expect(getNodeInventory(db, "software-team-1")[0].startupStatus).toBe("failed");
       db.prepare("UPDATE sessions SET status = 'stopped' WHERE id = 'sess1'").run();
       identities.upsert(verdict("pane_missing"));
-      expect(getNodeInventory(db, "rig-1")[0].startupStatus).toBe("failed");
+      expect(getNodeInventory(db, "software-team-1")[0].startupStatus).toBe("failed");
     } finally {
       db.close();
     }
@@ -93,7 +93,7 @@ describe("getNodeInventory identity gating", () => {
   it("no verdict → running/active + null identityVerdict (no-regression)", () => {
     const db = createFullTestDb();
     seedRunningSeat(db);
-    const [n] = getNodeInventory(db, "rig-1");
+    const [n] = getNodeInventory(db, "software-team-1");
     expect(n.lifecycleState).toBe("running");
     expect(n.occupantLifecycle).toBe("active");
     expect(n.identityVerdict).toBeNull();
@@ -105,7 +105,7 @@ describe("getNodeInventory identity gating", () => {
     const db = createFullTestDb();
     seedRunningSeat(db);
     new SeatIdentityStore(db).upsert(verdict("verified"));
-    const [n] = getNodeInventory(db, "rig-1");
+    const [n] = getNodeInventory(db, "software-team-1");
     expect(n.lifecycleState).toBe("running");
     expect(n.occupantLifecycle).toBe("active");
     expect(n.identityVerdict?.verdict).toBe("verified");
@@ -117,7 +117,7 @@ describe("getNodeInventory identity gating", () => {
     const db = createFullTestDb();
     seedRunningSeat(db);
     new SeatIdentityStore(db).upsert(verdict("mismatch", "process_identity_mismatch"));
-    const [n] = getNodeInventory(db, "rig-1");
+    const [n] = getNodeInventory(db, "software-team-1");
     expect(n.lifecycleState).toBe("attention_required");
     expect(n.occupantLifecycle).toBe("unknown");
     expect(n.sessionStatus).toBe("running"); // raw session row unchanged
@@ -132,19 +132,19 @@ describe("getNodeInventory identity gating", () => {
     db.prepare("UPDATE nodes SET occupant_lifecycle = 'active' WHERE id = 'n1'").run();
     const stored = db.prepare("SELECT * FROM sessions WHERE id = 'sess1'").get();
     new SeatIdentityStore(db).upsert(verdict("pane_missing", "session_missing"));
-    const [n] = getNodeInventory(db, "rig-1");
+    const [n] = getNodeInventory(db, "software-team-1");
     expect(n.lifecycleState).toBe("detached");
     expect(n.sessionStatus).toBe("detached");
     expect(n.storedSessionStatus).toBe("running");
     expect(n.startupStatus).toBe("ready");
     expect(n.storedStartupStatus).toBe("ready");
-    expect(getNodeDetail(db, "rig-1", "dev.impl")).toMatchObject({
+    expect(getNodeDetail(db, "software-team-1", "dev.impl")).toMatchObject({
       sessionStatus: "detached", storedSessionStatus: "running",
       lifecycleState: "detached", occupantLifecycle: "unknown",
       identityVerdict: n.identityVerdict,
     });
-    expect(getNodeInventoryForAllRigs(db).get("rig-1")).toEqual([n]);
-    expect(getNodeInventoryForRigs(db, new Set(["rig-1"])).get("rig-1")).toEqual([n]);
+    expect(getNodeInventoryForAllSoftwareTeams(db).get("software-team-1")).toEqual([n]);
+    expect(getNodeInventoryForSoftwareTeams(db, new Set(["software-team-1"])).get("software-team-1")).toEqual([n]);
     expect(db.prepare("SELECT * FROM sessions WHERE id = 'sess1'").get()).toEqual(stored);
     expect(db.prepare("SELECT occupant_lifecycle FROM nodes WHERE id = 'n1'").get()).toEqual({ occupant_lifecycle: "active" });
     expect(n.occupantLifecycle).toBe("unknown");
@@ -160,7 +160,7 @@ describe("getNodeInventory identity gating", () => {
       ...verdict("binding_absent", "binding_pane_missing"),
       evidence: { registeredPane: null, observedPid: null, observedCommand: null, matchedLayer: null },
     });
-    const [n] = getNodeInventory(db, "rig-1");
+    const [n] = getNodeInventory(db, "software-team-1");
     expect(n.identityVerdict?.verdict).toBe("binding_absent");
     expect(n.identityVerdict?.reason).toBe("binding_pane_missing");
     expect(n.lifecycleState).toBe("running");
@@ -177,7 +177,7 @@ describe("getNodeInventory identity gating", () => {
       ...verdict("pane_missing", "session_missing"),
       evidence: { registeredPane: null, observedPid: null, observedCommand: null, matchedLayer: null },
     });
-    const [n] = getNodeInventory(db, "rig-1");
+    const [n] = getNodeInventory(db, "software-team-1");
     expect(n.identityVerdict?.verdict).toBe("pane_missing");
     expect(n.lifecycleState).toBe("detached");
     expect(n.sessionStatus).toBe("detached");
@@ -192,9 +192,9 @@ describe("getNodeInventory identity gating", () => {
     // identity mismatches → still non-green. The verdict wins, not the heartbeat.
     db.prepare(
       "INSERT INTO queue_items (qitem_id, ts_created, ts_updated, source_session, destination_session, state, body) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    ).run("q1", "2026-07-02T12:00:00Z", "2026-07-02T12:00:00Z", "op@rig", "dev-impl@rig", "pending", "work");
+    ).run("q1", "2026-07-02T12:00:00Z", "2026-07-02T12:00:00Z", "op@software-team", "dev-impl@software-team", "pending", "work");
     new SeatIdentityStore(db).upsert(verdict("mismatch", "process_identity_mismatch"));
-    const [n] = getNodeInventory(db, "rig-1");
+    const [n] = getNodeInventory(db, "software-team-1");
     expect(n.lifecycleState).toBe("attention_required");
     db.close();
   });
@@ -208,7 +208,7 @@ describe("getNodeInventory identity gating", () => {
     try {
       seedRunningSeat(db);
       new SeatIdentityStore(db).upsert(verdict(kind, reason));
-      const [entry] = getNodeInventory(db, "rig-1");
+      const [entry] = getNodeInventory(db, "software-team-1");
       expect(entry.sessionStatus).toBe("running");
       expect(entry.storedSessionStatus).toBe("running");
       if (kind === "tmux_unavailable") expect(entry.lifecycleState).toBe("running");
@@ -220,12 +220,12 @@ describe("getNodeInventory identity gating", () => {
     try {
       seedRunningSeat(db);
       new SeatIdentityStore(db).upsert(verdict("pane_missing", "session_missing"));
-      db.prepare("INSERT INTO queue_items (qitem_id, ts_created, ts_updated, source_session, destination_session, state, body) VALUES ('q1', '2026-07-02', '2026-07-02', 'op@rig', 'dev-impl@rig', 'pending', 'work')").run();
+      db.prepare("INSERT INTO queue_items (qitem_id, ts_created, ts_updated, source_session, destination_session, state, body) VALUES ('q1', '2026-07-02', '2026-07-02', 'op@software-team', 'dev-impl@software-team', 'pending', 'work')").run();
       const seatActivity = {
         getSeatActivity: () => ({ isActiveWithinWindow: true, lastActivityAt: "2026-07-02T12:00:00.000Z", silenceWindowSeconds: 60 }),
         getSeatStateBySession: () => ({ activity: "working", needsInput: { count: 0, reason: null } }),
       };
-      const entries = await attachAgentActivity(getNodeInventory(db, "rig-1"), {
+      const entries = await attachAgentActivity(getNodeInventory(db, "software-team-1"), {
         tmuxAdapter: { capturePaneContent: () => { throw new Error("missing session must not be captured"); } } as never,
         activityStore: { getLatestForNode: () => ({ state: "running", reason: "hook" }) } as never,
         structuralActivity: { getStructuralActivity: () => ({ state: "mid_work" }) } as never,
@@ -249,12 +249,12 @@ describe("getNodeInventory verdict applicability gate (rev1-r2 B1 — no stale f
     try {
       seedRunningSeat(db);
       new SeatIdentityStore(db).upsert(verdict("pane_missing", "session_missing"));
-      if (changed === "session") db.prepare("UPDATE sessions SET session_name = 'new-seat@rig' WHERE id = 'sess1'").run();
+      if (changed === "session") db.prepare("UPDATE sessions SET session_name = 'new-seat@software-team' WHERE id = 'sess1'").run();
       if (changed === "pane") db.prepare("UPDATE bindings SET tmux_pane = '%2' WHERE node_id = 'n1'").run();
       if (changed === "registration") db.prepare("UPDATE sessions SET created_at = '2026-07-02 12:00:01' WHERE id = 'sess1'").run();
       if (changed === "handover") db.prepare("UPDATE nodes SET handover_at = '2026-07-02T12:00:00.000Z' WHERE id = 'n1'").run();
       if (changed === "ulid") db.prepare("UPDATE sessions SET id = ? WHERE id = 'sess1'").run(ulid(Date.parse("2026-07-02T12:00:00.000Z")));
-      expect(getNodeInventory(db, "rig-1")[0]).toMatchObject({
+      expect(getNodeInventory(db, "software-team-1")[0]).toMatchObject({
         identityVerdict: null, sessionStatus: "running", lifecycleState: "running", occupantLifecycle: "active",
       });
     } finally { db.close(); }
@@ -270,29 +270,29 @@ describe("getNodeInventory verdict applicability gate (rev1-r2 B1 — no stale f
       // The cutover keeps the canonical name and pane, supersedes the session,
       // and records a handover within the same SQLite timestamp second.
       db.prepare("UPDATE sessions SET status = 'superseded' WHERE id = 'sess1'").run();
-      db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status, created_at) VALUES ('sess2','n1','dev-impl@rig','running','ready','2026-07-02 12:00:00')").run();
+      db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status, created_at) VALUES ('sess2','n1','dev-impl@software-team','running','ready','2026-07-02 12:00:00')").run();
       db.prepare("UPDATE nodes SET handover_at = '2026-07-02T12:00:00.200Z' WHERE id = 'n1'").run();
       if (timing === "finishes after cutover") store.upsert(old);
-      for (const node of [getNodeInventory(db, "rig-1")[0], getNodeDetail(db, "rig-1", "dev.impl")!]) {
+      for (const node of [getNodeInventory(db, "software-team-1")[0], getNodeDetail(db, "software-team-1", "dev.impl")!]) {
         expect(node.identityVerdict).toBeNull();
         expect(node.startupStatus).toBe("ready");
         expect(node.lifecycleState).toBe("running");
         expect(node.occupantLifecycle).toBe("active");
       }
-      const overlay = getNodeInventory(db, "rig-1");
-      const graph = projectRigToGraph({
-        rig: { id: "rig-1", name: "test-rig" } as never,
-        nodes: [{ id: "n1", rigId: "rig-1", logicalId: "dev.impl", runtime: "claude-code" } as never],
-        sessions: [{ id: "sess2", nodeId: "n1", sessionName: "dev-impl@rig", status: "running", startupStatus: "ready" } as never],
+      const overlay = getNodeInventory(db, "software-team-1");
+      const graph = projectSoftwareTeamToGraph({
+        softwareTeam: { id: "software-team-1", name: "test-software-team" } as never,
+        nodes: [{ id: "n1", softwareTeamId: "software-team-1", logicalId: "dev.impl", runtime: "claude-code" } as never],
+        sessions: [{ id: "sess2", nodeId: "n1", sessionName: "dev-impl@software-team", status: "running", startupStatus: "ready" } as never],
         pods: [], edges: [],
       }, overlay);
       expect(graph.nodes[0].data.startupStatus).toBe("ready");
       // A later observation of THIS occupant still down-ranks it.
       store.upsert({ ...old, observedAt: "2026-07-02T12:00:00.300Z" });
-      expect(getNodeInventory(db, "rig-1")[0].startupStatus).toBe("attention_required");
+      expect(getNodeInventory(db, "software-team-1")[0].startupStatus).toBe("attention_required");
       db.prepare("UPDATE sessions SET startup_status = 'failed' WHERE id = 'sess2'").run();
       store.upsert({ ...verdict("verified"), observedAt: "2026-07-02T12:00:00.400Z" });
-      expect(getNodeInventory(db, "rig-1")[0].startupStatus).toBe("failed");
+      expect(getNodeInventory(db, "software-team-1")[0].startupStatus).toBe("failed");
     } finally { db.close(); }
   });
 
@@ -302,8 +302,8 @@ describe("getNodeInventory verdict applicability gate (rev1-r2 B1 — no stale f
       seedRunningSeat(db);
       db.prepare("UPDATE sessions SET created_at = '2026-07-02 12:00:01' WHERE id = 'sess1'").run();
       new SeatIdentityStore(db).upsert(verdict("pane_missing", "session_missing"));
-      expect(getNodeInventory(db, "rig-1")[0].identityVerdict).toBeNull();
-      expect(getNodeInventory(db, "rig-1")[0].startupStatus).toBe("ready");
+      expect(getNodeInventory(db, "software-team-1")[0].identityVerdict).toBeNull();
+      expect(getNodeInventory(db, "software-team-1")[0].startupStatus).toBe("ready");
     } finally { db.close(); }
   });
 
@@ -314,9 +314,9 @@ describe("getNodeInventory verdict applicability gate (rev1-r2 B1 — no stale f
       db.prepare("UPDATE nodes SET handover_at = ? WHERE id = 'n1'").run(verdict("mismatch").observedAt);
       const store = new SeatIdentityStore(db);
       store.upsert(verdict("mismatch"));
-      expect(getNodeInventory(db, "rig-1")[0].identityVerdict).toBeNull();
+      expect(getNodeInventory(db, "software-team-1")[0].identityVerdict).toBeNull();
       store.upsert({ ...verdict("pane_missing", "session_missing"), observedAt: "2026-07-02T12:00:00.001Z" });
-      expect(getNodeInventory(db, "rig-1")[0].sessionStatus).toBe("detached");
+      expect(getNodeInventory(db, "software-team-1")[0].sessionStatus).toBe("detached");
     } finally { db.close(); }
   });
 
@@ -329,10 +329,10 @@ describe("getNodeInventory verdict applicability gate (rev1-r2 B1 — no stale f
       const store = new SeatIdentityStore(db);
       for (const offset of [-1, 0]) {
         store.upsert({ ...verdict("mismatch"), observedAt: new Date(createdAt + offset).toISOString() });
-        expect(getNodeInventory(db, "rig-1")[0].identityVerdict).toBeNull();
+        expect(getNodeInventory(db, "software-team-1")[0].identityVerdict).toBeNull();
       }
       store.upsert({ ...verdict("mismatch"), observedAt: new Date(createdAt + 1).toISOString() });
-      expect(getNodeInventory(db, "rig-1")[0].startupStatus).toBe("attention_required");
+      expect(getNodeInventory(db, "software-team-1")[0].startupStatus).toBe("attention_required");
     } finally { db.close(); }
   });
 
@@ -350,16 +350,16 @@ describe("getNodeInventory verdict applicability gate (rev1-r2 B1 — no stale f
       reason,
       // OLD session + OLD pane — the pre-rebind binding.
       evidence: { registeredPane: "%OLD", observedPid: 9, observedCommand: "zsh", matchedLayer: 1 },
-      sessionName: "old-dev-impl@rig",
+      sessionName: "old-dev-impl@software-team",
       observedAt: "2026-07-01T00:00:00.000Z",
     };
   }
 
   it("stale VERIFIED verdict (old session+pane) is NOT applied to the new binding — treated as ABSENT", () => {
     const db = createFullTestDb();
-    seedRunningSeat(db); // current session dev-impl@rig, pane %1
+    seedRunningSeat(db); // current session dev-impl@software-team, pane %1
     new SeatIdentityStore(db).upsert(staleVerdict("verified"));
-    const [n] = getNodeInventory(db, "rig-1");
+    const [n] = getNodeInventory(db, "software-team-1");
     // Fail-open + the stale `verified` is NOT surfaced (it would be a false
     // "verified" badge on a pane it was never computed against).
     expect(n.identityVerdict).toBeNull();
@@ -371,7 +371,7 @@ describe("getNodeInventory verdict applicability gate (rev1-r2 B1 — no stale f
     const db = createFullTestDb();
     seedRunningSeat(db);
     new SeatIdentityStore(db).upsert(staleVerdict("mismatch", "process_identity_mismatch"));
-    const [n] = getNodeInventory(db, "rig-1");
+    const [n] = getNodeInventory(db, "software-team-1");
     expect(n.identityVerdict).toBeNull();
     expect(n.lifecycleState).toBe("running"); // stale verdict does not apply
     expect(n.startupStatus).toBe("ready");
@@ -383,10 +383,10 @@ describe("getNodeInventory verdict applicability gate (rev1-r2 B1 — no stale f
     const db = createFullTestDb();
     seedRunningSeat(db); // current pane %1
     new SeatIdentityStore(db).upsert({
-      ...verdict("mismatch", "process_identity_mismatch"), // sessionName matches (dev-impl@rig)
+      ...verdict("mismatch", "process_identity_mismatch"), // sessionName matches (dev-impl@software-team)
       evidence: { registeredPane: "%OLD", observedPid: 9, observedCommand: "zsh", matchedLayer: 1 }, // ...but pane does not
     });
-    const [n] = getNodeInventory(db, "rig-1");
+    const [n] = getNodeInventory(db, "software-team-1");
     expect(n.identityVerdict).toBeNull();
     expect(n.lifecycleState).toBe("running");
     expect(n.startupStatus).toBe("ready");
@@ -396,8 +396,8 @@ describe("getNodeInventory verdict applicability gate (rev1-r2 B1 — no stale f
   it("CRITICAL — a MATCHING mismatch verdict still down-ranks (gate does not over-suppress)", () => {
     const db = createFullTestDb();
     seedRunningSeat(db);
-    new SeatIdentityStore(db).upsert(verdict("mismatch", "process_identity_mismatch")); // session dev-impl@rig + pane %1 both match
-    const [n] = getNodeInventory(db, "rig-1");
+    new SeatIdentityStore(db).upsert(verdict("mismatch", "process_identity_mismatch")); // session dev-impl@software-team + pane %1 both match
+    const [n] = getNodeInventory(db, "software-team-1");
     expect(n.identityVerdict?.verdict).toBe("mismatch");
     expect(n.lifecycleState).toBe("attention_required");
     db.close();
@@ -407,7 +407,7 @@ describe("getNodeInventory verdict applicability gate (rev1-r2 B1 — no stale f
     const db = createFullTestDb();
     seedRunningSeat(db);
     new SeatIdentityStore(db).upsert(verdict("pane_missing", "session_missing"));
-    const [n] = getNodeInventory(db, "rig-1");
+    const [n] = getNodeInventory(db, "software-team-1");
     expect(n.identityVerdict?.reason).toBe("session_missing");
     expect(n.lifecycleState).toBe("detached");
     db.close();
@@ -424,16 +424,16 @@ describe("graph projection consumes the identity verdict (no false-green)", () =
     const overlay: InventoryOverlay[] = [{
       logicalId: "dev.impl",
       startupStatus: "ready", // startup says ready...
-      canonicalSessionName: "dev-impl@rig",
+      canonicalSessionName: "dev-impl@software-team",
       restoreOutcome: "n-a",
       terminalActive: true, // ...and the (orphan's) tmux output is active...
       identityVerdict: verdict("mismatch", "process_identity_mismatch"), // ...but identity mismatches.
     }];
-    const graph = projectRigToGraph({
-      rig: { id: "rig-1", name: "test-rig" } as never,
-      nodes: [{ id: "n1", rigId: "rig-1", logicalId: "dev.impl", runtime: "claude-code" } as never],
+    const graph = projectSoftwareTeamToGraph({
+      softwareTeam: { id: "software-team-1", name: "test-software-team" } as never,
+      nodes: [{ id: "n1", softwareTeamId: "software-team-1", logicalId: "dev.impl", runtime: "claude-code" } as never],
       edges: [],
-      sessions: [{ id: "sess1", nodeId: "n1", sessionName: "dev-impl@rig", status: "running", startupStatus: "ready" } as never],
+      sessions: [{ id: "sess1", nodeId: "n1", sessionName: "dev-impl@software-team", status: "running", startupStatus: "ready" } as never],
       pods: [],
     }, overlay);
     return graph.nodes.find((n) => n.id === "n1");
@@ -449,14 +449,14 @@ describe("graph projection consumes the identity verdict (no false-green)", () =
 
   it("verified verdict leaves the graph node ready (no-regression)", () => {
     const overlay: InventoryOverlay[] = [{
-      logicalId: "dev.impl", startupStatus: "ready", canonicalSessionName: "dev-impl@rig",
+      logicalId: "dev.impl", startupStatus: "ready", canonicalSessionName: "dev-impl@software-team",
       restoreOutcome: "n-a", terminalActive: true, identityVerdict: verdict("verified"),
     }];
-    const graph = projectRigToGraph({
-      rig: { id: "rig-1", name: "test-rig" } as never,
-      nodes: [{ id: "n1", rigId: "rig-1", logicalId: "dev.impl", runtime: "claude-code" } as never],
+    const graph = projectSoftwareTeamToGraph({
+      softwareTeam: { id: "software-team-1", name: "test-software-team" } as never,
+      nodes: [{ id: "n1", softwareTeamId: "software-team-1", logicalId: "dev.impl", runtime: "claude-code" } as never],
       edges: [],
-      sessions: [{ id: "sess1", nodeId: "n1", sessionName: "dev-impl@rig", status: "running", startupStatus: "ready" } as never],
+      sessions: [{ id: "sess1", nodeId: "n1", sessionName: "dev-impl@software-team", status: "running", startupStatus: "ready" } as never],
       pods: [],
     }, overlay);
     expect(graph.nodes.find((n) => n.id === "n1")?.data.startupStatus).toBe("ready");

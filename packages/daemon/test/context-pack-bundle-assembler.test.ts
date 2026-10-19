@@ -1,4 +1,4 @@
-// Rig Context / Composable Context Injection v0 (PL-014) — bundle
+// SoftwareTeam Context / Composable Context Injection v0 (PL-014) — bundle
 // assembler tests.
 
 import { describe, it, expect } from "vitest";
@@ -42,7 +42,7 @@ describe("assembleBundle", () => {
       packEntry: entry,
       readFile: (p) => reads[p]!,
     });
-    expect(bundle.text).toContain("# OpenRig Context Pack: alpha v1");
+    expect(bundle.text).toContain("# SoftwareTeam Context Pack: alpha v1");
     expect(bundle.text).toContain("Alpha pack purpose");
     expect(bundle.text).toContain("## File: prd.md (role: prd) — PRD summary");
     expect(bundle.text).toContain("## File: notes.md (role: notes)");
@@ -94,6 +94,6 @@ describe("assembleBundle", () => {
     const bundle = assembleBundle({ packEntry: entry, readFile: () => "" });
     expect(bundle.files).toEqual([]);
     expect(bundle.missingFiles).toEqual([]);
-    expect(bundle.text).toContain("# OpenRig Context Pack: test v1");
+    expect(bundle.text).toContain("# SoftwareTeam Context Pack: test v1");
   });
 });

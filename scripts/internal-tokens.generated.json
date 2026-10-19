@@ -1,29 +1,29 @@
 {
   "version": 1,
   "path_prefixes": [
-    "openrig-work/",
-    "openrig-internal/",
+    "softwareteam-work/",
+    "softwareteam-internal/",
     "/Users/wrandom/",
     "~/code/substrate/",
     "substrate/shared-docs/",
-    ".openrig/artifacts/",
-    ".openrig/compaction/",
-    ".openrig/backups/",
-    ".openrig/agent-images/",
-    ".openrig/secrets/"
+    ".softwareteam/artifacts/",
+    ".softwareteam/compaction/",
+    ".softwareteam/backups/",
+    ".softwareteam/agent-images/",
+    ".softwareteam/secrets/"
   ],
-  "seat_and_rig_patterns": [
+  "seat_and_software_team_patterns": [
     "@skill-library",
     "@kernel",
-    "@openrig-pm",
-    "@openrig-studio",
-    "@openrig-comms",
-    "@v-openrig-build",
+    "@softwareteam-pm",
+    "@softwareteam-studio",
+    "@softwareteam-comms",
+    "@v-softwareteam-build",
     "operator-agent@",
     "pm-lead@",
     "skills-architect@",
     "skills-analyst@",
-    "openrig-velocity",
+    "softwareteam-velocity",
     "redo-driver",
     "dev1-guard",
     "dev-driver3"
@@ -68,6 +68,6 @@
     "internal-only (example)"
   ],
   "allowed_context_lines": [
-    "   `<launch cwd>/.openrig/compaction/preparation/<session>/<attempt>/RESTORE-MAP.md`; its parent"
+    "   `<launch cwd>/.softwareteam/compaction/preparation/<session>/<attempt>/RESTORE-MAP.md`; its parent"
   ]
 }

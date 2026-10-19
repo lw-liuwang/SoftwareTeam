@@ -140,7 +140,7 @@ describe("PackageList", () => {
 
     const importBtn = screen.getByTestId("empty-import-btn");
     const bootstrapBtn = screen.getByTestId("empty-bootstrap-btn");
-    expect(importBtn.textContent).toContain("IMPORT RIGSPEC");
+    expect(importBtn.textContent).toContain("IMPORT SOFTWARE_TEAM_SPEC");
     expect(bootstrapBtn.textContent).toContain("BOOTSTRAP");
     expect(screen.queryByTestId("empty-install-btn")).toBeNull();
 

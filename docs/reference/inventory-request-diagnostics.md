@@ -4,19 +4,19 @@ The private slow-operation log can correlate explicitly marked inventory reads.
 This diagnoses future observations; it does not repair a timeout or establish the
 cause of an earlier uncorrelated request.
 
-Send exactly one `X-OpenRig-Diagnostic-Attempt` header containing a fresh lowercase
-UUIDv4 on a `GET /api/rigs` or `GET /api/rigs/:id/nodes` request. The token is only a
+Send exactly one `X-SoftwareTeam-Diagnostic-Attempt` header containing a fresh lowercase
+UUIDv4 on a `GET /api/SoftwareTeams` or `GET /api/SoftwareTeams/:id/nodes` request. The token is only a
 correlation hint. It grants no authority, triggers no retry, and changes neither
 the response nor its timeout. Invalid or duplicate tokens are ignored by the
 observer. Do not copy the token to incidental identity or health checks.
 
-Records use `schema: openrig.request-phase/v1` in the existing
+Records use `schema: softwareteam.request-phase/v1` in the existing
 `logs/slow-operations.jsonl`. Each process has an observation `epoch` and sequence
 `seq`. An activation record carries the installed build stamp (`semver`,
 `commit`, `dirty`, `builtAt`; each is null in an unstamped development build).
 Each admitted request gets a distinct
 `serverRequestId`, even if a caller reuses an `attemptId`. Routes are recorded as
-`rigs_list` or `rig_nodes`, never a rig name or full URL.
+`software_teams_list` or `software_team_nodes`, never a SoftwareTeam name or full URL.
 
 The phases are:
 

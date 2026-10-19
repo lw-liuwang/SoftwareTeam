@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, cleanup, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { usePsEntries } from "../src/hooks/usePsEntries.js";
-import { useRigSummary } from "../src/hooks/useRigSummary.js";
-import { useArchivedRigs } from "../src/hooks/useArchivedRigs.js";
-import { useRigGraph } from "../src/hooks/useRigGraph.js";
+import { useSoftwareTeamSummary } from "../src/hooks/useSoftwareTeamSummary.js";
+import { useArchivedSoftwareTeams } from "../src/hooks/useArchivedSoftwareTeams.js";
+import { useSoftwareTeamGraph } from "../src/hooks/useSoftwareTeamGraph.js";
 import { useSnapshots } from "../src/hooks/useSnapshots.js";
-import { useCreateSnapshot, useRestoreSnapshot, useImportRig } from "../src/hooks/mutations.js";
+import { useCreateSnapshot, useRestoreSnapshot, useImportSoftwareTeam } from "../src/hooks/mutations.js";
 
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
@@ -30,41 +30,41 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
-// Test harness for useRigSummary
+// Test harness for useSoftwareTeamSummary
 function SummaryHarness() {
-  const { data, isPending, error } = useRigSummary();
+  const { data, isPending, error } = useSoftwareTeamSummary();
   if (isPending) return <div data-testid="state">pending</div>;
   if (error) return <div data-testid="state">error: {error.message}</div>;
   return <div data-testid="state">data: {data?.length}</div>;
 }
 
-// OPR.0.3.3.19 - harness for useArchivedRigs (archived-only section feed).
+// OPR.0.3.3.19 - harness for useArchivedSoftwareTeams (archived-only section feed).
 function ArchivedHarness({ enabled }: { enabled?: boolean }) {
-  const { data, isPending, error } = useArchivedRigs({ enabled });
+  const { data, isPending, error } = useArchivedSoftwareTeams({ enabled });
   if (error) return <div data-testid="state">error: {error.message}</div>;
   if (isPending) return <div data-testid="state">pending</div>;
   return <div data-testid="state">archived: {data?.length}</div>;
 }
 
-// Test harness for useRigGraph
-function GraphHarness({ rigId }: { rigId: string }) {
-  const { data, isPending, error } = useRigGraph(rigId);
+// Test harness for useSoftwareTeamGraph
+function GraphHarness({ softwareTeamId }: { softwareTeamId: string }) {
+  const { data, isPending, error } = useSoftwareTeamGraph(softwareTeamId);
   if (isPending) return <div data-testid="state">pending</div>;
   if (error) return <div data-testid="state">error: {error.message}</div>;
   return <div data-testid="state">nodes: {data?.nodes.length}</div>;
 }
 
 // Test harness for useSnapshots
-function SnapshotsHarness({ rigId }: { rigId: string }) {
-  const { data, isPending, error } = useSnapshots(rigId);
+function SnapshotsHarness({ softwareTeamId }: { softwareTeamId: string }) {
+  const { data, isPending, error } = useSnapshots(softwareTeamId);
   if (isPending) return <div data-testid="state">pending</div>;
   if (error) return <div data-testid="state">error: {error.message}</div>;
   return <div data-testid="state">snaps: {data?.length}</div>;
 }
 
 // Mutation test harnesses
-function CreateSnapshotHarness({ rigId }: { rigId: string }) {
-  const mutation = useCreateSnapshot(rigId);
+function CreateSnapshotHarness({ softwareTeamId }: { softwareTeamId: string }) {
+  const mutation = useCreateSnapshot(softwareTeamId);
   return (
     <div>
       <button data-testid="create" onClick={() => mutation.mutate()}>Create</button>
@@ -73,8 +73,8 @@ function CreateSnapshotHarness({ rigId }: { rigId: string }) {
   );
 }
 
-function RestoreHarness({ rigId }: { rigId: string }) {
-  const mutation = useRestoreSnapshot(rigId);
+function RestoreHarness({ softwareTeamId }: { softwareTeamId: string }) {
+  const mutation = useRestoreSnapshot(softwareTeamId);
   return (
     <div>
       <button data-testid="restore" onClick={() => mutation.mutate("snap-1")}>Restore</button>
@@ -84,7 +84,7 @@ function RestoreHarness({ rigId }: { rigId: string }) {
 }
 
 function ImportHarness() {
-  const mutation = useImportRig();
+  const mutation = useImportSoftwareTeam();
   return (
     <div>
       <button data-testid="import" onClick={() => mutation.mutate("yaml content")}>Import</button>
@@ -101,8 +101,8 @@ describe("TanStack Query hooks", () => {
     await waitFor(() => expect(screen.getByTestId("state").textContent).toBe("data: 0"));
   });
 
-  // Test 2: useRigSummary returns summary data
-  it("useRigSummary returns summary data with loading/success", async () => {
+  // Test 2: useSoftwareTeamSummary returns summary data
+  it("useSoftwareTeamSummary returns summary data with loading/success", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => [{ id: "r1", name: "alpha", nodeCount: 3, latestSnapshotAt: null, latestSnapshotId: null }],
@@ -116,20 +116,20 @@ describe("TanStack Query hooks", () => {
     await waitFor(() => expect(screen.getByTestId("state").textContent).toBe("data: 1"));
   });
 
-  // OPR.0.3.3.19: useArchivedRigs hits the archived-only endpoint.
-  it("useArchivedRigs fetches /api/rigs/summary?archived=only", async () => {
+  // OPR.0.3.3.19: useArchivedSoftwareTeams hits the archived-only endpoint.
+  it("useArchivedSoftwareTeams fetches /api/software-teams/summary?archived=only", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => [{ id: "r-arc", name: "tidy-me", nodeCount: 2, latestSnapshotAt: null, latestSnapshotId: null }],
     });
     render(<Wrapper><ArchivedHarness /></Wrapper>);
     await waitFor(() => expect(screen.getByTestId("state").textContent).toBe("archived: 1"));
-    expect(mockFetch).toHaveBeenCalledWith("/api/rigs/summary?archived=only");
+    expect(mockFetch).toHaveBeenCalledWith("/api/software-teams/summary?archived=only");
   });
 
   // OPR.0.3.3.19: lazy fan-out - disabled query never fetches (collapsed
   // Archive section costs nothing).
-  it("useArchivedRigs does not fetch when disabled", async () => {
+  it("useArchivedSoftwareTeams does not fetch when disabled", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => [] });
     render(<Wrapper><ArchivedHarness enabled={false} /></Wrapper>);
     // Give react-query a tick; the query must stay idle (no fetch).
@@ -137,54 +137,54 @@ describe("TanStack Query hooks", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  // Test 3: useRigGraph returns graph data
-  it("useRigGraph returns graph data for specific rigId", async () => {
+  // Test 3: useSoftwareTeamGraph returns graph data
+  it("useSoftwareTeamGraph returns graph data for specific softwareTeamId", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({ nodes: [{ id: "n1" }, { id: "n2" }], edges: [] }),
     });
-    render(<Wrapper><GraphHarness rigId="r1" /></Wrapper>);
+    render(<Wrapper><GraphHarness softwareTeamId="r1" /></Wrapper>);
 
     await waitFor(() => expect(screen.getByTestId("state").textContent).toBe("nodes: 2"));
-    expect(mockFetch).toHaveBeenCalledWith("/api/rigs/r1/graph");
+    expect(mockFetch).toHaveBeenCalledWith("/api/software-teams/r1/graph");
   });
 
   // Test 4: useSnapshots returns snapshot list
-  it("useSnapshots returns snapshot list for rigId", async () => {
+  it("useSnapshots returns snapshot list for softwareTeamId", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
     });
-    render(<Wrapper><SnapshotsHarness rigId="r1" /></Wrapper>);
+    render(<Wrapper><SnapshotsHarness softwareTeamId="r1" /></Wrapper>);
 
     await waitFor(() => expect(screen.getByTestId("state").textContent).toBe("snaps: 3"));
-    expect(mockFetch).toHaveBeenCalledWith("/api/rigs/r1/snapshots");
+    expect(mockFetch).toHaveBeenCalledWith("/api/software-teams/r1/snapshots");
   });
 
-  // Test 5: SSE event triggers graph invalidation — covered in rig-events.test.tsx
+  // Test 5: SSE event triggers graph invalidation — covered in software-team-events.test.tsx
 
   // Test 6: useCreateSnapshot mutation invalidates snapshot list
   it("useCreateSnapshot invalidates snapshot query on success", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ id: "snap-new" }) });
     const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
 
-    render(<Wrapper><CreateSnapshotHarness rigId="r1" /></Wrapper>);
+    render(<Wrapper><CreateSnapshotHarness softwareTeamId="r1" /></Wrapper>);
     act(() => { screen.getByTestId("create").click(); });
 
     await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("success"));
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["rig", "r1", "snapshots"] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["softwareTeam", "r1", "snapshots"] });
   });
 
-  // Test 7: useRestoreSnapshot mutation invalidates rig data
-  it("useRestoreSnapshot invalidates rig query on success", async () => {
+  // Test 7: useRestoreSnapshot mutation invalidates softwareTeam data
+  it("useRestoreSnapshot invalidates SoftwareTeam query on success", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ nodes: [] }) });
     const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
 
-    render(<Wrapper><RestoreHarness rigId="r1" /></Wrapper>);
+    render(<Wrapper><RestoreHarness softwareTeamId="r1" /></Wrapper>);
     act(() => { screen.getByTestId("restore").click(); });
 
     await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("success"));
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["rig", "r1"] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["softwareTeam", "r1"] });
   });
 
   // Test 8: Error state propagates from failed query
@@ -200,21 +200,21 @@ describe("TanStack Query hooks", () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ id: "snap-new" }) });
     const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
 
-    render(<Wrapper><CreateSnapshotHarness rigId="r1" /></Wrapper>);
+    render(<Wrapper><CreateSnapshotHarness softwareTeamId="r1" /></Wrapper>);
     act(() => { screen.getByTestId("create").click(); });
 
     await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("success"));
 
     const calls = invalidateSpy.mock.calls.map((c) => JSON.stringify(c[0]));
-    expect(calls).toContain(JSON.stringify({ queryKey: ["rig", "r1", "snapshots"] }));
-    expect(calls).toContain(JSON.stringify({ queryKey: ["rigs", "summary"] }));
+    expect(calls).toContain(JSON.stringify({ queryKey: ["softwareTeam", "r1", "snapshots"] }));
+    expect(calls).toContain(JSON.stringify({ queryKey: ["softwareTeams", "summary"] }));
   });
 
-  // Test 10: useImportRig invalidates summary query after successful instantiate
-  it("useImportRig invalidates summary query on success", async () => {
+  // Test 10: useImportSoftwareTeam invalidates summary query after successful instantiate
+  it("useImportSoftwareTeam invalidates summary query on success", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
-      json: async () => ({ rigId: "new-rig", specName: "test", nodes: [] }),
+      json: async () => ({ softwareTeamId: "new-software-team", specName: "test", nodes: [] }),
     });
     const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
 
@@ -222,7 +222,7 @@ describe("TanStack Query hooks", () => {
     act(() => { screen.getByTestId("import").click(); });
 
     await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("success"));
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["rigs", "summary"] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["softwareTeams", "summary"] });
   });
 
   // slice-04 qitem-20260721000001-ps-stall-driver — U2 (regression pin; genuine RED
@@ -231,21 +231,21 @@ describe("TanStack Query hooks", () => {
   // both queryFns called fetch(url) with no signal.
   function PsSummaryHarness() {
     usePsEntries();
-    useRigSummary();
+    useSoftwareTeamSummary();
     return <div data-testid="ps-summary">mounted</div>;
   }
 
-  it("U2 regression: usePsEntries + useRigSummary forward the AbortSignal to fetch and honor cancel", async () => {
+  it("U2 regression: usePsEntries + useSoftwareTeamSummary forward the AbortSignal to fetch and honor cancel", async () => {
     mockFetch.mockImplementation(() => new Promise(() => {})); // never resolves -> queries stay pending
     render(<Wrapper><PsSummaryHarness /></Wrapper>);
 
     await waitFor(() => {
       expect(mockFetch.mock.calls.some((c) => String(c[0]).includes("/api/ps"))).toBe(true);
-      expect(mockFetch.mock.calls.some((c) => String(c[0]).includes("/api/rigs/summary"))).toBe(true);
+      expect(mockFetch.mock.calls.some((c) => String(c[0]).includes("/api/software-teams/summary"))).toBe(true);
     });
 
     const psCall = mockFetch.mock.calls.find((c) => String(c[0]).includes("/api/ps"));
-    const sumCall = mockFetch.mock.calls.find((c) => String(c[0]).includes("/api/rigs/summary"));
+    const sumCall = mockFetch.mock.calls.find((c) => String(c[0]).includes("/api/software-teams/summary"));
     const psSignal = (psCall?.[1] as { signal?: AbortSignal } | undefined)?.signal;
     const sumSignal = (sumCall?.[1] as { signal?: AbortSignal } | undefined)?.signal;
 

@@ -4,7 +4,7 @@ import { healthCommand, type HealthDeps } from "../src/commands/health.js";
 
 vi.mock("../src/daemon-lifecycle.js", async () => ({
   ...await vi.importActual("../src/daemon-lifecycle.js"),
-  getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, port: 7433 })),
+  getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, port: 7434 })),
   getDaemonUrl: vi.fn(() => "http://fixture"),
 }));
 
@@ -17,7 +17,7 @@ const diagnosis = (large: boolean) => {
     ceremony: { basis: "basis-1", stage: "needs-diagnosis", missingFacts: ["outcome"],
       workflowReceipts: [{ candidate: "candidate-sha", evidence: { cutSha: "exact-cut", verdict: "PASS", fullScan: { content } } }] } };
   return {
-    row: { qitemId: "q-1", state: "blocked", destinationSession: "owner@rig", blockedOn: "decision-1", summary: "Outcome unknown", body: content },
+    row: { qitemId: "q-1", state: "blocked", destinationSession: "owner@software-team", blockedOn: "decision-1", summary: "Outcome unknown", body: content },
     packet: { schema: "diagnosis", presentedAt: "2026-09-07T00:00:00Z", instructions: "Read full context", finding, authority },
     finding, authority, receipts: [{ action: "presented", finding, authority }],
     disposition: { verdict: "insufficient evidence", causalStart: null, steering: "Inspect outcome", uncertainty: "missing outcome", evidenceRefs: ["proof.md"] },
@@ -33,7 +33,7 @@ async function run(kind: "queue" | "health", args: string[], data: unknown, stat
   const deps = { lifecycleDeps: {}, clientFactory: () => ({ get, post: get }), resolveIdentity: () => null };
   const command = kind === "queue" ? queueCommand(deps as unknown as QueueDeps) : healthCommand(deps as unknown as HealthDeps);
   command.exitOverride();
-  await command.parseAsync(["node", "rig", ...args]);
+  await command.parseAsync(["node", "softwareTeam", ...args]);
   return { logs, errors, get };
 }
 afterEach(() => { vi.restoreAllMocks(); process.exitCode = undefined; });
@@ -43,7 +43,7 @@ describe("deliberate full reads", () => {
     const original = diagnosis(large), before = JSON.stringify(original);
     const { logs } = await run("health", ["diagnosis", "show", "q-1", "--json"], original);
     const value = JSON.parse(logs.join("\n"));
-    expect(value.row).toMatchObject({ state: "blocked", destinationSession: "owner@rig", blockedOn: "decision-1" });
+    expect(value.row).toMatchObject({ state: "blocked", destinationSession: "owner@software-team", blockedOn: "decision-1" });
     expect(value.disposition).toEqual(original.disposition);
     expect(value.notificationReadiness).toEqual(original.notificationReadiness);
     expect(value.finding.ceremony).toMatchObject({ basis: "basis-1", missingFacts: ["outcome"] });
@@ -52,7 +52,7 @@ describe("deliberate full reads", () => {
     expect(value.authority).toEqual([{ path: "SPEC.md", state: "available", sha256: "bound-hash" }]);
     expect(value).not.toHaveProperty("receipts");
     expect(value.row).not.toHaveProperty("body");
-    expect(value.readView).toMatchObject({ complete: false, fullJsonBytes: Buffer.byteLength(before), fullCommand: "rig health diagnosis show 'q-1' --full --json" });
+    expect(value.readView).toMatchObject({ complete: false, fullJsonBytes: Buffer.byteLength(before), fullCommand: "SoftwareTeam health diagnosis show 'q-1' --full --json" });
     expect(value.readView.omittedFields).toContainEqual(expect.objectContaining({ path: "receipts", items: 1 }));
     if (large) expect(Buffer.byteLength(logs[0]!)).toBeLessThan(5_000);
     expect(JSON.stringify(original)).toBe(before);
@@ -84,14 +84,14 @@ describe("deliberate full reads", () => {
 
   it("human diagnosis shows an exact expansion and its cost", async () => {
     const { logs } = await run("health", ["diagnosis", "show", "q-1"], diagnosis(true));
-    expect(logs.join("\n")).toContain("rig health diagnosis show 'q-1' --full --json");
+    expect(logs.join("\n")).toContain("SoftwareTeam health diagnosis show 'q-1' --full --json");
     expect(logs.join("\n")).toContain("JSON bytes");
     expect(logs.join("\n")).toContain("blocked");
     expect(logs.join("\n")).toContain("decision-1");
   });
 
   it("keeps attributed correction and unobserved effect visible without expanding source bodies", async () => {
-    const original = { ...diagnosis(true), guidance: "Current correction guidance", assessment: { actor: "owner@rig", at: "2026-09-10T00:00:00Z", transitionId: 42 }, behavioralEffect: "unobserved" };
+    const original = { ...diagnosis(true), guidance: "Current correction guidance", assessment: { actor: "owner@software-team", at: "2026-09-10T00:00:00Z", transitionId: 42 }, behavioralEffect: "unobserved" };
     const correction = { applicability: "Emergency premise retired; publication still applies", causalJudgment: "Owner assessment of retained trace", action: { state: "taken", summary: "Retired reservation", evidenceRefs: ["action.md"] }, effect: { state: "unobserved", summary: "No natural opportunity", evidenceRefs: [] } };
     const data = { ...original, disposition: { ...original.disposition, correction } };
     const json = JSON.parse((await run("health", ["diagnosis", "show", "q-1", "--json"], data)).logs[0]!);
@@ -103,7 +103,7 @@ describe("deliberate full reads", () => {
     const text = (await run("health", ["diagnosis", "show", "q-1"], data)).logs.join("\n");
     expect(text).toContain("Action (taken): Retired reservation");
     expect(text).toContain("Later behavioral effect (owner report): unobserved");
-    expect(text).toContain("Attributed assessment: owner@rig");
+    expect(text).toContain("Attributed assessment: owner@software-team");
   });
 
   it.each(["", "😀".repeat(900)])("queue retains existing body semantics and adds exact full discovery", async (body) => {
@@ -112,7 +112,7 @@ describe("deliberate full reads", () => {
     const value = JSON.parse(logs[0]!);
     expect(value.bodyBytes).toBe(Buffer.byteLength(body));
     expect(value.blockedOn).toBe("decision-1");
-    expect(value.readView).toMatchObject({ complete: body.length === 0, fullJsonBytes: Buffer.byteLength(JSON.stringify(original)), fullCommand: "rig queue show 'q-1' --full --json" });
+    expect(value.readView).toMatchObject({ complete: body.length === 0, fullJsonBytes: Buffer.byteLength(JSON.stringify(original)), fullCommand: "SoftwareTeam queue show 'q-1' --full --json" });
     const full = await run("queue", ["show", "q-1", "--full", "--json"], original);
     expect(full.logs).toEqual([JSON.stringify(original)]);
   });

@@ -1,16 +1,16 @@
-import type { RigRepository } from "./rig-repository.js";
+import type { SoftwareTeamRepository } from "./software-team-repository.js";
 import { deriveCanonicalFromEntry, getNodeInventory } from "./node-inventory.js";
 import { parseSessionName } from "./session-name.js";
 import type { NodeInventoryEntry, SeatIdentityVerdict } from "./types.js";
 import { NativePermissionStore, type StoredNativePermissionSelection, type ResolvedSeatPermission } from "./native-permission-store.js";
 import { AppliedLaunchObservationStore, type StoredAppliedLaunchObservation } from "./applied-launch-observation-store.js";
 
-const SEAT_LOOKUP_GUIDANCE = "List seats with: rig ps --nodes";
+const SEAT_LOOKUP_GUIDANCE = "List seats with: SoftwareTeam ps --nodes";
 
 export interface SeatStatus {
   seat_ref: string;
-  rig_id: string;
-  rig_name: string;
+  software_team_id: string;
+  software_team_name: string;
   logical_id: string;
   pod_id: string | null;
   pod_namespace: string | null;
@@ -38,17 +38,17 @@ export interface SeatStatus {
 export type SeatStatusResult =
   | { ok: true; status: SeatStatus }
   | { ok: false; code: "seat_ref_required" | "seat_not_found"; message: string; guidance: string }
-  | { ok: false; code: "seat_ambiguous"; message: string; guidance: string; matches: Array<{ rig_name: string; logical_id: string; current_occupant: string | null }> };
+  | { ok: false; code: "seat_ambiguous"; message: string; guidance: string; matches: Array<{ software_team_name: string; logical_id: string; current_occupant: string | null }> };
 
 interface SeatMatch {
   entry: NodeInventoryEntry;
 }
 
 export class SeatStatusService {
-  private rigRepo: RigRepository;
+  private softwareTeamRepo: SoftwareTeamRepository;
 
-  constructor(deps: { rigRepo: RigRepository }) {
-    this.rigRepo = deps.rigRepo;
+  constructor(deps: { softwareTeamRepo: SoftwareTeamRepository }) {
+    this.softwareTeamRepo = deps.softwareTeamRepo;
   }
 
   getStatus(seatRef: string): SeatStatusResult {
@@ -68,7 +68,7 @@ export class SeatStatusService {
         message: `Seat "${ref}" matched multiple nodes`,
         guidance: SEAT_LOOKUP_GUIDANCE,
         matches: matches.map(({ entry }) => ({
-          rig_name: entry.rigName,
+          software_team_name: entry.softwareTeamName,
           logical_id: entry.logicalId,
           current_occupant: entry.canonicalSessionName,
         })),
@@ -79,35 +79,35 @@ export class SeatStatusService {
   }
 
   private findMatches(ref: string): SeatMatch[] {
-    // OPR.0.4.6.MH1 FR-8: the shared parse contract (greedy first-@ rig).
+    // OPR.0.4.6.MH1 FR-8: the shared parse contract (greedy first-@ softwareTeam).
     const parsed = parseSessionName(ref);
     if (parsed.kind === "canonical") {
       const localRef = parsed.member;
-      const rigName = parsed.rig;
-      const rigs = this.rigRepo.findUnarchivedRigsByName(rigName);
-      return rigs.flatMap((rig) => this.entriesForRig(rig.id).filter((entry) =>
+      const softwareTeamName = parsed.softwareTeam;
+      const softwareTeams = this.softwareTeamRepo.findUnarchivedSoftwareTeamsByName(softwareTeamName);
+      return softwareTeams.flatMap((softwareTeam) => this.entriesForSoftwareTeam(softwareTeam.id).filter((entry) =>
         entry.canonicalSessionName === ref
         || deriveCanonicalFromEntry(entry) === ref
         || entry.logicalId === localRef
       ).map((entry) => ({ entry })));
     }
 
-    return this.rigRepo.listRigs().flatMap((rig) =>
-      this.entriesForRig(rig.id).filter((entry) =>
+    return this.softwareTeamRepo.listSoftwareTeams().flatMap((softwareTeam) =>
+      this.entriesForSoftwareTeam(softwareTeam.id).filter((entry) =>
         entry.canonicalSessionName === ref || entry.logicalId === ref
       ).map((entry) => ({ entry }))
     );
   }
 
-  private entriesForRig(rigId: string): NodeInventoryEntry[] {
-    return getNodeInventory(this.rigRepo.db, rigId);
+  private entriesForSoftwareTeam(softwareTeamId: string): NodeInventoryEntry[] {
+    return getNodeInventory(this.softwareTeamRepo.db, softwareTeamId);
   }
 
   private projectStatus(seatRef: string, entry: NodeInventoryEntry): SeatStatus {
     return {
       seat_ref: seatRef,
-      rig_id: entry.rigId,
-      rig_name: entry.rigName,
+      software_team_id: entry.softwareTeamId,
+      software_team_name: entry.softwareTeamName,
       logical_id: entry.logicalId,
       pod_id: entry.podId,
       pod_namespace: entry.podNamespace ?? null,
@@ -127,9 +127,9 @@ export class SeatStatusService {
   }
 
   private permissionStatus(nodeId: string, runtime?: string | null): SeatStatus["permissions"] {
-    const lastLaunchArguments = new AppliedLaunchObservationStore(this.rigRepo.db).readCurrent(nodeId);
+    const lastLaunchArguments = new AppliedLaunchObservationStore(this.softwareTeamRepo.db).readCurrent(nodeId);
     try {
-      const store = new NativePermissionStore(this.rigRepo.db);
+      const store = new NativePermissionStore(this.softwareTeamRepo.db);
       const desired = store.read(nodeId);
       const effective = runtime ? store.resolve(nodeId, runtime) : undefined;
       return { selectionState: desired ? "explicit" : "inherit", desired, lastLaunchArguments, nativeEffect: "unverified", ...(effective ? { effective } : {}) };

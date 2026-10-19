@@ -1,6 +1,6 @@
-// OPR.0.4.6.2 (FR-5) — the saved-views + openable-rigs list for the terminal
-// launcher. GET /api/terminal/views → { saved, rigs } (the C3 canonical route).
-// Saved views are provider-agnostic and read at launch; derived views (rig /
+// OPR.0.4.6.2 (FR-5) — the saved-views + openable-softwareTeams list for the terminal
+// launcher. GET /api/terminal/views → { saved, softwareTeams } (the C3 canonical route).
+// Saved views are provider-agnostic and read at launch; derived views (softwareTeam /
 // mission / slice) are computed live and never appear here.
 
 import { useQuery } from "@tanstack/react-query";
@@ -23,8 +23,8 @@ export interface SavedViewDto {
 
 export interface TerminalViewsResponse {
   saved: SavedViewDto[];
-  /** Rig names openable as per-rig derived views. */
-  rigs: string[];
+  /** SoftwareTeam names openable as per-softwareTeam derived views. */
+  softwareTeams: string[];
 }
 
 async function fetchTerminalViews(hostId: string): Promise<TerminalViewsResponse> {

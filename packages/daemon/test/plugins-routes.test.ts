@@ -20,7 +20,7 @@ import { pluginsRoutes } from "../src/routes/plugins.js";
 interface TestEnv {
   root: string;
   service: PluginDiscoveryService;
-  openrigPluginsDir: string;
+  softwareteamPluginsDir: string;
   claudeCacheDir: string;
   codexCacheDir: string;
   specLibraryDir: string;
@@ -28,21 +28,21 @@ interface TestEnv {
 
 function setup(): TestEnv {
   const root = mkdtempSync(join(tmpdir(), "plugins-routes-"));
-  const openrigPluginsDir = join(root, "openrig-plugins");
+  const softwareteamPluginsDir = join(root, "softwareteam-plugins");
   const claudeCacheDir = join(root, "claude-cache");
   const codexCacheDir = join(root, "codex-cache");
   const specLibraryDir = join(root, "specs");
-  mkdirSync(openrigPluginsDir, { recursive: true });
+  mkdirSync(softwareteamPluginsDir, { recursive: true });
   mkdirSync(claudeCacheDir, { recursive: true });
   mkdirSync(codexCacheDir, { recursive: true });
   mkdirSync(specLibraryDir, { recursive: true });
   const service = new PluginDiscoveryService({
-    openrigPluginsDir,
+    softwareteamPluginsDir,
     claudeCacheDir,
     codexCacheDir,
     specLibraryDir,
   });
-  return { root, service, openrigPluginsDir, claudeCacheDir, codexCacheDir, specLibraryDir };
+  return { root, service, softwareteamPluginsDir, claudeCacheDir, codexCacheDir, specLibraryDir };
 }
 
 function writeClaudePluginManifest(pluginDir: string, manifest: Record<string, unknown>): void {
@@ -88,13 +88,13 @@ describe("plugins HTTP routes", () => {
     });
 
     it("returns aggregated plugin list", async () => {
-      writeClaudePluginManifest(join(env.openrigPluginsDir, "openrig-core"), {
-        name: "openrig-core",
+      writeClaudePluginManifest(join(env.softwareteamPluginsDir, "softwareteam-core"), {
+        name: "softwareteam-core",
         version: "0.1.0",
         description: "vendored",
       });
-      writeCodexPluginManifest(join(env.openrigPluginsDir, "openrig-core"), {
-        name: "openrig-core",
+      writeCodexPluginManifest(join(env.softwareteamPluginsDir, "softwareteam-core"), {
+        name: "softwareteam-core",
         version: "0.1.0",
         description: "vendored",
       });
@@ -109,16 +109,16 @@ describe("plugins HTTP routes", () => {
       const body = await res.json() as Array<{ name: string; source: string; runtimes: string[] }>;
       expect(body).toHaveLength(2);
       const names = body.map((p) => p.name).sort();
-      expect(names).toEqual(["github", "openrig-core"]);
+      expect(names).toEqual(["github", "softwareteam-core"]);
     });
 
     it("supports runtime filter via query string", async () => {
-      writeClaudePluginManifest(join(env.openrigPluginsDir, "claude-only"), {
+      writeClaudePluginManifest(join(env.softwareteamPluginsDir, "claude-only"), {
         name: "claude-only",
         version: "1.0.0",
         description: "x",
       });
-      writeCodexPluginManifest(join(env.openrigPluginsDir, "codex-only"), {
+      writeCodexPluginManifest(join(env.softwareteamPluginsDir, "codex-only"), {
         name: "codex-only",
         version: "1.0.0",
         description: "x",
@@ -135,40 +135,40 @@ describe("plugins HTTP routes", () => {
       expect(codexBody.map((p) => p.name)).toEqual(["codex-only"]);
     });
 
-    it("slice 3.3 fix-C — supports rig-cwd discovery via ?cwd=<path> query param", async () => {
+    it("slice 3.3 fix-C — supports software-team-cwd discovery via ?cwd=<path> query param", async () => {
       // velocity-qa VM verify failure #3 — DESIGN §5.4 union 4th category
-      // (rig-bundled cwd plugin roots). API exposes the per-call cwd scan
-      // via ?cwd=<path>; service emits discoveries with rig-cwd source.
-      const rigCwd = join(env.root, "rig-cwd-api");
-      const claudeBundleDir = join(rigCwd, ".claude", "plugins");
+      // (software-team-bundled cwd plugin roots). API exposes the per-call cwd scan
+      // via ?cwd=<path>; service emits discoveries with software-team-cwd source.
+      const softwareTeamCwd = join(env.root, "software-team-cwd-api");
+      const claudeBundleDir = join(softwareTeamCwd, ".claude", "plugins");
       mkdirSync(claudeBundleDir, { recursive: true });
-      writeClaudePluginManifest(join(claudeBundleDir, "rig-tool"), {
-        name: "rig-tool",
+      writeClaudePluginManifest(join(claudeBundleDir, "software-team-tool"), {
+        name: "software-team-tool",
         version: "1.0.0",
-        description: "rig-bundled tool",
+        description: "software-team-bundled tool",
       });
 
-      // Without ?cwd — no rig-cwd discoveries.
+      // Without ?cwd — no software-team-cwd discoveries.
       const baseRes = await createApp(env.service).request("/api/plugins");
       const base = await baseRes.json() as Array<{ source: string }>;
-      expect(base.some((p) => p.source === "rig-cwd")).toBe(false);
+      expect(base.some((p) => p.source === "software-team-cwd")).toBe(false);
 
-      // With ?cwd=<path> — rig-tool surfaces.
+      // With ?cwd=<path> — software-team-tool surfaces.
       const cwdRes = await createApp(env.service).request(
-        `/api/plugins?cwd=${encodeURIComponent(rigCwd)}`,
+        `/api/plugins?cwd=${encodeURIComponent(softwareTeamCwd)}`,
       );
       const cwdPlugins = await cwdRes.json() as Array<{ name: string; source: string }>;
-      const rigCwdSubset = cwdPlugins.filter((p) => p.source === "rig-cwd");
-      expect(rigCwdSubset).toHaveLength(1);
-      expect(rigCwdSubset[0]?.name).toBe("rig-tool");
+      const softwareTeamCwdSubset = cwdPlugins.filter((p) => p.source === "software-team-cwd");
+      expect(softwareTeamCwdSubset).toHaveLength(1);
+      expect(softwareTeamCwdSubset[0]?.name).toBe("software-team-tool");
     });
 
-    it("slice 3.3 fix-iteration — list ?cwd= + detail roundtrip for rig-cwd plugin (no 404)", async () => {
+    it("slice 3.3 fix-iteration — list ?cwd= + detail roundtrip for software-team-cwd plugin (no 404)", async () => {
       // redo-guard-2 BLOCK item 1: /api/plugins?cwd= lists;
-      // /api/plugins/<encoded-rig-cwd-id> must 200 not 404. Fix lands in
+      // /api/plugins/<encoded-software-team-cwd-id> must 200 not 404. Fix lands in
       // PluginDiscoveryService.getPlugin via self-resolve from id prefix.
-      const rigCwd = join(env.root, "rig-cwd-roundtrip");
-      const claudeBundleDir = join(rigCwd, ".claude", "plugins");
+      const softwareTeamCwd = join(env.root, "software-team-cwd-roundtrip");
+      const claudeBundleDir = join(softwareTeamCwd, ".claude", "plugins");
       mkdirSync(claudeBundleDir, { recursive: true });
       writeClaudePluginManifest(join(claudeBundleDir, "roundtrip-tool"), {
         name: "roundtrip-tool",
@@ -178,26 +178,26 @@ describe("plugins HTTP routes", () => {
 
       // Step 1: list with ?cwd= — captures id.
       const listRes = await createApp(env.service).request(
-        `/api/plugins?cwd=${encodeURIComponent(rigCwd)}`,
+        `/api/plugins?cwd=${encodeURIComponent(softwareTeamCwd)}`,
       );
       expect(listRes.status).toBe(200);
       const list = await listRes.json() as Array<{ id: string; source: string }>;
-      const rigCwdEntry = list.find((p) => p.source === "rig-cwd");
-      expect(rigCwdEntry).toBeDefined();
-      const rigCwdId = rigCwdEntry!.id;
+      const softwareTeamCwdEntry = list.find((p) => p.source === "software-team-cwd");
+      expect(softwareTeamCwdEntry).toBeDefined();
+      const softwareTeamCwdId = softwareTeamCwdEntry!.id;
 
       // Step 2: detail call with that id — must 200 (was 404 pre-fix).
       const detailRes = await createApp(env.service).request(
-        `/api/plugins/${encodeURIComponent(rigCwdId)}`,
+        `/api/plugins/${encodeURIComponent(softwareTeamCwdId)}`,
       );
       expect(detailRes.status).toBe(200);
       const detail = await detailRes.json() as { entry: { name: string; source: string } };
       expect(detail.entry.name).toBe("roundtrip-tool");
-      expect(detail.entry.source).toBe("rig-cwd");
+      expect(detail.entry.source).toBe("software-team-cwd");
     });
 
     it("supports source filter via query string", async () => {
-      writeClaudePluginManifest(join(env.openrigPluginsDir, "vended"), {
+      writeClaudePluginManifest(join(env.softwareteamPluginsDir, "vended"), {
         name: "vended",
         version: "0.1.0",
         description: "x",
@@ -232,16 +232,16 @@ describe("plugins HTTP routes", () => {
     });
 
     it("returns plugin detail with manifest + skills + hooks", async () => {
-      const corePluginDir = join(env.openrigPluginsDir, "openrig-core");
+      const corePluginDir = join(env.softwareteamPluginsDir, "softwareteam-core");
       writeClaudePluginManifest(corePluginDir, {
-        name: "openrig-core",
+        name: "softwareteam-core",
         version: "0.1.0",
-        description: "Canonical OpenRig content",
+        description: "Canonical SoftwareTeam content",
       });
-      mkdirSync(join(corePluginDir, "skills", "openrig-user"), { recursive: true });
+      mkdirSync(join(corePluginDir, "skills", "softwareteam-user"), { recursive: true });
       writeFileSync(
-        join(corePluginDir, "skills", "openrig-user", "SKILL.md"),
-        "---\nname: openrig-user\n---\n",
+        join(corePluginDir, "skills", "softwareteam-user", "SKILL.md"),
+        "---\nname: softwareteam-user\n---\n",
       );
       mkdirSync(join(corePluginDir, "hooks"), { recursive: true });
       writeFileSync(
@@ -251,7 +251,7 @@ describe("plugins HTTP routes", () => {
         }),
       );
 
-      const res = await createApp(env.service).request("/api/plugins/openrig-core");
+      const res = await createApp(env.service).request("/api/plugins/softwareteam-core");
       expect(res.status).toBe(200);
       const body = await res.json() as {
         entry: { name: string };
@@ -259,9 +259,9 @@ describe("plugins HTTP routes", () => {
         skills: Array<{ name: string }>;
         hooks: Array<{ runtime: string; events: string[] }>;
       };
-      expect(body.entry.name).toBe("openrig-core");
-      expect(body.claudeManifest?.name).toBe("openrig-core");
-      expect(body.skills.map((s) => s.name)).toEqual(["openrig-user"]);
+      expect(body.entry.name).toBe("softwareteam-core");
+      expect(body.claudeManifest?.name).toBe("softwareteam-core");
+      expect(body.skills.map((s) => s.name)).toEqual(["softwareteam-user"]);
       expect(body.hooks).toHaveLength(1);
       expect(body.hooks[0]?.runtime).toBe("claude");
       expect(body.hooks[0]?.events).toContain("SessionStart");
@@ -291,34 +291,34 @@ describe("plugins HTTP routes", () => {
     });
 
     it("counts bare and shared profile references without local plugin declarations", async () => {
-      for (const [name, plugin] of [["bare-user", "openrig-core"], ["shared-user", "shared:openrig-core"],
-        ["other-user", "other:openrig-core"], ["similar-user", "shared:openrig-core-extra"]]) {
+      for (const [name, plugin] of [["bare-user", "softwareteam-core"], ["shared-user", "shared:softwareteam-core"],
+        ["other-user", "other:softwareteam-core"], ["similar-user", "shared:softwareteam-core-extra"]]) {
         const dir = join(env.specLibraryDir, name!);
         mkdirSync(dir, { recursive: true });
         writeFileSync(join(dir, "agent.yaml"), [
           `name: ${name}`, "profiles:", "  default:", "    uses:", `      plugins: [${plugin}]`,
         ].join("\n"));
       }
-      const res = await createApp(env.service).request("/api/plugins/openrig-core/used-by");
+      const res = await createApp(env.service).request("/api/plugins/softwareteam-core/used-by");
       expect(res.status).toBe(200);
       const refs = await res.json() as Array<{ agentName: string; profiles: string[]; kind: string }>;
       expect(refs.map(ref => ref.agentName).sort()).toEqual(["bare-user", "shared-user"]);
       expect(refs.every(ref => ref.kind === "consumer" && ref.profiles.join() === "default")).toBe(true);
     });
 
-    it("retains cold legacy references while activating the primary user specs root", async () => {
+    it("ignores cold legacy references while activating the selected user specs root", async () => {
       vi.stubEnv("HOME", env.root);
-      vi.stubEnv("OPENRIG_HOME", join(env.root, "primary"));
-      const legacySpecs = join(env.root, ".rigged/specs");
+      vi.stubEnv("SOFTWARETEAM_HOME", join(env.root, "primary"));
+      const legacySpecs = join(env.root, ".openrig/specs");
       const primarySpecs = join(env.root, "primary/specs");
       const seedAgent = (root: string, name: string) => {
         const dir = join(root, "agents", name);
         mkdirSync(dir, { recursive: true });
         writeFileSync(join(dir, "agent.yaml"), [
           `name: ${name}`, 'version: "1.0"', "resources:", "  skills: []",
-          "  plugins:", "    - id: openrig-core", "      source:", "        kind: local",
-          "        path: ~/.openrig/plugins/openrig-core", "profiles:", "  default:",
-          "    uses:", "      plugins: [openrig-core]",
+          "  plugins:", "    - id: softwareteam-core", "      source:", "        kind: local",
+          "        path: ~/.softwareteam/plugins/softwareteam-core", "profiles:", "  default:",
+          "    uses:", "      plugins: [softwareteam-core]",
         ].join("\n"));
       };
       seedAgent(legacySpecs, "legacy-only-agent");
@@ -327,18 +327,18 @@ describe("plugins HTTP routes", () => {
       const { app, db } = await createDaemon({ dbPath: ":memory:" });
       try {
         expect(existsSync(primarySpecs)).toBe(true);
-        expect(existsSync(join(env.root, ".openrig/specs"))).toBe(false);
+        expect(existsSync(legacySpecs)).toBe(true);
         const libraryRes = await app.request("/api/specs/library?kind=agent");
         expect(libraryRes.status).toBe(200);
         const library = await libraryRes.json() as Array<{ name: string; sourcePath: string }>;
-        expect(library).toContainEqual(expect.objectContaining({
+        expect(library).not.toContainEqual(expect.objectContaining({
           name: "legacy-only-agent", sourcePath: join(legacySpecs, "agents/legacy-only-agent/agent.yaml"),
         }));
         seedAgent(primarySpecs, "primary-agent");
-        const res = await app.request("/api/plugins/openrig-core/used-by");
+        const res = await app.request("/api/plugins/softwareteam-core/used-by");
         expect(res.status).toBe(200);
         const refs = await res.json() as Array<{ agentName: string; sourcePath: string }>;
-        expect(refs).toContainEqual(expect.objectContaining({
+        expect(refs).not.toContainEqual(expect.objectContaining({
           agentName: "legacy-only-agent", sourcePath: join(legacySpecs, "agents/legacy-only-agent/agent.yaml"),
         }));
         expect(refs).toContainEqual(expect.objectContaining({
@@ -350,11 +350,11 @@ describe("plugins HTTP routes", () => {
     });
 
     it("wires built-in reverse usage through the real daemon startup", async () => {
-      vi.stubEnv("OPENRIG_HOME", join(env.root, "home"));
+      vi.stubEnv("SOFTWARETEAM_HOME", join(env.root, "home"));
       const { createDaemon } = await import("../src/startup.js");
       const { app, db } = await createDaemon({ dbPath: ":memory:" });
       try {
-        const res = await app.request("/api/plugins/openrig-core/used-by");
+        const res = await app.request("/api/plugins/softwareteam-core/used-by");
         expect(res.status).toBe(200);
         const refs = await res.json() as Array<{ agentName: string; profiles: string[]; kind: string }>;
         expect(refs).toContainEqual(expect.objectContaining({ agentName: "conveyor-lead", profiles: ["default"], kind: "consumer" }));
@@ -365,14 +365,14 @@ describe("plugins HTTP routes", () => {
     });
 
     it("includes shipped built-in agents even when the user library is empty", async () => {
-      writeClaudePluginManifest(join(env.openrigPluginsDir, "openrig-core"), { name: "openrig-core", version: "0.1.0" });
+      writeClaudePluginManifest(join(env.softwareteamPluginsDir, "softwareteam-core"), { name: "softwareteam-core", version: "0.1.0" });
       const builtinSpecs = fileURLToPath(new URL("../specs", import.meta.url));
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: env.openrigPluginsDir, claudeCacheDir: env.claudeCacheDir,
+        softwareteamPluginsDir: env.softwareteamPluginsDir, claudeCacheDir: env.claudeCacheDir,
         codexCacheDir: env.codexCacheDir, specLibraryDir: env.specLibraryDir,
         additionalSpecLibraryDirs: [builtinSpecs, builtinSpecs],
       });
-      const res = await createApp(service).request("/api/plugins/openrig-core/used-by");
+      const res = await createApp(service).request("/api/plugins/softwareteam-core/used-by");
       expect(res.status).toBe(200);
       const refs = await res.json() as Array<{ agentName: string; sourcePath: string; profiles: string[]; kind: string }>;
       const shared = refs.filter((ref) => ref.sourcePath === join(builtinSpecs, "agents/shared/agent.yaml"));
@@ -385,15 +385,15 @@ describe("plugins HTTP routes", () => {
     });
 
     it("returns empty list when plugin not used by any agent", async () => {
-      writeClaudePluginManifest(join(env.openrigPluginsDir, "openrig-core"), { name: "openrig-core", version: "0.1.0" });
-      const res = await createApp(env.service).request("/api/plugins/openrig-core/used-by");
+      writeClaudePluginManifest(join(env.softwareteamPluginsDir, "softwareteam-core"), { name: "softwareteam-core", version: "0.1.0" });
+      const res = await createApp(env.service).request("/api/plugins/softwareteam-core/used-by");
       expect(res.status).toBe(200);
       const body = await res.json() as unknown[];
       expect(body).toEqual([]);
     });
 
     it("returns agent references with profile names", async () => {
-      writeClaudePluginManifest(join(env.openrigPluginsDir, "openrig-core"), { name: "openrig-core", version: "0.1.0" });
+      writeClaudePluginManifest(join(env.softwareteamPluginsDir, "softwareteam-core"), { name: "softwareteam-core", version: "0.1.0" });
       const advisorDir = join(env.specLibraryDir, "advisor");
       mkdirSync(advisorDir, { recursive: true });
       writeFileSync(
@@ -406,22 +406,22 @@ profiles:
   default:
     uses:
       plugins:
-        - openrig-core
+        - softwareteam-core
   review:
     uses:
       plugins:
-        - openrig-core
+        - softwareteam-core
         - reviewer-tools
 resources:
   plugins:
-    - id: openrig-core
+    - id: softwareteam-core
       source:
         kind: local
-        path: ~/.openrig/plugins/openrig-core
+        path: ~/.softwareteam/plugins/softwareteam-core
     - id: reviewer-tools
       source:
         kind: local
-        path: ~/.openrig/plugins/reviewer-tools
+        path: ~/.softwareteam/plugins/reviewer-tools
   skills: []
 startup:
   files: []
@@ -429,7 +429,7 @@ startup:
 `,
       );
 
-      const res = await createApp(env.service).request("/api/plugins/openrig-core/used-by");
+      const res = await createApp(env.service).request("/api/plugins/softwareteam-core/used-by");
       expect(res.status).toBe(200);
       const body = await res.json() as Array<{ agentName: string; profiles: string[] }>;
       expect(body).toHaveLength(1);
@@ -442,7 +442,7 @@ startup:
     it("each route shape is observably distinct (per banked feedback_poc_regression_must_discriminate)", async () => {
       // Place 3 plugins in 3 source roots so the list endpoint must aggregate
       // across all 3; verify response distinguishes them.
-      writeClaudePluginManifest(join(env.openrigPluginsDir, "vended"), {
+      writeClaudePluginManifest(join(env.softwareteamPluginsDir, "vended"), {
         name: "vended", version: "0.1.0", description: "v",
       });
       writeClaudePluginManifest(join(env.claudeCacheDir, "anthropics", "claude-tool", "2.0.0"), {

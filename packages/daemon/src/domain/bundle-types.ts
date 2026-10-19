@@ -2,7 +2,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 // -- Shared types --
 
-/** Author-declared setup, for display only. OpenRig never executes or checks it. */
+/** Author-declared setup, for display only. SoftwareTeam never executes or checks it. */
 export interface BundlePrecondition {
   name: string;
   commands?: string[];
@@ -58,19 +58,19 @@ export interface BundleProvenance {
   source?: BundleSourceIdentity;
   /** ISO timestamp; mirrors root createdAt at create time. */
   createdAt?: string;
-  /** os.hostname() of the host that ran rig bundle create. */
+  /** os.hostname() of the host that ran softwareTeam bundle create. */
   sourceHost?: string;
   /** Canonical session name of the creator (e.g. dev-build@starter). */
   authorSession?: string;
-  /** ULID of the source rig, if creating from a live rig. */
-  sourceRigId?: string;
-  /** Name of the source rig, if creating from a live rig. */
-  sourceRigName?: string;
+  /** ULID of the source softwareTeam, if creating from a live softwareTeam. */
+  sourceSoftwareTeamId?: string;
+  /** Name of the source softwareTeam, if creating from a live softwareTeam. */
+  sourceSoftwareTeamName?: string;
   /** Daemon version at create time (e.g. 0.3.2). */
   daemonVersion?: string;
   /** CLI version at create time (e.g. 0.3.2). */
   cliVersion?: string;
-  /** Operator-authored notes from the --notes flag on rig bundle create. */
+  /** Operator-authored notes from the --notes flag on softwareTeam bundle create. */
   notes?: string;
 }
 
@@ -78,8 +78,8 @@ const PROVENANCE_STRING_FIELDS = [
   "created_at",
   "source_host",
   "author_session",
-  "source_rig_id",
-  "source_rig_name",
+  "source_software_team_id",
+  "source_software_team_name",
   "daemon_version",
   "cli_version",
   "notes",
@@ -108,8 +108,8 @@ function provenanceToYamlRecord(p: BundleProvenance): Record<string, unknown> {
   if (p.createdAt !== undefined) out["created_at"] = p.createdAt;
   if (p.sourceHost !== undefined) out["source_host"] = p.sourceHost;
   if (p.authorSession !== undefined) out["author_session"] = p.authorSession;
-  if (p.sourceRigId !== undefined) out["source_rig_id"] = p.sourceRigId;
-  if (p.sourceRigName !== undefined) out["source_rig_name"] = p.sourceRigName;
+  if (p.sourceSoftwareTeamId !== undefined) out["source_software_team_id"] = p.sourceSoftwareTeamId;
+  if (p.sourceSoftwareTeamName !== undefined) out["source_software_team_name"] = p.sourceSoftwareTeamName;
   if (p.daemonVersion !== undefined) out["daemon_version"] = p.daemonVersion;
   if (p.cliVersion !== undefined) out["cli_version"] = p.cliVersion;
   if (p.notes !== undefined) out["notes"] = p.notes;
@@ -124,7 +124,7 @@ function provenanceToYamlRecord(p: BundleProvenance): Record<string, unknown> {
  * (Checkpoint 7.1). Plugins + workflow_specs + context_packs + agent_images
  * land additively in subsequent checkpoints as their libraries are reachable.
  *
- * PRD §Item 6: bundles list these alongside the existing rig + agents +
+ * PRD §Item 6: bundles list these alongside the existing softwareTeam + agents +
  * packages fields (no `contents:` re-grouping — that would be a schema
  * reorg violating the no-bump constraint). Each kind is an optional top-
  * level field; missing kinds keep backward compat.
@@ -397,8 +397,8 @@ export function normalizeProvenanceBlock(raw: unknown): BundleProvenance | undef
   if (typeof p["created_at"] === "string") result.createdAt = p["created_at"];
   if (typeof p["source_host"] === "string") result.sourceHost = p["source_host"];
   if (typeof p["author_session"] === "string") result.authorSession = p["author_session"];
-  if (typeof p["source_rig_id"] === "string") result.sourceRigId = p["source_rig_id"];
-  if (typeof p["source_rig_name"] === "string") result.sourceRigName = p["source_rig_name"];
+  if (typeof p["source_software_team_id"] === "string") result.sourceSoftwareTeamId = p["source_software_team_id"];
+  if (typeof p["source_software_team_name"] === "string") result.sourceSoftwareTeamName = p["source_software_team_name"];
   if (typeof p["daemon_version"] === "string") result.daemonVersion = p["daemon_version"];
   if (typeof p["cli_version"] === "string") result.cliVersion = p["cli_version"];
   if (typeof p["notes"] === "string") result.notes = p["notes"];
@@ -429,12 +429,12 @@ export interface PodBundleManifest {
   name: string;
   version: string;
   createdAt: string;
-  rigSpec: string;
+  softwareTeamSpec: string;
   agents: PodBundleAgentEntry[];
   cultureFile?: string;
   integrity?: BundleIntegrity;
   provenance?: BundleProvenance;
-  assembler?: { openrigVersion: string; commit?: string };
+  assembler?: { softwareteamVersion: string; commit?: string };
   compatibility?: BundleCompatibility;
   preconditions?: BundlePrecondition[];
   /** Item 6 cross-primitive bundling: skill paths to route to the operator skills library on install. */
@@ -447,7 +447,7 @@ export interface PodBundleManifest {
   contextPacks?: string[];
   /** Item 6 cross-primitive bundling: paths to agent-image DIRECTORIES (per PRD §Item 6 line 197); router copies the declared directory to the operator agent-images library on install. Consumer requires manifest.yaml inside each image dir. (Checkpoint 7.3g) */
   agentImages?: string[];
-  /** The project this rig works in: its id and the bundle folder holding project.yaml. Install registers it in the workspace catalog and associates the rig with it. */
+  /** The project this softwareTeam works in: its id and the bundle folder holding project.yaml. Install registers it in the workspace catalog and associates the softwareTeam with it. */
   project?: BundleProjectReference;
   /** The configuration this archive was built in (configuration ID, and the preset when it matches one). Outside the package digest. */
   configuration?: { id: string; preset?: string };
@@ -478,8 +478,8 @@ export function validatePodBundleManifest(raw: unknown): { valid: boolean; error
   if (typeof m["name"] !== "string" || !m["name"]) errors.push("name is required");
   if (typeof m["version"] !== "string" || !m["version"]) errors.push("version is required");
   if (typeof m["created_at"] !== "string" || !m["created_at"]) errors.push("created_at is required");
-  if (typeof m["rig_spec"] !== "string" || !m["rig_spec"]) errors.push("rig_spec path is required");
-  else if (!isRelativeSafePath(m["rig_spec"] as string)) errors.push(`rig_spec path is not safe: '${m["rig_spec"]}'`);
+  if (typeof m["software_team_spec"] !== "string" || !m["software_team_spec"]) errors.push("software_team_spec path is required");
+  else if (!isRelativeSafePath(m["software_team_spec"] as string)) errors.push(`software_team_spec path is not safe: '${m["software_team_spec"]}'`);
 
   if (!Array.isArray(m["agents"])) {
     errors.push("agents must be an array");
@@ -511,7 +511,7 @@ export function serializePodBundleManifest(manifest: PodBundleManifest): string 
     name: manifest.name,
     version: manifest.version,
     created_at: manifest.createdAt,
-    rig_spec: manifest.rigSpec,
+    software_team_spec: manifest.softwareTeamSpec,
     agents: manifest.agents.map((a) => ({
       name: a.name,
       version: a.version,
@@ -572,11 +572,11 @@ export interface LegacyBundleManifest {
   name: string;
   version: string;
   createdAt: string;
-  rigSpec: string;
+  softwareTeamSpec: string;
   packages: LegacyBundlePackageEntry[];
   integrity?: BundleIntegrity;
   provenance?: BundleProvenance;
-  assembler?: { openrigVersion: string; commit?: string };
+  assembler?: { softwareteamVersion: string; commit?: string };
   compatibility?: BundleCompatibility;
   preconditions?: BundlePrecondition[];
   /** Item 6 cross-primitive bundling: skill paths to route to the operator skills library on install. */
@@ -631,11 +631,11 @@ export function validateLegacyBundleManifest(
   if (typeof m["version"] !== "string" || !m["version"]) errors.push("version is required");
   if (typeof m["created_at"] !== "string" || !m["created_at"]) errors.push("created_at is required");
 
-  // rig_spec path
-  if (typeof m["rig_spec"] !== "string" || !m["rig_spec"]) {
-    errors.push("rig_spec path is required");
-  } else if (!isRelativeSafePath(m["rig_spec"] as string)) {
-    errors.push(`rig_spec path is not a safe relative path: '${m["rig_spec"]}'`);
+  // software_team_spec path
+  if (typeof m["software_team_spec"] !== "string" || !m["software_team_spec"]) {
+    errors.push("software_team_spec path is required");
+  } else if (!isRelativeSafePath(m["software_team_spec"] as string)) {
+    errors.push(`software_team_spec path is not a safe relative path: '${m["software_team_spec"]}'`);
   }
 
   // packages
@@ -721,7 +721,7 @@ export function normalizeLegacyBundleManifest(raw: unknown): LegacyBundleManifes
     name: m["name"] as string,
     version: m["version"] as string,
     createdAt: (m["created_at"] as string) ?? new Date().toISOString(),
-    rigSpec: m["rig_spec"] as string,
+    softwareTeamSpec: m["software_team_spec"] as string,
     packages: pkgs,
   };
 
@@ -733,8 +733,8 @@ export function normalizeLegacyBundleManifest(raw: unknown): LegacyBundleManifes
     };
   }
 
-  const assembler = m["assembler"] as { openrigVersion?: unknown; commit?: unknown } | undefined;
-  if (assembler && typeof assembler.openrigVersion === "string") result.assembler = { openrigVersion: assembler.openrigVersion, ...(typeof assembler.commit === "string" ? { commit: assembler.commit } : {}) };
+  const assembler = m["assembler"] as { softwareteamVersion?: unknown; commit?: unknown } | undefined;
+  if (assembler && typeof assembler.softwareteamVersion === "string") result.assembler = { softwareteamVersion: assembler.softwareteamVersion, ...(typeof assembler.commit === "string" ? { commit: assembler.commit } : {}) };
   const provenance = normalizeProvenanceBlock(m["provenance"]);
   if (provenance) result.provenance = provenance;
 
@@ -768,7 +768,7 @@ export function serializeLegacyBundleManifest(manifest: LegacyBundleManifest): s
     name: manifest.name,
     version: manifest.version,
     created_at: manifest.createdAt,
-    rig_spec: manifest.rigSpec,
+    software_team_spec: manifest.softwareTeamSpec,
     packages: manifest.packages.map((p) => ({
       name: p.name,
       version: p.version,

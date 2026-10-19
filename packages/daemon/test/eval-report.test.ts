@@ -8,12 +8,12 @@ import type { CaseOutcome } from "./helpers/eval-runner.js";
 
 const LOAD: EvalCase = {
   id: "load-01", name: "loads before acting", category: "loading", prompt: "P",
-  expectedPatterns: ["rig context get\\s+core/watchdog"],
-  order: { getPattern: "rig context get\\s+core/watchdog", actionPattern: "rig watchdog register" },
+  expectedPatterns: ["SoftwareTeam context get\\s+core/watchdog"],
+  order: { getPattern: "SoftwareTeam context get\\s+core/watchdog", actionPattern: "SoftwareTeam watchdog register" },
 };
 const SEL: EvalCase = {
-  id: "sel-01", name: "selects rig-lifecycle", category: "selection", prompt: "P",
-  expectedPatterns: ["rig context get\\s+core/rig-lifecycle"],
+  id: "sel-01", name: "selects software-team-lifecycle", category: "selection", prompt: "P",
+  expectedPatterns: ["SoftwareTeam context get\\s+core/software-team-lifecycle"],
 };
 
 function outcome(c: EvalCase, transcript: string): CaseOutcome {
@@ -22,23 +22,23 @@ function outcome(c: EvalCase, transcript: string): CaseOutcome {
 
 describe("eval-report — the artifact explains its own verdict", () => {
   it("failReason names the order violation for action-before-get", () => {
-    const g = grade(LOAD, "rig watchdog register\nthen rig context get core/watchdog");
+    const g = grade(LOAD, "SoftwareTeam watchdog register\nthen SoftwareTeam context get core/watchdog");
     expect(g.pass).toBe(false);
     expect(failReason(g)).toMatch(/precede/i);
   });
 
   it("failReason names the order violation for action-with-no-get", () => {
-    const g = grade(LOAD, "rig watchdog register   # no load first");
+    const g = grade(LOAD, "SoftwareTeam watchdog register   # no load first");
     expect(failReason(g)).toMatch(/no preceding/i);
   });
 
   it("failReason names the unmatched expected pattern for a wrong selection", () => {
-    const g = grade(SEL, "rig context get core/attention-queue");
+    const g = grade(SEL, "SoftwareTeam context get core/attention-queue");
     expect(failReason(g)).toMatch(/expected not matched/i);
   });
 
   it("recordedGrade carries patternResults and the order diagnostic on a loading FAIL", () => {
-    const rec = recordedGrade(outcome(LOAD, "rig watchdog register\nthen rig context get core/watchdog"));
+    const rec = recordedGrade(outcome(LOAD, "SoftwareTeam watchdog register\nthen SoftwareTeam context get core/watchdog"));
     expect(rec.pass).toBe(false);
     expect(rec.patternResults.length).toBeGreaterThan(0);
     expect(rec.order).not.toBeNull();
@@ -47,7 +47,7 @@ describe("eval-report — the artifact explains its own verdict", () => {
   });
 
   it("recordedGrade leaves reason null on a pass and null order for selection", () => {
-    const rec = recordedGrade(outcome(SEL, "rig context get core/rig-lifecycle"));
+    const rec = recordedGrade(outcome(SEL, "SoftwareTeam context get core/software-team-lifecycle"));
     expect(rec.pass).toBe(true);
     expect(rec.reason).toBeNull();
     expect(rec.order).toBeNull();

@@ -1,6 +1,6 @@
 // D14 (INTAKE 5674431c; accept-and-drop family #6) — a queue write whose transport
 // THROWS must fail LOUD (classified stderr + nonzero exit), never exit 1 silently.
-// Live specimen: `rig queue create --host <down-host>` exited 1 with ZERO output.
+// Live specimen: `SoftwareTeam queue create --host <down-host>` exited 1 with ZERO output.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { queueCommand, type QueueDeps } from "../src/commands/queue.js";
 import { DaemonTimeoutError } from "../src/client.js";
@@ -19,7 +19,7 @@ describe("D14 — queue transport failures are LOUD", () => {
   beforeEach(() => {
     // P21 HERMETIC: the queue verb under test derives the actor from the seat env; stub a deterministic
     // seat so an env-less harness reaches the transport-failure path instead of aborting pre-POST.
-    vi.stubEnv("OPENRIG_SESSION_NAME", "seat@rig");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "seat@software-team");
     errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     process.exitCode = undefined;
   });
@@ -46,8 +46,8 @@ describe("D14 — queue transport failures are LOUD", () => {
     let ioExit = 0;
     const ioErr: string[] = [];
     await runProgram(program, [
-      "node", "rig", "queue", "create",
-      "--source", "a@rig", "--destination", "b@rig", "--body", "x",
+      "node", "softwareTeam", "queue", "create",
+      "--source", "a@software-team", "--destination", "b@software-team", "--body", "x",
       "--summary", "s", "--host", "downhost", "--no-nudge",
     ], { out: () => {}, err: (l: string) => ioErr.push(l), exit: (c: number) => { ioExit = c; } });
     const spyOut = errSpy.mock.calls.map((c) => c.join(" ")).join("\n");

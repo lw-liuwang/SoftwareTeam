@@ -25,7 +25,7 @@ import { seatRoutes } from "../src/routes/seat.js";
 function makeApp(sentinelOracle: object) {
   const app = new Hono();
   app.use("*", async (c, next) => {
-    c.set("rigRepo" as never, { db: {} } as never);
+    c.set("softwareTeamRepo" as never, { db: {} } as never);
     c.set("sessionRegistry" as never, {} as never);
     c.set("discoveryRepo" as never, {} as never);
     c.set("eventBus" as never, {} as never);
@@ -46,7 +46,7 @@ describe("Wave-O B1 — production handover construction injects the one activit
   it("POST /api/seat/handover/:seatRef constructs the service WITH the context's seatActivityService as activityOracle", async () => {
     const sentinel = { declareOccupantSwap: vi.fn() };
     const app = makeApp(sentinel);
-    const res = await app.request("/api/seat/handover/dev-impl%40seat-rig", {
+    const res = await app.request("/api/seat/handover/dev-impl%40seat-software-team", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ reason: "context-wall", source: "fresh" }),

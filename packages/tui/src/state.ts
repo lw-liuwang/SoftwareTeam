@@ -124,7 +124,7 @@ function reduce(state: ViewState, action: Action, snap: FleetSnapshot): ViewStat
     case "spec-launch": {
       const leaf = state.drill.at(-1);
       const spec = state.section === "specs" ? findSpec(snap, leaf?.name ?? "", leaf?.specKind) : null;
-      if (spec?.kind !== "rig") return { ...next, lastError: "Open a rig spec before Launch." };
+      if (spec?.kind !== "softwareTeam") return { ...next, lastError: "Open a SoftwareTeam spec before Launch." };
       return { ...resetContent(next), focusedPane: "content", specLaunch: { source: spec.name, folder: "", host: "" } };
     }
     case "launch-folder":
@@ -322,9 +322,9 @@ function reduce(state: ViewState, action: Action, snap: FleetSnapshot): ViewStat
       next.specLaunch = null;
       const resource = action.resource;
       // Terminals, Needs, System, Scopes, Config, Specs and file pages read no
-      // rigs. Rather than call a running rig absent, switch to Topology and
+      // softwareTeams. Rather than call a running softwareTeam absent, switch to Topology and
       // resolve once its own read settles.
-      if (resource !== "spec" && !snap.hosts.some((host) => host.rigs.length > 0)) {
+      if (resource !== "spec" && !snap.hosts.some((host) => host.softwareTeams.length > 0)) {
         const seq = (state.pendingSeq ?? 0) + 1;
         const pendingDrill: PendingDrill = { resource, name: action.name, ...(action.target ? { target: action.target } : {}), seq };
         const landing = clearScopeCoordinatesOnSectionChange(state, { ...next, section: "topology", drill: [], runningOf: null });
@@ -371,7 +371,7 @@ function applyDrill(state: ViewState, next: ViewState, action: Extract<Action, {
   // section's filter (founder direct-drive catch — a specs filter leaked
   // into the topology table and blanked it)
   const filter = drilled.section === state.section ? drilled.filter : "";
-  return syncSelection({ ...resetContent({ ...sectionState, filter, viewTab: action.resource === "spec" && (!spec || spec.kind === "rig") ? "graph" : "table" }), healthOpen: null }, snap);
+  return syncSelection({ ...resetContent({ ...sectionState, filter, viewTab: action.resource === "spec" && (!spec || spec.kind === "softwareTeam") ? "graph" : "table" }), healthOpen: null }, snap);
 }
 
 function clearScopeCoordinatesOnSectionChange(previous: ViewState, next: ViewState): ViewState {
@@ -411,14 +411,14 @@ export function locationKey(state: ViewState): string {
   switch (leaf.kind) {
     case "host":
       return `host:${leaf.name}`;
-    case "rig":
-      return `rig:${names.get("host")}/${leaf.name}`;
+    case "softwareTeam":
+      return `software-team:${names.get("host")}/${leaf.name}`;
     case "pod":
-      return `pod:${names.get("host")}/${names.get("rig")}/${leaf.name}`;
+      return `pod:${names.get("host")}/${names.get("softwareTeam")}/${leaf.name}`;
     case "agent":
-      return `agent:${names.get("host")}/${names.get("rig")}/${names.get("pod")}/${leaf.name}`;
+      return `agent:${names.get("host")}/${names.get("softwareTeam")}/${names.get("pod")}/${leaf.name}`;
     case "spec":
-      return `spec:${leaf.specKind ?? "rig"}:${leaf.name}`;
+      return `spec:${leaf.specKind ?? "softwareTeam"}:${leaf.name}`;
     default:
       return `section:${state.section}`;
   }
@@ -429,7 +429,7 @@ export function locationKey(state: ViewState): string {
 function syncSelection(state: ViewState, snap: FleetSnapshot): ViewState {
   const expanded = new Set(state.expanded);
   const names = new Map(state.drill.map((seg) => [seg.kind, seg.name]));
-  if (names.has("pod")) expanded.add(`pod:${names.get("host")}/${names.get("rig")}/${names.get("pod")}`);
+  if (names.has("pod")) expanded.add(`pod:${names.get("host")}/${names.get("softwareTeam")}/${names.get("pod")}`);
   const leaf = state.drill.at(-1);
   if (leaf?.kind === "spec") {
     const spec = findSpec(snap, leaf.name, leaf.specKind);
@@ -444,25 +444,25 @@ function syncSelection(state: ViewState, snap: FleetSnapshot): ViewState {
 
 // --- snapshot lookups (pure; no daemon calls here) ---
 
-function agentMatches(snap: FleetSnapshot, name: string, target?: { host: string; rig?: string; pod?: string }) {
+function agentMatches(snap: FleetSnapshot, name: string, target?: { host: string; softwareTeam?: string; pod?: string }) {
   const matches = [];
   for (const host of snap.hosts)
-    for (const rig of host.rigs)
-      for (const pod of rig.pods)
+    for (const softwareTeam of host.softwareTeams)
+      for (const pod of softwareTeam.pods)
         for (const agent of pod.agents)
-          if ((agent.name === name || agent.session === name) && (!target || (host.name === target.host && (!target.rig || rig.name === target.rig) && (!target.pod || pod.name === target.pod))))
-            matches.push({ host, rig, pod, agent });
+          if ((agent.name === name || agent.session === name) && (!target || (host.name === target.host && (!target.softwareTeam || softwareTeam.name === target.softwareTeam) && (!target.pod || pod.name === target.pod))))
+            matches.push({ host, softwareTeam, pod, agent });
   return matches;
 }
 
-export function findAgent(snap: FleetSnapshot, name: string, target?: { host: string; rig?: string; pod?: string }) {
+export function findAgent(snap: FleetSnapshot, name: string, target?: { host: string; softwareTeam?: string; pod?: string }) {
   const matches = agentMatches(snap, name, target);
   return matches.length === 1 ? matches[0]! : null;
 }
 
 export function findSpec(snap: FleetSnapshot, name: string, kind?: SpecKind) {
   // A bare spec command opens teams first; explicit library links keep their kind.
-  return snap.specs.find((s) => s.name === name && s.kind === (kind ?? "rig"))
+  return snap.specs.find((s) => s.name === name && s.kind === (kind ?? "softwareTeam"))
     ?? (kind ? null : snap.specs.find((s) => s.name === name) ?? null);
 }
 
@@ -470,21 +470,21 @@ export function findSpec(snap: FleetSnapshot, name: string, kind?: SpecKind) {
 export function findAgentBySession(snap: FleetSnapshot, session: string, hostId?: string) {
   const matches = [];
   for (const host of snap.hosts)
-    for (const rig of host.rigs)
-      for (const pod of rig.pods)
+    for (const softwareTeam of host.softwareTeams)
+      for (const pod of softwareTeam.pods)
         for (const agent of pod.agents)
-          if (agent.session === session && (!hostId || (host.id ?? host.name) === hostId)) matches.push({ host, rig, pod, agent });
+          if (agent.session === session && (!hostId || (host.id ?? host.name) === hostId)) matches.push({ host, softwareTeam, pod, agent });
   return matches.length === 1 ? matches[0]! : null;
 }
 
-function rigMatches(snap: FleetSnapshot, name: string, hostName?: string) {
-  return snap.hosts.flatMap((host) => host.rigs
-    .filter((rig) => rig.name === name && (!hostName || host.name === hostName))
-    .map((rig) => ({ host, rig })));
+function softwareTeamMatches(snap: FleetSnapshot, name: string, hostName?: string) {
+  return snap.hosts.flatMap((host) => host.softwareTeams
+    .filter((softwareTeam) => softwareTeam.name === name && (!hostName || host.name === hostName))
+    .map((softwareTeam) => ({ host, softwareTeam })));
 }
 
-export function findRig(snap: FleetSnapshot, name: string, hostName?: string) {
-  const matches = rigMatches(snap, name, hostName);
+export function findSoftwareTeam(snap: FleetSnapshot, name: string, hostName?: string) {
+  const matches = softwareTeamMatches(snap, name, hostName);
   return matches.length === 1 ? matches[0]! : null;
 }
 
@@ -495,32 +495,32 @@ export function agentsRunningSpec(snap: FleetSnapshot, specName: string): string
 export function agentsRunningSpecTargets(snap: FleetSnapshot, specName: string) {
   const out = [];
   for (const host of snap.hosts)
-    for (const rig of host.rigs)
-      for (const pod of rig.pods)
-        for (const agent of pod.agents) if (agent.live && agent.spec === specName) out.push({ host, rig, pod, agent });
+    for (const softwareTeam of host.softwareTeams)
+      for (const pod of softwareTeam.pods)
+        for (const agent of pod.agents) if (agent.live && agent.spec === specName) out.push({ host, softwareTeam, pod, agent });
   return out;
 }
 
-function drillTo(state: ViewState, resource: string, name: string, snap: FleetSnapshot, target?: { host: string; rig?: string; pod?: string }, specKind?: SpecKind): ViewState {
+function drillTo(state: ViewState, resource: string, name: string, snap: FleetSnapshot, target?: { host: string; softwareTeam?: string; pod?: string }, specKind?: SpecKind): ViewState {
   switch (resource) {
     case "host": {
       if (!snap.hosts.some((h) => h.name === name)) return { ...state, lastError: `no such host "${name}"` };
       return { ...state, section: "topology", drill: [{ kind: "host", name }], selection: 0, runningOf: null };
     }
-    case "rig": {
+    case "softwareTeam": {
       const qualified = !target ? parseQualified(name, 2) : null;
-      const rigName = qualified?.at(-1) ?? name;
+      const softwareTeamName = qualified?.at(-1) ?? name;
       const hostName = qualified?.[0] ?? target?.host;
-      const matches = rigMatches(snap, rigName, hostName);
-      if (matches.length > 1) return { ...state, lastError: `ambiguous rig "${name}" — use rig <host>/<rig>` };
+      const matches = softwareTeamMatches(snap, softwareTeamName, hostName);
+      if (matches.length > 1) return { ...state, lastError: `ambiguous softwareTeam "${name}" — use softwareTeam <host>/<softwareTeam>` };
       const found = matches[0];
-      if (!found) return { ...state, lastError: `no such rig "${name}"` };
+      if (!found) return { ...state, lastError: `no such softwareTeam "${name}"` };
       return {
         ...state,
         section: "topology",
         drill: [
           { kind: "host", name: found.host.name },
-          { kind: "rig", name: rigName },
+          { kind: "softwareTeam", name: softwareTeamName },
         ],
         selection: 0,
         runningOf: null,
@@ -530,20 +530,20 @@ function drillTo(state: ViewState, resource: string, name: string, snap: FleetSn
       const qualified = !target ? parseQualified(name, 3) : null;
       const podName = qualified?.at(-1) ?? name;
       const hostName = qualified?.[0] ?? target?.host;
-      const rigName = qualified?.[1] ?? target?.rig;
+      const softwareTeamName = qualified?.[1] ?? target?.softwareTeam;
       const matches = [];
       for (const host of snap.hosts)
-        for (const rig of host.rigs)
-          for (const pod of rig.pods)
-            if (pod.name === podName && (!hostName || host.name === hostName) && (!rigName || rig.name === rigName)) matches.push({ host, rig, pod });
-      if (matches.length > 1) return { ...state, lastError: `ambiguous pod "${name}" — use pod <host>/<rig>/<pod>` };
+        for (const softwareTeam of host.softwareTeams)
+          for (const pod of softwareTeam.pods)
+            if (pod.name === podName && (!hostName || host.name === hostName) && (!softwareTeamName || softwareTeam.name === softwareTeamName)) matches.push({ host, softwareTeam, pod });
+      if (matches.length > 1) return { ...state, lastError: `ambiguous pod "${name}" — use pod <host>/<softwareTeam>/<pod>` };
       const found = matches[0];
       if (found) return {
         ...state,
         section: "topology",
         drill: [
           { kind: "host", name: found.host.name },
-          { kind: "rig", name: found.rig.name },
+          { kind: "softwareTeam", name: found.softwareTeam.name },
           { kind: "pod", name: podName },
         ],
         selection: 0,
@@ -556,12 +556,12 @@ function drillTo(state: ViewState, resource: string, name: string, snap: FleetSn
       const agentName = qualified?.name ?? name;
       const exactTarget = qualified?.target ?? target;
       const matches = agentMatches(snap, agentName, exactTarget);
-      if (matches.length > 1) return { ...state, lastError: `ambiguous agent "${name}" — use agent <host>/<rig>/<pod>/<agent>` };
+      if (matches.length > 1) return { ...state, lastError: `ambiguous agent "${name}" — use agent <host>/<softwareTeam>/<pod>/<agent>` };
       const found = matches[0];
       if (!found) return { ...state, lastError: `no such agent "${name}"` };
       const drill: DrillSegment[] = [
         { kind: "host", name: found.host.name },
-        { kind: "rig", name: found.rig.name },
+        { kind: "softwareTeam", name: found.softwareTeam.name },
         { kind: "pod", name: found.pod.name },
         { kind: "agent", name: found.agent.name },
       ];
@@ -579,10 +579,10 @@ function drillTo(state: ViewState, resource: string, name: string, snap: FleetSn
   }
 }
 
-function parseQualifiedAgent(value: string): { name: string; target: { host: string; rig: string; pod: string } } | null {
-  const [host, rig, pod, ...agentParts] = value.split("/");
-  if (!host || !rig || !pod || agentParts.length === 0) return null;
-  return { name: agentParts.join("/"), target: { host, rig, pod } };
+function parseQualifiedAgent(value: string): { name: string; target: { host: string; softwareTeam: string; pod: string } } | null {
+  const [host, softwareTeam, pod, ...agentParts] = value.split("/");
+  if (!host || !softwareTeam || !pod || agentParts.length === 0) return null;
+  return { name: agentParts.join("/"), target: { host, softwareTeam, pod } };
 }
 
 function parseQualified(value: string, count: number): string[] | null {
@@ -590,12 +590,12 @@ function parseQualified(value: string, count: number): string[] | null {
   return parts.length === count && parts.every(Boolean) ? parts : null;
 }
 
-function crossNav(state: ViewState, kind: "spec-of" | "running", name: string, snap: FleetSnapshot, target?: { host: string; rig?: string; pod?: string }): ViewState {
+function crossNav(state: ViewState, kind: "spec-of" | "running", name: string, snap: FleetSnapshot, target?: { host: string; softwareTeam?: string; pod?: string }): ViewState {
   if (kind === "spec-of") {
     const qualified = !target ? parseQualifiedAgent(name) : null;
     const agentName = qualified?.name ?? name;
     const matches = agentMatches(snap, agentName, qualified?.target ?? target);
-    if (matches.length > 1) return { ...state, lastError: `ambiguous agent "${name}" — use spec-of <host>/<rig>/<pod>/<agent>` };
+    if (matches.length > 1) return { ...state, lastError: `ambiguous agent "${name}" — use spec-of <host>/<softwareTeam>/<pod>/<agent>` };
     const found = matches[0];
     if (!found) return { ...state, lastError: `no such agent "${name}"` };
     if (!findSpec(snap, found.agent.spec, "agent")) return { ...state, lastError: `spec "${found.agent.spec}" not in the library` };
@@ -657,7 +657,7 @@ export function computeExplorerRows(state: ViewState, snap: FleetSnapshot): Expl
       continue;
     }
     if (section.name === "topology") {
-      // ROUND-4 item 4: rigs + pods by default; agents appear when a pod is
+      // ROUND-4 item 4: softwareTeams + pods by default; agents appear when a pod is
       // expanded (drilling a pod expands it) — "tighter visually".
       const expanded = new Set(state.expanded);
       for (const host of snap.hosts) {
@@ -666,19 +666,19 @@ export function computeExplorerRows(state: ViewState, snap: FleetSnapshot): Expl
           action: { type: "drill", resource: "host", name: host.name },
           key: `host:${host.name}`,
         });
-        for (const rig of host.rigs) {
-          const stateSuffix = rig.lifecycleState && rig.lifecycleState !== "running" ? ` (${rig.lifecycleState})` : "";
+        for (const softwareTeam of host.softwareTeams) {
+          const stateSuffix = softwareTeam.lifecycleState && softwareTeam.lifecycleState !== "running" ? ` (${softwareTeam.lifecycleState})` : "";
           rows.push({
-            label: `    ▾ ${rig.name}${stateSuffix}`,
-            action: { type: "drill", resource: "rig", name: rig.name, target: { host: host.name } },
-            key: `rig:${host.name}/${rig.name}`,
+            label: `    ▾ ${softwareTeam.name}${stateSuffix}`,
+            action: { type: "drill", resource: "softwareTeam", name: softwareTeam.name, target: { host: host.name } },
+            key: `software-team:${host.name}/${softwareTeam.name}`,
           });
-          for (const pod of rig.pods) {
-            const podKey = `pod:${host.name}/${rig.name}/${pod.name}`;
+          for (const pod of softwareTeam.pods) {
+            const podKey = `pod:${host.name}/${softwareTeam.name}/${pod.name}`;
             const open = expanded.has(podKey);
             rows.push({
               label: `      ${open ? "▾" : "▸"} ${pod.name} (${pod.agents.length})`,
-              action: { type: "drill", resource: "pod", name: pod.name, target: { host: host.name, rig: rig.name } },
+              action: { type: "drill", resource: "pod", name: pod.name, target: { host: host.name, softwareTeam: softwareTeam.name } },
               disclosureAction: { type: "toggle-expand", key: podKey },
               key: podKey,
             });
@@ -689,19 +689,19 @@ export function computeExplorerRows(state: ViewState, snap: FleetSnapshot): Expl
             for (const agent of pod.agents)
               rows.push({
                 label: `        ${rowStatusGlyph(agent).glyph} ${agent.name}`,
-                action: { type: "drill", resource: "agent", name: agent.name, target: { host: host.name, rig: rig.name, pod: pod.name } },
-                key: `agent:${host.name}/${rig.name}/${pod.name}/${agent.name}`,
+                action: { type: "drill", resource: "agent", name: agent.name, target: { host: host.name, softwareTeam: softwareTeam.name, pod: pod.name } },
+                key: `agent:${host.name}/${softwareTeam.name}/${pod.name}/${agent.name}`,
               });
           }
         }
       }
     } else if (section.name === "specs") {
-      const kinds = ["rig", "agent", "workflow"] as const;
+      const kinds = ["softwareTeam", "agent", "workflow"] as const;
       rows.push({
         label: state.filter ? `/ filter: ${state.filter} · / replace · esc clear` : "/ filter specs…",
         action: { type: "filter", text: state.filter },
       });
-      // ROUND-4 item 3: RIG SPECS fully expanded; AGENT SPECS collapsed to the
+      // ROUND-4 item 3: SOFTWARE_TEAM SPECS fully expanded; AGENT SPECS collapsed to the
       // folder level by default ("there's too many, it fills it up").
       const expanded = new Set(state.expanded);
       for (const kind of kinds) {

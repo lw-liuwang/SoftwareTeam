@@ -4,7 +4,7 @@
 // PolicyEvaluation. Pure: no side-effects, no event-bus, no DB.
 // The watchdog-policy-engine maps `action: send` to a delivery call,
 // records meaningful outcomes via watchdog-history-log, and emits
-// the corresponding RigEvent.
+// the corresponding SoftwareTeamEvent.
 
 export interface PolicyJob {
   jobId: string;

@@ -152,8 +152,8 @@ describe("extractPiUsageFacts (Pi 0.87.1, session format v3)", () => {
   });
 });
 
-const SESSION = "devpi-a@rig";
-const SESSION_FILE = "/state/pi/devpi-a@rig/sessions/2026_0197.jsonl";
+const SESSION = "devpi-a@software-team";
+const SESSION_FILE = "/state/pi/devpi-a@software-team/sessions/2026_0197.jsonl";
 const HEADER = (parentSession?: string) => JSON.stringify({ type: "session", version: 3, id: "0197a2f0", timestamp: at(8), cwd: "/w", ...(parentSession ? { parentSession } : {}) });
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -340,12 +340,12 @@ describe("computeCostView, Pi seats", () => {
   it("unknown origin is kept apart; a session whose own entries carry no cost reads absent, never $0", () => {
     const d = db();
     const store = new PiUsageEntriesStore(d);
-    store.record({ seatSession: "u@rig", nodeId: null, generation: null, piSessionId: "s-u", facts: facts(null) }, at(20));
-    store.record({ seatSession: "n@rig", nodeId: null, generation: null, piSessionId: "s-n", facts: facts(OWN, [assistant("x1", 1, undefined)]) }, at(20));
+    store.record({ seatSession: "u@software-team", nodeId: null, generation: null, piSessionId: "s-u", facts: facts(null) }, at(20));
+    store.record({ seatSession: "n@software-team", nodeId: null, generation: null, piSessionId: "s-n", facts: facts(OWN, [assistant("x1", 1, undefined)]) }, at(20));
     const seats = Object.fromEntries(computeCostView(d, { nowIso: at(60) }).seats.map((s) => [s.seatSession, s as Record<string, any>]));
-    expect(seats["u@rig"]).toMatchObject({ status: "absent", reason: "no own entries with usage are stored for this Pi session yet", entries: { own: 0, unknownOrigin: { count: 7 } } });
-    expect(seats["n@rig"]).toMatchObject({ status: "absent", reason: "Pi recorded no cost on this session's own entries", entries: { own: 1, ownWithoutCost: 1 } });
-    expect(seats["n@rig"]).not.toHaveProperty("costUsd");
+    expect(seats["u@software-team"]).toMatchObject({ status: "absent", reason: "no own entries with usage are stored for this Pi session yet", entries: { own: 0, unknownOrigin: { count: 7 } } });
+    expect(seats["n@software-team"]).toMatchObject({ status: "absent", reason: "Pi recorded no cost on this session's own entries", entries: { own: 1, ownWithoutCost: 1 } });
+    expect(seats["n@software-team"]).not.toHaveProperty("costUsd");
   });
 
   it("the latest Pi session is the window; an earlier session stays stored as history", () => {
@@ -370,7 +370,7 @@ describe("POST /api/activity/pi-usage", () => {
   function app(runtime: string | null = "pi") {
     const d = db();
     const fakeStore = { resolveSession: (q: { sessionName?: string | null }) => (q.sessionName === SESSION && runtime
-      ? { sessionId: "sid", rigId: "r", nodeId: "node-1", sessionName: SESSION, runtime } : null) };
+      ? { sessionId: "sid", softwareTeamId: "r", nodeId: "node-1", sessionName: SESSION, runtime } : null) };
     const hono = new Hono();
     hono.use("*", async (c, next) => {
       c.set("agentActivityStore" as never, fakeStore as never);
@@ -407,7 +407,7 @@ describe("runner → authenticated route → SQLite → cost view", () => {
     const d = db();
     const hono = new Hono();
     hono.use("*", async (c, next) => {
-      c.set("agentActivityStore" as never, { resolveSession: () => ({ sessionId: "sid", rigId: "r", nodeId: "node-1", sessionName: SESSION, runtime: "pi" }) } as never);
+      c.set("agentActivityStore" as never, { resolveSession: () => ({ sessionId: "sid", softwareTeamId: "r", nodeId: "node-1", sessionName: SESSION, runtime: "pi" }) } as never);
       c.set("activityHookToken" as never, TOKEN as never);
       c.set("sessionRegistry" as never, { db: d } as never);
       await next();

@@ -4,12 +4,12 @@ import type { SectionDef } from "./types.js";
 export const SECTION_REGISTRY: readonly SectionDef[] = [
   {
     name: "topology",
-    sourceRead: "GET /api/rigs/:id/graph + /api/ps + /api/rigs/summary (existing)",
-    drillShape: "host>rig>pod>agent",
+    sourceRead: "GET /api/software-teams/:id/graph + /api/ps + /api/software-teams/summary (existing)",
+    drillShape: "host>softwareTeam>pod>agent",
   },
   {
     name: "specs",
-    sourceRead: "GET /api/specs/library + /api/rigs/:rigId/spec (existing)",
+    sourceRead: "GET /api/specs/library + /api/software-teams/:softwareTeamId/spec (existing)",
     drillShape: "kind>spec",
   },
   {

@@ -1,17 +1,17 @@
 // V0.3.0 daemon-skill-discovery — TDD-first contract for the skill
 // discovery module that gives the profile resolver a runtime-truth
-// view of skills present at user-library / rig-bundled paths.
+// view of skills present at user-library / software-team-bundled paths.
 //
 // Skill discovery scans 5 path classes per the effective spec
 // (status.md 2026-05-10):
-//   1. ~/.openrig/skills/                                     (per-runtime user-spec library)
+//   1. ~/.softwareteam/skills/                                     (per-runtime user-spec library)
 //   2. ~/.claude/skills/                                      (Claude-runtime user library)
 //   3. ~/.agents/skills/                                      (Codex-runtime user library)
-//   4. <cwd>/.claude/skills/<name>/ + <cwd>/.agents/skills/<name>/   (rig-bundled at cwd)
-//   5. <spec-install-dir>/skills/<name>/                      (rig-spec install dir)
+//   4. <cwd>/.claude/skills/<name>/ + <cwd>/.agents/skills/<name>/   (software-team-bundled at cwd)
+//   5. <spec-install-dir>/skills/<name>/                      (software-team-spec install dir)
 //
 // Per-runtime filtering: claude-code targets Claude paths;
-// codex targets Codex paths; ~/.openrig/skills/ is shared.
+// codex targets Codex paths; ~/.softwareteam/skills/ is shared.
 //
 // Per-skill structural validation: parse SKILL.md frontmatter; require
 // `name` + `description` fields; reject the rest as "not actually a
@@ -44,7 +44,7 @@ function writeSkill(dir: string, frontmatter: Record<string, string>, body: stri
 beforeEach(() => {
   tmpRoot = mkdtempSync(join(tmpdir(), "skill-discovery-"));
   homedir = join(tmpRoot, "home");
-  cwd = join(tmpRoot, "rig-cwd");
+  cwd = join(tmpRoot, "software-team-cwd");
   specInstallDir = join(tmpRoot, "spec-install");
   mkdirSync(homedir, { recursive: true });
   mkdirSync(cwd, { recursive: true });
@@ -106,17 +106,17 @@ describe("parseSkillFrontmatter — structural validation", () => {
 
 describe("discoverSkillsForRuntime — Claude-runtime path scanning", () => {
   it("discovers a skill from ~/.claude/skills/<name>/", () => {
-    writeSkill(join(homedir, ".claude/skills/openrig-architect"), {
-      name: "openrig-architect",
-      description: "Architect rigs",
+    writeSkill(join(homedir, ".claude/skills/softwareteam-architect"), {
+      name: "softwareteam-architect",
+      description: "Architect softwareTeams",
     });
     const result = discoverSkillsForRuntime(pathsFor("claude-code"));
     const ids = result.skills.map((s) => s.id);
-    expect(ids).toContain("openrig-architect");
+    expect(ids).toContain("softwareteam-architect");
   });
 
-  it("discovers a skill from ~/.openrig/skills/<name>/ (shared user-spec library)", () => {
-    writeSkill(join(homedir, ".openrig/skills/alignment-trace"), {
+  it("discovers a skill from ~/.softwareteam/skills/<name>/ (shared user-spec library)", () => {
+    writeSkill(join(homedir, ".softwareteam/skills/alignment-trace"), {
       name: "alignment-trace",
       description: "Trace alignment",
     });
@@ -125,7 +125,7 @@ describe("discoverSkillsForRuntime — Claude-runtime path scanning", () => {
     expect(ids).toContain("alignment-trace");
   });
 
-  it("discovers a skill from rig-bundled <cwd>/.claude/skills/<name>/", () => {
+  it("discovers a skill from software-team-bundled <cwd>/.claude/skills/<name>/", () => {
     writeSkill(join(cwd, ".claude/skills/web-design-guidelines"), {
       name: "web-design-guidelines",
       description: "Web design checks",
@@ -158,16 +158,16 @@ describe("discoverSkillsForRuntime — Claude-runtime path scanning", () => {
 
 describe("discoverSkillsForRuntime — Codex-runtime path scanning", () => {
   it("discovers a skill from ~/.agents/skills/<name>/", () => {
-    writeSkill(join(homedir, ".agents/skills/openrig-architect"), {
-      name: "openrig-architect",
-      description: "Architect rigs",
+    writeSkill(join(homedir, ".agents/skills/softwareteam-architect"), {
+      name: "softwareteam-architect",
+      description: "Architect softwareTeams",
     });
     const result = discoverSkillsForRuntime(pathsFor("codex"));
     const ids = result.skills.map((s) => s.id);
-    expect(ids).toContain("openrig-architect");
+    expect(ids).toContain("softwareteam-architect");
   });
 
-  it("discovers a skill from rig-bundled <cwd>/.agents/skills/<name>/", () => {
+  it("discovers a skill from software-team-bundled <cwd>/.agents/skills/<name>/", () => {
     writeSkill(join(cwd, ".agents/skills/alignment-trace"), {
       name: "alignment-trace",
       description: "Trace alignment",
@@ -210,19 +210,19 @@ describe("discoverSkillsForRuntime — structural rejection at scan time", () =>
 
 describe("discoverSkillsForRuntime — SkillResource shape", () => {
   it("returns each discovered skill as { id, path } with id from frontmatter and path pointing at the skill directory", () => {
-    writeSkill(join(homedir, ".claude/skills/openrig-architect"), {
-      name: "openrig-architect",
-      description: "Architect rigs",
+    writeSkill(join(homedir, ".claude/skills/softwareteam-architect"), {
+      name: "softwareteam-architect",
+      description: "Architect softwareTeams",
     });
     const result = discoverSkillsForRuntime(pathsFor("claude-code"));
-    const found = result.skills.find((s) => s.id === "openrig-architect");
+    const found = result.skills.find((s) => s.id === "softwareteam-architect");
     expect(found).toBeDefined();
-    expect(found!.path).toBe(join(homedir, ".claude/skills/openrig-architect"));
+    expect(found!.path).toBe(join(homedir, ".claude/skills/softwareteam-architect"));
   });
 
   it("is robust to missing top-level scan directories (returns an empty list, not a throw)", () => {
     // homedir + cwd + specInstallDir all exist but the .claude/skills /
-    // .agents/skills / .openrig/skills / skills subdirs don't.
+    // .agents/skills / .softwareteam/skills / skills subdirs don't.
     const result = discoverSkillsForRuntime(pathsFor("claude-code"));
     expect(result.skills).toEqual([]);
     expect(result.rejected).toEqual([]);

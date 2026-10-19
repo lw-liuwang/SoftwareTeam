@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type Database from "better-sqlite3";
 import { monotonicFactory } from "ulid";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { PsProjectionService, deriveRigLifecycleState, seatNeedsAttention, arbitratedNeedsInputSignal } from "../src/domain/ps-projection.js";
+import { PsProjectionService, deriveSoftwareTeamLifecycleState, seatNeedsAttention, arbitratedNeedsInputSignal } from "../src/domain/ps-projection.js";
 import { SeatIdentityStore } from "../src/domain/seat-identity-store.js";
 import { getNodeInventory } from "../src/domain/node-inventory.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
@@ -24,15 +24,15 @@ describe("PsProjectionService", () => {
 
   afterEach(() => { db.close(); });
 
-  function seedRig(name: string): string {
-    const id = `rig-${name}`;
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run(id, name);
+  function seedSoftwareTeam(name: string): string {
+    const id = `software-team-${name}`;
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run(id, name);
     return id;
   }
 
-  function seedNode(rigId: string, logicalId: string): string {
-    const id = `node-${rigId}-${logicalId}`;
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)").run(id, rigId, logicalId);
+  function seedNode(softwareTeamId: string, logicalId: string): string {
+    const id = `node-${softwareTeamId}-${logicalId}`;
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)").run(id, softwareTeamId, logicalId);
     return id;
   }
 
@@ -43,17 +43,17 @@ describe("PsProjectionService", () => {
     return id;
   }
 
-  function seedSnapshot(rigId: string, createdAt?: string): void {
+  function seedSnapshot(softwareTeamId: string, createdAt?: string): void {
     const id = `snap-${Date.now()}-${Math.random()}`;
-    db.prepare("INSERT INTO snapshots (id, rig_id, kind, status, data, created_at) VALUES (?, ?, ?, ?, ?, ?)")
-      .run(id, rigId, "manual", "complete", "{}", createdAt ?? new Date().toISOString().replace("T", " ").slice(0, 19));
+    db.prepare("INSERT INTO snapshots (id, software_team_id, kind, status, data, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(id, softwareTeamId, "manual", "complete", "{}", createdAt ?? new Date().toISOString().replace("T", " ").slice(0, 19));
   }
 
   // T1: All nodes running -> status: running
   it("all nodes running -> status: running", () => {
-    const rigId = seedRig("full-run");
-    const n1 = seedNode(rigId, "dev");
-    const n2 = seedNode(rigId, "qa");
+    const softwareTeamId = seedSoftwareTeam("full-run");
+    const n1 = seedNode(softwareTeamId, "dev");
+    const n2 = seedNode(softwareTeamId, "qa");
     seedSession(n1, "running");
     seedSession(n2, "running");
 
@@ -66,9 +66,9 @@ describe("PsProjectionService", () => {
 
   // T2: Some nodes exited -> status: partial
   it("some nodes exited -> status: partial", () => {
-    const rigId = seedRig("partial");
-    const n1 = seedNode(rigId, "dev");
-    const n2 = seedNode(rigId, "qa");
+    const softwareTeamId = seedSoftwareTeam("partial");
+    const n1 = seedNode(softwareTeamId, "dev");
+    const n2 = seedNode(softwareTeamId, "qa");
     seedSession(n1, "running");
     seedSession(n2, "exited");
 
@@ -79,8 +79,8 @@ describe("PsProjectionService", () => {
 
   // T3: No running nodes -> status: stopped
   it("no running nodes -> status: stopped", () => {
-    const rigId = seedRig("stopped");
-    const n1 = seedNode(rigId, "dev");
+    const softwareTeamId = seedSoftwareTeam("stopped");
+    const n1 = seedNode(softwareTeamId, "dev");
     seedSession(n1, "exited");
 
     const entries = ps.getEntries();
@@ -90,8 +90,8 @@ describe("PsProjectionService", () => {
 
   // T4: Uptime from earliest running session
   it("uptime computed from earliest running session", () => {
-    const rigId = seedRig("uptime-test");
-    const n1 = seedNode(rigId, "dev");
+    const softwareTeamId = seedSoftwareTeam("uptime-test");
+    const n1 = seedNode(softwareTeamId, "dev");
     seedSession(n1, "running", "2026-03-26 10:00:00");
 
     const entries = ps.getEntries();
@@ -102,9 +102,9 @@ describe("PsProjectionService", () => {
 
   // T5: Latest snapshot age included
   it("latest snapshot age included", () => {
-    const rigId = seedRig("snap-test");
-    seedNode(rigId, "dev");
-    seedSnapshot(rigId, "2026-03-26 10:00:00");
+    const softwareTeamId = seedSoftwareTeam("snap-test");
+    seedNode(softwareTeamId, "dev");
+    seedSnapshot(softwareTeamId, "2026-03-26 10:00:00");
 
     const entries = ps.getEntries();
     expect(entries[0]!.latestSnapshot).toBeTruthy();
@@ -119,8 +119,8 @@ describe("PsProjectionService", () => {
 
   // T7: Node with multiple sessions, only newest counts
   it("multiple session rows per node — only newest counts", () => {
-    const rigId = seedRig("multi-sess");
-    const n1 = seedNode(rigId, "dev");
+    const softwareTeamId = seedSoftwareTeam("multi-sess");
+    const n1 = seedNode(softwareTeamId, "dev");
     seedSession(n1, "exited", "2026-03-26 09:00:00");
     seedSession(n1, "running", "2026-03-26 10:00:00"); // newest
 
@@ -131,13 +131,13 @@ describe("PsProjectionService", () => {
 
   // T8: Multiple snapshots + sessions -> correct aggregation
   it("multiple snapshots + sessions aggregate correctly", () => {
-    const rigId = seedRig("aggregate");
-    const n1 = seedNode(rigId, "dev");
-    const n2 = seedNode(rigId, "qa");
+    const softwareTeamId = seedSoftwareTeam("aggregate");
+    const n1 = seedNode(softwareTeamId, "dev");
+    const n2 = seedNode(softwareTeamId, "qa");
     seedSession(n1, "running");
     seedSession(n2, "running");
-    seedSnapshot(rigId, "2026-03-26 08:00:00");
-    seedSnapshot(rigId, "2026-03-26 09:00:00"); // latest
+    seedSnapshot(softwareTeamId, "2026-03-26 08:00:00");
+    seedSnapshot(softwareTeamId, "2026-03-26 09:00:00"); // latest
 
     const entries = ps.getEntries();
     expect(entries[0]!.nodeCount).toBe(2);
@@ -147,8 +147,8 @@ describe("PsProjectionService", () => {
 
   // T9: Same-second session tiebreak by id
   it("same-second sessions resolved by id DESC", () => {
-    const rigId = seedRig("tiebreak");
-    const n1 = seedNode(rigId, "dev");
+    const softwareTeamId = seedSoftwareTeam("tiebreak");
+    const n1 = seedNode(softwareTeamId, "dev");
     // Insert with same timestamp, different IDs
     db.prepare("INSERT INTO sessions (id, node_id, session_name, status, created_at) VALUES (?, ?, ?, ?, ?)")
       .run("sess-aaa", n1, "tmux-old", "exited", "2026-03-26 10:00:00");
@@ -176,11 +176,11 @@ describe("PsProjectionService", () => {
     }
   });
 
-  // L2 rig-level lifecycleState
+  // L2 software-team-level lifecycleState
   describe("lifecycleState (L2)", () => {
-    function seedSnapshotForRig(rigId: string, sessions: Array<{ nodeId: string; resumeToken: string | null }>): void {
+    function seedSnapshotForSoftwareTeam(softwareTeamId: string, sessions: Array<{ nodeId: string; resumeToken: string | null }>): void {
       const data = {
-        rig: { id: rigId, name: "rig-name", createdAt: "2026-04-28T00:00:00Z", updatedAt: "2026-04-28T00:00:00Z" },
+        softwareTeam: { id: softwareTeamId, name: "software-team-name", createdAt: "2026-04-28T00:00:00Z", updatedAt: "2026-04-28T00:00:00Z" },
         nodes: [],
         edges: [],
         sessions: sessions.map((s, i) => ({
@@ -199,14 +199,14 @@ describe("PsProjectionService", () => {
         })),
         checkpoints: {},
       };
-      db.prepare("INSERT INTO snapshots (id, rig_id, kind, status, data) VALUES (?, ?, ?, ?, ?)")
-        .run(`snap-${rigId}`, rigId, "manual", "complete", JSON.stringify(data));
+      db.prepare("INSERT INTO snapshots (id, software_team_id, kind, status, data) VALUES (?, ?, ?, ?, ?)")
+        .run(`snap-${softwareTeamId}`, softwareTeamId, "manual", "complete", JSON.stringify(data));
     }
 
     it("all nodes running -> lifecycleState=running", () => {
-      const rigId = seedRig("all-run");
-      const n1 = seedNode(rigId, "dev");
-      const n2 = seedNode(rigId, "qa");
+      const softwareTeamId = seedSoftwareTeam("all-run");
+      const n1 = seedNode(softwareTeamId, "dev");
+      const n2 = seedNode(softwareTeamId, "qa");
       seedSession(n1, "running");
       seedSession(n2, "running");
 
@@ -215,12 +215,12 @@ describe("PsProjectionService", () => {
     });
 
     it("all nodes detached + usable snapshot -> lifecycleState=recoverable", () => {
-      const rigId = seedRig("all-recoverable");
-      const n1 = seedNode(rigId, "dev");
-      const n2 = seedNode(rigId, "qa");
+      const softwareTeamId = seedSoftwareTeam("all-recoverable");
+      const n1 = seedNode(softwareTeamId, "dev");
+      const n2 = seedNode(softwareTeamId, "qa");
       seedSession(n1, "detached");
       seedSession(n2, "detached");
-      seedSnapshotForRig(rigId, [
+      seedSnapshotForSoftwareTeam(softwareTeamId, [
         { nodeId: n1, resumeToken: "tok-1" },
         { nodeId: n2, resumeToken: "tok-2" },
       ]);
@@ -229,17 +229,17 @@ describe("PsProjectionService", () => {
       expect(entries[0]!.lifecycleState).toBe("recoverable");
     });
 
-    it("keeps intentionally stopped seats recoverable without degrading the active rig", () => {
-      const rigId = seedRig("intentional-recoverable");
-      const stopped = seedNode(rigId, "qa");
-      const live = seedNode(rigId, "dev");
+    it("keeps intentionally stopped seats recoverable without degrading the active softwareTeam", () => {
+      const softwareTeamId = seedSoftwareTeam("intentional-recoverable");
+      const stopped = seedNode(softwareTeamId, "qa");
+      const live = seedNode(softwareTeamId, "dev");
       const stoppedSession = seedSession(stopped, "running");
       const liveSession = seedSession(live, "running");
       const registry = new SessionRegistry(db);
-      seedSnapshotForRig(rigId, [{ nodeId: stopped, resumeToken: "qa-resume-token" }]);
+      seedSnapshotForSoftwareTeam(softwareTeamId, [{ nodeId: stopped, resumeToken: "qa-resume-token" }]);
       registry.markIntentionallyStopped(stoppedSession);
 
-      expect(getNodeInventory(db, rigId).find((entry) => entry.nodeId === stopped)).toMatchObject({
+      expect(getNodeInventory(db, softwareTeamId).find((entry) => entry.nodeId === stopped)).toMatchObject({
         lifecycleState: "recoverable", intentionallyStopped: true, sessionStatus: "exited",
       });
       expect(ps.getEntries()[0]).toMatchObject({
@@ -251,8 +251,8 @@ describe("PsProjectionService", () => {
     });
 
     it("all nodes detached + no usable snapshot -> lifecycleState=stopped", () => {
-      const rigId = seedRig("all-stopped");
-      const n1 = seedNode(rigId, "dev");
+      const softwareTeamId = seedSoftwareTeam("all-stopped");
+      const n1 = seedNode(softwareTeamId, "dev");
       seedSession(n1, "detached");
 
       const entries = ps.getEntries();
@@ -260,9 +260,9 @@ describe("PsProjectionService", () => {
     });
 
     it("mixed running + detached -> lifecycleState=degraded", () => {
-      const rigId = seedRig("mixed");
-      const n1 = seedNode(rigId, "dev");
-      const n2 = seedNode(rigId, "qa");
+      const softwareTeamId = seedSoftwareTeam("mixed");
+      const n1 = seedNode(softwareTeamId, "dev");
+      const n2 = seedNode(softwareTeamId, "qa");
       seedSession(n1, "running");
       seedSession(n2, "detached");
 
@@ -271,16 +271,16 @@ describe("PsProjectionService", () => {
     });
 
     it("any node attention_required -> lifecycleState=attention_required (priority over running)", () => {
-      const rigId = seedRig("att-priority");
-      const n1 = seedNode(rigId, "dev");
-      const n2 = seedNode(rigId, "qa");
+      const softwareTeamId = seedSoftwareTeam("att-priority");
+      const n1 = seedNode(softwareTeamId, "dev");
+      const n2 = seedNode(softwareTeamId, "qa");
       seedSession(n1, "running");
       seedSession(n2, "running");
       // Mark n2 as attention_required via failed restoreOutcome on a running session
       db.prepare(
-        "INSERT INTO events (rig_id, node_id, type, payload) VALUES (?, ?, ?, ?)"
-      ).run(rigId, n2, "restore.completed", JSON.stringify({
-        result: { rigResult: "partially_restored", nodes: [{ nodeId: n2, status: "failed" }] },
+        "INSERT INTO events (software_team_id, node_id, type, payload) VALUES (?, ?, ?, ?)"
+      ).run(softwareTeamId, n2, "restore.completed", JSON.stringify({
+        result: { softwareTeamResult: "partially_restored", nodes: [{ nodeId: n2, status: "failed" }] },
         type: "restore.completed",
       }));
 
@@ -288,24 +288,24 @@ describe("PsProjectionService", () => {
       expect(entries[0]!.lifecycleState).toBe("attention_required");
     });
 
-    // L3-followup: rigName alias is always populated and equal to name.
-    it("rigName alias is populated and equal to name on every entry (L3-followup)", () => {
-      const rigA = seedRig("alpha");
-      const rigB = seedRig("beta");
-      seedNode(rigA, "dev");
-      seedNode(rigB, "qa");
+    // L3-followup: softwareTeamName alias is always populated and equal to name.
+    it("softwareTeamName alias is populated and equal to name on every entry (L3-followup)", () => {
+      const softwareTeamA = seedSoftwareTeam("alpha");
+      const softwareTeamB = seedSoftwareTeam("beta");
+      seedNode(softwareTeamA, "dev");
+      seedNode(softwareTeamB, "qa");
 
       const entries = ps.getEntries();
       expect(entries.length).toBeGreaterThan(0);
       for (const e of entries) {
-        expect(typeof e.rigName).toBe("string");
-        expect(e.rigName.length).toBeGreaterThan(0);
-        expect(e.rigName).toBe(e.name);
+        expect(typeof e.softwareTeamName).toBe("string");
+        expect(e.softwareTeamName.length).toBeGreaterThan(0);
+        expect(e.softwareTeamName).toBe(e.name);
       }
     });
 
-    it("lifecycleState is always populated even for empty rigs (L3-followup)", () => {
-      seedRig("empty-rig");
+    it("lifecycleState is always populated even for empty softwareTeams (L3-followup)", () => {
+      seedSoftwareTeam("empty-software-team");
 
       const entries = ps.getEntries();
       expect(entries[0]!.lifecycleState).toBeDefined();
@@ -314,25 +314,25 @@ describe("PsProjectionService", () => {
     });
 
     // Pure unit-level coverage of the fold helper.
-    it("deriveRigLifecycleState fold helper covers all branches", () => {
-      expect(deriveRigLifecycleState([])).toBe("stopped");
-      expect(deriveRigLifecycleState(["running", "running"])).toBe("running");
-      expect(deriveRigLifecycleState(["detached", "detached"])).toBe("stopped");
-      expect(deriveRigLifecycleState(["recoverable", "detached"])).toBe("recoverable");
-      expect(deriveRigLifecycleState(["recoverable", "recoverable"])).toBe("recoverable");
-      expect(deriveRigLifecycleState(["running", "detached"])).toBe("degraded");
-      expect(deriveRigLifecycleState(["running", "recoverable"])).toBe("degraded");
-      expect(deriveRigLifecycleState(["attention_required", "running"])).toBe("attention_required");
-      expect(deriveRigLifecycleState(["attention_required", "detached"])).toBe("attention_required");
+    it("deriveSoftwareTeamLifecycleState fold helper covers all branches", () => {
+      expect(deriveSoftwareTeamLifecycleState([])).toBe("stopped");
+      expect(deriveSoftwareTeamLifecycleState(["running", "running"])).toBe("running");
+      expect(deriveSoftwareTeamLifecycleState(["detached", "detached"])).toBe("stopped");
+      expect(deriveSoftwareTeamLifecycleState(["recoverable", "detached"])).toBe("recoverable");
+      expect(deriveSoftwareTeamLifecycleState(["recoverable", "recoverable"])).toBe("recoverable");
+      expect(deriveSoftwareTeamLifecycleState(["running", "detached"])).toBe("degraded");
+      expect(deriveSoftwareTeamLifecycleState(["running", "recoverable"])).toBe("degraded");
+      expect(deriveSoftwareTeamLifecycleState(["attention_required", "running"])).toBe("attention_required");
+      expect(deriveSoftwareTeamLifecycleState(["attention_required", "detached"])).toBe("attention_required");
     });
 
     // OPR.0.3.4.6 — cross-surface regression guard: projection never collapses
-    // attention_required to failed at the rig level.
-    it("OPR.0.3.4.6 guard: attention_required node NEVER maps to rig-level 'failed' (always 'attention_required')", () => {
-      expect(deriveRigLifecycleState(["attention_required"])).toBe("attention_required");
-      expect(deriveRigLifecycleState(["attention_required"])).not.toBe("failed");
-      expect(deriveRigLifecycleState(["attention_required", "running", "detached"])).toBe("attention_required");
-      expect(deriveRigLifecycleState(["attention_required", "running", "detached"])).not.toBe("failed");
+    // attention_required to failed at the softwareTeam level.
+    it("OPR.0.3.4.6 guard: attention_required node NEVER maps to software-team-level 'failed' (always 'attention_required')", () => {
+      expect(deriveSoftwareTeamLifecycleState(["attention_required"])).toBe("attention_required");
+      expect(deriveSoftwareTeamLifecycleState(["attention_required"])).not.toBe("failed");
+      expect(deriveSoftwareTeamLifecycleState(["attention_required", "running", "detached"])).toBe("attention_required");
+      expect(deriveSoftwareTeamLifecycleState(["attention_required", "running", "detached"])).not.toBe("failed");
     });
   });
 
@@ -373,8 +373,8 @@ describe("PsProjectionService", () => {
     }
 
     it("runningCount stays process-alive semantics; activeCount + hasWorkCount default to 0 when no signals wired", () => {
-      const rigId = seedRig("baseline");
-      const n1 = seedNode(rigId, "dev");
+      const softwareTeamId = seedSoftwareTeam("baseline");
+      const n1 = seedNode(softwareTeamId, "dev");
       seedSession(n1, "running");
 
       const entries = ps.getEntries();
@@ -384,8 +384,8 @@ describe("PsProjectionService", () => {
     });
 
     it("HG-3 direction A — seat producing output with NOTHING queued: terminalActive=true, hasAssignedWork=false ⇒ activeCount=1, hasWorkCount=0", () => {
-      const rigId = seedRig("active-no-work");
-      const n1 = seedNode(rigId, "dev");
+      const softwareTeamId = seedSoftwareTeam("active-no-work");
+      const n1 = seedNode(softwareTeamId, "dev");
       seedSession(n1, "running");
       const paneId = `tmux-${n1}`;
       const seatActivity = makeSeatActivityFor({ [paneId]: true });
@@ -399,8 +399,8 @@ describe("PsProjectionService", () => {
     });
 
     it("HG-3 direction B — seat SILENT with queued work: terminalActive=false, hasAssignedWork=true ⇒ activeCount=0, hasWorkCount=1", () => {
-      const rigId = seedRig("idle-with-work");
-      const n1 = seedNode(rigId, "dev");
+      const softwareTeamId = seedSoftwareTeam("idle-with-work");
+      const n1 = seedNode(softwareTeamId, "dev");
       seedSession(n1, "running");
       const paneId = `tmux-${n1}`;
       seedPendingQitem(paneId);
@@ -414,8 +414,8 @@ describe("PsProjectionService", () => {
     });
 
     it("HG-4 non-inference — fake activity state does NOT change hasWorkCount; fake queue state does NOT change activeCount", () => {
-      const rigId = seedRig("non-inference");
-      const n1 = seedNode(rigId, "dev");
+      const softwareTeamId = seedSoftwareTeam("non-inference");
+      const n1 = seedNode(softwareTeamId, "dev");
       seedSession(n1, "running");
       const paneId = `tmux-${n1}`;
 
@@ -439,8 +439,8 @@ describe("PsProjectionService", () => {
     });
 
     it("running-but-no-observation reads as inactive (activeCount=0) — null SeatActivity is distinct from active", () => {
-      const rigId = seedRig("no-obs");
-      const n1 = seedNode(rigId, "dev");
+      const softwareTeamId = seedSoftwareTeam("no-obs");
+      const n1 = seedNode(softwareTeamId, "dev");
       seedSession(n1, "running");
       // SeatActivity returns null for every paneId — no observations yet.
       const seatActivity = { getSeatActivity: () => null };
@@ -452,8 +452,8 @@ describe("PsProjectionService", () => {
     });
 
     it("hasWorkCount counts DISTINCT nodes; multiple qitems on one seat counts the seat once", () => {
-      const rigId = seedRig("multi-qitem");
-      const n1 = seedNode(rigId, "dev");
+      const softwareTeamId = seedSoftwareTeam("multi-qitem");
+      const n1 = seedNode(softwareTeamId, "dev");
       seedSession(n1, "running");
       const paneId = `tmux-${n1}`;
       seedPendingQitem(paneId);
@@ -465,8 +465,8 @@ describe("PsProjectionService", () => {
     });
 
     it("active qitems count toward hasWorkCount while terminal qitems do not", () => {
-      const rigId = seedRig("only-pending");
-      const n1 = seedNode(rigId, "dev");
+      const softwareTeamId = seedSoftwareTeam("only-pending");
+      const n1 = seedNode(softwareTeamId, "dev");
       seedSession(n1, "running");
       const paneId = `tmux-${n1}`;
       for (const state of ["pending", "in-progress", "blocked", "done", "canceled", "handed-off"]) {
@@ -478,8 +478,8 @@ describe("PsProjectionService", () => {
     });
 
     it.each(["in-progress", "blocked"])("slice 17 — a seat with only %s work counts as assigned", (state) => {
-      const rigId = seedRig(`assigned-${state}`);
-      const n1 = seedNode(rigId, "dev");
+      const softwareTeamId = seedSoftwareTeam(`assigned-${state}`);
+      const n1 = seedNode(softwareTeamId, "dev");
       seedSession(n1, "running");
       seedQitem(`tmux-${n1}`, state);
 
@@ -487,10 +487,10 @@ describe("PsProjectionService", () => {
     });
   });
 
-  // OPR.0.4.4.21 — the rig-rollup attention predicate + fold (FR-1).
+  // OPR.0.4.4.21 — the software-team-rollup attention predicate + fold (FR-1).
   describe("OPR.0.4.4.21 — attentionCount (one predicate, one count per seat)", () => {
     const baseEntry = (over: Partial<NodeInventoryEntry> = {}): NodeInventoryEntry => ({
-      rigId: "r", rigName: "r", nodeId: "n", logicalId: "dev",
+      softwareTeamId: "r", softwareTeamName: "r", nodeId: "n", logicalId: "dev",
       canonicalSessionName: "dev@r",
       sessionStatus: "running",
       startupStatus: "ready",
@@ -554,52 +554,52 @@ describe("PsProjectionService", () => {
     });
 
     it("getEntries: multi-signal seat counts ONCE; healthy peers count zero", () => {
-      const rigId = seedRig("attn-once");
-      const bad = seedNode(rigId, "bad");
-      const ok = seedNode(rigId, "ok");
+      const softwareTeamId = seedSoftwareTeam("attn-once");
+      const bad = seedNode(softwareTeamId, "bad");
+      const ok = seedNode(softwareTeamId, "ok");
       // bad: failed startup AND a startup error AND held (three signals, one seat)
       db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))")
         .run("s-bad", bad, "bad@attn-once", "exited", "failed");
-      db.prepare("INSERT INTO events (rig_id, node_id, type, payload, created_at) VALUES (?, ?, 'node.startup_failed', ?, datetime('now'))")
-        .run(rigId, bad, JSON.stringify({ error: "launch exploded" }));
-      db.prepare("INSERT INTO events (rig_id, node_id, type, payload, created_at) VALUES (?, ?, 'node.held', ?, datetime('now'))")
-        .run(rigId, bad, JSON.stringify({ reason: "held" }));
+      db.prepare("INSERT INTO events (software_team_id, node_id, type, payload, created_at) VALUES (?, ?, 'node.startup_failed', ?, datetime('now'))")
+        .run(softwareTeamId, bad, JSON.stringify({ error: "launch exploded" }));
+      db.prepare("INSERT INTO events (software_team_id, node_id, type, payload, created_at) VALUES (?, ?, 'node.held', ?, datetime('now'))")
+        .run(softwareTeamId, bad, JSON.stringify({ reason: "held" }));
       db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))")
         .run("s-ok", ok, "ok@attn-once", "running", "ready");
 
       const entries = ps.getEntries();
-      expect(entries.find((e) => e.rigId === rigId)!.attentionCount).toBe(1);
+      expect(entries.find((e) => e.softwareTeamId === softwareTeamId)!.attentionCount).toBe(1);
     });
 
     it("getEntries: fresh needs_input hook counts via the store; stale hook degrades to unknown and does NOT", () => {
-      const rigId = seedRig("attn-hook");
-      const n = seedNode(rigId, "dev");
+      const softwareTeamId = seedSoftwareTeam("attn-hook");
+      const n = seedNode(softwareTeamId, "dev");
       db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))")
         .run("s-hook", n, "dev@attn-hook", "running", "ready");
       const eventBus = new EventBus(db);
       const store = new AgentActivityStore({ db, eventBus });
       const emit = (eventAt: string) => eventBus.emit({
-        type: "agent.activity", rigId, nodeId: n, sessionName: "dev@attn-hook", runtime: "claude-code",
+        type: "agent.activity", softwareTeamId, nodeId: n, sessionName: "dev@attn-hook", runtime: "claude-code",
         activity: { state: "needs_input", reason: "permission_prompt", evidenceSource: "runtime_hook",
           sampledAt: eventAt, eventAt, evidence: "permission_prompt", fallback: false, stale: false },
       } as never);
 
       emit(new Date().toISOString()); // fresh
       const withStore = new PsProjectionService({ db, agentActivity: store });
-      expect(withStore.getEntries().find((e) => e.rigId === rigId)!.attentionCount).toBe(1);
+      expect(withStore.getEntries().find((e) => e.softwareTeamId === softwareTeamId)!.attentionCount).toBe(1);
 
       emit(new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // stale (latest row now old)
-      expect(withStore.getEntries().find((e) => e.rigId === rigId)!.attentionCount).toBe(0);
+      expect(withStore.getEntries().find((e) => e.softwareTeamId === softwareTeamId)!.attentionCount).toBe(0);
     });
 
     it("#81: getEntries reads the ARBITRATED needs_input the per-seat row shows (pane chrome, hook-silent seat)", () => {
-      const rigId = seedRig("attn-arbitrated");
-      const n = seedNode(rigId, "dev");
+      const softwareTeamId = seedSoftwareTeam("attn-arbitrated");
+      const n = seedNode(softwareTeamId, "dev");
       db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))")
         .run("s-arb", n, "dev@attn-arbitrated", "running", "ready");
       // The row-facing oracle: a seat frozen at a permission prompt with no hook
       // traffic — exactly the reported case where the row said needs-input x1
-      // and the rig total said 0.
+      // and the softwareTeam total said 0.
       const seatActivity = {
         getSeatActivity: () => null,
         getSeatStateBySession: (sessionName: string) => sessionName === "dev@attn-arbitrated"
@@ -612,18 +612,18 @@ describe("PsProjectionService", () => {
           : null,
       };
       const entries = new PsProjectionService({ db, seatActivity: seatActivity as never }).getEntries();
-      expect(entries.find((e) => e.rigId === rigId)!.attentionCount).toBe(1);
+      expect(entries.find((e) => e.softwareTeamId === softwareTeamId)!.attentionCount).toBe(1);
     });
 
     it("#81: getEntries takes the arbitrated answer over a stale needs_input hook", () => {
-      const rigId = seedRig("attn-stale-hook");
-      const n = seedNode(rigId, "dev");
+      const softwareTeamId = seedSoftwareTeam("attn-stale-hook");
+      const n = seedNode(softwareTeamId, "dev");
       db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))")
         .run("s-stale", n, "dev@attn-stale-hook", "running", "ready");
       const eventBus = new EventBus(db);
       const store = new AgentActivityStore({ db, eventBus });
       eventBus.emit({
-        type: "agent.activity", rigId, nodeId: n, sessionName: "dev@attn-stale-hook", runtime: "claude-code",
+        type: "agent.activity", softwareTeamId, nodeId: n, sessionName: "dev@attn-stale-hook", runtime: "claude-code",
         activity: { state: "needs_input", reason: "permission_prompt", evidenceSource: "runtime_hook",
           sampledAt: new Date().toISOString(), eventAt: new Date().toISOString(), evidence: "permission_prompt", fallback: false, stale: false },
       } as never);
@@ -643,18 +643,18 @@ describe("PsProjectionService", () => {
         }),
       };
       const entries = new PsProjectionService({ db, agentActivity: store, seatActivity: seatActivity as never }).getEntries();
-      expect(entries.find((e) => e.rigId === rigId)!.attentionCount).toBe(0);
+      expect(entries.find((e) => e.softwareTeamId === softwareTeamId)!.attentionCount).toBe(0);
     });
 
     it("#180 review: a Codex seat with hooks at trial falls back to the hook store — a fresh PermissionRequest counts 1", () => {
-      const rigId = seedRig("attn-codex-trial");
-      const n = seedNode(rigId, "dev");
+      const softwareTeamId = seedSoftwareTeam("attn-codex-trial");
+      const n = seedNode(softwareTeamId, "dev");
       db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))")
         .run("s-codex", n, "dev@attn-codex-trial", "running", "ready");
       const eventBus = new EventBus(db);
       const store = new AgentActivityStore({ db, eventBus });
       eventBus.emit({
-        type: "agent.activity", rigId, nodeId: n, sessionName: "dev@attn-codex-trial", runtime: "codex",
+        type: "agent.activity", softwareTeamId, nodeId: n, sessionName: "dev@attn-codex-trial", runtime: "codex",
         activity: { state: "needs_input", reason: "permission_prompt", evidenceSource: "runtime_hook",
           sampledAt: new Date().toISOString(), eventAt: new Date().toISOString(), evidence: "permission_prompt", fallback: false, stale: false },
       } as never);
@@ -676,24 +676,24 @@ describe("PsProjectionService", () => {
         }),
       };
       const entries = new PsProjectionService({ db, agentActivity: store, seatActivity: seatActivity as never }).getEntries();
-      expect(entries.find((e) => e.rigId === rigId)!.attentionCount).toBe(1);
+      expect(entries.find((e) => e.softwareTeamId === softwareTeamId)!.attentionCount).toBe(1);
     });
 
     it("getEntries: store absent -> needs_input contributes false (honest degrade), other signals still count", () => {
-      const rigId = seedRig("attn-nostore");
-      const n = seedNode(rigId, "dev");
+      const softwareTeamId = seedSoftwareTeam("attn-nostore");
+      const n = seedNode(softwareTeamId, "dev");
       db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))")
         .run("s-ns", n, "dev@attn-nostore", "exited", "failed");
       const entries = ps.getEntries(); // `ps` has no agentActivity store
-      expect(entries.find((e) => e.rigId === rigId)!.attentionCount).toBe(1);
+      expect(entries.find((e) => e.softwareTeamId === softwareTeamId)!.attentionCount).toBe(1);
     });
 
     it("attentionCount is ADDITIVE: every pre-existing PsEntry key is preserved (RPS-2)", () => {
-      const rigId = seedRig("attn-keys");
-      const n = seedNode(rigId, "dev");
+      const softwareTeamId = seedSoftwareTeam("attn-keys");
+      const n = seedNode(softwareTeamId, "dev");
       seedSession(n, "running");
-      const entry = ps.getEntries().find((e) => e.rigId === rigId)!;
-      for (const key of ["rigId", "name", "rigName", "nodeCount", "runningCount", "activeCount", "hasWorkCount",
+      const entry = ps.getEntries().find((e) => e.softwareTeamId === softwareTeamId)!;
+      for (const key of ["softwareTeamId", "name", "softwareTeamName", "nodeCount", "runningCount", "activeCount", "hasWorkCount",
         "status", "lifecycleState", "uptime", "latestSnapshot", "archivedAt", "isArchived",
         "periodicSnapshotActive", "periodicSnapshotIntervalSeconds", "autoPeriodicSnapshotCount"]) {
         expect(Object.prototype.hasOwnProperty.call(entry, key), key).toBe(true);
@@ -714,8 +714,8 @@ describe("Slice-05 item-5 (D5) — ps running honesty vs identity verdict", () =
   it("a running session with an applicable session_missing verdict is not counted running", () => {
     const db = createFullTestDb();
     try {
-      db.prepare("INSERT INTO rigs (id, name) VALUES ('r-d5','d5')").run();
-      db.prepare("INSERT INTO nodes (id, rig_id, logical_id, runtime, cwd) VALUES ('n-d5','r-d5','dev','claude-code','/tmp')").run();
+      db.prepare("INSERT INTO software_teams (id, name) VALUES ('r-d5','d5')").run();
+      db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, runtime, cwd) VALUES ('n-d5','r-d5','dev','claude-code','/tmp')").run();
       db.prepare(
         "INSERT INTO sessions (id, node_id, session_name, status, created_at) VALUES ('s-d5','n-d5','tmux-n-d5','running','2026-07-02 12:00:00')",
       ).run();

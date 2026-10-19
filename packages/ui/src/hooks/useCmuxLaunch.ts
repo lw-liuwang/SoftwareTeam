@@ -1,7 +1,7 @@
 // V1 attempt-3 Phase 4 — useCmuxLaunch.
 //
 // Thin wrapper around the daemon open-or-focus endpoint.
-// `POST /api/rigs/:rigId/nodes/:logicalId/open-cmux` creates a cmux
+// `POST /api/software-teams/:softwareTeamId/nodes/:logicalId/open-cmux` creates a cmux
 // surface when the node is not already bound, and focuses the existing
 // surface when it is.
 
@@ -9,7 +9,7 @@ import { useMutation } from "@tanstack/react-query";
 import { terminalAuthHeaders } from "../components/mission-control/missionControlAuth.js";
 
 interface CmuxLaunchInput {
-  rigId: string;
+  softwareTeamId: string;
   logicalId: string;
 }
 
@@ -21,9 +21,9 @@ interface OpenCmuxResult {
   message?: string;
 }
 
-export async function postOpenCmux({ rigId, logicalId }: CmuxLaunchInput): Promise<OpenCmuxResult> {
+export async function postOpenCmux({ softwareTeamId, logicalId }: CmuxLaunchInput): Promise<OpenCmuxResult> {
   const res = await fetch(
-    `/api/rigs/${encodeURIComponent(rigId)}/nodes/${encodeURIComponent(logicalId)}/open-cmux`,
+    `/api/software-teams/${encodeURIComponent(softwareTeamId)}/nodes/${encodeURIComponent(logicalId)}/open-cmux`,
     { method: "POST", headers: terminalAuthHeaders() },
   );
   const body = (await res.json().catch(() => null)) as OpenCmuxResult | null;

@@ -1,4 +1,4 @@
-// V0.3.1 slice 05 kernel-rig-as-default — forward-fix #3 architectural.
+// V0.3.1 slice 05 kernel-software-team-as-default — forward-fix #3 architectural.
 //
 // KernelBootTracker unit tests. Tracker is the observable state surface
 // for the background kernel-boot; getStatus() projects from the tracker's
@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 import { KernelBootTracker } from "../src/domain/kernel-boot-tracker.js";
 import type { EventBus } from "../src/domain/event-bus.js";
 import type { SessionRegistry } from "../src/domain/session-registry.js";
-import type { RigRepository } from "../src/domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 
 // A session row as the registry returns it. Each defaults to its own node (named after the session) unless
 // nodeId says otherwise; rows are created in array order.
@@ -23,7 +23,7 @@ interface FakeSession {
 
 const nodeOf = (s: FakeSession) => s.nodeId ?? s.sessionName;
 
-// A node row as getRig returns it, independent of the session rows, so a node can have no session. logicalId
+// A node row as getSoftwareTeam returns it, independent of the session rows, so a node can have no session. logicalId
 // is the spec's `pod.member`; the runtime lives on the node row.
 interface FakeNode {
   id: string;
@@ -31,25 +31,25 @@ interface FakeNode {
   runtime?: string;
 }
 
-function makeRigRepo(
-  rigs: Array<{ id: string; name: string; archived?: boolean }>,
-  nodesByRig: Record<string, FakeNode[]> = {},
-): RigRepository {
+function makeSoftwareTeamRepo(
+  softwareTeams: Array<{ id: string; name: string; archived?: boolean }>,
+  nodesBySoftwareTeam: Record<string, FakeNode[]> = {},
+): SoftwareTeamRepository {
   return {
-    listRigs: () => rigs,
-    findRigsByName: (name: string) => rigs.filter((r) => r.name === name),
-    findUnarchivedRigsByName: (name: string) => rigs.filter((r) => r.name === name && !r.archived),
-    getRig: (rigId: string) => ({
-      rig: rigs.find((r) => r.id === rigId),
-      nodes: (nodesByRig[rigId] ?? []).map((n) => ({ ...n, runtime: n.runtime ?? null })),
+    listSoftwareTeams: () => softwareTeams,
+    findSoftwareTeamsByName: (name: string) => softwareTeams.filter((r) => r.name === name),
+    findUnarchivedSoftwareTeamsByName: (name: string) => softwareTeams.filter((r) => r.name === name && !r.archived),
+    getSoftwareTeam: (softwareTeamId: string) => ({
+      softwareTeam: softwareTeams.find((r) => r.id === softwareTeamId),
+      nodes: (nodesBySoftwareTeam[softwareTeamId] ?? []).map((n) => ({ ...n, runtime: n.runtime ?? null })),
       edges: [],
     }),
-  } as unknown as RigRepository;
+  } as unknown as SoftwareTeamRepository;
 }
 
-function makeSessionRegistry(sessionsByRig: Record<string, FakeSession[]>): SessionRegistry {
+function makeSessionRegistry(sessionsBySoftwareTeam: Record<string, FakeSession[]>): SessionRegistry {
   return {
-    getSessionsForRig: (rigId: string) => (sessionsByRig[rigId] ?? []).map((s, i) => ({
+    getSessionsForSoftwareTeam: (softwareTeamId: string) => (sessionsBySoftwareTeam[softwareTeamId] ?? []).map((s, i) => ({
       ...s,
       nodeId: nodeOf(s),
       id: `session-${String(i).padStart(3, "0")}`,
@@ -78,7 +78,7 @@ describe("KernelBootTracker — initial state", () => {
     const tracker = new KernelBootTracker({
       eventBus: makeEventBus().bus,
       sessionRegistry: makeSessionRegistry({}),
-      rigRepo: makeRigRepo([]),
+      softwareTeamRepo: makeSoftwareTeamRepo([]),
     });
     const status = tracker.getStatus();
     expect(status.kernelState).toBe("skipped");
@@ -92,19 +92,19 @@ describe("KernelBootTracker — initial state", () => {
     const tracker = new KernelBootTracker({
       eventBus: makeEventBus().bus,
       sessionRegistry: makeSessionRegistry({}),
-      rigRepo: makeRigRepo([]),
+      softwareTeamRepo: makeSoftwareTeamRepo([]),
     });
-    tracker.setSkipped("OPENRIG_NO_KERNEL=1");
+    tracker.setSkipped("SOFTWARETEAM_NO_KERNEL=1");
     const status = tracker.getStatus();
     expect(status.kernelState).toBe("skipped");
-    expect(status.detail).toBe("OPENRIG_NO_KERNEL=1");
+    expect(status.detail).toBe("SOFTWARETEAM_NO_KERNEL=1");
   });
 
   it("setAuthBlocked / setSpecMissing transition to the matching state with detail", () => {
     const tracker = new KernelBootTracker({
       eventBus: makeEventBus().bus,
       sessionRegistry: makeSessionRegistry({}),
-      rigRepo: makeRigRepo([]),
+      softwareTeamRepo: makeSoftwareTeamRepo([]),
     });
     tracker.setAuthBlocked("Error: ...");
     expect(tracker.getStatus().kernelState).toBe("auth_blocked");
@@ -118,20 +118,20 @@ describe("KernelBootTracker — initial state", () => {
 
 describe("KernelBootTracker — agent readiness aggregation", () => {
   it("getStatus aggregates ready when every kernel agent reaches startup_status=ready", async () => {
-    const rigId = "rig-kernel-1";
+    const softwareTeamId = "software-team-kernel-1";
     const tracker = new KernelBootTracker({
       eventBus: makeEventBus().bus,
       sessionRegistry: makeSessionRegistry({
-        [rigId]: [
+        [softwareTeamId]: [
           { sessionName: "advisor-lead@kernel", runtime: "claude-code", startupStatus: "ready" },
           { sessionName: "operator-agent@kernel", runtime: "codex", startupStatus: "ready" },
           { sessionName: "queue-worker@kernel", runtime: "codex", startupStatus: "ready" },
         ],
       }),
-      rigRepo: makeRigRepo([{ id: rigId, name: "kernel" }]),
+      softwareTeamRepo: makeSoftwareTeamRepo([{ id: softwareTeamId, name: "kernel" }]),
       degradedTimeoutMs: 0,
     });
-    tracker.startBooting("rig.yaml", Promise.resolve({
+    tracker.startBooting("software-team.yaml", Promise.resolve({
       runId: "t", status: "ok", stages: [], errors: [], warnings: [],
     } as never));
     await flush();
@@ -143,19 +143,19 @@ describe("KernelBootTracker — agent readiness aggregation", () => {
   });
 
   it("getStatus aggregates partial_ready when some agents are ready and others are pending", async () => {
-    const rigId = "rig-kernel-2";
+    const softwareTeamId = "software-team-kernel-2";
     const tracker = new KernelBootTracker({
       eventBus: makeEventBus().bus,
       sessionRegistry: makeSessionRegistry({
-        [rigId]: [
+        [softwareTeamId]: [
           { sessionName: "advisor-lead@kernel", runtime: "claude-code", startupStatus: "ready" },
           { sessionName: "operator-agent@kernel", runtime: "codex", startupStatus: "pending" },
         ],
       }),
-      rigRepo: makeRigRepo([{ id: rigId, name: "kernel" }]),
+      softwareTeamRepo: makeSoftwareTeamRepo([{ id: softwareTeamId, name: "kernel" }]),
       degradedTimeoutMs: 0,
     });
-    tracker.startBooting("rig.yaml", Promise.resolve({
+    tracker.startBooting("software-team.yaml", Promise.resolve({
       runId: "t", status: "ok", stages: [], errors: [], warnings: [],
     } as never));
     await flush();
@@ -164,18 +164,18 @@ describe("KernelBootTracker — agent readiness aggregation", () => {
   });
 
   it("getStatus stays booting while ALL agents are pending after bootstrap completes", async () => {
-    const rigId = "rig-kernel-3";
+    const softwareTeamId = "software-team-kernel-3";
     const tracker = new KernelBootTracker({
       eventBus: makeEventBus().bus,
       sessionRegistry: makeSessionRegistry({
-        [rigId]: [
+        [softwareTeamId]: [
           { sessionName: "advisor-lead@kernel", runtime: "claude-code", startupStatus: "pending" },
         ],
       }),
-      rigRepo: makeRigRepo([{ id: rigId, name: "kernel" }]),
+      softwareTeamRepo: makeSoftwareTeamRepo([{ id: softwareTeamId, name: "kernel" }]),
       degradedTimeoutMs: 0,
     });
-    tracker.startBooting("rig.yaml", Promise.resolve({
+    tracker.startBooting("software-team.yaml", Promise.resolve({
       runId: "t", status: "ok", stages: [], errors: [], warnings: [],
     } as never));
     await flush();
@@ -184,19 +184,19 @@ describe("KernelBootTracker — agent readiness aggregation", () => {
   });
 
   it("propagates startup_status from sessions table into agents[]", async () => {
-    const rigId = "rig-kernel-4";
+    const softwareTeamId = "software-team-kernel-4";
     const tracker = new KernelBootTracker({
       eventBus: makeEventBus().bus,
       sessionRegistry: makeSessionRegistry({
-        [rigId]: [
+        [softwareTeamId]: [
           { sessionName: "operator-agent@kernel", runtime: "codex", startupStatus: "failed" },
           { sessionName: "advisor-lead@kernel", runtime: "claude-code", startupStatus: "attention_required" },
         ],
       }),
-      rigRepo: makeRigRepo([{ id: rigId, name: "kernel" }]),
+      softwareTeamRepo: makeSoftwareTeamRepo([{ id: softwareTeamId, name: "kernel" }]),
       degradedTimeoutMs: 0,
     });
-    tracker.startBooting("rig.yaml", Promise.resolve({
+    tracker.startBooting("software-team.yaml", Promise.resolve({
       runId: "t", status: "ok", stages: [], errors: [], warnings: [],
     } as never));
     await flush();
@@ -213,10 +213,10 @@ describe("KernelBootTracker — bootstrap result transitions", () => {
     const tracker = new KernelBootTracker({
       eventBus: makeEventBus().bus,
       sessionRegistry: makeSessionRegistry({}),
-      rigRepo: makeRigRepo([]),
+      softwareTeamRepo: makeSoftwareTeamRepo([]),
       degradedTimeoutMs: 0,
     });
-    tracker.startBooting("rig.yaml", Promise.resolve({
+    tracker.startBooting("software-team.yaml", Promise.resolve({
       runId: "t", status: "failed", stages: [], errors: ["preflight: tmux missing"], warnings: [],
     } as never));
     await flush();
@@ -230,10 +230,10 @@ describe("KernelBootTracker — bootstrap result transitions", () => {
     const tracker = new KernelBootTracker({
       eventBus: makeEventBus().bus,
       sessionRegistry: makeSessionRegistry({}),
-      rigRepo: makeRigRepo([]),
+      softwareTeamRepo: makeSoftwareTeamRepo([]),
       degradedTimeoutMs: 0,
     });
-    tracker.startBooting("rig.yaml", Promise.reject(new Error("network blip")));
+    tracker.startBooting("software-team.yaml", Promise.reject(new Error("network blip")));
     await flush();
     const status = tracker.getStatus();
     expect(status.kernelState).toBe("bootstrap_failed");
@@ -248,12 +248,12 @@ describe("KernelBootTracker — degraded timer telemetry", () => {
     const tracker = new KernelBootTracker({
       eventBus: bus,
       sessionRegistry: makeSessionRegistry({}),
-      rigRepo: makeRigRepo([]),
+      softwareTeamRepo: makeSoftwareTeamRepo([]),
       degradedTimeoutMs: 10,
     });
     // Promise that never resolves keeps tracker in booting state past the timer
     const blocked = new Promise<never>(() => {});
-    tracker.startBooting("rig.yaml", blocked as never);
+    tracker.startBooting("software-team.yaml", blocked as never);
     expect(tracker.getStatus().kernelState).toBe("booting");
 
     await new Promise((r) => setTimeout(r, 30));
@@ -269,16 +269,16 @@ describe("KernelBootTracker — degraded timer telemetry", () => {
 
   it("does NOT emit degraded when at least one agent is ready before the timer fires", async () => {
     const { bus, emitted } = makeEventBus();
-    const rigId = "rig-kernel-fast";
+    const softwareTeamId = "software-team-kernel-fast";
     const tracker = new KernelBootTracker({
       eventBus: bus,
       sessionRegistry: makeSessionRegistry({
-        [rigId]: [{ sessionName: "advisor-lead@kernel", runtime: "claude-code", startupStatus: "ready" }],
+        [softwareTeamId]: [{ sessionName: "advisor-lead@kernel", runtime: "claude-code", startupStatus: "ready" }],
       }),
-      rigRepo: makeRigRepo([{ id: rigId, name: "kernel" }]),
+      softwareTeamRepo: makeSoftwareTeamRepo([{ id: softwareTeamId, name: "kernel" }]),
       degradedTimeoutMs: 50,
     });
-    tracker.startBooting("rig.yaml", Promise.resolve({
+    tracker.startBooting("software-team.yaml", Promise.resolve({
       runId: "t", status: "ok", stages: [], errors: [], warnings: [],
     } as never));
     await flush();
@@ -294,11 +294,11 @@ describe("KernelBootTracker — degraded timer telemetry", () => {
     const tracker = new KernelBootTracker({
       eventBus: bus,
       sessionRegistry: makeSessionRegistry({}),
-      rigRepo: makeRigRepo([]),
+      softwareTeamRepo: makeSoftwareTeamRepo([]),
       degradedTimeoutMs: 10,
     });
     const blocked = new Promise<never>(() => {});
-    tracker.startBooting("rig.yaml", blocked as never);
+    tracker.startBooting("software-team.yaml", blocked as never);
     tracker.stop();
     tracker.stop(); // idempotent
     await new Promise((r) => setTimeout(r, 30));
@@ -309,15 +309,15 @@ describe("KernelBootTracker — degraded timer telemetry", () => {
 describe("KernelBootTracker — sessionRegistry error handling", () => {
   it("getStatus returns empty agents[] when sessionRegistry throws (no 500)", () => {
     const throwingRegistry: SessionRegistry = {
-      getSessionsForRig: vi.fn(() => {
+      getSessionsForSoftwareTeam: vi.fn(() => {
         throw new Error("DB connection lost");
       }),
     } as unknown as SessionRegistry;
-    const rigId = "rig-kernel-broken";
+    const softwareTeamId = "software-team-kernel-broken";
     const tracker = new KernelBootTracker({
       eventBus: makeEventBus().bus,
       sessionRegistry: throwingRegistry,
-      rigRepo: makeRigRepo([{ id: rigId, name: "kernel" }]),
+      softwareTeamRepo: makeSoftwareTeamRepo([{ id: softwareTeamId, name: "kernel" }]),
       degradedTimeoutMs: 0,
     });
     const status = tracker.getStatus();
@@ -336,14 +336,14 @@ describe("KernelBootTracker — recovery after a boot failure (#1042)", () => {
   const operatorNode: FakeNode = { id: "node-operator", logicalId: "operator.agent", runtime: "claude-code" };
   const queueNode: FakeNode = { id: "node-queue", logicalId: "queue.worker", runtime: "codex" };
 
-  function failedTracker(rigId: string, nodes: FakeNode[], sessions: FakeSession[], seats: readonly string[] | null | undefined) {
+  function failedTracker(softwareTeamId: string, nodes: FakeNode[], sessions: FakeSession[], seats: readonly string[] | null | undefined) {
     const tracker = new KernelBootTracker({
       eventBus: makeEventBus().bus,
-      sessionRegistry: makeSessionRegistry({ [rigId]: sessions }),
-      rigRepo: makeRigRepo([{ id: rigId, name: "kernel" }], { [rigId]: nodes }),
+      sessionRegistry: makeSessionRegistry({ [softwareTeamId]: sessions }),
+      softwareTeamRepo: makeSoftwareTeamRepo([{ id: softwareTeamId, name: "kernel" }], { [softwareTeamId]: nodes }),
       degradedTimeoutMs: 0,
     });
-    tracker.startBooting("rig.yaml", failedBoot(), seats);
+    tracker.startBooting("software-team.yaml", failedBoot(), seats);
     return tracker;
   }
 
@@ -352,11 +352,11 @@ describe("KernelBootTracker — recovery after a boot failure (#1042)", () => {
       { sessionName: "operator-agent@kernel", startupStatus: "ready", nodeId: "node-operator" },
       { sessionName: "queue-worker@kernel", startupStatus: "attention_required", nodeId: "node-queue" },
     ];
-    const tracker = failedTracker("rig-kernel-recovered", [operatorNode, queueNode], sessions, expected);
+    const tracker = failedTracker("software-team-kernel-recovered", [operatorNode, queueNode], sessions, expected);
     await flush();
     expect(tracker.getStatus()).toMatchObject({ kernelState: "bootstrap_failed", lastBootFailure: null });
 
-    sessions[1]!.startupStatus = "ready"; // the gate was resolved, as with `rig seat continue`
+    sessions[1]!.startupStatus = "ready"; // the gate was resolved, as with `softwareTeam seat continue`
     const status = tracker.getStatus();
     expect(status.kernelState).toBe("ready");
     expect(status.detail).toBeNull();
@@ -367,7 +367,7 @@ describe("KernelBootTracker — recovery after a boot failure (#1042)", () => {
   });
 
   it("keeps the failure current while any expected seat is not ready", async () => {
-    const tracker = failedTracker("rig-kernel-still-failed", [operatorNode, queueNode], [
+    const tracker = failedTracker("software-team-kernel-still-failed", [operatorNode, queueNode], [
       { sessionName: "operator-agent@kernel", startupStatus: "ready", nodeId: "node-operator" },
       { sessionName: "queue-worker@kernel", startupStatus: "failed", nodeId: "node-queue" },
     ], expected);
@@ -381,7 +381,7 @@ describe("KernelBootTracker — recovery after a boot failure (#1042)", () => {
 
   it("keeps the failure current when a kernel node has no session row", async () => {
     // Two kernel nodes, one ready session: the add-member path creates the node before the failure.
-    const tracker = failedTracker("rig-kernel-no-session", [operatorNode, queueNode], [
+    const tracker = failedTracker("software-team-kernel-no-session", [operatorNode, queueNode], [
       { sessionName: "operator-agent@kernel", startupStatus: "ready", nodeId: "node-operator" },
     ], expected);
     await flush();
@@ -395,7 +395,7 @@ describe("KernelBootTracker — recovery after a boot failure (#1042)", () => {
 
   it("keeps the failure current when an expected member has no node", async () => {
     // The member failed before its node was created, so only the operator seat exists, and it is ready.
-    const tracker = failedTracker("rig-kernel-no-node", [operatorNode], [
+    const tracker = failedTracker("software-team-kernel-no-node", [operatorNode], [
       { sessionName: "operator-agent@kernel", startupStatus: "ready", nodeId: "node-operator" },
     ], expected);
     await flush();
@@ -405,7 +405,7 @@ describe("KernelBootTracker — recovery after a boot failure (#1042)", () => {
 
   it("keeps the failure current when the expected roster is unknown, even with every seat ready", async () => {
     for (const seats of [undefined, null, []]) {
-      const tracker = failedTracker("rig-kernel-unknown-roster", [operatorNode, queueNode], [
+      const tracker = failedTracker("software-team-kernel-unknown-roster", [operatorNode, queueNode], [
         { sessionName: "operator-agent@kernel", startupStatus: "ready", nodeId: "node-operator" },
         { sessionName: "queue-worker@kernel", startupStatus: "ready", nodeId: "node-queue" },
       ], seats);
@@ -416,16 +416,16 @@ describe("KernelBootTracker — recovery after a boot failure (#1042)", () => {
   });
 
   describe("after a degraded boot", () => {
-    async function degradedTracker(rigId: string, nodes: FakeNode[], sessions: FakeSession[]) {
+    async function degradedTracker(softwareTeamId: string, nodes: FakeNode[], sessions: FakeSession[]) {
       let finish!: () => void;
       const boot = new Promise((resolve) => { finish = () => resolve({ runId: "t", status: "ok", stages: [], errors: [], warnings: [] }); });
       const tracker = new KernelBootTracker({
         eventBus: makeEventBus().bus,
-        sessionRegistry: makeSessionRegistry({ [rigId]: sessions }),
-        rigRepo: makeRigRepo([{ id: rigId, name: "kernel" }], { [rigId]: nodes }),
+        sessionRegistry: makeSessionRegistry({ [softwareTeamId]: sessions }),
+        softwareTeamRepo: makeSoftwareTeamRepo([{ id: softwareTeamId, name: "kernel" }], { [softwareTeamId]: nodes }),
         degradedTimeoutMs: 10,
       });
-      tracker.startBooting("rig.yaml", boot as never, expected);
+      tracker.startBooting("software-team.yaml", boot as never, expected);
       await new Promise((r) => setTimeout(r, 30));
       expect(tracker.getStatus().kernelState).toBe("degraded");
       finish();
@@ -438,7 +438,7 @@ describe("KernelBootTracker — recovery after a boot failure (#1042)", () => {
         { sessionName: "operator-agent@kernel", startupStatus: "pending", nodeId: "node-operator" },
         { sessionName: "queue-worker@kernel", startupStatus: "pending", nodeId: "node-queue" },
       ];
-      const tracker = await degradedTracker("rig-kernel-degraded", [operatorNode, queueNode], sessions);
+      const tracker = await degradedTracker("software-team-kernel-degraded", [operatorNode, queueNode], sessions);
       for (const s of sessions) s.startupStatus = "ready";
       expect(tracker.getStatus()).toMatchObject({ kernelState: "ready", lastBootFailure: { state: "degraded" } });
       tracker.stop();
@@ -446,7 +446,7 @@ describe("KernelBootTracker — recovery after a boot failure (#1042)", () => {
 
     it("stays degraded while a kernel node has no session row", async () => {
       const sessions: FakeSession[] = [{ sessionName: "operator-agent@kernel", startupStatus: "pending", nodeId: "node-operator" }];
-      const tracker = await degradedTracker("rig-kernel-degraded-no-session", [operatorNode, queueNode], sessions);
+      const tracker = await degradedTracker("software-team-kernel-degraded-no-session", [operatorNode, queueNode], sessions);
       sessions[0]!.startupStatus = "ready";
       expect(tracker.getStatus()).toMatchObject({ kernelState: "degraded", lastBootFailure: null });
       tracker.stop();
@@ -456,27 +456,27 @@ describe("KernelBootTracker — recovery after a boot failure (#1042)", () => {
 
 describe("KernelBootTracker — one entry per kernel seat (#1042)", () => {
   it("lists each seat once, from its newest session row, with the node's runtime, and skips archived kernels", async () => {
-    const rigId = "rig-kernel-current";
+    const softwareTeamId = "software-team-kernel-current";
     const sessions: FakeSession[] = [
       { sessionName: "operator-agent@kernel", startupStatus: "attention_required", nodeId: "node-operator" },
       { sessionName: "queue-worker@kernel", startupStatus: "ready", nodeId: "node-queue" },
-      // A relaunch or `rig seat continue` adds a newer session row for the same node.
+      // A relaunch or `softwareTeam seat continue` adds a newer session row for the same node.
       { sessionName: "operator-agent@kernel", startupStatus: "ready", nodeId: "node-operator" },
     ];
     const archived: FakeSession[] = [{ sessionName: "operator-agent@kernel", startupStatus: "failed", nodeId: "node-old" }];
     const tracker = new KernelBootTracker({
       eventBus: makeEventBus().bus,
-      sessionRegistry: makeSessionRegistry({ [rigId]: sessions, "rig-kernel-archived": archived }),
-      rigRepo: makeRigRepo([{ id: "rig-kernel-archived", name: "kernel", archived: true }, { id: rigId, name: "kernel" }], {
-        [rigId]: [
+      sessionRegistry: makeSessionRegistry({ [softwareTeamId]: sessions, "software-team-kernel-archived": archived }),
+      softwareTeamRepo: makeSoftwareTeamRepo([{ id: "software-team-kernel-archived", name: "kernel", archived: true }, { id: softwareTeamId, name: "kernel" }], {
+        [softwareTeamId]: [
           { id: "node-operator", logicalId: "operator.agent", runtime: "claude-code" },
           { id: "node-queue", logicalId: "queue.worker", runtime: "codex" },
         ],
-        "rig-kernel-archived": [{ id: "node-old", logicalId: "operator.agent", runtime: "claude-code" }],
+        "software-team-kernel-archived": [{ id: "node-old", logicalId: "operator.agent", runtime: "claude-code" }],
       }),
       degradedTimeoutMs: 0,
     });
-    tracker.startBooting("rig.yaml", Promise.resolve({ runId: "t", status: "ok", stages: [], errors: [], warnings: [] } as never));
+    tracker.startBooting("software-team.yaml", Promise.resolve({ runId: "t", status: "ok", stages: [], errors: [], warnings: [] } as never));
     await flush();
     const status = tracker.getStatus();
     expect(status.agents).toEqual([

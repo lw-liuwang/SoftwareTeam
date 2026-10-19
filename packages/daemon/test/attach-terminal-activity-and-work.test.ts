@@ -2,7 +2,7 @@
 //
 // HG-3 (both directions) + HG-4 (non-inference contract) at the
 // per-node enrichment level. The ps-projection counts are derived from
-// these fields, but the UI + `rig ps --json` also need per-node
+// these fields, but the UI + `SoftwareTeam ps --json` also need per-node
 // visibility — this test pack pins that surface.
 //
 // Discriminator pattern (per banked feedback_specific_review_recommendations_get_acted_on):
@@ -24,14 +24,14 @@ import {
   countPendingWorkForSession,
 } from "../src/domain/ps-projection.js";
 
-function seedRig(db: Database.Database, name: string): string {
-  const id = `rig-${name}`;
-  db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run(id, name);
+function seedSoftwareTeam(db: Database.Database, name: string): string {
+  const id = `software-team-${name}`;
+  db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run(id, name);
   return id;
 }
-function seedNode(db: Database.Database, rigId: string, logicalId: string): string {
-  const id = `node-${rigId}-${logicalId}`;
-  db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)").run(id, rigId, logicalId);
+function seedNode(db: Database.Database, softwareTeamId: string, logicalId: string): string {
+  const id = `node-${softwareTeamId}-${logicalId}`;
+  db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)").run(id, softwareTeamId, logicalId);
   return id;
 }
 function seedSession(db: Database.Database, nodeId: string, sessionName: string, status = "running"): void {
@@ -81,12 +81,12 @@ describe("attachTerminalActivityAndWork — slice 15 per-node enrichment", () =>
   afterEach(() => { db.close(); });
 
   it("HG-3 DIRECTION A — node producing output with NOTHING queued: terminalActive=true, hasAssignedWork=false", () => {
-    const rig = seedRig(db, "active-only");
-    const n = seedNode(db, rig, "dev");
-    seedSession(db, n, "dev@rig", "running");
+    const softwareTeam = seedSoftwareTeam(db, "active-only");
+    const n = seedNode(db, softwareTeam, "dev");
+    seedSession(db, n, "dev@software-team", "running");
 
-    const baseEntries = getNodeInventory(db, rig);
-    const seatActivity = makeSeatActivityFor({ "dev@rig": true });
+    const baseEntries = getNodeInventory(db, softwareTeam);
+    const seatActivity = makeSeatActivityFor({ "dev@software-team": true });
     const [entry] = attachTerminalActivityAndWork(baseEntries, { db, seatActivity: seatActivity as never });
 
     expect(entry!.terminalActive).toBe(true);
@@ -95,13 +95,13 @@ describe("attachTerminalActivityAndWork — slice 15 per-node enrichment", () =>
   });
 
   it("HG-3 DIRECTION B — node SILENT with queued work: terminalActive=false, hasAssignedWork=true", () => {
-    const rig = seedRig(db, "work-only");
-    const n = seedNode(db, rig, "dev");
-    seedSession(db, n, "dev@rig", "running");
-    seedPendingQitem(db, "dev@rig");
+    const softwareTeam = seedSoftwareTeam(db, "work-only");
+    const n = seedNode(db, softwareTeam, "dev");
+    seedSession(db, n, "dev@software-team", "running");
+    seedPendingQitem(db, "dev@software-team");
 
-    const baseEntries = getNodeInventory(db, rig);
-    const seatActivity = makeSeatActivityFor({ "dev@rig": false });
+    const baseEntries = getNodeInventory(db, softwareTeam);
+    const seatActivity = makeSeatActivityFor({ "dev@software-team": false });
     const [entry] = attachTerminalActivityAndWork(baseEntries, { db, seatActivity: seatActivity as never });
 
     expect(entry!.terminalActive).toBe(false);
@@ -110,38 +110,38 @@ describe("attachTerminalActivityAndWork — slice 15 per-node enrichment", () =>
   });
 
   it("HG-4 non-inference — flipping ONLY activity does not move hasAssignedWork; flipping ONLY queue does not move terminalActive", () => {
-    const rig = seedRig(db, "non-inf");
-    const n = seedNode(db, rig, "dev");
-    seedSession(db, n, "dev@rig", "running");
-    const baseEntries = getNodeInventory(db, rig);
+    const softwareTeam = seedSoftwareTeam(db, "non-inf");
+    const n = seedNode(db, softwareTeam, "dev");
+    seedSession(db, n, "dev@software-team", "running");
+    const baseEntries = getNodeInventory(db, softwareTeam);
 
     // (a) silent + no work
-    let seatActivity = makeSeatActivityFor({ "dev@rig": false });
+    let seatActivity = makeSeatActivityFor({ "dev@software-team": false });
     let [entry] = attachTerminalActivityAndWork(baseEntries, { db, seatActivity: seatActivity as never });
     expect(entry!.terminalActive).toBe(false);
     expect(entry!.hasAssignedWork).toBe(false);
 
     // (b) flip ONLY queue (add pending qitem); activity input unchanged.
     //     terminalActive MUST hold steady, hasAssignedWork MUST flip true.
-    seedPendingQitem(db, "dev@rig");
-    [entry] = attachTerminalActivityAndWork(getNodeInventory(db, rig), { db, seatActivity: seatActivity as never });
+    seedPendingQitem(db, "dev@software-team");
+    [entry] = attachTerminalActivityAndWork(getNodeInventory(db, softwareTeam), { db, seatActivity: seatActivity as never });
     expect(entry!.terminalActive).toBe(false); // unchanged ⟹ no queue→active inference
     expect(entry!.hasAssignedWork).toBe(true);
 
     // (c) flip ONLY activity (active observation); queue input unchanged.
     //     hasAssignedWork MUST hold steady, terminalActive MUST flip true.
-    seatActivity = makeSeatActivityFor({ "dev@rig": true });
-    [entry] = attachTerminalActivityAndWork(getNodeInventory(db, rig), { db, seatActivity: seatActivity as never });
+    seatActivity = makeSeatActivityFor({ "dev@software-team": true });
+    [entry] = attachTerminalActivityAndWork(getNodeInventory(db, softwareTeam), { db, seatActivity: seatActivity as never });
     expect(entry!.terminalActive).toBe(true);
     expect(entry!.hasAssignedWork).toBe(true); // unchanged ⟹ no active→hasWork inference
   });
 
   it("no SeatActivity observation → terminalActive=null (distinct from false)", () => {
-    const rig = seedRig(db, "no-obs");
-    const n = seedNode(db, rig, "dev");
-    seedSession(db, n, "dev@rig", "running");
+    const softwareTeam = seedSoftwareTeam(db, "no-obs");
+    const n = seedNode(db, softwareTeam, "dev");
+    seedSession(db, n, "dev@software-team", "running");
 
-    const baseEntries = getNodeInventory(db, rig);
+    const baseEntries = getNodeInventory(db, softwareTeam);
     const seatActivity = { getSeatActivity: () => null };
     const [entry] = attachTerminalActivityAndWork(baseEntries, { db, seatActivity: seatActivity as never });
 
@@ -152,11 +152,11 @@ describe("attachTerminalActivityAndWork — slice 15 per-node enrichment", () =>
   });
 
   it("no seatActivity service wired → terminalActive=undefined (the field is absent, not a value claim)", () => {
-    const rig = seedRig(db, "no-svc");
-    const n = seedNode(db, rig, "dev");
-    seedSession(db, n, "dev@rig", "running");
+    const softwareTeam = seedSoftwareTeam(db, "no-svc");
+    const n = seedNode(db, softwareTeam, "dev");
+    seedSession(db, n, "dev@software-team", "running");
 
-    const baseEntries = getNodeInventory(db, rig);
+    const baseEntries = getNodeInventory(db, softwareTeam);
     const [entry] = attachTerminalActivityAndWork(baseEntries, { db });
 
     expect(entry!.terminalActive).toBeUndefined();
@@ -168,13 +168,13 @@ describe("attachTerminalActivityAndWork — slice 15 per-node enrichment", () =>
   // ── when no observation (honest absence, parallel to terminalActive), and
   // ── with NO ageSeconds sibling (C3 — age is derived renderer-side).
   it("projects lastActivityAt VERBATIM from the observation (raw fact, distinct from lastObservedAt) — and no ageSeconds sibling (C3)", () => {
-    const rig = seedRig(db, "act-ts");
-    const n = seedNode(db, rig, "dev");
-    seedSession(db, n, "dev@rig", "running");
+    const softwareTeam = seedSoftwareTeam(db, "act-ts");
+    const n = seedNode(db, softwareTeam, "dev");
+    seedSession(db, n, "dev@software-team", "running");
 
     const seatActivity = {
       getSeatActivity: (paneId: string) =>
-        paneId === "dev@rig"
+        paneId === "dev@software-team"
           ? {
               paneId,
               isActiveWithinWindow: true,
@@ -184,7 +184,7 @@ describe("attachTerminalActivityAndWork — slice 15 per-node enrichment", () =>
             }
           : null,
     };
-    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, rig), { db, seatActivity: seatActivity as never });
+    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, softwareTeam), { db, seatActivity: seatActivity as never });
 
     expect(entry!.lastActivityAt).toBe("2026-05-16T09:59:12.000Z");
     // C3 — one field only; no ageSeconds sibling on the projected surface.
@@ -192,165 +192,165 @@ describe("attachTerminalActivityAndWork — slice 15 per-node enrichment", () =>
   });
 
   it("no observation → lastActivityAt=null (honest absence, parallel to terminalActive=null)", () => {
-    const rig = seedRig(db, "act-noobs");
-    const n = seedNode(db, rig, "dev");
-    seedSession(db, n, "dev@rig", "running");
+    const softwareTeam = seedSoftwareTeam(db, "act-noobs");
+    const n = seedNode(db, softwareTeam, "dev");
+    seedSession(db, n, "dev@software-team", "running");
 
     const seatActivity = { getSeatActivity: () => null };
-    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, rig), { db, seatActivity: seatActivity as never });
+    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, softwareTeam), { db, seatActivity: seatActivity as never });
 
     expect(entry!.terminalActive).toBeNull();
     expect(entry!.lastActivityAt).toBeNull();
   });
 
   it("no seatActivity service wired → lastActivityAt=undefined (field absent, not a value claim)", () => {
-    const rig = seedRig(db, "act-nosvc");
-    const n = seedNode(db, rig, "dev");
-    seedSession(db, n, "dev@rig", "running");
+    const softwareTeam = seedSoftwareTeam(db, "act-nosvc");
+    const n = seedNode(db, softwareTeam, "dev");
+    seedSession(db, n, "dev@software-team", "running");
 
-    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, rig), { db });
+    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, softwareTeam), { db });
     expect(entry!.lastActivityAt).toBeUndefined();
   });
 
   it("multiple pending qitems for one seat ⟹ hasAssignedWork=true, pendingWorkCount = N", () => {
-    const rig = seedRig(db, "multi");
-    const n = seedNode(db, rig, "dev");
-    seedSession(db, n, "dev@rig", "running");
-    seedPendingQitem(db, "dev@rig");
-    seedPendingQitem(db, "dev@rig");
-    seedPendingQitem(db, "dev@rig");
+    const softwareTeam = seedSoftwareTeam(db, "multi");
+    const n = seedNode(db, softwareTeam, "dev");
+    seedSession(db, n, "dev@software-team", "running");
+    seedPendingQitem(db, "dev@software-team");
+    seedPendingQitem(db, "dev@software-team");
+    seedPendingQitem(db, "dev@software-team");
 
-    const baseEntries = getNodeInventory(db, rig);
+    const baseEntries = getNodeInventory(db, softwareTeam);
     const [entry] = attachTerminalActivityAndWork(baseEntries, { db });
     expect(entry!.hasAssignedWork).toBe(true);
     expect(entry!.pendingWorkCount).toBe(3);
   });
 
   // QA baseline-deep-dogfood BLOCKING-A2 (qitem-20260518063900-85745917):
-  // adopted/live-session rigs do not surface assigned queue work because
+  // adopted/live-session softwareTeams do not surface assigned queue work because
   // hasAssignedWork only matches destination_session against
   // canonicalSessionName. For ADOPTED seats canonicalSessionName is the
   // raw tmux session name (e.g., `my-existing-claude`); operators
-  // address adopted seats via the canonical `{pod}-{member}@{rig}` form
-  // through `rig queue create --destination <pod>-<member>@<rig>`.
+  // address adopted seats via the canonical `{pod}-{member}@{softwareTeam}` form
+  // through `SoftwareTeam queue create --destination <pod>-<member>@<softwareTeam>`.
   // The match therefore fails for adopted, succeeds for managed (where
   // canonicalSessionName is already the canonical form).
   //
   // Fix: resolve pending work by BOTH forms — entry.canonicalSessionName
   // (covers managed + adopted users who queue by raw tmux name) AND the
-  // derived `{pod}-{member}@{rig}` form (covers adopted users who queue
+  // derived `{pod}-{member}@{softwareTeam}` form (covers adopted users who queue
   // by canonical id). Discriminators below pin both directions.
 
   it("BLOCKING-A2: adopted-style entry (canonicalSessionName=raw tmux name) — queue dest=canonical form matches → hasAssignedWork=true", () => {
-    const rig = seedRig(db, "my-rig");
-    const n = seedNode(db, rig, "default.dev");
+    const softwareTeam = seedSoftwareTeam(db, "my-software-team");
+    const n = seedNode(db, softwareTeam, "default.dev");
     // Adopted node: session name is the raw tmux session, NOT the
-    // canonical {pod}-{member}@{rig} form.
+    // canonical {pod}-{member}@{softwareTeam} form.
     seedSession(db, n, "raw-tmux-name", "running");
-    // Operator queues by the canonical form (`rig queue create
-    // --destination default-dev@my-rig`).
-    seedPendingQitem(db, "default-dev@my-rig");
+    // Operator queues by the canonical form (`SoftwareTeam queue create
+    // --destination default-dev@my-softwareTeam`).
+    seedPendingQitem(db, "default-dev@my-software-team");
 
-    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, rig), { db });
+    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, softwareTeam), { db });
     expect(entry!.canonicalSessionName).toBe("raw-tmux-name");
     expect(entry!.hasAssignedWork).toBe(true);
     expect(entry!.pendingWorkCount).toBe(1);
   });
 
   it("BLOCKING-A2: adopted-style entry — queue dest=raw tmux name still matches (back-compat path)", () => {
-    const rig = seedRig(db, "my-rig");
-    const n = seedNode(db, rig, "default.dev");
+    const softwareTeam = seedSoftwareTeam(db, "my-software-team");
+    const n = seedNode(db, softwareTeam, "default.dev");
     seedSession(db, n, "raw-tmux-name", "running");
     seedPendingQitem(db, "raw-tmux-name");
 
-    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, rig), { db });
+    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, softwareTeam), { db });
     expect(entry!.hasAssignedWork).toBe(true);
     expect(entry!.pendingWorkCount).toBe(1);
   });
 
   it("BLOCKING-A2: managed-style entry (canonicalSessionName IS canonical form) — unchanged behavior", () => {
-    const rig = seedRig(db, "my-rig");
-    const n = seedNode(db, rig, "default.dev");
-    seedSession(db, n, "default-dev@my-rig", "running");
-    seedPendingQitem(db, "default-dev@my-rig");
+    const softwareTeam = seedSoftwareTeam(db, "my-software-team");
+    const n = seedNode(db, softwareTeam, "default.dev");
+    seedSession(db, n, "default-dev@my-software-team", "running");
+    seedPendingQitem(db, "default-dev@my-software-team");
 
-    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, rig), { db });
+    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, softwareTeam), { db });
     expect(entry!.hasAssignedWork).toBe(true);
     expect(entry!.pendingWorkCount).toBe(1);
   });
 
   it("BLOCKING-A2: no double-count when canonicalSessionName already equals derived canonical form", () => {
-    const rig = seedRig(db, "my-rig");
-    const n = seedNode(db, rig, "default.dev");
-    seedSession(db, n, "default-dev@my-rig", "running");
+    const softwareTeam = seedSoftwareTeam(db, "my-software-team");
+    const n = seedNode(db, softwareTeam, "default.dev");
+    seedSession(db, n, "default-dev@my-software-team", "running");
     // ONE pending qitem at the canonical destination — the entry's
     // canonicalSessionName equals the derived canonical form, so
     // looking up by both must not double-count.
-    seedPendingQitem(db, "default-dev@my-rig");
+    seedPendingQitem(db, "default-dev@my-software-team");
 
-    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, rig), { db });
+    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, softwareTeam), { db });
     expect(entry!.pendingWorkCount).toBe(1);
   });
 
   it("BLOCKING-A2: separate queue dests at raw + canonical forms sum correctly (each item counted once)", () => {
-    const rig = seedRig(db, "my-rig");
-    const n = seedNode(db, rig, "default.dev");
+    const softwareTeam = seedSoftwareTeam(db, "my-software-team");
+    const n = seedNode(db, softwareTeam, "default.dev");
     seedSession(db, n, "raw-tmux-name", "running");
     seedPendingQitem(db, "raw-tmux-name");
-    seedPendingQitem(db, "default-dev@my-rig");
-    seedPendingQitem(db, "default-dev@my-rig");
+    seedPendingQitem(db, "default-dev@my-software-team");
+    seedPendingQitem(db, "default-dev@my-software-team");
 
-    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, rig), { db });
+    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, softwareTeam), { db });
     expect(entry!.hasAssignedWork).toBe(true);
     // Total = 1 (raw) + 2 (canonical) = 3
     expect(entry!.pendingWorkCount).toBe(3);
   });
 
   it("BLOCKING-A2: logical IDs with dots are normalized to dashes for canonical form (matches deriveCanonicalSessionName)", () => {
-    const rig = seedRig(db, "openrig-velocity");
-    const n = seedNode(db, rig, "redo.driver-2");
+    const softwareTeam = seedSoftwareTeam(db, "softwareteam-velocity");
+    const n = seedNode(db, softwareTeam, "redo.driver-2");
     seedSession(db, n, "raw-name-X", "running");
-    // The convention is `{pod}-{member}@{rig}` so logicalId
+    // The convention is `{pod}-{member}@{softwareTeam}` so logicalId
     // "redo.driver-2" becomes "redo-driver-2".
-    seedPendingQitem(db, "redo-driver-2@openrig-velocity");
+    seedPendingQitem(db, "redo-driver-2@softwareteam-velocity");
 
-    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, rig), { db });
+    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, softwareTeam), { db });
     expect(entry!.hasAssignedWork).toBe(true);
     expect(entry!.pendingWorkCount).toBe(1);
   });
 
   it("non-pending qitems do NOT count toward pendingWorkCount", () => {
-    const rig = seedRig(db, "states");
-    const n = seedNode(db, rig, "dev");
-    seedSession(db, n, "dev@rig", "running");
+    const softwareTeam = seedSoftwareTeam(db, "states");
+    const n = seedNode(db, softwareTeam, "dev");
+    seedSession(db, n, "dev@software-team", "running");
     const ts = new Date().toISOString().replace("T", " ").slice(0, 19);
     // pending: counts
-    seedPendingQitem(db, "dev@rig");
+    seedPendingQitem(db, "dev@software-team");
     // done: doesn't count
     db.prepare(`
       INSERT INTO queue_items (qitem_id, ts_created, ts_updated, source_session, destination_session, state, priority, tier, body)
-      VALUES ('q-done', ?, ?, 'op@test', 'dev@rig', 'done', 'routine', 'routine', 'body')
+      VALUES ('q-done', ?, ?, 'op@test', 'dev@software-team', 'done', 'routine', 'routine', 'body')
     `).run(ts, ts);
     // blocked: doesn't count (only 'pending' is unworked-and-claimable)
     db.prepare(`
       INSERT INTO queue_items (qitem_id, ts_created, ts_updated, source_session, destination_session, state, priority, tier, body)
-      VALUES ('q-blocked', ?, ?, 'op@test', 'dev@rig', 'blocked', 'routine', 'routine', 'body')
+      VALUES ('q-blocked', ?, ?, 'op@test', 'dev@software-team', 'blocked', 'routine', 'routine', 'body')
     `).run(ts, ts);
 
-    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, rig), { db });
+    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, softwareTeam), { db });
     expect(entry!.pendingWorkCount).toBe(1);
     expect(entry!.hasAssignedWork).toBe(true);
   });
 
   it("slice 17 RED specimen — a claimed in-progress row remains assigned without changing pendingWorkCount", () => {
-    const rig = seedRig(db, "claimed");
-    const n = seedNode(db, rig, "dev");
-    seedSession(db, n, "dev@rig", "running");
-    const qitemId = seedQitem(db, "dev@rig", "in-progress");
+    const softwareTeam = seedSoftwareTeam(db, "claimed");
+    const n = seedNode(db, softwareTeam, "dev");
+    seedSession(db, n, "dev@software-team", "running");
+    const qitemId = seedQitem(db, "dev@software-team", "in-progress");
     db.prepare("UPDATE queue_items SET claimed_at = ? WHERE qitem_id = ?")
       .run("2026-08-28 09:24:44", qitemId);
 
-    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, rig), { db });
+    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, softwareTeam), { db });
     expect(entry!.hasAssignedWork).toBe(true);
     expect(entry!.assignedWorkCount).toBe(1);
     expect(entry!.pendingWorkCount).toBe(0);
@@ -368,12 +368,12 @@ describe("attachTerminalActivityAndWork — slice 15 per-node enrichment", () =>
   ] as const)(
     "slice 17 state matrix — %s projects assigned=%s with exact per-state counts",
     (state, hasAssignedWork, assigned, pending, inProgress, blocked) => {
-      const rig = seedRig(db, `matrix-${state}`);
-      const n = seedNode(db, rig, "dev");
-      seedSession(db, n, "dev@rig", "running");
-      seedQitem(db, "dev@rig", state);
+      const softwareTeam = seedSoftwareTeam(db, `matrix-${state}`);
+      const n = seedNode(db, softwareTeam, "dev");
+      seedSession(db, n, "dev@software-team", "running");
+      seedQitem(db, "dev@software-team", state);
 
-      const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, rig), { db });
+      const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, softwareTeam), { db });
       expect(entry!.hasAssignedWork).toBe(hasAssignedWork);
       expect(entry!.assignedWorkCount).toBe(assigned);
       expect(entry!.pendingWorkCount).toBe(pending);
@@ -383,29 +383,29 @@ describe("attachTerminalActivityAndWork — slice 15 per-node enrichment", () =>
   );
 
   it("slice 17 mixed-state breakdown keeps pendingWorkCount pending-only and ignores terminal rows", () => {
-    const rig = seedRig(db, "mixed");
-    const n = seedNode(db, rig, "dev");
-    seedSession(db, n, "dev@rig", "running");
+    const softwareTeam = seedSoftwareTeam(db, "mixed");
+    const n = seedNode(db, softwareTeam, "dev");
+    seedSession(db, n, "dev@software-team", "running");
     for (const state of ["pending", "pending", "in-progress", "blocked", "done", "canceled", "handed-off"]) {
-      seedQitem(db, "dev@rig", state);
+      seedQitem(db, "dev@software-team", state);
     }
 
-    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, rig), { db });
+    const [entry] = attachTerminalActivityAndWork(getNodeInventory(db, softwareTeam), { db });
     expect(entry!.hasAssignedWork).toBe(true);
     expect(entry!.assignedWorkCount).toBe(4);
     expect(entry!.pendingWorkCount).toBe(2);
     expect(entry!.inProgressWorkCount).toBe(1);
     expect(entry!.blockedWorkCount).toBe(1);
-    expect(countPendingWorkForSession(db, "dev@rig")).toBe(2);
+    expect(countPendingWorkForSession(db, "dev@software-team")).toBe(2);
   });
 
   it("slice 17 batch and per-session computation sites return identical state counts", () => {
     for (const state of ["pending", "pending", "in-progress", "blocked", "done"]) {
-      seedQitem(db, "dev@rig", state);
+      seedQitem(db, "dev@software-team", state);
     }
 
-    expect(readAssignedWorkBySession(db).get("dev@rig")).toEqual(
-      countAssignedWorkForSession(db, "dev@rig"),
+    expect(readAssignedWorkBySession(db).get("dev@software-team")).toEqual(
+      countAssignedWorkForSession(db, "dev@software-team"),
     );
   });
 });

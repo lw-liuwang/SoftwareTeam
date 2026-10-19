@@ -1,10 +1,10 @@
-// Slice-17 mini-req 7 — BARE-RIG FRONT DOOR (founder, arch-reinforced).
+// Slice-17 mini-req 7 — BARE-SOFTWARE_TEAM FRONT DOOR (founder, arch-reinforced).
 //
-// bare `rig` (no args) opens the TUI, k9s-style, TTY-AWARE:
+// bare `softwareTeam` (no args) opens the TUI, k9s-style, TTY-AWARE:
 //   - the guard checks BOTH stdin AND stdout isTTY — a pipe/redirect on
 //     EITHER stream means a script is involved, so the front door does NOT
 //     own the invocation and the normal commander usage path runs (prints
-//     usage, exits fast, never hangs — `echo x | rig` must not block);
+//     usage, exits fast, never hangs — `echo x | softwareTeam` must not block);
 //   - first-impression degrade: transport, cwd/read, command/PATH, and
 //     enforcement remain distinct typed axes; TUI-init failures stay concise;
 //   - `--help`, `--version`, and every subcommand are ARGS, so they are
@@ -76,16 +76,16 @@ export function resolveTuiPath(baseDir: string, exists: (p: string) => boolean =
 }
 
 export const USAGE_LINES = [
-  "rig — the OpenRig control plane",
+  "softwareTeam — the SoftwareTeam control plane",
   "",
-  "  rig              open the status dashboard (interactive terminal only; not agent chat)",
-  "  rig tui          open the same status dashboard",
-  "  rig terminal open saved:kernel --window   open the OpenRig TUI and operator in a new terminal tab/window",
+  "  softwareTeam              open the status dashboard (interactive terminal only; not agent chat)",
+  "  SoftwareTeam tui          open the same status dashboard",
+  "  SoftwareTeam terminal open saved:kernel --window   open the SoftwareTeam TUI and operator in a new terminal tab/window",
   "                   After install, and whenever the person wants their agents: the agent runs it on the daemon desktop and checks the result",
-  "  rig tui --shared dashboard-only fallback if that window cannot open",
-  "  rig --help       full command list",
-  "  rig up <rig>     bring a rig up",
-  "  rig ps           list live seats",
+  "  SoftwareTeam tui --shared dashboard-only fallback if that window cannot open",
+  "  SoftwareTeam --help       full command list",
+  "  SoftwareTeam up <softwareTeam>     bring a SoftwareTeam up",
+  "  SoftwareTeam ps           list live seats",
 ];
 
 export interface FrontDoorIo {
@@ -114,8 +114,8 @@ export async function probeFrontDoor(input: {
 } = {}): Promise<FrontDoorProbeResult> {
   const client = input.client ?? new DaemonClient(undefined, { timeoutMs: 1500 });
   const env = input.env ?? process.env;
-  const nodeId = envValue(env, "OPENRIG_NODE_ID", "RIGGED_NODE_ID");
-  const sessionName = envValue(env, "OPENRIG_SESSION_NAME", "RIGGED_SESSION_NAME");
+  const nodeId = envValue(env, "SOFTWARETEAM_NODE_ID", "SOFTWARETEAM_NODE_ID");
+  const sessionName = envValue(env, "SOFTWARETEAM_SESSION_NAME", "SOFTWARETEAM_SESSION_NAME");
   const identityQuery = nodeId
     ? `nodeId=${encodeURIComponent(nodeId)}`
     : sessionName
@@ -158,7 +158,7 @@ export async function probeFrontDoor(input: {
 
 function normalizeProbe(result: boolean | FrontDoorProbeResult | LegacyTransportProbeResult): FrontDoorProbeResult {
   if (result === true) return { state: "ready" };
-  if (result === false) return { state: "diagnostic", diagnostic: transportDiagnostic("connect", "cannot connect to the OpenRig daemon") };
+  if (result === false) return { state: "diagnostic", diagnostic: transportDiagnostic("connect", "cannot connect to the SoftwareTeam daemon") };
   switch (result.state) {
     case "ready":
     case "diagnostic":
@@ -203,21 +203,21 @@ async function defaultLaunchTui(): Promise<number> {
   const entry = resolveTuiPath(import.meta.dirname);
   if (!entry) throw new Error("mission-control TUI is not installed (no tui/dist/main.js next to this CLI)");
   return await new Promise<number>((resolve, reject) => {
-    const sharedKernel = envValue(process.env, "OPENRIG_SESSION_NAME", "RIGGED_SESSION_NAME") === "operator-human@kernel";
+    const sharedKernel = envValue(process.env, "SOFTWARETEAM_SESSION_NAME", "SOFTWARETEAM_SESSION_NAME") === "operator-human@kernel";
     const child = spawn(process.execPath, [entry, ...(sharedKernel ? ["--instance", "kernel"] : [])], { stdio: "inherit", env: { ...process.env,
-      OPENRIG_URL: new DaemonClient().baseUrl,
-      OPENRIG_TUI_CLI_ENTRY: path.join(import.meta.dirname, "bin-wrapper.js"),
-      OPENRIG_TUI_CLI_IDENTITY: `${BUILD_INFO.semver ?? "version unstamped"} · ${BUILD_INFO.commit ?? "commit unstamped"}${BUILD_INFO.dirty === true ? " · dirty" : ""}` } });
+      SOFTWARETEAM_URL: new DaemonClient().baseUrl,
+      SOFTWARETEAM_TUI_CLI_ENTRY: path.join(import.meta.dirname, "bin-wrapper.js"),
+      SOFTWARETEAM_TUI_CLI_IDENTITY: `${BUILD_INFO.semver ?? "version unstamped"} · ${BUILD_INFO.commit ?? "commit unstamped"}${BUILD_INFO.dirty === true ? " · dirty" : ""}` } });
     child.on("error", reject);
     child.on("exit", (code) => resolve(code ?? 0));
   });
 }
 
 /**
- * The OWNED mission-control path, factored out so `rig tui` is a true ALIAS (not a
- * mirror) of what bare `rig` does: probe the daemon, then either launch the TUI and
+ * The OWNED mission-control path, factored out so `SoftwareTeam tui` is a true ALIAS (not a
+ * mirror) of what bare `softwareTeam` does: probe the daemon, then either launch the TUI and
  * exit with its code, or print the friendly first-impression degrade. Shared by
- * runFrontDoor (bare `rig`) and the `tui` subcommand — one launch path, no duplication.
+ * runFrontDoor (bare `softwareTeam`) and the `tui` subcommand — one launch path, no duplication.
  */
 export async function openMissionControl(io: FrontDoorIo = {}): Promise<void> {
   const err = io.err ?? ((l: string) => process.stderr.write(l + "\n"));
@@ -227,9 +227,9 @@ export async function openMissionControl(io: FrontDoorIo = {}): Promise<void> {
 
   const probeResult = normalizeProbe(await probe());
   // The daemon-DOWN / not-reachable states are EXACTLY what the crash-cart TUI exists to render — bare
-  // `rig` with the daemon down must reach the cockpit, not exit (BLOCKER 1: the whole conductor is
+  // `softwareTeam` with the daemon down must reach the cockpit, not exit (BLOCKER 1: the whole conductor is
   // unreachable from its entry point otherwise). So when the transport is not healthy (connect → down,
-  // timeout → unverified), LAUNCH the TUI: its own `rig crash-cart --json` probe makes the honest
+  // timeout → unverified), LAUNCH the TUI: its own `softwareTeam crash-cart --json` probe makes the honest
   // confirmed-down vs unverified distinction and renders the cockpit or the cannot-verify screen.
   // A diagnostic with a HEALTHY transport (daemon UP but cwd/command/permission drift) is normally a
   // genuine first-impression degrade — keep the concise diagnostic + exit. The narrow exception is a

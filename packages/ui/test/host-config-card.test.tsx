@@ -48,14 +48,14 @@ describe("HostConfigCard (OPR.0.4.6.MH1 FR-5)", () => {
       ownName: "localhost",
       selected: "vps-a",
       hosts: [
-        { id: "vps-a", transport: "http", url: "http://vps-a:7433", selected: true, status: "reachable" },
+        { id: "vps-a", transport: "http", url: "http://vps-a:7434", selected: true, status: "reachable" },
         { id: "vm-b", transport: "ssh", target: "vm-b.local", selected: false, status: "unreachable" },
       ],
     };
     render(<HostConfigCard />);
     const rows = screen.getByTestId("host-config-rows");
     expect(rows.textContent).toContain("vps-a");
-    expect(rows.textContent).toContain("http://vps-a:7433");
+    expect(rows.textContent).toContain("http://vps-a:7434");
     expect(rows.textContent).toContain("vm-b.local");
     expect(rows.textContent).toContain("unreachable");
     expect(screen.getByTestId("host-selected-marker-vps-a")).toBeTruthy();
@@ -68,7 +68,7 @@ describe("HostConfigCard (OPR.0.4.6.MH1 FR-5)", () => {
     hostsData = {
       ownName: "localhost",
       selected: "local",
-      hosts: [{ id: "vps-a", transport: "http", url: "http://vps-a:7433", selected: false, status: "reachable" }],
+      hosts: [{ id: "vps-a", transport: "http", url: "http://vps-a:7434", selected: false, status: "reachable" }],
     };
     render(<HostConfigCard />);
     fireEvent.click(screen.getByTestId("host-select-vps-a"));

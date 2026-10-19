@@ -1,7 +1,7 @@
 // OPR.0.4.8.3 — built-in policy packaging/materialization pins (guard-sealed
 // immutable plan v2 eea3c778, D4). The four built-in policies ship VERBATIM:
 // canonical repo source packages/daemon/policies/builtin/<name>.policy.md,
-// materialized at $OPENRIG_HOME/reference/policies/builtin/ as mode-0444
+// materialized at $SOFTWARETEAM_HOME/reference/policies/builtin/ as mode-0444
 // read-only INSPECTION copies (guard ruling: copy-to-customize affordance,
 // not a security boundary; no writer surface; user-custom copies unmodified).
 import { describe, it, expect } from "vitest";
@@ -13,15 +13,16 @@ import { BUILTIN_POLICY_NAMES, materializeBuiltinPolicyReference } from "../src/
 
 const REPO_BUILTIN_DIR = resolve(import.meta.dirname, "../policies/builtin");
 
-/** the four authoritative content pins (workspace/incoming/slice03-core-authoritative,
+/** SoftwareTeam rename pins (2026-10-19), computed from the five canonical policy files.
+ * Upstream authority pins precede this rename in git history. Original provenance: the four authoritative content pins (workspace/incoming/slice03-core-authoritative,
  * PM inline builtin ruling) — full 64-hex, copied VERBATIM into the repo source */
 const AUTHORITY_SHA256: Record<string, string> = {
-  "auto.policy.md": "ffd0347af4bc5d5fdb4e5f8208577ca72dcc085883ea4fa0b10e9c6ac3022bde",
-  "locked.policy.md": "dcb38c372def7fe58ddfc9f1f3e97b9ba391ae79a99ef486e44f017cb39e57fe",
+  "auto.policy.md": "6acc1817c759615058a8c3eea4ca96d09651bd5a50dcffd8be6061bcb99972fb",
+  "locked.policy.md": "36f58dcaa595c996ed605b31593c335bd389589d5c04c6217578eab8cc752885",
   "open.policy.md": "bb5fbb18e1f3706bd0676a9e709e29b5754bb6b41b6f304453dd6d73e7a4d62b",
-  "standard.policy.md": "737d3f56e6d8275fe548a3a06e9b02ede8f328207ec2e6223cea6a83f40f5148",
+  "standard.policy.md": "ccf8a6e9d0e903112cc8358e2c7a47f8d0e99425a1881eb6345f7abe3584d163",
   // 0.6.0 (#109): accepted Codex full_bypass now includes approval policy never.
-  "yolo.policy.md": "1c34fff0b385426689fd26e20b8b431de6b688028d584924e7d5384fe5ff6d42",
+  "yolo.policy.md": "ab8f7f5f64119feeeb77db577f9e57ad9f57dc42b30b932d774ef7d4d30f6f75",
 };
 
 const sha256 = (p: string): string => createHash("sha256").update(readFileSync(p)).digest("hex");

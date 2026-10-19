@@ -1,14 +1,14 @@
 import type { Edge, Node } from "@xyflow/react";
 import type { AgentActivitySummary, CurrentQitemSummary } from "../hooks/useNodeInventory.js";
-import { HYBRID_CROSS_RIG_STROKE_DASH } from "./hybrid-layout.js";
+import { HYBRID_CROSS_SOFTWARE_TEAM_STROKE_DASH } from "./hybrid-layout.js";
 import { parseSessionName, sessionMemberLabel } from "./session-name.js";
 
 const SESSION_PAIR_DELIMITER = "\u0000";
 
 export const TOPOLOGY_NODE_ACTIVITY_TTL_MS = 10_000;
-export const TOPOLOGY_RIG_ACTIVITY_TTL_MS = 4_000;
-export const HOT_POTATO_WITHIN_RIG_DURATION_MS = 1_100;
-export const HOT_POTATO_CROSS_RIG_DURATION_MS = 1_600;
+export const TOPOLOGY_SOFTWARE_TEAM_ACTIVITY_TTL_MS = 4_000;
+export const HOT_POTATO_WITHIN_SOFTWARE_TEAM_DURATION_MS = 1_100;
+export const HOT_POTATO_CROSS_SOFTWARE_TEAM_DURATION_MS = 1_600;
 export const HOT_POTATO_TRAIL_TTL_MS = 3_000;
 export const HOT_POTATO_SOURCE_FLASH_MS = 650;
 export const HOT_POTATO_TARGET_FLASH_MS = 900;
@@ -47,8 +47,8 @@ export interface TopologyActivityVisual {
 
 export interface TopologySessionIndexEntry extends TopologyActivityBaseline {
   nodeId: string;
-  rigId?: string | null;
-  rigName?: string | null;
+  softwareTeamId?: string | null;
+  softwareTeamName?: string | null;
   logicalId?: string | null;
   canonicalSessionName?: string | null;
 }
@@ -91,9 +91,9 @@ export interface HotPotatoPacket {
   targetSession: string;
   sourceNodeId: string;
   targetNodeId: string;
-  sourceRigId?: string | null;
-  targetRigId?: string | null;
-  crossRig: boolean;
+  sourceSoftwareTeamId?: string | null;
+  targetSoftwareTeamId?: string | null;
+  crossSoftwareTeam: boolean;
   createdAt: number;
   durationMs: number;
 }
@@ -101,7 +101,7 @@ export interface HotPotatoPacket {
 export interface HotPotatoEdgeData {
   hotPotatoPacket?: HotPotatoPacket | null;
   hotPotatoRecent?: boolean;
-  hotPotatoCrossRig?: boolean;
+  hotPotatoCrossSoftwareTeam?: boolean;
   hotPotatoReducedMotion?: boolean;
 }
 
@@ -129,13 +129,13 @@ export function buildTopologySessionIndex(entries: readonly TopologySessionIndex
     addKey(localId, entry);
     addKey(entry.logicalId, entry);
     addKey(entry.canonicalSessionName, entry);
-    for (const rigToken of [entry.rigName, entry.rigId]) {
-      if (!rigToken) continue;
-      addKey(`${entry.logicalId ?? localId}@${rigToken}`, entry);
+    for (const softwareTeamToken of [entry.softwareTeamName, entry.softwareTeamId]) {
+      if (!softwareTeamToken) continue;
+      addKey(`${entry.logicalId ?? localId}@${softwareTeamToken}`, entry);
       if (entry.canonicalSessionName?.includes("@")) {
         // OPR.0.4.6.MH1 FR-8: the shared parse contract's display helper.
         const sessionLocal = sessionMemberLabel(entry.canonicalSessionName);
-        addKey(`${sessionLocal}@${rigToken}`, entry);
+        addKey(`${sessionLocal}@${softwareTeamToken}`, entry);
       }
     }
   }
@@ -153,17 +153,17 @@ export function resolveTopologySession(
   if (direct) return { ...direct, session: clean };
   if (direct === null) return null;
 
-  // OPR.0.4.6.MH1 FR-8: the shared parse contract (greedy first-@ rig).
+  // OPR.0.4.6.MH1 FR-8: the shared parse contract (greedy first-@ softwareTeam).
   const parsed = parseSessionName(clean);
   if (parsed.kind !== "canonical") return null;
   const local = parsed.member;
-  const rigToken = parsed.rig;
+  const softwareTeamToken = parsed.softwareTeam;
   for (const entry of index.byNodeId.values()) {
     const entryLocal = entry.logicalId ?? localNodeId(entry.nodeId);
     const canonicalLocal = entry.canonicalSessionName ? sessionMemberLabel(entry.canonicalSessionName) : null;
     const localMatches = entryLocal === local || canonicalLocal === local || localNodeId(entry.nodeId) === local;
-    const rigMatches = entry.rigName === rigToken || entry.rigId === rigToken;
-    if (localMatches && rigMatches) return { ...entry, session: clean };
+    const softwareTeamMatches = entry.softwareTeamName === softwareTeamToken || entry.softwareTeamId === softwareTeamToken;
+    if (localMatches && softwareTeamMatches) return { ...entry, session: clean };
   }
   return null;
 }
@@ -212,8 +212,8 @@ export function computeActivityVisual(input: {
   };
 }
 
-export function isRigRecentlyActive(lastActiveAt: number | null | undefined, nowMs: number): boolean {
-  return typeof lastActiveAt === "number" && nowMs - lastActiveAt <= TOPOLOGY_RIG_ACTIVITY_TTL_MS;
+export function isSoftwareTeamRecentlyActive(lastActiveAt: number | null | undefined, nowMs: number): boolean {
+  return typeof lastActiveAt === "number" && nowMs - lastActiveAt <= TOPOLOGY_SOFTWARE_TEAM_ACTIVITY_TTL_MS;
 }
 
 export function parseTopologyActivityEvent(raw: unknown): ParsedTopologyEvent | null {
@@ -350,10 +350,10 @@ export function makeHotPotatoPacket(input: {
   createdAt: number;
   sequence: number;
 }): HotPotatoPacket {
-  const crossRig = Boolean(
-    input.sourceSession.rigId &&
-    input.targetSession.rigId &&
-    input.sourceSession.rigId !== input.targetSession.rigId,
+  const crossSoftwareTeam = Boolean(
+    input.sourceSession.softwareTeamId &&
+    input.targetSession.softwareTeamId &&
+    input.sourceSession.softwareTeamId !== input.targetSession.softwareTeamId,
   );
   return {
     id: `${input.createdAt}-${input.sequence}-${input.sourceSession.nodeId}-${input.targetSession.nodeId}`,
@@ -363,11 +363,11 @@ export function makeHotPotatoPacket(input: {
     targetSession: input.targetSession.session,
     sourceNodeId: input.sourceSession.nodeId,
     targetNodeId: input.targetSession.nodeId,
-    sourceRigId: input.sourceSession.rigId,
-    targetRigId: input.targetSession.rigId,
-    crossRig,
+    sourceSoftwareTeamId: input.sourceSession.softwareTeamId,
+    targetSoftwareTeamId: input.targetSession.softwareTeamId,
+    crossSoftwareTeam,
     createdAt: input.createdAt,
-    durationMs: crossRig ? HOT_POTATO_CROSS_RIG_DURATION_MS : HOT_POTATO_WITHIN_RIG_DURATION_MS,
+    durationMs: crossSoftwareTeam ? HOT_POTATO_CROSS_SOFTWARE_TEAM_DURATION_MS : HOT_POTATO_WITHIN_SOFTWARE_TEAM_DURATION_MS,
   };
 }
 
@@ -400,7 +400,7 @@ export function applyHotPotatoEdges(
       selectable: false,
       focusable: false,
       interactionWidth: 8,
-      style: hotPotatoEdgeStyle(packet.crossRig),
+      style: hotPotatoEdgeStyle(packet.crossSoftwareTeam),
       data: {},
     }, packet, opts.reducedMotion));
   }
@@ -409,12 +409,12 @@ export function applyHotPotatoEdges(
 }
 
 function decorateHotPotatoEdge(edge: Edge, packet: HotPotatoPacket | null, reducedMotion: boolean): Edge {
-  const crossRig = packet?.crossRig || (edge.style as { strokeDasharray?: string } | undefined)?.strokeDasharray === HYBRID_CROSS_RIG_STROKE_DASH;
+  const crossSoftwareTeam = packet?.crossSoftwareTeam || (edge.style as { strokeDasharray?: string } | undefined)?.strokeDasharray === HYBRID_CROSS_SOFTWARE_TEAM_STROKE_DASH;
   const data = {
     ...(edge.data ?? {}),
     hotPotatoPacket: packet,
     hotPotatoRecent: Boolean(packet),
-    hotPotatoCrossRig: crossRig,
+    hotPotatoCrossSoftwareTeam: crossSoftwareTeam,
     hotPotatoReducedMotion: reducedMotion,
   } satisfies HotPotatoEdgeData & Record<string, unknown>;
   return {
@@ -424,16 +424,16 @@ function decorateHotPotatoEdge(edge: Edge, packet: HotPotatoPacket | null, reduc
     data,
     style: {
       ...(edge.style ?? {}),
-      ...(packet ? hotPotatoEdgeStyle(packet.crossRig) : {}),
+      ...(packet ? hotPotatoEdgeStyle(packet.crossSoftwareTeam) : {}),
     },
   };
 }
 
-function hotPotatoEdgeStyle(crossRig: boolean): Edge["style"] {
+function hotPotatoEdgeStyle(crossSoftwareTeam: boolean): Edge["style"] {
   return {
-    stroke: crossRig ? "#a8a29e" : "#047857",
-    strokeWidth: crossRig ? 1.25 : 2.25,
-    strokeDasharray: crossRig ? HYBRID_CROSS_RIG_STROKE_DASH : undefined,
+    stroke: crossSoftwareTeam ? "#a8a29e" : "#047857",
+    strokeWidth: crossSoftwareTeam ? 1.25 : 2.25,
+    strokeDasharray: crossSoftwareTeam ? HYBRID_CROSS_SOFTWARE_TEAM_STROKE_DASH : undefined,
   };
 }
 

@@ -32,7 +32,7 @@ describe("a request body of JSON null", () => {
 
   // Routes that read the body with a bare `await c.req.json()` then read a field
   // off the result, so `null` used to die as `null.field`: a 500.
-  for (const path of ["/api/ask", "/api/transport/send", "/api/transport/capture", "/api/transport/broadcast", "/api/specs/review/rig", "/api/specs/review/agent"]) {
+  for (const path of ["/api/ask", "/api/transport/send", "/api/transport/capture", "/api/transport/broadcast", "/api/specs/review/softwareTeam", "/api/specs/review/agent"]) {
     it(`${path} answers 400, not 500`, async () => {
       const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
       try {

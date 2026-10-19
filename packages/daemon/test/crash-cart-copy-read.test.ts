@@ -32,7 +32,7 @@ const sha = (p: string): string =>
 describe("copy-then-read — WAL replays on the copy; originals untouched", () => {
   it("last WAL-committed rows are visible on the copy; main-alone omits them; originals byte-identical after the read", () => {
     const dir = scratch();
-    const dbPath = join(dir, "openrig.sqlite");
+    const dbPath = join(dir, "softwareteam.sqlite");
     // A WAL-mode DB with a committed-but-UNcheckpointed row (writer kept open ⇒ frames stay in -wal,
     // simulating a crash where the last frames never replayed into main.db).
     const writer = createDb(dbPath);
@@ -52,7 +52,7 @@ describe("copy-then-read — WAL replays on the copy; originals untouched", () =
     ro.close();
 
     // (B) main.db ALONE (no -wal) omits the frames — proof they lived in the WAL, not main.db.
-    const mainOnly = join(scratch("cc-main-"), "openrig.sqlite");
+    const mainOnly = join(scratch("cc-main-"), "softwareteam.sqlite");
     copyFileSync(dbPath, mainOnly);
     const roMain = new Database(mainOnly, { readonly: true });
     expect(() => roMain.prepare("SELECT x FROM t").get()).toThrow(); // table itself lived in the WAL
@@ -67,7 +67,7 @@ describe("copy-then-read — WAL replays on the copy; originals untouched", () =
 
   it("snapshotDaemonDb copies sidecars only when present and fails loud on a missing db", () => {
     const dir = scratch();
-    const dbPath = join(dir, "openrig.sqlite");
+    const dbPath = join(dir, "softwareteam.sqlite");
     const w = createDb(dbPath);
     w.exec("CREATE TABLE t (x INTEGER)");
     w.pragma("wal_checkpoint(TRUNCATE)"); // flush + truncate the -wal so it is empty/absent-ish
@@ -88,22 +88,22 @@ describe("copy-then-read — WAL replays on the copy; originals untouched", () =
 
 describe("resolveDaemonDbPath — prefer daemon.json.db, flag relative", () => {
   it("uses the state file's db path when present (absolute)", () => {
-    const r = resolveDaemonDbPath("/home/.openrig", () => ({
+    const r = resolveDaemonDbPath("/home/.softwareteam", () => ({
       pid: 1,
-      port: 7433,
-      db: "/home/.openrig/openrig.sqlite",
+      port: 7434,
+      db: "/home/.softwareteam/softwareteam.sqlite",
     }));
-    expect(r).toEqual({ path: "/home/.openrig/openrig.sqlite", fromStateFile: true, relative: false });
+    expect(r).toEqual({ path: "/home/.softwareteam/softwareteam.sqlite", fromStateFile: true, relative: false });
   });
 
   it("flags a relative state-file db path (daemon CWD unknown → caller must handle)", () => {
-    const r = resolveDaemonDbPath("/home/.openrig", () => ({ pid: 1, port: 7433, db: "openrig.sqlite" }));
+    const r = resolveDaemonDbPath("/home/.softwareteam", () => ({ pid: 1, port: 7434, db: "softwareteam.sqlite" }));
     expect(r.fromStateFile).toBe(true);
     expect(r.relative).toBe(true);
   });
 
-  it("falls back to $OPENRIG_HOME/openrig.sqlite when there is no state file", () => {
-    const r = resolveDaemonDbPath("/home/.openrig", () => undefined);
-    expect(r).toEqual({ path: "/home/.openrig/openrig.sqlite", fromStateFile: false, relative: false });
+  it("falls back to $SOFTWARETEAM_HOME/softwareteam.sqlite when there is no state file", () => {
+    const r = resolveDaemonDbPath("/home/.softwareteam", () => undefined);
+    expect(r).toEqual({ path: "/home/.softwareteam/softwareteam.sqlite", fromStateFile: false, relative: false });
   });
 });

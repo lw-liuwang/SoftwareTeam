@@ -1,6 +1,6 @@
 import type { NativeProcessLister } from "./native-process-lineage.js";
 import type Database from "better-sqlite3";
-import type { RigRepository } from "./rig-repository.js";
+import type { SoftwareTeamRepository } from "./software-team-repository.js";
 import type { SessionRegistry } from "./session-registry.js";
 import type { EventBus } from "./event-bus.js";
 import type { TmuxAdapter, SessionProbe } from "../adapters/tmux.js";
@@ -45,7 +45,7 @@ import { sessionAgentAppSelect } from "./session-registry.js";
  * dead-session clean. One coherent design (KI-5.3-9):
  *
  *   - ONE seat-resolution path shared by all three verbs (the SeatStatusService
- *     findMatches semantics: parseSessionName greedy first-@ rig; canonical-name or
+ *     findMatches semantics: parseSessionName greedy first-@ softwareTeam; canonical-name or
  *     logical-id match; ambiguity returns the match list) — never a per-verb resolver.
  *   - Every mutation is transactional and persists its audit event in the SAME
  *     transaction (node.model_changed / session.stopped / session.cleaned).
@@ -53,7 +53,7 @@ import { sessionAgentAppSelect } from "./session-registry.js";
  *     a refusal, never a guess (the S1 error bar applied at birth).
  */
 
-const SEAT_LOOKUP_GUIDANCE = "List seats with: rig ps --nodes";
+const SEAT_LOOKUP_GUIDANCE = "List seats with: SoftwareTeam ps --nodes";
 
 /** Terminal session statuses — rows the clean verb must NOT touch (they already
  *  record an ended tenancy; the vocabulary is shared with seat-handover-service
@@ -62,7 +62,7 @@ const TERMINAL_SESSION_STATUSES = new Set(["superseded", "detached", "exited"]);
 
 export interface SeatLifecycleDeps {
   db: Database.Database;
-  rigRepo: RigRepository;
+  softwareTeamRepo: SoftwareTeamRepository;
   sessionRegistry: SessionRegistry;
   eventBus: EventBus;
   tmuxAdapter: TmuxAdapter;
@@ -120,15 +120,15 @@ export interface SeatRefusal {
     | "invalid_policy";
   message: string;
   guidance?: string;
-  matches?: Array<{ rig_name: string; logical_id: string; current_occupant: string | null }>;
+  matches?: Array<{ software_team_name: string; logical_id: string; current_occupant: string | null }>;
 }
 
 export type RestartInPlaceResult = InPlaceRestartReport | InPlaceRestartRefusal | SeatRefusal;
 export type VerifyRestartInPlaceResult = InPlaceVerifyResult | SeatRefusal;
 
 export interface SeatDescriptor {
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   logicalId: string;
   nodeId: string;
 }
@@ -146,7 +146,7 @@ export interface EffortReport {
   ok: true;
   seat: SeatDescriptor;
   runtime: string;
-  /** The last rig seat set-effort for this seat (null: never set, or cleared and never set since). */
+  /** The last softwareTeam seat set-effort for this seat (null: never set, or cleared and never set since). */
   requested: { value: string | null; at: string; reason: string; operator: string | null } | null;
   /** What the seat's next managed continuation sends. */
   saved: EffortResolution;
@@ -238,7 +238,7 @@ interface ParsedStartupContext {
 
 export class SeatLifecycleService {
   private readonly db: Database.Database;
-  private readonly rigRepo: RigRepository;
+  private readonly softwareTeamRepo: SoftwareTeamRepository;
   private readonly sessionRegistry: SessionRegistry;
   private readonly eventBus: EventBus;
   private readonly tmuxAdapter: TmuxAdapter;
@@ -254,11 +254,11 @@ export class SeatLifecycleService {
   private readonly transcripts: SeatLifecycleDeps["transcripts"] | null;
 
   constructor(deps: SeatLifecycleDeps) {
-    if (deps.db !== deps.rigRepo.db) throw new Error("SeatLifecycleService: rigRepo must share the same db handle");
+    if (deps.db !== deps.softwareTeamRepo.db) throw new Error("SeatLifecycleService: softwareTeamRepo must share the same db handle");
     if (deps.db !== deps.sessionRegistry.db) throw new Error("SeatLifecycleService: sessionRegistry must share the same db handle");
     if (deps.db !== deps.eventBus.db) throw new Error("SeatLifecycleService: eventBus must share the same db handle");
     this.db = deps.db;
-    this.rigRepo = deps.rigRepo;
+    this.softwareTeamRepo = deps.softwareTeamRepo;
     this.sessionRegistry = deps.sessionRegistry;
     this.eventBus = deps.eventBus;
     this.tmuxAdapter = deps.tmuxAdapter;
@@ -293,10 +293,10 @@ export class SeatLifecycleService {
 
     let persisted: PersistedEvent | null = null;
     const tx = this.db.transaction(() => {
-      this.rigRepo.setNodeModel(resolved.nodeId, model);
+      this.softwareTeamRepo.setNodeModel(resolved.nodeId, model);
       persisted = this.eventBus.persistWithinTransaction({
         type: "node.model_changed",
-        rigId: seat.rigId,
+        softwareTeamId: seat.softwareTeamId,
         nodeId: seat.nodeId,
         logicalId: seat.logicalId,
         from,
@@ -341,11 +341,11 @@ export class SeatLifecycleService {
     if (from.choice !== requested) {
       let persisted: PersistedEvent | null = null;
       this.db.transaction(() => {
-        if (!this.rigRepo.setNodeEffortChoice(seat.nodeId, requested)) return;
+        if (!this.softwareTeamRepo.setNodeEffortChoice(seat.nodeId, requested)) return;
         changed = true;
         persisted = this.eventBus.persistWithinTransaction({
           type: "node.effort_changed",
-          rigId: seat.rigId,
+          softwareTeamId: seat.softwareTeamId,
           nodeId: seat.nodeId,
           logicalId: seat.logicalId,
           from: from.choice,
@@ -434,7 +434,7 @@ export class SeatLifecycleService {
    *  must be the one the process itself names, by argv or, for a Codex that names none, by its own logs. */
   private async joinedTranscript(runtime: "claude-code" | "codex", session: LatestSessionRow, process: { pid: number; command: string; startedAt?: string }):
     Promise<{ path: string | null } | { detail: string }> {
-    if (!this.transcripts) return { detail: "The native transcript for this session isn't known to OpenRig." };
+    if (!this.transcripts) return { detail: "The native transcript for this session isn't known to SoftwareTeam." };
     const mismatch = "The process in the pane isn't on the conversation recorded for this seat (or its conversation couldn't be read), so no native turn can be attributed to it.";
     try {
       if (runtime === "codex") {
@@ -515,7 +515,7 @@ export class SeatLifecycleService {
         const changed = from?.runtime !== to?.runtime || from?.mode !== to?.mode;
         if (changed) {
           store.write(seat.nodeId, to, input.actor.trim(), input.reason.trim());
-          persisted = this.eventBus.persistWithinTransaction({ type: "node.permissions_changed", rigId: seat.rigId,
+          persisted = this.eventBus.persistWithinTransaction({ type: "node.permissions_changed", softwareTeamId: seat.softwareTeamId,
             nodeId: seat.nodeId, from, to, actor: input.actor.trim(), reason: input.reason.trim(), source: "seat_selection", effect: "future_launches_only" });
         }
         return { ok: true as const, seat, from, to, changed,
@@ -528,7 +528,7 @@ export class SeatLifecycleService {
     }
   }
 
-  /** `rig policy apply <name> --seat`: re-point an existing seat's own permission_policy. This writes
+  /** `softwareTeam policy apply <name> --seat`: re-point an existing seat's own permission_policy. This writes
    *  the raw ref and the provenance the instantiator would persist for the same member ref; restore,
    *  resume and launches that read the seat's stored state use that provenance, while a launch from a
    *  spec that declares a policy re-applies the spec's. The ref is validated exactly as a spec
@@ -544,8 +544,8 @@ export class SeatLifecycleService {
     if (attachment.origin === "custom") {
       return {
         ok: false, code: "invalid_policy",
-        message: `permission_policy: '${ref}' is a custom policy file, which resolves relative to the rig spec that declares it; a seat has no spec directory of its own.`,
-        guidance: "Use builtin:<name> or none here, or declare the custom ref in the rig spec.",
+        message: `permission_policy: '${ref}' is a custom policy file, which resolves relative to the SoftwareTeam spec that declares it; a seat has no spec directory of its own.`,
+        guidance: "Use builtin:<name> or none here, or declare the custom ref in the SoftwareTeam spec.",
       };
     }
     const resolved = this.resolveSeat(input.seatRef);
@@ -563,16 +563,16 @@ export class SeatLifecycleService {
       declaringDir: attachment.declaringDir ?? null,
       launchPosture: attachment.launchPosture,
     };
-    const before = this.rigRepo.getNodePolicyProvenance(seat.nodeId);
+    const before = this.softwareTeamRepo.getNodePolicyProvenance(seat.nodeId);
     const changed = from !== ref || !before || before.origin !== provenance.origin || before.resolvedTarget !== provenance.resolvedTarget
       || before.declaringDir !== provenance.declaringDir || before.launchPosture !== provenance.launchPosture;
     if (changed) {
       let persisted: PersistedEvent | null = null;
       this.db.transaction(() => {
-        this.rigRepo.setNodePermissionPolicy(seat.nodeId, ref);
-        this.rigRepo.setNodePolicyProvenance(seat.nodeId, provenance);
+        this.softwareTeamRepo.setNodePermissionPolicy(seat.nodeId, ref);
+        this.softwareTeamRepo.setNodePolicyProvenance(seat.nodeId, provenance);
         persisted = this.eventBus.persistWithinTransaction({
-          type: "node.policy_changed", rigId: seat.rigId, nodeId: seat.nodeId, logicalId: seat.logicalId,
+          type: "node.policy_changed", softwareTeamId: seat.softwareTeamId, nodeId: seat.nodeId, logicalId: seat.logicalId,
           from, to: ref, launchPosture: attachment.launchPosture, reason: input.reason.trim(), operator: input.actor.trim(),
         });
       })();
@@ -581,9 +581,9 @@ export class SeatLifecycleService {
     let selection = false;
     // An unreadable selection refuses the launch by itself (NativePermissionStore.read); nothing to add here.
     try { selection = new NativePermissionStore(this.db).read(seat.nodeId) !== null; } catch { /* see above */ }
-    const effect = "Restore, resume and launches that read this seat's stored state use this policy, unless an explicit native selection (rig seat set-permissions) takes precedence. "
-      + "`rig up <rig name>` uses it; a launch from a spec that declares a policy replaces it with the spec's policy, which later restores then use. "
-      + "The running process and the rig spec file are unchanged; nothing was restarted."
+    const effect = "Restore, resume and launches that read this seat's stored state use this policy, unless an explicit native selection (SoftwareTeam seat set-permissions) takes precedence. "
+      + "`SoftwareTeam up <SoftwareTeam name>` uses it; a launch from a spec that declares a policy replaces it with the spec's policy, which later restores then use. "
+      + "The running process and the SoftwareTeam spec file are unchanged; nothing was restarted."
       + (selection ? " This seat has an explicit native permission selection, so that selection takes precedence at launch." : "");
     return { ok: true, seat, from, to: ref, launchPosture: attachment.launchPosture, changed, effect };
   }
@@ -607,8 +607,8 @@ export class SeatLifecycleService {
       return {
         ok: false,
         code: "claimed_session",
-        message: `Session "${session.session_name}" was adopted (origin=claimed), not launched by OpenRig — stop refuses to kill it.`,
-        guidance: "Release an adopted session with: rig unclaim",
+        message: `Session "${session.session_name}" was adopted (origin=claimed), not launched by SoftwareTeam — stop refuses to kill it.`,
+        guidance: "Release an adopted session with: SoftwareTeam unclaim",
       };
     }
 
@@ -622,7 +622,7 @@ export class SeatLifecycleService {
         ok: false,
         code: "session_not_live",
         message: `Session "${session.session_name}" is absent in tmux (checked: tmux has-session, POSITIVE absence evidence) — there is nothing to stop.`,
-        guidance: "A dead seat with stale records is returned to launchable with: rig seat clean",
+        guidance: "A dead seat with stale records is returned to launchable with: SoftwareTeam seat clean",
       };
     }
 
@@ -659,7 +659,7 @@ export class SeatLifecycleService {
           ok: false,
           code: "claimed_session",
           message: `Session "${row.session_name}" was adopted (origin=claimed) — clean refuses to touch adopted state.`,
-          guidance: "Release an adopted session with: rig unclaim",
+          guidance: "Release an adopted session with: SoftwareTeam unclaim",
         };
       }
     }
@@ -677,8 +677,8 @@ export class SeatLifecycleService {
           code: "session_live",
           message: `Session "${name}" is alive in tmux (checked: tmux has-session, against EVERY session row clean would mutate) — clean only operates on dead seats.`,
           guidance: latest?.session_name === name && latest.origin !== "claimed"
-            ? "Stop a live seat first with: rig seat stop"
-            : `Check that session (rig capture -- ${shellQuote(name)}) and end it yourself if it is no longer needed, then retry; rig seat stop targets the seat's latest session, not a selected historical session.`,
+            ? "Stop a live seat first with: SoftwareTeam seat stop"
+            : `Check that session (SoftwareTeam capture -- ${shellQuote(name)}) and end it yourself if it is no longer needed, then retry; SoftwareTeam seat stop targets the seat's latest session, not a selected historical session.`,
         };
       }
     }
@@ -702,7 +702,7 @@ export class SeatLifecycleService {
       this.sessionRegistry.clearBinding(resolved.nodeId);
       persisted = this.eventBus.persistWithinTransaction({
         type: "session.cleaned",
-        rigId: seat.rigId,
+        softwareTeamId: seat.softwareTeamId,
         nodeId: seat.nodeId,
         sessionName: session?.session_name ?? null,
         reason: input.reason.trim(),
@@ -733,7 +733,7 @@ export class SeatLifecycleService {
     const resolved = this.resolveSeat(seatRef);
     if ("code" in resolved) return resolved;
     const seat = this.describe(resolved);
-    const node = this.rigRepo.getRig(seat.rigId)?.nodes.find((n) => n.id === seat.nodeId);
+    const node = this.softwareTeamRepo.getSoftwareTeam(seat.softwareTeamId)?.nodes.find((n) => n.id === seat.nodeId);
     const session = this.latestSession(seat.nodeId);
     const binding = this.sessionRegistry.getBindingForNode(seat.nodeId);
     if (!node || !session || !binding?.tmuxSession || !this.startupOrchestrator
@@ -754,7 +754,7 @@ export class SeatLifecycleService {
     if (this.latestSession(node.id)?.id !== session.id || this.sessionRegistry.getBindingForNode(node.id)?.tmuxPane !== pane.pane
       || !this.startupOrchestrator.canContinueFresh(node.id, session.id)) return { ok: false as const, code: "continuation_unavailable", message: "Startup changed during the readiness check. Refresh." };
     const result = await this.startupOrchestrator.startNode({
-      rigId: seat.rigId, nodeId: node.id, sessionId: session.id,
+      softwareTeamId: seat.softwareTeamId, nodeId: node.id, sessionId: session.id,
       binding: { ...binding, cwd: node.cwd ?? ".", model: node.model ?? undefined, effort: resolveSeatEffort(node).effective ?? undefined, codexConfigProfile: node.codexConfigProfile ?? undefined },
       adapter, plan: startup.context.plan, resolvedStartupFiles: startup.context.resolvedStartupFiles,
       startupActions: startup.context.startupActions, isRestore: false,
@@ -771,9 +771,9 @@ export class SeatLifecycleService {
    */
   private resolveFreshLaunch(resolved: ResolvedSeat, seatRef: string) {
     const seat = this.describe(resolved);
-    const rig = this.rigRepo.getRig(seat.rigId);
-    const node = rig?.nodes.find((candidate) => candidate.id === seat.nodeId);
-    if (!rig || !node) {
+    const softwareTeam = this.softwareTeamRepo.getSoftwareTeam(seat.softwareTeamId);
+    const node = softwareTeam?.nodes.find((candidate) => candidate.id === seat.nodeId);
+    if (!softwareTeam || !node) {
       return { ok: false as const, code: "seat_not_found" as const, message: `Seat "${seatRef}" no longer exists.`, guidance: SEAT_LOOKUP_GUIDANCE };
     }
     if (!this.nodeLauncher || !this.startupOrchestrator) {
@@ -799,8 +799,8 @@ export class SeatLifecycleService {
     }
 
     const canonicalSessionName = deriveCanonicalFromEntry(resolved.entry)
-      ?? deriveSessionName(seat.rigName, seat.logicalId);
-    return { ok: true as const, resolved, seat, rig, node, adapter, startup: startup.context, canonicalSessionName, nodeLauncher: this.nodeLauncher, startupOrchestrator: this.startupOrchestrator };
+      ?? deriveSessionName(seat.softwareTeamName, seat.logicalId);
+    return { ok: true as const, resolved, seat, softwareTeam, node, adapter, startup: startup.context, canonicalSessionName, nodeLauncher: this.nodeLauncher, startupOrchestrator: this.startupOrchestrator };
   }
 
   /**
@@ -829,7 +829,7 @@ export class SeatLifecycleService {
         ok: false,
         code: "session_live",
         message: `Seat "${canonicalSessionName}" is live; fresh launch refuses without --stop.`,
-        guidance: "Re-run with --stop to end exactly this managed occupant, or use rig handover to carry context.",
+        guidance: "Re-run with --stop to end exactly this managed occupant, or use SoftwareTeam handover to carry context.",
       };
     }
     const observedPane = await observeSolePane(this.tmuxAdapter, canonicalSessionName);
@@ -862,7 +862,7 @@ export class SeatLifecycleService {
       return {
         ok: false, code: "claimed_session",
         message: `Seat "${seatRef}" has an adopted/operator-owned occupant; fresh launch refuses even with --stop.`,
-        guidance: "Stop the adopted process yourself, then run rig seat clean before launching fresh.",
+        guidance: "Stop the adopted process yourself, then run SoftwareTeam seat clean before launching fresh.",
       };
     }
     const binding = this.sessionRegistry.getBindingForNode(nodeId);
@@ -874,7 +874,7 @@ export class SeatLifecycleService {
       if (probe.state === "present") return {
         ok: false, code: "session_live",
         message: `Historical session "${name}" is still live; fresh launch refuses to change this seat.`,
-        guidance: "rig seat stop targets the seat's latest session, not a selected historical session; it may stop the current occupant instead.",
+        guidance: "SoftwareTeam seat stop targets the seat's latest session, not a selected historical session; it may stop the current occupant instead.",
       };
     }
     return null;
@@ -900,7 +900,7 @@ export class SeatLifecycleService {
     if ("code" in resolved) return refusal(resolved);
     const prepared = this.resolveFreshLaunch(resolved, input.seatRef);
     if ("code" in prepared) return refusal(prepared);
-    const { seat, rig, node, startup, canonicalSessionName } = prepared;
+    const { seat, softwareTeam, node, startup, canonicalSessionName } = prepared;
     const blockers: Array<{ code: string; message: string; guidance?: string }> = [];
     const warnings = ["Snapshot only; execution resolves and validates again. Native readiness is not checked."];
     let complete = true;
@@ -934,7 +934,7 @@ export class SeatLifecycleService {
       }
     }
     const launchable = blockers.length > 0 ? false : complete ? true : null;
-    const siblings = rig.nodes.filter(n => n.id !== node.id).map(n => ({
+    const siblings = softwareTeam.nodes.filter(n => n.id !== node.id).map(n => ({
       logicalId: n.logicalId, sessionName: n.binding?.tmuxSession ?? null, effect: "unchanged" as const,
     }));
     return {
@@ -994,7 +994,7 @@ export class SeatLifecycleService {
       canonicalSessionName,
       "fresh launch refuses rather than overwrite a possibly-live canonical session",
     );
-    // `rig seat stop` persists an exited row after killing its managed session.
+    // `softwareTeam seat stop` persists an exited row after killing its managed session.
     // When that was the last tmux session, tmux exits too, so the next classified
     // probe sees unavailable transport instead of positive absence. Reopen an
     // empty server only when the persisted state proves this seat's managed
@@ -1079,7 +1079,7 @@ export class SeatLifecycleService {
       ...(retiringGeneration ? { retiringGeneration } : {}),
     });
 
-    const launch = await nodeLauncher.launchNode(seat.rigId, seat.logicalId, {
+    const launch = await nodeLauncher.launchNode(seat.softwareTeamId, seat.logicalId, {
       sessionName: canonicalSessionName,
       cwd: node.cwd ?? undefined,
       occupantKind: "fresh",
@@ -1111,11 +1111,11 @@ export class SeatLifecycleService {
     }
     this.activityOracle?.declareOccupantSwap(node.id, generation);
 
-    const launchPosture = this.rigRepo.getNodePolicyProvenance(node.id)?.launchPosture
-      ?? this.rigRepo.getRigPolicyProvenance(seat.rigId)?.launchPosture
+    const launchPosture = this.softwareTeamRepo.getNodePolicyProvenance(node.id)?.launchPosture
+      ?? this.softwareTeamRepo.getSoftwareTeamPolicyProvenance(seat.softwareTeamId)?.launchPosture
       ?? "floor";
     const startupResult = await startupOrchestrator.startNode({
-      rigId: seat.rigId,
+      softwareTeamId: seat.softwareTeamId,
       nodeId: node.id,
       sessionId: launch.session.id,
       binding: {
@@ -1197,7 +1197,7 @@ export class SeatLifecycleService {
       const nativeSessionId = this.sessionResumeToken(launch.session.id);
       persisted = this.eventBus.persistWithinTransaction({
         type: "seat.fresh_launched",
-        rigId: seat.rigId,
+        softwareTeamId: seat.softwareTeamId,
         nodeId: node.id,
         logicalId: seat.logicalId,
         sessionName: canonicalSessionName,
@@ -1305,7 +1305,7 @@ export class SeatLifecycleService {
   /** The shared seat refusals, then the binding the relaunch is built from (the handover's posture rules). */
   private async inPlaceTarget(resolved: ResolvedSeat, seatRef: string): Promise<InPlaceRestartTarget | SeatRefusal> {
     const seat = this.describe(resolved);
-    const node = this.rigRepo.getRig(seat.rigId)?.nodes.find((candidate) => candidate.id === seat.nodeId);
+    const node = this.softwareTeamRepo.getSoftwareTeam(seat.softwareTeamId)?.nodes.find((candidate) => candidate.id === seat.nodeId);
     if (!node) return { ok: false, code: "seat_not_found", message: `Seat "${seatRef}" no longer exists.`, guidance: SEAT_LOOKUP_GUIDANCE };
     if (node.runtime !== "codex") {
       return { ok: false, code: "not_codex", message: `Seat "${seatRef}" runs ${node.runtime ?? "an unknown runtime"}; in-place restart supports Codex seats only.` };
@@ -1319,8 +1319,8 @@ export class SeatLifecycleService {
       return { ok: false, code: "no_session", message: `Seat "${seatRef}" has no live managed session to restart (checked: latest sessions row).` };
     }
     if (session.origin === "claimed") {
-      return { ok: false, code: "claimed_session", message: `Session "${session.session_name}" was adopted (origin=claimed), not launched by OpenRig; in-place restart refuses it.`,
-        guidance: "Release an adopted session with: rig unclaim" };
+      return { ok: false, code: "claimed_session", message: `Session "${session.session_name}" was adopted (origin=claimed), not launched by SoftwareTeam; in-place restart refuses it.`,
+        guidance: "Release an adopted session with: SoftwareTeam unclaim" };
     }
     const probed = await this.probeLiveness(session.session_name, "in-place restart refuses rather than act on an unknown session");
     if ("code" in probed) return probed;
@@ -1338,8 +1338,8 @@ export class SeatLifecycleService {
       return { ok: false, code: "permission_selection_refused", message: `Permission selection: ${(error as Error).message}` };
     }
     const launchPosture = permissionOverride.launchPosture
-      ?? this.rigRepo.getNodePolicyProvenance(node.id)?.launchPosture
-      ?? this.rigRepo.getRigPolicyProvenance(seat.rigId)?.launchPosture
+      ?? this.softwareTeamRepo.getNodePolicyProvenance(node.id)?.launchPosture
+      ?? this.softwareTeamRepo.getSoftwareTeamPolicyProvenance(seat.softwareTeamId)?.launchPosture
       ?? "floor";
     // OPR.0.7.0.7: an in-place restart is a managed continuation, so it relaunches with the seat's saved effort.
     const savedEffort = resolveSeatEffort(node);
@@ -1352,7 +1352,7 @@ export class SeatLifecycleService {
         ...(savedEffort.effective ? { effort: savedEffort.effective } : {}),
         ...(node.codexConfigProfile ? { codexConfigProfile: node.codexConfigProfile } : {}),
         launchPosture, kernelAuthority: permissionOverride.kernelAuthority, teamPermissionDefault: permissionOverride.teamPermissionDefault,
-        nonInterruptive: this.rigRepo.getRigNonInterruptive(seat.rigId),
+        nonInterruptive: this.softwareTeamRepo.getSoftwareTeamNonInterruptive(seat.softwareTeamId),
       },
     };
   }
@@ -1386,7 +1386,7 @@ export class SeatLifecycleService {
       this.sessionRegistry.clearBinding(resolved.nodeId);
       persisted = this.eventBus.persistWithinTransaction({
         type: "session.stopped",
-        rigId: seat.rigId,
+        softwareTeamId: seat.softwareTeamId,
         nodeId: seat.nodeId,
         sessionName: session.session_name,
         reason: reason.trim(),
@@ -1593,7 +1593,7 @@ export class SeatLifecycleService {
       }
       persisted = this.eventBus.persistWithinTransaction({
         type: "seat.fresh_launch_failed",
-        rigId: input.seat.rigId,
+        softwareTeamId: input.seat.softwareTeamId,
         nodeId: input.seat.nodeId,
         logicalId: input.seat.logicalId,
         sessionName: input.launch.sessionName,
@@ -1658,8 +1658,8 @@ export class SeatLifecycleService {
 
   private describe(resolved: ResolvedSeat): SeatDescriptor {
     return {
-      rigId: resolved.entry.rigId,
-      rigName: resolved.entry.rigName,
+      softwareTeamId: resolved.entry.softwareTeamId,
+      softwareTeamName: resolved.entry.softwareTeamName,
       logicalId: resolved.entry.logicalId,
       nodeId: resolved.nodeId,
     };
@@ -1674,7 +1674,7 @@ export class SeatLifecycleService {
 
   /** The ONE resolution path, mirroring SeatStatusService.findMatches semantics
    *  (seat-status-service.ts) so every seat verb resolves identically: a canonical
-   *  `name@rig` ref scopes to that rig's inventory; a bare ref scans all rigs;
+   *  `name@software-team` ref scopes to that softwareTeam's inventory; a bare ref scans all softwareTeams;
    *  matches are by canonicalSessionName or logicalId; >1 match is a listed
    *  ambiguity, never a pick. */
   private resolveSeat(seatRef: string): ResolvedSeat | SeatRefusal {
@@ -1688,7 +1688,7 @@ export class SeatLifecycleService {
       return {
         ok: false,
         code: "seat_not_found",
-        message: `Seat "${ref}" not found (checked: canonical session names and logical ids across ${parseSessionName(ref).kind === "canonical" ? "the named rig" : "all rigs"}).`,
+        message: `Seat "${ref}" not found (checked: canonical session names and logical ids across ${parseSessionName(ref).kind === "canonical" ? "the named softwareTeam" : "all softwareTeams"}).`,
         guidance: SEAT_LOOKUP_GUIDANCE,
       };
     }
@@ -1699,7 +1699,7 @@ export class SeatLifecycleService {
         message: `Seat "${ref}" matched multiple nodes`,
         guidance: SEAT_LOOKUP_GUIDANCE,
         matches: matches.map((entry) => ({
-          rig_name: entry.rigName,
+          software_team_name: entry.softwareTeamName,
           logical_id: entry.logicalId,
           current_occupant: entry.canonicalSessionName,
         })),
@@ -1708,8 +1708,8 @@ export class SeatLifecycleService {
 
     const entry = matches[0]!;
     const nodeRow = this.db.prepare(
-      "SELECT id FROM nodes WHERE rig_id = ? AND logical_id = ?",
-    ).get(entry.rigId, entry.logicalId) as { id: string } | undefined;
+      "SELECT id FROM nodes WHERE software_team_id = ? AND logical_id = ?",
+    ).get(entry.softwareTeamId, entry.logicalId) as { id: string } | undefined;
     if (!nodeRow) {
       return { ok: false, code: "seat_not_found", message: `Seat "${ref}" resolved to a node that no longer exists.`, guidance: SEAT_LOOKUP_GUIDANCE };
     }
@@ -1720,15 +1720,15 @@ export class SeatLifecycleService {
     const parsed = parseSessionName(ref);
     if (parsed.kind === "canonical") {
       const localRef = parsed.member;
-      const rigs = this.rigRepo.findUnarchivedRigsByName(parsed.rig);
-      return rigs.flatMap((rig) => getNodeInventory(this.db, rig.id).filter((entry) =>
+      const softwareTeams = this.softwareTeamRepo.findUnarchivedSoftwareTeamsByName(parsed.softwareTeam);
+      return softwareTeams.flatMap((softwareTeam) => getNodeInventory(this.db, softwareTeam.id).filter((entry) =>
         entry.canonicalSessionName === ref
         || deriveCanonicalFromEntry(entry) === ref
         || entry.logicalId === localRef,
       ));
     }
-    return this.rigRepo.listRigs().flatMap((rig) =>
-      getNodeInventory(this.db, rig.id).filter((entry) =>
+    return this.softwareTeamRepo.listSoftwareTeams().flatMap((softwareTeam) =>
+      getNodeInventory(this.db, softwareTeam.id).filter((entry) =>
         entry.canonicalSessionName === ref || entry.logicalId === ref,
       ),
     );

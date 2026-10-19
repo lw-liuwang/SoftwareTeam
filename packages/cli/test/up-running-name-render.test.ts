@@ -1,5 +1,5 @@
-// S5b final fix, R2 F1 (row r054-s5b-final-fix) — `rig up` must RENDER the
-// locked teaching refusal for rig_name_running verbatim, not the generic
+// S5b final fix, R2 F1 (row r054-s5b-final-fix) — `SoftwareTeam up` must RENDER the
+// locked teaching refusal for software_team_name_running verbatim, not the generic
 // "Up failed: unknown error ... validate your spec" fallback. The stub serves
 // the daemon's post-fix 409 shape; the pin is on the CLI's rendering.
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
@@ -10,10 +10,10 @@ import { DaemonClient } from "../src/client.js";
 import { STATE_FILE, type DaemonState, type LifecycleDeps } from "../src/daemon-lifecycle.js";
 
 const TEACHING =
-  'A rig named "dupe-cli" is already RUNNING: 01RIGID with 1 running session(s) ' +
-  "(checked: existing rigs with this name for sessions in status 'running'). " +
-  "Nothing was created or launched. Alternatives: work with the running rig " +
-  "(rig ps --nodes / rig send), stop it first with 'rig down dupe-cli', " +
+  'A SoftwareTeam named "dupe-cli" is already RUNNING: 01RIGID with 1 running session(s) ' +
+  "(checked: existing softwareTeams with this name for sessions in status 'running'). " +
+  "Nothing was created or launched. Alternatives: work with the running softwareTeam " +
+  "(SoftwareTeam ps --nodes / SoftwareTeam send), stop it first with 'SoftwareTeam down dupe-cli', " +
   "or launch this spec under a different name.";
 
 function mockLifecycleDeps(port: number): LifecycleDeps {
@@ -36,7 +36,7 @@ function mockLifecycleDeps(port: number): LifecycleDeps {
   };
 }
 
-describe("rig up rendering — rig_name_running teaching refusal (S5b F1)", () => {
+describe("SoftwareTeam up rendering — software_team_name_running teaching refusal (S5b F1)", () => {
   let server: http.Server;
   let port: number;
 
@@ -49,11 +49,11 @@ describe("rig up rendering — rig_name_running teaching refusal (S5b F1)", () =
         res.end(JSON.stringify({
           runId: "run-rnr",
           status: "failed",
-          code: "rig_name_running",
+          code: "software_team_name_running",
           error: TEACHING,
           stages: [
             { stage: "resolve_spec", status: "ok" },
-            { stage: "import_rig", status: "failed", detail: { code: "rig_name_running" } },
+            { stage: "import_software_team", status: "failed", detail: { code: "software_team_name_running" } },
           ],
           errors: [TEACHING],
           warnings: [],
@@ -85,7 +85,7 @@ describe("rig up rendering — rig_name_running teaching refusal (S5b F1)", () =
         preflightExec: async () => "tmux 3.6a",
       };
       prog.addCommand(upCommand(deps as never));
-      await prog.parseAsync(["node", "rig", "up", "somespec.yaml"]).catch(() => {});
+      await prog.parseAsync(["node", "softwareTeam", "up", "somespec.yaml"]).catch(() => {});
     } finally {
       vi.restoreAllMocks();
     }
@@ -94,8 +94,8 @@ describe("rig up rendering — rig_name_running teaching refusal (S5b F1)", () =
     process.exitCode = originalExit;
 
     // The locked teaching refusal, rendered.
-    expect(out).toContain('A rig named "dupe-cli" is already RUNNING');
-    expect(out).toContain("rig down dupe-cli");
+    expect(out).toContain('A SoftwareTeam named "dupe-cli" is already RUNNING');
+    expect(out).toContain("SoftwareTeam down dupe-cli");
     expect(out).toMatch(/nothing was created or launched/i);
     // Not the generic fallback noise.
     expect(out).not.toContain("unknown error");

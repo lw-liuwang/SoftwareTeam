@@ -23,8 +23,8 @@ function makeWrapper() {
     createElement(QueryClientProvider, { client }, children);
 }
 
-const WS = { name: "ws", path: "/Users/example/.openrig/shared-docs/internal-docs" };
-const SCOPE = "/Users/example/.openrig/shared-docs/internal-docs/missions/m";
+const WS = { name: "ws", path: "/Users/example/.softwareteam/shared-docs/internal-docs" };
+const SCOPE = "/Users/example/.softwareteam/shared-docs/internal-docs/missions/m";
 
 function rootsOk(roots = [WS]) {
   return new Response(JSON.stringify({ roots }), { status: 200 });

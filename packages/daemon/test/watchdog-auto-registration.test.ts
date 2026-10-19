@@ -7,7 +7,7 @@ import { createDaemon } from "../src/startup.js";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { NodeLauncher } from "../src/domain/node-launcher.js";
@@ -28,34 +28,34 @@ function autoRows(db: Database.Database, targetSession: string) {
   );
 }
 
-function seedCanonicalNode(db: Database.Database, rigName = "auto-rig") {
-  const rigRepo = new RigRepository(db);
-  const rig = rigRepo.createRig(rigName);
-  const node = rigRepo.addNode(rig.id, "dev-qa", {
+function seedCanonicalNode(db: Database.Database, softwareTeamName = "auto-software-team") {
+  const softwareTeamRepo = new SoftwareTeamRepository(db);
+  const softwareTeam = softwareTeamRepo.createSoftwareTeam(softwareTeamName);
+  const node = softwareTeamRepo.addNode(softwareTeam.id, "dev-qa", {
     role: "qa",
     runtime: "codex",
   });
-  return { rigRepo, rig, node, sessionName: `dev-qa@${rigName}` };
+  return { softwareTeamRepo, softwareTeam, node, sessionName: `dev-qa@${softwareTeamName}` };
 }
 
 describe("W2c watchdog auto-registration — production composition", () => {
-  const originalNoKernel = process.env.OPENRIG_NO_KERNEL;
-  const originalAutoRegister = process.env.OPENRIG_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER;
+  const originalNoKernel = process.env.SOFTWARETEAM_NO_KERNEL;
+  const originalAutoRegister = process.env.SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER;
   const tempRoots: string[] = [];
 
   beforeAll(() => {
-    process.env.OPENRIG_NO_KERNEL = "1";
+    process.env.SOFTWARETEAM_NO_KERNEL = "1";
     // B6 — auto-registration is no longer default-on; this suite exercises the
     // registration machinery, so it runs under the explicit fleet opt-in. The
     // ruled default ("off") has its own describe below.
-    process.env.OPENRIG_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER = "all";
+    process.env.SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER = "all";
   });
 
   afterAll(() => {
-    if (originalNoKernel === undefined) delete process.env.OPENRIG_NO_KERNEL;
-    else process.env.OPENRIG_NO_KERNEL = originalNoKernel;
-    if (originalAutoRegister === undefined) delete process.env.OPENRIG_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER;
-    else process.env.OPENRIG_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER = originalAutoRegister;
+    if (originalNoKernel === undefined) delete process.env.SOFTWARETEAM_NO_KERNEL;
+    else process.env.SOFTWARETEAM_NO_KERNEL = originalNoKernel;
+    if (originalAutoRegister === undefined) delete process.env.SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER;
+    else process.env.SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER = originalAutoRegister;
     for (const root of tempRoots) rmSync(root, { recursive: true, force: true });
   });
 
@@ -70,10 +70,10 @@ describe("W2c watchdog auto-registration — production composition", () => {
       cmuxExec: async () => "",
     });
     try {
-      const { rig, node, sessionName } = seedCanonicalNode(db);
-      const result = await deps.nodeLauncher.launchNode(rig.id, node.logicalId, { sessionName });
+      const { softwareTeam, node, sessionName } = seedCanonicalNode(db);
+      const result = await deps.nodeLauncher.launchNode(softwareTeam.id, node.logicalId, { sessionName });
       expect(result.ok).toBe(true);
-      const session = deps.sessionRegistry.getSessionsForRig(rig.id).find((row) => row.sessionName === sessionName);
+      const session = deps.sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id).find((row) => row.sessionName === sessionName);
       expect(session?.status).toBe("running");
 
       const rows = autoRows(db, sessionName);
@@ -92,7 +92,7 @@ describe("W2c watchdog auto-registration — production composition", () => {
         });
         expect.soft(rows[0].specYaml).toBe(
           `policy: idle-gate-qitem\n` +
-          `generated_by: openrig-daemon\n` +
+          `generated_by: softwareteam-daemon\n` +
           `target:\n  session: ${sessionName}\n` +
           `interval_seconds: 60\n` +
           `scan_interval_seconds: 60\n` +
@@ -113,14 +113,14 @@ describe("W2c watchdog auto-registration — production composition", () => {
       cmuxExec: async () => "",
     });
     try {
-      const { rig, node, sessionName } = seedCanonicalNode(db, "failure-rig");
+      const { softwareTeam, node, sessionName } = seedCanonicalNode(db, "failure-software-team");
       const register = vi.spyOn(deps.watchdogJobsRepo!, "register").mockImplementation(() => {
         throw new Error("injected watchdog repository failure");
       });
 
-      const result = await deps.nodeLauncher.launchNode(rig.id, node.logicalId, { sessionName });
+      const result = await deps.nodeLauncher.launchNode(softwareTeam.id, node.logicalId, { sessionName });
       expect(result.ok).toBe(true);
-      expect(deps.sessionRegistry.getSessionsForRig(rig.id).find((row) => row.sessionName === sessionName)?.status)
+      expect(deps.sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id).find((row) => row.sessionName === sessionName)?.status)
         .toBe("running");
       expect.soft(register, "the post-start mint must attempt the auto-registration write").toHaveBeenCalled();
       const attributable = warn.mock.calls.map((args) => args.map(String).join(" ")).filter((line) =>
@@ -143,8 +143,8 @@ describe("W2c watchdog auto-registration — production composition", () => {
       cmuxExec: async () => "",
     });
     try {
-      const { rigRepo, rig, node } = seedCanonicalNode(db, "exclusion-rig");
-      const claimed = rigRepo.addNode(rig.id, "legacy-claimed", { role: "worker", runtime: "terminal" });
+      const { softwareTeamRepo, softwareTeam, node } = seedCanonicalNode(db, "exclusion-software-team");
+      const claimed = softwareTeamRepo.addNode(softwareTeam.id, "legacy-claimed", { role: "worker", runtime: "terminal" });
       const register = vi.spyOn(deps.watchdogJobsRepo!, "register");
       const auto = (deps as unknown as {
         watchdogAutoRegistration?: { ensure: (...args: unknown[]) => unknown; assertCoverage: (...args: unknown[]) => unknown };
@@ -153,20 +153,20 @@ describe("W2c watchdog auto-registration — production composition", () => {
       const coverage = auto ? vi.spyOn(auto, "assertCoverage") : null;
 
       deps.sessionRegistry.registerSession(node.id, "r01-dev-qa");
-      deps.sessionRegistry.registerClaimedSession(claimed.id, "external-seat-without-canonical-rig");
-      deps.sessionRegistry.registerClaimedSession(node.id, "bad:seat@exclusion-rig");
+      deps.sessionRegistry.registerClaimedSession(claimed.id, "external-seat-without-canonical-software-team");
+      deps.sessionRegistry.registerClaimedSession(node.id, "bad:seat@exclusion-software-team");
 
       expect(register).not.toHaveBeenCalled();
       if (ensure) expect(ensure).not.toHaveBeenCalled();
       if (coverage) expect(coverage).not.toHaveBeenCalled();
       expect(autoRows(db, "r01-dev-qa")).toHaveLength(0);
-      expect(autoRows(db, "external-seat-without-canonical-rig")).toHaveLength(0);
-      expect(autoRows(db, "bad:seat@exclusion-rig")).toHaveLength(0);
+      expect(autoRows(db, "external-seat-without-canonical-software-team")).toHaveLength(0);
+      expect(autoRows(db, "bad:seat@exclusion-software-team")).toHaveLength(0);
       const lines = warn.mock.calls.map((args) => args.map(String).join(" "));
       expect(lines.some((line) =>
         line.includes("r01-dev-qa") ||
-        line.includes("external-seat-without-canonical-rig") ||
-        line.includes("bad:seat@exclusion-rig")
+        line.includes("external-seat-without-canonical-software-team") ||
+        line.includes("bad:seat@exclusion-software-team")
       ))
         .toBe(false);
     } finally {
@@ -182,7 +182,7 @@ describe("W2c watchdog auto-registration — production composition", () => {
       cmuxExec: async () => "",
     });
     try {
-      const { node, sessionName } = seedCanonicalNode(db, "state-rig");
+      const { node, sessionName } = seedCanonicalNode(db, "state-software-team");
       deps.sessionRegistry.registerSession(node.id, sessionName);
       const [row] = autoRows(db, sessionName);
       expect(row).toBeDefined();
@@ -205,7 +205,7 @@ describe("W2c watchdog auto-registration — production composition", () => {
       cmuxExec: async () => "",
     });
     try {
-      const { node, sessionName } = seedCanonicalNode(db, "conflict-rig");
+      const { node, sessionName } = seedCanonicalNode(db, "conflict-software-team");
       deps.sessionRegistry.registerSession(node.id, sessionName);
       const first = autoRows(db, sessionName)[0]!;
       const second = deps.watchdogJobsRepo!.register({
@@ -233,7 +233,7 @@ describe("W2c watchdog auto-registration — production composition", () => {
     }
   }, 30_000);
 
-  it("canonical rig mismatch is a loud target_mismatch while the core session persists", async () => {
+  it("canonical SoftwareTeam mismatch is a loud target_mismatch while the core session persists", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { db, deps, eventLoopMonitor } = await createDaemon({
       dbPath: ":memory:",
@@ -241,10 +241,10 @@ describe("W2c watchdog auto-registration — production composition", () => {
       cmuxExec: async () => "",
     });
     try {
-      const { rig, node } = seedCanonicalNode(db, "actual-rig");
-      const mismatchedSeat = "dev-qa@different-rig";
+      const { softwareTeam, node } = seedCanonicalNode(db, "actual-software-team");
+      const mismatchedSeat = "dev-qa@different-software-team";
       const session = deps.sessionRegistry.registerSession(node.id, mismatchedSeat);
-      expect(deps.sessionRegistry.getSessionsForRig(rig.id).some((row) => row.id === session.id)).toBe(true);
+      expect(deps.sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id).some((row) => row.id === session.id)).toBe(true);
       const lines = warn.mock.calls.map((args) => args.map(String).join(" "));
       expect(lines.some((line) =>
         line.includes("target_mismatch") && line.includes(node.id) && line.includes(mismatchedSeat)
@@ -256,7 +256,7 @@ describe("W2c watchdog auto-registration — production composition", () => {
     }
   }, 30_000);
 
-  it("missing rig topology is a loud target_mismatch while the core session persists", async () => {
+  it("missing SoftwareTeam topology is a loud target_mismatch while the core session persists", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { db, deps, eventLoopMonitor } = await createDaemon({
       dbPath: ":memory:",
@@ -264,9 +264,9 @@ describe("W2c watchdog auto-registration — production composition", () => {
       cmuxExec: async () => "",
     });
     try {
-      const { node, sessionName } = seedCanonicalNode(db, "missing-rig");
+      const { node, sessionName } = seedCanonicalNode(db, "missing-software-team");
       db.pragma("foreign_keys = OFF");
-      db.prepare("UPDATE nodes SET rig_id = 'does-not-exist' WHERE id = ?").run(node.id);
+      db.prepare("UPDATE nodes SET software_team_id = 'does-not-exist' WHERE id = ?").run(node.id);
       db.pragma("foreign_keys = ON");
       expect(db.prepare("SELECT id FROM nodes WHERE id = ?").get(node.id)).toBeDefined();
 
@@ -286,12 +286,12 @@ describe("W2c watchdog auto-registration — production composition", () => {
   it("startup coverage reports a dangling missing-node session without deleting the core row", async () => {
     const root = mkdtempSync(join(tmpdir(), "w2c-missing-node-"));
     tempRoots.push(root);
-    const dbPath = join(root, "openrig.sqlite");
+    const dbPath = join(root, "softwareteam.sqlite");
     const seed = createDb(dbPath);
     migrate(seed, ALL_MIGRATIONS);
     seed.pragma("foreign_keys = OFF");
     seed.prepare(
-      "INSERT INTO sessions (id, node_id, session_name, status) VALUES ('dangling-session', 'missing-node', 'dev-qa@missing-node-rig', 'unknown')",
+      "INSERT INTO sessions (id, node_id, session_name, status) VALUES ('dangling-session', 'missing-node', 'dev-qa@missing-node-software-team', 'unknown')",
     ).run();
     seed.pragma("foreign_keys = ON");
     seed.close();
@@ -306,7 +306,7 @@ describe("W2c watchdog auto-registration — production composition", () => {
       expect(db.prepare("SELECT id FROM sessions WHERE id = 'dangling-session'").get()).toBeDefined();
       const lines = warn.mock.calls.map((args) => args.map(String).join(" "));
       expect(lines.some((line) =>
-        line.includes("target_mismatch") && line.includes("missing-node") && line.includes("dev-qa@missing-node-rig")
+        line.includes("target_mismatch") && line.includes("missing-node") && line.includes("dev-qa@missing-node-software-team")
       )).toBe(true);
     } finally {
       eventLoopMonitor.stop();
@@ -317,10 +317,10 @@ describe("W2c watchdog auto-registration — production composition", () => {
   it("startup sweep reports a pre-existing latest unknown canonical seat with missing coverage", async () => {
     const root = mkdtempSync(join(tmpdir(), "w2c-startup-sweep-"));
     tempRoots.push(root);
-    const dbPath = join(root, "openrig.sqlite");
+    const dbPath = join(root, "softwareteam.sqlite");
     const seed = createDb(dbPath);
     migrate(seed, ALL_MIGRATIONS);
-    const { node, sessionName } = seedCanonicalNode(seed, "sweep-rig");
+    const { node, sessionName } = seedCanonicalNode(seed, "sweep-software-team");
     const seededSession = new SessionRegistry(seed).registerSession(node.id, sessionName);
     expect(seededSession.status).toBe("unknown");
     seed.close();
@@ -352,7 +352,7 @@ describe("W2c watchdog auto-registration — production composition", () => {
       cmuxExec: async () => "",
     });
     try {
-      const { rig, node, sessionName } = seedCanonicalNode(db, "delivery-rig");
+      const { softwareTeam, node, sessionName } = seedCanonicalNode(db, "delivery-software-team");
       deps.sessionRegistry.registerSession(node.id, sessionName, "initial");
       const firstGeneration = deps.sessionRegistry.currentOccupantTenure(node.id)?.generationUuid;
       const firstRows = autoRows(db, sessionName);
@@ -378,7 +378,7 @@ describe("W2c watchdog auto-registration — production composition", () => {
           (qitem_id, ts_created, ts_updated, source_session, destination_session, state, priority, tier, tags, body)
          VALUES
           ('q-w2c-delivery', '2026-08-08T17:00:00Z', '2026-08-08T17:00:00Z',
-           'orch@delivery-rig', ?, 'pending', 'urgent', 'deep', '["gate:guard"]', 'review the gate')`,
+           'orch@delivery-software-team', ?, 'pending', 'urgent', 'deep', '["gate:guard"]', 'review the gate')`,
       ).run(sessionName);
       const seatActivity = {
         getSeatStateBySession: () => ({
@@ -466,7 +466,7 @@ describe("W2c watchdog auto-registration — mint altitude", () => {
   it("NodeLauncher invokes ensure then coverage while registerSession is still unknown", async () => {
     const db = createFullTestDb();
     try {
-      const { rigRepo, rig, node, sessionName } = seedCanonicalNode(db, "launch-rig");
+      const { softwareTeamRepo, softwareTeam, node, sessionName } = seedCanonicalNode(db, "launch-software-team");
       const seen: Array<{ stage: string; status: string | undefined }> = [];
       const observer = {
         ensure(nodeId: string, seat: string) {
@@ -486,13 +486,13 @@ describe("W2c watchdog auto-registration — mint altitude", () => {
       ) => SessionRegistry)(db, observer);
       const launcher = new NodeLauncher({
         db,
-        rigRepo,
+        softwareTeamRepo,
         sessionRegistry,
         eventBus: new EventBus(db),
         tmuxAdapter: mockTmuxAdapter(),
       });
 
-      const result = await launcher.launchNode(rig.id, node.logicalId, { sessionName });
+      const result = await launcher.launchNode(softwareTeam.id, node.logicalId, { sessionName });
       expect(result.ok).toBe(true);
       expect(seen).toEqual([
         { stage: "ensure", status: "unknown" },
@@ -520,7 +520,7 @@ describe("B6 — idle-gate auto-registration default-off / opt-in gate", () => {
   async function build(autoRegister: string, optIn = "") {
     const { WatchdogAutoRegistration } = await import("../src/domain/watchdog-auto-registration.js");
     const db = createFullTestDb();
-    const { rig, node, sessionName } = seedCanonicalNode(db, "gate-rig");
+    const { softwareTeam, node, sessionName } = seedCanonicalNode(db, "gate-software-team");
     new SessionRegistry(db).registerSession(node.id, sessionName);
     const jobsRepo = new WatchdogJobsRepository(db);
     const unit = new WatchdogAutoRegistration({
@@ -529,7 +529,7 @@ describe("B6 — idle-gate auto-registration default-off / opt-in gate", () => {
       settingsStore: settings(autoRegister, optIn) as never,
       warn: () => {},
     });
-    return { db, rig, node, sessionName, jobsRepo, unit };
+    return { db, softwareTeam, node, sessionName, jobsRepo, unit };
   }
 
   it("default off: a fresh canonical seat gets NO job, and coverage reads that as the ruled state (null, no throw)", async () => {
@@ -542,7 +542,7 @@ describe("B6 — idle-gate auto-registration default-off / opt-in gate", () => {
   });
 
   it("a seat named in opt_in_sessions gets exactly its job while the mode is off", async () => {
-    const { db, node, sessionName, unit } = await build("off", ` other@rig , ${"dev-qa@gate-rig"} `);
+    const { db, node, sessionName, unit } = await build("off", ` other@software-team , ${"dev-qa@gate-software-team"} `);
     try {
       const job = unit.ensure(node.id, sessionName);
       expect(job).not.toBeNull();
@@ -554,8 +554,8 @@ describe("B6 — idle-gate auto-registration default-off / opt-in gate", () => {
   it('store-to-enforcer: a validator-accepted whitespace-padded " all " opts the fleet in (the gate compares the same normalization the validator accepted)', async () => {
     const { SettingsStore } = await import("../src/domain/user-settings/settings-store.js");
     const home = mkdtempSync(join(tmpdir(), "b6-trim-"));
-    const prevEnv = process.env.OPENRIG_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER;
-    process.env.OPENRIG_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER = " all ";
+    const prevEnv = process.env.SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER;
+    process.env.SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER = " all ";
     try {
       const realStore = new SettingsStore(join(home, "config.yaml"));
       // The REAL store hands the padded value through as valid env config…
@@ -563,7 +563,7 @@ describe("B6 — idle-gate auto-registration default-off / opt-in gate", () => {
       // …and the enforcement gate must read it as the mode the validator accepted.
       const { WatchdogAutoRegistration } = await import("../src/domain/watchdog-auto-registration.js");
       const db = createFullTestDb();
-      const { node, sessionName } = seedCanonicalNode(db, "trim-rig");
+      const { node, sessionName } = seedCanonicalNode(db, "trim-software-team");
       new SessionRegistry(db).registerSession(node.id, sessionName);
       const unit = new WatchdogAutoRegistration({
         db,
@@ -575,8 +575,8 @@ describe("B6 — idle-gate auto-registration default-off / opt-in gate", () => {
       expect(autoRows(db, sessionName)).toHaveLength(1);
       db.close();
     } finally {
-      if (prevEnv === undefined) delete process.env.OPENRIG_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER;
-      else process.env.OPENRIG_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER = prevEnv;
+      if (prevEnv === undefined) delete process.env.SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER;
+      else process.env.SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_AUTO_REGISTER = prevEnv;
       rmSync(home, { recursive: true, force: true });
     }
   });

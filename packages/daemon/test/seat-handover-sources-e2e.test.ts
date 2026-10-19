@@ -5,7 +5,7 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { TmuxAdapter } from "../src/adapters/tmux.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { DiscoveryRepository } from "../src/domain/discovery-repository.js";
 import { EventBus } from "../src/domain/event-bus.js";
@@ -28,7 +28,7 @@ import { createDb } from "../src/db/connection.js";
 // set recorded on the result.
 
 const pexec = promisify(execFile);
-const SOCK = `openrig-s05e2e-${process.pid}`;
+const SOCK = `softwareteam-s05e2e-${process.pid}`;
 const cleanEnv: any = { ...process.env };
 delete cleanEnv.TMUX;
 // Keep the caller's isolated socket root; -L still names only this test's server.
@@ -77,14 +77,14 @@ describe("seat-handover source execution e2e (isolated tmux)", () => {
   it.runIf(tmuxAvailableSync())(
     "FORK end-to-end: the resolved native id reaches the real launch in the preserved pane; continuity records forked",
     async () => {
-      const SEAT = "dev-impl@fork-e2e-rig";
+      const SEAT = "dev-impl@fork-e2e-software-team";
       const pane = await seedPane(SEAT);
 
       const db = createDb(); db.pragma("foreign_keys = ON"); migrate(db, ALL_MIGRATIONS);
-      const rigRepo = new RigRepository(db), sessionRegistry = new SessionRegistry(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db), sessionRegistry = new SessionRegistry(db);
       const discoveryRepo = new DiscoveryRepository(db), eventBus = new EventBus(db);
-      const rig = rigRepo.createRig("fork-e2e-rig");
-      const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "codex", cwd: "/tmp" });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("fork-e2e-software-team");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "codex", cwd: "/tmp" });
       const session = sessionRegistry.registerSession(node.id, SEAT);
       sessionRegistry.updateStatus(session.id, "running");
       sessionRegistry.updateStartupStatus(session.id, "ready", new Date("2026-08-07T09:00:00Z").toISOString());
@@ -105,7 +105,7 @@ describe("seat-handover source execution e2e (isolated tmux)", () => {
         async checkReady() { return { ready: true }; },
       };
       const service = new SeatHandoverService({
-        db, rigRepo, sessionRegistry, discoveryRepo, eventBus,
+        db, softwareTeamRepo, sessionRegistry, discoveryRepo, eventBus,
         tmuxAdapter: new TmuxAdapter(exec) as any, runtimeAdapters: { codex: marker as any },
         readinessTimeoutMs: 3000, sleep,
       });
@@ -131,7 +131,7 @@ describe("seat-handover source execution e2e (isolated tmux)", () => {
   it.runIf(tmuxAvailableSync())(
     "REBUILD end-to-end: a real on-disk chain primes the successor through real delivery; the executed set is recorded; continuity records rebuilt",
     async () => {
-      const SEAT = "dev-impl@rebuild-e2e-rig";
+      const SEAT = "dev-impl@rebuild-e2e-software-team";
       const pane = await seedPane(SEAT);
 
       // Real durable chain on disk: RECAP.md present, LEARNED.md deliberately
@@ -143,10 +143,10 @@ describe("seat-handover source execution e2e (isolated tmux)", () => {
       const learnedAddress = join(seatDir, "LEARNED.md"); // not written — a real gap
 
       const db = createDb(); db.pragma("foreign_keys = ON"); migrate(db, ALL_MIGRATIONS);
-      const rigRepo = new RigRepository(db), sessionRegistry = new SessionRegistry(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db), sessionRegistry = new SessionRegistry(db);
       const discoveryRepo = new DiscoveryRepository(db), eventBus = new EventBus(db);
-      const rig = rigRepo.createRig("rebuild-e2e-rig");
-      const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "codex", cwd: "/tmp" });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("rebuild-e2e-software-team");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "codex", cwd: "/tmp" });
       const session = sessionRegistry.registerSession(node.id, SEAT);
       sessionRegistry.updateStatus(session.id, "running");
       sessionRegistry.updateStartupStatus(session.id, "ready", new Date("2026-08-07T09:00:00Z").toISOString());
@@ -163,7 +163,7 @@ describe("seat-handover source execution e2e (isolated tmux)", () => {
         async checkReady() { return { ready: true }; },
       };
       const service = new SeatHandoverService({
-        db, rigRepo, sessionRegistry, discoveryRepo, eventBus,
+        db, softwareTeamRepo, sessionRegistry, discoveryRepo, eventBus,
         tmuxAdapter: new TmuxAdapter(exec) as any, runtimeAdapters: { codex: marker as any },
         // Production-shaped resolver: DECLARES addresses; the service existence-
         // filters them against the REAL filesystem (default existsSync).
@@ -203,10 +203,10 @@ describe("seat-handover source execution e2e (isolated tmux)", () => {
     opts: { forkFrom?: { seat: string; token: string } } = {}) {
     const pane = await seedPane(seat);
     const db = createDb(); db.pragma("foreign_keys = ON"); migrate(db, ALL_MIGRATIONS);
-    const rigRepo = new RigRepository(db), sessionRegistry = new SessionRegistry(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db), sessionRegistry = new SessionRegistry(db);
     const discoveryRepo = new DiscoveryRepository(db), eventBus = new EventBus(db);
-    const rig = rigRepo.createRig(seat.split("@")[1]!);
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "codex", cwd: "/tmp" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam(seat.split("@")[1]!);
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "codex", cwd: "/tmp" });
     const session = sessionRegistry.registerSession(node.id, seat);
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateStartupStatus(session.id, "ready", new Date("2026-08-07T09:00:00Z").toISOString());
@@ -214,7 +214,7 @@ describe("seat-handover source execution e2e (isolated tmux)", () => {
     sessionRegistry.updateResumeToken(session.id, "codex_id", "parent-thread-0001", "scrape");
     if (opts.forkFrom) {
       // A fork source on another seat: the parent (that seat's conversation) differs from this seat's retiree.
-      const other = rigRepo.addNode(rig.id, "dev.other", { runtime: "codex", cwd: "/tmp" });
+      const other = softwareTeamRepo.addNode(softwareTeam.id, "dev.other", { runtime: "codex", cwd: "/tmp" });
       const otherSession = sessionRegistry.registerSession(other.id, opts.forkFrom.seat);
       sessionRegistry.updateStatus(otherSession.id, "running");
       sessionRegistry.updateResumeToken(otherSession.id, "codex_id", opts.forkFrom.token, "scrape");
@@ -233,7 +233,7 @@ describe("seat-handover source execution e2e (isolated tmux)", () => {
       async checkReady() { return ready; },
     };
     const service = new SeatHandoverService({
-      db, rigRepo, sessionRegistry, discoveryRepo, eventBus,
+      db, softwareTeamRepo, sessionRegistry, discoveryRepo, eventBus,
       tmuxAdapter: new TmuxAdapter(exec) as any, runtimeAdapters: { codex: marker as any },
       readinessTimeoutMs: 1500, sleep,
     });
@@ -246,12 +246,12 @@ describe("seat-handover source execution e2e (isolated tmux)", () => {
   it.runIf(tmuxAvailableSync())(
     "FORK, id capture missed: the ready successor commits with the id PENDING, supersedes the old row, keeps the pane",
     async () => {
-      const SEAT = "dev-impl@fork-pending-rig";
+      const SEAT = "dev-impl@fork-pending-software-team";
       const w = await forkSeat(SEAT, { ok: true }, { ready: true });
       expect(w.result.ok, JSON.stringify(w.result)).toBe(true);
       expect(w.result.result.sourceOutcome).toMatchObject({ mode: "fork", forkedFrom: SEAT, forkId: "pending" });
       expect(w.result.result.sourceOutcome.limit).toContain("exact resumption of this conversation isn't established");
-      expect(w.result.result.sourceOutcome.limit).toContain("rig ps --nodes --json");
+      expect(w.result.result.sourceOutcome.limit).toContain("SoftwareTeam ps --nodes --json");
       const [old, current] = w.rows();
       expect(old).toMatchObject({ id: w.session.id, status: "superseded", resume_token: "parent-thread-0001" });
       expect(current!.status).not.toBe("superseded");
@@ -291,9 +291,9 @@ describe("seat-handover source execution e2e (isolated tmux)", () => {
     "FORK, id capture missed: launch failure, readiness timeout and an attention gate stay failures, with nothing committed",
     async () => {
       const cases: Array<[string, { ok: boolean; error?: string }, { ready: boolean; code?: string; reason?: string }]> = [
-        ["dev-impl@fork-launchfail-rig", { ok: false, error: "Failed to send launch command: injected" }, { ready: true }],
-        ["dev-impl@fork-notready-rig", { ok: true }, { ready: false, reason: "still booting" }],
-        ["dev-impl@fork-attention-rig", { ok: true }, { ready: false, code: "login_required", reason: "sign in" }],
+        ["dev-impl@fork-launchfail-software-team", { ok: false, error: "Failed to send launch command: injected" }, { ready: true }],
+        ["dev-impl@fork-notready-software-team", { ok: true }, { ready: false, reason: "still booting" }],
+        ["dev-impl@fork-attention-software-team", { ok: true }, { ready: false, code: "login_required", reason: "sign in" }],
       ];
       for (const [seat, launch, ready] of cases) {
         const w = await forkSeat(seat, launch, ready);
@@ -311,19 +311,19 @@ describe("seat-handover source execution e2e (isolated tmux)", () => {
     "FORK: a launch-time capture that answers the parent's or the retiree's id stays PENDING; only the fork's own id is captured",
     async () => {
       // Fork of the seat's own conversation: the parent and the retiree are the same id.
-      const own = await forkSeat("dev-impl@fork-parentid-rig", { ok: true, token: "parent-thread-0001" }, { ready: true });
+      const own = await forkSeat("dev-impl@fork-parentid-software-team", { ok: true, token: "parent-thread-0001" }, { ready: true });
       expect(own.result.ok, JSON.stringify(own.result)).toBe(true);
       expect(own.result.result.sourceOutcome).toMatchObject({ forkId: "pending" });
       expect(own.rows()[1], "never the parent's id").toMatchObject({ resume_token: null });
       own.db.close();
       // Fork of another seat's conversation: parent (other-parent-0009) and retiree (parent-thread-0001) differ.
-      const forkFrom = { seat: "dev-other@fork-cross-rig", token: "other-parent-0009" };
+      const forkFrom = { seat: "dev-other@fork-cross-software-team", token: "other-parent-0009" };
       for (const [answer, forkId, recorded] of [
         ["other-parent-0009", "pending", null],
         ["parent-thread-0001", "pending", null],
         ["fork-own-0003", "captured", "fork-own-0003"],
       ] as const) {
-        const w = await forkSeat(`dev-impl@fork-cross-${forkId}-${answer.slice(0, 5)}-rig`, { ok: true, token: answer }, { ready: true }, { forkFrom });
+        const w = await forkSeat(`dev-impl@fork-cross-${forkId}-${answer.slice(0, 5)}-software-team`, { ok: true, token: answer }, { ready: true }, { forkFrom });
         expect(w.result.ok, JSON.stringify(w.result)).toBe(true);
         expect(w.result.result.sourceOutcome, answer).toMatchObject({ mode: "fork", forkedFrom: forkFrom.seat, forkId });
         const current = w.rows().find((row) => row.id !== w.session.id)!;

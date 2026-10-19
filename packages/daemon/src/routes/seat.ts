@@ -1,6 +1,6 @@
 import { OutboxHandler } from "../domain/outbox-handler.js";
 import { Hono } from "hono";
-import type { RigRepository } from "../domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "../domain/software-team-repository.js";
 import type { SessionRegistry } from "../domain/session-registry.js";
 import type { DiscoveryRepository } from "../domain/discovery-repository.js";
 import type { EventBus } from "../domain/event-bus.js";
@@ -16,7 +16,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { resolveAuthoredRecapPointer } from "../domain/context-packs/seat-recap-store.js";
 import { buildRebuildPrimingChain } from "../domain/rebuild-priming-chain.js";
-import { OPENRIG_HOME } from "../openrig-compat.js";
+import { SOFTWARETEAM_HOME } from "../softwareteam-compat.js";
 import { SettingsStore } from "../domain/user-settings/settings-store.js";
 import { transportSenderSession } from "./require-sender-identity.js";
 
@@ -70,8 +70,8 @@ seatRoutes.post("/retire-held-message/:seatRef/:id", async c => {
 });
 
 seatRoutes.get("/status/:seatRef", (c) => {
-  const rigRepo = c.get("rigRepo" as never) as RigRepository;
-  const service = new SeatStatusService({ rigRepo });
+  const softwareTeamRepo = c.get("softwareTeamRepo" as never) as SoftwareTeamRepository;
+  const service = new SeatStatusService({ softwareTeamRepo });
   const result = service.getStatus(c.req.param("seatRef")!);
 
   if (result.ok) {
@@ -93,10 +93,10 @@ seatRoutes.get("/status/:seatRef", (c) => {
 
 seatRoutes.post("/handover/:seatRef", async (c) => {
   const body: Record<string, unknown> = await c.req.json().catch(() => ({}));
-  const rigRepo = c.get("rigRepo" as never) as RigRepository;
+  const softwareTeamRepo = c.get("softwareTeamRepo" as never) as SoftwareTeamRepository;
   const service = new SeatHandoverService({
-    db: rigRepo.db,
-    rigRepo,
+    db: softwareTeamRepo.db,
+    softwareTeamRepo,
     sessionRegistry: c.get("sessionRegistry" as never) as SessionRegistry,
     discoveryRepo: c.get("discoveryRepo" as never) as DiscoveryRepository,
     eventBus: c.get("eventBus" as never) as EventBus,
@@ -122,7 +122,7 @@ seatRoutes.post("/handover/:seatRef", async (c) => {
     predecessorRecapResolver: (() => {
       const store = c.get("contextUsageStore" as never) as ContextUsageStore | undefined;
       if (!store) return undefined;
-      const db = rigRepo.db;
+      const db = softwareTeamRepo.db;
       return makePredecessorRecapResolver({
         // B16 — session_id rides the read so the resolver can verify the name-keyed sidecar is the
         // PREDECESSOR's (canonical-name reuse means a booted successor overwrites it).
@@ -154,7 +154,7 @@ seatRoutes.post("/handover/:seatRef", async (c) => {
     // newest-first. Declares only; the service existence-filters (named gaps).
     rebuildPrimingResolver: (seatRef: string) => buildRebuildPrimingChain(seatRef, {
       topologyRoot: String(new SettingsStore().resolveOne("topology.root").value),
-      openrigHome: OPENRIG_HOME,
+      softwareteamHome: SOFTWARETEAM_HOME,
     }),
     // OPR.0.4.6.PI1 FR-6 — the Pi adapter in the runtime-adapter map exposes
     // the pi-runner sidecar reader; reuse it structurally (no new context var).
@@ -228,10 +228,10 @@ seatRoutes.post("/handover/:seatRef", async (c) => {
 // S5 (OPR.0.5.4.7) — the seat-lifecycle verb surface: set-model / stop / clean.
 // One service, one resolution path, one status mapping shared by all three verbs.
 export function seatLifecycleService(c: { get(key: never): unknown }): SeatLifecycleService {
-  const rigRepo = c.get("rigRepo" as never) as RigRepository;
+  const softwareTeamRepo = c.get("softwareTeamRepo" as never) as SoftwareTeamRepository;
   return new SeatLifecycleService({
-    db: rigRepo.db,
-    rigRepo,
+    db: softwareTeamRepo.db,
+    softwareTeamRepo,
     sessionRegistry: c.get("sessionRegistry" as never) as SessionRegistry,
     eventBus: c.get("eventBus" as never) as EventBus,
     tmuxAdapter: c.get("tmuxAdapter" as never) as TmuxAdapter,
@@ -268,7 +268,7 @@ seatRoutes.post("/set-permissions/:seatRef", async (c) => {
   return c.json(result, result.ok ? 200 : seatLifecycleStatus(result.code));
 });
 
-// `rig policy apply <name> --seat`: re-point an existing seat's stored permission_policy; the running process is unchanged.
+// `softwareTeam policy apply <name> --seat`: re-point an existing seat's stored permission_policy; the running process is unchanged.
 seatRoutes.post("/set-policy/:seatRef", async (c) => {
   const body = await c.req.json<Record<string, unknown>>().catch(() => ({} as Record<string, unknown>));
   const actor = transportSenderSession(c) ?? (typeof body?.operator === "string" ? body.operator.trim() : undefined);
@@ -399,9 +399,9 @@ seatRoutes.post("/clean/:seatRef", async (c) => {
 // binding, session, transcript, or identity mutation is possible here.
 seatRoutes.post("/switch-client/:seatRef", async (c) => {
   const body: Record<string, unknown> = await c.req.json().catch(() => ({}));
-  const rigRepo = c.get("rigRepo" as never) as RigRepository;
+  const softwareTeamRepo = c.get("softwareTeamRepo" as never) as SoftwareTeamRepository;
   const service = new SeatSwitchClientService({
-    rigRepo,
+    softwareTeamRepo,
     tmuxAdapter: c.get("tmuxAdapter" as never) as TmuxAdapter,
   });
 

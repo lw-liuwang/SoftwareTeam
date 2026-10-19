@@ -2,7 +2,7 @@ import { describe, it, expect, afterAll } from "vitest";
 import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
 import { TmuxAdapter } from "../src/adapters/tmux.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { DiscoveryRepository } from "../src/domain/discovery-repository.js";
 import { EventBus } from "../src/domain/event-bus.js";
@@ -23,7 +23,7 @@ import { createDb } from "../src/db/connection.js";
 // kill-server. Guarded: skips when tmux is unavailable.
 
 const pexec = promisify(execFile);
-const SOCK = `openrig-e2e-${process.pid}`;
+const SOCK = `softwareteam-e2e-${process.pid}`;
 const cleanEnv: any = { ...process.env };
 delete cleanEnv.TMUX;
 // Keep the caller's isolated socket root; -L still names only this test's server.
@@ -54,7 +54,7 @@ describe("seat-handover cutover money-proof (isolated tmux, both retiree-exit pa
       expect(sessions).not.toMatch(/dev-guard@|dev-planner@|orch-|review-/);
 
       for (const graceful of [true, false]) {
-        const SEAT = `dev-impl@${graceful ? "graceful" : "forced"}-rig`;
+        const SEAT = `dev-impl@${graceful ? "graceful" : "forced"}-software-team`;
         seats.push(SEAT);
         await tmux(`kill-session -t ${q(SEAT)}`).catch(() => {});
         await tmux(`new-session -d -s ${q(SEAT)} -x 110 -y 24`);
@@ -70,10 +70,10 @@ describe("seat-handover cutover money-proof (isolated tmux, both retiree-exit pa
         await sleep(300);
 
         const db = createDb(); db.pragma("foreign_keys = ON"); migrate(db, ALL_MIGRATIONS);
-        const rigRepo = new RigRepository(db), sessionRegistry = new SessionRegistry(db);
+        const softwareTeamRepo = new SoftwareTeamRepository(db), sessionRegistry = new SessionRegistry(db);
         const discoveryRepo = new DiscoveryRepository(db), eventBus = new EventBus(db);
-        const rig = rigRepo.createRig(`${graceful ? "graceful" : "forced"}-rig`);
-        const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "codex", cwd: "/tmp" });
+        const softwareTeam = softwareTeamRepo.createSoftwareTeam(`${graceful ? "graceful" : "forced"}-software-team`);
+        const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "codex", cwd: "/tmp" });
         const session = sessionRegistry.registerSession(node.id, SEAT);
         sessionRegistry.updateStatus(session.id, "running");
         sessionRegistry.updateStartupStatus(session.id, "ready", new Date("2026-08-07T09:00:00Z").toISOString());
@@ -89,7 +89,7 @@ describe("seat-handover cutover money-proof (isolated tmux, both retiree-exit pa
           async checkReady() { return { ready: true }; },
         };
         const service = new SeatHandoverService({
-          db, rigRepo, sessionRegistry, discoveryRepo, eventBus,
+          db, softwareTeamRepo, sessionRegistry, discoveryRepo, eventBus,
           tmuxAdapter: new TmuxAdapter(exec) as any, runtimeAdapters: { codex: marker as any },
           predecessorRecapResolver: () => ({ recap: [{ role: "user", content: "finish A5" }, { role: "assistant", content: "A5 landed; handing to v2" }], recordPath: "/tmp/pred-record.jsonl" }),
           readinessTimeoutMs: 3000, sleep,

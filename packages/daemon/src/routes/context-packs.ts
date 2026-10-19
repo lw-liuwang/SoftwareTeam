@@ -1,4 +1,4 @@
-// Rig Context / Composable Context Injection v0 (PL-014) — daemon HTTP
+// SoftwareTeam Context / Composable Context Injection v0 (PL-014) — daemon HTTP
 // routes for context_packs.
 //
 // Endpoints (Slice-03 Atom 5 — ref-primary; colon-id `/library/:id` removed):
@@ -212,7 +212,7 @@ export function contextPacksRoutes(): Hono {
   });
 
   // GET /library/by-ref/pieces?ref=<path-like-ref> — ordered per-member
-  // contents for `rig walk`; missing members are reported before delivery.
+  // contents for `softwareTeam walk`; missing members are reported before delivery.
   router.get("/library/by-ref/pieces", (c) => {
     const lib = c.get("contextPackLibrary" as never) as ContextPackLibraryService | undefined;
     if (!lib) return c.json({ error: "context_pack_library_unavailable" }, 503);
@@ -284,7 +284,7 @@ export function contextPacksRoutes(): Hono {
       }
     }
     if (!entry) {
-      return c.json({ error: "pack_not_found", message: `no library pack matches any prefix of '${parsed.ref}' — run 'rig context list' for the available refs` }, 404);
+      return c.json({ error: "pack_not_found", message: `no library pack matches any prefix of '${parsed.ref}' — run 'SoftwareTeam context list' for the available refs` }, 404);
     }
     if (filePath.length === 0) {
       return c.json({ error: "missing_file_path", message: `'${parsed.ref}' names pack '${entry.relativePath}' but no file within it — the addressable unit is the file: <pack-ref>/<file>[#...]` }, 400);
@@ -322,10 +322,10 @@ export function contextPacksRoutes(): Hono {
   });
 
   // OPR.0.5.3.5 Atom 4b — GET /library/by-ref/profile?ref=&situation=&runtime=
-  // [&budget=][&rig=&seat=]: situation-composed delivery over the pack's atom
+  // [&budget=][&softwareTeam=&seat=]: situation-composed delivery over the pack's atom
   // graph + the seat tree. The manifest flows through the ONE parser chokepoint;
   // the seat root resolves from topology.root CONFIG (slice-06 D1 layout:
-  // rigs/<rig>/seats/<seat>), never a literal; every compose failure is a NAMED
+  // software-teams/<softwareTeam>/seats/<seat>), never a literal; every compose failure is a NAMED
   // 4xx — a profile is never quietly thinner than its graph says.
   router.get("/library/by-ref/profile", (c) => {
     const lib = c.get("contextPackLibrary" as never) as ContextPackLibraryService | undefined;
@@ -377,10 +377,10 @@ export function contextPacksRoutes(): Hono {
       return c.json({ error: "profile_runtime_mismatch", message: `profile '${selectedProfile.id}' does not apply to runtime '${runtime}'` }, 400);
     }
 
-    // Seat root from CONFIG when the caller names its seat. rig/seat are path
+    // Seat root from CONFIG when the caller names its seat. softwareTeam/seat are path
     // SEGMENTS — the bounded token check keeps a query string from walking the
     // topology tree (same class as the install-ref segment rule). TRUST
-    // BOUNDARY (r1 rider 2): passing rig+seat is the caller's EXPLICIT GRANT of
+    // BOUNDARY (r1 rider 2): passing softwareTeam+seat is the caller's EXPLICIT GRANT of
     // read access to that seat DIRECTORY SUBTREE — the pack chooses paths
     // within the granted root (that is what a root grant means), and every tree
     // read is visible in the provenance surface below, so an untrusted
@@ -392,14 +392,14 @@ export function contextPacksRoutes(): Hono {
     const workMeta = new Map<string, { altitude: "project" | "mission" | "seat" | "slice"; source: "default" | "manifest" }>();
     const warnings: string[] = [];
     const SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
-    const rig = c.req.query("rig");
+    const softwareTeam = c.req.query("softwareTeam");
     const seat = c.req.query("seat");
-    if (rig !== undefined || seat !== undefined) {
-      if (!rig || !seat || !SEGMENT.test(rig) || !SEGMENT.test(seat)) {
-        return c.json({ error: "invalid_seat_params", message: "rig and seat must BOTH be single bounded segments ([A-Za-z0-9][A-Za-z0-9._-]{0,63})" }, 400);
+    if (softwareTeam !== undefined || seat !== undefined) {
+      if (!softwareTeam || !seat || !SEGMENT.test(softwareTeam) || !SEGMENT.test(seat)) {
+        return c.json({ error: "invalid_seat_params", message: "SoftwareTeam and seat must BOTH be single bounded segments ([A-Za-z0-9][A-Za-z0-9._-]{0,63})" }, 400);
       }
       const topologyRoot = String(new SettingsStore().resolveOne("topology.root").value);
-      roots.seat = join(topologyRoot, "rigs", rig, "seats", seat);
+      roots.seat = join(topologyRoot, "software-teams", softwareTeam, "seats", seat);
       contextAtoms.seat = [{
         id: "profile-seat-learned",
         address: "seat:LEARNED.md",
@@ -420,8 +420,8 @@ export function contextPacksRoutes(): Hono {
     const mission = c.req.query("mission");
     const slice = c.req.query("slice");
     const requiredProfileContext = new Set(selectedProfile?.phases.flatMap((phase) => phase.context ?? []) ?? []);
-    if (requiredProfileContext.has("seat") && (!rig || !seat)) {
-      return c.json({ error: "profile_context_missing", message: `profile '${selectedProfile!.id}' needs seat context; pass both rig and seat` }, 400);
+    if (requiredProfileContext.has("seat") && (!softwareTeam || !seat)) {
+      return c.json({ error: "profile_context_missing", message: `profile '${selectedProfile!.id}' needs seat context; pass both SoftwareTeam and seat` }, 400);
     }
     if (["project", "mission", "slice"].some((source) => requiredProfileContext.has(source as "project" | "mission" | "slice")) && (!mission || !slice)) {
       return c.json({ error: "profile_context_missing", message: `profile '${selectedProfile!.id}' needs situated project/mission/task context; pass both mission and slice` }, 400);
@@ -621,7 +621,7 @@ export function contextPacksRoutes(): Hono {
         ? composeNamedProfile({ ...composeInput, profile: selectedProfile, contextAtoms })
         : composeProfile(composeInput);
       // The composer skips only an absent seat recap (post-compaction), so one warning covers it.
-      if (profile.skipped) warnings.push(`no seat recap for ${seat}@${rig}; read your newest restore map`);
+      if (profile.skipped) warnings.push(`no seat recap for ${seat}@${softwareTeam}; read your newest restore map`);
       const pieces = profile.pieces.map((p) => {
         const record = readsByRef.get(parseAddress(p.address).ref);
         // Per-piece sha256: the Test-A door compares the profile's selected

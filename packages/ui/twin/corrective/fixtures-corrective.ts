@@ -230,7 +230,7 @@ const review08: ComposedSliceReview = {
   },
   plan: {
     concise: {
-      text: "**Mini-requirements**\n1. `rig proof <slice>` gains `--deliverable` + `--verified` + `--note` args (extend the verb, never a new one).\n2. A drop without a comparison verdict leaves the deliverable visibly unverified.",
+      text: "**Mini-requirements**\n1. `SoftwareTeam proof <slice>` gains `--deliverable` + `--verified` + `--note` args (extend the verb, never a new one).\n2. A drop without a comparison verdict leaves the deliverable visibly unverified.",
       media: [],
     },
     lockedArtifacts: [{ name: "IMPLEMENTATION-PRD.md", path: "IMPLEMENTATION-PRD.md", kind: "prd" }],
@@ -351,7 +351,7 @@ export const correctiveDetailByName: Record<string, SliceDetail> = {
       { name: "PROOF.md", type: "file", size: 1600, mtime: "2025-09-01T02:40:00.000Z", relPath: "PROOF.md" },
     ] },
     tests: { proofPackets: [], aggregate: { passCount: 2, failCount: 0 } },
-    topology: { affectedRigs: [{ rigId: "rig_alpha", rigName: "acme-build", sessionNames: ["builder2@acme-build", "qa-1@acme-build"] }], totalSeats: 2, specGraph: null },
+    topology: { affectedSoftwareTeams: [{ softwareTeamId: "software_team_alpha", softwareTeamName: "acme-build", sessionNames: ["builder2@acme-build", "qa-1@acme-build"] }], totalSeats: 2, specGraph: null },
   },
 };
 

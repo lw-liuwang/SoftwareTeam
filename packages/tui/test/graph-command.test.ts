@@ -3,7 +3,7 @@ import { parseCommand } from "../src/grammar.js";
 import { createViewState, emptySnapshot } from "../src/state.js";
 import { renderScreen } from "../src/render.js";
 
-// P10 — the topology-graph command-bar command (founder-caught). The graph VIEW exists (per-rig,
+// P10 — the topology-graph command-bar command (founder-caught). The graph VIEW exists (per-softwareTeam,
 // honest-empty when no graph is served); this adds the first-class `graph` command to OPEN it + makes
 // it discoverable, and confirms the honest-degraded rail (unavailable ⇒ an honest message, not a silent
 // no-op) is surfaced.

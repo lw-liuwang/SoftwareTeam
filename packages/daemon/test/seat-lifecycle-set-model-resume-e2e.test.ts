@@ -3,7 +3,7 @@
 // real codex TUI) runs the CANONICAL (post-set-model) model, with session lineage
 // preserved. Modeled on seat-handover-model-fidelity-e2e (D15 isolation: per-run -L
 // socket, env minus $TMUX, teardown by session name then kill-server on this run's own
-// -L socket only; opt-in: skips unless OPENRIG_E2E_REAL_CODEX=1, and when tmux/codex/auth
+// -L socket only; opt-in: skips unless SOFTWARETEAM_E2E_REAL_CODEX=1, and when tmux/codex/auth
 // are absent).
 //
 // DISCRIMINATOR: the node is CREATED pinned to the runtime default (gpt-5.6-sol) and
@@ -22,7 +22,7 @@ import * as os from "node:os";
 import nodePath from "node:path";
 import { TmuxAdapter } from "../src/adapters/tmux.js";
 import { CodexRuntimeAdapter } from "../src/adapters/codex-runtime-adapter.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { DiscoveryRepository } from "../src/domain/discovery-repository.js";
 import { EventBus } from "../src/domain/event-bus.js";
@@ -33,7 +33,7 @@ import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 import { createDb } from "../src/db/connection.js";
 
 const pexec = promisify(execFile);
-const SOCK = `openrig-s5f4-e2e-${process.pid}`;
+const SOCK = `softwareteam-s5f4-e2e-${process.pid}`;
 const cleanEnv: NodeJS.ProcessEnv = { ...process.env };
 delete cleanEnv.TMUX;
 delete cleanEnv.TMUX_TMPDIR;
@@ -50,8 +50,8 @@ const CREATED_MODEL = "gpt-5.6-sol";  // the runtime default — what a stale/re
 const CANONICAL_MODEL = "gpt-5.6-luna"; // set-model target; footer renders it verbatim only via the updated pin
 
 // Opt-in only: this test drives the codex CLI with whatever account is signed in
-// on the host (~/.codex/auth.json), so it never runs unless OPENRIG_E2E_REAL_CODEX=1.
-const REAL_CODEX_OPT_IN = process.env.OPENRIG_E2E_REAL_CODEX === "1";
+// on the host (~/.codex/auth.json), so it never runs unless SOFTWARETEAM_E2E_REAL_CODEX=1.
+const REAL_CODEX_OPT_IN = process.env.SOFTWARETEAM_E2E_REAL_CODEX === "1";
 
 function preflightOk(): boolean {
   if (!REAL_CODEX_OPT_IN) return false;
@@ -92,11 +92,11 @@ describe("S5 F4: set-model then a REAL managed successor runs the canonical mode
       const sessions = await tmux("list-sessions -F '#{session_name}'").catch(() => "");
       expect(sessions).not.toMatch(/dev-guard@|dev-planner@|orch-|review-/);
 
-      const SEAT = "dev-impl@s5f4-rig";
+      const SEAT = "dev-impl@s5f4-software-team";
       seats.push(SEAT);
       const cwd = fs.mkdtempSync(nodePath.join(os.tmpdir(), "s5f4-e2e-"));
       execFileSync("sh", ["-c", `cd ${q(cwd)} && git init -q`], { env: cleanEnv });
-      const queueRoot = nodePath.join(os.homedir(), ".openrig", "shared-docs", "rigs", "s5f4-rig", "state", "dev");
+      const queueRoot = nodePath.join(os.homedir(), ".softwareteam", "shared-docs", "software-teams", "s5f4-software-team", "state", "dev");
       fs.mkdirSync(queueRoot, { recursive: true });
 
       await tmux(`kill-session -t ${q(SEAT)}`).catch(() => {});
@@ -105,11 +105,11 @@ describe("S5 F4: set-model then a REAL managed successor runs the canonical mode
       const pane = (await tmux(`list-panes -t ${q(SEAT)} -F '#{pane_id}'`)).trim();
 
       const db = createDb(); db.pragma("foreign_keys = ON"); migrate(db, ALL_MIGRATIONS);
-      const rigRepo = new RigRepository(db), sessionRegistry = new SessionRegistry(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db), sessionRegistry = new SessionRegistry(db);
       const discoveryRepo = new DiscoveryRepository(db), eventBus = new EventBus(db);
-      const rig = rigRepo.createRig("s5f4-rig");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("s5f4-software-team");
       // Created pinned to the DEFAULT — the value a stale read would thread.
-      const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "codex", cwd, model: CREATED_MODEL });
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "codex", cwd, model: CREATED_MODEL });
       const session = sessionRegistry.registerSession(node.id, SEAT);
       sessionRegistry.updateStatus(session.id, "running");
       sessionRegistry.updateStartupStatus(session.id, "ready", new Date("2026-08-26T07:00:00Z").toISOString());
@@ -118,7 +118,7 @@ describe("S5 F4: set-model then a REAL managed successor runs the canonical mode
       const realTmux = new TmuxAdapter(exec);
 
       // THE VERB UNDER PROOF: set-model AFTER creation, BEFORE the managed successor.
-      const lifecycle = new SeatLifecycleService({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: realTmux });
+      const lifecycle = new SeatLifecycleService({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: realTmux });
       const setResult = await lifecycle.setModel({
         seatRef: SEAT, model: CANONICAL_MODEL,
         reason: "F4 real-resume proof: default -> canonical", operator: "dev50-driver@test",
@@ -133,7 +133,7 @@ describe("S5 F4: set-model then a REAL managed successor runs the canonical mode
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const codexAdapter = new CodexRuntimeAdapter({ tmux: realTmux as any, fsOps: realFsOps() as any, listProcesses: () => [] }) as any;
       const service = new SeatHandoverService({
-        db, rigRepo, sessionRegistry, discoveryRepo, eventBus,
+        db, softwareTeamRepo, sessionRegistry, discoveryRepo, eventBus,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         tmuxAdapter: realTmux as any, runtimeAdapters: { codex: codexAdapter },
         predecessorRecapResolver: () => null,

@@ -30,8 +30,8 @@ export interface NodeDetailCompactSpec {
 }
 
 export interface NodeDetailData {
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   logicalId: string;
   podId: string | null;
   podNamespace?: string | null;
@@ -89,21 +89,21 @@ export interface NodeDetailData {
   };
 }
 
-async function fetchNodeDetail(rigId: string, logicalId: string, hostId: string): Promise<NodeDetailData> {
+async function fetchNodeDetail(softwareTeamId: string, logicalId: string, hostId: string): Promise<NodeDetailData> {
   // OPR.0.4.6.MH2 rev1-r2 B2 (arch-ruled Option A) — the seat-detail leaf
   // rides the selected-host envelope like its /nodes sibling; local path
   // unchanged (withHostParam is identity for local).
-  const res = await fetch(withHostParam(`/api/rigs/${encodeURIComponent(rigId)}/nodes/${encodeURIComponent(logicalId)}`, hostId));
+  const res = await fetch(withHostParam(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/nodes/${encodeURIComponent(logicalId)}`, hostId));
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
-export function useNodeDetail(rigId: string | null, logicalId: string | null) {
+export function useNodeDetail(softwareTeamId: string | null, logicalId: string | null) {
   const hostId = useSelectedHostId();
   return useQuery({
-    queryKey: ["rig", rigId, "nodes", logicalId, hostId],
-    queryFn: () => fetchNodeDetail(rigId!, logicalId!, hostId),
-    enabled: !!rigId && !!logicalId,
+    queryKey: ["softwareTeam", softwareTeamId, "nodes", logicalId, hostId],
+    queryFn: () => fetchNodeDetail(softwareTeamId!, logicalId!, hostId),
+    enabled: !!softwareTeamId && !!logicalId,
     refetchInterval: 30_000, // Refetch every 30s for context usage updates
     placeholderData: keepPreviousData,
   });

@@ -7,7 +7,7 @@ import { addHostEntry, loadHostRegistry, validateHostRegistry } from "../src/hos
 // OPR.0.4.4.13 FR-1 — the registry write path: ONE validation source (the
 // loader's rules, verbatim), atomic write, duplicate refusal, and the
 // qa1-guard ROUND-TRIP proof (add → loader reads back the identical entry).
-describe("addHostEntry (rig host add write path)", () => {
+describe("addHostEntry (SoftwareTeam host add write path)", () => {
   let dir: string;
   let regPath: string;
 
@@ -18,20 +18,20 @@ describe("addHostEntry (rig host add write path)", () => {
   afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   it("round-trip: add on a MISSING file creates it and the loader reads back the identical entry", () => {
-    const res = addHostEntry({ id: "vps-1", transport: "ssh", target: "vps-1.tailnet", user: "openrig" }, regPath);
+    const res = addHostEntry({ id: "vps-1", transport: "ssh", target: "vps-1.tailnet", user: "softwareteam" }, regPath);
     expect(res.ok).toBe(true);
     const loaded = loadHostRegistry(regPath);
     expect(loaded.ok).toBe(true);
     if (loaded.ok) {
-      expect(loaded.registry.hosts).toEqual([{ id: "vps-1", transport: "ssh", target: "vps-1.tailnet", user: "openrig" }]);
+      expect(loaded.registry.hosts).toEqual([{ id: "vps-1", transport: "ssh", target: "vps-1.tailnet", user: "softwareteam" }]);
     }
   });
 
   it("round-trip: http entry with bearer_env survives identically", () => {
-    const res = addHostEntry({ id: "h1", transport: "http", url: "http://100.1.2.3:7433", bearer_env: "H1_TOKEN", notes: "factory" }, regPath);
+    const res = addHostEntry({ id: "h1", transport: "http", url: "http://100.1.2.3:7434", bearer_env: "H1_TOKEN", notes: "factory" }, regPath);
     expect(res.ok).toBe(true);
     const loaded = loadHostRegistry(regPath);
-    expect(loaded.ok && loaded.registry.hosts[0]).toEqual({ id: "h1", transport: "http", url: "http://100.1.2.3:7433", bearer_env: "H1_TOKEN", notes: "factory" });
+    expect(loaded.ok && loaded.registry.hosts[0]).toEqual({ id: "h1", transport: "http", url: "http://100.1.2.3:7434", bearer_env: "H1_TOKEN", notes: "factory" });
   });
 
   it("validation parity: add-time errors ARE the loader's errors (same fixture, same message)", () => {

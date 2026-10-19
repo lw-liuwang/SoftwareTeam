@@ -10,7 +10,7 @@ import { selectProofContractBody, isScaffoldPlaceholderText } from "../lib/scope
 import { parseLogicalCheckboxes } from "../lib/scope/logical-checkbox.js";
 
 /**
- * `rig proof add` — the evidence-capture write path (OPR.0.4.4.19 FR-8 + FR-11;
+ * `softwareTeam proof add` — the evidence-capture write path (OPR.0.4.4.19 FR-8 + FR-11;
  * conventions C1 + C2 + C8, D2 attestation).
  *
  * The capture leg is CLI-side filesystem only: the drop
@@ -22,7 +22,7 @@ import { parseLogicalCheckboxes } from "../lib/scope/logical-checkbox.js";
  * LOAD-BEARING boundaries:
  *   - Validation applies ONLY to drops made through this path. An artifact
  *     written by any other means (raw file write, existing workflows) is
- *     NEVER blocked at write time — the backstop is `rig scope audit`
+ *     NEVER blocked at write time — the backstop is `SoftwareTeam scope audit`
  *     (FR-10), not a write-path gate on ordinary file I/O.
  *   - The D2 proof contract + self_check are AGENT JUDGMENT recorded here;
  *     the drop path ADVISES (exit 0) and never blocks on them. There is no
@@ -116,9 +116,9 @@ owning slice.yaml, mission.yaml or project.yaml (nearest wins; no default gate r
 The contract is the authored ## Proof contract. A sole item needs no # selector.
 
 Example (existing evidence, no copied hashes or operation key):
-  rig proof judge trial/slices/01-build#1 --verdict accept --reason 'Observed the promised outcome' --evidence proof/result.md
-  rig proof show trial --json
-  rig proof judge trial/slices/01-build#1 --verdict withdraw --reason 'The result no longer supports acceptance'
+  SoftwareTeam proof judge trial/slices/01-build#1 --verdict accept --reason 'Observed the promised outcome' --evidence proof/result.md
+  SoftwareTeam proof show trial --json
+  SoftwareTeam proof judge trial/slices/01-build#1 --verdict withdraw --reason 'The result no longer supports acceptance'
 
 Corrections retain prior receipts in proof/judgments/. --replace deliberately
 reaffirms a historical identical judgment after a correction; an ordinary retry
@@ -130,7 +130,7 @@ checkboxes do not accept an item under the selected proof policy.
   cmd.option("--workspace <path>", "Capture/add only: override workspace root; show/judge use the selected daemon workspace");
 
   const client = () => {
-    if (cmd.opts().workspace) throw new Error("--workspace applies to proof add. Select the judgment daemon using OPENRIG_URL; proof show reports its scope basis.");
+    if (cmd.opts().workspace) throw new Error("--workspace applies to proof add. Select the judgment daemon using SOFTWARETEAM_URL; proof show reports its scope basis.");
     return new DaemonClient();
   };
   const response = async (r: { status: number; data: unknown }): Promise<Record<string, any>> => {
@@ -169,7 +169,7 @@ checkboxes do not accept an item under the selected proof policy.
         const c = client(), view = await response(await c.get(`/api/proof?${query}`));
         const items = view.items as Array<{ id: string; text: string; index: number; revision: string; judgment: { id: string } | null }> | undefined;
         const item = selector ? items?.find(i => i.id === selector || i.text === selector || String(i.index) === selector) : items?.length === 1 ? items[0] : undefined;
-        if (!item) throw new Error("Select one current item with scope#item; rig proof show lists IDs, text and indices");
+        if (!item) throw new Error("Select one current item with scope#item; SoftwareTeam proof show lists IDs, text and indices");
         const subjectAt = opts.subject?.indexOf(":") ?? -1;
         if (opts.subject && subjectAt < 1) throw new Error("--subject must be kind:ref");
         const body = { scope, item: item.id, verdict: opts.verdict, reason: opts.reason,

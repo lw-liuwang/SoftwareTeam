@@ -11,7 +11,7 @@ import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 
 const SIMPLE_SPEC_YAML = `
 schema_version: 1
-name: test-rig
+name: test-software-team
 version: "1.0"
 nodes:
   - id: dev
@@ -43,7 +43,7 @@ describe("Bootstrap API routes", () => {
   });
 
   function writeSpec(yaml: string): string {
-    const specPath = path.join(tmpDir, "rig.yaml");
+    const specPath = path.join(tmpDir, "software-team.yaml");
     fs.writeFileSync(specPath, yaml);
     return specPath;
   }
@@ -103,10 +103,10 @@ describe("Bootstrap API routes", () => {
 
   // T4: GET / lists runs
   it("GET /api/bootstrap returns same-second runs newest first", async () => {
-    const runs = ["first", "second", "third"].map((ref) => setup.bootstrapRepo.createRun("rigspec", ref));
+    const runs = ["first", "second", "third"].map((ref) => setup.bootstrapRepo.createRun("softwareTeamSpec", ref));
     const stamp = db.prepare("UPDATE bootstrap_runs SET created_at = ? WHERE id = ?");
     for (const run of runs) stamp.run("2026-10-10 12:00:00", run.id);
-    const later = setup.bootstrapRepo.createRun("rigspec", "later-second");
+    const later = setup.bootstrapRepo.createRun("softwareTeamSpec", "later-second");
     stamp.run("2026-10-10 12:00:01", later.id);
     const response = await app.request("/api/bootstrap");
     expect(response.status).toBe(200);

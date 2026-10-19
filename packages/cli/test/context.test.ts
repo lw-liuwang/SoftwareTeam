@@ -1,5 +1,5 @@
-// Rig Context / Composable Context Injection — `rig context` CLI verb family
-// tests (Atom-7 renamed the retired `context-pack` grammar to `rig context`).
+// SoftwareTeam Context / Composable Context Injection — `SoftwareTeam context` CLI verb family
+// tests (Atom-7 renamed the retired `context-pack` grammar to `SoftwareTeam context`).
 //
 // Stands up a small in-memory daemon mock for the /api/context-packs/*
 // surface and exercises each subcommand against it.
@@ -72,7 +72,7 @@ const FIXTURE_PACK = {
   purpose: "Smoke test pack",
   taxonomy: "mission",
   sourceType: "user_file" as const,
-  sourcePath: "/home/op/.openrig/context/smoke",
+  sourcePath: "/home/op/.softwareteam/context/smoke",
   relativePath: "packs/smoke",
   updatedAt: "2026-05-04T00:00:00Z",
   manifestEstimatedTokens: null,
@@ -86,14 +86,14 @@ const FIXTURE_PREVIEW = {
   id: FIXTURE_PACK.id,
   name: FIXTURE_PACK.name,
   version: FIXTURE_PACK.version,
-  bundleText: "# OpenRig Context Pack: smoke v1\n\nSmoke test pack\n\n## File: notes.md (role: notes) — Smoke notes\n\nSmoke body\n",
+  bundleText: "# SoftwareTeam Context Pack: smoke v1\n\nSmoke test pack\n\n## File: notes.md (role: notes) — Smoke notes\n\nSmoke body\n",
   bundleBytes: 110,
   estimatedTokens: 28,
   files: [{ path: "notes.md", role: "notes", bytes: 50, estimatedTokens: 13 }],
   missingFiles: [] as Array<{ path: string; role: string }>,
 };
 
-describe("rig context CLI (PL-014)", () => {
+describe("SoftwareTeam context CLI (PL-014)", () => {
   it("describes --seat as a seat folder name", () => {
     const trace = contextCommand().commands.find((command) => command.name() === "trace");
     const seatOption = trace?.options.find((option) => option.long === "--seat");
@@ -172,7 +172,7 @@ describe("rig context CLI (PL-014)", () => {
     try {
       composeLog.length = 0;
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "context", "compose", "--out", "packs/qitem-brief", "--from", a, b]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "context", "compose", "--out", "packs/qitem-brief", "--from", a, b]);
       });
       expect(composeLog).toEqual([{
           outRef: "packs/qitem-brief",
@@ -193,21 +193,21 @@ describe("rig context CLI (PL-014)", () => {
   }
 
   function writePack(manifest: string): string {
-    const dir = mkdtempSync(join(tmpdir(), "openrig-context-pack-test-"));
+    const dir = mkdtempSync(join(tmpdir(), "softwareteam-context-pack-test-"));
     writeFileSync(join(dir, "manifest.yaml"), manifest);
     return dir;
   }
 
-  it("trace rejects explicitly blank --seat values while omission stays rig-level", async () => {
-    const topologyRoot = mkdtempSync(join(tmpdir(), "openrig-context-trace-"));
-    const savedTopologyRoot = process.env["OPENRIG_TOPOLOGY_ROOT"];
-    process.env["OPENRIG_TOPOLOGY_ROOT"] = topologyRoot;
+  it("trace rejects explicitly blank --seat values while omission stays software-team-level", async () => {
+    const topologyRoot = mkdtempSync(join(tmpdir(), "softwareteam-context-trace-"));
+    const savedTopologyRoot = process.env["SOFTWARETEAM_TOPOLOGY_ROOT"];
+    process.env["SOFTWARETEAM_TOPOLOGY_ROOT"] = topologyRoot;
     try {
       for (const seat of ["", " \t "]) {
         const rejected = await captureLogs(async () => {
           await makeCmd().parseAsync([
-            "node", "rig", "context", "trace",
-            "--rig", "product-team", "--seat", seat, "--name", "CRAFT.md", "--json",
+            "node", "softwareTeam", "context", "trace",
+            "--software-team", "product-team", "--seat", seat, "--name", "CRAFT.md", "--json",
           ]);
         });
         expect(rejected.exitCode, JSON.stringify(seat)).toBe(1);
@@ -216,16 +216,16 @@ describe("rig context CLI (PL-014)", () => {
 
       const omitted = await captureLogs(async () => {
         await makeCmd().parseAsync([
-          "node", "rig", "context", "trace",
-          "--rig", "product-team", "--name", "CRAFT.md", "--json",
+          "node", "softwareTeam", "context", "trace",
+          "--software-team", "product-team", "--name", "CRAFT.md", "--json",
         ]);
       });
       expect(omitted.exitCode).toBeUndefined();
       const result = JSON.parse(omitted.logs.join("")) as { levels: Array<{ altitude: string }> };
-      expect(result.levels.map((level) => level.altitude)).toEqual(["instance", "rig"]);
+      expect(result.levels.map((level) => level.altitude)).toEqual(["instance", "softwareTeam"]);
     } finally {
-      if (savedTopologyRoot === undefined) delete process.env["OPENRIG_TOPOLOGY_ROOT"];
-      else process.env["OPENRIG_TOPOLOGY_ROOT"] = savedTopologyRoot;
+      if (savedTopologyRoot === undefined) delete process.env["SOFTWARETEAM_TOPOLOGY_ROOT"];
+      else process.env["SOFTWARETEAM_TOPOLOGY_ROOT"] = savedTopologyRoot;
       rmSync(topologyRoot, { recursive: true, force: true });
     }
   });
@@ -346,7 +346,7 @@ files:
     const dir = writePack(manifest);
     try {
       const { errLogs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "context", "add", dir]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "context", "add", dir]);
       });
       expect(exitCode).toBe(1);
       expect(errLogs.join("\n")).toContain(expectedError);
@@ -357,7 +357,7 @@ files:
 
   it("list shows discovered packs", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "context", "list"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "list"]);
     });
     expect(exitCode).toBeUndefined();
     expect(logs.join("\n")).toContain("smoke");
@@ -366,7 +366,7 @@ files:
 
   it("list --json emits JSON", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "context", "list", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "list", "--json"]);
     });
     const parsed = JSON.parse(logs.join("")) as Array<{ name: string }>;
     expect(parsed[0]!.name).toBe("smoke");
@@ -374,7 +374,7 @@ files:
 
   it("show resolves by name", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "context", "show", "smoke"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "show", "smoke"]);
     });
     expect(logs.join("\n")).toContain("Name:        smoke");
     expect(logs.join("\n")).toContain("Smoke test pack");
@@ -382,12 +382,12 @@ files:
 
   it("show and preview resolve the exact path-like ref", async () => {
     const shown = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "context", "show", "packs/smoke"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "show", "packs/smoke"]);
     });
     expect(shown.exitCode).toBeUndefined();
     expect(shown.logs.join("\n")).toContain("Name:        smoke");
     const previewed = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "context", "preview", "packs/smoke"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "preview", "packs/smoke"]);
     });
     expect(previewed.exitCode).toBeUndefined();
     expect(previewed.logs.join("\n")).toContain("Smoke body");
@@ -395,7 +395,7 @@ files:
 
   it("rejects legacy colon-id addressing with an actionable ref migration", async () => {
     const { errLogs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "context", "show", "context-pack:smoke:1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "show", "context-pack:smoke:1"]);
     });
     expect(exitCode).toBe(1);
     expect(errLogs.join("\n")).toMatch(/colon-id addressing.*removed/);
@@ -404,7 +404,7 @@ files:
 
   it("show fails with helpful error on unknown name", async () => {
     const { errLogs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "context", "show", "missing-pack"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "show", "missing-pack"]);
     });
     expect(exitCode).toBe(1);
     expect(errLogs.join("\n")).toContain("not found in library");
@@ -412,9 +412,9 @@ files:
 
   it("preview prints the assembled bundle text", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "context", "preview", "smoke"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "preview", "smoke"]);
     });
-    expect(logs.join("\n")).toContain("# OpenRig Context Pack: smoke v1");
+    expect(logs.join("\n")).toContain("# SoftwareTeam Context Pack: smoke v1");
     expect(logs.join("\n")).toContain("Smoke body");
   });
 
@@ -422,10 +422,10 @@ files:
   // assembler path as preview, but WITHOUT the operator preview framing.
   it("get serves the assembled bundle bytes for agent pull (no operator preview framing)", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "context", "get", "smoke"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "get", "smoke"]);
     });
     const out = logs.join("\n");
-    expect(out).toContain("# OpenRig Context Pack: smoke v1"); // the bundle content itself
+    expect(out).toContain("# SoftwareTeam Context Pack: smoke v1"); // the bundle content itself
     expect(out).toContain("Smoke body");
     expect(out).not.toContain("# Preview:"); // no operator framing on the pull verb
     expect(out).not.toContain("# Bundle:");
@@ -434,7 +434,7 @@ files:
 
   it("get --json returns the structured bundle wire", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "context", "get", "smoke", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "get", "smoke", "--json"]);
     });
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed.name).toBe("smoke");
@@ -444,12 +444,12 @@ files:
   it("is a delivery-free noun: no send subcommand or send help", () => {
     const command = contextCommand(runningDeps(port));
     expect(command.commands.map((sub) => sub.name())).not.toContain("send");
-    expect(command.helpInformation()).not.toMatch(/rig context send|\bsend\b/i);
+    expect(command.helpInformation()).not.toMatch(/SoftwareTeam context send|\bsend\b/i);
   });
 
   it("sync reports indexed count", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "context", "sync"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "sync"]);
     });
     expect(exitCode).toBeUndefined();
     expect(logs.join("\n")).toContain("Indexed 1 context pack");
@@ -458,7 +458,7 @@ files:
   it("rm removes a pack by its path-like ref and reports success", async () => {
     deleteLog.length = 0;
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "context", "rm", "packs/smoke"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "rm", "packs/smoke"]);
     });
     expect(exitCode).toBeUndefined();
     expect(deleteLog).toEqual(["packs/smoke"]);
@@ -468,7 +468,7 @@ files:
   it("rm --json emits the structured removal result", async () => {
     deleteLog.length = 0;
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "context", "rm", "packs/smoke", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "rm", "packs/smoke", "--json"]);
     });
     expect(exitCode).toBeUndefined();
     expect(JSON.parse(logs.join(""))).toMatchObject({ removed: true, ref: "packs/smoke" });
@@ -477,19 +477,19 @@ files:
   it("rm surfaces unsafe and absent ref errors without a delete", async () => {
     deleteLog.length = 0;
     const unsafe = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "context", "rm", "../escape"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "rm", "../escape"]);
     });
     expect(unsafe.exitCode).toBe(1);
     expect(unsafe.errLogs.join("\n")).toMatch(/unsafe/);
     const absent = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "context", "rm", "packs/absent"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "context", "rm", "packs/absent"]);
     });
     expect(absent.exitCode).toBe(1);
     expect(absent.errLogs.join("\n")).toContain("not found");
     expect(deleteLog).toEqual([]);
   });
 
-  // ── OPR.0.5.3.7 R4 — `rig context add <url>` (external load) ──────────────
+  // ── OPR.0.5.3.7 R4 — `SoftwareTeam context add <url>` (external load) ──────────────
   async function startPackServer(
     files: Record<string, string>,
     redirects: Record<string, string> = {},
@@ -515,26 +515,26 @@ files:
   }
 
   async function withContextRoot(fn: (root: string) => Promise<void>): Promise<void> {
-    const root = mkdtempSync(join(tmpdir(), "openrig-r4-context-root-"));
-    const saved = process.env["OPENRIG_CONTEXT_ROOT"];
-    process.env["OPENRIG_CONTEXT_ROOT"] = root;
+    const root = mkdtempSync(join(tmpdir(), "softwareteam-r4-context-root-"));
+    const saved = process.env["SOFTWARETEAM_CONTEXT_ROOT"];
+    process.env["SOFTWARETEAM_CONTEXT_ROOT"] = root;
     try {
       await fn(root);
     } finally {
-      if (saved === undefined) delete process.env["OPENRIG_CONTEXT_ROOT"];
-      else process.env["OPENRIG_CONTEXT_ROOT"] = saved;
+      if (saved === undefined) delete process.env["SOFTWARETEAM_CONTEXT_ROOT"];
+      else process.env["SOFTWARETEAM_CONTEXT_ROOT"] = saved;
       rmSync(root, { recursive: true, force: true });
     }
   }
 
   const R4_MANIFEST = "name: url-pack\nversion: 1.0.0\ntaxonomy: world\nfiles:\n  - path: SKILL.md\n    role: instruction\n";
 
-  it("add <url>: installs into the OPENRIG_CONTEXT_ROOT landing zone (config-resolved, no hardcoded path)", async () => {
+  it("add <url>: installs into the SOFTWARETEAM_CONTEXT_ROOT landing zone (config-resolved, no hardcoded path)", async () => {
     const pack = await startPackServer({ "manifest.yaml": R4_MANIFEST, "SKILL.md": "# hello\nbody\n" });
     try {
       await withContextRoot(async (root) => {
         const { exitCode } = await captureLogs(async () => {
-          await makeCmd().parseAsync(["node", "rig", "context", "add", `${pack.baseUrl}manifest.yaml`]);
+          await makeCmd().parseAsync(["node", "softwareTeam", "context", "add", `${pack.baseUrl}manifest.yaml`]);
         });
         expect(exitCode).toBeUndefined();
         expect(existsSync(join(root, "url-pack", "manifest.yaml"))).toBe(true);
@@ -555,7 +555,7 @@ files:
     try {
       await withContextRoot(async (root) => {
         const { exitCode } = await captureLogs(async () => {
-          await makeCmd().parseAsync(["node", "rig", "context", "add", `${pack.baseUrl}redirect-manifest`, "--name", "redirected-pack"]);
+          await makeCmd().parseAsync(["node", "softwareTeam", "context", "add", `${pack.baseUrl}redirect-manifest`, "--name", "redirected-pack"]);
         });
         expect(exitCode).toBeUndefined();
         expect(readFileSync(join(root, "redirected-pack", "SKILL.md"), "utf-8")).toContain("redirected body");
@@ -573,7 +573,7 @@ files:
     try {
       await withContextRoot(async (root) => {
         const { errLogs, exitCode } = await captureLogs(async () => {
-          await makeCmd().parseAsync(["node", "rig", "context", "add", `${pack.baseUrl}manifest.yaml`]);
+          await makeCmd().parseAsync(["node", "softwareTeam", "context", "add", `${pack.baseUrl}manifest.yaml`]);
         });
         expect(exitCode).toBe(1);
         expect(errLogs.join("\n")).toMatch(/outside the pack directory/i);
@@ -587,7 +587,7 @@ files:
   it("add <url>: unreachable URL fails loud with the reason and leaves NO partial pack", async () => {
     await withContextRoot(async (root) => {
       const { errLogs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "context", "add", "http://127.0.0.1:1/manifest.yaml"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "context", "add", "http://127.0.0.1:1/manifest.yaml"]);
       });
       expect(exitCode).toBe(1);
       expect(errLogs.join("\n")).toMatch(/could not (reach|fetch) manifest/i);
@@ -600,7 +600,7 @@ files:
     try {
       await withContextRoot(async (root) => {
         const { errLogs, exitCode } = await captureLogs(async () => {
-          await makeCmd().parseAsync(["node", "rig", "context", "add", `${pack.baseUrl}manifest.yaml`]);
+          await makeCmd().parseAsync(["node", "softwareTeam", "context", "add", `${pack.baseUrl}manifest.yaml`]);
         });
         expect(exitCode).toBe(1);
         expect(errLogs.join("\n")).toContain("must be a relative path inside the pack");
@@ -617,7 +617,7 @@ files:
     try {
       await withContextRoot(async (root) => {
         const { errLogs, exitCode } = await captureLogs(async () => {
-          await makeCmd().parseAsync(["node", "rig", "context", "add", `${pack.baseUrl}manifest.yaml`]);
+          await makeCmd().parseAsync(["node", "softwareTeam", "context", "add", `${pack.baseUrl}manifest.yaml`]);
         });
         expect(exitCode).toBe(1);
         expect(errLogs.join("\n")).toMatch(/could not fetch file 'SKILL\.md'/i);

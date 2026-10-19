@@ -1,6 +1,6 @@
-// Slice 07 finding 6: on a page that reads no rigs, a topology address switches
-// to Topology and resolves once Topology's own read settles. "no such rig" is
-// only said when that read really lacks the rig.
+// Slice 07 finding 6: on a page that reads no softwareTeams, a topology address switches
+// to Topology and resolves once Topology's own read settles. "no such softwareTeam" is
+// only said when that read really lacks the softwareTeam.
 import { afterEach, describe, expect, it } from "vitest";
 import net from "node:net";
 import os from "node:os";
@@ -16,12 +16,12 @@ import { createViewState, emptySnapshot } from "../src/state.js";
 import { parseCommand } from "../src/grammar.js";
 import type { FleetSnapshot } from "../src/types.js";
 
-const rigs = [
+const softwareTeams = [
   { id: "r-kernel", name: "kernel", lifecycleState: "running" },
   { id: "r-workshop", name: "workshop", lifecycleState: "running" },
 ];
 const seat = {
-  nodeId: "n-build", rigId: "r-workshop", rigName: "workshop", logicalId: "dev.build", podId: "p-dev", podNamespace: "dev",
+  nodeId: "n-build", softwareTeamId: "r-workshop", softwareTeamName: "workshop", logicalId: "dev.build", podId: "p-dev", podNamespace: "dev",
   role: "builder", canonicalSessionName: "dev-build@workshop", nodeKind: "agent", runtime: "claude-code",
   sessionStatus: "running", startupStatus: "ready", restoreOutcome: "n-a", oriented: "verified",
   terminalActive: false, lastActivityAt: null,
@@ -37,9 +37,9 @@ function daemon(calls: string[] = [], summaryStatus?: number) {
   return new DaemonClient({ baseUrl: "http://fixture", fetchImpl: (async (input) => {
     const u = new URL(String(input)); calls.push(u.pathname);
     if (u.pathname === "/healthz") return Response.json({ selfHostId: "fixture" });
-    if (u.pathname === "/api/rigs/summary") return summaryStatus ? Response.json({ error: "busy" }, { status: summaryStatus }) : Response.json(rigs);
-    if (u.pathname === "/api/terminal/views") return Response.json({ saved: [], rigs: rigs.map((r) => r.name) });
-    if (u.pathname === "/api/rigs/r-workshop/nodes") return Response.json([seat]);
+    if (u.pathname === "/api/software-teams/summary") return summaryStatus ? Response.json({ error: "busy" }, { status: summaryStatus }) : Response.json(softwareTeams);
+    if (u.pathname === "/api/terminal/views") return Response.json({ saved: [], softwareTeams: softwareTeams.map((r) => r.name) });
+    if (u.pathname === "/api/software-teams/r-workshop/nodes") return Response.json([seat]);
     if (u.pathname.endsWith("/nodes") || u.pathname === "/api/queue/recent-transitions") return Response.json([]);
     return Response.json({}, { status: 404 });
   }) as typeof fetch });
@@ -56,64 +56,64 @@ async function viewOn(section: string, client = daemon()) {
 
 const drillOf = (state: { drill: { kind: string; name: string }[] }) => state.drill.map((d) => `${d.kind}:${d.name}`);
 
-describe("a topology address typed on a page that reads no rigs", () => {
-  it.each(["terminals", "needs", "system", "config", "specs"])("from %s, `rig workshop` switches to Topology, then resolves to the running rig", async (section) => {
+describe("a topology address typed on a page that reads no softwareTeams", () => {
+  it.each(["terminals", "needs", "system", "config", "specs"])("from %s, `SoftwareTeam workshop` switches to Topology, then resolves to the running softwareTeam", async (section) => {
     const { view, read } = await viewOn(section);
-    view.dispatch(parseCommand("rig workshop", view.get().sections));
-    expect(view.get()).toMatchObject({ section: "topology", drill: [], lastError: null, pendingDrill: { resource: "rig", name: "workshop" } });
-    expect(renderScreen(view.get(), emptySnapshot()).lines.join("\n")).toContain('resolving rig "workshop"');
+    view.dispatch(parseCommand("SoftwareTeam workshop", view.get().sections));
+    expect(view.get()).toMatchObject({ section: "topology", drill: [], lastError: null, pendingDrill: { resource: "softwareTeam", name: "workshop" } });
+    expect(renderScreen(view.get(), emptySnapshot()).lines.join("\n")).toContain('resolving softwareTeam "workshop"');
     await read();
     view.dispatch({ type: "resolve-pending" });
     expect(view.get().lastError).toBeNull();
     expect(view.get().pendingDrill).toBeNull();
-    expect(drillOf(view.get())).toEqual(["host:fixture", "rig:workshop"]);
+    expect(drillOf(view.get())).toEqual(["host:fixture", "software-team:workshop"]);
   });
 
   it.each([
     ["host fixture", ["host:fixture"]],
-    ["pod dev", ["host:fixture", "rig:workshop", "pod:dev"]],
-    ["agent dev.build", ["host:fixture", "rig:workshop", "pod:dev", "agent:dev.build"]],
-    ["agent dev-build@workshop", ["host:fixture", "rig:workshop", "pod:dev", "agent:dev.build"]],
-  ])("from Terminals, `%s` resolves too (pod and agent read every rig's seats)", async (command, drill) => {
+    ["pod dev", ["host:fixture", "software-team:workshop", "pod:dev"]],
+    ["agent dev.build", ["host:fixture", "software-team:workshop", "pod:dev", "agent:dev.build"]],
+    ["agent dev-build@workshop", ["host:fixture", "software-team:workshop", "pod:dev", "agent:dev.build"]],
+  ])("from Terminals, `%s` resolves too (pod and agent read every softwareTeam's seats)", async (command, drill) => {
     const calls: string[] = [];
     const { view, read } = await viewOn("terminals", daemon(calls));
     view.dispatch(parseCommand(command, view.get().sections));
     expect(view.get().pendingDrill).toBeTruthy();
     calls.length = 0;
     await read();
-    if (command.startsWith("pod") || command.startsWith("agent")) expect(calls).toContain("/api/rigs/r-workshop/nodes");
+    if (command.startsWith("pod") || command.startsWith("agent")) expect(calls).toContain("/api/software-teams/r-workshop/nodes");
     view.dispatch({ type: "resolve-pending" });
     expect(view.get().lastError).toBeNull();
     expect(drillOf(view.get())).toEqual(drill);
   });
 
-  it("says no such rig only after Topology's read lacks it", async () => {
+  it("says no such SoftwareTeam only after Topology's read lacks it", async () => {
     const { view, read } = await viewOn("terminals");
-    view.dispatch(parseCommand("rig ghost", view.get().sections));
+    view.dispatch(parseCommand("SoftwareTeam ghost", view.get().sections));
     expect(view.get().lastError).toBeNull();
     await read();
     view.dispatch({ type: "resolve-pending" });
-    expect(view.get()).toMatchObject({ section: "topology", drill: [], pendingDrill: null, lastError: 'no such rig "ghost"' });
+    expect(view.get()).toMatchObject({ section: "topology", drill: [], pendingDrill: null, lastError: 'no such softwareTeam "ghost"' });
   });
 
-  it("a failed Topology read reports the rig as unconfirmed, not absent", async () => {
+  it("a failed Topology read reports the SoftwareTeam as unconfirmed, not absent", async () => {
     const { view, read } = await viewOn("terminals", daemon([], 503));
-    view.dispatch(parseCommand("rig workshop", view.get().sections));
+    view.dispatch(parseCommand("SoftwareTeam workshop", view.get().sections));
     await read();
     view.dispatch({ type: "resolve-pending" });
-    expect(view.get().lastError).toMatch(/^could not confirm rig "workshop": rigs-summary: daemon read failed: GET \/api\/rigs\/summary → 503/);
+    expect(view.get().lastError).toMatch(/^could not confirm softwareTeam "workshop": software-teams-summary: daemon read failed: GET \/api\/software-teams\/summary → 503/);
   });
 
-  it("control: on Topology with rigs read, an unknown rig still errors at once", async () => {
+  it("control: on Topology with softwareTeams read, an unknown SoftwareTeam still errors at once", async () => {
     const { view } = await viewOn("topology");
-    view.dispatch(parseCommand("rig ghost", view.get().sections));
-    expect(view.get().lastError).toBe('no such rig "ghost"');
+    view.dispatch(parseCommand("SoftwareTeam ghost", view.get().sections));
+    expect(view.get().lastError).toBe('no such softwareTeam "ghost"');
     expect(view.get().pendingDrill).toBeFalsy();
   });
 
   it("leaving the Topology landing cancels the pending address", async () => {
     const { view, read } = await viewOn("terminals");
-    view.dispatch(parseCommand("rig workshop", view.get().sections));
+    view.dispatch(parseCommand("SoftwareTeam workshop", view.get().sections));
     view.dispatch({ type: "jump", section: "needs" });
     expect(view.get().pendingDrill).toBeNull();
     await read();
@@ -121,9 +121,9 @@ describe("a topology address typed on a page that reads no rigs", () => {
     expect(view.get()).toMatchObject({ section: "needs", drill: [], lastError: null });
   });
 
-  it("Back from the resolved rig returns to the page where the address was typed", async () => {
+  it("Back from the resolved SoftwareTeam returns to the page where the address was typed", async () => {
     const { view, read } = await viewOn("terminals");
-    view.dispatch(parseCommand("rig workshop", view.get().sections));
+    view.dispatch(parseCommand("SoftwareTeam workshop", view.get().sections));
     await read();
     view.dispatch({ type: "resolve-pending" });
     view.dispatch({ type: "back" });
@@ -132,10 +132,10 @@ describe("a topology address typed on a page that reads no rigs", () => {
 
   it("every request gets its own page read", async () => {
     const { view } = await viewOn("terminals");
-    view.dispatch(parseCommand("rig workshop", view.get().sections));
+    view.dispatch(parseCommand("SoftwareTeam workshop", view.get().sections));
     const first = pageReadKey(view.get());
     view.dispatch({ type: "jump", section: "terminals" });
-    view.dispatch(parseCommand("rig workshop", view.get().sections));
+    view.dispatch(parseCommand("SoftwareTeam workshop", view.get().sections));
     expect(pageReadKey(view.get())).not.toBe(first);
     // Any explicit navigation, even to the same landing, drops the address.
     view.dispatch({ type: "jump", section: "topology" });
@@ -153,22 +153,22 @@ describe("the live read decides when a pending address resolves", () => {
     view = createViewState({ instanceId: "kernel", getSnapshot: () => live.snapshot() });
     view.dispatch({ type: "jump", section: "terminals" });
     await live.refresh();
-    view.dispatch(parseCommand("rig workshop", view.get().sections));
+    view.dispatch(parseCommand("SoftwareTeam workshop", view.get().sections));
     expect(resolvePendingAddress(view, live.load())).toBe(false);
     expect(view.get().pendingDrill).toBeTruthy();
     await live.refresh();
     expect(resolvePendingAddress(view, live.load())).toBe(true);
     expect(view.get().lastError).toBeNull();
-    expect(drillOf(view.get())).toEqual(["host:fixture", "rig:workshop"]);
+    expect(drillOf(view.get())).toEqual(["host:fixture", "software-team:workshop"]);
     live.close();
   });
 
   it("with no live read coming, resolves at once and says why it could not confirm", () => {
     const view = createViewState({ instanceId: "kernel", getSnapshot: () => ({ ...emptySnapshot(), readErrors: ["Live data not loaded"] }) });
     view.dispatch({ type: "jump", section: "terminals" });
-    view.dispatch(parseCommand("rig workshop", view.get().sections));
+    view.dispatch(parseCommand("SoftwareTeam workshop", view.get().sections));
     expect(resolvePendingAddress(view, null)).toBe(true);
-    expect(view.get().lastError).toBe('could not confirm rig "workshop": Live data not loaded');
+    expect(view.get().lastError).toBe('could not confirm softwareTeam "workshop": Live data not loaded');
   });
 });
 
@@ -192,14 +192,14 @@ describe("the control socket does not report a pending address as done", () => {
   it("replies that it switched to Topology and is resolving; state then reports the result", async () => {
     const { view, read } = await viewOn("terminals");
     open = await createControlSocket({ socketPath: path.join(os.tmpdir(), `tui-a-${process.pid}-${Math.floor(Math.random() * 1e6)}.sock`), view });
-    const [reply, state] = (await ask(open.path, ["rig workshop", "state"])).map((line) => JSON.parse(line));
-    expect(reply).toMatchObject({ screen: "topology", resolving: "rig workshop" });
-    expect(reply.notice).toMatch(/^Switched to Topology; resolving rig "workshop" once its read settles\. Send "state" for the result\./);
-    expect(state.state).toMatchObject({ resolving: "rig workshop", drill: [] });
+    const [reply, state] = (await ask(open.path, ["SoftwareTeam workshop", "state"])).map((line) => JSON.parse(line));
+    expect(reply).toMatchObject({ screen: "topology", resolving: "SoftwareTeam workshop" });
+    expect(reply.notice).toMatch(/^Switched to Topology; resolving softwareTeam "workshop" once its read settles\. Send "state" for the result\./);
+    expect(state.state).toMatchObject({ resolving: "SoftwareTeam workshop", drill: [] });
     await read();
     view.dispatch({ type: "resolve-pending" });
     const [after] = (await ask(open.path, ["state"])).map((line) => JSON.parse(line));
-    expect(after.state).toMatchObject({ ok: true, drill: ["host:fixture", "rig:workshop"] });
+    expect(after.state).toMatchObject({ ok: true, drill: ["host:fixture", "software-team:workshop"] });
     expect(after.state.resolving).toBeUndefined();
   });
 });

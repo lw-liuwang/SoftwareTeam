@@ -11,7 +11,7 @@ import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 import { usageSamplesSchema } from "../src/db/migrations/062_usage_samples.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { ContextUsageStore } from "../src/domain/context-usage-store.js";
 import { ContextMonitor } from "../src/domain/context-monitor.js";
@@ -151,14 +151,14 @@ describe("the poll tick carries the estimate into the series", () => {
   it("a Claude sidecar's cost lands on the context row with its native session", async () => {
     const db = createDb();
     migrate(db, ALL_MIGRATIONS);
-    const rig = new RigRepository(db).createRig("t-rig");
-    const node = new RigRepository(db).addNode(rig.id, "dev.qa", { runtime: "claude-code" });
-    const session = new SessionRegistry(db).registerSession(node.id, "dev-qa@t-rig");
+    const softwareTeam = new SoftwareTeamRepository(db).createSoftwareTeam("t-software-team");
+    const node = new SoftwareTeamRepository(db).addNode(softwareTeam.id, "dev.qa", { runtime: "claude-code" });
+    const session = new SessionRegistry(db).registerSession(node.id, "dev-qa@t-software-team");
     db.prepare("UPDATE sessions SET status = 'running' WHERE id = ?").run(session.id);
     const dir = scratch();
     mkdirSync(join(dir, "state", "context-usage"), { recursive: true });
-    writeFileSync(join(dir, "state", "context-usage", "dev-qa@t-rig.json"), JSON.stringify({
-      session_name: "dev-qa@t-rig", session_id: "claude-sess-7", sampled_at: "2026-10-13T10:00:00.000Z",
+    writeFileSync(join(dir, "state", "context-usage", "dev-qa@t-software-team.json"), JSON.stringify({
+      session_name: "dev-qa@t-software-team", session_id: "claude-sess-7", sampled_at: "2026-10-13T10:00:00.000Z",
       context_window: { context_window_size: 200000, used_percentage: 10, remaining_percentage: 90, total_input_tokens: 1000, total_output_tokens: 100 },
       cost: { total_cost_usd: 0.77 },
     }));

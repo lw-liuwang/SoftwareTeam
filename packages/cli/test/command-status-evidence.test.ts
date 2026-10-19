@@ -26,7 +26,7 @@ describe("command daemon status evidence", () => {
       vi.mocked(getDaemonStatus).mockResolvedValue(status);
       const error = vi.spyOn(console, "error").mockImplementation(() => {});
       const clientFactory = vi.fn();
-      await makeCommand({ lifecycleDeps: {} as LifecycleDeps, clientFactory }).parseAsync(["node", "rig", ...args]);
+      await makeCommand({ lifecycleDeps: {} as LifecycleDeps, clientFactory }).parseAsync(["node", "softwareTeam", ...args]);
       expect(error.mock.calls.flat().join("\n")).toContain("state not confirmed");
       expect(error.mock.calls.flat().join("\n")).not.toContain("Daemon not running.");
       expect(process.exitCode).toBe(1);
@@ -37,7 +37,7 @@ describe("command daemon status evidence", () => {
       vi.mocked(getDaemonStatus).mockResolvedValue({ state: "stopped" });
       const error = vi.spyOn(console, "error").mockImplementation(() => {});
       const clientFactory = vi.fn();
-      await makeCommand({ lifecycleDeps: {} as LifecycleDeps, clientFactory }).parseAsync(["node", "rig", ...args]);
+      await makeCommand({ lifecycleDeps: {} as LifecycleDeps, clientFactory }).parseAsync(["node", "softwareTeam", ...args]);
       expect(error.mock.calls.flat().join("\n")).toContain("Daemon not running.");
       expect(process.exitCode).toBe(1);
       expect(clientFactory).not.toHaveBeenCalled();
@@ -47,7 +47,7 @@ describe("command daemon status evidence", () => {
       vi.mocked(getDaemonStatus).mockResolvedValue({ state: "unverified", siblingHint: { resolvedHome: "selected-home", siblingHome: "live-sibling" } });
       const error = vi.spyOn(console, "error").mockImplementation(() => {});
       const clientFactory = vi.fn();
-      await makeCommand({ lifecycleDeps: {} as LifecycleDeps, clientFactory }).parseAsync(["node", "rig", ...args]);
+      await makeCommand({ lifecycleDeps: {} as LifecycleDeps, clientFactory }).parseAsync(["node", "softwareTeam", ...args]);
       expect(error.mock.calls.flat().join("\n")).toContain("resolved selected-home, live sibling live-sibling");
       expect(process.exitCode).toBe(1);
       expect(clientFactory).not.toHaveBeenCalled();

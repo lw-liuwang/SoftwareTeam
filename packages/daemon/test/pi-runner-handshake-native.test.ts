@@ -21,7 +21,7 @@ console.error('Error: Unknown options: --name, --no-approve'); process.exit(1);
     const child = spawn(process.execPath, ["--import", "tsx", fileURLToPath(new URL("../src/adapters/pi-runner.ts", import.meta.url)),
       "--session-name", "fixture", "--state-root", stateRoot, "--cwd", temp,
       "--launch-id", "owned-attempt", "--no-approve"], {
-      env: { PATH: bin, HOME: temp, OPENRIG_HOME: path.join(temp, "home") },
+      env: { PATH: bin, HOME: temp, SOFTWARETEAM_HOME: path.join(temp, "home") },
       stdio: ["pipe", "pipe", "pipe"],
     });
     let output = "";
@@ -81,7 +81,7 @@ if(cmd.type==='prompt') { console.error('Unknown option: --name'); console.error
     const child = spawn(process.execPath, ["--import", "tsx", fileURLToPath(new URL("../src/adapters/pi-runner.ts", import.meta.url)),
       "--session-name", "fixture", "--state-root", stateRoot, "--cwd", temp,
       "--launch-id", "owned-attempt", "--no-approve", "--model", "openrouter/fixture"], {
-      env: { PATH: bin + path.delimiter + path.dirname(process.execPath), HOME: temp, OPENRIG_HOME: path.join(temp, "home") },
+      env: { PATH: bin + path.delimiter + path.dirname(process.execPath), HOME: temp, SOFTWARETEAM_HOME: path.join(temp, "home") },
       stdio: ["pipe", "pipe", "pipe"],
     });
     let output = "";

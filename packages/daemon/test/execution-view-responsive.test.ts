@@ -35,7 +35,7 @@ it("serves health and SQL views while the real execution route waits for Git", a
       `worktree_path=${repo}\n`,
     );
     const projector = new ViewProjector(db, new EventBus(db));
-    projector.setExecutionDeps({ db, slicesRoot: () => missions, rigsRoot: () => path.join(root, "no-rigs"),
+    projector.setExecutionDeps({ db, slicesRoot: () => missions, softwareTeamsRoot: () => path.join(root, "no-softwareTeams"),
       buildInfo: { semver: null, commit: candidate, dirty: null, builtAt: null } });
     const { app } = createTestApp(db, { appDeps: { viewProjector: projector } });
 

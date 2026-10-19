@@ -18,22 +18,22 @@ afterEach(() => {
 });
 
 describe("useNeedsInputSeats", () => {
-  it("keeps later needs-input seats when one rig nodes request rejects", async () => {
+  it("keeps later needs-input seats when one SoftwareTeam nodes request rejects", async () => {
     mockFetch.mockImplementation(async (url: string) => {
       if (url === "/api/ps") {
         return new Response(JSON.stringify([
-          { rigId: "rig-stale" },
-          { rigId: "product-team" },
+          { softwareTeamId: "software-team-stale" },
+          { softwareTeamId: "product-team" },
         ]));
       }
-      if (url === "/api/rigs/rig-stale/nodes") {
+      if (url === "/api/software-teams/software-team-stale/nodes") {
         throw new Error("resource exhausted");
       }
-      if (url === "/api/rigs/product-team/nodes?full=true") {
+      if (url === "/api/software-teams/product-team/nodes?full=true") {
         return new Response(JSON.stringify([
           {
-            rigId: "product-team",
-            rigName: "product-team",
+            softwareTeamId: "product-team",
+            softwareTeamName: "product-team",
             logicalId: "orch1.lead",
             canonicalSessionName: "orch1-lead@product-team",
             terminalActive: false,
@@ -58,7 +58,7 @@ describe("useNeedsInputSeats", () => {
       logicalId: "orch1.lead",
       sessionName: "orch1-lead@product-team",
       source: "pane_heuristic",
-      rigId: "product-team",
+      softwareTeamId: "product-team",
     });
   });
 });

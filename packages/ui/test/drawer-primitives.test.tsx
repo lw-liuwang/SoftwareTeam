@@ -11,7 +11,7 @@
 // - SharedDetailDrawer routes selection.type to the correct viewer component.
 //
 // V1 polish slice Phase 5.1 P5.1-D2: SeatDetailViewer + SeatDetailTrigger
-// RETIRED. seat-detail navigation goes to /topology/seat/$rigId/$logicalId
+// RETIRED. seat-detail navigation goes to /topology/seat/$softwareTeamId/$logicalId
 // center page (LiveNodeDetails). The 'seat-detail' kind is dropped from
 // DrawerSelection union; this file now covers only the 3 remaining
 // drawer surfaces (qitem / file / sub-spec). The retirement-regression
@@ -59,8 +59,8 @@ describe("Drawer viewers (P4-1) render with canonical props", () => {
     const { getByTestId } = render(
       <QueueItemViewer
         qitemId="qitem-20260506-test"
-        source="orch-lead@openrig-velocity"
-        destination="redo3-driver-3@openrig-velocity"
+        source="orch-lead@softwareteam-velocity"
+        destination="redo3-driver-3@softwareteam-velocity"
         state="pending"
         tags={["code-review"]}
         createdAt="2026-05-06T18:00:00Z"
@@ -297,11 +297,11 @@ describe("Drawer viewers (P4-1) render with canonical props", () => {
   it("SubSpecPreview renders header + manifest excerpt; no Link when entryId omitted", () => {
     const { getByTestId, queryByTestId } = render(
       <SubSpecPreview
-        specKind="rig"
-        specName="openrig-velocity"
+        specKind="softwareTeam"
+        specName="softwareteam-velocity"
         version="0.2.0"
         source="builtin"
-        manifestExcerpt="name: openrig-velocity\nversion: 0.2.0"
+        manifestExcerpt="name: softwareteam-velocity\nversion: 0.2.0"
       />,
     );
     expect(getByTestId("sub-spec-preview")).toBeTruthy();
@@ -350,7 +350,7 @@ describe("Drawer triggers (P4-2) fire setSelection with correct kind on click", 
   });
 
   it("SubSpecTrigger click → setSelection({ type: 'sub-spec', data })", () => {
-    const data = { specKind: "rig", specName: "openrig-velocity" };
+    const data = { specKind: "softwareTeam", specName: "softwareteam-velocity" };
     const { setSelection, getByTestId } = renderWithDrawerCtx(
       <SubSpecTrigger data={data}>open</SubSpecTrigger>,
     );
@@ -417,7 +417,7 @@ describe("SharedDetailDrawer (Phase 4) routes selection.type to the correct view
   it("selection.type='sub-spec' → SubSpecPreview mounts in drawer", () => {
     const selection: DrawerSelection = {
       type: "sub-spec",
-      data: { specKind: "rig", specName: "openrig-velocity" },
+      data: { specKind: "softwareTeam", specName: "softwareteam-velocity" },
     };
     const { getByTestId } = render(
       <SharedDetailDrawer selection={selection} onClose={() => {}} {...NOOP_PROPS} />,
@@ -463,7 +463,7 @@ describe("SharedDetailDrawer (Phase 4) routes selection.type to the correct view
   });
 
   // V1 polish slice Phase 5.1 P5.1-D2: 'seat-detail' kind RETIRED from
-  // DrawerSelection union; navigation to /topology/seat/$rigId/$logicalId
+  // DrawerSelection union; navigation to /topology/seat/$softwareTeamId/$logicalId
   // center page (LiveNodeDetails) replaces the drawer-mounted variant.
   // Routing-by-type test for 'seat-detail' is gone with the kind itself.
 });

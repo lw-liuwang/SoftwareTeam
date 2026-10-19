@@ -11,7 +11,7 @@ import { observeCodexSandbox } from "../src/domain/permission-drift.js";
 import type { NodeBinding } from "../src/domain/runtime-adapter.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
 
-// #275 — network inside OpenRig's workspace-write floor by default, unless Codex itself reports an
+// #275 — network inside SoftwareTeam's workspace-write floor by default, unless Codex itself reports an
 // opt-out or a policy. Fixtures follow the app-server 0.160.0 answers recorded by the architecture
 // review (config/read with includeLayers, configRequirements/read). No real Codex runs here.
 
@@ -113,10 +113,10 @@ describe("#275 codexNetworkDefaultArg", () => {
 
   it("reads only the plain floor and returns the quoted override when Codex allows it", async () => {
     const read = vi.fn<CodexNetworkDefaultReader>(async () => applied);
-    expect(await codexNetworkDefaultArg(read, observeCodexSandbox(" -s workspace-write"), "/seat", "dev-qa@rig")).toBe(OVERRIDE);
+    expect(await codexNetworkDefaultArg(read, observeCodexSandbox(" -s workspace-write"), "/seat", "dev-qa@software-team")).toBe(OVERRIDE);
     expect(read).toHaveBeenCalledWith("/seat");
     for (const posture of [" -s danger-full-access", " -s danger-full-access -a never", " -p 'work'"]) {
-      expect(await codexNetworkDefaultArg(read, observeCodexSandbox(posture), "/seat", "dev-qa@rig")).toBe("");
+      expect(await codexNetworkDefaultArg(read, observeCodexSandbox(posture), "/seat", "dev-qa@software-team")).toBe("");
     }
     expect(read).toHaveBeenCalledTimes(1);
   });
@@ -170,7 +170,7 @@ describe("#275 every Codex launch site adds the override only when the reader ap
     const run = () => kind === "restore" || kind === "last"
       ? restore.resume("r01-qa", kind === "last" ? "codex_last" : "codex_id", "thread id", cwd, profile, posture, "gpt-5.5")
       : adapter.launchHarness(binding, {
-          name: "dev-qa@test-rig",
+          name: "dev-qa@test-software-team",
           ...(kind === "fork" ? { forkSource: { kind: "native_id" as const, value: "parent id" } }
             : kind === "resume" ? { resumeToken: "thread id" } : {}),
         });

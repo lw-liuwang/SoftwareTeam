@@ -1,4 +1,4 @@
-// Slice 01 (OPR.0.7.0.1) — `rig provider status --all-hosts | --hosts` against a loopback hub daemon that joins
+// Slice 01 (OPR.0.7.0.1) — `softwareTeam provider status --all-hosts | --hosts` against a loopback hub daemon that joins
 // loopback hosts (the daemon's real provider and config routes, scripted native readers; usage-hosts-harness.ts).
 // The human view prints every served fact verbatim; --json prints the served body; a refresh across hosts reports
 // each failed leg and keeps the view.
@@ -36,7 +36,7 @@ async function run(args: string[], hub: UsageHost): Promise<{ out: string; err: 
   console.log = (...a: unknown[]) => out.push(a.join(" "));
   console.error = (...a: unknown[]) => err.push(a.join(" "));
   try {
-    await providerCommand(deps(hub.url)).parseAsync(["node", "rig", ...args]);
+    await providerCommand(deps(hub.url)).parseAsync(["node", "softwareTeam", ...args]);
   } finally {
     console.log = origLog;
     console.error = origErr;
@@ -61,7 +61,7 @@ async function refreshDirect(h: UsageHost): Promise<void> {
   expect(res.status).toBe(200);
 }
 
-describe("rig provider status --all-hosts", () => {
+describe("SoftwareTeam provider status --all-hosts", () => {
   it("prints every served fact verbatim: one entry per allowance with each host's observation, and every host's status", async () => {
     // a also serves a seat in each observed shape, so the seat facts are held to the same list.
     const a = await host("a", { rewrite: (p, body) => p === "/api/provider/status" ? { ...(body as object), seatAccounts: SEAT_SHAPES } : body });
@@ -158,7 +158,7 @@ describe("rig provider status --all-hosts", () => {
   it("switch off here: one line naming the key, exit 1", async () => {
     const hub = await host("hub", { usageWindows: false, registry: [] });
     const got = await run(["status", "--all-hosts"], hub);
-    expect([got.exitCode, got.err]).toEqual([1, "Usage across hosts needs usage windows on this daemon. Turn them on with: rig config set provider.usage_windows true"]);
+    expect([got.exitCode, got.err]).toEqual([1, "Usage across hosts needs usage windows on this daemon. Turn them on with: SoftwareTeam config set provider.usage_windows true"]);
   });
 
   it("--refresh: a failed leg prints and sets exit 1, the view still prints with the failure beside the kept reading", async () => {
@@ -290,7 +290,7 @@ describe("round 3 through the CLI", () => {
     p === "/api/provider/status" ? { ...(b as Body), usage: rows(b).map((r) => (r["provider"] === "codex" ? patch(r) : r)) } : b;
   const firstWindow = (patch: (w: Body) => Body) => withCodexRow((r) => ({ ...r, windows: (r["windows"] as Body[]).map((w, i) => (i === 0 ? patch(w) : w)) }));
   const seat = (patch: Body) => (p: string, b: unknown) => p === "/api/provider/status" ? { ...(b as Body), seatAccounts: [{
-    seatSession: "dev-qa@r", rigName: "r", runtime: "codex",
+    seatSession: "dev-qa@r", softwareTeamName: "r", runtime: "codex",
     configured: { source: "registry", profileRef: "work-a", recordedAt: "2026-10-12T10:00:00Z", profileSaved: true },
     allowance: { linked: false, reason: "not linked" }, ...patch,
   }] } : b;
@@ -395,7 +395,7 @@ describe("round 4 through the CLI", () => {
           ...body,
           usage: (body["usage"] as Body[]).map((r) => (r["provider"] === "codex" ? { ...r, lastRefresh: { at: NOW, outcome: "failed" } } : r)),
           seatAccounts: [{
-            seatSession: "dev-qa@r", rigName: "r", runtime: "claude-code",
+            seatSession: "dev-qa@r", softwareTeamName: "r", runtime: "claude-code",
             configured: { source: "default_login", home: null, homeNote: "the daemon's home" },
             allowance: { linked: false, reason: "not linked" }, observed: { windowsSampled: true, differsFrom: ["dev-b@r"] },
           }],

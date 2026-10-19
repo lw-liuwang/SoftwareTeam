@@ -190,7 +190,7 @@ function ompRunner(opts: { catchUpSince?: string; runtime?: "omp" | "pi" } = {})
     sessionFileExists: () => true,
     now: () => "2026-10-14T12:00:00Z",
   };
-  const core = new RunnerCore(io, { sessionName: "omp-worker@rig", launchId: "attempt-1" }, { runtime: opts.runtime ?? "omp", catchUpSince: opts.catchUpSince });
+  const core = new RunnerCore(io, { sessionName: "omp-worker@software-team", launchId: "attempt-1" }, { runtime: opts.runtime ?? "omp", catchUpSince: opts.catchUpSince });
   const line = (frame: unknown) => core.handlePiLine(JSON.stringify(frame));
   const cursor = () => sidecars.at(-1)?.lastEntryId;
   return { core, rpc, mirror, line, cursor };
@@ -386,7 +386,7 @@ let root: string | null = null;
 afterEach(() => { if (root) fs.rmSync(root, { recursive: true, force: true }); root = null; });
 
 async function restoreThroughRunner(v2: boolean): Promise<{ cursor: string | undefined; output: string; last: string }> {
-  root = fs.mkdtempSync(nodePath.join(os.tmpdir(), "openrig-omp-v2-"));
+  root = fs.mkdtempSync(nodePath.join(os.tmpdir(), "softwareteam-omp-v2-"));
   const bin = nodePath.join(root, "bin");
   fs.mkdirSync(bin);
   fs.writeFileSync(nodePath.join(root, "fake-omp.cjs"), FAKE_OMP);

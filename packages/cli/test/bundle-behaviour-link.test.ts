@@ -4,7 +4,7 @@ import { bundleCommand } from "../src/commands/bundle.js";
 import { upCommand } from "../src/commands/up.js";
 import { importGitHubBundle } from "../src/lib/bundle-source.js";
 import type { StatusDeps } from "../src/commands/status.js";
-import type { BundleBehaviour } from "@openrig/daemon/bundle-behaviour";
+import type { BundleBehaviour } from "@softwareteam/daemon/bundle-behaviour";
 
 vi.mock("../src/host-selection.js", () => ({ resolveEffectiveHost: (host?: string) => host }));
 vi.mock("../src/lib/bundle-source.js", async importOriginal => ({
@@ -13,8 +13,8 @@ vi.mock("../src/lib/bundle-source.js", async importOriginal => ({
 afterEach(() => { vi.restoreAllMocks(); vi.clearAllMocks(); });
 
 const view: BundleBehaviour = {
-  schema: "openrig.bundle-behaviour/v1", state: "not_generated", reason: "legacy", localInspectCommand: "rig bundle inspect <archive> --json",
-  identity: { source: null, configurationId: null, packageDigest: null, assembler: null, generator: { openrigVersion: "test" }, integrity: { digestValid: true, filesVerified: true } },
+  schema: "softwareteam.bundle-behaviour/v1", state: "not_generated", reason: "legacy", localInspectCommand: "SoftwareTeam bundle inspect <archive> --json",
+  identity: { source: null, configurationId: null, packageDigest: null, assembler: null, generator: { softwareteamVersion: "test" }, integrity: { digestValid: true, filesVerified: true } },
 };
 
 describe("prepared GitHub bundle view", () => {
@@ -24,14 +24,14 @@ describe("prepared GitHub bundle view", () => {
     vi.spyOn(console, "error").mockImplementation(() => { events.push("header"); });
     const post = vi.fn(async (url: string, body: unknown) => {
       events.push(url);
-      expect(body).toMatchObject({ bundlePath: "/retained/single.rigbundle" });
+      expect(body).toMatchObject({ bundlePath: "/retained/single.softwareteambundle" });
       if (url === "/api/bundles/inspect") return { status: 200, data: { manifest: {}, digestValid: true, integrityResult: { passed: true }, behaviour: view } };
       expect(url).toBe("/api/bundles/install");
       return { status: 201, data: { status: "completed", marker: "original result" } };
     });
     vi.mocked(importGitHubBundle).mockImplementation(async () => {
       events.push("prepare");
-      return { client: { post }, bundlePath: "/retained/single.rigbundle", res: { status: 201, data: { archiveHash: "same" } } } as never;
+      return { client: { post }, bundlePath: "/retained/single.softwareteambundle", res: { status: 201, data: { archiveHash: "same" } } } as never;
     });
     const deps = { clientFactory: () => { throw new Error("must reuse prepared client"); }, lifecycleDeps: {} } as unknown as StatusDeps;
     const program = new Command().exitOverride();
@@ -39,7 +39,7 @@ describe("prepared GitHub bundle view", () => {
     const oldExit = process.exitCode;
     process.exitCode = undefined;
     try {
-      await program.parseAsync(["node", "rig", ...(action === "up" ? ["up"] : ["bundle", action]), "https://github.com/example/team/tree/main/rig", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", ...(action === "up" ? ["up"] : ["bundle", action]), "https://github.com/example/team/tree/main/softwareTeam", "--json"]);
       expect(importGitHubBundle).toHaveBeenCalledTimes(1);
       expect(post.mock.calls.filter(([url]) => url === "/api/bundles/inspect")).toHaveLength(1);
       expect(stdout).toHaveBeenCalledTimes(1);

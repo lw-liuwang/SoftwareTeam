@@ -20,8 +20,8 @@ const passingOnly = Object.hasOwn(PASSING_CASES, caseName);
 const selected = passingOnly ? PASSING_CASES[caseName] : CASES[caseName];
 assert.ok(selected, 'unknown scenario case');
 assert.ok(!passingOnly || mode === 'healthy', 'a passing-only case runs healthy only');
-const rigBin = realpathSync('/usr/local/bin/rig');
-const scenario = join('/opt/openrig-testbed', selected.file);
+const softwareTeamBin = realpathSync('/usr/local/bin/softwareTeam');
+const scenario = join('/opt/softwareteam-testbed', selected.file);
 const records = [];
 const report = {
   mode, caseName, records, fault: null,
@@ -30,7 +30,7 @@ const report = {
 
 try {
   report.result = await runScenarioFile(scenario, {
-    rigBin,
+    softwareTeamBin,
     baseEnv: { PATH: '/usr/local/bin:/usr/bin:/bin', TERM: 'xterm-256color' },
     deps: {
       appendRecord: record => records.push(record),
@@ -53,8 +53,8 @@ try {
           await assert.rejects(fetch(`${daemon.baseUrl}/healthz`),
             error => error.cause?.code === 'ECONNREFUSED', 'daemon must be stopped before fault injection');
           // Seed the named durability fault ONLY in this scenario's stopped scratch DB.
-          // Observation is still the unchanged shipped `rig queue list` path.
-          const Database = createRequire(rigBin)('better-sqlite3');
+          // Observation is still the unchanged shipped `SoftwareTeam queue list` path.
+          const Database = createRequire(softwareTeamBin)('better-sqlite3');
           const db = new Database(join(scaffold.stateDir, 'scenario.db'), { fileMustExist: true });
           try {
             const before = db.prepare('SELECT state, destination_session FROM queue_items WHERE qitem_id = ?').get('baton-1');

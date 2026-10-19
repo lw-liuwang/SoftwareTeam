@@ -16,8 +16,8 @@ function fixture() {
       const route = new URL(String(url)).pathname;
       if (options?.method === "POST") { const body = JSON.parse(String(options.body)); posts.push({ route, body }); return response(body); }
       if (probeState === "down") throw new Error("connection refused");
-      if (route === "/api/rigs/summary") return new Response(JSON.stringify([{ id: "r1", name: "kernel" }, { id: "bad", name: "unrelated-legacy" }]));
-      return new Response(JSON.stringify({ rigId: "r1", rigName: "kernel", seats: [{ ...seat }] }));
+      if (route === "/api/software-teams/summary") return new Response(JSON.stringify([{ id: "r1", name: "kernel" }, { id: "bad", name: "unrelated-legacy" }]));
+      return new Response(JSON.stringify({ softwareTeamId: "r1", softwareTeamName: "kernel", seats: [{ ...seat }] }));
     }) as typeof fetch,
   });
   const startDaemon = vi.fn(async () => { probeState = "up"; });
@@ -95,7 +95,7 @@ describe("TUI startup choices", () => {
     expect(text).not.toContain("Consider a fresh");
     await f.controller.key("enter");
     expect(f.posts).toEqual([]);
-    expect(f.onWork).toHaveBeenCalledWith(expect.objectContaining({ rigId: "r1" }), expect.objectContaining({ nodeId: "n1" }));
+    expect(f.onWork).toHaveBeenCalledWith(expect.objectContaining({ softwareTeamId: "r1" }), expect.objectContaining({ nodeId: "n1" }));
   });
   it("makes terminal transport repair a separate action with no seat launch", async () => {
     const f = fixture();
@@ -111,13 +111,13 @@ describe("TUI startup choices", () => {
     await f.controller.key("f"); expect(f.controller.state.page).toBe("confirm");
     await f.controller.key("escape"); expect(f.posts).toHaveLength(1);
   });
-  it("first setup starts only the daemon, then presents deliberate rig choices", async () => {
+  it("first setup starts only the daemon, then presents deliberate SoftwareTeam choices", async () => {
     const f = fixture(); f.down(); await f.controller.refresh();
     expect(f.controller.state.page).toBe("down");
     await f.controller.key("enter");
     expect(f.startDaemon).toHaveBeenCalledTimes(1);
     expect(f.posts).toEqual([]);
-    expect(f.controller.state.page).toBe("rigs");
+    expect(f.controller.state.page).toBe("softwareTeams");
   });
   it("decline and refresh invalidate fresh consent with no launch effect", async () => {
     const f = fixture(); await chooseOperator(f);

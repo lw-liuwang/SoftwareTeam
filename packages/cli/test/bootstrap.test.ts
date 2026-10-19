@@ -73,7 +73,7 @@ describe("Bootstrap CLI", () => {
 
       if (req.url === "/api/bundles/install" && req.method === "POST") {
         const parsed = JSON.parse(body);
-        if (parsed.bundlePath.endsWith("/slow.rigbundle")) {
+        if (parsed.bundlePath.endsWith("/slow.softwareteambundle")) {
           await new Promise(resolve => setTimeout(resolve, 6_000));
         }
         res.writeHead(parsed.plan ? 200 : 201, { "Content-Type": "application/json" });
@@ -90,8 +90,8 @@ describe("Bootstrap CLI", () => {
         if (parsed.autoApprove) {
           res.writeHead(201, { "Content-Type": "application/json" });
           res.end(JSON.stringify({
-            runId: "run-2", status: "completed", rigId: "rig-1",
-            stages: [{ stage: "resolve_spec", status: "ok" }, { stage: "import_rig", status: "ok" }],
+            runId: "run-2", status: "completed", softwareTeamId: "software-team-1",
+            stages: [{ stage: "resolve_spec", status: "ok" }, { stage: "import_software_team", status: "ok" }],
             errors: [], warnings: ["Startup submission unverified in worker@fixture"],
           }));
         } else {
@@ -123,35 +123,35 @@ describe("Bootstrap CLI", () => {
   // T1: bootstrap --plan prints plan stages
   it("bootstrap --plan prints plan stages", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bootstrap", "/tmp/rig.yaml", "--plan"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bootstrap", "/tmp/software-team.yaml", "--plan"]);
     });
     expect(logs.some((l) => l.includes("BOOTSTRAP PLAN"))).toBe(true);
     expect(logs.some((l) => l.includes("resolve_spec"))).toBe(true);
   });
 
   it("#729: non-bundle bootstrap preserves warnings in human and JSON success", async () => {
-    const human = await captureLogs(() => makeCmd().parseAsync(["node", "rig", "bootstrap", "/tmp/rig.yaml", "--yes"]));
+    const human = await captureLogs(() => makeCmd().parseAsync(["node", "softwareTeam", "bootstrap", "/tmp/software-team.yaml", "--yes"]));
     expect(human.logs.join("\n")).toContain("Warning: Startup submission unverified in worker@fixture");
     expect(human.exitCode).toBeUndefined();
-    const json = await captureLogs(() => makeCmd().parseAsync(["node", "rig", "bootstrap", "/tmp/rig.yaml", "--yes", "--json"]));
+    const json = await captureLogs(() => makeCmd().parseAsync(["node", "softwareTeam", "bootstrap", "/tmp/software-team.yaml", "--yes", "--json"]));
     expect(json.logs).toHaveLength(1);
     expect(JSON.parse(json.logs[0]!).warnings).toEqual(["Startup submission unverified in worker@fixture"]);
     expect(json.exitCode).toBeUndefined();
   });
 
   // T2: bootstrap apply prints result
-  it("bootstrap apply prints result with rigId", async () => {
+  it("bootstrap apply prints result with softwareTeamId", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bootstrap", "/tmp/rig.yaml", "--yes"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bootstrap", "/tmp/software-team.yaml", "--yes"]);
     });
-    expect(logs.some((l) => l.includes("Rig: rig-1"))).toBe(true);
+    expect(logs.some((l) => l.includes("SoftwareTeam: software-team-1"))).toBe(true);
     expect(logs.some((l) => l.includes("completed"))).toBe(true);
   });
 
   // T3: bootstrap --yes sends autoApprove=true
   it("bootstrap --yes sends autoApprove=true in body", async () => {
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bootstrap", "/tmp/rig.yaml", "--yes"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bootstrap", "/tmp/software-team.yaml", "--yes"]);
     });
     const body = JSON.parse(lastReq.body);
     expect(body.autoApprove).toBe(true);
@@ -159,24 +159,24 @@ describe("Bootstrap CLI", () => {
 
   // T4: bootstrap blocked -> exit 1
   it.each([false, true])("archive plan=%s uses bundle install and the caller's stable target", async (plan) => {
-    const args = ["node", "rig", "bootstrap", "relative/team.rigbundle", "--json", "--yes"];
+    const args = ["node", "softwareTeam", "bootstrap", "relative/team.softwareteambundle", "--json", "--yes"];
     if (plan) args.push("--plan");
     const { exitCode } = await captureLogs(() => makeCmd().parseAsync(args).then(() => {}));
     expect(exitCode).toBeUndefined();
     expect(lastReq.url).toBe("/api/bundles/install");
     const body = JSON.parse(lastReq.body);
-    expect(body).toMatchObject({ bundlePath: nodePath.resolve("relative/team.rigbundle"), targetRoot: process.cwd(), plan, autoApprove: true, skipVersionCheck: false, force: false });
+    expect(body).toMatchObject({ bundlePath: nodePath.resolve("relative/team.softwareteambundle"), targetRoot: process.cwd(), plan, autoApprove: true, skipVersionCheck: false, force: false });
     expect(body.cliVersion).toMatch(/^\d+\.\d+\.\d+/);
   });
 
   it("keeps the archive install target separate from its work cwd", async () => {
-    await captureLogs(() => makeCmd().parseAsync(["node", "rig", "bootstrap", "team.rigbundle", "--target", "installed", "--cwd", "project", "--yes"]).then(() => {}));
+    await captureLogs(() => makeCmd().parseAsync(["node", "softwareTeam", "bootstrap", "team.softwareteambundle", "--target", "installed", "--cwd", "project", "--yes"]).then(() => {}));
     expect(lastReq.url).toBe("/api/bundles/install");
     expect(JSON.parse(lastReq.body)).toMatchObject({ targetRoot: nodePath.resolve("installed"), cwdOverride: nodePath.resolve("project") });
   });
 
   it.each([false, true])("forwards explicit archive overrides for plan=%s", async (plan) => {
-    const args = ["node", "rig", "bootstrap", "team.rigbundle", "--skip-version-check", "--force", "--json"];
+    const args = ["node", "softwareTeam", "bootstrap", "team.softwareteambundle", "--skip-version-check", "--force", "--json"];
     if (plan) args.push("--plan");
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     try { await makeCmd().parseAsync(args); }
@@ -187,7 +187,7 @@ describe("Bootstrap CLI", () => {
   it("archive plan handles a response beyond the default five-second budget", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     try {
-      await makeCmd().parseAsync(["node", "rig", "bootstrap", "slow.rigbundle", "--plan", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bootstrap", "slow.softwareteambundle", "--plan", "--json"]);
       expect(lastReq.url).toBe("/api/bundles/install");
       expect(JSON.parse(lastReq.body).plan).toBe(true);
       expect(JSON.parse(log.mock.calls[0]![0] as string).status).toBe("planned");
@@ -199,14 +199,14 @@ describe("Bootstrap CLI", () => {
     const client = deps.clientFactory(`http://127.0.0.1:${port}`);
     const post = vi.spyOn(client, "post");
     const prog = new Command().addCommand(bootstrapCommand({ ...deps, clientFactory: () => client }));
-    await captureLogs(() => prog.parseAsync(["node", "rig", "bootstrap", "rig.yaml", "--plan", "--json"]).then(() => {}));
+    await captureLogs(() => prog.parseAsync(["node", "softwareTeam", "bootstrap", "software-team.yaml", "--plan", "--json"]).then(() => {}));
     expect(post.mock.calls[0]![0]).toBe("/api/bootstrap/plan");
     expect(post.mock.calls[0]![2]).toBeUndefined();
   });
 
   it("bootstrap blocked returns exit code 1", async () => {
     const { exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bootstrap", "/tmp/rig.yaml"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bootstrap", "/tmp/software-team.yaml"]);
     });
     expect(exitCode).toBe(1);
   });
@@ -214,7 +214,7 @@ describe("Bootstrap CLI", () => {
   // T5: --json outputs parseable JSON
   it("--json outputs parseable JSON", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bootstrap", "/tmp/rig.yaml", "--plan", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bootstrap", "/tmp/software-team.yaml", "--plan", "--json"]);
     });
     const parsed = JSON.parse(logs.join(""));
     expect(parsed.status).toBe("planned");
@@ -236,7 +236,7 @@ describe("Bootstrap CLI", () => {
     prog.addCommand(bootstrapCommand(runningDeps(failPort)));
 
     const { exitCode } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "bootstrap", "/tmp/rig.yaml", "--yes"]);
+      await prog.parseAsync(["node", "softwareTeam", "bootstrap", "/tmp/software-team.yaml", "--yes"]);
     });
 
     expect(exitCode).toBe(2);
@@ -256,7 +256,7 @@ describe("Bootstrap CLI", () => {
     prog.addCommand(bootstrapCommand(stoppedDeps));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "bootstrap", "/tmp/rig.yaml", "--plan"]);
+      await prog.parseAsync(["node", "softwareTeam", "bootstrap", "/tmp/software-team.yaml", "--plan"]);
     });
     expect(exitCode).toBe(1);
     expect(logs.some((l) => l.includes("Daemon not running"))).toBe(true);
@@ -265,7 +265,7 @@ describe("Bootstrap CLI", () => {
   // T8: no flags sends autoApprove=false
   it("bootstrap without --yes sends autoApprove=false", async () => {
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bootstrap", "/tmp/rig.yaml"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bootstrap", "/tmp/software-team.yaml"]);
     });
     const body = JSON.parse(lastReq.body);
     expect(body.autoApprove).toBe(false);
@@ -273,7 +273,7 @@ describe("Bootstrap CLI", () => {
 
   it("bootstrap --cwd sends absolute cwdOverride", async () => {
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bootstrap", "/tmp/rig.yaml", "--yes", "--cwd", "relative/project"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bootstrap", "/tmp/software-team.yaml", "--yes", "--cwd", "relative/project"]);
     });
     const body = JSON.parse(lastReq.body);
     expect(body.cwdOverride).toMatch(/^\//);
@@ -286,7 +286,7 @@ describe("Bootstrap CLI", () => {
       timeoutMs = options?.timeoutMs;
       return {
         status: 201,
-        data: { runId: "run-2", status: "completed", rigId: "rig-1", stages: [], errors: [], warnings: [] },
+        data: { runId: "run-2", status: "completed", softwareTeamId: "software-team-1", stages: [], errors: [], warnings: [] },
       };
     });
 
@@ -300,7 +300,7 @@ describe("Bootstrap CLI", () => {
     prog.addCommand(bootstrapCommand(deps));
 
     await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "bootstrap", "/tmp/rig.yaml", "--yes"]);
+      await prog.parseAsync(["node", "softwareTeam", "bootstrap", "/tmp/software-team.yaml", "--yes"]);
     });
 
     expect(timeoutMs).toBe(120_000);
@@ -311,8 +311,8 @@ describe("Bootstrap CLI", () => {
     const partialServer = http.createServer((_, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
-        runId: "run-p", status: "partial", rigId: "rig-p",
-        stages: [{ stage: "execute_external_installs", status: "failed" }, { stage: "import_rig", status: "ok" }],
+        runId: "run-p", status: "partial", softwareTeamId: "software-team-p",
+        stages: [{ stage: "execute_external_installs", status: "failed" }, { stage: "import_software_team", status: "ok" }],
         errors: ["brew install failed"], warnings: [],
       }));
     });
@@ -324,7 +324,7 @@ describe("Bootstrap CLI", () => {
     prog.addCommand(bootstrapCommand(runningDeps(partialPort)));
 
     const { exitCode } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "bootstrap", "/tmp/rig.yaml", "--yes"]);
+      await prog.parseAsync(["node", "softwareTeam", "bootstrap", "/tmp/software-team.yaml", "--yes"]);
     });
 
     expect(exitCode).toBe(1);
@@ -350,7 +350,7 @@ describe("Bootstrap CLI", () => {
     prog.addCommand(bootstrapCommand(runningDeps(invalidPort)));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "bootstrap", "/tmp/bad.yaml", "--plan"]);
+      await prog.parseAsync(["node", "softwareTeam", "bootstrap", "/tmp/bad.yaml", "--plan"]);
     });
 
     expect(exitCode).toBe(2);
@@ -367,12 +367,12 @@ describe("Bootstrap CLI", () => {
         status: "failed",
         stages: [
           {
-            stage: "import_rig",
+            stage: "import_software_team",
             status: "failed",
-            detail: { ok: false, code: "preflight_failed", errors: ["Rig name already exists", "tmux session already exists"] },
+            detail: { ok: false, code: "preflight_failed", errors: ["SoftwareTeam name already exists", "tmux session already exists"] },
           },
         ],
-        errors: ["Rig import failed: preflight_failed"],
+        errors: ["SoftwareTeam import failed: preflight_failed"],
         warnings: [],
       }));
     });
@@ -384,11 +384,11 @@ describe("Bootstrap CLI", () => {
     prog.addCommand(bootstrapCommand(runningDeps(failedPort)));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "bootstrap", "/tmp/rig.yaml", "--yes"]);
+      await prog.parseAsync(["node", "softwareTeam", "bootstrap", "/tmp/software-team.yaml", "--yes"]);
     });
 
     expect(exitCode).toBe(2);
-    expect(logs.some((l) => l.includes("Rig name already exists"))).toBe(true);
+    expect(logs.some((l) => l.includes("SoftwareTeam name already exists"))).toBe(true);
     expect(logs.some((l) => l.includes("tmux session already exists"))).toBe(true);
     failedApplyServer.close();
   });
@@ -402,7 +402,7 @@ describe("Bootstrap CLI", () => {
       req.on("end", () => {
         if (url === "/api/specs/library") {
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify([{ id: "lib1", name: "my-lib-rig", sourcePath: "/specs/my-lib-rig.yaml", kind: "rig", version: "0.2", sourceType: "user_file" }]));
+          res.end(JSON.stringify([{ id: "lib1", name: "my-lib-software-team", sourcePath: "/specs/my-lib-software-team.yaml", kind: "softwareTeam", version: "0.2", sourceType: "user_file" }]));
         } else if (url.includes("/api/bootstrap")) {
           const parsed = JSON.parse(body);
           capturedSourceRef = parsed.sourceRef;
@@ -422,12 +422,12 @@ describe("Bootstrap CLI", () => {
     prog.addCommand(bootstrapCommand(runningDeps(libPort)));
 
     await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "bootstrap", "my-lib-rig", "--yes"]);
+      await prog.parseAsync(["node", "softwareTeam", "bootstrap", "my-lib-software-team", "--yes"]);
     });
 
     libServer.close();
 
     // The resolved sourceRef must be the library file path, not the raw name
-    expect(capturedSourceRef).toBe("/specs/my-lib-rig.yaml");
+    expect(capturedSourceRef).toBe("/specs/my-lib-software-team.yaml");
   });
 });

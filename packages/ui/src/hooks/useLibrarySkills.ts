@@ -12,7 +12,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-export type LibrarySkillSource = "workspace" | "openrig-managed";
+export type LibrarySkillSource = "workspace" | "softwareteam-managed";
 
 export interface LibrarySkillFile {
   /** Filename only (no path prefix). */
@@ -25,7 +25,7 @@ export interface LibrarySkillFile {
 
 export interface LibrarySkillEntry {
   /** Stable id incl. source + relative path within source tree
-   *  (e.g., "openrig-managed:core/openrig-user" or "workspace:<root-name>:skill-name"). */
+   *  (e.g., "softwareteam-managed:core/softwareteam-user" or "workspace:<root-name>:skill-name"). */
   id: string;
   /** Leaf skill folder name. */
   name: string;

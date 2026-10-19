@@ -50,10 +50,10 @@ const FLEET: ComposedFleet = {
         identity: "qi-l1",
         fleetKey: "local|qi-l1",
         hostId: "local",
-        seenFrom: ["rig"],
+        seenFrom: ["softwareTeam"],
         summary: "sign-off needed: release brief",
         leg: "human-gate",
-        where: "rig",
+        where: "softwareTeam",
         ageIso: null,
         priority: "urgent",
         tier: "human-gate",
@@ -68,10 +68,10 @@ const FLEET: ComposedFleet = {
         identity: "qi-a2|stuck|t0",
         fleetKey: "vps-a|qi-a2|stuck|t0",
         hostId: "vps-a",
-        seenFrom: ["rig"],
+        seenFrom: ["softwareTeam"],
         summary: "packer2 idle 47m with work",
         leg: "stuck",
-        where: "rig",
+        where: "softwareTeam",
         ageIso: null,
         priority: null,
         tier: null,
@@ -86,10 +86,10 @@ const FLEET: ComposedFleet = {
         identity: "qi-a3|overdue|t1",
         fleetKey: "vps-a|qi-a3|overdue|t1",
         hostId: "vps-a",
-        seenFrom: ["rig"],
+        seenFrom: ["softwareTeam"],
         summary: "closeout sitting 2d",
         leg: "overdue",
-        where: "rig",
+        where: "softwareTeam",
         ageIso: null,
         priority: null,
         tier: null,
@@ -103,8 +103,8 @@ const FLEET: ComposedFleet = {
     provenance: "fleet union of each host's own composed set · counted once per identity+host · 2/3 hosts composing (a failed host's items are ABSENT, not zero)",
   },
   hosts: [
-    { hostId: "local", kind: "local", status: { hostId: "local", status: "ok" }, needsYouCount: 1, exceptionsByKind: [], seatCount: 3, rigCount: 2, topLine: "● sign-off needed: release brief" },
-    { hostId: "vps-a", kind: "remote", status: { hostId: "vps-a", status: "ok" }, needsYouCount: 0, exceptionsByKind: [{ kind: "overdue", count: 1 }, { kind: "stuck", count: 1 }], seatCount: 4, rigCount: 1, topLine: "▲ stuck — packer2 idle 47m with work" },
+    { hostId: "local", kind: "local", status: { hostId: "local", status: "ok" }, needsYouCount: 1, exceptionsByKind: [], seatCount: 3, softwareTeamCount: 2, topLine: "● sign-off needed: release brief" },
+    { hostId: "vps-a", kind: "remote", status: { hostId: "vps-a", status: "ok" }, needsYouCount: 0, exceptionsByKind: [{ kind: "overdue", count: 1 }, { kind: "stuck", count: 1 }], seatCount: 4, softwareTeamCount: 1, topLine: "▲ stuck — packer2 idle 47m with work" },
     { hostId: "vps-b", kind: "remote", status: { hostId: "vps-b", status: "unreachable", error: "ECONNREFUSED", failedStep: "remote-daemon-unreachable" } },
   ],
   settled: [
@@ -160,7 +160,7 @@ describe("FleetPage — the glance (locked twin fleet-glance-route-dark anatomy)
     expect(stuck.textContent).toContain("packer2 idle 47m with work");
     expect(stuck.textContent).toContain("idle 47m >= 30m default · holds 2");
     expect(stuck.textContent).toContain("threshold: stuck >= 30m idle");
-    expect(stuck.textContent).toContain("counted once · seen from rig on vps-a");
+    expect(stuck.textContent).toContain("counted once · seen from SoftwareTeam on vps-a");
     const gate = getByTestId("fleet-needs-you-local|qi-l1");
     expect(gate.getAttribute("data-source")).toBe("agent");
     // The union provenance line renders verbatim.
@@ -184,14 +184,14 @@ describe("FleetPage — the glance (locked twin fleet-glance-route-dark anatomy)
     expect(rollup).toContain("1 unreachable");
   });
 
-  it("HOSTS band: ok rows carry counts + seat/rig math + open →; header math is checkable against them", async () => {
+  it("HOSTS band: ok rows carry counts + seat/SoftwareTeam math + open →; header math is checkable against them", async () => {
     stubFleetFetch(FLEET);
     const { getByTestId } = renderFleetPage();
     await waitFor(() => expect(getByTestId("fleet-hosts")).toBeTruthy());
     const vpsA = getByTestId("fleet-host-vps-a");
     expect(vpsA.textContent).toContain("▲ 1 overdue");
     expect(vpsA.textContent).toContain("▲ 1 stuck");
-    expect(vpsA.textContent).toContain("1 rigs · 4 seats");
+    expect(vpsA.textContent).toContain("1 softwareTeams · 4 seats");
     expect(getByTestId("fleet-host-vps-a-open")).toBeTruthy();
     // Header-math property on an HONEST payload: rollup == per-host sums.
     const local = getByTestId("fleet-host-local");
@@ -208,7 +208,7 @@ describe("FleetPage — unreachable honesty (absent-not-zero + a REAL refetch re
     const vpsB = getByTestId("fleet-host-vps-b");
     expect(vpsB.textContent).toContain("unreachable — ECONNREFUSED");
     expect(vpsB.textContent).toContain("items absent from this glance, not zero");
-    expect(vpsB.textContent).not.toContain("rigs ·");
+    expect(vpsB.textContent).not.toContain("softwareTeams ·");
     expect(getByTestId("fleet-host-vps-b-retry")).toBeTruthy();
   });
 
@@ -240,7 +240,7 @@ describe("FleetPage — ?open=<fleetKey> expanded drawer (locked twin fleet-exce
 
 describe("FleetPage — the loud registryError state", () => {
   it("an existing-but-unreadable registry renders the LOCAL-ONLY warning, never a silent fleet", async () => {
-    stubFleetFetch({ ...FLEET, registryError: "failed to parse host registry YAML at ~/.openrig/hosts.yaml" });
+    stubFleetFetch({ ...FLEET, registryError: "failed to parse host registry YAML at ~/.softwareteam/hosts.yaml" });
     const { getByTestId } = renderFleetPage();
     await waitFor(() => expect(getByTestId("fleet-registry-error")).toBeTruthy());
     expect(getByTestId("fleet-registry-error").textContent).toContain("LOCAL-ONLY, not the fleet");

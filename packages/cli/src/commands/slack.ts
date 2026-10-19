@@ -1,10 +1,10 @@
-// `rig slack` — Slack connector configuration + subsystem admin.
+// `softwareTeam slack` — Slack connector configuration + subsystem admin.
 //
-// S10 (OPR.0.5.5.10) CUTOVER: the slice-11 relay runners (`rig slack outbound` sweep +
-// `rig slack inbound` Socket Mode loop) are RETIRED — the gateway runs as an in-daemon
+// S10 (OPR.0.5.5.10) CUTOVER: the slice-11 relay runners (`softwareTeam slack outbound` sweep +
+// `softwareTeam slack inbound` Socket Mode loop) are RETIRED — the gateway runs as an in-daemon
 // subsystem (amended M1 §3) that owns Slack delivery and inbound directly. The retired verbs
 // refuse with teaching (never silently do nothing); the config surfaces (setup/status/verify)
-// stay, backed by the daemon-homed modules via the narrow @openrig/daemon/gateway-slack
+// stay, backed by the daemon-homed modules via the narrow @softwareteam/daemon/gateway-slack
 // surface (dep rail: lazy import at invocation). enable/disable are daemon admin calls now —
 // the daemon owns the queue and the durable seen-state, and the enable-time backlog-seeding
 // rule (slice-11 item 9) executes daemon-side before the wire goes live.
@@ -31,7 +31,7 @@ import type {
   BASELINE_REQUIRED_SCOPES as BaselineScopes,
   SlackConnectorConfig,
   FetchImpl,
-} from "@openrig/daemon/gateway-slack";
+} from "@softwareteam/daemon/gateway-slack";
 
 // S10: the incoming-webhook secret retired with the relay — outbound posts via the Web API
 // (bot token) on the in-daemon subsystem.
@@ -106,16 +106,16 @@ export interface SlackDeps {
 const RETIRED_TEACHING =
   "retired (S10 cutover): the gateway runs IN-DAEMON now — the subsystem polls the queue, posts to Slack, " +
   "and consumes Socket Mode inbound itself; there is no relay runner to invoke. " +
-  "Check `rig slack status` for configuration, `curl /api/health-summary/gateway` for subsystem health, " +
-  "and `rig slack enable` to activate delivery.";
+  "Check `SoftwareTeam slack status` for configuration, `curl /api/health-summary/gateway` for subsystem health, " +
+  "and `SoftwareTeam slack enable` to activate delivery.";
 
 const MANIFEST_FIRST_STEP =
-  "`rig slack manifest --url` prints a link that creates your own Slack app from OpenRig's manifest (see `rig slack manifest --help`)";
+  "`SoftwareTeam slack manifest --url` prints a link that creates your own Slack app from SoftwareTeam's manifest (see `SoftwareTeam slack manifest --help`)";
 
 // #192: a saved config change reaches the running connector when it next rewires.
 const CHANNEL_MAP_APPLY =
-  "Invite the app to every mapped channel, then `rig slack verify`. A running connector picks up the change " +
-  "when it next rewires (`rig slack disable` then `rig slack enable`, or a daemon restart).";
+  "Invite the app to every mapped channel, then `SoftwareTeam slack verify`. A running connector picks up the change " +
+  "when it next rewires (`SoftwareTeam slack disable` then `SoftwareTeam slack enable`, or a daemon restart).";
 
 function resolveSecrets(surface: SlackSurface, cfg: SlackConnectorConfig): { bot: string | null; app: string | null } {
   const envFile = cfg.secretsEnvFile ?? undefined;
@@ -127,7 +127,7 @@ function resolveSecrets(surface: SlackSurface, cfg: SlackConnectorConfig): { bot
 
 export function slackCommand(deps: SlackDeps = {}): Command {
   const log = deps.log ?? ((m: string) => console.log(m));
-  const loadSurface = deps.surface ?? (async () => (await import("@openrig/daemon/gateway-slack")) as SlackSurface);
+  const loadSurface = deps.surface ?? (async () => (await import("@softwareteam/daemon/gateway-slack")) as SlackSurface);
   const clientFactory = deps.clientFactory ?? (() => new DaemonClient());
 
   const cmd = new Command("slack").description("Slack connector: configuration + in-daemon subsystem admin (S10)");
@@ -158,7 +158,7 @@ export function slackCommand(deps: SlackDeps = {}): Command {
         secretsEnvFile: opts.secretsEnvFile ?? cur.secretsEnvFile,
         requiredScopes: opts.requiredScopes ? String(opts.requiredScopes).split(",").map((s: string) => s.trim()).filter(Boolean) : cur.requiredScopes,
       };
-      const { runChannelOperation, channelStateDigest } = await import("@openrig/daemon/gateway-slack");
+      const { runChannelOperation, channelStateDigest } = await import("@softwareteam/daemon/gateway-slack");
       const result = await runChannelOperation({
         actor: resolveSenderSession() ?? opts.actor ?? SENDER_FALLBACK, provenance: "claimed:v1",
         reason: opts.reason, action: "configure", subject: "slack", before: { digest: channelStateDigest(cur) },
@@ -166,7 +166,7 @@ export function slackCommand(deps: SlackDeps = {}): Command {
           effect: channelStateDigest(cur) === channelStateDigest(next) ? "no-op" : "applied" }),
       }, deps.home);
       log(`wrote ${result.value}; receipt ${result.receipt.id} (${result.receipt.effect})`);
-      log(`Next: if you have no Slack app yet, start with ${MANIFEST_FIRST_STEP}. Then put SLACK_BOT_TOKEN / SLACK_APP_TOKEN in ${next.secretsEnvFile ?? "<--secrets-env-file> (0600)"}, then \`rig slack verify\`, then \`rig slack enable\`.`);
+      log(`Next: if you have no Slack app yet, start with ${MANIFEST_FIRST_STEP}. Then put SLACK_BOT_TOKEN / SLACK_APP_TOKEN in ${next.secretsEnvFile ?? "<--secrets-env-file> (0600)"}, then \`SoftwareTeam slack verify\`, then \`SoftwareTeam slack enable\`.`);
     });
 
   // ---- status (local configuration + bounded daemon snapshot; no Slack calls) ----
@@ -244,26 +244,26 @@ export function slackCommand(deps: SlackDeps = {}): Command {
   // ---- manifest (offline: no daemon, no tokens, no network) ----
   cmd
     .command("manifest")
-    .description("Print the Slack app manifest for creating your own OpenRig Slack app (offline)")
+    .description("Print the Slack app manifest for creating your own SoftwareTeam Slack app (offline)")
     .option("--url", "print Slack's create-app link with the manifest prefilled (URL-encoded)")
     .option("--json", "JSON output: the manifest plus its bot scopes and bot events")
     .addHelpText("after", [
       "",
       "Creates nothing: open the --url link yourself in a browser signed in to your Slack workspace.",
       "If Slack shows an empty manifest or parsing error with --url, paste the plain YAML output of",
-      "`rig slack manifest` into the YAML tab in Slack's \"Create an app from an app manifest\" dialog.",
-      "The app is private to that workspace (Socket Mode; OpenRig hosts nothing and publishes nothing).",
-      "--json lists every requested scope and why. `rig slack verify` checks only the baseline scopes,",
+      "`SoftwareTeam slack manifest` into the YAML tab in Slack's \"Create an app from an app manifest\" dialog.",
+      "The app is private to that workspace (Socket Mode; SoftwareTeam hosts nothing and publishes nothing).",
+      "--json lists every requested scope and why. `SoftwareTeam slack verify` checks only the baseline scopes,",
       "so a READY there does not prove attachments or mentions have their grants.",
       "Steps after creating the app: docs/reference/slack-app-setup.md",
-      "(installed: $OPENRIG_HOME/reference/slack-app-setup.md).",
+      "(installed: $SOFTWARETEAM_HOME/reference/slack-app-setup.md).",
     ].join("\n"))
     .action(async (opts) => {
       const surface = await loadSurface();
       const bundle = surface.buildSlackAppManifest();
       if (opts.json) {
         const reasons: Record<string, string> = {};
-        for (const scope of surface.BASELINE_REQUIRED_SCOPES) reasons[scope] = "baseline: checked by `rig slack verify`";
+        for (const scope of surface.BASELINE_REQUIRED_SCOPES) reasons[scope] = "baseline: checked by `SoftwareTeam slack verify`";
         for (const f of surface.FEATURE_SCOPES) reasons[f.scope] = `feature, not checked by verify: ${f.usedBy}`;
         log(JSON.stringify({
           manifest: bundle.manifest, url: bundle.url, scopes: bundle.scopes, events: bundle.events,
@@ -285,7 +285,7 @@ export function slackCommand(deps: SlackDeps = {}): Command {
       const surface = await loadSurface();
       const cfg = surface.loadConfig(deps.home);
       const s = resolveSecrets(surface, cfg);
-      const { runChannelOperation, channelStateDigest } = await import("@openrig/daemon/gateway-slack");
+      const { runChannelOperation, channelStateDigest } = await import("@softwareteam/daemon/gateway-slack");
       const verification = await runChannelOperation({
         actor: resolveSenderSession() ?? opts.actor ?? SENDER_FALLBACK, provenance: "claimed:v1",
         reason: opts.reason, action: "verify", subject: "slack", before: { digest: channelStateDigest(cfg) },
@@ -335,16 +335,16 @@ export function slackCommand(deps: SlackDeps = {}): Command {
       if (!ready) process.exitCode = 1;
     });
 
-  // ---- channel-map (#192: per-rig / per-seat channels; local configuration, no Slack calls) ----
+  // ---- channel-map (#192: per-softwareTeam / per-seat channels; local configuration, no Slack calls) ----
   const channelMap = cmd
     .command("channel-map")
-    .description("Post a rig's or seat's human-bound items to its own channel (list | set | remove)")
+    .description("Post a softwareTeam's or seat's human-bound items to its own channel (list | set | remove)")
     .addHelpText("after", [
       "",
-      "A match is a rig name (my-rig) or a seat (lead@my-rig). The most specific match wins (seat, then",
-      "rig); anything unmapped, and aggregate digests, use the default channel (`rig slack setup --channel`).",
+      "A match is a SoftwareTeam name (my-software-team) or a seat (lead@my-software-team). The most specific match wins (seat, then",
+      "softwareTeam); anything unmapped, and aggregate digests, use the default channel (`SoftwareTeam slack setup --channel`).",
       "Replies in a thread reach that thread's seat in every channel; other messages the human starts go to",
-      "the inbound destination (`rig slack setup --inbound-destination`), whichever channel they are in.",
+      "the inbound destination (`SoftwareTeam slack setup --inbound-destination`), whichever channel they are in.",
     ].join("\n"));
 
   // A config the connector cannot load (a hand-edited, invalid map) must fail loudly here too; on a
@@ -379,7 +379,7 @@ export function slackCommand(deps: SlackDeps = {}): Command {
     const { channelMap: _previous, ...rest } = cur;
     // An emptied map is removed, so the file returns to the shape it had before any entry.
     const next: SlackConnectorConfig = map && map.length ? { ...rest, channelMap: map } : rest;
-    const { runChannelOperation, channelStateDigest } = await import("@openrig/daemon/gateway-slack");
+    const { runChannelOperation, channelStateDigest } = await import("@softwareteam/daemon/gateway-slack");
     const result = await runChannelOperation({
       actor: resolveSenderSession() ?? opts.actor ?? SENDER_FALLBACK, provenance: "claimed:v1",
       reason: opts.reason, action: "configure", subject: "slack", before: { digest: channelStateDigest(cur) },
@@ -391,7 +391,7 @@ export function slackCommand(deps: SlackDeps = {}): Command {
 
   channelMap
     .command("list")
-    .description("Show the default channel and every mapped rig or seat with its channel")
+    .description("Show the default channel and every mapped SoftwareTeam or seat with its channel")
     .option("--json", "JSON output")
     .action(async (opts) => {
       const surface = await loadSurface();
@@ -402,14 +402,14 @@ export function slackCommand(deps: SlackDeps = {}): Command {
         log(JSON.stringify({ default: cfg.channel, entries }));
         return;
       }
-      log(`default -> ${cfg.channel ?? "(unset: rig slack setup --channel)"}`);
+      log(`default -> ${cfg.channel ?? "(unset: SoftwareTeam slack setup --channel)"}`);
       if (entries.length === 0) log("no channel map entries: every item uses the default channel");
       for (const e of entries) log(`${e.match} -> ${e.channel}`);
     });
 
   channelMap
     .command("set <match> <channel>")
-    .description("Map a rig (my-rig) or seat (lead@my-rig) to a Slack channel id; replaces an existing entry")
+    .description("Map a softwareTeam (my-software-team) or seat (lead@my-software-team) to a Slack channel id; replaces an existing entry")
     .option("--reason <reason>", "Reason recorded with the configuration change", "configure the slack channel map")
     .option("--actor <actor>", "Named operator when outside a managed seat")
     .action(async (match: string, channel: string, opts) => {
@@ -429,7 +429,7 @@ export function slackCommand(deps: SlackDeps = {}): Command {
 
   channelMap
     .command("remove <match>")
-    .description("Remove a rig's or seat's entry; it falls back to its rig's entry or the default channel")
+    .description("Remove a softwareTeam's or seat's entry; it falls back to its softwareTeam's entry or the default channel")
     .option("--reason <reason>", "Reason recorded with the configuration change", "configure the slack channel map")
     .option("--actor <actor>", "Named operator when outside a managed seat")
     .action(async (match: string, opts) => {
@@ -439,7 +439,7 @@ export function slackCommand(deps: SlackDeps = {}): Command {
       if (refuseUnsupported(surface, cur)) return;
       const { map, removed } = surface.removeChannelMapEntry(cur.channelMap, match);
       if (!removed) {
-        log(`✗ no channel map entry for '${match}' (rig slack channel-map list shows the entries)`);
+        log(`✗ no channel map entry for '${match}' (SoftwareTeam slack channel-map list shows the entries)`);
         process.exitCode = 1;
         return;
       }

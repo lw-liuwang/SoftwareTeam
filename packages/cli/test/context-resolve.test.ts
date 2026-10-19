@@ -32,9 +32,9 @@ describe("resolveContextRef (Atom 6b)", () => {
       error = caught as Error;
     }
     expect(error?.message).toBe(
-      "Context pack 'packs/absent' not found in library. Run 'rig context list' to see the available refs.",
+      "Context pack 'packs/absent' not found in library. Run 'SoftwareTeam context list' to see the available refs.",
     );
-    expect(error?.message).not.toContain("rig context-pack");
+    expect(error?.message).not.toContain("SoftwareTeam context-pack");
   });
 
   it("throws the daemon's structured unsafe message for a 400", async () => {
@@ -52,9 +52,9 @@ describe("walkSizedWarning (Atom 6b — §4 size warn)", () => {
     expect(walkSizedWarning({ ref: "packs/x", text: "", bytes: WALK_SIZED_THRESHOLD_BYTES })).toBeNull();
   });
 
-  it("advises rig walk (naming the seat + ref) above the threshold", () => {
-    const w = walkSizedWarning({ ref: "packs/big", text: "", bytes: WALK_SIZED_THRESHOLD_BYTES + 1 }, "dev@rig");
+  it("advises SoftwareTeam walk (naming the seat + ref) above the threshold", () => {
+    const w = walkSizedWarning({ ref: "packs/big", text: "", bytes: WALK_SIZED_THRESHOLD_BYTES + 1 }, "dev@software-team");
     expect(w).toMatch(/walk-sized/);
-    expect(w).toMatch(/rig walk dev@rig --through packs\/big/);
+    expect(w).toMatch(/SoftwareTeam walk dev@software-team --through packs\/big/);
   });
 });

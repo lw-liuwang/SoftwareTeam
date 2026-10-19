@@ -14,8 +14,8 @@ import type { HostRegistry } from "../src/domain/hosts/hosts-registry-reader.js"
 
 const REGISTRY: HostRegistry = {
   hosts: [
-    { id: "vps-b", transport: "http", url: "http://vps-b:7433", bearer_env: "B" },
-    { id: "vps-c", transport: "http", url: "http://vps-c:7433", bearer_env: "C" },
+    { id: "vps-b", transport: "http", url: "http://vps-b:7434", bearer_env: "B" },
+    { id: "vps-c", transport: "http", url: "http://vps-c:7434", bearer_env: "C" },
     { id: "ssh-1", transport: "ssh", target: "x.local" },
   ],
 };

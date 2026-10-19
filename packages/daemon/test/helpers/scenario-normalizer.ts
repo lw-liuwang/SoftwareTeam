@@ -8,17 +8,17 @@
  * signature is untouched and the runner's equals branch is unchanged.
  *
  * The problem it solves: the shipped surfaces answer in structurally different
- * shapes, so raw comparison always differs. `rig ps --json` is an array of rig
- * records; `rig queue list --json` is an array of qitems whose destinationSession
- * is `<pod>-<member>@<rig>`. Comparing them requires DECLARING which field of each
+ * shapes, so raw comparison always differs. `SoftwareTeam ps --json` is an array of softwareTeam
+ * records; `SoftwareTeam queue list --json` is an array of qitems whose destinationSession
+ * is `<pod>-<member>@<softwareTeam>`. Comparing them requires DECLARING which field of each
  * carries the shared truth — that declaration is what a normalizer is.
  *
  *   equals:
  *     ps:    { pluck: name }                          # -> ["scn-baton"]
- *     queue: { pluck: destinationSession, rig: true } # -> ["scn-baton"]
+ *     queue: { pluck: destinationSession, softwareTeam: true } # -> ["scn-baton"]
  *
  * Projections are deliberately tiny and total: pluck a field from each element of
- * an array surface, optionally reduce a session name to its rig, then dedupe and
+ * an array surface, optionally reduce a session name to its softwareTeam, then dedupe and
  * sort so the comparison is order-insensitive (two surfaces agreeing on a SET
  * should not fail because they enumerate it differently).
  */
@@ -46,8 +46,8 @@ export class ProjectionError extends Error {
 export interface SurfaceProjection {
   /** Field to take from each element of an array surface (e.g. `name`). */
   pluck?: string;
-  /** Reduce a canonical session name (`<pod>-<member>@<rig>`) to its rig part. */
-  rig?: boolean;
+  /** Reduce a canonical session name (`<pod>-<member>@<softwareTeam>`) to its softwareTeam part. */
+  softwareTeam?: boolean;
   /** Read a nested field from an OBJECT surface before projecting (dot path). */
   path?: string;
 }
@@ -68,7 +68,7 @@ function readPath(value: unknown, path: string): unknown {
 }
 
 /** `dev-worker@scn-baton` -> `scn-baton`. Left unchanged when there is no `@`. */
-export function rigOf(session: string): string {
+export function softwareTeamOf(session: string): string {
   const at = session.lastIndexOf("@");
   return at < 0 ? session : session.slice(at + 1);
 }
@@ -86,7 +86,7 @@ export function projectSurface(
   const plucked = items
     .map((item) => (item && typeof item === "object" ? (item as Record<string, unknown>)[spec.pluck!] : undefined))
     .filter((v): v is string => typeof v === "string" && v.length > 0)
-    .map((v) => (spec.rig ? rigOf(v) : v));
+    .map((v) => (spec.softwareTeam ? softwareTeamOf(v) : v));
   // A declaration that matches nothing on a surface that HAS data is a broken
   // declaration, not evidence of agreement. Fail loud; never return [] here.
   if (plucked.length === 0 && nonEmptyInput) {
@@ -98,7 +98,7 @@ export function projectSurface(
     );
   }
   // Set semantics: dedupe + sort, so agreement on the SET is not defeated by order
-  // or by one surface listing the same rig twice (N qitems, one rig).
+  // or by one surface listing the same softwareTeam twice (N qitems, one softwareTeam).
   return [...new Set(plucked)].sort();
 }
 

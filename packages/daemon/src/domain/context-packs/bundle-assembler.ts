@@ -1,4 +1,4 @@
-// Rig Context / Composable Context Injection v0 (PL-014) — bundle
+// SoftwareTeam Context / Composable Context Injection v0 (PL-014) — bundle
 // assembler.
 //
 // Concatenates a context_pack's included files into a single coherent
@@ -83,14 +83,14 @@ export function assemblePlainFiles(opts: { files: PlainFileInput[] }): PlainFile
   };
 }
 
-const PACK_HEADER_PREFIX = "# OpenRig Context Pack:";
+const PACK_HEADER_PREFIX = "# SoftwareTeam Context Pack:";
 const FILE_HEADER_PREFIX = "## File:";
 
 /**
  * Assembles a context pack into a single paste-ready string.
  *
  * Frame:
- *   # OpenRig Context Pack: <name> v<version>
+ *   # SoftwareTeam Context Pack: <name> v<version>
  *   <purpose, if any>
  *
  *   ## File: <path> (role: <role>)

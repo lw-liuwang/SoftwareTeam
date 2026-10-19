@@ -1,4 +1,4 @@
-# OpenRig architecture
+# SoftwareTeam architecture
 
 > **This map is not the territory.** It is a zoomed-out guide for finding your way around the
 > code. It is incomplete by design and it may be stale. Where it disagrees with the code, the code
@@ -6,13 +6,13 @@
 > commit `c750304f` (0.6.6 development). Each count shows the command that produced it, so you
 > can re-run it.
 
-## What OpenRig is
+## What SoftwareTeam is
 
-OpenRig runs a team of coding agents on your machine as one system. A local daemon keeps the team's
+SoftwareTeam runs a team of coding agents on your machine as one system. A local daemon keeps the team's
 state in SQLite and runs each agent as an ordinary Claude Code or Codex session (or a plain
 terminal, a Pi or Oh My Pi (OMP) runner, or a scripted test stub) inside tmux. People and agents drive it through the
-`rig` CLI, a terminal UI (TUI) and an MCP server, all of which talk to the daemon over local HTTP.
-The agents themselves are unmodified. What OpenRig adds is the coordination around them: launching
+`SoftwareTeam` CLI, a terminal UI (TUI) and an MCP server, all of which talk to the daemon over local HTTP.
+The agents themselves are unmodified. What SoftwareTeam adds is the coordination around them: launching
 and restoring agents, delivering messages, keeping durable work in a queue, and giving each agent
 the right skills and context.
 
@@ -20,10 +20,10 @@ the right skills and context.
 
 | Directory | Package | What it is | How it ships |
 |---|---|---|---|
-| `packages/daemon` | `@openrig/daemon` (private) | The daemon: HTTP routes, domain services, SQLite migrations, runtime adapters, built-in specs, skills, plugins, static context-pack sources | Copied into `@openrig/cli` |
-| `packages/cli` | `@openrig/cli` | The `rig` command, the MCP server, daemon start and stop | The only published package |
-| `packages/tui` | `@openrig/tui` (private) | The terminal UI | Copied into `@openrig/cli`; opened by `rig tui`, by bare `rig` in a terminal, or by the `openrig-tui` bin |
-| `packages/ui` | `@openrig/ui` (private) | The React web UI, in **maintenance mode**: it still ships and runs, but gets no new feature work. The CLI and TUI are the supported surfaces | Built files copied into `@openrig/cli` and served by the daemon |
+| `packages/daemon` | `@softwareteam/daemon` (private) | The daemon: HTTP routes, domain services, SQLite migrations, runtime adapters, built-in specs, skills, plugins, static context-pack sources | Copied into `@softwareteam/cli` |
+| `packages/cli` | `@softwareteam/cli` | The `SoftwareTeam` command, the MCP server, daemon start and stop | The only published package |
+| `packages/tui` | `@softwareteam/tui` (private) | The terminal UI | Copied into `@softwareteam/cli`; opened by `SoftwareTeam tui`, by bare `SoftwareTeam` in a terminal, or by the `softwareteam-tui` bin |
+| `packages/ui` | `@softwareteam/ui` (private) | The React web UI, in **maintenance mode**: it still ships and runs, but gets no new feature work. The CLI and TUI are the supported surfaces | Built files copied into `@softwareteam/cli` and served by the daemon |
 | `packages/test-system` | none (not an npm workspace) | The stub-agent scenario library, the CI scenario harness, live-model eval cases | Not shipped |
 
 **What bundles what.** `packages/cli/package.json` publishes `LICENSE`, `dist`, `daemon`, `ui`,
@@ -35,7 +35,7 @@ user; `docs/as-built/` and this file do not.
 
 **Sharing code between packages.** The CLI and TUI import daemon code only through the subpaths in
 the `exports` field of `packages/daemon/package.json` (21 at this commit), for example
-`@openrig/daemon/attention`, which points at `packages/daemon/src/attention-surface.ts`. The CLI
+`@softwareteam/daemon/attention`, which points at `packages/daemon/src/attention-surface.ts`. The CLI
 uses 19 of them and the TUI uses 2. In development they resolve through the npm workspace. At
 package time `scripts/rewrite-daemon-imports.mjs` rewrites them to the shipped `daemon/dist` copy
 and fails the build on a specifier with no `exports` entry. To share new daemon code, add a
@@ -44,9 +44,9 @@ and fails the build on a specifier with no `exports` entry. To share new daemon 
 ## The request path
 
 ```
-  rig (CLI)            TUI            MCP server (rig mcp serve, stdio)
+  SoftwareTeam (CLI)            TUI            MCP server (SoftwareTeam mcp serve, stdio)
        \                |                /
-        +---- HTTP to the daemon (port 7433 by default) --------------+
+        +---- HTTP to the daemon (port 7434 by default) --------------+
                                 |
   packages/daemon/src/server.ts      createApp(): context middleware, /healthz, app.route("/api/...")
                                 |
@@ -73,9 +73,9 @@ and fails the build on a specifier with no `exports` entry. To share new daemon 
 - **`routes/`.** Thin handlers. For example, `routes/ps.ts` reads `psProjectionService` from the
   context and returns its entries as JSON. `routes/terminal-ws.ts` registers the terminal
   WebSocket, and `routes/require-sender-identity.ts` is a shared helper rather than a router.
-- **`domain/`.** The behaviour: repositories over SQLite (`rig-repository.ts`,
+- **`domain/`.** The behaviour: repositories over SQLite (`software-team-repository.ts`,
   `queue-repository.ts`, `session-registry.ts`), orchestration (`startup-orchestrator.ts`,
-  `node-launcher.ts`, `rigspec-instantiator.ts`), message delivery (`session-transport.ts`,
+  `node-launcher.ts`, `software-team-spec-instantiator.ts`), message delivery (`session-transport.ts`,
   `seat-delivery-guard.ts`) and events (`event-bus.ts`). Larger areas have their own
   subdirectories, such as `gateway/`, `provider/`, `policies/`, `scope/`, `context-packs/` and
   `mission-control/`.
@@ -87,7 +87,7 @@ and fails the build on a specifier with no `exports` entry. To share new daemon 
   the loopback and Tailscale bind detection used at startup.
 - **Live updates** go out as server-sent events: `routes/events.ts` uses Hono's `streamSSE`, and
   the TUI subscribes to `/api/activity/events`.
-- **State** lives in `$OPENRIG_HOME` (default `~/.openrig`). The database is `openrig.sqlite`
+- **State** lives in `$SOFTWARETEAM_HOME` (default `~/.softwareteam`). The database is `softwareteam.sqlite`
   there (`daemon-db-path.ts`).
 
 **The clients:**
@@ -95,18 +95,18 @@ and fails the build on a specifier with no `exports` entry. To share new daemon 
 - **CLI.** `createProgram()` in `packages/cli/src/index.ts` registers every top-level command;
   the commands live in `packages/cli/src/commands/`. Most are thin clients: they call a daemon route
   through `DaemonClient` (`packages/cli/src/client.ts`) and render the result. A few lifecycle
-  helpers open the database file directly. Bare `rig` in a terminal opens the TUI
+  helpers open the database file directly. Bare `SoftwareTeam` in a terminal opens the TUI
   (`packages/cli/src/front-door.ts`).
 - **MCP.** `createMcpServer(client)` in `packages/cli/src/mcp-server.ts` registers the tools over
-  the same `DaemonClient`. `rig mcp serve` (`packages/cli/src/commands/mcp.ts`) runs it on stdio.
+  the same `DaemonClient`. `SoftwareTeam mcp serve` (`packages/cli/src/commands/mcp.ts`) runs it on stdio.
 - **TUI.** `packages/tui/src/daemon-client.ts` is its only HTTP module. It reads existing daemon
-  projections, for example `/api/ps`, `/api/rigs/summary` and `/api/queue/list`, and the
+  projections, for example `/api/ps`, `/api/SoftwareTeams/summary` and `/api/queue/list`, and the
   `/api/activity/events` stream when the daemon offers it. The daemon URL comes from `--url`,
-  `OPENRIG_URL`, or `http://127.0.0.1:7433`. Agents can drive a running TUI through its control
+  `SOFTWARETEAM_URL`, or `http://127.0.0.1:7434`. Agents can drive a running TUI through its control
   socket (`packages/tui/src/socket-server.ts`).
 - **Web UI.** Served by the daemon from the bundled `ui/dist`.
 
-**In a development checkout,** `rig daemon start` prefers `packages/daemon/dist` over the bundled
+**In a development checkout,** `SoftwareTeam daemon start` prefers `packages/daemon/dist` over the bundled
 copy (`resolveDaemonPath` in `packages/cli/src/daemon-lifecycle.ts`), and the TUI launcher prefers
 `packages/tui/dist` (`packages/cli/src/front-door.ts`). Rebuild the package you changed. A daemon
 that is already running keeps running the code it started with.
@@ -117,11 +117,11 @@ At commit `c750304f`. Run these from the repository root to refresh them.
 
 | What | Count | Command |
 |---|---|---|
-| Database migrations | 94 files (latest: `095_rig_non_interruptive.ts`; there is no 093) | `git ls-files packages/daemon/src/db/migrations \| wc -l` |
+| Database migrations | 94 files (latest: `095_software_team_non_interruptive.ts`; there is no 093) | `git ls-files packages/daemon/src/db/migrations \| wc -l` |
 | Files in `routes/` | 67 | `git ls-files packages/daemon/src/routes \| wc -l` |
 | ... of which create a Hono router | 65 | `git grep -l 'new Hono' -- packages/daemon/src/routes \| wc -l` |
 | `app.route(...)` mounts in `server.ts` | 69 | `grep -c 'app.route(' packages/daemon/src/server.ts` |
-| Top-level `rig` commands | 87 | `grep -c 'program.addCommand(' packages/cli/src/index.ts` |
+| Top-level `SoftwareTeam` commands | 87 | `grep -c 'program.addCommand(' packages/cli/src/index.ts` |
 | Runtime adapters | 6 (`claude-code`, `codex`, `pi`, `omp`, `terminal`, `stub`); the command counts 5 because `OmpRuntimeAdapter` extends `PiRuntimeAdapter` | `git grep -l 'implements RuntimeAdapter' packages/daemon/src \| wc -l` |
 | MCP tools | 18 | `grep -c 'server.tool(' packages/cli/src/mcp-server.ts` |
 | Daemon `exports` subpaths | 21 | `node -p 'Object.keys(require("./packages/daemon/package.json").exports).length'` |
@@ -190,9 +190,9 @@ the authority.
 2. Register it in `packages/daemon/src/startup.ts`. The adapter maps are keyed by runtime name:
    `adapters:` (for the pod instantiator) and `runtimeAdapters:`. The context monitor has its own
    map for the runtimes it samples.
-3. Accept the runtime name in rig spec validation: `SUPPORTED_RUNTIMES` in
-   `packages/daemon/src/domain/rigspec-preflight.ts`. Other runtime lists, such as `RuntimeHint` in
-   `domain/discovery-types.ts` and `LEGACY_KNOWN_RUNTIMES` in `domain/rigspec-schema.ts`, may need
+3. Accept the runtime name in SoftwareTeam spec validation: `SUPPORTED_RUNTIMES` in
+   `packages/daemon/src/domain/software-team-spec-preflight.ts`. Other runtime lists, such as `RuntimeHint` in
+   `domain/discovery-types.ts` and `LEGACY_KNOWN_RUNTIMES` in `domain/software-team-spec-schema.ts`, may need
    it too; search for an existing runtime name such as `"pi"` to find them.
 4. Launch, projection and readiness are arteries. Read
    [docs/as-built/arteries.md](docs/as-built/arteries.md) first.
@@ -205,7 +205,7 @@ Skills ship from three copies in this repository (the "edges"), listed in
 | Edge | Path | Layout |
 |---|---|---|
 | `spec` | `packages/daemon/specs/agents/shared/skills/` | by category (`core`, `pm`, `pods`, `process`) |
-| `plugin` | `packages/daemon/assets/plugins/openrig-core/skills/` | flat |
+| `plugin` | `packages/daemon/assets/plugins/softwareteam-core/skills/` | flat |
 | `canonical` | `skills/_canonical/` | public mirror of the `spec` copy |
 
 Each skill in the layout file lists which edges carry it. At this commit, 33 skills are in `spec`
@@ -239,7 +239,7 @@ and `canonical`, 17 only in `plugin`, and 2 in all three.
 - `npm run generate-context-packs:check` (part of `npm test`) validates every pack through the
   daemon's own manifest parser, so build the daemon first. It also runs the leak scan over the
   static sources, including the `docs/reference/` files they link to.
-- The daemon serves the shipped packs through `rig context get`; `startup.ts` registers the bundled
+- The daemon serves the shipped packs through `SoftwareTeam context get`; `startup.ts` registers the bundled
   directory as its built-in root.
 
 ### A scenario
@@ -287,7 +287,7 @@ packages.
 - **Docs guard** (`scripts/check-docs-guard.mjs`). Under `docs/`, git may track only
   `docs/as-built/`, `docs/reference/`, `docs/releases/` and exactly `docs/DESIGN.md`;
   `.gitignore` ignores the rest of `docs/`. Remember that `docs/reference/` ships inside the npm
-  package, and the daemon copies its Markdown files to `$OPENRIG_HOME/reference/` when it
+  package, and the daemon copies its Markdown files to `$SOFTWARETEAM_HOME/reference/` when it
   starts. Files in `docs/as-built/` carry a `last-verified-against-source` commit in their
   frontmatter.
 - **Internal-leak guard** (`scripts/internal-leak-scanner.mjs`, with rules in

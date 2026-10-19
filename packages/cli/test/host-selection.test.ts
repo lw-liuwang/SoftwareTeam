@@ -15,11 +15,11 @@ describe("host selection (OPR.0.4.6.MH1)", () => {
 
   beforeEach(() => {
     tmp = mkdtempSync(join(tmpdir(), "mh1-sel-"));
-    for (const k of ["OPENRIG_HOME", "RIGGED_HOME", "OPENRIG_HOST_SELECTED", "OPENRIG_HOST_NAME"]) {
+    for (const k of ["SOFTWARETEAM_HOME", "SOFTWARETEAM_HOME", "SOFTWARETEAM_HOST_SELECTED", "SOFTWARETEAM_HOST_NAME"]) {
       savedEnv[k] = process.env[k];
       delete process.env[k];
     }
-    process.env["OPENRIG_HOME"] = tmp;
+    process.env["SOFTWARETEAM_HOME"] = tmp;
   });
 
   afterEach(() => {
@@ -53,9 +53,9 @@ describe("host selection (OPR.0.4.6.MH1)", () => {
     expect(resolveEffectiveHost(undefined)).toBeUndefined();
   });
 
-  it("the env override (OPENRIG_HOST_SELECTED) wins over the file (store precedence env > file)", () => {
+  it("the env override (SOFTWARETEAM_HOST_SELECTED) wins over the file (store precedence env > file)", () => {
     writeFileSync(join(tmp, "config.json"), JSON.stringify({ host: { selected: "vps-a" } }));
-    process.env["OPENRIG_HOST_SELECTED"] = "vps-env";
+    process.env["SOFTWARETEAM_HOST_SELECTED"] = "vps-env";
     expect(readSelectedHost()).toBe("vps-env");
   });
 
@@ -75,9 +75,9 @@ describe("host selection (OPR.0.4.6.MH1)", () => {
     expect(readOwnHostName()).toBe("Mac mini 2");
   });
 
-  it("the env override (OPENRIG_HOST_NAME) wins over the file for the own-host name", () => {
+  it("the env override (SOFTWARETEAM_HOST_NAME) wins over the file for the own-host name", () => {
     writeFileSync(join(tmp, "config.json"), JSON.stringify({ host: { name: "Mac mini 2" } }));
-    process.env["OPENRIG_HOST_NAME"] = "env-name";
+    process.env["SOFTWARETEAM_HOST_NAME"] = "env-name";
     expect(readOwnHostName()).toBe("env-name");
   });
 

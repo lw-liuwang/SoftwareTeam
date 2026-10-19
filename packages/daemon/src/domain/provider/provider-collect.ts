@@ -1,5 +1,5 @@
 // Slice-04 (OPR.0.5.0.4) seam C1 (resume) — the getReadModel COLLECTION seam. A pure function
-// over injected inputs (the codex-auth metadata reader + a cross-rig seat lister + a clock), so the
+// over injected inputs (the codex-auth metadata reader + a cross-softwareTeam seat lister + a clock), so the
 // production read-model path is directly testable without a live daemon/db. It maps codex-auth
 // profiles → accounts[] (authState="unknown" per BR-3 validate-at-use — NEVER assert active/
 // needs_reauth from static disk), joins the seat universe to the codex seat-registry into
@@ -14,10 +14,10 @@ import { claudeStatuslineSignals } from "./provider-signals.js";
 import type { FourBlockReadModel, ProviderAccount, ProviderSignal } from "./provider-types.js";
 import type { NodeLifecycleState } from "../types.js";
 
-/** One seat in the fleet (the universe to bind), sourced from node-inventory across rigs. */
+/** One seat in the fleet (the universe to bind), sourced from node-inventory across softwareTeams. */
 export interface ProviderSeat {
   seatSession: string;
-  rigName: string;
+  softwareTeamName: string;
   runtime: string;
   lifecycleState: NodeLifecycleState;
 }
@@ -25,7 +25,7 @@ export interface ProviderSeat {
 export interface ProviderCollectDeps {
   /** Reads codex-auth on-disk METADATA (profile names + seat registry) — never token content. */
   readCodexAuth: () => CodexAuthMetadata;
-  /** The current seat universe (node-inventory across all rigs). */
+  /** The current seat universe (node-inventory across all softwareTeams). */
   listSeats: () => ProviderSeat[];
   /** signals[] — empty until the live Codex/Claude/reactive collection lane is wired. */
   collectSignals?: () => ProviderSignal[];
@@ -62,7 +62,7 @@ export function collectFourBlockReadModel(deps: ProviderCollectDeps): FourBlockR
       return {
         accountId: reg.authProfile,
         seatSession: seat.seatSession,
-        rigName: seat.rigName,
+        softwareTeamName: seat.softwareTeamName,
         boundAt: reg.updatedTs,
         bindingSource: "codex_auth_seat_registry",
       };
@@ -72,7 +72,7 @@ export function collectFourBlockReadModel(deps: ProviderCollectDeps): FourBlockR
     return {
       accountId: null,
       seatSession: seat.seatSession,
-      rigName: seat.rigName,
+      softwareTeamName: seat.softwareTeamName,
       boundAt: null,
       bindingSource: null,
     };

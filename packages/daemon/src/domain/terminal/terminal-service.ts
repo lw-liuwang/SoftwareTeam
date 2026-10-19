@@ -11,18 +11,18 @@
 //
 // View argument resolution (precedence):
 //   1. `mission:<id>` / `slice:<id>`  → derived, LIVE from the review agents
-//      band; READ-ONLY by construction (a cross-rig observational grouping —
-//      AC-3 "another rig's agents ... read-only"). Never persisted (A3).
-//   2. a rig NAME                      → per-rig derived, LIVE from the node
-//      inventory; INTERACTIVE (you asked for that rig, you drive it — AC-1c).
+//      band; READ-ONLY by construction (a cross-softwareTeam observational grouping —
+//      AC-3 "another softwareTeam's agents ... read-only"). Never persisted (A3).
+//   2. a softwareTeam NAME                      → per-softwareTeam derived, LIVE from the node
+//      inventory; INTERACTIVE (you asked for that softwareTeam, you drive it — AC-1c).
 //   3. a saved-view id                 → from `terminal-views.yaml`; per-member
 //      read-only as the operator saved it.
 //   Anything else → a named `view_not_found` (never a silent empty open).
 //
 // The read-only policy above is a v1 build decision grounded in AC-1c/AC-3
-// (interactive rig view vs read-only cross-rig/derived view); it is NAMED here
+// (interactive softwareTeam view vs read-only cross-softwareTeam/derived view); it is NAMED here
 // for the guard/QA gates, not silently absorbed. Saved views carry their own
-// per-member read-only, so an operator can save an interactive multi-rig view
+// per-member read-only, so an operator can save an interactive multi-softwareTeam view
 // deliberately.
 //
 // The one shared result shape is `OpenViewResult { opened, absent, degraded }`
@@ -61,7 +61,7 @@ const DEFAULT_PROVIDER_ORDER: readonly TerminalProviderName[] = ["herdr", "cmux"
 export interface OpenViewRequest {
   /** Provider name. Omitted: the first of herdr, then cmux, that is available and alive; herdr when neither is. */
   provider?: string;
-  /** The view argument: a rig name | `mission:<id>` | `slice:<id>` | a saved-view id. */
+  /** The view argument: a softwareTeam name | `mission:<id>` | `slice:<id>` | a saved-view id. */
   view: string;
   /** Preview fingerprint. A changed membership/layout must be previewed again. */
   expectedPlan?: string;
@@ -79,15 +79,15 @@ export interface TerminalPreview {
   status: ProviderStatus;
 }
 
-/** The `rig terminal views` payload: saved views + the live rig names you can open. */
+/** The `SoftwareTeam terminal views` payload: saved views + the live softwareTeam names you can open. */
 export interface ListViewsResult {
   saved: SavedView[];
-  /** Rig names openable as per-rig derived views (live from the inventory). */
-  rigs: string[];
+  /** SoftwareTeam names openable as per-softwareTeam derived views (live from the inventory). */
+  softwareTeams: string[];
   catalog?: Array<{ view: string; name: string; kind: "saved" | "derived"; members: string[]; ready: number; absent: number; degraded: number; pages: number }>;
 }
 
-/** One provider's doctor line for `rig terminal status`. */
+/** One provider's doctor line for `SoftwareTeam terminal status`. */
 export interface ProviderStatusReport {
   name: string;
   status: ProviderStatus;
@@ -103,16 +103,16 @@ export interface TerminalServiceDeps {
   resolveProvider(name: string): TerminalProvider | null;
   /** The saved-views store (read paths only from this service). */
   viewsStore: Pick<TerminalViewsStore, "get" | "list">;
-  /** Live seats of a rig BY NAME; null when no such rig is known (vs [] = a known-but-empty rig). */
-  listRigSeats(rigName: string): Promise<LiveSeatRow[] | null> | LiveSeatRow[] | null;
+  /** Live seats of a softwareTeam BY NAME; null when no such softwareTeam is known (vs [] = a known-but-empty softwareTeam). */
+  listSoftwareTeamSeats(softwareTeamName: string): Promise<LiveSeatRow[] | null> | LiveSeatRow[] | null;
   /** One request-local inventory fold for the derived catalog entries. */
-  listRigSeatsBatch?(rigNames: string[]): Promise<Map<string, LiveSeatRow[]>> | Map<string, LiveSeatRow[]>;
-  /** Live seats of a pod within a rig (by rig name-or-id + pod namespace); null when the rig/pod is unknown. */
-  listPodSeats(rigArg: string, podNamespace: string): Promise<LiveSeatRow[] | null> | LiveSeatRow[] | null;
+  listSoftwareTeamSeatsBatch?(softwareTeamNames: string[]): Promise<Map<string, LiveSeatRow[]>> | Map<string, LiveSeatRow[]>;
+  /** Live seats of a pod within a softwareTeam (by softwareTeam name-or-id + pod namespace); null when the softwareTeam/pod is unknown. */
+  listPodSeats(softwareTeamArg: string, podNamespace: string): Promise<LiveSeatRow[] | null> | LiveSeatRow[] | null;
   /** Live seats for a derived scope (`mission:<id>` | `slice:<id>`); null when the scope is unknown/invalid. */
   listScopeSeats(scope: string): Promise<LiveSeatRow[] | null> | LiveSeatRow[] | null;
-  /** Known rig names (for the `views` listing). */
-  listRigNames(): Promise<string[]> | string[];
+  /** Known softwareTeam names (for the `views` listing). */
+  listSoftwareTeamNames(): Promise<string[]> | string[];
   /** Read-only host resolution for the composer (registry unavailable → null for every id). */
   resolveHost(id: string): HostEntry | null;
   /** Local liveness refine — has-session for a local tmux session; remote members are not probed here. */
@@ -147,7 +147,7 @@ function savedMemberToInput(m: SavedViewMember): ViewMemberInput {
 }
 
 /** The default kernel view's space name in a terminal multiplexer such as Herdr. */
-export const KERNEL_SPACE_LABEL = "openrig kernel";
+export const KERNEL_SPACE_LABEL = "softwareteam kernel";
 
 type ResolvedView = { id: string; members: ViewMemberInput[]; kernelLayout?: string; columns?: number; panesPerPage?: number } | { code: string; error: string };
 type ComposedTerminalView = ComposedView & { kernelLayout?: string };
@@ -256,13 +256,13 @@ export class TerminalService {
     return { provider: providerName, view: req.view, composed, grids: composed.pages.map(page => buildGridRoot(page, composed.columns)), planId: this.planId(providerName, composed), status: await provider.status() };
   }
 
-  /** List saved views + the rig names openable as derived views. */
+  /** List saved views + the softwareTeam names openable as derived views. */
   async listViews(detail = false): Promise<ListViewsResult> {
     const result: ListViewsResult = {
       saved: this.deps.viewsStore.list(),
-      rigs: await this.deps.listRigNames(),
+      softwareTeams: await this.deps.listSoftwareTeamNames(),
     };
-    if (!result.saved.some(view => view.id === "kernel") && result.rigs.includes("kernel")) {
+    if (!result.saved.some(view => view.id === "kernel") && result.softwareTeams.includes("kernel")) {
       const kernel = await this.defaultKernelView();
       if (kernel) result.saved = [...result.saved, {
         id: "kernel", name: `Kernel conversations · ${kernel.kernelLayout}`,
@@ -273,9 +273,9 @@ export class TerminalService {
       result.catalog = [];
       const entries = [
         ...result.saved.map((s) => ({ view: `saved:${s.id}`, name: s.name, kind: "saved" as const })),
-        ...result.rigs.map((name) => ({ view: `rig:${name}`, name, kind: "derived" as const })),
+        ...result.softwareTeams.map((name) => ({ view: `software-team:${name}`, name, kind: "derived" as const })),
       ];
-      const inventory = await this.deps.listRigSeatsBatch?.(result.rigs);
+      const inventory = await this.deps.listSoftwareTeamSeatsBatch?.(result.softwareTeams);
       for (const entry of entries) {
         const rows = entry.kind === "derived" ? inventory?.get(entry.name) : undefined;
         const plan = rows ? composeView(entry.view, await this.refineLiveness(deriveViewMembers(rows, { readOnly: false })), { resolveHost: id => this.deps.resolveHost(id), panesPerPage: this.deps.resolveProvider(DEFAULT_PROVIDER)?.panesPerPage, localTmux: await this.resolveLocalTmux(), localTmuxServer: daemonTmuxServerArgs() })
@@ -314,7 +314,7 @@ export class TerminalService {
       if (view === "saved:kernel") {
         const kernel = await this.defaultKernelView();
         if (kernel) return kernel;
-        return { code: "view_not_found", error: "No kernel rig is installed; saved:kernel has no installed bindings" };
+        return { code: "view_not_found", error: "No kernel SoftwareTeam is installed; saved:kernel has no installed bindings" };
       }
       return { code: "view_not_found", error: `unknown saved view '${view.slice(6)}'` };
     }
@@ -330,36 +330,36 @@ export class TerminalService {
       };
     }
 
-    // 2. a pod within a rig — `pod:<rig-id-or-name>/<podNamespace>` (AC-5 launcher
-    //    target). Interactive (a subset of your own rig).
+    // 2. a pod within a softwareTeam — `pod:<software-team-id-or-name>/<podNamespace>` (AC-5 launcher
+    //    target). Interactive (a subset of your own softwareTeam).
     if (view.startsWith("pod:")) {
       const rest = view.slice("pod:".length);
       const slash = rest.lastIndexOf("/");
       if (slash <= 0 || slash === rest.length - 1) {
-        return { code: "view_not_found", error: `malformed pod view '${view}' — expected pod:<rig>/<pod>` };
+        return { code: "view_not_found", error: `malformed pod view '${view}' — expected pod:<softwareTeam>/<pod>` };
       }
       const rows = await this.deps.listPodSeats(rest.slice(0, slash), rest.slice(slash + 1));
       if (rows == null) {
-        return { code: "view_not_found", error: `unknown pod '${rest.slice(slash + 1)}' in rig '${rest.slice(0, slash)}'` };
+        return { code: "view_not_found", error: `unknown pod '${rest.slice(slash + 1)}' in softwareTeam '${rest.slice(0, slash)}'` };
       }
       return { id: view, members: deriveViewMembers(rows, { readOnly: false }) };
     }
 
-    // 3. a rig — either the bare name (the common case: `rig terminal open acme`)
-    //    or the explicit `rig:<id-or-name>` form the rig-scoped route alias
-    //    composes (arch R1: the alias just prefixes `rig:<rigId>` and delegates,
-    //    zero composition logic of its own). `listRigSeats` resolves the arg as
-    //    a rig name first, then as a rig id.
-    const explicitRig = view.startsWith("rig:");
-    const rigArg = explicitRig ? view.slice("rig:".length) : view;
-    const rigRows = await this.deps.listRigSeats(rigArg);
-    if (rigRows != null) {
-      return { id: `rig:${rigArg}`, members: deriveViewMembers(rigRows, { readOnly: false }) };
+    // 3. a softwareTeam — either the bare name (the common case: `SoftwareTeam terminal open acme`)
+    //    or the explicit `software-team:<id-or-name>` form the software-team-scoped route alias
+    //    composes (arch R1: the alias just prefixes `software-team:<softwareTeamId>` and delegates,
+    //    zero composition logic of its own). `listSoftwareTeamSeats` resolves the arg as
+    //    a softwareTeam name first, then as a softwareTeam id.
+    const explicitSoftwareTeam = view.startsWith("software-team:");
+    const softwareTeamArg = explicitSoftwareTeam ? view.slice("software-team:".length) : view;
+    const softwareTeamRows = await this.deps.listSoftwareTeamSeats(softwareTeamArg);
+    if (softwareTeamRows != null) {
+      return { id: `software-team:${softwareTeamArg}`, members: deriveViewMembers(softwareTeamRows, { readOnly: false }) };
     }
-    // An explicit `rig:<x>` that resolves to no rig is a named not-found — it must
-    // NOT fall through to the saved-view lookup (the caller asked for a rig).
-    if (explicitRig) {
-      return { code: "view_not_found", error: `unknown rig '${rigArg}'` };
+    // An explicit `software-team:<x>` that resolves to no softwareTeam is a named not-found — it must
+    // NOT fall through to the saved-view lookup (the caller asked for a softwareTeam).
+    if (explicitSoftwareTeam) {
+      return { code: "view_not_found", error: `unknown softwareTeam '${softwareTeamArg}'` };
     }
 
     // 4. a saved-view id.
@@ -370,13 +370,13 @@ export class TerminalService {
 
     return {
       code: "view_not_found",
-      error: `unknown view '${view}' — not a known rig, a mission:/slice: scope, or a saved-view id`,
+      error: `unknown view '${view}' — not a known softwareTeam, a mission:/slice: scope, or a saved-view id`,
     };
   }
 
   /** An in-memory default; a user's saved kernel view always takes precedence. */
   private async defaultKernelView(): Promise<{ id: string; members: ViewMemberInput[]; kernelLayout: string; columns: number; panesPerPage: number } | null> {
-    const rows = await this.deps.listRigSeats("kernel");
+    const rows = await this.deps.listSoftwareTeamSeats("kernel");
     if (rows == null) return null;
     const advisor = rows.find(row => row.logicalId === "advisor.lead");
     const operator = rows.find(row => row.logicalId === "operator.agent");

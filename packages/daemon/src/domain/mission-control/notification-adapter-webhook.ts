@@ -22,7 +22,7 @@ export interface WebhookAdapterOpts {
 }
 
 export interface WebhookBodyShape {
-  source: "openrig.mission-control";
+  source: "softwareteam.mission-control";
   schema_version: 1;
   title: string;
   body: string;
@@ -47,7 +47,7 @@ export class WebhookNotificationAdapter implements NotificationAdapter {
       this.disabled = true;
       this.validationError = `Invalid webhook endpoint URL '${redactUrl(opts.endpointUrl)}': ${validation.reason}`;
       const warn = opts.warn ?? console.warn;
-      warn(`[openrig] Notifications disabled: ${this.validationError}`);
+      warn(`[softwareteam] Notifications disabled: ${this.validationError}`);
       this.target = opts.endpointUrl;
     } else {
       const parsed = new URL(validation.parsedUrl!.toString());
@@ -76,7 +76,7 @@ export class WebhookNotificationAdapter implements NotificationAdapter {
       };
     }
     const body: WebhookBodyShape = {
-      source: "openrig.mission-control",
+      source: "softwareteam.mission-control",
       schema_version: 1,
       title: payload.title,
       body: payload.body,

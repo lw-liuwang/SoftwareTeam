@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import {
-  listRigNodes,
+  listSoftwareTeamNodes,
   parseArgs,
   writeJson,
   isAgentRuntime,
@@ -16,15 +16,15 @@ interface SeedRoundResult {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  const rig = String(args["rig"] ?? args["rig-id"] ?? "demo-rig");
+  const softwareTeam = String(args["softwareTeam"] ?? args["software-team-id"] ?? "demo-software-team");
   const maxRounds = Number(args["max-rounds"] ?? "6");
   const waitMs = Number(args["wait-ms"] ?? "8000");
   const json = args["json"] === true;
   const output = typeof args["output"] === "string" ? String(args["output"]) : null;
 
-  const allNodes = listRigNodes(rig).filter((node) => isAgentRuntime(node.runtime));
+  const allNodes = listSoftwareTeamNodes(softwareTeam).filter((node) => isAgentRuntime(node.runtime));
   if (allNodes.length === 0) {
-    console.error(`No agent nodes found for rig '${rig}'.`);
+    console.error(`No agent nodes found for softwareTeam '${softwareTeam}'.`);
     process.exitCode = 1;
     return;
   }
@@ -58,9 +58,9 @@ async function main(): Promise<void> {
     });
   }
 
-  const finalNodes = listRigNodes(rig).filter((node) => isAgentRuntime(node.runtime));
+  const finalNodes = listSoftwareTeamNodes(softwareTeam).filter((node) => isAgentRuntime(node.runtime));
   const summary = {
-    rig,
+    softwareTeam,
     ok: verified.size === finalNodes.length,
     verified: [...verified].sort(),
     unverified: finalNodes
@@ -76,7 +76,7 @@ async function main(): Promise<void> {
   if (json) {
     console.log(JSON.stringify(summary, null, 2));
   } else {
-    console.log(`Resume baseline seeding: ${rig}`);
+    console.log(`Resume baseline seeding: ${softwareTeam}`);
     console.log(`Verified: ${summary.verified.length}/${finalNodes.length}`);
     for (const round of rounds) {
       console.log(`- Round ${round.round}: ${round.sentTo.join(", ")}`);
@@ -100,7 +100,7 @@ function sendWarmup(sessionName: string | null, text: string): void {
   }
 
   execFileSync(
-    "rig",
+    "softwareTeam",
     ["send", sessionName, text, "--verify", "--force", "--json"],
     { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }
   );
@@ -114,7 +114,7 @@ function buildWarmupPrompt(logicalId: string, round: number): string {
     return `Baseline warmup 2/6 for ${logicalId}. Reply in exactly one line: ACK ${logicalId} 2`;
   }
   if (round === 3) {
-    return `Baseline warmup 3/6 for ${logicalId}. In one short sentence, state your role in this demo rig.`;
+    return `Baseline warmup 3/6 for ${logicalId}. In one short sentence, state your role in this demo softwareTeam.`;
   }
   if (round === 4) {
     return `Baseline warmup 4/6 for ${logicalId}. In one short sentence, state the repository you are operating in.`;

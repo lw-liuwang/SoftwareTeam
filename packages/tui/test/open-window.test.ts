@@ -20,17 +20,17 @@ function child(result: unknown, exit = 0) {
   const root = mkdtempSync(join(tmpdir(), "tui-window-")); roots.push(root);
   const entry = join(root, "inert cli.mjs"), calls = join(root, "calls.jsonl");
   writeFileSync(entry, `import {appendFileSync} from 'node:fs';
-appendFileSync(${JSON.stringify(calls)},JSON.stringify({args:process.argv.slice(2),url:process.env.OPENRIG_URL})+'\\n');
+appendFileSync(${JSON.stringify(calls)},JSON.stringify({args:process.argv.slice(2),url:process.env.SOFTWARETEAM_URL})+'\\n');
 console.log(${JSON.stringify(JSON.stringify(result))});process.exitCode=${exit};`);
   return { entry, calls: () => readFileSync(calls, "utf8").trim().split("\n").map(line => JSON.parse(line)) };
 }
 const opened = { provider: "tmux", ok: true, opened: ["advisor", "operator"], absent: [], degraded: [], pages: 1 };
 
 describe("TUI desktop terminal action", () => {
-  it.each(["rig", "pod"])("direct %s action reaches exact attach guidance after definite window refusal, without relaunch", async kind => {
+  it.each(["softwareTeam", "pod"])("direct %s action reaches exact attach guidance after definite window refusal, without relaunch", async kind => {
     let snap = demoSnapshot();
     const view = createViewState({ instanceId: "fixture", getSnapshot: () => snap });
-    view.dispatch(parseCommand("rig openrig-build"));
+    view.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     const action = renderScreen(view.get(), snap, { cols: 140, rows: 42 }).hitMap
       .map(hit => hit.action).find(a => a?.type === "act" && a.act === "open-terminal" && a.view.startsWith(`${kind}:`));
     if (action?.type !== "act" || action.act !== "open-terminal") throw new Error("direct terminal action missing");
@@ -43,7 +43,7 @@ describe("TUI desktop terminal action", () => {
     const paneCommand = "ssh viewer@other.example \"tmux attach -r -t '=seat with spaces'\"";
     const reads: string[] = [];
     const client = { baseUrl: "http://selected.example:7654",
-      terminalViews: async () => { reads.push("catalog"); return { saved: [], rigs: [] }; },
+      terminalViews: async () => { reads.push("catalog"); return { saved: [], softwareTeams: [] }; },
       previewTerminal: async (selected: string) => { reads.push(selected); return {
         view: selected, provider: "herdr", planId: "recovery-plan", status: { available: false },
         composed: { id: "recovery", opened: [{ seat: "remote" }], absent: [], degraded: [],
@@ -65,7 +65,7 @@ describe("TUI desktop terminal action", () => {
     const f = child({ ...opened, ok: false, opened: [], code: "terminal_window_failed", windowAttempted,
       error: "Terminal window status is unknown. Inspect the desktop before retrying." }, 1);
     let recoveries = 0;
-    await expect(openWithRecovery("rig:team", "http://localhost:7433", f.entry, undefined, () => { recoveries++; }))
+    await expect(openWithRecovery("software-team:team", "http://localhost:7434", f.entry, undefined, () => { recoveries++; }))
       .rejects.toThrow("Inspect the desktop before retrying");
     expect(recoveries).toBe(0);
     expect(f.calls()).toHaveLength(1);
@@ -85,7 +85,7 @@ describe("TUI desktop terminal action", () => {
     };
     const f = child(reused);
     let recoveries = 0;
-    expect(await openTerminalInWindow("saved:kernel", "http://localhost:7433", f.entry, undefined, () => { recoveries++; })).toEqual(reused);
+    expect(await openTerminalInWindow("saved:kernel", "http://localhost:7434", f.entry, undefined, () => { recoveries++; })).toEqual(reused);
     expect(f.calls()).toHaveLength(1);
     expect(recoveries).toBe(0);
     const notice = terminalWindowNotice("saved:kernel", reused);
@@ -99,39 +99,39 @@ describe("TUI desktop terminal action", () => {
     const f = child({ ...opened, ok: kind !== "unconfirmed", opened: [], pages: 0,
       reusedWorkspace: { id: "existing", tabId: "first", view: "kernel" },
     }, kind === "nonzero exit" ? 1 : 0);
-    await expect(openTerminalInWindow("saved:kernel", "http://localhost:7433", f.entry)).rejects.toThrow();
+    await expect(openTerminalInWindow("saved:kernel", "http://localhost:7434", f.entry)).rejects.toThrow();
     expect(f.calls()).toHaveLength(1);
   });
 
   it("keeps partial results and named absences instead of claiming a full open", async () => {
     const partial = { ...opened, ok: false, absent: [{ seat: "review", reason: "stopped" }], notes: ["Existing conversations preserved."] };
     const f = child(partial);
-    expect(await openTerminalInWindow("rig:team", "http://localhost:7433", f.entry)).toEqual(partial);
+    expect(await openTerminalInWindow("software-team:team", "http://localhost:7434", f.entry)).toEqual(partial);
     expect(f.calls()).toHaveLength(1);
     expect(f.calls()[0].args).not.toContain("--expected-plan");
   });
 
   it("preserves no-desktop and possible-viewer details on a nonzero result without replay", async () => {
     const f = child({ ...opened, ok: false, opened: [], error: "No local desktop display is available", notes: ["Viewing session own-test may exist; inspect before retrying."] }, 1);
-    await expect(openTerminalInWindow("saved:kernel", "http://localhost:7433", f.entry)).rejects.toThrow(/No local desktop display[\s\S]*own-test/);
+    await expect(openTerminalInWindow("saved:kernel", "http://localhost:7434", f.entry)).rejects.toThrow(/No local desktop display[\s\S]*own-test/);
     expect(f.calls()).toHaveLength(1);
   });
 
   it("does not turn a nonzero command exit into a success even with an opened array", async () => {
     const f = child(opened, 1);
-    await expect(openTerminalInWindow("saved:kernel", "http://localhost:7433", f.entry)).rejects.toThrow();
+    await expect(openTerminalInWindow("saved:kernel", "http://localhost:7434", f.entry)).rejects.toThrow();
     expect(f.calls()).toHaveLength(1);
   });
 
   it("retains named absences on a zero-tile response", async () => {
     const f = child({ ...opened, ok: false, opened: [], absent: [{ seat: "operator", reason: "stopped" }] }, 1);
-    await expect(openTerminalInWindow("saved:kernel", "http://localhost:7433", f.entry)).rejects.toThrow("Absent: operator — stopped");
+    await expect(openTerminalInWindow("saved:kernel", "http://localhost:7434", f.entry)).rejects.toThrow("Absent: operator — stopped");
     expect(f.calls()).toHaveLength(1);
   });
 
   it("rejects an unreadable result without trying a second terminal", async () => {
     const f = child(null);
-    await expect(openTerminalInWindow("saved:kernel", "http://localhost:7433", f.entry)).rejects.toThrow("no view result");
+    await expect(openTerminalInWindow("saved:kernel", "http://localhost:7434", f.entry)).rejects.toThrow("no view result");
     expect(f.calls()).toHaveLength(1);
   });
 

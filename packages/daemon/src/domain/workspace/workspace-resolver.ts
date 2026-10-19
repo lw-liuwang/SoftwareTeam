@@ -1,7 +1,7 @@
 // PL-007 Workspace Primitive v0 — runtime resolution of typed workspace
 // context for whoami / node-inventory consumers.
 //
-// Given a persisted RigSpec.workspace block + a node's cwd + an optional
+// Given a persisted SoftwareTeamSpec.workspace block + a node's cwd + an optional
 // per-session env override, derive:
 //   - workspaceRoot          — verbatim from the spec
 //   - activeRepo             — env override, else default_repo, else null
@@ -33,7 +33,7 @@ export function resolveWorkspaceContext(opts: {
 
   // env override wins when it names a declared repo; otherwise fall through
   // to default_repo. Unknown override is honored verbatim per PL-007 PRD §
-  // Item 3 — operators set OPENRIG_TARGET_REPO consciously.
+  // Item 3 — operators set SOFTWARETEAM_TARGET_REPO consciously.
   const repoNames = new Set(spec.repos.map((r) => r.name));
   let activeRepo: string | null = null;
   if (envOverride && envOverride.trim() !== "") {
@@ -52,8 +52,8 @@ export function resolveWorkspaceContext(opts: {
 }
 
 /** PL-007 — per-node workspace summary derived from a node's cwd against
- *  the rig's WorkspaceSpec. Used by NodeInventory. Returns null when the
- *  rig has no workspace declaration. */
+ *  the softwareTeam's WorkspaceSpec. Used by NodeInventory. Returns null when the
+ *  softwareTeam has no workspace declaration. */
 export function resolveNodeWorkspace(opts: {
   spec: WorkspaceSpec | null;
   cwd: string | null;
@@ -78,7 +78,7 @@ export function resolveNodeWorkspace(opts: {
       kind = "knowledge";
     }
   }
-  // Fall back to the rig's default_repo when cwd doesn't resolve.
+  // Fall back to the softwareTeam's default_repo when cwd doesn't resolve.
   if (!activeRepo && spec.defaultRepo) {
     activeRepo = spec.defaultRepo;
     if (!kind) {

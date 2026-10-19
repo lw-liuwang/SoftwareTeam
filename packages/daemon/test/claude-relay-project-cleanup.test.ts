@@ -20,7 +20,7 @@ it.each(["-fd", "-fdx"])("keeps the configured real relay working after project 
   fs.mkdirSync(cwd);
   const git = (...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8", timeout: 5000 });
   git("init", "-q");
-  const asset = path.resolve(import.meta.dirname, "../assets/plugins/openrig-core/hooks/scripts/activity-relay.cjs");
+  const asset = path.resolve(import.meta.dirname, "../assets/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs");
   const adapter = new ClaudeCodeAdapter({
     tmux: {} as ConstructorParameters<typeof ClaudeCodeAdapter>[0]["tmux"], stateDir,
     activityRelayPath: asset,
@@ -68,10 +68,10 @@ it.each(["-fd", "-fdx"])("keeps the configured real relay working after project 
     // Only this fixture receiver is reachable from the relay; no inherited daemon identity.
     const child = spawn("/bin/sh", ["-c", command], {
       cwd, env: {
-        PATH: process.env.PATH, HOME: root, OPENRIG_HOME: stateDir,
-        OPENRIG_URL: `http://127.0.0.1:${address.port}`, OPENRIG_ACTIVITY_HOOK_TOKEN: "fixture-token",
-        OPENRIG_NODE_ID: "fixture-node", OPENRIG_SESSION_NAME: "fixture-seat",
-        OPENRIG_RUNTIME: "claude-code", OPENRIG_OCCUPANT_GENERATION: "fixture-generation",
+        PATH: process.env.PATH, HOME: root, SOFTWARETEAM_HOME: stateDir,
+        SOFTWARETEAM_URL: `http://127.0.0.1:${address.port}`, SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: "fixture-token",
+        SOFTWARETEAM_NODE_ID: "fixture-node", SOFTWARETEAM_SESSION_NAME: "fixture-seat",
+        SOFTWARETEAM_RUNTIME: "claude-code", SOFTWARETEAM_OCCUPANT_GENERATION: "fixture-generation",
       }, stdio: ["pipe", "pipe", "pipe"], timeout: 5000,
     });
     let stderr = "";

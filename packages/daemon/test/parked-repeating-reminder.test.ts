@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
@@ -15,8 +15,8 @@ import { WatchdogHistoryLog } from "../src/domain/watchdog-history-log.js";
 import { watchdogHistorySchema } from "../src/db/migrations/032_watchdog_history.js";
 import { diagnoseSeatParked } from "../src/domain/parked-query.js";
 
-const SEAT = "dev-impl@seat-rig";
-const OTHER = "dev-qa@seat-rig";
+const SEAT = "dev-impl@seat-software-team";
+const OTHER = "dev-qa@seat-software-team";
 
 describe("parked diagnosis for a row its owner's own repeating reminder serves", () => {
   let db: Database.Database;
@@ -29,16 +29,16 @@ describe("parked diagnosis for a row its owner's own repeating reminder serves",
   beforeEach(() => {
     db = createFullTestDb();
     db.exec(watchdogHistorySchema.sql); // the full test DB doesn't include the engine's audit table
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const sessions = new SessionRegistry(db);
-    const rig = rigRepo.createRig("seat-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("seat-software-team");
     for (const [logicalId, session] of [["dev.impl", SEAT], ["dev.qa", OTHER]] as const) {
-      const node = rigRepo.addNode(rig.id, logicalId, { runtime: "codex" });
+      const node = softwareTeamRepo.addNode(softwareTeam.id, logicalId, { runtime: "codex" });
       sessions.updateStatus(sessions.registerSession(node.id, session).id, "running");
       if (session === SEAT) seatNodeId = node.id;
     }
     const gen = (session: string) => sessions.currentOccupantGenerationForSession(session);
-    queue = new QueueRepository(db, new EventBus(db), { validateRig: () => true, resolveOccupantGeneration: gen });
+    queue = new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => true, resolveOccupantGeneration: gen });
     jobs = new WatchdogJobsRepository(db, undefined, gen);
     queue.attachWatchdogJobsRepository(jobs);
     history = new WatchdogHistoryLog(db);
@@ -54,7 +54,7 @@ describe("parked diagnosis for a row its owner's own repeating reminder serves",
     } as never).jobId;
   }
   async function row(): Promise<string> {
-    return (await queue.create({ sourceSession: "orch-lead@seat-rig", destinationSession: SEAT, body: "work" } as never)).qitemId;
+    return (await queue.create({ sourceSession: "orch-lead@seat-software-team", destinationSession: SEAT, body: "work" } as never)).qitemId;
   }
   function park(qitemId: string, wake: { watchdogId?: string; afterSeconds?: number; maxSeconds?: number }) {
     queue.update({
@@ -160,7 +160,7 @@ describe("parked diagnosis for a row its owner's own repeating reminder serves",
 
     it("stranded when the reminder's target changed to another seat after the park (a park on another seat's job is refused)", async () => {
       const q = await row();
-      expect(() => park(q, { watchdogId: reminder(OTHER) })).toThrow(/targets dev-qa@seat-rig, not parked owner/);
+      expect(() => park(q, { watchdogId: reminder(OTHER) })).toThrow(/targets dev-qa@seat-software-team, not parked owner/);
       const job = reminder();
       park(q, { watchdogId: job });
       fire(job, "ok");

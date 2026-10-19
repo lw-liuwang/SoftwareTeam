@@ -3,7 +3,7 @@ kind: as-built
 title: Test layers — what to run before you push, and what each layer proves
 status: active
 applies-when: |
-  You changed OpenRig and want to know which checks to run before opening a pull
+  You changed SoftwareTeam and want to know which checks to run before opening a pull
   request, what each check actually proves, and what CI will run for you. Also
   read it before claiming a stub-agent scenario covers a behaviour.
 siblings: [arteries.md, README.md, codemap.md]
@@ -44,16 +44,16 @@ to `main`. In the PR description, say which layers you ran and which you could n
 | Web UI suite | `npm run test:ui` | jsdom unit tests for `packages/ui` | Real browser rendering | When you touch `packages/ui`, or a daemon API the UI reads. The web UI is in maintenance mode, so this suite is advisory locally and is not part of `npm test`. |
 | Generated files | `npm run mirror-skills:check`, `npm run generate-context-packs:check` (both part of `npm test`) | Every copy of each shipped skill matches its recorded hash, and every static context pack passes the daemon's own manifest parser and the leak scan | Whether the skill content is any good | After you edit a shipped skill: edit the same file in every copy that carries it, run `node scripts/regen-edge-digests.mjs`, then the check. The full `npm run mirror-skills` apply needs maintainer-only inputs. See "A shipped skill" in [ARCHITECTURE.md](../../ARCHITECTURE.md#a-shipped-skill). |
 | Local gate | `npm run gate` | Lint plus `npm test` on a clean tree, tied to `HEAD`, one run per machine at a time, with a JSON receipt | Anything that lint and `npm test` don't already prove | Optional. Useful when several agents share one machine, or when you want a receipt tied to a commit. |
-| Packaging | `npm run build:package`, `npm run test:tui-package`, `bash scripts/smoke-fresh-install.sh` | The publishable `@openrig/cli` assembles, the packed TUI launches, and a fresh install starts a daemon | Behaviour beyond startup | When you touch dependencies, bin entries, build scripts, or files a package ships |
+| Packaging | `npm run build:package`, `npm run test:tui-package`, `bash scripts/smoke-fresh-install.sh` | The publishable `@softwareteam/cli` assembles, the packed TUI launches, and a fresh install starts a daemon | Behaviour beyond startup | When you touch dependencies, bin entries, build scripts, or files a package ships |
 | Stub scenarios, host mode | `node --import tsx packages/daemon/scripts/run-scenarios.mjs [scenario.yaml …]` | A scenario's steps and assertions pass against a scratch daemon, real tmux and `runtime: stub` seats | The installed package. Seeded-regression pairing. Everything under [What a stub can and cannot prove](#what-a-stub-can-and-cannot-prove). | While you write or debug a scenario |
-| Stub scenarios, installed package in a container | CI job `installed-scenario`. Before pushing: `DOCKER_HOST=ssh://<your-host> bash scripts/run-pr-scenarios.sh --remote …` | A clean Linux install starts. A claimed queue item survives a daemon restart. A planted fault is caught at the intended assertion. Two stub seats' scripted output reads back through `rig transcript` and `rig capture` (passing form only). | Native runtimes. Most command families (see [Help wanted](#help-wanted-command-families-without-a-behavioural-scenario)). | Changes that can affect daemon startup, packaging, queue durability or the scenario harness |
-| Live-model evals | `npm run eval -w packages/daemon -- --provider rig …` | Whether a real Claude Code seat runs the expected `rig context get <entry>` for natural prompts | Determinism. Codex. Anything without a case. | Changes to shipped skills or context entries meant to steer agents. **Uses provider credits.** |
+| Stub scenarios, installed package in a container | CI job `installed-scenario`. Before pushing: `DOCKER_HOST=ssh://<your-host> bash scripts/run-pr-scenarios.sh --remote …` | A clean Linux install starts. A claimed queue item survives a daemon restart. A planted fault is caught at the intended assertion. Two stub seats' scripted output reads back through `SoftwareTeam transcript` and `SoftwareTeam capture` (passing form only). | Native runtimes. Most command families (see [Help wanted](#help-wanted-command-families-without-a-behavioural-scenario)). | Changes that can affect daemon startup, packaging, queue durability or the scenario harness |
+| Live-model evals | `npm run eval -w packages/daemon -- --provider SoftwareTeam …` | Whether a real Claude Code seat runs the expected `SoftwareTeam context get <entry>` for natural prompts | Determinism. Codex. Anything without a case. | Changes to shipped skills or context entries meant to steer agents. **Uses provider credits.** |
 | Testbed runbooks | `docker/testbed/runbooks/` (manual) | The testbed image itself works as a test environment | Product behaviour | Only when you change the testbed image or the container plumbing |
 
-Some package tests are gated. `OPENRIG_E2E_REAL_CODEX=1` runs two daemon e2e tests against a
+Some package tests are gated. `SOFTWARETEAM_E2E_REAL_CODEX=1` runs two daemon e2e tests against a
 real Codex (they also need tmux, `codex` and `~/.codex/auth.json`, and they use provider
-credits). `OPENRIG_REAL_CLAUDE_INTEGRATION=1` enables only a placeholder: it requires
-`OPENRIG_PARENT_NATIVE_ID` and checks its format, and no real-Claude fork test exists yet.
+credits). `SOFTWARETEAM_REAL_CLAUDE_INTEGRATION=1` enables only a placeholder: it requires
+`SOFTWARETEAM_PARENT_NATIVE_ID` and checks its format, and no real-Claude fork test exists yet.
 Without tmux, some tmux tests skip and others (such as `transcript-seat-env-native.test.ts`)
 fail. The CLI's release-tag tests skip without local tags unless `CI=true`, so a green local
 run without tags has skipped them. CI installs tmux and fetches full history.
@@ -67,11 +67,11 @@ are not yet runnable checks.
 
 - **Running inside a seat.** The root `vitest.config.ts` makes a root-level file run use its
   package's config. The cli, daemon and TUI configs all run the shared root
-  `test/hermetic-env.setup.ts` before any test file. It clears the inherited `OPENRIG_*` and `RIGGED_*` instance selectors (connection,
+  `test/hermetic-env.setup.ts` before any test file. It clears the inherited `SOFTWARETEAM_*` and `SOFTWARETEAM_*` instance selectors (connection,
   database, workspace and topology roots, seat identity, bearer tokens), forces a fixture
-  `OPENRIG_HOME` and fails if the home is not fixture-scoped. It also wraps `fetch`, so a real
+  `SOFTWARETEAM_HOME` and fails if the home is not fixture-scoped. It also wraps `fetch`, so a real
   request to anything other than a loopback ephemeral-port fixture or a registered target fails.
-  Unless `OPENRIG_E2E_REAL_CODEX=1`, it points `HOME` and the XDG directories at a fixture user
+  Unless `SOFTWARETEAM_E2E_REAL_CODEX=1`, it points `HOME` and the XDG directories at a fixture user
   home and clears `CODEX_HOME`; that opt-in keeps the real homes. A test can still set its own
   overrides after setup. The UI suite (jsdom) uses its own `packages/ui/test/setup.ts`.
 
@@ -117,18 +117,18 @@ repository.
 `scripts/gate-lane.mjs` runs two legs: `npm run lint` and `npm run test`. It does not run
 `test:ui`, the scenarios or the packaging checks. On top of those legs it:
 
-- holds a machine-wide lock on localhost port 40404 (override with `OPENRIG_GATE_LANE_PORT`).
+- holds a machine-wide lock on localhost port 40404 (override with `SOFTWARETEAM_GATE_LANE_PORT`).
   A second gate exits 2 straight away instead of waiting.
-- refuses a dirty worktree. Refuses a `node_modules` that is a symlink, or `@openrig/*`
+- refuses a dirty worktree. Refuses a `node_modules` that is a symlink, or `@softwareteam/*`
   workspace links that resolve outside this worktree. Both are common with shared git worktrees.
 - deletes the stale vendored daemon bundle at `packages/cli/daemon/` before the legs run.
-- writes `gate-lane-verdict.json` at the repo root, or at `OPENRIG_GATE_VERDICT`, which must
+- writes `gate-lane-verdict.json` at the repo root, or at `SOFTWARETEAM_GATE_VERDICT`, which must
   point inside the current worktree (a path outside it exits 3 before the legs run). The file holds the `HEAD` SHA, per-leg results and durations, and a note of other
   `node`/`vitest`/`tsc` processes running at the time. It fails if `HEAD` changes during the
   run. The file is not gitignored, so don't commit it.
 
 Exit codes: 0 pass, 1 a leg failed, 2 lane busy, 3 the runner itself errored.
-`OPENRIG_GATE_LANE_SMOKE=1` skips the legs to test the wiring only, and the verdict records
+`SOFTWARETEAM_GATE_LANE_SMOKE=1` skips the legs to test the wiring only, and the verdict records
 `smoke: true`.
 
 ## Stub-agent scenarios
@@ -154,10 +154,10 @@ node --import tsx packages/daemon/scripts/run-scenarios.mjs     # the fixture sc
 node --import tsx packages/daemon/scripts/run-scenarios.mjs packages/daemon/test/fixtures/scenarios/scenario-02-baton.yaml
 ```
 
-- The runner creates a scratch `HOME`/`OPENRIG_HOME`, its own tmux server and its own
+- The runner creates a scratch `HOME`/`SOFTWARETEAM_HOME`, its own tmux server and its own
   daemon. It builds the scenario environment from `HOME`, `PATH` and `TERM` only, so your
-  shell's daemon-target variables (`OPENRIG_URL`, `OPENRIG_PORT` and similar), `TMUX` and
-  `OPENRIG_TEST_CLOCK_NOW` are dropped rather than inherited. It does not touch the daemon or
+  shell's daemon-target variables (`SOFTWARETEAM_URL`, `SOFTWARETEAM_PORT` and similar), `TMUX` and
+  `SOFTWARETEAM_TEST_CLOCK_NOW` are dropped rather than inherited. It does not touch the daemon or
   tmux server your own session uses.
 - It accepts YAML paths only. Any flag, including `--container`, is refused before anything runs.
 - It supplies no fault controller, so any scenario with a `seed_regression` step fails loudly
@@ -203,9 +203,9 @@ DOCKER_HOST=ssh://<your-host> bash scripts/run-pr-scenarios.sh \
 
 What happens, in order:
 
-1. `scripts/build-testbed-image.sh` packs `@openrig/cli` from your tree. It installs the
-   package into a digest-pinned Debian image with Node, checks `rig --version`, and checks
-   that the installed daemon loads. The result is tagged `openrig-testbed:<sha>`.
+1. `scripts/build-testbed-image.sh` packs `@softwareteam/cli` from your tree. It installs the
+   package into a digest-pinned Debian image with Node, checks `SoftwareTeam --version`, and checks
+   that the installed daemon loads. The result is tagged `softwareteam-testbed:<sha>`.
 2. `docker/testbed/Dockerfile.scenarios` adds a bundled copy of
    `packages/test-system/ci/run.mjs` plus the fixture and library scenarios.
 3. Each run uses a fresh container: `--network none`, read-only root plus a 512 MB `/tmp`
@@ -235,8 +235,8 @@ in `scripts/run-pr-scenarios.sh`, and to `PASSING_CASES` in `result.mjs`.
 ### What a green stub scenario proves
 
 - The packaged CLI installs into a clean Linux container and starts a daemon.
-- `rig up` and `rig down` of a stub topology go through the real daemon, tmux, SQLite and CLI.
-- Queue state, read through the shipped `rig queue list` path, survives a daemon restart.
+- `SoftwareTeam up` and `SoftwareTeam down` of a stub topology go through the real daemon, tmux, SQLite and CLI.
+- Queue state, read through the shipped `SoftwareTeam queue list` path, survives a daemon restart.
 - With the paired seeded run: the assertion fails when that state is broken.
 
 ### What a stub can and cannot prove
@@ -247,14 +247,14 @@ means:
 
 | Area | What the stub does at `e8f0ab34` | What that means for your test |
 |---|---|---|
-| Consuming a message | `stub-runner.ts` runs its launch script once and then idles. It has no stdin reader, socket or other input channel. The default script prints `[stub] scripted reply: acknowledged` at boot, before anything has been sent. | A pane showing a reply, or your echoed text, does not prove the message was consumed. No stub scenario can currently prove "delivered and answered". Separately, `rig send --verify` means "appeared in the pane" (with transport.verify_input_box on, a Claude Code or Codex send means "the seat was idle before the paste and its input box took the exact text"), not acknowledgement (see `rig send --help`), and the scenario `send` step doesn't pass `--verify` at all. |
+| Consuming a message | `stub-runner.ts` runs its launch script once and then idles. It has no stdin reader, socket or other input channel. The default script prints `[stub] scripted reply: acknowledged` at boot, before anything has been sent. | A pane showing a reply, or your echoed text, does not prove the message was consumed. No stub scenario can currently prove "delivered and answered". Separately, `SoftwareTeam send --verify` means "appeared in the pane" (with transport.verify_input_box on, a Claude Code or Codex send means "the seat was idle before the paste and its input box took the exact text"), not acknowledgement (see `SoftwareTeam send --help`), and the scenario `send` step doesn't pass `--verify` at all. |
 | Launch path | `StubRuntimeAdapter` types `node <stub-runner> …` into the pane (`tmux.sendText`, then Enter). Claude Code with an explicit permission mode launches through a managed launch (`ClaudeManagedLaunch.prepare`, `tmux.sendShellCommand`). Otherwise Claude Code, Codex and Pi launch through `SeatLaunchEnvironment.command` and `tmux.sendShellCommand`; the stub adapter does not get that environment. The shell-foreground check in `session-transport.ts` (`unverifiedShellForeground`) runs for every runtime except `terminal` and `claude-code`, and only `codex` has a native-process proof; Claude Code ordinary delivery applies its own uncertainty policy at the input boundary. | A stub seat doesn't exercise the seat launch environment, managed launch, wrappers or native-process identity (the class behind #197). Wrapping the stub in a shell wouldn't change that. |
 | Permissions | `validateNativePermissionSelection` accepts only `codex` and `claude-code`. The stub carries the resolved `floor` / `full_bypass` posture, including one set by a declarative `permission_policy`, into its runner's `--posture` argument and READY line. It ignores non-interruptive launches, and it doesn't exercise Claude or Codex native permission behaviour. | Testing Claude permission modes or per-seat permission selection needs a real runtime. |
 | Queue pickup and wake | No stub worker reacts to a nudge by claiming an item, working on it and handing it back. | The baton scenarios prove the claim *survives a restart*. They don't prove delivery, pickup or wake. |
 | Reboot / tmux reset | `daemon: {op: restart}` restarts only the scenario daemon, and the tmux server keeps running. No step resets tmux. | Recycled pane IDs and stale bindings after a real reboot (the class behind #141) are not covered by a daemon restart. |
-| Multi-rig and same-name identities | The `up` step always uses the scenario's top-level `topology` and ignores a per-step override. No step archives or removes a rig. | Cross-rig scope, same-name generations and archive/remove routing (the class behind #174) need runner work before they can be tested. |
-| Step-time restore, compaction, mutation, policy | `restore`, `emit`, `mutate` and `policy` parse, but the runner throws `UnboundActionError` when it reaches them. Behaviours run only from a per-seat launch script (`env.stub_scripts`). A seat `restart` step maps to `rig launch`, which is not native resume or fork. | Step-time compaction and restore, and native resume and fork, are not covered. |
-| Skill projection | The stub projects skills into `<cwd>/.openrig/stub/skills/`. Claude Code projects into `<cwd>/.claude/skills/`. | A stub green says nothing about provider-specific projection (the class behind #159). |
+| Multi-SoftwareTeam and same-name identities | The `up` step always uses the scenario's top-level `topology` and ignores a per-step override. No step archives or removes a SoftwareTeam. | Cross-SoftwareTeam scope, same-name generations and archive/remove routing (the class behind #174) need runner work before they can be tested. |
+| Step-time restore, compaction, mutation, policy | `restore`, `emit`, `mutate` and `policy` parse, but the runner throws `UnboundActionError` when it reaches them. Behaviours run only from a per-seat launch script (`env.stub_scripts`). A seat `restart` step maps to `SoftwareTeam launch`, which is not native resume or fork. | Step-time compaction and restore, and native resume and fork, are not covered. |
+| Skill projection | The stub projects skills into `<cwd>/.softwareteam/stub/skills/`. Claude Code projects into `<cwd>/.claude/skills/`. | A stub green says nothing about provider-specific projection (the class behind #159). |
 | Model and provider | No model, no tokens. Stub scripts refuse `usage_limit` because it only exists on real runtimes. | Model behaviour, provider usage limits and real context usage need live evals or a real runtime. |
 | Platform | CI's scenario job runs in a Linux container. | macOS process behaviour is covered by the macOS `package-tests` jobs, not by scenarios. |
 
@@ -283,7 +283,7 @@ other ten scenarios are authored but not yet runnable as meaningful checks:
 |---|---|---|
 | `queue-baton-survives-restart` | Runs in CI: healthy / seeded `baton-drop` / healthy | Extend it to handoff, block, resolve and unclaim |
 | `clean-lifecycle-no-residue` | The post-`down` "nothing left over" assertion is commented out, because the format has no way to say "empty" | Add a real absence assertion |
-| `ps-scope-honesty` | The second `up` reuses the first topology, and the expected match tolerates the other rig | Make `up` honour the per-step topology, then assert the exclusion |
+| `ps-scope-honesty` | The second `up` reuses the first topology, and the expected match tolerates the other SoftwareTeam | Make `up` honour the per-step topology, then assert the exclusion |
 | `send-verify-means-rendered` | The `send` step drops `verify`, and the stub has no input loop | Build the input-consuming stub and assert a response derived from the nonce |
 | `home-divergence-preseed-visible` | The pipeline ignores `env.pre_existing_tmux`, and the default script never prints the expected `trust reached` | Recreate the real HOME split and whatever consumes it |
 | `compaction-restore-resumes-role` | Step-time `emit` is unbound | Input-triggered hooks plus evidence specific to one seat |
@@ -299,15 +299,15 @@ historical markers, not executable fault injections.
 ### Ordinary CLI journeys with stub seats
 
 `packages/daemon/test/stub-cli-journeys.integration.test.ts` reuses the scenario
-helpers with one private daemon and two stub rigs. It checks three contracts
+helpers with one private daemon and two stub SoftwareTeams. It checks three contracts
 through the real CLI: verified send appears in the addressed pane but not its
-sibling; current-rig and explicit rig listings contain exactly the expected seats;
+sibling; current-SoftwareTeam and explicit SoftwareTeam listings contain exactly the expected seats;
 and a filtered stream item survives daemon restart and an idempotent emit retry.
 
 After building, run the focused file with:
 
 ```sh
-npm test -w @openrig/daemon -- test/stub-cli-journeys.integration.test.ts
+npm test -w @softwareteam/daemon -- test/stub-cli-journeys.integration.test.ts
 ```
 
 The file also runs in the daemon package-test job. It covers these command
@@ -336,7 +336,7 @@ changes outside the arteries map are safe.
 
 `packages/test-system/evals/` is a separate check from scenarios. A real seat receives a
 natural prompt and decides what to do. A case passes when the seat's transcript shows the
-expected `rig context get <entry>` command, in the expected order. Cases live in
+expected `SoftwareTeam context get <entry>` command, in the expected order. Cases live in
 `cases/selection.yaml` (10) and `cases/loading.yaml` (4).
 
 ```sh
@@ -345,16 +345,16 @@ expected `rig context get <entry>` command, in the expected order. Cases live in
 npm run eval -w packages/daemon -- --transcripts <transcripts.json> --out <result.json>
 
 # Live run: drives a real Claude Code seat
-npm run eval -w packages/daemon -- --provider rig --seat <session> --out <result.json>
-npm run eval -w packages/daemon -- --provider rig --seat-spec "$PWD/<one-seat-rig.yaml>" --out <result.json>
+npm run eval -w packages/daemon -- --provider SoftwareTeam --seat <session> --out <result.json>
+npm run eval -w packages/daemon -- --provider SoftwareTeam --seat-spec "$PWD/<one-seat-software-team.yaml>" --out <result.json>
 ```
 
 - **Live runs use provider credits, and the results vary from run to run.** CI never runs them.
-- `--provider rig` needs `OPENRIG_HOME` set, and it supports Claude Code seats only. It
+- `--provider SoftwareTeam` needs `SOFTWARETEAM_HOME` set, and it supports Claude Code seats only. It
   refuses a Codex seat.
-- `--seat-spec` runs `rig up` of a scratch rig against **your current daemon**, then
-  `rig down` at the end. `--seat` attaches to an existing seat and leaves it running.
-- `evals/rig-seat/example-scratch-rig.yaml` sets `permission_policy: builtin:yolo` and
+- `--seat-spec` runs `SoftwareTeam up` of a scratch SoftwareTeam against **your current daemon**, then
+  `SoftwareTeam down` at the end. `--seat` attaches to an existing seat and leaves it running.
+- `evals/software-team-seat/example-scratch-software-team.yaml` sets `permission_policy: builtin:yolo` and
   `cwd: "."`. It also references `local:agents/blank`, and no such agent directory ships
   beside it. Read the file and expect to adapt it before you use it.
 - Before any run, the runner builds the production context package in a temp directory and
@@ -370,7 +370,7 @@ Docker. They check the testbed image itself:
 - L0: resolve the pinned base image and the stub asset list
 - L1: PTY allocation
 - L2: tmux server lifecycle
-- L3: the daemon inside a container, settling a stub rig
+- L3: the daemon inside a container, settling a stub SoftwareTeam
 - L4: the scenario environment still refuses a foreign daemon target inside a container
 - L5: several containers acting as named hosts on one Docker network
 - L6: the scenario runner driving a scenario through a container
@@ -382,24 +382,24 @@ not as current status.
 
 ## Help wanted: command families without a behavioural scenario
 
-> This list may be stale. It was taken from the `rig --help` tree of 0.6.3: 85 visible
+> This list may be stale. It was taken from the `SoftwareTeam --help` tree of 0.6.3: 85 visible
 > top-level families. At `e8f0ab34`, `packages/cli/src/index.ts` registers 87 top-level
 > commands; `roster` and `telemetry` were added since and have no row yet. Before picking one up, check `packages/test-system/scenarios/`, the cases in
-> `scripts/run-pr-scenarios.sh`, and the current `rig --help`.
+> `scripts/run-pr-scenarios.sh`, and the current `SoftwareTeam --help`.
 > One scenario doesn't cover a family's every option, sequence or platform. A `--help`
 > check only proves the command is discoverable. Existing unit tests are not counted here.
 > They exist, but this list is about behavioural scenarios.
 
 Status today: `queue` has partial coverage, namely create, claim and list, plus the claim
 surviving a restart. `down` has partial coverage in
-`packages/test-system/scenarios/down-stops-every-seat.yaml`: after `rig down`, `rig ps` reports
-every seat stopped and the rig still listed. `send` has partial coverage in
+`packages/test-system/scenarios/down-stops-every-seat.yaml`: after `SoftwareTeam down`, `SoftwareTeam ps` reports
+every seat stopped and the SoftwareTeam still listed. `send` has partial coverage in
 `send-renders-in-addressed-pane.yaml` beside it: the envelope and the message body render in
 the addressed seat's pane. `transcript` has partial coverage in
 `transcript-reads-addressed-seat.yaml`: each of two seats' scripted output is readable through
-that seat's `rig transcript --tail 200 --json`. `capture` has partial coverage in
-`capture-returns-addressed-seat.yaml`: in a rig whose member names overlap by prefix (`impl`,
-`impl2`; `dev-impl`, `dev-impl2` with the pod), `rig capture <seat>` returns each seat's own
+that seat's `SoftwareTeam transcript --tail 200 --json`. `capture` has partial coverage in
+`capture-returns-addressed-seat.yaml`: in a SoftwareTeam whose member names overlap by prefix (`impl`,
+`impl2`; `dev-impl`, `dev-impl2` with the pod), `SoftwareTeam capture <seat>` returns each seat's own
 pane. The scenario catches a capture that resolves the seat by a prefix match on its member
 name (so `dev-impl` also matches `dev-impl2`) and takes the first hit, or any resolver that
 returns the same pane for both seats; it does not exercise a prefix match on the full seat
@@ -418,19 +418,19 @@ has none.
 
 Before you start, two honest constraints:
 
-- Today's step verbs can't run arbitrary `rig` commands. Many rows below need a runner
+- Today's step verbs can't run arbitrary `SoftwareTeam` commands. Many rows below need a runner
   binding first. One proposal (not implemented) is a single structured-argv step that runs
-  the installed CLI through the existing `rigBin`, instead of one new verb per command.
+  the installed CLI through the existing `softwareTeamBin`, instead of one new verb per command.
 - Rows that need a seat to *answer* (anything with "nonce") depend on the input-consuming
   stub described above.
 - `expect` has no negative, absence or count form. `match` is a structural subset and
   `contains` is a substring, so "the sibling received nothing", "the panes are gone" or "no
   duplicates" can't be asserted yet. An exact field value, such as `runningCount: 0` on the
   `ps` surface, is the closest available form.
-- The `restart` step runs `rig launch <rig> <node> --json` and passes no other flag; the node
-  is the logical ID (for example `dev.qa`). A stub seat has no resume token. `rig launch` has
+- The `restart` step runs `SoftwareTeam launch <SoftwareTeam> <node> --json` and passes no other flag; the node
+  is the logical ID (for example `dev.qa`). A stub seat has no resume token. `SoftwareTeam launch` has
   no `--fresh` option: a deliberate fresh start of a stub seat after `down` goes through
-  `rig up --existing <rig> --fresh <seat>` or `rig seat launch <seat> --fresh --reason "<why>"`, so the
+  `SoftwareTeam up --existing <SoftwareTeam> --fresh <seat>` or `SoftwareTeam seat launch <seat> --fresh --reason "<why>"`, so the
   `launch` row needs a runner binding to one of those first.
 
 | Group | Family | Proposed first check (observable result) |
@@ -439,14 +439,14 @@ Before you start, two honest constraints:
 | lifecycle | `daemon` | start/status/stop/restart. Port, process and persisted queue identity agree through public commands. |
 | lifecycle | `bootstrap` | Bootstrap a minimal stub spec. Seats come up ready and the selected spec is the one used. |
 | lifecycle | `up` (partial) | Relaunch-not-duplicating-identities is covered by `up-relaunch-restores-a-two-seat-team.yaml`. Next: each seat consumes its own send, which needs the input-consuming stub. |
-| lifecycle | `down` | (partial) Next: its panes are gone, a sibling rig still answers, retained data follows the docs. |
-| lifecycle | `create` | Create a one-seat rig through the public path. It appears and answers without a hand-written topology. |
+| lifecycle | `down` | (partial) Next: its panes are gone, a sibling SoftwareTeam still answers, retained data follows the docs. |
+| lifecycle | `create` | Create a one-seat SoftwareTeam through the public path. It appears and answers without a hand-written topology. |
 | lifecycle | `launch` | Fresh, relaunch, resume and fork on provider-shaped fixtures. Correct restored token, one live process. |
-| reads | `status` | Two rigs in different states. Status matches their exact identities and transitions. |
-| reads | `ps` | Two rigs with overlapping seat names. Rig and node filters return exactly the intended members. |
+| reads | `status` | Two SoftwareTeams in different states. Status matches their exact identities and transitions. |
+| reads | `ps` | Two SoftwareTeams with overlapping seat names. SoftwareTeam and node filters return exactly the intended members. |
 | reads | `usage` | Deterministic stub telemetry. top and series respect seat and time bounds. Missing data isn't reported as zero. |
 | reads | `health` | Known fresh, stale and cleared findings. Scope, explain and diagnosis values match the fixture. |
-| continuity | `snapshot` | Snapshot two seats. Rig, membership and snapshot bytes survive a daemon restart. |
+| continuity | `snapshot` | Snapshot two seats. SoftwareTeam, membership and snapshot bytes survive a daemon restart. |
 | continuity | `restore` | Restore after a daemon and tmux reset. Seat identity and nonce answers survive. |
 | continuity | `agent-image` | create/show/pin/unpin/delete for a provider-shaped fixture. References and identity match. |
 | continuity | `fork` | Fork at a known history token. The child keeps the prefix with its own identity, and the parent still answers. |
@@ -470,7 +470,7 @@ Before you start, two honest constraints:
 | coordination | `workflow` | validate/compile/instantiate a tiny flow. It transitions and resumes after a restart with no duplicate queue work. |
 | coordination | `chatroom` | send/history/topic/clear in a scratch room. A bounded watcher sees exactly the ordered messages. |
 | coordination | `heartbeat` | Known execution-proof and missing-closure fixtures report the right status. Empty output isn't completion. |
-| authoring | `export` | Export a stub rig, then validate and re-import it. Membership and configuration are equivalent. |
+| authoring | `export` | Export a stub SoftwareTeam, then validate and re-import it. Membership and configuration are equivalent. |
 | authoring | `import` | Import a minimal spec, and the export matches it. Malformed input leaves state unchanged. |
 | authoring | `package` | validate/plan/install/rollback in scratch. Installed files and prior state match. |
 | authoring | `requirements` | Complete and missing capability fixtures produce the right named requirements. |
@@ -481,7 +481,7 @@ Before you start, two honest constraints:
 | authoring | `workspace` | validate/doctor known roots plus one missing-frontmatter case. Reports the exact affected path. |
 | authoring | `config` | set/get/reset a scratch key and init a workspace. Readback and files match the requested root. |
 | presentation | `ui` | Open the URL through a fake browser executable and read a local UI route. Rendering is out of scope. |
-| presentation | `tui` | Drive the TUI command bar and socket over two stub rigs. select, mutate and back show exact identities. |
+| presentation | `tui` | Drive the TUI command bar and socket over two stub SoftwareTeams. select, mutate and back show exact identities. |
 | presentation | `terminal` | open/status/views against a fake terminal-app endpoint. Correct target and layout arguments. |
 | adoption | `discover` | One unmanaged and one owned scratch tmux session. Only the intended candidate is discovered. |
 | adoption | `attach` | Attach to the intended seat. `whoami` reports it without duplicating the process. |
@@ -489,7 +489,7 @@ Before you start, two honest constraints:
 | adoption | `adopt` | Adopt two scratch sessions. PIDs and history are preserved, and the identities become addressable. |
 | adoption | `reconcile-session` | Rebind a hand-resumed provider-shaped fixture without starting or typing into another process. |
 | adoption | `unclaim` | Release an adopted seat. The tmux process and its history stay alive. |
-| adoption | `release` | Release one rig's claimed sessions. Processes survive, and a sibling rig is unchanged. |
+| adoption | `release` | Release one SoftwareTeam's claimed sessions. Processes survive, and a sibling SoftwareTeam is unchanged. |
 | identity | `archive` | Archive an old same-name generation. The current one stays routable, and the old data is kept. |
 | identity | `unarchive` | Unarchive a retained generation without taking over another live seat. |
 | identity | `remove` | Remove an archived generation or one member. Only that identity goes, and a reused name still routes. |
@@ -499,11 +499,11 @@ Before you start, two honest constraints:
 | integration | `slack` | Manifest and config round trip, plus deterministic inbound and outbound fixture requests. No real Slack account. |
 | integration | `ask` | Search fixture transcripts via a fake model endpoint. Citations resolve to the stored lines. |
 | integration | `file` | Copy a fixture payload through isolated transport endpoints. Verify bytes and paths. |
-| integration | `env` | A fixture service-backed rig. status/logs/down reflect that service and stop only it. |
+| integration | `env` | A fixture service-backed SoftwareTeam. status/logs/down reflect that service and stop only it. |
 | delivery | `transcript` (partial) | Own scripted output from two addressed seats is covered by `transcript-reads-addressed-seat.yaml`. Remaining: ordering, uniqueness, no other seat's token, tail limits and restart persistence; absence/count assertions need a runner binding. |
 | delivery | `send` | (partial) Next: send a fresh nonce and require an answer derived from it. Boot text or echo can't pass. |
-| delivery | `capture` | (partial) Each seat's own token, under prefix-overlapping member names. Next: the not-found, tail (`--lines`), sibling-absence and `--rig`/`--pod` cases, which need an error form, a tail option, an absence form and a multi-target surface in the runner. |
-| delivery | `broadcast` | Broadcast a nonce to a rig or pod. Each intended seat answers once, and an excluded seat gets nothing. |
+| delivery | `capture` | (partial) Each seat's own token, under prefix-overlapping member names. Next: the not-found, tail (`--lines`), sibling-absence and `--software-team`/`--pod` cases, which need an error form, a tail option, an absence form and a multi-target surface in the runner. |
+| delivery | `broadcast` | Broadcast a nonce to a SoftwareTeam or pod. Each intended seat answers once, and an excluded seat gets nothing. |
 | delivery | `walk` | Walk two pieces through an input-consuming stub. Order is kept, and a bad piece isn't reported as delivered. |
 | context | `context` | add/get/compose/trace/profile over a fixture project. Output bytes, order and roots match. |
 | context | `plugin` | list/show/used-by/validate a fixture plugin. A missing resource is not the same as a valid empty selection. |
@@ -513,7 +513,7 @@ Before you start, two honest constraints:
 | permissions | `policy` | Apply and read an explicit permission selection using a provider-shaped fixture. It survives a restore, and the default is unchanged. |
 | accounts | `auth` | Synthetic auth files in scratch: save, list, validate, switch. No provider contact, no real credentials. |
 | accounts | `provider` | Synthetic account, binding and signal state. The precheck refuses where it should, and a switch keeps seat history. |
-| topology | `expand` | Add a pod to a live stub rig. Old seats survive, and new members answer nonces. |
+| topology | `expand` | Add a pod to a live stub SoftwareTeam. Old seats survive, and new members answer nonces. |
 | topology | `add` | Add one seat. Exact binding, siblings preserved, and the duplicate-name behaviour is explicit. |
 | topology | `grow` | Grow two seats. Identities are unique, config is inherited, and existing history is kept. |
 | topology | `shrink` | Remove a pod. Unrelated seats still answer, and the removed membership is gone. |

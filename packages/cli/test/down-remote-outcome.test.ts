@@ -18,15 +18,15 @@ describe("remote down operation outcomes", () => {
     const app = new Hono();
     app.use("*", async (c, next) => {
       c.set("teardownOrchestrator" as never, { teardown: async () => { noticeAtTeardown = String(vi.mocked(console.error).mock.calls.at(-1)?.[0] ?? ""); return outcome; } } as never);
-      c.set("rigRepo" as never, {
-        getRig: () => ({ rig: { name: "owned-rig" } }),
-        findRigsByName: () => [{ id: "owned-rig-id" }],
+      c.set("softwareTeamRepo" as never, {
+        getSoftwareTeam: () => ({ softwareTeam: { name: "owned-software-team" } }),
+        findSoftwareTeamsByName: () => [{ id: "owned-software-team-id" }],
       } as never);
       await next();
     });
-    app.get("/api/ps", c => c.json([{ rigId: "owned-rig-id", name: "owned-rig" }]));
-    app.get("/api/rigs/owned-rig-id/nodes", c => c.json([
-      { logicalId: "lead", canonicalSessionName: "lead@owned-rig", nodeKind: "agent", sessionStatus: "running", activityState: { display: "working" } },
+    app.get("/api/ps", c => c.json([{ softwareTeamId: "owned-software-team-id", name: "owned-software-team" }]));
+    app.get("/api/software-teams/owned-software-team-id/nodes", c => c.json([
+      { logicalId: "lead", canonicalSessionName: "lead@owned-software-team", nodeKind: "agent", sessionStatus: "running", activityState: { display: "working" } },
     ]));
     app.route("/api/down", downRoutes);
     server = serve({ fetch: app.fetch, hostname: "127.0.0.1", port: 0 });
@@ -42,13 +42,13 @@ describe("remote down operation outcomes", () => {
     for (const testCase of [
       { label: "clean stop", errors: [], alreadyStopped: false, deleted: false, expected: undefined },
       { label: "snapshot failure", errors: ["Snapshot failed: disk full"], alreadyStopped: false, deleted: false, expected: 2 },
-      { label: "failed session kill", errors: ["Kill failed for session 'owned-rig-agent': timeout"], alreadyStopped: false, deleted: false, expected: 2 },
+      { label: "failed session kill", errors: ["Kill failed for session 'owned-software-team-agent': timeout"], alreadyStopped: false, deleted: false, expected: 2 },
       { label: "already stopped", errors: [], alreadyStopped: true, deleted: false, expected: undefined },
       { label: "already stopped and deleted", errors: [], alreadyStopped: true, deleted: true, expected: undefined },
     ]) {
       it(`${testCase.label} reports the operation exit code (${json ? "JSON" : "human"})`, async () => {
         outcome = {
-          rigId: "owned-rig-id", sessionsKilled: 0, snapshotId: null,
+          softwareTeamId: "owned-software-team-id", sessionsKilled: 0, snapshotId: null,
           deleteBlocked: false, errors: testCase.errors,
           alreadyStopped: testCase.alreadyStopped, deleted: testCase.deleted,
         };
@@ -68,14 +68,14 @@ describe("remote down operation outcomes", () => {
         const log = vi.spyOn(console, "log").mockImplementation(() => {});
         const error = vi.spyOn(console, "error").mockImplementation(() => {});
         try {
-          await command.parseAsync(["down", "owned-rig", "--host", "owned-host", ...(json ? ["--json"] : [])], { from: "user" });
+          await command.parseAsync(["down", "owned-software-team", "--host", "owned-host", ...(json ? ["--json"] : [])], { from: "user" });
           expect(process.exitCode).toBe(testCase.expected);
           const printed = JSON.parse(String(log.mock.calls[0]?.[0]));
           // Preserve the remote wrapper contract; transport success still means
           // the HTTP request succeeded, even when teardown reports partial work.
           expect(json ? printed.data.errors : printed.errors).toEqual(testCase.errors);
           if (json) expect(printed.ok).toBe(true);
-          expect(noticeAtTeardown).toBe(json ? "" : "Before stopping owned-rig-id: recorded agent sessions: lead@owned-rig (activity: working).");
+          expect(noticeAtTeardown).toBe(json ? "" : "Before stopping owned-software-team-id: recorded agent sessions: lead@owned-software-team (activity: working).");
         } finally {
           process.exitCode = originalExit;
           log.mockRestore();

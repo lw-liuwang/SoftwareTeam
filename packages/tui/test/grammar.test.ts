@@ -27,7 +27,7 @@ describe("safe-core grammar (FR-1, §4.B)", () => {
     expect(parseCommand("/")).toEqual({ type: "filter", text: "" });
   });
 
-  it("drives rig-spec views and content scrolling through the command path", () => {
+  it("drives software-team-spec views and content scrolling through the command path", () => {
     expect(parseCommand("tab topology")).toEqual({ type: "tab", tab: "topology" });
     expect(parseCommand("tab configuration")).toEqual({ type: "tab", tab: "configuration" });
     expect(parseCommand("tab yaml")).toEqual({ type: "tab", tab: "yaml" });
@@ -36,7 +36,7 @@ describe("safe-core grammar (FR-1, §4.B)", () => {
   });
 
   it("parses <resource> <name> drill for known resource kinds", () => {
-    expect(parseCommand("rig openrig-build")).toEqual({ type: "drill", resource: "rig", name: "openrig-build" });
+    expect(parseCommand("SoftwareTeam softwareteam-build")).toEqual({ type: "drill", resource: "softwareTeam", name: "softwareteam-build" });
     expect(parseCommand("agent dev50.driver")).toEqual({ type: "drill", resource: "agent", name: "dev50.driver" });
     expect(parseCommand("host vm-host")).toEqual({ type: "drill", resource: "host", name: "vm-host" });
     expect(parseCommand("spec driver-agent")).toEqual({ type: "drill", resource: "spec", name: "driver-agent" });

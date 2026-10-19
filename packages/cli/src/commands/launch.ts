@@ -7,11 +7,11 @@ import { getDaemonStatus, getDaemonUrl , daemonStatusGuard} from "../daemon-life
 import { realDeps } from "./daemon.js";
 import type { StatusDeps } from "./status.js";
 import { answerShowsAction, isPlanAnswer, notAPlanMessage, planSupportRefusal } from "../launch-plan-guard.js";
-import { resolveRigHandle } from "../rig-handle.js";
+import { resolveSoftwareTeamHandle } from "../software-team-handle.js";
 
 type LaunchResponse = {
   ok: boolean;
-  rigId?: string;
+  softwareTeamId?: string;
   nodeId?: string;
   logicalId?: string;
   sessionName?: string;
@@ -49,13 +49,13 @@ function printSnapshotSelection(selection: LaunchResponse["snapshotSelection"]):
   if (newer?.snapshotId) console.log(`Newer usable alternative: ${newer.snapshotId}${newer.kind ? ` (${newer.kind})` : ""}`);
 }
 
-/** A rig name that matches more than one active rig stops before any request: it would fail as "not found" anyway,
+/** A softwareTeam name that matches more than one active softwareTeam stops before any request: it would fail as "not found" anyway,
  *  and the candidates let the person re-run with the right id. */
-function refuseAmbiguousRig(handle: string, ids: string[], json: boolean | undefined, host?: string, count = ids.length): void {
-  const fact = `'${handle}' matches ${count} rigs${host ? ` on host ${host}` : ""}.`;
+function refuseAmbiguousSoftwareTeam(handle: string, ids: string[], json: boolean | undefined, host?: string, count = ids.length): void {
+  const fact = `'${handle}' matches ${count} softwareTeams${host ? ` on host ${host}` : ""}.`;
   const consequence = "Nothing was launched.";
-  const action = `Re-run with the specific rig id: ${ids.join("  |  ")}`;
-  if (json) console.log(JSON.stringify({ ok: false, code: "rig_ambiguous", error: { fact, consequence, action, candidates: ids } }));
+  const action = `Re-run with the specific SoftwareTeam id: ${ids.join("  |  ")}`;
+  if (json) console.log(JSON.stringify({ ok: false, code: "software_team_ambiguous", error: { fact, consequence, action, candidates: ids } }));
   else {
     console.error(`Error: ${fact}`);
     console.error(`  ${consequence}`);
@@ -66,7 +66,7 @@ function refuseAmbiguousRig(handle: string, ids: string[], json: boolean | undef
 
 /** Build the launch command, allowing local launches that start seats a longer wait than previews. */
 export function launchCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("launch").description("Launch or relaunch a node in a running rig");
+  const cmd = new Command("launch").description("Launch or relaunch a node in a running softwareTeam");
   const getDeps = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   async function getClient(deps: StatusDeps): Promise<DaemonClient | null> {
@@ -76,26 +76,26 @@ export function launchCommand(depsOverride?: StatusDeps): Command {
   }
 
   cmd
-    .argument("<rig>", "Rig name or ID")
+    .argument("<softwareTeam>", "SoftwareTeam name or ID")
     .argument("[nodeRef]", "Node logical ID or node ID (single target)")
     .option("--seats <ids>", "Comma-separated logical IDs for subset launch")
     .option("--hold-reason <reason>", "Reason for holding non-target seats")
     .option("--snapshot-id <id>", "Use this exact restore-usable snapshot")
     .option("--retry-startup-from <member-file>", "Retry a stopped first start that failed during projection, using its original member fragment")
-    .option("--rig-root <path>", "Original absolute source root for --retry-startup-from")
+    .option("--software-team-root <path>", "Original absolute source root for --retry-startup-from")
     .option("--plan", "Show subset selection and non-target effects without mutation")
     .option("--json", "JSON output")
-    .option("--host <id>", "Run on a remote host declared in ~/.openrig/hosts.yaml")
-    .action(async (rigHandle: string, nodeRef: string | undefined, opts: { json?: boolean; holdReason?: string; seats?: string; host?: string; snapshotId?: string; plan?: boolean; retryStartupFrom?: string; rigRoot?: string }) => {
+    .option("--host <id>", "Run on a remote host declared in ~/.softwareteam/hosts.yaml")
+    .action(async (softwareTeamHandle: string, nodeRef: string | undefined, opts: { json?: boolean; holdReason?: string; seats?: string; host?: string; snapshotId?: string; plan?: boolean; retryStartupFrom?: string; softwareTeamRoot?: string }) => {
       // OPR.0.4.6.MH1 FR-2: selected-host routing — explicit --host wins;
       // else the persisted selection feeds the SHIPPED --host path; no
       // selection = today exactly.
       opts.host = resolveEffectiveHost(opts.host);
       const deps = getDeps();
-      let retryBody: { retryStartupFrom: { member: Record<string, unknown>; rigRoot: string } } | undefined;
-      if (opts.retryStartupFrom || opts.rigRoot) {
-        if (!nodeRef || !opts.retryStartupFrom || !opts.rigRoot || !isAbsolute(opts.rigRoot) || opts.seats || opts.snapshotId || opts.plan || opts.holdReason) {
-          console.error("First-start retry requires one node, --retry-startup-from and an absolute --rig-root; it cannot combine with snapshot/subset/plan options.");
+      let retryBody: { retryStartupFrom: { member: Record<string, unknown>; softwareTeamRoot: string } } | undefined;
+      if (opts.retryStartupFrom || opts.softwareTeamRoot) {
+        if (!nodeRef || !opts.retryStartupFrom || !opts.softwareTeamRoot || !isAbsolute(opts.softwareTeamRoot) || opts.seats || opts.snapshotId || opts.plan || opts.holdReason) {
+          console.error("First-start retry requires one node, --retry-startup-from and an absolute --software-team-root; it cannot combine with snapshot/subset/plan options.");
           process.exitCode = 1;
           return;
         }
@@ -104,7 +104,7 @@ export function launchCommand(depsOverride?: StatusDeps): Command {
           const parsed = parse(readFileSync(opts.retryStartupFrom, "utf8"));
           const member = parsed?.member ?? parsed;
           if (!member || typeof member !== "object" || Array.isArray(member) || parsed.edges || member.edges) throw new Error("Supply a single member fragment without edges; retry preserves existing topology.");
-          retryBody = { retryStartupFrom: { member, rigRoot: opts.rigRoot } };
+          retryBody = { retryStartupFrom: { member, softwareTeamRoot: opts.softwareTeamRoot } };
         } catch (error) {
           console.error(`Cannot read retry member: ${(error as Error).message}`);
           process.exitCode = 1;
@@ -134,14 +134,14 @@ export function launchCommand(depsOverride?: StatusDeps): Command {
         return;
       }
 
-      // The rig is named by its id or by its name; resolution runs once, after the input checks, right before the
-      // request. An exact id wins (archived rigs included), then one active rig of that name. A missing handle or a
+      // The softwareTeam is named by its id or by its name; resolution runs once, after the input checks, right before the
+      // request. An exact id wins (archived softwareTeams included), then one active softwareTeam of that name. A missing handle or a
       // lookup that can't be read keeps today's path: the handle goes to the daemon as an id.
-      let rigId = rigHandle;
-      let rigLabel = rigHandle;
+      let softwareTeamId = softwareTeamHandle;
+      let softwareTeamLabel = softwareTeamHandle;
 
       if (opts.host) {
-        const { runRemoteHttpOp, lookupRemoteRigId } = await import("../remote-host-ops.js");
+        const { runRemoteHttpOp, lookupRemoteSoftwareTeamId } = await import("../remote-host-ops.js");
         const seatList = opts.seats
           ? opts.seats.split(",").map((s) => s.trim()).filter(Boolean)
           : (isSingleNodePlan && trimmedNodeRef ? [trimmedNodeRef] : []);
@@ -189,15 +189,15 @@ export function launchCommand(depsOverride?: StatusDeps): Command {
           }
         }
         // After the plan-support check, so a plan the daemon can't honour costs no lookup.
-        const lookup = await lookupRemoteRigId(opts.host, rigHandle, deps);
+        const lookup = await lookupRemoteSoftwareTeamId(opts.host, softwareTeamHandle, deps);
         if (lookup.kind === "ambiguous") {
-          refuseAmbiguousRig(rigHandle, lookup.ids, opts.json, opts.host, lookup.count);
+          refuseAmbiguousSoftwareTeam(softwareTeamHandle, lookup.ids, opts.json, opts.host, lookup.count);
           return;
         }
-        if (lookup.kind === "resolved") rigId = lookup.rigId;
+        if (lookup.kind === "resolved") softwareTeamId = lookup.softwareTeamId;
         const apiPath = route === "subset"
-          ? `/api/rigs/${encodeURIComponent(rigId)}/nodes/launch-subset`
-          : `/api/rigs/${encodeURIComponent(rigId)}/nodes/${encodeURIComponent(nodeRef!)}/launch`;
+          ? `/api/software-teams/${encodeURIComponent(softwareTeamId)}/nodes/launch-subset`
+          : `/api/software-teams/${encodeURIComponent(softwareTeamId)}/nodes/${encodeURIComponent(nodeRef!)}/launch`;
         const result = await runRemoteHttpOp(opts.host, "POST", apiPath, body, deps, opts);
         const notAPlan = Boolean(opts.plan && !isPlanAnswer(result.data) && answerShowsAction(result.ok, result.data));
         if (notAPlan) {
@@ -240,16 +240,16 @@ export function launchCommand(depsOverride?: StatusDeps): Command {
         ? opts.seats.split(",").map((s) => s.trim()).filter(Boolean)
         : (isSingleNodePlan && trimmedNodeRef ? [trimmedNodeRef] : []);
 
-      const resolveLocalRig = async (): Promise<boolean> => {
-        // A rig list that can't be matched (it throws on a malformed entry) keeps the raw handle, like a failed read.
-        const resolution = await resolveRigHandle(client, rigHandle).catch(() => ({ kind: "passthrough" as const, handle: rigHandle }));
+      const resolveLocalSoftwareTeam = async (): Promise<boolean> => {
+        // A softwareTeam list that can't be matched (it throws on a malformed entry) keeps the raw handle, like a failed read.
+        const resolution = await resolveSoftwareTeamHandle(client, softwareTeamHandle).catch(() => ({ kind: "passthrough" as const, handle: softwareTeamHandle }));
         if (resolution.kind === "ambiguous") {
-          refuseAmbiguousRig(rigHandle, resolution.ids, opts.json);
+          refuseAmbiguousSoftwareTeam(softwareTeamHandle, resolution.ids, opts.json);
           return false;
         }
         if (resolution.kind === "resolved") {
-          rigId = resolution.id;
-          if (resolution.byName) rigLabel = `${rigHandle} (${resolution.id})`;
+          softwareTeamId = resolution.id;
+          if (resolution.byName) softwareTeamLabel = `${softwareTeamHandle} (${resolution.id})`;
         }
         return true;
       };
@@ -278,8 +278,8 @@ export function launchCommand(depsOverride?: StatusDeps): Command {
           }
           body.plan = true;
         }
-        if (!(await resolveLocalRig())) return;
-        const res = await client.post<LaunchResponse>(`/api/rigs/${encodeURIComponent(rigId)}/nodes/launch-subset`, body,
+        if (!(await resolveLocalSoftwareTeam())) return;
+        const res = await client.post<LaunchResponse>(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/nodes/launch-subset`, body,
           opts.plan ? undefined : { timeoutMs: 120_000 });
         const notAPlan = Boolean(opts.plan && !isPlanAnswer(res.data) && answerShowsAction(res.status >= 200 && res.status < 300, res.data));
         if (notAPlan) {
@@ -317,7 +317,7 @@ export function launchCommand(depsOverride?: StatusDeps): Command {
           }
           return;
         }
-        // Hard failure (no per-seat result to render — e.g. rig_not_found): error + exit.
+        // Hard failure (no per-seat result to render — e.g. software_team_not_found): error + exit.
         if (!res.data.launched && !res.data.held && !res.data.alreadyRunning) {
           console.error(res.data.error ?? res.data.message ?? `Launch failed (HTTP ${res.status})`);
           process.exitCode = 1;
@@ -368,11 +368,11 @@ export function launchCommand(depsOverride?: StatusDeps): Command {
         return;
       }
 
-      if (!(await resolveLocalRig())) return;
+      if (!(await resolveLocalSoftwareTeam())) return;
       const body: Record<string, unknown> = retryBody ?? {};
       if (opts.snapshotId) body.snapshotId = opts.snapshotId;
 
-      const res = await client.post<LaunchResponse>(`/api/rigs/${encodeURIComponent(rigId)}/nodes/${encodeURIComponent(nodeRef)}/launch`, body, { timeoutMs: 120_000 });
+      const res = await client.post<LaunchResponse>(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/nodes/${encodeURIComponent(nodeRef)}/launch`, body, { timeoutMs: 120_000 });
       if (opts.json) {
         console.log(JSON.stringify(res.data, null, 2));
         if (res.status >= 400) process.exitCode = 1;
@@ -393,12 +393,12 @@ export function launchCommand(depsOverride?: StatusDeps): Command {
         for (const w of res.data.warnings ?? []) console.warn(`Warning: ${w}`);
       };
       if (res.data.code === "already_running" || (res.data.alreadyRunning && res.data.alreadyRunning.length > 0)) {
-        console.log(`Node ${logicalId} is already running in rig ${rigLabel} (not relaunched)`);
+        console.log(`Node ${logicalId} is already running in SoftwareTeam ${softwareTeamLabel} (not relaunched)`);
         printLaunchWarnings();
         return;
       }
       const sessionSuffix = res.data.sessionName ? ` (${res.data.sessionName})` : "";
-      console.log(`Launched node ${logicalId} in rig ${rigLabel}${sessionSuffix}`);
+      console.log(`Launched node ${logicalId} in SoftwareTeam ${softwareTeamLabel}${sessionSuffix}`);
       printLaunchWarnings();
     });
 

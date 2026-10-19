@@ -13,7 +13,7 @@
 //   POST   /api/agent-images/prune                  — prune evictable images (dry-run by default)
 //
 // Resume tokens are NEVER returned over the wire — they're redacted at
-// route boundary. Only the rigspec-instantiator (in-process) consumes
+// route boundary. Only the software-team-spec-instantiator (in-process) consumes
 // the token directly.
 
 import { Hono } from "hono";
@@ -24,7 +24,7 @@ import type { SnapshotCapturer } from "../domain/agent-images/snapshot-capturer.
 import { evaluateProtection } from "../domain/agent-images/evidence-guard.js";
 import { discoverResumeToken } from "../domain/agent-images/resume-token-discovery.js";
 import { convergeOp } from "../domain/topology-converge.js";
-import type { PodRigInstantiator } from "../domain/rigspec-instantiator.js";
+import type { PodSoftwareTeamInstantiator } from "../domain/software-team-spec-instantiator.js";
 import { AgentImageError, type AgentImageEntry } from "../domain/agent-images/agent-image-types.js";
 
 interface PruneBody {
@@ -47,11 +47,11 @@ interface DeleteQuery {
 
 interface ForkBody {
   sourceSession?: string;
-  rigId?: string;
+  softwareTeamId?: string;
   pod?: string;
   /** New member id for the forked successor. */
   member?: string;
-  rigRoot?: string;
+  softwareTeamRoot?: string;
   /** When true, capture + PIN a durable image and launch via mode:agent_image. */
   keepImage?: boolean;
   imageName?: string;
@@ -169,7 +169,7 @@ export function agentImagesRoutes(deps: AgentImageRoutesDeps): Hono {
 
   // OPR.0.4.3.05 seat-forking closeout — the narrow daemon fork composer.
   //
-  // `rig fork <source-session>` posts here. This is the ONLY net-new surface
+  // `softwareTeam fork <source-session>` posts here. This is the ONLY net-new surface
   // in the slice: it composes the ALREADY-SHIPPED primitives (resume-token
   // discovery + add_member converge, or snapshot + pin + add_member) into one
   // operator verb. It exists server-side because the native resume id is
@@ -183,21 +183,21 @@ export function agentImagesRoutes(deps: AgentImageRoutesDeps): Hono {
   //                        → add_member(mode: agent_image) → launch.
   router.post("/fork", async (c) => {
     const db = c.get("db" as never) as Database.Database | undefined;
-    const podInstantiator = c.get("podInstantiator" as never) as PodRigInstantiator | undefined;
+    const podInstantiator = c.get("podInstantiator" as never) as PodSoftwareTeamInstantiator | undefined;
     if (!db || !podInstantiator) return c.json({ error: "fork_composer_unavailable" }, 503);
 
     const body = (await c.req.json<ForkBody>().catch(() => ({}))) as ForkBody;
     const sourceSession = body.sourceSession;
-    const rigId = body.rigId;
+    const softwareTeamId = body.softwareTeamId;
     const pod = body.pod;
     const member = body.member;
-    if (!sourceSession || !rigId || !pod || !member) {
+    if (!sourceSession || !softwareTeamId || !pod || !member) {
       return c.json({
         error: "missing_required_fields",
-        hint: "POST body must include { sourceSession, rigId, pod, member }",
+        hint: "POST body must include { sourceSession, softwareTeamId, pod, member }",
       }, 400);
     }
-    const rigRoot = typeof body.rigRoot === "string" ? body.rigRoot : ".";
+    const softwareTeamRoot = typeof body.softwareTeamRoot === "string" ? body.softwareTeamRoot : ".";
 
     // Resolve the source seat's launch shape so the successor mirrors it
     // (agent_ref / profile / cwd / codex profile). The native resume id is
@@ -206,7 +206,7 @@ export function agentImagesRoutes(deps: AgentImageRoutesDeps): Hono {
     if (!source) {
       return c.json({
         error: "session_not_found",
-        message: `Source session '${sourceSession}' not found. Run 'rig ps --nodes' to see what's running.`,
+        message: `Source session '${sourceSession}' not found. Run 'SoftwareTeam ps --nodes' to see what's running.`,
       }, 404);
     }
 
@@ -279,19 +279,19 @@ export function agentImagesRoutes(deps: AgentImageRoutesDeps): Hono {
 
     const converged = await convergeOp(
       { instantiator: podInstantiator },
-      rigId,
+      softwareTeamId,
       { kind: "add_member", pod, member: memberFragment, edges: body.edges },
-      rigRoot,
+      softwareTeamRoot,
     );
     if (converged.kind !== "add_member" || !converged.supported) {
       return c.json({ error: "fork_failed", message: "Unexpected converge result for fork add_member" }, 500);
     }
     const outcome = converged.outcome;
     // The outcome never carries the native id (add_member persists no
-    // session_source; RigRepository.addNode stores no agent-image reference).
+    // session_source; SoftwareTeamRepository.addNode stores no agent-image reference).
     if (!outcome.ok) {
       const status =
-        outcome.code === "rig_not_found" || outcome.code === "pod_not_found" ? 404
+        outcome.code === "software_team_not_found" || outcome.code === "pod_not_found" ? 404
         : outcome.code === "member_conflict" ? 409
         : outcome.code === "edge_unresolved" || outcome.code === "validation_failed" || outcome.code === "preflight_failed" ? 400
         : 500;

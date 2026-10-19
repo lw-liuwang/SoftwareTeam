@@ -6,7 +6,7 @@ import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
 
 const SPEC = `
 version: "0.2"
-name: env-flag-rig
+name: env-flag-software-team
 pods:
   - id: dev
     label: Dev
@@ -27,7 +27,7 @@ function setup() {
   const db = createFullTestDb();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "up-env-"));
   tmpDirs.push(dir);
-  const specPath = path.join(dir, "rig.yaml");
+  const specPath = path.join(dir, "software-team.yaml");
   fs.writeFileSync(specPath, SPEC);
   const app = createTestApp(db, {
     upRouterFsOps: {
@@ -47,7 +47,7 @@ const NOT_USABLE: Array<[string, unknown]> = [
   ["null", null],
   ["a list", ["A=1"]],
   ["a string", "A=1"],
-  ["a reserved name", { OPENRIG_URL: "http://elsewhere" }],
+  ["a reserved name", { SOFTWARETEAM_URL: "http://elsewhere" }],
   ["a lowercase name", { lower: "x" }],
   ["a non-string value", { COUNT: 3 }],
   ["an empty value", { EMPTY: "" }],
@@ -58,7 +58,7 @@ describe("POST /api/up envOverride", () => {
   it("hands a valid override to the launch", async () => {
     const { db, app, specPath, post } = setup();
     const bootstrap = vi.spyOn(app.bootstrapOrchestrator, "bootstrap").mockResolvedValue({
-      runId: "run", status: "completed", rigId: "rig", stages: [], errors: [],
+      runId: "run", status: "completed", softwareTeamId: "softwareTeam", stages: [], errors: [],
     } as never);
     const res = await post("/api/up", { sourceRef: specPath, envOverride: { DEBUG: "1" } });
     expect(res.status).toBe(201);
@@ -69,7 +69,7 @@ describe("POST /api/up envOverride", () => {
   it.each(NOT_USABLE)("answers a spec request with %s as it does without the field, and launches without an override", async (_label, envOverride) => {
     const { db, app, specPath, post } = setup();
     const bootstrap = vi.spyOn(app.bootstrapOrchestrator, "bootstrap").mockResolvedValue({
-      runId: "run", status: "completed", rigId: "rig", stages: [], errors: [],
+      runId: "run", status: "completed", softwareTeamId: "softwareTeam", stages: [], errors: [],
     } as never);
     const without = await post("/api/up", { sourceRef: specPath });
     const withField = await post("/api/up", { sourceRef: specPath, envOverride });
@@ -80,9 +80,9 @@ describe("POST /api/up envOverride", () => {
     db.close();
   });
 
-  it.each([["a valid override", { DEBUG: "1" }], ["null", null]])("answers a restore by rig name with %s as it does without the field", async (_label, envOverride) => {
+  it.each([["a valid override", { DEBUG: "1" }], ["null", null]])("answers a restore by SoftwareTeam name with %s as it does without the field", async (_label, envOverride) => {
     const { db, app, post } = setup();
-    app.rigRepo.createRig("already-here");
+    app.softwareTeamRepo.createSoftwareTeam("already-here");
     const without = await post("/api/up", { sourceRef: "already-here" });
     const withField = await post("/api/up", { sourceRef: "already-here", envOverride });
     expect(withField.status).toBe(without.status);
@@ -94,7 +94,7 @@ describe("POST /api/up envOverride", () => {
 describe("POST /api/bundles/install envOverride", () => {
   it.each(NOT_USABLE)("answers a request with %s as it does without the field", async (_label, envOverride) => {
     const { db, post } = setup();
-    const bundlePath = path.join(tmpDirs[0]!, "absent.rigbundle");
+    const bundlePath = path.join(tmpDirs[0]!, "absent.softwareteambundle");
     const without = await post("/api/bundles/install", { bundlePath, plan: true });
     const withField = await post("/api/bundles/install", { bundlePath, plan: true, envOverride });
     expect(withField.status).toBe(without.status);

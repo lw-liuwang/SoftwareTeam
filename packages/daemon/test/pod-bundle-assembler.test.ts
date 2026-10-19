@@ -4,8 +4,8 @@ import * as nodeFs from "node:fs";
 import { tmpdir } from "node:os";
 import { PodBundleAssembler, type PodAssemblerFsOps } from "../src/domain/pod-bundle-assembler.js";
 import { validatePodBundleManifest, parsePodBundleManifest, serializePodBundleManifest, type PodBundleManifest } from "../src/domain/bundle-types.js";
-import { RigSpecCodec } from "../src/domain/rigspec-codec.js";
-import type { RigSpec } from "../src/domain/types.js";
+import { SoftwareTeamSpecCodec } from "../src/domain/software-team-spec-codec.js";
+import type { SoftwareTeamSpec } from "../src/domain/types.js";
 
 // -- Mock filesystem --
 
@@ -52,12 +52,12 @@ function mockFs(files: Record<string, string | Uint8Array>, modes: Record<string
 
 // -- Helpers --
 
-const RIG_ROOT = "/project/rigs/my-rig";
+const SOFTWARE_TEAM_ROOT = "/project/software-teams/my-software-team";
 
-function makeRigSpec(overrides?: Partial<RigSpec>): RigSpec {
+function makeSoftwareTeamSpec(overrides?: Partial<SoftwareTeamSpec>): SoftwareTeamSpec {
   return {
     version: "0.2",
-    name: "test-rig",
+    name: "test-software-team",
     pods: [{
       id: "dev",
       label: "Dev",
@@ -75,8 +75,8 @@ function makeRigSpec(overrides?: Partial<RigSpec>): RigSpec {
   };
 }
 
-function rigSpecYaml(spec: RigSpec): string {
-  return RigSpecCodec.serialize(spec);
+function softwareTeamSpecYaml(spec: SoftwareTeamSpec): string {
+  return SoftwareTeamSpecCodec.serialize(spec);
 }
 
 function validAgentYaml(name: string, opts?: { imports?: string; skills?: string[] }): string {
@@ -86,32 +86,32 @@ function validAgentYaml(name: string, opts?: { imports?: string; skills?: string
   return `name: ${name}\nversion: "1.0.0"\n${imports}\n${resourceBlock}\nprofiles:\n  default:\n    uses:\n      skills: [${(opts?.skills ?? []).join(", ")}]`;
 }
 
-function setupBasicRig(fs: ReturnType<typeof mockFs>, spec?: RigSpec): RigSpec {
-  const rigSpec = spec ?? makeRigSpec();
-  const yaml = rigSpecYaml(rigSpec);
+function setupBasicSoftwareTeam(fs: ReturnType<typeof mockFs>, spec?: SoftwareTeamSpec): SoftwareTeamSpec {
+  const softwareTeamSpec = spec ?? makeSoftwareTeamSpec();
+  const yaml = softwareTeamSpecYaml(softwareTeamSpec);
   (fs as unknown as { _files: Record<string, string> })["_files"] = {};
 
   // Put files into mock FS
   const files = fs as unknown as Record<string, unknown>;
   // We need to add to the original files object, but mockFs creates a closure.
   // Instead, re-create the FS with the needed files.
-  return rigSpec;
+  return softwareTeamSpec;
 }
 
 describe("PodBundleAssembler", () => {
   // T1: assembler walks embedded pod members correctly
   it("walks embedded pod members and collects agent dirs", () => {
-    const spec = makeRigSpec();
+    const spec = makeSoftwareTeamSpec();
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT,
-      rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT,
+      softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/bundle-staging",
       bundleName: "test-bundle",
       bundleVersion: "1.0.0",
@@ -120,12 +120,12 @@ describe("PodBundleAssembler", () => {
     expect(result.manifest.agents).toHaveLength(1);
     expect(result.manifest.agents[0]!.name).toBe("impl");
     expect(result.manifest.agents[0]!.path).toBe("agents/impl");
-    expect(result.collectedFiles).toContain("rig.yaml");
+    expect(result.collectedFiles).toContain("software-team.yaml");
   });
 
   // T2: referenced AgentSpecs included exactly once (dedup)
   it("deduplicates AgentSpecs referenced by multiple members", () => {
-    const spec = makeRigSpec({
+    const spec = makeSoftwareTeamSpec({
       pods: [{
         id: "dev",
         label: "Dev",
@@ -137,14 +137,14 @@ describe("PodBundleAssembler", () => {
       }],
     });
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/agents/shared/agent.yaml`]: validAgentYaml("shared"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/agents/shared/agent.yaml`]: validAgentYaml("shared"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "test", bundleVersion: "1.0",
     });
 
@@ -152,18 +152,18 @@ describe("PodBundleAssembler", () => {
   });
 
   it.each([0o700, 0o750, 0o755, 0o600])("preserves mode %i while vendoring agent package files", (mode) => {
-    const rigRoot = nodePath.resolve(RIG_ROOT);
-    const scriptPath = nodePath.join(rigRoot, "agents", "impl", "bin", "hello.sh");
+    const softwareTeamRoot = nodePath.resolve(SOFTWARE_TEAM_ROOT);
+    const scriptPath = nodePath.join(softwareTeamRoot, "agents", "impl", "bin", "hello.sh");
     const fs = mockFs({
-      [nodePath.join(rigRoot, "rig.yaml")]: rigSpecYaml(makeRigSpec()),
-      [nodePath.join(rigRoot, "agents", "impl", "agent.yaml")]: validAgentYaml("impl"),
+      [nodePath.join(softwareTeamRoot, "software-team.yaml")]: softwareTeamSpecYaml(makeSoftwareTeamSpec()),
+      [nodePath.join(softwareTeamRoot, "agents", "impl", "agent.yaml")]: validAgentYaml("impl"),
       [scriptPath]: "#!/bin/sh\necho hello\n",
     }, { [scriptPath]: mode });
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     assembler.assemble({
-      rigRoot,
-      rigSpecPath: nodePath.join(rigRoot, "rig.yaml"),
+      softwareTeamRoot,
+      softwareTeamSpecPath: nodePath.join(softwareTeamRoot, "software-team.yaml"),
       outputDir: "/tmp/bundle-staging-executable",
       bundleName: "test-bundle",
       bundleVersion: "1.0.0",
@@ -175,7 +175,7 @@ describe("PodBundleAssembler", () => {
   });
 
   it("preserves builtin terminal members without trying to vendor them", () => {
-    const spec = makeRigSpec({
+    const spec = makeSoftwareTeamSpec({
       pods: [{
         id: "infra",
         label: "Infra",
@@ -190,14 +190,14 @@ describe("PodBundleAssembler", () => {
       }],
     });
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT,
-      rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT,
+      softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging",
       bundleName: "test",
       bundleVersion: "1.0",
@@ -205,25 +205,25 @@ describe("PodBundleAssembler", () => {
 
     expect(result.manifest.agents).toHaveLength(0);
     const written = (fs as unknown as { _written: Record<string, string> })._written;
-    const rewrittenRig = written["/tmp/staging/rig.yaml"]!;
-    expect(rewrittenRig).toContain("agent_ref: builtin:terminal");
-    expect(rewrittenRig).not.toContain("local:agents/");
+    const rewrittenSoftwareTeam = written["/tmp/staging/software-team.yaml"]!;
+    expect(rewrittenSoftwareTeam).toContain("agent_ref: builtin:terminal");
+    expect(rewrittenSoftwareTeam).not.toContain("local:agents/");
   });
 
   // T3: flat imports collected with correct per-import originalRef
   it("collects flat imports with correct originalRef per import", () => {
-    const spec = makeRigSpec();
+    const spec = makeSoftwareTeamSpec();
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl", { imports: "imports:\n  - ref: local:../lib-a\n  - ref: local:../lib-b" }),
-      [`${RIG_ROOT}/agents/lib-a/agent.yaml`]: validAgentYaml("lib-a"),
-      [`${RIG_ROOT}/agents/lib-b/agent.yaml`]: validAgentYaml("lib-b"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl", { imports: "imports:\n  - ref: local:../lib-a\n  - ref: local:../lib-b" }),
+      [`${SOFTWARE_TEAM_ROOT}/agents/lib-a/agent.yaml`]: validAgentYaml("lib-a"),
+      [`${SOFTWARE_TEAM_ROOT}/agents/lib-b/agent.yaml`]: validAgentYaml("lib-b"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "test", bundleVersion: "1.0",
     });
 
@@ -238,17 +238,17 @@ describe("PodBundleAssembler", () => {
 
   // T4: culture_file included
   it("includes culture_file in bundle", () => {
-    const spec = makeRigSpec({ cultureFile: "culture.md" });
+    const spec = makeSoftwareTeamSpec({ cultureFile: "culture.md" });
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/culture.md`]: "# Culture",
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/culture.md`]: "# Culture",
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "test", bundleVersion: "1.0",
     });
 
@@ -256,21 +256,21 @@ describe("PodBundleAssembler", () => {
     expect(result.manifest.cultureFile).toBe("culture.md");
   });
 
-  // T5: rig startup files included
-  it("includes rig startup files", () => {
-    const spec = makeRigSpec({
+  // T5: softwareTeam startup files included
+  it("includes SoftwareTeam startup files", () => {
+    const spec = makeSoftwareTeamSpec({
       startup: { files: [{ path: "startup/all-hands.md", deliveryHint: "auto", required: true, appliesOn: ["fresh_start", "restore"] }], actions: [] },
     });
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/startup/all-hands.md`]: "# All hands",
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/startup/all-hands.md`]: "# All hands",
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "test", bundleVersion: "1.0",
     });
 
@@ -279,7 +279,7 @@ describe("PodBundleAssembler", () => {
 
   // T6: pod shared startup files included
   it("includes pod shared startup files", () => {
-    const spec = makeRigSpec({
+    const spec = makeSoftwareTeamSpec({
       pods: [{
         id: "dev", label: "Dev",
         startup: { files: [{ path: "pods/dev/shared.md", deliveryHint: "auto", required: true, appliesOn: ["fresh_start", "restore"] }], actions: [] },
@@ -288,15 +288,15 @@ describe("PodBundleAssembler", () => {
       }],
     });
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/pods/dev/shared.md`]: "# Shared",
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/pods/dev/shared.md`]: "# Shared",
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "test", bundleVersion: "1.0",
     });
 
@@ -305,7 +305,7 @@ describe("PodBundleAssembler", () => {
 
   // T7: member overlay startup files included
   it("includes member startup overlay files", () => {
-    const spec = makeRigSpec({
+    const spec = makeSoftwareTeamSpec({
       pods: [{
         id: "dev", label: "Dev",
         members: [{
@@ -316,15 +316,15 @@ describe("PodBundleAssembler", () => {
       }],
     });
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/pods/dev/overlays/impl.md`]: "# Impl overlay",
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/pods/dev/overlays/impl.md`]: "# Impl overlay",
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "test", bundleVersion: "1.0",
     });
 
@@ -333,50 +333,50 @@ describe("PodBundleAssembler", () => {
 
   // T8: path traversal rejected
   it("rejects path traversal in startup files", () => {
-    const spec = makeRigSpec({
+    const spec = makeSoftwareTeamSpec({
       startup: { files: [{ path: "../escape.md", deliveryHint: "auto", required: true, appliesOn: ["fresh_start", "restore"] }], actions: [] },
     });
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     expect(() => assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "test", bundleVersion: "1.0",
     })).toThrow(/traversal|escape/i);
   });
 
   it("rejects a sibling-prefix traversal at schema validation", () => {
-    const spec = makeRigSpec({ cultureFile: "../rig-sibling/context.md" });
-    const fs = mockFs({ [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec) });
+    const spec = makeSoftwareTeamSpec({ cultureFile: "../software-team-sibling/context.md" });
+    const fs = mockFs({ [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec) });
     const realpath = vi.spyOn(fs, "realpath");
     expect(() => new PodBundleAssembler({ fsOps: fs }).assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "test", bundleVersion: "1.0",
-    })).toThrow('Invalid rig spec: culture_file: path traversal (..) is not allowed (got "../rig-sibling/context.md")');
+    })).toThrow('Invalid SoftwareTeam spec: culture_file: path traversal (..) is not allowed (got "../software-team-sibling/context.md")');
     expect(realpath).not.toHaveBeenCalled();
   });
 
   it.each([
     "outside.md",
     "outside-dir/context.md",
-  ])("rejects a rig file resolving into a sibling-prefix directory: %s", (path) => {
+  ])("rejects a SoftwareTeam file resolving into a sibling-prefix directory: %s", (path) => {
     const root = nodeFs.mkdtempSync(nodePath.join(tmpdir(), "pod-containment-"));
     try {
-      const rigRoot = nodePath.join(root, "rig");
-      const sibling = nodePath.join(root, "rig-sibling");
-      nodeFs.mkdirSync(rigRoot);
+      const softwareTeamRoot = nodePath.join(root, "software-team");
+      const sibling = nodePath.join(root, "software-team-sibling");
+      nodeFs.mkdirSync(softwareTeamRoot);
       nodeFs.mkdirSync(sibling);
       nodeFs.writeFileSync(nodePath.join(sibling, "context.md"), "# Sibling context");
-      nodeFs.symlinkSync(nodePath.join(sibling, "context.md"), nodePath.join(rigRoot, "outside.md"));
-      nodeFs.symlinkSync(sibling, nodePath.join(rigRoot, "outside-dir"));
-      const spec = makeRigSpec({ cultureFile: path });
+      nodeFs.symlinkSync(nodePath.join(sibling, "context.md"), nodePath.join(softwareTeamRoot, "outside.md"));
+      nodeFs.symlinkSync(sibling, nodePath.join(softwareTeamRoot, "outside-dir"));
+      const spec = makeSoftwareTeamSpec({ cultureFile: path });
       const fs = mockFs({
-        [`${rigRoot}/rig.yaml`]: rigSpecYaml(spec),
-        [`${rigRoot}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+        [`${softwareTeamRoot}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+        [`${softwareTeamRoot}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
       });
       // Exercise real path resolution; refuse before reading or writing file bytes.
       Object.assign(fs, { realpath: nodeFs.realpathSync });
@@ -385,29 +385,29 @@ describe("PodBundleAssembler", () => {
       fs.exists = (p) => exists(p) || nodeFs.existsSync(p);
       fs.readFileBuffer = (p) => nodeFs.existsSync(p) ? nodeFs.readFileSync(p) : readFileBuffer(p);
       expect(() => new PodBundleAssembler({ fsOps: fs }).assemble({
-        rigRoot, rigSpecPath: `${rigRoot}/rig.yaml`, outputDir: `${root}/staging`,
+        softwareTeamRoot, softwareTeamSpecPath: `${softwareTeamRoot}/software-team.yaml`, outputDir: `${root}/staging`,
         bundleName: "test", bundleVersion: "1.0",
-      })).toThrow(`"${path}" resolves outside the rig root through a symlink; copy the file into the rig to bundle it`);
+      })).toThrow(`"${path}" resolves outside the SoftwareTeam root through a symlink; copy the file into the SoftwareTeam to bundle it`);
       expect((fs as typeof fs & { _written: object })._written).toEqual({});
     } finally {
       nodeFs.rmSync(root, { recursive: true, force: true });
     }
   });
 
-  it.each([false, true])("keeps in-root symlinks with a symlinked rig root: %s", (aliasRoot) => {
+  it.each([false, true])("keeps in-root symlinks with a symlinked SoftwareTeam root: %s", (aliasRoot) => {
     const root = nodeFs.realpathSync(nodeFs.mkdtempSync(nodePath.join(tmpdir(), "pod-containment-")));
     try {
-      const actualRoot = nodePath.join(root, "rig");
+      const actualRoot = nodePath.join(root, "software-team");
       nodeFs.mkdirSync(actualRoot);
       nodeFs.writeFileSync(nodePath.join(actualRoot, "context.md"), "# Local context");
       nodeFs.symlinkSync("context.md", nodePath.join(actualRoot, "inside.md"));
       nodeFs.symlinkSync(actualRoot, nodePath.join(root, "alias"));
-      const rigRoot = aliasRoot ? nodePath.join(root, "alias") : actualRoot;
-      const spec = makeRigSpec({ cultureFile: "inside.md" });
+      const softwareTeamRoot = aliasRoot ? nodePath.join(root, "alias") : actualRoot;
+      const spec = makeSoftwareTeamSpec({ cultureFile: "inside.md" });
       const fs = mockFs({
-        [`${rigRoot}/rig.yaml`]: rigSpecYaml(spec),
-        [`${rigRoot}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
-        [`${rigRoot}/inside.md`]: "# Local context",
+        [`${softwareTeamRoot}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+        [`${softwareTeamRoot}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+        [`${softwareTeamRoot}/inside.md`]: "# Local context",
       });
       Object.assign(fs, { realpath: nodeFs.realpathSync });
       const readFileBuffer = fs.readFileBuffer;
@@ -415,7 +415,7 @@ describe("PodBundleAssembler", () => {
         nodeFs.existsSync(p) ? nodeFs.readFileSync(p) : readFileBuffer(p));
       const mode = vi.spyOn(fs, "fileMode");
       const result = new PodBundleAssembler({ fsOps: fs }).assemble({
-        rigRoot, rigSpecPath: `${rigRoot}/rig.yaml`, outputDir: `${root}/staging`,
+        softwareTeamRoot, softwareTeamSpecPath: `${softwareTeamRoot}/software-team.yaml`, outputDir: `${root}/staging`,
         bundleName: "test", bundleVersion: "1.0",
       });
       expect(result.collectedFiles).toContain("inside.md");
@@ -428,9 +428,9 @@ describe("PodBundleAssembler", () => {
     }
   });
 
-  // T8b: path: absolute agent_ref outside rig root included and ref is rewritten
-  it("path: absolute agent_ref outside rig root is vendored with rewritten ref", () => {
-    const spec = makeRigSpec({
+  // T8b: path: absolute agent_ref outside softwareTeam root included and ref is rewritten
+  it("path: absolute agent_ref outside SoftwareTeam root is vendored with rewritten ref", () => {
+    const spec = makeSoftwareTeamSpec({
       pods: [{
         id: "dev", label: "Dev",
         members: [{ id: "impl", agentRef: "path:/external/agents/impl", profile: "default", runtime: "claude-code", cwd: "." }],
@@ -438,56 +438,56 @@ describe("PodBundleAssembler", () => {
       }],
     });
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
       ["/external/agents/impl/agent.yaml"]: validAgentYaml("impl"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "test", bundleVersion: "1.0",
     });
 
     expect(result.manifest.agents).toHaveLength(1);
     expect(result.manifest.agents[0]!.originalRef).toBe("path:/external/agents/impl");
 
-    // Verify rewritten rig.yaml has local: ref, not path:
+    // Verify rewritten software-team.yaml has local: ref, not path:
     const written = (fs as unknown as { _written: Record<string, string> })._written;
-    const rewrittenRig = written["/tmp/staging/rig.yaml"]!;
-    expect(rewrittenRig).toContain("local:agents/impl");
-    expect(rewrittenRig).not.toContain("path:/external/agents/impl");
+    const rewrittenSoftwareTeam = written["/tmp/staging/software-team.yaml"]!;
+    expect(rewrittenSoftwareTeam).toContain("local:agents/impl");
+    expect(rewrittenSoftwareTeam).not.toContain("path:/external/agents/impl");
   });
 
   it("LP-1 refuses internal-substance files from a path: agent before vendoring", () => {
-    const spec = makeRigSpec({
+    const spec = makeSoftwareTeamSpec({
       pods: [{
         id: "dev", label: "Dev", edges: [],
         members: [{ id: "impl", agentRef: "path:/external/agents/impl", profile: "default", runtime: "claude-code", cwd: "." }],
       }],
     });
     const fs = mockFs({
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
       ["/external/agents/impl/agent.yaml"]: validAgentYaml("impl"),
-      ["/external/agents/impl/notes.md"]: "Source: substrate/shared-docs/rigs/private\n",
+      ["/external/agents/impl/notes.md"]: "Source: substrate/shared-docs/software-teams/private\n",
     });
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     expect(() => assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "test", bundleVersion: "1.0",
     })).toThrow(/internal-path[\s\S]*(genericize|public home|re-home)/i);
   });
 
   it("LP-1 refuses a lore-classed pack nested in a path: agent with otherwise clean bytes", () => {
-    const spec = makeRigSpec({
+    const spec = makeSoftwareTeamSpec({
       pods: [{
         id: "dev", label: "Dev", edges: [],
         members: [{ id: "impl", agentRef: "path:/external/agents/impl", profile: "default", runtime: "claude-code", cwd: "." }],
       }],
     });
     const fs = mockFs({
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
       ["/external/agents/impl/agent.yaml"]: validAgentYaml("impl"),
       ["/external/agents/impl/lore/manifest.yaml"]: [
         "name: private-lore", 'version: "1"', "taxonomy: lore", "files: []",
@@ -496,70 +496,70 @@ describe("PodBundleAssembler", () => {
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     expect(() => assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "test", bundleVersion: "1.0",
     })).toThrow(/lore-class|taxonomy:\s*lore/i);
   });
 
   it("LP-2 refuses internal substance from operator-rooted docs before copying", () => {
-    const spec = makeRigSpec({ docs: [{ path: "SETUP.md" }] });
+    const spec = makeSoftwareTeamSpec({ docs: [{ path: "SETUP.md" }] });
     const fs = mockFs({
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
-      [`${RIG_ROOT}/SETUP.md`]: "Use substrate/shared-docs/rigs/private to continue.\n",
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/SETUP.md`]: "Use substrate/shared-docs/software-teams/private to continue.\n",
     });
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     expect(() => assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "test", bundleVersion: "1.0",
     })).toThrow(/internal-path[\s\S]*(genericize|public home|re-home)/i);
   });
 
   it("LP-2 refuses a lore-classed operator-rooted document before copying", () => {
-    const spec = makeRigSpec({ docs: [{ path: "LORE.md" }] });
+    const spec = makeSoftwareTeamSpec({ docs: [{ path: "LORE.md" }] });
     const fs = mockFs({
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
-      [`${RIG_ROOT}/LORE.md`]: "---\ntaxonomy: lore\n---\n# A local situation\n",
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/LORE.md`]: "---\ntaxonomy: lore\n---\n# A local situation\n",
     });
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     expect(() => assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "test", bundleVersion: "1.0",
     })).toThrow(/lore-class|taxonomy:\s*lore/i);
   });
 
   // T9: remote import source rejected
   it("rejects remote import source during assembly", () => {
-    const spec = makeRigSpec();
+    const spec = makeSoftwareTeamSpec();
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: 'name: impl\nversion: "1.0.0"\nimports:\n  - ref: "github:foo/bar"\nprofiles: {}',
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: 'name: impl\nversion: "1.0.0"\nimports:\n  - ref: "github:foo/bar"\nprofiles: {}',
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     expect(() => assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "test", bundleVersion: "1.0",
     })).toThrow();
   });
 
   // T10: round-trip: assemble -> verify manifest shape
   it("assembled manifest has correct shape and validates", () => {
-    const spec = makeRigSpec({ cultureFile: "culture.md" });
+    const spec = makeSoftwareTeamSpec({ cultureFile: "culture.md" });
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/culture.md`]: "# Culture",
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/culture.md`]: "# Culture",
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "my-bundle", bundleVersion: "2.0.0",
     });
 
@@ -567,7 +567,7 @@ describe("PodBundleAssembler", () => {
     expect(result.manifest.schemaVersion).toBe(2);
     expect(result.manifest.name).toBe("my-bundle");
     expect(result.manifest.version).toBe("2.0.0");
-    expect(result.manifest.rigSpec).toBe("rig.yaml");
+    expect(result.manifest.softwareTeamSpec).toBe("software-team.yaml");
     expect(result.manifest.cultureFile).toBe("culture.md");
     expect(result.manifest.agents).toHaveLength(1);
 
@@ -581,8 +581,8 @@ describe("PodBundleAssembler", () => {
   });
 
   // T11: integration: assemble -> verify manifest + file contents
-  it("copies agent-package and rig files as bytes, never decoding them", () => {
-    const spec = makeRigSpec({
+  it("copies agent-package and SoftwareTeam files as bytes, never decoding them", () => {
+    const spec = makeSoftwareTeamSpec({
       cultureFile: "culture.md",
       startup: { files: [{ path: "startup/blob.bin", deliveryHint: "auto", required: true, appliesOn: ["fresh_start", "restore"] }], actions: [] },
     });
@@ -590,15 +590,15 @@ describe("PodBundleAssembler", () => {
     const culture = Uint8Array.from([0x23, 0x20, 0xa0, 0xa1, 0x0a]);
     const startup = Uint8Array.from([0xfe, 0xed, 0x00, 0xc0]);
     const files: Record<string, string | Uint8Array> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/culture.md`]: culture,
-      [`${RIG_ROOT}/startup/blob.bin`]: startup,
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
-      [`${RIG_ROOT}/agents/impl/assets/logo.png`]: binary,
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/culture.md`]: culture,
+      [`${SOFTWARE_TEAM_ROOT}/startup/blob.bin`]: startup,
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/assets/logo.png`]: binary,
     };
     const fs = mockFs(files);
     new PodBundleAssembler({ fsOps: fs }).assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "bytes", bundleVersion: "1.0.0",
     });
 
@@ -609,34 +609,34 @@ describe("PodBundleAssembler", () => {
   });
 
   it("integration: assembled bundle has correct manifest and files", () => {
-    const spec = makeRigSpec({
+    const spec = makeSoftwareTeamSpec({
       cultureFile: "culture.md",
-      startup: { files: [{ path: "startup/rig.md", deliveryHint: "auto", required: true, appliesOn: ["fresh_start", "restore"] }], actions: [] },
+      startup: { files: [{ path: "startup/softwareTeam.md", deliveryHint: "auto", required: true, appliesOn: ["fresh_start", "restore"] }], actions: [] },
     });
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/culture.md`]: "# Culture doc",
-      [`${RIG_ROOT}/startup/rig.md`]: "# Rig startup",
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl", { skills: ["deep-pr-review"] }),
-      [`${RIG_ROOT}/agents/impl/skills/deep-pr-review`]: "skill content",
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/culture.md`]: "# Culture doc",
+      [`${SOFTWARE_TEAM_ROOT}/startup/softwareTeam.md`]: "# SoftwareTeam startup",
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl", { skills: ["deep-pr-review"] }),
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/skills/deep-pr-review`]: "skill content",
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "full-bundle", bundleVersion: "1.0.0",
     });
 
     // Verify collected files
-    expect(result.collectedFiles).toContain("rig.yaml");
+    expect(result.collectedFiles).toContain("software-team.yaml");
     expect(result.collectedFiles).toContain("culture.md");
-    expect(result.collectedFiles).toContain("startup/rig.md");
+    expect(result.collectedFiles).toContain("startup/softwareTeam.md");
     expect(result.collectedFiles.some((f) => f.startsWith("agents/impl/"))).toBe(true);
 
     // Verify written files exist
     const written = (fs as unknown as { _written: Record<string, string> })._written;
-    expect(written["/tmp/staging/rig.yaml"]).toBeDefined();
+    expect(written["/tmp/staging/software-team.yaml"]).toBeDefined();
     expect(Buffer.from(written["/tmp/staging/culture.md"]!).toString("utf8")).toBe("# Culture doc");
     expect(written["/tmp/staging/bundle.yaml"]).toBeDefined();
   });
@@ -648,7 +648,7 @@ describe("PodBundleAssembler", () => {
       name: "test",
       version: "1.0",
       created_at: new Date().toISOString(),
-      rig_spec: "rig.yaml",
+      software_team_spec: "software-team.yaml",
       agents: [{
         name: "impl",
         version: "1.0",
@@ -664,17 +664,17 @@ describe("PodBundleAssembler", () => {
 
   // T13: vendored agent.yaml import refs are rewritten
   it("vendored agent.yaml has import refs rewritten to local:", () => {
-    const spec = makeRigSpec();
+    const spec = makeSoftwareTeamSpec();
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl", { imports: "imports:\n  - ref: local:../lib" }),
-      [`${RIG_ROOT}/agents/lib/agent.yaml`]: validAgentYaml("lib"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl", { imports: "imports:\n  - ref: local:../lib" }),
+      [`${SOFTWARE_TEAM_ROOT}/agents/lib/agent.yaml`]: validAgentYaml("lib"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "test", bundleVersion: "1.0",
     });
 
@@ -687,7 +687,7 @@ describe("PodBundleAssembler", () => {
 
   // T14: shared imports appear in all referencing agents' importEntries
   it("shared imports appear in all referencing agents importEntries", () => {
-    const spec = makeRigSpec({
+    const spec = makeSoftwareTeamSpec({
       pods: [{
         id: "dev", label: "Dev",
         members: [
@@ -698,16 +698,16 @@ describe("PodBundleAssembler", () => {
       }],
     });
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/agents/agent-a/agent.yaml`]: validAgentYaml("agent-a", { imports: "imports:\n  - ref: local:../shared-lib" }),
-      [`${RIG_ROOT}/agents/agent-b/agent.yaml`]: validAgentYaml("agent-b", { imports: "imports:\n  - ref: local:../shared-lib" }),
-      [`${RIG_ROOT}/agents/shared-lib/agent.yaml`]: validAgentYaml("shared-lib"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/agents/agent-a/agent.yaml`]: validAgentYaml("agent-a", { imports: "imports:\n  - ref: local:../shared-lib" }),
+      [`${SOFTWARE_TEAM_ROOT}/agents/agent-b/agent.yaml`]: validAgentYaml("agent-b", { imports: "imports:\n  - ref: local:../shared-lib" }),
+      [`${SOFTWARE_TEAM_ROOT}/agents/shared-lib/agent.yaml`]: validAgentYaml("shared-lib"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT, rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT, softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/staging", bundleName: "test", bundleVersion: "1.0",
     });
 
@@ -725,23 +725,23 @@ describe("PodBundleAssembler", () => {
 
   // Item 1 — provenance capture (slice-05 Checkpoint 2 part 2)
   it("v2: captures provenance from opts into manifest", () => {
-    const spec = makeRigSpec();
+    const spec = makeSoftwareTeamSpec();
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT,
-      rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT,
+      softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/bundle-staging-prov",
       bundleName: "test-bundle",
       bundleVersion: "1.0.0",
       provenance: {
         sourceHost: "test-host",
-        authorSession: "velocity-driver@openrig-velocity",
+        authorSession: "velocity-driver@softwareteam-velocity",
         daemonVersion: "0.3.2",
         cliVersion: "0.3.2",
         notes: "v2 capture fixture",
@@ -750,7 +750,7 @@ describe("PodBundleAssembler", () => {
 
     expect(result.manifest.provenance).toBeDefined();
     expect(result.manifest.provenance?.sourceHost).toBe("test-host");
-    expect(result.manifest.provenance?.authorSession).toBe("velocity-driver@openrig-velocity");
+    expect(result.manifest.provenance?.authorSession).toBe("velocity-driver@softwareteam-velocity");
     expect(result.manifest.provenance?.daemonVersion).toBe("0.3.2");
     expect(result.manifest.provenance?.notes).toBe("v2 capture fixture");
     // createdAt mirrors root
@@ -758,18 +758,18 @@ describe("PodBundleAssembler", () => {
   });
 
   it("v2: respects opts.provenance.createdAt when pre-set (test determinism)", () => {
-    const spec = makeRigSpec();
+    const spec = makeSoftwareTeamSpec();
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const fixedCreatedAt = "2026-01-01T00:00:00Z";
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT,
-      rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT,
+      softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/bundle-staging-fixed-createdat",
       bundleName: "test", bundleVersion: "1.0",
       provenance: { createdAt: fixedCreatedAt, sourceHost: "h" },
@@ -780,17 +780,17 @@ describe("PodBundleAssembler", () => {
   });
 
   it("v2: omits provenance when opts.provenance not provided (backward compat)", () => {
-    const spec = makeRigSpec();
+    const spec = makeSoftwareTeamSpec();
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT,
-      rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT,
+      softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/bundle-staging-no-prov",
       bundleName: "test", bundleVersion: "1.0",
     });
@@ -800,17 +800,17 @@ describe("PodBundleAssembler", () => {
 
   // Item 2 — compatibility capture (slice-05 Checkpoint 3.2)
   it("v2: captures compatibility from opts into manifest", () => {
-    const spec = makeRigSpec();
+    const spec = makeSoftwareTeamSpec();
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT,
-      rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT,
+      softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/bundle-staging-compat",
       bundleName: "test-bundle",
       bundleVersion: "1.0.0",
@@ -828,17 +828,17 @@ describe("PodBundleAssembler", () => {
   });
 
   it("v2: omits compatibility when opts.compatibility not provided (backward compat)", () => {
-    const spec = makeRigSpec();
+    const spec = makeSoftwareTeamSpec();
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: rigSpecYaml(spec),
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: softwareTeamSpecYaml(spec),
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT,
-      rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT,
+      softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/tmp/bundle-staging-no-compat",
       bundleName: "test", bundleVersion: "1.0",
     });
@@ -854,7 +854,7 @@ describe("PodBundleManifest validation", () => {
       name: "test-bundle",
       version: "1.0.0",
       created_at: "2026-03-29T00:00:00Z",
-      rig_spec: "rig.yaml",
+      software_team_spec: "software-team.yaml",
       agents: [{
         name: "impl", version: "1.0", path: "agents/impl",
         original_ref: "local:agents/impl", hash: "abc123",
@@ -868,7 +868,7 @@ describe("PodBundleManifest validation", () => {
   it("wrong schema_version fails", () => {
     const raw = {
       schema_version: 1, name: "test", version: "1.0",
-      created_at: "2026-03-29T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-03-29T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [],
     };
     const result = validatePodBundleManifest(raw);
@@ -879,7 +879,7 @@ describe("PodBundleManifest validation", () => {
   it("serialize -> parse -> validate round-trips", () => {
     const manifest: PodBundleManifest = {
       schemaVersion: 2, name: "rt-test", version: "2.0",
-      createdAt: "2026-03-29T00:00:00Z", rigSpec: "rig.yaml",
+      createdAt: "2026-03-29T00:00:00Z", softwareTeamSpec: "software-team.yaml",
       agents: [{
         name: "impl", version: "1.0", path: "agents/impl",
         originalRef: "local:agents/impl", hash: "def456",
@@ -906,7 +906,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: missing provenance block passes validation (backward compat)", () => {
     const raw = {
       schema_version: 2, name: "no-prov", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{
         name: "impl", version: "1.0", path: "agents/impl",
         original_ref: "local:agents/impl", hash: "abc",
@@ -920,7 +920,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: full provenance block passes validation", () => {
     const raw = {
       schema_version: 2, name: "with-prov", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{
         name: "impl", version: "1.0", path: "agents/impl",
         original_ref: "local:agents/impl", hash: "abc",
@@ -929,9 +929,9 @@ describe("PodBundleManifest validation", () => {
       provenance: {
         created_at: "2026-05-18T00:00:00Z",
         source_host: "test-host.local",
-        author_session: "velocity-driver@openrig-velocity",
-        source_rig_id: "01KQEQPN4MQJN0DHBM5CQ0N8D7",
-        source_rig_name: "openrig-velocity",
+        author_session: "velocity-driver@softwareteam-velocity",
+        source_software_team_id: "01KQEQPN4MQJN0DHBM5CQ0N8D7",
+        source_software_team_name: "softwareteam-velocity",
         daemon_version: "0.3.2",
         cli_version: "0.3.2",
         notes: "Test bundle for Item 1",
@@ -944,7 +944,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: provenance present but not an object rejected", () => {
     const raw = {
       schema_version: 2, name: "bad-prov", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       provenance: "string-not-object",
     };
@@ -956,7 +956,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: provenance field with wrong type rejected", () => {
     const raw = {
       schema_version: 2, name: "bad-prov-field", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       provenance: { source_host: 12345 },
     };
@@ -970,7 +970,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: missing compatibility block passes validation (backward compat)", () => {
     const raw = {
       schema_version: 2, name: "no-compat", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
     };
     const result = validatePodBundleManifest(raw);
@@ -980,7 +980,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: full compatibility block passes validation", () => {
     const raw = {
       schema_version: 2, name: "with-compat", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       compatibility: { min_daemon_version: "0.3.2", min_cli_version: "0.3.2", schema_version: 2 },
     };
@@ -991,7 +991,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: compatibility present but not an object rejected", () => {
     const raw = {
       schema_version: 2, name: "bad-compat", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       compatibility: "0.3.2",
     };
@@ -1003,7 +1003,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: compatibility field with wrong type rejected", () => {
     const raw = {
       schema_version: 2, name: "bad-compat-field", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       compatibility: { min_daemon_version: 0.3 },
     };
@@ -1017,7 +1017,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: missing skills block passes validation (backward compat)", () => {
     const raw = {
       schema_version: 2, name: "no-skills", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
     };
     const result = validatePodBundleManifest(raw);
@@ -1027,7 +1027,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: skills as string array passes validation", () => {
     const raw = {
       schema_version: 2, name: "with-skills", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       skills: ["skills/foo/SKILL.md", "skills/bar/SKILL.md"],
     };
@@ -1038,7 +1038,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: unsafe skill path rejected", () => {
     const raw = {
       schema_version: 2, name: "bad-skills", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       skills: ["../escape/skill.md"],
     };
@@ -1052,7 +1052,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: missing plugins block passes validation", () => {
     const raw = {
       schema_version: 2, name: "no-plugins", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
     };
     const result = validatePodBundleManifest(raw);
@@ -1062,7 +1062,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: plugins as valid {id, source} array passes validation", () => {
     const raw = {
       schema_version: 2, name: "with-plugins", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       plugins: [{ id: "gstack", source: { kind: "local", path: "plugins/gstack" } }],
     };
@@ -1073,7 +1073,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: plugin entry with unsafe source.path rejected", () => {
     const raw = {
       schema_version: 2, name: "bad-plugins", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       plugins: [{ id: "x", source: { kind: "local", path: "../escape" } }],
     };
@@ -1085,7 +1085,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: round-trip preserves plugins through serialize -> parse", () => {
     const manifest: PodBundleManifest = {
       schemaVersion: 2, name: "rt-plugins-v2", version: "2.0",
-      createdAt: "2026-05-18T00:00:00Z", rigSpec: "rig.yaml",
+      createdAt: "2026-05-18T00:00:00Z", softwareTeamSpec: "software-team.yaml",
       agents: [{
         name: "impl", version: "1.0", path: "agents/impl",
         originalRef: "local:agents/impl", hash: "def",
@@ -1109,7 +1109,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: round-trip preserves skills through serialize -> parse", () => {
     const manifest: PodBundleManifest = {
       schemaVersion: 2, name: "rt-skills-v2", version: "2.0",
-      createdAt: "2026-05-18T00:00:00Z", rigSpec: "rig.yaml",
+      createdAt: "2026-05-18T00:00:00Z", softwareTeamSpec: "software-team.yaml",
       agents: [{
         name: "impl", version: "1.0", path: "agents/impl",
         originalRef: "local:agents/impl", hash: "def",
@@ -1132,7 +1132,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: missing workflow_specs block passes validation (backward compat)", () => {
     const raw = {
       schema_version: 2, name: "no-workflow-specs", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
     };
     const result = validatePodBundleManifest(raw);
@@ -1142,7 +1142,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: workflow_specs as string array passes validation", () => {
     const raw = {
       schema_version: 2, name: "with-workflow-specs", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       workflow_specs: ["workflows/onboarding.yaml", "workflows/release.yaml"],
     };
@@ -1153,7 +1153,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: workflow_specs as non-array rejected", () => {
     const raw = {
       schema_version: 2, name: "bad-workflow-specs", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       workflow_specs: "workflows/a.yaml",
     };
@@ -1165,7 +1165,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: non-string workflow_specs entry rejected", () => {
     const raw = {
       schema_version: 2, name: "bad-workflow-specs", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       workflow_specs: [123, "workflows/ok.yaml"],
     };
@@ -1177,7 +1177,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: unsafe workflow_specs path rejected", () => {
     const raw = {
       schema_version: 2, name: "bad-workflow-specs", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       workflow_specs: ["../escape/spec.yaml"],
     };
@@ -1189,7 +1189,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: round-trip preserves workflow_specs through serialize -> parse", () => {
     const manifest: PodBundleManifest = {
       schemaVersion: 2, name: "rt-workflow-specs-v2", version: "2.0",
-      createdAt: "2026-05-18T00:00:00Z", rigSpec: "rig.yaml",
+      createdAt: "2026-05-18T00:00:00Z", softwareTeamSpec: "software-team.yaml",
       agents: [{
         name: "impl", version: "1.0", path: "agents/impl",
         originalRef: "local:agents/impl", hash: "def",
@@ -1210,7 +1210,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: round-trip preserves all 3 cross-primitive blocks together (skills + plugins + workflow_specs)", () => {
     const manifest: PodBundleManifest = {
       schemaVersion: 2, name: "rt-all-three", version: "2.0",
-      createdAt: "2026-05-18T00:00:00Z", rigSpec: "rig.yaml",
+      createdAt: "2026-05-18T00:00:00Z", softwareTeamSpec: "software-team.yaml",
       agents: [{
         name: "impl", version: "1.0", path: "agents/impl",
         originalRef: "local:agents/impl", hash: "def",
@@ -1236,7 +1236,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: missing context_packs block passes validation (backward compat)", () => {
     const raw = {
       schema_version: 2, name: "no-context-packs", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
     };
     const result = validatePodBundleManifest(raw);
@@ -1246,7 +1246,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: context_packs as string array passes validation", () => {
     const raw = {
       schema_version: 2, name: "with-context-packs", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       context_packs: ["context-packs/intent/manifest.yaml", "context-packs/persona/manifest.yaml"],
     };
@@ -1257,7 +1257,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: context_packs as non-array rejected", () => {
     const raw = {
       schema_version: 2, name: "bad-context-packs", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       context_packs: "context-packs/a/manifest.yaml",
     };
@@ -1269,7 +1269,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: non-string context_packs entry rejected", () => {
     const raw = {
       schema_version: 2, name: "bad-context-packs", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       context_packs: [42, "context-packs/ok/manifest.yaml"],
     };
@@ -1281,7 +1281,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: unsafe context_packs path rejected", () => {
     const raw = {
       schema_version: 2, name: "bad-context-packs", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       context_packs: ["../escape/manifest.yaml"],
     };
@@ -1293,7 +1293,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: round-trip preserves context_packs through serialize -> parse", () => {
     const manifest: PodBundleManifest = {
       schemaVersion: 2, name: "rt-context-packs-v2", version: "2.0",
-      createdAt: "2026-05-18T00:00:00Z", rigSpec: "rig.yaml",
+      createdAt: "2026-05-18T00:00:00Z", softwareTeamSpec: "software-team.yaml",
       agents: [{
         name: "impl", version: "1.0", path: "agents/impl",
         originalRef: "local:agents/impl", hash: "def",
@@ -1316,7 +1316,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: missing agent_images block passes validation (backward compat)", () => {
     const raw = {
       schema_version: 2, name: "no-agent-images", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
     };
     const result = validatePodBundleManifest(raw);
@@ -1326,7 +1326,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: agent_images as string array passes validation", () => {
     const raw = {
       schema_version: 2, name: "with-agent-images", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       agent_images: ["agent-images/seat-a", "agent-images/seat-b"],
     };
@@ -1337,7 +1337,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: agent_images as non-array rejected", () => {
     const raw = {
       schema_version: 2, name: "bad-agent-images", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       agent_images: "agent-images/a",
     };
@@ -1349,7 +1349,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: non-string agent_images entry rejected", () => {
     const raw = {
       schema_version: 2, name: "bad-agent-images", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       agent_images: [99, "agent-images/ok"],
     };
@@ -1361,7 +1361,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: unsafe agent_images path rejected", () => {
     const raw = {
       schema_version: 2, name: "bad-agent-images", version: "1.0",
-      created_at: "2026-05-18T00:00:00Z", rig_spec: "rig.yaml",
+      created_at: "2026-05-18T00:00:00Z", software_team_spec: "software-team.yaml",
       agents: [{ name: "impl", version: "1.0", path: "agents/impl", original_ref: "local:agents/impl", hash: "abc", import_entries: [] }],
       agent_images: ["../escape"],
     };
@@ -1373,7 +1373,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: round-trip preserves agent_images through serialize -> parse", () => {
     const manifest: PodBundleManifest = {
       schemaVersion: 2, name: "rt-agent-images-v2", version: "2.0",
-      createdAt: "2026-05-18T00:00:00Z", rigSpec: "rig.yaml",
+      createdAt: "2026-05-18T00:00:00Z", softwareTeamSpec: "software-team.yaml",
       agents: [{
         name: "impl", version: "1.0", path: "agents/impl",
         originalRef: "local:agents/impl", hash: "def",
@@ -1394,7 +1394,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: round-trip preserves compatibility through serialize -> parse", () => {
     const manifest: PodBundleManifest = {
       schemaVersion: 2, name: "rt-compat", version: "2.0",
-      createdAt: "2026-05-18T00:00:00Z", rigSpec: "rig.yaml",
+      createdAt: "2026-05-18T00:00:00Z", softwareTeamSpec: "software-team.yaml",
       agents: [{
         name: "impl", version: "1.0", path: "agents/impl",
         originalRef: "local:agents/impl", hash: "def",
@@ -1422,7 +1422,7 @@ describe("PodBundleManifest validation", () => {
   it("v2: round-trip preserves provenance through serialize -> parse", () => {
     const manifest: PodBundleManifest = {
       schemaVersion: 2, name: "rt-prov", version: "2.0",
-      createdAt: "2026-05-18T00:00:00Z", rigSpec: "rig.yaml",
+      createdAt: "2026-05-18T00:00:00Z", softwareTeamSpec: "software-team.yaml",
       agents: [{
         name: "impl", version: "1.0", path: "agents/impl",
         originalRef: "local:agents/impl", hash: "def",
@@ -1431,7 +1431,7 @@ describe("PodBundleManifest validation", () => {
       provenance: {
         createdAt: "2026-05-18T00:00:00Z",
         sourceHost: "rt-host",
-        authorSession: "velocity-driver@openrig-velocity",
+        authorSession: "velocity-driver@softwareteam-velocity",
         daemonVersion: "0.3.2",
         cliVersion: "0.3.2",
         notes: "v2 round-trip fixture",
@@ -1446,7 +1446,7 @@ describe("PodBundleManifest validation", () => {
     const m = parsed as Record<string, unknown>;
     const prov = m["provenance"] as Record<string, unknown>;
     expect(prov["source_host"]).toBe("rt-host");
-    expect(prov["author_session"]).toBe("velocity-driver@openrig-velocity");
+    expect(prov["author_session"]).toBe("velocity-driver@softwareteam-velocity");
     expect(prov["daemon_version"]).toBe("0.3.2");
     expect(prov["notes"]).toBe("v2 round-trip fixture");
   });
@@ -1471,7 +1471,7 @@ describe("PodBundleSourceResolver", () => {
         name: "resolver-test",
         version: "1.0.0",
         createdAt: "2026-03-29T00:00:00Z",
-        rigSpec: "rig.yaml",
+        softwareTeamSpec: "software-team.yaml",
         agents: [{
           name: "impl", version: "1.0", path: "agents/impl",
           originalRef: "local:agents/impl", hash: "abc",
@@ -1480,13 +1480,13 @@ describe("PodBundleSourceResolver", () => {
       });
       fs.writeFileSync(path.join(tmpDir, "bundle.yaml"), manifestYaml);
 
-      // Write rig.yaml
-      const rigYaml = RigSpecCodec.serialize({
-        version: "0.2", name: "test-rig",
+      // Write software-team.yaml
+      const softwareTeamYaml = SoftwareTeamSpecCodec.serialize({
+        version: "0.2", name: "test-software-team",
         pods: [{ id: "dev", label: "Dev", members: [{ id: "impl", agentRef: "local:agents/impl", profile: "default", runtime: "claude-code", cwd: "." }], edges: [] }],
         edges: [],
       });
-      fs.writeFileSync(path.join(tmpDir, "rig.yaml"), rigYaml);
+      fs.writeFileSync(path.join(tmpDir, "software-team.yaml"), softwareTeamYaml);
 
       // Write agent
       fs.mkdirSync(path.join(tmpDir, "agents", "impl"), { recursive: true });
@@ -1506,53 +1506,53 @@ describe("PodBundleSourceResolver", () => {
       expect(agents[0]!["name"]).toBe("impl");
 
       // Verify specPath exists
-      const specPath = path.join(tmpDir, m["rig_spec"] as string);
+      const specPath = path.join(tmpDir, m["software_team_spec"] as string);
       expect(fs.existsSync(specPath)).toBe(true);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 
-  it("bundles declared docs files alongside the rig spec", () => {
-    const spec = makeRigSpec({ docs: [{ path: "SETUP.md" }] });
-    const yaml = rigSpecYaml(spec);
+  it("bundles declared docs files alongside the SoftwareTeam spec", () => {
+    const spec = makeSoftwareTeamSpec({ docs: [{ path: "SETUP.md" }] });
+    const yaml = softwareTeamSpecYaml(spec);
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: yaml,
-      [`${RIG_ROOT}/SETUP.md`]: "# Setup instructions\nInstall Exa MCP first.",
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: yaml,
+      [`${SOFTWARE_TEAM_ROOT}/SETUP.md`]: "# Setup instructions\nInstall Exa MCP first.",
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     const result = assembler.assemble({
-      rigRoot: RIG_ROOT,
-      rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT,
+      softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/out",
       bundleName: "test",
       bundleVersion: "1.0",
     });
 
     expect(result.collectedFiles).toContain("SETUP.md");
-    // The bundled rig.yaml should still reference the doc
+    // The bundled software-team.yaml should still reference the doc
     const written = (fs as unknown as { _written: Record<string, string> })._written;
-    const bundledRigYaml = written["/out/rig.yaml"];
-    expect(bundledRigYaml).toContain("SETUP.md");
+    const bundledSoftwareTeamYaml = written["/out/software-team.yaml"];
+    expect(bundledSoftwareTeamYaml).toContain("SETUP.md");
   });
 
   it("fails assembly when a declared doc file is missing from disk", () => {
-    const spec = makeRigSpec({ docs: [{ path: "SETUP.md" }] });
-    const yaml = rigSpecYaml(spec);
+    const spec = makeSoftwareTeamSpec({ docs: [{ path: "SETUP.md" }] });
+    const yaml = softwareTeamSpecYaml(spec);
     const files: Record<string, string> = {
-      [`${RIG_ROOT}/rig.yaml`]: yaml,
+      [`${SOFTWARE_TEAM_ROOT}/software-team.yaml`]: yaml,
       // SETUP.md deliberately missing
-      [`${RIG_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
+      [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: validAgentYaml("impl"),
     };
     const fs = mockFs(files);
     const assembler = new PodBundleAssembler({ fsOps: fs });
 
     expect(() => assembler.assemble({
-      rigRoot: RIG_ROOT,
-      rigSpecPath: `${RIG_ROOT}/rig.yaml`,
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT,
+      softwareTeamSpecPath: `${SOFTWARE_TEAM_ROOT}/software-team.yaml`,
       outputDir: "/out",
       bundleName: "test",
       bundleVersion: "1.0",

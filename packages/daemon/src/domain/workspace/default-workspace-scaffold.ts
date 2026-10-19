@@ -12,12 +12,12 @@ intent: Organize this project's durable work as missions and slices, then move i
 
 # Project
 
-This is the project-level context for the default OpenRig workspace. It gives
+This is the project-level context for the default SoftwareTeam workspace. It gives
 agents a stable project intent before they descend into the active mission and
 slice. Edit it to describe what your project is for and who benefits from it.
 `;
 
-const PROJECT_MANIFEST = `schema: openrig.project/v0alpha1
+const PROJECT_MANIFEST = `schema: softwareteam.project/v0alpha1
 kind: project
 install:
   intent: SPEC.md
@@ -29,15 +29,15 @@ missions:
 # Skill source and the System World remain outside the project workspace.
 `;
 
-const WORKSPACE_CATALOG = `schema: openrig.workspace/v0alpha1
+const WORKSPACE_CATALOG = `schema: softwareteam.workspace/v0alpha1
 projects:
   - id: default
     root: .
 `;
 
-const WORKSPACE_GITIGNORE = `# OpenRig disposable work and local runtime projection state.
+const WORKSPACE_GITIGNORE = `# SoftwareTeam disposable work and local runtime projection state.
 /exhaust/
-/.openrig/
+/.softwareteam/
 `;
 
 export function workspaceScaffoldDirs(): string[] {

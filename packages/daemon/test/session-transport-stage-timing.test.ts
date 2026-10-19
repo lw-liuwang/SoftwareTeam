@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type Database from "better-sqlite3";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SessionTransport } from "../src/domain/session-transport.js";
 import type { TmuxAdapter, TmuxResult } from "../src/adapters/tmux.js";
@@ -22,7 +22,7 @@ async function createTestDaemon(
   };
   try {
     const daemon = await createDaemon(options);
-    expect(fetchedUrls).toEqual([pluginVendorUrl]);
+    expect(fetchedUrls).toEqual([]);
     return daemon;
   } finally {
     globalThis.fetch = originalFetch;
@@ -84,18 +84,18 @@ function mockTmux(overrides?: Partial<{
 
 describe("SessionTransport stage timing", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
-    const rig = rigRepo.createRig("timing-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { role: "worker", runtime: "claude-code" });
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@timing-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("timing-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@timing-software-team");
     sessionRegistry.updateStatus(session.id, "running");
-    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@timing-rig" });
+    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@timing-software-team" });
   });
 
   afterEach(() => db.close());
@@ -103,7 +103,7 @@ describe("SessionTransport stage timing", () => {
   function transport(tmux: TmuxAdapter, timer: RecordingStageTimer): SessionTransport {
     return new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: tmux,
       sleep: async () => {},
@@ -116,7 +116,7 @@ describe("SessionTransport stage timing", () => {
     let captures = 0;
     const result = await transport(mockTmux({
       capturePaneContent: async () => (++captures === 1 ? "before\n❯ " : "before\nhello\n❯ "),
-    }), timer).send("dev-impl@timing-rig", "hello", { verify: true });
+    }), timer).send("dev-impl@timing-software-team", "hello", { verify: true });
 
     expect(result.ok).toBe(true);
     expect(timer.records.map((r) => r.site)).toEqual([
@@ -133,7 +133,7 @@ describe("SessionTransport stage timing", () => {
     const timer = new RecordingStageTimer();
     const result = await transport(mockTmux({
       sendText: async () => ({ ok: false, code: "timeout", message: "tmux send timed out" }),
-    }), timer).send("dev-impl@timing-rig", "hello", { verify: true });
+    }), timer).send("dev-impl@timing-software-team", "hello", { verify: true });
 
     expect(result.ok).toBe(false);
     expect(result.reason).toBe("send_failed");
@@ -145,8 +145,8 @@ describe("SessionTransport stage timing", () => {
 
   it("wires the recorder through createDaemon into the production SessionTransport", async () => {
     const timer = new RecordingStageTimer();
-    const oldNoKernel = process.env.OPENRIG_NO_KERNEL;
-    process.env.OPENRIG_NO_KERNEL = "1";
+    const oldNoKernel = process.env.SOFTWARETEAM_NO_KERNEL;
+    process.env.SOFTWARETEAM_NO_KERNEL = "1";
     const pane = "%42";
     const daemon = await createTestDaemon({
       dbPath: ":memory:",
@@ -159,17 +159,17 @@ describe("SessionTransport stage timing", () => {
       slowOpRecorder: timer,
     } as never);
     try {
-      const composedRig = daemon.deps.rigRepo.createRig("composed-timing-rig");
-      const node = daemon.deps.rigRepo.addNode(composedRig.id, "dev.impl", {
+      const composedSoftwareTeam = daemon.deps.softwareTeamRepo.createSoftwareTeam("composed-timing-software-team");
+      const node = daemon.deps.softwareTeamRepo.addNode(composedSoftwareTeam.id, "dev.impl", {
         role: "worker",
         runtime: "claude-code",
       });
-      const session = daemon.deps.sessionRegistry.registerSession(node.id, "dev-impl@composed-timing-rig");
+      const session = daemon.deps.sessionRegistry.registerSession(node.id, "dev-impl@composed-timing-software-team");
       daemon.deps.sessionRegistry.updateStatus(session.id, "running");
-      daemon.deps.sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@composed-timing-rig", tmuxPane: pane });
+      daemon.deps.sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@composed-timing-software-team", tmuxPane: pane });
 
       const result = await daemon.deps.sessionTransport!.send(
-        "dev-impl@composed-timing-rig",
+        "dev-impl@composed-timing-software-team",
         "hello",
         { verify: true },
       );
@@ -183,8 +183,8 @@ describe("SessionTransport stage timing", () => {
     } finally {
       daemon.eventLoopMonitor.stop();
       daemon.db.close();
-      if (oldNoKernel === undefined) delete process.env.OPENRIG_NO_KERNEL;
-      else process.env.OPENRIG_NO_KERNEL = oldNoKernel;
+      if (oldNoKernel === undefined) delete process.env.SOFTWARETEAM_NO_KERNEL;
+      else process.env.SOFTWARETEAM_NO_KERNEL = oldNoKernel;
     }
   }, 10_000);
 });

@@ -23,8 +23,8 @@ describe("resolveArtifactPaths (OPR.0.4.1.11.2 FR-5: deterministic artifact nami
   });
 
   it("slugifies a route-shaped surface name into a filesystem-safe base (slashes/underscores/case)", () => {
-    const p = resolveArtifactPaths({ slice: "demo-slice", surface: "/topology/rig/rig_delivery", outRoot });
-    expect(p.intentPng).toBe("/work/digital-twin/demo-slice/topology-rig-rig-delivery.intent.png");
+    const p = resolveArtifactPaths({ slice: "demo-slice", surface: "/topology/softwareTeam/software_team_delivery", outRoot });
+    expect(p.intentPng).toBe("/work/digital-twin/demo-slice/topology-software-team-software-team-delivery.intent.png");
   });
 
   it("is deterministic — identical inputs yield identical paths", () => {

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { SeatLifecycleService } from "../src/domain/seat-lifecycle-service.js";
@@ -39,19 +39,19 @@ const opened: Database.Database[] = [];
 afterEach(() => { for (const db of opened.splice(0)) if (db.open) db.close(); vi.unstubAllEnvs(); });
 function fixture(runtime = "codex", file = ":memory:") {
   const db = new Database(file); opened.push(db); db.pragma("foreign_keys = ON"); migrate(db, ALL_MIGRATIONS);
-  const rigRepo = new RigRepository(db); const rig = rigRepo.createRig("permissions");
-  const node = rigRepo.addNode(rig.id, "dev.owner", { runtime, cwd: "/inert/project" });
-  const sibling = rigRepo.addNode(rig.id, "dev.sibling", { runtime, cwd: "/inert/project" });
+  const softwareTeamRepo = new SoftwareTeamRepository(db); const softwareTeam = softwareTeamRepo.createSoftwareTeam("permissions");
+  const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.owner", { runtime, cwd: "/inert/project" });
+  const sibling = softwareTeamRepo.addNode(softwareTeam.id, "dev.sibling", { runtime, cwd: "/inert/project" });
   const registry = new SessionRegistry(db); const session = registry.registerSession(node.id, "dev-owner@permissions");
   registry.updateStatus(session.id, "running");
   registry.updateResumeToken(session.id, "native-id", "retained-history", "hook");
   const eventBus = new EventBus(db);
   const tmux = new Proxy({}, { get: (_, key) => key === "deliveryGuard" ? undefined : () => { throw new Error("No lifecycle effect permitted"); } }) as TmuxAdapter;
-  const service = new SeatLifecycleService({ db, rigRepo, sessionRegistry: registry, eventBus,
+  const service = new SeatLifecycleService({ db, softwareTeamRepo, sessionRegistry: registry, eventBus,
     tmuxAdapter: tmux,
     runtimeAdapters: { "claude-code": { claudeManagedLaunch: fakeManaged(["default", "acceptEdits", "auto", "bypassPermissions"]) } as RuntimeAdapter } });
   const store = new NativePermissionStore(db);
-  return { db, rigRepo, rig, node, sibling, registry, session, eventBus, service, store };
+  return { db, softwareTeamRepo, softwareTeam, node, sibling, registry, session, eventBus, service, store };
 }
 const input = (mode: string) => ({ seatRef: "dev-owner@permissions", mode, reason: "deliberate operator choice", actor: "operator@permissions" });
 const lineage = (db: Database.Database) => JSON.stringify(["nodes", "sessions", "occupant_tenures", "node_startup_context"].map(t => db.prepare(`SELECT * FROM ${t}`).all()));
@@ -61,8 +61,8 @@ describe("S03 future native permission selections (offline; no native effect cla
   it("migration 088 preserves prior launch observations and histories and applies only once", () => {
     const db = new Database(":memory:"); opened.push(db); db.pragma("foreign_keys = ON");
     migrate(db, ALL_MIGRATIONS.filter(m => !m.name.startsWith("088_")));
-    const repo = new RigRepository(db); const rig = repo.createRig("upgrade");
-    const node = repo.addNode(rig.id, "owner", { runtime: "codex", cwd: "/inert" });
+    const repo = new SoftwareTeamRepository(db); const softwareTeam = repo.createSoftwareTeam("upgrade");
+    const node = repo.addNode(softwareTeam.id, "owner", { runtime: "codex", cwd: "/inert" });
     const registry = new SessionRegistry(db); registry.registerSession(node.id, "owner@upgrade");
     const generation = registry.currentOccupantTenure(node.id)!.generationUuid;
     db.prepare("INSERT INTO applied_launch_observations(generation_uuid,runtime,axis,observation_state,value) VALUES (?, 'codex','sandbox','observed','workspace-write')").run(generation);
@@ -111,14 +111,14 @@ describe("S03 future native permission selections (offline; no native effect cla
     const observations = new AppliedLaunchObservationStore(f.db);
     expect(observations.recordGeneration(tenure.generationUuid, observeCodexSandbox("-s danger-full-access -a never"))).toBe(true);
     await f.service.setPermissions(input("floor"));
-    const status = new SeatStatusService({ rigRepo: f.rigRepo }).getStatus(input("").seatRef);
+    const status = new SeatStatusService({ softwareTeamRepo: f.softwareTeamRepo }).getStatus(input("").seatRef);
     expect(status).toMatchObject({ ok: true, status: { permissions: { desired: { mode: "floor" }, lastLaunchArguments: { value: "danger-full-access", approvalPolicy: "never" }, nativeEffect: "unverified" } } });
     f.registry.mintOccupantTenure(f.node.id, "handover");
     expect(observations.readCurrent(f.node.id)).toBeNull();
   });
   it("does not call an unreadable selection inherit", () => {
     const f = fixture(); f.db.exec("DROP TABLE node_permission_selections");
-    expect(new SeatStatusService({ rigRepo: f.rigRepo }).getStatus(input("").seatRef)).toMatchObject({ ok: true, status: { permissions: { selectionState: "unknown", nativeEffect: "unverified" } } });
+    expect(new SeatStatusService({ softwareTeamRepo: f.softwareTeamRepo }).getStatus(input("").seatRef)).toMatchObject({ ok: true, status: { permissions: { selectionState: "unknown", nativeEffect: "unverified" } } });
     expect(() => f.store.apply(binding(f.node.id), "codex")).toThrow();
   });
   it.each([
@@ -128,13 +128,13 @@ describe("S03 future native permission selections (offline; no native effect cla
   ])("real HTTP route audits header or fallback: %j", async ({ sender, operator, expected }) => {
     const f = fixture(); const app = new Hono();
     app.use("*", async (c, next) => {
-      for (const [key, value] of Object.entries({ rigRepo: f.rigRepo, sessionRegistry: f.registry, eventBus: f.eventBus, tmuxAdapter: {} })) c.set(key as never, value as never);
+      for (const [key, value] of Object.entries({ softwareTeamRepo: f.softwareTeamRepo, sessionRegistry: f.registry, eventBus: f.eventBus, tmuxAdapter: {} })) c.set(key as never, value as never);
       await next();
     });
     app.route("/api/seat", seatRoutes);
     const url = "/api/seat/set-permissions/dev-owner%40permissions";
     const request = { method: "POST", body: JSON.stringify({ mode: "full_bypass", reason: "explicit choice", operator, actor: "ignored" }),
-      headers: { "content-type": "application/json", ...(sender ? { "x-openrig-session": sender } : {}) } };
+      headers: { "content-type": "application/json", ...(sender ? { "x-softwareteam-session": sender } : {}) } };
     const before = lineage(f.db);
     const response = await app.request(url, request);
     expect(response.status).toBe(200); expect(await response.json()).toMatchObject({ ok: true, changed: true });
@@ -158,7 +158,7 @@ describe("S03 future native permission selections (offline; no native effect cla
   it.each(["null", "[]", "{"])("keeps malformed or non-object body %s a missing-mode error with a sender", async (body) => {
     const app = new Hono(); app.route("/api/seat", seatRoutes);
     const response = await app.request("/api/seat/set-permissions/dev-owner%40permissions", {
-      method: "POST", body, headers: { "content-type": "application/json", "x-openrig-session": "operator" },
+      method: "POST", body, headers: { "content-type": "application/json", "x-softwareteam-session": "operator" },
     });
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "mode is required" });
@@ -166,7 +166,7 @@ describe("S03 future native permission selections (offline; no native effect cla
   it.each(["codex", "claude-code"])("legacy restore resolves current stored selection for %s", async runtime => {
     const f = fixture(runtime); await f.service.setPermissions(input(runtime === "codex" ? "full_bypass" : "auto"));
     const resume = vi.fn(async () => ({ ok: false, code: "offline", message: "stop" }));
-    const ctx = { db: f.db, rigRepo: f.rigRepo, sessionRegistry: f.registry, appliedLaunchStore: new AppliedLaunchObservationStore(f.db),
+    const ctx = { db: f.db, softwareTeamRepo: f.softwareTeamRepo, sessionRegistry: f.registry, appliedLaunchStore: new AppliedLaunchObservationStore(f.db),
       claudeResume: { canResume: () => runtime === "claude-code", resume }, codexResume: { canResume: () => runtime === "codex", resume } };
     await (RestoreOrchestrator.prototype as any).attemptResume.call(ctx, f.node.id, "seat", runtime === "codex" ? "codex_id" : "claude_id", "original", "/inert", null, "model", "floor");
     expect(resume).toHaveBeenCalledWith(...(runtime === "codex"
@@ -179,7 +179,7 @@ describe("S03 future native permission selections (offline; no native effect cla
     const adapter = { runtime: "claude-code", project: async () => ({ projected: [], skipped: [], failed: [] }),
       deliverStartup: async () => ({ delivered: [], failed: [] }), launchHarness } as unknown as RuntimeAdapter;
     const orchestrator = new StartupOrchestrator({ db: f.db, sessionRegistry: f.registry, eventBus: f.eventBus, tmuxAdapter: {} as TmuxAdapter });
-    await orchestrator.startNode({ rigId: f.rig.id, nodeId: f.node.id, sessionId: f.session.id,
+    await orchestrator.startNode({ softwareTeamId: f.softwareTeam.id, nodeId: f.node.id, sessionId: f.session.id,
       binding: { ...binding(f.node.id), launchPosture: "full_bypass" }, adapter, plan: { entries: [] } as never,
       resolvedStartupFiles: [], startupActions: [], isRestore: path === "resume",
       ...(path === "resume" ? { resumeToken: "retained", resumeType: "claude_id" } : {}),
@@ -209,11 +209,11 @@ describe("S03 selected arguments and unchanged defaults", () => {
   it("does not widen unset, floor, named-profile or environment-only behavior", () => {
     expect(codexPostureArg("", {})).toBe(" -s workspace-write");
     expect(codexPostureArg(" -p 'custom'", {})).toBe(" -p 'custom'");
-    expect(codexPostureArg("", { OPENRIG_YOLO: "1" })).toBe(" -s danger-full-access");
-    expect(codexPostureArg("", { OPENRIG_YOLO: "1" }, "floor")).toBe(" -s workspace-write");
+    expect(codexPostureArg("", { SOFTWARETEAM_YOLO: "1" })).toBe(" -s danger-full-access");
+    expect(codexPostureArg("", { SOFTWARETEAM_YOLO: "1" }, "floor")).toBe(" -s workspace-write");
   });
   it.each(["fresh", "resume", "fork"])("Claude supported auto wins over inherited bypass on %s", async path => {
-    vi.stubEnv("OPENRIG_YOLO", "1"); const t = refusedTransport();
+    vi.stubEnv("SOFTWARETEAM_YOLO", "1"); const t = refusedTransport();
     const adapter = new ClaudeCodeAdapter({ tmux: t.tmux, fsOps, claudeManagedLaunch: fakeManaged(["acceptEdits", "auto"]) });
     await adapter.launchHarness({ ...binding(), launchPosture: "full_bypass", permissionMode: "auto" }, { name: "seat",
       ...(path === "resume" ? { resumeToken: "original" } : {}),

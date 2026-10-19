@@ -6,8 +6,8 @@ import type { WindowDeps } from "../src/terminal-window.js";
 
 vi.mock("../src/daemon-lifecycle.js", async () => ({
   ...await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js"),
-  getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-  getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+  getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+  getDaemonUrl: vi.fn(() => "http://localhost:7434"),
 }));
 
 function fixture(options: { platform?: NodeJS.Platform; env?: NodeJS.ProcessEnv; unsupported?: boolean; denial?: boolean; remote?: boolean } = {}) {
@@ -33,7 +33,7 @@ function fixture(options: { platform?: NodeJS.Platform; env?: NodeJS.ProcessEnv;
   const windowDeps: WindowDeps = { platform: options.platform ?? "darwin", env: options.env ?? { TERM_PROGRAM: "Apple_Terminal" }, exists: () => false, exec, launch: vi.fn(async () => {}), sleep: vi.fn(async () => {}), herdrConfig: vi.fn(() => "/fixture/private herdr.toml"), id: () => "fixture" };
   const deps: TerminalDeps = {
     lifecycleDeps: {} as TerminalDeps["lifecycleDeps"], windowDeps,
-    clientFactory: () => ({ baseUrl: options.remote ? "http://192.0.2.2:7433" : "http://localhost:7433", get, post }) as unknown as ReturnType<TerminalDeps["clientFactory"]>,
+    clientFactory: () => ({ baseUrl: options.remote ? "http://192.0.2.2:7434" : "http://localhost:7434", get, post }) as unknown as ReturnType<TerminalDeps["clientFactory"]>,
   };
   const command = new Command().addCommand(terminalCommand(deps));
   return { get, post, exec, windowDeps, run: (args: string[]) => command.parseAsync(["terminal", "open", ...args], { from: "user" }) };
@@ -85,7 +85,7 @@ describe("terminal open desktop default", () => {
     const result = JSON.parse(logs[0]!);
     expect(result).toMatchObject({ ok: false, opened: [], code: "terminal_window_failed" });
     expect(result.error).toContain("No terminal window was opened.");
-    expect(result.error).toContain(reason === "remote" ? "rig terminal open 'saved:kernel' --window" : "HERDR_SOCKET_PATH='/fixture/herdr.sock' HERDR_CONFIG_PATH='/fixture/private herdr.toml' '/fixture/bin/herdr'");
+    expect(result.error).toContain(reason === "remote" ? "SoftwareTeam terminal open 'saved:kernel' --window" : "HERDR_SOCKET_PATH='/fixture/herdr.sock' HERDR_CONFIG_PATH='/fixture/private herdr.toml' '/fixture/bin/herdr'");
     expect(f.post).not.toHaveBeenCalled();
     expect(f.windowDeps.launch).not.toHaveBeenCalled();
   });

@@ -23,8 +23,8 @@ vi.mock("node:net", async () => {
 });
 const originalExit = process.exitCode;
 beforeEach(() => {
-  fixture.home = mkdtempSync(path.join(tmpdir(), "openrig-doctor-executor-"));
-  vi.stubEnv("OPENRIG_HOME", fixture.home);
+  fixture.home = mkdtempSync(path.join(tmpdir(), "softwareteam-doctor-executor-"));
+  vi.stubEnv("SOFTWARETEAM_HOME", fixture.home);
   vi.stubEnv("CODEX_HOME", path.join(fixture.home, "codex"));
   vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false })));
   vi.spyOn(console, "log").mockImplementation(() => {});
@@ -46,7 +46,7 @@ afterEach(() => {
 
 describe("doctor default executor", () => {
   it("keeps existing probes unbounded while bounding only the new provider calls", async () => {
-    await new Command().addCommand(doctorCommand()).parseAsync(["node", "rig", "doctor", "--json"]);
+    await new Command().addCommand(doctorCommand()).parseAsync(["node", "softwareTeam", "doctor", "--json"]);
     const body = JSON.parse(vi.mocked(console.log).mock.calls[0]![0] as string);
     expect(body.checks.find((check: { name: string }) => check.name === "tmux").status).toBe("pass");
     const calls = fixture.exec.mock.calls as Array<[string, { timeout?: number }]>;
@@ -64,7 +64,7 @@ describe("doctor default executor", () => {
       if (command === "codex login status") throw new Error("Not logged in");
       return delegate(command, options);
     });
-    await new Command().addCommand(doctorCommand()).parseAsync(["node", "rig", "doctor"]);
+    await new Command().addCommand(doctorCommand()).parseAsync(["node", "softwareTeam", "doctor"]);
     const text = vi.mocked(console.log).mock.calls.map(call => call.join(" ")).join("\n");
     expect(text).toContain("[FAIL] codex_auth:");
     expect(text).toContain("Only the harnesses selected for your project need a login; an unused harness does not.");

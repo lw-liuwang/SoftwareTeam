@@ -4,18 +4,18 @@ import { mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { prepareHermeticEnv, type HermeticScaffold } from "./helpers/hermetic-env.js";
-import { runRig, spawnScenarioDaemon, type ScenarioDaemon } from "./helpers/scenario-daemon.js";
+import { runSoftwareTeam, spawnScenarioDaemon, type ScenarioDaemon } from "./helpers/scenario-daemon.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const rigBin = resolve(here, "../../cli/dist/bin-wrapper.js");
+const softwareTeamBin = resolve(here, "../../cli/dist/bin-wrapper.js");
 const topology = resolve(here, "../../test-system/scenarios/dev-pair-stub.yaml");
-const rigName = "dev-pair-stub";
-const worker = `dev-impl@${rigName}`;
-const reviewer = `dev-qa@${rigName}`;
+const softwareTeamName = "dev-pair-stub";
+const worker = `dev-impl@${softwareTeamName}`;
+const reviewer = `dev-qa@${softwareTeamName}`;
 
-interface RigSummary {
-  rigId: string;
-  rigName: string;
+interface SoftwareTeamSummary {
+  softwareTeamId: string;
+  softwareTeamName: string;
   lifecycleState: string;
   nodeCount: number;
   runningCount: number;
@@ -38,18 +38,18 @@ describe("intentional seat stop CLI journey", () => {
   let reviewerCrashed = false;
 
   async function cli<T>(args: string[], timeoutMs = 30_000): Promise<T> {
-    const result = await runRig(args, daemon!.readEnv, rigBin, timeoutMs);
+    const result = await runSoftwareTeam(args, daemon!.readEnv, softwareTeamBin, timeoutMs);
     expect(result.code, JSON.stringify({ args, ...result })).toBe(0);
     return JSON.parse(result.stdout) as T;
   }
 
-  async function summary(): Promise<RigSummary> {
-    const rigs = await cli<RigSummary[]>(["ps", "--json"]);
-    return rigs.find((rig) => rig.rigName === rigName)!;
+  async function summary(): Promise<SoftwareTeamSummary> {
+    const softwareTeams = await cli<SoftwareTeamSummary[]>(["ps", "--json"]);
+    return softwareTeams.find((softwareTeam) => softwareTeam.softwareTeamName === softwareTeamName)!;
   }
 
   async function reviewerSummary(): Promise<SeatSummary> {
-    const seats = await cli<SeatSummary[]>(["ps", "--nodes", "--rig", rigName, "--json"]);
+    const seats = await cli<SeatSummary[]>(["ps", "--nodes", "--software-team", softwareTeamName, "--json"]);
     return seats.find((seat) => seat.canonicalSessionName === reviewer)!;
   }
 
@@ -61,7 +61,7 @@ describe("intentional seat stop CLI journey", () => {
 
   beforeAll(async () => {
     scaffold = prepareHermeticEnv({ baseEnv: { PATH: process.env.PATH, TERM: "xterm-256color" } });
-    daemon = await spawnScenarioDaemon(scaffold, { rigBin });
+    daemon = await spawnScenarioDaemon(scaffold, { softwareTeamBin });
     const cwd = join(scaffold.root, "project");
     mkdirSync(cwd);
     await cli(["up", topology, "--cwd", cwd, "--json", "--yes"], 120_000);
@@ -73,7 +73,7 @@ describe("intentional seat stop CLI journey", () => {
     try {
       // Clear the crashed row while its sibling still keeps our tmux server up.
       if (reviewerCrashed) await cli(["seat", "clean", reviewer, "--reason", "fixture crash cleanup", "--json"]);
-      if (launched) await cli(["down", rigName, "--json", "--force"]);
+      if (launched) await cli(["down", softwareTeamName, "--json", "--force"]);
     } finally {
       await daemon.stop();
     }
@@ -83,7 +83,7 @@ describe("intentional seat stop CLI journey", () => {
     const initial = await summary();
     expect(initial).toMatchObject({ lifecycleState: "running", nodeCount: 2, runningCount: 2 });
     expect(sessions()).toEqual([worker, reviewer].sort());
-    const snapshot = await runRig(["snapshot", initial.rigId], daemon!.readEnv, rigBin);
+    const snapshot = await runSoftwareTeam(["snapshot", initial.softwareTeamId], daemon!.readEnv, softwareTeamBin);
     expect(snapshot.code, JSON.stringify(snapshot)).toBe(0);
 
     const stopped = await cli<{ sessionId: string }>([
@@ -95,12 +95,12 @@ describe("intentional seat stop CLI journey", () => {
     });
     expect(await reviewerSummary()).toMatchObject({ sessionStatus: "exited", intentionallyStopped: true });
 
-    for (const selection of [["--last"], ["--rigs", rigName]]) {
-      const start = await runRig(["start", ...selection, "--json"], daemon!.readEnv, rigBin);
+    for (const selection of [["--last"], ["--software-teams", softwareTeamName]]) {
+      const start = await runSoftwareTeam(["start", ...selection, "--json"], daemon!.readEnv, softwareTeamBin);
       expect(start.code, JSON.stringify({ selection, ...start })).toBe(1);
       const result = JSON.parse(start.stdout);
-      expect(result.candidates).toEqual([{ rigName, lifecycleState: "degraded" }]);
-      expect(result.restoredRigs).toEqual([{ rigName, status: "rig_not_stopped", nodes: [] }]);
+      expect(result.candidates).toEqual([{ softwareTeamName, lifecycleState: "degraded" }]);
+      expect(result.restoredSoftwareTeams).toEqual([{ softwareTeamName, status: "software_team_not_stopped", nodes: [] }]);
       expect(sessions()).toEqual([worker]);
     }
 

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import type Database from "better-sqlite3";
 import type { Hono } from "hono";
-import type { RigRepository } from "../src/domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import type { SessionRegistry } from "../src/domain/session-registry.js";
 import type { SnapshotCapture } from "../src/domain/snapshot-capture.js";
 import type { SnapshotRepository } from "../src/domain/snapshot-repository.js";
@@ -15,7 +15,7 @@ import type { ExecFn } from "../src/adapters/tmux.js";
 describe("Snapshot routes", () => {
   let db: Database.Database;
   let app: Hono;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let snapshotCapture: SnapshotCapture;
   let snapshotRepo: SnapshotRepository;
 
@@ -23,7 +23,7 @@ describe("Snapshot routes", () => {
     db = createFullTestDb();
     const setup = createTestApp(db);
     app = setup.app;
-    rigRepo = setup.rigRepo;
+    softwareTeamRepo = setup.softwareTeamRepo;
     snapshotCapture = setup.snapshotCapture;
     snapshotRepo = setup.snapshotRepo;
   });
@@ -32,10 +32,10 @@ describe("Snapshot routes", () => {
     db.close();
   });
 
-  it("POST /api/rigs/:rigId/snapshots -> 201 + snapshot with id and kind", async () => {
-    const rig = rigRepo.createRig("r99");
+  it("POST /api/software-teams/:softwareTeamId/snapshots -> 201 + snapshot with id and kind", async () => {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r99");
 
-    const res = await app.request(`/api/rigs/${rig.id}/snapshots`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/snapshots`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind: "manual" }),
@@ -45,15 +45,15 @@ describe("Snapshot routes", () => {
     const body = await res.json();
     expect(body.id).toBeDefined();
     expect(body.kind).toBe("manual");
-    expect(body.rigId).toBe(rig.id);
+    expect(body.softwareTeamId).toBe(softwareTeam.id);
   });
 
   it("POST snapshot resolves an explicit intended-seat roster into durable node ids", async () => {
-    const rig = rigRepo.createRig("r99");
-    const lead = rigRepo.addNode(rig.id, "dev.lead", { role: "lead" });
-    rigRepo.addNode(rig.id, "dev.historical", { role: "worker" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r99");
+    const lead = softwareTeamRepo.addNode(softwareTeam.id, "dev.lead", { role: "lead" });
+    softwareTeamRepo.addNode(softwareTeam.id, "dev.historical", { role: "worker" });
 
-    const res = await app.request(`/api/rigs/${rig.id}/snapshots`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/snapshots`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind: "manual", intendedSeats: ["dev.lead"] }),
@@ -69,46 +69,46 @@ describe("Snapshot routes", () => {
   });
 
   it("POST snapshot rejects a malformed or empty explicit intended-seat roster", async () => {
-    const rig = rigRepo.createRig("r99");
-    rigRepo.addNode(rig.id, "dev.lead", { role: "lead" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r99");
+    softwareTeamRepo.addNode(softwareTeam.id, "dev.lead", { role: "lead" });
 
     for (const intendedSeats of [[], ["dev.lead", 42], [" "], "dev.lead", ["dev.lead", "dev.lead"]]) {
-      const res = await app.request(`/api/rigs/${rig.id}/snapshots`, {
+      const res = await app.request(`/api/software-teams/${softwareTeam.id}/snapshots`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind: "manual", intendedSeats }),
       });
       expect(res.status).toBe(400);
     }
-    expect(snapshotRepo.listSnapshots(rig.id)).toHaveLength(0);
+    expect(snapshotRepo.listSnapshots(softwareTeam.id)).toHaveLength(0);
   });
 
-  it("GET /api/rigs/:rigId/snapshots -> list of snapshots", async () => {
-    const rig = rigRepo.createRig("r99");
-    snapshotCapture.captureSnapshot(rig.id, "manual");
-    snapshotCapture.captureSnapshot(rig.id, "manual");
+  it("GET /api/software-teams/:softwareTeamId/snapshots -> list of snapshots", async () => {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r99");
+    snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
+    snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
 
-    const res = await app.request(`/api/rigs/${rig.id}/snapshots`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/snapshots`);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveLength(2);
   });
 
-  it("GET /api/rigs/:rigId/snapshots/:id -> snapshot with parsed data", async () => {
-    const rig = rigRepo.createRig("r99");
-    rigRepo.addNode(rig.id, "worker", { role: "worker" });
-    const snap = snapshotCapture.captureSnapshot(rig.id, "manual");
+  it("GET /api/software-teams/:softwareTeamId/snapshots/:id -> snapshot with parsed data", async () => {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r99");
+    softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
+    const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
 
-    const res = await app.request(`/api/rigs/${rig.id}/snapshots/${snap.id}`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/snapshots/${snap.id}`);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.id).toBe(snap.id);
-    expect(body.data.rig.name).toBe("r99");
+    expect(body.data.softwareTeam.name).toBe("r99");
     expect(body.data.nodes).toHaveLength(1);
   });
 
-  it("POST /api/rigs/nonexistent/snapshots -> 404", async () => {
-    const res = await app.request("/api/rigs/nonexistent-rig/snapshots", {
+  it("POST /api/software-teams/nonexistent/snapshots -> 404", async () => {
+    const res = await app.request("/api/software-teams/nonexistent-software-team/snapshots", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind: "manual" }),
@@ -116,13 +116,13 @@ describe("Snapshot routes", () => {
     expect(res.status).toBe(404);
   });
 
-  it("POST with non-rig error containing 'not found' -> 500 (not false-positive 404)", async () => {
-    const rig = rigRepo.createRig("r99");
+  it("POST with non-software-team error containing 'not found' -> 500 (not false-positive 404)", async () => {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r99");
 
     // Sabotage with error message containing 'not found' — must NOT match as 404
     db.exec("CREATE TRIGGER block_snap_notfound BEFORE INSERT ON snapshots BEGIN SELECT RAISE(ABORT, 'index not found in cache'); END;");
 
-    const res = await app.request(`/api/rigs/${rig.id}/snapshots`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/snapshots`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind: "manual" }),
@@ -133,12 +133,12 @@ describe("Snapshot routes", () => {
   });
 
   it("POST snapshot with sabotaged DB -> 500 (not 404)", async () => {
-    const rig = rigRepo.createRig("r99");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r99");
 
     // Sabotage snapshots table so creation fails with non-not-found error
     db.exec("CREATE TRIGGER block_snap_create BEFORE INSERT ON snapshots BEGIN SELECT RAISE(ABORT, 'db error'); END;");
 
-    const res = await app.request(`/api/rigs/${rig.id}/snapshots`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/snapshots`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind: "manual" }),
@@ -149,18 +149,18 @@ describe("Snapshot routes", () => {
   });
 
   it("GET nonexistent snapshot -> 404", async () => {
-    const rig = rigRepo.createRig("r99");
-    const res = await app.request(`/api/rigs/${rig.id}/snapshots/nonexistent`);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r99");
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/snapshots/nonexistent`);
     expect(res.status).toBe(404);
   });
 
-  it("GET cross-rig snapshot -> 404", async () => {
-    const rigA = rigRepo.createRig("r99");
-    const rigB = rigRepo.createRig("r98");
-    const snap = snapshotCapture.captureSnapshot(rigA.id, "manual");
+  it("GET cross-software-team snapshot -> 404", async () => {
+    const softwareTeamA = softwareTeamRepo.createSoftwareTeam("r99");
+    const softwareTeamB = softwareTeamRepo.createSoftwareTeam("r98");
+    const snap = snapshotCapture.captureSnapshot(softwareTeamA.id, "manual");
 
-    // Snapshot belongs to rigA, request under rigB
-    const res = await app.request(`/api/rigs/${rigB.id}/snapshots/${snap.id}`);
+    // Snapshot belongs to softwareTeamA, request under softwareTeamB
+    const res = await app.request(`/api/software-teams/${softwareTeamB.id}/snapshots/${snap.id}`);
     expect(res.status).toBe(404);
   });
 });
@@ -168,7 +168,7 @@ describe("Snapshot routes", () => {
 describe("Restore routes", () => {
   let db: Database.Database;
   let app: Hono;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let snapshotCapture: SnapshotCapture;
 
@@ -176,7 +176,7 @@ describe("Restore routes", () => {
     db = createFullTestDb();
     const setup = createTestApp(db);
     app = setup.app;
-    rigRepo = setup.rigRepo;
+    softwareTeamRepo = setup.softwareTeamRepo;
     sessionRegistry = setup.sessionRegistry;
     snapshotCapture = setup.snapshotCapture;
   });
@@ -188,37 +188,37 @@ describe("Restore routes", () => {
   // L3: route returns 202 + attemptId immediately after restore.started emit.
   // Per-node restore work runs in the background; clients query event log /
   // node inventory for follow-up state.
-  it("POST /api/rigs/:rigId/restore/:snapshotId -> 202 + attemptId (L3)", async () => {
-    const rig = rigRepo.createRig("r99");
-    rigRepo.addNode(rig.id, "worker", { role: "worker" });
-    const snap = snapshotCapture.captureSnapshot(rig.id, "manual");
+  it("POST /api/software-teams/:softwareTeamId/restore/:snapshotId -> 202 + attemptId (L3)", async () => {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r99");
+    softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
+    const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
 
-    const res = await app.request(`/api/rigs/${rig.id}/restore/${snap.id}`, { method: "POST" });
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/restore/${snap.id}`, { method: "POST" });
     expect(res.status).toBe(202);
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.status).toBe("started");
-    expect(body.rigId).toBe(rig.id);
+    expect(body.softwareTeamId).toBe(softwareTeam.id);
     expect(typeof body.attemptId).toBe("number");
     expect(body.attemptId).toBeGreaterThan(0);
 
     // attemptId must match a queryable restore.started event seq.
     const startedEvent = db
-      .prepare("SELECT seq FROM events WHERE rig_id = ? AND type = 'restore.started' ORDER BY seq DESC LIMIT 1")
-      .get(rig.id) as { seq: number } | undefined;
+      .prepare("SELECT seq FROM events WHERE software_team_id = ? AND type = 'restore.started' ORDER BY seq DESC LIMIT 1")
+      .get(softwareTeam.id) as { seq: number } | undefined;
     expect(startedEvent?.seq).toBe(body.attemptId);
   });
 
   it("GET restore status derives the completed attempt receipt from append-only events", async () => {
-    const rig = rigRepo.createRig("r99");
-    rigRepo.addNode(rig.id, "worker", { role: "worker" });
-    const snap = snapshotCapture.captureSnapshot(rig.id, "manual");
-    const started = await app.request(`/api/rigs/${rig.id}/restore/${snap.id}`, { method: "POST" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r99");
+    softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
+    const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
+    const started = await app.request(`/api/software-teams/${softwareTeam.id}/restore/${snap.id}`, { method: "POST" });
     const { attemptId } = await started.json() as { attemptId: number };
 
     let status: Response | undefined;
     for (let attempt = 0; attempt < 20; attempt += 1) {
-      status = await app.request(`/api/rigs/${rig.id}/restore/status/${attemptId}`);
+      status = await app.request(`/api/software-teams/${softwareTeam.id}/restore/status/${attemptId}`);
       if (status.status === 200) break;
       await new Promise((resolve) => setTimeout(resolve, 5));
     }
@@ -235,17 +235,17 @@ describe("Restore routes", () => {
   });
 
   it("POST restore returns 409 not_attempted when pre-restore validation blocks", async () => {
-    const rig = rigRepo.createRig("r99");
-    const fixtureNode = rigRepo.addNode(rig.id, "worker", { role: "worker" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r99");
+    const fixtureNode = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
     const session = sessionRegistry.registerSession(fixtureNode.id, "r99-worker");
     db.prepare("UPDATE sessions SET resume_type = ?, resume_token = ?, restore_policy = ? WHERE id = ?")
       .run("claude_name", "tok-blocked", "relaunch_fresh", session.id);
     sessionRegistry.updateStatus(session.id, "running");
-    const snap = snapshotCapture.captureSnapshot(rig.id, "manual");
+    const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
     sessionRegistry.updateStatus(session.id, "exited");
     const data = JSON.parse(JSON.stringify(snap.data));
     const node = data.nodes[0];
-    const missingPath = `/tmp/openrig-slice7-snapshot-missing-${Date.now()}.md`;
+    const missingPath = `/tmp/softwareteam-slice7-snapshot-missing-${Date.now()}.md`;
     data.nodeStartupContext[node.id] = {
       projectionEntries: [],
       resolvedStartupFiles: [{
@@ -261,11 +261,11 @@ describe("Restore routes", () => {
     };
     db.prepare("UPDATE snapshots SET data = ? WHERE id = ?").run(JSON.stringify(data), snap.id);
 
-    const res = await app.request(`/api/rigs/${rig.id}/restore/${snap.id}`, { method: "POST" });
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/restore/${snap.id}`, { method: "POST" });
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.code).toBe("pre_restore_validation_failed");
-    expect(body.rigResult).toBe("not_attempted");
+    expect(body.softwareTeamResult).toBe("not_attempted");
     expect(body.preRestoreSnapshotId).toBeNull();
     expect(body.nodes).toEqual([]);
     expect(body.blockers[0]).toMatchObject({
@@ -278,15 +278,15 @@ describe("Restore routes", () => {
   });
 
   it("POST restore rejects an explicitly selected unusable snapshot before starting", async () => {
-    const rig = rigRepo.createRig("r99");
-    rigRepo.addNode(rig.id, "worker", { role: "worker" });
-    const snap = snapshotCapture.captureSnapshot(rig.id, "manual");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r99");
+    softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
+    const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
     const data = JSON.parse(JSON.stringify(snap.data));
     delete data.edges;
     db.prepare("UPDATE snapshots SET data = ? WHERE id = ?").run(JSON.stringify(data), snap.id);
     const beforeEvents = db.prepare("SELECT COUNT(*) AS n FROM events").get() as { n: number };
 
-    const res = await app.request(`/api/rigs/${rig.id}/restore/${snap.id}`, { method: "POST" });
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/restore/${snap.id}`, { method: "POST" });
 
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({ code: "snapshot_unusable" });
@@ -294,35 +294,35 @@ describe("Restore routes", () => {
   });
 
   it("POST nonexistent snapshot -> 404", async () => {
-    const rig = rigRepo.createRig("r99");
-    const res = await app.request(`/api/rigs/${rig.id}/restore/nonexistent`, { method: "POST" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r99");
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/restore/nonexistent`, { method: "POST" });
     expect(res.status).toBe(404);
   });
 
-  it("POST cross-rig restore -> 404, no restore performed", async () => {
-    const rigA = rigRepo.createRig("r99");
-    const rigB = rigRepo.createRig("r98");
-    rigRepo.addNode(rigA.id, "worker", { role: "worker" });
-    const snap = snapshotCapture.captureSnapshot(rigA.id, "manual");
+  it("POST cross-software-team restore -> 404, no restore performed", async () => {
+    const softwareTeamA = softwareTeamRepo.createSoftwareTeam("r99");
+    const softwareTeamB = softwareTeamRepo.createSoftwareTeam("r98");
+    softwareTeamRepo.addNode(softwareTeamA.id, "worker", { role: "worker" });
+    const snap = snapshotCapture.captureSnapshot(softwareTeamA.id, "manual");
 
-    const res = await app.request(`/api/rigs/${rigB.id}/restore/${snap.id}`, { method: "POST" });
+    const res = await app.request(`/api/software-teams/${softwareTeamB.id}/restore/${snap.id}`, { method: "POST" });
     expect(res.status).toBe(404);
   });
 
-  it("POST rig not found in snapshot -> 404", async () => {
-    const rig = rigRepo.createRig("r99");
-    const snap = snapshotCapture.captureSnapshot(rig.id, "manual");
-    // Delete the rig so restore finds snapshot but rig is gone
-    rigRepo.deleteRig(rig.id);
+  it("POST SoftwareTeam not found in snapshot -> 404", async () => {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r99");
+    const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
+    // Delete the softwareTeam so restore finds snapshot but softwareTeam is gone
+    softwareTeamRepo.deleteSoftwareTeam(softwareTeam.id);
 
-    const res = await app.request(`/api/rigs/${rig.id}/restore/${snap.id}`, { method: "POST" });
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/restore/${snap.id}`, { method: "POST" });
     expect(res.status).toBe(404);
   });
 
   it("POST restore_error -> 500", async () => {
-    const rig = rigRepo.createRig("r99");
-    rigRepo.addNode(rig.id, "worker", { role: "worker" });
-    const snap = snapshotCapture.captureSnapshot(rig.id, "manual");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r99");
+    softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
+    const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
 
     // Sabotage snapshots table with a trigger that blocks new inserts
     // (pre-restore snapshot capture will fail, triggering restore_error)
@@ -334,27 +334,27 @@ describe("Restore routes", () => {
       END;
     `);
 
-    const res = await app.request(`/api/rigs/${rig.id}/restore/${snap.id}`, { method: "POST" });
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/restore/${snap.id}`, { method: "POST" });
     expect(res.status).toBe(500);
   });
 
-  it("POST running rig restore with live tmux sessions -> 409", async () => {
+  it("POST running SoftwareTeam restore with live tmux sessions -> 409", async () => {
     // Use a custom app with hasSession=true to simulate genuinely live tmux
     const db2 = createFullTestDb();
     const tmux = mockTmuxAdapter();
     (tmux.hasSession as ReturnType<typeof vi.fn>).mockResolvedValue(true);
     const setup = createTestApp(db2, { tmux });
 
-    const rig = setup.rigRepo.createRig("r99");
-    const node = setup.rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("r99");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
     const session = setup.sessionRegistry.registerSession(node.id, "r99-worker");
     setup.sessionRegistry.updateStatus(session.id, "running");
-    const snap = setup.snapshotCapture.captureSnapshot(rig.id, "manual");
+    const snap = setup.snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
 
-    const res = await setup.app.request(`/api/rigs/${rig.id}/restore/${snap.id}`, { method: "POST" });
+    const res = await setup.app.request(`/api/software-teams/${softwareTeam.id}/restore/${snap.id}`, { method: "POST" });
     expect(res.status).toBe(409);
     const body = await res.json();
-    expect(body.code).toBe("rig_not_stopped");
+    expect(body.code).toBe("software_team_not_stopped");
     db2.close();
   });
 
@@ -362,21 +362,21 @@ describe("Restore routes", () => {
   // the route returns the new shape; per-node statuses are exercised by
   // restore-orchestrator tests directly.
   it("restore response is asynchronous: 202 + attemptId, no per-node body", async () => {
-    const rig = rigRepo.createRig("r99");
-    rigRepo.addNode(rig.id, "worker-a", { role: "worker" });
-    rigRepo.addNode(rig.id, "worker-b", { role: "worker" });
-    const snap = snapshotCapture.captureSnapshot(rig.id, "manual");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r99");
+    softwareTeamRepo.addNode(softwareTeam.id, "worker-a", { role: "worker" });
+    softwareTeamRepo.addNode(softwareTeam.id, "worker-b", { role: "worker" });
+    const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
 
-    const res = await app.request(`/api/rigs/${rig.id}/restore/${snap.id}`, { method: "POST" });
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/restore/${snap.id}`, { method: "POST" });
     expect(res.status).toBe(202);
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.status).toBe("started");
     expect(typeof body.attemptId).toBe("number");
-    // The immediate response intentionally does NOT include nodes/rigResult;
+    // The immediate response intentionally does NOT include nodes/softwareTeamResult;
     // per-node work runs in the background.
     expect(body.nodes).toBeUndefined();
-    expect(body.rigResult).toBeUndefined();
+    expect(body.softwareTeamResult).toBeUndefined();
   });
 });
 
@@ -386,14 +386,14 @@ describe("Restore concurrency", () => {
     // Use a custom tmux mock that delays createSession
     const { vi: vitest } = await import("vitest");
     const setup = createTestApp(db2);
-    const rig = setup.rigRepo.createRig("r99");
-    setup.rigRepo.addNode(rig.id, "worker", { role: "worker" });
-    const snap = setup.snapshotCapture.captureSnapshot(rig.id, "manual");
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("r99");
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
+    const snap = setup.snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
 
     // Both requests hit concurrently — one should get 409
     const [res1, res2] = await Promise.all([
-      setup.app.request(`/api/rigs/${rig.id}/restore/${snap.id}`, { method: "POST" }),
-      setup.app.request(`/api/rigs/${rig.id}/restore/${snap.id}`, { method: "POST" }),
+      setup.app.request(`/api/software-teams/${softwareTeam.id}/restore/${snap.id}`, { method: "POST" }),
+      setup.app.request(`/api/software-teams/${softwareTeam.id}/restore/${snap.id}`, { method: "POST" }),
     ]);
 
     const statuses = [res1.status, res2.status].sort();
@@ -409,19 +409,19 @@ describe("Restore response contract", () => {
   // tests directly. This test now confirms the async contract holds even when a
   // checkpoint exists for the node (which previously yielded `rebuilt`).
   it("restore returns 202 + attemptId even when nodes have checkpoints (L3 async contract)", async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "rigged-test-"));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-test-"));
     const db2 = createFullTestDb();
     const setup = createTestApp(db2);
 
-    const rig = setup.rigRepo.createRig("r99");
-    setup.rigRepo.addNode(rig.id, "worker", { role: "worker", cwd: tmpDir });
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("r99");
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", cwd: tmpDir });
     setup.checkpointStore.createCheckpoint(
-      setup.rigRepo.getRig(rig.id)!.nodes[0]!.id,
+      setup.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes[0]!.id,
       { summary: "test checkpoint", keyArtifacts: [] }
     );
-    const snap = setup.snapshotCapture.captureSnapshot(rig.id, "manual");
+    const snap = setup.snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
 
-    const res = await setup.app.request(`/api/rigs/${rig.id}/restore/${snap.id}`, { method: "POST" });
+    const res = await setup.app.request(`/api/software-teams/${softwareTeam.id}/restore/${snap.id}`, { method: "POST" });
     expect(res.status).toBe(202);
     const body = await res.json();
     expect(body.ok).toBe(true);
@@ -438,9 +438,9 @@ describe("Startup mount regression", () => {
     const cmuxExec: ExecFn = async () => { throw Object.assign(new Error(""), { code: "ENOENT" }); };
 
     const { app, db, deps } = await createDaemon({ tmuxExec, cmuxExec });
-    const rig = deps.rigRepo.createRig("r99");
+    const softwareTeam = deps.softwareTeamRepo.createSoftwareTeam("r99");
 
-    const res = await app.request(`/api/rigs/${rig.id}/snapshots`, {
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/snapshots`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind: "manual" }),
@@ -454,9 +454,9 @@ describe("Startup mount regression", () => {
     const cmuxExec: ExecFn = async () => { throw Object.assign(new Error(""), { code: "ENOENT" }); };
 
     const { app, db, deps } = await createDaemon({ tmuxExec, cmuxExec });
-    const rig = deps.rigRepo.createRig("r99");
+    const softwareTeam = deps.softwareTeamRepo.createSoftwareTeam("r99");
 
-    const res = await app.request(`/api/rigs/${rig.id}/snapshots`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/snapshots`);
     expect(res.status).toBe(200);
     db.close();
   });
@@ -466,10 +466,10 @@ describe("Startup mount regression", () => {
     const cmuxExec: ExecFn = async () => { throw Object.assign(new Error(""), { code: "ENOENT" }); };
 
     const { app, db, deps } = await createDaemon({ tmuxExec, cmuxExec });
-    const rig = deps.rigRepo.createRig("r99");
+    const softwareTeam = deps.softwareTeamRepo.createSoftwareTeam("r99");
 
     // Nonexistent snapshot -> 404 proves the route is mounted and handling requests
-    const res = await app.request(`/api/rigs/${rig.id}/restore/nonexistent`, { method: "POST" });
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/restore/nonexistent`, { method: "POST" });
     expect(res.status).toBe(404);
     db.close();
   });

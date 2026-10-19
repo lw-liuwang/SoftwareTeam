@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  HOT_POTATO_CROSS_RIG_DURATION_MS,
+  HOT_POTATO_CROSS_SOFTWARE_TEAM_DURATION_MS,
   HOT_POTATO_TRAIL_TTL_MS,
-  HOT_POTATO_WITHIN_RIG_DURATION_MS,
+  HOT_POTATO_WITHIN_SOFTWARE_TEAM_DURATION_MS,
   TOPOLOGY_NODE_ACTIVITY_TTL_MS,
-  TOPOLOGY_RIG_ACTIVITY_TTL_MS,
+  TOPOLOGY_SOFTWARE_TEAM_ACTIVITY_TTL_MS,
   buildTopologySessionIndex,
   computeActivityVisual,
   getBaselineActivityState,
@@ -16,46 +16,46 @@ import {
 describe("P5.3 topology activity parser and resolver", () => {
   const index = buildTopologySessionIndex([
     {
-      nodeId: "rig-a::orch.lead",
-      rigId: "rig-a",
-      rigName: "openrig-a",
+      nodeId: "software-team-a::orch.lead",
+      softwareTeamId: "software-team-a",
+      softwareTeamName: "softwareteam-a",
       logicalId: "orch.lead",
-      canonicalSessionName: "orch.lead@openrig-a",
+      canonicalSessionName: "orch.lead@softwareteam-a",
     },
     {
-      nodeId: "rig-b::dev.driver",
-      rigId: "rig-b",
-      rigName: "openrig-b",
+      nodeId: "software-team-b::dev.driver",
+      softwareTeamId: "software-team-b",
+      softwareTeamName: "softwareteam-b",
       logicalId: "dev.driver",
-      canonicalSessionName: "dev.driver@openrig-b",
+      canonicalSessionName: "dev.driver@softwareteam-b",
     },
   ]);
 
-  it("resolves canonical sessions, logicalId@rigName, and prefixed node ids", () => {
-    expect(resolveTopologySession(index, "orch.lead@openrig-a")?.nodeId).toBe("rig-a::orch.lead");
-    expect(resolveTopologySession(index, "dev.driver@openrig-b")?.nodeId).toBe("rig-b::dev.driver");
-    expect(resolveTopologySession(index, "rig-a::orch.lead")?.nodeId).toBe("rig-a::orch.lead");
-    expect(resolveTopologySession(index, "missing@openrig-a")).toBeNull();
+  it("resolves canonical sessions, logicalId@softwareTeamName, and prefixed node ids", () => {
+    expect(resolveTopologySession(index, "orch.lead@softwareteam-a")?.nodeId).toBe("software-team-a::orch.lead");
+    expect(resolveTopologySession(index, "dev.driver@softwareteam-b")?.nodeId).toBe("software-team-b::dev.driver");
+    expect(resolveTopologySession(index, "software-team-a::orch.lead")?.nodeId).toBe("software-team-a::orch.lead");
+    expect(resolveTopologySession(index, "missing@softwareteam-a")).toBeNull();
   });
 
   it("queue created and handed-off events create directional packets", () => {
     expect(parseTopologyActivityEvent({
       type: "queue.created",
       qitemId: "q1",
-      sourceSession: "orch.lead@openrig-a",
-      destinationSession: "dev.driver@openrig-b",
+      sourceSession: "orch.lead@softwareteam-a",
+      destinationSession: "dev.driver@softwareteam-b",
     })?.packet).toEqual({
-      sourceSession: "orch.lead@openrig-a",
-      targetSession: "dev.driver@openrig-b",
+      sourceSession: "orch.lead@softwareteam-a",
+      targetSession: "dev.driver@softwareteam-b",
     });
     expect(parseTopologyActivityEvent({
       type: "queue.handed_off",
       qitemId: "q2",
-      fromSession: "dev.driver@openrig-b",
-      toSession: "orch.lead@openrig-a",
+      fromSession: "dev.driver@softwareteam-b",
+      toSession: "orch.lead@softwareteam-a",
     })?.packet).toEqual({
-      sourceSession: "dev.driver@openrig-b",
-      targetSession: "orch.lead@openrig-a",
+      sourceSession: "dev.driver@softwareteam-b",
+      targetSession: "orch.lead@softwareteam-a",
     });
   });
 
@@ -63,11 +63,11 @@ describe("P5.3 topology activity parser and resolver", () => {
     const claimed = parseTopologyActivityEvent({
       type: "queue.claimed",
       qitemId: "q1",
-      destinationSession: "dev.driver@openrig-b",
+      destinationSession: "dev.driver@softwareteam-b",
     });
     expect(claimed?.packet).toBeUndefined();
     expect(claimed?.sessions[0]).toEqual({
-      session: "dev.driver@openrig-b",
+      session: "dev.driver@softwareteam-b",
       state: "active",
       flash: "target",
     });
@@ -75,13 +75,13 @@ describe("P5.3 topology activity parser and resolver", () => {
     const updated = parseTopologyActivityEvent({
       type: "queue.updated",
       qitemId: "q2",
-      actorSession: "orch.lead@openrig-a",
+      actorSession: "orch.lead@softwareteam-a",
       toState: "done",
-      closureTarget: "dev.driver@openrig-b",
+      closureTarget: "dev.driver@softwareteam-b",
     });
     expect(updated?.packet).toEqual({
-      sourceSession: "orch.lead@openrig-a",
-      targetSession: "dev.driver@openrig-b",
+      sourceSession: "orch.lead@softwareteam-a",
+      targetSession: "dev.driver@softwareteam-b",
     });
   });
 
@@ -147,24 +147,24 @@ describe("P5.3 topology activity parser and resolver", () => {
   });
 
   it("uses shared constants for packet duration and retention", () => {
-    const source = resolveTopologySession(index, "orch.lead@openrig-a")!;
-    const target = resolveTopologySession(index, "dev.driver@openrig-b")!;
-    const crossRig = makeHotPotatoPacket({
+    const source = resolveTopologySession(index, "orch.lead@softwareteam-a")!;
+    const target = resolveTopologySession(index, "dev.driver@softwareteam-b")!;
+    const crossSoftwareTeam = makeHotPotatoPacket({
       eventType: "queue.created",
       sourceSession: source,
       targetSession: target,
       createdAt: 1,
       sequence: 1,
     });
-    expect(crossRig.crossRig).toBe(true);
-    expect(crossRig.durationMs).toBe(HOT_POTATO_CROSS_RIG_DURATION_MS);
-    expect(HOT_POTATO_WITHIN_RIG_DURATION_MS).toBeGreaterThanOrEqual(900);
-    expect(HOT_POTATO_WITHIN_RIG_DURATION_MS).toBeLessThanOrEqual(1_300);
-    expect(HOT_POTATO_CROSS_RIG_DURATION_MS).toBeGreaterThanOrEqual(1_400);
-    expect(HOT_POTATO_CROSS_RIG_DURATION_MS).toBeLessThanOrEqual(1_800);
+    expect(crossSoftwareTeam.crossSoftwareTeam).toBe(true);
+    expect(crossSoftwareTeam.durationMs).toBe(HOT_POTATO_CROSS_SOFTWARE_TEAM_DURATION_MS);
+    expect(HOT_POTATO_WITHIN_SOFTWARE_TEAM_DURATION_MS).toBeGreaterThanOrEqual(900);
+    expect(HOT_POTATO_WITHIN_SOFTWARE_TEAM_DURATION_MS).toBeLessThanOrEqual(1_300);
+    expect(HOT_POTATO_CROSS_SOFTWARE_TEAM_DURATION_MS).toBeGreaterThanOrEqual(1_400);
+    expect(HOT_POTATO_CROSS_SOFTWARE_TEAM_DURATION_MS).toBeLessThanOrEqual(1_800);
     expect(HOT_POTATO_TRAIL_TTL_MS).toBeGreaterThanOrEqual(2_000);
     expect(HOT_POTATO_TRAIL_TTL_MS).toBeLessThanOrEqual(4_000);
-    expect(TOPOLOGY_RIG_ACTIVITY_TTL_MS).toBeGreaterThanOrEqual(3_000);
-    expect(TOPOLOGY_RIG_ACTIVITY_TTL_MS).toBeLessThanOrEqual(5_000);
+    expect(TOPOLOGY_SOFTWARE_TEAM_ACTIVITY_TTL_MS).toBeGreaterThanOrEqual(3_000);
+    expect(TOPOLOGY_SOFTWARE_TEAM_ACTIVITY_TTL_MS).toBeLessThanOrEqual(5_000);
   });
 });

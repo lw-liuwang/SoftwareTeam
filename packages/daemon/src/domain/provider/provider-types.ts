@@ -13,7 +13,7 @@ export interface ProviderAccount {
   label: string; // human, stable
   provider: ProviderKind;
   authState: AccountAuthState;
-  profileRef: string | null; // the `rig auth` profile name where one exists; null for unmanaged
+  profileRef: string | null; // the `softwareTeam auth` profile name where one exists; null for unmanaged
   asOf: string; // ISO-8601
 }
 
@@ -42,7 +42,7 @@ export type BindingAnomaly = SameAccountOnNSeatsAnomaly | SeatWithNoAccountAnoma
 
 /**
  * A `bindings[]` row — a discriminated bound/unbound union over the SAME locked §1 field names
- * (`accountId`, `seatSession`, `rigName`, `boundAt`, `bindingSource`, `anomalies`). A bound row
+ * (`accountId`, `seatSession`, `softwareTeamName`, `boundAt`, `bindingSource`, `anomalies`). A bound row
  * has a non-null `accountId` (+ `boundAt`/`bindingSource`); an unbound seat keeps the same field
  * names but `null` for the absent BINDING data and MUST carry a `seat_with_no_account` anomaly —
  * never a fabricated/sentinel account. Discriminant: `accountId` (string vs null).
@@ -51,7 +51,7 @@ export type ProviderBinding =
   | {
       accountId: string;
       seatSession: string;
-      rigName: string;
+      softwareTeamName: string;
       boundAt: string;
       bindingSource: string;
       anomalies: BindingAnomaly[];
@@ -59,7 +59,7 @@ export type ProviderBinding =
   | {
       accountId: null;
       seatSession: string;
-      rigName: string;
+      softwareTeamName: string;
       boundAt: null;
       bindingSource: null;
       // An unbound seat MUST carry a seat_with_no_account anomaly — enforced at the type
@@ -133,7 +133,7 @@ export type PrecheckResult = { safe: true } | { safe: false; reasons: PrecheckRe
 
 export type SwitchOutcome = "succeeded" | "rebind_in_progress" | "failed_safely";
 
-/** The whole four-block read model, emitted by `rig provider status --json`. */
+/** The whole four-block read model, emitted by `softwareTeam provider status --json`. */
 export interface FourBlockReadModel {
   accounts: ProviderAccount[];
   bindings: ProviderBinding[];
@@ -160,7 +160,7 @@ export type SeatAccountConfiguration =
 
 export interface SeatConfiguredAccount {
   seatSession: string;
-  rigName: string;
+  softwareTeamName: string;
   runtime: string;
   configured: SeatAccountConfiguration;
   /** A registry row that exists but isn't applied or doesn't match (stale after a runtime change, another
@@ -248,6 +248,6 @@ export interface ProviderUsageAllowance {
   identityNote?: string;
   /** Present on an unresolved observation: never matched, merged or replaced; kept from the most recent reads. */
   unresolved?: { note: string; keptReads: number; droppedReads: number };
-  /** Present when rig auth profiles exist: this read covers only the login active in the daemon's CODEX_HOME. */
+  /** Present when softwareTeam auth profiles exist: this read covers only the login active in the daemon's CODEX_HOME. */
   savedProfiles?: { names: string[]; note: string };
 }

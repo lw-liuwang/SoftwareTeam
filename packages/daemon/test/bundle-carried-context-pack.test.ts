@@ -1,5 +1,5 @@
-// `rig bundle create --context-pack <dir>`: a pack whose manifest sits at a
-// repository root (outside the rig folder) is carried by manifest name, with
+// `softwareTeam bundle create --context-pack <dir>`: a pack whose manifest sits at a
+// repository root (outside the softwareTeam folder) is carried by manifest name, with
 // only its manifest and declared files.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
@@ -39,12 +39,12 @@ describe("vendorContextPackDir", () => {
     staging = path.join(work, "staging");
     fs.mkdirSync(path.join(repo, "identity"), { recursive: true });
     fs.mkdirSync(path.join(repo, "craft"), { recursive: true });
-    fs.mkdirSync(path.join(repo, "rigs", "dev"), { recursive: true });
+    fs.mkdirSync(path.join(repo, "software-teams", "dev"), { recursive: true });
     fs.mkdirSync(staging);
     fs.writeFileSync(path.join(repo, "manifest.yaml"), MANIFEST);
     fs.writeFileSync(path.join(repo, "identity", "who.md"), "# Who\n");
     fs.writeFileSync(path.join(repo, "craft", "how.md"), "# How\n");
-    fs.writeFileSync(path.join(repo, "rigs", "dev", "rig.yaml"), "name: dev\n");
+    fs.writeFileSync(path.join(repo, "software-teams", "dev", "software-team.yaml"), "name: dev\n");
     fs.writeFileSync(path.join(repo, "README.md"), "# Not part of the pack\n");
   });
 
@@ -85,6 +85,6 @@ describe("vendorContextPackDir", () => {
   });
 
   it("refuses a directory without a manifest", () => {
-    expect(() => vendorContextPackDir(path.join(repo, "rigs"), staging)).toThrow(/has no manifest.yaml/);
+    expect(() => vendorContextPackDir(path.join(repo, "software-teams"), staging)).toThrow(/has no manifest.yaml/);
   });
 });

@@ -41,8 +41,8 @@ describe("VellumCard (Phase 1 primitive)", () => {
   });
 
   it("renders dark header stripe when header prop given", () => {
-    render(<VellumCard header="RIG: VELOCITY">x</VellumCard>);
-    expect(screen.getByText("RIG: VELOCITY")).toBeTruthy();
+    render(<VellumCard header="SOFTWARE_TEAM: VELOCITY">x</VellumCard>);
+    expect(screen.getByText("SOFTWARE_TEAM: VELOCITY")).toBeTruthy();
   });
 
   it("variant=ghost replaces primary surface classes", () => {

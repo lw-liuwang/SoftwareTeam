@@ -2,7 +2,7 @@ import { sectionRule, wrapDetailLines, type ContentLine } from "../detail.js";
 import type { CostBody, CostRead } from "./cost-read.js";
 
 // Slice 02 — System → Cost: what each seat's harness reports about cost, beside its tokens, from the daemon's cost
-// view (the same body `rig usage cost` prints). Each seat's first line is the line `rig usage cost` prints for it;
+// view (the same body `softwareTeam usage cost` prints). Each seat's first line is the line `softwareTeam usage cost` prints for it;
 // the lines under it spell out the served kind, source, window and coverage, and every count and reason the daemon
 // served. A provider charge sits beside the estimate it matches and is never added to it. Nothing is summed across
 // seats, matched, or re-timed here, and a missing figure reads as missing, never as $0.
@@ -11,11 +11,11 @@ type Row = Record<string, unknown>;
 type Seat = CostBody["seats"][number];
 
 export const COST_HEADER = "this host's daemon only · not fleet-wide · what each harness reports, not an invoice";
-export const COST_READ_HINT = "This view reads what the daemon already holds and starts no lookup. The same lines: rig usage cost";
+export const COST_READ_HINT = "This view reads what the daemon already holds and starts no lookup. The same lines: SoftwareTeam usage cost";
 
 const str = (v: unknown, fallback = "unknown"): string => (v === null || v === undefined || v === "" ? fallback : String(v));
 
-/** A real amount below a cent prints as "<$0.01", never "$0.00" (which reads as zero). As `rig usage cost` prints it. */
+/** A real amount below a cent prints as "<$0.01", never "$0.00" (which reads as zero). As `softwareTeam usage cost` prints it. */
 export function formatUsd(value: number): string {
   return value > 0 && value < 0.005 ? "<$0.01" : `$${value.toFixed(2)}`;
 }
@@ -25,7 +25,7 @@ const tok = (t: unknown): string => {
   return `tokens in ${v?.input ?? "?"} / out ${v?.output ?? "?"}`;
 };
 
-/** OpenRouter's actual charge, beside the estimate, as `rig usage cost` words it. */
+/** OpenRouter's actual charge, beside the estimate, as `softwareTeam usage cost` words it. */
 function providerChargeText(raw: unknown): string {
   if (!raw || typeof raw !== "object") return "";
   const c = raw as { status?: string; costUsd?: number; estimateForChargedUsd?: number | null;
@@ -67,7 +67,7 @@ function piHeadLine(seat: Seat): string {
   return `${seat.seatSession}  ${head}${extras ? `; ${extras}` : ""}${charge ? `; ${charge}` : ""}  tokens in ${t.input ?? "?"} / out ${t.output ?? "?"}`;
 }
 
-/** The line `rig usage cost` prints for this seat. */
+/** The line `softwareTeam usage cost` prints for this seat. */
 export function costHeadLine(seat: Seat): string {
   if (seat["runtime"] === "pi") return piHeadLine(seat);
   const w = (seat["window"] ?? {}) as { nativeSessionId?: string | null; since?: string; asOf?: string | null };
@@ -107,7 +107,7 @@ function chargeLines(raw: unknown): ContentLine[] {
   return lines;
 }
 
-/** Everything the daemon served for this seat beyond its `rig usage cost` line. */
+/** Everything the daemon served for this seat beyond its `softwareTeam usage cost` line. */
 function detailLines(seat: Seat): ContentLine[] {
   const lines: ContentLine[] = [];
   const w = (seat["window"] ?? {}) as Row;

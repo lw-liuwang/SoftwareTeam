@@ -33,10 +33,10 @@ function editLine(frame: string, match: (line: string) => boolean, replacement: 
 // The live box row draws a no-break space after the marker; transcript rows draw a plain space.
 const claudeBoxRow = (line: string) => line.startsWith("❯\u00a0");
 const codexBoxRow = (line: string) => line.startsWith("›");
-const SEAT = "dev-impl@my-rig";
+const SEAT = "dev-impl@my-software-team";
 /** Edit (ADV4-1): the box's opening rule (the rule above the last `❯` row) drawn with a session name, as Claude Code
  *  draws `--name`: the rule, the name padded by one space each side, then `trailing` rule cells (one in the 2.1.296
- *  bundle, two in real frames of OpenRig seats from earlier versions), as wide as the plain rule it replaces. */
+ *  bundle, two in real frames of SoftwareTeam seats from earlier versions), as wide as the plain rule it replaces. */
 function nameBox(frame: string, name = SEAT, trailing = 1, widthDelta = 0): string {
   const lines = frame.split("\n");
   let box = lines.length - 1;
@@ -397,7 +397,7 @@ describe("readSeatBeforePaste: verified needs a seat proven idle before the past
       expect(readSeatBeforePaste(frame, runtime)).toBe("unknown" satisfies SeatReading);
     });
   });
-  describe("OpenRig's own Claude launch (ADV4-1): the named box, each permission posture, the statusLine collector", () => {
+  describe("SoftwareTeam's own Claude launch (ADV4-1): the named box, each permission posture, the statusLine collector", () => {
     const idleFrame = claude("after-enter-15s.J");
     const posture = (frame: string, footer: string) => editLine(frame, claudeFooterRow, `  ${footer}`);
     // Every footer below is drawn by the Claude Code 2.1.296 bundle for the mode claudePostureFlag launches
@@ -410,9 +410,9 @@ describe("readSeatBeforePaste: verified needs a seat proven idle before the past
       plan: "⏸ plan mode on (shift+tab to cycle) · ← for agents",
       default: "⏸ manual mode on · ← for agents",
     };
-    // The running frame as an OpenRig seat draws it (edit): named box, accept edits, and the footer OpenRig's statusLine
+    // The running frame as an SoftwareTeam seat draws it (edit): named box, accept edits, and the footer SoftwareTeam's statusLine
     // leaves (no `esc to interrupt`, so it equals the idle footer); the live status row is the one running signal.
-    const openRigRunning = posture(nameBox(claude("after-enter-0.4s.J")), footers.acceptEdits);
+    const softwareTeamRunning = posture(nameBox(claude("after-enter-0.4s.J")), footers.acceptEdits);
 
     it.each(Object.entries(footers))("posture %s: its footer row is on the allow-list", (_mode, footer) => {
       expect(readSeatBeforePaste(posture(idleFrame, footer), "claude-code")).toBe("idle");
@@ -421,7 +421,7 @@ describe("readSeatBeforePaste: verified needs a seat proven idle before the past
 
     it.each([
       ["the 2.1.296 bundle's border, one trailing rule cell", 1],
-      ["the border of real OpenRig seat frames, two trailing rule cells", 2],
+      ["the border of real SoftwareTeam seat frames, two trailing rule cells", 2],
     ] as const)("the opening rule with this seat's session name: %s", (_name, trailing) => {
       expect(readSeatBeforePaste(nameBox(idleFrame, SEAT, trailing), "claude-code", SEAT)).toBe("idle");
       expect(readSeatBeforePaste(nameBox(claude("idle-fresh-suggestion"), SEAT, trailing), "claude-code", SEAT)).toBe("idle");
@@ -429,22 +429,22 @@ describe("readSeatBeforePaste: verified needs a seat proven idle before the past
     });
 
     it("the statusLine collector draws no row: the footer directly under the closing rule", () => {
-      // The captured frames have no statusLine; OpenRig's collector prints nothing, so its seats draw the same rows.
+      // The captured frames have no statusLine; SoftwareTeam's collector prints nothing, so its seats draw the same rows.
       const lines = idleFrame.split("\n").map((line) => line.trimEnd());
       const footer = lines.findIndex(claudeFooterRow);
       expect(lines[footer - 1]).toMatch(/^─{10,}$/);
       expect(readSeatBeforePaste(idleFrame, "claude-code")).toBe("idle");
     });
 
-    it("running under OpenRig's statusLine: the footer looks idle, the status row above the box reads not-idle", () => {
-      expect(openRigRunning).not.toContain("esc to interrupt");
-      expect(readSeatBeforePaste(openRigRunning, "claude-code", SEAT)).toBe("not-idle");
+    it("running under SoftwareTeam's statusLine: the footer looks idle, the status row above the box reads not-idle", () => {
+      expect(softwareTeamRunning).not.toContain("esc to interrupt");
+      expect(readSeatBeforePaste(softwareTeamRunning, "claude-code", SEAT)).toBe("not-idle");
     });
 
     it.each([
       ["a row that matches no running pattern where the status row goes", posture(nameBox(editLine(claude("after-enter-0.4s.J"),
         (line) => line.startsWith("✶"), "⎿  Running…")), footers.acceptEdits)],
-      ["another seat's name", nameBox(idleFrame, "dev-qa@my-rig")],
+      ["another seat's name", nameBox(idleFrame, "dev-qa@my-software-team")],
       ["the name cut short", nameBox(idleFrame, "dev-impl@my-r…")],
       ["a named border one cell wider than the closing rule", nameBox(idleFrame, SEAT, 1, 1)],
       ["three trailing rule cells", nameBox(idleFrame, SEAT, 3)],
@@ -465,17 +465,17 @@ describe("readSeatBeforePaste: verified needs a seat proven idle before the past
       const staged = posture(nameBox(claude("staged-short.raw")), "⏵⏵ accept edits on (shift+tab to cycle)");
       expect(readInputBox(staged, "claude-code", texts.short)).toBe("exact");
       expect(readInputBox(posture(nameBox(idleFrame), footers.acceptEdits), "claude-code", texts.short, staged)).toBe("empty");
-      expect(readInputBox(openRigRunning, "claude-code", texts.short, editLine(openRigRunning, claudeBoxRow, `❯\u00a0${texts.short}`))).toBe("queued");
+      expect(readInputBox(softwareTeamRunning, "claude-code", texts.short, editLine(softwareTeamRunning, claudeBoxRow, `❯\u00a0${texts.short}`))).toBe("queued");
     });
   });
 
-  describe("Claude's completion row in the status slot (ADV5-1): idle OpenRig-launched seats after their first turn", () => {
-    // Real frames of idle seats OpenRig launched (Claude Code 2.1.296, classic renderer, named box, OpenRig's
+  describe("Claude's completion row in the status slot (ADV5-1): idle SoftwareTeam-launched seats after their first turn", () => {
+    // Real frames of idle seats SoftwareTeam launched (Claude Code 2.1.296, classic renderer, named box, SoftwareTeam's
     // statusLine collector, 80 columns; see fixtures/input-box/README.md). The box follows the transcript, so the
     // status slot two rows above the opening rule holds the last turn's completion row.
     const seats = [
-      ["openrig-seat-bypass-idle", "orch-advisor@sample-rig", "✻ Crunched for 9s · done 10:50 PM"],
-      ["openrig-seat-accept-edits-idle", "review-r1@sample-rig", "✻ Churned for 4s · done 5:24 PM"],
+      ["softwareteam-seat-bypass-idle", "orch-advisor@sample-rig", "✻ Crunched for 9s · done 10:50 PM"],
+      ["softwareteam-seat-accept-edits-idle", "review-r1@sample-rig", "✻ Churned for 4s · done 5:24 PM"],
     ] as const;
     const slotOf = (frame: string) => {
       const lines = frame.split("\n");
@@ -504,7 +504,7 @@ describe("readSeatBeforePaste: verified needs a seat proven idle before the past
       expect(readSeatBeforePaste(claude(name), "claude-code", seat === bypassSeat ? seats[1][1] : bypassSeat)).toBe("unknown");
     });
 
-    it.each(seats)("%s: idle under every posture footer OpenRig can launch (edit: the footer row)", (name, seat) => {
+    it.each(seats)("%s: idle under every posture footer SoftwareTeam can launch (edit: the footer row)", (name, seat) => {
       for (const footer of ["⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents", "⏵⏵ accept edits on (shift+tab to cycle) · ← for agents",
         "⏵⏵ auto mode on (shift+tab to cycle) · ← for agents", "⏵⏵ don't ask on (shift+tab to cycle) · ← for agents",
         "⏸ plan mode on (shift+tab to cycle) · ← for agents", "⏸ manual mode on · ← for agents"]) {
@@ -744,8 +744,8 @@ describe("review round 1, change 2: a frame that names another client version ne
   });
 
   it("no version on screen: the layout alone decides, which is evidence about the layout, not the version", () => {
-    // Edit: the real OpenRig seat frame without its banner rows (they scroll away in a 30-row capture).
-    const frame = claude("openrig-seat-bypass-idle").split("\n").filter((line) => !/[▐▝]/.test(line)).join("\n");
+    // Edit: the real SoftwareTeam seat frame without its banner rows (they scroll away in a 30-row capture).
+    const frame = claude("softwareteam-seat-bypass-idle").split("\n").filter((line) => !/[▐▝]/.test(line)).join("\n");
     expect(frame).not.toContain("Claude Code v");
     expect(readSeatBeforePaste(frame, "claude-code", "orch-advisor@sample-rig")).toBe("idle");
     // Edit: the Codex completion-row frame without its header.
@@ -762,13 +762,13 @@ describe("review round 1, change 2: a frame that names another client version ne
 
 describe("review round 1, change 3: a blank Claude status slot is idle only under a completion row or the fresh banner", () => {
   const BYPASS = "orch-advisor@sample-rig";
-  const bypass = claude("openrig-seat-bypass-idle");
-  // Edit: the completion row of the real OpenRig frame (the status slot) replaced by `rows`; the last one becomes the slot.
+  const bypass = claude("softwareteam-seat-bypass-idle");
+  // Edit: the completion row of the real SoftwareTeam frame (the status slot) replaced by `rows`; the last one becomes the slot.
   const slotRows = (rows: string[]) => editLine(bypass, (line) => line.startsWith("✻ Crunched"), rows);
 
   it("streaming in the classic renderer, the last streamed row blank (the shape the 2.1.296 bundle does not rule out): unknown", () => {
     // Claude Code hides its spinner while streamed text is on screen and draws nothing in its place, so with
-    // OpenRig's statusLine nothing on this screen says a turn runs.
+    // SoftwareTeam's statusLine nothing on this screen says a turn runs.
     const frame = slotRows(["❯ Check the queue again.", "", "● I am checking the queue now; the first item is a", "  review request.", ""]);
     expect(frame).not.toMatch(/esc to interrupt|✶|paste again/);
     expect(readSeatBeforePaste(frame, "claude-code", BYPASS)).toBe("unknown");
@@ -797,7 +797,7 @@ describe("review round 1, change 3: a blank Claude status slot is idle only unde
   });
 
   it.each([
-    ["the completion row in the slot itself (the real classic OpenRig frame)", bypass, BYPASS],
+    ["the completion row in the slot itself (the real classic SoftwareTeam frame)", bypass, BYPASS],
     ["blank rows between the completion row and the slot (after-enter-15s.J, fullscreen)", claude("after-enter-15s.J"), undefined],
     ["one blank row between the completion row and the slot (edit)", slotRows(["✻ Crunched for 9s · done 10:50 PM", ""]), BYPASS],
     ["blank under the welcome banner before any turn (idle-fresh-suggestion)", claude("idle-fresh-suggestion"), undefined],
@@ -865,11 +865,11 @@ describe("repair round 1 (review-safety-1): a row break counts as a space only w
     // Between two ASCII letters, and before a hyphen or a full stop: no UAX #14 break opportunity, and wrap-ansi
     // breaks only at spaces. The joined words (`queuenow`, `queue.---`) fit in the first row (29 and 30 cells), and
     // the next row's first word would not have fit after it.
-    expect(readInputBox(build(["please check your rig's queue", "now and report"]), runtime, "please check your rig's queue now and report")).toBe("exact");
-    expect(readInputBox(build(["please check your rig's queue.", "--- and report"]), runtime, "please check your rig's queue. --- and report")).toBe("exact");
-    // Repair round 2: `sample-rig` has a break opportunity after its hyphen, so Codex may have started a word at `rig`
+    expect(readInputBox(build(["please check your softwareTeam's queue", "now and report"]), runtime, "please check your softwareTeam's queue now and report")).toBe("exact");
+    expect(readInputBox(build(["please check your softwareTeam's queue.", "--- and report"]), runtime, "please check your softwareTeam's queue. --- and report")).toBe("exact");
+    // Repair round 2: `sample-softwareTeam` has a break opportunity after its hyphen, so Codex may have started a word at `softwareTeam`
     // that its re-pass does not keep whole (see the repair round 2 block below): ambiguous since then.
-    expect(readInputBox(build(["please check the sample-rig", "--- and report"]), runtime, "please check the sample-rig --- and report")).toBe("ambiguous");
+    expect(readInputBox(build(["please check the sample-software-team", "--- and report"]), runtime, "please check the sample-software-team --- and report")).toBe("ambiguous");
   });
 
   it.each(both)("%s: a hard line break the next word would have fit before reads exact, whatever the characters", (runtime, build) => {
@@ -977,7 +977,7 @@ describe("repair round 2 (review-safety-2): Codex splits a word that fits after 
     expect(readInputBox(build(["please run the self-reviewer", "s now"]), runtime, "please run the self-reviewer s now")).toBe("ambiguous");
     // Controls: no break opportunity inside the last word (letters, digits, `'` and `.,:;`): the split is a space.
     expect(readInputBox(build(["please run the selfreviewer", "s now"]), runtime, "please run the selfreviewer s now")).toBe("exact");
-    expect(readInputBox(build(["please check your rig's", "queue now"]), runtime, "please check your rig's queue now")).toBe("exact");
+    expect(readInputBox(build(["please check your softwareTeam's", "queue now"]), runtime, "please check your softwareTeam's queue now")).toBe("exact");
     expect(readInputBox(build(["please read v1.2.3", "now ok"]), runtime, "please read v1.2.3 now ok")).toBe("exact");
   });
 

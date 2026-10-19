@@ -41,8 +41,8 @@ export class Reconciler {
     this.tmuxAdapter = deps.tmuxAdapter;
   }
 
-  async reconcile(rigId: string): Promise<ReconcileResult> {
-    const sessions = this.sessionRegistry.getSessionsForRig(rigId);
+  async reconcile(softwareTeamId: string): Promise<ReconcileResult> {
+    const sessions = this.sessionRegistry.getSessionsForSoftwareTeam(softwareTeamId);
 
     let checked = 0;
     let detached = 0;
@@ -76,7 +76,7 @@ export class Reconciler {
             this.sessionRegistry.markDetached(session.id);
             return this.eventBus.persistWithinTransaction({
               type: "session.detached",
-              rigId,
+              softwareTeamId,
               nodeId: session.nodeId,
               sessionName: session.sessionName,
             });

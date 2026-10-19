@@ -9,7 +9,7 @@ import { shellQuote } from "../src/adapters/shell-quote.js";
 import { SettingsStore } from "../src/domain/user-settings/settings-store.js";
 const run = promisify(exec);
 const runFile = promisify(execFile);
-const keys = ["OPENRIG_TRANSCRIPTS_LINES", "OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS"];
+const keys = ["SOFTWARETEAM_TRANSCRIPTS_LINES", "SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS"];
 
 describe.skipIf(process.platform === "win32")("native transcript seat environment", () => {
   it.each([false, true])("does not pin daemon transcript defaults inside a seat (argv=%s)", async (argv) => {
@@ -19,7 +19,7 @@ describe.skipIf(process.platform === "win32")("native transcript seat environmen
     const socket = path.join(socketDir, "owned.sock");
     const captured = path.join(temp, "seat.env");
     const config = path.join(temp, "config.json");
-    const env = { ...process.env, HOME: temp, OPENRIG_TRANSCRIPTS_LINES: "777", OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS: "44" };
+    const env = { ...process.env, HOME: temp, SOFTWARETEAM_TRANSCRIPTS_LINES: "777", SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS: "44" };
     delete env.TMUX;
     delete env.TMUX_TMPDIR;
     const prior = keys.map((key) => process.env[key]);
@@ -42,12 +42,12 @@ describe.skipIf(process.platform === "win32")("native transcript seat environmen
       expect(store.resolveOne("transcripts.lines")).toMatchObject({ value: 123, source: "file" });
       expect(store.resolveOne("transcripts.poll_interval_seconds")).toMatchObject({ value: 15, source: "file" });
       // A deliberate seat override remains authoritative.
-      expect(await adapter.createSession("explicit", temp, { OPENRIG_TRANSCRIPTS_LINES: "321" })).toEqual({ ok: true });
-      const explicit = (await runFile("tmux", ["-S", socket, "show-environment", "-t", "=explicit:", "OPENRIG_TRANSCRIPTS_LINES"], { env })).stdout;
-      expect(explicit.trim()).toBe("OPENRIG_TRANSCRIPTS_LINES=321");
+      expect(await adapter.createSession("explicit", temp, { SOFTWARETEAM_TRANSCRIPTS_LINES: "321" })).toEqual({ ok: true });
+      const explicit = (await runFile("tmux", ["-S", socket, "show-environment", "-t", "=explicit:", "SOFTWARETEAM_TRANSCRIPTS_LINES"], { env })).stdout;
+      expect(explicit.trim()).toBe("SOFTWARETEAM_TRANSCRIPTS_LINES=321");
       // The daemon/server retains its own capture policy.
-      const server = (await runFile("tmux", ["-S", socket, "show-environment", "-g", "OPENRIG_TRANSCRIPTS_LINES"], { env })).stdout;
-      expect(server.trim()).toBe("OPENRIG_TRANSCRIPTS_LINES=777");
+      const server = (await runFile("tmux", ["-S", socket, "show-environment", "-g", "SOFTWARETEAM_TRANSCRIPTS_LINES"], { env })).stdout;
+      expect(server.trim()).toBe("SOFTWARETEAM_TRANSCRIPTS_LINES=777");
     } finally {
       for (const [index, key] of keys.entries()) {
         if (prior[index] === undefined) delete process.env[key]; else process.env[key] = prior[index];

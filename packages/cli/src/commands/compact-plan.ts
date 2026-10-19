@@ -8,14 +8,14 @@ export interface CompactPlanDeps {
   clientFactory: (url: string) => DaemonClient;
 }
 
-interface RigEntry {
-  rigId: string;
+interface SoftwareTeamEntry {
+  softwareTeamId: string;
   name: string;
 }
 
 interface NodeEntry {
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   logicalId: string;
   canonicalSessionName: string | null;
   runtime: string | null;
@@ -36,7 +36,7 @@ interface NodeEntry {
 
 interface BasePlanEntry {
   session: string | null;
-  rig: string;
+  softwareTeam: string;
   logicalId: string;
   runtime: string;
   usedPercentage: number | null;
@@ -91,13 +91,13 @@ interface SkippedEntry extends BasePlanEntry {
   reason: string;
 }
 
-interface IncompleteRig {
-  rig: string;
+interface IncompleteSoftwareTeam {
+  softwareTeam: string;
   status: number | "invalid_inventory" | "request_failed";
 }
 
 interface CompactPlanResult {
-  incompleteRigs: IncompleteRig[];
+  incompleteSoftwareTeams: IncompleteSoftwareTeam[];
   summary: {
     totalSeats: number;
     claudeSeats: number;
@@ -165,7 +165,7 @@ function baseEntry(node: NodeEntry): BasePlanEntry {
   const contextWindowSize = node.contextUsage?.contextWindowSize ?? null;
   return {
     session: node.canonicalSessionName,
-    rig: node.rigName,
+    softwareTeam: node.softwareTeamName,
     logicalId: node.logicalId,
     runtime: node.runtime ?? "unknown",
     usedPercentage,
@@ -302,7 +302,7 @@ function analyzeNode(node: NodeEntry, thresholds: CompactPlanThresholds): Candid
   };
 }
 
-function buildPlan(nodes: NodeEntry[], thresholds = defaultThresholds(), incompleteRigs: IncompleteRig[] = []): CompactPlanResult {
+function buildPlan(nodes: NodeEntry[], thresholds = defaultThresholds(), incompleteSoftwareTeams: IncompleteSoftwareTeam[] = []): CompactPlanResult {
   const candidates: CandidateEntry[] = [];
   const blocked: BlockedEntry[] = [];
   const skipped: SkippedEntry[] = [];
@@ -321,7 +321,7 @@ function buildPlan(nodes: NodeEntry[], thresholds = defaultThresholds(), incompl
   });
 
   return {
-    incompleteRigs,
+    incompleteSoftwareTeams,
     summary: {
       totalSeats: nodes.length,
       claudeSeats: nodes.filter(isClaude).length,
@@ -351,8 +351,8 @@ function buildPlan(nodes: NodeEntry[], thresholds = defaultThresholds(), incompl
 
 function printHuman(plan: CompactPlanResult): void {
   console.log("READ-ONLY PLAN - does not compact");
-  if (plan.incompleteRigs.length > 0) {
-    console.error(`Warning: partial plan; incomplete rigs: ${plan.incompleteRigs.map(({ rig, status }) => `${rig} (${typeof status === "number" ? `HTTP ${status}` : status})`).join(", ")}`);
+  if (plan.incompleteSoftwareTeams.length > 0) {
+    console.error(`Warning: partial plan; incomplete softwareTeams: ${plan.incompleteSoftwareTeams.map(({ softwareTeam, status }) => `${softwareTeam} (${typeof status === "number" ? `HTTP ${status}` : status})`).join(", ")}`);
   }
   console.log("Policy: read_only_plan; one-seat-at-a-time marshal triage; autoCompactAllowed=false; explicit authorization required.");
   console.log(`Thresholds: ${plan.policy.thresholdTokens} estimated tokens; ${plan.policy.thresholdPercent}% when context window size is missing.`);
@@ -396,20 +396,20 @@ export function compactPlanCommand(depsOverride?: CompactPlanDeps): Command {
     .description("Plan Claude compact-in-place candidates without compacting anything")
     .addHelpText("after", `
 Examples:
-  rig compact-plan                    Show a read-only Claude compaction triage plan
-  rig compact-plan --rig openrig-pm   Plan one rig only
-  rig compact-plan --refresh          Re-sample context before planning
-  rig compact-plan --json             JSON output for agents`);
+  SoftwareTeam compact-plan                    Show a read-only Claude compaction triage plan
+  SoftwareTeam compact-plan --software-team softwareteam-pm   Plan one SoftwareTeam only
+  SoftwareTeam compact-plan --refresh          Re-sample context before planning
+  SoftwareTeam compact-plan --json             JSON output for agents`);
 
   const getDepsF = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   cmd
     .option("--json", "JSON output for agents")
-    .option("--rig <name>", "Plan one rig only")
+    .option("--software-team <name>", "Plan one SoftwareTeam only")
     .option("--refresh", "Re-sample context usage before planning")
     .option("--threshold-tokens <n>", "Estimated used-token threshold for Claude compact-plan candidates")
     .option("--threshold-percent <0-100>", "Used-percent threshold when context window size is missing")
-    .action(async (opts: { json?: boolean; rig?: string; refresh?: boolean; thresholdTokens?: string; thresholdPercent?: string }) => {
+    .action(async (opts: { json?: boolean; softwareTeam?: string; refresh?: boolean; thresholdTokens?: string; thresholdPercent?: string }) => {
       const deps = getDepsF();
       const thresholds = parseThresholdOptions(opts);
       if (!thresholds.ok) {
@@ -420,8 +420,8 @@ Examples:
 
       const status = await getDaemonStatus(deps.lifecycleDeps);
       if (status.state !== "running" || status.healthy === false) {
-        console.error("Daemon is not running. Start it with: rig daemon start");
-        console.error("Cannot build compact-plan without current read-only rig inventory.");
+        console.error("Daemon is not running. Start it with: SoftwareTeam daemon start");
+        console.error("Cannot build compact-plan without current read-only SoftwareTeam inventory.");
         process.exitCode = 1;
         return;
       }
@@ -429,26 +429,26 @@ Examples:
       const client = deps.clientFactory(getDaemonUrl(status));
 
       try {
-        const psResult = await client.get<RigEntry[]>("/api/ps");
+        const psResult = await client.get<SoftwareTeamEntry[]>("/api/ps");
         if (psResult.status !== 200) {
-          throw new Error(`Rig inventory returned HTTP ${psResult.status}`);
+          throw new Error(`SoftwareTeam inventory returned HTTP ${psResult.status}`);
         }
         if (!Array.isArray(psResult.data)) {
-          throw new Error("Rig inventory is not an array");
+          throw new Error("SoftwareTeam inventory is not an array");
         }
-        const rigs = psResult.data;
-        const targetRigs = opts.rig ? rigs.filter((rig) => rig.name === opts.rig) : rigs;
+        const softwareTeams = psResult.data;
+        const targetSoftwareTeams = opts.softwareTeam ? softwareTeams.filter((softwareTeam) => softwareTeam.name === opts.softwareTeam) : softwareTeams;
 
-        if (opts.rig && targetRigs.length === 0) {
-          console.error(`Rig "${opts.rig}" not found. List rigs with: rig ps`);
+        if (opts.softwareTeam && targetSoftwareTeams.length === 0) {
+          console.error(`SoftwareTeam "${opts.softwareTeam}" not found. List softwareTeams with: SoftwareTeam ps`);
           process.exitCode = 1;
           return;
         }
 
-        if (opts.refresh && targetRigs.length > 0) {
-          const firstRig = targetRigs[0]!;
+        if (opts.refresh && targetSoftwareTeams.length > 0) {
+          const firstSoftwareTeam = targetSoftwareTeams[0]!;
           try {
-            const refreshResult = await client.get(`/api/rigs/${firstRig.rigId}/nodes?refresh=true`);
+            const refreshResult = await client.get(`/api/software-teams/${firstSoftwareTeam.softwareTeamId}/nodes?refresh=true`);
             if (refreshResult.status >= 400) {
               console.error("Compact-plan refresh failed. Data may be stale.");
               console.error(`Detail: ${JSON.stringify(refreshResult.data)}`);
@@ -466,38 +466,38 @@ Examples:
         }
 
         const allNodes: NodeEntry[] = [];
-        const incompleteRigs: IncompleteRig[] = [];
-        for (const rig of targetRigs) {
-          let failureStatus: IncompleteRig["status"] = "request_failed";
+        const incompleteSoftwareTeams: IncompleteSoftwareTeam[] = [];
+        for (const softwareTeam of targetSoftwareTeams) {
+          let failureStatus: IncompleteSoftwareTeam["status"] = "request_failed";
           try {
-            const nodesResult = await client.get<NodeEntry[]>(`/api/rigs/${rig.rigId}/nodes`);
+            const nodesResult = await client.get<NodeEntry[]>(`/api/software-teams/${softwareTeam.softwareTeamId}/nodes`);
             failureStatus = nodesResult.status;
             if (nodesResult.status !== 200) {
-              throw new Error(`Node inventory for rig "${rig.name}" returned HTTP ${nodesResult.status}`);
+              throw new Error(`Node inventory for softwareTeam "${softwareTeam.name}" returned HTTP ${nodesResult.status}`);
             }
             failureStatus = "invalid_inventory";
             if (!Array.isArray(nodesResult.data)) {
-              throw new Error(`Node inventory for rig "${rig.name}" is not an array`);
+              throw new Error(`Node inventory for softwareTeam "${softwareTeam.name}" is not an array`);
             }
             allNodes.push(...nodesResult.data);
           } catch (err) {
-            // An explicitly selected rig has no useful partial inventory. For
+            // An explicitly selected softwareTeam has no useful partial inventory. For
             // fleet plans, keep healthy seats while making every omission visible.
-            if (opts.rig) throw err;
-            incompleteRigs.push({ rig: rig.name, status: failureStatus });
+            if (opts.softwareTeam) throw err;
+            incompleteSoftwareTeams.push({ softwareTeam: softwareTeam.name, status: failureStatus });
           }
         }
 
-        const plan = buildPlan(allNodes, thresholds.value, incompleteRigs);
+        const plan = buildPlan(allNodes, thresholds.value, incompleteSoftwareTeams);
         if (opts.json) {
           console.log(JSON.stringify(plan, null, 2));
         } else {
           printHuman(plan);
         }
-        if (incompleteRigs.length > 0) process.exitCode = 1;
+        if (incompleteSoftwareTeams.length > 0) process.exitCode = 1;
       } catch (err) {
         console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
-        console.error("Fix: check daemon status with: rig daemon status");
+        console.error("Fix: check daemon status with: SoftwareTeam daemon status");
         process.exitCode = 2;
       }
     });

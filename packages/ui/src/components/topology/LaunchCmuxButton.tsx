@@ -1,26 +1,26 @@
 // Slice 24 — LaunchCmuxButton.
 //
-// Rig-scope "Launch in CMUX" button. Click → POST /api/rigs/:rigId/cmux/launch
-// via launchRigCmux. Renders inline status (loading / success / error)
+// SoftwareTeam-scope "Launch in CMUX" button. Click → POST /api/software-teams/:softwareTeamId/cmux/launch
+// via launchSoftwareTeamCmux. Renders inline status (loading / success / error)
 // directly adjacent to the button rather than via a separate toast
-// primitive — keeps the rig-scope tab-bar self-contained.
+// primitive — keeps the software-team-scope tab-bar self-contained.
 //
-// Per README §Mobile + §Button placement: mounted in the rig-scope tab
-// bar (Option C placement, persistent across all rig-scope view-mode
+// Per README §Mobile + §Button placement: mounted in the software-team-scope tab
+// bar (Option C placement, persistent across all software-team-scope view-mode
 // tabs); hidden below the lg breakpoint via Tailwind responsive classes.
 
 import { useEffect, useRef } from "react";
-import { launchRigCmux } from "../../hooks/launchRigCmux.js";
+import { launchSoftwareTeamCmux } from "../../hooks/launchSoftwareTeamCmux.js";
 import { postOpenCmux } from "../../hooks/useCmuxLaunch.js";
 
 interface LaunchCmuxButtonProps {
-  rigId: string;
+  softwareTeamId: string;
 }
 
 const SUCCESS_TOAST_TIMEOUT_MS = 6000;
 const ERROR_TOAST_TIMEOUT_MS = 8000;
 
-export function LaunchCmuxButton({ rigId }: LaunchCmuxButtonProps) {
+export function LaunchCmuxButton({ softwareTeamId }: LaunchCmuxButtonProps) {
   // Keep this launcher's transient state out of React rendering. The
   // topology table view can renderer-spin when this sibling button
   // schedules React state during click handling; the cmux launch is an
@@ -81,7 +81,7 @@ export function LaunchCmuxButton({ rigId }: LaunchCmuxButtonProps) {
     setPendingUi(true);
     clearStatus();
     if (openMissingRef.current) openMissingRef.current.hidden = true;
-    launchRigCmux({ rigId })
+    launchSoftwareTeamCmux({ softwareTeamId })
       .then((result) => {
         const workspaceCount = result.workspaces.length;
         const agentCount = result.workspaces.reduce((sum, w) => sum + w.agents.length, 0);
@@ -141,7 +141,7 @@ export function LaunchCmuxButton({ rigId }: LaunchCmuxButtonProps) {
           Promise.allSettled(
             ids.map(async (logicalId) => {
               try {
-                const result = await postOpenCmux({ rigId, logicalId });
+                const result = await postOpenCmux({ softwareTeamId, logicalId });
                 return { ok: result.ok === true };
               } catch {
                 return { ok: false };

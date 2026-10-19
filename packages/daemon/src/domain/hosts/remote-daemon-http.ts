@@ -7,7 +7,7 @@
 // result into its shipped error strings (its tests byte-preserved).
 //
 // DEADLINE IS A REQUIRED ARGUMENT (arch sharpening, no module default):
-// the up-leaf passes its 120s long-running rig-up budget at ITS call-site;
+// the up-leaf passes its 120s long-running software-team-up budget at ITS call-site;
 // the attention aggregator passes its 5s read-class deadline at ITS
 // call-site. A buried default would invite the next consumer to silently
 // inherit the wrong class.
@@ -34,7 +34,7 @@ export interface RemoteJsonOptions extends RemoteJsonDeps {
   body?: unknown;
   /** REQUIRED — the caller names its deadline class explicitly. */
   timeoutMs: number;
-  /** P21: extra request headers (e.g. the re-stamped X-OpenRig-Session + X-OpenRig-Relay on a
+  /** P21: extra request headers (e.g. the re-stamped X-SoftwareTeam-Session + X-SoftwareTeam-Relay on a
    *  cross-host forward). Merged AFTER Content-Type/Authorization so a forwarder's identity re-stamp
    *  is what the remote reads — never the inbound body claim. */
   headers?: Record<string, string>;

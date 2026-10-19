@@ -35,9 +35,9 @@ describe("B8-1b — epistemic-matched precheck language (the ONE helper)", () =>
   });
 
   it("sibling hint renders when present (the wrong-home teaching line rides the guard)", () => {
-    daemonStatusGuard({ state: "unverified", siblingHint: { resolvedHome: "/a/.openrig", siblingHome: "/a/.openrig-vm" } } as DaemonStatus);
+    daemonStatusGuard({ state: "unverified", siblingHint: { resolvedHome: "/a/.softwareteam", siblingHome: "/a/.softwareteam-vm" } } as DaemonStatus);
     const out = errSpy.mock.calls.map((c) => c.join(" ")).join("\n");
-    expect(out).toContain("/a/.openrig-vm");
+    expect(out).toContain("/a/.softwareteam-vm");
   });
 
   it("statusGuardMessage is pure (language derives from the epistemic state)", () => {

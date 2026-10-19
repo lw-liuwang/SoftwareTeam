@@ -1,5 +1,5 @@
 // S10 — the IN-PROCESS queue port for the gateway subsystem. Successor to the retired CLI
-// queue-bridge (which shelled out to `rig queue` from the relay's separate process): in-daemon
+// queue-bridge (which shelled out to `SoftwareTeam queue` from the relay's separate process): in-daemon
 // there is no process boundary, so fleet access is a direct QueueRepository read/write. The
 // SELECTION SEMANTICS consume the single structured OWNER classification written with the
 // queue transition. Tags and destination spellings are not a second alert classifier.
@@ -54,7 +54,7 @@ export interface CreateQitemInput {
   body: string;
   priority?: string;
   tags?: string[];
-  /** #822 — the ask whose OpenRig thread this message, answer, or reaction came from. */
+  /** #822 — the ask whose SoftwareTeam thread this message, answer, or reaction came from. */
   inReplyTo?: string;
 }
 

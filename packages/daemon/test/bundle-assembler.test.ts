@@ -9,7 +9,7 @@ import { parseLegacyBundleManifest as parseBundleManifest, validateLegacyBundleM
 
 const VALID_SPEC = `
 schema_version: 1
-name: test-rig
+name: test-software-team
 version: "1.0"
 nodes:
   - id: dev
@@ -39,7 +39,7 @@ describe("BundleAssembler", () => {
   });
 
   function writeSpec(yaml: string = VALID_SPEC): string {
-    const p = path.join(tmpDir, "rig.yaml");
+    const p = path.join(tmpDir, "software-team.yaml");
     fs.writeFileSync(p, yaml);
     return p;
   }
@@ -56,7 +56,7 @@ describe("BundleAssembler", () => {
   }
 
   // T1: Assembles staging dir with correct layout
-  it("assembles staging dir with rig.yaml + packages/ + bundle.yaml", () => {
+  it("assembles staging dir with software-team.yaml + packages/ + bundle.yaml", () => {
     const specPath = writeSpec();
     const pkgDir = writePkg("review-kit", { "package.yaml": "name: review-kit", "skills/deep/SKILL.md": "# Deep" });
     const outputDir = path.join(tmpDir, "staging");
@@ -67,14 +67,14 @@ describe("BundleAssembler", () => {
       packages: [{ name: "review-kit", version: "0.1.0", sourcePath: pkgDir, originalSource: "local:./review-kit", manifestHash: "hash1" }],
     });
 
-    expect(fs.existsSync(path.join(outputDir, "rig.yaml"))).toBe(true);
+    expect(fs.existsSync(path.join(outputDir, "software-team.yaml"))).toBe(true);
     expect(fs.existsSync(path.join(outputDir, "bundle.yaml"))).toBe(true);
     expect(fs.existsSync(path.join(outputDir, "packages/review-kit/package.yaml"))).toBe(true);
     expect(fs.existsSync(path.join(outputDir, "packages/review-kit/skills/deep/SKILL.md"))).toBe(true);
   });
 
-  // T2: Rig spec copied to root
-  it("rig spec content copied to outputDir/rig.yaml", () => {
+  // T2: SoftwareTeam spec copied to root
+  it("SoftwareTeam spec content copied to outputDir/software-team.yaml", () => {
     const specPath = writeSpec();
     const pkgDir = writePkg("pkg", { "package.yaml": "name: pkg" });
     const outputDir = path.join(tmpDir, "staging");
@@ -85,7 +85,7 @@ describe("BundleAssembler", () => {
       packages: [{ name: "pkg", version: "1.0", sourcePath: pkgDir, originalSource: "", manifestHash: "h" }],
     });
 
-    expect(fs.readFileSync(path.join(outputDir, "rig.yaml"), "utf-8")).toBe(VALID_SPEC);
+    expect(fs.readFileSync(path.join(outputDir, "software-team.yaml"), "utf-8")).toBe(VALID_SPEC);
   });
 
   // T3: Package vendored as full directory
@@ -148,19 +148,19 @@ describe("BundleAssembler", () => {
     })).toThrow(/not found/);
   });
 
-  // T7: Missing rig spec -> throws
-  it("missing rig spec throws", () => {
+  // T7: Missing softwareTeam spec -> throws
+  it("missing SoftwareTeam spec throws", () => {
     const outputDir = path.join(tmpDir, "staging");
     const assembler = new BundleAssembler({ fsOps: realFsOps() });
 
     expect(() => assembler.assemble({
-      specPath: "/nonexistent/rig.yaml", outputDir, bundleName: "b", bundleVersion: "1.0",
+      specPath: "/nonexistent/software-team.yaml", outputDir, bundleName: "b", bundleVersion: "1.0",
       packages: [{ name: "pkg", version: "1.0", sourcePath: tmpDir, originalSource: "", manifestHash: "h" }],
     })).toThrow(/not found/);
   });
 
-  // T7b: Invalid rig spec content -> throws with validation errors
-  it("invalid rig spec content throws with validation errors", () => {
+  // T7b: Invalid softwareTeam spec content -> throws with validation errors
+  it("invalid SoftwareTeam spec content throws with validation errors", () => {
     const badSpec = "schema_version: 1\n# missing name, version, nodes";
     const specPath = path.join(tmpDir, "bad.yaml");
     fs.writeFileSync(specPath, badSpec);
@@ -171,7 +171,7 @@ describe("BundleAssembler", () => {
     expect(() => assembler.assemble({
       specPath, outputDir, bundleName: "b", bundleVersion: "1.0",
       packages: [{ name: "pkg", version: "1.0", sourcePath: pkgDir, originalSource: "", manifestHash: "h" }],
-    })).toThrow(/Invalid rig spec/);
+    })).toThrow(/Invalid SoftwareTeam spec/);
   });
 
   // T8: Multiple packages assembled
@@ -251,9 +251,9 @@ describe("BundleAssembler", () => {
 
     const provenance: BundleProvenance = {
       sourceHost: "test-host.local",
-      authorSession: "velocity-driver@openrig-velocity",
-      sourceRigId: "01KQEQPN4MQJN0DHBM5CQ0N8D7",
-      sourceRigName: "openrig-velocity",
+      authorSession: "velocity-driver@softwareteam-velocity",
+      sourceSoftwareTeamId: "01KQEQPN4MQJN0DHBM5CQ0N8D7",
+      sourceSoftwareTeamName: "softwareteam-velocity",
       daemonVersion: "0.3.2",
       cliVersion: "0.3.2",
       notes: "checkpoint-2-part-2 fixture",
@@ -266,7 +266,7 @@ describe("BundleAssembler", () => {
 
     expect(manifest.provenance).toBeDefined();
     expect(manifest.provenance?.sourceHost).toBe("test-host.local");
-    expect(manifest.provenance?.authorSession).toBe("velocity-driver@openrig-velocity");
+    expect(manifest.provenance?.authorSession).toBe("velocity-driver@softwareteam-velocity");
     expect(manifest.provenance?.daemonVersion).toBe("0.3.2");
     expect(manifest.provenance?.cliVersion).toBe("0.3.2");
     expect(manifest.provenance?.notes).toBe("checkpoint-2-part-2 fixture");

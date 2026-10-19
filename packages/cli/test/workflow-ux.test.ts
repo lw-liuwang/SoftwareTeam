@@ -1,5 +1,5 @@
 // release-0.3.2 slice 01 (OPR.0.3.2.1) — GA-polish coverage for the
-// rig workflow command surface.
+// SoftwareTeam workflow command surface.
 //
 // Scope: static --help + description coverage; the what/state/next
 // summary behavior is verified at the building-block level via
@@ -17,7 +17,7 @@ import {
   type OutcomeSummary,
 } from "../src/commands/workflow.js";
 
-describe("rig workflow --help carries examples on every command (HG-4)", () => {
+describe("SoftwareTeam workflow --help carries examples on every command (HG-4)", () => {
   const expectedVerbs = [
     "validate",
     "instantiate",
@@ -57,7 +57,7 @@ describe("rig workflow --help carries examples on every command (HG-4)", () => {
       const block = match![0];
       expect(block).toMatch(/\.addHelpText\("after",/);
       expect(block).toMatch(/Examples?:/i);
-      expect(block).toMatch(/\$ rig workflow /); // at least one concrete example invocation
+      expect(block).toMatch(/\$ SoftwareTeam workflow /); // at least one concrete example invocation
     });
   }
 
@@ -88,9 +88,9 @@ describe("printOutcomeSummary — what/state/next ending (HG-4)", () => {
   }
 
   const baseSummary: OutcomeSummary = {
-    what: "Closed QITEM-123 (handoff) and projected QITEM-456 to velocity-qa@openrig-velocity",
+    what: "Closed QITEM-123 (handoff) and projected QITEM-456 to velocity-qa@softwareteam-velocity",
     state: "instance WF01ABC = active",
-    next: "Inspect: rig queue show QITEM-456",
+    next: "Inspect: SoftwareTeam queue show QITEM-456",
   };
 
   it("emits 4 lines (blank + what + state + next) in human mode on success", () => {
@@ -100,7 +100,7 @@ describe("printOutcomeSummary — what/state/next ending (HG-4)", () => {
     const joined = out.logs.join("\n");
     expect(joined).toMatch(/what:\s+Closed QITEM-123/);
     expect(joined).toMatch(/state:\s+instance WF01ABC = active/);
-    expect(joined).toMatch(/next:\s+Inspect: rig queue show QITEM-456/);
+    expect(joined).toMatch(/next:\s+Inspect: SoftwareTeam queue show QITEM-456/);
     // Blank separator line precedes the summary.
     expect(out.logs[0]).toBe("");
   });

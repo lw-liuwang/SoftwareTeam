@@ -60,7 +60,7 @@ import { parseSessionName } from "../lib/session-name.js";
 import { HostIndicator } from "./HostIndicator.js";
 
 // =====================================================================
-// Contexts (preserved per DRIFT P2-B + active consumers in Dashboard, RigGraph)
+// Contexts (preserved per DRIFT P2-B + active consumers in Dashboard, SoftwareTeamGraph)
 // =====================================================================
 
 interface DrawerSelectionContextValue {
@@ -99,8 +99,8 @@ export function useDiscoveryPlacement() {
 
 // V1 polish slice Phase 5.1 P5.1-1 + DRIFT P5.1-D2: useNodeSelection
 // alias FULLY RETIRED. After 'seat-detail' kind retirement, the only
-// callsite (RigGraph node click) now uses useNavigate to route to the
-// /topology/seat/$rigId/$logicalId center page directly. Verified via
+// callsite (SoftwareTeamGraph node click) now uses useNavigate to route to the
+// /topology/seat/$softwareTeamId/$logicalId center page directly. Verified via
 // grep — no remaining production consumer of useNodeSelection or
 // NodeSelectionContext outside the legacy AppShell export.
 //
@@ -144,7 +144,7 @@ const RAIL_ICONS: RailIconSpec[] = [
     label: "Topology",
     to: "/topology",
     icon: Network,
-    activeWhen: (p) => p.startsWith("/topology") || p.startsWith("/rigs/"),
+    activeWhen: (p) => p.startsWith("/topology") || p.startsWith("/software-teams/"),
     testId: "rail-topology",
     group: "destination",
   },
@@ -215,8 +215,8 @@ function readSettingString(
   return typeof v === "string" ? v : "";
 }
 
-/** Map a ConfigStore session-string ("logicalId@rigId") to a navigation
- *  target. When configured: `/topology/seat/$rigId/$logicalId`. When
+/** Map a ConfigStore session-string ("logicalId@softwareTeamId") to a navigation
+ *  target. When configured: `/topology/seat/$softwareTeamId/$logicalId`. When
  *  unset: `/settings#agents-{role}-session`. Per universal-shell.md L80
  *  (one-click navigation; not popup-then-CTA two-click). */
 function resolveChatTo(session: string, role: "advisor" | "operator"): string {
@@ -225,7 +225,7 @@ function resolveChatTo(session: string, role: "advisor" | "operator"): string {
   // (malformed/legacy) falls back to /settings.
   const parsed = parseSessionName(session);
   if (parsed.kind !== "canonical") return `/settings#agents-${role}-session`;
-  return `/topology/seat/${encodeURIComponent(parsed.rig)}/${encodeURIComponent(parsed.member)}`;
+  return `/topology/seat/${encodeURIComponent(parsed.softwareTeam)}/${encodeURIComponent(parsed.member)}`;
 }
 
 // =====================================================================
@@ -233,7 +233,7 @@ function resolveChatTo(session: string, role: "advisor" | "operator"): string {
 // =====================================================================
 
 function surfaceForPath(pathname: string): ExplorerSurface {
-  if (pathname.startsWith("/topology") || pathname.startsWith("/rigs/")) return "topology";
+  if (pathname.startsWith("/topology") || pathname.startsWith("/software-teams/")) return "topology";
   if (pathname.startsWith("/project")) return "project";
   if (pathname.startsWith("/specs") || pathname.startsWith("/plugins")) return "specs";
   if (pathname.startsWith("/for-you")) return "for-you";
@@ -548,7 +548,7 @@ function AppShellInner({ children }: AppShellProps) {
                   data-testid="brand-home-link"
                   className="inline-flex items-center bg-inverse-surface px-3 py-1 font-mono text-sm font-bold uppercase tracking-[0.08em] text-background hover:bg-inverse-surface"
                 >
-                  OPENRIG
+                  SOFTWARETEAM
                 </Link>
               </div>
               {/* Right-slot — the V2 global affordance this slot was
@@ -688,7 +688,7 @@ function MobileBottomNav({ pathname }: { pathname: string }) {
   }> = [
     { id: "for-you", label: "For You", to: "/for-you", activeWhen: (p) => p.startsWith("/for-you"), icon: Sparkles },
     { id: "project", label: "Project", to: "/project", activeWhen: (p) => p.startsWith("/project"), icon: Folder },
-    { id: "topology", label: "Topology", to: "/topology", activeWhen: (p) => p.startsWith("/topology") || p.startsWith("/rigs/"), icon: Network },
+    { id: "topology", label: "Topology", to: "/topology", activeWhen: (p) => p.startsWith("/topology") || p.startsWith("/software-teams/"), icon: Network },
   ];
   return (
     <nav

@@ -28,22 +28,22 @@ let dir: string | undefined;
 afterEach(() => { failure.active = false; if (dir) fs.rmSync(dir, { recursive: true, force: true }); });
 it("preserves an existing export and removes staging after a partial failed write", () => {
   dir = fs.mkdtempSync(join(tmpdir(), "export-atomic-"));
-  const target = join(dir, "rig.yaml");
+  const target = join(dir, "software-team.yaml");
   fs.writeFileSync(target, "name: original\n");
   failure.active = true;
   expect(() => writeTextAtomically(target, "name: replacement\n", "export")).toThrow(/no space left/);
   expect(fs.readFileSync(target, "utf8")).toBe("name: original\n");
-  expect(fs.readdirSync(dir)).toEqual(["rig.yaml"]);
+  expect(fs.readdirSync(dir)).toEqual(["software-team.yaml"]);
 });
 it("retains export symlinks and target permissions on successful replacement", () => {
   dir = fs.mkdtempSync(join(tmpdir(), "export-atomic-"));
-  const target = join(dir, "saved.yaml"), link = join(dir, "rig.yaml");
+  const target = join(dir, "saved.yaml"), link = join(dir, "software-team.yaml");
   fs.writeFileSync(target, "name: original\n"); fs.chmodSync(target, 0o640); fs.symlinkSync(target, link);
   writeTextAtomically(link, "name: replacement\n", "export");
   expect(fs.lstatSync(link).isSymbolicLink()).toBe(true);
   expect(fs.readFileSync(target, "utf8")).toBe("name: replacement\n");
   if (process.platform !== "win32") expect(fs.statSync(target).mode & 0o777).toBe(0o640);
-  expect(fs.readdirSync(dir).sort()).toEqual(["rig.yaml", "saved.yaml"]);
+  expect(fs.readdirSync(dir).sort()).toEqual(["saved.yaml", "software-team.yaml"]);
 });
 it.skipIf(process.platform === "win32")("keeps staging names within native filename limits", () => {
   dir = fs.mkdtempSync(join(tmpdir(), "export-atomic-"));
@@ -56,7 +56,7 @@ it.skipIf(process.platform === "win32")("keeps staging names within native filen
 });
 it.skipIf(process.platform === "win32" || process.getuid?.() === 0)("overwrites a native write-only export without requiring read access", () => {
   dir = fs.mkdtempSync(join(tmpdir(), "export-atomic-"));
-  const target = join(dir, "rig.yaml");
+  const target = join(dir, "software-team.yaml");
   fs.writeFileSync(target, "name: original\n"); fs.chmodSync(target, 0o200);
   writeTextAtomically(target, "name: replacement\n", "export");
   expect(fs.statSync(target).mode & 0o777).toBe(0o200);
@@ -65,7 +65,7 @@ it.skipIf(process.platform === "win32" || process.getuid?.() === 0)("overwrites 
 });
 it.skipIf(process.platform === "win32")("writes content to a native FIFO without replacing it or delivering an empty EOF", async () => {
   dir = fs.mkdtempSync(join(tmpdir(), "export-atomic-"));
-  const target = join(dir, "rig.fifo"), content = "name: exported\n";
+  const target = join(dir, "softwareTeam.fifo"), content = "name: exported\n";
   execFileSync("mkfifo", [target]);
   const reader = spawn(process.execPath, ["-e", `
     const fs = require("node:fs");
@@ -91,7 +91,7 @@ it.skipIf(process.platform === "win32")("writes content to a native FIFO without
     writeTextAtomically(target, content, "export");
     expect(await messages).toBe(content);
     expect(fs.statSync(target).isFIFO()).toBe(true);
-    expect(fs.readdirSync(dir)).toEqual(["rig.fifo"]);
+    expect(fs.readdirSync(dir)).toEqual(["softwareTeam.fifo"]);
   } finally {
     clearTimeout(timeout);
     reader.kill();
@@ -100,7 +100,7 @@ it.skipIf(process.platform === "win32")("writes content to a native FIFO without
 it("uses the default export writer to preserve the saved spec after a partial write failure", async () => {
   assertFixtureScopedHome(dirname(STATE_FILE));
   dir = fs.mkdtempSync(join(tmpdir(), "export-atomic-"));
-  const target = join(dir, "rig.yaml"), original = "name: original\n";
+  const target = join(dir, "software-team.yaml"), original = "name: original\n";
   const previousState = fs.existsSync(STATE_FILE) ? fs.readFileSync(STATE_FILE) : undefined;
   const server = http.createServer((req, res) => {
     res.end(req.url === "/healthz" ? "{}" : "schema_version: 1\nname: replacement\nnodes: []\n");
@@ -113,9 +113,9 @@ it("uses the default export writer to preserve the saved spec after a partial wr
     fs.writeFileSync(target, original);
     const program = new Command().addCommand(exportCommand());
     failure.active = true;
-    await expect(program.parseAsync(["node", "rig", "export", "fixture", "-o", target])).rejects.toThrow(/no space left/);
+    await expect(program.parseAsync(["node", "softwareTeam", "export", "fixture", "-o", target])).rejects.toThrow(/no space left/);
     expect(fs.readFileSync(target, "utf8")).toBe(original);
-    expect(fs.readdirSync(dir)).toEqual(["rig.yaml"]);
+    expect(fs.readdirSync(dir)).toEqual(["software-team.yaml"]);
   } finally {
     failure.active = false;
     resetFetchAllowlist();

@@ -19,7 +19,7 @@
 //     existing config covers it.
 
 import { useMemo, useState } from "react";
-import { useRigSummary, type RigSummary } from "../../hooks/useRigSummary.js";
+import { useSoftwareTeamSummary, type SoftwareTeamSummary } from "../../hooks/useSoftwareTeamSummary.js";
 import { useNodeInventory, type NodeInventoryEntry } from "../../hooks/useNodeInventory.js";
 import { useSelectedHostId } from "../../hooks/useHosts.js";
 import { LOCAL_HOST_ID } from "../../lib/host-param.js";
@@ -35,9 +35,9 @@ import { contextUsageTextClass } from "../ContextUsageRing.js";
 const SAFE_N = 12;
 
 interface TopologyTerminalViewProps {
-  scope: "host" | "rig" | "pod";
-  /** Required for rig + pod scopes. */
-  rigId?: string;
+  scope: "host" | "softwareTeam" | "pod";
+  /** Required for softwareTeam + pod scopes. */
+  softwareTeamId?: string;
   /** Required for pod scope. */
   podName?: string;
 }
@@ -54,7 +54,7 @@ function ContextMetric({ seat }: { seat: NodeInventoryEntry }) {
   const known = usage?.availability === "known" && typeof usage.usedPercentage === "number";
   return (
     <span
-      data-testid={`terminal-card-context-${seat.rigId}-${seat.logicalId}`}
+      data-testid={`terminal-card-context-${seat.softwareTeamId}-${seat.logicalId}`}
       className={`font-mono text-[8px] font-bold uppercase tracking-wide ${contextUsageTextClass(usage?.usedPercentage, usage?.fresh, usage?.availability)}`}
       title={
         known
@@ -76,7 +76,7 @@ function TokenMetric({ seat }: { seat: NodeInventoryEntry }) {
   const title = formatTokenTotalTitle(usage?.totalInputTokens, usage?.totalOutputTokens);
   return (
     <span
-      data-testid={`terminal-card-tokens-${seat.rigId}-${seat.logicalId}`}
+      data-testid={`terminal-card-tokens-${seat.softwareTeamId}-${seat.logicalId}`}
       className={`font-mono text-[8px] font-bold uppercase tracking-wide ${label ? "text-on-surface-variant" : "text-on-surface-variant"}`}
       title={title ?? "Token sample unavailable"}
     >
@@ -107,7 +107,7 @@ function SeatTerminalCard({ seat }: { seat: NodeInventoryEntry }) {
   const memberName = displayAgentName(seat.logicalId);
   return (
     <div
-      data-testid={`terminal-card-${seat.rigId}-${seat.logicalId}`}
+      data-testid={`terminal-card-${seat.softwareTeamId}-${seat.logicalId}`}
       data-active={active ? "true" : "false"}
       className={cn(
         // OPR.0.4.0.39 FR-4: NO white card wrapper (bg-surface-lowest/40 was too contrasty);
@@ -135,8 +135,8 @@ function SeatTerminalCard({ seat }: { seat: NodeInventoryEntry }) {
           scale). No separate popover trigger. */}
       <ProgressiveTerminal
         sessionName={sessionName}
-        terminalKey={`${seat.rigId}:${seat.logicalId}`}
-        testIdPrefix={`terminal-grid-${seat.rigId}-${seat.logicalId}`}
+        terminalKey={`${seat.softwareTeamId}:${seat.logicalId}`}
+        testIdPrefix={`terminal-grid-${seat.softwareTeamId}-${seat.logicalId}`}
       />
     </div>
   );
@@ -189,7 +189,7 @@ function TerminalGrid({
       <div className="grid gap-2 grid-cols-1 md:grid-cols-2">
         {visible.map((seat) => (
           <SeatTerminalCard
-            key={`${seat.rigId}-${seat.logicalId}`}
+            key={`${seat.softwareTeamId}-${seat.logicalId}`}
             seat={seat}
           />
         ))}
@@ -198,8 +198,8 @@ function TerminalGrid({
   );
 }
 
-function RigTerminalSection({ rigId, rigName }: { rigId: string; rigName: string }) {
-  const { data: nodes } = useNodeInventory(rigId);
+function SoftwareTeamTerminalSection({ softwareTeamId, softwareTeamName }: { softwareTeamId: string; softwareTeamName: string }) {
+  const { data: nodes } = useNodeInventory(softwareTeamId);
   const seats = useMemo(
     () => (nodes ?? []).filter((n) => n.nodeKind !== "infrastructure"),
     [nodes],
@@ -207,46 +207,46 @@ function RigTerminalSection({ rigId, rigName }: { rigId: string; rigName: string
   if (seats.length === 0) return null;
   return (
     <section
-      data-testid={`topology-terminal-rig-${rigId}`}
+      data-testid={`topology-terminal-software-team-${softwareTeamId}`}
       className="border-t border-outline-variant pt-4 first:border-t-0 first:pt-0"
     >
-      <SectionHeader tone="muted">{rigName}</SectionHeader>
+      <SectionHeader tone="muted">{softwareTeamName}</SectionHeader>
       <div className="mt-2">
         <TerminalGrid
           seats={seats}
           emptyLabel="NO SEATS"
-          emptyDescription={`No agent seats in ${rigName}.`}
+          emptyDescription={`No agent seats in ${softwareTeamName}.`}
         />
       </div>
     </section>
   );
 }
 
-function HostRigPicker({
-  rigs,
-  onSelectRig,
+function HostSoftwareTeamPicker({
+  softwareTeams,
+  onSelectSoftwareTeam,
 }: {
-  rigs: RigSummary[];
-  onSelectRig: (rigId: string) => void;
+  softwareTeams: SoftwareTeamSummary[];
+  onSelectSoftwareTeam: (softwareTeamId: string) => void;
 }) {
   return (
     <div data-testid="topology-terminal-host-picker" className="space-y-3">
-      <SectionHeader tone="muted">RIG TERMINALS</SectionHeader>
+      <SectionHeader tone="muted">SOFTWARE_TEAM TERMINALS</SectionHeader>
       <div className="grid gap-2 grid-cols-1 md:grid-cols-2">
-        {rigs.map((rig) => (
+        {softwareTeams.map((softwareTeam) => (
           <button
-            key={rig.id}
+            key={softwareTeam.id}
             type="button"
-            data-testid={`topology-terminal-host-rig-${rig.id}`}
-            onClick={() => onSelectRig(rig.id)}
+            data-testid={`topology-terminal-host-software-team-${softwareTeam.id}`}
+            onClick={() => onSelectSoftwareTeam(softwareTeam.id)}
             className="flex items-center justify-between gap-2 border border-outline-variant bg-surface/70 px-3 py-2 text-left hover:bg-surface-low/70"
           >
             <span className="min-w-0">
               <span className="block truncate font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface">
-                {rig.name}
+                {softwareTeam.name}
               </span>
               <span className="block font-mono text-[9px] uppercase tracking-[0.10em] text-on-surface-variant">
-                {rig.nodeCount} node{rig.nodeCount === 1 ? "" : "s"}
+                {softwareTeam.nodeCount} node{softwareTeam.nodeCount === 1 ? "" : "s"}
               </span>
             </span>
             <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.12em] text-on-surface-variant">
@@ -259,13 +259,13 @@ function HostRigPicker({
   );
 }
 
-export function TopologyTerminalView({ scope, rigId, podName }: TopologyTerminalViewProps) {
-  const [selectedHostRigId, setSelectedHostRigId] = useState<string | null>(null);
-  const { data: rigs } = useRigSummary();
-  const { data: rigNodes } = useNodeInventory(scope !== "host" ? (rigId ?? null) : null);
-  const selectedHostRig = useMemo(
-    () => rigs?.find((rig) => rig.id === selectedHostRigId) ?? null,
-    [rigs, selectedHostRigId],
+export function TopologyTerminalView({ scope, softwareTeamId, podName }: TopologyTerminalViewProps) {
+  const [selectedHostSoftwareTeamId, setSelectedHostSoftwareTeamId] = useState<string | null>(null);
+  const { data: softwareTeams } = useSoftwareTeamSummary();
+  const { data: softwareTeamNodes } = useNodeInventory(scope !== "host" ? (softwareTeamId ?? null) : null);
+  const selectedHostSoftwareTeam = useMemo(
+    () => softwareTeams?.find((softwareTeam) => softwareTeam.id === selectedHostSoftwareTeamId) ?? null,
+    [softwareTeams, selectedHostSoftwareTeamId],
   );
   // OPR.0.4.6.MH2 rev1-r2 B1: every terminal card is a LOCAL session surface
   // (session-name preview reads + click-to-live typeable xterm) — under a
@@ -287,43 +287,43 @@ export function TopologyTerminalView({ scope, rigId, podName }: TopologyTerminal
   }
 
   if (scope === "host") {
-    if (!rigs || rigs.length === 0) {
+    if (!softwareTeams || softwareTeams.length === 0) {
       return (
         <div className="p-6">
           <EmptyState
-            label="NO RIGS"
-            description="No rigs registered. Register a rig to see terminals at host scope."
+            label="NO SOFTWARE_TEAMS"
+            description="No softwareTeams registered. Register a SoftwareTeam to see terminals at host scope."
             variant="card"
             testId="topology-terminal-empty"
           />
         </div>
       );
     }
-    if (selectedHostRig) {
+    if (selectedHostSoftwareTeam) {
       return (
         <div data-testid="topology-terminal-host" className="p-6 space-y-4">
           <button
             type="button"
             data-testid="topology-terminal-host-back"
-            onClick={() => setSelectedHostRigId(null)}
+            onClick={() => setSelectedHostSoftwareTeamId(null)}
             className="font-mono text-[9px] uppercase tracking-[0.14em] text-on-surface-variant hover:text-on-surface"
           >
-            Back to rigs
+            Back to softwareTeams
           </button>
-          <RigTerminalSection rigId={selectedHostRig.id} rigName={selectedHostRig.name} />
+          <SoftwareTeamTerminalSection softwareTeamId={selectedHostSoftwareTeam.id} softwareTeamName={selectedHostSoftwareTeam.name} />
         </div>
       );
     }
     return (
       <div data-testid="topology-terminal-host" className="p-6 space-y-6">
-        <HostRigPicker rigs={rigs} onSelectRig={setSelectedHostRigId} />
+        <HostSoftwareTeamPicker softwareTeams={softwareTeams} onSelectSoftwareTeam={setSelectedHostSoftwareTeamId} />
       </div>
     );
   }
 
-  // Rig + Pod scopes share the same single-rig data source; pod filters by
+  // SoftwareTeam + Pod scopes share the same single-softwareTeam data source; pod filters by
   // podName.
-  const seatsAll = (rigNodes ?? []).filter((n) => n.nodeKind !== "infrastructure");
+  const seatsAll = (softwareTeamNodes ?? []).filter((n) => n.nodeKind !== "infrastructure");
   const seats =
     scope === "pod" && podName
       ? seatsAll.filter((s) => (s.podNamespace ?? s.podId) === podName)
@@ -337,7 +337,7 @@ export function TopologyTerminalView({ scope, rigId, podName }: TopologyTerminal
         emptyDescription={
           scope === "pod"
             ? `No agent seats in pod ${podName}.`
-            : "No agent seats in this rig."
+            : "No agent seats in this softwareTeam."
         }
       />
     </div>

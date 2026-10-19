@@ -36,7 +36,7 @@ function imageFixture(imageDir: string): { dirs: string[]; files: string[] } {
 }
 
 const BUNDLE_ROOT = "/bundle/root";
-const TARGET = "/operator/.openrig/agent-images";
+const TARGET = "/operator/.softwareteam/agent-images";
 
 function makeInput(overrides?: Partial<RouteAgentImagesInput>): RouteAgentImagesInput {
   return {

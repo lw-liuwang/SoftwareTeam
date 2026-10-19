@@ -41,7 +41,7 @@ import { parseFrontmatter } from "./slices/slice-indexer.js";
 import { lastMeaningfulTransition } from "./queue-waiting.js";
 import { derivePickup } from "./queue-pickup.js";
 import { resolveWorkNodeDirs } from "./current-work.js";
-import { resolveLegacyTopologyRigsRoot } from "./user-settings/settings-store.js";
+import { resolveLegacyTopologySoftwareTeamsRoot } from "./user-settings/settings-store.js";
 import { BUILD_INFO, type BuildInfo } from "../build-info.js";
 import { validateMissionComposition } from "./lifecycle-manifest.js";
 
@@ -54,7 +54,7 @@ export interface ExecutionViewDeps {
    *  to INDETERMINATE; the queue-derived sections still answer. */
   slicesRoot: () => string | null;
   /** THE one activity oracle (S19 locked contract): SeatActivityService's
-   *  ARBITRATED seat-keyed read — the same source rig ps, node inventory, and
+   *  ARBITRATED seat-keyed read — the same source SoftwareTeam ps, node inventory, and
    *  parked-query consume. The vocabulary (working | idle-at-prompt | unknown)
    *  and the separate needsInput {count, reason} pass through UNTRANSLATED —
    *  this module never re-arbitrates. sessions.status and the parallel
@@ -72,8 +72,8 @@ export interface ExecutionViewDeps {
   buildInfo?: BuildInfo;
   /** Injectable for tests; synchronous fakes are also accepted. */
   exec?: (cmd: string, args: string[]) => string | Promise<string>;
-  /** Injectable rigs root for review-artifact scanning (tests). */
-  rigsRoot?: () => string;
+  /** Injectable softwareTeams root for review-artifact scanning (tests). */
+  softwareTeamsRoot?: () => string;
 }
 
 interface QueueRowLite {
@@ -338,7 +338,7 @@ function lifecycleProjectAction(input: {
   acceptance: Record<string, unknown> | null;
   receiptRequired?: boolean;
 }): string {
-  const base = `rig workflow project --instance ${input.instanceId} --current-packet ${input.packetId} --exit <handoff|waiting|done|failed> --actor-session ${input.owner}${input.receiptRequired ? " --evidence-ref <agent-judged-receipt>" : ""}`;
+  const base = `SoftwareTeam workflow project --instance ${input.instanceId} --current-packet ${input.packetId} --exit <handoff|waiting|done|failed> --actor-session ${input.owner}${input.receiptRequired ? " --evidence-ref <agent-judged-receipt>" : ""}`;
   if (!input.acceptance) return base;
   const verdicts = Array.isArray(input.acceptance["verdicts"])
     ? input.acceptance["verdicts"].filter((value): value is string => typeof value === "string")
@@ -438,7 +438,7 @@ function readLifecycleExecutions(db: Database.Database, mission: string, project
             failure["status"] === "unresolved" &&
             row["status"] !== "completed" &&
             row["status"] !== "aborted"
-            ? `rig workflow resume ${instanceId} --occurrence ${String(failure["occurrence_id"])} --actor-session <you>`
+            ? `SoftwareTeam workflow resume ${instanceId} --occurrence ${String(failure["occurrence_id"])} --actor-session <you>`
             : null,
         }))
       : [];
@@ -645,7 +645,7 @@ interface ReviewArtifactFact {
 /** Read review drops co-located with this slice, plus the legacy global registry
  * when no catalogued project was selected. Both sources keep the same slice and
  * built-commit join; unbound global artifacts cannot establish project review. */
-function scanReviewArtifacts(rigsRoot: string, sliceDirOrId: string[], proofDir: string, includeGlobal: boolean): ReviewArtifactFact[] | Indeterminate {
+function scanReviewArtifacts(softwareTeamsRoot: string, sliceDirOrId: string[], proofDir: string, includeGlobal: boolean): ReviewArtifactFact[] | Indeterminate {
   const out: ReviewArtifactFact[] = [];
   let readable = false;
   const scanDirectory = (dir: string, local: boolean) => {
@@ -672,10 +672,10 @@ function scanReviewArtifacts(rigsRoot: string, sliceDirOrId: string[], proofDir:
   };
   scanDirectory(proofDir, true);
   if (includeGlobal) {
-    let rigs: string[] = [];
-    try { rigs = fs.readdirSync(rigsRoot); readable = true; } catch { /* Local proof remains usable. */ }
-    for (const rig of rigs) {
-      const stateDir = path.join(rigsRoot, rig, "state");
+    let softwareTeams: string[] = [];
+    try { softwareTeams = fs.readdirSync(softwareTeamsRoot); readable = true; } catch { /* Local proof remains usable. */ }
+    for (const softwareTeam of softwareTeams) {
+      const stateDir = path.join(softwareTeamsRoot, softwareTeam, "state");
       let entries: string[];
       try { entries = fs.readdirSync(stateDir); } catch { continue; }
       for (const entry of entries.filter((e) => e.startsWith("review"))) scanDirectory(path.join(stateDir, entry), false);
@@ -703,7 +703,7 @@ async function gitAncestor(exec: ExecutionViewDeps["exec"], repoCtx: string, sha
   }
 }
 
-export async function buildExecutionView(deps: ExecutionViewDeps, opts?: { mission?: string; rig?: string; project?: string }): Promise<Record<string, unknown>> {
+export async function buildExecutionView(deps: ExecutionViewDeps, opts?: { mission?: string; softwareTeam?: string; project?: string }): Promise<Record<string, unknown>> {
   const now = deps.now ?? (() => new Date());
   const exec = deps.exec ?? defaultExec;
   const buildInfo = deps.buildInfo ?? BUILD_INFO;
@@ -926,7 +926,7 @@ export async function buildExecutionView(deps: ExecutionViewDeps, opts?: { missi
   };
 
   // ---- Q4 ladder (also feeds Q2's deps-folded) ----
-  const rigsRoot = (deps.rigsRoot ?? resolveLegacyTopologyRigsRoot)();
+  const softwareTeamsRoot = (deps.softwareTeamsRoot ?? resolveLegacyTopologySoftwareTeamsRoot)();
   const commitCache = new Map<string, string | null>();
   const ladderOf = async (facts: SliceFacts): Promise<Record<string, unknown>> => {
     const fm = facts.frontmatter;
@@ -969,10 +969,10 @@ export async function buildExecutionView(deps: ExecutionViewDeps, opts?: { missi
     // tags, full shas, annotated fields) join by RESOLVED commit; malformed,
     // ambiguous, or non-resolving inputs are excluded with the reason carried —
     // they neither clear nor poison.
-    const artifacts = scanReviewArtifacts(rigsRoot, [facts.dir, ...(typeof facts.id === "string" ? [facts.id] : [])], path.join(path.dirname(facts.specPath), "proof"), !opts?.project);
+    const artifacts = scanReviewArtifacts(softwareTeamsRoot, [facts.dir, ...(typeof facts.id === "string" ? [facts.id] : [])], path.join(path.dirname(facts.specPath), "proof"), !opts?.project);
     let reviewed: Record<string, unknown>;
     if (artifacts === INDETERMINATE) {
-      reviewed = { value: INDETERMINATE, basis: opts?.project ? `slice-local review-artifact root unreadable (${path.dirname(facts.specPath)}/proof)` : `review-artifact roots unreadable (slice proof/ and ${rigsRoot})`, legs: [] };
+      reviewed = { value: INDETERMINATE, basis: opts?.project ? `slice-local review-artifact root unreadable (${path.dirname(facts.specPath)}/proof)` : `review-artifact roots unreadable (slice proof/ and ${softwareTeamsRoot})`, legs: [] };
     } else if (!candidateSha || !builtToken) {
       reviewed = { value: INDETERMINATE, basis: "no built candidate token to scope review legs to", legs: [] };
     } else if (!builtResolved) {
@@ -1008,7 +1008,7 @@ export async function buildExecutionView(deps: ExecutionViewDeps, opts?: { missi
             excluded,
           };
     }
-    // The selected project has no binding to the OpenRig daemon's source.
+    // The selected project has no binding to the SoftwareTeam daemon's source.
     // Missing Git objects cannot establish applicability. Keep daemon ancestry
     // only on the legacy unscoped view, with its existing unknown/false rules.
     const ancestry: Rung = isUnusableDeclaration
@@ -1049,7 +1049,7 @@ export async function buildExecutionView(deps: ExecutionViewDeps, opts?: { missi
           }
         : { ...ancestry, basis: `${ancestry.basis}; ${reportNote}`, merge_report: report };
     const adopted: Rung = opts?.project
-      ? { value: "NOT_APPLICABLE", basis: "selected project has no binding to the OpenRig daemon source; daemon adoption is not project progress" }
+      ? { value: "NOT_APPLICABLE", basis: "selected project has no binding to the SoftwareTeam daemon source; daemon adoption is not project progress" }
       : !candidateSha || !repoCtx
         ? { value: INDETERMINATE, basis: ancestry.basis }
         : buildInfo.commit
@@ -1210,7 +1210,7 @@ export async function buildExecutionView(deps: ExecutionViewDeps, opts?: { missi
         park_kind: parkKind,
         park_kind_basis: wake
           ? `armed wake ${wake.wake_ref} on queue_transition_wakes`
-          : "no armed wake row (deliberate-park-without-wake vs strand is underivable here — rig parked owns wake diagnosis)",
+          : "no armed wake row (deliberate-park-without-wake vs strand is underivable here — SoftwareTeam parked owns wake diagnosis)",
         wake_target: wake?.wake_ref ?? null,
         age_minutes: ageMinutes,
         source: { qitem_id: r.qitem_id },
@@ -1311,8 +1311,8 @@ export async function buildExecutionView(deps: ExecutionViewDeps, opts?: { missi
             }
           : {}),
       git: { basis: repoCtx ? `per-lane git -C; repo context ${repoCtx}` : "no reachable repo context", asof: asof() },
-      build_info: { commit: buildInfo.commit ?? INDETERMINATE, asof: asof(), basis: "OpenRig daemon source build; not a selected project deployment" },
-      review_artifacts: { root: rigsRoot, asof: asof() },
+      build_info: { commit: buildInfo.commit ?? INDETERMINATE, asof: asof(), basis: "SoftwareTeam daemon source build; not a selected project deployment" },
+      review_artifacts: { root: softwareTeamsRoot, asof: asof() },
       disk: { asof: asof() },
       workflow_lifecycle: {
         asof: asof(),

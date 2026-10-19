@@ -1,4 +1,4 @@
-// OPR.0.4.4.18 — `rig file` (v0: ONE explicit verb, copy).
+// OPR.0.4.4.18 — `softwareTeam file` (v0: ONE explicit verb, copy).
 //
 // Every transfer names its source, destination, and policy: <hostId>:<path>
 // is remote (resolving the registry's ssh entries), a bare path is local,

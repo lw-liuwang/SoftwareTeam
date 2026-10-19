@@ -4,21 +4,21 @@ import { queueCommand, type QueueDeps } from "../src/commands/queue.js";
 
 describe("queue destination advisory through CLI and route", () => {
   it("prints the accepted typo unchanged for create and both handoffs", async () => {
-    const saved = { noKernel: process.env.OPENRIG_NO_KERNEL, session: process.env.OPENRIG_SESSION_NAME };
-    process.env.OPENRIG_NO_KERNEL = "1";
-    process.env.OPENRIG_SESSION_NAME = "sender-ba@advisory-source";
+    const saved = { noKernel: process.env.SOFTWARETEAM_NO_KERNEL, session: process.env.SOFTWARETEAM_SESSION_NAME };
+    process.env.SOFTWARETEAM_NO_KERNEL = "1";
+    process.env.SOFTWARETEAM_SESSION_NAME = "sender-ba@advisory-source";
     const daemon = await createDaemon({ cmuxFactory: async () => {
       throw Object.assign(new Error("no fixture socket"), { code: "ENOENT" });
     }, tmuxExec: async () => "" });
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     try {
-      const source = daemon.deps.rigRepo.createRig("advisory-source");
-      daemon.deps.rigRepo.addNode(source.id, "sender.ba", { runtime: null });
-      const target = daemon.deps.rigRepo.createRig("advisory-target");
-      daemon.deps.rigRepo.addNode(target.id, "product.ba", { runtime: null });
+      const source = daemon.deps.softwareTeamRepo.createSoftwareTeam("advisory-source");
+      daemon.deps.softwareTeamRepo.addNode(source.id, "sender.ba", { runtime: null });
+      const target = daemon.deps.softwareTeamRepo.createSoftwareTeam("advisory-target");
+      daemon.deps.softwareTeamRepo.addNode(target.id, "product.ba", { runtime: null });
       const client = { post: async (url: string, body: unknown) => {
         const response = await daemon.app.request(url, { method: "POST", headers: {
-          "Content-Type": "application/json", "X-OpenRig-Session": "sender-ba@advisory-source",
+          "Content-Type": "application/json", "X-SoftwareTeam-Session": "sender-ba@advisory-source",
         }, body: JSON.stringify(body) });
         return { status: response.status, data: await response.json() };
       } };
@@ -49,10 +49,10 @@ describe("queue destination advisory through CLI and route", () => {
       log.mockRestore();
       daemon.eventLoopMonitor.stop(); daemon.contextMonitor.stop(); daemon.deps.seatActivityService?.stop();
       daemon.db.close();
-      if (saved.noKernel === undefined) delete process.env.OPENRIG_NO_KERNEL;
-      else process.env.OPENRIG_NO_KERNEL = saved.noKernel;
-      if (saved.session === undefined) delete process.env.OPENRIG_SESSION_NAME;
-      else process.env.OPENRIG_SESSION_NAME = saved.session;
+      if (saved.noKernel === undefined) delete process.env.SOFTWARETEAM_NO_KERNEL;
+      else process.env.SOFTWARETEAM_NO_KERNEL = saved.noKernel;
+      if (saved.session === undefined) delete process.env.SOFTWARETEAM_SESSION_NAME;
+      else process.env.SOFTWARETEAM_SESSION_NAME = saved.session;
     }
   }, 30_000);
 });

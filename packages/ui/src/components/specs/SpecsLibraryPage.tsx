@@ -12,10 +12,10 @@ import { ToolMark } from "../graphics/RuntimeMark.js";
 import { usePlugins, type PluginEntry } from "../../hooks/usePlugins.js";
 
 const TOOLBAR_ACTIONS = [
-  { label: "+ Add spec", to: "/specs/rig", testId: "specs-toolbar-add" },
+  { label: "+ Add spec", to: "/specs/softwareTeam", testId: "specs-toolbar-add" },
   { label: "Import", to: "/import", testId: "specs-toolbar-import" },
   { label: "Discover", to: "/search", testId: "specs-toolbar-discover" },
-  { label: "Create rig", to: "/specs/rig", testId: "specs-toolbar-create-rig" },
+  { label: "Create softwareTeam", to: "/specs/softwareTeam", testId: "specs-toolbar-create-software-team" },
   { label: "Generate workflow", to: "/specs/agent", testId: "specs-toolbar-gen-workflow" },
 ] as const;
 
@@ -195,7 +195,7 @@ function PluginsSection({
             label={isLoading ? "LOADING" : "NO PLUGINS DISCOVERED"}
             description={isLoading
               ? "Loading plugins..."
-              : "Install a Claude Code or Codex plugin (or wait for openrig-core to vendor) to see it appear here."}
+              : "Install a Claude Code or Codex plugin (or wait for softwareteam-core to vendor) to see it appear here."}
             variant="card"
             testId="library-plugins-empty"
           />
@@ -248,7 +248,7 @@ function SkillsSection({
             label={isLoading ? "LOADING" : "NO SKILLS FOUND"}
             description={isLoading
               ? "Loading skill folders..."
-              : "No .openrig/skills or packaged OpenRig skill folders are visible through configured file roots."}
+              : "No .softwareteam/skills or packaged SoftwareTeam skill folders are visible through configured file roots."}
             variant="card"
             testId="library-skills-empty"
           />
@@ -287,11 +287,11 @@ export function SpecsLibraryPage() {
   const { data: plugins = [], isLoading: pluginsLoading } = usePlugins();
 
   const sections = useMemo(() => {
-    const rigSpecs = specs.filter((entry) => entry.kind === "rig" && !entry.hasServices).map(specRow);
+    const softwareTeamSpecs = specs.filter((entry) => entry.kind === "softwareTeam" && !entry.hasServices).map(specRow);
     const workflowSpecs = specs.filter((entry) => entry.kind === "workflow").map(specRow);
     const agentSpecs = specs.filter((entry) => entry.kind === "agent").map(specRow);
-    const applications = specs.filter((entry) => entry.kind === "rig" && entry.hasServices).map(specRow);
-    return { rigSpecs, workflowSpecs, agentSpecs, applications };
+    const applications = specs.filter((entry) => entry.kind === "softwareTeam" && entry.hasServices).map(specRow);
+    return { softwareTeamSpecs, workflowSpecs, agentSpecs, applications };
   }, [specs]);
 
   // OPR.0.4.3.05 — aggregate agent-image status badge (count + total estimated
@@ -304,7 +304,7 @@ export function SpecsLibraryPage() {
   }, [agentImages]);
 
   const total =
-    sections.rigSpecs.length
+    sections.softwareTeamSpecs.length
     + sections.workflowSpecs.length
     + sections.agentSpecs.length
     + sections.applications.length
@@ -350,11 +350,11 @@ export function SpecsLibraryPage() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         <LibrarySection
-          id="rig-specs"
-          title="Rig Specs"
-          rows={sections.rigSpecs}
+          id="software-team-specs"
+          title="SoftwareTeam Specs"
+          rows={sections.softwareTeamSpecs}
           isLoading={specsLoading}
-          emptyLabel="No rig specs found."
+          emptyLabel="No SoftwareTeam specs found."
         />
         <LibrarySection
           id="workspace-specs"

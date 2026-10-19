@@ -38,10 +38,10 @@ async function setup(count = 30) {
   const policy = new HealthPolicyStore(home, () => ({ warningPercent: 95, criticalPercent: 99 }));
   let now = "2026-09-05T12:00:00.000Z";
   const tags = ["mission:mission", "slice:slice-1"];
-  const row = await queue.create({ qitemId: "root", sourceSession: "builder@rig", destinationSession: "owner@rig", body: "Build product", tags, nudge: false });
+  const row = await queue.create({ qitemId: "root", sourceSession: "builder@software-team", destinationSession: "owner@software-team", body: "Build product", tags, nudge: false });
   db.prepare("UPDATE queue_items SET ts_created = ? WHERE qitem_id = ?").run(now, row.qitemId);
   db.prepare("UPDATE queue_transitions SET ts = ? WHERE qitem_id = ?").run(now, row.qitemId);
-  for (let i = 1; i < count; i++) db.prepare("INSERT INTO queue_transitions(qitem_id,ts,state,actor_session) VALUES(?,?,?,?)").run(row.qitemId, new Date(Date.parse(now) + i * 1000).toISOString(), "in-progress", "builder@rig");
+  for (let i = 1; i < count; i++) db.prepare("INSERT INTO queue_transitions(qitem_id,ts,state,actor_session) VALUES(?,?,?,?)").run(row.qitemId, new Date(Date.parse(now) + i * 1000).toISOString(), "in-progress", "builder@software-team");
   now = new Date(Date.parse(now) + count * 1000).toISOString();
   const source = new PassiveCeremonySource(workspace, queue, policy, () => now);
   const projection = new HealthProjectionService(source, () => policy.read(), delegatedPostureFixture);
@@ -52,11 +52,11 @@ async function setup(count = 30) {
     authority: (r) => healthAuthority(workspace, checkpoints, r), resolveEvidence: (path) => readHealthArtifact(workspace, path) });
   const send = vi.fn(async () => ({ ok: true, verified: true })); queue.attachTransport({ send });
   const p = policy.read().policy;
-  policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@rig", cooldownSeconds: 60 } }, "operator@rig");
+  policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: true, owner: "owner@software-team", cooldownSeconds: 60 } }, "operator@software-team");
   const assessment = (conclusion: CeremonyProgressAssessment["conclusion"] = "established"): CeremonyProgressAssessment => ({ basis: projection.list().records[0]!.ceremony!.basis,
     conclusion, outcomes: conclusion === "established" ? [{ id: "one-public-outcome", observedAt: "2026-09-05T12:00:20.000Z", evidenceRefs: [proof] }] : [],
     boundedAuthority: conclusion === "indeterminate" ? null : false, boundary: "One whole-outcome evaluation; all correction candidates belong to it", evidenceRefs: [proof, join(slice, "SPEC.md")], missingFacts: conclusion === "indeterminate" ? ["No complete product-outcome census for the exact interval"] : [] });
-  const dispose = (id: string, progress: CeremonyProgressAssessment, actor = "owner@rig") => service.dispose(id, actor, { verdict: progress.conclusion === "indeterminate" ? "insufficient evidence" : progress.conclusion === "false-positive" ? "false positive" : "established pathology",
+  const dispose = (id: string, progress: CeremonyProgressAssessment, actor = "owner@software-team") => service.dispose(id, actor, { verdict: progress.conclusion === "indeterminate" ? "insufficient evidence" : progress.conclusion === "false-positive" ? "false positive" : "established pathology",
     causalStart: null, steering: "Follow the authored outcome boundary", uncertainty: "Check beyond this packet", evidenceRefs: [proof], progress }, "transport:v1");
   return { home, workspace, slice, proof, db, queue, source, projection, service, send, policy, assessment, dispose, readiness, setReady: (value: boolean) => { ready = value; }, time: (at: string) => { now = at; } };
 }
@@ -77,7 +77,7 @@ it("automatically admits suspicion without a checkpoint or denominator; owner ju
   expect(occurrence.authority).toContainEqual(expect.objectContaining({ level: "slice", state: "available" }));
   t.dispose(occurrence.row.qitemId, t.assessment());
   const confirmed = t.projection.get(first.id)!;
-  expect(confirmed).toMatchObject({ status: "active", severity: "warning", ceremony: { stage: "confirmed", assessment: { actor: "owner@rig", identityProvenance: "transport:v1" } } });
+  expect(confirmed).toMatchObject({ status: "active", severity: "warning", ceremony: { stage: "confirmed", assessment: { actor: "owner@software-team", identityProvenance: "transport:v1" } } });
   expect(confirmed.explanation).toContain("30.0:1");
   expect(t.service.show(occurrence.row.qitemId).finding).toEqual(confirmed);
   expect(t.service.list()[0]!.finding).toEqual(confirmed);
@@ -109,7 +109,7 @@ it("small activity never mints a diagnosis; false positive does not invent a den
 it("rejects stale basis, wrong custody, missing refs, duplicate outcomes and invented timestamps", async () => {
   const t = await setup(); const id = (await t.service.evaluate("system:health", true)).actions[0]!.qitemId;
   const a = t.assessment();
-  expect(() => t.dispose(id, a, "peer@rig")).toThrow("owner_required");
+  expect(() => t.dispose(id, a, "peer@software-team")).toThrow("owner_required");
   expect(() => t.dispose(id, { ...a, evidenceRefs: ["missing.md"] })).toThrow("evidence_unavailable");
   expect(() => t.dispose(id, { ...a, outcomes: [...a.outcomes, ...a.outcomes] })).toThrow("unique");
   expect(() => t.dispose(id, { ...a, outcomes: [{ ...a.outcomes[0]!, observedAt: "2026-01-01T00:00:00Z" }] })).toThrow("inside");
@@ -123,7 +123,7 @@ it("rejects stale basis, wrong custody, missing refs, duplicate outcomes and inv
 
 it("retains uncertainty and the episode boundary when a false-positive assessment names missing facts", async () => {
   const t = await setup(); const p = t.policy.read().policy;
-  t.policy.apply({ ...p, human: { address: "operator@external", conditions: ["confirmed ceremony"] } }, "operator@rig");
+  t.policy.apply({ ...p, human: { address: "operator@external", conditions: ["confirmed ceremony"] } }, "operator@software-team");
   t.setReady(true);
   const first = t.projection.list().records[0]!;
   const id = (await t.service.evaluate("system:health", true)).actions[0]!.qitemId;
@@ -131,10 +131,10 @@ it("retains uncertainty and the episode boundary when a false-positive assessmen
   t.dispose(id, { ...t.assessment("false-positive"), missingFacts });
   expect(t.projection.get(first.id)).toMatchObject({ status: "indeterminate", ceremony: { stage: "indeterminate", assessment: { result: { missingFacts } } } });
   expect(t.service.show(id).receipts.filter((r) => r.action === "disposition").at(-1)?.episodeCleared).toBe(false);
-  await expect(t.service.notify(id, "owner@rig")).rejects.toThrow("confirmed_active");
+  await expect(t.service.notify(id, "owner@software-team")).rejects.toThrow("confirmed_active");
   expect(t.readiness).not.toHaveBeenCalled();
 
-  for (let i = 0; i < 20; i++) t.db.prepare("INSERT INTO queue_transitions(qitem_id,ts,state,actor_session) VALUES(?,?,?,?)").run("root", `2026-09-05T12:02:${String(i).padStart(2, "0")}.000Z`, "pending", "builder@rig");
+  for (let i = 0; i < 20; i++) t.db.prepare("INSERT INTO queue_transitions(qitem_id,ts,state,actor_session) VALUES(?,?,?,?)").run("root", `2026-09-05T12:02:${String(i).padStart(2, "0")}.000Z`, "pending", "builder@software-team");
   t.time("2026-09-05T12:02:30.000Z");
   expect(t.projection.list().records).toHaveLength(1);
   expect(t.projection.list().records[0]).toMatchObject({ id: first.id, status: "indeterminate" });
@@ -150,7 +150,7 @@ it("retains uncertainty and the episode boundary when a false-positive assessmen
 it("neither recursive diagnosis traffic nor prose closures become product progress; old source cannot wake", async () => {
   const t = await setup(); await t.service.evaluate("system:health", true);
   const id = t.service.list()[0]!.row.qitemId;
-  for (let i = 0; i < 25; i++) t.queue.update({ qitemId: id, actorSession: "owner@rig", transitionNote: "progress claimed, product shipped" });
+  for (let i = 0; i < 25; i++) t.queue.update({ qitemId: id, actorSession: "owner@software-team", transitionNote: "progress claimed, product shipped" });
   expect(t.projection.list().records).toHaveLength(1);
   expect(t.projection.list().records[0]!.ceremony!.transitionIds).toHaveLength(30);
   t.time("2026-09-05T13:00:00Z");
@@ -163,7 +163,7 @@ it("a later qualifying interval after a cleared assessment gets a new episode; r
   const t = await setup(); const id = (await t.service.evaluate("system:health", true)).actions[0]!.qitemId;
   const first = t.projection.list().records[0]!;
   t.dispose(id, t.assessment("false-positive"));
-  for (let i = 0; i < 20; i++) t.db.prepare("INSERT INTO queue_transitions(qitem_id,ts,state,actor_session) VALUES(?,?,?,?)").run("root", `2026-09-05T12:02:${String(i).padStart(2, "0")}.000Z`, "pending", "builder@rig");
+  for (let i = 0; i < 20; i++) t.db.prepare("INSERT INTO queue_transitions(qitem_id,ts,state,actor_session) VALUES(?,?,?,?)").run("root", `2026-09-05T12:02:${String(i).padStart(2, "0")}.000Z`, "pending", "builder@software-team");
   t.time("2026-09-05T12:02:30.000Z");
   const next = t.projection.list().records[0]!;
   expect(next.id).not.toBe(first.id); expect(next.ceremony?.transitionIds).toHaveLength(20);
@@ -175,10 +175,10 @@ it("a later qualifying interval after a cleared assessment gets a new episode; r
 
 it("confirmed policy sends one human request; suspicion, uncertainty, unavailable readiness and repeated evaluations cannot post", async () => {
   const t = await setup(); const p = t.policy.read().policy;
-  t.policy.apply({ ...p, human: { address: "operator@external", conditions: ["confirmed ceremony"] } }, "operator@rig");
+  t.policy.apply({ ...p, human: { address: "operator@external", conditions: ["confirmed ceremony"] } }, "operator@software-team");
   await t.service.evaluate("system:health", true);
   const id = t.service.list()[0]!.row.qitemId;
-  await expect(t.service.notify(id, "owner@rig")).rejects.toThrow("confirmed_active");
+  await expect(t.service.notify(id, "owner@software-team")).rejects.toThrow("confirmed_active");
   expect(t.readiness).not.toHaveBeenCalled(); expect(t.queue.list({ tag: "health-human" })).toHaveLength(0);
   t.dispose(id, t.assessment("indeterminate"));
   await t.service.evaluate("system:health", true); expect(t.readiness).not.toHaveBeenCalled();
@@ -208,10 +208,10 @@ it("keeps distinct same-time family identities and refuses a changed transition 
   const first = t.projection.list().records[0]!;
   const id = (await t.service.evaluate("system:health", true)).actions[0]!.qitemId;
   const assessment = t.assessment();
-  t.db.prepare("UPDATE queue_transitions SET actor_session = 'corrected@rig' WHERE transition_id = ?").run(first.ceremony!.transitionIds[0]);
+  t.db.prepare("UPDATE queue_transitions SET actor_session = 'corrected@software-team' WHERE transition_id = ?").run(first.ceremony!.transitionIds[0]);
   expect(() => t.dispose(id, assessment)).toThrow("basis_changed");
-  t.db.prepare("INSERT INTO queue_items(qitem_id,ts_created,ts_updated,source_session,destination_session,state,tags,body) VALUES('independent','2026-09-05T12:00:00.000Z','2026-09-05T12:00:00.000Z','a@rig','b@rig','pending',?, 'same scope, distinct outcome')").run(JSON.stringify(["mission:mission", "slice:slice-1"]));
-  for (let i = 0; i < 20; i++) t.db.prepare("INSERT INTO queue_transitions(qitem_id,ts,state,actor_session) VALUES('independent',?,'pending','a@rig')").run(`2026-09-05T12:00:${String(i).padStart(2, "0")}.000Z`);
+  t.db.prepare("INSERT INTO queue_items(qitem_id,ts_created,ts_updated,source_session,destination_session,state,tags,body) VALUES('independent','2026-09-05T12:00:00.000Z','2026-09-05T12:00:00.000Z','a@software-team','b@software-team','pending',?, 'same scope, distinct outcome')").run(JSON.stringify(["mission:mission", "slice:slice-1"]));
+  for (let i = 0; i < 20; i++) t.db.prepare("INSERT INTO queue_transitions(qitem_id,ts,state,actor_session) VALUES('independent',?,'pending','a@software-team')").run(`2026-09-05T12:00:${String(i).padStart(2, "0")}.000Z`);
   const records = t.projection.list().records;
   expect(records).toHaveLength(2); expect(new Set(records.map((r) => r.id)).size).toBe(2);
   expect(records.every((r) => r.startedAt === first.startedAt)).toBe(true);
@@ -229,19 +229,19 @@ it("cannot turn a clipped interval into a complete census or confirmation", asyn
 
 it("includes the typed workflow acceptance join after the queue closure without treating it as an outcome count", async () => {
   const t = await setup();
-  t.db.prepare("INSERT INTO workflow_instances(instance_id,workflow_name,workflow_version,created_by_session,created_at) VALUES('run','journey','1','owner@rig','2026-09-05T12:00:00Z')").run();
+  t.db.prepare("INSERT INTO workflow_instances(instance_id,workflow_name,workflow_version,created_by_session,created_at) VALUES('run','journey','1','owner@software-team','2026-09-05T12:00:00Z')").run();
   const acceptance = { acceptance: { candidate: "exact-candidate", verdict: "CLEAR", evidence_ref: t.proof } };
-  t.db.prepare("INSERT INTO workflow_step_trails(trail_id,instance_id,step_id,step_role,closed_at,closure_reason,closure_evidence_json,actor_session,prior_qitem_id) VALUES('trail','run','accept','evaluator','2026-09-05T12:00:29.500Z','done',?,'owner@rig','root')").run(JSON.stringify(acceptance));
+  t.db.prepare("INSERT INTO workflow_step_trails(trail_id,instance_id,step_id,step_role,closed_at,closure_reason,closure_evidence_json,actor_session,prior_qitem_id) VALUES('trail','run','accept','evaluator','2026-09-05T12:00:29.500Z','done',?,'owner@software-team','root')").run(JSON.stringify(acceptance));
   const finding = t.projection.list().records[0]!;
-  expect(finding.ceremony?.workflowReceipts).toEqual([{ trailId: "trail", instanceId: "run", stepId: "accept", qitemId: "root", closureReason: "done", actor: "owner@rig", at: "2026-09-05T12:00:29.500Z", evidence: acceptance }]);
+  expect(finding.ceremony?.workflowReceipts).toEqual([{ trailId: "trail", instanceId: "run", stepId: "accept", qitemId: "root", closureReason: "done", actor: "owner@software-team", at: "2026-09-05T12:00:29.500Z", evidence: acceptance }]);
   expect(finding.ceremony?.stage).toBe("needs-diagnosis"); expect(finding.explanation).toContain("no ratio is computed");
   expect(finding.lastObservedAt).toBe("2026-09-05T12:00:29.500Z");
 });
 
 // Each family is one undelegated row with `n` in-window transitions, in the fixture's slice.
 function addFamilies(t: Awaited<ReturnType<typeof setup>>, counts: number[], prefix = "family") {
-  const item = t.db.prepare("INSERT INTO queue_items(qitem_id,ts_created,ts_updated,source_session,destination_session,state,tags,body) VALUES(?,?,?,'a@rig','b@rig','pending',?,'family')");
-  const transition = t.db.prepare("INSERT INTO queue_transitions(qitem_id,ts,state,actor_session) VALUES(?,?,'pending','a@rig')");
+  const item = t.db.prepare("INSERT INTO queue_items(qitem_id,ts_created,ts_updated,source_session,destination_session,state,tags,body) VALUES(?,?,?,'a@software-team','b@software-team','pending',?,'family')");
+  const transition = t.db.prepare("INSERT INTO queue_transitions(qitem_id,ts,state,actor_session) VALUES(?,?,'pending','a@software-team')");
   counts.forEach((n, i) => {
     const id = `${prefix}-${String(i).padStart(3, "0")}`;
     item.run(id, "2026-09-05T11:59:00.000Z", "2026-09-05T11:59:00.000Z", JSON.stringify(["mission:mission", "slice:slice-1"]));
@@ -302,7 +302,7 @@ it("the scheduled evaluation keeps its own coverage when another health read run
 it("a skipped evaluation reports no coverage, never coverage left by an earlier read", async () => {
   const t = await setup();
   const p = t.policy.read().policy;
-  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: false } }, "operator@rig");
+  t.policy.apply({ ...p, diagnosis: { ...p.diagnosis, enabled: false } }, "operator@software-team");
   t.projection.list();
   expect(t.projection.coverage()).toHaveLength(1);
   expect((await t.service.evaluate("system:health", true)).coverage).toBeNull();
@@ -331,19 +331,19 @@ it.each([
     t.db.prepare("UPDATE queue_items SET handed_off_from = 'root' WHERE qitem_id <> 'root'").run();
   }
   if (reason === "transition_window_truncated") {
-    const insert = t.db.prepare("INSERT INTO queue_transitions(qitem_id,ts,state,actor_session) VALUES('root','2026-09-05T12:00:01.000Z','pending','a@rig')");
+    const insert = t.db.prepare("INSERT INTO queue_transitions(qitem_id,ts,state,actor_session) VALUES('root','2026-09-05T12:00:01.000Z','pending','a@software-team')");
     t.db.transaction(() => { for (let i = 0; i < 10000; i++) insert.run(); })();
   }
   if (reason === "workflow_receipts_truncated") {
-    t.db.prepare("INSERT INTO workflow_instances(instance_id,workflow_name,workflow_version,created_by_session,created_at) VALUES('run','journey','1','a@rig','2026-09-05T12:00:00Z')").run();
-    const insert = t.db.prepare("INSERT INTO workflow_step_trails(trail_id,instance_id,step_id,step_role,closed_at,closure_reason,actor_session,prior_qitem_id) VALUES(?,'run','accept','evaluator','2026-09-05T12:00:29.500Z','done','a@rig','root')");
+    t.db.prepare("INSERT INTO workflow_instances(instance_id,workflow_name,workflow_version,created_by_session,created_at) VALUES('run','journey','1','a@software-team','2026-09-05T12:00:00Z')").run();
+    const insert = t.db.prepare("INSERT INTO workflow_step_trails(trail_id,instance_id,step_id,step_role,closed_at,closure_reason,actor_session,prior_qitem_id) VALUES(?,'run','accept','evaluator','2026-09-05T12:00:29.500Z','done','a@software-team','root')");
     for (let i = 0; i < 201; i++) insert.run(`trail-${i}`);
   }
   if (reason === "episode_history_truncated" || reason === "diagnosis_history_truncated") {
     addFamilies(t, Array(reason === "episode_history_truncated" ? 201 : 1).fill(0), "diagnosis");
     t.db.prepare("UPDATE queue_items SET tags = ? WHERE qitem_id LIKE 'diagnosis-%'").run(JSON.stringify(["health-lineage:root", "health-diagnosis"]));
     if (reason === "diagnosis_history_truncated") {
-      const insert = t.db.prepare("INSERT INTO queue_transitions(qitem_id,ts,state,actor_session) VALUES('diagnosis-000','2026-09-05T12:00:01.000Z','pending','a@rig')");
+      const insert = t.db.prepare("INSERT INTO queue_transitions(qitem_id,ts,state,actor_session) VALUES('diagnosis-000','2026-09-05T12:00:01.000Z','pending','a@software-team')");
       for (let i = 0; i < 1001; i++) insert.run();
     }
   }
@@ -370,11 +370,11 @@ it("does not read disabled ceremony sources or retain their earlier coverage", a
   expect(t.projection.coverage()).toHaveLength(1);
   const read = vi.spyOn(t.source, "read");
   const p = t.policy.read().policy;
-  t.policy.apply({ ...p, disabledDetectors: ["process.ceremony-amplification"] }, "operator@rig");
+  t.policy.apply({ ...p, disabledDetectors: ["process.ceremony-amplification"] }, "operator@software-team");
   expect(t.projection.list()).toMatchObject({ records: [] });
   expect(read).not.toHaveBeenCalled();
   expect(t.projection.coverage()).toEqual([]);
-  t.policy.apply(p, "operator@rig");
+  t.policy.apply(p, "operator@software-team");
   expect(t.projection.list().records).toHaveLength(1);
   expect(read).toHaveBeenCalledTimes(1);
 });
@@ -407,7 +407,7 @@ it("#613 additional: disabled real checkpoint source never opens malformed files
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${"0".repeat(64)}.json`), "malformed");
   const p = t.policy.read().policy;
-  t.policy.apply({ ...p, disabledDetectors: ["process.ceremony-amplification"] }, "operator@rig");
+  t.policy.apply({ ...p, disabledDetectors: ["process.ceremony-amplification"] }, "operator@software-team");
   const source = new HealthCheckpointSource(t.home, t.queue, t.policy);
   const read = vi.spyOn(source, "read");
   expect(new HealthProjectionService(source, () => t.policy.read()).list().records).toEqual([]);

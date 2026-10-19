@@ -1,5 +1,5 @@
 // OPR.0.4.4.19 FR-9 — POST /api/scope/approve: the ONE write path behind
-// `rig scope slice|mission approve`. Frontmatter stamp + append-only audit
+// `SoftwareTeam scope slice|mission approve`. Frontmatter stamp + append-only audit
 // row in one daemon operation (scope-approve service owns ordering + the
 // no-half-stamp guarantee).
 

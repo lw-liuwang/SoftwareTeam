@@ -17,14 +17,14 @@ import type { FleetSnapshot, ViewState } from "../src/types.js";
 const databases: ReturnType<typeof createDb>[] = [];
 afterEach(() => { for (const db of databases.splice(0)) db.close(); });
 
-function fixture(rig = "selected", seat = "dev.worker") {
+function fixture(softwareTeam = "selected", seat = "dev.worker") {
   const db = createDb(); databases.push(db); migrate(db, ALL_MIGRATIONS);
   const repo = new QueueRepository(db, new EventBus(db));
   const app = new Hono();
   app.use("*", async (c, next) => { c.set("queueRepo" as never, repo); await next(); });
   app.route("/api/queue", queueRoutes());
   let sequence = 0;
-  const seed = (destination = `${seat}@${rig}`, state = "blocked", blocker = "fold:test", qitemId?: string) => {
+  const seed = (destination = `${seat}@${softwareTeam}`, state = "blocked", blocker = "fold:test", qitemId?: string) => {
     const id = qitemId ?? `coverage-${sequence}`; sequence++;
     const at = new Date(sequence * 1000).toISOString();
     db.prepare("INSERT INTO queue_items(qitem_id,ts_created,ts_updated,source_session,destination_session,state,body,blocked_on) VALUES(?,?,?,?,?,?,?,?)")
@@ -32,25 +32,25 @@ function fixture(rig = "selected", seat = "dev.worker") {
     return id;
   };
   const calls: string[] = [];
-  const node = { logicalId: seat, podNamespace: "dev", nodeKind: "agent", runtime: "codex", lifecycleState: "running", sessionStatus: "running", canonicalSessionName: `${seat}@${rig}`, resolvedSpecName: null };
+  const node = { logicalId: seat, podNamespace: "dev", nodeKind: "agent", runtime: "codex", lifecycleState: "running", sessionStatus: "running", canonicalSessionName: `${seat}@${softwareTeam}`, resolvedSpecName: null };
   const client = new DaemonClient({ baseUrl: "http://fixture", fetchImpl: (async input => {
     const u = new URL(String(input)); calls.push(u.pathname + u.search);
     if (u.pathname === "/api/queue/list" || u.pathname === "/api/queue/qitem-coverage-blocker") return app.request(u.pathname + u.search);
     if (u.pathname === "/healthz") return Response.json({ selfHostId: "fixture" });
-    if (u.pathname === "/api/rigs/summary") return Response.json([{ id: `${rig}-id`, name: rig, lifecycleState: "running" }]);
-    if (u.pathname === `/api/rigs/${rig}-id/nodes`) return Response.json([node]);
+    if (u.pathname === "/api/software-teams/summary") return Response.json([{ id: `${softwareTeam}-id`, name: softwareTeam, lifecycleState: "running" }]);
+    if (u.pathname === `/api/software-teams/${softwareTeam}-id/nodes`) return Response.json([node]);
     if (u.pathname === "/api/queue/recent-transitions" || u.pathname === "/api/specs/library") return Response.json([]);
-    if (u.pathname === "/api/health") return Response.json({ schema: "openrig.health-list/v0alpha1", total: 0, limit: 200, records: [], truncated: false, evaluatedAt: null });
+    if (u.pathname === "/api/health") return Response.json({ schema: "softwareteam.health-list/v0alpha1", total: 0, limit: 200, records: [], truncated: false, evaluatedAt: null });
     throw Error(`Unexpected fixture route ${u.pathname}`);
   }) as typeof fetch });
-  const context = (scope: "host" | "rig" | "pod" | "agent") => ({ section: "topology", viewTab: "table", drill: [
+  const context = (scope: "host" | "softwareTeam" | "pod" | "agent") => ({ section: "topology", viewTab: "table", drill: [
     { kind: "host", name: "fixture" },
-    ...(scope !== "host" ? [{ kind: "rig", name: rig }] : []),
+    ...(scope !== "host" ? [{ kind: "softwareTeam", name: softwareTeam }] : []),
     ...(scope === "pod" || scope === "agent" ? [{ kind: "pod", name: "dev" }] : []),
     ...(scope === "agent" ? [{ kind: "agent", name: seat }] : []),
   ] }) as ViewState;
-  const read = (scope: "host" | "rig" | "pod" | "agent") => hydrateSnapshot(client, undefined, null, null, rig, context(scope));
-  const render = (snap: FleetSnapshot, scope: "host" | "rig" | "pod" | "agent") => {
+  const read = (scope: "host" | "softwareTeam" | "pod" | "agent") => hydrateSnapshot(client, undefined, null, null, softwareTeam, context(scope));
+  const render = (snap: FleetSnapshot, scope: "host" | "softwareTeam" | "pod" | "agent") => {
     const state = { ...createViewState({ instanceId: "fixture", getSnapshot: () => snap }).get(), ...context(scope) };
     return renderScreen(state, snap, { cols: 160, rows: 100 }).lines.join("\n");
   };
@@ -58,13 +58,13 @@ function fixture(rig = "selected", seat = "dev.worker") {
 }
 
 describe("bounded queue route to topology/Pulse render", () => {
-  it.each(["other", "selected"])("%s-rig saturation leaves an omitted seat's work unknown at every scope", async rig => {
+  it.each(["other", "selected"])("%s-software-team saturation leaves an omitted seat's work unknown at every scope", async softwareTeam => {
     const f = fixture(); const omitted = f.seed();
-    for (let i = 0; i < 100; i++) f.seed(`dev.busy@${rig}`);
+    for (let i = 0; i < 100; i++) f.seed(`dev.busy@${softwareTeam}`);
     expect(f.repo.list({ state: "blocked", limit: 200 })).toHaveLength(101);
-    // Even existing rig scoping is not completeness: source OR destination matches.
-    expect(f.repo.list({ state: "blocked", rig: "selected" })).toHaveLength(100);
-    for (const scope of ["host", "rig", "pod", "agent"] as const) {
+    // Even existing softwareTeam scoping is not completeness: source OR destination matches.
+    expect(f.repo.list({ state: "blocked", softwareTeam: "selected" })).toHaveLength(100);
+    for (const scope of ["host", "softwareTeam", "pod", "agent"] as const) {
       const snap = await f.read(scope);
       expect(snap.blocked).toHaveLength(100);
       expect(snap.blocked.some(row => row.qitemId === omitted)).toBe(false);
@@ -82,19 +82,19 @@ describe("bounded queue route to topology/Pulse render", () => {
 
   it("complete empty data stays empty without a sample warning", async () => {
     const f = fixture();
-    for (const scope of ["host", "rig", "pod", "agent"] as const) {
+    for (const scope of ["host", "softwareTeam", "pod", "agent"] as const) {
       const snap = await f.read(scope); expect(snap.queueCoverage ?? "complete").toBe("complete");
       const text = f.render(snap, scope);
       expect(text).not.toContain("may be incomplete"); expect(text).not.toContain("not in sample");
       if (scope === "agent") expect(text).toContain("none in the served bounded lists");
     }
-    expect(renderPulseView(buildPulseModel(await f.read("rig"))).map(row => row.text).join("\n")).not.toContain("Queue counts are samples");
+    expect(renderPulseView(buildPulseModel(await f.read("softwareTeam"))).map(row => row.text).join("\n")).not.toContain("Queue counts are samples");
   });
 
   it("cap reached without an omitted row says possible truncation; pending uses its own cap", async () => {
     const f = fixture(); for (let i = 0; i < 50; i++) f.seed("dev.worker@selected", "pending", "");
-    const snap = await f.read("rig"); expect(snap.pending).toHaveLength(50); expect(snap.queueCoverage).toBe("partial");
-    expect(f.render(snap, "rig")).toContain("may be incomplete");
+    const snap = await f.read("softwareTeam"); expect(snap.pending).toHaveLength(50); expect(snap.queueCoverage).toBe("partial");
+    expect(f.render(snap, "softwareTeam")).toContain("may be incomplete");
     const model = buildPulseModel(snap); const lines = renderPulseView(model);
     expect(lines.map(row => row.text).join("\n")).toContain("Queue counts are samples");
     for (const target of pulseLaneTargets(model)) expect(lines[target.lineIndex]?.text).toContain(model.lanes[target.lane]!.rows[target.row]!.label);
@@ -133,13 +133,13 @@ describe("bounded queue route to topology/Pulse render", () => {
 
   it("a failed list is unavailable, while tabs without queues still make no queue-list read", async () => {
     const f = fixture(); const failing = new DaemonClient({ baseUrl: "http://fixture", fetchImpl: (async () => { throw Error("offline"); }) as typeof fetch });
-    const snap = await hydrateSnapshot(failing, undefined, null, null, "selected", f.context("rig"));
+    const snap = await hydrateSnapshot(failing, undefined, null, null, "selected", f.context("softwareTeam"));
     expect(snap.queueCoverage).toBe("unavailable");
     const empty = { ...emptySnapshot(), queueCoverage: "unavailable" as const };
     expect(buildPulseModel(empty).queueSampleNote).toContain("unlisted work is unknown");
     for (const viewTab of ["overview", "graph", "health"] as const) {
       f.calls.length = 0;
-      await hydrateSnapshot(f.client, undefined, null, null, "selected", { ...f.context("rig"), viewTab });
+      await hydrateSnapshot(f.client, undefined, null, null, "selected", { ...f.context("softwareTeam"), viewTab });
       expect(f.calls.filter(c => c.startsWith("/api/queue/list"))).toEqual([]);
     }
   });

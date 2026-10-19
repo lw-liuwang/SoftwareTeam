@@ -2,13 +2,13 @@
  * Slice 51-02 (L2 test-system) — the scenario PIPELINE (parse → validate → run).
  *
  * loadScenarioFile is the pure front: read a scenario YAML, resolve its `topology`
- * rig-spec path relative to the scenario file, validate the arch shape. I/O and
+ * software-team-spec path relative to the scenario file, validate the arch shape. I/O and
  * YAML-syntax failures throw a LOUD ScenarioLoadError; content problems return the
  * validator's error list (never a silent no-op).
  *
  * runScenarioFile is the heavy integration back: it spawns a forced-local
  * scenario-local daemon under a hermetic scaffold, wires the real-deps adapter,
- * runs the validated scenario against the SHIPPED `rig` CLI as real subprocesses,
+ * runs the validated scenario against the SHIPPED `softwareTeam` CLI as real subprocesses,
  * and tears the daemon down. The `up` verb stands up runtime:stub seats in real
  * tmux, so this path is the product-is-truth e2e — reserved for the integration
  * suite, not the pure unit tests.
@@ -26,8 +26,8 @@ import {
 import { prepareHermeticEnv, type HermeticScaffold } from "./hermetic-env.js";
 import {
   spawnScenarioDaemon,
-  runRig as realRunRig,
-  type RigResult,
+  runSoftwareTeam as realRunSoftwareTeam,
+  type SoftwareTeamResult,
   type ScenarioDaemon,
 } from "./scenario-daemon.js";
 import { buildRealDeps, type RealDepsOptions } from "./scenario-real-deps.js";
@@ -85,7 +85,7 @@ export function extractStubScripts(env: Record<string, unknown> | undefined): Re
 
 /**
  * A queue-baton precondition (fixture level). The scenario asserts observables;
- * `env.queue` establishes a claimed baton via the SHIPPED `rig queue create|claim`
+ * `env.queue` establishes a claimed baton via the SHIPPED `SoftwareTeam queue create|claim`
  * writes BEFORE the steps run — there is no queue action verb, so the baton lives
  * outside the scenario grammar (per the locked verb set), visibly documented in
  * the scenario file. Queue state is daemon-side, independent of any seat process.
@@ -126,23 +126,23 @@ export function extractQueuePreconditions(env: Record<string, unknown> | undefin
 }
 
 export interface PreconditionContext {
-  rigBin: string;
+  softwareTeamBin: string;
   readEnv: Record<string, string | undefined>;
-  /** Injected `rig` runner (defaults to the real subprocess runner; tests inject a spy). */
-  runRig?: (
+  /** Injected `softwareTeam` runner (defaults to the real subprocess runner; tests inject a spy). */
+  runSoftwareTeam?: (
     args: string[],
     env: Record<string, string | undefined>,
-    rigBin: string,
+    softwareTeamBin: string,
     timeoutMs?: number,
-  ) => Promise<RigResult>;
+  ) => Promise<SoftwareTeamResult>;
 }
 
 /**
- * Apply the queue-baton preconditions via shipped `rig queue` writes. Fail-closed.
+ * Apply the queue-baton preconditions via shipped `SoftwareTeam queue` writes. Fail-closed.
  *
  * Identity (post-P21): `--source` was RETIRED by P21 I3 (c4fad7b39, 2026-08-07 —
  * deprecated + IGNORED; queue-spine verbs stop sending body identity). The sender
- * now rides the transport header, which the CLI derives from OPENRIG_SESSION_NAME.
+ * now rides the transport header, which the CLI derives from SOFTWARETEAM_SESSION_NAME.
  * The fixture's declared provenance therefore travels as the per-call ENV identity
  * — creator = `source`, claimant = `destination` — the same transport-not-body
  * doctrine the product enforces, converging with it rather than working around it.
@@ -151,20 +151,20 @@ export async function applyQueuePreconditions(
   preconditions: QueuePrecondition[],
   ctx: PreconditionContext,
 ): Promise<void> {
-  const runRig = ctx.runRig ?? realRunRig;
+  const runSoftwareTeam = ctx.runSoftwareTeam ?? realRunSoftwareTeam;
   for (const p of preconditions) {
-    const create = await runRig(
+    const create = await runSoftwareTeam(
       ["queue", "create", "--id", p.id, "--destination", p.destination,
         "--summary", p.summary ?? p.id, "--body", p.body ?? `51-02 precondition baton ${p.id}`, "--json"],
-      { ...ctx.readEnv, OPENRIG_SESSION_NAME: p.source }, ctx.rigBin,
+      { ...ctx.readEnv, SOFTWARETEAM_SESSION_NAME: p.source }, ctx.softwareTeamBin,
     );
     if (create.code !== 0) {
       throw new ScenarioPreconditionError(`queue create ${p.id} (exit ${create.code}): ${create.stderr || create.stdout}`);
     }
     if (p.claim) {
-      const claim = await runRig(
+      const claim = await runSoftwareTeam(
         ["queue", "claim", p.id, "--destination", p.destination, "--json"],
-        { ...ctx.readEnv, OPENRIG_SESSION_NAME: p.destination }, ctx.rigBin,
+        { ...ctx.readEnv, SOFTWARETEAM_SESSION_NAME: p.destination }, ctx.softwareTeamBin,
       );
       if (claim.code !== 0) {
         throw new ScenarioPreconditionError(`queue claim ${p.id} (exit ${claim.code}): ${claim.stderr || claim.stdout}`);
@@ -175,7 +175,7 @@ export async function applyQueuePreconditions(
 
 export interface LoadedScenario {
   scenario: ValidatedScenario;
-  /** Absolute rig-spec path, resolved relative to the scenario file's directory. */
+  /** Absolute software-team-spec path, resolved relative to the scenario file's directory. */
   topologyPath: string;
 }
 
@@ -210,8 +210,8 @@ export function loadScenarioFile(path: string, opts: LoadScenarioOptions = {}): 
 }
 
 export interface RunScenarioFileOptions {
-  /** Path to the shipped `rig` bin (the single 51-04 invocation seam). */
-  rigBin: string;
+  /** Path to the shipped `softwareTeam` bin (the single 51-04 invocation seam). */
+  softwareTeamBin: string;
   topologyKind?: "stub" | "real";
   /** Base environment for the hermetic scaffold (HOME/PATH/TERM). */
   baseEnv?: Record<string, string | undefined>;
@@ -219,7 +219,7 @@ export interface RunScenarioFileOptions {
   deps?: Partial<Pick<RealDepsOptions, "now" | "sleep" | "appendRecord" | "defaults" | "normalizer" | "seedRegression">>;
   /**
    * 51-04 opt-in: how the scenario-local daemon is stood up. ABSENT => host-mode,
-   * byte-identical to pre-51-04 (`defaultHostDaemon` = spawnScenarioDaemon with rigBin).
+   * byte-identical to pre-51-04 (`defaultHostDaemon` = spawnScenarioDaemon with softwareTeamBin).
    * Container-mode (scenario-container.ts) supplies its own spawner here; nothing else
    * on the host-mode path changes, so the 51-02 contract stays byte-intact.
    */
@@ -241,8 +241,8 @@ export interface RunScenarioFileOptions {
   tuiBin?: string;
   /**
    * D8: the A3-R3 injected clock (an ISO instant) for this run. Threaded into the
-   * hermetic scaffold, which sets OPENRIG_TEST_CLOCK_NOW for every child — the
-   * daemon, the `rig` CLI, and the stub runner — so compaction-asset stamps and
+   * hermetic scaffold, which sets SOFTWARETEAM_TEST_CLOCK_NOW for every child — the
+   * daemon, the `softwareTeam` CLI, and the stub runner — so compaction-asset stamps and
    * the stub's own stamps are deterministic. ABSENT => unset => real wall clock
    * (production behavior). A determinism claim that does not pass this is
    * asserting stability it never asked for.
@@ -282,9 +282,9 @@ export type ScenarioDaemonSpawner = (
   opts: RunScenarioFileOptions,
 ) => Promise<ScenarioDaemon>;
 
-/** Host-mode default — the verbatim pre-51-04 standup (spawnScenarioDaemon + rigBin). */
+/** Host-mode default — the verbatim pre-51-04 standup (spawnScenarioDaemon + softwareTeamBin). */
 export const defaultHostDaemon: ScenarioDaemonSpawner = (scaffold, opts) =>
-  spawnScenarioDaemon(scaffold, { rigBin: opts.rigBin });
+  spawnScenarioDaemon(scaffold, { softwareTeamBin: opts.softwareTeamBin });
 
 /**
  * Pick the daemon spawner: the caller's opt-in override, else host-mode. An ABSENT
@@ -297,7 +297,7 @@ export function resolveScenarioDaemonSpawner(opts: RunScenarioFileOptions): Scen
 
 /**
  * Full e2e: load a scenario, spawn a forced-local scenario-local daemon, run the
- * validated scenario against the shipped `rig` CLI, and tear down. Throws
+ * validated scenario against the shipped `softwareTeam` CLI, and tear down. Throws
  * ScenarioLoadError (I/O/YAML) or an aggregated validation error before any spawn.
  */
 export async function runScenarioFile(
@@ -314,7 +314,7 @@ export async function runScenarioFile(
 
   // D1 key contract, checked against the SOURCE topology BEFORE any filesystem
   // or process effect: a misspelled/ambiguous/duplicate/non-stub target must
-  // fail here, not after a daemon and a rig full of seats are already up.
+  // fail here, not after a daemon and a softwareTeam full of seats are already up.
   if (Object.keys(stubScripts).length > 0) {
     resolveStubScriptTargets(
       parseYaml(readFileSync(loaded.loaded.topologyPath, "utf-8")),
@@ -336,7 +336,7 @@ export async function runScenarioFile(
     // L6 STEP-0 — container-mode translates the HOST topology path to the in-container staged path
     // (host-mode has no stageTopology → the host path passes through unchanged). A stage/fence
     // failure throws here (loud, named) and the finally tears the container down — never a mystery
-    // "Source not found" from `rig up` reading a host path it cannot see inside the container.
+    // "Source not found" from `SoftwareTeam up` reading a host path it cannot see inside the container.
     // D1 per-seat scripts (host-mode only). Container mode translates host paths
     // into the container; composing that with host-side per-seat staging is not
     // proven, so a scripted scenario there fails LOUD and named (routed to 51-04)
@@ -369,7 +369,7 @@ export async function runScenarioFile(
         : loaded.loaded.topologyPath;
     const baseDeps = buildRealDeps({
       daemon,
-      rigBin: opts.rigBin,
+      softwareTeamBin: opts.softwareTeamBin,
       topologyPath: upTopologyPath,
       // Staged runs author per-seat cwds IN the spec; a --cwd override would
       // collapse them back to one directory.
@@ -384,8 +384,8 @@ export async function runScenarioFile(
     });
 
     // Fixture-level preconditions (the baton) are applied RIGHT AFTER the topology
-    // is up: `rig queue create` rejects a destination whose rig is not yet up
-    // (unknown_destination_rig), so the baton cannot precede `up`. It is still setup,
+    // is up: `SoftwareTeam queue create` rejects a destination whose softwareTeam is not yet up
+    // (unknown_destination_software_team), so the baton cannot precede `up`. It is still setup,
     // not an asserted observable — visibly declared in the scenario `env` block.
     let batonApplied = preconditions.length === 0;
     // D7: the control socket lives INSIDE a running TUI, so an opted-in scenario
@@ -399,17 +399,17 @@ export async function runScenarioFile(
       const res = await baseDeps.runAction(verb, payload, seat);
       if (!batonApplied && verb === "up" && res.code === 0) {
         batonApplied = true;
-        await applyQueuePreconditions(preconditions, { rigBin: opts.rigBin, readEnv: daemon.readEnv });
+        await applyQueuePreconditions(preconditions, { softwareTeamBin: opts.softwareTeamBin, readEnv: daemon.readEnv });
       }
       if (wantsTui && !tui && verb === "up" && res.code === 0) {
-        const tuiEnv = { ...daemon.readEnv, OPENRIG_TUI_SOCKET: tuiSocketPath };
+        const tuiEnv = { ...daemon.readEnv, SOFTWARETEAM_TUI_SOCKET: tuiSocketPath };
         tui = await provisionTui({
           socketPath: tuiSocketPath,
           spawnTui: () => (opts.spawnTui ? opts.spawnTui(tuiEnv) : spawnShippedTui(resolveTuiBin(opts), tuiEnv)),
           ...(opts.tuiReadiness ?? {}),
         });
         // the surface reader finds the socket through the SAME env the CLI reads
-        daemon.readEnv.OPENRIG_TUI_SOCKET = tuiSocketPath;
+        daemon.readEnv.SOFTWARETEAM_TUI_SOCKET = tuiSocketPath;
       }
       return res;
     };

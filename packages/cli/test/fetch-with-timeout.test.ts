@@ -13,7 +13,7 @@ describe("fetchWithTimeout", () => {
         headersReceived = true;
         return new Response("body");
       };
-      const result = fetchWithTimeout(fetchImpl, "http://localhost:7433/read", {}, {
+      const result = fetchWithTimeout(fetchImpl, "http://localhost:7434/read", {}, {
         timeoutMs: 1_000,
         timeoutMessage: "complete request timed out",
         consumeResponse: async () => {
@@ -42,7 +42,7 @@ describe("fetchWithTimeout", () => {
     })) as typeof fetch;
 
     await expect(
-      fetchWithTimeout(fetchImpl, "http://localhost:7433/healthz", {}, {
+      fetchWithTimeout(fetchImpl, "http://localhost:7434/healthz", {}, {
         timeoutMs: 20,
         timeoutMessage: "probe timed out",
       }),

@@ -12,7 +12,7 @@ function runSet(key: string, value: string, daemonRunning: boolean) {
   const cmd = configCommand(path.join(dir, "config.json"), {
     probeDaemonRunning: async () => daemonRunning,
   });
-  return cmd.parseAsync(["node", "rig", "set", key, value]).finally(() => fs.rmSync(dir, { recursive: true, force: true }));
+  return cmd.parseAsync(["node", "softwareTeam", "set", key, value]).finally(() => fs.rmSync(dir, { recursive: true, force: true }));
 }
 
 describe("SWEEP-c — boot-only config keys warn while the daemon runs", () => {

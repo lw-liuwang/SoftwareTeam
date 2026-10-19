@@ -45,7 +45,7 @@ import { resolveActorWithDeferral, resolveRecordedProvenance } from "./require-s
  *   POST /api/mission-control/action              execute one of 7 verbs
  *   GET  /api/mission-control/sse                 SSE stream of mission_control.* events
  *   GET  /api/mission-control/watch               alias of /sse
- *   GET  /api/mission-control/cli-capabilities    per-rig CLI capability cache
+ *   GET  /api/mission-control/cli-capabilities    per-softwareTeam CLI capability cache
  *   GET  /api/mission-control/destinations         handoff/route destination candidates
  *   GET  /api/mission-control/views               list view names
  */
@@ -63,7 +63,7 @@ export interface MissionControlDestination {
   sessionName: string;
   label: string;
   source: "topology" | "queue";
-  rigName?: string | null;
+  softwareTeamName?: string | null;
   logicalId?: string | null;
   runtime?: string | null;
   status?: string | null;
@@ -127,7 +127,7 @@ export function missionControlRoutes(opts?: MissionControlRoutesOpts): Hono {
       }
     };
 
-    if (tableExists(db, "sessions") && tableExists(db, "nodes") && tableExists(db, "rigs")) {
+    if (tableExists(db, "sessions") && tableExists(db, "nodes") && tableExists(db, "software_teams")) {
       const rows = db
         .prepare(
           `
@@ -136,10 +136,10 @@ export function missionControlRoutes(opts?: MissionControlRoutesOpts): Hono {
               s.status,
               n.logical_id,
               n.runtime,
-              r.name AS rig_name
+              r.name AS software_team_name
             FROM sessions s
             JOIN nodes n ON n.id = s.node_id
-            JOIN rigs r ON r.id = n.rig_id
+            JOIN software_teams r ON r.id = n.software_team_id
             WHERE s.session_name IS NOT NULL AND TRIM(s.session_name) != ''
             ORDER BY r.name COLLATE NOCASE, n.logical_id COLLATE NOCASE, s.session_name COLLATE NOCASE
           `,
@@ -149,12 +149,12 @@ export function missionControlRoutes(opts?: MissionControlRoutesOpts): Hono {
           status: string | null;
           logical_id: string | null;
           runtime: string | null;
-          rig_name: string | null;
+          software_team_name: string | null;
         }>;
 
       for (const row of rows) {
         const topologyLabel =
-          row.logical_id && row.rig_name ? `${row.logical_id}@${row.rig_name}` : null;
+          row.logical_id && row.software_team_name ? `${row.logical_id}@${row.software_team_name}` : null;
         addDestination({
           sessionName: row.session_name,
           label:
@@ -162,7 +162,7 @@ export function missionControlRoutes(opts?: MissionControlRoutesOpts): Hono {
               ? `${topologyLabel} - ${row.session_name}`
               : row.session_name,
           source: "topology",
-          rigName: row.rig_name,
+          softwareTeamName: row.software_team_name,
           logicalId: row.logical_id,
           runtime: row.runtime,
           status: row.status,
@@ -368,7 +368,7 @@ export function missionControlRoutes(opts?: MissionControlRoutesOpts): Hono {
         return fail(`host '${hostId}' is SSH-declared; remote actions require an http-transport registry entry (url; bearer optional)`, "unsupported-transport");
       }
       // P21 I2 cross-host re-stamp: strip the inbound identity claim (hostId AND actorSession) and
-      // RE-STAMP X-OpenRig-Session from THIS daemon's derived actor (`identity.session`, from the
+      // RE-STAMP X-SoftwareTeam-Session from THIS daemon's derived actor (`identity.session`, from the
       // chokepoint above) + mark relay provenance — the origin derives the RE-STAMPED actor, never the
       // forwarded body claim (the census's #5/#17 forward sites).
       const { hostId: _dropped, actorSession: _claim, ...forwardBody } = body as Record<string, unknown>;
@@ -378,14 +378,14 @@ export function missionControlRoutes(opts?: MissionControlRoutesOpts): Hono {
         timeoutMs: REMOTE_ACTION_TIMEOUT_MS,
         fetchImpl,
         headers: {
-          "X-OpenRig-Session": identity.session,
-          "X-OpenRig-Relay": getSelfHostId() ?? "unknown",
+          "X-SoftwareTeam-Session": identity.session,
+          "X-SoftwareTeam-Relay": getSelfHostId() ?? "unknown",
           // Carry the provenance THIS hop resolved so the origin NEVER launders a claimed-era actor into a
           // verified one: identity.provenance is transport:v1 (CLI) or claimed:v1 (UI deferral). The origin's
           // resolveRecordedProvenance degrades — a transport:v1 marker ⇒ relay:v1, everything else ⇒ claimed:v1.
-          // (Literal capitalized key, matching the sibling X-OpenRig-Session/Relay send convention; the
+          // (Literal capitalized key, matching the sibling X-SoftwareTeam-Session/Relay send convention; the
           // receive side reads it case-insensitively via IDENTITY_PROVENANCE_HEADER.)
-          "X-OpenRig-Provenance": identity.provenance,
+          "X-SoftwareTeam-Provenance": identity.provenance,
         },
       });
       if (res.ok) {

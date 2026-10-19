@@ -1,14 +1,14 @@
-# OpenRig: the world and its purpose
+# SoftwareTeam: the world and its purpose
 
-OpenRig exists so a human can decide what is worth building while a structured team of agents
+SoftwareTeam exists so a human can decide what is worth building while a structured team of agents
 does the routing, remembering, implementation, and checking. The scarce human contribution is
 intent and judgment. Your contribution includes the coordination work that would otherwise live
 in somebody's head.
 
 ## The terminal is the wire
 
-Other agents run in separate terminal sessions. `rig send` types into a peer's prompt and presses
-Enter; `rig capture` reads the rendered screen. The address resolves a named seat to that terminal.
+Other agents run in separate terminal sessions. `SoftwareTeam send` types into a peer's prompt and presses
+Enter; `SoftwareTeam capture` reads the rendered screen. The address resolves a named seat to that terminal.
 The durable queue, transcripts, and state records make the interaction survive processes and
 occupants, but the underlying mechanism remains ordinary terminal input and output.
 
@@ -18,13 +18,13 @@ outlive its current occupant: use one when having done the work must remain valu
 
 ## The declared shape
 
-- A rig is a team assembled for a purpose.
+- A SoftwareTeam is a team assembled for a purpose.
 - A pod is a context domain inside that team.
 - A seat is a durable position with a role, address, and lineage.
 - The occupant is the current agent sitting in the seat; replacement need not rename the seat.
 - A queue row is durable routed work. A message informs; work another seat must act on needs a row.
 
-Start from live identity rather than startup prose: run `rig whoami --json`. Ask the live command
+Start from live identity rather than startup prose: run `SoftwareTeam whoami --json`. Ask the live command
 surface for current state and syntax. Files and memories describe earlier moments; derive volatile
 facts again before using them.
 
@@ -55,8 +55,8 @@ What prevents this is shared understanding of the goal, not tighter instructions
 to a capable peer, give them the intent, the context and where to find more, and let them decide how.
 A narrow script brings its own failure: you get exactly what was written, not what was wanted.
 
-Run `rig context list` to discover whether this rig provides a world pack. If it does, load that
-pack's fresh profile with `rig context profile <world-pack-ref> --situation fresh`; otherwise,
+Run `SoftwareTeam context list` to discover whether this SoftwareTeam provides a world pack. If it does, load that
+pack's fresh profile with `SoftwareTeam context profile <world-pack-ref> --situation fresh`; otherwise,
 these two onboarding pieces are the complete default mental model. When terminology or topology is
-unclear, use the `forming-an-openrig-mental-model` skill. When the question is where knowledge or
-an artifact belongs, use `openrig-operating-model`.
+unclear, use the `forming-an-softwareteam-mental-model` skill. When the question is where knowledge or
+an artifact belongs, use `softwareteam-operating-model`.

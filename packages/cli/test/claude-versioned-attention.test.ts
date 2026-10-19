@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { seatCommand, type SeatDeps } from "../src/commands/seat.js";
 import { STATE_FILE, type LifecycleDeps } from "../src/daemon-lifecycle.js";
 import { createFullTestDb } from "../../daemon/test/helpers/test-app.js";
-import { RigRepository } from "../../daemon/src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../../daemon/src/domain/software-team-repository.js";
 import { SessionRegistry } from "../../daemon/src/domain/session-registry.js";
 import { EventBus } from "../../daemon/src/domain/event-bus.js";
 import { SnapshotRepository } from "../../daemon/src/domain/snapshot-repository.js";
@@ -28,19 +28,19 @@ afterEach(() => { vi.restoreAllMocks(); process.exitCode = undefined; });
 it.each(["valid", "unknown path", "wrong token", "no token", "PID reused", "login required"])("#273 full restore clear-attention composition: %s", async mode => {
   const db = createFullTestDb();
   try {
-    const rigRepo = new RigRepository(db), sessionRegistry = new SessionRegistry(db), eventBus = new EventBus(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db), sessionRegistry = new SessionRegistry(db), eventBus = new EventBus(db);
     const snapshotRepo = new SnapshotRepository(db), checkpointStore = new CheckpointStore(db);
-    const snapshotCapture = new SnapshotCapture({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
-    const rig = rigRepo.createRig("versioned"), name = "worker@versioned";
-    const node = rigRepo.addNode(rig.id, "worker", { runtime: "claude-code" });
+    const snapshotCapture = new SnapshotCapture({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("versioned"), name = "worker@versioned";
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, name);
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateStartupStatus(session.id, "attention_required");
     sessionRegistry.updateBinding(node.id, { tmuxSession: name, tmuxPane: "%1" });
     if (mode !== "no token") sessionRegistry.updateResumeToken(session.id, "claude_id", "token", "scrape");
-    const attempt = eventBus.emit({ type: "restore.started", rigId: rig.id, snapshotId: "snap" });
-    eventBus.emit({ type: "restore.completed", rigId: rig.id, snapshotId: "snap", result: {
-      snapshotId: "snap", preRestoreSnapshotId: null, rigResult: "failed", nodes: [{ nodeId: node.id, logicalId: "worker", status: "failed" }], warnings: [],
+    const attempt = eventBus.emit({ type: "restore.started", softwareTeamId: softwareTeam.id, snapshotId: "snap" });
+    eventBus.emit({ type: "restore.completed", softwareTeamId: softwareTeam.id, snapshotId: "snap", result: {
+      snapshotId: "snap", preRestoreSnapshotId: null, softwareTeamResult: "failed", nodes: [{ nodeId: node.id, logicalId: "worker", status: "failed" }], warnings: [],
     } });
     const historical = db.prepare("SELECT * FROM events WHERE type LIKE 'restore.%'").all();
     const startedAt = "Sun Oct  4 15:21:03 2026";
@@ -63,18 +63,18 @@ it.each(["valid", "unknown path", "wrong token", "no token", "PID reused", "logi
       capturePaneContent: async () => mode === "login required" ? "Not logged in · Run /login" : "Restored conversation\n❯\n⏵⏵ accept edits on",
       sendText, sendKeys,
     } as unknown as TmuxAdapter;
-    const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
-    const restore = new RestoreOrchestrator({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture, checkpointStore, nodeLauncher, tmuxAdapter: tmux,
+    const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+    const restore = new RestoreOrchestrator({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture, checkpointStore, nodeLauncher, tmuxAdapter: tmux,
       // These launch adapters must never be reached by read-only reconciliation.
       claudeResume: { resume: () => { throw new Error("no launch"); } } as never,
       codexResume: { resume: () => { throw new Error("no launch"); } } as never, listProcesses,
     });
     const clear = new SeatAttentionReconciler({ db, sessionRegistry, eventBus, agentActivityStore: new AgentActivityStore({ db, eventBus }), tmux, listProcesses,
-      reconcileRestoreOutcome: (rigId, nodeId) => restore.reconcileNodeRuntimeTruth(rigId, nodeId),
+      reconcileRestoreOutcome: (softwareTeamId, nodeId) => restore.reconcileNodeRuntimeTruth(softwareTeamId, nodeId),
     });
     await new SeatIdentityReconciler({ db, tmux, listProcesses }).reconcileAll();
     expect(new SeatIdentityStore(db).getForNode(node.id)?.verdict).toBe(["valid", "no token", "login required"].includes(mode) ? "verified" : "mismatch");
-    expect(getNodeInventory(db, rig.id)[0]?.lifecycleState).toBe("attention_required");
+    expect(getNodeInventory(db, softwareTeam.id)[0]?.lifecycleState).toBe("attention_required");
     const app = new Hono();
     app.use("*", async (c, next) => { c.set("seatAttentionReconciler" as never, clear as never); c.set("terminalBearerToken" as never, "fixture" as never); await next(); });
     app.route("/api/sessions", sessionAdminRoutes);
@@ -91,17 +91,17 @@ it.each(["valid", "unknown path", "wrong token", "no token", "PID reused", "logi
     } }) as never;
     const output = vi.spyOn(console, "log").mockImplementation(() => {});
     const cli = new Command().exitOverride().addCommand(seatCommand({ lifecycleDeps, clientFactory }));
-    await cli.parseAsync(["node", "rig", "seat", "clear-attention", name, "--json"]);
+    await cli.parseAsync(["node", "softwareTeam", "seat", "clear-attention", name, "--json"]);
     expect(posted).toEqual([`/api/sessions/${encodeURIComponent(name)}/clear-attention`]);
     const result = JSON.parse(String(output.mock.calls.at(-1)?.[0]));
     expect(result.ok).toBe(mode === "valid");
-    expect(getNodeInventory(db, rig.id)[0]?.lifecycleState).toBe(mode === "valid" ? "running" : "attention_required");
+    expect(getNodeInventory(db, softwareTeam.id)[0]?.lifecycleState).toBe(mode === "valid" ? "running" : "attention_required");
     const reconciled = db.prepare("SELECT payload FROM events WHERE type = 'restore.outcome_reconciled'").all() as { payload: string }[];
     expect(reconciled).toHaveLength(mode === "valid" ? 1 : 0);
     if (mode === "valid") {
       const event = JSON.parse(reconciled[0]!.payload);
       expect(event).toMatchObject({ attemptId: attempt.seq, to: "operator_recovered", evidence: { resumeTokenUsed: true, paneState: "usable" } });
-      expect((await restore.reconcileNodeRuntimeTruth(rig.id, node.id)).ok).toBe(true);
+      expect((await restore.reconcileNodeRuntimeTruth(softwareTeam.id, node.id)).ok).toBe(true);
       expect(db.prepare("SELECT * FROM events WHERE type = 'restore.outcome_reconciled'").all()).toHaveLength(1);
     }
     expect(db.prepare("SELECT * FROM events WHERE type IN ('restore.started', 'restore.completed')").all()).toEqual(historical);

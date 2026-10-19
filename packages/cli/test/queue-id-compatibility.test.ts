@@ -13,7 +13,7 @@ vi.mock("../src/daemon-lifecycle.js", () => ({
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); vi.unstubAllEnvs(); });
 
 it("preallocates timestamp/64-bit-hex IDs recognized by the existing lint, sort and last-eight consumers", async () => {
-  vi.stubEnv("OPENRIG_SESSION_NAME", "writer@fixture");
+  vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "writer@fixture");
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -28,7 +28,7 @@ it("preallocates timestamp/64-bit-hex IDs recognized by the existing lint, sort 
   for (const time of ["2026-10-02T07:00:00Z", "2026-10-02T07:00:01Z"]) {
     vi.setSystemTime(new Date(time));
     const program = new Command().addCommand(queueCommand(deps));
-    await program.parseAsync(["node", "rig", "queue", "create", "--destination", "reader@fixture", "--body", "whole body", "--summary", "Work", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "queue", "create", "--destination", "reader@fixture", "--body", "whole body", "--summary", "Work", "--json"]);
   }
   expect.soft(ids[0]).toMatch(/^qitem-20261002070000-[0-9a-f]{16,}$/);
   expect.soft(ids[1]).toMatch(/^qitem-20261002070001-[0-9a-f]{16,}$/);

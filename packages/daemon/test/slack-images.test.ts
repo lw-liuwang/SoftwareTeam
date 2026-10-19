@@ -73,7 +73,7 @@ function makeDeliver(fetchImpl: FetchImpl, logs: string[] = []) {
 }
 const decision = (evidenceRef: string): OutboundDecision => ({
   kind: "outbound_decision", decisionId: "d-img", op: "post_message", entityBindingRef: "mike#slack",
-  payload: { qitemId: "q-img", summary: "screenshot", body: "b", destinationSession: "mike@external", sourceSession: "dev-driver@v-openrig-build", evidenceRef },
+  payload: { qitemId: "q-img", summary: "screenshot", body: "b", destinationSession: "mike@external", sourceSession: "dev-driver@v-softwareteam-build", evidenceRef },
 });
 
 describe("S10 outbound images — external-upload flow (founder screenshot class)", () => {

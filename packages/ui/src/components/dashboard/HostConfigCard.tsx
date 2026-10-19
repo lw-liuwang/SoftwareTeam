@@ -160,7 +160,7 @@ export function HostConfigCard() {
 
       {selected !== "local" ? (
         <div className="df-hosts-banner" data-testid="host-selection-banner">
-          Selected host: {selected} — flagless CLI commands run against it (rig host select local returns).
+          Selected host: {selected} — flagless CLI commands run against it (softwareTeam host select local returns).
         </div>
       ) : null}
 
@@ -174,7 +174,7 @@ export function HostConfigCard() {
           <input
             data-testid="host-pair-input"
             className="df-hosts-input"
-            placeholder="http://host:7433 — pair a new host"
+            placeholder="http://host:7434 — pair a new host"
             value={addDraft}
             onChange={(e) => setAddDraft(e.target.value)}
           />

@@ -244,11 +244,11 @@ describe("deriveCurrentWork — ambiguity is counted on RESOLVED nodes", () => {
     const db = createDb();
     migrate(db, [coreSchema, eventsSchema, queueItemsSchema, queueTransitionsSchema, outboxEntriesSchema]);
     const repo = new QueueRepository(db, new EventBus(db));
-    const SEAT = "dev-driver@rig";
+    const SEAT = "dev-driver@software-team";
 
     const claim = async (mission: string, slice: string) => {
       const item = await repo.create({
-        sourceSession: "planner@rig",
+        sourceSession: "planner@software-team",
         destinationSession: SEAT,
         body: `typed ${slice}`,
         tags: [`mission:${mission}`, `slice:${slice}`],
@@ -261,7 +261,7 @@ describe("deriveCurrentWork — ambiguity is counted on RESOLVED nodes", () => {
     const older = await claim("release-0.5.8", "OPR.0.5.8.9");
     for (let i = 0; i < 24; i += 1) {
       await repo.create({
-        sourceSession: "planner@rig",
+        sourceSession: "planner@software-team",
         destinationSession: SEAT,
         body: `filler ${i}`,
         tags: ["kind:note"],

@@ -5,7 +5,7 @@ const ulid = monotonicFactory();
 
 export interface ChatMessage {
   id: string;
-  rigId: string;
+  softwareTeamId: string;
   sender: string;
   kind: string;
   body: string;
@@ -15,7 +15,7 @@ export interface ChatMessage {
 
 interface ChatMessageRow {
   id: string;
-  rig_id: string;
+  software_team_id: string;
   sender: string;
   kind: string;
   body: string;
@@ -38,46 +38,46 @@ export class ChatRepository {
     this.db = db;
   }
 
-  send(rigId: string, sender: string, body: string): ChatMessage {
+  send(softwareTeamId: string, sender: string, body: string): ChatMessage {
     const id = ulid();
     this.db
       .prepare(
-        "INSERT INTO chat_messages (id, rig_id, sender, kind, body) VALUES (?, ?, ?, 'message', ?)"
+        "INSERT INTO chat_messages (id, software_team_id, sender, kind, body) VALUES (?, ?, ?, 'message', ?)"
       )
-      .run(id, rigId, sender, body);
+      .run(id, softwareTeamId, sender, body);
 
     return this.rowToMessage(
       this.db.prepare("SELECT * FROM chat_messages WHERE id = ?").get(id) as ChatMessageRow
     );
   }
 
-  sendTopic(rigId: string, sender: string, topic: string, body?: string): ChatMessage {
+  sendTopic(softwareTeamId: string, sender: string, topic: string, body?: string): ChatMessage {
     const id = ulid();
     this.db
       .prepare(
-        "INSERT INTO chat_messages (id, rig_id, sender, kind, body, topic) VALUES (?, ?, ?, 'topic', ?, ?)"
+        "INSERT INTO chat_messages (id, software_team_id, sender, kind, body, topic) VALUES (?, ?, ?, 'topic', ?, ?)"
       )
-      .run(id, rigId, sender, body ?? "", topic);
+      .run(id, softwareTeamId, sender, body ?? "", topic);
 
     return this.rowToMessage(
       this.db.prepare("SELECT * FROM chat_messages WHERE id = ?").get(id) as ChatMessageRow
     );
   }
 
-  /** Whether a topic marker exists for this rig, i.e. history for it can return rows. */
-  topicStarted(rigId: string, topic: string): boolean {
-    return this.topicMarker(rigId, topic) !== undefined;
+  /** Whether a topic marker exists for this softwareTeam, i.e. history for it can return rows. */
+  topicStarted(softwareTeamId: string, topic: string): boolean {
+    return this.topicMarker(softwareTeamId, topic) !== undefined;
   }
 
-  private topicMarker(rigId: string, topic: string): { id: string } | undefined {
+  private topicMarker(softwareTeamId: string, topic: string): { id: string } | undefined {
     return this.db
       .prepare(
-        "SELECT id FROM chat_messages WHERE rig_id = ? AND kind = 'topic' AND topic = ? ORDER BY id DESC LIMIT 1"
+        "SELECT id FROM chat_messages WHERE software_team_id = ? AND kind = 'topic' AND topic = ? ORDER BY id DESC LIMIT 1"
       )
-      .get(rigId, topic) as { id: string } | undefined;
+      .get(softwareTeamId, topic) as { id: string } | undefined;
   }
 
-  history(rigId: string, opts?: HistoryOptions): ChatMessage[] {
+  history(softwareTeamId: string, opts?: HistoryOptions): ChatMessage[] {
     const limit = opts?.limit ?? 100;
     const after = opts?.after;
     const topic = opts?.topic;
@@ -85,20 +85,20 @@ export class ChatRepository {
     const sender = opts?.sender;
 
     // Build composable WHERE clauses
-    const conditions: string[] = ["rig_id = ?"];
-    const params: unknown[] = [rigId];
+    const conditions: string[] = ["software_team_id = ?"];
+    const params: unknown[] = [softwareTeamId];
 
     // Topic windowing: find the topic marker and constrain to its window
     if (topic) {
-      const topicMarker = this.topicMarker(rigId, topic);
+      const topicMarker = this.topicMarker(softwareTeamId, topic);
 
       if (!topicMarker) return [];
 
       const nextMarker = this.db
         .prepare(
-          "SELECT id FROM chat_messages WHERE rig_id = ? AND kind = 'topic' AND id > ? ORDER BY id ASC LIMIT 1"
+          "SELECT id FROM chat_messages WHERE software_team_id = ? AND kind = 'topic' AND id > ? ORDER BY id ASC LIMIT 1"
         )
-        .get(rigId, topicMarker.id) as { id: string } | undefined;
+        .get(softwareTeamId, topicMarker.id) as { id: string } | undefined;
 
       conditions.push("id >= ?");
       params.push(topicMarker.id);
@@ -147,45 +147,45 @@ export class ChatRepository {
     return row.j != null;
   }
 
-  latest(rigId: string, count: number): ChatMessage[] {
+  latest(softwareTeamId: string, count: number): ChatMessage[] {
     const rows = this.db
       .prepare(
-        "SELECT * FROM chat_messages WHERE rig_id = ? ORDER BY id DESC LIMIT ?"
+        "SELECT * FROM chat_messages WHERE software_team_id = ? ORDER BY id DESC LIMIT ?"
       )
-      .all(rigId, count) as ChatMessageRow[];
+      .all(softwareTeamId, count) as ChatMessageRow[];
 
     // Reverse to return chronological order
     return rows.reverse().map((r) => this.rowToMessage(r));
   }
 
-  searchChat(rigId: string, pattern: string): ChatMessage[] {
+  searchChat(softwareTeamId: string, pattern: string): ChatMessage[] {
     // Split pipe-joined keywords into OR conditions for SQL LIKE
     const keywords = pattern.split("|").map((k) => k.trim()).filter(Boolean);
     if (keywords.length === 0) return [];
 
     const conditions = keywords.map(() => "body LIKE ?").join(" OR ");
-    const params = [rigId, ...keywords.map((k) => `%${k}%`)];
+    const params = [softwareTeamId, ...keywords.map((k) => `%${k}%`)];
 
     const rows = this.db
       .prepare(
-        `SELECT * FROM chat_messages WHERE rig_id = ? AND (${conditions}) ORDER BY id ASC LIMIT 50`
+        `SELECT * FROM chat_messages WHERE software_team_id = ? AND (${conditions}) ORDER BY id ASC LIMIT 50`
       )
       .all(...params) as ChatMessageRow[];
 
     return rows.map((r) => this.rowToMessage(r));
   }
 
-  clear(rigId: string): { deleted: number } {
+  clear(softwareTeamId: string): { deleted: number } {
     const result = this.db
-      .prepare("DELETE FROM chat_messages WHERE rig_id = ?")
-      .run(rigId);
+      .prepare("DELETE FROM chat_messages WHERE software_team_id = ?")
+      .run(softwareTeamId);
     return { deleted: result.changes };
   }
 
   private rowToMessage(row: ChatMessageRow): ChatMessage {
     return {
       id: row.id,
-      rigId: row.rig_id,
+      softwareTeamId: row.software_team_id,
       sender: row.sender,
       kind: row.kind,
       body: row.body,

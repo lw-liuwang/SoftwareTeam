@@ -43,8 +43,8 @@ describe("driveRestoreLifecycle", () => {
   it("HIGH-3: emits a frame EVERY poll — a mid-run running frame is observed, not only completion", async () => {
     const frames: Array<{ phase: string; done: boolean; fully: number }> = [];
     const { client } = scriptedClient([
-      status({ done: false, counts: { fully_restored: 1 } }), // 1 rig done, fleet still running
-      status({ done: false, counts: { fully_restored: 2 } }), // 2 rigs done, still running
+      status({ done: false, counts: { fully_restored: 1 } }), // 1 softwareTeam done, fleet still running
+      status({ done: false, counts: { fully_restored: 2 } }), // 2 softwareTeams done, still running
       status({ done: true, verdict: "all_fully_restored", counts: { fully_restored: 3 } }),
     ]);
     const final = await driveRestoreLifecycle({

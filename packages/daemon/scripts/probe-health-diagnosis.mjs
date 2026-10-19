@@ -12,9 +12,9 @@ import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 
 const root = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
-const home = mkdtempSync(join(tmpdir(), "openrig-health-journey-"));
-process.env.OPENRIG_HOME = home;
-process.env.OPENRIG_DB = join(home, "openrig.sqlite");
+const home = mkdtempSync(join(tmpdir(), "softwareteam-health-journey-"));
+process.env.SOFTWARETEAM_HOME = home;
+process.env.SOFTWARETEAM_DB = join(home, "softwareteam.sqlite");
 const { createDb } = await import("../dist/db/connection.js");
 const { migrate } = await import("../dist/db/migrate.js");
 const { ALL_MIGRATIONS } = await import("../dist/db/all-migrations.js");
@@ -27,7 +27,7 @@ const { HealthDiagnosisService } = await import("../dist/domain/health-diagnosis
 const { healthAuthority } = await import("../dist/domain/health-context.js");
 const { healthRoutes } = await import("../dist/routes/health.js");
 const { healthDiagnosisRoutes } = await import("../dist/routes/health-diagnosis.js");
-const db = createDb(process.env.OPENRIG_DB);
+const db = createDb(process.env.SOFTWARETEAM_DB);
 migrate(db, ALL_MIGRATIONS);
 const queue = new QueueRepository(db, new EventBus(db));
 const policy = new HealthPolicyStore(home, () => ({ warningPercent: 95, criticalPercent: 99 }));
@@ -50,9 +50,9 @@ app.route("/api/health", healthRoutes()); app.route("/api/health-diagnosis", hea
 const server = serve({ fetch: app.fetch, hostname: "127.0.0.1", port: 0 });
 await new Promise((done) => server.once("listening", done));
 const port = server.address().port;
-writeFileSync(join(home, "daemon.json"), JSON.stringify({ pid: process.pid, port, db: process.env.OPENRIG_DB, startedAt: new Date().toISOString() }));
-const env = { ...process.env, OPENRIG_SESSION_NAME: "author@fixture", OPENRIG_URL: `http://127.0.0.1:${port}` };
-delete env.OPENRIG_NODE_ID; delete env.OPENRIG_RIG_NAME;
+writeFileSync(join(home, "daemon.json"), JSON.stringify({ pid: process.pid, port, db: process.env.SOFTWARETEAM_DB, startedAt: new Date().toISOString() }));
+const env = { ...process.env, SOFTWARETEAM_SESSION_NAME: "author@fixture", SOFTWARETEAM_URL: `http://127.0.0.1:${port}` };
+delete env.SOFTWARETEAM_NODE_ID; delete env.SOFTWARETEAM_SOFTWARE_TEAM_NAME;
 const disk = () => readdirSync(home, { recursive: true, withFileTypes: true }).filter((e) => e.isFile()).map((e) => {
   const p = join(e.parentPath, e.name); return [p, createHash("sha256").update(readFileSync(p)).digest("hex")];
 }).sort(([a], [b]) => a.localeCompare(b));
@@ -65,8 +65,8 @@ try {
   for (let i = 0; i < 24; i++) queue.update({ qitemId: row.qitemId, actorSession: "author@fixture", transitionNote: `bounded journey coordination ${i}` });
   const transitions = queue.listTransitions(row.qitemId); const at = new Date().toISOString();
   writeFileSync(join(workspace, "outcome.md"), "No delivered product change in this isolated example. Synthetic scenario, not historical evidence.\n");
-  const checkpoint = { schema: "openrig.health-checkpoint/v0alpha1", lineageQitemId: row.qitemId,
-    scope: { type: "rig", rigId: "fixture" }, startedAt: transitions[0].ts, observedAt: at,
+  const checkpoint = { schema: "softwareteam.health-checkpoint/v0alpha1", lineageQitemId: row.qitemId,
+    scope: { type: "softwareTeam", softwareTeamId: "fixture" }, startedAt: transitions[0].ts, observedAt: at,
     transitionIds: transitions.map((t) => t.transitionId), productOutcomes: [], productCensusRef: join(workspace, "outcome.md"),
     sdlc: { expectation: "One outcome check at completion", evidenceRef: join(workspace, "outcome.md") },
     boundedAuthority: { applies: false, evidenceRef: join(workspace, "outcome.md") }, authorityPaths: { project: [join(workspace, "SPEC.md"), join(home, "outside.yaml")], mission: [], slice: [] } };
@@ -110,7 +110,7 @@ try {
   await assert.rejects(run("diagnosis", "notify", id, "--json"), /health_diagnosis_owner_required/);
   assert.equal(db.prepare("SELECT total_changes() AS n").get().n, custodyBefore);
   assert.equal(diagnosis.show(id).disposition, null);
-  env.OPENRIG_SESSION_NAME = "owner@fixture";
+  env.SOFTWARETEAM_SESSION_NAME = "owner@fixture";
   await run("diagnosis", "record", id, "--file", join(home, "disposition.json"), "--json");
   assert.equal(queue.listTransitions(id).at(-1).identityProvenance, "transport:v1");
   const humanView = await run("diagnosis", "show", id);

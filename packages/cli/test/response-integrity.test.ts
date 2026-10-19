@@ -32,8 +32,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -64,7 +64,7 @@ async function runCli(args: string[], deps?: Parameters<typeof createProgram>[0]
   const err: string[] = [];
   let exitCode = 0;
   const program = createProgram(deps);
-  await runProgram(program, ["node", "rig", ...args], {
+  await runProgram(program, ["node", "softwareTeam", ...args], {
     out: (l) => out.push(l),
     err: (l) => err.push(l),
     exit: (c) => { exitCode = c; },
@@ -72,7 +72,7 @@ async function runCli(args: string[], deps?: Parameters<typeof createProgram>[0]
   return { out: out.join("\n"), err: err.join("\n"), exitCode };
 }
 
-const DAEMON_DOWN_PHRASES = [/daemon not running/i, /rig daemon start/i, /rig up/i];
+const DAEMON_DOWN_PHRASES = [/daemon not running/i, /SoftwareTeam daemon start/i, /SoftwareTeam up/i];
 
 describe("client response integrity — three distinct failure classes", () => {
   it("a non-empty unparseable/truncated body throws a typed DaemonResponseError carrying the status", async () => {
@@ -99,7 +99,7 @@ describe("client response integrity — three distinct failure classes", () => {
         if (sig) sig.addEventListener("abort", () => reject(sig.reason ?? new Error("aborted")));
       })) as unknown as typeof fetch;
     const client = new DaemonClient(URL, { fetchImpl: neverFetch, timeoutMs: 20 });
-    const caught = await client.get("/api/rigs").then(() => null, (e) => e);
+    const caught = await client.get("/api/software-teams").then(() => null, (e) => e);
     expect(caught).toBeInstanceOf(DaemonTimeoutError);
     // subclass of DaemonConnectionError so existing callers still catch it,
     // but distinguishable for slow-vs-down rendering.
@@ -109,26 +109,26 @@ describe("client response integrity — three distinct failure classes", () => {
   it("connection refused throws DaemonConnectionError but NOT DaemonTimeoutError", async () => {
     const refuse: typeof fetch = (async () => { throw new Error("ECONNREFUSED"); }) as unknown as typeof fetch;
     const client = new DaemonClient(URL, { fetchImpl: refuse });
-    const caught = await client.get("/api/rigs").then(() => null, (e) => e);
+    const caught = await client.get("/api/software-teams").then(() => null, (e) => e);
     expect(caught).toBeInstanceOf(DaemonConnectionError);
     expect(caught).not.toBeInstanceOf(DaemonTimeoutError);
   });
 });
 
 describe("render response integrity — 3-part error + honest exit, never daemon-down language", () => {
-  // P21 HERMETIC: queue update derives the actor from the seat env (X-OpenRig-Session); stub a
+  // P21 HERMETIC: queue update derives the actor from the seat env (X-SoftwareTeam-Session); stub a
   // deterministic seat so the daemon-response path under test is REACHED, not aborted pre-POST on an
   // env-less harness. Unstubbed per test (singleFork shares the process).
-  beforeEach(() => { vi.stubEnv("OPENRIG_SESSION_NAME", "harness@rig"); process.exitCode = undefined; });
+  beforeEach(() => { vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "harness@software-team"); process.exitCode = undefined; });
   afterEach(() => { vi.unstubAllEnvs(); });
 
   it("bad-response renders fact/consequence/action JSON with nonzero exit (json)", async () => {
     const err = new DaemonResponseError(502, "<html>502 Bad Gateway</html>");
     const { out, exitCode } = await runCli(
       // P21: --actor is deprecated + IGNORED; queue update derives the actor from the seat env, which the
-      // describe's beforeEach now stubs (harness@rig) so this reaches the daemon-response path under test.
+      // describe's beforeEach now stubs (harness@software-team) so this reaches the daemon-response path under test.
       // (--actor left in the argv is harmless — the daemon ignores it.)
-      ["queue", "update", "qitem-x", "--actor", "harness@rig", "--state", "done", "--closure-reason", "denied", "--json"],
+      ["queue", "update", "qitem-x", "--actor", "harness@software-team", "--state", "done", "--closure-reason", "denied", "--json"],
       depsThrowing(err),
     );
     expect(exitCode).toBe(1);
@@ -144,7 +144,7 @@ describe("render response integrity — 3-part error + honest exit, never daemon
   it("bad-response renders 3-part guidance to stderr with nonzero exit, never daemon-down (human)", async () => {
     const err = new DaemonResponseError(502, "<html>truncated");
     const { err: stderr, exitCode } = await runCli(
-      ["queue", "update", "qitem-x", "--actor", "harness@rig", "--state", "done", "--closure-reason", "denied"],
+      ["queue", "update", "qitem-x", "--actor", "harness@software-team", "--state", "done", "--closure-reason", "denied"],
       depsThrowing(err),
     );
     expect(exitCode).toBe(1);
@@ -153,9 +153,9 @@ describe("render response integrity — 3-part error + honest exit, never daemon
   });
 
   it("slow-response (timeout) renders slow guidance, not daemon-down, nonzero exit", async () => {
-    const err = new DaemonTimeoutError("Request to http://localhost:7433/api/queue/x/update timed out after 5000ms");
+    const err = new DaemonTimeoutError("Request to http://localhost:7434/api/queue/x/update timed out after 5000ms");
     const { err: stderr, exitCode } = await runCli(
-      ["queue", "update", "qitem-x", "--actor", "harness@rig", "--state", "done", "--closure-reason", "denied"],
+      ["queue", "update", "qitem-x", "--actor", "harness@software-team", "--state", "done", "--closure-reason", "denied"],
       depsThrowing(err),
     );
     expect(exitCode).toBe(1);
@@ -166,7 +166,7 @@ describe("render response integrity — 3-part error + honest exit, never daemon
   });
 
   it("S4b preserve: a timed-out queue read is loud on stderr and exits nonzero", async () => {
-    const timeout = new DaemonTimeoutError("Request to http://localhost:7433/api/queue/list timed out after 25ms");
+    const timeout = new DaemonTimeoutError("Request to http://localhost:7434/api/queue/list timed out after 25ms");
     const { err: stderr, exitCode } = await runCli(
       ["queue", "list"],
       depsThrowing(timeout),

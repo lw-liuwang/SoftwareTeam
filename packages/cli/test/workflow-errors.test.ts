@@ -7,8 +7,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -24,19 +24,19 @@ describe("describeDaemonRejection (WF3 FR-5)", () => {
     const rej = describeDaemonRejection({ error: "packet_not_on_frontier", instanceId: "WF1" });
     expect(rej?.fact).toContain("not on the instance frontier");
     expect(rej?.consequence).toContain("frontier has moved");
-    expect(rej?.action).toContain("rig workflow trace WF1");
+    expect(rej?.action).toContain("SoftwareTeam workflow trace WF1");
   });
 
   it("instance_not_active → names the actual state; fix pointer names ONLY shipped verbs (BR-1 — flipped at WF-5: resume is real now)", () => {
     const rej = describeDaemonRejection({ error: "instance_not_active", message: "failed", instanceId: "WF1" });
     expect(rej?.fact).toContain("failed");
-    expect(rej?.action).toContain("rig workflow show WF1");
+    expect(rej?.action).toContain("SoftwareTeam workflow show WF1");
     // OPR.0.4.6.WF5 FR-4: the WF-3-era negative asserted NO resume
     // pointer because the verb did not ship yet (BR-1: never point at
     // a verb that does not exist). WF-5 shipped it, and the pointer
     // upgraded exactly as the WF-3 comment promised — same BR-1
     // principle, inverted assertion.
-    expect(rej?.action).toContain("rig workflow resume");
+    expect(rej?.action).toContain("SoftwareTeam workflow resume");
   });
 
   it("instance_version_conflict → names expected/actual, says whole-rollback, fix = re-read + retry", () => {
@@ -55,7 +55,7 @@ describe("describeDaemonRejection (WF3 FR-5)", () => {
   it("no_next_step / next_owner_unresolved / instance_not_found all render with fixes", () => {
     expect(describeDaemonRejection({ error: "no_next_step" })?.action).toContain("--exit done | failed");
     expect(describeDaemonRejection({ error: "next_owner_unresolved" })?.action).toContain("--next-owner");
-    expect(describeDaemonRejection({ error: "instance_not_found" })?.action).toContain("rig workflow list");
+    expect(describeDaemonRejection({ error: "instance_not_found" })?.action).toContain("SoftwareTeam workflow list");
   });
 
   it("unrecognized bodies return null (raw-JSON fallback preserved)", () => {
@@ -99,7 +99,7 @@ describe("wire-level FR-5 behavior", () => {
     program.exitOverride();
     process.exitCode = undefined;
     await program.parseAsync([
-      "node", "rig", "workflow", "project",
+      "node", "softwareTeam", "workflow", "project",
       "--instance", "WF1", "--current-packet", "Q1", "--exit", "handoff", "--actor-session", "a@r",
     ]);
     const stderrText = errSpy.mock.calls.map((c) => String(c[0])).join("");
@@ -118,7 +118,7 @@ describe("wire-level FR-5 behavior", () => {
     program.exitOverride();
     process.exitCode = undefined;
     await program.parseAsync([
-      "node", "rig", "workflow", "project",
+      "node", "softwareTeam", "workflow", "project",
       "--instance", "WF1", "--current-packet", "Q1", "--exit", "handoff", "--actor-session", "a@r", "--json",
     ]);
     expect(logSpy).toHaveBeenCalledWith(JSON.stringify(CONFLICT.data));
@@ -135,7 +135,7 @@ describe("wire-level FR-5 behavior", () => {
     });
     program.exitOverride();
     process.exitCode = undefined;
-    await program.parseAsync(["node", "rig", "workflow", "show", "WF1"]);
+    await program.parseAsync(["node", "softwareTeam", "workflow", "show", "WF1"]);
     expect(logSpy.mock.calls.map((c) => String(c[0])).join("")).toContain("internal_error");
     expect(process.exitCode).toBe(2);
     process.exitCode = undefined;

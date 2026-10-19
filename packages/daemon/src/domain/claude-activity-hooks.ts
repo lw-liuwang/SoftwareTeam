@@ -1,17 +1,17 @@
 import { resolve } from "node:path";
-import { getOpenRigHome } from "../openrig-compat.js";
+import { getSoftwareTeamHome } from "../softwareteam-compat.js";
 
-// Single source of truth for whether the OpenRig-managed Claude activity-relay hooks can be
+// Single source of truth for whether the SoftwareTeam-managed Claude activity-relay hooks can be
 // DELIVERED, and which events to inject. Consumed by BOTH the ClaudeCodeAdapter reconcile (to
-// gate enable) AND rigspec-preflight (to warn) — one validation + one manifest parser, so the
+// gate enable) AND software-team-spec-preflight (to warn) — one validation + one manifest parser, so the
 // two seams cannot drift. The event COMMANDS are constructed by the adapter (absolute, shell-
 // quoted); this module also owns the instance-scoped relay destination.
 
 /** Instance-owned copy: independent of project cleanup and installed package replacement. */
 export const CLAUDE_ACTIVITY_RELAY_RELATIVE_PATH = "state/claude-activity-hooks/activity-relay.cjs";
 
-export function claudeActivityRelayPath(openrigHome = getOpenRigHome()): string {
-  return resolve(openrigHome, CLAUDE_ACTIVITY_RELAY_RELATIVE_PATH);
+export function claudeActivityRelayPath(softwareteamHome = getSoftwareTeamHome()): string {
+  return resolve(softwareteamHome, CLAUDE_ACTIVITY_RELAY_RELATIVE_PATH);
 }
 
 /** The `type` of the shipped runtime_resource that selects managed Claude activity hooks. */

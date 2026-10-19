@@ -1,4 +1,4 @@
-// A seat's transcript capture lasts as long as its session. Before this, only a whole rig's teardown stopped it: a
+// A seat's transcript capture lasts as long as its session. Before this, only a whole softwareTeam's teardown stopped it: a
 // stopped seat, a removed node or pod, or a cleaned dead seat kept a rotator running `tmux capture-pane` against a
 // session that no longer existed, every poll interval, until the daemon restarted.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -52,23 +52,23 @@ describe("transcript capture stops when a single session ends", () => {
   }
 
   function seedSeat(logicalId: string) {
-    const rig = setup.rigRepo.findRigsByName("capture-rig")[0] ?? setup.rigRepo.createRig("capture-rig");
-    const sessionName = `${logicalId.replace(".", "-")}@capture-rig`;
-    const node = setup.rigRepo.addNode(rig.id, logicalId, { runtime: "claude-code" });
+    const softwareTeam = setup.softwareTeamRepo.findSoftwareTeamsByName("capture-software-team")[0] ?? setup.softwareTeamRepo.createSoftwareTeam("capture-software-team");
+    const sessionName = `${logicalId.replace(".", "-")}@capture-software-team`;
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, logicalId, { runtime: "claude-code" });
     const session = setup.sessionRegistry.registerSession(node.id, sessionName);
     setup.sessionRegistry.updateStatus(session.id, "running");
     setup.sessionRegistry.updateBinding(node.id, { attachmentType: "tmux", tmuxSession: sessionName, tmuxPane: "%1" });
-    return { rig, node, sessionName };
+    return { softwareTeam, node, sessionName };
   }
 
   function rotate(sessionName: string) {
-    startTranscriptRotation(captureAdapter, sessionName, store.getTranscriptPath("capture-rig", sessionName), { lines: 10, pollIntervalMs: 60_000 });
+    startTranscriptRotation(captureAdapter, sessionName, store.getTranscriptPath("capture-software-team", sessionName), { lines: 10, pollIntervalMs: 60_000 });
   }
 
   // Past the staleness limit on disk: only a running capture would make the saved text read as fresh.
-  function ageTranscript(rigName: string, sessionName: string) {
+  function ageTranscript(softwareTeamName: string, sessionName: string) {
     const longAgo = new Date(Date.now() - 60_000);
-    fs.utimesSync(store.getTranscriptPath(rigName, sessionName), longAgo, longAgo);
+    fs.utimesSync(store.getTranscriptPath(softwareTeamName, sessionName), longAgo, longAgo);
   }
 
   function reads(sessionName: string) {
@@ -93,7 +93,7 @@ describe("transcript capture stops when a single session ends", () => {
     });
   }
 
-  it("rig seat stop ends the stopped seat's capture and keeps its running sibling's", async () => {
+  it("SoftwareTeam seat stop ends the stopped seat's capture and keeps its running sibling's", async () => {
     const stopped = seedSeat("dev.impl");
     const sibling = seedSeat("dev.qa");
     rotate(stopped.sessionName);
@@ -125,9 +125,9 @@ describe("transcript capture stops when a single session ends", () => {
 
   it("removing a pod ends its members' captures and keeps a seat outside the pod", async () => {
     const outside = seedSeat("lead.main");
-    const rig = setup.rigRepo.findRigsByName("capture-rig")[0]!;
-    const expanded = await setup.rigExpansionService.expand({
-      rigId: rig.id,
+    const softwareTeam = setup.softwareTeamRepo.findSoftwareTeamsByName("capture-software-team")[0]!;
+    const expanded = await setup.softwareTeamExpansionService.expand({
+      softwareTeamId: softwareTeam.id,
       pod: {
         id: "dev",
         label: "Development",
@@ -141,13 +141,13 @@ describe("transcript capture stops when a single session ends", () => {
     expect(expanded.ok).toBe(true);
     const members = (db.prepare(`
       SELECT s.session_name FROM sessions s JOIN nodes n ON n.id = s.node_id
-      WHERE n.rig_id = ? AND n.logical_id LIKE 'dev.%' ORDER BY n.logical_id
-    `).all(rig.id) as Array<{ session_name: string }>).map((row) => row.session_name);
+      WHERE n.software_team_id = ? AND n.logical_id LIKE 'dev.%' ORDER BY n.logical_id
+    `).all(softwareTeam.id) as Array<{ session_name: string }>).map((row) => row.session_name);
     expect(members).toHaveLength(2);
     for (const name of [outside.sessionName, ...members]) rotate(name);
     expect(getActiveRotationCount()).toBe(3);
 
-    const res = await setup.app.request(`/api/rigs/${rig.id}/pods/dev`, { method: "DELETE" });
+    const res = await setup.app.request(`/api/software-teams/${softwareTeam.id}/pods/dev`, { method: "DELETE" });
     expect(res.status).toBe(200);
 
     expect(getActiveRotationCount()).toBe(1);
@@ -158,34 +158,34 @@ describe("transcript capture stops when a single session ends", () => {
 
   it("removing a node whose session name another live seat owns keeps that owner's capture", async () => {
     const owner = seedSeat("dev.impl");
-    const stale = setup.rigRepo.createRig("stale-rig");
-    const staleNode = setup.rigRepo.addNode(stale.id, "dev.impl", { runtime: "claude-code" });
+    const stale = setup.softwareTeamRepo.createSoftwareTeam("stale-software-team");
+    const staleNode = setup.softwareTeamRepo.addNode(stale.id, "dev.impl", { runtime: "claude-code" });
     setup.sessionRegistry.registerSession(staleNode.id, owner.sessionName);
     rotate(owner.sessionName);
 
-    const res = await setup.app.request(`/api/rigs/${stale.id}/nodes/dev.impl`, { method: "DELETE" });
+    const res = await setup.app.request(`/api/software-teams/${stale.id}/nodes/dev.impl`, { method: "DELETE" });
     expect(res.status).toBe(200);
-    expect((await res.json() as { sessionKeptFor?: string }).sessionKeptFor).toBe("dev.impl@capture-rig");
+    expect((await res.json() as { sessionKeptFor?: string }).sessionKeptFor).toBe("dev.impl@capture-software-team");
 
     expect(getActiveRotationCount()).toBe(1);
   });
 
   it("an unclaimed session keeps its capture and its saved reads, and a re-claim keeps capturing", async () => {
     tmux().capturePaneContent = vi.fn(async () => "recent work\n");
-    const rig = setup.rigRepo.createRig("unclaim-capture-rig");
-    setup.rigRepo.addNode(rig.id, "external.helper", { runtime: "codex" });
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("unclaim-capture-software-team");
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "external.helper", { runtime: "codex" });
     const discovered = setup.discoveryRepo.upsertDiscoveredSession({
       tmuxSession: "unclaim-capture-session", tmuxPane: "%1", cwd: "/tmp",
       activeCommand: "codex", runtimeHint: "codex", confidence: "high",
     });
-    const claim = () => setup.claimService.bind({ discoveredId: discovered.id, rigId: rig.id, logicalId: "external.helper" });
+    const claim = () => setup.claimService.bind({ discoveredId: discovered.id, softwareTeamId: softwareTeam.id, logicalId: "external.helper" });
     const claimed = await claim();
     expect(claimed.ok).toBe(true);
     if (!claimed.ok) return;
     expect(getActiveRotationCount()).toBe(1);
     await settle(discovered.tmuxSession);
     expect(getLastCaptureAt(discovered.tmuxSession)).toBeDefined();
-    ageTranscript("unclaim-capture-rig", discovered.tmuxSession);
+    ageTranscript("unclaim-capture-software-team", discovered.tmuxSession);
 
     const unclaim = await setup.app.request(`/api/sessions/${claimed.sessionId}/unclaim`, { method: "POST" });
     expect(unclaim.status).toBe(200);
@@ -225,8 +225,8 @@ describe("transcript capture stops when a single session ends", () => {
     };
     // At once, while the saved files are still recent, then once they are past the staleness limit.
     for (const sessionName of [stopped.sessionName, cleaned.sessionName]) await expectSavedReads(sessionName);
-    ageTranscript("capture-rig", stopped.sessionName);
-    ageTranscript("capture-rig", cleaned.sessionName);
+    ageTranscript("capture-software-team", stopped.sessionName);
+    ageTranscript("capture-software-team", cleaned.sessionName);
     for (const sessionName of [stopped.sessionName, cleaned.sessionName]) await expectSavedReads(sessionName);
     // A read never starts the ended session's capture again.
     expect(getActiveRotationCount()).toBe(0);

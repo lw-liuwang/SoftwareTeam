@@ -21,14 +21,14 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { DaemonHealthProvider } from "./components/DaemonHealthProvider.js";
 import { queryClient } from "./lib/query-client.js";
 import { AppShell } from "./components/AppShell.js";
-import { RigGraph } from "./components/RigGraph.js";
+import { SoftwareTeamGraph } from "./components/SoftwareTeamGraph.js";
 import { ImportFlow } from "./components/ImportFlow.js";
 import { PackageList } from "./components/PackageList.js";
 import { PackageInstallFlow } from "./components/PackageInstallFlow.js";
 import { PackageDetail } from "./components/PackageDetail.js";
 import { BootstrapWizard } from "./components/BootstrapWizard.js";
 import { AgentSpecValidateFlow } from "./components/AgentSpecValidateFlow.js";
-import { RigSpecReview } from "./components/RigSpecReview.js";
+import { SoftwareTeamSpecReview } from "./components/SoftwareTeamSpecReview.js";
 import { AgentSpecReview } from "./components/AgentSpecReview.js";
 import { BundleInspector } from "./components/BundleInspector.js";
 import { BundleInstallFlow } from "./components/BundleInstallFlow.js";
@@ -36,7 +36,7 @@ import { LibraryReview } from "./components/LibraryReview.js";
 import { LiveNodeDetails } from "./components/LiveNodeDetails.js";
 import { DiscoveryOverlay } from "./components/DiscoveryOverlay.js";
 import { AuditHistoryView } from "./components/mission-control/views/AuditHistoryView.js";
-import { useRigSummary } from "./hooks/useRigSummary.js";
+import { useSoftwareTeamSummary } from "./hooks/useSoftwareTeamSummary.js";
 import { EmptyState } from "./components/ui/empty-state.js";
 // Phase 3 destination components.
 import { Dashboard } from "./components/dashboard/Dashboard.js";
@@ -54,7 +54,7 @@ import { LogPage } from "./components/system/LogPage.js";
 import { StatusPage } from "./components/system/StatusPage.js";
 import {
   HostScopePage,
-  RigScopePage,
+  SoftwareTeamScopePage,
   PodScopePage,
   SeatScopePage,
 } from "./components/topology/ScopePages.js";
@@ -63,7 +63,7 @@ import {
   MissionScopePage,
   SliceScopePage,
 } from "./components/project/ScopePages.js";
-import { RigAgentsPage } from "./components/review/RigAgentsPage.js";
+import { SoftwareTeamAgentsPage } from "./components/review/SoftwareTeamAgentsPage.js";
 import { FleetPage } from "./components/review/FleetPage.js";
 import { WorkflowsPage } from "./components/workflow/WorkflowsPage.js";
 import { WorkflowInstancePage } from "./components/workflow/WorkflowInstancePage.js";
@@ -109,21 +109,21 @@ const topologyRoute = createRoute({
   component: HostScopePage,
 });
 
-const topologyRigRoute = createRoute({
+const topologySoftwareTeamRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/topology/rig/$rigId",
-  component: RigScopePage,
+  path: "/topology/softwareTeam/$softwareTeamId",
+  component: SoftwareTeamScopePage,
 });
 
 const topologyPodRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/topology/pod/$rigId/$podName",
+  path: "/topology/pod/$softwareTeamId/$podName",
   component: PodScopePage,
 });
 
 const topologySeatRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/topology/seat/$rigId/$logicalId",
+  path: "/topology/seat/$softwareTeamId/$logicalId",
   component: SeatScopePage,
 });
 
@@ -151,15 +151,15 @@ const projectSliceRoute = createRoute({
   component: SliceScopePage,
 });
 
-// OPR.0.4.4.22 — the AGENTS altitude (rig-scope standalone panel). The
+// OPR.0.4.4.22 — the AGENTS altitude (software-team-scope standalone panel). The
 // route exists for ADDRESSING, not nav chrome: reached by ZOOM only
 // (board/host agent-count chips, slice-region anchored zoom, breadcrumb
 // up) — deliberately NOT added to any nav rail (arch ruling, drift-killer
 // 4). Anchored/filter state rides query params (?slice=, ?group=).
-const rigAgentsRoute = createRoute({
+const softwareTeamAgentsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/agents",
-  component: RigAgentsPage,
+  component: SoftwareTeamAgentsPage,
 });
 
 // OPR.0.4.6.MH5 (C3) — the FLEET attention altitude ABOVE host (placement
@@ -264,7 +264,7 @@ const pluginDetailRoute = createRoute({
 });
 
 // Generic spec detail by kind/name — Phase 4+ wires direct mounts of
-// existing detail pages (RigSpecReview / AgentSpecReview etc) by kind.
+// existing detail pages (SoftwareTeamSpecReview / AgentSpecReview etc) by kind.
 // V1 placeholder: redirect to /specs/library/$specName when kind matches.
 const specsKindRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -356,33 +356,33 @@ const vellumBgAlloverRoute = createRoute({
 // Existing routes preserved per code-map AFTER tree (not in delete list)
 // =====================================================================
 
-// Rig graph (legacy detail; topology destination supersedes — keep until
-// Phase 3 wires /topology/rig/$rigId).
-function RigDetail() {
-  const { rigId } = useParams({ from: "/rigs/$rigId" });
-  const { data: rigs } = useRigSummary();
-  const rigName = rigs?.find((r: { id: string; name: string }) => r.id === rigId)?.name;
+// SoftwareTeam graph (legacy detail; topology destination supersedes — keep until
+// Phase 3 wires /topology/softwareTeam/$softwareTeamId).
+function SoftwareTeamDetail() {
+  const { softwareTeamId } = useParams({ from: "/software-teams/$softwareTeamId" });
+  const { data: softwareTeams } = useSoftwareTeamSummary();
+  const softwareTeamName = softwareTeams?.find((r: { id: string; name: string }) => r.id === softwareTeamId)?.name;
   return (
     <div className="flex flex-col flex-1 h-full">
       <div className="flex-1 min-h-[400px] relative">
-        <RigGraph rigId={rigId} rigName={rigName ?? null} showDiscovered={false} />
+        <SoftwareTeamGraph softwareTeamId={softwareTeamId} softwareTeamName={softwareTeamName ?? null} showDiscovered={false} />
       </div>
     </div>
   );
 }
 
-const rigDetailRoute = createRoute({
+const softwareTeamDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/rigs/$rigId",
-  component: RigDetail,
+  path: "/software-teams/$softwareTeamId",
+  component: SoftwareTeamDetail,
 });
 
 const liveNodeDetailsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/rigs/$rigId/nodes/$logicalId",
+  path: "/software-teams/$softwareTeamId/nodes/$logicalId",
   component: () => {
-    const { rigId, logicalId } = useParams({ from: "/rigs/$rigId/nodes/$logicalId" });
-    return <LiveNodeDetails rigId={rigId} logicalId={decodeURIComponent(logicalId)} />;
+    const { softwareTeamId, logicalId } = useParams({ from: "/software-teams/$softwareTeamId/nodes/$logicalId" });
+    return <LiveNodeDetails softwareTeamId={softwareTeamId} logicalId={decodeURIComponent(logicalId)} />;
   },
 });
 
@@ -422,13 +422,13 @@ const agentValidateRoute = createRoute({
   component: AgentSpecValidateFlow,
 });
 
-// /specs/rig + /specs/agent + /specs/library/$entryId — existing review
+// /specs/softwareTeam + /specs/agent + /specs/library/$entryId — existing review
 // surfaces preserved per code-map AFTER tree. No drawer auto-open
 // (SC-6: drawer default-closed; opens only on named triggers).
-const rigSpecReviewRoute = createRoute({
+const softwareTeamSpecReviewRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/specs/rig",
-  component: RigSpecReview,
+  path: "/specs/softwareTeam",
+  component: SoftwareTeamSpecReview,
 });
 
 const agentSpecReviewRoute = createRoute({
@@ -540,14 +540,14 @@ export const routeTree = rootRoute.addChildren([
   // Canon destinations
   indexRoute,
   topologyRoute,
-  topologyRigRoute,
+  topologySoftwareTeamRoute,
   topologyPodRoute,
   topologySeatRoute,
   forYouRoute,
   projectRoute,
   projectMissionRoute,
   projectSliceRoute,
-  rigAgentsRoute,
+  softwareTeamAgentsRoute,
   fleetRoute,
   workflowsRoute,
   workflowInstanceRoute,
@@ -572,7 +572,7 @@ export const routeTree = rootRoute.addChildren([
   vellumBgSmallRoute,
   vellumBgAlloverRoute,
   // Preserved existing routes
-  rigDetailRoute,
+  softwareTeamDetailRoute,
   liveNodeDetailsRoute,
   importRoute,
   packagesRoute,
@@ -580,7 +580,7 @@ export const routeTree = rootRoute.addChildren([
   packageDetailRoute,
   bootstrapRoute,
   agentValidateRoute,
-  rigSpecReviewRoute,
+  softwareTeamSpecReviewRoute,
   agentSpecReviewRoute,
   libraryReviewRoute,
   discoveryRoute,

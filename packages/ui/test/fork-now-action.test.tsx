@@ -11,7 +11,7 @@ function makeEntry(overrides?: Partial<AgentImageEntry>): AgentImageEntry {
     name: "my-image",
     version: "1",
     runtime: "claude-code",
-    sourceSeat: "dev.impl@test-rig",
+    sourceSeat: "dev.impl@test-software-team",
     sourceSessionId: "sess-1",
     sourceCwd: "/project",
     notes: null,
@@ -67,7 +67,7 @@ describe("ForkNowAction", () => {
     renderWithQuery(<ForkNowAction entry={makeEntry()} />);
     fireEvent.click(screen.getByTestId("fork-now-button"));
     expect(screen.getByTestId("fork-now-modal")).toBeDefined();
-    expect(screen.getByTestId("fork-now-rig-select")).toBeDefined();
+    expect(screen.getByTestId("fork-now-software-team-select")).toBeDefined();
   });
 
   it("confirm button is disabled without required fields", () => {
@@ -80,8 +80,8 @@ describe("ForkNowAction", () => {
   it("shows failed/attention_required launch as red error, not green success", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url === "/api/ps") return new Response(JSON.stringify([{ rigId: "r1", name: "rig-1", nodeCount: 1, runningCount: 1, status: "running" }]));
-      if (url.includes("/api/rigs/r1/nodes")) return new Response(JSON.stringify([
+      if (url === "/api/ps") return new Response(JSON.stringify([{ softwareTeamId: "r1", name: "software-team-1", nodeCount: 1, runningCount: 1, status: "running" }]));
+      if (url.includes("/api/software-teams/r1/nodes")) return new Response(JSON.stringify([
         { logicalId: "dev.impl", podId: "p1", podNamespace: "dev", runtime: "claude-code", agentRef: "local:agents/impl", profile: "default" },
       ]));
       if (url.includes("/members") && init?.method === "POST") {
@@ -97,8 +97,8 @@ describe("ForkNowAction", () => {
     });
     await act(async () => { fireEvent.click(screen.getByTestId("fork-now-button")); });
 
-    await waitFor(() => screen.getByTestId("fork-now-rig-select"), { timeout: 3000 });
-    await act(async () => { fireEvent.change(screen.getByTestId("fork-now-rig-select"), { target: { value: "r1" } }); });
+    await waitFor(() => screen.getByTestId("fork-now-software-team-select"), { timeout: 3000 });
+    await act(async () => { fireEvent.change(screen.getByTestId("fork-now-software-team-select"), { target: { value: "r1" } }); });
     await waitFor(() => screen.getByTestId("fork-now-pod-select"), { timeout: 3000 });
     await act(async () => { fireEvent.change(screen.getByTestId("fork-now-pod-select"), { target: { value: "dev" } }); });
     await waitFor(() => screen.getByTestId("fork-now-sibling-select"), { timeout: 3000 });
@@ -118,8 +118,8 @@ describe("ForkNowAction", () => {
   it("excludes runtime-matched siblings with null agentRef from picker", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url === "/api/ps") return new Response(JSON.stringify([{ rigId: "r1", name: "rig-1", nodeCount: 2, runningCount: 2, status: "running" }]));
-      if (url.includes("/api/rigs/r1/nodes")) return new Response(JSON.stringify([
+      if (url === "/api/ps") return new Response(JSON.stringify([{ softwareTeamId: "r1", name: "software-team-1", nodeCount: 2, runningCount: 2, status: "running" }]));
+      if (url.includes("/api/software-teams/r1/nodes")) return new Response(JSON.stringify([
         { logicalId: "dev.impl", podId: "p1", podNamespace: "dev", runtime: "claude-code", agentRef: null, profile: null },
         { logicalId: "dev.guard", podId: "p1", podNamespace: "dev", runtime: "codex", agentRef: "local:agents/guard", profile: "default" },
       ]));
@@ -131,8 +131,8 @@ describe("ForkNowAction", () => {
     });
     await act(async () => { fireEvent.click(screen.getByTestId("fork-now-button")); });
 
-    await waitFor(() => screen.getByTestId("fork-now-rig-select"), { timeout: 3000 });
-    await act(async () => { fireEvent.change(screen.getByTestId("fork-now-rig-select"), { target: { value: "r1" } }); });
+    await waitFor(() => screen.getByTestId("fork-now-software-team-select"), { timeout: 3000 });
+    await act(async () => { fireEvent.change(screen.getByTestId("fork-now-software-team-select"), { target: { value: "r1" } }); });
     await waitFor(() => screen.getByTestId("fork-now-pod-select"), { timeout: 3000 });
     await act(async () => { fireEvent.change(screen.getByTestId("fork-now-pod-select"), { target: { value: "dev" } }); });
 

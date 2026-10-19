@@ -16,7 +16,7 @@ import {
   type HealthStatus,
 } from "./health-projection.js";
 import type { ContextUsageStore } from "./context-usage-store.js";
-import type { RigRepository } from "./rig-repository.js";
+import type { SoftwareTeamRepository } from "./software-team-repository.js";
 import type { SessionRegistry } from "./session-registry.js";
 import { queryUsageSeries } from "./usage-series.js";
 import { parseSqliteUtcMs } from "./sqlite-time.js";
@@ -25,7 +25,7 @@ const CONTEXT_PRESSURE_PERCENT = 95;
 const CONTEXT_CRITICAL_PERCENT = 99;
 const LIVE_CONTEXT_RETENTION_SECONDS = 86_400;
 const LIVE_CONTEXT_FRESHNESS_SECONDS = 600;
-export const HEALTH_LIST_SCHEMA = "openrig.health-list/v0alpha1" as const;
+export const HEALTH_LIST_SCHEMA = "softwareteam.health-list/v0alpha1" as const;
 
 interface ObservationBase {
   episodeKey?: string;
@@ -230,7 +230,7 @@ export class LiveContextHealthSource implements HealthObservationSource {
   readonly detectors = ["context.pressure"];
   constructor(private readonly deps: {
     db: Database.Database;
-    rigRepo: RigRepository;
+    softwareTeamRepo: SoftwareTeamRepository;
     sessionRegistry: SessionRegistry;
     contextUsageStore: ContextUsageStore;
     resolveContextPressurePolicy?: () => { warningPercent: number; criticalPercent: number };
@@ -246,11 +246,11 @@ export class LiveContextHealthSource implements HealthObservationSource {
       criticalPercent: CONTEXT_CRITICAL_PERCENT,
     };
 
-    for (const rig of this.deps.rigRepo.listRigs()) {
-      const detail = this.deps.rigRepo.getRig(rig.id);
+    for (const softwareTeam of this.deps.softwareTeamRepo.listSoftwareTeams()) {
+      const detail = this.deps.softwareTeamRepo.getSoftwareTeam(softwareTeam.id);
       if (!detail) continue;
       const liveByNode = new Map(
-        this.deps.sessionRegistry.getLatestLiveSessions(rig.id).map((session) => [session.nodeId, session]),
+        this.deps.sessionRegistry.getLatestLiveSessions(softwareTeam.id).map((session) => [session.nodeId, session]),
       );
       const liveNodes = detail.nodes.filter((node) => liveByNode.has(node.id));
       const usageByNode = this.deps.contextUsageStore.getForNodes(liveNodes.map((node) => ({
@@ -300,7 +300,7 @@ export class LiveContextHealthSource implements HealthObservationSource {
         });
         observations.push({
           kind: "context-pressure",
-          scope: { type: "seat", rigId: rig.id, seatId: node.id },
+          scope: { type: "seat", softwareTeamId: softwareTeam.id, seatId: node.id },
           episodeStartedAt: usage.sampledAt ?? startedAt,
           lastObservedAt: usage.sampledAt ?? evaluatedAt,
           sourceName: usage.source,
@@ -358,7 +358,7 @@ function selectContextEpisodeEvidence(
 export function healthScopeId(scope: HealthScope): string {
   switch (scope.type) {
     case "instance": return scope.instanceId;
-    case "rig": return scope.rigId;
+    case "softwareTeam": return scope.softwareTeamId;
     case "seat": return scope.seatId;
     case "mission": return scope.missionId;
     case "slice": return scope.sliceId;

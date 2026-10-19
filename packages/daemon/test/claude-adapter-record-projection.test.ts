@@ -4,7 +4,7 @@ import type { NodeBinding, ResolvedStartupFile } from "../src/domain/runtime-ada
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
 
 // P20 atom 3b — RECORD-AT-APPLY. The discrimination (conflict-detector) and the
-// enable path (rigspec-instantiator wiring pin) are inert unless the projector
+// enable path (software-team-spec-instantiator wiring pin) are inert unless the projector
 // actually records what it wrote. This pins the WRITE side: when the adapter
 // installs a skill file, it must feed the manifest the exact target + content it
 // wrote, so a later projection can classify stale_overwrite vs operator_conflict.

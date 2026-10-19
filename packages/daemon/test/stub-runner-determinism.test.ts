@@ -58,22 +58,22 @@ describe("stub-runner FULL determinism pin (PRD §5, R3)", () => {
   async function runOnce(port: number, sink: { run: number; body: Record<string, unknown> }[], run: number): Promise<RunResult> {
     const dir = mkdtempSync(join(tmpdir(), `stub-det-${run}-`));
     dirs.push(dir);
-    const home = join(dir, ".openrig");
-    mkdirSync(join(dir, ".openrig", "stub"), { recursive: true });
-    writeFileSync(join(dir, ".openrig", "stub", "script.json"), JSON.stringify(SCRIPT), "utf8");
+    const home = join(dir, ".softwareteam");
+    mkdirSync(join(dir, ".softwareteam", "stub"), { recursive: true });
+    writeFileSync(join(dir, ".softwareteam", "stub", "script.json"), JSON.stringify(SCRIPT), "utf8");
 
     let pane = "";
     const child = execFile("node", ["--import", "tsx", RUNNER,
       "--session-name", SEAT, "--cwd", dir, "--launch-id", LAUNCH_ID, "--posture", "floor"],
       { env: {
         ...process.env,
-        OPENRIG_HOME: home,
-        OPENRIG_URL: `http://127.0.0.1:${port}`,
-        OPENRIG_ACTIVITY_HOOK_TOKEN: "det-token",
-        OPENRIG_NODE_ID: "det-node",
-        OPENRIG_TEST_CLOCK_NOW: INJECTED_ISO,
+        SOFTWARETEAM_HOME: home,
+        SOFTWARETEAM_URL: `http://127.0.0.1:${port}`,
+        SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: "det-token",
+        SOFTWARETEAM_NODE_ID: "det-node",
+        SOFTWARETEAM_TEST_CLOCK_NOW: INJECTED_ISO,
         // Keep the packet out of the production default (/tmp/claude-compaction-restore).
-        OPENRIG_COMPACTION_OUT_ROOT: join(dir, "packets"),
+        SOFTWARETEAM_COMPACTION_OUT_ROOT: join(dir, "packets"),
       } as NodeJS.ProcessEnv });
     children.push(child);
     child.stdout?.on("data", (d) => { pane += String(d); });

@@ -5,7 +5,7 @@ import { realDeps } from "./daemon.js";
 import type { StatusDeps } from "./status.js";
 
 export function bindCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("bind").description("Bind a discovered session to a rig node (existing or new)");
+  const cmd = new Command("bind").description("Bind a discovered session to a SoftwareTeam node (existing or new)");
   const getDeps = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   async function getClient(deps: StatusDeps): Promise<DaemonClient | null> {
@@ -16,11 +16,11 @@ export function bindCommand(depsOverride?: StatusDeps): Command {
 
   cmd
     .argument("<discoveredId>", "ID of the discovered session")
-    .requiredOption("--rig <rigId>", "Target rig ID")
+    .requiredOption("--software-team <softwareTeamId>", "Target softwareTeam ID")
     .option("--node <logicalId>", "Bind to existing logical node")
     .option("--pod <namespace>", "Create new node in this pod (requires --member)")
     .option("--member <name>", "Member name for the new node (requires --pod)")
-    .action(async (discoveredId: string, opts: { rig: string; node?: string; pod?: string; member?: string }) => {
+    .action(async (discoveredId: string, opts: { softwareTeam: string; node?: string; pod?: string; member?: string }) => {
       // XOR mode validation
       const hasNode = !!opts.node;
       const hasPod = !!opts.pod || !!opts.member;
@@ -45,7 +45,7 @@ export function bindCommand(depsOverride?: StatusDeps): Command {
       const client = await getClient(deps);
       if (!client) { process.exitCode = 1; return; }
 
-      const body: Record<string, unknown> = { rigId: opts.rig };
+      const body: Record<string, unknown> = { softwareTeamId: opts.softwareTeam };
       if (hasNode) {
         body["logicalId"] = opts.node;
       } else {
@@ -62,9 +62,9 @@ export function bindCommand(depsOverride?: StatusDeps): Command {
       }
 
       if (hasNode) {
-        console.log(`Bound discovery ${discoveredId} to node ${opts.node} in rig ${opts.rig}`);
+        console.log(`Bound discovery ${discoveredId} to node ${opts.node} in softwareTeam ${opts.softwareTeam}`);
       } else {
-        console.log(`Created node ${opts.pod}.${opts.member} and bound discovery ${discoveredId} in rig ${opts.rig}`);
+        console.log(`Created node ${opts.pod}.${opts.member} and bound discovery ${discoveredId} in softwareTeam ${opts.softwareTeam}`);
       }
     });
 

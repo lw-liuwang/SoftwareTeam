@@ -58,11 +58,11 @@ export function useActivityFeed(): UseActivityFeedResult {
     }
     if (event.type === "node.claimed") {
       queryClient.invalidateQueries({ queryKey: ["discovery"] });
-      const rigId = event.payload["rigId"] as string | undefined;
-      if (rigId) {
-        queryClient.invalidateQueries({ queryKey: ["rig", rigId, "graph"] });
-        queryClient.invalidateQueries({ queryKey: ["rig", rigId, "nodes"] });
-        queryClient.invalidateQueries({ queryKey: ["rig", rigId, "sessions"] });
+      const softwareTeamId = event.payload["softwareTeamId"] as string | undefined;
+      if (softwareTeamId) {
+        queryClient.invalidateQueries({ queryKey: ["softwareTeam", softwareTeamId, "graph"] });
+        queryClient.invalidateQueries({ queryKey: ["softwareTeam", softwareTeamId, "nodes"] });
+        queryClient.invalidateQueries({ queryKey: ["softwareTeam", softwareTeamId, "sessions"] });
         // slice-04: ps + default-summary now owned by useGlobalEvents (coalesced).
       }
     }
@@ -75,15 +75,15 @@ export function useActivityFeed(): UseActivityFeedResult {
       event.type === "session.detached"
       || event.type === "node.removed"
       || event.type === "pod.deleted"
-      || event.type === "rig.expanded"
+      || event.type === "softwareTeam.expanded"
       || event.type === "restore.completed"
-      || event.type === "rig.deleted"
+      || event.type === "software-team.deleted"
     ) {
-      const rigId = event.payload["rigId"] as string | undefined;
-      if (rigId) {
-        queryClient.invalidateQueries({ queryKey: ["rig", rigId, "graph"] });
-        queryClient.invalidateQueries({ queryKey: ["rig", rigId, "nodes"] });
-        queryClient.invalidateQueries({ queryKey: ["rig", rigId, "sessions"] });
+      const softwareTeamId = event.payload["softwareTeamId"] as string | undefined;
+      if (softwareTeamId) {
+        queryClient.invalidateQueries({ queryKey: ["softwareTeam", softwareTeamId, "graph"] });
+        queryClient.invalidateQueries({ queryKey: ["softwareTeam", softwareTeamId, "nodes"] });
+        queryClient.invalidateQueries({ queryKey: ["softwareTeam", softwareTeamId, "sessions"] });
       }
       // slice-04: ps + default-summary now owned (coalesced) by useGlobalEvents.
     }
@@ -162,7 +162,7 @@ export function eventColor(type: string): string {
   if (type === "bundle.created") return "bg-accent";
   if (type.startsWith("bootstrap.")) return "bg-accent";
   if (type.startsWith("package.")) return "bg-primary";
-  if (type.startsWith("rig.")) return "bg-accent";
+  if (type.startsWith("software-team.") || type.startsWith("softwareTeam.")) return "bg-accent";
   if (type.startsWith("snapshot.")) return "bg-primary";
   if (type.startsWith("restore.")) return "bg-warning";
   if (type === "chat.message") return "bg-primary";
@@ -180,7 +180,7 @@ export function eventColor(type: string): string {
 /** Maps event to a one-line summary string */
 export function eventSummary(event: ActivityEvent): string {
   const p = event.payload;
-  const rigTail = tailId(p["rigId"]);
+  const softwareTeamTail = tailId(p["softwareTeamId"]);
   const snapTail = tailId(p["snapshotId"]);
   const installTail = tailId(p["installId"]);
   const nodeTail = tailId(p["nodeId"]);
@@ -194,7 +194,7 @@ export function eventSummary(event: ActivityEvent): string {
     case "bootstrap.started":
       return `bootstrap started ${p["sourceRef"]}`;
     case "bootstrap.completed":
-      return rigTail ? `bootstrap rig#${rigTail} completed` : `bootstrap completed`;
+      return softwareTeamTail ? `bootstrap softwareTeam#${softwareTeamTail} completed` : `bootstrap completed`;
     case "bootstrap.partial":
       return `bootstrap partial ${p["completed"]} ok ${p["failed"]} failed`;
     case "bootstrap.failed":
@@ -209,19 +209,19 @@ export function eventSummary(event: ActivityEvent): string {
       return installTail ? `rollback install#${installTail} restored ${p["restored"]}` : `rollback restored ${p["restored"]}`;
     case "package.install_failed":
       return `error package ${p["packageName"]} ${p["message"]}`;
-    case "rig.created":
-      return rigTail ? `rig rig#${rigTail} created` : "rig created";
-    case "rig.deleted":
-      return rigTail ? `rig rig#${rigTail} deleted` : "rig deleted";
-    case "rig.imported":
-      return rigTail ? `import ${p["specName"]} rig#${rigTail} created` : `import ${p["specName"]} created`;
+    case "software-team.created":
+      return softwareTeamTail ? `SoftwareTeam softwareTeam#${softwareTeamTail} created` : "SoftwareTeam created";
+    case "software-team.deleted":
+      return softwareTeamTail ? `SoftwareTeam softwareTeam#${softwareTeamTail} deleted` : "SoftwareTeam deleted";
+    case "softwareTeam.imported":
+      return softwareTeamTail ? `import ${p["specName"]} softwareTeam#${softwareTeamTail} created` : `import ${p["specName"]} created`;
     case "snapshot.created":
-      return rigTail && snapTail ? `snapshot rig#${rigTail} ${p["kind"]} snap#${snapTail}` : `snapshot ${p["kind"]}`;
+      return softwareTeamTail && snapTail ? `snapshot softwareTeam#${softwareTeamTail} ${p["kind"]} snap#${snapTail}` : `snapshot ${p["kind"]}`;
     case "restore.started":
-      return rigTail ? `restore rig#${rigTail} started` : "restore started";
+      return softwareTeamTail ? `restore softwareTeam#${softwareTeamTail} started` : "restore started";
     case "restore.completed": {
       const nodes = Array.isArray(p["result"]) ? p["result"] : ((p["result"] as Record<string, unknown>)?.["nodes"] as unknown[]) ?? [];
-      return rigTail ? `restore rig#${rigTail} ${nodes.length} nodes restored` : `restore ${nodes.length} nodes restored`;
+      return softwareTeamTail ? `restore softwareTeam#${softwareTeamTail} ${nodes.length} nodes restored` : `restore ${nodes.length} nodes restored`;
     }
     case "node.launched":
       return `startup ${logicalId ?? normalizeText(p["nodeId"]) ?? "unknown"} launched`;
@@ -240,7 +240,7 @@ export function eventSummary(event: ActivityEvent): string {
     case "session.vanished":
       return `error ${p["tmuxSession"]}:${p["tmuxPane"]} vanished`;
     case "node.claimed":
-      return rigTail ? `claim ${p["logicalId"]} rig#${rigTail}` : `claim ${p["logicalId"]}`;
+      return softwareTeamTail ? `claim ${p["logicalId"]} softwareTeam#${softwareTeamTail}` : `claim ${p["logicalId"]}`;
     case "chat.message":
       return `chat ${sender ?? "unknown"}: ${body ?? ""}`.trim();
     default:
@@ -251,13 +251,13 @@ export function eventSummary(event: ActivityEvent): string {
 /** Returns a route path for navigable events, or null for non-navigable ones */
 export function eventRoute(event: ActivityEvent): string | null {
   const p = event.payload;
-  const rigId = p["rigId"] as string | undefined;
+  const softwareTeamId = p["softwareTeamId"] as string | undefined;
 
   // Discovery events
   if (event.type === "session.discovered" || event.type === "session.vanished") return "/discovery";
   if (event.type === "node.claimed") {
-    const claimRigId = event.payload["rigId"] as string | undefined;
-    return claimRigId ? `/rigs/${claimRigId}` : "/discovery";
+    const claimSoftwareTeamId = event.payload["softwareTeamId"] as string | undefined;
+    return claimSoftwareTeamId ? `/software-teams/${claimSoftwareTeamId}` : "/discovery";
   }
 
   // Bootstrap events navigate to /bootstrap
@@ -266,9 +266,9 @@ export function eventRoute(event: ActivityEvent): string | null {
   // Package events remain bootstrap-adjacent in the product UX
   if (event.type.startsWith("package.")) return "/bootstrap";
 
-  // Rig-scoped events
-  if (rigId) {
-    return `/rigs/${rigId}`;
+  // SoftwareTeam-scoped events
+  if (softwareTeamId) {
+    return `/software-teams/${softwareTeamId}`;
   }
 
   return null;

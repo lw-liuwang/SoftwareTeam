@@ -32,56 +32,56 @@ it.each([[140, 42], [80, 24]])("first-visit navigation keeps scope-labelled prio
   const screen = renderScreen(view.get(), snap, { cols, rows, load: { inFlight: true, settled: false }, previousPage: { state: previous, snapshot: snap } });
   const text = screen.lines.join("\n");
   expect(text).toContain("Previous: topology");
-  expect(text).toContain("Choose a rig");
+  expect(text).toContain("Choose a softwareTeam");
   expect(screen.explorerRows.some(r => r.key === "section:specs")).toBe(true);
   expect(screen.contentTargets).toEqual([]);
   expect(screen.hitMap.some(hit => hit.action.type === "act")).toBe(false);
 });
 
-it("a 24-rig landing fetches names only; a selected rig never reads unrelated inventory, missions or reviews", async () => {
+it("a 24-software-team landing fetches names only; a selected SoftwareTeam never reads unrelated inventory, missions or reviews", async () => {
   const calls: string[] = [];
-  const rigs = Array.from({ length: 24 }, (_, n) => ({ id: `r${n}`, name: `rig${n}`, lifecycleState: "running" }));
+  const softwareTeams = Array.from({ length: 24 }, (_, n) => ({ id: `r${n}`, name: `softwareTeam${n}`, lifecycleState: "running" }));
   const client = new DaemonClient({ baseUrl: "http://fixture", fetchImpl: (async input => {
     const u = new URL(String(input)); calls.push(u.pathname + u.search);
     if (u.pathname === "/healthz") return Response.json({ selfHostId: "fixture" });
-    if (u.pathname === "/api/rigs/summary") return Response.json(rigs);
-    if (u.pathname === "/api/rigs/r17/nodes" || u.pathname === "/api/queue/recent-transitions" || u.pathname === "/api/queue/list") return Response.json([]);
+    if (u.pathname === "/api/software-teams/summary") return Response.json(softwareTeams);
+    if (u.pathname === "/api/software-teams/r17/nodes" || u.pathname === "/api/queue/recent-transitions" || u.pathname === "/api/queue/list") return Response.json([]);
     throw Error(`Unrelated request ${u.pathname}`);
   }) as typeof fetch });
   let snap = emptySnapshot();
   const view = createViewState({ instanceId: "request-shape", getSnapshot: () => snap });
   snap = await hydrateSnapshot(client, undefined, null, null, null, view.get());
-  expect(calls.sort()).toEqual(["/api/rigs/summary", "/healthz"]);
-  expect(snap.hosts[0]?.rigs).toHaveLength(24);
-  expect(renderScreen(view.get(), snap).lines.join("\n")).toContain("Choose a rig");
-  view.dispatch({ type: "drill", resource: "rig", name: "rig17", target: { host: "fixture" } }); calls.length = 0;
+  expect(calls.sort()).toEqual(["/api/software-teams/summary", "/healthz"]);
+  expect(snap.hosts[0]?.softwareTeams).toHaveLength(24);
+  expect(renderScreen(view.get(), snap).lines.join("\n")).toContain("Choose a softwareTeam");
+  view.dispatch({ type: "drill", resource: "softwareTeam", name: "rig17", target: { host: "fixture" } }); calls.length = 0;
   snap = await hydrateSnapshot(client, undefined, null, null, "rig17", view.get());
   expect(snap.readErrors).toEqual([]);
-  expect(calls.filter(c => c.endsWith("/nodes"))).toEqual(["/api/rigs/r17/nodes"]);
+  expect(calls.filter(c => c.endsWith("/nodes"))).toEqual(["/api/software-teams/r17/nodes"]);
   expect(calls.filter(c => c.startsWith("/api/queue/list")).sort()).toEqual([
     "/api/queue/list?attention=1", "/api/queue/list?state=blocked", "/api/queue/list?state=in-progress", "/api/queue/list?state=pending&limit=50",
   ]);
   expect(calls).toHaveLength(8);
 });
 
-it.each(["overview", "graph", "health"] as const)("a drilled rig on the %s tab reads no seat queue lists", async (viewTab) => {
+it.each(["overview", "graph", "health"] as const)("a drilled SoftwareTeam on the %s tab reads no seat queue lists", async (viewTab) => {
   const calls: string[] = [];
   const client = new DaemonClient({ baseUrl: "http://fixture", fetchImpl: (async input => {
     const u = new URL(String(input)); calls.push(u.pathname + u.search);
     if (u.pathname === "/healthz") return Response.json({ selfHostId: "fixture" });
-    if (u.pathname === "/api/rigs/summary") return Response.json([{ id: "r1", name: "rig1", lifecycleState: "running" }]);
+    if (u.pathname === "/api/software-teams/summary") return Response.json([{ id: "r1", name: "rig1", lifecycleState: "running" }]);
     return Response.json([]);
   }) as typeof fetch });
-  await hydrateSnapshot(client, undefined, null, null, "rig1", { section: "topology", viewTab, drill: [{ kind: "rig", name: "rig1" }] } as never);
+  await hydrateSnapshot(client, undefined, null, null, "rig1", { section: "topology", viewTab, drill: [{ kind: "softwareTeam", name: "rig1" }] } as never);
   expect(calls.filter(c => c.startsWith("/api/queue/list"))).toEqual([]);
 });
 
-it("terminal names never wait for all-rig liveness or any provider preview", async () => {
+it("terminal names never wait for all-software-team liveness or any provider preview", async () => {
   const calls: string[] = [];
   const client = new DaemonClient({ baseUrl: "http://fixture", fetchImpl: (async input => {
     calls.push(String(input));
     if (String(input) !== "http://fixture/api/terminal/views") throw Error("Expensive read before selection");
-    return Response.json({ saved: [{ id: "watch", name: "Build watch", members: [{ seat: "owner@build" }] }], rigs: Array.from({ length: 24 }, (_, n) => `rig${n}`) });
+    return Response.json({ saved: [{ id: "watch", name: "Build watch", members: [{ seat: "owner@build" }] }], softwareTeams: Array.from({ length: 24 }, (_, n) => `softwareTeam${n}`) });
   }) as typeof fetch });
   const state = { ...createViewState({ instanceId: "names" }).get(), section: "terminals" };
   const snap = await hydrateSnapshot(client, undefined, null, null, null, state);

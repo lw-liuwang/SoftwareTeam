@@ -97,7 +97,7 @@ describe("Send CLI", () => {
           const parsed = JSON.parse(body);
           lastBroadcastBody = parsed;
           const sessions: string[] = (parsed.sessions as string[] | undefined)
-            ?? ["seat-a@my-rig", "seat-b@my-rig"]; // pod/rig/global resolve to a fixed pair
+            ?? ["seat-a@my-software-team", "seat-b@my-software-team"]; // pod/softwareTeam/global resolve to a fixed pair
           if (parsed.text === "partial") {
             const results = [
               { ok: true, sessionName: sessions[0] },
@@ -153,9 +153,9 @@ describe("Send CLI", () => {
             res.end(JSON.stringify({ ok: true, sessionName: parsed.session, verified: true, outcome: "delivered" }));
             return;
           }
-          if (parsed.session === "dev-impl@my-rig") {
+          if (parsed.session === "dev-impl@my-software-team") {
             res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify({ ok: true, sessionName: "dev-impl@my-rig" }));
+            res.end(JSON.stringify({ ok: true, sessionName: "dev-impl@my-software-team" }));
           } else if (parsed.session === "verified-session") {
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ ok: true, sessionName: "verified-session", verified: true, outcome: "delivered" }));
@@ -224,21 +224,21 @@ describe("Send CLI", () => {
     // deliver-and-label test overrides it to empty to exercise the `<unknown sender>` fall-open.
     // (Hermetic-gate default is env-UNSET, so without this env-less delivery would render the unknown
     // marker.) Nested describes that stub their own envs re-run after this; the block afterEach restores.
-    vi.stubEnv("OPENRIG_SESSION_NAME", "sender@my-rig");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "sender@my-software-team");
     vi.stubEnv("RIGGED_SESSION_NAME", "");
   });
   afterEach(() => { vi.unstubAllEnvs(); });
 
   it("send prints success output", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello world"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello world"]);
     });
-    expect(logs.join("\n")).toContain("Sent to dev-impl@my-rig");
+    expect(logs.join("\n")).toContain("Sent to dev-impl@my-software-team");
   });
 
   it.each(["", "  \t\n"])("refuses an empty or whitespace-only direct message before transport", async (message) => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "dev-impl@my-rig", message]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", message]);
     });
     const output = logs.join("\n");
     expect(exitCode).toBe(1);
@@ -256,7 +256,7 @@ describe("Send CLI", () => {
     } as unknown as DaemonClient;
     const { logs, exitCode } = await captureLogs(async () => {
       await makeCmd({ ...runningDeps(port), clientFactory: () => client }).parseAsync([
-        "node", "rig", "send", "dev-impl@my-rig", "--context", "packs/empty",
+        "node", "softwareTeam", "send", "dev-impl@my-software-team", "--context", "packs/empty",
       ]);
     });
     expect(exitCode).toBe(1);
@@ -265,16 +265,16 @@ describe("Send CLI", () => {
   });
 
   // P18 DELIVER-AND-LABEL (deletion atom): an env-less send — no --from (deprecated + ignored) AND no
-  // resolvable OPENRIG_SESSION_NAME/RIGGED_SESSION_NAME — now DELIVERS, carrying an HONEST `<unknown sender>`
+  // resolvable SOFTWARETEAM_SESSION_NAME/SOFTWARETEAM_SESSION_NAME — now DELIVERS, carrying an HONEST `<unknown sender>`
   // label rather than refusing. The reset's north star: deleting a refusal must not manufacture a laundering
   // path, so an unattributable send is DISPATCHED with a truthful marker and a NULL actorSession — never a
   // forged actor. This REVERSES A1's seat-boundary refusal; the daemon half already delivers-and-labels the
   // header-absent write (no downstream 401), so the marker reaches the pane instead of being refused.
   it("P18: an env-less send DELIVERS with an honest `<unknown sender>` label — dispatched, actorSession null", async () => {
-    vi.stubEnv("OPENRIG_SESSION_NAME", ""); // override the block seat-stub → unresolvable
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", ""); // override the block seat-stub → unresolvable
     vi.stubEnv("RIGGED_SESSION_NAME", "");
     const { exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello world"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello world"]);
     });
     expect(exitCode).toBeFalsy(); // DELIVERED, not refused
     expect(lastSendBody).not.toBeNull(); // dispatch reached the wire
@@ -284,14 +284,14 @@ describe("Send CLI", () => {
   });
 
   it("P18: a resolvable seat SENDS with its attributed identity — actorSession derived from the seat env, never forged", async () => {
-    vi.stubEnv("OPENRIG_SESSION_NAME", "driver@my-rig");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "driver@my-software-team");
     vi.stubEnv("RIGGED_SESSION_NAME", "");
     const { exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello world"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello world"]);
     });
     expect(exitCode).toBeFalsy(); // sent (not refused)
     expect(lastSendBody).not.toBeNull(); // dispatch reached the wire
-    expect((lastSendBody as Record<string, unknown>)["actorSession"]).toBe("driver@my-rig");
+    expect((lastSendBody as Record<string, unknown>)["actorSession"]).toBe("driver@my-software-team");
   });
 
   // P18 CANONICITY GUARD (rework of the A1 negative control). Two intents, split so the one that still
@@ -376,7 +376,7 @@ describe("Send CLI", () => {
 
   it("send with 409 mid-work prints error and exits non-zero", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "busy-session", "hello"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "busy-session", "hello"]);
     });
     expect(logs.join("\n")).toContain("mid-task");
     expect(exitCode).toBe(1);
@@ -386,7 +386,7 @@ describe("Send CLI", () => {
   // human output (not only in --json).
   it("prints the Advisory on an unknown-proceed send (human output)", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "unknown-advisory", "hello"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "unknown-advisory", "hello"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("Sent to unknown-advisory");
@@ -397,7 +397,7 @@ describe("Send CLI", () => {
 
   it("carries the advisory as `warning` in --json output", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "unknown-advisory", "hello", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "unknown-advisory", "hello", "--json"]);
     });
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed.warning).toContain("daemon-ingest link DOWN");
@@ -406,7 +406,7 @@ describe("Send CLI", () => {
   // OPR.99.0.6.3 — honest delivery-outcome vocabulary; legacy Verified: line preserved.
   it("verify confirmed prints Delivery: delivered AND the legacy Verified: yes", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "verified-session", "hello", "--verify"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "verified-session", "hello", "--verify"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("Sent to verified-session");
@@ -416,21 +416,21 @@ describe("Send CLI", () => {
 
   it("verify redraw-race prints Delivery: rendered-unconfirmed (landed, with capture guidance) AND legacy Verified: no", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "racy-session", "hello", "--verify"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "racy-session", "hello", "--verify"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("Sent to racy-session");
     expect(output).toContain("Verified: no");
     expect(output).toContain("Delivery: rendered-unconfirmed");
     expect(output).toContain("landed");
-    expect(output).toContain("rig capture racy-session");
+    expect(output).toContain("SoftwareTeam capture racy-session");
     // The middle is NOT dressed as failure: exit stays clean.
     expect(exitCode).toBeUndefined();
   });
 
   it("verify with input-box evidence prints the input-box Delivery wording, never agent acknowledgement", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "input-box-verified", "hello", "--verify"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "input-box-verified", "hello", "--verify"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("Verified: yes");
@@ -440,45 +440,45 @@ describe("Send CLI", () => {
 
   it("verify with input-box evidence names both readings when unconfirmed, and says it is not a failure", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "input-box-queued", "hello", "--verify"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "input-box-queued", "hello", "--verify"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("Verified: no");
-    expect(output).toContain("Delivery: rendered-unconfirmed (seat before the paste: not idle (a running turn, a queue, a pending input or a paste hint showed); input box before Enter: the exact text; after Enter: queued or possibly queued (a queued label, or a turn was running); not a failure; to look, optionally: rig capture input-box-queued)");
+    expect(output).toContain("Delivery: rendered-unconfirmed (seat before the paste: not idle (a running turn, a queue, a pending input or a paste hint showed); input box before Enter: the exact text; after Enter: queued or possibly queued (a queued label, or a turn was running); not a failure; to look, optionally: SoftwareTeam capture input-box-queued)");
     expect(output).not.toContain("pane re-render not confirmed");
     expect(exitCode).toBeUndefined();
   });
 
   it("verify with input-box evidence says when the pane process changed or is unknown", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "input-box-other-process", "hello", "--verify"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "input-box-other-process", "hello", "--verify"]);
     });
-    expect(logs.join("\n")).toContain("Delivery: rendered-unconfirmed (seat before the paste: not a known idle layout; input box before Enter: a collapsed paste (text hidden); after Enter: empty; pane process changed or unknown; not a failure; to look, optionally: rig capture input-box-other-process)");
+    expect(logs.join("\n")).toContain("Delivery: rendered-unconfirmed (seat before the paste: not a known idle layout; input box before Enter: a collapsed paste (text hidden); after Enter: empty; pane process changed or unknown; not a failure; to look, optionally: SoftwareTeam capture input-box-other-process)");
   });
 
   it("verify with input-box evidence: an ambiguous box says the word boundaries were uncertain", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "input-box-ambiguous", "hello", "--verify"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "input-box-ambiguous", "hello", "--verify"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("Verified: no");
-    expect(output).toContain("Delivery: rendered-unconfirmed (seat before the paste: idle; input box before Enter: the text, but a line break in the box may split a word (word boundaries uncertain); after Enter: empty; not a failure; to look, optionally: rig capture input-box-ambiguous)");
+    expect(output).toContain("Delivery: rendered-unconfirmed (seat before the paste: idle; input box before Enter: the text, but a line break in the box may split a word (word boundaries uncertain); after Enter: empty; not a failure; to look, optionally: SoftwareTeam capture input-box-ambiguous)");
   });
 
   it("verify with input-box evidence: an unchecked path says plainly it was not checked and is unconfirmed, never verified", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "input-box-unchecked", "hello", "--verify"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "input-box-unchecked", "hello", "--verify"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("Verified: no");
-    expect(output).toContain("Delivery: rendered-unconfirmed (input box not checked: an audited prompt answer is typed as keys and its box is not read; not a failure; to look, optionally: rig capture input-box-unchecked)");
+    expect(output).toContain("Delivery: rendered-unconfirmed (input box not checked: an audited prompt answer is typed as keys and its box is not read; not a failure; to look, optionally: SoftwareTeam capture input-box-unchecked)");
     expect(output).not.toContain("pane re-render not confirmed");
     expect(output).not.toMatch(/resend|send it again|re-send/i);
   });
 
   it("verify genuine transport failure stays an error path, distinct from the middle (discriminator)", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "dead-session", "hello", "--verify"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "dead-session", "hello", "--verify"]);
     });
     const output = logs.join("\n");
     // HTTP 502 -> error branch; no success lines, exit non-zero.
@@ -490,7 +490,7 @@ describe("Send CLI", () => {
 
   it("verify --json passes the additive outcome field through", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "racy-session", "hello", "--verify", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "racy-session", "hello", "--verify", "--json"]);
     });
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed.verified).toBe(false);
@@ -499,47 +499,47 @@ describe("Send CLI", () => {
 
   it("send --json prints raw JSON", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello", "--json"]);
     });
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed.ok).toBe(true);
-    expect(parsed.sessionName).toBe("dev-impl@my-rig");
+    expect(parsed.sessionName).toBe("dev-impl@my-software-team");
   });
 
   it("send --wait-for-idle posts waitForIdleMs and extends request timeout", async () => {
     const postFn = vi.fn(async () => ({
       status: 200,
-      data: { ok: true, sessionName: "dev-impl@my-rig" },
+      data: { ok: true, sessionName: "dev-impl@my-software-team" },
     }));
     const deps = runningDeps(port, () => ({ post: postFn } as unknown as DaemonClient));
     const { logs } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello", "--wait-for-idle", "30", "--json"]);
+      await makeCmd(deps).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello", "--wait-for-idle", "30", "--json"]);
     });
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed.ok).toBe(true);
     expect(postFn).toHaveBeenCalledWith(
       "/api/transport/send",
       expect.objectContaining({
-        session: "dev-impl@my-rig",
+        session: "dev-impl@my-software-team",
         text: expect.stringContaining("hello"),
         waitForIdleMs: 30000,
       }),
       { timeoutMs: 35000 },
     );
     const sentText = postFn.mock.calls[0]?.[1] as { text: string } | undefined;
-    expect(sentText?.text).toContain("To: dev-impl@my-rig");
+    expect(sentText?.text).toContain("To: dev-impl@my-software-team");
     expect(sentText?.text).toContain("---\nhello\n---");
-    expect(sentText?.text).toContain('↩ Reply: rig send');
+    expect(sentText?.text).toContain('↩ Reply: SoftwareTeam send');
   });
 
   it("send without wait-for-idle uses default client timeout path", async () => {
     const postFn = vi.fn(async () => ({
       status: 200,
-      data: { ok: true, sessionName: "dev-impl@my-rig" },
+      data: { ok: true, sessionName: "dev-impl@my-software-team" },
     }));
     const deps = runningDeps(port, () => ({ post: postFn } as unknown as DaemonClient));
     await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello"]);
+      await makeCmd(deps).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello"]);
     });
     expect(postFn.mock.calls[0]?.[2]).toBeUndefined();
   });
@@ -550,15 +550,15 @@ describe("Send CLI", () => {
     const gets: string[] = [];
     const client = {
       get: async (path: string) => { gets.push(path); return { status: 200, data: { ref: "packs/brief", text: "BRIEF-CONTENT", bytes: 13, missingFiles: [] } }; },
-      post: async (path: string, body: unknown) => { posts.push({ path, body: body as Record<string, unknown> }); return { status: 200, data: { ok: true, sessionName: "dev@rig" } }; },
+      post: async (path: string, body: unknown) => { posts.push({ path, body: body as Record<string, unknown> }); return { status: 200, data: { ok: true, sessionName: "dev@software-team" } }; },
     } as unknown as DaemonClient;
     const { exitCode } = await captureChannels(async () => {
-      await makeCmd(runningDeps(port, () => client)).parseAsync(["node", "rig", "send", "dev@rig", "--context", "packs/brief", "--raw"]);
+      await makeCmd(runningDeps(port, () => client)).parseAsync(["node", "softwareTeam", "send", "dev@software-team", "--context", "packs/brief", "--raw"]);
     });
     expect(exitCode).toBeUndefined();
     expect(gets.some((g) => g.includes("/api/context-packs/library/by-ref/pieces?ref=") && g.includes(encodeURIComponent("packs/brief")))).toBe(true);
     expect(posts).toHaveLength(1);
-    expect(posts[0]!.body["session"]).toBe("dev@rig");
+    expect(posts[0]!.body["session"]).toBe("dev@software-team");
     expect(posts[0]!.body["text"]).toBe("BRIEF-CONTENT"); // --raw → no From/To envelope
   });
 
@@ -569,7 +569,7 @@ describe("Send CLI", () => {
       post: async (_p: string, b: unknown) => { posts.push(b); return { status: 200, data: {} }; },
     } as unknown as DaemonClient;
     const { stderr, exitCode } = await captureChannels(async () => {
-      await makeCmd(runningDeps(port, () => client)).parseAsync(["node", "rig", "send", "dev@rig", "--context", "packs/broken", "--raw"]);
+      await makeCmd(runningDeps(port, () => client)).parseAsync(["node", "softwareTeam", "send", "dev@software-team", "--context", "packs/broken", "--raw"]);
     });
     expect(exitCode).toBe(1);
     expect(posts).toEqual([]); // no partial context ever sent
@@ -578,7 +578,7 @@ describe("Send CLI", () => {
 
   it("send rejects invalid wait-for-idle values before contacting daemon", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello", "--wait-for-idle", "0"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello", "--wait-for-idle", "0"]);
     });
     expect(logs.join("\n")).toContain("positive number");
     expect(exitCode).toBe(1);
@@ -587,7 +587,7 @@ describe("Send CLI", () => {
 
   it("send rejects wait-for-idle with force before contacting daemon", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello", "--wait-for-idle", "30", "--force"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello", "--wait-for-idle", "30", "--force"]);
     });
     expect(logs.join("\n")).toContain("cannot be combined");
     expect(exitCode).toBe(1);
@@ -597,35 +597,35 @@ describe("Send CLI", () => {
   // OPR.0.4.1.10 — --raw sends exact text with NO messaging envelope (still guarded server-side).
   it("send --raw posts the exact text without the From/To envelope", async () => {
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "dev-impl@my-rig", "/compact", "--raw"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "/compact", "--raw"]);
     });
     expect(lastSendBody?.text).toBe("/compact");
-    expect(String(lastSendBody?.text)).not.toContain("To: dev-impl@my-rig");
+    expect(String(lastSendBody?.text)).not.toContain("To: dev-impl@my-software-team");
     expect(String(lastSendBody?.text)).not.toContain("↩ Reply");
   });
 
   it("default send (no --raw) wraps the From/To messaging envelope", async () => {
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello"]);
     });
-    expect(String(lastSendBody?.text)).toContain("To: dev-impl@my-rig");
+    expect(String(lastSendBody?.text)).toContain("To: dev-impl@my-software-team");
     expect(String(lastSendBody?.text)).toContain("---\nhello\n---");
   });
 
   // P21 I4 (specimen-5 security fix, REVERSES ba41fea2): --from is DEPRECATED + IGNORED. The rendered
-  // From: and the actorSession DERIVE from the transport identity ($OPENRIG_SESSION_NAME, stamped as
-  // X-OpenRig-Session), NEVER a caller-supplied --from string (the forgeable "From: pm-lead" surface the
+  // From: and the actorSession DERIVE from the transport identity ($SOFTWARETEAM_SESSION_NAME, stamped as
+  // X-SoftwareTeam-Session), NEVER a caller-supplied --from string (the forgeable "From: pm-lead" surface the
   // live incident acted upon). A forged --from must not appear anywhere in the outbound envelope.
   it("send --from <origin> is IGNORED — From:/actor derive from the ambient transport identity, not --from", async () => {
-    vi.stubEnv("OPENRIG_SESSION_NAME", "seat@my-rig");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "seat@my-software-team");
     vi.stubEnv("RIGGED_SESSION_NAME", "");
     try {
       await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello", "--from", "orch-lead@rig-a"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello", "--from", "orch-lead@software-team-a"]);
       });
-      expect(String(lastSendBody?.text)).toContain("From: seat@my-rig");
-      expect(String(lastSendBody?.text)).not.toContain("orch-lead@rig-a"); // the forged origin never renders
-      expect(lastSendBody?.actorSession).toBe("seat@my-rig");
+      expect(String(lastSendBody?.text)).toContain("From: seat@my-software-team");
+      expect(String(lastSendBody?.text)).not.toContain("orch-lead@software-team-a"); // the forged origin never renders
+      expect(lastSendBody?.actorSession).toBe("seat@my-software-team");
     } finally {
       vi.unstubAllEnvs();
     }
@@ -633,7 +633,7 @@ describe("Send CLI", () => {
 
   it("send --dangerously-interact --reason posts the override fields with raw (exact) text", async () => {
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "dev-impl@my-rig", "1", "--dangerously-interact", "--reason", "unblock stuck prompt"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "1", "--dangerously-interact", "--reason", "unblock stuck prompt"]);
     });
     expect(lastSendBody?.dangerouslyInteract).toBe(true);
     expect(lastSendBody?.reason).toBe("unblock stuck prompt");
@@ -643,7 +643,7 @@ describe("Send CLI", () => {
 
   it("send --dangerously-interact without --reason is rejected before contacting the daemon", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "dev-impl@my-rig", "1", "--dangerously-interact"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "1", "--dangerously-interact"]);
     });
     expect(logs.join("\n")).toContain("requires --reason");
     expect(exitCode).toBe(1);
@@ -652,14 +652,14 @@ describe("Send CLI", () => {
 
   it("send --dangerously-interact + --wait-for-idle is rejected before contacting the daemon", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "dev-impl@my-rig", "1", "--dangerously-interact", "--reason", "x", "--wait-for-idle", "30"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "1", "--dangerously-interact", "--reason", "x", "--wait-for-idle", "30"]);
     });
     expect(logs.join("\n")).toContain("cannot be combined with --wait-for-idle");
     expect(exitCode).toBe(1);
     expect(lastSendBody).toBeNull();
   });
 
-  // OPR.0.4.1.10 — cross-host argv must forward the new flags so the remote rig applies the same guard.
+  // OPR.0.4.1.10 — cross-host argv must forward the new flags so the remote softwareTeam applies the same guard.
   it("send --host forwards --raw/--dangerously-interact/--reason in the reconstructed remote argv", async () => {
     let captured: readonly string[] | null = null;
     const deps: SendDeps = {
@@ -668,7 +668,7 @@ describe("Send CLI", () => {
       crossHostRun: async (_host, argv) => { captured = argv; return { ok: true, stdout: "remote ok", stderr: "" }; },
     };
     await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "send", "dev-impl@my-rig", "1", "--host", "vm-test", "--raw", "--dangerously-interact", "--reason", "why now"]);
+      await makeCmd(deps).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "1", "--host", "vm-test", "--raw", "--dangerously-interact", "--reason", "why now"]);
     });
     expect(captured).not.toBeNull();
     const argv = captured as unknown as string[];
@@ -686,28 +686,28 @@ describe("Send CLI", () => {
       hostRegistryLoader: () => ({ ok: true, registry: { hosts: [{ id: "vm-test", transport: "ssh", target: "vm.local" }] } }),
       crossHostRun: async (_host, argv) => { captured = argv; return { ok: true, stdout: "remote ok", stderr: "" }; } };
     const result = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "send", "dev-impl@my-rig", answer,
+      await makeCmd(deps).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", answer,
         "--host", "vm-test", "--dangerously-interact", "--reason", "explicit key"]);
     });
     expect(result.exitCode).toBeFalsy();
-    expect(captured.slice(0, 4)).toEqual(["rig", "send", "dev-impl@my-rig", answer]);
+    expect(captured.slice(0, 4)).toEqual(["SoftwareTeam", "send", "dev-impl@my-software-team", answer]);
     expect(captured).toContain("--dangerously-interact");
     expect(captured[captured.indexOf("--reason") + 1]).toBe("explicit key");
   });
 
   it.each(["\r", "\t", " "])("--raw alone retains whitespace refusal (%#)", async answer => {
     const result = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "dev-impl@my-rig", answer, "--raw"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", answer, "--raw"]);
     });
     expect(result.exitCode).toBe(1);
     expect(lastSendBody).toBeNull();
   });
 
-  // Slice-03 Atom 6b QA fix — the agent@rig@host SUGAR host folds in AFTER the
+  // Slice-03 Atom 6b QA fix — the agent@software-team@host SUGAR host folds in AFTER the
   // early --context guard, so --context must be re-rejected after the fold: it
   // must NEVER reach the cross-host argv (which would ship literal null with no
   // message, or silently drop the context with one). Both forms pinned.
-  it("send --context rejects the agent@rig@host sugar cross-host form (NO message) — never reaches remote argv", async () => {
+  it("send --context rejects the agent@software-team@host sugar cross-host form (NO message) — never reaches remote argv", async () => {
     let captured: readonly string[] | null = null;
     const deps: SendDeps = {
       ...runningDeps(port),
@@ -715,11 +715,11 @@ describe("Send CLI", () => {
       crossHostRun: async (_host, argv) => { captured = argv; return { ok: true, stdout: "", stderr: "" }; },
     };
     const { stderr, exitCode } = await captureChannels(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "send", "dev-impl@my-rig@vm-test", "--context", "packs/x"]);
+      await makeCmd(deps).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team@vm-test", "--context", "packs/x"]);
     });
     expect(exitCode).toBe(1);
     expect(captured).toBeNull(); // never reached cross-host → no null shipped
-    expect(stderr.join("\n")).toMatch(/--host|agent@rig@host/);
+    expect(stderr.join("\n")).toMatch(/--host|agent@software-team@host/);
   });
 
   it("send --context rejects the sugar cross-host form (WITH message) — context not silently dropped", async () => {
@@ -730,30 +730,30 @@ describe("Send CLI", () => {
       crossHostRun: async (_host, argv) => { captured = argv; return { ok: true, stdout: "", stderr: "" }; },
     };
     const { exitCode } = await captureChannels(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "send", "dev-impl@my-rig@vm-test", "msg", "--context", "packs/x"]);
+      await makeCmd(deps).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team@vm-test", "msg", "--context", "packs/x"]);
     });
     expect(exitCode).toBe(1);
     expect(captured).toBeNull(); // rejected before cross-host → context never dropped
   });
 
-  // OPR.0.4.3.30 — `rig send` fan-out targeting (--to / --pod / --rig).
+  // OPR.0.4.3.30 — `SoftwareTeam send` fan-out targeting (--to / --pod / --software-team).
   it("send --to a,b fans out to /broadcast with a sessions list and prints per-recipient summary", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "--to", "dev-impl@my-rig,dev-qa@my-rig", "hello team"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "--to", "dev-impl@my-software-team,dev-qa@my-software-team", "hello team"]);
     });
     expect(lastSendBody).toBeNull(); // NOT the single-seat path
-    expect(lastBroadcastBody?.sessions).toEqual(["dev-impl@my-rig", "dev-qa@my-rig"]);
+    expect(lastBroadcastBody?.sessions).toEqual(["dev-impl@my-software-team", "dev-qa@my-software-team"]);
     expect(lastBroadcastBody?.text).toBe("hello team"); // bare — daemon wraps per recipient
     const output = logs.join("\n");
-    expect(output).toContain("dev-impl@my-rig: sent");
-    expect(output).toContain("dev-qa@my-rig: sent");
+    expect(output).toContain("dev-impl@my-software-team: sent");
+    expect(output).toContain("dev-qa@my-software-team: sent");
     expect(output).toContain("2/2 delivered");
     expect(exitCode).toBeUndefined();
   });
 
   it("send fan-out refuses whitespace-only content before broadcast transport", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "--to", "dev-impl@my-rig", " \t"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "--to", "dev-impl@my-software-team", " \t"]);
     });
     expect(exitCode).toBe(1);
     expect(lastBroadcastBody).toBeNull();
@@ -762,9 +762,9 @@ describe("Send CLI", () => {
 
   it("send --to accepts repetition (--to a --to b) and sets the daemon-side envelopeSender", async () => {
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "--to", "dev-impl@my-rig", "--to", "dev-qa@my-rig", "hi"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "--to", "dev-impl@my-software-team", "--to", "dev-qa@my-software-team", "hi"]);
     });
-    expect(lastBroadcastBody?.sessions).toEqual(["dev-impl@my-rig", "dev-qa@my-rig"]);
+    expect(lastBroadcastBody?.sessions).toEqual(["dev-impl@my-software-team", "dev-qa@my-software-team"]);
     // Non-raw fan-out: the daemon wraps per recipient, so the CLI passes a sender + BARE text.
     expect(typeof lastBroadcastBody?.envelopeSender).toBe("string");
     expect(String(lastBroadcastBody?.text)).not.toContain("To:");
@@ -772,28 +772,28 @@ describe("Send CLI", () => {
 
   it("send --pod posts a pod target to /broadcast", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "--pod", "dev", "pod message"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "--pod", "dev", "pod message"]);
     });
     expect(lastBroadcastBody?.pod).toBe("dev");
     expect(lastBroadcastBody?.text).toBe("pod message");
     expect(logs.join("\n")).toContain("2/2 delivered");
   });
 
-  it("send --rig posts a rig target to /broadcast", async () => {
+  it("send --software-team posts a SoftwareTeam target to /broadcast", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "--rig", "my-rig", "rig message"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "--software-team", "my-software-team", "SoftwareTeam message"]);
     });
-    expect(lastBroadcastBody?.rig).toBe("my-rig");
+    expect(lastBroadcastBody?.softwareTeam).toBe("my-software-team");
     expect(logs.join("\n")).toContain("2/2 delivered");
   });
 
   it("fan-out with one recipient failing prints which failed, the summary, and exits nonzero", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "--to", "seat-a@my-rig,seat-b@my-rig", "partial"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "--to", "seat-a@my-software-team,seat-b@my-software-team", "partial"]);
     });
     const output = logs.join("\n");
-    expect(output).toContain("seat-a@my-rig: sent");
-    expect(output).toContain("seat-b@my-rig: FAILED — target needs input");
+    expect(output).toContain("seat-a@my-software-team: sent");
+    expect(output).toContain("seat-b@my-software-team: FAILED — target needs input");
     expect(output).toContain("1/2 delivered");
     expect(exitCode).toBe(1);
   });
@@ -807,7 +807,7 @@ describe("Send CLI", () => {
   describe("S3 — delivery honesty (OPR.0.5.4.6): staged-vs-consumed by pane effect", () => {
     it("PROOF-1: a send whose text sits AT the prompt is reported STAGED — by pane effect, not the transport's verified:true", async () => {
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "send", "staged-session", "hello there", "--verify"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "send", "staged-session", "hello there", "--verify"]);
       });
       const output = logs.join("\n");
       // RED at current bytes: the transport's false "delivered" is echoed as
@@ -818,7 +818,7 @@ describe("Send CLI", () => {
 
     it("PROOF-1b: a `»` Codex 0.153 prompt is staged evidence through the shared glyph set", async () => {
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "send", "codex153-session", "hello there", "--verify"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "send", "codex153-session", "hello there", "--verify"]);
       });
       const output = logs.join("\n");
       expect(output).toMatch(/staged/i);
@@ -826,7 +826,7 @@ describe("Send CLI", () => {
 
     it("PROOF-2: a genuinely consumed send verifies positively and is NEVER reported staged", async () => {
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "send", "consumed-session", "hello there", "--verify"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "send", "consumed-session", "hello there", "--verify"]);
       });
       const output = logs.join("\n");
       expect(output).not.toMatch(/staged/i);
@@ -835,7 +835,7 @@ describe("Send CLI", () => {
 
     it("PROOF-3: the staged remedy is the single submit path — exactly one plain-text send, no blind re-send suggested or performed", async () => {
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "send", "staged-session", "hello there", "--verify"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "send", "staged-session", "hello there", "--verify"]);
       });
       const output = logs.join("\n");
       // exactly ONE plain-text delivery of these bytes ever hits the wire
@@ -854,7 +854,7 @@ describe("Send CLI", () => {
     // ── Wave-1 fix round 1 (r2 BLOCKING row 91b29490) ──
     it("F3: a stale pasted-text placeholder in SCROLLBACK is NOT staged evidence — no staged report, no guarded submit fired", async () => {
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "send", "stale-scroll-session", "hello there", "--verify"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "send", "stale-scroll-session", "hello there", "--verify"]);
       });
       const output = logs.join("\n");
       expect(output).not.toMatch(/staged/i);
@@ -865,7 +865,7 @@ describe("Send CLI", () => {
 
     it("F2: --json with --verify carries the effect classification in the envelope (staged case)", async () => {
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "send", "staged-session", "hello there", "--verify", "--json"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "send", "staged-session", "hello there", "--verify", "--json"]);
       });
       const envelope = JSON.parse(logs.find((l) => l.trim().startsWith("{")) ?? "{}") as Record<string, unknown>;
       const effect = envelope["effectCheck"] as Record<string, unknown> | undefined;
@@ -876,7 +876,7 @@ describe("Send CLI", () => {
 
     it("F2: fan-out with --verify reports per-recipient effect — staged named, consumed never claimed staged", async () => {
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "send", "--to", "staged-session,consumed-session", "hello there", "--verify"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "send", "--to", "staged-session,consumed-session", "hello there", "--verify"]);
       });
       // Strip the seat NAMES before matching, so "staged-session: sent" can
       // never satisfy the staged-effect assertion by its name alone (the
@@ -893,7 +893,7 @@ describe("Send CLI", () => {
     // verdict per recipient, identity BEFORE placeholder attribution) ──
     it("R2-F1 human: a staged-unresolved recipient gets NO sent line and is NOT counted delivered — one verdict only", async () => {
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "send", "--to", "staged-session,consumed-session", "hello there", "--verify"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "send", "--to", "staged-session,consumed-session", "hello there", "--verify"]);
       });
       const lines = logs.join("\n").split("\n");
       // the false lines must be ABSENT (desk-binding): no unqualified sent, no delivered count including it
@@ -907,7 +907,7 @@ describe("Send CLI", () => {
 
     it("R2-F1 json: the same recipient can never be simultaneously delivered and staged-not-consumed in the envelope", async () => {
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "send", "--to", "staged-session,consumed-session", "hello there", "--verify", "--json"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "send", "--to", "staged-session,consumed-session", "hello there", "--verify", "--json"]);
       });
       const envelope = JSON.parse(logs.find((l) => l.trim().startsWith("{")) ?? "{}") as Record<string, unknown>;
       const results = (envelope["results"] as Array<Record<string, unknown>>) ?? [];
@@ -925,7 +925,7 @@ describe("Send CLI", () => {
 
     it("R2-F1 json single-send: a staged-unresolved envelope carries no delivered claim beside the staged effect", async () => {
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "send", "staged-session", "hello there", "--verify", "--json"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "send", "staged-session", "hello there", "--verify", "--json"]);
       });
       const envelope = JSON.parse(logs.find((l) => l.trim().startsWith("{")) ?? "{}") as Record<string, unknown>;
       expect((envelope["effectCheck"] as Record<string, unknown>)["state"]).toBe("staged");
@@ -935,7 +935,7 @@ describe("Send CLI", () => {
 
     it("R2-F2: an unrelated size-mismatched placeholder is UNVERIFIABLE — never staged-as-this-send, never a guarded submit", async () => {
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "send", "unrelated-paste-session", "hello there", "--verify"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "send", "unrelated-paste-session", "hello there", "--verify"]);
       });
       const output = logs.join("\n");
       expect(output).not.toMatch(/staged, not consumed/i); // no staged-as-this-send claim
@@ -949,10 +949,10 @@ describe("Send CLI", () => {
   // an env-less operator sees the notice, never "sent" lines alone.
   it("fan-out renderer surfaces the unknown-sender notice from the response warning", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "--to", "dev-impl@my-rig,dev-qa@my-rig", "warn-notice"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "--to", "dev-impl@my-software-team,dev-qa@my-software-team", "warn-notice"]);
     });
     const output = logs.join("\n");
-    expect(output).toContain("dev-impl@my-rig: sent");
+    expect(output).toContain("dev-impl@my-software-team: sent");
     expect(output).toContain("Advisory:");
     expect(output).toMatch(/no way of knowing who sent/i);
     expect(output).toMatch(/sign/i);
@@ -960,7 +960,7 @@ describe("Send CLI", () => {
 
   it("fan-out --raw sends bare exact text with NO envelopeSender (no per-recipient wrap)", async () => {
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "--to", "dev-impl@my-rig,dev-qa@my-rig", "/compact", "--raw"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "--to", "dev-impl@my-software-team,dev-qa@my-software-team", "/compact", "--raw"]);
     });
     expect(lastBroadcastBody?.text).toBe("/compact");
     expect("envelopeSender" in (lastBroadcastBody ?? {})).toBe(false);
@@ -968,7 +968,7 @@ describe("Send CLI", () => {
 
   it("fan-out --dangerously-interact --reason plumbs the danger fields (bare text, no envelope)", async () => {
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "--to", "dev-impl@my-rig,dev-qa@my-rig", "1", "--dangerously-interact", "--reason", "drive stuck prompts"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "--to", "dev-impl@my-software-team,dev-qa@my-software-team", "1", "--dangerously-interact", "--reason", "drive stuck prompts"]);
     });
     expect(lastBroadcastBody?.dangerouslyInteract).toBe(true);
     expect(lastBroadcastBody?.reason).toBe("drive stuck prompts");
@@ -978,9 +978,9 @@ describe("Send CLI", () => {
 
   it("rejects combining a bare seat with a fan-out flag", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello", "--pod", "dev"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello", "--pod", "dev"]);
     });
-    expect(logs.join("\n")).toContain("cannot be combined with --to/--pod/--rig");
+    expect(logs.join("\n")).toContain("cannot be combined with --to/--pod/--software-team");
     expect(exitCode).toBe(1);
     expect(lastBroadcastBody).toBeNull();
     expect(lastSendBody).toBeNull();
@@ -988,29 +988,29 @@ describe("Send CLI", () => {
 
   it("rejects more than one fan-out mode at once", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "--pod", "dev", "--rig", "my-rig", "hello"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "--pod", "dev", "--software-team", "my-software-team", "hello"]);
     });
     expect(logs.join("\n")).toContain("exactly ONE target");
     expect(exitCode).toBe(1);
     expect(lastBroadcastBody).toBeNull();
   });
 
-  it("rejects --wait-for-idle with a multi/pod/rig target", async () => {
+  it("rejects --wait-for-idle with a multi/pod/SoftwareTeam target", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "--rig", "my-rig", "hello", "--wait-for-idle", "30"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "--software-team", "my-software-team", "hello", "--wait-for-idle", "30"]);
     });
-    expect(logs.join("\n")).toContain("not supported with a multi/pod/rig target");
+    expect(logs.join("\n")).toContain("not supported with a multi/pod/SoftwareTeam target");
     expect(exitCode).toBe(1);
     expect(lastBroadcastBody).toBeNull();
   });
 
   it("single-seat send is UNCHANGED — still posts to /send, byte-identical envelope, no /broadcast", async () => {
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello"]);
     });
     expect(lastBroadcastBody).toBeNull();
-    expect(lastSendBody?.session).toBe("dev-impl@my-rig");
-    expect(String(lastSendBody?.text)).toContain("To: dev-impl@my-rig");
+    expect(lastSendBody?.session).toBe("dev-impl@my-software-team");
+    expect(String(lastSendBody?.text)).toContain("To: dev-impl@my-software-team");
   });
 
   it("send --help includes rediscovery examples + the new guard flags", () => {
@@ -1022,7 +1022,7 @@ describe("Send CLI", () => {
     expect(helpText).toContain("--raw");
     expect(helpText).toContain("--dangerously-interact");
     expect(helpText).toContain("pane only");
-    expect(helpText).toContain("dev-impl@my-rig");
+    expect(helpText).toContain("dev-impl@my-software-team");
   });
 
   // OPR.0.4.3.28 B1 code-review fix — the help text must reflect the corrected
@@ -1050,7 +1050,7 @@ describe("Send CLI", () => {
   // running/unhealthy) must still receive the POST/broadcast; a REAL down
   // fails honestly from the actual connection error, naming the target —
   // never the bare preflight restart line. Guard matrix: single + fan-out;
-  // stopped + running/unhealthy; OPENRIG_URL/RIGGED_URL custom ports +
+  // stopped + running/unhealthy; SOFTWARETEAM_URL/SOFTWARETEAM_URL custom ports +
   // precedence; honest failure; cross-host untouched (pinned in the
   // cross-host suites).
   // -------------------------------------------------------------------------
@@ -1078,8 +1078,8 @@ describe("Send CLI", () => {
      *  the surrounding managed seat happens to export. Paired with the
      *  block's afterEach(vi.unstubAllEnvs) for restore. */
     function scrubDaemonHostPortAliases(): void {
-      vi.stubEnv("OPENRIG_HOST", "");
-      vi.stubEnv("OPENRIG_PORT", "");
+      vi.stubEnv("SOFTWARETEAM_HOST", "");
+      vi.stubEnv("SOFTWARETEAM_PORT", "");
       vi.stubEnv("RIGGED_HOST", "");
       vi.stubEnv("RIGGED_PORT", "");
     }
@@ -1116,56 +1116,58 @@ describe("Send CLI", () => {
       };
     }
 
-    it("R1 RED: single-seat + OPENRIG_URL custom port + probe-stopped -> actual POST lands, exact env target passed to clientFactory", async () => {
-      vi.stubEnv("OPENRIG_URL", `http://127.0.0.1:${port}`);
+    it("R1 RED: single-seat + SOFTWARETEAM_URL custom port + probe-stopped -> actual POST lands, exact env target passed to clientFactory", async () => {
+      vi.stubEnv("SOFTWARETEAM_URL", `http://127.0.0.1:${port}`);
       vi.stubEnv("RIGGED_URL", "");
       lastSendBody = null;
       const rc = recordingRealClient();
       const { logs } = await captureLogs(async () => {
-        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello"]);
+        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello"]);
       });
-      expect(logs.join("\n")).toContain("Sent to dev-impl@my-rig");
+      expect(logs.join("\n")).toContain("Sent to dev-impl@my-software-team");
       expect(rc.seen()).toBe(`http://127.0.0.1:${port}`);
-      expect(String(lastSendBody?.text)).toContain("To: dev-impl@my-rig");
+      expect(String(lastSendBody?.text)).toContain("To: dev-impl@my-software-team");
     });
 
-    it("R2 RED: fan-out --to + OPENRIG_URL + probe-stopped -> actual /broadcast lands with per-recipient results", async () => {
-      vi.stubEnv("OPENRIG_URL", `http://127.0.0.1:${port}`);
+    it("R2 RED: fan-out --to + SOFTWARETEAM_URL + probe-stopped -> actual /broadcast lands with per-recipient results", async () => {
+      vi.stubEnv("SOFTWARETEAM_URL", `http://127.0.0.1:${port}`);
       vi.stubEnv("RIGGED_URL", "");
       lastBroadcastBody = null;
       const rc = recordingRealClient();
       const { logs } = await captureLogs(async () => {
-        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "rig", "send", "--to", "dev-impl@my-rig,dev-qa@my-rig", "hi team"]);
+        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "softwareTeam", "send", "--to", "dev-impl@my-software-team,dev-qa@my-software-team", "hi team"]);
       });
       expect(lastBroadcastBody).not.toBeNull();
-      expect(logs.join("\n")).toContain("dev-impl@my-rig");
+      expect(logs.join("\n")).toContain("dev-impl@my-software-team");
       expect(rc.seen()).toBe(`http://127.0.0.1:${port}`);
     });
 
-    it("R3 RED: legacy RIGGED_URL custom port honored when OPENRIG_URL unset (probe-stopped)", async () => {
-      vi.stubEnv("OPENRIG_URL", "");
-      vi.stubEnv("RIGGED_URL", `http://127.0.0.1:${port}`);
-      const rc = recordingRealClient();
-      const { logs } = await captureLogs(async () => {
-        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello"]);
-      });
-      expect(logs.join("\n")).toContain("Sent to dev-impl@my-rig");
-      expect(rc.seen()).toBe(`http://127.0.0.1:${port}`);
-    });
-
-    it("R4 RED: precedence — OPENRIG_URL wins over RIGGED_URL on the transport-authoritative path", async () => {
-      vi.stubEnv("OPENRIG_URL", `http://127.0.0.1:${port}`);
+    it("uses the configured endpoint and ignores a legacy URL when SOFTWARETEAM_URL is unset", async () => {
+      vi.stubEnv("SOFTWARETEAM_URL", "");
+      vi.stubEnv("SOFTWARETEAM_HOST", "127.0.0.1");
+      vi.stubEnv("SOFTWARETEAM_PORT", String(port));
       vi.stubEnv("RIGGED_URL", "http://127.0.0.1:59999");
       const rc = recordingRealClient();
       const { logs } = await captureLogs(async () => {
-        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello"]);
+        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello"]);
+      });
+      expect(logs.join("\n")).toContain("Sent to dev-impl@my-software-team");
+      expect(rc.seen()).toBe(`http://127.0.0.1:${port}`);
+    });
+
+    it("SOFTWARETEAM_URL selects the endpoint despite a conflicting legacy selector", async () => {
+      vi.stubEnv("SOFTWARETEAM_URL", `http://127.0.0.1:${port}`);
+      vi.stubEnv("RIGGED_URL", "http://127.0.0.1:59999");
+      const rc = recordingRealClient();
+      const { logs } = await captureLogs(async () => {
+        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello"]);
       });
       expect(rc.seen()).toBe(`http://127.0.0.1:${port}`);
-      expect(logs.join("\n")).toContain("Sent to dev-impl@my-rig");
+      expect(logs.join("\n")).toContain("Sent to dev-impl@my-software-team");
     });
 
     it("R5 RED: RUNNING-but-UNHEALTHY (event-loop-starved healthz body) must still send (single-seat + fan-out)", async () => {
-      vi.stubEnv("OPENRIG_URL", `http://127.0.0.1:${port}`);
+      vi.stubEnv("SOFTWARETEAM_URL", `http://127.0.0.1:${port}`);
       vi.stubEnv("RIGGED_URL", "");
       const unhealthyProbeDeps = (clientFactory: StatusDeps["clientFactory"]): StatusDeps => ({
         lifecycleDeps: {
@@ -1180,13 +1182,13 @@ describe("Send CLI", () => {
       });
       const rc = recordingRealClient();
       const { logs } = await captureLogs(async () => {
-        await makeCmd(unhealthyProbeDeps(rc.factory)).parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello"]);
+        await makeCmd(unhealthyProbeDeps(rc.factory)).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello"]);
       });
-      expect(logs.join("\n")).toContain("Sent to dev-impl@my-rig");
+      expect(logs.join("\n")).toContain("Sent to dev-impl@my-software-team");
       const rc2 = recordingRealClient();
       lastBroadcastBody = null;
       await captureLogs(async () => {
-        await makeCmd(unhealthyProbeDeps(rc2.factory)).parseAsync(["node", "rig", "send", "--to", "dev-impl@my-rig,dev-qa@my-rig", "hi"]);
+        await makeCmd(unhealthyProbeDeps(rc2.factory)).parseAsync(["node", "softwareTeam", "send", "--to", "dev-impl@my-software-team,dev-qa@my-software-team", "hi"]);
       });
       expect(lastBroadcastBody).not.toBeNull();
     });
@@ -1194,7 +1196,7 @@ describe("Send CLI", () => {
     const rcHolder = { seenUrl: null as string | null, factory: ((baseUrl: string) => { rcHolder.seenUrl = baseUrl; return new DaemonClient(baseUrl); }) as StatusDeps["clientFactory"], seen: () => rcHolder.seenUrl };
 
     it("R6 RED: NO env + live-pid state file (custom port) + healthz probe failing -> POST attempted against the state-derived target", async () => {
-      vi.stubEnv("OPENRIG_URL", "");
+      vi.stubEnv("SOFTWARETEAM_URL", "");
       vi.stubEnv("RIGGED_URL", "");
       const deps: StatusDeps = {
         lifecycleDeps: {
@@ -1210,56 +1212,56 @@ describe("Send CLI", () => {
         clientFactory: rcHolder.factory,
       };
       const { logs } = await captureLogs(async () => {
-        await makeCmd(deps).parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello"]);
+        await makeCmd(deps).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello"]);
       });
-      expect(logs.join("\n")).toContain("Sent to dev-impl@my-rig");
+      expect(logs.join("\n")).toContain("Sent to dev-impl@my-software-team");
       expect(rcHolder.seen()).toBe(`http://127.0.0.1:${port}`);
     });
 
     it("R6b RED: NO env + NO daemon state + probe-stopped -> POST attempted against the configured DEFAULT target (injected client succeeds)", async () => {
-      vi.stubEnv("OPENRIG_URL", "");
+      vi.stubEnv("SOFTWARETEAM_URL", "");
       vi.stubEnv("RIGGED_URL", "");
       // ff13bcdf finding 2 — ConfigStore maps these aliases to
       // daemon.host/daemon.port with env winning over file (config-store.ts
-      // :343,349). A managed seat carries ambient OPENRIG_PORT, so without
+      // :343,349). A managed seat carries ambient SOFTWARETEAM_PORT, so without
       // this scrub the test measures the AMBIENT ENVIRONMENT, not the
       // contract. Restored by the block's afterEach(vi.unstubAllEnvs).
       scrubDaemonHostPortAliases();
       // Config isolation without touching disk: a nonexistent home means no
       // daemon config, so the configured target resolves to the default.
-      vi.stubEnv("OPENRIG_HOME", "/nonexistent/send-r6b-home");
+      vi.stubEnv("SOFTWARETEAM_HOME", "/nonexistent/send-r6b-home");
       let seenUrl: string | null = null;
-      const postFn = vi.fn(async () => ({ status: 200, data: { ok: true, sessionName: "dev-impl@my-rig" } }));
+      const postFn = vi.fn(async () => ({ status: 200, data: { ok: true, sessionName: "dev-impl@my-software-team" } }));
       const stubFactory = ((baseUrl: string) => { seenUrl = baseUrl; return { post: postFn } as unknown as DaemonClient; }) as StatusDeps["clientFactory"];
       const { logs } = await captureLogs(async () => {
-        await makeCmd(probeFailNoStateDeps(stubFactory)).parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello"]);
+        await makeCmd(probeFailNoStateDeps(stubFactory)).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello"]);
       });
-      expect(logs.join("\n")).toContain("Sent to dev-impl@my-rig");
-      expect(seenUrl).toBe("http://127.0.0.1:7433");
+      expect(logs.join("\n")).toContain("Sent to dev-impl@my-software-team");
+      expect(seenUrl).toBe("http://127.0.0.1:7434");
       expect(postFn).toHaveBeenCalledTimes(1);
     });
 
     it("R6c RED: NO env + NO state + probe-stopped + ConfigStore CUSTOM daemon host/port -> POST attempted against the CONFIGURED-FILE target exactly (no hardcoded default)", async () => {
-      vi.stubEnv("OPENRIG_URL", "");
+      vi.stubEnv("SOFTWARETEAM_URL", "");
       vi.stubEnv("RIGGED_URL", "");
-      // ff13bcdf finding 2 — without this scrub an ambient OPENRIG_PORT
-      // (e.g. 7433 in a managed seat) overrides the config FILE's 7599 via
+      // ff13bcdf finding 2 — without this scrub an ambient SOFTWARETEAM_PORT
+      // (e.g. 7434 in a managed seat) overrides the config FILE's 7599 via
       // ConfigStore env-over-file precedence, and this test silently asserts
-      // 127.0.0.9:7433 — the exact leak R2 observed.
+      // 127.0.0.9:7434 — the exact leak R2 observed.
       scrubDaemonHostPortAliases();
       const home = fs.mkdtempSync(path.join(os.tmpdir(), "send-r6c-home-"));
       try {
         fs.writeFileSync(path.join(home, "config.json"), JSON.stringify({ daemon: { host: "127.0.0.9", port: 7599 } }));
-        vi.stubEnv("OPENRIG_HOME", home);
+        vi.stubEnv("SOFTWARETEAM_HOME", home);
         let seenUrl: string | null = null;
-        const postFn = vi.fn(async () => ({ status: 200, data: { ok: true, sessionName: "dev-impl@my-rig" } }));
+        const postFn = vi.fn(async () => ({ status: 200, data: { ok: true, sessionName: "dev-impl@my-software-team" } }));
         const stubFactory = ((baseUrl: string) => { seenUrl = baseUrl; return { post: postFn } as unknown as DaemonClient; }) as StatusDeps["clientFactory"];
         const { logs } = await captureLogs(async () => {
-          await makeCmd(probeFailNoStateDeps(stubFactory)).parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello"]);
+          await makeCmd(probeFailNoStateDeps(stubFactory)).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello"]);
         });
-        expect(logs.join("\n")).toContain("Sent to dev-impl@my-rig");
+        expect(logs.join("\n")).toContain("Sent to dev-impl@my-software-team");
         // The configured file target, byte-exact — a literal-default fallback
-        // (http://127.0.0.1:7433) is a contract violation here.
+        // (http://127.0.0.1:7434) is a contract violation here.
         expect(seenUrl).toBe("http://127.0.0.9:7599");
         expect(postFn).toHaveBeenCalledTimes(1);
       } finally {
@@ -1269,11 +1271,11 @@ describe("Send CLI", () => {
     });
 
     it("R7 RED: REAL down fails honestly — actual connection error names the target; the bare preflight restart line never appears", async () => {
-      vi.stubEnv("OPENRIG_URL", "http://127.0.0.1:1");
+      vi.stubEnv("SOFTWARETEAM_URL", "http://127.0.0.1:1");
       vi.stubEnv("RIGGED_URL", "");
       const rc = recordingRealClient();
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello"]);
+        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello"]);
       });
       const out = logs.join("\n");
       expect(exitCode).toBe(1);
@@ -1282,15 +1284,15 @@ describe("Send CLI", () => {
       // preflight-derived guess. (Also covers 1b45cf21's explicit/custom
       // target-preservation pin: the resolved target survives verbatim into
       // the fact line rather than being flattened into a generic message.)
-      expect(out).toContain("Cannot connect to the OpenRig daemon at http://127.0.0.1:1:");
-      expect(out).not.toContain("Daemon not running. Start it with: rig daemon start");
+      expect(out).toContain("Cannot connect to the SoftwareTeam daemon at http://127.0.0.1:1:");
+      expect(out).not.toContain("Daemon not running. Start it with: SoftwareTeam daemon start");
       // 1b45cf21 — a real transport failure must also carry the repo's
       // fact/consequence/action remediation. The fact line above is the
       // actual cause; these are the consequence and the action.
       expect(out).toContain("The message was not sent.");
-      expect(out).toContain("Inspect the configured target with 'rig status'; a failed health probe does not prove the daemon is stopped.");
-      expect(out).toContain("If the target is wrong, check OPENRIG_URL / RIGGED_URL or daemon.host + daemon.port.");
-      expect(out).toContain("If the daemon is confirmed stopped, run 'rig daemon start'.");
+      expect(out).toContain("Inspect the configured target with 'SoftwareTeam status'; a failed health probe does not prove the daemon is stopped.");
+      expect(out).toContain("If the target is wrong, check SOFTWARETEAM_URL or daemon.host + daemon.port.");
+      expect(out).toContain("If the daemon is confirmed stopped, run 'SoftwareTeam daemon start'.");
       // ABSENCE PIN: remediation must never assert daemon STATE derived from
       // the failed send or an advisory probe. A connection failure proves the
       // target was unreachable — not why.
@@ -1309,26 +1311,26 @@ describe("Send CLI", () => {
     // "characterization" while it is an intentional RED is exactly the kind of
     // stale label this slice keeps finding elsewhere.
     it("R7b RED: fan-out REAL down fails honestly too — target-specific connection error, exit 1, no restart line, and the same remediation as single-seat", async () => {
-      vi.stubEnv("OPENRIG_URL", "http://127.0.0.1:1");
+      vi.stubEnv("SOFTWARETEAM_URL", "http://127.0.0.1:1");
       vi.stubEnv("RIGGED_URL", "");
       const rc = recordingRealClient();
       const { logs, exitCode } = await captureLogs(async () => {
         // NOTE: with --to the FIRST positional IS the message (a bare seat
         // name alongside --to is rejected) — getting this wrong yields a
         // false RED rather than exercising the fan-out catch.
-        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "rig", "send", "--to", "dev-impl@my-rig", "hello"]);
+        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "softwareTeam", "send", "--to", "dev-impl@my-software-team", "hello"]);
       });
       const out = logs.join("\n");
       expect(exitCode).toBe(1);
-      expect(out).toContain("Cannot connect to the OpenRig daemon at http://127.0.0.1:1:");
-      expect(out).not.toContain("Daemon not running. Start it with: rig daemon start");
+      expect(out).toContain("Cannot connect to the SoftwareTeam daemon at http://127.0.0.1:1:");
+      expect(out).not.toContain("Daemon not running. Start it with: SoftwareTeam daemon start");
       // 1b45cf21 — SYMMETRY PIN. Fan-out must carry byte-identical
       // remediation to single-seat; divergence between the two paths is the
       // regression this asserts against.
       expect(out).toContain("The message was not sent.");
-      expect(out).toContain("Inspect the configured target with 'rig status'; a failed health probe does not prove the daemon is stopped.");
-      expect(out).toContain("If the target is wrong, check OPENRIG_URL / RIGGED_URL or daemon.host + daemon.port.");
-      expect(out).toContain("If the daemon is confirmed stopped, run 'rig daemon start'.");
+      expect(out).toContain("Inspect the configured target with 'SoftwareTeam status'; a failed health probe does not prove the daemon is stopped.");
+      expect(out).toContain("If the target is wrong, check SOFTWARETEAM_URL or daemon.host + daemon.port.");
+      expect(out).toContain("If the daemon is confirmed stopped, run 'SoftwareTeam daemon start'.");
       expect(out).not.toContain("Daemon not running");
       expect(out).not.toContain("unhealthy");
     });
@@ -1340,11 +1342,11 @@ describe("Send CLI", () => {
     // discriminator is unambiguous: stdout carries exactly one JSON record and
     // stderr is empty (and the human path is the mirror image).
     it("R7c RED: single-seat --json transport failure emits exactly one parseable stdout JSON envelope, empty stderr, exit 1", async () => {
-      vi.stubEnv("OPENRIG_URL", "http://127.0.0.1:1");
+      vi.stubEnv("SOFTWARETEAM_URL", "http://127.0.0.1:1");
       vi.stubEnv("RIGGED_URL", "");
       const rc = recordingRealClient();
       const { stdout, stderr, exitCode } = await captureChannels(async () => {
-        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello", "--json"]);
+        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello", "--json"]);
       });
       expect(exitCode).toBe(1);
       // exactly one stdout record, parseable, exact structured envelope shape
@@ -1352,9 +1354,9 @@ describe("Send CLI", () => {
       expect(stdout).toHaveLength(1);
       expect(JSON.parse(stdout[0])).toEqual({
         error: {
-          fact: expect.stringContaining("Cannot connect to the OpenRig daemon at http://127.0.0.1:1:"),
+          fact: expect.stringContaining("Cannot connect to the SoftwareTeam daemon at http://127.0.0.1:1:"),
           consequence: "The message was not sent.",
-          action: expect.stringContaining("Inspect the configured target with 'rig status'; a failed health probe does not prove the daemon is stopped."),
+          action: expect.stringContaining("Inspect the configured target with 'SoftwareTeam status'; a failed health probe does not prove the daemon is stopped."),
         },
       });
       // the --json path must NOT leak human prose onto stderr
@@ -1362,51 +1364,51 @@ describe("Send CLI", () => {
     });
 
     it("R7d RED: fan-out --json transport failure emits exactly one parseable stdout JSON envelope, empty stderr, exit 1", async () => {
-      vi.stubEnv("OPENRIG_URL", "http://127.0.0.1:1");
+      vi.stubEnv("SOFTWARETEAM_URL", "http://127.0.0.1:1");
       vi.stubEnv("RIGGED_URL", "");
       const rc = recordingRealClient();
       const { stdout, stderr, exitCode } = await captureChannels(async () => {
         // with --to the FIRST positional IS the message (bare seat + --to is rejected)
-        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "rig", "send", "--to", "dev-impl@my-rig", "hello", "--json"]);
+        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "softwareTeam", "send", "--to", "dev-impl@my-software-team", "hello", "--json"]);
       });
       expect(exitCode).toBe(1);
       expect(stdout).toHaveLength(1);
       expect(JSON.parse(stdout[0])).toEqual({
         error: {
-          fact: expect.stringContaining("Cannot connect to the OpenRig daemon at http://127.0.0.1:1:"),
+          fact: expect.stringContaining("Cannot connect to the SoftwareTeam daemon at http://127.0.0.1:1:"),
           consequence: "The message was not sent.",
-          action: expect.stringContaining("Inspect the configured target with 'rig status'; a failed health probe does not prove the daemon is stopped."),
+          action: expect.stringContaining("Inspect the configured target with 'SoftwareTeam status'; a failed health probe does not prove the daemon is stopped."),
         },
       });
       expect(stderr).toEqual([]);
     });
 
     it("R7e: single-seat HUMAN transport failure keeps stdout empty (mirror of R7c) — the 3 remediation lines are stderr-only, exit 1", async () => {
-      vi.stubEnv("OPENRIG_URL", "http://127.0.0.1:1");
+      vi.stubEnv("SOFTWARETEAM_URL", "http://127.0.0.1:1");
       vi.stubEnv("RIGGED_URL", "");
       const rc = recordingRealClient();
       const { stdout, stderr, exitCode } = await captureChannels(async () => {
-        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello"]);
+        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello"]);
       });
       expect(exitCode).toBe(1);
       expect(stdout).toEqual([]); // human path must never write to stdout
       const err = stderr.join("\n");
-      expect(err).toContain("Cannot connect to the OpenRig daemon at http://127.0.0.1:1:");
+      expect(err).toContain("Cannot connect to the SoftwareTeam daemon at http://127.0.0.1:1:");
       expect(err).toContain("The message was not sent.");
-      expect(err).toContain("Inspect the configured target with 'rig status'; a failed health probe does not prove the daemon is stopped.");
+      expect(err).toContain("Inspect the configured target with 'SoftwareTeam status'; a failed health probe does not prove the daemon is stopped.");
     });
 
     it("R7f: fan-out HUMAN transport failure keeps stdout empty (mirror of R7d) — stderr-only remediation, exit 1", async () => {
-      vi.stubEnv("OPENRIG_URL", "http://127.0.0.1:1");
+      vi.stubEnv("SOFTWARETEAM_URL", "http://127.0.0.1:1");
       vi.stubEnv("RIGGED_URL", "");
       const rc = recordingRealClient();
       const { stdout, stderr, exitCode } = await captureChannels(async () => {
-        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "rig", "send", "--to", "dev-impl@my-rig", "hello"]);
+        await makeCmd(probeFailNoStateDeps(rc.factory)).parseAsync(["node", "softwareTeam", "send", "--to", "dev-impl@my-software-team", "hello"]);
       });
       expect(exitCode).toBe(1);
       expect(stdout).toEqual([]);
       const err = stderr.join("\n");
-      expect(err).toContain("Cannot connect to the OpenRig daemon at http://127.0.0.1:1:");
+      expect(err).toContain("Cannot connect to the SoftwareTeam daemon at http://127.0.0.1:1:");
       expect(err).toContain("The message was not sent.");
     });
 
@@ -1415,19 +1417,19 @@ describe("Send CLI", () => {
     // probe is pure cost on the incident path (818ms failing / ~2.05s
     // timeout-shaped). A latency claim without a call-count assertion is
     // unfalsifiable, so these assert the probe count directly.
-    // RED on this parent: getDaemonStatus takes the openrigUrl branch and
+    // RED on this parent: getDaemonStatus takes the softwareteamUrl branch and
     // burns STATUS_PROBE_MAX_ATTEMPTS (5) fetches before the resolver reads
     // the same alias. The POST assertions pass today; ONLY the count fails.
-    it("R8: explicit OPENRIG_URL (single-seat) -> exact target POSTed + EXACTLY ONE self-id /healthz GET, no status-probe burn", async () => {
-      vi.stubEnv("OPENRIG_URL", `http://127.0.0.1:${port}`);
+    it("R8: explicit SOFTWARETEAM_URL (single-seat) -> exact target POSTed + EXACTLY ONE self-id /healthz GET, no status-probe burn", async () => {
+      vi.stubEnv("SOFTWARETEAM_URL", `http://127.0.0.1:${port}`);
       vi.stubEnv("RIGGED_URL", "");
       lastSendBody = null;
       const rc = recordingRealClient();
       const { deps, probeCalls, probeUrls } = probeCountingDeps(rc.factory);
       const { logs } = await captureLogs(async () => {
-        await makeCmd(deps).parseAsync(["node", "rig", "send", "dev-impl@my-rig", "hello"]);
+        await makeCmd(deps).parseAsync(["node", "softwareTeam", "send", "dev-impl@my-software-team", "hello"]);
       });
-      expect(logs.join("\n")).toContain("Sent to dev-impl@my-rig");
+      expect(logs.join("\n")).toContain("Sent to dev-impl@my-software-team");
       expect(rc.seen()).toBe(`http://127.0.0.1:${port}`);
       expect(lastSendBody).not.toBeNull();
       // SUPERSEDED 2026-08-06 (merge-desk sanction + the arch/planner 1-GET trade-off ruling,
@@ -1442,14 +1444,14 @@ describe("Send CLI", () => {
       expect(String(probeUrls()[0] ?? "")).toContain("/healthz"); // the one allowed call IS the self-id GET (path, not just count)
     });
 
-    it("R8b RED: explicit OPENRIG_URL (fan-out) -> exact target broadcast and ZERO lifecycle probe calls", async () => {
-      vi.stubEnv("OPENRIG_URL", `http://127.0.0.1:${port}`);
+    it("R8b RED: explicit SOFTWARETEAM_URL (fan-out) -> exact target broadcast and ZERO lifecycle probe calls", async () => {
+      vi.stubEnv("SOFTWARETEAM_URL", `http://127.0.0.1:${port}`);
       vi.stubEnv("RIGGED_URL", "");
       lastBroadcastBody = null;
       const rc = recordingRealClient();
       const { deps, probeCalls } = probeCountingDeps(rc.factory);
       await captureLogs(async () => {
-        await makeCmd(deps).parseAsync(["node", "rig", "send", "--to", "dev-impl@my-rig,dev-qa@my-rig", "hi team"]);
+        await makeCmd(deps).parseAsync(["node", "softwareTeam", "send", "--to", "dev-impl@my-software-team,dev-qa@my-software-team", "hi team"]);
       });
       expect(lastBroadcastBody).not.toBeNull();
       expect(rc.seen()).toBe(`http://127.0.0.1:${port}`);
@@ -1473,47 +1475,47 @@ describe("Send CLI", () => {
   // -------------------------------------------------------------------------
   describe("P21 I4 — fan-out IGNORES --from; identity derives from the transport (reverses ba41fea2)", () => {
     it("--from is IGNORED in fan-out — BOTH envelopeSender and actorSession name the ambient transport identity, never the forged --from origin", async () => {
-      vi.stubEnv("OPENRIG_URL", `http://127.0.0.1:${port}`);
+      vi.stubEnv("SOFTWARETEAM_URL", `http://127.0.0.1:${port}`);
       vi.stubEnv("RIGGED_URL", "");
       // Ambient identity is STUBBED, never inherited from the surrounding
       // managed seat — otherwise the discriminator would silently compare
       // against whatever the runner happens to export.
-      vi.stubEnv("OPENRIG_SESSION_NAME", "ambient-relay@my-rig");
+      vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "ambient-relay@my-software-team");
       vi.stubEnv("RIGGED_SESSION_NAME", "");
       try {
         lastBroadcastBody = null;
         await captureLogs(async () => {
           await makeCmd().parseAsync([
-            "node", "rig", "send", "--from", "origin@my-rig",
-            "--to", "dev-impl@my-rig,dev-qa@my-rig", "hi team",
+            "node", "softwareTeam", "send", "--from", "origin@my-software-team",
+            "--to", "dev-impl@my-software-team,dev-qa@my-software-team", "hi team",
           ]);
         });
         expect(lastBroadcastBody).not.toBeNull();
-        // P21 I4: --from ("origin@my-rig") is the forgeable surface — it is IGNORED. Both attribution
+        // P21 I4: --from ("origin@my-softwareTeam") is the forgeable surface — it is IGNORED. Both attribution
         // fields resolve to the ambient transport identity; the daemon then re-derives them from the
-        // X-OpenRig-Session header regardless, so a forged --from can never name the From:.
-        expect(lastBroadcastBody?.actorSession).toBe("ambient-relay@my-rig");
-        expect(lastBroadcastBody?.envelopeSender).toBe("ambient-relay@my-rig");
+        // X-SoftwareTeam-Session header regardless, so a forged --from can never name the From:.
+        expect(lastBroadcastBody?.actorSession).toBe("ambient-relay@my-software-team");
+        expect(lastBroadcastBody?.envelopeSender).toBe("ambient-relay@my-software-team");
       } finally {
         vi.unstubAllEnvs();
       }
     });
 
     it("F2 GREEN-characterization: with NO --from, fan-out still falls back to ambient identity (the flag is additive, not a behavior change)", async () => {
-      vi.stubEnv("OPENRIG_URL", `http://127.0.0.1:${port}`);
+      vi.stubEnv("SOFTWARETEAM_URL", `http://127.0.0.1:${port}`);
       vi.stubEnv("RIGGED_URL", "");
-      vi.stubEnv("OPENRIG_SESSION_NAME", "ambient-relay@my-rig");
+      vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "ambient-relay@my-software-team");
       vi.stubEnv("RIGGED_SESSION_NAME", "");
       try {
         lastBroadcastBody = null;
         await captureLogs(async () => {
           await makeCmd().parseAsync([
-            "node", "rig", "send", "--to", "dev-impl@my-rig,dev-qa@my-rig", "hi team",
+            "node", "softwareTeam", "send", "--to", "dev-impl@my-software-team,dev-qa@my-software-team", "hi team",
           ]);
         });
         expect(lastBroadcastBody).not.toBeNull();
-        expect(lastBroadcastBody?.actorSession).toBe("ambient-relay@my-rig");
-        expect(lastBroadcastBody?.envelopeSender).toBe("ambient-relay@my-rig");
+        expect(lastBroadcastBody?.actorSession).toBe("ambient-relay@my-software-team");
+        expect(lastBroadcastBody?.envelopeSender).toBe("ambient-relay@my-software-team");
       } finally {
         vi.unstubAllEnvs();
       }

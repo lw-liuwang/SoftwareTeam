@@ -1,7 +1,7 @@
 // Slice-04 (OPR.0.5.0.4) seam C1 — a DAEMON-LOCAL, secret-safe reader of the codex-auth on-disk
-// contract. The daemon cannot import packages/cli (no @openrig/cli dep); this re-reads the same
+// contract. The daemon cannot import packages/cli (no @softwareteam/cli dep); this re-reads the same
 // documented format: $CODEX_HOME||~/.codex with auth-profiles/*.json (profile NAMES) and
-// auth-seat-registry.tsv (6 tab columns: seat/rig/runtime/cwd/auth_profile/updated_ts — NO token
+// auth-seat-registry.tsv (6 tab columns: seat/softwareTeam/runtime/cwd/auth_profile/updated_ts — NO token
 // column). It reads profile NAMES and the TSV ONLY — never the profile *.json contents, which hold
 // token-class material (BR-6: no secret ever surfaces).
 
@@ -10,7 +10,7 @@ import path from "node:path";
 
 export interface CodexSeatRow {
   seat: string;
-  rig: string;
+  softwareTeam: string;
   runtime: string;
   cwd: string;
   /** The codex-auth profile name this seat is registered against (opaque, non-secret). */
@@ -87,9 +87,9 @@ function readSeats(registryPath: string): { seats: CodexSeatRow[]; registry: Cod
       continue;
     }
     // Length is exactly 6 above, so the tuple destructure is total (satisfies noUncheckedIndexedAccess).
-    const [seat, rig, runtime, cwd, authProfile, updatedTs] = cols as [string, string, string, string, string, string];
+    const [seat, softwareTeam, runtime, cwd, authProfile, updatedTs] = cols as [string, string, string, string, string, string];
     if (seat === "seat") continue; // the header row
-    rows.push({ seat, rig, runtime, cwd, authProfile, updatedTs });
+    rows.push({ seat, softwareTeam, runtime, cwd, authProfile, updatedTs });
   }
   return { seats: rows, registry: { status: "read", malformedRows } };
 }

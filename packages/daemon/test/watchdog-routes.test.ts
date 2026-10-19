@@ -38,8 +38,8 @@ describe("watchdog routes (PL-004 Phase C)", () => {
   const validRegisterBody = {
     policy: "periodic-reminder",
     specYaml:
-      "policy: periodic-reminder\ntarget: alice@rig\ninterval_seconds: 60\ncontext:\n  target:\n    session: alice@rig\n  message: ping\n",
-    targetSession: "alice@rig",
+      "policy: periodic-reminder\ntarget: alice@software-team\ninterval_seconds: 60\ncontext:\n  target:\n    session: alice@software-team\n  message: ping\n",
+    targetSession: "alice@software-team",
     intervalSeconds: 60,
     registeredBySession: "ops@kernel",
   };
@@ -186,8 +186,8 @@ describe("watchdog routes (PL-004 Phase C)", () => {
   });
 
   it("GET /list lists all jobs", async () => {
-    jobsRepo.register({ ...validRegisterBody, targetSession: "a@rig" });
-    jobsRepo.register({ ...validRegisterBody, targetSession: "b@rig" });
+    jobsRepo.register({ ...validRegisterBody, targetSession: "a@software-team" });
+    jobsRepo.register({ ...validRegisterBody, targetSession: "b@software-team" });
     const res = await app.request("/api/watchdog/list");
     expect(res.status).toBe(200);
     const list = (await res.json()) as Array<{ targetSession: string }>;
@@ -215,7 +215,7 @@ describe("watchdog routes (PL-004 Phase C)", () => {
       jobId: job.jobId,
       evaluatedAt: "2026-05-03T07:00:00.000Z",
       outcome: "sent",
-      deliveryTargetSession: "alice@rig",
+      deliveryTargetSession: "alice@software-team",
       deliveryStatus: "ok",
       deliveryMessage: "ping",
     });

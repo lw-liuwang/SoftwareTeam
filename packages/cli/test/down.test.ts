@@ -57,7 +57,7 @@ describe("Down CLI", () => {
   let port: number;
   let lastBody: Record<string, unknown> | undefined;
   let responseOverride: { status: number; body: Record<string, unknown> } | null;
-  // When null, GET /api/rigs/summary returns 404 -> down falls back to today's
+  // When null, GET /api/software-teams/summary returns 404 -> down falls back to today's
   // id-only behavior (so every pre-existing id-based test passes unchanged).
   // When set, the summary is served at 200 to exercise name resolution.
   let summaryOverride: Array<{ id: string; name: string; archivedAt?: string | null; lifecycleState?: string }> | null;
@@ -75,7 +75,7 @@ describe("Down CLI", () => {
       let body = "";
       for await (const chunk of req) body += chunk;
 
-      if (req.url?.split("?")[0] === "/api/rigs/summary" && req.method === "GET") {
+      if (req.url?.split("?")[0] === "/api/software-teams/summary" && req.method === "GET") {
         if (summaryOverride === null) {
           res.writeHead(404, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "not found" }));
@@ -86,7 +86,7 @@ describe("Down CLI", () => {
         return;
       }
 
-      if (req.url === "/api/rigs/rig-1/nodes" && req.method === "GET") {
+      if (req.url === "/api/software-teams/software-team-1/nodes" && req.method === "GET") {
         events.push("inventory");
         if (inventory?.status === 0) { req.socket.destroy(); return; }
         res.writeHead(inventory?.status ?? 404, { "Content-Type": "application/json" });
@@ -104,10 +104,10 @@ describe("Down CLI", () => {
           return;
         }
 
-        const rigId = lastBody?.["rigId"] as string;
+        const softwareTeamId = lastBody?.["softwareTeamId"] as string;
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
-          rigId, sessionsKilled: 2, snapshotId: null,
+          softwareTeamId, sessionsKilled: 2, snapshotId: null,
           deleted: false, deleteBlocked: false, alreadyStopped: false, errors: [],
         }));
       } else {
@@ -152,9 +152,9 @@ describe("Down CLI", () => {
       node("unbound", { sessionStatus: null }),
     ] };
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["down", "rig-1"], { from: "user" });
+      await makeCmd().parseAsync(["down", "software-team-1"], { from: "user" });
     }, line => { if (line.startsWith("Before stopping")) events.push("notice"); });
-    expect(logs[0]).toBe("Before stopping rig-1: recorded agent sessions: busy@team (activity: working), idle@team (activity: idle), uncertain@team (activity: unknown), waiting@team (activity: needs-input).");
+    expect(logs[0]).toBe("Before stopping software-team-1: recorded agent sessions: busy@team (activity: working), idle@team (activity: idle), uncertain@team (activity: unknown), waiting@team (activity: needs-input).");
     expect(events).toEqual(["inventory", "notice", "down"]);
     expect(downCallCount).toBe(1);
     expect(exitCode).toBeUndefined();
@@ -167,7 +167,7 @@ describe("Down CLI", () => {
       node("legacy-idle", { sessionStatus: "idle", agentActivity: { state: "idle" } }),
       node("legacy-waiting", { sessionStatus: "unknown", agentActivity: { state: "needs_input" } }),
     ] };
-    const { logs } = await captureLogs(() => makeCmd().parseAsync(["down", "rig-1"], { from: "user" }).then(() => {}));
+    const { logs } = await captureLogs(() => makeCmd().parseAsync(["down", "software-team-1"], { from: "user" }).then(() => {}));
     expect(logs[0]).toContain("no-sample (activity: unknown)");
     expect(logs[0]).toContain("legacy-working@team (activity: working)");
     expect(logs[0]).toContain("legacy-idle@team (activity: idle)");
@@ -183,32 +183,32 @@ describe("Down CLI", () => {
   ])("continues teardown with named unknown facts on unavailable or malformed inventory (%j)", async unavailable => {
     inventory = unavailable;
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["down", "rig-1"], { from: "user" });
+      await makeCmd().parseAsync(["down", "software-team-1"], { from: "user" });
     });
-    expect(logs[0]).toBe("Before stopping rig-1: agent sessions unknown; work status unknown.");
+    expect(logs[0]).toBe("Before stopping software-team-1: agent sessions unknown; work status unknown.");
     expect(downCallCount).toBe(1);
     expect(exitCode).toBeUndefined();
   });
 
   it("reports an empty live roster without claiming to stop absent agents", async () => {
     inventory = { status: 200, data: [node("gone", { sessionStatus: "exited" })] };
-    const { logs } = await captureLogs(() => makeCmd().parseAsync(["down", "rig-1"], { from: "user" }).then(() => {}));
-    expect(logs[0]).toBe("Before stopping rig-1: no agent sessions reported live.");
+    const { logs } = await captureLogs(() => makeCmd().parseAsync(["down", "software-team-1"], { from: "user" }).then(() => {}));
+    expect(logs[0]).toBe("Before stopping software-team-1: no agent sessions reported live.");
     expect(downCallCount).toBe(1);
   });
 
   it("preserves one JSON result without an inventory read or human notice", async () => {
-    const { logs } = await captureLogs(() => makeCmd().parseAsync(["down", "rig-1", "--json"], { from: "user" }).then(() => {}));
+    const { logs } = await captureLogs(() => makeCmd().parseAsync(["down", "software-team-1", "--json"], { from: "user" }).then(() => {}));
     expect(events).toEqual(["down"]);
     expect(logs).toHaveLength(1);
-    expect(JSON.parse(logs[0]!).rigId).toBe("rig-1");
+    expect(JSON.parse(logs[0]!).softwareTeamId).toBe("software-team-1");
   });
 
   // T1: down success -> exit 0
   it("down success prints summary and exits 0", async () => {
     responseOverride = null;
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "rig-1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "software-team-1"]);
     });
     expect(logs.some((l) => l.includes("stopped"))).toBe(true);
     expect(logs.some((l) => l.includes("2 session(s) killed"))).toBe(true);
@@ -219,40 +219,40 @@ describe("Down CLI", () => {
     ["workshop", "'workshop'"],
     ["my-team", "'my-team'"],
     ["team's work; draft", "'team'\\''s work; draft'"],
-  ])("prints an explicit existing-rig restore command for %s after a snapshot-backed stop", async (rigName, quotedName) => {
+  ])("prints an explicit existing-software-team restore command for %s after a snapshot-backed stop", async (softwareTeamName, quotedName) => {
     responseOverride = {
       status: 200,
       body: {
-        rigId: "rig-1", rigName, isUniqueName: true, sessionsKilled: 2,
+        softwareTeamId: "software-team-1", softwareTeamName, isUniqueName: true, sessionsKilled: 2,
         snapshotId: "snap-1", deleted: false, deleteBlocked: false, alreadyStopped: false, errors: [],
       },
     };
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "rig-1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "software-team-1"]);
     });
     expect(logs).toContain("Snapshot: snap-1");
     expect(logs.filter(line => line.startsWith("To restore:"))).toEqual([
-      `To restore: rig up ${quotedName} --existing`,
+      `To restore: SoftwareTeam up ${quotedName} --existing`,
     ]);
     expect(exitCode).toBeUndefined();
   });
 
   it.each([
-    { rigName: "workshop", isUniqueName: false },
+    { softwareTeamName: "workshop", isUniqueName: false },
     {},
   ])("keeps the snapshot-ID restore command when the name is not usable: %j", async (nameFields) => {
     responseOverride = {
       status: 200,
       body: {
-        rigId: "rig-1", ...nameFields, sessionsKilled: 2,
+        softwareTeamId: "software-team-1", ...nameFields, sessionsKilled: 2,
         snapshotId: "snap-1", deleted: false, deleteBlocked: false, alreadyStopped: false, errors: [],
       },
     };
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "rig-1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "software-team-1"]);
     });
     expect(logs.filter(line => line.startsWith("To restore:"))).toEqual([
-      "To restore: rig restore snap-1 --rig rig-1",
+      "To restore: SoftwareTeam restore snap-1 --software-team software-team-1",
     ]);
     expect(exitCode).toBeUndefined();
   });
@@ -261,10 +261,10 @@ describe("Down CLI", () => {
   it("down alreadyStopped with no delete exits 1", async () => {
     responseOverride = {
       status: 200,
-      body: { rigId: "rig-1", sessionsKilled: 0, snapshotId: null, deleted: false, deleteBlocked: false, alreadyStopped: true, errors: [] },
+      body: { softwareTeamId: "software-team-1", sessionsKilled: 0, snapshotId: null, deleted: false, deleteBlocked: false, alreadyStopped: true, errors: [] },
     };
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "rig-1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "software-team-1"]);
     });
     expect(logs.some((l) => l.includes("already stopped"))).toBe(true);
     expect(exitCode).toBe(1);
@@ -274,10 +274,10 @@ describe("Down CLI", () => {
   it("down alreadyStopped with successful delete exits 0", async () => {
     responseOverride = {
       status: 200,
-      body: { rigId: "rig-1", sessionsKilled: 0, snapshotId: null, deleted: true, deleteBlocked: false, alreadyStopped: true, errors: [] },
+      body: { softwareTeamId: "software-team-1", sessionsKilled: 0, snapshotId: null, deleted: true, deleteBlocked: false, alreadyStopped: true, errors: [] },
     };
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "rig-1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "software-team-1"]);
     });
     expect(logs.some((l) => l.includes("deleted"))).toBe(true);
     expect(exitCode).toBeUndefined(); // 0
@@ -287,10 +287,10 @@ describe("Down CLI", () => {
   it("down deleted with snapshot errors exits 2", async () => {
     responseOverride = {
       status: 200,
-      body: { rigId: "rig-1", sessionsKilled: 2, snapshotId: null, deleted: true, deleteBlocked: false, alreadyStopped: false, errors: ["Snapshot failed: disk full"] },
+      body: { softwareTeamId: "software-team-1", sessionsKilled: 2, snapshotId: null, deleted: true, deleteBlocked: false, alreadyStopped: false, errors: ["Snapshot failed: disk full"] },
     };
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "rig-1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "software-team-1"]);
     });
     expect(logs.some((l) => l.includes("warning"))).toBe(true);
     expect(exitCode).toBe(2);
@@ -300,10 +300,10 @@ describe("Down CLI", () => {
   it("down with errors and no delete exits 2", async () => {
     responseOverride = {
       status: 200,
-      body: { rigId: "rig-1", sessionsKilled: 1, snapshotId: null, deleted: false, deleteBlocked: true, alreadyStopped: false, errors: ["Kill failed for session 'r01-x': timeout"] },
+      body: { softwareTeamId: "software-team-1", sessionsKilled: 1, snapshotId: null, deleted: false, deleteBlocked: true, alreadyStopped: false, errors: ["Kill failed for session 'r01-x': timeout"] },
     };
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "rig-1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "software-team-1"]);
     });
     expect(exitCode).toBe(2);
   });
@@ -312,10 +312,10 @@ describe("Down CLI", () => {
   it("down --delete sends delete flag", async () => {
     responseOverride = {
       status: 200,
-      body: { rigId: "rig-1", sessionsKilled: 2, snapshotId: null, deleted: true, deleteBlocked: false, alreadyStopped: false, errors: [] },
+      body: { softwareTeamId: "software-team-1", sessionsKilled: 2, snapshotId: null, deleted: true, deleteBlocked: false, alreadyStopped: false, errors: [] },
     };
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "rig-1", "--delete"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "software-team-1", "--delete"]);
     });
     expect(lastBody?.["delete"]).toBe(true);
   });
@@ -324,7 +324,7 @@ describe("Down CLI", () => {
   it("down --snapshot sends snapshot flag", async () => {
     responseOverride = null;
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "rig-1", "--snapshot"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "software-team-1", "--snapshot"]);
     });
     expect(lastBody?.["snapshot"]).toBe(true);
   });
@@ -333,7 +333,7 @@ describe("Down CLI", () => {
   it("down --force sends force flag", async () => {
     responseOverride = null;
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "rig-1", "--force"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "software-team-1", "--force"]);
     });
     expect(lastBody?.["force"]).toBe(true);
   });
@@ -342,18 +342,18 @@ describe("Down CLI", () => {
   it("down --json outputs raw JSON", async () => {
     responseOverride = null;
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "rig-1", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "software-team-1", "--json"]);
     });
     const parsed = JSON.parse(logs.join(""));
-    expect(parsed.rigId).toBe("rig-1");
+    expect(parsed.softwareTeamId).toBe("software-team-1");
     expect(parsed.sessionsKilled).toBe(2);
   });
 
   // T8: down 404 -> exit 2
   it("down with 404 exits 2", async () => {
-    responseOverride = { status: 404, body: { error: "Rig not found: missing" } };
+    responseOverride = { status: 404, body: { error: "SoftwareTeam not found: missing" } };
     const { exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "missing"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "missing"]);
     });
     expect(exitCode).toBe(2);
   });
@@ -362,10 +362,10 @@ describe("Down CLI", () => {
   it("down --json with alreadyStopped exits 1", async () => {
     responseOverride = {
       status: 200,
-      body: { rigId: "rig-1", sessionsKilled: 0, snapshotId: null, deleted: false, deleteBlocked: false, alreadyStopped: true, errors: [] },
+      body: { softwareTeamId: "software-team-1", sessionsKilled: 0, snapshotId: null, deleted: false, deleteBlocked: false, alreadyStopped: true, errors: [] },
     };
     const { exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "rig-1", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "software-team-1", "--json"]);
     });
     expect(exitCode).toBe(1);
   });
@@ -374,10 +374,10 @@ describe("Down CLI", () => {
   it("down --json with errors exits 2", async () => {
     responseOverride = {
       status: 200,
-      body: { rigId: "rig-1", sessionsKilled: 2, snapshotId: null, deleted: true, deleteBlocked: false, alreadyStopped: false, errors: ["Snapshot failed: disk full"] },
+      body: { softwareTeamId: "software-team-1", sessionsKilled: 2, snapshotId: null, deleted: true, deleteBlocked: false, alreadyStopped: false, errors: ["Snapshot failed: disk full"] },
     };
     const { exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "rig-1", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "software-team-1", "--json"]);
     });
     expect(exitCode).toBe(2);
   });
@@ -386,49 +386,49 @@ describe("Down CLI", () => {
 
   // AC-1: down by name resolves the name to its id and tears down.
   it("AC-1: down by name resolves the name to its id and tears down", async () => {
-    summaryOverride = [{ id: "rig-abc", name: "product-team" }];
+    summaryOverride = [{ id: "software-team-abc", name: "product-team" }];
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "product-team"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "product-team"]);
     });
-    expect(lastBody?.["rigId"]).toBe("rig-abc"); // resolved id, not the name
+    expect(lastBody?.["softwareTeamId"]).toBe("software-team-abc"); // resolved id, not the name
     expect(downCallCount).toBe(1);
-    expect(logs.some((l) => l.includes("rig-abc") && l.includes("stopped"))).toBe(true);
+    expect(logs.some((l) => l.includes("software-team-abc") && l.includes("stopped"))).toBe(true);
     expect(exitCode).toBeUndefined(); // 0
   });
 
   // AC-2: down by id still works when the id is present in the summary (no regression).
   it("AC-2: down by exact id resolves directly (id-match wins, even if a name also matches)", async () => {
-    // A rig whose NAME equals another rig's id-shaped handle would be a trap;
+    // A softwareTeam whose NAME equals another softwareTeam's id-shaped handle would be a trap;
     // assert the exact-id match is taken first and posts that id.
     summaryOverride = [
-      { id: "rig-xyz", name: "alpha" },
-      { id: "rig-collide", name: "rig-xyz" }, // name collides with the first rig's id
+      { id: "software-team-xyz", name: "alpha" },
+      { id: "software-team-collide", name: "software-team-xyz" }, // name collides with the first softwareTeam's id
     ];
     const { exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "rig-xyz"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "software-team-xyz"]);
     });
-    expect(lastBody?.["rigId"]).toBe("rig-xyz"); // id-exact-match wins, not the name-collision rig
+    expect(lastBody?.["softwareTeamId"]).toBe("software-team-xyz"); // id-exact-match wins, not the name-collision softwareTeam
     expect(downCallCount).toBe(1);
     expect(exitCode).toBeUndefined();
   });
 
   // AC-3 (LOAD-BEARING DISCRIMINATOR): ambiguous active name tears down NOTHING.
-  it("AC-3: ambiguous name is refused and NEITHER rig is torn down (no /api/down POST)", async () => {
+  it("AC-3: ambiguous name is refused and NEITHER SoftwareTeam is torn down (no /api/down POST)", async () => {
     summaryOverride = [
-      { id: "rig-1a", name: "product-team" },
-      { id: "rig-2b", name: "product-team" },
+      { id: "software-team-1a", name: "product-team" },
+      { id: "software-team-2b", name: "product-team" },
     ];
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "product-team"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "product-team"]);
     });
     // The discriminator: teardown was never attempted.
     expect(downCallCount).toBe(0);
     expect(lastBody).toBeUndefined(); // no POST body ever parsed
     // Honest 3-part error listing both ids + the remediation.
     const out = logs.join("\n");
-    expect(out).toContain("rig-1a");
-    expect(out).toContain("rig-2b");
-    expect(out).toMatch(/rig down rig-1a|rig down rig-2b/);
+    expect(out).toContain("software-team-1a");
+    expect(out).toContain("software-team-2b");
+    expect(out).toMatch(/SoftwareTeam down software-team-1a|SoftwareTeam down software-team-2b/);
     expect(out.toLowerCase()).toContain("ambiguous");
     expect(exitCode).toBe(2);
   });
@@ -436,87 +436,87 @@ describe("Down CLI", () => {
   // AC-3 --json: same fail-safe, structured error with candidate ids, no POST.
   it("AC-3 --json: ambiguous name emits structured error with candidates and does not POST", async () => {
     summaryOverride = [
-      { id: "rig-1a", name: "product-team" },
-      { id: "rig-2b", name: "product-team" },
+      { id: "software-team-1a", name: "product-team" },
+      { id: "software-team-2b", name: "product-team" },
     ];
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "product-team", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "product-team", "--json"]);
     });
     expect(downCallCount).toBe(0);
     const parsed = JSON.parse(logs.join(""));
-    expect(parsed.error.candidates).toEqual(["rig-1a", "rig-2b"]);
+    expect(parsed.error.candidates).toEqual(["software-team-1a", "software-team-2b"]);
     expect(exitCode).toBe(2);
   });
 
   // AC-4: honest not-found when a good summary contains no id/name match. No POST.
   it("AC-4: not-found name halts with an honest error and no teardown", async () => {
-    summaryOverride = [{ id: "rig-abc", name: "product-team" }];
+    summaryOverride = [{ id: "software-team-abc", name: "product-team" }];
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "no-such-rig"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "no-such-software-team"]);
     });
     expect(downCallCount).toBe(0);
     const out = logs.join("\n");
-    expect(out).toContain("no-such-rig");
-    expect(out).toContain("rig ps");
+    expect(out).toContain("no-such-software-team");
+    expect(out).toContain("SoftwareTeam ps");
     expect(exitCode).toBe(2);
   });
 
   // AC-5 regression: flags flow through unchanged when a name resolves to an id.
   it("AC-5: --delete/--force/--snapshot flow through when a name resolves", async () => {
-    summaryOverride = [{ id: "rig-abc", name: "product-team" }];
+    summaryOverride = [{ id: "software-team-abc", name: "product-team" }];
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "product-team", "--delete", "--force", "--snapshot"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "product-team", "--delete", "--force", "--snapshot"]);
     });
-    expect(lastBody?.["rigId"]).toBe("rig-abc");
+    expect(lastBody?.["softwareTeamId"]).toBe("software-team-abc");
     expect(lastBody?.["delete"]).toBe(true);
     expect(lastBody?.["force"]).toBe(true);
     expect(lastBody?.["snapshot"]).toBe(true);
   });
 
   // Passthrough: summary unavailable (non-200) -> today's id-only behavior preserved.
-  it("falls back to id-only POST when the rig summary is unavailable", async () => {
-    summaryOverride = null; // GET /api/rigs/summary -> 404
+  it("falls back to id-only POST when the SoftwareTeam summary is unavailable", async () => {
+    summaryOverride = null; // GET /api/software-teams/summary -> 404
     const { exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "rig-1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "software-team-1"]);
     });
-    expect(lastBody?.["rigId"]).toBe("rig-1"); // raw handle posted, as today
+    expect(lastBody?.["softwareTeamId"]).toBe("software-team-1"); // raw handle posted, as today
     expect(downCallCount).toBe(1);
     expect(exitCode).toBeUndefined();
   });
 
-  // AC-2 (archived): an archived rig's id still reaches the canonical /api/down
+  // AC-2 (archived): an archived softwareTeam's id still reaches the canonical /api/down
   // id path. The summary is fetched with includeArchived=true, so the archived
   // id id-matches and POSTs (today's behavior preserved).
-  it("AC-2 archived: down by an archived rig id still POSTs the id (no regression)", async () => {
-    summaryOverride = [{ id: "rig-arch", name: "old-team", archivedAt: "2026-06-01T00:00:00Z" }];
+  it("AC-2 archived: down by an archived SoftwareTeam id still POSTs the id (no regression)", async () => {
+    summaryOverride = [{ id: "software-team-arch", name: "old-team", archivedAt: "2026-06-01T00:00:00Z" }];
     const { exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "rig-arch"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "software-team-arch"]);
     });
-    expect(lastBody?.["rigId"]).toBe("rig-arch");
+    expect(lastBody?.["softwareTeamId"]).toBe("software-team-arch");
     expect(downCallCount).toBe(1);
     expect(exitCode).toBeUndefined();
   });
 
   // Governance pt-5: an active+archived same-name pair is NOT ambiguous - only
   // the ACTIVE candidate counts for name resolution; it resolves and tears down.
-  it("active+archived same-name pair resolves the ACTIVE rig (not ambiguous)", async () => {
+  it("active+archived same-name pair resolves the ACTIVE softwareTeam (not ambiguous)", async () => {
     summaryOverride = [
-      { id: "rig-active", name: "product-team", archivedAt: null },
-      { id: "rig-archived", name: "product-team", archivedAt: "2026-06-01T00:00:00Z" },
+      { id: "software-team-active", name: "product-team", archivedAt: null },
+      { id: "software-team-archived", name: "product-team", archivedAt: "2026-06-01T00:00:00Z" },
     ];
     const { exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "product-team"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "product-team"]);
     });
-    expect(lastBody?.["rigId"]).toBe("rig-active"); // the active one, not ambiguous
+    expect(lastBody?.["softwareTeamId"]).toBe("software-team-active"); // the active one, not ambiguous
     expect(downCallCount).toBe(1);
     expect(exitCode).toBeUndefined();
   });
 
   // An archived-only name does not resolve by name (use the id / archive path).
   it("archived-only name does not resolve by name (not_found, no teardown)", async () => {
-    summaryOverride = [{ id: "rig-archived", name: "old-team", archivedAt: "2026-06-01T00:00:00Z" }];
+    summaryOverride = [{ id: "software-team-archived", name: "old-team", archivedAt: "2026-06-01T00:00:00Z" }];
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "down", "old-team"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "down", "old-team"]);
     });
     expect(downCallCount).toBe(0); // name path excludes archived -> no match -> halt
     expect(logs.join("\n")).toContain("old-team");

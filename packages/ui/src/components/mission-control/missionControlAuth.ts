@@ -1,5 +1,5 @@
-export const MISSION_CONTROL_BEARER_STORAGE_KEY = "openrig.missionControlBearerToken";
-export const TERMINAL_BEARER_STORAGE_KEY = "openrig.terminalBearerToken";
+export const MISSION_CONTROL_BEARER_STORAGE_KEY = "softwareteam.missionControlBearerToken";
+export const TERMINAL_BEARER_STORAGE_KEY = "softwareteam.terminalBearerToken";
 
 const TOKEN_QUERY_KEYS = ["mcToken", "mc_token"];
 const TERMINAL_TOKEN_QUERY_KEYS = ["termToken", "term_token"];

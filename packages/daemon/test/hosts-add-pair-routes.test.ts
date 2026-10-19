@@ -64,8 +64,8 @@ describe("hosts-registry writer twin — P3 byte parity with the CLI addHostEntr
 
   const SEQUENCE: Array<Record<string, unknown>> = [
     { id: "vm-a", transport: "ssh", target: "vm-a.local", user: "admin" },
-    { id: "vps-b", transport: "http", url: "http://vps-b:7433", bearer_env: "VPS_B_TOKEN" },
-    { id: "vps-c", transport: "http", url: "http://vps-c:7433", bearer_file: "/tmp/tok", notes: "paired 2026-07-07" },
+    { id: "vps-b", transport: "http", url: "http://vps-b:7434", bearer_env: "VPS_B_TOKEN" },
+    { id: "vps-c", transport: "http", url: "http://vps-c:7434", bearer_file: "/tmp/tok", notes: "paired 2026-07-07" },
   ];
 
   it("same entry sequence in → identical yaml bytes out", () => {
@@ -109,18 +109,18 @@ describe("POST /api/hosts/add — the narrow named add seam", () => {
 
   beforeEach(() => {
     home = mkdtempSync(join(tmpdir(), "mh1-hosts-add-"));
-    savedHome = process.env["OPENRIG_HOME"];
-    process.env["OPENRIG_HOME"] = home;
+    savedHome = process.env["SOFTWARETEAM_HOME"];
+    process.env["SOFTWARETEAM_HOME"] = home;
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, queueItemsSchema, queueTransitionsSchema, queueItemSummarySchema, queueItemEvidenceRefSchema]);
-    const repo = new QueueRepository(db, new EventBus(db), { validateRig: () => true });
+    const repo = new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => true });
     app = buildApp(repo, BEARER);
   });
   afterEach(() => {
     db.close();
     rmSync(home, { recursive: true, force: true });
-    if (savedHome === undefined) delete process.env["OPENRIG_HOME"];
-    else process.env["OPENRIG_HOME"] = savedHome;
+    if (savedHome === undefined) delete process.env["SOFTWARETEAM_HOME"];
+    else process.env["SOFTWARETEAM_HOME"] = savedHome;
   });
 
   const auth = { Authorization: `Bearer ${BEARER}`, "Content-Type": "application/json" };
@@ -129,7 +129,7 @@ describe("POST /api/hosts/add — the narrow named add seam", () => {
     const res = await app.request("/api/hosts/add", {
       method: "POST",
       headers: auth,
-      body: JSON.stringify({ id: "vps-a", transport: "http", url: "http://vps-a:7433", bearer_env: "VPS_A_TOKEN" }),
+      body: JSON.stringify({ id: "vps-a", transport: "http", url: "http://vps-a:7434", bearer_env: "VPS_A_TOKEN" }),
     });
     expect(res.status).toBe(200);
     const yaml = readFileSync(join(home, "hosts.yaml"), "utf8");
@@ -141,7 +141,7 @@ describe("POST /api/hosts/add — the narrow named add seam", () => {
     const res = await app.request("/api/hosts/add", {
       method: "POST",
       headers: auth,
-      body: JSON.stringify({ id: "vps-a", transport: "http", url: "http://vps-a:7433", token: "s3cr3t-value" }),
+      body: JSON.stringify({ id: "vps-a", transport: "http", url: "http://vps-a:7434", token: "s3cr3t-value" }),
     });
     expect(res.status).toBe(400);
     const body = await res.json() as { error: string };
@@ -199,7 +199,7 @@ describe("pair-request — the target-side issuance handshake (FR-6)", () => {
     // The REAL gate composition (startup.ts shape): human seats pass
     // before parse — pairing's approval item rides it.
     repo = new QueueRepository(db, new EventBus(db), {
-      validateRig: (ref) => {
+      validateSoftwareTeam: (ref) => {
         if (isHumanSeatSessionRef(ref)) return true;
         return parseSessionName(ref).kind === "canonical";
       },
@@ -399,11 +399,11 @@ describe("local pair-client seam — POST /pair + GET /pair/:id (the browser's w
 
   beforeEach(async () => {
     home = mkdtempSync(join(tmpdir(), "mh1-pair-client-"));
-    savedHome = process.env["OPENRIG_HOME"];
-    process.env["OPENRIG_HOME"] = home;
+    savedHome = process.env["SOFTWARETEAM_HOME"];
+    process.env["SOFTWARETEAM_HOME"] = home;
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, queueItemsSchema, queueTransitionsSchema, queueItemSummarySchema, queueItemEvidenceRefSchema]);
-    app = buildApp(new QueueRepository(db, new EventBus(db), { validateRig: () => true }), BEARER);
+    app = buildApp(new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => true }), BEARER);
 
     targetState = { status: "pending" };
     targetRequests = 0;
@@ -427,8 +427,8 @@ describe("local pair-client seam — POST /pair + GET /pair/:id (the browser's w
     db.close();
     target.close();
     rmSync(home, { recursive: true, force: true });
-    if (savedHome === undefined) delete process.env["OPENRIG_HOME"];
-    else process.env["OPENRIG_HOME"] = savedHome;
+    if (savedHome === undefined) delete process.env["SOFTWARETEAM_HOME"];
+    else process.env["SOFTWARETEAM_HOME"] = savedHome;
   });
 
   const auth = { Authorization: `Bearer ${BEARER}`, "Content-Type": "application/json" };
@@ -523,7 +523,7 @@ describe("local pair-client seam — POST /pair + GET /pair/:id (the browser's w
     const tokenPath = join(secretsDir, "host-vps-paired.token");
     mkdirSync(secretsDir, { recursive: true, mode: 0o700 });
     writeFileSync(tokenPath, "live-credential\n", { mode: 0o600 });
-    expect(daemonAddHostEntry({ id: "vps-paired", transport: "http", url: "http://old-target:7433", bearer_file: tokenPath }).ok).toBe(true);
+    expect(daemonAddHostEntry({ id: "vps-paired", transport: "http", url: "http://old-target:7434", bearer_file: tokenPath }).ok).toBe(true);
     const yamlBefore = readFileSync(join(home, "hosts.yaml"), "utf8");
 
     const res = await app.request("/api/hosts/pair", {
@@ -611,7 +611,7 @@ describe("local pair-client seam — POST /pair + GET /pair/:id (the browser's w
 
     // The TOCTOU window preflight cannot close: a conflicting entry lands
     // during the approval wait. addHostEntry stays authoritative.
-    expect(daemonAddHostEntry({ id: "vps-race", transport: "http", url: "http://racer:7433", bearer_env: "RACER_TOKEN" }).ok).toBe(true);
+    expect(daemonAddHostEntry({ id: "vps-race", transport: "http", url: "http://racer:7434", bearer_env: "RACER_TOKEN" }).ok).toBe(true);
     const yamlBefore = readFileSync(join(home, "hosts.yaml"), "utf8");
 
     targetState = { status: "approved", token: "issued-bearer" };

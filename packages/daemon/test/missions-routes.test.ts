@@ -163,7 +163,7 @@ describe("GET /api/missions/:missionId", () => {
     it("returns workflow_spec from mission README frontmatter when declared", async () => {
       writeMissionReadme(missionsRoot, "getting-started", {
         status: "active",
-        workflow_spec: "openrig-velocity@1.0",
+        workflow_spec: "softwareteam-velocity@1.0",
       });
       writeSliceInMission(missionsRoot, "getting-started", "first-slice", { status: "active" });
 
@@ -172,7 +172,7 @@ describe("GET /api/missions/:missionId", () => {
       const body = (await res.json()) as {
         workflow_spec: { name: string; version: string } | null;
       };
-      expect(body.workflow_spec).toEqual({ name: "openrig-velocity", version: "1.0" });
+      expect(body.workflow_spec).toEqual({ name: "softwareteam-velocity", version: "1.0" });
     });
 
     it("returns workflow_spec: null when mission README has no declaration", async () => {
@@ -190,14 +190,14 @@ describe("GET /api/missions/:missionId", () => {
       const specCache = new WorkflowSpecCache(db);
 
       // Hand-author a minimal spec file + cache it through.
-      const specPath = path.join(cleanupRoot, "openrig-velocity.workflow.yaml");
+      const specPath = path.join(cleanupRoot, "softwareteam-velocity.workflow.yaml");
       fs.writeFileSync(specPath, [
         "workflow:",
-        "  id: openrig-velocity",
+        "  id: softwareteam-velocity",
         "  version: \"1.0\"",
         "  objective: \"Demo\"",
         "  target:",
-        "    rig: openrig-velocity",
+        "    software_team: softwareteam-velocity",
         "  roles:",
         "    role-a: {}",
         "  entry:",
@@ -213,7 +213,7 @@ describe("GET /api/missions/:missionId", () => {
 
       writeMissionReadme(missionsRoot, "mission-with-spec", {
         status: "active",
-        workflow_spec: "openrig-velocity@1.0",
+        workflow_spec: "softwareteam-velocity@1.0",
       });
       writeSliceInMission(missionsRoot, "mission-with-spec", "slice-a", { status: "active" });
       const appWithCache = buildApp(indexer, specCache);
@@ -225,7 +225,7 @@ describe("GET /api/missions/:missionId", () => {
       };
       expect(body.topology).not.toBeNull();
       expect(body.topology.specGraph).not.toBeNull();
-      expect(body.topology.specGraph!.specName).toBe("openrig-velocity");
+      expect(body.topology.specGraph!.specName).toBe("softwareteam-velocity");
       expect(body.topology.specGraph!.specVersion).toBe("1.0");
       expect(body.topology.specGraph!.nodes.length).toBeGreaterThan(0);
     });

@@ -3,7 +3,7 @@
 // drawer-primitives.test.tsx (Phase 4 process-gap fix) covers the unit-level
 // reachability of the 4 viewer + 4 trigger primitives. P5-1 wires those
 // triggers into 4 production surfaces (FeedCard / LibraryReview file lists /
-// RigSpecDisplay agentRef cells / TopologyTreeView seat leaves). This file
+// SoftwareTeamSpecDisplay agentRef cells / TopologyTreeView seat leaves). This file
 // covers ROUTE-COMPONENT reachability per ritual #6 — a click on the named
 // affordance fires setSelection with the correct DrawerSelection
 // discriminator.
@@ -66,7 +66,7 @@ function renderWithRouterAndQuery(
   });
   const seatRoute = createRoute({
     getParentRoute: () => rootRoute,
-    path: "/topology/seat/$rigId/$logicalId",
+    path: "/topology/seat/$softwareTeamId/$logicalId",
     component: () => null,
   });
   const router = createRouter({
@@ -95,8 +95,8 @@ function makeCard(overrides: Partial<FeedCardModel> = {}): FeedCardModel {
     kind: "action-required",
     title: "Need approval",
     body: "v0.3.0 RC ready, authorize tag/push?",
-    authorSession: "orch-lead@openrig-velocity",
-    rigId: "rig-1",
+    authorSession: "orch-lead@softwareteam-velocity",
+    softwareTeamId: "software-team-1",
     receivedAt: 1_000_000,
     createdAt: "2026-05-06T18:00:00Z",
     source: {
@@ -104,7 +104,7 @@ function makeCard(overrides: Partial<FeedCardModel> = {}): FeedCardModel {
       type: "queue.item.created",
       payload: {
         qitem_id: "qitem-20260506-test",
-        source_session: "orch-lead@openrig-velocity",
+        source_session: "orch-lead@softwareteam-velocity",
         destination: "human-operator@kernel",
         state: "human-gate",
         body: "Authorize v0.3.0 RC tag/push?",
@@ -151,7 +151,7 @@ describe("FeedCard P5-1 wiring: show-context QueueItemTrigger", () => {
     const arg = setSelection.mock.calls[0][0];
     expect(arg.type).toBe("qitem");
     expect(arg.data.qitemId).toBe("qitem-20260506-test");
-    expect(arg.data.source).toBe("orch-lead@openrig-velocity");
+    expect(arg.data.source).toBe("orch-lead@softwareteam-velocity");
     expect(arg.data.destination).toBe("human-operator@kernel");
     expect(arg.data.state).toBe("human-gate");
     expect(arg.data.body).toBe("Authorize v0.3.0 RC tag/push?");
@@ -162,15 +162,15 @@ describe("FeedCard P5-1 wiring: show-context QueueItemTrigger", () => {
       id: "queue-created-1",
       kind: "progress",
       title: "Queue item created",
-      body: "orch-lead@openrig-velocity -> driver@openrig-velocity",
-      authorSession: "orch-lead@openrig-velocity",
+      body: "orch-lead@softwareteam-velocity -> driver@softwareteam-velocity",
+      authorSession: "orch-lead@softwareteam-velocity",
       source: {
         seq: 3,
         type: "queue.created",
         payload: {
           qitemId: "qitem-20260507-daemon",
-          sourceSession: "orch-lead@openrig-velocity",
-          destinationSession: "driver@openrig-velocity",
+          sourceSession: "orch-lead@softwareteam-velocity",
+          destinationSession: "driver@softwareteam-velocity",
           priority: "routine",
           tier: "mode2",
         },
@@ -187,10 +187,10 @@ describe("FeedCard P5-1 wiring: show-context QueueItemTrigger", () => {
     const arg = setSelection.mock.calls[0][0];
     expect(arg.type).toBe("qitem");
     expect(arg.data.qitemId).toBe("qitem-20260507-daemon");
-    expect(arg.data.source).toBe("orch-lead@openrig-velocity");
-    expect(arg.data.destination).toBe("driver@openrig-velocity");
+    expect(arg.data.source).toBe("orch-lead@softwareteam-velocity");
+    expect(arg.data.destination).toBe("driver@softwareteam-velocity");
     expect(arg.data.body).toBe(
-      "orch-lead@openrig-velocity -> driver@openrig-velocity",
+      "orch-lead@softwareteam-velocity -> driver@softwareteam-velocity",
     );
   });
 
@@ -215,7 +215,7 @@ describe("FeedCard P5-1 wiring: show-context QueueItemTrigger", () => {
           qitemId: "qitem-demo",
           tsCreated: "2026-05-07T21:18:52Z",
           tsUpdated: "2026-05-07T21:20:00Z",
-          sourceSession: "driver@rig",
+          sourceSession: "driver@software-team",
           destinationSession: "human@host",
           state: "done",
           priority: "urgent",
@@ -246,7 +246,7 @@ describe("FeedCard P5-1 wiring: show-context QueueItemTrigger", () => {
           qitemId: "qitem-20260506-test",
           tsCreated: "2026-05-06T18:00:00Z",
           tsUpdated: "2026-05-06T18:00:00Z",
-          sourceSession: "orch-lead@openrig-velocity",
+          sourceSession: "orch-lead@softwareteam-velocity",
           destinationSession: "human@host",
           state: "human-gate",
           priority: "urgent",
@@ -281,7 +281,7 @@ describe("FeedCard P5-1 wiring: show-context QueueItemTrigger", () => {
           qitemId: "qitem-20260506-test",
           tsCreated: "2026-05-06T18:00:00Z",
           tsUpdated: "2026-05-06T18:05:00Z",
-          sourceSession: "orch-lead@openrig-velocity",
+          sourceSession: "orch-lead@softwareteam-velocity",
           destinationSession: "human-operator@kernel",
           state: "pending",
           priority: "urgent",
@@ -315,12 +315,12 @@ describe("FeedCard P5-1 wiring: show-context QueueItemTrigger", () => {
           actorSession: "human@host",
           actedAt: "2026-05-06T18:06:00Z",
           state: "handed-off",
-          destinationSession: "driver@openrig-velocity",
+          destinationSession: "driver@softwareteam-velocity",
         }}
       />,
     );
 
-    expect(await findByText("Routed by human@host to driver@openrig-velocity.")).toBeTruthy();
+    expect(await findByText("Routed by human@host to driver@softwareteam-velocity.")).toBeTruthy();
     expect(queryByTestId(`feed-card-actions-${card.id}`)).toBeNull();
   });
 
@@ -333,7 +333,7 @@ describe("FeedCard P5-1 wiring: show-context QueueItemTrigger", () => {
           qitemId: "qitem-20260506-test",
           tsCreated: "2026-05-06T18:00:00Z",
           tsUpdated: "2026-05-06T18:05:00Z",
-          sourceSession: "orch-lead@openrig-velocity",
+          sourceSession: "orch-lead@softwareteam-velocity",
           destinationSession: "human@host",
           state: "handed-off",
           priority: "urgent",
@@ -341,14 +341,14 @@ describe("FeedCard P5-1 wiring: show-context QueueItemTrigger", () => {
           tags: ["approval"],
           body: "Review this proof packet and choose a queue action.",
           closureReason: "handed_off_to",
-          closureTarget: "driver@openrig-velocity",
-          handedOffTo: "driver@openrig-velocity",
+          closureTarget: "driver@softwareteam-velocity",
+          handedOffTo: "driver@softwareteam-velocity",
         }}
       />,
     );
 
     expect(await findByTestId("feed-card-action-outcome")).toBeTruthy();
-    expect(await findByText("Routed by human@host to driver@openrig-velocity.")).toBeTruthy();
+    expect(await findByText("Routed by human@host to driver@softwareteam-velocity.")).toBeTruthy();
     expect(queryByTestId(`feed-card-actions-${card.id}`)).toBeNull();
   });
 
@@ -372,7 +372,7 @@ describe("FeedCard P5-1 wiring: show-context QueueItemTrigger", () => {
           qitemId: "qitem-demo",
           tsCreated: "2026-05-07T21:18:52Z",
           tsUpdated: "2026-05-07T21:20:00Z",
-          sourceSession: "driver@rig",
+          sourceSession: "driver@software-team",
           destinationSession: "human@host",
           state: "done",
           priority: "urgent",
@@ -390,18 +390,18 @@ describe("FeedCard P5-1 wiring: show-context QueueItemTrigger", () => {
 
 // V1 polish slice Phase 5.1 P5.1-D2: TopologyTreeView SeatLeaf details
 // icon RETIRED. SeatDetailTrigger primitive RETIRED. SeatLeaf is now
-// Link-only navigation to /topology/seat/$rigId/$logicalId. Retirement-
+// Link-only navigation to /topology/seat/$softwareTeamId/$logicalId. Retirement-
 // regression guard lives in test/node-selection-migration.test.tsx
 // (file-doesn't-exist for SeatDetailTrigger.tsx + SharedDetailDrawer
 // has no 'seat-detail' kind).
 
 // -----------------------------------------------------------------------
-// RigSpecDisplay pod-member agentRef cell → SubSpecTrigger → drawer.
+// SoftwareTeamSpecDisplay pod-member agentRef cell → SubSpecTrigger → drawer.
 // -----------------------------------------------------------------------
 
 import { SubSpecTrigger } from "../src/components/drawer-triggers/SubSpecTrigger.js";
 
-describe("RigSpecDisplay P5-1 wiring: agentRef SubSpecTrigger contract", () => {
+describe("SoftwareTeamSpecDisplay P5-1 wiring: agentRef SubSpecTrigger contract", () => {
   it("clicking SubSpecTrigger with agent spec data fires setSelection({ type: 'sub-spec', data: {...} })", () => {
     const { setSelection, getByTestId } = renderWithDrawerCtx(
       <SubSpecTrigger
@@ -418,11 +418,11 @@ describe("RigSpecDisplay P5-1 wiring: agentRef SubSpecTrigger contract", () => {
     });
   });
 
-  it("RigSpecDisplay source wraps m.agentRef in SubSpecTrigger (ritual #1+#9)", async () => {
+  it("SoftwareTeamSpecDisplay source wraps m.agentRef in SubSpecTrigger (ritual #1+#9)", async () => {
     const { readFileSync } = await import("node:fs");
     const path = await import("node:path");
     const src = readFileSync(
-      path.resolve(__dirname, "../src/components/RigSpecDisplay.tsx"),
+      path.resolve(__dirname, "../src/components/SoftwareTeamSpecDisplay.tsx"),
       "utf8",
     );
     expect(src).toMatch(/import\s*\{\s*SubSpecTrigger\s*\}/);

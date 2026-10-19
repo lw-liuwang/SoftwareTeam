@@ -43,9 +43,9 @@ describe("renderScreen daemon-down — in-shell split (explorer always present)"
     expect(borderRows.length).toBeGreaterThan(3);
   });
 
-  it("ledger-feeds the explorer with the rig names + an honest ledger marker (never a second read)", () => {
+  it("ledger-feeds the explorer with the SoftwareTeam names + an honest ledger marker (never a second read)", () => {
     const left = screen.lines.map((l) => l.slice(0, screen.explorerWidth)).join("\n");
-    expect(left).toContain("openrig-pm");
+    expect(left).toContain("softwareteam-pm");
     expect(left).toContain("kernel");
     expect(left.toLowerCase()).toContain("ledger"); // honestly marked ledger-sourced
     expect(left).toContain("daemon down");
@@ -82,13 +82,13 @@ function frame(over: Partial<RestoreFrame>): RestoreFrame {
 }
 
 describe("renderScreen — ACTIVE restore takes precedence (mid-run progress frame, in-shell)", () => {
-  it("running: shows RESTORING FLEET + per-rig progress + the cancel affordance, not the cockpit", () => {
+  it("running: shows RESTORING FLEET + per-software-team progress + the cancel affordance, not the cockpit", () => {
     const vm = buildRestoreLifecycleVM(
       frame({
         phase: "running",
         rollup: {
           counts: { fully_restored: 1, partially_restored: 0, failed: 0, not_attempted: 0 },
-          sequence: [{ rigId: "kernel", outcome: "fully_restored" }],
+          sequence: [{ softwareTeamId: "kernel", outcome: "fully_restored" }],
           attention_required: [],
         },
       }),
@@ -112,10 +112,10 @@ describe("renderScreen — ACTIVE restore takes precedence (mid-run progress fra
         rollup: {
           counts: { fully_restored: 1, partially_restored: 0, failed: 0, not_attempted: 1 },
           sequence: [
-            { rigId: "kernel", outcome: "fully_restored" },
-            { rigId: "beta", outcome: "not_attempted", reason: "no restore-usable snapshot for this rig", remediation: "take a snapshot" },
+            { softwareTeamId: "kernel", outcome: "fully_restored" },
+            { softwareTeamId: "beta", outcome: "not_attempted", reason: "no restore-usable snapshot for this softwareTeam", remediation: "take a snapshot" },
           ],
-          attention_required: [{ rigId: "kernel", seat: "dev.guard", need: "original session not resumable and no --fresh — choose fresh-prime or skip" }],
+          attention_required: [{ softwareTeamId: "kernel", seat: "dev.guard", need: "original session not resumable and no --fresh — choose fresh-prime or skip" }],
         },
       }),
     );
@@ -140,7 +140,7 @@ describe("renderScreen — restore triage is KEYBOARD-WALKABLE beyond the viewpo
   // must report a navigable contentMaxOffset, and scrolling to it must bring the final need on-screen.
   // Short needs (fit one line, no wrap) so this isolates VERTICAL reachability (HIGH-2) from width-wrap.
   const attention = Array.from({ length: 28 }, (_, i) => ({
-    rigId: "kernel",
+    softwareTeamId: "kernel",
     seat: `seat${i}`,
     need: `NEED-${i}: resume seat ${i}`,
   }));
@@ -149,7 +149,7 @@ describe("renderScreen — restore triage is KEYBOARD-WALKABLE beyond the viewpo
       phase: "done",
       done: true,
       verdict: "mixed",
-      rollup: { counts: { fully_restored: 1, partially_restored: 0, failed: 0, not_attempted: 0 }, sequence: [{ rigId: "kernel", outcome: "fully_restored" }], attention_required: attention },
+      rollup: { counts: { fully_restored: 1, partially_restored: 0, failed: 0, not_attempted: 0 }, sequence: [{ softwareTeamId: "kernel", outcome: "fully_restored" }], attention_required: attention },
     }),
   );
 
@@ -173,7 +173,7 @@ describe("renderScreen — restore triage is KEYBOARD-WALKABLE beyond the viewpo
 // B1 ROUND 10 (gap 1) — the ⏎ confirm must be VISIBLE in the cockpit (not only in ViewState.notice,
 // which the daemon-down cockpit does not render — the first ⏎ used to appear to do nothing).
 describe("renderScreen daemon-down — the ⏎ confirm banner renders IN the cockpit", () => {
-  const confirm = "⏎ RESTORE: openrig-pm (6/13) have seats that can't resume — they'll need a decision (fresh-prime or skip) in the triage list. Press ⏎ to proceed, Esc to cancel.";
+  const confirm = "⏎ RESTORE: softwareteam-pm (6/13) have seats that can't resume — they'll need a decision (fresh-prime or skip) in the triage list. Press ⏎ to proceed, Esc to cancel.";
   it("shows the confirm banner + the proceed/cancel affordance where the operator looks", () => {
     const screen = renderScreen(view.get(), snap, { cols: 120, rows: 32, daemonState: "down", crashCart: demoCrashCartModel(), confirm });
     const body = screen.lines.join("\n");
@@ -226,12 +226,12 @@ describe("renderScreen daemon-down — first-run in-shell (onboarding, no crash 
     crashCart: buildCrashCartModel({ header: { lastActivityAt: null }, foundOnHost: [], whereWorkStopped: [] }),
   });
   const body = screen.lines.join("\n");
-  it("has the shell + onboarding framing, no crash header/RESTORE; explorer marked ledger even with no rigs", () => {
+  it("has the shell + onboarding framing, no crash header/RESTORE; explorer marked ledger even with no softwareTeams", () => {
     expect(screen.lines.filter((l) => l.charAt(screen.explorerWidth) === "┃").length).toBeGreaterThan(3);
     expect(body).not.toContain("daemon not running");
     expect(body).not.toContain("RESTORE EVERYTHING");
     expect(body.toLowerCase()).toContain("onboarding");
     const left = screen.lines.map((l) => l.slice(0, screen.explorerWidth)).join("\n");
-    expect(left.toLowerCase()).toContain("ledger"); // explorer honestly marked even with no rigs
+    expect(left.toLowerCase()).toContain("ledger"); // explorer honestly marked even with no softwareTeams
   });
 });

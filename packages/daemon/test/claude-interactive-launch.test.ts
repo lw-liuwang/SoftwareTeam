@@ -54,14 +54,14 @@ describe.skipIf(!hasTmux || process.platform === "win32")("classic Claude intera
     const socket = path.join(root, "tmux");
     const env = { HOME: root, PATH: process.env.PATH!, TMPDIR: root, TERM: "xterm-256color" };
     const tm = async (args: string[]) => (await run("tmux", ["-S", socket, "-f", "/dev/null", ...args], { env, timeout: 5000 })).stdout;
-    const fake = path.join(root, "off-path-claude"), recorder = path.join(root, "record.cjs"), cli = path.join(root, "paired-rig");
+    const fake = path.join(root, "off-path-claude"), recorder = path.join(root, "record.cjs"), cli = path.join(root, "paired-software-team");
     fs.writeFileSync(recorder, `const fs = require('node:fs'); const cp = require('node:child_process');
-fs.writeFileSync(process.env.MARKER, JSON.stringify({argv:process.argv.slice(2), node:process.env.OPENRIG_NODE_ID,
- home:process.env.OPENRIG_HOME, userHome:process.env.HOME, config:process.env.CLAUDE_CONFIG_DIR,
- token:process.env.OPENRIG_ACTIVITY_HOOK_TOKEN, path:process.env.PATH,
- rig:cp.spawnSync('rig', [], {encoding:'utf8'}).stdout?.trim()}));\n`);
+fs.writeFileSync(process.env.MARKER, JSON.stringify({argv:process.argv.slice(2), node:process.env.SOFTWARETEAM_NODE_ID,
+ home:process.env.SOFTWARETEAM_HOME, userHome:process.env.HOME, config:process.env.CLAUDE_CONFIG_DIR,
+ token:process.env.SOFTWARETEAM_ACTIVITY_HOOK_TOKEN, path:process.env.PATH,
+ softwareTeam:cp.spawnSync('SoftwareTeam', [], {encoding:'utf8'}).stdout?.trim()}));\n`);
     fs.writeFileSync(fake, `#!/bin/sh\nexec ${quote(process.execPath)} ${quote(recorder)} "$@"\n`, { mode: 0o755 });
-    fs.writeFileSync(cli, "#!/bin/sh\nprintf 'paired-rig'\n", { mode: 0o755 });
+    fs.writeFileSync(cli, "#!/bin/sh\nprintf 'paired-software-team'\n", { mode: 0o755 });
     const cells: Array<{ shape: string; route: string; kind: string; started: boolean; exit: number; issues: string[] }> = [];
     try {
       for (const shape of ["executable", "alias", "function"]) for (const route of ["corrected", "fallback", "legacy"]) {
@@ -71,20 +71,20 @@ fs.writeFileSync(process.env.MARKER, JSON.stringify({argv:process.argv.slice(2),
           if (shape === "executable") fs.symlinkSync(fake, path.join(bin, "claude"));
           const marker = path.join(dir, "started.json"), status = path.join(dir, "status"), rc = path.join(dir, "bashrc");
           fs.writeFileSync(rc, `export PATH=${quote(bin + ":/usr/bin:/bin")} MARKER=${quote(marker)} HOME=${quote(dir)}\n`
-            + `export OPENRIG_NODE_ID='rc-node' OPENRIG_HOME='rc-home' CLAUDE_CONFIG_DIR='rc-config' OPENRIG_ACTIVITY_HOOK_TOKEN='fixture-token'\nPS1='FIXTURE> '\n`
+            + `export SOFTWARETEAM_NODE_ID='rc-node' SOFTWARETEAM_HOME='rc-home' CLAUDE_CONFIG_DIR='rc-config' SOFTWARETEAM_ACTIVITY_HOOK_TOKEN='fixture-token'\nPS1='FIXTURE> '\n`
             + (shape === "alias" ? `alias claude=${quote(fake)}\n` : shape === "function" ? `claude() { ${quote(fake)} "$@"; }\n` : "")
             + `PROMPT_COMMAND='printf "%s\\n" "$?" > ${status}'\n`);
           await tm(["new-session", "-d", "-s", name, "/bin/bash --noprofile --rcfile " + quote(rc) + " -i"]);
           await until(() => fs.existsSync(status)); fs.unlinkSync(status);
-          await tm(["set-environment", "-t", name, "OPENRIG_SESSION_NAME", name]);
-          if (route === "corrected") await tm(["set-environment", "-t", name, "OPENRIG_NODE_ID", name]);
+          await tm(["set-environment", "-t", name, "SOFTWARETEAM_SESSION_NAME", name]);
+          if (route === "corrected") await tm(["set-environment", "-t", name, "SOFTWARETEAM_NODE_ID", name]);
           const transport = new TmuxAdapter(async command => {
             if (!command.startsWith("tmux ")) throw new Error("Unexpected fixture command");
             return (await run("/bin/sh", ["-c", command.replace(/^tmux /, `tmux -S ${quote(socket)} -f /dev/null `)], { env, timeout: 5000 })).stdout;
           });
           const helper = route === "legacy" ? undefined : new SeatLaunchEnvironment(transport, {
-            OPENRIG_HOME: path.join(dir, "rig-home"), HOME: "must-not-override", CLAUDE_CONFIG_DIR: "must-not-override",
-            OPENRIG_ACTIVITY_HOOK_TOKEN: "must-not-type",
+            SOFTWARETEAM_HOME: path.join(dir, "software-team-home"), HOME: "must-not-override", CLAUDE_CONFIG_DIR: "must-not-override",
+            SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: "must-not-type",
           }, root, cli);
           const model = route === "corrected" ? "fixture-" + "x".repeat(4096) : "fixture";
           const token = "11111111-1111-4111-8111-111111111111";
@@ -112,8 +112,8 @@ fs.writeFileSync(process.env.MARKER, JSON.stringify({argv:process.argv.slice(2),
             if (got.argv[got.argv.indexOf("--model") + 1] !== model) issues.push("model argument truncated");
             if (got.userHome !== dir || got.config !== "rc-config" || got.token !== "fixture-token") issues.push("user/provider environment changed");
             if (route === "corrected") {
-              if (got.node !== name || got.home !== path.join(dir, "rig-home")) issues.push("metadata not corrected");
-              if (got.rig !== "paired-rig") issues.push("paired rig not selected");
+              if (got.node !== name || got.home !== path.join(dir, "software-team-home")) issues.push("metadata not corrected");
+              if (got.softwareTeam !== "paired-software-team") issues.push("paired SoftwareTeam not selected");
               if (!got.path.endsWith(bin + ":/usr/bin:/bin")) issues.push("user PATH replaced");
             } else if (got.node !== "rc-node" || got.home !== "rc-home") issues.push("fallback/legacy environment changed");
           }

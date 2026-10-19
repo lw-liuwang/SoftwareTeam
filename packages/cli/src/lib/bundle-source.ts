@@ -7,7 +7,7 @@ import { DaemonClient } from "../client.js";
 import { getDaemonStatus, getDaemonUrl } from "../daemon-lifecycle.js";
 import { resolveEffectiveHost } from "../host-selection.js";
 import { readLocalOrigin } from "../local-origin.js";
-import { getOpenRigHome } from "../openrig-compat.js";
+import { getSoftwareTeamHome } from "../softwareteam-compat.js";
 import type { StatusDeps } from "../commands/status.js";
 import { authoredMapping, readDeclaredConfigurations, resolveConfiguration, stageConfiguration, ConfigurationError } from "./bundle-configuration.js";
 
@@ -20,7 +20,7 @@ export interface BundleSource {
 }
 
 const LINK_HELP = "Use a credential-free HTTPS GitHub folder link: https://github.com/owner/repo/tree/ref/folder.";
-export const BUNDLE_LOCALITY_HELP = "GitHub bundle import needs a verified local daemon. Run this command on the daemon host, or create and transfer a .rigbundle there and use the existing path command. Nothing was fetched or installed.";
+export const BUNDLE_LOCALITY_HELP = "GitHub bundle import needs a verified local daemon. Run this command on the daemon host, or create and transfer a .softwareteambundle there and use the existing path command. Nothing was fetched or installed.";
 
 /** Only the new URL form enters this path; existing filesystem/name inputs keep their dispatch. */
 export function isGitHubBundleLink(input: string): boolean {
@@ -125,7 +125,7 @@ function checkGitHubBundleSymlinks(checkoutDir: string): void {
   catch { throw new Error("GitHub bundle symlinks must resolve inside the fetched repository; no bundle was built."); }
 }
 
-/** Match create: member/package refs use the rig directory; imports use their agent directory. */
+/** Match create: member/package refs use the softwareTeam directory; imports use their agent directory. */
 function checkGitHubBundleRefs(folder: string, checkoutDir: string, retainedCheckoutDir?: string, includePackages: readonly string[] = []): void {
   const roots = [checkoutDir, ...(retainedCheckoutDir ? [retainedCheckoutDir] : [])].map(dir => realpathSync(dir));
   const contained = (file: string): string => {
@@ -150,7 +150,7 @@ function checkGitHubBundleRefs(folder: string, checkoutDir: string, retainedChec
     for (const imp of spec.imports ?? []) agent(imp.ref, dir, next);
   };
   try {
-    const spec = parseYaml(readFileSync(path.join(folder, "rig.yaml"), "utf8")) as {
+    const spec = parseYaml(readFileSync(path.join(folder, "software-team.yaml"), "utf8")) as {
       pods?: Array<{ members?: Array<{ agent_ref?: unknown }> }>;
       nodes?: Array<{ package_refs?: unknown[] }>;
     };
@@ -179,7 +179,7 @@ export interface PreparedBundleSource {
   receiptPath: string;
 }
 
-export async function prepareGitHubBundle(input: string, git = bundleGit, importsRoot = path.join(getOpenRigHome(), "bundle-imports")): Promise<PreparedBundleSource> {
+export async function prepareGitHubBundle(input: string, git = bundleGit, importsRoot = path.join(getSoftwareTeamHome(), "bundle-imports")): Promise<PreparedBundleSource> {
   const parsed = parseGitHubBundleLink(input);
   mkdirSync(importsRoot, { recursive: true, mode: 0o700 });
   const owned = mkdtempSync(path.join(importsRoot, "import-"));
@@ -197,15 +197,15 @@ export async function prepareGitHubBundle(input: string, git = bundleGit, import
     try {
       folder = realpathSync(path.join(checkoutDir, source.folder));
       const relative = path.relative(realpathSync(checkoutDir), folder);
-      if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative) || !statSync(folder).isDirectory() || !statSync(path.join(folder, "rig.yaml")).isFile()) throw new Error();
-      const specRelative = path.relative(realpathSync(checkoutDir), realpathSync(path.join(folder, "rig.yaml")));
+      if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative) || !statSync(folder).isDirectory() || !statSync(path.join(folder, "software-team.yaml")).isFile()) throw new Error();
+      const specRelative = path.relative(realpathSync(checkoutDir), realpathSync(path.join(folder, "software-team.yaml")));
       if (specRelative === ".." || specRelative.startsWith(`..${path.sep}`) || path.isAbsolute(specRelative)) throw new Error();
-    } catch { throw new Error("The selected GitHub bundle folder must contain rig.yaml inside the fetched repository."); }
+    } catch { throw new Error("The selected GitHub bundle folder must contain software-team.yaml inside the fetched repository."); }
     checkGitHubBundleSymlinks(checkoutDir);
     checkGitHubBundleRefs(folder, checkoutDir);
     const receiptPath = path.join(owned, "source.json");
     writeFileSync(receiptPath, JSON.stringify(source, null, 2) + "\n");
-    return { source, folder, checkoutDir, archivePath: path.join(owned, "bundle.rigbundle"), receiptPath };
+    return { source, folder, checkoutDir, archivePath: path.join(owned, "bundle.softwareteambundle"), receiptPath };
   } catch (error) {
     rmSync(owned, { recursive: true, force: true });
     throw error;
@@ -237,14 +237,14 @@ export function bundleIdentityLines(data: Record<string, unknown>): string[] {
   if (typeof data.configurationId === "string") lines.push(`Configuration: ${data.configurationId}`);
   const digest = data.packageDigest as { value?: string; coverage?: string } | undefined;
   if (digest?.value) lines.push(`Package SHA-256: ${digest.value}`, `Coverage: ${digest.coverage}; packaged files only; excludes bundle.yaml, ignored junk and file modes; not host-resolved resources or execution.`);
-  const assembler = data.assembler as { openrigVersion?: string; commit?: string } | undefined;
-  if (assembler?.openrigVersion) lines.push(`Assembler: OpenRig ${assembler.openrigVersion}${assembler.commit ? ` (${assembler.commit})` : ""}`);
+  const assembler = data.assembler as { softwareteamVersion?: string; commit?: string } | undefined;
+  if (assembler?.softwareteamVersion) lines.push(`Assembler: SoftwareTeam ${assembler.softwareteamVersion}${assembler.commit ? ` (${assembler.commit})` : ""}`);
   if (typeof data.archiveHash === "string") lines.push(`Archive SHA-256: ${data.archiveHash}`);
   return lines;
 }
 
-/** The rig's own name from rig.yaml, which names a bundle unless --name says otherwise. */
-export function rigSpecName(specPath: string): string | undefined {
+/** The softwareTeam's own name from software-team.yaml, which names a bundle unless --name says otherwise. */
+export function softwareTeamSpecName(specPath: string): string | undefined {
   try {
     const name = (parseYaml(readFileSync(specPath, "utf8")) as { name?: unknown } | null)?.name;
     return typeof name === "string" && name ? name : undefined;
@@ -273,8 +273,8 @@ export async function importGitHubBundle(input: string, deps: StatusDeps, opts: 
   const client = await localBundleClient(deps, opts.host);
   const prepared = await prepare(input);
   let folder = prepared.folder;
-  let specPath = path.join(folder, "rig.yaml");
-  const bundleName = opts.name ?? rigSpecName(specPath) ?? "github-bundle";
+  let specPath = path.join(folder, "software-team.yaml");
+  const bundleName = opts.name ?? softwareTeamSpecName(specPath) ?? "github-bundle";
   let configuration: { id: string; preset?: string } | undefined;
   let configurationStaging: string | undefined;
   let compatibility: Record<string, string>;
@@ -286,10 +286,10 @@ export async function importGitHubBundle(input: string, deps: StatusDeps, opts: 
       const declared = readDeclaredConfigurations(folder);
       if (!declared) throw new ConfigurationError("This bundle has no configurations.yaml; build it as authored or choose a bundle with declared configurations.");
       const chosen = resolveConfiguration(declared, authoredMapping(specPath), { preset: opts.preset, seats: opts.seat });
-      // Preserve monorepo-relative refs when a preset changes the selected rig.
+      // Preserve monorepo-relative refs when a preset changes the selected softwareTeam.
       const staged = stageConfiguration(realpathSync(prepared.checkoutDir), specPath, declared, chosen);
       configurationStaging = staged.stagingDir;
-      specPath = staged.rigSpecPath;
+      specPath = staged.softwareTeamSpecPath;
       folder = path.dirname(specPath);
       configuration = { id: chosen.configurationId, ...(chosen.preset ? { preset: chosen.preset } : {}) };
     }
@@ -307,7 +307,7 @@ export async function importGitHubBundle(input: string, deps: StatusDeps, opts: 
   let res: { status: number; data: Record<string, unknown> };
   try {
     res = await client.post<Record<string, unknown>>("/api/bundles/create", {
-      specPath, rigRoot: folder, outputPath: bundlePath,
+      specPath, softwareTeamRoot: folder, outputPath: bundlePath,
       bundleName, bundleVersion: opts.bundleVersion ?? "0.1.0",
       includePackages: opts.includePackages,
       ...(opts.projectDir ? { projectDir: path.resolve(opts.projectDir) } : {}),

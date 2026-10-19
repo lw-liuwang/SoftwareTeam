@@ -2,22 +2,22 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { parse, stringify } from "yaml";
-import { RigSpecSchema } from "../src/domain/rigspec-schema.js";
+import { SoftwareTeamSpecSchema } from "../src/domain/software-team-spec-schema.js";
 import { resolveAgentRef } from "../src/domain/agent-resolver.js";
 import { resolveNodeConfig } from "../src/domain/profile-resolver.js";
 import { planProjection } from "../src/domain/projection-planner.js";
 import { ClaudeCodeAdapter } from "../src/adapters/claude-code-adapter.js";
 import { CodexRuntimeAdapter } from "../src/adapters/codex-runtime-adapter.js";
 
-const kernel = path.resolve(import.meta.dirname, "../specs/rigs/launch/kernel");
+const kernel = path.resolve(import.meta.dirname, "../specs/software-teams/launch/kernel");
 const cwd = "/fixture/shared";
 const ids = ["advisor.lead", "operator.agent", "queue.worker"];
 const readFile = (p: string) => fs.readFileSync(p, "utf8");
-const rig = RigSpecSchema.normalize(parse(readFile(path.join(kernel, "rig.yaml"))));
+const softwareTeam = SoftwareTeamSpecSchema.normalize(parse(readFile(path.join(kernel, "software-team.yaml"))));
 
 function configFor(id: string, sharedRole = false) {
   const [podId, memberId] = id.split(".");
-  const pod = rig.pods.find(p => p.id === podId)!;
+  const pod = softwareTeam.pods.find(p => p.id === podId)!;
   const member = pod.members.find(m => m.id === memberId)!;
   const source = path.join(kernel, "agents", podId, memberId);
   const fsOps = { exists: fs.existsSync, readFile(p: string) {
@@ -34,7 +34,7 @@ function configFor(id: string, sharedRole = false) {
   if (!resolved.ok) throw Error(JSON.stringify(resolved));
   const result = resolveNodeConfig({ baseSpec: resolved.resolved, importedSpecs: resolved.imports,
     collisions: resolved.collisions, profileName: "default", specRoot: kernel, cwdOverride: cwd,
-    member, pod, rig, homedir: "/fixture/home", skillsRoot: "/fixture/empty-catalog" });
+    member, pod, softwareTeam, homedir: "/fixture/home", skillsRoot: "/fixture/empty-catalog" });
   if (!result.ok) throw Error(JSON.stringify(result));
   const projected = planProjection({ config: result.config, collisions: resolved.collisions, fsOps });
   if (!projected.ok) throw Error(JSON.stringify(projected));
@@ -89,7 +89,7 @@ describe("kernel per-seat role orientation", () => {
       expect(text).not.toContain(readFile(path.join(configFor(order[0]).source, "guidance/role.md")));
     }
   });
-  it.each(["OpenRig", "RIGGED", "user-only"])("preserves %s files byte-for-byte in both adapters, with no cleanup", async marker => {
+  it.each(["SoftwareTeam", "SOFTWARETEAM", "user-only"])("preserves %s files byte-for-byte in both adapters, with no cleanup", async marker => {
     const text = marker === "user-only" ? "# User content  \n" : `# User prefix  \n<!-- BEGIN ${marker} MANAGED BLOCK: role -->\nOld role remains exposed\n<!-- END ${marker} MANAGED BLOCK: role -->\n# User suffix\n`;
     const seed = Object.fromEntries(["AGENTS.md", "CLAUDE.md", "CLAUDE.local.md"].map(f => [path.join(cwd, f), text]));
     for (const claudeFile of ["CLAUDE.md", "CLAUDE.local.md"]) {

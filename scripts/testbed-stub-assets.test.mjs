@@ -10,7 +10,7 @@ import { deriveStubAssetsHash } from "./testbed-build-inputs.mjs";
 // docker/testbed/stub-assets.list and feeds that same list to the manifest census
 // (census-scope-match-code-path). An EMPTY census is an L0.2 FAIL — deriveStubAssetsHash
 // loud-fails and the build verb refuses. This suite pins that the shipped list names the
-// concrete zero-token stub trio (a runtime:stub rig.yaml + its agent fixture + culture.md)
+// concrete zero-token stub trio (a runtime:stub software-team.yaml + its agent fixture + culture.md)
 // and that the receipt is well-formed, so the list can never silently drift back to empty
 // or reference a missing file.
 
@@ -31,7 +31,7 @@ function parseCensus(path) {
 const EXPECTED = [
   "docker/testbed/stub-assets/agents/worker/agent.yaml",
   "docker/testbed/stub-assets/culture.md",
-  "docker/testbed/stub-assets/rig.yaml",
+  "docker/testbed/stub-assets/software-team.yaml",
 ];
 
 test("stub-assets.list census is populated (empty census = L0.2 FAIL, build verb refuses)", () => {
@@ -44,7 +44,7 @@ test("census names EXACTLY the stub trio and every listed file exists", () => {
   assert.deepEqual(
     [...files].sort(),
     EXPECTED,
-    "census must name exactly the stub trio (rig.yaml + culture.md + agent fixture)",
+    "census must name exactly the stub trio (software-team.yaml + culture.md + agent fixture)",
   );
   for (const rel of files) {
     assert.ok(existsSync(join(REPO_ROOT, rel)), `listed stub asset must exist: ${rel}`);

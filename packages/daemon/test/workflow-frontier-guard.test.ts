@@ -37,10 +37,10 @@ const SPEC = `workflow:
   roles:
     producer:
       preferred_targets:
-        - producer@rig
+        - producer@software-team
     reviewer:
       preferred_targets:
-        - reviewer@rig
+        - reviewer@software-team
   steps:
     - id: produce
       actor_role: producer
@@ -79,11 +79,11 @@ describe("workflow frontier close-path guard (WF3 FR-6)", () => {
       workflowInstanceVersionSchema, workflowSpecJsonSchema,
     ]);
     bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     // The PRODUCTION wiring shape: predicate INJECTED at construction
     // (startup.ts does exactly this).
     queueRepo = new QueueRepository(db, bus, {
-      validateRig: () => true,
+      validateSoftwareTeam: () => true,
       workflowFrontierPredicate: createWorkflowFrontierPredicate(db),
     });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
@@ -104,7 +104,7 @@ describe("workflow frontier close-path guard (WF3 FR-6)", () => {
     const r = await runtime.instantiate({
       specPath,
       rootObjective: "guard pins",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
     });
     return { instanceId: r.instance.instanceId, entryPacket: r.entryQitemId };
   }
@@ -115,7 +115,7 @@ describe("workflow frontier close-path guard (WF3 FR-6)", () => {
     try {
       queueRepo.update({
         qitemId: entryPacket,
-        actorSession: "rogue@rig",
+        actorSession: "rogue@software-team",
         state: "done",
         closureReason: "no-follow-on",
       });
@@ -127,8 +127,8 @@ describe("workflow frontier close-path guard (WF3 FR-6)", () => {
     // what/why/fix: names the binding AND the correct verbs.
     expect(caught?.message).toContain("frontier packet");
     expect(caught?.message).toContain("strand");
-    expect(caught?.message).toContain("rig workflow project");
-    expect(caught?.message).toContain("rig workflow route");
+    expect(caught?.message).toContain("SoftwareTeam workflow project");
+    expect(caught?.message).toContain("SoftwareTeam workflow route");
     // The packet is UNTOUCHED (prevention, not detection).
     const row = db.prepare(`SELECT state FROM queue_items WHERE qitem_id = ?`).get(entryPacket) as { state: string };
     expect(row.state).toBe("pending");
@@ -140,11 +140,11 @@ describe("workflow frontier close-path guard (WF3 FR-6)", () => {
       db.transaction(() => {
         queueRepo.updateWithinTransaction({
           qitemId: entryPacket,
-          actorSession: "mc@rig",
+          actorSession: "mc@software-team",
           state: "handed-off",
           closureReason: "handed_off_to",
-          closureTarget: "elsewhere@rig",
-          handedOffTo: "elsewhere@rig",
+          closureTarget: "elsewhere@software-team",
+          handedOffTo: "elsewhere@software-team",
         });
       })(),
     ).toThrowError(/workflow instance/);
@@ -157,46 +157,46 @@ describe("workflow frontier close-path guard (WF3 FR-6)", () => {
       instanceId,
       currentPacketId: entryPacket,
       exit: "handoff",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
     });
     expect(advanced.nextStepId).toBe("review");
     // …and route works on the new frontier.
     const routed = await runtime.route({
       instanceId,
-      toSession: "reviewer2@rig",
-      actorSession: "orch@rig",
+      toSession: "reviewer2@software-team",
+      actorSession: "orch@software-team",
     });
-    expect(routed.toSession).toBe("reviewer2@rig");
+    expect(routed.toSession).toBe("reviewer2@software-team");
   });
 
   it("ZERO-FRICTION NEGATIVE: a non-workflow qitem's closure is byte-identical with and without the predicate wired", async () => {
     // Repo WITH the predicate (production shape).
     const created = await queueRepo.create({
-      sourceSession: "a@rig",
-      destinationSession: "b@rig",
+      sourceSession: "a@software-team",
+      destinationSession: "b@software-team",
       body: "ordinary work",
     });
     const closed = queueRepo.update({
       qitemId: created.qitemId,
-      actorSession: "b@rig",
+      actorSession: "b@software-team",
       state: "done",
       closureReason: "no-follow-on",
     });
     expect(closed.state).toBe("done");
 
     // Repo WITHOUT any predicate (legacy shape) — same fields, same result.
-    const bareRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    const bareRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     bareRepo.attachOutbox(new OutboxHandler(db));
     const created2 = await bareRepo.create({
-      sourceSession: "a@rig",
-      destinationSession: "b@rig",
+      sourceSession: "a@software-team",
+      destinationSession: "b@software-team",
       body: "ordinary work",
     });
     const closed2 = bareRepo.update({
       qitemId: created2.qitemId,
-      actorSession: "b@rig",
+      actorSession: "b@software-team",
       state: "done",
       closureReason: "no-follow-on",
     });
@@ -206,7 +206,7 @@ describe("workflow frontier close-path guard (WF3 FR-6)", () => {
 
   it("a TERMINAL instance's packets are not guarded (the predicate is scoped to LIVE frontiers)", async () => {
     const { instanceId, entryPacket } = await instantiate();
-    await runtime.project({ instanceId, currentPacketId: entryPacket, exit: "failed", actorSession: "producer@rig" });
+    await runtime.project({ instanceId, currentPacketId: entryPacket, exit: "failed", actorSession: "producer@software-team" });
     // The instance failed; its (already-closed) packet is off the live
     // frontier — no guard interference with any later queue hygiene.
     expect(createWorkflowFrontierPredicate(db)(entryPacket)).toBeNull();

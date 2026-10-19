@@ -11,7 +11,7 @@ const inst = (over: Partial<WorkflowInstanceWithDeadline>): WorkflowInstanceWith
   instanceId: "01WFX",
   workflowName: "wf",
   workflowVersion: "1",
-  createdBySession: "lead@acme-rig",
+  createdBySession: "lead@acme-software-team",
   createdAt: "2026-07-07T00:00:00.000Z",
   status: "active",
   currentFrontier: [],

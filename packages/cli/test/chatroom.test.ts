@@ -57,14 +57,14 @@ describe("Chatroom CLI", () => {
   let server: http.Server;
   let port: number;
 
-  const rigSummary = [
-    { id: "rig-1", name: "my-rig", nodeCount: 2 },
+  const softwareTeamSummary = [
+    { id: "software-team-1", name: "my-software-team", nodeCount: 2 },
   ];
 
   // Use ULID-like IDs (time-ordered, all starting with 01KN — well before any current ULID)
   const chatMessages = [
-    { id: "01KN000000AA00000000000001", rigId: "rig-1", sender: "alice", kind: "message", body: "hello", topic: null, createdAt: "2026-03-31T10:00:00Z" },
-    { id: "01KN000000AA00000000000002", rigId: "rig-1", sender: "bob", kind: "message", body: "world", topic: null, createdAt: "2026-03-31T10:01:00Z" },
+    { id: "01KN000000AA00000000000001", softwareTeamId: "software-team-1", sender: "alice", kind: "message", body: "hello", topic: null, createdAt: "2026-03-31T10:00:00Z" },
+    { id: "01KN000000AA00000000000002", softwareTeamId: "software-team-1", sender: "bob", kind: "message", body: "world", topic: null, createdAt: "2026-03-31T10:01:00Z" },
   ];
 
   const capturedUrls: string[] = [];
@@ -86,16 +86,16 @@ describe("Chatroom CLI", () => {
       let body = "";
       req.on("data", (chunk: Buffer) => { body += chunk; });
       req.on("end", () => {
-        if (url === "/api/rigs/summary") {
+        if (url === "/api/software-teams/summary") {
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify(rigSummary));
+          res.end(JSON.stringify(softwareTeamSummary));
           return;
         }
 
         if (url.includes("/chat/send") && req.method === "POST") {
           const parsed = JSON.parse(body);
           res.writeHead(201, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ id: "msg-new", rigId: "rig-1", sender: parsed.sender, kind: "message", body: parsed.body, topic: null, createdAt: "2026-03-31T10:05:00Z" }));
+          res.end(JSON.stringify({ id: "msg-new", softwareTeamId: "software-team-1", sender: parsed.sender, kind: "message", body: parsed.body, topic: null, createdAt: "2026-03-31T10:05:00Z" }));
           return;
         }
 
@@ -135,7 +135,7 @@ describe("Chatroom CLI", () => {
         if (url.includes("/chat/topic") && req.method === "POST") {
           const parsed = JSON.parse(body);
           res.writeHead(201, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ id: "msg-topic", rigId: "rig-1", sender: parsed.sender, kind: "topic", body: parsed.body ?? "", topic: parsed.topic, createdAt: "2026-03-31T10:06:00Z" }));
+          res.end(JSON.stringify({ id: "msg-topic", softwareTeamId: "software-team-1", sender: parsed.sender, kind: "topic", body: parsed.body ?? "", topic: parsed.topic, createdAt: "2026-03-31T10:06:00Z" }));
           return;
         }
 
@@ -169,25 +169,25 @@ describe("Chatroom CLI", () => {
   }
 
   it("chatroom send derives the sender from the seat env — echoes the derived seat, NOT the retired 'cli' default", async () => {
-    // P21: --sender is deprecated + ignored; the daemon derives the sender from the X-OpenRig-Session
+    // P21: --sender is deprecated + ignored; the daemon derives the sender from the X-SoftwareTeam-Session
     // header (stamped from the seat env). The local echo now reflects that derived seat, never 'cli'.
-    const saved = process.env["OPENRIG_SESSION_NAME"];
-    process.env["OPENRIG_SESSION_NAME"] = "alice@my-rig";
+    const saved = process.env["SOFTWARETEAM_SESSION_NAME"];
+    process.env["SOFTWARETEAM_SESSION_NAME"] = "alice@my-software-team";
     try {
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "chatroom", "send", "my-rig", "hello world"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "send", "my-software-team", "hello world"]);
       });
-      expect(logs.join("\n")).toContain("[alice@my-rig] hello world");
+      expect(logs.join("\n")).toContain("[alice@my-software-team] hello world");
       expect(logs.join("\n")).not.toContain("[cli]");
     } finally {
-      if (saved === undefined) delete process.env["OPENRIG_SESSION_NAME"];
-      else process.env["OPENRIG_SESSION_NAME"] = saved;
+      if (saved === undefined) delete process.env["SOFTWARETEAM_SESSION_NAME"];
+      else process.env["SOFTWARETEAM_SESSION_NAME"] = saved;
     }
   });
 
   it("chatroom history prints chronological", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "chatroom", "history", "my-rig"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "history", "my-software-team"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("[alice] hello");
@@ -196,7 +196,7 @@ describe("Chatroom CLI", () => {
 
   it("chatroom history --json prints JSON", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "chatroom", "history", "my-rig", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "history", "my-software-team", "--json"]);
     });
     const parsed = JSON.parse(logs.join("\n"));
     expect(Array.isArray(parsed)).toBe(true);
@@ -205,23 +205,23 @@ describe("Chatroom CLI", () => {
 
   it("chatroom topic creates marker", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "chatroom", "topic", "my-rig", "standup"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "topic", "my-software-team", "standup"]);
     });
     expect(logs.join("\n")).toContain("--- topic: standup ---");
   });
 
   it("chatroom watch prints streamed messages", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "chatroom", "watch", "my-rig"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "watch", "my-software-team"]);
     });
     expect(logs.join("\n")).toContain("[alice] streamed");
   });
 
-  it("chatroom send with ambiguous rig name shows error with guidance", async () => {
-    // Override to return ambiguous rigs
+  it("chatroom send with ambiguous SoftwareTeam name shows error with guidance", async () => {
+    // Override to return ambiguous softwareTeams
     const ambiguousSummary = [
-      { id: "rig-1", name: "my-rig", nodeCount: 2 },
-      { id: "rig-2", name: "my-rig", nodeCount: 1 },
+      { id: "software-team-1", name: "my-software-team", nodeCount: 2 },
+      { id: "software-team-2", name: "my-software-team", nodeCount: 1 },
     ];
 
     const ambiguousServer = http.createServer((req, res) => {
@@ -229,7 +229,7 @@ describe("Chatroom CLI", () => {
       let body = "";
       req.on("data", (chunk: Buffer) => { body += chunk; });
       req.on("end", () => {
-        if (url === "/api/rigs/summary") {
+        if (url === "/api/software-teams/summary") {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify(ambiguousSummary));
           return;
@@ -248,7 +248,7 @@ describe("Chatroom CLI", () => {
     ambiguousCmd.addCommand(chatroomCommand(runningDeps(ambiguousPort)));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await ambiguousCmd.parseAsync(["node", "rig", "chatroom", "send", "my-rig", "hello"]);
+      await ambiguousCmd.parseAsync(["node", "softwareTeam", "chatroom", "send", "my-software-team", "hello"]);
     });
 
     ambiguousServer.close();
@@ -256,7 +256,7 @@ describe("Chatroom CLI", () => {
     expect(exitCode).toBe(1);
   });
 
-  it("chatroom watch --tmux spawns rig chatroom watch as the session command", async () => {
+  it("chatroom watch --tmux spawns SoftwareTeam chatroom watch as the session command", async () => {
     // Mock execSync to verify the tmux command
     const origExecSync = (await import("node:child_process")).execSync;
     let capturedCmd = "";
@@ -266,18 +266,18 @@ describe("Chatroom CLI", () => {
     // option prints the expected output when the tmux command fails (which it will
     // in CI since there's no tmux server)
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "chatroom", "watch", "my-rig", "--tmux"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "watch", "my-software-team", "--tmux"]);
     });
 
     const output = logs.join("\n");
     // Either it created the session or it reported an error about an existing session
-    const tmuxSucceeded = output.includes("chatroom@my-rig");
+    const tmuxSucceeded = output.includes("chatroom@my-software-team");
     expect(tmuxSucceeded).toBe(true);
   });
 
   it("chatroom history --sender filters messages", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "chatroom", "history", "my-rig", "--sender", "alice"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "history", "my-software-team", "--sender", "alice"]);
     });
 
     const output = logs.join("\n");
@@ -288,7 +288,7 @@ describe("Chatroom CLI", () => {
   it("chatroom history --since forwards since param to API", async () => {
     capturedUrls.length = 0;
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "chatroom", "history", "my-rig", "--since", "2026-04-01T00:00:00Z"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "history", "my-software-team", "--since", "2026-04-01T00:00:00Z"]);
     });
 
     const historyUrl = capturedUrls.find(u => u.includes("/chat/history"));
@@ -299,7 +299,7 @@ describe("Chatroom CLI", () => {
   it("chatroom history --after forwards after param to API", async () => {
     capturedUrls.length = 0;
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "chatroom", "history", "my-rig", "--after", "msg-cursor-123"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "history", "my-software-team", "--after", "msg-cursor-123"]);
     });
 
     const historyUrl = capturedUrls.find(u => u.includes("/chat/history"));
@@ -308,7 +308,7 @@ describe("Chatroom CLI", () => {
 
   it("chatroom history --sender --json returns filtered JSON", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "chatroom", "history", "my-rig", "--sender", "alice", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "history", "my-software-team", "--sender", "alice", "--json"]);
     });
 
     const parsed = JSON.parse(logs.join(""));
@@ -317,9 +317,9 @@ describe("Chatroom CLI", () => {
   });
 
   it.each([
-    ["history", [], 404, { error: "Rig removed" }],
+    ["history", [], 404, { error: "SoftwareTeam removed" }],
     ["history", ["--json"], 500, { error: "History unavailable" }],
-    ["wait", ["--timeout", "0.05"], 404, { error: "Rig removed" }],
+    ["wait", ["--timeout", "0.05"], 404, { error: "SoftwareTeam removed" }],
     ["wait", ["--timeout", "0.05", "--json"], 500, { error: "History unavailable" }],
     ["history", [], 503, {}],
     ["wait", ["--timeout", "0.05"], 503, {}],
@@ -328,7 +328,7 @@ describe("Chatroom CLI", () => {
     historyFailure = { status, body };
     capturedUrls.length = 0;
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "chatroom", command, "my-rig", ...options]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", command, "my-software-team", ...options]);
     });
 
     expect(exitCode).toBe(1);
@@ -345,7 +345,7 @@ describe("Chatroom CLI", () => {
   it("chatroom wait with explicit --after returns new messages immediately", async () => {
     // --after "000" is before existing messages, so they satisfy the wait
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "chatroom", "wait", "my-rig", "--after", "000", "--timeout", "2"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "wait", "my-software-team", "--after", "000", "--timeout", "2"]);
     });
 
     const output = logs.join("\n");
@@ -357,7 +357,7 @@ describe("Chatroom CLI", () => {
     historyDelayMs = 600;
     historyDelayStage = stage;
     const { logs, exitCode } = await captureLogs(() => makeCmd().parseAsync([
-      "node", "rig", "chatroom", "wait", "my-rig", "--after", "000", "--timeout", "0.2",
+      "node", "softwareTeam", "chatroom", "wait", "my-software-team", "--after", "000", "--timeout", "0.2",
     ]));
     expect(exitCode).toBe(1);
     expect(logs.join("\n")).toContain("Timed out after 0.2 seconds");
@@ -368,7 +368,7 @@ describe("Chatroom CLI", () => {
   it.each(["30s", "30", "0.5", "0.5s", "1.5s", "1e2", "0x10"])("chatroom wait accepts timeout form %s", async (timeout) => {
     capturedUrls.length = 0;
     const { logs, exitCode } = await captureLogs(() => makeCmd().parseAsync([
-      "node", "rig", "chatroom", "wait", "my-rig", "--after", "000", "--timeout", timeout,
+      "node", "softwareTeam", "chatroom", "wait", "my-software-team", "--after", "000", "--timeout", timeout,
     ]));
     expect(exitCode).toBeUndefined();
     expect(logs.join("\n")).toContain("[alice] hello");
@@ -379,7 +379,7 @@ describe("Chatroom CLI", () => {
     // Isolate the deadline from HTTP latency and real timers, which can wake early.
     vi.useFakeTimers();
     const get = vi.spyOn(DaemonClient.prototype, "get")
-      .mockResolvedValueOnce({ status: 200, data: rigSummary })
+      .mockResolvedValueOnce({ status: 200, data: softwareTeamSummary })
       .mockResolvedValue({ status: 200, data: [] });
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const previousExitCode = process.exitCode;
@@ -387,11 +387,11 @@ describe("Chatroom CLI", () => {
     try {
       const settled = vi.fn();
       const wait = makeCmd().parseAsync([
-        "node", "rig", "chatroom", "wait", "my-rig", "--after", "ZZZ", "--timeout", timeout,
+        "node", "softwareTeam", "chatroom", "wait", "my-software-team", "--after", "ZZZ", "--timeout", timeout,
       ]).then(settled);
 
       await vi.advanceTimersByTimeAsync(49);
-      expect(get).toHaveBeenNthCalledWith(2, "/api/rigs/rig-1/chat/history?after=ZZZ", { signal: expect.any(AbortSignal) });
+      expect(get).toHaveBeenNthCalledWith(2, "/api/software-teams/software-team-1/chat/history?after=ZZZ", { signal: expect.any(AbortSignal) });
       expect(settled).not.toHaveBeenCalled();
 
       await vi.advanceTimersByTimeAsync(1);
@@ -413,11 +413,11 @@ describe("Chatroom CLI", () => {
     async function waitWithPolls(timeout: string, poll: () => Promise<unknown>, advanceMs: number) {
       vi.useFakeTimers();
       const get = vi.spyOn(DaemonClient.prototype, "get")
-        .mockResolvedValueOnce({ status: 200, data: rigSummary })
+        .mockResolvedValueOnce({ status: 200, data: softwareTeamSummary })
         .mockImplementation(poll as never);
       try {
         const run = captureLogs(() => makeCmd().parseAsync([
-          "node", "rig", "chatroom", "wait", "my-rig", "--after", "000", "--timeout", timeout,
+          "node", "softwareTeam", "chatroom", "wait", "my-software-team", "--after", "000", "--timeout", timeout,
         ]));
         await vi.advanceTimersByTimeAsync(advanceMs);
         const { logs, exitCode } = await run;
@@ -430,12 +430,12 @@ describe("Chatroom CLI", () => {
 
     it("retries a timed-out poll and returns what the next poll finds", async () => {
       const results: Array<() => Promise<unknown>> = [
-        () => Promise.reject(new DaemonTimeoutError("The OpenRig daemon did not respond in time")),
+        () => Promise.reject(new DaemonTimeoutError("The SoftwareTeam daemon did not respond in time")),
         () => Promise.resolve({ status: 200, data: [chatMessages[0]] }),
       ];
       const { output, exitCode, polls } = await waitWithPolls("3600", () => results.shift()!(), 3000);
       expect(polls).toBe(2);
-      expect(output).toContain("A poll failed (The OpenRig daemon did not respond in time); retrying until the --timeout deadline.");
+      expect(output).toContain("A poll failed (The SoftwareTeam daemon did not respond in time); retrying until the --timeout deadline.");
       expect(output).toContain("[alice] hello");
       expect(output).not.toContain("Timed out");
       expect(exitCode).toBeUndefined();
@@ -470,18 +470,18 @@ describe("Chatroom CLI", () => {
     });
 
     it.each([
-      ["a connection this machine blocked", new DaemonConnectionError("Cannot connect to the OpenRig daemon (EPERM)", "EPERM")],
-      ["a connection error with no cause code", new DaemonConnectionError("Cannot connect to the OpenRig daemon")],
+      ["a connection this machine blocked", new DaemonConnectionError("Cannot connect to the SoftwareTeam daemon (EPERM)", "EPERM")],
+      ["a connection error with no cause code", new DaemonConnectionError("Cannot connect to the SoftwareTeam daemon")],
       ["an unreadable response", new DaemonResponseError(200, "<html>")],
       ["an unexpected error", new Error("boom")],
     ])("ends at once on %s instead of retrying it", async (_label, failure) => {
       const get = vi.spyOn(DaemonClient.prototype, "get")
-        .mockResolvedValueOnce({ status: 200, data: rigSummary })
+        .mockResolvedValueOnce({ status: 200, data: softwareTeamSummary })
         .mockRejectedValue(failure);
       const error = vi.spyOn(console, "error").mockImplementation(() => {});
       try {
         await expect(makeCmd().parseAsync([
-          "node", "rig", "chatroom", "wait", "my-rig", "--after", "000", "--timeout", "3600",
+          "node", "softwareTeam", "chatroom", "wait", "my-software-team", "--after", "000", "--timeout", "3600",
         ])).rejects.toBe(failure);
         expect(get).toHaveBeenCalledTimes(2);
         expect(error).not.toHaveBeenCalledWith(expect.stringContaining("A poll failed"));
@@ -495,9 +495,9 @@ describe("Chatroom CLI", () => {
       historyDrops = 1;
       capturedUrls.length = 0;
       const { logs, exitCode } = await captureLogs(() => makeCmd().parseAsync([
-        "node", "rig", "chatroom", "wait", "my-rig", "--after", "000", "--timeout", "10",
+        "node", "softwareTeam", "chatroom", "wait", "my-software-team", "--after", "000", "--timeout", "10",
       ]));
-      expect(logs.join("\n")).toMatch(/A poll failed \(Cannot connect to the OpenRig daemon .*\); retrying until the --timeout deadline\./);
+      expect(logs.join("\n")).toMatch(/A poll failed \(Cannot connect to the SoftwareTeam daemon .*\); retrying until the --timeout deadline\./);
       expect(logs.join("\n")).toContain("[alice] hello");
       expect(exitCode).toBeUndefined();
       expect(capturedUrls.filter((url) => url.includes("/chat/history"))).toHaveLength(2);
@@ -507,7 +507,7 @@ describe("Chatroom CLI", () => {
   it.each(["abc", "NaN", "Infinity", "-Infinity", "", " ", "-1", "-1s", "1e309", "1e309s"])("chatroom wait rejects invalid timeout %s before requests", async (timeout) => {
     capturedUrls.length = 0;
     const { logs, exitCode } = await captureLogs(() => makeCmd().parseAsync([
-      "node", "rig", "chatroom", "wait", "my-rig", "--timeout", timeout,
+      "node", "softwareTeam", "chatroom", "wait", "my-software-team", "--timeout", timeout,
     ]));
     expect(exitCode).toBe(1);
     expect(logs.join("\n")).toContain("--timeout must be a non-negative number of seconds");
@@ -518,7 +518,7 @@ describe("Chatroom CLI", () => {
     // No --after: bootstrap ULID is generated at wait-start time (> all existing fixture IDs).
     // Since no new messages arrive after that, wait should timeout.
     const { exitCode, logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "chatroom", "wait", "my-rig", "--timeout", "1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "wait", "my-software-team", "--timeout", "1"]);
     });
 
     expect(exitCode).toBe(1);
@@ -532,7 +532,7 @@ describe("Chatroom CLI", () => {
     const injectionTimer = setTimeout(() => {
       dynamicMessages.push({
         id: ulid(),
-        rigId: "rig-1",
+        softwareTeamId: "software-team-1",
         sender: "new-peer",
         kind: "message",
         body: "post-start arrival",
@@ -545,7 +545,7 @@ describe("Chatroom CLI", () => {
       const { logs } = await captureLogs(async () => {
         // No --after: ULID baseline generated at start, existing messages filtered out.
         // The dynamically injected message has a very high ULID, so it will be > baseline.
-        await makeCmd().parseAsync(["node", "rig", "chatroom", "wait", "my-rig", "--timeout", "10"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "wait", "my-software-team", "--timeout", "10"]);
       });
 
       const output = logs.join("\n");
@@ -559,7 +559,7 @@ describe("Chatroom CLI", () => {
 
   it("chatroom wait times out with exit 1 when no new messages match filter", async () => {
     const { exitCode, logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "chatroom", "wait", "my-rig", "--after", "zzzzzzzzzzzzzzzzzzzzzzzzz", "--timeout", "1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "wait", "my-software-team", "--after", "zzzzzzzzzzzzzzzzzzzzzzzzz", "--timeout", "1"]);
     });
 
     expect(exitCode).toBe(1);
@@ -571,7 +571,7 @@ describe("Chatroom CLI", () => {
     // poll sleep ~1ms, so the wait spun against the daemon forever.
     capturedUrls.length = 0;
     const { exitCode, logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "chatroom", "wait", "my-rig", "--timeout", "abc"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "wait", "my-software-team", "--timeout", "abc"]);
     });
 
     expect(exitCode).toBe(1);
@@ -581,7 +581,7 @@ describe("Chatroom CLI", () => {
 
   it("chatroom wait --json returns messages as JSON", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "chatroom", "wait", "my-rig", "--after", "000", "--timeout", "2", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "wait", "my-software-team", "--after", "000", "--timeout", "2", "--json"]);
     });
 
     const parsed = JSON.parse(logs.join(""));
@@ -591,10 +591,10 @@ describe("Chatroom CLI", () => {
 
   it("chatroom clear prints deleted count", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "chatroom", "clear", "my-rig"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "chatroom", "clear", "my-software-team"]);
     });
 
     const output = logs.join("\n");
-    expect(output).toContain("Cleared 2 messages from my-rig chatroom.");
+    expect(output).toContain("Cleared 2 messages from my-software-team chatroom.");
   });
 });

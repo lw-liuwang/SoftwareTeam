@@ -1,7 +1,7 @@
 // SPEC.md is the authored contract file for a work node; README.md is the legacy name.
 //
 // The founder ruling renamed the chain file, and the product stopped being able to read its own
-// work tree: `rig scope mission ls` DROPPED release-0.5.2, and `findMission` threw "contains no
+// work tree: `SoftwareTeam scope mission ls` DROPPED release-0.5.2, and `findMission` threw "contains no
 // README.md" at a mission that was fully authored. Meanwhile ~59 dormant missions and every
 // historical proof receipt are README-backed and must keep working untouched.
 //
@@ -30,7 +30,7 @@ function mission(name: string, fileName: string, frontmatter = ""): string {
   return dir;
 }
 
-beforeEach(() => { root = fs.mkdtempSync(path.join(os.tmpdir(), "rig-spec-md-")); });
+beforeEach(() => { root = fs.mkdtempSync(path.join(os.tmpdir(), "software-team-spec-md-")); });
 afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
 
 describe("work-node resolution — SPEC.md first, README.md still valid", () => {

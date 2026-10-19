@@ -22,7 +22,7 @@ lifecycle:
     context_refs: [SPEC.md, PROGRESS.md]
     entry: { role: orchestrator }
     roles:
-      orchestrator: { preferred_targets: [orch@rig] }
+      orchestrator: { preferred_targets: [orch@software-team] }
     steps:
       - id: mission-boundary
         actor_role: orchestrator
@@ -45,7 +45,7 @@ describe("authored mission boundary with event-first wait", () => {
 
   function wire() {
     const bus = new EventBus(db);
-    queue = new QueueRepository(db, bus, { validateRig: () => true });
+    queue = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     queue.attachOutbox(new OutboxHandler(db));
     jobs = new WatchdogJobsRepository(db);
     queue.attachWatchdogJobsRepository(jobs);
@@ -63,7 +63,7 @@ describe("authored mission boundary with event-first wait", () => {
     vi.setSystemTime(new Date("2026-09-06T00:00:00Z"));
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('r', 'rig')").run();
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('r', 'softwareTeam')").run();
     delivered = [];
     wire();
     root = mkdtempSync(join(tmpdir(), "mission-boundary-"));
@@ -83,7 +83,7 @@ describe("authored mission boundary with event-first wait", () => {
   afterEach(() => { stopEvents(); db.close(); rmSync(root, { recursive: true, force: true }); vi.useRealTimers(); });
 
   const stepTime = (seconds: number) => vi.setSystemTime(Date.now() + seconds * 1000);
-  const instantiateInput = () => ({ missionPath: mission, operationKey: "opaque-boundary-operation", rootObjective: "Recover project context", createdBySession: "orch@rig" });
+  const instantiateInput = () => ({ missionPath: mission, operationKey: "opaque-boundary-operation", rootObjective: "Recover project context", createdBySession: "orch@software-team" });
   const timer = (packet: string) => jobs.getByIdOrThrow(queue.getParkWakeStatus(packet)!.ref);
 
   it("compiles only the authored boundary, binds its sources, and replays one instance without interpreting receipts", async () => {
@@ -101,7 +101,7 @@ describe("authored mission boundary with event-first wait", () => {
     expect(body).toContain(`--instance ${run.instance.instanceId} --current-packet ${run.entryQitemId}`);
     expect(body).toContain("shortcut, not the whole story");
     await runtime.project({ instanceId: run.instance.instanceId, currentPacketId: run.entryQitemId,
-      actorSession: "orch@rig", exit: "waiting", blockedOn: "external:receipt",
+      actorSession: "orch@software-team", exit: "waiting", blockedOn: "external:receipt",
       closureEvidence: { receipt: { outcome: "published", verdict: "CLEAR" } } });
     expect(queue.getByIdOrThrow(run.entryQitemId).state).toBe("blocked");
     stopEvents(); wire();
@@ -118,7 +118,7 @@ describe("authored mission boundary with event-first wait", () => {
 
   it("backs off 5/10/20/40/60 minutes across acknowledgments and restart, resets only for new evidence, and stops on the agent's exit", async () => {
     const run = await runtime.instantiateLifecycle(instantiateInput());
-    const wait = { instanceId: run.instance.instanceId, currentPacketId: run.entryQitemId, actorSession: "orch@rig", exit: "waiting" as const, blockedOn: "external:receipt", closureEvidence: { receipt: "proof/a.md", candidate: "a" } };
+    const wait = { instanceId: run.instance.instanceId, currentPacketId: run.entryQitemId, actorSession: "orch@software-team", exit: "waiting" as const, blockedOn: "external:receipt", closureEvidence: { receipt: "proof/a.md", candidate: "a" } };
     await expect(runtime.project({ ...wait, blockedOn: run.entryQitemId })).rejects.toMatchObject({ code: "wake_self_blocker" });
     await runtime.project(wait);
     const jobId = timer(run.entryQitemId).jobId;
@@ -151,11 +151,11 @@ describe("authored mission boundary with event-first wait", () => {
 
   it("wakes on the exact blocker transition, bridges missed events at restart, and absorbs event replay", async () => {
     const run = await runtime.instantiateLifecycle(instantiateInput());
-    const blocker = await queue.create({ sourceSession: "orch@rig", destinationSession: "worker@rig", body: "Receipt work", nudge: false });
-    await runtime.project({ instanceId: run.instance.instanceId, currentPacketId: run.entryQitemId, actorSession: "orch@rig", exit: "waiting", blockedOn: blocker.qitemId });
+    const blocker = await queue.create({ sourceSession: "orch@software-team", destinationSession: "worker@software-team", body: "Receipt work", nudge: false });
+    await runtime.project({ instanceId: run.instance.instanceId, currentPacketId: run.entryQitemId, actorSession: "orch@software-team", exit: "waiting", blockedOn: blocker.qitemId });
     const jobId = timer(run.entryQitemId).jobId;
     stepTime(1);
-    await queue.claim({ qitemId: blocker.qitemId, destinationSession: "worker@rig", actorSession: "worker@rig" });
+    await queue.claim({ qitemId: blocker.qitemId, destinationSession: "worker@software-team", actorSession: "worker@software-team" });
     // Wake-now marker: epoch is always due, so a blocker change 1s into the
     // 300s wait still wakes (#801 keeps fresh reminders on full interval).
     expect(timer(run.entryQitemId).lastEvaluationAt).toBe(new Date(0).toISOString());
@@ -166,14 +166,14 @@ describe("authored mission boundary with event-first wait", () => {
     await scheduler.runTickNow();
     expect(delivered).toHaveLength(1);
     stopEvents();
-    await queue.update({ qitemId: blocker.qitemId, actorSession: "worker@rig", state: "in-progress", transitionNote: "New receipt evidence" });
+    await queue.update({ qitemId: blocker.qitemId, actorSession: "worker@software-team", state: "in-progress", transitionNote: "New receipt evidence" });
     wire();
     // Same wake-now marker on the evidence path.
     expect(timer(run.entryQitemId).lastEvaluationAt).toBe(new Date(0).toISOString());
     await scheduler.runTickNow();
     expect(delivered).toHaveLength(2);
     expect(timer(run.entryQitemId).jobId).toBe(jobId);
-    await queue.update({ qitemId: blocker.qitemId, actorSession: "worker@rig", state: "done", closureReason: "no-follow-on" });
+    await queue.update({ qitemId: blocker.qitemId, actorSession: "worker@software-team", state: "done", closureReason: "no-follow-on" });
     expect(queue.getByIdOrThrow(run.entryQitemId).state).toBe("pending");
     expect(jobs.getByIdOrThrow(jobId).state).toBe("terminal");
     stepTime(7200); await scheduler.runTickNow();
@@ -194,10 +194,10 @@ describe("authored mission boundary with event-first wait", () => {
 
   it("continues backoff without acknowledgments, ignores unrelated traffic, and honors same-state blocker progress", async () => {
     const run = await runtime.instantiateLifecycle(instantiateInput());
-    const blocker = await queue.create({ sourceSession: "orch@rig", destinationSession: "worker@rig", body: "Blocker", nudge: false });
-    const park = { qitemId: blocker.qitemId, actorSession: "worker@rig", state: "blocked" as const, blockedOn: "external:receipt", closureReason: "blocked_on", closureTarget: "external:receipt" };
+    const blocker = await queue.create({ sourceSession: "orch@software-team", destinationSession: "worker@software-team", body: "Blocker", nudge: false });
+    const park = { qitemId: blocker.qitemId, actorSession: "worker@software-team", state: "blocked" as const, blockedOn: "external:receipt", closureReason: "blocked_on", closureTarget: "external:receipt" };
     await queue.update(park);
-    await runtime.project({ instanceId: run.instance.instanceId, currentPacketId: run.entryQitemId, actorSession: "orch@rig", exit: "waiting", blockedOn: blocker.qitemId });
+    await runtime.project({ instanceId: run.instance.instanceId, currentPacketId: run.entryQitemId, actorSession: "orch@software-team", exit: "waiting", blockedOn: blocker.qitemId });
     const jobId = timer(run.entryQitemId).jobId;
     for (const [index, delay] of [300, 600, 1200].entries()) {
       stepTime(delay);
@@ -208,7 +208,7 @@ describe("authored mission boundary with event-first wait", () => {
     }
     const schedule = timer(run.entryQitemId);
     stepTime(1);
-    await queue.create({ sourceSession: "orch@rig", destinationSession: "other@rig", body: "Unrelated", nudge: false });
+    await queue.create({ sourceSession: "orch@software-team", destinationSession: "other@software-team", body: "Unrelated", nudge: false });
     expect(timer(run.entryQitemId)).toEqual(schedule);
     await scheduler.runTickNow();
     expect(delivered).toHaveLength(3);

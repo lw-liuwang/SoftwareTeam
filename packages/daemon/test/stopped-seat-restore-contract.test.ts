@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
-import { createDefaultRestoreRig } from "../src/domain/crash-cart-conductor.js";
+import { createDefaultRestoreSoftwareTeam } from "../src/domain/crash-cart-conductor.js";
 
 const databases: ReturnType<typeof createFullTestDb>[] = [];
 afterEach(() => { for (const db of databases.splice(0)) db.close(); });
@@ -26,10 +26,10 @@ function fixture(opts: { status?: string; noRow?: boolean; token?: string | null
     setSessionOption: vi.fn(async () => ({ ok: true })),
   } as unknown as TmuxAdapter;
   const setup = createTestApp(db, { tmux, wireRuntimeAdapters: true });
-  const { rigRepo, sessionRegistry, snapshotCapture } = setup;
-  const rig = rigRepo.createRig("stopped-review");
-  db.prepare("INSERT INTO pods (id, rig_id, label) VALUES (?, ?, ?)").run("pod", rig.id, "Review");
-  const node = rigRepo.addNode(rig.id, "dev.worker", { runtime: "claude-code", podId: "pod", cwd: "/tmp" });
+  const { softwareTeamRepo, sessionRegistry, snapshotCapture } = setup;
+  const softwareTeam = softwareTeamRepo.createSoftwareTeam("stopped-review");
+  db.prepare("INSERT INTO pods (id, software_team_id, label) VALUES (?, ?, ?)").run("pod", softwareTeam.id, "Review");
+  const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.worker", { runtime: "claude-code", podId: "pod", cwd: "/tmp" });
   db.prepare("INSERT INTO node_startup_context (node_id, projection_entries_json, resolved_files_json, startup_actions_json, runtime) VALUES (?, '[]', '[]', '[]', 'claude-code')").run(node.id);
   if (!opts.noRow) {
     const row = sessionRegistry.registerSession(node.id, "dev-worker@stopped-review");
@@ -38,30 +38,30 @@ function fixture(opts: { status?: string; noRow?: boolean; token?: string | null
     if (opts.token !== null) sessionRegistry.updateResumeToken(row.id, "claude_id", opts.token ?? "00000000-0000-4000-8000-000000000005", "hook");
     if (opts.policy) db.prepare("UPDATE sessions SET restore_policy = ? WHERE id = ?").run(opts.policy, row.id);
   }
-  const snapshot = snapshotCapture.captureSnapshot(rig.id, (opts.kind ?? "manual") as never);
+  const snapshot = snapshotCapture.captureSnapshot(softwareTeam.id, (opts.kind ?? "manual") as never);
   const post = (path: string, body: unknown = {}) => setup.app.request(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  return { ...setup, db, tmux, rig, node, snapshot, post, live };
+  return { ...setup, db, tmux, softwareTeam, node, snapshot, post, live };
 }
 
 // Backlog finding 5 through the public surfaces: a seat stopped before the snapshot, whose earlier
 // occupant left a resume token, stops for a decision on apply, and every forecast says so first
-// (launch-plan, POST /api/up plan, rig status, restore-check), while the fresh controls still launch.
+// (launch-plan, POST /api/up plan, SoftwareTeam status, restore-check), while the fresh controls still launch.
 // Derived from dev-review's contract probe of 3c0f2cb3.
 describe("stopped-seat restore contract", () => {
   it.each([false, true])("decision guidance names a per-seat fresh command when other seats run: %s", async otherSeatRunning => {
     const h = fixture();
     if (otherSeatRunning) {
-      const other = h.rigRepo.addNode(h.rig.id, "dev.other", { runtime: "claude-code", podId: "pod", cwd: "/tmp" });
+      const other = h.softwareTeamRepo.addNode(h.softwareTeam.id, "dev.other", { runtime: "claude-code", podId: "pod", cwd: "/tmp" });
       const session = h.sessionRegistry.registerSession(other.id, "dev-other@stopped-review");
       h.sessionRegistry.updateStatus(session.id, "running");
       h.live.add("dev-other@stopped-review");
     }
     // Subset restore is permitted while sibling seats are already running.
-    const result = await h.post(`/api/rigs/${h.rig.id}/nodes/launch-subset`, { seats: ["dev.worker"] });
+    const result = await h.post(`/api/software-teams/${h.softwareTeam.id}/nodes/launch-subset`, { seats: ["dev.worker"] });
     expect(result.status).toBe(409);
     const body = await result.json();
     const error = body.launched[0].error as string;
-    expect(error).toContain("rig seat launch 'dev.worker@stopped-review' --fresh --reason \"<why>\"");
+    expect(error).toContain("SoftwareTeam seat launch 'dev.worker@stopped-review' --fresh --reason \"<why>\"");
     expect(error).toContain("The recorded token has not been verified");
     expect(error).not.toContain("restore the original session manually");
     expect(error).not.toContain("Re-run with --fresh");
@@ -70,20 +70,20 @@ describe("stopped-seat restore contract", () => {
     expect(h.live.has("dev-other@stopped-review")).toBe(otherSeatRunning);
   });
 
-  it("recommended selector stays in its rig when another rig has the same logical seat", async () => {
+  it("recommended selector stays in its SoftwareTeam when another SoftwareTeam has the same logical seat", async () => {
     const h = fixture();
-    const other = h.rigRepo.createRig("another-rig");
-    h.rigRepo.addNode(other.id, "dev.worker", { runtime: "claude-code", cwd: "/tmp" });
-    const response = await h.post(`/api/rigs/${h.rig.id}/nodes/launch-subset`, { seats: ["dev.worker"] });
+    const other = h.softwareTeamRepo.createSoftwareTeam("another-software-team");
+    h.softwareTeamRepo.addNode(other.id, "dev.worker", { runtime: "claude-code", cwd: "/tmp" });
+    const response = await h.post(`/api/software-teams/${h.softwareTeam.id}/nodes/launch-subset`, { seats: ["dev.worker"] });
     expect(response.status).toBe(409);
     const result = await response.json();
-    const selector = /rig seat launch '([^']+)' --fresh/.exec(result.launched[0].error)![1]!;
+    const selector = /SoftwareTeam seat launch '([^']+)' --fresh/.exec(result.launched[0].error)![1]!;
     // This verb shares the fresh-launch seat resolver without starting a provider.
     const selected = await h.post(`/api/seat/set-model/${encodeURIComponent(selector)}`, {
       model: "claude-fable-5", reason: "check suggested seat reference",
     });
     expect(selected.status).toBe(200);
-    expect(await selected.json()).toMatchObject({ ok: true, seat: { rigName: "stopped-review", logicalId: "dev.worker" } });
+    expect(await selected.json()).toMatchObject({ ok: true, seat: { softwareTeamName: "stopped-review", logicalId: "dev.worker" } });
   });
 
   it.each(["exited", "detached", "unknown", "superseded"])("manual capture with %s history stops before native effects", async status => {
@@ -104,21 +104,21 @@ describe("stopped-seat restore contract", () => {
 
   it("public preview predicts the same decision as apply", async () => {
     const h = fixture();
-    const preview = await h.post(`/api/rigs/${h.rig.id}/launch-plan`);
+    const preview = await h.post(`/api/software-teams/${h.softwareTeam.id}/launch-plan`);
     const plan = await preview.json();
-    const status = await (await h.app.request(`/api/rigs/${h.rig.id}/status`)).json();
-    const check = await (await h.app.request("/api/restore-check?rig=stopped-review&no_queue=true&no_hooks=true")).json();
+    const status = await (await h.app.request(`/api/software-teams/${h.softwareTeam.id}/status`)).json();
+    const check = await (await h.app.request("/api/restore-check?softwareTeam=stopped-review&no_queue=true&no_hooks=true")).json();
     const upPlan = await (await h.post("/api/up", { sourceRef: "stopped-review", plan: true })).json();
-    const applied = await h.post(`/api/rigs/${h.rig.id}/up`);
+    const applied = await h.post(`/api/software-teams/${h.softwareTeam.id}/up`);
     const result = await applied.json();
     expect(result).toMatchObject({ nodes: [expect.objectContaining({ status: "awaiting-decision" })] });
     expect(h.tmux.createSession).not.toHaveBeenCalled();
-    expect(plan.nodes[0]).toMatchObject({ intendedAction: "awaiting-decision", reason: expect.stringContaining("rig seat launch 'dev.worker@stopped-review' --fresh --reason") });
+    expect(plan.nodes[0]).toMatchObject({ intendedAction: "awaiting-decision", reason: expect.stringContaining("SoftwareTeam seat launch 'dev.worker@stopped-review' --fresh --reason") });
     expect(upPlan.nodes[0].intendedAction).toBe("awaiting-decision");
     expect(JSON.stringify(status)).toContain('"intendedAction":"awaiting-decision"');
     expect(JSON.stringify(status)).toContain("restore-plan: 1 awaiting-decision");
     expect(check.checks.find((item: { check: string }) => item.check.endsWith(".resume-path")).remediation)
-      .toBe("No live session to attach. Preview what restore would do for this seat with: rig up stopped-review --existing --plan");
+      .toBe("No live session to attach. Preview what restore would do for this seat with: SoftwareTeam up stopped-review --existing --plan");
   });
 
   it.each(["explicit-fresh", "no-token", "relaunch-policy", "never-occupied", "legacy-zero"])("public apply preserves the fresh control: %s", async mode => {
@@ -129,7 +129,7 @@ describe("stopped-seat restore contract", () => {
       delete data.activeSessionIdByNode;
       h.db.prepare("UPDATE snapshots SET data = ? WHERE id = ?").run(JSON.stringify(data), h.snapshot.id);
     }
-    const response = await h.post(`/api/rigs/${h.rig.id}/up`, mode === "explicit-fresh" ? { freshLogicalIds: ["dev.worker"] } : {});
+    const response = await h.post(`/api/software-teams/${h.softwareTeam.id}/up`, mode === "explicit-fresh" ? { freshLogicalIds: ["dev.worker"] } : {});
     const body = await response.json();
     expect(response.status).toBe(200);
     expect(body.nodes).toEqual([expect.objectContaining({ logicalId: "dev.worker", status: "fresh-primed" })]);
@@ -138,7 +138,7 @@ describe("stopped-seat restore contract", () => {
 
   it("subset plan remains read-only and subset apply exposes the decision", async () => {
     const h = fixture();
-    const path = `/api/rigs/${h.rig.id}/nodes/launch-subset`;
+    const path = `/api/software-teams/${h.softwareTeam.id}/nodes/launch-subset`;
     const planned = await h.post(path, { seats: ["dev.worker"], plan: true });
     const plan = await planned.json();
     expect(h.tmux.createSession).not.toHaveBeenCalled();
@@ -146,20 +146,20 @@ describe("stopped-seat restore contract", () => {
     const result = await applied.json();
     expect(plan).toMatchObject({ ok: true, planOnly: true, targetNodes: [{ logicalId: "dev.worker", nodeId: h.node.id }] });
     expect(applied.status).toBe(409);
-    expect(result).toMatchObject({ ok: false, launched: [expect.objectContaining({ status: "awaiting-decision", error: expect.stringContaining("rig seat launch 'dev.worker@stopped-review' --fresh --reason") })] });
+    expect(result).toMatchObject({ ok: false, launched: [expect.objectContaining({ status: "awaiting-decision", error: expect.stringContaining("SoftwareTeam seat launch 'dev.worker@stopped-review' --fresh --reason") })] });
     expect(h.tmux.createSession).not.toHaveBeenCalled();
     expect(h.tmux.sendText).not.toHaveBeenCalled();
   });
 
   it("crash-cart surfaces the exact decision without a native launch", async () => {
     const h = fixture();
-    const restore = createDefaultRestoreRig({
-      findLatestRestoreUsable: rigId => h.snapshotRepo.findLatestRestoreUsable(rigId),
-      selectRestoreUsable: rigId => h.snapshotRepo.selectRestoreUsable(rigId),
+    const restore = createDefaultRestoreSoftwareTeam({
+      findLatestRestoreUsable: softwareTeamId => h.snapshotRepo.findLatestRestoreUsable(softwareTeamId),
+      selectRestoreUsable: softwareTeamId => h.snapshotRepo.selectRestoreUsable(softwareTeamId),
       restore: (snapshotId, opts) => h.restoreOrchestrator.restore(snapshotId, opts),
     });
-    const result = await restore(h.rig.id);
-    expect(result.attention).toEqual([expect.objectContaining({ seat: "dev.worker", need: expect.stringContaining("rig seat launch 'dev.worker@stopped-review' --fresh --reason") })]);
+    const result = await restore(h.softwareTeam.id);
+    expect(result.attention).toEqual([expect.objectContaining({ seat: "dev.worker", need: expect.stringContaining("SoftwareTeam seat launch 'dev.worker@stopped-review' --fresh --reason") })]);
     expect(h.tmux.createSession).not.toHaveBeenCalled();
   });
 });
@@ -175,9 +175,9 @@ describe("stopped-seat history and guidance", () => {
     h.sessionRegistry.updateStatus(later.id, "exited");
     h.sessionRegistry.updateResumeToken(later.id, "claude_id", "00000000-0000-4000-8000-000000000006", "hook");
     if (newerPolicy !== "resume_if_possible") h.db.prepare("UPDATE sessions SET restore_policy = ? WHERE id = ?").run(newerPolicy, later.id);
-    h.snapshotCapture.captureSnapshot(h.rig.id, "manual");
-    const plan = await (await h.post(`/api/rigs/${h.rig.id}/launch-plan`)).json();
-    const applied = await (await h.post(`/api/rigs/${h.rig.id}/up`)).json();
+    h.snapshotCapture.captureSnapshot(h.softwareTeam.id, "manual");
+    const plan = await (await h.post(`/api/software-teams/${h.softwareTeam.id}/launch-plan`)).json();
+    const applied = await (await h.post(`/api/software-teams/${h.softwareTeam.id}/up`)).json();
     expect(plan.nodes[0].intendedAction).toBe(expected);
     expect(applied.nodes[0].status).toBe(expected);
     expect(h.tmux.createSession).toHaveBeenCalledTimes(expected === "fresh-primed" ? 1 : 0);
@@ -186,8 +186,8 @@ describe("stopped-seat history and guidance", () => {
   it("--fresh overrides the decision in forecast and apply", async () => {
     const h = fixture();
     const body = { freshLogicalIds: ["dev.worker"] };
-    const plan = await (await h.post(`/api/rigs/${h.rig.id}/launch-plan`, body)).json();
-    const applied = await (await h.post(`/api/rigs/${h.rig.id}/up`, body)).json();
+    const plan = await (await h.post(`/api/software-teams/${h.softwareTeam.id}/launch-plan`, body)).json();
+    const applied = await (await h.post(`/api/software-teams/${h.softwareTeam.id}/up`, body)).json();
     expect(plan.nodes[0].intendedAction).toBe("fresh-primed");
     expect(applied.nodes[0].status).toBe("fresh-primed");
   });
@@ -200,16 +200,16 @@ describe("stopped-seat history and guidance", () => {
       delete data.activeSessionIdByNode;
       h.db.prepare("UPDATE snapshots SET data = ? WHERE id = ?").run(JSON.stringify(data), h.snapshot.id);
     }
-    const plan = await (await h.post(`/api/rigs/${h.rig.id}/launch-plan`)).json();
+    const plan = await (await h.post(`/api/software-teams/${h.softwareTeam.id}/launch-plan`)).json();
     expect(plan.nodes[0].intendedAction).toBe("fresh-primed");
     expect(h.tmux.createSession).not.toHaveBeenCalled();
   });
 
-  it("quotes the rig name in restore-check's preview command", async () => {
+  it("quotes the SoftwareTeam name in restore-check's preview command", async () => {
     const h = fixture();
-    h.db.prepare("UPDATE rigs SET name = 'stopped review' WHERE id = ?").run(h.rig.id);
-    const check = await (await h.app.request("/api/restore-check?rig=stopped%20review&no_queue=true&no_hooks=true")).json();
+    h.db.prepare("UPDATE software_teams SET name = 'stopped review' WHERE id = ?").run(h.softwareTeam.id);
+    const check = await (await h.app.request("/api/restore-check?softwareTeam=stopped%20review&no_queue=true&no_hooks=true")).json();
     const hint = check.checks.find((item: { check: string }) => item.check.endsWith(".resume-path")).remediation;
-    expect(hint).toContain("rig up 'stopped review' --existing --plan");
+    expect(hint).toContain("SoftwareTeam up 'stopped review' --existing --plan");
   });
 });

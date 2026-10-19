@@ -18,7 +18,7 @@ import { findQueueRecovery, recoveryId, recoveryTag } from "./queue-recovery.js"
 // The policy shape is untouched (X5 stands: PolicyEvaluation remains
 // send|skip|terminal) — the keepalive calls this injected helper as a
 // side effect of its EXISTING evaluation; the sweep likewise. Injection
-// at startup per the validateRig precedent.
+// at startup per the validateSoftwareTeam precedent.
 
 import type Database from "better-sqlite3";
 import { QueueRepositoryError, type QueueRepository } from "./queue-repository.js";
@@ -55,14 +55,14 @@ export interface StuckExceptionDeps {
   /** The maturity-dial resolution for a cached spec (runtime-owned —
    *  spec lookup + the shipped role resolution live there). null =
    *  spec not cached; registered-human selection applies.
-   *  OPR.0.4.6.FAC1 (arch Q3): boundRig = the stuck instance's bound
-   *  rig (read from workflow_instances at detection time) so the
+   *  OPR.0.4.6.FAC1 (arch Q3): boundSoftwareTeam = the stuck instance's bound
+   *  softwareTeam (read from workflow_instances at detection time) so the
    *  orchestrator-role dial position resolves capability-aware. */
   resolveRoute: (
     workflowName: string,
     workflowVersion: string,
     exceptionClass: WorkflowExceptionClass,
-    boundRig?: string | null,
+    boundSoftwareTeam?: string | null,
   ) => ExceptionRoute | null;
   humanFallbackSeat?: WorkflowHumanDestination;
   log?: (line: string) => void;
@@ -104,18 +104,18 @@ export function makeEnsureStuckExceptionItem(deps: StuckExceptionDeps): EnsureSt
 
     // OPR.0.4.6.FAC1 (arch Q3): each exception item is a FRESH routing
     // decision at its own detection moment — read the stuck instance's
-    // bound rig NOW. A failed read cannot establish an unbound instance:
+    // bound softwareTeam NOW. A failed read cannot establish an unbound instance:
     // propagate it before any routing or queue write.
-    let detectionBoundRig: string | null = null;
+    let detectionBoundSoftwareTeam: string | null = null;
     const stuckInstanceId = exception.deadlineEvidence?.instanceId;
     if (stuckInstanceId) {
       const row = deps.db
-        .prepare(`SELECT bound_rig FROM workflow_instances WHERE instance_id = ?`)
-        .get(stuckInstanceId) as { bound_rig: string | null } | undefined;
-      detectionBoundRig = row?.bound_rig ?? null;
+        .prepare(`SELECT bound_software_team FROM workflow_instances WHERE instance_id = ?`)
+        .get(stuckInstanceId) as { bound_software_team: string | null } | undefined;
+      detectionBoundSoftwareTeam = row?.bound_software_team ?? null;
     }
     const route =
-      deps.resolveRoute(input.workflowName, input.workflowVersion, "stuck_overdue", detectionBoundRig) ?? {
+      deps.resolveRoute(input.workflowName, input.workflowVersion, "stuck_overdue", detectionBoundSoftwareTeam) ?? {
         position: "fallback" as const,
         destinationSession: workflowHumanDestination(deps.humanFallbackSeat),
         tier: "human-gate",
@@ -123,7 +123,7 @@ export function makeEnsureStuckExceptionItem(deps: StuckExceptionDeps): EnsureSt
         resolvedVia: "engine-default" as const,
       };
     const e = exception.deadlineEvidence!;
-    const evidenceRef = `rig workflow trace ${e.instanceId}`;
+    const evidenceRef = `SoftwareTeam workflow trace ${e.instanceId}`;
     const body =
       `WORKFLOW EXCEPTION (stuck_overdue)\n` +
       `workflow: ${input.workflowName} v${input.workflowVersion}\n` +
@@ -150,8 +150,8 @@ export function makeEnsureStuckExceptionItem(deps: StuckExceptionDeps): EnsureSt
     try {
       created = await createItem(route.destinationSession, route.tier);
     } catch (error) {
-      if (!(error instanceof QueueRepositoryError) || error.code !== "unknown_destination_rig" || route.humanRouted) throw error;
-      // An unavailable agent rig may use the registered human fallback.
+      if (!(error instanceof QueueRepositoryError) || error.code !== "unknown_destination_software_team" || route.humanRouted) throw error;
+      // An unavailable agent softwareTeam may use the registered human fallback.
       // Other admission/storage failures retain their original diagnosis.
       created = await createItem(workflowHumanDestination(deps.humanFallbackSeat), "human-gate");
     }

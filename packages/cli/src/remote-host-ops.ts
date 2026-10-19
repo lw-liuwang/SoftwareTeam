@@ -100,47 +100,47 @@ export async function runRemoteHttpOp(
   }
 }
 
-/** How a rig handle matched a host's rig list: an exact id first (archived rigs included), else one active rig of
+/** How a softwareTeam handle matched a host's softwareTeam list: an exact id first (archived softwareTeams included), else one active softwareTeam of
  *  that name. Non-object rows (null, primitives) take no part, so they can't hide or block a match. A row without a
- *  string `rigId` can't be a target, but an active one still counts toward a name's ambiguity, and a name only it
+ *  string `softwareTeamId` can't be a target, but an active one still counts toward a name's ambiguity, and a name only it
  *  carries is not found. `unavailable` means the list itself couldn't be read or wasn't a list, so nothing is known. */
-export type RemoteRigLookup =
-  | { kind: "resolved"; rigId: string; byName: boolean }
+export type RemoteSoftwareTeamLookup =
+  | { kind: "resolved"; softwareTeamId: string; byName: boolean }
   /** `count` is every active row with that name; `ids` the ones that can be targeted. */
   | { kind: "ambiguous"; count: number; ids: string[] }
   | { kind: "not_found" }
   | { kind: "unavailable"; error: string | undefined };
 
-export async function lookupRemoteRigId(hostId: string, handle: string, deps: RemoteHostDeps): Promise<RemoteRigLookup> {
+export async function lookupRemoteSoftwareTeamId(hostId: string, handle: string, deps: RemoteHostDeps): Promise<RemoteSoftwareTeamLookup> {
   const psResult = await runRemoteHttpOp(hostId, "GET", "/api/ps?includeArchived=true", undefined, deps, {});
   if (!psResult.ok) return { kind: "unavailable", error: psResult.error };
-  if (!Array.isArray(psResult.data)) return { kind: "unavailable", error: "the host's rig list was not readable" };
+  if (!Array.isArray(psResult.data)) return { kind: "unavailable", error: "the host's SoftwareTeam list was not readable" };
   const rows = (psResult.data as unknown[]).filter(
-    (r): r is { rigId?: unknown; name?: unknown; archivedAt?: string | null } => r !== null && typeof r === "object",
+    (r): r is { softwareTeamId?: unknown; name?: unknown; archivedAt?: string | null } => r !== null && typeof r === "object",
   );
-  const targetable = (r: { rigId?: unknown }): r is { rigId: string } => typeof r.rigId === "string";
+  const targetable = (r: { softwareTeamId?: unknown }): r is { softwareTeamId: string } => typeof r.softwareTeamId === "string";
 
-  const exactId = rows.find((r) => targetable(r) && r.rigId === handle);
-  if (exactId && targetable(exactId)) return { kind: "resolved", rigId: exactId.rigId, byName: false };
+  const exactId = rows.find((r) => targetable(r) && r.softwareTeamId === handle);
+  if (exactId && targetable(exactId)) return { kind: "resolved", softwareTeamId: exactId.softwareTeamId, byName: false };
 
   const byName = rows.filter((r) => r.name === handle && !r.archivedAt);
-  if (byName.length > 1) return { kind: "ambiguous", count: byName.length, ids: byName.filter(targetable).map((r) => r.rigId) };
+  if (byName.length > 1) return { kind: "ambiguous", count: byName.length, ids: byName.filter(targetable).map((r) => r.softwareTeamId) };
   const only = byName[0];
-  if (only && targetable(only)) return { kind: "resolved", rigId: only.rigId, byName: true };
+  if (only && targetable(only)) return { kind: "resolved", softwareTeamId: only.softwareTeamId, byName: true };
   return { kind: "not_found" };
 }
 
-export async function resolveRemoteRigId(
+export async function resolveRemoteSoftwareTeamId(
   hostId: string,
   handle: string,
   deps: RemoteHostDeps,
-): Promise<{ ok: true; rigId: string } | { ok: false; error: string }> {
-  const lookup = await lookupRemoteRigId(hostId, handle, deps);
+): Promise<{ ok: true; softwareTeamId: string } | { ok: false; error: string }> {
+  const lookup = await lookupRemoteSoftwareTeamId(hostId, handle, deps);
   switch (lookup.kind) {
-    case "resolved": return { ok: true, rigId: lookup.rigId };
-    case "unavailable": return { ok: false, error: `cannot resolve rig on host ${hostId}: ${lookup.error}` };
+    case "resolved": return { ok: true, softwareTeamId: lookup.softwareTeamId };
+    case "unavailable": return { ok: false, error: `cannot resolve SoftwareTeam on host ${hostId}: ${lookup.error}` };
     case "ambiguous":
-      return { ok: false, error: `ambiguous rig name "${handle}" on host ${hostId}: ${lookup.count} active rigs share that name. Use the rig id instead.` };
-    case "not_found": return { ok: false, error: `rig "${handle}" not found on host ${hostId}` };
+      return { ok: false, error: `ambiguous SoftwareTeam name "${handle}" on host ${hostId}: ${lookup.count} active softwareTeams share that name. Use the SoftwareTeam id instead.` };
+    case "not_found": return { ok: false, error: `softwareTeam "${handle}" not found on host ${hostId}` };
   }
 }

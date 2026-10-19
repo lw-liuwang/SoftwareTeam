@@ -1,7 +1,7 @@
 // S10 post-seal request-shape fix — RED-first. Operator live measurement (testimony, mirrored
 // here as a fixture — no credentials, no live Slack): conversations.info over JSON POST returns
 // Slack `invalid_arguments`; the same token/channel over GET + URL query returns ok + is_member.
-// callWebApi always emitted JSON POST, so `rig slack verify` false-failed a correct membership.
+// callWebApi always emitted JSON POST, so `softwareTeam slack verify` false-failed a correct membership.
 //
 // The committed discriminators pin the REQUEST SHAPE (method, URL/query, headers, body absence)
 // and the EFFECT (verifyChannelMembership returns the correct is_member from the supported

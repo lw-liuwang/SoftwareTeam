@@ -23,10 +23,10 @@ export function validateStartupFile(raw: Record<string, unknown>, index: number,
   }
   const errors: string[] = [];
   // Slice-03 V3: startup artifacts are files only. Context packs are composed
-  // by `rig context` and delivered only through dedicated delivery verbs.
+  // by `SoftwareTeam context` and delivered only through dedicated delivery verbs.
   const kind = (raw["kind"] as string | undefined) ?? "file";
   if (kind === "context_pack") {
-    errors.push(`${prefix}files[${index}]: compose context packs with 'rig context compose' and use a dedicated delivery verb; startup context-pack entries are not supported`);
+    errors.push(`${prefix}files[${index}]: compose context packs with 'SoftwareTeam context compose' and use a dedicated delivery verb; startup context-pack entries are not supported`);
     return errors;
   }
   if (kind !== "file") errors.push(`${prefix}files[${index}].kind: must be file (got "${kind}")`);

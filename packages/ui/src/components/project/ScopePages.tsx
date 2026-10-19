@@ -55,7 +55,7 @@ import { MarkdownViewer } from "../markdown/MarkdownViewer.js";
 import { AcceptanceTab } from "../slices/tabs/AcceptanceTab.js";
 import { ScopeProofRollup, SliceProofTab } from "./ProofTab.js";
 import { TopologyTab } from "../slices/tabs/TopologyTab.js";
-import { HostMultiRigGraph } from "../topology/HostMultiRigGraph.js";
+import { HostMultiSoftwareTeamGraph } from "../topology/HostMultiSoftwareTeamGraph.js";
 import { LiveTerminalProvider, useTerminalCap } from "../terminal/LiveTerminalProvider.js";
 import { MissionProgressHeatmap } from "./MissionProgressHeatmap.js";
 import { useScopeAudit } from "../../hooks/useScopeAudit.js";
@@ -207,7 +207,7 @@ function ScopeShell({
 }) {
   // OPR.0.4.0.1 forward-fix (FR-2): mount ONE explicit LiveTerminalProvider for
   // every project scope page so all of the page's progressive terminals (the
-  // Topology tab + HostMultiRigGraph etc.) share ONE global live-terminal
+  // Topology tab + HostMultiSoftwareTeamGraph etc.) share ONE global live-terminal
   // registry + configured cap, instead of TopologyTab resolving to the separate
   // module-singleton fallback (which would silently UNSHARE the cap). Mirrors the
   // topology/ScopePages provider mount.
@@ -512,26 +512,26 @@ function ScopeStoryRollup({
 
 
 function aggregateTopology(detailsByName: Map<string, SliceDetail>): SliceDetail["topology"] {
-  const rigs = new Map<string, { rigId: string; rigName: string; sessionNames: Set<string> }>();
+  const softwareTeams = new Map<string, { softwareTeamId: string; softwareTeamName: string; sessionNames: Set<string> }>();
   for (const detail of detailsByName.values()) {
-    if (!detail.topology || !Array.isArray(detail.topology.affectedRigs)) continue;
-    for (const rig of detail.topology.affectedRigs) {
-      const key = rig.rigName || rig.rigId;
-      if (!rigs.has(key)) {
-        rigs.set(key, { rigId: rig.rigId, rigName: rig.rigName, sessionNames: new Set() });
+    if (!detail.topology || !Array.isArray(detail.topology.affectedSoftwareTeams)) continue;
+    for (const softwareTeam of detail.topology.affectedSoftwareTeams) {
+      const key = softwareTeam.softwareTeamName || softwareTeam.softwareTeamId;
+      if (!softwareTeams.has(key)) {
+        softwareTeams.set(key, { softwareTeamId: softwareTeam.softwareTeamId, softwareTeamName: softwareTeam.softwareTeamName, sessionNames: new Set() });
       }
-      const aggregate = rigs.get(key)!;
-      rig.sessionNames.forEach((session) => aggregate.sessionNames.add(session));
+      const aggregate = softwareTeams.get(key)!;
+      softwareTeam.sessionNames.forEach((session) => aggregate.sessionNames.add(session));
     }
   }
-  const affectedRigs = Array.from(rigs.values()).map((rig) => ({
-    rigId: rig.rigId,
-    rigName: rig.rigName,
-    sessionNames: Array.from(rig.sessionNames).sort(),
+  const affectedSoftwareTeams = Array.from(softwareTeams.values()).map((softwareTeam) => ({
+    softwareTeamId: softwareTeam.softwareTeamId,
+    softwareTeamName: softwareTeam.softwareTeamName,
+    sessionNames: Array.from(softwareTeam.sessionNames).sort(),
   }));
   return {
-    affectedRigs,
-    totalSeats: affectedRigs.reduce((count, rig) => count + rig.sessionNames.length, 0),
+    affectedSoftwareTeams,
+    totalSeats: affectedSoftwareTeams.reduce((count, softwareTeam) => count + softwareTeam.sessionNames.length, 0),
     specGraph: null,
   };
 }
@@ -785,7 +785,7 @@ export function WorkspaceScopePage() {
           data-testid="workspace-topology-hostmultirig"
           className="flex-1 min-h-0 relative h-[60vh]"
         >
-          <HostMultiRigGraph />
+          <HostMultiSoftwareTeamGraph />
         </div>
       ) : null}
     </ScopeShell>
@@ -918,7 +918,7 @@ export function MissionScopePage() {
               }
               variant="card"
               testId="mission-progress-rail-status"
-              action={{ label: `rig scope audit --mission ${missionId}` }}
+              action={{ label: `SoftwareTeam scope audit --mission ${missionId}` }}
             />
           ) : hostSelectionKnown && !hostIsLocal ? (
             // R1 (release-0.4.7) req-5 (G16; v1.2 gate fix): a KNOWN-remote selection
@@ -952,7 +952,7 @@ export function MissionScopePage() {
             // R1: the mission path is outside the allowlisted file roots (config).
             <EmptyState
               label="PROGRESS OUTSIDE FILE ROOTS"
-              description="The mission path is not under any allowlisted file root, so PROGRESS.md cannot be read. Check OPENRIG_FILES_ALLOWLIST / the daemon's file-roots settings."
+              description="The mission path is not under any allowlisted file root, so PROGRESS.md cannot be read. Check SOFTWARETEAM_FILES_ALLOWLIST / the daemon's file-roots settings."
               variant="card"
               testId="mission-progress-unresolved"
             />
@@ -1024,7 +1024,7 @@ export function MissionScopePage() {
             return (
               <TopologyTab
                 topology={{
-                  affectedRigs: [],
+                  affectedSoftwareTeams: [],
                   totalSeats: 0,
                   specGraph: missionTopology.specGraph,
                 }}
@@ -1273,7 +1273,7 @@ export function SliceScopePage() {
           description={
             detailQuery.error instanceof Error
               ? detailQuery.error.message
-              : `Could not load slice "${sliceId}". The slices indexer may not be configured (rig config get workspace.slices_root).`
+              : `Could not load slice "${sliceId}". The slices indexer may not be configured (SoftwareTeam config get workspace.slices_root).`
           }
           variant="card"
           testId="slice-scope-error"
@@ -1336,7 +1336,7 @@ export function SliceScopePage() {
               }
               variant="card"
               testId="slice-progress-rail-status"
-              action={{ label: `rig scope audit --mission ${detail.missionId}` }}
+              action={{ label: `SoftwareTeam scope audit --mission ${detail.missionId}` }}
             />
           )}
           {sliceAuditEntry && sliceAuditEntry.findings.length > 0 && (

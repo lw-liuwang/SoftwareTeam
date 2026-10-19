@@ -12,7 +12,7 @@ import { fileTargetForPath } from "./reading.js";
 //     "don't re-hardcode IDLE_WITH_WORK_THRESHOLD_MIN").
 //   - The two `stuck` legs (idle-with-work vs too-long-in-state) stay distinct
 //     by construction: identity/summary/evidence/threshold render verbatim.
-//   - host/rig-down composes BESIDE the items (hostsDown), never into them.
+//   - host/software-team-down composes BESIDE the items (hostsDown), never into them.
 //   - A failed read leaves its portion honest-empty and records a NAMED error.
 import { emptySnapshot } from "./state.js";
 import type { ConfigRead } from "./config/config-model.js";
@@ -25,13 +25,13 @@ import { isHumanSeatSession } from "./pulse/pulse-model.js";
 
 // Narrow read-shapes: just the served fields this module consumes (names match
 // the daemon's serialized output — see the Phase-2 endpoint-shape survey).
-interface RigSummaryRead {
+interface SoftwareTeamSummaryRead {
   id: string;
   name: string;
   lifecycleState?: string;
   hasLiveAgents?: boolean | null;
 }
-interface RigStatusRead {
+interface SoftwareTeamStatusRead {
   status?: string;
   seatsTotal?: number;
   seatsRunning?: number;
@@ -40,7 +40,7 @@ interface InstanceHealthRead extends ControlPlaneRead {
   selfHostId?: string | null;
 }
 interface HealthProjectionRead {
-  schema: "openrig.health-list/v0alpha1";
+  schema: "softwareteam.health-list/v0alpha1";
   evaluatedAt: string | null;
   total: number;
   limit: number;
@@ -100,7 +100,7 @@ interface NodeInventoryRead {
 }
 interface SpecLibraryRead {
   id: string;
-  kind: "rig" | "agent" | "workflow";
+  kind: "softwareTeam" | "agent" | "workflow";
   name: string;
   version?: string;
   sourcePath?: string;
@@ -122,9 +122,9 @@ interface AgentSpecReviewRead {
   startup?: { files?: Array<{ path: string; required: boolean }> };
   raw?: string;
 }
-interface RigSpecReviewRead {
+interface SoftwareTeamSpecReviewRead {
   sourceState?: "draft" | "file_preview" | "library_item";
-  kind: "rig";
+  kind: "softwareTeam";
   format?: "pod_aware" | "legacy";
   pods?: Array<{
     id: string;
@@ -141,8 +141,8 @@ interface RigSpecReviewRead {
   };
   raw?: string;
 }
-type SpecLibraryReviewRead = AgentSpecReviewRead | RigSpecReviewRead;
-interface RigSpecJsonRead {
+type SpecLibraryReviewRead = AgentSpecReviewRead | SoftwareTeamSpecReviewRead;
+interface SoftwareTeamSpecJsonRead {
   name?: string;
   pods?: Array<{ members?: Array<{ agentRef?: string }> }>;
 }
@@ -362,7 +362,7 @@ export async function hydrateSnapshot(
   reviewCache?: SpecReviewCache,
   executionMission?: string | null,
   sliceDetailName?: string | null,
-  currentRigName?: string | null,
+  currentSoftwareTeamName?: string | null,
   viewContext?: HydrateViewContext,
 ): Promise<FleetSnapshot> {
   const readErrors: string[] = [];
@@ -480,21 +480,21 @@ export async function hydrateSnapshot(
   const wantsConnections = viewContext?.section === "connections";
   const wantsSpecs = !viewContext || viewContext.section === "specs" || topologyLeaf?.kind === "agent";
   const wantsTopologyScope = !viewContext || viewContext.section === "topology";
-  const wantsRecent = wantsTopologyScope && (!topologyLeaf || topologyLeaf.kind === "host" || topologyLeaf.kind === "rig");
+  const wantsRecent = wantsTopologyScope && (!topologyLeaf || topologyLeaf.kind === "host" || topologyLeaf.kind === "softwareTeam");
   const focusedTopology = !!viewContext && wantsTopologyScope && viewContext.viewTab !== "pulse";
   const broadReads = !readingOnly && !focusedTopology && !wantsConnections;
   // Seat rows (Q / WORK / NOW) join these four lists: only a seat's page and the drilled table tab show them.
   const seatQueueReads = broadReads || (focusedTopology && (topologyLeaf?.kind === "agent" || (!!topologyLeaf && viewContext?.viewTab === "table")));
   const healthRequested = broadReads || viewContext?.viewTab === "health";
   const wantsGraph = wantsTopologyScope && (!viewContext || viewContext.viewTab === "graph");
-  // A pending pod/agent address needs every rig's seats to resolve.
+  // A pending pod/agent address needs every softwareTeam's seats to resolve.
   const pendingInventory = viewContext?.pendingDrill?.resource === "pod" || viewContext?.pendingDrill?.resource === "agent";
 
   const [instanceHealth, healthProjection, agg, summaries, library, review, streamItems, attention, blocked, inProgress, pending, recentlyFinished, scopesRead, executionRead, sliceDetailRead, connectionsRead] = await Promise.all([
     safe<InstanceHealthRead>("health", () => client.health()),
     !healthRequested ? Promise.resolve(null) : safe<HealthProjectionRead>("health-findings", () => client.healthFindings()),
     !broadReads ? Promise.resolve(null) : safe<AttentionAggregateRead>("attention-aggregate", () => client.attentionAggregate()),
-    readingOnly ? Promise.resolve(null) : safe<RigSummaryRead[]>("rigs-summary", () => client.rigsSummary()),
+    readingOnly ? Promise.resolve(null) : safe<SoftwareTeamSummaryRead[]>("software-teams-summary", () => client.softwareTeamsSummary()),
     (wantsSpecs || wantsConnections) ? safe<SpecLibraryRead[]>("specs-library", () => client.specsLibrary()) : Promise.resolve(null),
     !broadReads ? Promise.resolve(null) : safe<ReviewFleetRead>("review-fleet", () => client.reviewFleet()),
     !broadReads ? Promise.resolve(null) : safe<StreamItemRead[]>("stream-tail", () => client.streamLatest()),
@@ -521,13 +521,13 @@ export async function hydrateSnapshot(
   const agentSpecNames = new Set((library ?? []).filter((entry) => entry.kind === "agent").map((entry) => entry.name));
   if (scopesRead?.sourceObservation?.state === "unavailable") readErrors.push("scopes: proof source updates unavailable; current HTTP basis only");
   if (review?.registryError) readErrors.push(`review-fleet registry: ${review.registryError}`);
-  const recentTransitionsRig = currentRigName ?? (!viewContext ? summaries?.[0]?.name : null) ?? null;
+  const recentTransitionsSoftwareTeam = currentSoftwareTeamName ?? (!viewContext ? summaries?.[0]?.name : null) ?? null;
   const recentTransitionsScope = topologyLeaf?.kind === "host"
     ? { kind: "instance" } as const
-    : recentTransitionsRig ? { kind: "rig", rig: recentTransitionsRig } as const : null;
+    : recentTransitionsSoftwareTeam ? { kind: "softwareTeam", softwareTeam: recentTransitionsSoftwareTeam } as const : null;
   const recentTransitions = wantsRecent && recentTransitionsScope
     ? await safe<RecentTransitionSnap[]>(
-        `queue-recent(${recentTransitionsScope.kind === "instance" ? "instance" : recentTransitionsScope.rig})`,
+        `queue-recent(${recentTransitionsScope.kind === "instance" ? "instance" : recentTransitionsScope.softwareTeam})`,
         () => client.queueRecentTransitions(recentTransitionsScope),
       )
     : null;
@@ -552,21 +552,21 @@ export async function hydrateSnapshot(
     }),
   );
 
-  // Topology: the local host expands to the daemon's rigs; remote hosts come
-  // from the aggregate with reachability only (per-rig start; the all-rigs
+  // Topology: the local host expands to the daemon's softwareTeams; remote hosts come
+  // from the aggregate with reachability only (per-SoftwareTeam start; the all-softwareTeams
   // level is deliberately under-designed — founder capture).
-  const rigs = [];
-  const rigsDown: FleetSnapshot["hostsDown"] = [];
-  const rigSpecRefs = new Map<string, string[]>(); // rig-spec name → agentRefs
-  const rigConsumers = new Map<string, NonNullable<SpecEntry["consumers"]>>();
+  const softwareTeams = [];
+  const softwareTeamsDown: FleetSnapshot["hostsDown"] = [];
+  const softwareTeamSpecRefs = new Map<string, string[]>(); // software-team-spec name → agentRefs
+  const softwareTeamConsumers = new Map<string, NonNullable<SpecEntry["consumers"]>>();
   // PULSE ◌ PARKED WITH BATON — the ps/activity side of the join, accumulated
-  // across rigs from the SAME nodes read that feeds topology (no extra fetch):
+  // across softwareTeams from the SAME nodes read that feeds topology (no extra fetch):
   // one entry per agent seat WITH a canonical session (infra seats have none).
   const seatActivity: SeatActivitySummary[] = [];
-  for (const rig of summaries ?? []) {
-    const readInventory = wantsConnections ? connectionsRead?.configuration?.inboundDestination?.split("@")[1] === rig.name
-      : !focusedTopology || topologyLeaf?.kind === "host" || currentRigName === rig.name || pendingInventory;
-    const nodes = readInventory ? await safe<NodeInventoryRead[]>(`nodes(${rig.name})`, () => client.rigNodes(rig.id)) : null;
+  for (const softwareTeam of summaries ?? []) {
+    const readInventory = wantsConnections ? connectionsRead?.configuration?.inboundDestination?.split("@")[1] === softwareTeam.name
+      : !focusedTopology || topologyLeaf?.kind === "host" || currentSoftwareTeamName === softwareTeam.name || pendingInventory;
+    const nodes = readInventory ? await safe<NodeInventoryRead[]>(`nodes(${softwareTeam.name})`, () => client.softwareTeamNodes(softwareTeam.id)) : null;
     for (const node of nodes ?? []) {
       if (node.nodeKind !== "agent" || !node.canonicalSessionName) continue;
       seatActivity.push({
@@ -582,36 +582,36 @@ export async function hydrateSnapshot(
     // slice-17: the topology graph view consumes the DECLARED §4.A graph read
     // (nodes + edges + overlay in one fetch); a failed read leaves the view
     // honest-empty with a NAMED error, never fabricated boxes.
-    const graph = wantsGraph && (topologyLeaf?.kind === "host" || recentTransitionsRig === rig.name)
-      ? await safe<import("./topology/graph-types.js").RigGraph>(`graph(${rig.name})`, () => client.rigGraph(rig.id))
+    const graph = wantsGraph && (topologyLeaf?.kind === "host" || recentTransitionsSoftwareTeam === softwareTeam.name)
+      ? await safe<import("./topology/graph-types.js").SoftwareTeamGraph>(`graph(${softwareTeam.name})`, () => client.softwareTeamGraph(softwareTeam.id))
       : null;
-    const rigRow = {
-      id: rig.id,
-      name: rig.name,
+    const softwareTeamRow = {
+      id: softwareTeam.id,
+      name: softwareTeam.name,
       pods: nodes ? groupPods(nodes) : [],
       ...(!readInventory ? { inventoryNotLoaded: true } : nodes === null ? { inventoryUnavailable: true } : {}),
       ...(graph ? { graph } : {}),
-      ...(rig.lifecycleState ? { lifecycleState: rig.lifecycleState } : {}),
-      hasLiveAgents: rig.hasLiveAgents ?? null,
+      ...(softwareTeam.lifecycleState ? { lifecycleState: softwareTeam.lifecycleState } : {}),
+      hasLiveAgents: softwareTeam.hasLiveAgents ?? null,
       authoredSpecName: undefined as string | undefined,
     };
-    rigs.push(rigRow);
-    if (broadReads && rig.lifecycleState && rig.lifecycleState !== "running") {
-      // rig-down leg (§4.A): summary lifecycleState verbatim, enriched by the
-      // rig-status projection where it answers — composed BESIDE the items.
-      const st = await safe<RigStatusRead>(`rig-status(${rig.name})`, () => client.rigStatus(rig.id));
+    softwareTeams.push(softwareTeamRow);
+    if (broadReads && softwareTeam.lifecycleState && softwareTeam.lifecycleState !== "running") {
+      // software-team-down leg (§4.A): summary lifecycleState verbatim, enriched by the
+      // software-team-status projection where it answers — composed BESIDE the items.
+      const st = await safe<SoftwareTeamStatusRead>(`software-team-status(${softwareTeam.name})`, () => client.softwareTeamStatus(softwareTeam.id));
       const seatDetail = st && st.seatsTotal != null ? `${st.seatsRunning ?? 0}/${st.seatsTotal} seats running` : undefined;
-      rigsDown.push({
-        hostId: `rig:${rig.name}`,
-        status: st?.status ? `${rig.lifecycleState} (${st.status})` : rig.lifecycleState,
+      softwareTeamsDown.push({
+        hostId: `software-team:${softwareTeam.name}`,
+        status: st?.status ? `${softwareTeam.lifecycleState} (${st.status})` : softwareTeam.lifecycleState,
         ...(seatDetail ? { error: seatDetail } : {}),
       });
     }
     const spec = (wantsSpecs || wantsConnections)
-      ? await safe<RigSpecJsonRead>(`rig-spec(${rig.name})`, () => client.rigSpec(rig.id))
+      ? await safe<SoftwareTeamSpecJsonRead>(`software-team-spec(${softwareTeam.name})`, () => client.softwareTeamSpec(softwareTeam.id))
       : null;
-    rigRow.authoredSpecName = spec?.name;
-    if (spec?.name) rigConsumers.set(spec.name, [...(rigConsumers.get(spec.name) ?? []), { rig: rig.name, host: instanceHealth?.selfHostId?.trim() || "local", status: rig.lifecycleState ?? "unknown" }]);
+    softwareTeamRow.authoredSpecName = spec?.name;
+    if (spec?.name) softwareTeamConsumers.set(spec.name, [...(softwareTeamConsumers.get(spec.name) ?? []), { softwareTeam: softwareTeam.name, host: instanceHealth?.selfHostId?.trim() || "local", status: softwareTeam.lifecycleState ?? "unknown" }]);
     if (spec?.pods) {
       const refs = spec.pods.flatMap((p) =>
         (p.members ?? [])
@@ -619,7 +619,7 @@ export async function hydrateSnapshot(
           .filter((r): r is string => !!r)
           .map((ref) => resolveAgentRef(ref, agentSpecNames)),
       );
-      if (spec.name) rigSpecRefs.set(spec.name, refs);
+      if (spec.name) softwareTeamSpecRefs.set(spec.name, refs);
     }
   }
   const aggHosts = agg?.hosts ?? [];
@@ -627,13 +627,13 @@ export async function hydrateSnapshot(
     id: "local",
     name: instanceHealth?.selfHostId?.trim() || "local",
     reachable: true,
-    rigs,
+    softwareTeams,
   };
   const remoteHosts: HostNode[] = aggHosts
     .filter((h) => h.hostId !== "local")
-    .map((h) => ({ id: h.hostId, name: h.hostId, reachable: h.status === "ok", rigs: [] }));
+    .map((h) => ({ id: h.hostId, name: h.hostId, reachable: h.status === "ok", softwareTeams: [] }));
 
-  // Specs: RIG + AGENT land well by consuming the existing structured review
+  // Specs: SOFTWARE_TEAM + AGENT land well by consuming the existing structured review
   // for BOTH kinds. WORKFLOW remains basics. Reviews are memoized by updatedAt.
   async function specReview(entry: SpecLibraryRead): Promise<SpecLibraryReviewRead | null> {
     const key = `${entry.id}@${entry.updatedAt ?? ""}`;
@@ -653,10 +653,10 @@ export async function hydrateSnapshot(
     }),
   );
 
-  const reviewedRigRefs = new Map<string, string[]>();
+  const reviewedSoftwareTeamRefs = new Map<string, string[]>();
   for (const entry of library ?? []) {
     const detail = reviewed.get(entry.id);
-    if (entry.kind !== "rig" || detail?.kind !== "rig" || detail.format !== "pod_aware") continue;
+    if (entry.kind !== "softwareTeam" || detail?.kind !== "softwareTeam" || detail.format !== "pod_aware") continue;
     const refs: string[] = [];
     for (const pod of detail.pods ?? []) {
       for (const member of pod.members) {
@@ -664,9 +664,9 @@ export async function hydrateSnapshot(
         refs.push(ref);
       }
     }
-    reviewedRigRefs.set(entry.name, refs);
+    reviewedSoftwareTeamRefs.set(entry.name, refs);
   }
-  const allRigRefs = new Map([...rigSpecRefs, ...reviewedRigRefs]);
+  const allSoftwareTeamRefs = new Map([...softwareTeamSpecRefs, ...reviewedSoftwareTeamRefs]);
 
   const specs: SpecEntry[] = await Promise.all(
     (library ?? []).map(async (entry): Promise<SpecEntry> => {
@@ -677,12 +677,12 @@ export async function hydrateSnapshot(
         resolvedSourcePath: entry.resolvedSourcePath,
         sourceType: entry.sourceType,
         relativePath: entry.relativePath,
-        consumers: readingOnly ? undefined : entry.kind === "rig" ? rigConsumers.get(entry.name) ?? [] : entry.kind === "agent" ? localHost.rigs.flatMap((rig) => rig.pods.flatMap((pod) => pod.agents.filter((agent) => agent.spec === entry.name).map((agent) => ({ rig: rig.name, host: localHost.name, agent: agent.name, runtime: agent.runtime, model: agent.model, status: agent.status })))) : undefined,
+        consumers: readingOnly ? undefined : entry.kind === "softwareTeam" ? softwareTeamConsumers.get(entry.name) ?? [] : entry.kind === "agent" ? localHost.softwareTeams.flatMap((softwareTeam) => softwareTeam.pods.flatMap((pod) => pod.agents.filter((agent) => agent.spec === entry.name).map((agent) => ({ softwareTeam: softwareTeam.name, host: localHost.name, agent: agent.name, runtime: agent.runtime, model: agent.model, status: agent.status })))) : undefined,
       };
       const detail = reviewed.get(entry.id);
       const sourceUnavailable = readErrors.find((error) => error.startsWith(`spec-review(${entry.name}):`)) ?? "source review unavailable";
-      if (entry.kind === "rig") {
-        if (detail?.kind !== "rig") return { ...base, kind: "rig", sourceUnavailable, agentRefs: allRigRefs.get(entry.name) ?? [] };
+      if (entry.kind === "softwareTeam") {
+        if (detail?.kind !== "softwareTeam") return { ...base, kind: "softwareTeam", sourceUnavailable, agentRefs: allSoftwareTeamRefs.get(entry.name) ?? [] };
         const pods = detail.format === "pod_aware"
           ? (detail.pods ?? []).map((pod) => ({
               ...pod,
@@ -694,20 +694,20 @@ export async function hydrateSnapshot(
           : undefined;
         return {
           ...base,
-          kind: "rig",
+          kind: "softwareTeam",
           description: authoredDescription(detail.raw),
           sourceState: detail.sourceState,
           format: detail.format,
-          agentRefs: allRigRefs.get(entry.name) ?? [],
+          agentRefs: allSoftwareTeamRefs.get(entry.name) ?? [],
           ...(pods ? { pods } : {}),
           ...(detail.edges ? { edges: detail.edges } : {}),
           ...(detail.graph ? { graph: detail.graph } : {}),
           ...(detail.raw ? { raw: detail.raw } : {}),
-          ...(detail.kind === "rig" && detail.format === "legacy" && detail.nodes ? { legacyNodes: detail.nodes } : {}),
+          ...(detail.kind === "softwareTeam" && detail.format === "legacy" && detail.nodes ? { legacyNodes: detail.nodes } : {}),
         };
       }
       if (entry.kind === "agent") {
-        const usedByRigs = [...allRigRefs.entries()].filter(([, refs]) => refs.includes(entry.name)).map(([rig]) => rig);
+        const usedBySoftwareTeams = [...allSoftwareTeamRefs.entries()].filter(([, refs]) => refs.includes(entry.name)).map(([softwareTeam]) => softwareTeam);
         const review = detail?.kind === "agent" ? detail : null;
         const truth = agentSpecTruth(review?.raw);
         const resources = {
@@ -720,7 +720,7 @@ export async function hydrateSnapshot(
           ...base,
           kind: "agent",
           ...(!review ? { sourceUnavailable } : {}),
-          usedByRigs,
+          usedBySoftwareTeams,
           namespace: agentNamespace(entry.relativePath),
           sourceState: review?.sourceState,
           runtime: truth.runtime,
@@ -750,7 +750,7 @@ export async function hydrateSnapshot(
     ...aggHosts
       .filter((h) => h.status !== "ok")
       .map((h) => ({ hostId: h.hostId, status: h.status, ...(h.error ? { error: h.error } : {}) })),
-    ...rigsDown,
+    ...softwareTeamsDown,
   ];
   const execution = (executionRead?.rows?.[0] ?? null) as FleetSnapshot["execution"];
 
@@ -785,7 +785,7 @@ export async function hydrateSnapshot(
       ? {
           recentTransitions,
           recentTransitionsScope,
-          ...(recentTransitionsScope.kind === "rig" ? { recentTransitionsRig: recentTransitionsScope.rig } : {}),
+          ...(recentTransitionsScope.kind === "softwareTeam" ? { recentTransitionsSoftwareTeam: recentTransitionsScope.softwareTeam } : {}),
         }
       : {}),
     attention: (attention ?? []).map(toQueueRead),
@@ -809,7 +809,7 @@ export async function hydrateSnapshot(
 function authoredDescription(raw?: string): string | undefined {
   try {
     const doc = parseYaml(raw ?? "") as { summary?: unknown; description?: unknown; metadata?: { description?: unknown } } | null;
-    // RigSpec summary takes precedence over legacy authored descriptions.
+    // SoftwareTeamSpec summary takes precedence over legacy authored descriptions.
     return [doc?.summary, doc?.description, doc?.metadata?.description]
       .find((value): value is string => typeof value === "string" && value.trim().length > 0);
   } catch { return undefined; }

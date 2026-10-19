@@ -24,16 +24,16 @@ const SAMPLE_SPEC = (id: string) => `workflow:
   version: 1
   objective: Sample workflow
   target:
-    rig: sample-rig
+    software_team: sample-software-team
   entry:
     role: alpha
   roles:
     alpha:
       preferred_targets:
-        - alpha@sample-rig
+        - alpha@sample-software-team
     beta:
       preferred_targets:
-        - beta@sample-rig
+        - beta@sample-software-team
   steps:
     - id: step-1
       actor_role: alpha
@@ -89,7 +89,7 @@ describe("workflow library routes (Workflows in Spec Library v0)", () => {
       c.set("specLibraryService" as never, lib);
       c.set("specReviewService" as never, new SpecReviewService());
       c.set("activeLensStore" as never, lensStore);
-      c.set("rigRepo" as never, { db });
+      c.set("softwareTeamRepo" as never, { db });
       c.set("workflowBuiltinSpecsDir" as never, builtinDir);
       await next();
     });

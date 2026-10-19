@@ -17,7 +17,7 @@ function renderAgentDetail(name: string): string {
     type: "drill",
     resource: "agent",
     name,
-    target: { host: "vm-host", rig: "openrig-build", pod: "dev50" },
+    target: { host: "vm-host", softwareTeam: "softwareteam-build", pod: "dev50" },
   });
   return renderScreen(view.get(), snap, { cols: 140, rows: 34 }).lines.join("\n");
 }

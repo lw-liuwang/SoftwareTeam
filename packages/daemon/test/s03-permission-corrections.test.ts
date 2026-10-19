@@ -45,10 +45,10 @@ describe("S03 F1 unresolved seat support refuses before effects", () => {
   });
   it("refuses the production selection without writing desired state or audit", async () => {
     daemonHelp(); const prepare = vi.fn(() => { throw Error("unexpected DB access"); }); const db = { prepare };
-    const service = new SeatLifecycleService({ db, rigRepo: { db }, sessionRegistry: { db }, eventBus: { db }, tmuxAdapter: {} } as any);
+    const service = new SeatLifecycleService({ db, softwareTeamRepo: { db }, sessionRegistry: { db }, eventBus: { db }, tmuxAdapter: {} } as any);
     vi.spyOn(service as any, "resolveSeat").mockReturnValue({ nodeId: "node", entry: { runtime: "claude-code" } });
-    vi.spyOn(service as any, "describe").mockReturnValue({ nodeId: "node", rigId: "rig", logicalId: "owner", rigName: "rig" });
-    expect(await service.setPermissions({ seatRef: "owner@rig", mode: "auto", actor: "operator", reason: "selected" }))
+    vi.spyOn(service as any, "describe").mockReturnValue({ nodeId: "node", softwareTeamId: "softwareTeam", logicalId: "owner", softwareTeamName: "softwareTeam" });
+    expect(await service.setPermissions({ seatRef: "owner@software-team", mode: "auto", actor: "operator", reason: "selected" }))
       .toMatchObject({ ok: false, code: "permission_selection_refused" });
     expect(prepare).not.toHaveBeenCalled(); expect(execFile).not.toHaveBeenCalled();
   });

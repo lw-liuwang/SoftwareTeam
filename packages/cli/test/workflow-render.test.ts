@@ -13,8 +13,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -32,7 +32,7 @@ const INSTANCE = {
   workflowName: "conveyor",
   workflowVersion: "2",
   status: "active",
-  createdBySession: "orch@rig",
+  createdBySession: "orch@software-team",
   createdAt: "2026-07-06T21:00:00.000Z",
   currentStepId: "review",
   currentFrontier: ["Q3"],
@@ -44,7 +44,7 @@ const TRAIL = [
     stepId: "plan",
     closedAt: "2026-07-06T21:02:00.000Z",
     closureReason: "handoff",
-    actorSession: "planner@rig",
+    actorSession: "planner@software-team",
     nextQitemId: "Q2",
     priorQitemId: "Q1",
   },
@@ -53,7 +53,7 @@ const TRAIL = [
     closedAt: "2026-07-06T21:08:00.000Z",
     closureReason: "handoff",
     closureEvidence: { branch_taken: "remediate" },
-    actorSession: "builder@rig",
+    actorSession: "builder@software-team",
     nextQitemId: "Q3",
     priorQitemId: "Q2",
   },
@@ -68,7 +68,7 @@ describe("workflow-render (WF3 FR-2)", () => {
     expect(text).toContain("STEP");
     expect(text).toContain("ACTOR");
     expect(text).toContain("plan");
-    expect(text).toContain("planner@rig");
+    expect(text).toContain("planner@software-team");
     expect(text).toContain("2m"); // plan duration from createdAt→closedAt
     expect(text).toContain("6m"); // build duration from prior close
     expect(text).toContain("▸ review"); // where it is now
@@ -126,7 +126,7 @@ describe("workflow-render (WF3 FR-2)", () => {
   it("show: status-line-headed summary with a next pointer at trace", () => {
     const lines = renderInstanceShow(INSTANCE, NOW);
     expect(lines[0]).toBe("● WF01ABC  status=active");
-    expect(lines.join("\n")).toContain("rig workflow trace WF01ABC");
+    expect(lines.join("\n")).toContain("SoftwareTeam workflow trace WF01ABC");
   });
 
   it("renders every packet and failure with an exact selector, never frontier[0]", () => {
@@ -135,8 +135,8 @@ describe("workflow-render (WF3 FR-2)", () => {
       currentStepId: null,
       currentFrontier: ["Q-LEFT", "Q-RIGHT"],
       frontierPackets: [
-        { packetId: "Q-LEFT", stepId: "left", ownerSession: "left@rig", queueState: "in-progress", blockedOn: null, targetedAction: "project" as const },
-        { packetId: "Q-RIGHT", stepId: "right", ownerSession: "right@rig", queueState: "blocked", blockedOn: "gate-2", targetedAction: "project" as const },
+        { packetId: "Q-LEFT", stepId: "left", ownerSession: "left@software-team", queueState: "in-progress", blockedOn: null, targetedAction: "project" as const },
+        { packetId: "Q-RIGHT", stepId: "right", ownerSession: "right@software-team", queueState: "blocked", blockedOn: "gate-2", targetedAction: "project" as const },
       ],
       failureOccurrences: [
         { occurrenceId: "Q-FAILED", stepId: "build", status: "unresolved" as const, targetedAction: "resume" as const },
@@ -144,10 +144,10 @@ describe("workflow-render (WF3 FR-2)", () => {
       unknowns: ["frontier packet Q-GHOST has no queue row"],
     };
     const show = renderInstanceShow(lifecycle, NOW).join("\n");
-    expect(show).toContain("Q-LEFT  step=left  owner=left@rig");
-    expect(show).toContain("Q-RIGHT  step=right  owner=right@rig  state=blocked  blocked_on=gate-2");
-    expect(show).toContain("project --instance WF01ABC --current-packet Q-LEFT --exit <handoff|waiting|done|failed> --actor-session left@rig");
-    expect(show).toContain("project --instance WF01ABC --current-packet Q-RIGHT --exit <handoff|waiting|done|failed> --actor-session right@rig");
+    expect(show).toContain("Q-LEFT  step=left  owner=left@software-team");
+    expect(show).toContain("Q-RIGHT  step=right  owner=right@software-team  state=blocked  blocked_on=gate-2");
+    expect(show).toContain("project --instance WF01ABC --current-packet Q-LEFT --exit <handoff|waiting|done|failed> --actor-session left@software-team");
+    expect(show).toContain("project --instance WF01ABC --current-packet Q-RIGHT --exit <handoff|waiting|done|failed> --actor-session right@software-team");
     expect(show).toContain("--occurrence Q-FAILED");
     expect(show).toContain("unknown:  frontier packet Q-GHOST has no queue row");
 
@@ -162,13 +162,13 @@ describe("workflow-render (WF3 FR-2)", () => {
       lifecycleBinding: { graphSource: { mode: "project-profile", profileSource: "/project.yaml#lifecycle.profiles.release" } },
       boundaryObligations: [
         { stepId: "exact-cut-substance", required: true, state: "pending", receiptState: "missing", receipt: null },
-        { stepId: "record-shipped", required: true, state: "closed", receiptState: "recorded", receipt: { evidenceRef: "proof/ship.md", actorSession: "orch@rig", closedAt: NOW } },
+        { stepId: "record-shipped", required: true, state: "closed", receiptState: "recorded", receipt: { evidenceRef: "proof/ship.md", actorSession: "orch@software-team", closedAt: NOW } },
       ],
     }, NOW).join("\n");
     expect(body).toContain("boundary: project-profile");
     expect(body).toContain("exact-cut-substance · required · pending · receipt missing");
     expect(body).toContain("record-shipped · required · closed · receipt recorded");
-    expect(body).toContain("proof/ship.md · recorded by orch@rig");
+    expect(body).toContain("proof/ship.md · recorded by orch@software-team");
   });
 
   it("renders the typed acceptance command shape on an acceptance frontier", () => {
@@ -178,7 +178,7 @@ describe("workflow-render (WF3 FR-2)", () => {
       frontierPackets: [{
         packetId: "Q-ACCEPT",
         stepId: "accept",
-        ownerSession: "reviewer@rig",
+        ownerSession: "reviewer@software-team",
         queueState: "in-progress",
         blockedOn: null,
         targetedAction: "project" as const,
@@ -215,7 +215,7 @@ describe("workflow-render (WF3 FR-2)", () => {
     ]) {
       expect(text).toContain("Q-HISTORY");
       expect(text).toContain("action: none — terminal history");
-      expect(text).not.toContain("rig workflow resume");
+      expect(text).not.toContain("SoftwareTeam workflow resume");
     }
     expect(renderInstanceList([aborted], NOW)[1]).not.toContain("▲ failed-branch");
   });
@@ -248,7 +248,7 @@ describe("BR-2 byte-stability of --json (unit pin; commit-8 harness is the bindi
       workflowDeps: makeDeps({ "GET /api/workflow/i1/trace": { status: 200, data: body } }),
     });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "workflow", "trace", "i1", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "workflow", "trace", "i1", "--json"]);
     expect(logSpy).toHaveBeenCalledWith(JSON.stringify(body));
   });
 
@@ -259,7 +259,7 @@ describe("BR-2 byte-stability of --json (unit pin; commit-8 harness is the bindi
       workflowDeps: makeDeps({ "GET /api/workflow/list": { status: 200, data: body } }),
     });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "workflow", "list", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "workflow", "list", "--json"]);
     expect(logSpy).toHaveBeenCalledWith(JSON.stringify(body));
   });
 });
@@ -268,12 +268,12 @@ it("shows the exception selection, unavailable evidence and owning obligation wi
   const lines = renderInstanceShow({ ...INSTANCE,
     exceptionReadiness: { selection: { state: "selected", role: "orch", entryRole: "owner", source: "/project.yaml#lifecycle.profiles.release.workflow.exception_routing.orchestrator_role" },
       routes: [{ exceptionClass: "stuck_overdue", state: "unavailable", roleResolution: "unavailable", destinationSession: null, position: "orchestrator", resolvedVia: "engine-default", message: "inventory read failed" }],
-      nextAction: "Inspect rig workflow revise WF01ABC; existing obligations keep their owners." },
-    exceptionObligations: [{ qitemId: "qitem-existing", ownerSession: "prior@rig", state: "pending", evidenceRef: "rig workflow trace WF01ABC", inspectCommand: "rig queue show qitem-existing --full --json" }],
+      nextAction: "Inspect SoftwareTeam workflow revise WF01ABC; existing obligations keep their owners." },
+    exceptionObligations: [{ qitemId: "qitem-existing", ownerSession: "prior@software-team", state: "pending", evidenceRef: "SoftwareTeam workflow trace WF01ABC", inspectCommand: "SoftwareTeam queue show qitem-existing --full --json" }],
   }, NOW).join("\n");
   expect(lines).toContain("exception owner: selected · orch (ordinary entry: owner)");
   expect(lines).toContain("unavailable · orchestrator via engine-default · no verified destination");
   expect(lines).toContain("inventory read failed");
-  expect(lines).toContain("qitem-existing · owner=prior@rig · state=pending");
-  expect(lines).toContain("rig workflow revise WF01ABC");
+  expect(lines).toContain("qitem-existing · owner=prior@software-team · state=pending");
+  expect(lines).toContain("SoftwareTeam workflow revise WF01ABC");
 });

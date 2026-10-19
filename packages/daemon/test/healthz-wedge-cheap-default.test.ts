@@ -6,7 +6,7 @@ import type { AgentActivity } from "../src/domain/types.js";
  * OPR.0.4.3 healthz-wedge amplification fix — proof that attachAgentActivity is
  * CHEAP by default (no per-node tmux capture) and only runs the expensive
  * probeSessionActivity fallback when captureFallback:true is requested
- * (?full/?refresh). The per-node tmux capture under the CLI `rig ps --nodes`
+ * (?full/?refresh). The per-node tmux capture under the CLI `SoftwareTeam ps --nodes`
  * fan-out + the graph/nodes polls was the fleet-scale storm; cheap-default
  * removes it from the hot path while the SeatActivityService snapshot serves
  * running/idle and getLatestForNode serves hook activity.
@@ -39,7 +39,7 @@ describe("OPR.0.4.3 healthz-wedge — attachAgentActivity cheap default", () => 
   it("cheap default (no captureFallback): a hook-less seat gets an honest unknown/no_runtime_hook placeholder and NO per-node tmux capture", async () => {
     const counter = { captures: 0 };
     const store = { getLatestForNode: () => null } as never; // no runtime hook
-    const out = (await attachAgentActivity(entries("dev.impl@rig"), {
+    const out = (await attachAgentActivity(entries("dev.impl@software-team"), {
       tmuxAdapter: mkTmux(counter),
       activityStore: store,
     })) as Array<{ agentActivity: AgentActivity }>;
@@ -54,7 +54,7 @@ describe("OPR.0.4.3 healthz-wedge — attachAgentActivity cheap default", () => 
   it("captureFallback:true: a hook-less seat runs the per-node tmux capture (opt-in freshness via ?full/?refresh)", async () => {
     const counter = { captures: 0 };
     const store = { getLatestForNode: () => null } as never;
-    await attachAgentActivity(entries("dev.impl@rig"), {
+    await attachAgentActivity(entries("dev.impl@software-team"), {
       tmuxAdapter: mkTmux(counter),
       activityStore: store,
       captureFallback: true,
@@ -73,11 +73,11 @@ describe("OPR.0.4.3 healthz-wedge — attachAgentActivity cheap default", () => 
     };
     const store = { getLatestForNode: () => hook } as never;
 
-    const cheap = (await attachAgentActivity(entries("s@rig"), {
+    const cheap = (await attachAgentActivity(entries("s@software-team"), {
       tmuxAdapter: mkTmux(counter),
       activityStore: store,
     })) as Array<{ agentActivity: AgentActivity }>;
-    const full = (await attachAgentActivity(entries("s@rig"), {
+    const full = (await attachAgentActivity(entries("s@software-team"), {
       tmuxAdapter: mkTmux(counter),
       activityStore: store,
       captureFallback: true,

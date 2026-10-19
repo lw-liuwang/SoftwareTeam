@@ -26,9 +26,9 @@ function snapshot(dir: string): Record<string, string> {
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "s06-browser-"));
   store = new SettingsStore(join(home, "config.json"));
-  for (const key of Object.keys(process.env).filter((k) => /^(OPENRIG_|RIGGED_|SLACK_)/.test(k))) vi.stubEnv(key, "");
-  vi.stubEnv("OPENRIG_HOME", home);
-  vi.stubEnv("OPENRIG_WORKSPACE_ROOT", join(home, "workspace"));
+  for (const key of Object.keys(process.env).filter((k) => /^(SOFTWARETEAM_|SOFTWARETEAM_|SLACK_)/.test(k))) vi.stubEnv(key, "");
+  vi.stubEnv("SOFTWARETEAM_HOME", home);
+  vi.stubEnv("SOFTWARETEAM_WORKSPACE_ROOT", join(home, "workspace"));
   external = vi.fn(() => { throw new Error("Unexpected external call"); });
   vi.stubGlobal("fetch", external);
 });
@@ -54,7 +54,7 @@ describe("passive CONFIG read view", () => {
     const longPath = join(home, "one very long folder", "detail".repeat(50));
     writeFileSync(store.configPath, JSON.stringify({ workspace: { projectsRoot: longPath },
       host: { name: { innocent: credential } }, policies: { claudeCompaction: { messageInline: credential } } }));
-    vi.stubEnv("OPENRIG_UI_TIMEZONE", "Europe/London");
+    vi.stubEnv("SOFTWARETEAM_UI_TIMEZONE", "Europe/London");
     expect(entry("workspace.projects_root")).toMatchObject({ value: longPath, source: "file", visibility: "shown" });
     expect(entry("ui.timezone")).toMatchObject({ value: "Europe/London", source: "env" });
     expect(entry("host.name")).toMatchObject({ value: null, source: "file", visibility: "withheld" });
@@ -173,8 +173,8 @@ describe("#192 channel map in the CONFIG read view", () => {
     saveConfig({ ...DEFAULT_CONFIG, channel: "C0DEFAULT" }, home);
     expect(entry("slack.channelMap")).toMatchObject({ value: "", defaultValue: "", source: "default", visibility: "shown" });
     saveConfig({ ...DEFAULT_CONFIG, channel: "C0DEFAULT", channelMap: [
-      { match: "my-rig", channel: "C0EXAMPLE1" }, { match: "pr@my-rig", channel: "C0EXAMPLE2" },
+      { match: "my-software-team", channel: "C0EXAMPLE1" }, { match: "pr@my-software-team", channel: "C0EXAMPLE2" },
     ] }, home);
-    expect(entry("slack.channelMap")).toMatchObject({ value: "my-rig: C0EXAMPLE1, pr@my-rig: C0EXAMPLE2", source: "file", visibility: "shown" });
+    expect(entry("slack.channelMap")).toMatchObject({ value: "my-software-team: C0EXAMPLE1, pr@my-software-team: C0EXAMPLE2", source: "file", visibility: "shown" });
   });
 });

@@ -3,7 +3,7 @@
 // Only with --openrouter-charge (usage.pi_openrouter_charge on, which needs usage.pi_cost_facts). The charge is
 // looked up with the credential that generated the request, and only when that is established: Pi records no
 // per-request credential, so the runner observes Pi's credential metadata at launch and at every refresh, and
-// a request is eligible only when the observations before and after it both show the OPENROUTER_API_KEY OpenRig
+// a request is eligible only when the observations before and after it both show the OPENROUTER_API_KEY SoftwareTeam
 // forwarded, no extension that could replace it, and no change in between (pi-readiness judgeChargeProvenance).
 // Anything else records "unavailable" with that reason; no other credential is used, and nothing is decided
 // from a later read.

@@ -72,7 +72,7 @@ function unhealthyDeps(): StatusDeps {
     lifecycleDeps: mockLifecycleDeps({
       exists: vi.fn((p: string) => p === STATE_FILE),
       readFile: vi.fn((p: string) => {
-        if (p === STATE_FILE) return JSON.stringify(runningState(7433));
+        if (p === STATE_FILE) return JSON.stringify(runningState(7434));
         return null;
       }),
       isProcessAlive: vi.fn(() => true),
@@ -87,15 +87,15 @@ function createMockDaemon() {
   const server = http.createServer((req, res) => {
     const url = new URL(req.url!, "http://localhost");
 
-    // POST /api/rigs/:rigId/snapshots
-    if (req.method === "POST" && url.pathname.match(/^\/api\/rigs\/[^/]+\/snapshots$/)) {
-      const rigId = url.pathname.split("/")[3]!;
-      if (rigId === "missing") {
+    // POST /api/software-teams/:softwareTeamId/snapshots
+    if (req.method === "POST" && url.pathname.match(/^\/api\/software-teams\/[^/]+\/snapshots$/)) {
+      const softwareTeamId = url.pathname.split("/")[3]!;
+      if (softwareTeamId === "missing") {
         res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "rig not found" }));
+        res.end(JSON.stringify({ error: "SoftwareTeam not found" }));
         return;
       }
-      if (rigId === "broken") {
+      if (softwareTeamId === "broken") {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "internal error" }));
         return;
@@ -105,8 +105,8 @@ function createMockDaemon() {
       return;
     }
 
-    // GET /api/rigs/:rigId/snapshots
-    if (req.method === "GET" && url.pathname.match(/^\/api\/rigs\/[^/]+\/snapshots$/)) {
+    // GET /api/software-teams/:softwareTeamId/snapshots
+    if (req.method === "GET" && url.pathname.match(/^\/api\/software-teams\/[^/]+\/snapshots$/)) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify([
         { id: "snap-1", kind: "manual", status: "complete", createdAt: "2026-03-24 01:00:00" },
@@ -115,8 +115,8 @@ function createMockDaemon() {
       return;
     }
 
-    // POST /api/rigs/:rigId/restore/:snapshotId
-    if (req.method === "POST" && url.pathname.match(/^\/api\/rigs\/[^/]+\/restore\/[^/]+$/)) {
+    // POST /api/software-teams/:softwareTeamId/restore/:snapshotId
+    if (req.method === "POST" && url.pathname.match(/^\/api\/software-teams\/[^/]+\/restore\/[^/]+$/)) {
       const parts = url.pathname.split("/");
       const snapshotId = parts[5]!;
       if (snapshotId === "missing") {
@@ -131,7 +131,7 @@ function createMockDaemon() {
       }
       if (snapshotId === "running") {
         res.writeHead(409, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Rig rig-1 must be stopped before restore" }));
+        res.end(JSON.stringify({ error: "SoftwareTeam software-team-1 must be stopped before restore" }));
         return;
       }
       if (snapshotId === "unusable") {
@@ -146,7 +146,7 @@ function createMockDaemon() {
           code: "pre_restore_validation_failed",
           snapshotId: "blocked",
           preRestoreSnapshotId: null,
-          rigResult: "not_attempted",
+          softwareTeamResult: "not_attempted",
           nodes: [],
           warnings: [],
           blockers: [{
@@ -163,20 +163,20 @@ function createMockDaemon() {
       if (snapshotId === "failed-node") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
-          rigResult: "partially_restored",
+          softwareTeamResult: "partially_restored",
           nodes: [
             { nodeId: "n1", logicalId: "orchestrator", status: "resumed" },
             {
               nodeId: "n2",
               logicalId: "worker",
               status: "failed",
-              canonicalSessionName: "worker@test-rig",
-              tmuxAttachCommand: "tmux attach -t worker@test-rig",
+              canonicalSessionName: "worker@test-software-team",
+              tmuxAttachCommand: "tmux attach -t worker@test-software-team",
               cwd: "/workspace/app",
               recoveryGuidance: {
                 summary: "Try native Claude resume first, then fall back to the workspace-local picker if needed.",
                 commands: ["claude --resume abc-123", "cd /workspace/app", "claude --resume"],
-                notes: ["Look for session name: worker@test-rig", "Choose the full conversation option, not summary."],
+                notes: ["Look for session name: worker@test-software-team", "Choose the full conversation option, not summary."],
               },
             },
           ],
@@ -186,18 +186,18 @@ function createMockDaemon() {
       if (snapshotId === "partial-fresh") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
-          rigResult: "partially_restored",
+          softwareTeamResult: "partially_restored",
           nodes: [
             { nodeId: "n1", logicalId: "worker", status: "fresh" },
           ],
         }));
         return;
       }
-      // OPR.0.3.4.6 — five-term cross-surface guard for the rig restore CLI surface.
+      // OPR.0.3.4.6 — five-term cross-surface guard for the SoftwareTeam restore CLI surface.
       if (snapshotId === "five-term") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
-          rigResult: "partially_restored",
+          softwareTeamResult: "partially_restored",
           nodes: [
             { nodeId: "n1", logicalId: "a", status: "resumed" },
             { nodeId: "n2", logicalId: "b", status: "fresh-primed" },
@@ -210,12 +210,12 @@ function createMockDaemon() {
       }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
-        rigResult: "fully_restored",
+        softwareTeamResult: "fully_restored",
         nodes: [
           { nodeId: "n1", logicalId: "orchestrator", status: "resumed" },
           { nodeId: "n2", logicalId: "worker", status: "rebuilt" },
         ],
-        attachCommand: "tmux attach -t orch-lead@test-rig",
+        attachCommand: "tmux attach -t orch-lead@test-software-team",
       }));
       return;
     }
@@ -243,7 +243,7 @@ function createMockDaemon() {
   };
 }
 
-describe("rig snapshot + restore", () => {
+describe("SoftwareTeam snapshot + restore", () => {
   let srv: ReturnType<typeof createMockDaemon>;
   let port: number;
 
@@ -257,12 +257,12 @@ describe("rig snapshot + restore", () => {
   it("snapshot create: prints snapshot ID", async () => {
     const program = new Command();
     program.addCommand(snapshotCommand(runningDeps(port)));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "snapshot", "rig-1"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "snapshot", "software-team-1"]));
     const output = logs.join("\n");
     expect(output).toContain("snap-new-123");
     // NS-T14: handoff includes restore instruction
     expect(output).toContain("To restore:");
-    expect(output).toContain("rig restore snap-new-123 --rig rig-1");
+    expect(output).toContain("SoftwareTeam restore snap-new-123 --software-team software-team-1");
   });
 
   it("snapshot create: sends an explicit intended-seat roster", async () => {
@@ -275,20 +275,20 @@ describe("rig snapshot + restore", () => {
     program.addCommand(snapshotCommand(deps));
 
     await captureLogs(() => program.parseAsync([
-      "node", "rig", "snapshot", "rig-1", "--intended-seats", "dev.lead,dev.qa",
+      "node", "softwareTeam", "snapshot", "software-team-1", "--intended-seats", "dev.lead,dev.qa",
     ]));
 
     expect(post).toHaveBeenCalledWith(
-      "/api/rigs/rig-1/snapshots",
+      "/api/software-teams/software-team-1/snapshots",
       { intendedSeats: ["dev.lead", "dev.qa"] },
     );
   });
 
   // Test 2: snapshot create 404
-  it("snapshot create: rig not found (404) -> error", async () => {
+  it("snapshot create: SoftwareTeam not found (404) -> error", async () => {
     const program = new Command();
     program.addCommand(snapshotCommand(runningDeps(port)));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "snapshot", "missing"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "snapshot", "missing"]));
     expect(logs.join("\n")).toMatch(/not found/i);
   });
 
@@ -296,7 +296,7 @@ describe("rig snapshot + restore", () => {
   it("snapshot list: formatted table output", async () => {
     const program = new Command();
     program.addCommand(snapshotCommand(runningDeps(port)));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "snapshot", "list", "rig-1"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "snapshot", "list", "software-team-1"]));
     const output = logs.join("\n");
     expect(output).toContain("snap-1");
     expect(output).toContain("snap-2");
@@ -308,16 +308,16 @@ describe("rig snapshot + restore", () => {
   it("restore: prints per-node status", async () => {
     const program = new Command();
     program.addCommand(restoreCommand(runningDeps(port)));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "restore", "snap-1", "--rig", "rig-1"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "restore", "snap-1", "--software-team", "software-team-1"]));
     const output = logs.join("\n");
-    expect(output).toContain("Rig result: fully_restored");
+    expect(output).toContain("SoftwareTeam result: fully_restored");
     expect(output).toContain("orchestrator");
     expect(output).toContain("resumed");
     expect(output).toContain("worker");
     expect(output).toContain("rebuilt");
     // NS-T14: handoff includes attach command
     expect(output).toContain("Attach:");
-    expect(output).toContain("tmux attach -t orch-lead@test-rig");
+    expect(output).toContain("tmux attach -t orch-lead@test-software-team");
   });
 
   // Test 5: restore with failed node -> non-zero exit
@@ -327,12 +327,12 @@ describe("rig snapshot + restore", () => {
 
     const program = new Command();
     program.addCommand(restoreCommand(runningDeps(port)));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "restore", "failed-node", "--rig", "rig-1"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "restore", "failed-node", "--software-team", "software-team-1"]));
 
     expect(logs.join("\n")).toContain("worker");
     expect(logs.join("\n")).toContain("failed");
     expect(logs.join("\n")).toContain("Recovery guidance:");
-    expect(logs.join("\n")).toContain("tmux attach -t worker@test-rig");
+    expect(logs.join("\n")).toContain("tmux attach -t worker@test-software-team");
     expect(logs.join("\n")).toContain("$ claude --resume abc-123");
     expect(logs.join("\n")).toContain("Choose the full conversation option, not summary.");
     expect(process.exitCode).toBe(1);
@@ -340,16 +340,16 @@ describe("rig snapshot + restore", () => {
     process.exitCode = savedExitCode;
   });
 
-  it("restore: partial rig result sets exit code 1 even without failed nodes", async () => {
+  it("restore: partial SoftwareTeam result sets exit code 1 even without failed nodes", async () => {
     const savedExitCode = process.exitCode;
     process.exitCode = undefined;
 
     const program = new Command();
     program.addCommand(restoreCommand(runningDeps(port)));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "restore", "partial-fresh", "--rig", "rig-1"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "restore", "partial-fresh", "--software-team", "software-team-1"]));
 
     const output = logs.join("\n");
-    expect(output).toContain("Rig result: partially_restored");
+    expect(output).toContain("SoftwareTeam result: partially_restored");
     expect(output).toContain("worker");
     expect(output).toContain("fresh");
     expect(process.exitCode).toBe(1);
@@ -363,10 +363,10 @@ describe("rig snapshot + restore", () => {
 
     const program = new Command();
     program.addCommand(restoreCommand(runningDeps(port)));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "restore", "blocked", "--rig", "rig-1"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "restore", "blocked", "--software-team", "software-team-1"]));
 
     const output = logs.join("\n");
-    expect(output).toContain("Rig result: not_attempted");
+    expect(output).toContain("SoftwareTeam result: not_attempted");
     expect(output).toContain("Required startup file is missing");
     expect(output).toContain("/workspace/app/STARTUP.md");
     expect(output).toContain("Restore the missing startup file");
@@ -375,16 +375,16 @@ describe("rig snapshot + restore", () => {
     process.exitCode = savedExitCode;
   });
 
-  // OPR.0.3.4.6 — cross-surface regression guard: rig restore CLI surface.
+  // OPR.0.3.4.6 — cross-surface regression guard: SoftwareTeam restore CLI surface.
   // All five terms render distinctly and attention_required/awaiting-decision
   // with partially_restored -> exit 1, never exit 0.
-  it("OPR.0.3.4.6 guard: rig restore renders all five terms distinctly + exit 1 for partially_restored", async () => {
+  it("OPR.0.3.4.6 guard: SoftwareTeam restore renders all five terms distinctly + exit 1 for partially_restored", async () => {
     const savedExitCode = process.exitCode;
     process.exitCode = undefined;
 
     const program = new Command();
     program.addCommand(restoreCommand(runningDeps(port)));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "restore", "five-term", "--rig", "rig-1"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "restore", "five-term", "--software-team", "software-team-1"]));
 
     const output = logs.join("\n");
     expect(output).toContain("a: resumed");
@@ -402,7 +402,7 @@ describe("rig snapshot + restore", () => {
   it("restore: snapshot not found (404) -> error", async () => {
     const program = new Command();
     program.addCommand(restoreCommand(runningDeps(port)));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "restore", "missing", "--rig", "rig-1"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "restore", "missing", "--software-team", "software-team-1"]));
     expect(logs.join("\n")).toMatch(/not found/i);
   });
 
@@ -410,25 +410,25 @@ describe("rig snapshot + restore", () => {
   it("restore: in progress (409) -> error", async () => {
     const program = new Command();
     program.addCommand(restoreCommand(runningDeps(port)));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "restore", "locked", "--rig", "rig-1"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "restore", "locked", "--software-team", "software-team-1"]));
     expect(logs.join("\n")).toMatch(/in progress/i);
   });
 
-  it("restore: running rig conflict (409) -> prints server message", async () => {
+  it("restore: running SoftwareTeam conflict (409) -> prints server message", async () => {
     const program = new Command();
     program.addCommand(restoreCommand(runningDeps(port)));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "restore", "running", "--rig", "rig-1"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "restore", "running", "--software-team", "software-team-1"]));
     expect(logs.join("\n")).toMatch(/stopped before restore/i);
   });
 
-  it("restore: unusable snapshot conflict does not prescribe stopping the rig", async () => {
+  it("restore: unusable snapshot conflict does not prescribe stopping the softwareTeam", async () => {
     const program = new Command();
     program.addCommand(restoreCommand(runningDeps(port)));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "restore", "unusable", "--rig", "rig-1"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "restore", "unusable", "--software-team", "software-team-1"]));
     const output = logs.join("\n");
     expect(output).toMatch(/not structurally restore-usable/i);
     expect(output).toMatch(/choose a different snapshot/i);
-    expect(output).not.toMatch(/stop the rig/i);
+    expect(output).not.toMatch(/stop the softwareTeam/i);
   });
 
   // Test 8: snapshot with daemon stopped -> no HTTP
@@ -436,7 +436,7 @@ describe("rig snapshot + restore", () => {
     const deps = stoppedDeps();
     const program = new Command();
     program.addCommand(snapshotCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "snapshot", "rig-1"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "snapshot", "software-team-1"]));
     expect(logs.join("\n")).toMatch(/not running/i);
     expect(deps.clientFactory).not.toHaveBeenCalled();
   });
@@ -446,7 +446,7 @@ describe("rig snapshot + restore", () => {
     const deps = unhealthyDeps();
     const program = new Command();
     program.addCommand(restoreCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "restore", "snap-1", "--rig", "rig-1"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "restore", "snap-1", "--software-team", "software-team-1"]));
     expect(logs.join("\n")).toMatch(/did not respond|busy or stopped|unhealthy/i) // B8 supersession: epistemic guard language;
     expect(deps.clientFactory).not.toHaveBeenCalled();
   });
@@ -471,7 +471,7 @@ describe("rig snapshot + restore", () => {
 
     const program = new Command();
     program.addCommand(snapshotCommand(deps));
-    await captureLogs(() => program.parseAsync(["node", "rig", "snapshot", "rig-1"]));
+    await captureLogs(() => program.parseAsync(["node", "softwareTeam", "snapshot", "software-team-1"]));
 
     expect(usedUrls[0]).toBe(`http://127.0.0.1:${port}`);
   });
@@ -482,12 +482,12 @@ describe("rig snapshot + restore", () => {
     const program = createProgram({ snapshotDeps: deps, restoreDeps: deps });
 
     // Prove snapshot is mounted
-    const snapLogs = await captureLogs(() => program.parseAsync(["node", "rig", "snapshot", "x"]));
+    const snapLogs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "snapshot", "x"]));
     expect(snapLogs.join("\n")).toMatch(/not running/i);
 
     // Prove restore is mounted (re-create program since Commander consumes parseAsync)
     const program2 = createProgram({ snapshotDeps: deps, restoreDeps: deps });
-    const restoreLogs = await captureLogs(() => program2.parseAsync(["node", "rig", "restore", "snap-1", "--rig", "x"]));
+    const restoreLogs = await captureLogs(() => program2.parseAsync(["node", "softwareTeam", "restore", "snap-1", "--software-team", "x"]));
     expect(restoreLogs.join("\n")).toMatch(/not running/i);
   });
 
@@ -495,7 +495,7 @@ describe("rig snapshot + restore", () => {
   it("snapshot: 500 -> generic error message", async () => {
     const program = new Command();
     program.addCommand(snapshotCommand(runningDeps(port)));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "snapshot", "broken"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "snapshot", "broken"]));
     expect(logs.join("\n")).toMatch(/failed|error/i);
   });
 
@@ -504,7 +504,7 @@ describe("rig snapshot + restore", () => {
     const deps = stoppedDeps();
     const program = new Command();
     program.addCommand(restoreCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "restore", "snap-1", "--rig", "rig-1"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "restore", "snap-1", "--software-team", "software-team-1"]));
     expect(logs.join("\n")).toMatch(/not running/i);
     expect(deps.clientFactory).not.toHaveBeenCalled();
   });

@@ -28,13 +28,13 @@ const SPEC = `workflow:
   roles:
     producer:
       preferred_targets:
-        - producer@rig
+        - producer@software-team
     reviewer:
       preferred_targets:
-        - reviewer@rig
+        - reviewer@software-team
     finalizer:
       preferred_targets:
-        - finalizer@rig
+        - finalizer@software-team
   steps:
     - id: produce
       actor_role: producer
@@ -69,10 +69,10 @@ const PERMISSIVE_SPEC = `workflow:
   roles:
     anyone:
       preferred_targets:
-        - anyone@rig
+        - anyone@software-team
     next:
       preferred_targets:
-        - next@rig
+        - next@software-team
   steps:
     - id: act
       actor_role: anyone
@@ -115,9 +115,9 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
       workflowStepTrailsSchema,
     ]);
     bus = new EventBus(db);
-    // Seed a rig + node so QueueRepository.validateRig accepts the targets.
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    // Seed a softwareTeam + node so QueueRepository.validateSoftwareTeam accepts the targets.
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
@@ -140,7 +140,7 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
     const result = await runtime.instantiate({
       specPath,
       rootObjective: "test run",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     expect(result.instance.status).toBe("active");
     expect(result.instance.currentFrontier).toEqual([result.entryQitemId]);
@@ -148,7 +148,7 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
     expect(events.some((e) => e.type === "queue.created")).toBe(true);
     // Entry qitem actually exists with the expected destination.
     const entryItem = queueRepo.getById(result.entryQitemId);
-    expect(entryItem?.destinationSession).toBe("producer@rig");
+    expect(entryItem?.destinationSession).toBe("producer@software-team");
     expect(entryItem?.state).toBe("pending");
   });
 
@@ -161,21 +161,21 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const projected = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "handoff",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
       resultNote: "produced",
     });
     // Phase A queue closure contract preserved.
     const closedItem = queueRepo.getById(inst.entryQitemId);
     expect(closedItem?.state).toBe("handed-off");
     expect(closedItem?.closureReason).toBe("handed_off_to");
-    expect(closedItem?.closureTarget).toBe("reviewer@rig");
-    expect(closedItem?.handedOffTo).toBe("reviewer@rig");
+    expect(closedItem?.closureTarget).toBe("reviewer@software-team");
+    expect(closedItem?.handedOffTo).toBe("reviewer@software-team");
     // queue_transitions row appended.
     const transitions = db
       .prepare(`SELECT * FROM queue_transitions WHERE qitem_id = ? ORDER BY ts DESC`)
@@ -194,7 +194,7 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
     const inst = await runtime.instantiate({
       specPath: permissiveSpecPath,
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const events: Array<{ type: string }> = [];
     bus.subscribe((e) => events.push(e));
@@ -202,7 +202,7 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "done",
-      actorSession: "anyone@rig",
+      actorSession: "anyone@software-team",
     });
     const closedItem = queueRepo.getById(inst.entryQitemId);
     expect(closedItem?.state).toBe("done");
@@ -214,13 +214,13 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
     const inst = await runtime.instantiate({
       specPath: permissiveSpecPath,
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "waiting",
-      actorSession: "anyone@rig",
+      actorSession: "anyone@software-team",
       blockedOn: "external-gate-x",
     });
     const closedItem = queueRepo.getById(inst.entryQitemId);
@@ -236,18 +236,18 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const projected = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "handoff",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
       resultNote: "produced",
     });
     expect(projected.closurePriorPacketId).toBe(inst.entryQitemId);
     expect(projected.nextStepId).toBe("review");
-    expect(projected.nextOwnerSession).toBe("reviewer@rig");
+    expect(projected.nextOwnerSession).toBe("reviewer@software-team");
     expect(projected.nextQitemId).not.toBeNull();
     // Prior packet closed.
     expect(queueRepo.getById(inst.entryQitemId)?.state).toBe("handed-off");
@@ -267,10 +267,10 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
   roles:
     discovery-router:
       preferred_targets:
-        - discovery@rig
+        - discovery@software-team
     qa-tester:
       preferred_targets:
-        - qa@rig
+        - qa@software-team
   steps:
     - id: discovery
       actor_role: discovery-router
@@ -299,45 +299,45 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
     const inst = await runtime.instantiate({
       specPath: loopSpecPath,
       rootObjective: "loop regression",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
 
     const qaProjection = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "handoff",
-      actorSession: "discovery@rig",
+      actorSession: "discovery@software-team",
       resultNote: "candidate ready",
     });
     expect(qaProjection.nextStepId).toBe("qa");
-    expect(qaProjection.nextOwnerSession).toBe("qa@rig");
+    expect(qaProjection.nextOwnerSession).toBe("qa@software-team");
 
     const loopProjection = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: qaProjection.nextQitemId!,
       exit: "handoff",
-      actorSession: "qa@rig",
+      actorSession: "qa@software-team",
       resultNote: "runtime signal ready for discovery",
     });
 
     expect(loopProjection.nextStepId).toBe("discovery");
-    expect(loopProjection.nextOwnerSession).toBe("discovery@rig");
+    expect(loopProjection.nextOwnerSession).toBe("discovery@software-team");
     expect(loopProjection.nextQitemId).not.toBeNull();
     expect(loopProjection.instance.status).toBe("active");
     expect(loopProjection.instance.currentStepId).toBe("discovery");
     expect(loopProjection.instance.currentFrontier).toEqual([loopProjection.nextQitemId]);
-    expect(queueRepo.getById(qaProjection.nextQitemId!)?.closureTarget).toBe("discovery@rig");
+    expect(queueRepo.getById(qaProjection.nextQitemId!)?.closureTarget).toBe("discovery@software-team");
   });
 
   it("transactional-scribe ROLLBACK: if next-qitem creation fails, prior packet remains in-progress + no trail row + no orphan qitem", async () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
-    // Force projection failure by invalidating destination via validateRig flip.
+    // Force projection failure by invalidating destination via validateSoftwareTeam flip.
     const failingRepo = new QueueRepository(db, bus, {
-      validateRig: () => false,
+      validateSoftwareTeam: () => false,
     });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
@@ -352,7 +352,7 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
         instanceId: inst.instance.instanceId,
         currentPacketId: inst.entryQitemId,
         exit: "handoff",
-        actorSession: "producer@rig",
+        actorSession: "producer@software-team",
       });
     } catch {
       threw = true;
@@ -376,26 +376,26 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     // Walk through all 3 steps.
     let projected = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "handoff",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
     });
     projected = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: projected.nextQitemId!,
       exit: "handoff",
-      actorSession: "reviewer@rig",
+      actorSession: "reviewer@software-team",
     });
     projected = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: projected.nextQitemId!,
       exit: "done",
-      actorSession: "finalizer@rig",
+      actorSession: "finalizer@software-team",
       resultNote: "shipped",
     });
     expect(projected.instance.status).toBe("completed");
@@ -411,7 +411,7 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     try {
       await runtime.project({
@@ -431,13 +431,13 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
     const inst = await runtime.instantiate({
       specPath: permissiveSpecPath,
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     let projected = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "done",
-      actorSession: "anyone@rig",
+      actorSession: "anyone@software-team",
     });
     expect(projected.instance.status).toBe("completed");
     try {
@@ -445,7 +445,7 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
         instanceId: inst.instance.instanceId,
         currentPacketId: inst.entryQitemId,
         exit: "done",
-        actorSession: "anyone@rig",
+        actorSession: "anyone@software-team",
       });
       throw new Error("should have thrown");
     } catch (err) {
@@ -462,14 +462,14 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
     const inst = await runtime.instantiate({
       specPath: permissiveSpecPath,
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     expect(inst.instance.currentFrontier).toEqual([inst.entryQitemId]);
     const projected = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "waiting",
-      actorSession: "anyone@rig",
+      actorSession: "anyone@software-team",
       blockedOn: "external-gate",
     });
     expect(projected.instance.status).toBe("waiting");
@@ -499,13 +499,13 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
   roles:
     producer:
       preferred_targets:
-        - producer@rig
+        - producer@software-team
     reviewer:
       preferred_targets:
-        - reviewer@rig
+        - reviewer@software-team
     finalizer:
       preferred_targets:
-        - finalizer@rig
+        - finalizer@software-team
   steps:
     - id: produce
       actor_role: producer
@@ -534,13 +534,13 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
     const inst = await runtime.instantiate({
       specPath: resumeSpecPath,
       rootObjective: "resume regression",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const handed = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "handoff",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
     });
     expect(handed.nextStepId).toBe("review");
     const reviewQitemId = handed.nextQitemId!;
@@ -555,7 +555,7 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
       instanceId: inst.instance.instanceId,
       currentPacketId: reviewQitemId,
       exit: "waiting",
-      actorSession: "reviewer@rig",
+      actorSession: "reviewer@software-team",
       blockedOn: "external-gate",
     });
     expect(waited.instance.status).toBe("waiting");
@@ -573,7 +573,7 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
       instanceId: inst.instance.instanceId,
       currentPacketId: reviewQitemId,
       exit: "done",
-      actorSession: "reviewer@rig",
+      actorSession: "reviewer@software-team",
       resultNote: "review complete",
     });
 
@@ -602,14 +602,14 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
     const inst = await runtime.instantiate({
       specPath, // produce step allows handoff
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     // handoff IS in produce's allowed_exits — must succeed.
     const projected = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "handoff",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
     });
     expect(projected.nextStepId).toBe("review");
   });
@@ -620,7 +620,7 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
     const inst = await runtime.instantiate({
       specPath, // produce step allows handoff ONLY
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const beforeQueueState = queueRepo.getById(inst.entryQitemId)?.state;
     const beforeFrontier = inst.instance.currentFrontier;
@@ -636,7 +636,7 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
         instanceId: inst.instance.instanceId,
         currentPacketId: inst.entryQitemId,
         exit: "done",
-        actorSession: "producer@rig",
+        actorSession: "producer@software-team",
       });
     } catch (err) {
       threw = true;
@@ -669,13 +669,13 @@ describe("WorkflowProjector + WorkflowRuntime (PL-004 Phase D; transactional-scr
     const inst = await runtime.instantiate({
       specPath: permissiveSpecPath,
       rootObjective: "x",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const projected = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "failed",
-      actorSession: "anyone@rig",
+      actorSession: "anyone@software-team",
       resultNote: "could not produce artifact",
     });
     expect(projected.instance.status).toBe("failed");

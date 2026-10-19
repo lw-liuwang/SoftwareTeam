@@ -27,18 +27,18 @@ describe("canonical project-workspace scaffold parity", () => {
   it("emits valid project and catalog manifests without instance-owned sources", () => {
     const files = new Map(daemonScaffoldFiles().map((file) => [file.relPath, file.content]));
     expect(parseYaml(files.get("project.yaml")!)).toMatchObject({
-      schema: "openrig.project/v0alpha1",
+      schema: "softwareteam.project/v0alpha1",
       kind: "project",
       install: { intent: "SPEC.md", context: [], skills: [] },
       missions: { root: "missions" },
     });
     expect(parseYaml(files.get("workspace.yaml")!)).toEqual({
-      schema: "openrig.workspace/v0alpha1",
+      schema: "softwareteam.workspace/v0alpha1",
       projects: [{ id: "default", root: "." }],
     });
     expect(files.get("SPEC.md")).toContain("intent:");
     expect(files.get(".gitignore")).toContain("/exhaust/");
-    expect(files.get(".gitignore")).toContain("/.openrig/");
+    expect(files.get(".gitignore")).toContain("/.softwareteam/");
 
     const emitted = [...daemonScaffoldDirs(), ...files.keys()];
     for (const retired of [
@@ -61,7 +61,7 @@ describe("canonical project-workspace scaffold parity", () => {
     const repoRoot = resolve(import.meta.dirname, "../../..");
     const cliReference = readFileSync(join(repoRoot, "docs/as-built/cli-reference.md"), "utf-8");
     const skill = readFileSync(
-      join(repoRoot, "packages/daemon/assets/plugins/openrig-core/skills/openrig-user/SKILL.md"),
+      join(repoRoot, "packages/daemon/assets/plugins/softwareteam-core/skills/softwareteam-user/SKILL.md"),
       "utf-8",
     );
     const cliLine = cliReference.split("\n").find((line) => line.startsWith("- `init-workspace` "));

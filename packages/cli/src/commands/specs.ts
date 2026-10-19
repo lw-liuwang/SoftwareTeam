@@ -12,7 +12,7 @@ import {
   rmSync,
 } from "node:fs";
 import { basename, join } from "node:path";
-import { getDefaultOpenRigPath } from "../openrig-compat.js";
+import { getDefaultSoftwareTeamPath } from "../softwareteam-compat.js";
 import { DaemonClient } from "../client.js";
 import { getDaemonStatus, getDaemonUrl , statusGuardMessage} from "../daemon-lifecycle.js";
 import { realDeps } from "./daemon.js";
@@ -20,7 +20,7 @@ import type { StatusDeps } from "./status.js";
 
 interface LibraryEntry {
   id: string;
-  kind: "rig" | "agent" | "workflow";
+  kind: "softwareTeam" | "agent" | "workflow";
   name: string;
   version: string;
   sourceType: string;
@@ -92,11 +92,11 @@ function resolveAddSpecSource(inputPath: string): AddSpecSource {
     throw new Error(`Spec path must be a YAML file or spec directory: ${inputPath}`);
   }
 
-  const rootSpec = ["rig.yaml", "rig.yml", "agent.yaml", "agent.yml"]
+  const rootSpec = ["software-team.yaml", "softwareTeam.yml", "agent.yaml", "agent.yml"]
     .map((candidate) => join(inputPath, candidate))
     .find((candidate) => existsSync(candidate));
   if (!rootSpec) {
-    throw new Error(`Spec directory must contain rig.yaml or agent.yaml: ${inputPath}`);
+    throw new Error(`Spec directory must contain software-team.yaml or agent.yaml: ${inputPath}`);
   }
   requireRegularFile(rootSpec, "Root spec file");
 
@@ -168,11 +168,11 @@ export async function resolveLibrarySpec(
 
   // Compatibility name only: real IDs/names (including user-authored specs) win.
   // Do not alias agent/workflow lookups or unrelated user specs named starter.
-  if (nameOrId === "first-project" && (!opts?.kind || opts.kind === "rig")) {
+  if (nameOrId === "first-project" && (!opts?.kind || opts.kind === "softwareTeam")) {
     const starters = entries.filter((entry) =>
-      entry.kind === "rig" && entry.name === "starter" && entry.sourceType === "builtin");
+      entry.kind === "softwareTeam" && entry.name === "starter" && entry.sourceType === "builtin");
     if (starters.length === 1) {
-      console.error("first-project is now starter (a Claude builder and a Codex reviewer); on a Codex-only machine, ask your OpenRig operator to adapt it");
+      console.error("first-project is now starter (a Claude builder and a Codex reviewer); on a Codex-only machine, ask your SoftwareTeam operator to adapt it");
       return starters[0]!;
     }
     if (starters.length > 1) {
@@ -182,7 +182,7 @@ export async function resolveLibrarySpec(
 
   const scope = opts?.kind ? ` ${opts.kind}` : "";
   throw new Error(
-    `Spec '${nameOrId}' not found in${scope} library. Run 'rig specs ls' to see available rigs, agents, workflows, and managed apps.`
+    `Spec '${nameOrId}' not found in${scope} library. Run 'SoftwareTeam specs ls' to see available softwareTeams, agents, workflows, and managed apps.`
   );
 }
 
@@ -191,9 +191,9 @@ export function specsCommand(depsOverride?: StatusDeps): Command {
     .description("Browse, preview, and manage the spec library, including managed apps")
     .addHelpText("after", `
 Examples:
-  rig specs ls
-  rig specs preview secrets-manager
-  rig specs show vault-specialist
+  SoftwareTeam specs ls
+  SoftwareTeam specs preview secrets-manager
+  SoftwareTeam specs show vault-specialist
 `);
   const getDeps = (): StatusDeps => depsOverride ?? {
     lifecycleDeps: realDeps(),
@@ -212,8 +212,8 @@ Examples:
 
   // specs ls
   cmd.command("ls")
-    .description("List library rigs, agents, and managed apps")
-    .option("--kind <kind>", "Filter by kind (rig, agent, or workflow)")
+    .description("List library softwareTeams, agents, and managed apps")
+    .option("--kind <kind>", "Filter by kind (softwareTeam, agent, or workflow)")
     .option("--json", "JSON output")
     .action(async (opts: { kind?: string; json?: boolean }) => {
       try {
@@ -229,7 +229,7 @@ Examples:
         }
 
         if (entries.length === 0) {
-          console.log("No specs in library. Add specs with: rig specs add <path>");
+          console.log("No specs in library. Add specs with: SoftwareTeam specs add <path>");
           return;
         }
 
@@ -246,7 +246,7 @@ Examples:
   cmd.command("show")
     .argument("<name-or-id>", "Spec name or library ID")
     .description("Show spec metadata and path")
-    .option("--kind <kind>", "Disambiguate by kind (rig, agent, or workflow)")
+    .option("--kind <kind>", "Disambiguate by kind (softwareTeam, agent, or workflow)")
     .option("--json", "JSON output")
     .action(async (nameOrId: string, opts: { kind?: LibraryEntry["kind"]; json?: boolean }) => {
       try {
@@ -274,7 +274,7 @@ Examples:
   cmd.command("preview")
     .argument("<name-or-id>", "Spec name or library ID")
     .description("Show structured spec review, including managed app details")
-    .option("--kind <kind>", "Disambiguate by kind (rig, agent, or workflow)")
+    .option("--kind <kind>", "Disambiguate by kind (softwareTeam, agent, or workflow)")
     .option("--json", "JSON output")
     .action(async (nameOrId: string, opts: { kind?: LibraryEntry["kind"]; json?: boolean }) => {
       try {
@@ -282,7 +282,7 @@ Examples:
         const entry = await resolveLibrarySpec(client, nameOrId, opts.kind ? { kind: opts.kind } : undefined);
         const res = await client.get<Record<string, unknown>>(`/api/specs/library/${encodeURIComponent(entry.id)}/review`);
         const review = res.data;
-        const teamChoice = entry.sourceType === "builtin" && entry.kind === "rig" && ["starter", "factory"].includes(entry.name)
+        const teamChoice = entry.sourceType === "builtin" && entry.kind === "softwareTeam" && ["starter", "factory"].includes(entry.name)
           ? "First-team choices: starter (builder + reviewer, one bounded change), workshop (lead + builder + QA + reviewer, ongoing repository work; installed from its pinned listing), and factory (seven agents, sustained product work). Unless you already picked a team, the next conversation should sketch all three, recommend one for your goal, and let you choose before anything starts."
           : undefined;
 
@@ -295,7 +295,7 @@ Examples:
         if (review["summary"]) console.log(`  ${review["summary"]}`);
         console.log(`  Source: ${review["sourcePath"]} [${review["sourceState"]}]`);
 
-        if (review["kind"] === "rig" && review["format"] === "pod_aware") {
+        if (review["kind"] === "softwareTeam" && review["format"] === "pod_aware") {
           const pods = (review["pods"] as Array<{ id: string; members: Array<{ id: string; runtime: string }> }>) ?? [];
           for (const pod of pods) {
             console.log(`  Pod: ${pod.id} (${pod.members.length} members)`);
@@ -323,18 +323,18 @@ Examples:
         const client = await getClient();
 
         // Validate via daemon
-        let kind = "rig";
-        let res = await client.post<Record<string, unknown>>("/api/specs/review/rig", { yaml });
+        let kind = "softwareTeam";
+        let res = await client.post<Record<string, unknown>>("/api/specs/review/softwareTeam", { yaml });
         if (res.status >= 400) {
           res = await client.post<Record<string, unknown>>("/api/specs/review/agent", { yaml });
           kind = "agent";
         }
         if (res.status >= 400) {
-          throw new Error("File is not a valid RigSpec or AgentSpec. Fix validation errors before adding.");
+          throw new Error("File is not a valid SoftwareTeamSpec or AgentSpec. Fix validation errors before adding.");
         }
 
         // Copy to user library
-        const userRoot = getDefaultOpenRigPath("specs");
+        const userRoot = getDefaultSoftwareTeamPath("specs");
         const dest = installSpecSource(source, userRoot);
 
         // Sync and find the new entry

@@ -273,7 +273,7 @@ export function SliceReviewTab({
       {/* Band 1: NEEDS YOU (kept — orthogonal and sound). */}
       <NeedsYouAccordion band={data.needsYou} slice={data.slice} missionId={data.missionId} actorSession={SURFACE_ACTOR} ctx={ctx} anchorIdentity={anchorIdentity} />
 
-      {/* Band 2: AGENTS — standing band, zoom to the rig altitude (kept). */}
+      {/* Band 2: AGENTS — standing band, zoom to the softwareTeam altitude (kept). */}
       <AgentsBandView band={data.agents} itemRef={data.slice} />
 
       {/* Band 3: THE ONE STACK — INTENT → PLAN → DELIVERED (§3.3). Scanned

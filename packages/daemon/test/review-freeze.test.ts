@@ -87,7 +87,7 @@ describe("POST /api/review/freeze", () => {
   function freezeAs(name: string, session: string, bodyActor?: string) {
     return app.request("/api/review/freeze", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": session },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": session },
       body: JSON.stringify({ scope: "slice", name, ...(bodyActor !== undefined ? { actor: bodyActor } : {}) }),
     });
   }
@@ -241,7 +241,7 @@ describe("POST /api/review/freeze", () => {
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error).toBe("allowlist_missing");
-    expect(body.hint).toContain("OPENRIG_FILES_ALLOWLIST");
+    expect(body.hint).toContain("SOFTWARETEAM_FILES_ALLOWLIST");
     fs.rmSync(otherRoot, { recursive: true, force: true });
   });
 

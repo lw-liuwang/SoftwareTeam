@@ -11,7 +11,7 @@ import { composeView, type ViewMemberInput } from "../src/domain/terminal/view-c
 describe("the daemon's tmux server", () => {
   let base: string;
   beforeEach(() => {
-    base = realpathSync(mkdtempSync(join(tmpdir(), "openrig-tmux-server-")));
+    base = realpathSync(mkdtempSync(join(tmpdir(), "softwareteam-tmux-server-")));
     mkdirSync(join(base, "tmux-501"));
   });
   afterEach(() => {

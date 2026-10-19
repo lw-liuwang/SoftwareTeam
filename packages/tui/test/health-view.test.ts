@@ -18,11 +18,11 @@ function record(input: {
   summary: string;
 }) {
   return {
-    schema: "openrig.health/v0alpha1",
+    schema: "softwareteam.health/v0alpha1",
     id: input.id,
     detector: "context.pressure",
     category: "context",
-    scope: { type: "seat", rigId: "openrig-build", seatId: input.seatId },
+    scope: { type: "seat", softwareTeamId: "softwareteam-build", seatId: input.seatId },
     severity: input.severity ?? "warning",
     confidence: "high",
     status: input.status ?? "active",
@@ -41,7 +41,7 @@ function record(input: {
 
 function healthSnapshot(): FleetSnapshot {
   const snap = demoSnapshot();
-  const agents = snap.hosts[0]!.rigs[0]!.pods.flatMap((pod) => pod.agents);
+  const agents = snap.hosts[0]!.softwareTeams[0]!.pods.flatMap((pod) => pod.agents);
   Object.assign(agents.find((agent) => agent.name === "dev50.guard")!, { nodeId: "node-guard" });
   Object.assign(agents.find((agent) => agent.name === "dev50.driver")!, { nodeId: "node-driver" });
   Object.assign(snap, {
@@ -66,7 +66,7 @@ function open(snap: FleetSnapshot, command: string) {
 }
 
 afterEach(() => {
-  delete process.env["OPENRIG_REDUCED_MOTION"];
+  delete process.env["SOFTWARETEAM_REDUCED_MOTION"];
 });
 
 describe("fleet/system health TUI", () => {
@@ -80,7 +80,7 @@ describe("fleet/system health TUI", () => {
     }));
     const text = healthSummaryLine(
       snap,
-      { kind: "rig", rigId: "openrig-build", rigName: "openrig-build", local: true },
+      { kind: "softwareTeam", softwareTeamId: "softwareteam-build", softwareTeamName: "softwareteam-build", local: true },
       width,
     ).text;
 
@@ -120,9 +120,9 @@ describe("fleet/system health TUI", () => {
     }
   });
 
-  it("reuses one finding record from instance, rig, and seat paths and opens typed evidence detail", () => {
+  it("reuses one finding record from instance, softwareTeam, and seat paths and opens typed evidence detail", () => {
     const snap = healthSnapshot();
-    for (const command of ["host vm-host", "rig openrig-build", "agent dev50.guard"]) {
+    for (const command of ["host vm-host", "SoftwareTeam softwareteam-build", "agent dev50.guard"]) {
       const view = open(snap, command);
       if (command !== "agent dev50.guard") view.dispatch(parseCommand("tab health"));
       let screen = renderScreen(view.get(), snap, { cols: 160, rows: 80, colorMode: "none" });
@@ -155,7 +155,7 @@ describe("fleet/system health TUI", () => {
       /UNAVAILABLE.*remote instance/i,
     );
 
-    const guard = snap.hosts[0]!.rigs[0]!.pods.flatMap((pod) => pod.agents).find((agent) => agent.name === "dev50.guard")!;
+    const guard = snap.hosts[0]!.softwareTeams[0]!.pods.flatMap((pod) => pod.agents).find((agent) => agent.name === "dev50.guard")!;
     delete guard.nodeId;
     expect(renderScreen(open(snap, "agent dev50.guard").get(), snap, { cols: 160, rows: 80, colorMode: "none" }).lines.join("\n")).toMatch(
       /UNAVAILABLE.*stable seat identity/i,
@@ -172,7 +172,7 @@ describe("fleet/system health TUI", () => {
     for (const [health, expected] of cases) {
       const snap = healthSnapshot();
       Object.assign(snap, { health });
-      const view = open(snap, "rig openrig-build");
+      const view = open(snap, "SoftwareTeam softwareteam-build");
       view.dispatch(parseCommand("tab health"));
       expect(renderScreen(view.get(), snap, { cols: 120, rows: 50, colorMode: "none" }).lines.join("\n")).toMatch(expected);
     }
@@ -182,7 +182,7 @@ describe("fleet/system health TUI", () => {
     const snap = healthSnapshot();
     snap.health = { availability: "loaded", evaluatedAt: "2026-09-05T12:00:00.000Z", total: 1, truncated: true,
       records: [record({ id: "long", seatId: "node-guard", summary: "Seat context is filling quickly and the operator should look soon. ".repeat(4) })] };
-    expect(healthSummaryLine(snap, { kind: "rig", rigId: "openrig-build", rigName: "openrig-build", local: true }, 70).text).toContain("PARTIAL");
+    expect(healthSummaryLine(snap, { kind: "softwareTeam", softwareTeamId: "softwareteam-build", softwareTeamName: "softwareteam-build", local: true }, 70).text).toContain("PARTIAL");
   });
 
   it("marks a partial source evaluation and never presents omitted families as healthy", () => {
@@ -191,10 +191,10 @@ describe("fleet/system health TUI", () => {
     for (const records of [[], [record({ id: "ceremony", seatId: "node-guard", summary: "Ceremony source." })]]) {
       const snap = healthSnapshot();
       snap.health = { availability: "loaded", evaluatedAt: "2026-09-05T12:00:00.000Z", total: records.length, truncated: false, records, coverage };
-      const view = open(snap, "rig openrig-build");
+      const view = open(snap, "SoftwareTeam softwareteam-build");
       view.dispatch(parseCommand("tab health"));
       const text = renderScreen(view.get(), snap, { cols: 220, rows: 60, colorMode: "none" }).lines.join("\n");
-      const summary = healthSummaryLine(snap, { kind: "rig", rigId: "openrig-build", rigName: "openrig-build", local: true }, 220).text;
+      const summary = healthSummaryLine(snap, { kind: "softwareTeam", softwareTeamId: "softwareteam-build", softwareTeamName: "softwareteam-build", local: true }, 220).text;
       expect(summary).toMatch(/^HEALTH.*· PARTIAL/);
       if (records.length) expect(text).toContain("PARTIAL · passive-ceremony evaluated 200 of 634 handoff families; 434 omitted were not evaluated and are not healthy");
       else { expect(text).toContain("not a healthy verdict"); expect(text).toContain("PARTIAL"); }
@@ -204,7 +204,7 @@ describe("fleet/system health TUI", () => {
   it.each([[80, 24], [140, 42]])("keeps the complete empty-health explanation readable at %ix%i", (cols, rows) => {
     const snap = healthSnapshot();
     snap.health = { availability: "loaded", evaluatedAt: null, total: 0, truncated: false, records: [] };
-    for (const command of ["host vm-host", "rig openrig-build"]) {
+    for (const command of ["host vm-host", "SoftwareTeam softwareteam-build"]) {
       const view = open(snap, command);
       view.dispatch(parseCommand("tab health"));
       const screen = renderScreen(view.get(), snap, { cols, rows, colorMode: "none" });
@@ -221,7 +221,7 @@ describe("fleet/system health TUI", () => {
       record({ id: "stale-critical", seatId: "node-guard", severity: "critical", freshness: "stale", summary: "Stale signal." }),
       record({ id: "unknown-warning", seatId: "node-driver", severity: "warning", status: "indeterminate", freshness: "contradictory", summary: "Unknown signal." }),
     ];
-    const lines = healthListLines(snap, { kind: "rig", rigId: "openrig-build", rigName: "openrig-build", local: true }, width);
+    const lines = healthListLines(snap, { kind: "softwareTeam", softwareTeamId: "softwareteam-build", softwareTeamName: "softwareteam-build", local: true }, width);
     const findingLine = (findingId: string) => {
       return lines.find((line) => line.action?.type === "health-open" && line.action.findingId === findingId)?.text ?? "";
     };
@@ -235,12 +235,12 @@ describe("fleet/system health TUI", () => {
 
   it("preserves plain geometry in color and freezes fully under reduced motion", () => {
     const snap = healthSnapshot();
-    const view = open(snap, "rig openrig-build");
+    const view = open(snap, "SoftwareTeam softwareteam-build");
     view.dispatch(parseCommand("tab health"));
     const plain = renderScreen(view.get(), snap, { cols: 120, rows: 34, colorMode: "none", nowMs: 0 });
     const styled = stylizeLines(plain, createStyle("truecolor"));
     styled.forEach((line, index) => expect(stripAnsi(line)).toBe(plain.lines[index]));
-    process.env["OPENRIG_REDUCED_MOTION"] = "1";
+    process.env["SOFTWARETEAM_REDUCED_MOTION"] = "1";
     expect(renderScreen(view.get(), snap, { cols: 120, rows: 34, nowMs: 0 }).lines).toEqual(
       renderScreen(view.get(), snap, { cols: 120, rows: 34, nowMs: 800 }).lines,
     );
@@ -249,7 +249,7 @@ describe("fleet/system health TUI", () => {
 
  it.each([58, 89, 129])("renders posture source and phase without removing operational findings at width %i", (width) => {
   const snap = healthSnapshot(), finding = snap.health!.records[0]!;
-  finding.operatingPosture = { posture: "human-led", source: "product-default", context: { rigId: "openrig-build", phase: { value: "planning", source: "mission.yaml" }, sources: ["mission.yaml"] }, binding: null, reason: "Process-only interruptions are quiet; operational health remains visible.", grantsAuthority: false };
+  finding.operatingPosture = { posture: "human-led", source: "product-default", context: { softwareTeamId: "softwareteam-build", phase: { value: "planning", source: "mission.yaml" }, sources: ["mission.yaml"] }, binding: null, reason: "Process-only interruptions are quiet; operational health remains visible.", grantsAuthority: false };
   const lines = healthDetailLines(snap, finding.id, width);
   const text = lines.map(l => l.text).join("\n");
   expect(text).toContain("human-led"); expect(text).toContain("product-default"); expect(text).toContain("planning");

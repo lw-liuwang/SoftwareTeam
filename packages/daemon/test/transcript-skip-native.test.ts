@@ -15,7 +15,7 @@ let nativeAvailable = process.platform !== "win32";
 try { execFileSync("tmux", ["-V"], { timeout: 2000, stdio: "ignore" }); } catch { nativeAvailable = false; }
 
 function server(name: string) {
-  const socket = `openrig-skip-${name}-${process.pid}-${Date.now()}`;
+  const socket = `softwareteam-skip-${name}-${process.pid}-${Date.now()}`;
   const exec = promisify(execFile);
   const run = async (...args: string[]) => (await exec("tmux", ["-L", socket, "-f", "/dev/null", ...args], { timeout: 5000 })).stdout;
   let captures = 0;
@@ -32,7 +32,7 @@ it.skipIf(!nativeAvailable)("never loses output: random prints, idle gaps, burst
   const { run, adapter, captures } = server("lost");
   const root = mkdtempSync(join(tmpdir(), "skip-native-"));
   const store = new TranscriptStore({ transcriptsRoot: root });
-  const file = store.getTranscriptPath("rig", "seat");
+  const file = store.getTranscriptPath("softwareTeam", "seat");
   const opts = { lines: 1000, pollIntervalMs: 1000 };
   // Deterministic schedule (ms after start): idle stretches, single lines, a burst, two writes one tick apart.
   const schedule: Array<[number, string]> = [
@@ -59,7 +59,7 @@ it.skipIf(!nativeAvailable)("never loses output: random prints, idle gaps, burst
       checks += 1;
       const want = await run("capture-pane", "-p", "-t", "seat", "-S", "-1000");
       if (readFileSync(file, "utf8") !== want) mismatches += 1;
-      expect(store.getIngestHealth("rig", "seat")).toMatchObject({ state: "live", reason: "capture_fresh" });
+      expect(store.getIngestHealth("softwareTeam", "seat")).toMatchObject({ state: "live", reason: "capture_fresh" });
       await wait(200);
     }
     const transcript = readFileSync(file, "utf8");

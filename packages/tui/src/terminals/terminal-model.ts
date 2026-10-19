@@ -43,10 +43,10 @@ export async function readTerminals(client: DaemonClient, view?: string | null):
   try { result.daemonTarget = new URL(client.baseUrl).origin; } catch { /* unavailable target */ }
   try {
     const listing = await client.terminalViews();
-    if (!Array.isArray(listing.saved) || !Array.isArray(listing.rigs)) throw new Error("Terminal names could not be read.");
+    if (!Array.isArray(listing.saved) || !Array.isArray(listing.softwareTeams)) throw new Error("Terminal names could not be read.");
     result.catalog = [
       ...listing.saved.map(s => ({ view: `saved:${s.id}`, name: s.name, kind: "saved" as const, members: s.members.map(m => m.seat) })),
-      ...listing.rigs.map(name => ({ view: `rig:${name}`, name, kind: "derived" as const, members: [] })),
+      ...listing.softwareTeams.map(name => ({ view: `software-team:${name}`, name, kind: "derived" as const, members: [] })),
     ].map(entry => ({ ...entry, readinessUnverified: true, ready: 0, absent: 0, degraded: 0, pages: 0 }));
     result.catalogLoaded = true;
     if (view) result.preview = await client.previewTerminal(view);
@@ -93,7 +93,7 @@ export function terminalLines(state: ViewState, snap: FleetSnapshot, width: numb
       lines.push({ text: "" }, { text: `${kind === "saved" ? "Saved" : `${open ? "▾" : "▸"} Derived`} · ${entries.length} views`,
         ...(kind === "derived" ? { action: { type: "toggle-expand" as const, key: "terminals:derived" } } : {}) });
       if (!open) continue;
-      if (!entries.length) lines.push({ text: kind === "saved" ? "No saved views. Existing terminal-views.yaml stores membership, not custom geometry." : "No derived rig views available." });
+      if (!entries.length) lines.push({ text: kind === "saved" ? "No saved views. Existing terminal-views.yaml stores membership, not custom geometry." : "No derived SoftwareTeam views available." });
       for (const entry of entries) {
         lines.push({ text: `${entry.name} · ${entry.readinessUnverified ? (entry.kind === "saved" ? `${entry.members.length} saved members · Preview readiness` : "Preview members and readiness") : `${entry.members.length} members · ${entry.ready} attachable · ${entry.absent + entry.degraded} unavailable · ${entry.pages} pages`}`, action: { type: "terminal-preview", view: entry.view } });
         if (entry.kind === "saved") lines.push({ text: `  ${entry.members.join(", ") || "Empty view"}` });

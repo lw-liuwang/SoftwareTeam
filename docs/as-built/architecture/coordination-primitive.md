@@ -19,8 +19,8 @@ last-updated: 2026-10-08
 The coordination primitive is the SQLite-canonical durable-work layer the
 daemon exposes through `/api/stream` and `/api/queue`. It replaces the POC
 filesystem `rigx queue` / `rigx stream` path for daemon-backed work; the POC
-filesystem path remains untouched, and the daemon-backed `rig queue` /
-`rig stream` commands operate only through the daemon HTTP API, so they write
+filesystem path remains untouched, and the daemon-backed `SoftwareTeam queue` /
+`SoftwareTeam stream` commands operate only through the daemon HTTP API, so they write
 only to SQLite (`packages/cli/src/commands/queue.ts:19`,
 `packages/cli/src/commands/stream.ts:11`).
 
@@ -96,7 +96,7 @@ Routes import these; services are Hono-free:
   pod-fallback rerouting (`routeToFallback`, `:3678`), overdue lookup
   (`findOverdue`, `:3378`), nudge-result tracking (`recordNudgeAttempt`,
   `:3663`). Nothing in the daemon writes the `last_heartbeat` column
-  (`queue-pickup.ts:16`). Cross-rig validation hook exposed as `validateRig`
+  (`queue-pickup.ts:16`). Cross-SoftwareTeam validation hook exposed as `validateSoftwareTeam`
   constructor option (`queue-repository.ts:717`).
 - **`queue-transition-log.ts`** — append-only state-transition log; used by
   `queue-repository.ts`, exposed as the read-only property
@@ -107,7 +107,7 @@ Routes import these; services are Hono-free:
   `:100`), absorb (promotes a pending entry to a `queue_item`, idempotent,
   `:155`), deny (records reason, `:215`). The handler has no auth hook
   (`inbox-handler.ts:71`); identity comes from the route. `POST /inbox/drop`
-  takes the sender only from the `X-OpenRig-Session` header through
+  takes the sender only from the `X-SoftwareTeam-Session` header through
   `requireSenderIdentity` (`routes/queue.ts:1094`) and answers 400
   `actor_required` without it. Absorb and deny (`:1121`, `:1135`) use the
   header when present; otherwise they accept the body's `receiverSession` and
@@ -123,7 +123,7 @@ Create, handoff and handoff-and-complete return the committed row without
 waiting for terminal delivery. Each stages a deterministic
 `wake-intent-<qitem>` outbox row in its transaction and delivers it after
 commit (`queue-repository.ts:1412`–`1424`, `:1475`–`1483`). The returned
-`lastNudgeResult` is therefore normally null; `rig queue show <id>` reads the
+`lastNudgeResult` is therefore normally null; `SoftwareTeam queue show <id>` reads the
 wake result later. If create cannot retain the intent, the task is still saved
 and the row records `failed:wake not retained: <reason>`. Startup reconciles
 and drains intents left pending by a crash once (`startup.ts:2361`–`2362`).
@@ -154,13 +154,13 @@ verified, and closing a task isn't a new delivery receipt: a claimed task that
 is later closed still reads `claimed` when its stored result was unconfirmed
 (`delivered-ack-pending` or `indeterminate:…`); a `verified` or `failed:…`
 result reads as stored. For such an unconfirmed, claimed item,
-`rig queue create --verify` says "Terminal receipt unconfirmed, but the seat
+`SoftwareTeam queue create --verify` says "Terminal receipt unconfirmed, but the seat
 has claimed the item (claimed)."; for any claimed item it adds "A claim shows
 the seat took the item; it does not prove the body was read."
 (`terminalDeliveryResult`, `packages/cli/src/commands/queue.ts`).
 
 The standing detector in `queue-stuck-sweep.ts` creates findings through the
-queue repository, with `evidenceRef: rig queue show <source-qitem-id>`
+queue repository, with `evidenceRef: SoftwareTeam queue show <source-qitem-id>`
 (`queue-stuck-sweep.ts:605`) pointing to the underlying durable work row. This
 satisfies the existing human-route evidence contract without changing
 destination resolution: a finding goes to the destination's orchestrator when
@@ -235,11 +235,11 @@ Three queue write routes are host-aware — `POST /create`,
 `POST /:qitemId/handoff` and `POST /:qitemId/handoff-and-complete` (**3**:
 `grep -c '!resolvesToLocalHost(body.hostId, getSelfHostId())' packages/daemon/src/routes/queue.ts`):
 a write body may carry an out-of-band `hostId` envelope. The destination
-session stays `member@rig`; the 3-part `agent@rig@host` form is CLI input
+session stays `member@software-team`; the 3-part `agent@software-team@host` form is CLI input
 sugar that `resolveQueueHostDestination`
 (`packages/cli/src/commands/queue.ts:394`) splits into the destination and
 `hostId` before the request leaves the CLI. The same split applies to
-`--host <id>`; queue verbs never follow `rig host select`, and naming two
+`--host <id>`; queue verbs never follow `SoftwareTeam host select`, and naming two
 different hosts is refused with `host_qualifier_conflict`. The mechanism
 follows the forward-then-strip shape of mission-control's remote action
 (`routes/mission-control.ts:352`): one shared route-layer helper
@@ -264,7 +264,7 @@ message-passing closure (never 2PC).**
   forwarding daemon stamps its own host id, when it has one, onto the source
   session (`stampSelfHostSuffix`, `queue-repository.ts:548`; called at
   `routes/queue.ts:378` and `:509`), so the target row records the sender as
-  `member@rig@<forwarding host>`.
+  `member@software-team@<forwarding host>`.
 - **Idempotency.** On create, the forwarding daemon mints the `qitemId` before
   the forward unless the caller supplied one (`routes/queue.ts:501`). The
   forward is a single request, so a retry dedups only when it carries the same
@@ -297,7 +297,7 @@ message-passing closure (never 2PC).**
 - **Closure across the boundary.** The source closes with
   `closure_reason=handed_off_to` and
   `closure_target=<successor qitem id>@<host>` (`routes/queue.ts:351`); a
-  source already closed with the older `member@rig@<host>` target keeps it,
+  source already closed with the older `member@software-team@<host>` target keeps it,
   and a re-drive matches against it (`:352`–`356`). `closure_target` is OPAQUE
   audit metadata, never parsed for routing; the standing stuck sweep reads it
   only to check successor custody (`queue-stuck-sweep.ts:519`–`554`). The
@@ -326,9 +326,9 @@ message-passing closure (never 2PC).**
 
 ## 4. Coordination events
 
-The `RigEvent` union (`packages/daemon/src/domain/types.ts:108`) has **98**
+The `SoftwareTeamEvent` union (`packages/daemon/src/domain/types.ts:108`) has **98**
 members
-(`sed -n '/^export type RigEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -c 'type: "'`);
+(`sed -n '/^export type SoftwareTeamEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -c 'type: "'`);
 this module covers only the coordination families below.
 
 Coordination events emitted by these services: `stream.emitted`
@@ -341,7 +341,7 @@ and passed through the queue watch filter (**2** files contain its literal:
 `git grep -l -F 'type: "qitem.closure_overdue"' -- packages/daemon/src | wc -l`).
 The `stream|queue|inbox|qitem` families declare **10** event types (`stream` 1
 + `queue` 5 + `inbox` 2 + `qitem` 2;
-`sed -n '/^export type RigEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -oE '"(stream|queue|inbox|qitem)\.[a-z_]+"' | sort -u | wc -l`).
+`sed -n '/^export type SoftwareTeamEvent =/,/^export type PersistedEvent/p' packages/daemon/src/domain/types.ts | grep -oE '"(stream|queue|inbox|qitem)\.[a-z_]+"' | sort -u | wc -l`).
 
 Two SSE surfaces stream coordination events (**2**:
 `cat packages/daemon/src/routes/stream.ts packages/daemon/src/routes/queue.ts | grep -c 'return streamSSE('`):
@@ -351,7 +351,7 @@ oldest, `:174`–`181`) and then streams new items, and `/api/queue/watch`
 (aliased `/api/queue/sse`, `routes/queue.ts:1054`–`1055`) for queue/inbox
 events — every coordination type except `stream.emitted` and `queue.updated`
 (filter at `routes/queue.ts:1031`–`1038`). The event log remains append-only and
-SQLite-backed. `rig stream watch` is a thin, single-connection consumer of
+SQLite-backed. `SoftwareTeam stream watch` is a thin, single-connection consumer of
 `/api/stream/sse` (`packages/cli/src/commands/stream.ts:191`); it does not add
 a daemon route or reconnect policy.
 
@@ -374,7 +374,7 @@ a daemon route or reconnect policy.
   `GET /outbox/list` (`:1161`, `:1190`).
 
 Every write route derives its actor through `requireSenderIdentity`
-(`routes/require-sender-identity.ts:76`): the `X-OpenRig-Session` header wins
+(`routes/require-sender-identity.ts:76`): the `X-SoftwareTeam-Session` header wins
 over a body actor. On a direct request from a known origin it is recorded as
 `transport:v1`; `resolveRecordedProvenance` (`:199`) instead records
 `origin-unknown:v1` when the origin-unknown marker is set or a relayed request

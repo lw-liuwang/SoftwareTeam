@@ -65,11 +65,11 @@ export class CheckpointStore {
     return rows.map((r) => this.rowToCheckpoint(r));
   }
 
-  getCheckpointsForRig(rigId: string): Record<string, Checkpoint | null> {
-    // Get all nodes for this rig
+  getCheckpointsForSoftwareTeam(softwareTeamId: string): Record<string, Checkpoint | null> {
+    // Get all nodes for this softwareTeam
     const nodes = this.db
-      .prepare("SELECT id FROM nodes WHERE rig_id = ?")
-      .all(rigId) as { id: string }[];
+      .prepare("SELECT id FROM nodes WHERE software_team_id = ?")
+      .all(softwareTeamId) as { id: string }[];
 
     const result: Record<string, Checkpoint | null> = {};
 

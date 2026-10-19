@@ -66,7 +66,7 @@ export function renderWorkflowProjectCommand(input: {
   ownerSession: string;
   step?: Pick<WorkflowStepSpec, "acceptance">;
 }): string {
-  const base = `rig workflow project --instance ${input.instanceId} --current-packet ${input.packetId} --exit <handoff|waiting|done|failed> --actor-session ${input.ownerSession}`;
+  const base = `SoftwareTeam workflow project --instance ${input.instanceId} --current-packet ${input.packetId} --exit <handoff|waiting|done|failed> --actor-session ${input.ownerSession}`;
   const acceptance = input.step?.acceptance;
   if (!acceptance) return base;
   const verdict = acceptance.verdicts.length === 1
@@ -214,7 +214,7 @@ export class WorkflowProjector {
     /** OPR.0.4.6.WF1 FR-3: optional — arms/disarms packet or legacy-instance keepalives in-txn. */
     private readonly watchdogJobsRepo?: WatchdogJobsRepository,
     /** OPR.0.4.6.WF5 FR-2: the maturity-dial inputs, injected at startup
-     *  (the validateRig precedent — the projector never reads config
+     *  (the validateSoftwareTeam precedent — the projector never reads config
      *  itself). hostDefault is read LIVE per exception (dial flips apply
      *  to future items only). Absent = engine defaults (orchestrator-
      *  first chain with registered-human selection). */
@@ -455,13 +455,13 @@ export class WorkflowProjector {
 
     const evaluatedAt = this.now().toISOString();
 
-    // OPR.0.4.6.FAC1: the bound-rig resolution context — LAZY (building
+    // OPR.0.4.6.FAC1: the bound-softwareTeam resolution context — LAZY (building
     // it reads nothing; the snapshot materializes only if tier-3 role
     // resolution actually runs, which is strictly AFTER the frontier +
     // absorption guards above returned/threw for replays — guard B1's
     // zero-inventory-reads-on-replays pin holds by construction).
     // undefined for unbound instances (tier 3 does not exist for them).
-    const roleCtx = roleResolutionContext(this.db, instance.boundRig);
+    const roleCtx = roleResolutionContext(this.db, instance.boundSoftwareTeam);
 
     let nextQitemId: string | null = null;
     let nextOwnerSession: string | null = null;
@@ -576,7 +576,7 @@ export class WorkflowProjector {
                   ? "preferred_targets"
                   : "role",
             role: nextStep.actor_role,
-            ...(instance.boundRig ? { boundRig: instance.boundRig } : {}),
+            ...(instance.boundSoftwareTeam ? { boundSoftwareTeam: instance.boundSoftwareTeam } : {}),
             seat: resolvedNextOwner,
           },
         };
@@ -647,7 +647,7 @@ export class WorkflowProjector {
         );
         // OPR.0.4.6.WF2 FR-5 (guard blocker 1): a HUMAN gate packet PARKS
         // in the same txn — state=blocked, blocked_on=<human seat> — the
-        // exact leg-1 shape the shipped `rig queue resolve` verb acts on
+        // exact leg-1 shape the shipped `SoftwareTeam queue resolve` verb acts on
         // (validateHumanPark enforces summary + evidence_ref here, carried
         // from create). Resolve unparks it for the step owner to resume.
         if (gateCompile?.parkOn) {
@@ -671,7 +671,7 @@ export class WorkflowProjector {
       // SIGKILL the daemon mid-transaction. Default off/absent = zero
       // effect (test-only; never set in production). Synchronous by
       // design — better-sqlite3 transactions are sync.
-      const holdMs = Number(process.env.OPENRIG_TEST_WF_TXN_HOLD_MS ?? 0);
+      const holdMs = Number(process.env.SOFTWARETEAM_TEST_WF_TXN_HOLD_MS ?? 0);
       if (holdMs > 0) {
         Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, holdMs);
       }
@@ -927,16 +927,16 @@ export class WorkflowProjector {
       // FAC-1 (arch Q3 — routing uniformity, bounded): declared
       // preferred_targets stay the override; a bound instance's
       // orchestrator-role dial position falls through to a
-      // capability pick on the bound rig (evidenced no-match →
+      // capability pick on the bound softwareTeam (evidenced no-match →
       // registered-human selection, with an explicit error if no
       // human can be selected). Evidence-read failures propagate
       // and roll back the close. Fresh decision per episode.
       resolveRoleTarget: (role) =>
         spec.roles?.[role]?.preferred_targets?.[0] ??
-        tryResolveRoleByCapability(roleResolutionContext(this.db, instance.boundRig), role),
+        tryResolveRoleByCapability(roleResolutionContext(this.db, instance.boundSoftwareTeam), role),
       humanFallbackSeat: this.exceptionDial?.humanFallbackSeat,
     });
-    const evidenceRef = `rig workflow trace ${instance.instanceId}`;
+    const evidenceRef = `SoftwareTeam workflow trace ${instance.instanceId}`;
     const itemBody =
       `WORKFLOW EXCEPTION (${exception.identity.exceptionClass})\n` +
       `workflow: ${instance.workflowName} v${instance.workflowVersion}\n` +
@@ -945,7 +945,7 @@ export class WorkflowProjector {
       `occurrence: ${input.currentPacketId}\n` +
       `reason: ${exception.reason}\n` +
       `evidence: ${evidenceRef}\n` +
-      `resolve: diagnose via the trace above, then \`rig workflow resume ${instance.instanceId}${occurrenceId ? ` --occurrence ${occurrenceId}` : ""} [--decision <text>]\` re-drives from this step (completed steps never re-run).`;
+      `resolve: diagnose via the trace above, then \`SoftwareTeam workflow resume ${instance.instanceId}${occurrenceId ? ` --occurrence ${occurrenceId}` : ""} [--decision <text>]\` re-drives from this step (completed steps never re-run).`;
     const createExceptionItem = (destination: string, tier: string) =>
       this.queueRepo.createWithinTransaction({
         sourceSession: input.actorSession,
@@ -962,8 +962,8 @@ export class WorkflowProjector {
     try {
       createdException = createExceptionItem(route.destinationSession, route.tier);
     } catch (error) {
-      if (!(error instanceof QueueRepositoryError) || error.code !== "unknown_destination_rig" || route.humanRouted) throw error;
-      // Only an unavailable agent rig invokes human selection. Other
+      if (!(error instanceof QueueRepositoryError) || error.code !== "unknown_destination_software_team" || route.humanRouted) throw error;
+      // Only an unavailable agent softwareTeam invokes human selection. Other
       // admission/storage failures propagate unchanged and roll back the
       // close, retaining the failure+attention-item atomic contract.
       createdException = createExceptionItem(
@@ -1078,9 +1078,9 @@ export class WorkflowProjector {
       const addEvent = (event: PersistedEvent): void => { emitted.push(event); register(event); };
       const ownerPlans = nextSteps.map((step) => {
         const gate = step.gate
-          ? compileGate(spec, step, (session) => this.nodeRuntimeOf(session), roleResolutionContext(this.db, instance.boundRig))
+          ? compileGate(spec, step, (session) => this.nodeRuntimeOf(session), roleResolutionContext(this.db, instance.boundSoftwareTeam))
           : null;
-        const owner = gate?.destinationSession ?? resolveDefaultOwner(spec, step, (session) => this.nodeRuntimeOf(session), roleResolutionContext(this.db, instance.boundRig));
+        const owner = gate?.destinationSession ?? resolveDefaultOwner(spec, step, (session) => this.nodeRuntimeOf(session), roleResolutionContext(this.db, instance.boundSoftwareTeam));
         if (!owner) {
           throw new WorkflowProjectorError("next_owner_unresolved", `cannot resolve next owner for dependency step "${step.id}"`, { instanceId: instance.instanceId, stepId: step.id });
         }
@@ -1409,7 +1409,7 @@ export function resolveNextStep(
 
 /**
  * OPR.0.4.6.FAC1 — resolve a ROLE to a live capable seat on the bound
- * rig, or throw LOUD-WITH-CANDIDATES (BR-5). The structured details
+ * softwareTeam, or throw LOUD-WITH-CANDIDATES (BR-5). The structured details
  * carry every evaluated candidate with its named disqualifier
  * (`not_live(lifecycleState=x)` / `runtime_mismatch(has≠needs)` /
  * `role_not_declared` / `adopted_seat_not_role_resolvable_v1`) so the
@@ -1418,18 +1418,18 @@ export function resolveNextStep(
  * side effect (the :199-221 validation-before-mutation discipline);
  * never a spawn, never auto-add_member, never a dead-seat route.
  */
-function resolveRoleOnBoundRig(
+function resolveRoleOnBoundSoftwareTeam(
   roleName: string,
   harness: string | undefined,
   roleCtx: RoleResolutionContext,
   stepId: string,
 ): string {
-  const candidates = roleCtx.candidatesForRig();
+  const candidates = roleCtx.candidatesForSoftwareTeam();
   if (candidates === null) {
     throw new WorkflowProjectorError(
-      "bound_rig_not_found",
-      `cannot resolve role "${roleName}" for step "${stepId}": the instance's bound rig "${roleCtx.boundRig}" no longer resolves to a registered rig (torn down mid-run?). Recreate/import the rig under the same name, or instantiate a fresh run bound elsewhere.`,
-      { stepId, role: roleName, boundRig: roleCtx.boundRig },
+      "bound_software_team_not_found",
+      `cannot resolve role "${roleName}" for step "${stepId}": the instance's bound softwareTeam "${roleCtx.boundSoftwareTeam}" no longer resolves to a registered softwareTeam (torn down mid-run?). Recreate/import the SoftwareTeam under the same name, or instantiate a fresh run bound elsewhere.`,
+      { stepId, role: roleName, boundSoftwareTeam: roleCtx.boundSoftwareTeam },
     );
   }
   const result = selectRoleSeat({ role: roleName, harness, candidates });
@@ -1438,24 +1438,24 @@ function resolveRoleOnBoundRig(
   if (declaring.length === 0) {
     throw new WorkflowProjectorError(
       "next_owner_unresolved",
-      `cannot resolve role "${roleName}" for step "${stepId}" (no seats on rig "${roleCtx.boundRig}" declare role "${roleName}"). Add a member with role ${roleName} to rig ${roleCtx.boundRig} via rig add, declare role on an existing member, or add preferred_targets to the role in the spec.`,
+      `cannot resolve role "${roleName}" for step "${stepId}" (no seats on softwareTeam "${roleCtx.boundSoftwareTeam}" declare role "${roleName}"). Add a member with role ${roleName} to softwareTeam ${roleCtx.boundSoftwareTeam} via SoftwareTeam add, declare role on an existing member, or add preferred_targets to the role in the spec.`,
       {
         stepId,
         role: roleName,
-        boundRig: roleCtx.boundRig,
+        boundSoftwareTeam: roleCtx.boundSoftwareTeam,
         candidates: result.disqualified,
       },
     );
   }
   throw new WorkflowProjectorError(
     "next_owner_unresolved",
-    `cannot resolve a live capable seat for role "${roleName}" for step "${stepId}" on rig "${roleCtx.boundRig}". Candidates: ${declaring
+    `cannot resolve a live capable seat for role "${roleName}" for step "${stepId}" on softwareTeam "${roleCtx.boundSoftwareTeam}". Candidates: ${declaring
       .map((c) => `${c.coordinate ?? c.logicalId} → ${c.disqualifier}`)
-      .join(", ")}. Start/repair a role seat (see rig ps), add a member with role ${roleName} via rig add, or add preferred_targets to the role.`,
+      .join(", ")}. Start/repair a role seat (see SoftwareTeam ps), add a member with role ${roleName} via SoftwareTeam add, or add preferred_targets to the role.`,
     {
       stepId,
       role: roleName,
-      boundRig: roleCtx.boundRig,
+      boundSoftwareTeam: roleCtx.boundSoftwareTeam,
       candidates: result.disqualified,
     },
   );
@@ -1470,12 +1470,12 @@ function resolveRoleOnBoundRig(
  * wrong harness. `runtimeOf` resolves a canonical session name to its
  * node's runtime column (null = not a managed node / unknown).
  *
- * OPR.0.4.6.FAC1: gains the optional bound-rig context — see the tier
+ * OPR.0.4.6.FAC1: gains the optional bound-SoftwareTeam context — see the tier
  * comment in the body. Tier order (P2-6, guard-BLOCKING on deviation):
  *   1. explicit input.nextOwnerSession (caller-reconciled)
  *   2. gate compile (the caller branches there first)
  *   3. declared preferred_targets — TODAY'S path byte-for-byte
- *   4. NEW: role capability on the bound rig (no targets + bound only)
+ *   4. NEW: role capability on the bound softwareTeam (no targets + bound only)
  *   5. null → the shipped next_owner_unresolved at the caller.
  *
  * Returns null only for the unpinned no-targets UNBOUND case (caller
@@ -1485,7 +1485,7 @@ export function resolveDefaultOwner(
   spec: WorkflowSpec,
   step: WorkflowStepSpec,
   runtimeOf?: (session: string) => string | null,
-  /** OPR.0.4.6.FAC1: the bound-rig resolution context. Present only for
+  /** OPR.0.4.6.FAC1: the bound-softwareTeam resolution context. Present only for
    *  BOUND instances at LIVE resolution sites (projection next-step,
    *  gate compile, entry, resume) — never at the eager instantiate loop
    *  (guard B1: no eager live resolution of future steps). */
@@ -1497,10 +1497,10 @@ export function resolveDefaultOwner(
   // declared preferred_targets above stay TODAY'S code path
   // byte-for-byte and are NEVER liveness/inventory-filtered. Capability
   // resolution activates exclusively when the role declares ZERO
-  // targets AND the instance is bound to a rig. Unbound no-target
+  // targets AND the instance is bound to a softwareTeam. Unbound no-target
   // behavior below stays byte-identical (null / "(none declared)").
   if (targets.length === 0 && roleCtx) {
-    return resolveRoleOnBoundRig(step.actor_role, step.harness, roleCtx, step.id);
+    return resolveRoleOnBoundSoftwareTeam(step.actor_role, step.harness, roleCtx, step.id);
   }
   if (!step.harness) return targets[0] ?? null;
   if (!runtimeOf) {
@@ -1650,7 +1650,7 @@ export interface GateCompileResult {
   evidenceRef: string | null;
   kind: "human" | "handler-role";
   /** HUMAN targets: the human seat the packet parks blocked_on (the leg-1
-   *  park the shipped `rig queue resolve` verb acts on — guard blocker 1:
+   *  park the shipped `SoftwareTeam queue resolve` verb acts on — guard blocker 1:
    *  resolve requires state=blocked + human-seat blocked_on, so the gate
    *  item is created for the STEP OWNER and parked on the human, never
    *  minted as an unresolvable pending human-destined item). null for
@@ -1662,7 +1662,7 @@ export function compileGate(
   spec: WorkflowSpec,
   gatedStep: WorkflowStepSpec,
   runtimeOf: (session: string) => string | null,
-  /** OPR.0.4.6.FAC1: bound-rig context — threads capability resolution
+  /** OPR.0.4.6.FAC1: bound-SoftwareTeam context — threads capability resolution
    *  into BOTH gate paths (guard B3: the human-gate OWNER path and the
    *  handler-role DESTINATION branch are different code paths and each
    *  must carry it). Absent = shipped behavior byte-identical. */
@@ -1689,9 +1689,9 @@ export function compileGate(
     }
     // The packet belongs to the gated step's ROLE OWNER (the seat that
     // does the work once the human signs off) and PARKS blocked_on the
-    // human seat — the exact leg-1 shape `rig queue resolve` unparks.
+    // human seat — the exact leg-1 shape `SoftwareTeam queue resolve` unparks.
     // FAC-1 (guard B3 row 2a): the owner resolves through the full tier
-    // stack — a bound instance's role-only gated step gets a rig-local
+    // stack — a bound instance's role-only gated step gets a software-team-local
     // owner by capability.
     const owner = resolveDefaultOwner(spec, gatedStep, runtimeOf, roleCtx);
     if (!owner) {
@@ -1724,11 +1724,11 @@ export function compileGate(
     // stay old-style if unthreaded): declared preferred_targets remain
     // the override tier byte-identically; when the handler role has NO
     // targets AND the instance is bound, the handler seat resolves by
-    // capability on the bound rig (the step's harness pin binds the
+    // capability on the bound softwareTeam (the step's harness pin binds the
     // ACTUAL routed destination — the WF-2 rev1-r2 contract); otherwise
     // the shipped loud failure stands.
     if (roleCtx) {
-      const seat = resolveRoleOnBoundRig(gate.target, gatedStep.harness, roleCtx, gatedStep.id);
+      const seat = resolveRoleOnBoundSoftwareTeam(gate.target, gatedStep.harness, roleCtx, gatedStep.id);
       return {
         destinationSession: seat,
         tier: undefined,

@@ -9,7 +9,7 @@ describe("LibraryReview", () => {
     cleanup();
   });
 
-  it("service-backed rig shows environment tab with stack details and Copy Setup Prompt copies correct text", async () => {
+  it("service-backed SoftwareTeam shows environment tab with stack details and Copy Setup Prompt copies correct text", async () => {
     let copiedText = "";
     const clipboardMock = { writeText: vi.fn(async (text: string) => { copiedText = text; }) };
     Object.defineProperty(navigator, "clipboard", { value: clipboardMock, writable: true, configurable: true });
@@ -21,10 +21,10 @@ describe("LibraryReview", () => {
         return new Response(JSON.stringify([]), { status: 200 });
       }
 
-      if (url === "/api/specs/library/svc-rig-1/review") {
+      if (url === "/api/specs/library/svc-software-team-1/review") {
         return new Response(JSON.stringify({
           sourceState: "library_item",
-          kind: "rig",
+          kind: "softwareTeam",
           name: "secrets-manager",
           version: "0.2",
           summary: "HashiCorp Vault in dev mode with a dedicated Vault specialist agent",
@@ -33,12 +33,12 @@ describe("LibraryReview", () => {
           edges: [],
           graph: { nodes: [], edges: [] },
           raw: "name: secrets-manager\n",
-          libraryEntryId: "svc-rig-1",
-          sourcePath: "/specs/rigs/launch/secrets-manager/rig.yaml",
+          libraryEntryId: "svc-software-team-1",
+          sourcePath: "/specs/software-teams/launch/secrets-manager/software-team.yaml",
           services: {
             kind: "compose",
             composeFile: "secrets-manager.compose.yaml",
-            projectName: "openrig-secrets",
+            projectName: "softwareteam-secrets",
             downPolicy: "down",
             waitFor: [{ url: "http://127.0.0.1:8200/v1/sys/health" }],
             surfaces: {
@@ -58,18 +58,18 @@ describe("LibraryReview", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(createAppTestRouter({
-      initialPath: "/specs/library/svc-rig-1",
+      initialPath: "/specs/library/svc-software-team-1",
       routes: [
-        { path: "/specs/library/svc-rig-1", component: () => <LibraryReview entryId="svc-rig-1" /> },
+        { path: "/specs/library/svc-software-team-1", component: () => <LibraryReview entryId="svc-software-team-1" /> },
       ],
     }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("library-review-rig")).toBeDefined();
+      expect(screen.getByTestId("library-review-software-team")).toBeDefined();
     });
 
     // Specialist card shows canonical identity
-    const specialistCard = screen.getByTestId("lib-rig-specialist");
+    const specialistCard = screen.getByTestId("lib-software-team-specialist");
     expect(specialistCard).toBeDefined();
     expect(specialistCard.textContent).toContain("vault.specialist");
 
@@ -108,10 +108,10 @@ describe("LibraryReview", () => {
     // Copied text includes app name, summary, and source reference
     expect(copiedText).toContain("secrets-manager");
     expect(copiedText).toContain("HashiCorp Vault in dev mode");
-    expect(copiedText).toContain("secrets-manager/rig.yaml");
+    expect(copiedText).toContain("secrets-manager/software-team.yaml");
   });
 
-  it("non-service rig has no environment tab and no setup prompt", async () => {
+  it("non-service SoftwareTeam has no environment tab and no setup prompt", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
 
@@ -119,10 +119,10 @@ describe("LibraryReview", () => {
         return new Response(JSON.stringify([]), { status: 200 });
       }
 
-      if (url === "/api/specs/library/plain-rig/review") {
+      if (url === "/api/specs/library/plain-software-team/review") {
         return new Response(JSON.stringify({
           sourceState: "library_item",
-          kind: "rig",
+          kind: "softwareTeam",
           name: "demo",
           version: "0.2",
           format: "pod_aware",
@@ -130,8 +130,8 @@ describe("LibraryReview", () => {
           edges: [],
           graph: { nodes: [], edges: [] },
           raw: "name: demo\n",
-          libraryEntryId: "plain-rig",
-          sourcePath: "/specs/rigs/launch/demo/rig.yaml",
+          libraryEntryId: "plain-software-team",
+          sourcePath: "/specs/software-teams/launch/demo/software-team.yaml",
         }), { status: 200 });
       }
 
@@ -141,14 +141,14 @@ describe("LibraryReview", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(createAppTestRouter({
-      initialPath: "/specs/library/plain-rig",
+      initialPath: "/specs/library/plain-software-team",
       routes: [
-        { path: "/specs/library/plain-rig", component: () => <LibraryReview entryId="plain-rig" /> },
+        { path: "/specs/library/plain-software-team", component: () => <LibraryReview entryId="plain-software-team" /> },
       ],
     }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("library-review-rig")).toBeDefined();
+      expect(screen.getByTestId("library-review-software-team")).toBeDefined();
     });
 
     // No environment tab
@@ -156,10 +156,10 @@ describe("LibraryReview", () => {
     // No setup prompt button
     expect(screen.queryByTestId("copy-setup-prompt")).toBeNull();
     // No specialist card
-    expect(screen.queryByTestId("lib-rig-specialist")).toBeNull();
+    expect(screen.queryByTestId("lib-software-team-specialist")).toBeNull();
   });
 
-  it("opens agent drilldown for relative local: refs resolved against rig source path", async () => {
+  it("opens agent drilldown for relative local: refs resolved against SoftwareTeam source path", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
 
@@ -178,10 +178,10 @@ describe("LibraryReview", () => {
         ]), { status: 200 });
       }
 
-      if (url === "/api/specs/library/svc-rig-2/review") {
+      if (url === "/api/specs/library/svc-software-team-2/review") {
         return new Response(JSON.stringify({
           sourceState: "library_item",
-          kind: "rig",
+          kind: "softwareTeam",
           name: "secrets-manager",
           version: "0.2",
           format: "pod_aware",
@@ -198,8 +198,8 @@ describe("LibraryReview", () => {
           edges: [],
           graph: { nodes: [], edges: [] },
           raw: "name: secrets-manager\n",
-          libraryEntryId: "svc-rig-2",
-          sourcePath: "/specs/rigs/launch/secrets-manager/rig.yaml",
+          libraryEntryId: "svc-software-team-2",
+          sourcePath: "/specs/software-teams/launch/secrets-manager/software-team.yaml",
         }), { status: 200 });
       }
 
@@ -209,15 +209,15 @@ describe("LibraryReview", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(createAppTestRouter({
-      initialPath: "/specs/library/svc-rig-2",
+      initialPath: "/specs/library/svc-software-team-2",
       routes: [
-        { path: "/specs/library/svc-rig-2", component: () => <LibraryReview entryId="svc-rig-2" /> },
+        { path: "/specs/library/svc-software-team-2", component: () => <LibraryReview entryId="svc-software-team-2" /> },
         { path: "/specs/library/agent-vault-specialist", component: () => <div data-testid="vault-agent-drilldown">vault-agent</div> },
       ],
     }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("library-review-rig")).toBeDefined();
+      expect(screen.getByTestId("library-review-software-team")).toBeDefined();
     });
 
     fireEvent.click(screen.getByTestId("lib-tab-configuration"));
@@ -254,7 +254,7 @@ describe("LibraryReview", () => {
           name: "conveyor",
           version: "1",
           purpose: "Station pipeline for queued work packets",
-          targetRig: null,
+          targetSoftwareTeam: null,
           terminalTurnRule: "hot_potato",
           rolesCount: 2,
           stepsCount: 2,
@@ -263,7 +263,7 @@ describe("LibraryReview", () => {
           cachedAt: "2026-05-04T00:00:00Z",
           topology: {
             nodes: [
-              { stepId: "step-1", role: "alpha", objective: "Start", preferredTarget: "alpha@rig", isEntry: true, isTerminal: false },
+              { stepId: "step-1", role: "alpha", objective: "Start", preferredTarget: "alpha@software-team", isEntry: true, isTerminal: false },
               { stepId: "step-2", role: "beta", objective: "End", preferredTarget: null, isEntry: false, isTerminal: true },
             ],
             edges: [{ fromStepId: "step-1", toStepId: "step-2", routingType: "direct" }],
@@ -311,7 +311,7 @@ describe("LibraryReview", () => {
     });
   });
 
-  it("opens the matching agent spec from a rig member row", async () => {
+  it("opens the matching agent spec from a SoftwareTeam member row", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
 
@@ -330,10 +330,10 @@ describe("LibraryReview", () => {
         ]), { status: 200 });
       }
 
-      if (url === "/api/specs/library/rig-impl/review") {
+      if (url === "/api/specs/library/software-team-impl/review") {
         return new Response(JSON.stringify({
           sourceState: "library_item",
-          kind: "rig",
+          kind: "softwareTeam",
           name: "implementation-pair",
           version: "0.2",
           format: "pod_aware",
@@ -350,7 +350,7 @@ describe("LibraryReview", () => {
           edges: [],
           graph: { nodes: [], edges: [] },
           raw: 'name: implementation-pair\n',
-          libraryEntryId: "rig-impl",
+          libraryEntryId: "software-team-impl",
           sourcePath: "/specs/implementation-pair.yaml",
         }), { status: 200 });
       }
@@ -361,15 +361,15 @@ describe("LibraryReview", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(createAppTestRouter({
-      initialPath: "/specs/library/rig-impl",
+      initialPath: "/specs/library/software-team-impl",
       routes: [
-        { path: "/specs/library/rig-impl", component: () => <LibraryReview entryId="rig-impl" /> },
+        { path: "/specs/library/software-team-impl", component: () => <LibraryReview entryId="software-team-impl" /> },
         { path: "/specs/library/agent-impl", component: () => <div data-testid="agent-drilldown-route">agent</div> },
       ],
     }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("library-review-rig")).toBeDefined();
+      expect(screen.getByTestId("library-review-software-team")).toBeDefined();
     });
 
     fireEvent.click(screen.getByTestId("lib-tab-configuration"));
@@ -399,7 +399,7 @@ describe("LibraryReview", () => {
             version: "1",
             purpose: "Priming for PL-005 Phase A review.",
             sourceType: "user_file",
-            sourcePath: "/home/op/.openrig/context-packs/pl-005-priming",
+            sourcePath: "/home/op/.softwareteam/context-packs/pl-005-priming",
             relativePath: "pl-005-priming",
             updatedAt: "2026-05-04T00:00:00Z",
             manifestEstimatedTokens: null,
@@ -416,7 +416,7 @@ describe("LibraryReview", () => {
           id: "context-pack:pl-005-priming",
           name: "pl-005-priming",
           version: "1",
-          bundleText: "# OpenRig Context Pack: pl-005-priming v1\n\nPRD body\n",
+          bundleText: "# SoftwareTeam Context Pack: pl-005-priming v1\n\nPRD body\n",
           bundleBytes: 60,
           estimatedTokens: 15,
           files: [{ path: "prd.md", role: "prd", bytes: 200, estimatedTokens: 50 }],

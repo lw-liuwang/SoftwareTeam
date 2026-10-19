@@ -29,7 +29,7 @@ describe("queue list: delivery ledgers", () => {
   const receipt = (id: string, kind: "posted" | "transport-failed", key = latestKey(id)) => repo.update({ qitemId: id, actorSession: "daemon@kernel",
     transitionNote: `slack-owner-notification-${kind} notification_key=${key} level=ALERT${kind === "posted" ? " message_ts=1.2" : " detail=http-500"}` });
   async function create(destinationSession: string, extra: Record<string, unknown> = {}): Promise<string> {
-    const item = await repo.create({ sourceSession: "lead@rig", destinationSession, body: "b", summary: "s", priority: "routine",
+    const item = await repo.create({ sourceSession: "lead@software-team", destinationSession, body: "b", summary: "s", priority: "routine",
       ...extra } as never);
     return (item as unknown as { qitemId: string }).qitemId;
   }
@@ -64,20 +64,20 @@ describe("queue list: delivery ledgers", () => {
       const unposted = await create("human-founder@external", { humanIntent: "decision" });
       closeByHuman(unposted);
       add(unposted, "never-posted");
-      const parked = await create("dev@rig");
-      repo.update({ qitemId: parked, actorSession: "dev@rig", state: "blocked", blockedOn: "human-founder@external", transitionNote: "needs the owner" } as never);
+      const parked = await create("dev@software-team");
+      repo.update({ qitemId: parked, actorSession: "dev@software-team", state: "blocked", blockedOn: "human-founder@external", transitionNote: "needs the owner" } as never);
       receipt(parked, "posted", `${parked}:0`);
       add(parked, "never-posted");
-      const legacy = await create("dev@rig");
+      const legacy = await create("dev@software-team");
       repo.recordNudgeAttempt(legacy, "gateway-owned: slack");
       receipt(legacy, "transport-failed", "none");
       add(legacy, "transport-failed", "transport-failed");
       // No owner history and no receipt: only last_nudge_result (a compact column) makes it never-posted. Created
       // without its wake, which would overwrite that result.
-      const legacyUnposted = await create("dev@rig", { nudge: false });
+      const legacyUnposted = await create("dev@software-team", { nudge: false });
       repo.recordNudgeAttempt(legacyUnposted, "gateway-owned: slack");
       add(legacyUnposted, "never-posted", "never-posted");
-      add(await create("dev@rig"), null);
+      add(await create("dev@software-team"), null);
       // A closed row whose posted ask lives in the archive table: the resolved notice falls back to it.
       const archivedAsk = await create("human-founder@external", { humanIntent: "decision" });
       const ask = repo.transitionLog.latestOwnerNotificationForQitem(archivedAsk)!.transitionId;
@@ -89,7 +89,7 @@ describe("queue list: delivery ledgers", () => {
       const archivedLatest = await create("human-founder@external", { humanIntent: "decision" });
       receipt(archivedLatest, "posted");
       const asksAgain = db.prepare(`INSERT INTO queue_transitions (qitem_id, ts, state, transition_note, actor_session, owner_notification_kind, owner_notification_level)
-        VALUES (?, ?, 'pending', 'asks again', 'lead@rig', 'human-required', 'ALERT')`).run(archivedLatest, new Date().toISOString());
+        VALUES (?, ?, 'pending', 'asks again', 'lead@software-team', 'human-required', 'ALERT')`).run(archivedLatest, new Date().toISOString());
       archive(Number(asksAgain.lastInsertRowid));
       add(archivedLatest, "never-posted");
       for (const odd of [`q%${i}`, `q_${i}`, `q\\${i}`, `q"${i}`]) {
@@ -102,7 +102,7 @@ describe("queue list: delivery ledgers", () => {
     db.prepare("UPDATE queue_items SET ts_created = datetime('now', '-1 hour')").run();
     // Inside the post window: no verdict yet.
     add(await create("human-founder@external", { humanIntent: "decision" }), null);
-    const legacyFresh = await create("dev@rig", { nudge: false });
+    const legacyFresh = await create("dev@software-team", { nudge: false });
     repo.recordNudgeAttempt(legacyFresh, "gateway-owned: slack");
     add(legacyFresh, null);
     return rows;
@@ -154,7 +154,7 @@ describe("queue list: delivery ledgers", () => {
   it("reads a row's latest owner notification and its latest outbound one, not its whole history", async () => {
     const id = await create("human-founder@external", { humanIntent: "decision" });
     const insert = db.prepare(`INSERT INTO queue_transitions (qitem_id, ts, state, transition_note, actor_session, owner_notification_kind, owner_notification_level)
-      VALUES (?, ?, 'pending', ?, 'lead@rig', ?, 'ALERT')`);
+      VALUES (?, ?, 'pending', ?, 'lead@software-team', ?, 'ALERT')`);
     for (let n = 0; n < 6; n++) insert.run(id, new Date().toISOString(), `notice ${n}`, n % 2 ? "human-decision-resolved" : "human-required");
     const owners = repo.transitionLog.ownerNotificationsForQitems([id]).get(id)!;
     expect(owners.map((t) => t.transitionNote)).toEqual(["notice 5", "notice 4"]);

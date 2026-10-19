@@ -11,8 +11,8 @@
 import { describe, it, expect } from "vitest";
 import { deriveResumeToken } from "../src/domain/resume-token-capture.js";
 
-const SESSION = "devpi-seat@some-rig";
-const VALID_FILE = "/Users/someone/.openrig/state/pi/seat-a/sessions/2026-07-06T10-00-00_0197a2f0.jsonl";
+const SESSION = "devpi-seat@some-software-team";
+const VALID_FILE = "/Users/someone/.softwareteam/state/pi/seat-a/sessions/2026-07-06T10-00-00_0197a2f0.jsonl";
 
 function piStore(result: { ok: true; sessionFile: string } | { ok: false; reason: string }) {
   return {

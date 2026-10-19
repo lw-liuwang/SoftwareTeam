@@ -1,8 +1,8 @@
 // OPR.0.4.6.MH3 guard fixback (review of 86ba8b42, Finding 1) — PL-007
 // target_repo validation must run on the SOURCE host BEFORE any cross-host
-// forward. The validation authority is the source rig's typed workspace,
+// forward. The validation authority is the source softwareTeam's typed workspace,
 // which lives HERE; the target daemon passes-through when it doesn't know
-// the source rig, so a bypass is not recoverable remotely. Pins:
+// the source softwareTeam, so a bypass is not recoverable remotely. Pins:
 //   - cross-host create/handoff/handoff-and-complete with an INVALID explicit
 //     targetRepo → 400 unknown_target_repo, NO forward fired, no local write,
 //     and (handoff variants) the source NOT closed;
@@ -28,29 +28,29 @@ import { queueRoutes } from "../src/routes/queue.js";
 import type { HostRegistry } from "../src/domain/hosts/hosts-registry-reader.js";
 
 const REGISTRY: HostRegistry = {
-  hosts: [{ id: "vps-b", transport: "http", url: "http://vps-b:7433", bearer_env: "MH3B" }],
+  hosts: [{ id: "vps-b", transport: "http", url: "http://vps-b:7434", bearer_env: "MH3B" }],
 };
 process.env["MH3B"] = "remote-token";
 
-// The fake PL-007 authority: source rig "rig-a" declares exactly one repo.
-const FAKE_RIG_REPO = {
-  findRigsByName: (name: string) => (name === "rig-a" ? [{ id: "rig-a-id" }] : []),
-  getRigWorkspace: (rigId: string) =>
-    rigId === "rig-a-id" ? { repos: [{ name: "repo-ok" }] } : null,
+// The fake PL-007 authority: source softwareTeam "software-team-a" declares exactly one repo.
+const FAKE_SOFTWARE_TEAM_REPO = {
+  findSoftwareTeamsByName: (name: string) => (name === "software-team-a" ? [{ id: "software-team-a-id" }] : []),
+  getSoftwareTeamWorkspace: (softwareTeamId: string) =>
+    softwareTeamId === "software-team-a-id" ? { repos: [{ name: "repo-ok" }] } : null,
 };
 
 function makeHarness() {
   const db = createDb();
   migrate(db, [coreSchema, eventsSchema, queueItemsSchema, queueTransitionsSchema, queueTargetRepoSchema]);
   const bus = new EventBus(db);
-  const repo = new QueueRepository(db, bus, { validateRig: () => true });
+  const repo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
   let forwardCount = 0;
   const app = new Hono();
   app.use("*", async (c, next) => {
     const set = c.set.bind(c) as (k: string, v: unknown) => void;
     set("eventBus", bus);
     set("queueRepo", repo);
-    set("rigRepo", FAKE_RIG_REPO);
+    set("softwareTeamRepo", FAKE_SOFTWARE_TEAM_REPO);
     set("hostRegistryLoader", () => ({ ok: true, registry: REGISTRY }));
     set("remoteFetchImpl", (async (_u: unknown, init?: RequestInit) => {
       forwardCount += 1;
@@ -68,7 +68,7 @@ function makeHarness() {
     const sender = body["sourceSession"] ?? body["fromSession"] ?? body["actorSession"];
     return app.request(path, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...(sender ? { "X-OpenRig-Session": String(sender) } : {}) },
+      headers: { "Content-Type": "application/json", ...(sender ? { "X-SoftwareTeam-Session": String(sender) } : {}) },
       body: JSON.stringify(body),
     });
   };
@@ -83,15 +83,15 @@ describe("MH-3 guard fixback — PL-007 target_repo validates BEFORE any cross-h
   it("cross-host CREATE with an invalid explicit targetRepo: 400 unknown_target_repo, NO forward, no local write", async () => {
     h = makeHarness();
     const res = await h.post("/api/queue/create", {
-      sourceSession: "orch@rig-a", destinationSession: "dev@rig-b",
+      sourceSession: "orch@software-team-a", destinationSession: "dev@software-team-b",
       body: "x", hostId: "vps-b", targetRepo: "repo-BOGUS", nudge: false,
     });
     expect(res.status).toBe(400);
     const refusal = (await res.json()) as { error: string; message: string; knownRepos?: string[] };
     expect(refusal).toMatchObject({ error: "unknown_target_repo" });
     // Slice 15 fold-in: compact `whoami --json` has no workspace; the hint names the form that does.
-    expect(refusal.message).toContain("rig whoami --full --json | jq .workspace.repos");
-    expect(refusal.message).not.toContain("rig whoami --json |");
+    expect(refusal.message).toContain("SoftwareTeam whoami --full --json | jq .workspace.repos");
+    expect(refusal.message).not.toContain("SoftwareTeam whoami --json |");
     expect(h.forwards()).toBe(0);
     expect(h.rowCount()).toBe(0);
   });
@@ -99,7 +99,7 @@ describe("MH-3 guard fixback — PL-007 target_repo validates BEFORE any cross-h
   it("cross-host CREATE with a valid explicit targetRepo: validated, then forwarded (no local row)", async () => {
     h = makeHarness();
     const res = await h.post("/api/queue/create", {
-      sourceSession: "orch@rig-a", destinationSession: "dev@rig-b",
+      sourceSession: "orch@software-team-a", destinationSession: "dev@software-team-b",
       body: "x", hostId: "vps-b", targetRepo: "repo-ok", nudge: false,
     });
     expect(res.status).toBe(201);
@@ -109,9 +109,9 @@ describe("MH-3 guard fixback — PL-007 target_repo validates BEFORE any cross-h
 
   it("cross-host HANDOFF with an invalid explicit targetRepo: 400 BEFORE the forward; source NOT closed", async () => {
     h = makeHarness();
-    await h.repo.create({ qitemId: "qitem-src", sourceSession: "orch@rig-a", destinationSession: "worker@rig-a", body: "src", nudge: false });
+    await h.repo.create({ qitemId: "qitem-src", sourceSession: "orch@software-team-a", destinationSession: "worker@software-team-a", body: "src", nudge: false });
     const res = await h.post("/api/queue/qitem-src/handoff", {
-      fromSession: "worker@rig-a", toSession: "dev@rig-b",
+      fromSession: "worker@software-team-a", toSession: "dev@software-team-b",
       hostId: "vps-b", targetRepo: "repo-BOGUS", nudge: false,
     });
     expect(res.status).toBe(400);
@@ -124,9 +124,9 @@ describe("MH-3 guard fixback — PL-007 target_repo validates BEFORE any cross-h
 
   it("cross-host HANDOFF-AND-COMPLETE with an invalid explicit targetRepo: 400 BEFORE the forward; source NOT closed", async () => {
     h = makeHarness();
-    await h.repo.create({ qitemId: "qitem-src2", sourceSession: "orch@rig-a", destinationSession: "worker@rig-a", body: "src", nudge: false });
+    await h.repo.create({ qitemId: "qitem-src2", sourceSession: "orch@software-team-a", destinationSession: "worker@software-team-a", body: "src", nudge: false });
     const res = await h.post("/api/queue/qitem-src2/handoff-and-complete", {
-      fromSession: "worker@rig-a", toSession: "dev@rig-b",
+      fromSession: "worker@software-team-a", toSession: "dev@software-team-b",
       hostId: "vps-b", targetRepo: "repo-BOGUS", nudge: false,
     });
     expect(res.status).toBe(400);
@@ -136,9 +136,9 @@ describe("MH-3 guard fixback — PL-007 target_repo validates BEFORE any cross-h
 
   it("cross-host HANDOFF with a valid explicit targetRepo: validated, forwarded, source closed", async () => {
     h = makeHarness();
-    await h.repo.create({ qitemId: "qitem-src3", sourceSession: "orch@rig-a", destinationSession: "worker@rig-a", body: "src", nudge: false });
+    await h.repo.create({ qitemId: "qitem-src3", sourceSession: "orch@software-team-a", destinationSession: "worker@software-team-a", body: "src", nudge: false });
     const res = await h.post("/api/queue/qitem-src3/handoff", {
-      fromSession: "worker@rig-a", toSession: "dev@rig-b",
+      fromSession: "worker@software-team-a", toSession: "dev@software-team-b",
       hostId: "vps-b", targetRepo: "repo-ok", nudge: false,
     });
     expect(res.status).toBe(201);
@@ -150,9 +150,9 @@ describe("MH-3 guard fixback — PL-007 target_repo validates BEFORE any cross-h
     h = makeHarness();
     // Seed the source row with a targetRepo the fake authority would REJECT
     // today (repo layer accepts it — older rows / evolved workspaces exist).
-    await h.repo.create({ qitemId: "qitem-src4", sourceSession: "someone@rig-z", destinationSession: "worker@rig-a", body: "src", targetRepo: "repo-legacy", nudge: false });
+    await h.repo.create({ qitemId: "qitem-src4", sourceSession: "someone@software-team-z", destinationSession: "worker@software-team-a", body: "src", targetRepo: "repo-legacy", nudge: false });
     const res = await h.post("/api/queue/qitem-src4/handoff", {
-      fromSession: "worker@rig-a", toSession: "dev@rig-b",
+      fromSession: "worker@software-team-a", toSession: "dev@software-team-b",
       hostId: "vps-b", nudge: false,
     });
     // No explicit override → no re-validation → the forward proceeds and the
@@ -165,13 +165,13 @@ describe("MH-3 guard fixback — PL-007 target_repo validates BEFORE any cross-h
   it("LOCAL create/handoff validation ordering unchanged (invalid explicit targetRepo still 400s locally)", async () => {
     h = makeHarness();
     const create = await h.post("/api/queue/create", {
-      sourceSession: "orch@rig-a", destinationSession: "worker@rig-a",
+      sourceSession: "orch@software-team-a", destinationSession: "worker@software-team-a",
       body: "x", targetRepo: "repo-BOGUS", nudge: false,
     });
     expect(create.status).toBe(400);
-    await h.repo.create({ qitemId: "qitem-src5", sourceSession: "orch@rig-a", destinationSession: "worker@rig-a", body: "src", nudge: false });
+    await h.repo.create({ qitemId: "qitem-src5", sourceSession: "orch@software-team-a", destinationSession: "worker@software-team-a", body: "src", nudge: false });
     const handoff = await h.post("/api/queue/qitem-src5/handoff", {
-      fromSession: "worker@rig-a", toSession: "peer@rig-a", targetRepo: "repo-BOGUS", nudge: false,
+      fromSession: "worker@software-team-a", toSession: "peer@software-team-a", targetRepo: "repo-BOGUS", nudge: false,
     });
     expect(handoff.status).toBe(400);
   });

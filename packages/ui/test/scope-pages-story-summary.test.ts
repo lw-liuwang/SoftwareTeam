@@ -12,8 +12,8 @@ function detail(partial: Partial<QueueItemDetail> & { qitemId: string }): QueueI
   return {
     tsCreated: "2026-06-23T02:00:00.000Z",
     tsUpdated: "2026-06-23T02:00:00.000Z",
-    sourceSession: "a@rig",
-    destinationSession: "b@rig",
+    sourceSession: "a@software-team",
+    destinationSession: "b@software-team",
     state: "done",
     priority: "routine",
     tier: null,

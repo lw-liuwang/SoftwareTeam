@@ -9,7 +9,7 @@
 //   2. Absolute home paths, IP addresses and local-network hostnames.
 //   3. Temporary and instance-specific directories.
 //   4. Email addresses.
-// Rig, seat and agent names are ordinary identifiers and are not reported.
+// SoftwareTeam, seat and agent names are ordinary identifiers and are not reported.
 //
 // Usage:
 //   node scripts/portability-report.mjs                      # merge-base with origin/main .. HEAD
@@ -38,7 +38,7 @@ export const CHECKS = [
   {
     category: "Machine path",
     why: "temporary or instance-specific directory tied to one machine",
-    pattern: /\/private\/tmp\/[A-Za-z0-9._-]+|\/var\/folders\/[A-Za-z0-9_]+\/|\/tmp\/claude-\d+|\.openrig-[a-z0-9-]*-[0-9a-f]{6,}/,
+    pattern: /\/private\/tmp\/[A-Za-z0-9._-]+|\/var\/folders\/[A-Za-z0-9_]+\/|\/tmp\/claude-\d+|\.softwareteam-[a-z0-9-]*-[0-9a-f]{6,}/,
   },
   {
     category: "Network address",
@@ -48,7 +48,7 @@ export const CHECKS = [
   {
     category: "Email address",
     why: "contact details belong in project documentation, not in code",
-    pattern: /\b(?![A-Za-z0-9._%+-]*noreply)[A-Za-z0-9._%+-]+@(?!(?:example|test|localhost|openrig)\b)[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b/,
+    pattern: /\b(?![A-Za-z0-9._%+-]*noreply)[A-Za-z0-9._%+-]+@(?!(?:example|test|localhost|softwareteam)\b)[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b/,
   },
 ];
 

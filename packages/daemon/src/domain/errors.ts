@@ -1,6 +1,6 @@
-export class RigNotFoundError extends Error {
-  constructor(rigId: string) {
-    super(`Rig ${rigId} not found`);
-    this.name = "RigNotFoundError";
+export class SoftwareTeamNotFoundError extends Error {
+  constructor(softwareTeamId: string) {
+    super(`SoftwareTeam ${softwareTeamId} not found`);
+    this.name = "SoftwareTeamNotFoundError";
   }
 }

@@ -47,30 +47,30 @@ describe("MCP Server", () => {
     const result = await mcpClient.listTools();
     const names = result.tools.map((t) => t.name).sort();
     expect(names).toEqual([
-      "rig_add",
-      "rig_agent_validate",
-      "rig_bind",
-      "rig_bundle_inspect",
-      "rig_capture",
-      "rig_chatroom_send",
-      "rig_chatroom_watch",
-      "rig_discover",
-      "rig_down",
-      "rig_ps",
-      "rig_restore",
-      "rig_rig_nodes",
-      "rig_rig_validate",
-      "rig_send",
-      "rig_snapshot_create",
-      "rig_snapshot_list",
-      "rig_status",
-      "rig_up",
-    ]);
+      "softwareteam_add",
+      "softwareteam_agent_validate",
+      "softwareteam_bind",
+      "softwareteam_bundle_inspect",
+      "softwareteam_capture",
+      "softwareteam_chatroom_send",
+      "softwareteam_chatroom_watch",
+      "softwareteam_discover",
+      "softwareteam_down",
+      "softwareteam_ps",
+      "softwareteam_restore",
+      "softwareteam_software_team_nodes",
+      "softwareteam_software_team_validate",
+      "softwareteam_send",
+      "softwareteam_snapshot_create",
+      "softwareteam_snapshot_list",
+      "softwareteam_status",
+      "softwareteam_up",
+    ].sort());
     await cleanup();
   });
 
-  // rig_add: posts the member fragment to the pod-members route.
-  it("rig_add posts to the pod-members route and returns the added node", async () => {
+  // softwareteam_add: posts the member fragment to the pod-members route.
+  it("softwareteam_add posts to the pod-members route and returns the added node", async () => {
     const postFn = vi.fn(async () => ({
       status: 201,
       data: {
@@ -87,11 +87,11 @@ describe("MCP Server", () => {
 
     const member = { id: "server2", runtime: "terminal", agent_ref: "builtin:terminal", profile: "none", cwd: "/tmp" };
     const result = await mcpClient.callTool({
-      name: "rig_add",
-      arguments: { rigId: "rig-1", podNamespace: "infra", member },
+      name: "softwareteam_add",
+      arguments: { softwareTeamId: "software-team-1", podNamespace: "infra", member },
     });
 
-    expect(postFn).toHaveBeenCalledWith("/api/rigs/rig-1/pods/infra/members", { member });
+    expect(postFn).toHaveBeenCalledWith("/api/software-teams/software-team-1/pods/infra/members", { member });
     const content = result.content as Array<{ type: string; text: string }>;
     const parsed = JSON.parse(content[0].text);
     expect(parsed.ok).toBe(true);
@@ -100,7 +100,7 @@ describe("MCP Server", () => {
     await cleanup();
   });
 
-  it("rig_add forwards optional pod-local edges in the request body", async () => {
+  it("softwareteam_add forwards optional pod-local edges in the request body", async () => {
     const postFn = vi.fn(async () => ({
       status: 201,
       data: { ok: true, result: { podId: "pod-1", podNamespace: "infra", node: { logicalId: "infra.server2", nodeId: "n2", status: "launched" }, edges: [{ from: "infra.server2", to: "infra.server", kind: "delegates_to" }] } },
@@ -109,13 +109,13 @@ describe("MCP Server", () => {
 
     const member = { id: "server2", runtime: "terminal", agent_ref: "builtin:terminal", profile: "none", cwd: "/tmp" };
     const edges = [{ from: "server2", to: "server", kind: "delegates_to" }];
-    await mcpClient.callTool({ name: "rig_add", arguments: { rigId: "rig-1", podNamespace: "infra", member, edges } });
+    await mcpClient.callTool({ name: "softwareteam_add", arguments: { softwareTeamId: "software-team-1", podNamespace: "infra", member, edges } });
 
-    expect(postFn).toHaveBeenCalledWith("/api/rigs/rig-1/pods/infra/members", { member, edges });
+    expect(postFn).toHaveBeenCalledWith("/api/software-teams/software-team-1/pods/infra/members", { member, edges });
     await cleanup();
   });
 
-  it("rig_add surfaces a member_conflict (HTTP 409) as isError", async () => {
+  it("softwareteam_add surfaces a member_conflict (HTTP 409) as isError", async () => {
     const postFn = vi.fn(async () => ({
       status: 409,
       data: { ok: false, code: "member_conflict", message: 'Member "infra.server" already exists' },
@@ -123,8 +123,8 @@ describe("MCP Server", () => {
     await setup({ post: postFn });
 
     const result = await mcpClient.callTool({
-      name: "rig_add",
-      arguments: { rigId: "rig-1", podNamespace: "infra", member: { id: "server" } },
+      name: "softwareteam_add",
+      arguments: { softwareTeamId: "software-team-1", podNamespace: "infra", member: { id: "server" } },
     });
 
     expect(result.isError).toBe(true);
@@ -133,7 +133,7 @@ describe("MCP Server", () => {
     await cleanup();
   });
 
-  it("rig_add flags a persisted-but-not-launched node as isError", async () => {
+  it("softwareteam_add flags a persisted-but-not-launched node as isError", async () => {
     const postFn = vi.fn(async () => ({
       status: 201,
       data: {
@@ -148,31 +148,31 @@ describe("MCP Server", () => {
     await setup({ post: postFn });
 
     const result = await mcpClient.callTool({
-      name: "rig_add",
-      arguments: { rigId: "rig-1", podNamespace: "infra", member: { id: "server2" } },
+      name: "softwareteam_add",
+      arguments: { softwareTeamId: "software-team-1", podNamespace: "infra", member: { id: "server2" } },
     });
 
     expect(result.isError).toBe(true);
     await cleanup();
   });
 
-  // T2: rig_up calls POST /api/up
-  it("rig_up calls POST /api/up with correct params", async () => {
+  // T2: softwareteam_up calls POST /api/up
+  it("softwareteam_up calls POST /api/up with correct params", async () => {
     const postFn = vi.fn(async () => ({
       status: 201,
-      data: { runId: "run-1", status: "completed", rigId: "rig-1", stages: [], errors: [] },
+      data: { runId: "run-1", status: "completed", softwareTeamId: "software-team-1", stages: [], errors: [] },
     }));
     await setup({ post: postFn });
 
     const result = await mcpClient.callTool({
-      name: "rig_up",
-      arguments: { sourceRef: "/tmp/rig.yaml", plan: false, autoApprove: true },
+      name: "softwareteam_up",
+      arguments: { sourceRef: "/tmp/software-team.yaml", plan: false, autoApprove: true },
     });
 
     expect(postFn).toHaveBeenCalledWith(
       "/api/up",
       {
-        sourceRef: "/tmp/rig.yaml",
+        sourceRef: "/tmp/software-team.yaml",
         plan: false,
         autoApprove: true,
         targetRoot: undefined,
@@ -186,21 +186,21 @@ describe("MCP Server", () => {
     await cleanup();
   });
 
-  // T3: rig_down calls POST /api/down
-  it("rig_down calls POST /api/down with correct params", async () => {
+  // T3: softwareteam_down calls POST /api/down
+  it("softwareteam_down calls POST /api/down with correct params", async () => {
     const postFn = vi.fn(async () => ({
       status: 200,
-      data: { rigId: "rig-1", sessionsKilled: 2, deleted: false, deleteBlocked: false, alreadyStopped: false, errors: [] },
+      data: { softwareTeamId: "software-team-1", sessionsKilled: 2, deleted: false, deleteBlocked: false, alreadyStopped: false, errors: [] },
     }));
     await setup({ post: postFn });
 
     const result = await mcpClient.callTool({
-      name: "rig_down",
-      arguments: { rigId: "rig-1", delete: true, force: false, snapshot: false },
+      name: "softwareteam_down",
+      arguments: { softwareTeamId: "software-team-1", delete: true, force: false, snapshot: false },
     });
 
     expect(postFn).toHaveBeenCalledWith("/api/down", {
-      rigId: "rig-1",
+      softwareTeamId: "software-team-1",
       delete: true,
       force: false,
       snapshot: false,
@@ -212,21 +212,21 @@ describe("MCP Server", () => {
     await cleanup();
   });
 
-  // T4: rig_ps calls GET /api/ps
-  it("rig_ps calls GET /api/ps and returns entries", async () => {
+  // T4: softwareteam_ps calls GET /api/ps
+  it("softwareteam_ps calls GET /api/ps and returns entries", async () => {
     const getFn = vi.fn(async () => ({
       status: 200,
-      data: [{ rigId: "rig-1", name: "test", nodeCount: 2, runningCount: 2, status: "running", uptime: "1h", latestSnapshot: null }],
+      data: [{ softwareTeamId: "software-team-1", name: "test", nodeCount: 2, runningCount: 2, status: "running", uptime: "1h", latestSnapshot: null }],
     }));
     await setup({ get: getFn });
 
-    const result = await mcpClient.callTool({ name: "rig_ps", arguments: {} });
+    const result = await mcpClient.callTool({ name: "softwareteam_ps", arguments: {} });
 
     expect(getFn).toHaveBeenCalledWith("/api/ps");
     const content = result.content as Array<{ type: string; text: string }>;
     const parsed = JSON.parse(content[0].text);
     expect(Array.isArray(parsed)).toBe(true);
-    expect(parsed[0].rigId).toBe("rig-1");
+    expect(parsed[0].softwareTeamId).toBe("software-team-1");
     expect(result.isError).toBeFalsy();
     await cleanup();
   });
@@ -236,16 +236,16 @@ describe("MCP Server", () => {
     await setup();
     const result = await mcpClient.listTools();
 
-    const upTool = result.tools.find((t) => t.name === "rig_up")!;
+    const upTool = result.tools.find((t) => t.name === "softwareteam_up")!;
     expect(upTool.inputSchema.required).toContain("sourceRef");
     expect(upTool.inputSchema.properties).toHaveProperty("plan");
     expect(upTool.inputSchema.properties).toHaveProperty("autoApprove");
 
-    const downTool = result.tools.find((t) => t.name === "rig_down")!;
-    expect(downTool.inputSchema.required).toContain("rigId");
+    const downTool = result.tools.find((t) => t.name === "softwareteam_down")!;
+    expect(downTool.inputSchema.required).toContain("softwareTeamId");
 
-    const restoreTool = result.tools.find((t) => t.name === "rig_restore")!;
-    expect(restoreTool.inputSchema.required).toContain("rigId");
+    const restoreTool = result.tools.find((t) => t.name === "softwareteam_restore")!;
+    expect(restoreTool.inputSchema.required).toContain("softwareTeamId");
     expect(restoreTool.inputSchema.required).toContain("snapshotId");
 
     await cleanup();
@@ -255,19 +255,19 @@ describe("MCP Server", () => {
   it("HTTP error maps to isError:true", async () => {
     const postFn = vi.fn(async () => ({
       status: 404,
-      data: { error: "Rig not found" },
+      data: { error: "SoftwareTeam not found" },
     }));
     await setup({ post: postFn });
 
     const result = await mcpClient.callTool({
-      name: "rig_down",
-      arguments: { rigId: "missing" },
+      name: "softwareteam_down",
+      arguments: { softwareTeamId: "missing" },
     });
 
     expect(result.isError).toBe(true);
     const content = result.content as Array<{ type: string; text: string }>;
     const parsed = JSON.parse(content[0].text);
-    expect(parsed.error).toBe("Rig not found");
+    expect(parsed.error).toBe("SoftwareTeam not found");
     await cleanup();
   });
 
@@ -275,13 +275,13 @@ describe("MCP Server", () => {
   it("in-body errors map to isError:true", async () => {
     const postFn = vi.fn(async () => ({
       status: 200,
-      data: { rigId: "rig-1", sessionsKilled: 1, deleted: false, deleteBlocked: false, alreadyStopped: false, errors: ["Kill failed"] },
+      data: { softwareTeamId: "software-team-1", sessionsKilled: 1, deleted: false, deleteBlocked: false, alreadyStopped: false, errors: ["Kill failed"] },
     }));
     await setup({ post: postFn });
 
     const result = await mcpClient.callTool({
-      name: "rig_down",
-      arguments: { rigId: "rig-1" },
+      name: "softwareteam_down",
+      arguments: { softwareTeamId: "software-team-1" },
     });
 
     expect(result.isError).toBe(true);
@@ -327,8 +327,8 @@ describe("MCP Server", () => {
     await setup({ post: postFn });
 
     const result = await mcpClient.callTool({
-      name: "rig_bundle_inspect",
-      arguments: { bundlePath: "/tmp/test.rigbundle" },
+      name: "softwareteam_bundle_inspect",
+      arguments: { bundlePath: "/tmp/test.softwareteambundle" },
     });
 
     expect(result.isError).toBe(true);
@@ -338,25 +338,25 @@ describe("MCP Server", () => {
     await cleanup();
   });
 
-  // T10: MCP server lists rig_agent_validate + rig_rig_validate tools
-  it("rig_agent_validate and rig_rig_validate tools are registered", async () => {
+  // T10: MCP server lists softwareteam_agent_validate + softwareteam_software_team_validate tools
+  it("softwareteam_agent_validate and softwareteam_software_team_validate tools are registered", async () => {
     await setup();
     const result = await mcpClient.listTools();
     const names = result.tools.map((t) => t.name);
-    expect(names).toContain("rig_agent_validate");
-    expect(names).toContain("rig_rig_validate");
+    expect(names).toContain("softwareteam_agent_validate");
+    expect(names).toContain("softwareteam_software_team_validate");
 
     // Verify schema: both have required "yaml" input
-    const agentTool = result.tools.find((t) => t.name === "rig_agent_validate")!;
+    const agentTool = result.tools.find((t) => t.name === "softwareteam_agent_validate")!;
     expect(agentTool.inputSchema.required).toContain("yaml");
-    const rigTool = result.tools.find((t) => t.name === "rig_rig_validate")!;
-    expect(rigTool.inputSchema.required).toContain("yaml");
+    const softwareTeamTool = result.tools.find((t) => t.name === "softwareteam_software_team_validate")!;
+    expect(softwareTeamTool.inputSchema.required).toContain("yaml");
 
     await cleanup();
   });
 
-  // T10b: rig_agent_validate calls postText with correct path
-  it("rig_agent_validate calls postText on /api/agents/validate", async () => {
+  // T10b: softwareteam_agent_validate calls postText with correct path
+  it("softwareteam_agent_validate calls postText on /api/agents/validate", async () => {
     const postTextFn = vi.fn(async () => ({
       status: 200,
       data: { valid: true, errors: [] },
@@ -364,7 +364,7 @@ describe("MCP Server", () => {
     await setup({ postText: postTextFn });
 
     const result = await mcpClient.callTool({
-      name: "rig_agent_validate",
+      name: "softwareteam_agent_validate",
       arguments: { yaml: "name: my-agent\nversion: 1.0.0\n" },
     });
 
@@ -374,32 +374,32 @@ describe("MCP Server", () => {
   });
 
   // T11: MCP tools URL-encode path parameters
-  it("snapshot_create URL-encodes rigId in path", async () => {
+  it("snapshot_create URL-encodes softwareTeamId in path", async () => {
     const postFn = vi.fn(async () => ({
       status: 201,
-      data: { id: "snap-1", rigId: "rig/with/slashes", kind: "manual", status: "complete" },
+      data: { id: "snap-1", softwareTeamId: "softwareTeam/with/slashes", kind: "manual", status: "complete" },
     }));
     await setup({ post: postFn });
 
     await mcpClient.callTool({
-      name: "rig_snapshot_create",
-      arguments: { rigId: "rig/with/slashes" },
+      name: "softwareteam_snapshot_create",
+      arguments: { softwareTeamId: "softwareTeam/with/slashes" },
     });
 
     const calledPath = postFn.mock.calls[0][0] as string;
-    expect(calledPath).toBe(`/api/rigs/${encodeURIComponent("rig/with/slashes")}/snapshots`);
-    expect(calledPath).toContain("rig%2Fwith%2Fslashes");
+    expect(calledPath).toBe(`/api/software-teams/${encodeURIComponent("softwareTeam/with/slashes")}/snapshots`);
+    expect(calledPath).toContain("softwareTeam%2Fwith%2Fslashes");
     await cleanup();
   });
 
-  // NS-T09: rig_rig_nodes calls GET /api/rigs/:rigId/nodes
-  it("rig_rig_nodes returns node inventory", async () => {
+  // NS-T09: softwareteam_software_team_nodes calls GET /api/software-teams/:softwareTeamId/nodes
+  it("softwareteam_software_team_nodes returns node inventory", async () => {
     const getFn = vi.fn(async (path: string) => {
       if (path.includes("/nodes")) {
         return {
           status: 200,
           data: [
-            { rigId: "rig-1", rigName: "test", logicalId: "dev.impl", nodeKind: "agent", runtime: "claude-code", sessionStatus: "running", tmuxAttachCommand: "tmux attach -t dev-impl@test" },
+            { softwareTeamId: "software-team-1", softwareTeamName: "test", logicalId: "dev.impl", nodeKind: "agent", runtime: "claude-code", sessionStatus: "running", tmuxAttachCommand: "tmux attach -t dev-impl@test" },
           ],
         };
       }
@@ -408,13 +408,13 @@ describe("MCP Server", () => {
     await setup({ get: getFn });
 
     const result = await mcpClient.callTool({
-      name: "rig_rig_nodes",
-      arguments: { rigId: "rig-1" },
+      name: "softwareteam_software_team_nodes",
+      arguments: { softwareTeamId: "software-team-1" },
     });
 
     expect(getFn).toHaveBeenCalled();
     const calledPath = getFn.mock.calls.find((c) => (c[0] as string).includes("/nodes"))?.[0] as string;
-    expect(calledPath).toBe("/api/rigs/rig-1/nodes");
+    expect(calledPath).toBe("/api/software-teams/software-team-1/nodes");
     expect(result.isError).toBeUndefined();
     const parsed = JSON.parse((result.content as Array<{ text: string }>)[0]!.text);
     expect(Array.isArray(parsed)).toBe(true);
@@ -422,17 +422,17 @@ describe("MCP Server", () => {
     await cleanup();
   });
 
-  // T14: rig_send returns structured result
-  it("rig_send returns structured result", async () => {
+  // T14: softwareteam_send returns structured result
+  it("softwareteam_send returns structured result", async () => {
     const postFn = vi.fn(async () => ({
       status: 200,
-      data: { ok: true, sessionName: "dev-impl@my-rig" },
+      data: { ok: true, sessionName: "dev-impl@my-software-team" },
     }));
     await setup({ post: postFn });
 
     const result = await mcpClient.callTool({
-      name: "rig_send",
-      arguments: { session: "dev-impl@my-rig", text: "hello" },
+      name: "softwareteam_send",
+      arguments: { session: "dev-impl@my-software-team", text: "hello" },
     });
 
     expect(postFn).toHaveBeenCalled();
@@ -440,26 +440,26 @@ describe("MCP Server", () => {
     expect(result.isError).toBeUndefined();
     const parsed = JSON.parse((result.content as Array<{ text: string }>)[0]!.text);
     expect(parsed.ok).toBe(true);
-    expect(parsed.sessionName).toBe("dev-impl@my-rig");
+    expect(parsed.sessionName).toBe("dev-impl@my-software-team");
     await cleanup();
   });
 
-  it("rig_send with waitForIdleSeconds extends request timeout", async () => {
+  it("softwareteam_send with waitForIdleSeconds extends request timeout", async () => {
     const postFn = vi.fn(async () => ({
       status: 200,
-      data: { ok: true, sessionName: "dev-impl@my-rig" },
+      data: { ok: true, sessionName: "dev-impl@my-software-team" },
     }));
     await setup({ post: postFn });
 
     const result = await mcpClient.callTool({
-      name: "rig_send",
-      arguments: { session: "dev-impl@my-rig", text: "hello", waitForIdleSeconds: 30 },
+      name: "softwareteam_send",
+      arguments: { session: "dev-impl@my-software-team", text: "hello", waitForIdleSeconds: 30 },
     });
 
     expect(postFn).toHaveBeenCalledWith(
       "/api/transport/send",
       expect.objectContaining({
-        session: "dev-impl@my-rig",
+        session: "dev-impl@my-software-team",
         text: "hello",
         waitForIdleMs: 30000,
       }),
@@ -469,7 +469,7 @@ describe("MCP Server", () => {
     await cleanup();
   });
 
-  it("rig_send rejects waitForIdleSeconds with force before daemon contact", async () => {
+  it("softwareteam_send rejects waitForIdleSeconds with force before daemon contact", async () => {
     const postFn = vi.fn(async () => ({
       status: 200,
       data: { ok: true },
@@ -477,8 +477,8 @@ describe("MCP Server", () => {
     await setup({ post: postFn });
 
     const result = await mcpClient.callTool({
-      name: "rig_send",
-      arguments: { session: "dev-impl@my-rig", text: "hello", waitForIdleSeconds: 30, force: true },
+      name: "softwareteam_send",
+      arguments: { session: "dev-impl@my-software-team", text: "hello", waitForIdleSeconds: 30, force: true },
     });
 
     expect(result.isError).toBe(true);
@@ -488,21 +488,21 @@ describe("MCP Server", () => {
     await cleanup();
   });
 
-  // T-chatroom-send: rig_chatroom_send returns result
-  it("rig_chatroom_send returns result", async () => {
+  // T-chatroom-send: softwareteam_chatroom_send returns result
+  it("softwareteam_chatroom_send returns result", async () => {
     const getFn = vi.fn(async () => ({
       status: 200,
-      data: [{ id: "rig-1", name: "my-rig", nodeCount: 2 }],
+      data: [{ id: "software-team-1", name: "my-software-team", nodeCount: 2 }],
     }));
     const postFn = vi.fn(async () => ({
       status: 201,
-      data: { id: "msg-1", rigId: "rig-1", sender: "mcp", kind: "message", body: "hello", topic: null, createdAt: "2026-03-31T10:00:00Z" },
+      data: { id: "msg-1", softwareTeamId: "software-team-1", sender: "mcp", kind: "message", body: "hello", topic: null, createdAt: "2026-03-31T10:00:00Z" },
     }));
     await setup({ get: getFn, post: postFn });
 
     const result = await mcpClient.callTool({
-      name: "rig_chatroom_send",
-      arguments: { rigName: "my-rig", body: "hello" },
+      name: "softwareteam_chatroom_send",
+      arguments: { softwareTeamName: "my-software-team", body: "hello" },
     });
 
     expect(result.isError).toBeFalsy();
@@ -512,20 +512,20 @@ describe("MCP Server", () => {
     await cleanup();
   });
 
-  // T-chatroom-watch: rig_chatroom_watch returns recent history
-  it("rig_chatroom_watch returns recent history", async () => {
+  // T-chatroom-watch: softwareteam_chatroom_watch returns recent history
+  it("softwareteam_chatroom_watch returns recent history", async () => {
     const getFn = vi.fn(async (path: string) => {
-      if (path === "/api/rigs/summary") {
+      if (path === "/api/software-teams/summary") {
         return {
           status: 200,
-          data: [{ id: "rig-1", name: "my-rig", nodeCount: 2 }],
+          data: [{ id: "software-team-1", name: "my-software-team", nodeCount: 2 }],
         };
       }
       if (path.includes("/chat/history")) {
         return {
           status: 200,
           data: [
-            { id: "msg-1", rigId: "rig-1", sender: "alice", kind: "message", body: "hello", topic: null, createdAt: "2026-03-31T10:00:00Z" },
+            { id: "msg-1", softwareTeamId: "software-team-1", sender: "alice", kind: "message", body: "hello", topic: null, createdAt: "2026-03-31T10:00:00Z" },
           ],
         };
       }
@@ -534,8 +534,8 @@ describe("MCP Server", () => {
     await setup({ get: getFn });
 
     const result = await mcpClient.callTool({
-      name: "rig_chatroom_watch",
-      arguments: { rigName: "my-rig" },
+      name: "softwareteam_chatroom_watch",
+      arguments: { softwareTeamName: "my-software-team" },
     });
 
     expect(result.isError).toBeFalsy();
@@ -545,20 +545,20 @@ describe("MCP Server", () => {
     await cleanup();
   });
 
-  // T-chatroom-ambiguous: MCP rig_chatroom_send with ambiguous rig name -> error
-  it("rig_chatroom_send with ambiguous rig name returns error", async () => {
+  // T-chatroom-ambiguous: MCP softwareteam_chatroom_send with ambiguous softwareTeam name -> error
+  it("softwareteam_chatroom_send with ambiguous SoftwareTeam name returns error", async () => {
     const getFn = vi.fn(async () => ({
       status: 200,
       data: [
-        { id: "rig-1", name: "my-rig", nodeCount: 2 },
-        { id: "rig-2", name: "my-rig", nodeCount: 1 },
+        { id: "software-team-1", name: "my-software-team", nodeCount: 2 },
+        { id: "software-team-2", name: "my-software-team", nodeCount: 1 },
       ],
     }));
     await setup({ get: getFn });
 
     const result = await mcpClient.callTool({
-      name: "rig_chatroom_send",
-      arguments: { rigName: "my-rig", body: "hello" },
+      name: "softwareteam_chatroom_send",
+      arguments: { softwareTeamName: "my-software-team", body: "hello" },
     });
 
     expect(result.isError).toBe(true);
@@ -567,17 +567,17 @@ describe("MCP Server", () => {
     await cleanup();
   });
 
-  // T15: rig_capture returns structured result
-  it("rig_capture returns structured result", async () => {
+  // T15: softwareteam_capture returns structured result
+  it("softwareteam_capture returns structured result", async () => {
     const postFn = vi.fn(async () => ({
       status: 200,
-      data: { ok: true, sessionName: "dev-impl@my-rig", content: "pane output", lines: 20 },
+      data: { ok: true, sessionName: "dev-impl@my-software-team", content: "pane output", lines: 20 },
     }));
     await setup({ post: postFn });
 
     const result = await mcpClient.callTool({
-      name: "rig_capture",
-      arguments: { session: "dev-impl@my-rig" },
+      name: "softwareteam_capture",
+      arguments: { session: "dev-impl@my-software-team" },
     });
 
     expect(postFn).toHaveBeenCalled();

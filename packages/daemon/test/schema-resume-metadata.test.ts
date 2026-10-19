@@ -7,8 +7,8 @@ import { bindingsSessionsSchema } from "../src/db/migrations/002_bindings_sessio
 import { resumeMetadataSchema } from "../src/db/migrations/006_resume_metadata.js";
 
 function seedNode(db: Database.Database) {
-  db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "r01");
-  db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)").run("node-1", "rig-1", "worker");
+  db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "r01");
+  db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)").run("node-1", "software-team-1", "worker");
 }
 
 describe("006_resume_metadata", () => {

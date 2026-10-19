@@ -100,7 +100,7 @@ describe("PL-slice-story-view-v1 SliceDetailProjector — bound workflow_instanc
       workflowSpecsSchema, workflowInstancesSchema, workflowStepTrailsSchema,
       missionControlActionsSchema,
     ]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     cleanupRoot = mkdtempSync(join(tmpdir(), "slice-projector-v1-"));
     slicesRoot = join(cleanupRoot, "slices");
     mkdirSync(slicesRoot, { recursive: true });
@@ -271,7 +271,7 @@ describe("PL-slice-story-view-v1 SliceDetailProjector — bound workflow_instanc
 // added-4th-row vector) + T7 (byte-identity carve, acceptance half).
 //
 // Fixtures are TEMPLATE-DERIVED via the real CLI renderers (dynamic import,
-// same pattern as scope-audit-parity.test.ts) — a pristine `rig scope slice
+// same pattern as scope-audit-parity.test.ts) — a pristine `SoftwareTeam scope slice
 // create` output is the canonical intent-stage fixture, and template drift
 // breaks these tests honestly.
 // ---------------------------------------------------------------------------
@@ -318,7 +318,7 @@ describe("release-0.4.7 intent-stage — buildAcceptance edits (T4) + byte-ident
       workflowSpecsSchema, workflowInstancesSchema, workflowStepTrailsSchema,
       missionControlActionsSchema,
     ]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     cleanupRoot = mkdtempSync(join(tmpdir(), "slice-projector-accept-"));
     slicesRoot = join(cleanupRoot, "slices");
     mkdirSync(slicesRoot, { recursive: true });
@@ -456,7 +456,7 @@ describe("qitem-render-driver B — projector acceptance rows share the composer
       workflowSpecsSchema, workflowInstancesSchema, workflowStepTrailsSchema,
       missionControlActionsSchema,
     ]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     cleanupRoot = mkdtempSync(join(tmpdir(), "slice-projector-continuation-"));
     slicesRoot = join(cleanupRoot, "slices");
     mkdirSync(slicesRoot, { recursive: true });

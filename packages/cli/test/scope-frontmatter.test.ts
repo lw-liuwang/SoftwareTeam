@@ -13,7 +13,7 @@ import { Command } from "commander";
 import { scopeCommand } from "../src/commands/scope.js";
 import { readFrontmatter } from "../src/lib/scope/scope-fs.js";
 
-function mktemp(): string { return fs.mkdtempSync(path.join(os.tmpdir(), "rig-scope-fm-")); }
+function mktemp(): string { return fs.mkdtempSync(path.join(os.tmpdir(), "software-team-scope-fm-")); }
 
 function seedSubstrate(): { root: string; missionsRoot: string } {
   const root = mktemp();
@@ -42,7 +42,7 @@ async function run(args: string[], workspace: string): Promise<{ exitCode: numbe
   program.addCommand(scopeCommand());
   program.exitOverride();
   try {
-    await program.parseAsync(["node", "rig", "scope", ...args, "--workspace", path.dirname(workspace)]);
+    await program.parseAsync(["node", "softwareTeam", "scope", ...args, "--workspace", path.dirname(workspace)]);
   } catch { /* exit captured */ }
   finally {
     process.stdout.write = origWrite;

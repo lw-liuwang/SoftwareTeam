@@ -4,7 +4,7 @@
  * daemon payloads the CLI already receives; `--json` paths never come
  * through here and stay byte-identical to the shipped output.
  *
- * Shapes ported from in-repo precedent: the `rig ps` table mechanics
+ * Shapes ported from in-repo precedent: the `SoftwareTeam ps` table mechanics
  * (fitCell/truncate) and the argo-get per-step tree bar (STEP / ACTOR
  * / EXIT / DURATION columns with status glyphs).
  *
@@ -28,8 +28,8 @@ export interface RenderInstance {
   currentStepId?: string | null;
   currentFrontier?: string[];
   hopCount?: number;
-  /** OPR.0.4.6.FAC1: the instance's bound rig (API-carried; null/absent = unbound, renders nothing). */
-  boundRig?: string | null;
+  /** OPR.0.4.6.FAC1: the instance's bound softwareTeam (API-carried; null/absent = unbound, renders nothing). */
+  boundSoftwareTeam?: string | null;
   /**
    * WF-1 FR-2's API-carried classification (present since the
    * completion fixback at 384e60f1). RAIL 1 (arch ruling): the CLI
@@ -108,7 +108,7 @@ export interface RenderTrailRow {
 
 /** One command-shaped owner action, including the typed acceptance contract when present. */
 export function renderProjectAction(instanceId: string, packet: RenderFrontierPacket): string {
-  const base = `rig workflow project --instance ${instanceId} --current-packet ${packet.packetId} --exit <handoff|waiting|done|failed> --actor-session ${packet.ownerSession ?? "<owner>"}${packet.receiptRequired ? " --evidence-ref <agent-judged-receipt>" : ""}`;
+  const base = `SoftwareTeam workflow project --instance ${instanceId} --current-packet ${packet.packetId} --exit <handoff|waiting|done|failed> --actor-session ${packet.ownerSession ?? "<owner>"}${packet.receiptRequired ? " --evidence-ref <agent-judged-receipt>" : ""}`;
   if (!packet.acceptance) return base;
   const verdict = packet.acceptance.verdicts.length === 1
     ? packet.acceptance.verdicts[0]!
@@ -180,7 +180,7 @@ export function renderTraceTree(
 ): string[] {
   const lines: string[] = [];
   const name = instance.workflowName ? `${instance.workflowName}${instance.workflowVersion ? ` v${instance.workflowVersion}` : ""}` : "";
-  lines.push(`${statusGlyph(instance.status)} ${instance.instanceId}  ${name}  status=${instance.status}${instance.hopCount !== undefined ? `  hops=${instance.hopCount}` : ""}${instance.boundRig ? `  rig=${instance.boundRig}` : ""}`);
+  lines.push(`${statusGlyph(instance.status)} ${instance.instanceId}  ${name}  status=${instance.status}${instance.hopCount !== undefined ? `  hops=${instance.hopCount}` : ""}${instance.boundSoftwareTeam ? `  softwareTeam=${instance.boundSoftwareTeam}` : ""}`);
   if (instance.createdAt) {
     lines.push(`  created ${instance.createdAt}${instance.createdBySession ? ` by ${instance.createdBySession}` : ""}  age ${humanAge(instance.createdAt, nowIso)}`);
   }
@@ -220,7 +220,7 @@ export function renderTraceTree(
   for (const failure of (instance.failureOccurrences ?? []).filter((item) => item.status === "unresolved")) {
     lines.push(`  ▲ failure ${failure.occurrenceId}  step=${failure.stepId}${failure.failureReason ? `  reason=${failure.failureReason}` : ""}`);
     lines.push(failure.targetedAction === "resume"
-      ? `      action: rig workflow resume ${instance.instanceId} --occurrence ${failure.occurrenceId} --actor-session <you>`
+      ? `      action: SoftwareTeam workflow resume ${instance.instanceId} --occurrence ${failure.occurrenceId} --actor-session <you>`
       : "      action: none — terminal history");
   }
   for (const unknown of instance.unknowns ?? []) lines.push(`  ? ${unknown}`);
@@ -249,7 +249,7 @@ function isStuck(instance: RenderInstance): boolean {
   return typeof state === "string" && state.startsWith("overdue");
 }
 
-// ── FR-3 part B: the needs-attention rollup (`rig workflow status`) ──
+// ── FR-3 part B: the needs-attention rollup (`SoftwareTeam workflow status`) ──
 
 export interface AttentionRow {
   instanceId: string;
@@ -313,10 +313,10 @@ export function composeAttentionRollup(instances: RenderInstance[]): AttentionRo
     // slice (commit 6) — the verbs land together at merge (BR-1 holds
     // at the shipped boundary).
     const affordance = classes.includes("failed") || classes.includes("failed-branch")
-      ? `inspect: rig workflow trace ${inst.instanceId}`
+      ? `inspect: SoftwareTeam workflow trace ${inst.instanceId}`
       : classes.includes("stuck")
-        ? `re-route: rig workflow route ${inst.instanceId} --to <seat>`
-        : `resolve the blocker, then the owner projects (rig workflow trace ${inst.instanceId})`;
+        ? `re-route: SoftwareTeam workflow route ${inst.instanceId} --to <seat>`
+        : `resolve the blocker, then the owner projects (SoftwareTeam workflow trace ${inst.instanceId})`;
     attention.push({
       instanceId: inst.instanceId,
       workflowName: inst.workflowName ?? "",
@@ -374,8 +374,8 @@ export function renderInstanceShow(
   const lines: string[] = [];
   lines.push(`${statusGlyph(instance.status)} ${instance.instanceId}  status=${instance.status}`);
   if (instance.workflowName) lines.push(`  workflow: ${instance.workflowName}${instance.workflowVersion ? ` v${instance.workflowVersion}` : ""}`);
-  // OPR.0.4.6.FAC1: the bound rig renders when present (unbound rows unchanged).
-  if (instance.boundRig) lines.push(`  rig:      ${instance.boundRig}`);
+  // OPR.0.4.6.FAC1: the bound softwareTeam renders when present (unbound rows unchanged).
+  if (instance.boundSoftwareTeam) lines.push(`  softwareTeam:      ${instance.boundSoftwareTeam}`);
   if (instance.createdAt) lines.push(`  created:  ${instance.createdAt}${instance.createdBySession ? ` by ${instance.createdBySession}` : ""}  (age ${humanAge(instance.createdAt, nowIso)})`);
   if ((instance.frontierPackets ?? []).length > 0) {
     lines.push("  frontier:");
@@ -384,7 +384,7 @@ export function renderInstanceShow(
       const action = packet.targetedAction === "project"
         ? renderProjectAction(instance.instanceId, packet)
         : packet.targetedAction === "route"
-          ? `rig workflow route ${instance.instanceId} --packet ${packet.packetId} --to <seat> --actor-session <you>`
+          ? `SoftwareTeam workflow route ${instance.instanceId} --packet ${packet.packetId} --to <seat> --actor-session <you>`
           : "disabled — inspect named unknowns";
       lines.push(`      action: ${action}`);
     }
@@ -406,7 +406,7 @@ export function renderInstanceShow(
     for (const failure of unresolved) {
       lines.push(`    ${failure.occurrenceId}  step=${failure.stepId}${failure.failureReason ? `  reason=${failure.failureReason}` : ""}`);
       lines.push(failure.targetedAction === "resume"
-        ? `      action: rig workflow resume ${instance.instanceId} --occurrence ${failure.occurrenceId} --actor-session <you>`
+        ? `      action: SoftwareTeam workflow resume ${instance.instanceId} --occurrence ${failure.occurrenceId} --actor-session <you>`
         : "      action: none — terminal history");
     }
   }
@@ -428,7 +428,7 @@ export function renderInstanceShow(
   }
   if (instance.reconciliation) lines.push(...renderGraphRevision(instance.reconciliation, false));
   if (instance.hopCount !== undefined) lines.push(`  hops:     ${instance.hopCount}`);
-  lines.push(`  next:     rig workflow trace ${instance.instanceId}`);
+  lines.push(`  next:     SoftwareTeam workflow trace ${instance.instanceId}`);
   return lines;
 }
 
@@ -445,7 +445,7 @@ export function renderGraphRevision(view: NonNullable<RenderInstance["reconcilia
   for (const reason of view.reasons) lines.push("    " + reason);
   lines.push("  inspect:  " + view.nextAction + " (read-only; --json expands complete evidence)");
   if (expanded && view.applyCommand) lines.push("  apply:    " + view.applyCommand);
-  if (expanded && view.operationKey) lines.push("  recover:  rig workflow operation " + shellQuote(view.operationKey));
+  if (expanded && view.operationKey) lines.push("  recover:  SoftwareTeam workflow operation " + shellQuote(view.operationKey));
   return lines;
 }
 

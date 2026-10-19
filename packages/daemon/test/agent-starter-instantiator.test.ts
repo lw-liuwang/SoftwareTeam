@@ -20,18 +20,18 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { PodRepository } from "../src/domain/pod-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { NodeLauncher } from "../src/domain/node-launcher.js";
 import { StartupOrchestrator } from "../src/domain/startup-orchestrator.js";
-import { PodRigInstantiator } from "../src/domain/rigspec-instantiator.js";
-import { RigSpecCodec } from "../src/domain/rigspec-codec.js";
+import { PodSoftwareTeamInstantiator } from "../src/domain/software-team-spec-instantiator.js";
+import { SoftwareTeamSpecCodec } from "../src/domain/software-team-spec-codec.js";
 import type { AgentResolverFsOps } from "../src/domain/agent-resolver.js";
 import type { RuntimeAdapter, ResolvedStartupFile } from "../src/domain/runtime-adapter.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
-import type { RigSpec } from "../src/domain/types.js";
+import type { SoftwareTeamSpec } from "../src/domain/types.js";
 
 function mockTmux(): TmuxAdapter {
   return {
@@ -64,16 +64,16 @@ function mockFs(files: Record<string, string>): AgentResolverFsOps {
   };
 }
 
-const RIG_ROOT = "/project/rigs/test-rig";
+const SOFTWARE_TEAM_ROOT = "/project/software-teams/test-software-team";
 
 function agentYaml(name: string): string {
   return `name: ${name}\nversion: "1.0.0"\nresources:\n  skills: []\nprofiles:\n  default:\n    uses:\n      skills: []`;
 }
 
-function specWithStarterRef(): RigSpec {
+function specWithStarterRef(): SoftwareTeamSpec {
   return {
     version: "0.2",
-    name: "test-rig",
+    name: "test-software-team",
     pods: [{
       id: "dev",
       label: "Dev",
@@ -94,7 +94,7 @@ function specWithStarterRef(): RigSpec {
 const CLEAN_STARTER = `draft: false
 starter_id: fixture-starter
 runtime: claude-code
-manifest_id: openrig-builder-base
+manifest_id: softwareteam-builder-base
 manifest_version: "0.2"
 session_source:
   mode: fork
@@ -111,7 +111,7 @@ state: 2-named
 const MALICIOUS_STARTER = `draft: false
 starter_id: fixture-mal
 runtime: claude-code
-manifest_id: openrig-builder-base
+manifest_id: softwareteam-builder-base
 manifest_version: "0.2"
 session_source:
   mode: fork
@@ -141,22 +141,22 @@ function setupWithStarter(opts: {
 
   // Tell the resolver to use this fixture directory via the documented
   // env-var lookup branch.
-  process.env.OPENRIG_AGENT_STARTER_ROOT = registryRoot;
+  process.env.SOFTWARETEAM_AGENT_STARTER_ROOT = registryRoot;
 
   const db = createFullTestDb();
-  const rigRepo = new RigRepository(db);
+  const softwareTeamRepo = new SoftwareTeamRepository(db);
   const podRepo = new PodRepository(db);
   const sessionRegistry = new SessionRegistry(db);
   const eventBus = new EventBus(db);
   const tmux = mockTmux();
-  const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+  const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
   const startupOrch = new StartupOrchestrator({ db, sessionRegistry, eventBus, tmuxAdapter: tmux });
   const adapter = mockAdapter("claude-code");
   const codexAdapter = mockAdapter("codex");
-  const fsOps = mockFs({ [`${RIG_ROOT}/agents/impl/agent.yaml`]: agentYaml("impl") });
+  const fsOps = mockFs({ [`${SOFTWARE_TEAM_ROOT}/agents/impl/agent.yaml`]: agentYaml("impl") });
 
-  const inst = new PodRigInstantiator({
-    db, rigRepo, podRepo, sessionRegistry, eventBus, nodeLauncher,
+  const inst = new PodSoftwareTeamInstantiator({
+    db, softwareTeamRepo, podRepo, sessionRegistry, eventBus, nodeLauncher,
     startupOrchestrator: startupOrch,
     fsOps,
     adapters: { "claude-code": adapter, "codex": codexAdapter, "terminal": mockAdapter("terminal") },
@@ -164,20 +164,20 @@ function setupWithStarter(opts: {
   });
 
   const cleanup = () => {
-    delete process.env.OPENRIG_AGENT_STARTER_ROOT;
+    delete process.env.SOFTWARETEAM_AGENT_STARTER_ROOT;
     db.close();
     fs.rmSync(tmpDir, { recursive: true, force: true });
   };
 
-  return { db, rigRepo, sessionRegistry, eventBus, inst, adapter, codexAdapter, tmux, registryRoot, cleanup };
+  return { db, softwareTeamRepo, sessionRegistry, eventBus, inst, adapter, codexAdapter, tmux, registryRoot, cleanup };
 }
 
 describe("Agent Starter v1 vertical — instantiator integration (M2)", () => {
   it("invokes resolver and prepends STARTER layer when member.starterRef is set", async () => {
     const ctx = setupWithStarter({ starterContent: CLEAN_STARTER });
     try {
-      const yaml = RigSpecCodec.serialize(specWithStarterRef());
-      const result = await ctx.inst.instantiate(yaml, RIG_ROOT);
+      const yaml = SoftwareTeamSpecCodec.serialize(specWithStarterRef());
+      const result = await ctx.inst.instantiate(yaml, SOFTWARE_TEAM_ROOT);
       expect(result.ok).toBe(true);
 
       // adapter.deliverStartup should have been called; the first arg is the
@@ -204,8 +204,8 @@ describe("Agent Starter v1 vertical — instantiator integration (M2)", () => {
     // contract.
     const ctx = setupWithStarter({ starterContent: MALICIOUS_STARTER });
     try {
-      const yaml = RigSpecCodec.serialize(specWithStarterRef());
-      const result = await ctx.inst.instantiate(yaml, RIG_ROOT);
+      const yaml = SoftwareTeamSpecCodec.serialize(specWithStarterRef());
+      const result = await ctx.inst.instantiate(yaml, SOFTWARE_TEAM_ROOT);
 
       // Some node failed (the impl member) — instantiator may still report
       // ok=true with a failed node entry, depending on partial-failure
@@ -231,8 +231,8 @@ describe("Agent Starter v1 vertical — instantiator integration (M2)", () => {
     // No registry file → resolver throws "no registry entry found".
     const ctx = setupWithStarter({ starterContent: null });
     try {
-      const yaml = RigSpecCodec.serialize(specWithStarterRef());
-      const result = await ctx.inst.instantiate(yaml, RIG_ROOT);
+      const yaml = SoftwareTeamSpecCodec.serialize(specWithStarterRef());
+      const result = await ctx.inst.instantiate(yaml, SOFTWARE_TEAM_ROOT);
 
       const deliverStartupSpy = ctx.adapter.deliverStartup as ReturnType<typeof vi.fn>;
       expect(deliverStartupSpy).not.toHaveBeenCalled();
@@ -251,9 +251,9 @@ describe("Agent Starter v1 vertical — instantiator integration (M2)", () => {
     const ctx = setupWithStarter({ starterContent: CLEAN_STARTER });
     try {
       // Spec without starterRef on the member.
-      const spec: RigSpec = {
+      const spec: SoftwareTeamSpec = {
         version: "0.2",
-        name: "no-starter-rig",
+        name: "no-starter-software-team",
         pods: [{
           id: "dev",
           label: "Dev",
@@ -268,8 +268,8 @@ describe("Agent Starter v1 vertical — instantiator integration (M2)", () => {
         }],
         edges: [],
       };
-      const yaml = RigSpecCodec.serialize(spec);
-      const result = await ctx.inst.instantiate(yaml, RIG_ROOT);
+      const yaml = SoftwareTeamSpecCodec.serialize(spec);
+      const result = await ctx.inst.instantiate(yaml, SOFTWARE_TEAM_ROOT);
       expect(result.ok).toBe(true);
 
       const deliverStartupSpy = ctx.adapter.deliverStartup as ReturnType<typeof vi.fn>;
@@ -299,8 +299,8 @@ describe("Agent Starter v1 vertical — instantiator integration (M2)", () => {
       "startNode",
     );
     try {
-      const yaml = RigSpecCodec.serialize(specWithStarterRef());
-      const result = await ctx.inst.instantiate(yaml, RIG_ROOT);
+      const yaml = SoftwareTeamSpecCodec.serialize(specWithStarterRef());
+      const result = await ctx.inst.instantiate(yaml, SOFTWARE_TEAM_ROOT);
       expect(result.ok).toBe(true);
 
       // Assert the startup-orchestrator was called with no continuity
@@ -339,20 +339,20 @@ describe("Agent Starter v1 vertical — instantiator integration (M2)", () => {
   it("M2-R2-4: STARTER layer survives node_startup_context.resolved_files_json roundtrip", async () => {
     const ctx = setupWithStarter({ starterContent: CLEAN_STARTER });
     try {
-      const yaml = RigSpecCodec.serialize(specWithStarterRef());
-      const result = await ctx.inst.instantiate(yaml, RIG_ROOT);
+      const yaml = SoftwareTeamSpecCodec.serialize(specWithStarterRef());
+      const result = await ctx.inst.instantiate(yaml, SOFTWARE_TEAM_ROOT);
       expect(result.ok).toBe(true);
       if (!result.ok) return;
 
       const node = result.result.nodes.find((n) => n.logicalId === "dev.impl");
       expect(node).toBeDefined();
       // The instantiator's NodeOutcome carries logicalId only; resolve the
-      // DB nodeId via the rig record (logicalId is the qualifiedId stored
+      // DB nodeId via the softwareTeam record (logicalId is the qualifiedId stored
       // on the node row).
-      const rig = ctx.rigRepo.getRig(result.result.rigId);
-      expect(rig).not.toBeNull();
-      const dbNode = rig!.nodes.find((n) => n.logicalId === "dev.impl");
-      expect(dbNode, "expected dev.impl node row in rig").toBeDefined();
+      const softwareTeam = ctx.softwareTeamRepo.getSoftwareTeam(result.result.softwareTeamId);
+      expect(softwareTeam).not.toBeNull();
+      const dbNode = softwareTeam!.nodes.find((n) => n.logicalId === "dev.impl");
+      expect(dbNode, "expected dev.impl node row in softwareTeam").toBeDefined();
       const nodeId = dbNode!.id;
 
       const row = ctx.db
@@ -388,9 +388,9 @@ describe("Agent Starter v1 vertical — instantiator integration (M2)", () => {
 
     const ctx = setupWithStarter({ starterContent: CLEAN_STARTER });
     try {
-      const spec: RigSpec = {
+      const spec: SoftwareTeamSpec = {
         version: "0.2",
-        name: "compose-rig",
+        name: "compose-software-team",
         pods: [{
           id: "dev",
           label: "Dev",
@@ -410,8 +410,8 @@ describe("Agent Starter v1 vertical — instantiator integration (M2)", () => {
         }],
         edges: [],
       };
-      const yaml = RigSpecCodec.serialize(spec);
-      const result = await ctx.inst.instantiate(yaml, RIG_ROOT);
+      const yaml = SoftwareTeamSpecCodec.serialize(spec);
+      const result = await ctx.inst.instantiate(yaml, SOFTWARE_TEAM_ROOT);
       expect(result.ok).toBe(true);
 
       // Adapter.deliverStartup receives the STARTER layer prepended.

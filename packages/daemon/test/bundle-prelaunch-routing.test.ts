@@ -2,8 +2,8 @@
 //
 // Goes through the real BootstrapOrchestrator, PodBundleSourceResolver and
 // routeBundleContents with real temp-filesystem effects. Only the launch
-// (PodRigInstantiator) is faked: it runs the pre-launch hook exactly where the
-// real instantiator does (after the rig record, before any member), then
+// (PodSoftwareTeamInstantiator) is faked: it runs the pre-launch hook exactly where the
+// real instantiator does (after the softwareTeam record, before any member), then
 // records what a seat would have seen at its first turn.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
@@ -32,9 +32,9 @@ import { ContextPackLibraryService } from "../src/domain/context-packs/context-p
 import type { ExecFn } from "../src/adapters/tmux.js";
 import type { FsOps } from "../src/domain/package-resolver.js";
 
-const RIG_YAML = `
+const SOFTWARE_TEAM_YAML = `
 version: "0.2"
-name: routed-rig
+name: routed-software-team
 pods:
   - id: dev
     label: Dev
@@ -81,7 +81,7 @@ async function buildBundleWithPack(workDir: string, packManifest = PACK_MANIFEST
   const staging = path.join(workDir, "staging");
   fs.mkdirSync(path.join(staging, "agents", "impl"), { recursive: true });
   fs.mkdirSync(path.join(staging, "context-packs", "demo"), { recursive: true });
-  fs.writeFileSync(path.join(staging, "rig.yaml"), RIG_YAML);
+  fs.writeFileSync(path.join(staging, "software-team.yaml"), SOFTWARE_TEAM_YAML);
   fs.writeFileSync(path.join(staging, "agents", "impl", "agent.yaml"), `name: impl\nversion: "1.0"\n`);
   fs.writeFileSync(path.join(staging, "context-packs", "demo", "manifest.yaml"), packManifest);
   fs.writeFileSync(path.join(staging, "context-packs", "demo", "intro.md"), "# Demo world\n");
@@ -98,7 +98,7 @@ async function buildBundleWithPack(workDir: string, packManifest = PACK_MANIFEST
 name: routed
 version: "0.1.0"
 created_at: "2026-10-04T00:00:00Z"
-rig_spec: rig.yaml
+software_team_spec: software-team.yaml
 agents:
   - name: impl
     version: "1.0"
@@ -111,12 +111,12 @@ context_packs:
 integrity:
 ${integrityYaml}
 `);
-  const bundlePath = path.join(workDir, "routed.rigbundle");
+  const bundlePath = path.join(workDir, "routed.softwareteambundle");
   await pack(staging, bundlePath);
   return bundlePath;
 }
 
-type Hook = (rigId: string) => Promise<{ ok: true } | { ok: false; code: string; message: string }>;
+type Hook = (softwareTeamId: string) => Promise<{ ok: true } | { ok: false; code: string; message: string }>;
 
 describe("bundle contents are routed before any seat launches", () => {
   let db: Database.Database;
@@ -133,28 +133,28 @@ describe("bundle contents are routed before any seat launches", () => {
     migrate(db, ALL_MIGRATIONS);
     workDir = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-prelaunch-"));
     contextRoot = path.join(workDir, "context");
-    savedContextRoot = process.env["OPENRIG_CONTEXT_ROOT"];
-    process.env["OPENRIG_CONTEXT_ROOT"] = contextRoot;
+    savedContextRoot = process.env["SOFTWARETEAM_CONTEXT_ROOT"];
+    process.env["SOFTWARETEAM_CONTEXT_ROOT"] = contextRoot;
     bundlePath = await buildBundleWithPack(workDir);
     seenAtLaunch = null;
     rescans = 0;
     podInstantiator = {
       db,
-      instantiate: vi.fn(async (_yaml: string, _rigRoot: string, opts?: { prelaunchHook?: Hook }) => {
+      instantiate: vi.fn(async (_yaml: string, _softwareTeamRoot: string, opts?: { prelaunchHook?: Hook }) => {
         if (opts?.prelaunchHook) {
-          const hook = await opts.prelaunchHook("rig-1");
+          const hook = await opts.prelaunchHook("software-team-1");
           if (!hook.ok) return { ok: false as const, code: hook.code, message: hook.message };
         }
         seenAtLaunch = { packOnDisk: fs.existsSync(path.join(contextRoot, "demo", "manifest.yaml")), rescans };
-        return { ok: true as const, result: { rigId: "rig-1", specName: "routed-rig", specVersion: "0.2", nodes: [{ logicalId: "dev.impl", status: "launched" as const }] } };
+        return { ok: true as const, result: { softwareTeamId: "software-team-1", specName: "routed-software-team", specVersion: "0.2", nodes: [{ logicalId: "dev.impl", status: "launched" as const }] } };
       }),
     };
   });
 
   afterEach(() => {
     db.close();
-    if (savedContextRoot === undefined) delete process.env["OPENRIG_CONTEXT_ROOT"];
-    else process.env["OPENRIG_CONTEXT_ROOT"] = savedContextRoot;
+    if (savedContextRoot === undefined) delete process.env["SOFTWARETEAM_CONTEXT_ROOT"];
+    else process.env["SOFTWARETEAM_CONTEXT_ROOT"] = savedContextRoot;
     fs.rmSync(workDir, { recursive: true, force: true });
   });
 
@@ -181,7 +181,7 @@ describe("bundle contents are routed before any seat launches", () => {
           readFile: (p) => fs.readFileSync(p, "utf-8"), exists: (p) => fs.existsSync(p),
         }),
       }),
-      rigInstantiator: { db, instantiate: vi.fn() } as never,
+      softwareTeamInstantiator: { db, instantiate: vi.fn() } as never,
       fsOps: realFsOps(),
       bundleSourceResolver: new LegacyBundleSourceResolver({ fsOps: realFsOps() }),
       podBundleSourceResolver: new PodBundleSourceResolver(),
@@ -192,7 +192,7 @@ describe("bundle contents are routed before any seat launches", () => {
 
   it("routes the declared context pack and rescans the library before the first seat launches", async () => {
     const result = await orchestrator().bootstrap({
-      mode: "apply", sourceRef: bundlePath, sourceKind: "rig_bundle", targetRoot: path.join(workDir, "target"),
+      mode: "apply", sourceRef: bundlePath, sourceKind: "software_team_bundle", targetRoot: path.join(workDir, "target"),
     });
 
     expect(result.status).toBe("completed");
@@ -202,13 +202,13 @@ describe("bundle contents are routed before any seat launches", () => {
     expect(result.stages.find((s) => s.stage === "route_bundle_contents")?.status).toBe("ok");
   });
 
-  it("reports a routing failure as a warning and still launches the rig", async () => {
+  it("reports a routing failure as a warning and still launches the softwareTeam", async () => {
     const route = vi.fn(async (): Promise<BundleContentRouting> => ({
       routingFailures: [{ kind: "contextPacks", error: "no space left on device" }],
     }));
 
     const result = await orchestrator(route).bootstrap({
-      mode: "apply", sourceRef: bundlePath, sourceKind: "rig_bundle", targetRoot: path.join(workDir, "target"),
+      mode: "apply", sourceRef: bundlePath, sourceKind: "software_team_bundle", targetRoot: path.join(workDir, "target"),
     });
 
     expect(route).toHaveBeenCalledWith(bundlePath);
@@ -219,11 +219,11 @@ describe("bundle contents are routed before any seat launches", () => {
     expect(result.bundleRouting?.routingFailures).toHaveLength(1);
   });
 
-  it("a router that throws still lets the rig launch, with a warning and a failed stage", async () => {
+  it("a router that throws still lets the SoftwareTeam launch, with a warning and a failed stage", async () => {
     const route = vi.fn(async (): Promise<BundleContentRouting> => { throw new Error("EACCES: permission denied, mkdtemp"); });
 
     const result = await orchestrator(route).bootstrap({
-      mode: "apply", sourceRef: bundlePath, sourceKind: "rig_bundle", targetRoot: path.join(workDir, "target"),
+      mode: "apply", sourceRef: bundlePath, sourceKind: "software_team_bundle", targetRoot: path.join(workDir, "target"),
     });
 
     expect(result.status).toBe("completed");
@@ -232,11 +232,11 @@ describe("bundle contents are routed before any seat launches", () => {
     expect(result.stages.find((s) => s.stage === "route_bundle_contents")?.status).toBe("failed");
   });
 
-  it.each([null, undefined, "plain string"])("a router rejecting with %s still lets the rig launch, with a warning", async (rejection) => {
+  it.each([null, undefined, "plain string"])("a router rejecting with %s still lets the SoftwareTeam launch, with a warning", async (rejection) => {
     const route = vi.fn(async (): Promise<BundleContentRouting> => { throw rejection; });
 
     const result = await orchestrator(route).bootstrap({
-      mode: "apply", sourceRef: bundlePath, sourceKind: "rig_bundle", targetRoot: path.join(workDir, "target"),
+      mode: "apply", sourceRef: bundlePath, sourceKind: "software_team_bundle", targetRoot: path.join(workDir, "target"),
     });
 
     expect(result.status).toBe("completed");
@@ -255,7 +255,7 @@ describe("bundle contents are routed before any seat launches", () => {
     const library = new ContextPackLibraryService({ roots: [{ path: contextRoot, sourceType: "user_file" }] });
 
     const result = await orchestrator((p) => routeBundleContents(p, { onContextPacksRouted: () => library.scan() })).bootstrap({
-      mode: "apply", sourceRef: badBundle, sourceKind: "rig_bundle", targetRoot: path.join(workDir, "target-bad"),
+      mode: "apply", sourceRef: badBundle, sourceKind: "software_team_bundle", targetRoot: path.join(workDir, "target-bad"),
     });
 
     expect(result.status).toBe("completed");
@@ -264,14 +264,14 @@ describe("bundle contents are routed before any seat launches", () => {
     expect(result.warnings.some((w) => /Bundle contextPacks routing failed: the context-pack library could not load/.test(w))).toBe(true);
   });
 
-  it("does not route for a rig spec source", async () => {
+  it("does not route for a SoftwareTeam spec source", async () => {
     const specDir = path.join(workDir, "spec");
     fs.mkdirSync(path.join(specDir, "agents", "impl"), { recursive: true });
-    fs.writeFileSync(path.join(specDir, "rig.yaml"), RIG_YAML);
+    fs.writeFileSync(path.join(specDir, "software-team.yaml"), SOFTWARE_TEAM_YAML);
     const route = vi.fn(async (): Promise<BundleContentRouting> => ({}));
 
     const result = await orchestrator(route).bootstrap({
-      mode: "apply", sourceRef: path.join(specDir, "rig.yaml"), sourceKind: "rig_spec",
+      mode: "apply", sourceRef: path.join(specDir, "software-team.yaml"), sourceKind: "software_team_spec",
     });
 
     expect(result.status).toBe("completed");
@@ -282,7 +282,7 @@ describe("bundle contents are routed before any seat launches", () => {
 
 describe("routeBundleContents", () => {
   it("never throws: an unreadable bundle is reported as a bundle failure", async () => {
-    const routing = await routeBundleContents(path.join(os.tmpdir(), "no-such-bundle-20261004.rigbundle"));
+    const routing = await routeBundleContents(path.join(os.tmpdir(), "no-such-bundle-20261004.softwareteambundle"));
 
     expect(routing.routingFailures).toHaveLength(1);
     expect(routing.routingFailures?.[0]?.kind).toBe("bundle");
@@ -293,7 +293,7 @@ describe("routeBundleContents", () => {
     const savedTmp = process.env["TMPDIR"];
     process.env["TMPDIR"] = path.join(os.tmpdir(), "no-such-dir-20261004", "nested");
     try {
-      const routing = await routeBundleContents("/nonexistent.rigbundle");
+      const routing = await routeBundleContents("/nonexistent.softwareteambundle");
       expect(routing.routingFailures?.[0]?.kind).toBe("bundle");
     } finally {
       if (savedTmp === undefined) delete process.env["TMPDIR"]; else process.env["TMPDIR"] = savedTmp;

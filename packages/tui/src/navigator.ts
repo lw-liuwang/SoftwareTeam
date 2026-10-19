@@ -5,11 +5,11 @@
 // 'activate' and the renderer's hit-map keep resolving against it); this
 // module only derives each row's DISPLAY label:
 //   · continuous branch guides │ ├─ └─ from the row's key depth,
-//   · icons: host ⊕ · rig ▦ (round-3 founder pick of record) · pod ≡ (dim
+//   · icons: host ⊕ · softwareTeam ▦ (round-3 founder pick of record) · pod ≡ (dim
 //     name + genuine ▾/▸) · agent status glyph via rowStatusGlyph,
 //   · meta right-aligned (agent ctx% — honest `—` when null; pod agent count),
 //   · collapse glyphs ONLY where collapse genuinely exists today (pods and spec
-//     folders) — hosts/rigs/sections carried decorative ▾ that
+//     folders) — hosts/software-teams/sections carried decorative ▾ that
 //     afforded nothing; it is dropped, not re-skinned (no false affordances).
 // "Hover" is the existing selection-focus highlight — RENDER-ONLY, no motion
 // protocol, no second write-path to selection (arch ruling 1).
@@ -39,7 +39,7 @@ function keyDepth(row: ExplorerRow): number {
     case "specs-kind":
     case "scopes-mission":
       return 1;
-    case "rig":
+    case "software-team":
     case "folder":
     case "scopes-slice":
       return 2;
@@ -59,11 +59,11 @@ function keyDepth(row: ExplorerRow): number {
 }
 
 /** the label with its legacy indent + list glyph stripped; pod/folder rows
- * keep their GENUINE ▾/▸ (they really collapse), hosts/rigs lose theirs */
+ * keep their GENUINE ▾/▸ (they really collapse), hosts/softwareTeams lose theirs */
 function contentOf(row: ExplorerRow, parsed: KeyParts, snap: FleetSnapshot): string {
   const stripped = row.label.replace(/^\s+/, "");
   if (parsed.kind === "host") return `⊕ ${stripped.replace(/^[▾⌄] /, "")}`;
-  if (parsed.kind === "rig") return `${rigPresence(parsed, snap) === null ? "?" : "▦"} ${stripped.replace(/^[▾⌄] /, "")}`;
+  if (parsed.kind === "software-team") return `${softwareTeamPresence(parsed, snap) === null ? "?" : "▦"} ${stripped.replace(/^[▾⌄] /, "")}`;
   if (parsed.kind === "pod") return stripped.replace(/^[▾▸] /, (m) => m.startsWith("▾") ? "⌄ " : "› ").replace(/ \(\d+\)$/, ""); // count moves to meta
   if (parsed.kind === "scopes-mission") return stripped.replace(/^[▾▸] /, (m) => m.startsWith("▾") ? "⌄ " : "› ");
   if (parsed.kind === "agent") {
@@ -90,17 +90,17 @@ export interface NavigatorMeta {
 }
 
 function agentOf(parsed: KeyParts, snap: FleetSnapshot): AgentRow | null {
-  const [host, rig, pod, ...name] = parsed.parts;
+  const [host, softwareTeam, pod, ...name] = parsed.parts;
   return snap.hosts
-    .find((h) => h.name === host)?.rigs.find((r) => r.name === rig)
+    .find((h) => h.name === host)?.softwareTeams.find((r) => r.name === softwareTeam)
     ?.pods.find((p) => p.name === pod)?.agents.find((a) => a.name === name.join("/")) ?? null;
 }
 
 /** Use structured identity/presence, never the possibly clipped status suffix. */
-function rigPresence(parsed: KeyParts, snap: FleetSnapshot): boolean | null {
+function softwareTeamPresence(parsed: KeyParts, snap: FleetSnapshot): boolean | null {
   const host = snap.hosts.find(h => h.name === parsed.parts[0]);
   if (!host?.reachable) return null;
-  return host.rigs.find(r => r.name === parsed.parts[1])?.hasLiveAgents ?? null;
+  return host.softwareTeams.find(r => r.name === parsed.parts[1])?.hasLiveAgents ?? null;
 }
 
 function metaOf(row: ExplorerRow, snap: FleetSnapshot): { text: string; segs: MarkSeg[] } | null {
@@ -116,8 +116,8 @@ function metaOf(row: ExplorerRow, snap: FleetSnapshot): { text: string; segs: Ma
     return { text: value, segs: [{ text: value, token: "dim" }] };
   }
   if (parsed.kind === "pod") {
-    const [host, rig, pod] = parsed.parts;
-    const found = snap.hosts.find((h) => h.name === host)?.rigs.find((r) => r.name === rig)?.pods.find((p) => p.name === pod);
+    const [host, softwareTeam, pod] = parsed.parts;
+    const found = snap.hosts.find((h) => h.name === host)?.softwareTeams.find((r) => r.name === softwareTeam)?.pods.find((p) => p.name === pod);
     return found ? { text: String(found.agents.length), segs: [{ text: String(found.agents.length), token: "dim" }] } : null;
   }
   return null;
@@ -179,8 +179,8 @@ function navigatorLabelsInner(rows: ExplorerRow[], snap: FleetSnapshot, width: n
     // the served-truth glyph paints its activity ROLE (color is for status —
     // the one colored thing on the row; non-status icons stay monochrome)
     const runs: NavigatorMeta[] = [];
-    if (parsed.kind === "rig") {
-      const live = rigPresence(parsed, snap);
+    if (parsed.kind === "software-team") {
+      const live = softwareTeamPresence(parsed, snap);
       runs.push({ start: prefix.length, segs: [{ text: live === null ? "?" : "▦", token: live === true ? "bright" : "dim" }] });
     }
     if (parsed.kind === "agent") {

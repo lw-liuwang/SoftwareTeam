@@ -5,7 +5,7 @@ keeps, using today's queue commands.** The person speaks in sentences. They neve
 unless they ask.
 
 > **Status (0.7.0).** The kernel operator's role guidance points here: when a person asks it to watch something or
-> remind them, it reads this page (installed at `$OPENRIG_HOME/reference/keeping-a-watch.md`) first. Every step below
+> remind them, it reads this page (installed at `$SOFTWARETEAM_HOME/reference/keeping-a-watch.md`) first. Every step below
 > was exercised with the CLI on an isolated private daemon: create, set aside, fire, re-arm, list, change, stop, a
 > daemon restart and a handover. A native run with a real operator, install and channel has **not** been run yet.
 > The usage warning's command and field names are checked against the served command on a test fixture; it hasn't
@@ -20,12 +20,12 @@ A watch is a **queue task the operator owns**, set aside with a **one-shot timer
 3. Then it tells the person, re-arms the timer, or both. **A timer fires once: a watch that isn't re-armed goes
    quiet.**
 
-OpenRig keeps the record and the timer. The operator does the judgment: what to check, and whether it's worth telling
+SoftwareTeam keeps the record and the timer. The operator does the judgment: what to check, and whether it's worth telling
 the person.
 
 ## Before you set one: can you reach the person?
 
-Run `rig gateway human list --json`. A watch tells the person through the registered human channel (Slack today,
+Run `SoftwareTeam gateway human list --json`. A watch tells the person through the registered human channel (Slack today,
 also shown in the TUI Feed), at `<entityId>@external`. **A terminal is never a person's address.** If no human is
 registered, say so now, before setting anything up: a watch that can't reach them is a watch they'll never hear from.
 
@@ -44,17 +44,17 @@ Unknown: not said yet.
 ```
 
 **2. Create it for yourself,** with a `watch` tag so it can be listed later (tags can't be changed after creation).
-`<your session>` is your session name from `rig whoami --json`:
+`<your session>` is your session name from `SoftwareTeam whoami --json`:
 
 ```bash
-rig queue create --destination <your session> --tags watch \
+SoftwareTeam queue create --destination <your session> --tags watch \
   --summary "Watch: tell <person> when the release PR merges (hourly)" --body-file <file>
 ```
 
 **3. Set it aside with the timer.** A new pending task can be set aside directly; no claim is needed:
 
 ```bash
-rig queue block <task> --on external:<what you check> --wake-after 1h \
+SoftwareTeam queue block <task> --on external:<what you check> --wake-after 1h \
   --continuation "check <what>; tell <person> if met, else re-arm 1h"
 ```
 
@@ -69,7 +69,7 @@ with `--wake-after 20m`, and when it fires, tell them and close it.
 
 ## Every time the timer fires: read the record first
 
-When the timer's message arrives, **run `rig queue show <task> --full --json` before doing anything.** A message already
+When the timer's message arrives, **run `SoftwareTeam queue show <task> --full --json` before doing anything.** A message already
 on its way can still arrive after the watch was stopped or changed. If the task is no longer set aside (done, canceled, or replaced),
 do nothing.
 
@@ -77,7 +77,7 @@ Otherwise, check the condition, then do exactly one of these:
 
 | What you found | Do |
 |---|---|
-| **Met, and the watch was "once"** | Tell the person (below), then close: `rig queue update <task> --state done --closure-reason no-follow-on --note "<what you saw>"` |
+| **Met, and the watch was "once"** | Tell the person (below), then close: `SoftwareTeam queue update <task> --state done --closure-reason no-follow-on --note "<what you saw>"` |
 | **Met, and it's "every time"** | Tell the person, then re-arm |
 | **Not met** | Re-arm. Say nothing to the person: never send "nothing yet" |
 | **Can't tell** (no fresh reading) | The first time, tell them once that you can't tell, and why. Record that in a note (`Unknown: said <time>`), then re-arm. **Never say "all fine" for an unknown.** Stay quiet on later unknowns until the reading returns or changes |
@@ -85,12 +85,12 @@ Otherwise, check the condition, then do exactly one of these:
 **Re-arm** by setting it aside again with a fresh timer:
 
 ```bash
-rig queue block <task> --on external:<what> --wake-after 1h --note "checked <time>: not met"
+SoftwareTeam queue block <task> --on external:<what> --wake-after 1h --note "checked <time>: not met"
 ```
 
 A new set-aside replaces the old one and retires any earlier timer, so a task never carries two live timers.
 
-**Put what changed in `--note` or `--continuation`, not both.** When `rig queue block` gets `--continuation`, that is
+**Put what changed in `--note` or `--continuation`, not both.** When `SoftwareTeam queue block` gets `--continuation`, that is
 the note it records, and `--note` is dropped.
 
 Each check costs one of your turns on the person's subscription. **Use the longest interval that serves the ask.**
@@ -98,7 +98,7 @@ Each check costs one of your turns on the person's subscription. **Use the longe
 ## Telling the person
 
 ```bash
-rig queue create --destination <entityId>@external --human-intent update \
+SoftwareTeam queue create --destination <entityId>@external --human-intent update \
   --summary "<subject>" --body-file <brief> --evidence-ref <watch task id> --verify --json
 ```
 
@@ -113,7 +113,7 @@ List **every active state**, not just set-aside ones. A watch being checked can 
 pending:
 
 ```bash
-rig queue list --owned --state pending,in-progress,blocked --full --limit 200 -o json
+SoftwareTeam queue list --owned --state pending,in-progress,blocked --full --limit 200 -o json
 ```
 
 Then keep the tasks tagged `watch`. Two rules:
@@ -132,9 +132,9 @@ Answer from the records, so a second reader would give the same list.
 
 | The person says | Do |
 |---|---|
-| **"Check every 2 hours instead"** | Re-arm with the new interval and a note saying what changed: `rig queue block <task> --on external:<what> --wake-after 2h --note "<person's words>"` |
-| **"Watch Y instead"** (what's checked changes) | A task's body can't be edited. Create the new watch, then retire the old one: `rig queue update <old> --state canceled --closure-reason superseded --closure-target <new> --note "<person's words>"` |
-| **"Stop watching that"** | `rig queue update <task> --state canceled --note "<person's words>"`. Leaving the set-aside state retires its timer. A plain cancel takes no other closure fields |
+| **"Check every 2 hours instead"** | Re-arm with the new interval and a note saying what changed: `SoftwareTeam queue block <task> --on external:<what> --wake-after 2h --note "<person's words>"` |
+| **"Watch Y instead"** (what's checked changes) | A task's body can't be edited. Create the new watch, then retire the old one: `SoftwareTeam queue update <old> --state canceled --closure-reason superseded --closure-target <new> --note "<person's words>"` |
+| **"Stop watching that"** | `SoftwareTeam queue update <task> --state canceled --note "<person's words>"`. Leaving the set-aside state retires its timer. A plain cancel takes no other closure fields |
 
 Tell the person in one line what changed. After a stop, take no further action for that watch.
 
@@ -144,12 +144,12 @@ A set-aside watch's current timer is **kept** when the operator is restarted or 
 the operator next. That's why the body must stand alone.
 
 **One gap:** a timer fires once. If the operator is replaced **after a fire and before the re-arm**, the successor
-inherits a set-aside watch with no live timer. OpenRig's idle-owner check may remind the new operator once, but only
+inherits a set-aside watch with no live timer. SoftwareTeam's idle-owner check may remind the new operator once, but only
 under some conditions, with no delay guarantee. So:
 
 - **Re-arm promptly** after every fire.
 - **After a restart or handover, list your watches** (above) and re-arm any that show no timed backstop.
-- **Handing a watch to another session** (`rig queue handoff <task> --to <session>`) closes the old task and retires its
+- **Handing a watch to another session** (`SoftwareTeam queue handoff <task> --to <session>`) closes the old task and retires its
   timer (unless another task shares that timer through `--wake-watchdog`; a watch set up as above never does). The new
   task arrives pending, with its body and `watch` tag but no timer: the new owner sets it aside again with a fresh
   timer, as in step 3.
@@ -159,18 +159,18 @@ under some conditions, with no delay guarantee. So:
 This is a conditional watch like any other: the same task, timer, re-arm, stop and human channel. Only the check is
 specific.
 
-**The check is `rig provider status --all-hosts --json`.** It returns what every registered machine already holds,
+**The check is `SoftwareTeam provider status --all-hosts --json`.** It returns what every registered machine already holds,
 this one included, and never starts a read on any account. With no host registry it covers this machine only, and
-says so. Use it rather than the single-machine `rig provider status --json`: one allowance used from several
+says so. Use it rather than the single-machine `SoftwareTeam provider status --json`: one allowance used from several
 machines appears once, with each machine's own observation beside it, so you can't count it twice. If it answers that
 usage windows are off, tell the person that before setting the watch, as you would an unreachable channel.
 
-**Never put `--refresh` in the timer's check.** `rig provider status --all-hosts --refresh` starts a native read of the
+**Never put `--refresh` in the timer's check.** `SoftwareTeam provider status --all-hosts --refresh` starts a native read of the
 accounts on every machine. Run it only when the person asks for a fresh reading now.
 
 **Choose the allowance with the person once, and write its identity into the body.**
 - **The allowance:** its `items[].key` and `items[].provider`, read from one run of the check. Show them the allowance
-  by its label in the plain `rig provider status --all-hosts` view, never a key they have to type. An item whose key
+  by its label in the plain `SoftwareTeam provider status --all-hosts` view, never a key they have to type. An item whose key
   is null (a login that hasn't been identified) can't be watched: say so, and offer to watch it once it's identified.
 - **For Codex, the login email too:** `items[].observations[].row.identity.email`, shown on each machine's line in the
   plain view. The same Codex account can appear as more than one item with the same key, one per login email (or none)
@@ -220,7 +220,7 @@ The task body, for the person's own allowance, window and threshold:
 
 ```markdown
 Person's words: "Warn me when my Claude allowance drops below 20% of its 5-hour window; check every 30 minutes."
-Check: `rig provider status --all-hosts --json` (served readings only; never --refresh).
+Check: `SoftwareTeam provider status --all-hosts --json` (served readings only; never --refresh).
 Allowance: key <allowance key>, provider claude, window five_hour. Chosen with the person.
 (For Codex, also: login email <email shown in the label>.)
 Usable: a fresh observation of that window whose level isn't unknown.
@@ -240,10 +240,10 @@ Unknown: not said yet.
 
 ## What not to use
 
-- **`rig watchdog register --policy periodic-reminder` for a person's watch.** It repeats every interval until it's
+- **`SoftwareTeam watchdog register --policy periodic-reminder` for a person's watch.** It repeats every interval until it's
   stopped (the first fire comes one interval after you register it), and it stops when the agent that registered it
   is replaced. It's fine for agent-to-agent reminders. Your own watch timers also show as `periodic-reminder` in
-  `rig watchdog list`: that's the one-shot timer `--wake-after` arms, not a registered repeating reminder. It's retired
+  `SoftwareTeam watchdog list`: that's the one-shot timer `--wake-after` arms, not a registered repeating reminder. It's retired
   when it fires or when the task stops being set aside. A wake held back because you were typing (a retained
   delivery) wasn't delivered, so it doesn't use the timer up: it's tried again at each interval until an attempt goes
   through (delivered or failed), which retires it. A timer another task shares through `--wake-watchdog` stays live

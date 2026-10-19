@@ -13,9 +13,9 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
       state: "running",
       healthy: true,
       pid: 1234,
-      port: 7433,
+      port: 7434,
     })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -67,7 +67,7 @@ function makeDeps(opts?: {
   };
 }
 
-describe("rig workflow CLI (PL-004 Phase D)", () => {
+describe("SoftwareTeam workflow CLI (PL-004 Phase D)", () => {
   let logs: string[];
   let errors: string[];
 
@@ -103,7 +103,7 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
     });
     const program = createProgram({ workflowDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "workflow", "validate", "/abs/path.yaml", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "workflow", "validate", "/abs/path.yaml", "--json"]);
     const call = calls.find((c) => c.path === "/api/workflow/validate");
     expect((call!.body as { specPath: string }).specPath).toBe("/abs/path.yaml");
   });
@@ -114,7 +114,7 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
     });
     const program = createProgram({ workflowDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "workflow", "compile", "/workspace/missions/release", "--operation-key", "release-op", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "workflow", "compile", "/workspace/missions/release", "--operation-key", "release-op", "--json"]);
     expect(calls.find((call) => call.path === "/api/workflow/compile")?.body).toEqual({
       missionPath: "/workspace/missions/release",
       operationKey: "release-op",
@@ -128,17 +128,17 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
     const program = createProgram({ workflowDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "workflow", "instantiate-lifecycle", "/workspace/missions/release",
-      "--operation-key", "release-op", "--root-objective", "ship", "--created-by", "orch@rig",
-      "--entry-owner", "builder@rig", "--rig", "rig", "--json",
+      "node", "softwareTeam", "workflow", "instantiate-lifecycle", "/workspace/missions/release",
+      "--operation-key", "release-op", "--root-objective", "ship", "--created-by", "orch@software-team",
+      "--entry-owner", "builder@software-team", "--software-team", "softwareTeam", "--json",
     ]);
     expect(calls.find((call) => call.path === "/api/workflow/instantiate-lifecycle")?.body).toEqual({
       missionPath: "/workspace/missions/release",
       operationKey: "release-op",
       rootObjective: "ship",
-      createdBySession: "orch@rig",
-      entryOwnerSession: "builder@rig",
-      targetRig: "rig",
+      createdBySession: "orch@software-team",
+      entryOwnerSession: "builder@software-team",
+      targetSoftwareTeam: "softwareTeam",
     });
   });
 
@@ -147,8 +147,8 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
     for (const path of ["missions/release", resolve("missions/release")]) {
       const program = createProgram({ workflowDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "workflow", verb, path, "--operation-key", "release-op", "--json",
-        ...(verb === "instantiate-lifecycle" ? ["--root-objective", "ship", "--created-by", "orch@rig"] : [])]);
+      await program.parseAsync(["node", "softwareTeam", "workflow", verb, path, "--operation-key", "release-op", "--json",
+        ...(verb === "instantiate-lifecycle" ? ["--root-objective", "ship", "--created-by", "orch@software-team"] : [])]);
     }
     const requests = calls.filter((call) => call.path === `/api/workflow/${verb}`);
     expect(requests).toHaveLength(2);
@@ -160,8 +160,8 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
     const { deps, calls } = makeDeps();
     const program = createProgram({ workflowDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "workflow", verb, "./workflows/selected.workflow.md", "--json",
-      ...(verb === "validate" ? [] : ["--root-objective", "ship", "--created-by", "orch@rig"])]);
+    await program.parseAsync(["node", "softwareTeam", "workflow", verb, "./workflows/selected.workflow.md", "--json",
+      ...(verb === "validate" ? [] : ["--root-objective", "ship", "--created-by", "orch@software-team"])]);
     const route = verb === "validate" ? "/api/workflow/validate" : "/api/workflow/instantiate";
     expect(calls.find(call => call.path === route)?.body).toMatchObject({ specPath: resolve("workflows/selected.workflow.md") });
   });
@@ -174,7 +174,7 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
       for (const source of ["conveyor", "cached.workflow.md", file]) {
         const program = createProgram({ workflowDeps: deps });
         program.exitOverride();
-        await program.parseAsync(["node", "rig", "workflow", verb, source, "--json", "--root-objective", "ship", "--created-by", "orch@rig"]);
+        await program.parseAsync(["node", "softwareTeam", "workflow", verb, source, "--json", "--root-objective", "ship", "--created-by", "orch@software-team"]);
       }
       const requests = calls.filter(call => call.path === "/api/workflow/instantiate");
       expect(requests[0]?.body).toMatchObject({ specPath: "conveyor" });
@@ -191,7 +191,7 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
     try {
       const program = createProgram({ workflowDeps: deps });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "workflow", verb, "conveyor", "--json", "--root-objective", "ship", "--created-by", "orch@rig"]);
+      await program.parseAsync(["node", "softwareTeam", "workflow", verb, "conveyor", "--json", "--root-objective", "ship", "--created-by", "orch@software-team"]);
       expect(calls.find(call => call.path === "/api/workflow/instantiate")?.body).toMatchObject({ specPath: "conveyor" });
     } finally {
       rmdirSync("conveyor");
@@ -205,18 +205,18 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
     const program = createProgram({ workflowDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "workflow", "instantiate", "/abs/spec.yaml",
+      "node", "softwareTeam", "workflow", "instantiate", "/abs/spec.yaml",
       "--root-objective", "test obj",
-      "--created-by", "ops@rig",
-      "--entry-owner", "alice@rig",
+      "--created-by", "ops@software-team",
+      "--entry-owner", "alice@software-team",
       "--json",
     ]);
     const call = calls.find((c) => c.path === "/api/workflow/instantiate");
     const body = call!.body as Record<string, string>;
     expect(body.specPath).toBe("/abs/spec.yaml");
     expect(body.rootObjective).toBe("test obj");
-    expect(body.createdBySession).toBe("ops@rig");
-    expect(body.entryOwnerSession).toBe("alice@rig");
+    expect(body.createdBySession).toBe("ops@software-team");
+    expect(body.entryOwnerSession).toBe("alice@software-team");
   });
 
   it("project POSTs /api/workflow/project with all fields incl exit", async () => {
@@ -226,11 +226,11 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
     const program = createProgram({ workflowDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "workflow", "project",
+      "node", "softwareTeam", "workflow", "project",
       "--instance", "inst-1",
       "--current-packet", "q-1",
       "--exit", "handoff",
-      "--actor-session", "producer@rig",
+      "--actor-session", "producer@software-team",
       "--result-note", "produced",
       "--json",
     ]);
@@ -239,7 +239,7 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
     expect(body.instanceId).toBe("inst-1");
     expect(body.currentPacketId).toBe("q-1");
     expect(body.exit).toBe("handoff");
-    expect(body.actorSession).toBe("producer@rig");
+    expect(body.actorSession).toBe("producer@software-team");
     expect(body.resultNote).toBe("produced");
   });
 
@@ -249,9 +249,9 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
         "POST /api/workflow/instantiate": {
           status: 201,
           data: {
-            instance: { instanceId: "wf-1", status: "active", boundRig: "rig" },
+            instance: { instanceId: "wf-1", status: "active", boundSoftwareTeam: "softwareTeam" },
             entryQitemId: "q-1",
-            entryOwnerSession: "dev-a@rig",
+            entryOwnerSession: "dev-a@software-team",
             advisories: [],
           },
         },
@@ -260,14 +260,14 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
     const program = createProgram({ workflowDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "workflow", "instantiate", "/abs/spec.yaml",
+      "node", "softwareTeam", "workflow", "instantiate", "/abs/spec.yaml",
       "--root-objective", "test obj",
-      "--created-by", "ops@rig",
+      "--created-by", "ops@software-team",
     ]);
     const out = logs.join("\n");
     expect(out).toMatch(/what:\s+Instantiated workflow from \/abs\/spec\.yaml \(instance wf-1\)/);
-    expect(out).toMatch(/state:\s+active; bound to rig rig; entry packet q-1 owned by dev-a@rig/);
-    expect(out).toMatch(/next:\s+Inspect: rig workflow show wf-1 \| Open packet: rig queue show q-1/);
+    expect(out).toMatch(/state:\s+active; bound to SoftwareTeam softwareTeam; entry packet q-1 owned by dev-a@software-team/);
+    expect(out).toMatch(/next:\s+Inspect: SoftwareTeam workflow show wf-1 \| Open packet: SoftwareTeam queue show q-1/);
   });
 
   it("project summary names the packet the daemon projected and its owner", async () => {
@@ -280,7 +280,7 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
             closurePriorPacketId: "q-1",
             closureReason: "handoff",
             nextQitemId: "q-2",
-            nextOwnerSession: "dev-b@rig",
+            nextOwnerSession: "dev-b@software-team",
             nextStepId: "two",
           },
         },
@@ -289,16 +289,16 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
     const program = createProgram({ workflowDeps: deps });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "workflow", "project",
+      "node", "softwareTeam", "workflow", "project",
       "--instance", "inst-1",
       "--current-packet", "q-1",
       "--exit", "handoff",
-      "--actor-session", "dev-a@rig",
+      "--actor-session", "dev-a@software-team",
     ]);
     const out = logs.join("\n");
-    expect(out).toMatch(/what:\s+Closed q-1 \(handoff\) and projected q-2 to dev-b@rig/);
+    expect(out).toMatch(/what:\s+Closed q-1 \(handoff\) and projected q-2 to dev-b@software-team/);
     expect(out).toMatch(/state:\s+instance inst-1 = active/);
-    expect(out).toMatch(/next:\s+Inspect: rig queue show q-2/);
+    expect(out).toMatch(/next:\s+Inspect: SoftwareTeam queue show q-2/);
   });
 
   it("list GETs /api/workflow/list optionally with status filter", async () => {
@@ -307,7 +307,7 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
     });
     const program = createProgram({ workflowDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "workflow", "list", "--status", "active", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "workflow", "list", "--status", "active", "--json"]);
     expect(calls.find((c) => c.path === "/api/workflow/list?status=active")).toBeDefined();
   });
 
@@ -317,7 +317,7 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
     });
     const program = createProgram({ workflowDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "workflow", "show", "inst-1", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "workflow", "show", "inst-1", "--json"]);
     expect(calls.find((c) => c.path === "/api/workflow/inst-1")).toBeDefined();
   });
 
@@ -327,7 +327,7 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
     });
     const program = createProgram({ workflowDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "workflow", "trace", "inst-1", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "workflow", "trace", "inst-1", "--json"]);
     expect(calls.find((c) => c.path === "/api/workflow/inst-1/trace")).toBeDefined();
   });
 
@@ -337,7 +337,7 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
     });
     const program = createProgram({ workflowDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "workflow", "continue", "inst-1", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "workflow", "continue", "inst-1", "--json"]);
     expect(calls.find((c) => c.path === "/api/workflow/inst-1/continue")).toBeDefined();
   });
 
@@ -346,23 +346,23 @@ describe("rig workflow CLI (PL-004 Phase D)", () => {
     const routeProgram = createProgram({ workflowDeps: deps });
     routeProgram.exitOverride();
     await routeProgram.parseAsync([
-      "node", "rig", "workflow", "route", "wf-1", "--packet", "q-left", "--to", "left2@rig",
-      "--actor-session", "orch@rig", "--reason", "seat retired", "--json",
+      "node", "softwareTeam", "workflow", "route", "wf-1", "--packet", "q-left", "--to", "left2@software-team",
+      "--actor-session", "orch@software-team", "--reason", "seat retired", "--json",
     ]);
     const resumeProgram = createProgram({ workflowDeps: deps });
     resumeProgram.exitOverride();
     await resumeProgram.parseAsync([
-      "node", "rig", "workflow", "resume", "wf-1", "--occurrence", "q-failed",
-      "--actor-session", "orch@rig", "--decision", "retry exact branch", "--json",
+      "node", "softwareTeam", "workflow", "resume", "wf-1", "--occurrence", "q-failed",
+      "--actor-session", "orch@software-team", "--decision", "retry exact branch", "--json",
     ]);
     const abortProgram = createProgram({ workflowDeps: deps });
     abortProgram.exitOverride();
     await abortProgram.parseAsync([
-      "node", "rig", "workflow", "abort", "wf-1", "--reason", "operator stopped",
-      "--actor-session", "orch@rig", "--json",
+      "node", "softwareTeam", "workflow", "abort", "wf-1", "--reason", "operator stopped",
+      "--actor-session", "orch@software-team", "--json",
     ]);
     expect(calls.find((call) => call.path === "/api/workflow/wf-1/route")?.body).toMatchObject({ packetId: "q-left" });
     expect(calls.find((call) => call.path === "/api/workflow/wf-1/resume")?.body).toMatchObject({ occurrenceId: "q-failed" });
-    expect(calls.find((call) => call.path === "/api/workflow/wf-1/abort")?.body).toEqual({ reason: "operator stopped", actorSession: "orch@rig" });
+    expect(calls.find((call) => call.path === "/api/workflow/wf-1/abort")?.body).toEqual({ reason: "operator stopped", actorSession: "orch@software-team" });
   });
 });

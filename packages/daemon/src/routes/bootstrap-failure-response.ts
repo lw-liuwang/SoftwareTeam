@@ -19,14 +19,14 @@ export function bootstrapFailureResponse(result: BootstrapResult, mode: "plan" |
     return { body: result, status: httpStatus };
   }
 
-  // Conflict messages may be in stage detail (flat rigs) or errors (pod rigs).
+  // Conflict messages may be in stage detail (flat softwareTeams) or errors (pod softwareTeams).
   const hasBlocked = result.stages.some((s) => s.status === "blocked");
   let topLevelCode: string | undefined;
   let conflictError: string | undefined;
   const hasConflict = result.stages.some((s) => {
-    if (s.status !== "failed" || s.stage !== "import_rig") return false;
+    if (s.status !== "failed" || s.stage !== "import_software_team") return false;
     const detail = s.detail as { code?: string; message?: string } | undefined;
-    if (detail?.code !== "rig_name_running" && detail?.code !== "generation_unconfirmed") return false;
+    if (detail?.code !== "software_team_name_running" && detail?.code !== "generation_unconfirmed") return false;
     topLevelCode ??= detail.code;
     conflictError ??= detail.message ?? result.errors[0];
     return true;
@@ -37,7 +37,7 @@ export function bootstrapFailureResponse(result: BootstrapResult, mode: "plan" |
     const code = detail?.code;
     if (!code) return false;
     const isResolveSpec4xx = s.stage === "resolve_spec" && (code === "file_not_found" || code === "parse_error" || code === "validation_failed" || code === "bundle_error" || code === "target_conflict" || code === "cycle_error" || code === "invalid_cwd");
-    const isImportRig4xx = s.stage === "import_rig" && (code === "validation_failed" || code === "preflight_failed" || code === "cycle_error" || code === "service_boot_failed" || code === "compose_project_conflict");
+    const isImportRig4xx = s.stage === "import_software_team" && (code === "validation_failed" || code === "preflight_failed" || code === "cycle_error" || code === "service_boot_failed" || code === "compose_project_conflict");
     if (isResolveSpec4xx || isImportRig4xx) {
       topLevelCode ??= code;
       return true;

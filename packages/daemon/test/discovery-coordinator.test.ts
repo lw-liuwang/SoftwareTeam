@@ -4,7 +4,7 @@ import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { DiscoveryCoordinator } from "../src/domain/discovery-coordinator.js";
 import { ClaimService } from "../src/domain/claim-service.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { DiscoveryRepository } from "../src/domain/discovery-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
@@ -132,9 +132,9 @@ describe("DiscoveryCoordinator", () => {
 
   // T5a: Session-level binding filters all panes in that session
   it("session-level managed binding filters all panes", async () => {
-    // Create a managed rig + node + binding with no pane
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "r01");
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)").run("n-1", "rig-1", "dev");
+    // Create a managed softwareTeam + node + binding with no pane
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "r01");
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)").run("n-1", "software-team-1", "dev");
     db.prepare("INSERT INTO bindings (id, node_id, tmux_session) VALUES (?, ?, ?)").run("b-1", "n-1", "r01-dev");
 
     const panes = [
@@ -153,8 +153,8 @@ describe("DiscoveryCoordinator", () => {
 
   // T5b: Pane-level binding filters only that pane
   it("pane-level managed binding filters only that pane", async () => {
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "r01");
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)").run("n-1", "rig-1", "dev");
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "r01");
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)").run("n-1", "software-team-1", "dev");
     db.prepare("INSERT INTO bindings (id, node_id, tmux_session, tmux_pane) VALUES (?, ?, ?, ?)").run("b-1", "n-1", "multi", "%1");
 
     const panes = [
@@ -179,8 +179,8 @@ describe("DiscoveryCoordinator", () => {
     expect(first).toHaveLength(1);
 
     // Claim it
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "r01");
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)").run("n-1", "rig-1", "dev");
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "r01");
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)").run("n-1", "software-team-1", "dev");
     discoveryRepo.markClaimed(first[0]!.id, "n-1");
 
     // Second scan should not re-discover it
@@ -206,23 +206,23 @@ describe("DiscoveryCoordinator", () => {
     const discovered = discoveryRepo.upsertDiscoveredSession({
       ...pane, cwd: "/before", runtimeHint: "unknown", confidence: "low",
     });
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "r01");
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)").run("n-1", "rig-1", "first");
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)").run("n-2", "rig-1", "second");
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "r01");
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)").run("n-1", "software-team-1", "first");
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)").run("n-2", "software-team-1", "second");
     const claims = new ClaimService({
-      db, discoveryRepo, sessionRegistry, eventBus, rigRepo: new RigRepository(db),
+      db, discoveryRepo, sessionRegistry, eventBus, softwareTeamRepo: new SoftwareTeamRepository(db),
     });
 
     const scan = coordinator.scanOnce();
     await entered;
     try {
-      expect(await claims.bind({ discoveredId: discovered.id, rigId: "rig-1", logicalId: "first" }))
+      expect(await claims.bind({ discoveredId: discovered.id, softwareTeamId: "software-team-1", logicalId: "first" }))
         .toMatchObject({ ok: true, nodeId: "n-1" });
     } finally {
       releaseFingerprint();
     }
     const results = await scan;
-    const duplicate = await claims.bind({ discoveredId: discovered.id, rigId: "rig-1", logicalId: "second" });
+    const duplicate = await claims.bind({ discoveredId: discovered.id, softwareTeamId: "software-team-1", logicalId: "second" });
 
     expect(duplicate).toMatchObject({ ok: false, code: "not_active" });
     expect(discoveryRepo.getDiscoveredSession(discovered.id)).toMatchObject({
@@ -242,8 +242,8 @@ describe("DiscoveryCoordinator", () => {
     expect(repo.upsertDiscoveredSession(data)).toMatchObject({
       id: first.id, firstSeenAt: first.firstSeenAt, status: "active", claimedNodeId: null,
     });
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "r01");
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)").run("n-1", "rig-1", "dev");
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "r01");
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)").run("n-1", "software-team-1", "dev");
     repo.markClaimed(first.id, "n-1");
     repo.releaseClaimByNodeId("n-1");
     expect(repo.upsertDiscoveredSession({ ...data, cwd: "/updated" })).toMatchObject({
@@ -334,8 +334,8 @@ describe("DiscoveryCoordinator", () => {
     const s2 = repo.upsertDiscoveredSession({
       tmuxSession: "test2", tmuxPane: "%0", runtimeHint: "codex", confidence: "high",
     });
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "r01");
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)").run("n-1", "rig-1", "dev");
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "r01");
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)").run("n-1", "software-team-1", "dev");
     repo.markClaimed(s2.id, "n-1");
     expect(repo.getDiscoveredSession(s2.id)!.status).toBe("claimed");
   });

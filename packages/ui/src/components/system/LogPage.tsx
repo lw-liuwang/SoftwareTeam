@@ -15,7 +15,7 @@ export function LogPage() {
       {events.length === 0 ? (
         <EmptyState
           label="LOG IS QUIET"
-          description="Activity events from rigs will stream here."
+          description="Activity events from software_teams will stream here."
           variant="card"
           testId="settings-log-empty"
         />

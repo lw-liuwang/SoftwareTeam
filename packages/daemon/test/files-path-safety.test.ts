@@ -30,34 +30,34 @@ describe("UI Enhancement Pack v0 — readAllowlistFromEnv", () => {
 
   it("parses comma-separated name:path pairs", () => {
     const list = readAllowlistFromEnv({
-      OPENRIG_FILES_ALLOWLIST: "workspace:/abs/path1, openrig-hub: /abs/path2",
+      SOFTWARETEAM_FILES_ALLOWLIST: "workspace:/abs/path1, softwareteam-hub: /abs/path2",
     });
     expect(list).toHaveLength(2);
     expect(list[0]?.name).toBe("workspace");
-    expect(list[1]?.name).toBe("openrig-hub");
+    expect(list[1]?.name).toBe("softwareteam-hub");
   });
 
   it("ignores pairs with no colon, empty name, or non-absolute path", () => {
     const list = readAllowlistFromEnv({
-      OPENRIG_FILES_ALLOWLIST: "no-colon-here, :missing-name, name:relative-path, ok:/abs/ok",
+      SOFTWARETEAM_FILES_ALLOWLIST: "no-colon-here, :missing-name, name:relative-path, ok:/abs/ok",
     });
     expect(list.map((r) => r.name)).toEqual(["ok"]);
   });
 
   it("dedupes by name (last wins)", () => {
     const list = readAllowlistFromEnv({
-      OPENRIG_FILES_ALLOWLIST: "x:/path/a, x:/path/b",
+      SOFTWARETEAM_FILES_ALLOWLIST: "x:/path/a, x:/path/b",
     });
     expect(list).toHaveLength(1);
     expect(list[0]?.canonicalPath).toContain("/path/b");
   });
 
-  it("falls back to RIGGED_FILES_ALLOWLIST when OPENRIG_FILES_ALLOWLIST is empty", () => {
+  it("falls back to SOFTWARETEAM_FILES_ALLOWLIST when SOFTWARETEAM_FILES_ALLOWLIST is empty", () => {
     const list = readAllowlistFromEnv({
-      OPENRIG_FILES_ALLOWLIST: "",
+      SOFTWARETEAM_FILES_ALLOWLIST: "",
       RIGGED_FILES_ALLOWLIST: "legacy:/abs/legacy",
     });
-    expect(list.map((r) => r.name)).toEqual(["legacy"]);
+    expect(list.map((r) => r.name)).toEqual([]);
   });
 });
 

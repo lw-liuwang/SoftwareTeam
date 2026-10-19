@@ -51,7 +51,7 @@ describe("buildStorytellingFeedItems — production adapter", () => {
     const items = buildStorytellingFeedItems(
       [
         { name: "release-0.3.1", path: "missions/release-0.3.1" },
-        { name: "demo-video-rig-v0", path: "missions/demo-video-rig-v0" },
+        { name: "demo-video-software-team-v0", path: "missions/demo-video-software-team-v0" },
       ],
       [],
     );
@@ -145,7 +145,7 @@ describe("buildStorytellingFeedItems — production adapter", () => {
       [],
       undefined,
       [
-        makeApprovalFeedCard({ qitemId: "qitem-abc", title: "Approve this", body: "body text", authorSession: "advisor@rig" }),
+        makeApprovalFeedCard({ qitemId: "qitem-abc", title: "Approve this", body: "body text", authorSession: "advisor@software-team" }),
         makeApprovalFeedCard({ qitemId: "qitem-def", altKey: "qitem_id", title: "Approve that" }),
       ],
     );
@@ -154,7 +154,7 @@ describe("buildStorytellingFeedItems — production adapter", () => {
     if (items[0]!.kind === "approval") {
       expect(items[0]!.source.qitemId).toBe("qitem-abc");
       expect(items[0]!.source.title).toBe("Approve this");
-      expect(items[0]!.source.oneLiner).toContain("advisor@rig");
+      expect(items[0]!.source.oneLiner).toContain("advisor@software-team");
       expect(items[0]!.source.bodyPreview).toBe("body text");
       expect(items[0]!.source.drillInHref).toBe("/for-you");
     }

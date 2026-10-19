@@ -50,7 +50,7 @@ export interface SlackMediaRef {
 }
 
 export interface OutboundMessageOpts {
-  sourceLabel: string; // where the queue lives (host/box/rig), from config — never hardcoded
+  sourceLabel: string; // where the queue lives (host/box/softwareTeam), from config — never hardcoded
   /** @deprecated Ignored: complete briefs are rendered or explicitly refused. */
   bodyExcerpt?: number;
   /** @deprecated Refused without an accessible projection; use mediaRefs. */
@@ -62,7 +62,7 @@ export interface OutboundMessageOpts {
    *  `image` block: Slack rejects the ENTIRE message with `invalid_blocks` when an image
    *  block's URL is not a real image, silently and permanently breaking delivery. */
   evidenceLink?: string | null;
-  /** S10 / A1.2 — the structured seat-attribution header (rig/host/seat/session), rendered as
+  /** S10 / A1.2 — the structured seat-attribution header (softwareTeam/host/seat/session), rendered as
    *  one sender context line in ONE honest bot identity. Authorship lives in OUR record;
    *  Slack's transport actor stays the app. NEVER a per-message username/icon override. */
   attribution?: SeatAttribution;
@@ -77,18 +77,18 @@ export interface OutboundMessageOpts {
 /** A1.2 — the four attribution fields. */
 export interface SeatAttribution {
   seat: string;
-  rig?: string;
+  softwareTeam?: string;
   host?: string;
   session: string;
 }
 
-/** Parse the stamped session triple (`member@rig[@host]`, the 51-09 stored form) into the
+/** Parse the stamped session triple (`member@software-team[@host]`, the 51-09 stored form) into the
  *  attribution fields. A bare/unparseable ref degrades to seat=session (never a throw). */
 export function attributionFromSession(sourceSession: string | null | undefined): SeatAttribution | undefined {
   if (!sourceSession) return undefined;
   const parts = sourceSession.split("@");
   if (parts.length >= 2) {
-    const a: SeatAttribution = { seat: `${parts[0]}@${parts[1]}`, rig: parts[1], session: sourceSession };
+    const a: SeatAttribution = { seat: `${parts[0]}@${parts[1]}`, softwareTeam: parts[1], session: sourceSession };
     if (parts.length >= 3) a.host = parts.slice(2).join("@");
     return a;
   }

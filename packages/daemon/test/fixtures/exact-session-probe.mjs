@@ -9,7 +9,7 @@ const moduleRoot = sourceRoot ? join(sourceRoot, "packages/daemon/src") : fileUR
 const load = name => import(pathToFileURL(join(moduleRoot, name + (sourceRoot ? ".ts" : ".js"))));
 const { TmuxAdapter } = await load("adapters/tmux");
 const { migrate } = await load("db/migrate"), { ALL_MIGRATIONS } = await load("db/all-migrations");
-const { RigRepository } = await load("domain/rig-repository"), { SessionRegistry } = await load("domain/session-registry");
+const { SoftwareTeamRepository } = await load("domain/software-team-repository"), { SessionRegistry } = await load("domain/session-registry");
 const { EventBus } = await load("domain/event-bus"), { Reconciler } = await load("domain/reconciler");
 const execute = promisify(execFile), socket = join(home, "tmux.sock");
 const native = async args => (await execute("tmux", ["-S", socket, ...args], { timeout: 5000 })).stdout;
@@ -35,18 +35,18 @@ try {
       "missing list-panes target must not resolve to the live prefix neighbor");
   }
   migrate(db, ALL_MIGRATIONS);
-  const repo = new RigRepository(db), registry = new SessionRegistry(db), eventBus = new EventBus(db);
-  const rig = repo.createRig("demo"), neighborRig = repo.createRig("demo2");
-  const missingNode = repo.addNode(rig.id, "worker", { runtime: "terminal" });
-  const liveNode = repo.addNode(neighborRig.id, "worker", { runtime: "terminal" });
+  const repo = new SoftwareTeamRepository(db), registry = new SessionRegistry(db), eventBus = new EventBus(db);
+  const softwareTeam = repo.createSoftwareTeam("demo"), neighborSoftwareTeam = repo.createSoftwareTeam("demo2");
+  const missingNode = repo.addNode(softwareTeam.id, "worker", { runtime: "terminal" });
+  const liveNode = repo.addNode(neighborSoftwareTeam.id, "worker", { runtime: "terminal" });
   const missing = registry.registerSession(missingNode.id, "worker@demo");
   const live = registry.registerSession(liveNode.id, "worker@demo2");
   registry.updateStatus(missing.id, "running"); registry.updateStatus(live.id, "running");
   const reconciler = new Reconciler({ db, sessionRegistry: registry, eventBus, tmuxAdapter: argv });
-  assert.deepEqual(await reconciler.reconcile(rig.id), { checked: 1, detached: 1, errors: [] });
+  assert.deepEqual(await reconciler.reconcile(softwareTeam.id), { checked: 1, detached: 1, errors: [] });
   assert.deepEqual(missingProbes, ["absent", "absent"], "missing session must not prefix-match its neighbor");
-  assert.equal(registry.getSessionsForRig(rig.id)[0].status, "detached");
-  assert.equal(registry.getSessionsForRig(neighborRig.id)[0].status, "running");
+  assert.equal(registry.getSessionsForSoftwareTeam(softwareTeam.id)[0].status, "detached");
+  assert.equal(registry.getSessionsForSoftwareTeam(neighborSoftwareTeam.id)[0].status, "running");
   assert.equal((await argv.probeSession("worker@demo2")).state, "present");
   // Literal-leading-equals case also reported by lab1207 in PR #460.
   // Each arrangement uses real tmux targets through both adapter APIs.

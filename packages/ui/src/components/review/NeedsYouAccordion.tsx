@@ -152,7 +152,7 @@ export function NeedsYouAccordion({
   ctx: EvidenceContext;
   /** FR-9 deep link: auto-expand this identity on load. */
   anchorIdentity?: string | null;
-  /** OPR.0.4.4.22 — APPROVE is a slice-terminal act; the rig altitude hides
+  /** OPR.0.4.4.22 — APPROVE is a slice-terminal act; the softwareTeam altitude hides
    *  it (zoom into the slice to approve — zoom, don't inline). Extension in
    *  this one home; P2 pages keep the default true. */
   showApprove?: boolean;

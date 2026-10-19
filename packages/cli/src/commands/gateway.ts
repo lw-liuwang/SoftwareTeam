@@ -1,11 +1,11 @@
 import { Command } from "commander";
 import { resolveSenderSession, SENDER_FALLBACK } from "../sender-identity.js";
 // The human registry is home-state owned by the daemon; the verb LAZY-imports the narrow
-// @openrig/daemon/gateway-human-registry surface at invocation (the C3/crash-cart dep rail —
+// @softwareteam/daemon/gateway-human-registry surface at invocation (the C3/crash-cart dep rail —
 // one source, no twin). Type-only import keeps the surface off the eager cli graph.
-import type { addHumanFragment as AddHumanFragment } from "@openrig/daemon/gateway-human-registry";
+import type { addHumanFragment as AddHumanFragment } from "@softwareteam/daemon/gateway-human-registry";
 
-// `rig gateway human add` — the verb-add-only surface for the human registry (M1 A3).
+// `softwareTeam gateway human add` — the verb-add-only surface for the human registry (M1 A3).
 // Operators NEVER hand-create the fragment YAML; the verb owns it (validate -> atomic
 // write -> re-project). address is DERIVED as <entityId>@external (the registered
 // convention, pinned by the schema); no-clobber unless --replace is passed explicitly.
@@ -77,7 +77,7 @@ export async function daemonHumanReadiness(entityId: string): Promise<HumanReadi
       active: null,
       ready: false,
       reason: `delivery readiness could not be read from the daemon: ${(error as Error).message}`,
-      nextAction: "rig status",
+      nextAction: "SoftwareTeam status",
     };
   }
 }
@@ -134,7 +134,7 @@ export function gatewayCommand(deps: GatewayCommandDeps = {}): Command {
     .requiredOption("--display-name <name>", "Human-readable display name")
     .requiredOption(
       "--binding <kind:connectorRef:secretsRef:role[:handle=<id>]>",
-      "Connector binding (repeatable); role primary|secondary, EXACTLY ONE primary. connectorRef and secretsRef are config/vault labels (e.g. for Slack: slack:openrig-personal:file:<env-path>:primary:handle=<id>; tokens come from 'rig slack setup --secrets-env-file', never inline). Optional handle=<platform id> makes the binding inbound-resolvable (unique per kind); omit it for outbound-only.",
+      "Connector binding (repeatable); role primary|secondary, EXACTLY ONE primary. connectorRef and secretsRef are config/vault labels (e.g. for Slack: slack:softwareteam-personal:file:<env-path>:primary:handle=<id>; tokens come from 'SoftwareTeam slack setup --secrets-env-file', never inline). Optional handle=<platform id> makes the binding inbound-resolvable (unique per kind); omit it for outbound-only.",
       (v: string, acc: string[] = []) => { acc.push(v); return acc; },
     )
     .requiredOption("--delivery-class <A|B|C|D>", "Notification loudness class (the notifications register selection)")
@@ -144,7 +144,7 @@ export function gatewayCommand(deps: GatewayCommandDeps = {}): Command {
     .option("--actor <actor>", "Named operator when outside a managed seat")
     .action(async (entityId: string, opts: { displayName: string; binding: string[]; deliveryClass: string; away?: boolean; replace?: boolean; reason: string; actor?: string }) => {
       // LAZY import the narrow daemon surface at invocation (dep rail 2).
-      const registry = await import("@openrig/daemon/gateway-human-registry");
+      const registry = await import("@softwareteam/daemon/gateway-human-registry");
       const { addHumanFragment, parseBindingSpec } = registry as unknown as {
         addHumanFragment: typeof AddHumanFragment;
         parseBindingSpec: (spec: string) => { ok: true; binding: Record<string, unknown> } | { ok: false; error: string };
@@ -162,8 +162,8 @@ export function gatewayCommand(deps: GatewayCommandDeps = {}): Command {
       if (existing.humans.length > 0 && !existing.humans.some((h) => h.entityId === entityId)) {
         const ids = existing.humans.map((h) => h.entityId).join(", ");
         console.error(
-          `refused: a human is already configured (${ids}). OpenRig supports one configured human, so \`rig gateway human add\` manages one; ` +
-          `to register someone else, remove the existing one first (\`rig gateway human remove <entityId>\`). Fragments hand-authored under ${registry.humansDir()} ` +
+          `refused: a human is already configured (${ids}). SoftwareTeam supports one configured human, so \`SoftwareTeam gateway human add\` manages one; ` +
+          `to register someone else, remove the existing one first (\`SoftwareTeam gateway human remove <entityId>\`). Fragments hand-authored under ${registry.humansDir()} ` +
           `are displayed as found, with an advisory, but no command manages several.`,
         );
         process.exitCode = 1;
@@ -203,15 +203,15 @@ export function gatewayCommand(deps: GatewayCommandDeps = {}): Command {
 Binding specification details:
   Format: <kind:connectorRef:secretsRef:role[:handle=<id>]>
   - kind: Connector kind (e.g. "slack")
-  - connectorRef: Configuration label identifying the connector instance (e.g. "openrig-personal" or "main")
+  - connectorRef: Configuration label identifying the connector instance (e.g. "softwareteam-personal" or "main")
   - secretsRef: Pointer or label identifying where secrets are resolved (e.g. "file:/path/to/slack.env" or "vault://slack/user").
-    NOTE: Never pass credentials or tokens inline here; credentials (like SLACK_BOT_TOKEN) are loaded from the connector's secrets env file (configured via 'rig slack setup --secrets-env-file').
+    NOTE: Never pass credentials or tokens inline here; credentials (like SLACK_BOT_TOKEN) are loaded from the connector's secrets env file (configured via 'SoftwareTeam slack setup --secrets-env-file').
   - role: "primary" (exactly one binding must be primary) or "secondary"
   - handle: Optional platform user identifier (e.g. "handle=U12345678") for inbound routing
 
 Example:
-  rig gateway human add alice --display-name "Alice" \\
-    --binding "slack:openrig-personal:file:/etc/openrig/slack.env:primary:handle=U12345678" \\
+  SoftwareTeam gateway human add alice --display-name "Alice" \\
+    --binding "slack:softwareteam-personal:file:/etc/softwareteam/slack.env:primary:handle=U12345678" \\
     --delivery-class B`);
 
   // ── S12 (OPR.0.5.5.12): the fragment lifecycle beyond add. Every verb operates through
@@ -219,15 +219,15 @@ Example:
 
   human
     .command("list")
-    .description("Show the configured human (OpenRig supports one; extra hand-authored fragments are listed with an advisory)")
+    .description("Show the configured human (SoftwareTeam supports one; extra hand-authored fragments are listed with an advisory)")
     .option("--json", "Complete record(s) as JSON")
     .action(async (opts: { json?: boolean }) => {
-      const { listHumans } = await import("@openrig/daemon/gateway-human-registry");
+      const { listHumans } = await import("@softwareteam/daemon/gateway-human-registry");
       const res = listHumans();
       if (!res.ok) { console.error(`refused: ${res.error}`); process.exitCode = 1; return; }
       const humans = await Promise.all(res.humans.map(async (record) => ({ ...record, deliveryReadiness: await humanReadiness(record.entityId) })));
       if (opts.json) { console.log(JSON.stringify({ ok: true, humans, ...(res.advisory ? { advisory: res.advisory } : {}) })); return; }
-      if (res.humans.length === 0) { console.log("no human configured yet — register one: rig gateway human add <entityId> --display-name … --binding … --delivery-class …"); return; }
+      if (res.humans.length === 0) { console.log("no human configured yet — register one: SoftwareTeam gateway human add <entityId> --display-name … --binding … --delivery-class …"); return; }
       for (const h of humans) {
         const inbound = h.bindings.inboundResolvable ? "" : "  [outbound-only]";
         console.log(`${h.entityId}  "${h.displayName}"  class=${h.deliveryClass}  ${h.away ? "away" : "available"}  bindings=${h.bindings.count} (primary ${h.bindings.primary.kind}:${h.bindings.primary.connectorRef})  delivery=${h.deliveryReadiness.state}${inbound}`);
@@ -241,7 +241,7 @@ Example:
     .description("Show the effective record: fragment values + which defaults filled the rest, with provenance")
     .option("--json", "Complete record as JSON")
     .action(async (entityId: string, opts: { json?: boolean }) => {
-      const { showHuman } = await import("@openrig/daemon/gateway-human-registry");
+      const { showHuman } = await import("@softwareteam/daemon/gateway-human-registry");
       const res = showHuman(entityId);
       if (!res.ok) { console.error(`refused: ${res.error}`); process.exitCode = 1; return; }
       const r = { ...res.record, deliveryReadiness: await humanReadiness(entityId) };
@@ -263,7 +263,7 @@ Example:
     .option("--reason <reason>", "Reason recorded with connector binding changes", "update human binding")
     .option("--actor <actor>", "Named operator when outside a managed seat")
     .action(async (entityId: string, field: string, value: string, opts: { reason: string; actor?: string }) => {
-      const registry = await import("@openrig/daemon/gateway-human-registry");
+      const registry = await import("@softwareteam/daemon/gateway-human-registry");
       if (field.startsWith("binding.")) {
         const before = registry.showHuman(entityId);
         if (!before.ok) { console.error(`refused: ${before.error}`); process.exitCode = 1; return; }
@@ -294,7 +294,7 @@ Example:
     .option("--force", "Archive despite KNOWN in-flight items (each is recorded as orphaned)")
     .action(async (entityId: string, opts: { force?: boolean }) => {
       const { removeHumanFragment, pendingConversationsFor, ADDRESS_DOMAIN } =
-        await import("@openrig/daemon/gateway-human-registry");
+        await import("@softwareteam/daemon/gateway-human-registry");
       const address = `${entityId}@${ADDRESS_DOMAIN}`;
       // Guard input 1 (fs): un-Acked outbound decisions = open conversations.
       const conversations = pendingConversationsFor(entityId);

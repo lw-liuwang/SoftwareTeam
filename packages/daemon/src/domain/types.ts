@@ -1,6 +1,6 @@
 import type { StartupSubmissionDiagnostic } from "./startup-submission-evidence.js";
 
-export interface Rig {
+export interface SoftwareTeam {
   id: string;
   name: string;
   createdAt: string;
@@ -9,7 +9,7 @@ export interface Rig {
 
 export interface Pod {
   id: string;
-  rigId: string;
+  softwareTeamId: string;
   namespace: string;
   label: string;
   summary: string | null;
@@ -28,19 +28,19 @@ export interface ContinuityState {
 
 export interface Node {
   id: string;
-  rigId: string;
+  softwareTeamId: string;
   logicalId: string;
   role: string | null;
   runtime: string | null;
   model: string | null;
   effort?: string | null;
-  /** OPR.0.7.0.7: the seat's explicit effort choice (rig seat set-effort); null = none. */
+  /** OPR.0.7.0.7: the seat's explicit effort choice (softwareTeam seat set-effort); null = none. */
   effortChoice?: string | null;
   codexConfigProfile?: string | null;
   /** OPR.0.4.8.3 Seam B: attached permission_policy REF (builtin:<name> or spec-relative custom
    *  path), or null when none is attached (= the floor). */
   permissionPolicy?: string | null;
-  /** The member's own declared launch environment (not merged with the rig's), or null. */
+  /** The member's own declared launch environment (not merged with the softwareTeam's), or null. */
   env?: Record<string, string> | null;
   cwd: string | null;
   surfaceHint: string | null;
@@ -51,7 +51,7 @@ export interface Node {
   agentRef: string | null;
   profile: string | null;
   label: string | null;
-  /** Exact validated RigSpec declaration retained for export/recreate fidelity. */
+  /** Exact validated SoftwareTeamSpec declaration retained for export/recreate fidelity. */
   sessionSource?: SessionSourceSpec | null;
   resolvedSpecName: string | null;
   resolvedSpecVersion: string | null;
@@ -66,7 +66,7 @@ export interface Node {
 
 export interface Edge {
   id: string;
-  rigId: string;
+  softwareTeamId: string;
   sourceId: string;
   targetId: string;
   kind: string;
@@ -111,15 +111,15 @@ export interface Session {
 
 // -- Event types --
 
-export type RigEvent =
+export type SoftwareTeamEvent =
   | { type: "proof.judged" | "proof.sources_changed"; scope: string; revision: string }
   | { type: "event.delivery_poisoned"; poisonedSeq: number; error: string; payloadSha: string }
-  | { type: "rig.created"; rigId: string }
+  | { type: "software-team.created"; softwareTeamId: string }
   // B8 / slice-07 A3 — the durable model-divergence proclamation record: effective vs pinned at the
   // earliest reliable read, with every channel's delivery outcome (delivered/failed/deferred) named.
   | {
       type: "seat.model_divergence";
-      rigId: string;
+      softwareTeamId: string;
       nodeId: string;
       sessionName: string;
       runtime: string | null;
@@ -128,51 +128,51 @@ export type RigEvent =
       diagnosis: string | null;
       channels: Array<{ channel: string; target: string | null; status: string; detail?: string }>;
     }
-  | { type: "rig.deleted"; rigId: string }
-  | { type: "node.added"; rigId: string; nodeId: string; logicalId: string }
-  | { type: "node.removed"; rigId: string; nodeId: string }
-  | { type: "binding.updated"; rigId: string; nodeId: string }
-  | { type: "session.status_changed"; rigId: string; nodeId: string; status: string }
-  | { type: "session.detached"; rigId: string; nodeId: string; sessionName: string }
+  | { type: "software-team.deleted"; softwareTeamId: string }
+  | { type: "node.added"; softwareTeamId: string; nodeId: string; logicalId: string }
+  | { type: "node.removed"; softwareTeamId: string; nodeId: string }
+  | { type: "binding.updated"; softwareTeamId: string; nodeId: string }
+  | { type: "session.status_changed"; softwareTeamId: string; nodeId: string; status: string }
+  | { type: "session.detached"; softwareTeamId: string; nodeId: string; sessionName: string }
   // S5 (OPR.0.5.4.7) — seat-lifecycle audit trail: the three supported seat verbs each persist
   // their mutation with actor + reason in the same transaction as the mutation itself.
-  | { type: "node.model_changed"; rigId: string; nodeId: string; logicalId: string; from: string | null; to: string; reason: string; operator: string | null }
-  | { type: "node.effort_changed"; rigId: string; nodeId: string; logicalId: string; from: string | null; to: string | null; reason: string; operator: string | null }
-  | { type: "node.permissions_changed"; rigId: string; nodeId: string; from: unknown; to: unknown; actor: string; reason: string; source: "seat_selection"; effect: "future_launches_only" }
-  | { type: "node.policy_changed"; rigId: string; nodeId: string; logicalId: string; from: string | null; to: string; launchPosture: "floor" | "full_bypass" | "auto"; reason: string; operator: string }
-  | { type: "session.stopped"; rigId: string; nodeId: string; sessionName: string; reason: string; operator: string | null }
-  | { type: "session.cleaned"; rigId: string; nodeId: string; sessionName: string | null; reason: string; operator: string | null; actions: { sessionsExited: string[]; bindingCleared: boolean } }
-  | { type: "node.launched"; rigId: string; nodeId: string; logicalId: string; sessionName: string }
-  | { type: "topology.roster_recorded"; rigId: string; intendedNodeIds: string[]; source: "materialized_topology" }
+  | { type: "node.model_changed"; softwareTeamId: string; nodeId: string; logicalId: string; from: string | null; to: string; reason: string; operator: string | null }
+  | { type: "node.effort_changed"; softwareTeamId: string; nodeId: string; logicalId: string; from: string | null; to: string | null; reason: string; operator: string | null }
+  | { type: "node.permissions_changed"; softwareTeamId: string; nodeId: string; from: unknown; to: unknown; actor: string; reason: string; source: "seat_selection"; effect: "future_launches_only" }
+  | { type: "node.policy_changed"; softwareTeamId: string; nodeId: string; logicalId: string; from: string | null; to: string; launchPosture: "floor" | "full_bypass" | "auto"; reason: string; operator: string }
+  | { type: "session.stopped"; softwareTeamId: string; nodeId: string; sessionName: string; reason: string; operator: string | null }
+  | { type: "session.cleaned"; softwareTeamId: string; nodeId: string; sessionName: string | null; reason: string; operator: string | null; actions: { sessionsExited: string[]; bindingCleared: boolean } }
+  | { type: "node.launched"; softwareTeamId: string; nodeId: string; logicalId: string; sessionName: string }
+  | { type: "topology.roster_recorded"; softwareTeamId: string; intendedNodeIds: string[]; source: "materialized_topology" }
   // OPR.0.7.0.5 — in-place restart (same conversation, same pane). Started is persisted before any signal, so
   // a request that waited behind it, or a restart that never recorded a result, is refused rather than repeated.
-  | { type: "seat.restart_in_place_started"; rigId: string; nodeId: string; logicalId: string; sessionName: string; pane: string; paneShape: "shell_backed" | "direct_native"; oldPid: number; oldStartedAt: string | null; codexHome: string; reason: string; operator: string | null }
-  | { type: "seat.restart_in_place_finished"; rigId: string; nodeId: string; logicalId: string; sessionName: string; outcome: "restarted_account_unverified" | "not_started" | "incomplete" | "native_unknown"; newPid: number | null; newStartedAt: string | null; codexHome: string; paneHeld: boolean; accountLinesAtRestart: Record<string, number> | null; finishedAt: string }
-  | { type: "seat.fresh_launched"; rigId: string; nodeId: string; logicalId: string; sessionName: string; sessionId: string; supersededSessionIds: string[]; retiringGeneration: string | null; newGeneration: string; nativeSessionId: string | null; nativeSessionIdReason?: string; model: string | null; effort?: string | null; startupPolicyHash: string; reason: string; operator: string | null; status: "ready" | "attention_required" }
-  | { type: "seat.fresh_launch_failed"; rigId: string; nodeId: string; logicalId: string; sessionName: string; sessionId: string; supersededSessionIds: string[]; retiringGeneration: string | null; newGeneration: string | null; model: string | null; effort?: string | null; startupPolicyHash: string; reason: string; operator: string | null; errors: string[] }
-  | { type: "snapshot.created"; rigId: string; snapshotId: string; kind: string }
-  | { type: "restore.started"; rigId: string; snapshotId: string; snapshotSelection?: RestoreSnapshotSelection; intendedRoster?: Array<{ nodeId: string; logicalId: string }>; excludedNodes?: RestoreExcludedNode[] }
-  | { type: "restore.completed"; rigId: string; snapshotId: string; result: RestoreResult }
-  | { type: "restore.subset_completed"; rigId: string; snapshotId: string; result: RestoreResult }
-  | { type: "node.held"; rigId: string; nodeId: string; logicalId: string; reason: string }
+  | { type: "seat.restart_in_place_started"; softwareTeamId: string; nodeId: string; logicalId: string; sessionName: string; pane: string; paneShape: "shell_backed" | "direct_native"; oldPid: number; oldStartedAt: string | null; codexHome: string; reason: string; operator: string | null }
+  | { type: "seat.restart_in_place_finished"; softwareTeamId: string; nodeId: string; logicalId: string; sessionName: string; outcome: "restarted_account_unverified" | "not_started" | "incomplete" | "native_unknown"; newPid: number | null; newStartedAt: string | null; codexHome: string; paneHeld: boolean; accountLinesAtRestart: Record<string, number> | null; finishedAt: string }
+  | { type: "seat.fresh_launched"; softwareTeamId: string; nodeId: string; logicalId: string; sessionName: string; sessionId: string; supersededSessionIds: string[]; retiringGeneration: string | null; newGeneration: string; nativeSessionId: string | null; nativeSessionIdReason?: string; model: string | null; effort?: string | null; startupPolicyHash: string; reason: string; operator: string | null; status: "ready" | "attention_required" }
+  | { type: "seat.fresh_launch_failed"; softwareTeamId: string; nodeId: string; logicalId: string; sessionName: string; sessionId: string; supersededSessionIds: string[]; retiringGeneration: string | null; newGeneration: string | null; model: string | null; effort?: string | null; startupPolicyHash: string; reason: string; operator: string | null; errors: string[] }
+  | { type: "snapshot.created"; softwareTeamId: string; snapshotId: string; kind: string }
+  | { type: "restore.started"; softwareTeamId: string; snapshotId: string; snapshotSelection?: RestoreSnapshotSelection; intendedRoster?: Array<{ nodeId: string; logicalId: string }>; excludedNodes?: RestoreExcludedNode[] }
+  | { type: "restore.completed"; softwareTeamId: string; snapshotId: string; result: RestoreResult }
+  | { type: "restore.subset_completed"; softwareTeamId: string; snapshotId: string; result: RestoreResult }
+  | { type: "node.held"; softwareTeamId: string; nodeId: string; logicalId: string; reason: string }
   // L3: appended (never replaces) when reconcileNodeRuntimeTruth upgrades a
   // failed/attention_required restoreOutcome to operator_recovered after
   // visible-runtime-evidence preconditions hold. The original failure event
   // is preserved in the log; this event records the audit trail of the upgrade.
-  | { type: "restore.outcome_reconciled"; rigId: string; nodeId: string; attemptId: number; from: "failed" | "attention_required"; to: "operator_recovered"; evidence: { tmux: boolean; fgProcess: "claude" | "codex" | string; resumeTokenUsed: boolean; paneState: "usable" } | { source: string; reason?: string; kind?: string; state?: string; runtimeCwdVerified?: boolean } }
-  | { type: "agent.activity"; rigId: string; nodeId: string; sessionName: string; runtime: string | null; activity: AgentActivity }
+  | { type: "restore.outcome_reconciled"; softwareTeamId: string; nodeId: string; attemptId: number; from: "failed" | "attention_required"; to: "operator_recovered"; evidence: { tmux: boolean; fgProcess: "claude" | "codex" | string; resumeTokenUsed: boolean; paneState: "usable" } | { source: string; reason?: string; kind?: string; state?: string; runtimeCwdVerified?: boolean } }
+  | { type: "agent.activity"; softwareTeamId: string; nodeId: string; sessionName: string; runtime: string | null; activity: AgentActivity }
   // OPR.0.4.1.10 — audit record for a --dangerously-interact send that drove a target's interactive
   // prompt / permission block. overrideReason = caller's --reason; detectedReason/evidenceSource =
   // what the classifier saw (kept distinct so permission_prompt vs selection_prompt vs unknown stays visible).
-  | { type: "transport.prompt_override"; rigId: string; nodeId: string; sessionName: string; actorSession: string | null; detectedState: string; detectedReason: string; evidenceSource: string; overrideReason: string | null }
+  | { type: "transport.prompt_override"; softwareTeamId: string; nodeId: string; sessionName: string; actorSession: string | null; detectedState: string; detectedReason: string; evidenceSource: string; overrideReason: string | null }
   // OPR.0.4.6.PI1 FR-5 — "rpc" provenance is ADDITIVE: Pi session identity comes
   // from the pi-runner's RPC get_state / typed events, never pane scraping.
-  | { type: "agent.session_identity"; rigId: string; nodeId: string; sessionName: string; runtime: string; sessionId: string; provenance: "hook" | "scrape" | "rpc" }
+  | { type: "agent.session_identity"; softwareTeamId: string; nodeId: string; sessionName: string; runtime: string; sessionId: string; provenance: "hook" | "scrape" | "rpc" }
   // OPR.0.4.0.22 — append-only audit of a managed resume-token write. Emitted
   // on an operator set (`operator_set`) and on reconcile capture-on-adopt
   // (`reconcile_capture`). NEVER carries the raw token (credential-class);
   // `redacted: true` marks that the token value is intentionally omitted.
-  | { type: "session.resume_token_set"; rigId: string; nodeId: string; sessionName: string; sessionId: string; resumeType: string; previousProvenance: "hook" | "scrape" | "operator" | null; newProvenance: "operator" | "scrape"; source: "operator_set" | "reconcile_capture"; reason?: string; operator?: string; redacted: true }
+  | { type: "session.resume_token_set"; softwareTeamId: string; nodeId: string; sessionName: string; sessionId: string; resumeType: string; previousProvenance: "hook" | "scrape" | "operator" | null; newProvenance: "operator" | "scrape"; source: "operator_set" | "reconcile_capture"; reason?: string; operator?: string; redacted: true }
   // OPR.0.4.3.20 FR-3 — append-only observability of an adoption-boundary
   // resume-token capture (reconcile / adopt / bind). `captured` records a
   // successful persist (provenance "adoption"); `preserved` records that a valid
@@ -186,74 +186,74 @@ export type RigEvent =
   // token value is intentionally omitted; this is observability, NOT a
   // secret-boundary control — resume tokens are not treated as secret per the
   // 2026-07-02 founder ruling).
-  | { type: "session.resume_token_captured"; rigId: string; nodeId: string; sessionName: string; sessionId: string; runtime: string; outcome: "captured" | "preserved" | "skipped"; resumeType?: string; provenance?: "adoption"; reason?: "missing_sidecar" | "parse_error" | "probe_timeout" | "process_unreadable" | "invalid_token" | "stale_sidecar" | "higher_rank_present"; redacted: true }
-  | { type: "seat.attention_cleared"; rigId: string; nodeId: string; sessionName: string; from: string; to: "ready"; clearedBy: "evidence" | "operator_attestation"; evidence?: { kind: string; state?: string; reason?: string }; reason?: string; previousError: string | null }
-  | { type: "rig.imported"; rigId: string; specName: string; specVersion: string }
-  // Package events (cross-rig, no rigId)
+  | { type: "session.resume_token_captured"; softwareTeamId: string; nodeId: string; sessionName: string; sessionId: string; runtime: string; outcome: "captured" | "preserved" | "skipped"; resumeType?: string; provenance?: "adoption"; reason?: "missing_sidecar" | "parse_error" | "probe_timeout" | "process_unreadable" | "invalid_token" | "stale_sidecar" | "higher_rank_present"; redacted: true }
+  | { type: "seat.attention_cleared"; softwareTeamId: string; nodeId: string; sessionName: string; from: string; to: "ready"; clearedBy: "evidence" | "operator_attestation"; evidence?: { kind: string; state?: string; reason?: string }; reason?: string; previousError: string | null }
+  | { type: "softwareTeam.imported"; softwareTeamId: string; specName: string; specVersion: string }
+  // Package events (cross-softwareTeam, no softwareTeamId)
   | { type: "package.validated"; packageName: string; valid: boolean }
   | { type: "package.planned"; packageName: string; actionable: number; deferred: number; conflicts: number }
   | { type: "package.installed"; packageName: string; packageVersion: string; installId: string; applied: number; deferred: number }
   | { type: "package.rolledback"; installId: string; restored: number }
   | { type: "package.install_failed"; packageName: string; code: string; message: string }
-  // Bootstrap events (cross-rig, no rigId)
+  // Bootstrap events (cross-softwareTeam, no softwareTeamId)
   | { type: "bootstrap.planned"; runId: string; sourceRef: string; stages: number }
   | { type: "bootstrap.started"; runId: string; sourceRef: string }
-  | { type: "bootstrap.completed"; runId: string; rigId: string; sourceRef: string }
-  | { type: "bootstrap.partial"; runId: string; sourceRef: string; rigId?: string; completed: number; failed: number }
+  | { type: "bootstrap.completed"; runId: string; softwareTeamId: string; sourceRef: string }
+  | { type: "bootstrap.partial"; runId: string; sourceRef: string; softwareTeamId?: string; completed: number; failed: number }
   | { type: "bootstrap.failed"; runId: string; sourceRef: string; error: string }
-  // Discovery events (cross-rig, no rigId)
+  // Discovery events (cross-softwareTeam, no softwareTeamId)
   | { type: "session.discovered"; discoveredId: string; tmuxSession: string; tmuxPane: string; runtimeHint: string; confidence: string }
   | { type: "session.vanished"; tmuxSession: string; tmuxPane: string }
-  | { type: "node.claimed"; rigId: string; nodeId: string; logicalId: string; discoveredId: string }
+  | { type: "node.claimed"; softwareTeamId: string; nodeId: string; logicalId: string; discoveredId: string }
   // OPR.0.3.4.3 — a live (hand-resumed) canonical session adopted back into its
   // persisted node WITHOUT launch/relaunch/input. Distinct from node.claimed so
   // the operator is never misled about which op happened.
-  | { type: "node.reconciled"; rigId: string; nodeId: string; logicalId: string; sessionName: string }
-  | { type: "seat.handover_completed"; rigId: string; nodeId: string; logicalId: string; previousOccupant: string; currentOccupant: string; source: string; reason: string; operator: string | null;
+  | { type: "node.reconciled"; softwareTeamId: string; nodeId: string; logicalId: string; sessionName: string }
+  | { type: "seat.handover_completed"; softwareTeamId: string; nodeId: string; logicalId: string; previousOccupant: string; currentOccupant: string; source: string; reason: string; operator: string | null;
       /** OPR.0.5.5.5 (fix B2) — the executed source outcome, persisted so the DURABLE
        *  record (not just the command response) carries what primed the successor:
        *  fork provenance, or rebuild's exact primed set / gaps / empty-chain reason. */
       sourceOutcome?:
         | { mode: "fork"; forkedFrom: string; forkId?: "captured" | "pending"; limit?: string }
         | { mode: "rebuild"; primedArtifacts: Array<{ address: string; label: string }>; gaps: string[]; emptyChainReason?: string } }
-  // Bundle events (cross-rig)
+  // Bundle events (cross-softwareTeam)
   | { type: "bundle.created"; bundleName: string; bundleVersion: string; archiveHash: string }
   // Teardown events
-  | { type: "rig.stopped"; rigId: string }
-  // OPR.0.3.3.19 - rig archive affordance (soft, reversible; NOT a delete)
-  | { type: "rig.archived"; rigId: string }
-  | { type: "rig.unarchived"; rigId: string }
+  | { type: "software-team.stopped"; softwareTeamId: string }
+  // OPR.0.3.3.19 - softwareTeam archive affordance (soft, reversible; NOT a delete)
+  | { type: "software-team.archived"; softwareTeamId: string }
+  | { type: "softwareTeam.unarchived"; softwareTeamId: string }
   // AgentSpec reboot events — pods + startup + continuity
-  | { type: "pod.created"; rigId: string; podId: string; namespace: string; label: string }
-  | { type: "pod.deleted"; rigId: string; podId: string }
-  | { type: "node.startup_pending"; rigId: string; nodeId: string; startupProof?: StartupProofSelection }
-  | { type: "node.startup_ready"; rigId: string; nodeId: string; previousStatus?: "failed" | "attention_required"; submission?: { status: "unverified" | "staged"; reasons: string[]; warning?: string; diagnostics?: StartupSubmissionDiagnostic[] } }
-  | { type: "node.startup_failed"; rigId: string; nodeId: string; error: string; sessionId?: string; freshContextPending?: boolean; submissionDiagnostics?: StartupSubmissionDiagnostic[]; stage?: StartupFailureStage; hasPendingWork?: boolean; requestedResumeToken?: string | null; requestedResumeType?: string | null }
+  | { type: "pod.created"; softwareTeamId: string; podId: string; namespace: string; label: string }
+  | { type: "pod.deleted"; softwareTeamId: string; podId: string }
+  | { type: "node.startup_pending"; softwareTeamId: string; nodeId: string; startupProof?: StartupProofSelection }
+  | { type: "node.startup_ready"; softwareTeamId: string; nodeId: string; previousStatus?: "failed" | "attention_required"; submission?: { status: "unverified" | "staged"; reasons: string[]; warning?: string; diagnostics?: StartupSubmissionDiagnostic[] } }
+  | { type: "node.startup_failed"; softwareTeamId: string; nodeId: string; error: string; sessionId?: string; freshContextPending?: boolean; submissionDiagnostics?: StartupSubmissionDiagnostic[]; stage?: StartupFailureStage; hasPendingWork?: boolean; requestedResumeToken?: string | null; requestedResumeType?: string | null }
   // OPR.0.4.3.06 — startup proof (challenge-verified orientation). Append-only.
   // `node.startup_challenged` freezes this launch's challenge ground truth
   // (challengeId + contractHash; the expected answer is recomputed, never
   // stored). `node.startup_proof_verified`/`_rejected` are the verified/rejected
   // evidence; `node.startup_proof_skipped` retires a previous challenge on a
   // lean launch. None route through updateStartupStatus; `ready` never means oriented.
-  | { type: "node.startup_challenged"; rigId: string; nodeId: string; challengeId: string; contractHash: string }
-  | { type: "node.startup_proof_skipped"; rigId: string; nodeId: string; reason: "not_selected" | "terminal" }
-  | { type: "node.startup_proof_verified"; rigId: string; nodeId: string; sessionId: string; challengeId: string; contractHash: string }
-  | { type: "node.startup_proof_rejected"; rigId: string; nodeId: string; challengeId: string | null; reason: "identity_unbound" | "identity_mismatch" | "challenge_stale" | "contract_mismatch" | "bare_ack" }
-  | { type: "continuity.sync"; rigId: string; podId: string; nodeId: string }
-  | { type: "continuity.degraded"; rigId: string; podId: string; nodeId: string; reason: string }
-  // V0.3.1 slice 05 kernel-rig-as-default — forward-fix #3 architectural.
-  // Emitted exactly once by KernelBootTracker when the kernel rig fails to
+  | { type: "node.startup_challenged"; softwareTeamId: string; nodeId: string; challengeId: string; contractHash: string }
+  | { type: "node.startup_proof_skipped"; softwareTeamId: string; nodeId: string; reason: "not_selected" | "terminal" }
+  | { type: "node.startup_proof_verified"; softwareTeamId: string; nodeId: string; sessionId: string; challengeId: string; contractHash: string }
+  | { type: "node.startup_proof_rejected"; softwareTeamId: string; nodeId: string; challengeId: string | null; reason: "identity_unbound" | "identity_mismatch" | "challenge_stale" | "contract_mismatch" | "bare_ack" }
+  | { type: "continuity.sync"; softwareTeamId: string; podId: string; nodeId: string }
+  | { type: "continuity.degraded"; softwareTeamId: string; podId: string; nodeId: string; reason: string }
+  // V0.3.1 slice 05 kernel-software-team-as-default — forward-fix #3 architectural.
+  // Emitted exactly once by KernelBootTracker when the kernel softwareTeam fails to
   // reach ready / partial_ready within the configurable degraded-timer
   // window (default 90s). Observability signal that healthz bound cleanly
-  // but the kernel itself is stuck — operator triage with `rig ps --rig kernel`.
+  // but the kernel itself is stuck — operator triage with `SoftwareTeam ps --software-team kernel`.
   | { type: "kernel.agent.degraded"; agents: Array<{ sessionName: string; runtime: string; startupStatus: string }>; firstUnreadySince: string | null; detail: string | null }
   // Chat events
-  | { type: "chat.message"; rigId: string; messageId: string; sender: string; kind: string; body: string; topic?: string }
+  | { type: "chat.message"; softwareTeamId: string; messageId: string; sender: string; kind: string; body: string; topic?: string }
   // Expansion events
-  | { type: "rig.expanded"; rigId: string; podId: string; podNamespace: string; nodes: Array<{ logicalId: string; status: string }>; status: string }
+  | { type: "softwareTeam.expanded"; softwareTeamId: string; podId: string; podNamespace: string; nodes: Array<{ logicalId: string; status: string }>; status: string }
   // Coordination primitive (PL-004 Phase A) — stream / queue / inbox.
-  // Host-scoped; rigId is left null because items reference seats by string
-  // (`<member>@<rig>`) and can cross rigs.
+  // Host-scoped; softwareTeamId is left null because items reference seats by string
+  // (`<member>@<softwareTeam>`) and can cross softwareTeams.
   | { type: "stream.emitted"; streamItemId: string; sourceSession: string; hintDestination: string | null; hintType: string | null; hintUrgency: string | null; interrupt: boolean }
   // OPR.0.4.4.19 FR-1: every queue.* payload carries the qitem's summary
   // (null for legacy/omitted — always present, never absent, so consumers
@@ -306,9 +306,9 @@ export type RigEvent =
   | { type: "workflow.failed"; instanceId: string; workflowName: string; reason: string }
   | { type: "workflow.resumed"; instanceId: string; workflowName: string; stepId: string; occurrenceId?: string; resumedBy: string; decision: string | null; resumeCount: number }
   // OPR.0.4.6.WF3 FR-4 (arch R1): extended ADDITIVELY for the route
-  // verb — the shipped {rigName, cause} consumers are untouched; route
+  // verb — the shipped {softwareTeamName, cause} consumers are untouched; route
   // emissions carry the re-route detail in the optional fields.
-  | { type: "workflow.routing_table_changed"; rigName: string; cause: string; instanceId?: string; stepId?: string | null; from?: string; to?: string }
+  | { type: "workflow.routing_table_changed"; softwareTeamName: string; cause: string; instanceId?: string; stepId?: string | null; from?: string; to?: string }
   // Slice 11 (release-0.3.1 workflow-spec-folder-discovery): folder-scan
   // deletion path. Emitted once per workflow_specs cache row removed
   // because its source file disappeared from the scanned workflows folder.
@@ -318,13 +318,13 @@ export type RigEvent =
   // PL-005 Phase A: Mission Control / Queue Observability events.
   // Action audit + cross-CLI-version drift detection.
   | { type: "mission_control.action_executed"; actionId: string; actionVerb: string; qitemId: string | null; actorSession: string }
-  | { type: "mission_control.cli_drift_detected"; rigName: string; missingField: string; observedAt: string }
+  | { type: "mission_control.cli_drift_detected"; softwareTeamName: string; missingField: string; observedAt: string }
   // PL-005 Phase B: notification dispatch events. Best-effort delivery;
   // failure does NOT interrupt the underlying action being notified about.
   | { type: "mission_control.notification_sent"; mechanism: string; target: string; qitemId: string | null; sentAt: string }
   | { type: "mission_control.notification_failed"; mechanism: string; target: string; qitemId: string | null; error: string; failedAt: string };
 
-export type PersistedEvent = RigEvent & {
+export type PersistedEvent = SoftwareTeamEvent & {
   seq: number;
   createdAt: string;
 };
@@ -335,8 +335,8 @@ export interface NodeWithBinding extends Node {
   binding: Binding | null;
 }
 
-export interface RigWithRelations {
-  rig: Rig;
+export interface SoftwareTeamWithRelations {
+  softwareTeam: SoftwareTeam;
   nodes: NodeWithBinding[];
   edges: Edge[];
 }
@@ -361,7 +361,7 @@ export interface NodeStartupSnapshot {
 }
 
 export interface SnapshotData {
-  rig: Rig;
+  softwareTeam: SoftwareTeam;
   nodes: NodeWithBinding[];
   edges: Edge[];
   sessions: Session[];
@@ -419,7 +419,7 @@ export interface RestoreExcludedNode {
 
 export interface Snapshot {
   id: string;
-  rigId: string;
+  softwareTeamId: string;
   kind: string;
   status: string;
   data: SnapshotData;
@@ -444,7 +444,7 @@ export interface Checkpoint {
 export interface RestoreResult {
   snapshotId: string;
   preRestoreSnapshotId: string | null;
-  rigResult: RestoreRigResult;
+  softwareTeamResult: RestoreSoftwareTeamResult;
   nodes: RestoreNodeResult[];
   warnings: string[];
   blockers?: RestoreValidationBlocker[];
@@ -453,7 +453,7 @@ export interface RestoreResult {
   excludedNodes?: RestoreExcludedNode[];
 }
 
-export type RestoreRigResult = "fully_restored" | "partially_restored" | "failed" | "not_attempted";
+export type RestoreSoftwareTeamResult = "fully_restored" | "partially_restored" | "failed" | "not_attempted";
 
 export interface RestoreValidationBlocker {
   code: string;
@@ -496,11 +496,11 @@ export interface RestoreNodeResult {
 export type RestoreOutcome =
   | { ok: true; result: RestoreResult }
   | { ok: false; code: "snapshot_not_found"; message: string }
-  | { ok: false; code: "snapshot_wrong_rig"; message: string }
+  | { ok: false; code: "snapshot_wrong_software_team"; message: string }
   | { ok: false; code: "snapshot_unusable"; message: string }
   | { ok: false; code: "no_usable_snapshot"; message: string }
-  | { ok: false; code: "rig_not_found"; message: string }
-  | { ok: false; code: "rig_not_stopped"; message: string }
+  | { ok: false; code: "software_team_not_found"; message: string }
+  | { ok: false; code: "software_team_not_stopped"; message: string }
   | { ok: false; code: "restore_error"; message: string }
   | { ok: false; code: "restore_in_progress"; message: string }
   | { ok: false; code: "service_boot_failed"; message: string }
@@ -511,7 +511,7 @@ export type RestoreOutcome =
 // L3 extends with `attention_required` (Claude resume-selection prompt proxy)
 // and `operator_recovered` (terminal post-reconciliation outcome — never produced
 // directly by restore, only emitted via `restore.outcome_reconciled`).
-// OPR.0.3.4.2 - carries the five-term restore vocabulary into `rig ps`.
+// OPR.0.3.4.2 - carries the five-term restore vocabulary into `SoftwareTeam ps`.
 export type NodeRestoreOutcome = "resumed" | "rebuilt" | "fresh" | "fresh-primed" | "awaiting-decision" | "failed" | "attention_required" | "operator_recovered" | "n-a";
 
 // OPR.0.4.3.06 — challenge-verified startup orientation, DISTINCT from
@@ -635,20 +635,20 @@ export function identityVerdictDownranksRunning(
   return verdict === "mismatch" || verdict === "pane_missing";
 }
 
-// Per-rig lifecycle aggregate folded from per-node states.
+// Per-softwareTeam lifecycle aggregate folded from per-node states.
 //   running           — every node is running.
 //   recoverable       — every node is non-running and at least one node has a usable snapshot token.
 //   stopped           — every node is non-running and no node has a usable snapshot token.
-//   degraded          — mixed running + non-running on the same rig.
+//   degraded          — mixed running + non-running on the same softwareTeam.
 //   attention_required — any node is attention_required (priority over above).
-export type RigLifecycleState = "running" | "recoverable" | "stopped" | "degraded" | "attention_required";
+export type SoftwareTeamLifecycleState = "running" | "recoverable" | "stopped" | "degraded" | "attention_required";
 
 export interface NodeInventoryEntry {
   /** Stable daemon node identity. Health scopes and other canonical records
    * key seats by this value; logicalId remains the human-facing address. */
   nodeId: string;
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   logicalId: string;
   podId: string | null;
   podNamespace?: string | null;
@@ -669,7 +669,7 @@ export interface NodeInventoryEntry {
   /** Persisted session status, retained for history and registry-based rollups. */
   storedSessionStatus?: string | null;
   /** The latest session was explicitly stopped and has no replacement binding.
-   * It remains non-running, but is not a missing member in the rig lifecycle. */
+   * It remains non-running, but is not a missing member in the softwareTeam lifecycle. */
   intentionallyStopped?: boolean;
   // Current projection: an applicable identity failure down-ranks a running
   // session to attention_required; the stored startup result stays unchanged.
@@ -780,12 +780,12 @@ export interface NodeInventoryEntry {
   /** OPR.0.3.4.11 — held reason derived from the latest `node.held` event.
    *  Null when no held event, or superseded by a running session / later launch. */
   heldReason?: string | null;
-  /** PL-007: per-node workspace block when the rig declares a workspace.
-   *  workspaceRoot mirrors RigSpec.workspace.workspaceRoot. activeRepo is
-   *  the repo whose path contains the node's cwd, or RigSpec.workspace.
+  /** PL-007: per-node workspace block when the softwareTeam declares a workspace.
+   *  workspaceRoot mirrors SoftwareTeamSpec.workspace.workspaceRoot. activeRepo is
+   *  the repo whose path contains the node's cwd, or SoftwareTeamSpec.workspace.
    *  defaultRepo when no containing repo is found. kind is the kind of
    *  the active repo, or `knowledge` when cwd is under knowledgeRoot.
-   *  null when the rig does not declare a workspace. */
+   *  null when the softwareTeam does not declare a workspace. */
   workspace?: NodeWorkspaceInfo | null;
 }
 
@@ -935,7 +935,7 @@ export interface LifecycleDefaults {
   // participate in precedence. The defaults level materializes the defaults
   // (default-compaction per F-6; resume_if_possible for restore).
   compactionStrategy?: "default-compaction" | "managed-compaction" | "handover" | "apprentice-handover";
-  /** Canonical seat@rig address that executes an apprentice cutover. No default: absence
+  /** Canonical seat@software-team address that executes an apprentice cutover. No default: absence
    *  is a materialization-time refusal for apprentice-handover. */
   mechanic?: string;
   restorePolicy?: "resume_if_possible" | "relaunch_fresh" | "checkpoint_only";
@@ -1003,18 +1003,18 @@ export interface AgentSpec {
   profiles: Record<string, ProfileSpec>;
 }
 
-// -- Legacy RigSpec types (Phase 3, pre-reboot flat contract) --
-// TODO: Remove when AS-T08b/AS-T12 migrate all consumers to pod-aware RigSpec
+// -- Legacy SoftwareTeamSpec types (Phase 3, pre-reboot flat contract) --
+// TODO: Remove when AS-T08b/AS-T12 migrate all consumers to pod-aware SoftwareTeamSpec
 
-export interface LegacyRigSpec {
+export interface LegacySoftwareTeamSpec {
   schemaVersion: number;
   name: string;
   version: string;
-  nodes: LegacyRigSpecNode[];
-  edges: LegacyRigSpecEdge[];
+  nodes: LegacySoftwareTeamSpecNode[];
+  edges: LegacySoftwareTeamSpecEdge[];
 }
 
-export interface LegacyRigSpecNode {
+export interface LegacySoftwareTeamSpecNode {
   id: string;
   runtime: string;
   role?: string;
@@ -1027,13 +1027,13 @@ export interface LegacyRigSpecNode {
   packageRefs?: string[];
 }
 
-export interface LegacyRigSpecEdge {
+export interface LegacySoftwareTeamSpecEdge {
   from: string;
   to: string;
   kind: string;
 }
 
-// -- RigSpec types (pod-aware, AgentSpec reboot) --
+// -- SoftwareTeamSpec types (pod-aware, AgentSpec reboot) --
 
 export interface ContinuityPolicySpec {
   enabled: boolean;
@@ -1118,7 +1118,7 @@ export interface StarterRefSpec {
   name: string;
 }
 
-export interface RigSpecPodMember {
+export interface SoftwareTeamSpecPodMember {
   id: string;
   label?: string;
   agentRef: string;
@@ -1136,9 +1136,9 @@ export interface RigSpecPodMember {
    */
   role?: string;
   /** OPR.0.4.8.3 Seam B: optional per-seat permission_policy REF (builtin:<name> or a spec-relative
-   *  custom path). Absent = the floor. Overrides the rig-level ref. */
+   *  custom path). Absent = the floor. Overrides the software-team-level ref. */
   permissionPolicy?: string;
-  /** Non-secret launch environment for this seat; overrides the rig-level `env`. */
+  /** Non-secret launch environment for this seat; overrides the software-team-level `env`. */
   env?: Record<string, string>;
   cwd: string;
   restorePolicy?: string;
@@ -1150,7 +1150,7 @@ export interface RigSpecPodMember {
   startup?: StartupBlock;
   /**
    * Optional fork source declaration. v1 MVP: mode="fork" with
-   * ref.kind="native_id". Validated by `rigspec-schema.ts` and translated
+   * ref.kind="native_id". Validated by `software-team-spec-schema.ts` and translated
    * to the runtime adapter's `forkSource` opt at launch time.
    */
   sessionSource?: SessionSourceSpec;
@@ -1164,29 +1164,29 @@ export interface RigSpecPodMember {
   starterRef?: StarterRefSpec;
 }
 
-export interface RigSpecPodEdge {
+export interface SoftwareTeamSpecPodEdge {
   kind: string;
   from: string;
   to: string;
 }
 
-export interface RigSpecCrossPodEdge {
+export interface SoftwareTeamSpecCrossPodEdge {
   kind: string;
   from: string;
   to: string;
 }
 
-export interface RigSpecPod {
+export interface SoftwareTeamSpecPod {
   id: string;
   label: string;
   summary?: string;
   continuityPolicy?: ContinuityPolicySpec;
   startup?: StartupBlock;
-  members: RigSpecPodMember[];
-  edges: RigSpecPodEdge[];
+  members: SoftwareTeamSpecPodMember[];
+  edges: SoftwareTeamSpecPodEdge[];
 }
 
-export interface RigSpecDoc {
+export interface SoftwareTeamSpecDoc {
   path: string;
 }
 
@@ -1200,7 +1200,7 @@ export interface RigSpecDoc {
 export const WORKSPACE_KINDS = ["user", "project", "knowledge", "lab", "delivery"] as const;
 export type WorkspaceKind = (typeof WORKSPACE_KINDS)[number];
 
-/** PL-007 — RigSpec.workspace.repos[] entry (typed). */
+/** PL-007 — SoftwareTeamSpec.workspace.repos[] entry (typed). */
 export interface WorkspaceRepoSpec {
   name: string;
   /** Absolute path after normalization. Authors may declare a path relative to
@@ -1209,7 +1209,7 @@ export interface WorkspaceRepoSpec {
   kind: WorkspaceKind;
 }
 
-/** PL-007 — Optional RigSpec.workspace block. Rigs without it stay valid;
+/** PL-007 — Optional SoftwareTeamSpec.workspace block. SoftwareTeams without it stay valid;
  *  whoami / node-inventory return a null workspace block in that case. */
 export interface WorkspaceSpec {
   workspaceRoot: string;
@@ -1220,66 +1220,66 @@ export interface WorkspaceSpec {
   knowledgeRoot?: string;
 }
 
-export interface RigSpec {
+export interface SoftwareTeamSpec {
   /** Authored launch-warning choice; an explicit launch option takes precedence. */
   nonInterruptive?: boolean;
   version: string;
   name: string;
   summary?: string;
   cultureFile?: string;
-  /** OPR.0.4.8.3 Seam B: optional rig-level permission_policy REF (builtin:<name> or a
+  /** OPR.0.4.8.3 Seam B: optional software-team-level permission_policy REF (builtin:<name> or a
    *  spec-relative custom path). Absent = the floor. A per-member ref overrides this. */
   permissionPolicy?: string;
-  /** Non-secret launch environment for every seat in the rig; a member's `env` overrides it. */
+  /** Non-secret launch environment for every seat in the softwareTeam; a member's `env` overrides it. */
   env?: Record<string, string>;
   /** #25: per-runtime managed-block destination. Absent = CLAUDE.md. */
   managedBlocks?: { "claude-code"?: import("./managed-blocks.js").ClaudeManagedBlockFile };
-  docs?: RigSpecDoc[];
+  docs?: SoftwareTeamSpecDoc[];
   startup?: StartupBlock;
-  services?: RigServicesSpec;
+  services?: SoftwareTeamServicesSpec;
   /** PL-007 Workspace Primitive — optional typed workspace declaration. */
   workspace?: WorkspaceSpec;
-  pods: RigSpecPod[];
-  edges: RigSpecCrossPodEdge[];
+  pods: SoftwareTeamSpecPod[];
+  edges: SoftwareTeamSpecCrossPodEdge[];
 }
 
-export interface RigServicesWaitTarget {
+export interface SoftwareTeamServicesWaitTarget {
   service?: string;
   condition?: "healthy";
   url?: string;
   tcp?: string;
 }
 
-export interface RigServicesSurfaceUrl {
+export interface SoftwareTeamServicesSurfaceUrl {
   name: string;
   url: string;
 }
 
-export interface RigServicesSurfaceCommand {
+export interface SoftwareTeamServicesSurfaceCommand {
   name: string;
   command: string;
 }
 
-export interface RigServicesSurface {
-  urls?: RigServicesSurfaceUrl[];
-  commands?: RigServicesSurfaceCommand[];
+export interface SoftwareTeamServicesSurface {
+  urls?: SoftwareTeamServicesSurfaceUrl[];
+  commands?: SoftwareTeamServicesSurfaceCommand[];
 }
 
-export interface RigServicesCheckpointHook {
+export interface SoftwareTeamServicesCheckpointHook {
   id: string;
   exportCommand: string;
   importCommand?: string;
 }
 
-export interface RigServicesSpec {
+export interface SoftwareTeamServicesSpec {
   kind: "compose";
   composeFile: string;
   projectName?: string;
   profiles?: string[];
   downPolicy?: "leave_running" | "down" | "down_and_volumes";
-  waitFor?: RigServicesWaitTarget[];
-  surfaces?: RigServicesSurface;
-  checkpoints?: RigServicesCheckpointHook[];
+  waitFor?: SoftwareTeamServicesWaitTarget[];
+  surfaces?: SoftwareTeamServicesSurface;
+  checkpoints?: SoftwareTeamServicesCheckpointHook[];
 }
 
 export interface EnvReceipt {
@@ -1287,7 +1287,7 @@ export interface EnvReceipt {
   composeFile: string;
   projectName: string;
   services: Array<{ name: string; status: string; health?: string | null }>;
-  waitFor: Array<{ target: RigServicesWaitTarget; status: "healthy" | "unhealthy" | "pending"; detail?: string | null }>;
+  waitFor: Array<{ target: SoftwareTeamServicesWaitTarget; status: "healthy" | "unhealthy" | "pending"; detail?: string | null }>;
   capturedAt: string;
 }
 
@@ -1297,20 +1297,20 @@ export interface EnvCheckpoint {
   artifactsJson: string;
 }
 
-export interface RigServicesRecordInput {
+export interface SoftwareTeamServicesRecordInput {
   kind: "compose";
   specJson: string;
-  rigRoot: string;
+  softwareTeamRoot: string;
   composeFile: string;
   projectName?: string;
   latestReceiptJson?: string | null;
 }
 
-export interface RigServicesRecord {
-  rigId: string;
+export interface SoftwareTeamServicesRecord {
+  softwareTeamId: string;
   kind: "compose";
   specJson: string;
-  rigRoot: string;
+  softwareTeamRoot: string;
   composeFile: string;
   projectName: string;
   latestReceiptJson: string | null;
@@ -1340,18 +1340,18 @@ export type InstantiateOutcome =
   | { ok: false; code: "cycle_error"; message: string }
   | { ok: false; code: "service_boot_failed"; message: string }
   | { ok: false; code: "compose_project_conflict"; message: string }
-  // S5b (OPR.0.5.4.11) — the running-name guard refusal: a same-name rig is
+  // S5b (OPR.0.5.4.11) — the running-name guard refusal: a same-name softwareTeam is
   // RUNNING, so instantiation refuses before any create/launch. The message
-  // teaches the running rig's identity and the supported alternatives.
+  // teaches the running softwareTeam's identity and the supported alternatives.
   // (Additive variant per orch-lead territory ruling on row r054-s5b-build.)
-  | { ok: false; code: "rig_name_running"; message: string; runningRig: { id: string; name: string; runningSessionCount: number } }
-  // #141: an unarchived same-name rig exists but could not be confirmed stopped, so the YAML import
+  | { ok: false; code: "software_team_name_running"; message: string; runningSoftwareTeam: { id: string; name: string; runningSessionCount: number } }
+  // #141: an unarchived same-name softwareTeam exists but could not be confirmed stopped, so the YAML import
   // neither archives it nor creates another same-name generation beside it.
   | { ok: false; code: "generation_unconfirmed"; message: string }
   // OPR.0.3.2.CT (conveyor-trust-minimal-fix):
   // When every launched node reaches a recoverable attention_required
-  // state (e.g., workspace-trust prompt), do NOT tear the rig down.
-  // The rig + sessions are preserved, listable, and approvable; the
+  // state (e.g., workspace-trust prompt), do NOT tear the SoftwareTeam down.
+  // The softwareTeam + sessions are preserved, listable, and approvable; the
   // operator's path is "approve trust → resume". `attentionNodes`
   // carries the actionable per-node detail for the route's 3-part
   // error response.
@@ -1359,7 +1359,7 @@ export type InstantiateOutcome =
       ok: false;
       code: "attention_required";
       message: string;
-      rigId: string;
+      softwareTeamId: string;
       attentionNodes: AttentionNode[];
       /** #141: notices that must reach the user even though the import stopped for attention. */
       warnings?: string[];
@@ -1373,14 +1373,14 @@ export interface AttentionNode {
 }
 
 export interface InstantiateResult {
-  rigId: string;
+  softwareTeamId: string;
   specName: string;
   specVersion: string;
   // Per-node startup status — `launched` and `failed` are the legacy
   // terminal states; `attention_required` (OPR.0.3.2.CT) marks a
   // recoverable parked node awaiting operator action (e.g., trust
   // approval). The session row's startup_status carries the same
-  // signal so `rig ps` surfaces it.
+  // signal so `SoftwareTeam ps` surfaces it.
   //
   // `sessionName` + `evidence` carry runtime detail needed by
   // BootstrapOrchestrator to construct AttentionNode[] for the mixed
@@ -1414,7 +1414,7 @@ export interface ExpansionPodFragment {
     /** OPR.0.4.8.3 Seam B: per-seat permission_policy REF — threaded through the
      *  expansion ingress exactly like role (never silently dropped). Typed UNKNOWN
      *  (R2 at 4ac243c3): the ingress preserves RAW presence — including null and other
-     *  invalid shapes — so the ONE canonical RigSpec validator rejects present-invalid
+     *  invalid shapes — so the ONE canonical SoftwareTeamSpec validator rejects present-invalid
      *  values; the normalizer must never erase presence into absence/floor. */
     permissionPolicy?: unknown;
     restorePolicy?: string;
@@ -1439,10 +1439,10 @@ export interface ExpansionPodFragment {
 }
 
 export interface ExpansionRequest {
-  rigId: string;
+  softwareTeamId: string;
   pod: ExpansionPodFragment;
   crossPodEdges?: Array<{ from: string; to: string; kind: string }>;
-  rigRoot?: string;
+  softwareTeamRoot?: string;
 }
 
 export interface ExpansionNodeOutcome {
@@ -1450,7 +1450,7 @@ export interface ExpansionNodeOutcome {
   nodeId: string;
   // OPR.0.3.2.CT — `attention_required` is a recoverable parked state
   // (e.g., workspace-trust prompt awaiting operator action). The
-  // session row's startup_status carries the same signal so `rig ps`
+  // session row's startup_status carries the same signal so `SoftwareTeam ps`
   // surfaces it. Distinct from `failed` (terminal).
   status: "launched" | "failed" | "attention_required";
   error?: string;

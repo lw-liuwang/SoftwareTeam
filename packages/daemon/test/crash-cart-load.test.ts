@@ -15,18 +15,18 @@ import {
 function seededDb(): BetterSqlite3.Database {
   const db = createDb();
   migrate(db, ALL_MIGRATIONS);
-  db.prepare("INSERT INTO rigs (id, name) VALUES ('r1','alpha')").run();
-  db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES ('n1','r1','worker')").run();
+  db.prepare("INSERT INTO software_teams (id, name) VALUES ('r1','alpha')").run();
+  db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES ('n1','r1','worker')").run();
   return db;
 }
 
 function baseDeps(over: Record<string, unknown> = {}) {
   return {
-    openrigHome: "/scratch/.openrig",
-    readDaemonJson: () => ({ pid: 9, port: 7433, db: "/scratch/.openrig/openrig.sqlite" }),
+    softwareteamHome: "/scratch/.softwareteam",
+    readDaemonJson: () => ({ pid: 9, port: 7434, db: "/scratch/.softwareteam/softwareteam.sqlite" }),
     isProcessAlive: () => false,
     probeHealthz: async () => false,
-    openrigUrl: undefined as string | undefined,
+    softwareteamUrl: undefined as string | undefined,
     copyFile: vi.fn(),
     exists: () => true,
     makeScratchDir: vi.fn(() => "/scratch/tmp/cc-xyz"),
@@ -38,9 +38,9 @@ function baseDeps(over: Record<string, unknown> = {}) {
 
 describe("loadCrashCartDiscovery — fail-closed FIRST, always clean up", () => {
   it("an empty private instance does not borrow the unrelated default daemon's identity", async () => {
-    const probeHealthz = vi.fn(async (url: string) => url.includes(":7433/"));
+    const probeHealthz = vi.fn(async (url: string) => url.includes(":7434/"));
     const deps = baseDeps({ readDaemonJson: () => undefined, exists: () => false,
-      openrigUrl: "http://127.0.0.1:17433", probeHealthz });
+      softwareteamUrl: "http://127.0.0.1:17433", probeHealthz });
     const result = await loadCrashCartDiscovery(deps);
     expect(result.discovery.foundOnHost).toEqual([]);
     expect(result.discovery.header.hostId).toBeNull();
@@ -48,7 +48,7 @@ describe("loadCrashCartDiscovery — fail-closed FIRST, always clean up", () => 
     expect(deps.makeScratchDir).not.toHaveBeenCalled();
   });
   it("an explicit target does not override a recorded live owner of the local database", async () => {
-    const deps = baseDeps({ openrigUrl: "http://127.0.0.1:17433", isProcessAlive: () => true });
+    const deps = baseDeps({ softwareteamUrl: "http://127.0.0.1:17433", isProcessAlive: () => true });
     await expect(loadCrashCartDiscovery(deps)).rejects.toBeInstanceOf(DaemonLiveError);
     expect(deps.makeScratchDir).not.toHaveBeenCalled();
   });
@@ -78,9 +78,9 @@ describe("loadCrashCartDiscovery — fail-closed FIRST, always clean up", () => 
   it("happy path: returns the discovery view and cleans up the scratch dir", async () => {
     const deps = baseDeps();
     const { discovery, dbPath } = await loadCrashCartDiscovery(deps);
-    expect(dbPath.path).toBe("/scratch/.openrig/openrig.sqlite");
+    expect(dbPath.path).toBe("/scratch/.softwareteam/softwareteam.sqlite");
     expect(discovery.foundOnHost).toHaveLength(1);
-    expect(discovery.foundOnHost[0].rigId).toBe("r1");
+    expect(discovery.foundOnHost[0].softwareTeamId).toBe("r1");
     expect(discovery.header.stopReason).toBeNull();
     expect(deps.makeScratchDir).toHaveBeenCalledTimes(1);
     expect(deps.removeScratchDir).toHaveBeenCalledWith("/scratch/tmp/cc-xyz");
@@ -97,7 +97,7 @@ describe("loadCrashCartDiscovery — fail-closed FIRST, always clean up", () => 
   });
 
   it("refuses a relative daemon.json db path (cannot locate daemon-down)", async () => {
-    const deps = baseDeps({ readDaemonJson: () => ({ pid: 9, port: 7433, db: "openrig.sqlite" }) });
+    const deps = baseDeps({ readDaemonJson: () => ({ pid: 9, port: 7434, db: "softwareteam.sqlite" }) });
     await expect(loadCrashCartDiscovery(deps)).rejects.toBeInstanceOf(CrashCartReadError);
     expect(deps.makeScratchDir).not.toHaveBeenCalled();
   });

@@ -19,7 +19,7 @@ async function refusedPort(): Promise<number> {
 
 // Crash-cart C3 — the REAL /healthz probe classification (feeds resolveDaemonState). A connection
 // REFUSED is the only strong down signal; a timeout/abort is UNVERIFIED; a 2xx is answered; a non-2xx
-// (or a foreign occupant) is not-openrig. fetch is injected so classification is deterministic.
+// (or a foreign occupant) is not-softwareteam. fetch is injected so classification is deterministic.
 
 describe("classifyProbeError — fetch rejection → probe result", () => {
   it("ECONNREFUSED → refused (the only strong down signal)", () => {
@@ -149,9 +149,9 @@ describe("probeHealthz — injected fetch", () => {
     const r = await probeHealthz("http://x/healthz", { fetch: async () => ({ ok: true, status: 200 }) as Response, timeoutMs: 500 });
     expect(r).toBe("answered");
   });
-  it("non-2xx (foreign occupant) → not-openrig", async () => {
+  it("non-2xx (foreign occupant) → not-softwareteam", async () => {
     const r = await probeHealthz("http://x/healthz", { fetch: async () => ({ ok: false, status: 404 }) as Response, timeoutMs: 500 });
-    expect(r).toBe("not-openrig");
+    expect(r).toBe("not-softwareteam");
   });
   it("connection refused → refused", async () => {
     const r = await probeHealthz("http://x/healthz", {

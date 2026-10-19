@@ -44,7 +44,7 @@ describe("resolveCrashCartKey — cockpit action keys (gated on daemon-down)", (
         header: { lastSeen: "", uptimeText: "", reasonText: "" },
         foundOnHost: [
           { name: "kernel", seatCount: 4, resumableCount: 4, lastActive: "" },
-          { name: "openrig-pm", seatCount: 13, resumableCount: 7, lastActive: "" }, // 6 non-resumable
+          { name: "softwareteam-pm", seatCount: 13, resumableCount: 7, lastActive: "" }, // 6 non-resumable
         ],
         whereWorkStopped: [],
       },

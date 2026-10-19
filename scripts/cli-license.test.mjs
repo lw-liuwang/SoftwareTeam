@@ -12,6 +12,7 @@ test("the CLI build carries the unchanged repository LICENSE and README into npm
     const bin = join(root, "bin");
     for (const dir of [cli, bin, join(cli, "src/schemas"), join(cli, "src/lib/scope-templates")]) mkdirSync(dir, { recursive: true });
     copyFileSync("LICENSE", join(root, "LICENSE"));
+    copyFileSync("NOTICE", join(root, "NOTICE"));
     copyFileSync("README.md", join(root, "README.md"));
     copyFileSync("packages/cli/package.json", join(cli, "package.json"));
     mkdirSync(join(root, "scripts"), { recursive: true });
@@ -30,6 +31,8 @@ test("the CLI build carries the unchanged repository LICENSE and README into npm
     assert.ok(packed[0].files.some((file) => file.path === "LICENSE"), "npm archive must include LICENSE");
     const bytes = execFileSync("tar", ["-xOf", join(cli, packed[0].filename), "package/LICENSE"]);
     assert.deepEqual(bytes, source, "packed license must equal the existing root bytes");
+    const notice = execFileSync("tar", ["-xOf", join(cli, packed[0].filename), "package/NOTICE"]);
+    assert.deepEqual(notice, readFileSync(join(root, "NOTICE")), "packed NOTICE must retain attribution verbatim");
     // npm shows the package-root README on the registry page; without it the page reads "No README data found".
     const readme = readFileSync(join(root, "README.md"));
     assert.ok(packed[0].files.some((file) => file.path === "README.md"), "npm archive must include README.md");

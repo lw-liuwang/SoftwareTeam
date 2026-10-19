@@ -13,11 +13,11 @@ release_to: v0.3.2
 affected_skills:
   - context-architecture
   - control-plane-queue
-  - openrig-operator
-  - openrig-user
+  - softwareteam-operator
+  - softwareteam-user
   - parent-qitem-coordinator
   - queue-handoff
-  - rig-bundles-and-shareable-artifacts
+  - software-team-bundles-and-shareable-artifacts
   - rsi-orchestrator-operating
   - specification-system
   - vm-e2e
@@ -43,7 +43,7 @@ skills:
     - send
     - transcript
     - whoami
-  cmux-rig-layout:
+  cmux-softwareteam-layout:
     - cmux-layout
     - send
     - up
@@ -79,7 +79,7 @@ skills:
     - send
   control-plane-workflows:
     - ps
-  cross-host-rig-commands:
+  cross-host-software-team-commands:
     - capture
     - daemon start
     - host list
@@ -97,7 +97,7 @@ skills:
   feature-rollout:
     - broadcast
     - send
-  forming-an-openrig-mental-model:
+  forming-an-softwareteam-mental-model:
     - ask
     - capture
     - down
@@ -124,7 +124,7 @@ skills:
   native-session-file-lab-boundary:
     - send
     - transcript
-  openrig-architect:
+  softwareteam-architect:
     - agent validate
     - capture
     - daemon start
@@ -134,9 +134,9 @@ skills:
     - specs ls
     - up
     - whoami
-  openrig-conventions-codemap:
+  softwareteam-conventions-codemap:
     - send
-  openrig-operator:
+  softwareteam-operator:
     - capture
     - config get
     - daemon status
@@ -147,7 +147,7 @@ skills:
     - queue-legacy
     - send
     - whoami
-  openrig-upgrade:
+  softwareteam-upgrade:
     - capture
     - daemon adopt-state
     - daemon start
@@ -163,7 +163,7 @@ skills:
     - upgrade promote-runtime
     - upgrade verify
     - version
-  openrig-user:
+  softwareteam-user:
     - adopt
     - agent validate
     - ask
@@ -245,11 +245,11 @@ skills:
   research-task:
     - send
     - teleport codex
-  rig-bundles-and-shareable-artifacts:
+  software-team-bundles-and-shareable-artifacts:
     - bundle create
     - bundle inspect
     - bundle install
-  rig-lifecycle:
+  software-team-lifecycle:
     - destroy
     - down
     - ps
@@ -279,7 +279,7 @@ skills:
     - remove
     - shrink
     - whoami
-  seating-live-claude-session-into-rig:
+  seating-live-claude-session-into-software_team:
     - bind
     - capture
     - discover

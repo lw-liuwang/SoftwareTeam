@@ -6,7 +6,7 @@ import { expect, it } from "vitest";
 import { composeView } from "../src/domain/terminal/view-composer.js";
 
 it("keeps remote session names intact through both POSIX shell boundaries", () => {
-  const root = mkdtempSync(join(tmpdir(), "openrig-remote-shell-"));
+  const root = mkdtempSync(join(tmpdir(), "softwareteam-remote-shell-"));
   const bin = join(root, "bin");
   mkdirSync(bin);
   // Simulate ssh's remote-command reconstruction. The local and remote shell

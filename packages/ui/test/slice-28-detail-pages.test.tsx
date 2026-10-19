@@ -81,30 +81,30 @@ describe("SkillDetailPage — slice 28 HG-7 + HG-8 docs-browser (daemon skill-li
           ok: true,
           json: async () => [
             {
-              id: "openrig-managed:core/openrig-user",
-              name: "openrig-user",
-              source: "openrig-managed",
+              id: "softwareteam-managed:core/softwareteam-user",
+              name: "softwareteam-user",
+              source: "softwareteam-managed",
               files: [{ name: "SKILL.md", path: "SKILL.md", size: 42, mtime: "2026-05-12T00:00:00.000Z" }],
             },
           ],
         };
       }
-      if (url === "/api/skills/openrig-managed%3Acore%2Fopenrig-user/files/list?path=") {
+      if (url === "/api/skills/softwareteam-managed%3Acore%2Fsoftwareteam-user/files/list?path=") {
         return {
           ok: true,
           json: async () => ({
-            skillId: "openrig-managed:core/openrig-user",
+            skillId: "softwareteam-managed:core/softwareteam-user",
             path: "",
             ...fileList(opts.rootFiles ?? [{ name: "SKILL.md", type: "file" }]),
           }),
         };
       }
       for (const [subPath, entries] of Object.entries(opts.subFolders ?? {})) {
-        if (url === `/api/skills/openrig-managed%3Acore%2Fopenrig-user/files/list?path=${encodeURIComponent(subPath)}`) {
+        if (url === `/api/skills/softwareteam-managed%3Acore%2Fsoftwareteam-user/files/list?path=${encodeURIComponent(subPath)}`) {
           return {
             ok: true,
             json: async () => ({
-              skillId: "openrig-managed:core/openrig-user",
+              skillId: "softwareteam-managed:core/softwareteam-user",
               path: subPath,
               ...fileList(entries),
             }),
@@ -112,11 +112,11 @@ describe("SkillDetailPage — slice 28 HG-7 + HG-8 docs-browser (daemon skill-li
         }
       }
       for (const [filePath, content] of Object.entries(opts.fileContent ?? {})) {
-        if (url === `/api/skills/openrig-managed%3Acore%2Fopenrig-user/files/read?path=${encodeURIComponent(filePath)}`) {
+        if (url === `/api/skills/softwareteam-managed%3Acore%2Fsoftwareteam-user/files/read?path=${encodeURIComponent(filePath)}`) {
           return {
             ok: true,
             json: async () => ({
-              skillId: "openrig-managed:core/openrig-user",
+              skillId: "softwareteam-managed:core/softwareteam-user",
               path: filePath,
               absolutePath: `/abs/${filePath}`,
               content,
@@ -134,12 +134,12 @@ describe("SkillDetailPage — slice 28 HG-7 + HG-8 docs-browser (daemon skill-li
     });
   }
 
-  const skillId = "openrig-managed:core/openrig-user";
+  const skillId = "softwareteam-managed:core/softwareteam-user";
 
   it("renders the docs-browser shell (tree + viewer testids)", async () => {
     mockOneSkill({
       rootFiles: [{ name: "SKILL.md", type: "file" }],
-      fileContent: { "SKILL.md": "# OpenRig User Skill body" },
+      fileContent: { "SKILL.md": "# SoftwareTeam User Skill body" },
     });
     renderSkillDetail(librarySkillToken(skillId));
     await waitFor(() => {
@@ -344,14 +344,14 @@ describe("PluginDetailPage — slice 28 HG-6 + HG-8 docs-browser (real file tree
 
   it("renders the docs-browser shell (tree + viewer testids)", async () => {
     mockPluginDetail({
-      pluginId: "openrig-core",
-      name: "openrig-core",
+      pluginId: "softwareteam-core",
+      name: "softwareteam-core",
       version: "0.1.0",
       runtimes: ["claude"],
       rootFiles: [{ name: "README.md", type: "file" }],
       fileContent: { "README.md": "# body" },
     });
-    renderPluginDetail("openrig-core");
+    renderPluginDetail("softwareteam-core");
     await waitFor(() => {
       expect(screen.getByTestId("plugin-detail-docs-browser")).toBeTruthy();
     });
@@ -361,8 +361,8 @@ describe("PluginDetailPage — slice 28 HG-6 + HG-8 docs-browser (real file tree
 
   it("header strip preserves plugin metadata (name + version + runtimes + skill-count + used-by-count + source)", async () => {
     mockPluginDetail({
-      pluginId: "openrig-core",
-      name: "openrig-core",
+      pluginId: "softwareteam-core",
+      name: "softwareteam-core",
       version: "0.1.0",
       runtimes: ["claude", "codex"],
       skillCount: 5,
@@ -373,23 +373,23 @@ describe("PluginDetailPage — slice 28 HG-6 + HG-8 docs-browser (real file tree
       rootFiles: [{ name: "README.md", type: "file" }],
       fileContent: { "README.md": "doc" },
     });
-    renderPluginDetail("openrig-core");
+    renderPluginDetail("softwareteam-core");
     await waitFor(() => {
       // Heading + breadcrumbs both contain plugin name; pin to the h1 via role.
-      expect(screen.getByRole("heading", { name: "openrig-core" })).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "softwareteam-core" })).toBeTruthy();
     });
     expect(screen.getByText("v0.1.0")).toBeTruthy();
     expect(screen.getByTestId("plugin-detail-runtime-claude")).toBeTruthy();
     expect(screen.getByTestId("plugin-detail-runtime-codex")).toBeTruthy();
-    expect(screen.getByText("vendored:openrig-core")).toBeTruthy();
+    expect(screen.getByText("vendored:softwareteam-core")).toBeTruthy();
     expect(screen.getByTestId("plugin-detail-skill-count").textContent).toBe("5 skills");
     expect(screen.getByTestId("plugin-detail-used-by-count").textContent).toBe("used by 2 agents");
   });
 
   it("HG-6 tree lists plugin root entries from daemon /files/list endpoint", async () => {
     mockPluginDetail({
-      pluginId: "openrig-core",
-      name: "openrig-core",
+      pluginId: "softwareteam-core",
+      name: "softwareteam-core",
       version: "0.1.0",
       runtimes: ["claude"],
       rootFiles: [
@@ -400,7 +400,7 @@ describe("PluginDetailPage — slice 28 HG-6 + HG-8 docs-browser (real file tree
       ],
       fileContent: { "README.md": "# body" },
     });
-    renderPluginDetail("openrig-core");
+    renderPluginDetail("softwareteam-core");
     await waitFor(() => {
       expect(screen.getByTestId("plugin-detail-tree-entry-README.md")).toBeTruthy();
     });
@@ -411,86 +411,86 @@ describe("PluginDetailPage — slice 28 HG-6 + HG-8 docs-browser (real file tree
 
   it("HG-6 README.md auto-selected on entry (content visible in viewer)", async () => {
     mockPluginDetail({
-      pluginId: "openrig-core",
-      name: "openrig-core",
+      pluginId: "softwareteam-core",
+      name: "softwareteam-core",
       version: "0.1.0",
       runtimes: ["claude"],
       rootFiles: [{ name: "README.md", type: "file" }, { name: "LICENSE", type: "file" }],
-      fileContent: { "README.md": "# Canonical OpenRig plugin", "LICENSE": "MIT" },
+      fileContent: { "README.md": "# Canonical SoftwareTeam plugin", "LICENSE": "MIT" },
     });
-    renderPluginDetail("openrig-core");
+    renderPluginDetail("softwareteam-core");
     await waitFor(() => {
-      expect(screen.getByText(/Canonical OpenRig plugin/)).toBeTruthy();
+      expect(screen.getByText(/Canonical SoftwareTeam plugin/)).toBeTruthy();
     });
   });
 
   it("HG-8 folder navigation: clicking skills/ enters subfolder; child skill folders visible", async () => {
     mockPluginDetail({
-      pluginId: "openrig-core",
-      name: "openrig-core",
+      pluginId: "softwareteam-core",
+      name: "softwareteam-core",
       version: "0.1.0",
       runtimes: ["claude"],
       rootFiles: [{ name: "skills", type: "dir" }],
       subFolders: {
         skills: [
-          { name: "openrig-user", type: "dir" },
-          { name: "openrig-architect", type: "dir" },
+          { name: "softwareteam-user", type: "dir" },
+          { name: "softwareteam-architect", type: "dir" },
         ],
       },
     });
-    renderPluginDetail("openrig-core");
+    renderPluginDetail("softwareteam-core");
     await waitFor(() => {
       expect(screen.getByTestId("plugin-detail-tree-entry-skills")).toBeTruthy();
     });
     fireEvent.click(screen.getByTestId("plugin-detail-tree-entry-skills"));
     await waitFor(() => {
-      expect(screen.getByTestId("plugin-detail-tree-entry-skills/openrig-user")).toBeTruthy();
+      expect(screen.getByTestId("plugin-detail-tree-entry-skills/softwareteam-user")).toBeTruthy();
     });
-    expect(screen.getByTestId("plugin-detail-tree-entry-skills/openrig-architect")).toBeTruthy();
+    expect(screen.getByTestId("plugin-detail-tree-entry-skills/softwareteam-architect")).toBeTruthy();
     expect(screen.getByTestId("plugin-detail-tree-up")).toBeTruthy();
   });
 
-  it("HG-8 folder navigation: nested file content visible (skills/openrig-user/SKILL.md)", async () => {
+  it("HG-8 folder navigation: nested file content visible (skills/softwareteam-user/SKILL.md)", async () => {
     mockPluginDetail({
-      pluginId: "openrig-core",
-      name: "openrig-core",
+      pluginId: "softwareteam-core",
+      name: "softwareteam-core",
       version: "0.1.0",
       runtimes: ["claude"],
       rootFiles: [{ name: "skills", type: "dir" }],
       subFolders: {
-        skills: [{ name: "openrig-user", type: "dir" }],
-        "skills/openrig-user": [{ name: "SKILL.md", type: "file" }],
+        skills: [{ name: "softwareteam-user", type: "dir" }],
+        "skills/softwareteam-user": [{ name: "SKILL.md", type: "file" }],
       },
-      fileContent: { "skills/openrig-user/SKILL.md": "# OpenRig User skill body" },
+      fileContent: { "skills/softwareteam-user/SKILL.md": "# SoftwareTeam User skill body" },
     });
-    renderPluginDetail("openrig-core");
+    renderPluginDetail("softwareteam-core");
     await waitFor(() => {
       expect(screen.getByTestId("plugin-detail-tree-entry-skills")).toBeTruthy();
     });
     fireEvent.click(screen.getByTestId("plugin-detail-tree-entry-skills"));
     await waitFor(() => {
-      expect(screen.getByTestId("plugin-detail-tree-entry-skills/openrig-user")).toBeTruthy();
+      expect(screen.getByTestId("plugin-detail-tree-entry-skills/softwareteam-user")).toBeTruthy();
     });
-    fireEvent.click(screen.getByTestId("plugin-detail-tree-entry-skills/openrig-user"));
+    fireEvent.click(screen.getByTestId("plugin-detail-tree-entry-skills/softwareteam-user"));
     await waitFor(() => {
-      expect(screen.getByTestId("plugin-detail-tree-entry-skills/openrig-user/SKILL.md")).toBeTruthy();
+      expect(screen.getByTestId("plugin-detail-tree-entry-skills/softwareteam-user/SKILL.md")).toBeTruthy();
     });
-    fireEvent.click(screen.getByTestId("plugin-detail-tree-entry-skills/openrig-user/SKILL.md"));
+    fireEvent.click(screen.getByTestId("plugin-detail-tree-entry-skills/softwareteam-user/SKILL.md"));
     await waitFor(() => {
-      expect(screen.getByText(/OpenRig User skill body/)).toBeTruthy();
+      expect(screen.getByText(/SoftwareTeam User skill body/)).toBeTruthy();
     });
   });
 
   it("DISCRIMINATOR: virtual-tree testids from pre-C2 shell ABSENT", async () => {
     mockPluginDetail({
-      pluginId: "openrig-core",
-      name: "openrig-core",
+      pluginId: "softwareteam-core",
+      name: "softwareteam-core",
       version: "0.1.0",
       runtimes: ["claude"],
       rootFiles: [{ name: "README.md", type: "file" }],
       fileContent: { "README.md": "doc" },
     });
-    renderPluginDetail("openrig-core");
+    renderPluginDetail("softwareteam-core");
     await waitFor(() => {
       expect(screen.getByTestId("plugin-detail-tree")).toBeTruthy();
     });

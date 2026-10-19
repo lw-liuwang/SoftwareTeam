@@ -1,4 +1,4 @@
-import { isHumanSeatSessionRef } from "@openrig/daemon/attention";
+import { isHumanSeatSessionRef } from "@softwareteam/daemon/attention";
 // PULSE view data model (5.2 Wave B). A reusable, view-local model so the pulse
 // row/section renderers (pulse/render-pulse.ts) can be shared — crash-cart rides
 // the same renderers (plan §crash-cart-pre-work). Increment 1 populates this from
@@ -231,7 +231,7 @@ function qitemShort(qitemId: string): string {
  * null signal is honest-unknown and EXCLUDED (never assumed idle). The idle
  * DURATION is a VIEW derived HERE from the owner's raw lastActivityAt (arch
  * 3a947fb1) + the reader clock (nowMs) — the renderer-side test-clock seam,
- * DISTINCT from the .cjs OPENRIG_TEST_CLOCK_NOW env clock. Render: owner ·
+ * DISTINCT from the .cjs SOFTWARETEAM_TEST_CLOCK_NOW env clock. Render: owner ·
  * qitem-short · idle-duration · no-handoff · the drill hint. */
 function parkedRows(
   inProgress: QueueRead[],
@@ -286,7 +286,7 @@ function hhmm(iso: string | null | undefined): string {
  * a routed finding, not an improvised surface). */
 function seatRowAction(snap: FleetSnapshot, session: string, fullDetail: string): Action {
   const found = findAgentBySession(snap, session);
-  if (found) return { type: "drill", resource: "agent", name: found.agent.name, target: { host: found.host.name, rig: found.rig.name, pod: found.pod.name } };
+  if (found) return { type: "drill", resource: "agent", name: found.agent.name, target: { host: found.host.name, softwareTeam: found.softwareTeam.name, pod: found.pod.name } };
   return { type: "notice", message: fullDetail };
 }
 

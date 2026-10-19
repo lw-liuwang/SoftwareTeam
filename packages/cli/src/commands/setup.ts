@@ -83,7 +83,7 @@ const NON_DARWIN_DRY_RUN_SKIPS: Record<string, string> = {
   brew: BREW_PLATFORM_SKIP,
 };
 const BASE_RUNTIME_CONFIG_DISCLOSURE: RuntimeConfigDisclosure[] = [
-  // OPR.0.4.8.2 agnostic rip-out: OpenRig no longer writes ~/.claude/settings.json — the global
+  // OPR.0.4.8.2 agnostic rip-out: SoftwareTeam no longer writes ~/.claude/settings.json — the global
   // permission allow-list (C2) is removed, so that global file is no longer touched at all.
   {
     scope: "global",
@@ -166,7 +166,7 @@ function installHerdr(deps: SetupDeps, platform: NodeJS.Platform): SetupStep {
     return {
       id: "herdr_install", status: "warn",
       message: `Could not install or verify herdr: ${(err as Error).message}`,
-      reason: "The OpenRig view can use plain tmux without herdr. Existing cmux workflows remain available.",
+      reason: "The SoftwareTeam view can use plain tmux without herdr. Existing cmux workflows remain available.",
       fixHint: `Retry \`${HERDR_INSTALL_COMMAND}\`, or follow https://herdr.dev/docs/install/.`,
     };
   }
@@ -182,8 +182,8 @@ function installGhostty(deps: SetupDeps, platform: NodeJS.Platform, choice?: boo
   if (locations.some(deps.exists)) return { id, status: "pass", message: "Ghostty is already installed. No terminal was opened." };
   if (choice !== true) return {
     id, status: "skipped",
-    message: "Installing agent: ask once, 'Install Ghostty for the OpenRig view?'",
-    fixHint: "On Yes, rerun rig setup with --ghostty, preserving earlier choices such as --no-herdr and --providers. On No, use --no-ghostty; Terminal.app remains available. The person types no command.",
+    message: "Installing agent: ask once, 'Install Ghostty for the SoftwareTeam view?'",
+    fixHint: "On Yes, rerun SoftwareTeam setup with --ghostty, preserving earlier choices such as --no-herdr and --providers. On No, use --no-ghostty; Terminal.app remains available. The person types no command.",
   };
   try {
     installCommand(deps, "brew install --cask ghostty");
@@ -196,8 +196,8 @@ function installGhostty(deps: SetupDeps, platform: NodeJS.Platform, choice?: boo
 }
 
 // Slice-03 Lane B (OPR.0.4.8) onboarding RECORD path. RULING-C (b4913ed4): the v1 onboarding menu
-// EDITS/RECORDS a deliberate policy choice into an EXISTING RigSpec only — a NEW INSTALL has no spec,
-// so nothing is written and the floor holds by ABSENCE. Persistence is the RigSpec `permission_policy`
+// EDITS/RECORDS a deliberate policy choice into an EXISTING SoftwareTeamSpec only — a NEW INSTALL has no spec,
+// so nothing is written and the floor holds by ABSENCE. Persistence is the SoftwareTeamSpec `permission_policy`
 // field ONLY (P6 fence: no config.json / daemon-state widening). The record is a least-destructive
 // YAML edit (parse -> set the one key -> serialize), never a codec re-emit that could drop keys.
 //   chosen built-in  -> permission_policy: builtin:<name>   (Seam-B ref semantics)
@@ -208,8 +208,8 @@ export const POLICY_CHOICES = ["locked", "standard", "open", "yolo", "auto", "no
 export type PolicyChoice = (typeof POLICY_CHOICES)[number];
 
 // Root-spec filenames, matching the CLI's established file-or-directory spec convention
-// (see specs.ts resolveAddSpecSource + `rig up <source>`).
-const ROOT_SPEC_NAMES = ["rig.yaml", "rig.yml", "agent.yaml", "agent.yml"];
+// (see specs.ts resolveAddSpecSource + `SoftwareTeam up <source>`).
+const ROOT_SPEC_NAMES = ["software-team.yaml", "softwareTeam.yml", "agent.yaml", "agent.yml"];
 
 function policyRefFor(choice: PolicyChoice): string {
   // Deliberate-none is the explicit reserved value; every built-in name carries the MANDATORY
@@ -252,10 +252,10 @@ export function recordPermissionPolicyStep(deps: SetupDeps, choice: string, spec
     return {
       id: "policy_record",
       status: "fail",
-      message: "No existing rig spec to record the policy into.",
+      message: "No existing SoftwareTeam spec to record the policy into.",
       reason:
         "The onboarding menu records a policy choice into an EXISTING spec only. A new install has no spec, so nothing is written — team seats keep the team default.",
-      fixHint: "Point --spec at an existing rig.yaml (or a directory containing one), then re-run `rig setup --policy`.",
+      fixHint: "Point --spec at an existing software-team.yaml (or a directory containing one), then re-run `SoftwareTeam setup --policy`.",
     };
   }
 
@@ -275,7 +275,7 @@ export function recordPermissionPolicyStep(deps: SetupDeps, choice: string, spec
       status: "fail",
       message: `Could not record the policy into ${resolved}: ${(err as Error).message}`,
       reason: "The spec could not be parsed or written; no partial change was applied.",
-      fixHint: "Repair the spec YAML, then re-run `rig setup --policy`.",
+      fixHint: "Repair the spec YAML, then re-run `SoftwareTeam setup --policy`.",
     };
   }
 
@@ -463,7 +463,7 @@ export async function runSetup(deps: SetupDeps, opts: { dryRun?: boolean; full?:
 
   // 6. tmux config
   const TMUX_CONF = `${process.env["HOME"] ?? "~"}/.tmux.conf`;
-  const MANAGED_MARKER = "# OpenRig managed block";
+  const MANAGED_MARKER = "# SoftwareTeam managed block";
   const MANAGED_BLOCK = [
     MANAGED_MARKER,
     "set -g mouse on",
@@ -480,13 +480,13 @@ export async function runSetup(deps: SetupDeps, opts: { dryRun?: boolean; full?:
         MANAGED_BLOCK,
       );
       deps.writeFile(TMUX_CONF, replaced);
-      steps.push({ id: "tmux_config", status: "applied", message: "Updated OpenRig managed tmux config block." });
+      steps.push({ id: "tmux_config", status: "applied", message: "Updated SoftwareTeam managed tmux config block." });
     } else if (existing) {
       deps.writeFile(TMUX_CONF, existing.trimEnd() + "\n\n" + MANAGED_BLOCK + "\n");
-      steps.push({ id: "tmux_config", status: "applied", message: "Appended OpenRig managed tmux config block." });
+      steps.push({ id: "tmux_config", status: "applied", message: "Appended SoftwareTeam managed tmux config block." });
     } else {
       deps.writeFile(TMUX_CONF, MANAGED_BLOCK + "\n");
-      steps.push({ id: "tmux_config", status: "applied", message: "Created .tmux.conf with OpenRig managed block." });
+      steps.push({ id: "tmux_config", status: "applied", message: "Created .tmux.conf with SoftwareTeam managed block." });
     }
   } catch (err) {
     steps.push({ id: "tmux_config", status: "warn", message: `Could not update tmux config: ${(err as Error).message}` });
@@ -587,52 +587,52 @@ function buildDefaultDoctorDeps(setupDeps: SetupDeps): DoctorDeps {
 
 /**
  * OPR.0.3.3.04.2 (AC-1): the ONE canonical ordered golden path over EXISTING
- * verbs - no magic mega-command, no hidden state. `rig setup` prints this as its
- * next-steps; `rig status`/`rig doctor` only HINT back to it; the durable
+ * verbs - no magic mega-command, no hidden state. `SoftwareTeam setup` prints this as its
+ * next-steps; `SoftwareTeam status`/`softwareTeam doctor` only HINT back to it; the durable
  * reference is docs/reference/getting-started.md. Returns the lines to print.
  */
 export function goldenPathNextSteps(): string[] {
   return [
-    "Finish installing (full reference: rig context get reference/getting-started.md). Once setup has applied, steps 2 to 5 are",
+    "Finish installing (full reference: SoftwareTeam context get reference/getting-started.md). Once setup has applied, steps 2 to 5 are",
     "  part of the install, not extras: do them without stopping to ask whether to go on",
     "  1. Check only selected logins: claude auth status or codex login status; one working provider is enough",
-    "  2. rig daemon start                 If stopped. Starting OpenRig finishes the install; it is not a step beyond setup",
+    "  2. SoftwareTeam daemon start                 If stopped. Starting SoftwareTeam finishes the install; it is not a step beyond setup",
     "     A fresh instance also starts the kernel, including operator and advisor",
     "     The kernel is part of installation. Keep it for normal setup; --no-kernel is for automation or when requested",
-    "  3. rig status                       Read the kernel boot state; rig ps --nodes --rig kernel checks its seats",
+    "  3. SoftwareTeam status                       Read the kernel boot state; SoftwareTeam ps --nodes --software-team kernel checks its seats",
     "     Started is not ready. The view may open while agents finish starting; report their actual state",
-    "     For an existing kernel or blocked startup: rig context get reference/getting-started.md#incomplete-setup-and-restart",
-    "  4. Show the person OpenRig: open the OpenRig TUI and operator for them now. Say so first; it's the next step, not a question",
+    "     For an existing kernel or blocked startup: SoftwareTeam context get reference/getting-started.md#incomplete-setup-and-restart",
+    "  4. Show the person SoftwareTeam: open the SoftwareTeam TUI and operator for them now. Say so first; it's the next step, not a question",
     "     It opens a NEW terminal tab/window, or a space in their current Herdr, and preserves this terminal",
-    "     rig terminal open saved:kernel --window --json (TUI and operator, advisor on its own tab; herdr, otherwise plain tmux)",
-    "     rig context get reference/getting-started.md#open-the-kernel-conversations",
+    "     SoftwareTeam terminal open saved:kernel --window --json (TUI and operator, advisor on its own tab; herdr, otherwise plain tmux)",
+    "     SoftwareTeam context get reference/getting-started.md#open-the-kernel-conversations",
     "     If they said not now: give the command to open it later. Over headless SSH: ask the person to open a new terminal/tab and give the exact connection/attach command",
     "     Herdr needs a terminal the person can see; switching the shared TUI to :terminals does not open one",
     "     No, SSH and headless use are fine background outcomes; do not report an unseen window as opened",
     "     On a desktop, no copying or typing for the person; check the result notes, not just CLI success",
-    "     On a Mac, offer Ghostty once: on Yes run rig setup --ghostty; preserve earlier choices such as --no-herdr and --providers",
+    "     On a Mac, offer Ghostty once: on Yes run SoftwareTeam setup --ghostty; preserve earlier choices such as --no-herdr and --providers",
     "     On No use --no-ghostty; Terminal.app remains available",
     "     Setup installs herdr by default; use --no-herdr if the person declines. Plain tmux remains available",
-    "     Only if the window cannot open: rig tui --shared is the dashboard-only fallback, not the operator's conversation",
+    "     Only if the window cannot open: SoftwareTeam tui --shared is the dashboard-only fallback, not the operator's conversation",
     "     If opening fails, inspect any new surface before retrying; report the error and finish the local action",
     "     Do not replace a failed desktop action with commands for the person to copy or type",
     "  5. Installing agent: ask the person's goal and project folder, then hand them to the ready operator",
-    "     Find operator.agent with rig ps --nodes --rig kernel --json; use its canonicalSessionName with rig send",
+    "     Find operator.agent with SoftwareTeam ps --nodes --software-team kernel --json; use its canonicalSessionName with SoftwareTeam send",
     "     Send the goal and folder, or have the person type them in the operator pane; show where it answers",
-    "     In the message, say: This is the agent that installed OpenRig. The person will answer in your pane",
+    "     In the message, say: This is the agent that installed SoftwareTeam. The person will answer in your pane",
     "     Do not implement the person's project yourself. The operator helps them choose and start a team",
-    "     If the person gives you a goal later, forward it and the folder with rig send; leave the work with the operator's team",
+    "     If the person gives you a goal later, forward it and the folder with SoftwareTeam send; leave the work with the operator's team",
     "     Finish installation when the operator is ready and the person is talking to it; daemon health alone is not completion",
     "     If they choose to talk later, leave the exact connection step and name the pending handoff",
     "     The operator handles team choice, launch and goal delivery. The installing agent stops at the handoff",
     "  Manual path (without the operator):",
     "  1. Pick a first team, then cd <your-repository>",
-    "     Teams: starter (a Claude builder and a Codex reviewer), workshop (a rig bundle) or factory (seven agents)",
+    "     Teams: starter (a Claude builder and a Codex reviewer), workshop (a SoftwareTeam bundle) or factory (seven agents)",
     "     With one provider, use a team adapted to it; first-project is starter's old name",
-    "     Preview rig up <team> --cwd . --plan; with your yes, rig up <team> --cwd .",
-    "     rig ps --nodes --rig <team> checks the project seats before giving them work",
-    "  2. rig send dev-build@starter '<one useful change, boundaries, and how to check it>' (workshop, factory: orch-lead@<team>)",
-    "  Next: rig queue list --destination dev-build@starter; rig workspace doctor; rig scope ...; rig workflow specs",
+    "     Preview SoftwareTeam up <team> --cwd . --plan; with your yes, SoftwareTeam up <team> --cwd .",
+    "     SoftwareTeam ps --nodes --software-team <team> checks the project seats before giving them work",
+    "  2. SoftwareTeam send dev-build@starter '<one useful change, boundaries, and how to check it>' (workshop, factory: orch-lead@<team>)",
+    "  Next: SoftwareTeam queue list --destination dev-build@starter; SoftwareTeam workspace doctor; SoftwareTeam scope ...; SoftwareTeam workflow specs",
   ];
 }
 
@@ -643,7 +643,7 @@ export function goldenPathNextSteps(): string[] {
  * "Operator" never appears (YOLO Mode is the user-facing label for it), the exact deliberate-none and
  * skip-line phrasing, NO pre-selected default, and `Standard` carries the ⭐ recommendation marker.
  * REGISTER RULE (pm-lead): factual + version-neutral — never "treacherous"/editorializing/
- * founder-internal wording. Recording is a thought, never a gate — `rig up` always works bare.
+ * founder-internal wording. Recording is a thought, never a gate — `SoftwareTeam up` always works bare.
  * 0.6.7: the question, the deliberate-none line and the skip line now state the team launch default
  * (#893) that ships with 0.6.6, matching docs/reference/getting-started.md and the
  * applying-a-permission-policy skill. The labels, marker and register are unchanged.
@@ -651,16 +651,16 @@ export function goldenPathNextSteps(): string[] {
 export function permissionPolicyMenuLines(): string[] {
   return [
     "Before team launch, your agent recommends keeping the team default (reuse an existing explicit choice):",
-    "  Claude team seats with no policy or explicit seat choice run ordinary rig commands, project reads and common tests without prompts; lifecycle commands such as rig up and rig down still ask.",
-    "  Only if you want more, it offers once: Remember these selected OpenRig commands in your native settings for this project?",
+    "  Claude team seats with no policy or explicit seat choice run ordinary SoftwareTeam commands, project reads and common tests without prompts; lifecycle commands such as SoftwareTeam up and SoftwareTeam down still ask.",
+    "  Only if you want more, it offers once: Remember these selected SoftwareTeam commands in your native settings for this project?",
     "  Yes / No — keep the team default. No answer leaves settings unchanged too.",
-    "  A remembered allowance can cover all rig verbs, but Claude team seats still ask before lifecycle commands; not global YOLO or authority to invent work.",
+    "  A remembered allowance can cover all SoftwareTeam verbs, but Claude team seats still ask before lifecycle commands; not global YOLO or authority to invent work.",
     "  Personal project scope unless you explicitly choose user-wide sessions. On Yes, the agent adds native rules, preserving stricter rules.",
-    "  Procedure: rig context get skills/applying-a-permission-policy/SKILL.md",
-    "  Undo: ask your agent to remove only the OpenRig command allowances added by this setup.",
+    "  Procedure: SoftwareTeam context get skills/applying-a-permission-policy/SKILL.md",
+    "  Undo: ask your agent to remove only the SoftwareTeam command allowances added by this setup.",
     "  This printed guidance collects no answer and writes no native rules; --policy below is a separate spec choice.",
     "",
-    "Permission policy (optional — recording is a thought, not a gate; `rig up` always works without one):",
+    "Permission policy (optional — recording is a thought, not a gate; `SoftwareTeam up` always works without one):",
     "  Policy Mode:",
     "    Locked            The most restrictive built-in policy.",
     "    Standard  ⭐      The recommended balanced built-in policy.",
@@ -671,23 +671,23 @@ export function permissionPolicyMenuLines(): string[] {
     "  If you skip: nothing is recorded; team seats launch with the team default unless a seat choice or named Codex profile applies",
     "",
     "  To record a choice into an existing spec:",
-    "    rig setup --policy <locked|standard|open|yolo|auto|none> --spec <path>",
+    "    SoftwareTeam setup --policy <locked|standard|open|yolo|auto|none> --spec <path>",
   ];
 }
 
 export function setupCommand(depsOverride?: SetupDeps): Command {
-  const cmd = new Command("setup").description("Prepare the machine for OpenRig");
+  const cmd = new Command("setup").description("Prepare the machine for SoftwareTeam");
 
   cmd
     .option("--dry-run", "Show the plan without making changes")
     .option("--json", "Machine-readable JSON output")
     .option("--full", "Install broader operator workstation tools")
-    .option("--no-herdr", "Skip the default herdr installation; the OpenRig view can use plain tmux")
+    .option("--no-herdr", "Skip the default herdr installation; the SoftwareTeam view can use plain tmux")
     .option("--ghostty", "Install Ghostty on macOS after the person accepts the offer")
     .option("--no-ghostty", "Decline Ghostty; Terminal.app remains available on macOS")
     .option("--providers <list>", "The person's provider choice: claude, codex, or both. One not chosen is skipped (not installed or checked), never failed")
     .option("--policy <name>", `Record a deliberate permission-policy choice into an existing spec (${POLICY_CHOICES.join("|")})`)
-    .option("--spec <path>", "Existing rig spec (file or directory) to record the --policy choice into")
+    .option("--spec <path>", "Existing SoftwareTeam spec (file or directory) to record the --policy choice into")
     .action(async (opts: { dryRun?: boolean; json?: boolean; full?: boolean; herdr?: boolean; ghostty?: boolean; providers?: string; policy?: string; spec?: string }) => {
       const providers = opts.providers === undefined ? undefined : parseSetupProviders(opts.providers);
       if (providers && "error" in providers) {
@@ -707,7 +707,7 @@ export function setupCommand(depsOverride?: SetupDeps): Command {
 
       console.log(`\nProfile: ${result.profile}`);
       console.log(`Platform: ${result.platform}\n`);
-      console.log("OpenRig may modify runtime config in these locations:");
+      console.log("SoftwareTeam may modify runtime config in these locations:");
       for (const item of result.runtimeConfig) {
         console.log(`  - [${item.scope}] ${item.runtime} ${item.path} — ${item.purpose}`);
       }
@@ -721,10 +721,10 @@ export function setupCommand(depsOverride?: SetupDeps): Command {
       }
       if (!providers) {
         console.log("\n  Providers: setup installs and checks both Claude Code and Codex. If the person chose one, pass it,");
-        console.log("  for example rig setup --providers claude; the other then reads not selected instead of failed.");
+        console.log("  for example SoftwareTeam setup --providers claude; the other then reads not selected instead of failed.");
       }
 
-      // OPR.0.3.3.04.2 (AC-1): the canonical ordered golden path. `rig setup` is
+      // OPR.0.3.3.04.2 (AC-1): the canonical ordered golden path. `SoftwareTeam setup` is
       // the primary surface for the new-operator sequence (status/doctor only
       // HINT back to it; the durable reference is docs/reference/getting-started.md).
       if (result.ready) {
@@ -737,7 +737,7 @@ export function setupCommand(depsOverride?: SetupDeps): Command {
           if (step.fixHint) console.log(`    Fix: ${step.fixHint}`);
         }
         console.log("Only the harnesses selected for your project need a login; an unused harness does not (rerun with --providers to leave it out).");
-        console.log("Run `rig doctor` to recheck the system and provider authentication.");
+        console.log("Run `SoftwareTeam doctor` to recheck the system and provider authentication.");
       }
       // Keep the conversation route available even after a dry run or incomplete setup,
       // before the optional menu so a short output read still includes the handoff.

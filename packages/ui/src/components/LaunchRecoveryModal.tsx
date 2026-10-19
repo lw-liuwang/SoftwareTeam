@@ -28,8 +28,8 @@ import { Button } from "./ui/button.js";
 import { StatusPip, type StatusPipStatus } from "./ui/status-pip.js";
 import { cn } from "../lib/utils.js";
 import { useLaunchPlan, type LaunchPlanNode } from "../hooks/useLaunchPlan.js";
-import { useLaunchRig } from "../hooks/mutations.js";
-import type { SeatIntendedAction, SeatTokenState } from "../hooks/useRigStatus.js";
+import { useLaunchSoftwareTeam } from "../hooks/mutations.js";
+import type { SeatIntendedAction, SeatTokenState } from "../hooks/useSoftwareTeamStatus.js";
 
 type LaunchPolicy = "restore-original" | "fresh";
 
@@ -49,8 +49,8 @@ const tokenTone: Record<SeatTokenState, string> = {
 };
 
 export interface LaunchRecoveryModalProps {
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -101,9 +101,9 @@ function PolicyOption({
   );
 }
 
-export function LaunchRecoveryModal({ rigId, rigName, open, onOpenChange }: LaunchRecoveryModalProps) {
-  const planMut = useLaunchPlan(rigId);
-  const launchMut = useLaunchRig(rigId);
+export function LaunchRecoveryModal({ softwareTeamId, softwareTeamName, open, onOpenChange }: LaunchRecoveryModalProps) {
+  const planMut = useLaunchPlan(softwareTeamId);
+  const launchMut = useLaunchSoftwareTeam(softwareTeamId);
   const [policy, setPolicy] = useState<LaunchPolicy>("restore-original");
 
   const planNodes: LaunchPlanNode[] = planMut.data?.nodes ?? [];
@@ -117,7 +117,7 @@ export function LaunchRecoveryModal({ rigId, rigName, open, onOpenChange }: Laun
     launchMut.reset();
     planMut.mutate(undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, rigId]);
+  }, [open, softwareTeamId]);
 
   function selectPolicy(next: LaunchPolicy) {
     if (next === policy) return;
@@ -146,7 +146,7 @@ export function LaunchRecoveryModal({ rigId, rigName, open, onOpenChange }: Laun
         <DialogHeader>
           <DialogTitle className="font-headline uppercase tracking-tight flex items-center gap-2">
             <RotateCcw className="h-4 w-4" />
-            Restore {rigName}
+            Restore {softwareTeamName}
           </DialogTitle>
           <DialogDescription className="font-mono text-[10px] text-secondary">
             Plan before action — this is a READ-ONLY preview. No changes made yet.
@@ -182,7 +182,7 @@ export function LaunchRecoveryModal({ rigId, rigName, open, onOpenChange }: Laun
             <div className="font-mono text-[9px] leading-relaxed text-tertiary">
               <span className="font-bold uppercase">restore-original blocked</span> — {blockedSeats.length} seat(s)
               need a decision. restore-original will NOT silently fresh-prime. Resolve each seat below, or switch to{" "}
-              <span className="underline">fresh</span> (identity-changing) for the whole rig.
+              <span className="underline">fresh</span> (identity-changing) for the whole softwareTeam.
             </div>
           </div>
         ) : null}
@@ -235,7 +235,7 @@ export function LaunchRecoveryModal({ rigId, rigName, open, onOpenChange }: Laun
 
         <DialogFooter className="items-center gap-2">
           <p className="mr-auto font-mono text-[8px] text-stone-400 leading-snug">
-            src: composed from /api/rigs/:id/launch-plan (read-only forecast · mutated:false)
+            src: composed from /api/software-teams/:id/launch-plan (read-only forecast · mutated:false)
           </p>
           <Button
             variant="secondary"

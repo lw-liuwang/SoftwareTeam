@@ -47,14 +47,14 @@ describe("AC-3: FocusedTerminal unavailable in drill", () => {
     const { FeedCardTerminalDrill } = await import("../src/components/for-you/FeedCardTerminalDrill.js");
 
     const { getByTestId } = withQueryClient(
-      React.createElement(FeedCardTerminalDrill, { cardId: "ac3-1", sessionName: "dev-impl@my-rig" }),
+      React.createElement(FeedCardTerminalDrill, { cardId: "ac3-1", sessionName: "dev-impl@my-software-team" }),
     );
 
     fireEvent.click(getByTestId("feed-card-drill-ac3-1"));
     await waitFor(() => getByTestId("feed-card-drill-ac3-1-terminal-popover"));
 
     await waitFor(() => {
-      const terminalEl = getByTestId("focused-terminal-dev-impl@my-rig");
+      const terminalEl = getByTestId("focused-terminal-dev-impl@my-software-team");
       expect(terminalEl.textContent).toContain("Terminal unavailable");
     }, { timeout: 3000 });
 

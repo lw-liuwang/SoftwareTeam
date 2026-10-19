@@ -164,7 +164,7 @@ export class UsageHost {
     fs.mkdirSync(codexHome, { recursive: true });
     return new ProviderServiceImpl({
       db: createFullTestDb(),
-      listRigs: () => [],
+      listSoftwareTeams: () => [],
       env: { HOME: this.home, CODEX_HOME: codexHome } as NodeJS.ProcessEnv,
       now,
       usageWindows: {
@@ -306,22 +306,22 @@ export function usageAcrossHostsFacts(view: Record<string, unknown>): string[] {
 /** Served seat accounts in each observed shape: today's producer's four, and a difference with windowsSampled false,
  *  absent or alongside withheld, which the daemon also accepts. Both views' parity tests serve these. */
 export const SEAT_SHAPES: Array<Record<string, unknown>> = [
-  { seatSession: "seat-sampled@r", rigName: "r", runtime: "claude-code",
+  { seatSession: "seat-sampled@r", softwareTeamName: "r", runtime: "claude-code",
     configured: { source: "registry", profileRef: "work-a", recordedAt: "2026-10-12T10:00:00Z", profileSaved: false },
     registryNotes: ["a registry note"], allowance: { linked: false, reason: "seat allowance reason" },
     observed: { windowsSampled: true, lastSampledAt: "2026-10-13T23:01:00Z" } },
-  { seatSession: "seat-differs@r", rigName: "r", runtime: "claude-code",
+  { seatSession: "seat-differs@r", softwareTeamName: "r", runtime: "claude-code",
     configured: { source: "default_login", home: "/home/fixture", homeNote: "the fixture's home note" },
     allowance: { linked: false, reason: "seat allowance reason" },
     observed: { windowsSampled: true, lastSampledAt: "2026-10-13T23:02:00Z", differsFrom: ["peer-a@r"], note: "possibly a different login" } },
-  { seatSession: "seat-unsampled@r", rigName: "r", runtime: "codex", configured: { source: "unknown", reason: "no registry row" },
+  { seatSession: "seat-unsampled@r", softwareTeamName: "r", runtime: "codex", configured: { source: "unknown", reason: "no registry row" },
     allowance: { linked: false, reason: "seat allowance reason" }, observed: { windowsSampled: false } },
-  { seatSession: "seat-withheld@r", rigName: "r", runtime: "claude-code", configured: { source: "unknown", reason: "no registry row" },
+  { seatSession: "seat-withheld@r", softwareTeamName: "r", runtime: "claude-code", configured: { source: "unknown", reason: "no registry row" },
     allowance: { linked: false, reason: "seat allowance reason" }, observed: { withheld: true, note: "observation withheld: 2 seats share it" } },
-  { seatSession: "seat-false-differs@r", rigName: "r", runtime: "claude-code", configured: { source: "unknown", reason: "no registry row" },
+  { seatSession: "seat-false-differs@r", softwareTeamName: "r", runtime: "claude-code", configured: { source: "unknown", reason: "no registry row" },
     allowance: { linked: false, reason: "seat allowance reason" }, observed: { windowsSampled: false, differsFrom: ["peer-b@r"], note: "false-sampled note" } },
-  { seatSession: "seat-absent-differs@r", rigName: "r", runtime: "claude-code", configured: { source: "unknown", reason: "no registry row" },
+  { seatSession: "seat-absent-differs@r", softwareTeamName: "r", runtime: "claude-code", configured: { source: "unknown", reason: "no registry row" },
     allowance: { linked: false, reason: "seat allowance reason" }, observed: { differsFrom: ["peer-c@r", "peer-d@r"] } },
-  { seatSession: "seat-withheld-differs@r", rigName: "r", runtime: "claude-code", configured: { source: "unknown", reason: "no registry row" },
+  { seatSession: "seat-withheld-differs@r", softwareTeamName: "r", runtime: "claude-code", configured: { source: "unknown", reason: "no registry row" },
     allowance: { linked: false, reason: "seat allowance reason" }, observed: { withheld: true, differsFrom: ["peer-e@r"], note: "withheld-differs note" } },
 ];

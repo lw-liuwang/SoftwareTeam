@@ -66,7 +66,7 @@ describe("ScopeApproveService — re-approve/re-stamp (OPR.0.5.0.18)", () => {
   const base = {
     scopeTier: "slice" as const,
     scopePath: "release-x/slices/18-amend-me",
-    actorSession: "pm@rig",
+    actorSession: "pm@software-team",
     onBehalfOf: null,
   };
 
@@ -79,7 +79,7 @@ describe("ScopeApproveService — re-approve/re-stamp (OPR.0.5.0.18)", () => {
     const result = service().approve({
       ...base,
       approvalScope: "spec",
-      actorSession: "planner@rig",
+      actorSession: "planner@software-team",
       onBehalfOf: "founder",
       reApprove: true,
       reason: "PRD §3 amended after guard round 2",
@@ -87,7 +87,7 @@ describe("ScopeApproveService — re-approve/re-stamp (OPR.0.5.0.18)", () => {
 
     // frontmatter = the CURRENT attestation + prior-count
     const fm = frontmatterOf(readmePath);
-    expect(fm["approved-spec-by"]).toBe("planner@rig");
+    expect(fm["approved-spec-by"]).toBe("planner@software-team");
     expect(fm["approved-spec-at"]).toBe(result.approvedAt);
     expect(fm["approved-spec-priors"]).toBe(1);
     // body prose intact
@@ -95,7 +95,7 @@ describe("ScopeApproveService — re-approve/re-stamp (OPR.0.5.0.18)", () => {
 
     // result reports the amendment
     expect(result.reApproved).toBe(true);
-    expect(result.priorApprovedBy).toBe("pm@rig");
+    expect(result.priorApprovedBy).toBe("pm@software-team");
     expect(result.priorApprovedAt).toBe(first.approvedAt);
 
     // the append-only rows reconstruct the FULL history (both attestations)
@@ -105,10 +105,10 @@ describe("ScopeApproveService — re-approve/re-stamp (OPR.0.5.0.18)", () => {
     const notes = amendment.auditNotes as Record<string, unknown>;
     expect(notes["re_approval"]).toBe(true);
     expect(notes["reason"]).toBe("PRD §3 amended after guard round 2");
-    expect(notes["prior_approved_by"]).toBe("pm@rig");
+    expect(notes["prior_approved_by"]).toBe("pm@software-team");
     expect(notes["prior_approved_at"]).toBe(first.approvedAt);
     expect(notes["on_behalf_of"]).toBe("founder"); // authorizer
-    expect(amendment.actorSession).toBe("planner@rig"); // acting agent
+    expect(amendment.actorSession).toBe("planner@software-team"); // acting agent
     expect(amendment.reason).toContain("PRD §3 amended after guard round 2");
     // the PRIOR attestation row is untouched (append-only; nothing deleted)
     const prior = rows.find((r) => r.actionId === first.actionId)!;
@@ -159,15 +159,15 @@ describe("ScopeApproveService — re-approve/re-stamp (OPR.0.5.0.18)", () => {
     const result = service().approve({
       ...base,
       approvalScope: "delivery",
-      actorSession: "qa@rig",
+      actorSession: "qa@software-team",
       reApprove: true,
       reason: "delivery evidence superseded by corrected SHA",
     });
     const fm = frontmatterOf(readmePath);
-    expect(fm["approved-by"]).toBe("qa@rig");
+    expect(fm["approved-by"]).toBe("qa@software-team");
     expect(fm["approved-at"]).toBe(result.approvedAt);
     expect(fm["approved-priors"]).toBe(1);
-    expect(result.priorApprovedBy).toBe("pm@rig");
+    expect(result.priorApprovedBy).toBe("pm@software-team");
     expect(result.priorApprovedAt).toBe(first.approvedAt);
     const rows = auditBrowse.query({ scopeId: "OPR.X.18", approvalScope: "delivery" }).rows;
     expect(rows).toHaveLength(2);
@@ -195,10 +195,10 @@ describe("ScopeApproveService — re-approve/re-stamp (OPR.0.5.0.18)", () => {
   it("a SECOND re-stamp increments priors to 2 and the rows reconstruct all three attestations in order", () => {
     approveOnce("spec");
     service().approve({ ...base, approvalScope: "spec", reApprove: true, reason: "amendment one" });
-    service().approve({ ...base, approvalScope: "spec", actorSession: "lead@rig", reApprove: true, reason: "amendment two" });
+    service().approve({ ...base, approvalScope: "spec", actorSession: "lead@software-team", reApprove: true, reason: "amendment two" });
     const fm = frontmatterOf(readmePath);
     expect(fm["approved-spec-priors"]).toBe(2);
-    expect(fm["approved-spec-by"]).toBe("lead@rig");
+    expect(fm["approved-spec-by"]).toBe("lead@software-team");
     const rows = auditBrowse.query({ scopeId: "OPR.X.18", approvalScope: "spec" }).rows;
     expect(rows).toHaveLength(3);
     const reasons = rows.map((r) => (r.auditNotes as Record<string, unknown>)["reason"]).filter(Boolean);
@@ -230,16 +230,16 @@ describe("ScopeApproveService — re-approve/re-stamp (OPR.0.5.0.18)", () => {
     });
     app.route("/api/scope/approve", scopeApproveRoutes());
 
-    // P21 I1: the approver identity is the transport header (X-OpenRig-Session), stamped by the CLI
+    // P21 I1: the approver identity is the transport header (X-SoftwareTeam-Session), stamped by the CLI
     // from the seat env. The legit caller provides it; body.actorSession is the transitional claim.
-    const post = (body: Record<string, unknown>, session = "pm@rig") =>
+    const post = (body: Record<string, unknown>, session = "pm@software-team") =>
       app.request("/api/scope/approve", {
         method: "POST",
-        headers: { "content-type": "application/json", "X-OpenRig-Session": session },
+        headers: { "content-type": "application/json", "X-SoftwareTeam-Session": session },
         body: JSON.stringify(body),
       });
 
-    const wire = { scopeTier: "slice", scopePath: base.scopePath, approvalScope: "spec", actorSession: "pm@rig" };
+    const wire = { scopeTier: "slice", scopePath: base.scopePath, approvalScope: "spec", actorSession: "pm@software-team" };
     expect((await post(wire)).status).toBe(201);
     // bare repeat → 409 teaching the verb
     const conflict = await post(wire);
@@ -250,11 +250,11 @@ describe("ScopeApproveService — re-approve/re-stamp (OPR.0.5.0.18)", () => {
     expect(noReason.status).toBe(400);
     expect(((await noReason.json()) as { error: string }).error).toBe("reason_required");
     // full amendment through the wire → 201 with the amendment result fields
-    const ok = await post({ ...wire, actorSession: "planner@rig", reApprove: true, reason: "wire-level amend" }, "planner@rig");
+    const ok = await post({ ...wire, actorSession: "planner@software-team", reApprove: true, reason: "wire-level amend" }, "planner@software-team");
     expect(ok.status).toBe(201);
     const okBody = (await ok.json()) as { reApproved: boolean; priorApprovedBy: string };
     expect(okBody.reApproved).toBe(true);
-    expect(okBody.priorApprovedBy).toBe("pm@rig");
+    expect(okBody.priorApprovedBy).toBe("pm@software-team");
     const rows = auditBrowse.query({ scopeId: "OPR.X.18", approvalScope: "spec" }).rows;
     expect(rows.some((r) => (r.auditNotes as Record<string, unknown>)["reason"] === "wire-level amend")).toBe(true);
   });
@@ -279,18 +279,18 @@ describe("ScopeApproveService — re-approve/re-stamp (OPR.0.5.0.18)", () => {
     const wire = { scopeTier: "slice", scopePath: base.scopePath, approvalScope: "spec" };
 
     // (1) absent header + body actorSession → deliver-and-label under the claimed actor (claimed:v1), 201; NOT refused.
-    const noHeader = await req({}, { ...wire, actorSession: "mallory@rig" });
+    const noHeader = await req({}, { ...wire, actorSession: "mallory@software-team" });
     expect(noHeader.status).toBe(201);
     expect(frontmatterOf(readmePath)["provenance"]).toBe("claimed:v1");
 
-    // (2) header present + differing body actor → the wire SUPERSEDES (re-stamp under pm@rig, transport:v1); 409 retired.
+    // (2) header present + differing body actor → the wire SUPERSEDES (re-stamp under pm@software-team, transport:v1); 409 retired.
     // A re-stamp needs an explicit reason (the re-approve guard); the differing body actor is superseded, not refused.
-    const mismatch = await req({ "X-OpenRig-Session": "pm@rig" }, { ...wire, actorSession: "mallory@rig", reApprove: true, reason: "wire supersedes body" });
+    const mismatch = await req({ "X-SoftwareTeam-Session": "pm@software-team" }, { ...wire, actorSession: "mallory@software-team", reApprove: true, reason: "wire supersedes body" });
     expect(mismatch.status).toBe(201);
-    expect(frontmatterOf(readmePath)["provenance"]).toBe("transport:v1"); // wire wins; mallory@rig superseded
+    expect(frontmatterOf(readmePath)["provenance"]).toBe("transport:v1"); // wire wins; mallory@software-team superseded
 
     // (3) header + NO body actorSession → the RECORDED approver is the transport identity, transport:v1.
-    const derived = await req({ "X-OpenRig-Session": "pm@rig" }, { ...wire, reApprove: true, reason: "re-derive" });
+    const derived = await req({ "X-SoftwareTeam-Session": "pm@software-team" }, { ...wire, reApprove: true, reason: "re-derive" });
     expect(derived.status).toBe(201);
     expect(frontmatterOf(readmePath)["provenance"]).toBe("transport:v1");
   });

@@ -12,7 +12,7 @@ import type { FsOps } from "../src/domain/package-resolver.js";
 
 const VALID_SPEC = `
 schema_version: 1
-name: test-rig
+name: test-software-team
 version: "1.0"
 nodes:
   - id: dev
@@ -98,7 +98,7 @@ describe("BundleSourceResolver", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  /** Create a complete .rigbundle from scratch */
+  /** Create a complete .softwareteambundle from scratch */
   async function createBundle(opts?: { specYaml?: string; pkgManifest?: string; originalSource?: string; originalSources?: string[] }): Promise<string> {
     // Write source package
     const pkgDir = path.join(tmpDir, "src-pkg");
@@ -106,8 +106,8 @@ describe("BundleSourceResolver", () => {
     fs.writeFileSync(path.join(pkgDir, "package.yaml"), opts?.pkgManifest ?? VALID_PKG_MANIFEST);
     fs.writeFileSync(path.join(pkgDir, "skills/deep/SKILL.md"), "# Deep Review");
 
-    // Write rig spec
-    const specPath = path.join(tmpDir, "rig.yaml");
+    // Write softwareTeam spec
+    const specPath = path.join(tmpDir, "software-team.yaml");
     fs.writeFileSync(specPath, opts?.specYaml ?? VALID_SPEC);
 
     // Assemble
@@ -132,21 +132,21 @@ describe("BundleSourceResolver", () => {
     writeIntegrity(staging, integrity, realIntegrityFsOps());
 
     // Pack
-    const bundlePath = path.join(tmpDir, "test.rigbundle");
+    const bundlePath = path.join(tmpDir, "test.softwareteambundle");
     await pack(staging, bundlePath);
 
     return bundlePath;
   }
 
-  // T1: Resolves rig spec from extracted bundle
-  it("resolves rig spec from extracted bundle", async () => {
+  // T1: Resolves softwareTeam spec from extracted bundle
+  it("resolves SoftwareTeam spec from extracted bundle", async () => {
     const bundlePath = await createBundle();
     const resolver = new BundleSourceResolver({ fsOps: realFsOps() });
 
     const result = await resolver.resolve(bundlePath);
 
     expect(fs.existsSync(result.specPath)).toBe(true);
-    expect(result.specPath.endsWith("rig.yaml")).toBe(true);
+    expect(result.specPath.endsWith("software-team.yaml")).toBe(true);
 
     resolver.cleanup(result.tempDir);
   });
@@ -171,10 +171,10 @@ describe("BundleSourceResolver", () => {
     const rawDir = path.join(tmpDir, "raw-bad");
     fs.mkdirSync(rawDir, { recursive: true });
     fs.writeFileSync(path.join(rawDir, "bundle.yaml"), "schema_version: 1\n# missing everything else");
-    fs.writeFileSync(path.join(rawDir, "rig.yaml"), VALID_SPEC);
+    fs.writeFileSync(path.join(rawDir, "software-team.yaml"), VALID_SPEC);
 
     // Pack directly (skip assembler/integrity — this is a pathological bundle)
-    const badBundle = path.join(tmpDir, "bad.rigbundle");
+    const badBundle = path.join(tmpDir, "bad.softwareteambundle");
     await pack(rawDir, badBundle);
 
     const resolver = new BundleSourceResolver({ fsOps: realFsOps() });
@@ -182,29 +182,29 @@ describe("BundleSourceResolver", () => {
     await expect(resolver.resolve(badBundle)).rejects.toThrow();
   });
 
-  // T5: Bundle with missing rig.yaml referenced by manifest -> error
-  it("bundle missing rig.yaml referenced by manifest throws on resolve", async () => {
-    // Create a valid bundle, then rebuild without rig.yaml
+  // T5: Bundle with missing software-team.yaml referenced by manifest -> error
+  it("bundle missing software-team.yaml referenced by manifest throws on resolve", async () => {
+    // Create a valid bundle, then rebuild without software-team.yaml
     const rawDir = path.join(tmpDir, "raw-no-spec");
     fs.mkdirSync(path.join(rawDir, "packages/pkg"), { recursive: true });
     fs.writeFileSync(path.join(rawDir, "packages/pkg/package.yaml"), VALID_PKG_MANIFEST);
     fs.mkdirSync(path.join(rawDir, "packages/pkg/skills/deep"), { recursive: true });
     fs.writeFileSync(path.join(rawDir, "packages/pkg/skills/deep/SKILL.md"), "# Skill");
-    // bundle.yaml references rig.yaml but we don't create it
+    // bundle.yaml references software-team.yaml but we don't create it
     // TODO: AS-T12 — migrate to pod-aware bundle types
     const { serializeLegacyBundleManifest: serializeBundleManifest } = await import("../src/domain/bundle-types.js");
     const manifest = {
       schemaVersion: 1, name: "no-spec", version: "0.1.0",
-      createdAt: "2026-01-01T00:00:00Z", rigSpec: "rig.yaml",
+      createdAt: "2026-01-01T00:00:00Z", softwareTeamSpec: "software-team.yaml",
       packages: [{ name: "pkg", version: "1.0", path: "packages/pkg", originalSource: "local:./pkg" }],
     };
     fs.writeFileSync(path.join(rawDir, "bundle.yaml"), serializeBundleManifest(manifest));
 
-    // Add integrity (which will NOT include rig.yaml since it doesn't exist)
+    // Add integrity (which will NOT include software-team.yaml since it doesn't exist)
     const integrity = computeIntegrity(rawDir, realIntegrityFsOps());
     writeIntegrity(rawDir, integrity, realIntegrityFsOps());
 
-    const badBundle = path.join(tmpDir, "no-spec.rigbundle");
+    const badBundle = path.join(tmpDir, "no-spec.softwareteambundle");
     await pack(rawDir, badBundle);
 
     const resolver = new BundleSourceResolver({ fsOps: realFsOps() });
@@ -264,16 +264,16 @@ describe("BundleSourceResolver", () => {
 
     // Count temp dirs before
     const tmpBase = os.tmpdir();
-    const before = fs.readdirSync(tmpBase).filter((d) => d.startsWith("rigbundle-")).length;
+    const before = fs.readdirSync(tmpBase).filter((d) => d.startsWith("softwareteambundle-")).length;
 
     try {
-      await resolver.resolve("/nonexistent.rigbundle");
+      await resolver.resolve("/nonexistent.softwareteambundle");
     } catch {
       // Expected to throw
     }
 
     // No new temp dirs should remain
-    const after = fs.readdirSync(tmpBase).filter((d) => d.startsWith("rigbundle-")).length;
+    const after = fs.readdirSync(tmpBase).filter((d) => d.startsWith("softwareteambundle-")).length;
     expect(after).toBeLessThanOrEqual(before);
   });
 });
@@ -285,20 +285,20 @@ describe("PodBundleSourceResolver", () => {
     const { createHash } = await import("node:crypto");
     const { PodBundleSourceResolver } = await import("../src/domain/bundle-source-resolver.js");
     const { serializePodBundleManifest } = await import("../src/domain/bundle-types.js");
-    const { RigSpecCodec } = await import("../src/domain/rigspec-codec.js");
+    const { SoftwareTeamSpecCodec } = await import("../src/domain/software-team-spec-codec.js");
 
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "podbundle-resolver-test-"));
     try {
       const stagingDir = path.join(tmpDir, "staging");
       fs.mkdirSync(stagingDir, { recursive: true });
 
-      // Write rig.yaml
-      const rigYaml = RigSpecCodec.serialize({
-        version: "0.2", name: "resolver-rig",
+      // Write software-team.yaml
+      const softwareTeamYaml = SoftwareTeamSpecCodec.serialize({
+        version: "0.2", name: "resolver-software-team",
         pods: [{ id: "dev", label: "Dev", members: [{ id: "impl", agentRef: "local:agents/impl", profile: "default", runtime: "claude-code", cwd: "." }], edges: [] }],
         edges: [],
       });
-      fs.writeFileSync(path.join(stagingDir, "rig.yaml"), rigYaml);
+      fs.writeFileSync(path.join(stagingDir, "software-team.yaml"), softwareTeamYaml);
 
       // Write agent
       fs.mkdirSync(path.join(stagingDir, "agents", "impl"), { recursive: true });
@@ -318,14 +318,14 @@ describe("PodBundleSourceResolver", () => {
       // Write manifest with integrity
       const manifestYaml = serializePodBundleManifest({
         schemaVersion: 2, name: "resolver-test", version: "1.0.0",
-        createdAt: new Date().toISOString(), rigSpec: "rig.yaml",
+        createdAt: new Date().toISOString(), softwareTeamSpec: "software-team.yaml",
         agents: [{ name: "impl", version: "1.0", path: "agents/impl", originalRef: "local:agents/impl", hash: "test-hash", importEntries: [] }],
         integrity: { algorithm: "sha256", files: fileHashes },
       });
       fs.writeFileSync(path.join(stagingDir, "bundle.yaml"), manifestYaml);
 
       // Pack archive
-      const archivePath = path.join(tmpDir, "test.rigbundle");
+      const archivePath = path.join(tmpDir, "test.softwareteambundle");
       await pack(stagingDir, archivePath);
 
       // Create .sha256 digest
@@ -342,7 +342,7 @@ describe("PodBundleSourceResolver", () => {
         expect(result.manifest.agents).toHaveLength(1);
         expect(result.manifest.agents[0]!.name).toBe("impl");
         expect(fs.existsSync(result.specPath)).toBe(true);
-        expect(result.specPath).toContain("rig.yaml");
+        expect(result.specPath).toContain("software-team.yaml");
       } finally {
         resolver.cleanup(result.tempDir);
       }

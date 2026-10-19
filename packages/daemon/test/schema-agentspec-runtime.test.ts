@@ -45,7 +45,7 @@ describe("AgentSpec reboot schema migration (014)", () => {
   it("creates pods table with expected columns", () => {
     const db = freshDb();
     const cols = getColumnNames(db, "pods");
-    expect(cols).toEqual(expect.arrayContaining(["id", "rig_id", "label", "summary", "continuity_policy_json", "created_at"]));
+    expect(cols).toEqual(expect.arrayContaining(["id", "software_team_id", "label", "summary", "continuity_policy_json", "created_at"]));
   });
 
   // T2: continuity_state table with composite PK
@@ -54,10 +54,10 @@ describe("AgentSpec reboot schema migration (014)", () => {
     const cols = getColumnNames(db, "continuity_state");
     expect(cols).toEqual(expect.arrayContaining(["pod_id", "node_id", "status", "artifacts_json", "last_sync_at", "updated_at"]));
 
-    // Verify composite PK by inserting a rig, pod, node, and two continuity_state rows with different pod/node combos
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('r1', 'test')").run();
-    db.prepare("INSERT INTO pods (id, rig_id, label) VALUES ('p1', 'r1', 'Dev')").run();
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES ('n1', 'r1', 'impl')").run();
+    // Verify composite PK by inserting a softwareTeam, pod, node, and two continuity_state rows with different pod/node combos
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('r1', 'test')").run();
+    db.prepare("INSERT INTO pods (id, software_team_id, label) VALUES ('p1', 'r1', 'Dev')").run();
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES ('n1', 'r1', 'impl')").run();
     db.prepare("INSERT INTO continuity_state (pod_id, node_id) VALUES ('p1', 'n1')").run();
 
     // Duplicate should fail
@@ -103,9 +103,9 @@ describe("AgentSpec reboot schema migration (014)", () => {
   // T7: FK insert succeeds for full chain
   it("FK inserts succeed for pod + node with pod_id + continuity_state + checkpoint with pod_id", () => {
     const db = freshDb();
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('r1', 'test')").run();
-    db.prepare("INSERT INTO pods (id, rig_id, label, summary) VALUES ('p1', 'r1', 'Dev', 'dev pod')").run();
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id, pod_id, agent_ref, profile) VALUES ('n1', 'r1', 'impl', 'p1', 'local:agents/impl', 'tdd')").run();
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('r1', 'test')").run();
+    db.prepare("INSERT INTO pods (id, software_team_id, label, summary) VALUES ('p1', 'r1', 'Dev', 'dev pod')").run();
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, pod_id, agent_ref, profile) VALUES ('n1', 'r1', 'impl', 'p1', 'local:agents/impl', 'tdd')").run();
     db.prepare("INSERT INTO continuity_state (pod_id, node_id, status) VALUES ('p1', 'n1', 'healthy')").run();
     db.prepare("INSERT INTO checkpoints (id, node_id, summary, pod_id, continuity_source, continuity_artifacts_json) VALUES ('c1', 'n1', 'test checkpoint', 'p1', 'pre_shutdown', '{\"session_log\": \"/tmp/log.md\"}')").run();
 
@@ -125,11 +125,11 @@ describe("AgentSpec reboot schema migration (014)", () => {
   });
 
   // T8: cascade/SET NULL behavior
-  it("deleting rig cascades to pods; deleting pod sets node.pod_id to NULL", () => {
+  it("deleting SoftwareTeam cascades to pods; deleting pod sets node.pod_id to NULL", () => {
     const db = freshDb();
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('r1', 'test')").run();
-    db.prepare("INSERT INTO pods (id, rig_id, label) VALUES ('p1', 'r1', 'Dev')").run();
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id, pod_id) VALUES ('n1', 'r1', 'impl', 'p1')").run();
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('r1', 'test')").run();
+    db.prepare("INSERT INTO pods (id, software_team_id, label) VALUES ('p1', 'r1', 'Dev')").run();
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, pod_id) VALUES ('n1', 'r1', 'impl', 'p1')").run();
     db.prepare("INSERT INTO checkpoints (id, node_id, summary, pod_id) VALUES ('c1', 'n1', 'cp', 'p1')").run();
 
     // Delete pod -> node.pod_id and checkpoint.pod_id become NULL
@@ -139,18 +139,18 @@ describe("AgentSpec reboot schema migration (014)", () => {
     const cp = db.prepare("SELECT pod_id FROM checkpoints WHERE id = 'c1'").get() as { pod_id: string | null };
     expect(cp.pod_id).toBeNull();
 
-    // Delete rig -> cascades nodes (which cascades checkpoints)
-    db.prepare("INSERT INTO pods (id, rig_id, label) VALUES ('p2', 'r1', 'Arch')").run();
-    db.prepare("DELETE FROM rigs WHERE id = 'r1'").run();
-    const pods = db.prepare("SELECT count(*) as cnt FROM pods WHERE rig_id = 'r1'").get() as { cnt: number };
+    // Delete softwareTeam -> cascades nodes (which cascades checkpoints)
+    db.prepare("INSERT INTO pods (id, software_team_id, label) VALUES ('p2', 'r1', 'Arch')").run();
+    db.prepare("DELETE FROM software_teams WHERE id = 'r1'").run();
+    const pods = db.prepare("SELECT count(*) as cnt FROM pods WHERE software_team_id = 'r1'").get() as { cnt: number };
     expect(pods.cnt).toBe(0);
   });
 
   // T9: resolved spec fields round-trip
   it("resolved spec fields round-trip through the DB", () => {
     const db = freshDb();
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('r1', 'test')").run();
-    db.prepare(`INSERT INTO nodes (id, rig_id, logical_id, resolved_spec_name, resolved_spec_version, resolved_spec_hash)
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('r1', 'test')").run();
+    db.prepare(`INSERT INTO nodes (id, software_team_id, logical_id, resolved_spec_name, resolved_spec_version, resolved_spec_hash)
       VALUES ('n1', 'r1', 'impl', 'implementer', '0.2', 'sha256:abc123')`).run();
 
     const row = db.prepare("SELECT resolved_spec_name, resolved_spec_version, resolved_spec_hash FROM nodes WHERE id = 'n1'").get() as Record<string, unknown>;
@@ -172,9 +172,9 @@ describe("AgentSpec reboot schema migration (014)", () => {
     const preMigrations = allMigrations.slice(0, -1); // all except 014
     migrate(db, preMigrations);
 
-    // Create rig + node + sessions with various statuses
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('r1', 'test')").run();
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES ('n1', 'r1', 'impl')").run();
+    // Create softwareTeam + node + sessions with various statuses
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('r1', 'test')").run();
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES ('n1', 'r1', 'impl')").run();
     db.prepare("INSERT INTO sessions (id, node_id, session_name, status) VALUES ('s-running', 'n1', 'r01-run', 'running')").run();
     db.prepare("INSERT INTO sessions (id, node_id, session_name, status) VALUES ('s-idle', 'n1', 'r01-idle', 'idle')").run();
     db.prepare("INSERT INTO sessions (id, node_id, session_name, status) VALUES ('s-unknown', 'n1', 'r01-unk', 'unknown')").run();
@@ -199,8 +199,8 @@ describe("AgentSpec reboot schema migration (014)", () => {
   // T11b: claimed sessions get startup_status=ready via registerClaimedSession()
   it("registerClaimedSession sets startup_status=ready", () => {
     const db = freshDb();
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('r1', 'test')").run();
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES ('n1', 'r1', 'impl')").run();
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('r1', 'test')").run();
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES ('n1', 'r1', 'impl')").run();
 
     const registry = new SessionRegistry(db);
     const session = registry.registerClaimedSession("n1", "organic-session");

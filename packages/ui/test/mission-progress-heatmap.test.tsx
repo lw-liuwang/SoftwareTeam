@@ -90,7 +90,7 @@ function makeDetail(
       proofPackets: [],
       aggregate: { passCount: 0, failCount: 0 },
     },
-    topology: { affectedRigs: [], totalSeats: 0, specGraph: null },
+    topology: { affectedSoftwareTeams: [], totalSeats: 0, specGraph: null },
   };
 }
 
@@ -325,7 +325,7 @@ describe("MissionScopePage Progress tab composes heat-map (slice 13.5)", () => {
       if (url.includes("/api/config")) {
         return new Response(
           JSON.stringify({
-            settings: { "workspace.root": { value: "/Users/admin/.openrig/workspace" } },
+            settings: { "workspace.root": { value: "/Users/admin/.softwareteam/workspace" } },
           }),
           { status: 200 },
         );

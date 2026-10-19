@@ -16,7 +16,7 @@ import {
   useBindSession,
   type DiscoveredSession,
 } from "../hooks/useDiscovery.js";
-import { useRigSummary } from "../hooks/useRigSummary.js";
+import { useSoftwareTeamSummary } from "../hooks/useSoftwareTeamSummary.js";
 import { WorkspacePage } from "./WorkspacePage.js";
 import { RuntimeBadge, ToolMark } from "./graphics/RuntimeMark.js";
 
@@ -168,7 +168,7 @@ export function GenerateDraftSection() {
   const handleGenerate = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/discovery/draft-rig", { method: "POST" });
+      const res = await fetch("/api/discovery/draft-software-team", { method: "POST" });
       if (!res.ok) {
         setDraftYaml(`# Error: draft generation failed (HTTP ${res.status})`);
         return;
@@ -191,7 +191,7 @@ export function GenerateDraftSection() {
         data-testid="generate-draft-btn"
         className="mb-spacing-3"
       >
-        {loading ? "GENERATING..." : "GENERATE RIG SPEC"}
+        {loading ? "GENERATING..." : "GENERATE SOFTWARE_TEAM SPEC"}
       </Button>
 
       {draftYaml && (() => {
@@ -230,19 +230,19 @@ export function DiscoveryOverlay() {
     minConfidence: "medium",
   });
   const scanMutation = useDiscoveryScan();
-  const { data: rigs = [] } = useRigSummary();
+  const { data: softwareTeams = [] } = useSoftwareTeamSummary();
   const bindMutation = useBindSession();
   const visibleSessions = sessions;
 
   const [adoptTarget, setAdoptTarget] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [rigId, setRigId] = useState("");
+  const [softwareTeamId, setSoftwareTeamId] = useState("");
   const [logicalId, setLogicalId] = useState("");
 
   const handleAdoptClick = (discoveredId: string) => {
     setAdoptTarget(discoveredId);
     setDialogOpen(true);
-    setRigId("");
+    setSoftwareTeamId("");
     setLogicalId("");
     bindMutation.reset();
   };
@@ -253,9 +253,9 @@ export function DiscoveryOverlay() {
   };
 
   const handleAdoptConfirm = () => {
-    if (!adoptTarget || !rigId || !logicalId.trim()) return;
+    if (!adoptTarget || !softwareTeamId || !logicalId.trim()) return;
     bindMutation.mutate(
-      { discoveredId: adoptTarget, rigId, logicalId: logicalId.trim() },
+      { discoveredId: adoptTarget, softwareTeamId, logicalId: logicalId.trim() },
       { onSuccess: finishAdopt },
     );
   };
@@ -272,7 +272,7 @@ export function DiscoveryOverlay() {
             <h2 className="text-headline-lg uppercase">DISCOVERY</h2>
             <p className="mt-spacing-1 text-body-md text-foreground-muted">
               Running agent sessions currently visible on this machine. Copy a tmux attach command,
-              review the working directory, or adopt the session into a rig.
+              review the working directory, or adopt the session into a softwareTeam.
             </p>
           </div>
           <Button
@@ -317,19 +317,19 @@ export function DiscoveryOverlay() {
         <DialogContent data-testid="adopt-dialog">
           <DialogHeader>
             <DialogTitle className="text-headline-md uppercase">ADOPT SESSION</DialogTitle>
-            <DialogDescription>Bind this session to an existing logical node in the rig.</DialogDescription>
+            <DialogDescription>Bind this session to an existing logical node in the softwareTeam.</DialogDescription>
           </DialogHeader>
           <div className="space-y-spacing-3">
             <div>
-              <label className="text-label-sm uppercase block mb-spacing-1">RIG</label>
+              <label className="text-label-sm uppercase block mb-spacing-1">SOFTWARE_TEAM</label>
               <select
-                data-testid="adopt-rig-input"
-                value={rigId}
-                onChange={(e) => setRigId(e.target.value)}
+                data-testid="adopt-software-team-input"
+                value={softwareTeamId}
+                onChange={(e) => setSoftwareTeamId(e.target.value)}
                 className="w-full bg-surface-lowest border-b border-outline py-spacing-1 text-body-md font-mono focus:outline-none focus:border-on-surface appearance-none cursor-pointer"
               >
-                <option value="">Select a rig...</option>
-                {rigs.map((r) => (
+                <option value="">Select a softwareTeam...</option>
+                {softwareTeams.map((r) => (
                   <option key={r.id} value={r.id}>{r.name} ({r.nodeCount} nodes)</option>
                 ))}
               </select>
@@ -344,7 +344,7 @@ export function DiscoveryOverlay() {
                 className="w-full bg-transparent border-b border-foreground/20 py-spacing-1 text-body-md font-mono focus:outline-none focus:border-primary"
               />
               <p className="mt-spacing-1 text-label-sm text-foreground-muted">
-                Enter the logical ID of an existing node in the target rig. For pod placement, use the Discovery drawer instead.
+                Enter the logical ID of an existing node in the target softwareTeam. For pod placement, use the Discovery drawer instead.
               </p>
             </div>
           </div>
@@ -358,7 +358,7 @@ export function DiscoveryOverlay() {
             <Button
               variant="tactical"
               onClick={handleAdoptConfirm}
-              disabled={!rigId || !logicalId.trim() || adoptPending}
+              disabled={!softwareTeamId || !logicalId.trim() || adoptPending}
               data-testid="adopt-confirm"
             >
               {adoptPending ? "ADOPTING..." : "ADOPT"}

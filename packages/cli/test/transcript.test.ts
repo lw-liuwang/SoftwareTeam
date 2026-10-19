@@ -59,22 +59,22 @@ describe("Transcript CLI", () => {
   beforeAll(async () => {
     server = http.createServer((req, res) => {
       const url = decodeURIComponent(req.url ?? "");
-      if (url.startsWith("/api/transcripts/dev-impl@my-rig/tail")) {
+      if (url.startsWith("/api/transcripts/dev-impl@my-software-team/tail")) {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ session: "dev-impl@my-rig", lines: 10, content: "line1\nline2\nline3\n" }));
-      } else if (url.startsWith("/api/transcripts/dev-impl@thick-rig/tail")) {
+        res.end(JSON.stringify({ session: "dev-impl@my-software-team", lines: 10, content: "line1\nline2\nline3\n" }));
+      } else if (url.startsWith("/api/transcripts/dev-impl@thick-software-team/tail")) {
         res.writeHead(200, { "Content-Type": "application/json" });
         const many = Array.from({ length: 12 }, (_, i) => `content line ${i}`).join("\n");
-        res.end(JSON.stringify({ session: "dev-impl@thick-rig", lines: 12, content: many }));
-      } else if (url.startsWith("/api/transcripts/dev-impl@paragraph-rig/tail")) {
+        res.end(JSON.stringify({ session: "dev-impl@thick-software-team", lines: 12, content: many }));
+      } else if (url.startsWith("/api/transcripts/dev-impl@paragraph-software-team/tail")) {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ content: "\n# Result\n\nFirst paragraph.\n\n\nSecond paragraph.\n```python\nx = 1\n\nprint(x)\n```\nDone.\n" }));
-      } else if (url.startsWith("/api/transcripts/dev-impl@my-rig/grep")) {
+      } else if (url.startsWith("/api/transcripts/dev-impl@my-software-team/grep")) {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ session: "dev-impl@my-rig", pattern: "decision", matches: ["decision made", "decision final"] }));
+        res.end(JSON.stringify({ session: "dev-impl@my-software-team", pattern: "decision", matches: ["decision made", "decision final"] }));
       } else if (url.startsWith("/api/transcripts/nonexistent/")) {
         res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Session 'nonexistent' not found. Check session names with: rig ps --nodes" }));
+        res.end(JSON.stringify({ error: "Session 'nonexistent' not found. Check session names with: SoftwareTeam ps --nodes" }));
       } else {
         res.writeHead(404, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "not found" }));
@@ -95,7 +95,7 @@ describe("Transcript CLI", () => {
 
   it("--tail prints tail content", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "transcript", "dev-impl@my-rig", "--tail", "10"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "transcript", "dev-impl@my-software-team", "--tail", "10"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("line1");
@@ -104,14 +104,14 @@ describe("Transcript CLI", () => {
 
   it("preserves leading, consecutive and interior transcript blank lines", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "transcript", "dev-impl@paragraph-rig"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "transcript", "dev-impl@paragraph-software-team"]);
     });
     expect(logs.join("\n") + "\n").toBe("\n# Result\n\nFirst paragraph.\n\n\nSecond paragraph.\n```python\nx = 1\n\nprint(x)\n```\nDone.\n");
   });
 
   it("thin transcript emits the fullscreen-renderer point-of-use note (OPR.0.5.3.1 item 4)", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "transcript", "dev-impl@my-rig", "--tail", "10"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "transcript", "dev-impl@my-software-team", "--tail", "10"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("line1"); // content still printed
@@ -121,7 +121,7 @@ describe("Transcript CLI", () => {
 
   it("a healthy (non-thin) transcript does NOT emit the renderer note", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "transcript", "dev-impl@thick-rig", "--tail", "10"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "transcript", "dev-impl@thick-software-team", "--tail", "10"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("content line 0");
@@ -130,7 +130,7 @@ describe("Transcript CLI", () => {
 
   it("--grep prints matching lines", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "transcript", "dev-impl@my-rig", "--grep", "decision"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "transcript", "dev-impl@my-software-team", "--grep", "decision"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("decision made");
@@ -139,27 +139,27 @@ describe("Transcript CLI", () => {
 
   it("--json prints raw JSON", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "transcript", "dev-impl@my-rig", "--tail", "10", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "transcript", "dev-impl@my-software-team", "--tail", "10", "--json"]);
     });
     const output = logs.join("\n");
     const parsed = JSON.parse(output);
-    expect(parsed.session).toBe("dev-impl@my-rig");
+    expect(parsed.session).toBe("dev-impl@my-software-team");
     expect(parsed.content).toContain("line1");
   });
 
   it("404 response prints guidance and exits non-zero", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "transcript", "nonexistent", "--tail", "10"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "transcript", "nonexistent", "--tail", "10"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("not found");
-    expect(output).toContain("rig ps");
+    expect(output).toContain("SoftwareTeam ps");
     expect(exitCode).toBe(1);
   });
 
   it("--tail and --grep together uses grep (precedence)", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "transcript", "dev-impl@my-rig", "--tail", "10", "--grep", "decision"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "transcript", "dev-impl@my-software-team", "--tail", "10", "--grep", "decision"]);
     });
     const output = logs.join("\n");
     // grep mode: should show matched lines, not tail content

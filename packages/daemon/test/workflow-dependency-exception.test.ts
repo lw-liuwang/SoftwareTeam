@@ -15,7 +15,7 @@ const GRAPH = `workflow:
   version: 1
   entry: {role: owner}
   roles:
-    owner: {preferred_targets: [owner@rig]}
+    owner: {preferred_targets: [owner@software-team]}
   exception_routing: {orchestrator_role: owner}
   steps:
     - id: root
@@ -40,9 +40,9 @@ describe("dependency failure ownership and occurrence-local recovery", () => {
   let sent: string[];
   beforeEach(() => {
     db = createDb(); migrate(db, ALL_MIGRATIONS);
-    db.prepare("INSERT INTO rigs(id,name) VALUES('rig','rig')").run();
+    db.prepare("INSERT INTO software_teams(id,name) VALUES('softwareTeam','softwareTeam')").run();
     const bus = new EventBus(db); sent = [];
-    queue = new QueueRepository(db, bus, { validateRig: () => true, transport: {
+    queue = new QueueRepository(db, bus, { validateSoftwareTeam: () => true, transport: {
       send: async (_target, body) => { sent.push(body); return { ok: false, reason: "controlled terminal is stopped" }; },
     } });
     queue.attachOutbox(new OutboxHandler(db));
@@ -57,10 +57,10 @@ describe("dependency failure ownership and occurrence-local recovery", () => {
     .map(table => db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all());
   async function start(source = GRAPH) {
     const specPath = join(dir, "workflow.yaml"); writeFileSync(specPath, source);
-    return runtime.instantiate({ specPath, rootObjective: "own and recover each failed handout check", createdBySession: "owner@rig" });
+    return runtime.instantiate({ specPath, rootObjective: "own and recover each failed handout check", createdBySession: "owner@software-team" });
   }
   const project = (instanceId: string, packet: string, exit: "done" | "failed") => runtime.project({
-    instanceId, currentPacketId: packet, actorSession: "owner@rig", exit,
+    instanceId, currentPacketId: packet, actorSession: "owner@software-team", exit,
     resultNote: exit === "failed" ? "controlled handout mismatch" : undefined,
     closureEvidence: { evidence_ref: "proof/actual-handout-comparison.json" },
   });
@@ -78,10 +78,10 @@ describe("dependency failure ownership and occurrence-local recovery", () => {
     expect(runtime.inspect(b.id).instance.status).toBe("active");
     expect(queue.getById(b.right)).toEqual(sibling); expect(queue.getById(b.root)).toEqual(completed);
     const [exception] = exceptions(); expect(exceptions()).toHaveLength(1);
-    expect(exception).toMatchObject({ destination_session: "owner@rig", state: "pending", evidence_ref: `rig workflow trace ${b.id}` });
+    expect(exception).toMatchObject({ destination_session: "owner@software-team", state: "pending", evidence_ref: `SoftwareTeam workflow trace ${b.id}` });
     expect(JSON.parse(exception!.tags)).toEqual(expect.arrayContaining([`instance:${b.id}`, "step:left", `occurrence:${b.left}`, "exception:unmapped_failed"]));
     expect(JSON.parse(exception!.chain_of_record)).toEqual([b.left]);
-    expect(exception!.body).toContain(`rig workflow resume ${b.id} --occurrence ${b.left}`);
+    expect(exception!.body).toContain(`SoftwareTeam workflow resume ${b.id} --occurrence ${b.left}`);
     expect(runtime.inspect(b.id).failures).toMatchObject([{ occurrenceId: b.left, stepId: "left", status: "unresolved" }]);
     expect(runtime.trailLog.listForInstance(b.id).find(t => t.priorQitemId === b.left)?.closureEvidence)
       .toMatchObject({ evidence_ref: "proof/actual-handout-comparison.json" });
@@ -97,7 +97,7 @@ describe("dependency failure ownership and occurrence-local recovery", () => {
     await project(b.id, b.left, "failed"); await project(b.id, b.right, "failed");
     expect(exceptions()).toHaveLength(2);
     const right = exceptions().find(row => JSON.parse(row.tags).includes(`occurrence:${b.right}`))!;
-    const request = { instanceId: b.id, occurrenceId: b.left, decision: "corrected handout; retry left", actorSession: "owner@rig" };
+    const request = { instanceId: b.id, occurrenceId: b.left, decision: "corrected handout; retry left", actorSession: "owner@software-team" };
     const resumed = await runtime.resume(request);
     expect(resumed.exceptionItemsClosed).toBe(1);
     expect(queue.getById(right.qitem_id)?.state).toBe("pending");
@@ -132,7 +132,7 @@ describe("dependency failure ownership and occurrence-local recovery", () => {
       if (input.state === "done") throw new Error("controlled exception closure failure");
       return original(input);
     });
-    await expect(runtime.resume({ instanceId: b.id, occurrenceId: b.left, actorSession: "owner@rig" })).rejects.toThrow("controlled exception closure failure");
+    await expect(runtime.resume({ instanceId: b.id, occurrenceId: b.left, actorSession: "owner@software-team" })).rejects.toThrow("controlled exception closure failure");
     expect(snapshot()).toEqual(before); expect(sent).toHaveLength(sends);
   });
 

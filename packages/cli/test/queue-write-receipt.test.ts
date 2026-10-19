@@ -16,8 +16,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -69,7 +69,7 @@ let stderr: string[];
 async function run(argv: string[], routes: Parameters<typeof makeDeps>[0]): Promise<string> {
   const program = createProgram({ queueDeps: makeDeps(routes) });
   program.exitOverride();
-  await program.parseAsync(["node", "rig", "queue", ...argv]);
+  await program.parseAsync(["node", "softwareTeam", "queue", ...argv]);
   return logs.join("\n");
 }
 
@@ -101,7 +101,7 @@ const VERBS: Array<{ verb: string; argv: string[]; route: string; data: unknown;
 describe("queue write receipt (output.compact)", () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
-    vi.stubEnv("OPENRIG_SESSION_NAME", "worker@r");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "worker@r");
     logs = []; errors = []; stderr = [];
     vi.spyOn(console, "log").mockImplementation((...a) => { logs.push(a.join(" ")); });
     vi.spyOn(console, "error").mockImplementation((...a) => { errors.push(a.join(" ")); });
@@ -120,7 +120,7 @@ describe("queue write receipt (output.compact)", () => {
           expect(await run([...argv, "--full"], { [v.route]: { status: v.status, data: v.data } })).toBe(today(v.data, json));
         });
         it(`${v.verb}${json ? " --json" : ""}: switch on with --full prints today's output byte for byte`, async () => {
-          vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+          vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
           expect(await run([...v.argv, ...(json ? ["--json"] : []), "--full"], { [v.route]: { status: v.status, data: v.data } }))
             .toBe(today(v.data, json));
         });
@@ -129,7 +129,7 @@ describe("queue write receipt (output.compact)", () => {
   });
 
   describe("switch on: the receipt", () => {
-    beforeEach(() => { vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1"); });
+    beforeEach(() => { vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1"); });
 
     for (const v of VERBS) {
       it(`${v.verb}: shows identity, state, owner, tsCreated and body size, never the body, and names the full read`, async () => {
@@ -142,7 +142,7 @@ describe("queue write receipt (output.compact)", () => {
           expect(plain).toContain(` · ${String(r.state)} · owner ${String(r.destinationSession)}`);
           expect(plain).toContain(`created ${String(r.tsCreated)}`);
           expect(plain).toContain(`body ${Buffer.byteLength(BODY).toLocaleString("en-US")} bytes`);
-          expect(plain).toContain(`rig queue show '${String(r.qitemId)}' --full --json`);
+          expect(plain).toContain(`SoftwareTeam queue show '${String(r.qitemId)}' --full --json`);
         }
         expect(plain).not.toContain("Do the thing.");
         expect(plain).toMatch(/receipt: (bodies|body) and \d+ other fields not shown \(output\.compact\)/);
@@ -156,7 +156,7 @@ describe("queue write receipt (output.compact)", () => {
         const receipt = json.receipt as Row;
         expect(receipt.omitted).toEqual(expect.arrayContaining([rows.length === 2 ? "created.body" : "body"]));
         if (rows.length === 2) expect(receipt.fullCommands).toHaveLength(2);
-        else expect(receipt.fullCommand).toBe(`rig queue show '${String(rows[0]!.qitemId)}' --full --json`);
+        else expect(receipt.fullCommand).toBe(`SoftwareTeam queue show '${String(rows[0]!.qitemId)}' --full --json`);
       });
     }
 
@@ -220,7 +220,7 @@ describe("queue write receipt (output.compact)", () => {
       expect(plain).toMatch(/^closed qitem-20261010180000-aaaa · handed-off · owner worker@r/m);
       expect(plain).toContain("closure: handed_off_to → next@r");
       expect(plain).toMatch(/^created qitem-20261010180100-bbbb · pending · owner next@r/m);
-      expect(plain).toContain("rig queue show 'qitem-20261010180000-aaaa' --full --json · rig queue show 'qitem-20261010180100-bbbb' --full --json");
+      expect(plain).toContain("SoftwareTeam queue show 'qitem-20261010180000-aaaa' --full --json · SoftwareTeam queue show 'qitem-20261010180100-bbbb' --full --json");
     });
 
     it("advisories, handoff advisories and warnings appear whole", async () => {
@@ -267,10 +267,10 @@ describe("queue write receipt (output.compact)", () => {
   });
 
   describe("switch on: failed and indeterminate writes read exactly as today", () => {
-    beforeEach(() => { vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1"); });
+    beforeEach(() => { vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1"); });
 
     it("a refusal prints whole with exit 1", async () => {
-      const data = { error: "unknown_target_repo", message: "target_repo \"x\" does not match any repo in rig r's workspace; check rig whoami --full --json | jq .workspace.repos to see declared repos", rigName: "r", knownRepos: ["a"] };
+      const data = { error: "unknown_target_repo", message: "target_repo \"x\" does not match any repo in SoftwareTeam r's workspace; check SoftwareTeam whoami --full --json | jq .workspace.repos to see declared repos", softwareTeamName: "r", knownRepos: ["a"] };
       for (const json of [false, true]) {
         logs = []; process.exitCode = undefined;
         const out = await run(["create", "--destination", "worker@r", "--body", "b", "--summary", "s", "--target-repo", "x", ...(json ? ["--json"] : [])],
@@ -302,7 +302,7 @@ describe("queue write receipt (output.compact)", () => {
   });
 
   describe("switch on: wake evidence is only what the write proves", () => {
-    beforeEach(() => { vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1"); });
+    beforeEach(() => { vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1"); });
     const create = async (extra: string[], data: Row) =>
       run(["create", "--destination", "worker@r", "--body", BODY, "--summary", "s", ...extra], { "POST /api/queue/create": { status: 201, data } });
 
@@ -355,7 +355,7 @@ describe("queue write receipt (output.compact)", () => {
         deliveryVerify: { timeoutMs: 50, intervalMs: 0, sleep: async () => {} },
       } });
       program.exitOverride();
-      await program.parseAsync(["node", "rig", "queue", "create", "--destination", "worker@r", "--body", "b", "--summary", "s", "--verify", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "queue", "create", "--destination", "worker@r", "--body", "b", "--summary", "s", "--verify", "--json"]);
       const json = JSON.parse(logs.at(-1)!) as Row;
       expect(json).toMatchObject({ qitemId: id, persisted: true, delivery: { outcome: "posted", connectorAccepted: true, humanReadership: "unknown", nextAction: null } });
       expect(json).not.toHaveProperty("body");
@@ -374,17 +374,17 @@ describe("queue write receipt (output.compact)", () => {
           deliveryVerify: { timeoutMs: 50, intervalMs: 0, sleep: async () => {} },
         } });
         program.exitOverride();
-        await program.parseAsync(["node", "rig", "queue", "create", "--destination", "worker@r", "--body", "b", "--summary", "s", "--verify", ...extra]);
+        await program.parseAsync(["node", "softwareTeam", "queue", "create", "--destination", "worker@r", "--body", "b", "--summary", "s", "--verify", ...extra]);
         return logs.join("\n");
       };
       for (const json of [false, true]) {
         const flag = json ? ["--json"] : [];
-        vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "0");
+        vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "0");
         const off = await verifyRun(flag);
         const full = JSON.parse(off) as Row;
         expect(full.delivery).toMatchObject({ receiptSource: "terminal", destinationKind: "agent", outcome: "claimed", claim: { observed: true, pickup: "working" } });
         expect(off).toBe(today({ ...row(), qitemId: id, persisted: true, delivery: full.delivery }, json));
-        vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+        vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
         expect(await verifyRun([...flag, "--full"])).toBe(off);
         const on = await verifyRun(flag);
         if (json) {
@@ -422,18 +422,18 @@ describe("queue write receipt (output.compact)", () => {
     it("a --host create to another daemon names the host and the remote read", async () => {
       const out = await createVia(["--host", "far"], row(), { status: 200, data: { selfHostId: "here" } });
       expect(out).toContain("host: far (the row lives on that daemon)");
-      expect(out).toContain("OPENRIG_URL='<daemon-url of host far>' rig queue show 'qitem-20261010180000-aaaa' --full --json");
+      expect(out).toContain("SOFTWARETEAM_URL='<daemon-url of host far>' SoftwareTeam queue show 'qitem-20261010180000-aaaa' --full --json");
     });
 
     it("a --host naming this daemon's own host id is local, as the daemon resolves it: no remote host, a local read", async () => {
       const out = await createVia(["--host", "here"], row(), { status: 200, data: { selfHostId: "here" } });
       expect(out).not.toContain("host:");
-      expect(out).not.toContain("OPENRIG_URL");
-      expect(out).toContain("full row: rig queue show 'qitem-20261010180000-aaaa' --full --json");
+      expect(out).not.toContain("SOFTWARETEAM_URL");
+      expect(out).toContain("full row: SoftwareTeam queue show 'qitem-20261010180000-aaaa' --full --json");
       logs = [];
       const json = JSON.parse(await createVia(["--host", "here", "--json"], row(), { status: 200, data: { selfHostId: "here" } })) as Row;
       expect(json).not.toHaveProperty("host");
-      expect((json.receipt as Row).fullCommand).toBe("rig queue show 'qitem-20261010180000-aaaa' --full --json");
+      expect((json.receipt as Row).fullCommand).toBe("SoftwareTeam queue show 'qitem-20261010180000-aaaa' --full --json");
     });
 
     it("a --host whose locality can't be confirmed says so rather than assert the row is remote", async () => {
@@ -445,8 +445,8 @@ describe("queue write receipt (output.compact)", () => {
     });
 
     it("an unconfirmed --host offers both reads as alternatives, in the footer and in --json, for a create and a handoff's new row", async () => {
-      const local = "rig queue show 'qitem-20261010180000-aaaa' --full --json";
-      const remote = "OPENRIG_URL='<daemon-url of host far>' rig queue show 'qitem-20261010180000-aaaa' --full --json";
+      const local = "SoftwareTeam queue show 'qitem-20261010180000-aaaa' --full --json";
+      const remote = "SOFTWARETEAM_URL='<daemon-url of host far>' SoftwareTeam queue show 'qitem-20261010180000-aaaa' --full --json";
       const out = await createVia(["--host", "far"], row(), { status: 503, data: {} });
       expect(out).toContain(`full row: ${local} if this daemon is host far, otherwise ${remote}, or add --full to the create`);
       logs = [];
@@ -458,12 +458,12 @@ describe("queue write receipt (output.compact)", () => {
       const routes = { [v.route]: { status: v.status, data: v.data }, "GET /healthz": { status: 503, data: {} } };
       logs = [];
       const plain = await run([...v.argv, "--host", "far"], routes);
-      expect(plain).toContain(`rig queue show 'qitem-20261010180000-aaaa' --full --json · rig queue show '${newId}' --full --json if this daemon is host far, otherwise OPENRIG_URL='<daemon-url of host far>' rig queue show '${newId}' --full --json, or add --full to the handoff`);
+      expect(plain).toContain(`SoftwareTeam queue show 'qitem-20261010180000-aaaa' --full --json · SoftwareTeam queue show '${newId}' --full --json if this daemon is host far, otherwise SOFTWARETEAM_URL='<daemon-url of host far>' SoftwareTeam queue show '${newId}' --full --json, or add --full to the handoff`);
       logs = [];
       const hj = JSON.parse(await run([...v.argv, "--host", "far", "--json"], routes)) as Row;
       expect(hj.receipt).toMatchObject({
-        fullCommands: ["rig queue show 'qitem-20261010180000-aaaa' --full --json", `rig queue show '${newId}' --full --json`],
-        createdFullCommandOnHost: `OPENRIG_URL='<daemon-url of host far>' rig queue show '${newId}' --full --json`,
+        fullCommands: ["SoftwareTeam queue show 'qitem-20261010180000-aaaa' --full --json", `SoftwareTeam queue show '${newId}' --full --json`],
+        createdFullCommandOnHost: `SOFTWARETEAM_URL='<daemon-url of host far>' SoftwareTeam queue show '${newId}' --full --json`,
       });
     });
 
@@ -490,20 +490,20 @@ describe("the output.compact switch: one resolution, the config store's", () => 
   let real: ConfigStore;
   beforeEach(() => {
     vi.unstubAllEnvs();
-    home = fs.mkdtempSync(path.join(process.env.OPENRIG_HOME ?? "/tmp", "compact-"));
+    home = fs.mkdtempSync(path.join(process.env.SOFTWARETEAM_HOME ?? "/tmp", "compact-"));
     real = new ConfigStore(path.join(home, "config.json"));
     stderr = [];
     vi.spyOn(process.stderr, "write").mockImplementation(((s: string) => { stderr.push(String(s)); return true; }) as typeof process.stderr.write);
   });
   afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
-  /** The switch must read exactly what `rig config get output.compact` reports. */
+  /** The switch must read exactly what `SoftwareTeam config get output.compact` reports. */
   const agree = (expected: boolean) => {
     expect(compactOutputEnabled(real)).toBe(expected);
     expect(real.get("output.compact")).toBe(expected);
   };
 
   it("is off by default", () => agree(false));
-  it("rig config set output.compact true / false turns it on and off", () => {
+  it("SoftwareTeam config set output.compact true / false turns it on and off", () => {
     real.set("output.compact", "true");
     agree(true);
     real.set("output.compact", "false");
@@ -511,17 +511,17 @@ describe("the output.compact switch: one resolution, the config store's", () => 
   });
   it.each(["1", "true"])("env %s is on, over a config of false", (v) => {
     real.set("output.compact", "false");
-    vi.stubEnv("OPENRIG_OUTPUT_COMPACT", v);
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", v);
     agree(true);
   });
   it.each(["0", "false"])("env %s is off, over a config of true", (v) => {
     real.set("output.compact", "true");
-    vi.stubEnv("OPENRIG_OUTPUT_COMPACT", v);
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", v);
     agree(false);
   });
   it.each(["yes", "on", "TRUE", " 1", "2"])("an invalid env value %j is rejected with the store's warning and falls back to the file, for config get and writes alike", (v) => {
     real.set("output.compact", "true");
-    vi.stubEnv("OPENRIG_OUTPUT_COMPACT", v);
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", v);
     agree(true);
     expect(stderr.join("")).toContain("env override for output.compact rejected");
     real.set("output.compact", "false");
@@ -529,7 +529,7 @@ describe("the output.compact switch: one resolution, the config store's", () => 
   });
   it("an empty env defers to the config", () => {
     real.set("output.compact", "true");
-    vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "");
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "");
     agree(true);
   });
   it("an unreadable config is off", () => {
@@ -537,11 +537,11 @@ describe("the output.compact switch: one resolution, the config store's", () => 
   });
 });
 
-describe("review case: config file true + OPENRIG_OUTPUT_COMPACT=yes", () => {
-  const configPath = () => path.join(process.env.OPENRIG_HOME!, "config.json");
+describe("review case: config file true + SOFTWARETEAM_OUTPUT_COMPACT=yes", () => {
+  const configPath = () => path.join(process.env.SOFTWARETEAM_HOME!, "config.json");
   beforeEach(() => {
     vi.unstubAllEnvs();
-    vi.stubEnv("OPENRIG_SESSION_NAME", "worker@r");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "worker@r");
     logs = []; errors = []; stderr = [];
     vi.spyOn(console, "log").mockImplementation((...a) => { logs.push(a.join(" ")); });
     vi.spyOn(console, "error").mockImplementation((...a) => { errors.push(a.join(" ")); });
@@ -550,9 +550,9 @@ describe("review case: config file true + OPENRIG_OUTPUT_COMPACT=yes", () => {
   });
   afterEach(() => { fs.rmSync(configPath(), { force: true }); vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 
-  it("rig config get and a queue write agree: both read true from the file", async () => {
+  it("SoftwareTeam config get and a queue write agree: both read true from the file", async () => {
     new ConfigStore().set("output.compact", "true");
-    vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "yes");
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "yes");
     const resolved = new ConfigStore().resolveWithSource("output.compact");
     expect(resolved).toMatchObject({ value: true, source: "file" });
     const v = VERBS.find((x) => x.verb === "claim")!;

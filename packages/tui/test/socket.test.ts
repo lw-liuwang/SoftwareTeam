@@ -43,7 +43,7 @@ describe("control-socket adapter (spike-adopted; arch boundary constraint)", () 
     const parsed = JSON.parse(reply!);
     expect(parsed.ok).toBe(true);
     expect(parsed.screen).toBe("topology");
-    expect(parsed.drill).toEqual(["host:vm-host", "rig:openrig-build", "pod:dev50", "agent:dev50.driver"]);
+    expect(parsed.drill).toEqual(["host:vm-host", "software-team:softwareteam-build", "pod:dev50", "agent:dev50.driver"]);
     expect(view.get().drill.at(-1)).toEqual({ kind: "agent", name: "dev50.driver" });
   });
 
@@ -71,7 +71,7 @@ describe("control-socket adapter (spike-adopted; arch boundary constraint)", () 
   it("rejects a tab outside its content context and exposes the active view tab", async () => {
     const view = createViewState({ instanceId: "tui-sock", getSnapshot: () => snap });
     open = await createControlSocket({ socketPath: shortSockPath(), view });
-    const [bad, good, state] = await ask(open.path, ["tab yaml", "spec openrig-build-rig", "state"]);
+    const [bad, good, state] = await ask(open.path, ["tab yaml", "spec softwareteam-build-software-team", "state"]);
     expect(JSON.parse(bad!).error).toMatch(/not available/);
     expect(JSON.parse(good!).viewTab).toBe("graph");
     expect(JSON.parse(state!).state.viewTab).toBe("graph");
@@ -92,17 +92,17 @@ describe("control-socket adapter (spike-adopted; arch boundary constraint)", () 
     await expect(createControlSocket({ socketPath: tooLong, view })).rejects.toThrow(/socket path too long/);
   });
 
-  it("defaults the socket home to $OPENRIG_HOME/run (herdr-style convention) and stays under the limit", () => {
-    const prevOpenRigHome = process.env["OPENRIG_HOME"];
+  it("defaults the socket home to $SOFTWARETEAM_HOME/run (herdr-style convention) and stays under the limit", () => {
+    const prevSoftwareTeamHome = process.env["SOFTWARETEAM_HOME"];
     const prevUserHome = process.env["HOME"];
     try {
-      delete process.env["OPENRIG_HOME"];
+      delete process.env["SOFTWARETEAM_HOME"];
       process.env["HOME"] = os.userInfo().homedir;
       const p = defaultSocketPath("tui-1");
       expect(p).toMatch(/[/\\]run[/\\]tui-tui-1\.sock$/);
       expect(Buffer.byteLength(p)).toBeLessThanOrEqual(MAX_SOCKET_PATH_BYTES);
     } finally {
-      if (prevOpenRigHome !== undefined) process.env["OPENRIG_HOME"] = prevOpenRigHome;
+      if (prevSoftwareTeamHome !== undefined) process.env["SOFTWARETEAM_HOME"] = prevSoftwareTeamHome;
       if (prevUserHome !== undefined) process.env["HOME"] = prevUserHome;
     }
   });

@@ -1,5 +1,5 @@
 // Public adapter for the S01 project-workspace owner used by S05 instance
-// initialization. The bytes and behavior live in @openrig/daemon.
+// initialization. The bytes and behavior live in @softwareteam/daemon.
 
 import { Command } from "commander";
 import {
@@ -7,7 +7,7 @@ import {
   workspaceScaffoldDirs,
   workspaceScaffoldFiles,
   type InitWorkspaceResult,
-} from "@openrig/daemon/instance-initialization";
+} from "@softwareteam/daemon/instance-initialization";
 import { ConfigStore } from "../config-store.js";
 
 export { workspaceScaffoldDirs, workspaceScaffoldFiles };

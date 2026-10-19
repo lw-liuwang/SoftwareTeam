@@ -1,5 +1,5 @@
-// Slice-17 mini-req 7 — BARE-RIG FRONT DOOR (founder + arch reinforcements).
-// bare `rig` (no args): BOTH stdin+stdout TTY → launch the TUI; a pipe or
+// Slice-17 mini-req 7 — BARE-SOFTWARE_TEAM FRONT DOOR (founder + arch reinforcements).
+// bare `softwareTeam` (no args): BOTH stdin+stdout TTY → launch the TUI; a pipe or
 // redirect on EITHER stream → fall through to the normal usage path with a
 // fast exit (never hang a script); daemon-down / TUI-init-fail → helpful
 // usage, NEVER a stack trace; --help/--version/subcommands are args and
@@ -58,29 +58,29 @@ function io(overrides: Partial<FrontDoorIo> = {}): FrontDoorIo & {
   };
 }
 
-describe("bare-rig front door — ownership rules", () => {
-  it("bare `rig` with BOTH streams TTY and the daemon up launches the TUI", async () => {
+describe("bare-software-team front door — ownership rules", () => {
+  it("bare `softwareTeam` with BOTH streams TTY and the daemon up launches the TUI", async () => {
     const deps = io();
-    const handled = await runFrontDoor(["node", "rig"], deps);
+    const handled = await runFrontDoor(["node", "softwareTeam"], deps);
     expect(handled).toBe(true);
     expect(deps.launches).toBe(1);
     expect(deps.errLines.join("\n")).toBe("");
   });
 
-  it("stdin piped (echo x | rig) → NOT owned: falls through to the normal usage path", async () => {
+  it("stdin piped (echo x | softwareTeam) → NOT owned: falls through to the normal usage path", async () => {
     const deps = io({ stdinIsTTY: false });
-    expect(await runFrontDoor(["node", "rig"], deps)).toBe(false);
+    expect(await runFrontDoor(["node", "softwareTeam"], deps)).toBe(false);
     expect(deps.launches).toBe(0);
   });
 
-  it("stdout redirected (rig > file) → NOT owned: falls through to the normal usage path", async () => {
+  it("stdout redirected (softwareTeam > file) → NOT owned: falls through to the normal usage path", async () => {
     const deps = io({ stdoutIsTTY: false });
-    expect(await runFrontDoor(["node", "rig"], deps)).toBe(false);
+    expect(await runFrontDoor(["node", "softwareTeam"], deps)).toBe(false);
     expect(deps.launches).toBe(0);
   });
 
   it("ANY argument (--help / --version / a subcommand) → NOT owned, regardless of TTY", async () => {
-    for (const argv of [["node", "rig", "--help"], ["node", "rig", "--version"], ["node", "rig", "ps"], ["node", "rig", "context", "list"]]) {
+    for (const argv of [["node", "softwareTeam", "--help"], ["node", "softwareTeam", "--version"], ["node", "SoftwareTeam", "ps"], ["node", "softwareTeam", "context", "list"]]) {
       const deps = io();
       expect(await runFrontDoor(argv, deps), argv.join(" ")).toBe(false);
       expect(deps.launches).toBe(0);
@@ -88,7 +88,7 @@ describe("bare-rig front door — ownership rules", () => {
   });
 });
 
-describe("bare-rig front door — first-impression degrade (never a stack trace)", () => {
+describe("bare-software-team front door — first-impression degrade (never a stack trace)", () => {
   it("BLOCKER 1: transport connect (daemon DOWN) LAUNCHES the crash-cart TUI, not a degrade-and-exit", async () => {
     const deps = io({
       probeDaemon: async () => ({
@@ -102,16 +102,16 @@ describe("bare-rig front door — first-impression degrade (never a stack trace)
         },
       }),
     });
-    const handled = await runFrontDoor(["node", "rig"], deps);
+    const handled = await runFrontDoor(["node", "softwareTeam"], deps);
     expect(handled).toBe(true);
-    // The daemon-down state is exactly what the crash-cart cockpit exists for — bare `rig` must REACH it.
+    // The daemon-down state is exactly what the crash-cart cockpit exists for — bare `softwareTeam` must REACH it.
     expect(deps.launches).toBe(1);
     expect(deps.exits).toEqual([0]); // exits with the TUI's code, not a forced degrade exit(1)
     const text = deps.errLines.join("\n");
     expect(text).not.toMatch(/runtime posture: TRANSPORT_CONNECT/); // no degrade-and-exit for daemon-down
   });
 
-  it("BLOCKER 1 PRODUCTION PATH: bare rig + daemon down via a REAL refused socket → the crash-cart TUI launches", async () => {
+  it("BLOCKER 1 PRODUCTION PATH: bare softwareTeam + daemon down via a REAL refused socket → the crash-cart TUI launches", async () => {
     // r1/guard round-6 rule: a stubbed error is a claim about Node's behavior — buy it with a REAL socket.
     // The REAL DaemonClient hits a REAL closed port (guaranteed-refused via bind→close); the real
     // probeFrontDoor classification + openMissionControl launch decision run over the actual undici
@@ -119,9 +119,9 @@ describe("bare-rig front door — first-impression degrade (never a stack trace)
     const port = await refusedPort();
     const realClient = new DaemonClient(`http://127.0.0.1:${port}`, { timeoutMs: 1500 });
     const deps = io({ probeDaemon: () => probeFrontDoor({ client: realClient, env: {} }) });
-    const handled = await runFrontDoor(["node", "rig"], deps);
+    const handled = await runFrontDoor(["node", "softwareTeam"], deps);
     expect(handled).toBe(true);
-    expect(deps.launches).toBe(1); // bare-rig + daemon-down → TUI launched into the crash-cart path
+    expect(deps.launches).toBe(1); // bare-softwareTeam + daemon-down → TUI launched into the crash-cart path
     expect(deps.errLines.join("\n")).not.toMatch(/runtime posture/); // not a degrade-and-exit
   });
 
@@ -151,7 +151,7 @@ describe("bare-rig front door — first-impression degrade (never a stack trace)
         },
       }),
     });
-    await runFrontDoor(["node", "rig"], deps);
+    await runFrontDoor(["node", "softwareTeam"], deps);
     const text = deps.errLines.join("\n");
     expect(text).toContain(`runtime posture: ${verdict}`);
     expect(text).not.toMatch(/daemon not running/i);
@@ -180,7 +180,7 @@ describe("bare-rig front door — first-impression degrade (never a stack trace)
         }),
       });
 
-      await runFrontDoor(["node", "rig"], deps);
+      await runFrontDoor(["node", "softwareTeam"], deps);
 
       expect(deps.launches).toBe(1);
       expect(deps.exits).toEqual([0]);
@@ -201,7 +201,7 @@ describe("bare-rig front door — first-impression degrade (never a stack trace)
         },
       }),
     });
-    await runFrontDoor(["node", "rig"], deps);
+    await runFrontDoor(["node", "softwareTeam"], deps);
     const text = deps.errLines.join("\n");
     expect(text).toContain("runtime posture: UNKNOWN_EFFECTIVE");
     expect(text).toContain("reason=settings_unreadable");
@@ -229,7 +229,7 @@ describe("bare-rig front door — first-impression degrade (never a stack trace)
         },
       }),
     });
-    await runFrontDoor(["node", "rig"], deps);
+    await runFrontDoor(["node", "softwareTeam"], deps);
     const text = deps.errLines.join("\n");
     expect(text).toContain("transport: healthy");
     expect(text).toContain("cwd/read: visible");
@@ -256,21 +256,21 @@ describe("bare-rig front door — first-impression degrade (never a stack trace)
         },
       }),
     });
-    await runFrontDoor(["node", "rig"], deps);
+    await runFrontDoor(["node", "softwareTeam"], deps);
     expect(deps.launches).toBe(1); // not-ready → the TUI; its own crash-cart probe renders down vs unverified
     expect(deps.errLines.join("\n")).not.toMatch(/runtime posture/); // no degrade-and-exit
   });
 
   it("normalizes the legacy `false` probe (daemon down) → LAUNCHES the crash-cart TUI", async () => {
     const deps = io({ probeDaemon: async () => false });
-    await runFrontDoor(["node", "rig"], deps);
+    await runFrontDoor(["node", "softwareTeam"], deps);
     expect(deps.launches).toBe(1); // false → connect diagnostic → daemon-down → the cockpit, not a degrade
     expect(deps.errLines.join("\n")).not.toMatch(/runtime posture/);
   });
 
   it("normalizes a legacy transport-only timeout result (not ready) → LAUNCHES the TUI", async () => {
     const deps = io({ probeDaemon: async () => ({ state: "timeout", message: "legacy timeout detail" }) });
-    await runFrontDoor(["node", "rig"], deps);
+    await runFrontDoor(["node", "softwareTeam"], deps);
     expect(deps.launches).toBe(1); // timeout → not ready → TUI (its probe renders unverified)
     expect(deps.errLines.join("\n")).not.toMatch(/runtime posture/);
   });
@@ -281,18 +281,18 @@ describe("bare-rig front door — first-impression degrade (never a stack trace)
         throw new Error("tui entry not found at /nope/main.js");
       },
     });
-    const handled = await runFrontDoor(["node", "rig"], deps);
+    const handled = await runFrontDoor(["node", "softwareTeam"], deps);
     expect(handled).toBe(true);
     const text = deps.errLines.join("\n");
     expect(text).toMatch(/tui entry not found/);
-    expect(text).toMatch(/rig --help/);
+    expect(text).toMatch(/SoftwareTeam --help/);
     expect(text).not.toMatch(/\n\s+at /);
     expect(deps.exits).toEqual([1]);
   });
 
   it("the TUI's own exit code propagates", async () => {
     const deps = io({ launchTui: async () => 3 });
-    await runFrontDoor(["node", "rig"], deps);
+    await runFrontDoor(["node", "softwareTeam"], deps);
     expect(deps.exits).toEqual([3]);
   });
 });
@@ -301,7 +301,7 @@ describe("front-door probe routing", () => {
   it("uses explicit current-seat whoami diagnostics for a managed seat", async () => {
     const paths: string[] = [];
     const result = await probeFrontDoor({
-      env: { OPENRIG_NODE_ID: "node/1" },
+      env: { SOFTWARETEAM_NODE_ID: "node/1" },
       client: {
         get: async (path: string) => {
           paths.push(path);
@@ -336,7 +336,7 @@ describe("front-door probe routing", () => {
 
   it("normalizes a non-2xx daemon response into a complete four-axis diagnostic", async () => {
     const result = await probeFrontDoor({
-      env: { OPENRIG_NODE_ID: "node-1" },
+      env: { SOFTWARETEAM_NODE_ID: "node-1" },
       client: { get: async () => ({ status: 503, data: {} }) },
     });
     expect(result).toMatchObject({
@@ -352,7 +352,7 @@ describe("front-door probe routing", () => {
 
   it("never reports ready when transport is not healthy even if every local axis aligns", async () => {
     const result = await probeFrontDoor({
-      env: { OPENRIG_NODE_ID: "node-1" },
+      env: { SOFTWARETEAM_NODE_ID: "node-1" },
       client: {
         get: async () => ({
           status: 200,
@@ -377,7 +377,7 @@ describe("front-door probe routing", () => {
     ["response", new DaemonResponseError(502, "bad")],
   ] as const)("normalizes a %s exception into the same complete four-axis diagnostic", async (state, error) => {
     const result = await probeFrontDoor({
-      env: { OPENRIG_NODE_ID: "node-1" },
+      env: { SOFTWARETEAM_NODE_ID: "node-1" },
       client: { get: async () => { throw error; } },
     });
     expect(result).toMatchObject({
@@ -412,7 +412,7 @@ describe("PUBLIC bin ownership (guard finding 1 — the wrapper is the real fron
     // state: post-fix the front door LAUNCHES the TUI, which renders the daemon-down cockpit
     // ("daemon not running") — stronger ownership proof than the old degrade message (it reaches the
     // actual feature). Commander's usage bypass would mean the front door did NOT own the invocation.
-    // Isolated OPENRIG_HOME so the launched TUI never reads the live rig (fully contained + read-only).
+    // Isolated SOFTWARETEAM_HOME so the launched TUI never reads the live softwareTeam (fully contained + read-only).
     const session = `frontdoor-pin-${process.pid}`;
     const home = mkdtempSync(join(tmpdir(), "fd-tmux-home-"));
     // A private server gives this test both a bounded IPC path and useful failure evidence.
@@ -426,10 +426,10 @@ describe("PUBLIC bin ownership (guard finding 1 — the wrapper is the real fron
     });
     try {
       const run = tmux(["new-session", "-d", "-s", session, "-x", "120", "-y", "30",
-        `OPENRIG_HOME=${quote(home)} OPENRIG_URL=http://127.0.0.1:9 ${quote(process.execPath)} ${quote(binWrapper)}; printf '%s' $? > ${quote(exitFile)}; sleep 15`]);
+        `SOFTWARETEAM_HOME=${quote(home)} SOFTWARETEAM_URL=http://127.0.0.1:9 ${quote(process.execPath)} ${quote(binWrapper)}; printf '%s' $? > ${quote(exitFile)}; sleep 15`]);
       expect(run.status, diagnostic(run)).toBe(0);
       let text = "";
-      for (let i = 0; i < 20 && !/EXPLORER|mission control could not start|Usage: rig/.test(text); i++) {
+      for (let i = 0; i < 20 && !/EXPLORER|mission control could not start|Usage: SoftwareTeam/.test(text); i++) {
         spawnSync("sleep", ["0.5"]);
         const capture = tmux(["capture-pane", "-t", session, "-p"]);
         expect(capture.status, diagnostic(capture)).toBe(0);
@@ -439,7 +439,7 @@ describe("PUBLIC bin ownership (guard finding 1 — the wrapper is the real fron
       // Do not reinterpret an empty capture or failed tmux client as a valid UI result.
       const pane = tmux(["display-message", "-p", "-t", session, "#{pane_current_command} #{pane_dead} #{pane_dead_status}"]);
       expect(text, `${diagnostic(pane)} pane=${pane.stdout}`).toMatch(/EXPLORER|mission control could not start/);
-      expect(text).not.toMatch(/Usage: rig \[options\] \[command\]/);
+      expect(text).not.toMatch(/Usage: SoftwareTeam \[options\] \[command\]/);
     } finally {
       tmux(["kill-server"]); // Only this test's private server.
       rmSync(home, { recursive: true, force: true });
@@ -460,10 +460,10 @@ describe("PUBLIC bin ownership (guard finding 1 — the wrapper is the real fron
       encoding: "utf-8",
     });
     expect(result.status).toBe(0);
-    expect(`${result.stderr}${result.stdout}`).toMatch(/Usage: rig/);
+    expect(`${result.stderr}${result.stdout}`).toMatch(/Usage: SoftwareTeam/);
   });
 
-  it.skipIf(!existsSync(binWrapper))("PUBLIC bin subcommands are untouched (rig --version via wrapper)", () => {
+  it.skipIf(!existsSync(binWrapper))("PUBLIC bin subcommands are untouched (SoftwareTeam --version via wrapper)", () => {
     const result = spawnSync(process.execPath, [binWrapper, "--version"], { timeout: 5000, encoding: "utf-8" });
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
@@ -472,26 +472,26 @@ describe("PUBLIC bin ownership (guard finding 1 — the wrapper is the real fron
 
 describe("script-safety integration (the compiled front door)", () => {
   const cliEntry = join(__dirname, "..", "dist", "index.js");
-  it.skipIf(!existsSync(cliEntry))("`echo x | rig` returns usage fast — no hang (exit code preserves today's clean-help baseline)", () => {
+  it.skipIf(!existsSync(cliEntry))("`echo x | softwareTeam` returns usage fast — no hang (exit code preserves today's clean-help baseline)", () => {
     const started = Date.now();
     const result = spawnSync(process.execPath, [cliEntry], {
       input: "x\n",
       timeout: 5000,
       encoding: "utf-8",
-      env: { ...process.env, OPENRIG_URL: "", OPENRIG_PORT: "" },
+      env: { ...process.env, SOFTWARETEAM_URL: "", SOFTWARETEAM_PORT: "" },
     });
     expect(Date.now() - started).toBeLessThan(5000);
     // pre-slice-17 baseline: commander's clean-help path prints usage and
     // exits 0 — the front door PRESERVES the piped path byte-for-byte
     expect(result.status).toBe(0);
-    expect(`${result.stderr}${result.stdout}`).toMatch(/Usage: rig/);
+    expect(`${result.stderr}${result.stdout}`).toMatch(/Usage: SoftwareTeam/);
     expect(`${result.stderr}${result.stdout}`).not.toMatch(/\n\s+at /);
   });
 
-  it.skipIf(!existsSync(cliEntry))("`rig --help` still exits 0 with the full usage (front-door regression)", () => {
+  it.skipIf(!existsSync(cliEntry))("`SoftwareTeam --help` still exits 0 with the full usage (front-door regression)", () => {
     const result = spawnSync(process.execPath, [cliEntry, "--help"], { timeout: 5000, encoding: "utf-8" });
     expect(result.status).toBe(0);
-    expect(result.stdout).toMatch(/Usage: rig/);
+    expect(result.stdout).toMatch(/Usage: SoftwareTeam/);
     expect(result.stdout).toMatch(/daemon/);
   });
 });

@@ -14,15 +14,15 @@ describe("canonicalSenderSession round-trips with the stampSelfHostSuffix produc
   afterEach(() => setSelfHostId(prior));
 
   it("undoes exactly what this host's stamp produces", () => {
-    const bare = "orch@rig-a";
-    expect(stampSelfHostSuffix(bare)).toBe(`orch@rig-a@${SELF}`);
+    const bare = "orch@software-team-a";
+    expect(stampSelfHostSuffix(bare)).toBe(`orch@software-team-a@${SELF}`);
     expect(canonicalSenderSession(stampSelfHostSuffix(bare))).toBe(bare);
   });
 });
 
 describe("canonicalSenderSession shape edges", () => {
   it("passes a 4-segment name through, even when it ends in the self id", () => {
-    expect(canonicalSenderSession(`a@rig@sub@${SELF}`, SELF)).toBe(`a@rig@sub@${SELF}`);
+    expect(canonicalSenderSession(`a@software-team@sub@${SELF}`, SELF)).toBe(`a@software-team@sub@${SELF}`);
   });
   it("does not treat @local or a near-miss host id as this host", () => {
     expect(canonicalSenderSession("qa@hc@local", SELF)).toBe("qa@hc@local");
@@ -55,12 +55,12 @@ describe("sender identity helpers keep provenance rules after canonicalization",
 
   for (const helper of [requireSenderIdentity, resolveActorWithDeferral]) {
     it(`${helper.name}: the origin-unknown marker survives the strip`, async () => {
-      expect(await derive(helper, { "X-OpenRig-Session": `qa@hc@${SELF}`, "X-OpenRig-Origin-Unknown": "true" }))
+      expect(await derive(helper, { "X-SoftwareTeam-Session": `qa@hc@${SELF}`, "X-SoftwareTeam-Origin-Unknown": "true" }))
         .toEqual({ session: "qa@hc", provenance: "origin-unknown:v1" });
     });
 
     it(`${helper.name}: the wire identity still supersedes a disagreeing body claim (P18)`, async () => {
-      expect(await derive(helper, { "X-OpenRig-Session": `qa@hc@${SELF}` }, "somebody-else@rig"))
+      expect(await derive(helper, { "X-SoftwareTeam-Session": `qa@hc@${SELF}` }, "somebody-else@software-team"))
         .toEqual({ session: "qa@hc", provenance: "transport:v1" });
     });
   }

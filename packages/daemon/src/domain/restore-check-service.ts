@@ -1,12 +1,12 @@
 import { claudeActivityRelayPath } from "./claude-activity-hooks.js";
 import { existsSync, accessSync, constants } from "node:fs";
 import { isAbsolute, join, relative, sep } from "node:path";
-import { getCompatibleOpenRigPath } from "../openrig-compat.js";
+import { getCompatibleSoftwareTeamPath } from "../softwareteam-compat.js";
 import { shellQuote as quoteShellArgument } from "../adapters/shell-quote.js";
 import { reanchorBuiltinStartupFile, reanchorShippedProjectionEntry } from "./builtin-startup-files.js";
 import { validatePreRestore } from "./restore-preconditions.js";
 import type { CurrentStateRehydrateEligibility } from "./rehydrate-eligibility.js";
-import type { Snapshot, RigServicesRecord, SeatIdentityVerdict } from "./types.js";
+import type { Snapshot, SoftwareTeamServicesRecord, SeatIdentityVerdict } from "./types.js";
 
 // --- Types ---
 
@@ -39,9 +39,9 @@ export interface RepairStep {
 export interface ReadinessAssertion {
   status: ReadinessStatus;
   reason: string;
-  blockingRigCount: number;
-  caveatRigCount: number;
-  unknownRigCount: number;
+  blockingSoftwareTeamCount: number;
+  caveatSoftwareTeamCount: number;
+  unknownSoftwareTeamCount: number;
 }
 
 export interface ContinuityAssertion {
@@ -65,9 +65,9 @@ export interface ReadinessClassCounts {
   unknown: number;
 }
 
-export interface RigRestoreRollup {
-  rigId: string;
-  rigName: string;
+export interface SoftwareTeamRestoreRollup {
+  softwareTeamId: string;
+  softwareTeamName: string;
   status: ReadinessStatus;
   verdict: Verdict;
   expectedNodes: number;
@@ -87,9 +87,9 @@ export interface HostInfraAssertion {
 export type RecoveryStatus = "not_needed" | "actionable" | "blocked" | "unknown";
 
 export interface RecoveryAction {
-  scope: "rig";
-  rigId: string;
-  rigName: string;
+  scope: "softwareTeam";
+  softwareTeamId: string;
+  softwareTeamName: string;
   action: "restore_from_latest_snapshot";
   command: string;
   reason: string;
@@ -98,9 +98,9 @@ export interface RecoveryAction {
 }
 
 export interface RecoveryIssue {
-  scope: "host" | "rig";
-  rigId?: string;
-  rigName?: string;
+  scope: "host" | "softwareTeam";
+  softwareTeamId?: string;
+  softwareTeamName?: string;
   reason: string;
 }
 
@@ -149,7 +149,7 @@ export interface RestoreCheckResult {
   verdict: Verdict;
   readiness: ReadinessAssertion;
   continuity: ContinuityAssertion;
-  rigs: RigRestoreRollup[];
+  softwareTeams: SoftwareTeamRestoreRollup[];
   hostInfra: HostInfraAssertion;
   recovery: RecoveryPlan;
   counts: { red: number; yellow: number; green: number };
@@ -160,14 +160,14 @@ export interface RestoreCheckResult {
 }
 
 export interface RestoreCheckOpts {
-  rig?: string;
+  softwareTeam?: string;
   noQueue?: boolean;
   noHooks?: boolean;
   compact?: boolean;
   /** OPR.0.4.0.29 FR-2: in compact mode, still assemble ready-seat detail so
    *  `--ready` shows ready seats without dropping to the full firehose. */
   includeReady?: boolean;
-  /** Composed status polls need preconditions only for rigs needing recovery. */
+  /** Composed status polls need preconditions only for softwareTeams needing recovery. */
   recoveryOnly?: boolean;
 }
 
@@ -175,8 +175,8 @@ export interface RestoreCheckOpts {
 
 export interface NodeInventoryEntry {
   nodeId?: string | null;
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   logicalId: string;
   podId: string | null;
   podNamespace?: string | null;
@@ -193,19 +193,19 @@ export interface NodeInventoryEntry {
 }
 
 export interface RestoreCheckDeps {
-  /** Get all rigs as summaries */
-  listRigs: () => Array<{ rigId: string; name: string; hasServices?: boolean }>;
-  /** Get node inventory for a rig (ADR-0002: NodeInventory projection) */
-  getNodeInventory: (rigId: string) => NodeInventoryEntry[];
+  /** Get all softwareTeams as summaries */
+  listSoftwareTeams: () => Array<{ softwareTeamId: string; name: string; hasServices?: boolean }>;
+  /** Get node inventory for a softwareTeam (ADR-0002: NodeInventory projection) */
+  getNodeInventory: (softwareTeamId: string) => NodeInventoryEntry[];
   /** Get persisted startup context for a node */
   getStartupContext: (nodeId: string) => StartupContextProbeResult;
-  /** Check if a snapshot exists for a rig */
-  hasSnapshot: (rigId: string) => boolean;
+  /** Check if a snapshot exists for a softwareTeam */
+  hasSnapshot: (softwareTeamId: string) => boolean;
   /** Get the newest snapshot for exact restore planning when available */
-  getLatestSnapshot?: (rigId: string) => { id: string; kind: string } | null;
+  getLatestSnapshot?: (softwareTeamId: string) => { id: string; kind: string } | null;
   /** Exact ordinary-restore input; never captures an auto-rehydrate snapshot. */
-  getRestoreInputs: (rigId: string) =>
-    | { snapshot: Pick<Snapshot, "id" | "kind" | "data">; servicesRecord: RigServicesRecord | null }
+  getRestoreInputs: (softwareTeamId: string) =>
+    | { snapshot: Pick<Snapshot, "id" | "kind" | "data">; servicesRecord: SoftwareTeamServicesRecord | null }
     | { currentStateRehydrate: CurrentStateRehydrateEligibility; reason: string }
     | { unavailable: string };
   /** Probe daemon health: returns { healthy: boolean; evidence: string } */
@@ -214,26 +214,26 @@ export interface RestoreCheckDeps {
   exists: (path: string) => boolean;
   /** Read a declaration/config file. Kept injectable so restore-check remains testable and source-safe. */
   readFile: (path: string) => string;
-  /** Shared-docs root for rig spec path resolution. */
+  /** Shared-docs root for softwareTeam spec path resolution. */
   substrateRoot?: string;
   /** Read-only probe of the daemon SQLite queue store. */
   probeQueueStore?: () => QueueStoreProbeResult;
-  /** Configured OpenRig instance root, matching the Claude adapter stateDir. */
+  /** Configured SoftwareTeam instance root, matching the Claude adapter stateDir. */
   stateDir?: string;
   /** Relay-backed Claude hook events derived from the shipped hook manifest. */
   getClaudeActivityHookEvents?: () => string[];
 }
 
-interface RigRollupInput {
-  rig: { rigId: string; name: string };
+interface SoftwareTeamRollupInput {
+  softwareTeam: { softwareTeamId: string; name: string };
   nodes: NodeInventoryEntry[];
   checks: CheckEntry[];
   preconditionError?: string;
 }
 
-interface RecoveryRigInput {
-  rigId: string;
-  rigName: string;
+interface RecoverySoftwareTeamInput {
+  softwareTeamId: string;
+  softwareTeamName: string;
   expectedNodes: number;
   runningReadyNodes: number;
   blockingChecks: CheckEntry[];
@@ -257,7 +257,7 @@ export class RestoreCheckService {
   }
 
   /**
-   * Compute scoped restore checks and recovery guidance from daemon, rig and
+   * Compute scoped restore checks and recovery guidance from daemon, softwareTeam and
    * seat evidence without launching occupants.
    */
   check(opts: RestoreCheckOpts): RestoreCheckResult {
@@ -265,11 +265,11 @@ export class RestoreCheckService {
     // rev1-r2 no-false-ready: ready-seat caveat signals that default compact
     // COMPUTES but does NOT emit (AC-4 token-safe) still count toward the
     // top-level verdict/readiness/counts, so the headline never reports a false
-    // ready while a rig rollup is ready_with_caveats.
+    // ready while a softwareTeam rollup is ready_with_caveats.
     const deferredAssessmentChecks: CheckEntry[] = [];
-    const rigRollupInputs: RigRollupInput[] = [];
-    const recoveryRigInputs: RecoveryRigInput[] = [];
-    const restoreInputsByRig = new Map<string, { snapshot: { id: string; kind: string } | null; error?: string }>();
+    const softwareTeamRollupInputs: SoftwareTeamRollupInput[] = [];
+    const recoverySoftwareTeamInputs: RecoverySoftwareTeamInput[] = [];
+    const restoreInputsBySoftwareTeam = new Map<string, { snapshot: { id: string; kind: string } | null; error?: string }>();
 
     // Host-level checks — daemon probe throw produces unknown (not not_restorable).
     // Daemon definitely-down (healthy=false, negative text) is red/not_restorable.
@@ -278,7 +278,7 @@ export class RestoreCheckService {
     if (daemonCheck === null) {
       // Probe threw — state is uninspectable
       return this.buildUnknown([
-        { check: "daemon.reachable", status: "red", evidence: "Daemon health probe failed (unable to determine state)", remediation: "Start the daemon with: rig daemon start",
+        { check: "daemon.reachable", status: "red", evidence: "Daemon health probe failed (unable to determine state)", remediation: "Start the daemon with: SoftwareTeam daemon start",
       remediationSafe: false },
       ]);
     }
@@ -287,77 +287,77 @@ export class RestoreCheckService {
     const hostInfraCheck = this.checkHostInfraDeclaration();
     checks.push(hostInfraCheck.check);
 
-    // Get rigs — probe error produces unknown, not not_restorable
-    let rigs: Array<{ rigId: string; name: string; hasServices?: boolean }>;
+    // Get softwareTeams — probe error produces unknown, not not_restorable
+    let softwareTeams: Array<{ softwareTeamId: string; name: string; hasServices?: boolean }>;
     try {
-      rigs = this.deps.listRigs();
+      softwareTeams = this.deps.listSoftwareTeams();
     } catch (err) {
       return this.buildUnknown([
         ...checks,
-        { check: "probe.error", status: "red", evidence: `Failed to list rigs: ${err instanceof Error ? err.message : String(err)}`, remediation: "Check daemon status with: rig daemon status", remediationSafe: true },
+        { check: "probe.error", status: "red", evidence: `Failed to list softwareTeams: ${err instanceof Error ? err.message : String(err)}`, remediation: "Check daemon status with: SoftwareTeam daemon status", remediationSafe: true },
       ]);
     }
 
-    if (opts.rig) {
-      rigs = rigs.filter((r) => r.name === opts.rig);
-      if (rigs.length === 0) {
+    if (opts.softwareTeam) {
+      softwareTeams = softwareTeams.filter((r) => r.name === opts.softwareTeam);
+      if (softwareTeams.length === 0) {
         return this.buildResult([
           ...checks,
-          { check: `rig.${opts.rig}.exists`, status: "red", evidence: `Rig "${opts.rig}" not found`, remediation: "List rigs with: rig ps", remediationSafe: true },
+          { check: `softwareTeam.${opts.softwareTeam}.exists`, status: "red", evidence: `SoftwareTeam "${opts.softwareTeam}" not found`, remediation: "List softwareTeams with: SoftwareTeam ps", remediationSafe: true },
         ], [], hostInfraCheck.hostInfra);
       }
     }
 
-    // Per-rig checks
-    for (const rig of rigs) {
-      const rigChecks: CheckEntry[] = [];
+    // Per-softwareTeam checks
+    for (const softwareTeam of softwareTeams) {
+      const softwareTeamChecks: CheckEntry[] = [];
 
-      const snapshotCheck = this.checkSnapshot(rig);
+      const snapshotCheck = this.checkSnapshot(softwareTeam);
       checks.push(snapshotCheck);
-      rigChecks.push(snapshotCheck);
+      softwareTeamChecks.push(snapshotCheck);
 
-      // Rig spec/root check
-      const specCheck = this.checkSpecPresent(rig);
+      // SoftwareTeam spec/root check
+      const specCheck = this.checkSpecPresent(softwareTeam);
       checks.push(specCheck);
-      rigChecks.push(specCheck);
+      softwareTeamChecks.push(specCheck);
 
       // Per-seat checks — probe error produces unknown, not not_restorable
       let nodes: NodeInventoryEntry[];
       try {
-        nodes = this.deps.getNodeInventory(rig.rigId);
+        nodes = this.deps.getNodeInventory(softwareTeam.softwareTeamId);
       } catch (err) {
         return this.buildUnknown([
           ...checks,
-          { check: "probe.error", status: "red", evidence: `Failed to get node inventory for ${rig.name}: ${err instanceof Error ? err.message : String(err)}`, remediation: "Check daemon status" },
+          { check: "probe.error", status: "red", evidence: `Failed to get node inventory for ${softwareTeam.name}: ${err instanceof Error ? err.message : String(err)}`, remediation: "Check daemon status" },
         ]);
       }
 
-      // No added snapshot/history read on a routine status poll for an all-ready rig.
+      // No added snapshot/history read on a routine status poll for an all-ready softwareTeam.
       // Explicit restore-check still assesses its next restore, even while it is running.
       let preconditionError: string | undefined;
       const allReady = nodes.length > 0 && nodes.every((node) =>
         Boolean(node.canonicalSessionName) && node.sessionStatus === "running" && node.startupStatus === "ready"
       );
       if (!opts.recoveryOnly || !allReady) {
-        const preconditions = this.checkRestorePreconditions(rig, nodes);
+        const preconditions = this.checkRestorePreconditions(softwareTeam, nodes);
         checks.push(preconditions.check);
-        rigChecks.push(preconditions.check);
+        softwareTeamChecks.push(preconditions.check);
         preconditionError = preconditions.error;
-        restoreInputsByRig.set(rig.rigId, { snapshot: preconditions.snapshot, error: preconditions.error });
+        restoreInputsBySoftwareTeam.set(softwareTeam.softwareTeamId, { snapshot: preconditions.snapshot, error: preconditions.error });
       }
 
       for (const node of nodes) {
         const readinessCheck = this.checkSeatReadiness(node);
         checks.push(readinessCheck);
-        rigChecks.push(readinessCheck);
+        softwareTeamChecks.push(readinessCheck);
 
         // OPR.0.4.0.29: in default compact, ready (green) seats SKIP full per-seat
         // detail assembly — the FR-3/AC-4 compute "look-above" win (transcript,
         // resume, queue, hooks are NOT probed). But the FR-8 summary still needs
         // the restore-readiness caveat signal: a running/ready seat whose startup
         // context is missing/unrestorable is ready_with_caveats, not ready. So we
-        // compute ONLY checkStartupContext for every seat and feed it to the rig
-        // rollup (rigChecks); it is emitted to the top-level `checks` only when we
+        // compute ONLY checkStartupContext for every seat and feed it to the softwareTeam
+        // rollup (softwareTeamChecks); it is emitted to the top-level `checks` only when we
         // are not skipping (full, --ready/includeReady, or a non-ready seat).
         const omitReadyDetail = opts.compact && !opts.includeReady && readinessCheck.status === "green";
 
@@ -368,7 +368,7 @@ export class RestoreCheckService {
             ...startupContextCheck.unknownChecks,
           ]);
         }
-        rigChecks.push(startupContextCheck.check);
+        softwareTeamChecks.push(startupContextCheck.check);
         if (omitReadyDetail) {
           // Not emitted (AC-4 token-safe), but counts toward the top-level
           // verdict/readiness/counts (rev1-r2 no-false-ready).
@@ -383,35 +383,35 @@ export class RestoreCheckService {
           continue;
         }
 
-        const transcriptCheck = this.checkTranscript(rig.name, node);
+        const transcriptCheck = this.checkTranscript(softwareTeam.name, node);
         checks.push(transcriptCheck);
-        rigChecks.push(transcriptCheck);
+        softwareTeamChecks.push(transcriptCheck);
 
-        const resumeCheck = this.checkResumePath(node, rig.name);
+        const resumeCheck = this.checkResumePath(node, softwareTeam.name);
         checks.push(resumeCheck);
-        rigChecks.push(resumeCheck);
+        softwareTeamChecks.push(resumeCheck);
 
         if (!opts.noQueue) {
           const queueCheck = this.checkQueueStore(node);
           checks.push(queueCheck);
-          rigChecks.push(queueCheck);
+          softwareTeamChecks.push(queueCheck);
         }
         if (!opts.noHooks) {
           const hooksCheck = this.checkHooks(node);
           checks.push(hooksCheck);
-          rigChecks.push(hooksCheck);
+          softwareTeamChecks.push(hooksCheck);
         }
       }
 
-      rigRollupInputs.push({ rig, nodes, checks: rigChecks, preconditionError });
+      softwareTeamRollupInputs.push({ softwareTeam, nodes, checks: softwareTeamChecks, preconditionError });
     }
 
-    const rigRollups = rigRollupInputs.map((input) => this.buildRigRollup(input));
-    for (const rollup of rigRollups) {
-      const latestSnapshot = restoreInputsByRig.get(rollup.rigId) ?? this.inspectLatestSnapshot(rollup.rigId);
-      recoveryRigInputs.push({
-        rigId: rollup.rigId,
-        rigName: rollup.rigName,
+    const softwareTeamRollups = softwareTeamRollupInputs.map((input) => this.buildSoftwareTeamRollup(input));
+    for (const rollup of softwareTeamRollups) {
+      const latestSnapshot = restoreInputsBySoftwareTeam.get(rollup.softwareTeamId) ?? this.inspectLatestSnapshot(rollup.softwareTeamId);
+      recoverySoftwareTeamInputs.push({
+        softwareTeamId: rollup.softwareTeamId,
+        softwareTeamName: rollup.softwareTeamName,
         expectedNodes: rollup.expectedNodes,
         runningReadyNodes: rollup.runningReadyNodes,
         blockingChecks: rollup.blockingChecks,
@@ -420,17 +420,17 @@ export class RestoreCheckService {
       });
     }
 
-    return this.buildResult(checks, rigRollups, hostInfraCheck.hostInfra, recoveryRigInputs, deferredAssessmentChecks);
+    return this.buildResult(checks, softwareTeamRollups, hostInfraCheck.hostInfra, recoverySoftwareTeamInputs, deferredAssessmentChecks);
   }
 
-  private checkRestorePreconditions(rig: { rigId: string; name: string }, inventory: NodeInventoryEntry[]): {
+  private checkRestorePreconditions(softwareTeam: { softwareTeamId: string; name: string }, inventory: NodeInventoryEntry[]): {
     check: CheckEntry;
     snapshot: { id: string; kind: string } | null;
     error?: string;
   } {
-    const check = `rig.${rig.name}.restore-preconditions`;
+    const check = `softwareTeam.${softwareTeam.name}.restore-preconditions`;
     try {
-      const input = this.deps.getRestoreInputs(rig.rigId);
+      const input = this.deps.getRestoreInputs(softwareTeam.softwareTeamId);
       if ("unavailable" in input) throw new Error(input.unavailable);
       if ("currentStateRehydrate" in input) {
         const { ok, blockers } = input.currentStateRehydrate;
@@ -440,9 +440,9 @@ export class RestoreCheckService {
             check,
             status: ok ? "yellow" : "red",
             evidence: ok
-              ? `${input.reason}; restore inputs not inspected. Current-state rehydrate is eligible to attempt: ordinary rig up would capture current state. This does not validate that future snapshot or prove native continuity.`
+              ? `${input.reason}; restore inputs not inspected. Current-state rehydrate is eligible to attempt: ordinary SoftwareTeam up would capture current state. This does not validate that future snapshot or prove native continuity.`
               : `${input.reason}; current-state rehydrate is not eligible: ${blockers.join("; ")}`,
-            remediation: "Inspect the rig's persisted state before choosing manual recovery",
+            remediation: "Inspect the softwareTeam's persisted state before choosing manual recovery",
             remediationSafe: true,
           },
         };
@@ -467,11 +467,11 @@ export class RestoreCheckService {
         },
       };
     } catch (err) {
-      const error = `Restore preconditions unavailable for ${rig.name}: ${err instanceof Error ? err.message : String(err)}`;
+      const error = `Restore preconditions unavailable for ${softwareTeam.name}: ${err instanceof Error ? err.message : String(err)}`;
       return {
         snapshot: null,
         error,
-        check: { check, status: "yellow", evidence: error, remediation: "Inspect the rig's restore snapshot and persisted inputs before trusting restore", remediationSafe: true },
+        check: { check, status: "yellow", evidence: error, remediation: "Inspect the softwareTeam's restore snapshot and persisted inputs before trusting restore", remediationSafe: true },
       };
     }
   }
@@ -491,7 +491,7 @@ export class RestoreCheckService {
       return {
         check: "daemon.reachable", status: "red",
         evidence: probe.evidence || "Daemon health probe returned non-positive result",
-        remediation: "Start the daemon with: rig daemon start",
+        remediation: "Start the daemon with: SoftwareTeam daemon start",
       remediationSafe: false,
       };
     } catch {
@@ -501,7 +501,7 @@ export class RestoreCheckService {
   }
 
   private checkStateDirWritable(): CheckEntry {
-    const stateDir = getCompatibleOpenRigPath("");
+    const stateDir = getCompatibleSoftwareTeamPath("");
     try {
       // Non-mutating permission probe — no file creation/deletion.
       // accessSync throws if the directory is not writable.
@@ -518,7 +518,7 @@ export class RestoreCheckService {
   }
 
   private checkHostInfraDeclaration(): HostInfraCheckResult {
-    const declarationPath = getCompatibleOpenRigPath("host-infra.json");
+    const declarationPath = getCompatibleSoftwareTeamPath("host-infra.json");
     const check = "host.bootstrap-autostart.declaration";
 
     try {
@@ -760,25 +760,25 @@ export class RestoreCheckService {
   }
 
   private resolveHostInfraEvidencePath(rawPath: string): { path: string; error?: undefined } | { path?: undefined; error: string } {
-    const openRigPrefix = "${OPENRIG_HOME}/";
+    const softwareTeamPrefix = "${SOFTWARETEAM_HOME}/";
     const hasTraversal = rawPath.split(/[\\/]+/).includes("..");
 
-    if (rawPath.startsWith(openRigPrefix)) {
-      const relativePath = rawPath.slice(openRigPrefix.length);
+    if (rawPath.startsWith(softwareTeamPrefix)) {
+      const relativePath = rawPath.slice(softwareTeamPrefix.length);
       if (!relativePath || isAbsolute(relativePath) || hasTraversal) {
-        return { error: "path traversal or empty OPENRIG_HOME-relative path rejected" };
+        return { error: "path traversal or empty SOFTWARETEAM_HOME-relative path rejected" };
       }
-      const openRigHome = getCompatibleOpenRigPath("");
-      const resolved = join(openRigHome, relativePath);
-      const relativeToHome = relative(openRigHome, resolved);
+      const softwareTeamHome = getCompatibleSoftwareTeamPath("");
+      const resolved = join(softwareTeamHome, relativePath);
+      const relativeToHome = relative(softwareTeamHome, resolved);
       if (relativeToHome === ".." || relativeToHome.startsWith(`..${sep}`) || isAbsolute(relativeToHome)) {
-        return { error: "path traversal outside OPENRIG_HOME rejected" };
+        return { error: "path traversal outside SOFTWARETEAM_HOME rejected" };
       }
       return { path: resolved };
     }
 
     if (!isAbsolute(rawPath)) {
-      return { error: "plain relative evidence paths are rejected; use absolute or ${OPENRIG_HOME}/..." };
+      return { error: "plain relative evidence paths are rejected; use absolute or ${SOFTWARETEAM_HOME}/..." };
     }
     if (hasTraversal) {
       return { error: "path traversal evidence paths are rejected" };
@@ -786,24 +786,24 @@ export class RestoreCheckService {
     return { path: rawPath };
   }
 
-  private checkSnapshot(rig: { rigId: string; name: string }): CheckEntry {
+  private checkSnapshot(softwareTeam: { softwareTeamId: string; name: string }): CheckEntry {
     try {
-      const has = this.deps.hasSnapshot(rig.rigId);
+      const has = this.deps.hasSnapshot(softwareTeam.softwareTeamId);
       if (has) {
-        return { check: `rig.${rig.name}.snapshot`, status: "green", evidence: "Snapshot available", remediation: "" };
+        return { check: `softwareTeam.${softwareTeam.name}.snapshot`, status: "green", evidence: "Snapshot available", remediation: "" };
       }
       return {
-        check: `rig.${rig.name}.snapshot`, status: "yellow",
-        evidence: "No snapshot found (first-boot or adopted rig)",
-        remediation: "Create a snapshot with: rig snapshot <rigId>",
+        check: `softwareTeam.${softwareTeam.name}.snapshot`, status: "yellow",
+        evidence: "No snapshot found (first-boot or adopted softwareTeam)",
+        remediation: "Create a snapshot with: SoftwareTeam snapshot <softwareTeamId>",
       remediationSafe: false,
       };
     } catch {
-      return { check: `rig.${rig.name}.snapshot`, status: "yellow", evidence: "Could not check snapshots", remediation: "" };
+      return { check: `softwareTeam.${softwareTeam.name}.snapshot`, status: "yellow", evidence: "Could not check snapshots", remediation: "" };
     }
   }
 
-  private checkTranscript(rigName: string, node: NodeInventoryEntry): CheckEntry {
+  private checkTranscript(softwareTeamName: string, node: NodeInventoryEntry): CheckEntry {
     const session = node.canonicalSessionName ?? node.logicalId;
     const check = `seat.${session}.transcript`;
 
@@ -813,8 +813,8 @@ export class RestoreCheckService {
     }
 
     const transcriptPath = join(
-      getCompatibleOpenRigPath("transcripts"),
-      rigName,
+      getCompatibleSoftwareTeamPath("transcripts"),
+      softwareTeamName,
       `${session}.log`
     );
     if (this.deps.exists(transcriptPath)) {
@@ -850,8 +850,8 @@ export class RestoreCheckService {
         status: "red",
         evidence: `Seat identity needs verification: verdict=${node.identityVerdict.verdict} reason=${node.identityVerdict.reason ?? "unknown"}; stored startupStatus=ready`,
         remediation: node.identityVerdict.verdict === "mismatch"
-          ? "Verify the current pane identity, then use rig seat clear-attention for this seat and rerun rig restore-check"
-          : "If the seat's tmux session or pane is gone, restore or relaunch the seat; if it now runs in another pane of its session, rig seat clear-attention for this seat rebinds and verifies it. Then rerun rig restore-check.",
+          ? "Verify the current pane identity, then use SoftwareTeam seat clear-attention for this seat and rerun SoftwareTeam restore-check"
+          : "If the seat's tmux session or pane is gone, restore or relaunch the seat; if it now runs in another pane of its session, SoftwareTeam seat clear-attention for this seat rebinds and verifies it. Then rerun SoftwareTeam restore-check.",
         remediationSafe: false,
       };
     }
@@ -862,7 +862,7 @@ export class RestoreCheckService {
         check,
         status: "red",
         evidence: `Seat not running/ready: sessionStatus=${node.sessionStatus ?? "unknown"} startupStatus=${node.startupStatus ?? "unknown"}${latestError}`,
-        remediation: "Restore or relaunch the seat, then rerun rig restore-check",
+        remediation: "Restore or relaunch the seat, then rerun SoftwareTeam restore-check",
         remediationSafe: false,
       };
     }
@@ -879,7 +879,7 @@ export class RestoreCheckService {
    * Report available seat attachment or a read-only restore-plan command.
    * Missing attachment does not establish whether an earlier token can resume.
    */
-  private checkResumePath(node: NodeInventoryEntry, rigName: string): CheckEntry {
+  private checkResumePath(node: NodeInventoryEntry, softwareTeamName: string): CheckEntry {
     const session = node.canonicalSessionName ?? node.logicalId;
     if (node.tmuxAttachCommand) {
       return { check: `seat.${session}.resume-path`, status: "green", evidence: node.tmuxAttachCommand, remediation: "" };
@@ -888,7 +888,7 @@ export class RestoreCheckService {
       check: `seat.${session}.resume-path`, status: "yellow",
       evidence: "No attach command available",
       // Whether restore resumes, starts fresh or stops for a decision is per seat; the plan says which.
-      remediation: `No live session to attach. Preview what restore would do for this seat with: rig up ${shellQuote(rigName)} --existing --plan`,
+      remediation: `No live session to attach. Preview what restore would do for this seat with: SoftwareTeam up ${shellQuote(softwareTeamName)} --existing --plan`,
       remediationSafe: true,
     };
   }
@@ -916,7 +916,7 @@ export class RestoreCheckService {
             check: "probe.error",
             status: "red",
             evidence: `Failed to inspect startup context for ${session}: ${probe.evidence}`,
-            remediation: "Check daemon logs with: rig daemon logs",
+            remediation: "Check daemon logs with: SoftwareTeam daemon logs",
             remediationSafe: true,
           }],
         };
@@ -990,7 +990,7 @@ export class RestoreCheckService {
         check,
         status,
         evidence: `Startup context present for node ${node.nodeId}, but replay inputs are incomplete: ${evidenceParts.join("; ")}`,
-        remediation: `Restore or recreate the missing startup inputs from the rig or agent spec before trusting replay: ${[
+        remediation: `Restore or recreate the missing startup inputs from the SoftwareTeam or agent spec before trusting replay: ${[
           ...missingRequired.map((file) => file.absolutePath),
           ...missingOptional.map((file) => file.absolutePath),
           ...missingProjectionEntries.map((entry) => entry.absolutePath),
@@ -1009,7 +1009,7 @@ export class RestoreCheckService {
       check,
       status: runningReady ? "yellow" : "red",
       evidence,
-      remediation: "Recreate the seat startup context from the rig or agent spec before trusting replay inputs",
+      remediation: "Recreate the seat startup context from the SoftwareTeam or agent spec before trusting replay inputs",
       remediationSafe: false,
     };
   }
@@ -1168,40 +1168,40 @@ export class RestoreCheckService {
     }));
   }
 
-  private checkSpecPresent(rig: { rigId: string; name: string }): CheckEntry {
+  private checkSpecPresent(softwareTeam: { softwareTeamId: string; name: string }): CheckEntry {
     // OPR.0.3.2.14 — subpath scrubbed (internal-team layout → generic placeholder).
-    const substrateRoot = this.deps.substrateRoot ?? join(process.env["HOME"] ?? "~", ".openrig", "shared-docs");
-    const rigRoot = join(substrateRoot, "rigs", rig.name);
-    const rigYaml = join(rigRoot, "rig.yaml");
+    const substrateRoot = this.deps.substrateRoot ?? join(process.env["HOME"] ?? "~", ".softwareteam", "shared-docs");
+    const softwareTeamRoot = join(substrateRoot, "software-teams", softwareTeam.name);
+    const softwareTeamYaml = join(softwareTeamRoot, "software-team.yaml");
 
-    if (!this.deps.exists(rigRoot)) {
-      // A rig can launch from a spec anywhere, and restore reads the snapshot, never the spec,
+    if (!this.deps.exists(softwareTeamRoot)) {
+      // A softwareTeam can launch from a spec anywhere, and restore reads the snapshot, never the spec,
       // so a spec this check cannot find is a caveat, not a blocker.
       return {
-        check: `rig.${rig.name}.spec-present`, status: "yellow",
-        evidence: `Not checked: no launch spec location could be established; looked for ${rigYaml}, and ${rigRoot} does not exist`,
-        remediation: `Confirm where this rig's spec lives; restore-check only looks at ${rigYaml}`,
+        check: `softwareTeam.${softwareTeam.name}.spec-present`, status: "yellow",
+        evidence: `Not checked: no launch spec location could be established; looked for ${softwareTeamYaml}, and ${softwareTeamRoot} does not exist`,
+        remediation: `Confirm where this softwareTeam's spec lives; restore-check only looks at ${softwareTeamYaml}`,
         remediationSafe: true,
       };
     }
-    if (!this.deps.exists(rigYaml)) {
+    if (!this.deps.exists(softwareTeamYaml)) {
       return {
-        check: `rig.${rig.name}.spec-present`, status: "yellow",
-        evidence: `Rig root exists but rig.yaml missing: ${rigYaml}`,
-        remediation: `Add a rig.yaml spec to ${rigRoot}`,
+        check: `softwareTeam.${softwareTeam.name}.spec-present`, status: "yellow",
+        evidence: `SoftwareTeam root exists but software-team.yaml missing: ${softwareTeamYaml}`,
+        remediation: `Add a software-team.yaml spec to ${softwareTeamRoot}`,
       remediationSafe: false,
       };
     }
-    return { check: `rig.${rig.name}.spec-present`, status: "green", evidence: `Spec present at ${rigYaml}`, remediation: "" };
+    return { check: `softwareTeam.${softwareTeam.name}.spec-present`, status: "green", evidence: `Spec present at ${softwareTeamYaml}`, remediation: "" };
   }
 
-  private inspectLatestSnapshot(rigId: string): { snapshot: { id: string; kind: string } | null; error?: string } {
+  private inspectLatestSnapshot(softwareTeamId: string): { snapshot: { id: string; kind: string } | null; error?: string } {
     if (!this.deps.getLatestSnapshot) {
       return { snapshot: null };
     }
 
     try {
-      const snapshot = this.deps.getLatestSnapshot(rigId);
+      const snapshot = this.deps.getLatestSnapshot(softwareTeamId);
       if (!snapshot) return { snapshot: null };
       return { snapshot: { id: snapshot.id, kind: snapshot.kind } };
     } catch (err) {
@@ -1214,9 +1214,9 @@ export class RestoreCheckService {
 
   private buildResult(
     checks: CheckEntry[],
-    rigs: RigRestoreRollup[],
+    softwareTeams: SoftwareTeamRestoreRollup[],
     hostInfra?: HostInfraAssertion,
-    recoveryInputs: RecoveryRigInput[] = [],
+    recoveryInputs: RecoverySoftwareTeamInput[] = [],
     assessmentExtra: CheckEntry[] = [],
   ): RestoreCheckResult {
     // counts + verdict assess the FULL signal (emitted checks + any computed-but-
@@ -1230,7 +1230,7 @@ export class RestoreCheckService {
     let verdict: Verdict;
     if (red > 0) {
       verdict = "not_restorable";
-    } else if (rigs.some((rig) => rig.status === "unknown")) {
+    } else if (softwareTeams.some((softwareTeam) => softwareTeam.status === "unknown")) {
       verdict = "unknown";
     } else if (yellow > 0) {
       verdict = "restorable_with_caveats";
@@ -1240,7 +1240,7 @@ export class RestoreCheckService {
 
     const repairPacket = this.buildRepairPacket(checks, verdict);
     const recovery = this.buildRecovery(verdict, checks, recoveryInputs);
-    return this.withAssertion({ verdict, counts: { red, yellow, green }, checks, repairPacket, recovery }, rigs, hostInfra);
+    return this.withAssertion({ verdict, counts: { red, yellow, green }, checks, repairPacket, recovery }, softwareTeams, hostInfra);
   }
 
   /** Probe error produces verdict=unknown (not not_restorable) so operators
@@ -1269,12 +1269,12 @@ export class RestoreCheckService {
 
   private withAssertion(
     result: Pick<RestoreCheckResult, "verdict" | "counts" | "checks" | "repairPacket" | "recovery">,
-    rigs: RigRestoreRollup[],
+    softwareTeams: SoftwareTeamRestoreRollup[],
     hostInfra?: HostInfraAssertion,
   ): RestoreCheckResult {
-    const blockingRigCount = rigs.filter((rig) => rig.blockedNodes > 0 || rig.blockingChecks.length > 0).length;
-    const caveatRigCount = rigs.filter((rig) => rig.blockedNodes === 0 && rig.blockingChecks.length === 0 && (rig.caveatNodes > 0 || rig.caveatChecks.length > 0)).length;
-    const unknownRigCount = rigs.filter((rig) => rig.status === "unknown").length;
+    const blockingSoftwareTeamCount = softwareTeams.filter((softwareTeam) => softwareTeam.blockedNodes > 0 || softwareTeam.blockingChecks.length > 0).length;
+    const caveatSoftwareTeamCount = softwareTeams.filter((softwareTeam) => softwareTeam.blockedNodes === 0 && softwareTeam.blockingChecks.length === 0 && (softwareTeam.caveatNodes > 0 || softwareTeam.caveatChecks.length > 0)).length;
+    const unknownSoftwareTeamCount = softwareTeams.filter((softwareTeam) => softwareTeam.status === "unknown").length;
 
     let readinessStatus: ReadinessStatus;
     let reason: string;
@@ -1311,14 +1311,14 @@ export class RestoreCheckService {
       readiness: {
         status: readinessStatus,
         reason,
-        blockingRigCount,
-        caveatRigCount,
-        unknownRigCount,
+        blockingSoftwareTeamCount,
+        caveatSoftwareTeamCount,
+        unknownSoftwareTeamCount,
       },
       continuity,
-      rigs,
-      // FR-8: fleet-wide ready-confidence breakdown = sum of the per-rig class counts.
-      classCounts: rigs.reduce<ReadinessClassCounts>((acc, r) => ({
+      softwareTeams,
+      // FR-8: fleet-wide ready-confidence breakdown = sum of the per-softwareTeam class counts.
+      classCounts: softwareTeams.reduce<ReadinessClassCounts>((acc, r) => ({
         ready: acc.ready + r.classCounts.ready,
         ready_with_caveats: acc.ready_with_caveats + r.classCounts.ready_with_caveats,
         not_ready: acc.not_ready + r.classCounts.not_ready,
@@ -1332,7 +1332,7 @@ export class RestoreCheckService {
           }
         : {
             status: "not_inspected",
-            evidence: "No host bootstrap/autostart source inspected by v0; readiness only covers observable daemon, rig, and seat checks",
+            evidence: "No host bootstrap/autostart source inspected by v0; readiness only covers observable daemon, softwareTeam, and seat checks",
           }),
       recovery: result.recovery,
     };
@@ -1352,7 +1352,7 @@ export class RestoreCheckService {
   private buildRecovery(
     verdict: Verdict,
     checks: CheckEntry[],
-    recoveryInputs: RecoveryRigInput[],
+    recoveryInputs: RecoverySoftwareTeamInput[],
   ): RecoveryPlan {
     if (verdict === "unknown" && recoveryInputs.length === 0) {
       const evidence = checks.find((check) => check.status === "red")?.evidence
@@ -1371,7 +1371,7 @@ export class RestoreCheckService {
       if (firstRed) {
         return {
           status: "blocked",
-          summary: "No exact recovery action is known in v0 because restore-check found blockers outside runnable rig inventory.",
+          summary: "No exact recovery action is known in v0 because restore-check found blockers outside runnable SoftwareTeam inventory.",
           actions: [],
           blocked: [{ scope: "host", reason: firstRed.evidence }],
           unknown: [],
@@ -1379,7 +1379,7 @@ export class RestoreCheckService {
       }
       return {
         status: "not_needed",
-        summary: "All observable rigs are already running/ready; no recovery action needed.",
+        summary: "All observable softwareTeams are already running/ready; no recovery action needed.",
         actions: [],
         blocked: [],
         unknown: [],
@@ -1392,7 +1392,7 @@ export class RestoreCheckService {
     if (allReady) {
       return {
         status: "not_needed",
-        summary: "All observable rigs are already running/ready; no recovery action needed.",
+        summary: "All observable softwareTeams are already running/ready; no recovery action needed.",
         actions: [],
         blocked: [],
         unknown: [],
@@ -1406,9 +1406,9 @@ export class RestoreCheckService {
     for (const input of recoveryInputs) {
       if (input.snapshotLookupError) {
         unknown.push({
-          scope: "rig",
-          rigId: input.rigId,
-          rigName: input.rigName,
+          scope: "softwareTeam",
+          softwareTeamId: input.softwareTeamId,
+          softwareTeamName: input.softwareTeamName,
           reason: input.snapshotLookupError,
         });
         continue;
@@ -1418,9 +1418,9 @@ export class RestoreCheckService {
       );
       if (restoreInputBlockers.length > 0) {
         blocked.push({
-          scope: "rig",
-          rigId: input.rigId,
-          rigName: input.rigName,
+          scope: "softwareTeam",
+          softwareTeamId: input.softwareTeamId,
+          softwareTeamName: input.softwareTeamName,
           reason: `No exact recovery action is known in v0 because restore-input blockers remain: ${restoreInputBlockers.map((check) => check.evidence).join("; ")}`,
         });
         continue;
@@ -1429,12 +1429,12 @@ export class RestoreCheckService {
 
       if (input.latestSnapshot) {
         actions.push({
-          scope: "rig",
-          rigId: input.rigId,
-          rigName: input.rigName,
+          scope: "softwareTeam",
+          softwareTeamId: input.softwareTeamId,
+          softwareTeamName: input.softwareTeamName,
           action: "restore_from_latest_snapshot",
-          command: `rig up --existing ${shellQuote(input.rigName)}`,
-          reason: "Rig has a latest snapshot and one or more seats are not running/ready.",
+          command: `SoftwareTeam up --existing ${shellQuote(input.softwareTeamName)}`,
+          reason: "SoftwareTeam has a latest snapshot and one or more seats are not running/ready.",
           safe: false,
           blocking: true,
         });
@@ -1442,12 +1442,12 @@ export class RestoreCheckService {
       }
 
       actions.push({
-        scope: "rig",
-        rigId: input.rigId,
-        rigName: input.rigName,
+        scope: "softwareTeam",
+        softwareTeamId: input.softwareTeamId,
+        softwareTeamName: input.softwareTeamName,
         action: "restore_from_latest_snapshot",
-        command: `rig up --existing ${shellQuote(input.rigName)}`,
-        reason: "Current persisted state is eligible for an ordinary restore attempt; rig up would capture an auto-rehydrate snapshot whose restore inputs have not been inspected.",
+        command: `SoftwareTeam up --existing ${shellQuote(input.softwareTeamName)}`,
+        reason: "Current persisted state is eligible for an ordinary restore attempt; SoftwareTeam up would capture an auto-rehydrate snapshot whose restore inputs have not been inspected.",
         safe: false,
         blocking: true,
       });
@@ -1473,7 +1473,7 @@ export class RestoreCheckService {
   private classifyRecoveryBlockingCheck(check: CheckEntry): "restore_input" | "runtime" | "other" {
     if (check.status !== "red") return "other";
 
-    if (check.check.startsWith("rig.") && check.check.endsWith(".restore-preconditions")) return "restore_input";
+    if (check.check.startsWith("softwareTeam.") && check.check.endsWith(".restore-preconditions")) return "restore_input";
 
     if (check.check.startsWith("seat.") && check.check.endsWith(".readiness")) {
       if (check.evidence.includes("Missing canonical session identity")) {
@@ -1496,18 +1496,18 @@ export class RestoreCheckService {
     unknown: RecoveryIssue[],
   ): string {
     if (status === "not_needed") {
-      return "All observable rigs are already running/ready; no recovery action needed.";
+      return "All observable softwareTeams are already running/ready; no recovery action needed.";
     }
     if (status === "unknown") {
       return `Recovery status could not be inspected completely; ${actions.length} actionable, ${blocked.length} blocked, ${unknown.length} unknown.`;
     }
     if (status === "actionable") {
-      return `${actions.length} ${pluralize(actions.length, "rig")} can be recovered by known OpenRig command; ${blocked.length} ${pluralize(blocked.length, "rig")} blocked; ${unknown.length} unknown.`;
+      return `${actions.length} ${pluralize(actions.length, "SoftwareTeam")} can be recovered by known SoftwareTeam command; ${blocked.length} ${pluralize(blocked.length, "SoftwareTeam")} blocked; ${unknown.length} unknown.`;
     }
-    return `${blocked.length} ${pluralize(blocked.length, "rig")} blocked; ${actions.length} actionable; ${unknown.length} unknown.`;
+    return `${blocked.length} ${pluralize(blocked.length, "SoftwareTeam")} blocked; ${actions.length} actionable; ${unknown.length} unknown.`;
   }
 
-  private buildRigRollup(input: RigRollupInput): RigRestoreRollup {
+  private buildSoftwareTeamRollup(input: SoftwareTeamRollupInput): SoftwareTeamRestoreRollup {
     const blockingChecks = input.checks.filter((check) => check.status === "red");
     const caveatChecks = input.checks.filter((check) => check.status === "yellow");
     const expectedNodes = input.nodes.length;
@@ -1517,11 +1517,11 @@ export class RestoreCheckService {
     // FR-8: per-seat class breakdown (each seat counts toward exactly one class).
     const classCounts: ReadinessClassCounts = { ready: 0, ready_with_caveats: 0, not_ready: 0, attention_required: 0, unknown: 0 };
     // unknown/no-snapshot derives from the REAL snapshot primitive: the
-    // rig-level `rig.<name>.snapshot` yellow check (no snapshot found / could
-    // not check). A rig with no snapshot cannot be restored, so its seats'
+    // software-team-level `softwareTeam.<name>.snapshot` yellow check (no snapshot found / could
+    // not check). A softwareTeam with no snapshot cannot be restored, so its seats'
     // restore-readiness is unknown (not "ready"), per FR-8/AC-7.
-    const rigNoSnapshot = input.checks.some(
-      (check) => check.check === `rig.${input.rig.name}.snapshot` && check.status === "yellow",
+    const softwareTeamNoSnapshot = input.checks.some(
+      (check) => check.check === `softwareTeam.${input.softwareTeam.name}.snapshot` && check.status === "yellow",
     );
 
     for (const node of input.nodes) {
@@ -1536,19 +1536,19 @@ export class RestoreCheckService {
 
       // FR-8 class derivation (precedence; each from a real primitive).
       // attention/not_ready WIN FIRST (a failed/attention seat is surfaced even
-      // in a no-snapshot rig); no-snapshot then overrides ONLY ready/caveat (a
-      // clean seat in an unrestorable rig is unknown); a real yellow caveat then
-      // wins over plain ready so the class count matches the per-rig status +
+      // in a no-snapshot softwareTeam); no-snapshot then overrides ONLY ready/caveat (a
+      // clean seat in an unrestorable softwareTeam is unknown); a real yellow caveat then
+      // wins over plain ready so the class count matches the per-SoftwareTeam status +
       // caveatNodes (a running/ready seat with a yellow check is NOT plain ready):
       //   attention_required ← node.startupStatus
       //   not_ready          ← a red seat check (failed/down)
-      //   unknown            ← no-snapshot (rig can't restore)
+      //   unknown            ← no-snapshot (softwareTeam can't restore)
       //   ready_with_caveats ← a yellow seat check
       //   ready              ← running/ready, no caveat
       //   unknown            ← indeterminate remainder
       if (node.startupStatus === "attention_required") classCounts.attention_required += 1;
       else if (hasBlocking) classCounts.not_ready += 1;
-      else if (rigNoSnapshot) classCounts.unknown += 1;
+      else if (softwareTeamNoSnapshot) classCounts.unknown += 1;
       else if (hasCaveat) classCounts.ready_with_caveats += 1;
       else if (runningReady) classCounts.ready += 1;
       else classCounts.unknown += 1;
@@ -1571,8 +1571,8 @@ export class RestoreCheckService {
     }
 
     return {
-      rigId: input.rig.rigId,
-      rigName: input.rig.name,
+      softwareTeamId: input.softwareTeam.softwareTeamId,
+      softwareTeamName: input.softwareTeam.name,
       status,
       verdict,
       expectedNodes,

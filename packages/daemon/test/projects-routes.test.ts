@@ -47,7 +47,7 @@ describe("projects routes (PL-004 Phase B)", () => {
   function seedStreamItem(streamItemId: string): void {
     streamStore.emit({
       streamItemId,
-      sourceSession: "discovery@rig",
+      sourceSession: "discovery@software-team",
       body: `body for ${streamItemId}`,
     });
   }
@@ -68,12 +68,12 @@ describe("projects routes (PL-004 Phase B)", () => {
     const res = await app.request("/api/projects/lease/acquire", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ classifierSession: "alice@rig" }),
+      body: JSON.stringify({ classifierSession: "alice@software-team" }),
     });
     expect(res.status).toBe(201);
     const lease = (await res.json()) as { state: string; classifierSession: string };
     expect(lease.state).toBe("active");
-    expect(lease.classifierSession).toBe("alice@rig");
+    expect(lease.classifierSession).toBe("alice@software-team");
   });
 
   it("POST /api/projects/project requires lease + idempotent on stream_item_id", async () => {
@@ -81,14 +81,14 @@ describe("projects routes (PL-004 Phase B)", () => {
     await app.request("/api/projects/lease/acquire", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ classifierSession: "alice@rig" }),
+      body: JSON.stringify({ classifierSession: "alice@software-team" }),
     });
     const first = await app.request("/api/projects/project", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         streamItemId: "stream-x",
-        classifierSession: "alice@rig",
+        classifierSession: "alice@software-team",
         leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
         classificationType: "idea",
       }),
@@ -102,7 +102,7 @@ describe("projects routes (PL-004 Phase B)", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         streamItemId: "stream-x",
-        classifierSession: "alice@rig",
+        classifierSession: "alice@software-team",
         leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
         classificationType: "bug",
       }),
@@ -119,7 +119,7 @@ describe("projects routes (PL-004 Phase B)", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         streamItemId: "stream-x",
-        classifierSession: "alice@rig",
+        classifierSession: "alice@software-team",
         leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
       }),
     });
@@ -132,7 +132,7 @@ describe("projects routes (PL-004 Phase B)", () => {
     await app.request("/api/projects/lease/acquire", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ classifierSession: "alice@rig" }),
+      body: JSON.stringify({ classifierSession: "alice@software-team" }),
     });
     // Note: NO seedStreamItem call — stream-nonexistent has no row in stream_items.
     const res = await app.request("/api/projects/project", {
@@ -140,7 +140,7 @@ describe("projects routes (PL-004 Phase B)", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         streamItemId: "stream-nonexistent",
-        classifierSession: "alice@rig",
+        classifierSession: "alice@software-team",
         leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
         classificationType: "idea",
       }),
@@ -156,12 +156,12 @@ describe("projects routes (PL-004 Phase B)", () => {
     await app.request("/api/projects/lease/acquire", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ classifierSession: "alice@rig" }),
+      body: JSON.stringify({ classifierSession: "alice@software-team" }),
     });
     const res = await app.request("/api/projects/reclaim-classifier", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ byClassifierSession: "operator@rig", ifDead: true }),
+      body: JSON.stringify({ byClassifierSession: "operator@software-team", ifDead: true }),
     });
     expect(res.status).toBe(409);
     const err = (await res.json()) as { error: string };
@@ -172,17 +172,17 @@ describe("projects routes (PL-004 Phase B)", () => {
     await app.request("/api/projects/lease/acquire", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ classifierSession: "alice@rig" }),
+      body: JSON.stringify({ classifierSession: "alice@software-team" }),
     });
     const res = await app.request("/api/projects/reclaim-classifier", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ byClassifierSession: "operator@rig" }),
+      body: JSON.stringify({ byClassifierSession: "operator@software-team" }),
     });
     expect(res.status).toBe(200);
     const lease = (await res.json()) as { state: string; reclaimedBySession: string };
     expect(lease.state).toBe("reclaimed");
-    expect(lease.reclaimedBySession).toBe("operator@rig");
+    expect(lease.reclaimedBySession).toBe("operator@software-team");
   });
 
   it("GET /api/projects/list refuses only a non-numeric or unbindable limit (#586)", async () => {
@@ -196,35 +196,35 @@ describe("projects routes (PL-004 Phase B)", () => {
     await app.request("/api/projects/lease/acquire", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ classifierSession: "alice@rig" }),
+      body: JSON.stringify({ classifierSession: "alice@software-team" }),
     });
 
     res = await app.request("/api/projects/lease");
     expect(res.status).toBe(200);
     const lease = (await res.json()) as { classifierSession: string };
-    expect(lease.classifierSession).toBe("alice@rig");
+    expect(lease.classifierSession).toBe("alice@software-team");
   });
 
   it("GET /api/projects/list filters by classifierSession + classificationDestination", async () => {
     await app.request("/api/projects/lease/acquire", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ classifierSession: "alice@rig" }),
+      body: JSON.stringify({ classifierSession: "alice@software-team" }),
     });
-    for (const [id, dest] of [["s1", "planning@rig"], ["s2", "delivery@rig"], ["s3", "planning@rig"]] as Array<[string, string]>) {
+    for (const [id, dest] of [["s1", "planning@software-team"], ["s2", "delivery@software-team"], ["s3", "planning@software-team"]] as Array<[string, string]>) {
       seedStreamItem(id);
       await app.request("/api/projects/project", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           streamItemId: id,
-          classifierSession: "alice@rig",
+          classifierSession: "alice@software-team",
           leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
           classificationDestination: dest,
         }),
       });
     }
-    const res = await app.request("/api/projects/list?classificationDestination=planning%40rig");
+    const res = await app.request("/api/projects/list?classificationDestination=planning%40software-team");
     const data = (await res.json()) as unknown[];
     expect(data).toHaveLength(2);
   });

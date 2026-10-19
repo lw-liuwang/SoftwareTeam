@@ -20,7 +20,7 @@ export const V = { classifierVersion: "classifier-test", taxonomyVersion: "taxon
 export const C: ClassificationCandidates = {
   version: "roster+scopes+taxonomy:test",
   values: { classificationType: ["question", "lesson"], classificationUrgency: ["now"], classificationMaturity: ["data"],
-    classificationConfidence: [], classificationDestination: ["reader@rig"], area: ["cli-surface"], scopeRef: ["OPR.0.6.0.2"] },
+    classificationConfidence: [], classificationDestination: ["reader@software-team"], area: ["cli-surface"], scopeRef: ["OPR.0.6.0.2"] },
   duplicateCandidates: [], relatedRefs: ["qitem-related", "PR:15"],
 };
 export interface WorkerWorld {
@@ -45,9 +45,9 @@ export function world(): WorkerWorld {
   const attempts = new ClassificationAttemptLedger(db,leases,{now,baseBackoffMs:1_000,maxBackoffMs:2_000,inFlightTimeoutMs:4_000});
   const classifier = new ProjectClassifier(db,bus,leases,{now});
   const stream = new StreamStore(db,bus);
-  const seed = (id: string) => stream.emit({streamItemId:id,sourceSession:"emitter@rig",body:"does this need a change?"});
+  const seed = (id: string) => stream.emit({streamItemId:id,sourceSession:"emitter@software-team",body:"does this need a change?"});
   const worker = (overrides: Partial<WorkerOptions> = {}) => new StreamClassificationWorker({
-    ...V,session:"worker@rig",candidates:C,now,leases,attempts,classifier,stream,pageSize:3,leaseBackoffMs:1_000,
+    ...V,session:"worker@software-team",candidates:C,now,leases,attempts,classifier,stream,pageSize:3,leaseBackoffMs:1_000,
     classify:async()=>({kind:"classify",labels:{classificationType:"question",needsHuman:null}}),...overrides,
   });
   return {db,clock,now,bus,leases,attempts,classifier,stream,seed,worker};

@@ -22,7 +22,7 @@ function makeAttention(overrides: Partial<AttentionQueueItem> = {}): AttentionQu
     qitemId: "qitem-20260518000000-aaaa",
     tsCreated: "2026-05-18T00:00:00.000Z",
     tsUpdated: "2026-05-18T00:00:00.000Z",
-    sourceSession: "advisor@rig",
+    sourceSession: "advisor@software-team",
     destinationSession: "human-bob@kernel",
     state: "pending",
     priority: "routine",
@@ -61,7 +61,7 @@ function makeFeedCard(opts: { kind: FeedCard["kind"]; qitemId?: string; id?: str
 
 describe("attentionItemToFeedCard — kind classification", () => {
   it("HG-4 approval class: tier='human-gate' → kind:'approval'", () => {
-    const card = attentionItemToFeedCard(makeAttention({ tier: "human-gate", destinationSession: "advisor@rig" }));
+    const card = attentionItemToFeedCard(makeAttention({ tier: "human-gate", destinationSession: "advisor@software-team" }));
     expect(card.kind).toBe("approval");
   });
 

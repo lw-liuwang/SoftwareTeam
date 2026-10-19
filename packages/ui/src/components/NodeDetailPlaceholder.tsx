@@ -2,14 +2,14 @@
  * Placeholder detail panel — proves selection wiring for NS-T10.
  * NS-T11 replaces this with the full NodeDetailPanel.
  */
-export function NodeDetailPlaceholder({ rigId, logicalId, onClose }: {
-  rigId: string;
+export function NodeDetailPlaceholder({ softwareTeamId, logicalId, onClose }: {
+  softwareTeamId: string;
   logicalId: string;
   onClose: () => void;
 }) {
   const handleFocus = async () => {
     try {
-      await fetch(`/api/rigs/${encodeURIComponent(rigId)}/nodes/${encodeURIComponent(logicalId)}/focus`, {
+      await fetch(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/nodes/${encodeURIComponent(logicalId)}/focus`, {
         method: "POST",
       });
     } catch { /* best-effort */ }
@@ -25,7 +25,7 @@ export function NodeDetailPlaceholder({ rigId, logicalId, onClose }: {
         <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface text-sm">&times;</button>
       </div>
       <div className="font-mono text-[9px] text-on-surface-variant">
-        Rig: {rigId}
+        SoftwareTeam: {softwareTeamId}
       </div>
       <button
         onClick={handleFocus}

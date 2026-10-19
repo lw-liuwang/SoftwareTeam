@@ -14,7 +14,7 @@ import type { HostRegistry } from "../src/domain/hosts/hosts-registry-reader.js"
 
 const REGISTRY: HostRegistry = {
   hosts: [
-    { id: "vps-b", transport: "http", url: "http://vps-b:7433", bearer_env: "B" },
+    { id: "vps-b", transport: "http", url: "http://vps-b:7434", bearer_env: "B" },
     { id: "ssh-1", transport: "ssh", target: "x.local" },
   ],
 };
@@ -43,11 +43,11 @@ function makeApp(opts: { fetchImpl?: typeof fetch } = {}) {
 const BASE_BODY = { verb: "resolve", qitemId: "qitem-1", actorSession: "human@host" };
 
 function post(app: Hono, body: Record<string, unknown>) {
-  // P21: the caller's transport identity is the X-OpenRig-Session header (stamped by DaemonClient from
+  // P21: the caller's transport identity is the X-SoftwareTeam-Session header (stamped by DaemonClient from
   // the seat env). Mirror it from the body's actorSession so these fixtures present a legit caller
   // (header == claim ⇒ tolerated); the forward then RE-STAMPS it and drops the body claim.
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (typeof body.actorSession === "string") headers["X-OpenRig-Session"] = body.actorSession;
+  if (typeof body.actorSession === "string") headers["X-SoftwareTeam-Session"] = body.actorSession;
   return app.request("/api/mission-control/action", {
     method: "POST",
     headers,
@@ -89,23 +89,23 @@ describe("POST /action — FR-4 remote forwarding", () => {
     const res = await post(app, { ...BASE_BODY, hostId: "vps-b", annotation: "from the merged feed" });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, actionId: "origin-act-9", audited: "on-origin" });
-    expect(capture.url).toBe("http://vps-b:7433/api/mission-control/action");
+    expect(capture.url).toBe("http://vps-b:7434/api/mission-control/action");
     const fwdHeaders = capture.init?.headers as Record<string, string>;
     expect(fwdHeaders["Authorization"]).toBe("Bearer remote-token");
     // P21 I2 cross-host RE-STAMP: the forward carries THIS daemon's derived actor + a relay marker,
     // and DROPS the inbound body actorSession claim — the origin derives the re-stamped actor.
-    expect(fwdHeaders["X-OpenRig-Session"]).toBe("human@host"); // re-stamped from the derived actor
-    expect(fwdHeaders["X-OpenRig-Relay"]).toBeTruthy(); // relay provenance marked
+    expect(fwdHeaders["X-SoftwareTeam-Session"]).toBe("human@host"); // re-stamped from the derived actor
+    expect(fwdHeaders["X-SoftwareTeam-Relay"]).toBeTruthy(); // relay provenance marked
     // P21 review-actions deferral: the forward CARRIES the resolved provenance so the origin never
     // launders it. A CLI-derived (header-present) actor is carried as transport:v1 (origin ⇒ relay:v1).
-    expect(fwdHeaders["X-OpenRig-Provenance"]).toBe("transport:v1");
+    expect(fwdHeaders["X-SoftwareTeam-Provenance"]).toBe("transport:v1");
     const forwarded = JSON.parse(String(capture.init?.body)) as Record<string, unknown>;
     expect(forwarded).toEqual({ verb: "resolve", qitemId: "qitem-1", annotation: "from the merged feed" }); // hostId AND actorSession stripped
     expect(forwarded).not.toHaveProperty("actorSession"); // the inbound claim never rides the wire
     expect(localActs).toEqual([]); // arch pin: local mission_control_actions CLEAN after forward
   });
 
-  it("P21 forward PRESERVES claimed-era: a HEADERLESS (browser UI) action forwarded carries the claimed actor + X-OpenRig-Provenance=claimed:v1 — never upgraded to transport:v1", async () => {
+  it("P21 forward PRESERVES claimed-era: a HEADERLESS (browser UI) action forwarded carries the claimed actor + X-SoftwareTeam-Provenance=claimed:v1 — never upgraded to transport:v1", async () => {
     const capture: { init?: RequestInit } = {};
     const { app, localActs } = makeApp({
       fetchImpl: (async (_url: string | URL | Request, init?: RequestInit) => {
@@ -115,7 +115,7 @@ describe("POST /action — FR-4 remote forwarding", () => {
         });
       }) as typeof fetch,
     });
-    // Browser UI: NO X-OpenRig-Session header (bearer only), a body actorSession, targeting a REMOTE item.
+    // Browser UI: NO X-SoftwareTeam-Session header (bearer only), a body actorSession, targeting a REMOTE item.
     const res = await app.request("/api/mission-control/action", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -123,8 +123,8 @@ describe("POST /action — FR-4 remote forwarding", () => {
     });
     expect(res.status).toBe(200);
     const fwdHeaders = capture.init?.headers as Record<string, string>;
-    expect(fwdHeaders["X-OpenRig-Session"]).toBe("founder@host"); // the claimed actor rides the header
-    expect(fwdHeaders["X-OpenRig-Provenance"]).toBe("claimed:v1"); // PRESERVED — the origin cannot launder it to verified
+    expect(fwdHeaders["X-SoftwareTeam-Session"]).toBe("founder@host"); // the claimed actor rides the header
+    expect(fwdHeaders["X-SoftwareTeam-Provenance"]).toBe("claimed:v1"); // PRESERVED — the origin cannot launder it to verified
     expect(JSON.parse(String(capture.init?.body))).not.toHaveProperty("actorSession"); // body claim still stripped
     expect(localActs).toEqual([]);
   });

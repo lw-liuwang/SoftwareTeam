@@ -42,11 +42,11 @@ export function DestinationsLayer({ librarySize }: DestinationsLayerProps = {}) 
         big="01"
         label="Topology"
         icon={<Network className="h-4 w-4" />}
-        body="Host · Rig · Pod · Seat tree — live edges + runtimes; drill into any rig's pod graph."
+        body="Host · SoftwareTeam · Pod · Seat tree — live edges + runtimes; drill into any softwareTeam's pod graph."
         positionClass="top-[22%] left-[5%]"
         graphic={<TreeGraphic />}
         layout="numeral"
-        callouts={["HOST", "RIG", "POD", "SEAT"]}
+        callouts={["HOST", "SOFTWARE_TEAM", "POD", "SEAT"]}
         tint="stone"
         shadow="ambient"
       />

@@ -3,20 +3,20 @@ import nodePath from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
-  filterNodesForRigId,
-  selectCurrentRigSummary,
-} from "../../packages/daemon/src/domain/demo-rig-selector.js";
+  filterNodesForSoftwareTeamId,
+  selectCurrentSoftwareTeamSummary,
+} from "../../packages/daemon/src/domain/demo-software-team-selector.js";
 
-export interface DemoRigSummary {
-  rigId: string;
+export interface DemoSoftwareTeamSummary {
+  softwareTeamId: string;
   name: string;
   nodeCount?: number;
   status?: string;
 }
 
 export interface DemoNodeEntry {
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   logicalId: string;
   canonicalSessionName: string | null;
   nodeKind: string;
@@ -59,12 +59,12 @@ export function runCommand(command: string, args: string[], cwd = repoRoot()): s
   }).trim();
 }
 
-export function runRig(args: string[]): string {
-  return runCommand("rig", args);
+export function runSoftwareTeam(args: string[]): string {
+  return runCommand("softwareTeam", args);
 }
 
-export function runRigJson<T>(args: string[]): T {
-  const output = runRig(args);
+export function runSoftwareTeamJson<T>(args: string[]): T {
+  const output = runSoftwareTeam(args);
   return JSON.parse(output) as T;
 }
 
@@ -76,27 +76,27 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function listRigSummaries(): DemoRigSummary[] {
-  return runRigJson<DemoRigSummary[]>(["ps", "--json"]);
+export function listSoftwareTeamSummaries(): DemoSoftwareTeamSummary[] {
+  return runSoftwareTeamJson<DemoSoftwareTeamSummary[]>(["ps", "--json"]);
 }
 
-export function getCurrentRigSummary(rigNameOrId: string): DemoRigSummary | null {
-  const summaries = listRigSummaries();
-  const byId = summaries.find((summary) => summary.rigId === rigNameOrId);
+export function getCurrentSoftwareTeamSummary(softwareTeamNameOrId: string): DemoSoftwareTeamSummary | null {
+  const summaries = listSoftwareTeamSummaries();
+  const byId = summaries.find((summary) => summary.softwareTeamId === softwareTeamNameOrId);
   if (byId) {
     return byId;
   }
-  return selectCurrentRigSummary(summaries, rigNameOrId);
+  return selectCurrentSoftwareTeamSummary(summaries, softwareTeamNameOrId);
 }
 
-export function listRigNodes(rigNameOrId: string): DemoNodeEntry[] {
-  const summary = getCurrentRigSummary(rigNameOrId);
+export function listSoftwareTeamNodes(softwareTeamNameOrId: string): DemoNodeEntry[] {
+  const summary = getCurrentSoftwareTeamSummary(softwareTeamNameOrId);
   if (!summary) {
     return [];
   }
-  return filterNodesForRigId(
-    runRigJson<DemoNodeEntry[]>(["ps", "--nodes", "--json"]),
-    summary.rigId
+  return filterNodesForSoftwareTeamId(
+    runSoftwareTeamJson<DemoNodeEntry[]>(["ps", "--nodes", "--json"]),
+    summary.softwareTeamId
   );
 }
 

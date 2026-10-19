@@ -36,8 +36,8 @@ function makeRepo({ lockEntries = true, dependencyRoot = "exact" } = {}) {
   const packages = lockEntries
     ? {
         "": { workspaces: ["packages/cli"] },
-        "node_modules/@openrig/cli": { resolved: "packages/cli", link: true },
-        "packages/cli": { name: "@openrig/cli" },
+        "node_modules/@softwareteam/cli": { resolved: "packages/cli", link: true },
+        "packages/cli": { name: "@softwareteam/cli" },
       }
     : { "": { workspaces: [] } };
   write(join(root, "package-lock.json"), `${JSON.stringify({ name: "fixture", lockfileVersion: 3, packages }, null, 2)}\n`);
@@ -47,14 +47,14 @@ function makeRepo({ lockEntries = true, dependencyRoot = "exact" } = {}) {
     mkdirSync(join(foreign, "node_modules"), { recursive: true });
     symlinkSync(join(foreign, "node_modules"), join(root, "node_modules"));
   } else if (dependencyRoot !== "absent") {
-    mkdirSync(join(root, "node_modules/@openrig"), { recursive: true });
+    mkdirSync(join(root, "node_modules/@softwareteam"), { recursive: true });
     const target = dependencyRoot === "swapped"
       ? "../../packages/other"
       : dependencyRoot === "cross-tree"
         ? join(mkdtempSync(join(tmpdir(), "gate-hermeticity-cross-")), "packages/cli")
         : "../../packages/cli";
     if (dependencyRoot === "cross-tree") mkdirSync(target, { recursive: true });
-    symlinkSync(target, join(root, "node_modules/@openrig/cli"));
+    symlinkSync(target, join(root, "node_modules/@softwareteam/cli"));
   }
 
   git(root, "init", "-q");
@@ -80,9 +80,9 @@ async function runGate(root) {
     encoding: "utf8",
     env: {
       ...process.env,
-      OPENRIG_GATE_LANE_PORT: String(port),
-      OPENRIG_GATE_LANE_SMOKE: "1",
-      OPENRIG_GATE_VERDICT: join(root, "gate-lane-verdict.json"),
+      SOFTWARETEAM_GATE_LANE_PORT: String(port),
+      SOFTWARETEAM_GATE_LANE_SMOKE: "1",
+      SOFTWARETEAM_GATE_VERDICT: join(root, "gate-lane-verdict.json"),
     },
   });
 }
@@ -108,23 +108,23 @@ test("dependency root: a symlinked node_modules root refuses", async () => {
 
 test("dependency root: a scoped link escaping to another tree refuses and prints both operands", async () => {
   const result = await runGate(makeRepo({ dependencyRoot: "cross-tree" }));
-  assertHermeticRefusal(result, /@openrig\/cli[\s\S]*actual[\s\S]*expected/i);
+  assertHermeticRefusal(result, /@softwareteam\/cli[\s\S]*actual[\s\S]*expected/i);
 });
 
 test("dependency root: a scoped link swapped to another in-tree package refuses", async () => {
   const result = await runGate(makeRepo({ dependencyRoot: "swapped" }));
-  assertHermeticRefusal(result, /@openrig\/cli[\s\S]*packages\/other[\s\S]*packages\/cli/i);
+  assertHermeticRefusal(result, /@softwareteam\/cli[\s\S]*packages\/other[\s\S]*packages\/cli/i);
 });
 
 test("dependency root: a lock deriving zero scoped links refuses instead of vacuously passing", async () => {
   const result = await runGate(makeRepo({ lockEntries: false }));
-  assertHermeticRefusal(result, /zero|no scoped @openrig/i);
+  assertHermeticRefusal(result, /zero|no scoped @softwareteam/i);
 });
 
 test("dependency root: exact lock-derived target passes and prints the actual/expected pair", async () => {
   const result = await runGate(makeRepo());
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /@openrig\/cli[\s\S]*actual[\s\S]*expected/i);
+  assert.match(result.stdout, /@softwareteam\/cli[\s\S]*actual[\s\S]*expected/i);
   assert.match(result.stdout, /packages\/cli/i);
 });
 
@@ -135,11 +135,11 @@ test("dependency root: a later refusal invalidates a same-HEAD prior PASS", asyn
   assert.equal(first.status, 0, first.stderr);
   assert.equal(existsSync(verdictPath), true, "the first gate writes a PASS receipt");
 
-  rmSync(join(root, "node_modules/@openrig/cli"), { force: true });
-  symlinkSync("../../packages/other", join(root, "node_modules/@openrig/cli"));
+  rmSync(join(root, "node_modules/@softwareteam/cli"), { force: true });
+  symlinkSync("../../packages/other", join(root, "node_modules/@softwareteam/cli"));
 
   const second = await runGate(root);
-  assertHermeticRefusal(second, /@openrig\/cli[\s\S]*packages\/other[\s\S]*packages\/cli/i);
+  assertHermeticRefusal(second, /@softwareteam\/cli[\s\S]*packages\/other[\s\S]*packages\/cli/i);
   assert.equal(existsSync(verdictPath), false, "the refused retry invalidates the prior PASS");
   const consume = spawnSync(process.execPath, [CONSUMER_SCRIPT, verdictPath], { cwd: root, encoding: "utf8" });
   assert.notEqual(consume.status, 0, "the prior PASS is no longer consumable");
@@ -153,7 +153,7 @@ test("dependency root: drift during the gate refuses before writing a verdict", 
   const marker = join(tmpdir(), `gate-root-marker-${process.pid}-${Date.now()}`);
   const release = join(tmpdir(), `gate-root-release-${process.pid}-${Date.now()}`);
   const fakeNpm = join(fakeBin, "npm");
-  write(fakeNpm, `#!/bin/sh\n: > "$OPENRIG_TEST_MARKER"\nwhile [ ! -e "$OPENRIG_TEST_RELEASE" ]; do sleep 0.02; done\nexit 0\n`);
+  write(fakeNpm, `#!/bin/sh\n: > "$SOFTWARETEAM_TEST_MARKER"\nwhile [ ! -e "$SOFTWARETEAM_TEST_RELEASE" ]; do sleep 0.02; done\nexit 0\n`);
   chmodSync(fakeNpm, 0o755);
   const port = await freePort();
 
@@ -162,10 +162,10 @@ test("dependency root: drift during the gate refuses before writing a verdict", 
     env: {
       ...process.env,
       PATH: `${fakeBin}:${process.env.PATH}`,
-      OPENRIG_TEST_MARKER: marker,
-      OPENRIG_TEST_RELEASE: release,
-      OPENRIG_GATE_LANE_PORT: String(port),
-      OPENRIG_GATE_VERDICT: verdictPath,
+      SOFTWARETEAM_TEST_MARKER: marker,
+      SOFTWARETEAM_TEST_RELEASE: release,
+      SOFTWARETEAM_GATE_LANE_PORT: String(port),
+      SOFTWARETEAM_GATE_VERDICT: verdictPath,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -181,11 +181,11 @@ test("dependency root: drift during the gate refuses before writing a verdict", 
   }
   if (!existsSync(marker)) write(release, "abort\n");
   assert.equal(existsSync(marker), true, "the real gate reached its first injected leg");
-  rmSync(join(root, "node_modules/@openrig/cli"), { force: true });
-  symlinkSync("../../packages/other", join(root, "node_modules/@openrig/cli"));
+  rmSync(join(root, "node_modules/@softwareteam/cli"), { force: true });
+  symlinkSync("../../packages/other", join(root, "node_modules/@softwareteam/cli"));
   write(release, "continue\n");
 
   const status = await closed;
-  assertHermeticRefusal({ status, stdout, stderr }, /@openrig\/cli[\s\S]*packages\/other[\s\S]*packages\/cli|gate-hermeticity/i);
+  assertHermeticRefusal({ status, stdout, stderr }, /@softwareteam\/cli[\s\S]*packages\/other[\s\S]*packages\/cli|gate-hermeticity/i);
   assert.equal(existsSync(verdictPath), false, "a late dependency-root drift writes no verdict");
 });

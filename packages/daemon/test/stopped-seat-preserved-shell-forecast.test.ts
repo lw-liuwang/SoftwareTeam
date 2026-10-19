@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
-import { createDefaultRestoreRig } from "../src/domain/crash-cart-conductor.js";
+import { createDefaultRestoreSoftwareTeam } from "../src/domain/crash-cart-conductor.js";
 
 const databases: ReturnType<typeof createFullTestDb>[] = [];
 afterEach(() => { for (const db of databases.splice(0)) db.close(); });
@@ -28,10 +28,10 @@ function fixture(opts: { status?: string; noRow?: boolean; token?: string | null
   const setup = createTestApp(db, { tmux, wireRuntimeAdapters: true, listProcesses: async () => [
     {pid:100,ppid:1,pgid:100,tpgid:100,executableName:"bash",command:"-bash",startedAt:"Sat Oct 10 20:00:00 2026"}
   ] });
-  const { rigRepo, sessionRegistry, snapshotCapture } = setup;
-  const rig = rigRepo.createRig("stopped-review");
-  db.prepare("INSERT INTO pods (id, rig_id, label) VALUES (?, ?, ?)").run("pod", rig.id, "Review");
-  const node = rigRepo.addNode(rig.id, "dev.worker", { runtime: "claude-code", podId: "pod", cwd: "/tmp" });
+  const { softwareTeamRepo, sessionRegistry, snapshotCapture } = setup;
+  const softwareTeam = softwareTeamRepo.createSoftwareTeam("stopped-review");
+  db.prepare("INSERT INTO pods (id, software_team_id, label) VALUES (?, ?, ?)").run("pod", softwareTeam.id, "Review");
+  const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.worker", { runtime: "claude-code", podId: "pod", cwd: "/tmp" });
   db.prepare("INSERT INTO node_startup_context (node_id, projection_entries_json, resolved_files_json, startup_actions_json, runtime) VALUES (?, '[]', '[]', '[]', 'claude-code')").run(node.id);
   if (!opts.noRow) {
     const row = sessionRegistry.registerSession(node.id, "dev-worker@stopped-review");
@@ -40,9 +40,9 @@ function fixture(opts: { status?: string; noRow?: boolean; token?: string | null
     if (opts.token !== null) sessionRegistry.updateResumeToken(row.id, "claude_id", opts.token ?? "00000000-0000-4000-8000-000000000005", "hook");
     if (opts.policy) db.prepare("UPDATE sessions SET restore_policy = ? WHERE id = ?").run(opts.policy, row.id);
   }
-  const snapshot = snapshotCapture.captureSnapshot(rig.id, (opts.kind ?? "manual") as never);
+  const snapshot = snapshotCapture.captureSnapshot(softwareTeam.id, (opts.kind ?? "manual") as never);
   const post = (path: string, body: unknown = {}) => setup.app.request(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  return { ...setup, db, tmux, rig, node, snapshot, post, live };
+  return { ...setup, db, tmux, softwareTeam, node, snapshot, post, live };
 }
 
 
@@ -53,12 +53,12 @@ describe("stopped-seat preserved-shell forecast",()=>{
   it.each(["history-token","no-token"])("preserved-shell advice agrees with the pinned snapshot apply: %s",async mode=>{
     const h=fixture(mode==="no-token"?{token:null}:{});
     const name="dev-worker@stopped-review";
-    const session=h.sessionRegistry.getSessionsForRig(h.rig.id).find(s=>s.nodeId===h.node.id)!;
+    const session=h.sessionRegistry.getSessionsForSoftwareTeam(h.softwareTeam.id).find(s=>s.nodeId===h.node.id)!;
     // The chosen snapshot was taken while stopped. A later launch now left a preserved shell.
     h.sessionRegistry.updateStatus(session.id,"running");
     h.sessionRegistry.updateBinding(h.node.id,{tmuxSession:name,tmuxPane:"%fixture"});
     h.live.add(name);vi.mocked(h.tmux.getPaneCommand).mockResolvedValue("bash");
-    const endpoint=`/api/rigs/${h.rig.id}/nodes/launch-subset`;
+    const endpoint=`/api/software-teams/${h.softwareTeam.id}/nodes/launch-subset`;
     const body={seats:[h.node.logicalId],snapshotId:h.snapshot.id};
     const adviceResponse=await h.post(endpoint,body);
     const advice=await adviceResponse.json();
@@ -73,20 +73,20 @@ describe("stopped-seat preserved-shell forecast",()=>{
     const promised=advice.launched[0].error.includes("start a fresh conversation")?"fresh-primed":"awaiting-decision";
     expect(applied.launched[0].status,"advice must forecast the same pinned snapshot").toBe(promised);
   });
-  // In a rig whose other seats started, `rig up --existing --fresh` is refused (rig_not_stopped), so the
-  // held seat's own fresh start is `rig seat launch <seat> --fresh`.
-  it("a held seat in a rig whose other seats started can be started fresh on its own",async()=>{
+  // In a softwareTeam whose other seats started, `SoftwareTeam up --existing --fresh` is refused (software_team_not_stopped), so the
+  // held seat's own fresh start is `softwareTeam seat launch <seat> --fresh`.
+  it("a held seat in a SoftwareTeam whose other seats started can be started fresh on its own",async()=>{
     const h=fixture();
-    const peer=h.rigRepo.addNode(h.rig.id,"dev.newcomer",{runtime:"claude-code",podId:"pod",cwd:"/tmp"});
+    const peer=h.softwareTeamRepo.addNode(h.softwareTeam.id,"dev.newcomer",{runtime:"claude-code",podId:"pod",cwd:"/tmp"});
     h.db.prepare("INSERT INTO node_startup_context (node_id, projection_entries_json, resolved_files_json, startup_actions_json, runtime) VALUES (?, '[]', '[]', '[]', 'claude-code')").run(peer.id);
-    h.snapshotCapture.captureSnapshot(h.rig.id,"manual");
-    const up=await (await h.post(`/api/rigs/${h.rig.id}/up`)).json();
+    h.snapshotCapture.captureSnapshot(h.softwareTeam.id,"manual");
+    const up=await (await h.post(`/api/software-teams/${h.softwareTeam.id}/up`)).json();
     expect(up.nodes.find((n:any)=>n.nodeId===h.node.id)?.status).toBe("awaiting-decision");
     expect(up.nodes.find((n:any)=>n.nodeId===peer.id)?.status).toBe("fresh-primed");
-    const retry=await h.post("/api/up",{sourceRef:h.rig.name,existing:true,freshLogicalIds:[h.node.logicalId]});
+    const retry=await h.post("/api/up",{sourceRef:h.softwareTeam.name,existing:true,freshLogicalIds:[h.node.logicalId]});
     expect(retry.status).toBe(409);
-    expect((await retry.json()).code).toBe("rig_not_stopped");
-    const fresh=await h.post(`/api/seat/launch/${encodeURIComponent(`${h.node.logicalId}@${h.rig.name}`)}`,{fresh:true,reason:"start the held seat fresh"});
+    expect((await retry.json()).code).toBe("software_team_not_stopped");
+    const fresh=await h.post(`/api/seat/launch/${encodeURIComponent(`${h.node.logicalId}@${h.softwareTeam.name}`)}`,{fresh:true,reason:"start the held seat fresh"});
     expect(fresh.status).toBe(200);
     expect((await fresh.json()).ok).toBe(true);
   });

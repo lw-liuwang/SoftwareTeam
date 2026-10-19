@@ -3,16 +3,16 @@ import type { SeatEnv } from "./seat-env.js";
 import { nonInterruptiveSummary } from "../adapters/non-interruptive.js";
 import nodePath from "node:path";
 import type Database from "better-sqlite3";
-import type { LegacyRigSpec as RigSpec } from "./types.js"; // TODO: AS-T08b — migrate to pod-aware RigSpec
-import { LegacyRigSpecCodec as RigSpecCodec } from "./rigspec-codec.js"; // TODO: AS-T08b — migrate to pod-aware RigSpec
-import { LegacyRigSpecSchema as RigSpecSchema } from "./rigspec-schema.js"; // TODO: AS-T08b — migrate to pod-aware RigSpec
+import type { LegacySoftwareTeamSpec as SoftwareTeamSpec } from "./types.js"; // TODO: AS-T08b — migrate to pod-aware SoftwareTeamSpec
+import { LegacySoftwareTeamSpecCodec as SoftwareTeamSpecCodec } from "./software-team-spec-codec.js"; // TODO: AS-T08b — migrate to pod-aware SoftwareTeamSpec
+import { LegacySoftwareTeamSpecSchema as SoftwareTeamSpecSchema } from "./software-team-spec-schema.js"; // TODO: AS-T08b — migrate to pod-aware SoftwareTeamSpec
 import type { BootstrapRepository } from "./bootstrap-repository.js";
 import type { RuntimeVerifier } from "./runtime-verifier.js";
 import type { RequirementsProbeRegistry, RequirementSpec } from "./requirements-probe.js";
 import type { ExternalInstallPlanner, ExternalInstallAction } from "./external-install-planner.js";
 import type { ExternalInstallExecutor, TaggedAction } from "./external-install-executor.js";
 import type { PackageInstallService } from "./package-install-service.js";
-import type { RigInstantiator } from "./rigspec-instantiator.js";
+import type { SoftwareTeamInstantiator } from "./software-team-spec-instantiator.js";
 import type { FsOps, ResolvedPackage } from "./package-resolver.js";
 import { resolvePackage, type ResolveResult } from "./package-resolve-helper.js";
 import type { BootstrapStatus } from "./bootstrap-types.js";
@@ -23,7 +23,7 @@ import { unpack } from "./bundle-archive.js";
 import { parsePodBundleManifest } from "./bundle-types.js";
 import os from "node:os";
 import fs from "node:fs";
-import { getOpenRigInstallCwdError, resolveLaunchCwd } from "./cwd-resolution.js";
+import { getSoftwareTeamInstallCwdError, resolveLaunchCwd } from "./cwd-resolution.js";
 import { runSyncSite } from "./sync-site-wrap.js";
 import { runtimeVersionProbeCwd } from "../adapters/preflight-exec.js";
 import { routeBundleContents, routingFailureWarnings, thrownMessage, type BundleContentRouting } from "./bundle-content-routing.js";
@@ -39,7 +39,7 @@ export interface BootstrapOptions {
   sourceRef: string;
   sourceKind?: string;
   cwdOverride?: string;
-  /** One-off launch env from `rig up --env`; used for this launch only and not saved. */
+  /** One-off launch env from `SoftwareTeam up --env`; used for this launch only and not saved. */
   envOverride?: SeatEnv;
   autoApprove?: boolean;
   nonInterruptive?: boolean;
@@ -62,7 +62,7 @@ export interface BootstrapResult {
   runId: string;
   status: BootstrapStatus;
   stages: BootstrapStageResult[];
-  rigId?: string;
+  softwareTeamId?: string;
   errors: string[];
   warnings: string[];
   /** Plan-mode action keys for reviewed approval */
@@ -72,7 +72,7 @@ export interface BootstrapResult {
   bundleInstall?: BundleInstallContext;
 }
 
-import type { PodRigInstantiator } from "./rigspec-instantiator.js";
+import type { PodSoftwareTeamInstantiator } from "./software-team-spec-instantiator.js";
 
 interface BootstrapOrchestratorDeps {
   db: Database.Database;
@@ -82,13 +82,13 @@ interface BootstrapOrchestratorDeps {
   installPlanner: ExternalInstallPlanner;
   installExecutor: ExternalInstallExecutor;
   packageInstallService: PackageInstallService;
-  rigInstantiator: RigInstantiator;
+  softwareTeamInstantiator: SoftwareTeamInstantiator;
   fsOps: FsOps;
   bundleSourceResolver: BundleSourceResolver | null;
-  podInstantiator?: PodRigInstantiator;
+  podInstantiator?: PodSoftwareTeamInstantiator;
   podBundleSourceResolver?: PodBundleSourceResolver;
   serviceOrchestrator?: import("./service-orchestrator.js").ServiceOrchestrator;
-  rigRepo?: import("./rig-repository.js").RigRepository;
+  softwareTeamRepo?: import("./software-team-repository.js").SoftwareTeamRepository;
   /** Routes a bundle's declared contents; startup wires it to rescan the live context-pack library. */
   routeBundleContents?: (bundlePath: string) => Promise<BundleContentRouting>;
 }
@@ -139,7 +139,7 @@ export class BootstrapOrchestrator {
 
   async bootstrap(opts: BootstrapOptions): Promise<BootstrapResult> {
     const { mode, sourceRef, autoApprove, approvedActionKeys } = opts;
-    const sourceKind = opts.sourceKind ?? "rig_spec";
+    const sourceKind = opts.sourceKind ?? "software_team_spec";
     const stages: BootstrapStageResult[] = [];
     const errors: string[] = [];
     const warnings: string[] = [];
@@ -151,12 +151,12 @@ export class BootstrapOrchestrator {
     let seqCounter = 1;
 
     // --- Stage 1: RESOLVE_SPEC ---
-    let spec: RigSpec;
+    let spec: SoftwareTeamSpec;
     let specDir: string;
     let bundleSource: BundleResolvedSource | null = null;
     let bundleTempDir: string | null = null;
 
-    if (sourceKind === "rig_bundle") {
+    if (sourceKind === "software_team_bundle") {
       // Peek at bundle manifest to detect schema version
       let bundleSchemaVersion = 1;
       const peekDir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "bundle-peek-"));
@@ -190,9 +190,9 @@ export class BootstrapOrchestrator {
             });
             if (context.existing.length > 0) {
               const lines = bundleInstallContextLines(context);
-              if (mode === "apply" && context.existing.some(rig => rig.state === "running")) {
+              if (mode === "apply" && context.existing.some(softwareTeam => softwareTeam.state === "running")) {
                 const message = [...lines, "No bundle files were written and no team was created or launched."].join("\n");
-                stages.push({ stage: "import_rig", status: "failed", detail: { code: "rig_name_running", message } });
+                stages.push({ stage: "import_software_team", status: "failed", detail: { code: "software_team_name_running", message } });
                 this.deps.bootstrapRepo.updateRunStatus(run.id, "failed");
                 return { runId: run.id, status: "failed", stages, errors: [message], warnings, bundleInstall: context };
               }
@@ -202,7 +202,7 @@ export class BootstrapOrchestrator {
             try {
               const parsed = parsePodBundleManifest(rawYaml) as Record<string, unknown>;
               if (parsed && typeof parsed === "object" && parsed["services"] && typeof parsed["services"] === "object") {
-                const msg = "Service-backed rigs cannot be launched from .rigbundle archives. The services block requires a stable source directory. Use the source directory path instead: rig up <path/to/rig.yaml>";
+                const msg = "Service-backed softwareTeams cannot be launched from .softwareteambundle archives. The services block requires a stable source directory. Use the source directory path instead: SoftwareTeam up <path/to/software-team.yaml>";
                 stages.push({ stage: "resolve_spec", status: "failed", detail: { code: "services_unsupported", error: msg } });
                 errors.push(msg);
                 this.deps.bootstrapRepo.updateRunStatus(run.id, "failed");
@@ -220,10 +220,10 @@ export class BootstrapOrchestrator {
               if (replacingOwnTarget && tmux?.probeSession) {
                 // The instantiator repeats this under its name lock. This early
                 // read keeps a known-live or uncertain old session's files intact.
-                const stopped = await confirmStoppedGenerations(this.deps.db, context.existing.map(rig => rig.rigId), tmux.probeSession.bind(tmux));
+                const stopped = await confirmStoppedGenerations(this.deps.db, context.existing.map(softwareTeam => softwareTeam.softwareTeamId), tmux.probeSession.bind(tmux));
                 if (!stopped.ok) {
                   const message = `Could not confirm the existing team is stopped: ${stopped.reason}. No target files were written and no team was created.`;
-                  stages.push({ stage: "import_rig", status: "failed", detail: { code: "generation_unconfirmed", message } });
+                  stages.push({ stage: "import_software_team", status: "failed", detail: { code: "generation_unconfirmed", message } });
                   this.deps.bootstrapRepo.updateRunStatus(run.id, "failed");
                   return { runId: run.id, status: "failed", stages, errors: [message], warnings: [...warnings, ...context.resolutions], bundleInstall: context };
                 }
@@ -240,7 +240,7 @@ export class BootstrapOrchestrator {
               }
               if (materialized.backupPath) warnings.push(`Existing target files were preserved at ${materialized.backupPath} before installing the replacement. Unrelated target files were kept.`);
               installRoot = fs.realpathSync.native(targetRoot);
-              specDir = nodePath.dirname(nodePath.join(targetRoot, podSource.manifest.rigSpec));
+              specDir = nodePath.dirname(nodePath.join(targetRoot, podSource.manifest.softwareTeamSpec));
               warnings.push(`Bundle files are installed in ${targetRoot}; a later launch failure does not remove them.`);
             }
 
@@ -261,22 +261,22 @@ export class BootstrapOrchestrator {
 
       // Legacy v1 bundle path
       if (!this.deps.bundleSourceResolver) {
-        throw new Error("BundleSourceResolver required for rig_bundle source kind");
+        throw new Error("BundleSourceResolver required for software_team_bundle source kind");
       }
       try {
         bundleSource = await this.deps.bundleSourceResolver.resolve(sourceRef);
         bundleTempDir = bundleSource.tempDir;
         specDir = nodePath.dirname(bundleSource.specPath);
         const rawYaml = this.deps.fsOps.readFile(bundleSource.specPath);
-        const raw = RigSpecCodec.parse(rawYaml);
-        const validation = RigSpecSchema.validate(raw);
+        const raw = SoftwareTeamSpecCodec.parse(rawYaml);
+        const validation = SoftwareTeamSpecSchema.validate(raw);
         if (!validation.valid) {
           stages.push({ stage: "resolve_spec", status: "failed", detail: { code: "validation_failed", errors: validation.errors } });
           this.deps.bootstrapRepo.updateRunStatus(run.id, "failed");
           return { runId: run.id, status: "failed", stages, errors: validation.errors, warnings };
         }
-        spec = this.resolveLegacyNodeCwds(RigSpecSchema.normalize(raw), specDir, opts.cwdOverride);
-        stages.push({ stage: "resolve_spec", status: "ok", detail: { specName: spec.name, specVersion: spec.schemaVersion, source: "rig_bundle" } });
+        spec = this.resolveLegacyNodeCwds(SoftwareTeamSpecSchema.normalize(raw), specDir, opts.cwdOverride);
+        stages.push({ stage: "resolve_spec", status: "ok", detail: { specName: spec.name, specVersion: spec.schemaVersion, source: "software_team_bundle" } });
       } catch (err) {
         const msg = (err as Error).message;
         stages.push({ stage: "resolve_spec", status: "failed", detail: { code: "bundle_error", error: msg } });
@@ -285,27 +285,27 @@ export class BootstrapOrchestrator {
         return { runId: run.id, status: "failed", stages, errors, warnings };
       }
     } else {
-      // Direct rig_spec path — detect format BEFORE legacy validation
+      // Direct software_team_spec path — detect format BEFORE legacy validation
       try {
         specDir = nodePath.dirname(nodePath.resolve(sourceRef));
         const rawYaml = this.deps.fsOps.readFile(nodePath.resolve(sourceRef));
-        const raw = RigSpecCodec.parse(rawYaml) as Record<string, unknown> | null;
+        const raw = SoftwareTeamSpecCodec.parse(rawYaml) as Record<string, unknown> | null;
 
-        // Pod-aware format detection: if has pods[], delegate to PodRigInstantiator
+        // Pod-aware format detection: if has pods[], delegate to PodSoftwareTeamInstantiator
         if (raw && Array.isArray(raw["pods"]) && this.deps.podInstantiator) {
           return this.handlePodAwareSpec(opts, run, rawYaml, specDir, stages, errors, warnings);
         }
 
         // Legacy path: validate as flat-node spec
-        const validation = RigSpecSchema.validate(raw);
+        const validation = SoftwareTeamSpecSchema.validate(raw);
         if (!validation.valid) {
           stages.push({ stage: "resolve_spec", status: "failed", detail: { code: "validation_failed", errors: validation.errors } });
           this.deps.bootstrapRepo.updateRunStatus(run.id, "failed");
           return { runId: run.id, status: "failed", stages, errors: validation.errors, warnings };
         }
-        spec = this.resolveLegacyNodeCwds(RigSpecSchema.normalize(raw), specDir, opts.cwdOverride);
+        spec = this.resolveLegacyNodeCwds(SoftwareTeamSpecSchema.normalize(raw), specDir, opts.cwdOverride);
         const cwdError = spec.nodes
-          .map((node) => getOpenRigInstallCwdError(node.cwd ?? specDir, opts.cwdOverride))
+          .map((node) => getSoftwareTeamInstallCwdError(node.cwd ?? specDir, opts.cwdOverride))
           .find((error): error is string => Boolean(error));
         if (cwdError) {
           stages.push({ stage: "resolve_spec", status: "failed", detail: { code: "invalid_cwd", error: cwdError } });
@@ -333,7 +333,7 @@ export class BootstrapOrchestrator {
   private async executeStages(
     opts: BootstrapOptions,
     run: { id: string },
-    spec: RigSpec,
+    spec: SoftwareTeamSpec,
     specDir: string,
     bundleSource: BundleResolvedSource | null,
     stages: BootstrapStageResult[],
@@ -605,45 +605,45 @@ export class BootstrapOrchestrator {
       detail: { installed: resolvedPackages.size },
     });
 
-    // --- Stage 8: IMPORT_RIG ---
-    // Skip rig import if package installs failed — a rig without its packages is broken
+    // --- Stage 8: IMPORT_SOFTWARE_TEAM ---
+    // Skip softwareTeam import if package installs failed — a softwareTeam without its packages is broken
     if (packageInstallFailed) {
-      errors.push("Rig import skipped due to package install failures");
-      stages.push({ stage: "import_rig", status: "skipped", detail: { reason: "package install failures" } });
+      errors.push("SoftwareTeam import skipped due to package install failures");
+      stages.push({ stage: "import_software_team", status: "skipped", detail: { reason: "package install failures" } });
       this.deps.bootstrapRepo.updateRunStatus(run.id, "failed");
       return { runId: run.id, status: "failed", stages, errors, warnings };
     }
 
     const nonInterruptive = opts.nonInterruptive ?? (new SettingsStore().resolveOne("launch.non_interruptive").value === true);
-    const instantiateOutcome = await this.deps.rigInstantiator.instantiate(spec, { nonInterruptive });
-    if ((instantiateOutcome.ok || "rigId" in instantiateOutcome) && (nonInterruptive || opts.nonInterruptive === false)) warnings.push(nonInterruptiveSummary(nonInterruptive));
+    const instantiateOutcome = await this.deps.softwareTeamInstantiator.instantiate(spec, { nonInterruptive });
+    if ((instantiateOutcome.ok || "softwareTeamId" in instantiateOutcome) && (nonInterruptive || opts.nonInterruptive === false)) warnings.push(nonInterruptiveSummary(nonInterruptive));
 
-    this.deps.bootstrapRepo.journalAction(run.id, seqCounter++, "rig_import", null, spec.name, instantiateOutcome.ok ? "completed" : "failed", {
+    this.deps.bootstrapRepo.journalAction(run.id, seqCounter++, "software_team_import", null, spec.name, instantiateOutcome.ok ? "completed" : "failed", {
       detailJson: JSON.stringify(instantiateOutcome),
     });
 
     if (!instantiateOutcome.ok) {
-      errors.push(`Rig import failed: ${instantiateOutcome.code}`);
-      stages.push({ stage: "import_rig", status: "failed", detail: instantiateOutcome });
+      errors.push(`SoftwareTeam import failed: ${instantiateOutcome.code}`);
+      stages.push({ stage: "import_software_team", status: "failed", detail: instantiateOutcome });
       const finalStatus: BootstrapStatus = hasExecFailures || packageInstallFailed ? "partial" : "failed";
       this.deps.bootstrapRepo.updateRunStatus(run.id, finalStatus);
       return { runId: run.id, status: finalStatus, stages, errors, warnings };
     }
 
-    stages.push({ stage: "import_rig", status: "ok", detail: instantiateOutcome.result });
+    stages.push({ stage: "import_software_team", status: "ok", detail: instantiateOutcome.result });
     if (instantiateOutcome.result.warnings?.length) {
       warnings.push(...instantiateOutcome.result.warnings);
     }
 
     // --- DONE ---
     const finalStatus: BootstrapStatus = hasExecFailures || packageInstallFailed ? "partial" : "completed";
-    this.deps.bootstrapRepo.updateRunStatus(run.id, finalStatus, { rigId: instantiateOutcome.result.rigId });
+    this.deps.bootstrapRepo.updateRunStatus(run.id, finalStatus, { softwareTeamId: instantiateOutcome.result.softwareTeamId });
 
     return {
       runId: run.id,
       status: finalStatus,
       stages,
-      rigId: instantiateOutcome.result.rigId,
+      softwareTeamId: instantiateOutcome.result.softwareTeamId,
       errors,
       warnings,
     };
@@ -654,7 +654,7 @@ export class BootstrapOrchestrator {
   private async handlePodAwareSpec(
     opts: BootstrapOptions,
     run: { id: string },
-    rigSpecYaml: string,
+    softwareTeamSpecYaml: string,
     specDir: string,
     stages: BootstrapStageResult[],
     errors: string[],
@@ -663,16 +663,16 @@ export class BootstrapOrchestrator {
   ): Promise<BootstrapResult> {
     const { mode } = opts;
     const podInstantiator = this.deps.podInstantiator!;
-    const rigRoot = specDir;
+    const softwareTeamRoot = specDir;
 
     if (mode === "plan") {
       // Plan mode: validate + preflight only
-      const { rigPreflight } = await import("./rigspec-preflight.js");
-      const { RigSpecCodec: PodCodec } = await import("./rigspec-codec.js");
-      const { RigSpecSchema: PodSchema } = await import("./rigspec-schema.js");
+      const { softwareTeamPreflight } = await import("./software-team-spec-preflight.js");
+      const { SoftwareTeamSpecCodec: PodCodec } = await import("./software-team-spec-codec.js");
+      const { SoftwareTeamSpecSchema: PodSchema } = await import("./software-team-spec-schema.js");
 
       try {
-        const raw = PodCodec.parse(rigSpecYaml);
+        const raw = PodCodec.parse(softwareTeamSpecYaml);
         const validation = PodSchema.validate(raw);
         if (!validation.valid) {
           stages.push({ stage: "resolve_spec", status: "failed", detail: { code: "validation_failed", errors: validation.errors } });
@@ -686,9 +686,9 @@ export class BootstrapOrchestrator {
         const execFn = async (cmd: string) => runSyncSite("bootstrap.plan.preflight", () =>
           execSync(cmd, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"], timeout: 10_000, cwd: runtimeVersionProbeCwd(cmd) })
         );
-        const preflight = await rigPreflight({
-          rigSpecYaml,
-          rigRoot,
+        const preflight = await softwareTeamPreflight({
+          softwareTeamSpecYaml,
+          softwareTeamRoot,
           cwdOverride: opts.cwdOverride,
           fsOps: podInstantiator["deps"].fsOps,
           skillsRoot: podInstantiator.resolveSkillsRoot?.(),
@@ -716,14 +716,14 @@ export class BootstrapOrchestrator {
       }
     }
 
-    // Apply mode: full instantiation via PodRigInstantiator
+    // Apply mode: full instantiation via PodSoftwareTeamInstantiator
     // If services exist, the prelaunch hook boots them between topology creation and node launch.
     // A bundle's declared contents are routed in the same hook, so every seat's first turn can see them.
-    const serviceHook = await this.buildServicePrelaunchHook(rigSpecYaml, rigRoot, stages, errors);
+    const serviceHook = await this.buildServicePrelaunchHook(softwareTeamSpecYaml, softwareTeamRoot, stages, errors);
     let bundleRouting: BundleContentRouting | undefined;
-    const bundleHook = opts.sourceKind === "rig_bundle"
+    const bundleHook = opts.sourceKind === "software_team_bundle"
       ? async (): Promise<{ ok: true }> => {
-          // Routing never blocks the launch: a failed hook, or a throw, would roll the rig back.
+          // Routing never blocks the launch: a failed hook, or a throw, would roll the softwareTeam back.
           try {
             bundleRouting = await this.routeBundleContents(opts.sourceRef);
           } catch (err) {
@@ -736,33 +736,33 @@ export class BootstrapOrchestrator {
         }
       : undefined;
     const prelaunchHook = serviceHook && bundleHook
-      ? async (rigId: string) => {
-          const serviceResult = await serviceHook(rigId);
+      ? async (softwareTeamId: string) => {
+          const serviceResult = await serviceHook(softwareTeamId);
           return serviceResult.ok ? bundleHook() : serviceResult;
         }
       : serviceHook ?? bundleHook;
     let declaredNonInterruptive: boolean | undefined;
     try {
-      const raw = RigSpecCodec.parse(rigSpecYaml) as Record<string, unknown> | null;
+      const raw = SoftwareTeamSpecCodec.parse(softwareTeamSpecYaml) as Record<string, unknown> | null;
       if (typeof raw?.["non_interruptive"] === "boolean") declaredNonInterruptive = raw["non_interruptive"];
     } catch { /* The instantiator returns the existing structured validation failure. */ }
     const nonInterruptive = opts.nonInterruptive ?? declaredNonInterruptive ?? (new SettingsStore().resolveOne("launch.non_interruptive").value === true);
-    const outcome = await podInstantiator.instantiate(rigSpecYaml, rigRoot, { nonInterruptive, cwdOverride: opts.cwdOverride, env: opts.envOverride, prelaunchHook, installRoot });
-    if ((outcome.ok || "rigId" in outcome) && (nonInterruptive || opts.nonInterruptive === false)) warnings.push(nonInterruptiveSummary(nonInterruptive));
+    const outcome = await podInstantiator.instantiate(softwareTeamSpecYaml, softwareTeamRoot, { nonInterruptive, cwdOverride: opts.cwdOverride, env: opts.envOverride, prelaunchHook, installRoot });
+    if ((outcome.ok || "softwareTeamId" in outcome) && (nonInterruptive || opts.nonInterruptive === false)) warnings.push(nonInterruptiveSummary(nonInterruptive));
     const withRouting = (r: BootstrapResult): BootstrapResult => (bundleRouting ? { ...r, bundleRouting } : r);
 
     if (!outcome.ok) {
       // OPR.0.3.2.CT — attention_required is a recoverable outcome
-      // (rig + sessions preserved). Surface it distinctly from terminal
+      // (softwareTeam + sessions preserved). Surface it distinctly from terminal
       // failure so the route can return a 3-part error pointing the
       // operator at the approve→resume path. The bootstrap run status
-      // is `partial` (not `failed`) because the rig exists and is
+      // is `partial` (not `failed`) because the softwareTeam exists and is
       // operator-actionable.
       if (outcome.code === "attention_required") {
         const attentionMsg = (outcome as { message: string }).message;
         const attentionNodes = (outcome as { attentionNodes: import("./types.js").AttentionNode[] }).attentionNodes;
         stages.push({
-          stage: "import_rig",
+          stage: "import_software_team",
           status: "blocked",
           detail: {
             code: "attention_required",
@@ -770,12 +770,12 @@ export class BootstrapOrchestrator {
             attentionNodes,
           },
         });
-        this.deps.bootstrapRepo.updateRunStatus(run.id, "partial", { rigId: (outcome as { rigId: string }).rigId });
+        this.deps.bootstrapRepo.updateRunStatus(run.id, "partial", { softwareTeamId: (outcome as { softwareTeamId: string }).softwareTeamId });
         return withRouting({
           runId: run.id,
           status: "partial",
           stages,
-          rigId: (outcome as { rigId: string }).rigId,
+          softwareTeamId: (outcome as { softwareTeamId: string }).softwareTeamId,
           errors: [attentionMsg],
           warnings: [...warnings, ...((outcome as { warnings?: string[] }).warnings ?? [])],
         });
@@ -784,7 +784,7 @@ export class BootstrapOrchestrator {
         ? (outcome as { errors: string[] }).errors
         : [(outcome as { message: string }).message];
       const outWarnings = (outcome as { warnings?: string[] }).warnings ?? [];
-      stages.push({ stage: "import_rig", status: "failed", detail: { code: outcome.code } });
+      stages.push({ stage: "import_software_team", status: "failed", detail: { code: outcome.code } });
       this.deps.bootstrapRepo.updateRunStatus(run.id, "failed");
       return withRouting({ runId: run.id, status: "failed", stages, errors: outErrors, warnings: [...warnings, ...outWarnings] });
     }
@@ -799,7 +799,7 @@ export class BootstrapOrchestrator {
     // surface the all-attention path already gets. Treating mixed
     // launched+attention as "completed" would hide the parked seat
     // behind a 201 success response. finalStatus is partial whenever
-    // any node is failed OR attention_required; the import_rig stage
+    // any node is failed OR attention_required; the import_software_team stage
     // is "blocked" (not "ok") with attentionNodes detail so the route
     // can build the 3-part error from the same path the all-attention
     // case uses.
@@ -816,12 +816,12 @@ export class BootstrapOrchestrator {
         }));
       const message = `${attentionNodes.length} node${attentionNodes.length === 1 ? " requires" : "s require"} attention before becoming interactive. Inspect the affected sessions and reasons before choosing recovery.`;
       stages.push({
-        stage: "import_rig",
+        stage: "import_software_team",
         status: "blocked",
         detail: {
           code: "attention_required",
           message,
-          rigId: result.rigId,
+          softwareTeamId: result.softwareTeamId,
           specName: result.specName,
           nodes: result.nodes,
           attentionNodes,
@@ -829,21 +829,21 @@ export class BootstrapOrchestrator {
       });
     } else {
       stages.push({
-        stage: "import_rig",
+        stage: "import_software_team",
         status: anyFailed ? "failed" : "ok",
-        detail: { rigId: result.rigId, specName: result.specName, nodes: result.nodes },
+        detail: { softwareTeamId: result.softwareTeamId, specName: result.specName, nodes: result.nodes },
       });
     }
     if (result.warnings?.length) {
       warnings.push(...result.warnings);
     }
 
-    this.deps.bootstrapRepo.updateRunStatus(run.id, finalStatus, { rigId: result.rigId });
+    this.deps.bootstrapRepo.updateRunStatus(run.id, finalStatus, { softwareTeamId: result.softwareTeamId });
     return withRouting({
       runId: run.id,
       status: finalStatus,
       stages,
-      rigId: result.rigId,
+      softwareTeamId: result.softwareTeamId,
       errors: result.nodes.filter((n) => n.error).map((n) => n.error!),
       warnings,
     });
@@ -854,20 +854,20 @@ export class BootstrapOrchestrator {
    * are configured or no ServiceOrchestrator is available.
    */
   private async buildServicePrelaunchHook(
-    rigSpecYaml: string,
-    rigRoot: string,
+    softwareTeamSpecYaml: string,
+    softwareTeamRoot: string,
     stages: BootstrapStageResult[],
     errors: string[],
-  ): Promise<((rigId: string, replacedRigIds?: readonly string[]) => Promise<{ ok: true; rollback?: () => Promise<void> } | { ok: false; code: string; message: string; retainRig?: boolean }>) | undefined> {
-    if (!this.deps.serviceOrchestrator || !this.deps.rigRepo) return undefined;
+  ): Promise<((softwareTeamId: string, replacedSoftwareTeamIds?: readonly string[]) => Promise<{ ok: true; rollback?: () => Promise<void> } | { ok: false; code: string; message: string; retainSoftwareTeam?: boolean }>) | undefined> {
+    if (!this.deps.serviceOrchestrator || !this.deps.softwareTeamRepo) return undefined;
 
     // Parse and normalize via the canonical pod-aware codec/schema path
-    let normalizedSpec: import("./types.js").RigSpec;
+    let normalizedSpec: import("./types.js").SoftwareTeamSpec;
     let configuredProjectName: string | undefined;
     try {
-      const { RigSpecCodec: PodCodec } = await import("./rigspec-codec.js");
-      const { RigSpecSchema: PodSchema } = await import("./rigspec-schema.js");
-      const raw = PodCodec.parse(rigSpecYaml);
+      const { SoftwareTeamSpecCodec: PodCodec } = await import("./software-team-spec-codec.js");
+      const { SoftwareTeamSpecSchema: PodSchema } = await import("./software-team-spec-schema.js");
+      const raw = PodCodec.parse(softwareTeamSpecYaml);
       const validation = PodSchema.validate(raw);
       if (!validation.valid) return undefined;
       const rawServices = (raw as Record<string, unknown>)["services"];
@@ -883,45 +883,45 @@ export class BootstrapOrchestrator {
     if (!normalizedSpec.services || normalizedSpec.services.kind !== "compose") return undefined;
 
     const serviceOrch = this.deps.serviceOrchestrator;
-    const rigRepo = this.deps.rigRepo;
+    const softwareTeamRepo = this.deps.softwareTeamRepo;
     const services = normalizedSpec.services;
 
-    return async (rigId: string, replacedRigIds: readonly string[] = []) => {
-      // Persist services record for the now-created rig
+    return async (softwareTeamId: string, replacedSoftwareTeamIds: readonly string[] = []) => {
+      // Persist services record for the now-created softwareTeam
       const { deriveComposeProjectName } = await import("./compose-project-name.js");
-      const composeFile = nodePath.resolve(rigRoot, services.composeFile);
-      // Rig IDs are stable and unique; sanitizing rig names can collapse distinct names.
+      const composeFile = nodePath.resolve(softwareTeamRoot, services.composeFile);
+      // SoftwareTeam IDs are stable and unique; sanitizing softwareTeam names can collapse distinct names.
       // Only these generations were archived by this instantiation transaction.
-      const predecessors = replacedRigIds.flatMap(id => {
-        const record = rigRepo.getServicesRecord(id);
+      const predecessors = replacedSoftwareTeamIds.flatMap(id => {
+        const record = softwareTeamRepo.getServicesRecord(id);
         return record ? [{ id, projectName: record.projectName }] : [];
       });
       const predecessorProjects = new Set(predecessors.map(record => record.projectName));
       if (!configuredProjectName && predecessorProjects.size > 1) {
         const conflicts = predecessors.map(record => `${record.id}: ${record.projectName}`).join("; ");
-        return { ok: false, code: "compose_project_conflict", message: `Replacement has multiple predecessor Compose projects (${conflicts}). Set services.project_name in the rig spec YAML to the project you intend to use, then re-run the same command. No services were started.` };
+        return { ok: false, code: "compose_project_conflict", message: `Replacement has multiple predecessor Compose projects (${conflicts}). Set services.project_name in the SoftwareTeam spec YAML to the project you intend to use, then re-run the same command. No services were started.` };
       }
       const inheritedProject = predecessorProjects.values().next().value as string | undefined;
-      const projectName = configuredProjectName ?? inheritedProject ?? deriveComposeProjectName(rigId);
+      const projectName = configuredProjectName ?? inheritedProject ?? deriveComposeProjectName(softwareTeamId);
       const preservesPredecessor = predecessorProjects.has(projectName);
       const rollback = preservesPredecessor ? undefined : async () => {
         // A failed launch is rolled back regardless of the normal shutdown policy.
         // Never delete volumes or tear down an inherited predecessor project.
-        const result = await serviceOrch.teardown(rigId, { policyOverride: "down" });
+        const result = await serviceOrch.teardown(softwareTeamId, { policyOverride: "down" });
         if (!result.ok) throw new Error(result.error);
       };
       const persistedServices = { ...services, projectName };
 
-      rigRepo.setServicesRecord(rigId, {
+      softwareTeamRepo.setServicesRecord(softwareTeamId, {
         kind: "compose",
         specJson: JSON.stringify(persistedServices),
-        rigRoot,
+        softwareTeamRoot,
         composeFile,
         projectName,
       });
 
       // Boot services — strict health gate before any agent launch
-      const bootResult = await serviceOrch.boot(rigId);
+      const bootResult = await serviceOrch.boot(softwareTeamId);
 
       if (!bootResult.ok) {
         errors.push(`Service boot failed: ${bootResult.error}`);
@@ -934,7 +934,7 @@ export class BootstrapOrchestrator {
         try {
           await rollback?.();
         } catch (error) {
-          return { ok: false, code: "service_boot_failed", retainRig: true, message: `Service boot failed: ${bootResult.error}; service cleanup failed; rig ${rigId} retained for recovery: ${String(error)}` };
+          return { ok: false, code: "service_boot_failed", retainSoftwareTeam: true, message: `Service boot failed: ${bootResult.error}; service cleanup failed; softwareTeam ${softwareTeamId} retained for recovery: ${String(error)}` };
         }
         return { ok: false, code: "service_boot_failed", message: `Service boot failed: ${bootResult.error}${preservesPredecessor ? `; inherited Compose project ${projectName} retained. Compose up may have changed its runtime; inspect the project before retrying.` : ""}` };
       }
@@ -948,7 +948,7 @@ export class BootstrapOrchestrator {
     };
   }
 
-  private resolveLegacyNodeCwds(spec: RigSpec, specRoot: string, cwdOverride?: string): RigSpec {
+  private resolveLegacyNodeCwds(spec: SoftwareTeamSpec, specRoot: string, cwdOverride?: string): SoftwareTeamSpec {
     return {
       ...spec,
       nodes: spec.nodes.map((node) => ({

@@ -19,7 +19,7 @@ afterEach(()=>{for(const c of cleanup.splice(0))c();vi.unstubAllEnvs();});
 it.each([undefined,"thread_broadcast"])("wires %s recovery after bind and serves cached coverage without scanning the dispatch buffer or Slack", async subtype=>{
   const home=mkdtempSync(join(tmpdir(),"slack-status-"));const db=createFullTestDb();
   cleanup.push(()=>{db.close();rmSync(home,{recursive:true,force:true});});
-  const queueRepo=new QueueRepository(db,new EventBus(db),{validateRig:()=>true});
+  const queueRepo=new QueueRepository(db,new EventBus(db),{validateSoftwareTeam:()=>true});
   saveConfig({...DEFAULT_CONFIG,enabled:true,channel:"C1",inboundDestination:"owner@test"},home);
   vi.stubEnv("SLACK_BOT_TOKEN","fixture-bot");vi.stubEnv("SLACK_APP_TOKEN","fixture-app");
   new SeenStore(join(home,"state","slack-inbound-seen.jsonl")).mark("C1:1000.000001","landed");

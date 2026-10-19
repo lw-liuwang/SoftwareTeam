@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
 it("preserves native terminal UTF-8 output split across pipe polls for live and late viewers", () => {
-  const home = mkdtempSync(join(tmpdir(), "openrig-terminal-utf8-"));
+  const home = mkdtempSync(join(tmpdir(), "softwareteam-terminal-utf8-"));
   try {
     const result = spawnSync(process.execPath, [
       fileURLToPath(new URL("./fixtures/terminal-pipe-utf8.mjs", import.meta.url)), home,

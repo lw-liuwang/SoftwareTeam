@@ -40,7 +40,7 @@ describe("FeedCard — no internal source.type leak (OPR.0.4.1.27 real-data fide
     const { container } = withQueryClient(
       <FeedCard
         card={makeCard({
-          id: "activity-needs-input-rig_delivery-orch.lead",
+          id: "activity-needs-input-software_team_delivery-orch.lead",
           kind: "action-required",
           title: "orch.lead needs input",
           source: { seq: -1, type: "activity.needs_input.synthetic", payload: {} } as unknown as FeedCardModel["source"],

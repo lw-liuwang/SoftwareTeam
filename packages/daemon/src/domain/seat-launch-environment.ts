@@ -5,23 +5,23 @@ import type { TmuxAdapter } from "../adapters/tmux.js";
 import { shellQuote } from "../adapters/shell-quote.js";
 
 // Explicit public launch metadata, not a prefix/denylist over credential names.
-// Provider keys and OPENRIG_ACTIVITY_HOOK_TOKEN keep their non-typed channel.
+// Provider keys and SOFTWARETEAM_ACTIVITY_HOOK_TOKEN keep their non-typed channel.
 export const SEAT_PUBLIC_ENV_KEYS = [
-  "OPENRIG_HOME", "OPENRIG_URL", "OPENRIG_HOST", "OPENRIG_PORT",
-  "OPENRIG_NODE_ID", "OPENRIG_SESSION_NAME", "OPENRIG_RUNTIME",
-  "OPENRIG_OCCUPANT_GENERATION", "OPENRIG_TRANSCRIPTS_LINES",
-  "OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS",
+  "SOFTWARETEAM_HOME", "SOFTWARETEAM_URL", "SOFTWARETEAM_HOST", "SOFTWARETEAM_PORT",
+  "SOFTWARETEAM_NODE_ID", "SOFTWARETEAM_SESSION_NAME", "SOFTWARETEAM_RUNTIME",
+  "SOFTWARETEAM_OCCUPANT_GENERATION", "SOFTWARETEAM_TRANSCRIPTS_LINES",
+  "SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS",
 ] as const;
 
 export function publicSeatEnvironment(env: Readonly<Record<string, string | undefined>>): Record<string, string> {
   const result: Record<string, string> = {};
   for (const key of SEAT_PUBLIC_ENV_KEYS) if (env[key] !== undefined) result[key] = env[key]!;
-  if (result.OPENRIG_URL) {
+  if (result.SOFTWARETEAM_URL) {
     try {
-      const url = new URL(result.OPENRIG_URL);
+      const url = new URL(result.SOFTWARETEAM_URL);
       if (url.username || url.password || url.search || url.hash) throw new Error("Not a public URL");
     } catch {
-      delete result.OPENRIG_URL;
+      delete result.SOFTWARETEAM_URL;
       // The existing tmux environment channel still carries it. Never log its value.
       console.warn("[seat launch] URL omitted from typed metadata; retaining the existing environment channel.");
     }
@@ -37,8 +37,8 @@ function pairedCli(): string {
     const manifest = path.resolve(import.meta.dirname, relative);
     try {
       const pkg = JSON.parse(readFileSync(manifest, "utf8"));
-      if (pkg.name === "@openrig/cli" && typeof pkg.bin?.rig === "string") {
-        return path.resolve(path.dirname(manifest), pkg.bin.rig);
+      if (pkg.name === "@softwareteam/cli" && typeof pkg.bin?.SoftwareTeam === "string") {
+        return path.resolve(path.dirname(manifest), pkg.bin.SoftwareTeam);
       }
     } catch { /* try the other supported layout */ }
   }
@@ -85,18 +85,18 @@ export class SeatLaunchEnvironment {
     private readonly cliPath?: string,
     private readonly codexHome?: string) {}
 
-  private rigBin(): string {
+  private softwareTeamBin(): string {
     const cli = realpathSync(this.cliPath ?? pairedCli());
     accessSync(cli, constants.X_OK);
-    if (!statSync(cli).isFile() || !this.sessionEnv.OPENRIG_HOME) throw new Error("Paired CLI or instance home unavailable");
+    if (!statSync(cli).isFile() || !this.sessionEnv.SOFTWARETEAM_HOME) throw new Error("Paired CLI or instance home unavailable");
     // Separate aliases for concurrent installed versions; never retarget another
-    // daemon's link. Only rig is exposed, not the other tools in a shared bin.
-    const bin = path.resolve(this.daemonCwd, this.sessionEnv.OPENRIG_HOME, "run", "seat-bin", createHash("sha256").update(cli).digest("hex"));
+    // daemon's link. Only softwareTeam is exposed, not the other tools in a shared bin.
+    const bin = path.resolve(this.daemonCwd, this.sessionEnv.SOFTWARETEAM_HOME, "run", "seat-bin", createHash("sha256").update(cli).digest("hex"));
     mkdirSync(bin, { recursive: true });
-    const link = path.join(bin, "rig");
+    const link = path.join(bin, "SoftwareTeam");
     try { symlinkSync(cli, link); }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error; }
-    if (readlinkSync(link) !== cli || readdirSync(bin).some(name => name !== "rig")) throw new Error("Seat bin is not rig-only");
+    if (readlinkSync(link) !== cli || readdirSync(bin).some(name => name !== "SoftwareTeam")) throw new Error("Seat bin is not software-team-only");
     return bin;
   }
 
@@ -115,27 +115,27 @@ export class SeatLaunchEnvironment {
         throw new Error("Unsupported Pi pane shell");
       }
       const identity: Record<string, string | undefined> = {};
-      for (const key of ["OPENRIG_NODE_ID", "OPENRIG_SESSION_NAME", "OPENRIG_RUNTIME", "OPENRIG_OCCUPANT_GENERATION"]) {
+      for (const key of ["SOFTWARETEAM_NODE_ID", "SOFTWARETEAM_SESSION_NAME", "SOFTWARETEAM_RUNTIME", "SOFTWARETEAM_OCCUPANT_GENERATION"]) {
         identity[key] = await this.tmux.getSessionEnv(session, key);
       }
-      if (!identity.OPENRIG_NODE_ID || !identity.OPENRIG_SESSION_NAME) {
-        throw new Error("Seat launch requires the session's OpenRig identity.");
+      if (!identity.SOFTWARETEAM_NODE_ID || !identity.SOFTWARETEAM_SESSION_NAME) {
+        throw new Error("Seat launch requires the session's SoftwareTeam identity.");
       }
-      if (target.nodeId !== undefined && identity.OPENRIG_NODE_ID !== target.nodeId) {
+      if (target.nodeId !== undefined && identity.SOFTWARETEAM_NODE_ID !== target.nodeId) {
         throw new Error("Seat launch identity differs from the intended node.");
       }
       // Handover respawns an existing pane with -e; tmux's session environment
       // still names the predecessor. The caller owns the reserved generation.
-      if (target.runtime !== undefined) identity.OPENRIG_RUNTIME = target.runtime;
-      if (target.generation !== undefined) identity.OPENRIG_OCCUPANT_GENERATION = target.generation;
+      if (target.runtime !== undefined) identity.SOFTWARETEAM_RUNTIME = target.runtime;
+      if (target.generation !== undefined) identity.SOFTWARETEAM_OCCUPANT_GENERATION = target.generation;
       // Codex help/preflight uses the daemon PATH. Preserve its executable and
       // interpreter selection while child tools retain the user's PATH.
       if (target.codexCwd !== undefined) {
         if (!searchPath || !command.startsWith("codex ")) throw new Error("Expected a Codex launch command and PATH.");
         command = codexEntry(searchPath, target.codexCwd) + command.slice(5);
       }
-      const binDir = this.rigBin();
-      const env = publicSeatEnvironment({ OPENRIG_TRANSCRIPTS_LINES: "", OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS: "", ...this.sessionEnv, ...identity });
+      const binDir = this.softwareTeamBin();
+      const env = publicSeatEnvironment({ SOFTWARETEAM_TRANSCRIPTS_LINES: "", SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS: "", ...this.sessionEnv, ...identity });
       if (target.codexCwd !== undefined && this.codexHome) env.CODEX_HOME = this.codexHome;
       // Classic Claude may be an rc alias or function, not a PATH executable.
       // Its caller sources the staged command in a pane-shell subshell. Leading

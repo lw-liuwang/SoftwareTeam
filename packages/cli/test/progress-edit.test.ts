@@ -1,5 +1,5 @@
 // OPR.0.4.0.33 — pure markdown progress-edit helpers. These back the
-// `rig scope ... progress` update verb. They must edit surgically:
+// `SoftwareTeam scope ... progress` update verb. They must edit surgically:
 // preserve the `# H1` title source + YAML frontmatter byte-for-byte,
 // touch only the targeted section/row, and write the UI-valid shape
 // (`- [ ]` / `- [x]` / `- [~]`) that progress-indexer.ts parses.

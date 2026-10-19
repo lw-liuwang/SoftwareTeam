@@ -1,10 +1,10 @@
 // Preview Terminal v0 (PL-018) — preview route tests.
 //
 // Pins the load-bearing behaviors:
-//   - GET /api/rigs/:rigId/nodes/:logicalId/preview returns content + lines + capturedAt
+//   - GET /api/software-teams/:softwareTeamId/nodes/:logicalId/preview returns content + lines + capturedAt
 //   - rate limiter caches subsequent requests within the window
 //   - 503 when SessionTransport is unavailable
-//   - 404 when rig/node missing
+//   - 404 when softwareTeam/node missing
 //   - 409 when session is unbound
 //   - GET /api/sessions/:sessionName/preview alias works
 //   - lines query param is clamped + defaulted
@@ -20,8 +20,8 @@ interface FakeNode {
   binding: { tmuxSession: string | null } | null;
 }
 
-interface FakeRigRepo {
-  getRig: (id: string) => { nodes: FakeNode[] } | null;
+interface FakeSoftwareTeamRepo {
+  getSoftwareTeam: (id: string) => { nodes: FakeNode[] } | null;
 }
 
 interface FakeCaptureResult {
@@ -44,34 +44,34 @@ class FakeSessionTransport {
 }
 
 function buildApp(opts: {
-  rigRepo: FakeRigRepo;
+  softwareTeamRepo: FakeSoftwareTeamRepo;
   sessionTransport: FakeSessionTransport | null;
   rateLimiter?: PreviewRateLimiter<unknown> | null;
 }): Hono {
   const app = new Hono();
   app.use("*", async (c, next) => {
-    c.set("rigRepo" as never, opts.rigRepo);
+    c.set("softwareTeamRepo" as never, opts.softwareTeamRepo);
     c.set("sessionTransport" as never, opts.sessionTransport);
     if (opts.rateLimiter !== null) c.set("previewRateLimiter" as never, opts.rateLimiter ?? new PreviewRateLimiter(1000));
     await next();
   });
-  app.route("/api/rigs/:rigId/nodes", nodesRoutes);
+  app.route("/api/software-teams/:softwareTeamId/nodes", nodesRoutes);
   app.route("/api/sessions", sessionAdminRoutes);
   return app;
 }
 
-describe("GET /api/rigs/:rigId/nodes/:logicalId/preview (PL-018)", () => {
+describe("GET /api/software-teams/:softwareTeamId/nodes/:logicalId/preview (PL-018)", () => {
   let transport: FakeSessionTransport;
-  let rigRepo: FakeRigRepo;
+  let softwareTeamRepo: FakeSoftwareTeamRepo;
 
   beforeEach(() => {
     transport = new FakeSessionTransport();
-    rigRepo = {
-      getRig: (id: string) =>
+    softwareTeamRepo = {
+      getSoftwareTeam: (id: string) =>
         id === "r-1"
           ? {
               nodes: [
-                { logicalId: "driver", id: "node-1", binding: { tmuxSession: "velocity-driver@openrig-velocity" } },
+                { logicalId: "driver", id: "node-1", binding: { tmuxSession: "velocity-driver@softwareteam-velocity" } },
                 { logicalId: "guard", id: "node-2", binding: { tmuxSession: null } },
               ],
             }
@@ -80,74 +80,74 @@ describe("GET /api/rigs/:rigId/nodes/:logicalId/preview (PL-018)", () => {
   });
 
   it("returns content + lines + capturedAt", async () => {
-    const app = buildApp({ rigRepo, sessionTransport: transport });
-    const res = await app.request("/api/rigs/r-1/nodes/driver/preview?lines=50");
+    const app = buildApp({ softwareTeamRepo, sessionTransport: transport });
+    const res = await app.request("/api/software-teams/r-1/nodes/driver/preview?lines=50");
     expect(res.status).toBe(200);
     const body = await res.json() as { content: string; lines: number; sessionName: string; capturedAt: string };
     expect(body.content).toBe("captured\nline2");
     expect(body.lines).toBe(50);
-    expect(body.sessionName).toBe("velocity-driver@openrig-velocity");
+    expect(body.sessionName).toBe("velocity-driver@softwareteam-velocity");
     expect(body.capturedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   it("rate limiter caches subsequent requests within the window", async () => {
     const limiter = new PreviewRateLimiter<unknown>(60_000);
-    const app = buildApp({ rigRepo, sessionTransport: transport, rateLimiter: limiter });
-    await app.request("/api/rigs/r-1/nodes/driver/preview?lines=50");
-    await app.request("/api/rigs/r-1/nodes/driver/preview?lines=50");
-    await app.request("/api/rigs/r-1/nodes/driver/preview?lines=50");
+    const app = buildApp({ softwareTeamRepo, sessionTransport: transport, rateLimiter: limiter });
+    await app.request("/api/software-teams/r-1/nodes/driver/preview?lines=50");
+    await app.request("/api/software-teams/r-1/nodes/driver/preview?lines=50");
+    await app.request("/api/software-teams/r-1/nodes/driver/preview?lines=50");
     expect(transport.calls.length).toBe(1);
   });
 
   it("different lines query values use distinct cache keys", async () => {
     const limiter = new PreviewRateLimiter<unknown>(60_000);
-    const app = buildApp({ rigRepo, sessionTransport: transport, rateLimiter: limiter });
-    await app.request("/api/rigs/r-1/nodes/driver/preview?lines=50");
-    await app.request("/api/rigs/r-1/nodes/driver/preview?lines=200");
+    const app = buildApp({ softwareTeamRepo, sessionTransport: transport, rateLimiter: limiter });
+    await app.request("/api/software-teams/r-1/nodes/driver/preview?lines=50");
+    await app.request("/api/software-teams/r-1/nodes/driver/preview?lines=200");
     expect(transport.calls.length).toBe(2);
     expect(transport.calls[0].lines).toBe(50);
     expect(transport.calls[1].lines).toBe(200);
   });
 
   it("clamps lines to a sensible upper bound (1000)", async () => {
-    const app = buildApp({ rigRepo, sessionTransport: transport });
-    await app.request("/api/rigs/r-1/nodes/driver/preview?lines=99999");
+    const app = buildApp({ softwareTeamRepo, sessionTransport: transport });
+    await app.request("/api/software-teams/r-1/nodes/driver/preview?lines=99999");
     expect(transport.calls[0].lines).toBe(1000);
   });
 
   it("defaults lines to 50 when missing or non-numeric", async () => {
-    const app = buildApp({ rigRepo, sessionTransport: transport });
-    await app.request("/api/rigs/r-1/nodes/driver/preview");
+    const app = buildApp({ softwareTeamRepo, sessionTransport: transport });
+    await app.request("/api/software-teams/r-1/nodes/driver/preview");
     expect(transport.calls[0].lines).toBe(50);
     transport.calls.length = 0;
 
     // Use a fresh limiter so the second request isn't served from cache
-    const app2 = buildApp({ rigRepo, sessionTransport: transport });
-    await app2.request("/api/rigs/r-1/nodes/driver/preview?lines=banana");
+    const app2 = buildApp({ softwareTeamRepo, sessionTransport: transport });
+    await app2.request("/api/software-teams/r-1/nodes/driver/preview?lines=banana");
     expect(transport.calls[0].lines).toBe(50);
   });
 
   it("503 when SessionTransport unavailable", async () => {
-    const app = buildApp({ rigRepo, sessionTransport: null });
-    const res = await app.request("/api/rigs/r-1/nodes/driver/preview");
+    const app = buildApp({ softwareTeamRepo, sessionTransport: null });
+    const res = await app.request("/api/software-teams/r-1/nodes/driver/preview");
     expect(res.status).toBe(503);
   });
 
-  it("404 when rig is missing", async () => {
-    const app = buildApp({ rigRepo, sessionTransport: transport });
-    const res = await app.request("/api/rigs/missing/nodes/driver/preview");
+  it("404 when SoftwareTeam is missing", async () => {
+    const app = buildApp({ softwareTeamRepo, sessionTransport: transport });
+    const res = await app.request("/api/software-teams/missing/nodes/driver/preview");
     expect(res.status).toBe(404);
   });
 
   it("404 when node is missing", async () => {
-    const app = buildApp({ rigRepo, sessionTransport: transport });
-    const res = await app.request("/api/rigs/r-1/nodes/nonexistent/preview");
+    const app = buildApp({ softwareTeamRepo, sessionTransport: transport });
+    const res = await app.request("/api/software-teams/r-1/nodes/nonexistent/preview");
     expect(res.status).toBe(404);
   });
 
   it("409 when node has no tmux session bound", async () => {
-    const app = buildApp({ rigRepo, sessionTransport: transport });
-    const res = await app.request("/api/rigs/r-1/nodes/guard/preview");
+    const app = buildApp({ softwareTeamRepo, sessionTransport: transport });
+    const res = await app.request("/api/software-teams/r-1/nodes/guard/preview");
     expect(res.status).toBe(409);
     const body = await res.json() as { error: string };
     expect(body.error).toBe("session_unbound");
@@ -155,8 +155,8 @@ describe("GET /api/rigs/:rigId/nodes/:logicalId/preview (PL-018)", () => {
 
   it("502 surfaces capture failures with structured reason + hint", async () => {
     transport.response = { ok: false, sessionName: "x", reason: "session_missing", error: "Session not found" };
-    const app = buildApp({ rigRepo, sessionTransport: transport });
-    const res = await app.request("/api/rigs/r-1/nodes/driver/preview");
+    const app = buildApp({ softwareTeamRepo, sessionTransport: transport });
+    const res = await app.request("/api/software-teams/r-1/nodes/driver/preview");
     expect(res.status).toBe(502);
     const body = await res.json() as { error: string; hint: string };
     expect(body.error).toBe("session_missing");
@@ -172,16 +172,16 @@ describe("GET /api/sessions/:sessionName/preview (PL-018 alias)", () => {
   });
 
   it("session-keyed alias returns same payload shape", async () => {
-    const app = buildApp({ rigRepo: { getRig: () => null }, sessionTransport: transport });
-    const res = await app.request("/api/sessions/velocity-driver%40openrig-velocity/preview?lines=10");
+    const app = buildApp({ softwareTeamRepo: { getSoftwareTeam: () => null }, sessionTransport: transport });
+    const res = await app.request("/api/sessions/velocity-driver%40softwareteam-velocity/preview?lines=10");
     expect(res.status).toBe(200);
     const body = await res.json() as { content: string; sessionName: string; lines: number };
-    expect(body.sessionName).toBe("velocity-driver@openrig-velocity");
-    expect(transport.calls[0].sessionName).toBe("velocity-driver@openrig-velocity");
+    expect(body.sessionName).toBe("velocity-driver@softwareteam-velocity");
+    expect(transport.calls[0].sessionName).toBe("velocity-driver@softwareteam-velocity");
   });
 
   it("503 when SessionTransport unavailable on alias too", async () => {
-    const app = buildApp({ rigRepo: { getRig: () => null }, sessionTransport: null });
+    const app = buildApp({ softwareTeamRepo: { getSoftwareTeam: () => null }, sessionTransport: null });
     const res = await app.request("/api/sessions/x/preview");
     expect(res.status).toBe(503);
   });

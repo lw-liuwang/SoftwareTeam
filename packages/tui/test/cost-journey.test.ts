@@ -1,6 +1,6 @@
 // Slice 02 — System → Cost through the actual TUI path (explorer click or command → hydrate → render), with a real
 // DaemonClient against the daemon's own cost route over a real seeded store (helpers/cost-fixture.ts). Proves every
-// seat draws the line `rig usage cost` prints for the same response, the view only ever GETs that one route and
+// seat draws the line `softwareTeam usage cost` prints for the same response, the view only ever GETs that one route and
 // writes nothing to the store, an older or failing daemon reads honestly (503 keeps the last view, marked retained;
 // 404 drops it), and the other pages read and draw as before.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -76,7 +76,7 @@ const storeState = () => (db.prepare("SELECT name FROM sqlite_master WHERE type 
   .map(({ name }) => [name, db.prepare(`SELECT * FROM "${name}"`).all()]);
 
 describe("System → Cost through the TUI", () => {
-  it("draws each seat as rig usage cost prints it, with every served kind, source, window, coverage and reason", async () => {
+  it("draws each seat as SoftwareTeam usage cost prints it, with every served kind, source, window, coverage and reason", async () => {
     const body = await served();
     const t = tui();
     await t.openView();

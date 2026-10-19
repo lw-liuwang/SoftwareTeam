@@ -1,20 +1,24 @@
 # 本仓库的软件团队
 
-本项目直接重构 OpenRig 为专业软件团队。项目根目录是本文件的上一级，
+本项目直接重构 SoftwareTeam 为专业软件团队。项目根目录是本文件的上一级，
 团队工作空间就是这个仓库，不另建项目仓库。使用现有终端查看七位专家的常驻会话。
 通常由调度专家和人类沟通；人类可以指定与任何一位专家直接交流。
 
 ## 固定职责
 
+下表使用首次启动的默认团队名 `software-team`。`./start.sh --name my-team` 会将
+实际会话后缀改为 `@my-team`，分组和成员 ID 不变。运行中的操作应使用
+`SoftwareTeam whoami --json` 返回的团队名或启动配置；下方工作流命令是默认名示例。
+
 | 会话 | 责任与闭环 |
 | --- | --- |
-| `team-coordinator@software-team` | 澄清目标、分配任务、检查依据、放行或返工、交付及人类争议讨论 |
-| `team-requirements@software-team` | 需求、验收标准、追踪变更，在测试通过后检查最终交付物 |
-| `team-architecture@software-team` | 设计、长期技术演进与技术债，验证实现对设计的符合性 |
-| `team-development@software-team` | 编写代码、自测、修复问题并提供版本与验证依据 |
-| `team-review@software-team` | 独立代码评审、解释问题影响、复核修改与结论适用范围 |
-| `team-testing@software-team` | 对新功能实际测试、回归、复现缺陷和验证修复 |
-| `team-operations@software-team` | 提供资源、维护健康、部署复测、恢复事故并提出永久整改需求 |
+| `product-manage-agent@software-team` | 澄清目标、分配任务、检查依据、放行或返工、交付及人类争议讨论 |
+| `product-need-agent@software-team` | 需求、验收标准、追踪变更，在测试通过后检查最终交付物 |
+| `dev-home-agent@software-team` | 设计、长期技术演进与技术债，验证实现对设计的符合性 |
+| `dev-code-agent@software-team` | 编写代码、自测、修复问题并提供版本与验证依据 |
+| `dev-review-agent@software-team` | 独立代码评审、解释问题影响、复核修改与结论适用范围 |
+| `dev-test-agent@software-team` | 对新功能实际测试、回归、复现缺陷和验证修复 |
+| `dev-run-agent@software-team` | 提供资源、维护健康、部署复测、恢复事故并提出永久整改需求 |
 
 临时 subagent 由对应专家管理和验证，不能代替固定岗位或独立评审、测试。
 人类决定架构风险接受、技术债延期及 SOP、评判标准、交付门槛的变更。
@@ -46,15 +50,15 @@
 先确认候选 SOP 的人类审定记录，再开始按其正式交付。
 
 ```bash
-rig workflow instantiate packages/daemon/src/builtins/workflow-specs/software-team-pr.yaml \
-  --rig software-team --created-by team-coordinator@software-team \
+SoftwareTeam workflow instantiate packages/daemon/src/builtins/workflow-specs/software-team-pr.yaml \
+  --software-team software-team --created-by product-manage-agent@software-team \
   --root-objective '<本次 PR 目标>'
 # 产品交付使用同目录 software-team-product.yaml
 ```
 
-每次专家输出交回调度。调度检查具体证据后通过 `rig workflow project` 推进或返工。
+每次专家输出交回调度。调度检查具体证据后通过 `SoftwareTeam workflow project` 推进或返工。
 输入缺失要说明缺什么；有争议要将双方依据和所需决定交给人类讨论。
-用现有 `rig workflow show`、`rig queue show` 查看任务，不另建平行任务系统。
+用现有 `SoftwareTeam workflow show`、`SoftwareTeam queue show` 查看任务，不另建平行任务系统。
 
 PR 交付经过需求、架构、开发、评审、测试、需求验收，可继续修改，不要求跟到合并。
 产品在上述流程后还需运维部署及线上复测。代码版本变化后，各责任专家重新确认
@@ -69,4 +73,4 @@ PR 交付经过需求、架构、开发、评审、测试、需求验收，可�
 工作流引擎检查路由与状态；证据实质、版本适用性仍由专家和调度检查。
 它尚不提供不可绕过的调度权限、人类审批认证或代码变化自动撤销结论。
 MCP 尚未逐席配置；分开工作目录也不能隔离 Codex 的全局配置。
-OpenRig 仍在其实例目录保存数据库和会话运行状态；项目知识与工作证据保存在本仓库。
+SoftwareTeam 仍在其实例目录保存数据库和会话运行状态；项目知识与工作证据保存在本仓库。

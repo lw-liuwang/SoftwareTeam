@@ -2,14 +2,14 @@
  * Slice 51-02 (L2 test-system) — the runner CORE (dumb executor).
  *
  * Executes a VALIDATED scenario's steps in order: action verbs via the injected
- * `runAction` (a shipped `rig` write/lifecycle call), `expect` via poll-until-match
+ * `runAction` (a shipped `softwareTeam` write/lifecycle call), `expect` via poll-until-match
  * over the injected `observe` (a shipped surface read). On the first failed step it
  * emits an expected-vs-last-observed DIFF, appends a FAIL run-record row, and stops.
  * All steps pass → PASS + a PASS row. Zero judgment, zero heuristics — determinism
  * judges everything observable (agent judgment is L3, never here).
  *
  * Dependencies are injected so the orchestration is unit-testable without a live
- * daemon; the real wiring supplies runRig/readSurface + the scenario-local clock.
+ * daemon; the real wiring supplies runSoftwareTeam/readSurface + the scenario-local clock.
  */
 
 import type { ExpectSurface, ValidatedScenario } from "./scenario-schema.js";

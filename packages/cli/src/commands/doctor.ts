@@ -15,7 +15,7 @@ import {
 } from "../cmux-config.js";
 import { buildTmuxControlFailure, probeTmuxControl } from "../tmux-health.js";
 import { parse as parseYaml } from "yaml";
-import { compareSpecToLive, topologyFromRigSpec, topologyFromLiveLogicalIds } from "@openrig/daemon/spec-conformance";
+import { compareSpecToLive, topologyFromSoftwareTeamSpec, topologyFromLiveLogicalIds } from "@softwareteam/daemon/spec-conformance";
 import { classifyNodeVersion } from "../node-support.js";
 import { checkProviderReadiness } from "../provider-auth.js";
 
@@ -41,19 +41,19 @@ export interface DoctorDeps {
   checkWritable?: (path: string) => void;
   fetch?: (url: string) => Promise<{ ok: boolean; json?: () => Promise<unknown> }>;
   /**
-   * Build B — path to a rig spec to check against the RUNNING rig of the same name (`--spec`).
+   * Build B — path to a softwareTeam spec to check against the RUNNING softwareTeam of the same name (`--spec`).
    *
-   * Supplied explicitly because it cannot be discovered. Nothing persists a running rig's spec
-   * path: the `rigs` table has no spec/rigRoot column, `rig_services.rig_root` is empty, and
+   * Supplied explicitly because it cannot be discovered. Nothing persists a running softwareTeam's spec
+   * path: the `softwareTeams` table has no spec/softwareTeamRoot column, `software_team_services.software_team_root` is empty, and
    * `projection_manifest.source_spec` is empty. The daemon does not remember which file described
-   * the rig it is running. Absent, the check SKIPS with that reason rather than passing.
+   * the softwareTeam it is running. Absent, the check SKIPS with that reason rather than passing.
    */
   specPath?: string;
-  /** Live seat ids (`<pod>.<member>`) for the spec's rig; null when the topology cannot be read. */
-  fetchLiveLogicalIds?: (rigName: string) => Promise<string[] | null>;
+  /** Live seat ids (`<pod>.<member>`) for the spec's softwareTeam; null when the topology cannot be read. */
+  fetchLiveLogicalIds?: (softwareTeamName: string) => Promise<string[] | null>;
 }
 
-const DEFAULT_PORT = 7433;
+const DEFAULT_PORT = 7434;
 
 function defaultCheckPort(port: number, host: string): Promise<boolean> {
   return new Promise((resolve) => {
@@ -80,8 +80,8 @@ export function runDoctorChecks(deps: DoctorDeps, providerChecks: DoctorCheck[] 
       name: "daemon_dist",
       status: "fail",
       message: "Daemon dist not found.",
-      reason: "The daemon compiled output is required to start the OpenRig daemon process.",
-      fix: "Run 'npm run build:package' from the repo root, or reinstall with 'npm install -g @openrig/cli'.",
+      reason: "The daemon compiled output is required to start the SoftwareTeam daemon process.",
+      fix: "Run 'npm run build:package' from the repo root, or reinstall with 'npm install -g @softwareteam/cli'.",
     });
   }
 
@@ -95,7 +95,7 @@ export function runDoctorChecks(deps: DoctorDeps, providerChecks: DoctorCheck[] 
       status: "fail",
       message: "UI dist not found.",
       reason: "The pre-built UI assets are required for the dashboard to render.",
-      fix: "Run 'npm run build:package' from the repo root, or reinstall with 'npm install -g @openrig/cli'.",
+      fix: "Run 'npm run build:package' from the repo root, or reinstall with 'npm install -g @softwareteam/cli'.",
     });
   }
 
@@ -122,7 +122,7 @@ export function runDoctorChecks(deps: DoctorDeps, providerChecks: DoctorCheck[] 
       name: "tmux",
       status: "fail",
       message: "tmux not found.",
-      reason: "OpenRig uses tmux to manage agent sessions.",
+      reason: "SoftwareTeam uses tmux to manage agent sessions.",
       fix: "Install tmux: brew install tmux (macOS), apt install tmux (Linux).",
     });
   } else if (tmuxProbe.available && tmuxProbe.version) {
@@ -181,15 +181,15 @@ export function runDoctorChecks(deps: DoctorDeps, providerChecks: DoctorCheck[] 
         name: "cmux_shell",
         status: "warn",
         message: "cmux installed, but control unavailable right now.",
-        reason: "OpenRig can run without cmux, but Open CMUX actions and cmux-aware node control will be unavailable until cmux control works.",
-        fix: `Open the cmux app, verify control access/socket sharing is enabled for OpenRig, then rerun 'rig doctor'. If you are running this for someone else, tell the user that cmux is optional but required for Open CMUX. If you do not need cmux features, you can ignore this warning.${modeHint}`,
+        reason: "SoftwareTeam can run without cmux, but Open CMUX actions and cmux-aware node control will be unavailable until cmux control works.",
+        fix: `Open the cmux app, verify control access/socket sharing is enabled for SoftwareTeam, then rerun 'SoftwareTeam doctor'. If you are running this for someone else, tell the user that cmux is optional but required for Open CMUX. If you do not need cmux features, you can ignore this warning.${modeHint}`,
       });
     } catch {
       checks.push({
         name: "cmux_shell",
         status: "warn",
         message: "cmux not found.",
-        reason: "OpenRig can run without cmux, but Open CMUX actions and surface control will be unavailable.",
+        reason: "SoftwareTeam can run without cmux, but Open CMUX actions and surface control will be unavailable.",
         fix: "Install and launch cmux if you want Open CMUX support. If you are running this for someone else, tell the user that cmux is optional and only needed for Open CMUX workflows.",
       });
     }
@@ -213,7 +213,7 @@ export function runDoctorChecks(deps: DoctorDeps, providerChecks: DoctorCheck[] 
   // 7. Port availability (async) — daemon already running on that port counts as OK.
   // OPR.0.4.7 slice-05 item-4b: resolve the daemon host+port ONCE from config and use
   // BOTH for checkPort, healthz, the cmux URL, and messages (a daemon on a non-default
-  // configured host/port must not be reported missing). Defaults stay 127.0.0.1:7433.
+  // configured host/port must not be reported missing). Defaults stay 127.0.0.1:7434.
   const daemonHost = config.daemon.host ?? "127.0.0.1";
   const daemonPort = config.daemon.port ?? DEFAULT_PORT;
   const daemonBase = `http://${formatDaemonHostForUrl(daemonHost)}:${daemonPort}`;
@@ -226,7 +226,7 @@ export function runDoctorChecks(deps: DoctorDeps, providerChecks: DoctorCheck[] 
     try {
       const res = await fetchFn(`${daemonBase}/healthz`);
       if (res.ok) {
-        return { name: "port", status: "pass", message: `Port ${daemonHost}:${daemonPort} in use by OpenRig daemon.` };
+        return { name: "port", status: "pass", message: `Port ${daemonHost}:${daemonPort} in use by SoftwareTeam daemon.` };
       }
     } catch { /* not our daemon */ }
     return {
@@ -234,7 +234,7 @@ export function runDoctorChecks(deps: DoctorDeps, providerChecks: DoctorCheck[] 
       status: "fail",
       message: `Port ${daemonHost}:${daemonPort} is in use by another process.`,
       reason: "The daemon needs this port to serve the API and UI.",
-      fix: `Stop the process using port ${daemonPort}, or start the daemon on a different port with: rig daemon start --port <port>`,
+      fix: `Stop the process using port ${daemonPort}, or start the daemon on a different port with: SoftwareTeam daemon start --port <port>`,
     };
   });
 
@@ -273,10 +273,10 @@ export function runDoctorChecks(deps: DoctorDeps, providerChecks: DoctorCheck[] 
 }
 
 /**
- * Build B — does the rig spec still describe the rig that is running?
+ * Build B — does the softwareTeam spec still describe the softwareTeam that is running?
  *
- * Nothing writes a spec back after `rig expand`, and the spec is what a bundle export copies
- * verbatim, so a rig can outgrow its own description silently. This is the check that says so —
+ * Nothing writes a spec back after `softwareTeam expand`, and the spec is what a bundle export copies
+ * verbatim, so a softwareTeam can outgrow its own description silently. This is the check that says so —
  * and, once a spec is reconciled by hand, the check that VERIFIES the write-back landed instead of
  * someone eyeballing YAML.
  *
@@ -291,50 +291,50 @@ async function buildSpecConformanceCheck(deps: DoctorDeps): Promise<DoctorCheck>
       status: "skipped",
       message: "No --spec given; spec-vs-live topology not checked.",
       reason:
-        "A running rig's spec path is not persisted anywhere (the rigs table has no spec/rigRoot column), so this check cannot discover it.",
-      fix: "rig doctor --spec <path/to/rig.yaml>",
+        "A running softwareTeam's spec path is not persisted anywhere (the softwareTeams table has no spec/softwareTeamRoot column), so this check cannot discover it.",
+      fix: "SoftwareTeam doctor --spec <path/to/software-team.yaml>",
     };
   }
 
   const raw = deps.readFile(deps.specPath);
   if (raw === null) {
-    return { name, status: "fail", message: `Rig spec could not be read at ${deps.specPath}.` };
+    return { name, status: "fail", message: `SoftwareTeam spec could not be read at ${deps.specPath}.` };
   }
 
   let spec: { name?: unknown; pods?: unknown };
   try {
     spec = parseYaml(raw) as { name?: unknown; pods?: unknown };
   } catch (err) {
-    return { name, status: "fail", message: `Rig spec at ${deps.specPath} is not valid YAML: ${(err as Error).message}` };
+    return { name, status: "fail", message: `SoftwareTeam spec at ${deps.specPath} is not valid YAML: ${(err as Error).message}` };
   }
-  const rigName = typeof spec?.name === "string" ? spec.name : "";
-  if (!rigName || !Array.isArray(spec?.pods)) {
-    return { name, status: "fail", message: `Rig spec at ${deps.specPath} declares no name or no pods.` };
+  const softwareTeamName = typeof spec?.name === "string" ? spec.name : "";
+  if (!softwareTeamName || !Array.isArray(spec?.pods)) {
+    return { name, status: "fail", message: `SoftwareTeam spec at ${deps.specPath} declares no name or no pods.` };
   }
 
-  const liveIds = deps.fetchLiveLogicalIds ? await deps.fetchLiveLogicalIds(rigName) : null;
+  const liveIds = deps.fetchLiveLogicalIds ? await deps.fetchLiveLogicalIds(softwareTeamName) : null;
   if (liveIds === null) {
     return {
       name,
       status: "skipped",
-      message: `Live topology for '${rigName}' could not be read; conformance unknown.`,
+      message: `Live topology for '${softwareTeamName}' could not be read; conformance unknown.`,
       reason: "Absence of live data is not evidence of conformance, so this is reported as unknown rather than passing.",
     };
   }
 
-  const result = compareSpecToLive(topologyFromRigSpec(spec as never), topologyFromLiveLogicalIds(liveIds));
+  const result = compareSpecToLive(topologyFromSoftwareTeamSpec(spec as never), topologyFromLiveLogicalIds(liveIds));
   if (result.conforms) {
     return {
       name,
       status: "pass",
-      message: `Spec matches the running rig '${rigName}' (${result.spec.pods} pods/${result.spec.seats} seats).`,
+      message: `Spec matches the running softwareTeam '${softwareTeamName}' (${result.spec.pods} pods/${result.spec.seats} seats).`,
     };
   }
   return {
     name,
     status: "warn",
-    message: `Rig '${rigName}': ${result.message}`,
-    reason: "A bundle export copies the SPEC verbatim, so this rig would export smaller than it runs.",
+    message: `SoftwareTeam '${softwareTeamName}': ${result.message}`,
+    reason: "A bundle export copies the SPEC verbatim, so this SoftwareTeam would export smaller than it runs.",
     fix: "Reconcile the spec with the running topology, then re-run this check to verify the write-back.",
   };
 }
@@ -352,7 +352,7 @@ function buildCmuxDaemonWarning(deps: DoctorDeps, platform: NodeJS.Platform): Do
       status: "warn",
       message: "Shell cmux works, but the daemon cannot control cmux.",
       reason: `${CMUX_SETTINGS_DISCLOSURE_PATH} is unreadable: ${socketMode.error}`,
-      fix: `Repair ${CMUX_SETTINGS_DISCLOSURE_PATH} or remove it so cmux can regenerate the template, then rerun \`rig setup\` or \`rig doctor\`.`,
+      fix: `Repair ${CMUX_SETTINGS_DISCLOSURE_PATH} or remove it so cmux can regenerate the template, then rerun \`SoftwareTeam setup\` or \`SoftwareTeam doctor\`.`,
     };
   }
 
@@ -365,7 +365,7 @@ function buildCmuxDaemonWarning(deps: DoctorDeps, platform: NodeJS.Platform): Do
       status: "warn",
       message: "Shell cmux works, but the daemon cannot control cmux.",
       reason,
-      fix: `Run \`rig setup\` to set automation.socketControlMode to "automation" in ${CMUX_SETTINGS_DISCLOSURE_PATH}, then restart the daemon with \`rig daemon start\`.`,
+      fix: `Run \`SoftwareTeam setup\` to set automation.socketControlMode to "automation" in ${CMUX_SETTINGS_DISCLOSURE_PATH}, then restart the daemon with \`SoftwareTeam daemon start\`.`,
     };
   }
 
@@ -374,7 +374,7 @@ function buildCmuxDaemonWarning(deps: DoctorDeps, platform: NodeJS.Platform): Do
     status: "warn",
     message: "Shell cmux works, but the daemon cannot control cmux.",
     reason: "The daemon inherited a terminal/session environment that broke cmux adapter initialization.",
-    fix: "Restart the daemon with `rig daemon start` after setup. If it still fails, inspect the daemon log with `rig daemon logs`.",
+    fix: "Restart the daemon with `SoftwareTeam daemon start` after setup. If it still fails, inspect the daemon log with `SoftwareTeam daemon logs`.",
   };
 }
 
@@ -391,11 +391,11 @@ function readTmuxMouseMode(deps: DoctorDeps): "on" | "off" | null {
 export function doctorCommand(depsOverride?: DoctorDeps): Command {
   const cmd = new Command("doctor")
     .description("Check installation, provider authentication, writable paths, port/daemon and conditional cmux control")
-    .addHelpText("after", "\nWith --spec, compares declared and live topology. This is not an end-to-end readiness check.\nReports Claude and Codex authentication using setup's checks, including configured Codex credential variables. No agent task or provider request is tested.\nInspect your team with rig ps --nodes --rig <rig> and rig capture <seat> --lines 30.");
+    .addHelpText("after", "\nWith --spec, compares declared and live topology. This is not an end-to-end readiness check.\nReports Claude and Codex authentication using setup's checks, including configured Codex credential variables. No agent task or provider request is tested.\nInspect your team with SoftwareTeam ps --nodes --software-team <softwareTeam> and SoftwareTeam capture <seat> --lines 30.");
 
   cmd
     .option("--json", "JSON output for agents")
-    .option("--spec <path>", "Rig spec to check against the running rig of the same name (spec-vs-live topology)")
+    .option("--spec <path>", "SoftwareTeam spec to check against the running SoftwareTeam of the same name (spec-vs-live topology)")
     .action(async (opts: { json?: boolean; spec?: string }) => {
       const deps: DoctorDeps = depsOverride ?? {
         exists: existsSync,
@@ -409,16 +409,16 @@ export function doctorCommand(depsOverride?: DoctorDeps): Command {
         specPath: opts.spec ? path.resolve(opts.spec) : undefined,
         // Returns null on ANY failure to read the live side. The conformance check treats null as
         // "unknown" and skips — an unreachable daemon must never read as a matching topology.
-        fetchLiveLogicalIds: async (rigName: string): Promise<string[] | null> => {
+        fetchLiveLogicalIds: async (softwareTeamName: string): Promise<string[] | null> => {
           try {
             const cfg = new ConfigStore().resolve();
             const base = `http://${formatDaemonHostForUrl(cfg.daemon.host ?? "127.0.0.1")}:${cfg.daemon.port ?? DEFAULT_PORT}`;
-            const rigsRes = await fetch(`${base}/api/rigs`);
-            if (!rigsRes.ok) return null;
-            const rigs = (await rigsRes.json()) as Array<{ id?: string; name?: string }>;
-            const rig = rigs.find((r) => r.name === rigName);
-            if (!rig?.id) return null;
-            const nodesRes = await fetch(`${base}/api/rigs/${rig.id}/nodes`);
+            const softwareTeamsRes = await fetch(`${base}/api/software-teams`);
+            if (!softwareTeamsRes.ok) return null;
+            const softwareTeams = (await softwareTeamsRes.json()) as Array<{ id?: string; name?: string }>;
+            const softwareTeam = softwareTeams.find((r) => r.name === softwareTeamName);
+            if (!softwareTeam?.id) return null;
+            const nodesRes = await fetch(`${base}/api/software-teams/${softwareTeam.id}/nodes`);
             if (!nodesRes.ok) return null;
             const nodes = (await nodesRes.json()) as Array<{ logicalId?: string | null }>;
             return nodes.map((n) => n.logicalId ?? "");
@@ -456,7 +456,7 @@ export function doctorCommand(depsOverride?: DoctorDeps): Command {
       console.log("Authentication checks report local provider facts; no agent task or provider request was tested.");
       console.log("Only the harnesses selected for your project need a login; an unused harness does not.");
       console.log("A credential variable being set does not prove the provider accepts it or that managed seats receive it.");
-      console.log("Inspect your team with `rig ps --nodes --rig <rig>` and `rig capture <seat> --lines 30`.");
+      console.log("Inspect your team with `SoftwareTeam ps --nodes --software-team <softwareTeam>` and `SoftwareTeam capture <seat> --lines 30`.");
       if (!healthy) process.exitCode = 1;
     });
 

@@ -30,31 +30,31 @@ function windowsWith(samples: () => ClaudeWindowSample[], reads: Array<UsageRead
 
 describe("Claude windows: the seats' status-line samples", () => {
   it("each window is the freshest sample across seats, observed at the sample's own time, naming its seat", () => {
-    const samples = [sample("a@rig", "five_hour", 20, at(-3)), sample("b@rig", "five_hour", 25, at(-1)), sample("a@rig", "weekly", 85, at(-3))];
+    const samples = [sample("a@software-team", "five_hour", 20, at(-3)), sample("b@software-team", "five_hour", 25, at(-1)), sample("a@software-team", "weekly", 85, at(-3))];
     const [row] = windowsWith(() => samples).project(NOW);
     expect(row!.windows.map((w) => [w.window, w.usedPercent, w.observedAt, w.seatSession, w.level, w.freshness])).toEqual([
-      ["five_hour", 25, at(-1), "b@rig", "ok", "fresh"],
-      ["weekly", 85, at(-3), "a@rig", "nearing", "fresh"],
+      ["five_hour", 25, at(-1), "b@software-team", "ok", "fresh"],
+      ["weekly", 85, at(-3), "a@software-team", "nearing", "fresh"],
     ]);
     expect(row!.source).toEqual({ kind: "claude_statusline_samples", host: "local" });
   });
 
   it("an idle seat stops advancing, so its windows age to stale", () => {
-    const [row] = windowsWith(() => [sample("a@rig", "weekly", 40, at(-20))]).project(NOW);
+    const [row] = windowsWith(() => [sample("a@software-team", "weekly", 40, at(-20))]).project(NOW);
     expect(row!.windows[0]).toMatchObject({ freshness: "stale", freshnessReason: "observed 20 min ago (fresh for 15 min)" });
     expect(row!.currentAvailability).toBe("unknown");
   });
 
   it("seats with different fresh windows (possibly different logins) make the level unknown; nothing is merged", () => {
-    const samples = [sample("a@rig", "weekly", 10, at(-1), at(2000)), sample("b@rig", "weekly", 90, at(-2), at(5000))];
+    const samples = [sample("a@software-team", "weekly", 10, at(-1), at(2000)), sample("b@software-team", "weekly", 90, at(-2), at(5000))];
     const [row] = windowsWith(() => samples).project(NOW);
     expect(row!.windows).toHaveLength(1);
-    expect(row!.windows[0]).toMatchObject({ usedPercent: 10, seatSession: "a@rig", level: "unknown",
-      levelReason: "Claude seats report different windows (possibly different logins): a@rig, b@rig",
+    expect(row!.windows[0]).toMatchObject({ usedPercent: 10, seatSession: "a@software-team", level: "unknown",
+      levelReason: "Claude seats report different windows (possibly different logins): a@software-team, b@software-team",
       // Each disagreeing seat's own numbers, so which login is where reads from the row.
-      disagreeingSeats: [{ seatSession: "b@rig", usedPercent: 90, resetsAt: at(5000), observedAt: at(-2) }] });
+      disagreeingSeats: [{ seatSession: "b@software-team", usedPercent: 90, resetsAt: at(5000), observedAt: at(-2) }] });
     // A stale disagreeing seat doesn't count.
-    const [later] = windowsWith(() => [sample("a@rig", "weekly", 10, at(-1), at(2000)), sample("b@rig", "weekly", 90, at(-30), at(5000))]).project(NOW);
+    const [later] = windowsWith(() => [sample("a@software-team", "weekly", 10, at(-1), at(2000)), sample("b@software-team", "weekly", 90, at(-30), at(5000))]).project(NOW);
     expect(later!.windows[0]!.level).toBe("ok");
     expect(later!.windows[0]).not.toHaveProperty("disagreeingSeats");
   });
@@ -75,21 +75,21 @@ describe("Claude windows: the seats' status-line samples", () => {
     migrate(db, ALL_MIGRATIONS);
     const insert = db.prepare(`INSERT INTO usage_samples (lane, seat_session, source, sampled_at, captured_at, window, window_used_percent, resets_at)
       VALUES (?, ?, 'claude_statusline_json', ?, ?, ?, ?, ?)`);
-    insert.run("provider_window", "a@rig", at(-10), at(-10), "weekly", 30, at(2000));
-    insert.run("provider_window", "a@rig", at(-2), at(-1), "weekly", 32, at(2000));
-    insert.run("provider_window", "a@rig", at(-2), at(-1), "five_hour", 5, at(100));
-    insert.run("provider_window", "b@rig", null, at(-1), "weekly", 50, at(2000));
-    db.prepare(`INSERT INTO usage_samples (lane, seat_session, captured_at, used_percentage) VALUES ('context', 'a@rig', ?, 12)`).run(at(-1));
+    insert.run("provider_window", "a@software-team", at(-10), at(-10), "weekly", 30, at(2000));
+    insert.run("provider_window", "a@software-team", at(-2), at(-1), "weekly", 32, at(2000));
+    insert.run("provider_window", "a@software-team", at(-2), at(-1), "five_hour", 5, at(100));
+    insert.run("provider_window", "b@software-team", null, at(-1), "weekly", 50, at(2000));
+    db.prepare(`INSERT INTO usage_samples (lane, seat_session, captured_at, used_percentage) VALUES ('context', 'a@software-team', ?, 12)`).run(at(-1));
     expect(latestClaudeWindowSamples(db).sort((x, y) => x.window.localeCompare(y.window))).toEqual([
-      { seatSession: "a@rig", window: "five_hour", usedPercent: 5, resetsAt: at(100), sampledAt: at(-2) },
-      { seatSession: "a@rig", window: "weekly", usedPercent: 32, resetsAt: at(2000), sampledAt: at(-2) },
+      { seatSession: "a@software-team", window: "five_hour", usedPercent: 5, resetsAt: at(100), sampledAt: at(-2) },
+      { seatSession: "a@software-team", window: "weekly", usedPercent: 32, resetsAt: at(2000), sampledAt: at(-2) },
     ]);
     db.close();
   });
 });
 
 describe("Claude identity: claude auth status on refresh, joined and labelled, never stored", () => {
-  const samples = () => [sample("a@rig", "five_hour", 20, at(-1)), sample("a@rig", "weekly", 50, at(-1))];
+  const samples = () => [sample("a@software-team", "five_hour", 20, at(-1)), sample("a@software-team", "weekly", 50, at(-1))];
 
   it("before any refresh the windows show with the identity not read yet; a view never starts a read", () => {
     let reads = 0;
@@ -98,7 +98,7 @@ describe("Claude identity: claude auth status on refresh, joined and labelled, n
     expect(reads).toBe(0);
     expect(row).toMatchObject({
       identity: { orgId: null, email: null, limitId: "all models", source: "unresolved" },
-      identityNote: "identity not read yet (rig provider status --refresh); windows: status-line readings from a@rig at their own times",
+      identityNote: "identity not read yet (SoftwareTeam provider status --refresh); windows: status-line readings from a@software-team at their own times",
       unresolved: { note: "identity not read yet: not matched to, merged with or replacing any other row" },
       currentAvailability: "unknown",
     });
@@ -110,7 +110,7 @@ describe("Claude identity: claude auth status on refresh, joined and labelled, n
     const [row] = w.project(NOW);
     expect(row).toMatchObject({
       identity: { orgId: "org-1", email: "d***@example.test", limitId: "all models", orgName: "Example Org", subscriptionType: "team", source: "claude auth status orgId and email" },
-      identityNote: `identity: the daemon's Claude login (claude auth status) as of the refresh at ${NOW}; windows: status-line readings from a@rig at their own times; not proven to be the same login`,
+      identityNote: `identity: the daemon's Claude login (claude auth status) as of the refresh at ${NOW}; windows: status-line readings from a@software-team at their own times; not proven to be the same login`,
       latestFromSource: true,
       currentAvailability: "known",
     });
@@ -127,10 +127,10 @@ describe("Claude identity: claude auth status on refresh, joined and labelled, n
   });
 
   it("another login (a second member of the organisation) freezes the earlier row as it was at its own refresh, stale; nothing merged or relabelled", async () => {
-    let live = [sample("a@rig", "weekly", 50, at(-1))];
+    let live = [sample("a@software-team", "weekly", 50, at(-1))];
     const w = windowsWith(() => live, [authOk(), authOk({ email: "e***@example.test" }, at(5))]);
     await w.refresh();
-    live = [sample("a@rig", "weekly", 70, at(4))];
+    live = [sample("a@software-team", "weekly", 70, at(4))];
     await w.refresh();
     const rows = w.project(at(5));
     expect(rows.map((r) => [(r.identity as { email: string }).email, r.windows[0]!.usedPercent, r.latestFromSource, r.windows[0]!.freshness])).toEqual([
@@ -138,7 +138,7 @@ describe("Claude identity: claude auth status on refresh, joined and labelled, n
       ["d***@example.test", 50, false, "stale"],
     ]);
     expect(rows[1]!.windows[0]!.freshnessReason).toBe("a later read exists");
-    expect(rows[1]!.identityNote).toBe(`identity: the daemon's Claude login as of the refresh at ${NOW}; a refresh at ${at(5)} reported another login; windows as they were at ${NOW} (from a@rig)`);
+    expect(rows[1]!.identityNote).toBe(`identity: the daemon's Claude login as of the refresh at ${NOW}; a refresh at ${at(5)} reported another login; windows as they were at ${NOW} (from a@software-team)`);
   });
 
   it("switching back to the earlier login makes its row current again; one email in two organisations is two rows", async () => {
@@ -196,7 +196,7 @@ describe("claudeAuthStatusReader against a fake claude", () => {
     expect(await reader(fake)()).toMatchObject({ ok: true, auth: { loggedIn: true, authMethod: "claude.ai", email: "d***@example.test", orgId: "org-1", orgName: "Example Org", subscriptionType: "team" } });
     expect(fake.authCalls()).toBe(1);
     expect(fake.otherStarts()).toEqual([]);
-    expect(fake.authStarts()[0]).toMatchObject({ argv: ["auth", "status", "--json"], env: { TMUX: null, TMUX_PANE: null, OPENRIG_SESSION_NAME: null, CLAUDECODE: null } });
+    expect(fake.authStarts()[0]).toMatchObject({ argv: ["auth", "status", "--json"], env: { TMUX: null, TMUX_PANE: null, SOFTWARETEAM_SESSION_NAME: null, CLAUDECODE: null } });
   });
 
   it("Claude's real logged-out answer ({loggedIn: false}, exit 1) is not_logged_in", async () => {
@@ -257,7 +257,7 @@ describe("claudeAuthStatusReader against a fake claude", () => {
 
   it("the child environment drops TMUX, TMUX_PANE and seat variables, and keeps the config dir", () => {
     const env = claudeAuthReaderEnv({ launchPath: "/p", home: "/h", claudeConfigDir: "/c" },
-      { TMUX: "x", TMUX_PANE: "%1", OPENRIG_SESSION_NAME: "s@r", RIGGED_X: "1", CLAUDECODE: "1", CLAUDE_CODE_ENTRYPOINT: "cli", KEEP: "k" });
+      { TMUX: "x", TMUX_PANE: "%1", SOFTWARETEAM_SESSION_NAME: "s@r", SOFTWARETEAM_X: "1", CLAUDECODE: "1", CLAUDE_CODE_ENTRYPOINT: "cli", KEEP: "k" });
     expect(env).toEqual({ KEEP: "k", PATH: "/p", HOME: "/h", CLAUDE_CONFIG_DIR: "/c", DISABLE_AUTOUPDATER: "1" });
   });
 });

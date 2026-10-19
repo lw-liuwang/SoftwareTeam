@@ -10,7 +10,7 @@ import type { EventBus } from "../src/domain/event-bus.js";
 // activity derivation; the view rehydrates from /api/ps (the desk-accepted shape).
 
 const SEAT = "node-ev-1";
-const SESSION = "dev50-qa@v-openrig-build";
+const SESSION = "dev50-qa@v-softwareteam-build";
 
 function makeSvc(emit: ReturnType<typeof vi.fn>, clock: { now: number }) {
   const svc = new SeatActivityService({

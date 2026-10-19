@@ -1,6 +1,6 @@
 // Send/broadcast header capture harness (ruling 03c35295, pin 6 proof). Renders the FOUR envelope
 // types through the REAL wrapPaneEnvelope (the exact bytes a recipient pane shows), with a fixed stamp,
-// and drops per-type .txt + SHA256SUMS. The STORM TEST: a recipient tells DM vs multi vs rig-broadcast
+// and drops per-type .txt + SHA256SUMS. The STORM TEST: a recipient tells DM vs multi vs software-team-broadcast
 // vs topology from the header alone (the To line + scale) — proven by the four distinct To lines.
 // Deterministic (fixed inputs) → byte-identical on re-run.
 //
@@ -12,26 +12,26 @@ import { wrapPaneEnvelope } from "../src/lib/pane-envelope.js";
 
 const OUT = process.argv[2] ?? "send-header-captures";
 mkdirSync(OUT, { recursive: true });
-const SENDER = "orch-advisor@v-openrig-build"; // member@rig
+const SENDER = "orch-advisor@v-softwareteam-build"; // member@software-team
 // The ORIGIN HOST id resolved per the 51-09 shipped rendering (host registry self-id) — the THIRD
-// triple slot. This is the real founder host (mm2), DISTINCT from the rig, so From/Reply render as a
-// clean member@rig@host. (Prior capture hardcoded the rig name here → a doubled 'rig@rig' teaching
+// triple slot. This is the real founder host (mm2), DISTINCT from the softwareTeam, so From/Reply render as a
+// clean member@software-team@host. (Prior capture hardcoded the softwareTeam name here → a doubled 'softwareTeam@software-team' teaching
 // surface; the CODE path itself resolves the real host_id via getSelfHostId/fetchSelfHostId.)
 const HOST = "mm2";
 const STAMP = "2026-08-07T00:42:00Z"; // fixed → deterministic captures
 
 const captures = {
   // A DM — To: the single recipient.
-  dm: wrapPaneEnvelope(SENDER, "dev-driver@v-openrig-build", "one-to-one status.", HOST, { stampISO: STAMP }),
+  dm: wrapPaneEnvelope(SENDER, "dev-driver@v-softwareteam-build", "one-to-one status.", HOST, { stampISO: STAMP }),
   // A multi-send — To: the FULL recipient list (WHO got it).
-  multi: wrapPaneEnvelope(SENDER, "dev-driver@v-openrig-build", "coordinate the three of you.", HOST, {
+  multi: wrapPaneEnvelope(SENDER, "dev-driver@v-softwareteam-build", "coordinate the three of you.", HOST, {
     stampISO: STAMP,
-    scope: { kind: "multi", recipients: ["dev-driver@v-openrig-build", "dev-guard@v-openrig-build", "dev-qa@v-openrig-build"] },
+    scope: { kind: "multi", recipients: ["dev-driver@v-softwareteam-build", "dev-guard@v-softwareteam-build", "dev-qa@v-softwareteam-build"] },
   }),
-  // A rig-broadcast — "broadcast to <rig> (N seats)" scale line (a recipient knows peers have it).
-  "rig-broadcast": wrapPaneEnvelope(SENDER, "openrig-pm", "checkpoint review complete.", HOST, {
+  // A software-team-broadcast — "broadcast to <softwareTeam> (N seats)" scale line (a recipient knows peers have it).
+  "software-team-broadcast": wrapPaneEnvelope(SENDER, "softwareteam-pm", "checkpoint review complete.", HOST, {
     stampISO: STAMP,
-    scope: { kind: "rig-broadcast", rig: "openrig-pm", seats: 11 },
+    scope: { kind: "software-team-broadcast", softwareTeam: "softwareteam-pm", seats: 11 },
   }),
   // A topology-broadcast — "broadcast to topology".
   topology: wrapPaneEnvelope(SENDER, "*", "system maintenance in 5 minutes.", HOST, {
@@ -54,4 +54,4 @@ writeFileSync(join(OUT, "STORM-TEST.txt"), `STORM TEST: ${distinct ? "PASS" : "F
 console.log(`captured 4 send-header envelopes → ${OUT}`);
 console.log(`STORM TEST: ${distinct ? "PASS" : "FAIL"}`);
 console.log(toLines.join("\n"));
-console.log("\n" + captures["rig-broadcast"]);
+console.log("\n" + captures["software-team-broadcast"]);

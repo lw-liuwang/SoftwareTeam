@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import type { RigRepository } from "./rig-repository.js";
+import type { SoftwareTeamRepository } from "./software-team-repository.js";
 import type { SessionRegistry } from "./session-registry.js";
 import type { EventBus } from "./event-bus.js";
 import type { TmuxAdapter } from "../adapters/tmux.js";
@@ -33,19 +33,19 @@ interface LaunchOpts {
    * decision. Caller plumbs from AgentSpec.profile.activity.
    */
   silenceWindowSeconds?: number;
-  /** A deliberate fresh occupant is distinct from initial rig boot in the tenure ledger. */
+  /** A deliberate fresh occupant is distinct from initial softwareTeam boot in the tenure ledger. */
   occupantKind?: OccupantKind;
-  /** One-off env for this launch only (`rig up --env`); wins over the spec's env and is not saved. */
+  /** One-off env for this launch only (`SoftwareTeam up --env`); wins over the spec's env and is not saved. */
   env?: SeatEnv;
   /** The seat's resolved plugin locations (what the profile resolver selected for it, or a snapshot saved). A Claude
-   *  seat whose selection includes the vendored openrig-core plugin loads it. Without this the node's saved startup
+   *  seat whose selection includes the vendored softwareteam-core plugin loads it. Without this the node's saved startup
    *  context is read. */
   pluginPaths?: readonly string[];
 }
 
 interface NodeLauncherDeps {
   db: Database.Database;
-  rigRepo: RigRepository;
+  softwareTeamRepo: SoftwareTeamRepository;
   sessionRegistry: SessionRegistry;
   eventBus: EventBus;
   tmuxAdapter: TmuxAdapter;
@@ -54,7 +54,7 @@ interface NodeLauncherDeps {
   /** Extra launch env for one runtime only (OMP's provider keys), merged over
    *  sessionEnv so other runtimes' seats never receive it. */
   runtimeSessionEnv?: Record<string, Record<string, string | undefined>>;
-  /** Where the daemon vendors its plugins; default is `plugins` under the OpenRig home (tests). */
+  /** Where the daemon vendors its plugins; default is `plugins` under the SoftwareTeam home (tests). */
   pluginsDir?: string;
   /** Default silence window (seconds). Currently used only as the
    *  SeatActivityService global default (3s). Per-seat override via
@@ -73,7 +73,7 @@ interface NodeLauncherDeps {
 
 export class NodeLauncher {
   readonly db: Database.Database;
-  private rigRepo: RigRepository;
+  private softwareTeamRepo: SoftwareTeamRepository;
   private sessionRegistry: SessionRegistry;
   private eventBus: EventBus;
   private tmuxAdapter: TmuxAdapter;
@@ -87,8 +87,8 @@ export class NodeLauncher {
   constructor(deps: NodeLauncherDeps) {
     // Hard runtime invariant: all domain services must share the same db handle.
     // Without this, db.transaction() in launchNode cannot span all writes atomically.
-    if (deps.db !== deps.rigRepo.db) {
-      throw new Error("NodeLauncher: rigRepo must share the same db handle");
+    if (deps.db !== deps.softwareTeamRepo.db) {
+      throw new Error("NodeLauncher: softwareTeamRepo must share the same db handle");
     }
     if (deps.db !== deps.sessionRegistry.db) {
       throw new Error("NodeLauncher: sessionRegistry must share the same db handle");
@@ -98,7 +98,7 @@ export class NodeLauncher {
     }
 
     this.db = deps.db;
-    this.rigRepo = deps.rigRepo;
+    this.softwareTeamRepo = deps.softwareTeamRepo;
     this.sessionRegistry = deps.sessionRegistry;
     this.eventBus = deps.eventBus;
     this.tmuxAdapter = deps.tmuxAdapter;
@@ -111,24 +111,24 @@ export class NodeLauncher {
   }
 
   async launchNode(
-    rigId: string,
+    softwareTeamId: string,
     logicalId: string,
     opts?: LaunchOpts
   ): Promise<LaunchResult> {
     // 1. Validate node exists and is unbound
-    const rig = this.rigRepo.getRig(rigId);
-    if (!rig) {
-      return { ok: false, code: "node_not_found", message: `Rig ${rigId} not found` };
+    const softwareTeam = this.softwareTeamRepo.getSoftwareTeam(softwareTeamId);
+    if (!softwareTeam) {
+      return { ok: false, code: "node_not_found", message: `SoftwareTeam ${softwareTeamId} not found` };
     }
 
-    const node = rig.nodes.find((n) => n.logicalId === logicalId);
+    const node = softwareTeam.nodes.find((n) => n.logicalId === logicalId);
     if (!node) {
-      return { ok: false, code: "node_not_found", message: `Node ${logicalId} not found in rig` };
+      return { ok: false, code: "node_not_found", message: `Node ${logicalId} not found in softwareTeam` };
     }
 
     const guard = this.tmuxAdapter.deliveryGuard;
     if (guard && !guard.ownsLifecycle(node.id)) {
-      return guard.lifecycle([node.id], () => this.launchNode(rigId, logicalId, opts));
+      return guard.lifecycle([node.id], () => this.launchNode(softwareTeamId, logicalId, opts));
     }
 
     if (node.binding !== null) {
@@ -136,12 +136,12 @@ export class NodeLauncher {
     }
 
     // 2. Derive or validate session name
-    const sessionName = opts?.sessionName ?? deriveSessionName(rig.rig.name, logicalId);
+    const sessionName = opts?.sessionName ?? deriveSessionName(softwareTeam.softwareTeam.name, logicalId);
     if (!validateSessionName(sessionName)) {
       return {
         ok: false,
         code: "invalid_session_name",
-        message: `Derived session name "${sessionName}" does not match OpenRig naming pattern`,
+        message: `Derived session name "${sessionName}" does not match SoftwareTeam naming pattern`,
       };
     }
 
@@ -149,32 +149,32 @@ export class NodeLauncher {
     // side-effect-free and fail-open: an unavailable ledger yields null and the launch remains valid.
     const occupantGeneration = this.sessionRegistry.reserveOccupantGeneration();
 
-    // Create tmux session with OpenRig identity env vars. A duplicate is a
+    // Create tmux session with SoftwareTeam identity env vars. A duplicate is a
     // collision, never authority to kill an unmanaged same-name session.
-    const specEnv = this.rigRepo.getEffectiveSeatEnv(node.id);
+    const specEnv = this.softwareTeamRepo.getEffectiveSeatEnv(node.id);
     const corePluginDir = seatCorePluginDir(node, this.db, opts?.pluginPaths, this.pluginsDir);
     const sessionCwd = opts?.cwd ?? node.cwd ?? undefined;
     const launchEnv = (oneOff?: SeatEnv) => compactEnv({
-      OPENRIG_NODE_ID: node.id,
-      OPENRIG_SESSION_NAME: sessionName,
-      OPENRIG_RUNTIME: node.runtime ?? undefined,
+      SOFTWARETEAM_NODE_ID: node.id,
+      SOFTWARETEAM_SESSION_NAME: sessionName,
+      SOFTWARETEAM_RUNTIME: node.runtime ?? undefined,
       ...this.sessionEnv,
       ...(node.runtime ? this.runtimeSessionEnv[node.runtime] : undefined),
       ...seatEnvLaunchVars(withCorePlugin(mergeSeatEnv(specEnv, oneOff), corePluginDir)),
       // The launch project of a seat that loads the plugin, so a Claude started elsewhere inside the seat is not taken for it.
       [SEAT_PROJECT_DIR_ENV]: corePluginDir ? sessionCwd : undefined,
-      OPENRIG_OCCUPANT_GENERATION: occupantGeneration ?? undefined,
+      SOFTWARETEAM_OCCUPANT_GENERATION: occupantGeneration ?? undefined,
     });
-    const openRigEnv = launchEnv(opts?.env);
-    const tmuxResult = await this.tmuxAdapter.createSession(sessionName, sessionCwd, openRigEnv);
+    const softwareTeamEnv = launchEnv(opts?.env);
+    const tmuxResult = await this.tmuxAdapter.createSession(sessionName, sessionCwd, softwareTeamEnv);
     if (!tmuxResult.ok) {
       return { ok: false, code: tmuxResult.code, message: tmuxResult.message };
     }
 
-    // A one-off `rig up --env` value is on the first pane's command line and, because that is how
+    // A one-off `SoftwareTeam up --env` value is on the first pane's command line and, because that is how
     // `new-session -e` works, in the session environment, which a respawned pane (a handover
     // successor) inherits. The first pane has already started with it, so take it back out of the
-    // session: the spec's or OpenRig's own value for a name they set, no value for the rest.
+    // session: the spec's or SoftwareTeam's own value for a name they set, no value for the rest.
     if (opts?.env && Object.keys(opts.env).length > 0) {
       const failed = await this.dropOneOffFromSession(sessionName, Object.keys(opts.env), launchEnv());
       if (failed) {
@@ -216,9 +216,9 @@ export class NodeLauncher {
     // (best-effort); only the transcript directory not being writable
     // surfaces a launch warning.
     if (this.transcriptStore?.enabled) {
-      const dirOk = this.transcriptStore.ensureTranscriptDir(rig.rig.name);
+      const dirOk = this.transcriptStore.ensureTranscriptDir(softwareTeam.softwareTeam.name);
       if (dirOk) {
-        const transcriptPath = this.transcriptStore.getTranscriptPath(rig.rig.name, sessionName);
+        const transcriptPath = this.transcriptStore.getTranscriptPath(softwareTeam.softwareTeam.name, sessionName);
         startTranscriptRotation(
           this.tmuxAdapter,
           sessionName,
@@ -227,7 +227,7 @@ export class NodeLauncher {
           getTranscriptRotationOptionsFromEnv,
         );
       } else {
-        launchWarnings.push(`Transcript directory creation failed for rig ${rig.rig.name}`);
+        launchWarnings.push(`Transcript directory creation failed for softwareTeam ${softwareTeam.softwareTeam.name}`);
       }
     }
 
@@ -258,7 +258,7 @@ export class NodeLauncher {
         }
         return this.eventBus.persistWithinTransaction({
           type: "node.launched",
-          rigId,
+          softwareTeamId,
           nodeId: node.id,
           logicalId: node.logicalId,
           sessionName,
@@ -282,7 +282,7 @@ export class NodeLauncher {
     this.eventBus.notifySubscribers(persistedEvent);
 
     // 6. Fetch the created session + binding for the caller
-    const sessions = this.sessionRegistry.getSessionsForRig(rigId);
+    const sessions = this.sessionRegistry.getSessionsForSoftwareTeam(softwareTeamId);
     const session = sessions.find((s) => s.id === createdSessionId);
     const binding = this.sessionRegistry.getBindingForNode(node.id);
 
@@ -297,7 +297,7 @@ export class NodeLauncher {
 
   /**
    * Put each one-off name back to what the session would have had without it: `baseline` has the
-   * value the spec or OpenRig set for it, and a name with none is unset (the server's own value, if
+   * value the spec or SoftwareTeam set for it, and a name with none is unset (the server's own value, if
    * it has one, is what a later pane gets). `TMUX` and `TMUX_PANE` belong to tmux and are left alone.
    * Returns the name that could not be restored, or undefined when all were. The message built from
    * it carries no value: tmux errors repeat the command line.

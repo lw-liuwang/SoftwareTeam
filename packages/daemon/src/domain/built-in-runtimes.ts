@@ -1,4 +1,4 @@
-/** The runtimes OpenRig ships. Any other runtime name names a community agent app (`agent-app-presets.ts`), and a
+/** The runtimes SoftwareTeam ships. Any other runtime name names a community agent app (`agent-app-presets.ts`), and a
  *  preset can't take one of these names. */
 export const BUILT_IN_RUNTIMES: ReadonlySet<string> = new Set(["claude-code", "codex", "pi", "omp", "terminal", "stub"]);
 

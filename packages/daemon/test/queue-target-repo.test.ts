@@ -42,32 +42,32 @@ describe("queue target_repo (PL-007)", () => {
 
   it("create persists target_repo and getById roundtrips it", async () => {
     const created = await repo.create({
-      sourceSession: "alice@rigA",
-      destinationSession: "bob@rigA",
+      sourceSession: "alice@softwareTeamA",
+      destinationSession: "bob@softwareTeamA",
       body: "test",
-      targetRepo: "openrig",
+      targetRepo: "softwareteam",
     });
-    expect(created.targetRepo).toBe("openrig");
+    expect(created.targetRepo).toBe("softwareteam");
     const fetched = repo.getById(created.qitemId);
-    expect(fetched?.targetRepo).toBe("openrig");
+    expect(fetched?.targetRepo).toBe("softwareteam");
   });
 
   it("create without targetRepo persists null", async () => {
     const created = await repo.create({
-      sourceSession: "alice@rigA",
-      destinationSession: "bob@rigA",
+      sourceSession: "alice@softwareTeamA",
+      destinationSession: "bob@softwareTeamA",
       body: "test",
     });
     expect(created.targetRepo).toBeNull();
   });
 
   it("list filters by targetRepo", async () => {
-    await repo.create({ sourceSession: "a@r", destinationSession: "b@r", body: "x", targetRepo: "openrig" });
+    await repo.create({ sourceSession: "a@r", destinationSession: "b@r", body: "x", targetRepo: "softwareteam" });
     await repo.create({ sourceSession: "a@r", destinationSession: "b@r", body: "y", targetRepo: "internal" });
     await repo.create({ sourceSession: "a@r", destinationSession: "b@r", body: "z" });
-    const filtered = repo.list({ targetRepo: "openrig" });
+    const filtered = repo.list({ targetRepo: "softwareteam" });
     expect(filtered).toHaveLength(1);
-    expect(filtered[0]?.targetRepo).toBe("openrig");
+    expect(filtered[0]?.targetRepo).toBe("softwareteam");
   });
 
   it("handoff inherits source's targetRepo when not overridden", async () => {
@@ -75,14 +75,14 @@ describe("queue target_repo (PL-007)", () => {
       sourceSession: "a@r",
       destinationSession: "b@r",
       body: "x",
-      targetRepo: "openrig",
+      targetRepo: "softwareteam",
     });
     const result = await repo.handoff({
       qitemId: src.qitemId,
       fromSession: "b@r",
       toSession: "c@r",
     });
-    expect(result.created.targetRepo).toBe("openrig");
+    expect(result.created.targetRepo).toBe("softwareteam");
   });
 
   it("handoff explicit targetRepo overrides source", async () => {
@@ -90,7 +90,7 @@ describe("queue target_repo (PL-007)", () => {
       sourceSession: "a@r",
       destinationSession: "b@r",
       body: "x",
-      targetRepo: "openrig",
+      targetRepo: "softwareteam",
     });
     const result = await repo.handoff({
       qitemId: src.qitemId,
@@ -106,14 +106,14 @@ describe("queue target_repo (PL-007)", () => {
       sourceSession: "a@r",
       destinationSession: "b@r",
       body: "x",
-      targetRepo: "openrig",
+      targetRepo: "softwareteam",
     });
     const result = await repo.handoffAndComplete({
       qitemId: src.qitemId,
       fromSession: "b@r",
       toSession: "c@r",
     });
-    expect(result.created.targetRepo).toBe("openrig");
+    expect(result.created.targetRepo).toBe("softwareteam");
     expect(result.closed.state).toBe("done");
   });
 
@@ -127,7 +127,7 @@ describe("queue target_repo (PL-007)", () => {
       sourceSession: "a@r",
       destinationSession: "b@r",
       body: "x",
-      targetRepo: "openrig",
+      targetRepo: "softwareteam",
     });
     expect(created.targetRepo).toBeNull();
   });

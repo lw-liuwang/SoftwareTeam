@@ -57,7 +57,7 @@ describe("Lifecycle CLI commands", () => {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           ok: true,
-          rigId: "rig-1",
+          softwareTeamId: "software-team-1",
           nodeId: "node-1",
           logicalId: "external.helper",
           sessionId: "session-123",
@@ -66,12 +66,12 @@ describe("Lifecycle CLI commands", () => {
         return;
       }
 
-      if (req.method === "POST" && req.url === "/api/rigs/rig-1/release") {
+      if (req.method === "POST" && req.url === "/api/software-teams/software-team-1/release") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           ok: true,
           status: "ok",
-          rigId: "rig-1",
+          softwareTeamId: "software-team-1",
           deleted: true,
           released: [
             { nodeId: "node-1", logicalId: "external.helper", sessionId: "session-123", sessionName: "manual-helper" },
@@ -82,22 +82,22 @@ describe("Lifecycle CLI commands", () => {
         return;
       }
 
-      if (req.method === "POST" && req.url === "/api/rigs/rig-launched/release") {
+      if (req.method === "POST" && req.url === "/api/software-teams/software-team-launched/release") {
         res.writeHead(409, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           ok: false,
           code: "contains_launched_nodes",
-          error: "Rig contains launched nodes and cannot be released safely.",
+          error: "SoftwareTeam contains launched nodes and cannot be released safely.",
           launchedLogicalIds: ["dev.impl"],
         }));
         return;
       }
 
-      if (req.method === "DELETE" && req.url === "/api/rigs/rig-1/nodes/dev.impl") {
+      if (req.method === "DELETE" && req.url === "/api/software-teams/software-team-1/nodes/dev.impl") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           ok: true,
-          rigId: "rig-1",
+          softwareTeamId: "software-team-1",
           nodeId: "node-1",
           logicalId: "dev.impl",
           sessionsKilled: 1,
@@ -105,25 +105,25 @@ describe("Lifecycle CLI commands", () => {
         return;
       }
 
-      if (req.method === "DELETE" && req.url === "/api/rigs/rig-1/nodes/dev.impl?fallback=ops-fallback%40rig-1") {
+      if (req.method === "DELETE" && req.url === "/api/software-teams/software-team-1/nodes/dev.impl?fallback=ops-fallback%40software-team-1") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           ok: true,
-          rigId: "rig-1",
+          softwareTeamId: "software-team-1",
           nodeId: "node-1",
           logicalId: "dev.impl",
           sessionsKilled: 1,
-          fallbackDestination: "ops-fallback@rig-1",
+          fallbackDestination: "ops-fallback@software-team-1",
           reroutedQitemIds: ["qitem-remove-1"],
         }));
         return;
       }
 
-      if (req.method === "DELETE" && req.url === "/api/rigs/rig-1/pods/dev") {
+      if (req.method === "DELETE" && req.url === "/api/software-teams/software-team-1/pods/dev") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           ok: true,
-          rigId: "rig-1",
+          softwareTeamId: "software-team-1",
           podId: "pod-1",
           namespace: "dev",
           removedLogicalIds: ["dev.impl", "dev.qa"],
@@ -132,28 +132,28 @@ describe("Lifecycle CLI commands", () => {
         return;
       }
 
-      if (req.method === "DELETE" && req.url === "/api/rigs/rig-1/pods/dev?fallback=ops-fallback%40rig-1") {
+      if (req.method === "DELETE" && req.url === "/api/software-teams/software-team-1/pods/dev?fallback=ops-fallback%40software-team-1") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           ok: true,
           status: "ok",
-          rigId: "rig-1",
+          softwareTeamId: "software-team-1",
           podId: "pod-1",
           namespace: "dev",
           removedLogicalIds: ["dev.impl", "dev.qa"],
           sessionsKilled: 2,
-          fallbackDestination: "ops-fallback@rig-1",
+          fallbackDestination: "ops-fallback@software-team-1",
           reroutedQitemIds: ["qitem-shrink-1", "qitem-shrink-2"],
         }));
         return;
       }
 
-      if (req.method === "DELETE" && req.url === "/api/rigs/rig-1/pods/dev-partial") {
+      if (req.method === "DELETE" && req.url === "/api/software-teams/software-team-1/pods/dev-partial") {
         res.writeHead(207, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           ok: true,
           status: "partial",
-          rigId: "rig-1",
+          softwareTeamId: "software-team-1",
           podId: "pod-1",
           namespace: "dev",
           removedLogicalIds: ["dev.impl"],
@@ -166,7 +166,7 @@ describe("Lifecycle CLI commands", () => {
         return;
       }
 
-      if (req.method === "POST" && req.url === "/api/rigs/rig-1/nodes/dev.qa/launch") {
+      if (req.method === "POST" && req.url === "/api/software-teams/software-team-1/nodes/dev.qa/launch") {
         res.writeHead(201, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           ok: true,
@@ -177,12 +177,12 @@ describe("Lifecycle CLI commands", () => {
         return;
       }
 
-      if (req.method === "POST" && req.url === "/api/rigs/rig-1/nodes/dev.pod/launch") {
+      if (req.method === "POST" && req.url === "/api/software-teams/software-team-1/nodes/dev.pod/launch") {
         res.writeHead(409, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           ok: false,
           code: "pod_aware_launch_unsupported",
-          error: "Pod-aware node launch via this route bypasses startup orchestration. Use rig up, rig import --instantiate, or rig restore instead.",
+          error: "Pod-aware node launch via this route bypasses startup orchestration. Use SoftwareTeam up, SoftwareTeam import --instantiate, or SoftwareTeam restore instead.",
         }));
         return;
       }
@@ -227,7 +227,7 @@ describe("Lifecycle CLI commands", () => {
     program.addCommand(unclaimCommand(runningDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "unclaim", "session-123"]);
+      await program.parseAsync(["node", "softwareTeam", "unclaim", "session-123"]);
     });
 
     expect(exitCode).toBeUndefined();
@@ -241,11 +241,11 @@ describe("Lifecycle CLI commands", () => {
     program.addCommand(removeCommand(runningDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "remove", "rig-1", "dev.impl"]);
+      await program.parseAsync(["node", "softwareTeam", "remove", "software-team-1", "dev.impl"]);
     });
 
     expect(exitCode).toBeUndefined();
-    expect(logs.join("\n")).toContain("Removed node dev.impl from rig rig-1");
+    expect(logs.join("\n")).toContain("Removed node dev.impl from SoftwareTeam software-team-1");
   });
 
   it("remove sends an explicit fallback and names rerouted qitems in human output", async () => {
@@ -254,13 +254,13 @@ describe("Lifecycle CLI commands", () => {
     program.addCommand(removeCommand(runningDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "remove", "rig-1", "dev.impl", "--fallback", "ops-fallback@rig-1"]);
+      await program.parseAsync(["node", "softwareTeam", "remove", "software-team-1", "dev.impl", "--fallback", "ops-fallback@software-team-1"]);
     });
 
     expect(exitCode).toBeUndefined();
     const output = logs.join("\n");
-    expect(output).toContain("Rerouted qitem-remove-1 to ops-fallback@rig-1");
-    expect(output).toContain("Removed node dev.impl from rig rig-1");
+    expect(output).toContain("Rerouted qitem-remove-1 to ops-fallback@software-team-1");
+    expect(output).toContain("Removed node dev.impl from SoftwareTeam software-team-1");
   });
 
   it("remove preserves explicit fallback details in JSON output", async () => {
@@ -269,30 +269,30 @@ describe("Lifecycle CLI commands", () => {
     program.addCommand(removeCommand(runningDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "remove", "rig-1", "dev.impl", "--fallback", "ops-fallback@rig-1", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "remove", "software-team-1", "dev.impl", "--fallback", "ops-fallback@software-team-1", "--json"]);
     });
 
     expect(exitCode).toBeUndefined();
     expect(JSON.parse(logs.join("\n"))).toEqual(expect.objectContaining({
-      fallbackDestination: "ops-fallback@rig-1",
+      fallbackDestination: "ops-fallback@software-team-1",
       reroutedQitemIds: ["qitem-remove-1"],
     }));
   });
 
-  it("release prints released rig summary", async () => {
+  it("release prints released SoftwareTeam summary", async () => {
     const program = new Command();
     program.exitOverride();
     program.addCommand(releaseCommand(runningDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "release", "rig-1", "--delete"]);
+      await program.parseAsync(["node", "softwareTeam", "release", "software-team-1", "--delete"]);
     });
 
     expect(exitCode).toBeUndefined();
     const output = logs.join("\n");
-    expect(output).toContain("Released 2 claimed session(s) from rig rig-1");
+    expect(output).toContain("Released 2 claimed session(s) from SoftwareTeam software-team-1");
     expect(output).toContain("manual-helper");
-    expect(output).toContain("deleted the rig record");
+    expect(output).toContain("deleted the SoftwareTeam record");
   });
 
   it("shrink prints removed pod summary", async () => {
@@ -301,11 +301,11 @@ describe("Lifecycle CLI commands", () => {
     program.addCommand(shrinkCommand(runningDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "shrink", "rig-1", "dev"]);
+      await program.parseAsync(["node", "softwareTeam", "shrink", "software-team-1", "dev"]);
     });
 
     expect(exitCode).toBeUndefined();
-    expect(logs.join("\n")).toContain("Removed pod dev from rig rig-1");
+    expect(logs.join("\n")).toContain("Removed pod dev from SoftwareTeam software-team-1");
     expect(logs.join("\n")).toContain("2 node(s)");
   });
 
@@ -315,12 +315,12 @@ describe("Lifecycle CLI commands", () => {
     program.addCommand(shrinkCommand(runningDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "shrink", "rig-1", "dev", "--fallback", "ops-fallback@rig-1", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "shrink", "software-team-1", "dev", "--fallback", "ops-fallback@software-team-1", "--json"]);
     });
 
     expect(exitCode).toBeUndefined();
     expect(JSON.parse(logs.join("\n"))).toEqual(expect.objectContaining({
-      fallbackDestination: "ops-fallback@rig-1",
+      fallbackDestination: "ops-fallback@software-team-1",
       reroutedQitemIds: ["qitem-shrink-1", "qitem-shrink-2"],
     }));
   });
@@ -331,13 +331,13 @@ describe("Lifecycle CLI commands", () => {
     program.addCommand(shrinkCommand(runningDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "shrink", "rig-1", "dev", "--fallback", "ops-fallback@rig-1"]);
+      await program.parseAsync(["node", "softwareTeam", "shrink", "software-team-1", "dev", "--fallback", "ops-fallback@software-team-1"]);
     });
 
     expect(exitCode).toBeUndefined();
     const output = logs.join("\n");
-    expect(output).toContain("Rerouted qitem-shrink-1, qitem-shrink-2 to ops-fallback@rig-1");
-    expect(output).toContain("Removed pod dev from rig rig-1");
+    expect(output).toContain("Rerouted qitem-shrink-1, qitem-shrink-2 to ops-fallback@software-team-1");
+    expect(output).toContain("Removed pod dev from SoftwareTeam software-team-1");
   });
 
   it("shrink prints partial pod removal honestly and exits non-zero", async () => {
@@ -346,7 +346,7 @@ describe("Lifecycle CLI commands", () => {
     program.addCommand(shrinkCommand(runningDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "shrink", "rig-1", "dev-partial"]);
+      await program.parseAsync(["node", "softwareTeam", "shrink", "software-team-1", "dev-partial"]);
     });
 
     const output = logs.join("\n");
@@ -363,11 +363,11 @@ describe("Lifecycle CLI commands", () => {
     program.addCommand(launchCommand(runningDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "launch", "rig-1", "dev.qa"]);
+      await program.parseAsync(["node", "softwareTeam", "launch", "software-team-1", "dev.qa"]);
     });
 
     expect(exitCode).toBeUndefined();
-    expect(logs.join("\n")).toContain("Launched node dev.qa in rig rig-1");
+    expect(logs.join("\n")).toContain("Launched node dev.qa in SoftwareTeam software-team-1");
     expect(logs.join("\n")).toContain("dev-qa@test");
   });
 
@@ -377,12 +377,12 @@ describe("Lifecycle CLI commands", () => {
     program.addCommand(launchCommand(runningDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "launch", "rig-1", "dev.pod"]);
+      await program.parseAsync(["node", "softwareTeam", "launch", "software-team-1", "dev.pod"]);
     });
 
     expect(exitCode).toBe(1);
     expect(logs.join("\n")).toContain("bypasses startup orchestration");
-    expect(logs.join("\n")).toContain("rig import --instantiate");
+    expect(logs.join("\n")).toContain("SoftwareTeam import --instantiate");
   });
 
   it("--json prints raw unclaim payload", async () => {
@@ -391,7 +391,7 @@ describe("Lifecycle CLI commands", () => {
     program.addCommand(unclaimCommand(runningDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "unclaim", "session-123", "--json"]);
+      await program.parseAsync(["node", "softwareTeam", "unclaim", "session-123", "--json"]);
     });
 
     expect(exitCode).toBeUndefined();
@@ -406,20 +406,20 @@ describe("Lifecycle CLI commands", () => {
     program.addCommand(unclaimCommand(runningDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "unclaim", "missing"]);
+      await program.parseAsync(["node", "softwareTeam", "unclaim", "missing"]);
     });
 
     expect(exitCode).toBe(1);
     expect(logs.join("\n")).toContain("not found");
   });
 
-  it("release exits non-zero when the rig contains launched nodes", async () => {
+  it("release exits non-zero when the SoftwareTeam contains launched nodes", async () => {
     const program = new Command();
     program.exitOverride();
     program.addCommand(releaseCommand(runningDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "release", "rig-launched", "--delete"]);
+      await program.parseAsync(["node", "softwareTeam", "release", "software-team-launched", "--delete"]);
     });
 
     expect(exitCode).toBe(1);

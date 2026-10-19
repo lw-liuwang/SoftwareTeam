@@ -62,7 +62,7 @@ export function checkClaudeAuth(deps: ProviderAuthDeps, installed: boolean): Pro
         status: "fail",
         message: `Claude Code is installed but not ready to launch: ${(err as Error).message}`,
         reason: "Claude Code seats cannot launch until the Claude CLI is logged in and usable.",
-        fix: "Run `claude auth login` or open `claude` once to complete authentication, then rerun `rig setup`.",
+        fix: "Run `claude auth login` or open `claude` once to complete authentication, then rerun `SoftwareTeam setup`.",
       };
     }
   } else {
@@ -92,7 +92,7 @@ export function checkCodexAuth(deps: ProviderAuthDeps, installed: boolean): Prov
           status: "fail",
           message: `Codex provider "${codexAuth.providerId}" needs ${codexAuth.envKey}, which is not set in this environment.`,
           reason: "Codex seats using this provider cannot authenticate without that variable.",
-          fix: `Export ${codexAuth.envKey} in the environment that runs rig setup and the OpenRig daemon, then rerun \`rig setup\`.`,
+          fix: `Export ${codexAuth.envKey} in the environment that runs SoftwareTeam setup and the SoftwareTeam daemon, then rerun \`SoftwareTeam setup\`.`,
         };
       }
     } else {
@@ -106,7 +106,7 @@ export function checkCodexAuth(deps: ProviderAuthDeps, installed: boolean): Prov
           status: "fail",
           message: `Codex is installed but not ready to launch${unresolved}: ${(err as Error).message}`,
           reason: "Codex seats cannot launch until the Codex CLI is logged in and usable.",
-          fix: "Run `codex login` and complete authentication, then rerun `rig setup`.",
+          fix: "Run `codex login` and complete authentication, then rerun `SoftwareTeam setup`.",
         };
       }
     }
@@ -136,7 +136,7 @@ export function checkProviderReadiness(deps: ProviderAuthDeps): ProviderCheck[] 
       checks.push({
         name: `${command}_install`, status: "fail", message: `${label} not found.`,
         reason: `${label} authentication cannot be checked until its CLI is installed.`,
-        fix: "Run `rig setup` to install the runtime, then rerun `rig doctor`.",
+        fix: "Run `SoftwareTeam setup` to install the runtime, then rerun `SoftwareTeam doctor`.",
       });
     }
     checks.push(auth(deps, installed));

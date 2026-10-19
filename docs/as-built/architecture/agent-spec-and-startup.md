@@ -1,11 +1,11 @@
 ---
 kind: as-built
-title: Agent/Rig Spec, Resolution, Startup, Identity
+title: Agent/SoftwareTeam Spec, Resolution, Startup, Identity
 status: active
 topics: [specification-and-bundles, agent-runtime]
 domains: [engineering-advisor, operating-advisor]
 applies-when: |
-  Need to know the canonical AgentSpec/RigSpec/pod-aware reboot types, how
+  Need to know the canonical AgentSpec/SoftwareTeamSpec/pod-aware reboot types, how
   profile resolution and additive startup layering work, the StartupOrchestrator
   pre-launch-vs-interactive delivery split, or how whoami/materialize/bind/adopt
   resolve and preserve identity.
@@ -15,7 +15,7 @@ last-verified-against-source: e8f0ab340db773392ec8be75b072d1c0f3068a50
 last-updated: 2026-10-08
 ---
 
-# Agent/Rig Spec, Resolution, Startup, Identity
+# Agent/SoftwareTeam Spec, Resolution, Startup, Identity
 
 How the daemon turns authored YAML specs into a resolved, projected, launched,
 and identity-addressable topology. The spec-and-startup contract: parse →
@@ -24,7 +24,7 @@ resolve → project → deliver pre-launch files → persist replay context → 
 
 > Verified against source at main `e8f0ab340db773392ec8be75b072d1c0f3068a50`. `domain/…` and `routes/…` paths
 > are under `packages/daemon/src/`; a bare file name such as
-> `rigspec-schema.ts:119` is in `packages/daemon/src/domain/`. Each count sits
+> `software-team-spec-schema.ts:119` is in `packages/daemon/src/domain/`. Each count sits
 > beside the command that produces it; run the command from the repository
 > root to refresh it.
 
@@ -33,27 +33,27 @@ resolve → project → deliver pre-launch files → persist replay context → 
 - **AgentSpec** (`types.ts:941`) — parsed from `agent.yaml`
   (`agent-resolver.ts:150`). Owns imports, defaults, startup, resources, and
   profiles. Canonical parse/normalize/validate is `domain/agent-manifest.ts`.
-- **RigSpec** (`types.ts:1172`) — canonical pod-aware rig topology. Uses
-  `version: "0.2"` and `pods[]`; owns cross-pod `edges[]`, rig-level startup
+- **SoftwareTeamSpec** (`types.ts:1172`) — canonical pod-aware SoftwareTeam topology. Uses
+  `version: "0.2"` and `pods[]`; owns cross-pod `edges[]`, software-team-level startup
   overlays, and `cultureFile`, plus the optional `summary`, `permissionPolicy`,
   `nonInterruptive`, `managedBlocks`, `docs`, `services` and `workspace` fields.
-  An authored `non_interruptive` must be a boolean (`rigspec-schema.ts:179`) and
-  sets the rig's saved non-interruptive choice at instantiation unless an
-  explicit launch option is given (`rigspec-instantiator.ts:1345`).
+  An authored `non_interruptive` must be a boolean (`software-team-spec-schema.ts:179`) and
+  sets the SoftwareTeam's saved non-interruptive choice at instantiation unless an
+  explicit launch option is given (`software-team-spec-instantiator.ts:1345`).
 
   `version` is the spec-schema version, not the package version. It is not a
-  code constant: `RigSpecSchema.validate` requires only a non-empty string
-  (`rigspec-schema.ts:119`) and `RigSpecSchema.normalize` carries the authored
-  value through (`rigspec-schema.ts:253`). `"0.2"` is the canonical authored
-  value, and the pod-aware exporter writes it (`rigspec-exporter.ts:223`).
+  code constant: `SoftwareTeamSpecSchema.validate` requires only a non-empty string
+  (`software-team-spec-schema.ts:119`) and `SoftwareTeamSpecSchema.normalize` carries the authored
+  value through (`software-team-spec-schema.ts:253`). `"0.2"` is the canonical authored
+  value, and the pod-aware exporter writes it (`software-team-spec-exporter.ts:223`).
 
-- **RigServicesSpec** (`types.ts:1221`) — optional `services` block on a
-  pod-aware RigSpec. Shipped kind is Compose-backed env management
+- **SoftwareTeamServicesSpec** (`types.ts:1221`) — optional `services` block on a
+  pod-aware SoftwareTeamSpec. Shipped kind is Compose-backed env management
   (`kind: "compose"`) with `composeFile`, `projectName?`, `profiles?`,
   `downPolicy?`, `waitFor?`, `surfaces?`, `checkpoints?`.
-- **RigSpecPod** (`types.ts:1128`) — pod-local bounded context with
+- **SoftwareTeamSpecPod** (`types.ts:1128`) — pod-local bounded context with
   `members[]`, pod-local `edges[]`, pod startup, optional continuity policy.
-- **RigSpecPodMember** (`types.ts:1072`) — member-level runtime/startup
+- **SoftwareTeamSpecPodMember** (`types.ts:1072`) — member-level runtime/startup
   surface: `agentRef`, `profile`, `runtime`, `model?`, `effort?`, `cwd`, `restorePolicy?`,
   member startup overlays (`startup?`), plus `label?`, `codexConfigProfile?`,
   `role?`, `permissionPolicy?`, `compactionStrategy?`, `mechanic?`,
@@ -96,18 +96,18 @@ spec/projection types live here.
 
 All of the files below are under `packages/daemon/src/domain/`, and none of
 them imports Hono: **0**
-(`git grep -l '"hono' -- packages/daemon/src/domain/{agent-manifest,rigspec-schema,rigspec-codec,startup-validation,path-safety,spec-validation-service,spec-review-service,agent-resolver,agent-preflight,profile-resolver,startup-resolver,projection-planner}.ts | wc -l`).
+(`git grep -l '"hono' -- packages/daemon/src/domain/{agent-manifest,software-team-spec-schema,software-team-spec-codec,startup-validation,path-safety,spec-validation-service,spec-review-service,agent-resolver,agent-preflight,profile-resolver,startup-resolver,projection-planner}.ts | wc -l`).
 
 **Parse / validate:**
 
 - `agent-manifest.ts` — canonical AgentSpec parse/normalize/validate.
-- `rigspec-schema.ts` — dual-format RigSpec validation.
-- `rigspec-codec.ts` — dual-format YAML codec.
+- `software-team-spec-schema.ts` — dual-format SoftwareTeamSpec validation.
+- `software-team-spec-codec.ts` — dual-format YAML codec.
 - `startup-validation.ts` — shared startup-block validation.
 - `path-safety.ts` — shared relative-path safety checks.
 - `spec-validation-service.ts` — pure raw-YAML validation helpers.
 - `spec-review-service.ts` — daemon-owned structured review model for
-  RigSpec/AgentSpec YAML, incl. topology preview, provenance state, managed-app
+  SoftwareTeamSpec/AgentSpec YAML, incl. topology preview, provenance state, managed-app
   services metadata (`waitFor`, `surfaces`, `composePreview`).
 
 **Resolve:**
@@ -123,7 +123,7 @@ them imports Hono: **0**
 
 `StartupOrchestrator.startNode` (`startup-orchestrator.ts:172`, a thin wrapper
 over `startNodeWithWarnings`, `:178`) drives, in source order: apply the seat's
-permission selection and the rig's non-interruptive setting to the binding
+permission selection and the SoftwareTeam's non-interruptive setting to the binding
 (`NativePermissionStore.apply`, `:183`; `:193`) → mark pending (`:209`) and
 select the startup proof (`:210`) → project resources (`:224`) → deliver
 pre-launch files (`:266`) → persist startup context (`:282`) → launch harness,
@@ -146,7 +146,7 @@ startup context before the harness launch.
   (`startup-orchestrator.ts:130`; held for post-launch and delivered after
   readiness at `:473`). Rebuild artifacts are put in front of these files.
 - **Fresh launch:** the builtin `session_identity` action
-  (`rigspec-instantiator.ts:2655`) is sent as one turn together with the first
+  (`software-team-spec-instantiator.ts:2655`) is sent as one turn together with the first
   `send_text` file (`deliverInitialSessionPrompt`, `startup-orchestrator.ts:663`).
 - **Resume, fork or rebuild:** applicable `after_ready` `send_text` actions are
   sent ahead of the first `send_text` file as one turn.
@@ -182,7 +182,7 @@ action (`startup-orchestrator.ts:487`). On Claude, a short proof instruction
 line (`STARTUP_PROOF_INSTRUCTION_LINE`, `startup-proof.ts:63`) is sent only
 after the startup prompt was confirmed submitted (`sendProofInstruction`,
 `startup-orchestrator.ts:760`). The seat answers with
-`rig startup-proof submit --challenge-id … --answer …`
+`SoftwareTeam startup-proof submit --challenge-id … --answer …`
 (`packages/cli/src/commands/startup-proof.ts:99`), which posts to the activity
 hook route (`routes/activity.ts:239`); `verifyStartupProof`
 (`startup-proof.ts:133`) records `node.startup_proof_verified` or
@@ -192,20 +192,20 @@ proof selected, or a terminal runtime) record `node.startup_proof_skipped`
 (`startup-orchestrator.ts:374`); resume, fork and rebuild keep the existing proof
 history.
 
-**Fresh context pending and `rig seat continue`.** When a fresh launch stops at
+**Fresh context pending and `SoftwareTeam seat continue`.** When a fresh launch stops at
 a native prompt before its context is delivered, `fail()` (`:592`) marks the
-failure `freshContextPending` and adds "run: rig seat continue <session>".
+failure `freshContextPending` and adds "run: SoftwareTeam seat continue <session>".
 `canContinueFresh` (`:554`, using `hasPendingFreshStartup`, `:35`) allows
 continuation only while that failure is the occupant's latest startup event.
 `continueFreshStartup` (`seat-lifecycle-service.ts:395`) re-checks the binding,
 pane and runtime, then runs startup again on the same conversation without
-relaunching the harness. It is reached by `rig seat continue`,
+relaunching the harness. It is reached by `SoftwareTeam seat continue`,
 `POST /api/seat/continue/:seatRef` and the per-seat startup route's `continue`
 action (`routes/startup.ts:148`).
 
 **Startup layering is additive and ordered** (`resolveStartup`,
-`startup-resolver.ts:15`–`22`): (1) agent base, (2) profile, (3) rig culture
-file, (4) rig startup, (5) pod startup, (6) member startup, (7) operator debug
+`startup-resolver.ts:15`–`22`): (1) agent base, (2) profile, (3) SoftwareTeam culture
+file, (4) SoftwareTeam startup, (5) pod startup, (6) member startup, (7) operator debug
 append. Files and actions are concatenated in that order with no
 deduplication (`startup-resolver.ts:24`). This is the spec-startup contract's
 invariant; the cross-cutting architecture rules are collected in
@@ -213,9 +213,9 @@ invariant; the cross-cutting architecture rules are collected in
 
 The launch path takes only the actions from `resolveStartup`. It builds the
 startup *file* chain itself (`buildResolvedStartupFiles`,
-`rigspec-instantiator.ts:2518`), in this order: agent base, profile, the shipped
-`CULTURE-default.md` floor (`:327`), the rig `culture_file`, rig, pod, member,
-the shipped `openrig-start.md` (`:2572`), and, for fresh launches when enabled,
+`software-team-spec-instantiator.ts:2518`), in this order: agent base, profile, the shipped
+`CULTURE-default.md` floor (`:327`), the SoftwareTeam `culture_file`, SoftwareTeam, pod, member,
+the shipped `softwareteam-start.md` (`:2572`), and, for fresh launches when enabled,
 the onboarding files (`:2582`). Managed-block guidance is deduplicated, and a
 `starter_ref` layer is put in front when a member names one (`:2243`).
 
@@ -227,42 +227,42 @@ non-idempotent actions must not apply on restore (`:100`). Retrying a failed
 startup is handled as a restore, which is why the orchestrator skips
 non-idempotent actions on restore (`startup-orchestrator.ts:634`,
 "retry-as-restore safety"). The exception is
-`PodRigInstantiator.retryFirstStart` (`rigspec-instantiator.ts:1147`), which
+`PodSoftwareTeamInstantiator.retryFirstStart` (`software-team-spec-instantiator.ts:1147`), which
 re-runs a first start that failed at projection, before any harness launch.
 
 **Remote import constraints**: `agent_ref` and AgentSpec imports accept
 `local:<relative path>` and `path:<absolute path>` only
-(`rigspec-schema.ts:41`, `agent-manifest.ts:40`); a terminal member uses the
-`builtin:terminal` sentinel (`rigspec-schema.ts:532`). Remote `agent_ref`
-sources remain unsupported: RigSpec validation rejects them
-(`rigspec-schema.ts:563`), `rigPreflight` runs that validation
-(`rigspec-preflight.ts:252`), and the resolver refuses a remote import again
+(`software-team-spec-schema.ts:41`, `agent-manifest.ts:40`); a terminal member uses the
+`builtin:terminal` sentinel (`software-team-spec-schema.ts:532`). Remote `agent_ref`
+sources remain unsupported: SoftwareTeamSpec validation rejects them
+(`software-team-spec-schema.ts:563`), `softwareTeamPreflight` runs that validation
+(`software-team-spec-preflight.ts:252`), and the resolver refuses a remote import again
 (`agent-resolver.ts:203`).
 
 ## 5. Instantiation, preflight, export
 
 - `runtime-adapter.ts` — adapter contract + bridge types.
-- `rigspec-preflight.ts` — dual-stack legacy preflight (`RigSpecPreflight`,
-  `rigspec-preflight.ts:26`) plus rebooted `rigPreflight(...)` (`:246`).
-- `rigspec-instantiator.ts` — dual-stack `RigInstantiator`
-  (`rigspec-instantiator.ts:33`) plus `PodRigInstantiator` (`:475`).
-- `rigspec-exporter.ts` — dual-format live rig export to YAML/JSON.
+- `software-team-spec-preflight.ts` — dual-stack legacy preflight (`SoftwareTeamSpecPreflight`,
+  `software-team-spec-preflight.ts:26`) plus rebooted `softwareTeamPreflight(...)` (`:246`).
+- `software-team-spec-instantiator.ts` — dual-stack `SoftwareTeamInstantiator`
+  (`software-team-spec-instantiator.ts:33`) plus `PodSoftwareTeamInstantiator` (`:475`).
+- `software-team-spec-exporter.ts` — dual-format live SoftwareTeam export to YAML/JSON.
 - `pod-repository.ts` — pod CRUD plus live continuity-state CRUD.
 
-`routes/rigspec.ts` is the dual-format seam; a parsed spec with a `pods` array
-takes the pod-aware path (`routes/rigspec.ts:83`): validate
-(pod-aware → `RigSpecSchema.validate`; legacy → `LegacyRigSpecSchema.validate`),
-preflight (`rigPreflight({ rigSpecYaml, rigRoot, … })` vs
-`RigSpecPreflight.check(spec)`), import
-(`podInstantiator.instantiate(yaml, rigRoot, …)` vs
-`RigInstantiator.instantiate(spec)`), export (pod-aware exports canonical
-`version: "0.2"` RigSpec; legacy exports flat-node `schemaVersion: 1`,
-`rigspec-exporter.ts:105`).
+`routes/software-team-spec.ts` is the dual-format seam; a parsed spec with a `pods` array
+takes the pod-aware path (`routes/software-team-spec.ts:83`): validate
+(pod-aware → `SoftwareTeamSpecSchema.validate`; legacy → `LegacySoftwareTeamSpecSchema.validate`),
+preflight (`softwareTeamPreflight({ softwareTeamSpecYaml, softwareTeamRoot, … })` vs
+`SoftwareTeamSpecPreflight.check(spec)`), import
+(`podInstantiator.instantiate(yaml, softwareTeamRoot, …)` vs
+`SoftwareTeamInstantiator.instantiate(spec)`), export (pod-aware exports canonical
+`version: "0.2"` SoftwareTeamSpec; legacy exports flat-node `schemaVersion: 1`,
+`software-team-spec-exporter.ts:105`).
 
-The import validation route delegates to `validateRigSpecImport`
-(`routes/rigspec.ts:215–223`, `spec-validation-service.ts:10–19`). The same
-helper powers local `rig spec validate` without contacting the daemon
-(`packages/cli/src/commands/rig.ts:204–207`); it selects the pod-aware or legacy
+The import validation route delegates to `validateSoftwareTeamSpecImport`
+(`routes/software-team-spec.ts:215–223`, `spec-validation-service.ts:10–19`). The same
+helper powers local `SoftwareTeam spec validate` without contacting the daemon
+(`packages/cli/src/commands/SoftwareTeam.ts:204–207`); it selects the pod-aware or legacy
 validator and distinguishes YAML parse failures from validator exceptions.
 
 ## 6. Identity: whoami, materialize, bind, adopt
@@ -273,37 +273,37 @@ anchor, not sovereign truth. `whoami-service.ts:8` declares
 `resolvedBy: "node_id" | "session_name"`. The route requires `nodeId` or
 `sessionName` (`routes/whoami.ts:19`–`23`). The CLI resolves identity
 (`packages/cli/src/commands/whoami.ts:142`–`148`) in this order: explicit
-`--node-id` → explicit `--session` → env vars (`OPENRIG_NODE_ID` /
-`OPENRIG_SESSION_NAME`, or the legacy `RIGGED_NODE_ID` /
-`RIGGED_SESSION_NAME`, `whoami.ts:158`) → tmux metadata → raw tmux
+`--node-id` → explicit `--session` → env vars (`SOFTWARETEAM_NODE_ID` /
+`SOFTWARETEAM_SESSION_NAME`, or the legacy `SOFTWARETEAM_NODE_ID` /
+`SOFTWARETEAM_SESSION_NAME`, `whoami.ts:158`) → tmux metadata → raw tmux
 session-name fallback.
 
-- Managed sessions prefer projected `OPENRIG_NODE_ID` /
-  `OPENRIG_SESSION_NAME`, set when the tmux session is created
+- Managed sessions prefer projected `SOFTWARETEAM_NODE_ID` /
+  `SOFTWARETEAM_SESSION_NAME`, set when the tmux session is created
   (`node-launcher.ts:143`–`144`).
 - Adopted sessions use tmux-owned metadata written at bind time.
 
-  The tmux metadata keys use the `@rigged_` prefix:
-  `ClaimService.setRiggedMetadata` writes `@rigged_node_id` /
-  `@rigged_session_name` / `@rigged_rig_id` / `@rigged_rig_name` /
-  `@rigged_logical_id` (`claim-service.ts:182`–`186`), called from `bind`,
+  The tmux metadata keys use the `@softwareteam_` prefix:
+  `ClaimService.setSoftwareTeamMetadata` writes `@softwareteam_node_id` /
+  `@softwareteam_session_name` / `@softwareteam_software_team_id` / `@softwareteam_software_team_name` /
+  `@softwareteam_logical_id` (`claim-service.ts:182`–`186`), called from `bind`,
   `reconcileSession` and `createAndBindToPod`;
-  `RigLifecycleService.unclaimSession` clears the same five keys
-  (`rig-lifecycle-service.ts:209`–`213`); and `rig whoami` reads
-  `@rigged_node_id` and `@rigged_session_name`
+  `SoftwareTeamLifecycleService.unclaimSession` clears the same five keys
+  (`software-team-lifecycle-service.ts:209`–`213`); and `SoftwareTeam whoami` reads
+  `@softwareteam_node_id` and `@softwareteam_session_name`
   (`packages/cli/src/commands/whoami.ts:173`, `:179`). MCP tool names use a
-  different prefix, `rig_*` (`packages/cli/src/mcp-server.ts`).
+  different prefix, `software_team_*` (`packages/cli/src/mcp-server.ts`).
 
-**Materialize / bind / adopt**: `POST /api/rigs/import/materialize`
-(`routes/rigspec.ts:176`) creates a pod-aware topology without launching
-sessions and refuses a legacy spec (`routes/rigspec.ts:189`);
+**Materialize / bind / adopt**: `POST /api/SoftwareTeams/import/materialize`
+(`routes/software-team-spec.ts:176`) creates a pod-aware topology without launching
+sessions and refuses a legacy spec (`routes/software-team-spec.ts:189`);
 `POST /api/discovery/:id/bind` (`routes/discovery.ts:77`) attaches a
 discovered live session to an existing logical node (`logicalId`), or creates
 a member in a pod (`podNamespace` + `memberName`) and binds it;
 `POST /api/discovery/:id/adopt` (`routes/discovery.ts:139`) is the composite
 route (bind to existing node, or create a new member in a target pod and bind
-immediately). On the CLI, `rig bind` calls the bind route
-(`packages/cli/src/commands/bind.ts:56`), and `rig adopt` materializes the
+immediately). On the CLI, `SoftwareTeam bind` calls the bind route
+(`packages/cli/src/commands/bind.ts:56`), and `SoftwareTeam adopt` materializes the
 topology and then calls the bind route for each session
 (`packages/cli/src/commands/adopt.ts:163`, `:212`). Authored pod namespace is
 preserved through adoption so logical ids stay `${podNamespace}.${memberName}`
@@ -313,13 +313,13 @@ fake env-var parity.
 ## 7. Specialist rosters
 
 A roster is an authored list of recommended specialist seats, kept outside the
-specs. `rig roster list`, `show <id>` and `find <query>`
+specs. `SoftwareTeam roster list`, `show <id>` and `find <query>`
 (`packages/cli/src/commands/roster.ts`) read version-1 roster JSON files from
 `<workspace.root>/rosters/` (or `--folder`); they are read-only and need no
 daemon route. Each roster names a purpose and a curator, and each member names
 a seat, host, capabilities, engagement, `use_when` and `why`. `show` and
 `find` add current observations of each member by matching host and seat
-against `rig ps --nodes`, read from the configured daemon and again across
+against `SoftwareTeam ps --nodes`, read from the configured daemon and again across
 registered hosts, and report a gap rather than guessing when no node matches. A roster is a
 recommendation, not an assignment or an authority. It is unrelated to the
 topology roster a snapshot records (see `lifecycle-snapshot-restore.md`).
@@ -332,6 +332,6 @@ topology roster a snapshot records (see `lifecycle-snapshot-restore.md`).
   context.
 - `architecture-rules-and-event-system.md` — the cross-cutting architecture
   rules.
-- Source roots: `packages/daemon/src/domain/{agent-manifest,rigspec-schema,
+- Source roots: `packages/daemon/src/domain/{agent-manifest,software-team-spec-schema,
   profile-resolver,startup-orchestrator,whoami-service,claim-service}.ts`,
-  `packages/daemon/src/routes/{rigspec,whoami}.ts`.
+  `packages/daemon/src/routes/{softwareTeamSpec,whoami}.ts`.

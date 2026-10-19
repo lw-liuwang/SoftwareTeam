@@ -1,7 +1,7 @@
 // V0.3.0 daemon-skill-discovery — filesystem skill scan + structural
 // validation. Closes the gap where profile-resolver only saw skills
 // declared in `agent.yaml`'s `resources.skills` + imports, not skills
-// dropped at user-library or rig-bundled paths.
+// dropped at user-library or software-team-bundled paths.
 //
 // The validator's question is now "would Claude Code or Codex actually
 // load this when it sees the directory?" — i.e., is there a SKILL.md
@@ -22,15 +22,15 @@ export interface SkillDiscoveryPaths {
   /** Operator home dir (resolved by the daemon at startup, NOT read
    *  here via os.homedir() so tests can inject a fixture root). */
   homedir: string;
-  /** The agent's resolved working directory — rig-bundled skills live
+  /** The agent's resolved working directory — software-team-bundled skills live
    *  under <cwd>/.claude/skills/ or <cwd>/.agents/skills/. */
   cwd: string;
-  /** The rig-spec install dir — bundled domain skills live under
+  /** The software-team-spec install dir — bundled domain skills live under
    *  <specInstallDir>/skills/<name>/. Optional: undefined means the
-   *  rig was installed in-place and no separate install-dir applies. */
+   *  softwareTeam was installed in-place and no separate install-dir applies. */
   specInstallDir?: string;
   /** Config-resolved managed catalog root. Defaults to the legacy
-   *  <homedir>/.openrig/skills path when omitted for compatibility. */
+   *  <homedir>/.softwareteam/skills path when omitted for compatibility. */
   skillsRoot?: string;
 }
 
@@ -57,7 +57,7 @@ export interface SkillDiscoveryResult {
   rejected: SkillRejection[];
 }
 
-export type SourceKind = "rig_bundled" | "spec_install" | "runtime_user" | "shared_user";
+export type SourceKind = "software_team_bundled" | "spec_install" | "runtime_user" | "shared_user";
 
 export interface SkillProvenanceEntry {
   id: string;
@@ -184,10 +184,10 @@ export function discoverSkillsForRuntime(paths: SkillDiscoveryPaths): SkillDisco
 }
 
 /** Build the precedence-ordered list of scan roots for a runtime.
- *  Earlier entries win on collision (most-specific-wins): rig-bundled
+ *  Earlier entries win on collision (most-specific-wins): software-team-bundled
  *  at cwd > spec-install-dir > user libraries. Within user libraries,
  *  the runtime-specific dir is preferred over the shared
- *  ~/.openrig/skills/ pool so an operator who explicitly installed a
+ *  ~/.softwareteam/skills/ pool so an operator who explicitly installed a
  *  Claude-only or Codex-only version takes precedence over the
  *  cross-runtime one. */
 function listScanRoots(paths: SkillDiscoveryPaths): string[] {
@@ -198,11 +198,11 @@ function listScanRoots(paths: SkillDiscoveryPaths): string[] {
   const runtimeDir = runtime === "claude-code" ? ".claude" : ".agents";
   const roots: string[] = [];
 
-  // 1. Rig-bundled at cwd (most-specific; ships with the rig source).
+  // 1. SoftwareTeam-bundled at cwd (most-specific; ships with the softwareTeam source).
   roots.push(join(cwd, runtimeDir, "skills"));
 
-  // 2. Spec-install-dir bundled (bundled-with-rig but installed at a
-  // separate path; e.g., from `rig up <bundle>` extraction).
+  // 2. Spec-install-dir bundled (bundled-with-softwareTeam but installed at a
+  // separate path; e.g., from `SoftwareTeam up <bundle>` extraction).
   if (specInstallDir) roots.push(join(specInstallDir, "skills"));
 
   // 3. Runtime-specific user library (Claude-only or Codex-only
@@ -210,8 +210,8 @@ function listScanRoots(paths: SkillDiscoveryPaths): string[] {
   roots.push(join(homedir, runtimeDir, "skills"));
 
   // 4. Shared user-spec library (cross-runtime operator install via
-  // `rig specs add`).
-  roots.push(paths.skillsRoot ?? join(homedir, ".openrig", "skills"));
+  // `softwareTeam specs add`).
+  roots.push(paths.skillsRoot ?? join(homedir, ".softwareteam", "skills"));
 
   return roots;
 }
@@ -219,8 +219,8 @@ function listScanRoots(paths: SkillDiscoveryPaths): string[] {
 function rootToSourceKind(root: string, paths: SkillDiscoveryPaths): SourceKind {
   if (paths.runtime === "pi") return "spec_install";
   const runtimeDir = paths.runtime === "claude-code" ? ".claude" : ".agents";
-  const rigBundled = join(paths.cwd, runtimeDir, "skills");
-  if (root === rigBundled) return "rig_bundled";
+  const softwareTeamBundled = join(paths.cwd, runtimeDir, "skills");
+  if (root === softwareTeamBundled) return "software_team_bundled";
   if (paths.specInstallDir && root === join(paths.specInstallDir, "skills")) return "spec_install";
   const runtimeUser = join(paths.homedir, runtimeDir, "skills");
   if (root === runtimeUser) return "runtime_user";

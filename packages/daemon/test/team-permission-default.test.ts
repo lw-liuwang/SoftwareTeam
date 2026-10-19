@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { NativePermissionStore } from "../src/domain/native-permission-store.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
@@ -18,22 +18,22 @@ import type { TmuxAdapter } from "../src/adapters/tmux.js";
 const dbs: ReturnType<typeof createFullTestDb>[] = [];
 afterEach(() => { for (const db of dbs.splice(0)) db.close(); vi.unstubAllEnvs(); });
 function fixture(runtime: string, name = "workshop") {
-  vi.stubEnv("OPENRIG_YOLO", "0");
+  vi.stubEnv("SOFTWARETEAM_YOLO", "0");
   const db = createFullTestDb(); dbs.push(db);
-  const rigRepo = new RigRepository(db), rig = rigRepo.createRig(name);
-  const node = rigRepo.addNode(rig.id, "dev.builder", { runtime, cwd: "/inert/project" });
+  const softwareTeamRepo = new SoftwareTeamRepository(db), softwareTeam = softwareTeamRepo.createSoftwareTeam(name);
+  const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.builder", { runtime, cwd: "/inert/project" });
   const store = new NativePermissionStore(db), registry = new SessionRegistry(db);
   const session = registry.registerSession(node.id, `dev-builder@${name}`);
   const binding = { id: "binding", nodeId: node.id, cwd: "/inert/project", tmuxSession: session.sessionName,
     launchPosture: "floor" } as NodeBinding;
-  return { db, rigRepo, rig, node, store, registry, session, binding };
+  return { db, softwareTeamRepo, softwareTeam, node, store, registry, session, binding };
 }
 function transport() {
   const send = vi.fn(async () => ({ ok: false as const, message: "inert boundary" }));
   const tmux = { sendShellCommand: send, sendText: send } as unknown as TmuxAdapter;
   const fsOps = { readFile: () => { throw new Error("missing"); }, exists: () => false,
     writeFile: vi.fn(() => { throw new Error("unexpected permission file write"); }), mkdirp: vi.fn(), copyFile: vi.fn() };
-  const prepareTeamWorkspace = vi.fn(() => ["/configured/work space", "/configured/shared/rigs/workshop/state/dev"]);
+  const prepareTeamWorkspace = vi.fn(() => ["/configured/work space", "/configured/shared/software-teams/workshop/state/dev"]);
   return { send, tmux, fsOps, prepareTeamWorkspace };
 }
 function assertDefault(cmd: string, runtime: string) {
@@ -42,7 +42,7 @@ function assertDefault(cmd: string, runtime: string) {
     expect(cmd, "team settings must reach the native command").toContain(args.map(arg => ` ${shellQuote(arg)}`).join(""));
     const settings = JSON.parse(args[1]);
     expect(Object.keys(settings)).toEqual(["permissions", "hooks"]);
-    expect(settings.permissions.allow).toContain("Bash(rig:*)");
+    expect(settings.permissions.allow).toContain("Bash(SoftwareTeam:*)");
     expect(settings.permissions.allow).toContain("Bash(npm test:*)");
     expect(settings.permissions.allow).not.toContain("Bash(tmux:*)");
     expect(settings.permissions.allow).not.toContain("Bash(node:*)");
@@ -54,7 +54,7 @@ function assertDefault(cmd: string, runtime: string) {
     expect(cmd).toContain("--permission-mode acceptEdits");
   } else {
     expect(cmd, "configured workspace must reach native command").toContain("--add-dir '/configured/work space'");
-    expect(cmd).toContain("--add-dir '/configured/shared/rigs/workshop/state/dev'");
+    expect(cmd).toContain("--add-dir '/configured/shared/software-teams/workshop/state/dev'");
     expect(cmd).toContain("-s workspace-write");
     expect(cmd).not.toContain("-a never");
     expect(cmd).not.toContain("danger-full-access");
@@ -74,13 +74,13 @@ describe("team launch permission defaults", () => {
     });
   }
   for (const runtime of ["claude-code", "codex"]) {
-    it(`${runtime}: authored rig/member choices including none take precedence`, () => {
+    it(`${runtime}: authored softwareTeam/member choices including none take precedence`, () => {
       const f = fixture(runtime);
       for (const policy of ["none", "builtin:locked", "builtin:standard", "builtin:yolo", "policy/custom.md"]) {
-        for (const table of ["rigs", "nodes"]) {
-          f.db.prepare(`UPDATE ${table} SET permission_policy=? WHERE id=?`).run(policy, table === "rigs" ? f.rig.id : f.node.id);
+        for (const table of ["software_teams", "nodes"]) {
+          f.db.prepare(`UPDATE ${table} SET permission_policy=? WHERE id=?`).run(policy, table === "software_teams" ? f.softwareTeam.id : f.node.id);
           expect(f.store.apply(f.binding, runtime)).toMatchObject({ teamPermissionDefault: false });
-          f.db.prepare(`UPDATE ${table} SET permission_policy=NULL WHERE id=?`).run(table === "rigs" ? f.rig.id : f.node.id);
+          f.db.prepare(`UPDATE ${table} SET permission_policy=NULL WHERE id=?`).run(table === "software_teams" ? f.softwareTeam.id : f.node.id);
         }
       }
       expect(f.store.apply(f.binding, runtime)).toMatchObject({ teamPermissionDefault: true });
@@ -98,7 +98,7 @@ describe("team launch permission defaults", () => {
       const adapter = { runtime, project: async () => ({ projected: [], skipped: [], failed: [] }),
         deliverStartup: async () => ({ delivered: [], failed: [] }), launchHarness } as unknown as RuntimeAdapter;
       const orchestrator = new StartupOrchestrator({ db: f.db, sessionRegistry: f.registry, eventBus: new EventBus(f.db), tmuxAdapter: {} as TmuxAdapter });
-      await orchestrator.startNode({ rigId: f.rig.id, nodeId: f.node.id, sessionId: f.session.id, binding: f.binding,
+      await orchestrator.startNode({ softwareTeamId: f.softwareTeam.id, nodeId: f.node.id, sessionId: f.session.id, binding: f.binding,
         adapter, plan: { entries: [] } as never, resolvedStartupFiles: [], startupActions: [] });
       expect(launchHarness.mock.calls[0]![0]).toMatchObject({ teamPermissionDefault: true, kernelAuthority: false });
     });
@@ -106,7 +106,7 @@ describe("team launch permission defaults", () => {
       const f = fixture(runtime), t = transport();
       const actual = runtime === "codex" ? new CodexResumeAdapter(t.tmux, t) : new ClaudeResumeAdapter(t.tmux);
       const resume = (...args: unknown[]) => (actual.resume as (...args: unknown[]) => unknown)(...args);
-      const ctx = { db: f.db, rigRepo: f.rigRepo, sessionRegistry: f.registry,
+      const ctx = { db: f.db, softwareTeamRepo: f.softwareTeamRepo, sessionRegistry: f.registry,
         claudeResume: { canResume: () => runtime === "claude-code", resume }, codexResume: { canResume: () => runtime === "codex", resume } };
       await (RestoreOrchestrator.prototype as any).attemptResume.call(ctx, f.node.id, f.session.sessionName,
         runtime === "codex" ? "codex_id" : "claude_id", "original", "/inert", null, "model", "floor");

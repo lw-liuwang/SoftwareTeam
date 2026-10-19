@@ -39,7 +39,7 @@ try {
   }
   throw error;
 }
-process.env.OPENRIG_URL = "http://[::1]:" + server.address().port;
+process.env.SOFTWARETEAM_URL = "http://[::1]:" + server.address().port;
 const cmd = mcpCommand({
   lifecycleDeps: realDeps(),
   clientFactory: (url) => {
@@ -60,9 +60,9 @@ try {
   const child = spawn(process.execPath, ["--import", "tsx", "--input-type=module", "-e", script], {
     env: {
       ...process.env,
-      OPENRIG_HOME: dir,
-      OPENRIG_HOST_SELECTED: "",
-      OPENRIG_URL: "",
+      SOFTWARETEAM_HOME: dir,
+      SOFTWARETEAM_HOST_SELECTED: "",
+      SOFTWARETEAM_URL: "",
       RIGGED_URL: "",
     },
     stdio: ["pipe", "pipe", "pipe"],

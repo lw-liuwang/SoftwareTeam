@@ -1,4 +1,4 @@
-// OPR.0.4.1.11.1 (FR-5) — dev-only twin build target. Builds the REAL @openrig/ui App
+// OPR.0.4.1.11.1 (FR-5) — dev-only twin build target. Builds the REAL @softwareteam/ui App
 // (twin/ entry) into ONE self-contained, double-clickable `intent.html`. Separate config so
 // it never disturbs the product build. The single-file inline plugin below is the same
 // generateBundle technique vite-plugin-singlefile uses, kept dependency-free (the worktree
@@ -54,7 +54,7 @@ function singleFileInline(): Plugin {
 }
 
 // The surface this build's intent.html lands on. Per-slice authoring sets it, e.g.
-// `TWIN_ROUTE=/topology/rig/rig_delivery npm run twin:build`. Default = Dashboard.
+// `TWIN_ROUTE=/topology/softwareTeam/software_team_delivery npm run twin:build`. Default = Dashboard.
 const twinRoute = process.env.TWIN_ROUTE && process.env.TWIN_ROUTE.length > 0 ? process.env.TWIN_ROUTE : "/";
 
 // 0.4.3.29 theming — optional palette seed for the built twin (dark|light|system).

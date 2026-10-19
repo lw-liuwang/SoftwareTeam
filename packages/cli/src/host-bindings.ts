@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, rmdirSync, statSync } from "node:fs";
 import { dirname } from "node:path";
-import { getDefaultOpenRigPath } from "./openrig-compat.js";
+import { getDefaultSoftwareTeamPath } from "./softwareteam-compat.js";
 
 /**
  * The LEARNED host-identity sidecar — hosts.yaml's `known_hosts`.
@@ -34,7 +34,7 @@ export interface HostBindingsFile {
 }
 
 export function defaultHostBindingsPath(): string {
-  return getDefaultOpenRigPath("host-bindings.json");
+  return getDefaultSoftwareTeamPath("host-bindings.json");
 }
 
 /** Load the sidecar. Fail-open by contract: missing, unreadable, or corrupt → empty bindings

@@ -1,25 +1,25 @@
 import type { PsEntry } from "./ps-projection.js";
-import type { Rig } from "./types.js";
+import type { SoftwareTeam } from "./types.js";
 import type { SearchResult, ChatSearchResult, SeatSearchResult, SeatHit, SessionSearchResult } from "./history-query.js";
-import type { RigWithRelations } from "./types.js";
+import type { SoftwareTeamWithRelations } from "./types.js";
 import type { WhoamiResult } from "./whoami-service.js";
 
 export type { ChatSearchResult };
 
 export interface AskDeps {
   psProjectionService: { getEntries(): PsEntry[] };
-  rigRepo: { findRigsByName(name: string): Rig[]; getRig(rigId: string): RigWithRelations | null };
+  softwareTeamRepo: { findSoftwareTeamsByName(name: string): SoftwareTeam[]; getSoftwareTeam(softwareTeamId: string): SoftwareTeamWithRelations | null };
   historyQuery: {
-    search(rigName: string, question: string): Promise<SearchResult>;
-    searchChat(rigId: string, question: string): ChatSearchResult[];
-    searchSeat(rigName: string, seatSessionName: string, question: string): Promise<SeatSearchResult>;
+    search(softwareTeamName: string, question: string): Promise<SearchResult>;
+    searchChat(softwareTeamId: string, question: string): ChatSearchResult[];
+    searchSeat(softwareTeamName: string, seatSessionName: string, question: string): Promise<SeatSearchResult>;
     searchSession(sessionToken: string, question: string): Promise<SessionSearchResult>;
   };
   transcriptsEnabled: boolean;
   whoamiService?: { resolve(query: { nodeId?: string; sessionName?: string }): WhoamiResult | null };
 }
 
-export interface AskRigInfo {
+export interface AskSoftwareTeamInfo {
   name: string;
   status: string;
   nodeCount: number;
@@ -46,7 +46,7 @@ export interface AskSessionEvidence {
 
 export interface AskResult {
   question: string;
-  rig: AskRigInfo | null;
+  softwareTeam: AskSoftwareTeamInfo | null;
   evidence: {
     backend: string;
     excerpts: string[];
@@ -73,39 +73,39 @@ export class AskService {
     this.deps = deps;
   }
 
-  async ask(rigName: string, question: string, context?: { nodeId?: string; sessionName?: string; seat?: string; session?: string }): Promise<AskResult> {
-    // Resolve rig
-    const rigs = this.deps.rigRepo.findRigsByName(rigName);
+  async ask(softwareTeamName: string, question: string, context?: { nodeId?: string; sessionName?: string; seat?: string; session?: string }): Promise<AskResult> {
+    // Resolve softwareTeam
+    const softwareTeams = this.deps.softwareTeamRepo.findSoftwareTeamsByName(softwareTeamName);
 
-    if (rigs.length === 0) {
+    if (softwareTeams.length === 0) {
       return {
         question,
-        rig: null,
+        softwareTeam: null,
         evidence: { backend: "rg", excerpts: [] },
         insufficient: true,
-        guidance: `Rig '${rigName}' not found. List rigs with: rig ps`,
+        guidance: `SoftwareTeam '${softwareTeamName}' not found. List softwareTeams with: SoftwareTeam ps`,
       };
     }
 
-    if (rigs.length > 1) {
+    if (softwareTeams.length > 1) {
       return {
         question,
-        rig: null,
+        softwareTeam: null,
         evidence: { backend: "rg", excerpts: [] },
         insufficient: true,
-        guidance: `Rig '${rigName}' is ambiguous — ${rigs.length} rigs share that name. Remove duplicates or use a unique name.`,
+        guidance: `SoftwareTeam '${softwareTeamName}' is ambiguous — ${softwareTeams.length} softwareTeams share that name. Remove duplicates or use a unique name.`,
       };
     }
 
     // Get topology info
     const entries = this.deps.psProjectionService.getEntries();
-    const psEntry = entries.find((e) => e.name === rigName);
-    const rigInfo: AskRigInfo = psEntry
+    const psEntry = entries.find((e) => e.name === softwareTeamName);
+    const softwareTeamInfo: AskSoftwareTeamInfo = psEntry
       ? { name: psEntry.name, status: psEntry.status, nodeCount: psEntry.nodeCount, runningCount: psEntry.runningCount, uptime: psEntry.uptime }
-      : { name: rigName, status: "unknown", nodeCount: 0, runningCount: 0, uptime: null };
+      : { name: softwareTeamName, status: "unknown", nodeCount: 0, runningCount: 0, uptime: null };
 
     // L2 — session-scoped archaeology: an explicit session TOKEN searches that
-    // one session's provider JSONL (read-only, not the OpenRig transcripts, so
+    // one session's provider JSONL (read-only, not the SoftwareTeam transcripts, so
     // transcriptsEnabled does not gate it). Honest-degraded surfaces as guidance.
     if (context?.session) {
       const r = await this.deps.historyQuery.searchSession(context.session, question);
@@ -120,7 +120,7 @@ export class AskService {
       }
       return {
         question,
-        rig: rigInfo,
+        softwareTeam: softwareTeamInfo,
         evidence: { backend: r.backend, excerpts: r.excerpts },
         session: {
           token: r.token,
@@ -136,19 +136,19 @@ export class AskService {
     }
 
     // L1 — seat-scoped archaeology: an explicit seat address searches ONE seat's
-    // transcript across every generation (never the whole-rig grep, never the
+    // transcript across every generation (never the whole-softwareTeam grep, never the
     // structured peer path). Honest-degraded surfaces as guidance.
     if (context?.seat) {
       if (!this.deps.transcriptsEnabled) {
         return {
           question,
-          rig: rigInfo,
+          softwareTeam: softwareTeamInfo,
           evidence: { backend: "read", excerpts: [] },
           insufficient: true,
-          guidance: "Transcripts are disabled. Enable with: rig config set transcripts.enabled true",
+          guidance: "Transcripts are disabled. Enable with: SoftwareTeam config set transcripts.enabled true",
         };
       }
-      const seatResult = await this.deps.historyQuery.searchSeat(rigName, context.seat, question);
+      const seatResult = await this.deps.historyQuery.searchSeat(softwareTeamName, context.seat, question);
       const excerpts = seatResult.hits.map((h) => `[gen ${h.generation}] ${h.text}`);
       let guidance: string | undefined;
       if (seatResult.degraded) {
@@ -161,7 +161,7 @@ export class AskService {
       }
       return {
         question,
-        rig: rigInfo,
+        softwareTeam: softwareTeamInfo,
         evidence: { backend: seatResult.backend, excerpts },
         seat: {
           name: seatResult.seat,
@@ -175,11 +175,11 @@ export class AskService {
       };
     }
 
-    const structured = this.answerStructuredQuestion(rigs[0]!.id, rigName, question, context);
+    const structured = this.answerStructuredQuestion(softwareTeams[0]!.id, softwareTeamName, question, context);
     if (structured) {
       return {
         question,
-        rig: rigInfo,
+        softwareTeam: softwareTeamInfo,
         evidence: {
           backend: "structured",
           excerpts: structured.excerpts,
@@ -193,20 +193,20 @@ export class AskService {
     if (!this.deps.transcriptsEnabled) {
       return {
         question,
-        rig: rigInfo,
+        softwareTeam: softwareTeamInfo,
         evidence: { backend: "rg", excerpts: [] },
         insufficient: true,
-        guidance: "Transcripts are disabled. Enable with: rig config set transcripts.enabled true",
+        guidance: "Transcripts are disabled. Enable with: SoftwareTeam config set transcripts.enabled true",
       };
     }
 
     // Search transcripts
-    const searchResult = await this.deps.historyQuery.search(rigName, question);
+    const searchResult = await this.deps.historyQuery.search(softwareTeamName, question);
 
     // Search chat messages via the shared history-query seam
     let chatExcerpts: string[] | undefined;
-    const rig = rigs[0]!;
-    const chatResults = this.deps.historyQuery.searchChat(rig.id, question);
+    const softwareTeam = softwareTeams[0]!;
+    const chatResults = this.deps.historyQuery.searchChat(softwareTeam.id, question);
     if (chatResults.length > 0) {
       chatExcerpts = chatResults.map((r) => `[${r.sender}] ${r.body}`);
     }
@@ -217,7 +217,7 @@ export class AskService {
 
     if (isInsufficient) {
       if (searchResult.noTranscriptDir) {
-        guidance = `No transcript directory for rig '${rigName}'. Transcripts start automatically on next rig up.`;
+        guidance = `No transcript directory for softwareTeam '${softwareTeamName}'. Transcripts start automatically on next SoftwareTeam up.`;
       } else if (searchResult.error) {
         // Backend failure
         guidance = searchResult.error;
@@ -232,7 +232,7 @@ export class AskService {
 
     return {
       question,
-      rig: rigInfo,
+      softwareTeam: softwareTeamInfo,
       evidence: {
         backend: searchResult.backend,
         excerpts: searchResult.excerpts,
@@ -244,8 +244,8 @@ export class AskService {
   }
 
   private answerStructuredQuestion(
-    rigId: string,
-    rigName: string,
+    softwareTeamId: string,
+    softwareTeamName: string,
     question: string,
     context?: { nodeId?: string; sessionName?: string },
   ): StructuredAnswer | null {
@@ -254,7 +254,7 @@ export class AskService {
 
     if (this.looksLikePeerQuestion(normalized)) {
       const identity = this.resolveIdentity(context);
-      if (identity && identity.identity.rigId === rigId) {
+      if (identity && identity.identity.softwareTeamId === softwareTeamId) {
         return {
           excerpts: identity.peers.map((peer) => this.formatPeerLine(peer.logicalId, peer.sessionName, peer.runtime, peer.podNamespace)),
           insufficient: false,
@@ -263,7 +263,7 @@ export class AskService {
       return {
         excerpts: [],
         insufficient: true,
-        guidance: "Cannot determine the current node identity for a peer-relative question. Run rig whoami --json from the target session or retry from an attached managed node.",
+        guidance: "Cannot determine the current node identity for a peer-relative question. Run SoftwareTeam whoami --json from the target session or retry from an attached managed node.",
       };
     }
 
@@ -276,7 +276,7 @@ export class AskService {
   }
 
   private looksLikePeerQuestion(question: string): boolean {
-    return /(^|\b)(who are my peers|who are the peers|list peers|show peers|who is in (this|the) rig|list nodes|show nodes)(\b|$)/.test(question);
+    return /(^|\b)(who are my peers|who are the peers|list peers|show peers|who is in (this|the) softwareTeam|list nodes|show nodes)(\b|$)/.test(question);
   }
 
   private formatPeerLine(

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join, isAbsolute } from "node:path";
-import { getOpenRigHome } from "../../openrig-compat.js";
+import { getSoftwareTeamHome } from "../../softwareteam-compat.js";
 import { SETTINGS_VALID_KEYS, type SettingsStore, type ResolvedSetting } from "./settings-store.js";
 import { connectionsProjection, readConnectionConfiguration } from "../gateway/connections-projection.js";
 import { DEFAULT_CONFIG } from "../gateway/slack/config.js";
@@ -102,7 +102,7 @@ function application(key: string): string {
 }
 
 /** Additive safe view of existing owners. No mutation, host probe, provider call or repair. */
-export function settingsBrowser(store: SettingsStore, gateway: Record<string, unknown> | null = null, home = getOpenRigHome()) {
+export function settingsBrowser(store: SettingsStore, gateway: Record<string, unknown> | null = null, home = getSoftwareTeamHome()) {
   const read = readConnectionConfiguration(home);
   const redact = read.text;
   const entries: BrowserEntry[] = [];
@@ -237,7 +237,7 @@ export function settingsBrowser(store: SettingsStore, gateway: Record<string, un
   policyLeaves(health, DEFAULT_HEALTH_POLICY);
   return { observedAt: new Date().toISOString(), home: safePath(home), sources, entries,
     exclusions: [
-      "Rig/project/workflow/seat declarations remain in their owning Specs and rig views.",
+      "SoftwareTeam/project/workflow/seat declarations remain in their owning Specs and SoftwareTeam views.",
       "Provider credentials and private runtime files are outside CONFIG.",
       "Arbitrary unregistered JSON keys are unsupported.",
       "Slack queueUrl is unused; retired alertTag is not a supported control.",

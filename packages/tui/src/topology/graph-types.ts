@@ -1,9 +1,9 @@
 // SPIKE (topology-render-style, feeds OPR.0.5.0.17) — narrow TUI-side read
-// shape of the EXISTING `GET /api/rigs/:id/graph` projection (R7: two
+// shape of the EXISTING `GET /api/software-teams/:id/graph` projection (R7: two
 // renderers over ONE projection; no new data, no new telemetry). Field names
 // match the daemon's serialized ReactFlowGraph verbatim — see
 // packages/daemon/src/domain/graph-projection.ts (RFNode/RFEdge) and the
-// captured sample spike/real-graph-v-openrig-build.json.
+// captured sample spike/real-graph-v-softwareteam-build.json.
 export interface GraphNodeData {
   logicalId: string;
   podNamespace?: string | null;
@@ -23,7 +23,7 @@ export interface GraphNodeData {
 
 export interface GraphNode {
   id: string;
-  /** "podGroup" (pod container) or "rigNode" (agent/infrastructure seat) */
+  /** "podGroup" (pod container) or "softwareTeamNode" (agent/infrastructure seat) */
   type: string;
   parentId?: string;
   data: GraphNodeData;
@@ -39,7 +39,7 @@ export interface GraphEdge {
   label: string;
 }
 
-export interface RigGraph {
+export interface SoftwareTeamGraph {
   nodes: GraphNode[];
   edges: GraphEdge[];
 }

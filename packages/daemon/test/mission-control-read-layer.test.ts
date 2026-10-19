@@ -8,12 +8,12 @@ import { streamItemsSchema } from "../src/db/migrations/023_stream_items.js";
 import { queueItemsSchema } from "../src/db/migrations/024_queue_items.js";
 import { queueTransitionsSchema } from "../src/db/migrations/025_queue_transitions.js";
 import { viewsCustomSchema } from "../src/db/migrations/030_views_custom.js";
-import { rigArchiveSchema } from "../src/db/migrations/042_rig_archive.js";
+import { softwareTeamArchiveSchema } from "../src/db/migrations/042_software_team_archive.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
 import { StreamStore } from "../src/domain/stream-store.js";
 import { ViewProjector } from "../src/domain/view-projector.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { MissionControlFleetCliCapability } from "../src/domain/mission-control/mission-control-fleet-cli-capability.js";
 import {
   MissionControlReadLayer,
@@ -33,22 +33,22 @@ describe("MissionControlReadLayer (PL-005 Phase A; 7 views)", () => {
     db = createDb();
     migrate(db, [
       coreSchema, eventsSchema, streamItemsSchema,
-      queueItemsSchema, queueTransitionsSchema, viewsCustomSchema, rigArchiveSchema,
+      queueItemsSchema, queueTransitionsSchema, viewsCustomSchema, softwareTeamArchiveSchema,
     ]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     bus = new EventBus(db);
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     viewProjector = new ViewProjector(db, bus);
     streamStore = new StreamStore(db, bus);
-    const rigRepo = new RigRepository(db);
-    const fleetCli = new MissionControlFleetCliCapability({ db, eventBus: bus, rigRepo });
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const fleetCli = new MissionControlFleetCliCapability({ db, eventBus: bus, softwareTeamRepo });
     readLayer = new MissionControlReadLayer({
       db,
       queueRepo,
       viewProjector,
       streamStore,
       fleetCliCapability: fleetCli,
-      // V0.3.1 slice 05 kernel-rig-as-default — the ReadLayer's
+      // V0.3.1 slice 05 kernel-software-team-as-default — the ReadLayer's
       // defaultOperatorSession is now injected from the resolved
       // workspace.operator_seat_name setting (rather than a hardcoded
       // constant). Existing fixtures use "human-operator@kernel" as the
@@ -73,7 +73,7 @@ describe("MissionControlReadLayer (PL-005 Phase A; 7 views)", () => {
   it("9-FIELD CONTENT MODEL: every row across every view exposes all 9 fields", async () => {
     // Seed varied content so every view has at least one row.
     await queueRepo.create({
-      sourceSession: "src@rig",
+      sourceSession: "src@software-team",
       destinationSession: "human-operator@kernel",
       body: "needs human approval",
       tier: "human-gate",
@@ -81,19 +81,19 @@ describe("MissionControlReadLayer (PL-005 Phase A; 7 views)", () => {
       evidenceRef: "proof/test-evidence.md",
     });
     await queueRepo.create({
-      sourceSession: "src@rig",
-      destinationSession: "agent@rig",
+      sourceSession: "src@software-team",
+      destinationSession: "agent@software-team",
       body: "agent task",
       priority: "high",
     });
     streamStore.emit({
       streamItemId: "stream-1",
-      sourceSession: "discovery@rig",
+      sourceSession: "discovery@software-team",
       body: "observation",
     });
 
     const fields: Array<keyof CompactStatusRow> = [
-      "rigOrMissionName",
+      "softwareTeamOrMissionName",
       "currentPhase",
       "state",
       "nextAction",
@@ -116,7 +116,7 @@ describe("MissionControlReadLayer (PL-005 Phase A; 7 views)", () => {
 
   it("my-queue filters to operator's human-gate items only", async () => {
     await queueRepo.create({
-      sourceSession: "src@rig",
+      sourceSession: "src@software-team",
       destinationSession: "human-operator@kernel",
       body: "for the operator",
       tier: "human-gate",
@@ -124,12 +124,12 @@ describe("MissionControlReadLayer (PL-005 Phase A; 7 views)", () => {
       evidenceRef: "proof/test-evidence.md",
     });
     await queueRepo.create({
-      sourceSession: "src@rig",
-      destinationSession: "agent@rig",
+      sourceSession: "src@software-team",
+      destinationSession: "agent@software-team",
       body: "not human-gate",
     });
     await queueRepo.create({
-      sourceSession: "src@rig",
+      sourceSession: "src@software-team",
       destinationSession: "human-operator@kernel",
       summary: "test summary (FR-4 human-routed fixture)",
       evidenceRef: "proof/test-evidence.md",
@@ -137,12 +137,12 @@ describe("MissionControlReadLayer (PL-005 Phase A; 7 views)", () => {
     });
     const result = await readLayer.readView("my-queue");
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0]?.rigOrMissionName).toBe("human-operator@kernel");
+    expect(result.rows[0]?.softwareTeamOrMissionName).toBe("human-operator@kernel");
   });
 
   it("qitem-backed rows preserve the queue body for phone human-gate decisions", async () => {
     await queueRepo.create({
-      sourceSession: "src@rig",
+      sourceSession: "src@software-team",
       destinationSession: "human-operator@kernel",
       body: "Approve the release candidate after checking the phone notification path.",
       tier: "human-gate",
@@ -159,13 +159,13 @@ describe("MissionControlReadLayer (PL-005 Phase A; 7 views)", () => {
   it("recent-ships caps at 10", async () => {
     for (let i = 0; i < 15; i++) {
       const created = await queueRepo.create({
-        sourceSession: "src@rig",
-        destinationSession: "agent@rig",
+        sourceSession: "src@software-team",
+        destinationSession: "agent@software-team",
         body: `ship ${i}`,
       });
       queueRepo.update({
         qitemId: created.qitemId,
-        actorSession: "agent@rig",
+        actorSession: "agent@software-team",
         state: "done",
         closureReason: "no-follow-on",
       });
@@ -187,18 +187,18 @@ describe("MissionControlReadLayer (PL-005 Phase A; 7 views)", () => {
   it("recent-observations reads from stream_items (PL-004 Phase A daemon-backed source)", async () => {
     streamStore.emit({
       streamItemId: "stream-1",
-      sourceSession: "discovery@rig",
+      sourceSession: "discovery@software-team",
       body: "observation 1",
       hintType: "feature-request",
     });
     streamStore.emit({
       streamItemId: "stream-2",
-      sourceSession: "discovery@rig",
+      sourceSession: "discovery@software-team",
       body: "observation 2",
     });
     const result = await readLayer.readView("recent-observations");
     expect(result.rows).toHaveLength(2);
-    expect(result.rows[0]?.rigOrMissionName).toBe("discovery@rig");
+    expect(result.rows[0]?.softwareTeamOrMissionName).toBe("discovery@software-team");
   });
 
   it("recent-observations returns the newest bounded page when item count exceeds limit (#489)", async () => {
@@ -206,7 +206,7 @@ describe("MissionControlReadLayer (PL-005 Phase A; 7 views)", () => {
     for (let i = 1; i <= 60; i++) {
       streamStore.emit({
         streamItemId: `stream-${String(i).padStart(3, "0")}`,
-        sourceSession: `discovery-${i}@rig`,
+        sourceSession: `discovery-${i}@software-team`,
         body: `observation ${i}`,
         tsEmitted: new Date(Date.now() + i * 1000).toISOString(),
       });
@@ -216,9 +216,9 @@ describe("MissionControlReadLayer (PL-005 Phase A; 7 views)", () => {
     // The items returned should be the latest 50 (items 11 to 60)
     // Preserving chronological order (direction: "latest" reverses the DESC query)
     expect(result.rows[0]?.rawSourceRef).toBe("stream-011");
-    expect(result.rows[0]?.rigOrMissionName).toBe("discovery-11@rig");
+    expect(result.rows[0]?.softwareTeamOrMissionName).toBe("discovery-11@software-team");
     expect(result.rows[49]?.rawSourceRef).toBe("stream-060");
-    expect(result.rows[49]?.rigOrMissionName).toBe("discovery-60@rig");
+    expect(result.rows[49]?.softwareTeamOrMissionName).toBe("discovery-60@software-team");
   });
 
   it("fleet view reports unobserved CLI capabilities without claiming stale versions", async () => {
@@ -226,8 +226,8 @@ describe("MissionControlReadLayer (PL-005 Phase A; 7 views)", () => {
     expect(result.viewName).toBe("fleet");
     expect(typeof result.meta.rowCount).toBe("number");
     expect(result.rows[0]?.confidenceFreshness).toBe("unknown");
-    expect(result.meta.rigsRunningStaleCli).toBe(0);
-    expect(result.meta.rigsWithUnknownCliCapabilities).toBe(1);
+    expect(result.meta.softwareTeamsRunningStaleCli).toBe(0);
+    expect(result.meta.softwareTeamsWithUnknownCliCapabilities).toBe(1);
     expect(result.meta.degradedFields).toBeUndefined();
   });
 });

@@ -18,15 +18,15 @@ interface ExpandResult {
 }
 
 export function expandCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("expand").description("Add a pod to a running rig");
+  const cmd = new Command("expand").description("Add a pod to a running softwareTeam");
   const getDeps = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   cmd
-    .argument("<rig-id>", "ID of the target rig")
+    .argument("<software-team-id>", "ID of the target softwareTeam")
     .argument("<pod-fragment-path>", "Path to YAML pod fragment file")
     .option("--json", "JSON output for agents")
-    .option("--rig-root <path>", "Root directory for agent resolution")
-    .action(async (rigId: string, fragmentPath: string, opts: { json?: boolean; rigRoot?: string }) => {
+    .option("--software-team-root <path>", "Root directory for agent resolution")
+    .action(async (softwareTeamId: string, fragmentPath: string, opts: { json?: boolean; softwareTeamRoot?: string }) => {
       const deps = getDeps();
       const status = await getDaemonStatus(deps.lifecycleDeps);
       if (!daemonStatusGuard(status)) return;
@@ -58,10 +58,10 @@ export function expandCommand(depsOverride?: StatusDeps): Command {
 
       const body: Record<string, unknown> = { pod };
       if (crossPodEdges) body["crossPodEdges"] = crossPodEdges;
-      if (opts.rigRoot) body["rigRoot"] = opts.rigRoot;
+      if (opts.softwareTeamRoot) body["softwareTeamRoot"] = opts.softwareTeamRoot;
 
       const client = deps.clientFactory(getDaemonUrl(status));
-      const res = await client.post<ExpandResult>(`/api/rigs/${encodeURIComponent(rigId)}/expand`, body);
+      const res = await client.post<ExpandResult>(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/expand`, body);
 
       const data = res.data;
 
@@ -78,7 +78,7 @@ export function expandCommand(depsOverride?: StatusDeps): Command {
       }
 
       // Human-readable output
-      console.log(`Expanded rig ${rigId}`);
+      console.log(`Expanded softwareTeam ${softwareTeamId}`);
       console.log(`  Pod: ${data.podNamespace}`);
       console.log(`  Status: ${data.status}`);
       console.log("");
@@ -105,11 +105,11 @@ export function expandCommand(depsOverride?: StatusDeps): Command {
       if (data.retryTargets && data.retryTargets.length > 0) {
         console.log("");
         console.log("  Failed nodes can be relaunched individually. Recover by:");
-        console.log(`    1. Verify other seats are healthy: rig ps --nodes --rig ${rigId}`);
+        console.log(`    1. Verify other seats are healthy: SoftwareTeam ps --nodes --software-team ${softwareTeamId}`);
         console.log(`    2. Fix the spec/config issue behind each failure.`);
         console.log(`    3. Relaunch each failed node:`);
         for (const target of data.retryTargets) {
-          console.log(`         rig launch ${rigId} ${target}`);
+          console.log(`         SoftwareTeam launch ${softwareTeamId} ${target}`);
         }
         console.log(`  Failed targets: ${data.retryTargets.join(", ")}`);
       }

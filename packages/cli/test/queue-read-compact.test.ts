@@ -13,8 +13,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -66,7 +66,7 @@ let stderr: string[];
 async function run(argv: string[], routes: Parameters<typeof makeDeps>[0]): Promise<string> {
   const program = createProgram({ queueDeps: makeDeps(routes) });
   program.exitOverride();
-  await program.parseAsync(["node", "rig", "queue", ...argv]);
+  await program.parseAsync(["node", "softwareTeam", "queue", ...argv]);
   return logs.join("\n");
 }
 
@@ -89,7 +89,7 @@ const LOG: Row[] = [
 describe("queue show and transitions (output.compact, P2/P3)", () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
-    vi.stubEnv("OPENRIG_SESSION_NAME", "worker@r");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "worker@r");
     logs = []; errors = []; stderr = [];
     vi.spyOn(console, "log").mockImplementation((...a) => { logs.push(a.join(" ")); });
     vi.spyOn(console, "error").mockImplementation((...a) => { errors.push(a.join(" ")); });
@@ -102,7 +102,7 @@ describe("queue show and transitions (output.compact, P2/P3)", () => {
 
   describe("P2 queue show", () => {
     it("switch off: today's preview, every field kept, no notice", async () => {
-      vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "0");
+      vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "0");
       const out = JSON.parse(await run(["show", ID, "--json"], showRoute()));
       expect(out).toHaveProperty("tier", null);
       expect(out).toHaveProperty("evidenceRef", null);
@@ -111,7 +111,7 @@ describe("queue show and transitions (output.compact, P2/P3)", () => {
     });
 
     it("switch on: status fields and body marker kept, empty fields left out and counted, the full read named", async () => {
-      vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+      vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
       const data = row({ state: "blocked", blockedOn: "external:ci", closureReason: null }, { blocker: { ref: "external:ci", owner: null, state: null } });
       const out = JSON.parse(await run(["show", ID, "--json"], showRoute(data)));
       for (const key of ["qitemId", "state", "destinationSession", "sourceSession", "summary", "priority", "tags", "tsCreated", "tsUpdated",
@@ -124,27 +124,27 @@ describe("queue show and transitions (output.compact, P2/P3)", () => {
       expect(out.readView.omittedFields[0].path).toBe("body (after preview)");
       expect(out.readView.complete).toBe(false);
       expect(errors.join("\n")).toContain(`${empties.items} empty fields not shown;`);
-      expect(errors.join("\n")).toContain(`rig queue show '${ID}' --full --json`);
+      expect(errors.join("\n")).toContain(`SoftwareTeam queue show '${ID}' --full --json`);
     });
 
     it("switch on, plain: the body marker line stays and the empty-field notice follows it", async () => {
-      vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+      vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
       const text = await run(["show", ID], showRoute());
       expect(text).toContain("bounded preview — complete body is");
       expect(text).toMatch(/empty fields not shown/);
     });
 
     it("switch on, --full: byte-identical to the switch-off --full read", async () => {
-      vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "0");
+      vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "0");
       const before = await run(["show", ID, "--full", "--json"], showRoute());
       logs = [];
-      vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+      vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
       expect(await run(["show", ID, "--full", "--json"], showRoute())).toBe(before);
       expect(errors).toEqual([]);
     });
 
     it("an error response prints in full, whatever the switch", async () => {
-      vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+      vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
       const text = await run(["show", ID, "--json"], { [`GET /api/queue/${ID}`]: { status: 404, data: { error: "qitem_not_found" } } });
       expect(text).toContain("qitem_not_found");
     });
@@ -157,7 +157,7 @@ describe("queue show and transitions (output.compact, P2/P3)", () => {
   });
 
   it("P2: an empty blocker and closure stay at their paths, so .blockedOn == null still reads", async () => {
-    vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+    vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
     const out = JSON.parse(await run(["show", ID, "--json"], { [`GET /api/queue/${ID}`]: { status: 200, data: row() } }));
     expect(out).toHaveProperty("blockedOn", null);
     expect(out).toHaveProperty("closureReason", null);
@@ -165,14 +165,14 @@ describe("queue show and transitions (output.compact, P2/P3)", () => {
 
   describe("P3 queue transitions", () => {
     it("switch on: the latest disposition and its reason are kept, the rest counted on stderr (visible through jq), the array shape and order kept", async () => {
-      vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+      vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
       const out = JSON.parse(await run(["transitions", ID, "--json"], transitionsRoute()));
       expect(Array.isArray(out)).toBe(true);
       expect(out).toHaveLength(TRANSITIONS_SHOWN);
       expect(out[0]).toMatchObject({ transitionId: 3, state: "blocked", transitionNote: "parked: waiting on CI run 42" });
       expect(out.at(-1)).toEqual(LOG.at(-1)); // .[-1] is still the latest
       expect(out.map((t: Row) => t.state)).toEqual(Array(TRANSITIONS_SHOWN).fill("blocked")); // a filter on retained fields runs
-      expect(errors.join("\n")).toContain(`7 earlier transitions not shown (12 in all; the latest disposition is kept); full log: rig queue transitions '${ID}' --full --json`);
+      expect(errors.join("\n")).toContain(`7 earlier transitions not shown (12 in all; the latest disposition is kept); full log: SoftwareTeam queue transitions '${ID}' --full --json`);
     });
 
     it("a closure is the disposition even when the state didn't change", () => {
@@ -189,18 +189,18 @@ describe("queue show and transitions (output.compact, P2/P3)", () => {
     });
 
     it("a short log prints whole, with no notice", async () => {
-      vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+      vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
       const out = JSON.parse(await run(["transitions", ID, "--json"], transitionsRoute(LOG.slice(0, 3))));
       expect(out).toEqual(LOG.slice(0, 3));
       expect(errors).toEqual([]);
     });
 
     it("--full and the switch off both print the whole log as today", async () => {
-      vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "0");
+      vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "0");
       const before = await run(["transitions", ID, "--json"], transitionsRoute());
       expect(JSON.parse(before)).toEqual(LOG);
       logs = [];
-      vi.stubEnv("OPENRIG_OUTPUT_COMPACT", "1");
+      vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", "1");
       expect(await run(["transitions", ID, "--json", "--full"], transitionsRoute())).toBe(before);
       expect(errors).toEqual([]);
     });
@@ -217,7 +217,7 @@ describe("queue show and transitions (output.compact, P2/P3)", () => {
       ["transitions --json", ["transitions", ID, "--json"], transitionsRoute()],
     ] as const) {
       for (const sw of ["0", "1"]) {
-        vi.stubEnv("OPENRIG_OUTPUT_COMPACT", sw);
+        vi.stubEnv("SOFTWARETEAM_OUTPUT_COMPACT", sw);
         logs = []; errors = [];
         const out = await run([...argv], routes as never);
         sizes[`${label} | ${sw === "1" ? "after" : "before"} | stdout`] = out.length;

@@ -1,12 +1,12 @@
 // V1 attempt-3 Phase 5 ship-gate bounce P0-1 + P0-2 regression guards.
 //
 // P0-1: TopologyTableView previously called useNodeInventory inside a
-// scopedRigs.map() — when rigs grew from undefined → [N], hook count
+// scopedSoftwareTeams.map() — when softwareTeams grew from undefined → [N], hook count
 // jumped 0 → N which is a Rules-of-Hooks violation. At desktop this was
 // masked because table view-mode mounted only after the user clicked,
-// by which time rigs was already resolved (consistent count from first
+// by which time softwareTeams was already resolved (consistent count from first
 // render). At mobile (P5-9), /topology graph degrades to table at first
-// render, so the table mounts BEFORE rigs resolves → crash. Fixed by
+// render, so the table mounts BEFORE softwareTeams resolves → crash. Fixed by
 // switching to `useQueries` (single hook call regardless of array length).
 //
 // P0-2: NodeDetailPanel previously self-pinned with
@@ -43,7 +43,7 @@ function withQueryClient(ui: React.ReactNode, opts: { selectedHost?: string } = 
         {
           id: opts.selectedHost,
           transport: "http",
-          url: `http://${opts.selectedHost}:7433`,
+          url: `http://${opts.selectedHost}:7434`,
           selected: true,
           status: "reachable",
         },
@@ -54,18 +54,18 @@ function withQueryClient(ui: React.ReactNode, opts: { selectedHost?: string } = 
 }
 
 // -----------------------------------------------------------------------
-// P0-1: TopologyTableView no-crash regression — mount before rigs resolve.
+// P0-1: TopologyTableView no-crash regression — mount before softwareTeams resolve.
 // -----------------------------------------------------------------------
 
 import { TopologyTableView } from "../src/components/topology/TopologyTableView.js";
 
-describe("TopologyTableView P0-1 regression: no rules-of-hooks crash on first-render-before-rigs-resolved", () => {
-  it("mounts cleanly when /api/rigs/summary has not yet resolved (mobile P5-9 first-render path)", async () => {
+describe("TopologyTableView P0-1 regression: no rules-of-hooks crash on first-render-before-software-teams-resolved", () => {
+  it("mounts cleanly when /api/software-teams/summary has not yet resolved (mobile P5-9 first-render path)", async () => {
     let resolveSummary: ((value: unknown) => void) | null = null;
     mockFetch.mockImplementation(async (url: string) => {
-      if (url.includes("/api/rigs/summary")) {
-        // Hold the summary promise so first render sees rigs=undefined,
-        // then resolve it → second render sees rigs=[N]. Pre-fix, this
+      if (url.includes("/api/software-teams/summary")) {
+        // Hold the summary promise so first render sees softwareTeams=undefined,
+        // then resolve it → second render sees softwareTeams=[N]. Pre-fix, this
         // sequence crashed (hook count 0 → N).
         return new Promise((resolve) => {
           resolveSummary = (value) => {
@@ -73,7 +73,7 @@ describe("TopologyTableView P0-1 regression: no rules-of-hooks crash on first-re
           };
         });
       }
-      const m = url.match(/\/api\/rigs\/([^/]+)\/nodes/);
+      const m = url.match(/\/api\/software-teams\/([^/]+)\/nodes/);
       if (m) {
         return new Response(JSON.stringify([]));
       }
@@ -81,29 +81,29 @@ describe("TopologyTableView P0-1 regression: no rules-of-hooks crash on first-re
     });
 
     const { container } = withQueryClient(<TopologyTableView />);
-    // Initial render: rigs not yet resolved; component must NOT crash.
+    // Initial render: softwareTeams not yet resolved; component must NOT crash.
     expect(container.querySelector("[data-testid='topology-table-view']")).toBeTruthy();
 
-    // Now resolve the summary with multiple rigs — hook count would
+    // Now resolve the summary with multiple softwareTeams — hook count would
     // change under the old shape; under the fix (useQueries) it stays at 1.
     resolveSummary!([
-      { id: "rig-1", name: "rig-1" },
-      { id: "rig-2", name: "rig-2" },
-      { id: "rig-3", name: "rig-3" },
+      { id: "software-team-1", name: "software-team-1" },
+      { id: "software-team-2", name: "software-team-2" },
+      { id: "software-team-3", name: "software-team-3" },
     ]);
 
     await waitFor(() => {
-      // Component still alive after rigs resolution.
+      // Component still alive after softwareTeams resolution.
       expect(container.querySelector("[data-testid='topology-table-view']")).toBeTruthy();
     });
   });
 
   it("remote selection threads host param through table node-inventory fan-out", async () => {
     mockFetch.mockImplementation(async (url: string) => {
-      if (url === "/api/rigs/summary?host=vps-a") {
-        return new Response(JSON.stringify([{ id: "rig-1", name: "remote-rig" }]));
+      if (url === "/api/software-teams/summary?host=vps-a") {
+        return new Response(JSON.stringify([{ id: "software-team-1", name: "remote-software-team" }]));
       }
-      if (url === "/api/rigs/rig-1/nodes?host=vps-a") {
+      if (url === "/api/software-teams/software-team-1/nodes?host=vps-a") {
         return new Response(JSON.stringify([]));
       }
       return new Response("[]");
@@ -112,11 +112,11 @@ describe("TopologyTableView P0-1 regression: no rules-of-hooks crash on first-re
     const { container } = withQueryClient(<TopologyTableView />, { selectedHost: "vps-a" });
     expect(container.querySelector("[data-testid='topology-table-view']")).toBeTruthy();
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith("/api/rigs/summary?host=vps-a", expect.objectContaining({ signal: expect.any(AbortSignal) }));
-      expect(mockFetch).toHaveBeenCalledWith("/api/rigs/rig-1/nodes?host=vps-a");
+      expect(mockFetch).toHaveBeenCalledWith("/api/software-teams/summary?host=vps-a", expect.objectContaining({ signal: expect.any(AbortSignal) }));
+      expect(mockFetch).toHaveBeenCalledWith("/api/software-teams/software-team-1/nodes?host=vps-a");
     });
     expect(
-      mockFetch.mock.calls.some(([url]) => String(url) === "/api/rigs/rig-1/nodes"),
+      mockFetch.mock.calls.some(([url]) => String(url) === "/api/software-teams/software-team-1/nodes"),
     ).toBe(false);
   });
 

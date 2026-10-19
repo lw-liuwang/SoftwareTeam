@@ -77,7 +77,7 @@ describe("InstallEngine", () => {
     migrate(db, ALL_MIGRATIONS);
     pkgRepo = new PackageRepository(db);
     installRepo = new InstallRepository(db);
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "rigged-test-"));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-test-"));
     repoRoot = path.join(tmpDir, "repo");
     pkgRoot = path.join(tmpDir, "pkg");
     fs.mkdirSync(repoRoot, { recursive: true });
@@ -139,9 +139,9 @@ describe("InstallEngine", () => {
     engine.apply(makePolicy([entry]), makePlan([entry]), pkg.id, repoRoot);
 
     const content = fs.readFileSync(targetPath, "utf-8");
-    expect(content).toContain("<!-- BEGIN OpenRig MANAGED BLOCK: test-pkg -->");
+    expect(content).toContain("<!-- BEGIN SoftwareTeam MANAGED BLOCK: test-pkg -->");
     expect(content).toContain("Review all PRs carefully.");
-    expect(content).toContain("<!-- END OpenRig MANAGED BLOCK: test-pkg -->");
+    expect(content).toContain("<!-- END SoftwareTeam MANAGED BLOCK: test-pkg -->");
   });
 
   // Test 3: Journal entries with hashes
@@ -193,7 +193,7 @@ describe("InstallEngine", () => {
     expect(content).toContain("# Existing content");
     expect(content).toContain("Keep this.");
     expect(content).toContain("New guidance.");
-    expect(content).toContain("<!-- BEGIN OpenRig MANAGED BLOCK: test-pkg -->");
+    expect(content).toContain("<!-- BEGIN SoftwareTeam MANAGED BLOCK: test-pkg -->");
   });
 
   // Test 6: Existing managed block updated in place
@@ -202,7 +202,7 @@ describe("InstallEngine", () => {
     const sourcePath = writeSource("guidance/AGENTS.md", "Updated guidance.");
     const targetPath = path.join(repoRoot, "AGENTS.md");
     fs.writeFileSync(targetPath,
-      "# Header\n<!-- BEGIN OpenRig MANAGED BLOCK: test-pkg -->\nOld content.\n<!-- END OpenRig MANAGED BLOCK: test-pkg -->\n# Footer\n",
+      "# Header\n<!-- BEGIN SoftwareTeam MANAGED BLOCK: test-pkg -->\nOld content.\n<!-- END SoftwareTeam MANAGED BLOCK: test-pkg -->\n# Footer\n",
       "utf-8"
     );
 
@@ -222,7 +222,7 @@ describe("InstallEngine", () => {
     expect(content).toContain("# Footer");
   });
 
-  it.each(["OpenRig", "RIGGED"])("replaces the ordered %s block without consuming an earlier orphan closing marker", (brand) => {
+  it.each(["SoftwareTeam", "SOFTWARETEAM"])("replaces the ordered %s block without consuming an earlier orphan closing marker", (brand) => {
     const pkg = seedPackage();
     const sourcePath = writeSource("guidance/AGENTS.md", "Updated guidance.");
     const targetPath = path.join(repoRoot, "AGENTS.md");
@@ -231,7 +231,7 @@ describe("InstallEngine", () => {
     fs.writeFileSync(targetPath, `${prefix}<!-- BEGIN ${brand} MANAGED BLOCK: test-pkg -->\nOld content.\n${end}\n# Footer\n`);
     const entry = makeEntry({ exportType: "guidance", classification: "managed_merge", targetPath, sourcePath });
     new InstallEngine(installRepo, realFs(tmpDir)).apply(makePolicy([entry]), makePlan([entry]), pkg.id, repoRoot);
-    expect(fs.readFileSync(targetPath, "utf8")).toBe(`${prefix}<!-- BEGIN OpenRig MANAGED BLOCK: test-pkg -->\nUpdated guidance.\n<!-- END OpenRig MANAGED BLOCK: test-pkg -->\n# Footer\n`);
+    expect(fs.readFileSync(targetPath, "utf8")).toBe(`${prefix}<!-- BEGIN SoftwareTeam MANAGED BLOCK: test-pkg -->\nUpdated guidance.\n<!-- END SoftwareTeam MANAGED BLOCK: test-pkg -->\n# Footer\n`);
   });
 
   // Test 7: Backup created before overwrite

@@ -1,10 +1,10 @@
 import nodePath from "node:path";
 import { createHash } from "node:crypto";
-import { RigSpecCodec } from "./rigspec-codec.js";
-import { RigSpecSchema } from "./rigspec-schema.js";
+import { SoftwareTeamSpecCodec } from "./software-team-spec-codec.js";
+import { SoftwareTeamSpecSchema } from "./software-team-spec-schema.js";
 import { assertShippableSubstance, resolveAgentRef, type AgentResolverFsOps } from "./agent-resolver.js";
 import { serializePodBundleManifest, type PodBundleManifest, type PodBundleAgentEntry, type PodBundleAgentImportEntry, type BundleProvenance, type BundleCompatibility } from "./bundle-types.js";
-import type { RigSpec, StartupBlock } from "./types.js";
+import type { SoftwareTeamSpec, StartupBlock } from "./types.js";
 
 export interface PodAssemblerFsOps extends AgentResolverFsOps {
   /** Raw bytes, for files the bundle copies verbatim (agent packages, culture, docs, startup files). */
@@ -19,15 +19,15 @@ export interface PodAssemblerFsOps extends AgentResolverFsOps {
 }
 
 export interface PodAssembleOptions {
-  rigRoot: string;
-  rigSpecPath: string;
+  softwareTeamRoot: string;
+  softwareTeamSpecPath: string;
   outputDir: string;
   bundleName: string;
   bundleVersion: string;
   /**
    * Optional Item-1 provenance input. Caller fills the fields it knows
-   * (sourceHost, authorSession, daemonVersion, cliVersion, sourceRigId,
-   * sourceRigName, notes). The assembler mirrors root createdAt into
+   * (sourceHost, authorSession, daemonVersion, cliVersion, sourceSoftwareTeamId,
+   * sourceSoftwareTeamName, notes). The assembler mirrors root createdAt into
    * provenance.createdAt unless caller pre-set it (caller value wins
    * for test determinism). Missing block = no provenance recorded
    * (backward compat).
@@ -60,22 +60,22 @@ export class PodBundleAssembler {
   }
 
   /**
-   * Assemble a pod-aware bundle from a rig spec.
+   * Assemble a pod-aware bundle from a softwareTeam spec.
    * @param opts - assembly options
    * @returns manifest and list of collected files
    */
   assemble(opts: PodAssembleOptions): PodAssembleResult {
-    // 1. Parse + validate rig spec
-    if (!this.fs.exists(opts.rigSpecPath)) {
-      throw new Error(`Rig spec not found: ${opts.rigSpecPath}`);
+    // 1. Parse + validate softwareTeam spec
+    if (!this.fs.exists(opts.softwareTeamSpecPath)) {
+      throw new Error(`SoftwareTeam spec not found: ${opts.softwareTeamSpecPath}`);
     }
-    const rigSpecYaml = this.fs.readFile(opts.rigSpecPath);
-    const raw = RigSpecCodec.parse(rigSpecYaml);
-    const validation = RigSpecSchema.validate(raw);
+    const softwareTeamSpecYaml = this.fs.readFile(opts.softwareTeamSpecPath);
+    const raw = SoftwareTeamSpecCodec.parse(softwareTeamSpecYaml);
+    const validation = SoftwareTeamSpecSchema.validate(raw);
     if (!validation.valid) {
-      throw new Error(`Invalid rig spec: ${validation.errors.join("; ")}`);
+      throw new Error(`Invalid SoftwareTeam spec: ${validation.errors.join("; ")}`);
     }
-    const rigSpec = RigSpecSchema.normalize(raw as Record<string, unknown>);
+    const softwareTeamSpec = SoftwareTeamSpecSchema.normalize(raw as Record<string, unknown>);
 
     // 2. Collect all files
     const collectedFiles: string[] = [];
@@ -83,40 +83,40 @@ export class PodBundleAssembler {
     const resolvedAgentPaths = new Set<string>();
     const unresolvedSkills = new Set<string>();
 
-    // 2a. Rig spec — written after ref rewriting (deferred to step 4)
+    // 2a. SoftwareTeam spec — written after ref rewriting (deferred to step 4)
     this.fs.mkdirp(opts.outputDir);
-    collectedFiles.push("rig.yaml");
+    collectedFiles.push("software-team.yaml");
 
     // Track ref rewrites: originalRef -> vendored local: ref
     const refRewrites = new Map<string, string>();
 
     // 2b. Culture file
-    if (rigSpec.cultureFile) {
-      this.collectRigFile(rigSpec.cultureFile, opts.rigRoot, opts.outputDir, collectedFiles);
+    if (softwareTeamSpec.cultureFile) {
+      this.collectSoftwareTeamFile(softwareTeamSpec.cultureFile, opts.softwareTeamRoot, opts.outputDir, collectedFiles);
     }
 
     // 2b2. Docs files — required when declared (unlike culture/startup which are optional)
-    if (rigSpec.docs) {
-      for (const doc of rigSpec.docs) {
-        const absPath = nodePath.resolve(opts.rigRoot, doc.path);
+    if (softwareTeamSpec.docs) {
+      for (const doc of softwareTeamSpec.docs) {
+        const absPath = nodePath.resolve(opts.softwareTeamRoot, doc.path);
         if (!this.fs.exists(absPath)) {
           throw new Error(`Declared doc file not found: ${doc.path} (resolved to ${absPath}). Remove it from the docs field or create the file.`);
         }
-        this.collectRigFile(doc.path, opts.rigRoot, opts.outputDir, collectedFiles);
+        this.collectSoftwareTeamFile(doc.path, opts.softwareTeamRoot, opts.outputDir, collectedFiles);
       }
     }
 
-    // 2c. Rig startup files
-    this.collectStartupFiles(rigSpec.startup, opts.rigRoot, opts.outputDir, collectedFiles);
+    // 2c. SoftwareTeam startup files
+    this.collectStartupFiles(softwareTeamSpec.startup, opts.softwareTeamRoot, opts.outputDir, collectedFiles);
 
     // 2d. Walk pods
-    for (const pod of rigSpec.pods) {
+    for (const pod of softwareTeamSpec.pods) {
       // Pod startup files
-      this.collectStartupFiles(pod.startup, opts.rigRoot, opts.outputDir, collectedFiles);
+      this.collectStartupFiles(pod.startup, opts.softwareTeamRoot, opts.outputDir, collectedFiles);
 
       for (const member of pod.members) {
         // Member startup files
-        this.collectStartupFiles(member.startup, opts.rigRoot, opts.outputDir, collectedFiles);
+        this.collectStartupFiles(member.startup, opts.softwareTeamRoot, opts.outputDir, collectedFiles);
 
         // Terminal members are bundle-native sentinels, not vendored agents.
         if (member.agentRef === "builtin:terminal") {
@@ -124,7 +124,7 @@ export class PodBundleAssembler {
         }
 
         // Resolve agent_ref
-        const result = resolveAgentRef(member.agentRef, opts.rigRoot, this.fs);
+        const result = resolveAgentRef(member.agentRef, opts.softwareTeamRoot, this.fs);
         if (!result.ok) {
           throw new Error(`Failed to resolve agent_ref "${member.agentRef}" for member ${pod.id}.${member.id}: ${result.code === "validation_failed" ? (result as { errors: string[] }).errors.join("; ") : (result as { error: string }).error}`);
         }
@@ -195,9 +195,9 @@ export class PodBundleAssembler {
       }
     }
 
-    // 3. Write rewritten rig.yaml with vendored agent_ref values
-    const rewrittenRigYaml = this.rewriteRigSpecRefs(rigSpecYaml, refRewrites);
-    this.fs.writeFile(nodePath.join(opts.outputDir, "rig.yaml"), rewrittenRigYaml);
+    // 3. Write rewritten software-team.yaml with vendored agent_ref values
+    const rewrittenSoftwareTeamYaml = this.rewriteSoftwareTeamSpecRefs(softwareTeamSpecYaml, refRewrites);
+    this.fs.writeFile(nodePath.join(opts.outputDir, "software-team.yaml"), rewrittenSoftwareTeamYaml);
 
     // 4. Build manifest
     const createdAt = new Date().toISOString();
@@ -206,9 +206,9 @@ export class PodBundleAssembler {
       name: opts.bundleName,
       version: opts.bundleVersion,
       createdAt,
-      rigSpec: "rig.yaml",
+      softwareTeamSpec: "software-team.yaml",
       agents: agentEntries,
-      cultureFile: rigSpec.cultureFile,
+      cultureFile: softwareTeamSpec.cultureFile,
     };
     if (opts.provenance) {
       manifest.provenance = {
@@ -239,17 +239,17 @@ export class PodBundleAssembler {
     return { manifest, collectedFiles, ...(warnings.length > 0 ? { warnings } : {}) };
   }
 
-  private collectRigFile(relPath: string, rigRoot: string, outputDir: string, collected: string[]): void {
-    const root = nodePath.resolve(rigRoot);
+  private collectSoftwareTeamFile(relPath: string, softwareTeamRoot: string, outputDir: string, collected: string[]): void {
+    const root = nodePath.resolve(softwareTeamRoot);
     const absPath = nodePath.resolve(root, relPath);
     if (absPath !== root && !absPath.startsWith(nodePath.join(root, nodePath.sep))) {
-      throw new Error(`Path traversal detected: "${relPath}" escapes rig root`);
+      throw new Error(`Path traversal detected: "${relPath}" escapes SoftwareTeam root`);
     }
     if (!this.fs.exists(absPath)) return; // optional files may not exist
     const realRoot = this.fs.realpath(root);
     const realPath = this.fs.realpath(absPath);
     if (realPath !== realRoot && !realPath.startsWith(nodePath.join(realRoot, nodePath.sep))) {
-      throw new Error(`"${relPath}" resolves outside the rig root through a symlink; copy the file into the rig to bundle it`);
+      throw new Error(`"${relPath}" resolves outside the SoftwareTeam root through a symlink; copy the file into the SoftwareTeam to bundle it`);
     }
     const content = this.fs.readFileBuffer(realPath);
     const sourceMode = this.fs.fileMode?.(realPath);
@@ -260,10 +260,10 @@ export class PodBundleAssembler {
     collected.push(relPath);
   }
 
-  private collectStartupFiles(startup: StartupBlock | undefined, rigRoot: string, outputDir: string, collected: string[]): void {
+  private collectStartupFiles(startup: StartupBlock | undefined, softwareTeamRoot: string, outputDir: string, collected: string[]): void {
     if (!startup) return;
     for (const file of startup.files) {
-      this.collectRigFile(file.path, rigRoot, outputDir, collected);
+      this.collectSoftwareTeamFile(file.path, softwareTeamRoot, outputDir, collected);
     }
   }
 
@@ -321,9 +321,9 @@ export class PodBundleAssembler {
     this.fs.writeFile(vendoredAgentYamlPath, rewritten);
   }
 
-  private rewriteRigSpecRefs(originalYaml: string, refRewrites: Map<string, string>): string {
+  private rewriteSoftwareTeamSpecRefs(originalYaml: string, refRewrites: Map<string, string>): string {
     // Parse as raw object, rewrite agent_ref values, re-serialize
-    const raw = RigSpecCodec.parse(originalYaml) as Record<string, unknown>;
+    const raw = SoftwareTeamSpecCodec.parse(originalYaml) as Record<string, unknown>;
     const pods = raw["pods"] as Array<Record<string, unknown>> | undefined;
     if (pods) {
       for (const pod of pods) {
@@ -339,6 +339,6 @@ export class PodBundleAssembler {
         }
       }
     }
-    return RigSpecCodec.serialize(RigSpecSchema.normalize(raw as Record<string, unknown>));
+    return SoftwareTeamSpecCodec.serialize(SoftwareTeamSpecSchema.normalize(raw as Record<string, unknown>));
   }
 }

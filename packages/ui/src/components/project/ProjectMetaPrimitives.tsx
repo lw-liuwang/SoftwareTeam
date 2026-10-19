@@ -167,11 +167,11 @@ export function humanizeCodeLabel(value: string): string {
 export function compactSessionLabel(session: string | undefined | null): string {
   if (!session) return "unknown";
   if (session === "human@host") return "human@host";
-  // OPR.0.4.6.MH1 FR-8: the shared parse contract (greedy first-@ rig —
+  // OPR.0.4.6.MH1 FR-8: the shared parse contract (greedy first-@ softwareTeam —
   // no silent truncation of anything after a second "@").
   const parsed = parseSessionName(session);
   if (parsed.kind !== "canonical") return session;
-  return `${parsed.member}@${parsed.rig}`;
+  return `${parsed.member}@${parsed.softwareTeam}`;
 }
 
 export function formatFriendlyDate(value: string | undefined | null): string {

@@ -46,21 +46,21 @@ function captureLogs(fn: () => Promise<void>): Promise<{ logs: string[] }> {
 
 const FOUND = {
   question: "SECRET_MARKER",
-  rig: { name: "my-rig", status: "running", nodeCount: 1, runningCount: 1, uptime: "1h" },
+  softwareTeam: { name: "my-software-team", status: "running", nodeCount: 1, runningCount: 1, uptime: "1h" },
   evidence: { backend: "rg", excerpts: ['{"text":"the SECRET_MARKER lives here"}'] },
   session: { token: "abc-123", found: true, path: "/h/.claude/projects/-p/abc-123.jsonl", excerpts: ['{"text":"the SECRET_MARKER lives here"}'] },
   insufficient: false,
 };
 const NOT_FOUND = {
   question: "x",
-  rig: { name: "my-rig", status: "running", nodeCount: 1, runningCount: 1, uptime: "1h" },
+  softwareTeam: { name: "my-software-team", status: "running", nodeCount: 1, runningCount: 1, uptime: "1h" },
   evidence: { backend: "none", excerpts: [] },
   session: { token: "bogus", found: false, excerpts: [], degraded: { reason: "session_not_found", message: "No session JSONL found for token 'bogus'. Check the token." } },
   insufficient: true,
   guidance: "No session JSONL found for token 'bogus'. Check the token.",
 };
 
-describe("rig ask --session (L2 CLI)", () => {
+describe("SoftwareTeam ask --session (L2 CLI)", () => {
   let server: http.Server;
   let port: number;
   let lastBody: Record<string, unknown> | null = null;
@@ -88,14 +88,14 @@ describe("rig ask --session (L2 CLI)", () => {
 
   it("sends the session token in the request body", async () => {
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ask", "my-rig", "SECRET_MARKER", "--session", "abc-123"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "ask", "my-software-team", "SECRET_MARKER", "--session", "abc-123"]);
     });
     expect(lastBody?.session).toBe("abc-123");
   });
 
   it("renders the Session line and content excerpt", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ask", "my-rig", "SECRET_MARKER", "--session", "abc-123"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "ask", "my-software-team", "SECRET_MARKER", "--session", "abc-123"]);
     });
     const out = logs.join("\n");
     expect(out).toContain("Session: abc-123");
@@ -104,7 +104,7 @@ describe("rig ask --session (L2 CLI)", () => {
 
   it("renders session_not_found guidance, not a silent empty", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ask", "my-rig", "x", "--session", "bogus"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "ask", "my-software-team", "x", "--session", "bogus"]);
     });
     const out = logs.join("\n");
     expect(out).toMatch(/token/i);

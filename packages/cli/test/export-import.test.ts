@@ -67,7 +67,7 @@ function unhealthyLifecycleDeps(): LifecycleDeps {
   return mockLifecycleDeps({
     exists: vi.fn((p: string) => p === STATE_FILE),
     readFile: vi.fn((p: string) => {
-      if (p === STATE_FILE) return JSON.stringify(runningState(7433));
+      if (p === STATE_FILE) return JSON.stringify(runningState(7434));
       return null;
     }),
     isProcessAlive: vi.fn(() => true),
@@ -84,26 +84,26 @@ function createMockDaemon() {
   const server = http.createServer((req, res) => {
     const url = new URL(req.url!, "http://localhost");
 
-    // GET /api/rigs/:rigId/spec -> YAML
-    if (req.method === "GET" && url.pathname.match(/^\/api\/rigs\/[^/]+\/spec$/)) {
-      const rigId = url.pathname.split("/")[3]!;
-      if (rigId === "missing") {
+    // GET /api/software-teams/:softwareTeamId/spec -> YAML
+    if (req.method === "GET" && url.pathname.match(/^\/api\/software-teams\/[^/]+\/spec$/)) {
+      const softwareTeamId = url.pathname.split("/")[3]!;
+      if (softwareTeamId === "missing") {
         res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "rig not found" }));
+        res.end(JSON.stringify({ error: "SoftwareTeam not found" }));
         return;
       }
-      if (rigId === "broken") {
+      if (softwareTeamId === "broken") {
         res.writeHead(500, { "Content-Type": "text/plain" });
         res.end("internal server error");
         return;
       }
       res.writeHead(200, { "Content-Type": "text/yaml" });
-      res.end("schema_version: 1\nname: test-rig\nnodes: []\n");
+      res.end("schema_version: 1\nname: test-software-team\nnodes: []\n");
       return;
     }
 
-    // POST /api/rigs/import/validate
-    if (req.method === "POST" && url.pathname === "/api/rigs/import/validate") {
+    // POST /api/software-teams/import/validate
+    if (req.method === "POST" && url.pathname === "/api/software-teams/import/validate") {
       let body = "";
       req.on("data", (c: Buffer) => { body += c.toString(); });
       req.on("end", () => {
@@ -118,17 +118,17 @@ function createMockDaemon() {
       return;
     }
 
-    // POST /api/rigs/import/preflight
-    if (req.method === "POST" && url.pathname === "/api/rigs/import/preflight") {
+    // POST /api/software-teams/import/preflight
+    if (req.method === "POST" && url.pathname === "/api/software-teams/import/preflight") {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ready: false, warnings: ["cmux unavailable"], errors: ["rig name exists"] }));
+      res.end(JSON.stringify({ ready: false, warnings: ["cmux unavailable"], errors: ["SoftwareTeam name exists"] }));
       return;
     }
 
-    // POST /api/rigs/import
-    if (req.method === "POST" && url.pathname === "/api/rigs/import") {
+    // POST /api/software-teams/import
+    if (req.method === "POST" && url.pathname === "/api/software-teams/import") {
       capturedImportHeaders = {
-        "x-rig-root": req.headers["x-rig-root"],
+        "x-software-team-root": req.headers["x-software-team-root"],
         "x-cwd-override": req.headers["x-cwd-override"],
       };
       let body = "";
@@ -139,37 +139,37 @@ function createMockDaemon() {
           res.end(JSON.stringify({ ok: false, code: "preflight_failed", message: "conflict" }));
         } else {
           res.writeHead(201, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ rigId: "rig-new", specName: "imported-rig", specVersion: "0.1.0", nodes: [{ logicalId: "orchestrator", status: "launched" }, { logicalId: "worker", status: "launched" }], attachCommand: "tmux attach -t orch-lead@imported-rig", warnings: ["Startup submission unverified in worker@imported-rig"] }));
+          res.end(JSON.stringify({ softwareTeamId: "software-team-new", specName: "imported-software-team", specVersion: "0.1.0", nodes: [{ logicalId: "orchestrator", status: "launched" }, { logicalId: "worker", status: "launched" }], attachCommand: "tmux attach -t orch-lead@imported-software-team", warnings: ["Startup submission unverified in worker@imported-software-team"] }));
         }
       });
       return;
     }
 
-    // POST /api/rigs/import/materialize
-    if (req.method === "POST" && url.pathname === "/api/rigs/import/materialize") {
+    // POST /api/software-teams/import/materialize
+    if (req.method === "POST" && url.pathname === "/api/software-teams/import/materialize") {
       capturedImportPath = url.pathname;
       capturedImportHeaders = {
-        "x-rig-root": req.headers["x-rig-root"],
-        "x-target-rig-id": req.headers["x-target-rig-id"],
+        "x-software-team-root": req.headers["x-software-team-root"],
+        "x-target-software-team-id": req.headers["x-target-software-team-id"],
         "x-cwd-override": req.headers["x-cwd-override"],
       };
       res.writeHead(201, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
-        rigId: req.headers["x-target-rig-id"] ?? "rig-new",
-        specName: "imported-rig",
+        softwareTeamId: req.headers["x-target-software-team-id"] ?? "software-team-new",
+        specName: "imported-software-team",
         specVersion: "0.2",
         nodes: [{ logicalId: "research.scout", status: "materialized" }],
       }));
       return;
     }
 
-    // POST /api/rigs/import/workspace
-    if (req.method === "POST" && url.pathname === "/api/rigs/import/workspace") {
+    // POST /api/software-teams/import/workspace
+    if (req.method === "POST" && url.pathname === "/api/software-teams/import/workspace") {
       capturedImportPath = url.pathname;
-      capturedImportHeaders = { "x-target-rig-id": req.headers["x-target-rig-id"] };
+      capturedImportHeaders = { "x-target-software-team-id": req.headers["x-target-software-team-id"] };
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
-        rigId: req.headers["x-target-rig-id"],
+        softwareTeamId: req.headers["x-target-software-team-id"],
         changed: true,
         workspace: { workspaceRoot: "/workspace", repos: [] },
       }));
@@ -199,7 +199,7 @@ function createMockDaemon() {
   };
 }
 
-describe("rig export + import", () => {
+describe("SoftwareTeam export + import", () => {
   let srv: ReturnType<typeof createMockDaemon>;
   let port: number;
 
@@ -233,27 +233,27 @@ describe("rig export + import", () => {
     const deps = exportDeps({ writeFile });
     const program = new Command();
     program.addCommand(exportCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "export", "rig-1", "-o", "out.yaml"]));
-    expect(writeFile).toHaveBeenCalledWith("out.yaml", "schema_version: 1\nname: test-rig\nnodes: []\n");
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "export", "software-team-1", "-o", "out.yaml"]));
+    expect(writeFile).toHaveBeenCalledWith("out.yaml", "schema_version: 1\nname: test-software-team\nnodes: []\n");
     expect(logs.join("\n")).toContain("out.yaml");
   });
 
-  // Test 2: export default path rig.yaml
-  it("export: default output path is rig.yaml", async () => {
+  // Test 2: export default path software-team.yaml
+  it("export: default output path is software-team.yaml", async () => {
     const writeFile = vi.fn();
     const deps = exportDeps({ writeFile });
     const program = new Command();
     program.addCommand(exportCommand(deps));
-    await captureLogs(() => program.parseAsync(["node", "rig", "export", "rig-1"]));
-    expect(writeFile).toHaveBeenCalledWith("rig.yaml", expect.any(String));
+    await captureLogs(() => program.parseAsync(["node", "softwareTeam", "export", "software-team-1"]));
+    expect(writeFile).toHaveBeenCalledWith("software-team.yaml", expect.any(String));
   });
 
-  // Test 3: export rig not found (404)
-  it("export: rig not found -> error", async () => {
+  // Test 3: export softwareTeam not found (404)
+  it("export: SoftwareTeam not found -> error", async () => {
     const deps = exportDeps();
     const program = new Command();
     program.addCommand(exportCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "export", "missing"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "export", "missing"]));
     expect(logs.join("\n")).toMatch(/not found/i);
   });
 
@@ -262,7 +262,7 @@ describe("rig export + import", () => {
     const deps = importDeps("schema_version: 1\nname: test\n");
     const program = new Command();
     program.addCommand(importCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "import", "rig.yaml"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "import", "software-team.yaml"]));
     expect(logs.join("\n")).toMatch(/valid/i);
   });
 
@@ -271,7 +271,7 @@ describe("rig export + import", () => {
     const deps = importDeps("INVALID");
     const program = new Command();
     program.addCommand(importCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "import", "rig.yaml"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "import", "software-team.yaml"]));
     expect(logs.join("\n")).toMatch(/bad yaml|invalid/i);
   });
 
@@ -280,15 +280,15 @@ describe("rig export + import", () => {
     const deps = importDeps("schema_version: 1\nname: test\n");
     const program = new Command();
     program.addCommand(importCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "import", "rig.yaml", "--instantiate"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "import", "software-team.yaml", "--instantiate"]));
     const output = logs.join("\n");
-    expect(output).toContain("imported-rig");
+    expect(output).toContain("imported-software-team");
     expect(output).toContain("orchestrator");
     expect(output).toContain("worker");
     // Must include per-node status, not just names
     expect(output).toMatch(/orchestrator: launched/);
     expect(output).toMatch(/worker: launched/);
-    expect(output).toContain("Warning: Startup submission unverified in worker@imported-rig");
+    expect(output).toContain("Warning: Startup submission unverified in worker@imported-software-team");
   });
 
   // Test 7: import --preflight prints warnings + errors
@@ -296,28 +296,28 @@ describe("rig export + import", () => {
     const deps = importDeps("schema_version: 1\nname: test\n");
     const program = new Command();
     program.addCommand(importCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "import", "rig.yaml", "--preflight"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "import", "software-team.yaml", "--preflight"]));
     const output = logs.join("\n");
     expect(output).toContain("cmux unavailable");
-    expect(output).toContain("rig name exists");
+    expect(output).toContain("SoftwareTeam name exists");
   });
 
   it("import --materialize-only prints materialized nodes", async () => {
     const deps = importDeps(`version: "0.2"\nname: test\npods: []\n`);
     const program = new Command();
     program.addCommand(importCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "import", "rig.yaml", "--materialize-only", "--rig-root", "/tmp"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "import", "software-team.yaml", "--materialize-only", "--software-team-root", "/tmp"]));
     const output = logs.join("\n");
-    expect(output).toContain("imported-rig");
+    expect(output).toContain("imported-software-team");
     expect(output).toMatch(/research\.scout: materialized/);
   });
 
-  it("import --materialize-only with --target-rig forwards target header", async () => {
+  it("import --materialize-only with --target-software-team forwards target header", async () => {
     const deps = importDeps(`version: "0.2"\nname: test\npods: []\n`);
     const program = new Command();
     program.addCommand(importCommand(deps));
-    await captureLogs(() => program.parseAsync(["node", "rig", "import", "rig.yaml", "--materialize-only", "--target-rig", "rig-123", "--rig-root", "/tmp"]));
-    expect(capturedImportHeaders["x-target-rig-id"]).toBe("rig-123");
+    await captureLogs(() => program.parseAsync(["node", "softwareTeam", "import", "software-team.yaml", "--materialize-only", "--target-software-team", "software-team-123", "--software-team-root", "/tmp"]));
+    expect(capturedImportHeaders["x-target-software-team-id"]).toBe("software-team-123");
   });
 
   it("import --materialize-only with --cwd forwards absolute cwd override", async () => {
@@ -325,7 +325,7 @@ describe("rig export + import", () => {
     const deps = importDeps(`version: "0.2"\nname: test\npods: []\n`);
     const program = new Command();
     program.addCommand(importCommand(deps));
-    await captureLogs(() => program.parseAsync(["node", "rig", "import", "rig.yaml", "--materialize-only", "--cwd", "relative/project", "--rig-root", "/tmp"]));
+    await captureLogs(() => program.parseAsync(["node", "softwareTeam", "import", "software-team.yaml", "--materialize-only", "--cwd", "relative/project", "--software-team-root", "/tmp"]));
     expect(capturedImportHeaders["x-cwd-override"]).toMatch(/^\//);
     expect(String(capturedImportHeaders["x-cwd-override"])).toContain("relative/project");
   });
@@ -337,22 +337,22 @@ describe("rig export + import", () => {
     const program = new Command();
     program.addCommand(importCommand(deps));
     const logs = await captureLogs(() => program.parseAsync([
-      "node", "rig", "import", "rig.yaml", "--workspace-only", "--target-rig", "rig-123",
+      "node", "softwareTeam", "import", "software-team.yaml", "--workspace-only", "--target-software-team", "software-team-123",
     ]));
-    expect(capturedImportPath).toBe("/api/rigs/import/workspace");
-    expect(capturedImportHeaders["x-target-rig-id"]).toBe("rig-123");
-    expect(logs.join("\n")).toContain("Workspace applied to rig rig-123");
+    expect(capturedImportPath).toBe("/api/software-teams/import/workspace");
+    expect(capturedImportHeaders["x-target-software-team-id"]).toBe("software-team-123");
+    expect(logs.join("\n")).toContain("Workspace applied to SoftwareTeam software-team-123");
   });
 
-  it("import --workspace-only requires --target-rig before HTTP", async () => {
+  it("import --workspace-only requires --target-software-team before HTTP", async () => {
     capturedImportPath = "";
     const deps = importDeps(`version: "0.2"\nname: test\nworkspace:\n  workspace_root: /workspace\n  repos: []\npods: []\n`);
     const program = new Command();
     program.addCommand(importCommand(deps));
     const logs = await captureLogs(() => program.parseAsync([
-      "node", "rig", "import", "rig.yaml", "--workspace-only",
+      "node", "softwareTeam", "import", "software-team.yaml", "--workspace-only",
     ]));
-    expect(logs.join("\n")).toMatch(/--target-rig/);
+    expect(logs.join("\n")).toMatch(/--target-software-team/);
     expect(capturedImportPath).toBe("");
   });
 
@@ -361,7 +361,7 @@ describe("rig export + import", () => {
     const deps = importDeps("CONFLICT");
     const program = new Command();
     program.addCommand(importCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "import", "rig.yaml", "--instantiate"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "import", "software-team.yaml", "--instantiate"]));
     expect(logs.join("\n")).toMatch(/conflict|failed/i);
   });
 
@@ -375,7 +375,7 @@ describe("rig export + import", () => {
     };
     const program = new Command();
     program.addCommand(exportCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "export", "rig-1"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "export", "software-team-1"]));
     expect(logs.join("\n")).toMatch(/not running/i);
     expect(clientFactory).not.toHaveBeenCalled();
   });
@@ -390,7 +390,7 @@ describe("rig export + import", () => {
     };
     const program = new Command();
     program.addCommand(importCommand(deps));
-    await captureLogs(() => program.parseAsync(["node", "rig", "import", "rig.yaml"]));
+    await captureLogs(() => program.parseAsync(["node", "softwareTeam", "import", "software-team.yaml"]));
     expect(usedUrls[0]).toBe(`http://127.0.0.1:${port}`);
   });
 
@@ -403,12 +403,12 @@ describe("rig export + import", () => {
 
     // export mounted
     const p1 = createProgram({ exportDeps: exportD });
-    const logs1 = await captureLogs(() => p1.parseAsync(["node", "rig", "export", "x"]));
+    const logs1 = await captureLogs(() => p1.parseAsync(["node", "softwareTeam", "export", "x"]));
     expect(logs1.join("\n")).toMatch(/not running/i);
 
     // import mounted
     const p2 = createProgram({ importDeps: importD });
-    const logs2 = await captureLogs(() => p2.parseAsync(["node", "rig", "import", "x.yaml"]));
+    const logs2 = await captureLogs(() => p2.parseAsync(["node", "softwareTeam", "import", "x.yaml"]));
     // Will hit "cannot read file" or "not running" — either proves it's mounted
     expect(logs2.join("\n").length).toBeGreaterThan(0);
   });
@@ -423,7 +423,7 @@ describe("rig export + import", () => {
     };
     const program = new Command();
     program.addCommand(exportCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "export", "rig-1"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "export", "software-team-1"]));
     expect(logs.join("\n")).toMatch(/did not respond|busy or stopped|unhealthy/i) // B8 supersession: epistemic guard language;
     expect(clientFactory).not.toHaveBeenCalled();
   });
@@ -438,7 +438,7 @@ describe("rig export + import", () => {
     };
     const program = new Command();
     program.addCommand(importCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "import", "rig.yaml"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "import", "software-team.yaml"]));
     expect(logs.join("\n")).toMatch(/not running/i);
     expect(clientFactory).not.toHaveBeenCalled();
   });
@@ -453,7 +453,7 @@ describe("rig export + import", () => {
     };
     const program = new Command();
     program.addCommand(importCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "import", "missing.yaml"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "import", "missing.yaml"]));
     expect(logs.join("\n")).toMatch(/cannot read/i);
     expect(clientFactory).not.toHaveBeenCalled();
   });
@@ -463,21 +463,21 @@ describe("rig export + import", () => {
     const deps = exportDeps();
     const program = new Command();
     program.addCommand(exportCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "export", "broken"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "export", "broken"]));
     expect(logs.join("\n")).toMatch(/failed|error/i);
   });
 
-  // T5: import --instantiate pod-aware + --rig-root -> sends X-Rig-Root header
-  it("import --instantiate pod-aware with --rig-root sends X-Rig-Root header", async () => {
+  // T5: import --instantiate pod-aware + --software-team-root -> sends X-Software-Team-Root header
+  it("import --instantiate pod-aware with --software-team-root sends X-Software-Team-Root header", async () => {
     capturedImportHeaders = {};
     const deps = importDeps("schema_version: 1\nname: test\npods:\n  - name: pod-a\n");
     const program = new Command();
     program.addCommand(importCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "import", "rig.yaml", "--instantiate", "--rig-root", "/my/project"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "import", "software-team.yaml", "--instantiate", "--software-team-root", "/my/project"]));
     const output = logs.join("\n");
-    expect(output).toContain("imported-rig");
-    // Verify X-Rig-Root header was sent
-    expect(capturedImportHeaders["x-rig-root"]).toMatch(/\/my\/project/);
+    expect(output).toContain("imported-software-team");
+    // Verify X-Software-Team-Root header was sent
+    expect(capturedImportHeaders["x-software-team-root"]).toMatch(/\/my\/project/);
   });
 
   it("import --instantiate with --cwd forwards absolute cwd override", async () => {
@@ -485,7 +485,7 @@ describe("rig export + import", () => {
     const deps = importDeps("schema_version: 1\nname: test\npods:\n  - name: pod-a\n");
     const program = new Command();
     program.addCommand(importCommand(deps));
-    await captureLogs(() => program.parseAsync(["node", "rig", "import", "rig.yaml", "--instantiate", "--cwd", "relative/project", "--rig-root", "/my/project"]));
+    await captureLogs(() => program.parseAsync(["node", "softwareTeam", "import", "software-team.yaml", "--instantiate", "--cwd", "relative/project", "--software-team-root", "/my/project"]));
     expect(capturedImportHeaders["x-cwd-override"]).toMatch(/^\//);
     expect(String(capturedImportHeaders["x-cwd-override"])).toContain("relative/project");
   });
@@ -499,10 +499,10 @@ describe("rig export + import", () => {
     };
     const program = new Command();
     program.addCommand(importCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "import", "rig.yaml", "--instantiate"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "import", "software-team.yaml", "--instantiate"]));
     const output = logs.join("\n");
     expect(output).toContain("Attach:");
-    expect(output).toContain("tmux attach -t orch-lead@imported-rig");
+    expect(output).toContain("tmux attach -t orch-lead@imported-software-team");
   });
 
   it("import --instantiate uses a long-running daemon timeout budget", async () => {
@@ -518,11 +518,11 @@ describe("rig export + import", () => {
       return {
         status: 201,
         data: {
-          rigId: "rig-new",
-          specName: "imported-rig",
+          softwareTeamId: "software-team-new",
+          specName: "imported-software-team",
           specVersion: "0.1.0",
           nodes: [{ logicalId: "orchestrator", status: "launched" }],
-          attachCommand: "tmux attach -t orch-lead@imported-rig",
+          attachCommand: "tmux attach -t orch-lead@imported-software-team",
         },
       };
     });
@@ -536,7 +536,7 @@ describe("rig export + import", () => {
     const program = new Command();
     program.addCommand(importCommand(deps));
 
-    await captureLogs(() => program.parseAsync(["node", "rig", "import", "rig.yaml", "--instantiate"]));
+    await captureLogs(() => program.parseAsync(["node", "softwareTeam", "import", "software-team.yaml", "--instantiate"]));
 
     expect(timeoutMs).toBe(120_000);
   });

@@ -9,7 +9,7 @@ import { enrichRosterMember, parseRoster, readRosters, rosterCommand, type Roste
 
 const member = { seat: "editor@studio", host: "host-a", capabilities: ["colour grading"], engagement: ["consult"], use_when: "Choose a look", why: "Knows the footage", caveat: "Advice only" };
 const authored = { version: 1, id: "production", name: "Production", purpose: "Make a film", curator: { seat: "lead@studio", host: "host-a" }, updated_at: "2026-09-01", members: [member] };
-const node = { rigId: "r1", logicalId: "editor", canonicalSessionName: member.seat, hostSelfId: member.host, runtime: "claude-code", model: "configured-a", sessionStatus: "running", agentActivity: { state: "idle", sampledAt: "2026-10-01T00:00:00Z" } };
+const node = { softwareTeamId: "r1", logicalId: "editor", canonicalSessionName: member.seat, hostSelfId: member.host, runtime: "claude-code", model: "configured-a", sessionStatus: "running", agentActivity: { state: "idle", sampledAt: "2026-10-01T00:00:00Z" } };
 const inventory = (nodes = [node]): RosterInventory => ({ readAt: new Date().toISOString(), nodes, sources: [] });
 const folders: string[] = [];
 function folder() { const p = mkdtempSync(join(tmpdir(), "roster-test-")); folders.push(p); writeFileSync(join(p, "production.json"), JSON.stringify(authored)); return p; }

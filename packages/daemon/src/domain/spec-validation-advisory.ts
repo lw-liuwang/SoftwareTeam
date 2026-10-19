@@ -1,7 +1,7 @@
 // OPR.0.5.3.3 — spec-validation advisory: alias-form model pins.
 //
 // CANONICAL_MODEL_PINS below is the SINGLE alias mapping home (f7dfca0c): this advisory nudges
-// spec authors toward canonical ids at `rig spec validate` time, and the model-divergence
+// spec authors toward canonical ids at `softwareTeam spec validate` time, and the model-divergence
 // detector canonicalizes the PINNED string through the same map before comparing (modelsMatch),
 // so a known alias pin running exactly its canonical model no longer proclaims a false
 // divergence. Do not grow a second mapping anywhere else.

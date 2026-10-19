@@ -12,14 +12,14 @@ describe("S20 P5 current-occupant observer contract", () => {
     const launcher = source("../src/domain/node-launcher.ts");
     const handover = source("../src/domain/seat-handover-service.ts");
     const successor = source("../src/domain/successor-session-launcher.ts");
-    const relay = source("../assets/plugins/openrig-core/hooks/scripts/activity-relay.cjs");
+    const relay = source("../assets/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs");
 
     expect(registry.match(/reserveOccupantGeneration\(\):/g)).toHaveLength(1);
     expect(launcher.match(/reserveOccupantGeneration\(\)/g)).toHaveLength(1);
     expect(handover.match(/reserveOccupantGeneration\(\)/g)).toHaveLength(1);
-    expect(launcher).toMatch(/OPENRIG_OCCUPANT_GENERATION:\s*occupantGeneration/);
-    expect(successor).toMatch(/OPENRIG_OCCUPANT_GENERATION:\s*input\.occupantGeneration/);
-    expect(relay).toMatch(/const generation = firstString\(env\.OPENRIG_OCCUPANT_GENERATION/);
+    expect(launcher).toMatch(/SOFTWARETEAM_OCCUPANT_GENERATION:\s*occupantGeneration/);
+    expect(successor).toMatch(/SOFTWARETEAM_OCCUPANT_GENERATION:\s*input\.occupantGeneration/);
+    expect(relay).toMatch(/const generation = firstString\(env\.SOFTWARETEAM_OCCUPANT_GENERATION/);
     expect(relay).toMatch(/generation,/);
   });
 

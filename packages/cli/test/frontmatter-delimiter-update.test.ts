@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { splitFrontmatter, updateFrontmatter } from "../src/lib/scope/scope-fs.js";
 
 it("updates the actual field past a YAML key whose spelling starts with ---", () => {
-  const root = mkdtempSync(join(tmpdir(), "openrig-fm-delimiter-"));
+  const root = mkdtempSync(join(tmpdir(), "softwareteam-fm-delimiter-"));
   const file = join(root, "SPEC.md");
   try {
     writeFileSync(file, "---\ntitle: keep\n---marker: keep too\nstage: wip\n---\n# Contract\n");
@@ -17,7 +17,7 @@ it("updates the actual field past a YAML key whose spelling starts with ---", ()
 });
 
 it.each(["\n", "\r\n"])("preserves delimiter whitespace while replacing the field (%j)", (newline) => {
-  const root = mkdtempSync(join(tmpdir(), "openrig-fm-whitespace-"));
+  const root = mkdtempSync(join(tmpdir(), "softwareteam-fm-whitespace-"));
   const file = join(root, "SPEC.md");
   try {
     const source = ["--- \t", "stage: wip", "--- \t", "# Contract", ""].join(newline);

@@ -37,7 +37,7 @@ describe("auth-bearer-token middleware (PL-005 Phase B)", () => {
     expect(isLoopbackBind("0.0.0.0")).toBe(false);
     expect(isLoopbackBind("100.64.0.5")).toBe(false);
     expect(isLoopbackBind("10.0.0.1")).toBe(false);
-    expect(isLoopbackBind("rig.local")).toBe(false);
+    expect(isLoopbackBind("software-team.local")).toBe(false);
   });
 
   it("isLoopbackBind treats empty/undefined as non-loopback (safety default)", () => {
@@ -222,7 +222,7 @@ describe("auth-bearer-token middleware (PL-005 Phase B)", () => {
         const msg = (err as Error).message;
         expect(msg).toMatch(/loopback|127\.0\.0\.1|localhost/i);
         expect(msg).toMatch(/tailscale|100\.64\.0\.0\/10|fd7a/i);
-        expect(msg).toMatch(/OPENRIG_AUTH_BEARER_TOKEN|bearer/i);
+        expect(msg).toMatch(/SOFTWARETEAM_AUTH_BEARER_TOKEN|bearer/i);
       }
     });
 

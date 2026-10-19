@@ -1,26 +1,26 @@
 import { Command } from "commander";
 import { DaemonClient, DaemonConnectionError, DaemonTimeoutError, type DaemonResponse } from "../client.js";
-import { readOpenRigEnv } from "../openrig-compat.js";
+import { readSoftwareTeamEnv } from "../softwareteam-compat.js";
 import { getDaemonStatus, getDaemonUrl , daemonStatusGuard} from "../daemon-lifecycle.js";
 import { realDeps } from "./daemon.js";
 import type { StatusDeps } from "./status.js";
 import { execSync } from "node:child_process";
 
-interface RigSummary {
+interface SoftwareTeamSummary {
   id: string;
   name: string;
   nodeCount: number;
 }
 
-async function resolveRigId(client: DaemonClient, rigName: string): Promise<string> {
-  const res = await client.get<RigSummary[]>("/api/rigs/summary");
-  const matches = res.data.filter((r) => r.name === rigName);
+async function resolveSoftwareTeamId(client: DaemonClient, softwareTeamName: string): Promise<string> {
+  const res = await client.get<SoftwareTeamSummary[]>("/api/software-teams/summary");
+  const matches = res.data.filter((r) => r.name === softwareTeamName);
 
   if (matches.length === 0) {
-    throw new Error(`Rig '${rigName}' not found. List rigs with: rig ps`);
+    throw new Error(`SoftwareTeam '${softwareTeamName}' not found. List softwareTeams with: SoftwareTeam ps`);
   }
   if (matches.length > 1) {
-    throw new Error(`Rig '${rigName}' is ambiguous — ${matches.length} rigs share that name. Use a unique name or remove duplicates.`);
+    throw new Error(`SoftwareTeam '${softwareTeamName}' is ambiguous — ${matches.length} softwareTeams share that name. Use a unique name or remove duplicates.`);
   }
 
   return matches[0]!.id;
@@ -37,7 +37,7 @@ function isTransientPollError(err: unknown): boolean {
 }
 
 export function chatroomCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("chatroom").description("Chat room for rig communication");
+  const cmd = new Command("chatroom").description("Chat room for SoftwareTeam communication");
   const getDeps = (): StatusDeps => depsOverride ?? {
     lifecycleDeps: realDeps(),
     clientFactory: (url: string) => new DaemonClient(url),
@@ -50,30 +50,30 @@ export function chatroomCommand(depsOverride?: StatusDeps): Command {
     return deps.clientFactory(getDaemonUrl(status));
   }
 
-  // chatroom send <rig> "message" [--sender <name>]
+  // chatroom send <softwareTeam> "message" [--sender <name>]
   cmd
     .command("send")
-    .argument("<rig>", "Rig name")
+    .argument("<softwareTeam>", "SoftwareTeam name")
     .argument("<message>", "Message to send")
-    .option("--sender <name>", "(deprecated, ignored) the sender is derived from the seat env (X-OpenRig-Session); P21 made the chat route derive it from the transport header")
-    .action(async (rig: string, message: string, _opts: { sender?: string }) => {
+    .option("--sender <name>", "(deprecated, ignored) the sender is derived from the seat env (X-SoftwareTeam-Session); P21 made the chat route derive it from the transport header")
+    .action(async (softwareTeam: string, message: string, _opts: { sender?: string }) => {
       const client = await getClient();
       if (!client) return;
 
-      let rigId: string;
+      let softwareTeamId: string;
       try {
-        rigId = await resolveRigId(client, rig);
+        softwareTeamId = await resolveSoftwareTeamId(client, softwareTeam);
       } catch (err) {
         console.error((err as Error).message);
         process.exitCode = 1;
         return;
       }
 
-      // P21: no body sender — the daemon derives it from the transport header (X-OpenRig-Session,
+      // P21: no body sender — the daemon derives it from the transport header (X-SoftwareTeam-Session,
       // stamped by DaemonClient from the seat env). A hardcoded 'cli' differing from the header would be
       // SUPERSEDED by it (transport:v1), not persisted (P18: the 409 mismatch is retired).
       const res = await client.post<Record<string, unknown>>(
-        `/api/rigs/${encodeURIComponent(rigId)}/chat/send`,
+        `/api/software-teams/${encodeURIComponent(softwareTeamId)}/chat/send`,
         { body: message },
       );
 
@@ -83,28 +83,28 @@ export function chatroomCommand(depsOverride?: StatusDeps): Command {
         return;
       }
 
-      // P21: echo the DERIVED seat identity (the env the daemon stamps as X-OpenRig-Session), not the
+      // P21: echo the DERIVED seat identity (the env the daemon stamps as X-SoftwareTeam-Session), not the
       // deprecated --sender flag — so the local confirmation matches what the chat route actually records.
-      console.log(`[${readOpenRigEnv("OPENRIG_SESSION_NAME", "RIGGED_SESSION_NAME") ?? "you"}] ${message}`);
+      console.log(`[${readSoftwareTeamEnv("SOFTWARETEAM_SESSION_NAME") ?? "you"}] ${message}`);
     });
 
-  // chatroom history <rig> [--topic <name>] [--limit N] [--json]
+  // chatroom history <softwareTeam> [--topic <name>] [--limit N] [--json]
   cmd
     .command("history")
-    .argument("<rig>", "Rig name")
+    .argument("<softwareTeam>", "SoftwareTeam name")
     .option("--topic <name>", "Filter by topic")
     .option("--after <id>", "Messages after this message ID")
     .option("--since <timestamp>", "Messages since this timestamp")
     .option("--sender <name>", "Messages from this sender")
     .option("--limit <n>", "Limit results", "50")
     .option("--json", "JSON output")
-    .action(async (rig: string, opts: { topic?: string; after?: string; since?: string; sender?: string; limit?: string; json?: boolean }) => {
+    .action(async (softwareTeam: string, opts: { topic?: string; after?: string; since?: string; sender?: string; limit?: string; json?: boolean }) => {
       const client = await getClient();
       if (!client) return;
 
-      let rigId: string;
+      let softwareTeamId: string;
       try {
-        rigId = await resolveRigId(client, rig);
+        softwareTeamId = await resolveSoftwareTeamId(client, softwareTeam);
       } catch (err) {
         console.error((err as Error).message);
         process.exitCode = 1;
@@ -120,7 +120,7 @@ export function chatroomCommand(depsOverride?: StatusDeps): Command {
 
       const qs = params.toString();
       const res = await client.get<Array<Record<string, unknown>>>(
-        `/api/rigs/${encodeURIComponent(rigId)}/chat/history${qs ? `?${qs}` : ""}`,
+        `/api/software-teams/${encodeURIComponent(softwareTeamId)}/chat/history${qs ? `?${qs}` : ""}`,
       );
 
       if (opts.json) {
@@ -151,18 +151,18 @@ export function chatroomCommand(depsOverride?: StatusDeps): Command {
       }
     });
 
-  // chatroom watch <rig> [--tmux]
+  // chatroom watch <softwareTeam> [--tmux]
   cmd
     .command("watch")
-    .argument("<rig>", "Rig name")
+    .argument("<softwareTeam>", "SoftwareTeam name")
     .option("--tmux", "Run watch in a dedicated tmux session")
-    .action(async (rig: string, opts: { tmux?: boolean }) => {
+    .action(async (softwareTeam: string, opts: { tmux?: boolean }) => {
       const client = await getClient();
       if (!client) return;
 
-      let rigId: string;
+      let softwareTeamId: string;
       try {
-        rigId = await resolveRigId(client, rig);
+        softwareTeamId = await resolveSoftwareTeamId(client, softwareTeam);
       } catch (err) {
         console.error((err as Error).message);
         process.exitCode = 1;
@@ -170,9 +170,9 @@ export function chatroomCommand(depsOverride?: StatusDeps): Command {
       }
 
       if (opts.tmux) {
-        const sessionName = `chatroom@${rig}`;
+        const sessionName = `chatroom@${softwareTeam}`;
         try {
-          execSync(`tmux new-session -d -s ${JSON.stringify(sessionName)} "rig chatroom watch ${JSON.stringify(rig)}"`, { stdio: "ignore" });
+          execSync(`tmux new-session -d -s ${JSON.stringify(sessionName)} "SoftwareTeam chatroom watch ${JSON.stringify(softwareTeam)}"`, { stdio: "ignore" });
           console.log(`Started watch in tmux session: ${sessionName}`);
           console.log(`Attach with: tmux attach -t ${sessionName}`);
         } catch {
@@ -183,7 +183,7 @@ export function chatroomCommand(depsOverride?: StatusDeps): Command {
       }
 
       // Direct SSE watch
-      const url = `${client.baseUrl}/api/rigs/${encodeURIComponent(rigId)}/chat/watch`;
+      const url = `${client.baseUrl}/api/software-teams/${encodeURIComponent(softwareTeamId)}/chat/watch`;
       try {
         const res = await fetch(url, {
           headers: { Accept: "text/event-stream" },
@@ -231,20 +231,20 @@ export function chatroomCommand(depsOverride?: StatusDeps): Command {
       }
     });
 
-  // chatroom topic <rig> <topic-name> [--body "text"]
+  // chatroom topic <softwareTeam> <topic-name> [--body "text"]
   cmd
     .command("topic")
-    .argument("<rig>", "Rig name")
+    .argument("<softwareTeam>", "SoftwareTeam name")
     .argument("<topic-name>", "Topic name")
     .option("--body <text>", "Optional body text")
-    .option("--sender <name>", "(deprecated, ignored) the sender is derived from the seat env (X-OpenRig-Session); the chat topic route derives it from the transport header")
-    .action(async (rig: string, topicName: string, opts: { body?: string; sender?: string }) => {
+    .option("--sender <name>", "(deprecated, ignored) the sender is derived from the seat env (X-SoftwareTeam-Session); the chat topic route derives it from the transport header")
+    .action(async (softwareTeam: string, topicName: string, opts: { body?: string; sender?: string }) => {
       const client = await getClient();
       if (!client) return;
 
-      let rigId: string;
+      let softwareTeamId: string;
       try {
-        rigId = await resolveRigId(client, rig);
+        softwareTeamId = await resolveSoftwareTeamId(client, softwareTeam);
       } catch (err) {
         console.error((err as Error).message);
         process.exitCode = 1;
@@ -253,7 +253,7 @@ export function chatroomCommand(depsOverride?: StatusDeps): Command {
 
       // P21: no body sender — the daemon derives it from the transport header (see chat/send).
       const res = await client.post<Record<string, unknown>>(
-        `/api/rigs/${encodeURIComponent(rigId)}/chat/topic`,
+        `/api/software-teams/${encodeURIComponent(softwareTeamId)}/chat/topic`,
         { topic: topicName, body: opts.body },
       );
 
@@ -266,16 +266,16 @@ export function chatroomCommand(depsOverride?: StatusDeps): Command {
       console.log(`--- topic: ${topicName} ---`);
     });
 
-  // chatroom wait <rig>
+  // chatroom wait <softwareTeam>
   cmd
     .command("wait")
-    .argument("<rig>", "Rig name")
+    .argument("<softwareTeam>", "SoftwareTeam name")
     .option("--after <id>", "Only messages after this ID")
     .option("--topic <name>", "Filter by topic")
     .option("--sender <name>", "Filter by sender")
     .option("--timeout <seconds>", "Timeout in seconds", "120")
     .option("--json", "JSON output")
-    .action(async (rig: string, opts: { after?: string; topic?: string; sender?: string; timeout: string; json?: boolean }) => {
+    .action(async (softwareTeam: string, opts: { after?: string; topic?: string; sender?: string; timeout: string; json?: boolean }) => {
       // A NaN timeout would never expire and would poll with a ~1ms sleep.
       // Preserve numeric forms and legacy numeric prefixes (e.g. 30s) without truncating fractions.
       const numericTimeout = Number(opts.timeout);
@@ -289,9 +289,9 @@ export function chatroomCommand(depsOverride?: StatusDeps): Command {
       const client = await getClient();
       if (!client) return;
 
-      let rigId: string;
+      let softwareTeamId: string;
       try {
-        rigId = await resolveRigId(client, rig);
+        softwareTeamId = await resolveSoftwareTeamId(client, softwareTeam);
       } catch (err) {
         console.error((err as Error).message);
         process.exitCode = 1;
@@ -333,7 +333,7 @@ export function chatroomCommand(depsOverride?: StatusDeps): Command {
         let res: DaemonResponse<Array<Record<string, unknown>>> | null = null;
         try {
           res = await client.get<Array<Record<string, unknown>>>(
-            `/api/rigs/${encodeURIComponent(rigId)}/chat/history?${params}`,
+            `/api/software-teams/${encodeURIComponent(softwareTeamId)}/chat/history?${params}`,
             { signal: controller.signal },
           );
           lastPollError = null;
@@ -378,24 +378,24 @@ export function chatroomCommand(depsOverride?: StatusDeps): Command {
       process.exitCode = 1;
     });
 
-  // chatroom clear <rig>
+  // chatroom clear <softwareTeam>
   cmd
     .command("clear")
-    .argument("<rig>", "Rig name")
-    .action(async (rig: string) => {
+    .argument("<softwareTeam>", "SoftwareTeam name")
+    .action(async (softwareTeam: string) => {
       const client = await getClient();
       if (!client) return;
 
-      let rigId: string;
+      let softwareTeamId: string;
       try {
-        rigId = await resolveRigId(client, rig);
+        softwareTeamId = await resolveSoftwareTeamId(client, softwareTeam);
       } catch (err) {
         console.error((err as Error).message);
         process.exitCode = 1;
         return;
       }
 
-      const res = await client.post<{ ok: boolean; deleted: number }>(`/api/rigs/${encodeURIComponent(rigId)}/chat/clear`, {});
+      const res = await client.post<{ ok: boolean; deleted: number }>(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/chat/clear`, {});
 
       if (res.status >= 400) {
         console.error(`Clear failed (HTTP ${res.status})`);
@@ -403,7 +403,7 @@ export function chatroomCommand(depsOverride?: StatusDeps): Command {
         return;
       }
 
-      console.log(`Cleared ${res.data.deleted} messages from ${rig} chatroom.`);
+      console.log(`Cleared ${res.data.deleted} messages from ${softwareTeam} chatroom.`);
     });
 
   return cmd;

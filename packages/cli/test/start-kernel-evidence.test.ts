@@ -20,8 +20,8 @@ async function run(kernelState?: string, httpStatus = 200, summaryStatus = 200, 
   const server = http.createServer((request, response) => {
     received.push(request.url!);
     const kernel = request.url === "/api/kernel/status";
-    response.writeHead(kernel ? httpStatus : request.url === "/api/rigs/summary" ? summaryStatus : 200, { "Content-Type": "application/json" });
-    response.end(JSON.stringify(kernel ? { kernel_state: kernelState, detail: kernelDetail } : request.url === "/api/rigs/summary" ? (summaryStatus === 200 ? [] : [{ id: "restorable-rig", name: "work", nodeCount: 1, lifecycleState: "recoverable" }]) : { ok: true }));
+    response.writeHead(kernel ? httpStatus : request.url === "/api/software-teams/summary" ? summaryStatus : 200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify(kernel ? { kernel_state: kernelState, detail: kernelDetail } : request.url === "/api/software-teams/summary" ? (summaryStatus === 200 ? [] : [{ id: "restorable-software-team", name: "work", nodeCount: 1, lifecycleState: "recoverable" }]) : { ok: true }));
   });
   await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); }); servers.push(server);
   const port = (server.address() as { port: number }).port;
@@ -40,44 +40,44 @@ async function run(kernelState?: string, httpStatus = 200, summaryStatus = 200, 
   await startCommand({ lifecycleDeps, clientFactory: (base) => new DaemonClient(base) }).parseAsync(["--all"], { from: "user" });
   return { errors: errors.join("\n"), logs: logs.join("\n"), received, exitCode: process.exitCode ?? 0 };
 }
-describe("rig start kernel wait evidence", () => {
+describe("SoftwareTeam start kernel wait evidence", () => {
   it.each([undefined, "booting"])("reports deadline evidence without asserting a kernel failure: %s", async (state) => {
     const result = await run(state);
     expect(result.errors).toContain("Kernel did not report ready before the deadline");
     expect(result.errors).toContain(`state=${state ?? "unknown"}`);
     expect(result.errors).not.toContain("Kernel failed to start");
     expect(result.exitCode).toBe(1);
-    expect(result.received).not.toContain("/api/rigs/summary");
+    expect(result.received).not.toContain("/api/software-teams/summary");
   });
   it("reports an unsuccessful status read as unknown, without a terminal failure claim", async () => {
     const result = await run(undefined, 503);
     expect(result.errors).toContain("Kernel did not report ready before the deadline");
     expect(result.errors).toContain("state=unknown");
     expect(result.errors).not.toContain("Kernel failed to start");
-    expect(result.exitCode).toBe(1); expect(result.received).not.toContain("/api/rigs/summary");
+    expect(result.exitCode).toBe(1); expect(result.received).not.toContain("/api/software-teams/summary");
   });
   it.each(["auth_blocked", "spec_missing", "bootstrap_failed", "degraded"])("retains an actually reported terminal failure: %s", async (state) => {
     const result = await run(state);
     expect(result.errors).toContain(`Kernel failed to start: state=${state}, detail=fixture detail`);
-    expect(result.exitCode).toBe(1); expect(result.received).not.toContain("/api/rigs/summary");
+    expect(result.exitCode).toBe(1); expect(result.received).not.toContain("/api/software-teams/summary");
   });
   it.each(["skipped", "ready", "partial_ready"])("retains restore discovery for %s", async (state) => {
     const result = await run(state);
     expect(result.errors).toBe(""); expect(result.exitCode).toBe(0);
-    expect(result.received).toContain("/api/rigs/summary");
+    expect(result.received).toContain("/api/software-teams/summary");
   });
   it("names an already-managed kernel and how to bring it back, instead of blaming --no-kernel", async () => {
-    const result = await run("skipped", 200, 200, "kernel rig already managed");
+    const result = await run("skipped", 200, 200, "kernel SoftwareTeam already managed");
     expect(result.logs).not.toContain("--no-kernel or test mode");
-    expect(result.logs).toContain("kernel rig already managed");
-    expect(result.logs).toContain("rig up kernel --existing");
+    expect(result.logs).toContain("kernel SoftwareTeam already managed");
+    expect(result.logs).toContain("SoftwareTeam up kernel --existing");
     expect(result.errors).toBe(""); expect(result.exitCode).toBe(0);
-    expect(result.received).toContain("/api/rigs/summary");
+    expect(result.received).toContain("/api/software-teams/summary");
   });
   it("keeps the opt-out explanation when the kernel was skipped on purpose", async () => {
-    const result = await run("skipped", 200, 200, "OPENRIG_NO_KERNEL=1");
+    const result = await run("skipped", 200, 200, "SOFTWARETEAM_NO_KERNEL=1");
     expect(result.logs).toContain("Kernel auto-boot skipped (--no-kernel or test mode)");
-    expect(result.logs).not.toContain("rig up kernel --existing");
+    expect(result.logs).not.toContain("SoftwareTeam up kernel --existing");
   });
 });
 
@@ -85,7 +85,7 @@ it.each([401, 503])("does not report successful empty restore discovery after HT
   const result = await run("ready", 200, status);
   expect(result.exitCode).toBe(1);
   expect(result.errors).toContain(`HTTP ${status}`);
-  expect(result.received).toContain("/api/rigs/summary");
-  expect(result.received).not.toContain("/api/rigs/restorable-rig/up");
+  expect(result.received).toContain("/api/software-teams/summary");
+  expect(result.received).not.toContain("/api/software-teams/restorable-software-team/up");
   expect(result.received.filter((path) => path.endsWith("/up"))).toEqual([]);
 });

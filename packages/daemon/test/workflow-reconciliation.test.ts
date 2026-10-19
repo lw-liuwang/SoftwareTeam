@@ -25,7 +25,7 @@ describe("one preserved running graph and recoverable revision decision", () => 
     root = mkdtempSync(join(tmpdir(), "graph-revision-")); mission = join(root, "missions", "trial");
     mkdirSync(join(mission, "slices", "01-child"), { recursive: true });
     project = { kind: "project", metadata: { id: "trial" }, lifecycle: { profile: "release", profiles: { release: { required_steps: ["plan", "finish"], workflow: {
-      entry: { role: "owner" }, roles: { owner: { preferred_targets: ["owner@rig"] } },
+      entry: { role: "owner" }, roles: { owner: { preferred_targets: ["owner@software-team"] } },
       steps: [
         { id: "plan", actor_role: "owner", depends_on: [], allowed_exits: ["handoff"], objective: "Choose" },
         { id: "build", actor_role: "owner", depends_on: ["plan"], allowed_exits: ["handoff", "waiting"], objective: "Build" },
@@ -35,22 +35,22 @@ describe("one preserved running graph and recoverable revision decision", () => 
     plan = { kind: "mission", metadata: { name: "trial" }, composition: { slices: [{ ref: "slices/01-child/slice.yaml", order: 10 }] }, sdlc: { catalog: { address: "first.md" } }, lifecycle: { profile: "release", mode: "extend", workflow: { steps: [] } } };
     write(join(mission, "slices", "01-child", "slice.yaml"), { kind: "slice", metadata: { id: "child" }, composition: { mission: "../../mission.yaml" } });
     save(); db = createDb(); migrate(db, ALL_MIGRATIONS);
-    db.prepare("INSERT INTO rigs(id,name) VALUES('r','rig')").run();
+    db.prepare("INSERT INTO software_teams(id,name) VALUES('r','softwareTeam')").run();
     bus = new EventBus(db); sends = [];
-    queue = new QueueRepository(db, bus, { validateRig: () => true, transport: { send: async (_to, message) => { sends.push(message); return { ok: true, verified: true }; } } });
+    queue = new QueueRepository(db, bus, { validateSoftwareTeam: () => true, transport: { send: async (_to, message) => { sends.push(message); return { ok: true, verified: true }; } } });
     queue.attachOutbox(new OutboxHandler(db));
     runtime = new WorkflowRuntime({ db, eventBus: bus, queueRepo: queue });
   });
   afterEach(() => { db.close(); rmSync(root, { recursive: true, force: true }); });
   const steps = () => project.lifecycle.profiles.release.workflow.steps as any[];
   async function progressed(key = "entry") {
-    const run = await runtime.instantiateLifecycle({ missionPath: mission, operationKey: key, rootObjective: "Safely adapt", createdBySession: "owner@rig" });
-    await runtime.project({ instanceId: run.instance.instanceId, currentPacketId: run.entryQitemId, actorSession: "owner@rig", exit: "handoff", closureEvidence: { evidence_ref: "plan.md" } });
+    const run = await runtime.instantiateLifecycle({ missionPath: mission, operationKey: key, rootObjective: "Safely adapt", createdBySession: "owner@software-team" });
+    await runtime.project({ instanceId: run.instance.instanceId, currentPacketId: run.entryQitemId, actorSession: "owner@software-team", exit: "handoff", closureEvidence: { evidence_ref: "plan.md" } });
     return runtime.instanceStore.getByIdOrThrow(run.instance.instanceId);
   }
   const apply = (id: string, key?: string) => {
     const v = inspectGraph(db, id);
-    return { instanceId: id, expectedVersion: v.expectedVersion, expectedDigest: v.proposedDigest!, operationKey: key ?? v.operationKey!, actorSession: "owner@rig", reason: "Preserve work and revise future delivery" };
+    return { instanceId: id, expectedVersion: v.expectedVersion, expectedDigest: v.proposedDigest!, operationKey: key ?? v.operationKey!, actorSession: "owner@software-team", reason: "Preserve work and revise future delivery" };
   };
   const unchanged = () => ({
     queue: db.prepare("SELECT * FROM queue_items ORDER BY qitem_id").all(),
@@ -71,7 +71,7 @@ describe("one preserved running graph and recoverable revision decision", () => 
     expect(view.composition.executableSteps.map(s => s.id)).toEqual(["plan", "build", "finish"]);
     expect(view.composition.explanation).toContain("not automatic nested children");
     expect(inspectGraph(db, run.instanceId)).toBe(view);
-    const execution = await buildExecutionView({ db, slicesRoot: () => join(root, "missions"), rigsRoot: () => join(root, "no-rigs"), buildInfo: { semver: null, commit: null, dirty: null, builtAt: null } }, { mission: "trial" }) as any;
+    const execution = await buildExecutionView({ db, slicesRoot: () => join(root, "missions"), softwareTeamsRoot: () => join(root, "no-softwareTeams"), buildInfo: { semver: null, commit: null, dirty: null, builtAt: null } }, { mission: "trial" }) as any;
     expect(execution.lifecycle_instances[0].reconciliation).toEqual(view);
     expect(db.serialize()).toEqual(before);
     const receipt = reviseGraph(db, bus, apply(run.instanceId));
@@ -82,17 +82,17 @@ describe("one preserved running graph and recoverable revision decision", () => 
 
   it("adopts a future dependency step with independent live child custody and never replays planning", async () => {
     const run = await progressed();
-    const child = await queue.create({ sourceSession: "owner@rig", destinationSession: "worker@rig", body: "Independent child proof", nudge: false });
-    await queue.claim({ qitemId: child.qitemId, destinationSession: "worker@rig", actorSession: "worker@rig" });
-    await runtime.project({ instanceId: run.instanceId, currentPacketId: run.currentFrontier[0]!, actorSession: "owner@rig", exit: "waiting", blockedOn: child.qitemId });
+    const child = await queue.create({ sourceSession: "owner@software-team", destinationSession: "worker@software-team", body: "Independent child proof", nudge: false });
+    await queue.claim({ qitemId: child.qitemId, destinationSession: "worker@software-team", actorSession: "worker@software-team" });
+    await runtime.project({ instanceId: run.instanceId, currentPacketId: run.currentFrontier[0]!, actorSession: "owner@software-team", exit: "waiting", blockedOn: child.qitemId });
     steps().push({ id: "inspect", actor_role: "owner", depends_on: ["build"], allowed_exits: ["handoff"], objective: "Inspect new condition" });
     steps().find(s => s.id === "finish").depends_on = ["inspect"]; save();
     const before = unchanged();
     const revision = reviseGraph(db, bus, apply(run.instanceId));
     expect(revision.replayed).toBe(false);
     expect(unchanged()).toEqual(before);
-    await queue.update({ qitemId: child.qitemId, actorSession: "worker@rig", state: "done", closureReason: "no-follow-on", transitionNote: "Child delivered" });
-    await runtime.project({ instanceId: run.instanceId, currentPacketId: run.currentFrontier[0]!, actorSession: "owner@rig", exit: "handoff" });
+    await queue.update({ qitemId: child.qitemId, actorSession: "worker@software-team", state: "done", closureReason: "no-follow-on", transitionNote: "Child delivered" });
+    await runtime.project({ instanceId: run.instanceId, currentPacketId: run.currentFrontier[0]!, actorSession: "owner@software-team", exit: "handoff" });
     const next = runtime.inspect(run.instanceId);
     expect(next.frontier.map(f => f.stepId)).toEqual(["inspect"]);
     expect(queue.getByIdOrThrow(next.frontier[0]!.packetId).body).toContain("Inspect new condition");
@@ -171,7 +171,7 @@ describe("one preserved running graph and recoverable revision decision", () => 
     reviseGraph(db, bus, first);
     const before = db.serialize();
     expect(() => reviseGraph(db, bus, second)).toThrow("different decision");
-    await expect(runtime.instantiateLifecycle({ missionPath: mission, operationKey: "shared-revision", rootObjective: "Conflict control", createdBySession: "owner@rig" })).rejects.toMatchObject({ code: "lifecycle_operation_conflict" });
+    await expect(runtime.instantiateLifecycle({ missionPath: mission, operationKey: "shared-revision", rootObjective: "Conflict control", createdBySession: "owner@software-team" })).rejects.toMatchObject({ code: "lifecycle_operation_conflict" });
     expect(() => reviseGraph(db, bus, { ...second, operationKey: "first-entry" })).toThrow("different decision");
     expect(() => reviseGraph(db, bus, { ...second, operationKey: 4 as unknown as string })).toThrow("inspected version/digest");
     expect(db.serialize()).toEqual(before);
@@ -179,8 +179,8 @@ describe("one preserved running graph and recoverable revision decision", () => 
 
   it("adopts only exception policy for future occurrences while preserving live child and completed judgment", async () => {
     const run = await progressed();
-    const child = await queue.create({ sourceSession: "owner@rig", destinationSession: "owner@rig", body: "Unfinished child" });
-    await runtime.project({ instanceId: run.instanceId, currentPacketId: run.currentFrontier[0]!, actorSession: "owner@rig", exit: "waiting", blockedOn: child.qitemId });
+    const child = await queue.create({ sourceSession: "owner@software-team", destinationSession: "owner@software-team", body: "Unfinished child" });
+    await runtime.project({ instanceId: run.instanceId, currentPacketId: run.currentFrontier[0]!, actorSession: "owner@software-team", exit: "waiting", blockedOn: child.qitemId });
     expect(runtime.compileLifecycle(mission).exceptionReadiness?.selection).toMatchObject({ state: "missing", source: realpathSync(join(root, "project.yaml")) + "#lifecycle.profiles.release.workflow.exception_routing.orchestrator_role" });
     project.lifecycle.profiles.release.workflow.exception_routing = { orchestrator_role: "owner" }; save();
     expect(runtime.exceptionReadiness(run.instanceId)?.selection.state).toBe("missing");
@@ -192,8 +192,8 @@ describe("one preserved running graph and recoverable revision decision", () => 
     expect(adopted.receipt.changes).toEqual(view.changes);
     expect(unchanged()).toEqual(before);
     expect(runtime.exceptionReadiness(run.instanceId)?.selection).toMatchObject({ state: "selected", role: "owner" });
-    expect(runtime.resolveExceptionRouteFor(run.workflowName, adopted.instance.workflowVersion, "stuck_overdue", run.boundRig)?.destinationSession).toBe("owner@rig");
-    project.lifecycle.profiles.release.workflow.roles.owner.preferred_targets = ["other@rig"]; save();
+    expect(runtime.resolveExceptionRouteFor(run.workflowName, adopted.instance.workflowVersion, "stuck_overdue", run.boundSoftwareTeam)?.destinationSession).toBe("owner@software-team");
+    project.lifecycle.profiles.release.workflow.roles.owner.preferred_targets = ["other@software-team"]; save();
     expect(runtime.inspectGraph(run.instanceId).status).toBe("incompatible");
     expect(() => runtime.reviseGraph(apply(run.instanceId, "unsafe-role-edit"))).toThrow("Revision refused");
     expect(unchanged()).toEqual(before);

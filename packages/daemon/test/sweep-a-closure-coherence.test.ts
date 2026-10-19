@@ -28,14 +28,14 @@ describe("SWEEP-a — closure/blocked coherence guard", () => {
   beforeEach(async () => {
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, queueItemsSchema, queueTransitionsSchema, inboxEntriesSchema, outboxEntriesSchema, queueTargetRepoSchema, queueItemSummarySchema, queueItemEvidenceRefSchema]);
-    repo = new QueueRepository(db, new EventBus(db), { validateRig: () => true });
-    id = (await repo.create({ sourceSession: "a@rig", destinationSession: "b@rig", body: "x" } as never)).qitemId;
+    repo = new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => true });
+    id = (await repo.create({ sourceSession: "a@software-team", destinationSession: "b@software-team", body: "x" } as never)).qitemId;
   });
   afterEach(() => db.close());
 
   it("closure_reason on state=in-progress REJECTS loud, nothing persisted", async () => {
     let err: unknown;
-    try { await repo.update({ qitemId: id, actorSession: "a@rig", state: "in-progress", closureReason: "denied" } as never); }
+    try { await repo.update({ qitemId: id, actorSession: "a@software-team", state: "in-progress", closureReason: "denied" } as never); }
     catch (e) { err = e; }
     expect(err).toBeInstanceOf(QueueRepositoryError);
     expect((err as QueueRepositoryError).code).toBe("closure_fields_not_admitted");
@@ -45,7 +45,7 @@ describe("SWEEP-a — closure/blocked coherence guard", () => {
 
   it("blocked_on on state=done REJECTS loud", async () => {
     let err: unknown;
-    try { await repo.update({ qitemId: id, actorSession: "a@rig", state: "done", closureReason: "canceled", blockedOn: "x@rig" } as never); }
+    try { await repo.update({ qitemId: id, actorSession: "a@software-team", state: "done", closureReason: "canceled", blockedOn: "x@software-team" } as never); }
     catch (e) { err = e; }
     expect(err).toBeInstanceOf(QueueRepositoryError);
     expect((err as QueueRepositoryError).code).toBe("blocked_on_not_admitted");
@@ -53,10 +53,10 @@ describe("SWEEP-a — closure/blocked coherence guard", () => {
   });
 
   it("CONTROL: done+closure stays green; the blocked park-record form stays green (workflow writers)", async () => {
-    await repo.update({ qitemId: id, actorSession: "a@rig", state: "blocked", closureReason: "blocked_on", closureTarget: "gate@rig", blockedOn: "gate@rig" } as never);
+    await repo.update({ qitemId: id, actorSession: "a@software-team", state: "blocked", closureReason: "blocked_on", closureTarget: "gate@software-team", blockedOn: "gate@software-team" } as never);
     expect(repo.getById(id)!.state).toBe("blocked");
-    expect(repo.getById(id)!.blockedOn).toBe("gate@rig");
-    await repo.update({ qitemId: id, actorSession: "a@rig", state: "done", closureReason: "no-follow-on" } as never);
+    expect(repo.getById(id)!.blockedOn).toBe("gate@software-team");
+    await repo.update({ qitemId: id, actorSession: "a@software-team", state: "done", closureReason: "no-follow-on" } as never);
     expect(repo.getById(id)!.state).toBe("done");
   });
 });

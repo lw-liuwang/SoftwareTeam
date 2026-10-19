@@ -9,7 +9,7 @@ const startedAt = "Sat Jan  1 12:00:00 2000";
 function rows(): NativeProcessRow[] {
   return [
     { pid: 10, ppid: 1, pgid: 10, tpgid: 11, executableName: "zsh", command: "-zsh", startedAt },
-    { pid: 11, ppid: 10, pgid: 11, tpgid: 11, executableName: "bash", command: "/bin/sh /tmp/openrig-tmux-send.txt", startedAt },
+    { pid: 11, ppid: 10, pgid: 11, tpgid: 11, executableName: "bash", command: "/bin/sh /tmp/softwareteam-tmux-send.txt", startedAt },
     { pid: 12, ppid: 11, pgid: 11, tpgid: 11, executableName: "node", command: `node /opt/bin/codex resume ${token}`, startedAt },
     { pid: 13, ppid: 12, pgid: 11, tpgid: 11, executableName: "codex", command: `/opt/native/codex -p resume resume --add-dir /tmp/state ${token}`, startedAt },
   ];
@@ -138,11 +138,11 @@ describe("observeClaudePaneStartedAt", () => {
   const claudeStart = "Fri Oct  2 11:00:00 2026";
   const claudeRows = (extra: NativeProcessRow[] = []): NativeProcessRow[] => [
     { pid: 20, ppid: 1, pgid: 20, tpgid: 21, executableName: "zsh", command: "-zsh", startedAt },
-    { pid: 21, ppid: 20, pgid: 21, tpgid: 21, executableName: "claude", command: "claude --name seat@rig", startedAt: claudeStart },
+    { pid: 21, ppid: 20, pgid: 21, tpgid: 21, executableName: "claude", command: "claude --name seat@software-team", startedAt: claudeStart },
     ...extra,
   ];
   const observe = (list: NativeProcessRow[], panePid: number | null = 20) =>
-    observeClaudePaneStartedAt({ target: "seat@rig", tmux: { getPanePid: async () => panePid }, listProcesses: () => list });
+    observeClaudePaneStartedAt({ target: "seat@software-team", tmux: { getPanePid: async () => panePid }, listProcesses: () => list });
 
   it("returns the start time of the one Claude process in the pane's foreground, without a token", async () => {
     expect(await observe(claudeRows())).toBe(claudeStart);
@@ -168,7 +168,7 @@ describe("Claude identity with inline settings in ps output", () => {
     const list = [
       { pid: 20, ppid: 1, pgid: 20, tpgid: 21, executableName: "zsh", command: "-zsh", startedAt },
       { pid: 21, ppid: 20, pgid: 21, tpgid: 21, executableName: "claude",
-        command: `claude --permission-mode acceptEdits ${args} --name seat@rig`, startedAt },
+        command: `claude --permission-mode acceptEdits ${args} --name seat@software-team`, startedAt },
     ];
     return { target: "%1", tmux: { getPanePid: async () => 20 }, listProcesses: async () => list, expectedToken: token };
   }
@@ -199,9 +199,9 @@ describe("Claude identity with inline settings in ps output", () => {
     expect(await verifyClaudePaneProcess({ ...input(args), expectedToken: "different" })).toBeNull();
   });
   it.each([
-    `--remote-control orch.lead@rig --session-id ${token}`,
-    `--session-id ${token} --remote-control orch.lead@rig`,
-    `--remote-control=orch.lead@rig --resume ${token}`,
+    `--remote-control orch.lead@software-team --session-id ${token}`,
+    `--session-id ${token} --remote-control orch.lead@software-team`,
+    `--remote-control=orch.lead@software-team --resume ${token}`,
   ])("proves the exact Claude identity with the launch-only Remote Control option: %s", async args => {
     const actual = input(args);
     expect((await verifyClaudePaneProcess(actual))?.process.pid).toBe(21);
@@ -287,7 +287,7 @@ describe("observeClaudeDelivery's idle-shell policy: delivery versus launch", ()
 describe("Codex behind a spawning launcher", () => {
   const launcherRows = (launcher = "", middle = "", native = ""): NativeProcessRow[] => [
     { pid: 10, ppid: 1, pgid: 10, tpgid: 11, executableName: "zsh", command: "-zsh", startedAt },
-    { pid: 11, ppid: 10, pgid: 11, tpgid: 11, executableName: "sh", command: "sh /tmp/openrig-tmux-send.txt", startedAt },
+    { pid: 11, ppid: 10, pgid: 11, tpgid: 11, executableName: "sh", command: "sh /tmp/softwareteam-tmux-send.txt", startedAt },
     { pid: 12, ppid: 11, pgid: 11, tpgid: 11, executableName: "codex", command: `codex ${launcher}--no-daemon -s workspace-write -c check_for_update_on_startup=false`, startedAt },
     { pid: 13, ppid: 12, pgid: 11, tpgid: 11, executableName: "codex", command: `codex ${middle}--no-daemon -s workspace-write`, startedAt },
     { pid: 14, ppid: 13, pgid: 11, tpgid: 11, executableName: "codex", command: `codex ${native}-c model_provider=local`, startedAt },
@@ -343,12 +343,12 @@ describe("Claude exact-resume finder behind a spawning launcher", () => {
   // A verified Claude binary (argv0 and OS name claude) on the token, over one child.
   const realRows = (child: string, childName = "claude"): NativeProcessRow[] => [
     { pid: 10, ppid: 1, pgid: 10, tpgid: 11, executableName: "zsh", command: "-zsh", startedAt },
-    { pid: 11, ppid: 10, pgid: 11, tpgid: 11, executableName: "claude", command: `claude --resume ${token} --name dev@rig`, startedAt },
+    { pid: 11, ppid: 10, pgid: 11, tpgid: 11, executableName: "claude", command: `claude --resume ${token} --name dev@software-team`, startedAt },
     { pid: 12, ppid: 11, pgid: 11, tpgid: 11, executableName: childName, command: child, startedAt },
   ];
   // A script launcher: ps shows the interpreter as argv0, so it is not a verified Claude runtime.
   const scriptRows = (child: string) => realRows(child).map(r => r.pid === 11
-    ? { ...r, command: `/bin/sh /shim/claude --resume ${token} --name dev@rig` } : r);
+    ? { ...r, command: `/bin/sh /shim/claude --resume ${token} --name dev@software-team` } : r);
   // #563/#567 company-launcher model: three claude processes; the real Claude names no token.
   const companyRows = (): NativeProcessRow[] => [
     { pid: 100, ppid: 1, pgid: 100, tpgid: 101, executableName: "bash", command: "-bash", startedAt },
@@ -437,7 +437,7 @@ describe("Claude exact-resume finder behind a spawning launcher", () => {
   it("leaves a --fork-session child that names only its parent as on main", () => {
     expect(find(scriptRows(`claude --resume ${token} --fork-session`))).toBe(11);
   });
-  const forkChild = `claude --resume ${token} --fork-session --session-id ${other} --name dev@rig`;
+  const forkChild = `claude --resume ${token} --fork-session --session-id ${other} --name dev@software-team`;
   it("refuses a script launcher's token over its Claude fork child naming the fork's own id", () => {
     expect(find(scriptRows(forkChild))).toBeNull();
   });
@@ -454,6 +454,6 @@ describe("Claude exact-resume finder behind a spawning launcher", () => {
       expect(observed.detail).toContain("fork");
     });
   it("delivery still reports a conflict when two Claude processes name different conversations without a fork", async () => {
-    expect((await delivery(realRows(`claude --session-id ${other} --name dev@rig`), token)).state).toBe("conflict");
+    expect((await delivery(realRows(`claude --session-id ${other} --name dev@software-team`), token)).state).toBe("conflict");
   });
 });

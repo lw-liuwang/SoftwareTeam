@@ -41,11 +41,11 @@ function makeDetail(name: string, missionId: string | null, qitemIds: string[]):
       events: qitemIds[0] ? [{
         ts: "2026-05-07T22:06:36.083Z",
         kind: "queue.created",
-        actorSession: "driver@rig",
+        actorSession: "driver@software-team",
         qitemId: qitemIds[0],
         phase: null,
         summary: `Created ${qitemIds[0]} for ${name}.`,
-        detail: { sourceSession: "driver@rig", destinationSession: "human@host" },
+        detail: { sourceSession: "driver@software-team", destinationSession: "human@host" },
       }] : [],
       phaseDefinitions: null,
     },
@@ -64,15 +64,15 @@ function makeDetail(name: string, missionId: string | null, qitemIds: string[]):
       }],
       aggregate: { passCount: 1, failCount: 0 },
     },
-    topology: { affectedRigs: [{ rigId: "rig-1", rigName: "rig-1", sessionNames: ["driver@rig-1"] }], totalSeats: 1, specGraph: null },
+    topology: { affectedSoftwareTeams: [{ softwareTeamId: "software-team-1", softwareTeamName: "software-team-1", sessionNames: ["driver@software-team-1"] }], totalSeats: 1, specGraph: null },
   };
 }
 
 // V0.3.1 slice 12.5 — workspace topology now renders via
-// HostMultiRigGraph; tests may override /api/ps to exercise the N=1 vs
-// N=2 rig-clustering paths.
+// HostMultiSoftwareTeamGraph; tests may override /api/ps to exercise the N=1 vs
+// N=2 software-team-clustering paths.
 type PsEntry = {
-  rigId: string;
+  softwareTeamId: string;
   name: string;
   nodeCount: number;
   runningCount: number;
@@ -81,10 +81,10 @@ type PsEntry = {
   latestSnapshot: null;
 };
 
-const SINGLE_RIG_PS: PsEntry[] = [
+const SINGLE_SOFTWARE_TEAM_PS: PsEntry[] = [
   {
-    rigId: "rig-1",
-    name: "rig-1",
+    softwareTeamId: "software-team-1",
+    name: "software-team-1",
     nodeCount: 1,
     runningCount: 1,
     status: "running",
@@ -94,7 +94,7 @@ const SINGLE_RIG_PS: PsEntry[] = [
 ];
 
 function installFetchMock(opts: { psEntries?: PsEntry[] } = {}) {
-  const psEntries = opts.psEntries ?? SINGLE_RIG_PS;
+  const psEntries = opts.psEntries ?? SINGLE_SOFTWARE_TEAM_PS;
   mockFetch.mockImplementation(async (url: string) => {
     // MH-2: the selection-known files gate needs the hosts payload (local).
     if (url.includes("/api/hosts")) {
@@ -102,18 +102,18 @@ function installFetchMock(opts: { psEntries?: PsEntry[] } = {}) {
     }
     if (url.includes("/api/config")) {
       return new Response(
-        JSON.stringify({ settings: { "workspace.root": { value: "/Users/admin/.openrig/workspace" } } }),
+        JSON.stringify({ settings: { "workspace.root": { value: "/Users/admin/.softwareteam/workspace" } } }),
         { status: 200 },
       );
     }
-    // HostMultiRigGraph fetches /api/ps for rig inventory + per-rig
-    // /api/rigs/<id>/graph for expanded rig contents. Provide minimal
+    // HostMultiSoftwareTeamGraph fetches /api/ps for softwareTeam inventory + per-softwareTeam
+    // /api/software-teams/<id>/graph for expanded softwareTeam contents. Provide minimal
     // responses so the swap test renders without network errors.
     if (url === "/api/ps" || url.startsWith("/api/ps?")) {
       return new Response(JSON.stringify(psEntries), { status: 200 });
     }
-    const rigGraphMatch = url.match(/\/api\/rigs\/([^/]+)\/graph/);
-    if (rigGraphMatch) {
+    const softwareTeamGraphMatch = url.match(/\/api\/software-teams\/([^/]+)\/graph/);
+    if (softwareTeamGraphMatch) {
       return new Response(JSON.stringify({ nodes: [], edges: [] }), { status: 200 });
     }
     if (url.includes("/api/slices/idea-ledger")) {
@@ -127,7 +127,7 @@ function installFetchMock(opts: { psEntries?: PsEntry[] } = {}) {
         qitemId: "qitem-A",
         tsCreated: "2026-05-07T22:06:36.083Z",
         tsUpdated: "2026-05-07T22:06:36.083Z",
-        sourceSession: "driver@rig",
+        sourceSession: "driver@software-team",
         destinationSession: "human@host",
         state: "done",
         priority: "urgent",
@@ -178,7 +178,7 @@ function renderWorkspaceScope(
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   // V0.3.1 slice 12.5 — TopologyOverlayProvider must be INSIDE the
-  // router (HostMultiRigGraph's useRouterState dependency), so wrap
+  // router (HostMultiSoftwareTeamGraph's useRouterState dependency), so wrap
   // <Outlet /> in the root route component, not the RouterProvider.
   const rootRoute = createRootRoute({
     component: () => (
@@ -217,7 +217,7 @@ function renderMissionScope(): ReturnType<typeof render> {
   // ScopeTopologyRollup when no specGraph is declared, so the
   // TopologyOverlayProvider isn't strictly required here. Wrap anyway
   // for symmetry with the workspace helper above (and so future tests
-  // that exercise HostMultiRigGraph-shaped fallbacks have a working
+  // that exercise HostMultiSoftwareTeamGraph-shaped fallbacks have a working
   // context).
   const rootRoute = createRootRoute({
     component: () => (
@@ -298,44 +298,44 @@ describe("WorkspaceScopePage overview", () => {
     expect((await findByTestId("scope-queue-trigger-qitem-A")).textContent).toContain("Full queue body");
 
     // V0.3.1 slice 12.5 — workspace topology now renders via
-    // HostMultiRigGraph (rigs as distinct visual clusters) instead of
+    // HostMultiSoftwareTeamGraph (softwareTeams as distinct visual clusters) instead of
     // the flat session-name ScopeTopologyRollup. Mission-scope topology
     // fallback continues to use ScopeTopologyRollup when no specGraph
     // is declared.
     fireEvent.click(await findByTestId("project-tab-topology"));
     expect(await findByTestId("workspace-topology-hostmultirig")).toBeTruthy();
-    expect(await findByTestId("host-multi-rig-graph")).toBeTruthy();
+    expect(await findByTestId("host-multi-software-team-graph")).toBeTruthy();
   });
 
-  // V0.3.1 slice 12.5 HG-3 — N=1 rig fixture renders cleanly as a
-  // single rig cluster on the workspace topology surface (no flat
+  // V0.3.1 slice 12.5 HG-3 — N=1 softwareTeam fixture renders cleanly as a
+  // single softwareTeam cluster on the workspace topology surface (no flat
   // session-name aggregation).
-  it("slice 12.5 HG-3: single-rig workspace renders a single rig cluster on /topology", async () => {
+  it("slice 12.5 HG-3: single-software-team workspace renders a single SoftwareTeam cluster on /topology", async () => {
     const { findByTestId, queryByTestId } = renderWorkspaceScope({
-      psEntries: SINGLE_RIG_PS,
+      psEntries: SINGLE_SOFTWARE_TEAM_PS,
     });
     fireEvent.click(await findByTestId("project-tab-topology"));
     expect(await findByTestId("workspace-topology-hostmultirig")).toBeTruthy();
-    expect(await findByTestId("host-multi-rig-graph")).toBeTruthy();
-    expect(await findByTestId("rig-group-node-rig-1")).toBeTruthy();
-    expect(queryByTestId("rig-group-node-rig-2")).toBeNull();
+    expect(await findByTestId("host-multi-software-team-graph")).toBeTruthy();
+    expect(await findByTestId("software-team-group-node-software-team-1")).toBeTruthy();
+    expect(queryByTestId("software-team-group-node-software-team-2")).toBeNull();
     // Back-compat: the legacy flat session-name rollup is NOT mounted
     // for the workspace topology surface anymore.
     expect(queryByTestId("scope-topology-rollup")).toBeNull();
   });
 
-  // V0.3.1 slice 12.5 HG-2 — N=2+ rig fixture renders distinct visual
-  // rig clusters. Compounds with slice 05 (kernel-rig-as-default ships
-  // multi-rig workspaces): without rig-clustering, kernel agents make
-  // the flat view noisier; with rig-clustering, structure stays legible
-  // as rigs multiply.
-  it("slice 12.5 HG-2: multi-rig workspace renders distinct rig clusters on /topology", async () => {
+  // V0.3.1 slice 12.5 HG-2 — N=2+ softwareTeam fixture renders distinct visual
+  // softwareTeam clusters. Compounds with slice 05 (kernel-software-team-as-default ships
+  // multi-softwareTeam workspaces): without software-team-clustering, kernel agents make
+  // the flat view noisier; with software-team-clustering, structure stays legible
+  // as softwareTeams multiply.
+  it("slice 12.5 HG-2: multi-software-team workspace renders distinct SoftwareTeam clusters on /topology", async () => {
     const { findByTestId } = renderWorkspaceScope({
       psEntries: [
-        ...SINGLE_RIG_PS,
+        ...SINGLE_SOFTWARE_TEAM_PS,
         {
-          rigId: "rig-2",
-          name: "openrig-kernel",
+          softwareTeamId: "software-team-2",
+          name: "softwareteam-kernel",
           nodeCount: 2,
           runningCount: 2,
           status: "running",
@@ -346,9 +346,9 @@ describe("WorkspaceScopePage overview", () => {
     });
     fireEvent.click(await findByTestId("project-tab-topology"));
     expect(await findByTestId("workspace-topology-hostmultirig")).toBeTruthy();
-    expect(await findByTestId("host-multi-rig-graph")).toBeTruthy();
-    expect(await findByTestId("rig-group-node-rig-1")).toBeTruthy();
-    expect(await findByTestId("rig-group-node-rig-2")).toBeTruthy();
+    expect(await findByTestId("host-multi-software-team-graph")).toBeTruthy();
+    expect(await findByTestId("software-team-group-node-software-team-1")).toBeTruthy();
+    expect(await findByTestId("software-team-group-node-software-team-2")).toBeTruthy();
   });
 
   it("mission scope page filters workspace data to that mission", async () => {

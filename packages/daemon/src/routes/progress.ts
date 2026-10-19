@@ -4,7 +4,7 @@
 //   GET /api/progress/tree
 //
 // Returns the indexed PROGRESS.md hierarchy across operator-allowlisted
-// scan roots (configured via OPENRIG_PROGRESS_SCAN_ROOTS). Empty roots
+// scan roots (configured via SOFTWARETEAM_PROGRESS_SCAN_ROOTS). Empty roots
 // → 503 with a setup hint, mirroring the slices-route shape so the UI
 // can render a clear configuration message instead of a generic error.
 
@@ -30,7 +30,7 @@ export function progressRoutes(): Hono {
     if (!deps.indexer.isReady()) {
       return c.json({
         error: "progress_scan_roots_not_configured",
-        hint: "Set OPENRIG_PROGRESS_SCAN_ROOTS=name1:/abs/path,name2:/abs/path and restart the daemon.",
+        hint: "Set SOFTWARETEAM_PROGRESS_SCAN_ROOTS=name1:/abs/path,name2:/abs/path and restart the daemon.",
       }, 503);
     }
     return c.json(deps.indexer.scan());

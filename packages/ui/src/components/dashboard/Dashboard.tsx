@@ -11,7 +11,7 @@
 //
 // Real-data wiring — every Field Environment row reads live runtime state
 // (OPR.0.4.1.14 functional refinement; no placeholder rows):
-//   useRigSummary    → RIGS count                (REAL, own line)
+//   useSoftwareTeamSummary    → SOFTWARE_TEAMS count                (REAL, own line)
 //   usePsEntries     → AGENTS count              (REAL, own line)
 //   window.location.hostname → STATION ID        (REAL)
 //   useSettings(agents.operator_session) → OPERATOR ID, with an honest
@@ -26,7 +26,7 @@
 import "./dashboard-fidelity.css";
 
 import { Link } from "@tanstack/react-router";
-import { useRigSummary } from "../../hooks/useRigSummary.js";
+import { useSoftwareTeamSummary } from "../../hooks/useSoftwareTeamSummary.js";
 import { usePsEntries } from "../../hooks/usePsEntries.js";
 import { useSettings } from "../../hooks/useSettings.js";
 import { useDaemonVersion } from "../../hooks/useDaemonVersion.js";
@@ -59,7 +59,7 @@ interface Destination {
 
 // Routes + order are UNCHANGED from the prior dashboard (no behaviour change).
 const DESTINATIONS: Destination[] = [
-  { num: "01", to: "/topology", label: "TOPOLOGY", caption: "VIEW RIG GRAPH", glyph: <TopologyGlyph />, captionGlyph: "cross" },
+  { num: "01", to: "/topology", label: "TOPOLOGY", caption: "VIEW SOFTWARE_TEAM GRAPH", glyph: <TopologyGlyph />, captionGlyph: "cross" },
   { num: "02", to: "/project", label: "PROJECT", caption: "BROWSE PROJECTS", glyph: <ProjectGlyph />, captionGlyph: "square" },
   { num: "03", to: "/for-you", label: "FOR YOU", caption: "PRIORITIZED FOR YOU", glyph: <ForYouGlyph />, captionGlyph: "square", amber: true },
   { num: "04", to: "/specs", label: "LIBRARY", caption: "SPECS & ARTIFACTS", glyph: <LibraryGlyph />, captionGlyph: "cross" },
@@ -81,12 +81,12 @@ function readSetting(
 }
 
 export function Dashboard() {
-  const { data: rigs } = useRigSummary();
+  const { data: softwareTeams } = useSoftwareTeamSummary();
   const { data: psEntries, isError: psError } = usePsEntries();
   const { data: settings } = useSettings();
   const { data: versionData } = useDaemonVersion();
 
-  const totalRigs = rigs?.length ?? 0;
+  const totalSoftwareTeams = softwareTeams?.length ?? 0;
   const totalAgents = psEntries?.reduce((acc, p) => acc + p.nodeCount, 0) ?? 0;
 
   const hostname =
@@ -94,7 +94,7 @@ export function Dashboard() {
   const station = hostname.toUpperCase();
   const online = !psError && psEntries !== undefined;
 
-  // Operator identity from the configured operator seat (logicalId@rigId), with
+  // Operator identity from the configured operator seat (logicalId@softwareTeamId), with
   // an honest "OPERATOR" fallback when unset — the best-available real source.
   const operatorSession = readSetting(settings, "agents.operator_session");
   // OPR.0.4.6.MH1 FR-8: the shared parse contract.
@@ -129,7 +129,7 @@ export function Dashboard() {
           <FieldEnvironment
             station={station}
             operatorId={operatorId}
-            rigs={totalRigs}
+            softwareTeams={totalSoftwareTeams}
             agents={totalAgents}
             version={version}
           />
@@ -168,7 +168,7 @@ export function Dashboard() {
 interface FieldEnvironmentProps {
   station: string;
   operatorId: string;
-  rigs: number;
+  softwareTeams: number;
   agents: number;
   version: string;
 }
@@ -176,18 +176,18 @@ interface FieldEnvironmentProps {
 function FieldEnvironment({
   station,
   operatorId,
-  rigs,
+  softwareTeams,
   agents,
   version,
 }: FieldEnvironmentProps) {
   // Every row is REAL runtime data (OPR.0.4.1.14): the placeholder SESSION and
-  // decorative DECLINATION rows were dropped; RIGS and AGENTS are split onto
+  // decorative DECLINATION rows were dropped; SOFTWARE_TEAMS and AGENTS are split onto
   // their own lines as single live counts; VERSION is the running daemon
   // version. The vintage mono / dotted-leader treatment is unchanged.
   const rows: Array<{ k: string; v: string }> = [
     { k: "STATION ID", v: station },
     { k: "OPERATOR ID", v: operatorId },
-    { k: "RIGS", v: pad2(rigs) },
+    { k: "SOFTWARE_TEAMS", v: pad2(softwareTeams) },
     { k: "AGENTS", v: pad2(agents) },
     { k: "VERSION", v: version },
   ];

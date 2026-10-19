@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import type Database from "better-sqlite3";
-import type { RigRepository } from "../src/domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import type { SessionRegistry } from "../src/domain/session-registry.js";
 import type { SnapshotCapture } from "../src/domain/snapshot-capture.js";
 import type { RestoreOrchestrator } from "../src/domain/restore-orchestrator.js";
@@ -30,7 +30,7 @@ describe("Up API route", () => {
   let db: Database.Database;
   let app: ReturnType<typeof createTestApp>["app"];
   let tmpDir: string;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let snapshotCapture: SnapshotCapture;
   let restoreOrchestrator: RestoreOrchestrator;
@@ -42,7 +42,7 @@ describe("Up API route", () => {
     // Create test app with real UpCommandRouter fsOps pointing to tmpDir
     const setup = createTestApp(db);
     app = setup.app;
-    rigRepo = setup.rigRepo;
+    softwareTeamRepo = setup.softwareTeamRepo;
     sessionRegistry = setup.sessionRegistry;
     snapshotCapture = setup.snapshotCapture;
     restoreOrchestrator = setup.restoreOrchestrator;
@@ -76,10 +76,10 @@ describe("Up API route", () => {
     expect(body.error).toContain("not found");
   });
 
-  it("does not let an archived namesake make a live rig name ambiguous", async () => {
-    const archived = rigRepo.createRig("restore-name");
-    rigRepo.archiveRig(archived.id);
-    rigRepo.createRig("restore-name");
+  it("does not let an archived namesake make a live SoftwareTeam name ambiguous", async () => {
+    const archived = softwareTeamRepo.createSoftwareTeam("restore-name");
+    softwareTeamRepo.archiveSoftwareTeam(archived.id);
+    softwareTeamRepo.createSoftwareTeam("restore-name");
 
     const res = await app.request("/api/up", {
       method: "POST",
@@ -91,16 +91,16 @@ describe("Up API route", () => {
     expect((await res.json()).code).toBe("no_snapshot");
   });
 
-  it("restores the sole archived rig by name when no active rig has that name", async () => {
-    const rig = rigRepo.createRig("archived-restore");
-    const node = rigRepo.addNode(rig.id, "worker", { role: "worker" });
+  it("restores the sole archived SoftwareTeam by name when no active SoftwareTeam has that name", async () => {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("archived-restore");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
     const session = sessionRegistry.registerSession(node.id, "worker@archived-restore");
     db.prepare("UPDATE sessions SET resume_type = ?, resume_token = ?, restore_policy = ? WHERE id = ?")
       .run("claude_name", "tok-archived", "relaunch_fresh", session.id);
     sessionRegistry.updateStatus(session.id, "running");
-    snapshotCapture.captureSnapshot(rig.id, "auto-pre-down");
+    snapshotCapture.captureSnapshot(softwareTeam.id, "auto-pre-down");
     sessionRegistry.updateStatus(session.id, "exited");
-    rigRepo.archiveRig(rig.id);
+    softwareTeamRepo.archiveSoftwareTeam(softwareTeam.id);
 
     const res = await app.request("/api/up", {
       method: "POST",
@@ -109,12 +109,12 @@ describe("Up API route", () => {
     });
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ status: "restored", rigId: rig.id });
+    expect(await res.json()).toMatchObject({ status: "restored", softwareTeamId: softwareTeam.id });
   });
 
-  it("keeps two active rigs with the same name ambiguous", async () => {
-    rigRepo.createRig("ambiguous-restore");
-    rigRepo.createRig("ambiguous-restore");
+  it("keeps two active softwareTeams with the same name ambiguous", async () => {
+    softwareTeamRepo.createSoftwareTeam("ambiguous-restore");
+    softwareTeamRepo.createSoftwareTeam("ambiguous-restore");
 
     const res = await app.request("/api/up", {
       method: "POST",
@@ -143,14 +143,14 @@ describe("Up API route", () => {
     }
   });
 
-  it("POST /api/up restoring an existing rig name includes rigResult", async () => {
-    const rig = rigRepo.createRig("restore-me");
-    const node = rigRepo.addNode(rig.id, "worker", { role: "worker" });
+  it("POST /api/up restoring an existing SoftwareTeam name includes softwareTeamResult", async () => {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("restore-me");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
     const session = sessionRegistry.registerSession(node.id, "worker@restore-me");
     db.prepare("UPDATE sessions SET resume_type = ?, resume_token = ?, restore_policy = ? WHERE id = ?")
       .run("claude_name", "tok-restore", "relaunch_fresh", session.id);
     sessionRegistry.updateStatus(session.id, "running");
-    snapshotCapture.captureSnapshot(rig.id, "auto-pre-down");
+    snapshotCapture.captureSnapshot(softwareTeam.id, "auto-pre-down");
     sessionRegistry.updateStatus(session.id, "exited");
 
     const res = await app.request("/api/up", {
@@ -162,30 +162,30 @@ describe("Up API route", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.status).toBe("restored");
-    expect(body.rigResult).toBe("partially_restored");
+    expect(body.softwareTeamResult).toBe("partially_restored");
     expect(body.nodes[0].status).toBe("fresh-primed");
   });
 
   it.each(["cli", "explorer"])("%s up selects the pre-down snapshot for plan and apply after a fresh occupant stops", async (entryPoint) => {
-    const rig = rigRepo.createRig("fresh-down-up");
-    const node = rigRepo.addNode(rig.id, "worker", { runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("fresh-down-up");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, "worker@fresh-down-up", "fresh");
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateResumeToken(session.id, "claude_name", "fresh-native-session", "hook");
-    db.prepare("INSERT INTO events (rig_id, type, payload) VALUES (?, 'seat.fresh_launched', ?)").run(rig.id, JSON.stringify({
+    db.prepare("INSERT INTO events (software_team_id, type, payload) VALUES (?, 'seat.fresh_launched', ?)").run(softwareTeam.id, JSON.stringify({
       nodeId: node.id, sessionId: session.id, newGeneration: sessionRegistry.currentOccupantTenure(node.id)!.generationUuid,
     }));
     const down = await app.request("/api/down", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rigId: rig.id, force: true }),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ softwareTeamId: softwareTeam.id, force: true }),
     });
     expect(down.status).toBe(200);
     const { snapshotId, errors } = await down.json();
     expect(errors).toEqual([]);
-    expect(sessionRegistry.getSessionsForRig(rig.id)[0]!.status).toBe("exited");
+    expect(sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id)[0]!.status).toBe("exited");
     const beforePlan = db.prepare("SELECT total_changes() AS count").get();
     const restoreSpy = vi.spyOn(restoreOrchestrator, "restore");
-    const up = (plan: boolean) => app.request(entryPoint === "cli" ? "/api/up" : `/api/rigs/${rig.id}/up`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sourceRef: rig.name, plan }),
+    const up = (plan: boolean) => app.request(entryPoint === "cli" ? "/api/up" : `/api/software-teams/${softwareTeam.id}/up`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sourceRef: softwareTeam.name, plan }),
     });
 
     const plan = await up(true);
@@ -205,36 +205,36 @@ describe("Up API route", () => {
   });
 
   it.each([[false, true, true], [true, undefined, true], [true, false, false], [false, undefined, false]] as const)("non-interruptive stored %s / option %s restores as %s; plan does not write", async (stored, option, expected) => {
-    const rig = rigRepo.createRig("saved-choice");
-    rigRepo.setRigNonInterruptive(rig.id, stored);
-    const node = rigRepo.addNode(rig.id, "worker", { role: "worker" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("saved-choice");
+    softwareTeamRepo.setSoftwareTeamNonInterruptive(softwareTeam.id, stored);
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
     const session = sessionRegistry.registerSession(node.id, "worker@saved-choice");
     db.prepare("UPDATE sessions SET resume_type = ?, resume_token = ?, restore_policy = ? WHERE id = ?")
       .run("claude_name", "retained", "relaunch_fresh", session.id);
     sessionRegistry.updateStatus(session.id, "running");
-    snapshotCapture.captureSnapshot(rig.id, "auto-pre-down");
+    snapshotCapture.captureSnapshot(softwareTeam.id, "auto-pre-down");
     sessionRegistry.updateStatus(session.id, "exited");
     const request = (plan: boolean) => app.request("/api/up", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sourceRef: "saved-choice", nonInterruptive: option, plan }) });
     expect((await request(true)).status).toBe(200);
-    expect(rigRepo.getRigNonInterruptive(rig.id)).toBe(stored);
+    expect(softwareTeamRepo.getSoftwareTeamNonInterruptive(softwareTeam.id)).toBe(stored);
     const response = await request(false);
     expect(response.status).toBe(200);
-    expect(rigRepo.getRigNonInterruptive(rig.id)).toBe(expected);
-    if (expected) expect((await response.json()).warnings.join(" ")).toContain("saved for this rig");
+    expect(softwareTeamRepo.getSoftwareTeamNonInterruptive(softwareTeam.id)).toBe(expected);
+    if (expected) expect((await response.json()).warnings.join(" ")).toContain("saved for this softwareTeam");
   });
 
-  it("POST /api/up restoring an existing rig name returns validation blockers", async () => {
-    const rig = rigRepo.createRig("restore-blocked");
-    const fixtureNode = rigRepo.addNode(rig.id, "worker", { role: "worker" });
+  it("POST /api/up restoring an existing SoftwareTeam name returns validation blockers", async () => {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("restore-blocked");
+    const fixtureNode = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
     const session = sessionRegistry.registerSession(fixtureNode.id, "worker@restore-blocked");
     db.prepare("UPDATE sessions SET resume_type = ?, resume_token = ?, restore_policy = ? WHERE id = ?")
       .run("claude_name", "tok-blocked", "relaunch_fresh", session.id);
     sessionRegistry.updateStatus(session.id, "running");
-    const snap = snapshotCapture.captureSnapshot(rig.id, "auto-pre-down");
+    const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "auto-pre-down");
     sessionRegistry.updateStatus(session.id, "exited");
     const data = JSON.parse(JSON.stringify(snap.data));
     const node = data.nodes[0];
-    const missingPath = `/tmp/openrig-slice7-up-missing-${Date.now()}.md`;
+    const missingPath = `/tmp/softwareteam-slice7-up-missing-${Date.now()}.md`;
     data.nodeStartupContext[node.id] = {
       projectionEntries: [],
       resolvedStartupFiles: [{
@@ -260,20 +260,20 @@ describe("Up API route", () => {
     const body = await res.json();
     expect(body.status).toBe("not_attempted");
     expect(body.code).toBe("pre_restore_validation_failed");
-    expect(body.rigResult).toBe("not_attempted");
+    expect(body.softwareTeamResult).toBe("not_attempted");
     expect(body.blockers[0].path).toBe(missingPath);
-    expect(rigRepo.getRigNonInterruptive(rig.id)).toBe(false);
+    expect(softwareTeamRepo.getSoftwareTeamNonInterruptive(softwareTeam.id)).toBe(false);
   });
 
-  // L3b: rig-name path falls back to manual snapshot when no auto-pre-down exists.
+  // L3b: software-team-name path falls back to manual snapshot when no auto-pre-down exists.
   // Both routes preserve auto-pre-down preference and echo `snapshotKind`.
   describe("L3b snapshot-selection fallback", () => {
     it("auto-pre-down preferred when present; response echoes snapshotKind=auto-pre-down", async () => {
-      const rig = rigRepo.createRig("auto-pref");
-      rigRepo.addNode(rig.id, "worker", { role: "worker" });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("auto-pref");
+      softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
       // Capture manual first, then auto-pre-down. Auto-pre-down must win.
-      snapshotCapture.captureSnapshot(rig.id, "manual");
-      snapshotCapture.captureSnapshot(rig.id, "auto-pre-down");
+      snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
+      snapshotCapture.captureSnapshot(softwareTeam.id, "auto-pre-down");
 
       const res = await app.request("/api/up", {
         method: "POST",
@@ -288,9 +288,9 @@ describe("Up API route", () => {
     });
 
     it("falls back to manual snapshot when no auto-pre-down exists; response echoes snapshotKind=manual", async () => {
-      const rig = rigRepo.createRig("manual-only");
-      rigRepo.addNode(rig.id, "worker", { role: "worker" });
-      snapshotCapture.captureSnapshot(rig.id, "manual");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("manual-only");
+      softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
+      snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
 
       const res = await app.request("/api/up", {
         method: "POST",
@@ -305,7 +305,7 @@ describe("Up API route", () => {
     });
 
     it("returns 404 with updated 'no restore-usable snapshot' message when no usable snapshot exists", async () => {
-      rigRepo.createRig("no-snap");
+      softwareTeamRepo.createSoftwareTeam("no-snap");
 
       const res = await app.request("/api/up", {
         method: "POST",
@@ -322,9 +322,9 @@ describe("Up API route", () => {
     });
 
     it("captures auto-rehydrate snapshot from durable current state when no usable snapshot exists", async () => {
-      const rig = rigRepo.createRig("current-state-rig");
-      const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-      const session = sessionRegistry.registerSession(node.id, "dev-impl@current-state-rig");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("current-state-software-team");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+      const session = sessionRegistry.registerSession(node.id, "dev-impl@current-state-software-team");
       sessionRegistry.updateStatus(session.id, "stopped");
       sessionRegistry.updateStartupStatus(session.id, "failed");
       insertStartupContextRow(db, node.id);
@@ -332,7 +332,7 @@ describe("Up API route", () => {
       const res = await app.request("/api/up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceRef: "current-state-rig" }),
+        body: JSON.stringify({ sourceRef: "current-state-software-team" }),
       });
 
       expect(res.status).toBe(200);
@@ -343,24 +343,24 @@ describe("Up API route", () => {
     });
 
     it("plans from the detached current occupant when an older restore snapshot names a prior occupant", async () => {
-      const rig = rigRepo.createRig("stale-occupant-rig");
-      const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("stale-occupant-software-team");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
       insertStartupContextRow(db, node.id);
 
-      const prior = sessionRegistry.registerSession(node.id, "dev-impl@stale-occupant-rig");
+      const prior = sessionRegistry.registerSession(node.id, "dev-impl@stale-occupant-software-team");
       db.prepare("UPDATE sessions SET resume_type = ?, resume_token = ?, status = ? WHERE id = ?")
         .run("claude_id", "11111111-1111-4111-8111-111111111111", "running", prior.id);
-      snapshotCapture.captureSnapshot(rig.id, "auto-periodic");
+      snapshotCapture.captureSnapshot(softwareTeam.id, "auto-periodic");
 
       sessionRegistry.markSuperseded(prior.id);
-      const current = sessionRegistry.registerSession(node.id, "dev-impl@stale-occupant-rig");
+      const current = sessionRegistry.registerSession(node.id, "dev-impl@stale-occupant-software-team");
       db.prepare("UPDATE sessions SET resume_type = ?, resume_token = ?, status = ? WHERE id = ?")
         .run("claude_id", "22222222-2222-4222-8222-222222222222", "detached", current.id);
 
       const res = await app.request("/api/up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceRef: "stale-occupant-rig", plan: true }),
+        body: JSON.stringify({ sourceRef: "stale-occupant-software-team", plan: true }),
       });
 
       expect(res.status).toBe(200);
@@ -376,14 +376,14 @@ describe("Up API route", () => {
     });
 
     it("plans from current state when the same occupant row has a newer native resume identity", async () => {
-      const rig = rigRepo.createRig("stale-native-identity-rig");
-      const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("stale-native-identity-software-team");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
       insertStartupContextRow(db, node.id);
 
-      const session = sessionRegistry.registerSession(node.id, "dev-impl@stale-native-identity-rig");
+      const session = sessionRegistry.registerSession(node.id, "dev-impl@stale-native-identity-software-team");
       db.prepare("UPDATE sessions SET resume_type = ?, resume_token = ?, status = ? WHERE id = ?")
         .run("claude_id", "11111111-1111-4111-8111-111111111111", "running", session.id);
-      snapshotCapture.captureSnapshot(rig.id, "auto-periodic");
+      snapshotCapture.captureSnapshot(softwareTeam.id, "auto-periodic");
 
       db.prepare("UPDATE sessions SET resume_type = ?, resume_token = ?, status = ? WHERE id = ?")
         .run("claude_id", "22222222-2222-4222-8222-222222222222", "detached", session.id);
@@ -391,7 +391,7 @@ describe("Up API route", () => {
       const res = await app.request("/api/up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceRef: "stale-native-identity-rig", plan: true }),
+        body: JSON.stringify({ sourceRef: "stale-native-identity-software-team", plan: true }),
       });
 
       expect(res.status).toBe(200);
@@ -410,17 +410,17 @@ describe("Up API route", () => {
   // OPR.0.3.4.9 — Option Y: auto-periodic co-equal with auto-pre-down in restore selection.
   describe("OPR.0.3.4.9 Option Y restore selection via /api/up", () => {
     it("stale auto-pre-down + newer auto-periodic -> restores from auto-periodic", async () => {
-      const rig = rigRepo.createRig("option-y-rig");
-      rigRepo.addNode(rig.id, "worker", { role: "worker" });
-      snapshotCapture.captureSnapshot(rig.id, "auto-pre-down");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("option-y-software-team");
+      softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
+      snapshotCapture.captureSnapshot(softwareTeam.id, "auto-pre-down");
       // Wait a tick so created_at differs
       await new Promise((r) => setTimeout(r, 10));
-      snapshotCapture.captureSnapshot(rig.id, "auto-periodic");
+      snapshotCapture.captureSnapshot(softwareTeam.id, "auto-periodic");
 
       const res = await app.request("/api/up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceRef: "option-y-rig" }),
+        body: JSON.stringify({ sourceRef: "option-y-software-team" }),
       });
 
       expect(res.status).toBe(200);
@@ -430,11 +430,11 @@ describe("Up API route", () => {
     });
 
     it("fresher auto-pre-down + older auto-periodic -> restores from auto-pre-down", async () => {
-      const rig = rigRepo.createRig("option-y-rig2");
-      rigRepo.addNode(rig.id, "worker", { role: "worker" });
-      snapshotCapture.captureSnapshot(rig.id, "auto-periodic");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("option-y-rig2");
+      softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
+      snapshotCapture.captureSnapshot(softwareTeam.id, "auto-periodic");
       await new Promise((r) => setTimeout(r, 10));
-      snapshotCapture.captureSnapshot(rig.id, "auto-pre-down");
+      snapshotCapture.captureSnapshot(softwareTeam.id, "auto-pre-down");
 
       const res = await app.request("/api/up", {
         method: "POST",
@@ -448,22 +448,22 @@ describe("Up API route", () => {
     });
   });
 
-  // OPR.0.3.4.4 — `--plan` must be READ-ONLY on the rig_name restore path.
-  // The rig_name branch early-returned BEFORE the bootstrap plan gate, so
-  // `rig up --existing <rig> --plan` mutated (recreated sessions, flipped
+  // OPR.0.3.4.4 — `--plan` must be READ-ONLY on the software_team_name restore path.
+  // The software_team_name branch early-returned BEFORE the bootstrap plan gate, so
+  // `SoftwareTeam up --existing <softwareTeam> --plan` mutated (recreated sessions, flipped
   // detached->running). These tests pin the daemon-level gate.
-  describe("OPR.0.3.4.4 --plan read-only restore gate (rig_name path)", () => {
+  describe("OPR.0.3.4.4 --plan read-only restore gate (software_team_name path)", () => {
     function snapshotOf(db_: Database.Database, table: string): unknown[] {
       return db_.prepare(`SELECT * FROM ${table} ORDER BY id`).all();
     }
 
     it("plan:true returns a read-only preview: restore() NOT called, zero session/snapshot mutation", async () => {
-      const rig = rigRepo.createRig("plan-ro-rig");
-      const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
-      const sess = sessionRegistry.registerSession(node.id, "worker@plan-ro-rig");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("plan-ro-software-team");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
+      const sess = sessionRegistry.registerSession(node.id, "worker@plan-ro-software-team");
       db.prepare("UPDATE sessions SET resume_type = ?, resume_token = ?, status = ? WHERE id = ?")
         .run("claude_name", "tok-1", "running", sess.id);
-      snapshotCapture.captureSnapshot(rig.id, "auto-pre-down");
+      snapshotCapture.captureSnapshot(softwareTeam.id, "auto-pre-down");
       sessionRegistry.updateStatus(sess.id, "detached");
       const restoreSpy = vi.spyOn(restoreOrchestrator, "restore");
       const sessionsBefore = snapshotOf(db, "sessions");
@@ -473,7 +473,7 @@ describe("Up API route", () => {
       const res = await app.request("/api/up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceRef: "plan-ro-rig", plan: true }),
+        body: JSON.stringify({ sourceRef: "plan-ro-software-team", plan: true }),
       });
 
       expect(res.status).toBe(200);
@@ -495,18 +495,18 @@ describe("Up API route", () => {
     });
 
     it("plan:true previews awaiting-decision for a recorded-source/no-token seat (forecasts the slice-02 stop)", async () => {
-      const rig = rigRepo.createRig("plan-ad-rig");
-      const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
-      const sess = sessionRegistry.registerSession(node.id, "worker@plan-ad-rig");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("plan-ad-software-team");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
+      const sess = sessionRegistry.registerSession(node.id, "worker@plan-ad-software-team");
       db.prepare("UPDATE sessions SET resume_type = ?, resume_token = NULL, status = ? WHERE id = ?")
         .run("claude_name", "running", sess.id);
-      snapshotCapture.captureSnapshot(rig.id, "auto-pre-down");
+      snapshotCapture.captureSnapshot(softwareTeam.id, "auto-pre-down");
       sessionRegistry.updateStatus(sess.id, "detached");
 
       const res = await app.request("/api/up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceRef: "plan-ad-rig", plan: true }),
+        body: JSON.stringify({ sourceRef: "plan-ad-software-team", plan: true }),
       });
 
       expect(res.status).toBe(200);
@@ -519,12 +519,12 @@ describe("Up API route", () => {
       // Guard BLOCKING a23009d8: a token-resumable seat listed in --fresh
       // must preview what apply would DO (deliberate fresh-prime), not what
       // the token alone suggests (resume-original).
-      const rig = rigRepo.createRig("plan-fresh-rig");
-      const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
-      const sess = sessionRegistry.registerSession(node.id, "worker@plan-fresh-rig");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("plan-fresh-software-team");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
+      const sess = sessionRegistry.registerSession(node.id, "worker@plan-fresh-software-team");
       db.prepare("UPDATE sessions SET resume_type = ?, resume_token = ?, status = ? WHERE id = ?")
         .run("claude_name", "tok-1", "running", sess.id);
-      snapshotCapture.captureSnapshot(rig.id, "auto-pre-down");
+      snapshotCapture.captureSnapshot(softwareTeam.id, "auto-pre-down");
       sessionRegistry.updateStatus(sess.id, "detached");
       const restoreSpy = vi.spyOn(restoreOrchestrator, "restore");
       const sessionsBefore = snapshotOf(db, "sessions");
@@ -534,7 +534,7 @@ describe("Up API route", () => {
       const res = await app.request("/api/up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceRef: "plan-fresh-rig", plan: true, freshLogicalIds: ["worker"] }),
+        body: JSON.stringify({ sourceRef: "plan-fresh-software-team", plan: true, freshLogicalIds: ["worker"] }),
       });
 
       expect(res.status).toBe(200);
@@ -550,15 +550,15 @@ describe("Up API route", () => {
     });
 
     it("plan:true + freshLogicalIds leaves UNLISTED seats forecast from their resume state", async () => {
-      const rig = rigRepo.createRig("plan-fresh-mixed");
-      const nodeA = rigRepo.addNode(rig.id, "worker-a", { role: "worker", runtime: "claude-code" });
-      const nodeB = rigRepo.addNode(rig.id, "worker-b", { role: "worker", runtime: "claude-code" });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("plan-fresh-mixed");
+      const nodeA = softwareTeamRepo.addNode(softwareTeam.id, "worker-a", { role: "worker", runtime: "claude-code" });
+      const nodeB = softwareTeamRepo.addNode(softwareTeam.id, "worker-b", { role: "worker", runtime: "claude-code" });
       for (const [node, name] of [[nodeA, "worker-a"], [nodeB, "worker-b"]] as const) {
         const sess = sessionRegistry.registerSession(node.id, `${name}@plan-fresh-mixed`);
         db.prepare("UPDATE sessions SET resume_type = ?, resume_token = ?, status = ? WHERE id = ?")
           .run("claude_name", "tok-1", "running", sess.id);
       }
-      snapshotCapture.captureSnapshot(rig.id, "auto-pre-down");
+      snapshotCapture.captureSnapshot(softwareTeam.id, "auto-pre-down");
       db.prepare("UPDATE sessions SET status = 'detached' WHERE node_id IN (?, ?)").run(nodeA.id, nodeB.id);
 
       const res = await app.request("/api/up", {
@@ -575,9 +575,9 @@ describe("Up API route", () => {
     });
 
     it("plan:true with no usable snapshot reports wouldCaptureCurrentState WITHOUT capturing", async () => {
-      const rig = rigRepo.createRig("plan-rehydrate-rig");
-      const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code" });
-      const session = sessionRegistry.registerSession(node.id, "dev-impl@plan-rehydrate-rig");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("plan-rehydrate-software-team");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code" });
+      const session = sessionRegistry.registerSession(node.id, "dev-impl@plan-rehydrate-software-team");
       sessionRegistry.updateStatus(session.id, "stopped");
       sessionRegistry.updateStartupStatus(session.id, "failed");
       insertStartupContextRow(db, node.id);
@@ -586,7 +586,7 @@ describe("Up API route", () => {
       const res = await app.request("/api/up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceRef: "plan-rehydrate-rig", plan: true }),
+        body: JSON.stringify({ sourceRef: "plan-rehydrate-software-team", plan: true }),
       });
 
       expect(res.status).toBe(200);
@@ -595,13 +595,13 @@ describe("Up API route", () => {
       expect(body.snapshot).toBeNull();
       expect(body.wouldCaptureCurrentState).toBe(true);
       // The auto-rehydrate capture is a mutation; plan must NOT perform it.
-      const rows = db.prepare("SELECT COUNT(*) as c FROM snapshots WHERE rig_id = ?").get(rig.id) as { c: number };
+      const rows = db.prepare("SELECT COUNT(*) as c FROM snapshots WHERE software_team_id = ?").get(softwareTeam.id) as { c: number };
       expect(rows.c).toBe(0);
       expect(restoreSpy).not.toHaveBeenCalled();
     });
 
     it("plan:true with no usable snapshot and ineligible state still 404s (same as apply)", async () => {
-      rigRepo.createRig("plan-no-snap");
+      softwareTeamRepo.createSoftwareTeam("plan-no-snap");
 
       const res = await app.request("/api/up", {
         method: "POST",
@@ -614,15 +614,15 @@ describe("Up API route", () => {
     });
 
     it("APPLY regression: plan absent still restores (restore() called once)", async () => {
-      const rig = rigRepo.createRig("plan-apply-rig");
-      rigRepo.addNode(rig.id, "worker", { role: "worker" });
-      snapshotCapture.captureSnapshot(rig.id, "auto-pre-down");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("plan-apply-software-team");
+      softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
+      snapshotCapture.captureSnapshot(softwareTeam.id, "auto-pre-down");
       const restoreSpy = vi.spyOn(restoreOrchestrator, "restore");
 
       const res = await app.request("/api/up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceRef: "plan-apply-rig" }),
+        body: JSON.stringify({ sourceRef: "plan-apply-software-team" }),
       });
 
       expect(res.status).toBe(200);
@@ -683,11 +683,11 @@ describe("Up API route", () => {
         podInstantiatorFsOps: realInstantiatorFsOps,
       });
       app2 = setup2.app;
-      process.env.OPENRIG_AGENT_STARTER_ROOT = registryDir;
+      process.env.SOFTWARETEAM_AGENT_STARTER_ROOT = registryDir;
     });
 
     afterEach(() => {
-      delete process.env.OPENRIG_AGENT_STARTER_ROOT;
+      delete process.env.SOFTWARETEAM_AGENT_STARTER_ROOT;
       db2.close();
       fs.rmSync(specDir, { recursive: true, force: true });
       fs.rmSync(registryDir, { recursive: true, force: true });
@@ -706,7 +706,7 @@ describe("Up API route", () => {
     const CLEAN_REGISTRY_BODY = `draft: false
 starter_id: route-fixture
 runtime: claude-code
-manifest_id: openrig-builder-base
+manifest_id: softwareteam-builder-base
 manifest_version: "0.2"
 session_source:
   mode: fork
@@ -723,7 +723,7 @@ state: 2-named
     const CRED_REGISTRY_BODY = `draft: false
 starter_id: route-fixture-mal
 runtime: claude-code
-manifest_id: openrig-builder-base
+manifest_id: softwareteam-builder-base
 manifest_version: "0.2"
 session_source:
   mode: fork
@@ -765,15 +765,15 @@ edges: []
       });
       const body = await res.json();
       // Apply mode: 201 completed (or 200 partial if another stage flakes,
-      // but the import_rig stage MUST be ok and a rigId MUST be returned).
-      expect(body.rigId, JSON.stringify(body)).toBeDefined();
+      // but the import_software_team stage MUST be ok and a softwareTeamId MUST be returned).
+      expect(body.softwareTeamId, JSON.stringify(body)).toBeDefined();
 
       // Look up the impl node and read its node_startup_context row to
       // verify the STARTER layer survived the persistence boundary
       // (startup-orchestrator.ts:293-301 SQLite write).
-      const rig = setup2.rigRepo.getRig(body.rigId);
-      expect(rig).not.toBeNull();
-      const dbNode = rig!.nodes.find((n) => n.logicalId === "dev.impl");
+      const softwareTeam = setup2.softwareTeamRepo.getSoftwareTeam(body.softwareTeamId);
+      expect(softwareTeam).not.toBeNull();
+      const dbNode = softwareTeam!.nodes.find((n) => n.logicalId === "dev.impl");
       expect(dbNode).toBeDefined();
 
       const row = db2
@@ -828,7 +828,7 @@ edges: []
       const errStr = JSON.stringify(body);
       expect(errStr).toMatch(/Agent Starter resolver failed|credential/i);
 
-      // The rigId may or may not have been created depending on
+      // The softwareTeamId may or may not have been created depending on
       // partial-failure policy; the load-bearing assertion is that NO
       // node_startup_context row was persisted (the launch aborted
       // before startup-orchestrator.startNode wrote the SQLite row).
@@ -851,7 +851,7 @@ pods:
         runtime: claude-code
         cwd: .
         starter_ref:
-          name: openrig-builder-base--claude-code
+          name: softwareteam-builder-base--claude-code
         session_source:
           mode: fork
           ref:
@@ -867,15 +867,15 @@ edges: []
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sourceRef: specPath, plan: true }),
       });
-      // Pod-aware composition rule (validateStarterRef in rigspec-schema)
+      // Pod-aware composition rule (validateStarterRef in software-team-spec-schema)
       // rejects fork+starter_ref, so the upRouter does NOT classify the
-      // YAML as a valid pod-aware rig_spec. The route returns 400.
+      // YAML as a valid pod-aware software_team_spec. The route returns 400.
       // (Pre-existing UX caveat: the error message bubbles from the
       // legacy fallthrough, not from the pod-aware validator — but the
       // contract behavior of REJECTING the spec is what M2 requires.)
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toContain("not a valid rig spec");
+      expect(body.error).toContain("not a valid SoftwareTeam spec");
     });
 
     it("rejects terminal + starter_ref composition with 400", async () => {
@@ -891,7 +891,7 @@ pods:
         runtime: terminal
         cwd: .
         starter_ref:
-          name: openrig-builder-base--claude-code
+          name: softwareteam-builder-base--claude-code
     edges: []
 edges: []
 `;
@@ -908,7 +908,7 @@ edges: []
       // M2 requires).
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toContain("not a valid rig spec");
+      expect(body.error).toContain("not a valid SoftwareTeam spec");
     });
   });
 
@@ -916,27 +916,27 @@ edges: []
   //     qitem-20260518082933 BLOCKER 2: HG-4 route response shape must
   //     be pinned by tests. buildAttentionResponse is the pure
   //     helper that constructs the 3-part error from a bootstrap
-  //     result with a blocked/attention_required import_rig stage; the
+  //     result with a blocked/attention_required import_software_team stage; the
   //     route returns 409 with that body. These tests pin the shape
   //     without needing the full daemon harness.
 
   describe("OPR.0.3.2.CT BLOCKER-2: HG-4 3-part error shape", () => {
-    it("returns null when no import_rig stage is blocked/attention_required (normal partial path)", () => {
+    it("returns null when no import_software_team stage is blocked/attention_required (normal partial path)", () => {
       const result = {
-        rigId: "rig-1",
+        softwareTeamId: "software-team-1",
         stages: [
           { stage: "resolve_spec", status: "ok" },
-          { stage: "import_rig", status: "ok", detail: { rigId: "rig-1", nodes: [] } },
+          { stage: "import_software_team", status: "ok", detail: { softwareTeamId: "software-team-1", nodes: [] } },
         ],
       };
       expect(buildAttentionResponse(result)).toBeNull();
     });
 
-    it("returns null on a 'failed' import_rig stage (no attention_required code)", () => {
+    it("returns null on a 'failed' import_software_team stage (no attention_required code)", () => {
       const result = {
-        rigId: "rig-1",
+        softwareTeamId: "software-team-1",
         stages: [
-          { stage: "import_rig", status: "failed", detail: { code: "instantiate_error" } },
+          { stage: "import_software_team", status: "failed", detail: { code: "instantiate_error" } },
         ],
       };
       expect(buildAttentionResponse(result)).toBeNull();
@@ -944,14 +944,14 @@ edges: []
 
     it("HG-4: blocked + attention_required stage → fact/consequence/action with attentionNodes", () => {
       const result = {
-        rigId: "rig-conveyor-1",
+        softwareTeamId: "software-team-conveyor-1",
         stages: [
           {
-            stage: "import_rig",
+            stage: "import_software_team",
             status: "blocked",
             detail: {
               code: "attention_required",
-              message: "1 node requires attention before becoming interactive (rig parked, NOT failed; approve and resume to proceed).",
+              message: "1 node requires attention before becoming interactive (SoftwareTeam parked, NOT failed; approve and resume to proceed).",
               attentionNodes: [
                 { logicalId: "dev.impl", sessionName: "dev-impl@conveyor", evidence: "trust prompt", reason: "trust_gate" },
               ],
@@ -962,11 +962,11 @@ edges: []
       const r = buildAttentionResponse(result);
       expect(r).not.toBeNull();
       expect(r!.error.fact).toMatch(/requires attention/i);
-      expect(r!.error.consequence).toMatch(/rig-conveyor-1/);
-      expect(r!.error.consequence).toMatch(/rig ps/);
+      expect(r!.error.consequence).toMatch(/software-team-conveyor-1/);
+      expect(r!.error.consequence).toMatch(/SoftwareTeam ps/);
       expect(r!.error.consequence).toMatch(/attention_required/);
       expect(r!.error.action).toMatch(/tmux attach -t dev-impl@conveyor/);
-      expect(r!.error.action).not.toMatch(/rig setup --cwd/);
+      expect(r!.error.action).not.toMatch(/SoftwareTeam setup --cwd/);
       // Singular phrasing for a 1-node case
       expect(r!.error.action).toMatch(/^Inspect the affected session/);
       expect(r!.attentionNodes).toHaveLength(1);
@@ -975,10 +975,10 @@ edges: []
 
     it("HG-4: multi-node action message uses plural phrasing + lists multiple tmux attach hints", () => {
       const result = {
-        rigId: "rig-conveyor-2",
+        softwareTeamId: "software-team-conveyor-2",
         stages: [
           {
-            stage: "import_rig",
+            stage: "import_software_team",
             status: "blocked",
             detail: {
               code: "attention_required",
@@ -1005,10 +1005,10 @@ edges: []
 
     it("HG-4: multi-node action message points to attentionNodes when attach hints are abbreviated", () => {
       const result = {
-        rigId: "rig-conveyor-4",
+        softwareTeamId: "software-team-conveyor-4",
         stages: [
           {
-            stage: "import_rig",
+            stage: "import_software_team",
             status: "blocked",
             detail: {
               code: "attention_required",
@@ -1034,12 +1034,12 @@ edges: []
       expect(r!.attentionNodes).toHaveLength(4);
     });
 
-    it("HG-4: when no sessionName is present on any node, action falls back to 'see rig ps' (defense)", () => {
+    it("HG-4: when no sessionName is present on any node, action falls back to 'see SoftwareTeam ps' (defense)", () => {
       const result = {
-        rigId: "rig-conveyor-3",
+        softwareTeamId: "software-team-conveyor-3",
         stages: [
           {
-            stage: "import_rig",
+            stage: "import_software_team",
             status: "blocked",
             detail: {
               code: "attention_required",
@@ -1052,14 +1052,14 @@ edges: []
         ],
       };
       const r = buildAttentionResponse(result);
-      expect(r!.error.action).toContain("see `rig ps`");
+      expect(r!.error.action).toContain("see `SoftwareTeam ps`");
     });
 
-    it("HG-4: result without rigId still produces a valid response (defense)", () => {
+    it("HG-4: result without softwareTeamId still produces a valid response (defense)", () => {
       const result = {
         stages: [
           {
-            stage: "import_rig",
+            stage: "import_software_team",
             status: "blocked",
             detail: {
               code: "attention_required",
@@ -1073,7 +1073,7 @@ edges: []
       };
       const r = buildAttentionResponse(result);
       expect(r).not.toBeNull();
-      expect(r!.error.consequence).toContain("(rigId unavailable)");
+      expect(r!.error.consequence).toContain("(softwareTeamId unavailable)");
     });
   });
 
@@ -1139,16 +1139,16 @@ edges: []
       const stubResult = {
         runId: "run-stub-1",
         status: "partial" as const,
-        rigId: "rig-stub-1",
+        softwareTeamId: "software-team-stub-1",
         stages: [
           { stage: "resolve_spec" as const, status: "ok" as const, detail: {} },
           {
-            stage: "import_rig" as const,
+            stage: "import_software_team" as const,
             status: "blocked" as const,
             detail: {
               code: "attention_required",
-              message: "1 node requires attention before becoming interactive (rig parked, NOT failed; approve and resume to proceed).",
-              rigId: "rig-stub-1",
+              message: "1 node requires attention before becoming interactive (SoftwareTeam parked, NOT failed; approve and resume to proceed).",
+              softwareTeamId: "software-team-stub-1",
               specName: "conveyor-attention-route-test",
               nodes: [{ logicalId: "dev.impl", status: "attention_required" as const, sessionName: "dev-impl@conveyor-attention-route-test", evidence: "trust prompt" }],
               attentionNodes: [
@@ -1157,7 +1157,7 @@ edges: []
             },
           },
         ],
-        errors: ["1 node requires attention before becoming interactive (rig parked, NOT failed; approve and resume to proceed)."],
+        errors: ["1 node requires attention before becoming interactive (SoftwareTeam parked, NOT failed; approve and resume to proceed)."],
         warnings: [],
       };
       const origBootstrap = bootstrapOrch.bootstrap.bind(bootstrapOrch);
@@ -1181,17 +1181,17 @@ edges: []
         // HG-4 3-part error shape.
         expect(body.error).toBeDefined();
         expect(body.error.fact).toMatch(/require[s]? attention/i);
-        expect(body.error.consequence).toMatch(/rig-stub-1/);
-        expect(body.error.consequence).toMatch(/rig ps/);
+        expect(body.error.consequence).toMatch(/software-team-stub-1/);
+        expect(body.error.consequence).toMatch(/SoftwareTeam ps/);
         expect(body.error.action).toMatch(/tmux attach -t dev-impl@conveyor-attention-route-test/);
-        expect(body.error.action).not.toMatch(/rig setup --cwd/);
+        expect(body.error.action).not.toMatch(/SoftwareTeam setup --cwd/);
         // attentionNodes array carried through to operator
         expect(body.attentionNodes).toBeInstanceOf(Array);
         expect(body.attentionNodes).toHaveLength(1);
         expect(body.attentionNodes[0].logicalId).toBe("dev.impl");
-        // The bootstrap's partial result still carries the rigId
-        // for `rig ps` lookups
-        expect(body.rigId).toBe("rig-stub-1");
+        // The bootstrap's partial result still carries the softwareTeamId
+        // for `SoftwareTeam ps` lookups
+        expect(body.softwareTeamId).toBe("software-team-stub-1");
         // status remains "partial" so downstream tooling can branch
         expect(body.status).toBe("partial");
       } finally {
@@ -1207,7 +1207,7 @@ edges: []
     });
   });
 
-  // --- OPR.0.3.2.22 Bug 1 BONUS — import_rig stage failures with known codes
+  // --- OPR.0.3.2.22 Bug 1 BONUS — import_software_team stage failures with known codes
   //     (cycle_error, preflight_failed, validation_failed, service_boot_failed)
   //     surface as HTTP 4xx with the code at the TOP LEVEL of the response
   //     body. CLI up.ts:208-227 already branches on res.data["code"] for
@@ -1216,15 +1216,15 @@ edges: []
   //     real cause buried in stages[N].detail.code.
   //
   //     The conveyor delegates_to cycle (f3449baf already on main) is the
-  //     direct manifestation reported by the openrig-comms hero-flow
+  //     direct manifestation reported by the softwareteam-comms hero-flow
   //     dogfood. This regression also pins the more general contract.
-  describe("OPR.0.3.2.22 Bug 1 BONUS: import_rig stage failures map to HTTP 4xx with top-level code", () => {
+  describe("OPR.0.3.2.22 Bug 1 BONUS: import_software_team stage failures map to HTTP 4xx with top-level code", () => {
     let specDir: string;
     let app3: ReturnType<typeof createTestApp>["app"];
     let db3: Database.Database;
 
     beforeEach(() => {
-      specDir = fs.mkdtempSync(path.join(os.tmpdir(), "up-route-import-rig-fail-"));
+      specDir = fs.mkdtempSync(path.join(os.tmpdir(), "up-route-import-software-team-fail-"));
 
       for (const name of ["builder", "reviewer"]) {
         const agentDir = path.join(specDir, "agents", name);
@@ -1264,7 +1264,7 @@ edges: []
 
     it("apply-mode delegates_to cycle returns HTTP 400 with code=cycle_error at top level", async () => {
       const yaml = `version: "0.2"
-name: cycle-bug-rig
+name: cycle-bug-software-team
 pods:
   - id: build
     label: Build
@@ -1302,19 +1302,19 @@ edges:
       });
 
       const bodyForDebug = await res.clone().json();
-      expect(res.status, `expected 400 for import_rig cycle_error, got ${res.status} with body ${JSON.stringify(bodyForDebug)}`).toBe(400);
+      expect(res.status, `expected 400 for import_software_team cycle_error, got ${res.status} with body ${JSON.stringify(bodyForDebug)}`).toBe(400);
       const body = await res.json() as { code?: string; stages?: Array<{ stage: string; status: string; detail?: { code?: string } }> };
 
       // The load-bearing fix: code surfaces at TOP LEVEL where CLI looks.
       expect(body.code, `expected top-level code=cycle_error, got body=${JSON.stringify(body)}`).toBe("cycle_error");
 
-      // Provenance discriminator — proves the code came from import_rig stage
+      // Provenance discriminator — proves the code came from import_software_team stage
       // (not a resolve_spec misclassification that the existing 400-mapping
       // path was already handling).
-      const importRigStage = (body.stages ?? []).find((s) => s.stage === "import_rig");
-      expect(importRigStage, `expected import_rig stage in body.stages, got ${JSON.stringify(body.stages)}`).toBeDefined();
-      expect(importRigStage!.status).toBe("failed");
-      expect(importRigStage!.detail?.code).toBe("cycle_error");
+      const importSoftwareTeamStage = (body.stages ?? []).find((s) => s.stage === "import_software_team");
+      expect(importSoftwareTeamStage, `expected import_software_team stage in body.stages, got ${JSON.stringify(body.stages)}`).toBeDefined();
+      expect(importSoftwareTeamStage!.status).toBe("failed");
+      expect(importSoftwareTeamStage!.detail?.code).toBe("cycle_error");
     });
   });
 });

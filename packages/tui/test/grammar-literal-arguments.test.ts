@@ -2,13 +2,13 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { readAllowedFile } from "@openrig/daemon/local-reading";
+import { readAllowedFile } from "@softwareteam/daemon/local-reading";
 import { parseCommand } from "../src/grammar.js";
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
 describe("literal TUI command arguments", () => {
   it("reads the requested file, not a different file with collapsed spaces", () => {
-    const root = mkdtempSync(join(tmpdir(), "openrig-literal-argument-")); roots.push(root);
+    const root = mkdtempSync(join(tmpdir(), "softwareteam-literal-argument-")); roots.push(root);
     writeFileSync(join(root, "run  book.md"), "requested document");
     writeFileSync(join(root, "run book.md"), "different document");
     const action = parseCommand("read workspace/run  book.md");

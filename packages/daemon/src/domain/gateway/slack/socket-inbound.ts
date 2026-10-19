@@ -1,5 +1,5 @@
 // S10 — the Socket Mode INBOUND service, in-daemon. The loop is the shipped relay runner's
-// (moved verbatim from the CLI `rig slack inbound` action, which retires with the cutover):
+// (moved verbatim from the CLI `softwareTeam slack inbound` action, which retires with the cutover):
 // open the ws via apps.connections.open, FAST-ACK every envelope, route human messages through
 // the InboundRouter, drain the dead-letter on connect + periodically (B1), reconnect with
 // backoff. Amendment A1 (M1 §3): inbound rides the PLATFORM socket — this service — never a

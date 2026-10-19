@@ -3,11 +3,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 const TOKEN = "test-terminal-token-xyz";
 
 beforeEach(() => {
-  window.localStorage.setItem("openrig.terminalBearerToken", TOKEN);
+  window.localStorage.setItem("softwareteam.terminalBearerToken", TOKEN);
 });
 
 afterEach(() => {
-  window.localStorage.removeItem("openrig.terminalBearerToken");
+  window.localStorage.removeItem("softwareteam.terminalBearerToken");
   vi.restoreAllMocks();
 });
 
@@ -27,7 +27,7 @@ describe("terminal-token carry on protected UI fetches", () => {
   it("fetchNodePreview sends Authorization: Bearer <token>", async () => {
     const { calls } = stubFetch();
     const { fetchNodePreview } = await import("../src/hooks/useNodePreview.js");
-    await fetchNodePreview("rig-1", "dev.impl", 20);
+    await fetchNodePreview("software-team-1", "dev.impl", 20);
     expect(calls.length).toBe(1);
     expect(calls[0]!.url).toContain("/preview");
     const headers = calls[0]!.init?.headers as Record<string, string>;
@@ -37,7 +37,7 @@ describe("terminal-token carry on protected UI fetches", () => {
   it("fetchSessionPreview sends Authorization: Bearer <token>", async () => {
     const { calls } = stubFetch();
     const { fetchSessionPreview } = await import("../src/hooks/useNodePreview.js");
-    await fetchSessionPreview("dev-impl@test-rig", 20);
+    await fetchSessionPreview("dev-impl@test-software-team", 20);
     expect(calls.length).toBe(1);
     expect(calls[0]!.url).toContain("/preview");
     const headers = calls[0]!.init?.headers as Record<string, string>;
@@ -47,7 +47,7 @@ describe("terminal-token carry on protected UI fetches", () => {
   it("postOpenCmux sends Authorization: Bearer <token>", async () => {
     const { calls } = stubFetch();
     const { postOpenCmux } = await import("../src/hooks/useCmuxLaunch.js");
-    await postOpenCmux({ rigId: "rig-1", logicalId: "dev.impl" });
+    await postOpenCmux({ softwareTeamId: "software-team-1", logicalId: "dev.impl" });
     expect(calls.length).toBe(1);
     expect(calls[0]!.url).toContain("/open-cmux");
     expect(calls[0]!.init?.method).toBe("POST");
@@ -61,7 +61,7 @@ describe("terminal-token carry on protected UI fetches", () => {
   });
 
   it("terminalAuthHeaders returns empty when no token", async () => {
-    window.localStorage.removeItem("openrig.terminalBearerToken");
+    window.localStorage.removeItem("softwareteam.terminalBearerToken");
     const { terminalAuthHeaders } = await import("../src/components/mission-control/missionControlAuth.js");
     expect(terminalAuthHeaders().Authorization).toBeUndefined();
   });
@@ -72,7 +72,7 @@ describe("terminal-token carry on protected UI fetches", () => {
     const srcDir = path.resolve(import.meta.dirname, "../src");
     const consumers = [
       "components/LiveNodeDetails.tsx",
-      "components/RigNode.tsx",
+      "components/SoftwareTeamNode.tsx",
       "components/topology/LaunchCmuxButton.tsx",
     ];
     for (const file of consumers) {

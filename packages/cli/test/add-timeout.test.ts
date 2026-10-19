@@ -28,11 +28,11 @@ const fragment = (() => {
   return path;
 })();
 
-const LAUNCHED = '"result":{"podId":"p1","podNamespace":"dev","node":{"logicalId":"dev.reviewer","nodeId":"n1","status":"launched","sessionName":"dev-reviewer@rig-1"}}}';
+const LAUNCHED = '"result":{"podId":"p1","podNamespace":"dev","node":{"logicalId":"dev.reviewer","nodeId":"n1","status":"launched","sessionName":"dev-reviewer@software-team-1"}}}';
 
 let server: http.Server | undefined;
 beforeEach(() => {
-  vi.stubEnv("OPENRIG_HOST_SELECTED", "local");
+  vi.stubEnv("SOFTWARETEAM_HOST_SELECTED", "local");
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
   process.exitCode = undefined;
@@ -49,7 +49,7 @@ afterEach(async () => {
   }
 });
 
-describe("rig add request deadline", () => {
+describe("SoftwareTeam add request deadline", () => {
   it("waits for the member-add response beyond the default five seconds without retrying", async () => {
     let posts = 0;
     server = http.createServer(async (req, res) => {
@@ -67,7 +67,7 @@ describe("rig add request deadline", () => {
     });
     await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
     const client = new DaemonClient(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);
-    await addMemberCommand(deps(client)).parseAsync(["node", "rig", "rig-1", "dev", fragment]);
+    await addMemberCommand(deps(client)).parseAsync(["node", "softwareTeam", "software-team-1", "dev", fragment]);
     expect(process.exitCode).toBeUndefined();
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining("[OK] dev.reviewer"));
     expect(posts).toBe(1);
@@ -86,7 +86,7 @@ describe("rig add request deadline", () => {
     };
     const client = new DaemonClient("http://127.0.0.1:3000", { fetchImpl });
     let settled = false;
-    const result = addMemberCommand(deps(client)).parseAsync(["node", "rig", "rig-1", "dev", fragment])
+    const result = addMemberCommand(deps(client)).parseAsync(["node", "softwareTeam", "software-team-1", "dev", fragment])
       .then(() => { settled = true; return null; }, (error: unknown) => { settled = true; return error; });
     while (writes === 0) await new Promise<void>((resolve) => setImmediate(resolve));
     await vi.advanceTimersByTimeAsync(119_999);

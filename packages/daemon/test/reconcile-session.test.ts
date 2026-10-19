@@ -72,14 +72,14 @@ describe("ClaimService.reconcileSession (OPR.0.3.4.3)", () => {
    *  row goes non-running while a live tmux session keeps the canonical name
    *  (the operator hand-resumed inside it). */
   async function seedDetachedSeat(podId = "infra", memberId = "server") {
-    const rig = setup.rigRepo.createRig("test-rig");
-    const expanded = await setup.rigExpansionService.expand({ rigId: rig.id, pod: terminalPodFragment(podId, memberId) });
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const expanded = await setup.softwareTeamExpansionService.expand({ softwareTeamId: softwareTeam.id, pod: terminalPodFragment(podId, memberId) });
     expect(expanded.ok).toBe(true);
-    const node = setup.rigRepo.getRig(rig.id)!.nodes.find((n) => n.logicalId === `${podId}.${memberId}`)!;
-    const sessionName = `${podId}-${memberId}@test-rig`;
-    const sessions = setup.sessionRegistry.getSessionsForRig(rig.id).filter((s) => s.nodeId === node.id);
+    const node = setup.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find((n) => n.logicalId === `${podId}.${memberId}`)!;
+    const sessionName = `${podId}-${memberId}@test-software-team`;
+    const sessions = setup.sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id).filter((s) => s.nodeId === node.id);
     for (const s of sessions) setup.sessionRegistry.markDetached(s.id);
-    return { rig, node, sessionName };
+    return { softwareTeam, node, sessionName };
   }
 
   function latestSessionStatus(nodeId: string): string | undefined {
@@ -89,23 +89,23 @@ describe("ClaimService.reconcileSession (OPR.0.3.4.3)", () => {
   }
 
   it("adopts the live session back into its persisted node: same node id, projection flips to running", async () => {
-    const { rig, node, sessionName } = await seedDetachedSeat();
+    const { softwareTeam, node, sessionName } = await seedDetachedSeat();
     expect(latestSessionStatus(node.id)).toBe("detached");
 
     const result = await setup.claimService.reconcileSession({ sessionName });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    // No re-key: SAME node id, same logical id, same rig.
+    // No re-key: SAME node id, same logical id, same softwareTeam.
     expect(result.result.nodeId).toBe(node.id);
     expect(result.result.logicalId).toBe("infra.server");
-    expect(result.result.rigId).toBe(rig.id);
+    expect(result.result.softwareTeamId).toBe(softwareTeam.id);
     // Projection flipped: latest session row is running (ps liveness source).
     expect(latestSessionStatus(node.id)).toBe("running");
     // Binding points at the live canonical session.
     expect(setup.sessionRegistry.getBindingForNode(node.id)?.tmuxSession).toBe(sessionName);
     // Node table unchanged: no new node minted.
-    const nodes = setup.rigRepo.getRig(rig.id)!.nodes;
+    const nodes = setup.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes;
     expect(nodes).toHaveLength(1);
     expect(nodes[0]!.id).toBe(node.id);
   });
@@ -114,21 +114,21 @@ describe("ClaimService.reconcileSession (OPR.0.3.4.3)", () => {
     const localDb = createFullTestDb();
     const panes = [{ id: "%refreshed", index: 0, cwd: "/tmp", width: 80, height: 24, active: true }];
     const spy = spyTmux({
-      listSessions: vi.fn(async () => [{ name: "infra-server@test-rig" }] as never),
+      listSessions: vi.fn(async () => [{ name: "infra-server@test-software-team" }] as never),
       listPanes: vi.fn(async () => panes),
       getPanePid: vi.fn(async () => 4242),
       getPaneCommand: vi.fn(async () => "zsh"),
     });
     const local = createTestApp(localDb, { tmux: spy.adapter });
-    const rig = local.rigRepo.createRig("test-rig");
-    const expanded = await local.rigExpansionService.expand({ rigId: rig.id, pod: terminalPodFragment() });
+    const softwareTeam = local.softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const expanded = await local.softwareTeamExpansionService.expand({ softwareTeamId: softwareTeam.id, pod: terminalPodFragment() });
     expect(expanded.ok).toBe(true);
-    const node = local.rigRepo.getRig(rig.id)!.nodes.find((candidate) => candidate.logicalId === "infra.server")!;
-    const sessions = local.sessionRegistry.getSessionsForRig(rig.id).filter((session) => session.nodeId === node.id);
+    const node = local.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find((candidate) => candidate.logicalId === "infra.server")!;
+    const sessions = local.sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id).filter((session) => session.nodeId === node.id);
     for (const session of sessions) local.sessionRegistry.markDetached(session.id);
     localDb.prepare("UPDATE bindings SET tmux_pane = NULL WHERE node_id = ?").run(node.id);
 
-    const result = await local.claimService.reconcileSession({ sessionName: "infra-server@test-rig" });
+    const result = await local.claimService.reconcileSession({ sessionName: "infra-server@test-software-team" });
 
     expect(result.ok).toBe(true);
     expect(local.sessionRegistry.getBindingForNode(node.id)?.tmuxPane).toBe("%refreshed");
@@ -173,13 +173,13 @@ describe("ClaimService.reconcileSession (OPR.0.3.4.3)", () => {
 
   it("HONEST DRIFT: reports unproven metadata separately and never claims continuity", async () => {
     // A claude-code node whose live pane command reads "zsh" cannot be proven.
-    const rig = setup.rigRepo.createRig("drift-rig");
-    const node = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code", cwd: "/work/repo", podId: null });
-    const sess = setup.sessionRegistry.registerSession(node.id, "dev-impl@drift-rig");
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("drift-software-team");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code", cwd: "/work/repo", podId: null });
+    const sess = setup.sessionRegistry.registerSession(node.id, "dev-impl@drift-software-team");
     setup.sessionRegistry.markDetached(sess.id);
-    setup.sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@drift-rig" });
+    setup.sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@drift-software-team" });
 
-    const result = await setup.claimService.reconcileSession({ sessionName: "dev-impl@drift-rig" });
+    const result = await setup.claimService.reconcileSession({ sessionName: "dev-impl@drift-software-team" });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.result.projectionDrift.join(" ")).toContain("runtime unverified");
@@ -194,12 +194,12 @@ describe("ClaimService.reconcileSession (OPR.0.3.4.3)", () => {
     const idleSh: NativeProcessRow = { pid: 900, ppid: 1, command: "/bin/sh", pgid: 900, tpgid: 900, executableName: "sh", startedAt: started };
     async function drift(runtime: "claude-code" | "codex", rows: NativeProcessRow[]) {
       const spy = spyTmux({ getPaneCommand: vi.fn(async () => "sh"), getPanePid: vi.fn(async () => 900) });
-      const rig = setup.rigRepo.createRig(`launcher-${runtime}`);
-      const node = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime, cwd: "/work/repo", podId: null });
+      const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam(`launcher-${runtime}`);
+      const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime, cwd: "/work/repo", podId: null });
       const sess = setup.sessionRegistry.registerSession(node.id, `dev-impl@launcher-${runtime}`);
       setup.sessionRegistry.markDetached(sess.id);
       setup.sessionRegistry.updateBinding(node.id, { tmuxSession: `dev-impl@launcher-${runtime}` });
-      const service = new ClaimService({ db, rigRepo: setup.rigRepo, sessionRegistry: setup.sessionRegistry,
+      const service = new ClaimService({ db, softwareTeamRepo: setup.softwareTeamRepo, sessionRegistry: setup.sessionRegistry,
         discoveryRepo: setup.discoveryRepo, eventBus: setup.eventBus, tmuxAdapter: spy.adapter, listProcesses: () => rows });
       const result = await service.reconcileSession({ sessionName: `dev-impl@launcher-${runtime}` });
       expect(result.ok).toBe(true);
@@ -218,11 +218,11 @@ describe("ClaimService.reconcileSession (OPR.0.3.4.3)", () => {
     const spy = spyTmux({ hasSession: vi.fn(async () => false) });
     const localDb = createFullTestDb();
     const local = createTestApp(localDb, { tmux: spy.adapter });
-    const rig = local.rigRepo.createRig("ghost-rig");
-    const node = local.rigRepo.addNode(rig.id, "dev.impl", { runtime: "terminal", podId: null });
-    local.sessionRegistry.registerSession(node.id, "dev-impl@ghost-rig");
+    const softwareTeam = local.softwareTeamRepo.createSoftwareTeam("ghost-software-team");
+    const node = local.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "terminal", podId: null });
+    local.sessionRegistry.registerSession(node.id, "dev-impl@ghost-software-team");
 
-    const result = await local.claimService.reconcileSession({ sessionName: "dev-impl@ghost-rig" });
+    const result = await local.claimService.reconcileSession({ sessionName: "dev-impl@ghost-software-team" });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.code).toBe("session_not_found");
@@ -234,61 +234,61 @@ describe("ClaimService.reconcileSession (OPR.0.3.4.3)", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.code).toBe("node_not_found");
-    expect(result.message).toContain("rig discover");
+    expect(result.message).toContain("SoftwareTeam discover");
   });
 
-  it("IDENTITY BOUNDARY: explicit --rig/--node cannot bind an arbitrary never-managed session (re-key bypass)", async () => {
+  it("IDENTITY BOUNDARY: explicit --software-team/--node cannot bind an arbitrary never-managed session (re-key bypass)", async () => {
     // Guard re-review finding: a live session named outside the node's
     // canonical/managed name, with NO daemon-history mapping, must be refused
-    // even with explicit --rig/--node. tmux hasSession is true (spy default).
-    const rig = setup.rigRepo.createRig("bypass-rig");
+    // even with explicit --software-team/--node. tmux hasSession is true (spy default).
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("bypass-software-team");
     const podId = "pod-bypass";
-    db.prepare("INSERT INTO pods (id, rig_id, namespace, label) VALUES (?, ?, ?, ?)").run(podId, rig.id, "dev", "Dev");
-    const node = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime: "terminal", podId });
+    db.prepare("INSERT INTO pods (id, software_team_id, namespace, label) VALUES (?, ?, ?, ?)").run(podId, softwareTeam.id, "dev", "Dev");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "terminal", podId });
 
     const result = await setup.claimService.reconcileSession({
       sessionName: "stranger@nowhere",
-      rigId: rig.id,
+      softwareTeamId: softwareTeam.id,
       logicalId: "dev.impl",
     });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.code).toBe("node_mismatch");
-    expect(result.message).toContain("dev-impl@bypass-rig"); // points at the canonical name
-    expect(result.message).toContain("rig discover");
+    expect(result.message).toContain("dev-impl@bypass-software-team"); // points at the canonical name
+    expect(result.message).toContain("SoftwareTeam discover");
     // NOTHING mutated: no binding, no session row, no event.
     expect(setup.sessionRegistry.getBindingForNode(node.id)).toBeNull();
     expect(db.prepare("SELECT 1 FROM sessions WHERE node_id = ?").all(node.id)).toHaveLength(0);
     expect(db.prepare("SELECT 1 FROM events WHERE type = 'node.reconciled'").all()).toHaveLength(0);
   });
 
-  it("explicit --rig/--node WITH no history mapping still works for the node's OWN canonical name", async () => {
+  it("explicit --software-team/--node WITH no history mapping still works for the node's OWN canonical name", async () => {
     // Positive: history purged but the operator names the node's exact
     // canonical session - explicit disambiguation is allowed.
-    const rig = setup.rigRepo.createRig("canon-rig");
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("canon-software-team");
     const podId = "pod-canon";
-    db.prepare("INSERT INTO pods (id, rig_id, namespace, label) VALUES (?, ?, ?, ?)").run(podId, rig.id, "dev", "Dev");
-    const node = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime: "terminal", podId });
+    db.prepare("INSERT INTO pods (id, software_team_id, namespace, label) VALUES (?, ?, ?, ?)").run(podId, softwareTeam.id, "dev", "Dev");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "terminal", podId });
 
     const result = await setup.claimService.reconcileSession({
-      sessionName: "dev-impl@canon-rig",
-      rigId: rig.id,
+      sessionName: "dev-impl@canon-software-team",
+      softwareTeamId: softwareTeam.id,
       logicalId: "dev.impl",
     });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.result.nodeId).toBe(node.id);
-    expect(setup.sessionRegistry.getBindingForNode(node.id)?.tmuxSession).toBe("dev-impl@canon-rig");
+    expect(setup.sessionRegistry.getBindingForNode(node.id)?.tmuxSession).toBe("dev-impl@canon-software-team");
   });
 
-  it("node_mismatch when explicit --rig/--node disagrees with the daemon's session mapping", async () => {
-    const { rig, sessionName } = await seedDetachedSeat();
-    // A second node in the same rig that does NOT map to this session.
-    const other = setup.rigRepo.addNode(rig.id, "infra.other", { runtime: "terminal", podId: null });
+  it("node_mismatch when explicit --software-team/--node disagrees with the daemon's session mapping", async () => {
+    const { softwareTeam, sessionName } = await seedDetachedSeat();
+    // A second node in the same softwareTeam that does NOT map to this session.
+    const other = setup.softwareTeamRepo.addNode(softwareTeam.id, "infra.other", { runtime: "terminal", podId: null });
 
-    const result = await setup.claimService.reconcileSession({ sessionName, rigId: rig.id, logicalId: "infra.other" });
+    const result = await setup.claimService.reconcileSession({ sessionName, softwareTeamId: softwareTeam.id, logicalId: "infra.other" });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.code).toBe("node_mismatch");
@@ -298,8 +298,8 @@ describe("ClaimService.reconcileSession (OPR.0.3.4.3)", () => {
 
   it("cross-runtime: claude-code, codex, and terminal nodes each reconcile", async () => {
     for (const runtime of ["claude-code", "codex", "terminal"] as const) {
-      const rig = setup.rigRepo.createRig(`rt-${runtime}`);
-      const node = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime, podId: null });
+      const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam(`rt-${runtime}`);
+      const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime, podId: null });
       const sess = setup.sessionRegistry.registerSession(node.id, `dev-impl@rt-${runtime}`);
       setup.sessionRegistry.markDetached(sess.id);
 
@@ -328,15 +328,15 @@ describe("reconcile_session on the converge spine (OPR.0.3.4.3)", () => {
   });
 
   it("convergeOp dispatches reconcile_session to the claim service (on-spine, not a one-off)", async () => {
-    const rig = setup.rigRepo.createRig("spine-rig");
-    const node = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime: "terminal", podId: null });
-    const sess = setup.sessionRegistry.registerSession(node.id, "dev-impl@spine-rig");
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("spine-software-team");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "terminal", podId: null });
+    const sess = setup.sessionRegistry.registerSession(node.id, "dev-impl@spine-software-team");
     setup.sessionRegistry.markDetached(sess.id);
 
     const result = await convergeOp(
       { instantiator: setup.podInstantiator, claimService: setup.claimService },
       "",
-      { kind: "reconcile_session", sessionName: "dev-impl@spine-rig" },
+      { kind: "reconcile_session", sessionName: "dev-impl@spine-software-team" },
       ".",
     );
 
@@ -352,7 +352,7 @@ describe("reconcile_session on the converge spine (OPR.0.3.4.3)", () => {
     const result = await convergeOp(
       { instantiator: setup.podInstantiator },
       "",
-      { kind: "reconcile_session", sessionName: "dev-impl@spine-rig" },
+      { kind: "reconcile_session", sessionName: "dev-impl@spine-software-team" },
       ".",
     );
     expect(result.kind).toBe("reconcile_session");
@@ -380,12 +380,12 @@ describe("POST /api/sessions/:sessionName/reconcile (OPR.0.3.4.3)", () => {
   }
 
   it("returns 200 with the reconcile result for a live detached seat", async () => {
-    const rig = setup.rigRepo.createRig("route-rig");
-    const node = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime: "terminal", podId: null });
-    const sess = setup.sessionRegistry.registerSession(node.id, "dev-impl@route-rig");
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("route-software-team");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "terminal", podId: null });
+    const sess = setup.sessionRegistry.registerSession(node.id, "dev-impl@route-software-team");
     setup.sessionRegistry.markDetached(sess.id);
 
-    const res = await post("dev-impl@route-rig");
+    const res = await post("dev-impl@route-software-team");
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
@@ -401,29 +401,29 @@ describe("POST /api/sessions/:sessionName/reconcile (OPR.0.3.4.3)", () => {
   });
 
   it("returns 409 for a node_mismatch", async () => {
-    const rig = setup.rigRepo.createRig("route-rig2");
-    const node = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime: "terminal", podId: null });
-    setup.rigRepo.addNode(rig.id, "dev.other", { runtime: "terminal", podId: null });
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("route-rig2");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "terminal", podId: null });
+    setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.other", { runtime: "terminal", podId: null });
     setup.sessionRegistry.registerSession(node.id, "dev-impl@route-rig2");
 
-    const res = await post("dev-impl@route-rig2", { rigId: rig.id, logicalId: "dev.other" });
+    const res = await post("dev-impl@route-rig2", { softwareTeamId: softwareTeam.id, logicalId: "dev.other" });
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.code).toBe("node_mismatch");
   });
 
-  it("returns 400 when only one of rigId/logicalId is given", async () => {
-    const res = await post("dev-impl@route-rig3", { rigId: "some-rig" });
+  it("returns 400 when only one of softwareTeamId/logicalId is given", async () => {
+    const res = await post("dev-impl@route-rig3", { softwareTeamId: "some-software-team" });
     expect(res.status).toBe(400);
   });
 
-  it("returns 409 for the explicit-rig/node arbitrary-session re-key bypass (nothing mutated)", async () => {
-    const rig = setup.rigRepo.createRig("route-bypass");
+  it("returns 409 for the explicit-software-team/node arbitrary-session re-key bypass (nothing mutated)", async () => {
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("route-bypass");
     const podId = "pod-rb";
-    db.prepare("INSERT INTO pods (id, rig_id, namespace, label) VALUES (?, ?, ?, ?)").run(podId, rig.id, "dev", "Dev");
-    const node = setup.rigRepo.addNode(rig.id, "dev.impl", { runtime: "terminal", podId });
+    db.prepare("INSERT INTO pods (id, software_team_id, namespace, label) VALUES (?, ?, ?, ?)").run(podId, softwareTeam.id, "dev", "Dev");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "terminal", podId });
 
-    const res = await post("stranger@nowhere", { rigId: rig.id, logicalId: "dev.impl" });
+    const res = await post("stranger@nowhere", { softwareTeamId: softwareTeam.id, logicalId: "dev.impl" });
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.code).toBe("node_mismatch");

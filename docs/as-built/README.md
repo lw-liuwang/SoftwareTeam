@@ -14,7 +14,7 @@ last-verified-against-source: e8f0ab340db773392ec8be75b072d1c0f3068a50
 last-updated: 2026-10-08
 ---
 
-# OpenRig as-built docs
+# SoftwareTeam as-built docs
 
 These pages describe the code and point to its owning files. This index was checked against
 main commit `e8f0ab340db773392ec8be75b072d1c0f3068a50`. A linked module's

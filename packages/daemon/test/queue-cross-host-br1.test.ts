@@ -31,7 +31,7 @@ import { queueRoutes } from "../src/routes/queue.js";
 import type { HostRegistry } from "../src/domain/hosts/hosts-registry-reader.js";
 
 const REGISTRY: HostRegistry = {
-  hosts: [{ id: "vps-b", transport: "http", url: "http://vps-b:7433", bearer_env: "MH3B" }],
+  hosts: [{ id: "vps-b", transport: "http", url: "http://vps-b:7434", bearer_env: "MH3B" }],
 };
 process.env["MH3B"] = "remote-token";
 
@@ -45,7 +45,7 @@ describe("MH-3 C4 — BR-1 sweep: no @host in ANY persisted session carrier afte
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, queueItemsSchema, queueTransitionsSchema, queueTargetRepoSchema]);
     const bus = new EventBus(db);
-    const repo = new QueueRepository(db, bus, { validateRig: () => true });
+    const repo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     const app = new Hono();
     app.use("*", async (c, next) => {
       const set = c.set.bind(c) as (k: string, v: unknown) => void;
@@ -67,20 +67,20 @@ describe("MH-3 C4 — BR-1 sweep: no @host in ANY persisted session carrier afte
       const sender = body["sourceSession"] ?? body["fromSession"] ?? body["actorSession"];
       return app.request(path, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(sender ? { "X-OpenRig-Session": String(sender) } : {}) },
+        headers: { "Content-Type": "application/json", ...(sender ? { "X-SoftwareTeam-Session": String(sender) } : {}) },
         body: JSON.stringify(body),
       });
     };
 
     // The walk: every writer path MH-3 touches, local and cross-host.
-    expect((await post("/api/queue/create", { sourceSession: "orch@rig-a", destinationSession: "w1@rig-a", body: "local", nudge: false })).status).toBe(201);
-    expect((await post("/api/queue/create", { sourceSession: "orch@rig-a", destinationSession: "dev@rig-b", body: "xh", hostId: "vps-b", nudge: false })).status).toBe(201);
-    await repo.create({ qitemId: "qitem-xh-src", sourceSession: "orch@rig-a", destinationSession: "w2@rig-a", body: "src", nudge: false });
-    expect((await post("/api/queue/qitem-xh-src/handoff", { fromSession: "w2@rig-a", toSession: "dev@rig-b", hostId: "vps-b", nudge: false })).status).toBe(201);
-    await repo.create({ qitemId: "qitem-local-src", sourceSession: "orch@rig-a", destinationSession: "w3@rig-a", body: "src2", nudge: false });
-    expect((await post("/api/queue/qitem-local-src/handoff", { fromSession: "w3@rig-a", toSession: "w4@rig-a", nudge: false })).status).toBe(201);
-    await repo.create({ qitemId: "qitem-xh-src2", sourceSession: "orch@rig-a", destinationSession: "w5@rig-a", body: "src3", nudge: false });
-    expect((await post("/api/queue/qitem-xh-src2/handoff-and-complete", { fromSession: "w5@rig-a", toSession: "dev@rig-b", hostId: "vps-b", nudge: false })).status).toBe(201);
+    expect((await post("/api/queue/create", { sourceSession: "orch@software-team-a", destinationSession: "w1@software-team-a", body: "local", nudge: false })).status).toBe(201);
+    expect((await post("/api/queue/create", { sourceSession: "orch@software-team-a", destinationSession: "dev@software-team-b", body: "xh", hostId: "vps-b", nudge: false })).status).toBe(201);
+    await repo.create({ qitemId: "qitem-xh-src", sourceSession: "orch@software-team-a", destinationSession: "w2@software-team-a", body: "src", nudge: false });
+    expect((await post("/api/queue/qitem-xh-src/handoff", { fromSession: "w2@software-team-a", toSession: "dev@software-team-b", hostId: "vps-b", nudge: false })).status).toBe(201);
+    await repo.create({ qitemId: "qitem-local-src", sourceSession: "orch@software-team-a", destinationSession: "w3@software-team-a", body: "src2", nudge: false });
+    expect((await post("/api/queue/qitem-local-src/handoff", { fromSession: "w3@software-team-a", toSession: "w4@software-team-a", nudge: false })).status).toBe(201);
+    await repo.create({ qitemId: "qitem-xh-src2", sourceSession: "orch@software-team-a", destinationSession: "w5@software-team-a", body: "src3", nudge: false });
+    expect((await post("/api/queue/qitem-xh-src2/handoff-and-complete", { fromSession: "w5@software-team-a", toSession: "dev@software-team-b", hostId: "vps-b", nudge: false })).status).toBe(201);
 
     // THE SWEEP — every persisted session-string carrier, every row.
     const items = db
@@ -103,7 +103,7 @@ describe("MH-3 C4 — BR-1 sweep: no @host in ANY persisted session carrier afte
       expect(atParts(t.a), `actor_session '${t.a}' must stay ≤2-part`).toBeLessThanOrEqual(1);
       if (t.cr) expect(atParts(t.cr), `closure_reason '${t.cr}' must carry no session form at all`).toBe(0);
       // rev1-r2 B1: transition_note is a DURABLE carrier — no single token in
-      // it may be the 3-part member@rig@host form. Per-token, not per-string:
+      // it may be the 3-part member@software-team@host form. Per-token, not per-string:
       // a note may legitimately name two separate 2-part sessions (the
       // fallback-routed note does exactly that).
       if (t.n) {
@@ -117,7 +117,7 @@ describe("MH-3 C4 — BR-1 sweep: no @host in ANY persisted session carrier afte
     // the deterministic successor qitem qualified by host — and nothing else
     // carries that host suffix. The transition mirrors the SAME value.
     const expectedClosureTargets = ["qitem-xh-src", "qitem-xh-src2"].map((id) =>
-      `${id}:${deriveCrossHostSuccessorId(id, "dev@rig-b", "vps-b")}@vps-b`,
+      `${id}:${deriveCrossHostSuccessorId(id, "dev@software-team-b", "vps-b")}@vps-b`,
     ).sort();
     const hostQualifiedCts = items
       .filter((r) => r.ct?.endsWith("@vps-b"))
@@ -152,8 +152,8 @@ describe("MH-3 C4 — BR-1 sweep: no @host in ANY persisted session carrier afte
     );
     expect(xhCloseNotes.length).toBe(2);
     for (const t of xhCloseNotes) {
-      expect(t.n).toContain("dev@rig-b");
-      expect(t.n).not.toContain("dev@rig-b@vps-b");
+      expect(t.n).toContain("dev@software-team-b");
+      expect(t.n).not.toContain("dev@software-team-b@vps-b");
     }
   });
 });

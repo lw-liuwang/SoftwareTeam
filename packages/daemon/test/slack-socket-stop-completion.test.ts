@@ -22,7 +22,7 @@ async function completion(handle: SocketInboundHandle): Promise<string> {
 }
 
 it("settles stopped backoff and immediate-stop loops, and preserves finite-connect completion", async () => {
-  const home = mkdtempSync(join(tmpdir(), "openrig-socket-stop-"));
+  const home = mkdtempSync(join(tmpdir(), "softwareteam-socket-stop-"));
   let requests = 0;
   const server = createServer((_req, res) => {
     requests++;
@@ -66,7 +66,7 @@ it("settles stopped backoff and immediate-stop loops, and preserves finite-conne
 });
 
 it("settles an already connected native WebSocket loop on repeated stop", async () => {
-  const home = mkdtempSync(join(tmpdir(), "openrig-socket-connected-"));
+  const home = mkdtempSync(join(tmpdir(), "softwareteam-socket-connected-"));
   const sockets = new Set<import("node:stream").Duplex>();
   const server = createServer((_req, res) => {
     const address = server.address();
@@ -111,7 +111,7 @@ it("settles an already connected native WebSocket loop on repeated stop", async 
 });
 
 it("abandons a native WebSocket whose upgrade never answers and opens a new one", async () => {
-  const home = mkdtempSync(join(tmpdir(), "openrig-socket-open-timeout-"));
+  const home = mkdtempSync(join(tmpdir(), "softwareteam-socket-open-timeout-"));
   const held = new Set<import("node:stream").Duplex>();
   let upgrades = 0;
   const server = createServer((_req, res) => {
@@ -160,7 +160,7 @@ it("abandons a native WebSocket whose upgrade never answers and opens a new one"
 });
 
 it("retries when a native WebSocket handshake is refused, though Node fires no close for it", async () => {
-  const home = mkdtempSync(join(tmpdir(), "openrig-socket-refused-"));
+  const home = mkdtempSync(join(tmpdir(), "softwareteam-socket-refused-"));
   // A port with nothing listening: the handshake is refused at once.
   const vacant = createServer();
   vacant.listen(0, "127.0.0.1");

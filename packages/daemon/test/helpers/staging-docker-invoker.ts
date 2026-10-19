@@ -18,7 +18,7 @@
 //   (the false-green class the fence exists to catch late; this catches it AT the step).
 // - every step is bounded by a TIMEOUT that kills both processes and returns a NAMED failure —
 //   the 08-12 hang was unbounded and ended only by operator judgement at seven minutes.
-// - never rejects (mirrors runRig): every outcome is a DockerResult with a non-zero code on
+// - never rejects (mirrors runSoftwareTeam): every outcome is a DockerResult with a non-zero code on
 //   failure and the cause in stderr.
 //
 // SCOPE: this proves the INVOKER, hermetically. It claims nothing about live containment — the

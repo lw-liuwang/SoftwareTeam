@@ -12,5 +12,5 @@ checks: []
 open_items: []
 human_decisions: []
 conclusion: null
-next_owner: team-coordinator@software-team
+next_owner: product-manage-agent@software-team
 # Add role-specific fields required by the expert's skill.

@@ -59,12 +59,12 @@ describe("Restore CLI (L3)", () => {
   let server: http.Server;
   let port: number;
   let lastRoutePath: string | null = null;
-  let routeResponse: { status: number; body: unknown } = { status: 202, body: { ok: true, attemptId: 42, status: "started", rigId: "rig-1" } };
+  let routeResponse: { status: number; body: unknown } = { status: 202, body: { ok: true, attemptId: 42, status: "started", softwareTeamId: "software-team-1" } };
 
   beforeAll(async () => {
     server = http.createServer(async (req, res) => {
       lastRoutePath = req.url ?? null;
-      if (req.url?.startsWith("/api/rigs/") && req.url?.includes("/restore/") && (req.method === "POST" || req.method === "GET")) {
+      if (req.url?.startsWith("/api/software-teams/") && req.url?.includes("/restore/") && (req.method === "POST" || req.method === "GET")) {
         res.writeHead(routeResponse.status, { "Content-Type": "application/json" });
         res.end(JSON.stringify(routeResponse.body));
         return;
@@ -87,24 +87,24 @@ describe("Restore CLI (L3)", () => {
 
   // L3 closeout checklist: CLI prints attempt id from the route's 202 response.
   it("prints 'Restore attempt id: <id>' on stdout (L3 success path)", async () => {
-    routeResponse = { status: 202, body: { ok: true, attemptId: 42, status: "started", rigId: "rig-1" } };
+    routeResponse = { status: 202, body: { ok: true, attemptId: 42, status: "started", softwareTeamId: "software-team-1" } };
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "restore", "snap-abc", "--rig", "rig-1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "restore", "snap-abc", "--software-team", "software-team-1"]);
     });
 
     const out = logs.join("\n");
     expect(out).toContain("Restore attempt id: 42");
     expect(out).toContain("Status: started");
-    expect(out).toContain("rig restore status 42 --rig rig-1");
+    expect(out).toContain("SoftwareTeam restore status 42 --software-team software-team-1");
     expect(exitCode).toBeUndefined(); // 0
   });
 
   // L3 closeout checklist: SIGINT message must NOT reference non-existent commands
-  // (e.g., a hypothetical `rig events`). It should point at existing surfaces only.
+  // (e.g., a hypothetical `softwareTeam events`). It should point at existing surfaces only.
   it("CLI's SIGINT/SIGTERM honest message references only existing surfaces", async () => {
     // Reach into the source to verify the message constant doesn't reference
-    // non-existent `rig events`. Inspect the compiled CLI behavior by reading
+    // non-existent `softwareTeam events`. Inspect the compiled CLI behavior by reading
     // restore.ts directly is heavy; the simpler check is that the bundled
     // command file includes the existing-surface guidance. Use require on the
     // compiled module's signal handler text via a lightweight regex.
@@ -115,9 +115,9 @@ describe("Restore CLI (L3)", () => {
 
     // Must include the honest interrupt message mentioning daemon-side work
     expect(restoreSrc).toMatch(/daemon-side restore may continue/i);
-    // Must reference existing surfaces (rig ps --nodes or rig restore-check)
-    expect(restoreSrc).toMatch(/rig ps --nodes|rig restore-check/);
-    // Must NOT reference a fake `rig events` command (Decision 1 amendment)
+    // Must reference existing surfaces (SoftwareTeam ps --nodes or SoftwareTeam restore-check)
+    expect(restoreSrc).toMatch(/SoftwareTeam ps --nodes|SoftwareTeam restore-check/);
+    // Must NOT reference a fake `softwareTeam events` command (Decision 1 amendment)
     expect(restoreSrc).not.toMatch(/\brig events\b/);
   });
 
@@ -125,7 +125,7 @@ describe("Restore CLI (L3)", () => {
     routeResponse = { status: 404, body: { error: "Snapshot not found" } };
 
     const { errLogs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "restore", "missing", "--rig", "rig-1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "restore", "missing", "--software-team", "software-team-1"]);
     });
 
     expect(errLogs.join("\n")).toMatch(/not found/i);
@@ -139,7 +139,7 @@ describe("Restore CLI (L3)", () => {
         ok: true,
         attemptId: 42,
         snapshotSelection: { snapshotId: "manual-1", kind: "manual", mode: "explicit", ageMs: 1, rationale: "operator selected exact snapshot" },
-        originalResult: { rigResult: "partially_restored", warnings: ["Startup submission unverified in lead@fixture: capture unavailable"] },
+        originalResult: { softwareTeamResult: "partially_restored", warnings: ["Startup submission unverified in lead@fixture: capture unavailable"] },
         currentIntendedSetVerdict: "fully_restored",
         intendedRoster: [{ nodeId: "n1", logicalId: "lead" }],
         excludedNodes: [{ nodeId: "old", logicalId: "historical" }],
@@ -148,10 +148,10 @@ describe("Restore CLI (L3)", () => {
     };
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "restore", "status", "42", "--rig", "rig-1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "restore", "status", "42", "--software-team", "software-team-1"]);
     });
 
-    expect(lastRoutePath).toBe("/api/rigs/rig-1/restore/status/42");
+    expect(lastRoutePath).toBe("/api/software-teams/software-team-1/restore/status/42");
     expect(logs.join("\n")).toContain("Original verdict: partially_restored");
     expect(logs.join("\n")).toContain("Original attempt warning: Startup submission unverified in lead@fixture: capture unavailable");
     expect(logs.join("\n")).toContain("Current intended-set verdict: fully_restored");
@@ -159,15 +159,15 @@ describe("Restore CLI (L3)", () => {
   });
 
   it("#729: legacy completed restore prints original warnings without failing", async () => {
-    routeResponse = { status: 200, body: { rigResult: "fully_restored", nodes: [], warnings: ["Startup prompt still staged in lead@fixture; press Enter in that pane."] } };
-    const { logs, exitCode } = await captureLogs(() => makeCmd().parseAsync(["node", "rig", "restore", "snap", "--rig", "rig-1"]));
+    routeResponse = { status: 200, body: { softwareTeamResult: "fully_restored", nodes: [], warnings: ["Startup prompt still staged in lead@fixture; press Enter in that pane."] } };
+    const { logs, exitCode } = await captureLogs(() => makeCmd().parseAsync(["node", "softwareTeam", "restore", "snap", "--software-team", "software-team-1"]));
     expect(logs.join("\n")).toContain("Original attempt warning: Startup prompt still staged");
     expect(exitCode).toBeUndefined();
   });
 
   it("#729: status JSON keeps the original warning as one structured result", async () => {
     routeResponse = { status: 200, body: { ok: true, originalResult: { warnings: ["unverified startup"] } } };
-    const { logs, exitCode } = await captureLogs(() => makeCmd().parseAsync(["node", "rig", "restore", "status", "42", "--rig", "rig-1", "--json"]));
+    const { logs, exitCode } = await captureLogs(() => makeCmd().parseAsync(["node", "softwareTeam", "restore", "status", "42", "--software-team", "software-team-1", "--json"]));
     expect(logs).toHaveLength(1);
     expect(JSON.parse(logs[0]!).originalResult.warnings).toEqual(["unverified startup"]);
     expect(exitCode).toBeUndefined();
@@ -178,7 +178,7 @@ describe("Restore CLI (L3)", () => {
       status: 409,
       body: {
         code: "pre_restore_validation_failed",
-        rigResult: "not_attempted",
+        softwareTeamResult: "not_attempted",
         blockers: [
           { code: "required_startup_file_missing", severity: "critical", logicalId: "worker", path: "/tmp/missing.md", message: "missing", remediation: "restore the file" },
         ],
@@ -187,7 +187,7 @@ describe("Restore CLI (L3)", () => {
     };
 
     const { errLogs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "restore", "snap-blocked", "--rig", "rig-1"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "restore", "snap-blocked", "--software-team", "software-team-1"]);
     });
 
     const errOut = errLogs.join("\n");

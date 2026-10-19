@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type Database from "better-sqlite3";
 import { decodeTime } from "ulid";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { AgentActivityStore } from "../src/domain/agent-activity-store.js";
@@ -14,7 +14,7 @@ import { createFullTestDb } from "./helpers/test-app.js";
 
 describe("SeatAttentionReconciler", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let eventBus: EventBus;
   let activityStore: AgentActivityStore;
@@ -22,7 +22,7 @@ describe("SeatAttentionReconciler", () => {
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     eventBus = new EventBus(db);
     activityStore = new AgentActivityStore({ db, eventBus });
@@ -31,20 +31,20 @@ describe("SeatAttentionReconciler", () => {
 
   afterEach(() => { db.close(); });
 
-  function seedAttentionSeat(rigName: string, sessionName: string): { rigId: string; nodeId: string; sessionId: string } {
-    const rig = rigRepo.createRig(rigName);
-    const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
+  function seedAttentionSeat(softwareTeamName: string, sessionName: string): { softwareTeamId: string; nodeId: string; sessionId: string } {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam(softwareTeamName);
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, sessionName);
     sessionRegistry.updateStartupStatus(session.id, "attention_required");
-    return { rigId: rig.id, nodeId: node.id, sessionId: session.id };
+    return { softwareTeamId: softwareTeam.id, nodeId: node.id, sessionId: session.id };
   }
 
-  function emitActivity(rigId: string, nodeId: string, sessionName: string, state: string, opts?: { stale?: boolean; eventAt?: string }) {
+  function emitActivity(softwareTeamId: string, nodeId: string, sessionName: string, state: string, opts?: { stale?: boolean; eventAt?: string }) {
     const now = new Date();
     const eventAt = opts?.eventAt ?? (opts?.stale ? new Date(now.getTime() - 10 * 60 * 1000).toISOString() : now.toISOString());
     eventBus.emit({
       type: "agent.activity",
-      rigId,
+      softwareTeamId,
       nodeId,
       sessionName,
       runtime: "claude-code",
@@ -61,8 +61,8 @@ describe("SeatAttentionReconciler", () => {
 
   // AC#1: evidence-gated clear works for fresh running
   it("clears attention on fresh running activity", async () => {
-    const { rigId, nodeId } = seedAttentionSeat("r1", "worker@r1");
-    emitActivity(rigId, nodeId, "worker@r1", "running");
+    const { softwareTeamId, nodeId } = seedAttentionSeat("r1", "worker@r1");
+    emitActivity(softwareTeamId, nodeId, "worker@r1", "running");
 
     const result = await reconciler.clearAttention("worker@r1");
 
@@ -76,8 +76,8 @@ describe("SeatAttentionReconciler", () => {
 
   // AC#1: evidence-gated clear works for fresh idle
   it("clears attention on fresh idle activity", async () => {
-    const { rigId, nodeId } = seedAttentionSeat("r2", "worker@r2");
-    emitActivity(rigId, nodeId, "worker@r2", "idle");
+    const { softwareTeamId, nodeId } = seedAttentionSeat("r2", "worker@r2");
+    emitActivity(softwareTeamId, nodeId, "worker@r2", "idle");
 
     const result = await reconciler.clearAttention("worker@r2");
 
@@ -87,8 +87,8 @@ describe("SeatAttentionReconciler", () => {
 
   // needs_input does NOT clear
   it("does NOT clear on needs_input activity", async () => {
-    const { rigId, nodeId } = seedAttentionSeat("r3", "worker@r3");
-    emitActivity(rigId, nodeId, "worker@r3", "needs_input");
+    const { softwareTeamId, nodeId } = seedAttentionSeat("r3", "worker@r3");
+    emitActivity(softwareTeamId, nodeId, "worker@r3", "needs_input");
 
     const result = await reconciler.clearAttention("worker@r3");
 
@@ -98,8 +98,8 @@ describe("SeatAttentionReconciler", () => {
 
   // unknown does NOT clear
   it("does NOT clear on unknown activity", async () => {
-    const { rigId, nodeId } = seedAttentionSeat("r4", "worker@r4");
-    emitActivity(rigId, nodeId, "worker@r4", "unknown");
+    const { softwareTeamId, nodeId } = seedAttentionSeat("r4", "worker@r4");
+    emitActivity(softwareTeamId, nodeId, "worker@r4", "unknown");
 
     const result = await reconciler.clearAttention("worker@r4");
 
@@ -109,8 +109,8 @@ describe("SeatAttentionReconciler", () => {
 
   // STALE activity does NOT clear (the production-reachable trap)
   it("does NOT clear on stale running activity (stale_runtime_hook)", async () => {
-    const { rigId, nodeId } = seedAttentionSeat("r5", "worker@r5");
-    emitActivity(rigId, nodeId, "worker@r5", "running", { stale: true });
+    const { softwareTeamId, nodeId } = seedAttentionSeat("r5", "worker@r5");
+    emitActivity(softwareTeamId, nodeId, "worker@r5", "running", { stale: true });
 
     const result = await reconciler.clearAttention("worker@r5", undefined);
 
@@ -142,8 +142,8 @@ describe("SeatAttentionReconciler", () => {
 
   // Honest no-op: already ready
   it("returns not_in_attention for already-ready seat", async () => {
-    const rig = rigRepo.createRig("r8");
-    const node = rigRepo.addNode(rig.id, "worker", { role: "worker" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r8");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker" });
     const session = sessionRegistry.registerSession(node.id, "worker@r8");
     sessionRegistry.updateStartupStatus(session.id, "ready");
 
@@ -154,8 +154,8 @@ describe("SeatAttentionReconciler", () => {
   });
 
   it("rebinds a healthy replacement pane and clears the pane-identity attention class", async () => {
-    const rig = rigRepo.createRig("r-pane-rebind");
-    const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r-pane-rebind");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, "worker@r-pane-rebind");
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateStartupStatus(session.id, "ready");
@@ -170,7 +170,7 @@ describe("SeatAttentionReconciler", () => {
       // The missing-pane observation belongs to this freshly registered occupant.
       observedAt: new Date(Math.max(Date.now(), decodeTime(session.id)) + 1).toISOString(),
     });
-    expect(getNodeInventory(db, rig.id)[0]!.lifecycleState).toBe("attention_required");
+    expect(getNodeInventory(db, softwareTeam.id)[0]!.lifecycleState).toBe("attention_required");
 
     const paneReconciler = new SeatAttentionReconciler({
       sessionRegistry,
@@ -189,12 +189,12 @@ describe("SeatAttentionReconciler", () => {
     expect(result.clearedClasses).toEqual(["pane_identity"]);
     expect(sessionRegistry.getBindingForNode(node.id)?.tmuxPane).toBe("%new");
     expect(new SeatIdentityStore(db).getForNode(node.id)?.verdict).toBe("verified");
-    expect(getNodeInventory(db, rig.id)[0]!.lifecycleState).toBe("running");
+    expect(getNodeInventory(db, softwareTeam.id)[0]!.lifecycleState).toBe("running");
   });
 
   it("names pane_identity when the replacement terminal cannot be resolved exactly", async () => {
-    const rig = rigRepo.createRig("r-pane-ambiguous");
-    const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r-pane-ambiguous");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, "worker@r-pane-ambiguous");
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateBinding(node.id, { tmuxSession: session.sessionName, tmuxPane: "%old" });
@@ -208,7 +208,7 @@ describe("SeatAttentionReconciler", () => {
       // The missing-pane observation belongs to this freshly registered occupant.
       observedAt: new Date(Math.max(Date.now(), decodeTime(session.id)) + 1).toISOString(),
     });
-    expect(getNodeInventory(db, rig.id)[0]!.lifecycleState).toBe("attention_required");
+    expect(getNodeInventory(db, softwareTeam.id)[0]!.lifecycleState).toBe("attention_required");
     const paneReconciler = new SeatAttentionReconciler({
       sessionRegistry,
       eventBus,
@@ -231,7 +231,7 @@ describe("SeatAttentionReconciler", () => {
     expect(sessionRegistry.getBindingForNode(node.id)?.tmuxPane).toBe("%old");
     // Re-observation confirmed the whole session missing, rather than just
     // the registered pane process being gone. Preserve that stronger fact.
-    expect(getNodeInventory(db, rig.id)[0]!).toMatchObject({
+    expect(getNodeInventory(db, softwareTeam.id)[0]!).toMatchObject({
       lifecycleState: "detached", sessionStatus: "detached",
       storedSessionStatus: "running", identityVerdict: { reason: "session_missing" },
     });
@@ -239,8 +239,8 @@ describe("SeatAttentionReconciler", () => {
 
   // Audit event emitted with distinct clearedBy
   it("emits seat.attention_cleared event on evidence-gated clear", async () => {
-    const { rigId, nodeId } = seedAttentionSeat("r9", "worker@r9");
-    emitActivity(rigId, nodeId, "worker@r9", "running");
+    const { softwareTeamId, nodeId } = seedAttentionSeat("r9", "worker@r9");
+    emitActivity(softwareTeamId, nodeId, "worker@r9", "running");
 
     await reconciler.clearAttention("worker@r9");
 
@@ -266,7 +266,7 @@ describe("SeatAttentionReconciler", () => {
 
   // Send-verify evidence branch
   it("clears on positive send-verify (outcome:delivered) when no fresh activity", async () => {
-    const { rigId, nodeId, sessionId } = seedAttentionSeat("r-send", "worker@r-send");
+    const { softwareTeamId, nodeId, sessionId } = seedAttentionSeat("r-send", "worker@r-send");
     const sendVerify = vi.fn(async () => ({ ok: true, outcome: "delivered" as const, verified: true }));
     const sendReconciler = new SeatAttentionReconciler({
       sessionRegistry, eventBus, agentActivityStore: activityStore, sendVerify,
@@ -384,7 +384,7 @@ describe("SeatAttentionReconciler", () => {
     seedAttentionSeat("r-cap-stale", "worker@r-cap-stale");
     const sendVerify = vi.fn(async () => ({ ok: true, outcome: "rendered-unconfirmed" as const, verified: false }));
     const capture = vi.fn(async (session: string) => ({
-      ok: true, sessionName: session, content: "# OpenRig attention-clear liveness probe 1111111111\nold scrollback",
+      ok: true, sessionName: session, content: "# SoftwareTeam attention-clear liveness probe 1111111111\nold scrollback",
     }));
     const capReconciler = new SeatAttentionReconciler({
       sessionRegistry, eventBus, agentActivityStore: activityStore, sendVerify, capture,
@@ -433,21 +433,21 @@ describe("SeatAttentionReconciler", () => {
   });
 
   // OPR.0.4.0.16 — derived-class tests
-  function seedDerivedAttentionSeat(rigName: string, sessionName: string): { rigId: string; nodeId: string; sessionId: string; attemptId: number } {
-    const rig = rigRepo.createRig(rigName);
-    const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
+  function seedDerivedAttentionSeat(softwareTeamName: string, sessionName: string): { softwareTeamId: string; nodeId: string; sessionId: string; attemptId: number } {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam(softwareTeamName);
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, sessionName);
     sessionRegistry.updateStartupStatus(session.id, "ready");
     sessionRegistry.updateStatus(session.id, "running");
-    const started = eventBus.emit({ type: "restore.started", rigId: rig.id, snapshotId: "snap-1" });
+    const started = eventBus.emit({ type: "restore.started", softwareTeamId: softwareTeam.id, snapshotId: "snap-1" });
     // Seed a failed restore outcome
     eventBus.emit({
       type: "restore.completed",
-      rigId: rig.id,
+      softwareTeamId: softwareTeam.id,
       snapshotId: "snap-1",
-      result: { snapshotId: "snap-1", preRestoreSnapshotId: "snap-0", rigResult: "failed", nodes: [{ nodeId: node.id, logicalId: "worker", status: "failed" }], warnings: [] },
+      result: { snapshotId: "snap-1", preRestoreSnapshotId: "snap-0", softwareTeamResult: "failed", nodes: [{ nodeId: node.id, logicalId: "worker", status: "failed" }], warnings: [] },
     } as any);
-    return { rigId: rig.id, nodeId: node.id, sessionId: session.id, attemptId: started.seq };
+    return { softwareTeamId: softwareTeam.id, nodeId: node.id, sessionId: session.id, attemptId: started.seq };
   }
 
   function strictDerivedReconciler() {
@@ -456,19 +456,19 @@ describe("SeatAttentionReconciler", () => {
       eventBus,
       agentActivityStore: activityStore,
       db,
-      reconcileRestoreOutcome: async (rigId, nodeId) => {
+      reconcileRestoreOutcome: async (softwareTeamId, nodeId) => {
         const started = db.prepare(
-          "SELECT seq FROM events WHERE rig_id = ? AND type = 'restore.started' ORDER BY seq DESC LIMIT 1",
-        ).get(rigId) as { seq: number };
+          "SELECT seq FROM events WHERE software_team_id = ? AND type = 'restore.started' ORDER BY seq DESC LIMIT 1",
+        ).get(softwareTeamId) as { seq: number };
         const completed = db.prepare(
-          "SELECT payload FROM events WHERE rig_id = ? AND type = 'restore.completed' AND seq > ? ORDER BY seq DESC LIMIT 1",
-        ).get(rigId, started.seq) as { payload: string };
+          "SELECT payload FROM events WHERE software_team_id = ? AND type = 'restore.completed' AND seq > ? ORDER BY seq DESC LIMIT 1",
+        ).get(softwareTeamId, started.seq) as { payload: string };
         const node = (JSON.parse(completed.payload) as { result: { nodes: Array<{ nodeId: string; status: "failed" | "attention_required" }> } })
           .result.nodes.find((entry) => entry.nodeId === nodeId)!;
         const evidence = { tmux: true, fgProcess: "claude", resumeTokenUsed: true, paneState: "usable" as const };
         eventBus.emit({
           type: "restore.outcome_reconciled",
-          rigId,
+          softwareTeamId,
           nodeId,
           attemptId: started.seq,
           from: node.status,
@@ -481,8 +481,8 @@ describe("SeatAttentionReconciler", () => {
   }
 
   it("OPR.0.5.9.14: scopes a derived clear to the real restore attempt", async () => {
-    const { rigId, nodeId, attemptId } = seedDerivedAttentionSeat("r-attempt-scoped", "worker@r-attempt-scoped");
-    emitActivity(rigId, nodeId, "worker@r-attempt-scoped", "running");
+    const { softwareTeamId, nodeId, attemptId } = seedDerivedAttentionSeat("r-attempt-scoped", "worker@r-attempt-scoped");
+    emitActivity(softwareTeamId, nodeId, "worker@r-attempt-scoped", "running");
     const derivedReconciler = strictDerivedReconciler();
 
     const result = await derivedReconciler.clearAttention("worker@r-attempt-scoped");
@@ -494,24 +494,24 @@ describe("SeatAttentionReconciler", () => {
   });
 
   it("OPR.0.5.9.14: preserves generic reconciliation for a subset restore with no attempt receipt", async () => {
-    const rig = rigRepo.createRig("r-subset-derived");
-    const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r-subset-derived");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, "worker@r-subset-derived");
     sessionRegistry.updateStartupStatus(session.id, "ready");
     sessionRegistry.updateStatus(session.id, "running");
     eventBus.emit({
       type: "restore.subset_completed",
-      rigId: rig.id,
+      softwareTeamId: softwareTeam.id,
       snapshotId: "snap-subset",
       result: {
         snapshotId: "snap-subset",
         preRestoreSnapshotId: null,
-        rigResult: "partially_restored",
+        softwareTeamResult: "partially_restored",
         nodes: [{ nodeId: node.id, logicalId: "worker", status: "attention_required" }],
         warnings: [],
       },
     } as any);
-    emitActivity(rig.id, node.id, "worker@r-subset-derived", "running");
+    emitActivity(softwareTeam.id, node.id, "worker@r-subset-derived", "running");
     const strict = vi.fn();
     const subsetReconciler = new SeatAttentionReconciler({
       sessionRegistry,
@@ -536,8 +536,8 @@ describe("SeatAttentionReconciler", () => {
   });
 
   it("OPR.0.4.0.16: clears derived-only class (startupStatus=ready + restoreOutcome=failed+running)", async () => {
-    const { rigId, nodeId } = seedDerivedAttentionSeat("r-derived", "worker@r-derived");
-    emitActivity(rigId, nodeId, "worker@r-derived", "running");
+    const { softwareTeamId, nodeId } = seedDerivedAttentionSeat("r-derived", "worker@r-derived");
+    emitActivity(softwareTeamId, nodeId, "worker@r-derived", "running");
     const derivedReconciler = strictDerivedReconciler();
 
     const result = await derivedReconciler.clearAttention("worker@r-derived");
@@ -569,18 +569,18 @@ describe("SeatAttentionReconciler", () => {
   });
 
   it("OPR.0.4.0.16: clears both classes when startupStatus + restoreOutcome both in attention", async () => {
-    const rig = rigRepo.createRig("r-both");
-    const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r-both");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, "worker@r-both");
     sessionRegistry.updateStartupStatus(session.id, "attention_required");
     sessionRegistry.updateStatus(session.id, "running");
-    eventBus.emit({ type: "restore.started", rigId: rig.id, snapshotId: "snap-1" });
+    eventBus.emit({ type: "restore.started", softwareTeamId: softwareTeam.id, snapshotId: "snap-1" });
     eventBus.emit({
       type: "restore.completed",
-      rigId: rig.id, snapshotId: "snap-1",
-      result: { snapshotId: "snap-1", preRestoreSnapshotId: "snap-0", rigResult: "failed", nodes: [{ nodeId: node.id, logicalId: "worker", status: "failed" }], warnings: [] },
+      softwareTeamId: softwareTeam.id, snapshotId: "snap-1",
+      result: { snapshotId: "snap-1", preRestoreSnapshotId: "snap-0", softwareTeamResult: "failed", nodes: [{ nodeId: node.id, logicalId: "worker", status: "failed" }], warnings: [] },
     } as any);
-    emitActivity(rig.id, node.id, "worker@r-both", "running");
+    emitActivity(softwareTeam.id, node.id, "worker@r-both", "running");
     const bothReconciler = strictDerivedReconciler();
 
     const result = await bothReconciler.clearAttention("worker@r-both");
@@ -608,8 +608,8 @@ describe("SeatAttentionReconciler", () => {
   });
 
   it("OPR.0.5.9.14: clearAttention returns the strict attempt evidence on its JSON surface", async () => {
-    const { rigId, nodeId, attemptId } = seedDerivedAttentionSeat("r-derived-surface", "worker@r-derived-surface");
-    emitActivity(rigId, nodeId, "worker@r-derived-surface", "running");
+    const { softwareTeamId, nodeId, attemptId } = seedDerivedAttentionSeat("r-derived-surface", "worker@r-derived-surface");
+    emitActivity(softwareTeamId, nodeId, "worker@r-derived-surface", "running");
     const surfaceReconciler = strictDerivedReconciler();
 
     const result = await surfaceReconciler.clearAttention("worker@r-derived-surface");
@@ -640,8 +640,8 @@ describe("SeatAttentionReconciler", () => {
   });
 
   it("OPR.0.5.9.14: refuses a non-running derived outcome when strict live lineage is absent", async () => {
-    const rig = rigRepo.createRig("r-nonrun-attn");
-    const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r-nonrun-attn");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, "worker@r-nonrun-attn");
     sessionRegistry.updateStartupStatus(session.id, "ready");
     // Session is exited, not running
@@ -649,8 +649,8 @@ describe("SeatAttentionReconciler", () => {
     // Seed restoreOutcome=attention_required
     eventBus.emit({
       type: "restore.completed",
-      rigId: rig.id, snapshotId: "snap-1",
-      result: { snapshotId: "snap-1", preRestoreSnapshotId: "snap-0", rigResult: "failed",
+      softwareTeamId: softwareTeam.id, snapshotId: "snap-1",
+      result: { snapshotId: "snap-1", preRestoreSnapshotId: "snap-0", softwareTeamResult: "failed",
         nodes: [{ nodeId: node.id, logicalId: "worker", status: "attention_required" }], warnings: [] },
     } as any);
     const nonrunReconciler = new SeatAttentionReconciler({
@@ -675,15 +675,15 @@ describe("SeatAttentionReconciler", () => {
 
   // REV1 REGRESSION: non-running restoreOutcome=failed does NOT trigger derived class
   it("OPR.0.4.0.16: non-running restoreOutcome=failed does NOT clear derived class (mirrors deriveNodeLifecycleState)", async () => {
-    const rig = rigRepo.createRig("r-nonrun-failed");
-    const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r-nonrun-failed");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, "worker@r-nonrun-failed");
     sessionRegistry.updateStartupStatus(session.id, "ready");
     sessionRegistry.updateStatus(session.id, "exited");
     eventBus.emit({
       type: "restore.completed",
-      rigId: rig.id, snapshotId: "snap-1",
-      result: { snapshotId: "snap-1", preRestoreSnapshotId: "snap-0", rigResult: "failed",
+      softwareTeamId: softwareTeam.id, snapshotId: "snap-1",
+      result: { snapshotId: "snap-1", preRestoreSnapshotId: "snap-0", softwareTeamResult: "failed",
         nodes: [{ nodeId: node.id, logicalId: "worker", status: "failed" }], warnings: [] },
     } as any);
     const nonrunReconciler = new SeatAttentionReconciler({

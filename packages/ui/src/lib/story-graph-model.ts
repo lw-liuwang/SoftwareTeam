@@ -106,7 +106,7 @@ function deriveSummary(item: StoryQitemInput): string {
 function isHumanOrigin(item: StoryQitemInput, tags: string[]): boolean {
   if (tags.includes("human-origin")) return true;
   const src = item.sourceSession ?? "";
-  // Managed seats are `pod-member@rig`; a bare token (no `@`) is a human origin.
+  // Managed seats are `pod-member@software-team`; a bare token (no `@`) is a human origin.
   if (!src.includes("@")) return true;
   return /\b(founder|human|operator)\b/i.test(src);
 }

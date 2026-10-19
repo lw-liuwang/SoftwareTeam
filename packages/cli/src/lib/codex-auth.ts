@@ -1,7 +1,7 @@
-// OPR.0.4.1.29 — rig auth secret-safe core (CLI-LOCAL / daemon-free).
+// OPR.0.4.1.29 — softwareTeam auth secret-safe core (CLI-LOCAL / daemon-free).
 //
 // This module operates directly on the operator's Codex auth files under CODEX_HOME and is invoked
-// only from the `rig auth` CLI command — it NEVER touches the daemon, so a token can never enter the
+// only from the `softwareTeam auth` CLI command — it NEVER touches the daemon, so a token can never enter the
 // daemon queue / SSE stream / SQLite / event log (never-queued/never-streamed is true BY CONSTRUCTION).
 //
 // SECRET INVARIANTS (non-negotiable): no auth/refresh/access token value is ever returned in, or used
@@ -107,7 +107,7 @@ function destReplaceable(p: string): boolean {
 /** fd-first copy of `source` onto `dest` (OPR.0.4.3.23 secret-boundary B1 hardening). Closes the
  *  check-then-use gap that a path-based copy leaves open: an earlier lstat guard, then a copy that
  *  re-resolves the SOURCE PATH, can be redirected by an inode swap in the window (a crash, or a
- *  concurrent legitimate rig on the same auth home) — reading the wrong inode, a torn file, or briefly
+ *  concurrent legitimate softwareTeam on the same auth home) — reading the wrong inode, a torn file, or briefly
  *  leaving a wider-than-0600 temp (CERT FIO45-C). Path-based pre-checks cannot close that race, so the
  *  authoritative check moves onto the OPENED fd:
  *   (1) SOURCE: openSync with O_NOFOLLOW (a final-component symlink swap fails closed), then fstat ON
@@ -383,13 +383,13 @@ export const SEAT_REGISTRY_DISCLAIMER =
   "Seat labels are metadata only; they do NOT prove a running session is actually using that account/profile.";
 
 // 6 columns; NO resume_token (a print surface is the worst place to hold a secret-class token).
-const SEAT_COLUMNS = ["seat", "rig", "runtime", "cwd", "auth_profile", "updated_ts"] as const;
+const SEAT_COLUMNS = ["seat", "softwareTeam", "runtime", "cwd", "auth_profile", "updated_ts"] as const;
 const SEAT_HEADER = SEAT_COLUMNS.join("\t");
 const SEAT_TAB_COUNT = SEAT_COLUMNS.length - 1;
 
 export interface SeatRow {
   seat: string;
-  rig: string;
+  softwareTeam: string;
   runtime: string;
   cwd: string;
   authProfile: string;
@@ -398,7 +398,7 @@ export interface SeatRow {
 
 export interface SeatSetFields {
   seat: string;
-  rig: string;
+  softwareTeam: string;
   runtime: string;
   cwd?: string;
   authProfile?: string;
@@ -445,7 +445,7 @@ function parseRow(line: string): SeatRow {
   const f = line.split("\t");
   return {
     seat: f[0] ?? "",
-    rig: f[1] ?? "",
+    softwareTeam: f[1] ?? "",
     runtime: f[2] ?? "",
     cwd: f[3] ?? "",
     authProfile: f[4] ?? "",
@@ -455,7 +455,7 @@ function parseRow(line: string): SeatRow {
 
 export type SeatSetResult =
   | { ok: true; seat: string; registryPath: string; mode: string; disclaimer: string }
-  | { ok: false; reason: "invalid_seat" | "invalid_rig" | "invalid_runtime" | "invalid_cwd" | "invalid_profile" | "unsafe_path" | "io_error" };
+  | { ok: false; reason: "invalid_seat" | "invalid_software_team" | "invalid_runtime" | "invalid_cwd" | "invalid_profile" | "unsafe_path" | "io_error" };
 
 /** Atomic upsert of a seat metadata row (tmp + rename). Drops pre-existing malformed rows rather than
  *  re-emitting fabricated metadata. `now` is injectable for deterministic tests. */
@@ -465,7 +465,7 @@ export function authSeatSet(
   now: () => string = () => new Date().toISOString(),
 ): SeatSetResult {
   if (!validRegistryField(fields.seat)) return { ok: false, reason: "invalid_seat" };
-  if (!validRegistryField(fields.rig)) return { ok: false, reason: "invalid_rig" };
+  if (!validRegistryField(fields.softwareTeam)) return { ok: false, reason: "invalid_software_team" };
   if (fields.runtime !== "codex") return { ok: false, reason: "invalid_runtime" }; // v0 whitelist
   const cwd = fields.cwd && fields.cwd.length > 0 ? fields.cwd : "unknown";
   if (!validRegistryField(cwd)) return { ok: false, reason: "invalid_cwd" };
@@ -478,7 +478,7 @@ export function authSeatSet(
   const kept = rawRegistryLines(paths.registryPath)
     .filter((l) => !rowMalformed(l))
     .filter((l) => l.split("\t")[0] !== fields.seat);
-  const newRow = [fields.seat, fields.rig, "codex", cwd, profile, now()].join("\t");
+  const newRow = [fields.seat, fields.softwareTeam, "codex", cwd, profile, now()].join("\t");
   const body = [SEAT_HEADER, ...kept, newRow].join("\n") + "\n";
 
   const tmp = `${paths.registryPath}.${process.pid}.tmp`;

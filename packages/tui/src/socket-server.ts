@@ -55,7 +55,7 @@ export function describeState(state: ViewState) {
       instance: state.instanceId,
       section: state.section,
       ...(named.get("host") ? { host: named.get("host") } : {}),
-      ...(named.get("rig") ? { rig: named.get("rig") } : {}),
+      ...(named.get("softwareTeam") ? { softwareTeam: named.get("softwareTeam") } : {}),
       ...(named.get("pod") ? { pod: named.get("pod") } : {}),
       ...(named.get("agent") ? { agent: named.get("agent") } : {}),
       ...(named.get("spec") ? { spec: named.get("spec") } : {}),
@@ -68,12 +68,12 @@ export function describeState(state: ViewState) {
   };
 }
 
-/** Default socket home follows the shipped OPENRIG_HOME convention
- * (openrig-compat: ~/.openrig), herdr-style env override on top. */
+/** Default socket home follows the shipped SOFTWARETEAM_HOME convention
+ * (softwareteam-compat: ~/.softwareteam), herdr-style env override on top. */
 export function defaultSocketPath(instanceId: string): string {
-  const override = process.env["OPENRIG_TUI_SOCKET"];
+  const override = process.env["SOFTWARETEAM_TUI_SOCKET"];
   if (override) return override;
-  const home = process.env["OPENRIG_HOME"] ?? path.join(os.homedir(), ".openrig");
+  const home = process.env["SOFTWARETEAM_HOME"] ?? path.join(os.homedir(), ".softwareteam");
   return path.join(home, "run", `tui-${instanceId}.sock`);
 }
 
@@ -101,7 +101,7 @@ export async function createControlSocket(options: ControlSocketOptions): Promis
     const suffix = `-${process.pid}-${randomUUID().slice(0, 8)}.sock`;
     const budget = MAX_SOCKET_PATH_BYTES - Buffer.byteLength(directory + path.sep + suffix);
     if (budget < 0) {
-      throw new Error(`socket runtime directory is too long for an independent control endpoint: ${directory} — use a shorter $OPENRIG_HOME/run or --socket path`);
+      throw new Error(`socket runtime directory is too long for an independent control endpoint: ${directory} — use a shorter $SOFTWARETEAM_HOME/run or --socket path`);
     }
     const stem = Array.from(path.basename(options.socketPath, ".sock"));
     while (Buffer.byteLength(stem.join("")) > budget) stem.pop();
@@ -188,7 +188,7 @@ async function createReservedControlSocket(options: ControlSocketOptions): Promi
   const bytes = Buffer.byteLength(socketPath);
   if (bytes > MAX_SOCKET_PATH_BYTES) {
     throw new Error(
-      `socket path too long (${bytes} bytes; unix sun_path caps ~104): ${socketPath} — use a short runtime dir (default: $OPENRIG_HOME/run)`,
+      `socket path too long (${bytes} bytes; unix sun_path caps ~104): ${socketPath} — use a short runtime dir (default: $SOFTWARETEAM_HOME/run)`,
     );
   }
   fs.mkdirSync(path.dirname(socketPath), { recursive: true });

@@ -58,20 +58,20 @@ export interface PodNode {
   agents: AgentRow[];
 }
 
-export interface RigNode {
+export interface SoftwareTeamNode {
   /** Observed running/idle agent presence from summary; null/absent means unknown. */
   hasLiveAgents?: boolean | null;
   inventoryNotLoaded?: boolean;
   inventoryUnavailable?: boolean;
   authoredSpecName?: string;
-  /** daemon rig id; absent only in static demo fixtures */
+  /** daemon softwareTeam id; absent only in static demo fixtures */
   id?: string;
   name: string;
   pods: PodNode[];
-  /** the rig's served graph projection (§4.A topology row 1 — a DECLARED
-   * existing read via daemon-client.rigGraph; slice-17 view consumes it, R7-clean) */
-  graph?: import("./topology/graph-types.js").RigGraph;
-  /** served rig lifecycleState verbatim (summary read); non-"running" states surface */
+  /** the softwareTeam's served graph projection (§4.A topology row 1 — a DECLARED
+   * existing read via daemon-client.softwareTeamGraph; slice-17 view consumes it, R7-clean) */
+  graph?: import("./topology/graph-types.js").SoftwareTeamGraph;
+  /** served softwareTeam lifecycleState verbatim (summary read); non-"running" states surface */
   lifecycleState?: string;
 }
 
@@ -80,30 +80,30 @@ export interface HostNode {
   id?: string;
   name: string;
   reachable: boolean;
-  rigs: RigNode[];
+  softwareTeams: SoftwareTeamNode[];
 }
 
-export type SpecKind = "rig" | "agent" | "workflow";
+export type SpecKind = "softwareTeam" | "agent" | "workflow";
 
-export interface RigSpecMember {
+export interface SoftwareTeamSpecMember {
   id: string;
   agentRef: string;
   runtime: string;
   profile?: string;
 }
 
-export interface RigSpecEdge {
+export interface SoftwareTeamSpecEdge {
   from: string;
   to: string;
   kind: string;
 }
 
-export interface RigSpecPod {
+export interface SoftwareTeamSpecPod {
   id: string;
   namespace?: string;
   label?: string;
-  members: RigSpecMember[];
-  edges: RigSpecEdge[];
+  members: SoftwareTeamSpecMember[];
+  edges: SoftwareTeamSpecEdge[];
 }
 
 export interface AgentSpecResources {
@@ -121,13 +121,13 @@ export interface SpecGraphData {
 export interface SpecEntry {
   sourceUnavailable?: string;
   /** Runtime observations, separate from library declarations. */
-  consumers?: Array<{ rig: string; host: string; agent?: string; runtime?: string; model?: string | null; status?: string }>;
+  consumers?: Array<{ softwareTeam: string; host: string; agent?: string; runtime?: string; model?: string | null; status?: string }>;
   name: string;
   kind: SpecKind;
-  /** rig specs: member agent-refs, each clickable → that agent spec */
+  /** softwareTeam specs: member agent-refs, each clickable → that agent spec */
   agentRefs?: string[];
   runtime?: string;
-  usedByRigs?: string[];
+  usedBySoftwareTeams?: string[];
   /** structured detail from existing reads (library list + /:id/review), verbatim */
   version?: string;
   sourceState?: "draft" | "file_preview" | "library_item";
@@ -144,8 +144,8 @@ export interface SpecEntry {
   profiles?: string[];
   resources?: AgentSpecResources;
   format?: "pod_aware" | "legacy";
-  pods?: RigSpecPod[];
-  edges?: RigSpecEdge[];
+  pods?: SoftwareTeamSpecPod[];
+  edges?: SoftwareTeamSpecEdge[];
   graph?: SpecGraphData;
   raw?: string;
   legacyNodes?: Array<{ id: string; runtime: string; role?: string; model?: string }>;
@@ -169,7 +169,7 @@ export interface NeedsItem {
   unblocks?: string | null;
 }
 
-/** Host/rig-down rows — composed BESIDE the Needs-You items at render, never
+/** Host/software-team-down rows — composed BESIDE the Needs-You items at render, never
  * projected into the item shape (§4.A: composeNeedsYou supplies no host rows). */
 export interface HostDown {
   hostId: string;
@@ -267,16 +267,16 @@ export interface RecentTransitionSnap {
   /** Display text the daemon derives from the body (first non-blank line within its first 2,000
    *  characters) for a row with no authored summary. Absent from older daemons. */
   bodyPreview?: string | null;
-  /** Owning local rig, explicit on instance-scoped reads. */
-  rig?: string | null;
+  /** Owning local softwareTeam, explicit on instance-scoped reads. */
+  softwareTeam?: string | null;
   targetKind: "qitem" | "slice" | "mission";
   target: string;
 }
 
 export type HealthScope =
   | { type: "instance"; instanceId: string }
-  | { type: "rig"; rigId: string }
-  | { type: "seat"; rigId: string; seatId: string }
+  | { type: "softwareTeam"; softwareTeamId: string }
+  | { type: "seat"; softwareTeamId: string; seatId: string }
   | { type: "mission"; projectId: string; missionId: string }
   | { type: "slice"; projectId: string; missionId: string; sliceId: string };
 
@@ -288,7 +288,7 @@ export interface HealthEvidenceReference {
 }
 
 export interface HealthRecord {
-  operatingPosture?: import("@openrig/daemon/health-projection").OperatingPosture;
+  operatingPosture?: import("@softwareteam/daemon/health-projection").OperatingPosture;
   /** Passed through from the daemon; the TUI never derives confirmation. */
   ceremony?: {
     stage: "needs-diagnosis" | "confirmed" | "cleared" | "indeterminate";
@@ -296,7 +296,7 @@ export interface HealthRecord {
     context: Array<{ path: string; state: "available" | "unavailable"; sha256?: string; role: string }>;
   };
   policyVersion?: string;
-  schema: "openrig.health/v0alpha1";
+  schema: "softwareteam.health/v0alpha1";
   id: string;
   detector: string;
   category: "behavioral" | "process" | "governance" | "epistemic" | "context";
@@ -353,7 +353,7 @@ export interface HealthSnapshot {
 export interface ProjectSelection { id: string; root: string }
 export interface ProjectEntry extends ProjectSelection { name: string; sourcePath: string | null; missionsRoot: string; error?: string }
 export interface FleetSnapshot {
-  attentionRead?: import("@openrig/daemon/attention").AttentionRead | null;
+  attentionRead?: import("@softwareteam/daemon/attention").AttentionRead | null;
   projects?: { catalogPath: string; projects: ProjectEntry[] } | null;
   projectRead?: ProjectSelection | null;
   projectSources?: Record<string, string>;
@@ -366,7 +366,7 @@ export interface FleetSnapshot {
   configError?: string;
   connections?: import("./connections/connections-model.js").ConnectionsRead | null;
   controlPlane?: import("./connections/connections-model.js").ControlPlaneRead | null;
-  /** OPR.0.6.0.5 — the shipped Slack app manifest (same object as `rig slack manifest`); null when unavailable. */
+  /** OPR.0.6.0.5 — the shipped Slack app manifest (same object as `softwareTeam slack manifest`); null when unavailable. */
   slackManifest?: import("./connections/connections-model.js").SlackManifestRead | null;
   daemonTarget?: string;
   launchingCli?: string;
@@ -374,7 +374,7 @@ export interface FleetSnapshot {
   usage?: import("./usage/usage-model.js").UsageRead;
   /** Slice 01 — System → Usage across hosts: the served view across registered hosts. Absent until read. */
   usageHosts?: import("./usage/usage-hosts-model.js").UsageHostsRead;
-  /** Slice 02 — System → Cost: the served cost view (`rig usage cost`). Absent until read. */
+  /** Slice 02 — System → Cost: the served cost view (`softwareTeam usage cost`). Absent until read. */
   cost?: import("./cost/cost-read.js").CostRead;
   /** Canonical daemon health records. Absent on old/demo snapshots. */
   health?: HealthSnapshot;
@@ -388,12 +388,12 @@ export interface FleetSnapshot {
   /** Rich existing slice-detail read for the currently opened slice only. */
   sliceDetail?: SliceDetailSnap | null;
   sliceDetailName?: string | null;
-  /** Bounded typed transition tail for one explicitly named rig. Undefined
+  /** Bounded typed transition tail for one explicitly named softwareTeam. Undefined
    * means not loaded; [] means the served window is proven empty. */
   recentTransitions?: RecentTransitionSnap[];
-  recentTransitionsScope?: { kind: "instance" } | { kind: "rig"; rig: string };
+  recentTransitionsScope?: { kind: "instance" } | { kind: "softwareTeam"; softwareTeam: string };
   /** Compatibility coordinate for S11 fixtures; new code prefers recentTransitionsScope. */
-  recentTransitionsRig?: string | null;
+  recentTransitionsSoftwareTeam?: string | null;
   hosts: HostNode[];
   specs: SpecEntry[];
   /** grounded composeNeedsYou union in daemon priority order, VERBATIM (PIN 3) */
@@ -403,7 +403,7 @@ export interface FleetSnapshot {
   /** PULSE ▲ NEEDS YOU source — the shipped attention read (already the exact
    * human-facing set); empty array = the join ran and yielded zero (silence). */
   attention: QueueRead[];
-  /** Coverage of the four active queue lists, before filtering by rig/pod/seat.
+  /** Coverage of the four active queue lists, before filtering by softwareTeam/pod/seat.
    * A cap is possible truncation; it does not prove an omitted row. */
   queueCoverage?: "complete" | "partial" | "unavailable";
   /** PULSE ⧗ BLOCKED ON AGENTS source — the shipped state=blocked read (ALL
@@ -438,11 +438,11 @@ export interface FleetSnapshot {
 
 export type GetSnapshot = () => FleetSnapshot;
 
-export type ResourceKind = "host" | "rig" | "pod" | "agent" | "spec";
+export type ResourceKind = "host" | "softwareTeam" | "pod" | "agent" | "spec";
 
 export interface ResourceTarget {
   host: string;
-  rig?: string;
+  softwareTeam?: string;
   pod?: string;
 }
 
@@ -452,10 +452,10 @@ export interface DrillSegment {
   specKind?: SpecKind;
 }
 
-/** A topology address typed on a page that reads no rigs; it resolves once
+/** A topology address typed on a page that reads no softwareTeams; it resolves once
  *  Topology's own read settles. `seq` gives every request a fresh page read. */
 export interface PendingDrill {
-  resource: "host" | "rig" | "pod" | "agent";
+  resource: "host" | "softwareTeam" | "pod" | "agent";
   name: string;
   target?: ResourceTarget;
   seq: number;
@@ -527,7 +527,7 @@ export type Action =
    * against EXISTING write contracts; never a view-state mutation */
   | { type: "act"; act: "launch-spec" }
   | { type: "act"; act: "open-terminal"; view: string; expectedPlan?: string }
-  | { type: "act"; act: "run"; rigId: string; agent: string }
+  | { type: "act"; act: "run"; softwareTeamId: string; agent: string }
   | { type: "notice"; message: string };
 
 /** FR-12: the section set is ONE in-code registry — adding a section is a
@@ -558,7 +558,7 @@ export interface ViewState {
   pendingDrill?: PendingDrill | null;
   /** Last PendingDrill seq handed out; never reused while this view lives. */
   pendingSeq?: number;
-  /** Canonical health finding opened from any instance/rig/seat surface. */
+  /** Canonical health finding opened from any instance/softwareTeam/seat surface. */
   healthOpen: string | null;
   /** SCOPES view: the mission whose execution story is open (null = selector only). */
   project?: ProjectSelection | null;
@@ -589,7 +589,7 @@ export interface ViewState {
   copyMode: boolean;
   /** slice-17 graph view render style (hatchet mainline per the founder verdict) */
   graphStyle: string;
-  /** the rig-stream footer is ambient: toggleable, never a navigable view (FR-10) */
+  /** the software-team-stream footer is ambient: toggleable, never a navigable view (FR-10) */
   footerOn: boolean;
   /** explorer expansion keys (pod:…, folder:…) — default-collapsed levels open on demand */
   expanded: string[];

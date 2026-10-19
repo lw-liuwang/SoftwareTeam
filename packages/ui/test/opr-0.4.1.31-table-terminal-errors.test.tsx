@@ -20,12 +20,12 @@ const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
 
 const ROW = {
-  rigId: "rig-1",
-  rigName: "test-rig",
+  softwareTeamId: "software-team-1",
+  softwareTeamName: "test-software-team",
   logicalId: "orch.lead",
   podId: "orch",
   podNamespace: "orch",
-  canonicalSessionName: "orch-lead@test-rig",
+  canonicalSessionName: "orch-lead@test-software-team",
   nodeKind: "agent",
   runtime: "claude-code",
   sessionStatus: "running",
@@ -55,14 +55,14 @@ function withQueryClient(ui: React.ReactNode) {
 describe("OPR.0.4.1.31 — table Open-in-cmux surfaces failures (no silent no-op)", () => {
   it("renders the daemon error message on the button when open-cmux fails", async () => {
     mockFetch.mockImplementation(async (url: string) => {
-      if (url.includes("/api/rigs/summary")) return new Response(JSON.stringify([{ id: "rig-1", name: "test-rig" }]));
+      if (url.includes("/api/software-teams/summary")) return new Response(JSON.stringify([{ id: "software-team-1", name: "test-software-team" }]));
       if (url.includes("/open-cmux")) {
         return new Response(
           JSON.stringify({ ok: false, error: "no_current_workspace", message: "cmux has no current workspace" }),
           { status: 500 },
         );
       }
-      if (url.includes("/api/rigs/rig-1/nodes")) return nodesResponse();
+      if (url.includes("/api/software-teams/software-team-1/nodes")) return nodesResponse();
       return new Response("[]");
     });
 
@@ -83,9 +83,9 @@ describe("OPR.0.4.1.31 — table Open-in-cmux surfaces failures (no silent no-op
 
   it("does NOT render an error on a successful open-cmux", async () => {
     mockFetch.mockImplementation(async (url: string) => {
-      if (url.includes("/api/rigs/summary")) return new Response(JSON.stringify([{ id: "rig-1", name: "test-rig" }]));
+      if (url.includes("/api/software-teams/summary")) return new Response(JSON.stringify([{ id: "software-team-1", name: "test-software-team" }]));
       if (url.includes("/open-cmux")) return new Response(JSON.stringify({ ok: true, action: "created_new" }));
-      if (url.includes("/api/rigs/rig-1/nodes")) return nodesResponse();
+      if (url.includes("/api/software-teams/software-team-1/nodes")) return nodesResponse();
       return new Response("[]");
     });
 

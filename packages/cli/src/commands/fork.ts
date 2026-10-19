@@ -1,4 +1,4 @@
-// OPR.0.4.3.05 seat-forking closeout — the top-level `rig fork` verb.
+// OPR.0.4.3.05 seat-forking closeout — the top-level `softwareTeam fork` verb.
 //
 // One discoverable command that branches a live seat's context into a new
 // seat. It is a THIN client over the shipped agent-image fork foundation: it
@@ -32,28 +32,28 @@ interface ForkResponse {
 export function forkCommand(depsOverride?: StatusDeps): Command {
   const cmd = new Command("fork")
     .description("Fork a live seat's context into a new seat (composes the shipped agent-image fork path)")
-    .argument("<source-session>", "Source session canonical name (e.g., dev-impl@openrig-delivery)")
-    .requiredOption("--rig <rig-id>", "Target rig id")
+    .argument("<source-session>", "Source session canonical name (e.g., dev-impl@softwareteam-delivery)")
+    .requiredOption("--software-team <software-team-id>", "Target SoftwareTeam id")
     .requiredOption("--pod <pod-namespace>", "Target existing pod namespace")
     .requiredOption("--member <member-id>", "New member id for the forked successor")
     .option("--keep-image", "Also capture a durable, pinned agent image (default forks one-shot with no library growth)")
     .option("--image-name <name>", "Name for the kept image (with --keep-image; default fork-<member>)")
     .option("--image-version <version>", "Version for the kept image (default 1)")
-    .option("--rig-root <path>", "Root directory for agent resolution")
+    .option("--software-team-root <path>", "Root directory for agent resolution")
     .option("--json", "JSON output for agents")
     .addHelpText("after", `
 Examples:
-  rig fork dev-impl@openrig-delivery --rig openrig-delivery --pod dev --member dev-impl-fork
-  rig fork dev-impl@openrig-delivery --rig openrig-delivery --pod dev --member dev-impl-2 --keep-image --image-name impl-primed
+  SoftwareTeam fork dev-impl@softwareteam-delivery --software-team softwareteam-delivery --pod dev --member dev-impl-fork
+  SoftwareTeam fork dev-impl@softwareteam-delivery --software-team softwareteam-delivery --pod dev --member dev-impl-2 --keep-image --image-name impl-primed
 `)
     .action(async (sourceSession: string, opts: {
-      rig: string;
+      softwareTeam: string;
       pod: string;
       member: string;
       keepImage?: boolean;
       imageName?: string;
       imageVersion?: string;
-      rigRoot?: string;
+      softwareTeamRoot?: string;
       json?: boolean;
     }) => {
       try {
@@ -67,14 +67,14 @@ Examples:
 
         const body: Record<string, unknown> = {
           sourceSession,
-          rigId: opts.rig,
+          softwareTeamId: opts.softwareTeam,
           pod: opts.pod,
           member: opts.member,
         };
         if (opts.keepImage) body["keepImage"] = true;
         if (opts.imageName) body["imageName"] = opts.imageName;
         if (opts.imageVersion) body["imageVersion"] = opts.imageVersion;
-        if (opts.rigRoot) body["rigRoot"] = opts.rigRoot;
+        if (opts.softwareTeamRoot) body["softwareTeamRoot"] = opts.softwareTeamRoot;
 
         const res = await client.post<ForkResponse>("/api/agent-images/fork", body);
         const data = res.data;
@@ -100,7 +100,7 @@ Examples:
         const icon = node?.status === "launched" ? "OK" : "FAIL";
         const session = node?.sessionName ? ` (${node.sessionName})` : "";
         const error = node?.error ? ` - ${node.error}` : "";
-        console.log(`Forked ${sourceSession} into rig ${opts.rig}`);
+        console.log(`Forked ${sourceSession} into softwareTeam ${opts.softwareTeam}`);
         console.log(`  Pod: ${data.result?.podNamespace ?? opts.pod}`);
         console.log(`  New seat: [${icon}] ${node?.logicalId ?? opts.member}${session}${error}`);
         if (data.image) {

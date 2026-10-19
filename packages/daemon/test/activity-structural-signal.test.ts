@@ -1,4 +1,4 @@
-// 5b82324b — make `rig ps` ACTIVITY mean something. RED-first.
+// 5b82324b — make `SoftwareTeam ps` ACTIVITY mean something. RED-first.
 //
 // Today attachAgentActivity's cheap default emits unknown/no_runtime_hook for a hook-less seat
 // (node-inventory.ts:1100-1107), so a LIVE seat producing pane motion shows ACTIVITY=unknown while
@@ -57,7 +57,7 @@ const staleHook: AgentActivity = {
 describe("5b — structural ACTIVITY signal (lifted into the default derivation, capture-free)", () => {
   it("hook-less + cached structural agent_active → ACTIVITY running, NO capture (cache read, not probe)", async () => {
     const counter = { captures: 0 };
-    const out = (await attachAgentActivity(entries("s@rig"), {
+    const out = (await attachAgentActivity(entries("s@software-team"), {
       tmuxAdapter: mkTmux(counter),
       activityStore: { getLatestForNode: () => null } as never,
       structuralActivity: mkStructural("agent_active"),
@@ -68,13 +68,13 @@ describe("5b — structural ACTIVITY signal (lifted into the default derivation,
   });
 
   it("hook-less + cached structural agent_idle → idle; attention → needs_input", async () => {
-    const idle = (await attachAgentActivity(entries("s@rig"), {
+    const idle = (await attachAgentActivity(entries("s@software-team"), {
       tmuxAdapter: mkTmux({ captures: 0 }),
       activityStore: { getLatestForNode: () => null } as never,
       structuralActivity: mkStructural("agent_idle"),
     } as never)) as Array<{ agentActivity: AgentActivity }>;
     expect(idle[0]!.agentActivity.state).toBe("idle");
-    const attn = (await attachAgentActivity(entries("s@rig"), {
+    const attn = (await attachAgentActivity(entries("s@software-team"), {
       tmuxAdapter: mkTmux({ captures: 0 }),
       activityStore: { getLatestForNode: () => null } as never,
       structuralActivity: mkStructural("attention"),
@@ -83,7 +83,7 @@ describe("5b — structural ACTIVITY signal (lifted into the default derivation,
   });
 
   it("STALE hook + fresh structural agent_active → running (liveness beats hook-arrival age; constraint 2)", async () => {
-    const out = (await attachAgentActivity(entries("s@rig"), {
+    const out = (await attachAgentActivity(entries("s@software-team"), {
       tmuxAdapter: mkTmux({ captures: 0 }),
       activityStore: { getLatestForNode: () => staleHook } as never,
       structuralActivity: mkStructural("agent_active"),
@@ -94,7 +94,7 @@ describe("5b — structural ACTIVITY signal (lifted into the default derivation,
 
   it("a fresh POSITIVE hook wins over structural (hook precedence preserved)", async () => {
     const hook: AgentActivity = { state: "running", reason: "hook", evidenceSource: "runtime_hook", sampledAt: "2026-08-10T20:00:00.000Z", evidence: null };
-    const out = (await attachAgentActivity(entries("s@rig"), {
+    const out = (await attachAgentActivity(entries("s@software-team"), {
       tmuxAdapter: mkTmux({ captures: 0 }),
       activityStore: { getLatestForNode: () => hook } as never,
       structuralActivity: mkStructural("agent_idle"), // disagrees; hook must win
@@ -105,7 +105,7 @@ describe("5b — structural ACTIVITY signal (lifted into the default derivation,
 
   it("NO structural cache (empty) → honest unknown/no_runtime_hook preserved, still NO capture (healthz-wedge default)", async () => {
     const counter = { captures: 0 };
-    const out = (await attachAgentActivity(entries("s@rig"), {
+    const out = (await attachAgentActivity(entries("s@software-team"), {
       tmuxAdapter: mkTmux(counter),
       activityStore: { getLatestForNode: () => null } as never,
       structuralActivity: mkStructural(null),
@@ -118,9 +118,9 @@ describe("5b — structural ACTIVITY signal (lifted into the default derivation,
   it("MF1 fold-fallback: once the REAL service invalidates the obs (capture outage), attachAgentActivity falls back to the honest stale hook — no false-live", async () => {
     let content: string | null = "⠋ Working… esc to interrupt";
     const svc = new SeatStructuralActivityService({ capturePaneContent: async () => content } as never);
-    await svc.pollSeat("s@rig"); // agent_active cached
+    await svc.pollSeat("s@software-team"); // agent_active cached
     const call = async () =>
-      (await attachAgentActivity(entries("s@rig"), {
+      (await attachAgentActivity(entries("s@software-team"), {
         tmuxAdapter: mkTmux({ captures: 0 }),
         activityStore: { getLatestForNode: () => staleHook } as never,
         structuralActivity: svc,
@@ -128,7 +128,7 @@ describe("5b — structural ACTIVITY signal (lifted into the default derivation,
     const before = await call();
     expect(before[0]!.agentActivity.state).toBe("running"); // structural overrides the stale hook
     content = null; // capture outage
-    await svc.pollSeat("s@rig"); // invalidates the row
+    await svc.pollSeat("s@software-team"); // invalidates the row
     const after = await call();
     expect(after[0]!.agentActivity.state).toBe("unknown"); // fell back to the honest stale hook
     expect(after[0]!.agentActivity.reason).toBe("stale_runtime_hook");

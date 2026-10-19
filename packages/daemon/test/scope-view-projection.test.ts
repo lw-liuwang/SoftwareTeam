@@ -10,7 +10,7 @@ slice: 09-gateway-m1
 mission: release-0.5.2
 status: spec
 stage: building
-approved-spec-by: pm-openrig@openrig-pm
+approved-spec-by: pm-softwareteam@softwareteam-pm
 approved-spec-at: 2026-08-06T10:00:00.000Z
 locked-artifacts:
   - name: Implementation PRD
@@ -137,7 +137,7 @@ describe("scope-view projection (store-direct)", () => {
 
   it("locks come from the frontmatter stamps: spec locked, delivery NOT — no proven-green invention", () => {
     const d = projectSliceScope(fsFixture(baseFiles, baseDirs), S)!;
-    expect(d.locks.spec).toEqual({ by: "pm-openrig@openrig-pm", at: "2026-08-06T10:00:00.000Z" });
+    expect(d.locks.spec).toEqual({ by: "pm-softwareteam@softwareteam-pm", at: "2026-08-06T10:00:00.000Z" });
     expect(d.locks.delivery).toBeNull();
     expect(d.stage).toBe("building");
     expect(d.intent).toContain("Slack to the founder");

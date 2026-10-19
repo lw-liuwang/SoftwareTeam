@@ -15,7 +15,7 @@ import { deriveDisplayActivity } from "./activity-taxonomy.js";
 import type { TmuxAdapter } from "../adapters/tmux.js";
 import { probeSessionActivity, mapPaneState } from "./session-transport.js";
 import type { StructuralObservation } from "./seat-structural-activity-service.js";
-import { findLatestUsableSnapshot, findLatestUsableSnapshotsForAllRigs } from "./rig-repository.js";
+import { findLatestUsableSnapshot, findLatestUsableSnapshotsForAllSoftwareTeams } from "./software-team-repository.js";
 import { resolveNodeWorkspace } from "./workspace/workspace-resolver.js";
 import { deriveCanonicalSessionName } from "./session-name.js";
 import { buildNativeResumeCommand, buildCodexResumeCore } from "./native-resume-probe.js";
@@ -29,8 +29,8 @@ import { sessionAgentAppSelect } from "./session-registry.js";
 
 interface InventoryRow {
   node_id: string;
-  rig_id: string;
-  rig_name: string;
+  software_team_id: string;
+  software_team_name: string;
   logical_id: string;
   pod_id: string | null;
   pod_namespace: string | null;
@@ -68,7 +68,7 @@ interface InventoryRow {
 
 interface EventRow {
   seq: number;
-  rig_id: string;
+  software_team_id: string;
   node_id: string;
   type: string;
   payload: string;
@@ -186,7 +186,7 @@ function deriveNodeKind(runtime: string | null): "agent" | "infrastructure" {
 }
 
 /**
- * Derives per-node lifecycle state from session/restore truth plus the rig's latest
+ * Derives per-node lifecycle state from session/restore truth plus the softwareTeam's latest
  * usable snapshot.
  *
  * Priorities (post-L2):
@@ -303,8 +303,8 @@ interface RestoreProjection {
   resumedRuntime?: "claude-code" | "codex";
 }
 
-function restoreKey(rigId: string, nodeId: string): string {
-  return JSON.stringify([rigId, nodeId]);
+function restoreKey(softwareTeamId: string, nodeId: string): string {
+  return JSON.stringify([softwareTeamId, nodeId]);
 }
 
 function eventObject(value: unknown): Record<string, any> | undefined {
@@ -312,25 +312,25 @@ function eventObject(value: unknown): Record<string, any> | undefined {
     ? value as Record<string, any> : undefined;
 }
 
-// One batch for either the selected rig or the fleet. Keep the outcome arm's
-// existing partial indexes; exclude the rig-only index for starts (NULL node_id)
+// One batch for either the selected softwareTeam or the fleet. Keep the outcome arm's
+// existing partial indexes; exclude the software-team-only index for starts (NULL node_id)
 // so the node/type index can select them, with a scan fallback if it is absent.
 // UNION ALL adds attempt boundaries without a per-node receipt query.
 // Ascending seq with overwrites preserves the former newest-node, first-wins
 // fold. Evidence is never borrowed
 // from an older reconciliation when a newer acknowledgment wins.
-function buildRestoreOutcomeMap(db: Database.Database, rigId?: string): Map<string, RestoreProjection> {
-  const filter = rigId ? " AND rig_id = ?" : "";
-  const startsFilter = rigId ? " AND +rig_id = ?" : "";
+function buildRestoreOutcomeMap(db: Database.Database, softwareTeamId?: string): Map<string, RestoreProjection> {
+  const filter = softwareTeamId ? " AND software_team_id = ?" : "";
+  const startsFilter = softwareTeamId ? " AND +software_team_id = ?" : "";
   const rows = db.prepare(`
-    SELECT type, payload, seq, rig_id, node_id FROM events
+    SELECT type, payload, seq, software_team_id, node_id FROM events
       WHERE type IN ('restore.completed', 'restore.subset_completed', 'restore.outcome_reconciled')${filter}
     UNION ALL
-    SELECT type, payload, seq, rig_id, node_id FROM events
+    SELECT type, payload, seq, software_team_id, node_id FROM events
       WHERE node_id IS NULL AND type = 'restore.started'${startsFilter}
     ORDER BY seq ASC
-  `).all(...(rigId ? [rigId, rigId] : [])) as {
-    type: string; payload: string; seq: number; rig_id: string; node_id: string | null;
+  `).all(...(softwareTeamId ? [softwareTeamId, softwareTeamId] : [])) as {
+    type: string; payload: string; seq: number; software_team_id: string; node_id: string | null;
   }[];
   const map = new Map<string, RestoreProjection>();
   const attempts = new Map<string, {
@@ -344,10 +344,10 @@ function buildRestoreOutcomeMap(db: Database.Database, rigId?: string): Map<stri
     try { event = eventObject(JSON.parse(row.payload)); } catch { /* Unknown evidence. */ }
     if (row.type === "restore.started") {
       // Even an unreadable new attempt prevents reuse of an earlier receipt.
-      attempts.set(row.rig_id, { seq: row.seq, start: event, completed: false, outcomes: new Map() });
+      attempts.set(row.software_team_id, { seq: row.seq, start: event, completed: false, outcomes: new Map() });
       continue;
     }
-    const attempt = attempts.get(row.rig_id);
+    const attempt = attempts.get(row.software_team_id);
     if (row.type === "restore.completed" && attempt && !attempt.completed) {
       // Match the first completion within this attempt, as the receipt reader
       // does. Missing/corrupt receipts cannot become continuity proof.
@@ -355,7 +355,7 @@ function buildRestoreOutcomeMap(db: Database.Database, rigId?: string): Map<stri
       const start = attempt.start;
       const result = eventObject(event?.result);
       const roster = start?.intendedRoster ?? result?.intendedRoster ?? result?.nodes;
-      if (start?.rigId === row.rig_id && event?.rigId === row.rig_id
+      if (start?.softwareTeamId === row.software_team_id && event?.softwareTeamId === row.software_team_id
         && typeof start?.snapshotId === "string"
         && event?.snapshotId === start.snapshotId && result?.snapshotId === start.snapshotId
         && Array.isArray(result?.nodes) && Array.isArray(roster)) {
@@ -371,12 +371,12 @@ function buildRestoreOutcomeMap(db: Database.Database, rigId?: string): Map<stri
     if (row.type === "restore.outcome_reconciled") {
       if (typeof event.nodeId !== "string") continue;
       const evidence = eventObject(event.evidence);
-      const strict = event.rigId === row.rig_id && event.nodeId === row.node_id
+      const strict = event.softwareTeamId === row.software_team_id && event.nodeId === row.node_id
         && event.to === "operator_recovered" && (event.from === "failed" || event.from === "attention_required")
         && !!attempt && attempt.seq === event.attemptId && attempt.outcomes.get(event.nodeId) === event.from
         && evidence?.tmux === true && evidence.resumeTokenUsed === true && evidence.paneState === "usable"
         && (evidence.fgProcess === "claude" || evidence.fgProcess === "codex");
-      map.set(restoreKey(row.rig_id, event.nodeId), {
+      map.set(restoreKey(row.software_team_id, event.nodeId), {
         outcome: mapStatus(event.to),
         ...(strict ? { resumedRuntime: evidence!.fgProcess === "claude" ? "claude-code" : "codex" } : {}),
       });
@@ -385,7 +385,7 @@ function buildRestoreOutcomeMap(db: Database.Database, rigId?: string): Map<stri
     if (!Array.isArray(event.result?.nodes)) continue;
     for (const node of [...event.result.nodes].reverse()) {
       if (typeof node?.nodeId === "string") {
-        map.set(restoreKey(row.rig_id, node.nodeId), { outcome: mapStatus(node.status) });
+        map.set(restoreKey(row.software_team_id, node.nodeId), { outcome: mapStatus(node.status) });
       }
     }
   }
@@ -406,7 +406,7 @@ function mapStatus(status: string): NodeRestoreOutcome {
   return "n-a";
 }
 
-function deriveHeldReason(db: Database.Database, rigId: string, nodeId: string, sessionStatus: string | null): string | null {
+function deriveHeldReason(db: Database.Database, softwareTeamId: string, nodeId: string, sessionStatus: string | null): string | null {
   if (sessionStatus === "running") return null;
 
   const heldRow = db.prepare(
@@ -414,12 +414,12 @@ function deriveHeldReason(db: Database.Database, rigId: string, nodeId: string, 
   ).get(nodeId) as { seq: number; payload: string } | undefined;
   if (!heldRow) return null;
 
-  // Superseded by a later rig-scoped restore event containing this node.
-  // restore.completed/restore.subset_completed are rig-scoped (no top-level nodeId),
-  // so query by rig_id and parse payloads for node containment.
+  // Superseded by a later software-team-scoped restore event containing this node.
+  // restore.completed/restore.subset_completed are software-team-scoped (no top-level nodeId),
+  // so query by software_team_id and parse payloads for node containment.
   const laterRestoreRows = db.prepare(
-    "SELECT payload FROM events WHERE rig_id = ? AND type IN ('restore.completed', 'restore.subset_completed') AND seq > ? ORDER BY seq DESC"
-  ).all(rigId, heldRow.seq) as { payload: string }[];
+    "SELECT payload FROM events WHERE software_team_id = ? AND type IN ('restore.completed', 'restore.subset_completed') AND seq > ? ORDER BY seq DESC"
+  ).all(softwareTeamId, heldRow.seq) as { payload: string }[];
   for (const row of laterRestoreRows) {
     try {
       const event = JSON.parse(row.payload) as { result: { nodes: Array<{ nodeId: string }> } };
@@ -435,10 +435,10 @@ function deriveHeldReason(db: Database.Database, rigId: string, nodeId: string, 
   }
 }
 
-function getLatestError(db: Database.Database, rigId: string, nodeId: string): string | null {
+function getLatestError(db: Database.Database, softwareTeamId: string, nodeId: string): string | null {
   const row = db.prepare(
-    "SELECT payload FROM events WHERE rig_id = ? AND node_id = ? AND type = 'node.startup_failed' ORDER BY seq DESC LIMIT 1"
-  ).get(rigId, nodeId) as { payload: string } | undefined;
+    "SELECT payload FROM events WHERE software_team_id = ? AND node_id = ? AND type = 'node.startup_failed' ORDER BY seq DESC LIMIT 1"
+  ).get(softwareTeamId, nodeId) as { payload: string } | undefined;
 
   if (!row) return null;
 
@@ -508,28 +508,28 @@ function applicableVerdict(
 // -- Public API --
 
 /**
- * Get the canonical node inventory for a rig.
+ * Get the canonical node inventory for a softwareTeam.
  * Single source of truth consumed by CLI, UI, and MCP.
  */
-export function getNodeInventory(db: Database.Database, rigId: string): NodeInventoryEntry[] {
-  // Resolve the rig's latest usable snapshot once for the whole projection so per-node
+export function getNodeInventory(db: Database.Database, softwareTeamId: string): NodeInventoryEntry[] {
+  // Resolve the softwareTeam's latest usable snapshot once for the whole projection so per-node
   // recoverability checks share the same source of truth without N extra queries.
-  const usableSnapshot = findLatestUsableSnapshot(db, rigId);
-  // PL-007: rig's typed workspace block (if declared) loaded once per
+  const usableSnapshot = findLatestUsableSnapshot(db, softwareTeamId);
+  // PL-007: softwareTeam's typed workspace block (if declared) loaded once per
   // projection so per-node kind resolution shares one parse.
-  const workspaceSpec = readRigWorkspaceJson(db, rigId);
+  const workspaceSpec = readSoftwareTeamWorkspaceJson(db, softwareTeamId);
   // OPR.0.4.3.19: the persisted per-node liveness identity verdicts, read once
   // per projection (cheap indexed read, defensive to a missing table). Gates
   // the running/active green derivations below.
-  const identityVerdicts = new SeatIdentityStore(db).getForRig(rigId);
+  const identityVerdicts = new SeatIdentityStore(db).getForSoftwareTeam(softwareTeamId);
   // FS-1 W1.3 S1/S2 — the per-node restore-outcome + oriented reads built ONCE
-  // for the rig (was a query per node inside the rows.map). rig-scoped restore
-  // map = the prior WHERE rig_id=? filter; oriented map is node-scoped/global.
-  const restoreOutcomes = buildRestoreOutcomeMap(db, rigId);
+  // for the softwareTeam (was a query per node inside the rows.map). software-team-scoped restore
+  // map = the prior WHERE software_team_id=? filter; oriented map is node-scoped/global.
+  const restoreOutcomes = buildRestoreOutcomeMap(db, softwareTeamId);
   const orienteds = buildOrientedMap(db);
   const codexDaemonOptOuts = new AppliedLaunchObservationStore(db).readCurrentDaemonOptOuts();
 
-  const rows = queryInventoryRows(db, rigId);
+  const rows = queryInventoryRows(db, softwareTeamId);
 
   return rows.map((row) =>
     buildInventoryEntry(db, row, { usableSnapshot, workspaceSpec, identityVerdicts, restoreOutcomes, orienteds, codexDaemonOptOuts }),
@@ -538,19 +538,19 @@ export function getNodeInventory(db: Database.Database, rigId: string): NodeInve
 
 /**
  * FS-1 W1.2 — the shared inventory-row query. Extracted verbatim from the prior
- * inline `getNodeInventory` SELECT so the single-rig and all-rigs paths run the
+ * inline `getNodeInventory` SELECT so the single-softwareTeam and all-softwareTeams paths run the
  * IDENTICAL query.
- *   - `rigId` given → one rig (`WHERE n.rig_id = ?`, `ORDER BY n.created_at`) —
- *     byte-identical to the prior per-rig read.
- *   - `rigId` omitted → ALL rigs in one pass (no WHERE; `ORDER BY n.rig_id,
- *     n.created_at` so JS grouping preserves each rig's `created_at` order,
- *     matching the per-rig ordering exactly).
+ *   - `softwareTeamId` given → one softwareTeam (`WHERE n.software_team_id = ?`, `ORDER BY n.created_at`) —
+ *     byte-identical to the prior per-softwareTeam read.
+ *   - `softwareTeamId` omitted → ALL softwareTeams in one pass (no WHERE; `ORDER BY n.software_team_id,
+ *     n.created_at` so JS grouping preserves each softwareTeam's `created_at` order,
+ *     matching the per-softwareTeam ordering exactly).
  * The latest-session subquery (`s2.node_id = n.id ORDER BY id DESC LIMIT 1`)
  * rides the W1.1 index (051, idx_sessions_node_created_id).
  */
 function runInventoryRowQuery(db: Database.Database, whereClause: string, orderClause: string, params: readonly string[]): InventoryRow[] {
   // Join nodes with newest session (max ULID = max session.id string comparison)
-  // and the rig name
+  // and the softwareTeam name
   const hasCodexConfigProfile = db.prepare("PRAGMA table_info(nodes)").all()
     .some((row) => (row as { name?: string }).name === "codex_config_profile");
   const codexConfigProfileSelect = hasCodexConfigProfile
@@ -559,8 +559,8 @@ function runInventoryRowQuery(db: Database.Database, whereClause: string, orderC
   const stmt = db.prepare(`
     SELECT
       n.id as node_id,
-      n.rig_id,
-      r.name as rig_name,
+      n.software_team_id,
+      r.name as software_team_name,
       n.logical_id,
       n.pod_id,
       p.namespace as pod_namespace,
@@ -594,7 +594,7 @@ function runInventoryRowQuery(db: Database.Database, whereClause: string, orderC
       b.id as binding_id,
       b.tmux_pane as binding_tmux_pane
     FROM nodes n
-    JOIN rigs r ON r.id = n.rig_id
+    JOIN software_teams r ON r.id = n.software_team_id
     LEFT JOIN pods p ON p.id = n.pod_id
     LEFT JOIN sessions s ON s.node_id = n.id
       AND s.id = (SELECT s2.id FROM sessions s2 WHERE s2.node_id = n.id ORDER BY s2.id DESC LIMIT 1)
@@ -605,36 +605,36 @@ function runInventoryRowQuery(db: Database.Database, whereClause: string, orderC
   return stmt.all(...params) as InventoryRow[];
 }
 
-// Single-rig (WHERE n.rig_id=?) or ALL-rigs (no WHERE). Byte-identical SQL/order to
-// the prior inline read; existing single-rig callers are unchanged.
-function queryInventoryRows(db: Database.Database, rigId?: string): InventoryRow[] {
+// Single-softwareTeam (WHERE n.software_team_id=?) or ALL-softwareTeams (no WHERE). Byte-identical SQL/order to
+// the prior inline read; existing single-softwareTeam callers are unchanged.
+function queryInventoryRows(db: Database.Database, softwareTeamId?: string): InventoryRow[] {
   return runInventoryRowQuery(
     db,
-    rigId ? "WHERE n.rig_id = ?" : "",
-    rigId ? "n.created_at" : "n.rig_id, n.created_at",
-    rigId ? [rigId] : [],
+    softwareTeamId ? "WHERE n.software_team_id = ?" : "",
+    softwareTeamId ? "n.created_at" : "n.software_team_id, n.created_at",
+    softwareTeamId ? [softwareTeamId] : [],
   );
 }
 
-// Scoped to a rig-id SET — every IN value bound as a parameter; per-rig created_at
-// order preserved (same ORDER BY as the all-rigs path). Callers guarantee a
-// non-empty list (empty set → getNodeInventoryForRigs returns early, no query run).
-function queryInventoryRowsForRigs(db: Database.Database, rigIds: readonly string[]): InventoryRow[] {
-  const placeholders = rigIds.map(() => "?").join(", ");
-  return runInventoryRowQuery(db, `WHERE n.rig_id IN (${placeholders})`, "n.rig_id, n.created_at", rigIds);
+// Scoped to a software-team-id SET — every IN value bound as a parameter; per-softwareTeam created_at
+// order preserved (same ORDER BY as the all-softwareTeams path). Callers guarantee a
+// non-empty list (empty set → getNodeInventoryForSoftwareTeams returns early, no query run).
+function queryInventoryRowsForSoftwareTeams(db: Database.Database, softwareTeamIds: readonly string[]): InventoryRow[] {
+  const placeholders = softwareTeamIds.map(() => "?").join(", ");
+  return runInventoryRowQuery(db, `WHERE n.software_team_id IN (${placeholders})`, "n.software_team_id, n.created_at", softwareTeamIds);
 }
 
-/** Per-rig setup context an inventory row is built against. FS-1 W1.2: the
- *  single-rig (`getNodeInventory`) and all-rigs (`getNodeInventoryForAllRigs`)
+/** Per-SoftwareTeam setup context an inventory row is built against. FS-1 W1.2: the
+ *  single-softwareTeam (`getNodeInventory`) and all-softwareTeams (`getNodeInventoryForAllSoftwareTeams`)
  *  paths both build entries through THIS one function, so their output is
  *  byte-identical by construction — the collapse changes only HOW the context +
- *  rows are fetched (per-rig vs batched), never how an entry is derived. */
+ *  rows are fetched (per-softwareTeam vs batched), never how an entry is derived. */
 interface InventoryBuildContext {
   usableSnapshot: Snapshot | null;
   workspaceSpec: WorkspaceSpec | null;
   identityVerdicts: Map<string, SeatIdentityVerdict>;
-  // FS-1 W1.3 S1/S2 — the once-per-rig-batched per-node reads, keyed by node_id.
-  // Built ONCE per projection (rig-scoped for single-rig, all-rigs for the
+  // FS-1 W1.3 S1/S2 — the once-per-software-team-batched per-node reads, keyed by node_id.
+  // Built ONCE per projection (software-team-scoped for single-softwareTeam, all-softwareTeams for the
   // batched path) and looked up O(1) here instead of a query per node.
   restoreOutcomes: Map<string, RestoreProjection>;
   orienteds: Map<string, NodeOriented>;
@@ -643,7 +643,7 @@ interface InventoryBuildContext {
 }
 
 /**
- * Build the shared inventory projection from a registration and its rig context.
+ * Build the shared inventory projection from a registration and its SoftwareTeam context.
  * Apply only current-occupant identity evidence and retain stored status alongside
  * effective status so readers can distinguish absence from registration history.
  */
@@ -653,10 +653,10 @@ function buildInventoryEntry(
   ctx: InventoryBuildContext,
 ): NodeInventoryEntry {
   const { usableSnapshot, workspaceSpec, identityVerdicts, restoreOutcomes, orienteds, codexDaemonOptOuts } = ctx;
-  // FS-1 W1.3 S1 — O(1) lookup into the once-per-rig restore-outcome map
+  // FS-1 W1.3 S1 — O(1) lookup into the once-per-SoftwareTeam restore-outcome map
   // (byte-identical to the prior per-node deriveRestoreOutcome; "n-a" when a node
   // is referenced by no restore event, matching the prior fall-through).
-  const restore = restoreOutcomes.get(restoreKey(row.rig_id, row.node_id));
+  const restore = restoreOutcomes.get(restoreKey(row.software_team_id, row.node_id));
   const restoreOutcome = restore?.outcome ?? "n-a";
   // OPR.0.4.3.19 rev1-r2 B1 — a durable verdict is keyed only by node_id, so
   // after a rebind/relaunch (same node, NEW session + NEW pane) a stale
@@ -684,8 +684,8 @@ function buildInventoryEntry(
   });
   return {
     nodeId: row.node_id,
-    rigId: row.rig_id,
-    rigName: row.rig_name,
+    softwareTeamId: row.software_team_id,
+    softwareTeamName: row.software_team_name,
     logicalId: row.logical_id,
     podId: row.pod_id,
     podNamespace: row.pod_namespace,
@@ -726,9 +726,9 @@ function buildInventoryEntry(
     // payload. It duplicated ~47KB of templated prose across all nodes and
     // no node-list consumer reads it. The full guidance is recomputed on
     // the single-node detail path (getNodeDetail / GET
-    // /api/rigs/:rigId/nodes/:logicalId) — relocation, not loss.
+    // /api/software-teams/:softwareTeamId/nodes/:logicalId) — relocation, not loss.
     recoveryGuidance: null,
-    latestError: row.startup_status === "ready" ? null : getLatestError(db, row.rig_id, row.node_id),
+    latestError: row.startup_status === "ready" ? null : getLatestError(db, row.software_team_id, row.node_id),
     // Extended fields
     model: row.model,
     agentRef: row.agent_ref,
@@ -743,99 +743,99 @@ function buildInventoryEntry(
     resumeToken: row.resume_token,
     startupCompletedAt: row.startup_completed_at,
     // PL-007 Workspace Primitive — per-node workspace summary derived
-    // from cwd against the rig's typed workspace block. null when the
-    // rig has no workspace declaration.
+    // from cwd against the softwareTeam's typed workspace block. null when the
+    // softwareTeam has no workspace declaration.
     workspace: resolveNodeWorkspace({ spec: workspaceSpec, cwd: row.cwd }),
     // OPR.0.4.3.19 — the liveness identity verdict (third axis). null when
     // never observed; carries evidence on mismatch/missing.
     identityVerdict,
-    heldReason: deriveHeldReason(db, row.rig_id, row.node_id, sessionStatus),
+    heldReason: deriveHeldReason(db, row.software_team_id, row.node_id, sessionStatus),
   };
 }
 
-/** FS-1 W1.2 — all-rigs batched form of `readRigWorkspaceJson`: one query,
- *  `rigId → WorkspaceSpec`. Rigs with no/malformed workspace are absent (callers
- *  default to null — byte-identical to `readRigWorkspaceJson`'s null return). */
-function readAllRigWorkspaceJson(db: Database.Database): Map<string, WorkspaceSpec> {
+/** FS-1 W1.2 — all-softwareTeams batched form of `readSoftwareTeamWorkspaceJson`: one query,
+ *  `softwareTeamId → WorkspaceSpec`. SoftwareTeams with no/malformed workspace are absent (callers
+ *  default to null — byte-identical to `readSoftwareTeamWorkspaceJson`'s null return). */
+function readAllSoftwareTeamWorkspaceJson(db: Database.Database): Map<string, WorkspaceSpec> {
   const out = new Map<string, WorkspaceSpec>();
   try {
-    const rows = db.prepare("SELECT id, workspace_json FROM rigs").all() as Array<{ id: string; workspace_json: string | null }>;
+    const rows = db.prepare("SELECT id, workspace_json FROM software_teams").all() as Array<{ id: string; workspace_json: string | null }>;
     for (const row of rows) {
       if (!row.workspace_json) continue;
-      try { out.set(row.id, JSON.parse(row.workspace_json) as WorkspaceSpec); } catch { /* malformed → absent → caller null (matches per-rig) */ }
+      try { out.set(row.id, JSON.parse(row.workspace_json) as WorkspaceSpec); } catch { /* malformed → absent → caller null (matches per-softwareTeam) */ }
     }
-  } catch { /* column/table absent → empty → caller null (matches per-rig defensive path) */ }
+  } catch { /* column/table absent → empty → caller null (matches per-softwareTeam defensive path) */ }
   return out;
 }
 
 /**
- * FS-1 W1.2 — the rig-level N+1 collapse. Builds inventory for ALL rigs in a
- * bounded, rig-count-INDEPENDENT set of queries: 3 batched setup reads
- * (snapshots / workspaces / identity verdicts) + 1 all-rigs node SELECT, grouped
- * by rig_id. Every entry is built through the SAME `buildInventoryEntry` that the
- * per-rig `getNodeInventory` uses, so `getNodeInventoryForAllRigs(db).get(rigId)`
- * is byte-identical to `getNodeInventory(db, rigId)` — the collapse changes only
- * HOW the context + rows are fetched (batched vs per-rig), never how an entry is
+ * FS-1 W1.2 — the software-team-level N+1 collapse. Builds inventory for ALL softwareTeams in a
+ * bounded, software-team-count-INDEPENDENT set of queries: 3 batched setup reads
+ * (snapshots / workspaces / identity verdicts) + 1 all-softwareTeams node SELECT, grouped
+ * by software_team_id. Every entry is built through the SAME `buildInventoryEntry` that the
+ * per-softwareTeam `getNodeInventory` uses, so `getNodeInventoryForAllSoftwareTeams(db).get(softwareTeamId)`
+ * is byte-identical to `getNodeInventory(db, softwareTeamId)` — the collapse changes only
+ * HOW the context + rows are fetched (batched vs per-softwareTeam), never how an entry is
  * derived. Per-node reads inside `buildInventoryEntry` (`deriveRestoreOutcome`
- * etc.) remain per-node and ride the 047 index — NOT the rig-level N+1 removed here.
+ * etc.) remain per-node and ride the 047 index — NOT the software-team-level N+1 removed here.
  */
-// Shared batched builder — the common body of the all-rigs and scoped-rigs paths.
+// Shared batched builder — the common body of the all-softwareTeams and scoped-softwareTeams paths.
 // Builds the fleet setup maps + EXACTLY one fleet startup-orientation
 // (buildOrientedMap) and one fleet restore-outcome (buildRestoreOutcomeMap) scan
 // ONCE, then builds a NodeInventoryEntry for each PROVIDED row via the SAME
-// buildInventoryEntry, grouped by rig_id with per-rig created_at order preserved.
-// `rows` decides the scope (all rigs vs a selected rig set); entry derivation is
-// identical, so a rig's entries are byte-identical regardless of which caller ran.
+// buildInventoryEntry, grouped by software_team_id with per-softwareTeam created_at order preserved.
+// `rows` decides the scope (all softwareTeams vs a selected softwareTeam set); entry derivation is
+// identical, so a softwareTeam's entries are byte-identical regardless of which caller ran.
 function buildInventoryMapFromRows(db: Database.Database, rows: InventoryRow[]): Map<string, NodeInventoryEntry[]> {
-  const snapshotByRig = findLatestUsableSnapshotsForAllRigs(db);
-  const workspaceByRig = readAllRigWorkspaceJson(db);
-  const verdictsByRig = new SeatIdentityStore(db).getForAllRigs();
+  const snapshotBySoftwareTeam = findLatestUsableSnapshotsForAllSoftwareTeams(db);
+  const workspaceBySoftwareTeam = readAllSoftwareTeamWorkspaceJson(db);
+  const verdictsBySoftwareTeam = new SeatIdentityStore(db).getForAllSoftwareTeams();
   // FS-1 W1.3 S1/S2 — the per-node reads built ONCE (O(1) queries, not O(nodes)).
-  // Restore map unscoped: a nodeId is referenced only by its own rig's restore
-  // events, so each node's value equals the single-rig path.
+  // Restore map unscoped: a nodeId is referenced only by its own softwareTeam's restore
+  // events, so each node's value equals the single-softwareTeam path.
   const restoreOutcomes = buildRestoreOutcomeMap(db); // one fleet restore-outcome scan
   const orienteds = buildOrientedMap(db);             // one fleet startup-orientation scan
   const codexDaemonOptOuts = new AppliedLaunchObservationStore(db).readCurrentDaemonOptOuts(); // one launch-fact read
   const out = new Map<string, NodeInventoryEntry[]>();
   for (const row of rows) {
     const entry = buildInventoryEntry(db, row, {
-      usableSnapshot: snapshotByRig.get(row.rig_id) ?? null,
-      workspaceSpec: workspaceByRig.get(row.rig_id) ?? null,
-      identityVerdicts: verdictsByRig.get(row.rig_id) ?? new Map(),
+      usableSnapshot: snapshotBySoftwareTeam.get(row.software_team_id) ?? null,
+      workspaceSpec: workspaceBySoftwareTeam.get(row.software_team_id) ?? null,
+      identityVerdicts: verdictsBySoftwareTeam.get(row.software_team_id) ?? new Map(),
       restoreOutcomes,
       orienteds,
       codexDaemonOptOuts,
     });
-    let list = out.get(row.rig_id);
-    if (!list) { list = []; out.set(row.rig_id, list); }
+    let list = out.get(row.software_team_id);
+    if (!list) { list = []; out.set(row.software_team_id, list); }
     list.push(entry);
   }
   return out;
 }
 
-export function getNodeInventoryForAllRigs(db: Database.Database): Map<string, NodeInventoryEntry[]> {
+export function getNodeInventoryForAllSoftwareTeams(db: Database.Database): Map<string, NodeInventoryEntry[]> {
   return buildInventoryMapFromRows(db, queryInventoryRows(db));
 }
 
-// slice-04 — inventory for a SELECTED set of rigs only (e.g. the rigs a summary
-// actually returns), so the per-node fold never widens to rigs the caller excluded
+// slice-04 — inventory for a SELECTED set of softwareTeams only (e.g. the softwareTeams a summary
+// actually returns), so the per-node fold never widens to softwareTeams the caller excluded
 // (e.g. archived). Retains exactly one fleet startup-orientation + one fleet
 // restore-outcome scan via the shared builder. Empty set → empty Map, NO scans and
-// no invalid `IN ()`. getNodeInventoryForRigs(db, {r}).get(r) is byte-identical to
-// the all-rigs path's entry list for r (same rows, same builder).
-export function getNodeInventoryForRigs(db: Database.Database, rigIds: ReadonlySet<string>): Map<string, NodeInventoryEntry[]> {
-  if (rigIds.size === 0) return new Map();
-  return buildInventoryMapFromRows(db, queryInventoryRowsForRigs(db, [...rigIds]));
+// no invalid `IN ()`. getNodeInventoryForSoftwareTeams(db, {r}).get(r) is byte-identical to
+// the all-softwareTeams path's entry list for r (same rows, same builder).
+export function getNodeInventoryForSoftwareTeams(db: Database.Database, softwareTeamIds: ReadonlySet<string>): Map<string, NodeInventoryEntry[]> {
+  if (softwareTeamIds.size === 0) return new Map();
+  return buildInventoryMapFromRows(db, queryInventoryRowsForSoftwareTeams(db, [...softwareTeamIds]));
 }
 
-/** PL-007 — read the rig's typed workspace block from `rigs.workspace_json`
+/** PL-007 — read the softwareTeam's typed workspace block from `softwareTeams.workspace_json`
  *  defensively. Migration 038 may not yet be applied in older test fixtures
  *  that bypass the canonical migration list, so a missing column returns
  *  null cleanly. */
-function readRigWorkspaceJson(db: Database.Database, rigId: string): WorkspaceSpec | null {
+function readSoftwareTeamWorkspaceJson(db: Database.Database, softwareTeamId: string): WorkspaceSpec | null {
   try {
-    const row = db.prepare("SELECT workspace_json FROM rigs WHERE id = ?")
-      .get(rigId) as { workspace_json: string | null } | undefined;
+    const row = db.prepare("SELECT workspace_json FROM software_teams WHERE id = ?")
+      .get(softwareTeamId) as { workspace_json: string | null } | undefined;
     if (!row || !row.workspace_json) return null;
     return JSON.parse(row.workspace_json) as WorkspaceSpec;
   } catch {
@@ -850,7 +850,7 @@ function readRigWorkspaceJson(db: Database.Database, rigId: string): WorkspaceSp
  */
 export function getNodeDetail(
   db: Database.Database,
-  rigId: string,
+  softwareTeamId: string,
   logicalId: string,
   opts?: {
     adapters?: Record<string, RuntimeAdapter>;
@@ -859,14 +859,14 @@ export function getNodeDetail(
   },
 ): NodeDetailEntry | null {
   // Get the inventory entry first
-  const allEntries = getNodeInventory(db, rigId);
+  const allEntries = getNodeInventory(db, softwareTeamId);
   const entry = allEntries.find((e) => e.logicalId === logicalId);
   if (!entry) return null;
 
   // Find the node ID
   const nodeRow = db.prepare(
-    "SELECT id FROM nodes WHERE rig_id = ? AND logical_id = ?"
-  ).get(rigId, logicalId) as { id: string } | undefined;
+    "SELECT id FROM nodes WHERE software_team_id = ? AND logical_id = ?"
+  ).get(softwareTeamId, logicalId) as { id: string } | undefined;
   if (!nodeRow) return null;
   const nodeId = nodeRow.id;
 
@@ -948,7 +948,7 @@ export function getNodeDetail(
     }
   }
 
-  // Peers: other nodes in the same rig
+  // Peers: other nodes in the same softwareTeam
   const peers: NodeDetailPeer[] = allEntries
     .filter((e) => e.logicalId !== logicalId)
     .map((e) => ({
@@ -964,8 +964,8 @@ export function getNodeDetail(
     "FROM edges e " +
     "JOIN nodes src ON src.id = e.source_id " +
     "JOIN nodes tgt ON tgt.id = e.target_id " +
-    "WHERE e.rig_id = ? AND (e.source_id = ? OR e.target_id = ?)"
-  ).all(rigId, nodeId, nodeId) as Array<{ kind: string; source_id: string; target_id: string; src_logical: string; tgt_logical: string }>;
+    "WHERE e.software_team_id = ? AND (e.source_id = ? OR e.target_id = ?)"
+  ).all(softwareTeamId, nodeId, nodeId) as Array<{ kind: string; source_id: string; target_id: string; src_logical: string; tgt_logical: string }>;
 
   const nodeSessionMap = new Map(allEntries.map((e) => [e.logicalId, e.canonicalSessionName]));
   const outgoing: NodeDetailEdge[] = [];
@@ -1020,16 +1020,16 @@ export function getNodeDetail(
  */
 export function getNodeInventoryWithContext(
   db: Database.Database,
-  rigId: string,
+  softwareTeamId: string,
   contextUsageStore: ContextUsageStore,
   transcriptStore?: Pick<TranscriptStore, "getIngestHealth">,
 ): NodeInventoryEntry[] {
-  const entries = getNodeInventory(db, rigId);
+  const entries = getNodeInventory(db, softwareTeamId);
 
   // Find node IDs for batch read
   const nodeRows = db.prepare(
-    "SELECT id, logical_id FROM nodes WHERE rig_id = ?"
-  ).all(rigId) as Array<{ id: string; logical_id: string }>;
+    "SELECT id, logical_id FROM nodes WHERE software_team_id = ?"
+  ).all(softwareTeamId) as Array<{ id: string; logical_id: string }>;
   const nodeIdByLogicalId = new Map(nodeRows.map((r) => [r.logical_id, r.id]));
 
   const contextEntries = entries.map((e) => ({
@@ -1049,7 +1049,7 @@ export function getNodeInventoryWithContext(
     // remains on the detail/whoami path (getNodeDetailWithContext, whoami).
     const transcriptIngest = transcriptStore && e.canonicalSessionName
       ? {
-          ...transcriptStore.getIngestHealth(e.rigName, e.canonicalSessionName),
+          ...transcriptStore.getIngestHealth(e.softwareTeamName, e.canonicalSessionName),
           runtime: e.runtime,
         }
       : undefined;
@@ -1066,17 +1066,17 @@ export function getNodeInventoryWithContext(
  */
 export function getNodeDetailWithContext(
   db: Database.Database,
-  rigId: string,
+  softwareTeamId: string,
   logicalId: string,
   contextUsageStore: ContextUsageStore,
   opts?: Parameters<typeof getNodeDetail>[3],
 ): NodeDetailEntry | null {
-  const detail = getNodeDetail(db, rigId, logicalId, opts);
+  const detail = getNodeDetail(db, softwareTeamId, logicalId, opts);
   if (!detail) return null;
 
   const nodeRow = db.prepare(
-    "SELECT id FROM nodes WHERE rig_id = ? AND logical_id = ?"
-  ).get(rigId, logicalId) as { id: string } | undefined;
+    "SELECT id FROM nodes WHERE software_team_id = ? AND logical_id = ?"
+  ).get(softwareTeamId, logicalId) as { id: string } | undefined;
 
   if (nodeRow) {
     detail.contextUsage = contextUsageStore.getForNode(nodeRow.id, detail.canonicalSessionName);
@@ -1096,7 +1096,7 @@ export function getNodeDetailWithContext(
  *   - assigned-work counts: pending, in-progress, and blocked queue_items
  *     where destination_session matches either canonical coordinate for the seat
  *
- * Pure / synchronous — keeps the projection cheap for both `rig ps` and
+ * Pure / synchronous — keeps the projection cheap for both `SoftwareTeam ps` and
  * the UI which both fetch this per-request. The two enrichments do not
  * read each other's source.
  */
@@ -1151,30 +1151,30 @@ export function attachTerminalActivityAndWork(
 
 /**
  * QA baseline-deep-dogfood BLOCKING-A2 (qitem-20260518063900-85745917):
- * adopted/live-session rigs do NOT surface assigned queue work because
+ * adopted/live-session softwareTeams do NOT surface assigned queue work because
  * the prior lookup matched destination_session ONLY against
  * canonicalSessionName.
  *
  * For MANAGED seats, canonicalSessionName equals the canonical form
- * `{pod}-{member}@{rig}` (set by deriveCanonicalSessionName at
+ * `{pod}-{member}@{softwareTeam}` (set by deriveCanonicalSessionName at
  * materialize time) and queue operators address them by that form, so
  * the single-key lookup works.
  *
  * For ADOPTED seats, canonicalSessionName is the RAW tmux session
  * name (whatever the adopter chose, e.g., `my-existing-claude`).
  * Operators address adopted seats by the canonical form (logical
- * `{pod}-{member}@{rig}`) through `rig queue create --destination`,
+ * `{pod}-{member}@{softwareTeam}`) through `SoftwareTeam queue create --destination`,
  * so the single-key lookup misses.
  *
  * Resolve via BOTH forms:
  *   1. entry.canonicalSessionName (covers managed + adopted-by-raw)
- *   2. derived `{pod}-{member}@{rig}` from logicalId + rigName
+ *   2. derived `{pod}-{member}@{softwareTeam}` from logicalId + softwareTeamName
  *      (covers adopted-by-canonical)
  *
  * The logicalId is the pod-aware `pod.member` form (dot-separated).
  * The canonical session form replaces the dot with a dash to match the
  * convention from deriveCanonicalSessionName (so `dev.driver-2` in
- * rig `my-rig` becomes `dev-driver-2@my-rig`).
+ * softwareTeam `my-softwareTeam` becomes `dev-driver-2@my-softwareTeam`).
  *
  * Sums distinct destination_session keys to avoid double-counting
  * when both forms are identical (managed seats whose
@@ -1213,16 +1213,16 @@ export function countAssignedWorkForEntry(
 }
 
 /** EXPORTED (OPR.0.4.6.FAC1): the derived canonical coordinate
- *  `{pod}-{member}@{rig}` for an inventory entry — the binding layer's
+ *  `{pod}-{member}@{softwareTeam}` for an inventory entry — the binding layer's
  *  ONE string rule (tiebreak key AND recorded destination) reuses
  *  exactly this dual-key derivation, never a parallel one. */
 export function deriveCanonicalFromEntry(entry: NodeInventoryEntry): string | null {
-  if (!entry.rigName || !entry.logicalId) return null;
+  if (!entry.softwareTeamName || !entry.logicalId) return null;
   const dotIdx = entry.logicalId.indexOf(".");
   if (dotIdx <= 0 || dotIdx === entry.logicalId.length - 1) return null;
   const pod = entry.logicalId.slice(0, dotIdx);
   const member = entry.logicalId.slice(dotIdx + 1);
-  return deriveCanonicalSessionName(pod, member, entry.rigName);
+  return deriveCanonicalSessionName(pod, member, entry.softwareTeamName);
 }
 
 export function readAssignedWorkBySession(db: Database.Database): Map<string, AssignedWorkCounts> {
@@ -1270,12 +1270,12 @@ export async function attachAgentActivity(
      *  column, and in the UI's own activity fold (activity-visuals.ts has returned
      *  `{state: "running", source: "terminal_activity"}` on `terminalActive === true` since slice
      *  15). ACTIVITY was the one consumer that never read it, which is why the web UI could show a
-     *  seat working while `rig ps` called the same seat `unknown`. Absent = the pre-fix behavior. */
+     *  seat working while `SoftwareTeam ps` called the same seat `unknown`. Absent = the pre-fix behavior. */
     seatActivity?: { getSeatActivity(sessionName: string): SeatActivity | null };
     now?: Date;
     // OPR.0.4.3 healthz-wedge amplification fix: cheap by default. The per-node
     // tmux `capturePaneContent` fallback (probeSessionActivity) is the storm that
-    // amplifies fleet-scale under the CLI `rig ps --nodes` fan-out + the graph/nodes
+    // amplifies fleet-scale under the CLI `SoftwareTeam ps --nodes` fan-out + the graph/nodes
     // polls. It is ONLY reached for hook-less seats (getLatestForNode returns null),
     // and it uniquely adds ONLY pane-heuristic `needs_input` for those seats — the
     // SeatActivityService snapshot (terminalActive) already serves running/idle at a
@@ -1447,7 +1447,7 @@ export async function attachAgentActivity(
     // HONESTLY as-is (unknown/stale) — never upgraded to a quiet-seat verdict on arrival age alone.
     // Live motion DOES upgrade it. A demoted hook is not exotic: a seat whose agent process lacks the
     // relay's launch environment (for example, relaunched outside the product launcher without
-    // OPENRIG_RUNTIME or an occupant generation) posts no new hooks, so its newest stored hook can be
+    // SOFTWARETEAM_RUNTIME or an occupant generation) posts no new hooks, so its newest stored hook can be
     // an old one from a prior tenure, read as generation_mismatch. Product-launched seats carry the
     // generation and post resolvable hooks. Where a hook is demoted, it — not a positive idle one —
     // is what stands between a working seat and a truthful label.

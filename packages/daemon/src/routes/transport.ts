@@ -10,7 +10,7 @@ import { wrapPaneEnvelope } from "../lib/pane-envelope.js";
 // Held to the S1 truthfulness bar for a success payload: what happened, what the
 // recipient cannot know, and the concrete fix (sign).
 const UNKNOWN_SENDER_NOTICE =
-  "Delivered without sender identity: this request carried no X-OpenRig-Session header, so your recipient has no way of knowing who sent it. Follow up and sign it — send from a seat shell (the header stamps automatically) or state your identity in the message body.";
+  "Delivered without sender identity: this request carried no X-SoftwareTeam-Session header, so your recipient has no way of knowing who sent it. Follow up and sign it — send from a seat shell (the header stamps automatically) or state your identity in the message body.";
 
 // The unknown-sender From: marker, DERIVED from the canonical envelope wrapper
 // (pane-envelope.ts SENDER_FALLBACK is unexported and its literal is
@@ -181,16 +181,16 @@ export function transportRoutes(opts?: { bearerToken?: string | null }): Hono {
     const transport = c.get("sessionTransport" as never) as SessionTransport;
     const body = await c.req.json<{
       session?: string;
-      rig?: string;
+      softwareTeam?: string;
       pod?: string;
       lines?: number;
     }>();
 
-    // Multi-target: rig or pod
-    if (body.rig || body.pod) {
+    // Multi-target: softwareTeam or pod
+    if (body.softwareTeam || body.pod) {
       const target: TargetSpec = body.pod
-        ? { pod: body.pod, rig: body.rig }
-        : { rig: body.rig! };
+        ? { pod: body.pod, softwareTeam: body.softwareTeam }
+        : { softwareTeam: body.softwareTeam! };
 
       const resolved = await transport.resolveSessions(target);
       if (!resolved.ok) {
@@ -207,7 +207,7 @@ export function transportRoutes(opts?: { bearerToken?: string | null }): Hono {
 
     // Single target: session
     if (!body.session) {
-      return c.json({ error: "Provide session, rig, or pod to capture" }, 400);
+      return c.json({ error: "Provide session, softwareTeam, or pod to capture" }, 400);
     }
 
     const result = await transport.capture(body.session, { lines: body.lines });
@@ -227,14 +227,14 @@ export function transportRoutes(opts?: { bearerToken?: string | null }): Hono {
   router.post("/broadcast", async (c) => {
     const transport = c.get("sessionTransport" as never) as SessionTransport;
     const body = await c.req.json<{
-      rig?: string;
+      softwareTeam?: string;
       pod?: string;
-      // OPR.0.4.3.30 — explicit multi-recipient list (`rig send --to a,b`).
+      // OPR.0.4.3.30 — explicit multi-recipient list (`SoftwareTeam send --to a,b`).
       sessions?: string[];
       text: string;
       verify?: boolean;
       force?: boolean;
-      // OPR.0.4.3.30 — plumbed through so `rig send` fan-out carries the same guard/wait
+      // OPR.0.4.3.30 — plumbed through so `SoftwareTeam send` fan-out carries the same guard/wait
       // semantics as a single send. Each is applied PER recipient inside broadcast()'s loop
       // (the danger audit fires once per seat, not once per batch).
       waitForIdleMs?: number;
@@ -242,7 +242,7 @@ export function transportRoutes(opts?: { bearerToken?: string | null }): Hono {
       reason?: string;
       actorSession?: string | null;
       // OPR.0.4.3.30 — when set, the fan-out wraps each recipient in its own From/To envelope.
-      // `rig broadcast` never sets it (raw-to-all, unchanged).
+      // `softwareTeam broadcast` never sets it (raw-to-all, unchanged).
       envelopeSender?: string | null;
     }>();
 
@@ -258,12 +258,12 @@ export function transportRoutes(opts?: { bearerToken?: string | null }): Hono {
 
     // P21 I4 (orch ruling from specimen 5 — the false "From: pm-lead" the incident acted upon): the
     // From: line rendered into every recipient's terminal MUST DERIVE from the transport identity, never
-    // the body value. A present body.envelopeSender signals the ENVELOPED fan-out (rig send); its value
-    // is IGNORED and the From: is the derived actor. A cross-host relay re-stamps X-OpenRig-Session from
+    // the body value. A present body.envelopeSender signals the ENVELOPED fan-out (SoftwareTeam send); its value
+    // is IGNORED and the From: is the derived actor. A cross-host relay re-stamps X-SoftwareTeam-Session from
     // ITS authenticated context (not a caller --from string). S2 (OPR.0.5.4.3): an unattributable
     // enveloped send now DELIVERS with the explicit unknown-sender marker as its From: — the specimen-5
     // rule is preserved unweakened: the body claim is STILL never rendered; the recipient sees honest
-    // "unknown", never an unverified name. Raw `rig broadcast` = no envelope.
+    // "unknown", never an unverified name. Raw `softwareTeam broadcast` = no envelope.
     let envelopeSender: string | undefined = undefined;
     if (body.envelopeSender !== undefined && body.envelopeSender !== null) {
       envelopeSender = derivedActor ?? UNKNOWN_SENDER_MARKER;
@@ -273,9 +273,9 @@ export function transportRoutes(opts?: { bearerToken?: string | null }): Hono {
       body.sessions && body.sessions.length > 0
         ? { sessions: body.sessions }
         : body.pod
-          ? { pod: body.pod, rig: body.rig }
-          : body.rig
-            ? { rig: body.rig }
+          ? { pod: body.pod, softwareTeam: body.softwareTeam }
+          : body.softwareTeam
+            ? { softwareTeam: body.softwareTeam }
             : { global: true };
 
     const result = await transport.broadcast(target, body.text, {

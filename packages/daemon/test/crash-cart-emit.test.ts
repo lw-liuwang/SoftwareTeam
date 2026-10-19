@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { emitCrashCartState } from "../src/domain/crash-cart-emit.js";
 
-// Crash-cart C3 — emitCrashCartState is the SSOT for the `rig crash-cart --json` payload (rail 3: ONE
+// Crash-cart C3 — emitCrashCartState is the SSOT for the `softwareTeam crash-cart --json` payload (rail 3: ONE
 // JSON = the 3-state verdict + discovery). It composes the detector + the C2 read VERBATIM (rail 2).
 // A fail-closed refusal of the read emits STRUCTURED JSON (a refusal note, NO discovery) so the TUI
 // never renders the cockpit from a refusal. The sub-steps are injected → deterministic.

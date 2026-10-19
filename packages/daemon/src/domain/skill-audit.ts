@@ -15,7 +15,7 @@ export interface SkillAuditEntry {
   state: "active" | "stale" | "legacy" | "exempt";
   owner: string | null;
   sourceRef: string | null;
-  /** The installed plugin this copy is byte-identical to, when it is one of OpenRig's bundled skills. */
+  /** The installed plugin this copy is byte-identical to, when it is one of SoftwareTeam's bundled skills. */
   bundledFrom: { plugin: string; version: string } | null;
   findings: AuditFinding[];
 }
@@ -93,8 +93,8 @@ function extractVerified(frontmatter: Record<string, unknown>, skillPath: string
   }
 
   const meta = frontmatter.metadata as Record<string, unknown> | undefined;
-  const openrig = meta?.openrig as Record<string, unknown> | undefined;
-  const lastVerified = openrig?.last_verified;
+  const softwareteam = meta?.softwareteam as Record<string, unknown> | undefined;
+  const lastVerified = softwareteam?.last_verified;
   if (!lastVerified) return { status: "missing_verified" };
 
   const dateStr = String(lastVerified).trim();
@@ -102,7 +102,7 @@ function extractVerified(frontmatter: Record<string, unknown>, skillPath: string
     return { status: "bare_verified", date: dateStr };
   }
 
-  const rawSource = openrig?.source_evidence ?? openrig?.sourced_from;
+  const rawSource = softwareteam?.source_evidence ?? softwareteam?.sourced_from;
   const realSource = extractRealSource(rawSource, skillPath);
   if (!realSource) {
     return { status: "bare_verified", date: dateStr };
@@ -158,7 +158,7 @@ function hashSkillFolder(skillPath: string): string {
 
 const PLUGIN_MANIFESTS = [".claude-plugin/plugin.json", ".codex-plugin/plugin.json"];
 
-/** The installed plugins under pluginsDir (OPENRIG_HOME/plugins) that ship skills. The daemon projects
+/** The installed plugins under pluginsDir (SOFTWARETEAM_HOME/plugins) that ship skills. The daemon projects
  *  bundled skills from these directories, so they are the reference for a projected copy's bytes. */
 export function listBundledSkillSources(pluginsDir: string): BundledSkillSource[] {
   let plugins: string[];
@@ -196,7 +196,7 @@ function listFilesRecursive(dir: string, prefix = ""): string[] {
 }
 
 // The projection writes this marker beside the plugin's files (plugin-vendor-service GLOBAL_VENDOR_VERSION).
-const PROJECTION_MARKER = ".openrig-vendor-version";
+const PROJECTION_MARKER = ".softwareteam-vendor-version";
 
 /** A copy is bundled when the same-named skill in an installed plugin exists, the copy holds exactly the
  *  plugin's files (plus the projection's version marker), and every one has identical bytes. An edited,
@@ -244,15 +244,15 @@ export function auditSkills(
   const results = entries.map((entry) => {
     const fm = entry.frontmatter as Record<string, unknown>;
     const meta = fm.metadata as Record<string, unknown> | undefined;
-    const openrig = meta?.openrig as Record<string, unknown> | undefined;
+    const softwareteam = meta?.softwareteam as Record<string, unknown> | undefined;
 
-    const stage = openrig?.stage ? String(openrig.stage) : null;
+    const stage = softwareteam?.stage ? String(softwareteam.stage) : null;
     const bundled = matchBundledSource(entry.path, opts?.bundledSources ?? []);
     const bundledFrom = bundled ? { plugin: bundled.plugin, version: bundled.version } : null;
     // A bundled copy's provenance is the plugin that shipped it; frontmatter values still win where present.
-    const owner = openrig?.owner ? String(openrig.owner) : bundled ? bundled.plugin : null;
-    const sourceRef = openrig?.source_ref ?? openrig?.version
-      ? String(openrig.source_ref ?? openrig?.version)
+    const owner = softwareteam?.owner ? String(softwareteam.owner) : bundled ? bundled.plugin : null;
+    const sourceRef = softwareteam?.source_ref ?? softwareteam?.version
+      ? String(softwareteam.source_ref ?? softwareteam?.version)
       : bundled ? `${bundled.plugin}@${bundled.version}` : null;
     const verified: VerifiedStatus = bundled
       ? { status: "bundled", plugin: bundled.plugin, version: bundled.version }
@@ -268,7 +268,7 @@ export function auditSkills(
           class: "missing_provenance",
           file: join(entry.path, "SKILL.md"),
           reason: "No source_ref or version in frontmatter metadata",
-          remediation: "Add metadata.openrig.source_ref or metadata.openrig.version to SKILL.md frontmatter",
+          remediation: "Add metadata.softwareteam.source_ref or metadata.softwareteam.version to SKILL.md frontmatter",
         });
       }
       if (!owner) {
@@ -276,7 +276,7 @@ export function auditSkills(
           class: "missing_provenance",
           file: join(entry.path, "SKILL.md"),
           reason: "No owner in frontmatter metadata",
-          remediation: "Add metadata.openrig.owner to SKILL.md frontmatter",
+          remediation: "Add metadata.softwareteam.owner to SKILL.md frontmatter",
         });
       }
 
@@ -285,21 +285,21 @@ export function auditSkills(
           class: "missing_verified",
           file: join(entry.path, "SKILL.md"),
           reason: "No verified date in frontmatter",
-          remediation: "Add metadata.openrig.last_verified with date and metadata.openrig.source_evidence with the verification source",
+          remediation: "Add metadata.softwareteam.last_verified with date and metadata.softwareteam.source_evidence with the verification source",
         });
       } else if (verified.status === "bare_verified") {
         findings.push({
           class: "bare_verified",
           file: join(entry.path, "SKILL.md"),
           reason: `Verified date ${verified.date} has no evidence source -- a bare date cannot prove freshness`,
-          remediation: "Add metadata.openrig.source_evidence naming the real verification source (not the SKILL.md filepath)",
+          remediation: "Add metadata.softwareteam.source_evidence naming the real verification source (not the SKILL.md filepath)",
         });
       } else if (verified.status === "stale_verified") {
         findings.push({
           class: "stale_verified",
           file: join(entry.path, "SKILL.md"),
           reason: `Verified date ${verified.date} is past the ${FRESHNESS_WINDOW_DAYS}-day freshness window`,
-          remediation: `Re-verify against ${verified.source} and update metadata.openrig.last_verified`,
+          remediation: `Re-verify against ${verified.source} and update metadata.softwareteam.last_verified`,
         });
       }
     }

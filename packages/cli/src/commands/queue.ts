@@ -3,8 +3,8 @@ import { randomBytes } from "node:crypto";
 import { Command, InvalidArgumentError } from "commander";
 import { DaemonClient, DaemonConnectionError, DaemonTimeoutError, DaemonResponseError } from "../client.js";
 import { getDaemonStatus, getDaemonUrl , daemonStatusGuard} from "../daemon-lifecycle.js";
-import { readOpenRigEnv } from "../openrig-compat.js";
-import { sessionRigOf, isHumanSeatSessionRef } from "../session-name.js";
+import { readSoftwareTeamEnv } from "../softwareteam-compat.js";
+import { sessionSoftwareTeamOf, isHumanSeatSessionRef } from "../session-name.js";
 import { realDeps } from "./daemon.js";
 import { enumArg, positiveIntArg } from "../cli-error.js";
 import type { StatusDeps } from "./status.js";
@@ -15,7 +15,7 @@ import { buildWriteReceipt, compactOutputEnabled, type ReceiptContext } from "..
 import { TRANSITIONS_SHOWN, compactShow, compactTransitions, showEmptyNotice, transitionsNotice } from "../queue-read-compact.js";
 
 /**
- * `rig queue` — coordination primitive L3/inbox/outbox commands (PL-004 Phase A).
+ * `SoftwareTeam queue` — coordination primitive L3/inbox/outbox commands (PL-004 Phase A).
  *
  * Backed by `/api/queue`. Operates only via the daemon HTTP API.
  * Does NOT touch the POC `rigx-queue-proto` filesystem state.
@@ -159,7 +159,7 @@ function terminalDeliveryResult(
     "verified": "Terminal receipt confirmed: the wake rendered in the destination pane.",
     "delivered-ack-pending": "Terminal receipt unconfirmed (delivered-ack-pending): the wake was sent, but its render could not be confirmed.",
     "claimed": "Terminal receipt unconfirmed, but the seat has claimed the item (claimed).",
-    "retained": `The wake is held (${wakeResult}): nothing was typed into the pane. A held create wake is not retried automatically; inspect it with rig seat held-messages ${seat}.`,
+    "retained": `The wake is held (${wakeResult}): nothing was typed into the pane. A held create wake is not retried automatically; inspect it with SoftwareTeam seat held-messages ${seat}.`,
     "failed": `The wake failed (${wakeResult}).`,
     "indeterminate": `Terminal receipt unconfirmed (${wakeResult}).`,
     "still-pending": waitedMs === null ? "No terminal receipt was recorded before the claim." : `No terminal receipt was recorded within ${waitedMs}ms.`,
@@ -187,7 +187,7 @@ function terminalDeliveryResult(
     claim,
     ...(gateway ? { gateway } : {}),
     detail: `The qitem is saved. ${receipt[outcome]}${slackText} ${claimText}${notFailed}`,
-    nextAction: settled ? null : outcome === "retained" ? `rig seat held-messages ${seat}` : `rig queue show ${qitemId} --json`,
+    nextAction: settled ? null : outcome === "retained" ? `SoftwareTeam seat held-messages ${seat}` : `SoftwareTeam queue show ${qitemId} --json`,
   };
 }
 
@@ -198,7 +198,7 @@ export function unreadableDeliveryResult(
   row: QueueRow,
   reason: string,
 ): VerifiedDeliveryResult {
-  const nextAction = qitemId ? `rig queue show ${qitemId} --json` : null;
+  const nextAction = qitemId ? `SoftwareTeam queue show ${qitemId} --json` : null;
   if (receiptSourceOf(destination, row) === "gateway") {
     return {
       receiptSource: "gateway",
@@ -254,7 +254,7 @@ export async function waitForDeliveryOutcome(
       }
       if (outcome === "transport-failed" || outcome === "never-posted") {
         const { detail } = gatewayReceiptOf(row);
-        return { ...gateway, outcome, connectorAccepted: false, ...(detail ? { detail } : {}), nextAction: `rig queue show ${qitemId} --json` };
+        return { ...gateway, outcome, connectorAccepted: false, ...(detail ? { detail } : {}), nextAction: `SoftwareTeam queue show ${qitemId} --json` };
       }
       if (timedOut) {
         return {
@@ -262,7 +262,7 @@ export async function waitForDeliveryOutcome(
           outcome: "still-pending",
           connectorAccepted: null,
           detail: `no terminal connector receipt within ${timeoutMs}ms; the durable qitem remains intact`,
-          nextAction: `rig queue show ${qitemId} --json`,
+          nextAction: `SoftwareTeam queue show ${qitemId} --json`,
         };
       }
     } else {
@@ -270,7 +270,7 @@ export async function waitForDeliveryOutcome(
       const wakeResult = stringField(row, "lastNudgeResult");
       const outcome = target.nudge === false ? "not-requested" : terminalWakeOutcome(wakeResult);
       // Any recorded wake result (or an existing claim) settles the terminal side: a later pickup
-      // is `rig queue show`'s to report. When the gateway may also post the row, its receipt is
+      // is `SoftwareTeam queue show`'s to report. When the gateway may also post the row, its receipt is
       // awaited too. Only a missing receipt waits, up to the bound. Nothing here re-sends anything.
       const gatewaySide = gatewayAlsoPosts(row);
       const terminalSettled = outcome === "not-requested" || wakeResult !== null || stringField(row, "claimedAt") !== null;
@@ -304,7 +304,7 @@ async function withClient<T>(
     }
   }
   if (status.state === "unverified" && status.siblingHint) {
-    console.error(`note: OPENRIG_HOME may be wrong — resolved ${status.siblingHint.resolvedHome}, live sibling ${status.siblingHint.siblingHome}`);
+    console.error(`note: SOFTWARETEAM_HOME may be wrong — resolved ${status.siblingHint.resolvedHome}, live sibling ${status.siblingHint.siblingHome}`);
   }
   const baseUrl = status.state === "running" && status.port !== undefined
     ? getDaemonUrl(status)
@@ -401,13 +401,13 @@ async function printQueueItemResult(
     body = {
       ...body,
       hint: `Queue item ${JSON.stringify(qitemId)} was not found on ${daemon}.\n`
-        + `If it came from another host, run rig host list; replace <daemon-url> with its registered daemon URL and run: OPENRIG_URL='<daemon-url>' rig queue show ${shellQuote(qitemId)} --full --json`,
+        + `If it came from another host, run SoftwareTeam host list; replace <daemon-url> with its registered daemon URL and run: SOFTWARETEAM_URL='<daemon-url>' SoftwareTeam queue show ${shellQuote(qitemId)} --full --json`,
     };
   }
   await printWriteResult(client, json, body, status, receipt);
 }
 
-// OPR.0.4.3.03 — `rig queue show` body preview.
+// OPR.0.4.3.03 — `SoftwareTeam queue show` body preview.
 //
 // Default `show` renders a BOUNDED body preview instead of dumping the whole
 // qitem body into the agent's context; `--full` opts back into the complete
@@ -555,7 +555,7 @@ function requireNonEmptyResolvedBody(body: string, source: string): string {
   throw err;
 }
 
-/** The states that close a row; `rig queue update --resolution` needs one of them. */
+/** The states that close a row; `SoftwareTeam queue update --resolution` needs one of them. */
 const CLOSING_STATES = ["done", "canceled", "denied", "failed", "handed-off"];
 const CLOSING_STATES_PHRASE = "done, canceled, denied, failed or handed-off";
 
@@ -569,31 +569,31 @@ function emitBodyResolveError(err: Error & { fact?: string; consequence?: string
 }
 
 function resolveCurrentSession(explicit: string | undefined, optionName: string): string | undefined {
-  const session = explicit ?? readOpenRigEnv("OPENRIG_SESSION_NAME", "RIGGED_SESSION_NAME");
+  const session = explicit ?? readSoftwareTeamEnv("SOFTWARETEAM_SESSION_NAME");
   if (session) return session;
 
-  console.error(`--${optionName} is required when OPENRIG_SESSION_NAME is not set`);
+  console.error(`--${optionName} is required when SOFTWARETEAM_SESSION_NAME is not set`);
   process.exitCode = 1;
   return undefined;
 }
 
-function extractRigName(sessionName: string): string | undefined {
-  // OPR.0.4.6.MH1 FR-8: the shared parse contract (greedy first-@ rig).
-  return sessionRigOf(sessionName);
+function extractSoftwareTeamName(sessionName: string): string | undefined {
+  // OPR.0.4.6.MH1 FR-8: the shared parse contract (greedy first-@ softwareTeam).
+  return sessionSoftwareTeamOf(sessionName);
 }
 
 /**
  * OPR.0.4.6.MH3 D-3 (C3): resolve a queue DESTINATION operand + optional
  * explicit `--host` into the out-of-band request envelope (BR-1 — the session
- * string that leaves the CLI stays 2-part `member@rig`; the host rides
+ * string that leaves the CLI stays 2-part `member@software-team`; the host rides
  * `hostId`; the 3-part string NEVER leaves the CLI edge).
  *
  * The queue parse rule (arch-ruled — deliberately DIFFERENT from the
  * interactive verbs' strip-iff-registered rule): queue destinations are
- * CANONICAL-ONLY by construction (the daemon's validateRig rejects any
+ * CANONICAL-ONLY by construction (the daemon's validateSoftwareTeam rejects any
  * non-canonical parse), so the strip is UNCONDITIONAL after the human-seat
  * classifier — a mistyped host dies loud with the HOST named (unknown-host)
- * instead of a misleading rig-shaped `unknown_destination_rig`:
+ * instead of a misleading software-team-shaped `unknown_destination_software_team`:
  *
  *   1. human-seat classifier FIRST (the shipped archetype): a human-seat ref
  *      is never captured. `RESERVED_HOST_IDS` (kernel/host/local) guarantees
@@ -630,7 +630,7 @@ export function resolveQueueHostDestination(
     return {
       ok: false,
       error: "invalid_host_qualified_destination",
-      message: `destination '${destination}' ends with an empty host segment — use member@rig@<host> (or drop the trailing '@')`,
+      message: `destination '${destination}' ends with an empty host segment — use member@software-team@<host> (or drop the trailing '@')`,
     };
   }
   if (explicitHost !== undefined && explicitHost !== tail) {
@@ -654,7 +654,7 @@ function emitHostResolutionError(res: { error: string; message: string }, json: 
 }
 
 const QUEUE_HOST_OPTION_HELP =
-  "OPR.0.4.6.MH3: route this queue write to a REGISTERED remote host (see rig host ls). EXPLICIT-ONLY — queue verbs never follow the persisted 'rig host select' selection. Equivalent to the host-qualified destination form member@rig@<host>.";
+  "OPR.0.4.6.MH3: route this queue write to a REGISTERED remote host (see SoftwareTeam host ls). EXPLICIT-ONLY — queue verbs never follow the persisted 'SoftwareTeam host select' selection. Equivalent to the host-qualified destination form member@software-team@<host>.";
 
 export function queueCommand(depsOverride?: QueueDeps): Command {
   const cmd = new Command("queue").description("Coordination L3 — owned-work queue + inbox/outbox");
@@ -679,7 +679,7 @@ export function queueCommand(depsOverride?: QueueDeps): Command {
     .option("--tags <tags>", "Comma-separated tags (composes with --mission and --slice)")
     .option("--expires-at <iso>", "ISO timestamp at which the qitem expires")
     .option("--id <qitemId>", "Retry identity: reuse for the same create after an unknown outcome; otherwise generated and printed before sending")
-    .option("--target-repo <name>", "PL-007: typed repo scope (must match a repo in the source rig's RigSpec.workspace.repos[])")
+    .option("--target-repo <name>", "PL-007: typed repo scope (must match a repo in the source softwareTeam's SoftwareTeamSpec.workspace.repos[])")
     .option("--summary <text>", "Short human-readable subject of the row, shown on every surface that lists it (RECENT, the story, the needs-you view). Say what the work is and why it needs this seat. For a human destination, --body-file is the complete decision brief or update; keep technical continuation in the owning agent row and evidence.")
     .option("--human-intent <intent>", "decision (default) or update: a quiet informational delivery, never an approval request")
     .option("--human-detail-file <path>", "One explicitly authored supplemental thread reply; keep the complete action/options in --body-file")
@@ -780,12 +780,12 @@ export function queueCommand(depsOverride?: QueueDeps): Command {
       // callers that omit it; hard-require is a future hardening.
       if (!opts.summary) {
         process.stderr.write(
-          "warning: rig queue create called without --summary. Pass --summary <text> to set the new qitem's short human-readable summary; without it, the Story node falls back to a bounded body preview. The summary is the row's subject in RECENT, the story and the needs-you view. A good summary is 1-2 plain sentences a human skims — what the work is and why it needs this seat, not the agent-speak --body. Proceeding (pre-18 callers exempt).\n"
+          "warning: SoftwareTeam queue create called without --summary. Pass --summary <text> to set the new qitem's short human-readable summary; without it, the Story node falls back to a bounded body preview. The summary is the row's subject in RECENT, the story and the needs-you view. A good summary is 1-2 plain sentences a human skims — what the work is and why it needs this seat, not the agent-speak --body. Proceeding (pre-18 callers exempt).\n"
         );
       }
       // A managed seat keeps transport-derived identity; an external caller can
       // name the existing claimed:v1 body actor without forging a transport header.
-      const managedSource = readOpenRigEnv("OPENRIG_SESSION_NAME", "RIGGED_SESSION_NAME");
+      const managedSource = readSoftwareTeamEnv("SOFTWARETEAM_SESSION_NAME");
       const source = resolveCurrentSession(managedSource ?? opts.source, "source");
       if (!source) return;
       const deps = getDeps();
@@ -829,10 +829,10 @@ export function queueCommand(depsOverride?: QueueDeps): Command {
         // Keep timestamp-based fallback consumers, with 64 random bits so an
         // accidental collision is not mistaken for an intentional retry.
         const qitemId = opts.id ?? `qitem-${new Date().toISOString().replace(/\D/g, "").slice(0, 14)}-${randomBytes(8).toString("hex")}`;
-        const show = `rig queue show ${shellQuote(qitemId)} --full --json`;
+        const show = `SoftwareTeam queue show ${shellQuote(qitemId)} --full --json`;
         const reconcile = hostResolved.hostId && hostResolved.hostId !== "local"
-          ? `For destination host ${shellQuote(hostResolved.hostId)}, replace <destination-daemon-url> with its registered daemon URL and run: OPENRIG_URL='<destination-daemon-url>' ${show}.`
-          : `At the same endpoint and OPENRIG_HOME, run: ${show}.`;
+          ? `For destination host ${shellQuote(hostResolved.hostId)}, replace <destination-daemon-url> with its registered daemon URL and run: SOFTWARETEAM_URL='<destination-daemon-url>' ${show}.`
+          : `At the same endpoint and SOFTWARETEAM_HOME, run: ${show}.`;
         const recovery = `${reconcile} If retrying, repeat the same create with --id ${shellQuote(qitemId)} and unchanged source, destination, body and options. A missing row does not rule out a pending commit; retrying without this ID creates new work.`;
         // stderr survives an interrupted wait without adding a second JSON
         // document to stdout. This is a request identity, NOT a commit receipt.
@@ -897,7 +897,7 @@ export function queueCommand(depsOverride?: QueueDeps): Command {
   cmd
     .command("claim <qitemId>")
     .description("Claim a qitem (pending → in-progress); computes closure_required_at from tier")
-    .option("--destination <session>", "(deprecated, ignored) the claimant is derived from the seat env (X-OpenRig-Session); P21 I3 made the claim route derive it from the transport header")
+    .option("--destination <session>", "(deprecated, ignored) the claimant is derived from the seat env (X-SoftwareTeam-Session); P21 I3 made the claim route derive it from the transport header")
     .option("--full", "Print the whole response row(s) as today, even when output.compact is on (the receipt's waiting keeps only blocker and nextBackstop)")
     .option("--json", "JSON output for agents")
     .action(async (qitemId: string, opts: { destination?: string; json?: boolean; full?: boolean }) => {
@@ -914,7 +914,7 @@ export function queueCommand(depsOverride?: QueueDeps): Command {
   cmd
     .command("unclaim <qitemId>")
     .description("Release a claimed qitem (in-progress → pending)")
-    .option("--destination <session>", "(deprecated, ignored) the releaser is derived from the seat env (X-OpenRig-Session); the unclaim route derives it from the transport header")
+    .option("--destination <session>", "(deprecated, ignored) the releaser is derived from the seat env (X-SoftwareTeam-Session); the unclaim route derives it from the transport header")
     .option("--reason <text>", "Reason for unclaim", "manual")
     .option("--full", "Print the whole response row(s) as today, even when output.compact is on (the receipt's waiting keeps only blocker and nextBackstop)")
     .option("--json", "JSON output for agents")
@@ -934,12 +934,12 @@ export function queueCommand(depsOverride?: QueueDeps): Command {
   cmd
     .command("update <qitemId>")
     .description("Append a note and/or mutate qitem state. A note without --state never changes row state. state=done REQUIRES --closure-reason (one of: handed_off_to, blocked_on, denied, canceled, no-follow-on, escalation). Closure ≠ acceptance: handed_off_to records delivery to the next stage; acceptance is the next stage's verdict on its own qitem, not this closure.")
-    .option("--actor <session>", "(deprecated, ignored) the actor is derived from the seat env (X-OpenRig-Session); P21 I3 made the update route derive it from the transport header")
+    .option("--actor <session>", "(deprecated, ignored) the actor is derived from the seat env (X-SoftwareTeam-Session); P21 I3 made the update route derive it from the transport header")
     .option("--state <state>", "New state: pending | in-progress | done | blocked | failed | denied | canceled | handed-off")
     .option("--reopen", "Explicitly acknowledge a deliberate terminal-to-active repair; requires --state and --note")
     .option("--closure-reason <reason>", "Required for state=done; also 'superseded' on state=canceled (with --closure-target = the successor) records a supersession, distinct from an abandoned cancel")
     .option("--closure-target <target>", "Required for handed_off_to, blocked_on, escalation, and superseded")
-    .option("--resolution <text>", "The outcome, stored on the row and shown by rig queue show. Needs --state done, canceled, denied, failed or handed-off, and non-blank text. Stored when the update closes an open row, after anything the row already has (a fallback line, an earlier outcome); a row that is already closed keeps what it has")
+    .option("--resolution <text>", "The outcome, stored on the row and shown by SoftwareTeam queue show. Needs --state done, canceled, denied, failed or handed-off, and non-blank text. Stored when the update closes an open row, after anything the row already has (a fallback line, an earlier outcome); a row that is already closed keeps what it has")
     .option("--blocked-on <blocker>", "For state=blocked: the blocker — a qitem id (must exist and be live), a human seat (FR-6 park; requires summary + evidence_ref), or a typed non-qitem gate 'fold:<what>' / 'auth:<what>' / 'external:<what>'")
     .option("--wake-watchdog <jobId>", "For state=blocked: attach an existing live watchdog id targeting the row owner")
     .option("--wake-after <duration>", "For state=blocked: atomically arm a timer (for example 90s, 15m, 2h)", wakeDurationSeconds)
@@ -979,7 +979,7 @@ export function queueCommand(depsOverride?: QueueDeps): Command {
           return;
         }
       }
-      // P21 I3 reconcile: the actor is DERIVED from the seat env (X-OpenRig-Session, stamped by
+      // P21 I3 reconcile: the actor is DERIVED from the seat env (X-SoftwareTeam-Session, stamped by
       // DaemonClient) — --actor is deprecated + ignored, no body actorSession. Verify the env (the
       // header source) or the daemon returns 400 actor_required (no seat identity to record; P18 retired the 401 refusal). Matches `resolve`.
       if (!resolveCurrentSession(undefined, "actor")) return;
@@ -1013,7 +1013,7 @@ export function queueCommand(depsOverride?: QueueDeps): Command {
     .command("block <qitemId>")
     .description("Park a qitem as HELD with a continuation and wake. Requires --on <blocker>. Choose --wake-watchdog, --wake-after, or a live blocker qitem for the wake.")
     .requiredOption("--on <blocker>", "The blocker: a live blocker qitem, typed gate, or human-seat session")
-    .option("--actor <session>", "(deprecated, ignored) the actor is derived from the seat env (X-OpenRig-Session); the park writes via the same P21 I3 header-deriving update route")
+    .option("--actor <session>", "(deprecated, ignored) the actor is derived from the seat env (X-SoftwareTeam-Session); the park writes via the same P21 I3 header-deriving update route")
     .option("--summary <text>", "Plain-language summary of the decision owed (required for human-seat parks unless already on the item)")
     .option("--evidence-ref <path>", "Durable artifact the human judges (required for human-seat parks unless already on the item)")
     .option("--note <text>", "Transition note for the audit log")
@@ -1044,7 +1044,7 @@ workspace home that is deferred/not-imminent belongs in its mission/slice.`)
       json?: boolean;
       full?: boolean;
     }) => {
-      // P21 I3 reconcile: actor DERIVED from the seat env (X-OpenRig-Session) — --actor deprecated +
+      // P21 I3 reconcile: actor DERIVED from the seat env (X-SoftwareTeam-Session) — --actor deprecated +
       // ignored, no body actorSession. Verify the env, else the daemon returns 400 actor_required (no seat identity to record). Matches `resolve`.
       if (!resolveCurrentSession(undefined, "actor")) return;
       const deps = getDeps();
@@ -1072,8 +1072,8 @@ workspace home that is deferred/not-imminent belongs in its mission/slice.`)
     .command("resolve <qitemId>")
     .description("Resolve a leg-1 parked qitem (state=blocked on a human seat): records the decision text durably in queue_transitions, unparks blocked -> in-progress, and nudges the owner. Non-closure.")
     .requiredOption("--decision <text>", "The human's decision text (non-empty; lands in transition_note + the audit row)")
-    .option("--actor <session>", "(deprecated, ignored) resolver is derived from the seat env (X-OpenRig-Session)")
-    .option("--bearer <token>", "Operator bearer token for the mission-control write gate (or set OPENRIG_AUTH_BEARER_TOKEN; loopback daemons without a configured bearer need none)")
+    .option("--actor <session>", "(deprecated, ignored) resolver is derived from the seat env (X-SoftwareTeam-Session)")
+    .option("--bearer <token>", "Operator bearer token for the mission-control write gate (or set SOFTWARETEAM_AUTH_BEARER_TOKEN; loopback daemons without a configured bearer need none)")
     .option("--no-notify", "Skip the best-effort owner nudge (the unpark still commits)")
     .option("--json", "JSON output for agents")
     .action(async (qitemId: string, opts: {
@@ -1083,12 +1083,12 @@ workspace home that is deferred/not-imminent belongs in its mission/slice.`)
       notify?: boolean;
       json?: boolean;
     }) => {
-      // P21: the resolver is DERIVED from the seat env (X-OpenRig-Session, stamped by DaemonClient) —
+      // P21: the resolver is DERIVED from the seat env (X-SoftwareTeam-Session, stamped by DaemonClient) —
       // --actor is deprecated + ignored. The pre-check verifies the env (the header source); else the
       // daemon returns 400 actor_required (no seat identity to record; P18 retired the 401 refusal).
       if (!resolveCurrentSession(undefined, "actor")) return;
       const deps = getDeps();
-      const bearer = opts.bearer ?? process.env.OPENRIG_AUTH_BEARER_TOKEN;
+      const bearer = opts.bearer ?? process.env.SOFTWARETEAM_AUTH_BEARER_TOKEN;
       await withClient(deps, async (client) => {
         const res = await client.post<unknown>(
           "/api/mission-control/action",
@@ -1108,7 +1108,7 @@ workspace home that is deferred/not-imminent belongs in its mission/slice.`)
   cmd
     .command("handoff <qitemId>")
     .description("Transactional handoff: closes source as handed-off + creates new qitem owned by --to")
-    .option("--from <session>", "(deprecated, ignored) the handing-off seat is derived from the seat env (X-OpenRig-Session); P21 I3 made the handoff route derive it from the transport header")
+    .option("--from <session>", "(deprecated, ignored) the handing-off seat is derived from the seat env (X-SoftwareTeam-Session); P21 I3 made the handoff route derive it from the transport header")
     .requiredOption("--to <session>", "Destination seat receiving the new qitem")
     .option("--body <text>", "New qitem body inline (use - to read from stdin; mutually exclusive with --body-file). Omit both to keep the source body.")
     .option("--body-file <path>", "Read the new qitem body from a file path (use - for stdin; mutually exclusive with --body). Kills the backtick-shell-corruption class.")
@@ -1142,7 +1142,7 @@ workspace home that is deferred/not-imminent belongs in its mission/slice.`)
       json?: boolean;
       full?: boolean;
     }) => {
-      // P21 I3 reconcile: the handing-off seat is DERIVED from the seat env (X-OpenRig-Session) —
+      // P21 I3 reconcile: the handing-off seat is DERIVED from the seat env (X-SoftwareTeam-Session) —
       // --from deprecated + ignored, no body fromSession. Verify the env or the daemon returns 400 actor_required (no seat identity to record; P18 retired the 401 refusal).
       if (!resolveCurrentSession(undefined, "from")) return;
       // slice-08 OPR.0.4.7.8 — body-input parity. Resolve through the shipped
@@ -1169,7 +1169,7 @@ workspace home that is deferred/not-imminent belongs in its mission/slice.`)
       // it should carry its own summary. Warn to stderr; do not hard-break.
       if (!opts.summary) {
         process.stderr.write(
-          "warning: rig queue handoff called without --summary. Pass --summary <text> to set the new qitem's short human-readable summary; without it, the Story node falls back to a bounded body preview. The summary is the row's subject in RECENT, the story and the needs-you view. A good summary is 1-2 plain sentences a human skims — what the work is and why it needs this seat, not the agent-speak --body. Proceeding.\n"
+          "warning: SoftwareTeam queue handoff called without --summary. Pass --summary <text> to set the new qitem's short human-readable summary; without it, the Story node falls back to a bounded body preview. The summary is the row's subject in RECENT, the story and the needs-you view. A good summary is 1-2 plain sentences a human skims — what the work is and why it needs this seat, not the agent-speak --body. Proceeding.\n"
         );
       }
       const deps = getDeps();
@@ -1207,7 +1207,7 @@ workspace home that is deferred/not-imminent belongs in its mission/slice.`)
     .description(
       "Atomic close (state=done, closure_reason=handed_off_to) + create new qitem owned by --to. Variant of handoff that fully terminates the source qitem."
     )
-    .option("--from <session>", "(deprecated, ignored) the handing-off seat is derived from the seat env (X-OpenRig-Session); P21 I3 made the handoff route derive it from the transport header")
+    .option("--from <session>", "(deprecated, ignored) the handing-off seat is derived from the seat env (X-SoftwareTeam-Session); P21 I3 made the handoff route derive it from the transport header")
     .requiredOption("--to <session>", "Destination seat receiving the new qitem")
     .option("--body <text>", "New qitem body inline (use - to read from stdin; mutually exclusive with --body-file). Omit both to keep the source body.")
     .option("--body-file <path>", "Read the new qitem body from a file path (use - for stdin; mutually exclusive with --body). Kills the backtick-shell-corruption class.")
@@ -1241,7 +1241,7 @@ workspace home that is deferred/not-imminent belongs in its mission/slice.`)
       json?: boolean;
       full?: boolean;
     }) => {
-      // P21 I3 reconcile: the handing-off seat is DERIVED from the seat env (X-OpenRig-Session) —
+      // P21 I3 reconcile: the handing-off seat is DERIVED from the seat env (X-SoftwareTeam-Session) —
       // --from deprecated + ignored, no body fromSession. Verify the env or the daemon returns 400 actor_required (no seat identity to record; P18 retired the 401 refusal).
       if (!resolveCurrentSession(undefined, "from")) return;
       // slice-08 OPR.0.4.7.8 — body-input parity (same contract as handoff):
@@ -1266,7 +1266,7 @@ workspace home that is deferred/not-imminent belongs in its mission/slice.`)
       // it should carry its own summary. Warn to stderr; do not hard-break.
       if (!opts.summary) {
         process.stderr.write(
-          "warning: rig queue handoff called without --summary. Pass --summary <text> to set the new qitem's short human-readable summary; without it, the Story node falls back to a bounded body preview. The summary is the row's subject in RECENT, the story and the needs-you view. A good summary is 1-2 plain sentences a human skims — what the work is and why it needs this seat, not the agent-speak --body. Proceeding.\n"
+          "warning: SoftwareTeam queue handoff called without --summary. Pass --summary <text> to set the new qitem's short human-readable summary; without it, the Story node falls back to a bounded body preview. The summary is the row's subject in RECENT, the story and the needs-you view. A good summary is 1-2 plain sentences a human skims — what the work is and why it needs this seat, not the agent-speak --body. Proceeding.\n"
         );
       }
       const deps = getDeps();
@@ -1302,7 +1302,7 @@ workspace home that is deferred/not-imminent belongs in its mission/slice.`)
   cmd
     .command("whoami")
     .description("Show the caller's queue position from the daemon's perspective")
-    .option("--session <session>", "Caller's session name (defaults to OPENRIG_SESSION_NAME)")
+    .option("--session <session>", "Caller's session name (defaults to SOFTWARETEAM_SESSION_NAME)")
     .option("--recent-limit <n>", "How many recent active qitems to include", "25")
     .option("--work-candidates", "Also list labelled work candidates (tags, handoff ancestry, held and next work) for the refocus packet")
     .option("--json", "JSON output for agents")
@@ -1362,7 +1362,7 @@ workspace home that is deferred/not-imminent belongs in its mission/slice.`)
         const { preview, bodyBytes, bodyTruncated } = previewBody(item.body);
         // Append-only additions: keep `body` in place (now the preview) and add
         // the honest size + truncation flag. Object otherwise unchanged.
-        const fullCommand = `rig queue show ${shellQuote(qitemId)} --full --json`;
+        const fullCommand = `SoftwareTeam queue show ${shellQuote(qitemId)} --full --json`;
         // Everything held back from this preview is declared, so a reader that trusts readView runs --full.
         const omitted = [
           ...(bodyTruncated ? [omittedReadField("body (after preview)", item.body.slice(preview.length))] : []),
@@ -1397,7 +1397,7 @@ workspace home that is deferred/not-imminent belongs in its mission/slice.`)
         if (!opts.full && res.status < 400 && Array.isArray(res.data) && compactOutputEnabled()) {
           const { transitions, earlier } = compactTransitions(res.data as Record<string, unknown>[]);
           printResult(opts.json ?? false, transitions, res.status);
-          if (earlier > 0) console.error(transitionsNotice(earlier, res.data.length, `rig queue transitions ${shellQuote(qitemId)} --full${opts.json ? " --json" : ""}`));
+          if (earlier > 0) console.error(transitionsNotice(earlier, res.data.length, `SoftwareTeam queue transitions ${shellQuote(qitemId)} --full${opts.json ? " --json" : ""}`));
           return;
         }
         await printQueueItemResult(client, qitemId, opts.json ?? false, res.data, res.status);
@@ -1406,9 +1406,9 @@ workspace home that is deferred/not-imminent belongs in its mission/slice.`)
 
   cmd
     .command("list")
-    .description("List qitems (default: active + compact + current-rig; like 'docker ps')")
+    .description("List qitems (default: active + compact + current-software-team; like 'docker ps')")
     .option("-a, --all", "Include closed/done history (like 'docker ps -a')")
-    .option("-A, --all-rigs", "Cross-rig breadth (like 'kubectl get --all-namespaces')")
+    .option("-A, --all-software-teams", "Cross-software-team breadth (like 'kubectl get --all-namespaces')")
     .option("--full", "Show complete per-item fields (body, chain-of-record)")
     .option("--owned", "Scope to obligations assigned to you (destination only)")
     .option("--mine", "Scope to items where you are source or destination, including rows you authored but do not own")
@@ -1420,12 +1420,12 @@ workspace home that is deferred/not-imminent belongs in its mission/slice.`)
     .option("--limit <n>", "Result limit", positiveIntArg, 100)
     .option("--json", "JSON output (compact; use --full --json for complete fields)")
     .addHelpText("after", `
-Default: active items in your current rig, compact summary (like 'docker ps').
-Current rig is derived from OPENRIG_SESSION_NAME's @<rig> suffix.
+Default: active items in your current softwareTeam, compact summary (like 'docker ps').
+Current SoftwareTeam is derived from SOFTWARETEAM_SESSION_NAME's @<softwareTeam> suffix.
 
 Four orthogonal axes (docker/kubectl pattern):
   -a, --all         Include closed/done history (state axis)
-  -A, --all-rigs    Cross-rig breadth (scope axis)
+  -A, --all-software-teams    Cross-software-team breadth (scope axis)
   --full            Include body + chain-of-record (field axis)
   -o json            JSON output (compact; --full -o json for complete)
 
@@ -1433,24 +1433,24 @@ Active states: pending, in-progress, blocked.
 History (-a adds): done, canceled, handed-off, failed, denied.
 Use --state <states> to select specific states explicitly.
 
-Depth: 'rig queue show <qitemId>' previews one body; add --full for the complete record.
-Frontier source: 'rig queue list' is the default status surface.
+Depth: 'SoftwareTeam queue show <qitemId>' previews one body; add --full for the complete record.
+Frontier source: 'SoftwareTeam queue list' is the default status surface.
 
 Examples:
-  rig queue list                          Active items in your rig (compact)
-  rig queue list -a                       Include closed history in your rig
-  rig queue list -A                       Active items across ALL rigs
-  rig queue list -a -A                    Everything across all rigs
-  rig queue list --full                   Active items with body/chain
-  rig queue list -o json                  Compact JSON (same as --json)
-  rig queue list --full -o json           Complete JSON (with body/chain)
-  rig queue list --owned                  Obligations assigned to you (destination only)
-  rig queue list --mine                   Items you own or authored (source-or-destination union)
-  rig queue list --state pending          Only pending items in your rig
-  rig queue list --full --all --all-rigs  Full firehose (pre-0.4.0 default)`)
+  SoftwareTeam queue list                          Active items in your softwareTeam (compact)
+  SoftwareTeam queue list -a                       Include closed history in your softwareTeam
+  SoftwareTeam queue list -A                       Active items across ALL softwareTeams
+  SoftwareTeam queue list -a -A                    Everything across all softwareTeams
+  SoftwareTeam queue list --full                   Active items with body/chain
+  SoftwareTeam queue list -o json                  Compact JSON (same as --json)
+  SoftwareTeam queue list --full -o json           Complete JSON (with body/chain)
+  SoftwareTeam queue list --owned                  Obligations assigned to you (destination only)
+  SoftwareTeam queue list --mine                   Items you own or authored (source-or-destination union)
+  SoftwareTeam queue list --state pending          Only pending items in your softwareTeam
+  SoftwareTeam queue list --full --all --all-software-teams  Full firehose (pre-0.4.0 default)`)
     .action(async (opts: {
       all?: boolean;
-      allRigs?: boolean;
+      allSoftwareTeams?: boolean;
       full?: boolean;
       owned?: boolean;
       mine?: boolean;
@@ -1464,9 +1464,9 @@ Examples:
     }) => {
       const deps = getDeps();
       const params = new URLSearchParams();
-      const sessionName = readOpenRigEnv("OPENRIG_SESSION_NAME", "RIGGED_SESSION_NAME");
+      const sessionName = readSoftwareTeamEnv("SOFTWARETEAM_SESSION_NAME");
       if (opts.owned && !sessionName) {
-        console.error("Cannot use --owned: checked OPENRIG_SESSION_NAME and RIGGED_SESSION_NAME, but neither caller seat identity is set. Set one to a canonical seat@rig address, or use --destination <session>.");
+        console.error("Cannot use --owned: checked SOFTWARETEAM_SESSION_NAME and SOFTWARETEAM_SESSION_NAME, but neither caller seat identity is set. Set one to a canonical seat@software-team address, or use --destination <session>.");
         process.exitCode = 1;
         return;
       }
@@ -1476,10 +1476,10 @@ Examples:
         params.set("destinationSession", sessionName);
       } else if (opts.mine && sessionName) {
         params.set("as", sessionName);
-      } else if (!opts.allRigs && !hasExplicitScope) {
-        const rigName = sessionName ? extractRigName(sessionName) : undefined;
-        if (rigName) {
-          params.set("rig", rigName);
+      } else if (!opts.allSoftwareTeams && !hasExplicitScope) {
+        const softwareTeamName = sessionName ? extractSoftwareTeamName(sessionName) : undefined;
+        if (softwareTeamName) {
+          params.set("softwareTeam", softwareTeamName);
         }
       }
 
@@ -1503,23 +1503,23 @@ Examples:
 
   cmd
     .command("overdue")
-    .description("List in-progress qitems past their closure_required_at deadline (current rig, bounded, body-free by default)")
-    .option("--rig <name>", "Scope to a specific rig (default: current rig from OPENRIG_SESSION_NAME)")
-    .option("-A, --all-rigs", "Cross-rig breadth (default is current rig only)")
+    .description("List in-progress qitems past their closure_required_at deadline (current softwareTeam, bounded, body-free by default)")
+    .option("--software-team <name>", "Scope to a specific softwareTeam (default: current SoftwareTeam from SOFTWARETEAM_SESSION_NAME)")
+    .option("-A, --all-software-teams", "Cross-software-team breadth (default is current SoftwareTeam only)")
     .option("--full", "Include complete per-item fields (body, chain-of-record)")
     .option("--limit <n>", "Result limit", positiveIntArg, 50)
     .option("--json", "JSON output for agents")
-    .addHelpText("after", "\nDefault: overdue items in your current rig, compact (no bodies), newest-deadline first.\nUse --full for bodies, -A for all rigs, --rig <name> to target another rig.")
-    .action(async (opts: { rig?: string; allRigs?: boolean; full?: boolean; limit?: number; json?: boolean }) => {
+    .addHelpText("after", "\nDefault: overdue items in your current softwareTeam, compact (no bodies), newest-deadline first.\nUse --full for bodies, -A for all softwareTeams, --software-team <name> to target another softwareTeam.")
+    .action(async (opts: { softwareTeam?: string; allSoftwareTeams?: boolean; full?: boolean; limit?: number; json?: boolean }) => {
       const deps = getDeps();
       const params = new URLSearchParams();
-      // Rig scope: explicit --rig wins; else current-rig default unless -A (mirrors `list`).
-      if (opts.rig) {
-        params.set("rig", opts.rig);
-      } else if (!opts.allRigs) {
-        const sessionName = readOpenRigEnv("OPENRIG_SESSION_NAME", "RIGGED_SESSION_NAME");
-        const rigName = sessionName ? extractRigName(sessionName) : undefined;
-        if (rigName) params.set("rig", rigName);
+      // SoftwareTeam scope: explicit --software-team wins; else current-softwareTeam default unless -A (mirrors `list`).
+      if (opts.softwareTeam) {
+        params.set("softwareTeam", opts.softwareTeam);
+      } else if (!opts.allSoftwareTeams) {
+        const sessionName = readSoftwareTeamEnv("SOFTWARETEAM_SESSION_NAME");
+        const softwareTeamName = sessionName ? extractSoftwareTeamName(sessionName) : undefined;
+        if (softwareTeamName) params.set("softwareTeam", softwareTeamName);
       }
       if (!opts.full) params.set("compact", "1"); // body-free by default
       if (opts.limit) params.set("limit", String(opts.limit));
@@ -1531,22 +1531,22 @@ Examples:
 
   cmd
     .command("undelivered")
-    .description("List PENDING qitems whose create-path nudge FAILED (delivery never reached the destination; current rig, bounded, body-free by default)")
-    .option("--rig <name>", "Scope to a specific rig (default: current rig from OPENRIG_SESSION_NAME)")
-    .option("-A, --all-rigs", "Cross-rig breadth (default is current rig only)")
+    .description("List PENDING qitems whose create-path nudge FAILED (delivery never reached the destination; current softwareTeam, bounded, body-free by default)")
+    .option("--software-team <name>", "Scope to a specific softwareTeam (default: current SoftwareTeam from SOFTWARETEAM_SESSION_NAME)")
+    .option("-A, --all-software-teams", "Cross-software-team breadth (default is current SoftwareTeam only)")
     .option("--full", "Include complete per-item fields (body, chain-of-record)")
     .option("--limit <n>", "Result limit", positiveIntArg, 50)
     .option("--json", "JSON output for agents")
-    .addHelpText("after", "\nSurfaces the create-path delivery strands: pending rows whose nudge recorded failed:<reason> and which nothing else reconciles. Read-only; the sender believed delivery succeeded but the destination was never woken.\nUse --full for bodies, -A for all rigs, --rig <name> to target another rig.")
-    .action(async (opts: { rig?: string; allRigs?: boolean; full?: boolean; limit?: number; json?: boolean }) => {
+    .addHelpText("after", "\nSurfaces the create-path delivery strands: pending rows whose nudge recorded failed:<reason> and which nothing else reconciles. Read-only; the sender believed delivery succeeded but the destination was never woken.\nUse --full for bodies, -A for all softwareTeams, --software-team <name> to target another softwareTeam.")
+    .action(async (opts: { softwareTeam?: string; allSoftwareTeams?: boolean; full?: boolean; limit?: number; json?: boolean }) => {
       const deps = getDeps();
       const params = new URLSearchParams();
-      if (opts.rig) {
-        params.set("rig", opts.rig);
-      } else if (!opts.allRigs) {
-        const sessionName = readOpenRigEnv("OPENRIG_SESSION_NAME", "RIGGED_SESSION_NAME");
-        const rigName = sessionName ? extractRigName(sessionName) : undefined;
-        if (rigName) params.set("rig", rigName);
+      if (opts.softwareTeam) {
+        params.set("softwareTeam", opts.softwareTeam);
+      } else if (!opts.allSoftwareTeams) {
+        const sessionName = readSoftwareTeamEnv("SOFTWARETEAM_SESSION_NAME");
+        const softwareTeamName = sessionName ? extractSoftwareTeamName(sessionName) : undefined;
+        if (softwareTeamName) params.set("softwareTeam", softwareTeamName);
       }
       if (!opts.full) params.set("compact", "1");
       if (opts.limit) params.set("limit", String(opts.limit));
@@ -1561,7 +1561,7 @@ Examples:
   cmd
     .command("inbox-drop <destinationSession>")
     .description("Drop a mailbox-style entry into a destination's inbox")
-    // P18: the sender is derived from the seat env (X-OpenRig-Session, stamped by the transport), not a
+    // P18: the sender is derived from the seat env (X-SoftwareTeam-Session, stamped by the transport), not a
     // flag. --sender is deprecated + IGNORED (kept optional so existing callers don't break).
     .option("--sender <session>", "(deprecated, ignored) sender is derived from the authenticated seat env")
     .option("--body <text>", "Inbox body inline (use - to read from stdin; mutually exclusive with --body-file).")
@@ -1658,7 +1658,7 @@ Examples:
   cmd
     .command("outbox-record")
     .description("Record an outbound dispatch in the sender's outbox")
-    .option("--sender <session>", "(deprecated, ignored) the sender is derived from the seat env (X-OpenRig-Session); P21 I3 made the outbox-record route derive it from the transport header")
+    .option("--sender <session>", "(deprecated, ignored) the sender is derived from the seat env (X-SoftwareTeam-Session); P21 I3 made the outbox-record route derive it from the transport header")
     .requiredOption("--destination <session>", "Destination session")
     .option("--body <text>", "Outbox body inline (use - to read from stdin; mutually exclusive with --body-file).")
     .option("--body-file <path>", "Read the outbox body from a file path (use - for stdin; mutually exclusive with --body). Kills the backtick-shell-corruption class.")
@@ -1688,7 +1688,7 @@ Examples:
         emitBodyResolveError(err as Error & { fact?: string; consequence?: string; action?: string }, opts.json ?? false);
         return;
       }
-      // P21 I3 reconcile: the sender is DERIVED from the seat env (X-OpenRig-Session) — --sender
+      // P21 I3 reconcile: the sender is DERIVED from the seat env (X-SoftwareTeam-Session) — --sender
       // deprecated + ignored, no body senderSession. Verify the env or the daemon returns 400 actor_required (no seat identity to record; P18 retired the 401 refusal).
       if (!resolveCurrentSession(undefined, "sender")) return;
       const deps = getDeps();

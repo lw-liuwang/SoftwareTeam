@@ -1,7 +1,7 @@
 // 51-04 testbed image — deriving the manifest's `stubAssetsHash` (plan §1) from the tree.
 //
 // The build verb (scripts/build-testbed-image.sh class) feeds the manifest four tree-derived
-// inputs (git sha, node version, openrig sha, stub-assets hash) plus the base digest from the
+// inputs (git sha, node version, softwareteam sha, stub-assets hash) plus the base digest from the
 // host-side `docker pull`. The stub-assets hash is the one requiring real derivation: it is the
 // CENSUS RECEIPT of exactly which stub assets got baked into the image — a byte-reproducible
 // identity so the runner / 51-05 matrix can compare runs across image versions.
@@ -29,7 +29,7 @@ export class TestbedBuildInputsError extends Error {
 }
 
 /** The stub-assets receipt schema id — bumped only on a breaking receipt-shape change. */
-export const STUB_ASSETS_SCHEMA = "openrig-testbed-stub-assets/v1";
+export const STUB_ASSETS_SCHEMA = "softwareteam-testbed-stub-assets/v1";
 
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");

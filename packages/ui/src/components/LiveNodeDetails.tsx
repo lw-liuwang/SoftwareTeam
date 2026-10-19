@@ -55,7 +55,7 @@ import { postOpenCmux } from "../hooks/useCmuxLaunch.js";
 type Tab = "overview" | "details";
 
 interface LiveNodeDetailsProps {
-  rigId: string;
+  softwareTeamId: string;
   logicalId: string;
 }
 
@@ -184,7 +184,7 @@ function extractAgentPluginIds(review: unknown): string[] {
   return ids;
 }
 
-function ActionButtonsRow({ rigId, logicalId, data }: { rigId: string; logicalId: string; data: NodeDetailData }) {
+function ActionButtonsRow({ softwareTeamId, logicalId, data }: { softwareTeamId: string; logicalId: string; data: NodeDetailData }) {
   // OPR.0.4.6.MH2 rev1-r2 B1: every button here is a LOCAL action (cmux-open
   // POST; tmux-attach / resume commands for THIS host's sessions). Under a
   // remote selection the row renders an honest read-only marker instead —
@@ -195,7 +195,7 @@ function ActionButtonsRow({ rigId, logicalId, data }: { rigId: string; logicalId
   };
   const handleOpenCmux = async () => {
     try {
-      await postOpenCmux({ rigId, logicalId });
+      await postOpenCmux({ softwareTeamId, logicalId });
     } catch {
       // best effort
     }
@@ -304,10 +304,10 @@ function StatusSection({ data }: { data: NodeDetailData }) {
           )}
           <div className="font-mono text-[8px] text-on-surface-variant">
             {data.startupStatus === "attention_required"
-              ? `Use rig capture ${data.canonicalSessionName ?? "<session>"} to inspect the prompt, then rig send ${data.canonicalSessionName ?? "<session>"} to clear it.`
+              ? `Use SoftwareTeam capture ${data.canonicalSessionName ?? "<session>"} to inspect the prompt, then SoftwareTeam send ${data.canonicalSessionName ?? "<session>"} to clear it.`
               : data.startupStatus === "failed"
-                ? "Check logs with: rig ps --nodes --rig <name>, or restart with: rig up"
-                : "Try: rig restore <snapshotId>"}
+                ? "Check logs with: SoftwareTeam ps --nodes --software-team <name>, or restart with: SoftwareTeam up"
+                : "Try: SoftwareTeam restore <snapshotId>"}
           </div>
           {data.recoveryGuidance && (
             <div className="mt-2 border-t border-outline-variant pt-2" data-testid="detail-recovery-guidance">
@@ -468,19 +468,19 @@ function OverviewTab({ data, activityVisual }: { data: NodeDetailData; activityV
 // spec/topology group (AgentSpec + Edges + Peers + Context usage
 // detail), then Transcript at the bottom.
 function DetailsTab({
-  rigId,
+  softwareTeamId,
   logicalId,
   data,
   isAgent,
 }: {
-  rigId: string;
+  softwareTeamId: string;
   logicalId: string;
   data: NodeDetailData;
   isAgent: boolean;
 }) {
   return (
     <div data-testid="live-details-section" className="space-y-4">
-      <StartupContent rigId={rigId} logicalId={logicalId} data={data} />
+      <StartupContent softwareTeamId={softwareTeamId} logicalId={logicalId} data={data} />
       {isAgent ? <AgentSpecSection data={data} /> : null}
       <EdgesSection data={data} />
       <PeersSection data={data} />
@@ -539,8 +539,8 @@ function InlineTerminal({ data }: { data: NodeDetailData }) {
   );
 }
 
-function StartupContent({ rigId: _rigId, logicalId: _logicalId, data }: { rigId: string; logicalId: string; data: NodeDetailData }) {
-  void _rigId; void _logicalId;
+function StartupContent({ softwareTeamId: _softwareTeamId, logicalId: _logicalId, data }: { softwareTeamId: string; logicalId: string; data: NodeDetailData }) {
+  void _softwareTeamId; void _logicalId;
   return (
     <div data-testid="live-startup-section" className="space-y-4">
       <StatusSection data={data} />
@@ -665,12 +665,12 @@ function TabNav({
   );
 }
 
-export function LiveNodeDetails({ rigId, logicalId }: LiveNodeDetailsProps) {
-  const { data, isLoading, error } = useNodeDetail(rigId, logicalId);
+export function LiveNodeDetails({ softwareTeamId, logicalId }: LiveNodeDetailsProps) {
+  const { data, isLoading, error } = useNodeDetail(softwareTeamId, logicalId);
   const sessionIndex = useMemo(() => buildTopologySessionIndex(data ? [{
-    nodeId: `${data.rigId}::${data.logicalId}`,
-    rigId: data.rigId,
-    rigName: data.rigName,
+    nodeId: `${data.softwareTeamId}::${data.logicalId}`,
+    softwareTeamId: data.softwareTeamId,
+    softwareTeamName: data.softwareTeamName,
     logicalId: data.logicalId,
     canonicalSessionName: data.canonicalSessionName,
     agentActivity: data.agentActivity ?? null,
@@ -682,7 +682,7 @@ export function LiveNodeDetails({ rigId, logicalId }: LiveNodeDetailsProps) {
   }] : []), [data]);
   const topologyActivity = useTopologyActivity(sessionIndex);
   const activityVisual = data
-    ? topologyActivity.getNodeActivity(`${data.rigId}::${data.logicalId}`, {
+    ? topologyActivity.getNodeActivity(`${data.softwareTeamId}::${data.logicalId}`, {
       agentActivity: data.agentActivity ?? null,
       currentQitems: data.currentQitems ?? null,
       startupStatus: data.startupStatus,
@@ -706,7 +706,7 @@ export function LiveNodeDetails({ rigId, logicalId }: LiveNodeDetailsProps) {
         <WorkflowHeader
           eyebrow="Live Node Details"
           title={data?.canonicalSessionName ?? logicalId}
-          description={`${data?.rigName ?? rigId} / ${data?.podNamespace ?? inferPodName(logicalId) ?? displayPodName(data?.podId ?? null)} / ${logicalId}`}
+          description={`${data?.softwareTeamName ?? softwareTeamId} / ${data?.podNamespace ?? inferPodName(logicalId) ?? displayPodName(data?.podId ?? null)} / ${logicalId}`}
           actions={data ? (
             <RuntimeBadge
               runtime={data.runtime}
@@ -727,12 +727,12 @@ export function LiveNodeDetails({ rigId, logicalId }: LiveNodeDetailsProps) {
 
         {data && (
           <>
-            <ActionButtonsRow rigId={rigId} logicalId={logicalId} data={data} />
+            <ActionButtonsRow softwareTeamId={softwareTeamId} logicalId={logicalId} data={data} />
             <TabNav tabs={tabs} activeTab={activeTab} onSelect={setActiveTab} />
             <div data-testid="live-node-tab-body" className="space-y-4">
               {activeTab === "overview" && <OverviewTab data={data} activityVisual={activityVisual} />}
               {activeTab === "details" && (
-                <DetailsTab rigId={rigId} logicalId={logicalId} data={data} isAgent={isAgent} />
+                <DetailsTab softwareTeamId={softwareTeamId} logicalId={logicalId} data={data} isAgent={isAgent} />
               )}
             </div>
           </>

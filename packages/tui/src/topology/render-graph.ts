@@ -8,7 +8,7 @@ import { GraphCanvas } from "./canvas.js";
 import { layoutGraph } from "./layout.js";
 import { renderHatchet, type StyleContext } from "./styles/hatchet.js";
 import { renderBraille } from "./styles/braille.js";
-import type { RigGraph } from "./graph-types.js";
+import type { SoftwareTeamGraph } from "./graph-types.js";
 
 export const GRAPH_STYLE_NAMES = ["hatchet", "braille", "braille-fallback"] as const;
 export type GraphStyle = (typeof GRAPH_STYLE_NAMES)[number];
@@ -17,15 +17,15 @@ export function isGraphStyle(value: string): value is GraphStyle {
   return (GRAPH_STYLE_NAMES as readonly string[]).includes(value);
 }
 
-export function renderGraphStyle(style: string, graph: RigGraph, ctx: StyleContext, width: number): GraphCanvas {
+export function renderGraphStyle(style: string, graph: SoftwareTeamGraph, ctx: StyleContext, width: number): GraphCanvas {
   switch (style) {
     case "braille":
-      return renderBraille(layoutGraph(graph, width, ctx.rig), ctx, width, false);
+      return renderBraille(layoutGraph(graph, width, ctx.softwareTeam), ctx, width, false);
     case "braille-fallback":
-      return renderBraille(layoutGraph(graph, width, ctx.rig), ctx, width, true);
+      return renderBraille(layoutGraph(graph, width, ctx.softwareTeam), ctx, width, true);
     default:
       // hatchet is the mainline AND the unknown-style safety floor — the
       // reducer already rejects unknown names before render (one surface)
-      return renderHatchet(layoutGraph(graph, width, ctx.rig), ctx, width);
+      return renderHatchet(layoutGraph(graph, width, ctx.softwareTeam), ctx, width);
   }
 }

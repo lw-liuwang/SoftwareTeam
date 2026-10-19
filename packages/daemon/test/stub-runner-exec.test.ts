@@ -41,7 +41,7 @@ function fakeIo(): StubRunnerIO & { lines: string[]; fireCount: number; restoreC
     fireRestore(): RestoreResult {
       this.restoreCount++;
       return {
-        additionalContext: "OpenRig compaction restore packet is available for this Claude session.\n[fake restore directive]",
+        additionalContext: "SoftwareTeam compaction restore packet is available for this Claude session.\n[fake restore directive]",
         markerPath: "/fake/restore-pending/seat.json",
         delivered: true,
       };
@@ -142,7 +142,7 @@ describe("executeStubScript (R1 dispatch over the StubRunnerIO seam)", () => {
     expect(io.fireCount).toBe(0);
     // …and the runner mirrors the additionalContext restore directive the bridge injected
     // (observable + honest — the real delivered context, never a fabricated one).
-    expect(io.lines.some((l) => l.includes("OpenRig compaction restore packet is available"))).toBe(true);
+    expect(io.lines.some((l) => l.includes("SoftwareTeam compaction restore packet is available"))).toBe(true);
   });
 
   it("throws LOUDLY on a behavior outside the closed repertoire (defensive exhaustiveness) — never a silent no-op", () => {
@@ -170,9 +170,9 @@ describe("resolveStubScript (scenario-resolved path in cwd, else the built-in de
     expect(resolveStubScript(cwd, fsLike())).toEqual(DEFAULT_STUB_SCRIPT);
   });
 
-  it("parses the scenario-resolved script at <cwd>/.openrig/stub/script.json when present", () => {
+  it("parses the scenario-resolved script at <cwd>/.softwareteam/stub/script.json when present", () => {
     const scriptPath = stubSeatScriptPath(cwd);
-    mkdirSync(join(cwd, ".openrig", "stub"), { recursive: true });
+    mkdirSync(join(cwd, ".softwareteam", "stub"), { recursive: true });
     const script: StubScript = { steps: [{ kind: "emit", behavior: "compaction" }] };
     writeFileSync(scriptPath, JSON.stringify(script), "utf8");
     expect(resolveStubScript(cwd, fsLike())).toEqual(script);
@@ -180,7 +180,7 @@ describe("resolveStubScript (scenario-resolved path in cwd, else the built-in de
 
   it("fails LOUDLY on a malformed scenario script (never a silent fallback to default)", () => {
     const scriptPath = stubSeatScriptPath(cwd);
-    mkdirSync(join(cwd, ".openrig", "stub"), { recursive: true });
+    mkdirSync(join(cwd, ".softwareteam", "stub"), { recursive: true });
     writeFileSync(scriptPath, "{not json", "utf8");
     expect(() => resolveStubScript(cwd, fsLike())).toThrow(StubScriptError);
   });

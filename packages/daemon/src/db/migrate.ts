@@ -11,6 +11,9 @@ export interface Migration {
  * Skips already-applied migrations. Applies new ones in order.
  */
 export function migrate(db: Database.Database, migrations: Migration[]): void {
+  if (db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get("rigs")) {
+    throw new Error("Unsupported legacy OpenRig database. SoftwareTeam requires a fresh database; no migration or import is performed.");
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       name TEXT PRIMARY KEY,

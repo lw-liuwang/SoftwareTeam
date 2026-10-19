@@ -15,7 +15,7 @@ import { WorkflowSpecError } from "../domain/workflow-spec-cache.js";
 import { WorkflowHumanDestinationError } from "../domain/workflow-human-destination.js";
 
 /**
- * Workflow runtime HTTP routes (PL-004 Phase D). Backs `rig workflow` CLI.
+ * Workflow runtime HTTP routes (PL-004 Phase D). Backs `SoftwareTeam workflow` CLI.
  *
  * Per Phase A R1 SSE route-order lesson: SSE/literal paths mounted
  * BEFORE bare-param /:instance_id catchall.
@@ -106,23 +106,23 @@ export function workflowRoutes(): Hono {
         : err.code === "resume_step_unrecoverable" || err.code === "resume_step_missing_from_spec" ? 409
         : err.code === "branch_target_missing" ? 409
         // OPR.0.4.6.FAC1 (guard code-review blocker at 6e991a9d): the new
-        // bound-rig errors are EXPECTED operator/spec rejections, not 500s
+        // bound-softwareTeam errors are EXPECTED operator/spec rejections, not 500s
         // — the same authoring-boundary(400)/live-state-conflict(409) split.
-        // bound_rig_unknown = explicit --rig names an unregistered rig
-        // (authoring misuse → 400); bound_rig_role_uncovered = the bound
-        // rig structurally declares no seat for a required role at
-        // instantiate (spec/rig mismatch → 400); bound_rig_not_found = a
-        // persisted bound rig vanished mid-run (live state-vs-instance
+        // bound_software_team_unknown = explicit --software-team names an unregistered softwareTeam
+        // (authoring misuse → 400); bound_software_team_role_uncovered = the bound
+        // softwareTeam structurally declares no seat for a required role at
+        // instantiate (spec/softwareTeam mismatch → 400); bound_software_team_not_found = a
+        // persisted bound softwareTeam vanished mid-run (live state-vs-instance
         // conflict → 409, the harness_pin/instance_version_conflict class).
-        : err.code === "bound_rig_unknown" || err.code === "bound_rig_role_uncovered" ? 400
-        : err.code === "bound_rig_not_found" ? 409
+        : err.code === "bound_software_team_unknown" || err.code === "bound_software_team_role_uncovered" ? 400
+        : err.code === "bound_software_team_not_found" ? 409
         : err.code === "packet_not_found" ? 404
         : 500;
       return c.json({ error: err.code, message: err.message, ...(err.details ?? {}) }, status as 200);
     }
     if (err instanceof QueueRepositoryError) {
       const status =
-        err.code === "unknown_destination_rig" ? 400
+        err.code === "unknown_destination_software_team" ? 400
         : err.code === "qitem_not_found" ? 404
         : err.code === "workflow_frontier_packet" ? 400
         : 500;
@@ -160,7 +160,7 @@ export function workflowRoutes(): Hono {
       rootObjective?: string;
       createdBySession?: string;
       entryOwnerSession?: string;
-      targetRig?: string;
+      targetSoftwareTeam?: string;
     }>().catch(() => ({} as never));
     if (!body.missionPath) return c.json({ error: "missionPath is required" }, 400);
     if (!body.operationKey) return c.json({ error: "operationKey is required" }, 400);
@@ -173,7 +173,7 @@ export function workflowRoutes(): Hono {
         rootObjective: body.rootObjective,
         createdBySession: body.createdBySession,
         entryOwnerSession: body.entryOwnerSession,
-        targetRig: body.targetRig,
+        targetSoftwareTeam: body.targetSoftwareTeam,
       });
       return c.json(result, result.replayed ? 200 : 201);
     } catch (err) {
@@ -206,8 +206,8 @@ export function workflowRoutes(): Hono {
         rootObjective?: string;
         createdBySession?: string;
         entryOwnerSession?: string;
-        /** OPR.0.4.6.FAC1: overrides the spec's target.rig default. */
-        targetRig?: string;
+        /** OPR.0.4.6.FAC1: overrides the spec's target.software_team default. */
+        targetSoftwareTeam?: string;
         /** Scope stamped on every packet the instance creates (migration 110). One that cannot be applied is
          *  ignored with an advisory; bare project/mission/slice/tags fields keep their old meaning: ignored. */
         scope?: { project?: unknown; mission?: unknown; slice?: unknown; tags?: unknown };
@@ -246,7 +246,7 @@ export function workflowRoutes(): Hono {
         rootObjective: body.rootObjective,
         createdBySession: body.createdBySession,
         entryOwnerSession: body.entryOwnerSession,
-        targetRig: body.targetRig,
+        targetSoftwareTeam: body.targetSoftwareTeam,
         ...(scope ? { scope } : {}),
       });
       const notes: string[] = [];
@@ -331,7 +331,7 @@ export function workflowRoutes(): Hono {
       name: row.name,
       version: row.version,
       purpose: row.purpose,
-      targetRig: row.targetRig,
+      targetSoftwareTeam: row.targetSoftwareTeam,
       coordinationTerminalTurnRule: row.coordinationTerminalTurnRule,
       sourcePath: row.sourcePath,
       cachedAt: row.cachedAt,

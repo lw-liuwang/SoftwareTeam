@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { seatRoutes } from "../src/routes/seat.js";
 import { nodesRoutes } from "../src/routes/sessions.js";
 
@@ -12,23 +12,23 @@ afterEach(() => { for (const db of databases.splice(0)) db.close(); });
 
 function fixture() {
   const db = createDb(); databases.push(db); migrate(db, ALL_MIGRATIONS);
-  const repo = new RigRepository(db);
-  const rig = repo.createRig("owned-path-identity");
+  const repo = new SoftwareTeamRepository(db);
+  const softwareTeam = repo.createSoftwareTeam("owned-path-identity");
   for (const name of ["dev.%", "dev.%20", "dev. ", "dev.%2F", "dev./", "dev.é", "dev.normal"]) {
-    repo.addNode(rig.id, name, { runtime: "terminal" });
+    repo.addNode(softwareTeam.id, name, { runtime: "terminal" });
   }
   const app = new Hono();
-  app.use("*", async (c, next) => { c.set("rigRepo" as never, repo); await next(); });
+  app.use("*", async (c, next) => { c.set("softwareTeamRepo" as never, repo); await next(); });
   app.route("/seat", seatRoutes);
-  app.route("/rigs/:rigId/nodes", nodesRoutes);
-  return { app, rig };
+  app.route("/software-teams/:softwareTeamId/nodes", nodesRoutes);
+  return { app, softwareTeam };
 }
 
 describe("route parameter identity is decoded once by Hono", () => {
   for (const name of ["dev.%", "dev.%20", "dev.%2F", "dev.é", "dev.normal"]) {
     it(`preserves node identity ${name} without retargeting another row`, async () => {
-      const { app, rig } = fixture();
-      const response = await app.request(`/rigs/${rig.id}/nodes/${encodeURIComponent(name)}`);
+      const { app, softwareTeam } = fixture();
+      const response = await app.request(`/software-teams/${softwareTeam.id}/nodes/${encodeURIComponent(name)}`);
       expect(response.status).toBe(200);
       expect((await response.json()).logicalId).toBe(name);
     });

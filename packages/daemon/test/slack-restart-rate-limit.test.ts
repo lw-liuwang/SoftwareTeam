@@ -1,6 +1,6 @@
 // Maintainer review on PR #1026: the inline rate-limit retry must respect who
 // owns the delivery. Sequence without a stop hook: run 1 gets 429 with a short
-// Retry-After and starts waiting; a gateway restart (rig slack disable/enable →
+// Retry-After and starts waiting; a gateway restart (softwareTeam slack disable/enable →
 // subsystem.restart()) replays the same un-Acked decision under run 2; when both
 // waits end, both retries post and Slack shows two identical messages. The
 // replay's reconcile-by-marker cannot catch it because the scan runs before
@@ -23,7 +23,7 @@ import { DEFAULT_CONFIG, saveConfig } from "../src/domain/gateway/slack/config.j
 import type { FetchImpl } from "../src/domain/gateway/slack/slack-api.js";
 
 const registry = { ok: true as const, entities: [{ entityId: "human-founder", class: "human" as const, displayName: "Founder", address: "human-founder@external", connectorBindings: [{ kind: "slack" as const, connectorRef: "primary", secretsRef: "env:SLACK_BOT_TOKEN", role: "primary" as const, handle: "UFOUNDER" }], prefs: { deliveryClass: "A" as const } }] };
-const request = { sourceSession: "author@rig", destinationSession: "human-founder@external", summary: "Restart race?", body: "One decision that must post exactly once across a restart inside its rate-limit wait.", nudge: false };
+const request = { sourceSession: "author@software-team", destinationSession: "human-founder@external", summary: "Restart race?", body: "One decision that must post exactly once across a restart inside its rate-limit wait.", nudge: false };
 const reply = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 const isPost = (url: string | URL) => String(url).endsWith("chat.postMessage");
 

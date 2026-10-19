@@ -4,7 +4,7 @@
 // SAME module. Land once, here; P4 must not re-implement it.
 //
 // READ-ONLY FOREVER (arch ruling 3): the registry is operator-managed YAML at
-// ~/.openrig/hosts.yaml; nothing in the daemon ever writes it. This module is
+// ~/.softwareteam/hosts.yaml; nothing in the daemon ever writes it. This module is
 // a deliberate SEPARATE TWIN of the CLI's packages/cli/src/host-registry.ts
 // schema + validation (incl. the at-most-one-bearer rule — bearer optional
 // for a tokenless daemon, never both): the two copies are NOT unified, and
@@ -15,7 +15,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
-import { getDefaultOpenRigPath } from "../../openrig-compat.js";
+import { getDefaultSoftwareTeamPath } from "../../softwareteam-compat.js";
 import { VIRTUAL_DOMAIN_TOKENS } from "../session-name.js";
 
 export interface SshHostEntry {
@@ -70,7 +70,7 @@ export const RESERVED_HOST_IDS = new Set(["kernel", "host", "local", ...VIRTUAL_
 const KNOWN_TRANSPORTS = new Set(["ssh", "http"]);
 
 export function defaultHostRegistryPath(): string {
-  return getDefaultOpenRigPath("hosts.yaml");
+  return getDefaultSoftwareTeamPath("hosts.yaml");
 }
 
 /** Load + validate the operator's hosts registry (read-only). Mirrors the CLI
@@ -251,7 +251,7 @@ export function resolveHost(registry: HostRegistry, id: string): HostResolution 
 }
 
 /** FR-4: placement requires a transport that can carry remote-up. v0 that is
- *  the http transport (the shipped remote single-rig leaf is POST /api/up
+ *  the http transport (the shipped remote single-softwareTeam leaf is POST /api/up
  *  over runRemoteHttpOp); ssh-transport hosts are reachable for send/capture
  *  but cannot carry remote-up — a structured per-entry error, not a launch
  *  attempt. */
@@ -261,7 +261,7 @@ export function resolvePlacementHost(registry: HostRegistry, id: string): HostRe
   if (res.host.transport !== "http") {
     return {
       ok: false,
-      error: `host '${id}' uses transport '${res.host.transport}', which cannot carry remote rig-up. Placement requires an http-transport host (url; optional bearer_env or bearer_file) — update the registry entry or launch that rig locally.`,
+      error: `host '${id}' uses transport '${res.host.transport}', which cannot carry remote software-team-up. Placement requires an http-transport host (url; optional bearer_env or bearer_file) — update the registry entry or launch that SoftwareTeam locally.`,
     };
   }
   return res;

@@ -27,18 +27,18 @@ interface FetchGuardState {
   allow: Set<string>;
   originalFetch: typeof globalThis.fetch | undefined;
 }
-const g = globalThis as unknown as { __openrigFetchGuard?: FetchGuardState };
-g.__openrigFetchGuard ??= { allow: new Set<string>(), originalFetch: undefined };
-const state = g.__openrigFetchGuard;
+const g = globalThis as unknown as { __softwareteamFetchGuard?: FetchGuardState };
+g.__softwareteamFetchGuard ??= { allow: new Set<string>(), originalFetch: undefined };
+const state = g.__softwareteamFetchGuard;
 const allowedOrigins = state.allow;
 
 // The permit rule is a SHAPE, not a registry: an in-process fixture is loopback on an
 // EPHEMERAL high port (exactly what server.listen(0) produces — verified 58158+ on
 // darwin; Linux uses 32768+). Everything else — non-loopback of any kind, and loopback
-// on a well-known/canonical port including the daemon's :7433 — is REFUSED. The default
+// on a well-known/canonical port including the daemon's :7434 — is REFUSED. The default
 // for an unrecognised target is refuse, so fail-closed survives; this is not a denylist.
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
-const EPHEMERAL_MIN = 32768; // 2^15 — below both platforms' ephemeral floor, above :7433
+const EPHEMERAL_MIN = 32768; // 2^15 — below both platforms' ephemeral floor, above :7434
 
 interface Target { origin: string; host: string; port: number }
 function parseTarget(urlStr: string): Target | null {
@@ -52,7 +52,7 @@ function parseTarget(urlStr: string): Target | null {
 
 function isPermittedByShape(host: string, port: number): boolean {
   if (!LOOPBACK_HOSTS.has(host)) return false; // non-loopback → refuse (machine boundary)
-  return Number.isInteger(port) && port >= EPHEMERAL_MIN; // loopback-ephemeral permit; :7433 & low → refuse
+  return Number.isInteger(port) && port >= EPHEMERAL_MIN; // loopback-ephemeral permit; :7434 & low → refuse
 }
 
 function urlFromInput(input: RequestInfo | URL): string {
@@ -82,15 +82,15 @@ export function installFetchGuard(): void {
     // fixed-low-port escape hatch). REFUSE everything else — fail-closed by default.
     if (isPermittedByShape(t.host, t.port) || allowedOrigins.has(t.origin)) return orig(input as never, init);
     const nonLoopback = !LOOPBACK_HOSTS.has(t.host);
-    const isDaemon = t.port === 7433;
+    const isDaemon = t.port === 7434;
     return Promise.reject(
       new Error(
         `FETCH GUARD (P37): refused an outbound request to ${t.origin}` +
-          (isDaemon ? " (the canonical OpenRig daemon port)" : nonLoopback ? " (a NON-LOOPBACK / cross-machine target)" : "") +
+          (isDaemon ? " (the canonical SoftwareTeam daemon port)" : nonLoopback ? " (a NON-LOOPBACK / cross-machine target)" : "") +
           " — a cli test made a REAL request to a target that is neither a loopback-ephemeral fixture nor registered. " +
           (nonLoopback
             ? "Non-loopback is refused unconditionally (a test must not cross a machine boundary — hosts.yaml names a real remote at 100.95.124.51)."
-            : "Loopback on a well-known/canonical port is a request-layer leak to the daemon (a hardcoded :7433 literal, a mocked URL getter + un-mocked client, or a production default constant). Inject a mock client, use an in-process fixture (server.listen(0) → ephemeral, permitted), or register a fixed-low-port fixture with allowFetchTarget(url)."),
+            : "Loopback on a well-known/canonical port is a request-layer leak to the daemon (a hardcoded :7434 literal, a mocked URL getter + un-mocked client, or a production default constant). Inject a mock client, use an in-process fixture (server.listen(0) → ephemeral, permitted), or register a fixed-low-port fixture with allowFetchTarget(url)."),
       ),
     );
   }) as typeof globalThis.fetch;

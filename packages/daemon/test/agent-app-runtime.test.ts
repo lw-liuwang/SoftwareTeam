@@ -47,7 +47,7 @@ describe("agent app presets", () => {
 
   it.each([
     ["a missing file", {}, "missing", `no agent app preset named "synth" is installed`],
-    ["another format", { "synth.yaml": GOOD.replace("format: 1", "format: 2") }, "incompatible", "it declares format 2; this OpenRig reads format 1"],
+    ["another format", { "synth.yaml": GOOD.replace("format: 1", "format: 2") }, "incompatible", "it declares format 2; this SoftwareTeam reads format 1"],
     ["a field this format doesn't read", { "synth.yaml": `${GOOD}resume: --resume {token}\n` }, "incompatible", "unknown field resume"],
     ["a name that isn't the file's", { "synth.yaml": GOOD.replace("name: synth", "name: other") }, "incompatible", `its name is "other", not "synth"`],
     ["no command", { "synth.yaml": GOOD.replace("command: synth-app --serve\n", "") }, "incompatible", "command must be a non-empty string"],
@@ -126,11 +126,11 @@ describe("the agent app adapter", () => {
 
   it("types the command through the seat's launch environment, as a real daemon does", async () => {
     const { tmux } = adapter(presets({ "synth.yaml": GOOD }));
-    const command = vi.fn(async (_session: string, cmd: string, target?: { runtime?: string }) => `/usr/bin/env OPENRIG_RUNTIME=${target?.runtime} ${cmd}`);
+    const command = vi.fn(async (_session: string, cmd: string, target?: { runtime?: string }) => `/usr/bin/env SOFTWARETEAM_RUNTIME=${target?.runtime} ${cmd}`);
     const app = new AgentAppRuntimeAdapter("synth", { tmux, seatLaunchEnvironment: { command }, presetsDir: () => presets({ "synth.yaml": GOOD }) });
     expect(await app.launchHarness(binding, { name: "w@r" })).toEqual({ ok: true });
     expect(command).toHaveBeenCalledWith("w@r", "synth-app --serve", { runtime: "synth" });
-    expect(tmux.sendShellCommand).toHaveBeenCalledWith("w@r", "/usr/bin/env OPENRIG_RUNTIME=synth synth-app --serve", undefined, { stageIfLong: true, execInScript: true });
+    expect(tmux.sendShellCommand).toHaveBeenCalledWith("w@r", "/usr/bin/env SOFTWARETEAM_RUNTIME=synth synth-app --serve", undefined, { stageIfLong: true, execInScript: true });
   });
 
   it("refuses resume and fork without starting anything", async () => {
@@ -188,12 +188,12 @@ describe("the agent app selection recorded on a session", () => {
   it("is read back only for the session it was recorded on", () => {
     const db = createFullTestDb(); dbs.push(db);
     const registry = new SessionRegistry(db);
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('rig-1', 'r')").run();
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id, runtime, cwd) VALUES ('n1', 'rig-1', 'work.worker', 'synth', '/tmp')").run();
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('software-team-1', 'r')").run();
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, runtime, cwd) VALUES ('n1', 'software-team-1', 'work.worker', 'synth', '/tmp')").run();
     const launched = registry.registerSession("n1", "work-worker@r");
     registry.recordAgentAppSelection(launched.id, "synth");
     const claimed = registry.registerClaimedSession("n1", "work-worker@r");
-    const sessions = registry.getSessionsForRig("rig-1");
+    const sessions = registry.getSessionsForSoftwareTeam("software-team-1");
     expect(sessions.find(s => s.id === launched.id)?.agentApp).toBe("synth");
     expect(sessions.find(s => s.id === claimed.id)).not.toHaveProperty("agentApp");
   });
@@ -309,8 +309,8 @@ describe("activity after the seat's occupant is replaced under the same session 
 describe("identity for an agent app", () => {
   function reconcile(runtime: string, command: string, agentApp: string | null = null) {
     const db = createFullTestDb(); dbs.push(db);
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('rig-1', 'r')").run();
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id, runtime, cwd) VALUES ('n1', 'rig-1', 'work.worker', ?, '/tmp')").run(runtime);
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('software-team-1', 'r')").run();
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, runtime, cwd) VALUES ('n1', 'software-team-1', 'work.worker', ?, '/tmp')").run(runtime);
     db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status, agent_app) VALUES ('s1', 'n1', 'w@r', 'running', 'ready', ?)").run(agentApp);
     db.prepare("INSERT INTO bindings (id, node_id, attachment_type, tmux_session, tmux_pane) VALUES ('b1', 'n1', 'tmux', 'w@r', '%1')").run();
     const tmux = { listSessions: vi.fn(async () => [{ name: "w@r" }] as never), getPanePid: vi.fn(async () => 10), getPaneCommand: vi.fn(async () => command) };

@@ -5,12 +5,12 @@
  * trail convention used by Transcript / Log Cleanup v0 and UI Enhancement
  * Pack v0 — no new SQLite schema or migration.
  *
- * Default location is ~/.openrig/bundle-audit.jsonl. The writer is a pure
+ * Default location is ~/.softwareteam/bundle-audit.jsonl. The writer is a pure
  * data sink: callers (the /api/bundles/install route handler) compose the
  * record at the right moment in the install lifecycle and hand it to
  * BundleAuditWriter.append. The reader exposes a small filter API
- * (rig name + since timestamp) for the /api/bundles/history endpoint and
- * the `rig bundle history` CLI subcommand (both land at Checkpoint 5.2).
+ * (softwareTeam name + since timestamp) for the /api/bundles/history endpoint and
+ * the `softwareTeam bundle history` CLI subcommand (both land at Checkpoint 5.2).
  *
  * FsOps injection mirrors the codebase pattern for testability: real
  * implementation reads/writes node:fs; tests substitute an in-memory mock.
@@ -26,10 +26,10 @@ export interface BundleAuditRecord {
   bundlePath: string;
   /** SHA-256 archive hash (when available from bundle's sibling digest). */
   archiveHash?: string;
-  /** ULID of the rig the install targeted (when applicable). */
-  targetRigId?: string;
-  /** Name of the rig the install targeted (when applicable). */
-  targetRigName?: string;
+  /** ULID of the softwareTeam the install targeted (when applicable). */
+  targetSoftwareTeamId?: string;
+  /** Name of the softwareTeam the install targeted (when applicable). */
+  targetSoftwareTeamName?: string;
   /** Hostname recorded in the bundle's provenance (Item 1), when present. */
   sourceHost?: string;
   /** Daemon version at install time. */
@@ -52,7 +52,7 @@ export interface BundleAuditFsOps {
 
 /** Configuration for the audit writer + reader. */
 export interface BundleAuditOpts {
-  /** Absolute path to the JSONL file (default location: ~/.openrig/bundle-audit.jsonl). */
+  /** Absolute path to the JSONL file (default location: ~/.softwareteam/bundle-audit.jsonl). */
   auditPath: string;
 }
 
@@ -80,8 +80,8 @@ export class BundleAuditWriter {
 
 /** Filters supported by the audit reader (subset of /api/bundles/history). */
 export interface BundleAuditFilters {
-  /** When set, only return records whose targetRigName equals this value. */
-  rig?: string;
+  /** When set, only return records whose targetSoftwareTeamName equals this value. */
+  softwareTeam?: string;
   /** When set, only return records whose installedAt is >= this ISO timestamp. */
   since?: string;
 }
@@ -125,9 +125,9 @@ export class BundleAuditReader {
 function applyFilters(records: BundleAuditRecord[], filters?: BundleAuditFilters): BundleAuditRecord[] {
   if (!filters) return records;
   let out = records;
-  if (filters.rig !== undefined && filters.rig.length > 0) {
-    const rigName = filters.rig;
-    out = out.filter((r) => r.targetRigName === rigName);
+  if (filters.softwareTeam !== undefined && filters.softwareTeam.length > 0) {
+    const softwareTeamName = filters.softwareTeam;
+    out = out.filter((r) => r.targetSoftwareTeamName === softwareTeamName);
   }
   if (filters.since !== undefined && filters.since.length > 0) {
     const since = filters.since;

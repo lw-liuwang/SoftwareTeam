@@ -13,7 +13,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { createMockEventSourceClass } from "./helpers/mock-event-source.js";
 import { AppShell } from "../src/components/AppShell.js";
-import { HostScopePage, RigScopePage } from "../src/components/topology/ScopePages.js";
+import { HostScopePage, SoftwareTeamScopePage } from "../src/components/topology/ScopePages.js";
 
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
@@ -40,7 +40,7 @@ afterEach(() => {
 // import that raced the 5000ms waitFor under fleet load. A minimal router with
 // AppShell as the root and only the topology scope routes mounts the SAME
 // components with no heavy import and no clock to race. HostScopePage takes no
-// params; RigScopePage reads useParams({ from: "/topology/rig/$rigId" }), so
+// params; SoftwareTeamScopePage reads useParams({ from: "/topology/softwareTeam/$softwareTeamId" }), so
 // that route path is spelled exactly to preserve the strict param binding.
 function buildTopologyRouter(initialPath: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
@@ -54,9 +54,9 @@ function buildTopologyRouter(initialPath: string) {
     ),
   });
   const hostRoute = createRoute({ getParentRoute: () => rootRoute, path: "/topology", component: HostScopePage });
-  const rigRoute = createRoute({ getParentRoute: () => rootRoute, path: "/topology/rig/$rigId", component: RigScopePage });
+  const softwareTeamRoute = createRoute({ getParentRoute: () => rootRoute, path: "/topology/softwareTeam/$softwareTeamId", component: SoftwareTeamScopePage });
   const catchAll = createRoute({ getParentRoute: () => rootRoute, path: "$", component: () => null });
-  const routeTree = rootRoute.addChildren([hostRoute, rigRoute, catchAll]);
+  const routeTree = rootRoute.addChildren([hostRoute, softwareTeamRoute, catchAll]);
   return createRouter({ routeTree, history: createMemoryHistory({ initialEntries: [initialPath] }) });
 }
 
@@ -99,22 +99,22 @@ describe("SC-10: topology view-mode tabs IN-PLACE single URL", () => {
     });
   });
 
-  it("rig scope at /topology/rig/$rigId carries rig+pod tab set (graph/table/terminal/overview)", async () => {
-    const { container } = await renderTopologyAt("/topology/rig/abc-rig");
+  it("SoftwareTeam scope at /topology/softwareTeam/$softwareTeamId carries softwareTeam+pod tab set (graph/table/terminal/overview)", async () => {
+    const { container } = await renderTopologyAt("/topology/softwareTeam/abc-software-team");
     await waitFor(() => {
-      expect(container.querySelector("[data-testid='topology-rig-tabs']")).toBeTruthy();
+      expect(container.querySelector("[data-testid='topology-software-team-tabs']")).toBeTruthy();
     });
-    expect(container.querySelector("[data-testid='topology-rig-tab-graph']")).toBeTruthy();
-    expect(container.querySelector("[data-testid='topology-rig-tab-table']")).toBeTruthy();
-    expect(container.querySelector("[data-testid='topology-rig-tab-terminal']")).toBeTruthy();
-    expect(container.querySelector("[data-testid='topology-rig-tab-overview']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='topology-software-team-tab-graph']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='topology-software-team-tab-table']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='topology-software-team-tab-terminal']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='topology-software-team-tab-overview']")).toBeTruthy();
   });
 
   // Seat scope brings in LiveNodeDetails which makes additional fetches.
-  // Host + rig scope tests above prove the IN-PLACE pattern; the
+  // Host + SoftwareTeam scope tests above prove the IN-PLACE pattern; the
   // source-assertion regression test below proves no view-mode-as-URL
   // anti-patterns. Skipping the explicit seat-scope route render here.
-  it.skip("seat scope at /topology/seat/$rigId/$logicalId — covered by source-assertion + scope-page direct test", () => {});
+  it.skip("seat scope at /topology/seat/$softwareTeamId/$logicalId — covered by source-assertion + scope-page direct test", () => {});
 });
 
 describe("Seat scope tabs (direct render — bypasses route fetching)", () => {
@@ -177,7 +177,7 @@ describe("Class B negative assertion: non-topology routes never get vellum overl
 
 // CSS-source-assertion regression test (per pseudo-element-paint contract):
 // guard that routes.tsx never grows view-mode-as-URL paths
-// (e.g., `/topology/host/table`, `/topology/rig/$rigId/graph`).
+// (e.g., `/topology/host/table`, `/topology/softwareTeam/$softwareTeamId/graph`).
 // Attempt-2 violated SC-10 with exactly this anti-pattern.
 describe("SC-10 source-assertion regression — no view-mode-as-URL paths in routes.tsx", () => {
   const ROUTES_SRC = readFileSync(
@@ -189,11 +189,11 @@ describe("SC-10 source-assertion regression — no view-mode-as-URL paths in rou
     { name: "/topology/host/table", re: /\/topology\/host\/table/ },
     { name: "/topology/host/terminal", re: /\/topology\/host\/terminal/ },
     { name: "/topology/host/graph", re: /\/topology\/host\/graph/ },
-    { name: "/topology/rig/$rigId/table", re: /\/topology\/rig\/\$rigId\/table/ },
-    { name: "/topology/rig/$rigId/graph", re: /\/topology\/rig\/\$rigId\/graph/ },
-    { name: "/topology/rig/$rigId/terminal", re: /\/topology\/rig\/\$rigId\/terminal/ },
-    { name: "/topology/seat/$rigId/$logicalId/transcript", re: /\/topology\/seat\/\$rigId\/\$logicalId\/transcript/ },
-    { name: "/topology/seat/$rigId/$logicalId/terminal", re: /\/topology\/seat\/\$rigId\/\$logicalId\/terminal/ },
+    { name: "/topology/softwareTeam/$softwareTeamId/table", re: /\/topology\/softwareTeam\/\$softwareTeamId\/table/ },
+    { name: "/topology/softwareTeam/$softwareTeamId/graph", re: /\/topology\/softwareTeam\/\$softwareTeamId\/graph/ },
+    { name: "/topology/softwareTeam/$softwareTeamId/terminal", re: /\/topology\/softwareTeam\/\$softwareTeamId\/terminal/ },
+    { name: "/topology/seat/$softwareTeamId/$logicalId/transcript", re: /\/topology\/seat\/\$softwareTeamId\/\$logicalId\/transcript/ },
+    { name: "/topology/seat/$softwareTeamId/$logicalId/terminal", re: /\/topology\/seat\/\$softwareTeamId\/\$logicalId\/terminal/ },
   ];
 
   for (const f of FORBIDDEN_PATTERNS) {

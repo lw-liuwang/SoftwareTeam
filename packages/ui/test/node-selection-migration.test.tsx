@@ -5,7 +5,7 @@
 // had been retired from DrawerSelection in favor of 'seat-detail'. At V1
 // polish Phase 5.1 supersedes the seat-detail-as-drawer
 // pattern entirely: graph + tree + table all navigate to the canonical
-// /topology/seat/$rigId/$logicalId center page (LiveNodeDetails). The
+// /topology/seat/$softwareTeamId/$logicalId center page (LiveNodeDetails). The
 // drawer surface is reserved for content viewers (qitem / file / sub-spec)
 // per content-drawer.md L23-L34.
 //
@@ -17,7 +17,7 @@
 //   - 'seat-detail' kind absent from DrawerSelection union
 //   - 'node' kind absent from DrawerSelection union (preserved from P5-4)
 //   - useNodeSelection function absent from AppShell (alias retired)
-//   - RigGraph node click uses useNavigate (not setSelection / not
+//   - SoftwareTeamGraph node click uses useNavigate (not setSelection / not
 //     setSelectedNode)
 
 import { describe, it, expect } from "vitest";
@@ -28,7 +28,7 @@ import path from "node:path";
 const SRC = path.resolve(__dirname, "../src");
 const SHARED_DETAIL_DRAWER_PATH = path.join(SRC, "components/SharedDetailDrawer.tsx");
 const APP_SHELL_PATH = path.join(SRC, "components/AppShell.tsx");
-const RIG_GRAPH_PATH = path.join(SRC, "components/RigGraph.tsx");
+const SOFTWARE_TEAM_GRAPH_PATH = path.join(SRC, "components/SoftwareTeamGraph.tsx");
 const NODE_DETAIL_PANEL_PATH = path.join(SRC, "components/NodeDetailPanel.tsx");
 const SEAT_DETAIL_VIEWER_PATH = path.join(SRC, "components/drawer-viewers/SeatDetailViewer.tsx");
 const SEAT_DETAIL_TRIGGER_PATH = path.join(SRC, "components/drawer-triggers/SeatDetailTrigger.tsx");
@@ -76,8 +76,8 @@ describe("P5.1-D2 retirement regression: drawer-as-seat-detail removed", () => {
     expect(codeOnly).not.toMatch(/export\s+function\s+useNodeSelection\s*\(/);
   });
 
-  it("RigGraph uses useNavigate (NOT setSelectedNode / NOT setSelection seat-detail)", () => {
-    const src = readFileSync(RIG_GRAPH_PATH, "utf8");
+  it("SoftwareTeamGraph uses useNavigate (NOT setSelectedNode / NOT setSelection seat-detail)", () => {
+    const src = readFileSync(SOFTWARE_TEAM_GRAPH_PATH, "utf8");
     const codeOnly = src
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/^\s*\/\/[^\n]*\n/gm, "");
@@ -122,6 +122,6 @@ describe("P5.1-D2 retirement regression: drawer-as-seat-detail removed", () => {
     // No outer ScopeShell tabsNav for seat scope; LiveNodeDetails mounts
     // as the page body.
     expect(body).not.toMatch(/SEAT_SCOPE_TABS/);
-    expect(body).toMatch(/<LiveNodeDetails\s+rigId=/);
+    expect(body).toMatch(/<LiveNodeDetails\s+softwareTeamId=/);
   });
 });

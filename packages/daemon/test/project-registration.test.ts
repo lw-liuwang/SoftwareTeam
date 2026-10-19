@@ -1,4 +1,4 @@
-// A bundle's project is registered in the workspace catalog, with its rig
+// A bundle's project is registered in the workspace catalog, with its softwareTeam
 // associated, without disturbing the user's own projects.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
@@ -9,7 +9,7 @@ import { registerBundleProject } from "../src/domain/workspace/project-registrat
 import { vendorProjectDir } from "../src/domain/bundle-carried-project.js";
 import { readProjectCatalog } from "../src/domain/workspace/project-catalog.js";
 
-const USER_CATALOG = `schema: openrig.workspace/v0alpha1
+const USER_CATALOG = `schema: softwareteam.workspace/v0alpha1
 # My own projects. Keep this comment.
 projects:
   - id: myapp
@@ -30,16 +30,16 @@ describe("registerBundleProject", () => {
     projectsRoot = path.join(workspace, "projects");
     bundleProject = path.join(work, "bundle", "project");
     fs.mkdirSync(bundleProject, { recursive: true });
-    fs.writeFileSync(path.join(bundleProject, "project.yaml"), "schema: openrig.project/v0alpha1\nid: openrig\n");
-    fs.writeFileSync(path.join(bundleProject, "SPEC.md"), "# Contributing to OpenRig\n");
+    fs.writeFileSync(path.join(bundleProject, "project.yaml"), "schema: softwareteam.project/v0alpha1\nid: softwareteam\n");
+    fs.writeFileSync(path.join(bundleProject, "SPEC.md"), "# Contributing to SoftwareTeam\n");
   });
 
   afterEach(() => {
     fs.rmSync(work, { recursive: true, force: true });
   });
 
-  function register(rigName = "openrig-dev") {
-    return registerBundleProject({ bundleProjectDir: bundleProject, projectId: "openrig", rigName, projectsRoot, catalogPath, workspaceRoot: workspace });
+  function register(softwareTeamName = "softwareteam-dev") {
+    return registerBundleProject({ bundleProjectDir: bundleProject, projectId: "softwareteam", softwareTeamName, projectsRoot, catalogPath, workspaceRoot: workspace });
   }
 
   function entries() {
@@ -52,27 +52,27 @@ describe("registerBundleProject", () => {
 
     const result = register();
 
-    expect(result).toMatchObject({ status: "registered", projectId: "openrig", rigName: "openrig-dev" });
+    expect(result).toMatchObject({ status: "registered", projectId: "softwareteam", softwareTeamName: "softwareteam-dev" });
     const text = fs.readFileSync(catalogPath, "utf-8");
     expect(text.startsWith(USER_CATALOG.trimEnd())).toBe(true);
     expect(entries()).toEqual([
       { id: "myapp", root: "../code/myapp" },
-      { id: "openrig", root: "projects/openrig", rigs: ["openrig-dev"] },
+      { id: "softwareteam", root: "projects/softwareteam", softwareTeams: ["softwareteam-dev"] },
     ]);
-    expect(fs.readFileSync(path.join(projectsRoot, "openrig", "SPEC.md"), "utf-8")).toBe("# Contributing to OpenRig\n");
+    expect(fs.readFileSync(path.join(projectsRoot, "softwareteam", "SPEC.md"), "utf-8")).toBe("# Contributing to SoftwareTeam\n");
   });
 
   it("replaces the catalog in one step, leaving no temporary file beside it", () => {
     fs.mkdirSync(workspace, { recursive: true });
     fs.writeFileSync(catalogPath, USER_CATALOG);
     register();
-    register("openrig-dev-pi");
+    register("softwareteam-dev-pi");
     expect(fs.readdirSync(workspace).filter((name) => name.startsWith("workspace.yaml"))).toEqual(["workspace.yaml"]);
   });
 
   it("with no catalog, the workspace's entry keeps the id its own project.yaml declares", () => {
     fs.mkdirSync(workspace, { recursive: true });
-    fs.writeFileSync(path.join(workspace, "project.yaml"), "schema: openrig.project/v0alpha1\nid: myapp\n");
+    fs.writeFileSync(path.join(workspace, "project.yaml"), "schema: softwareteam.project/v0alpha1\nid: myapp\n");
 
     expect(register().status).toBe("registered");
     expect(entries()[0]).toEqual({ id: "myapp", root: "." });
@@ -80,21 +80,21 @@ describe("registerBundleProject", () => {
 
   it("with no catalog, a workspace project.yaml already using the bundle's id is a conflict and writes nothing", () => {
     fs.mkdirSync(workspace, { recursive: true });
-    fs.writeFileSync(path.join(workspace, "project.yaml"), "schema: openrig.project/v0alpha1\nid: openrig\n");
+    fs.writeFileSync(path.join(workspace, "project.yaml"), "schema: softwareteam.project/v0alpha1\nid: softwareteam\n");
 
     const result = register();
 
     expect(result.status).toBe("conflict");
-    expect(result.detail).toMatch(/already uses the id 'openrig'/);
+    expect(result.detail).toMatch(/already uses the id 'softwareteam'/);
     expect(fs.existsSync(catalogPath)).toBe(false);
   });
 
   it("a conflict leaves the project folder uncreated", () => {
     fs.mkdirSync(workspace, { recursive: true });
-    fs.writeFileSync(catalogPath, `${USER_CATALOG}  - id: openrig\n    root: ../code/openrig-fork\n`);
+    fs.writeFileSync(catalogPath, `${USER_CATALOG}  - id: softwareteam\n    root: ../code/softwareteam-fork\n`);
 
     expect(register().status).toBe("conflict");
-    expect(fs.existsSync(path.join(projectsRoot, "openrig"))).toBe(false);
+    expect(fs.existsSync(path.join(projectsRoot, "softwareteam"))).toBe(false);
   });
 
   it("edits the file a symlinked catalog points at, and keeps the link", () => {
@@ -106,7 +106,7 @@ describe("registerBundleProject", () => {
 
     expect(register().status).toBe("registered");
     expect(fs.lstatSync(catalogPath).isSymbolicLink()).toBe(true);
-    expect(fs.readFileSync(real, "utf-8")).toContain("rigs: [openrig-dev]");
+    expect(fs.readFileSync(real, "utf-8")).toContain("softwareTeams: [softwareteam-dev]");
   });
 
   it("keeps the existing catalog's permission bits", () => {
@@ -121,7 +121,7 @@ describe("registerBundleProject", () => {
     const oddWorkspace = path.join(work, "false");
     const outside = path.join(work, "workspace.yaml");
     fs.mkdirSync(oddWorkspace);
-    const result = registerBundleProject({ bundleProjectDir: bundleProject, projectId: "null", rigName: "123", projectsRoot: path.join(work, "true"), catalogPath: outside, workspaceRoot: oddWorkspace });
+    const result = registerBundleProject({ bundleProjectDir: bundleProject, projectId: "null", softwareTeamName: "123", projectsRoot: path.join(work, "true"), catalogPath: outside, workspaceRoot: oddWorkspace });
     expect(result.status).toBe("registered");
     expect(readProjectCatalog(outside)).toEqual([
       { id: "default", root: "false" },
@@ -129,17 +129,17 @@ describe("registerBundleProject", () => {
     ]);
     const appendedTo = path.join(work, "second.yaml");
     fs.writeFileSync(appendedTo, USER_CATALOG);
-    registerBundleProject({ bundleProjectDir: bundleProject, projectId: "true", rigName: "1e3", projectsRoot: path.join(work, "p"), catalogPath: appendedTo, workspaceRoot: oddWorkspace });
-    expect((parseYaml(fs.readFileSync(appendedTo, "utf-8")) as { projects: unknown[] }).projects[1]).toEqual({ id: "true", root: "p/true", rigs: ["1e3"] });
+    registerBundleProject({ bundleProjectDir: bundleProject, projectId: "true", softwareTeamName: "1e3", projectsRoot: path.join(work, "p"), catalogPath: appendedTo, workspaceRoot: oddWorkspace });
+    expect((parseYaml(fs.readFileSync(appendedTo, "utf-8")) as { projects: unknown[] }).projects[1]).toEqual({ id: "true", root: "p/true", softwareTeams: ["1e3"] });
   });
 
-  it("the existing catalog reader still reads the catalog, ignoring the rigs list", () => {
+  it("the existing catalog reader still reads the catalog, ignoring the softwareTeams list", () => {
     fs.mkdirSync(workspace, { recursive: true });
     fs.writeFileSync(catalogPath, USER_CATALOG);
     register();
     expect(readProjectCatalog(catalogPath)).toEqual([
       { id: "myapp", root: "../code/myapp" },
-      { id: "openrig", root: "projects/openrig" },
+      { id: "softwareteam", root: "projects/softwareteam" },
     ]);
   });
 
@@ -153,15 +153,15 @@ describe("registerBundleProject", () => {
     expect(fs.readFileSync(catalogPath, "utf-8")).toBe(after);
   });
 
-  it("a second rig joins the existing entry by a one-line edit", () => {
+  it("a second SoftwareTeam joins the existing entry by a one-line edit", () => {
     fs.mkdirSync(workspace, { recursive: true });
     fs.writeFileSync(catalogPath, USER_CATALOG);
     register();
     const before = fs.readFileSync(catalogPath, "utf-8");
 
-    expect(register("openrig-dev-pi").status).toBe("associated");
-    expect(entries()[1]).toEqual({ id: "openrig", root: "projects/openrig", rigs: ["openrig-dev", "openrig-dev-pi"] });
-    expect(fs.readFileSync(catalogPath, "utf-8")).toBe(before.replace("rigs: [openrig-dev]", "rigs: [openrig-dev, openrig-dev-pi]"));
+    expect(register("softwareteam-dev-pi").status).toBe("associated");
+    expect(entries()[1]).toEqual({ id: "softwareteam", root: "projects/softwareteam", softwareTeams: ["softwareteam-dev", "softwareteam-dev-pi"] });
+    expect(fs.readFileSync(catalogPath, "utf-8")).toBe(before.replace("softwareTeams: [softwareteam-dev]", "softwareTeams: [softwareteam-dev, softwareteam-dev-pi]"));
   });
 
   it("keeps a CRLF catalog's bytes and appends in its line endings", () => {
@@ -172,63 +172,63 @@ describe("registerBundleProject", () => {
     expect(register().status).toBe("registered");
     const text = fs.readFileSync(catalogPath, "utf-8");
     expect(text.startsWith(crlf)).toBe(true);
-    expect(text.slice(crlf.length)).toBe("  - id: openrig\r\n    root: projects/openrig\r\n    rigs: [openrig-dev]\r\n");
+    expect(text.slice(crlf.length)).toBe("  - id: softwareteam\r\n    root: projects/softwareteam\r\n    softwareTeams: [softwareteam-dev]\r\n");
   });
 
   it("keeps a 4-space catalog's bytes and appends in its indentation", () => {
     fs.mkdirSync(workspace, { recursive: true });
-    const wide = "schema: openrig.workspace/v0alpha1\nprojects:\n    -   id: myapp\n        root: ../code/myapp   # mine\n";
+    const wide = "schema: softwareteam.workspace/v0alpha1\nprojects:\n    -   id: myapp\n        root: ../code/myapp   # mine\n";
     fs.writeFileSync(catalogPath, wide);
 
     expect(register().status).toBe("registered");
-    expect(fs.readFileSync(catalogPath, "utf-8")).toBe(`${wide}    -   id: openrig\n        root: projects/openrig\n        rigs: [openrig-dev]\n`);
+    expect(fs.readFileSync(catalogPath, "utf-8")).toBe(`${wide}    -   id: softwareteam\n        root: projects/softwareteam\n        softwareTeams: [softwareteam-dev]\n`);
   });
 
   it("does not rewrite a flow-style catalog: nothing is written, and the entry to add is given", () => {
     fs.mkdirSync(workspace, { recursive: true });
-    const flow = "schema: openrig.workspace/v0alpha1\nprojects: [{id: myapp, root: ../code/myapp}]\n";
+    const flow = "schema: softwareteam.workspace/v0alpha1\nprojects: [{id: myapp, root: ../code/myapp}]\n";
     fs.writeFileSync(catalogPath, flow);
 
     const result = register();
 
     expect(result.status).toBe("conflict");
-    expect(result.detail).toMatch(/by hand: \{ id: openrig, root: projects\/openrig, rigs: \[openrig-dev\] \}/);
+    expect(result.detail).toMatch(/by hand: \{ id: softwareteam, root: projects\/softwareteam, softwareTeams: \[softwareteam-dev\] \}/);
     expect(fs.readFileSync(catalogPath, "utf-8")).toBe(flow);
   });
 
   it("the entry it asks you to add by hand reads back as strings", () => {
     fs.mkdirSync(workspace, { recursive: true });
-    fs.writeFileSync(catalogPath, "schema: openrig.workspace/v0alpha1\nprojects: [{id: myapp, root: ../code/myapp}]\n");
-    const result = registerBundleProject({ bundleProjectDir: bundleProject, projectId: "true", rigName: "123", projectsRoot, catalogPath, workspaceRoot: workspace });
+    fs.writeFileSync(catalogPath, "schema: softwareteam.workspace/v0alpha1\nprojects: [{id: myapp, root: ../code/myapp}]\n");
+    const result = registerBundleProject({ bundleProjectDir: bundleProject, projectId: "true", softwareTeamName: "123", projectsRoot, catalogPath, workspaceRoot: workspace });
     const shown = /by hand: (\{.*\})$/.exec(result.detail ?? "")?.[1];
-    expect(parseYaml(shown!)).toEqual({ id: "true", root: "projects/true", rigs: ["123"] });
+    expect(parseYaml(shown!)).toEqual({ id: "true", root: "projects/true", softwareTeams: ["123"] });
   });
 
   it("the same folder registered under another id is a conflict, and the catalog is untouched", () => {
-    fs.mkdirSync(path.join(projectsRoot, "openrig"), { recursive: true });
-    const catalog = `${USER_CATALOG}  - id: oss\n    root: projects/openrig\n`;
+    fs.mkdirSync(path.join(projectsRoot, "softwareteam"), { recursive: true });
+    const catalog = `${USER_CATALOG}  - id: oss\n    root: projects/softwareteam\n`;
     fs.writeFileSync(catalogPath, catalog);
 
     const result = register();
 
     expect(result.status).toBe("conflict");
-    expect(result.detail).toMatch(/already registered .* as project 'oss', but its project.yaml says 'openrig'/);
+    expect(result.detail).toMatch(/already registered .* as project 'oss', but its project.yaml says 'softwareteam'/);
     expect(fs.readFileSync(catalogPath, "utf-8")).toBe(catalog);
   });
 
   it("with no catalog outside the workspace root, the default entry still points at the workspace root", () => {
     const outside = path.join(work, "config", "workspace.yaml");
-    const result = registerBundleProject({ bundleProjectDir: bundleProject, projectId: "openrig", rigName: "openrig-dev", projectsRoot, catalogPath: outside, workspaceRoot: workspace });
+    const result = registerBundleProject({ bundleProjectDir: bundleProject, projectId: "softwareteam", softwareTeamName: "softwareteam-dev", projectsRoot, catalogPath: outside, workspaceRoot: workspace });
 
     expect(result.status).toBe("registered");
     const catalog = parseYaml(fs.readFileSync(outside, "utf-8")) as { projects: Array<{ id: string; root: string }> };
     expect(path.resolve(path.dirname(outside), catalog.projects[0]!.root)).toBe(workspace);
-    expect(path.resolve(path.dirname(outside), catalog.projects[1]!.root)).toBe(path.join(projectsRoot, "openrig"));
+    expect(path.resolve(path.dirname(outside), catalog.projects[1]!.root)).toBe(path.join(projectsRoot, "softwareteam"));
   });
 
   it("the id taken by a different root is a conflict, and the catalog is untouched", () => {
     fs.mkdirSync(workspace, { recursive: true });
-    const catalog = `${USER_CATALOG}  - id: openrig\n    root: ../code/openrig-fork\n`;
+    const catalog = `${USER_CATALOG}  - id: softwareteam\n    root: ../code/softwareteam-fork\n`;
     fs.writeFileSync(catalogPath, catalog);
 
     const result = register();
@@ -238,9 +238,9 @@ describe("registerBundleProject", () => {
     expect(fs.readFileSync(catalogPath, "utf-8")).toBe(catalog);
   });
 
-  it("a rig already associated with another project is a conflict, and the catalog is untouched", () => {
+  it("a SoftwareTeam already associated with another project is a conflict, and the catalog is untouched", () => {
     fs.mkdirSync(workspace, { recursive: true });
-    const catalog = `schema: openrig.workspace/v0alpha1\nprojects:\n  - id: myapp\n    root: ../code/myapp\n    rigs: [openrig-dev]\n`;
+    const catalog = `schema: softwareteam.workspace/v0alpha1\nprojects:\n  - id: myapp\n    root: ../code/myapp\n    softwareTeams: [softwareteam-dev]\n`;
     fs.writeFileSync(catalogPath, catalog);
 
     const result = register();
@@ -256,18 +256,18 @@ describe("registerBundleProject", () => {
     expect(result.status).toBe("registered");
     expect(entries()).toEqual([
       { id: "default", root: "." },
-      { id: "openrig", root: "projects/openrig", rigs: ["openrig-dev"] },
+      { id: "softwareteam", root: "projects/softwareteam", softwareTeams: ["softwareteam-dev"] },
     ]);
   });
 
   it("keeps an existing, different project folder and says so", () => {
-    fs.mkdirSync(path.join(projectsRoot, "openrig"), { recursive: true });
-    fs.writeFileSync(path.join(projectsRoot, "openrig", "SPEC.md"), "# My edited intent\n");
+    fs.mkdirSync(path.join(projectsRoot, "softwareteam"), { recursive: true });
+    fs.writeFileSync(path.join(projectsRoot, "softwareteam", "SPEC.md"), "# My edited intent\n");
 
     const result = register();
 
     expect(result).toMatchObject({ status: "registered", projectFolderKept: true });
-    expect(fs.readFileSync(path.join(projectsRoot, "openrig", "SPEC.md"), "utf-8")).toBe("# My edited intent\n");
+    expect(fs.readFileSync(path.join(projectsRoot, "softwareteam", "SPEC.md"), "utf-8")).toBe("# My edited intent\n");
   });
 });
 
@@ -282,7 +282,7 @@ describe("vendorProjectDir", () => {
     staging = path.join(work, "staging");
     fs.mkdirSync(projectDir);
     fs.mkdirSync(staging);
-    fs.writeFileSync(path.join(projectDir, "project.yaml"), "schema: openrig.project/v0alpha1\nid: openrig\n");
+    fs.writeFileSync(path.join(projectDir, "project.yaml"), "schema: softwareteam.project/v0alpha1\nid: softwareteam\n");
     fs.writeFileSync(path.join(projectDir, "SPEC.md"), "# Contributing\n");
   });
 
@@ -291,12 +291,12 @@ describe("vendorProjectDir", () => {
   });
 
   it("carries project.yaml and its files under project/ and returns the id", () => {
-    expect(vendorProjectDir(projectDir, staging)).toEqual({ id: "openrig", path: "project" });
+    expect(vendorProjectDir(projectDir, staging)).toEqual({ id: "softwareteam", path: "project" });
     expect(fs.readdirSync(path.join(staging, "project")).sort()).toEqual(["SPEC.md", "project.yaml"]);
   });
 
   it("needs an id in project.yaml", () => {
-    fs.writeFileSync(path.join(projectDir, "project.yaml"), "schema: openrig.project/v0alpha1\n");
+    fs.writeFileSync(path.join(projectDir, "project.yaml"), "schema: softwareteam.project/v0alpha1\n");
     expect(() => vendorProjectDir(projectDir, staging)).toThrow(/declares no id/);
   });
 

@@ -33,7 +33,7 @@ import {
   type C1ArtifactType,
   type C1Verdict,
   type ComposedMissionReview,
-  type ComposedRigAgents,
+  type ComposedSoftwareTeamAgents,
   type ComposedSliceReview,
   type DeliveredItem,
   type DerivedException,
@@ -383,7 +383,7 @@ export interface PromisedItem {
 
 // KI-5.3-2 — the logical-checkbox grammar (LogicalCheckboxItem +
 // parseLogicalCheckboxes) now lives in the twinned module
-// ../scope/logical-checkbox.ts, byte-equal with the CLI so `rig proof add`
+// ../scope/logical-checkbox.ts, byte-equal with the CLI so `softwareTeam proof add`
 // indexes the SAME items this composer renders. Re-exported here so existing
 // readers (slice-detail-projector) keep importing it from the composer; the
 // ONE parse is unchanged.
@@ -782,7 +782,7 @@ export function composeNeedsYou(
   };
 }
 
-// --- OPR.0.4.4.22 (slice 22): agent-scope exceptions + the rig read root (KEEP) ---
+// --- OPR.0.4.4.22 (slice 22): agent-scope exceptions + the softwareTeam read root (KEEP) ---
 
 /** OPR.0.4.6.WF5 FR-3 — one recorded workflow-instance view for the ▲
  *  band. The GATHERER assembles these from recorded state only
@@ -857,7 +857,7 @@ export function deriveWorkflowExceptions(
     });
   };
   for (const w of workflows) {
-    const trace = `rig workflow trace ${w.instanceId}`;
+    const trace = `SoftwareTeam workflow trace ${w.instanceId}`;
     // OPR.0.4.6.WF4 Q6 — the pointer for every row this instance emits;
     // identity derived exactly once, here (never from prose downstream).
     const wref: WorkflowRowRef = {
@@ -977,7 +977,7 @@ export function deriveAgentScopeExceptions(
   return items;
 }
 
-export interface RigComposeInputs {
+export interface SoftwareTeamComposeInputs {
   agents: AgentInput[];
   overdue: AttentionInput[];
   attention: AttentionInput[];
@@ -992,11 +992,11 @@ export interface RigComposeInputs {
   nowIso: string;
 }
 
-/** Slice-22 FR-1..FR-4 — the rig-scope composition root. PURE: same inputs,
+/** Slice-22 FR-1..FR-4 — the software-team-scope composition root. PURE: same inputs,
  *  byte-identical output (idempotence is a money proof). */
-export function composeRigAgents(inputs: RigComposeInputs): ComposedRigAgents {
+export function composeSoftwareTeamAgents(inputs: SoftwareTeamComposeInputs): ComposedSoftwareTeamAgents {
   const { nowIso } = inputs;
-  const scopeLabel = "rig";
+  const scopeLabel = "softwareTeam";
   const derived = [
     ...deriveAgentScopeExceptions(inputs.agents, inputs.overdue, scopeLabel, nowIso),
     ...deriveWorkflowExceptions(inputs.workflows ?? [], scopeLabel, nowIso),
@@ -1005,12 +1005,12 @@ export function composeRigAgents(inputs: RigComposeInputs): ComposedRigAgents {
     inputs.attention,
     derived,
     [],
-    `queue+ps (rig scope) · window: ${inputs.rosterWindow}`,
+    `queue+ps (SoftwareTeam scope) · window: ${inputs.rosterWindow}`,
     nowIso,
   );
-  const band = composeAgentsBand(inputs.agents, "rig", derived, nowIso);
+  const band = composeAgentsBand(inputs.agents, "softwareTeam", derived, nowIso);
   return {
-    scope: "rig",
+    scope: "softwareTeam",
     needsYou,
     agents: {
       ...band,
@@ -1030,7 +1030,7 @@ export function composeRigAgents(inputs: RigComposeInputs): ComposedRigAgents {
   };
 }
 
-/** Region membership derives from work-on-THIS-scope, never rig co-residency. */
+/** Region membership derives from work-on-THIS-scope, never softwareTeam co-residency. */
 export function composeAgentsBand(
   agents: AgentInput[],
   scope: AgentsScope,

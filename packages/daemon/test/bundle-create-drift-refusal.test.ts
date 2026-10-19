@@ -1,8 +1,8 @@
-// Bundle create REFUSES to export a spec that disagrees with the rig it names.
+// Bundle create REFUSES to export a spec that disagrees with the softwareTeam it names.
 //
 // Build B already DETECTS spec-vs-live drift and returns a `warning` on the 201 (see
 // bundle-export-drift-warning.test.ts, which pins the detection wiring). Detection was not enough:
-// a .rigbundle is a disaster-recovery artifact, and a warning attached to a success is discovered
+// a .softwareteambundle is a disaster-recovery artifact, and a warning attached to a success is discovered
 // at the one moment it is least affordable. These tests pin the ENFORCEMENT — refuse by default,
 // proceed only when the operator says they mean it, and make the artifact carry its own caveat when
 // they do.
@@ -21,9 +21,9 @@ import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 import { createTestApp } from "./helpers/test-app.js";
 
-const RIG_NAME = "drift-export-rig";
+const SOFTWARE_TEAM_NAME = "drift-export-software-team";
 
-describe("bundle create — refuses a spec that disagrees with the live rig", () => {
+describe("bundle create — refuses a spec that disagrees with the live softwareTeam", () => {
   let db: Database.Database;
   let app: ReturnType<typeof createTestApp>["app"];
   let tmpDir: string;
@@ -40,12 +40,12 @@ describe("bundle create — refuses a spec that disagrees with the live rig", ()
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  /** A rig running in the DB with the given fully-qualified seat ids. */
-  function seedLiveRig(name: string, logicalIds: string[]): void {
-    const rigId = `rig-${name}`;
-    db.prepare("INSERT INTO rigs (id, name, created_at, updated_at) VALUES (?,?,datetime('now'),datetime('now'))").run(rigId, name);
+  /** A softwareTeam running in the DB with the given fully-qualified seat ids. */
+  function seedLiveSoftwareTeam(name: string, logicalIds: string[]): void {
+    const softwareTeamId = `software-team-${name}`;
+    db.prepare("INSERT INTO software_teams (id, name, created_at, updated_at) VALUES (?,?,datetime('now'),datetime('now'))").run(softwareTeamId, name);
     for (const [i, lid] of logicalIds.entries()) {
-      db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?,?,?)").run(`${rigId}-n${i}`, rigId, lid);
+      db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?,?,?)").run(`${softwareTeamId}-n${i}`, softwareTeamId, lid);
     }
   }
 
@@ -93,18 +93,18 @@ describe("bundle create — refuses a spec that disagrees with the live rig", ()
         specPath,
         bundleName: outputName,
         bundleVersion: "0.1.0",
-        outputPath: path.join(tmpDir, `${outputName}.rigbundle`),
+        outputPath: path.join(tmpDir, `${outputName}.softwareteambundle`),
         ...extra,
       }),
     });
   }
 
-  // THE RED: this is the shipped defect. The spec declares one pod/one seat; the rig is running two
+  // THE RED: this is the shipped defect. The spec declares one pod/one seat; the softwareTeam is running two
   // pods and three seats. Today that exports 201 with a warning nobody is required to read, and the
-  // resulting DR artifact rebuilds the smaller rig.
-  it("refuses with 409 and names BOTH topologies when the spec is smaller than the live rig", async () => {
-    seedLiveRig(RIG_NAME, ["dev.impl", "dev.qa", "orch.lead"]);
-    const specPath = writeSpec(RIG_NAME, [{ id: "dev", members: ["impl"] }]);
+  // resulting DR artifact rebuilds the smaller softwareTeam.
+  it("refuses with 409 and names BOTH topologies when the spec is smaller than the live softwareTeam", async () => {
+    seedLiveSoftwareTeam(SOFTWARE_TEAM_NAME, ["dev.impl", "dev.qa", "orch.lead"]);
+    const specPath = writeSpec(SOFTWARE_TEAM_NAME, [{ id: "dev", members: ["impl"] }]);
 
     const res = await create(specPath, "stale");
 
@@ -117,13 +117,13 @@ describe("bundle create — refuses a spec that disagrees with the live rig", ()
     expect(body.error).toContain("dev.qa");
     expect(body.error).toContain("orch.lead");
     // Refusal means refusal: no artifact on disk.
-    expect(fs.existsSync(path.join(tmpDir, "stale.rigbundle"))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, "stale.softwareteambundle"))).toBe(false);
   });
 
   // The escape hatch, and the price of using it: the artifact carries its own caveat.
   it("proceeds with allowDrift and stamps the divergence into bundle provenance", async () => {
-    seedLiveRig(RIG_NAME, ["dev.impl", "dev.qa", "orch.lead"]);
-    const specPath = writeSpec(RIG_NAME, [{ id: "dev", members: ["impl"] }]);
+    seedLiveSoftwareTeam(SOFTWARE_TEAM_NAME, ["dev.impl", "dev.qa", "orch.lead"]);
+    const specPath = writeSpec(SOFTWARE_TEAM_NAME, [{ id: "dev", members: ["impl"] }]);
 
     const res = await create(specPath, "allowed", { allowDrift: true });
 
@@ -136,30 +136,30 @@ describe("bundle create — refuses a spec that disagrees with the live rig", ()
     const inspectRes = await app.request("/api/bundles/inspect", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bundlePath: path.join(tmpDir, "allowed.rigbundle") }),
+      body: JSON.stringify({ bundlePath: path.join(tmpDir, "allowed.softwareteambundle") }),
     });
     expect(inspectRes.status).toBe(200);
     const inspected = await inspectRes.json() as { manifest?: { provenance?: { notes?: string } } };
     expect(inspected.manifest?.provenance?.notes ?? "").toContain("2/3");
   });
 
-  // PRESERVE 1 — authoring a spec for a rig that is not running is legitimate and must stay silent.
+  // PRESERVE 1 — authoring a spec for a softwareTeam that is not running is legitimate and must stay silent.
   // This is the case a refuse-everything implementation breaks.
-  it("stays silent when the named rig is not running", async () => {
-    const specPath = writeSpec("not-a-running-rig", [{ id: "dev", members: ["impl"] }]);
+  it("stays silent when the named SoftwareTeam is not running", async () => {
+    const specPath = writeSpec("not-a-running-software-team", [{ id: "dev", members: ["impl"] }]);
 
     const res = await create(specPath, "authoring");
 
     expect(res.status).toBe(201);
     const body = await res.json() as { warning?: string };
     expect(body.warning).toBeUndefined();
-    expect(fs.existsSync(path.join(tmpDir, "authoring.rigbundle"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, "authoring.softwareteambundle"))).toBe(true);
   });
 
   // PRESERVE 2 — spec and live agree: no refusal, no warning, no new ceremony on a correct path.
-  it("stays silent when the spec matches the live rig exactly", async () => {
-    seedLiveRig(RIG_NAME, ["dev.impl", "orch.lead"]);
-    const specPath = writeSpec(RIG_NAME, [
+  it("stays silent when the spec matches the live SoftwareTeam exactly", async () => {
+    seedLiveSoftwareTeam(SOFTWARE_TEAM_NAME, ["dev.impl", "orch.lead"]);
+    const specPath = writeSpec(SOFTWARE_TEAM_NAME, [
       { id: "dev", members: ["impl"] },
       { id: "orch", members: ["lead"] },
     ]);
@@ -169,11 +169,11 @@ describe("bundle create — refuses a spec that disagrees with the live rig", ()
     expect(res.status).toBe(201);
     const body = await res.json() as { warning?: string };
     expect(body.warning).toBeUndefined();
-    expect(fs.existsSync(path.join(tmpDir, "conforming.rigbundle"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, "conforming.softwareteambundle"))).toBe(true);
   });
 
   // LEGACY (v1) specs export through this same endpoint and produce the same confidently-wrong
-  // artifact. They need the same guard, not a second detector: a v1 rig is a topology with no pod
+  // artifact. They need the same guard, not a second detector: a v1 softwareTeam is a topology with no pod
   // level, and a node's `logical_id` IS the spec's `node.id`, so the only thing the format changes
   // is how ids are read.
   function writeLegacySpec(name: string, nodeIds: string[]): string {
@@ -185,9 +185,9 @@ describe("bundle create — refuses a spec that disagrees with the live rig", ()
     return specPath;
   }
 
-  it("refuses a LEGACY spec that is smaller than the live rig, naming the dropped seats", async () => {
-    seedLiveRig(RIG_NAME, ["dev", "qa", "lead"]);
-    const specPath = writeLegacySpec(RIG_NAME, ["dev"]);
+  it("refuses a LEGACY spec that is smaller than the live softwareTeam, naming the dropped seats", async () => {
+    seedLiveSoftwareTeam(SOFTWARE_TEAM_NAME, ["dev", "qa", "lead"]);
+    const specPath = writeLegacySpec(SOFTWARE_TEAM_NAME, ["dev"]);
 
     const res = await create(specPath, "legacy-stale");
 
@@ -195,33 +195,33 @@ describe("bundle create — refuses a spec that disagrees with the live rig", ()
     const body = await res.json() as { error: string };
     expect(body.error).toContain("qa");
     expect(body.error).toContain("lead");
-    expect(fs.existsSync(path.join(tmpDir, "legacy-stale.rigbundle"))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, "legacy-stale.softwareteambundle"))).toBe(false);
   });
 
-  // The flat reader is the load-bearing half of legacy support. Read a flat rig through the
-  // pod-aware reader and every id parses as malformed, the live rig reads as EMPTY, and the guard
+  // The flat reader is the load-bearing half of legacy support. Read a flat softwareTeam through the
+  // pod-aware reader and every id parses as malformed, the live softwareTeam reads as EMPTY, and the guard
   // reports "nothing is running" — a false absence, on the one path that exists to notice what
   // would be dropped. This case fails loudly if that reader is ever swapped back.
-  it("stays silent when a LEGACY spec matches the live rig exactly", async () => {
-    seedLiveRig(RIG_NAME, ["dev", "qa"]);
-    const specPath = writeLegacySpec(RIG_NAME, ["dev", "qa"]);
+  it("stays silent when a LEGACY spec matches the live SoftwareTeam exactly", async () => {
+    seedLiveSoftwareTeam(SOFTWARE_TEAM_NAME, ["dev", "qa"]);
+    const specPath = writeLegacySpec(SOFTWARE_TEAM_NAME, ["dev", "qa"]);
 
     const res = await create(specPath, "legacy-conforming");
 
     expect(res.status).toBe(201);
     const body = await res.json() as { warning?: string };
     expect(body.warning).toBeUndefined();
-    expect(fs.existsSync(path.join(tmpDir, "legacy-conforming.rigbundle"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, "legacy-conforming.softwareteambundle"))).toBe(true);
   });
 
   // DIRECTION IS NOT THE TEST — DISAGREEMENT IS. An earlier revision let this case through, reasoning
   // that a spec declaring MORE than is live is a bundle whose job is to bring the rest up. That read
-  // the `nodes` rows as "currently-running sessions"; they are the rig's PERSISTED topology. A
-  // restore that raises seats the spec never declared yields a different rig just as surely as one
+  // the `nodes` rows as "currently-running sessions"; they are the softwareTeam's PERSISTED topology. A
+  // restore that raises seats the spec never declared yields a different softwareTeam just as surely as one
   // that drops them, so it refuses too, and --allow-drift is the way through.
-  it("refuses when the spec declares MORE than the rig's persisted topology", async () => {
-    seedLiveRig(RIG_NAME, ["dev.impl"]);
-    const specPath = writeSpec(RIG_NAME, [
+  it("refuses when the spec declares MORE than the softwareTeam's persisted topology", async () => {
+    seedLiveSoftwareTeam(SOFTWARE_TEAM_NAME, ["dev.impl"]);
+    const specPath = writeSpec(SOFTWARE_TEAM_NAME, [
       { id: "dev", members: ["impl"] },
       { id: "orch", members: ["lead"] },
     ]);
@@ -231,12 +231,12 @@ describe("bundle create — refuses a spec that disagrees with the live rig", ()
     expect(res.status).toBe(409);
     const body = await res.json() as { error: string };
     expect(body.error).toContain("orch.lead");
-    expect(fs.existsSync(path.join(tmpDir, "extra.rigbundle"))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, "extra.softwareteambundle"))).toBe(false);
   });
 
   it("still exports the over-declaring spec when the operator passes allowDrift", async () => {
-    seedLiveRig(RIG_NAME, ["dev.impl"]);
-    const specPath = writeSpec(RIG_NAME, [
+    seedLiveSoftwareTeam(SOFTWARE_TEAM_NAME, ["dev.impl"]);
+    const specPath = writeSpec(SOFTWARE_TEAM_NAME, [
       { id: "dev", members: ["impl"] },
       { id: "orch", members: ["lead"] },
     ]);
@@ -244,18 +244,18 @@ describe("bundle create — refuses a spec that disagrees with the live rig", ()
     const res = await create(specPath, "extra-allowed", { allowDrift: true });
 
     expect(res.status).toBe(201);
-    expect(fs.existsSync(path.join(tmpDir, "extra-allowed.rigbundle"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, "extra-allowed.softwareteambundle"))).toBe(true);
   });
 
-  // A MALFORMED SPEC IS A BROKEN FILE, NOT A DRIFTED RIG. Both fixtures below are ALSO in drift, so
+  // A MALFORMED SPEC IS A BROKEN FILE, NOT A DRIFTED SOFTWARE_TEAM. Both fixtures below are ALSO in drift, so
   // an implementation that assesses before validating answers 409 and sends the operator off to
   // reconcile a topology when the real answer is "this spec does not parse".
   it("returns the schema 400 — not a drift 409 — for a malformed pod-aware spec", async () => {
-    seedLiveRig(RIG_NAME, ["dev.impl", "dev.qa", "orch.lead"]);
+    seedLiveSoftwareTeam(SOFTWARE_TEAM_NAME, ["dev.impl", "dev.qa", "orch.lead"]);
     const specPath = path.join(tmpDir, "malformed-pod.yaml");
     fs.writeFileSync(specPath, [
       'version: "0.2"',
-      `name: ${RIG_NAME}`,
+      `name: ${SOFTWARE_TEAM_NAME}`,
       "pods:",
       "  - id: dev",
       "    label: Dev",
@@ -269,15 +269,15 @@ describe("bundle create — refuses a spec that disagrees with the live rig", ()
 
     expect(res.status).toBe(400);
     const body = await res.json() as { error: string };
-    expect(body.error).toContain("Invalid pod-aware rig spec");
+    expect(body.error).toContain("Invalid pod-aware SoftwareTeam spec");
   });
 
   it("returns the schema 400 — not a drift 409 — for a malformed legacy spec", async () => {
-    seedLiveRig(RIG_NAME, ["dev", "qa", "lead"]);
+    seedLiveSoftwareTeam(SOFTWARE_TEAM_NAME, ["dev", "qa", "lead"]);
     const specPath = path.join(tmpDir, "malformed-legacy.yaml");
     fs.writeFileSync(specPath, [
       "schema_version: 1",
-      `name: ${RIG_NAME}`,
+      `name: ${SOFTWARE_TEAM_NAME}`,
       'version: "1.0"',
       "nodes:",
       "  - id: dev",                // no runtime
@@ -288,20 +288,20 @@ describe("bundle create — refuses a spec that disagrees with the live rig", ()
 
     expect(res.status).toBe(400);
     const body = await res.json() as { error: string };
-    expect(body.error).toContain("Invalid rig spec");
+    expect(body.error).toContain("Invalid SoftwareTeam spec");
   });
 
   // FAIL CLOSED. If the comparison itself cannot be performed, the one answer that must never be
   // produced is "no drift, exported". A guard that reports clean because its own query threw is
   // worse than no guard: it is a green nobody can trust, on a recovery artifact.
   it("fails closed when the topology query itself fails — never a silent clean export", async () => {
-    seedLiveRig(RIG_NAME, ["dev.impl", "dev.qa"]);
-    const specPath = writeSpec(RIG_NAME, [{ id: "dev", members: ["impl"] }]);
+    seedLiveSoftwareTeam(SOFTWARE_TEAM_NAME, ["dev.impl", "dev.qa"]);
+    const specPath = writeSpec(SOFTWARE_TEAM_NAME, [{ id: "dev", members: ["impl"] }]);
     db.prepare("DROP TABLE nodes").run();
 
     const res = await create(specPath, "db-broken");
 
     expect(res.status).toBe(500);
-    expect(fs.existsSync(path.join(tmpDir, "db-broken.rigbundle"))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, "db-broken.softwareteambundle"))).toBe(false);
   });
 });

@@ -1,9 +1,9 @@
 # Host load and transcript capture
 
-Use `rig ps --resources` to inspect the serving host, or add `--host <id>`
+Use `SoftwareTeam ps --resources` to inspect the serving host, or add `--host <id>`
 for one registered HTTP/SSH host. `--json` returns the same measurements for
-operators and monitoring tools. This view is host-scoped; rig/node filters and
-multi-host fan-out do not apply. Ordinary `rig ps` output is unchanged.
+operators and monitoring tools. This view is host-scoped; SoftwareTeam/node filters and
+multi-host fan-out do not apply. Ordinary `SoftwareTeam ps` output is unchanged.
 
 The view reports available CPU count, host load averages (1/5/15 minutes),
 load divided by CPU count, running seats, the number of rotating seats and how
@@ -44,10 +44,10 @@ can exceed the saved trail. Interactive terminal streaming is unchanged.
 ## Change capture settings without restarting
 
 ```bash
-rig config set transcripts.poll_interval_seconds 3
-rig config set transcripts.lines 2000
-rig ps --resources
-rig config reset transcripts.poll_interval_seconds
+SoftwareTeam config set transcripts.poll_interval_seconds 3
+SoftwareTeam config set transcripts.lines 2000
+SoftwareTeam ps --resources
+SoftwareTeam config reset transcripts.poll_interval_seconds
 ```
 
 Running rotations reread shared settings at most once per second and adopt the

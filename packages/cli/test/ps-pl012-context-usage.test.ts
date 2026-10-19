@@ -1,4 +1,4 @@
-// PL-012 Token / Context Usage Surface v0 — `rig ps --nodes --filter
+// PL-012 Token / Context Usage Surface v0 — `SoftwareTeam ps --nodes --filter
 // contextUsage.percent>=N` + `contextUsage.state=…` + `--fields contextUsage`.
 // Mirrors the PL-019 mock-daemon harness so this stays independent of
 // any other slice in flight.
@@ -62,8 +62,8 @@ function runningDeps(port: number): StatusDeps {
 
 function nodeAt(logicalId: string, percent: number | null, fresh = true) {
   return {
-    rigId: "rig-1",
-    rigName: "demo",
+    softwareTeamId: "software-team-1",
+    softwareTeamName: "demo",
     logicalId,
     podId: "p-1",
     canonicalSessionName: `demo-${logicalId}`,
@@ -87,21 +87,21 @@ function nodeAt(logicalId: string, percent: number | null, fresh = true) {
 describe("PL-012 ps --filter contextUsage.* + CTX field", () => {
   let server: http.Server;
   let port: number;
-  let nodesByRig: Record<string, unknown[]>;
+  let nodesBySoftwareTeam: Record<string, unknown[]>;
   let savedSessionName: string | undefined;
 
   beforeAll(async () => {
-    savedSessionName = process.env.OPENRIG_SESSION_NAME;
-    delete process.env.OPENRIG_SESSION_NAME;
-    nodesByRig = {};
+    savedSessionName = process.env.SOFTWARETEAM_SESSION_NAME;
+    delete process.env.SOFTWARETEAM_SESSION_NAME;
+    nodesBySoftwareTeam = {};
     server = http.createServer((req, res) => {
-      const m = req.url?.match(/^\/api\/rigs\/([^/]+)\/nodes(?:\?.*)?$/);
+      const m = req.url?.match(/^\/api\/software-teams\/([^/]+)\/nodes(?:\?.*)?$/);
       if (m && req.method === "GET") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(nodesByRig[decodeURIComponent(m[1]!)] ?? []));
+        res.end(JSON.stringify(nodesBySoftwareTeam[decodeURIComponent(m[1]!)] ?? []));
       } else if (req.url === "/api/ps" && req.method === "GET") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify([{ rigId: "rig-1", name: "demo", nodeCount: 4, runningCount: 4, status: "running", uptime: "1h", latestSnapshot: null }]));
+        res.end(JSON.stringify([{ softwareTeamId: "software-team-1", name: "demo", nodeCount: 4, runningCount: 4, status: "running", uptime: "1h", latestSnapshot: null }]));
       } else {
         res.writeHead(404);
         res.end();
@@ -112,7 +112,7 @@ describe("PL-012 ps --filter contextUsage.* + CTX field", () => {
   });
   afterAll(() => {
     server.close();
-    if (savedSessionName !== undefined) process.env.OPENRIG_SESSION_NAME = savedSessionName;
+    if (savedSessionName !== undefined) process.env.SOFTWARETEAM_SESSION_NAME = savedSessionName;
   });
 
   function makeCmd(): Command {
@@ -123,14 +123,14 @@ describe("PL-012 ps --filter contextUsage.* + CTX field", () => {
   }
 
   it("--filter contextUsage.percent>=80 narrows to critical seats", async () => {
-    nodesByRig["rig-1"] = [
+    nodesBySoftwareTeam["software-team-1"] = [
       nodeAt("alpha", 90),
       nodeAt("beta", 65),
       nodeAt("gamma", 30),
       nodeAt("delta", null),
     ];
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--filter", "contextUsage.percent>=80"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--filter", "contextUsage.percent>=80"]);
     });
     expect(exitCode).toBeUndefined();
     const env = JSON.parse(logs.join(""));
@@ -139,9 +139,9 @@ describe("PL-012 ps --filter contextUsage.* + CTX field", () => {
   });
 
   it("--filter contextUsage.percent<60 picks low/ok seats only", async () => {
-    nodesByRig["rig-1"] = [nodeAt("alpha", 90), nodeAt("beta", 65), nodeAt("gamma", 30)];
+    nodesBySoftwareTeam["software-team-1"] = [nodeAt("alpha", 90), nodeAt("beta", 65), nodeAt("gamma", 30)];
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--filter", "contextUsage.percent<60"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--filter", "contextUsage.percent<60"]);
     });
     expect(exitCode).toBeUndefined();
     const env = JSON.parse(logs.join(""));
@@ -150,9 +150,9 @@ describe("PL-012 ps --filter contextUsage.* + CTX field", () => {
   });
 
   it("--filter contextUsage.percent>=N excludes nodes with no sample (unknown availability)", async () => {
-    nodesByRig["rig-1"] = [nodeAt("alpha", 90), nodeAt("delta", null)];
+    nodesBySoftwareTeam["software-team-1"] = [nodeAt("alpha", 90), nodeAt("delta", null)];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--filter", "contextUsage.percent>=0"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--filter", "contextUsage.percent>=0"]);
     });
     const env = JSON.parse(logs.join(""));
     const entries = Array.isArray(env) ? env : env.entries;
@@ -160,14 +160,14 @@ describe("PL-012 ps --filter contextUsage.* + CTX field", () => {
   });
 
   it("--filter contextUsage.state=critical maps tier semantics correctly", async () => {
-    nodesByRig["rig-1"] = [
+    nodesBySoftwareTeam["software-team-1"] = [
       nodeAt("alpha", 90),  // critical
       nodeAt("beta", 65),   // warning
       nodeAt("gamma", 30),  // low
       nodeAt("delta", null),// unknown
     ];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--filter", "contextUsage.state=critical"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--filter", "contextUsage.state=critical"]);
     });
     const env = JSON.parse(logs.join(""));
     const entries = Array.isArray(env) ? env : env.entries;
@@ -175,9 +175,9 @@ describe("PL-012 ps --filter contextUsage.* + CTX field", () => {
   });
 
   it("--filter contextUsage.state=unknown picks no-sample seats", async () => {
-    nodesByRig["rig-1"] = [nodeAt("alpha", 90), nodeAt("delta", null)];
+    nodesBySoftwareTeam["software-team-1"] = [nodeAt("alpha", 90), nodeAt("delta", null)];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--filter", "contextUsage.state=unknown"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--filter", "contextUsage.state=unknown"]);
     });
     const env = JSON.parse(logs.join(""));
     const entries = Array.isArray(env) ? env : env.entries;
@@ -185,42 +185,42 @@ describe("PL-012 ps --filter contextUsage.* + CTX field", () => {
   });
 
   it("--filter contextUsage.percent>=invalid fails fast with three-part error and exit 1", async () => {
-    nodesByRig["rig-1"] = [nodeAt("alpha", 90)];
+    nodesBySoftwareTeam["software-team-1"] = [nodeAt("alpha", 90)];
     const { errLogs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--filter", "contextUsage.percent>=banana"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--filter", "contextUsage.percent>=banana"]);
     });
     expect(exitCode).toBe(1);
     const out = errLogs.join("\n");
     expect(out).toContain("contextUsage.percent>='banana'");
     expect(out).toContain("a finite number");
-    expect(out).toContain("rig ps --nodes --fields contextUsage --json");
+    expect(out).toContain("SoftwareTeam ps --nodes --fields contextUsage --json");
   });
 
   it("--filter contextUsage.state=bogus fails fast with three-part error and exit 1", async () => {
-    nodesByRig["rig-1"] = [nodeAt("alpha", 90)];
+    nodesBySoftwareTeam["software-team-1"] = [nodeAt("alpha", 90)];
     const { errLogs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--filter", "contextUsage.state=lol-no"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--filter", "contextUsage.state=lol-no"]);
     });
     expect(exitCode).toBe(1);
     const out = errLogs.join("\n");
     expect(out).toContain("contextUsage.state='lol-no'");
     expect(out).toContain("critical, low, unknown, warning");
-    expect(out).toContain("rig ps --nodes --fields contextUsage --json");
+    expect(out).toContain("SoftwareTeam ps --nodes --fields contextUsage --json");
   });
 
   it("--filter contextUsage.percent>=N rejects equality-only on non-numeric keys cleanly", async () => {
-    nodesByRig["rig-1"] = [nodeAt("alpha", 90)];
+    nodesBySoftwareTeam["software-team-1"] = [nodeAt("alpha", 90)];
     const { errLogs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--filter", "name>=demo"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--filter", "name>=demo"]);
     });
     expect(exitCode).toBe(1);
     expect(errLogs.join("\n")).toContain("numeric comparator on a non-numeric key");
   });
 
   it("--fields contextUsage projects only the contextUsage column", async () => {
-    nodesByRig["rig-1"] = [nodeAt("alpha", 73)];
+    nodesBySoftwareTeam["software-team-1"] = [nodeAt("alpha", 73)];
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--json", "--fields", "logicalId,contextUsage"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--json", "--fields", "logicalId,contextUsage"]);
     });
     expect(exitCode).toBeUndefined();
     const env = JSON.parse(logs.join(""));
@@ -229,9 +229,9 @@ describe("PL-012 ps --filter contextUsage.* + CTX field", () => {
   });
 
   it("CTX column appears in --full human output", async () => {
-    nodesByRig["rig-1"] = [nodeAt("alpha", 73), nodeAt("delta", null)];
+    nodesBySoftwareTeam["software-team-1"] = [nodeAt("alpha", 73), nodeAt("delta", null)];
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ps", "--nodes", "-A", "--full"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "ps", "--nodes", "-A", "--full"]);
     });
     expect(exitCode).toBeUndefined();
     const out = logs.join("\n");

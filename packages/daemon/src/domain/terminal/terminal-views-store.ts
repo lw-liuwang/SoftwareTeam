@@ -1,12 +1,12 @@
 // OPR.0.4.6.02 C2 — the terminal-views store.
 //
-// SAVED views persist to `terminal-views.yaml` at the OPENRIG_HOME root
-// (VM-isolatable via OPENRIG_HOME). They are write-once/read-at-launch: the
+// SAVED views persist to `terminal-views.yaml` at the SOFTWARETEAM_HOME root
+// (VM-isolatable via SOFTWARETEAM_HOME). They are write-once/read-at-launch: the
 // daemon reads them at launch and the operator's saved layouts survive
 // restarts. Each saved member carries a STRUCTURED `host` field (a host id,
-// never a `member@rig@host` string — MH BR-1).
+// never a `member@software-team@host` string — MH BR-1).
 //
-// DERIVED views (per-rig / per-mission / per-slice) are computed LIVE from the
+// DERIVED views (per-softwareTeam / per-mission / per-slice) are computed LIVE from the
 // live seat inventory + the review agents band and are NEVER written to disk
 // (A3). That invariant is structural, not conventional: this module exposes
 // `deriveViewMembers` (a pure mapper) and a `save()` that only ever accepts a
@@ -18,7 +18,7 @@
 
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
-import { getDefaultOpenRigPath } from "../../openrig-compat.js";
+import { getDefaultSoftwareTeamPath } from "../../softwareteam-compat.js";
 import type { ViewMemberInput } from "./view-composer.js";
 
 /** One persisted member of a saved view. Optionals are omitted-when-absent on write. */
@@ -27,7 +27,7 @@ export interface SavedViewMember {
   seat: string;
   /** Pane label — `<agent> · <slice>`. */
   label?: string;
-  /** Structured host id (never a `member@rig@host` string). Omitted for a local seat. */
+  /** Structured host id (never a `member@software-team@host` string). Omitted for a local seat. */
   host?: string;
   /** The tmux session to attach to. */
   tmuxSession?: string;
@@ -72,7 +72,7 @@ function serialize(file: TerminalViewsFile): string {
 }
 
 export class TerminalViewsStore {
-  constructor(private readonly path: string = getDefaultOpenRigPath("terminal-views.yaml")) {}
+  constructor(private readonly path: string = getDefaultSoftwareTeamPath("terminal-views.yaml")) {}
 
   /** The resolved on-disk path (useful for tests / diagnostics). */
   getPath(): string {
@@ -157,7 +157,7 @@ export interface LiveSeatRow {
   attachmentType: string | null;
   /** The tmux session name (canonical session name for tmux-backed seats). */
   tmuxSession?: string | null;
-  rigName?: string | null;
+  softwareTeamName?: string | null;
   logicalId?: string | null;
 }
 
@@ -165,7 +165,7 @@ export interface LiveSeatRow {
 export interface DeriveOptions {
   /** Structured host id to stamp on every derived member (remote scope); omit for local. */
   host?: string | null;
-  /** When true, members attach read-only (`-r`) — cross-rig / view-only derived scopes. */
+  /** When true, members attach read-only (`-r`) — cross-softwareTeam / view-only derived scopes. */
   readOnly?: boolean;
   /** Slice/mission label suffix for the pane label (`<agent> · <slice>`); optional. */
   labelSuffix?: string;

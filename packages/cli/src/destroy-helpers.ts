@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import Database from "better-sqlite3";
 
-export const DESTROY_CONFIRM_TOKEN = "destroy-openrig-state";
+export const DESTROY_CONFIRM_TOKEN = "destroy-softwareteam-state";
 
 export type DestroyScope = "state" | "all";
 
@@ -44,7 +44,7 @@ export interface DestroyResult {
 }
 
 export interface ListenerInspection {
-  kind: "openrig" | "other_http" | "unreachable";
+  kind: "softwareteam" | "other_http" | "unreachable";
   healthy?: boolean;
   detail?: string;
 }
@@ -194,7 +194,7 @@ export async function executeDestroy(plan: DestroyPlan, deps: DestroyDeps): Prom
 
   if (isLocalHost(plan.daemonHost)) {
     const before = await deps.inspectListener(plan.daemonHost, plan.daemonPort);
-    if (before.kind === "openrig") {
+    if (before.kind === "softwareteam") {
       const listenerPid = deps.findListeningPid(plan.daemonPort);
       if (listenerPid !== null) {
         try {
@@ -207,17 +207,17 @@ export async function executeDestroy(plan: DestroyPlan, deps: DestroyDeps): Prom
           await deps.sleep(100);
         }
       } else {
-        warnings.push(`OpenRig responded on port ${plan.daemonPort}, but no listener pid was found.`);
+        warnings.push(`SoftwareTeam responded on port ${plan.daemonPort}, but no listener pid was found.`);
       }
     } else if (before.kind === "other_http") {
-      warnings.push(`Port ${plan.daemonPort} is occupied by a live non-OpenRig HTTP listener. State was left untouched.`);
+      warnings.push(`Port ${plan.daemonPort} is occupied by a live non-software-team HTTP listener. State was left untouched.`);
     }
 
     const after = await deps.inspectListener(plan.daemonHost, plan.daemonPort);
     portCleared = after.kind === "unreachable";
     daemonStopped = portCleared;
   } else {
-    warnings.push(`Daemon host ${plan.daemonHost} is not local. rig destroy only operates on local daemon targets; state was left untouched.`);
+    warnings.push(`Daemon host ${plan.daemonHost} is not local. SoftwareTeam destroy only operates on local daemon targets; state was left untouched.`);
   }
 
   if (!portCleared) {

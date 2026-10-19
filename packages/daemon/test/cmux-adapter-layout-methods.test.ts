@@ -102,7 +102,7 @@ describe("CmuxAdapter — layout method extensions (slice 24 Checkpoint A)", () 
       const adapter = await connectAdapter({
         "workspace.create": { workspace_ref: "workspace:6" },
       });
-      const result = await adapter.createWorkspace("my-rig");
+      const result = await adapter.createWorkspace("my-software-team");
       expect(result.ok).toBe(true);
       if (result.ok) expect(result.data).toBe("workspace:6");
     });
@@ -120,10 +120,10 @@ describe("CmuxAdapter — layout method extensions (slice 24 Checkpoint A)", () 
         close: () => {},
       });
       await adapter.connect();
-      await adapter.createWorkspace("my-rig", "/path/to/cwd");
+      await adapter.createWorkspace("my-software-team", "/path/to/cwd");
       const createCall = calls.find((c) => c.method === "workspace.create");
       const params = createCall!.params as Record<string, unknown>;
-      expect(params["title"]).toBe("my-rig");
+      expect(params["title"]).toBe("my-software-team");
       expect("name" in params).toBe(false);
       expect(params["cwd"]).toBe("/path/to/cwd");
     });
@@ -141,10 +141,10 @@ describe("CmuxAdapter — layout method extensions (slice 24 Checkpoint A)", () 
         close: () => {},
       });
       await adapter.connect();
-      await adapter.createWorkspace("my-rig");
+      await adapter.createWorkspace("my-software-team");
       const createCall = calls.find((c) => c.method === "workspace.create");
       const params = createCall!.params as Record<string, unknown>;
-      expect(params["title"]).toBe("my-rig");
+      expect(params["title"]).toBe("my-software-team");
       expect("name" in params).toBe(false);
       expect("cwd" in params).toBe(false);
     });

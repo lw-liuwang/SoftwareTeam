@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import type Database from "better-sqlite3";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SessionTransport } from "../src/domain/session-transport.js";
 import { ContextUsageStore } from "../src/domain/context-usage-store.js";
@@ -84,14 +84,14 @@ interface AppParts {
 
 describe("compaction routes — POST /api/compaction/trigger", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let usageStore: ContextUsageStore;
   let stateDir: string;
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     stateDir = mkdtempSync(join(tmpdir(), "compaction-route-"));
     usageStore = new ContextUsageStore(db, { stateDir });
@@ -103,16 +103,16 @@ describe("compaction routes — POST /api/compaction/trigger", () => {
   });
 
   function seed(): { claudeNodeId: string; codexNodeId: string } {
-    const rig = rigRepo.createRig("my-rig");
-    const claude = rigRepo.addNode(rig.id, "dev.impl", { role: "worker", runtime: "claude-code" });
-    const s1 = sessionRegistry.registerSession(claude.id, "dev-impl@my-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("my-software-team");
+    const claude = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+    const s1 = sessionRegistry.registerSession(claude.id, "dev-impl@my-software-team");
     sessionRegistry.updateStatus(s1.id, "running");
-    sessionRegistry.updateBinding(claude.id, { tmuxSession: "dev-impl@my-rig" });
+    sessionRegistry.updateBinding(claude.id, { tmuxSession: "dev-impl@my-software-team" });
 
-    const codex = rigRepo.addNode(rig.id, "dev.qa", { role: "worker", runtime: "codex" });
-    const s2 = sessionRegistry.registerSession(codex.id, "dev-qa@my-rig");
+    const codex = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", { role: "worker", runtime: "codex" });
+    const s2 = sessionRegistry.registerSession(codex.id, "dev-qa@my-software-team");
     sessionRegistry.updateStatus(s2.id, "running");
-    sessionRegistry.updateBinding(codex.id, { tmuxSession: "dev-qa@my-rig" });
+    sessionRegistry.updateBinding(codex.id, { tmuxSession: "dev-qa@my-software-team" });
     return { claudeNodeId: claude.id, codexNodeId: codex.id };
   }
 
@@ -120,11 +120,11 @@ describe("compaction routes — POST /api/compaction/trigger", () => {
     const sentTexts: string[] = [];
     const transport = new SessionTransport({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       tmuxAdapter: idleTmux(async (_t, text) => {
         sentTexts.push(text);
-        const marker = text.match(/<!-- openrig-compaction-complete .*? -->/)?.[0];
+        const marker = text.match(/<!-- softwareteam-compaction-complete .*? -->/)?.[0];
         const target = text.match(/Write this attempt's complete restore map to ("(?:[^"\\]|\\.)*")/);
         if (opts?.completeMap !== false && marker && target) { const file = JSON.parse(target[1]!); mkdirSync(dirname(file), { recursive: true }); writeFileSync(file, "# Fixture map\n" + marker); }
         return { ok: true as const };
@@ -132,7 +132,7 @@ describe("compaction routes — POST /api/compaction/trigger", () => {
       sleep: async () => undefined,
       waitForIdlePollMs: 1,
     });
-    const enforcer = new ClaudeCompactionEnforcer(makeSettings(), transport, { openrigHome: stateDir, manualPrepWaitMs: 50, resolveOccupantGeneration: () => "fixture-generation" });
+    const enforcer = new ClaudeCompactionEnforcer(makeSettings(), transport, { softwareteamHome: stateDir, manualPrepWaitMs: 50, resolveOccupantGeneration: () => "fixture-generation" });
     const app = new Hono();
     app.use("*", async (c, next) => {
       c.set("sessionTransport" as never, transport);
@@ -147,19 +147,19 @@ describe("compaction routes — POST /api/compaction/trigger", () => {
 
   it("known below-threshold usage permits manual preparation, then /compact follows", async () => {
     const { claudeNodeId } = seed();
-    usageStore.persist(claudeNodeId, knownUsage("dev-impl@my-rig", 42));
+    usageStore.persist(claudeNodeId, knownUsage("dev-impl@my-software-team", 42));
     const { app, sentTexts } = buildApp();
 
     const res = await app.request("/api/compaction/trigger", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "dev-impl@my-rig" }),
+      body: JSON.stringify({ session: "dev-impl@my-software-team" }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ ok: true, session: "dev-impl@my-rig", stage: "compact-sent" });
+    expect(body).toEqual({ ok: true, session: "dev-impl@my-software-team", stage: "compact-sent" });
     // The manual request does not claim that the threshold was reached.
-    expect(sentTexts[0]).toContain("OpenRig manual compaction was requested");
+    expect(sentTexts[0]).toContain("SoftwareTeam manual compaction was requested");
     expect(sentTexts[0]).not.toContain("configured compaction threshold");
     // Phase 2 /compact followed.
     expect(sentTexts[1]).toContain("/compact");
@@ -172,7 +172,7 @@ describe("compaction routes — POST /api/compaction/trigger", () => {
     const res = await app.request("/api/compaction/trigger", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "dev-qa@my-rig" }),
+      body: JSON.stringify({ session: "dev-qa@my-software-team" }),
     });
     expect(res.status).toBe(422);
     expect((await res.json()).reason).toBe("runtime_filter");
@@ -185,19 +185,19 @@ describe("compaction routes — POST /api/compaction/trigger", () => {
     const res = await app.request("/api/compaction/trigger", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "dev-impl@my-rig" }),
+      body: JSON.stringify({ session: "dev-impl@my-software-team" }),
     });
     expect(res.status).toBe(409);
     expect((await res.json()).reason).toBe("no_usage_data");
     expect(sentTexts).toHaveLength(0);
   });
 
-  it("ambiguous session across rigs → 409", async () => {
-    const rigA = rigRepo.createRig("rig-a");
-    const nA = rigRepo.addNode(rigA.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+  it("ambiguous session across softwareTeams → 409", async () => {
+    const softwareTeamA = softwareTeamRepo.createSoftwareTeam("software-team-a");
+    const nA = softwareTeamRepo.addNode(softwareTeamA.id, "dev.impl", { role: "worker", runtime: "claude-code" });
     sessionRegistry.registerSession(nA.id, "dev-impl@shared");
-    const rigB = rigRepo.createRig("rig-b");
-    const nB = rigRepo.addNode(rigB.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+    const softwareTeamB = softwareTeamRepo.createSoftwareTeam("software-team-b");
+    const nB = softwareTeamRepo.addNode(softwareTeamB.id, "dev.impl", { role: "worker", runtime: "claude-code" });
     sessionRegistry.registerSession(nB.id, "dev-impl@shared");
 
     const { app } = buildApp();
@@ -227,35 +227,35 @@ describe("compaction routes — POST /api/compaction/trigger", () => {
     const res = await app.request("/api/compaction/trigger", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "dev-impl@my-rig" }),
+      body: JSON.stringify({ session: "dev-impl@my-software-team" }),
     });
     expect(res.status).toBe(503);
     expect((await res.json()).reason).toBe("compaction_unavailable");
   });
   it("an explicit skip-map uses the same route/enforcer without a published map", async () => {
     const { claudeNodeId } = seed();
-    usageStore.persist(claudeNodeId, knownUsage("dev-impl@my-rig", 42));
+    usageStore.persist(claudeNodeId, knownUsage("dev-impl@my-software-team", 42));
     const { app, sentTexts } = buildApp({ completeMap: false });
     const res = await app.request("/api/compaction/trigger", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", skipMap: true }),
+      body: JSON.stringify({ session: "dev-impl@my-software-team", skipMap: true }),
     });
     expect(res.status).toBe(200);
     expect(sentTexts.filter(t => t.startsWith("/compact"))).toHaveLength(1);
-    const state = await app.request("/api/compaction/state?session=dev-impl@my-rig");
+    const state = await app.request("/api/compaction/state?session=dev-impl@my-software-team");
     expect((await state.json()).preparation.status).toBe("compact-sent");
   });
 
   it("cancel disarms a waiting attempt; state reads do not submit compact", async () => {
     seed();
     const { app, sentTexts, enforcer } = buildApp({ completeMap: false });
-    await enforcer.maybeAutoCompact({ sessionName: "dev-impl@my-rig", runtime: "claude-code", usedPercentage: 90 });
+    await enforcer.maybeAutoCompact({ sessionName: "dev-impl@my-software-team", runtime: "claude-code", usedPercentage: 90 });
     const cancel = await app.request("/api/compaction/cancel", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session: "dev-impl@my-rig" }),
+      body: JSON.stringify({ session: "dev-impl@my-software-team" }),
     });
     expect((await cancel.json()).preparation).toMatchObject({ status: "stopped", reason: "preparation_cancelled" });
-    const state = await app.request("/api/compaction/state?session=dev-impl@my-rig");
+    const state = await app.request("/api/compaction/state?session=dev-impl@my-software-team");
     expect((await state.json()).preparation.status).toBe("stopped");
     expect(sentTexts.filter(t => t.startsWith("/compact"))).toHaveLength(0);
   });
@@ -266,13 +266,13 @@ describe("compaction routes — POST /api/compaction/trigger", () => {
     for (const verb of ["trigger", "cancel"]) {
       const denied = await app.request(`/api/compaction/${verb}`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session: "dev-impl@my-rig", skipMap: true }),
+        body: JSON.stringify({ session: "dev-impl@my-software-team", skipMap: true }),
       });
       expect(denied.status).toBe(401);
     }
     const malformed = await app.request("/api/compaction/trigger", {
       method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer fixture-token" },
-      body: JSON.stringify({ session: "dev-impl@my-rig", skipMap: "yes" }),
+      body: JSON.stringify({ session: "dev-impl@my-software-team", skipMap: "yes" }),
     });
     expect(malformed.status).toBe(400);
     expect(sentTexts).toHaveLength(0);

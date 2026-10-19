@@ -12,7 +12,7 @@ import { resumeMetadataSchema } from "../src/db/migrations/006_resume_metadata.j
 import { nodeSpecFieldsSchema } from "../src/db/migrations/007_node_spec_fields.js";
 import { agentspecRebootSchema } from "../src/db/migrations/014_agentspec_reboot.js";
 import { podNamespaceSchema } from "../src/db/migrations/017_pod_namespace.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { TranscriptStore } from "../src/domain/transcript-store.js";
 import { WhoamiService } from "../src/domain/whoami-service.js";
@@ -25,12 +25,12 @@ function setupDb(): Database.Database {
 
 describe("whoami routes", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
 
   beforeEach(() => {
     db = setupDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
   });
 
@@ -38,7 +38,7 @@ describe("whoami routes", () => {
 
   function createApp(permissionDriftObserver?: { diagnose(nodeId: string): unknown }) {
     const transcriptStore = new TranscriptStore({ transcriptsRoot: "/tmp/transcripts", enabled: true });
-    const svc = new WhoamiService({ db, rigRepo, sessionRegistry, transcriptStore });
+    const svc = new WhoamiService({ db, softwareTeamRepo, sessionRegistry, transcriptStore });
     const app = new Hono();
     app.use("*", async (c, next) => {
       c.set("whoamiService" as never, svc);
@@ -49,17 +49,17 @@ describe("whoami routes", () => {
     return app;
   }
 
-  function seedRig() {
-    const rig = rigRepo.createRig("my-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { role: "worker", runtime: "claude-code" });
-    const sess = sessionRegistry.registerSession(node.id, "dev-impl@my-rig");
+  function seedSoftwareTeam() {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("my-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+    const sess = sessionRegistry.registerSession(node.id, "dev-impl@my-software-team");
     sessionRegistry.updateStatus(sess.id, "running");
-    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@my-rig" });
-    return { rig, node, sess };
+    sessionRegistry.updateBinding(node.id, { tmuxSession: "dev-impl@my-software-team" });
+    return { softwareTeam, node, sess };
   }
 
   it("GET /api/whoami?nodeId=... returns 200 with WhoamiResult", async () => {
-    const { node } = seedRig();
+    const { node } = seedSoftwareTeam();
     const app = createApp();
     const res = await app.request(`/api/whoami?nodeId=${node.id}`);
 
@@ -67,15 +67,15 @@ describe("whoami routes", () => {
     const body = await res.json();
     expect(body.resolvedBy).toBe("node_id");
     expect(body.identity.logicalId).toBe("dev.impl");
-    expect(body.identity.sessionName).toBe("dev-impl@my-rig");
+    expect(body.identity.sessionName).toBe("dev-impl@my-software-team");
     expect(body.transcript).toBeDefined();
     expect(body.commands).toBeDefined();
   });
 
   it("GET /api/whoami?sessionName=... returns 200", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const app = createApp();
-    const res = await app.request("/api/whoami?sessionName=dev-impl@my-rig");
+    const res = await app.request("/api/whoami?sessionName=dev-impl@my-software-team");
 
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -84,7 +84,7 @@ describe("whoami routes", () => {
   });
 
   it("runs the permission observer only for the explicit current-seat diagnostic", async () => {
-    const { node } = seedRig();
+    const { node } = seedSoftwareTeam();
     const diagnose = vi.fn(() => ({
       transport: { state: "healthy" },
       cwdRead: { state: "visible" },
@@ -109,7 +109,7 @@ describe("whoami routes", () => {
   });
 
   it("GET /api/whoami with no params returns 400", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const app = createApp();
     const res = await app.request("/api/whoami");
 
@@ -119,24 +119,24 @@ describe("whoami routes", () => {
   });
 
   it("GET /api/whoami?sessionName=unknown returns 404 with guidance", async () => {
-    seedRig();
+    seedSoftwareTeam();
     const app = createApp();
     const res = await app.request("/api/whoami?sessionName=nonexistent-session");
 
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.error).toContain("not found");
-    expect(body.error).toContain("rig ps");
+    expect(body.error).toContain("SoftwareTeam ps");
   });
 
   it("GET /api/whoami?sessionName=ambiguous returns 409", async () => {
-    // Two rigs with same session name
-    const rig1 = rigRepo.createRig("rig-a");
-    const node1 = rigRepo.addNode(rig1.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+    // Two softwareTeams with same session name
+    const rig1 = softwareTeamRepo.createSoftwareTeam("software-team-a");
+    const node1 = softwareTeamRepo.addNode(rig1.id, "dev.impl", { role: "worker", runtime: "claude-code" });
     sessionRegistry.registerSession(node1.id, "dev-impl@shared");
 
-    const rig2 = rigRepo.createRig("rig-b");
-    const node2 = rigRepo.addNode(rig2.id, "dev.impl", { role: "worker", runtime: "claude-code" });
+    const rig2 = softwareTeamRepo.createSoftwareTeam("software-team-b");
+    const node2 = softwareTeamRepo.addNode(rig2.id, "dev.impl", { role: "worker", runtime: "claude-code" });
     sessionRegistry.registerSession(node2.id, "dev-impl@shared");
 
     const app = createApp();

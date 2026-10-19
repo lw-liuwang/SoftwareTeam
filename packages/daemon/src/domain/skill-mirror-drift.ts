@@ -3,8 +3,8 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 // Four levels up from packages/daemon/{src,dist}/domain/ is the repo root in a source checkout. In the
-// published package this file sits at @openrig/cli/daemon/dist/domain/, so the same walk lands in
-// node_modules/@openrig/, where there is no mirror to check.
+// published package this file sits at @softwareteam/cli/daemon/dist/domain/, so the same walk lands in
+// node_modules/@softwareteam/, where there is no mirror to check.
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const MIRROR_SCRIPT = "scripts/mirror-skills.mjs";
 
@@ -20,7 +20,7 @@ export async function checkMirrorDriftSafe(repoRoot: string = REPO_ROOT): Promis
     return {
       ok: true,
       skipped: true,
-      reason: `Mirror drift check skipped: no ${MIRROR_SCRIPT} under ${repoRoot}; it runs only in an OpenRig source checkout`,
+      reason: `Mirror drift check skipped: no ${MIRROR_SCRIPT} under ${repoRoot}; it runs only in an SoftwareTeam source checkout`,
     };
   }
   const sourceDir = resolve(repoRoot, "packages/daemon/specs/agents/shared/skills");

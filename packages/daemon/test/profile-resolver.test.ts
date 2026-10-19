@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveNodeConfig, type ResolutionContext } from "../src/domain/profile-resolver.js";
 import { parseAgentSpec, normalizeAgentSpec } from "../src/domain/agent-manifest.js";
-import type { AgentSpec, RigSpec, RigSpecPod, RigSpecPodMember, StartupBlock } from "../src/domain/types.js";
+import type { AgentSpec, SoftwareTeamSpec, SoftwareTeamSpecPod, SoftwareTeamSpecPodMember, StartupBlock } from "../src/domain/types.js";
 import type { ResolvedAgentSpec, ResourceCollision } from "../src/domain/agent-resolver.js";
 
 function makeSpec(overrides?: Partial<AgentSpec>): AgentSpec {
@@ -34,16 +34,16 @@ function makeResolved(spec: AgentSpec, path = "/agents/test"): ResolvedAgentSpec
   return { spec, sourcePath: path, hash: "abc123" };
 }
 
-function makeMember(overrides?: Partial<RigSpecPodMember>): RigSpecPodMember {
+function makeMember(overrides?: Partial<SoftwareTeamSpecPodMember>): SoftwareTeamSpecPodMember {
   return { id: "impl", agentRef: "local:agents/test", profile: "default", runtime: "claude-code", cwd: ".", ...overrides };
 }
 
-function makePod(overrides?: Partial<RigSpecPod>): RigSpecPod {
+function makePod(overrides?: Partial<SoftwareTeamSpecPod>): SoftwareTeamSpecPod {
   return { id: "dev", label: "Dev", members: [makeMember()], edges: [], ...overrides };
 }
 
-function makeRig(overrides?: Partial<RigSpec>): RigSpec {
-  return { version: "0.2", name: "test-rig", pods: [makePod()], edges: [], ...overrides };
+function makeSoftwareTeam(overrides?: Partial<SoftwareTeamSpec>): SoftwareTeamSpec {
+  return { version: "0.2", name: "test-software-team", pods: [makePod()], edges: [], ...overrides };
 }
 
 function makeCtx(overrides?: Partial<ResolutionContext>): ResolutionContext {
@@ -55,7 +55,7 @@ function makeCtx(overrides?: Partial<ResolutionContext>): ResolutionContext {
     profileName: "default",
     member: makeMember(),
     pod: makePod(),
-    rig: makeRig(),
+    softwareTeam: makeSoftwareTeam(),
     ...overrides,
   };
 }
@@ -166,14 +166,14 @@ describe("Profile resolver + precedence engine", () => {
   it("single imported unqualified skill keeps the unqualified effectiveId", () => {
     const importSpec = makeSpec({
       name: "shared",
-      resources: { skills: [{ id: "openrig-user", path: "skills/openrig-user" }], guidance: [], subagents: [], plugins: [], runtimeResources: [] },
+      resources: { skills: [{ id: "softwareteam-user", path: "skills/softwareteam-user" }], guidance: [], subagents: [], plugins: [], runtimeResources: [] },
       profiles: {},
     });
     const ctx = makeCtx({
       baseSpec: makeResolved(makeSpec({
         resources: { skills: [], guidance: [], subagents: [], plugins: [], runtimeResources: [] },
         profiles: {
-          default: { uses: { skills: ["openrig-user"], guidance: [], subagents: [], plugins: [], runtimeResources: [] } },
+          default: { uses: { skills: ["softwareteam-user"], guidance: [], subagents: [], plugins: [], runtimeResources: [] } },
         },
       })),
       importedSpecs: [makeResolved(importSpec, "/agents/shared")],
@@ -183,14 +183,14 @@ describe("Profile resolver + precedence engine", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.config.selectedResources.skills).toHaveLength(1);
-      expect(result.config.selectedResources.skills[0]!.effectiveId).toBe("openrig-user");
+      expect(result.config.selectedResources.skills[0]!.effectiveId).toBe("softwareteam-user");
       expect(result.config.selectedResources.skills[0]!.sourcePath).toBe("/agents/shared");
       expect(result.config.selectedResources.skills[0]!.sourceSpec).toBe("shared");
     }
   });
 
-  // T4: rig member runtime overrides profile preference
-  it("rig member runtime overrides profile preference", () => {
+  // T4: softwareTeam member runtime overrides profile preference
+  it("SoftwareTeam member runtime overrides profile preference", () => {
     const ctx = makeCtx({
       baseSpec: makeResolved(makeSpec({
         defaults: { runtime: "codex" },
@@ -204,8 +204,8 @@ describe("Profile resolver + precedence engine", () => {
     if (result.ok) expect(result.config.runtime).toBe("claude-code");
   });
 
-  // T5: rig member model overrides profile preference
-  it("rig member model overrides profile preference", () => {
+  // T5: softwareTeam member model overrides profile preference
+  it("SoftwareTeam member model overrides profile preference", () => {
     const ctx = makeCtx({
       baseSpec: makeResolved(makeSpec({
         defaults: { model: "sonnet" },
@@ -219,7 +219,7 @@ describe("Profile resolver + precedence engine", () => {
     if (result.ok) expect(result.config.model).toBe("opus");
   });
 
-  it("rig member effort overrides profile preference", () => {
+  it("SoftwareTeam member effort overrides profile preference", () => {
     const ctx = makeCtx({
       baseSpec: makeResolved(makeSpec({
         defaults: { effort: "low" },
@@ -274,8 +274,8 @@ describe("Profile resolver + precedence engine", () => {
     if (result.ok) expect(result.config.effort).toBeUndefined();
   });
 
-  // T6: rig member cwd is authoritative
-  it("rig member cwd is authoritative", () => {
+  // T6: softwareTeam member cwd is authoritative
+  it("SoftwareTeam member cwd is authoritative", () => {
     const ctx = makeCtx({
       specRoot: "/workspace/spec-root",
       member: makeMember({ cwd: "/custom/workdir" }),
@@ -339,10 +339,10 @@ describe("Profile resolver + precedence engine", () => {
     if (!result.ok) expect(result.errors[0]).toMatch(/broadens/);
   });
 
-  // T11: rig cannot inject resources (selectedResources from agent pool only)
-  it("rig cannot inject resources — selection comes from agent pool only", () => {
+  // T11: softwareTeam cannot inject resources (selectedResources from agent pool only)
+  it("SoftwareTeam cannot inject resources — selection comes from agent pool only", () => {
     // The resolver only takes resources from AgentSpec + imports.
-    // There is no mechanism for the rig to inject resources.
+    // There is no mechanism for the softwareTeam to inject resources.
     const ctx = makeCtx();
     const result = resolveNodeConfig(ctx);
     expect(result.ok).toBe(true);
@@ -390,7 +390,7 @@ describe("V0.3.0 daemon-skill-discovery — filesystem-discovered skills join th
   function withFsFixture<T>(fn: () => T): T {
     tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "profile-resolver-disc-"));
     homedir = path.join(tmpRoot, "home");
-    cwd = path.join(tmpRoot, "rig-cwd");
+    cwd = path.join(tmpRoot, "software-team-cwd");
     fs.mkdirSync(homedir, { recursive: true });
     fs.mkdirSync(cwd, { recursive: true });
     try { return fn(); } finally { fs.rmSync(tmpRoot, { recursive: true, force: true }); }
@@ -398,13 +398,13 @@ describe("V0.3.0 daemon-skill-discovery — filesystem-discovered skills join th
 
   it("accepts a profile.uses.skills entry that resolves only via the discovered ~/.claude/skills/ path", () => {
     withFsFixture(() => {
-      writeSkill(path.join(homedir, ".claude/skills/openrig-architect"), "openrig-architect", "Architect rigs");
+      writeSkill(path.join(homedir, ".claude/skills/softwareteam-architect"), "softwareteam-architect", "Architect softwareTeams");
       const baseSpec = makeSpec({
-        // Note: NO `openrig-architect` in resources.skills; the only way
+        // Note: NO `softwareteam-architect` in resources.skills; the only way
         // for the profile to resolve it is via filesystem discovery.
         resources: { skills: [], guidance: [], subagents: [], hooks: [], runtimeResources: [] },
         profiles: {
-          default: { uses: { skills: ["openrig-architect"], guidance: [], subagents: [], hooks: [], runtimeResources: [] } },
+          default: { uses: { skills: ["softwareteam-architect"], guidance: [], subagents: [], hooks: [], runtimeResources: [] } },
         },
       });
       const ctx = makeCtx({
@@ -415,14 +415,14 @@ describe("V0.3.0 daemon-skill-discovery — filesystem-discovered skills join th
       const result = resolveNodeConfig(ctx);
       expect(result.ok).toBe(true);
       if (result.ok) {
-        const found = result.config.selectedResources.skills.find((s) => s.effectiveId === "openrig-architect");
+        const found = result.config.selectedResources.skills.find((s) => s.effectiveId === "softwareteam-architect");
         expect(found).toBeDefined();
-        expect(found!.sourcePath).toBe(path.join(homedir, ".claude/skills/openrig-architect"));
+        expect(found!.sourcePath).toBe(path.join(homedir, ".claude/skills/softwareteam-architect"));
       }
     });
   });
 
-  it("accepts a profile.uses.skills entry resolving via a rig-bundled <cwd>/.claude/skills/<name>/", () => {
+  it("accepts a profile.uses.skills entry resolving via a software-team-bundled <cwd>/.claude/skills/<name>/", () => {
     withFsFixture(() => {
       writeSkill(path.join(cwd, ".claude/skills/web-design-guidelines"), "web-design-guidelines", "Web design checks");
       const baseSpec = makeSpec({
@@ -441,11 +441,11 @@ describe("V0.3.0 daemon-skill-discovery — filesystem-discovered skills join th
     });
   });
 
-  it("rig-local resources.skills wins over a same-id discovered skill (most-specific-wins precedence)", () => {
+  it("software-team-local resources.skills wins over a same-id discovered skill (most-specific-wins precedence)", () => {
     withFsFixture(() => {
       writeSkill(path.join(homedir, ".claude/skills/skill-a"), "skill-a", "Discovered version");
       // makeSpec already declares { id: 'skill-a', path: 'skills/a' } in
-      // resources.skills; the rig-local version should win.
+      // resources.skills; the software-team-local version should win.
       const ctx = makeCtx({
         baseSpec: makeResolved(makeSpec()),
         member: makeMember({ cwd }),
@@ -456,7 +456,7 @@ describe("V0.3.0 daemon-skill-discovery — filesystem-discovered skills join th
       if (result.ok) {
         const skillA = result.config.selectedResources.skills.find((s) => s.effectiveId === "skill-a");
         expect(skillA).toBeDefined();
-        // rig-local sourcePath (the agent spec's sourcePath), NOT the
+        // software-team-local sourcePath (the agent spec's sourcePath), NOT the
         // homedir-discovered SKILL.md directory.
         expect(skillA!.sourcePath).toBe("/agents/test");
       }
@@ -465,11 +465,11 @@ describe("V0.3.0 daemon-skill-discovery — filesystem-discovered skills join th
 
   it("scans the codex .agents/skills/ tree when the runtime is codex", () => {
     withFsFixture(() => {
-      writeSkill(path.join(homedir, ".agents/skills/openrig-architect"), "openrig-architect", "Architect rigs");
+      writeSkill(path.join(homedir, ".agents/skills/softwareteam-architect"), "softwareteam-architect", "Architect softwareTeams");
       const baseSpec = makeSpec({
         resources: { skills: [], guidance: [], subagents: [], hooks: [], runtimeResources: [] },
         profiles: {
-          default: { uses: { skills: ["openrig-architect"], guidance: [], subagents: [], hooks: [], runtimeResources: [] } },
+          default: { uses: { skills: ["softwareteam-architect"], guidance: [], subagents: [], hooks: [], runtimeResources: [] } },
         },
       });
       const ctx = makeCtx({
@@ -482,7 +482,7 @@ describe("V0.3.0 daemon-skill-discovery — filesystem-discovered skills join th
     });
   });
 
-  it("preserves the existing 'skill not found' error when a profile references a skill that exists at neither the rig-local nor the discovered paths", () => {
+  it("preserves the existing 'skill not found' error when a profile references a skill that exists at neither the software-team-local nor the discovered paths", () => {
     withFsFixture(() => {
       const baseSpec = makeSpec({
         resources: { skills: [], guidance: [], subagents: [], hooks: [], runtimeResources: [] },
@@ -570,7 +570,7 @@ describe("V0.3.0 daemon-skill-discovery — filesystem-discovered skills join th
   });
 
   // Slice 15 HG-7 — per-seat silence-window-seconds passes through
-  // ResolvedNodeConfig.activity for the rigspec-instantiator to plumb
+  // ResolvedNodeConfig.activity for the software-team-spec-instantiator to plumb
   // into NodeLauncher.launchNode. Verifies the carry-through; the
   // launch-call site is exercised by node-launcher tests.
   describe("slice 15 — profile.activity carries into ResolvedNodeConfig", () => {
@@ -736,22 +736,22 @@ defaults:
   runtime: claude-code
   lifecycle:
     compaction_strategy: apprentice-handover
-    mechanic: default-mechanic@default-rig
+    mechanic: default-mechanic@default-software-team
 profiles:
   default:
     lifecycle:
-      mechanic: profile-mechanic@profile-rig
+      mechanic: profile-mechanic@profile-software-team
 `);
     const spec = normalizeAgentSpec(raw);
     const result = resolveNodeConfig(makeCtx({
       baseSpec: makeResolved(spec),
-      member: makeMember({ mechanic: "member-mechanic@member-rig" } as never),
+      member: makeMember({ mechanic: "member-mechanic@member-software-team" } as never),
     }));
 
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect((result.config as unknown as { mechanic?: string }).mechanic).toBe(
-        "member-mechanic@member-rig",
+        "member-mechanic@member-software-team",
       );
       expect(result.config.compactionStrategy).toBe("apprentice-handover");
     }
@@ -768,16 +768,16 @@ profiles:
 
 describe("managed catalog selection composition", () => {
   it("adds system and project skills around a topology-only profile without rebuilding the topology", () => {
-    const root = mkdtempSync(join(tmpdir(), "openrig-profile-skill-catalog-"));
+    const root = mkdtempSync(join(tmpdir(), "softwareteam-profile-skill-catalog-"));
     try {
       const catalog = join(root, "skills");
       const project = join(root, "project");
       mkdirSync(catalog, { recursive: true });
       mkdirSync(project, { recursive: true });
       execFileSync("git", ["-C", root, "init", "-q"]);
-      execFileSync("git", ["-C", root, "config", "user.email", "test@openrig.invalid"]);
-      execFileSync("git", ["-C", root, "config", "user.name", "OpenRig Test"]);
-      writeFileSync(join(catalog, "catalog.yaml"), "schema: openrig.skill-catalog/v1\nsystem: [system-skill]\n");
+      execFileSync("git", ["-C", root, "config", "user.email", "test@softwareteam.invalid"]);
+      execFileSync("git", ["-C", root, "config", "user.name", "SoftwareTeam Test"]);
+      writeFileSync(join(catalog, "catalog.yaml"), "schema: softwareteam.skill-catalog/v1\nsystem: [system-skill]\n");
       for (const id of ["system-skill", "topology-skill", "project-skill"]) {
         mkdirSync(join(catalog, id));
         writeFileSync(join(catalog, id, "SKILL.md"), `---\nname: ${id}\ndescription: Use when testing ${id}.\n---\n\n# ${id}\n`);
@@ -818,16 +818,16 @@ describe("managed catalog selection composition", () => {
   });
 
   it("keeps selected bundle provenance when its identity matches a differing catalog copy", () => {
-    const root = mkdtempSync(join(tmpdir(), "openrig-profile-skill-conflict-"));
+    const root = mkdtempSync(join(tmpdir(), "softwareteam-profile-skill-conflict-"));
     try {
       const catalog = join(root, "skills");
       const local = join(root, "local-skill");
       mkdirSync(join(catalog, "shared"), { recursive: true });
       mkdirSync(local, { recursive: true });
       execFileSync("git", ["-C", root, "init", "-q"]);
-      execFileSync("git", ["-C", root, "config", "user.email", "test@openrig.invalid"]);
-      execFileSync("git", ["-C", root, "config", "user.name", "OpenRig Test"]);
-      writeFileSync(join(catalog, "catalog.yaml"), "schema: openrig.skill-catalog/v1\nsystem: []\n");
+      execFileSync("git", ["-C", root, "config", "user.email", "test@softwareteam.invalid"]);
+      execFileSync("git", ["-C", root, "config", "user.name", "SoftwareTeam Test"]);
+      writeFileSync(join(catalog, "catalog.yaml"), "schema: softwareteam.skill-catalog/v1\nsystem: []\n");
       writeFileSync(join(catalog, "shared", "SKILL.md"), "---\nname: shared\ndescription: Use when catalog content is needed.\n---\n\n# catalog\n");
       writeFileSync(join(local, "SKILL.md"), "---\nname: shared\ndescription: Use when local content is needed.\n---\n\n# local\n");
       execFileSync("git", ["-C", root, "add", "."]);
@@ -870,7 +870,7 @@ describe("selected bundle identity boundaries", () => {
       const text = (name: string, body: string) => `---\nname: ${name}\ndescription: Skill fixture\n---\n${body}\n`;
       mkdirSync(join(catalog, catalogId), { recursive: true });
       mkdirSync(local, { recursive: true });
-      writeFileSync(join(catalog, "catalog.yaml"), `schema: openrig.skill-catalog/v1\nsystem: [${catalogId}]\n`);
+      writeFileSync(join(catalog, "catalog.yaml"), `schema: softwareteam.skill-catalog/v1\nsystem: [${catalogId}]\n`);
       writeFileSync(join(catalog, catalogId, "SKILL.md"), text(catalogId, "Catalog"));
       writeFileSync(join(local, "SKILL.md"), kind === "malformed" ? "Invalid skill" : text(kind === "wrong-name" ? "other" : "shared", kind === "same-bytes" ? "Catalog" : "Bundle"));
       execFileSync("git", ["init", "-q", catalog]);
@@ -936,7 +936,7 @@ describe("selected plugin skills", () => {
   }
 
   it("adds a selected plugin's skills to the managed loadout, not to the plan's skill entries", () => {
-    const root = mkdtempSync(join(tmpdir(), "openrig-profile-plugin-skills-"));
+    const root = mkdtempSync(join(tmpdir(), "softwareteam-profile-plugin-skills-"));
     try {
       const plugin = writePlugin(root);
       const result = resolveWithPlugin(root, plugin, []);
@@ -952,7 +952,7 @@ describe("selected plugin skills", () => {
   });
 
   it("keeps a selected bundle skill's source when the plugin has a skill with the same name", () => {
-    const root = mkdtempSync(join(tmpdir(), "openrig-profile-plugin-precedence-"));
+    const root = mkdtempSync(join(tmpdir(), "softwareteam-profile-plugin-precedence-"));
     try {
       const plugin = writePlugin(root);
       const bundle = join(root, "bundle", "queue-handoff");

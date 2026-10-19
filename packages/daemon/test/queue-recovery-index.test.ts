@@ -35,7 +35,7 @@ describe("recovery and dedup lookups use the partial tag index (migration 099)",
 
   beforeEach(() => {
     db = new Database(":memory:"); migrate(db, ALL_MIGRATIONS);
-    repo = new QueueRepository(db, new EventBus(db), { validateRig: () => true });
+    repo = new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => true });
   });
   afterEach(() => { vi.restoreAllMocks(); db.close(); });
 

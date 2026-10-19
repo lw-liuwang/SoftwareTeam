@@ -1,4 +1,4 @@
-// Slice-03 rig-context ATOM 4 (STORE) — remove-by-ref, the delete half of the
+// Slice-03 software-team-context ATOM 4 (STORE) — remove-by-ref, the delete half of the
 // path-like verb set (list/show/add/rm). rm resolves + deletes THROUGH the
 // sealed Atom-1 ref boundary: an unsafe ref is a structured, fail-visible error
 // BEFORE any filesystem mutation; a safe-but-absent ref is an honest

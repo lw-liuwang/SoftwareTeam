@@ -21,20 +21,20 @@ function runSetup(env: Record<string, string | undefined> = {}) {
     env: { PATH: process.env.PATH, TMPDIR: tmp, ...env },
   });
   expect(child.status, child.stderr).toBe(0);
-  const homes = JSON.parse(child.stdout.trim().split("\n").pop()!) as { openrigHome: string; home: string; tmpdir: string; scratch: string };
+  const homes = JSON.parse(child.stdout.trim().split("\n").pop()!) as { softwareteamHome: string; home: string; tmpdir: string; scratch: string };
   return { tmp, ...homes };
 }
-const fixtureEntries = (tmp: string) => fs.readdirSync(tmp).filter((name) => name.startsWith(".openrig-test-fixture-home-"));
+const fixtureEntries = (tmp: string) => fs.readdirSync(tmp).filter((name) => name.startsWith(".softwareteam-test-fixture-home-"));
 /** Anything the worker left in the TMPDIR it was given: its homes, its own TMPDIR and what tests put in it.
  *  Not tsx's loader cache, which the child's launcher makes before the setup runs. */
 const leftovers = (tmp: string) => fs.readdirSync(tmp).filter((name) => !name.startsWith("tsx-"));
 
-describe.skipIf(process.env["OPENRIG_E2E_REAL_CODEX"] === "1")("fixture homes are removed when the worker exits", () => {
+describe.skipIf(process.env["SOFTWARETEAM_E2E_REAL_CODEX"] === "1")("fixture homes are removed when the worker exits", () => {
   it("removes the fixture home and the user home", () => {
-    const { tmp, openrigHome, home } = runSetup();
-    expect(path.dirname(openrigHome)).toBe(tmp);
-    expect(home).toBe(`${openrigHome}-user-home`);
-    expect(fs.existsSync(openrigHome)).toBe(false);
+    const { tmp, softwareteamHome, home } = runSetup();
+    expect(path.dirname(softwareteamHome)).toBe(tmp);
+    expect(home).toBe(`${softwareteamHome}-user-home`);
+    expect(fs.existsSync(softwareteamHome)).toBe(false);
     expect(fs.existsSync(home)).toBe(false);
     expect(fixtureEntries(tmp)).toEqual([]);
   });
@@ -52,14 +52,14 @@ describe.skipIf(process.env["OPENRIG_E2E_REAL_CODEX"] === "1")("fixture homes ar
   });
 
   it("keeps os.tmpdir() as given when the package opts out, and still removes the homes", () => {
-    const { tmp, openrigHome, home, tmpdir, scratch } = runSetup({ OPENRIG_TEST_KEEP_TMPDIR: "1" });
+    const { tmp, softwareteamHome, home, tmpdir, scratch } = runSetup({ SOFTWARETEAM_TEST_KEEP_TMPDIR: "1" });
     // No TMPDIR of its own: a test's temp dir is made straight under the TMPDIR the run was given (it is the
     // test's to remove, as before)...
     expect(tmpdir).toBe(tmp);
     expect(path.dirname(scratch)).toBe(tmp);
     expect(fs.readdirSync(tmp).filter((name) => name.startsWith("o-"))).toEqual([]);
     // ...but the fixture homes go with the worker.
-    expect(fs.existsSync(openrigHome)).toBe(false);
+    expect(fs.existsSync(softwareteamHome)).toBe(false);
     expect(fs.existsSync(home)).toBe(false);
     expect(fixtureEntries(tmp)).toEqual([]);
   });
@@ -75,7 +75,7 @@ describe.skipIf(process.env["OPENRIG_E2E_REAL_CODEX"] === "1")("fixture homes ar
       child.once("close", (code, sig) => resolve({ code, signal: sig })));
     try {
       let output = "";
-      const homes = await new Promise<{ openrigHome: string; home: string; tmpdir: string; scratch: string }>((resolve, reject) => {
+      const homes = await new Promise<{ softwareteamHome: string; home: string; tmpdir: string; scratch: string }>((resolve, reject) => {
         child.stdout!.on("data", (chunk: Buffer) => {
           output += String(chunk);
           const line = output.split("\n").find((l) => l.startsWith("{") && l.endsWith("}"));
@@ -84,14 +84,14 @@ describe.skipIf(process.env["OPENRIG_E2E_REAL_CODEX"] === "1")("fixture homes ar
         child.once("close", () => reject(new Error(`child ended before it printed its homes: ${output}`)));
       });
       // Alive, and with both homes on disk, when the signal arrives.
-      expect(fs.existsSync(homes.openrigHome)).toBe(true);
+      expect(fs.existsSync(homes.softwareteamHome)).toBe(true);
       expect(fs.existsSync(homes.home)).toBe(true);
       expect(fs.existsSync(homes.scratch)).toBe(true);
 
       child.kill(signal);
 
       expect(await closed).toEqual({ code: null, signal });
-      expect(fs.existsSync(homes.openrigHome)).toBe(false);
+      expect(fs.existsSync(homes.softwareteamHome)).toBe(false);
       expect(fs.existsSync(homes.home)).toBe(false);
       expect(fs.existsSync(homes.scratch)).toBe(false);
       expect(fs.existsSync(homes.tmpdir)).toBe(false);
@@ -104,26 +104,26 @@ describe.skipIf(process.env["OPENRIG_E2E_REAL_CODEX"] === "1")("fixture homes ar
   it("leaves a fixture home it only reused, which belongs to whoever made it", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "fixture-home-parent-"));
     roots.push(tmp);
-    const parentHome = path.join(tmp, ".openrig-test-fixture-home-parent");
+    const parentHome = path.join(tmp, ".softwareteam-test-fixture-home-parent");
     fs.mkdirSync(parentHome);
-    fs.writeFileSync(path.join(parentHome, ".openrig-fixture"), "");
+    fs.writeFileSync(path.join(parentHome, ".softwareteam-fixture"), "");
 
-    const { openrigHome, tmpdir } = runSetup({ OPENRIG_HOME: parentHome, TMPDIR: tmp });
+    const { softwareteamHome, tmpdir } = runSetup({ SOFTWARETEAM_HOME: parentHome, TMPDIR: tmp });
 
-    expect(openrigHome).toBe(parentHome);
-    expect(fs.existsSync(path.join(parentHome, ".openrig-fixture"))).toBe(true);
+    expect(softwareteamHome).toBe(parentHome);
+    expect(fs.existsSync(path.join(parentHome, ".softwareteam-fixture"))).toBe(true);
     // It did not create the home, so it did not make a TMPDIR of its own either: that one is the parent's.
     expect(tmpdir).toBe(tmp);
   });
 
-  it("never touches an OPENRIG_HOME from the environment that has no marker", () => {
+  it("never touches an SOFTWARETEAM_HOME from the environment that has no marker", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "fixture-home-owner-"));
     roots.push(tmp);
     fs.writeFileSync(path.join(tmp, "state.db"), "owner state");
 
-    const { openrigHome } = runSetup({ OPENRIG_HOME: tmp });
+    const { softwareteamHome } = runSetup({ SOFTWARETEAM_HOME: tmp });
 
-    expect(openrigHome).not.toBe(tmp);
+    expect(softwareteamHome).not.toBe(tmp);
     expect(fs.readFileSync(path.join(tmp, "state.db"), "utf-8")).toBe("owner state");
   });
 });

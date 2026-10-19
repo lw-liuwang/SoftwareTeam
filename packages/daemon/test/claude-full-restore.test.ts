@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { SnapshotRepository } from "../src/domain/snapshot-repository.js";
 import { CheckpointStore } from "../src/domain/checkpoint-store.js";
 import { SnapshotCapture } from "../src/domain/snapshot-capture.js";
-import { RigTeardownOrchestrator } from "../src/domain/rig-teardown.js";
+import { SoftwareTeamTeardownOrchestrator } from "../src/domain/software-team-teardown.js";
 import { NodeLauncher } from "../src/domain/node-launcher.js";
 import { RestoreOrchestrator } from "../src/domain/restore-orchestrator.js";
 import { SeatIdentityReconciler } from "../src/domain/seat-identity-reconciler.js";
@@ -30,15 +30,15 @@ describe("managed Claude full down/up", () => {
   it.each(["exact", "native", "bare-shell", "wrong-token", "unobserved-pane-process", "ambiguous"])(
     "keeps identity proof separate from ordinary delivery: %s", async (mode) => {
       const db = createFullTestDb(); dbs.push(db);
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const sessionRegistry = new SessionRegistry(db);
       const eventBus = new EventBus(db);
       const snapshotRepo = new SnapshotRepository(db);
       const checkpointStore = new CheckpointStore(db);
-      const snapshotCapture = new SnapshotCapture({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
-      const rig = rigRepo.createRig("restore-test");
-      db.prepare("INSERT INTO pods (id, rig_id, label) VALUES (?, ?, ?)").run("restore-pod", rig.id, "Test");
-      const node = rigRepo.addNode(rig.id, "test.c", { runtime: "claude-code", podId: "restore-pod" });
+      const snapshotCapture = new SnapshotCapture({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("restore-test");
+      db.prepare("INSERT INTO pods (id, software_team_id, label) VALUES (?, ?, ?)").run("restore-pod", softwareTeam.id, "Test");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "test.c", { runtime: "claude-code", podId: "restore-pod" });
       new NativePermissionStore(db).write(node.id, { runtime: "claude-code", mode: "auto" }, "fixture", "retained Fleet posture");
       const name = "test-c@restore-test";
       const old = sessionRegistry.registerSession(node.id, name);
@@ -69,7 +69,7 @@ describe("managed Claude full down/up", () => {
         ...(mode === "bare-shell" ? [] : [{ pid: 102, ppid: 101, pgid: 101, tpgid: 101, executableName: mode === "native" ? "2.1.285" : "claude", command: `${mode === "native" ? "/fixture/.local/share/claude/versions/2.1.285" : "/opt/claude.exe"} --permission-mode auto --resume ${mode === "wrong-token" ? "different" : token} --name ${name}`, startedAt }]),
       ];
       // Real teardown captures the running occupant, exits the old row and clears bindings.
-      const down = await new RigTeardownOrchestrator({ db, rigRepo, sessionRegistry, eventBus, snapshotCapture, tmuxAdapter: tmux }).teardown(rig.id);
+      const down = await new SoftwareTeamTeardownOrchestrator({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotCapture, tmuxAdapter: tmux }).teardown(softwareTeam.id);
       expect(down.errors).toEqual([]);
       expect(down.sessionsKilled).toBe(1);
       expect(snapshotRepo.getSnapshot(down.snapshotId!)?.kind).toBe("auto-pre-down");
@@ -79,8 +79,8 @@ describe("managed Claude full down/up", () => {
         fsOps: {
         exists: () => false, readFile: () => "", writeFile: () => {}, mkdirp: () => {}, copyFile: () => {},
       } });
-      const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
-      const restore = new RestoreOrchestrator({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+      const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+      const restore = new RestoreOrchestrator({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
         checkpointStore, nodeLauncher, tmuxAdapter: tmux, claudeResume: new ClaudeResumeAdapter(tmux),
         codexResume: new CodexResumeAdapter(tmux), listProcesses });
       const up = await restore.restore(down.snapshotId!, { adapters: { "claude-code": adapter } });
@@ -103,7 +103,7 @@ describe("managed Claude full down/up", () => {
       expect(tmux.sendKeys).not.toHaveBeenCalled();
       await new SeatIdentityReconciler({ db, tmux, listProcesses }).reconcileAll();
       vi.mocked(tmux.sendText).mockClear(); vi.mocked(tmux.sendKeys).mockClear();
-      const transport = new SessionTransport({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux, listProcesses, sleep: async () => {} });
+      const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux, listProcesses, sleep: async () => {} });
       const sent = await transport.send(name, "ordinary restored message");
       // Ordinary delivery warns on token-only uncertainty, even though strict
       // restore above still reports attention_required. This does not prove
@@ -137,15 +137,15 @@ describe("pod-aware Claude resume failure outcomes", () => {
 
   it.each(["generic-exit", "missing", "attention", "success"])("%s", async (mode) => {
     const db = createFullTestDb(); dbs.push(db);
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const sessionRegistry = new SessionRegistry(db);
     const eventBus = new EventBus(db);
     const snapshotRepo = new SnapshotRepository(db);
     const checkpointStore = new CheckpointStore(db);
-    const snapshotCapture = new SnapshotCapture({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
-    const rig = rigRepo.createRig("restore-test");
-    db.prepare("INSERT INTO pods (id, rig_id, label) VALUES (?, ?, ?)").run("restore-pod", rig.id, "Test");
-    const node = rigRepo.addNode(rig.id, "test.c", { runtime: "claude-code", podId: "restore-pod" });
+    const snapshotCapture = new SnapshotCapture({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("restore-test");
+    db.prepare("INSERT INTO pods (id, software_team_id, label) VALUES (?, ?, ?)").run("restore-pod", softwareTeam.id, "Test");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "test.c", { runtime: "claude-code", podId: "restore-pod" });
     new NativePermissionStore(db).write(node.id, { runtime: "claude-code", mode: "auto" }, "fixture", "retained posture");
     const name = "test-c@restore-test";
     const old = sessionRegistry.registerSession(node.id, name);
@@ -178,7 +178,7 @@ describe("pod-aware Claude resume failure outcomes", () => {
       { pid: 101, ppid: 100, pgid: 101, tpgid: 101, executableName: "sh", command: "/bin/sh /tmp/fixture-launch.txt", startedAt },
       { pid: 102, ppid: 101, pgid: 101, tpgid: 101, executableName: "claude", command: `/opt/claude.exe --permission-mode auto --resume ${token} --name ${name}`, startedAt },
     ];
-    const down = await new RigTeardownOrchestrator({ db, rigRepo, sessionRegistry, eventBus, snapshotCapture, tmuxAdapter: tmux }).teardown(rig.id);
+    const down = await new SoftwareTeamTeardownOrchestrator({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotCapture, tmuxAdapter: tmux }).teardown(softwareTeam.id);
     expect(down.errors).toEqual([]);
     const adapter = new ClaudeCodeAdapter({ tmux, listProcesses, sleep: async () => {},
       claudeManagedLaunch: {
@@ -187,8 +187,8 @@ describe("pod-aware Claude resume failure outcomes", () => {
         boundCwd: () => "/",
       } as unknown as ClaudeManagedLaunch,
       fsOps: { exists: () => false, readFile: () => "", writeFile: () => {}, mkdirp: () => {}, copyFile: () => {} } });
-    const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
-    const restore = new RestoreOrchestrator({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+    const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+    const restore = new RestoreOrchestrator({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
       checkpointStore, nodeLauncher, tmuxAdapter: tmux, claudeResume: new ClaudeResumeAdapter(tmux),
       codexResume: new CodexResumeAdapter(tmux), listProcesses });
     vi.mocked(tmux.killSession).mockClear();
@@ -206,7 +206,7 @@ describe("pod-aware Claude resume failure outcomes", () => {
       expect(outcome.status).toBe("failed");
       expect(outcome.error).toContain("pane returned to shell instead of entering Claude");
       expect(outcome.error).not.toMatch(/unresumable/i);
-      expect(up.result.rigResult).toBe("failed");
+      expect(up.result.softwareTeamResult).toBe("failed");
       expect(tmux.killSession).not.toHaveBeenCalled();
       expect(live).toBe(true);
       expect(latest).toMatchObject({ status: "running", startup_status: "failed" });
@@ -215,7 +215,7 @@ describe("pod-aware Claude resume failure outcomes", () => {
       expect(outcome.status).toBe("awaiting-decision");
       expect(outcome.error).toContain("Original session unresumable");
       expect(outcome.error).toContain("no conversation found for the requested session");
-      expect(up.result.rigResult).toBe("partially_restored");
+      expect(up.result.softwareTeamResult).toBe("partially_restored");
       expect(tmux.killSession).toHaveBeenCalledExactlyOnceWith(name);
       expect(live).toBe(false);
       expect(latest).toMatchObject({ status: "superseded", startup_status: "failed" });

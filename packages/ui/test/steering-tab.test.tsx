@@ -17,7 +17,7 @@ function jsonResponse(body: unknown, status = 200) {
 const STEERING_PAYLOAD = {
   priorityStack: {
     content: "# Steering\n\nMode: observability-overhaul. LOCAL main only — no push.",
-    absolutePath: "/Users/x/code/substrate/shared-docs/openrig-work/STEERING.md",
+    absolutePath: "/Users/x/code/substrate/shared-docs/softwareteam-work/STEERING.md",
     mtime: "2026-06-23T08:00:00.000Z",
     byteCount: 84,
   },
@@ -48,7 +48,7 @@ const BRIEF_MD = [
   "Review the design mockups.",
   "",
   "## Risks",
-  "Creative-rig DAG timing.",
+  "Creative-software-team DAG timing.",
 ].join("\n");
 
 interface RouteOpts {

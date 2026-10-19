@@ -23,7 +23,7 @@ function writeProfile(name: string, contents: unknown): void {
   fs.writeFileSync(path.join(dir, "auth-profiles", `${name}.json`), JSON.stringify(contents));
 }
 function writeRegistry(rows: string[][]): void {
-  const header = ["seat", "rig", "runtime", "cwd", "auth_profile", "updated_ts"].join("\t");
+  const header = ["seat", "softwareTeam", "runtime", "cwd", "auth_profile", "updated_ts"].join("\t");
   const body = rows.map((r) => r.join("\t")).join("\n");
   fs.writeFileSync(path.join(dir, "auth-seat-registry.tsv"), `${header}\n${body}\n`);
 }
@@ -33,20 +33,20 @@ describe("readCodexAuthMetadata — daemon-local, secret-safe", () => {
     writeProfile("beta", { OPENAI_API_KEY: "sk-SECRET-TOKEN-must-never-surface" });
     writeProfile("alpha", { OPENAI_API_KEY: "sk-ANOTHER-SECRET" });
     writeRegistry([
-      ["seat-1", "rig-a", "codex", "/w/a", "alpha", "2026-08-03T12:00:00.000Z"],
-      ["seat-2", "rig-a", "codex", "/w/b", "beta", "2026-08-03T11:00:00.000Z"],
+      ["seat-1", "software-team-a", "codex", "/w/a", "alpha", "2026-08-03T12:00:00.000Z"],
+      ["seat-2", "software-team-a", "codex", "/w/b", "beta", "2026-08-03T11:00:00.000Z"],
     ]);
 
     const meta = readCodexAuthMetadata({ CODEX_HOME: dir } as NodeJS.ProcessEnv);
     expect(meta.profiles).toEqual(["alpha", "beta"]); // sorted names, no .json
     expect(meta.seats).toHaveLength(2);
     const s1 = meta.seats.find((s) => s.seat === "seat-1");
-    expect(s1).toMatchObject({ seat: "seat-1", rig: "rig-a", runtime: "codex", authProfile: "alpha", updatedTs: "2026-08-03T12:00:00.000Z" });
+    expect(s1).toMatchObject({ seat: "seat-1", softwareTeam: "software-team-a", runtime: "codex", authProfile: "alpha", updatedTs: "2026-08-03T12:00:00.000Z" });
   });
 
   it("NEVER surfaces token-class content from profile files (reads names only)", () => {
     writeProfile("alpha", { OPENAI_API_KEY: "sk-SECRET-TOKEN-must-never-surface", access_token: "tok-DEADBEEF" });
-    writeRegistry([["seat-1", "rig-a", "codex", "/w/a", "alpha", "2026-08-03T12:00:00.000Z"]]);
+    writeRegistry([["seat-1", "software-team-a", "codex", "/w/a", "alpha", "2026-08-03T12:00:00.000Z"]]);
 
     const meta = readCodexAuthMetadata({ CODEX_HOME: dir } as NodeJS.ProcessEnv);
     const serialized = JSON.stringify(meta);

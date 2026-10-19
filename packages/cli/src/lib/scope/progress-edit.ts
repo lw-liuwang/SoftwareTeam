@@ -1,6 +1,6 @@
 // OPR.0.4.0.33 — pure, surgical markdown editors for PROGRESS rails.
 //
-// These back `rig scope ... progress`. They consume the UI parser
+// These back `SoftwareTeam scope ... progress`. They consume the UI parser
 // contract in packages/daemon/src/domain/progress/progress-indexer.ts:
 //   - title comes from the FIRST `# H1` only (frontmatter is skipped),
 //   - section hierarchy from `##`/`###`/`####` headings,
@@ -124,7 +124,7 @@ export function addProgressRow(
       throw new ScopeCliError({
         fact: `A row "${text}" already exists in section "${section}" with status ${current}.`,
         consequence: "Refusing to add a conflicting duplicate row.",
-        action: `Use: rig scope ... progress --set "${text}" --status ${opts.status} to change its status.`,
+        action: `Use: SoftwareTeam scope ... progress --set "${text}" --status ${opts.status} to change its status.`,
       });
     }
   }
@@ -166,7 +166,7 @@ export function setProgressRow(
     throw new ScopeCliError({
       fact: `No progress row matches the exact text "${text}".`,
       consequence: "Nothing was changed.",
-      action: 'Check the row text (exact, trimmed match), or add it with --add. List rows with: rig scope ... show.',
+      action: 'Check the row text (exact, trimmed match), or add it with --add. List rows with: SoftwareTeam scope ... show.',
     });
   }
   if (matches.length > 1) {

@@ -1,7 +1,7 @@
 // OPR.0.4.6.02 C3 — TerminalService orchestration (the ONE composer for every
 // view kind). Pure orchestration with injected deps + a fake provider:
-//  - view resolution precedence: mission:/slice: (read-only) · rig name +
-//    rig:<id> alias (interactive) · saved view (per-member read-only) · unknown;
+//  - view resolution precedence: mission:/slice: (read-only) · softwareTeam name +
+//    software-team:<id> alias (interactive) · saved view (per-member read-only) · unknown;
 //  - the one shared {opened,absent,degraded} result shape for resolution
 //    failures too (unknown provider / view_required / view_not_found);
 //  - honest-partial: a dead local seat (has-session false) lands in absent[];
@@ -46,9 +46,9 @@ class RecordingProvider implements TerminalProvider {
   }
 }
 
-const rigRows: LiveSeatRow[] = [
-  { canonicalSessionName: "dev-driver@acme-build", attachmentType: "tmux", tmuxSession: "dev-driver@acme-build", rigName: "acme-build", logicalId: "dev.driver" },
-  { canonicalSessionName: "rev-r1@acme-build", attachmentType: "tmux", tmuxSession: "rev-r1@acme-build", rigName: "acme-build", logicalId: "rev.r1" },
+const softwareTeamRows: LiveSeatRow[] = [
+  { canonicalSessionName: "dev-driver@acme-build", attachmentType: "tmux", tmuxSession: "dev-driver@acme-build", softwareTeamName: "acme-build", logicalId: "dev.driver" },
+  { canonicalSessionName: "rev-r1@acme-build", attachmentType: "tmux", tmuxSession: "rev-r1@acme-build", softwareTeamName: "acme-build", logicalId: "rev.r1" },
 ];
 
 const savedView: SavedView = {
@@ -74,13 +74,13 @@ function makeDeps(overrides: Partial<TerminalServiceDeps> = {}): {
       get: (id) => (id === savedView.id ? savedView : null),
       list: () => [savedView],
     },
-    listRigSeats: (rigArg) => (rigArg === "acme-build" || rigArg === "rig-id-1" ? rigRows : null),
-    listPodSeats: (rigArg, pod) => (rigArg === "acme-build" && pod === "dev" ? [rigRows[0]!] : null),
+    listSoftwareTeamSeats: (softwareTeamArg) => (softwareTeamArg === "acme-build" || softwareTeamArg === "software-team-id-1" ? softwareTeamRows : null),
+    listPodSeats: (softwareTeamArg, pod) => (softwareTeamArg === "acme-build" && pod === "dev" ? [softwareTeamRows[0]!] : null),
     listScopeSeats: (scope) =>
       scope === "mission:4.6" || scope === "slice:02"
-        ? [{ canonicalSessionName: "dev-driver@acme-build", attachmentType: "tmux", tmuxSession: "dev-driver@acme-build", rigName: "acme-build", logicalId: "dev.driver" }]
+        ? [{ canonicalSessionName: "dev-driver@acme-build", attachmentType: "tmux", tmuxSession: "dev-driver@acme-build", softwareTeamName: "acme-build", logicalId: "dev.driver" }]
         : null,
-    listRigNames: () => ["acme-build"],
+    listSoftwareTeamNames: () => ["acme-build"],
     resolveHost: () => null,
     hasSession: () => true,
     ...overrides,
@@ -104,7 +104,7 @@ describe("TerminalService — view resolution + one-shape result", () => {
     };
     const result = await new TerminalService(deps).openView({ view: "acme-build" });
     expect(calls).toBe(1);
-    expect(result).toMatchObject({ ok: !unavailable, opened: unavailable ? [] : rigRows.map(row => row.canonicalSessionName), absent: [], degraded: [] });
+    expect(result).toMatchObject({ ok: !unavailable, opened: unavailable ? [] : softwareTeamRows.map(row => row.canonicalSessionName), absent: [], degraded: [] });
     expect(result.code).toBe(unavailable ? "herdr_unavailable" : undefined);
     expect(result.notes).toContain("Original provider detail");
     const notes = result.notes!.join("\n");
@@ -121,7 +121,7 @@ describe("TerminalService — view resolution + one-shape result", () => {
     }
   });
 
-  it("opens a rig NAME as an interactive derived view (read-write panes)", async () => {
+  it("opens a softwareTeam NAME as an interactive derived view (read-write panes)", async () => {
     const { deps, herdr } = makeDeps();
     const svc = new TerminalService(deps);
     const res = await svc.openView({ view: "acme-build" });
@@ -133,16 +133,16 @@ describe("TerminalService — view resolution + one-shape result", () => {
     expect(herdr.lastView?.opened[0]?.paneCommand).toBe("tmux attach -t 'dev-driver@acme-build'");
   });
 
-  it("the rig:<id> alias form resolves the same rig (the rig-scoped route delegation)", async () => {
+  it("the software-team:<id> alias form resolves the same softwareTeam (the software-team-scoped route delegation)", async () => {
     const { deps, herdr } = makeDeps();
     const svc = new TerminalService(deps);
-    const res = await svc.openView({ view: "rig:rig-id-1" });
+    const res = await svc.openView({ view: "software-team:software-team-id-1" });
     expect(res.ok).toBe(true);
-    expect(herdr.lastView?.id).toBe("rig:rig-id-1");
+    expect(herdr.lastView?.id).toBe("software-team:software-team-id-1");
     expect(res.opened.length).toBe(2);
   });
 
-  it("opens a pod:<rig>/<pod> as an interactive derived view (AC-5 launcher target)", async () => {
+  it("opens a pod:<softwareTeam>/<pod> as an interactive derived view (AC-5 launcher target)", async () => {
     const { deps, herdr } = makeDeps();
     const svc = new TerminalService(deps);
     const res = await svc.openView({ view: "pod:acme-build/dev" });
@@ -216,10 +216,10 @@ describe("TerminalService — view resolution + one-shape result", () => {
     expect(res.opened).toEqual([]);
   });
 
-  it("explicit rig:<x> that resolves nowhere is view_not_found (never falls through to saved)", async () => {
+  it("explicit software-team:<x> that resolves nowhere is view_not_found (never falls through to saved)", async () => {
     const { deps } = makeDeps();
     const svc = new TerminalService(deps);
-    const res = await svc.openView({ view: "rig:watchtower" });
+    const res = await svc.openView({ view: "software-team:watchtower" });
     expect(res.ok).toBe(false);
     expect(res.code).toBe("view_not_found");
   });
@@ -239,12 +239,12 @@ describe("TerminalService — view resolution + one-shape result", () => {
     expect(res.code).toBe("view_required");
   });
 
-  it("listViews returns saved views + openable rig names", async () => {
+  it("listViews returns saved views + openable SoftwareTeam names", async () => {
     const { deps } = makeDeps();
     const svc = new TerminalService(deps);
     const res = await svc.listViews();
     expect(res.saved.map((v) => v.id)).toEqual(["watchtower"]);
-    expect(res.rigs).toEqual(["acme-build"]);
+    expect(res.softwareTeams).toEqual(["acme-build"]);
   });
 
   it("status reports each provider; an unknown named provider is honestly unavailable", async () => {
@@ -263,8 +263,8 @@ describe("one terminal catalog inventory", () => {
     const expected = await new TerminalService(normal.deps).listViews(true);
     let batches = 0; let singles = 0;
     const batched = makeDeps({
-      listRigSeats: () => { singles++; return rigRows; },
-      listRigSeatsBatch: names => { batches++; expect(names).toEqual(["acme-build"]); return new Map([["acme-build", rigRows]]); },
+      listSoftwareTeamSeats: () => { singles++; return softwareTeamRows; },
+      listSoftwareTeamSeatsBatch: names => { batches++; expect(names).toEqual(["acme-build"]); return new Map([["acme-build", softwareTeamRows]]); },
     });
     const actual = await new TerminalService(batched.deps).listViews(true);
     expect(actual).toEqual(expected);
@@ -280,7 +280,7 @@ describe("Herdr reuse plan labels", () => {
     if (!("composed" in preview)) throw new Error("expected preview");
     expect((await service.openView({ view, expectedPlan: preview.planId })).ok).toBe(true);
     const label = planHerdrLayout(provider.lastView!, "fixed").pages[0]!.tabLabel;
-    expect(label).toBe(`openrig:${preview.composed.id}#${preview.planId.slice(0, 16)}#fixed`);
+    expect(label).toBe(`softwareteam:${preview.composed.id}#${preview.planId.slice(0, 16)}#fixed`);
     return label;
   }
 
@@ -296,13 +296,13 @@ describe("Herdr reuse plan labels", () => {
   });
 
   it("separates saved and derived views with the same resolved id and different members", async () => {
-    const saved: SavedView = { id: "rig:acme-build", name: "Saved", members: [{ seat: "other", tmuxSession: "other" }] };
+    const saved: SavedView = { id: "software-team:acme-build", name: "Saved", members: [{ seat: "other", tmuxSession: "other" }] };
     const { deps, herdr } = makeDeps({ viewsStore: { list: () => [saved], get: id => id === saved.id ? saved : null } });
     const service = new TerminalService(deps);
-    const before = await rendered(service, herdr, "saved:rig:acme-build");
-    const after = await rendered(service, herdr, "rig:acme-build");
-    expect(before).toMatch(/^openrig:rig:acme-build#/);
-    expect(after).toMatch(/^openrig:rig:acme-build#/);
+    const before = await rendered(service, herdr, "saved:software-team:acme-build");
+    const after = await rendered(service, herdr, "software-team:acme-build");
+    expect(before).toMatch(/^softwareteam:software-team:acme-build#/);
+    expect(after).toMatch(/^softwareteam:software-team:acme-build#/);
     expect(after).not.toBe(before);
   });
 });
@@ -320,7 +320,7 @@ describe("default saved kernel conversations", () => {
   function makeKernel(rows: LiveSeatRow[], saved: SavedView[] = []) {
     return makeDeps({
       viewsStore: { list: () => saved, get: id => saved.find(view => view.id === id) ?? null },
-      listRigNames: () => ["kernel"], listRigSeats: name => name === "kernel" ? rows : null,
+      listSoftwareTeamNames: () => ["kernel"], listSoftwareTeamSeats: name => name === "kernel" ? rows : null,
     });
   }
 
@@ -339,7 +339,7 @@ describe("default saved kernel conversations", () => {
     const newLabel = planHerdrLayout(herdr.lastView!, "fixed").pages[0]!.tabLabel;
     expect(oldLabel).toBe("dashboard");
     expect(newLabel).toBe("operator");
-    expect(planHerdrLayout(herdr.lastView!, "fixed").workspaceLabel).toBe("openrig kernel");
+    expect(planHerdrLayout(herdr.lastView!, "fixed").workspaceLabel).toBe("softwareteam kernel");
   });
 
   it.each([false, true])("keeps the default kernel handoff distinct from a team (provider unavailable=%s)", async unavailable => {
@@ -453,7 +453,7 @@ describe("default saved kernel conversations", () => {
     expect(preview.composed.pages.map(page => page.map(pane => pane.seat))).toEqual([["operator-bound"], ["tui-bound"], ["advisor-bound"]]);
   });
 
-  it.each(["saved:kernel", "saved:custom", "rig:kernel"])("kernel geometry preserves auto-grid for %s outside the default", async view => {
+  it.each(["saved:kernel", "saved:custom", "software-team:kernel"])("kernel geometry preserves auto-grid for %s outside the default", async view => {
     const custom: SavedView = { id: view.slice(6), name: "Custom", members: ["a", "b", "c"].map(seat => ({ seat })) };
     const { deps, herdr } = makeKernel(kernel().filter(row => row.logicalId !== "queue.worker"), [custom]);
     const service = new TerminalService(deps);
@@ -522,7 +522,7 @@ describe("default saved kernel conversations", () => {
     const custom = { id: "kernel", name: "My view", members: [{ seat: "custom", host: "elsewhere", readOnly: true }] };
     const views = [savedView, custom];
     const { deps } = makeKernel(kernel(), views);
-    deps.listRigSeats = () => { throw new Error("must not resolve the default for an override"); };
+    deps.listSoftwareTeamSeats = () => { throw new Error("must not resolve the default for an override"); };
     const service = new TerminalService(deps);
     expect((await service.listViews()).saved).toEqual(views);
     const result = await service.openView({ view: "saved:kernel" });
@@ -530,13 +530,13 @@ describe("default saved kernel conversations", () => {
     expect(views).toEqual([savedView, custom]);
   });
 
-  it("leaves unrelated custom views and the full rig view unchanged", async () => {
+  it("leaves unrelated custom views and the full SoftwareTeam view unchanged", async () => {
     const { deps } = makeKernel(kernel(), [savedView]);
     const service = new TerminalService(deps);
     expect((await service.listViews()).saved[0]).toEqual(savedView);
     expect((await service.openView({ view: "saved:watchtower" })).opened).toEqual(["lead@acme-ops", "builder@acme-ops"]);
     expect((await service.openView({ view: "kernel" })).opened).toContain("queue-bound");
-    expect((await service.openView({ view: "rig:kernel" })).opened).toContain("queue-bound");
+    expect((await service.openView({ view: "software-team:kernel" })).opened).toContain("queue-bound");
   });
 
   it("reports dead bound seats and never invents an unbound session", async () => {

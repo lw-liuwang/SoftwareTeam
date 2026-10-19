@@ -389,7 +389,7 @@ export class TerminalSessionBroker {
 
     const outputPath = path.join(
       os.tmpdir(),
-      `openrig-term-${this.sessionName.replace(/[^a-zA-Z0-9@-]/g, "_")}-${Date.now()}.log`,
+      `softwareteam-term-${this.sessionName.replace(/[^a-zA-Z0-9@-]/g, "_")}-${Date.now()}.log`,
     );
     try {
       fs.writeFileSync(outputPath, "", "utf-8");

@@ -39,15 +39,15 @@ describe("PULSE view (5.2 Wave B — increment 1: static skeleton from the appro
     // (dev50-guard) is idle (terminalActive false) and NOT handed off; idle-duration
     // derived at the renderer from the seat's lastActivityAt (47m before DEMO_NOW).
     expect(body).toContain("◌ PARKED WITH BATON (1)");
-    expect(body).toContain("dev50-guard@openrig-build");
+    expect(body).toContain("dev50-guard@softwareteam-build");
     expect(body).toContain("47m idle");
     expect(body).toContain("no handoff");
     expect(body).not.toContain("idle-age read pending"); // placeholder gone — read is live
     // ⧗ BLOCKED ON AGENTS ← the demo state=blocked read, human-blocked item EXCLUDED
     expect(body).toContain("⧗ BLOCKED ON AGENTS (1)");
-    expect(body).toContain("dev50-driver@openrig-build");
+    expect(body).toContain("dev50-driver@softwareteam-build");
     // label==referent: the blocking AGENT is named (resolved blockerSession), NOT the qitem pointer
-    expect(body).toContain("blocked on review-r1@openrig-build");
+    expect(body).toContain("blocked on review-r1@softwareteam-build");
     expect(body).not.toContain("qitem-20260805-review");
     expect(body).toContain("terminal verdict for 51209941");
     expect(body).not.toContain("human sign-off pending"); // human-blocked → not here
@@ -121,7 +121,7 @@ describe("PULSE view (5.2 Wave B — increment 1: static skeleton from the appro
 
   it("column ALIGNMENT holds when a live NOW label overflows: truncated with '…', never shoving the JUST FINISHED column (incr-3, real-data widths)", () => {
     const lanes: Parameters<typeof renderLanes>[0] = [
-      { label: "NOW", count: 1, rows: [{ glyph: "●", token: "ok", label: "dev50-driver@openrig-build  a very long piece of active work that would overflow the lane" }] },
+      { label: "NOW", count: 1, rows: [{ glyph: "●", token: "ok", label: "dev50-driver@softwareteam-build  a very long piece of active work that would overflow the lane" }] },
       { label: "JUST FINISHED", count: 1, rows: [{ glyph: "✓", token: "ok", time: "11:44", label: "JFMARK" }] },
       { label: "UP NEXT", count: 1, rows: [{ glyph: "○", token: "dim", label: "UPMARK" }] },
     ];
@@ -142,7 +142,7 @@ describe("PULSE view (5.2 Wave B — increment 1: static skeleton from the appro
     // demo NOW = driver/planner/r1/lead (4 active) → the first four targets are the
     // NOW column (column-major). driver resolves in the topology → an agent drill.
     expect(s.contentTargets.length).toBeGreaterThanOrEqual(4);
-    expect(s.contentTargets[0]!.action).toEqual({ type: "drill", resource: "agent", name: "dev50.driver", target: { host: "vm-host", rig: "openrig-build", pod: "dev50" } });
+    expect(s.contentTargets[0]!.action).toEqual({ type: "drill", resource: "agent", name: "dev50.driver", target: { host: "vm-host", softwareTeam: "softwareteam-build", pod: "dev50" } });
     // a JUST FINISHED cell (guard's close-out) drills the seat that finished it
     const jf = s.contentTargets.find((t) => t.action.type === "drill" && t.action.name === "dev50.guard");
     expect(jf).toBeDefined();
@@ -185,7 +185,7 @@ describe("PULSE view (5.2 Wave B — increment 1: static skeleton from the appro
 
     const enter: Extract<InputEvent, { type: "key" }> = { type: "key", key: "enter", action: { type: "activate" } };
     const action = resolveKeyAction(enter, v.get(), s, 0);
-    expect(action).toEqual({ type: "drill", resource: "agent", name: "dev50.driver", target: { host: "vm-host", rig: "openrig-build", pod: "dev50" } });
+    expect(action).toEqual({ type: "drill", resource: "agent", name: "dev50.driver", target: { host: "vm-host", softwareTeam: "softwareteam-build", pod: "dev50" } });
     // dispatching it navigates to the agent (full detail), leaving the pulse view
     v.dispatch(action!);
     expect(v.get().viewTab).toBe("table");
@@ -235,8 +235,8 @@ describe("PULSE view (5.2 Wave B — increment 5: live refresh-seam + motion bud
   const INV = /(?:\x1b\[|;)7(?:;|m)/; // a standalone inverse SGR param (7), not the "7" inside a color triple
   const BG = /48;2;/; // a truecolor background SGR
   const OPTS = { cols: 140, rows: 44, nowMs: DEMO_NOW, colorMode: "truecolor" as const };
-  const agentKey = (a: Extract<InputEvent, never> | { type: string; name?: string; target?: { host: string; rig: string; pod: string } }): string =>
-    `agent:${a.target!.host}/${a.target!.rig}/${a.target!.pod}/${a.name}`;
+  const agentKey = (a: Extract<InputEvent, never> | { type: string; name?: string; target?: { host: string; softwareTeam: string; pod: string } }): string =>
+    `agent:${a.target!.host}/${a.target!.softwareTeam}/${a.target!.pod}/${a.name}`;
   // content-only inverse: the flashed CELL segs (segRows is the content half),
   // excluding the sidebar's selected-row inverse highlight on the left
   const contentInverse = (s: ReturnType<typeof renderScreen>): boolean =>
@@ -309,8 +309,8 @@ describe("PULSE view (5.2 Wave B — increment 5: live refresh-seam + motion bud
   });
 
   it("F3 reduced-motion twin: under reduced motion the flash is SUPPRESSED (no inverse), the seat is still shown", () => {
-    const prev = process.env["OPENRIG_REDUCED_MOTION"];
-    process.env["OPENRIG_REDUCED_MOTION"] = "1";
+    const prev = process.env["SOFTWARETEAM_REDUCED_MOTION"];
+    process.env["SOFTWARETEAM_REDUCED_MOTION"] = "1";
     try {
       const { v } = primed(1);
       const driver = renderScreen(v.get(), snap, OPTS).contentTargets[0]!;
@@ -320,8 +320,8 @@ describe("PULSE view (5.2 Wave B — increment 5: live refresh-seam + motion bud
       expect(s.lines[driver.y - 1]!).toContain("dev50.driver"); // state still shown, honestly
       expect(s.motionActive).toBe(false); // reduced kills the redraw loop
     } finally {
-      if (prev === undefined) delete process.env["OPENRIG_REDUCED_MOTION"];
-      else process.env["OPENRIG_REDUCED_MOTION"] = prev;
+      if (prev === undefined) delete process.env["SOFTWARETEAM_REDUCED_MOTION"];
+      else process.env["SOFTWARETEAM_REDUCED_MOTION"] = prev;
     }
   });
 

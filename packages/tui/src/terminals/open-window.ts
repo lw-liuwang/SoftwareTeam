@@ -20,8 +20,8 @@ export async function openTerminalInWindow(view: string, endpoint: string, cliEn
   let stdout: string;
   let executionError: string | undefined;
   try {
-    ({ stdout } = await promisify(execFile)(cliEntry ? process.execPath : "rig", cliEntry ? [cliEntry, ...args] : args, {
-      env: { ...process.env, OPENRIG_URL: endpoint }, timeout: 180_000, maxBuffer: 1024 * 1024, encoding: "utf8",
+    ({ stdout } = await promisify(execFile)(cliEntry ? process.execPath : "SoftwareTeam", cliEntry ? [cliEntry, ...args] : args, {
+      env: { ...process.env, SOFTWARETEAM_URL: endpoint }, timeout: 180_000, maxBuffer: 1024 * 1024, encoding: "utf8",
     }));
   } catch (error) {
     const failure = error as Error & { stdout?: string };

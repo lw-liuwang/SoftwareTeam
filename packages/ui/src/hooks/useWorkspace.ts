@@ -1,11 +1,11 @@
 // PL-007 Workspace Primitive v0 — UI hook for the typed workspace block.
 //
-// Surfaces /api/whoami's `workspace` field (when the rig declares one)
+// Surfaces /api/whoami's `workspace` field (when the softwareTeam declares one)
 // so consumer surfaces (Files, Progress, Slices, Specs, Steering) can
 // render workspace-kind labels without re-deriving topology.
 //
 // The workspace block is null when:
-//   - the daemon has no workspace_json on the rigs row (legacy rig)
+//   - the daemon has no workspace_json on the softwareTeams row (legacy softwareTeam)
 //   - the daemon predates PL-007 (cross-CLI-version drift; UI degrades
 //     gracefully — surfaces simply skip the badge column)
 //

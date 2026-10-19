@@ -324,7 +324,7 @@ describe("GET /api/provider/usage/hosts", () => {
     const hub = await host("hub", { usageWindows: false, registry: [a.entry()] });
     const got = await view(hub);
     expect(got.status).toBe(409);
-    expect(got.body.message).toBe("Usage across hosts needs usage windows on this daemon. Turn them on with: rig config set provider.usage_windows true");
+    expect(got.body.message).toBe("Usage across hosts needs usage windows on this daemon. Turn them on with: SoftwareTeam config set provider.usage_windows true");
     expect((await refreshVia(hub, { provider: "codex" })).status).toBe(409);
     expect(a.requests).toEqual([]);
     expect(reads([hub, a])).toEqual([["hub", 0, 0], ["a", 0, 0]]);
@@ -564,7 +564,7 @@ describe("round 3: every rendered field checked, failures kept to their host, a 
     p === "/api/provider/status" ? { ...(b as Body), usage: rows(b).map((r) => (r["provider"] === "codex" ? patch(r) : r)) } : b;
   const firstWindow = (patch: (w: Body) => Body) => withCodexRow((r) => ({ ...r, windows: (r["windows"] as Body[]).map((w, i) => (i === 0 ? patch(w) : w)) }));
   const SEAT = {
-    seatSession: "dev-qa@r", rigName: "r", runtime: "codex",
+    seatSession: "dev-qa@r", softwareTeamName: "r", runtime: "codex",
     configured: { source: "registry", profileRef: "work-a", recordedAt: "2026-10-12T10:00:00Z", profileSaved: true },
     registryNotes: ["a note"], allowance: { linked: false, reason: "not linked" },
     observed: { windowsSampled: true, lastSampledAt: "2026-10-13T23:00:00Z", differsFrom: ["dev-b@r"], note: "possibly a different login" },
@@ -590,11 +590,11 @@ describe("round 3: every rendered field checked, failures kept to their host, a 
     expect(all.length).toBeGreaterThanOrEqual(5);
     expect(all.some((r) => r.windows.some((w) => w.disagreeingSeats))).toBe(true);
     expect(all.filter((r) => !isUsageRow(r))).toEqual([]);
-    const seat = (seatSession: string, runtime: string) => ({ seatSession, rigName: "r", runtime, lifecycleState: "running" });
+    const seat = (seatSession: string, runtime: string) => ({ seatSession, softwareTeamName: "r", runtime, lifecycleState: "running" });
     const seats = configuredSeatAccounts({
       seats: [seat("q@r", "codex"), seat("d@r", "codex"), seat("a@r", "claude-code"), seat("b@r", "claude-code"), seat("x@r", "pi"), seat("q@r", "codex")],
-      auth: { profiles: ["work-a"], seats: [{ seat: "q@r", rig: "r", runtime: "codex", cwd: "/w", authProfile: "work-a", updatedTs: "2026-10-12T10:00:00Z" },
-        { seat: "d@r", rig: "r", runtime: "claude-code", cwd: "/w", authProfile: "gone", updatedTs: "2026-10-12T10:00:00Z" }] } as never,
+      auth: { profiles: ["work-a"], seats: [{ seat: "q@r", softwareTeam: "r", runtime: "codex", cwd: "/w", authProfile: "work-a", updatedTs: "2026-10-12T10:00:00Z" },
+        { seat: "d@r", softwareTeam: "r", runtime: "claude-code", cwd: "/w", authProfile: "gone", updatedTs: "2026-10-12T10:00:00Z" }] } as never,
       usage: after, claudeSamples: h.samples, codexHome: "/h/.codex", claudeConfigDir: undefined, home: "/h",
     });
     expect(seats.length).toBe(6);

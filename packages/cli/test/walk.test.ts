@@ -1,4 +1,4 @@
-// Slice-03 Atom 6 (rig walk) — the pacing primitive. Drives the CLI command with
+// Slice-03 Atom 6 (softwareTeam walk) — the pacing primitive. Drives the CLI command with
 // an injected client (records /api/transport/send posts) + an injected sleep
 // (records inter-piece delays), so the paced push-sequence is asserted without a
 // real pane or real time.
@@ -83,13 +83,13 @@ describe("parsePaceMs", () => {
   });
 });
 
-describe("rig walk — paced push-delivery (Atom 6)", () => {
+describe("SoftwareTeam walk — paced push-delivery (Atom 6)", () => {
   for (const flag of ["--pace", "--consume-timeout", "--consume-poll", "--turn-timeout"] as const) {
     it(`S4b RED: ${flag} refuses a bare number and names the required unit suffix`, async () => {
       const sends: RecordedSend[] = [];
       const sleeps: number[] = [];
       const piece = tmpFile("duration.md", "duration check");
-      const args = ["node", "rig", "walk", "dev@rig", "--through", piece, "--pace", "0s"];
+      const args = ["node", "softwareTeam", "walk", "dev@software-team", "--through", piece, "--pace", "0s"];
       if (flag === "--pace") args.splice(-2, 2);
       args.push(flag, "1500");
       const { errLogs, exitCode } = await captureLogs(async () => {
@@ -106,12 +106,12 @@ describe("rig walk — paced push-delivery (Atom 6)", () => {
     const sends: RecordedSend[] = []; const sleeps: number[] = [];
     const a = tmpFile("a.md", "AAA"); const b = tmpFile("b.md", "BBB"); const c = tmpFile("c.md", "CCC");
     const { exitCode } = await captureLogs(async () => {
-      await makeCmd(testDeps(sends, sleeps)).parseAsync(["node", "rig", "walk", "dev@rig", "--through", a, b, c, "--pace", "10s"]);
+      await makeCmd(testDeps(sends, sleeps)).parseAsync(["node", "softwareTeam", "walk", "dev@software-team", "--through", a, b, c, "--pace", "10s"]);
     });
     expect(exitCode).toBeUndefined();
     expect(sends).toHaveLength(3);
     expect(sends.every((s) => s.path === "/api/transport/send")).toBe(true);
-    expect(sends.every((s) => s.body["session"] === "dev@rig")).toBe(true);
+    expect(sends.every((s) => s.body["session"] === "dev@software-team")).toBe(true);
     expect(sends.map((s) => s.body["text"])).toEqual(["AAA", "BBB", "CCC"]);
   });
 
@@ -119,7 +119,7 @@ describe("rig walk — paced push-delivery (Atom 6)", () => {
     const sends: RecordedSend[] = []; const sleeps: number[] = [];
     const a = tmpFile("a.md", "AAA"); const b = tmpFile("b.md", "BBB"); const c = tmpFile("c.md", "CCC");
     await captureLogs(async () => {
-      await makeCmd(testDeps(sends, sleeps)).parseAsync(["node", "rig", "walk", "dev@rig", "--through", a, b, c, "--pace", "500ms"]);
+      await makeCmd(testDeps(sends, sleeps)).parseAsync(["node", "softwareTeam", "walk", "dev@software-team", "--through", a, b, c, "--pace", "500ms"]);
     });
     // 3 pieces → 2 inter-piece pauses; never a trailing pause after the last.
     expect(sleeps).toEqual([500, 500]);
@@ -129,7 +129,7 @@ describe("rig walk — paced push-delivery (Atom 6)", () => {
     const sends: RecordedSend[] = []; const sleeps: number[] = [];
     const a = tmpFile("a.md", "AAA"); const b = tmpFile("b.md", "BBB");
     const { errLogs, exitCode } = await captureLogs(async () => {
-      await makeCmd(testDeps(sends, sleeps, 502)).parseAsync(["node", "rig", "walk", "dev@rig", "--through", a, b, "--pace", "10s"]);
+      await makeCmd(testDeps(sends, sleeps, 502)).parseAsync(["node", "softwareTeam", "walk", "dev@software-team", "--through", a, b, "--pace", "10s"]);
     });
     expect(exitCode).toBe(1);
     expect(sends).toHaveLength(1); // stopped after the first failure
@@ -141,7 +141,7 @@ describe("rig walk — paced push-delivery (Atom 6)", () => {
     const sends: RecordedSend[] = []; const sleeps: number[] = [];
     const a = tmpFile("a.md", "AAA");
     const { errLogs, exitCode } = await captureLogs(async () => {
-      await makeCmd(testDeps(sends, sleeps)).parseAsync(["node", "rig", "walk", "dev@rig", "--through", a, "--pace", "soon"]);
+      await makeCmd(testDeps(sends, sleeps)).parseAsync(["node", "softwareTeam", "walk", "dev@software-team", "--through", a, "--pace", "soon"]);
     });
     expect(exitCode).toBe(1);
     expect(sends).toEqual([]);
@@ -167,7 +167,7 @@ describe("rig walk — paced push-delivery (Atom 6)", () => {
       sleep: async (ms: number) => { sleeps.push(ms); },
     };
     const { exitCode } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "walk", "dev@rig", "--through", "packs/onboarding", "--pace", "10s"]);
+      await makeCmd(deps).parseAsync(["node", "softwareTeam", "walk", "dev@software-team", "--through", "packs/onboarding", "--pace", "10s"]);
     });
     expect(exitCode).toBeUndefined();
     expect(gets.some((g) => g.includes("/api/context-packs/library/by-ref/pieces?ref=") && g.includes(encodeURIComponent("packs/onboarding")))).toBe(true);
@@ -191,7 +191,7 @@ describe("rig walk — paced push-delivery (Atom 6)", () => {
       sleep: async (ms: number) => { sleeps.push(ms); },
     };
     const { errLogs, exitCode } = await captureLogs(async () => {
-      await makeCmd(deps).parseAsync(["node", "rig", "walk", "dev@rig", "--through", "packs/broken", "--pace", "10s"]);
+      await makeCmd(deps).parseAsync(["node", "softwareTeam", "walk", "dev@software-team", "--through", "packs/broken", "--pace", "10s"]);
     });
     expect(exitCode).toBe(1);
     expect(sends).toEqual([]); // ZERO pieces sent — no partial walk
@@ -206,7 +206,7 @@ describe("rig walk — paced push-delivery (Atom 6)", () => {
 // the seat's current-generation record (GET /api/sessions/:session/generation-record); on
 // staged-text-detected exactly ONE submit retry (a bare Enter via submitOnly), then fail loud naming
 // the piece; a client timeout with server-side completion reconciles BY EFFECT, never a re-send.
-describe("rig walk — per-piece consumption verification (RED-first, mechanics-gate fix)", () => {
+describe("SoftwareTeam walk — per-piece consumption verification (RED-first, mechanics-gate fix)", () => {
   const userRec = (text: string) =>
     JSON.stringify({ type: "user", uuid: "input", message: { role: "user", content: [{ type: "text", text }] } });
 
@@ -266,7 +266,7 @@ describe("rig walk — per-piece consumption verification (RED-first, mechanics-
     };
   }
 
-  const walkArgs = ["node", "rig", "walk", "dev@rig", "--through", "packs/p", "--pace", "1ms",
+  const walkArgs = ["node", "softwareTeam", "walk", "dev@software-team", "--through", "packs/p", "--pace", "1ms",
     "--consume-timeout", "60ms", "--consume-poll", "1ms"];
   const pacingArgs = [...walkArgs, "--turn-timeout", "80ms"];
   const closureRec = '{"type":"assistant","uuid":"answer","parentUuid":"input","message":{"role":"assistant"}}\n{"type":"system","subtype":"turn_duration","uuid":"close","parentUuid":"answer","isMeta":false}';
@@ -313,7 +313,7 @@ describe("rig walk — per-piece consumption verification (RED-first, mechanics-
     deps.fileExists = () => true;
     deps.readFile = () => longPiece;
     const result = await captureLogs(() => makeCmd(deps).parseAsync([
-      "node", "rig", "walk", "dev@rig", "--through", "piece.md", "--json", "--pace", "0ms",
+      "node", "softwareTeam", "walk", "dev@software-team", "--through", "piece.md", "--json", "--pace", "0ms",
       "--consume-timeout", "5ms", "--consume-poll", "1ms", "--turn-timeout", "5ms",
     ]));
     expect(result.exitCode).toBe(succeeds ? undefined : 1);
@@ -411,7 +411,7 @@ describe("rig walk — per-piece consumption verification (RED-first, mechanics-
 
   // ROUND-2 (r2 R1 HIGH-2, row 66e74676, CLI half): on a token-configured daemon the verified
   // path must WORK — every walk transport/record call carries the terminal auth headers (the
-  // same chokepoint `rig capture` uses), instead of silently degrading or 401ing.
+  // same chokepoint `SoftwareTeam capture` uses), instead of silently degrading or 401ing.
   // TURN-PACING (desk BLOCKING row 2ff16fa1): a piece sent while the seat is still PROCESSING the
   // prior piece's turn gets QUEUED by the runtime (enqueue/attachment) and never becomes a distinct
   // user turn — consumption verification cannot save it. Walk must WAIT for the prior turn's
@@ -495,7 +495,7 @@ describe("rig walk — per-piece consumption verification (RED-first, mechanics-
     expect(exitCode).toBe(1);
     expect(errLogs.join("\n")).toMatch(/piece 2\/2/);          // names the FINAL piece
     expect(errLogs.join("\n")).toMatch(/turn/i);
-    expect(logs.join("\n")).not.toMatch(/Walked dev@rig/);      // no success summary
+    expect(logs.join("\n")).not.toMatch(/Walked dev@software-team/);      // no success summary
   });
 
   it("PACING-D — the final piece consumed and then closed succeeds (the N-of-N gate's positive)", async () => {

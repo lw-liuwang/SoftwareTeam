@@ -72,7 +72,7 @@ export function resolveCrossHostTarget(
   const suffix = rawTarget.slice(lastAt + 1);
 
   const unregisteredHint = suffix.length > 0
-    ? `no registered host '${suffix}' — if '${suffix}' was meant as a host, check \`rig host ls\``
+    ? `no registered host '${suffix}' — if '${suffix}' was meant as a host, check \`SoftwareTeam host ls\``
     : undefined;
 
   if (suffix.length === 0 || base.length === 0) {
@@ -83,9 +83,9 @@ export function resolveCrossHostTarget(
   // LITERAL boot-reconciled self-host id routes HOME — the CLI-edge twin of the
   // daemon's resolvesToLocalHost. Local reply hints are bare since the 2026-08-27
   // root invariant, but a CROSS-HOST arrival's reply hint still carries the origin
-  // triple — a reply to it from the origin's own host copies `member@rig@selfId`,
+  // triple — a reply to it from the origin's own host copies `member@software-team@selfId`,
   // and without this strip that 3-part string would dead-letter as
-  // unknown_destination_rig (the reverse dead-letter). C2: LITERAL, case-SENSITIVE self-id match ONLY — no
+  // unknown_destination_software_team (the reverse dead-letter). C2: LITERAL, case-SENSITIVE self-id match ONLY — no
   // alias/prefix/registry fallback, never 'local' aliasing (matches
   // resolvesToLocalHost's self-id branch). Rider (a): a NON-self suffix is NOT
   // matched here and falls through to the registry lookup + loud unregistered

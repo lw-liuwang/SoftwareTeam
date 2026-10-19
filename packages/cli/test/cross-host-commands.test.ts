@@ -27,7 +27,7 @@ beforeEach(() => {
   // appends `--from <derived origin>` from the seat env — the P23-D1 skew-compat shim for pre-I4 remotes
   // (PM ruled --from removal to P23-D1, qitem-20260811055900-f5920c0e), NOT a boundary guard. An env-less
   // origin would simply omit `--from`. Individual provenance tests override the seat explicitly.
-  vi.stubEnv("OPENRIG_SESSION_NAME", "origin@rig-a");
+  vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "origin@software-team-a");
   vi.stubEnv("RIGGED_SESSION_NAME", "");
   captured = { stdoutLines: [], stderrLines: [], stdoutWrites: [], stderrWrites: [], exitCode: undefined };
   originalLog = console.log;
@@ -70,7 +70,7 @@ function deps(overrides: { run?: (h: never, argv: readonly string[], opts?: RunC
 }
 
 // ---------------------------------------------------------------------------
-// `rig send --host <id>`
+// `SoftwareTeam send --host <id>`
 // ---------------------------------------------------------------------------
 
 describe("send --host (cross-host short-circuit)", () => {
@@ -79,14 +79,14 @@ describe("send --host (cross-host short-circuit)", () => {
     const cmd = sendCommand(deps({
       run: async (_h, argv) => {
         captureCalls.argv = argv;
-        return { ok: true, failedStep: "none", stdout: "Sent to dev-impl@my-rig\nVerified: yes\n", stderr: "", remoteExitCode: 0 };
+        return { ok: true, failedStep: "none", stdout: "Sent to dev-impl@my-software-team\nVerified: yes\n", stderr: "", remoteExitCode: 0 };
       },
     }));
-    await cmd.parseAsync(["--host", "vm-a", "dev-impl@my-rig", "hello world", "--verify"], { from: "user" });
+    await cmd.parseAsync(["--host", "vm-a", "dev-impl@my-software-team", "hello world", "--verify"], { from: "user" });
     // P18: with a resolved origin seat (stubbed above) the reconstruction deterministically appends
     // `--from <derived origin>` from the seat env (never a caller override) — the P23-D1 skew-compat shim
     // for pre-I4 remotes, not a boundary guard. An env-less origin would omit `--from`.
-    expect(captureCalls.argv).toEqual(["rig", "send", "dev-impl@my-rig", "hello world", "--verify", "--from", "origin@rig-a"]);
+    expect(captureCalls.argv).toEqual(["SoftwareTeam", "send", "dev-impl@my-software-team", "hello world", "--verify", "--from", "origin@software-team-a"]);
     expect(captured.stdoutLines[0]).toBe("[via host=vm-a (vm-a.local)]");
     const stdoutText = captured.stdoutWrites.join("");
     expect(stdoutText).toContain("Verified: yes");
@@ -94,54 +94,54 @@ describe("send --host (cross-host short-circuit)", () => {
   });
 
   it("sender provenance: SSH reconstruction appends --from <origin> when an origin session resolves", async () => {
-    vi.stubEnv("OPENRIG_SESSION_NAME", "orch-lead@rig-a");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "orch-lead@software-team-a");
     const captureCalls: { argv?: readonly string[] } = {};
     const cmd = sendCommand(deps({
       run: async (_h, argv) => { captureCalls.argv = argv; return { ok: true, failedStep: "none", stdout: "", stderr: "", remoteExitCode: 0 }; },
     }));
-    await cmd.parseAsync(["--host", "vm-a", "dev-impl@my-rig", "hi"], { from: "user" });
+    await cmd.parseAsync(["--host", "vm-a", "dev-impl@my-software-team", "hi"], { from: "user" });
     const argv = captureCalls.argv!;
     expect(argv).toContain("--from");
-    expect(argv[argv.indexOf("--from") + 1]).toBe("orch-lead@rig-a");
+    expect(argv[argv.indexOf("--from") + 1]).toBe("orch-lead@software-team-a");
   });
 
   // P21 I4 (REVISED, was "explicit --from wins"): --from is DEPRECATED + IGNORED — the cross-host origin
-  // is the relay's OWN authenticated seat env (its X-OpenRig-Session), never a caller-supplied override,
+  // is the relay's OWN authenticated seat env (its X-SoftwareTeam-Session), never a caller-supplied override,
   // which was the forgeable surface. A forged --from must NOT appear in the reconstructed argv.
   it("explicit --from is IGNORED — the reconstructed argv carries the DERIVED seat origin, never a --from override", async () => {
-    vi.stubEnv("OPENRIG_SESSION_NAME", "orch-lead@rig-a");
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "orch-lead@software-team-a");
     const captureCalls: { argv?: readonly string[] } = {};
     const cmd = sendCommand(deps({
       run: async (_h, argv) => { captureCalls.argv = argv; return { ok: true, failedStep: "none", stdout: "", stderr: "", remoteExitCode: 0 }; },
     }));
-    await cmd.parseAsync(["--host", "vm-a", "dev-impl@my-rig", "hi", "--from", "worker@rig-a"], { from: "user" });
+    await cmd.parseAsync(["--host", "vm-a", "dev-impl@my-software-team", "hi", "--from", "worker@software-team-a"], { from: "user" });
     const argv = captureCalls.argv!;
-    expect(argv[argv.indexOf("--from") + 1]).toBe("orch-lead@rig-a"); // the seat env, not the forged --from
-    expect(argv).not.toContain("worker@rig-a"); // the --from override never rides the wire
+    expect(argv[argv.indexOf("--from") + 1]).toBe("orch-lead@software-team-a"); // the seat env, not the forged --from
+    expect(argv).not.toContain("worker@software-team-a"); // the --from override never rides the wire
   });
 
   // A2 (P23): the send --host relay passes the ORIGIN triple to the executor as the env-prefix identity
-  // (OPENRIG_SESSION_NAME=<triple>), so the remote's rig derives the origin from its env. --from STAYS
+  // (SOFTWARETEAM_SESSION_NAME=<triple>), so the remote's softwareTeam derives the origin from its env. --from STAYS
   // additive (P23-D1: a pre-I4 remote still reads origin from it). A 3-part origin (an upstream relay's
   // triple) is preserved VERBATIM — never re-stamped with this host's id.
   it("A2 — passes the origin triple to the runner (env-prefix); --from stays additive; a 3-part origin is verbatim", async () => {
-    vi.stubEnv("OPENRIG_SESSION_NAME", "orch-lead@rig-a@upstream-host"); // already 3-part (upstream relay)
+    vi.stubEnv("SOFTWARETEAM_SESSION_NAME", "orch-lead@software-team-a@upstream-host"); // already 3-part (upstream relay)
     const captured: { argv?: readonly string[]; opts?: RunCrossHostCommandOpts } = {};
     const cmd = sendCommand(deps({
       run: async (_h, argv, opts) => { captured.argv = argv; captured.opts = opts; return { ok: true, failedStep: "none", stdout: "", stderr: "", remoteExitCode: 0 }; },
     }));
-    await cmd.parseAsync(["--host", "vm-a", "dev-impl@my-rig", "hi"], { from: "user" });
-    expect(captured.opts?.originTriple).toBe("orch-lead@rig-a@upstream-host"); // env-prefix identity, 3-part preserved verbatim
+    await cmd.parseAsync(["--host", "vm-a", "dev-impl@my-software-team", "hi"], { from: "user" });
+    expect(captured.opts?.originTriple).toBe("orch-lead@software-team-a@upstream-host"); // env-prefix identity, 3-part preserved verbatim
     const argv = captured.argv!;
     expect(argv).toContain("--from"); // STAYS (additive, P23-D1)
-    expect(argv[argv.indexOf("--from") + 1]).toBe("orch-lead@rig-a@upstream-host"); // same origin on both surfaces
+    expect(argv[argv.indexOf("--from") + 1]).toBe("orch-lead@software-team-a@upstream-host"); // same origin on both surfaces
   });
 
   it("--verify honesty: SSH success + remote 'Verified: no' surfaces in output, NOT collapsed into success+silence", async () => {
     const cmd = sendCommand(deps({
-      run: async () => ({ ok: true, failedStep: "none", stdout: "Sent to dev-impl@my-rig\nVerified: no\n", stderr: "", remoteExitCode: 0 }),
+      run: async () => ({ ok: true, failedStep: "none", stdout: "Sent to dev-impl@my-software-team\nVerified: no\n", stderr: "", remoteExitCode: 0 }),
     }));
-    await cmd.parseAsync(["--host", "vm-a", "dev-impl@my-rig", "hi", "--verify"], { from: "user" });
+    await cmd.parseAsync(["--host", "vm-a", "dev-impl@my-software-team", "hi", "--verify"], { from: "user" });
     const stdoutText = captured.stdoutWrites.join("");
     expect(stdoutText).toContain("Verified: no"); // remote authority surfaced
     // ssh layer succeeded; CLI does NOT inject Verified: yes.
@@ -214,7 +214,7 @@ describe("send --host (cross-host short-circuit)", () => {
     }));
     await cmd.parseAsync(["--host", "vm-a", "s@r", "msg"], { from: "user" });
     expect(captured.stderrLines.join("\n")).toContain("could not reach the remote daemon");
-    expect(captured.stderrLines.join("\n")).toContain("rig daemon start");
+    expect(captured.stderrLines.join("\n")).toContain("SoftwareTeam daemon start");
     expect(process.exitCode).toBe(1);
   });
 
@@ -223,7 +223,7 @@ describe("send --host (cross-host short-circuit)", () => {
       run: async () => ({ ok: false, failedStep: "remote-command-failed", stdout: "", stderr: "session not found", remoteExitCode: 3 }),
     }));
     await cmd.parseAsync(["--host", "vm-a", "s@r", "msg"], { from: "user" });
-    expect(captured.stderrLines.join("\n")).toContain("remote rig command on host=vm-a failed");
+    expect(captured.stderrLines.join("\n")).toContain("remote SoftwareTeam command on host=vm-a failed");
     expect(captured.stderrLines.join("\n")).toContain("session not found");
     expect(process.exitCode).toBe(1);
   });
@@ -243,7 +243,7 @@ describe("send --host (cross-host short-circuit)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// `rig capture --host <id>`
+// `SoftwareTeam capture --host <id>`
 // ---------------------------------------------------------------------------
 
 describe("capture --host (cross-host short-circuit)", () => {
@@ -255,13 +255,13 @@ describe("capture --host (cross-host short-circuit)", () => {
         return { ok: true, failedStep: "none", stdout: "pane content here\n", stderr: "", remoteExitCode: 0 };
       },
     }));
-    await cmd.parseAsync(["--host", "vm-a", "dev-impl@my-rig", "--lines", "50"], { from: "user" });
-    expect(captureCalls.argv).toEqual(["rig", "capture", "dev-impl@my-rig", "--lines", "50"]);
+    await cmd.parseAsync(["--host", "vm-a", "dev-impl@my-software-team", "--lines", "50"], { from: "user" });
+    expect(captureCalls.argv).toEqual(["SoftwareTeam", "capture", "dev-impl@my-software-team", "--lines", "50"]);
     expect(captured.stdoutLines[0]).toBe("[via host=vm-a (vm-a.local)]");
     expect(captured.stdoutWrites.join("")).toContain("pane content here");
   });
 
-  it("multi-target form: forwards --rig and --pod when no session is supplied", async () => {
+  it("multi-target form: forwards --software-team and --pod when no session is supplied", async () => {
     const captureCalls: { argv?: readonly string[] } = {};
     const cmd = captureCommand(deps({
       run: async (_h, argv) => {
@@ -269,8 +269,8 @@ describe("capture --host (cross-host short-circuit)", () => {
         return { ok: true, failedStep: "none", stdout: "{}", stderr: "", remoteExitCode: 0 };
       },
     }));
-    await cmd.parseAsync(["--host", "vm-a", "--rig", "my-rig", "--pod", "dev", "--json"], { from: "user" });
-    expect(captureCalls.argv).toEqual(["rig", "capture", "--rig", "my-rig", "--pod", "dev", "--json"]);
+    await cmd.parseAsync(["--host", "vm-a", "--software-team", "my-software-team", "--pod", "dev", "--json"], { from: "user" });
+    expect(captureCalls.argv).toEqual(["SoftwareTeam", "capture", "--software-team", "my-software-team", "--pod", "dev", "--json"]);
   });
 
   it("forwards an explicit --lines as given, even one this CLI wouldn't cut on (the remote decides)", async () => {
@@ -281,8 +281,8 @@ describe("capture --host (cross-host short-circuit)", () => {
         return { ok: true, failedStep: "none", stdout: "", stderr: "", remoteExitCode: 0 };
       },
     }));
-    await cmd.parseAsync(["--host", "vm-a", "dev-impl@my-rig", "--lines", "5x"], { from: "user" });
-    expect(captureCalls.argv).toEqual(["rig", "capture", "dev-impl@my-rig", "--lines", "5x"]);
+    await cmd.parseAsync(["--host", "vm-a", "dev-impl@my-software-team", "--lines", "5x"], { from: "user" });
+    expect(captureCalls.argv).toEqual(["SoftwareTeam", "capture", "dev-impl@my-software-team", "--lines", "5x"]);
   });
 
   it("forwards --history-plus-pane with the --lines it applies to", async () => {
@@ -293,8 +293,8 @@ describe("capture --host (cross-host short-circuit)", () => {
         return { ok: true, failedStep: "none", stdout: "", stderr: "", remoteExitCode: 0 };
       },
     }));
-    await cmd.parseAsync(["--host", "vm-a", "dev-impl@my-rig", "--lines", "5", "--history-plus-pane"], { from: "user" });
-    expect(captureCalls.argv).toEqual(["rig", "capture", "dev-impl@my-rig", "--lines", "5", "--history-plus-pane"]);
+    await cmd.parseAsync(["--host", "vm-a", "dev-impl@my-software-team", "--lines", "5", "--history-plus-pane"], { from: "user" });
+    expect(captureCalls.argv).toEqual(["SoftwareTeam", "capture", "dev-impl@my-software-team", "--lines", "5", "--history-plus-pane"]);
   });
 
   it("unknown host id surfaces a friendly error", async () => {
@@ -325,7 +325,7 @@ describe("capture --host (cross-host short-circuit)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Compat regression: `rig send` and `rig capture` WITHOUT --host MUST NOT add
+// Compat regression: `SoftwareTeam send` and `SoftwareTeam capture` WITHOUT --host MUST NOT add
 // the cross-host annotation and MUST NOT call the executor at all.
 // ---------------------------------------------------------------------------
 
@@ -392,7 +392,7 @@ function makeFailingLifecycleDeps(): never {
 }
 
 // ---------------------------------------------------------------------------
-// `rig ps --host <id>` (C9b)
+// `SoftwareTeam ps --host <id>` (C9b)
 // ---------------------------------------------------------------------------
 
 function psDeps(overrides: { run?: (h: never, argv: readonly string[]) => Promise<CrossHostResult>; registry?: HostRegistryLoadResult } = {}): PsDeps {
@@ -410,20 +410,20 @@ describe("ps --host (cross-host short-circuit)", () => {
     const cmd = psCommand(psDeps({
       run: async (_h, argv) => {
         captureCalls.argv = argv;
-        return { ok: true, failedStep: "none", stdout: '[{"rigName":"r1"}]\n', stderr: "", remoteExitCode: 0 };
+        return { ok: true, failedStep: "none", stdout: '[{"softwareTeamName":"r1"}]\n', stderr: "", remoteExitCode: 0 };
       },
     }));
     await cmd.parseAsync([
       "--host", "vm-a", "--no-cleanup", "--nodes", "-A", "--full", "--limit", "20",
-      "--fields", "rigName,sessionStatus", "--summary", "--filter", "status=running", "--json",
+      "--fields", "softwareTeamName,sessionStatus", "--summary", "--filter", "status=running", "--json",
     ], { from: "user" });
     expect(captureCalls.argv).toEqual([
-      "rig", "ps", "--no-cleanup", "--nodes", "--full", "--all-rigs", "--limit", "20", "--fields", "rigName,sessionStatus",
+      "SoftwareTeam", "ps", "--no-cleanup", "--nodes", "--full", "--all-software-teams", "--limit", "20", "--fields", "softwareTeamName,sessionStatus",
       "--summary", "--filter", "status=running", "--json",
     ]);
   });
 
-  it("argv reconstruction: bare `--host vm-a` produces ['rig','ps'] with no extra flags", async () => {
+  it("argv reconstruction: bare `--host vm-a` produces ['SoftwareTeam', 'ps'] with no extra flags", async () => {
     const captureCalls: { argv?: readonly string[] } = {};
     const cmd = psCommand(psDeps({
       run: async (_h, argv) => {
@@ -432,11 +432,11 @@ describe("ps --host (cross-host short-circuit)", () => {
       },
     }));
     await cmd.parseAsync(["--host", "vm-a"], { from: "user" });
-    expect(captureCalls.argv).toEqual(["rig", "ps"]);
+    expect(captureCalls.argv).toEqual(["SoftwareTeam", "ps"]);
   });
 
   it("verbatim remote stdout passthrough on success — no double-JSON-wrapping", async () => {
-    const remoteJson = '[{"rigName":"r1","status":"running"},{"rigName":"r2","status":"stopped"}]\n';
+    const remoteJson = '[{"softwareTeamName":"r1","status":"running"},{"softwareTeamName":"r2","status":"stopped"}]\n';
     const cmd = psCommand(psDeps({
       run: async () => ({ ok: true, failedStep: "none", stdout: remoteJson, stderr: "", remoteExitCode: 0 }),
     }));
@@ -477,10 +477,10 @@ describe("ps --host (cross-host short-circuit)", () => {
 
   it("remote-command-failed surfaces remote stderr", async () => {
     const cmd = psCommand(psDeps({
-      run: async () => ({ ok: false, failedStep: "remote-command-failed", stdout: "", stderr: "Some rig error", remoteExitCode: 3 }),
+      run: async () => ({ ok: false, failedStep: "remote-command-failed", stdout: "", stderr: "Some SoftwareTeam error", remoteExitCode: 3 }),
     }));
     await cmd.parseAsync(["--host", "vm-a"], { from: "user" });
-    expect(captured.stderrLines.join("\n")).toContain("remote rig command on host=vm-a failed");
+    expect(captured.stderrLines.join("\n")).toContain("remote SoftwareTeam command on host=vm-a failed");
     expect(process.exitCode).toBe(1);
   });
 
@@ -525,7 +525,7 @@ describe("ps --host (cross-host short-circuit)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// `rig whoami --host <id>` (C9b')
+// `SoftwareTeam whoami --host <id>` (C9b')
 // ---------------------------------------------------------------------------
 
 function whoamiDeps(overrides: { run?: (h: never, argv: readonly string[]) => Promise<CrossHostResult>; registry?: HostRegistryLoadResult } = {}): WhoamiDeps {
@@ -547,30 +547,30 @@ describe("whoami --host (cross-host short-circuit)", () => {
       },
     }));
     await cmd.parseAsync([
-      "--host", "vm-a", "--node-id", "01ABC", "--session", "foo@rig", "--json",
+      "--host", "vm-a", "--node-id", "01ABC", "--session", "foo@software-team", "--json",
     ], { from: "user" });
     expect(captureCalls.argv).toEqual([
-      "rig", "whoami", "--node-id", "01ABC", "--session", "foo@rig", "--json",
+      "SoftwareTeam", "whoami", "--node-id", "01ABC", "--session", "foo@software-team", "--json",
     ]);
   });
 
   it.each(["--full", "--verbose"])("forwards %s over SSH as the full payload request", async (flag) => {
     const calls: { argv?: readonly string[] } = {};
-    const fullPayload = '{"identity":{"rigName":"remote"},"contextUsage":{"availability":"known"},"workspace":{"root":"/fixture"}}\n';
+    const fullPayload = '{"identity":{"softwareTeamName":"remote"},"contextUsage":{"availability":"known"},"workspace":{"root":"/fixture"}}\n';
     const cmd = whoamiCommand(whoamiDeps({
       run: async (_host, argv) => {
         calls.argv = argv;
         // The remote CLI receives the reconstructed argv and selects its view.
-        return { ok: true, failedStep: "none", stdout: argv.includes("--full") ? fullPayload : '{"identity":{"rigName":"remote"}}\n', stderr: "", remoteExitCode: 0 };
+        return { ok: true, failedStep: "none", stdout: argv.includes("--full") ? fullPayload : '{"identity":{"softwareTeamName":"remote"}}\n', stderr: "", remoteExitCode: 0 };
       },
     }));
     await cmd.parseAsync(["--host", "vm-a", "--session", "worker@remote", "--json", flag], { from: "user" });
-    expect(calls.argv).toEqual(["rig", "whoami", "--session", "worker@remote", "--json", "--full"]);
+    expect(calls.argv).toEqual(["SoftwareTeam", "whoami", "--session", "worker@remote", "--json", "--full"]);
     expect(captured.stdoutWrites.join("")).toBe(fullPayload);
     expect(process.exitCode).toBeUndefined();
   });
 
-  it("argv reconstruction: bare `--host vm-a` produces ['rig','whoami'] with no extra flags", async () => {
+  it("argv reconstruction: bare `--host vm-a` produces ['SoftwareTeam', 'whoami'] with no extra flags", async () => {
     const captureCalls: { argv?: readonly string[] } = {};
     const cmd = whoamiCommand(whoamiDeps({
       run: async (_h, argv) => {
@@ -579,15 +579,15 @@ describe("whoami --host (cross-host short-circuit)", () => {
       },
     }));
     await cmd.parseAsync(["--host", "vm-a"], { from: "user" });
-    expect(captureCalls.argv).toEqual(["rig", "whoami"]);
+    expect(captureCalls.argv).toEqual(["SoftwareTeam", "whoami"]);
   });
 
   it("cross-host runs BEFORE local identity-source resolution (no local --node-id/--session required)", async () => {
     // Critical for whoami: the local resolveIdentitySource() walks env vars and
     // tmux pane metadata. Cross-host must NOT require any of that — the remote
-    // rig has its own identity context.
+    // softwareTeam has its own identity context.
     const cmd = whoamiCommand(whoamiDeps({
-      run: async () => ({ ok: true, failedStep: "none", stdout: '{"rigName":"remote"}\n', stderr: "", remoteExitCode: 0 }),
+      run: async () => ({ ok: true, failedStep: "none", stdout: '{"softwareTeamName":"remote"}\n', stderr: "", remoteExitCode: 0 }),
     }));
     await cmd.parseAsync(["--host", "vm-a", "--json"], { from: "user" });
     // Should NOT have errored on "Cannot determine identity"; should have
@@ -598,7 +598,7 @@ describe("whoami --host (cross-host short-circuit)", () => {
   });
 
   it("verbatim remote stdout passthrough on success — no double-JSON-wrapping", async () => {
-    const remoteJson = '{"resolvedBy":"node_id","identity":{"rigName":"x"}}\n';
+    const remoteJson = '{"resolvedBy":"node_id","identity":{"softwareTeamName":"x"}}\n';
     const cmd = whoamiCommand(whoamiDeps({
       run: async () => ({ ok: true, failedStep: "none", stdout: remoteJson, stderr: "", remoteExitCode: 0 }),
     }));
@@ -660,7 +660,7 @@ describe("whoami --host (cross-host short-circuit)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// `rig ps --host <id>` — OPR.0.4.0.34 breadth-flag forwarding over SSH
+// `SoftwareTeam ps --host <id>` — OPR.0.4.0.34 breadth-flag forwarding over SSH
 // ---------------------------------------------------------------------------
 
 describe("ps --host (cross-host argv forwarding, OPR.0.4.0.34)", () => {
@@ -673,10 +673,10 @@ describe("ps --host (cross-host argv forwarding, OPR.0.4.0.34)", () => {
     }) as unknown as PsDeps);
   }
 
-  it("forwards -A/--all-rigs into the remote SSH argv (breadth preserved across the hop)", async () => {
+  it("forwards -A/--all-software-teams into the remote SSH argv (breadth preserved across the hop)", async () => {
     const cap: { argv?: readonly string[] } = {};
     await psWithCapture(cap).parseAsync(["--host", "vm-a", "-A", "--nodes", "--json"], { from: "user" });
-    expect(cap.argv).toContain("--all-rigs");
+    expect(cap.argv).toContain("--all-software-teams");
     expect(cap.argv).toContain("--nodes");
   });
 

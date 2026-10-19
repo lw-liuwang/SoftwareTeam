@@ -48,8 +48,8 @@ TARGET_PLATFORM="$(node scripts/scenario-executor.mjs platform "$OUT/docker-serv
 # and daemon-load effect proof, then records the image inputs. It never pushes.
 bash scripts/build-testbed-image.sh "$OUT/image"
 SHA="$(git rev-parse HEAD)"
-BASE="openrig-testbed:$SHA"
-IMAGE="openrig-pr-scenarios:$SHA"
+BASE="softwareteam-testbed:$SHA"
+IMAGE="softwareteam-pr-scenarios:$SHA"
 CONTEXT="$(mktemp -d)"
 CONTAINER=""
 cleanup() {
@@ -75,14 +75,14 @@ run_case() {  # run_case <case> <mode>
   local scenario="$1" mode="$2" status=0 LOG
   attempt=$((attempt + 1))
   LOG="$OUT/$attempt-$scenario-$mode.log"
-  CONTAINER="openrig-pr-${SHA:0:12}-$attempt-$$"
+  CONTAINER="softwareteam-pr-${SHA:0:12}-$attempt-$$"
   printf '%s\n' "$CONTAINER" > "$OUT/$attempt-$scenario-$mode.container-name.txt"
   # Fresh writable scratch only. No mounts, host networking, credentials or Docker
   # socket; the container is non-root, resource bounded and removed even on failure.
   node scripts/scenario-executor.mjs timeout 300 docker run --name "$CONTAINER" --platform "$TARGET_PLATFORM" --network none \
     --read-only --tmpfs /tmp:rw,exec,nosuid,nodev,size=512m,mode=1777 \
     --cap-drop ALL --security-opt no-new-privileges --pids-limit 256 \
-    --memory 2g --memory-swap 2g --cpus 2 "$IMAGE" node /opt/openrig-testbed/runner.mjs "$mode" "$scenario" \
+    --memory 2g --memory-swap 2g --cpus 2 "$IMAGE" node /opt/softwareteam-testbed/runner.mjs "$mode" "$scenario" \
     > "$LOG" 2>&1 || status=$?
   printf '%s\n' "$status" > "$OUT/$attempt-$scenario-$mode.exit-code.txt"
   cat "$LOG"

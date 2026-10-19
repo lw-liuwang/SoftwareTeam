@@ -167,7 +167,7 @@ export function materializeContinuityPolicy(
   }
   if (input.compactionStrategy === "apprentice-handover" && !input.mechanic) {
     throw new Error(
-      "mechanic is required for apprentice-handover; declare a canonical seat@rig at spec-default, profile, or member lifecycle level, then follow continuity/apprentice-cutover.md",
+      "mechanic is required for apprentice-handover; declare a canonical seat@software-team at spec-default, profile, or member lifecycle level, then follow continuity/apprentice-cutover.md",
     );
   }
   const density = input.tokensPerMegabyte ?? DEFAULT_DENSE_SESSION_TOKENS_PER_MB;
@@ -185,7 +185,7 @@ export function materializeContinuityPolicy(
   if (input.compactionStrategy === "managed-compaction") {
     const prepareMessage = [
       `Managed compaction preparation threshold crossed for ${input.targetSession}.`,
-      "Deposit continuity context now with rig context recap-write before the enforcer reaches its compaction threshold; this nudge prepares and never compacts.",
+      "Deposit continuity context now with SoftwareTeam context recap-write before the enforcer reaches its compaction threshold; this nudge prepares and never compacts.",
       CONTINUITY_POLICY_DOC,
     ].join("\n\n");
     return {

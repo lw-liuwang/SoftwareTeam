@@ -27,13 +27,13 @@ is not a universal filesystem-access policy.
 `SettingsStore`, decodes `cfg.filesAllowlistRaw` and `cfg.progressScanRootsRaw`,
 and injects `FileWriteService`, `ProgressIndexer`, and `SteeringComposer`.
 The write service exists only when the decoded file allowlist is nonempty.
-Its audit path is explicitly `${OPENRIG_HOME}/file-edit-audit.jsonl`.
+Its audit path is explicitly `${SOFTWARETEAM_HOME}/file-edit-audit.jsonl`.
 
 [`SettingsStore`](../../../packages/daemon/src/domain/user-settings/settings-store.ts)
 resolves environment overrides, then settings-file values, then defaults.
 `files.allowlist` and `progress.scan_roots` both default to
 `workspace:<resolved-workspace-root>`. Their environment overrides are
-`OPENRIG_FILES_ALLOWLIST` and `OPENRIG_PROGRESS_SCAN_ROOTS`. Thus, an unset
+`SOFTWARETEAM_FILES_ALLOWLIST` and `SOFTWARETEAM_PROGRESS_SCAN_ROOTS`. Thus, an unset
 or empty environment variable, or an empty settings-file value, does **not**
 imply an empty allowlist in normal daemon startup. A non-empty value is not
 validated: the decoders silently skip malformed entries (no `name:` prefix, or
@@ -88,15 +88,15 @@ Both operations append a JSONL audit record containing actor/provenance,
 paths, timestamps, hashes, and byte-count delta. An audit append failure
 raises `audit_write_failed` **after the content has landed**; the write is not
 rolled back. The service appends records without implementing rotation.
-The service's standalone default is under the user's `.openrig` directory;
-daemon startup overrides it with the active OpenRig home as described above.
+The service's standalone default is under the user's `.softwareteam` directory;
+daemon startup overrides it with the active SoftwareTeam home as described above.
 
 ## HTTP surface
 
 [`server.ts`](../../../packages/daemon/src/server.ts) mounts these families.
 All of them sit behind the daemon's `/api/*` browser boundary
 (`middleware/browser-boundary.ts`), which accepts only known host names, and
-browser `Origin`s only from the daemon's own UI or `OPENRIG_ALLOWED_ORIGINS`;
+browser `Origin`s only from the daemon's own UI or `SOFTWARETEAM_ALLOWED_ORIGINS`;
 the file allowlist is a separate check.
 [`filesRoutes`](../../../packages/daemon/src/routes/files.ts) implements:
 
@@ -138,9 +138,9 @@ returns the scan. Missing indexer or empty configured roots returns `503`.
 ## Steering composition
 
 [`steeringOptsFromSettings`](../../../packages/daemon/src/domain/steering/steering-composer.ts)
-combines resolved workspace settings with `OPENRIG_STEERING_WORKSPACE`,
-`OPENRIG_STEERING_PATH`, `OPENRIG_ROADMAP_PATH`, and
-`OPENRIG_DELIVERY_READY_DIR` overrides. `SteeringComposer.compose` reads:
+combines resolved workspace settings with `SOFTWARETEAM_STEERING_WORKSPACE`,
+`SOFTWARETEAM_STEERING_PATH`, `SOFTWARETEAM_ROADMAP_PATH`, and
+`SOFTWARETEAM_DELIVERY_READY_DIR` overrides. `SteeringComposer.compose` reads:
 
 | Field | Source and selection |
 |---|---|
@@ -165,12 +165,12 @@ exposes four reads under `/api/health-summary`:
 
 | Suffix | Source |
 |---|---|
-| `/nodes` | `computeNodeHealthSummary`: node inventory aggregated across rigs, grouped by session/lifecycle status, with an attention-required count. |
+| `/nodes` | `computeNodeHealthSummary`: node inventory aggregated across SoftwareTeams, grouped by session/lifecycle status, with an attention-required count. |
 | `/context` | `computeContextHealthSummary`: `context_usage` rows grouped by urgency and sample freshness. |
 | `/version` | `getDaemonVersion`: the build-stamped version, else the daemon package version, else `unknown`; always `200`. |
 | `/gateway` | The injected gateway subsystem's `status()`; `503` if unavailable. |
 
-`/nodes` and `/context` return `503 health_summary_unavailable` when the rig
+`/nodes` and `/context` return `503 health_summary_unavailable` when the SoftwareTeam
 repository is not wired.
 
 The [context aggregation](../../../packages/daemon/src/domain/steering/health-summary.ts)

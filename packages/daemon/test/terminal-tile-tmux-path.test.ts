@@ -16,7 +16,7 @@ const local = (seat: string, readOnly = false): ViewMemberInput => ({ seat, labe
 
 describe("#707 local tiles run the tmux the daemon resolves", () => {
   it("a provider PATH without tmux fails the bare command; the resolved path attaches, keeping -r", () => {
-    const root = mkdtempSync(join(tmpdir(), "openrig-707-"));
+    const root = mkdtempSync(join(tmpdir(), "softwareteam-707-"));
     const narrow = join(root, "provider-path"); // the provider's PATH: no tmux here
     const elsewhere = join(root, "elsewhere"); // where the daemon found tmux
     mkdirSync(narrow);
@@ -72,14 +72,14 @@ class RecordingHerdr implements TerminalProvider {
 
 function service(resolveLocalTmux?: TerminalServiceDeps["resolveLocalTmux"]): { svc: TerminalService; herdr: RecordingHerdr } {
   const herdr = new RecordingHerdr();
-  const rows = [{ canonicalSessionName: "a@r", attachmentType: "tmux" as const, tmuxSession: "a@r", rigName: "r", logicalId: "pod.a" }];
+  const rows = [{ canonicalSessionName: "a@r", attachmentType: "tmux" as const, tmuxSession: "a@r", softwareTeamName: "r", logicalId: "pod.a" }];
   const deps = {
     resolveProvider: (n: string) => (n === "herdr" ? herdr : null),
     viewsStore: { get: () => null, list: () => [] },
-    listRigSeats: (r: string) => (r === "r" ? rows : null),
+    listSoftwareTeamSeats: (r: string) => (r === "r" ? rows : null),
     listPodSeats: () => null,
     listScopeSeats: () => null,
-    listRigNames: () => ["r"],
+    listSoftwareTeamNames: () => ["r"],
     resolveHost: () => null,
     hasSession: () => true,
     ...(resolveLocalTmux ? { resolveLocalTmux } : {}),
@@ -97,7 +97,7 @@ describe("#707 the service passes only an absolute resolved tmux to the composer
   ];
   it.each(cases)("%s", async (_name, resolver, expected) => {
     const { svc, herdr } = service(resolver);
-    const res = await svc.openView({ view: "rig:r" });
+    const res = await svc.openView({ view: "software-team:r" });
     expect(res.ok).toBe(true);
     expect(herdr.last!.opened[0]!.paneCommand).toBe(expected);
   });
@@ -105,8 +105,8 @@ describe("#707 the service passes only an absolute resolved tmux to the composer
   it("resolves once, so the preview's plan still matches the open", async () => {
     let calls = 0;
     const { svc, herdr } = service(async () => { calls++; return "/usr/local/bin/tmux"; });
-    const preview = await svc.previewView({ view: "rig:r" }) as { planId: string };
-    const res = await svc.openView({ view: "rig:r", expectedPlan: preview.planId });
+    const preview = await svc.previewView({ view: "software-team:r" }) as { planId: string };
+    const res = await svc.openView({ view: "software-team:r", expectedPlan: preview.planId });
     expect(res.code).toBeUndefined();
     expect(res.ok).toBe(true);
     expect(herdr.last).not.toBeNull();

@@ -91,7 +91,7 @@ export function providerRoutes(opts: ProviderRoutesOptions = {}): Hono {
     if ("disabled" in result) {
       return c.json({
         error: "usage_windows_disabled",
-        message: `${provider === "codex" ? "Codex" : "Claude"} usage windows are off. Turn them on with: rig config set provider.usage_windows true`,
+        message: `${provider === "codex" ? "Codex" : "Claude"} usage windows are off. Turn them on with: SoftwareTeam config set provider.usage_windows true`,
       }, 409);
     }
     if ("unavailable" in result) return c.json({ error: `${provider} usage windows are not available on this daemon` }, 400);
@@ -104,7 +104,7 @@ export function providerRoutes(opts: ProviderRoutesOptions = {}): Hono {
   // registry (every entry; ssh ones are listed, not read), narrowed by ?hosts=a,b; this daemon is always included.
   const off = (what: string) => ({
     error: "usage_windows_disabled",
-    message: `${what} needs usage windows on this daemon. Turn them on with: rig config set provider.usage_windows true`,
+    message: `${what} needs usage windows on this daemon. Turn them on with: SoftwareTeam config set provider.usage_windows true`,
   });
   const hostsDeps = (c: Context, only: string[] | undefined): UsageHostsDeps => ({
     loadRegistry: (c.get("hostRegistryLoader" as never) as (() => ReturnType<typeof loadHostRegistry>) | undefined) ?? (() => loadHostRegistry()),

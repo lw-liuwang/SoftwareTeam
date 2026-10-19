@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AttentionItem, AttentionRead } from "@openrig/daemon/attention";
+import type { AttentionItem, AttentionRead } from "@softwareteam/daemon/attention";
 import { DaemonClient } from "../src/daemon-client.js";
 import { hydrateSnapshot } from "../src/hydrate.js";
 import { createLiveRefresh } from "../src/live.js";

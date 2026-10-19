@@ -23,12 +23,12 @@ function fixture() {
     return db;
 }
 function events(db: Database.Database, count: number, start = 1, step = 1) {
-    const insert = db.prepare("INSERT INTO events(seq, rig_id, node_id, type, payload, created_at) VALUES (?, 'rig-a', 'node-a', 'node.started', 'private payload', '2026-10-04 09:00:00')");
+    const insert = db.prepare("INSERT INTO events(seq, software_team_id, node_id, type, payload, created_at) VALUES (?, 'software-team-a', 'node-a', 'node.started', 'private payload', '2026-10-04 09:00:00')");
     db.transaction(() => { for (let i = 0; i < count; i++)
         insert.run(BigInt(start + i * step)); })();
 }
 function transitions(db: Database.Database, count: number) {
-    const insert = db.prepare("INSERT INTO queue_transitions(qitem_id, ts, state, transition_note, actor_session) VALUES ('q-a', ?, 'pending', 'private note', 'seat@rig')");
+    const insert = db.prepare("INSERT INTO queue_transitions(qitem_id, ts, state, transition_note, actor_session) VALUES ('q-a', ?, 'pending', 'private note', 'seat@software-team')");
     db.transaction(() => { for (let i = 0; i < count; i++)
         insert.run(time); })();
 }
@@ -127,7 +127,7 @@ describe("finite telemetry history", () => {
         const third = readTelemetryPage(db, source, "queue-transitions", { cursor: second.page.nextCursor! });
         expect(third.rows.map(row => row.transitionId)).toEqual(Array.from({ length: 44 }, (_, i) => String(i + 257)));
         expect(third.page.hasMore).toBe(false);
-        expect(first.rows[0]).toMatchObject({ qitemId: "q-a", state: "pending", actorSession: "seat@rig", identityProvenance: null, closureTarget: null });
+        expect(first.rows[0]).toMatchObject({ qitemId: "q-a", state: "pending", actorSession: "seat@software-team", identityProvenance: null, closureTarget: null });
     });
     it("deduplicates equal projections and withholds conflicting IDs with a named gap", () => {
         const db = fixture();
@@ -235,8 +235,8 @@ describe("finite telemetry history", () => {
         const event = (await eventResponse.json()).rows[0];
         const tenure = (await tenureResponse.json()).rows[0];
         // The consumer's snake_case mapping; no current-node/name/native join and no payload read.
-        expect({ seq: event.seq, rig_id: event.rigId, node_id: event.nodeId, type: event.type, created_at: event.createdAt, state: "unknown" })
-            .toEqual({ seq: "1", rig_id: "rig-a", node_id: "node-a", type: "node.started", created_at: time, state: "unknown" });
+        expect({ seq: event.seq, software_team_id: event.softwareTeamId, node_id: event.nodeId, type: event.type, created_at: event.createdAt, state: "unknown" })
+            .toEqual({ seq: "1", software_team_id: "software-team-a", node_id: "node-a", type: "node.started", created_at: time, state: "unknown" });
         expect({ node_id: tenure.nodeId, generation_ordinal: tenure.generationOrdinal, generation_uuid: tenure.generationUuid, kind: tenure.kind, native_session_id_at_boot: tenure.nativeSessionIdAtBoot, boot_at: tenure.bootAt })
             .toEqual({ node_id: "node-a", generation_ordinal: "1", generation_uuid: "uuid-node-a-1", kind: "fresh", native_session_id_at_boot: null, boot_at: time });
     });

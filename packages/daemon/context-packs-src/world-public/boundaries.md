@@ -14,9 +14,9 @@ This public pack covers only the shared world structure and discovery surfaces l
 ## This pack does not cover
 
 <!-- world-claim: boundary-exclusions -->
-This public pack does not supply rig-specific reality, current work, local lore, repository instructions, or irreversible judgment.
+This public pack does not supply software-team-specific reality, current work, local lore, repository instructions, or irreversible judgment.
 
-- the purpose, actors, topology, paths, or current state of a particular rig;
+- the purpose, actors, topology, paths, or current state of a particular SoftwareTeam;
 - the mission you currently own;
 - local lore earned by a seat or team;
 - harness-specific repository instructions;
@@ -28,6 +28,6 @@ These gaps are not omissions to fill with plausible prose: read the local world,
 ## Namespace edge
 
 <!-- world-claim: private-ref-boundary -->
-Private world installs remain rig-local under their own refs and are never shadowed by this builtin.
+Private world installs remain software-team-local under their own refs and are never shadowed by this builtin.
 This pack is `world-public`. A local world may use a different ref and carry instance-specific
 substance without inheriting or being replaced by these public bytes.

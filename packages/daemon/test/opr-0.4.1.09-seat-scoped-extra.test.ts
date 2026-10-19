@@ -42,7 +42,7 @@ async function restorePromptFor(messageFilePath: string, seat: string): Promise<
   const settings = makeSettingsStore(policyWithExtra(messageFilePath));
   const { transport, send } = makeSessionTransport();
   const enforcer = new ClaudeCompactionEnforcer(settings, transport, {
-    dedupWindowMs: 60_000, postCompactRestoreCooldownMs: 0, openrigHome: home,
+    dedupWindowMs: 60_000, postCompactRestoreCooldownMs: 0, softwareteamHome: home,
     resolveOccupantGeneration: () => "test-generation",
   });
   let now = 1_700_000_000_000;
@@ -65,7 +65,7 @@ describe("OPR.0.4.1.09 — seat-scoped post-compaction extra (never inject wrong
   it("REFUSES a global extra that declares a DIFFERENT seat (the 2026-06-20 defect)", async () => {
     const globalPath = path.join(home, "compaction", "post-compact-extra.md");
     writeFile(globalPath, "---\nseat: advisor-lead@kernel\n---\nAdvisor restore map: read X, Y, Z.");
-    const prompt = await restorePromptFor(globalPath, "dev2-driver@openrig-delivery");
+    const prompt = await restorePromptFor(globalPath, "dev2-driver@softwareteam-delivery");
     // The wrong-seat file path is NOT injected ...
     expect(prompt).not.toContain(globalPath);
     expect(prompt).not.toContain("Additional post-compaction instruction file");
@@ -76,8 +76,8 @@ describe("OPR.0.4.1.09 — seat-scoped post-compaction extra (never inject wrong
 
   it("INJECTS a per-seat extra (compaction/post-compact-extra/<seat>.md) over the global", async () => {
     const globalPath = path.join(home, "compaction", "post-compact-extra.md");
-    writeFile(globalPath, "---\nseat: someone-else@rig\n---\nnot mine");
-    const seat = "dev2-driver@openrig-delivery";
+    writeFile(globalPath, "---\nseat: someone-else@software-team\n---\nnot mine");
+    const seat = "dev2-driver@softwareteam-delivery";
     const perSeatPath = path.join(home, "compaction", "post-compact-extra", `${seat}.md`);
     writeFile(perSeatPath, "my own restore extra");
     const prompt = await restorePromptFor(globalPath, seat);
@@ -87,14 +87,14 @@ describe("OPR.0.4.1.09 — seat-scoped post-compaction extra (never inject wrong
 
   it("ALLOWS a generic global extra that declares NO seat (valid for any seat)", async () => {
     const globalPath = path.join(home, "compaction", "post-compact-extra.md");
-    writeFile(globalPath, "Generic operator note for all seats: prefer rig queue list --as you.");
-    const prompt = await restorePromptFor(globalPath, "dev2-driver@openrig-delivery");
+    writeFile(globalPath, "Generic operator note for all seats: prefer SoftwareTeam queue list --as you.");
+    const prompt = await restorePromptFor(globalPath, "dev2-driver@softwareteam-delivery");
     expect(prompt).toContain(globalPath);
     expect(prompt).toContain("Additional post-compaction instruction file");
   });
 
   it("ALLOWS a global extra that declares THIS seat", async () => {
-    const seat = "dev2-driver@openrig-delivery";
+    const seat = "dev2-driver@softwareteam-delivery";
     const globalPath = path.join(home, "compaction", "post-compact-extra.md");
     writeFile(globalPath, `---\ntarget_seat: ${seat}\n---\nmine`);
     const prompt = await restorePromptFor(globalPath, seat);
@@ -108,7 +108,7 @@ describe("OPR.0.4.1.09 — seat-scoped post-compaction extra (never inject wrong
 // still INJECT — not be misclassified as a foreign-seat declaration and silently
 // suppressed in the recovery path. Well-formed foreign-seat refusal is preserved.
 describe("OPR.0.4.1.09 — rev1-r2 regression: only well-formed frontmatter declares a seat", () => {
-  const SEAT = "dev2-driver@openrig-delivery";
+  const SEAT = "dev2-driver@softwareteam-delivery";
 
   it("(1) INJECTS a MALFORMED-frontmatter extra (opened `---`, no close) with a foreign-looking seat: line", async () => {
     const globalPath = path.join(home, "compaction", "post-compact-extra.md");

@@ -1,10 +1,10 @@
 {
-  "schema": "openrig.bundle-behaviour/v1",
+  "schema": "softwareteam.bundle-behaviour/v1",
   "state": "not_generated",
   "identity": {
     "source": {
       "repository": "https://github.com/mvschwarz/openrig-world",
-      "folder": "rigs/openrig-dev",
+      "folder": "software-teams/softwareteam-dev",
       "resolvedCommit": "894ad0e301ab46ac6ddd74dea784b7f6311d69a2",
       "requestedRef": "main",
       "canonicalUrl": "https://github.com/mvschwarz/openrig-world/tree/894ad0e301ab46ac6ddd74dea784b7f6311d69a2/rigs/openrig-dev"
@@ -13,10 +13,10 @@
     "packageDigest": null,
     "assembler": null,
     "generator": {
-      "openrigVersion": "0.6.6",
+      "softwareteamVersion": "0.6.6",
       "commit": "910bf9f1"
     }
   },
   "reason": "No view has been generated for this combination.",
-  "localInspectCommand": "rig bundle inspect <the archive built for this combination> --json"
+  "localInspectCommand": "softwareTeam bundle inspect <the archive built for this combination> --json"
 }

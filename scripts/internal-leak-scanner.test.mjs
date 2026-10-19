@@ -2,19 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const COMPACTION_TEMPLATE = "   `<launch cwd>/.openrig/compaction/preparation/<session>/<attempt>/RESTORE-MAP.md`; its parent";
+const COMPACTION_TEMPLATE = "   `<launch cwd>/.softwareteam/compaction/preparation/<session>/<attempt>/RESTORE-MAP.md`; its parent";
 
 test("scanner blocks internal paths before reading content", async () => {
   const scanner = await loadScanner();
   const findings = scanner.scanInternalLeaks({
-    path: "skills/openrig-user/internal/host.md",
+    path: "skills/softwareteam-user/internal/host.md",
     bytes: Buffer.from("clean text\n"),
     rules: fixtureRules(),
   });
 
   assert.deepEqual(findings, [
     {
-      file: "skills/openrig-user/internal/host.md",
+      file: "skills/softwareteam-user/internal/host.md",
       token: "**/internal/**",
       line: 1,
       remedy: scanner.INTERNAL_LEAK_REMEDY,
@@ -90,7 +90,7 @@ test("exact-line allowances preserve modified lines, adjacent findings and inter
   const line = COMPACTION_TEMPLATE;
   const rules = {
     ...fixtureRules(),
-    path_prefixes: [".openrig/compaction/"],
+    path_prefixes: [".softwareteam/compaction/"],
     allowed_context_lines: [line],
   };
   const scan = (text, path = "skills/public/SKILL.md") => scanInternalLeaks({
@@ -106,9 +106,9 @@ test("exact-line allowances preserve modified lines, adjacent findings and inter
     line.trimStart(),
     line.toUpperCase(),
   ]) {
-    assert.ok(scan(modified).some(({ token }) => token === ".openrig/compaction/"));
+    assert.ok(scan(modified).some(({ token }) => token === ".softwareteam/compaction/"));
   }
-  assert.deepEqual(scan(`${line}\n.openrig/compaction/private.txt\n`).map(({ line }) => line), [2]);
+  assert.deepEqual(scan(`${line}\n.softwareteam/compaction/private.txt\n`).map(({ line }) => line), [2]);
   assert.equal(scan(line, "skills/internal/SKILL.md")[0].kind, "path");
 });
 
@@ -116,21 +116,21 @@ test("generated rules allow the shipped compaction template and still detect con
   const { scanInternalLeaks } = await loadScanner();
   const rules = JSON.parse(readFileSync(new URL("./internal-tokens.generated.json", import.meta.url), "utf8"));
   const bytes = readFileSync(new URL(
-    "../packages/daemon/assets/plugins/openrig-core/skills/claude-compaction-restore/SKILL.md",
+    "../packages/daemon/assets/plugins/softwareteam-core/skills/claude-compaction-restore/SKILL.md",
     import.meta.url,
   ));
   assert.ok(bytes.toString("utf8").split("\n").includes(COMPACTION_TEMPLATE));
   assert.ok(rules.allowed_context_lines.includes(COMPACTION_TEMPLATE));
-  assert.ok(rules.path_prefixes.includes(".openrig/compaction/"));
+  assert.ok(rules.path_prefixes.includes(".softwareteam/compaction/"));
   for (const path of [
-    "daemon/assets/plugins/openrig-core/skills/claude-compaction-restore/SKILL.md",
+    "daemon/assets/plugins/softwareteam-core/skills/claude-compaction-restore/SKILL.md",
     "daemon/context-packs/skills/claude-compaction-restore/SKILL.md",
   ]) {
     assert.deepEqual(scanInternalLeaks({ path, bytes, rules }), []);
     const changed = Buffer.from(bytes.toString("utf8").replace(COMPACTION_TEMPLATE,
-      `${COMPACTION_TEMPLATE} .openrig/compaction/preparation/session-1/attempt-1/RESTORE-MAP.md`));
+      `${COMPACTION_TEMPLATE} .softwareteam/compaction/preparation/session-1/attempt-1/RESTORE-MAP.md`));
     assert.ok(scanInternalLeaks({ path, bytes: changed, rules }).some(({ token }) =>
-      token === ".openrig/compaction/"));
+      token === ".softwareteam/compaction/"));
   }
 });
 
@@ -163,8 +163,8 @@ async function loadScanner() {
 
 function fixtureRules() {
   return {
-    path_prefixes: ["openrig-work/"],
-    seat_and_rig_patterns: ["operator-agent@"],
+    path_prefixes: ["softwareteam-work/"],
+    seat_and_software_team_patterns: ["operator-agent@"],
     host_patterns: ["mm2-"],
     charged_terms: ["founder"],
     internal_path_globs: ["*.internal.*", "**/internal/**", "*-internal/**"],

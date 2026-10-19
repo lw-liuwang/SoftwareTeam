@@ -14,7 +14,7 @@ import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
 import { StreamStore } from "../src/domain/stream-store.js";
 import { ViewProjector } from "../src/domain/view-projector.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { MissionControlActionLog } from "../src/domain/mission-control/mission-control-action-log.js";
 import { MissionControlWriteContract } from "../src/domain/mission-control/mission-control-write-contract.js";
 import { MissionControlReadLayer } from "../src/domain/mission-control/mission-control-read-layer.js";
@@ -47,8 +47,8 @@ function buildApp(opts: {
   const db = (opts.bus as unknown as { db: Database.Database }).db;
   const viewProjector = new ViewProjector(db, opts.bus);
   const streamStore = new StreamStore(db, opts.bus);
-  const rigRepo = new RigRepository(db);
-  const fleetCli = new MissionControlFleetCliCapability({ db, eventBus: opts.bus, rigRepo });
+  const softwareTeamRepo = new SoftwareTeamRepository(db);
+  const fleetCli = new MissionControlFleetCliCapability({ db, eventBus: opts.bus, softwareTeamRepo });
   const actionLog = new MissionControlActionLog(db);
   const writeContract = new MissionControlWriteContract({
     db,
@@ -105,10 +105,10 @@ describe("mission-control routes Phase B (PL-005)", () => {
       queueItemsSchema, queueTransitionsSchema, viewsCustomSchema,
       missionControlActionsSchema,
     ]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     bus = new EventBus(db);
     (bus as unknown as { db: Database.Database }).db = db;
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
   });
 
   afterEach(() => db.close());
@@ -119,7 +119,7 @@ describe("mission-control routes Phase B (PL-005)", () => {
       const created = await queueRepo.create({ sourceSession: "s@r", destinationSession: "d@r", body: "x" });
       const res = await app.request("/api/mission-control/action", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "h@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "h@r" },
         body: JSON.stringify({ verb: "approve", qitemId: created.qitemId }),
       });
       expect(res.status).toBe(401);
@@ -132,7 +132,7 @@ describe("mission-control routes Phase B (PL-005)", () => {
       const created = await queueRepo.create({ sourceSession: "s@r", destinationSession: "d@r", body: "x" });
       const res = await app.request("/api/mission-control/action", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer secret", "X-OpenRig-Session": "h@r" },
+        headers: { "Content-Type": "application/json", Authorization: "Bearer secret", "X-SoftwareTeam-Session": "h@r" },
         body: JSON.stringify({ verb: "approve", qitemId: created.qitemId }),
       });
       expect(res.status).toBe(200);
@@ -143,7 +143,7 @@ describe("mission-control routes Phase B (PL-005)", () => {
       const created = await queueRepo.create({ sourceSession: "s@r", destinationSession: "d@r", body: "x" });
       const res = await app.request("/api/mission-control/action", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "h@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "h@r" },
         body: JSON.stringify({ verb: "approve", qitemId: created.qitemId }),
       });
       expect(res.status).toBe(200);
@@ -162,7 +162,7 @@ describe("mission-control routes Phase B (PL-005)", () => {
       const created = await queueRepo.create({ sourceSession: "s@r", destinationSession: "d@r", body: "x" });
       const res = await app.request("/api/mission-control/action", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "human@kernel" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "human@kernel" },
         body: JSON.stringify({
           verb: "resolve",
           qitemId: created.qitemId,
@@ -179,7 +179,7 @@ describe("mission-control routes Phase B (PL-005)", () => {
       const created = await queueRepo.create({ sourceSession: "s@r", destinationSession: "d@r", body: "x" });
       const res = await app.request("/api/mission-control/action", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "human@kernel" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "human@kernel" },
         body: JSON.stringify({
           verb: "resolve",
           qitemId: created.qitemId,
@@ -288,7 +288,7 @@ describe("mission-control routes Phase B (PL-005)", () => {
     it("GET /destinations returns phone-friendly handoff candidates from queue-observed sessions", async () => {
       const { app } = buildApp({ bus, queueRepo, bearerToken: "secret", withDispatcher: false });
       await queueRepo.create({
-        sourceSession: "velocity.qa@openrig-velocity",
+        sourceSession: "velocity.qa@softwareteam-velocity",
         destinationSession: "human-operator@kernel",
         body: "x",
         tier: "human-gate",
@@ -301,7 +301,7 @@ describe("mission-control routes Phase B (PL-005)", () => {
       const body = (await res.json()) as {
         destinations: Array<{ sessionName: string; source: string; label: string }>;
       };
-      expect(body.destinations.some((d) => d.sessionName === "velocity.qa@openrig-velocity")).toBe(true);
+      expect(body.destinations.some((d) => d.sessionName === "velocity.qa@softwareteam-velocity")).toBe(true);
       expect(body.destinations.some((d) => d.sessionName === "human-operator@kernel")).toBe(true);
       expect(body.destinations.every((d) => d.label.length > 0)).toBe(true);
     });
@@ -323,7 +323,7 @@ describe("mission-control routes Phase B (PL-005)", () => {
       const created = await queueRepo.create({ sourceSession: "s@r", destinationSession: "d@r", body: "x" });
       const actionRes = await app.request("/api/mission-control/action", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "h@r" },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "h@r" },
         body: JSON.stringify({ verb: "approve", qitemId: created.qitemId }),
       });
       expect(actionRes.status).toBe(200);

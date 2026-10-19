@@ -20,7 +20,7 @@ export function scanInternalLeaks({ path, bytes, rules }) {
 
   const tokens = [
     ...(rules.path_prefixes ?? []),
-    ...(rules.seat_and_rig_patterns ?? []),
+    ...(rules.seat_and_software_team_patterns ?? []),
     ...(rules.host_patterns ?? []),
     ...(rules.charged_terms ?? []),
   ];

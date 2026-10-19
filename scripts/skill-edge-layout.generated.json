@@ -6,7 +6,7 @@
       "layout": "mirror-of-spec"
     },
     "plugin": {
-      "path": "packages/daemon/assets/plugins/openrig-core/skills",
+      "path": "packages/daemon/assets/plugins/softwareteam-core/skills",
       "layout": "flat"
     },
     "spec": {
@@ -81,7 +81,7 @@
       ],
       "category": "process"
     },
-    "cross-host-rig-commands": {
+    "cross-host-software-team-commands": {
       "edges": [
         "canonical",
         "spec"
@@ -115,7 +115,7 @@
       ],
       "category": "pm"
     },
-    "forming-an-openrig-mental-model": {
+    "forming-an-softwareteam-mental-model": {
       "edges": [
         "plugin"
       ],
@@ -162,34 +162,34 @@
       ],
       "category": "pm"
     },
-    "openrig-architect": {
+    "softwareteam-architect": {
       "edges": [
         "canonical",
         "spec"
       ],
       "category": "core"
     },
-    "openrig-cmux": {
+    "softwareteam-cmux": {
       "edges": [
         "canonical",
         "spec"
       ],
       "category": "core"
     },
-    "openrig-herdr": {
+    "softwareteam-herdr": {
       "edges": [
         "canonical",
         "spec"
       ],
       "category": "core"
     },
-    "openrig-operating-model": {
+    "softwareteam-operating-model": {
       "edges": [
         "plugin"
       ],
       "category": null
     },
-    "openrig-skills": {
+    "softwareteam-skills": {
       "edges": [
         "canonical",
         "plugin",
@@ -197,21 +197,21 @@
       ],
       "category": "core"
     },
-    "openrig-software-factory": {
+    "softwareteam-software-factory": {
       "edges": [
         "canonical",
         "spec"
       ],
       "category": "core"
     },
-    "openrig-upgrade": {
+    "softwareteam-upgrade": {
       "edges": [
         "canonical",
         "spec"
       ],
       "category": "core"
     },
-    "openrig-user": {
+    "softwareteam-user": {
       "edges": [
         "plugin"
       ],
@@ -276,14 +276,14 @@
       ],
       "category": "pods"
     },
-    "rig-bundles-and-shareable-artifacts": {
+    "software-team-bundles-and-shareable-artifacts": {
       "edges": [
         "canonical",
         "spec"
       ],
       "category": "core"
     },
-    "rig-lifecycle": {
+    "software-team-lifecycle": {
       "edges": [
         "canonical",
         "spec"

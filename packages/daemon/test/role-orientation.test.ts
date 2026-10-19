@@ -33,9 +33,9 @@ describe("queue whoami role binding", () => {
     root = mkdtempSync(join(tmpdir(), "role-binding-"));
     const db = createFullTestDb();
     f = createTestApp(db, { appDeps: { db, queueRepo: new QueueRepository(db, new EventBus(db)) } });
-    const rig = f.rigRepo.createRig("roles");
-    a = f.rigRepo.addNode(rig.id, "a", { runtime: "codex", cwd: root }).id;
-    b = f.rigRepo.addNode(rig.id, "b", { runtime: "claude-code", cwd: root }).id;
+    const softwareTeam = f.softwareTeamRepo.createSoftwareTeam("roles");
+    a = f.softwareTeamRepo.addNode(softwareTeam.id, "a", { runtime: "codex", cwd: root }).id;
+    b = f.softwareTeamRepo.addNode(softwareTeam.id, "b", { runtime: "claude-code", cwd: root }).id;
     f.sessionRegistry.registerSession(a, "a@roles");
     f.sessionRegistry.registerSession(b, "b@roles");
   });
@@ -51,7 +51,7 @@ describe("queue whoami role binding", () => {
     return { path: name, absolutePath, ownerRoot: root, ...(marked ? { orientation: "role" } : {}) };
   }
   async function role(session = "a@roles", query = session) {
-    const response = await f.app.request("/api/queue/whoami?session=" + encodeURIComponent(query), { headers: { "X-OpenRig-Session": session } });
+    const response = await f.app.request("/api/queue/whoami?session=" + encodeURIComponent(query), { headers: { "X-SoftwareTeam-Session": session } });
     expect(response.status).toBe(200);
     return (await response.json()).role;
   }
@@ -83,19 +83,19 @@ describe("queue whoami role binding", () => {
   });
   it("preserves binding provenance while re-anchoring an old packaged role", async () => {
     const path = "guidance/role.md";
-    const ownerRoot = "/old/node_modules/@openrig/cli/daemon/specs/rigs/launch/kernel/agents/advisor/lead";
+    const ownerRoot = "/old/node_modules/@softwareteam/cli/daemon/specs/software-teams/launch/kernel/agents/advisor/lead";
     record(a, [{ path, ownerRoot, absolutePath: ownerRoot + "/" + path, orientation: "role" }]);
     const result = await role();
     expect(result).toMatchObject({ state: "present", recordedAt });
     expect(result.note).toContain("record write");
     expect(result.note).toContain("not");
     expect(result.files[0]).toMatchObject({ ownerRoot, absolutePath: ownerRoot + "/" + path });
-    expect(result.files[0].resolvedPath).toContain("/packages/daemon/specs/rigs/launch/kernel/agents/advisor/lead/guidance/role.md");
+    expect(result.files[0].resolvedPath).toContain("/packages/daemon/specs/software-teams/launch/kernel/agents/advisor/lead/guidance/role.md");
     expect(result.files[0].resolvedPath).not.toContain("/old/");
     expect(JSON.parse((f.db.prepare("SELECT resolved_files_json FROM node_startup_context WHERE node_id=?").get(a) as any).resolved_files_json)[0].ownerRoot).toBe(ownerRoot);
   });
   it("keeps an existing development-checkout role at its recorded path", async () => {
-    const ownerRoot = join(root, "packages/daemon/specs/rigs/launch/kernel/agents/advisor/lead");
+    const ownerRoot = join(root, "packages/daemon/specs/software-teams/launch/kernel/agents/advisor/lead");
     mkdirSync(join(ownerRoot, "guidance"), { recursive: true });
     const absolutePath = join(ownerRoot, "guidance/role.md");
     writeFileSync(absolutePath, "development role");

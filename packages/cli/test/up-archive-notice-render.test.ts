@@ -1,4 +1,4 @@
-// #141: `rig up` terminal output for the stopped-generation archive. The archive notice must reach the user
+// #141: `SoftwareTeam up` terminal output for the stopped-generation archive. The archive notice must reach the user
 // on the attention 409 too (the replacement is kept there), and a generation_unconfirmed refusal prints its
 // own actionable message. Actual command renderer and daemon attention builder; the client is stubbed.
 import { describe, expect, it, vi } from "vitest";
@@ -9,7 +9,7 @@ import type { DaemonClient } from "../src/client.js";
 import { buildAttentionResponse } from "../../daemon/src/routes/up.js";
 
 const OLD = "01OLDGENERATION00000000000";
-const NOTICE = `Archived the stopped earlier "first-project" rig ${OLD}; its records are kept. Restore it with: rig unarchive ${OLD}`;
+const NOTICE = `Archived the stopped earlier "first-project" softwareTeam ${OLD}; its records are kept. Restore it with: SoftwareTeam unarchive ${OLD}`;
 
 async function render(data: Record<string, unknown>, status: number, json = false) {
   const oldExit = process.exitCode;
@@ -30,22 +30,22 @@ async function render(data: Record<string, unknown>, status: number, json = fals
     const cmd = new Command().exitOverride().addCommand(upCommand({
       lifecycleDeps, clientFactory: () => client as unknown as DaemonClient, preflightExec: forbidden,
     }));
-    await cmd.parseAsync(["node", "rig", "up", "first-project", ...(json ? ["--json"] : [])]);
+    await cmd.parseAsync(["node", "softwareTeam", "up", "first-project", ...(json ? ["--json"] : [])]);
     return { out: out.join("\n"), err: err.join("\n"), exit: process.exitCode };
   } finally { process.exitCode = oldExit; log.mockRestore(); error.mockRestore(); }
 }
 
 function attentionWithNotice() {
   const attentionNodes = [{ logicalId: "dev.owner", sessionName: "dev-owner@first-project", reason: "trust_gate", evidence: "trust" }];
-  const result = { rigId: "NEWRIG", warnings: [NOTICE], stages: [{ stage: "import_rig", status: "blocked",
+  const result = { softwareTeamId: "NEWRIG", warnings: [NOTICE], stages: [{ stage: "import_software_team", status: "blocked",
     detail: { code: "attention_required", message: "1 member needs attention.", attentionNodes } }] };
   return { ...result, ...buildAttentionResponse(result)! };
 }
 
-describe("#141 rig up output for the stopped-generation archive", () => {
-  it("attention 409: prints the archive notice with the old rig id and its unarchive instruction", async () => {
+describe("#141 SoftwareTeam up output for the stopped-generation archive", () => {
+  it("attention 409: prints the archive notice with the old SoftwareTeam id and its unarchive instruction", async () => {
     const r = await render(attentionWithNotice(), 409);
-    expect(r.err).toContain(`rig unarchive ${OLD}`);
+    expect(r.err).toContain(`SoftwareTeam unarchive ${OLD}`);
     expect(r.err).toContain("dev.owner");
     expect(r.exit).toBe(1);
   });
@@ -59,16 +59,16 @@ describe("#141 rig up output for the stopped-generation archive", () => {
   });
 
   it("generation_unconfirmed 409: prints its actionable message, not the validate-your-spec fallback", async () => {
-    const message = `A rig named "first-project" already exists (${OLD}), and OpenRig could not confirm it is stopped: tmux session x still exists. Nothing was created. Restore it with 'rig up first-project', or archive it first with 'rig archive ${OLD}'.`;
+    const message = `A SoftwareTeam named "first-project" already exists (${OLD}), and SoftwareTeam could not confirm it is stopped: tmux session x still exists. Nothing was created. Restore it with 'SoftwareTeam up first-project', or archive it first with 'SoftwareTeam archive ${OLD}'.`;
     const r = await render({ code: "generation_unconfirmed", error: message, errors: [message],
-      stages: [{ stage: "import_rig", status: "failed", detail: { code: "generation_unconfirmed" } }] }, 409);
+      stages: [{ stage: "import_software_team", status: "failed", detail: { code: "generation_unconfirmed" } }] }, 409);
     expect(r.err).toContain(message);
     expect(r.err).not.toMatch(/validate your spec|Check daemon logs/);
     expect(r.exit).toBe(1);
   });
 
   it("control: on success a warning is printed exactly once", async () => {
-    const r = await render({ status: "completed", rigId: "NEWRIG", stages: [], warnings: [NOTICE] }, 201);
-    expect(r.err.split(`rig unarchive ${OLD}`).length - 1).toBe(1);
+    const r = await render({ status: "completed", softwareTeamId: "NEWRIG", stages: [], warnings: [NOTICE] }, 201);
+    expect(r.err.split(`SoftwareTeam unarchive ${OLD}`).length - 1).toBe(1);
   });
 });

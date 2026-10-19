@@ -1,3 +1,9 @@
+# Historical Capture Notice
+
+The following is the original upstream capture description. These rasters are
+not SoftwareTeam screenshots or proof of this fork. They are not linked by current
+product documentation. Original names/claims below are retained as provenance.
+
 # Launch Happy-Path Screenshot Set
 
 Source capture:

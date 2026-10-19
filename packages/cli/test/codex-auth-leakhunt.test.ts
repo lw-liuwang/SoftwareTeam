@@ -2,7 +2,7 @@
 //
 // A sentinel "token" is planted in EVERY place a secret could live: the active auth file, a valid
 // saved profile, a MALFORMED saved profile (the JSON.parse-error path), AND a fake `codex` shim on
-// PATH that loudly emits the sentinel on both stdout and stderr. Every `rig auth` verb is then run
+// PATH that loudly emits the sentinel on both stdout and stderr. Every `softwareTeam auth` verb is then run
 // through the REAL command with DEFAULT loginStatus (so the real spawnSync stdio:"ignore" path is
 // exercised, not a stub), capturing BOTH console.log and console.error AND any thrown error/stack.
 // The sentinel must appear in NONE of that output — stdout, stderr, or exception — for any verb.
@@ -58,7 +58,7 @@ afterEach(() => {
   fs.rmSync(binDir, { recursive: true, force: true });
 });
 
-// Run one `rig auth` invocation through the real command, capturing stdout + stderr + thrown errors.
+// Run one `softwareTeam auth` invocation through the real command, capturing stdout + stderr + thrown errors.
 async function runVerb(subArgs: string[]): Promise<string> {
   const chunks: string[] = [];
   const origLog = console.log;
@@ -83,7 +83,7 @@ async function runVerb(subArgs: string[]): Promise<string> {
   return chunks.join("\n");
 }
 
-describe("rig auth LEAK-HUNT keystone (OPR.0.4.1.29)", () => {
+describe("SoftwareTeam auth LEAK-HUNT keystone (OPR.0.4.1.29)", () => {
   it("harness can actually fail: the sentinel really is planted in files + emitted by the shim", () => {
     expect(fs.readFileSync(path.join(home, "auth.json"), "utf8")).toContain(SENTINEL);
     expect(fs.readFileSync(path.join(home, "auth-profiles", "work.json"), "utf8")).toContain(SENTINEL);
@@ -103,15 +103,15 @@ describe("rig auth LEAK-HUNT keystone (OPR.0.4.1.29)", () => {
       ["validate", "work"], // valid JSON path
       ["validate", "broken"], // MALFORMED → must report a fixed reason, never the file content
       ["validate", "missing-one"], // missing → fixed reason
-      ["seats", "set", "--seat", "dev1@rig", "--rig", "rig", "--cwd", "/x", "--profile", "work"],
+      ["seats", "set", "--seat", "dev1@software-team", "--software-team", "softwareTeam", "--cwd", "/x", "--profile", "work"],
       ["seats", "list"],
-      ["seats", "show", "dev1@rig"],
+      ["seats", "show", "dev1@software-team"],
       ["seats", "report"],
     ];
     let all = "";
     for (const v of verbs) {
       const out = await runVerb(v);
-      all += `\n## rig auth ${v.join(" ")}\n${out}`;
+      all += `\n## SoftwareTeam auth ${v.join(" ")}\n${out}`;
     }
     expect(all).not.toContain(SENTINEL);
     // Sanity: we actually captured real output (not silently empty), so the assertion is meaningful.
@@ -125,7 +125,7 @@ describe("rig auth LEAK-HUNT keystone (OPR.0.4.1.29)", () => {
 // file whose inode lives outside CODEX_HOME) and SYMLINKED PARENT DIRS (an auth-profiles symlink). Both
 // let save/switch write secret bytes outside the boundary. Each case must refuse with unsafe_path AND
 // leave zero secret bytes outside CODEX_HOME.
-describe("rig auth LEAK-HUNT — hardlink + symlinked-parent escapes (rev1-r2)", () => {
+describe("SoftwareTeam auth LEAK-HUNT — hardlink + symlinked-parent escapes (rev1-r2)", () => {
   function fixture() {
     const h = fs.mkdtempSync(path.join(os.tmpdir(), "codexauth-esc-"));
     const p = resolveCodexHome({ CODEX_HOME: h });
@@ -189,13 +189,13 @@ describe("rig auth LEAK-HUNT — hardlink + symlinked-parent escapes (rev1-r2)",
 });
 
 // OPR.0.4.3.23 — secret-boundary B1: the check-then-use gap. The 0.4.1 guards are path-based
-// pre-checks followed by a copy that RE-RESOLVED the source path; a swap/crash/concurrent-legit-rig in
+// pre-checks followed by a copy that RE-RESOLVED the source path; a swap/crash/concurrent-legit-softwareTeam in
 // the window could redirect the read, copy a torn file, or briefly expose a wider-than-0600 temp
 // (CERT FIO45-C). copyOntoFresh now opens the source, validates ON THE FD (O_NOFOLLOW + fstat: regular,
 // nlink===1, dev/ino), reads from the fd, creates the dest temp O_EXCL at 0600, fsyncs, and renames as
 // the sole atomic publish. These tests exercise the fd layer directly (behind the path pre-checks) and
 // prove no secret escapes on the crash / partial-write / swap paths.
-describe("rig auth LEAK-HUNT — fd-first check-then-use / crash-safety (OPR.0.4.3.23)", () => {
+describe("SoftwareTeam auth LEAK-HUNT — fd-first check-then-use / crash-safety (OPR.0.4.3.23)", () => {
   let root: string;
   const orphans = (dir: string, base: string): string[] =>
     fs.readdirSync(dir).filter((n) => n.startsWith(`${base}.tmp-`));

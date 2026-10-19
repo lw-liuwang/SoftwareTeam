@@ -1,6 +1,6 @@
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
-import { RigSpecSchema } from "../src/domain/rigspec-schema.js";
-import { RigSpecCodec } from "../src/domain/rigspec-codec.js";
+import { SoftwareTeamSpecSchema } from "../src/domain/software-team-spec-schema.js";
+import { SoftwareTeamSpecCodec } from "../src/domain/software-team-spec-codec.js";
 import type { RuntimeAdapter } from "../src/domain/runtime-adapter.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -9,8 +9,8 @@ import { tmpdir } from "node:os";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
-import { rigNonInterruptiveSchema } from "../src/db/migrations/095_rig_non_interruptive.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { softwareTeamNonInterruptiveSchema } from "../src/db/migrations/095_software_team_non_interruptive.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { ClaudeCodeAdapter } from "../src/adapters/claude-code-adapter.js";
 import { CodexRuntimeAdapter } from "../src/adapters/codex-runtime-adapter.js";
 import { ClaudeResumeAdapter } from "../src/adapters/claude-resume.js";
@@ -38,22 +38,22 @@ function fixture(runtime: string) {
 }
 
 describe("non-interruptive launch choice", () => {
-  it("migration preserves existing rigs as off, survives reopen, and is explicitly clearable", () => {
-    const file = join(root(), "rig.db"); let db = createDb(file);
-    migrate(db, ALL_MIGRATIONS.filter(m => m.name !== rigNonInterruptiveSchema.name));
-    let repo = new RigRepository(db); const rig = repo.createRig("kept");
+  it("migration preserves existing softwareTeams as off, survives reopen, and is explicitly clearable", () => {
+    const file = join(root(), "softwareTeam.db"); let db = createDb(file);
+    migrate(db, ALL_MIGRATIONS.filter(m => m.name !== softwareTeamNonInterruptiveSchema.name));
+    let repo = new SoftwareTeamRepository(db); const softwareTeam = repo.createSoftwareTeam("kept");
     migrate(db, ALL_MIGRATIONS);
-    expect(repo.getRigNonInterruptive(rig.id)).toBe(false);
-    expect(repo.getRig(rig.id)?.rig.name).toBe("kept");
-    repo.setRigNonInterruptive(rig.id, true); db.close();
-    db = createDb(file); migrate(db, ALL_MIGRATIONS); repo = new RigRepository(db);
-    expect(repo.getRigNonInterruptive(rig.id)).toBe(true);
-    expect(repo.getRigNonInterruptive(repo.createRig("other").id)).toBe(false);
-    repo.setRigNonInterruptive(rig.id, false); expect(repo.getRigNonInterruptive(rig.id)).toBe(false);
+    expect(repo.getSoftwareTeamNonInterruptive(softwareTeam.id)).toBe(false);
+    expect(repo.getSoftwareTeam(softwareTeam.id)?.softwareTeam.name).toBe("kept");
+    repo.setSoftwareTeamNonInterruptive(softwareTeam.id, true); db.close();
+    db = createDb(file); migrate(db, ALL_MIGRATIONS); repo = new SoftwareTeamRepository(db);
+    expect(repo.getSoftwareTeamNonInterruptive(softwareTeam.id)).toBe(true);
+    expect(repo.getSoftwareTeamNonInterruptive(repo.createSoftwareTeam("other").id)).toBe(false);
+    repo.setSoftwareTeamNonInterruptive(softwareTeam.id, false); expect(repo.getSoftwareTeamNonInterruptive(softwareTeam.id)).toBe(false);
     expect(db.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]); db.close();
   });
 
-  it("one typed operator default is off and does not mutate rig or harness settings", () => {
+  it("one typed operator default is off and does not mutate SoftwareTeam or harness settings", () => {
     const settings = new SettingsStore(join(root(), "config.json"));
     expect(settings.resolveOne("launch.non_interruptive").value).toBe(false);
     settings.set("launch.non_interruptive", "true");
@@ -62,7 +62,7 @@ describe("non-interruptive launch choice", () => {
   });
 
   it.each(["claude-code", "codex", "pi"])("%s leaves off/floor/auto and unrelated runtimes unchanged", runtime => {
-    vi.stubEnv("OPENRIG_YOLO", "1");
+    vi.stubEnv("SOFTWARETEAM_YOLO", "1");
     for (const launchPosture of [undefined, "floor", "auto"] as const) {
       expect(nonInterruptiveArgs(runtime, { launchPosture, nonInterruptive: true })).toEqual([]);
     }
@@ -200,7 +200,7 @@ describe("non-interruptive launch choice", () => {
 
 describe("persisted choice at the launch boundary", () => {
   it.each([
-    // A rig without an authored or requested choice must keep its export undeclared.
+    // A softwareTeam without an authored or requested choice must keep its export undeclared.
     [undefined, undefined, false],
     [undefined, true, true], [true, undefined, true], [true, false, false],
     [false, true, true], [false, undefined, false],
@@ -243,24 +243,24 @@ edges: []
       expect(result.ok, JSON.stringify(result)).toBe(true);
       expect(bindings).toHaveLength(2);
       expect(bindings.map(b => [b.nonInterruptive, b.launchPosture])).toEqual([[expected, "full_bypass"], [expected, "floor"]]);
-      const rigId = (result as { ok: true; result: { rigId: string } }).result.rigId;
-      expect(setup.rigRepo.getRigNonInterruptive(rigId)).toBe(expected);
-      const exported = setup.rigSpecExporter.exportRig(rigId);
+      const softwareTeamId = (result as { ok: true; result: { softwareTeamId: string } }).result.softwareTeamId;
+      expect(setup.softwareTeamRepo.getSoftwareTeamNonInterruptive(softwareTeamId)).toBe(expected);
+      const exported = setup.softwareTeamSpecExporter.exportSoftwareTeam(softwareTeamId);
       if (expected) expect(exported).toMatchObject({ nonInterruptive: true });
       else expect(exported).not.toHaveProperty("nonInterruptive");
-      const exportedYaml = RigSpecCodec.serialize(exported as import("../src/domain/types.js").RigSpec);
+      const exportedYaml = SoftwareTeamSpecCodec.serialize(exported as import("../src/domain/types.js").SoftwareTeamSpec);
       if (expected) expect(exportedYaml).toContain("non_interruptive: true");
       else expect(exportedYaml).not.toContain("non_interruptive:");
       expect(nonInterruptiveArgs("claude-code", bindings[1]!)).toEqual([]);
-      const rig = setup.rigRepo.getRig(rigId)!;
-      const node = rig.nodes.find(n => n.logicalId === "dev.impl")!;
-      const session = setup.sessionRegistry.getSessionsForRig(rigId).find(s => s.nodeId === node.id)!;
-      const replay = { rigId, nodeId: node.id, sessionId: session.id, binding: { ...bindings[0]!, nonInterruptive: false },
+      const softwareTeam = setup.softwareTeamRepo.getSoftwareTeam(softwareTeamId)!;
+      const node = softwareTeam.nodes.find(n => n.logicalId === "dev.impl")!;
+      const session = setup.sessionRegistry.getSessionsForSoftwareTeam(softwareTeamId).find(s => s.nodeId === node.id)!;
+      const replay = { softwareTeamId, nodeId: node.id, sessionId: session.id, binding: { ...bindings[0]!, nonInterruptive: false },
         adapter, plan: { runtime: "claude-code", cwd: "/work/fixture", entries: [], startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [] },
         resolvedStartupFiles: [], startupActions: [], isRestore: true, resumeToken: "retained-history" };
       await setup.startupOrchestrator.startNode(replay);
       expect(bindings.at(-1)!.nonInterruptive).toBe(expected);
-      setup.rigRepo.setRigNonInterruptive(rigId, false);
+      setup.softwareTeamRepo.setSoftwareTeamNonInterruptive(softwareTeamId, false);
       await setup.startupOrchestrator.startNode({ ...replay, binding: { ...replay.binding, nonInterruptive: true } });
       expect(bindings.at(-1)!.nonInterruptive).toBe(false);
     } finally { db.close(); }
@@ -272,13 +272,13 @@ describe("authored non-interruptive schema and codec", () => {
   const raw = { version: "0.2", name: "choice", pods: [{ id: "dev", label: "Dev", members: [{ id: "shell", runtime: "terminal", agent_ref: "builtin:terminal", profile: "none", cwd: "." }], edges: [] }], edges: [] };
   it.each([true, false, undefined])("round-trips declaration %s without converting absence", choice => {
     const spec = { ...raw, ...(choice !== undefined ? { non_interruptive: choice } : {}) };
-    expect(RigSpecSchema.validate(spec).valid).toBe(true);
-    const normalized = RigSpecSchema.normalize(spec);
+    expect(SoftwareTeamSpecSchema.validate(spec).valid).toBe(true);
+    const normalized = SoftwareTeamSpecSchema.normalize(spec);
     expect(normalized.nonInterruptive).toBe(choice);
-    const output = RigSpecCodec.parse(RigSpecCodec.serialize(normalized)) as Record<string, unknown>;
+    const output = SoftwareTeamSpecCodec.parse(SoftwareTeamSpecCodec.serialize(normalized)) as Record<string, unknown>;
     expect(output.non_interruptive).toBe(choice);
   });
   it.each([null, "true", 1])("rejects non-boolean declaration %s", choice => {
-    expect(RigSpecSchema.validate({ ...raw, non_interruptive: choice }).errors).toContain("non_interruptive: must be a boolean");
+    expect(SoftwareTeamSpecSchema.validate({ ...raw, non_interruptive: choice }).errors).toContain("non_interruptive: must be a boolean");
   });
 });

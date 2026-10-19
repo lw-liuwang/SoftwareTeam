@@ -4,7 +4,7 @@ import { readOwnHostName, resolveEffectiveHost } from "../host-selection.js";
 import { execSync } from "node:child_process";
 import { DaemonClient, remoteDaemonClient } from "../client.js";
 import { getDaemonStatus, getDaemonUrl, resolveOriginSelfHostId, fetchSelfHostIdentity } from "../daemon-lifecycle.js";
-import { readOpenRigEnv } from "../openrig-compat.js";
+import { readSoftwareTeamEnv } from "../softwareteam-compat.js";
 import { realDeps } from "./daemon.js";
 import type { StatusDeps } from "./status.js";
 import { loadHostRegistry, resolveHost, hostDisplayTarget, resolveRemoteBearer, bearerAuthHeaders, classifyHttpFailedStep, classifyHttpError, type HttpHostEntry } from "../host-registry.js";
@@ -37,7 +37,7 @@ export interface WhoamiDeps extends StatusDeps {
 }
 
 interface WhoamiIdentity {
-  rigName: string;
+  softwareTeamName: string;
   logicalId: string;
   attachmentType: string | null;
   podId: string | null;
@@ -87,7 +87,7 @@ function projectCompactWhoami(data: Record<string, unknown>, bounded?: BoundedPe
   return {
     resolvedBy: data["resolvedBy"],
     identity: {
-      rigName: id["rigName"],
+      softwareTeamName: id["softwareTeamName"],
       nodeId: id["nodeId"],
       logicalId: id["logicalId"],
       podId: id["podId"],
@@ -100,7 +100,7 @@ function projectCompactWhoami(data: Record<string, unknown>, bounded?: BoundedPe
       const peer = (p ?? {}) as Record<string, unknown>;
       return { logicalId: peer["logicalId"], sessionName: peer["sessionName"], runtime: peer["runtime"] };
     }),
-    // KEEP: openrig-user SKILL.md documents peersNote as a required recovery field.
+    // KEEP: softwareteam-user SKILL.md documents peersNote as a required recovery field.
     peersNote: bounded ? bounded.note : data["peersNote"],
     ...(bounded ? { peersOmitted: bounded.omitted } : {}),
     // edges already carry only kind + to/from {logicalId, sessionName}.
@@ -118,10 +118,10 @@ export interface BoundedPeers {
 
 /**
  * Slice 15 (OPR.0.7.0.15) P5 — with `output.compact` on, compact `--json` lists at most `bound` peers so the
- * every-boot call stays small as a rig grows. Edge peers (either direction) come first, then peers in the
+ * every-boot call stays small as a softwareTeam grows. Edge peers (either direction) come first, then peers in the
  * seat's own pod, then the rest, each in the daemon's roster order. Nothing is silently missing: the note
  * says how many were left out and the exact command that lists them all, and `edges` stays complete. When
- * every peer fits, the roster and the daemon's note pass through unchanged, so a small rig pays only for
+ * every peer fits, the roster and the daemon's note pass through unchanged, so a small softwareTeam pays only for
  * `peersOmitted: 0`.
  */
 export function boundPeers(data: Record<string, unknown>, bound: number, allPeersCommand: string): BoundedPeers {
@@ -142,9 +142,9 @@ export function boundPeers(data: Record<string, unknown>, bound: number, allPeer
   const ordered = [0, 1, 2].flatMap((t) => peers.filter((peer) => tier(peer) === t));
   const shown = ordered.slice(0, bound);
   const omitted = peers.length - shown.length;
-  const note = `peers = ${shown.length} of this rig's ${peers.length} (roster excluding self; edge peers first, then your pod, then roster order; `
+  const note = `peers = ${shown.length} of this softwareTeam's ${peers.length} (roster excluding self; edge peers first, then your pod, then roster order; `
     + `bound output.whoami_peers=${bound}); ${omitted} not shown; all: ${allPeersCommand}; `
-    + "edges = directional relationships (always complete); use `rig ps --nodes` for node inventory including self + live state";
+    + "edges = directional relationships (always complete); use `SoftwareTeam ps --nodes` for node inventory including self + live state";
   return { peers: shown, omitted, note };
 }
 
@@ -168,8 +168,8 @@ function buildPartialWhoamiResult(source: { nodeId?: string; sessionName?: strin
     partial: true,
     daemonReachable: false,
     identity: {
-      rigId: null,
-      rigName: null,
+      softwareTeamId: null,
+      softwareTeamName: null,
       nodeId: source.nodeId ?? null,
       logicalId: null,
       attachmentType: null,
@@ -196,10 +196,10 @@ function buildPartialWhoamiResult(source: { nodeId?: string; sessionName?: strin
  * Resolve the current session identity using the approved resolution chain:
  * 1. --node-id flag
  * 2. --session flag
- * 3. OPENRIG_NODE_ID env
- * 4. OPENRIG_SESSION_NAME env
- * 5. TMUX_PANE → @rigged_node_id tmux metadata
- * 6. TMUX_PANE → @rigged_session_name tmux metadata
+ * 3. SOFTWARETEAM_NODE_ID env
+ * 4. SOFTWARETEAM_SESSION_NAME env
+ * 5. TMUX_PANE → @softwareteam_node_id tmux metadata
+ * 6. TMUX_PANE → @softwareteam_session_name tmux metadata
  * 7. TMUX_PANE → tmux display-message (raw session name)
  * 8. fail
  */
@@ -210,8 +210,8 @@ export function resolveIdentitySource(
   if (opts.nodeId) return { nodeId: opts.nodeId };
   if (opts.session) return { sessionName: opts.session };
 
-  const envNodeId = readOpenRigEnv("OPENRIG_NODE_ID", "RIGGED_NODE_ID");
-  const envSessionName = readOpenRigEnv("OPENRIG_SESSION_NAME", "RIGGED_SESSION_NAME");
+  const envNodeId = readSoftwareTeamEnv("SOFTWARETEAM_NODE_ID");
+  const envSessionName = readSoftwareTeamEnv("SOFTWARETEAM_SESSION_NAME");
   if (envNodeId) {
     return {
       nodeId: envNodeId,
@@ -220,18 +220,18 @@ export function resolveIdentitySource(
   }
   if (envSessionName) return { sessionName: envSessionName };
 
-  // TMUX_PANE fallback — try OpenRig metadata first, then raw session name
+  // TMUX_PANE fallback — try SoftwareTeam metadata first, then raw session name
   const tmuxPane = process.env["TMUX_PANE"];
   if (tmuxPane) {
-    // Step 5: @rigged_node_id metadata (strongest adopted-session anchor)
+    // Step 5: @softwareteam_node_id metadata (strongest adopted-session anchor)
     try {
-      const nodeId = tmuxExec(`tmux show-option -v -t ${JSON.stringify(tmuxPane)} @rigged_node_id`);
+      const nodeId = tmuxExec(`tmux show-option -v -t ${JSON.stringify(tmuxPane)} @softwareteam_node_id`);
       if (nodeId) return { nodeId };
     } catch { /* metadata not set — continue */ }
 
-    // Step 6: @rigged_session_name metadata
+    // Step 6: @softwareteam_session_name metadata
     try {
-      const sessionName = tmuxExec(`tmux show-option -v -t ${JSON.stringify(tmuxPane)} @rigged_session_name`);
+      const sessionName = tmuxExec(`tmux show-option -v -t ${JSON.stringify(tmuxPane)} @softwareteam_session_name`);
       if (sessionName) return { sessionName };
     } catch { /* metadata not set — continue */ }
 
@@ -263,12 +263,12 @@ export async function identityRoutingHint(client: DaemonClient): Promise<string>
     location = ` at ${JSON.stringify(url.href)}`;
   } catch { /* Do not echo an unparseable URL that may contain credentials. */ }
   const daemon = selfHostId ? `daemon ${JSON.stringify(selfHostId)}` : "daemon (host ID unavailable)";
-  return `Reached ${daemon}${location}. Seat routing may point to a different OpenRig install. `
-    + "Compare OPENRIG_URL and OPENRIG_HOME in this shell with the daemon that launched this seat.";
+  return `Reached ${daemon}${location}. Seat routing may point to a different SoftwareTeam install. `
+    + "Compare SOFTWARETEAM_URL and SOFTWARETEAM_HOME in this shell with the daemon that launched this seat.";
 }
 
 export function whoamiCommand(depsOverride?: WhoamiDeps): Command {
-  const cmd = new Command("whoami").description("Show current managed identity in an OpenRig topology");
+  const cmd = new Command("whoami").description("Show current managed identity in an SoftwareTeam topology");
   const getDeps = (): WhoamiDeps => depsOverride ?? {
     lifecycleDeps: realDeps(),
     clientFactory: (url: string) => new DaemonClient(url),
@@ -277,7 +277,7 @@ export function whoamiCommand(depsOverride?: WhoamiDeps): Command {
   cmd
     .option("--node-id <id>", "Resolve by node ID")
     .option("--session <name>", "Resolve by session name")
-    .option("--host <id>", "Run on a remote host declared in ~/.openrig/hosts.yaml")
+    .option("--host <id>", "Run on a remote host declared in ~/.softwareteam/hosts.yaml")
     .option("--all-hosts", "Fan out to all registered HTTP hosts")
     .option("--hosts <ids>", "Fan out to specific hosts (comma-separated)")
     .option("--json", "JSON output for agents (compact identity-recovery projection by default)")
@@ -285,12 +285,12 @@ export function whoamiCommand(depsOverride?: WhoamiDeps): Command {
     .option("--verbose", "Alias for --full")
     .option("--all-peers", "With output.compact on, list every peer in --json (today's compact output)")
     .addHelpText("after", `
-By default rig whoami is COMPACT: identity (rig/pod/member/session/runtime),
-peers (with sessionName for 'rig send'), edges, and the transcript path — the
+By default SoftwareTeam whoami is COMPACT: identity (softwareTeam/pod/member/session/runtime),
+peers (with sessionName for 'SoftwareTeam send'), edges, and the transcript path — the
 boot + compaction-restore recovery essentials. Use --full / --verbose for the
 complete payload (contextUsage, command examples, runtime token detail,
-workspace block). The compact form omits the Context line; use 'rig context' or
-'rig whoami --full' for usage.
+workspace block). The compact form omits the Context line; use 'SoftwareTeam context' or
+'SoftwareTeam whoami --full' for usage.
 
 With output.compact on, --json lists at most output.whoami_peers peers (default
 8), edge peers first, then your pod; peersNote and peersOmitted say how many were
@@ -315,7 +315,7 @@ left out. --all-peers lists every one (today's compact output).`)
 
       const source = resolveIdentitySource(opts);
       if (!source) {
-        console.error("Cannot determine identity. Run inside an OpenRig-managed session, or use --session or --node-id.");
+        console.error("Cannot determine identity. Run inside an SoftwareTeam-managed session, or use --session or --node-id.");
         process.exitCode = 1;
         return;
       }
@@ -338,7 +338,7 @@ left out. --all-peers lists every one (today's compact output).`)
       const params = new URLSearchParams();
       if (source.nodeId) params.set("nodeId", source.nodeId);
       else params.set("sessionName", source.sessionName!);
-      const targetRepo = readOpenRigEnv("OPENRIG_TARGET_REPO", "RIGGED_TARGET_REPO");
+      const targetRepo = readSoftwareTeamEnv("SOFTWARETEAM_TARGET_REPO");
       if (targetRepo) params.set("targetRepo", targetRepo);
       // Compact by default (the every-boot recovery call); --full opts out so
       // the daemon also skips the contextUsage/runtimeContext compute.
@@ -365,7 +365,7 @@ left out. --all-peers lists every one (today's compact output).`)
 
       if (res.status === 404) {
         const error = (res.data as Record<string, unknown>)["error"] as string | undefined;
-        console.error(error ?? "Session not found in any managed rig. Check: rig ps --nodes");
+        console.error(error ?? "Session not found in any managed softwareTeam. Check: SoftwareTeam ps --nodes");
         if (hint) console.error(hint);
         process.exitCode = 1;
         return;
@@ -404,7 +404,7 @@ left out. --all-peers lists every one (today's compact output).`)
         const src = selfIdentity.selfHostIdSource;
         console.log(`Self host:  ${selfIdentity.selfHostId}${src ? ` (${src})` : ""}`);
       }
-      console.log(`Rig:        ${id.rigName}`);
+      console.log(`SoftwareTeam:        ${id.softwareTeamName}`);
       console.log(`Logical ID: ${id.logicalId}`);
       console.log(`Pod:        ${(id.podNamespace ?? id.podId) ?? "—"} / ${id.memberId}`);
       console.log(`Session:    ${id.sessionName ?? "—"}`);
@@ -417,7 +417,7 @@ left out. --all-peers lists every one (today's compact output).`)
         // OPR.99.0.6.1: name the contract on the header so peers cannot be
         // misread as the edge-subset or as host inventory. Keeps the literal
         // `Peers:` prefix (existing output greps key on it).
-        console.log("Peers: (this rig's roster, excluding self — directional edges below; `rig ps --nodes` for inventory incl. self + live state)");
+        console.log("Peers: (this softwareTeam's roster, excluding self — directional edges below; `SoftwareTeam ps --nodes` for inventory incl. self + live state)");
         for (const peer of data.peers) {
           console.log(`  ${peer.logicalId.padEnd(20)} ${(peer.sessionName ?? "—").padEnd(30)} ${peer.runtime}`);
         }
@@ -441,7 +441,7 @@ left out. --all-peers lists every one (today's compact output).`)
       }
 
       // Context usage — OPR.0.4.0.27: shown only in --full (compact omits the
-      // contextUsage payload entirely; use 'rig context' or 'rig whoami --full').
+      // contextUsage payload entirely; use 'SoftwareTeam context' or 'SoftwareTeam whoami --full').
       if (full) {
         const ctx = data.contextUsage;
         if (ctx && ctx.availability === "known") {
@@ -481,7 +481,7 @@ async function runCrossHostWhoami(
   }
 
   // SSH path: reconstruct argv.
-  const argv: string[] = ["rig", "whoami"];
+  const argv: string[] = ["SoftwareTeam", "whoami"];
   if (opts.nodeId !== undefined) argv.push("--node-id", opts.nodeId);
   if (opts.session !== undefined) argv.push("--session", opts.session);
   if (opts.json) argv.push("--json");
@@ -492,7 +492,7 @@ async function runCrossHostWhoami(
 
   if (opts.json) {
     if (result.ok) {
-      // Verbatim remote stdout passthrough — the remote `rig whoami --json`
+      // Verbatim remote stdout passthrough — the remote `SoftwareTeam whoami --json`
       // already produced the correct JSON envelope; we do NOT double-wrap.
       if (result.stdout) process.stdout.write(withOriginPeersCommand(result.stdout, host.id, opts));
       if (result.stderr) process.stderr.write(result.stderr);
@@ -538,7 +538,7 @@ async function runHttpWhoami(
       return;
     }
 
-    const psRes = await client.get<Array<{ rigId: string; name: string }>>("/api/ps", { headers });
+    const psRes = await client.get<Array<{ softwareTeamId: string; name: string }>>("/api/ps", { headers });
     const psStep = classifyStatus(psRes.status);
     if (psStep !== "none") {
       emitCrossHostError(host.id, psStep, `Remote /api/ps returned HTTP ${psRes.status}`, opts.json);
@@ -550,7 +550,7 @@ async function runHttpWhoami(
       host: host.id,
       url: host.url,
       installRoot: infoRes.data?.installRoot ?? "unknown",
-      rigs: Array.isArray(psRes.data) ? psRes.data.map((r) => ({ id: r.rigId, name: r.name })) : [],
+      softwareTeams: Array.isArray(psRes.data) ? psRes.data.map((r) => ({ id: r.softwareTeamId, name: r.name })) : [],
     };
 
     if (opts.json) {
@@ -558,7 +558,7 @@ async function runHttpWhoami(
     } else {
       console.log(`Host:     ${identity.host} (${identity.url})`);
       console.log(`Install:  ${identity.installRoot}`);
-      console.log(`Rigs:     ${identity.rigs.length > 0 ? identity.rigs.map((r) => r.name).join(", ") : "(none)"}`);
+      console.log(`SoftwareTeams:     ${identity.softwareTeams.length > 0 ? identity.softwareTeams.map((r) => r.name).join(", ") : "(none)"}`);
     }
   } catch (err) {
     const failedStep = classifyHttpError(err);
@@ -594,7 +594,7 @@ async function runFanOutWhoami(opts: WhoamiCliOptions, deps: WhoamiDeps): Promis
     host: string;
     ok: boolean;
     failedStep: string;
-    identity?: { url: string; installRoot: string; rigs: Array<{ id: string; name: string }> };
+    identity?: { url: string; installRoot: string; softwareTeams: Array<{ id: string; name: string }> };
     error?: string;
   }
 
@@ -621,7 +621,7 @@ async function runFanOutWhoami(opts: WhoamiCliOptions, deps: WhoamiDeps): Promis
         if (classifyStatus(infoRes.status) !== "none") {
           return { host: id, ok: false, failedStep: classifyStatus(infoRes.status), error: `HTTP ${infoRes.status}` };
         }
-        const psRes = await client.get<Array<{ rigId: string; name: string }>>("/api/ps", { headers });
+        const psRes = await client.get<Array<{ softwareTeamId: string; name: string }>>("/api/ps", { headers });
         if (classifyStatus(psRes.status) !== "none") {
           return { host: id, ok: false, failedStep: classifyStatus(psRes.status), error: `HTTP ${psRes.status}` };
         }
@@ -632,7 +632,7 @@ async function runFanOutWhoami(opts: WhoamiCliOptions, deps: WhoamiDeps): Promis
           identity: {
             url: httpHost.url,
             installRoot: infoRes.data?.installRoot ?? "unknown",
-            rigs: Array.isArray(psRes.data) ? psRes.data.map((r) => ({ id: r.rigId, name: r.name })) : [],
+            softwareTeams: Array.isArray(psRes.data) ? psRes.data.map((r) => ({ id: r.softwareTeamId, name: r.name })) : [],
           },
         };
       } catch (err) {
@@ -650,7 +650,7 @@ async function runFanOutWhoami(opts: WhoamiCliOptions, deps: WhoamiDeps): Promis
       if (r.ok && r.identity) {
         console.log(`\n[host=${r.host}] ${r.identity.url}`);
         console.log(`  Install: ${r.identity.installRoot}`);
-        console.log(`  Rigs:    ${r.identity.rigs.length > 0 ? r.identity.rigs.map((g) => g.name).join(", ") : "(none)"}`);
+        console.log(`  SoftwareTeams:    ${r.identity.softwareTeams.length > 0 ? r.identity.softwareTeams.map((g) => g.name).join(", ") : "(none)"}`);
       } else {
         console.log(`\n[host=${r.host}] FAILED (${r.failedStep}): ${r.error}`);
       }
@@ -663,7 +663,7 @@ async function runFanOutWhoami(opts: WhoamiCliOptions, deps: WhoamiDeps): Promis
 /** The exact command that lists every peer, for the same identity this call resolved. From the origin of an SSH
  *  `--host` call it also names that host, and the identity the remote resolved when none was asked for. */
 function allPeersCommand(opts: WhoamiCliOptions, origin?: { hostId: string; resolvedNodeId?: string }): string {
-  const parts = ["rig", "whoami", "--json", "--all-peers"];
+  const parts = ["SoftwareTeam", "whoami", "--json", "--all-peers"];
   if (origin) parts.push("--host", shellQuote(origin.hostId));
   if (opts.nodeId) parts.push("--node-id", shellQuote(opts.nodeId));
   else if (opts.session) parts.push("--session", shellQuote(opts.session));

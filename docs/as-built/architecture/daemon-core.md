@@ -15,9 +15,9 @@ last-updated: 2026-10-08
 
 # Daemon Core — Wiring, DB, Migrations, Startup
 
-OpenRig is a local control plane for multi-agent coding topologies. The daemon
-(`@openrig/daemon`) is the framework-free SQLite-backed core that the CLI
-(`@openrig/cli`), the terminal UI (`@openrig/tui`), the web UI (`@openrig/ui`)
+SoftwareTeam is a local control plane for multi-agent coding topologies. The daemon
+(`@softwareteam/daemon`) is the framework-free SQLite-backed core that the CLI
+(`@softwareteam/cli`), the terminal UI (`@softwareteam/tui`), the web UI (`@softwareteam/ui`)
 and the MCP server all sit on top of.
 
 > Verified against source at main `e8f0ab340db773392ec8be75b072d1c0f3068a50`. Each count below sits beside the
@@ -26,7 +26,7 @@ and the MCP server all sit on top of.
 
 ## 1. System overview
 
-For what OpenRig is and how its packages fit together, read `ARCHITECTURE.md` at
+For what SoftwareTeam is and how its packages fit together, read `ARCHITECTURE.md` at
 the repository root. This module covers the daemon's own wiring.
 
 ### Source footprint at `e8f0ab340db773392ec8be75b072d1c0f3068a50`
@@ -45,8 +45,8 @@ The footprint counts use non-test TypeScript files under each package's `src/`
 | Database migrations | **96** (`001_core_schema.ts` … `097_thread_part_map.ts`; no `093`) | `git ls-files packages/daemon/src/db/migrations \| wc -l` |
 | Files in `routes/` | **68**, of which **65** create a Hono router | `git ls-files packages/daemon/src/routes \| wc -l`; `git grep -l 'new Hono' -- packages/daemon/src/routes \| wc -l` |
 | `app.route(...)` mounts in `server.ts` | **69** | `grep -c 'app.route(' packages/daemon/src/server.ts` |
-| Top-level `rig` commands | **87** | `grep -c 'program.addCommand(' packages/cli/src/index.ts` |
-| MCP tools | **18**, all named `rig_*` | `grep -c 'server.tool(' packages/cli/src/mcp-server.ts` |
+| Top-level `SoftwareTeam` commands | **87** | `grep -c 'program.addCommand(' packages/cli/src/index.ts` |
+| MCP tools | **18**, all named `software_team_*` | `grep -c 'server.tool(' packages/cli/src/mcp-server.ts` |
 | Runtime adapter classes | **5**: Claude Code, Codex, Pi, Stub, Terminal | `git grep -l 'implements RuntimeAdapter' packages/daemon/src \| wc -l` |
 
 `OmpRuntimeAdapter` (Oh My Pi) extends `PiRuntimeAdapter`, so the daemon wires
@@ -62,12 +62,12 @@ CLI (87 top-level commands) / TUI / web UI / MCP (18 tools)
 Hono daemon routes (69 app.route() mounts + direct handlers for /healthz,
                     spec export, unknown /api paths and the static UI)
       |
-      +-- rigspec routes (pod-aware and legacy spec formats)
+      +-- software-team-spec routes (pod-aware and legacy spec formats)
       +-- env routes (status / logs / down)
       +-- transport routes (send / capture / broadcast)
       +-- transcript routes (tail / grep)
       +-- ask routes (context evidence)
-      +-- chat routes (durable rig messaging + SSE)
+      +-- chat routes (durable SoftwareTeam messaging + SSE)
       +-- spec review / spec library routes
       +-- whoami identity route
       +-- coordination routes (stream / queue / workflow / mission control)
@@ -78,12 +78,12 @@ Framework-free domain services (431 files under packages/daemon/src/domain)
       +-- SQLite state (96 migrations)
       +-- tmux / cmux / resume adapters
       +-- runtime adapters (Claude Code / Codex / Pi / Oh My Pi / Stub / Terminal)
-      +-- rig environment services (compose adapter, service readiness, orchestrator)
+      +-- SoftwareTeam environment services (compose adapter, service readiness, orchestrator)
       +-- transport / transcript / chat / ask layers
       +-- whoami identity service (including context usage)
 ```
 
-The core product loop: `down (auto-snapshot) → up <rig-name> (auto-restore) →
+The core product loop: `down (auto-snapshot) → up <software-team-name> (auto-restore) →
 handoff → inspect/attach → work → repeat`.
 
 ## 2. Database schema
@@ -97,11 +97,11 @@ sorts them by name (`:29`) and records each applied name in `schema_migrations`
 
 ### Core state tables
 
-`rigs` (topology container, `001_core_schema.ts:7`), `nodes` (logical node
+`SoftwareTeams` (topology container, `001_core_schema.ts:7`), `nodes` (logical node
 identity, `:17`) and `edges` (logical topology relationships, `:30`); then
 `bindings` (physical tmux/cmux surface attachment) and `sessions` (live
 execution state) in `002_bindings_sessions.ts`, `events` (append-only event log)
-in `003_events.ts`, `snapshots` (serialized rig state) in `004_snapshots.ts`, and
+in `003_events.ts`, `snapshots` (serialized SoftwareTeam state) in `004_snapshots.ts`, and
 `checkpoints` (per-node recovery state) in `005_checkpoints.ts`.
 
 ### Pod-aware schema
@@ -110,13 +110,13 @@ in `003_events.ts`, `snapshots` (serialized rig state) in `004_snapshots.ts`, an
   `continuity_state` tables and pod-aware columns on `nodes`, `sessions` and
   `checkpoints`.
 - `015_startup_context.ts` — persisted startup replay context for restore.
-- `016_chat_messages.ts` — durable rig-scoped chat (SQLite-backed; transcripts
+- `016_chat_messages.ts` — durable software-team-scoped chat (SQLite-backed; transcripts
   remain filesystem-backed, written by bounded periodic `capture-pane` snapshots;
   see `transport-and-transcripts.md`).
 - `017_pod_namespace.ts` — first-class authored pod namespace for export/adoption.
 - `018_context_usage.ts` — per-node context-usage snapshots.
 - `019_external_cli_attachment.ts` — binding-row extension for external CLI attach.
-- `020_rig_services.ts` — rig-scoped environment record for service-backed rigs.
+- `020_software_team_services.ts` — software-team-scoped environment record for service-backed SoftwareTeams.
 - `021_seat_handover_observability.ts`, `022_node_codex_config_profile.ts`.
 
 ### Coordination, workflow, mission control and workspace migrations
@@ -139,11 +139,11 @@ in `003_events.ts`, `snapshots` (serialized rig state) in `004_snapshots.ts`, an
   for parser/validator diagnostics (no new table).
 
 Migrations `041`–`092` and `094`–`097` continue in the same directory; list them with
-`git ls-files packages/daemon/src/db/migrations`. `095_rig_non_interruptive.ts` adds
-`rigs.non_interruptive` (0 or 1, default 0), the saved per-rig choice behind
-`rig up --non-interruptive`; `096_rig_install_root.ts` adds `rigs.install_root`, the rig's
-bundle materialization folder (`rig-repository.ts:169`). The newest, `097_thread_part_map.ts`,
-adds `thread_part_map`, which maps each message OpenRig posts into an ask's Slack thread to
+`git ls-files packages/daemon/src/db/migrations`. `095_software_team_non_interruptive.ts` adds
+`SoftwareTeams.non_interruptive` (0 or 1, default 0), the saved per-SoftwareTeam choice behind
+`SoftwareTeam up --non-interruptive`; `096_software_team_install_root.ts` adds `SoftwareTeams.install_root`, the SoftwareTeam's
+bundle materialization folder (`software-team-repository.ts:169`). The newest, `097_thread_part_map.ts`,
+adds `thread_part_map`, which maps each message SoftwareTeam posts into an ask's Slack thread to
 that ask and its seat.
 
 The package, bootstrap and discovery tables remain: `packages`
@@ -156,20 +156,20 @@ The package, bootstrap and discovery tables remain: `packages`
 
 `createApp(deps)` (`packages/daemon/src/server.ts:442`) mounts **69**
 `app.route()` route groups (`server.ts:723`–`839`) plus direct handlers:
-`GET /healthz` (`:664`), `GET /api/rigs/:rigId/spec` (`handleExportYaml`,
-`:735`), `GET /api/rigs/:rigId/spec.json` (`handleExportJson`, `:736`), a JSON
+`GET /healthz` (`:664`), `GET /api/SoftwareTeams/:softwareTeamId/spec` (`handleExportYaml`,
+`:735`), `GET /api/SoftwareTeams/:softwareTeamId/spec.json` (`handleExportJson`, `:736`), a JSON
 `404 not_found` for any other `/api/*` path (`:844`), and the static/deep-link
 `app.get("*")` catch-all (`:853`).
 
 The 69 is the count of `app.route(` lines in `server.ts`; `packages/daemon/src/routes/`
 has 68 files, 65 of which create a Hono router.
 
-Mount families include the rig, session and spec routes plus the coordination
+Mount families include the SoftwareTeam, session and spec routes plus the coordination
 routes (`/api/stream` `server.ts:783`, `/api/queue` `:784`, `/api/workflow`
 `:789`, `missionControlRoutes(...)` `:792`), `/api/seat` (`:781`, the seat
 lifecycle verbs such as handover, launch, continue, stop and the typing guard),
 `/api/startup` (`:747`), `/api/terminal` (`:809`), `/api/telemetry` (`:822`),
-`/api/health-summary` (`:829`), `/api/rigs/:rigId/env` (`:835`) and
+`/api/health-summary` (`:829`), `/api/SoftwareTeams/:softwareTeamId/env` (`:835`) and
 `/api/restore-check` (`:836`). List every mount with
 `grep -n 'app.route(' packages/daemon/src/server.ts`.
 
@@ -177,7 +177,7 @@ Before the routes, `createApp` installs middleware in this order: the request-ph
 observer (`:497`), JSON body-parse error tracking, which turns a malformed body into
 `400 invalid_json` (`:499`), dependency injection, route timing, slow-operation
 recording, the browser boundary on `/api/*` (`:647`, Host and Origin checks; see
-`OPENRIG_ALLOWED_HOSTS` and `OPENRIG_ALLOWED_ORIGINS`), and host read-through.
+`SOFTWARETEAM_ALLOWED_HOSTS` and `SOFTWARETEAM_ALLOWED_ORIGINS`), and host read-through.
 
 `createAppWithWebSocket(deps)` (`server.ts:893`) sets `enableNodeWebSocket` and
 calls `createApp`; the terminal WebSocket is registered only when the web UI is
@@ -194,14 +194,14 @@ injectWebSocket }` (`startup.ts:2506`). In source order, it:
    `startup.ts:298`).
 2. Constructs the coordination stores early: `StreamStore` (`:330`),
    `QueueRepository` (`:428`) and `OutboxHandler` (`:443`).
-3. Constructs `TranscriptStore` (`:555`) and the rig environment services
+3. Constructs `TranscriptStore` (`:555`) and the SoftwareTeam environment services
    `ComposeServicesAdapter` and `ServiceOrchestrator` (`:644`–`645`).
 4. Constructs `StartupOrchestrator` (`:776`) and the runtime adapters:
    `ClaudeCodeAdapter` (`:778`), `CodexRuntimeAdapter` (`:779`),
    `PiRuntimeAdapter` (`:782`), `OmpRuntimeAdapter` (`:783`) and
    `StubRuntimeAdapter` (`:788`); the terminal adapter is created inline in the
    runtime adapter maps (`:989`, `:1259`).
-5. Constructs `PodRigInstantiator` (`:985`), `PodBundleSourceResolver` (`:1014`)
+5. Constructs `PodSoftwareTeamInstantiator` (`:985`), `PodBundleSourceResolver` (`:1014`)
    and `BootstrapOrchestrator` (`:1016`).
 6. Constructs `ContextUsageStore` (`:1095`), `ResumeMetadataRefresher`
    (`:1129`), `SpecReviewService` (`:1154`) and `WhoamiService` (`:1157`).
@@ -233,7 +233,7 @@ CLI **261**, web UI **198**, TUI **105**
 
 ## See also
 
-- `ARCHITECTURE.md` (repository root) — what OpenRig is and where to add things.
+- `ARCHITECTURE.md` (repository root) — what SoftwareTeam is and where to add things.
 - `coordination-primitive.md` — the stream/queue/inbox/outbox coordination layer.
 - `agent-spec-and-startup.md` — spec parsing/resolution/startup contract.
 - `lifecycle-snapshot-restore.md` — snapshot/restore/continuity.

@@ -45,7 +45,7 @@ export const EXPECT_SURFACES = [
  * RESERVED surfaces — named by the arch shape but NOT currently backed by a
  * shipped read verb, so the format must not promise what the product cannot
  * answer. `proof` moved here by PM lock amendment (ruling row
- * qitem-20260811092250-a80735bc): `rig proof` ships only `add`; the surface
+ * qitem-20260811092250-a80735bc): `softwareTeam proof` ships only `add`; the surface
  * re-enters EXPECT_SURFACES by un-reserving when a read verb ships.
  */
 export const RESERVED_SURFACES = ["proof"] as const;
@@ -150,7 +150,7 @@ export function validateScenario(
     push("SCENARIO_NAME_MISSING", "scenario: a non-empty name is required (it names the defect class pinned)", "scenario");
   }
   if (typeof doc.topology !== "string" || doc.topology.length === 0) {
-    push("TOPOLOGY_MISSING", "topology: a non-empty rig-spec path is required", "topology");
+    push("TOPOLOGY_MISSING", "topology: a non-empty software-team-spec path is required", "topology");
   }
   if (doc.env !== undefined && !isPlainObject(doc.env)) {
     push("ENV_NOT_OBJECT", "env: must be a mapping of preconditions when present", "env");
@@ -214,7 +214,7 @@ function validateEnvBlock(
 }
 
 /** Teaching cross-requirements between declared env and the surfaces steps read:
- *  a scope expect needs env.scope_mission (the shipped `rig scope audit` read has
+ *  a scope expect needs env.scope_mission (the shipped `SoftwareTeam scope audit` read has
  *  --mission as a requiredOption); a tui_socket expect needs env.tui:true (the
  *  control socket exists only inside a provisioned TUI — without the opt-in the
  *  read would race a socket that never listens). Load-time teaching beats a
@@ -236,7 +236,7 @@ function validateEnvStepCrossRequirements(
     if (typeof mission !== "string" || mission.length === 0) {
       push(
         "SCOPE_MISSION_MISSING",
-        "env.scope_mission: required (non-empty string) when any step expects the scope surface — the shipped read is `rig scope audit --mission <name> --json` and --mission is a requiredOption",
+        "env.scope_mission: required (non-empty string) when any step expects the scope surface — the shipped read is `SoftwareTeam scope audit --mission <name> --json` and --mission is a requiredOption",
         "env.scope_mission",
       );
     }
@@ -303,7 +303,7 @@ function validateExpect(
     push(
       "RESERVED_EXPECT_SURFACE",
       `${path}.surface: "${surface}" is reserved, not readable — no shipped read verb exists for it ` +
-        `(\`rig proof\` ships only \`add\`), so the format must not promise what the product cannot answer. ` +
+        `(\`SoftwareTeam proof\` ships only \`add\`), so the format must not promise what the product cannot answer. ` +
         `Reserved until a read verb ships (PM ruling qitem-20260811092250-a80735bc); it re-enters the ` +
         `readable set by un-reserving then.`,
       `${path}.surface`,
@@ -332,7 +332,7 @@ function validateExpect(
     push(
       "EQUALS_NOT_DECLARATIVE",
       `${path}.equals: must be the DECLARATIVE mapping of surface -> projection, e.g. ` +
-        `{ ps: { pluck: name }, queue: { pluck: destinationSession, rig: true } }. ` +
+        `{ ps: { pluck: name }, queue: { pluck: destinationSession, softwareTeam: true } }. ` +
         `A bare list of surfaces names what to compare without declaring HOW, so the comparison cannot be honest.`,
       `${path}.equals`,
     );
@@ -364,8 +364,8 @@ function validateExpect(
         continue;
       }
       for (const key of Object.keys(spec)) {
-        if (!["pluck", "rig", "path"].includes(key)) {
-          push("EQUALS_PROJECTION_INVALID", `${path}.equals.${surf}.${key}: unknown projection key — allowed: pluck, rig, path`, `${path}.equals.${surf}.${key}`);
+        if (!["pluck", "softwareTeam", "path"].includes(key)) {
+          push("EQUALS_PROJECTION_INVALID", `${path}.equals.${surf}.${key}: unknown projection key — allowed: pluck, softwareTeam, path`, `${path}.equals.${surf}.${key}`);
         }
       }
       if (spec.pluck !== undefined && typeof spec.pluck !== "string") {
@@ -376,8 +376,8 @@ function validateExpect(
         // runtime — a TypeError must never be the first signal.
         push("EQUALS_PROJECTION_INVALID", `${path}.equals.${surf}.path: must be a dot-path string`, `${path}.equals.${surf}.path`);
       }
-      if (spec.rig !== undefined && typeof spec.rig !== "boolean") {
-        push("EQUALS_PROJECTION_INVALID", `${path}.equals.${surf}.rig: must be a boolean`, `${path}.equals.${surf}.rig`);
+      if (spec.softwareTeam !== undefined && typeof spec.softwareTeam !== "boolean") {
+        push("EQUALS_PROJECTION_INVALID", `${path}.equals.${surf}.softwareTeam: must be a boolean`, `${path}.equals.${surf}.softwareTeam`);
       }
     }
   }

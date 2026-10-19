@@ -5,13 +5,13 @@ import { join } from "node:path";
 import { ConfigStore } from "../config-store.js";
 import { formatDaemonHostForUrl } from "../client.js";
 
-// `rig crash-cart --json` — the daemon-DOWN recovery verdict emit (plan c015d9ed §C3, coupling ruling
+// `softwareTeam crash-cart --json` — the daemon-DOWN recovery verdict emit (plan c015d9ed §C3, coupling ruling
 // option A). Prints ONE JSON = the 3-state detector verdict + (on DOWN) the discovery — READ-ONLY, a
 // public agent-readable surface (the 4 rails). A fail-closed refusal still prints STRUCTURED JSON
 // (never exit-code-only). The `emit` is injected: the real wiring imports emitCrashCartState from the
-// scoped @openrig/daemon/crash-cart subpath (reuse VERBATIM) — set up alongside this command.
+// scoped @softwareteam/daemon/crash-cart subpath (reuse VERBATIM) — set up alongside this command.
 //
-// SCOPE FENCE (plan R10 / Boundaries): "no new CLI verb v1; bare `rig` is the cart." There are NO
+// SCOPE FENCE (plan R10 / Boundaries): "no new CLI verb v1; bare `softwareTeam` is the cart." There are NO
 // `restore-fleet` / `cancel-fleet` public verbs — the TUI drives the conductor through the daemon client
 // directly against the R2-sanctioned daemon-side batch route. This command emits the read-only verdict only.
 
@@ -31,8 +31,8 @@ export interface CrashCartCommandDeps {
   write: (line: string) => void;
 }
 
-function openrigHome(): string {
-  return process.env.OPENRIG_HOME ?? join(homedir(), ".openrig");
+function softwareteamHome(): string {
+  return process.env.SOFTWARETEAM_HOME ?? join(homedir(), ".softwareteam");
 }
 
 /** Read daemon.json returning the FULL record incl. `db` (loadCrashCartDiscovery needs the db path;
@@ -58,23 +58,23 @@ function existsOrThrow(path: string): boolean {
 }
 
 /**
- * The real verdict: LAZY-imports the narrow @openrig/daemon/crash-cart subpath at invocation (dep
- * rail 2 — rig startup + other verbs never load the daemon module) and composes the shipped detector
+ * The real verdict: LAZY-imports the narrow @softwareteam/daemon/crash-cart subpath at invocation (dep
+ * rail 2 — softwareTeam startup + other verbs never load the daemon module) and composes the shipped detector
  * + C2 read VERBATIM (rail 2) with live probes + read-only IO. This is real-run glue over the tested
  * emit/detector/read cores.
  */
 async function realEmit(): Promise<CrashCartEmit> {
-  const cc = await import("@openrig/daemon/crash-cart");
-  const home = openrigHome();
-  const openrigUrl = process.env.OPENRIG_URL;
+  const cc = await import("@softwareteam/daemon/crash-cart");
+  const home = softwareteamHome();
+  const softwareteamUrl = process.env.SOFTWARETEAM_URL;
   const probeClassified = (url: string) =>
     cc.probeHealthz(url, { fetch: (u, init) => fetch(u, init as RequestInit), timeoutMs: 700 });
   const detectDeps = {
-    openrigHome: home,
+    softwareteamHome: home,
     readDaemonJson: cc.readDaemonJson,
     isProcessAlive: cc.isProcessAlive,
     probeHealthz: probeClassified,
-    openrigUrl,
+    softwareteamUrl,
   };
   return cc.emitCrashCartState({
     resolveState: () =>
@@ -86,15 +86,15 @@ async function realEmit(): Promise<CrashCartEmit> {
           ? `alive (pid ${state.pid})`
           : `dead (pid ${state.pid})`
         : "no daemon.json";
-      const url = openrigUrl
-        ? `${openrigUrl.replace(/\/$/, "")}/healthz`
-        : `http://${formatDaemonHostForUrl(state?.host ?? "127.0.0.1")}:${state?.port ?? 7433}/healthz`;
+      const url = softwareteamUrl
+        ? `${softwareteamUrl.replace(/\/$/, "")}/healthz`
+        : `http://${formatDaemonHostForUrl(state?.host ?? "127.0.0.1")}:${state?.port ?? 7434}/healthz`;
       const probeResult = await probeClassified(url);
       return { pidState, probeResult, failedSignal: `healthz ${probeResult} at ${url}` };
     },
     loadDiscovery: async () => {
       const { discovery } = await cc.loadCrashCartDiscovery({
-        openrigHome: home,
+        softwareteamHome: home,
         readDaemonJson: readDaemonJsonWithDb,
         isProcessAlive: cc.isProcessAlive,
         probeHealthz: (url) => probeClassified(url).then((r) => r === "answered"),
@@ -104,7 +104,7 @@ async function realEmit(): Promise<CrashCartEmit> {
         makeScratchDir: () => mkdtempSync(join(tmpdir(), "crash-cart-")),
         removeScratchDir: (d) => rmSync(d, { recursive: true, force: true }),
         openDb: cc.openDaemonDbReadonly,
-        openrigUrl,
+        softwareteamUrl,
       });
       return discovery;
     },

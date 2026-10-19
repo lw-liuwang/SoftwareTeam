@@ -9,7 +9,7 @@ interface PodOptions {
 
 interface PodRow {
   id: string;
-  rig_id: string;
+  software_team_id: string;
   namespace: string;
   label: string;
   summary: string | null;
@@ -18,7 +18,7 @@ interface PodRow {
 }
 
 /**
- * CRUD repository for pods (bounded context domains within a rig).
+ * CRUD repository for pods (bounded context domains within a softwareTeam).
  * @param db - shared database handle
  */
 export class PodRepository {
@@ -29,19 +29,19 @@ export class PodRepository {
   }
 
   /**
-   * Create a pod within a rig.
-   * @param rigId - parent rig id
+   * Create a pod within a softwareTeam.
+   * @param softwareTeamId - parent softwareTeam id
    * @param label - human-readable pod label
    * @param opts - optional summary and continuity policy JSON
    * @returns the created Pod
    */
-  createPod(rigId: string, namespace: string, label: string, opts?: PodOptions): Pod {
+  createPod(softwareTeamId: string, namespace: string, label: string, opts?: PodOptions): Pod {
     const id = ulid();
     this.db
       .prepare(
-        "INSERT INTO pods (id, rig_id, namespace, label, summary, continuity_policy_json) VALUES (?, ?, ?, ?, ?, ?)"
+        "INSERT INTO pods (id, software_team_id, namespace, label, summary, continuity_policy_json) VALUES (?, ?, ?, ?, ?, ?)"
       )
-      .run(id, rigId, namespace, label, opts?.summary ?? null, opts?.continuityPolicyJson ?? null);
+      .run(id, softwareTeamId, namespace, label, opts?.summary ?? null, opts?.continuityPolicyJson ?? null);
 
     return this.rowToPod(
       this.db.prepare("SELECT * FROM pods WHERE id = ?").get(id) as PodRow
@@ -58,21 +58,21 @@ export class PodRepository {
     return row ? this.rowToPod(row) : null;
   }
 
-  /** Get a pod by rig and authored namespace. Returns null if not found. */
-  getPodByNamespace(rigId: string, namespace: string): Pod | null {
-    const row = this.db.prepare("SELECT * FROM pods WHERE rig_id = ? AND namespace = ?").get(rigId, namespace) as PodRow | undefined;
+  /** Get a pod by softwareTeam and authored namespace. Returns null if not found. */
+  getPodByNamespace(softwareTeamId: string, namespace: string): Pod | null {
+    const row = this.db.prepare("SELECT * FROM pods WHERE software_team_id = ? AND namespace = ?").get(softwareTeamId, namespace) as PodRow | undefined;
     return row ? this.rowToPod(row) : null;
   }
 
   /**
-   * Get all pods for a rig.
-   * @param rigId - rig id
+   * Get all pods for a softwareTeam.
+   * @param softwareTeamId - softwareTeam id
    * @returns array of Pods ordered by creation time
    */
-  getPodsForRig(rigId: string): Pod[] {
+  getPodsForSoftwareTeam(softwareTeamId: string): Pod[] {
     const rows = this.db
-      .prepare("SELECT * FROM pods WHERE rig_id = ? ORDER BY created_at")
-      .all(rigId) as PodRow[];
+      .prepare("SELECT * FROM pods WHERE software_team_id = ? ORDER BY created_at")
+      .all(softwareTeamId) as PodRow[];
     return rows.map((r) => this.rowToPod(r));
   }
 
@@ -87,8 +87,8 @@ export class PodRepository {
 
   // -- Continuity state operations --
 
-  getContinuityStatesForRig(rigId: string): import("./types.js").ContinuityState[] {
-    const podIds = this.db.prepare("SELECT id FROM pods WHERE rig_id = ?").all(rigId) as { id: string }[];
+  getContinuityStatesForSoftwareTeam(softwareTeamId: string): import("./types.js").ContinuityState[] {
+    const podIds = this.db.prepare("SELECT id FROM pods WHERE software_team_id = ?").all(softwareTeamId) as { id: string }[];
     if (podIds.length === 0) return [];
     const rows = this.db.prepare(
       `SELECT * FROM continuity_state WHERE pod_id IN (${podIds.map(() => "?").join(",")})`
@@ -114,7 +114,7 @@ export class PodRepository {
   private rowToPod(row: PodRow): Pod {
     return {
       id: row.id,
-      rigId: row.rig_id,
+      softwareTeamId: row.software_team_id,
       namespace: row.namespace,
       label: row.label,
       summary: row.summary,

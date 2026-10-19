@@ -10,7 +10,7 @@ import { Hono } from "hono";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
 import { EventBus } from "../src/domain/event-bus.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { AgentActivityStore } from "../src/domain/agent-activity-store.js";
 import {
@@ -30,13 +30,13 @@ function setup() {
   const db = createFullTestDb();
   const eventBus = new EventBus(db);
   const store = new AgentActivityStore({ db, eventBus });
-  const rigRepo = new RigRepository(db);
+  const softwareTeamRepo = new SoftwareTeamRepository(db);
   const sessionRegistry = new SessionRegistry(db);
-  const rig = rigRepo.createRig("test-rig");
-  const node = rigRepo.addNode(rig.id, "dev.worker", { runtime: "codex" });
-  const sessionName = "dev-worker@test-rig";
+  const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+  const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.worker", { runtime: "codex" });
+  const sessionName = "dev-worker@test-software-team";
   sessionRegistry.registerSession(node.id, sessionName);
-  return { db, eventBus, store, rigId: rig.id, nodeId: node.id, sessionName };
+  return { db, eventBus, store, softwareTeamId: softwareTeam.id, nodeId: node.id, sessionName };
 }
 
 describe("startup-proof — issue + verify", () => {
@@ -45,7 +45,7 @@ describe("startup-proof — issue + verify", () => {
   afterEach(() => ctx.db.close());
 
   it("VERIFIED sets oriented=verified (append-only accepted evidence)", () => {
-    const challenge = issueStartupChallenge(ctx.eventBus, { rigId: ctx.rigId, nodeId: ctx.nodeId, contractSource: CONTRACT });
+    const challenge = issueStartupChallenge(ctx.eventBus, { softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, contractSource: CONTRACT });
     // Before a proof: challenged but not proven.
     expect(deriveOriented(ctx.db, ctx.nodeId)).toBe("missing");
 
@@ -63,36 +63,36 @@ describe("startup-proof — issue + verify", () => {
   });
 
   it("challenge prompt includes an executable authenticated hook submission", () => {
-    const challenge = issueStartupChallenge(ctx.eventBus, { rigId: ctx.rigId, nodeId: ctx.nodeId, contractSource: CONTRACT });
-    expect(challenge.promptBlock).toContain("rig startup-proof submit");
+    const challenge = issueStartupChallenge(ctx.eventBus, { softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, contractSource: CONTRACT });
+    expect(challenge.promptBlock).toContain("SoftwareTeam startup-proof submit");
     expect(challenge.promptBlock).toContain(`--challenge-id ${challenge.challengeId}`);
     expect(challenge.promptBlock).toContain(`--answer ${challenge.expectedAnswer}`);
   });
 
   it("a new lean launch retires proof without deleting history or accepting late answers", () => {
-    const challenge = issueStartupChallenge(ctx.eventBus, { rigId: ctx.rigId, nodeId: ctx.nodeId, contractSource: CONTRACT });
+    const challenge = issueStartupChallenge(ctx.eventBus, { softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, contractSource: CONTRACT });
     const proof = { sessionName: ctx.sessionName, challengeId: challenge.challengeId, answer: challenge.expectedAnswer };
     expect(verifyStartupProof(ctx, proof).ok).toBe(true);
-    ctx.eventBus.emit({ type: "node.startup_proof_skipped", rigId: ctx.rigId, nodeId: ctx.nodeId, reason: "not_selected" });
+    ctx.eventBus.emit({ type: "node.startup_proof_skipped", softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, reason: "not_selected" });
     expect(verifyStartupProof(ctx, proof)).toMatchObject({ ok: false, code: "challenge_stale" });
     expect(deriveOriented(ctx.db, ctx.nodeId)).toBe("n-a");
     expect(buildOrientedMap(ctx.db).get(ctx.nodeId)).toBe("n-a");
     expect(ctx.db.prepare("SELECT count(*) AS n FROM events WHERE type='node.startup_proof_verified'").get()).toEqual({ n: 1 });
     expect(ctx.db.prepare("SELECT count(*) AS n FROM events WHERE type='node.startup_proof_rejected'").get()).toEqual({ n: 0 });
-    issueStartupChallenge(ctx.eventBus, { rigId: ctx.rigId, nodeId: ctx.nodeId, contractSource: CONTRACT });
+    issueStartupChallenge(ctx.eventBus, { softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, contractSource: CONTRACT });
     expect(deriveOriented(ctx.db, ctx.nodeId)).toBe("missing");
     expect(buildOrientedMap(ctx.db).get(ctx.nodeId)).toBe("missing");
   });
 
   it("DELIVERY-READY is not orientation: a challenged-but-unproven node is oriented=missing", () => {
-    issueStartupChallenge(ctx.eventBus, { rigId: ctx.rigId, nodeId: ctx.nodeId, contractSource: CONTRACT });
+    issueStartupChallenge(ctx.eventBus, { softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, contractSource: CONTRACT });
     // startup_status may be ready (delivery) — orientation is independent.
-    ctx.eventBus.emit({ type: "node.startup_ready", rigId: ctx.rigId, nodeId: ctx.nodeId });
+    ctx.eventBus.emit({ type: "node.startup_ready", softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId });
     expect(deriveOriented(ctx.db, ctx.nodeId)).toBe("missing");
   });
 
   it("WRONG (plausible-but-content-wrong) answer is rejected; oriented NOT set", () => {
-    const challenge = issueStartupChallenge(ctx.eventBus, { rigId: ctx.rigId, nodeId: ctx.nodeId, contractSource: CONTRACT });
+    const challenge = issueStartupChallenge(ctx.eventBus, { softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, contractSource: CONTRACT });
     const result = verifyStartupProof({ store: ctx.store, eventBus: ctx.eventBus }, {
       sessionName: ctx.sessionName,
       challengeId: challenge.challengeId,
@@ -105,7 +105,7 @@ describe("startup-proof — issue + verify", () => {
   });
 
   it("BARE ACK is presence-only, NEVER proof (keystone)", () => {
-    const challenge = issueStartupChallenge(ctx.eventBus, { rigId: ctx.rigId, nodeId: ctx.nodeId, contractSource: CONTRACT });
+    const challenge = issueStartupChallenge(ctx.eventBus, { softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, contractSource: CONTRACT });
     for (const ack of ["", "  ", "ack", "ready", "ok", "DONE", "oriented"]) {
       const result = verifyStartupProof({ store: ctx.store, eventBus: ctx.eventBus }, {
         sessionName: ctx.sessionName,
@@ -120,9 +120,9 @@ describe("startup-proof — issue + verify", () => {
   });
 
   it("REPLAY of a prior launch's valid answer is rejected as stale", () => {
-    const first = issueStartupChallenge(ctx.eventBus, { rigId: ctx.rigId, nodeId: ctx.nodeId, contractSource: CONTRACT });
+    const first = issueStartupChallenge(ctx.eventBus, { softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, contractSource: CONTRACT });
     // A second launch issues a NEW challenge (the latest governs).
-    const second = issueStartupChallenge(ctx.eventBus, { rigId: ctx.rigId, nodeId: ctx.nodeId, contractSource: CONTRACT });
+    const second = issueStartupChallenge(ctx.eventBus, { softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, contractSource: CONTRACT });
     expect(second.challengeId).not.toBe(first.challengeId);
 
     const replay = verifyStartupProof({ store: ctx.store, eventBus: ctx.eventBus }, {
@@ -149,9 +149,9 @@ describe("startup-proof — issue + verify", () => {
   });
 
   it("IDENTITY mismatch (unknown session) is rejected; no node state projected", () => {
-    issueStartupChallenge(ctx.eventBus, { rigId: ctx.rigId, nodeId: ctx.nodeId, contractSource: CONTRACT });
+    issueStartupChallenge(ctx.eventBus, { softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, contractSource: CONTRACT });
     const result = verifyStartupProof({ store: ctx.store, eventBus: ctx.eventBus }, {
-      sessionName: "nope@ghost-rig",
+      sessionName: "nope@ghost-software-team",
       challengeId: "whatever",
       answer: "whatever",
     });
@@ -165,10 +165,10 @@ describe("startup-proof — issue + verify", () => {
   // answer) but a DIFFERENT known seat's sessionName must NOT false-verify
   // node-a — it must bind to BOTH.
   it("IDENTITY MISMATCH: nodeId=node-a + sessionName=node-b is rejected; node-a NOT false-verified", () => {
-    const challengeA = issueStartupChallenge(ctx.eventBus, { rigId: ctx.rigId, nodeId: ctx.nodeId, contractSource: CONTRACT });
-    // A second real managed seat in the same rig.
-    const nodeB = new RigRepository(ctx.db).addNode(ctx.rigId, "dev.worker-b", { runtime: "codex" });
-    const sessionNameB = "dev-worker-b@test-rig";
+    const challengeA = issueStartupChallenge(ctx.eventBus, { softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, contractSource: CONTRACT });
+    // A second real managed seat in the same softwareTeam.
+    const nodeB = new SoftwareTeamRepository(ctx.db).addNode(ctx.softwareTeamId, "dev.worker-b", { runtime: "codex" });
+    const sessionNameB = "dev-worker-b@test-software-team";
     new SessionRegistry(ctx.db).registerSession(nodeB.id, sessionNameB);
 
     const result = verifyStartupProof({ store: ctx.store, eventBus: ctx.eventBus }, {
@@ -187,7 +187,7 @@ describe("startup-proof — issue + verify", () => {
   });
 
   it("MATCHING nodeId + sessionName still verifies (no regression)", () => {
-    const challenge = issueStartupChallenge(ctx.eventBus, { rigId: ctx.rigId, nodeId: ctx.nodeId, contractSource: CONTRACT });
+    const challenge = issueStartupChallenge(ctx.eventBus, { softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, contractSource: CONTRACT });
     const result = verifyStartupProof({ store: ctx.store, eventBus: ctx.eventBus }, {
       nodeId: ctx.nodeId,
       sessionName: ctx.sessionName,
@@ -217,17 +217,17 @@ describe("startup-proof — non-proof signals never satisfy proof", () => {
   afterEach(() => ctx.db.close());
 
   it("ready / activity / session_identity / held do NOT set oriented", () => {
-    issueStartupChallenge(ctx.eventBus, { rigId: ctx.rigId, nodeId: ctx.nodeId, contractSource: CONTRACT });
-    ctx.eventBus.emit({ type: "node.startup_ready", rigId: ctx.rigId, nodeId: ctx.nodeId });
-    ctx.eventBus.emit({ type: "agent.session_identity", rigId: ctx.rigId, nodeId: ctx.nodeId, sessionName: ctx.sessionName, runtime: "codex", sessionId: "thread-1", provenance: "hook" });
-    ctx.eventBus.emit({ type: "agent.activity", rigId: ctx.rigId, nodeId: ctx.nodeId, sessionName: ctx.sessionName, runtime: "codex", activity: { state: "running", reason: "active", evidenceSource: "runtime_hook", sampledAt: new Date().toISOString(), eventAt: new Date().toISOString(), fallback: false, stale: false } });
+    issueStartupChallenge(ctx.eventBus, { softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, contractSource: CONTRACT });
+    ctx.eventBus.emit({ type: "node.startup_ready", softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId });
+    ctx.eventBus.emit({ type: "agent.session_identity", softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, sessionName: ctx.sessionName, runtime: "codex", sessionId: "thread-1", provenance: "hook" });
+    ctx.eventBus.emit({ type: "agent.activity", softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, sessionName: ctx.sessionName, runtime: "codex", activity: { state: "running", reason: "active", evidenceSource: "runtime_hook", sampledAt: new Date().toISOString(), eventAt: new Date().toISOString(), fallback: false, stale: false } });
     // None of these are startup proof → still missing (not verified).
     expect(deriveOriented(ctx.db, ctx.nodeId)).toBe("missing");
   });
 
   it("a resumed restore (never challenged) projects oriented=n-a even with runtime activity", () => {
-    ctx.eventBus.emit({ type: "node.startup_ready", rigId: ctx.rigId, nodeId: ctx.nodeId });
-    ctx.eventBus.emit({ type: "agent.activity", rigId: ctx.rigId, nodeId: ctx.nodeId, sessionName: ctx.sessionName, runtime: "codex", activity: { state: "running", reason: "active", evidenceSource: "runtime_hook", sampledAt: new Date().toISOString(), eventAt: new Date().toISOString(), fallback: false, stale: false } });
+    ctx.eventBus.emit({ type: "node.startup_ready", softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId });
+    ctx.eventBus.emit({ type: "agent.activity", softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, sessionName: ctx.sessionName, runtime: "codex", activity: { state: "running", reason: "active", evidenceSource: "runtime_hook", sampledAt: new Date().toISOString(), eventAt: new Date().toISOString(), fallback: false, stale: false } });
     expect(deriveOriented(ctx.db, ctx.nodeId)).toBe("n-a");
   });
 });
@@ -274,7 +274,7 @@ describe("startup-proof — authenticated route ingestion", () => {
   });
 
   it("verifies a correct proof via the hook (200 oriented=verified)", async () => {
-    const challenge = issueStartupChallenge(ctx.eventBus, { rigId: ctx.rigId, nodeId: ctx.nodeId, contractSource: CONTRACT });
+    const challenge = issueStartupChallenge(ctx.eventBus, { softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, contractSource: CONTRACT });
     const res = await post({ eventFamily: "startup_proof", sessionName: ctx.sessionName, challengeId: challenge.challengeId, answer: challenge.expectedAnswer });
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ ok: true, oriented: "verified" });
@@ -282,7 +282,7 @@ describe("startup-proof — authenticated route ingestion", () => {
   });
 
   it("rejects a bare ACK via the hook (422 bare_ack) and never orients", async () => {
-    const challenge = issueStartupChallenge(ctx.eventBus, { rigId: ctx.rigId, nodeId: ctx.nodeId, contractSource: CONTRACT });
+    const challenge = issueStartupChallenge(ctx.eventBus, { softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, contractSource: CONTRACT });
     const res = await post({ eventFamily: "startup_proof", sessionName: ctx.sessionName, challengeId: challenge.challengeId, answer: "ack" });
     expect(res.status).toBe(422);
     expect(await res.json()).toMatchObject({ ok: false, code: "bare_ack" });
@@ -296,10 +296,10 @@ describe("startup-proof — authenticated route ingestion", () => {
   });
 
   it("rejects a nodeId/sessionName mismatch via the hook (404 identity_mismatch), no false-verify", async () => {
-    const challengeA = issueStartupChallenge(ctx.eventBus, { rigId: ctx.rigId, nodeId: ctx.nodeId, contractSource: CONTRACT });
-    const nodeB = new RigRepository(ctx.db).addNode(ctx.rigId, "dev.worker-b", { runtime: "codex" });
-    new SessionRegistry(ctx.db).registerSession(nodeB.id, "dev-worker-b@test-rig");
-    const res = await post({ eventFamily: "startup_proof", nodeId: ctx.nodeId, sessionName: "dev-worker-b@test-rig", challengeId: challengeA.challengeId, answer: challengeA.expectedAnswer });
+    const challengeA = issueStartupChallenge(ctx.eventBus, { softwareTeamId: ctx.softwareTeamId, nodeId: ctx.nodeId, contractSource: CONTRACT });
+    const nodeB = new SoftwareTeamRepository(ctx.db).addNode(ctx.softwareTeamId, "dev.worker-b", { runtime: "codex" });
+    new SessionRegistry(ctx.db).registerSession(nodeB.id, "dev-worker-b@test-software-team");
+    const res = await post({ eventFamily: "startup_proof", nodeId: ctx.nodeId, sessionName: "dev-worker-b@test-software-team", challengeId: challengeA.challengeId, answer: challengeA.expectedAnswer });
     expect(res.status).toBe(404);
     expect(await res.json()).toMatchObject({ ok: false, code: "identity_mismatch" });
     expect(deriveOriented(ctx.db, ctx.nodeId)).not.toBe("verified");
@@ -313,6 +313,6 @@ describe("startup-proof — the Claude instruction line", () => {
     expect(STARTUP_PROOF_INSTRUCTION_LINE).not.toMatch(/[0-9a-f]{32}/);
     expect(STARTUP_PROOF_INSTRUCTION_LINE).not.toContain("--answer");
     expect(STARTUP_PROOF_INSTRUCTION_LINE).not.toContain("--challenge-id");
-    expect(STARTUP_PROOF_INSTRUCTION_LINE).toContain("OpenRig");
+    expect(STARTUP_PROOF_INSTRUCTION_LINE).toContain("SoftwareTeam");
   });
 });

@@ -5,77 +5,77 @@ import { detectBundleConflicts, type DetectConflictsInput } from "../src/domain/
 // Discriminator pattern: any test that asserts a conflict was reported must
 // fail if the corresponding detection branch is commented out in the module.
 
-describe("bundle-conflict-detector — rig name collision", () => {
-  // R1: empty running rigs → no conflicts
-  it("empty runningRigs produces no conflicts", () => {
-    const input: DetectConflictsInput = { bundleRigName: "alpha", runningRigs: [] };
+describe("bundle-conflict-detector — SoftwareTeam name collision", () => {
+  // R1: empty running softwareTeams → no conflicts
+  it("empty runningSoftwareTeams produces no conflicts", () => {
+    const input: DetectConflictsInput = { bundleSoftwareTeamName: "alpha", runningSoftwareTeams: [] };
     const report = detectBundleConflicts(input);
     expect(report.hasConflicts).toBe(false);
     expect(report.conflicts).toHaveLength(0);
   });
 
-  // R2: running rigs with different names → no conflicts
-  it("runningRigs with different names produces no conflicts", () => {
+  // R2: running softwareTeams with different names → no conflicts
+  it("runningSoftwareTeams with different names produces no conflicts", () => {
     const input: DetectConflictsInput = {
-      bundleRigName: "alpha",
-      runningRigs: [
-        { rigId: "01H000000000000000000001", name: "beta" },
-        { rigId: "01H000000000000000000002", name: "gamma" },
+      bundleSoftwareTeamName: "alpha",
+      runningSoftwareTeams: [
+        { softwareTeamId: "01H000000000000000000001", name: "beta" },
+        { softwareTeamId: "01H000000000000000000002", name: "gamma" },
       ],
     };
     const report = detectBundleConflicts(input);
     expect(report.hasConflicts).toBe(false);
   });
 
-  // R3: running rig with same name → conflict reported with correct shape
-  it("running rig with same name produces a rig_name_collision conflict", () => {
+  // R3: running softwareTeam with same name → conflict reported with correct shape
+  it("running SoftwareTeam with same name produces a software_team_name_collision conflict", () => {
     const input: DetectConflictsInput = {
-      bundleRigName: "alpha",
-      runningRigs: [
-        { rigId: "01H000000000000000000003", name: "alpha" },
+      bundleSoftwareTeamName: "alpha",
+      runningSoftwareTeams: [
+        { softwareTeamId: "01H000000000000000000003", name: "alpha" },
       ],
     };
     const report = detectBundleConflicts(input);
     expect(report.hasConflicts).toBe(true);
     expect(report.conflicts).toHaveLength(1);
     const c = report.conflicts[0]!;
-    expect(c.kind).toBe("rig_name_collision");
-    expect(c.bundleRigName).toBe("alpha");
-    if (c.kind === "rig_name_collision") {
-      expect(c.collisionWith.rigId).toBe("01H000000000000000000003");
-      expect(c.collisionWith.rigName).toBe("alpha");
+    expect(c.kind).toBe("software_team_name_collision");
+    expect(c.bundleSoftwareTeamName).toBe("alpha");
+    if (c.kind === "software_team_name_collision") {
+      expect(c.collisionWith.softwareTeamId).toBe("01H000000000000000000003");
+      expect(c.collisionWith.softwareTeamName).toBe("alpha");
       expect(c.description).toContain("alpha");
       expect(c.description).toContain("01H000000000000000000003");
       expect(c.resolutions.length).toBeGreaterThanOrEqual(2);
       expect(c.resolutions.join("\n")).toContain("existing team");
-      expect(c.resolutions.join("\n")).toContain("rig down");
+      expect(c.resolutions.join("\n")).toContain("SoftwareTeam down");
       expect(c.resolutions.join("\n")).not.toMatch(/Checkpoint|--force|--target <newname>/);
     }
   });
 
-  // R4: collision detected even when other rigs precede the match
-  it("collision found in a list with multiple rigs, only the matching one reported", () => {
+  // R4: collision detected even when other softwareTeams precede the match
+  it("collision found in a list with multiple softwareTeams, only the matching one reported", () => {
     const input: DetectConflictsInput = {
-      bundleRigName: "alpha",
-      runningRigs: [
-        { rigId: "01H000000000000000000004", name: "beta" },
-        { rigId: "01H000000000000000000005", name: "gamma" },
-        { rigId: "01H000000000000000000006", name: "alpha" },
-        { rigId: "01H000000000000000000007", name: "delta" },
+      bundleSoftwareTeamName: "alpha",
+      runningSoftwareTeams: [
+        { softwareTeamId: "01H000000000000000000004", name: "beta" },
+        { softwareTeamId: "01H000000000000000000005", name: "gamma" },
+        { softwareTeamId: "01H000000000000000000006", name: "alpha" },
+        { softwareTeamId: "01H000000000000000000007", name: "delta" },
       ],
     };
     const report = detectBundleConflicts(input);
     expect(report.conflicts).toHaveLength(1);
-    if (report.conflicts[0]!.kind === "rig_name_collision") {
-      expect(report.conflicts[0]!.collisionWith.rigId).toBe("01H000000000000000000006");
+    if (report.conflicts[0]!.kind === "software_team_name_collision") {
+      expect(report.conflicts[0]!.collisionWith.softwareTeamId).toBe("01H000000000000000000006");
     }
   });
 
-  // R5: empty bundleRigName produces no conflict (fail-open on missing input)
-  it("empty bundleRigName produces no conflict (no rig name = nothing to compare)", () => {
+  // R5: empty bundleSoftwareTeamName produces no conflict (fail-open on missing input)
+  it("empty bundleSoftwareTeamName produces no conflict (no SoftwareTeam name = nothing to compare)", () => {
     const input: DetectConflictsInput = {
-      bundleRigName: "",
-      runningRigs: [{ rigId: "01H000000000000000000008", name: "alpha" }],
+      bundleSoftwareTeamName: "",
+      runningSoftwareTeams: [{ softwareTeamId: "01H000000000000000000008", name: "alpha" }],
     };
     const report = detectBundleConflicts(input);
     expect(report.hasConflicts).toBe(false);
@@ -84,8 +84,8 @@ describe("bundle-conflict-detector — rig name collision", () => {
   // R6: case sensitivity — collision is exact-name match only
   it("name match is case-sensitive (case mismatch = no collision)", () => {
     const input: DetectConflictsInput = {
-      bundleRigName: "alpha",
-      runningRigs: [{ rigId: "01H000000000000000000009", name: "Alpha" }],
+      bundleSoftwareTeamName: "alpha",
+      runningSoftwareTeams: [{ softwareTeamId: "01H000000000000000000009", name: "Alpha" }],
     };
     const report = detectBundleConflicts(input);
     expect(report.hasConflicts).toBe(false);

@@ -56,11 +56,11 @@ describe("stream routes", () => {
   it("POST /api/stream/emit creates and returns the item", async () => {
     const res = await app.request("/api/stream/emit", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@rig" }, // P21 I3: source from the transport header
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@software-team" }, // P21 I3: source from the transport header
       body: JSON.stringify({
-        sourceSession: "alice@rig",
+        sourceSession: "alice@software-team",
         body: "hello",
-        hintDestination: "bob@rig",
+        hintDestination: "bob@software-team",
         interrupt: true,
       }),
     });
@@ -74,8 +74,8 @@ describe("stream routes", () => {
   it("POST /api/stream/emit rejects missing body (source is header-derived; missing-source is the 401 path)", async () => {
     const res = await app.request("/api/stream/emit", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@rig" },
-      body: JSON.stringify({ sourceSession: "alice@rig" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@software-team" },
+      body: JSON.stringify({ sourceSession: "alice@software-team" }),
     });
     expect(res.status).toBe(400);
     const data = (await res.json()) as { error: string };
@@ -87,71 +87,71 @@ describe("stream routes", () => {
     const res = await app.request("/api/stream/emit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sourceSession: "alice@rig", body: "hi" }),
+      body: JSON.stringify({ sourceSession: "alice@software-team", body: "hi" }),
     });
     expect(res.status).toBe(201);
     const { streamItemId } = (await res.json()) as { streamItemId: string };
     const row = db
       .prepare("SELECT source_session, identity_provenance FROM stream_items WHERE stream_item_id = ?")
       .get(streamItemId) as { source_session: string; identity_provenance: string | null } | undefined;
-    expect(row?.source_session).toBe("alice@rig");
+    expect(row?.source_session).toBe("alice@software-team");
     expect(row?.identity_provenance).toBe("claimed:v1");
   });
 
-  it("emit — header present + differing body sourceSession → wire supersedes (source alice@rig, transport:v1); 409 retired", async () => {
+  it("emit — header present + differing body sourceSession → wire supersedes (source alice@software-team, transport:v1); 409 retired", async () => {
     const res = await app.request("/api/stream/emit", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@rig" },
-      body: JSON.stringify({ sourceSession: "evil@rig", body: "hi" }), // superseded by the wire identity
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@software-team" },
+      body: JSON.stringify({ sourceSession: "evil@software-team", body: "hi" }), // superseded by the wire identity
     });
     expect(res.status).toBe(201);
     const { streamItemId } = (await res.json()) as { streamItemId: string };
     const row = db
       .prepare("SELECT source_session, identity_provenance FROM stream_items WHERE stream_item_id = ?")
       .get(streamItemId) as { source_session: string; identity_provenance: string | null } | undefined;
-    expect(row?.source_session).toBe("alice@rig");
+    expect(row?.source_session).toBe("alice@software-team");
     expect(row?.identity_provenance).toBe("transport:v1");
   });
 
   it("emit — derives source from the header + era-stamps stream_items transport:v1", async () => {
     const res = await app.request("/api/stream/emit", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "alice@rig" },
-      body: JSON.stringify({ sourceSession: "alice@rig", body: "hi" }),
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "alice@software-team" },
+      body: JSON.stringify({ sourceSession: "alice@software-team", body: "hi" }),
     });
     expect(res.status).toBe(201);
     const { streamItemId } = (await res.json()) as { streamItemId: string };
     const row = db
       .prepare("SELECT source_session, identity_provenance FROM stream_items WHERE stream_item_id = ?")
       .get(streamItemId) as { source_session: string; identity_provenance: string | null } | undefined;
-    expect(row?.source_session).toBe("alice@rig");
+    expect(row?.source_session).toBe("alice@software-team");
     expect(row?.identity_provenance).toBe("transport:v1");
   });
 
   it("GET /api/stream/list refuses only a non-numeric or unbindable limit (#586)", async () => {
-    for (const body of ["1", "2", "3"]) store.emit({ sourceSession: "alice@rig", body, hintDestination: "bob@rig" });
+    for (const body of ["1", "2", "3"]) store.emit({ sourceSession: "alice@software-team", body, hintDestination: "bob@software-team" });
     await expectLimitParsing(app, "/api/stream/list");
   });
 
   it("GET /api/stream/list returns chronological items with filters", async () => {
-    store.emit({ sourceSession: "alice@rig", body: "1", hintDestination: "bob@rig" });
-    store.emit({ sourceSession: "carol@rig", body: "2", hintDestination: "bob@rig" });
-    store.emit({ sourceSession: "alice@rig", body: "3" });
+    store.emit({ sourceSession: "alice@software-team", body: "1", hintDestination: "bob@software-team" });
+    store.emit({ sourceSession: "carol@software-team", body: "2", hintDestination: "bob@software-team" });
+    store.emit({ sourceSession: "alice@software-team", body: "3" });
 
-    const res = await app.request("/api/stream/list?sourceSession=alice@rig");
+    const res = await app.request("/api/stream/list?sourceSession=alice@software-team");
     expect(res.status).toBe(200);
     const data = (await res.json()) as Array<{ body: string }>;
     expect(data).toHaveLength(2);
     expect(data.map((i) => i.body)).toEqual(["1", "3"]);
 
-    const filtered = await app.request("/api/stream/list?hintDestination=bob@rig");
+    const filtered = await app.request("/api/stream/list?hintDestination=bob@software-team");
     const filteredData = (await filtered.json()) as Array<{ body: string }>;
     expect(filteredData).toHaveLength(2);
   });
 
   it("GET /api/stream/list?direction=latest returns the newest active page chronologically", async () => {
     const items = Array.from({ length: 7 }, (_, index) =>
-      store.emit({ sourceSession: "alice@rig", body: `item-${index + 1}` }),
+      store.emit({ sourceSession: "alice@software-team", body: `item-${index + 1}` }),
     );
 
     const first = await app.request("/api/stream/list?limit=5&direction=latest");
@@ -173,11 +173,11 @@ describe("stream routes", () => {
   });
 
   it("GET /api/stream/list wires exact tag and canonicalized inclusive ISO time filters", async () => {
-    const lower = store.emit({ sourceSession: "alice@rig", body: "lower", hintTags: ["context"] });
-    const upper = store.emit({ sourceSession: "alice@rig", body: "upper", hintTags: ["context"] });
-    const wrongTag = store.emit({ sourceSession: "alice@rig", body: "wrong-tag", hintTags: ["context-extra"] });
-    const wrongSource = store.emit({ sourceSession: "bob@rig", body: "wrong-source", hintTags: ["context"] });
-    const outsideWindow = store.emit({ sourceSession: "alice@rig", body: "outside-window", hintTags: ["context"] });
+    const lower = store.emit({ sourceSession: "alice@software-team", body: "lower", hintTags: ["context"] });
+    const upper = store.emit({ sourceSession: "alice@software-team", body: "upper", hintTags: ["context"] });
+    const wrongTag = store.emit({ sourceSession: "alice@software-team", body: "wrong-tag", hintTags: ["context-extra"] });
+    const wrongSource = store.emit({ sourceSession: "bob@software-team", body: "wrong-source", hintTags: ["context"] });
+    const outsideWindow = store.emit({ sourceSession: "alice@software-team", body: "outside-window", hintTags: ["context"] });
     const setTime = db.prepare("UPDATE stream_items SET ts_emitted = ? WHERE stream_item_id = ?");
     setTime.run("2026-08-03T09:00:00.000Z", lower.streamItemId);
     setTime.run("2026-08-03T10:00:00.000Z", upper.streamItemId);
@@ -186,7 +186,7 @@ describe("stream routes", () => {
     setTime.run("2026-08-03T10:00:00.001Z", outsideWindow.streamItemId);
 
     const res = await app.request(
-      "/api/stream/list?sourceSession=alice%40rig&hintTag=context&since=2026-08-03T11%3A00%3A00%2B02%3A00&until=2026-08-03T06%3A00%3A00-04%3A00",
+      "/api/stream/list?sourceSession=alice%40software-team&hintTag=context&since=2026-08-03T11%3A00%3A00%2B02%3A00&until=2026-08-03T06%3A00%3A00-04%3A00",
     );
     expect(res.status).toBe(200);
     expect(((await res.json()) as Array<{ body: string }>).map((item) => item.body)).toEqual(["lower", "upper"]);
@@ -230,7 +230,7 @@ describe("stream routes", () => {
   });
 
   it("POST /api/stream/:id/archive succeeds and excludes from default list", async () => {
-    const item = store.emit({ sourceSession: "alice@rig", body: "x" });
+    const item = store.emit({ sourceSession: "alice@software-team", body: "x" });
     const res = await app.request(`/api/stream/${item.streamItemId}/archive`, { method: "POST" });
     expect(res.status).toBe(200);
     const list = await app.request("/api/stream/list");
@@ -265,10 +265,10 @@ describe("stream routes", () => {
   });
 
   it.each(["sse", "watch"])("GET /api/stream/%s sends backfill and live items without replay duplicates", async (route) => {
-    store.emit({ sourceSession: "alice@rig", body: "history" });
+    store.emit({ sourceSession: "alice@software-team", body: "history" });
     const list = store.list.bind(store);
     const duringReplay = vi.spyOn(store, "list").mockImplementationOnce((opts) => {
-      store.emit({ sourceSession: "alice@rig", body: "during replay" });
+      store.emit({ sourceSession: "alice@software-team", body: "during replay" });
       return list(opts);
     });
     const res = await app.request(`/api/stream/${route}`);
@@ -279,7 +279,7 @@ describe("stream routes", () => {
       const second = decoder.decode((await reader.read()).value);
       expect(first).toContain('"body":"history"');
       expect(second).toContain('"body":"during replay"');
-      store.emit({ sourceSession: "alice@rig", body: "live" });
+      store.emit({ sourceSession: "alice@software-team", body: "live" });
       expect(decoder.decode((await reader.read()).value)).toContain('"body":"live"');
     } finally {
       duringReplay.mockRestore();
@@ -289,7 +289,7 @@ describe("stream routes", () => {
   });
 
   it.each(["sse", "watch"])("GET /api/stream/%s releases its subscription when cancelled during backfill", async (route) => {
-    store.emit({ sourceSession: "alice@rig", body: "existing history" });
+    store.emit({ sourceSession: "alice@software-team", body: "existing history" });
     const res = await app.request(`/api/stream/${route}`);
     expect(bus.subscriberCount).toBe(1);
     await res.body?.cancel();

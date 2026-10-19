@@ -21,7 +21,7 @@ function mockFs(initial: { dirs?: string[]; files?: Record<string, string> } = {
 }
 
 const BUNDLE_ROOT = "/bundle/root";
-const TARGET = "/operator/.openrig/plugins";
+const TARGET = "/operator/.softwareteam/plugins";
 
 function makeInput(overrides?: Partial<RoutePluginsInput>): RoutePluginsInput {
   return {

@@ -8,7 +8,7 @@ const validManifest = `
 name: driver-release-primed
 version: 1
 runtime: claude-code
-source_seat: velocity-driver@openrig-velocity
+source_seat: velocity-driver@softwareteam-velocity
 source_session_id: abc-123
 source_resume_token: tok-xyz
 created_at: "2026-05-04T19:00:00Z"
@@ -29,7 +29,7 @@ describe("parseAgentImageManifest", () => {
     expect(m.name).toBe("driver-release-primed");
     expect(m.version).toBe("1");
     expect(m.runtime).toBe("claude-code");
-    expect(m.sourceSeat).toBe("velocity-driver@openrig-velocity");
+    expect(m.sourceSeat).toBe("velocity-driver@softwareteam-velocity");
     expect(m.sourceSessionId).toBe("abc-123");
     expect(m.sourceResumeToken).toBe("tok-xyz");
     expect(m.notes).toContain("PL-005 review");

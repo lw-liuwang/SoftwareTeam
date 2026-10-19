@@ -8,7 +8,7 @@ interface ReadOptions {
     start?: string;
     limit?: string;
     node?: string;
-    rig?: string;
+    softwareTeam?: string;
     qitem?: string;
     json?: boolean;
 }
@@ -40,7 +40,7 @@ export function telemetryCommand(depsOverride?: StatusDeps): Command {
         if (!daemonStatusGuard(daemon))
             return;
         const params = new URLSearchParams();
-        for (const [key, value] of Object.entries({ cursor: opts.cursor, start: opts.start, limit: opts.limit, nodeId: opts.node, rigId: opts.rig, qitemId: opts.qitem })) {
+        for (const [key, value] of Object.entries({ cursor: opts.cursor, start: opts.start, limit: opts.limit, nodeId: opts.node, softwareTeamId: opts.softwareTeam, qitemId: opts.qitem })) {
             if (value !== undefined)
                 params.set(key, value);
         }
@@ -76,7 +76,7 @@ export function telemetryCommand(depsOverride?: StatusDeps): Command {
     paging(command.command("events").description("Event metadata only; no payload content"))
         .option("--start <mode>", "latest (default) or retained, for a new window")
         .option("--node <id>", "Filter the bounded source page by immutable node ID")
-        .option("--rig <id>", "Filter the bounded source page by immutable rig ID")
+        .option("--software-team <id>", "Filter the bounded source page by immutable softwareTeam ID")
         .action((opts: ReadOptions) => read("events", opts));
     paging(command.command("transitions").description("Active and archived queue-transition metadata"))
         .option("--start <mode>", "latest (default) or retained, for a new window")

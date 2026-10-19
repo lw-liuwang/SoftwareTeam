@@ -32,7 +32,7 @@ import { parseCommand } from '../../tui/dist/grammar.js';
 const root = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const bytes = readFileSync(process.argv[2]);
 const replay = JSON.parse(bytes);
-assert.equal(replay.schema, 'openrig.health-calibration-replay/v1');
+assert.equal(replay.schema, 'softwareteam.health-calibration-replay/v1');
 assert.ok(replay.cases.length > 0, 'zero cases is not a pass');
 const output = process.argv[3] ?? mkdtempSync(join(tmpdir(), 'health-calibration-results-'));
 mkdirSync(output, { recursive: true });
@@ -42,7 +42,7 @@ const report = { replaySha256: hash(bytes), budgets: { projectionP95Ms: 250, cli
 for (const test of replay.cases) {
   const home = mkdtempSync(join(tmpdir(), 'health-calibration-'));
   const workspace = join(home, 'workspace'); mkdirSync(workspace);
-  const db = createDb(join(home, 'openrig.sqlite')); migrate(db, ALL_MIGRATIONS);
+  const db = createDb(join(home, 'softwareteam.sqlite')); migrate(db, ALL_MIGRATIONS);
   const queue = new QueueRepository(db, new EventBus(db));
   const qi = db.prepare('INSERT INTO queue_items(qitem_id,ts_created,ts_updated,source_session,destination_session,state,tags,handed_off_from,body) VALUES(?,?,?,?,?,?,?,?,?)');
   const ti = db.prepare('INSERT INTO queue_transitions(transition_id,qitem_id,ts,state,actor_session,identity_provenance) VALUES(?,?,?,?,?,?)');
@@ -71,9 +71,9 @@ for (const test of replay.cases) {
   const server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: 0 });
   await new Promise((done) => server.once('listening', done));
   const port = server.address().port;
-  writeFileSync(join(home, 'daemon.json'), JSON.stringify({ pid: process.pid, port, db: join(home, 'openrig.sqlite'), startedAt: now }));
-  const env = { ...process.env, OPENRIG_HOME: home, OPENRIG_DB: join(home, 'openrig.sqlite'), OPENRIG_URL: `http://127.0.0.1:${port}`, OPENRIG_SESSION_NAME: 'author@fixture' };
-  delete env.OPENRIG_NODE_ID; delete env.OPENRIG_RIG_NAME;
+  writeFileSync(join(home, 'daemon.json'), JSON.stringify({ pid: process.pid, port, db: join(home, 'softwareteam.sqlite'), startedAt: now }));
+  const env = { ...process.env, SOFTWARETEAM_HOME: home, SOFTWARETEAM_DB: join(home, 'softwareteam.sqlite'), SOFTWARETEAM_URL: `http://127.0.0.1:${port}`, SOFTWARETEAM_SESSION_NAME: 'author@fixture' };
+  delete env.SOFTWARETEAM_NODE_ID; delete env.SOFTWARETEAM_SOFTWARE_TEAM_NAME;
   const cliDurations = [];
   const cli = async (...args) => {
     const start = performance.now();

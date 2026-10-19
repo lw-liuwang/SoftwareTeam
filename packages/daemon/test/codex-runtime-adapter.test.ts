@@ -69,8 +69,8 @@ function makeEntry(overrides?: Partial<ProjectionEntry>): ProjectionEntry {
   };
 }
 
-function testQueueRoot(sharedDocsRoot = nodePath.join(os.homedir(), ".openrig", "shared-docs")): string {
-  return nodePath.join(sharedDocsRoot, "rigs", "test-rig", "state", "dev");
+function testQueueRoot(sharedDocsRoot = nodePath.join(os.homedir(), ".softwareteam", "shared-docs")): string {
+  return nodePath.join(sharedDocsRoot, "software-teams", "test-software-team", "state", "dev");
 }
 
 function quote(value: string): string {
@@ -117,15 +117,15 @@ beforeEach(() => {
   // ENV-COUPLING HARDEN (housekeeping, qitem-20260711131501-e43707b0). DRIFT
   // VERDICT for the two launchHarness profile/model tests: ENV-SENSITIVITY,
   // NOT a stale assertion and NOT a product regression. launchHarness
-  // CORRECTLY honors OPENRIG_SHARED_DOCS_ROOT for the Codex queue-state
+  // CORRECTLY honors SOFTWARETEAM_SHARED_DOCS_ROOT for the Codex queue-state
   // writable root — that behavior is proven by the dedicated
-  // "uses OPENRIG_SHARED_DOCS_ROOT" test, which stubs it explicitly. But the
+  // "uses SOFTWARETEAM_SHARED_DOCS_ROOT" test, which stubs it explicitly. But the
   // profile/model launch-command tests assume the unset-fallback that
-  // testQueueRoot() encodes (os.homedir()/.openrig/shared-docs). Some run
+  // testQueueRoot() encodes (os.homedir()/.softwareteam/shared-docs). Some run
   // environments (the substrate host, provisioned VMs) export the var, which
   // flapped those two tests pass/fail while byte-identical. Neutralize the
   // ambient value so the default is deterministic; unstubAllEnvs() restores.
-  vi.stubEnv("OPENRIG_SHARED_DOCS_ROOT", undefined);
+  vi.stubEnv("SOFTWARETEAM_SHARED_DOCS_ROOT", undefined);
 });
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -170,7 +170,7 @@ describe("Codex runtime adapter", () => {
       fs.writeFileSync(nodePath.join(stale, "codex"), "#!/bin/sh\nprintf stale", { mode: 0o755 });
       const tmux = mockTmux();
       const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs(), launchPath: selected + ":/usr/bin:/bin", sleep: async () => {} });
-      await adapter.launchHarness(makeBinding(), { name: "operator@example-rig" });
+      await adapter.launchHarness(makeBinding(), { name: "operator@example-software-team" });
       const command = vi.mocked(tmux.sendText).mock.calls[0]![1];
       const output = execFileSync("/bin/sh", ["-c", command], { env: { ...process.env, PATH: stale + ":/usr/bin:/bin" }, encoding: "utf8" });
       expect(output).toBe("selected");
@@ -198,7 +198,7 @@ describe("Codex runtime adapter", () => {
     const tmux = mockTmux({
       getPaneCommand: vi.fn(async () => "zsh"),
       getPanePid: vi.fn(async () => 900),
-      capturePaneContent: vi.fn(async () => "user@example.test rigged %"),
+      capturePaneContent: vi.fn(async () => "user@example.test softwareteam %"),
     });
     const adapter = new CodexRuntimeAdapter({
       tmux,
@@ -279,7 +279,7 @@ describe("Codex runtime adapter", () => {
         "  2. Switch to gpt-5.4-codex Stronger for complex tasks.",
         "  3. Keep current model",
         "",
-        "  gpt-5.4 default · ~/code/openrig",
+        "  gpt-5.4 default · ~/code/softwareteam",
       ].join("\n")),
     });
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs() });
@@ -304,12 +304,12 @@ describe("Codex runtime adapter", () => {
         "│ >_ OpenAI Codex (v0.120.0)            │",
         "│                                       │",
         "│ model:     gpt-5.4   /model to change │",
-        "│ directory: ~/code/openrig             │",
+        "│ directory: ~/code/softwareteam             │",
         "╰───────────────────────────────────────╯",
         "",
         "› Improve documentation in @filename",
         "",
-        "  gpt-5.4 default · ~/code/openrig",
+        "  gpt-5.4 default · ~/code/softwareteam",
       ].join("\n")),
     });
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs() });
@@ -333,7 +333,7 @@ describe("Codex runtime adapter", () => {
         "",
         "› Use /skills to list available skills",
         "",
-        "  gpt-5.4 default · ~/code/openrig",
+        "  gpt-5.4 default · ~/code/softwareteam",
         "",
         "",
       ].join("\n")),
@@ -361,9 +361,9 @@ describe("Codex runtime adapter", () => {
   it("deliverStartup only handles files, no action execution", async () => {
     // Verify that the interface only accepts ResolvedStartupFile[], not StartupAction[]
     const tmux = mockTmux();
-    const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs({ "/rig/file.md": "content" }), sleep: async () => {} });
+    const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs({ "/softwareTeam/file.md": "content" }), sleep: async () => {} });
     const file: ResolvedStartupFile = {
-      path: "file.md", absolutePath: "/rig/file.md", ownerRoot: "/rig",
+      path: "file.md", absolutePath: "/softwareTeam/file.md", ownerRoot: "/softwareTeam",
       deliveryHint: "guidance_merge", required: true, appliesOn: ["fresh_start"],
     };
     const result = await adapter.deliverStartup([file], makeBinding());
@@ -372,21 +372,21 @@ describe("Codex runtime adapter", () => {
     expect(tmux.sendText).not.toHaveBeenCalled();
   });
 
-  it("replaces legacy using-openrig managed block when delivering openrig-start guidance", async () => {
+  it("replaces legacy using-softwareteam managed block when delivering softwareteam-start guidance", async () => {
     const fs = mockFs({
-      "/rig/openrig-start.md": "# OpenRig Start\n\nNew guidance",
+      "/softwareTeam/softwareteam-start.md": "# SoftwareTeam Start\n\nNew guidance",
       "/project/AGENTS.md": [
-        "<!-- BEGIN OpenRig MANAGED BLOCK: using-openrig.md -->",
-        "# Using OpenRig",
+        "<!-- BEGIN SoftwareTeam MANAGED BLOCK: using-softwareteam.md -->",
+        "# Using SoftwareTeam",
         "Old guidance",
-        "<!-- END OpenRig MANAGED BLOCK: using-openrig.md -->",
+        "<!-- END SoftwareTeam MANAGED BLOCK: using-softwareteam.md -->",
       ].join("\n"),
     });
     const adapter = new CodexRuntimeAdapter({ tmux: mockTmux(), fsOps: fs });
     const file: ResolvedStartupFile = {
-      path: "openrig-start.md",
-      absolutePath: "/rig/openrig-start.md",
-      ownerRoot: "/rig",
+      path: "softwareteam-start.md",
+      absolutePath: "/softwareTeam/softwareteam-start.md",
+      ownerRoot: "/softwareTeam",
       deliveryHint: "guidance_merge",
       required: true,
       appliesOn: ["fresh_start", "restore"],
@@ -396,8 +396,8 @@ describe("Codex runtime adapter", () => {
 
     const store = (fs as unknown as { _store: Record<string, string> })._store;
     const content = store["/project/AGENTS.md"]!;
-    expect(content).toContain("BEGIN OpenRig MANAGED BLOCK: openrig-start.md");
-    expect(content).not.toContain("BEGIN OpenRig MANAGED BLOCK: using-openrig.md");
+    expect(content).toContain("BEGIN SoftwareTeam MANAGED BLOCK: softwareteam-start.md");
+    expect(content).not.toContain("BEGIN SoftwareTeam MANAGED BLOCK: using-softwareteam.md");
     expect(content).toContain("New guidance");
   });
 
@@ -406,7 +406,7 @@ describe("Codex runtime adapter", () => {
     const fs = mockFs({}); // empty — file not found
     const adapter = new CodexRuntimeAdapter({ tmux: mockTmux(), fsOps: fs });
     const file: ResolvedStartupFile = {
-      path: "missing.md", absolutePath: "/rig/missing.md", ownerRoot: "/rig",
+      path: "missing.md", absolutePath: "/softwareTeam/missing.md", ownerRoot: "/softwareTeam",
       deliveryHint: "guidance_merge", required: true, appliesOn: ["fresh_start"],
     };
     const result = await adapter.deliverStartup([file], makeBinding());
@@ -419,11 +419,11 @@ describe("Codex runtime adapter", () => {
     const tmux = mockTmux();
     const adapter = new CodexRuntimeAdapter({
       tmux,
-      fsOps: mockFs({ "/rig/startup/init.sh": "echo hello" }),
+      fsOps: mockFs({ "/softwareTeam/startup/init.sh": "echo hello" }),
       sleep: async () => {},
     });
     const file: ResolvedStartupFile = {
-      path: "startup/init.sh", absolutePath: "/rig/startup/init.sh", ownerRoot: "/rig",
+      path: "startup/init.sh", absolutePath: "/softwareTeam/startup/init.sh", ownerRoot: "/softwareTeam",
       deliveryHint: "auto", required: true, appliesOn: ["fresh_start", "restore"],
     };
 
@@ -442,11 +442,11 @@ describe("Codex runtime adapter", () => {
     const big = "L".repeat(120 * 1024);
     const adapter = new CodexRuntimeAdapter({
       tmux,
-      fsOps: mockFs({ "/rig/startup/big-pack.md": big }),
+      fsOps: mockFs({ "/softwareTeam/startup/big-pack.md": big }),
       sleep: async () => {},
     });
     const file: ResolvedStartupFile = {
-      path: "startup/big-pack.md", absolutePath: "/rig/startup/big-pack.md", ownerRoot: "/rig",
+      path: "startup/big-pack.md", absolutePath: "/softwareTeam/startup/big-pack.md", ownerRoot: "/softwareTeam",
       deliveryHint: "send_text", required: true, appliesOn: ["fresh_start", "restore"],
     };
 
@@ -463,12 +463,12 @@ describe("Codex runtime adapter", () => {
   // T12: replay on restore is safe for already-projected content
   it("replay on restore is safe for already-projected content", async () => {
     const fs = mockFs({
-      "/rig/guide.md": "# Guidance",
-      "/project/AGENTS.md": "<!-- BEGIN OpenRig MANAGED BLOCK: guide.md -->\n# Guidance\n<!-- END OpenRig MANAGED BLOCK: guide.md -->",
+      "/softwareTeam/guide.md": "# Guidance",
+      "/project/AGENTS.md": "<!-- BEGIN SoftwareTeam MANAGED BLOCK: guide.md -->\n# Guidance\n<!-- END SoftwareTeam MANAGED BLOCK: guide.md -->",
     });
     const adapter = new CodexRuntimeAdapter({ tmux: mockTmux(), fsOps: fs });
     const file: ResolvedStartupFile = {
-      path: "guide.md", absolutePath: "/rig/guide.md", ownerRoot: "/rig",
+      path: "guide.md", absolutePath: "/softwareTeam/guide.md", ownerRoot: "/softwareTeam",
       deliveryHint: "guidance_merge", required: true, appliesOn: ["fresh_start", "restore"],
     };
 
@@ -478,7 +478,7 @@ describe("Codex runtime adapter", () => {
 
     const store = (fs as unknown as { _store: Record<string, string> })._store;
     const content = store["/project/AGENTS.md"]!;
-    const blockCount = (content.match(/BEGIN OpenRig MANAGED BLOCK/g) ?? []).length;
+    const blockCount = (content.match(/BEGIN SoftwareTeam MANAGED BLOCK/g) ?? []).length;
     expect(blockCount).toBe(1); // exactly one block, not two
   });
 
@@ -492,7 +492,7 @@ describe("Codex runtime adapter", () => {
       sleep: async () => {},
     });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team" });
 
     expect(result.ok).toBe(true);
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
@@ -509,7 +509,7 @@ describe("Codex runtime adapter", () => {
     });
     const binding = { ...makeBinding(), model: "gpt-5.5" };
 
-    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-rig" });
+    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-software-team" });
 
     expect(result.ok).toBe(true);
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
@@ -530,7 +530,7 @@ describe("Codex runtime adapter", () => {
     });
     const binding = { ...makeBinding(), codexConfigProfile: "fleet" };
 
-    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-rig" });
+    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-software-team" });
 
     expect(result.ok).toBe(true);
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
@@ -547,7 +547,7 @@ describe("Codex runtime adapter", () => {
     });
     const binding = { ...makeBinding(), model: "gpt-5.1-codex-mini" };
 
-    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-rig" });
+    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-software-team" });
 
     expect(result.ok).toBe(true);
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
@@ -557,8 +557,8 @@ describe("Codex runtime adapter", () => {
     );
   });
 
-  it("launchHarness uses OPENRIG_SHARED_DOCS_ROOT for the Codex queue state writable root", async () => {
-    vi.stubEnv("OPENRIG_SHARED_DOCS_ROOT", "/custom/shared-docs");
+  it("launchHarness uses SOFTWARETEAM_SHARED_DOCS_ROOT for the Codex queue state writable root", async () => {
+    vi.stubEnv("SOFTWARETEAM_SHARED_DOCS_ROOT", "/custom/shared-docs");
     const tmux = mockTmux();
     const adapter = new CodexRuntimeAdapter({
       tmux,
@@ -567,7 +567,7 @@ describe("Codex runtime adapter", () => {
       sleep: async () => {},
     });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team" });
 
     expect(result.ok).toBe(true);
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
@@ -586,7 +586,7 @@ describe("Codex runtime adapter", () => {
       sleep: async () => {},
     });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "devqa@test-rig" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "devqa@test-software-team" });
 
     expect(result.ok).toBe(true);
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
@@ -630,7 +630,7 @@ describe("Codex runtime adapter", () => {
       sleep: async () => {},
     });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team" });
 
     expect(result).toEqual({
       ok: true,
@@ -667,7 +667,7 @@ describe("Codex runtime adapter", () => {
       sleep: async () => {},
     });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team" });
 
     expect(result.ok).toBe(true);
     // The shell launch gets Enter; no menu key or subsequent Enter is sent.
@@ -721,7 +721,7 @@ describe("Codex runtime adapter", () => {
       sleep: async () => {},
     });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team" });
 
     expect(result).toEqual({
       ok: true,
@@ -769,7 +769,7 @@ describe("Codex runtime adapter", () => {
       sleep: async () => {},
     });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team" });
 
     expect(result).toEqual({
       ok: true,
@@ -795,7 +795,7 @@ describe("Codex runtime adapter", () => {
       sleep: async () => {},
     });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team" });
 
     expect(result).toEqual({
       ok: true,
@@ -806,7 +806,7 @@ describe("Codex runtime adapter", () => {
   });
 
   it("launchHarness captures a fresh Codex thread id from the child process home directory", async () => {
-    const tempRoot = fs.mkdtempSync(nodePath.join(os.tmpdir(), "rigged-codex-home-"));
+    const tempRoot = fs.mkdtempSync(nodePath.join(os.tmpdir(), "softwareteam-codex-home-"));
     const actualHome = nodePath.join(tempRoot, "actual-home");
     createCodexLogsDb(actualHome, 901, "019d45bc-117d-78a3-a4ad-6fb186e5a86d");
 
@@ -831,7 +831,7 @@ describe("Codex runtime adapter", () => {
       sleep: async () => {},
     });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team" });
 
     expect(result).toEqual({
       ok: true,
@@ -842,7 +842,7 @@ describe("Codex runtime adapter", () => {
   });
 
   it("launchHarness captures a fresh Codex thread id from the current versioned logs database", async () => {
-    const tempRoot = fs.mkdtempSync(nodePath.join(os.tmpdir(), "rigged-codex-home-"));
+    const tempRoot = fs.mkdtempSync(nodePath.join(os.tmpdir(), "softwareteam-codex-home-"));
     const actualHome = nodePath.join(tempRoot, "actual-home");
     createCodexLogsDb(actualHome, 901, "019d45bc-117d-78a3-a4ad-6fb186e5a86d", "logs_2.sqlite");
 
@@ -867,7 +867,7 @@ describe("Codex runtime adapter", () => {
       sleep: async () => {},
     });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team" });
 
     expect(result).toEqual({
       ok: true,
@@ -881,7 +881,7 @@ describe("Codex runtime adapter", () => {
     const tmux = mockTmux();
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs() });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig", resumeToken: "sess-456" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team", resumeToken: "sess-456" });
 
     expect(result.ok).toBe(true);
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
@@ -893,7 +893,7 @@ describe("Codex runtime adapter", () => {
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs() });
     const binding = { ...makeBinding(), model: "gpt-5.4-cheap" };
 
-    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-rig", resumeToken: "sess-456" });
+    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-software-team", resumeToken: "sess-456" });
 
     expect(result.ok).toBe(true);
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
@@ -913,7 +913,7 @@ describe("Codex runtime adapter", () => {
     // The command is built + sent BEFORE the post-fork thread-id capture; assert the sent command
     // even though thread capture is not mocked (fork ultimately returns not-captured).
     await adapter.launchHarness(binding, {
-      name: "dev-qa@test-rig",
+      name: "dev-qa@test-software-team",
       forkSource: { kind: "native_id", value: "parent-thread-id" },
     });
 
@@ -926,7 +926,7 @@ describe("Codex runtime adapter", () => {
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs() });
     const binding = { ...makeBinding(), effort: "high" };
 
-    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-rig" });
+    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-software-team" });
 
     expect(result.ok).toBe(true);
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
@@ -938,7 +938,7 @@ describe("Codex runtime adapter", () => {
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs() });
     const binding = { ...makeBinding(), effort: "high" };
 
-    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-rig", resumeToken: "sess-456" });
+    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-software-team", resumeToken: "sess-456" });
 
     expect(result.ok).toBe(true);
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
@@ -956,7 +956,7 @@ describe("Codex runtime adapter", () => {
     const binding = { ...makeBinding(), effort: "high" };
 
     await adapter.launchHarness(binding, {
-      name: "dev-qa@test-rig",
+      name: "dev-qa@test-software-team",
       forkSource: { kind: "native_id", value: "parent-thread-id" },
     });
 
@@ -969,7 +969,7 @@ describe("Codex runtime adapter", () => {
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs() });
     const binding = { ...makeBinding(), model: "gpt-5.4-cheap", effort: "high" };
 
-    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-rig" });
+    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-software-team" });
 
     expect(result.ok).toBe(true);
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
@@ -988,7 +988,7 @@ describe("Codex runtime adapter", () => {
     });
     const binding = { ...makeBinding(), codexConfigProfile: "fleet" };
 
-    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-rig", resumeToken: "sess-456" });
+    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-software-team", resumeToken: "sess-456" });
 
     expect(result.ok).toBe(true);
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
@@ -1017,7 +1017,7 @@ describe("Codex runtime adapter", () => {
     });
     const binding = { ...makeBinding(), codexConfigProfile: "fleet" };
 
-    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-rig" });
+    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-software-team" });
 
     expect(result).toEqual({
       ok: false,
@@ -1056,7 +1056,7 @@ describe("Codex runtime adapter", () => {
       listProcesses: () => [{ pid: 901, ppid: 1, pgid: 901, tpgid: 901, executableName: "codex", startedAt: "Sat Jan  1 12:00:00 2000", command: "codex" }],
     });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig", resumeToken: "sess-456" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team", resumeToken: "sess-456" });
 
     expect(result).toEqual({ ok: true, resumeToken: "sess-456", resumeType: "codex_id", appliedLaunch: CODEX_FLOOR_EFFECT });
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
@@ -1080,7 +1080,7 @@ describe("Codex runtime adapter", () => {
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs() });
     const binding = { ...makeBinding(), model: "gpt-5.5" };
 
-    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-rig", resumeToken: "sess-456" });
+    const result = await adapter.launchHarness(binding, { name: "dev-qa@test-software-team", resumeToken: "sess-456" });
 
     expect(result.ok).toBe(true);
     const sendText = tmux.sendText as ReturnType<typeof vi.fn>;
@@ -1094,12 +1094,12 @@ describe("Codex runtime adapter", () => {
       getPaneCommand: vi.fn(async () => "zsh"),
       capturePaneContent: vi.fn(async () => [
         "No saved session found for id sess-456",
-        "admin@host openrig %",
+        "admin@host softwareteam %",
       ].join("\n")),
     });
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs(), sleep: async () => {} });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig", resumeToken: "sess-456" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team", resumeToken: "sess-456" });
 
     expect(result).toEqual({
       ok: false,
@@ -1125,7 +1125,7 @@ describe("Codex runtime adapter", () => {
     });
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs(), sleep: async () => {} });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig", resumeToken: "sess-456" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team", resumeToken: "sess-456" });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -1149,7 +1149,7 @@ describe("Codex runtime adapter", () => {
     });
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs(), sleep: async () => {} });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig", resumeToken: "sess-456" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team", resumeToken: "sess-456" });
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.recovery).toBe("attention_required");
@@ -1174,7 +1174,7 @@ describe("Codex runtime adapter", () => {
     });
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs(), sleep: async () => {} });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig", resumeToken: "sess-456" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team", resumeToken: "sess-456" });
 
     expect(result.ok).toBe(false); // fails against the pre-fix ok:true-on-gate behavior
     if (!result.ok) {
@@ -1196,7 +1196,7 @@ describe("Codex runtime adapter", () => {
     });
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs(), sleep: async () => {} });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig", resumeToken: "sess-456" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team", resumeToken: "sess-456" });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -1217,7 +1217,7 @@ describe("Codex runtime adapter", () => {
     });
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs(), sleep: async () => {} });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig", resumeToken: "sess-456" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team", resumeToken: "sess-456" });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -1235,7 +1235,7 @@ describe("Codex runtime adapter", () => {
     });
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs(), sleep: async () => {} });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig", resumeToken: "sess-456" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team", resumeToken: "sess-456" });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -1262,7 +1262,7 @@ describe("Codex runtime adapter", () => {
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs(), sleep: async () => {} });
 
     const result = await adapter.launchHarness(makeBinding(), {
-      name: "dev-worker@test-rig",
+      name: "dev-worker@test-software-team",
       resumeToken: "019ecd3b-test-thread",
     });
 
@@ -1284,7 +1284,7 @@ describe("Codex runtime adapter", () => {
     });
     const adapter = new CodexRuntimeAdapter({ tmux, fsOps: mockFs(), sleep: async () => {} });
 
-    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-rig", resumeToken: "sess-456" });
+    const result = await adapter.launchHarness(makeBinding(), { name: "dev-qa@test-software-team", resumeToken: "sess-456" });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -1399,7 +1399,7 @@ describe("Codex runtime adapter", () => {
     expect(content).toContain('trust_level = "trusted"');
     expect(content.match(/\[mcp_servers\.exa\]/g)?.length ?? 0).toBe(1);
     expect(content.match(/\[mcp_servers\.context7\]/g)?.length ?? 0).toBe(1);
-    expect(content.match(/BEGIN OPENRIG MANAGED CODEX CONFIG FRAGMENT: codex-default-config/g)?.length ?? 0).toBe(1);
+    expect(content.match(/BEGIN SOFTWARETEAM MANAGED CODEX CONFIG FRAGMENT: codex-default-config/g)?.length ?? 0).toBe(1);
   });
 
   // --- OPR.0.5.8.12: user-owned Codex tables survive projection ---
@@ -1510,7 +1510,7 @@ describe("Codex runtime adapter", () => {
 
     expect(afterSecond).toBe(afterFirst);
     expect(() => parseToml(afterSecond)).not.toThrow();
-    expect(afterSecond.match(/BEGIN OPENRIG MANAGED CODEX CONFIG FRAGMENT: codex-default-config/g)!.length).toBe(1);
+    expect(afterSecond.match(/BEGIN SOFTWARETEAM MANAGED CODEX CONFIG FRAGMENT: codex-default-config/g)!.length).toBe(1);
     expect((parseToml(afterSecond) as Record<string, any>).mcp_servers.exa.url)
       .toBe("https://exa.internal.example/mcp");
   });
@@ -1527,7 +1527,7 @@ describe("Codex runtime adapter", () => {
 
     expect(afterSecond).toBe(afterFirst);
     expect(afterSecond.startsWith(userConfig)).toBe(true);
-    expect(afterSecond.match(/BEGIN OPENRIG MANAGED CODEX CONFIG FRAGMENT: codex-default-config/g)!.length).toBe(1);
+    expect(afterSecond.match(/BEGIN SOFTWARETEAM MANAGED CODEX CONFIG FRAGMENT: codex-default-config/g)!.length).toBe(1);
     expect((parseToml(afterSecond) as Record<string, any>).mcp_servers.dollar.command).toBe("echo $$ $& $` $'");
   });
 
@@ -1647,7 +1647,7 @@ describe("Codex runtime adapter", () => {
     // Refusing on a leading comment would make the rule feel arbitrary and
     // would reject perfectly ordinary authored fragments.
     const original = 'model = "gpt-5"\n';
-    const fragment = ["# managed by openrig", "", "[mcp_servers.context7]", 'url = "https://mcp.context7.com/mcp"', ""].join("\n");
+    const fragment = ["# managed by softwareteam", "", "[mcp_servers.context7]", 'url = "https://mcp.context7.com/mcp"', ""].join("\n");
     const { project, read } = await projectFragment(original, fragment);
 
     expect(await project()).toEqual({ projected: ["codex-default-config"], skipped: [], failed: [] });
@@ -1751,20 +1751,20 @@ describe("Codex runtime adapter", () => {
     expect(read()).toBe(original);
   });
 
-  // --- Regenerator bug repair: rig-role managed-block skip ---
+  // --- Regenerator bug repair: software-team-role managed-block skip ---
   //
-  // Parallel to the Claude Code adapter fix. The same rig-role seat-collision
+  // Parallel to the Claude Code adapter fix. The same software-team-role seat-collision
   // symptom occurs for AGENTS.md on Codex members. Per architect SHAPE 1:
-  // skip mergeManagedBlock when the block id is `rig-role`; log honest skip.
+  // skip mergeManagedBlock when the block id is `software-team-role`; log honest skip.
 
-  it("projectEntry skips rig-role guidance managed block; AGENTS.md is not written", async () => {
+  it("projectEntry skips software-team-role guidance managed block; AGENTS.md is not written", async () => {
     const fs = mockFs({ "/agents/qa/guidance/role.md": "# You are `qa`\ngate discipline." });
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const adapter = new CodexRuntimeAdapter({ tmux: mockTmux(), fsOps: fs });
     const plan: ProjectionPlan = {
       runtime: "codex", cwd: "/project",
       entries: [{
-        category: "guidance", effectiveId: "rig-role", mergeStrategy: "managed_block",
+        category: "guidance", effectiveId: "software-team-role", mergeStrategy: "managed_block",
         sourceSpec: "base", sourcePath: "/agents/qa",
         resourcePath: "guidance/role.md", absolutePath: "/agents/qa/guidance/role.md",
         classification: "safe_projection",
@@ -1776,25 +1776,25 @@ describe("Codex runtime adapter", () => {
 
     const store = (fs as unknown as { _store: Record<string, string> })._store;
     expect(store["/project/AGENTS.md"]).toBeUndefined();
-    // ProjectionResult contract: rig-role must appear in `skipped`, NOT `projected`.
-    expect(result.skipped).toContain("rig-role");
-    expect(result.projected).not.toContain("rig-role");
+    // ProjectionResult contract: software-team-role must appear in `skipped`, NOT `projected`.
+    expect(result.skipped).toContain("software-team-role");
+    expect(result.projected).not.toContain("software-team-role");
     expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining("skip: effectiveId is rig-role")
+      expect.stringContaining("skip: effectiveId is software-team-role")
     );
     logSpy.mockRestore();
   });
 
-  it("projectEntry reports non-rig-role guidance in `projected`, not `skipped` (regression on contract)", async () => {
-    const fs = mockFs({ "/agents/base/guidance/using-openrig.md": "# Using OpenRig\nhub guidance" });
+  it("projectEntry reports non-software-team-role guidance in `projected`, not `skipped` (regression on contract)", async () => {
+    const fs = mockFs({ "/agents/base/guidance/using-softwareteam.md": "# Using SoftwareTeam\nhub guidance" });
     const adapter = new CodexRuntimeAdapter({ tmux: mockTmux(), fsOps: fs });
     const plan: ProjectionPlan = {
       runtime: "codex", cwd: "/project",
       entries: [{
-        category: "guidance", effectiveId: "using-openrig.md", mergeStrategy: "managed_block",
+        category: "guidance", effectiveId: "using-softwareteam.md", mergeStrategy: "managed_block",
         sourceSpec: "base", sourcePath: "/agents/base",
-        resourcePath: "guidance/using-openrig.md",
-        absolutePath: "/agents/base/guidance/using-openrig.md",
+        resourcePath: "guidance/using-softwareteam.md",
+        absolutePath: "/agents/base/guidance/using-softwareteam.md",
         classification: "safe_projection",
       } as ProjectionEntry],
       startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [],
@@ -1802,20 +1802,20 @@ describe("Codex runtime adapter", () => {
 
     const result = await adapter.project(plan, makeBinding());
 
-    expect(result.projected).toContain("using-openrig.md");
-    expect(result.skipped).not.toContain("using-openrig.md");
+    expect(result.projected).toContain("using-softwareteam.md");
+    expect(result.skipped).not.toContain("using-softwareteam.md");
   });
 
-  it("projectEntry still merges non-rig-role guidance blocks (regression)", async () => {
-    const fs = mockFs({ "/agents/base/guidance/using-openrig.md": "# Using OpenRig\nhub guidance" });
+  it("projectEntry still merges non-software-team-role guidance blocks (regression)", async () => {
+    const fs = mockFs({ "/agents/base/guidance/using-softwareteam.md": "# Using SoftwareTeam\nhub guidance" });
     const adapter = new CodexRuntimeAdapter({ tmux: mockTmux(), fsOps: fs });
     const plan: ProjectionPlan = {
       runtime: "codex", cwd: "/project",
       entries: [{
-        category: "guidance", effectiveId: "using-openrig.md", mergeStrategy: "managed_block",
+        category: "guidance", effectiveId: "using-softwareteam.md", mergeStrategy: "managed_block",
         sourceSpec: "base", sourcePath: "/agents/base",
-        resourcePath: "guidance/using-openrig.md",
-        absolutePath: "/agents/base/guidance/using-openrig.md",
+        resourcePath: "guidance/using-softwareteam.md",
+        absolutePath: "/agents/base/guidance/using-softwareteam.md",
         classification: "safe_projection",
       } as ProjectionEntry],
       startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [],
@@ -1824,16 +1824,16 @@ describe("Codex runtime adapter", () => {
     await adapter.project(plan, makeBinding());
 
     const store = (fs as unknown as { _store: Record<string, string> })._store;
-    expect(store["/project/AGENTS.md"]).toContain("BEGIN OpenRig MANAGED BLOCK: using-openrig.md");
+    expect(store["/project/AGENTS.md"]).toContain("BEGIN SoftwareTeam MANAGED BLOCK: using-softwareteam.md");
     expect(store["/project/AGENTS.md"]).toContain("hub guidance");
   });
 
-  it("deliverStartup skips rig-role guidance_merge; delivered is NOT incremented (honest metrics)", async () => {
-    const fs = mockFs({ "/rig/rig-role": "# You are `qa`\nrole body" });
+  it("deliverStartup skips software-team-role guidance_merge; delivered is NOT incremented (honest metrics)", async () => {
+    const fs = mockFs({ "/softwareTeam/software-team-role": "# You are `qa`\nrole body" });
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const adapter = new CodexRuntimeAdapter({ tmux: mockTmux(), fsOps: fs });
     const file: ResolvedStartupFile = {
-      path: "rig-role", absolutePath: "/rig/rig-role", ownerRoot: "/rig",
+      path: "software-team-role", absolutePath: "/softwareTeam/software-team-role", ownerRoot: "/softwareTeam",
       deliveryHint: "guidance_merge", required: true, appliesOn: ["fresh_start", "restore"],
     };
 
@@ -1845,7 +1845,7 @@ describe("Codex runtime adapter", () => {
     const store = (fs as unknown as { _store: Record<string, string> })._store;
     expect(store["/project/AGENTS.md"]).toBeUndefined();
     expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining("skip: effectiveId is rig-role")
+      expect.stringContaining("skip: effectiveId is software-team-role")
     );
     logSpy.mockRestore();
   });
@@ -1856,7 +1856,7 @@ describe("Codex runtime adapter", () => {
   // an unguarded probe lands the entry in ProjectionResult.failed and it is never
   // projected. This drives project() through a real-fs-backed listFiles.
   it("projects file-shaped subagent when listFiles throws ENOTDIR (production readdirSync semantics)", async () => {
-    const tempRoot = fs.mkdtempSync(nodePath.join(os.tmpdir(), "openrig-codex-projection-"));
+    const tempRoot = fs.mkdtempSync(nodePath.join(os.tmpdir(), "softwareteam-codex-projection-"));
     const srcFile = nodePath.join(tempRoot, "agents", "base", "subagents", "reviewer.yaml");
     fs.mkdirSync(nodePath.dirname(srcFile), { recursive: true });
     fs.writeFileSync(srcFile, "name: reviewer");

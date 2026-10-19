@@ -3,14 +3,14 @@
 // Tanstack-backed table; row per agent across topology, scoped by URL.
 //
 // V1 attempt-3 Phase 5 P5-9 ship-gate bounce P0-1: rules-of-hooks fix.
-// Previous shape used `scopedRigs.map((r) => useNodeInventory(r.id))` which
-// calls hooks in a loop with variable count. When scopedRigs grew from 0
-// (initial render before useRigSummary resolves) to N (after resolution),
+// Previous shape used `scopedSoftwareTeams.map((r) => useNodeInventory(r.id))` which
+// calls hooks in a loop with variable count. When scopedSoftwareTeams grew from 0
+// (initial render before useSoftwareTeamSummary resolves) to N (after resolution),
 // React detected the hook count change and threw "Cannot read properties
 // of undefined (reading 'length')" downstream. This crashed /topology at
 // 375x812 mobile because P5-9 mounts the table immediately at first
 // render (graph view-mode degraded to table for narrow viewports) BEFORE
-// rigs data is available. Switched to `useQueries` from React Query:
+// softwareTeams data is available. Switched to `useQueries` from React Query:
 // single hook call regardless of array length.
 
 import { memo, useMemo, useState } from "react";
@@ -25,7 +25,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { useQueries } from "@tanstack/react-query";
-import { useRigSummary } from "../../hooks/useRigSummary.js";
+import { useSoftwareTeamSummary } from "../../hooks/useSoftwareTeamSummary.js";
 import type { NodeInventoryEntry } from "../../hooks/useNodeInventory.js";
 import { VellumInput } from "../ui/vellum-input.js";
 import { StatusPip } from "../ui/status-pip.js";
@@ -47,15 +47,15 @@ import { RuntimeBadge, ToolMark } from "../graphics/RuntimeMark.js";
 import { formatCompactTokenCount, formatTokenTotalTitle, sumTokenCounts } from "../../lib/token-format.js";
 import { contextUsageTextClass } from "../ContextUsageRing.js";
 
-async function fetchNodeInventory(rigId: string, hostId: string): Promise<NodeInventoryEntry[]> {
-  const res = await fetch(withHostParam(`/api/rigs/${encodeURIComponent(rigId)}/nodes`, hostId));
+async function fetchNodeInventory(softwareTeamId: string, hostId: string): Promise<NodeInventoryEntry[]> {
+  const res = await fetch(withHostParam(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/nodes`, hostId));
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
 interface AgentRow {
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   podName: string;
   logicalId: string;
   sessionName: string;
@@ -107,7 +107,7 @@ function CmuxButton({ row }: { row: AgentRow }) {
           // (a null/empty logicalId would build /nodes/"null"/open-cmux).
           if (!row.logicalId) return;
           if (cmuxLaunch.isError) cmuxLaunch.reset();
-          cmuxLaunch.mutate({ rigId: row.rigId, logicalId: row.logicalId });
+          cmuxLaunch.mutate({ softwareTeamId: row.softwareTeamId, logicalId: row.logicalId });
         }}
         aria-busy={cmuxLaunch.isPending || undefined}
         aria-label={
@@ -239,7 +239,7 @@ TokenCell.displayName = "TokenCell";
 
 function agentColumns(): ColumnDef<AgentRow>[] {
   return [
-    { accessorKey: "rigName", header: "Rig", cell: ({ getValue }) => <span className="font-mono text-xs">{String(getValue())}</span> },
+    { accessorKey: "softwareTeamName", header: "SoftwareTeam", cell: ({ getValue }) => <span className="font-mono text-xs">{String(getValue())}</span> },
     { accessorKey: "podName", header: "Pod", cell: ({ getValue }) => <span className="font-mono text-xs">{String(getValue())}</span> },
     {
       accessorKey: "logicalId",
@@ -326,9 +326,9 @@ function TopologyActionsCell({ row }: { row: AgentRow }) {
   return (
     <span className="inline-flex items-center gap-1.5" data-testid={`topology-table-actions-${row.logicalId}`}>
       <CmuxButton row={row} />
-      {row.rigId ? (
+      {row.softwareTeamId ? (
         <TerminalPreviewPopover
-          rigId={row.rigId}
+          softwareTeamId={row.softwareTeamId}
           logicalId={row.logicalId}
           sessionName={row.sessionName ?? null}
           reducedMotion={false}
@@ -341,28 +341,28 @@ function TopologyActionsCell({ row }: { row: AgentRow }) {
   );
 }
 
-export function TopologyTableView({ rigIdScope, podNameScope }: { rigIdScope?: string; podNameScope?: string }) {
+export function TopologyTableView({ softwareTeamIdScope, podNameScope }: { softwareTeamIdScope?: string; podNameScope?: string }) {
   // V1 polish slice Phase 5.1 P5.1-7: row click navigates to seat-scope
   // center page (parity with graph node click + Explorer tree click +
   // Topology Tree details-icon-retired contract).
   const navigate = useNavigate();
   const hostId = useSelectedHostId();
-  const { data: rigs } = useRigSummary();
+  const { data: softwareTeams } = useSoftwareTeamSummary();
   const reducedMotion = usePrefersReducedMotion();
-  const scopedRigs = useMemo(
+  const scopedSoftwareTeams = useMemo(
     () =>
-      rigIdScope
-        ? rigs?.filter((r) => r.id === rigIdScope) ?? []
-        : rigs ?? [],
-    [rigs, rigIdScope],
+      softwareTeamIdScope
+        ? softwareTeams?.filter((r) => r.id === softwareTeamIdScope) ?? []
+        : softwareTeams ?? [],
+    [softwareTeams, softwareTeamIdScope],
   );
 
   // P0-1 fix: useQueries replaces the .map(useNodeInventory) loop. Single
-  // hook call regardless of scopedRigs length. React's hook order stays
-  // stable across renders even when rigs grows from undefined to [N].
+  // hook call regardless of scopedSoftwareTeams length. React's hook order stays
+  // stable across renders even when softwareTeams grows from undefined to [N].
   const inventoryResults = useQueries({
-    queries: scopedRigs.map((r) => ({
-      queryKey: ["rig", r.id, "nodes", hostId] as const,
+    queries: scopedSoftwareTeams.map((r) => ({
+      queryKey: ["softwareTeam", r.id, "nodes", hostId] as const,
       queryFn: () => fetchNodeInventory(r.id, hostId),
       refetchInterval: 30_000,
     })),
@@ -370,18 +370,18 @@ export function TopologyTableView({ rigIdScope, podNameScope }: { rigIdScope?: s
 
   const data: AgentRow[] = useMemo(() => {
     const rows: AgentRow[] = [];
-    for (let i = 0; i < scopedRigs.length; i++) {
-      const rig = scopedRigs[i];
+    for (let i = 0; i < scopedSoftwareTeams.length; i++) {
+      const softwareTeam = scopedSoftwareTeams[i];
       const result = inventoryResults[i];
-      if (!rig || !result) continue;
+      if (!softwareTeam || !result) continue;
       const nodes: NodeInventoryEntry[] = result.data ?? [];
       const scopedNodes = podNameScope
         ? nodes.filter((n) => (n.podNamespace ?? n.podId) === podNameScope)
         : nodes;
       for (const n of scopedNodes) {
         rows.push({
-          rigId: rig.id,
-          rigName: rig.name,
+          softwareTeamId: softwareTeam.id,
+          softwareTeamName: softwareTeam.name,
           podName: inferPodName(n.logicalId) ?? "default",
           logicalId: n.logicalId,
           sessionName: n.canonicalSessionName ?? n.logicalId,
@@ -398,12 +398,12 @@ export function TopologyTableView({ rigIdScope, podNameScope }: { rigIdScope?: s
       }
     }
     return rows;
-  }, [scopedRigs, inventoryResults, podNameScope]);
+  }, [scopedSoftwareTeams, inventoryResults, podNameScope]);
 
   const sessionIndex = useMemo(() => buildTopologySessionIndex(data.map((row) => ({
-    nodeId: `${row.rigId}::${row.logicalId}`,
-    rigId: row.rigId,
-    rigName: row.rigName,
+    nodeId: `${row.softwareTeamId}::${row.logicalId}`,
+    softwareTeamId: row.softwareTeamId,
+    softwareTeamName: row.softwareTeamName,
     logicalId: row.logicalId,
     canonicalSessionName: row.sessionName,
     agentActivity: row.agentActivity ?? null,
@@ -416,7 +416,7 @@ export function TopologyTableView({ rigIdScope, podNameScope }: { rigIdScope?: s
   const topologyActivity = useTopologyActivity(sessionIndex);
   const activityData = useMemo(() => data.map((row) => ({
     ...row,
-    activityRing: topologyActivity.getNodeActivity(`${row.rigId}::${row.logicalId}`, row),
+    activityRing: topologyActivity.getNodeActivity(`${row.softwareTeamId}::${row.logicalId}`, row),
     reducedMotion,
   })), [data, topologyActivity, reducedMotion]);
 
@@ -438,14 +438,14 @@ export function TopologyTableView({ rigIdScope, podNameScope }: { rigIdScope?: s
       if (!q) return true;
       const r = row.original;
       // OPR.0.4.1.13 (crash fix): NULL-SAFE every field. The table builds a row for
-      // EVERY node and does NOT default rigName (rig.name) or logicalId (n.logicalId)
+      // EVERY node and does NOT default softwareTeamName (softwareTeam.name) or logicalId (n.logicalId)
       // at build, so a malformed inventory entry (null name / null logicalId - a real
-      // edge data shape) made `r.rigName.toLowerCase()` / `r.logicalId.toLowerCase()`
+      // edge data shape) made `r.softwareTeamName.toLowerCase()` / `r.logicalId.toLowerCase()`
       // throw HERE during the filtered-row-model build, white-screening /topology
       // (no error boundary). `String(v ?? "")` is null-safe for all five fields.
       const hay = (v: unknown) => String(v ?? "").toLowerCase();
       return (
-        hay(r.rigName).includes(q) ||
+        hay(r.softwareTeamName).includes(q) ||
         hay(r.podName).includes(q) ||
         hay(r.logicalId).includes(q) ||
         hay(r.runtime).includes(q) ||
@@ -500,14 +500,14 @@ export function TopologyTableView({ rigIdScope, podNameScope }: { rigIdScope?: s
                   data-testid={`topology-table-row-${row.original.logicalId}`}
                   onClick={() => {
                     // OPR.0.4.1.31 part D — guard malformed rows: a null/empty
-                    // logicalId would build /seat/$rigId/"null"
+                    // logicalId would build /seat/$softwareTeamId/"null"
                     // (encodeURIComponent(null) === "null"). Skip navigation for
                     // such rows instead of routing to a bogus seat URL.
                     if (!row.original.logicalId) return;
                     navigate({
-                      to: "/topology/seat/$rigId/$logicalId",
+                      to: "/topology/seat/$softwareTeamId/$logicalId",
                       params: {
-                        rigId: row.original.rigId,
+                        softwareTeamId: row.original.softwareTeamId,
                         logicalId: encodeURIComponent(row.original.logicalId),
                       },
                     });

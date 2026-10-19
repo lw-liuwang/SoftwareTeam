@@ -8,11 +8,11 @@
 // 404 "unavailable" (the hooks' graceful-degrade path), never a rejected fetch.
 
 import {
-  rigSummary,
+  softwareTeamSummary,
   psEntries,
   specLibrary,
-  nodeInventoryByRig,
-  rigGraphByRig,
+  nodeInventoryBySoftwareTeam,
+  softwareTeamGraphBySoftwareTeam,
   nodeDetailByKey,
   sessionPreviewByName,
   sliceList,
@@ -42,7 +42,7 @@ function json(body: unknown, status = 200): Response {
 const realFetch: typeof fetch | undefined = globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined;
 
 function route(pathname: string, search: URLSearchParams): Response {
-  if (pathname === "/api/rigs/summary") return json(rigSummary);
+  if (pathname === "/api/software-teams/summary") return json(softwareTeamSummary);
   if (pathname === "/api/ps") return json(psEntries);
   // Settings (useSettings, staleTime:0). workspace.root unblocks the /project surface
   // (useWorkspaceName); preview settings keep the terminal pane consistent.
@@ -135,19 +135,19 @@ function route(pathname: string, search: URLSearchParams): Response {
     return fx ? json({ ...fx, lines }) : json({ unavailable: true, reason: "preview_unavailable" }, 404);
   }
   // Node-keyed preview is unused on the seeded surfaces -> graceful unavailable.
-  if (/^\/api\/rigs\/[^/]+\/nodes\/[^/]+\/preview$/.test(pathname)) {
+  if (/^\/api\/software-teams\/[^/]+\/nodes\/[^/]+\/preview$/.test(pathname)) {
     return json({ unavailable: true, reason: "preview_unavailable" }, 404);
   }
 
-  m = pathname.match(/^\/api\/rigs\/([^/]+)\/nodes\/([^/]+)$/);
+  m = pathname.match(/^\/api\/software-teams\/([^/]+)\/nodes\/([^/]+)$/);
   if (m) {
     const detail = nodeDetailByKey[`${decodeURIComponent(m[1]!)}::${decodeURIComponent(m[2]!)}`];
     return detail ? json(detail) : json({ error: "not_found" }, 404);
   }
-  m = pathname.match(/^\/api\/rigs\/([^/]+)\/nodes$/);
-  if (m) return json(nodeInventoryByRig[decodeURIComponent(m[1]!)] ?? []);
-  m = pathname.match(/^\/api\/rigs\/([^/]+)\/graph$/);
-  if (m) return json(rigGraphByRig[decodeURIComponent(m[1]!)] ?? { nodes: [], edges: [] });
+  m = pathname.match(/^\/api\/software-teams\/([^/]+)\/nodes$/);
+  if (m) return json(nodeInventoryBySoftwareTeam[decodeURIComponent(m[1]!)] ?? []);
+  m = pathname.match(/^\/api\/software-teams\/([^/]+)\/graph$/);
+  if (m) return json(softwareTeamGraphBySoftwareTeam[decodeURIComponent(m[1]!)] ?? { nodes: [], edges: [] });
 
   // Benign default: graceful "unavailable", never a rejected fetch.
   return json({ unavailable: true, reason: "twin_offline" }, 404);

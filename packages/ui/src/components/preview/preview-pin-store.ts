@@ -7,8 +7,8 @@
 // Cap: ui.preview.max_pins (default 4) — enforced at pin time.
 
 export interface PreviewPin {
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   logicalId: string;
   sessionName: string;
 }
@@ -36,8 +36,8 @@ class PreviewPinStore {
     return this.pins;
   }
 
-  isPinned(rigId: string, logicalId: string): boolean {
-    return this.pins.some((p) => p.rigId === rigId && p.logicalId === logicalId);
+  isPinned(softwareTeamId: string, logicalId: string): boolean {
+    return this.pins.some((p) => p.softwareTeamId === softwareTeamId && p.logicalId === logicalId);
   }
 
   /**
@@ -45,15 +45,15 @@ class PreviewPinStore {
    * exceeded (caller surfaces a UI hint).
    */
   pin(pin: PreviewPin): boolean {
-    if (this.isPinned(pin.rigId, pin.logicalId)) return true;
+    if (this.isPinned(pin.softwareTeamId, pin.logicalId)) return true;
     if (this.pins.length >= this.maxPins) return false;
     this.pins = [...this.pins, pin];
     this.notify();
     return true;
   }
 
-  unpin(rigId: string, logicalId: string): void {
-    const next = this.pins.filter((p) => !(p.rigId === rigId && p.logicalId === logicalId));
+  unpin(softwareTeamId: string, logicalId: string): void {
+    const next = this.pins.filter((p) => !(p.softwareTeamId === softwareTeamId && p.logicalId === logicalId));
     if (next.length !== this.pins.length) {
       this.pins = next;
       this.notify();

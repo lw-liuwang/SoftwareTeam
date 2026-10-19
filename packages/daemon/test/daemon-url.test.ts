@@ -22,11 +22,11 @@ describe("formatDaemonHostForUrl (Issue #493)", () => {
 
   it("produces valid URLs that parse cleanly in new URL", () => {
     const rawIpv6 = "::1";
-    expect(() => new URL(`http://${rawIpv6}:7433/healthz`)).toThrow();
+    expect(() => new URL(`http://${rawIpv6}:7434/healthz`)).toThrow();
     const formatted = formatDaemonHostForUrl(rawIpv6);
-    const parsed = new URL(`http://${formatted}:7433/healthz`);
+    const parsed = new URL(`http://${formatted}:7434/healthz`);
     expect(parsed.hostname).toBe("[::1]");
-    expect(parsed.port).toBe("7433");
+    expect(parsed.port).toBe("7434");
   });
 
   it("adapters/daemon-url behaves identically to domain/daemon-url", () => {

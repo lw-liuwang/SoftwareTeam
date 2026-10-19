@@ -2,12 +2,12 @@ import fs from "node:fs";
 import os from "node:os";
 import nodePath from "node:path";
 import { parse as parseYaml, parseDocument, isMap, isSeq } from "yaml";
-import { configurationId } from "@openrig/daemon/bundle-identity";
+import { configurationId } from "@softwareteam/daemon/bundle-identity";
 
 /**
  * Declared configurations (docs/reference/bundle-formats.md, bundle-configurations.v1): which runtime
  * each seat may use, the profile each runtime uses, and named presets. The generator applies a chosen
- * mapping to an owned copy of the rig folder, then the one bundler packs it. Nothing here invents a
+ * mapping to an owned copy of the softwareTeam folder, then the one bundler packs it. Nothing here invents a
  * resource: a runtime's differences live in the profile the author named for it.
  */
 
@@ -29,13 +29,13 @@ export interface ChosenConfiguration {
 
 export class ConfigurationError extends Error {}
 
-/** Read configurations.yaml beside rig.yaml. Returns null when the bundle declares none. */
-export function readDeclaredConfigurations(rigDir: string): DeclaredConfigurations | null {
-  const file = nodePath.join(rigDir, CONFIGURATIONS_FILE);
+/** Read configurations.yaml beside software-team.yaml. Returns null when the bundle declares none. */
+export function readDeclaredConfigurations(softwareTeamDir: string): DeclaredConfigurations | null {
+  const file = nodePath.join(softwareTeamDir, CONFIGURATIONS_FILE);
   if (!fs.existsSync(file)) return null;
   const raw = parseYaml(fs.readFileSync(file, "utf-8")) as unknown;
-  if (!isObject(raw) || raw["schema"] !== "openrig.bundle-configurations/v1") {
-    throw new ConfigurationError(`${file} is not an openrig.bundle-configurations/v1 file`);
+  if (!isObject(raw) || raw["schema"] !== "softwareteam.bundle-configurations/v1") {
+    throw new ConfigurationError(`${file} is not an softwareteam.bundle-configurations/v1 file`);
   }
   const problem = shapeProblem(raw);
   if (problem) throw new ConfigurationError(`${file}: ${problem}`);
@@ -62,9 +62,9 @@ function shapeProblem(raw: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
-/** The runtime each member uses in rig.yaml as authored. */
-export function authoredMapping(rigSpecPath: string): Record<string, string> {
-  const spec = parseYaml(fs.readFileSync(rigSpecPath, "utf-8")) as { pods?: Array<{ id: string; members?: Array<{ id: string; runtime?: string }> }> };
+/** The runtime each member uses in software-team.yaml as authored. */
+export function authoredMapping(softwareTeamSpecPath: string): Record<string, string> {
+  const spec = parseYaml(fs.readFileSync(softwareTeamSpecPath, "utf-8")) as { pods?: Array<{ id: string; members?: Array<{ id: string; runtime?: string }> }> };
   const mapping: Record<string, string> = {};
   for (const pod of spec.pods ?? []) for (const member of pod.members ?? []) {
     if (member.runtime) mapping[`${pod.id}.${member.id}`] = member.runtime;
@@ -77,7 +77,7 @@ function sameMapping(a: Record<string, string>, b: Record<string, string>): bool
   return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k]);
 }
 
-/** A seat the file lists may use only its declared runtimes; any other seat keeps rig.yaml's runtime. */
+/** A seat the file lists may use only its declared runtimes; any other seat keeps software-team.yaml's runtime. */
 function allowedRuntimes(declared: DeclaredConfigurations, authored: Record<string, string>, member: string): string[] {
   const seat = declared.seats[member];
   return seat ? Object.keys(seat.runtimes) : [authored[member]!];
@@ -89,27 +89,27 @@ function checkMapping(declared: DeclaredConfigurations, authored: Record<string,
     if (!(member in mapping)) throw new ConfigurationError(`${what} doesn't give member '${member}' a runtime`);
   }
   for (const [member, runtime] of Object.entries(mapping)) {
-    if (!(member in authored)) throw new ConfigurationError(`${what} names '${member}', which isn't a member of this rig`);
+    if (!(member in authored)) throw new ConfigurationError(`${what} names '${member}', which isn't a member of this softwareTeam`);
     const allowed = allowedRuntimes(declared, authored, member);
     if (!allowed.includes(runtime)) throw new ConfigurationError(`${what}: seat '${member}' can't use '${runtime}'; it can use: ${allowed.join(", ")}`);
   }
 }
 
 /**
- * Check a declaration against rig.yaml as written: every seat it lists is a member, every preset
- * stays within the declared runtimes, and the recommended preset is rig.yaml's own mapping, so
- * building it gives the authored package. Create, `rig bundle configurations` and `rig bundle check`
+ * Check a declaration against software-team.yaml as written: every seat it lists is a member, every preset
+ * stays within the declared runtimes, and the recommended preset is software-team.yaml's own mapping, so
+ * building it gives the authored package. Create, `softwareTeam bundle configurations` and `softwareTeam bundle check`
  * share this check. Throws ConfigurationError naming the first problem.
  */
 export function checkDeclaredConfigurations(declared: DeclaredConfigurations, authored: Record<string, string>): void {
   for (const member of Object.keys(declared.seats)) {
-    if (!(member in authored)) throw new ConfigurationError(`seats names '${member}', which isn't a member of this rig`);
+    if (!(member in authored)) throw new ConfigurationError(`seats names '${member}', which isn't a member of this softwareTeam`);
   }
   const recommended = declared.presets[declared.recommended];
   if (!recommended) throw new ConfigurationError(`recommended names '${declared.recommended}', which isn't a declared preset; declared presets: ${Object.keys(declared.presets).join(", ")}`);
   for (const [name, mapping] of Object.entries(declared.presets)) checkMapping(declared, authored, mapping, `preset '${name}'`);
   if (!sameMapping(recommended, authored)) {
-    throw new ConfigurationError(`the recommended preset '${declared.recommended}' must be rig.yaml as written (${configurationId(authored)}), but it is ${configurationId(recommended)}`);
+    throw new ConfigurationError(`the recommended preset '${declared.recommended}' must be software-team.yaml as written (${configurationId(authored)}), but it is ${configurationId(recommended)}`);
   }
 }
 
@@ -135,8 +135,8 @@ export function resolveConfiguration(
     const match = /^([^=]+)=([^=]+)$/.exec(seatChoice);
     if (!match) throw new ConfigurationError(`--seat expects pod.member=runtime, got '${seatChoice}'`);
     const [, member, runtime] = match as unknown as [string, string, string];
-    if (!(member in authored)) throw new ConfigurationError(`'${member}' isn't a member of this rig`);
-    // The same rule a preset meets: a listed seat uses its declared runtimes, any other keeps rig.yaml's
+    if (!(member in authored)) throw new ConfigurationError(`'${member}' isn't a member of this softwareTeam`);
+    // The same rule a preset meets: a listed seat uses its declared runtimes, any other keeps software-team.yaml's
     if (!allowedRuntimes(declared, authored, member).includes(runtime)) {
       throw new ConfigurationError(declared.seats[member]
         ? `seat '${member}' can't use '${runtime}'; it can use: ${Object.keys(declared.seats[member].runtimes).join(", ")}`
@@ -149,7 +149,7 @@ export function resolveConfiguration(
   return { mapping, configurationId: configurationId(mapping), ...(preset ? { preset } : {}) };
 }
 
-/** Every declared preset with its configuration ID, and which preset is rig.yaml as authored. */
+/** Every declared preset with its configuration ID, and which preset is software-team.yaml as authored. */
 export function listConfigurations(declared: DeclaredConfigurations, authored: Record<string, string>) {
   return Object.entries(declared.presets).map(([name, mapping]) => ({
     preset: name,
@@ -160,21 +160,21 @@ export function listConfigurations(declared: DeclaredConfigurations, authored: R
 }
 
 /**
- * Copy the rig folder to a new owned directory and apply the chosen runtime and profile to every
- * member whose runtime changes, so the author's folder is never modified. Returns the copy's rig.yaml.
+ * Copy the softwareTeam folder to a new owned directory and apply the chosen runtime and profile to every
+ * member whose runtime changes, so the author's folder is never modified. Returns the copy's software-team.yaml.
  * Links are copied as the files they point to, so nothing in the copy leads back to the author's
  * files. If staging fails, the copy is removed and a ConfigurationError says why.
  */
-export function stageConfiguration(rigDir: string, rigSpecFile: string, declared: DeclaredConfigurations, chosen: ChosenConfiguration): { stagingDir: string; rigSpecPath: string } {
-  const specInRig = nodePath.relative(rigDir, rigSpecFile);
-  if (!specInRig || specInRig === ".." || specInRig.startsWith(`..${nodePath.sep}`) || nodePath.isAbsolute(specInRig)) {
-    throw new ConfigurationError(`${rigSpecFile} isn't inside the rig folder ${rigDir}, so a configuration can't be staged from it`);
+export function stageConfiguration(softwareTeamDir: string, softwareTeamSpecFile: string, declared: DeclaredConfigurations, chosen: ChosenConfiguration): { stagingDir: string; softwareTeamSpecPath: string } {
+  const specInSoftwareTeam = nodePath.relative(softwareTeamDir, softwareTeamSpecFile);
+  if (!specInSoftwareTeam || specInSoftwareTeam === ".." || specInSoftwareTeam.startsWith(`..${nodePath.sep}`) || nodePath.isAbsolute(specInSoftwareTeam)) {
+    throw new ConfigurationError(`${softwareTeamSpecFile} isn't inside the SoftwareTeam folder ${softwareTeamDir}, so a configuration can't be staged from it`);
   }
-  const stagingDir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "rig-configuration-"));
+  const stagingDir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "software-team-configuration-"));
   try {
-    fs.cpSync(rigDir, stagingDir, { recursive: true, dereference: true, filter: (src) => !/(^|[\\/])(\.git|node_modules)$/.test(src) });
-    const rigSpecPath = nodePath.join(stagingDir, specInRig);
-    const doc = parseDocument(fs.readFileSync(rigSpecPath, "utf-8"));
+    fs.cpSync(softwareTeamDir, stagingDir, { recursive: true, dereference: true, filter: (src) => !/(^|[\\/])(\.git|node_modules)$/.test(src) });
+    const softwareTeamSpecPath = nodePath.join(stagingDir, specInSoftwareTeam);
+    const doc = parseDocument(fs.readFileSync(softwareTeamSpecPath, "utf-8"));
     const pods = doc.get("pods");
     if (isSeq(pods)) for (const pod of pods.items) {
       if (!isMap(pod)) continue;
@@ -191,12 +191,12 @@ export function stageConfiguration(rigDir: string, rigSpecFile: string, declared
       }
     }
     // Replace rather than write in place, so the write can only ever land in the copy
-    fs.rmSync(rigSpecPath, { force: true });
-    fs.writeFileSync(rigSpecPath, doc.toString());
-    return { stagingDir, rigSpecPath };
+    fs.rmSync(softwareTeamSpecPath, { force: true });
+    fs.writeFileSync(softwareTeamSpecPath, doc.toString());
+    return { stagingDir, softwareTeamSpecPath };
   } catch (err) {
     fs.rmSync(stagingDir, { recursive: true, force: true });
     if (err instanceof ConfigurationError) throw err;
-    throw new ConfigurationError(`couldn't stage a copy of ${rigDir}: ${err instanceof Error ? err.message : String(err)}`);
+    throw new ConfigurationError(`couldn't stage a copy of ${softwareTeamDir}: ${err instanceof Error ? err.message : String(err)}`);
   }
 }

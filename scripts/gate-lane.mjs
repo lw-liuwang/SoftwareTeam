@@ -13,10 +13,10 @@ import { acquireGateLane, GATE_LANE_PORT } from "./gate-lane-lock.mjs";
 import { renderRefusal, runGate, observeForeignLoad, cleanStaleVendoredBundle } from "./gate-lane-run.mjs";
 import { checkDependencyRoot } from "./gate-lane-hermeticity.mjs";
 
-const RUNTIME_DIR = (() => { const d = join(tmpdir(), "openrig-gate"); mkdirSync(d, { recursive: true }); return d; })();
+const RUNTIME_DIR = (() => { const d = join(tmpdir(), "softwareteam-gate"); mkdirSync(d, { recursive: true }); return d; })();
 const HOLDER_INFO = join(RUNTIME_DIR, "gate-lane.holder.json");
-const VERDICT_PATH = process.env.OPENRIG_GATE_VERDICT ?? join(process.cwd(), "gate-lane-verdict.json");
-const SMOKE = process.env.OPENRIG_GATE_LANE_SMOKE === "1"; // skip the real legs (mutex/verdict wiring smoke)
+const VERDICT_PATH = process.env.SOFTWARETEAM_GATE_VERDICT ?? join(process.cwd(), "gate-lane-verdict.json");
+const SMOKE = process.env.SOFTWARETEAM_GATE_LANE_SMOKE === "1"; // skip the real legs (mutex/verdict wiring smoke)
 
 // F1 exclusion-ledger seed (empty by design). Absent/corrupt → treat as EMPTY (strict gate), never a
 // silent skip. cutCeiling comes from the seed so the desk owns it in one place.

@@ -23,7 +23,7 @@ import {
 
 describe("human-route-enforcer (pure validator)", () => {
   it("§5 predicate leg 1: tier=human-gate is human-routed", () => {
-    const r = validateHumanRoute({ tier: "human-gate", destinationSession: "b@rig", summary: "s", evidenceRef: "e" });
+    const r = validateHumanRoute({ tier: "human-gate", destinationSession: "b@software-team", summary: "s", evidenceRef: "e" });
     expect(r.ok).toBe(true);
     expect(r.ok && r.humanRouted).toBe(true);
   });
@@ -34,13 +34,13 @@ describe("human-route-enforcer (pure validator)", () => {
     expect(isHumanSeatSession("human-review@kernel")).toBe(true);
     // malformed / near-miss sessions are NOT human seats (no LIKE superset):
     expect(isHumanSeatSession("human-@kernel")).toBe(false);
-    expect(isHumanSeatSession("human-ish@other-rig")).toBe(false);
+    expect(isHumanSeatSession("human-ish@other-software-team")).toBe(false);
     expect(isHumanSeatSession("superhuman@kernel")).toBe(false);
     expect(isHumanSeatSession(null)).toBe(false);
   });
 
   it("human-routed with both fields missing → error naming BOTH fields + why", () => {
-    const r = validateHumanRoute({ tier: "human-gate", destinationSession: "b@rig", summary: null, evidenceRef: null });
+    const r = validateHumanRoute({ tier: "human-gate", destinationSession: "b@software-team", summary: null, evidenceRef: null });
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.code).toBe("human_route_fields_required");
@@ -57,7 +57,7 @@ describe("human-route-enforcer (pure validator)", () => {
   });
 
   it("BR-1: non-human-routed request validates NOTHING (ok regardless of fields)", () => {
-    const r = validateHumanRoute({ tier: "critical", destinationSession: "guard@rig", summary: null, evidenceRef: null });
+    const r = validateHumanRoute({ tier: "critical", destinationSession: "guard@software-team", summary: null, evidenceRef: null });
     expect(r).toEqual({ ok: true, humanRouted: false });
   });
 });
@@ -74,11 +74,11 @@ describe("QueueRepository human-route enforcement wiring (FR-4/FR-5)", () => {
 
   afterEach(() => db.close());
 
-  const ordinary = { sourceSession: "a@rig", destinationSession: "b@rig", body: "work", nudge: false as const };
+  const ordinary = { sourceSession: "a@software-team", destinationSession: "b@software-team", body: "work", nudge: false as const };
 
   it("create to a human seat without summary/evidence_ref is REJECTED with the structured error", async () => {
     await expect(
-      repo.create({ sourceSession: "pm@rig", destinationSession: "human-review@kernel", body: "judge", nudge: false })
+      repo.create({ sourceSession: "pm@software-team", destinationSession: "human-review@kernel", body: "judge", nudge: false })
     ).rejects.toMatchObject({ code: "human_route_fields_required" });
   });
 
@@ -90,7 +90,7 @@ describe("QueueRepository human-route enforcement wiring (FR-4/FR-5)", () => {
 
   it("human-routed create WITH both fields is accepted and persists them", async () => {
     const item = await repo.create({
-      sourceSession: "pm@rig",
+      sourceSession: "pm@software-team",
       destinationSession: "human-review@kernel",
       body: "judge",
       summary: "Approve the 0.4.4 cut",
@@ -109,12 +109,12 @@ describe("QueueRepository human-route enforcement wiring (FR-4/FR-5)", () => {
     });
     // Source HAS both fields; the handoff omits them → still rejected.
     await expect(
-      repo.handoff({ qitemId: src.qitemId, fromSession: "b@rig", toSession: "human-review@kernel", nudge: false })
+      repo.handoff({ qitemId: src.qitemId, fromSession: "b@software-team", toSession: "human-review@kernel", nudge: false })
     ).rejects.toMatchObject({ code: "human_route_fields_required" });
     // Providing them on the handoff itself succeeds.
     const result = await repo.handoff({
       qitemId: src.qitemId,
-      fromSession: "b@rig",
+      fromSession: "b@software-team",
       toSession: "human-review@kernel",
       summary: "Please ratify",
       evidenceRef: "proof/final.md",
@@ -133,14 +133,14 @@ describe("QueueRepository human-route enforcement wiring (FR-4/FR-5)", () => {
     });
     // No tier override on the handoff → new item inherits human-gate → enforcement.
     await expect(
-      repo.handoff({ qitemId: src.qitemId, fromSession: "b@rig", toSession: "c@rig", nudge: false })
+      repo.handoff({ qitemId: src.qitemId, fromSession: "b@software-team", toSession: "c@software-team", nudge: false })
     ).rejects.toMatchObject({ code: "human_route_fields_required" });
   });
 
   it("handoffAndComplete to a human seat is enforced identically", async () => {
     const src = await repo.create(ordinary);
     await expect(
-      repo.handoffAndComplete({ qitemId: src.qitemId, fromSession: "b@rig", toSession: "human@kernel", nudge: false })
+      repo.handoffAndComplete({ qitemId: src.qitemId, fromSession: "b@software-team", toSession: "human@kernel", nudge: false })
     ).rejects.toMatchObject({ code: "human_route_fields_required" });
   });
 
@@ -155,7 +155,7 @@ describe("QueueRepository human-route enforcement wiring (FR-4/FR-5)", () => {
 
   it("NEGATIVE: ordinary handoff without the fields is accepted; no new rejection path", async () => {
     const src = await repo.create(ordinary);
-    const result = await repo.handoff({ qitemId: src.qitemId, fromSession: "b@rig", toSession: "c@rig", nudge: false });
+    const result = await repo.handoff({ qitemId: src.qitemId, fromSession: "b@software-team", toSession: "c@software-team", nudge: false });
     expect(result.created.state).toBe("pending");
     expect(result.created.summary).toBeNull();
     expect(result.created.evidenceRef).toBeNull();
@@ -163,10 +163,10 @@ describe("QueueRepository human-route enforcement wiring (FR-4/FR-5)", () => {
 
   it("NEGATIVE: ordinary update/close paths gain no new requirement (closure contract unchanged)", async () => {
     const item = await repo.create(ordinary);
-    repo.claim({ qitemId: item.qitemId, destinationSession: "b@rig" });
+    repo.claim({ qitemId: item.qitemId, destinationSession: "b@software-team" });
     const done = repo.update({
       qitemId: item.qitemId,
-      actorSession: "b@rig",
+      actorSession: "b@software-team",
       state: "done",
       closureReason: "no-follow-on",
     });
@@ -174,7 +174,7 @@ describe("QueueRepository human-route enforcement wiring (FR-4/FR-5)", () => {
   });
 
   it("NEGATIVE: near-miss destinations (regex non-matches) are NOT enforced", async () => {
-    const item = await repo.create({ ...ordinary, destinationSession: "human-ish@other-rig" });
+    const item = await repo.create({ ...ordinary, destinationSession: "human-ish@other-software-team" });
     expect(item.state).toBe("pending");
     const item2 = await repo.create({ ...ordinary, destinationSession: "human-@kernel" });
     expect(item2.state).toBe("pending");
@@ -195,12 +195,12 @@ describe("FR-6 park-on-human (leg-1) — enforcement + persistence + attention",
 
   async function inProgressItem() {
     const item = await repo.create({
-      sourceSession: "orch@rig",
-      destinationSession: "driver@rig",
+      sourceSession: "orch@software-team",
+      destinationSession: "driver@software-team",
       body: "build the thing",
       nudge: false,
     });
-    repo.claim({ qitemId: item.qitemId, destinationSession: "driver@rig" });
+    repo.claim({ qitemId: item.qitemId, destinationSession: "driver@software-team" });
     return item;
   }
 
@@ -208,14 +208,14 @@ describe("FR-6 park-on-human (leg-1) — enforcement + persistence + attention",
     const item = await inProgressItem();
     const parked = repo.update({
       qitemId: item.qitemId,
-      actorSession: "driver@rig",
+      actorSession: "driver@software-team",
       state: "blocked",
       blockedOn: "human-review@kernel",
       summary: "Which hook-trust timing rule should ship?",
       evidenceRef: "missions/x/slices/y/OPTIONS.md",
     });
     expect(parked.state).toBe("blocked");
-    expect(parked.destinationSession).toBe("driver@rig"); // owner keeps the potato
+    expect(parked.destinationSession).toBe("driver@software-team"); // owner keeps the potato
     expect(parked.closureReason).toBeNull();              // non-terminal
     const read = repo.getById(item.qitemId)!;
     expect(read.summary).toBe("Which hook-trust timing rule should ship?");
@@ -227,13 +227,13 @@ describe("FR-6 park-on-human (leg-1) — enforcement + persistence + attention",
     expect(() =>
       repo.update({
         qitemId: item.qitemId,
-        actorSession: "driver@rig",
+        actorSession: "driver@software-team",
         state: "blocked",
         blockedOn: "human-review@kernel",
       })
     ).toThrow(/summary \+ evidence_ref|summary/);
     try {
-      repo.update({ qitemId: item.qitemId, actorSession: "driver@rig", state: "blocked", blockedOn: "human-review@kernel" });
+      repo.update({ qitemId: item.qitemId, actorSession: "driver@software-team", state: "blocked", blockedOn: "human-review@kernel" });
     } catch (err) {
       expect((err as QueueRepositoryError).code).toBe("human_route_fields_required");
       expect((err as QueueRepositoryError).meta?.missingFields).toEqual(["summary", "evidence_ref"]);
@@ -242,17 +242,17 @@ describe("FR-6 park-on-human (leg-1) — enforcement + persistence + attention",
 
   it("an item already carrying both fields parks without re-entry (effective-value rule)", async () => {
     const item = await repo.create({
-      sourceSession: "orch@rig",
-      destinationSession: "driver@rig",
+      sourceSession: "orch@software-team",
+      destinationSession: "driver@software-team",
       body: "b",
       summary: "carried from create",
       evidenceRef: "proof/carried.md",
       nudge: false,
     });
-    repo.claim({ qitemId: item.qitemId, destinationSession: "driver@rig" });
+    repo.claim({ qitemId: item.qitemId, destinationSession: "driver@software-team" });
     const parked = repo.update({
       qitemId: item.qitemId,
-      actorSession: "driver@rig",
+      actorSession: "driver@software-team",
       state: "blocked",
       blockedOn: "human@kernel",
     });
@@ -263,7 +263,7 @@ describe("FR-6 park-on-human (leg-1) — enforcement + persistence + attention",
     const item = await inProgressItem();
     repo.update({
       qitemId: item.qitemId,
-      actorSession: "driver@rig",
+      actorSession: "driver@software-team",
       state: "blocked",
       blockedOn: "human-review@kernel",
       summary: "decision owed",
@@ -274,11 +274,11 @@ describe("FR-6 park-on-human (leg-1) — enforcement + persistence + attention",
   });
 
   it("NEGATIVE: blocked on another QITEM requires nothing new and does NOT appear in attention", async () => {
-    const blocker = await repo.create({ sourceSession: "a@rig", destinationSession: "b@rig", body: "blocker", nudge: false });
+    const blocker = await repo.create({ sourceSession: "a@software-team", destinationSession: "b@software-team", body: "blocker", nudge: false });
     const item = await inProgressItem();
     const parked = repo.update({
       qitemId: item.qitemId,
-      actorSession: "driver@rig",
+      actorSession: "driver@software-team",
       state: "blocked",
       blockedOn: blocker.qitemId,
     });
@@ -292,10 +292,10 @@ describe("FR-6 park-on-human (leg-1) — enforcement + persistence + attention",
     const repo2 = new QueueRepository(db, bus);
     const captured: Array<Record<string, unknown>> = [];
     bus.subscribe((e) => captured.push(e as unknown as Record<string, unknown>));
-    const item = await repo2.create({ sourceSession: "a@rig", destinationSession: "d@rig", body: "b", nudge: false });
+    const item = await repo2.create({ sourceSession: "a@software-team", destinationSession: "d@software-team", body: "b", nudge: false });
     repo2.update({
       qitemId: item.qitemId,
-      actorSession: "d@rig",
+      actorSession: "d@software-team",
       state: "blocked",
       blockedOn: "human@kernel",
       summary: "park-time summary",
@@ -316,7 +316,7 @@ describe("FR-6 park-on-human (leg-1) — enforcement + persistence + attention",
     try {
       repo.update({
         qitemId: item.qitemId,
-        actorSession: "driver@rig",
+        actorSession: "driver@software-team",
         state: "in-progress",
         summary: "should NOT persist",
         evidenceRef: "should-not-persist.md",

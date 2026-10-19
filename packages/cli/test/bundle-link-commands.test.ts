@@ -7,8 +7,8 @@ import type { StatusDeps } from "../src/commands/status.js";
 
 const f = vi.hoisted(() => ({ imported: vi.fn(), post: vi.fn() }));
 vi.mock("../src/lib/bundle-source.js", async original => ({ ...await original<object>(), importGitHubBundle: f.imported }));
-const link = "https://github.com/example/team/tree/main/rig";
-const identity = { source: { resolvedCommit: "a".repeat(40), canonicalUrl: link }, configurationId: "build.dev=codex", packageDigest: { value: "digest", coverage: "openrig.package-digest/v1" }, archiveHash: "archive", assembler: { openrigVersion: "0.6.6" } };
+const link = "https://github.com/example/team/tree/main/softwareTeam";
+const identity = { source: { resolvedCommit: "a".repeat(40), canonicalUrl: link }, configurationId: "build.dev=codex", packageDigest: { value: "digest", coverage: "softwareteam.package-digest/v1" }, archiveHash: "archive", assembler: { softwareteamVersion: "0.6.6" } };
 
 describe("bundle link command dispatch", () => {
   const deps = { lifecycleDeps: {}, clientFactory: vi.fn(() => { throw new Error("unexpected second client"); }) } as unknown as StatusDeps;
@@ -19,7 +19,7 @@ describe("bundle link command dispatch", () => {
     log = vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
     f.post.mockReset(); f.imported.mockReset();
-    f.imported.mockResolvedValue({ client: { post: f.post }, bundlePath: "/tmp/owned/bundle.rigbundle", res: { status: 201, data: identity } });
+    f.imported.mockResolvedValue({ client: { post: f.post }, bundlePath: "/tmp/owned/bundle.softwareteambundle", res: { status: 201, data: identity } });
     f.post.mockResolvedValue({ status: 200, data: { ...identity, manifest: { name: "fixture", version: "1.0" }, digestValid: true, integrityResult: { passed: true }, status: "completed" } });
   });
   afterEach(() => { vi.restoreAllMocks(); process.exitCode = oldExit; });
@@ -27,14 +27,14 @@ describe("bundle link command dispatch", () => {
   it.each(["create", "inspect", "install", "up"])("%s builds once and returns one JSON result", async verb => {
     const program = new Command();
     program.addCommand(verb === "up" ? upCommand(deps) : bundleCommand(deps));
-    const argv = verb === "up" ? ["up", link, "--json"] : ["bundle", verb, link, ...(verb === "create" ? ["-o", "team.rigbundle"] : []), "--json"];
+    const argv = verb === "up" ? ["up", link, "--json"] : ["bundle", verb, link, ...(verb === "create" ? ["-o", "team.softwareteambundle"] : []), "--json"];
     await program.parseAsync(argv, { from: "user" });
     expect(f.imported).toHaveBeenCalledTimes(1);
     expect(log).toHaveBeenCalledTimes(1);
     expect(JSON.parse(String(log.mock.calls[0]![0]))).toMatchObject(identity);
     const expected = verb === "create" ? [] : verb === "inspect" ? ["/api/bundles/inspect"] : ["/api/bundles/inspect", "/api/bundles/install"];
     expect(f.post.mock.calls.map(c => c[0])).toEqual(expected);
-    if (verb !== "create") expect(f.post.mock.calls[0]![1]).toMatchObject({ bundlePath: "/tmp/owned/bundle.rigbundle" });
+    if (verb !== "create") expect(f.post.mock.calls[0]![1]).toMatchObject({ bundlePath: "/tmp/owned/bundle.softwareteambundle" });
     if (verb === "up" || verb === "install") expect(f.post.mock.calls.find(c => c[0] === "/api/bundles/install")![1].targetRoot).toBe(process.cwd());
   });
 
@@ -85,9 +85,9 @@ describe("bundle link command dispatch", () => {
   it.each(["up", "install"])("%s shows pending startup guidance without changing its JSON or exit", async verb => {
     const attentionNodes = ["owner", "checker"].map(member => ({
       logicalId: `dev.${member}`, sessionName: `dev-${member}@fixture`,
-      reason: `Permission consent needs attention; After resolving it in dev-${member}@fixture, run: rig seat continue 'dev-${member}@fixture'`,
+      reason: `Permission consent needs attention; After resolving it in dev-${member}@fixture, run: SoftwareTeam seat continue 'dev-${member}@fixture'`,
     }));
-    const data = { status: "partial", rigId: "fixture", stages: [{ stage: "import_rig", status: "blocked", detail: { attentionNodes } }] };
+    const data = { status: "partial", softwareTeamId: "fixture", stages: [{ stage: "import_software_team", status: "blocked", detail: { attentionNodes } }] };
     // An unavailable optional inspection keeps the install result unaugmented.
     f.post.mockImplementation(async (url: string) => url === "/api/bundles/install"
       ? { status: 200, data }
@@ -115,6 +115,6 @@ describe("bundle link command dispatch", () => {
     await new Command().addCommand(bundleCommand(deps)).parseAsync(["bundle", "install", link, "--json"], { from: "user" });
     expect(f.post.mock.calls.map(c => c[0])).toEqual(["/api/bundles/inspect", "/api/bundles/install"]);
     expect(String(log.mock.calls[0]![0])).toContain("outcome is unknown");
-    expect(String(log.mock.calls[0]![0])).toContain("/tmp/owned/bundle.rigbundle");
+    expect(String(log.mock.calls[0]![0])).toContain("/tmp/owned/bundle.softwareteambundle");
   });
 });

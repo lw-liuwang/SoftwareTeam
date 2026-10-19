@@ -1,4 +1,4 @@
-// OPR.0.6.0.5 — `rig slack manifest` is offline: it runs on the real lazily-imported daemon
+// OPR.0.6.0.5 — `softwareTeam slack manifest` is offline: it runs on the real lazily-imported daemon
 // surface with no daemon client, no tokens and no network.
 import { afterEach, describe, expect, it } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse } from "yaml";
 import { slackCommand, type SlackDeps } from "../src/commands/slack.js";
-import { buildSlackAppManifest, FEATURE_SCOPES, BASELINE_REQUIRED_SCOPES } from "@openrig/daemon/gateway-slack";
+import { buildSlackAppManifest, FEATURE_SCOPES, BASELINE_REQUIRED_SCOPES } from "@softwareteam/daemon/gateway-slack";
 
 const homes: string[] = [];
 afterEach(() => { for (const h of homes.splice(0)) rmSync(h, { recursive: true, force: true }); });
@@ -27,7 +27,7 @@ function offline(overrides: Partial<SlackDeps> = {}): { deps: SlackDeps; logs: s
 }
 const run = (deps: SlackDeps, argv: string[]) => slackCommand(deps).parseAsync(["node", "slack", ...argv]);
 
-describe("rig slack manifest (offline)", () => {
+describe("SoftwareTeam slack manifest (offline)", () => {
   it("prints the shipped manifest as YAML from the real surface", async () => {
     const { deps, logs } = offline();
     await run(deps, ["manifest"]);
@@ -52,7 +52,7 @@ describe("rig slack manifest (offline)", () => {
     expect(new Set(out.scopes)).toEqual(new Set(bundle.scopes));
     expect(new Set(out.events)).toEqual(new Set(bundle.events));
     for (const scope of out.scopes) expect(out.why[scope]).not.toBe("unexplained");
-    for (const scope of BASELINE_REQUIRED_SCOPES) expect(out.why[scope]).toContain("checked by `rig slack verify`");
+    for (const scope of BASELINE_REQUIRED_SCOPES) expect(out.why[scope]).toContain("checked by `SoftwareTeam slack verify`");
     for (const f of FEATURE_SCOPES) expect(out.why[f.scope]).toContain("not checked by verify");
   });
 
@@ -63,13 +63,13 @@ describe("rig slack manifest (offline)", () => {
     manifest.configureOutput({ writeOut: (s) => { help += s; } });
     manifest.outputHelp();
     expect(help).toContain("docs/reference/slack-app-setup.md");
-    expect(help).toContain("$OPENRIG_HOME/reference/slack-app-setup.md");
+    expect(help).toContain("$SOFTWARETEAM_HOME/reference/slack-app-setup.md");
     expect(help).toContain("does not prove attachments or mentions");
     expect(help).toContain("paste the plain YAML output");
   });
 });
 
-describe("next-step routing names `rig slack manifest` first", () => {
+describe("next-step routing names `SoftwareTeam slack manifest` first", () => {
   const readiness = (ok: boolean) => [{ label: "bot-token", ok, detail: ok ? "set" : "unset" }];
   const surface = (ok: boolean) => async () => ({
     loadConfig: () => ({ enabled: false, inboundDestination: "x", outboundDestinations: [], sourceLabel: "s", channel: null,
@@ -87,10 +87,10 @@ describe("next-step routing names `rig slack manifest` first", () => {
   it("status, unconfigured: text and JSON both name the manifest step", async () => {
     const text = offline({ surface: surface(false) as SlackDeps["surface"] });
     await run(text.deps, ["status"]);
-    expect(text.logs.join("\n")).toMatch(/First step: `rig slack manifest --url`/);
+    expect(text.logs.join("\n")).toMatch(/First step: `SoftwareTeam slack manifest --url`/);
     const json = offline({ surface: surface(false) as SlackDeps["surface"] });
     await run(json.deps, ["status", "--json"]);
-    expect(JSON.parse(json.logs[0]!).next).toContain("rig slack manifest --url");
+    expect(JSON.parse(json.logs[0]!).next).toContain("SoftwareTeam slack manifest --url");
   });
 
   it("status, configured: no manifest step", async () => {
@@ -102,6 +102,6 @@ describe("next-step routing names `rig slack manifest` first", () => {
   it("setup's next-step hint starts with the manifest", async () => {
     const { deps, logs } = offline();
     await run(deps, ["setup", "--channel", "C123", "--reason", "fixture", "--actor", "fixture-operator"]);
-    expect(logs.find((l) => l.startsWith("Next:"))).toMatch(/^Next: if you have no Slack app yet, start with `rig slack manifest --url`/);
+    expect(logs.find((l) => l.startsWith("Next:"))).toMatch(/^Next: if you have no Slack app yet, start with `SoftwareTeam slack manifest --url`/);
   });
 });

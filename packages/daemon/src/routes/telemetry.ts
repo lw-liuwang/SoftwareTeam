@@ -23,7 +23,7 @@ export function telemetryRoutes(deps: TelemetryRouteDeps): Hono {
     app.get(path, (c) => {
       try {
         const input = { cursor: c.req.query("cursor"), start: c.req.query("start"), limit: c.req.query("limit"),
-          nodeId: stream === "tenures" ? c.req.param("nodeId") : c.req.query("nodeId"), rigId: c.req.query("rigId"), qitemId: c.req.query("qitemId") };
+          nodeId: stream === "tenures" ? c.req.param("nodeId") : c.req.query("nodeId"), softwareTeamId: c.req.query("softwareTeamId"), qitemId: c.req.query("qitemId") };
         return c.json(readTelemetryPage(deps.db(), deps.source ?? { hostId: null, bootEpoch: null }, stream as TelemetryStream, input, now()));
       } catch (error) {
         if (error instanceof TelemetryInputError) return c.json({ code: "telemetry_invalid_request", error: error.message }, 400);

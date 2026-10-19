@@ -1,5 +1,5 @@
-// `rig agent-app list`: the community agent apps installed as presets under $OPENRIG_HOME/agent-apps, each with its
-// maintainer and declared limits. OpenRig hasn't tested these apps.
+// `softwareTeam agent-app list`: the community agent apps installed as presets under $SOFTWARETEAM_HOME/agent-apps, each with its
+// maintainer and declared limits. SoftwareTeam hasn't tested these apps.
 import { Command } from "commander";
 import { DaemonClient } from "../client.js";
 import { getDaemonStatus, getDaemonUrl, statusGuardMessage } from "../daemon-lifecycle.js";
@@ -16,7 +16,7 @@ interface AgentAppWire {
 }
 
 export function agentAppCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("agent-app").description("Community agent apps installed as presets (not tested by OpenRig)");
+  const cmd = new Command("agent-app").description("Community agent apps installed as presets (not tested by SoftwareTeam)");
   const getDeps = (): StatusDeps => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   cmd.command("list")
@@ -39,7 +39,7 @@ export function agentAppCommand(depsOverride?: StatusDeps): Command {
         for (const app of res.data.apps) {
           if (!app.usable) { console.log(`${app.name}: can't be used. ${app.problem}`); continue; }
           const limits = app.limits?.length ? ` Declared limits: ${app.limits.join("; ")}.` : "";
-          console.log(`${app.name}: community app, maintained by ${app.maintainer}, not tested by OpenRig.${limits}`);
+          console.log(`${app.name}: community app, maintained by ${app.maintainer}, not tested by SoftwareTeam.${limits}`);
         }
       } catch (err) {
         console.error((err as Error).message);

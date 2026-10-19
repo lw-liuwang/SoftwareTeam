@@ -81,7 +81,7 @@ describe("PL-slice-story-view-v0 slices routes", () => {
       coreSchema, eventsSchema, streamItemsSchema,
       queueItemsSchema, queueTransitionsSchema, missionControlActionsSchema,
     ]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     const base = fs.mkdtempSync(path.join(os.tmpdir(), "slices-routes-test-"));
     cleanupDir = base;
     slicesRoot = path.join(base, "slices");
@@ -189,16 +189,16 @@ describe("PL-slice-story-view-v0 slices routes", () => {
       expect(body.decisions.rows[0]!.reason).toBe("looks good");
     });
 
-    it("topology tab groups slice seats by rig with totalSeats aggregate", async () => {
+    it("topology tab groups slice seats by SoftwareTeam with totalSeats aggregate", async () => {
       writeSlice(slicesRoot, "topo-test", { "README.md": "---\nstatus: active\n---\n" });
-      insertQitem(db, { qitemId: "q-1", body: "topo-test", sourceSession: "alpha@rig-a", destinationSession: "beta@rig-a" });
-      insertQitem(db, { qitemId: "q-2", body: "topo-test", sourceSession: "alpha@rig-a", destinationSession: "gamma@rig-b" });
+      insertQitem(db, { qitemId: "q-1", body: "topo-test", sourceSession: "alpha@software-team-a", destinationSession: "beta@software-team-a" });
+      insertQitem(db, { qitemId: "q-2", body: "topo-test", sourceSession: "alpha@software-team-a", destinationSession: "gamma@software-team-b" });
       const res = await app.request("/api/slices/topo-test");
-      const body = (await res.json()) as { topology: { affectedRigs: Array<{ rigName: string; sessionNames: string[] }>; totalSeats: number } };
+      const body = (await res.json()) as { topology: { affectedSoftwareTeams: Array<{ softwareTeamName: string; sessionNames: string[] }>; totalSeats: number } };
       expect(body.topology.totalSeats).toBe(3);
-      const byRig = new Map(body.topology.affectedRigs.map((r) => [r.rigName, r.sessionNames]));
-      expect(byRig.get("rig-a")?.sort()).toEqual(["alpha@rig-a", "beta@rig-a"]);
-      expect(byRig.get("rig-b")).toEqual(["gamma@rig-b"]);
+      const bySoftwareTeam = new Map(body.topology.affectedSoftwareTeams.map((r) => [r.softwareTeamName, r.sessionNames]));
+      expect(bySoftwareTeam.get("software-team-a")?.sort()).toEqual(["alpha@software-team-a", "beta@software-team-a"]);
+      expect(bySoftwareTeam.get("software-team-b")).toEqual(["gamma@software-team-b"]);
     });
 
     it("badges accepted dogfood reports as pass even when the narrative mentions blocked/failed repro history", async () => {
@@ -446,7 +446,7 @@ describe("qitem-render-driver #3 — GET /api/slices qitemCount does not leak mi
   beforeEach(() => {
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, streamItemsSchema, queueItemsSchema, queueTransitionsSchema, missionControlActionsSchema]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-leak', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-leak', 'softwareTeam')`).run();
     cleanup = fs.mkdtempSync(path.join(os.tmpdir(), "slices-routes-leak-"));
     missionsRoot = path.join(cleanup, "missions");
     const slices = path.join(missionsRoot, "release-x", "slices");

@@ -53,7 +53,7 @@ export function configuredSeatAccounts(input: SeatAccountsInput): SeatConfigured
   for (const seat of input.seats) sharedBySession.set(seat.seatSession, (sharedBySession.get(seat.seatSession) ?? 0) + 1);
 
   return input.seats.map((seat): SeatConfiguredAccount => {
-    const base = { seatSession: seat.seatSession, rigName: seat.rigName, runtime: seat.runtime };
+    const base = { seatSession: seat.seatSession, softwareTeamName: seat.softwareTeamName, runtime: seat.runtime };
     const row = registryBySeat.get(seat.seatSession);
     const notes: string[] = [];
     const shared = sharedBySession.get(seat.seatSession) ?? 1;
@@ -69,7 +69,7 @@ export function configuredSeatAccounts(input: SeatAccountsInput): SeatConfigured
         const profileSaved = folder?.status === "unreadable" ? null : profiles.has(row.authProfile);
         if (profileSaved === null) notes.push(`can't tell whether profile ${row.authProfile} is saved on this host: the profile folder couldn't be read (${folder!.code ?? "unknown"})`);
         else if (!profileSaved) notes.push(`profile ${row.authProfile} is not saved on this host`);
-        if (row.rig && row.rig !== seat.rigName) notes.push(`registry row names rig ${row.rig}; this seat is in rig ${seat.rigName}`);
+        if (row.softwareTeam && row.softwareTeam !== seat.softwareTeamName) notes.push(`registry row names softwareTeam ${row.softwareTeam}; this seat is in softwareTeam ${seat.softwareTeamName}`);
         if (shared > 1) notes.push(`${shared} seats share session name ${seat.seatSession}; the seat-keyed registry row cannot tell them apart`);
         return {
           ...base,

@@ -40,7 +40,7 @@ import { join } from "node:path";
 import { randomUUID, randomInt } from "node:crypto";
 import { connect } from "node:net";
 import { authBearerTokenMiddleware } from "../middleware/auth-bearer-token.js";
-import { getOpenRigHome } from "../openrig-compat.js";
+import { getSoftwareTeamHome } from "../softwareteam-compat.js";
 import { addHostEntry } from "../domain/hosts/hosts-registry-writer.js";
 import { defaultHostRegistryPath, loadHostRegistry, validateHostRegistry, type HostEntry } from "../domain/hosts/hosts-registry-reader.js";
 import type { SettingsStore } from "../domain/user-settings/settings-store.js";
@@ -98,7 +98,7 @@ export function hostsRoutes(opts?: { bearerToken?: string | null; humanRegistry?
   // ---------------------------------------------------------------------
   // Pointers-only READ for the dashboard host-config component (FR-5).
   // Not a write surface (P1's cap is the write family); rows mirror the
-  // CLI's `rig host ls --json` additive shape: entry fields (bearer
+  // CLI's `softwareTeam host ls --json` additive shape: entry fields (bearer
   // POINTERS by construction) + `selected` + a bounded coarse `status`.
   // ---------------------------------------------------------------------
 
@@ -156,7 +156,7 @@ export function hostsRoutes(opts?: { bearerToken?: string | null; humanRegistry?
       // the one-static-bearer model is the shipped auth surface).
       return c.json({
         error: "pair_target_no_bearer",
-        message: "this daemon runs without OPENRIG_AUTH_BEARER_TOKEN; pairing has no credential to issue. Set OPENRIG_AUTH_BEARER_TOKEN on the target daemon and retry.",
+        message: "this daemon runs without SOFTWARETEAM_AUTH_BEARER_TOKEN; pairing has no credential to issue. Set SOFTWARETEAM_AUTH_BEARER_TOKEN on the target daemon and retry.",
       }, 409);
     }
     const body = (await c.req.json<{ requester?: string; human?: string }>().catch(() => ({}))) as { requester?: string; human?: string };
@@ -165,7 +165,7 @@ export function hostsRoutes(opts?: { bearerToken?: string | null; humanRegistry?
     const humans = body.human ? registry.entities.filter((human) => human.address === body.human) : registry.entities;
     if (humans.length !== 1) return c.json({
       error: "pair_human_required", addresses: registry.entities.map((human) => human.address),
-      message: "Pair approval needs one registered human. Inspect rig gateway human list --json; select --human <entityId>@external when several exist. No approval row was created.",
+      message: "Pair approval needs one registered human. Inspect SoftwareTeam gateway human list --json; select --human <entityId>@external when several exist. No approval row was created.",
     }, 409);
 
     // Prune stale issued pairs past the grace window (keep recently expired entries
@@ -195,8 +195,8 @@ export function hostsRoutes(opts?: { bearerToken?: string | null; humanRegistry?
         body: [
           `A remote operator (${requester}) is asking to pair with this host.`,
           `Pairing code: ${code} — confirm it matches the code shown on the requesting side.`,
-          `APPROVE: rig queue update <this-qitem-id> --state done --closure-reason no-follow-on`,
-          `DENY:    rig queue update <this-qitem-id> --state denied`,
+          `APPROVE: SoftwareTeam queue update <this-qitem-id> --state done --closure-reason no-follow-on`,
+          `DENY:    SoftwareTeam queue update <this-qitem-id> --state denied`,
           `Approval hands this daemon's bearer token to the requester (full API access).`,
           `This request expires ${Math.round(PAIR_TTL_MS / 60000)} minutes after creation; expiry persists nothing.`,
         ].join("\n"),
@@ -278,7 +278,7 @@ export function hostsRoutes(opts?: { bearerToken?: string | null; humanRegistry?
     // target), and a pre-existing token file is pre-existing CREDENTIAL
     // STATE: rejected, never overwritten, never deleted by this pairing.
     const hostId = (body.id ?? "").trim() || deriveHostId(target);
-    const tokenPath = join(getOpenRigHome(), "secrets", `host-${hostId}.token`);
+    const tokenPath = join(getSoftwareTeamHome(), "secrets", `host-${hostId}.token`);
     {
       const registryPath = defaultHostRegistryPath();
       let existing: HostEntry[] = [];
@@ -331,7 +331,7 @@ export function hostsRoutes(opts?: { bearerToken?: string | null; humanRegistry?
         body: JSON.stringify({
           requester: typeof body.requester === "string" && body.requester.trim()
             ? body.requester.trim()
-            : `dashboard@${getOpenRigHome()}`,
+            : `dashboard@${getSoftwareTeamHome()}`,
           ...(body.human ? { human: body.human } : {}),
         }),
         signal: AbortSignal.timeout(PAIR_HTTP_TIMEOUT_MS),
@@ -394,7 +394,7 @@ export function hostsRoutes(opts?: { bearerToken?: string | null; humanRegistry?
     // filesystem, so creation SUCCESS is the proof of ownership the
     // cleanup relies on), then the registry entry through the ONE write
     // contract. addHostEntry re-validates authoritatively.
-    const secretsDir = join(getOpenRigHome(), "secrets");
+    const secretsDir = join(getSoftwareTeamHome(), "secrets");
     const tokenPath = join(secretsDir, `host-${rec.hostId}.token`);
     try {
       mkdirSync(secretsDir, { recursive: true, mode: 0o700 });

@@ -3,7 +3,7 @@ import { operationalLaunchArgs } from "../src/adapters/kernel-authority.js";
 import type Database from "better-sqlite3";
 import { Hono } from "hono";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { AgentActivityStore } from "../src/domain/agent-activity-store.js";
@@ -24,10 +24,10 @@ afterEach(() => { for (const db of databases.splice(0)) db.close(); });
 
 function fixture(token: string | null = null) {
   const db = createFullTestDb(); databases.push(db);
-  const repo = new RigRepository(db), registry = new SessionRegistry(db), bus = new EventBus(db);
+  const repo = new SoftwareTeamRepository(db), registry = new SessionRegistry(db), bus = new EventBus(db);
   const activity = new AgentActivityStore({ db, eventBus: bus }), store = new SeatIdentityStore(db);
-  const rig = repo.createRig("review197"), name = "worker@review197", pane = "%197";
-  const node = repo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
+  const softwareTeam = repo.createSoftwareTeam("review197"), name = "worker@review197", pane = "%197";
+  const node = repo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
   const session = registry.registerSession(node.id, name);
   registry.updateStatus(session.id, "running");
   registry.updateStartupStatus(session.id, "attention_required");
@@ -58,7 +58,7 @@ function fixture(token: string | null = null) {
   const verify = (strict = false) => rebindAndVerifyPaneIdentity({ db, sessionRegistry: registry, tmux, nodeId: node.id,
     sessionName: name, runtime: "claude-code", expectedResumeToken: token, requireExactResumeLineage: strict, listProcesses });
   const startup = () => (db.prepare("SELECT startup_status FROM sessions WHERE id = ?").get(session.id) as { startup_status: string }).startup_status;
-  return { db, registry, bus, rig, node, session, name, pane, tmux, listProcesses, sendVerify, clear, poll, store, post, verify, startup };
+  return { db, registry, bus, softwareTeam, node, session, name, pane, tmux, listProcesses, sendVerify, clear, poll, store, post, verify, startup };
 }
 
 describe("Claude wrapper manual attention recovery", () => {
@@ -66,7 +66,7 @@ describe("Claude wrapper manual attention recovery", () => {
   it.each([["resume", "review-token", 200, "ready"], ["clear", null, 422, "attention_required"]] as const)(
     "clear-attention after a %s into a new id answers %s", async (_source, rotatedFrom, status, startup) => {
       const f = fixture("rotated-token");
-      // Only the first hook after OpenRig's --resume launch, a resume, records what it replaced.
+      // Only the first hook after SoftwareTeam's --resume launch, a resume, records what it replaced.
       f.db.prepare("UPDATE sessions SET resume_provenance = 'hook', resume_rotated_from = ?, resume_rotated_process = ?, resume_launch_process = ? WHERE id = ?")
         .run(rotatedFrom, rotatedFrom ? JSON.stringify({ pid: child.pid, startedAt }) : null,
           JSON.stringify({ token: "review-token", pid: child.pid, startedAt }), f.session.id);
@@ -300,9 +300,9 @@ describe("Claude wrapper manual attention recovery", () => {
 
   it("keeps full restore outcome reconciliation ahead of runtime occupancy", async () => {
     const f = fixture();
-    f.bus.emit({ type: "restore.started", rigId: f.rig.id, snapshotId: "snapshot" } as never);
-    f.bus.emit({ type: "restore.completed", rigId: f.rig.id, snapshotId: "snapshot", result: {
-      snapshotId: "snapshot", preRestoreSnapshotId: "before", rigResult: "failed",
+    f.bus.emit({ type: "restore.started", softwareTeamId: f.softwareTeam.id, snapshotId: "snapshot" } as never);
+    f.bus.emit({ type: "restore.completed", softwareTeamId: f.softwareTeam.id, snapshotId: "snapshot", result: {
+      snapshotId: "snapshot", preRestoreSnapshotId: "before", softwareTeamResult: "failed",
       nodes: [{ nodeId: f.node.id, logicalId: "worker", status: "failed" }], warnings: [],
     } } as never);
     const result = await f.post();

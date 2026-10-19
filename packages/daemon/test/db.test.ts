@@ -5,8 +5,36 @@ import { migrate } from "../src/db/migrate.js";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
+import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 
 describe("createDb", () => {
+  it("rejects a deliberately selected legacy database without changing its bytes or sidecars", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-legacy-db-"));
+    try {
+      const file = path.join(dir, "old.sqlite");
+      const old = new Database(file);
+      old.exec("CREATE TABLE rigs (id TEXT); INSERT INTO rigs VALUES ('preserve');");
+      old.close();
+      const before = fs.readFileSync(file);
+      expect(() => createDb(file)).toThrow(/Unsupported legacy OpenRig database/);
+      expect(fs.readFileSync(file)).toEqual(before);
+      expect(fs.readdirSync(dir)).toEqual(["old.sqlite"]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it("applies every fresh migration once and preserves integrity on repeat", () => {
+    const db = createDb();
+    try {
+      migrate(db, ALL_MIGRATIONS);
+      const first = db.prepare("SELECT * FROM schema_migrations ORDER BY name").all();
+      expect(first).toHaveLength(ALL_MIGRATIONS.length);
+      migrate(db, ALL_MIGRATIONS);
+      expect(db.prepare("SELECT * FROM schema_migrations ORDER BY name").all()).toEqual(first);
+      expect(db.prepare("SELECT name FROM sqlite_master WHERE name='software_teams'").get()).toBeDefined();
+      expect(db.pragma("integrity_check", { simple: true })).toBe("ok");
+      expect(db.pragma("foreign_key_check")).toEqual([]);
+    } finally { db.close(); }
+  });
   it("creates an in-memory database with WAL and FK pragmas", () => {
     const db = createDb();
     const walMode = db.pragma("journal_mode", { simple: true });
@@ -21,7 +49,7 @@ describe("createDb", () => {
   });
 
   it("creates a file-backed database when path is given", () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "rigged-test-"));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-test-"));
     const dbPath = path.join(tmpDir, "test.sqlite");
     const db = createDb(dbPath);
     expect(fs.existsSync(dbPath)).toBe(true);

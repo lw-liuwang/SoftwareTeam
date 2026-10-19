@@ -89,7 +89,7 @@ const live = { lines: 1000, pollIntervalMs: 2000 };
 const resolve = () => live;
 const file = (name: string) => path.join(root, `${name}.log`);
 const start = (t: ReturnType<typeof fakeTmux>, name: string) => startTranscriptRotation(t.adapter, name, file(name), { ...live }, resolve);
-const names = (n: number, prefix = "seat") => Array.from({ length: n }, (_, i) => `${prefix}-${i}@rig`);
+const names = (n: number, prefix = "seat") => Array.from({ length: n }, (_, i) => `${prefix}-${i}@software-team`);
 
 beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "batched-capture-"));
@@ -414,18 +414,18 @@ describe("batched transcript capture (#161)", () => {
   });
 
   it("a session started between shared ticks captures every 2s, as its own timer would", async () => {
-    const t = fakeTmux(); t.add("a@rig"); t.add("b@rig");
-    start(t, "a@rig");
+    const t = fakeTmux(); t.add("a@software-team"); t.add("b@software-team");
+    start(t, "a@software-team");
     await advance(1);
-    start(t, "b@rig");
+    start(t, "b@software-team");
     const began = Date.now();
     const times: number[] = [];
     for (let step = 0; step < 90; step++) {
-      t.write("b@rig", `b ${step}\n`);
+      t.write("b@software-team", `b ${step}\n`);
       const before = t.calls.length;
       await advance(100);
       const round = t.calls.slice(before);
-      if (round.some((a) => a.includes("capture-pane") && a.includes("=b@rig:"))) times.push(Date.now() - began);
+      if (round.some((a) => a.includes("capture-pane") && a.includes("=b@software-team:"))) times.push(Date.now() - began);
     }
     // Base cadence: one capture right away, then one per 2s. The shared 1s timer may run it up to half a step early.
     expect(times[0]).toBeLessThanOrEqual(100);

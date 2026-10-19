@@ -1,14 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { StartupOrchestrator } from "../src/domain/startup-orchestrator.js";
 import { resolveAgentRef, type AgentResolverFsOps } from "../src/domain/agent-resolver.js";
 import { resolveNodeConfig } from "../src/domain/profile-resolver.js";
 import { planProjection } from "../src/domain/projection-planner.js";
-import { RigSpecCodec } from "../src/domain/rigspec-codec.js";
-import { RigSpecSchema } from "../src/domain/rigspec-schema.js";
+import { SoftwareTeamSpecCodec } from "../src/domain/software-team-spec-codec.js";
+import { SoftwareTeamSpecSchema } from "../src/domain/software-team-spec-schema.js";
 import type { RuntimeAdapter, NodeBinding, ResolvedStartupFile } from "../src/domain/runtime-adapter.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
 import type { StartupAction } from "../src/domain/types.js";
@@ -58,17 +58,17 @@ function mockFs(files: Record<string, string>): AgentResolverFsOps {
 }
 
 describe("AgentSpec startup integration", () => {
-  // T12: rig.yaml + agent.yaml resolves, projects, starts, and reaches startup_status: ready
+  // T12: software-team.yaml + agent.yaml resolves, projects, starts, and reaches startup_status: ready
   it.each([undefined, "authenticated", "none"] as const)("full startup lifecycle with proof selection %s: resolve -> project -> start -> ready", async (selection) => {
     const db = createFullTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const sessionRegistry = new SessionRegistry(db);
     const eventBus = new EventBus(db);
     const tmux = mockTmux();
-    // 1. Set up rig spec + agent spec on mock filesystem
-    const rigRoot = "/project/rigs/my-rig";
-    const rigSpecYaml = RigSpecCodec.serialize({
-      version: "0.2", name: "integration-rig",
+    // 1. Set up softwareTeam spec + agent spec on mock filesystem
+    const softwareTeamRoot = "/project/software-teams/my-software-team";
+    const softwareTeamSpecYaml = SoftwareTeamSpecCodec.serialize({
+      version: "0.2", name: "integration-software-team",
       pods: [{
         id: "dev", label: "Dev",
         members: [{
@@ -90,19 +90,19 @@ describe("AgentSpec startup integration", () => {
     const agentYaml = `name: impl\nversion: "1.0.0"\nstartup:\n  files:\n    - path: startup/base.md\n      orientation: role\n      delivery_hint: auto\nresources:\n  skills:\n    - id: skill-a\n      path: skills/a\nprofiles:\n  default:\n    uses:\n      skills: [skill-a]`;
 
     const fs = mockFs({
-      [`${rigRoot}/agents/impl/agent.yaml`]: agentYaml,
-      [`${rigRoot}/pods/dev/overlays/impl.md`]: "# Impl overlay",
-      [`${rigRoot}/agents/impl/startup/base.md`]: "# Base startup",
+      [`${softwareTeamRoot}/agents/impl/agent.yaml`]: agentYaml,
+      [`${softwareTeamRoot}/pods/dev/overlays/impl.md`]: "# Impl overlay",
+      [`${softwareTeamRoot}/agents/impl/startup/base.md`]: "# Base startup",
     });
     const adapter = mockAdapter(fs);
 
-    // 2. Parse rig spec
-    const rawRig = RigSpecCodec.parse(rigSpecYaml);
-    const rigSpec = RigSpecSchema.normalize(rawRig as Record<string, unknown>);
-    const member = rigSpec.pods[0]!.members[0]!;
+    // 2. Parse softwareTeam spec
+    const rawSoftwareTeam = SoftwareTeamSpecCodec.parse(softwareTeamSpecYaml);
+    const softwareTeamSpec = SoftwareTeamSpecSchema.normalize(rawSoftwareTeam as Record<string, unknown>);
+    const member = softwareTeamSpec.pods[0]!.members[0]!;
 
     // 3. Resolve agent ref
-    const resolveResult = resolveAgentRef(member.agentRef, rigRoot, fs);
+    const resolveResult = resolveAgentRef(member.agentRef, softwareTeamRoot, fs);
     expect(resolveResult.ok).toBe(true);
     if (!resolveResult.ok) return;
 
@@ -113,8 +113,8 @@ describe("AgentSpec startup integration", () => {
       collisions: resolveResult.collisions,
       profileName: member.profile,
       member,
-      pod: rigSpec.pods[0]!,
-      rig: rigSpec,
+      pod: softwareTeamSpec.pods[0]!,
+      softwareTeam: softwareTeamSpec,
     });
     expect(configResult.ok).toBe(true);
     if (!configResult.ok) return;
@@ -128,9 +128,9 @@ describe("AgentSpec startup integration", () => {
     expect(planResult.ok).toBe(true);
     if (!planResult.ok) return;
 
-    // 6. Create rig + node + session (simulating NodeLauncher)
-    const rig = rigRepo.createRig("integration-rig");
-    const node = rigRepo.addNode(rig.id, "impl", { runtime: "claude-code" });
+    // 6. Create softwareTeam + node + session (simulating NodeLauncher)
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("integration-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "impl", { runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, "r01-impl");
     sessionRegistry.updateStatus(session.id, "running");
 
@@ -143,12 +143,12 @@ describe("AgentSpec startup integration", () => {
     };
 
     // Build resolved startup files with correct owner roots per source
-    // Agent base startup files resolve under agent root, member overlay files under rig root
+    // Agent base startup files resolve under agent root, member overlay files under softwareTeam root
     const agentRoot = resolveResult.resolved.sourcePath;
     const resolvedFiles: ResolvedStartupFile[] = configResult.config.startup.files.map((f) => {
-      // Determine owner root: agent startup paths resolve under agent, rig/pod/member under rig
+      // Determine owner root: agent startup paths resolve under agent, softwareTeam/pod/member under softwareTeam
       const isAgentFile = f.path.startsWith("startup/");
-      const ownerRoot = isAgentFile ? agentRoot : rigRoot;
+      const ownerRoot = isAgentFile ? agentRoot : softwareTeamRoot;
       return {
         ...f,
         absolutePath: `${ownerRoot}/${f.path}`,
@@ -159,7 +159,7 @@ describe("AgentSpec startup integration", () => {
     // 8. Run startup orchestrator
     const orchestrator = new StartupOrchestrator({ db, sessionRegistry, eventBus, tmuxAdapter: tmux });
     const startupResult = await orchestrator.startNode({
-      rigId: rig.id,
+      softwareTeamId: softwareTeam.id,
       nodeId: node.id,
       sessionId: session.id,
       binding,
@@ -187,7 +187,7 @@ describe("AgentSpec startup integration", () => {
     const stored = db.prepare("SELECT startup_actions_json FROM node_startup_context WHERE node_id=?").get(node.id) as { startup_actions_json: string };
     expect(JSON.parse(stored.startup_actions_json)).toEqual(configResult.config.startup.actions);
     const storedFiles = db.prepare("SELECT resolved_files_json FROM node_startup_context WHERE node_id=?").get(node.id) as { resolved_files_json: string };
-    expect(JSON.parse(storedFiles.resolved_files_json).filter((file: ResolvedStartupFile) => file.orientation === "role")).toMatchObject([{ path: "startup/base.md", ownerRoot: `${rigRoot}/agents/impl`, orientation: "role" }]);
+    expect(JSON.parse(storedFiles.resolved_files_json).filter((file: ResolvedStartupFile) => file.orientation === "role")).toMatchObject([{ path: "startup/base.md", ownerRoot: `${softwareTeamRoot}/agents/impl`, orientation: "role" }]);
     const sent = vi.mocked(tmux.sendText).mock.calls.map(call => call[1]);
     expect(sent).toContain("/rename impl");
     expect(sent.filter(text => text.includes("startup-proof submit"))).toHaveLength(selection === "authenticated" ? 1 : 0);
@@ -197,10 +197,10 @@ describe("AgentSpec startup integration", () => {
     db.close();
   });
 
-  it("builtin-style shared import projects openrig-user under the shipped unqualified skill id", () => {
-    const rigRoot = "/project/rigs/my-rig";
-    const rigSpecYaml = RigSpecCodec.serialize({
-      version: "0.2", name: "integration-rig",
+  it("builtin-style shared import projects softwareteam-user under the shipped unqualified skill id", () => {
+    const softwareTeamRoot = "/project/software-teams/my-software-team";
+    const softwareTeamSpecYaml = SoftwareTeamSpecCodec.serialize({
+      version: "0.2", name: "integration-software-team",
       pods: [{
         id: "dev", label: "Dev",
         members: [{
@@ -213,7 +213,7 @@ describe("AgentSpec startup integration", () => {
     });
 
     const fs = mockFs({
-      [`${rigRoot}/agents/impl/agent.yaml`]: `
+      [`${softwareTeamRoot}/agents/impl/agent.yaml`]: `
 name: impl
 version: "1.0.0"
 imports:
@@ -223,28 +223,28 @@ resources:
 profiles:
   default:
     uses:
-      skills: [openrig-user]
+      skills: [softwareteam-user]
       guidance: []
       subagents: []
       runtime_resources: []
 `.trim(),
-      [`${rigRoot}/agents/shared/agent.yaml`]: `
+      [`${softwareTeamRoot}/agents/shared/agent.yaml`]: `
 name: shared
 version: "1.0.0"
 resources:
   skills:
-    - id: openrig-user
-      path: skills/openrig-user
+    - id: softwareteam-user
+      path: skills/softwareteam-user
 profiles: {}
 `.trim(),
-      [`${rigRoot}/agents/shared/skills/openrig-user/SKILL.md`]: "---\nname: openrig-user\n---\n# OpenRig User\n",
+      [`${softwareTeamRoot}/agents/shared/skills/softwareteam-user/SKILL.md`]: "---\nname: softwareteam-user\n---\n# SoftwareTeam User\n",
     });
 
-    const rawRig = RigSpecCodec.parse(rigSpecYaml);
-    const rigSpec = RigSpecSchema.normalize(rawRig as Record<string, unknown>);
-    const member = rigSpec.pods[0]!.members[0]!;
+    const rawSoftwareTeam = SoftwareTeamSpecCodec.parse(softwareTeamSpecYaml);
+    const softwareTeamSpec = SoftwareTeamSpecSchema.normalize(rawSoftwareTeam as Record<string, unknown>);
+    const member = softwareTeamSpec.pods[0]!.members[0]!;
 
-    const resolveResult = resolveAgentRef(member.agentRef, rigRoot, fs);
+    const resolveResult = resolveAgentRef(member.agentRef, softwareTeamRoot, fs);
     expect(resolveResult.ok).toBe(true);
     if (!resolveResult.ok) return;
 
@@ -254,9 +254,9 @@ profiles: {}
       collisions: resolveResult.collisions,
       profileName: member.profile,
       member,
-      pod: rigSpec.pods[0]!,
-      rig: rigSpec,
-      specRoot: rigRoot,
+      pod: softwareTeamSpec.pods[0]!,
+      softwareTeam: softwareTeamSpec,
+      specRoot: softwareTeamRoot,
     });
     expect(configResult.ok).toBe(true);
     if (!configResult.ok) return;
@@ -271,9 +271,9 @@ profiles: {}
 
     const projectedSkill = planResult.plan.entries.find((entry) => entry.category === "skill");
     expect(projectedSkill).toBeDefined();
-    expect(projectedSkill!.effectiveId).toBe("openrig-user");
+    expect(projectedSkill!.effectiveId).toBe("softwareteam-user");
     expect(projectedSkill!.sourceSpec).toBe("shared");
-    expect(projectedSkill!.sourcePath).toBe(`${rigRoot}/agents/shared`);
-    expect(projectedSkill!.absolutePath).toBe(`${rigRoot}/agents/shared/skills/openrig-user`);
+    expect(projectedSkill!.sourcePath).toBe(`${softwareTeamRoot}/agents/shared`);
+    expect(projectedSkill!.absolutePath).toBe(`${softwareTeamRoot}/agents/shared/skills/softwareteam-user`);
   });
 });

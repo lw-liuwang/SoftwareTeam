@@ -10,15 +10,15 @@ import { useParams } from "@tanstack/react-router";
 import {
   TopologyViewModeTabs,
   HOST_SCOPE_TABS,
-  RIG_POD_SCOPE_TABS,
+  SOFTWARE_TEAM_POD_SCOPE_TABS,
   SEAT_SCOPE_TABS,
   type TopologyHostScopeTab,
-  type TopologyRigPodScopeTab,
+  type TopologySoftwareTeamPodScopeTab,
   type TopologySeatScopeTab,
 } from "./TopologyViewModeTabs.js";
 import { TopologyTableView } from "./TopologyTableView.js";
 import { ErrorBoundary } from "../ui/ErrorBoundary.js";
-// OPR.0.4.6.2 (FR-5): the shipped rig-scope "Launch in CMUX" button generalizes
+// OPR.0.4.6.2 (FR-5): the shipped software-team-scope "Launch in CMUX" button generalizes
 // to a provider + view picker (herdr primary, cmux best-effort). Same tab-bar
 // trailing slot; LaunchCmuxButton.tsx stays (its graph/detail affordances are
 // untouched), superseded HERE by TerminalLauncher.
@@ -26,13 +26,13 @@ import { TerminalLauncher } from "./TerminalLauncher.js";
 import { TopologyTerminalView } from "./TopologyTerminalView.js";
 import { SectionHeader } from "../ui/section-header.js";
 import { EmptyState } from "../ui/empty-state.js";
-import { RigGraph } from "../RigGraph.js";
-import { RigSpecDisplay } from "../RigSpecDisplay.js";
-import { RigStatusControl } from "../RigStatusControl.js";
-import { useRigSummary } from "../../hooks/useRigSummary.js";
+import { SoftwareTeamGraph } from "../SoftwareTeamGraph.js";
+import { SoftwareTeamSpecDisplay } from "../SoftwareTeamSpecDisplay.js";
+import { SoftwareTeamStatusControl } from "../SoftwareTeamStatusControl.js";
+import { useSoftwareTeamSummary } from "../../hooks/useSoftwareTeamSummary.js";
 import { useHosts, useSelectHost, useHostSelection } from "../../hooks/useHosts.js";
 import { LOCAL_HOST_ID } from "../../lib/host-param.js";
-import { useSpecLibrary, useLibraryReview, type LibraryRigReview } from "../../hooks/useSpecLibrary.js";
+import { useSpecLibrary, useLibraryReview, type LibrarySoftwareTeamReview } from "../../hooks/useSpecLibrary.js";
 import { LiveNodeDetails } from "../LiveNodeDetails.js";
 import { useTopologyOverlay } from "./topology-overlay-context.js";
 // V1 attempt-3 Phase 5 P5-9: graph view-mode degrades to table on
@@ -43,8 +43,8 @@ import { useShellViewport } from "../../hooks/useShellViewport.js";
 import { useNodeInventory } from "../../hooks/useNodeInventory.js";
 import { computeActivityRollup, formatRollupLabel } from "../../lib/activity-visuals.js";
 
-function ActivityRollupBar({ rigId }: { rigId: string }) {
-  const { data: nodes } = useNodeInventory(rigId);
+function ActivityRollupBar({ softwareTeamId }: { softwareTeamId: string }) {
+  const { data: nodes } = useNodeInventory(softwareTeamId);
   if (!nodes || nodes.length === 0) return null;
   const rollup = computeActivityRollup(
     nodes.map((n) => ({ activity: n.agentActivity, terminalActive: n.terminalActive })),
@@ -59,9 +59,9 @@ function ActivityRollupBar({ rigId }: { rigId: string }) {
   );
 }
 // V1 polish slice Phase 5.2: HostScopePage graph view-mode replaces
-// the prior placeholder with the multi-rig single-canvas component
-// (rig-collapse affordance; default-all-collapsed; auto-expand on URL).
-import { HostMultiRigGraph } from "./HostMultiRigGraph.js";
+// the prior placeholder with the multi-softwareTeam single-canvas component
+// (software-team-collapse affordance; default-all-collapsed; auto-expand on URL).
+import { HostMultiSoftwareTeamGraph } from "./HostMultiSoftwareTeamGraph.js";
 // OPR.0.4.0.1: one global LiveTerminalProvider per scope page bounds the total
 // live terminals across the page's graph + table + terminal tab-surfaces.
 import { LiveTerminalProvider, useTerminalCap } from "../terminal/LiveTerminalProvider.js";
@@ -126,7 +126,7 @@ function ScopeShell({
 
 export function HostScopePage() {
   const [active, setActive] = useState<TopologyHostScopeTab>("graph");
-  const { data: rigs, error: rigsError, isFetching, isPlaceholderData, refetch } = useRigSummary();
+  const { data: softwareTeams, error: softwareTeamsError, isFetching, isPlaceholderData, refetch } = useSoftwareTeamSummary();
   const { isWideLayout } = useShellViewport();
   useOverlayForActiveTab(active);
 
@@ -149,8 +149,8 @@ export function HostScopePage() {
   const effectiveActive = !isWideLayout && active === "graph" ? "table" : active;
   const liveCap = useTerminalCap();
 
-  const remoteUnreachable = isRemote && !!rigsError;
-  const remoteLoading = isRemote && !remoteUnreachable && (isPlaceholderData || (isFetching && rigs === undefined));
+  const remoteUnreachable = isRemote && !!softwareTeamsError;
+  const remoteLoading = isRemote && !remoteUnreachable && (isPlaceholderData || (isFetching && softwareTeams === undefined));
 
   return (
     <LiveTerminalProvider cap={liveCap}>
@@ -175,7 +175,7 @@ export function HostScopePage() {
               The local daemon could not reach {selectedHost}&apos;s daemon. Its workspace can&apos;t be shown.
             </p>
             <p className="mb-3 text-[10px] text-on-surface-variant">
-              Check the host is up and paired (rig host ls), then retry. Other hosts are unaffected.
+              Check the host is up and paired (softwareTeam host ls), then retry. Other hosts are unaffected.
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -209,7 +209,7 @@ export function HostScopePage() {
       ) : null}
       {!remoteUnreachable && effectiveActive === "graph" ? (
         <div className="flex-1 min-h-0 relative">
-          <HostMultiRigGraph />
+          <HostMultiSoftwareTeamGraph />
         </div>
       ) : null}
       {effectiveActive === "table" ? (
@@ -234,19 +234,19 @@ export function HostScopePage() {
   );
 }
 
-export function RigScopePage() {
+export function SoftwareTeamScopePage() {
   // OPR.0.4.6.MH2 guard delta-confirm blocker: lifecycle/action surfaces are
   // TRI-STATE — unknown selection mounts NO local controls and fires NO bare
   // status read (useSelectedHostId defaults local pre-cache, which fails
   // OPEN for a surface whose mount fires a read). ACTIVE observer: the page
   // learns the selection itself.
   const { known: hostSelectionKnown, isLocal: hostSelectionLocal } = useHostSelection();
-  const rigScopeIsRemote = hostSelectionKnown && !hostSelectionLocal;
-  const rigScopeActionsAllowed = hostSelectionKnown && hostSelectionLocal;
-  const { rigId } = useParams({ from: "/topology/rig/$rigId" });
-  const { data: rigs } = useRigSummary();
-  const rig = rigs?.find((r) => r.id === rigId);
-  const [active, setActive] = useState<TopologyRigPodScopeTab>("graph");
+  const softwareTeamScopeIsRemote = hostSelectionKnown && !hostSelectionLocal;
+  const softwareTeamScopeActionsAllowed = hostSelectionKnown && hostSelectionLocal;
+  const { softwareTeamId } = useParams({ from: "/topology/softwareTeam/$softwareTeamId" });
+  const { data: softwareTeams } = useSoftwareTeamSummary();
+  const softwareTeam = softwareTeams?.find((r) => r.id === softwareTeamId);
+  const [active, setActive] = useState<TopologySoftwareTeamPodScopeTab>("graph");
   const { isWideLayout } = useShellViewport();
   useOverlayForActiveTab(active);
 
@@ -256,26 +256,26 @@ export function RigScopePage() {
   return (
     <LiveTerminalProvider cap={liveCap}>
     <ScopeShell
-      eyebrow="Topology · Rig"
-      title={rig?.name ?? rigId}
+      eyebrow="Topology · SoftwareTeam"
+      title={softwareTeam?.name ?? softwareTeamId}
       tabsNav={
         <TopologyViewModeTabs
-          tabs={RIG_POD_SCOPE_TABS}
+          tabs={SOFTWARE_TEAM_POD_SCOPE_TABS}
           active={active}
           onSelect={setActive}
-          testIdPrefix="topology-rig"
+          testIdPrefix="topology-software-team"
           // OPR.0.4.6.MH2 rev1-r2 B1 — Launch-in-CMUX is a LOCAL action
           // (bare local open-cmux POST); no cross-host mutation affordance
           // on remote views (FR-7).
-          trailing={rigScopeActionsAllowed ? <TerminalLauncher rigId={rigId} rigName={rig?.name ?? null} /> : null}
+          trailing={softwareTeamScopeActionsAllowed ? <TerminalLauncher softwareTeamId={softwareTeamId} softwareTeamName={softwareTeam?.name ?? null} /> : null}
         />
       }
     >
-      {/* OPR.0.4.3.22 — rig-status + launch/recovery control near the rig title.
+      {/* OPR.0.4.3.22 — software-team-status + launch/recovery control near the softwareTeam title.
           Terminal-surface actions (Launch in CMUX) render SEPARATELY in the tab
           bar (trailing, above) and never restore or fresh-prime.
           OPR.0.4.6.MH2 rev1-r2 re-verdict B1: the whole control is a LOCAL
-          restore/launch surface (bare /api/rigs/:id/status read + launch-plan
+          restore/launch surface (bare /api/software-teams/:id/status read + launch-plan
           + /up POSTs) — under a remote selection it never mounts; an honest
           read-only marker stands in (FR-7). */}
       {!hostSelectionKnown ? (
@@ -284,13 +284,13 @@ export function RigScopePage() {
           style={{ marginLeft: "var(--header-anchor-offset, 0px)" }}
         >
           <div
-            data-testid="rig-status-selection-pending"
+            data-testid="software-team-status-selection-pending"
             className="font-mono text-[9px] uppercase tracking-wide text-on-surface-variant italic"
           >
             resolving selected host…
           </div>
         </div>
-      ) : rigScopeIsRemote ? (
+      ) : softwareTeamScopeIsRemote ? (
         <div
           className="px-6 pt-4 max-w-md"
           // the same anchoring discipline as the FR-6 surfaces: legible past
@@ -299,7 +299,7 @@ export function RigScopePage() {
           style={{ marginLeft: "var(--header-anchor-offset, 0px)" }}
         >
           <div
-            data-testid="rig-status-remote-readonly"
+            data-testid="software-team-status-remote-readonly"
             data-remote-readonly="true"
             className="font-mono text-[9px] uppercase tracking-wide text-on-surface-variant"
           >
@@ -311,15 +311,15 @@ export function RigScopePage() {
         // anchors left, so right alignment keeps the launch control fully
         // visible in graph-overlay mode (the reproduced obscured-card bug).
         <div className="px-6 pt-4 flex justify-end">
-          <ErrorBoundary label="Rig status">
-            <RigStatusControl rigId={rigId} rigName={rig?.name ?? rigId} />
+          <ErrorBoundary label="SoftwareTeam status">
+            <SoftwareTeamStatusControl softwareTeamId={softwareTeamId} softwareTeamName={softwareTeam?.name ?? softwareTeamId} />
           </ErrorBoundary>
         </div>
       )}
-      <ActivityRollupBar rigId={rigId} />
+      <ActivityRollupBar softwareTeamId={softwareTeamId} />
       {effectiveActive === "graph" ? (
         <div className="flex-1 min-h-0 relative">
-          <RigGraph rigId={rigId} rigName={rig?.name ?? null} showDiscovered={false} />
+          <SoftwareTeamGraph softwareTeamId={softwareTeamId} softwareTeamName={softwareTeam?.name ?? null} showDiscovered={false} />
         </div>
       ) : null}
       {effectiveActive === "table" ? (
@@ -334,36 +334,36 @@ export function RigScopePage() {
           ) : null}
           {/* OPR.0.4.1.13: contain a table render-throw so it can't white-screen the page. */}
           <ErrorBoundary label="Table view">
-            <TopologyTableView rigIdScope={rigId} />
+            <TopologyTableView softwareTeamIdScope={softwareTeamId} />
           </ErrorBoundary>
         </div>
       ) : null}
-      {effectiveActive === "terminal" ? <TopologyTerminalView scope="rig" rigId={rigId} /> : null}
-      {active === "overview" ? <RigOverviewTab rigId={rigId} rigName={rig?.name ?? null} /> : null}
+      {effectiveActive === "terminal" ? <TopologyTerminalView scope="softwareTeam" softwareTeamId={softwareTeamId} /> : null}
+      {active === "overview" ? <SoftwareTeamOverviewTab softwareTeamId={softwareTeamId} softwareTeamName={softwareTeam?.name ?? null} /> : null}
     </ScopeShell>
     </LiveTerminalProvider>
   );
 }
 
-/** V1 polish slice Phase 5.1 P5.1-6 — Rig overview tab.
+/** V1 polish slice Phase 5.1 P5.1-6 — SoftwareTeam overview tab.
  *
- *  Mounts the existing canonical RigSpecDisplay component (from
- *  /specs/rig/$id) sourced via useSpecLibrary("rig") + useLibraryReview.
- *  Matches the rig name against the library entries (per
+ *  Mounts the existing canonical SoftwareTeamSpecDisplay component (from
+ *  /specs/softwareTeam/$id) sourced via useSpecLibrary("softwareTeam") + useLibraryReview.
+ *  Matches the softwareTeam name against the library entries (per
  *  LibraryReview.tsx pattern) and renders the spec detail.
  */
-function RigOverviewTab({ rigId, rigName }: { rigId: string; rigName: string | null }) {
-  const { data: entries = [], isLoading: entriesLoading } = useSpecLibrary("rig");
-  // Match by rig name when available; some rigs may have one library
-  // entry per name (operator-authored rig spec).
-  const matches = rigName ? entries.filter((e) => e.name === rigName) : [];
+function SoftwareTeamOverviewTab({ softwareTeamId, softwareTeamName }: { softwareTeamId: string; softwareTeamName: string | null }) {
+  const { data: entries = [], isLoading: entriesLoading } = useSpecLibrary("softwareTeam");
+  // Match by softwareTeam name when available; some softwareTeams may have one library
+  // entry per name (operator-authored softwareTeam spec).
+  const matches = softwareTeamName ? entries.filter((e) => e.name === softwareTeamName) : [];
   const entryId = matches.length === 1 ? matches[0]!.id : null;
   const { data: review, isLoading: reviewLoading } = useLibraryReview(entryId);
 
   if (entriesLoading || reviewLoading) {
     return (
       <div className="p-6">
-        <div className="font-mono text-[10px] text-on-surface-variant">Loading rig spec…</div>
+        <div className="font-mono text-[10px] text-on-surface-variant">Loading softwareTeam spec…</div>
       </div>
     );
   }
@@ -371,10 +371,10 @@ function RigOverviewTab({ rigId, rigName }: { rigId: string; rigName: string | n
     return (
       <div className="p-6">
         <EmptyState
-          label="NO RIG SPEC"
-          description={`No rig spec entry found for "${rigName ?? rigId}". Author one via /specs.`}
+          label="NO SOFTWARE_TEAM SPEC"
+          description={`No SoftwareTeam spec entry found for "${softwareTeamName ?? softwareTeamId}". Author one via /specs.`}
           variant="card"
-          testId="topology-rig-overview-no-spec"
+          testId="topology-software-team-overview-no-spec"
         />
       </div>
     );
@@ -383,31 +383,31 @@ function RigOverviewTab({ rigId, rigName }: { rigId: string; rigName: string | n
     return (
       <div className="p-6">
         <EmptyState
-          label="AMBIGUOUS RIG SPEC"
-          description={`${matches.length} rig spec entries match "${rigName ?? rigId}". Disambiguate at /specs.`}
+          label="AMBIGUOUS SOFTWARE_TEAM SPEC"
+          description={`${matches.length} SoftwareTeam spec entries match "${softwareTeamName ?? softwareTeamId}". Disambiguate at /specs.`}
           variant="card"
         />
       </div>
     );
   }
-  if (!review || review.kind !== "rig") {
+  if (!review || review.kind !== "softwareTeam") {
     return (
       <div className="p-6">
         <EmptyState
-          label="RIG SPEC UNAVAILABLE"
-          description="Rig spec failed to load."
+          label="SOFTWARE_TEAM SPEC UNAVAILABLE"
+          description="SoftwareTeam spec failed to load."
           variant="card"
         />
       </div>
     );
   }
-  const rigReview = review as LibraryRigReview;
+  const softwareTeamReview = review as LibrarySoftwareTeamReview;
   return (
-    <div className="px-6 pb-6" data-testid="topology-rig-overview">
-      <RigSpecDisplay
-        review={rigReview}
-        yaml={rigReview.raw}
-        testIdPrefix="topology-rig-overview-"
+    <div className="px-6 pb-6" data-testid="topology-software-team-overview">
+      <SoftwareTeamSpecDisplay
+        review={softwareTeamReview}
+        yaml={softwareTeamReview.raw}
+        testIdPrefix="topology-software-team-overview-"
       />
     </div>
   );
@@ -415,13 +415,13 @@ function RigOverviewTab({ rigId, rigName }: { rigId: string; rigName: string | n
 
 export function PodScopePage() {
   // V1 polish slice Phase 5.1 P5.1-5: pod-scope graph wires through
-  // RigGraph's new podScope prop (filters nodes + edges + pod groups
+  // SoftwareTeamGraph's new podScope prop (filters nodes + edges + pod groups
   // to the matching pod only). Default tab moved to "graph" so the
-  // graph view-mode is the landing surface (matches host/rig scope
+  // graph view-mode is the landing surface (matches host/SoftwareTeam scope
   // pattern; pod scope should honor the same graph/table/terminal
   // grammar as other scopes.
-  const { rigId, podName } = useParams({ from: "/topology/pod/$rigId/$podName" });
-  const [active, setActive] = useState<TopologyRigPodScopeTab>("graph");
+  const { softwareTeamId, podName } = useParams({ from: "/topology/pod/$softwareTeamId/$podName" });
+  const [active, setActive] = useState<TopologySoftwareTeamPodScopeTab>("graph");
   const { isWideLayout } = useShellViewport();
   useOverlayForActiveTab(active);
   const effectiveActive = !isWideLayout && active === "graph" ? "table" : active;
@@ -429,12 +429,12 @@ export function PodScopePage() {
   return (
     <ScopeShell
       eyebrow="Topology · Pod"
-      title={`${rigId} / ${podName}`}
-      tabsNav={<TopologyViewModeTabs tabs={RIG_POD_SCOPE_TABS} active={active} onSelect={setActive} testIdPrefix="topology-pod" />}
+      title={`${softwareTeamId} / ${podName}`}
+      tabsNav={<TopologyViewModeTabs tabs={SOFTWARE_TEAM_POD_SCOPE_TABS} active={active} onSelect={setActive} testIdPrefix="topology-pod" />}
     >
       {effectiveActive === "graph" ? (
         <div className="flex-1 min-h-0 relative">
-          <RigGraph rigId={rigId} rigName={null} showDiscovered={false} podScope={podName} />
+          <SoftwareTeamGraph softwareTeamId={softwareTeamId} softwareTeamName={null} showDiscovered={false} podScope={podName} />
         </div>
       ) : null}
       {effectiveActive === "table" ? (
@@ -449,12 +449,12 @@ export function PodScopePage() {
           ) : null}
           {/* OPR.0.4.1.13: contain a table render-throw so it can't white-screen the page. */}
           <ErrorBoundary label="Table view">
-            <TopologyTableView rigIdScope={rigId} podNameScope={podName} />
+            <TopologyTableView softwareTeamIdScope={softwareTeamId} podNameScope={podName} />
           </ErrorBoundary>
         </div>
       ) : null}
       {effectiveActive === "terminal" ? (
-        <TopologyTerminalView scope="pod" rigId={rigId} podName={podName} />
+        <TopologyTerminalView scope="pod" softwareTeamId={softwareTeamId} podName={podName} />
       ) : null}
       {active === "overview" ? (
         <div className="p-6">
@@ -471,11 +471,11 @@ export function SeatScopePage() {
   // LiveNodeDetails owns the canonical 5-tab body row inline
   // (Identity / Agent Spec / Startup / Transcript / Terminal). The
   // ScopeShell wrapper is dropped too — LiveNodeDetails is the page.
-  const { rigId, logicalId } = useParams({ from: "/topology/seat/$rigId/$logicalId" });
+  const { softwareTeamId, logicalId } = useParams({ from: "/topology/seat/$softwareTeamId/$logicalId" });
   const decodedLogicalId = decodeURIComponent(logicalId);
   return (
     <div data-testid="seat-scope-page" className="flex flex-col h-full">
-      <LiveNodeDetails rigId={rigId} logicalId={decodedLogicalId} />
+      <LiveNodeDetails softwareTeamId={softwareTeamId} logicalId={decodedLogicalId} />
     </div>
   );
 }

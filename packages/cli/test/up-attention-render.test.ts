@@ -10,7 +10,7 @@ const attentionNodes = [
   { logicalId: "dev.checker", sessionName: "dev-checker@first", reason: "returned_to_shell", evidence: "$" },
 ];
 function attentionBody() {
-  const result = { rigId: "first", stages: [{ stage: "import_rig", status: "blocked",
+  const result = { softwareTeamId: "first", stages: [{ stage: "import_software_team", status: "blocked",
     detail: { code: "attention_required", message: "2 members need attention.", attentionNodes } }] };
   return { ...result, ...buildAttentionResponse(result)! };
 }
@@ -38,7 +38,7 @@ async function render(data: Record<string, unknown>, status = 409, json = false)
       lifecycleDeps, clientFactory: () => client as unknown as DaemonClient,
       preflightExec: forbidden,
     }));
-    await cmd.parseAsync(["node", "rig", "up", "first-project", ...(json ? ["--json"] : [])]);
+    await cmd.parseAsync(["node", "softwareTeam", "up", "first-project", ...(json ? ["--json"] : [])]);
     expect(client.post).toHaveBeenCalledTimes(1);
     return { out: out.join("\n"), err: err.join("\n"), exit: process.exitCode };
   } finally { process.exitCode = oldExit; log.mockRestore(); error.mockRestore(); }
@@ -46,8 +46,8 @@ async function render(data: Record<string, unknown>, status = 409, json = false)
 
 describe("startup attention guidance", () => {
   it("shows pending startup guidance on a partial fresh up and preserves JSON and exits", async () => {
-    const reason = "Permission consent needs attention; After resolving it in dev-owner@first, run: rig seat continue 'dev-owner@first'";
-    const data = { status: "partial", rigId: "first", stages: [{ stage: "import_rig", status: "blocked", detail: {
+    const reason = "Permission consent needs attention; After resolving it in dev-owner@first, run: SoftwareTeam seat continue 'dev-owner@first'";
+    const data = { status: "partial", softwareTeamId: "first", stages: [{ stage: "import_software_team", status: "blocked", detail: {
       attentionNodes: [{ logicalId: "dev.owner", sessionName: "dev-owner@first", reason }],
     } }] };
     const human = await render(data, 200);
@@ -71,7 +71,7 @@ describe("startup attention guidance", () => {
       expect(r.err).toContain(n.reason);
     }
     expect(r.err).not.toMatch(/\[object Object\]|validate your spec|Sessions are running|answering it.*completes/);
-    expect(r.out).toContain("import_rig: blocked");
+    expect(r.out).toContain("import_software_team: blocked");
     expect(r.exit).toBe(1);
   });
   it("daemon guidance does not assume a trust prompt or a live runtime", () => {

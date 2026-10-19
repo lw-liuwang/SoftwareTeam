@@ -7,7 +7,7 @@ import type { HostEntry } from "./host-registry.js";
  * (couldn't reach the remote shell) from remote-command failures (reached the
  * remote shell, but the command itself returned non-zero). This distinction
  * is load-bearing: collapsing both into "failed" hides the operational
- * difference between "fix your SSH" and "fix your remote rig daemon."
+ * difference between "fix your SSH" and "fix your remote SoftwareTeam daemon."
  */
 export type CrossHostResult =
   | { ok: true; failedStep: "none"; stdout: string; stderr: string; remoteExitCode: 0 }
@@ -39,9 +39,9 @@ export interface RunCrossHostCommandOpts {
   /** Connect timeout in seconds for the underlying ssh invocation. Default: 10. */
   connectTimeoutSeconds?: number;
   /**
-   * A2 (P23) HTTP/SSH origin parity: the ORIGIN's identity triple (member@rig@selfHostId), composed by
+   * A2 (P23) HTTP/SSH origin parity: the ORIGIN's identity triple (member@software-team@selfHostId), composed by
    * the caller from the seat env + this host's selfHostId (an upstream triple preserved verbatim, never
-   * re-stamped). When present, it is prefixed as `OPENRIG_SESSION_NAME=<triple>` INSIDE the remote
+   * re-stamped). When present, it is prefixed as `SOFTWARETEAM_SESSION_NAME=<triple>` INSIDE the remote
    * `sh -lc` line so the remote's DaemonClient stamps the ORIGIN identity (matching A4's HTTP header) —
    * the SSH relay would otherwise resolve its OWN seat and degrade attribution. Absent ⇒ no prefix
    * (byte-unchanged). This is a DERIVED origin, never a caller-supplied identity claim.
@@ -50,13 +50,13 @@ export interface RunCrossHostCommandOpts {
 }
 
 /**
- * Run a remote rig command via single-hop ssh. Returns a structured result
+ * Run a remote softwareTeam command via single-hop ssh. Returns a structured result
  * that maps each failure mode named in the dossier to a distinct
  * `failedStep` value.
  *
  * Important: this function does NOT collapse remote `--verify` semantics into
  * the SSH exit code. Callers that pass `--verify` get the remote command's
- * stdout (containing `Verified: yes`/`no`) verbatim; the remote rig is
+ * stdout (containing `Verified: yes`/`no`) verbatim; the remote softwareTeam is
  * authoritative on verification. SSH success (exit 0) just means "we reached
  * the remote shell and it ran the command", not "the verify passed."
  */
@@ -90,15 +90,15 @@ export async function runCrossHostCommand(
   // No BatchMode — operators may legitimately use password / interactive auth.
   // Stay deferential to ~/.ssh/config defaults.
 
-  // D13 — ssh runs the remote command in a NON-login shell (no operator PATH → `rig`
+  // D13 — ssh runs the remote command in a NON-login shell (no operator PATH → `softwareTeam`
   // exits 127 on nvm/npm-global installs). Run it under `sh -lc` so the operator's own
   // login PATH resolves it — one exec, zero config; `sh` exists everywhere POSIX.
-  // A2 (P23): when the caller supplies the ORIGIN triple, prefix `OPENRIG_SESSION_NAME=<triple>`
-  // INSIDE the sh -lc line so the remote's rig derives the ORIGIN identity, not its own seat. The
+  // A2 (P23): when the caller supplies the ORIGIN triple, prefix `SOFTWARETEAM_SESSION_NAME=<triple>`
+  // INSIDE the sh -lc line so the remote's softwareTeam derives the ORIGIN identity, not its own seat. The
   // prefix rides the SAME shellQuote layer as the argv; absent ⇒ byte-unchanged from D13.
   const quotedArgv = argv.map(shellQuote).join(" ");
   const innerCommand = opts.originTriple
-    ? `OPENRIG_SESSION_NAME=${shellQuote(opts.originTriple)} ${quotedArgv}`
+    ? `SOFTWARETEAM_SESSION_NAME=${shellQuote(opts.originTriple)} ${quotedArgv}`
     : quotedArgv;
   const remoteCommandLine = `sh -lc ${shellQuote(innerCommand)}`;
   const fullArgs = [...sshOpts, sshHost.target, remoteCommandLine];
@@ -149,7 +149,7 @@ export async function runCrossHostCommand(
  *   gate (Permission denied, Keychain, host key verification), classify as
  *   `permission-gate` with inline guidance for the reported SSH failure.
  *   Otherwise classify as `ssh-unreachable`.
- * - Any other non-zero → ssh succeeded but the remote rig command failed.
+ * - Any other non-zero → ssh succeeded but the remote softwareTeam command failed.
  *   If the remote stderr matches the daemon-not-running signature, classify
  *   as `remote-daemon-unreachable`; otherwise `remote-command-failed`.
  */
@@ -176,7 +176,7 @@ export function classifyResult(exitCode: number, stdout: string, stderr: string)
       stdout,
       stderr,
       remoteExitCode: exitCode,
-      hint: "The remote login PATH does not resolve `rig`. Check the remote install (nvm/npm-global in the login profile); a hosts.yaml rigPath override is the escape hatch if the profile cannot carry it.",
+      hint: "The remote login PATH does not resolve `softwareTeam`. Check the remote install (nvm/npm-global in the login profile); a hosts.yaml softwareTeamPath override is the escape hatch if the profile cannot carry it.",
     };
   }
   if (looksLikeDaemonUnreachable(stderr) || looksLikeDaemonUnreachable(stdout)) {
@@ -205,7 +205,7 @@ const PERMISSION_GATE_PATTERNS = [
   /no mutual signature algorithm/i,
 ];
 
-// OPR.0.4.4.18: exported so `rig file` classifies rsync stderr with the SAME
+// OPR.0.4.4.18: exported so `softwareTeam file` classifies rsync stderr with the SAME
 // signature (single-source classification per arch ruling — never a second
 // pattern copy). Behavior unchanged.
 export function looksLikePermissionGate(stderr: string): boolean {

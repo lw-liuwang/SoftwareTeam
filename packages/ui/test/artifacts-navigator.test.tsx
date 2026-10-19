@@ -56,7 +56,7 @@ function routeFiles({ rootsStatus = 200, rootsEmpty = false }: { rootsStatus?: n
       }
       if (rootsEmpty) {
         // files.ts returns 200 with an empty list + hint when no allowlist is set.
-        return Promise.resolve(jsonResponse({ roots: [], hint: "No allowlist roots configured. Set OPENRIG_FILES_ALLOWLIST=..." }, 200));
+        return Promise.resolve(jsonResponse({ roots: [], hint: "No allowlist roots configured. Set SOFTWARETEAM_FILES_ALLOWLIST=..." }, 200));
       }
       return Promise.resolve(jsonResponse({ roots: [{ name: "work", path: "/ws" }] }));
     }
@@ -207,7 +207,7 @@ describe("OPR.0.4.1.21 — Artifacts navigator", () => {
     renderNav();
     await waitFor(() => expect(screen.getByTestId("artifacts-navigator-unavailable")).toBeTruthy());
     // The daemon's own hint is surfaced (the actionable setup instruction).
-    expect(screen.getByTestId("artifacts-navigator-unavailable").textContent).toMatch(/OPENRIG_FILES_ALLOWLIST/);
+    expect(screen.getByTestId("artifacts-navigator-unavailable").textContent).toMatch(/SOFTWARETEAM_FILES_ALLOWLIST/);
     // NOT the misleading out-of-scope state.
     expect(screen.queryByTestId("artifacts-navigator-no-scope")).toBeNull();
   });

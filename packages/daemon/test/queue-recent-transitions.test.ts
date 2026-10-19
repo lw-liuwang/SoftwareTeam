@@ -7,7 +7,7 @@ import { coreSchema } from "../src/db/migrations/001_core_schema.js";
 import { eventsSchema } from "../src/db/migrations/003_events.js";
 import { queueItemsSchema } from "../src/db/migrations/024_queue_items.js";
 import { queueTransitionsSchema } from "../src/db/migrations/025_queue_transitions.js";
-import { rigArchiveSchema } from "../src/db/migrations/042_rig_archive.js";
+import { softwareTeamArchiveSchema } from "../src/db/migrations/042_software_team_archive.js";
 import { queueItemSummarySchema } from "../src/db/migrations/044_queue_item_summary.js";
 import { queueTransitionsArchiveSchema } from "../src/db/migrations/054_queue_transitions_archive.js";
 import { EventBus } from "../src/domain/event-bus.js";
@@ -23,7 +23,7 @@ describe("RECENT queue transition projection", () => {
 
   beforeEach(() => {
     db = createDb();
-    migrate(db, [coreSchema, eventsSchema, queueItemsSchema, queueTransitionsSchema, rigArchiveSchema, queueItemSummarySchema]);
+    migrate(db, [coreSchema, eventsSchema, queueItemsSchema, queueTransitionsSchema, softwareTeamArchiveSchema, queueItemSummarySchema]);
     repo = new QueueRepository(db, new EventBus(db));
     app = new Hono();
     app.use("*", async (c, next) => {
@@ -38,7 +38,7 @@ describe("RECENT queue transition projection", () => {
 
   function item(
     id: string,
-    rig: string,
+    softwareTeam: string,
     state: string,
     tags: string[] = [],
     extra: { handedOffFrom?: string; summary?: string | null; body?: string } = {},
@@ -50,8 +50,8 @@ describe("RECENT queue transition projection", () => {
       id,
       "2026-09-03T20:00:00.000Z",
       "2026-09-03T20:00:00.000Z",
-      `sender@${rig}`,
-      `owner@${rig}`,
+      `sender@${softwareTeam}`,
+      `owner@${softwareTeam}`,
       state,
       JSON.stringify(tags),
       extra.handedOffFrom ?? null,
@@ -74,65 +74,65 @@ describe("RECENT queue transition projection", () => {
       `2026-09-03T20:${String(id).padStart(2, "0")}:00.000Z`,
       state,
       opts.note ?? null,
-      opts.actor ?? "dev-qa@rig-a",
+      opts.actor ?? "dev-qa@software-team-a",
       opts.reason ?? null,
       opts.target ?? null,
     );
   }
 
-  it("normalizes only the typed allowlist, stays current-rig scoped, de-duplicates handoff, and orders newest last", async () => {
-    item("q-claim", "rig-a", "in-progress", ["mission:release-0.5.9", "slice:OPR.0.5.9.11"], {
+  it("normalizes only the typed allowlist, stays current-software-team scoped, de-duplicates handoff, and orders newest last", async () => {
+    item("q-claim", "software-team-a", "in-progress", ["mission:release-0.5.9", "slice:OPR.0.5.9.11"], {
       summary: "Canceled wording is presentation context, not a typed outcome",
     });
     transition("q-claim", "pending", { note: "created" });
     transition("q-claim", "in-progress", { note: "words are irrelevant" });
     transition("q-claim", "in-progress", { note: "claimed founder ruling CLEAR" });
 
-    item("q-block", "rig-a", "in-progress");
+    item("q-block", "software-team-a", "in-progress");
     transition("q-block", "pending");
     transition("q-block", "blocked", { reason: "blocked_on", target: "q-upstream" });
     transition("q-block", "blocked", { note: "watchdog chatter says completed" });
     transition("q-block", "in-progress", { note: "free-form note says denied" });
 
-    item("q-handoff", "rig-a", "handed-off");
+    item("q-handoff", "software-team-a", "handed-off");
     transition("q-handoff", "pending");
     transition("q-handoff", "in-progress");
-    transition("q-handoff", "handed-off", { reason: "handed_off_to", target: "review-r2@rig-a" });
-    item("q-successor", "rig-a", "pending", [], { handedOffFrom: "q-handoff" });
+    transition("q-handoff", "handed-off", { reason: "handed_off_to", target: "review-r2@software-team-a" });
+    item("q-successor", "software-team-a", "pending", [], { handedOffFrom: "q-handoff" });
     transition("q-successor", "pending", { note: "handoff from q-handoff" });
 
-    item("q-done", "rig-a", "done");
+    item("q-done", "software-team-a", "done");
     transition("q-done", "pending");
     transition("q-done", "in-progress");
     transition("q-done", "done", { reason: "no-follow-on" });
 
-    item("q-denied", "rig-a", "denied");
+    item("q-denied", "software-team-a", "denied");
     transition("q-denied", "pending");
     transition("q-denied", "denied", { reason: "denied" });
 
-    item("q-failed", "rig-a", "failed");
+    item("q-failed", "software-team-a", "failed");
     transition("q-failed", "pending");
     transition("q-failed", "failed");
 
-    item("q-canceled", "rig-a", "canceled");
+    item("q-canceled", "software-team-a", "canceled");
     transition("q-canceled", "pending");
     transition("q-canceled", "canceled", { reason: "canceled" });
 
-    item("q-escalation", "rig-a", "handed-off");
+    item("q-escalation", "software-team-a", "handed-off");
     transition("q-escalation", "pending");
     transition("q-escalation", "handed-off", { reason: "escalation", target: "human@kernel" });
 
-    item("q-other", "rig-b", "in-progress");
-    transition("q-other", "pending", { actor: "elsewhere@rig-b" });
-    transition("q-other", "in-progress", { actor: "elsewhere@rig-b" });
+    item("q-other", "software-team-b", "in-progress");
+    transition("q-other", "pending", { actor: "elsewhere@software-team-b" });
+    transition("q-other", "in-progress", { actor: "elsewhere@software-team-b" });
 
-    const rows = repo.listRecentTransitions("rig-a", 20);
+    const rows = repo.listRecentTransitions("software-team-a", 20);
     expect(rows.map((row) => row.change)).toEqual([
       "claimed",
       "blocked on q-upstream",
       "resumed",
       "claimed",
-      "handed off to review-r2@rig-a",
+      "handed off to review-r2@software-team-a",
       "claimed",
       "completed",
       "denied",
@@ -141,8 +141,8 @@ describe("RECENT queue transition projection", () => {
       "escalation",
     ]);
     expect(rows.filter((row) => row.change.startsWith("handed off"))).toHaveLength(1);
-    expect(rows.every((row) => row.rig === "rig-a")).toBe(true);
-    expect(rows.every((row) => row.actorSession !== "elsewhere@rig-b")).toBe(true);
+    expect(rows.every((row) => row.softwareTeam === "software-team-a")).toBe(true);
+    expect(rows.every((row) => row.actorSession !== "elsewhere@software-team-b")).toBe(true);
     expect(rows[0]).toMatchObject({
       qitemId: "q-claim",
       summary: "Canceled wording is presentation context, not a typed outcome",
@@ -151,18 +151,18 @@ describe("RECENT queue transition projection", () => {
     });
     expect(rows.map((row) => row.transitionId)).toEqual([...rows.map((row) => row.transitionId)].sort((a, b) => a - b));
 
-    const response = await app.request("/api/queue/recent-transitions?rig=rig-a&limit=20");
+    const response = await app.request("/api/queue/recent-transitions?softwareTeam=software-team-a&limit=20");
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual(rows);
   });
 
   describe("a row with no summary", () => {
     function claimed(id: string, extra: Parameters<typeof item>[4]): void {
-      item(id, "rig-a", "in-progress", [], extra);
+      item(id, "software-team-a", "in-progress", [], extra);
       transition(id, "pending");
       transition(id, "in-progress");
     }
-    const entry = (id: string) => repo.listRecentTransitions("rig-a").find((row) => row.qitemId === id)!;
+    const entry = (id: string) => repo.listRecentTransitions("software-team-a").find((row) => row.qitemId === id)!;
 
     it("keeps summary empty and offers the body's first non-blank line as bodyPreview, whether the summary is null, empty or only spaces", () => {
       claimed("q-null", { summary: null, body: "\n  \n  Review the retry change  \nsecond line" });
@@ -212,7 +212,7 @@ describe("RECENT queue transition projection", () => {
       claimed("q-nbsp", { summary: "\u00a0\u00a0", body: "NBSP body" });
       claimed("q-tab", { summary: "\t\t", body: "TAB body" });
       claimed("q-mixed", { summary: " \t\u00a0\r\n\u2003\ufeff", body: "MIXED body" });
-      const rows = repo.listRecentTransitions("rig-a");
+      const rows = repo.listRecentTransitions("software-team-a");
       expect(reads.sort()).toEqual(["EMPTY body", "MIXED body", "NBSP body", "NULL body", "TAB body"]);
       expect(Object.fromEntries(rows.map((row) => [row.qitemId, row.bodyPreview]))).toEqual({
         "q-authored": null, "q-padded": null,
@@ -231,9 +231,9 @@ describe("RECENT queue transition projection", () => {
 
     it("does not let the body change what the event is, and the route serves the same entries", async () => {
       claimed("q-words", { summary: null, body: "Completed, denied, failed and canceled" });
-      const [row] = repo.listRecentTransitions("rig-a");
+      const [row] = repo.listRecentTransitions("software-team-a");
       expect(row).toMatchObject({ qitemId: "q-words", change: "claimed", targetKind: "qitem", target: "q-words", summary: null, bodyPreview: "Completed, denied, failed and canceled" });
-      const response = await app.request("/api/queue/recent-transitions?rig=rig-a");
+      const response = await app.request("/api/queue/recent-transitions?softwareTeam=software-team-a");
       expect(await response.json()).toEqual([row]);
     });
   });
@@ -243,13 +243,13 @@ describe("RECENT queue transition projection", () => {
     repo = new QueueRepository(db, new EventBus(db));
     const archived = db.prepare(`INSERT INTO queue_transitions_archive
       (transition_id, qitem_id, ts, state, actor_session, archived_at)
-      VALUES (?, ?, ?, ?, 'owner@rig-a', '2026-09-01')`);
+      VALUES (?, ?, ?, ?, 'owner@software-team-a', '2026-09-01')`);
     const live = db.prepare(`INSERT INTO queue_transitions
       (transition_id, qitem_id, ts, state, actor_session)
-      VALUES (?, ?, ?, ?, 'owner@rig-a')`);
+      VALUES (?, ?, ?, ?, 'owner@software-team-a')`);
     for (let index = 0; index < 25; index += 1) {
       const id = `history-${index}`;
-      item(id, "rig-a", "in-progress", ["slice:history"], { summary: `  Item ${index}  ` });
+      item(id, "software-team-a", "in-progress", ["slice:history"], { summary: `  Item ${index}  ` });
       // ID, not timestamp, defines the predecessor, even across storage tables.
       archived.run(index + 1, id, "2026-12-01", "pending");
       (index % 2 === 0 ? live : archived).run(index + 101, id, "2026-09-02", "in-progress");
@@ -257,25 +257,25 @@ describe("RECENT queue transition projection", () => {
         live.run(1001 + note * 25 + index, id, "2026-10-01", "in-progress");
       }
     }
-    item("foreign", "rig-b", "failed");
+    item("foreign", "software-team-b", "failed");
     live.run(5000, "foreign", "2027-01-01", "failed");
 
-    const rows = repo.listRecentTransitions("rig-a");
+    const rows = repo.listRecentTransitions("software-team-a");
     expect(rows.map((row) => row.transitionId)).toEqual(Array.from({ length: 20 }, (_, i) => 106 + i));
     expect(rows.map((row) => row.summary)).toEqual(Array.from({ length: 20 }, (_, i) => `Item ${i + 5}`));
-    expect(rows.every((row) => row.change === "claimed" && row.target === "history" && row.rig === "rig-a")).toBe(true);
-    expect(repo.listRecentTransitions("rig-a", 1).map((row) => row.transitionId)).toEqual([125]);
-    expect(repo.listRecentTransitions("rig-b").map((row) => row.transitionId)).toEqual([5000]);
+    expect(rows.every((row) => row.change === "claimed" && row.target === "history" && row.softwareTeam === "software-team-a")).toBe(true);
+    expect(repo.listRecentTransitions("software-team-a", 1).map((row) => row.transitionId)).toEqual([125]);
+    expect(repo.listRecentTransitions("software-team-b").map((row) => row.transitionId)).toEqual([5000]);
   });
 
   it("orders by timestamp then ID while deriving state from interleaved ID order", () => {
     migrate(db, [queueTransitionsArchiveSchema]);
     repo = new QueueRepository(db, new EventBus(db));
-    for (const id of ["a", "b", "c"]) item(id, "rig-a", "in-progress");
+    for (const id of ["a", "b", "c"]) item(id, "software-team-a", "in-progress");
     const add = (id: number, qitem: string, ts: string, state: string, archive = false) => {
       db.prepare(`INSERT INTO ${archive ? "queue_transitions_archive" : "queue_transitions"}
         (transition_id, qitem_id, ts, state, actor_session${archive ? ", archived_at" : ""})
-        VALUES (?, ?, ?, ?, 'owner@rig-a'${archive ? ", '2026-09-01'" : ""})`).run(id, qitem, ts, state);
+        VALUES (?, ?, ?, ?, 'owner@software-team-a'${archive ? ", '2026-09-01'" : ""})`).run(id, qitem, ts, state);
     };
     add(1, "a", "2099-01-01", "pending", true);
     add(2, "b", "2020-01-01", "pending");
@@ -287,32 +287,32 @@ describe("RECENT queue transition projection", () => {
     add(7, "c", "2026-01-01", "failed", true);
     add(8, "c", "2026-01-01", "failed");
 
-    expect(repo.listRecentTransitions("rig-a").map((row) => [row.transitionId, row.change])).toEqual([
+    expect(repo.listRecentTransitions("software-team-a").map((row) => [row.transitionId, row.change])).toEqual([
       [5, "resumed"], [3, "blocked"], [4, "claimed"], [7, "failed"], [8, "failed"],
     ]);
   });
 
   it("walks past a long same-state blocked run without counting it", () => {
-    item("q-parked", "rig-a", "blocked");
+    item("q-parked", "software-team-a", "blocked");
     transition("q-parked", "pending");
     transition("q-parked", "blocked", { reason: "blocked_on", target: "external:ci" });
     for (let note = 0; note < 40; note += 1) transition("q-parked", "blocked", { note: `still waiting ${note}` });
-    item("q-old", "rig-a", "in-progress");
+    item("q-old", "software-team-a", "in-progress");
     db.prepare(`INSERT INTO queue_transitions (transition_id, qitem_id, ts, state, actor_session)
-      VALUES (?, 'q-old', '2026-09-03T19:00:00.000Z', ?, 'owner@rig-a')`).run(nextTransitionId++, "pending");
+      VALUES (?, 'q-old', '2026-09-03T19:00:00.000Z', ?, 'owner@software-team-a')`).run(nextTransitionId++, "pending");
     db.prepare(`INSERT INTO queue_transitions (transition_id, qitem_id, ts, state, actor_session)
-      VALUES (?, 'q-old', '2026-09-03T19:01:00.000Z', ?, 'owner@rig-a')`).run(nextTransitionId++, "in-progress");
+      VALUES (?, 'q-old', '2026-09-03T19:01:00.000Z', ?, 'owner@software-team-a')`).run(nextTransitionId++, "in-progress");
 
-    expect(repo.listRecentTransitions("rig-a", 20).map((row) => [row.qitemId, row.change])).toEqual([
+    expect(repo.listRecentTransitions("software-team-a", 20).map((row) => [row.qitemId, row.change])).toEqual([
       ["q-old", "claimed"], ["q-parked", "blocked on external:ci"],
     ]);
-    expect(repo.listRecentTransitions("rig-a", 1).map((row) => row.qitemId)).toEqual(["q-parked"]);
+    expect(repo.listRecentTransitions("software-team-a", 1).map((row) => row.qitemId)).toEqual(["q-parked"]);
   });
 
   it("selects what the full-history window query selected, across live and archived history", () => {
     migrate(db, [queueTransitionsArchiveSchema]);
     repo = new QueueRepository(db, new EventBus(db));
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('r-a', 'rig-a'), ('r-b', 'rig-b')").run();
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('r-a', 'software-team-a'), ('r-b', 'software-team-b')").run();
     let seed = 20261015;
     const random = () => { // mulberry32
       seed = (seed + 0x6D2B79F5) | 0;
@@ -323,8 +323,8 @@ describe("RECENT queue transition projection", () => {
     const states = ["pending", "in-progress", "in-progress", "blocked", "blocked", "done", "failed", "canceled", "handed-off"];
     let id = 1;
     for (let index = 0; index < 60; index += 1) {
-      const rig = index % 7 === 0 ? "rig-c" : index % 2 === 0 ? "rig-a" : "rig-b";
-      item(`gen-${index}`, rig, "in-progress");
+      const softwareTeam = index % 7 === 0 ? "software-team-c" : index % 2 === 0 ? "software-team-a" : "software-team-b";
+      item(`gen-${index}`, softwareTeam, "in-progress");
       const steps = 1 + Math.floor(random() * 12);
       for (let step = 0; step < steps; step += 1) {
         const state = step === 0 ? "pending" : states[Math.floor(random() * states.length)]!;
@@ -335,7 +335,7 @@ describe("RECENT queue transition projection", () => {
         const table = id < 180 && random() < 0.6 ? "queue_transitions_archive" : "queue_transitions";
         db.prepare(`INSERT INTO ${table} (transition_id, qitem_id, ts, state, actor_session, closure_reason, closure_target${table === "queue_transitions_archive" ? ", archived_at" : ""})
           VALUES (?, ?, ?, ?, ?, ?, ?${table === "queue_transitions_archive" ? ", '2026-09-01'" : ""})`)
-          .run(id, `gen-${index}`, ts, state, `owner@${rig}`, reason, reason === "handed_off_to" ? `next@${rig}` : null);
+          .run(id, `gen-${index}`, ts, state, `owner@${softwareTeam}`, reason, reason === "handed_off_to" ? `next@${softwareTeam}` : null);
         id += 1;
       }
     }
@@ -358,56 +358,56 @@ describe("RECENT queue transition projection", () => {
     `).all(...patterns.flatMap((pattern) => [pattern, pattern]), limit).map((row) => (row as { transition_id: number }).transition_id).reverse();
 
     for (const limit of [1, 7, 20]) {
-      expect(repo.listRecentTransitions("rig-a", limit).map((row) => row.transitionId)).toEqual(windowed(["%@rig-a"], limit));
+      expect(repo.listRecentTransitions("software-team-a", limit).map((row) => row.transitionId)).toEqual(windowed(["%@software-team-a"], limit));
       const log = new QueueTransitionLog(db);
-      expect(log.listRecent({ kind: "instance" }, limit).map((row) => row.transitionId)).toEqual(windowed(["%@rig-a", "%@rig-b"], limit));
+      expect(log.listRecent({ kind: "instance" }, limit).map((row) => row.transitionId)).toEqual(windowed(["%@software-team-a", "%@software-team-b"], limit));
     }
   });
 
   it("returns only the newest 20 qualifying transitions and refuses an unscoped read", async () => {
     for (let index = 0; index < 24; index += 1) {
       const id = `q-${String(index).padStart(2, "0")}`;
-      item(id, "rig-a", "in-progress");
+      item(id, "software-team-a", "in-progress");
       transition(id, "pending");
       transition(id, "in-progress");
     }
 
-    const rows = repo.listRecentTransitions("rig-a", 999);
+    const rows = repo.listRecentTransitions("software-team-a", 999);
     expect(rows).toHaveLength(20);
     expect(rows[0]?.qitemId).toBe("q-04");
     expect(rows.at(-1)?.qitemId).toBe("q-23");
 
     const response = await app.request("/api/queue/recent-transitions");
     expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ error: "rig_required" });
+    expect(await response.json()).toMatchObject({ error: "software_team_required" });
   });
 
-  it("serves one bounded instance chronology across active local rigs", async () => {
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?), (?, ?)")
-      .run("r-a", "rig-a", "r-b", "rig-b");
-    db.prepare("INSERT INTO rigs (id, name, archived_at) VALUES (?, ?, ?)")
-      .run("r-archived", "rig-archived", "2026-09-03T23:59:00.000Z");
-    item("q-a", "rig-a", "in-progress", ["mission:m-a"]);
-    transition("q-a", "pending", { actor: "sender@rig-a" });
-    transition("q-a", "in-progress", { actor: "owner@rig-a" });
-    item("q-b", "rig-b", "done", ["slice:OPR.0.5.9.12"]);
-    transition("q-b", "pending", { actor: "sender@rig-b" });
-    transition("q-b", "in-progress", { actor: "owner@rig-b" });
-    transition("q-b", "done", { actor: "owner@rig-b", reason: "no-follow-on" });
-    item("q-foreign", "rig-c", "in-progress");
-    transition("q-foreign", "pending", { actor: "sender@rig-c" });
-    transition("q-foreign", "in-progress", { actor: "owner@rig-c" });
-    item("q-archived", "rig-archived", "in-progress");
-    transition("q-archived", "pending", { actor: "sender@rig-archived" });
-    transition("q-archived", "in-progress", { actor: "owner@rig-archived" });
+  it("serves one bounded instance chronology across active local softwareTeams", async () => {
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?), (?, ?)")
+      .run("r-a", "software-team-a", "r-b", "software-team-b");
+    db.prepare("INSERT INTO software_teams (id, name, archived_at) VALUES (?, ?, ?)")
+      .run("r-archived", "software-team-archived", "2026-09-03T23:59:00.000Z");
+    item("q-a", "software-team-a", "in-progress", ["mission:m-a"]);
+    transition("q-a", "pending", { actor: "sender@software-team-a" });
+    transition("q-a", "in-progress", { actor: "owner@software-team-a" });
+    item("q-b", "software-team-b", "done", ["slice:OPR.0.5.9.12"]);
+    transition("q-b", "pending", { actor: "sender@software-team-b" });
+    transition("q-b", "in-progress", { actor: "owner@software-team-b" });
+    transition("q-b", "done", { actor: "owner@software-team-b", reason: "no-follow-on" });
+    item("q-foreign", "software-team-c", "in-progress");
+    transition("q-foreign", "pending", { actor: "sender@software-team-c" });
+    transition("q-foreign", "in-progress", { actor: "owner@software-team-c" });
+    item("q-archived", "software-team-archived", "in-progress");
+    transition("q-archived", "pending", { actor: "sender@software-team-archived" });
+    transition("q-archived", "in-progress", { actor: "owner@software-team-archived" });
 
     const response = await app.request("/api/queue/recent-transitions?scope=instance&limit=20");
     expect(response.status).toBe(200);
-    const rows = await response.json() as Array<{ qitemId: string; rig: string; change: string }>;
+    const rows = await response.json() as Array<{ qitemId: string; softwareTeam: string; change: string }>;
     expect(rows).toEqual([
-      expect.objectContaining({ qitemId: "q-a", rig: "rig-a", change: "claimed" }),
-      expect.objectContaining({ qitemId: "q-b", rig: "rig-b", change: "claimed" }),
-      expect.objectContaining({ qitemId: "q-b", rig: "rig-b", change: "completed" }),
+      expect.objectContaining({ qitemId: "q-a", softwareTeam: "software-team-a", change: "claimed" }),
+      expect.objectContaining({ qitemId: "q-b", softwareTeam: "software-team-b", change: "claimed" }),
+      expect.objectContaining({ qitemId: "q-b", softwareTeam: "software-team-b", change: "completed" }),
     ]);
   });
 });

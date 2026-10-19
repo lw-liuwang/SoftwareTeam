@@ -17,7 +17,7 @@ import { createHash } from "node:crypto";
 
 const VALID_SPEC = `
 schema_version: 1
-name: test-rig
+name: test-software-team
 version: "1.0"
 nodes:
   - id: dev
@@ -43,7 +43,7 @@ exports:
       default_scope: project_shared
 `.trim();
 
-// Writes a real .rigbundle (+ .sha256 sibling) whose bundle.yaml is a valid
+// Writes a real .softwareteambundle (+ .sha256 sibling) whose bundle.yaml is a valid
 // manifest (v1 by default, or pod-aware v2), optionally with a hostile project
 // block. Used by install-route tests that must pass (or deliberately fail) the
 // always-on manifest safety pre-check. The archive mirrors the create route's
@@ -57,14 +57,14 @@ async function writeBundleArchive(dir: string, name: string, projectBlock: strin
       'name: impl-agent', 'version: "1.0.0"', 'resources:', '  skills: []',
       'profiles:', '  default:', '    uses:', '      skills: []',
     ].join("\n") + "\n";
-    const rigBody = [
+    const softwareTeamBody = [
       'version: "0.2"', `name: ${name}`, 'pods:', '  - id: dev', '    label: Dev',
       '    members:', '      - id: impl', '        agent_ref: "local:agents/impl"',
       '        profile: default', '        runtime: claude-code', '        cwd: .',
       '    edges: []', 'edges: []',
     ].join("\n") + "\n";
     contentFiles = [
-      { rel: "rig.yaml", body: rigBody },
+      { rel: "software-team.yaml", body: softwareTeamBody },
       { rel: "agents/impl/agent.yaml", body: agentBody },
     ];
     manifestLines = [
@@ -72,7 +72,7 @@ async function writeBundleArchive(dir: string, name: string, projectBlock: strin
       `name: ${name}`,
       'version: "0.1.0"',
       'created_at: "2026-10-06T00:00:00.000Z"',
-      "rig_spec: rig.yaml",
+      "software_team_spec: software-team.yaml",
       "agents:",
       "  - name: impl-agent",
       "    path: agents/impl/agent.yaml",
@@ -83,7 +83,7 @@ async function writeBundleArchive(dir: string, name: string, projectBlock: strin
     fs.writeFileSync(path.join(staging, "test-pkg", "package.yaml"), VALID_PKG, "utf-8");
     fs.writeFileSync(path.join(staging, "test-pkg", "skills", "h", "SKILL.md"), "# H");
     contentFiles = [
-      { rel: "rig.yaml", body: VALID_SPEC },
+      { rel: "software-team.yaml", body: VALID_SPEC },
       { rel: "test-pkg/package.yaml", body: VALID_PKG },
       { rel: "test-pkg/skills/h/SKILL.md", body: "# H" },
     ];
@@ -92,7 +92,7 @@ async function writeBundleArchive(dir: string, name: string, projectBlock: strin
       `name: ${name}`,
       'version: "0.1.0"',
       'created_at: "2026-10-06T00:00:00.000Z"',
-      "rig_spec: rig.yaml",
+      "software_team_spec: software-team.yaml",
       "packages:",
       "  - name: test-pkg",
       '    version: "1.0.0"',
@@ -116,7 +116,7 @@ async function writeBundleArchive(dir: string, name: string, projectBlock: strin
     ...contentFiles.map((f) => `    ${f.rel}: ${createHash("sha256").update(f.body).digest("hex")}`),
   ].join("\n") + "\n";
   fs.writeFileSync(path.join(staging, "bundle.yaml"), bundleYaml, "utf-8");
-  const archivePath = path.join(dir, `${name}.rigbundle`);
+  const archivePath = path.join(dir, `${name}.softwareteambundle`);
   await tar.create({ gzip: true, file: archivePath, cwd: staging, portable: true }, ["bundle.yaml", ...contentFiles.map((f) => f.rel)]);
   const digest = createHash("sha256").update(fs.readFileSync(archivePath)).digest("hex");
   fs.writeFileSync(`${archivePath}.sha256`, digest, "utf-8");
@@ -164,7 +164,7 @@ describe("Bundle API routes", () => {
   });
 
   function seedPackage(): { specPath: string } {
-    const specPath = path.join(tmpDir, "rig.yaml");
+    const specPath = path.join(tmpDir, "software-team.yaml");
     fs.writeFileSync(specPath, VALID_SPEC);
     const pkgDir = path.join(tmpDir, "test-pkg");
     fs.mkdirSync(path.join(pkgDir, "skills/h"), { recursive: true });
@@ -176,7 +176,7 @@ describe("Bundle API routes", () => {
   // T1: Create returns metadata
   it("POST /api/bundles/create returns bundle metadata", async () => {
     const { specPath } = seedPackage();
-    const outputPath = path.join(tmpDir, "test.rigbundle");
+    const outputPath = path.join(tmpDir, "test.softwareteambundle");
 
     const res = await app.request("/api/bundles/create", {
       method: "POST",
@@ -194,7 +194,7 @@ describe("Bundle API routes", () => {
   // Item 1 / slice-05: provenance round-trip through /create + /inspect
   it("POST /api/bundles/create accepts provenance + /inspect surfaces it (v1 round-trip)", async () => {
     const { specPath } = seedPackage();
-    const bundlePath = path.join(tmpDir, "prov-test.rigbundle");
+    const bundlePath = path.join(tmpDir, "prov-test.softwareteambundle");
 
     const createRes = await app.request("/api/bundles/create", {
       method: "POST",
@@ -203,7 +203,7 @@ describe("Bundle API routes", () => {
         specPath, bundleName: "prov-test", bundleVersion: "0.1.0", outputPath: bundlePath,
         provenance: {
           sourceHost: "route-test-host",
-          authorSession: "velocity-driver@openrig-velocity",
+          authorSession: "velocity-driver@softwareteam-velocity",
           cliVersion: "0.3.2",
           notes: "route-test fixture",
         },
@@ -220,7 +220,7 @@ describe("Bundle API routes", () => {
     const inspectBody = await inspectRes.json();
     expect(inspectBody.manifest.provenance).toBeDefined();
     expect(inspectBody.manifest.provenance.sourceHost).toBe("route-test-host");
-    expect(inspectBody.manifest.provenance.authorSession).toBe("velocity-driver@openrig-velocity");
+    expect(inspectBody.manifest.provenance.authorSession).toBe("velocity-driver@softwareteam-velocity");
     expect(inspectBody.manifest.provenance.cliVersion).toBe("0.3.2");
     expect(inspectBody.manifest.provenance.notes).toBe("route-test fixture");
     // Server-side daemonVersion injection — read from daemon package.json at call time
@@ -232,7 +232,7 @@ describe("Bundle API routes", () => {
 
   it("POST /api/bundles/create with no provenance produces a bundle whose manifest omits provenance (backward compat)", async () => {
     const { specPath } = seedPackage();
-    const bundlePath = path.join(tmpDir, "no-prov.rigbundle");
+    const bundlePath = path.join(tmpDir, "no-prov.softwareteambundle");
 
     const createRes = await app.request("/api/bundles/create", {
       method: "POST",
@@ -253,7 +253,7 @@ describe("Bundle API routes", () => {
 
   it("POST /api/bundles/create refuses unsafe generated provenance in the legacy final staging tree", async () => {
     const { specPath } = seedPackage();
-    const bundlePath = path.join(tmpDir, "legacy-unsafe-generated.rigbundle");
+    const bundlePath = path.join(tmpDir, "legacy-unsafe-generated.softwareteambundle");
 
     const res = await app.request("/api/bundles/create", {
       method: "POST",
@@ -263,7 +263,7 @@ describe("Bundle API routes", () => {
         bundleName: "legacy-unsafe-generated",
         bundleVersion: "0.1.0",
         outputPath: bundlePath,
-        provenance: { notes: "See substrate/shared-docs/rigs/private for details." },
+        provenance: { notes: "See substrate/shared-docs/software-teams/private for details." },
       }),
     });
 
@@ -277,7 +277,7 @@ describe("Bundle API routes", () => {
   // T2: Inspect returns manifest
   it("POST /api/bundles/inspect returns manifest + integrity", async () => {
     const { specPath } = seedPackage();
-    const bundlePath = path.join(tmpDir, "test.rigbundle");
+    const bundlePath = path.join(tmpDir, "test.softwareteambundle");
 
     // Create first
     await app.request("/api/bundles/create", {
@@ -307,7 +307,7 @@ describe("Bundle API routes", () => {
     const staging = path.join(tmpDir, "unsafe-staging");
     fs.mkdirSync(staging, { recursive: true });
     fs.writeFileSync(path.join(staging, "payload.txt"), "escape!");
-    const archivePath = path.join(tmpDir, `unsafe-${entryName.replace(/[^a-z0-9]/gi, "_")}.rigbundle`);
+    const archivePath = path.join(tmpDir, `unsafe-${entryName.replace(/[^a-z0-9]/gi, "_")}.softwareteambundle`);
     await tar.create({ gzip: true, file: archivePath, cwd: staging, prefix: entryName }, ["payload.txt"]);
     const digest = createHash("sha256").update(fs.readFileSync(archivePath)).digest("hex");
     fs.writeFileSync(`${archivePath}.sha256`, digest);
@@ -347,7 +347,7 @@ describe("Bundle API routes", () => {
   // T6: Create emits bundle.created event
   it("POST /api/bundles/create emits bundle.created event", async () => {
     const { specPath } = seedPackage();
-    const outputPath = path.join(tmpDir, "evt.rigbundle");
+    const outputPath = path.join(tmpDir, "evt.softwareteambundle");
 
     await app.request("/api/bundles/create", {
       method: "POST",
@@ -366,7 +366,7 @@ describe("Bundle API routes", () => {
     const res = await app.request("/api/bundles/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bundleName: "x", bundleVersion: "1.0", outputPath: "/tmp/x.rigbundle" }),
+      body: JSON.stringify({ bundleName: "x", bundleVersion: "1.0", outputPath: "/tmp/x.softwareteambundle" }),
     });
     expect(res.status).toBe(400);
   });
@@ -390,7 +390,7 @@ describe("Bundle API routes", () => {
     const res = await app.request("/api/bundles/install", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bundlePath: "/tmp/x.rigbundle" }),
+      body: JSON.stringify({ bundlePath: "/tmp/x.softwareteambundle" }),
     });
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -400,7 +400,7 @@ describe("Bundle API routes", () => {
   // T10c: Install --plan without targetRoot -> OK
   it("POST /api/bundles/install plan mode without targetRoot succeeds", async () => {
     const { specPath } = seedPackage();
-    const bundlePath = path.join(tmpDir, "plan.rigbundle");
+    const bundlePath = path.join(tmpDir, "plan.softwareteambundle");
     await app.request("/api/bundles/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -422,7 +422,7 @@ describe("Bundle API routes", () => {
   // T4: Inspect with tampered bundle -> integrityResult.passed=false
   it("POST /api/bundles/inspect reports integrity failure structurally", async () => {
     const { specPath } = seedPackage();
-    const bundlePath = path.join(tmpDir, "tamper.rigbundle");
+    const bundlePath = path.join(tmpDir, "tamper.softwareteambundle");
 
     // Create valid bundle
     await app.request("/api/bundles/create", {
@@ -475,14 +475,14 @@ describe("Bundle API routes", () => {
       fs.writeFileSync(path.join(skillAgentDir, "skills/missing/SKILL.md"), "# Private skill");
       fs.chmodSync(path.join(skillAgentDir, kind === "unreadable" ? "skills/missing" : "skills/missing/SKILL.md"), 0o000);
     }
-    const specPath = path.join(tmpDir, "rig.yaml");
+    const specPath = path.join(tmpDir, "software-team.yaml");
     fs.writeFileSync(specPath, [
-      'version: "0.2"', "name: missing-skill-rig", "pods:", "  - id: dev", "    label: Dev",
+      'version: "0.2"', "name: missing-skill-software-team", "pods:", "  - id: dev", "    label: Dev",
       "    members:", "      - id: impl", "        agent_ref: local:agents/impl",
       "        profile: default", "        runtime: claude-code", "        cwd: .",
       "    edges: []", "edges: []",
     ].join("\n"));
-    const outputPath = path.join(tmpDir, "existing.rigbundle");
+    const outputPath = path.join(tmpDir, "existing.softwareteambundle");
     fs.writeFileSync(outputPath, "previous bundle");
     fs.writeFileSync(`${outputPath}.sha256`, "previous digest");
     const res = await app.request("/api/bundles/create", {
@@ -564,7 +564,7 @@ describe("Bundle API routes", () => {
 
   // T6-AS-T12: Pod-aware bundle create
   it("POST /api/bundles/create with pod-aware spec returns schemaVersion:2", async () => {
-    // Seed a pod-aware rig spec + agent on disk
+    // Seed a pod-aware softwareTeam spec + agent on disk
     const agentsDir = path.join(tmpDir, "agents", "impl");
     fs.mkdirSync(agentsDir, { recursive: true });
     fs.writeFileSync(path.join(agentsDir, "agent.yaml"), [
@@ -578,10 +578,10 @@ describe("Bundle API routes", () => {
       '      skills: []',
     ].join("\n"));
 
-    const specPath = path.join(tmpDir, "rig.yaml");
+    const specPath = path.join(tmpDir, "software-team.yaml");
     fs.writeFileSync(specPath, [
       'version: "0.2"',
-      'name: pod-test-rig',
+      'name: pod-test-software-team',
       'pods:',
       '  - id: dev',
       '    label: Dev',
@@ -595,7 +595,7 @@ describe("Bundle API routes", () => {
       'edges: []',
     ].join("\n"));
 
-    const outputPath = path.join(tmpDir, "pod.rigbundle");
+    const outputPath = path.join(tmpDir, "pod.softwareteambundle");
     const res = await app.request("/api/bundles/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -611,10 +611,10 @@ describe("Bundle API routes", () => {
   });
 
   it("POST /api/bundles/create accepts builtin terminal pod members", async () => {
-    const specPath = path.join(tmpDir, "terminal-rig.yaml");
+    const specPath = path.join(tmpDir, "terminal-software-team.yaml");
     fs.writeFileSync(specPath, [
       'version: "0.2"',
-      'name: terminal-test-rig',
+      'name: terminal-test-software-team',
       'pods:',
       '  - id: infra',
       '    label: Infra',
@@ -628,7 +628,7 @@ describe("Bundle API routes", () => {
       'edges: []',
     ].join("\n"));
 
-    const outputPath = path.join(tmpDir, "terminal.rigbundle");
+    const outputPath = path.join(tmpDir, "terminal.softwareteambundle");
     const res = await app.request("/api/bundles/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -645,7 +645,7 @@ describe("Bundle API routes", () => {
   // T11-AS-T12: Legacy bundle create still works (regression guard)
   it("POST /api/bundles/create with legacy spec still works", async () => {
     const { specPath } = seedPackage();
-    const outputPath = path.join(tmpDir, "legacy.rigbundle");
+    const outputPath = path.join(tmpDir, "legacy.softwareteambundle");
 
     const res = await app.request("/api/bundles/create", {
       method: "POST",
@@ -669,14 +669,14 @@ describe("Bundle API routes", () => {
       'name: impl-agent', 'version: "1.0.0"', 'resources:', '  skills: []',
       'profiles:', '  default:', '    uses:', '      skills: []',
     ].join("\n"));
-    const specPath = path.join(tmpDir, "rig.yaml");
+    const specPath = path.join(tmpDir, "software-team.yaml");
     fs.writeFileSync(specPath, [
       'version: "0.2"', 'name: v2-install-test', 'pods:', '  - id: dev', '    label: Dev',
       '    members:', '      - id: impl', '        agent_ref: "local:agents/impl"',
       '        profile: default', '        runtime: claude-code', '        cwd: .',
       '    edges: []', 'edges: []',
     ].join("\n"));
-    const bundlePath = path.join(tmpDir, "v2-install.rigbundle");
+    const bundlePath = path.join(tmpDir, "v2-install.softwareteambundle");
     const createRes = await app.request("/api/bundles/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -716,7 +716,7 @@ describe("Bundle API routes", () => {
       '      skills: []',
     ].join("\n"));
 
-    const specPath = path.join(tmpDir, "rig.yaml");
+    const specPath = path.join(tmpDir, "software-team.yaml");
     fs.writeFileSync(specPath, [
       'version: "0.2"',
       'name: v2-inspect-test',
@@ -733,7 +733,7 @@ describe("Bundle API routes", () => {
       'edges: []',
     ].join("\n"));
 
-    const bundlePath = path.join(tmpDir, "v2-inspect.rigbundle");
+    const bundlePath = path.join(tmpDir, "v2-inspect.softwareteambundle");
     const createRes = await app.request("/api/bundles/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -761,7 +761,7 @@ describe("Bundle API routes", () => {
   // OR the route /create compatibility-extraction must make this test fail.
   it("POST /api/bundles/create accepts compatibility + /inspect surfaces it (v1 round-trip)", async () => {
     const { specPath } = seedPackage();
-    const bundlePath = path.join(tmpDir, "compat-test.rigbundle");
+    const bundlePath = path.join(tmpDir, "compat-test.softwareteambundle");
 
     const createRes = await app.request("/api/bundles/create", {
       method: "POST",
@@ -806,7 +806,7 @@ describe("Bundle API routes", () => {
       '      skills: []',
     ].join("\n"));
 
-    const specPath = path.join(tmpDir, "rig.yaml");
+    const specPath = path.join(tmpDir, "software-team.yaml");
     fs.writeFileSync(specPath, [
       'version: "0.2"',
       'name: v2-compat-test',
@@ -823,7 +823,7 @@ describe("Bundle API routes", () => {
       'edges: []',
     ].join("\n"));
 
-    const bundlePath = path.join(tmpDir, "v2-compat.rigbundle");
+    const bundlePath = path.join(tmpDir, "v2-compat.softwareteambundle");
     const createRes = await app.request("/api/bundles/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -868,7 +868,7 @@ describe("Bundle API routes", () => {
       '      skills: []',
     ].join("\n"));
 
-    const specPath = path.join(tmpDir, "rig.yaml");
+    const specPath = path.join(tmpDir, "software-team.yaml");
     fs.writeFileSync(specPath, [
       'version: "0.2"',
       'name: v2-prov-test',
@@ -885,7 +885,7 @@ describe("Bundle API routes", () => {
       'edges: []',
     ].join("\n"));
 
-    const bundlePath = path.join(tmpDir, "v2-prov.rigbundle");
+    const bundlePath = path.join(tmpDir, "v2-prov.softwareteambundle");
     const createRes = await app.request("/api/bundles/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -893,7 +893,7 @@ describe("Bundle API routes", () => {
         specPath, bundleName: "v2-prov", bundleVersion: "0.1.0", outputPath: bundlePath,
         provenance: {
           sourceHost: "v2-route-test-host",
-          authorSession: "velocity-driver@openrig-velocity",
+          authorSession: "velocity-driver@softwareteam-velocity",
           cliVersion: "0.3.2",
           notes: "v2 route round-trip fixture",
         },
@@ -912,7 +912,7 @@ describe("Bundle API routes", () => {
     // The contract: provenance returned in normalized camelCase (matches v1)
     expect(inspectBody.manifest.provenance).toBeDefined();
     expect(inspectBody.manifest.provenance.sourceHost).toBe("v2-route-test-host");
-    expect(inspectBody.manifest.provenance.authorSession).toBe("velocity-driver@openrig-velocity");
+    expect(inspectBody.manifest.provenance.authorSession).toBe("velocity-driver@softwareteam-velocity");
     expect(inspectBody.manifest.provenance.cliVersion).toBe("0.3.2");
     expect(inspectBody.manifest.provenance.notes).toBe("v2 route round-trip fixture");
     expect(typeof inspectBody.manifest.provenance.daemonVersion).toBe("string");
@@ -936,7 +936,7 @@ describe("Bundle API routes", () => {
       "      skills: []",
     ].join("\n"));
 
-    const specPath = path.join(tmpDir, "rig.yaml");
+    const specPath = path.join(tmpDir, "software-team.yaml");
     fs.writeFileSync(specPath, [
       'version: "0.2"',
       "name: v2-unsafe-generated",
@@ -952,7 +952,7 @@ describe("Bundle API routes", () => {
       "    edges: []",
       "edges: []",
     ].join("\n"));
-    const bundlePath = path.join(tmpDir, "v2-unsafe-generated.rigbundle");
+    const bundlePath = path.join(tmpDir, "v2-unsafe-generated.softwareteambundle");
 
     const res = await app.request("/api/bundles/create", {
       method: "POST",
@@ -962,7 +962,7 @@ describe("Bundle API routes", () => {
         bundleName: "v2-unsafe-generated",
         bundleVersion: "0.1.0",
         outputPath: bundlePath,
-        provenance: { notes: "See substrate/shared-docs/rigs/private for details." },
+        provenance: { notes: "See substrate/shared-docs/software-teams/private for details." },
       }),
     });
 
@@ -976,7 +976,7 @@ describe("Bundle API routes", () => {
   // Item 2 / slice-05 Checkpoint 3.3: install-time version check
   it("POST /api/bundles/install fails with 3-part error when min_daemon_version exceeds running daemon", async () => {
     const { specPath } = seedPackage();
-    const bundlePath = path.join(tmpDir, "incompat.rigbundle");
+    const bundlePath = path.join(tmpDir, "incompat.softwareteambundle");
 
     // Create bundle with min_daemon_version way above current
     const createRes = await app.request("/api/bundles/create", {
@@ -1010,7 +1010,7 @@ describe("Bundle API routes", () => {
 
   it("POST /api/bundles/install with skipVersionCheck=true bypasses incompatible bundle's compat check", async () => {
     const { specPath } = seedPackage();
-    const bundlePath = path.join(tmpDir, "incompat-skip.rigbundle");
+    const bundlePath = path.join(tmpDir, "incompat-skip.softwareteambundle");
 
     await app.request("/api/bundles/create", {
       method: "POST",
@@ -1036,7 +1036,7 @@ describe("Bundle API routes", () => {
   });
 
   // The manifest safety pre-check (unpack + manifest validation) is the FIRST
-  // place a bundle.yaml's rig_spec/project fields are validated on the install
+  // place a bundle.yaml's software_team_spec/project fields are validated on the install
   // path; the bundle source resolver validates them again later in the install.
   // --skip-version-check and --force override the Item-2 compat check and the
   // Item-3 conflict check (their documented CLI contract); they must not also
@@ -1098,7 +1098,7 @@ describe("Bundle API routes", () => {
 
   it("POST /api/bundles/install fails with 3-part error when min_cli_version exceeds the CLI version sent in body", async () => {
     const { specPath } = seedPackage();
-    const bundlePath = path.join(tmpDir, "cli-incompat.rigbundle");
+    const bundlePath = path.join(tmpDir, "cli-incompat.softwareteambundle");
 
     await app.request("/api/bundles/create", {
       method: "POST",
@@ -1125,7 +1125,7 @@ describe("Bundle API routes", () => {
 
   it("POST /api/bundles/install passes the compat check when bundle requires versions <= current", async () => {
     const { specPath } = seedPackage();
-    const bundlePath = path.join(tmpDir, "compat.rigbundle");
+    const bundlePath = path.join(tmpDir, "compat.softwareteambundle");
 
     await app.request("/api/bundles/create", {
       method: "POST",
@@ -1156,7 +1156,7 @@ describe("Bundle API routes", () => {
   // bootstrap would see an attacker-controlled link target.
   it("POST /api/bundles/install rejects an archive containing a symlink entry via the safe path (B1 repair)", async () => {
     const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-unsafe-staging-"));
-    const bundlePath = path.join(tmpDir, "unsafe-symlink.rigbundle");
+    const bundlePath = path.join(tmpDir, "unsafe-symlink.softwareteambundle");
     try {
       // Minimal valid manifest contents (bundle.yaml present) plus the unsafe
       // symlink that the safety prescan must reject.
@@ -1165,16 +1165,16 @@ describe("Bundle API routes", () => {
         'name: unsafe-test',
         'version: "0.1.0"',
         'created_at: "2026-05-18T00:00:00Z"',
-        'rig_spec: rig.yaml',
+        'software_team_spec: software-team.yaml',
         'packages: []',
       ].join("\n"));
-      fs.writeFileSync(path.join(stagingDir, "rig.yaml"), 'schema_version: 1\nname: x\nversion: "1.0"\nnodes: []\nedges: []');
+      fs.writeFileSync(path.join(stagingDir, "software-team.yaml"), 'schema_version: 1\nname: x\nversion: "1.0"\nnodes: []\nedges: []');
       fs.symlinkSync("/etc/passwd", path.join(stagingDir, "evil-symlink"));
 
       const tar = await import("tar");
       await tar.create(
         { gzip: { level: 9 }, file: bundlePath, cwd: stagingDir, portable: true },
-        ["bundle.yaml", "rig.yaml", "evil-symlink"],
+        ["bundle.yaml", "software-team.yaml", "evil-symlink"],
       );
 
       // Write a valid sibling .sha256 so digest verification PASSES — proving
@@ -1202,15 +1202,15 @@ describe("Bundle API routes", () => {
   });
 
   // Item 3 / slice-05 Checkpoint 4.2: install conflict gate. Conflict path:
-  // a running rig with the same name as the bundle's rig must produce a
+  // a running softwareTeam with the same name as the bundle's softwareTeam must produce a
   // 3-part error response from /install BEFORE bootstrap delegation.
   // Force-bypass path: same bundle with force=true must skip the conflict
   // check.
-  it("POST /api/bundles/install fails with 3-part conflict error when bundle rig name collides with a running rig", async () => {
+  it("POST /api/bundles/install fails with 3-part conflict error when bundle SoftwareTeam name collides with a running softwareTeam", async () => {
     const { specPath } = seedPackage();
-    const bundlePath = path.join(tmpDir, "conflict-test.rigbundle");
+    const bundlePath = path.join(tmpDir, "conflict-test.softwareteambundle");
 
-    // Create bundle whose rig.yaml declares name 'test-rig' (matches VALID_SPEC)
+    // Create bundle whose software-team.yaml declares name 'test-softwareTeam' (matches VALID_SPEC)
     const createRes = await app.request("/api/bundles/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1218,10 +1218,10 @@ describe("Bundle API routes", () => {
     });
     expect(createRes.status).toBe(201);
 
-    // A rig row alone is stopped; the import guard derives running from sessions.
-    const rig = setup.rigRepo.createRig("test-rig");
-    const node = setup.rigRepo.addNode(rig.id, "dev", { runtime: "claude-code" });
-    const session = setup.sessionRegistry.registerSession(node.id, "dev@test-rig");
+    // A softwareTeam row alone is stopped; the import guard derives running from sessions.
+    const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = setup.softwareTeamRepo.addNode(softwareTeam.id, "dev", { runtime: "claude-code" });
+    const session = setup.sessionRegistry.registerSession(node.id, "dev@test-software-team");
     setup.sessionRegistry.updateStatus(session.id, "running");
 
     const installRes = await app.request("/api/bundles/install", {
@@ -1234,18 +1234,18 @@ describe("Bundle API routes", () => {
     expect(body.error).toBe("Bundle install conflict check failed");
     expect(Array.isArray(body.conflicts)).toBe(true);
     expect(body.conflicts.length).toBeGreaterThan(0);
-    const rigConflict = body.conflicts.find((c: { kind: string }) => c.kind === "rig_name_collision");
-    expect(rigConflict).toBeDefined();
-    expect(rigConflict.bundleRigName).toBe("test-rig");
-    expect(typeof rigConflict.collisionWith.rigId).toBe("string");
-    expect(rigConflict.collisionWith.rigName).toBe("test-rig");
+    const softwareTeamConflict = body.conflicts.find((c: { kind: string }) => c.kind === "software_team_name_collision");
+    expect(softwareTeamConflict).toBeDefined();
+    expect(softwareTeamConflict.bundleSoftwareTeamName).toBe("test-software-team");
+    expect(typeof softwareTeamConflict.collisionWith.softwareTeamId).toBe("string");
+    expect(softwareTeamConflict.collisionWith.softwareTeamName).toBe("test-software-team");
     expect(Array.isArray(body.resolutions)).toBe(true);
     expect(body.resolutions.length).toBeGreaterThanOrEqual(2);
   });
 
   it("POST /api/bundles/install with force=true bypasses the conflict check on a name collision", async () => {
     const { specPath } = seedPackage();
-    const bundlePath = path.join(tmpDir, "conflict-force.rigbundle");
+    const bundlePath = path.join(tmpDir, "conflict-force.softwareteambundle");
 
     await app.request("/api/bundles/create", {
       method: "POST",
@@ -1253,7 +1253,7 @@ describe("Bundle API routes", () => {
       body: JSON.stringify({ specPath, bundleName: "conflict-force", bundleVersion: "0.1.0", outputPath: bundlePath }),
     });
 
-    setup.rigRepo.createRig("test-rig");
+    setup.softwareTeamRepo.createSoftwareTeam("test-software-team");
 
     const installRes = await app.request("/api/bundles/install", {
       method: "POST",
@@ -1268,9 +1268,9 @@ describe("Bundle API routes", () => {
     }
   });
 
-  it("POST /api/bundles/install passes the conflict check when no running rig matches the bundle's rig name", async () => {
+  it("POST /api/bundles/install passes the conflict check when no running SoftwareTeam matches the bundle's SoftwareTeam name", async () => {
     const { specPath } = seedPackage();
-    const bundlePath = path.join(tmpDir, "no-conflict.rigbundle");
+    const bundlePath = path.join(tmpDir, "no-conflict.softwareteambundle");
 
     await app.request("/api/bundles/create", {
       method: "POST",
@@ -1278,7 +1278,7 @@ describe("Bundle API routes", () => {
       body: JSON.stringify({ specPath, bundleName: "no-conflict", bundleVersion: "0.1.0", outputPath: bundlePath }),
     });
 
-    // No rigs created — running set is empty
+    // No softwareTeams created — running set is empty
 
     const installRes = await app.request("/api/bundles/install", {
       method: "POST",
@@ -1293,15 +1293,15 @@ describe("Bundle API routes", () => {
   });
 
   // Item 3 / slice-05 Checkpoint 4.2 / guard B1 repair: install rejects bundle
-  // whose bundle.yaml carries an unsafe rig_spec value (../traversal) via the
+  // whose bundle.yaml carries an unsafe software_team_spec value (../traversal) via the
   // manifest validator at extractInstallTimeMetadata. Discriminator: removing
   // the validator block makes the test fail (no validation error; path
   // containment still triggers but with a different error string than the
   // validator-rejection assertion).
-  it("POST /api/bundles/install rejects bundle whose rig_spec is unsafe via the manifest validator (B1 repair)", async () => {
+  it("POST /api/bundles/install rejects bundle whose software_team_spec is unsafe via the manifest validator (B1 repair)", async () => {
     const { specPath } = seedPackage();
-    const goodBundlePath = path.join(tmpDir, "good.rigbundle");
-    const tamperedBundlePath = path.join(tmpDir, "tampered.rigbundle");
+    const goodBundlePath = path.join(tmpDir, "good.softwareteambundle");
+    const tamperedBundlePath = path.join(tmpDir, "tampered.softwareteambundle");
 
     // Build a normal valid bundle via /create (gives us valid integrity + digest)
     const createRes = await app.request("/api/bundles/create", {
@@ -1311,7 +1311,7 @@ describe("Bundle API routes", () => {
     });
     expect(createRes.status).toBe(201);
 
-    // Unpack, modify bundle.yaml to inject unsafe rig_spec (bundle.yaml itself
+    // Unpack, modify bundle.yaml to inject unsafe software_team_spec (bundle.yaml itself
     // isn't in integrity.files — its hash can't reference itself — so editing
     // it doesn't break verifyIntegrity).
     const stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-tamper-staging-"));
@@ -1320,9 +1320,9 @@ describe("Bundle API routes", () => {
       await tar.extract({ file: goodBundlePath, cwd: stagingDir });
       const bundleYamlPath = path.join(stagingDir, "bundle.yaml");
       const original = fs.readFileSync(bundleYamlPath, "utf-8");
-      // Replace rig_spec line. Original is `rig_spec: rig.yaml` (from /create).
-      const tampered = original.replace(/^rig_spec:.*$/m, 'rig_spec: "../escape.yaml"');
-      expect(tampered).toContain('rig_spec: "../escape.yaml"');
+      // Replace software_team_spec line. Original is `software_team_spec: softwareTeam.yaml` (from /create).
+      const tampered = original.replace(/^software_team_spec:.*$/m, 'software_team_spec: "../escape.yaml"');
+      expect(tampered).toContain('software_team_spec: "../escape.yaml"');
       fs.writeFileSync(bundleYamlPath, tampered);
 
       // Re-pack via pack() which writes valid sibling .sha256
@@ -1342,7 +1342,7 @@ describe("Bundle API routes", () => {
       // "could not run (extraction failed)" shape with the validator message
       // in detail.
       const text = JSON.stringify(body);
-      expect(text).toMatch(/Invalid v1 bundle manifest|Invalid v2 bundle manifest|rig_spec.*not.*safe|escapes bundle workspace/i);
+      expect(text).toMatch(/Invalid v1 bundle manifest|Invalid v2 bundle manifest|software_team_spec.*not.*safe|escapes bundle workspace/i);
       // Negative — bootstrap must NOT have entered. The conflict-check error
       // shape would mean we got past the validator into conflict detection;
       // assert it didn't.
@@ -1353,12 +1353,12 @@ describe("Bundle API routes", () => {
   });
 
   // Item 4 / slice-05 Checkpoint 5.2: GET /api/bundles/history surfaces the
-  // bundle-audit JSONL records (optionally filtered). Empty file -> []; rig
+  // bundle-audit JSONL records (optionally filtered). Empty file -> []; softwareTeam
   // filter scopes; since filter scopes.
   it("GET /api/bundles/history returns empty list when no audit records exist", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-history-test-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     try {
       const res = await app.request("/api/bundles/history");
       expect(res.status).toBe(200);
@@ -1366,23 +1366,23 @@ describe("Bundle API routes", () => {
       expect(body.records).toEqual([]);
       expect(body.total).toBe(0);
     } finally {
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
 
   it("GET /api/bundles/history returns records from the audit file with filters honored", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-history-test-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     try {
       // Seed the audit JSONL directly (bypasses any writer; tests the reader path)
       const auditPath = path.join(auditHome, "bundle-audit.jsonl");
       const recs = [
-        { installedAt: "2026-05-18T10:00:00Z", bundlePath: "/tmp/a.rigbundle", targetRigName: "alpha", outcome: "success" },
-        { installedAt: "2026-05-18T11:00:00Z", bundlePath: "/tmp/b.rigbundle", targetRigName: "beta", outcome: "failed" },
-        { installedAt: "2026-05-18T12:00:00Z", bundlePath: "/tmp/c.rigbundle", targetRigName: "alpha", outcome: "partial" },
+        { installedAt: "2026-05-18T10:00:00Z", bundlePath: "/tmp/a.softwareteambundle", targetSoftwareTeamName: "alpha", outcome: "success" },
+        { installedAt: "2026-05-18T11:00:00Z", bundlePath: "/tmp/b.softwareteambundle", targetSoftwareTeamName: "beta", outcome: "failed" },
+        { installedAt: "2026-05-18T12:00:00Z", bundlePath: "/tmp/c.softwareteambundle", targetSoftwareTeamName: "alpha", outcome: "partial" },
       ];
       fs.writeFileSync(auditPath, recs.map((r) => JSON.stringify(r)).join("\n") + "\n", "utf-8");
 
@@ -1393,11 +1393,11 @@ describe("Bundle API routes", () => {
       expect(allBody.total).toBe(3);
       expect(allBody.records).toHaveLength(3);
 
-      // Filter rig=alpha: 2 records
-      const alpha = await app.request("/api/bundles/history?rig=alpha");
+      // Filter softwareTeam=alpha: 2 records
+      const alpha = await app.request("/api/bundles/history?softwareTeam=alpha");
       const alphaBody = await alpha.json();
       expect(alphaBody.total).toBe(2);
-      expect(alphaBody.records.every((r: { targetRigName: string }) => r.targetRigName === "alpha")).toBe(true);
+      expect(alphaBody.records.every((r: { targetSoftwareTeamName: string }) => r.targetSoftwareTeamName === "alpha")).toBe(true);
 
       // Filter since=11:00: 2 records (the 11:00 and 12:00 ones)
       const since = await app.request("/api/bundles/history?since=2026-05-18T11:00:00Z");
@@ -1408,8 +1408,8 @@ describe("Bundle API routes", () => {
         "2026-05-18T12:00:00Z",
       ]);
 
-      // Combined rig=alpha + since=11:00: 1 record (the 12:00 alpha one)
-      const combo = await app.request("/api/bundles/history?rig=alpha&since=2026-05-18T11:00:00Z");
+      // Combined softwareTeam=alpha + since=11:00: 1 record (the 12:00 alpha one)
+      const combo = await app.request("/api/bundles/history?softwareTeam=alpha&since=2026-05-18T11:00:00Z");
       const comboBody = await combo.json();
       expect(comboBody.total).toBe(1);
       expect(comboBody.records[0].installedAt).toBe("2026-05-18T12:00:00Z");
@@ -1440,8 +1440,8 @@ describe("Bundle API routes", () => {
       }
       expect("advisories" in allBody).toBe(false);
     } finally {
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
@@ -1449,14 +1449,14 @@ describe("Bundle API routes", () => {
   // Item 4 / slice-05 Checkpoint 5.3: /install writes audit record on apply
   // completion paths; plan mode does NOT write (planning doesn't change
   // state). End-to-end: install -> GET /api/bundles/history reflects the
-  // record. Test isolation via OPENRIG_HOME env override to per-test tmpDir.
+  // record. Test isolation via SOFTWARETEAM_HOME env override to per-test tmpDir.
   it("POST /api/bundles/install plan mode does NOT write an audit record (planning doesn't change state)", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-audit-plan-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "plan-mode.rigbundle");
+      const bundlePath = path.join(tmpDir, "plan-mode.softwareteambundle");
       await app.request("/api/bundles/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1473,8 +1473,8 @@ describe("Bundle API routes", () => {
       const body = await history.json();
       expect(body.total).toBe(0);
     } finally {
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
@@ -1491,10 +1491,10 @@ describe("Bundle API routes", () => {
     bootstrapResult?: unknown;
     bootstrapThrows?: Error;
     expectedOutcome: "success" | "failed" | "partial";
-    expectedRigId?: string;
+    expectedSoftwareTeamId?: string;
   }): Promise<{ records: Array<Record<string, unknown>>; total: number }> {
     const { specPath } = seedPackage();
-    const bundlePath = path.join(tmpDir, `${opts.bundleName}.rigbundle`);
+    const bundlePath = path.join(tmpDir, `${opts.bundleName}.softwareteambundle`);
     const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), `${opts.bundleName}-target-`));
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
@@ -1531,16 +1531,16 @@ describe("Bundle API routes", () => {
   }
 
   it("POST /api/bundles/install apply / completed branch writes audit record with outcome=success", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-audit-completed-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     try {
       const body = await runApplyAuditTest({
         bundleName: "completed-test",
         bootstrapResult: {
           status: "completed",
           runId: "test-run-completed",
-          rigId: "01H000000000000000COMPL01",
+          softwareTeamId: "01H000000000000000COMPL01",
           stages: [{ stage: "resolve_spec", status: "ok" }],
           errors: [],
         },
@@ -1548,29 +1548,29 @@ describe("Bundle API routes", () => {
       });
       expect(body.total).toBe(1);
       expect(body.records[0].outcome).toBe("success");
-      expect(body.records[0].targetRigId).toBe("01H000000000000000COMPL01");
+      expect(body.records[0].targetSoftwareTeamId).toBe("01H000000000000000COMPL01");
       expect(typeof body.records[0].daemonVersion).toBe("string");
     } finally {
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
 
   it("POST /api/bundles/install apply / partial branch writes audit record with outcome=partial", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-audit-partial-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     try {
       const body = await runApplyAuditTest({
         bundleName: "partial-test",
         bootstrapResult: {
           status: "partial",
           runId: "test-run-partial",
-          rigId: "01H000000000000000PARTI01",
+          softwareTeamId: "01H000000000000000PARTI01",
           stages: [
             { stage: "resolve_spec", status: "ok" },
-            { stage: "instantiate_rig", status: "failed" },
+            { stage: "instantiate_software_team", status: "failed" },
           ],
           errors: ["partial fail"],
         },
@@ -1578,18 +1578,18 @@ describe("Bundle API routes", () => {
       });
       expect(body.total).toBe(1);
       expect(body.records[0].outcome).toBe("partial");
-      expect(body.records[0].targetRigId).toBe("01H000000000000000PARTI01");
+      expect(body.records[0].targetSoftwareTeamId).toBe("01H000000000000000PARTI01");
     } finally {
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
 
   it("POST /api/bundles/install apply / failed-result branch writes audit record with outcome=failed", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-audit-failed-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     try {
       const body = await runApplyAuditTest({
         bundleName: "failed-result-test",
@@ -1604,16 +1604,16 @@ describe("Bundle API routes", () => {
       expect(body.total).toBe(1);
       expect(body.records[0].outcome).toBe("failed");
     } finally {
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
 
   it("POST /api/bundles/install apply / thrown-error branch writes audit record with outcome=failed", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-audit-thrown-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     try {
       const body = await runApplyAuditTest({
         bundleName: "thrown-test",
@@ -1623,8 +1623,8 @@ describe("Bundle API routes", () => {
       expect(body.total).toBe(1);
       expect(body.records[0].outcome).toBe("failed");
     } finally {
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
@@ -1632,15 +1632,15 @@ describe("Bundle API routes", () => {
   // Item 6 / slice-05 Checkpoint 7.3: /install routes declared skills to
   // operator skills library after successful bootstrap. Uses bootstrap stub
   // to force completed outcome; bundle manifest has skills[]; verifies the
-  // skills land at OPENRIG_HOME/skills/.
+  // skills land at SOFTWARETEAM_HOME/skills/.
   it("POST /api/bundles/install routes declared skills after successful bootstrap (completed branch)", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-skills-route-test-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "with-skills.rigbundle");
+      const bundlePath = path.join(tmpDir, "with-skills.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "skills-target-"));
       try {
         // Build a bundle with skills[] declared. Add a skill file to the
@@ -1677,7 +1677,7 @@ describe("Bundle API routes", () => {
         const stub = vi.fn().mockResolvedValue({
           status: "completed",
           runId: "test-run-skills",
-          rigId: "01H000000000000000SKILLS01",
+          softwareTeamId: "01H000000000000000SKILLS01",
           stages: [{ stage: "resolve_spec", status: "ok" }],
           errors: [],
         });
@@ -1703,8 +1703,8 @@ describe("Bundle API routes", () => {
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
@@ -1716,13 +1716,13 @@ describe("Bundle API routes", () => {
   // installMeta would make this test fail (skillsRouting undefined when both
   // override flags are set).
   it("POST /api/bundles/install routes declared skills even when both --skip-version-check and --force are set (B1 repair)", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-skills-dual-override-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "dual-override.rigbundle");
+      const bundlePath = path.join(tmpDir, "dual-override.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "dual-override-target-"));
       try {
         const skillSourceDir = path.join(tmpDir, "test-pkg", "skills");
@@ -1752,7 +1752,7 @@ describe("Bundle API routes", () => {
         const stub = vi.fn().mockResolvedValue({
           status: "completed",
           runId: "test-run-dual-override",
-          rigId: "01H000000000000000DUAL0001",
+          softwareTeamId: "01H000000000000000DUAL0001",
           stages: [{ stage: "resolve_spec", status: "ok" }],
           errors: [],
         });
@@ -1779,8 +1779,8 @@ describe("Bundle API routes", () => {
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
@@ -1788,15 +1788,15 @@ describe("Bundle API routes", () => {
   // Item 6 / Checkpoint 7.3d: /install routes declared plugins after
   // successful bootstrap. Mirrors skills-routing test; bundle has plugins[]
   // with source pointing to a directory in the bundle tree. Verifies the
-  // plugin dir lands at OPENRIG_HOME/plugins/<id>/.
+  // plugin dir lands at SOFTWARETEAM_HOME/plugins/<id>/.
   it("POST /api/bundles/install routes declared plugins after successful bootstrap (completed branch)", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-plugins-route-test-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "with-plugins.rigbundle");
+      const bundlePath = path.join(tmpDir, "with-plugins.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "plugins-target-"));
       try {
         // Put a plugin tree inside the bundle's package source so it lands in the archive
@@ -1829,7 +1829,7 @@ describe("Bundle API routes", () => {
         const stub = vi.fn().mockResolvedValue({
           status: "completed",
           runId: "test-run-plugins",
-          rigId: "01H000000000000000PLUG0001",
+          softwareTeamId: "01H000000000000000PLUG0001",
           stages: [{ stage: "resolve_spec", status: "ok" }],
           errors: [],
         });
@@ -1845,7 +1845,7 @@ describe("Bundle API routes", () => {
         expect(body.pluginsRouting.routedCount).toBe(1);
         expect(body.pluginsRouting.records[0].id).toBe("myplugin");
         expect(body.pluginsRouting.records[0].status).toBe("routed");
-        // Plugin directory landed at OPENRIG_HOME/plugins/myplugin
+        // Plugin directory landed at SOFTWARETEAM_HOME/plugins/myplugin
         const expectedPluginDir = path.join(auditHome, "plugins", "myplugin");
         expect(fs.existsSync(expectedPluginDir)).toBe(true);
         expect(fs.existsSync(path.join(expectedPluginDir, "plugin.json"))).toBe(true);
@@ -1855,8 +1855,8 @@ describe("Bundle API routes", () => {
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
@@ -1870,13 +1870,13 @@ describe("Bundle API routes", () => {
   // to installMeta would make this test fail (pluginsRouting undefined when
   // both override flags are set on a bundle that declares plugins[]).
   it("POST /api/bundles/install routes declared plugins even when both --skip-version-check and --force are set (B1 mirror)", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-plugins-dual-override-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "dual-override-plugins.rigbundle");
+      const bundlePath = path.join(tmpDir, "dual-override-plugins.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "dual-override-plugins-target-"));
       try {
         const pluginSrc = path.join(tmpDir, "test-pkg", "plugins", "dualplugin");
@@ -1907,7 +1907,7 @@ describe("Bundle API routes", () => {
         const stub = vi.fn().mockResolvedValue({
           status: "completed",
           runId: "test-run-plugins-dual",
-          rigId: "01H000000000000000DUAL0002",
+          softwareTeamId: "01H000000000000000DUAL0002",
           stages: [{ stage: "resolve_spec", status: "ok" }],
           errors: [],
         });
@@ -1937,8 +1937,8 @@ describe("Bundle API routes", () => {
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
@@ -1949,9 +1949,9 @@ describe("Bundle API routes", () => {
   // bundle.yaml. End-to-end proof that an author can declare all 5 kinds
   // and the create CLI produces a bundle that the install side will route.
   it("POST /api/bundles/create auto-detects author bundle.yaml + vendors all 5 cross-primitive kinds (pod-aware)", async () => {
-    // 1. Build a pod-aware rig.yaml + agents/impl/agent.yaml at sourceRoot
+    // 1. Build a pod-aware software-team.yaml + agents/impl/agent.yaml at sourceRoot
     const sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "create-author-bundle-src-"));
-    const outputPath = path.join(tmpDir, "create-author-test.rigbundle");
+    const outputPath = path.join(tmpDir, "create-author-test.softwareteambundle");
     try {
       fs.mkdirSync(path.join(sourceRoot, "agents/impl"), { recursive: true });
       fs.writeFileSync(path.join(sourceRoot, "agents/impl/agent.yaml"), [
@@ -1964,9 +1964,9 @@ describe("Bundle API routes", () => {
         '    uses:',
         '      skills: []',
       ].join("\n"));
-      const specPath = path.join(sourceRoot, "rig.yaml");
+      const specPath = path.join(sourceRoot, "software-team.yaml");
       fs.writeFileSync(specPath, [
-        'version: "0.2"', 'name: author-bundle-test-rig', 'pods:',
+        'version: "0.2"', 'name: author-bundle-test-software-team', 'pods:',
         '  - id: dev', '    label: Dev', '    members:',
         '      - id: impl', '        agent_ref: "local:agents/impl"',
         '        profile: default', '        runtime: claude-code', '        cwd: .',
@@ -2014,7 +2014,7 @@ describe("Bundle API routes", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          specPath, rigRoot: sourceRoot,
+          specPath, softwareTeamRoot: sourceRoot,
           bundleName: "author-bundle-test", bundleVersion: "0.1.0", outputPath,
         }),
       });
@@ -2060,14 +2060,14 @@ describe("Bundle API routes", () => {
 
   it("LP-3 refuses internal substance in an author-declared directory before archive creation", async () => {
     const sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "s12-lp3-internal-src-"));
-    const outputPath = path.join(tmpDir, "s12-lp3-internal.rigbundle");
+    const outputPath = path.join(tmpDir, "s12-lp3-internal.softwareteambundle");
     try {
       fs.mkdirSync(path.join(sourceRoot, "agents/impl"), { recursive: true });
       fs.writeFileSync(path.join(sourceRoot, "agents/impl/agent.yaml"), [
         'name: impl-agent', 'version: "1.0.0"', 'resources:', '  skills: []',
         'profiles:', '  default:', '    uses:', '      skills: []',
       ].join("\n"));
-      const specPath = path.join(sourceRoot, "rig.yaml");
+      const specPath = path.join(sourceRoot, "software-team.yaml");
       fs.writeFileSync(specPath, [
         'version: "0.2"', 'name: s12-lp3-internal', 'pods:',
         '  - id: dev', '    label: Dev', '    members:',
@@ -2076,7 +2076,7 @@ describe("Bundle API routes", () => {
         '    edges: []', 'edges: []',
       ].join("\n"));
       fs.mkdirSync(path.join(sourceRoot, "plugins/private"), { recursive: true });
-      fs.writeFileSync(path.join(sourceRoot, "plugins/private/README.md"), "See substrate/shared-docs/rigs/private.\n");
+      fs.writeFileSync(path.join(sourceRoot, "plugins/private/README.md"), "See substrate/shared-docs/software-teams/private.\n");
       fs.writeFileSync(path.join(sourceRoot, "bundle.yaml"), [
         "plugins:", "  - id: private", "    source:", "      kind: local", "      path: plugins/private",
       ].join("\n"));
@@ -2084,7 +2084,7 @@ describe("Bundle API routes", () => {
       const response = await app.request("/api/bundles/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ specPath, rigRoot: sourceRoot, bundleName: "s12-lp3", bundleVersion: "1", outputPath }),
+        body: JSON.stringify({ specPath, softwareTeamRoot: sourceRoot, bundleName: "s12-lp3", bundleVersion: "1", outputPath }),
       });
       expect(response.status).toBe(500);
       const body = await response.json();
@@ -2098,14 +2098,14 @@ describe("Bundle API routes", () => {
 
   it("LP-3 refuses an author-declared lore pack before archive creation", async () => {
     const sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "s12-lp3-lore-src-"));
-    const outputPath = path.join(tmpDir, "s12-lp3-lore.rigbundle");
+    const outputPath = path.join(tmpDir, "s12-lp3-lore.softwareteambundle");
     try {
       fs.mkdirSync(path.join(sourceRoot, "agents/impl"), { recursive: true });
       fs.writeFileSync(path.join(sourceRoot, "agents/impl/agent.yaml"), [
         'name: impl-agent', 'version: "1.0.0"', 'resources:', '  skills: []',
         'profiles:', '  default:', '    uses:', '      skills: []',
       ].join("\n"));
-      const specPath = path.join(sourceRoot, "rig.yaml");
+      const specPath = path.join(sourceRoot, "software-team.yaml");
       fs.writeFileSync(specPath, [
         'version: "0.2"', 'name: s12-lp3-lore', 'pods:',
         '  - id: dev', '    label: Dev', '    members:',
@@ -2124,7 +2124,7 @@ describe("Bundle API routes", () => {
       const response = await app.request("/api/bundles/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ specPath, rigRoot: sourceRoot, bundleName: "s12-lp3", bundleVersion: "1", outputPath }),
+        body: JSON.stringify({ specPath, softwareTeamRoot: sourceRoot, bundleName: "s12-lp3", bundleVersion: "1", outputPath }),
       });
       expect(response.status).toBe(500);
       const body = await response.json();
@@ -2145,16 +2145,16 @@ describe("Bundle API routes", () => {
   // now mirrors them as camelCase per the v2 normalized-manifest contract.
   it("POST /api/bundles/inspect surfaces cross-primitive fields for a v2 archive built from author bundle.yaml", async () => {
     const sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "inspect-crossprim-src-"));
-    const outputPath = path.join(tmpDir, "inspect-crossprim.rigbundle");
+    const outputPath = path.join(tmpDir, "inspect-crossprim.softwareteambundle");
     try {
       fs.mkdirSync(path.join(sourceRoot, "agents/impl"), { recursive: true });
       fs.writeFileSync(path.join(sourceRoot, "agents/impl/agent.yaml"), [
         'name: impl-agent', 'version: "1.0.0"', 'resources:', '  skills: []',
         'profiles:', '  default:', '    uses:', '      skills: []',
       ].join("\n"));
-      const specPath = path.join(sourceRoot, "rig.yaml");
+      const specPath = path.join(sourceRoot, "software-team.yaml");
       fs.writeFileSync(specPath, [
-        'version: "0.2"', 'name: inspect-crossprim-rig', 'pods:',
+        'version: "0.2"', 'name: inspect-crossprim-software-team', 'pods:',
         '  - id: dev', '    label: Dev', '    members:',
         '      - id: impl', '        agent_ref: "local:agents/impl"',
         '        profile: default', '        runtime: claude-code', '        cwd: .',
@@ -2195,7 +2195,7 @@ describe("Bundle API routes", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          specPath, rigRoot: sourceRoot,
+          specPath, softwareTeamRoot: sourceRoot,
           bundleName: "inspect-crossprim-test", bundleVersion: "0.1.0", outputPath,
         }),
       });
@@ -2232,7 +2232,7 @@ describe("Bundle API routes", () => {
   it("POST /api/bundles/create rejects author bundle.yaml skill that is a symlink targeting outside sourceRoot", async () => {
     const sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "create-symlink-escape-file-src-"));
     const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-symlink-escape-file-outside-"));
-    const outputPath = path.join(tmpDir, "symlink-escape-file.rigbundle");
+    const outputPath = path.join(tmpDir, "symlink-escape-file.softwareteambundle");
     try {
       // Outside content (private/secret file the bundle should NEVER contain)
       const outsideFile = path.join(outsideDir, "secret.md");
@@ -2244,9 +2244,9 @@ describe("Bundle API routes", () => {
         'name: impl-agent', 'version: "1.0.0"', 'resources:', '  skills: []',
         'profiles:', '  default:', '    uses:', '      skills: []',
       ].join("\n"));
-      const specPath = path.join(sourceRoot, "rig.yaml");
+      const specPath = path.join(sourceRoot, "software-team.yaml");
       fs.writeFileSync(specPath, [
-        'version: "0.2"', 'name: symlink-escape-file-rig', 'pods:',
+        'version: "0.2"', 'name: symlink-escape-file-software-team', 'pods:',
         '  - id: dev', '    label: Dev', '    members:',
         '      - id: impl', '        agent_ref: "local:agents/impl"',
         '        profile: default', '        runtime: claude-code', '        cwd: .',
@@ -2266,7 +2266,7 @@ describe("Bundle API routes", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          specPath, rigRoot: sourceRoot,
+          specPath, softwareTeamRoot: sourceRoot,
           bundleName: "symlink-escape-file-test", bundleVersion: "0.1.0", outputPath,
         }),
       });
@@ -2292,7 +2292,7 @@ describe("Bundle API routes", () => {
   it("POST /api/bundles/create rejects author bundle.yaml plugin that is a symlink targeting outside sourceRoot", async () => {
     const sourceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "create-symlink-escape-dir-src-"));
     const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), "create-symlink-escape-dir-outside-"));
-    const outputPath = path.join(tmpDir, "symlink-escape-dir.rigbundle");
+    const outputPath = path.join(tmpDir, "symlink-escape-dir.softwareteambundle");
     try {
       // Outside dir tree (private content the bundle should NEVER contain)
       fs.writeFileSync(path.join(outsideDir, "private.json"), '{"secret":"data"}');
@@ -2302,9 +2302,9 @@ describe("Bundle API routes", () => {
         'name: impl-agent', 'version: "1.0.0"', 'resources:', '  skills: []',
         'profiles:', '  default:', '    uses:', '      skills: []',
       ].join("\n"));
-      const specPath = path.join(sourceRoot, "rig.yaml");
+      const specPath = path.join(sourceRoot, "software-team.yaml");
       fs.writeFileSync(specPath, [
-        'version: "0.2"', 'name: symlink-escape-dir-rig', 'pods:',
+        'version: "0.2"', 'name: symlink-escape-dir-software-team', 'pods:',
         '  - id: dev', '    label: Dev', '    members:',
         '      - id: impl', '        agent_ref: "local:agents/impl"',
         '        profile: default', '        runtime: claude-code', '        cwd: .',
@@ -2327,7 +2327,7 @@ describe("Bundle API routes", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          specPath, rigRoot: sourceRoot,
+          specPath, softwareTeamRoot: sourceRoot,
           bundleName: "symlink-escape-dir-test", bundleVersion: "0.1.0", outputPath,
         }),
       });
@@ -2350,16 +2350,16 @@ describe("Bundle API routes", () => {
   // reachability proven via a real scanWorkflowSpecFolder call against the
   // target dir (guard d43b7729 + 9f9ebe0a scanner-reachability lesson).
   it("POST /api/bundles/install routes declared workflow_specs after successful bootstrap (completed branch) — proves scanner-reachability", async () => {
-    const origHome = process.env.OPENRIG_HOME;
-    const origSpecsRoot = process.env.OPENRIG_WORKSPACE_SPECS_ROOT;
+    const origHome = process.env.SOFTWARETEAM_HOME;
+    const origSpecsRoot = process.env.SOFTWARETEAM_WORKSPACE_SPECS_ROOT;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-workflow-specs-route-test-"));
     const specsRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-workflow-specs-route-target-"));
-    process.env.OPENRIG_HOME = auditHome;
-    process.env.OPENRIG_WORKSPACE_SPECS_ROOT = specsRoot;
+    process.env.SOFTWARETEAM_HOME = auditHome;
+    process.env.SOFTWARETEAM_WORKSPACE_SPECS_ROOT = specsRoot;
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "with-workflow-specs.rigbundle");
+      const bundlePath = path.join(tmpDir, "with-workflow-specs.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "wflow-target-"));
       try {
         // Valid workflow YAML fixture mirroring workflow-spec-folder-scanner.test.ts:22-43
@@ -2371,7 +2371,7 @@ describe("Bundle API routes", () => {
   version: '1'
   objective: A bundle-routed workflow fixture
   target:
-    rig: test-fixture
+    software_team: test-fixture
   entry:
     role: producer
   roles:
@@ -2418,7 +2418,7 @@ describe("Bundle API routes", () => {
         const stub = vi.fn().mockResolvedValue({
           status: "completed",
           runId: "test-run-workflow-specs",
-          rigId: "01H000000000000000WSPEC01",
+          softwareTeamId: "01H000000000000000WSPEC01",
           stages: [{ stage: "resolve_spec", status: "ok" }],
           errors: [],
         });
@@ -2481,10 +2481,10 @@ describe("Bundle API routes", () => {
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
-      if (origSpecsRoot === undefined) delete process.env.OPENRIG_WORKSPACE_SPECS_ROOT;
-      else process.env.OPENRIG_WORKSPACE_SPECS_ROOT = origSpecsRoot;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
+      if (origSpecsRoot === undefined) delete process.env.SOFTWARETEAM_WORKSPACE_SPECS_ROOT;
+      else process.env.SOFTWARETEAM_WORKSPACE_SPECS_ROOT = origSpecsRoot;
       fs.rmSync(auditHome, { recursive: true, force: true });
       fs.rmSync(specsRoot, { recursive: true, force: true });
     }
@@ -2498,16 +2498,16 @@ describe("Bundle API routes", () => {
   // this test fail (workflowSpecsRouting undefined when both flags set on a
   // bundle that declares workflow_specs[]).
   it("POST /api/bundles/install routes declared workflow_specs even when both --skip-version-check and --force are set (B1 mirror)", async () => {
-    const origHome = process.env.OPENRIG_HOME;
-    const origSpecsRoot = process.env.OPENRIG_WORKSPACE_SPECS_ROOT;
+    const origHome = process.env.SOFTWARETEAM_HOME;
+    const origSpecsRoot = process.env.SOFTWARETEAM_WORKSPACE_SPECS_ROOT;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-wflow-dual-override-"));
     const specsRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-wflow-dual-override-target-"));
-    process.env.OPENRIG_HOME = auditHome;
-    process.env.OPENRIG_WORKSPACE_SPECS_ROOT = specsRoot;
+    process.env.SOFTWARETEAM_HOME = auditHome;
+    process.env.SOFTWARETEAM_WORKSPACE_SPECS_ROOT = specsRoot;
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "dual-override-wflow.rigbundle");
+      const bundlePath = path.join(tmpDir, "dual-override-wflow.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "dual-override-wflow-target-"));
       try {
         const workflowSrcDir = path.join(tmpDir, "test-pkg", "workflows");
@@ -2537,7 +2537,7 @@ describe("Bundle API routes", () => {
         const stub = vi.fn().mockResolvedValue({
           status: "completed",
           runId: "test-run-wflow-dual",
-          rigId: "01H000000000000000WDUAL01",
+          softwareTeamId: "01H000000000000000WDUAL01",
           stages: [{ stage: "resolve_spec", status: "ok" }],
           errors: [],
         });
@@ -2566,10 +2566,10 @@ describe("Bundle API routes", () => {
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
-      if (origSpecsRoot === undefined) delete process.env.OPENRIG_WORKSPACE_SPECS_ROOT;
-      else process.env.OPENRIG_WORKSPACE_SPECS_ROOT = origSpecsRoot;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
+      if (origSpecsRoot === undefined) delete process.env.SOFTWARETEAM_WORKSPACE_SPECS_ROOT;
+      else process.env.SOFTWARETEAM_WORKSPACE_SPECS_ROOT = origSpecsRoot;
       fs.rmSync(auditHome, { recursive: true, force: true });
       fs.rmSync(specsRoot, { recursive: true, force: true });
     }
@@ -2580,16 +2580,16 @@ describe("Bundle API routes", () => {
   // record, NOT 2 routed records claiming the same installedAt (the false-
   // positive class guard caught on d81456dc).
   it("POST /api/bundles/install duplicate-basename workflow_specs: routedCount=1, second flagged conflict (truthful routedCount)", async () => {
-    const origHome = process.env.OPENRIG_HOME;
-    const origSpecsRoot = process.env.OPENRIG_WORKSPACE_SPECS_ROOT;
+    const origHome = process.env.SOFTWARETEAM_HOME;
+    const origSpecsRoot = process.env.SOFTWARETEAM_WORKSPACE_SPECS_ROOT;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-wflow-dup-basename-"));
     const specsRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-wflow-dup-basename-target-"));
-    process.env.OPENRIG_HOME = auditHome;
-    process.env.OPENRIG_WORKSPACE_SPECS_ROOT = specsRoot;
+    process.env.SOFTWARETEAM_HOME = auditHome;
+    process.env.SOFTWARETEAM_WORKSPACE_SPECS_ROOT = specsRoot;
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "dup-basename.rigbundle");
+      const bundlePath = path.join(tmpDir, "dup-basename.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "dup-basename-target-"));
       try {
         const wflowA = path.join(tmpDir, "test-pkg", "workflows-a");
@@ -2623,7 +2623,7 @@ describe("Bundle API routes", () => {
         const stub = vi.fn().mockResolvedValue({
           status: "completed",
           runId: "test-run-dup-basename",
-          rigId: "01H000000000000000WDUPBN",
+          softwareTeamId: "01H000000000000000WDUPBN",
           stages: [{ stage: "resolve_spec", status: "ok" }],
           errors: [],
         });
@@ -2652,10 +2652,10 @@ describe("Bundle API routes", () => {
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
-      if (origSpecsRoot === undefined) delete process.env.OPENRIG_WORKSPACE_SPECS_ROOT;
-      else process.env.OPENRIG_WORKSPACE_SPECS_ROOT = origSpecsRoot;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
+      if (origSpecsRoot === undefined) delete process.env.SOFTWARETEAM_WORKSPACE_SPECS_ROOT;
+      else process.env.SOFTWARETEAM_WORKSPACE_SPECS_ROOT = origSpecsRoot;
       fs.rmSync(auditHome, { recursive: true, force: true });
       fs.rmSync(specsRoot, { recursive: true, force: true });
     }
@@ -2669,16 +2669,16 @@ describe("Bundle API routes", () => {
   // proven via real ContextPackLibraryService.scan() against the routed
   // root (guard d491eca9 + 3cd581e3 file-vs-dir discrimination lessons).
   it("POST /api/bundles/install routes declared context_packs after successful bootstrap (completed branch) — proves consumer-scan reachability", async () => {
-    const origHome = process.env.OPENRIG_HOME;
-    const origContextRoot = process.env.OPENRIG_CONTEXT_ROOT;
+    const origHome = process.env.SOFTWARETEAM_HOME;
+    const origContextRoot = process.env.SOFTWARETEAM_CONTEXT_ROOT;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-context-packs-route-test-"));
     const configuredContextRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-context-root-test-"));
-    process.env.OPENRIG_HOME = auditHome;
-    process.env.OPENRIG_CONTEXT_ROOT = configuredContextRoot;
+    process.env.SOFTWARETEAM_HOME = auditHome;
+    process.env.SOFTWARETEAM_CONTEXT_ROOT = configuredContextRoot;
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "with-context-packs.rigbundle");
+      const bundlePath = path.join(tmpDir, "with-context-packs.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cpacks-target-"));
       try {
         // Build a VALID context-pack: dir w/ manifest.yaml (name + version +
@@ -2722,7 +2722,7 @@ files:
         const stub = vi.fn().mockResolvedValue({
           status: "completed",
           runId: "test-run-cpacks",
-          rigId: "01H000000000000000CPCK01",
+          softwareTeamId: "01H000000000000000CPCK01",
           stages: [{ stage: "resolve_spec", status: "ok" }],
           errors: [],
         });
@@ -2765,10 +2765,10 @@ files:
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
-      if (origContextRoot === undefined) delete process.env.OPENRIG_CONTEXT_ROOT;
-      else process.env.OPENRIG_CONTEXT_ROOT = origContextRoot;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
+      if (origContextRoot === undefined) delete process.env.SOFTWARETEAM_CONTEXT_ROOT;
+      else process.env.SOFTWARETEAM_CONTEXT_ROOT = origContextRoot;
       fs.rmSync(auditHome, { recursive: true, force: true });
       fs.rmSync(configuredContextRoot, { recursive: true, force: true });
     }
@@ -2778,15 +2778,15 @@ files:
   // BOTH --skip-version-check and --force pre-check overrides (banked
   // 5f410eee decoupling lesson; PROACTIVELY shipped).
   it("POST /api/bundles/install routes declared context_packs even when both --skip-version-check and --force are set (B1 mirror)", async () => {
-    const origHome = process.env.OPENRIG_HOME;
-    const origContextRoot = process.env.OPENRIG_CONTEXT_ROOT;
+    const origHome = process.env.SOFTWARETEAM_HOME;
+    const origContextRoot = process.env.SOFTWARETEAM_CONTEXT_ROOT;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-cpacks-dual-override-"));
-    process.env.OPENRIG_HOME = auditHome;
-    process.env.OPENRIG_CONTEXT_ROOT = path.join(auditHome, "context");
+    process.env.SOFTWARETEAM_HOME = auditHome;
+    process.env.SOFTWARETEAM_CONTEXT_ROOT = path.join(auditHome, "context");
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "dual-override-cpacks.rigbundle");
+      const bundlePath = path.join(tmpDir, "dual-override-cpacks.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "dual-override-cpacks-target-"));
       try {
         const packDir = path.join(tmpDir, "test-pkg", "context-packs", "dualcontext");
@@ -2822,7 +2822,7 @@ files:
         const stub = vi.fn().mockResolvedValue({
           status: "completed",
           runId: "test-run-cpacks-dual",
-          rigId: "01H000000000000000CPDUAL",
+          softwareTeamId: "01H000000000000000CPDUAL",
           stages: [{ stage: "resolve_spec", status: "ok" }],
           errors: [],
         });
@@ -2848,10 +2848,10 @@ files:
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
-      if (origContextRoot === undefined) delete process.env.OPENRIG_CONTEXT_ROOT;
-      else process.env.OPENRIG_CONTEXT_ROOT = origContextRoot;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
+      if (origContextRoot === undefined) delete process.env.SOFTWARETEAM_CONTEXT_ROOT;
+      else process.env.SOFTWARETEAM_CONTEXT_ROOT = origContextRoot;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
@@ -2861,15 +2861,15 @@ files:
   // whose manifest.yaml file is NOT in the bundle tree. routedCount=0,
   // status=missing, NO pack copied to target.
   it("POST /api/bundles/install context_packs degenerate-input: declared manifest absent → status=missing, no false routedCount", async () => {
-    const origHome = process.env.OPENRIG_HOME;
-    const origContextRoot = process.env.OPENRIG_CONTEXT_ROOT;
+    const origHome = process.env.SOFTWARETEAM_HOME;
+    const origContextRoot = process.env.SOFTWARETEAM_CONTEXT_ROOT;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-cpacks-degenerate-"));
-    process.env.OPENRIG_HOME = auditHome;
-    process.env.OPENRIG_CONTEXT_ROOT = path.join(auditHome, "context");
+    process.env.SOFTWARETEAM_HOME = auditHome;
+    process.env.SOFTWARETEAM_CONTEXT_ROOT = path.join(auditHome, "context");
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "absent-cpacks.rigbundle");
+      const bundlePath = path.join(tmpDir, "absent-cpacks.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "absent-cpacks-target-"));
       try {
         await app.request("/api/bundles/create", {
@@ -2896,7 +2896,7 @@ files:
         const stub = vi.fn().mockResolvedValue({
           status: "completed",
           runId: "test-run-cpacks-absent",
-          rigId: "01H000000000000000CPABS0",
+          softwareTeamId: "01H000000000000000CPABS0",
           stages: [{ stage: "resolve_spec", status: "ok" }],
           errors: [],
         });
@@ -2920,10 +2920,10 @@ files:
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
-      if (origContextRoot === undefined) delete process.env.OPENRIG_CONTEXT_ROOT;
-      else process.env.OPENRIG_CONTEXT_ROOT = origContextRoot;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
+      if (origContextRoot === undefined) delete process.env.SOFTWARETEAM_CONTEXT_ROOT;
+      else process.env.SOFTWARETEAM_CONTEXT_ROOT = origContextRoot;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
@@ -2931,18 +2931,18 @@ files:
   // Item 6 / Checkpoint 7.3g step 3: /install routes declared agent_images
   // after successful bootstrap. Per PRD line 197 + e7a0b253 contract:
   // declared paths are image DIRECTORIES (not manifest paths). Target =
-  // <openrigHome>/agent-images (startup.ts:523 user-file root). Router
-  // copies whole image dir to <openrigHome>/agent-images/<basename>/.
+  // <softwareteamHome>/agent-images (startup.ts:523 user-file root). Router
+  // copies whole image dir to <softwareteamHome>/agent-images/<basename>/.
   // Consumer-scan reachability proven via real AgentImageLibraryService.scan
   // against the routed root (mirror of cb0bf7b9 context_packs proof).
   it("POST /api/bundles/install routes declared agent_images after successful bootstrap (completed branch) — proves consumer-scan reachability", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-agent-images-route-test-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "with-agent-images.rigbundle");
+      const bundlePath = path.join(tmpDir, "with-agent-images.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aimgs-target-"));
       try {
         // Build a VALID agent_image: dir w/ manifest.yaml (name + version +
@@ -2953,7 +2953,7 @@ files:
         const validManifest = `name: bundle-routed-seat-a
 version: '1'
 runtime: claude-code
-source_seat: velocity-driver@openrig-velocity
+source_seat: velocity-driver@softwareteam-velocity
 source_session_id: 01HABCDEF000000000000000
 source_resume_token: 01HABCDEF000000000000000
 created_at: '2026-05-31T00:00:00Z'
@@ -2985,7 +2985,7 @@ files: []
         const stub = vi.fn().mockResolvedValue({
           status: "completed",
           runId: "test-run-aimgs",
-          rigId: "01H000000000000000AIMG01",
+          softwareTeamId: "01H000000000000000AIMG01",
           stages: [{ stage: "resolve_spec", status: "ok" }],
           errors: [],
         });
@@ -3026,8 +3026,8 @@ files: []
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
@@ -3035,13 +3035,13 @@ files: []
   // B1-mirror: agent_images routing must fire even when operator uses
   // BOTH --skip-version-check and --force pre-check overrides.
   it("POST /api/bundles/install routes declared agent_images even when both --skip-version-check and --force are set (B1 mirror)", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-aimgs-dual-override-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "dual-override-aimgs.rigbundle");
+      const bundlePath = path.join(tmpDir, "dual-override-aimgs.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "dual-override-aimgs-target-"));
       try {
         const imageDir = path.join(tmpDir, "test-pkg", "agent-images", "dualseat");
@@ -3049,7 +3049,7 @@ files: []
         fs.writeFileSync(path.join(imageDir, "manifest.yaml"), `name: dualseat-image
 version: '2'
 runtime: codex
-source_seat: velocity-driver@openrig-velocity
+source_seat: velocity-driver@softwareteam-velocity
 source_session_id: 01HABCDEFDUAL00000000000
 source_resume_token: 01HABCDEFDUAL00000000000
 created_at: '2026-05-31T00:00:00Z'
@@ -3079,7 +3079,7 @@ files: []
         const stub = vi.fn().mockResolvedValue({
           status: "completed",
           runId: "test-run-aimgs-dual",
-          rigId: "01H000000000000000AIMDUL",
+          softwareTeamId: "01H000000000000000AIMDUL",
           stages: [{ stage: "resolve_spec", status: "ok" }],
           errors: [],
         });
@@ -3103,8 +3103,8 @@ files: []
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
@@ -3112,13 +3112,13 @@ files: []
   // Degenerate-input: declared image dir absent. routedCount=0,
   // status=missing, NO image at target.
   it("POST /api/bundles/install agent_images degenerate-input: declared image absent → status=missing, no false routedCount", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-aimgs-degenerate-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "absent-aimgs.rigbundle");
+      const bundlePath = path.join(tmpDir, "absent-aimgs.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "absent-aimgs-target-"));
       try {
         await app.request("/api/bundles/create", {
@@ -3144,7 +3144,7 @@ files: []
         const stub = vi.fn().mockResolvedValue({
           status: "completed",
           runId: "test-run-aimgs-absent",
-          rigId: "01H000000000000000AIMABS",
+          softwareTeamId: "01H000000000000000AIMABS",
           stages: [{ stage: "resolve_spec", status: "ok" }],
           errors: [],
         });
@@ -3166,20 +3166,20 @@ files: []
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
 
   it("POST /api/bundles/install does NOT include agentImagesRouting when bundle has no agent_images[]", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-no-aimgs-test-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "no-aimgs.rigbundle");
+      const bundlePath = path.join(tmpDir, "no-aimgs.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "no-aimgs-target-"));
       try {
         await app.request("/api/bundles/create", {
@@ -3190,7 +3190,7 @@ files: []
 
         const stub = vi.fn().mockResolvedValue({
           status: "completed", runId: "test-run-no-aimgs",
-          rigId: "01H000000000000000NOAIMG",
+          softwareTeamId: "01H000000000000000NOAIMG",
           stages: [], errors: [],
         });
         (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof stub }).bootstrap = stub;
@@ -3207,20 +3207,20 @@ files: []
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
 
   it("POST /api/bundles/install does NOT include contextPacksRouting when bundle has no context_packs[]", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-no-cpacks-test-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "no-cpacks.rigbundle");
+      const bundlePath = path.join(tmpDir, "no-cpacks.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "no-cpacks-target-"));
       try {
         await app.request("/api/bundles/create", {
@@ -3231,7 +3231,7 @@ files: []
 
         const stub = vi.fn().mockResolvedValue({
           status: "completed", runId: "test-run-no-cpacks",
-          rigId: "01H000000000000000NOCPCK",
+          softwareTeamId: "01H000000000000000NOCPCK",
           stages: [], errors: [],
         });
         (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof stub }).bootstrap = stub;
@@ -3248,23 +3248,23 @@ files: []
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
 
   it("POST /api/bundles/install does NOT include workflowSpecsRouting when bundle has no workflow_specs[]", async () => {
-    const origHome = process.env.OPENRIG_HOME;
-    const origSpecsRoot = process.env.OPENRIG_WORKSPACE_SPECS_ROOT;
+    const origHome = process.env.SOFTWARETEAM_HOME;
+    const origSpecsRoot = process.env.SOFTWARETEAM_WORKSPACE_SPECS_ROOT;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-no-wflow-test-"));
     const specsRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-no-wflow-target-"));
-    process.env.OPENRIG_HOME = auditHome;
-    process.env.OPENRIG_WORKSPACE_SPECS_ROOT = specsRoot;
+    process.env.SOFTWARETEAM_HOME = auditHome;
+    process.env.SOFTWARETEAM_WORKSPACE_SPECS_ROOT = specsRoot;
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "no-wflow.rigbundle");
+      const bundlePath = path.join(tmpDir, "no-wflow.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "no-wflow-target-"));
       try {
         await app.request("/api/bundles/create", {
@@ -3275,7 +3275,7 @@ files: []
 
         const stub = vi.fn().mockResolvedValue({
           status: "completed", runId: "test-run-no-wflow",
-          rigId: "01H000000000000000NOWFLW",
+          softwareTeamId: "01H000000000000000NOWFLW",
           stages: [], errors: [],
         });
         (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof stub }).bootstrap = stub;
@@ -3292,23 +3292,23 @@ files: []
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
-      if (origSpecsRoot === undefined) delete process.env.OPENRIG_WORKSPACE_SPECS_ROOT;
-      else process.env.OPENRIG_WORKSPACE_SPECS_ROOT = origSpecsRoot;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
+      if (origSpecsRoot === undefined) delete process.env.SOFTWARETEAM_WORKSPACE_SPECS_ROOT;
+      else process.env.SOFTWARETEAM_WORKSPACE_SPECS_ROOT = origSpecsRoot;
       fs.rmSync(auditHome, { recursive: true, force: true });
       fs.rmSync(specsRoot, { recursive: true, force: true });
     }
   });
 
   it("POST /api/bundles/install does NOT include pluginsRouting when bundle has no plugins[]", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-no-plugins-test-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "no-plugins.rigbundle");
+      const bundlePath = path.join(tmpDir, "no-plugins.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "no-plugins-target-"));
       try {
         await app.request("/api/bundles/create", {
@@ -3319,7 +3319,7 @@ files: []
 
         const stub = vi.fn().mockResolvedValue({
           status: "completed", runId: "test-run-no-plugins",
-          rigId: "01H000000000000000NOPLG01",
+          softwareTeamId: "01H000000000000000NOPLG01",
           stages: [], errors: [],
         });
         (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof stub }).bootstrap = stub;
@@ -3336,20 +3336,20 @@ files: []
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
 
   it("POST /api/bundles/install does NOT include skillsRouting when bundle has no skills[]", async () => {
-    const origHome = process.env.OPENRIG_HOME;
+    const origHome = process.env.SOFTWARETEAM_HOME;
     const auditHome = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-skills-no-test-"));
-    process.env.OPENRIG_HOME = auditHome;
+    process.env.SOFTWARETEAM_HOME = auditHome;
     const origBootstrap = setup.bootstrapOrchestrator.bootstrap.bind(setup.bootstrapOrchestrator);
     try {
       const { specPath } = seedPackage();
-      const bundlePath = path.join(tmpDir, "no-skills.rigbundle");
+      const bundlePath = path.join(tmpDir, "no-skills.softwareteambundle");
       const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "no-skills-target-"));
       try {
         await app.request("/api/bundles/create", {
@@ -3360,7 +3360,7 @@ files: []
 
         const stub = vi.fn().mockResolvedValue({
           status: "completed", runId: "test-run-no-skills",
-          rigId: "01H000000000000000NOSKIL01",
+          softwareTeamId: "01H000000000000000NOSKIL01",
           stages: [], errors: [],
         });
         (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof stub }).bootstrap = stub;
@@ -3377,8 +3377,8 @@ files: []
       }
     } finally {
       (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof origBootstrap }).bootstrap = origBootstrap;
-      if (origHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = origHome;
+      if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = origHome;
       fs.rmSync(auditHome, { recursive: true, force: true });
     }
   });
@@ -3386,16 +3386,16 @@ files: []
   // T11: Install concurrency lock
   it("concurrent bundle install returns 409", async () => {
     // Acquire lock manually
-    setup.bootstrapOrchestrator.tryAcquire("/tmp/locked.rigbundle");
+    setup.bootstrapOrchestrator.tryAcquire("/tmp/locked.softwareteambundle");
 
     const res = await app.request("/api/bundles/install", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bundlePath: "/tmp/locked.rigbundle", targetRoot: "/tmp/target" }),
+      body: JSON.stringify({ bundlePath: "/tmp/locked.softwareteambundle", targetRoot: "/tmp/target" }),
     });
 
     expect(res.status).toBe(409);
-    setup.bootstrapOrchestrator.release("/tmp/locked.rigbundle");
+    setup.bootstrapOrchestrator.release("/tmp/locked.softwareteambundle");
   });
 });
 
@@ -3409,8 +3409,8 @@ describe("POST /api/bundles/install: pre-launch routing report", () => {
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
     home = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-install-routing-"));
-    origHome = process.env.OPENRIG_HOME;
-    process.env.OPENRIG_HOME = home;
+    origHome = process.env.SOFTWARETEAM_HOME;
+    process.env.SOFTWARETEAM_HOME = home;
     setup = createTestApp(db);
     // A real, manifest-valid archive: the install route's manifest safety
     // pre-check always runs, so the stubbed bootstrap needs a bundle that
@@ -3420,8 +3420,8 @@ describe("POST /api/bundles/install: pre-launch routing report", () => {
 
   afterEach(() => {
     db.close();
-    if (origHome === undefined) delete process.env.OPENRIG_HOME;
-    else process.env.OPENRIG_HOME = origHome;
+    if (origHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+    else process.env.SOFTWARETEAM_HOME = origHome;
     fs.rmSync(home, { recursive: true, force: true });
   });
 
@@ -3432,24 +3432,24 @@ describe("POST /api/bundles/install: pre-launch routing report", () => {
       // skipVersionCheck + force: skip the compat and conflict checks; the
       // manifest safety pre-check still runs on the real archive above, and
       // the stubbed bootstrap is the rest of the install.
-      body: JSON.stringify({ bundlePath: path.join(home, "b.rigbundle"), targetRoot: home, autoApprove: true, skipVersionCheck: true, force: true, ...body }),
+      body: JSON.stringify({ bundlePath: path.join(home, "b.softwareteambundle"), targetRoot: home, autoApprove: true, skipVersionCheck: true, force: true, ...body }),
     });
   }
 
   it("passes --cwd to bootstrap and returns the hook's routing without routing again", async () => {
     const bootstrap = vi.fn().mockResolvedValue({
-      status: "completed", runId: "run-cwd", rigId: "rig-cwd", stages: [], errors: [], warnings: [],
+      status: "completed", runId: "run-cwd", softwareTeamId: "software-team-cwd", stages: [], errors: [], warnings: [],
       bundleRouting: { contextPacksRouting: { records: [], routedCount: 1, rejectedCount: 0 } },
     });
     const orchestrator = setup.bootstrapOrchestrator as unknown as { bootstrap: typeof bootstrap; routeBundleContents: (p: string) => unknown };
     orchestrator.bootstrap = bootstrap;
     const reroute = vi.spyOn(orchestrator, "routeBundleContents");
 
-    const res = await install({ cwdOverride: "/work/openrig" });
+    const res = await install({ cwdOverride: "/work/softwareteam" });
     const body = await res.json();
 
     expect(res.status).toBe(201);
-    expect(bootstrap).toHaveBeenCalledWith(expect.objectContaining({ cwdOverride: "/work/openrig" }));
+    expect(bootstrap).toHaveBeenCalledWith(expect.objectContaining({ cwdOverride: "/work/softwareteam" }));
     expect(reroute).not.toHaveBeenCalled();
     expect(body.contextPacksRouting.routedCount).toBe(1);
     expect(body.bundleRouting).toBeUndefined();
@@ -3459,16 +3459,16 @@ describe("POST /api/bundles/install: pre-launch routing report", () => {
     const bootstrap = vi.fn().mockResolvedValue({ status: "planned", runId: "run-plan", stages: [], errors: [], warnings: [] });
     (setup.bootstrapOrchestrator as unknown as { bootstrap: typeof bootstrap }).bootstrap = bootstrap;
 
-    const res = await install({ plan: true, cwdOverride: "/work/openrig" });
+    const res = await install({ plan: true, cwdOverride: "/work/softwareteam" });
 
     expect(res.status).toBe(200);
-    expect(bootstrap).toHaveBeenCalledWith(expect.objectContaining({ mode: "plan", cwdOverride: "/work/openrig" }));
+    expect(bootstrap).toHaveBeenCalledWith(expect.objectContaining({ mode: "plan", cwdOverride: "/work/softwareteam" }));
   });
 
   it("a partial install reports its routing failures in the response and the audit", async () => {
     const failure = { kind: "contextPacks", error: "no space left on device" };
     (setup.bootstrapOrchestrator as unknown as { bootstrap: unknown }).bootstrap = vi.fn().mockResolvedValue({
-      status: "partial", runId: "run-partial", rigId: "rig-partial",
+      status: "partial", runId: "run-partial", softwareTeamId: "software-team-partial",
       stages: [{ stage: "route_bundle_contents", status: "failed" }],
       errors: [], warnings: ["Bundle contextPacks routing failed: no space left on device"],
       bundleRouting: { routingFailures: [failure] },
@@ -3485,7 +3485,7 @@ describe("POST /api/bundles/install: pre-launch routing report", () => {
   });
 });
 
-describe("bundle create --context-pack: a world pack outside the rig folder", () => {
+describe("bundle create --context-pack: a world pack outside the SoftwareTeam folder", () => {
   let db: Database.Database;
   let setup: ReturnType<typeof createTestApp>;
   let work: string;
@@ -3508,20 +3508,20 @@ describe("bundle create --context-pack: a world pack outside the rig folder", ()
     setup = createTestApp(db);
     work = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-carried-world-"));
     contextRoot = path.join(work, "context");
-    savedContextRoot = process.env["OPENRIG_CONTEXT_ROOT"];
-    process.env["OPENRIG_CONTEXT_ROOT"] = contextRoot;
-    // The openrig-world layout: the pack manifest at the repository root, the rig in rigs/dev/
+    savedContextRoot = process.env["SOFTWARETEAM_CONTEXT_ROOT"];
+    process.env["SOFTWARETEAM_CONTEXT_ROOT"] = contextRoot;
+    // The softwareteam-world layout: the pack manifest at the repository root, the softwareTeam in software-teams/dev/
     worldRepo = path.join(work, "world");
-    const rigDir = path.join(worldRepo, "rigs", "dev");
-    fs.mkdirSync(path.join(rigDir, "agents", "impl"), { recursive: true });
+    const softwareTeamDir = path.join(worldRepo, "software-teams", "dev");
+    fs.mkdirSync(path.join(softwareTeamDir, "agents", "impl"), { recursive: true });
     fs.mkdirSync(path.join(worldRepo, "identity"), { recursive: true });
     fs.writeFileSync(path.join(worldRepo, "manifest.yaml"), WORLD_MANIFEST);
     fs.writeFileSync(path.join(worldRepo, "identity", "who.md"), "# Who we are\n");
     fs.writeFileSync(path.join(worldRepo, "README.md"), "# Repository readme, not part of the pack\n");
-    fs.writeFileSync(path.join(rigDir, "agents", "impl", "agent.yaml"),
+    fs.writeFileSync(path.join(softwareTeamDir, "agents", "impl", "agent.yaml"),
       ['name: impl-agent', 'version: "1.0.0"', 'resources:', '  skills: []', 'profiles:', '  default:', '    uses:', '      skills: []'].join("\n"));
-    fs.writeFileSync(path.join(rigDir, "rig.yaml"), [
-      'version: "0.2"', 'name: carried-world-rig', 'pods:', '  - id: dev', '    label: Dev', '    members:',
+    fs.writeFileSync(path.join(softwareTeamDir, "software-team.yaml"), [
+      'version: "0.2"', 'name: carried-world-software-team', 'pods:', '  - id: dev', '    label: Dev', '    members:',
       '      - id: impl', '        agent_ref: "local:agents/impl"', '        profile: default', '        runtime: claude-code', '        cwd: .',
       '    edges: []', 'edges: []',
     ].join("\n"));
@@ -3529,17 +3529,17 @@ describe("bundle create --context-pack: a world pack outside the rig folder", ()
 
   afterEach(() => {
     db.close();
-    if (savedContextRoot === undefined) delete process.env["OPENRIG_CONTEXT_ROOT"];
-    else process.env["OPENRIG_CONTEXT_ROOT"] = savedContextRoot;
+    if (savedContextRoot === undefined) delete process.env["SOFTWARETEAM_CONTEXT_ROOT"];
+    else process.env["SOFTWARETEAM_CONTEXT_ROOT"] = savedContextRoot;
     fs.rmSync(work, { recursive: true, force: true });
   });
 
   async function create(extra: Record<string, unknown>) {
-    const outputPath = path.join(work, "carried.rigbundle");
+    const outputPath = path.join(work, "carried.softwareteambundle");
     const res = await setup.app.request("/api/bundles/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specPath: path.join(worldRepo, "rigs", "dev", "rig.yaml"), bundleName: "carried", bundleVersion: "0.1.0", outputPath, ...extra }),
+      body: JSON.stringify({ specPath: path.join(worldRepo, "software-teams", "dev", "software-team.yaml"), bundleName: "carried", bundleVersion: "0.1.0", outputPath, ...extra }),
     });
     return { res, outputPath };
   }
@@ -3569,7 +3569,7 @@ describe("bundle create --context-pack: a world pack outside the rig folder", ()
     const gitManifest = WORLD_MANIFEST.replace("0.1.0", "0.0.9");
     fs.writeFileSync(path.join(installed, "manifest.yaml"), gitManifest);
     fs.writeFileSync(path.join(installed, "identity", "who.md"), "# Older text\n");
-    fs.writeFileSync(path.join(installed, ".openrig-git-source.json"), '{"pack":"."}\n');
+    fs.writeFileSync(path.join(installed, ".softwareteam-git-source.json"), '{"pack":"."}\n');
 
     const { routeBundleContents } = await import("../src/domain/bundle-content-routing.js");
     const routing = await routeBundleContents(outputPath);
@@ -3577,23 +3577,23 @@ describe("bundle create --context-pack: a world pack outside the rig folder", ()
     expect(routing.contextPacksRouting?.records[0]?.status).toBe("kept_existing");
     expect(fs.readFileSync(path.join(installed, "manifest.yaml"), "utf-8")).toBe(gitManifest);
     expect(fs.readFileSync(path.join(installed, "identity", "who.md"), "utf-8")).toBe("# Older text\n");
-    expect(fs.readFileSync(path.join(installed, ".openrig-git-source.json"), "utf-8")).toBe('{"pack":"."}\n');
+    expect(fs.readFileSync(path.join(installed, ".softwareteam-git-source.json"), "utf-8")).toBe('{"pack":"."}\n');
   });
 
   it("a legacy (non-pod) spec cannot carry a pack", async () => {
-    const legacySpec = path.join(work, "legacy-rig.yaml");
-    fs.writeFileSync(legacySpec, ['schema_version: 1', 'name: legacy-rig', 'version: "1.0"', 'nodes:', '  - id: a', '    runtime: claude-code'].join("\n"));
+    const legacySpec = path.join(work, "legacy-software-team.yaml");
+    fs.writeFileSync(legacySpec, ['schema_version: 1', 'name: legacy-software-team', 'version: "1.0"', 'nodes:', '  - id: a', '    runtime: claude-code'].join("\n"));
     const res = await setup.app.request("/api/bundles/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specPath: legacySpec, bundleName: "legacy", bundleVersion: "0.1.0", outputPath: path.join(work, "legacy.rigbundle"), contextPackDirs: [worldRepo] }),
+      body: JSON.stringify({ specPath: legacySpec, bundleName: "legacy", bundleVersion: "0.1.0", outputPath: path.join(work, "legacy.softwareteambundle"), contextPackDirs: [worldRepo] }),
     });
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toMatch(/--context-pack needs a pod-aware rig spec/);
+    expect((await res.json()).error).toMatch(/--context-pack needs a pod-aware SoftwareTeam spec/);
   });
 });
 
-describe("bundle create --project-dir: install registers the project and associates the rig", () => {
+describe("bundle create --project-dir: install registers the project and associates the softwareTeam", () => {
   let db: Database.Database;
   let setup: ReturnType<typeof createTestApp>;
   let work: string;
@@ -3604,23 +3604,23 @@ describe("bundle create --project-dir: install registers the project and associa
     migrate(db, ALL_MIGRATIONS);
     setup = createTestApp(db);
     work = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-project-"));
-    for (const key of ["OPENRIG_WORKSPACE_PROJECTS_ROOT", "OPENRIG_WORKSPACE_CATALOG_PATH"]) saved[key] = process.env[key];
-    process.env["OPENRIG_WORKSPACE_PROJECTS_ROOT"] = path.join(work, "workspace", "projects");
-    process.env["OPENRIG_WORKSPACE_CATALOG_PATH"] = path.join(work, "workspace", "workspace.yaml");
-    const rigDir = path.join(work, "src", "rigs", "dev");
-    fs.mkdirSync(path.join(rigDir, "agents", "impl"), { recursive: true });
+    for (const key of ["SOFTWARETEAM_WORKSPACE_PROJECTS_ROOT", "SOFTWARETEAM_WORKSPACE_CATALOG_PATH"]) saved[key] = process.env[key];
+    process.env["SOFTWARETEAM_WORKSPACE_PROJECTS_ROOT"] = path.join(work, "workspace", "projects");
+    process.env["SOFTWARETEAM_WORKSPACE_CATALOG_PATH"] = path.join(work, "workspace", "workspace.yaml");
+    const softwareTeamDir = path.join(work, "src", "software-teams", "dev");
+    fs.mkdirSync(path.join(softwareTeamDir, "agents", "impl"), { recursive: true });
     fs.mkdirSync(path.join(work, "src", "project"), { recursive: true });
-    fs.writeFileSync(path.join(work, "src", "project", "project.yaml"), "schema: openrig.project/v0alpha1\nid: openrig\n");
-    fs.writeFileSync(path.join(work, "src", "project", "SPEC.md"), "# Contributing to OpenRig\n");
-    fs.writeFileSync(path.join(rigDir, "agents", "impl", "agent.yaml"),
+    fs.writeFileSync(path.join(work, "src", "project", "project.yaml"), "schema: softwareteam.project/v0alpha1\nid: softwareteam\n");
+    fs.writeFileSync(path.join(work, "src", "project", "SPEC.md"), "# Contributing to SoftwareTeam\n");
+    fs.writeFileSync(path.join(softwareTeamDir, "agents", "impl", "agent.yaml"),
       ['name: impl-agent', 'version: "1.0.0"', 'resources:', '  skills: []', 'profiles:', '  default:', '    uses:', '      skills: []'].join("\n"));
-    fs.writeFileSync(path.join(rigDir, "rig.yaml"), [
-      'version: "0.2"', 'name: openrig-dev', 'pods:', '  - id: dev', '    label: Dev', '    members:',
+    fs.writeFileSync(path.join(softwareTeamDir, "software-team.yaml"), [
+      'version: "0.2"', 'name: softwareteam-dev', 'pods:', '  - id: dev', '    label: Dev', '    members:',
       '      - id: impl', '        agent_ref: "local:agents/impl"', '        profile: default', '        runtime: claude-code', '        cwd: .',
       '    edges: []', 'edges: []',
     ].join("\n"));
     fs.mkdirSync(path.join(work, "workspace"), { recursive: true });
-    fs.writeFileSync(path.join(work, "workspace", "workspace.yaml"), "schema: openrig.workspace/v0alpha1\nprojects:\n  - id: default\n    root: .\n");
+    fs.writeFileSync(path.join(work, "workspace", "workspace.yaml"), "schema: softwareteam.workspace/v0alpha1\nprojects:\n  - id: default\n    root: .\n");
   });
 
   afterEach(() => {
@@ -3631,12 +3631,12 @@ describe("bundle create --project-dir: install registers the project and associa
     fs.rmSync(work, { recursive: true, force: true });
   });
 
-  it("carries the project, and install registers it with the rig associated, beside the workspace's own project", async () => {
-    const outputPath = path.join(work, "dev.rigbundle");
+  it("carries the project, and install registers it with the SoftwareTeam associated, beside the workspace's own project", async () => {
+    const outputPath = path.join(work, "dev.softwareteambundle");
     const res = await setup.app.request("/api/bundles/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ specPath: path.join(work, "src", "rigs", "dev", "rig.yaml"), bundleName: "dev", bundleVersion: "0.1.0", outputPath, projectDir: path.join(work, "src", "project") }),
+      body: JSON.stringify({ specPath: path.join(work, "src", "software-teams", "dev", "software-team.yaml"), bundleName: "dev", bundleVersion: "0.1.0", outputPath, projectDir: path.join(work, "src", "project") }),
     });
     expect(res.status).toBe(201);
 
@@ -3644,17 +3644,17 @@ describe("bundle create --project-dir: install registers the project and associa
     const routing = await routeBundleContents(outputPath);
 
     expect(routing.routingFailures).toBeUndefined();
-    expect(routing.projectRegistration).toMatchObject({ status: "registered", projectId: "openrig", rigName: "openrig-dev" });
+    expect(routing.projectRegistration).toMatchObject({ status: "registered", projectId: "softwareteam", softwareTeamName: "softwareteam-dev" });
     const { readProjectCatalog } = await import("../src/domain/workspace/project-catalog.js");
     expect(readProjectCatalog(path.join(work, "workspace", "workspace.yaml"))).toEqual([
       { id: "default", root: "." },
-      { id: "openrig", root: "projects/openrig" },
+      { id: "softwareteam", root: "projects/softwareteam" },
     ]);
-    expect(fs.readFileSync(path.join(work, "workspace", "projects", "openrig", "SPEC.md"), "utf-8")).toBe("# Contributing to OpenRig\n");
+    expect(fs.readFileSync(path.join(work, "workspace", "projects", "softwareteam", "SPEC.md"), "utf-8")).toBe("# Contributing to SoftwareTeam\n");
 
     const inspect = await setup.app.request("/api/bundles/inspect", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bundlePath: outputPath }),
     });
-    expect((await inspect.json()).manifest.project).toEqual({ id: "openrig", path: "project" });
+    expect((await inspect.json()).manifest.project).toEqual({ id: "softwareteam", path: "project" });
   });
 });

@@ -60,10 +60,10 @@ function runningDeps(port: number, execFn?: UiDeps["exec"]): UiDeps {
   };
 }
 
-describe("rig ui open", () => {
+describe("SoftwareTeam ui open", () => {
   it("prints the maintenance notice to stderr on every invocation", async () => {
     expect(UI_MAINTENANCE_NOTICE).toBe(
-      "The OpenRig UI is experimental and in maintenance mode. It is not under active development; support is best-effort. The CLI is the primary supported interface. Contributions welcome.",
+      "The SoftwareTeam UI is experimental and in maintenance mode. It is not under active development; support is best-effort. The CLI is the primary supported interface. Contributions welcome.",
     );
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const execFn = vi.fn(async () => {});
@@ -72,7 +72,7 @@ describe("rig ui open", () => {
     for (let invocation = 0; invocation < 2; invocation += 1) {
       const program = new Command();
       program.addCommand(uiCommand(deps));
-      await program.parseAsync(["node", "rig", "ui", "open"]);
+      await program.parseAsync(["node", "softwareTeam", "ui", "open"]);
     }
 
     expect(error.mock.calls.filter(([line]) => line === UI_MAINTENANCE_NOTICE)).toHaveLength(2);
@@ -85,7 +85,7 @@ describe("rig ui open", () => {
     const deps = runningDeps(8888, execFn);
     const program = new Command();
     program.addCommand(uiCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "ui", "open"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "ui", "open"]));
 
     expect(execFn).toHaveBeenCalledWith("open", ["http://127.0.0.1:8888"]);
     expect(logs.join("\n")).toContain("http://127.0.0.1:8888");
@@ -103,17 +103,17 @@ describe("rig ui open", () => {
     };
     const program = new Command();
     program.addCommand(uiCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "ui", "open"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "ui", "open"]));
 
     expect(logs.join("\n")).toMatch(/not running/i);
     expect(execFn).not.toHaveBeenCalled();
   });
 
   it("no daemon.json but configured daemon is healthy -> opens recovered daemon URL", async () => {
-    const savedPort = process.env["OPENRIG_PORT"];
-    const savedHost = process.env["OPENRIG_HOST"];
-    process.env["OPENRIG_PORT"] = "7555";
-    process.env["OPENRIG_HOST"] = "127.0.0.1";
+    const savedPort = process.env["SOFTWARETEAM_PORT"];
+    const savedHost = process.env["SOFTWARETEAM_HOST"];
+    process.env["SOFTWARETEAM_PORT"] = "7555";
+    process.env["SOFTWARETEAM_HOST"] = "127.0.0.1";
     try {
       const execFn = vi.fn(async () => {});
       const deps: UiDeps = {
@@ -128,16 +128,16 @@ describe("rig ui open", () => {
       };
       const program = new Command();
       program.addCommand(uiCommand(deps));
-      const logs = await captureLogs(() => program.parseAsync(["node", "rig", "ui", "open"]));
+      const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "ui", "open"]));
 
       expect(execFn).toHaveBeenCalledWith("open", ["http://127.0.0.1:7555"]);
       expect(logs.join("\n")).toContain("http://127.0.0.1:7555");
       expect(logs.join("\n")).not.toMatch(/not running/i);
     } finally {
-      if (savedPort === undefined) delete process.env["OPENRIG_PORT"];
-      else process.env["OPENRIG_PORT"] = savedPort;
-      if (savedHost === undefined) delete process.env["OPENRIG_HOST"];
-      else process.env["OPENRIG_HOST"] = savedHost;
+      if (savedPort === undefined) delete process.env["SOFTWARETEAM_PORT"];
+      else process.env["SOFTWARETEAM_PORT"] = savedPort;
+      if (savedHost === undefined) delete process.env["SOFTWARETEAM_HOST"];
+      else process.env["SOFTWARETEAM_HOST"] = savedHost;
     }
   });
 
@@ -147,7 +147,7 @@ describe("rig ui open", () => {
     const deps = runningDeps(9999, execFn);
     const program = new Command();
     program.addCommand(uiCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "ui", "open"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "ui", "open"]));
 
     expect(execFn).toHaveBeenCalledWith("open", ["http://127.0.0.1:9999"]);
     expect(logs.join("\n")).toContain("http://127.0.0.1:9999");
@@ -160,7 +160,7 @@ describe("rig ui open", () => {
       lifecycleDeps: mockLifecycleDeps({
         exists: vi.fn((p: string) => p === STATE_FILE),
         readFile: vi.fn((p: string) => {
-          if (p === STATE_FILE) return JSON.stringify(runningState(7433));
+          if (p === STATE_FILE) return JSON.stringify(runningState(7434));
           return null;
         }),
         isProcessAlive: vi.fn(() => true),
@@ -170,14 +170,14 @@ describe("rig ui open", () => {
     };
     const program = new Command();
     program.addCommand(uiCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "ui", "open"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "ui", "open"]));
 
     expect(logs.join("\n")).toMatch(/did not respond|busy or stopped|unhealthy/i) // B8 supersession: epistemic guard language;
     expect(execFn).not.toHaveBeenCalled();
   });
 
-  // Test 5: createProgram: rig ui open mounted
-  it("rig ui open is wired via createProgram", async () => {
+  // Test 5: createProgram: softwareTeam ui open mounted
+  it("SoftwareTeam ui open is wired via createProgram", async () => {
     const execFn = vi.fn(async () => {});
     const deps: UiDeps = {
       lifecycleDeps: mockLifecycleDeps({
@@ -187,25 +187,25 @@ describe("rig ui open", () => {
       exec: execFn,
     };
     const program = createProgram({ uiDeps: deps });
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "ui", "open"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "ui", "open"]));
     expect(logs.join("\n")).toMatch(/not running/i);
   });
 
   // Test 6: open exec fails -> UI URL still printed, clean error, non-zero exit
   it("open exec fails -> UI URL still printed + clean error + exitCode 1", async () => {
     const execFn = vi.fn(async () => { throw new Error("no browser"); });
-    const deps = runningDeps(7433, execFn);
+    const deps = runningDeps(7434, execFn);
     const program = new Command();
     program.addCommand(uiCommand(deps));
 
     const savedExitCode = process.exitCode;
     process.exitCode = undefined;
 
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "ui", "open"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "ui", "open"]));
 
     const output = logs.join("\n");
     // URL must be printed even when open fails
-    expect(output).toContain("http://127.0.0.1:7433");
+    expect(output).toContain("http://127.0.0.1:7434");
     // Clean error message
     expect(output).toMatch(/failed to open|manually/i);
     // Non-zero exit code
@@ -220,16 +220,16 @@ describe("rig ui open", () => {
     const deps = runningDeps(5555, execFn);
     const program = new Command();
     program.addCommand(uiCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "ui", "open"]));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "ui", "open"]));
 
     expect(logs.join("\n")).toContain("http://127.0.0.1:5555");
     expect(execFn).toHaveBeenCalled();
   });
 
-  // Test 8: OPENRIG_UI_URL override works even when daemon is stopped
-  it("OPENRIG_UI_URL override works without daemon running", async () => {
-    const prev = process.env["OPENRIG_UI_URL"];
-    process.env["OPENRIG_UI_URL"] = "http://localhost:5173";
+  // Test 8: SOFTWARETEAM_UI_URL override works even when daemon is stopped
+  it("SOFTWARETEAM_UI_URL override works without daemon running", async () => {
+    const prev = process.env["SOFTWARETEAM_UI_URL"];
+    process.env["SOFTWARETEAM_UI_URL"] = "http://localhost:5173";
     try {
       const execFn = vi.fn(async () => {});
       // Daemon is down (no state file)
@@ -239,34 +239,34 @@ describe("rig ui open", () => {
       };
       const program = new Command();
       program.addCommand(uiCommand(deps));
-      const logs = await captureLogs(() => program.parseAsync(["node", "rig", "ui", "open"]));
+      const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "ui", "open"]));
 
       expect(execFn).toHaveBeenCalledWith("open", ["http://localhost:5173"]);
       expect(logs.join("\n")).toContain("http://localhost:5173");
       // Should NOT see "not running" error
       expect(logs.join("\n")).not.toMatch(/not running/i);
     } finally {
-      if (prev === undefined) delete process.env["OPENRIG_UI_URL"];
-      else process.env["OPENRIG_UI_URL"] = prev;
+      if (prev === undefined) delete process.env["SOFTWARETEAM_UI_URL"];
+      else process.env["SOFTWARETEAM_UI_URL"] = prev;
     }
   });
 
   it("daemon serving the UI off -> prints the enable and restart steps, exits 1, opens nothing", async () => {
     const execFn = vi.fn(async () => {});
     const deps = runningDeps(8888, execFn);
-    deps.probeUi = vi.fn(async () => ({ status: 404, headers: new Headers({ "x-openrig-web-ui": "off" }) }));
+    deps.probeUi = vi.fn(async () => ({ status: 404, headers: new Headers({ "x-softwareteam-web-ui": "off" }) }));
     const prior = process.exitCode;
     process.exitCode = undefined;
     const program = new Command();
     program.addCommand(uiCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "ui", "open"]).then(() => undefined));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "ui", "open"]).then(() => undefined));
     expect(process.exitCode).toBe(1);
     process.exitCode = prior;
     expect(deps.probeUi).toHaveBeenCalledWith("http://127.0.0.1:8888");
     expect(execFn).not.toHaveBeenCalled();
     expect(logs).toContain(UI_DISABLED_GUIDANCE);
-    expect(UI_DISABLED_GUIDANCE).toContain("rig config set ui.enabled true");
-    expect(UI_DISABLED_GUIDANCE).toMatch(/rig daemon stop.*rig daemon start/);
+    expect(UI_DISABLED_GUIDANCE).toContain("SoftwareTeam config set ui.enabled true");
+    expect(UI_DISABLED_GUIDANCE).toMatch(/SoftwareTeam daemon stop.*SoftwareTeam daemon start/);
     expect(logs).not.toContain("http://127.0.0.1:8888");
   });
 
@@ -276,7 +276,7 @@ describe("rig ui open", () => {
     deps.probeUi = vi.fn(async () => { throw new Error("connection refused"); });
     const program = new Command();
     program.addCommand(uiCommand(deps));
-    const logs = await captureLogs(() => program.parseAsync(["node", "rig", "ui", "open"]).then(() => undefined));
+    const logs = await captureLogs(() => program.parseAsync(["node", "softwareTeam", "ui", "open"]).then(() => undefined));
     expect(execFn).toHaveBeenCalledWith("open", ["http://127.0.0.1:8888"]);
     expect(logs).not.toContain(UI_DISABLED_GUIDANCE);
   });

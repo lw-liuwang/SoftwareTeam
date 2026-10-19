@@ -1,4 +1,4 @@
-# Developing OpenRig — gates and lanes
+# Developing SoftwareTeam — gates and lanes
 
 This is the contributor-facing statement of which checks BLOCK a change and which are
 advisory. Every pull request to `main` runs `.github/workflows/tests.yml` on a clean GitHub
@@ -44,7 +44,7 @@ UI suite as `package-tests (ui)`, the change that moves the contract has to upda
 UI test or mirror to pass that check.
 
 Browser/interaction testing of the web UI is not a contributor gate. (The packaged
-starter-rig agent skills that exercise the UI are product content for user rigs, not
+starter-SoftwareTeam agent skills that exercise the UI are product content for user SoftwareTeams, not
 part of this repo's gates.)
 
 ## Wording rule

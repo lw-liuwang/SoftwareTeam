@@ -38,7 +38,7 @@ describe("FeedCardTerminalDrill (AC-4)", () => {
       if (url === "/api/config") return new Response(JSON.stringify(settingsResponse()));
       if (url.includes("/api/sessions/")) {
         return new Response(JSON.stringify({
-          sessionName: "dev-impl@my-rig",
+          sessionName: "dev-impl@my-software-team",
           content: "agent output line",
           lines: 1,
           capturedAt: "2026-06-11T00:00:00Z",
@@ -55,14 +55,14 @@ describe("FeedCardTerminalDrill (AC-4)", () => {
 
   it("clicking the drill opens the terminal preview for the resolved session via the session-name seam", async () => {
     const { getByTestId } = withQueryClient(
-      <FeedCardTerminalDrill cardId="card-1" sessionName="dev-impl@my-rig" />,
+      <FeedCardTerminalDrill cardId="card-1" sessionName="dev-impl@my-software-team" />,
     );
 
     fireEvent.click(getByTestId("feed-card-drill-card-1"));
 
     await waitFor(() => getByTestId("feed-card-drill-card-1-terminal-popover"));
     await waitFor(() => {
-      expect(getByTestId("focused-terminal-dev-impl@my-rig")).toBeTruthy();
+      expect(getByTestId("focused-terminal-dev-impl@my-software-team")).toBeTruthy();
     });
     const previewCalls = mockFetch.mock.calls
       .map((c) => String(c[0]))
@@ -70,16 +70,16 @@ describe("FeedCardTerminalDrill (AC-4)", () => {
     expect(previewCalls).toHaveLength(0);
   });
 
-  it("DISCRIMINATOR A: no topology resolution — no /api/rigs/ or agent-activity call is made", async () => {
+  it("DISCRIMINATOR A: no topology resolution — no /api/software-teams/ or agent-activity call is made", async () => {
     const { getByTestId } = withQueryClient(
-      <FeedCardTerminalDrill cardId="card-2" sessionName="dev-impl@my-rig" />,
+      <FeedCardTerminalDrill cardId="card-2" sessionName="dev-impl@my-software-team" />,
     );
 
     fireEvent.click(getByTestId("feed-card-drill-card-2"));
     await waitFor(() => getByTestId("feed-card-drill-card-2-terminal-popover"));
 
     const urls = mockFetch.mock.calls.map((c) => String(c[0]));
-    expect(urls.some((u) => u.includes("/api/rigs/"))).toBe(false);
+    expect(urls.some((u) => u.includes("/api/software-teams/"))).toBe(false);
     expect(urls.some((u) => u.includes("agent-activity"))).toBe(false);
   });
 
@@ -101,7 +101,7 @@ describe("FeedCardTerminalDrill (AC-4)", () => {
 
   it("the drill label says live terminal (converged from captured preview)", () => {
     const { getByTestId } = withQueryClient(
-      <FeedCardTerminalDrill cardId="card-4" sessionName="dev-impl@my-rig" />,
+      <FeedCardTerminalDrill cardId="card-4" sessionName="dev-impl@my-software-team" />,
     );
 
     const drill = getByTestId("feed-card-drill-card-4") as HTMLButtonElement;
@@ -115,14 +115,14 @@ describe("FeedCardTerminalDrill (AC-4)", () => {
 
   it("AC-3: drill mounts FocusedTerminal (live path), no /preview fallback, no captured copy", async () => {
     const { getByTestId } = withQueryClient(
-      <FeedCardTerminalDrill cardId="card-5" sessionName="dev-impl@my-rig" />,
+      <FeedCardTerminalDrill cardId="card-5" sessionName="dev-impl@my-software-team" />,
     );
 
     fireEvent.click(getByTestId("feed-card-drill-card-5"));
     await waitFor(() => getByTestId("feed-card-drill-card-5-terminal-popover"));
 
     await waitFor(() => {
-      expect(getByTestId("focused-terminal-dev-impl@my-rig")).toBeTruthy();
+      expect(getByTestId("focused-terminal-dev-impl@my-software-team")).toBeTruthy();
     });
 
     const previewCalls = mockFetch.mock.calls

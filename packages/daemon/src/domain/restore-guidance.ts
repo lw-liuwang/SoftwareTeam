@@ -1,9 +1,9 @@
 // A resumed seat's working guidance.
 //
 // An exact resume replays no startup content (the replay containment in restore-orchestrator.ts),
-// because managed CLAUDE.md blocks were once rewritten during a resume. Ordinary `rig down` still
-// strips OpenRig's managed blocks from each seat's guidance file, so an exact resume came back with
-// no role, culture or SOP guidance (and the rig reported fully_restored). The exception is narrow:
+// because managed CLAUDE.md blocks were once rewritten during a resume. Ordinary `SoftwareTeam down` still
+// strips SoftwareTeam's managed blocks from each seat's guidance file, so an exact resume came back with
+// no role, culture or SOP guidance (and the softwareTeam reported fully_restored). The exception is narrow:
 // before the native harness starts, put back only the managed guidance blocks that are MISSING,
 // from the saved startup selection (guidance projections and guidance_merge startup files). An
 // existing block is never refreshed or overwritten; nothing is sent to the conversation; no
@@ -25,12 +25,12 @@ import { resolveConcreteHint } from "./runtime-adapter.js";
 import { reanchorBuiltinStartupFile, reanchorShippedProjectionEntry } from "./builtin-startup-files.js";
 import type { NodeStartupSnapshot } from "./types.js";
 
-const LEGACY_BLOCK_START = (id: string) => `<!-- BEGIN RIGGED MANAGED BLOCK: ${id} -->`;
-const LEGACY_BLOCK_END = (id: string) => `<!-- END RIGGED MANAGED BLOCK: ${id} -->`;
+const LEGACY_BLOCK_START = (id: string) => `<!-- BEGIN SOFTWARETEAM MANAGED BLOCK: ${id} -->`;
+const LEGACY_BLOCK_END = (id: string) => `<!-- END SOFTWARETEAM MANAGED BLOCK: ${id} -->`;
 
 /** The per-seat role block is delivered through send_text, never merged into a shared file
  *  (ADR-0006); the adapters skip it, and so does this. */
-const NEVER_MERGED = new Set(["rig-role"]);
+const NEVER_MERGED = new Set(["software-team-role"]);
 
 export interface GuidanceItem {
   blockId: string;
@@ -66,7 +66,7 @@ export function seatGuidance(
   }
   // Every guidance startup file the last launch merged, whatever its appliesOn: a fresh-start-only
   // file (onboarding, an agent starter) was merged at that launch and stayed in the file until
-  // `rig down` stripped it, so it is part of what the resumed conversation had.
+  // `SoftwareTeam down` stripped it, so it is part of what the resumed conversation had.
   for (const saved of startupCtx.resolvedStartupFiles) {
     const f = reanchorBuiltinStartupFile(saved, undefined, undefined, exists);
     // An "auto" file is classified from its content, as at launch (a `# SKILL` file is a skill,
@@ -120,7 +120,7 @@ export interface GuidanceRepair {
 
 /** Put back only the missing managed guidance blocks. Existing blocks and any other text in the
  *  file are left exactly as they are. Never throws: a failure becomes a reported gap. */
-/** Would appending these blocks to `content` be safe for the next `rig down`? Decided by effect,
+/** Would appending these blocks to `content` be safe for the next `SoftwareTeam down`? Decided by effect,
  *  with cleanup itself: safe only when stripping the new file gives exactly what stripping the
  *  current one gives, so the added blocks strip away cleanly and take nothing else with them. A
  *  stray, truncated or misplaced marker (cleanup strips from any BEGIN to the next END that ends a
@@ -174,10 +174,10 @@ export function restoreMissingGuidance(guidance: SeatGuidance, fs: ManagedBlockM
   }
   if (toWrite.length === 0) return repair;
   // A file that doesn't exist yet holds no text to lose. An existing one is written only if the
-  // next rig down would remove exactly what is added.
+  // next SoftwareTeam down would remove exactly what is added.
   if (existing !== null && !appendIsCleanupSafe(existing, toWrite)) {
     for (const block of toWrite) {
-      repair.gaps.push(`${block.blockId}: not written, because ${guidance.targetPath} has a managed-block marker that the next rig down would strip together with other text, so adding blocks there could cost that text`);
+      repair.gaps.push(`${block.blockId}: not written, because ${guidance.targetPath} has a managed-block marker that the next SoftwareTeam down would strip together with other text, so adding blocks there could cost that text`);
     }
     return repair;
   }

@@ -25,7 +25,7 @@ export function configCommand(
     probeDaemonRunning?: () => Promise<boolean>;
   },
 ): Command {
-  const cmd = new Command("config").description("Inspect and change OpenRig configuration");
+  const cmd = new Command("config").description("Inspect and change SoftwareTeam configuration");
   const store = new ConfigStore(configPath);
   const probeDaemonRunning = deps?.probeDaemonRunning ?? (async () => {
     try {
@@ -39,20 +39,20 @@ export function configCommand(
   });
 
   cmd
-    .option("--json", "JSON output for agents (resolved RiggedConfig)")
+    .option("--json", "JSON output for agents (resolved SoftwareTeamConfig)")
     .option("--with-source", "Include source/default per key (honest provenance)")
     .addHelpText("after", `
 Examples:
-  rig config                                 # show all resolved config
-  rig config --json                          # JSON RiggedConfig (structured)
-  rig config --json --with-source            # JSON per-key with source + default
-  rig config get daemon.port                 # read a single key
-  rig config get workspace.slices_root --show-source
-  rig config set daemon.port 7434            # change a value
-  rig config set workspace.slices_root /path # configure a workspace path
-  rig config reset                           # delete config file, revert all to defaults
-  rig config reset workspace.slices_root     # clear one key, revert to default
-  rig config init-workspace                  # scaffold a repo-ready project workspace
+  SoftwareTeam config                                 # show all resolved config
+  SoftwareTeam config --json                          # JSON SoftwareTeamConfig (structured)
+  SoftwareTeam config --json --with-source            # JSON per-key with source + default
+  SoftwareTeam config get daemon.port                 # read a single key
+  SoftwareTeam config get workspace.slices_root --show-source
+  SoftwareTeam config set daemon.port 7434            # change a value
+  SoftwareTeam config set workspace.slices_root /path # configure a workspace path
+  SoftwareTeam config reset                           # delete config file, revert all to defaults
+  SoftwareTeam config reset workspace.slices_root     # clear one key, revert to default
+  SoftwareTeam config init-workspace                  # scaffold a repo-ready project workspace
 
 Keys:
   daemon.*               port, host
@@ -61,15 +61,15 @@ Keys:
                          (lines/poll_interval set scrollback CAPTURE depth + cadence.
                          Thin CLAUDE transcripts usually are NOT these — they mean the
                          seat's fullscreen renderer, whose alternate screen emits no
-                         scrollback. OpenRig launches Claude with
+                         scrollback. SoftwareTeam launches Claude with
                          CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 by default; set
-                         OPENRIG_CLAUDE_DISABLE_ALTERNATE_SCREEN=0 to opt back into fullscreen.)
+                         SOFTWARETEAM_CLAUDE_DISABLE_ALTERNATE_SCREEN=0 to opt back into fullscreen.)
   workspace.*            root, slices_root, steering_path, specs_root,
                          projects_root, catalog_path, operator_seat_name
-  topology.root          the topology tree root (instance altitude at its top; default $OPENRIG_HOME/topology)
-  context.root           addressable context library for 'rig context add' (default $OPENRIG_HOME/context)
+  topology.root          the topology tree root (instance altitude at its top; default $SOFTWARETEAM_HOME/topology)
+  context.root           addressable context library for 'SoftwareTeam context add' (default $SOFTWARETEAM_HOME/context)
   context.system_world   default System World, replacement manifest path, or disabled
-  skills.root            versioned skill catalog (default $OPENRIG_HOME/skills)
+  skills.root            versioned skill catalog (default $SOFTWARETEAM_HOME/skills)
   onboarding.default_pack.enabled  deliver the two-part fresh-seat mental-model pack (default on)
   health.context_pressure.*        context-pressure warning/critical percentages (defaults 95/99)
   files.allowlist        name:/abs/path,name:/abs/path
@@ -99,12 +99,12 @@ Keys:
                            without a human registry, explicit-only posts everything, as always does)
   retention.*            enabled, transitions_days, watchdog_days,
                          watchdog_keep_per_job, batch_size
-  launch.non_interruptive  accept harness first-launch warnings at full bypass for new rigs (default off)
+  launch.non_interruptive  accept harness first-launch warnings at full bypass for new softwareTeams (default off)
   terminal.status_bar    show the inner tmux status bar on launch (default off)
   output.compact         short default output for queue writes, queue show, queue transitions and whoami peers; --full restores today's output (default off)
-  output.whoami_peers    with output.compact on, how many peers rig whoami --json lists, edge peers first; --all-peers lists all (default 8)
-  provider.usage_windows Codex and Claude usage windows in rig provider status (Codex read on request; Claude from its seats' status lines) (default off)
-  usage.pi_cost_facts    Pi seats report model-priced cost from their persisted session entries to rig usage cost (default off)
+  output.whoami_peers    with output.compact on, how many peers SoftwareTeam whoami --json lists, edge peers first; --all-peers lists all (default 8)
+  provider.usage_windows Codex and Claude usage windows in SoftwareTeam provider status (Codex read on request; Claude from its seats' status lines) (default off)
+  usage.pi_cost_facts    Pi seats report model-priced cost from their persisted session entries to SoftwareTeam usage cost (default off)
   usage.pi_openrouter_charge  with usage.pi_cost_facts on, Pi seats look up OpenRouter's actual charge for their requests, shown beside the estimate (default off; off stops new lookups and posts, outcomes recorded while it was on stay visible)
   transport.verify_input_box  with --verify, a send to a Claude Code or Codex seat (also queue wakes) reads verified only when the seat was proven idle before the paste and its input box showed the exact text before Enter and was empty after it, on the same pane process; a busy or unknown seat, and anything else, reads unconfirmed, not failed. Reporting only (default off)
 
@@ -123,7 +123,7 @@ Precedence: CLI flag > environment variable > config file > default`)
           }
           return;
         }
-        // Default: structured RiggedConfig output (preserves pre-v0
+        // Default: structured SoftwareTeamConfig output (preserves pre-v0
         // bare-action shape so existing scripts / tests keep working).
         const config = store.resolve();
         if (opts.json) {
@@ -174,7 +174,7 @@ Precedence: CLI flag > environment variable > config file > default`)
         console.log(`${key} = ${store.get(key)}`);
         // SWEEP-c: boot-only key + running daemon = stale-until-restart; say so loudly.
         if (isBootOnlyKey(key) && (await probeDaemonRunning())) {
-          console.error(`note: '${key}' is read at daemon BOOT — the running daemon keeps its current value; this takes effect on the next daemon restart (rig daemon stop && rig daemon start).`);
+          console.error(`note: '${key}' is read at daemon BOOT — the running daemon keeps its current value; this takes effect on the next daemon restart (SoftwareTeam daemon stop && SoftwareTeam daemon start).`);
         }
       } catch (err) {
         console.error((err as Error).message);

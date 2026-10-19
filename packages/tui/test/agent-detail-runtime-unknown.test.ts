@@ -16,7 +16,7 @@ describe("agent-detail runtime fallback = daemon-consistent `unknown`, never the
     const snap = structuredClone(demoSnapshot()) as FleetSnapshot;
     // Force the absent-runtime case the type forbids but the defensive arm handles (the daemon would
     // have already coerced it to "unknown"; here we drive the render layer directly).
-    const agent = snap.hosts[0]!.rigs[0]!.pods[0]!.agents[0]!;
+    const agent = snap.hosts[0]!.softwareTeams[0]!.pods[0]!.agents[0]!;
     (agent as { runtime?: string }).runtime = undefined;
 
     const view = createViewState({ instanceId: "t", getSnapshot: () => snap });
@@ -24,7 +24,7 @@ describe("agent-detail runtime fallback = daemon-consistent `unknown`, never the
       type: "drill",
       resource: "agent",
       name: agent.name,
-      target: { host: "vm-host", rig: "openrig-build", pod: "dev50" },
+      target: { host: "vm-host", softwareTeam: "softwareteam-build", pod: "dev50" },
     });
     const lines = renderScreen(view.get(), snap, { cols: 140, rows: 34 }).lines;
     // Scope to the RUNTIME line only — the sibling `cwd:` field legitimately renders "— (not served)"

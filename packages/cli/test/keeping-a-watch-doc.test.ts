@@ -6,7 +6,7 @@ import type { Command } from "commander";
 import { createProgram } from "../src/index.js";
 
 // OPR.0.7.0.3: docs/reference/keeping-a-watch.md teaches an operator to keep a person's watch with
-// today's commands. This guards the page against CLI drift: every `rig ...` command it names must
+// today's commands. This guards the page against CLI drift: every `SoftwareTeam ...` command it names must
 // resolve to a real subcommand, and every option it uses must be declared on that subcommand.
 const PAGE = join(dirname(fileURLToPath(import.meta.url)), "../../../docs/reference/keeping-a-watch.md");
 
@@ -14,9 +14,9 @@ function commandsInPage(markdown: string): string[] {
   const commands: string[] = [];
   for (const block of markdown.matchAll(/```bash\n([\s\S]*?)```/g)) {
     const joined = block[1]!.replace(/\\\n\s*/g, " ");
-    for (const line of joined.split("\n")) if (line.trim().startsWith("rig ")) commands.push(line.trim());
+    for (const line of joined.split("\n")) if (line.trim().startsWith("SoftwareTeam ")) commands.push(line.trim());
   }
-  for (const inline of markdown.matchAll(/`(rig [^`]+)`/g)) commands.push(inline[1]!);
+  for (const inline of markdown.matchAll(/`(SoftwareTeam [^`]+)`/g)) commands.push(inline[1]!);
   return commands;
 }
 

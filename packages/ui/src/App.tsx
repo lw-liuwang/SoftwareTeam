@@ -2,10 +2,10 @@ import { RouterProvider } from "@tanstack/react-router";
 import { useState } from "react";
 import { router } from "./routes.js";
 
-export const UI_MAINTENANCE_NOTICE_STORAGE_KEY = "openrig.uiMaintenanceNoticeDismissed";
+export const UI_MAINTENANCE_NOTICE_STORAGE_KEY = "softwareteam.uiMaintenanceNoticeDismissed";
 
 const UI_MAINTENANCE_NOTICE =
-  "The OpenRig UI is experimental and in maintenance mode. It is not under active development; support is best-effort. The CLI is the primary supported interface. Contributions welcome.";
+  "The SoftwareTeam UI is experimental and in maintenance mode. It is not under active development; support is best-effort. The CLI is the primary supported interface. Contributions welcome.";
 
 function wasMaintenanceNoticeDismissed(): boolean {
   try {

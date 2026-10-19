@@ -21,7 +21,7 @@ function makeAction(overrides: Partial<ExternalInstallAction> & { requirementNam
 }
 
 function seedBootstrapRun(db: Database.Database, id: string): void {
-  db.prepare("INSERT INTO bootstrap_runs (id, source_kind, source_ref) VALUES (?, ?, ?)").run(id, "rig_spec", "/tmp/rig.yaml");
+  db.prepare("INSERT INTO bootstrap_runs (id, source_kind, source_ref) VALUES (?, ?, ?)").run(id, "software_team_spec", "/tmp/software-team.yaml");
 }
 
 describe("ExternalInstallExecutor", () => {

@@ -7,7 +7,7 @@ import { resolveTimeZone } from "./time.js";
 // against this process is the drivability floor and needs no adapter at all —
 // keystrokes ARE the keyboard adapter.
 //
-//   openrig-tui [--instance <id>] [--socket <path>] [--url <daemon>] [--demo]
+//   softwareteam-tui [--instance <id>] [--socket <path>] [--url <daemon>] [--demo]
 import { createViewState, computeExplorerRows, emptySnapshot, locationKey } from "./state.js";
 import { parseCommand } from "./grammar.js";
 import { filterPalette, paletteExecuteLine } from "./commands/palette.js";
@@ -51,8 +51,8 @@ async function run(): Promise<void> {
   const instanceId = argOf(args, "--instance") ?? "tui-1";
   const demo = args.includes("--demo");
   // Reuse the entry/runtime that opened this TUI, even under a conflicting PATH.
-  const cliEntry = process.env["OPENRIG_TUI_CLI_ENTRY"];
-  const cliExecutable = cliEntry ? process.execPath : "rig";
+  const cliEntry = process.env["SOFTWARETEAM_TUI_CLI_ENTRY"];
+  const cliExecutable = cliEntry ? process.execPath : "SoftwareTeam";
   const cliArgs = (args: string[]): string[] => cliEntry ? [cliEntry, ...args] : args;
 
   // --demo renders the labeled fixture; otherwise the §4.A reads hydrate the
@@ -86,7 +86,7 @@ async function run(): Promise<void> {
   let inputLine = "";
   let completion: ReturnType<typeof completeCommand> | null = null;
   let lastScreen: Screen | null = null;
-  // 5.2 crash-cart: the daemon-down verdict (probed from the `rig crash-cart --json` verb). Empty ⇒
+  // 5.2 crash-cart: the daemon-down verdict (probed from the `softwareTeam crash-cart --json` verb). Empty ⇒
   // normal fleet views; DOWN ⇒ the recovery cockpit; UNVERIFIED ⇒ the cannot-verify screen.
   let crashCartOpts: CrashCartRenderOpts = {};
   let startingDaemon = false;
@@ -94,7 +94,7 @@ async function run(): Promise<void> {
   // resume→fresh downgrade — the confirm NAMES the seats that will need a decision.
   let pendingRestoreConfirm = false;
   // B1 ROUND 2 — the operator's mid-run cancel request for the active fleet restore (the lifecycle
-  // driver polls this and reaches the cancel endpoint stop-before-next-rig).
+  // driver polls this and reaches the cancel endpoint stop-before-next-softwareTeam).
   let restoreCancelRequested = false;
   // B1 ROUND 3 (HIGH-2) — vertical scroll offset into the restore triage list, so a fleet with more
   // needs than the viewport stays keyboard-walkable (arrow/j-k on the done view).
@@ -121,10 +121,10 @@ async function run(): Promise<void> {
     const mission = snapshot.scopes?.find((item) => item.mission === current.scopesMission);
     return mission?.slices.find((slice) => slice.id === id || slice.dirName === id)?.dirName ?? null;
   };
-  const selectedRigName = (): string | null =>
-    view.get().drill.find((part) => part.kind === "rig")?.name ?? null;
+  const selectedSoftwareTeamName = (): string | null =>
+    view.get().drill.find((part) => part.kind === "softwareTeam")?.name ?? null;
   const live = client
-    ? createLiveRefresh({ scopeKey: () => pageReadKey(view.get()), hydrate: (page, signal) => hydrateSnapshot(client.forPage(page, signal), reviewCache, view.get().scopesMission, selectedSliceDirectory(), selectedRigName(), view.get()), onFrame: () => draw(), now: () => Date.now() })
+    ? createLiveRefresh({ scopeKey: () => pageReadKey(view.get()), hydrate: (page, signal) => hydrateSnapshot(client.forPage(page, signal), reviewCache, view.get().scopesMission, selectedSliceDirectory(), selectedSoftwareTeamName(), view.get()), onFrame: () => draw(), now: () => Date.now() })
     : null;
   let motionTimer: NodeJS.Timeout | null = null;
   // S19 AM-R18 — the open view updates ITSELF: oracle pushes drive the refresh owner.
@@ -169,7 +169,7 @@ async function run(): Promise<void> {
     }
     if (live) snapshot = { ...live.snapshot(),
       ...(!liveEnabled ? { readErrors: [`Live data not loaded · connection ${startup?.state.connection ?? "probing"} · L Local reading · S Startup`] } : {}),
-      launchingCli: process.env["OPENRIG_TUI_CLI_IDENTITY"]?.replace(/[\x00-\x1f\x7f]/g, " ").slice(0, 180) };
+      launchingCli: process.env["SOFTWARETEAM_TUI_CLI_IDENTITY"]?.replace(/[\x00-\x1f\x7f]/g, " ").slice(0, 180) };
     if (resolvePendingAddress(view, liveEnabled && live ? live.load() : null)) refreshFromActivity();
     const opts = { cols, rows, nowMs, completion, controlSocketPath, colorMode: style.mode, commandContext: commandContext(), ...crashCartOpts, ...(startup?.state.open && !view.get().palette ? { startup: startup.state } : {}), restoreScroll: restoreScrollOffset, ...(liveEnabled && live ? { load: live.load(), rowFlashes: live.flashes() } : {}) };
     if (liveEnabled && live?.load().settled) previousPage = { state: { ...view.get() }, snapshot };
@@ -190,7 +190,7 @@ async function run(): Promise<void> {
     motionTimer = lastScreen.motionActive || lastScreen.commandMotionActive ? setTimeout(draw, MOTION_FRAME_MS) : null;
   }
 
-  // 5.2 crash-cart: probe the daemon-down verdict via the shipped `rig crash-cart --json` verb (its
+  // 5.2 crash-cart: probe the daemon-down verdict via the shipped `softwareTeam crash-cart --json` verb (its
   // JSON is the truth even on a hint non-zero exit). Any failure → normal TUI (never a fabricated cockpit).
   const runCrashCartVerb = (): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -200,7 +200,7 @@ async function run(): Promise<void> {
       });
     });
   if (client) startup = new StartupController({
-    client, home: process.env["OPENRIG_HOME"] ?? "default local instance", probe: runCrashCartVerb,
+    client, home: process.env["SOFTWARETEAM_HOME"] ?? "default local instance", probe: runCrashCartVerb,
     startDaemon: () => new Promise<void>((resolve, reject) => {
       execFile(cliExecutable, cliArgs(daemonStartArgs(client.baseUrl)), { timeout: 30_000 }, (error, stdout, stderr) => {
         if (error) reject(new Error(`Daemon start did not confirm completion: ${stderr.trim() || stdout.trim() || error.message}`));
@@ -234,7 +234,7 @@ async function run(): Promise<void> {
         nativeAttached = false;
       }
     },
-    onWork: async (rig, seat) => {
+    onWork: async (softwareTeam, seat) => {
       const revision = inputRevision;
       crashCartOpts = {};
       view.dispatch({ type: "notice", message: startup?.state.connection === "up" ? "" : "Live data waits for a confirmed connection · S Startup · L Local" });
@@ -243,13 +243,13 @@ async function run(): Promise<void> {
       await live?.refresh();
       if (revision !== inputRevision) return;
       const current = live?.snapshot() ?? snapshot;
-      const host = current.hosts.find((host) => host.rigs.some((entry) => entry.id === rig?.rigId));
-      if (rig && host) {
-        view.dispatch({ type: "drill", resource: "rig", name: rig.rigName, target: { host: host.name } });
+      const host = current.hosts.find((host) => host.softwareTeams.some((entry) => entry.id === softwareTeam?.softwareTeamId));
+      if (softwareTeam && host) {
+        view.dispatch({ type: "drill", resource: "softwareTeam", name: softwareTeam.softwareTeamName, target: { host: host.name } });
         await live?.refresh();
       }
       if (revision !== inputRevision) return;
-      if (seat && host) view.dispatch({ type: "drill", resource: "agent", name: seat.observed.sessionName, target: { host: host.name, rig: rig!.rigName } });
+      if (seat && host) view.dispatch({ type: "drill", resource: "agent", name: seat.observed.sessionName, target: { host: host.name, softwareTeam: softwareTeam!.softwareTeamName } });
       draw();
     },
   });
@@ -257,7 +257,7 @@ async function run(): Promise<void> {
     crashCartOpts = await probeCrashCart(runCrashCartVerb);
     draw();
   }
-  // Perform a cockpit action key. start-daemon/restore exec `rig daemon start` (the ⏎ flow's `s` step;
+  // Perform a cockpit action key. start-daemon/restore exec `SoftwareTeam daemon start` (the ⏎ flow's `s` step;
   // the C1 batch conductor that RESTORE ultimately drives is EXCLUDED this wave) then re-probe; retry
   // re-probes (UNVERIFIED). inspect/onboarding are entry-point seams this wave.
   // ⏎ RESTORE EVERYTHING: start the daemon (the `s` step), then the TUI OWNS the restore lifecycle
@@ -295,7 +295,7 @@ async function run(): Promise<void> {
     restoreCancelRequested = false;
     restoreScrollOffset = 0;
     new Promise<void>((resolve, reject) =>
-      execFile("rig", ["daemon", "start"], { timeout: 30_000 }, (err) => (err ? reject(err) : resolve())),
+      execFile(cliExecutable, cliArgs(["daemon", "start"]), { timeout: 30_000 }, (err) => (err ? reject(err) : resolve())),
     )
       .then(() => pollRestore(daemonClient))
       .catch((e: unknown) => {
@@ -350,11 +350,11 @@ async function run(): Promise<void> {
       return;
     }
     if (action === "restore-confirm") {
-      // H2 — some rig has non-resumable seats: NAME the deltas and arm a confirm (the next ⏎
+      // H2 — some softwareTeam has non-resumable seats: NAME the deltas and arm a confirm (the next ⏎
       // proceeds and fresh-primes them; Esc cancels). Never a silent resume→fresh downgrade.
       const gate = evaluateOneClickGate({
         foundOnHost: (crashCartOpts.crashCart?.foundOnHost ?? []).map((r) => ({
-          rigName: r.name,
+          softwareTeamName: r.name,
           seatCount: r.seatCount,
           resumableCount: r.resumableCount,
         })),
@@ -414,7 +414,7 @@ async function run(): Promise<void> {
         view.dispatch({ type: "terminal-result", view: action.view, message });
         view.dispatch({ type: "notice", message });
       } else if (action.act === "run") {
-        const result = await client.launchNode(action.rigId, action.agent);
+        const result = await client.launchNode(action.softwareTeamId, action.agent);
         view.dispatch({ type: "notice", message: launchNodeNotice(action.agent, result) });
       }
     } catch (err) {
@@ -443,7 +443,7 @@ async function run(): Promise<void> {
     if (action.type === "act" && action.act === "launch-spec") {
       const launch = view.get().specLaunch;
       if (!launch || nativeAttached) return;
-      if (!client) { view.dispatch({ type: "notice", message: "Demo mode: no rig was launched." }); return; }
+      if (!client) { view.dispatch({ type: "notice", message: "Demo mode: no SoftwareTeam was launched." }); return; }
       try {
         const command = launchProcess(launch, client.baseUrl, process.env, cliExecutable, cliArgs([]));
         view.dispatch({ type: "launch-close" });
@@ -479,7 +479,7 @@ async function run(): Promise<void> {
     process.exit(0);
   }
   process.stdout.on("resize", draw);
-  // In cooked mode Ctrl-C reaches both us and rig up. Let the child stop while
+  // In cooked mode Ctrl-C reaches both us and SoftwareTeam up. Let the child stop while
   // keeping its result and the Enter-to-return prompt available in this TUI.
   process.on("SIGINT", () => { if (!launching) void shutdown(); });
   process.on("SIGTERM", () => void shutdown());
@@ -584,7 +584,7 @@ async function run(): Promise<void> {
             continue;
           case "cancel":
             restoreCancelRequested = true;
-            view.dispatch({ type: "notice", message: "cancelling after the current rig…" });
+            view.dispatch({ type: "notice", message: "cancelling after the current softwareTeam…" });
             draw();
             continue;
           case "reattach":
@@ -736,7 +736,7 @@ async function run(): Promise<void> {
   // state — the refresh starts after entering the alt screen, never before,
   // so loading is VISIBLE instead of awaited behind a blank terminal
   draw();
-  // Probe the daemon-down verdict once on launch: bare `rig` with the daemon down renders the cockpit.
+  // Probe the daemon-down verdict once on launch: bare `softwareTeam` with the daemon down renders the cockpit.
   // (Key-triggered re-probe after `s start daemon` / `r retry` is the follow-on increment.)
   if (startup) void startup.refresh();
   else void refreshCrashCart();

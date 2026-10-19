@@ -11,21 +11,21 @@ export interface NodeBinding extends Binding {
   effort?: string;
   codexConfigProfile?: string;
   /** OPR.0.4.8.3 Seam B: the seat's RESOLVED launch posture from its permission_policy
-   * attachment (member > rig precedence, resolved by the core resolver at materialize /
+   * attachment (member > softwareTeam precedence, resolved by the core resolver at materialize /
    * restore). Absent = no policy attached → the env-driven floor/YOLO decision stands.
    * Present = authoritative for this seat (overrides the env read in BOTH directions). */
   launchPosture?: "floor" | "full_bypass" | "auto";
   /** Explicit Claude native mode; checked against the bound managed executable. */
   permissionMode?: string;
-  /** Persisted rig opt-in to per-launch warning acceptance, only at full_bypass. */
+  /** Persisted softwareTeam opt-in to per-launch warning acceptance, only at full_bypass. */
   nonInterruptive?: boolean;
-  /** Launch-only operational default, derived from the persisted kernel rig and explicit selections. */
+  /** Launch-only operational default, derived from the persisted kernel softwareTeam and explicit selections. */
   kernelAuthority?: boolean;
   /** Derived at launch only when no authored policy, seat choice or native profile applies. */
   teamPermissionDefault?: boolean;
   /** Reserved successor generation; current tenure remains the input fence until commit. */
   launchGeneration?: string;
-  /** #25: the rig's `managed_blocks.claude-code` file. Absent = CLAUDE.md. Only the Claude adapter reads it. */
+  /** #25: the softwareTeam's `managed_blocks.claude-code` file. Absent = CLAUDE.md. Only the Claude adapter reads it. */
   claudeManagedBlockFile?: import("./managed-blocks.js").ClaudeManagedBlockFile;
 }
 
@@ -128,7 +128,7 @@ export function resolveConcreteHint(
 
 /**
  * Member-level fork-source input translated by the startup orchestrator from
- * the rigspec member's `sessionSource` field. v1 narrow MVP: kind="native_id"
+ * the software-team-spec member's `sessionSource` field. v1 narrow MVP: kind="native_id"
  * only; other shapes are rejected at schema validation today.
  *
  * Adapters that support fork (claude-code, codex) build their respective

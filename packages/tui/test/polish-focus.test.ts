@@ -18,7 +18,7 @@ describe("active-pane emphasis (k9s chrome)", () => {
     let screen = renderScreen(s.get(), snap, { cols: 140, rows: 34 });
     expect(screen.lines[1]).toContain("{ EXPLORER }");
     expect(screen.lines[1]).not.toContain("{ TOPOLOGY }");
-    s.dispatch(parseCommand("rig openrig-build"));
+    s.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     s.dispatch({ type: "focus", pane: "content" });
     screen = renderScreen(s.get(), snap, { cols: 140, rows: 34 });
     expect(screen.lines[1]).toContain("{ TOPOLOGY }");
@@ -29,7 +29,7 @@ describe("active-pane emphasis (k9s chrome)", () => {
 describe("content selection bar", () => {
   it("renders the focused content row as an inverse highlight bar (strip-invariant intact)", () => {
     const s = createViewState({ instanceId: "t", getSnapshot: () => snap });
-    s.dispatch(parseCommand("rig openrig-build"));
+    s.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     const pre = renderScreen(s.get(), snap, { cols: 140, rows: 34 });
     s.dispatch({ type: "layout", contentMaxOffset: pre.contentMaxOffset, contentTargetCount: pre.contentTargets.length });
     s.dispatch({ type: "focus", pane: "content" });
@@ -46,7 +46,7 @@ describe("content library mirrors the explorer grouping", () => {
   const nsSnap: FleetSnapshot = {
     ...snap,
     specs: [
-      { name: "rig-a", kind: "rig" },
+      { name: "software-team-a", kind: "softwareTeam" },
       { name: "rev-1", kind: "agent", namespace: "review" },
       { name: "rev-2", kind: "agent", namespace: "review" },
     ],
@@ -68,7 +68,7 @@ describe("content library mirrors the explorer grouping", () => {
 describe("unfocused-pane cursor dims (pm-approved nit)", () => {
   it("explorer bar is accent when explorer focused, dim-inverse when content focused", () => {
     const s = createViewState({ instanceId: "t", getSnapshot: () => snap });
-    s.dispatch(parseCommand("rig openrig-build"));
+    s.dispatch(parseCommand("SoftwareTeam softwareteam-build"));
     let styled = stylizeLines(renderScreen(s.get(), snap, { cols: 140, rows: 34 }), createStyle("truecolor"));
     expect(styled.join("\n")).toContain("\x1b[1;38;2;111;168;255;48;2;34;52;82m▶");
     const pre = renderScreen(s.get(), snap, { cols: 140, rows: 34 });

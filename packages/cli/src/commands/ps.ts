@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import stringWidth from "string-width";
 import { resolveEffectiveHost } from "../host-selection.js";
-import { sessionRigOf } from "../session-name.js";
+import { sessionSoftwareTeamOf } from "../session-name.js";
 import { DaemonClient, remoteDaemonClient } from "../client.js";
 import { getDaemonStatus, getDaemonUrl, resolveOriginSelfHostId, type LifecycleDeps , daemonStatusGuard} from "../daemon-lifecycle.js";
 import { realDeps } from "./daemon.js";
@@ -9,14 +9,14 @@ import type { StatusDeps } from "./status.js";
 import { loadHostRegistry, resolveHost, hostDisplayTarget, resolveRemoteBearer, classifyHttpFailedStep, classifyHttpError, type HttpHostEntry } from "../host-registry.js";
 import { runCrossHostCommand, type RunCrossHostCommandOpts } from "../cross-host-executor.js";
 import { emitCrossHostError, emitCrossHostFailure } from "../cross-host-cli-helpers.js";
-import { readOpenRigEnv } from "../openrig-compat.js";
+import { readSoftwareTeamEnv } from "../softwareteam-compat.js";
 import type { AggregatedPayload, PerHostStatus } from "../lib/hosts/fanout-contract.js";
 
 interface PsEntry {
-  rigId: string;
+  softwareTeamId: string;
   name: string;
   /** L3-followup: alias of `name`. Always populated and equal to `name`. */
-  rigName?: string;
+  softwareTeamName?: string;
   nodeCount: number;
   runningCount: number;
   /** Slice 15 — subset of nodes producing tmux output within the silence
@@ -37,13 +37,13 @@ interface PsEntry {
   /** OPR.0.3.3.19 - ISO timestamp when archived, or null if active. Present
    *  only when the daemon supports archive; optional for back-compat. */
   archivedAt?: string | null;
-  /** OPR.0.3.3.19 - convenience flag; true iff the rig is archived. */
+  /** OPR.0.3.3.19 - convenience flag; true iff the softwareTeam is archived. */
   isArchived?: boolean;
 }
 
 interface NodeEntry {
-  rigId: string;
-  rigName: string;
+  softwareTeamId: string;
+  softwareTeamName: string;
   logicalId: string;
   podId: string | null;
   podNamespace?: string | null;
@@ -101,7 +101,7 @@ interface NodeEntry {
     fallback?: boolean;
   };
   // PL-012: context-usage block surfaced from the daemon's
-  // /api/rigs/:id/nodes route (already populated). Optional because
+  // /api/software-teams/:id/nodes route (already populated). Optional because
   // older daemons may not emit it.
   contextUsage?: {
     availability: "known" | "unknown";
@@ -123,20 +123,20 @@ interface NodeEntry {
 // L3-followup: human-output budgets bound default terminal output for hosts
 // with realistic agent counts. `--full` opts out. JSON output remains
 // unbounded by default for back-compat (Decision C hybrid).
-function extractRigName(sessionName: string): string | undefined {
-  // OPR.0.4.6.MH1 FR-8: the shared parse contract (greedy first-@ rig).
-  return sessionRigOf(sessionName);
+function extractSoftwareTeamName(sessionName: string): string | undefined {
+  // OPR.0.4.6.MH1 FR-8: the shared parse contract (greedy first-@ softwareTeam).
+  return sessionSoftwareTeamOf(sessionName);
 }
 
-/** The ONE active-rig predicate (LEG-7 extraction, fold-wave qitem 79159e6f): a rig is active unless
+/** The ONE active-softwareTeam predicate (LEG-7 extraction, fold-wave qitem 79159e6f): a softwareTeam is active unless
  *  its lifecycle status is exactly "stopped". Shared by the bare-default table projection and the
- *  rigsOnHost scope count so the "1 of N" label and the shown rows can never diverge (the
+ *  softwareTeamsOnHost scope count so the "1 of N" label and the shown rows can never diverge (the
  *  derived-label-must-carry-liveness class the LEG-2 QA flagged). */
-export function isActiveRig(entry: { status?: string | null }): boolean {
+export function isActiveSoftwareTeam(entry: { status?: string | null }): boolean {
   return entry.status !== "stopped";
 }
 
-const HUMAN_RIG_BUDGET = 50;
+const HUMAN_SOFTWARE_TEAM_BUDGET = 50;
 const HUMAN_NODE_BUDGET = 100;
 
 // L3-followup: --filter accepts only this allow-list. Unknown keys produce a
@@ -175,17 +175,17 @@ const NUMERIC_OPERATORS: NumericComparator[] = [">=", "<=", ">", "<", "="];
 
 // C9a: --fields accepts a per-level allow-list. Unknown keys produce a clear
 // error with the supported list, mirroring the --filter rejection pattern.
-// Per-level because rig and node entries have different schemas (PsEntry
-// rig-level vs NodeEntry node-level).
+// Per-level because softwareTeam and node entries have different schemas (PsEntry
+// software-team-level vs NodeEntry node-level).
 //
 // Source of truth: PsEntry / NodeEntry interfaces above. `name` exists at
-// rig-level only; `rigName` is the alias and exists at both levels (per the
-// closed `rig ps trust and scale-safety` slice at openrig 0a9fb43).
-const ALLOWED_RIG_FIELDS = new Set([
+// software-team-level only; `softwareTeamName` is the alias and exists at both levels (per the
+// closed `SoftwareTeam ps trust and scale-safety` slice at softwareteam 0a9fb43).
+const ALLOWED_SOFTWARE_TEAM_FIELDS = new Set([
   "attentionCount",
-  "rigId",
+  "softwareTeamId",
   "name",
-  "rigName",
+  "softwareTeamName",
   "nodeCount",
   "runningCount",
   "activeCount",
@@ -196,8 +196,8 @@ const ALLOWED_RIG_FIELDS = new Set([
   "latestSnapshot",
 ]);
 const ALLOWED_NODE_FIELDS = new Set([
-  "rigId",
-  "rigName",
+  "softwareTeamId",
+  "softwareTeamName",
   "logicalId",
   "podId",
   "podNamespace",
@@ -243,11 +243,11 @@ interface PsCliOptions {
   hosts?: string;
   active?: boolean;
   running?: boolean;
-  allRigs?: boolean;
-  rig?: string;
+  allSoftwareTeams?: boolean;
+  softwareTeam?: string;
   session?: string;
-  /** OPR.0.3.3.19 - include archived rigs (default excludes them). Parity
-   *  with `rig stream list --include-archived`. */
+  /** OPR.0.3.3.19 - include archived softwareTeams (default excludes them). Parity
+   *  with `softwareTeam stream list --include-archived`. */
   includeArchived?: boolean;
 }
 
@@ -256,7 +256,7 @@ export interface PsDeps extends StatusDeps {
    * Cross-host hooks. Both default to the production loaders/executors; tests
    * inject in-package mocks so no real ssh / no real ~/.ssh / no real network
    * is touched. Mirrors the SendDeps/CaptureDeps shape from the closed
-   * cross-host-rig-commands slice (cdce3a6).
+   * cross-host-software-team-commands slice (cdce3a6).
    */
   hostRegistryLoader?: () => ReturnType<typeof loadHostRegistry>;
   crossHostRun?: (
@@ -314,7 +314,7 @@ function parseFilter(filter: string): ParsedFilter | { error: string } {
       return {
         error: `--filter ${key}${op}'${value}' is not a numeric value. ` +
           `Allowed: a finite number (e.g., ${key}>=80). ` +
-          `Use 'rig ps --nodes --fields contextUsage --json' to see what daemon is reporting.`,
+          `Use 'SoftwareTeam ps --nodes --fields contextUsage --json' to see what daemon is reporting.`,
       };
     }
     return { key, value, op, numericValue };
@@ -325,7 +325,7 @@ function parseFilter(filter: string): ParsedFilter | { error: string } {
     return {
       error: `--filter contextUsage.state='${value}' is not a valid context state. ` +
         `Allowed: ${[...ALLOWED_CONTEXT_USAGE_STATES].sort().join(", ")}. ` +
-        `Use 'rig ps --nodes --fields contextUsage --json' to see what daemon is reporting.`,
+        `Use 'SoftwareTeam ps --nodes --fields contextUsage --json' to see what daemon is reporting.`,
     };
   }
 
@@ -337,7 +337,7 @@ function parseFilter(filter: string): ParsedFilter | { error: string } {
     return {
       error: `--filter agentActivity.state='${value}' is not a valid activity state. ` +
         `Allowed: ${[...ALLOWED_AGENT_ACTIVITY_STATES].sort().join(", ")}. ` +
-        `Use 'rig ps --nodes --fields agentActivity --json' to see what daemon is reporting.`,
+        `Use 'SoftwareTeam ps --nodes --fields agentActivity --json' to see what daemon is reporting.`,
     };
   }
 
@@ -365,8 +365,8 @@ function deriveContextUsageState(percent: number | null | undefined): "critical"
 // shape: rejects with a sorted-supported-list error message including the
 // unknown key(s) quoted. The level-aware "Hint" fires when an operator types
 // `--fields name` against a node query (the most likely confusion case
-// preserved by the rigName/name aliasing at rig-level only).
-function parseFields(input: string, allowed: Set<string>, level: "rig" | "nodes"): string[] | { error: string } {
+// preserved by the softwareTeamName/name aliasing at software-team-level only).
+function parseFields(input: string, allowed: Set<string>, level: "softwareTeam" | "nodes"): string[] | { error: string } {
   const fields = input.split(",").map((f) => f.trim()).filter((f) => f.length > 0);
   if (fields.length === 0) {
     return { error: `--fields cannot be empty` };
@@ -375,7 +375,7 @@ function parseFields(input: string, allowed: Set<string>, level: "rig" | "nodes"
   if (unknown.length > 0) {
     const sorted = [...allowed].sort().join(", ");
     const hint = level === "nodes" && unknown.includes("name")
-      ? ` Hint: 'name' is a rig-level field; use 'rigName' for node entries.`
+      ? ` Hint: 'name' is a software-team-level field; use 'softwareTeamName' for node entries.`
       : "";
     const keyWord = unknown.length > 1 ? "keys" : "key";
     return {
@@ -396,8 +396,8 @@ function parsePsControls(opts: PsCliOptions): ParsedPsControls | { error: string
   let effectiveFilter = opts.filter;
   if (opts.active) {
     // Slice 15 (finding 5): agent activity is a per-NODE signal; the LOCAL
-    // rig-summary tier carries only an activeCount aggregate and cannot honestly
-    // filter on it. A bare local `rig ps --active` used to be a silent no-op that
+    // software-team-summary tier carries only an activeCount aggregate and cannot honestly
+    // filter on it. A bare local `SoftwareTeam ps --active` used to be a silent no-op that
     // looked like it worked — fail loudly and state the node-only scope. Remote
     // paths (--host/--all-hosts/--hosts) FORWARD --active to the remote, which
     // applies (and re-validates) it there, so they are exempt from the local gate.
@@ -406,7 +406,7 @@ function parsePsControls(opts: PsCliOptions): ParsedPsControls | { error: string
       return {
         error:
           `--active/--running filters agentActivity.state, a per-node signal available only at the node tier. ` +
-          `Add --nodes (rig-summary rows carry no per-node activity) — nothing was filtered.`,
+          `Add --nodes (software-team-summary rows carry no per-node activity) — nothing was filtered.`,
       };
     }
     if (effectiveFilter) {
@@ -434,8 +434,8 @@ function parsePsControls(opts: PsCliOptions): ParsedPsControls | { error: string
 
   let fields: string[] | null = null;
   if (opts.fields !== undefined) {
-    const fieldsLevel: "rig" | "nodes" = opts.nodes ? "nodes" : "rig";
-    const fieldsAllowed = fieldsLevel === "nodes" ? ALLOWED_NODE_FIELDS : ALLOWED_RIG_FIELDS;
+    const fieldsLevel: "softwareTeam" | "nodes" = opts.nodes ? "nodes" : "softwareTeam";
+    const fieldsAllowed = fieldsLevel === "nodes" ? ALLOWED_NODE_FIELDS : ALLOWED_SOFTWARE_TEAM_FIELDS;
     const fieldsResult = parseFields(opts.fields, fieldsAllowed, fieldsLevel);
     if ("error" in fieldsResult) return fieldsResult;
     fields = fieldsResult;
@@ -449,15 +449,15 @@ function parsePsControls(opts: PsCliOptions): ParsedPsControls | { error: string
   };
 }
 
-function applyRigFilter(entries: PsEntry[], filter: ParsedFilter): PsEntry[] {
+function applySoftwareTeamFilter(entries: PsEntry[], filter: ParsedFilter): PsEntry[] {
   return entries.filter((e) => {
     if (filter.key === "status") return e.status === filter.value;
     if (filter.key === "lifecycleState") return e.lifecycleState === filter.value;
-    if (filter.key === "name-prefix") return (e.rigName ?? e.name).startsWith(filter.value);
-    if (filter.key === "name") return (e.rigName ?? e.name) === filter.value;
-    // PL-019 item 1: agentActivity.state is node-level only; at the rig
+    if (filter.key === "name-prefix") return (e.softwareTeamName ?? e.name).startsWith(filter.value);
+    if (filter.key === "name") return (e.softwareTeamName ?? e.name) === filter.value;
+    // PL-019 item 1: agentActivity.state is node-level only; at the softwareTeam
     // level it has no meaning, so the filter passes everything through and
-    // the user gets all rigs (the operator can `--nodes` to scope it).
+    // the user gets all softwareTeams (the operator can `--nodes` to scope it).
     if (filter.key === "agentActivity.state") return true;
     // PL-012: contextUsage.* filters are node-level only.
     if (filter.key === "contextUsage.percent" || filter.key === "contextUsage.state") return true;
@@ -470,8 +470,8 @@ function applyNodeFilter(entries: NodeEntry[], filter: ParsedFilter): NodeEntry[
     // status maps to sessionStatus for nodes; lifecycleState applies directly.
     if (filter.key === "status") return n.sessionStatus === filter.value;
     if (filter.key === "lifecycleState") return n.lifecycleState === filter.value;
-    if (filter.key === "name-prefix") return n.rigName.startsWith(filter.value);
-    if (filter.key === "name") return n.rigName === filter.value;
+    if (filter.key === "name-prefix") return n.softwareTeamName.startsWith(filter.value);
+    if (filter.key === "name") return n.softwareTeamName === filter.value;
     // PL-019 item 1: nested-key traversal for agentActivity.state. Nodes
     // without an agentActivity attachment never match a non-unknown filter
     // value (the daemon reports `unknown` when it has no signal — explicit).
@@ -498,76 +498,76 @@ function applyNodeFilter(entries: NodeEntry[], filter: ParsedFilter): NodeEntry[
   });
 }
 
-// OPR.0.3.3.19 - build the /api/ps path, opting archived rigs back in when
+// OPR.0.3.3.19 - build the /api/ps path, opting archived softwareTeams back in when
 // --include-archived is set. Default (no flag) leaves the daemon's
 // archived-excluding default in force.
 function fanOutNodesError(): string {
   return [
-    "rig ps --all-hosts/--hosts --nodes: per-node fan-out requires the FULL explicit ladder.",
-    "  rig ps --all-hosts --nodes -A             (fleet nodes per host, projected rows)",
-    "  rig ps --all-hosts --nodes -A --full      (complete per-node records — the last rung)",
-    "One rig's seats on one host: rig ps --host <id> --nodes --rig <name>.",
+    "SoftwareTeam ps --all-hosts/--hosts --nodes: per-node fan-out requires the FULL explicit ladder.",
+    "  SoftwareTeam ps --all-hosts --nodes -A             (fleet nodes per host, projected rows)",
+    "  SoftwareTeam ps --all-hosts --nodes -A --full      (complete per-node records — the last rung)",
+    "One softwareTeam's seats on one host: SoftwareTeam ps --host <id> --nodes --software-team <name>.",
   ].join("\n");
 }
 
 /**
  * OPR.0.4.4.21 FR-2/FR-3 — THE centralized disclosure-ladder validator.
  * Runs BEFORE the local/HTTP-host/SSH/fan-out dispatch split so every path
- * obeys one grammar (qa1 plan-review: remote mode bypassed the session-rig
+ * obeys one grammar (qa1 plan-review: remote mode bypassed the session-softwareTeam
  * injection and fanned wide). Principle (arch-ratified): IMPLICIT SCOPE
- * DEFAULTS DON'T CROSS HOST BOUNDARIES — the session-rig default has no
- * stable referent on a remote host (a same-named rig there would silently
+ * DEFAULTS DON'T CROSS HOST BOUNDARIES — the session-softwareTeam default has no
+ * stable referent on a remote host (a same-named softwareTeam there would silently
  * misresolve), so remote per-node views are explicit-or-error.
  * Returns the teaching error text, or null when the invocation is valid.
  */
-export function validatePsLadder(opts: PsCliOptions, callerRig: string | undefined): string | null {
+export function validatePsLadder(opts: PsCliOptions, callerSoftwareTeam: string | undefined): string | null {
   const isFanOut = !!(opts.allHosts || opts.hosts);
   const isSingleRemote = !!opts.host;
 
-  // SWEEP-b (shape f2576102) — `--session` is a --nodes filter; on the rig tier it was
-  // accepted-and-dropped (silent all-rigs listing). Reject with the valid form taught.
+  // SWEEP-b (shape f2576102) — `--session` is a --nodes filter; on the softwareTeam tier it was
+  // accepted-and-dropped (silent all-softwareTeams listing). Reject with the valid form taught.
   if (opts.session !== undefined && !opts.nodes) {
     return [
-      "rig ps --session: '--session' filters NODES, so it needs the --nodes tier.",
-      "Valid form: rig ps --nodes --session <member@rig> (add --rig/-A for scope).",
+      "SoftwareTeam ps --session: '--session' filters NODES, so it needs the --nodes tier.",
+      "Valid form: SoftwareTeam ps --nodes --session <member@software-team> (add --software-team/-A for scope).",
     ].join("\n");
   }
 
-  // FR-3: -A/--all-rigs has exactly ONE meaning — the --nodes fleet widener.
-  if (opts.allRigs && !opts.nodes) {
+  // FR-3: -A/--all-software-teams has exactly ONE meaning — the --nodes fleet widener.
+  if (opts.allSoftwareTeams && !opts.nodes) {
     return [
-      "rig ps -A: '-A/--all-rigs' now has exactly one meaning — the --nodes fleet widener.",
-      "The consolidated all-rigs view IS the default: just run 'rig ps'.",
-      "Fleet nodes: rig ps --nodes -A (add --full for complete per-node records).",
-      "Archived history: rig ps --include-archived.",
+      "SoftwareTeam ps -A: '-A/--all-software-teams' now has exactly one meaning — the --nodes fleet widener.",
+      "The consolidated all-softwareTeams view IS the default: just run 'SoftwareTeam ps'.",
+      "Fleet nodes: SoftwareTeam ps --nodes -A (add --full for complete per-node records).",
+      "Archived history: SoftwareTeam ps --include-archived.",
     ].join("\n");
   }
 
   // FR-5: multi-host fan-out is rollup-only UNLESS the full explicit
   // ladder is requested — `--nodes -A` per host (`--full` for complete
   // records), exactly as the PRD writes it. Anything less explicit under
-  // --nodes errors; never silent rig-tier data under a --nodes flag.
-  if (opts.nodes && isFanOut && !opts.allRigs) {
+  // --nodes errors; never silent software-team-tier data under a --nodes flag.
+  if (opts.nodes && isFanOut && !opts.allSoftwareTeams) {
     return fanOutNodesError();
   }
 
   // FR-2: --nodes always names its scope — session default locally,
-  // explicit --rig / -A everywhere else. Never an implicit fan-out.
-  if (opts.nodes && !opts.rig && !opts.allRigs) {
+  // explicit --software-team / -A everywhere else. Never an implicit fan-out.
+  if (opts.nodes && !opts.softwareTeam && !opts.allSoftwareTeams) {
     if (isFanOut) {
       return fanOutNodesError();
     }
     if (isSingleRemote) {
       return [
-        `rig ps --host ${opts.host} --nodes: no target — the local session's rig is not a remote scope`,
-        "(implicit scope defaults don't cross host boundaries; a same-named remote rig would silently misresolve).",
-        `Name one: rig ps --host ${opts.host} --nodes --rig <name>, or that host's fleet explicitly: rig ps --host ${opts.host} --nodes -A.`,
+        `SoftwareTeam ps --host ${opts.host} --nodes: no target — the local session's SoftwareTeam is not a remote scope`,
+        "(implicit scope defaults don't cross host boundaries; a same-named remote SoftwareTeam would silently misresolve).",
+        `Name one: SoftwareTeam ps --host ${opts.host} --nodes --software-team <name>, or that host's fleet explicitly: SoftwareTeam ps --host ${opts.host} --nodes -A.`,
       ].join("\n");
     }
-    if (!callerRig) {
+    if (!callerSoftwareTeam) {
       return [
-        "rig ps --nodes: no target — outside a managed session there is no current rig to default to.",
-        "Name one: rig ps --nodes --rig <name>, or go fleet-wide explicitly: rig ps --nodes -A.",
+        "SoftwareTeam ps --nodes: no target — outside a managed session there is no current SoftwareTeam to default to.",
+        "Name one: SoftwareTeam ps --nodes --software-team <name>, or go fleet-wide explicitly: SoftwareTeam ps --nodes -A.",
       ].join("\n");
     }
   }
@@ -608,11 +608,11 @@ function hasCurrentUsageLimit(node: NodeEntry): boolean {
     && activity.stale === false && !activity.fallback;
 }
 
-/** One line per community agent app seat: what OpenRig knows about it, and what it doesn't. */
+/** One line per community agent app seat: what SoftwareTeam knows about it, and what it doesn't. */
 export function formatAgentAppLine(seat: string, app: NonNullable<NodeEntry["agentApp"]>): string {
   if (app.presetError) return `Community app (${seat}): ${app.app}: ${app.presetError}.`;
   const limits = app.limits.length ? `; declared limits: ${app.limits.join("; ")}` : "";
-  return `Community app (${seat}): ${app.app}, maintained by ${app.maintainer}, not tested by OpenRig. Identity ${app.identity}; needs-input ${app.needsInput}${limits}.`;
+  return `Community app (${seat}): ${app.app}, maintained by ${app.maintainer}, not tested by SoftwareTeam. Identity ${app.identity}; needs-input ${app.needsInput}${limits}.`;
 }
 
 function missingSessionGuidance(node: NodeEntry): string | null {
@@ -626,7 +626,7 @@ function missingSessionGuidance(node: NodeEntry): string | null {
 // needs at a glance, WITHOUT leaking the resume token value or resumeCommand
 // (security). recoveryGuidance/currentUsage stay on the node detail (slice 26).
 
-// 0.5.1 rig ps telemetry (founder-directed): render the DECLARED model.
+// 0.5.1 SoftwareTeam ps telemetry (founder-directed): render the DECLARED model.
 //
 // A blank here must NOT join the em-dash family every other empty cell uses.
 // 13 of 15 claude-code seats carry no declared model, and a reader seeing "—"
@@ -645,9 +645,9 @@ export function compactNodeProjection(nodes: NodeEntry[]): Array<Record<string, 
   return nodes.map((n) => {
     const attention = needsAttention(n);
     const compact: Record<string, unknown> = {
-      // identity (rigId/rigName + logicalId + session) — disambiguates under -A.
-      rigId: n.rigId,
-      rigName: n.rigName,
+      // identity (softwareTeamId/softwareTeamName + logicalId + session) — disambiguates under -A.
+      softwareTeamId: n.softwareTeamId,
+      softwareTeamName: n.softwareTeamName,
       logicalId: n.logicalId,
       canonicalSessionName: n.canonicalSessionName,
       // Slice 13 fix 2 — host attribution rides the compact projection too; a
@@ -695,8 +695,8 @@ export function compactNodeProjection(nodes: NodeEntry[]): Array<Record<string, 
   });
 }
 
-function summarizeRigs(entries: PsEntry[]): {
-  totalRigs: number;
+function summarizeSoftwareTeams(entries: PsEntry[]): {
+  totalSoftwareTeams: number;
   totalRunning: number;
   byLifecycle: Record<string, number>;
   byStatus: Record<string, number>;
@@ -710,7 +710,7 @@ function summarizeRigs(entries: PsEntry[]): {
     byStatus[e.status] = (byStatus[e.status] ?? 0) + 1;
     if (e.status === "running") totalRunning++;
   }
-  return { totalRigs: entries.length, totalRunning, byLifecycle, byStatus };
+  return { totalSoftwareTeams: entries.length, totalRunning, byLifecycle, byStatus };
 }
 
 function summarizeNodes(entries: NodeEntry[]): {
@@ -729,8 +729,8 @@ function summarizeNodes(entries: NodeEntry[]): {
   return { totalNodes: entries.length, byLifecycle, bySessionStatus };
 }
 
-// Compact rig-level lifecycle codes for the rig table header (3-char fixed width).
-function abbrevRigLifecycle(state: PsEntry["lifecycleState"] | undefined): string {
+// Compact software-team-level lifecycle codes for the softwareTeam table header (3-char fixed width).
+function abbrevSoftwareTeamLifecycle(state: PsEntry["lifecycleState"] | undefined): string {
   if (!state) return "—";
   if (state === "running") return "run";
   if (state === "recoverable") return "rec";
@@ -751,42 +751,42 @@ function abbrevNodeLifecycle(state: NodeEntry["lifecycleState"] | undefined): st
 }
 
 /**
- * `rig ps` — the consolidated fleet map + explicit disclosure ladder.
+ * `SoftwareTeam ps` — the consolidated fleet map + explicit disclosure ladder.
  *
- * OPR.0.4.4.21: the default is ALL active rigs, one compact O(rigs) row each
- * (the current-rig-only default is retired). The token-safety invariant: no
- * invocation returns per-node detail across all rigs unless explicitly
+ * OPR.0.4.4.21: the default is ALL active softwareTeams, one compact O(softwareTeams) row each
+ * (the current-software-team-only default is retired). The token-safety invariant: no
+ * invocation returns per-node detail across all softwareTeams unless explicitly
  * flagged (--nodes -A), and even then rows are projected unless --full.
- * Default `rig ps --json` keeps the bare-array shape for back-compat; the
+ * Default `SoftwareTeam ps --json` keeps the bare-array shape for back-compat; the
  * truncation/envelope shape only applies when at least one of
  * `--limit`/`--summary`/`--fields`/`--filter` is specified.
  */
 export function psCommand(depsOverride?: PsDeps): Command {
   const cmd = new Command("ps")
-    .description("List rigs and their status")
+    .description("List softwareTeams and their status")
     .addHelpText("after", `
-Default (OPR.0.4.4.21): ALL active rigs, ONE compact row each — O(rigs), never
-a fleet node fan-out — plus the host rollup line ("N rigs · M seats · K need
+Default (OPR.0.4.4.21): ALL active softwareTeams, ONE compact row each — O(softwareTeams), never
+a fleet node fan-out — plus the host rollup line ("N softwareTeams · M seats · K need
 attention"), the archived/stopped count line, and the drill-ladder footer.
-STATED contract: default --json is a bare array of ALL non-archived rigs
+STATED contract: default --json is a bare array of ALL non-archived softwareTeams
 INCLUDING stopped ones (existing keys preserved; additive attentionCount);
-only the HUMAN table folds stopped rigs into the count line.
+only the HUMAN table folds stopped softwareTeams into the count line.
 
 The disclosure ladder (each heavier view is an explicit step):
-  rig ps                      the consolidated map (this default)
-  rig ps --rig <name>         one rig's detail
-  rig ps --nodes              per-node, CURRENT rig (session default, local only)
-  rig ps --nodes --rig <name> per-node, named rig
-  rig ps --nodes -A           fleet nodes, projected rows
-  rig ps --nodes -A --full    complete per-node records (the only full fan-out)
+  SoftwareTeam ps                      the consolidated map (this default)
+  SoftwareTeam ps --software-team <name>         one softwareTeam's detail
+  SoftwareTeam ps --nodes              per-node, CURRENT softwareTeam (session default, local only)
+  SoftwareTeam ps --nodes --software-team <name> per-node, named softwareTeam
+  SoftwareTeam ps --nodes -A           fleet nodes, projected rows
+  SoftwareTeam ps --nodes -A --full    complete per-node records (the only full fan-out)
 
--A/--all-rigs has exactly ONE meaning: the --nodes fleet widener. Bare -A
-errors (all-rigs IS the default; archived history stays behind
---include-archived). The session-rig default never crosses host boundaries:
-remote --nodes requires an explicit --rig or -A.
+-A/--all-software-teams has exactly ONE meaning: the --nodes fleet widener. Bare -A
+errors (all-softwareTeams IS the default; archived history stays behind
+--include-archived). The session-software-team default never crosses host boundaries:
+remote --nodes requires an explicit --software-team or -A.
 
-Compact defaults: 'rig ps --nodes' shows a compact summary per node
-(rig, session, lifecycle, activity state, reason when attention, queue counts,
+Compact defaults: 'SoftwareTeam ps --nodes' shows a compact summary per node
+(softwareTeam, session, lifecycle, activity state, reason when attention, queue counts,
 resume type + present indicator). Resume token values and resumeCommand are
 excluded from compact output (security); use --full to see them.
 
@@ -794,61 +794,61 @@ Use '--full' (or '--verbose') for the uncompacted per-node payload (contextUsage
 scalars, resume commands/tokens, agent references). Note (OPR.0.4.0.26): the
 node-list payload carries recoveryGuidance: null and contextUsage.currentUsage:
 null even with --full; fetch the full recovery guidance + currentUsage from the
-single-node detail (/api/rigs/:rigId/nodes/:logicalId) or 'rig whoami'.
+single-node detail (/api/software-teams/:softwareTeamId/nodes/:logicalId) or 'SoftwareTeam whoami'.
 
 Examples:
-  rig ps                                          All active rigs, one row each + rollup
-  rig ps --rig <name>                             One rig's detail
-  rig ps --full                                   All rigs, no table truncation
-  rig ps --json                                   All non-archived rigs, bare JSON array
-  rig ps --json --limit 20                        Bounded JSON envelope
-  rig ps --json --summary                         Aggregate-only JSON
-  rig ps --json --fields rigName,status,lifecycleState
+  SoftwareTeam ps                                          All active softwareTeams, one row each + rollup
+  SoftwareTeam ps --software-team <name>                             One softwareTeam's detail
+  SoftwareTeam ps --full                                   All softwareTeams, no table truncation
+  SoftwareTeam ps --json                                   All non-archived softwareTeams, bare JSON array
+  SoftwareTeam ps --json --limit 20                        Bounded JSON envelope
+  SoftwareTeam ps --json --summary                         Aggregate-only JSON
+  SoftwareTeam ps --json --fields softwareTeamName,status,lifecycleState
                                                   Project JSON to named fields
-  rig ps --filter lifecycleState=attention_required
-                                                  Show only rigs needing attention
-  rig ps --filter status=running                  Show only running rigs
-  rig ps --filter name-prefix=demo                Filter by rig-name prefix
-  rig ps --nodes                                  Current rig per-node compact summary
-  rig ps --nodes -A                               All rigs per-node compact summary
-  rig ps --nodes --json                           Current rig per-node compact JSON
-  rig ps --nodes --json --full                    Complete per-node LIST payload (guidance/currentUsage relocated to node detail)
-  rig ps --nodes --json --rig openrig-build       Compact nodes for a specific rig
-  rig ps --nodes --json --session dev1-impl@myrig Filter to a single session (within current rig; use -A for cross-rig)
-  rig ps --nodes --json --limit 50                Bounded per-node JSON envelope
-  rig ps --nodes --active                         Only nodes with agentActivity.state=running
-  rig ps --nodes --running                        Same as --active
-  rig ps --nodes --filter agentActivity.state=running
+  SoftwareTeam ps --filter lifecycleState=attention_required
+                                                  Show only softwareTeams needing attention
+  SoftwareTeam ps --filter status=running                  Show only running softwareTeams
+  SoftwareTeam ps --filter name-prefix=demo                Filter by software-team-name prefix
+  SoftwareTeam ps --nodes                                  Current SoftwareTeam per-node compact summary
+  SoftwareTeam ps --nodes -A                               All softwareTeams per-node compact summary
+  SoftwareTeam ps --nodes --json                           Current SoftwareTeam per-node compact JSON
+  SoftwareTeam ps --nodes --json --full                    Complete per-node LIST payload (guidance/currentUsage relocated to node detail)
+  SoftwareTeam ps --nodes --json --software-team softwareteam-build       Compact nodes for a specific softwareTeam
+  SoftwareTeam ps --nodes --json --session dev1-impl@myrig Filter to a single session (within current softwareTeam; use -A for cross-software-team)
+  SoftwareTeam ps --nodes --json --limit 50                Bounded per-node JSON envelope
+  SoftwareTeam ps --nodes --active                         Only nodes with agentActivity.state=running
+  SoftwareTeam ps --nodes --running                        Same as --active
+  SoftwareTeam ps --nodes --filter agentActivity.state=running
                                                   Same as --active (the explicit form)
-  rig ps --host vm-1 --nodes --rig <name> --json  Remote host per-node (explicit target required)
-  rig ps --all-hosts                              Per-host O(rigs) rollups (AggregatedPayload JSON)
-  rig ps --include-archived                       Include archived rigs (marked with *); hidden by default
+  SoftwareTeam ps --host vm-1 --nodes --software-team <name> --json  Remote host per-node (explicit target required)
+  SoftwareTeam ps --all-hosts                              Per-host O(softwareTeams) rollups (AggregatedPayload JSON)
+  SoftwareTeam ps --include-archived                       Include archived softwareTeams (marked with *); hidden by default
 
---rig <name> scopes to one rig. -A/--all-rigs is ONLY the --nodes fleet widener.
---session <name> filters within the effective rig scope; use --nodes -A if the
-target session is in a different rig.
+--software-team <name> scopes to one softwareTeam. -A/--all-software-teams is ONLY the --nodes fleet widener.
+--session <name> filters within the effective SoftwareTeam scope; use --nodes -A if the
+target session is in a different softwareTeam.
 Multi-host fan-out (--all-hosts/--hosts) is rollup-only by default; the full
 explicit ladder (--all-hosts --nodes -A, --full for complete records) fans out
 per-node with hostId-stamped projected rows.
 
 --active/--running narrow to agentActivity.state=running. NODE-TIER ONLY: requires --nodes
-(rig-summary rows carry no per-node activity). Cannot combine with --filter.
+(software-team-summary rows carry no per-node activity). Cannot combine with --filter.
 
 --filter accepts: status, lifecycleState, name-prefix, name, agentActivity.state,
 contextUsage.percent, contextUsage.state. Other keys are rejected.
 
---fields accepts (rig-level): rigId, name, rigName, nodeCount, runningCount,
+--fields accepts (software-team-level): softwareTeamId, name, softwareTeamName, nodeCount, runningCount,
 activeCount, hasWorkCount, attentionCount, status, lifecycleState, uptime,
 latestSnapshot.
---fields accepts (node-level, with --nodes): rigId, rigName, logicalId, podId,
+--fields accepts (node-level, with --nodes): softwareTeamId, softwareTeamName, logicalId, podId,
 podNamespace, hostSelfId, canonicalSessionName, nodeKind, runtime, agentApp, model, sessionStatus,
 intentionallyStopped, startupStatus, restoreOutcome, lifecycleState, tmuxAttachCommand,
 resumeCommand, latestError, terminalActive, hasAssignedWork,
 assignedWorkCount, pendingWorkCount, inProgressWorkCount, blockedWorkCount,
 agentActivity, contextUsage, heldReason.
 
---host runs on a remote host declared in ~/.openrig/hosts.yaml (no current-rig
-default applied; the remote host's rigs are shown).
+--host runs on a remote host declared in ~/.softwareteam/hosts.yaml (no current-software-team
+default applied; the remote host's softwareTeams are shown).
 
 Exit codes:
   0  Success
@@ -860,20 +860,20 @@ Exit codes:
     .option("--json", "JSON output for agents")
     .option("--no-cleanup", "Preserve stale daemon state files during observation")
     .option("--resources", "Show this host’s load and transcript capture cost (also supports --host)")
-    .option("--nodes", "Show per-node detail (current rig; -A for all rigs)")
-    .option("--full", "Show all rig rows without cell truncation, or all node-list fields with --nodes (recoveryGuidance/currentUsage live on node detail)")
+    .option("--nodes", "Show per-node detail (current softwareTeam; -A for all softwareTeams)")
+    .option("--full", "Show all SoftwareTeam rows without cell truncation, or all node-list fields with --nodes (recoveryGuidance/currentUsage live on node detail)")
     .option("--verbose", "Alias for --full")
-    .option("--limit <n>", "Limit number of entries (rigs or nodes)")
+    .option("--limit <n>", "Limit number of entries (softwareTeams or nodes)")
     .option("--fields <list>", "Comma-separated field list to project (JSON only)")
     .option("--summary", "Emit aggregate-only output (counts by status/lifecycle)")
     .option("--filter <key=value>", "Filter entries; supported keys: status, lifecycleState, name-prefix, name, agentActivity.state")
     .option("--active", "Shortcut for --filter agentActivity.state=running (PL-019)")
     .option("--running", "Alias for --active")
-    .option("-A, --all-rigs", "Show all rigs (default is current rig only)")
-    .option("--rig <name>", "Show only nodes belonging to the named rig")
+    .option("-A, --all-software-teams", "Show all softwareTeams (default is current SoftwareTeam only)")
+    .option("--software-team <name>", "Show only nodes belonging to the named softwareTeam")
     .option("--session <name>", "Show only the node matching this canonical session name")
-    .option("--include-archived", "Include archived rigs (default hides them); parity with 'rig stream list --include-archived'")
-    .option("--host <id>", "Run on a remote host declared in ~/.openrig/hosts.yaml")
+    .option("--include-archived", "Include archived softwareTeams (default hides them); parity with 'SoftwareTeam stream list --include-archived'")
+    .option("--host <id>", "Run on a remote host declared in ~/.softwareteam/hosts.yaml")
     .option("--all-hosts", "Fan out to all registered HTTP hosts (observation-only)")
     .option("--hosts <ids>", "Fan out to specific hosts (comma-separated)")
     .action(async (opts: PsCliOptions) => {
@@ -885,32 +885,32 @@ Exit codes:
       if (opts.verbose) opts.full = true;
       if (opts.running) opts.active = true;
       const isRemote = !!(opts.host || opts.allHosts || opts.hosts);
-      // OPR.0.4.4.21 FR-1: the rig tier is consolidated ALL-ACTIVE-RIGS by
-      // default (the current-rig-only default is RETIRED — it hid running
-      // rigs from the operator's field of view). The session-rig default
+      // OPR.0.4.4.21 FR-1: the softwareTeam tier is consolidated ALL-ACTIVE-SOFTWARE_TEAMS by
+      // default (the current-software-team-only default is RETIRED — it hid running
+      // softwareTeams from the operator's field of view). The session-softwareTeam default
       // now applies ONLY to the node tier (FR-2's scoped --nodes), and
       // ONLY locally (the ladder validator enforces explicit-or-error on
       // every remote path).
-      const sessionName = readOpenRigEnv("OPENRIG_SESSION_NAME", "RIGGED_SESSION_NAME");
-      const callerRig = sessionName ? extractRigName(sessionName) : undefined;
-      if (opts.resources && (opts.nodes || opts.allRigs || opts.rig || opts.session || opts.allHosts || opts.hosts || opts.limit || opts.fields || opts.filter || opts.summary || opts.active || opts.includeArchived || opts.full || opts.verbose)) {
-        console.error("rig ps --resources supports --json and one --host; rig/node filters and fan-out do not apply to host measurements.");
+      const sessionName = readSoftwareTeamEnv("SOFTWARETEAM_SESSION_NAME");
+      const callerSoftwareTeam = sessionName ? extractSoftwareTeamName(sessionName) : undefined;
+      if (opts.resources && (opts.nodes || opts.allSoftwareTeams || opts.softwareTeam || opts.session || opts.allHosts || opts.hosts || opts.limit || opts.fields || opts.filter || opts.summary || opts.active || opts.includeArchived || opts.full || opts.verbose)) {
+        console.error("SoftwareTeam ps --resources supports --json and one --host; softwareTeam/node filters and fan-out do not apply to host measurements.");
         process.exitCode = 1;
         return;
       }
-      const ladderError = validatePsLadder(opts, callerRig);
+      const ladderError = validatePsLadder(opts, callerSoftwareTeam);
       if (ladderError) {
         console.error(ladderError);
         process.exitCode = 1;
         return;
       }
-      // OPR.0.5.0 scope-honesty: capture WHEN --nodes defaulted to the session rig, so the
-      // (correct) current-rig-only scope is DECLARED in the output — silent completeness is
+      // OPR.0.5.0 scope-honesty: capture WHEN --nodes defaulted to the session softwareTeam, so the
+      // (correct) current-software-team-only scope is DECLARED in the output — silent completeness is
       // silent loss (a restoring agent must not read a scoped list as the whole host).
-      let scopedToSessionRig = false;
-      if (opts.nodes && !opts.allRigs && !opts.rig && !isRemote && callerRig) {
-        opts.rig = callerRig;
-        scopedToSessionRig = true;
+      let scopedToSessionSoftwareTeam = false;
+      if (opts.nodes && !opts.allSoftwareTeams && !opts.softwareTeam && !isRemote && callerSoftwareTeam) {
+        opts.softwareTeam = callerSoftwareTeam;
+        scopedToSessionSoftwareTeam = true;
       }
       const deps = getDepsF();
 
@@ -935,8 +935,8 @@ Exit codes:
         // Do not add an ad-hoc summary member here; teach the per-host form.
         if (opts.summary) {
           console.error(
-            "rig ps --all-hosts/--hosts --summary: summary does not compose with the merged fan-out payload.\n" +
-            "Summarize one host: rig ps --host <id> --summary; or drop --summary for the merged AggregatedPayload.",
+            "SoftwareTeam ps --all-hosts/--hosts --summary: summary does not compose with the merged fan-out payload.\n" +
+            "Summarize one host: SoftwareTeam ps --host <id> --summary; or drop --summary for the merged AggregatedPayload.",
           );
           process.exitCode = 1;
           return;
@@ -960,11 +960,11 @@ Exit codes:
         return;
       }
       if (opts.nodes) {
-        await handleNodes(client, opts, parsedFilter, limit, fields, useEnvelope, undefined, scopedToSessionRig);
+        await handleNodes(client, opts, parsedFilter, limit, fields, useEnvelope, undefined, scopedToSessionSoftwareTeam);
         return;
       }
 
-      // OPR.0.4.4.21 FR-1: ONE O(rigs) fetch including archived so the
+      // OPR.0.4.4.21 FR-1: ONE O(softwareTeams) fetch including archived so the
       // count line can be computed; visibility is split client-side below
       // (JSON keeps today's default of excluding archived — parity).
       const res = await client.get<PsEntry[]>("/api/ps?includeArchived=true");
@@ -972,7 +972,7 @@ Exit codes:
       if (res.status >= 400) {
         const reason = (res.data as unknown as { error?: unknown } | null)?.error;
         if (typeof reason === "string" && reason) console.error(reason);
-        console.error(`Failed to fetch rig list from daemon (HTTP ${res.status}). Check daemon status with: rig status`);
+        console.error(`Failed to fetch SoftwareTeam list from daemon (HTTP ${res.status}). Check daemon status with: SoftwareTeam status`);
         process.exitCode = 2;
         return;
       }
@@ -987,20 +987,20 @@ Exit codes:
       const archivedCount = all.filter((e) => e.isArchived === true).length;
       const visible = opts.includeArchived ? all : all.filter((e) => e.isArchived !== true);
 
-      const rigScoped = opts.rig
-        ? visible.filter((e) => (e.rigName ?? e.name) === opts.rig)
+      const softwareTeamScoped = opts.softwareTeam
+        ? visible.filter((e) => (e.softwareTeamName ?? e.name) === opts.softwareTeam)
         : visible;
 
       // Apply CLI-side filter (Amendment A: prefer CLI shaping).
-      const filtered = parsedFilter ? applyRigFilter(rigScoped, parsedFilter) : rigScoped;
+      const filtered = parsedFilter ? applySoftwareTeamFilter(softwareTeamScoped, parsedFilter) : softwareTeamScoped;
 
       // Summary mode short-circuits per-entry output.
       if (opts.summary) {
-        const summary = summarizeRigs(filtered);
+        const summary = summarizeSoftwareTeams(filtered);
         if (opts.json) {
           console.log(JSON.stringify(summary));
         } else {
-          console.log(`totalRigs: ${summary.totalRigs}`);
+          console.log(`totalSoftwareTeams: ${summary.totalSoftwareTeams}`);
           console.log(`totalRunning: ${summary.totalRunning}`);
           console.log(`byStatus: ${JSON.stringify(summary.byStatus)}`);
           console.log(`byLifecycle: ${JSON.stringify(summary.byLifecycle)}`);
@@ -1020,10 +1020,10 @@ Exit codes:
           // Envelope only on flag use; default JSON stays a bare array for compat.
           const envelope: Record<string, unknown> = {
             entries: projected,
-            totalRigs: filtered.length,
+            totalSoftwareTeams: filtered.length,
             truncated,
           };
-          if (truncated) envelope.hint = "rig ps --full --json";
+          if (truncated) envelope.hint = "SoftwareTeam ps --full --json";
           console.log(JSON.stringify(envelope));
         } else {
           console.log(JSON.stringify(projected));
@@ -1033,13 +1033,13 @@ Exit codes:
 
       if (limited.length === 0) {
         if (parsedFilter) {
-          console.log(`No rigs match --filter ${parsedFilter.key}=${parsedFilter.value}`);
+          console.log(`No softwareTeams match --filter ${parsedFilter.key}=${parsedFilter.value}`);
         } else if (archivedCount > 0 && !opts.includeArchived) {
-          // Proven-empty with the history pointer, never a bare "No rigs"
+          // Proven-empty with the history pointer, never a bare "No softwareTeams"
           // while archived history exists.
-          console.log(`No active rigs · ${archivedCount} archived (rig ps --include-archived)`);
+          console.log(`No active softwareTeams · ${archivedCount} archived (SoftwareTeam ps --include-archived)`);
         } else {
-          console.log("No rigs");
+          console.log("No softwareTeams");
         }
         return;
       }
@@ -1047,31 +1047,31 @@ Exit codes:
       // OPR.0.4.4.21 FR-1 (human table ONLY — JSON keeps ALL non-archived
       // entries including stopped; this scope split is a STATED contract
       // sentence in the help text): on the BARE default (no filter, no
-      // --rig, no --include-archived) stopped rigs fold into the count
+      // --software-team, no --include-archived) stopped softwareTeams fold into the count
       // line — history is what the default drops, not field of view.
-      const bareDefault = !parsedFilter && !opts.rig && !opts.includeArchived;
-      const tableRows = bareDefault ? limited.filter(isActiveRig) : limited;
+      const bareDefault = !parsedFilter && !opts.softwareTeam && !opts.includeArchived;
+      const tableRows = bareDefault ? limited.filter(isActiveSoftwareTeam) : limited;
       const stoppedCount = bareDefault ? limited.length - tableRows.length : 0;
 
       // FR-1 display element 1: the host rollup line.
       const rollupSeats = tableRows.reduce((n, e) => n + e.nodeCount, 0);
       const rollupAttention = tableRows.reduce((n, e) => n + (e.attentionCount ?? 0), 0);
-      console.log(`${tableRows.length} rig${tableRows.length === 1 ? "" : "s"} · ${rollupSeats} seat${rollupSeats === 1 ? "" : "s"} · ${rollupAttention} need${rollupAttention === 1 ? "s" : ""} attention`);
+      console.log(`${tableRows.length} softwareTeam${tableRows.length === 1 ? "" : "s"} · ${rollupSeats} seat${rollupSeats === 1 ? "" : "s"} · ${rollupAttention} need${rollupAttention === 1 ? "s" : ""} attention`);
 
       // Human output: apply default truncation budget unless --full.
-      const humanList = (opts.full || limit !== null) ? tableRows : tableRows.slice(0, HUMAN_RIG_BUDGET);
-      const humanTruncated = !opts.full && limit === null && tableRows.length > HUMAN_RIG_BUDGET;
+      const humanList = (opts.full || limit !== null) ? tableRows : tableRows.slice(0, HUMAN_SOFTWARE_TEAM_BUDGET);
+      const humanTruncated = !opts.full && limit === null && tableRows.length > HUMAN_SOFTWARE_TEAM_BUDGET;
 
-      const headers = ["RIG", "NODES", "RUNNING", "ACTIVE", "WORK", "ATTN", "STATUS", "LIFECYCLE", "UPTIME", "SNAPSHOT"];
+      const headers = ["SOFTWARE_TEAM", "NODES", "RUNNING", "ACTIVE", "WORK", "ATTN", "STATUS", "LIFECYCLE", "UPTIME", "SNAPSHOT"];
       const rows = (humanList as PsEntry[]).map((e) => [
-        e.isArchived ? `${e.rigName ?? e.name} *` : (e.rigName ?? e.name),
+        e.isArchived ? `${e.softwareTeamName ?? e.name} *` : (e.softwareTeamName ?? e.name),
         String(e.nodeCount),
         String(e.runningCount),
         e.activeCount !== undefined ? String(e.activeCount) : "—",
         e.hasWorkCount !== undefined ? String(e.hasWorkCount) : "—",
         e.attentionCount !== undefined ? (e.attentionCount > 0 ? `▲${e.attentionCount}` : "0") : "—",
         e.status,
-        abbrevRigLifecycle(e.lifecycleState),
+        abbrevSoftwareTeamLifecycle(e.lifecycleState),
         e.uptime ?? "—",
         e.latestSnapshot ?? "—",
       ]);
@@ -1083,34 +1083,34 @@ Exit codes:
           }
         }
       } else {
-        for (let i = 0; i < widths.length; i++) widths[i] = widths[i]! - RIG_COLUMN_SEPARATOR.length;
+        for (let i = 0; i < widths.length; i++) widths[i] = widths[i]! - SOFTWARE_TEAM_COLUMN_SEPARATOR.length;
       }
-      console.log(padRigRow(headers, widths));
-      for (const row of rows) console.log(padRigRow(row, widths));
+      console.log(padSoftwareTeamRow(headers, widths));
+      for (const row of rows) console.log(padSoftwareTeamRow(row, widths));
       const anyArchivedShown = humanList.some((e) => e.isArchived);
       const hiddenHistory = stoppedCount > 0 || (!opts.includeArchived && archivedCount > 0);
       if (anyArchivedShown || hiddenHistory || bareDefault || humanTruncated || truncated) console.log("");
       if (anyArchivedShown) {
-        console.log("* = archived (hidden from the default view; shown via --include-archived). Reverse with: rig unarchive <rig>");
+        console.log("* = archived (hidden from the default view; shown via --include-archived). Reverse with: SoftwareTeam unarchive <softwareTeam>");
       }
       // FR-1 display element 2: history as ONE count line, never rows.
       if (hiddenHistory) {
         const parts: string[] = [];
-        if (stoppedCount > 0) parts.push(`${stoppedCount} stopped (rig ps --filter status=stopped)`);
-        if (!opts.includeArchived && archivedCount > 0) parts.push(`${archivedCount} archived (rig ps --include-archived)`);
+        if (stoppedCount > 0) parts.push(`${stoppedCount} stopped (SoftwareTeam ps --filter status=stopped)`);
+        if (!opts.includeArchived && archivedCount > 0) parts.push(`${archivedCount} archived (SoftwareTeam ps --include-archived)`);
         console.log(`not shown: ${parts.join(" · ")}`);
       }
       // FR-1 display element 3: the affordance footer — the drill ladder.
       if (bareDefault) {
-        console.log("drill: rig ps --rig <name> (one rig) · rig ps --nodes --rig <name> (its seats) · --full (everything)");
+        console.log("drill: SoftwareTeam ps --software-team <name> (one softwareTeam) · SoftwareTeam ps --nodes --software-team <name> (its seats) · --full (everything)");
       }
       if (humanTruncated) {
-        const remaining = filtered.length - HUMAN_RIG_BUDGET;
-        console.log(`... and ${remaining} more rig${remaining === 1 ? "" : "s"} (truncated at ${HUMAN_RIG_BUDGET}).`);
-        console.log("Run 'rig ps --full' to see all, or 'rig ps --filter lifecycleState=attention_required' to narrow.");
+        const remaining = filtered.length - HUMAN_SOFTWARE_TEAM_BUDGET;
+        console.log(`... and ${remaining} more softwareTeam${remaining === 1 ? "" : "s"} (truncated at ${HUMAN_SOFTWARE_TEAM_BUDGET}).`);
+        console.log("Run 'SoftwareTeam ps --full' to see all, or 'SoftwareTeam ps --filter lifecycleState=attention_required' to narrow.");
       } else if (truncated) {
         const remaining = filtered.length - (limit ?? 0);
-        console.log(`... and ${remaining} more rig${remaining === 1 ? "" : "s"} (--limit ${limit}).`);
+        console.log(`... and ${remaining} more softwareTeam${remaining === 1 ? "" : "s"} (--limit ${limit}).`);
       }
     });
 
@@ -1125,43 +1125,43 @@ async function handleNodes(
   fields: string[] | null,
   useEnvelope: boolean,
   requestHeaders?: Record<string, string>,
-  scopedToSessionRig?: boolean,
+  scopedToSessionSoftwareTeam?: boolean,
 ): Promise<void> {
-  const rigRes = await client.get<PsEntry[]>(psApiPath(opts), requestHeaders ? { headers: requestHeaders } : undefined);
-  if (rigRes.status >= 400) {
-    const reason = (rigRes.data as unknown as { error?: unknown } | null)?.error;
+  const softwareTeamRes = await client.get<PsEntry[]>(psApiPath(opts), requestHeaders ? { headers: requestHeaders } : undefined);
+  if (softwareTeamRes.status >= 400) {
+    const reason = (softwareTeamRes.data as unknown as { error?: unknown } | null)?.error;
     if (typeof reason === "string" && reason) console.error(reason);
-    console.error(`Failed to fetch rig list from daemon (HTTP ${rigRes.status}). Check daemon status with: rig status`);
+    console.error(`Failed to fetch SoftwareTeam list from daemon (HTTP ${softwareTeamRes.status}). Check daemon status with: SoftwareTeam status`);
     process.exitCode = 2;
     return;
   }
 
-  const effectiveRigs = opts.rig
-    ? rigRes.data.filter((r) => (r.rigName ?? r.name) === opts.rig)
-    : rigRes.data;
+  const effectiveSoftwareTeams = opts.softwareTeam
+    ? softwareTeamRes.data.filter((r) => (r.softwareTeamName ?? r.name) === opts.softwareTeam)
+    : softwareTeamRes.data;
 
   // OPR.0.4.3 healthz-wedge: the daemon nodes route is CHEAP by default (no
-  // per-node tmux capture) — `rig ps --nodes` gets snapshot-based activity. Pass
+  // per-node tmux capture) — `SoftwareTeam ps --nodes` gets snapshot-based activity. Pass
   // ?full=true only when the operator asks for --full, which opts into the
   // per-node pane-heuristic (freshest needs_input) at the fan-out's cost.
   const nodesQuery = opts.full ? "?full=true" : "";
   const allNodes: NodeEntry[] = [];
-  for (const rig of effectiveRigs) {
-    const nodesRes = await client.get<NodeEntry[]>(`/api/rigs/${encodeURIComponent(rig.rigId)}/nodes${nodesQuery}`, requestHeaders ? { headers: requestHeaders } : undefined);
+  for (const softwareTeam of effectiveSoftwareTeams) {
+    const nodesRes = await client.get<NodeEntry[]>(`/api/software-teams/${encodeURIComponent(softwareTeam.softwareTeamId)}/nodes${nodesQuery}`, requestHeaders ? { headers: requestHeaders } : undefined);
     if (nodesRes.status >= 400) {
-      console.error(`Warning: failed to fetch nodes for rig "${rig.rigName ?? rig.name}" (HTTP ${nodesRes.status}). List rigs with: rig ps`);
+      console.error(`Warning: failed to fetch nodes for softwareTeam "${softwareTeam.softwareTeamName ?? softwareTeam.name}" (HTTP ${nodesRes.status}). List softwareTeams with: SoftwareTeam ps`);
       continue;
     }
-    const parentRigName = rig.rigName ?? rig.name;
+    const parentSoftwareTeamName = softwareTeam.softwareTeamName ?? softwareTeam.name;
     allNodes.push(...nodesRes.data.map((n) => ({
       ...n,
-      rigId: n.rigId ?? rig.rigId,
-      rigName: n.rigName ?? parentRigName,
+      softwareTeamId: n.softwareTeamId ?? softwareTeam.softwareTeamId,
+      softwareTeamName: n.softwareTeamName ?? parentSoftwareTeamName,
     })));
   }
 
   let narrowed = allNodes;
-  if (opts.rig) narrowed = narrowed.filter((n) => n.rigName === opts.rig);
+  if (opts.softwareTeam) narrowed = narrowed.filter((n) => n.softwareTeamName === opts.softwareTeam);
   if (opts.session) narrowed = narrowed.filter((n) => n.canonicalSessionName === opts.session);
 
   const filtered = parsedFilter ? applyNodeFilter(narrowed, parsedFilter) : narrowed;
@@ -1187,17 +1187,17 @@ async function handleNodes(
       ? compactNodeProjection(limited)
       : limited;
 
-  // OPR.0.5.0 scope-honesty: when --nodes defaulted to the session rig AND other rigs exist on the
-  // host, DECLARE the scope so a scoped list is never read as the whole host. Single-rig hosts and
-  // explicit --rig/-A paths stay byte-stable (nothing hidden -> no scope envelope, no stderr hint).
-  // The count MUST match the surface the hint cites: `rig ps`'s bare-default header renders the
-  // ACTIVE-rig projection — stopped rigs fold into a count line, not the field of view (the FR-1
-  // contract at ~L942). So rigsOnHost counts that SAME active set; counting every non-archived
+  // OPR.0.5.0 scope-honesty: when --nodes defaulted to the session softwareTeam AND other softwareTeams exist on the
+  // host, DECLARE the scope so a scoped list is never read as the whole host. Single-softwareTeam hosts and
+  // explicit --software-team/-A paths stay byte-stable (nothing hidden -> no scope envelope, no stderr hint).
+  // The count MUST match the surface the hint cites: `SoftwareTeam ps`'s bare-default header renders the
+  // ACTIVE-softwareTeam projection — stopped softwareTeams fold into a count line, not the field of view (the FR-1
+  // contract at ~L942). So softwareTeamsOnHost counts that SAME active set; counting every non-archived
   // entry (stopped included) would make "1 of N" disagree with what the operator sees when they
   // follow the hint (the derived-label-must-carry-liveness / width-clip-honesty class).
-  const rigsOnHost = rigRes.data.filter(isActiveRig).length;
-  const scope = scopedToSessionRig && rigsOnHost > 1
-    ? { rig: opts.rig as string, rigsOnHost, hint: `1 of ${rigsOnHost} rigs shown; rig ps lists all; --rig NAME or -A for others` }
+  const softwareTeamsOnHost = softwareTeamRes.data.filter(isActiveSoftwareTeam).length;
+  const scope = scopedToSessionSoftwareTeam && softwareTeamsOnHost > 1
+    ? { softwareTeam: opts.softwareTeam as string, softwareTeamsOnHost, hint: `1 of ${softwareTeamsOnHost} softwareTeams shown; SoftwareTeam ps lists all; --software-team NAME or -A for others` }
     : null;
 
   if (opts.json) {
@@ -1207,7 +1207,7 @@ async function handleNodes(
         totalNodes: filtered.length,
         truncated: limitTruncated,
       };
-      if (limitTruncated) envelope.hint = "rig ps --nodes --full --json";
+      if (limitTruncated) envelope.hint = "SoftwareTeam ps --nodes --full --json";
       if (scope) envelope.scope = scope;
       console.log(JSON.stringify(envelope));
     } else {
@@ -1218,7 +1218,7 @@ async function handleNodes(
 
   // The matching human-path line (stderr, so it never pollutes piped stdout).
   if (scope) {
-    console.error(`1 of ${rigsOnHost} rigs shown (scoped to ${opts.rig}); rig ps lists all — use --rig NAME or -A for others`);
+    console.error(`1 of ${softwareTeamsOnHost} softwareTeams shown (scoped to ${opts.softwareTeam}); SoftwareTeam ps lists all — use --software-team NAME or -A for others`);
   }
 
   if (limited.length === 0) {
@@ -1234,14 +1234,14 @@ async function handleNodes(
   const humanTruncated = !opts.full && limit === null && filtered.length > HUMAN_NODE_BUDGET;
 
   if (useCompact) {
-    console.log(padCompactNodeRow("RIG", "SESSION", "LIFECYCLE", "ACTIVITY", "WORK", "REASON"));
+    console.log(padCompactNodeRow("SOFTWARE_TEAM", "SESSION", "LIFECYCLE", "ACTIVITY", "WORK", "REASON"));
     for (const n of humanList as NodeEntry[]) {
       const attn = needsAttention(n);
       const reason = missingSessionGuidance(n) ?? (attn || hasCurrentUsageLimit(n)
         ? (n.latestError ? truncate(n.latestError, 40) : n.agentActivity?.reason ?? "—")
         : "—");
       console.log(padCompactNodeRow(
-        n.rigName,
+        n.softwareTeamName,
         n.canonicalSessionName ?? "—",
         abbrevNodeLifecycle(n.lifecycleState),
         formatActivity(n),
@@ -1250,15 +1250,16 @@ async function handleNodes(
       ));
     }
   } else {
-    const header = padNodeRow("RIG", "POD", "MEMBER", "SESSION", "RUNTIME", "MODEL(DECLARED)", "STATUS", "STARTUP", "ORIENTED", "LIFECYCLE", "TERMINAL", "WORK", "ACTIVITY", "CTX", "RESTORE", "ERROR");
+    const identityWidth = Math.max(30, ...humanList.map(n => `${n.softwareTeamName}#${n.softwareTeamId}`.length + 2));
+    const header = padNodeRow("SOFTWARE_TEAM", "POD", "MEMBER", "SESSION", "RUNTIME", "MODEL(DECLARED)", "STATUS", "STARTUP", "ORIENTED", "LIFECYCLE", "TERMINAL", "WORK", "ACTIVITY", "CTX", "RESTORE", "ERROR", identityWidth);
     console.log(header);
     for (const n of humanList as NodeEntry[]) {
       const parts = n.logicalId.split(".");
       const pod = n.podNamespace ?? (parts.length > 1 ? parts[0]! : "—");
       const member = parts.length > 1 ? parts.slice(1).join(".") : n.logicalId;
-      const rig = `${n.rigName}#${n.rigId}`;
+      const softwareTeam = `${n.softwareTeamName}#${n.softwareTeamId}`;
       console.log(padNodeRow(
-        rig,
+        softwareTeam,
         pod,
         member,
         n.canonicalSessionName ?? "—",
@@ -1274,12 +1275,13 @@ async function handleNodes(
         formatContextUsage(n.contextUsage),
         n.restoreOutcome,
         missingSessionGuidance(n) ?? (n.latestError ? truncate(n.latestError, 30) : n.heldReason ? `held: ${truncate(n.heldReason, 25)}` : "—"),
+        identityWidth,
       ));
     }
   }
   // Keep an actionable startup continuation outside the table's clipped cells.
   for (const n of humanList as NodeEntry[]) {
-    if (n.startupStatus === "attention_required" && n.latestError?.includes("rig seat continue ")) {
+    if (n.startupStatus === "attention_required" && n.latestError?.includes("SoftwareTeam seat continue ")) {
       console.log(`Startup details (${n.canonicalSessionName ?? n.logicalId}): ${n.latestError}`);
     }
   }
@@ -1289,7 +1291,7 @@ async function handleNodes(
   if (humanTruncated) {
     const remaining = filtered.length - HUMAN_NODE_BUDGET;
     console.log(`... and ${remaining} more node${remaining === 1 ? "" : "s"} (truncated at ${HUMAN_NODE_BUDGET}).`);
-    console.log("Run 'rig ps --nodes --full' to see all, or '--filter lifecycleState=attention_required' to narrow.");
+    console.log("Run 'SoftwareTeam ps --nodes --full' to see all, or '--filter lifecycleState=attention_required' to narrow.");
   } else if (limitTruncated) {
     const remaining = filtered.length - (limit ?? 0);
     console.log(`... and ${remaining} more node${remaining === 1 ? "" : "s"} (--limit ${limit}).`);
@@ -1325,15 +1327,15 @@ function fitCell(value: string, width: number): string {
   return truncate(value, width).padEnd(width);
 }
 
-const RIG_COLUMN_SEPARATOR = "  ";
-const rigCellSegmenter = new Intl.Segmenter();
+const SOFTWARE_TEAM_COLUMN_SEPARATOR = "  ";
+const softwareTeamCellSegmenter = new Intl.Segmenter();
 
-function fitRigCell(value: string, width: number): string {
+function fitSoftwareTeamCell(value: string, width: number): string {
   if (stringWidth(value) > width) {
     const limit = width - 1;
     let prefix = "";
     let used = 0;
-    for (const { segment } of rigCellSegmenter.segment(value)) {
+    for (const { segment } of softwareTeamCellSegmenter.segment(value)) {
       const segmentWidth = stringWidth(segment);
       if (used + segmentWidth > limit) break;
       prefix += segment;
@@ -1344,13 +1346,13 @@ function fitRigCell(value: string, width: number): string {
   return value + " ".repeat(width - stringWidth(value));
 }
 
-function padRigRow(cells: string[], widths: number[]): string {
-  return cells.map((cell, i) => i < widths.length ? fitRigCell(cell, widths[i]!) : cell).join(RIG_COLUMN_SEPARATOR);
+function padSoftwareTeamRow(cells: string[], widths: number[]): string {
+  return cells.map((cell, i) => i < widths.length ? fitSoftwareTeamCell(cell, widths[i]!) : cell).join(SOFTWARE_TEAM_COLUMN_SEPARATOR);
 }
 
-export function padNodeRow(rig: string, pod: string, member: string, session: string, runtime: string, model: string, status: string, startup: string, oriented: string, lifecycle: string, terminal: string, work: string, activity: string, ctx: string, restore: string, error: string): string {
+export function padNodeRow(softwareTeam: string, pod: string, member: string, session: string, runtime: string, model: string, status: string, startup: string, oriented: string, lifecycle: string, terminal: string, work: string, activity: string, ctx: string, restore: string, error: string, identityWidth = 30): string {
   return [
-    fitCell(rig, 30),
+    fitCell(softwareTeam, identityWidth),
     fitCell(pod, 10),
     fitCell(member, 14),
     fitCell(session, 34),
@@ -1371,9 +1373,9 @@ export function padNodeRow(rig: string, pod: string, member: string, session: st
   ].join("");
 }
 
-export function padCompactNodeRow(rig: string, session: string, lifecycle: string, activity: string, work: string, reason: string): string {
+export function padCompactNodeRow(softwareTeam: string, session: string, lifecycle: string, activity: string, work: string, reason: string): string {
   return [
-    fitCell(rig, 22),
+    fitCell(softwareTeam, 22),
     fitCell(session, 38),
     fitCell(lifecycle, 11),
     fitCell(activity, 14),
@@ -1442,18 +1444,18 @@ async function runCrossHostPs(
   }
 
   // SSH path — reconstruct argv
-  const argv: string[] = ["rig", "ps"];
+  const argv: string[] = ["SoftwareTeam", "ps"];
   if (opts.cleanup === false) argv.push("--no-cleanup");
   if (opts.resources) argv.push("--resources");
   if (opts.nodes) argv.push("--nodes");
   if (opts.full) argv.push("--full");
-  // OPR.0.4.0.34: forward the breadth flag so `--host h -A` keeps all-rigs
-  // breadth across the hop (the current-rig default is local-only and never
+  // OPR.0.4.0.34: forward the breadth flag so `--host h -A` keeps all-softwareTeams
+  // breadth across the hop (the current-softwareTeam default is local-only and never
   // applied to a remote call, but an explicit -A must still reach the remote).
   // OPR.0.4.4.21 FR-3: -A is legal only alongside --nodes (the validator
   // already rejected the bare form before any dispatch; this guard keeps
   // the reconstructed remote argv obeying the same grammar).
-  if (opts.allRigs && opts.nodes) argv.push("--all-rigs");
+  if (opts.allSoftwareTeams && opts.nodes) argv.push("--all-software-teams");
   if (opts.limit !== undefined) argv.push("--limit", opts.limit);
   if (opts.fields !== undefined) argv.push("--fields", opts.fields);
   if (opts.summary) argv.push("--summary");
@@ -1461,7 +1463,7 @@ async function runCrossHostPs(
   // OPR.0.4.0.34: opts.active is the normalized form (set by --active OR
   // --running). Forward it so the state filter survives the hop.
   if (opts.active) argv.push("--active");
-  if (opts.rig !== undefined) argv.push("--rig", opts.rig);
+  if (opts.softwareTeam !== undefined) argv.push("--software-team", opts.softwareTeam);
   if (opts.session !== undefined) argv.push("--session", opts.session);
   if (opts.includeArchived) argv.push("--include-archived");
   if (opts.json) argv.push("--json");
@@ -1535,10 +1537,10 @@ async function runHttpPs(
     }
 
     const all = Array.isArray(res.data) ? res.data : [];
-    const filtered = parsedFilter ? applyRigFilter(all, parsedFilter) : all;
+    const filtered = parsedFilter ? applySoftwareTeamFilter(all, parsedFilter) : all;
 
     if (opts.summary) {
-      const summary = summarizeRigs(filtered);
+      const summary = summarizeSoftwareTeams(filtered);
       if (opts.json) {
         console.log(JSON.stringify(summary));
       } else {
@@ -1554,7 +1556,7 @@ async function runHttpPs(
 
     if (opts.json) {
       if (useEnvelope) {
-        const envelope: Record<string, unknown> = { entries: projected, totalRigs: filtered.length, truncated };
+        const envelope: Record<string, unknown> = { entries: projected, totalSoftwareTeams: filtered.length, truncated };
         console.log(JSON.stringify(envelope));
       } else {
         console.log(JSON.stringify(projected));
@@ -1660,18 +1662,18 @@ async function runFanOutPs(
         // OPR.0.4.4.21 FR-5 — the full explicit ladder (--nodes -A, --full
         // for complete records): per-host node fan-out, projected unless
         // --full (the invariant's last rung; validated as -A-only upstream).
-        const rigs = Array.isArray(res.data) ? (res.data as PsEntry[]) : [];
+        const softwareTeams = Array.isArray(res.data) ? (res.data as PsEntry[]) : [];
         const nodes: NodeEntry[] = [];
-        for (const rig of rigs) {
-          const nodesRes = await client.get<NodeEntry[]>(`/api/rigs/${encodeURIComponent(rig.rigId)}/nodes`, { headers });
+        for (const softwareTeam of softwareTeams) {
+          const nodesRes = await client.get<NodeEntry[]>(`/api/software-teams/${encodeURIComponent(softwareTeam.softwareTeamId)}/nodes`, { headers });
           if (nodesRes.status >= 400) {
-            return { host: id, ok: false, failedStep: classifyHttpFailedStep(nodesRes.status), error: `HTTP ${nodesRes.status} fetching nodes for rig ${rig.rigName ?? rig.name}` };
+            return { host: id, ok: false, failedStep: classifyHttpFailedStep(nodesRes.status), error: `HTTP ${nodesRes.status} fetching nodes for softwareTeam ${softwareTeam.softwareTeamName ?? softwareTeam.name}` };
           }
-          const parentRigName = rig.rigName ?? rig.name;
+          const parentSoftwareTeamName = softwareTeam.softwareTeamName ?? softwareTeam.name;
           nodes.push(...nodesRes.data.map((n) => ({
             ...n,
-            rigId: n.rigId ?? rig.rigId,
-            rigName: n.rigName ?? parentRigName,
+            softwareTeamId: n.softwareTeamId ?? softwareTeam.softwareTeamId,
+            softwareTeamName: n.softwareTeamName ?? parentSoftwareTeamName,
           })));
         }
         return { host: id, ok: true, failedStep: "none", data: nodes };
@@ -1696,13 +1698,13 @@ async function runFanOutPs(
     );
     const hostStatuses = results.map(toPerHostStatus);
     let narrowed = rawItems;
-    if (opts.rig) narrowed = narrowed.filter((e) => (e.rigName ?? e.name) === opts.rig);
+    if (opts.softwareTeam) narrowed = narrowed.filter((e) => (e.softwareTeamName ?? e.name) === opts.softwareTeam);
     if (opts.nodes && opts.session) narrowed = narrowed.filter((n) => n.canonicalSessionName === opts.session);
 
     const filtered = shaping.parsedFilter
       ? opts.nodes
         ? (applyNodeFilter(narrowed as unknown as NodeEntry[], shaping.parsedFilter) as unknown as Array<Record<string, unknown>>)
-        : (applyRigFilter(narrowed as unknown as PsEntry[], shaping.parsedFilter) as unknown as Array<Record<string, unknown>>)
+        : (applySoftwareTeamFilter(narrowed as unknown as PsEntry[], shaping.parsedFilter) as unknown as Array<Record<string, unknown>>)
       : narrowed;
 
     let items: Array<Record<string, unknown>>;
@@ -1710,7 +1712,7 @@ async function runFanOutPs(
       items = [
         opts.nodes
           ? summarizeNodes(filtered as unknown as NodeEntry[])
-          : summarizeRigs(filtered as unknown as PsEntry[]),
+          : summarizeSoftwareTeams(filtered as unknown as PsEntry[]),
       ];
     } else {
       const limited = shaping.limit !== null ? filtered.slice(0, shaping.limit) : filtered;

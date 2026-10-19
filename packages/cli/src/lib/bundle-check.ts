@@ -13,29 +13,29 @@ interface Check {
 
 /** Advisory filesystem reads only. No daemon, bundler, preflight, provider or launch. */
 export async function checkBundleFolder(folder: string) {
-  const { validateRigSpecImport, validateAgentSpecFromYaml, isSensitivePath } = await import("@openrig/daemon/spec-validation");
+  const { validateSoftwareTeamSpecImport, validateAgentSpecFromYaml, isSensitivePath } = await import("@softwareteam/daemon/spec-validation");
   const checks: Check[] = [];
   const add = (ruleId: string, status: Check["status"], reason: string, file?: string) => checks.push({ ruleId, status, reason, ...(file ? { path: file } : {}) });
-  const result = { standardVersion: "openrig.bundle-standard/v1", checks };
-  const withoutRig = () => {
-    for (const rule of ["readme_in_docs", "readme_coverage", "referenced_files", "portable_agents", "minimum_versions", "configurations", "credential_paths", "embedded_secrets"]) add(rule, "not_checked", "Requires a readable, valid pod-aware rig.yaml.");
+  const result = { standardVersion: "softwareteam.bundle-standard/v1", checks };
+  const withoutSoftwareTeam = () => {
+    for (const rule of ["readme_in_docs", "readme_coverage", "referenced_files", "portable_agents", "minimum_versions", "configurations", "credential_paths", "embedded_secrets"]) add(rule, "not_checked", "Requires a readable, valid pod-aware software-team.yaml.");
     return result;
   };
   let root: string;
   let spec: Record<string, unknown>;
   try {
     root = fs.realpathSync(folder);
-    const yaml = fs.readFileSync(path.join(root, "rig.yaml"), "utf8");
+    const yaml = fs.readFileSync(path.join(root, "software-team.yaml"), "utf8");
     spec = parseYaml(yaml) as Record<string, unknown>;
-    const valid = validateRigSpecImport(yaml);
+    const valid = validateSoftwareTeamSpecImport(yaml);
     if (!valid.valid || !Array.isArray(spec?.pods)) {
-      add("pod_aware_rig", "finding", valid.errors.join("; ") || "The shared bundle standard uses a pod-aware rig.yaml.", "rig.yaml");
-      return withoutRig();
+      add("pod_aware_software_team", "finding", valid.errors.join("; ") || "The shared bundle standard uses a pod-aware software-team.yaml.", "software-team.yaml");
+      return withoutSoftwareTeam();
     }
-    add("pod_aware_rig", "pass", "rig.yaml passes the pod-aware validator.", "rig.yaml");
+    add("pod_aware_software_team", "pass", "software-team.yaml passes the pod-aware validator.", "software-team.yaml");
   } catch {
-    add("pod_aware_rig", "finding", "rig.yaml could not be read or parsed.", "rig.yaml");
-    return withoutRig();
+    add("pod_aware_software_team", "finding", "software-team.yaml could not be read or parsed.", "software-team.yaml");
+    return withoutSoftwareTeam();
   }
 
   const within = (file: string): boolean => {
@@ -52,7 +52,7 @@ export async function checkBundleFolder(folder: string) {
   };
   const docs = Array.isArray(spec.docs) ? spec.docs as Array<{ path?: string }> : [];
   const readme = docs.find(doc => typeof doc.path === "string" && /^readme(?:\.md)?$/i.test(path.basename(doc.path)));
-  add("readme_in_docs", readme && fileRead(readme.path!) ? "pass" : "finding", readme ? "README must be readable and included through docs." : "Declare the bundle README in rig.yaml docs.");
+  add("readme_in_docs", readme && fileRead(readme.path!) ? "pass" : "finding", readme ? "README must be readable and included through docs." : "Declare the bundle README in software-team.yaml docs.");
   add("readme_coverage", "not_checked", "Read the README for purpose, seats, prerequisites, running, permissions, writes, stopping and cleanup; file presence cannot establish its completeness.");
   const beforeReferences = checks.length;
   for (const doc of docs) if (typeof doc.path === "string") fileRead(doc.path);
@@ -110,7 +110,7 @@ export async function checkBundleFolder(folder: string) {
   try {
     const declared = readDeclaredConfigurations(root);
     if (declared) {
-      const authored = authoredMapping(path.join(root, "rig.yaml"));
+      const authored = authoredMapping(path.join(root, "software-team.yaml"));
       checkDeclaredConfigurations(declared, authored);
     }
     add("configurations", "pass", declared ? "Every declared preset resolves against the authored team." : "No alternate configurations declared; the authored team is used.");

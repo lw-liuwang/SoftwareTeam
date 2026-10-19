@@ -9,8 +9,8 @@ export function deriveComposeProjectName(rawName: string): string {
     .replace(/^[-_]+/, "")
     .replace(/[-_]+$/, "");
 
-  if (!sanitized) return "rig";
+  if (!sanitized) return "softwareTeam";
   if (/^[a-z0-9]/.test(sanitized)) return sanitized;
-  return `rig-${sanitized}`;
+  return `software-team-${sanitized}`;
 }
 

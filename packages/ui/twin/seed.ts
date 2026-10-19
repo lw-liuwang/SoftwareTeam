@@ -2,17 +2,17 @@
 // queryKeys the real hooks use (grounded from packages/ui/src/hooks), so the real App
 // renders fully from dummy data with NO daemon and NO fetch. Mutations are inert.
 //
-// Gate-0 scope: the Dashboard surface (rigs/summary + ps + spec-library). Per-rig node
+// Gate-0 scope: the Dashboard surface (software-teams/summary + ps + spec-library). Per-softwareTeam node
 // inventory is also seeded so a topology surface works without new wiring. The FULL build
 // (post Gate-0) extends this to the complete queryKey enumeration (D-4).
 
 import type { QueryClient } from "@tanstack/react-query";
 import {
-  rigSummary,
+  softwareTeamSummary,
   psEntries,
   specLibrary,
-  nodeInventoryByRig,
-  rigGraphByRig,
+  nodeInventoryBySoftwareTeam,
+  softwareTeamGraphBySoftwareTeam,
   nodeDetailByKey,
   sessionPreviewByName,
 } from "./fixtures.js";
@@ -23,22 +23,22 @@ const PREVIEW_LINE_COUNTS = [50, 80, 100, 200];
 
 export function seedTwinCache(qc: QueryClient): void {
   // Dashboard + AppShell core surface.
-  qc.setQueryData(["rigs", "summary"], rigSummary);
+  qc.setQueryData(["softwareTeams", "summary"], softwareTeamSummary);
   qc.setQueryData(["ps"], psEntries);
   qc.setQueryData(["spec-library", "all"], specLibrary);
   // Spec Library filtered views (Library surface + node-details "agent" lens).
   qc.setQueryData(["spec-library", "agent"], specLibrary.filter((s) => s.kind === "agent"));
 
-  // Per-rig topology surfaces, keyed by rig id.
-  for (const rig of rigSummary) {
-    qc.setQueryData(["rig", rig.id, "nodes"], nodeInventoryByRig[rig.id] ?? []);
+  // Per-softwareTeam topology surfaces, keyed by softwareTeam id.
+  for (const softwareTeam of softwareTeamSummary) {
+    qc.setQueryData(["softwareTeam", softwareTeam.id, "nodes"], nodeInventoryBySoftwareTeam[softwareTeam.id] ?? []);
     // Hard surface 1 — topology GRAPH (xyflow nodes/edges).
-    qc.setQueryData(["rig", rig.id, "graph"], rigGraphByRig[rig.id] ?? { nodes: [], edges: [] });
+    qc.setQueryData(["softwareTeam", softwareTeam.id, "graph"], softwareTeamGraphBySoftwareTeam[softwareTeam.id] ?? { nodes: [], edges: [] });
   }
 
-  // Hard surface 2 — LIVE NODE DETAILS, keyed ["rig", rigId, "nodes", logicalId].
+  // Hard surface 2 — LIVE NODE DETAILS, keyed ["softwareTeam", softwareTeamId, "nodes", logicalId].
   for (const detail of Object.values(nodeDetailByKey)) {
-    qc.setQueryData(["rig", detail.rigId, "nodes", detail.logicalId], detail);
+    qc.setQueryData(["softwareTeam", detail.softwareTeamId, "nodes", detail.logicalId], detail);
   }
 
   // Embedded live-terminal preview (session-keyed), seeded across the polled line counts.

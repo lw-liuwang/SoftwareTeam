@@ -2,7 +2,7 @@ import type Database from "better-sqlite3";
 import { readSeatEffort } from "./seat-effort.js";
 import { NativePermissionStore } from "./native-permission-store.js";
 import { ulid } from "ulid";
-import type { RigRepository } from "./rig-repository.js";
+import type { SoftwareTeamRepository } from "./software-team-repository.js";
 import type { SessionRegistry } from "./session-registry.js";
 import type { DiscoveryRepository } from "./discovery-repository.js";
 import type { EventBus } from "./event-bus.js";
@@ -117,25 +117,25 @@ interface SessionRow {
 interface BindingOwnerRow {
   node_id: string;
   logical_id: string;
-  rig_name: string;
+  software_team_name: string;
 }
 
 interface SeatHandoverServiceDeps {
   db: Database.Database;
-  rigRepo: RigRepository;
+  softwareTeamRepo: SoftwareTeamRepository;
   sessionRegistry: SessionRegistry;
   discoveryRepo: DiscoveryRepository;
   eventBus: EventBus;
   tmuxAdapter: TmuxAdapter;
   successorLauncher?: SuccessorSessionLauncher;
   now?: () => Date;
-  /** OpenRig identity/activity env stamped onto a created successor session,
+  /** SoftwareTeam identity/activity env stamped onto a created successor session,
    *  mirroring the launch identity env. Defaults to {} (the three core identity
    *  vars are always derived internally). */
   sessionEnv?: Record<string, string | undefined>;
   /** Extra env for one runtime only (OMP's provider keys), merged over sessionEnv. */
   runtimeSessionEnv?: Record<string, Record<string, string | undefined>>;
-  /** Where the daemon vendors its plugins; default is `plugins` under the OpenRig home (tests). */
+  /** Where the daemon vendors its plugins; default is `plugins` under the SoftwareTeam home (tests). */
   pluginsDir?: string;
   /** Injectable id source for the successor session name (tests). */
   newSuccessorId?: () => string;
@@ -210,7 +210,7 @@ export class SeatHandoverService {
   private db: Database.Database;
   private statusService: SeatStatusService;
   private planner: SeatHandoverPlanner;
-  private rigRepo: RigRepository;
+  private softwareTeamRepo: SoftwareTeamRepository;
   private sessionRegistry: SessionRegistry;
   private discoveryRepo: DiscoveryRepository;
   private eventBus: EventBus;
@@ -230,12 +230,12 @@ export class SeatHandoverService {
   private pluginsDir: string | undefined;
 
   constructor(deps: SeatHandoverServiceDeps) {
-    if (deps.db !== deps.rigRepo.db) throw new Error("SeatHandoverService: rigRepo must share the same db handle");
+    if (deps.db !== deps.softwareTeamRepo.db) throw new Error("SeatHandoverService: softwareTeamRepo must share the same db handle");
     if (deps.db !== deps.sessionRegistry.db) throw new Error("SeatHandoverService: sessionRegistry must share the same db handle");
     if (deps.db !== deps.discoveryRepo.db) throw new Error("SeatHandoverService: discoveryRepo must share the same db handle");
     if (deps.db !== deps.eventBus.db) throw new Error("SeatHandoverService: eventBus must share the same db handle");
     this.db = deps.db;
-    this.rigRepo = deps.rigRepo;
+    this.softwareTeamRepo = deps.softwareTeamRepo;
     this.sessionRegistry = deps.sessionRegistry;
     this.discoveryRepo = deps.discoveryRepo;
     this.eventBus = deps.eventBus;
@@ -250,8 +250,8 @@ export class SeatHandoverService {
     this.appliedLaunchObservations = new AppliedLaunchObservationStore(deps.db);
     this.now = deps.now ?? (() => new Date());
     this.pluginsDir = deps.pluginsDir;
-    this.statusService = new SeatStatusService({ rigRepo: deps.rigRepo });
-    this.planner = new SeatHandoverPlanner({ rigRepo: deps.rigRepo });
+    this.statusService = new SeatStatusService({ softwareTeamRepo: deps.softwareTeamRepo });
+    this.planner = new SeatHandoverPlanner({ softwareTeamRepo: deps.softwareTeamRepo });
     this.successorLauncher = deps.successorLauncher ?? new SuccessorSessionLauncher(deps.tmuxAdapter, deps.discoveryRepo, {
       sessionEnv: deps.sessionEnv,
       runtimeSessionEnv: deps.runtimeSessionEnv,
@@ -356,7 +356,7 @@ export class SeatHandoverService {
         ok: false,
         code: "current_occupant_required",
         message: `Seat "${input.seatRef}" has no session row to supersede.`,
-        guidance: "Inspect the seat with: rig seat status <seat>",
+        guidance: "Inspect the seat with: SoftwareTeam seat status <seat>",
       };
     }
 
@@ -375,7 +375,7 @@ export class SeatHandoverService {
           ok: false,
           code: discovery.failure.code === "session_not_found" ? "fork_source_not_found" : "resume_token_unavailable",
           message: discovery.failure.message,
-          guidance: "Fork needs a resolvable native conversation id. Inspect the source session with: rig ps --nodes",
+          guidance: "Fork needs a resolvable native conversation id. Inspect the source session with: SoftwareTeam ps --nodes",
         };
       }
       if (!discovery.result.nativeId) {
@@ -444,10 +444,10 @@ export class SeatHandoverService {
     //    seam, B1): resolve departing pane -> respawn-pane in place (preserved name) -> real runtime
     //    startup (launchHarness + readiness) -> upsertDiscoveredSession. The successor is a live agent,
     //    not a bare shell, before it can commit.
-    // Seam B Guard-F1: an ORGANIC seat has no node provenance — the inherited rig
+    // Seam B Guard-F1: an ORGANIC seat has no node provenance — the inherited softwareTeam
     // attachment still carries to the successor (continuity of the same seat).
-    const successorPosture = this.rigRepo.getNodePolicyProvenance(node.id)?.launchPosture
-      ?? this.rigRepo.getRigPolicyProvenance(statusResult.status.rig_id)?.launchPosture
+    const successorPosture = this.softwareTeamRepo.getNodePolicyProvenance(node.id)?.launchPosture
+      ?? this.softwareTeamRepo.getSoftwareTeamPolicyProvenance(statusResult.status.software_team_id)?.launchPosture
       ?? "floor"; // R2 terminal: absence = the locked floor on the continuity edge too
     let permissionOverride: ReturnType<NativePermissionStore["launchOverride"]>;
     try {
@@ -466,7 +466,7 @@ export class SeatHandoverService {
       // spec (else the running topology drifts from the founder-designed one at every handover).
       // A4-profile: likewise carry the codex config profile (adapter emits -p) — the restore path
       // already threads it; handover must too, or a profile-pinned codex seat reverts at handover.
-      node: { id: node.id, runtime: node.runtime, cwd: node.cwd, kernelAuthority: permissionOverride.kernelAuthority, teamPermissionDefault: permissionOverride.teamPermissionDefault, nonInterruptive: this.rigRepo.getRigNonInterruptive(statusResult.status.rig_id), launchPosture: effectivePosture, ...(effectivePermissionMode ? { permissionMode: effectivePermissionMode } : {}), model: node.model, effort: readSeatEffort(this.db, node.id)?.effective ?? undefined, codexConfigProfile: node.codex_config_profile ?? undefined, seatEnv: withCorePlugin(this.rigRepo.getEffectiveSeatEnv(node.id), corePluginDir), ...(corePluginDir && node.cwd ? { seatProjectDir: node.cwd } : {}) },
+      node: { id: node.id, runtime: node.runtime, cwd: node.cwd, kernelAuthority: permissionOverride.kernelAuthority, teamPermissionDefault: permissionOverride.teamPermissionDefault, nonInterruptive: this.softwareTeamRepo.getSoftwareTeamNonInterruptive(statusResult.status.software_team_id), launchPosture: effectivePosture, ...(effectivePermissionMode ? { permissionMode: effectivePermissionMode } : {}), model: node.model, effort: readSeatEffort(this.db, node.id)?.effective ?? undefined, codexConfigProfile: node.codex_config_profile ?? undefined, seatEnv: withCorePlugin(this.softwareTeamRepo.getEffectiveSeatEnv(node.id), corePluginDir), ...(corePluginDir && node.cwd ? { seatProjectDir: node.cwd } : {}) },
       departingSessionName: latestSession.session_name,
       occupantGeneration,
       // OPR.0.5.5.5: a fork-sourced successor launches as a NATIVE FORK of the
@@ -549,7 +549,7 @@ export class SeatHandoverService {
       sourceOutcome = forkOwnId
         ? { mode: "fork", forkedFrom: parsed.source.ref ?? latestSession.session_name, forkId: "captured" }
         : { mode: "fork", forkedFrom: parsed.source.ref ?? latestSession.session_name, forkId: "pending",
-            limit: "The fork's own conversation id wasn't captured at launch, so no resume token is recorded for this seat. It may stay unrecorded (for example when the process has logged more than one conversation); `rig ps --nodes --json` shows whether one has been. Until it is, exact resumption of this conversation isn't established, and a restore of the seat can't resume it; what restore does instead follows the seat's restore policy." };
+            limit: "The fork's own conversation id wasn't captured at launch, so no resume token is recorded for this seat. It may stay unrecorded (for example when the process has logged more than one conversation); `SoftwareTeam ps --nodes --json` shows whether one has been. Until it is, exact resumption of this conversation isn't established, and a restore of the seat can't resume it; what restore does instead follows the seat's restore policy." };
     }
     if (parsed.source.mode === "rebuild") {
       // rebuild: the successor is a FRESH conversation primed from the seat's
@@ -697,14 +697,14 @@ export class SeatHandoverService {
     if (runtimeMismatch) return fail(runtimeMismatch);
 
     // #141: a composer-launched successor reuses the seat's own session name, which an archived earlier
-    // generation still names in its kept binding. Owners in archived rigs are skipped there, as in removeNode
+    // generation still names in its kept binding. Owners in archived softwareTeams are skipped there, as in removeNode
     // (#174). A discovered successor is a separate session, so any other owner still blocks it.
     const managedOwner = this.lookupManagedOwner(discovered.tmuxSession, input.node.id, input.reportedSource.mode !== "discovered");
     if (managedOwner) {
       return fail({
         ok: false,
         code: "successor_already_managed",
-        message: `Successor tmux session "${discovered.tmuxSession}" is already managed by ${managedOwner.logical_id}@${managedOwner.rig_name}.`,
+        message: `Successor tmux session "${discovered.tmuxSession}" is already managed by ${managedOwner.logical_id}@${managedOwner.software_team_name}.`,
         guidance: "Use an unclaimed discovered successor session.",
       });
     }
@@ -755,7 +755,7 @@ export class SeatHandoverService {
     // inside better-sqlite3's synchronous transaction. Never logs the token.
     if (input.reportedSource.mode === "discovered" && "result" in committed) {
       await this.captureDiscoveredResumeToken({
-        rigId: input.status.rig_id,
+        softwareTeamId: input.status.software_team_id,
         nodeId: input.node.id,
         sessionId: committed.result.newSessionId,
         sessionName: discovered.tmuxSession,
@@ -773,7 +773,7 @@ export class SeatHandoverService {
    * nothing + a redacted skip event. NEVER throws, never logs the token.
    */
   private async captureDiscoveredResumeToken(input: {
-    rigId: string; nodeId: string; sessionId: string; sessionName: string; runtime: string | null;
+    softwareTeamId: string; nodeId: string; sessionId: string; sessionName: string; runtime: string | null;
   }): Promise<void> {
     try {
       const derived = await deriveResumeToken(
@@ -791,12 +791,12 @@ export class SeatHandoverService {
         this.eventBus.emit(wrote
           ? {
               type: "session.resume_token_captured",
-              rigId: input.rigId, nodeId: input.nodeId, sessionName: input.sessionName, sessionId: input.sessionId,
+              softwareTeamId: input.softwareTeamId, nodeId: input.nodeId, sessionName: input.sessionName, sessionId: input.sessionId,
               runtime, outcome: "captured", resumeType: derived.resumeType, provenance: "adoption", redacted: true,
             }
           : {
               type: "session.resume_token_captured",
-              rigId: input.rigId, nodeId: input.nodeId, sessionName: input.sessionName, sessionId: input.sessionId,
+              softwareTeamId: input.softwareTeamId, nodeId: input.nodeId, sessionName: input.sessionName, sessionId: input.sessionId,
               runtime, outcome: "preserved", resumeType: derived.resumeType, reason: "higher_rank_present", redacted: true,
             });
       } catch { /* best-effort */ }
@@ -806,14 +806,14 @@ export class SeatHandoverService {
   }
 
   private emitCaptureSkip(
-    input: { rigId: string; nodeId: string; sessionId: string; sessionName: string },
+    input: { softwareTeamId: string; nodeId: string; sessionId: string; sessionName: string },
     runtime: string,
     reason: "missing_sidecar" | "parse_error" | "probe_timeout" | "process_unreadable" | "invalid_token" | "stale_sidecar",
   ): void {
     try {
       this.eventBus.emit({
         type: "session.resume_token_captured",
-        rigId: input.rigId, nodeId: input.nodeId, sessionName: input.sessionName, sessionId: input.sessionId,
+        softwareTeamId: input.softwareTeamId, nodeId: input.nodeId, sessionName: input.sessionName, sessionId: input.sessionId,
         runtime, outcome: "skipped", reason, redacted: true,
       });
     } catch { /* best-effort */ }
@@ -925,8 +925,8 @@ export class SeatHandoverService {
 
   private lookupNode(status: SeatStatus): NodeRow {
     return this.db.prepare(
-      "SELECT id, runtime, cwd, model, codex_config_profile, effort FROM nodes WHERE rig_id = ? AND logical_id = ?"
-    ).get(status.rig_id, status.logical_id) as NodeRow;
+      "SELECT id, runtime, cwd, model, codex_config_profile, effort FROM nodes WHERE software_team_id = ? AND logical_id = ?"
+    ).get(status.software_team_id, status.logical_id) as NodeRow;
   }
 
   private lookupLatestSession(nodeId: string): SessionRow | null {
@@ -1043,7 +1043,7 @@ export class SeatHandoverService {
 
       const event = this.eventBus.persistWithinTransaction({
         type: "seat.handover_completed",
-        rigId: input.status.rig_id,
+        softwareTeamId: input.status.software_team_id,
         nodeId: input.node.id,
         logicalId: input.status.logical_id,
         previousOccupant: input.latestSession.session_name,
@@ -1073,7 +1073,7 @@ export class SeatHandoverService {
     }
 
     this.eventBus.notifySubscribers(committed.event);
-    const postStatus = this.statusService.getStatus(`${input.status.logical_id}@${input.status.rig_name}`);
+    const postStatus = this.statusService.getStatus(`${input.status.logical_id}@${input.status.software_team_name}`);
     const currentStatus = postStatus.ok
       ? {
           sessionStatus: postStatus.status.session_status,
@@ -1105,8 +1105,8 @@ export class SeatHandoverService {
         continuityTransferred: false,
         seat: {
           ref: input.seatRef,
-          rigId: input.status.rig_id,
-          rigName: input.status.rig_name,
+          softwareTeamId: input.status.software_team_id,
+          softwareTeamName: input.status.software_team_name,
           logicalId: input.status.logical_id,
           podId: input.status.pod_id,
           podNamespace: input.status.pod_namespace,
@@ -1192,7 +1192,7 @@ export function buildRestorePacket(info: {
 }): string {
   const captured = info.capturedContext.trim();
   const lines = [
-    "=== OpenRig seat handover — restore context ===",
+    "=== SoftwareTeam seat handover — restore context ===",
     `Seat: ${info.seatRef}`,
     `Reason: ${info.reason}`,
     `Predecessor session: ${info.departingSession}`,
@@ -1229,7 +1229,7 @@ export function buildRestorePacket(info: {
     lines.push(
       "",
       `--- Authored seat recap: ${info.authoredRecap.address}${chainNote} ---`,
-      "Composed into handover/post-compaction profiles automatically (rig context profile <pack> --situation handover --rig <rig> --seat <seat>); or read it directly at the seat tree address above.",
+      "Composed into handover/post-compaction profiles automatically (SoftwareTeam context profile <pack> --situation handover --software-team <softwareTeam> --seat <seat>); or read it directly at the seat tree address above.",
     );
   } else if (info.authoredRecapAbsentReason) {
     lines.push(

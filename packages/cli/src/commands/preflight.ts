@@ -7,12 +7,12 @@ import { realDeps } from "./daemon.js";
 interface PreflightCommandDeps {
   exec?: (cmd: string) => Promise<string>;
   configPath?: string;
-  riggedHome?: string;
+  softwareteamHome?: string;
   getDaemonStatus?: () => Promise<DaemonStatus>;
 }
 
 export function preflightCommand(depsOverride?: PreflightCommandDeps): Command {
-  const cmd = new Command("preflight").description("Check system readiness for OpenRig");
+  const cmd = new Command("preflight").description("Check system readiness for SoftwareTeam");
 
   cmd
     .option("--json", "JSON output for agents")
@@ -29,7 +29,7 @@ export function preflightCommand(depsOverride?: PreflightCommandDeps): Command {
         exec,
         configStore,
         getDaemonStatus: depsOverride?.getDaemonStatus ?? (() => getDaemonStatus(realDeps())),
-        riggedHome: depsOverride?.riggedHome ?? config.db.path.replace(/\/[^/]+$/, ""),
+        softwareteamHome: depsOverride?.softwareteamHome ?? config.db.path.replace(/\/[^/]+$/, ""),
       });
 
       const result = await preflight.run();
@@ -55,7 +55,7 @@ export function preflightCommand(depsOverride?: PreflightCommandDeps): Command {
         console.log("\nAll checks passed. Ready to run.");
       } else {
         const failCount = result.checks.filter((c) => !c.ok).length;
-        console.log(`\n${failCount} check(s) failed. Fix the issues above and run rig preflight again.`);
+        console.log(`\n${failCount} check(s) failed. Fix the issues above and run SoftwareTeam preflight again.`);
         process.exitCode = 1;
       }
     });

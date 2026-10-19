@@ -9,12 +9,12 @@ metadata:
     - queue transitions
     - queue block
     - send
-  openrig:
+  softwareteam:
     stage: provisional
     audience: all agents
     sibling_skills:
       - queue-handoff
-      - openrig-user
+      - softwareteam-user
 ---
 
 # Messaging the Human
@@ -29,8 +29,8 @@ missing authority. Do not convert a solvable technical failure into a human gate
 Discover the registered participants and inspect the chosen human:
 
 ```bash
-rig gateway human list --json
-rig gateway human show <entityId> --json
+SoftwareTeam gateway human list --json
+SoftwareTeam gateway human show <entityId> --json
 ```
 
 Use the returned `address` (`<entityId>@external`), not a username, remembered
@@ -64,7 +64,7 @@ behavior; words such as “FYI” and tags do not change intent.
 The sole outbound human-message primitive is:
 
 ```bash
-rig queue create --destination <entityId>@external \
+SoftwareTeam queue create --destination <entityId>@external \
   --human-intent decision --summary "<short subject>" --body-file <brief-file> \
   --evidence-ref <durable-evidence> --verify --json
 ```
@@ -118,7 +118,7 @@ reply remains in its correlated reply row. Keep the brief complete: the question
 add buttons, they do not replace the explanation.
 
 If an existing agent-owned row must wait for a **decision**, block it on the **new live qitem ID**
-(`rig queue block <work-id> --on <human-qitem-id> ...`), not on the human address.
+(`SoftwareTeam queue block <work-id> --on <human-qitem-id> ...`), not on the human address.
 Completion of the human qitem resumes its dependants. Blocking on the human as
 well would issue another notification for the same decision.
 
@@ -129,7 +129,7 @@ row intact. Inspect that same row and its next action; never create a second row
 or blindly resend because verification timed out.
 
 ```bash
-rig queue transitions <qitem-id>
+SoftwareTeam queue transitions <qitem-id>
 ```
 
 For `update`, confirmed complete delivery may close the delivery obligation.
@@ -150,9 +150,9 @@ internal custody label resolved through the human registry to the same external
 participant; it is not a second delivery address. Keep the owner and continuation
 on that row. Inspect its existing delivery receipt before considering another
 request, so a legacy blocker does not produce a duplicate message. Never derive
-`@host` from the current rig name.
+`@host` from the current SoftwareTeam name.
 
-`rig send` reaches an agent's terminal only. It is not a human transport or a
+`SoftwareTeam send` reaches an agent's terminal only. It is not a human transport or a
 durable human obligation. Agent-to-agent work uses the queue handoff path.
 Connector-specific configuration and handles belong to registry/readiness tools,
 not to project-independent message instructions.

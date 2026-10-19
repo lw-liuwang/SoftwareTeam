@@ -1,10 +1,10 @@
 // OPR.0.4.6.MH1 FR-1/FR-2 — the persisted host-selection read + the
 // selected-host routing shim.
 //
-// WRITE path: `rig host select` → daemon `POST /api/config/host.selected`
+// WRITE path: `softwareTeam host select` → daemon `POST /api/config/host.selected`
 // (the one write path — the CLI verb is a thin client; arch FR-1 ruling).
 // READ path (this module): the local ConfigStore resolution
-// (env OPENRIG_HOST_SELECTED > ~/.openrig/config.json > default "local")
+// (env SOFTWARETEAM_HOST_SELECTED > ~/.softwareteam/config.json > default "local")
 // — the daemon writes the SAME config.json the CLI reads, so reads cost
 // zero daemon lookups (the FR-2 zero-regression posture: with no
 // selection ever made, every command's behavior is byte-identical to

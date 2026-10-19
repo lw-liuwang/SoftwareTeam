@@ -2,7 +2,7 @@
 // Delegation depth ranks nodes into columns (Hatchet reads left→right);
 // collaborators pull right of their source; escalates_to is a back-edge and
 // never ranks. Everything is derived from the served projection only.
-import type { GraphEdge, GraphNode, RigGraph } from "./graph-types.js";
+import type { GraphEdge, GraphNode, SoftwareTeamGraph } from "./graph-types.js";
 import { statusGlyph, type StatusGlyph } from "./glyphs.js";
 import { markText, runtimeMarkSegs } from "./runtime-marks.js";
 
@@ -22,7 +22,7 @@ export interface PlacedNode {
 }
 
 export interface GraphContainer {
-  kind: "rig" | "pod";
+  kind: "softwareTeam" | "pod";
   name: string;
   x: number;
   y: number;
@@ -34,9 +34,9 @@ export interface GraphLayout {
   placed: PlacedNode[];
   byId: Map<string, PlacedNode>;
   edges: GraphEdge[];
-  /** R2 HIGH-1: the LOCKED containment hierarchy — the rig container wraps
+  /** R2 HIGH-1: the LOCKED containment hierarchy — the softwareTeam container wraps
    * pod containers, pod containers wrap their member agent boxes; renderers
-   * MUST draw them (agent-in-pod-in-rig is a visible contract, not metadata) */
+   * MUST draw them (agent-in-pod-in-softwareTeam is a visible contract, not metadata) */
   containers: GraphContainer[];
   width: number;
   height: number;
@@ -45,8 +45,8 @@ export interface GraphLayout {
   clipped: boolean;
 }
 
-export function agentNodes(graph: RigGraph): GraphNode[] {
-  return graph.nodes.filter((n) => n.type === "rigNode" && n.data.nodeKind === "agent");
+export function agentNodes(graph: SoftwareTeamGraph): GraphNode[] {
+  return graph.nodes.filter((n) => n.type === "softwareTeamNode" && n.data.nodeKind === "agent");
 }
 
 export function nodeLines(node: GraphNode): { glyph: StatusGlyph; title: string; nameLine: string; metaLine: string } {
@@ -105,9 +105,9 @@ const MARGIN_X = 1;
 /** R2 HIGH-1 layout: pods are the clustering unit — each pod is a container
  * column holding its member agent boxes stacked vertically; pods order by the
  * min delegation rank of their members (delegation still reads left→right);
- * the rig container wraps everything. Ungrouped agents get a "(no pod)"
+ * the softwareTeam container wraps everything. Ungrouped agents get a "(no pod)"
  * cluster so nothing served is ever dropped. */
-export function layoutGraph(graph: RigGraph, maxWidth: number, rigName = ""): GraphLayout {
+export function layoutGraph(graph: SoftwareTeamGraph, maxWidth: number, softwareTeamName = ""): GraphLayout {
   const agents = agentNodes(graph);
   const rank = rankNodes(agents, graph.edges);
   const podLabel = new Map<string, string>(
@@ -127,15 +127,15 @@ export function layoutGraph(graph: RigGraph, maxWidth: number, rigName = ""): Gr
   const placed: PlacedNode[] = [];
   const byId = new Map<string, PlacedNode>();
   const containers: GraphContainer[] = [];
-  const rigX = MARGIN_X;
-  const rigY = 1;
-  let podX = rigX + 2;
+  const softwareTeamX = MARGIN_X;
+  const softwareTeamY = 1;
+  let podX = softwareTeamX + 2;
   let maxPodBottom = 0;
   for (const [podName, members] of podOrder) {
     const sorted = [...members].sort(
       (a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0) || a.data.logicalId.localeCompare(b.data.logicalId),
     );
-    const podTop = rigY + 1;
+    const podTop = softwareTeamY + 1;
     let y = podTop + 1;
     let podInnerW = Math.max(`▾ ${podName}`.length + 2, 8);
     for (const node of sorted) {
@@ -153,14 +153,14 @@ export function layoutGraph(graph: RigGraph, maxWidth: number, rigName = ""): Gr
     maxPodBottom = Math.max(maxPodBottom, podTop + podH);
     podX += podW + POD_GAP;
   }
-  const rigW = podX - POD_GAP + 2 - rigX;
+  const softwareTeamW = podX - POD_GAP + 2 - softwareTeamX;
   // two spare interior rows: the escalation under-route corridor (lanes 0-1)
-  // must never land on the rig's own bottom border
-  const rigH = maxPodBottom - rigY + 4;
-  containers.unshift({ kind: "rig", name: rigName, x: rigX, y: rigY, w: rigW, h: rigH });
+  // must never land on the softwareTeam's own bottom border
+  const softwareTeamH = maxPodBottom - softwareTeamY + 4;
+  containers.unshift({ kind: "softwareTeam", name: softwareTeamName, x: softwareTeamX, y: softwareTeamY, w: softwareTeamW, h: softwareTeamH });
 
-  const trueWidth = rigX + rigW + MARGIN_X;
+  const trueWidth = softwareTeamX + softwareTeamW + MARGIN_X;
   const width = Math.min(trueWidth, maxWidth);
-  const height = rigY + rigH + 1;
+  const height = softwareTeamY + softwareTeamH + 1;
   return { placed, byId, edges: graph.edges, containers, width, height, clipped: trueWidth > maxWidth };
 }

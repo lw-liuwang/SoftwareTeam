@@ -7,7 +7,7 @@ import { buildCompactCommand, buildPostCompactRestorePrompt, buildPostCompactTur
 import { createDaemon } from "../src/startup.js";
 import { PluginVendorService } from "../src/domain/plugin-vendor-service.js";
 
-const plugin = resolve(import.meta.dirname, "../assets/plugins/openrig-core");
+const plugin = resolve(import.meta.dirname, "../assets/plugins/softwareteam-core");
 const hook = join(plugin, "hooks/scripts/refocus.cjs");
 const roots: string[] = [];
 afterEach(() => {
@@ -22,8 +22,8 @@ function fixture() {
   const bin = join(root, "bin");
   mkdirSync(bin);
   const calls = join(root, "calls");
-  const rig = join(bin, "rig");
-  writeFileSync(rig, `#!/bin/sh
+  const softwareTeam = join(bin, "SoftwareTeam");
+  writeFileSync(softwareTeam, `#!/bin/sh
 if [ "$1 $2" = "scope resolve-notes" ]; then
   if [ "$FAIL_NOTES" = 1 ]; then printf 'resolver unavailable' >&2; exit 1; fi
   printf '%s' "$NOTES_RESULT"; exit 0
@@ -31,18 +31,18 @@ fi
 if [ "$1 $2" = "stream emit" ]; then sleep "\${STREAM_DELAY:-0}"; printf '%s\\n' "$*" >> "$CALLS"; exit 0; fi
 printf '{}'
 `);
-  chmodSync(rig, 0o755);
+  chmodSync(softwareTeam, 0o755);
   const transcript = join(root, "transcript.jsonl");
   writeFileSync(transcript, JSON.stringify({ sessionId: "occupant", cwd: root, message: { role: "user", content: "Continue the fixture." } }) + "\n");
   writeFileSync(join(root, "SPEC.md"), "---\nintent: Complete the selected work\n---\n");
   const notes = join(root, "NOTES.md");
   writeFileSync(notes, "Ordinary notes.\n");
-  const env: NodeJS.ProcessEnv = { ...process.env, HOME: root, OPENRIG_HOME: root,
-    CLAUDE_CONFIG_DIR: join(root, ".claude"), OPENRIG_COMPACTION_OUT_ROOT: join(root, "packets"),
-    PATH: `${bin}:${process.env.PATH}`, OPENRIG_SESSION_NAME: "seat@test", RIGGED_HOME: undefined,
-    OPENRIG_REFOCUS_ENABLED: "1", OPENRIG_REFOCUS_NOW: "", OPENRIG_REFOCUS_BYTES: "2600000",
-    OPENRIG_REFOCUS_CONTENT_REF: "", OPENRIG_REFOCUS_CONTENT_FILE: "", OPENRIG_REFOCUS_TREES: "work",
-    OPENRIG_WORKSPACE_ROOT: root, OPENRIG_REFOCUS_WORK_NODE: root, OPENRIG_REFOCUS_DEPTH: "light",
+  const env: NodeJS.ProcessEnv = { ...process.env, HOME: root, SOFTWARETEAM_HOME: root,
+    CLAUDE_CONFIG_DIR: join(root, ".claude"), SOFTWARETEAM_COMPACTION_OUT_ROOT: join(root, "packets"),
+    PATH: `${bin}:${process.env.PATH}`, SOFTWARETEAM_SESSION_NAME: "seat@test", RIGGED_HOME: undefined,
+    SOFTWARETEAM_REFOCUS_ENABLED: "1", SOFTWARETEAM_REFOCUS_NOW: "", SOFTWARETEAM_REFOCUS_BYTES: "2600000",
+    SOFTWARETEAM_REFOCUS_CONTENT_REF: "", SOFTWARETEAM_REFOCUS_CONTENT_FILE: "", SOFTWARETEAM_REFOCUS_TREES: "work",
+    SOFTWARETEAM_WORKSPACE_ROOT: root, SOFTWARETEAM_REFOCUS_WORK_NODE: root, SOFTWARETEAM_REFOCUS_DEPTH: "light",
     PYTHON: "python3", CALLS: calls, NOTES_RESULT: JSON.stringify({ ok: true, resolution: { path: notes, name: "NOTES.md" } }),
   };
   const invoke = (script: string, input: object, extra: NodeJS.ProcessEnv = {}) => {
@@ -75,7 +75,7 @@ describe("managed refocus and trace results", () => {
     f.prepare(true);
     f.run("PostCompact");
     const before = f.state();
-    const restore = buildPostCompactRestorePrompt({ sessionName: "seat@test", openrigHome: f.root });
+    const restore = buildPostCompactRestorePrompt({ sessionName: "seat@test", softwareteamHome: f.root });
     for (const prompt of [
       "From: peer@test\nThe build is done.", submit(buildPostCompactTurnBoundaryPrompt()), "Another peer update.",
       `A peer quotes an earlier restore:\n${submit(restore)}`,
@@ -160,11 +160,11 @@ describe("managed refocus and trace results", () => {
     if (depth === "light") writeFileSync(join(f.root, "SPEC.md"), "---\nintent: Eliminate TRACE GAP messages without losing context\n---\n");
     writeFileSync(f.notes, "NOTES RESOLUTION GAP — an exact diagnostic line discussed in authored notes.\n");
     f.run("PostCompact");
-    const output = f.run("UserPromptSubmit", "continue", { OPENRIG_REFOCUS_DEPTH: depth });
+    const output = f.run("UserPromptSubmit", "continue", { SOFTWARETEAM_REFOCUS_DEPTH: depth });
     expect(output).toContain(depth === "light" ? "Eliminate TRACE GAP messages" : "an exact diagnostic line discussed in authored notes");
     expect(f.state().pendingOn).toBeUndefined();
     expect(f.state().firedAt).toBeTruthy();
-    expect(f.run("UserPromptSubmit", "continue", { OPENRIG_REFOCUS_DEPTH: depth })).toBe("");
+    expect(f.run("UserPromptSubmit", "continue", { SOFTWARETEAM_REFOCUS_DEPTH: depth })).toBe("");
     expect(f.calls()).toEqual([]);
   });
 
@@ -203,14 +203,14 @@ describe("managed refocus and trace results", () => {
 
   it.each([false, true])("startup seeds a loadable bare refocusing skill for both harnesses (router seed fails: %s)", async (failRouterSeed) => {
     const f = fixture();
-    vi.stubEnv("OPENRIG_HOME", f.root);
-    vi.stubEnv("OPENRIG_NO_KERNEL", "1");
+    vi.stubEnv("SOFTWARETEAM_HOME", f.root);
+    vi.stubEnv("SOFTWARETEAM_NO_KERNEL", "1");
     vi.spyOn(os, "homedir").mockReturnValue(f.root);
     vi.spyOn(PluginVendorService.prototype, "attemptAutoFetch").mockResolvedValue();
     if (failRouterSeed) {
       const original = PluginVendorService.prototype.ensureSkillGlobally;
       vi.spyOn(PluginVendorService.prototype, "ensureSkillGlobally").mockImplementation(function (this: PluginVendorService, ...args) {
-        if (args[1] === "openrig-skills") throw new Error("injected router seed failure");
+        if (args[1] === "softwareteam-skills") throw new Error("injected router seed failure");
         return original.apply(this, args);
       });
     }
@@ -221,7 +221,7 @@ describe("managed refocus and trace results", () => {
         expect(existsSync(join(skill, "SKILL.md"))).toBe(true);
         const text = readFileSync(join(skill, "SKILL.md"), "utf8");
         expect(text).toContain("name: refocusing");
-        expect(text).not.toContain("openrig-core:refocusing");
+        expect(text).not.toContain("softwareteam-core:refocusing");
         expect(readFileSync(join(skill, "scripts/trace-to-root.py"), "utf8")).toBe(readFileSync(join(plugin, "skills/refocusing/scripts/trace-to-root.py"), "utf8"));
       }
     } finally { db.close(); }

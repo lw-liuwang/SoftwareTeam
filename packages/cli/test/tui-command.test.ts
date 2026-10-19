@@ -1,6 +1,6 @@
-// 0.5.0 — `rig tui` is a NAMED ALIAS of the bare-`rig` front-door mission-control
+// 0.5.0 — `SoftwareTeam tui` is a NAMED ALIAS of the bare-`softwareTeam` front-door mission-control
 // path. Zero new behavior: it delegates to the SAME openMissionControl (probe →
-// friendly degrade → resolveTuiPath + launch) that bare `rig` uses, with the same
+// friendly degrade → resolveTuiPath + launch) that bare `softwareTeam` uses, with the same
 // TTY-awareness on stdout and the same daemon-down degrade. These pins assert the
 // shared code path (via injected FrontDoorIo spies), not a mirror.
 import { describe, it, expect, vi } from "vitest";
@@ -12,10 +12,10 @@ function run(io: Record<string, unknown>) {
   const prog = new Command();
   prog.exitOverride();
   prog.addCommand(tuiCommand(io));
-  return prog.parseAsync(["node", "rig", "tui"]);
+  return prog.parseAsync(["node", "softwareTeam", "tui"]);
 }
 
-describe("rig tui — alias of the bare-rig front-door mission-control path (no new behavior)", () => {
+describe("SoftwareTeam tui — alias of the bare-software-team front-door mission-control path (no new behavior)", () => {
   it("daemon UP + TTY stdout → delegates to the SAME launch path (launchTui called, exits its code)", async () => {
     const launchTui = vi.fn(async () => 0);
     const exit = vi.fn();
@@ -24,7 +24,7 @@ describe("rig tui — alias of the bare-rig front-door mission-control path (no 
     expect(exit).toHaveBeenCalledWith(0);
   });
 
-  it("BLOCKER 1: transport connect failure (daemon DOWN) LAUNCHES the crash-cart TUI (rig tui = bare rig)", async () => {
+  it("BLOCKER 1: transport connect failure (daemon DOWN) LAUNCHES the crash-cart TUI (SoftwareTeam tui = bare softwareTeam)", async () => {
     const launchTui = vi.fn(async () => 0);
     const errs: string[] = [];
     const exit = vi.fn();
@@ -42,7 +42,7 @@ describe("rig tui — alias of the bare-rig front-door mission-control path (no 
     expect(exit).toHaveBeenCalledWith(1);
   });
 
-  it("the front-door usage lines register the `rig tui` help text", () => {
-    expect(USAGE_LINES.join("\n")).toMatch(/rig tui/);
+  it("the front-door usage lines register the `SoftwareTeam tui` help text", () => {
+    expect(USAGE_LINES.join("\n")).toMatch(/SoftwareTeam tui/);
   });
 });

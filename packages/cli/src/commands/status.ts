@@ -32,7 +32,7 @@ function formatSnapshotAge(snapshotAt: string | null): string {
 }
 
 export function statusCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("status").description("Show rig status")
+  const cmd = new Command("status").description("Show SoftwareTeam status")
     .option("--json", "JSON output");
 
   cmd.action(async (opts: { json?: boolean }) => {
@@ -40,7 +40,7 @@ export function statusCommand(depsOverride?: StatusDeps): Command {
     // JSON mode: one object, same keys on every path; sections the command did not
     // (or could not) read are null rather than absent.
     const emit = (daemon: Record<string, unknown>, rest: Record<string, unknown> = {}): void => {
-      console.log(JSON.stringify({ daemon, kernel: null, workspaceRoot: null, rigs: null, cmux: null, ...rest }, null, 2));
+      console.log(JSON.stringify({ daemon, kernel: null, workspaceRoot: null, softwareTeams: null, cmux: null, ...rest }, null, 2));
     };
 
     const deps = depsOverride ?? {
@@ -83,7 +83,7 @@ export function statusCommand(depsOverride?: StatusDeps): Command {
     if (status.state === "unverified") {
       console.log(statusGuardMessage(status).fact);
       if (status.siblingHint) {
-        console.log(`  note: OPENRIG_HOME may be wrong — resolved ${status.siblingHint.resolvedHome}, live sibling ${status.siblingHint.siblingHome}`);
+        console.log(`  note: SOFTWARETEAM_HOME may be wrong — resolved ${status.siblingHint.resolvedHome}, live sibling ${status.siblingHint.siblingHome}`);
       }
       return;
     }
@@ -113,7 +113,7 @@ export function statusCommand(depsOverride?: StatusDeps): Command {
 
     // Fetch summary + cmux + kernel readiness
     const [summaryRes, cmuxRes, kernelRes] = await Promise.all([
-      client.get<Array<{ id: string; name: string; nodeCount: number; latestSnapshotAt: string | null; latestSnapshotId: string | null }>>("/api/rigs/summary"),
+      client.get<Array<{ id: string; name: string; nodeCount: number; latestSnapshotAt: string | null; latestSnapshotId: string | null }>>("/api/software-teams/summary"),
       client.get<{ available: boolean }>("/api/adapters/cmux/status").catch(() => null),
       client.get<{
         kernel_state?: string;
@@ -135,18 +135,18 @@ export function statusCommand(depsOverride?: StatusDeps): Command {
         : { state: kernelRes && kernelRes.status === 503 ? "not_tracked" : "unknown", lastBootFailure: null };
       const daemon = { state: "running", reachable: true, pid: status.pid, port: status.port, healthy: true };
       if (summaryRes.status !== 200) {
-        emit(daemon, { kernel, workspaceRoot, cmux: { available: cmuxRes?.data?.available ?? false }, error: `Failed to fetch rig summary (HTTP ${summaryRes.status})` });
+        emit(daemon, { kernel, workspaceRoot, cmux: { available: cmuxRes?.data?.available ?? false }, error: `Failed to fetch SoftwareTeam summary (HTTP ${summaryRes.status})` });
         process.exitCode = 1;
         return;
       }
-      emit(daemon, { kernel, workspaceRoot, rigs: summaryRes.data, cmux: { available: cmuxRes?.data?.available ?? false } });
+      emit(daemon, { kernel, workspaceRoot, softwareTeams: summaryRes.data, cmux: { available: cmuxRes?.data?.available ?? false } });
       return;
     }
 
     console.log(`Daemon running on port ${status.port}`);
 
     // OPR.0.3.3.04.2 (AC-2): kernel readiness is a DISTINCT signal from daemon
-    // health - the kernel rig auto-boots on daemon-start, and a daemon can be up
+    // health - the kernel softwareTeam auto-boots on daemon-start, and a daemon can be up
     // while the kernel is not yet ready (or a kernel agent is unhealthy). Surface
     // it as "here's what's currently true," never as a guarantee that downstream
     // agents are healthy.
@@ -175,19 +175,19 @@ export function statusCommand(depsOverride?: StatusDeps): Command {
     }
 
     if (summaryRes.status !== 200) {
-      console.error(`Failed to fetch rig summary (HTTP ${summaryRes.status})`);
+      console.error(`Failed to fetch SoftwareTeam summary (HTTP ${summaryRes.status})`);
       process.exitCode = 1;
       return;
     }
 
-    const rigs = summaryRes.data;
-    if (rigs.length === 0) {
-      console.log("No rigs");
+    const softwareTeams = summaryRes.data;
+    if (softwareTeams.length === 0) {
+      console.log("No SoftwareTeams");
     } else {
-      console.log(`${rigs.length} rig(s):`);
-      for (const rig of rigs) {
-        const snap = formatSnapshotAge(rig.latestSnapshotAt);
-        console.log(`  ${rig.name}  ${rig.nodeCount} node(s)  snapshot: ${snap}`);
+      console.log(`${softwareTeams.length} softwareTeam(s):`);
+      for (const softwareTeam of softwareTeams) {
+        const snap = formatSnapshotAge(softwareTeam.latestSnapshotAt);
+        console.log(`  ${softwareTeam.name}  ${softwareTeam.nodeCount} node(s)  snapshot: ${snap}`);
       }
     }
 
@@ -196,10 +196,10 @@ export function statusCommand(depsOverride?: StatusDeps): Command {
     console.log(`cmux: ${cmuxAvailable ? "available" : "unavailable"}`);
 
     // OPR.0.3.3.04.2 (AC-1): reinforcing HINT back to the one canonical ordered
-    // path - status does not re-author the sequence (that lives in `rig setup`
+    // path - status does not re-author the sequence (that lives in `SoftwareTeam setup`
     // next-steps + docs/reference/getting-started.md).
-    if (rigs.length === 0) {
-      console.log("\nNext: launch a rig with `rig up <rig-spec>`. Guided path: `rig setup` output or docs/reference/getting-started.md");
+    if (softwareTeams.length === 0) {
+      console.log("\nNext: launch a SoftwareTeam with `SoftwareTeam up <software-team-spec>`. Guided path: `SoftwareTeam setup` output or docs/reference/getting-started.md");
     }
   });
 

@@ -18,12 +18,12 @@ describe("context add local auto-start", () => {
     mkdirSync(source);
     writeFileSync(join(source, "manifest.yaml"), "name: fixture-pack\nversion: 1.0.0\ntaxonomy: world\nfiles:\n  - path: NOTES.md\n    role: instruction\n");
     writeFileSync(join(source, "NOTES.md"), "fixture context\n");
-    vi.stubEnv("OPENRIG_HOME", join(root, "state"));
-    vi.stubEnv("OPENRIG_CONTEXT_ROOT", join(root, "context"));
-    vi.stubEnv("OPENRIG_DB", join(root, "state", "fixture.sqlite"));
-    vi.stubEnv("OPENRIG_TRANSCRIPTS_PATH", join(root, "transcripts"));
-    vi.stubEnv("OPENRIG_PORT", "42761");
-    vi.stubEnv("OPENRIG_HOST", "127.0.0.1");
+    vi.stubEnv("SOFTWARETEAM_HOME", join(root, "state"));
+    vi.stubEnv("SOFTWARETEAM_CONTEXT_ROOT", join(root, "context"));
+    vi.stubEnv("SOFTWARETEAM_DB", join(root, "state", "fixture.sqlite"));
+    vi.stubEnv("SOFTWARETEAM_TRANSCRIPTS_PATH", join(root, "transcripts"));
+    vi.stubEnv("SOFTWARETEAM_PORT", "42761");
+    vi.stubEnv("SOFTWARETEAM_HOST", "127.0.0.1");
     vi.stubEnv("RIGGED_HOST", "");
     previousExit = process.exitCode;
     process.exitCode = undefined;
@@ -72,7 +72,7 @@ describe("context add local auto-start", () => {
     const clientFactory = vi.fn(() => ({ post }) as unknown as DaemonClient);
     const preflightExec = vi.fn(async (cmd: string) => cmd === "tmux -V" ? "tmux 3.6a" : "");
     const command = () => new Command().exitOverride().addCommand(contextCommand({ lifecycleDeps, clientFactory, preflightExec }));
-    const add = () => command().parseAsync(["node", "rig", "context", "add", source, "--json"]);
+    const add = () => command().parseAsync(["node", "softwareTeam", "context", "add", source, "--json"]);
     return { lifecycleDeps, clientFactory, preflightExec, post, command, add };
   }
 
@@ -82,9 +82,9 @@ describe("context add local auto-start", () => {
     expect(process.exitCode).toBeUndefined();
     expect(f.lifecycleDeps.spawn).toHaveBeenCalledOnce();
     const options = vi.mocked(f.lifecycleDeps.spawn).mock.calls[0]![2];
-    expect(options.env.OPENRIG_PORT).toBe("42761");
-    expect(options.env.OPENRIG_DB).toBe(join(root, "state", "fixture.sqlite"));
-    expect(options.env.OPENRIG_HOST).toBeUndefined(); // Routing is not bind intent.
+    expect(options.env.SOFTWARETEAM_PORT).toBe("42761");
+    expect(options.env.SOFTWARETEAM_DB).toBe(join(root, "state", "fixture.sqlite"));
+    expect(options.env.SOFTWARETEAM_HOST).toBeUndefined(); // Routing is not bind intent.
     expect(f.clientFactory).toHaveBeenCalledWith("http://127.0.0.1:42761");
     expect(f.post).toHaveBeenCalledWith("/api/context-packs/library/sync");
     expect(readFileSync(join(root, "context", "fixture-pack", "NOTES.md"), "utf8")).toBe("fixture context\n");
@@ -100,7 +100,7 @@ describe("context add local auto-start", () => {
     expect(f.preflightExec).not.toHaveBeenCalled();
   });
 
-  it.each(["OPENRIG_URL", "RIGGED_URL"])("does not auto-start for an explicit %s endpoint", async (key) => {
+  it.each(["SOFTWARETEAM_URL", "SOFTWARETEAM_URL"])("does not auto-start for an explicit %s endpoint", async (key) => {
     vi.stubEnv(key, "http://127.0.0.1:42762");
     const f = fixture();
     await f.add();
@@ -110,7 +110,7 @@ describe("context add local auto-start", () => {
   });
 
   it("default host selection retains recorded local startup", async () => {
-    vi.stubEnv("OPENRIG_HOST", "");
+    vi.stubEnv("SOFTWARETEAM_HOST", "");
     const f = fixture("stopped", true);
     await f.add();
     expect(process.exitCode).toBeUndefined();
@@ -119,11 +119,11 @@ describe("context add local auto-start", () => {
   });
 
   it.each([
-    ["OPENRIG_HOST", false], ["OPENRIG_HOST", true],
-    ["RIGGED_HOST", false], ["RIGGED_HOST", true],
+    ["SOFTWARETEAM_HOST", false], ["SOFTWARETEAM_HOST", true],
+    ["SOFTWARETEAM_HOST", false], ["SOFTWARETEAM_HOST", true],
     ["config-file", false], ["config-file", true],
   ] as const)("remote selection %s with stale state=%s does not spawn locally", async (source, stale) => {
-    vi.stubEnv("OPENRIG_HOST", "");
+    vi.stubEnv("SOFTWARETEAM_HOST", "");
     if (source === "config-file") {
       mkdirSync(join(root, "state"), { recursive: true });
       writeFileSync(join(root, "state", "config.json"), JSON.stringify({ daemon: { host: "remote.example.invalid" } }));
@@ -139,11 +139,11 @@ describe("context add local auto-start", () => {
   });
 
   it.each([
-    ["OPENRIG_HOST", "LOCALHOST"], ["config-file", "LOCALHOST"],
-    ["OPENRIG_HOST", "::1"], ["config-file", "[::1]"],
-    ["RIGGED_HOST", "0:0:0:0:0:0:0:1"],
+    ["SOFTWARETEAM_HOST", "LOCALHOST"], ["config-file", "LOCALHOST"],
+    ["SOFTWARETEAM_HOST", "::1"], ["config-file", "[::1]"],
+    ["SOFTWARETEAM_HOST", "0:0:0:0:0:0:0:1"],
   ] as const)("selected loopback %s=%s retains local startup", async (source, host) => {
-    vi.stubEnv("OPENRIG_HOST", "");
+    vi.stubEnv("SOFTWARETEAM_HOST", "");
     if (source === "config-file") {
       mkdirSync(join(root, "state"), { recursive: true });
       writeFileSync(join(root, "state", "config.json"), JSON.stringify({ daemon: { host } }));
@@ -156,7 +156,7 @@ describe("context add local auto-start", () => {
     expect(f.lifecycleDeps.spawn).toHaveBeenCalledOnce();
     expect(f.post).toHaveBeenCalledWith("/api/context-packs/library/sync");
     const options = vi.mocked(f.lifecycleDeps.spawn).mock.calls[0]![2];
-    expect(options.env.OPENRIG_HOST).toBe(source === "config-file" ? host : undefined);
+    expect(options.env.SOFTWARETEAM_HOST).toBe(source === "config-file" ? host : undefined);
   });
 
   it("preserves an unverified daemon result without spawning a replacement", async () => {
@@ -177,7 +177,7 @@ describe("context add local auto-start", () => {
 
   it("leaves the daemon-free trace command independent", async () => {
     const f = fixture();
-    await f.command().parseAsync(["node", "rig", "context", "trace", "--rig", "missing-fixture", "--name", "NOTES.md"]);
+    await f.command().parseAsync(["node", "softwareTeam", "context", "trace", "--software-team", "missing-fixture", "--name", "NOTES.md"]);
     expect(f.lifecycleDeps.fetch).not.toHaveBeenCalled();
     expect(f.lifecycleDeps.spawn).not.toHaveBeenCalled();
   });

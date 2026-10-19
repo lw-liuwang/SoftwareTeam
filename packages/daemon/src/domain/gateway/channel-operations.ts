@@ -1,7 +1,7 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import { join } from "node:path";
-import { getOpenRigHome } from "../../openrig-compat.js";
+import { getSoftwareTeamHome } from "../../softwareteam-compat.js";
 
 /** Deliberately small, value-free snapshots: credentials, handles, message bodies,
  * and connector responses never enter the lifecycle ledger. */
@@ -39,7 +39,7 @@ export async function runChannelOperation<T>(input: ChannelActor & {
   subject: string;
   before: ChannelState;
   run: () => Promise<{ value: T; after: ChannelState; effect: "applied" | "no-op" | "observed" }>;
-}, home = getOpenRigHome()): Promise<{ value: T; receipt: ChannelOperation }> {
+}, home = getSoftwareTeamHome()): Promise<{ value: T; receipt: ChannelOperation }> {
   if (!input.actor.trim() || !input.reason.trim()) throw new Error("channel operation requires actor and reason");
   const dir = join(home, "state");
   const file = join(dir, "human-channel-operations.jsonl");

@@ -11,24 +11,24 @@ import { createFullTestDb, createTestApp, mockTmuxAdapter, unavailableCmuxAdapte
 import { createApp, createAppWithWebSocket, WEB_UI_OFF_MESSAGE, type AppDeps } from "../src/server.js";
 import { SettingsStore } from "../src/domain/user-settings/settings-store.js";
 
-const UI_INDEX_HTML = "<!doctype html><html><head><title>OpenRig UI</title></head><body><div id=\"root\"></div></body></html>";
+const UI_INDEX_HTML = "<!doctype html><html><head><title>SoftwareTeam UI</title></head><body><div id=\"root\"></div></body></html>";
 const TOKEN = "web-ui-off-token";
 
 function tempUiDist(): string {
-  const dir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "openrig-ui-off-"));
+  const dir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "softwareteam-ui-off-"));
   fs.mkdirSync(nodePath.join(dir, "assets"));
   fs.writeFileSync(nodePath.join(dir, "index.html"), UI_INDEX_HTML, "utf-8");
-  fs.writeFileSync(nodePath.join(dir, "assets", "app.js"), "console.log('rig');", "utf-8");
+  fs.writeFileSync(nodePath.join(dir, "assets", "app.js"), "console.log('softwareTeam');", "utf-8");
   return dir;
 }
 
 function appDeps(db: ReturnType<typeof createFullTestDb>, uiDistDir: string, extra: Partial<AppDeps>): AppDeps {
   const s = createTestApp(db) as unknown as Record<string, unknown>;
   return {
-    rigRepo: s.rigRepo, sessionRegistry: s.sessionRegistry, eventBus: s.eventBus, nodeLauncher: s.nodeLauncher,
+    softwareTeamRepo: s.softwareTeamRepo, sessionRegistry: s.sessionRegistry, eventBus: s.eventBus, nodeLauncher: s.nodeLauncher,
     tmuxAdapter: s.tmuxAdapter ?? mockTmuxAdapter(), cmuxAdapter: s.cmuxAdapter ?? unavailableCmuxAdapter(),
     snapshotCapture: s.snapshotCapture, snapshotRepo: s.snapshotRepo, restoreOrchestrator: s.restoreOrchestrator,
-    rigSpecExporter: s.rigSpecExporter, rigSpecPreflight: s.rigSpecPreflight, rigInstantiator: s.rigInstantiator,
+    softwareTeamSpecExporter: s.softwareTeamSpecExporter, softwareTeamSpecPreflight: s.softwareTeamSpecPreflight, softwareTeamInstantiator: s.softwareTeamInstantiator,
     packageRepo: s.packageRepo, installRepo: s.installRepo, installEngine: s.installEngine, installVerifier: s.installVerifier,
     bootstrapOrchestrator: s.bootstrapOrchestrator, bootstrapRepo: s.bootstrapRepo, discoveryCoordinator: s.discoveryCoordinator,
     discoveryRepo: s.discoveryRepo, claimService: s.claimService, psProjectionService: s.psProjectionService, upRouter: s.upRouter,
@@ -81,27 +81,27 @@ const UPGRADE = {
 
 describe("web UI default off (ui.enabled)", () => {
   it("defaults to false and turns on through the existing setting", () => {
-    const prior = process.env.OPENRIG_UI_ENABLED;
+    const prior = process.env.SOFTWARETEAM_UI_ENABLED;
     try {
-      delete process.env.OPENRIG_UI_ENABLED;
+      delete process.env.SOFTWARETEAM_UI_ENABLED;
       expect(new SettingsStore().resolveOne("ui.enabled")).toMatchObject({ value: false, source: "default" });
-      process.env.OPENRIG_UI_ENABLED = "true";
+      process.env.SOFTWARETEAM_UI_ENABLED = "true";
       expect(new SettingsStore().resolveOne("ui.enabled").value).toBe(true);
     } finally {
-      if (prior === undefined) delete process.env.OPENRIG_UI_ENABLED; else process.env.OPENRIG_UI_ENABLED = prior;
+      if (prior === undefined) delete process.env.SOFTWARETEAM_UI_ENABLED; else process.env.SOFTWARETEAM_UI_ENABLED = prior;
     }
   });
 
   it("serves no UI page, asset or SPA route by default, and names the setting", async () => {
     const app = createApp(fixture({ terminalBearerToken: TOKEN }));
-    for (const path of ["/", "/index.html", "/specs", "/rigs/rig-1/nodes/dev.impl", "/assets/app.js", "/apiX"]) {
+    for (const path of ["/", "/index.html", "/specs", "/software-teams/software-team-1/nodes/dev.impl", "/assets/app.js", "/apiX"]) {
       const res = await app.request(path);
       const body = await res.text();
       expect(res.status, path).toBe(404);
-      expect(res.headers.get("x-openrig-web-ui"), path).toBe("off");
+      expect(res.headers.get("x-softwareteam-web-ui"), path).toBe("off");
       expect(body, path).toBe(WEB_UI_OFF_MESSAGE);
-      expect(body, path).toContain("rig config set ui.enabled true");
-      expect(body, path).not.toContain("OpenRig UI");
+      expect(body, path).toContain("SoftwareTeam config set ui.enabled true");
+      expect(body, path).not.toContain("SoftwareTeam UI");
       expect(body, path).not.toContain(TOKEN);
     }
   });
@@ -120,7 +120,7 @@ describe("web UI default off (ui.enabled)", () => {
     for (const path of ["/healthz", "/api/unknown", "/api/config", "/api/terminal/views", "/api/terminal/status", "/api/terminal/preview?view=x"]) {
       const a = await off.request(path), b = await on.request(path);
       expect(a.status, path).toBe(b.status);
-      expect(a.headers.get("x-openrig-web-ui"), path).toBeNull();
+      expect(a.headers.get("x-softwareteam-web-ui"), path).toBeNull();
     }
   });
 

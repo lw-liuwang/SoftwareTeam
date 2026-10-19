@@ -87,7 +87,7 @@ describe("cursor-safe seed helpers", () => {
 
 describe("TerminalSessionBroker", () => {
   it("test 1: fans output bytes out to ALL subscribers", async () => {
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux(), { pollMs: 10 }));
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux(), { pollMs: 10 }));
     const a = makeSub();
     const b = makeSub();
     await broker.attach(a);
@@ -105,7 +105,7 @@ describe("TerminalSessionBroker", () => {
 
   it("test 2: a 2nd subscriber does NOT start a second pipe-pane", async () => {
     const startPipePane = vi.fn(async () => ({ ok: true as const }));
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux({ startPipePane }), { pollMs: 10 }));
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux({ startPipePane }), { pollMs: 10 }));
     await broker.attach(makeSub());
     await broker.attach(makeSub());
     expect(startPipePane).toHaveBeenCalledOnce();
@@ -115,14 +115,14 @@ describe("TerminalSessionBroker", () => {
   it("test 3: input from a subscriber forwards to tmux sendText / sendKeys", async () => {
     const sendText = vi.fn(async () => ({ ok: true as const }));
     const sendKeys = vi.fn(async () => ({ ok: true as const }));
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux({ sendText, sendKeys }), { pollMs: 10 }));
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux({ sendText, sendKeys }), { pollMs: 10 }));
     await broker.attach(makeSub());
 
     await broker.input({ type: "text", text: "echo hi" });
     await broker.input({ type: "keys", keys: ["Enter"] });
 
-    expect(sendText).toHaveBeenCalledWith("dev@rig", "echo hi");
-    expect(sendKeys).toHaveBeenCalledWith("dev@rig", ["Enter"]);
+    expect(sendText).toHaveBeenCalledWith("dev@software-team", "echo hi");
+    expect(sendKeys).toHaveBeenCalledWith("dev@software-team", ["Enter"]);
   });
 
   it("test 3b: serializes rapid input before calling tmux (ordering preserved)", async () => {
@@ -132,7 +132,7 @@ describe("TerminalSessionBroker", () => {
       order.push(t);
       return { ok: true as const };
     });
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux({ sendText }), { pollMs: 10 }));
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux({ sendText }), { pollMs: 10 }));
     await broker.attach(makeSub());
 
     void broker.input({ type: "text", text: "e" });
@@ -145,7 +145,7 @@ describe("TerminalSessionBroker", () => {
 
   it("test 4: disconnecting one subscriber keeps the broker alive for the rest", async () => {
     const stopPipePane = vi.fn(async () => ({ ok: true as const }));
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux({ stopPipePane }), { pollMs: 10 }));
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux({ stopPipePane }), { pollMs: 10 }));
     const a = makeSub();
     const b = makeSub();
     await broker.attach(a);
@@ -164,7 +164,7 @@ describe("TerminalSessionBroker", () => {
 
   it("test 5: the FINAL disconnect stops pipe-pane and deletes the temp file", async () => {
     const stopPipePane = vi.fn(async () => ({ ok: true as const }));
-    const broker = new TerminalSessionBroker("dev@rig", makeTmux({ stopPipePane }), { pollMs: 10 });
+    const broker = new TerminalSessionBroker("dev@software-team", makeTmux({ stopPipePane }), { pollMs: 10 });
     const a = makeSub();
     await broker.attach(a);
     const path = broker.pipeOutputPath!;
@@ -172,7 +172,7 @@ describe("TerminalSessionBroker", () => {
 
     broker.detach(a);
     await vi.waitFor(() => {
-      expect(stopPipePane).toHaveBeenCalledWith("dev@rig");
+      expect(stopPipePane).toHaveBeenCalledWith("dev@software-team");
       expect(fs.existsSync(path)).toBe(false);
     }, { timeout: 1000 });
     expect(broker.subscriberCount).toBe(0);
@@ -180,7 +180,7 @@ describe("TerminalSessionBroker", () => {
 
   it("test 6: session death closes ALL subscribers honestly (1001), no silent stale-live", async () => {
     let alive = true;
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux({ hasSession: async () => alive }), {
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux({ hasSession: async () => alive }), {
       pollMs: 10,
       livenessMs: 20,
     }));
@@ -199,7 +199,7 @@ describe("TerminalSessionBroker", () => {
 
   it("test 7 (broker side): input has no resize path — a resize never reaches tmux.resizeWindow via input", async () => {
     const resizeWindow = vi.fn(async () => ({ ok: true as const }));
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux({ resizeWindow }), { pollMs: 10 }));
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux({ resizeWindow }), { pollMs: 10 }));
     await broker.attach(makeSub());
     resizeWindow.mockClear(); // ignore the one canonical-geometry resize at open
     // The broker input API only accepts keys/text; there is no client-driven resize.
@@ -210,7 +210,7 @@ describe("TerminalSessionBroker", () => {
   it("test 7b: canonical geometry is set ONCE at open (window-size manual + 120xN, NOT aggressive-resize)", async () => {
     const setWindowOption = vi.fn(async () => ({ ok: true as const }));
     const resizeWindow = vi.fn(async () => ({ ok: true as const }));
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux({ setWindowOption, resizeWindow }), {
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux({ setWindowOption, resizeWindow }), {
       pollMs: 10,
       cols: 120,
       rows: 40,
@@ -219,10 +219,10 @@ describe("TerminalSessionBroker", () => {
     await broker.attach(makeSub());
 
     expect(resizeWindow).toHaveBeenCalledOnce();
-    expect(resizeWindow).toHaveBeenCalledWith("dev@rig", 120, 40);
-    expect(setWindowOption).toHaveBeenCalledWith("dev@rig", "window-size", "manual");
+    expect(resizeWindow).toHaveBeenCalledWith("dev@software-team", 120, 40);
+    expect(setWindowOption).toHaveBeenCalledWith("dev@software-team", "window-size", "manual");
     // aggressive-resize fights fixed geometry (shrinks to smallest client) — must NOT be set.
-    expect(setWindowOption).not.toHaveBeenCalledWith("dev@rig", "aggressive-resize", expect.anything());
+    expect(setWindowOption).not.toHaveBeenCalledWith("dev@software-team", "aggressive-resize", expect.anything());
   });
 
   it("test 8: seeds on FIRST attach with NO resize message, as the first bytes the subscriber sees", async () => {
@@ -230,7 +230,7 @@ describe("TerminalSessionBroker", () => {
       capturePaneScreen: async () => "line one\nline two",
       getPaneCursorPosition: async () => ({ x: 3, y: 1, width: 120, height: 40 }),
     });
-    const broker = track(new TerminalSessionBroker("dev@rig", tmux, { pollMs: 10 }));
+    const broker = track(new TerminalSessionBroker("dev@software-team", tmux, { pollMs: 10 }));
     const a = makeSub();
     await broker.attach(a);
 
@@ -240,7 +240,7 @@ describe("TerminalSessionBroker", () => {
 
   it("test 8b: EACH subscriber gets its own seed (2nd subscriber seeded too, no shared pipe)", async () => {
     const tmux = makeTmux({ capturePaneScreen: async () => "screen" });
-    const broker = track(new TerminalSessionBroker("dev@rig", tmux, { pollMs: 10 }));
+    const broker = track(new TerminalSessionBroker("dev@software-team", tmux, { pollMs: 10 }));
     const a = makeSub();
     const b = makeSub();
     await broker.attach(a);
@@ -252,13 +252,13 @@ describe("TerminalSessionBroker", () => {
   it("test 9: the seed uses the VISIBLE-screen capture + cursor (absolute paint), never scrollback", async () => {
     const capturePaneScreen = vi.fn(async () => "r1\nr2\nr3");
     const getPaneCursorPosition = vi.fn(async () => ({ x: 1, y: 2, width: 80, height: 24 }));
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux({ capturePaneScreen, getPaneCursorPosition }), {
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux({ capturePaneScreen, getPaneCursorPosition }), {
       pollMs: 10,
     }));
     const a = makeSub();
     await broker.attach(a);
 
-    expect(capturePaneScreen).toHaveBeenCalledWith("dev@rig");
+    expect(capturePaneScreen).toHaveBeenCalledWith("dev@software-team");
     const seed = a.received[0]!;
     expect(seed).toContain("\x1b[1;1Hr1");
     expect(seed).toContain("\x1b[3;1Hr3");
@@ -267,7 +267,7 @@ describe("TerminalSessionBroker", () => {
 
   it("test 11: a pipe-pane failure leaks no temp file, closes the subscriber, and evicts the broker", async () => {
     let evicted: string | null = null;
-    const broker = new TerminalSessionBroker("dev@rig", makeTmux({
+    const broker = new TerminalSessionBroker("dev@software-team", makeTmux({
       startPipePane: async () => ({ ok: false, code: "session_not_found", message: "gone" }),
     }), { pollMs: 10, onEmpty: (n) => { evicted = n; } });
     const a = makeSub();
@@ -275,14 +275,14 @@ describe("TerminalSessionBroker", () => {
 
     const path = broker.pipeOutputPath;
     expect(a.closed[0]?.code).toBe(1011);
-    expect(evicted).toBe("dev@rig");
+    expect(evicted).toBe("dev@software-team");
     expect(broker.subscriberCount).toBe(0);
     if (path) expect(fs.existsSync(path)).toBe(false);
   });
 
   it("test 11b: a dead session at open closes the subscriber (1008, honest) and never starts a pipe", async () => {
     const startPipePane = vi.fn(async () => ({ ok: true as const }));
-    const broker = new TerminalSessionBroker("dev@rig", makeTmux({ hasSession: async () => false, startPipePane }), {
+    const broker = new TerminalSessionBroker("dev@software-team", makeTmux({ hasSession: async () => false, startPipePane }), {
       pollMs: 10,
     });
     const a = makeSub();
@@ -304,21 +304,21 @@ describe("TerminalBrokerRegistry", () => {
     const fault = new Error("attach unavailable");
     const reg = new TerminalBrokerRegistry(makeTmux({
       hasSession: async (name) => {
-        if (name === "failed@rig" && fail && stage === "probe") throw fault;
+        if (name === "failed@software-team" && fail && stage === "probe") throw fault;
         return true;
       },
       startPipePane: async (name, file) => {
-        if (name === "failed@rig") {
+        if (name === "failed@software-team") {
           outputPath = file;
           if (fail && stage === "pipe") throw fault;
         }
         return { ok: true };
       },
     }));
-    const healthy = track(await reg.attach("healthy@rig", makeSub()));
-    const first = reg.attach("failed@rig", makeSub());
-    const failed = track(reg.get("failed@rig")!);
-    const attempts = await Promise.allSettled([first, reg.attach("failed@rig", makeSub())]);
+    const healthy = track(await reg.attach("healthy@software-team", makeSub()));
+    const first = reg.attach("failed@software-team", makeSub());
+    const failed = track(reg.get("failed@software-team")!);
+    const attempts = await Promise.allSettled([first, reg.attach("failed@software-team", makeSub())]);
     expect(attempts).toEqual([
       { status: "rejected", reason: fault },
       { status: "rejected", reason: fault },
@@ -329,13 +329,13 @@ describe("TerminalBrokerRegistry", () => {
       expect(outputPath).toBeTruthy();
       expect(fs.existsSync(outputPath!)).toBe(false);
     }
-    expect(reg.get("failed@rig")).toBeUndefined();
+    expect(reg.get("failed@software-team")).toBeUndefined();
     expect(reg.size).toBe(1);
-    expect(reg.get("healthy@rig")).toBe(healthy);
+    expect(reg.get("healthy@software-team")).toBe(healthy);
     expect(healthy.subscriberCount).toBe(1);
 
     fail = false;
-    const recovered = track(await reg.attach("failed@rig", makeSub()));
+    const recovered = track(await reg.attach("failed@software-team", makeSub()));
     expect(recovered).not.toBe(failed);
     expect(recovered.subscriberCount).toBe(1);
     expect(reg.size).toBe(2);
@@ -344,8 +344,8 @@ describe("TerminalBrokerRegistry", () => {
   it("create-if-absent: two subscribers on one session share ONE broker / ONE pipe", async () => {
     const startPipePane = vi.fn(async () => ({ ok: true as const }));
     const reg = new TerminalBrokerRegistry(makeTmux({ startPipePane }), { pollMs: 10 });
-    const b1 = await reg.attach("dev@rig", makeSub());
-    const b2 = await reg.attach("dev@rig", makeSub());
+    const b1 = await reg.attach("dev@software-team", makeSub());
+    const b2 = await reg.attach("dev@software-team", makeSub());
     expect(b1).toBe(b2);
     expect(reg.size).toBe(1);
     expect(startPipePane).toHaveBeenCalledOnce();
@@ -354,8 +354,8 @@ describe("TerminalBrokerRegistry", () => {
 
   it("distinct sessions get distinct brokers", async () => {
     const reg = new TerminalBrokerRegistry(makeTmux(), { pollMs: 10 });
-    const b1 = await reg.attach("a@rig", makeSub());
-    const b2 = await reg.attach("b@rig", makeSub());
+    const b1 = await reg.attach("a@software-team", makeSub());
+    const b2 = await reg.attach("b@software-team", makeSub());
     expect(b1).not.toBe(b2);
     expect(reg.size).toBe(2);
     b1.dispose();
@@ -365,7 +365,7 @@ describe("TerminalBrokerRegistry", () => {
   it("evicts a broker from the registry once its last subscriber detaches", async () => {
     const reg = new TerminalBrokerRegistry(makeTmux(), { pollMs: 10 });
     const sub = makeSub();
-    const broker = await reg.attach("dev@rig", sub);
+    const broker = await reg.attach("dev@software-team", sub);
     expect(reg.size).toBe(1);
     broker.detach(sub);
     await vi.waitFor(() => {
@@ -384,14 +384,14 @@ describe("TerminalSessionBroker - lifecycle hardening", () => {
       await new Promise((r) => setTimeout(r, 20));
       return { ok: true as const };
     });
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux({ startPipePane }), { pollMs: 10 }));
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux({ startPipePane }), { pollMs: 10 }));
     await Promise.all([broker.attach(makeSub()), broker.attach(makeSub()), broker.attach(makeSub())]);
     expect(startPipePane).toHaveBeenCalledOnce();
     expect(broker.subscriberCount).toBe(3);
   });
 
   it("fanout isolation: a throwing subscriber does not break others and is detached", async () => {
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux(), { pollMs: 10 }));
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux(), { pollMs: 10 }));
     const good = makeSub();
     const bad: FakeSub = {
       received: [],
@@ -411,7 +411,7 @@ describe("TerminalSessionBroker - lifecycle hardening", () => {
   });
 
   it("last-detach unlinks even a NON-EMPTY pipe file (AC-7 no temp leak)", async () => {
-    const broker = new TerminalSessionBroker("dev@rig", makeTmux(), { pollMs: 10 });
+    const broker = new TerminalSessionBroker("dev@software-team", makeTmux(), { pollMs: 10 });
     const a = makeSub();
     await broker.attach(a);
     const path = broker.pipeOutputPath!;
@@ -431,8 +431,8 @@ describe("TerminalSessionBroker - lifecycle hardening", () => {
     });
     const reg = new TerminalBrokerRegistry(makeTmux({ startPipePane }), { pollMs: 10 });
     const [b1, b2] = await Promise.all([
-      reg.attach("dev@rig", makeSub()),
-      reg.attach("dev@rig", makeSub()),
+      reg.attach("dev@software-team", makeSub()),
+      reg.attach("dev@software-team", makeSub()),
     ]);
     expect(b1).toBe(b2);
     expect(reg.size).toBe(1);
@@ -443,12 +443,12 @@ describe("TerminalSessionBroker - lifecycle hardening", () => {
   it("registry: attach AFTER final-close creates a FRESH broker (no stale reuse)", async () => {
     const reg = new TerminalBrokerRegistry(makeTmux(), { pollMs: 10 });
     const sub1 = makeSub();
-    const first = await reg.attach("dev@rig", sub1);
+    const first = await reg.attach("dev@software-team", sub1);
     first.detach(sub1);
     await vi.waitFor(() => { expect(reg.size).toBe(0); }, { timeout: 1000 });
 
     const sub2 = makeSub();
-    const second = await reg.attach("dev@rig", sub2);
+    const second = await reg.attach("dev@software-team", sub2);
     expect(second).not.toBe(first);
     expect(reg.size).toBe(1);
     second.dispose();
@@ -464,7 +464,7 @@ describe("TerminalSessionBroker - shared history ring (AC-5)", () => {
     const startPipePane = vi.fn(async () => ({ ok: true as const }));
     // capturePaneScreen returns null so the ONLY path for B to see the
     // scrolled-off output is the broker-owned ring (not its own visible seed).
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux({ startPipePane }), { pollMs: 10 }));
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux({ startPipePane }), { pollMs: 10 }));
     const a = makeSub();
     await broker.attach(a);
 
@@ -483,7 +483,7 @@ describe("TerminalSessionBroker - shared history ring (AC-5)", () => {
   });
 
   it("a LATE subscriber skips unsafe TUI repaint history and receives the current screen snapshot", async () => {
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux({
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux({
       capturePaneScreen: async () => "CURRENT SCREEN",
       getPaneCursorPosition: async () => ({ x: 0, y: 0, width: 120, height: 40 }),
     }), { pollMs: 10 }));
@@ -508,7 +508,7 @@ describe("TerminalSessionBroker - shared history ring (AC-5)", () => {
   });
 
   it("the history ring is bounded under sustained output", async () => {
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux(), { pollMs: 5, maxHistoryBytes: 2048 }));
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux(), { pollMs: 5, maxHistoryBytes: 2048 }));
     await broker.attach(makeSub());
     const path = broker.pipeOutputPath!;
     for (let i = 0; i < 20; i++) {
@@ -520,7 +520,7 @@ describe("TerminalSessionBroker - shared history ring (AC-5)", () => {
   });
 
   it("the history ring is cleared on final detach (no carry-over / leak)", async () => {
-    const broker = new TerminalSessionBroker("dev@rig", makeTmux(), { pollMs: 10 });
+    const broker = new TerminalSessionBroker("dev@software-team", makeTmux(), { pollMs: 10 });
     const a = makeSub();
     await broker.attach(a);
     fs.appendFileSync(broker.pipeOutputPath!, "transient history");
@@ -538,7 +538,7 @@ describe("TerminalSessionBroker - shared history ring (AC-5)", () => {
 describe("TerminalSessionBroker - concurrent attach failure (honest close)", () => {
   it("concurrent first attaches with a DEAD session close ALL subscribers honestly (1008), none left live", async () => {
     let evicted = 0;
-    const broker = new TerminalSessionBroker("dead@rig", makeTmux({
+    const broker = new TerminalSessionBroker("dead@software-team", makeTmux({
       hasSession: async () => { await new Promise((r) => setTimeout(r, 20)); return false; },
     }), { pollMs: 10, onEmpty: () => { evicted += 1; } });
     const a = makeSub();
@@ -554,7 +554,7 @@ describe("TerminalSessionBroker - concurrent attach failure (honest close)", () 
 
   it("concurrent first attaches with a PIPE-START failure close ALL subscribers (1011), no temp leak", async () => {
     let capturedPath: string | null = null;
-    const broker = new TerminalSessionBroker("dev@rig", makeTmux({
+    const broker = new TerminalSessionBroker("dev@software-team", makeTmux({
       startPipePane: async (_n: string, p: string) => {
         capturedPath = p;
         await new Promise((r) => setTimeout(r, 20));
@@ -579,7 +579,7 @@ describe("TerminalSessionBroker - concurrent attach failure (honest close)", () 
     const a = makeSub();
     const b = makeSub();
 
-    await Promise.all([reg.attach("dead@rig", a), reg.attach("dead@rig", b)]);
+    await Promise.all([reg.attach("dead@software-team", a), reg.attach("dead@software-team", b)]);
 
     expect(a.closed[0]?.code).toBe(1008);
     expect(b.closed[0]?.code).toBe(1008);
@@ -598,7 +598,7 @@ describe("TerminalSessionBroker - teardown during seed (honest close)", () => {
     let captureCalls = 0;
     let alive = true;
     let evicted = 0;
-    const broker = new TerminalSessionBroker("dev@rig", makeTmux({
+    const broker = new TerminalSessionBroker("dev@software-team", makeTmux({
       hasSession: async () => alive,
       capturePaneScreen: async () => {
         captureCalls += 1;
@@ -645,7 +645,7 @@ describe("TerminalSessionBroker - per-subscriber scroll-back (OPR.0.4.0.39)", ()
       const count = Math.min(BUF.length, n + ROWS); // -S -N => ~N + rows lines, bottom-anchored
       return BUF.slice(BUF.length - count).join("\n");
     });
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux({ capturePaneContent }), { pollMs: 10, rows: ROWS }));
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux({ capturePaneContent }), { pollMs: 10, rows: ROWS }));
     const a = makeSub();
     const b = makeSub();
     await broker.attach(a);
@@ -658,7 +658,7 @@ describe("TerminalSessionBroker - per-subscriber scroll-back (OPR.0.4.0.39)", ()
     // Captures (offset + rows) = 3 + 3 = 6 lines back; the painted window is `rows` (3)
     // lines ending `offset` (3) ABOVE the live bottom: bottom row = L200 - 3 = L197,
     // so the window is L195..L197 (NOT the older top of the capture, NOT the live tail).
-    expect(capturePaneContent).toHaveBeenCalledWith("dev@rig", 6);
+    expect(capturePaneContent).toHaveBeenCalledWith("dev@software-team", 6);
     expect(a.received.length).toBe(aBefore + 1);
     const painted = a.received[a.received.length - 1]!;
     expect(painted.startsWith("\x1b[2J")).toBe(true);
@@ -672,7 +672,7 @@ describe("TerminalSessionBroker - per-subscriber scroll-back (OPR.0.4.0.39)", ()
   });
 
   it("a scrolled-back subscriber is SKIPPED by the live fanout; the live viewer still streams", async () => {
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux({
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux({
       capturePaneContent: async () => "x1\nx2\nx3\nx4",
     }), { pollMs: 10, rows: 3 }));
     const a = makeSub();
@@ -694,7 +694,7 @@ describe("TerminalSessionBroker - per-subscriber scroll-back (OPR.0.4.0.39)", ()
 
   it("scroll(offset 0) repaints the live screen and the subscriber REJOINS the fanout", async () => {
     const capturePaneScreen = vi.fn(async () => "LIVE SCREEN");
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux({
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux({
       capturePaneContent: async () => "g1\ng2\ng3\ng4",
       capturePaneScreen,
       getPaneCursorPosition: async () => ({ x: 0, y: 0, width: 90, height: 3 }),
@@ -708,7 +708,7 @@ describe("TerminalSessionBroker - per-subscriber scroll-back (OPR.0.4.0.39)", ()
 
     await broker.scroll(a, 0); // back to the live bottom
 
-    expect(capturePaneScreen).toHaveBeenCalledWith("dev@rig");
+    expect(capturePaneScreen).toHaveBeenCalledWith("dev@software-team");
     expect(a.received.length).toBe(beforeReturn + 1);
     expect(a.received[a.received.length - 1]!).toContain("LIVE SCREEN");
 
@@ -720,7 +720,7 @@ describe("TerminalSessionBroker - per-subscriber scroll-back (OPR.0.4.0.39)", ()
   });
 
   it("scroll on an UNKNOWN subscriber is a no-op (never throws, sends nothing)", async () => {
-    const broker = track(new TerminalSessionBroker("dev@rig", makeTmux(), { pollMs: 10, rows: 3 }));
+    const broker = track(new TerminalSessionBroker("dev@software-team", makeTmux(), { pollMs: 10, rows: 3 }));
     await broker.attach(makeSub());
     const ghost = makeSub(); // never attached
     await broker.scroll(ghost, 5);

@@ -23,8 +23,8 @@ describe("ps session ordering", () => {
       expect(value).toBe("now");
       return new Date().toISOString().replace("T", " ").slice(0, 19);
     });
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('r', 'ordering')").run();
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES ('n', 'r', 'dev')").run();
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('r', 'ordering')").run();
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES ('n', 'r', 'dev')").run();
     registry = new SessionRegistry(db);
   });
 
@@ -63,7 +63,7 @@ describe("ps session ordering", () => {
     vi.setSystemTime(clock - 2_000);
     registry.registerClaimedSession("n", "dev@ordering");
     registry.updateBinding("n", { tmuxSession: "dev@ordering", tmuxPane: "%1" });
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES ('peer', 'r', 'qa')").run();
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES ('peer', 'r', 'qa')").run();
     registry.registerClaimedSession("peer", "qa@ordering");
     vi.setSystemTime(clock + 5_000);
     new SeatIdentityStore(db).upsert({
@@ -87,7 +87,7 @@ describe("ps session ordering", () => {
     registry.updateBinding("n", { tmuxSession: "dev@ordering", tmuxPane: "%1" });
     if (withSibling) {
       vi.setSystemTime(clock + 4_000);
-      db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES ('peer', 'r', 'qa')").run();
+      db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES ('peer', 'r', 'qa')").run();
       registry.registerClaimedSession("peer", "qa@ordering");
     }
     vi.setSystemTime(clock + 10_000);

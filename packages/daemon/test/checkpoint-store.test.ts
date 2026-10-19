@@ -7,10 +7,10 @@ function setupDb(): Database.Database {
   return createFullTestDb();
 }
 
-function seedRigWithNodes(db: Database.Database, rigId: string, rigName: string, nodeIds: { id: string; logicalId: string }[]) {
-  db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run(rigId, rigName);
+function seedSoftwareTeamWithNodes(db: Database.Database, softwareTeamId: string, softwareTeamName: string, nodeIds: { id: string; logicalId: string }[]) {
+  db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run(softwareTeamId, softwareTeamName);
   for (const n of nodeIds) {
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES (?, ?, ?)").run(n.id, rigId, n.logicalId);
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES (?, ?, ?)").run(n.id, softwareTeamId, n.logicalId);
   }
 }
 
@@ -21,7 +21,7 @@ describe("CheckpointStore", () => {
   beforeEach(() => {
     db = setupDb();
     store = new CheckpointStore(db);
-    seedRigWithNodes(db, "rig-1", "r01", [
+    seedSoftwareTeamWithNodes(db, "software-team-1", "r01", [
       { id: "node-1", logicalId: "worker-a" },
       { id: "node-2", logicalId: "worker-b" },
     ]);
@@ -97,14 +97,14 @@ describe("CheckpointStore", () => {
     expect(cps.map((c) => c.id)).toEqual(["cp-z-1", "cp-a-2", "cp-m-3"]);
   });
 
-  it("getCheckpointsForRig selects the latest inserted checkpoint on tied timestamps", () => {
+  it("getCheckpointsForSoftwareTeam selects the latest inserted checkpoint on tied timestamps", () => {
     const insert = db.prepare(
       "INSERT INTO checkpoints (id, node_id, summary, key_artifacts, created_at) VALUES (?, ?, ?, ?, ?)"
     );
     insert.run("cp-1-initial", "node-1", "initial", "[]", "2026-03-23 01:00:00");
     insert.run("cp-1-updated", "node-1", "updated", "[]", "2026-03-23 01:00:00");
 
-    const map = store.getCheckpointsForRig("rig-1");
+    const map = store.getCheckpointsForSoftwareTeam("software-team-1");
     expect(map["node-1"]).not.toBeNull();
     expect(map["node-1"]!.id).toBe("cp-1-updated");
     expect(map["node-1"]!.summary).toBe("updated");
@@ -135,7 +135,7 @@ describe("CheckpointStore", () => {
     expect(cps.map((c) => c.id)).toEqual(["cp-1", "cp-2", "cp-3"]);
   });
 
-  it("getCheckpointsForRig: returns map keyed by node id, latest per node", () => {
+  it("getCheckpointsForSoftwareTeam: returns map keyed by node id, latest per node", () => {
     db.prepare(
       "INSERT INTO checkpoints (id, node_id, summary, key_artifacts, created_at) VALUES (?, ?, ?, ?, ?)"
     ).run("cp-1a", "node-1", "node1 old", "[]", "2026-03-23 01:00:00");
@@ -146,24 +146,24 @@ describe("CheckpointStore", () => {
       "INSERT INTO checkpoints (id, node_id, summary, key_artifacts, created_at) VALUES (?, ?, ?, ?, ?)"
     ).run("cp-2a", "node-2", "node2 only", "[]", "2026-03-23 01:00:00");
 
-    const map = store.getCheckpointsForRig("rig-1");
+    const map = store.getCheckpointsForSoftwareTeam("software-team-1");
     expect(Object.keys(map).sort()).toEqual(["node-1", "node-2"]);
     expect(map["node-1"]!.id).toBe("cp-1b"); // latest
     expect(map["node-2"]!.id).toBe("cp-2a");
   });
 
-  it("getCheckpointsForRig: node with no checkpoint -> null in map", () => {
+  it("getCheckpointsForSoftwareTeam: node with no checkpoint -> null in map", () => {
     // node-1 has a checkpoint, node-2 does not
     db.prepare(
       "INSERT INTO checkpoints (id, node_id, summary, key_artifacts, created_at) VALUES (?, ?, ?, ?, ?)"
     ).run("cp-1", "node-1", "has checkpoint", "[]", "2026-03-23 01:00:00");
 
-    const map = store.getCheckpointsForRig("rig-1");
+    const map = store.getCheckpointsForSoftwareTeam("software-team-1");
     expect(map["node-1"]).not.toBeNull();
     expect(map["node-2"]).toBeNull();
   });
 
-  it("getCheckpointsForRig: multiple nodes, each gets latest checkpoint", () => {
+  it("getCheckpointsForSoftwareTeam: multiple nodes, each gets latest checkpoint", () => {
     db.prepare(
       "INSERT INTO checkpoints (id, node_id, summary, key_artifacts, created_at) VALUES (?, ?, ?, ?, ?)"
     ).run("cp-1old", "node-1", "n1 old", "[]", "2026-03-23 01:00:00");
@@ -177,13 +177,13 @@ describe("CheckpointStore", () => {
       "INSERT INTO checkpoints (id, node_id, summary, key_artifacts, created_at) VALUES (?, ?, ?, ?, ?)"
     ).run("cp-2new", "node-2", "n2 new", "[]", "2026-03-23 02:00:00");
 
-    const map = store.getCheckpointsForRig("rig-1");
+    const map = store.getCheckpointsForSoftwareTeam("software-team-1");
     expect(map["node-1"]!.summary).toBe("n1 new");
     expect(map["node-2"]!.summary).toBe("n2 new");
   });
 
-  it("getCheckpointsForRig: cross-rig isolation — only rig-1 nodes returned", () => {
-    seedRigWithNodes(db, "rig-2", "r02", [
+  it("getCheckpointsForSoftwareTeam: cross-software-team isolation — only software-team-1 nodes returned", () => {
+    seedSoftwareTeamWithNodes(db, "software-team-2", "r02", [
       { id: "node-3", logicalId: "worker-c" },
     ]);
     db.prepare(
@@ -193,12 +193,12 @@ describe("CheckpointStore", () => {
       "INSERT INTO checkpoints (id, node_id, summary, key_artifacts, created_at) VALUES (?, ?, ?, ?, ?)"
     ).run("cp-3", "node-3", "rig2 checkpoint", "[]", "2026-03-23 01:00:00");
 
-    const map = store.getCheckpointsForRig("rig-1");
+    const map = store.getCheckpointsForSoftwareTeam("software-team-1");
 
-    // Only rig-1 nodes should be in the map
+    // Only software-team-1 nodes should be in the map
     const nodeIds = Object.keys(map);
     expect(nodeIds).toContain("node-1");
     expect(nodeIds).toContain("node-2"); // null entry
-    expect(nodeIds).not.toContain("node-3"); // rig-2 node excluded
+    expect(nodeIds).not.toContain("node-3"); // software-team-2 node excluded
   });
 });

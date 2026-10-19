@@ -39,7 +39,7 @@ export interface SubsystemSlackDeliveryOpts {
    *  before any map existed) retries in the default `channel`, where it went. With pinChannel off
    *  (no map) nothing is recorded and the channel is resolved as before. */
   pinChannel?: boolean;
-  sourceLabel: string; // host/box/rig — from config, never hardcoded (item 7)
+  sourceLabel: string; // host/box/softwareTeam — from config, never hardcoded (item 7)
   bodyExcerpt?: number;
   fetchImpl?: FetchImpl;
   /** The owning gateway run's stop signal. When the wire stops (restart, disable,

@@ -1,4 +1,4 @@
-// Crash-cart C3 — the SSOT for the `rig crash-cart --json` payload (plan c015d9ed §C3, coupling
+// Crash-cart C3 — the SSOT for the `softwareTeam crash-cart --json` payload (plan c015d9ed §C3, coupling
 // ruling option C, 4 rails). ONE JSON = the 3-state detector verdict + (on DOWN) the discovery
 // (rail 3). Composes the detector + the C2 read VERBATIM (rail 2 — never a parallel read). A
 // fail-closed refusal of the read emits a STRUCTURED refusal note (NOT exit-code-only, NO discovery)

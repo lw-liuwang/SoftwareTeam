@@ -48,9 +48,9 @@ describe("context-usage-threshold watchdog", () => {
       contextUsageWatchdogSchema,
       contextUsageWatchdogGenerationSchema,
     ]);
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('rig-1', 'rig')").run();
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES ('node-1', 'rig-1', 'target')").run();
-    db.prepare("INSERT INTO sessions (id, node_id, session_name) VALUES ('session-1', 'node-1', 'target@rig')").run();
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('software-team-1', 'softwareTeam')").run();
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES ('node-1', 'software-team-1', 'target')").run();
+    db.prepare("INSERT INTO sessions (id, node_id, session_name) VALUES ('session-1', 'node-1', 'target@software-team')").run();
     db.prepare(
       `INSERT INTO occupant_tenures
         (id, node_id, generation_ordinal, generation_uuid, kind, boot_at)
@@ -92,7 +92,7 @@ describe("context-usage-threshold watchdog", () => {
     requiresJobId?: string | null;
     specTarget?: string;
   } = {}) {
-    const targetSession = input.targetSession ?? "target@rig";
+    const targetSession = input.targetSession ?? "target@software-team";
     const specTarget = input.specTarget ?? targetSession;
     return repo.register({
       policy: "context-usage-threshold",
@@ -116,9 +116,9 @@ describe("context-usage-threshold watchdog", () => {
         "policy: context-usage-threshold\n" +
         "generated_by: continuity-policy-materializer\n" +
         "continuity_mode: managed-compaction\n" +
-        "target:\n  session: target@rig\n" +
+        "target:\n  session: target@software-team\n" +
         "message: Deposit continuity context before managed compaction.\n",
-      targetSession: "target@rig",
+      targetSession: "target@software-team",
       intervalSeconds: 60,
       registeredBySession: "daemon@kernel",
       watchedFilePath: null,
@@ -141,7 +141,7 @@ describe("context-usage-threshold watchdog", () => {
     db.prepare(
       `INSERT INTO context_usage
         (node_id, session_id, session_name, availability, transcript_path, sampled_at)
-       VALUES ('node-1', 'native-session-1', 'target@rig', 'known', ?, '2026-08-28T09:00:01.000Z')`,
+       VALUES ('node-1', 'native-session-1', 'target@software-team', 'known', ?, '2026-08-28T09:00:01.000Z')`,
     ).run(transcript);
 
     repo = new WatchdogJobsRepository(db, undefined, () => generation);
@@ -169,7 +169,7 @@ describe("context-usage-threshold watchdog", () => {
   });
 
   it("keeps the wrong seat silent, fires once with reason, and survives an engine restart", async () => {
-    const job = register({ specTarget: "wrong-seat@rig" });
+    const job = register({ specTarget: "wrong-seat@software-team" });
 
     const below = await engine().evaluate(job);
     expect(below.outcome).toMatchObject({ action: "skip", reason: "context_usage_below_threshold" });
@@ -179,7 +179,7 @@ describe("context-usage-threshold watchdog", () => {
     const fired = await engine().evaluate(repo.getByIdOrThrow(job.jobId));
     expect(fired.outcome.action).toBe("send");
     expect(deliveries).toEqual([{
-      targetSession: "target@rig",
+      targetSession: "target@software-team",
       message: "Context threshold crossed; prepare continuity now.",
     }]);
     expect(history.listForJob(job.jobId)[0]?.evaluationNotes).toMatchObject({
@@ -203,14 +203,14 @@ describe("context-usage-threshold watchdog", () => {
         "policy: context-usage-threshold\n" +
         "generated_by: continuity-policy-materializer\n" +
         "continuity_mode: apprentice-handover\n" +
-        "target:\n  session: target@rig\n" +
+        "target:\n  session: target@software-team\n" +
         "message: Cut over now.\n" +
         "context:\n" +
         "  continuity_action:\n" +
         "    type: create-cutover-baton\n" +
         "    destination: mechanic@kernel\n" +
         "    body: Owned cutover baton with one-active-walker and authority-effective-at-effect-receipt.\n",
-      targetSession: "target@rig",
+      targetSession: "target@software-team",
       intervalSeconds: 60,
       registeredBySession: "daemon@kernel",
       watchedFilePath: transcript,
@@ -220,13 +220,13 @@ describe("context-usage-threshold watchdog", () => {
     await engine().evaluate(job);
 
     expect(deliveries).toEqual([expect.objectContaining({
-      targetSession: "target@rig",
+      targetSession: "target@software-team",
       message: "Cut over now.",
       continuityAction: {
         type: "create-cutover-baton",
         jobId: job.jobId,
         occupantGeneration: "gen-1",
-        sourceSession: "target@rig",
+        sourceSession: "target@software-team",
         destination: "mechanic@kernel",
         body: expect.stringContaining("one-active-walker"),
       },
@@ -238,7 +238,7 @@ describe("context-usage-threshold watchdog", () => {
     writeFileSync(transcript, "1234567890");
     let destinationExists = false;
     const queue = new QueueRepository(db, bus, {
-      validateRig: (sessionRef) => sessionRef === "mechanic@missing-rig" && destinationExists,
+      validateSoftwareTeam: (sessionRef) => sessionRef === "mechanic@missing-software-team" && destinationExists,
     });
     const job = repo.register({
       policy: "context-usage-threshold",
@@ -246,14 +246,14 @@ describe("context-usage-threshold watchdog", () => {
         "policy: context-usage-threshold\n" +
         "generated_by: continuity-policy-materializer\n" +
         "continuity_mode: apprentice-handover\n" +
-        "target:\n  session: target@rig\n" +
+        "target:\n  session: target@software-team\n" +
         "message: Cut over now.\n" +
         "context:\n" +
         "  continuity_action:\n" +
         "    type: create-cutover-baton\n" +
-        "    destination: mechanic@missing-rig\n" +
+        "    destination: mechanic@missing-software-team\n" +
         "    body: Owned cutover baton with one-active-walker and authority-effective-at-effect-receipt.\n",
-      targetSession: "target@rig",
+      targetSession: "target@software-team",
       intervalSeconds: 60,
       registeredBySession: "daemon@kernel",
       watchedFilePath: transcript,
@@ -316,7 +316,7 @@ describe("context-usage-threshold watchdog", () => {
     const job = register();
     await engine().evaluate(job);
 
-    db.prepare("INSERT INTO sessions (id, node_id, session_name) VALUES ('session-2', 'node-1', 'target@rig')").run();
+    db.prepare("INSERT INTO sessions (id, node_id, session_name) VALUES ('session-2', 'node-1', 'target@software-team')").run();
     db.prepare(
       `INSERT INTO occupant_tenures
         (id, node_id, generation_ordinal, generation_uuid, kind, boot_at)
@@ -325,7 +325,7 @@ describe("context-usage-threshold watchdog", () => {
     db.prepare(
       `INSERT INTO context_usage
         (node_id, session_id, session_name, availability, transcript_path, sampled_at)
-       VALUES ('node-1', 'successor-native-session', 'target@rig', 'known', ?, '2026-08-28T10:00:01.000Z')`,
+       VALUES ('node-1', 'successor-native-session', 'target@software-team', 'known', ?, '2026-08-28T10:00:01.000Z')`,
     ).run(successorTranscript);
     generation = "gen-2";
 
@@ -362,7 +362,7 @@ describe("context-usage-threshold watchdog", () => {
     const job = register();
     await engine().evaluate(job);
 
-    db.prepare("INSERT INTO sessions (id, node_id, session_name) VALUES ('session-2', 'node-1', 'target@rig')").run();
+    db.prepare("INSERT INTO sessions (id, node_id, session_name) VALUES ('session-2', 'node-1', 'target@software-team')").run();
     db.prepare(
       `INSERT INTO occupant_tenures
         (id, node_id, generation_ordinal, generation_uuid, kind, boot_at)
@@ -393,7 +393,7 @@ describe("context-usage-threshold watchdog", () => {
       outcome: "skipped",
       skipReason: "current_generation_transcript_pending",
       evaluationNotes: expect.objectContaining({
-        targetSession: "target@rig",
+        targetSession: "target@software-team",
         occupantGeneration: "gen-2",
       }),
     });
@@ -401,7 +401,7 @@ describe("context-usage-threshold watchdog", () => {
     db.prepare(
       `INSERT INTO context_usage
         (node_id, session_id, session_name, availability, transcript_path, sampled_at)
-       VALUES ('node-1', 'successor-native-session', 'target@rig', 'known', ?, '2026-08-28T10:00:01.000Z')`,
+       VALUES ('node-1', 'successor-native-session', 'target@software-team', 'known', ?, '2026-08-28T10:00:01.000Z')`,
     ).run(successorTranscript);
 
     repo = new WatchdogJobsRepository(db, undefined, () => generation);
@@ -438,7 +438,7 @@ describe("context-usage-threshold watchdog", () => {
 
     await engine().evaluate(prepare);
     await engine().evaluate(repo.getByIdOrThrow(cutover.jobId));
-    expect(deliveries.map((delivery) => delivery.targetSession)).toEqual(["target@rig", "target@rig"]);
+    expect(deliveries.map((delivery) => delivery.targetSession)).toEqual(["target@software-team", "target@software-team"]);
   });
 
   it("advances only one requires rung per scheduler evaluation pass", async () => {
@@ -551,7 +551,7 @@ describe("context-usage-threshold registration", () => {
     return {
       policy: "context-usage-threshold",
       specYaml: "policy: context-usage-threshold\n",
-      targetSession: "target@rig",
+      targetSession: "target@software-team",
       intervalSeconds: 60,
       registeredBySession: "ops@kernel",
       thresholdBytes: 8,
@@ -562,9 +562,9 @@ describe("context-usage-threshold registration", () => {
   it("derives a transcript path from recorded context usage", async () => {
     const derived = join(tmp, "derived.jsonl");
     writeFileSync(derived, "1234");
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('rig-1', 'rig')").run();
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES ('node-1', 'rig-1', 'target')").run();
-    db.prepare("INSERT INTO sessions (id, node_id, session_name) VALUES ('session-1', 'node-1', 'target@rig')").run();
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('software-team-1', 'softwareTeam')").run();
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES ('node-1', 'software-team-1', 'target')").run();
+    db.prepare("INSERT INTO sessions (id, node_id, session_name) VALUES ('session-1', 'node-1', 'target@software-team')").run();
     db.prepare(
       `INSERT INTO occupant_tenures
         (id, node_id, generation_ordinal, generation_uuid, kind, boot_at)
@@ -573,7 +573,7 @@ describe("context-usage-threshold registration", () => {
     db.prepare(
       `INSERT INTO context_usage
         (node_id, session_name, availability, transcript_path, sampled_at)
-       VALUES ('node-1', 'target@rig', 'known', ?, '2026-08-28T09:00:01.000Z')`,
+       VALUES ('node-1', 'target@software-team', 'known', ?, '2026-08-28T09:00:01.000Z')`,
     ).run(derived);
 
     const response = await app().request("/api/watchdog/register", {
@@ -590,9 +590,9 @@ describe("context-usage-threshold registration", () => {
     const explicit = join(tmp, "explicit.jsonl");
     writeFileSync(derived, "1234");
     writeFileSync(explicit, "1234");
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('rig-1', 'rig')").run();
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES ('node-1', 'rig-1', 'target')").run();
-    db.prepare("INSERT INTO sessions (id, node_id, session_name) VALUES ('session-1', 'node-1', 'target@rig')").run();
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('software-team-1', 'softwareTeam')").run();
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES ('node-1', 'software-team-1', 'target')").run();
+    db.prepare("INSERT INTO sessions (id, node_id, session_name) VALUES ('session-1', 'node-1', 'target@software-team')").run();
     db.prepare(
       `INSERT INTO occupant_tenures
         (id, node_id, generation_ordinal, generation_uuid, kind, boot_at)
@@ -601,7 +601,7 @@ describe("context-usage-threshold registration", () => {
     db.prepare(
       `INSERT INTO context_usage
         (node_id, session_name, availability, transcript_path, sampled_at)
-       VALUES ('node-1', 'target@rig', 'known', ?, '2026-08-28T09:00:01.000Z')`,
+       VALUES ('node-1', 'target@software-team', 'known', ?, '2026-08-28T09:00:01.000Z')`,
     ).run(derived);
 
     const response = await app().request("/api/watchdog/register", {

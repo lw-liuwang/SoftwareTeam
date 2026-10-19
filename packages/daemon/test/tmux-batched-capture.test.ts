@@ -5,7 +5,7 @@
 import { describe, it, expect } from "vitest";
 import { TmuxAdapter } from "../src/adapters/tmux.js";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SeatStructuralActivityService } from "../src/domain/seat-structural-activity-service.js";
 
@@ -152,7 +152,7 @@ describe("TmuxAdapter.capturePanesContent (#308)", () => {
 
     it(`${mode}: no listing -> null; a pane printing another call's marker text can't split the output`, async () => {
       expect(await adapter({ "a@r": pane("a") }, { noServer: true }).a.capturePanesContent(["a@r"], 20)).toBeNull();
-      const spoof = "__openrig_capture_00000000000000000000000000000000_1__\n";
+      const spoof = "__softwareteam_capture_00000000000000000000000000000000_1__\n";
       const got = await adapter({ "a@r": `x\n${spoof}y\n`, "b@r": pane("b") }).a.capturePanesContent(["a@r", "b@r"], 20);
       expect(got!.get("a@r")?.text).toBe(`x\n${spoof}y\n`);
       expect(got!.get("b@r")?.text).toBe(pane("b"));
@@ -164,11 +164,11 @@ describe("SeatStructuralActivityService sweep with the batched capture (#308)", 
   /** A test DB with one running, tmux-bound seat per name (`<name>@r`). */
   function dbWithRunningSeats(names: string[]) {
     const db = createFullTestDb();
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const reg = new SessionRegistry(db);
-    const rig = rigRepo.createRig("r");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("r");
     for (const n of names) {
-      const node = rigRepo.addNode(rig.id, `dev.${n}`, { runtime: "claude-code" });
+      const node = softwareTeamRepo.addNode(softwareTeam.id, `dev.${n}`, { runtime: "claude-code" });
       const sess = reg.registerSession(node.id, `${n}@r`);
       reg.updateStatus(sess.id, "running");
       reg.updateBinding(node.id, { tmuxSession: `${n}@r`, attachmentType: "tmux" });

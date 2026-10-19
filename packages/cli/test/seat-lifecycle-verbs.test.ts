@@ -1,4 +1,4 @@
-// S5 (OPR.0.5.4.7) — CLI surface for rig seat set-model / stop / clean: required
+// S5 (OPR.0.5.4.7) — CLI surface for softwareTeam seat set-model / stop / clean: required
 // options, route paths + bodies posted, human output, refusal printing, --json
 // pass-through with non-zero exit.
 import { describe, it, expect, vi, afterEach } from "vitest";
@@ -14,7 +14,7 @@ function mockLifecycleDeps(): LifecycleDeps {
     kill: vi.fn(() => true),
     readFile: vi.fn((p: string) => {
       if (p === STATE_FILE) {
-        return JSON.stringify({ pid: 123, port: 7433, db: "test.sqlite", startedAt: "2026-04-20T00:00:00Z" } as DaemonState);
+        return JSON.stringify({ pid: 123, port: 7434, db: "test.sqlite", startedAt: "2026-04-20T00:00:00Z" } as DaemonState);
       }
       return null;
     }),
@@ -80,7 +80,7 @@ describe("#729 startup warnings", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const deps = makeDeps({ status, data: { ok: status === 200, message: "Identity needs attention", warnings: [warning] } }, calls);
     const { logs, exitCode } = await captureLogs(() => makeCommand(deps).parseAsync([
-      "node", "rig", "seat", "launch", "dev@fixture", "--fresh", "--reason", "requested", ...(json ? ["--json"] : []),
+      "node", "softwareTeam", "seat", "launch", "dev@fixture", "--fresh", "--reason", "requested", ...(json ? ["--json"] : []),
     ]));
     expect(exitCode).toBe(status === 200 ? undefined : 1);
     if (json) {
@@ -92,13 +92,13 @@ describe("#729 startup warnings", () => {
   });
 });
 
-describe("default-path rig seat continue", () => {
+describe("default-path SoftwareTeam seat continue", () => {
   it.each([false, true])("names CLI inspection for an ambiguous continuation refusal (json=%s)", async json => {
     const data = { ok: false, code: "continuation_unavailable", message: "No verified pending fresh-context delivery exists for this occupant. Refresh to inspect its actual state." };
     const original = structuredClone(data);
     const calls: Array<{ path: string; body: unknown }> = [];
     const { logs, errors, exitCode } = await captureLogs(() => makeCommand(makeDeps({ status: 409, data }, calls)).parseAsync([
-      "node", "rig", "seat", "continue", "dev@fixture", ...(json ? ["--json"] : []),
+      "node", "softwareTeam", "seat", "continue", "dev@fixture", ...(json ? ["--json"] : []),
     ]).then(() => {}));
     expect(exitCode).toBe(1);
     expect(calls).toEqual([{ path: "/api/seat/continue/dev%40fixture", body: {} }]);
@@ -110,7 +110,7 @@ describe("default-path rig seat continue", () => {
     } else {
       expect(errors.join("\n")).toContain("No verified pending fresh-context delivery exists");
       expect(errors.join("\n")).toContain("unknown whether context was already delivered or was never pending");
-      expect(errors.join("\n")).toContain("rig seat status 'dev@fixture'");
+      expect(errors.join("\n")).toContain("SoftwareTeam seat status 'dev@fixture'");
       expect(errors.join("\n")).not.toContain("Refresh");
     }
   });
@@ -119,7 +119,7 @@ describe("default-path rig seat continue", () => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { logs, exitCode } = await captureLogs(() => makeCommand(makeDeps({ status, data }, calls)).parseAsync([
-      "node", "rig", "seat", "continue", "dev@fixture", ...(json ? ["--json"] : []),
+      "node", "softwareTeam", "seat", "continue", "dev@fixture", ...(json ? ["--json"] : []),
     ]).then(() => {}));
     expect(calls).toEqual([{ path: "/api/seat/continue/dev%40fixture", body: {} }]);
     expect(exitCode).toBe(status === 200 ? undefined : 1);
@@ -134,33 +134,33 @@ describe("default-path rig seat continue", () => {
   });
 });
 
-describe("rig seat set-permissions", () => {
+describe("SoftwareTeam seat set-permissions", () => {
   it("posts the explicit operator with the existing mode and reason", async () => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const deps = makeDeps({ status: 200, data: { ok: true, changed: true, to: { mode: "floor" }, effect: "Future managed launches only." } }, calls);
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "set-permissions", "dev-impl@seat-rig",
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "set-permissions", "dev-impl@seat-software-team",
         "--mode", "floor", "--reason", "future launch choice", "--operator", "human@example.test"]);
     });
-    expect(calls).toEqual([{ path: "/api/seat/set-permissions/dev-impl%40seat-rig",
+    expect(calls).toEqual([{ path: "/api/seat/set-permissions/dev-impl%40seat-software-team",
       body: { mode: "floor", reason: "future launch choice", operator: "human@example.test" } }]);
     expect(logs.join("\n")).toContain("Permission mode: floor");
     expect(exitCode).toBeUndefined();
   });
 });
 
-describe("rig seat set-model", () => {
+describe("SoftwareTeam seat set-model", () => {
   it("posts model/reason/operator to /api/seat/set-model/<seat> and prints the from->to summary", async () => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const deps = makeDeps({
       status: 200,
-      data: { ok: true, seat: { logicalId: "dev.impl", rigName: "seat-rig" }, from: "fable", to: "claude-fable-5", changed: true },
+      data: { ok: true, seat: { logicalId: "dev.impl", softwareTeamName: "seat-software-team" }, from: "fable", to: "claude-fable-5", changed: true },
     }, calls);
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "set-model", "dev-impl@seat-rig", "--model", "claude-fable-5", "--reason", "alias migration", "--operator", "op@rig"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "set-model", "dev-impl@seat-software-team", "--model", "claude-fable-5", "--reason", "alias migration", "--operator", "op@software-team"]);
     });
-    expect(calls[0]!.path).toBe("/api/seat/set-model/dev-impl%40seat-rig");
-    expect(calls[0]!.body).toEqual({ model: "claude-fable-5", reason: "alias migration", operator: "op@rig" });
+    expect(calls[0]!.path).toBe("/api/seat/set-model/dev-impl%40seat-software-team");
+    expect(calls[0]!.body).toEqual({ model: "claude-fable-5", reason: "alias migration", operator: "op@software-team" });
     expect(exitCode).toBeUndefined();
     expect(logs.join("\n")).toContain("fable -> claude-fable-5");
   });
@@ -169,10 +169,10 @@ describe("rig seat set-model", () => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const deps = makeDeps({ status: 200, data: {} }, calls);
     await expect(
-      makeCommand(deps).parseAsync(["node", "rig", "seat", "set-model", "dev-impl@seat-rig", "--reason", "x"]),
+      makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "set-model", "dev-impl@seat-software-team", "--reason", "x"]),
     ).rejects.toThrow(/--model/);
     await expect(
-      makeCommand(deps).parseAsync(["node", "rig", "seat", "set-model", "dev-impl@seat-rig", "--model", "m"]),
+      makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "set-model", "dev-impl@seat-software-team", "--model", "m"]),
     ).rejects.toThrow(/--reason/);
     expect(calls).toHaveLength(0);
   });
@@ -181,19 +181,19 @@ describe("rig seat set-model", () => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const deps = makeDeps({
       status: 409,
-      data: { ok: false, code: "seat_ambiguous", message: 'Seat "dev.impl" matched multiple nodes', guidance: "List seats with: rig ps --nodes", matches: [{ rig_name: "a", logical_id: "dev.impl", current_occupant: null }] },
+      data: { ok: false, code: "seat_ambiguous", message: 'Seat "dev.impl" matched multiple nodes', guidance: "List seats with: SoftwareTeam ps --nodes", matches: [{ software_team_name: "a", logical_id: "dev.impl", current_occupant: null }] },
     }, calls);
     const { errors, exitCode } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "set-model", "dev.impl", "--model", "m", "--reason", "x"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "set-model", "dev.impl", "--model", "m", "--reason", "x"]);
     });
     expect(exitCode).toBe(1);
     expect(errors.join("\n")).toContain("matched multiple nodes");
-    expect(errors.join("\n")).toContain("rig ps --nodes");
+    expect(errors.join("\n")).toContain("SoftwareTeam ps --nodes");
   });
 });
 
-describe("rig seat set-effort", () => {
-  const seat = { logicalId: "dev.impl", rigName: "seat-rig" };
+describe("SoftwareTeam seat set-effort", () => {
+  const seat = { logicalId: "dev.impl", softwareTeamName: "seat-software-team" };
 
   it("posts effort/reason to /api/seat/set-effort/<seat> and keeps saved, emitted and observed apart", async () => {
     const calls: Array<{ path: string; body: unknown }> = [];
@@ -206,13 +206,13 @@ describe("rig seat set-effort", () => {
       },
     }, calls);
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "set-effort", "dev-impl@seat-rig", "--effort", "high", "--reason", "long refactor"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "set-effort", "dev-impl@seat-software-team", "--effort", "high", "--reason", "long refactor"]);
     });
-    expect(calls[0]!.path).toBe("/api/seat/set-effort/dev-impl%40seat-rig");
+    expect(calls[0]!.path).toBe("/api/seat/set-effort/dev-impl%40seat-software-team");
     expect(calls[0]!.body).toEqual({ effort: "high", reason: "long refactor" });
     expect(exitCode).toBeUndefined();
     const out = logs.join("\n");
-    expect(out).toContain("Effort for dev.impl@seat-rig: high (this seat's choice).");
+    expect(out).toContain("Effort for dev.impl@seat-software-team: high (this seat's choice).");
     expect(out).toContain("next managed continuation");
     expect(out).toContain("Seat running now. Emitted at launch: not yet. Native effort: not observed.");
   });
@@ -228,7 +228,7 @@ describe("rig seat set-effort", () => {
       },
     }, calls);
     const { logs } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "set-effort", "dev.impl", "--clear", "--reason", "back"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "set-effort", "dev.impl", "--clear", "--reason", "back"]);
     });
     expect(calls[0]!.body).toEqual({ clear: true, reason: "back" });
     expect(logs.join("\n")).toContain("no effort flag (runtime default)");
@@ -240,7 +240,7 @@ describe("rig seat set-effort", () => {
     const deps = makeDeps({ status: 200, data: {} }, calls);
     for (const extra of [[], ["--effort", "high", "--clear"]]) {
       const { errors, exitCode } = await captureLogs(async () => {
-        await makeCommand(deps).parseAsync(["node", "rig", "seat", "set-effort", "dev.impl", "--reason", "x", ...extra]);
+        await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "set-effort", "dev.impl", "--reason", "x", ...extra]);
       });
       expect(exitCode).toBe(1);
       expect(errors.join("\n")).toContain("exactly one of --effort <level> or --clear");
@@ -249,8 +249,8 @@ describe("rig seat set-effort", () => {
   });
 });
 
-describe("rig seat effort", () => {
-  const seat = { logicalId: "dev.impl", rigName: "seat-rig" };
+describe("SoftwareTeam seat effort", () => {
+  const seat = { logicalId: "dev.impl", softwareTeamName: "seat-software-team" };
 
   it("reads /api/seat/effort/<seat> and prints the four values apart, with NOT VERIFIED where native can't be seen", async () => {
     const calls: Array<{ path: string; body: unknown }> = [];
@@ -267,9 +267,9 @@ describe("rig seat effort", () => {
       },
     }, calls);
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "effort", "dev-impl@seat-rig"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "effort", "dev-impl@seat-software-team"]);
     });
-    expect(calls[0]!.path).toBe("/api/seat/effort/dev-impl%40seat-rig");
+    expect(calls[0]!.path).toBe("/api/seat/effort/dev-impl%40seat-software-team");
     expect(exitCode).toBeUndefined();
     const out = logs.join("\n");
     expect(out).toContain('Requested: high at 2026-10-13 05:50:00 ("long refactor")');
@@ -283,52 +283,52 @@ describe("rig seat effort", () => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const deps = makeDeps({ status: 409, data: { ok: false, code: "effort_unsupported_runtime", message: "Seat runs pi." } }, calls);
     const { exitCode } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "effort", "dev.pi"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "effort", "dev.pi"]);
     });
     expect(exitCode).toBe(1);
   });
 });
 
-describe("rig seat stop", () => {
+describe("SoftwareTeam seat stop", () => {
   it("posts reason to /api/seat/stop/<seat> and prints the stopped summary", async () => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const deps = makeDeps({
       status: 200,
-      data: { ok: true, seat: { logicalId: "dev.impl", rigName: "seat-rig" }, sessionName: "dev-impl@seat-rig", sessionId: "S1" },
+      data: { ok: true, seat: { logicalId: "dev.impl", softwareTeamName: "seat-software-team" }, sessionName: "dev-impl@seat-software-team", sessionId: "S1" },
     }, calls);
     const { logs } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "stop", "dev-impl@seat-rig", "--reason", "wave boundary"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "stop", "dev-impl@seat-software-team", "--reason", "wave boundary"]);
     });
-    expect(calls[0]!.path).toBe("/api/seat/stop/dev-impl%40seat-rig");
+    expect(calls[0]!.path).toBe("/api/seat/stop/dev-impl%40seat-software-team");
     expect(calls[0]!.body).toEqual({ reason: "wave boundary", operator: undefined });
-    expect(logs.join("\n")).toContain("Stopped dev-impl@seat-rig");
+    expect(logs.join("\n")).toContain("Stopped dev-impl@seat-software-team");
     expect(logs.join("\n")).toContain("siblings untouched");
   });
 
   it("--json passes the refusal through verbatim and exits 1", async () => {
     const calls: Array<{ path: string; body: unknown }> = [];
-    const refusal = { ok: false, code: "session_not_live", message: "not alive", guidance: "rig seat clean" };
+    const refusal = { ok: false, code: "session_not_live", message: "not alive", guidance: "SoftwareTeam seat clean" };
     const deps = makeDeps({ status: 409, data: refusal }, calls);
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "stop", "dev-impl@seat-rig", "--reason", "x", "--json"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "stop", "dev-impl@seat-software-team", "--reason", "x", "--json"]);
     });
     expect(exitCode).toBe(1);
     expect(JSON.parse(logs.join(""))).toEqual(refusal);
   });
 });
 
-describe("rig seat clean", () => {
+describe("SoftwareTeam seat clean", () => {
   it("posts reason to /api/seat/clean/<seat> and prints the actions summary", async () => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const deps = makeDeps({
       status: 200,
-      data: { ok: true, seat: { logicalId: "dev.impl", rigName: "seat-rig" }, actions: { sessionsExited: ["dev-impl@seat-rig"], bindingCleared: true } },
+      data: { ok: true, seat: { logicalId: "dev.impl", softwareTeamName: "seat-software-team" }, actions: { sessionsExited: ["dev-impl@seat-software-team"], bindingCleared: true } },
     }, calls);
     const { logs } = await captureLogs(async () => {
-      await makeCommand(deps).parseAsync(["node", "rig", "seat", "clean", "dev-impl@seat-rig", "--reason", "clean exit observed"]);
+      await makeCommand(deps).parseAsync(["node", "softwareTeam", "seat", "clean", "dev-impl@seat-software-team", "--reason", "clean exit observed"]);
     });
-    expect(calls[0]!.path).toBe("/api/seat/clean/dev-impl%40seat-rig");
-    expect(logs.join("\n")).toContain("Sessions marked exited: dev-impl@seat-rig");
+    expect(calls[0]!.path).toBe("/api/seat/clean/dev-impl%40seat-software-team");
+    expect(logs.join("\n")).toContain("Sessions marked exited: dev-impl@seat-software-team");
     expect(logs.join("\n")).toContain("binding cleared: yes");
     expect(logs.join("\n")).toContain("launchable again");
   });
@@ -345,7 +345,7 @@ describe("fresh launch preview", () => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const deps = makeDeps({ status: 200, data }, calls);
     const output = await captureLogs(() => makeCommand(deps).parseAsync([
-      "node", "rig", "seat", "launch", "dev@fixture", "--fresh", "--plan", ...(json ? ["--json"] : []),
+      "node", "softwareTeam", "seat", "launch", "dev@fixture", "--fresh", "--plan", ...(json ? ["--json"] : []),
     ]).then(() => undefined));
     expect(calls).toEqual([{ path: "/api/seat/launch-plan/dev%40fixture", body: { fresh: true, reason: undefined, stop: false, operator: undefined } }]);
     expect(output.exitCode).toBeUndefined();
@@ -365,7 +365,7 @@ describe("fresh launch preview", () => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const deps = makeDeps({ status: 404, data: { error: "Not Found" } }, calls);
     const output = await captureLogs(() => makeCommand(deps).parseAsync([
-      "node", "rig", "seat", "launch", "dev@fixture", "--fresh", "--plan", "--stop", "--reason", "optional preview reason", "--json",
+      "node", "softwareTeam", "seat", "launch", "dev@fixture", "--fresh", "--plan", "--stop", "--reason", "optional preview reason", "--json",
     ]).then(() => undefined));
     expect(output.exitCode).toBe(1);
     expect(calls).toHaveLength(1);
@@ -375,7 +375,7 @@ describe("fresh launch preview", () => {
   it("requires a reason for execution before contacting the daemon", async () => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const output = await captureLogs(() => makeCommand(makeDeps({ status: 200, data: {} }, calls)).parseAsync([
-      "node", "rig", "seat", "launch", "dev@fixture", "--fresh", "--json",
+      "node", "softwareTeam", "seat", "launch", "dev@fixture", "--fresh", "--json",
     ]).then(() => undefined));
     expect(output.exitCode).toBe(1);
     expect(JSON.parse(output.logs.join("\n"))).toMatchObject({ code: "missing_reason" });
@@ -383,10 +383,10 @@ describe("fresh launch preview", () => {
   });
 });
 
-describe("OPR.0.7.0.5 rig seat restart --keep-conversation", () => {
+describe("OPR.0.7.0.5 SoftwareTeam seat restart --keep-conversation", () => {
   const report = (outcome?: string) => ({
     ok: true, planOnly: outcome === undefined, ...(outcome ? { outcome } : {}), message: "Done.",
-    seat: { logicalId: "dev.codex", rigName: "r" }, sessionName: "dev-codex@r", pane: "%1", paneShape: "shell_backed",
+    seat: { logicalId: "dev.codex", softwareTeamName: "r" }, sessionName: "dev-codex@r", pane: "%1", paneShape: "shell_backed",
     conversationId: "tok", conversationProof: "argv", activity: { state: "working", detail: "Mid-turn." },
     childProcesses: [{ pid: 9, name: "node" }], codexHome: "/h/.codex", billingRoute: { detail: "Unknown." },
     account: { credentialStore: { detail: "File-backed." }, authFile: { detail: "Stat only." }, startupGate: null },
@@ -396,11 +396,11 @@ describe("OPR.0.7.0.5 rig seat restart --keep-conversation", () => {
   it("requires a reason before contacting the daemon, and refuses --plan with --verify", async () => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const missing = await captureLogs(() => makeCommand(makeDeps({ status: 200, data: {} }, calls)).parseAsync([
-      "node", "rig", "seat", "restart", "dev@r", "--keep-conversation", "--json"]).then(() => undefined));
+      "node", "softwareTeam", "seat", "restart", "dev@r", "--keep-conversation", "--json"]).then(() => undefined));
     expect(missing.exitCode).toBe(1);
     expect(JSON.parse(missing.logs.join("\n"))).toMatchObject({ code: "missing_reason" });
     const both = await captureLogs(() => makeCommand(makeDeps({ status: 200, data: {} }, calls)).parseAsync([
-      "node", "rig", "seat", "restart", "dev@r", "--keep-conversation", "--plan", "--verify"]).then(() => undefined));
+      "node", "softwareTeam", "seat", "restart", "dev@r", "--keep-conversation", "--plan", "--verify"]).then(() => undefined));
     expect(both.exitCode).toBe(1);
     expect(calls).toEqual([]);
   });
@@ -408,7 +408,7 @@ describe("OPR.0.7.0.5 rig seat restart --keep-conversation", () => {
   it("plan posts to restart-plan and prints activity, children and peers", async () => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const output = await captureLogs(() => makeCommand(makeDeps({ status: 200, data: report() }, calls)).parseAsync([
-      "node", "rig", "seat", "restart", "dev@r", "--keep-conversation", "--plan"]).then(() => undefined));
+      "node", "softwareTeam", "seat", "restart", "dev@r", "--keep-conversation", "--plan"]).then(() => undefined));
     expect(calls).toEqual([{ path: "/api/seat/restart-plan/dev%40r", body: {} }]);
     expect(output.exitCode).toBeUndefined();
     const text = output.logs.join("\n");
@@ -422,7 +422,7 @@ describe("OPR.0.7.0.5 rig seat restart --keep-conversation", () => {
   ] as const)("restart %s (json=%s) exits %s", async (outcome, json, exitCode) => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const output = await captureLogs(() => makeCommand(makeDeps({ status: 200, data: report(outcome) }, calls)).parseAsync([
-      "node", "rig", "seat", "restart", "dev@r", "--keep-conversation", "--reason", "new account", "--operator", "op@r",
+      "node", "softwareTeam", "seat", "restart", "dev@r", "--keep-conversation", "--reason", "new account", "--operator", "op@r",
       ...(json ? ["--json"] : [])]).then(() => undefined));
     expect(calls).toEqual([{ path: "/api/seat/restart/dev%40r", body: { reason: "new account", operator: "op@r" } }]);
     expect(output.exitCode).toBe(exitCode);
@@ -435,7 +435,7 @@ describe("OPR.0.7.0.5 rig seat restart --keep-conversation", () => {
     const data = { ...report(), staleRestart: { startedAt: "2026-10-12T20:59:59.000Z", detail: "Started before this daemon did." },
       lastRestart: { outcome: "native_unknown", finishedAt: "2026-10-12T21:00:00.000Z" } };
     const output = await captureLogs(() => makeCommand(makeDeps({ status: 200, data }, calls)).parseAsync([
-      "node", "rig", "seat", "restart", "dev@r", "--keep-conversation", "--plan"]).then(() => undefined));
+      "node", "softwareTeam", "seat", "restart", "dev@r", "--keep-conversation", "--plan"]).then(() => undefined));
     expect(output.logs.join("\n")).toContain("Stale restart from 2026-10-12T20:59:59.000Z: Started before this daemon did.");
     expect(output.logs.join("\n")).toContain("Last restart: native_unknown at 2026-10-12T21:00:00.000Z.");
   });
@@ -443,7 +443,7 @@ describe("OPR.0.7.0.5 rig seat restart --keep-conversation", () => {
   it("prints the pane and process state observed after a failed stop", async () => {
     const data = { ...report(), outcome: "incomplete", observedAfterStop: { pane: "gone", process: "exited", detail: "pane gone, original Codex exited" } };
     const output = await captureLogs(() => makeCommand(makeDeps({ status: 200, data }, [])).parseAsync([
-      "node", "rig", "seat", "restart", "dev@r", "--keep-conversation", "--reason", "x"]).then(() => undefined));
+      "node", "softwareTeam", "seat", "restart", "dev@r", "--keep-conversation", "--reason", "x"]).then(() => undefined));
     expect(output.logs.join("\n")).toContain("Observed after the stop: pane gone, original Codex exited.");
   });
 
@@ -452,7 +452,7 @@ describe("OPR.0.7.0.5 rig seat restart --keep-conversation", () => {
     const deps = makeDeps({ status: 200, data: {} }, []);
     deps.clientFactory = () => ({ post: vi.fn(async () => { throw new DaemonTimeoutError("slow"); }) }) as never;
     const output = await captureLogs(() => makeCommand(deps).parseAsync([
-      "node", "rig", "seat", "restart", "dev@r", "--keep-conversation", "--reason", "x", "--json"]).then(() => undefined));
+      "node", "softwareTeam", "seat", "restart", "dev@r", "--keep-conversation", "--reason", "x", "--json"]).then(() => undefined));
     expect(output.exitCode).toBe(1);
     expect(JSON.parse(output.logs.join("\n"))).toMatchObject({ code: "restart_outcome_unknown",
       guidance: expect.stringContaining("refuses with restart_in_progress while it is still running, then shows its result as lastRestart") });
@@ -462,7 +462,7 @@ describe("OPR.0.7.0.5 rig seat restart --keep-conversation", () => {
     const calls: Array<{ path: string; body: unknown }> = [];
     const data = { ok: true, outcome: "moved", message: "Moved.", toolTurn: { state: "observed", completed: 1, errors: 0 }, accountEvidence: { detail: "Matched." } };
     const output = await captureLogs(() => makeCommand(makeDeps({ status: 200, data }, calls)).parseAsync([
-      "node", "rig", "seat", "restart", "dev@r", "--keep-conversation", "--verify", "--expect-account", "me@example.com"]).then(() => undefined));
+      "node", "softwareTeam", "seat", "restart", "dev@r", "--keep-conversation", "--verify", "--expect-account", "me@example.com"]).then(() => undefined));
     expect(calls).toEqual([{ path: "/api/seat/restart-verify/dev%40r", body: { expectAccount: "me@example.com" } }]);
     expect(output.logs.join("\n")).toContain("moved: Moved.");
     expect(output.exitCode).toBeUndefined();
@@ -472,7 +472,7 @@ describe("OPR.0.7.0.5 rig seat restart --keep-conversation", () => {
     const data = { ok: true, outcome: "restarted_account_unverified", message: "Account unverified.", toolTurn: { state: "observed", completed: 1, errors: 0 }, accountEvidence: { detail: "Not matched." } };
     for (const json of [[], ["--json"]]) {
       const output = await captureLogs(() => makeCommand(makeDeps({ status: 200, data }, [])).parseAsync([
-        "node", "rig", "seat", "restart", "dev@r", "--keep-conversation", "--verify", "--expect-account", "me@example.com", ...json]).then(() => undefined));
+        "node", "softwareTeam", "seat", "restart", "dev@r", "--keep-conversation", "--verify", "--expect-account", "me@example.com", ...json]).then(() => undefined));
       expect(output.exitCode).toBe(1);
     }
   });

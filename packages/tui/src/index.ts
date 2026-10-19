@@ -1,6 +1,6 @@
 export * from "./types.js";
 export { parseCommand } from "./grammar.js";
-export { createViewState, defaultSections, emptySnapshot, computeExplorerRows, findAgent, findSpec, findRig, agentsRunningSpec, agentsRunningSpecTargets } from "./state.js";
+export { createViewState, defaultSections, emptySnapshot, computeExplorerRows, findAgent, findSpec, findSoftwareTeam, agentsRunningSpec, agentsRunningSpecTargets } from "./state.js";
 export { createInputDecoder, decodeInput, resolveKeyAction, sgrClick, MOUSE_ENABLE, MOUSE_DISABLE, ALT_SCREEN_ON, ALT_SCREEN_OFF } from "./input.js";
 export { renderScreen } from "./render.js";
 export { createControlSocket, defaultSocketPath, describeState, MAX_SOCKET_PATH_BYTES } from "./socket-server.js";

@@ -3,8 +3,8 @@ import type { MiddlewareHandler } from "hono";
 
 /**
  * OPR.0.4.3.21 — request-duration accounting for the EXPENSIVE topology
- * routes only (rigs summary/graph, per-rig nodes, ps). These are the densest
- * synchronous-CPU handlers (per-rig getNodeInventory fan-out, tmux
+ * routes only (softwareTeams summary/graph, per-softwareTeam nodes, ps). These are the densest
+ * synchronous-CPU handlers (per-softwareTeam getNodeInventory fan-out, tmux
  * attachAgentActivity) and are the prime suspects when the event loop starves.
  *
  * Reuse-first (ponytail): one lightweight `app.use` middleware, in-memory
@@ -27,20 +27,20 @@ export interface RouteTiming {
  * route is not one we account for. Pure so the labeling is unit-provable.
  *
  * Grounded at 719a059e (IMPL-SPEC §1.4):
- *  - GET /api/rigs/summary        (rigs.ts:163 per-rig getNodeInventory)
- *  - GET /api/rigs/:id/graph      (rigs.ts:205 attachAgentActivity tmux fan-out)
- *  - GET /api/rigs/:id/nodes      (sessions.ts:82 per-node enrichment)
+ *  - GET /api/software-teams/summary        (softwareTeams.ts:163 per-softwareTeam getNodeInventory)
+ *  - GET /api/software-teams/:id/graph      (softwareTeams.ts:205 attachAgentActivity tmux fan-out)
+ *  - GET /api/software-teams/:id/nodes      (sessions.ts:82 per-node enrichment)
  *  - GET /api/ps                  (ps-projection.ts:151 N+1 inventory)
  */
 export function expensiveRouteLabel(method: string, path: string): string | null {
   if (method !== "GET") return null;
   if (path === "/api/ps") return "GET /api/ps";
-  if (path === "/api/rigs") return "GET /api/rigs";
-  if (path === "/api/rigs/summary") return "GET /api/rigs/summary";
-  // /api/rigs/:id/graph and /api/rigs/:id/nodes — a single dynamic segment
-  // between /api/rigs/ and the trailing verb.
-  const rigsMatch = /^\/api\/rigs\/[^/]+\/(graph|nodes)$/.exec(path);
-  if (rigsMatch) return `GET /api/rigs/:id/${rigsMatch[1]}`;
+  if (path === "/api/software-teams") return "GET /api/software-teams";
+  if (path === "/api/software-teams/summary") return "GET /api/software-teams/summary";
+  // /api/software-teams/:id/graph and /api/software-teams/:id/nodes — a single dynamic segment
+  // between /api/software-teams/ and the trailing verb.
+  const softwareTeamsMatch = /^\/api\/software-teams\/[^/]+\/(graph|nodes)$/.exec(path);
+  if (softwareTeamsMatch) return `GET /api/software-teams/:id/${softwareTeamsMatch[1]}`;
   return null;
 }
 

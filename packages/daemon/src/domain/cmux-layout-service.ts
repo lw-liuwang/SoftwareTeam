@@ -1,7 +1,7 @@
 // Slice 24 — CmuxLayoutService.
 //
 // Algorithmic core of the "Launch in CMUX" feature. Three pure helpers
-// (computeLayout / chunkAgents / orderAgentsFromRigSpec) + the
+// (computeLayout / chunkAgents / orderAgentsFromSoftwareTeamSpec) + the
 // coordinated grid builder (buildWorkspacePanes, with buildWorkspace as
 // its tmux-attach wrapper) that drives the CmuxAdapter through
 // workspace.create + N-1 surface.split + N surface.sendText calls to
@@ -9,7 +9,7 @@
 // The terminal-provider ride reuses the same core with composer-built
 // pane commands (read-only -r / ssh-wrap preserved).
 //
-// Timing strategy (per slice 24 README §Daemon-side + cmux-rig-layout
+// Timing strategy (per slice 24 README §Daemon-side + cmux-softwareteam-layout
 // skill §5 gotchas):
 //   - After every splitSurface, wait OP_DELAY_MS so the freshly-created
 //     surface's shell reaches its prompt before the next operation
@@ -85,7 +85,7 @@ export interface BuildWorkspacePanesResult {
   equalized?: boolean;
 }
 
-export interface RigSpecLike {
+export interface SoftwareTeamSpecLike {
   pods?: Array<{
     id: string;
     members?: Array<{ id: string }>;
@@ -139,9 +139,9 @@ export class CmuxLayoutService {
     return chunks;
   }
 
-  static orderAgentsFromRigSpec(rigSpec: RigSpecLike): string[] {
+  static orderAgentsFromSoftwareTeamSpec(softwareTeamSpec: SoftwareTeamSpecLike): string[] {
     const out: string[] = [];
-    for (const pod of rigSpec.pods ?? []) {
+    for (const pod of softwareTeamSpec.pods ?? []) {
       for (const member of pod.members ?? []) {
         out.push(`${pod.id}.${member.id}`);
       }
@@ -179,7 +179,7 @@ export class CmuxLayoutService {
    *
    * `cols` overrides the column count (the terminal launcher passes the modal
    * Auto-grid `autoGridCols(N)` — PM ruling: the applied grid must match the
-   * modal preview). Omitted → the legacy 2-column rig-launch shape.
+   * modal preview). Omitted → the legacy 2-column software-team-launch shape.
    */
   async buildWorkspacePanes(
     workspaceName: string,
@@ -283,7 +283,7 @@ export class CmuxLayoutService {
     //    guarantees the terminal flushes the Enter character.
     await this.sleep(FINAL_SETTLE_MS);
 
-    // 6. Equalize — explicit-cols Auto-grid only (legacy 2-col rig-launch
+    // 6. Equalize — explicit-cols Auto-grid only (legacy 2-col software-team-launch
     //    stays byte-identical), for grids beyond 2 in either dimension
     //    (successive 50/50 binary splits land 50/25/25). VM-proven (PM
     //    ruling): equalization must run AFTER every pane command has landed

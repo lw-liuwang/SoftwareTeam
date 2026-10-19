@@ -26,23 +26,23 @@ describe("renderCrashCartView — mock-verbatim layout (demo)", () => {
 
   it("renders FOUND ON THIS HOST rows with aligned details", () => {
     expect(body).toContain("FOUND ON THIS HOST");
-    expect(body).toContain(" ▦ openrig-pm    13 seats · last active 08:11 · 7 sessions resumable");
+    expect(body).toContain(" ▦ softwareteam-pm    13 seats · last active 08:11 · 7 sessions resumable");
     expect(body).toContain(" ▦ kernel        4 seats · last active 08:12 · 4 sessions resumable");
     expect(body).toContain(" ▦ oversight     3 seats · last active 07:58 · 3 sessions resumable");
   });
 
   it("renders WHERE WORK STOPPED with the in-progress item then the idle-clean closer", () => {
     expect(body).toContain("WHERE WORK STOPPED (from the durable ledgers)");
-    expect(body).toContain(' ◌ pm-openrig — qitem in-progress: "cut packet assembly" (08:09)');
+    expect(body).toContain(' ◌ pm-softwareteam — qitem in-progress: "cut packet assembly" (08:09)');
     expect(body).toContain(" ✓ everything else idle-clean at stop");
   });
 
   it("renders the actions block: highlighted RESTORE EVERYTHING + the secondary keys", () => {
     expect(body).toContain(
-      " ⏎ RESTORE EVERYTHING — daemon + kernel + all rigs, sessions resumed in their seats ",
+      " ⏎ RESTORE EVERYTHING — daemon + kernel + all softwareTeams, sessions resumed in their seats ",
     );
     expect(body).toContain(
-      "  s start daemon only  ·  i inspect a rig  ·  n new here? onboarding (policy menu lives here now)",
+      "  s start daemon only  ·  i inspect a softwareTeam  ·  n new here? onboarding (policy menu lives here now)",
     );
   });
 
@@ -62,9 +62,9 @@ describe("renderCrashCartView — seg-paint intent (bold carries a token; select
     expect(warnSeg?.token).toBe("warn");
   });
 
-  it("the rig name seg carries a color token AND bold (never bold-only → never a paint no-op)", () => {
-    const rigLine = lines.find((l) => l.text.includes("openrig-pm"))!;
-    const nameSeg = rigLine.segs!.find((s) => s.text === "openrig-pm")!;
+  it("the SoftwareTeam name seg carries a color token AND bold (never bold-only → never a paint no-op)", () => {
+    const softwareTeamLine = lines.find((l) => l.text.includes("softwareteam-pm"))!;
+    const nameSeg = softwareTeamLine.segs!.find((s) => s.text === "softwareteam-pm")!;
     expect(nameSeg.bold).toBe(true);
     expect(nameSeg.token).toBeTruthy(); // has a color → won't render plain
   });
@@ -85,14 +85,14 @@ describe("buildCrashCartModel — adapt C2 discovery; honest-null → honest-unk
   const discovery: CrashCartDiscoveryInput = {
     header: { lastActivityAt: "2026-08-06T08:12:00Z" },
     foundOnHost: [
-      { rigName: "alpha", seatCount: 5, resumableCount: 3, lastActiveAt: "2026-08-06 07:58:00" },
+      { softwareTeamName: "alpha", seatCount: 5, resumableCount: 3, lastActiveAt: "2026-08-06 07:58:00" },
     ],
     whereWorkStopped: [
       { destinationSession: "worker@alpha", summary: "build X", tsUpdated: "2026-08-06T08:09:00Z" },
     ],
   };
 
-  it("maps last-seen/rigs/stopped and forces the two header slots to honest-unknown", () => {
+  it("maps last-seen/software-teams/stopped and forces the two header slots to honest-unknown", () => {
     const m = buildCrashCartModel(discovery);
     expect(m.header).toEqual({
       lastSeen: "08:12",

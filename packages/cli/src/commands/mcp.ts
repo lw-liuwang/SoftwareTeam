@@ -7,7 +7,7 @@ import { realDeps } from "./daemon.js";
 import type { StatusDeps } from "./status.js";
 
 /**
- * `rig mcp serve` — start MCP server wrapping the daemon API.
+ * `SoftwareTeam mcp serve` — start MCP server wrapping the daemon API.
  * @param depsOverride - injectable deps for testing
  * @returns Commander command
  */

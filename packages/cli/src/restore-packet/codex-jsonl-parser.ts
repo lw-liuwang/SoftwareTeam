@@ -30,7 +30,7 @@ import type {
 
 const PATH_PATTERNS: readonly RegExp[] = [
   /\/(?:Users|home)\/[^/\s]+\/[A-Za-z0-9._~:/@%+=,\- ]+/g,
-  /\b(?:packages|docs|scripts|test|tests|src|openrig-work|rigs|control-plane)\/[A-Za-z0-9._~:/@%+=,\-]+/g,
+  /\b(?:packages|docs|scripts|test|tests|src|softwareteam-work|softwareTeams|control-plane)\/[A-Za-z0-9._~:/@%+=,\-]+/g,
 ];
 
 function textFromContent(content: unknown): string {

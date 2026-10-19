@@ -14,48 +14,48 @@ const base: ChannelMapConfig = { channel: "C0DEFAULT" };
 const cfg: ChannelMapConfig = {
   ...base,
   channelMap: [
-    { match: "my-rig", channel: "C0EXAMPLE1" },
-    { match: "pr@my-rig", channel: "C0EXAMPLE2" },
-    { match: "other-rig", channel: "C0EXAMPLE3" },
+    { match: "my-software-team", channel: "C0EXAMPLE1" },
+    { match: "pr@my-software-team", channel: "C0EXAMPLE2" },
+    { match: "other-software-team", channel: "C0EXAMPLE3" },
   ],
 };
 
-describe("resolveOutboundChannel — seat, then rig, then default", () => {
-  it("an exact seat entry wins over its rig entry", () => {
-    expect(resolveOutboundChannel(cfg, "pr@my-rig")).toBe("C0EXAMPLE2");
+describe("resolveOutboundChannel — seat, then softwareTeam, then default", () => {
+  it("an exact seat entry wins over its SoftwareTeam entry", () => {
+    expect(resolveOutboundChannel(cfg, "pr@my-software-team")).toBe("C0EXAMPLE2");
   });
-  it("a seat without its own entry uses its rig's entry", () => {
-    expect(resolveOutboundChannel(cfg, "lead@my-rig")).toBe("C0EXAMPLE1");
-    expect(resolveOutboundChannel(cfg, "impl@other-rig")).toBe("C0EXAMPLE3");
+  it("a seat without its own entry uses its softwareTeam's entry", () => {
+    expect(resolveOutboundChannel(cfg, "lead@my-software-team")).toBe("C0EXAMPLE1");
+    expect(resolveOutboundChannel(cfg, "impl@other-software-team")).toBe("C0EXAMPLE3");
   });
-  it("an unmapped seat, a missing session and a bare rig name use the default", () => {
-    expect(resolveOutboundChannel(cfg, "lead@unmapped-rig")).toBe("C0DEFAULT");
+  it("an unmapped seat, a missing session and a bare SoftwareTeam name use the default", () => {
+    expect(resolveOutboundChannel(cfg, "lead@unmapped-software-team")).toBe("C0DEFAULT");
     expect(resolveOutboundChannel(cfg, null)).toBe("C0DEFAULT");
     expect(resolveOutboundChannel(cfg, undefined)).toBe("C0DEFAULT");
-    expect(resolveOutboundChannel(cfg, "my-rig")).toBe("C0DEFAULT"); // a bare rig name is not a seat
+    expect(resolveOutboundChannel(cfg, "my-software-team")).toBe("C0DEFAULT"); // a bare softwareTeam name is not a seat
   });
-  it("a rig entry never matches a seat whose member happens to equal the rig name", () => {
-    expect(resolveOutboundChannel(cfg, "my-rig@elsewhere")).toBe("C0DEFAULT");
+  it("a SoftwareTeam entry never matches a seat whose member happens to equal the SoftwareTeam name", () => {
+    expect(resolveOutboundChannel(cfg, "my-software-team@elsewhere")).toBe("C0DEFAULT");
   });
   it("no map is today's behaviour exactly", () => {
-    expect(resolveOutboundChannel(base, "pr@my-rig")).toBe("C0DEFAULT");
-    expect(resolveOutboundChannel({ ...base, channelMap: [] }, "pr@my-rig")).toBe("C0DEFAULT");
-    expect(resolveOutboundChannel({ channel: null }, "pr@my-rig")).toBeNull();
+    expect(resolveOutboundChannel(base, "pr@my-software-team")).toBe("C0DEFAULT");
+    expect(resolveOutboundChannel({ ...base, channelMap: [] }, "pr@my-software-team")).toBe("C0DEFAULT");
+    expect(resolveOutboundChannel({ channel: null }, "pr@my-software-team")).toBeNull();
   });
 });
 
 describe("mappedChannels — every unique channel, default first", () => {
   it("lists the default and each mapped channel once, naming what maps there", () => {
     const shared: ChannelMapConfig = { ...base, channelMap: [
-      { match: "my-rig", channel: "C0EXAMPLE1" },
-      { match: "other-rig", channel: "C0EXAMPLE1" },
-      { match: "pr@my-rig", channel: "C0EXAMPLE2" },
-      { match: "qa@my-rig", channel: "C0DEFAULT" },
+      { match: "my-software-team", channel: "C0EXAMPLE1" },
+      { match: "other-software-team", channel: "C0EXAMPLE1" },
+      { match: "pr@my-software-team", channel: "C0EXAMPLE2" },
+      { match: "qa@my-software-team", channel: "C0DEFAULT" },
     ] };
     expect(mappedChannels(shared)).toEqual([
-      { channel: "C0DEFAULT", isDefault: true, matches: ["qa@my-rig"] },
-      { channel: "C0EXAMPLE1", isDefault: false, matches: ["my-rig", "other-rig"] },
-      { channel: "C0EXAMPLE2", isDefault: false, matches: ["pr@my-rig"] },
+      { channel: "C0DEFAULT", isDefault: true, matches: ["qa@my-software-team"] },
+      { channel: "C0EXAMPLE1", isDefault: false, matches: ["my-software-team", "other-software-team"] },
+      { channel: "C0EXAMPLE2", isDefault: false, matches: ["pr@my-software-team"] },
     ]);
   });
   it("without a map it is the default channel alone; without any channel it is empty", () => {
@@ -73,51 +73,51 @@ describe("validateChannelMap — teaching errors", () => {
     expect(() => validateChannelMap(cfg)).not.toThrow();
   });
   it("rejects a non-array map and non-object entries", () => {
-    expect(() => validateChannelMap(withMap({ "my-rig": "C1" }))).toThrow(/must be an array/);
-    expect(() => validateChannelMap(withMap(["my-rig"]))).toThrow(/channelMap\[0\] must be an object/);
+    expect(() => validateChannelMap(withMap({ "my-software-team": "C1" }))).toThrow(/must be an array/);
+    expect(() => validateChannelMap(withMap(["my-software-team"]))).toThrow(/channelMap\[0\] must be an object/);
   });
-  it("rejects a match that is neither a rig name nor a member@rig seat", () => {
-    expect(() => validateChannelMap(withMap([{ match: "", channel: "C1" }]))).toThrow(/match must be a rig name/);
-    expect(() => validateChannelMap(withMap([{ match: "@my-rig", channel: "C1" }]))).toThrow(/is not a seat/);
+  it("rejects a match that is neither a SoftwareTeam name nor a member@software-team seat", () => {
+    expect(() => validateChannelMap(withMap([{ match: "", channel: "C1" }]))).toThrow(/match must be a SoftwareTeam name/);
+    expect(() => validateChannelMap(withMap([{ match: "@my-software-team", channel: "C1" }]))).toThrow(/is not a seat/);
     expect(() => validateChannelMap(withMap([{ match: "alice@external", channel: "C1" }]))).toThrow(/is not a seat/);
-    expect(() => validateChannelMap(withMap([{ match: "my rig", channel: "C1" }]))).toThrow(/rig name "my rig" contains " "/);
+    expect(() => validateChannelMap(withMap([{ match: "my softwareTeam", channel: "C1" }]))).toThrow(/SoftwareTeam name "my softwareTeam" contains " "/);
   });
   it("rejects a missing or malformed channel ID", () => {
-    expect(() => validateChannelMap(withMap([{ match: "my-rig" }]))).toThrow(/channel must be a Slack channel ID/);
-    expect(() => validateChannelMap(withMap([{ match: "my-rig", channel: "C1 C2" }]))).toThrow(/channel must be a Slack channel ID/);
+    expect(() => validateChannelMap(withMap([{ match: "my-software-team" }]))).toThrow(/channel must be a Slack channel ID/);
+    expect(() => validateChannelMap(withMap([{ match: "my-software-team", channel: "C1 C2" }]))).toThrow(/channel must be a Slack channel ID/);
   });
   it("rejects duplicate matches", () => {
-    expect(() => validateChannelMap(withMap([{ match: "my-rig", channel: "C1" }, { match: "my-rig", channel: "C2" }])))
-      .toThrow("channelMap has two entries for 'my-rig': edit slack-connector.json by hand and keep one entry");
+    expect(() => validateChannelMap(withMap([{ match: "my-software-team", channel: "C1" }, { match: "my-software-team", channel: "C2" }])))
+      .toThrow("channelMap has two entries for 'my-software-team': edit slack-connector.json by hand and keep one entry");
   });
   it("accepts several entries sharing one channel, including the default", () => {
     expect(() => validateChannelMap(withMap([
-      { match: "my-rig", channel: "C0EXAMPLE1" }, { match: "pr@my-rig", channel: "C0EXAMPLE1" }, { match: "qa@my-rig", channel: "C0DEFAULT" },
+      { match: "my-software-team", channel: "C0EXAMPLE1" }, { match: "pr@my-software-team", channel: "C0EXAMPLE1" }, { match: "qa@my-software-team", channel: "C0DEFAULT" },
     ]))).not.toThrow();
   });
   it("an unsupported entry field is refused when writing and ignored (but reported) when reading", () => {
-    const newer = withMap([{ match: "my-rig", channel: "C1", inbound: "lead@my-rig" }]);
-    expect(() => validateChannelMap(newer)).toThrow(/channelMap\[0\] \('my-rig'\) has unsupported field\(s\) inbound: slack-connector\.json was written by a newer OpenRig version\. Upgrade OpenRig, or edit the file by hand/);
+    const newer = withMap([{ match: "my-software-team", channel: "C1", inbound: "lead@my-software-team" }]);
+    expect(() => validateChannelMap(newer)).toThrow(/channelMap\[0\] \('my-software-team'\) has unsupported field\(s\) inbound: slack-connector\.json was written by a newer SoftwareTeam version\. Upgrade SoftwareTeam, or edit the file by hand/);
     expect(() => validateChannelMap(newer, { allowUnknownFields: true })).not.toThrow();
     expect(unsupportedChannelMapFields(newer)).toEqual(["channelMap[0].inbound"]);
     expect(unsupportedChannelMapFields(cfg)).toEqual([]);
     // Reading stays strict about everything else.
-    expect(() => validateChannelMap(withMap([{ match: "my-rig", inbound: "x@y" }]), { allowUnknownFields: true })).toThrow(/channel must be/);
+    expect(() => validateChannelMap(withMap([{ match: "my-software-team", inbound: "x@y" }]), { allowUnknownFields: true })).toThrow(/channel must be/);
   });
 });
 
 describe("setChannelMapEntry / removeChannelMapEntry", () => {
   it("set adds, then replaces in place, without mutating the input", () => {
-    const one = setChannelMapEntry(undefined, { match: "my-rig", channel: "C1" });
-    expect(one).toEqual([{ match: "my-rig", channel: "C1" }]);
-    const two = setChannelMapEntry(one, { match: "my-rig", channel: "C2" });
-    expect(two).toEqual([{ match: "my-rig", channel: "C2" }]);
-    expect(one).toEqual([{ match: "my-rig", channel: "C1" }]);
+    const one = setChannelMapEntry(undefined, { match: "my-software-team", channel: "C1" });
+    expect(one).toEqual([{ match: "my-software-team", channel: "C1" }]);
+    const two = setChannelMapEntry(one, { match: "my-software-team", channel: "C2" });
+    expect(two).toEqual([{ match: "my-software-team", channel: "C2" }]);
+    expect(one).toEqual([{ match: "my-software-team", channel: "C1" }]);
     const kept = setChannelMapEntry([{ match: "a", channel: "C1" }, { match: "b", channel: "C2" }], { match: "a", channel: "C3" });
     expect(kept.map((e) => e.match)).toEqual(["a", "b"]);
   });
   it("remove reports whether anything was removed", () => {
-    expect(removeChannelMapEntry([{ match: "my-rig", channel: "C1" }], "my-rig")).toEqual({ map: [], removed: true });
-    expect(removeChannelMapEntry(undefined, "my-rig")).toEqual({ map: [], removed: false });
+    expect(removeChannelMapEntry([{ match: "my-software-team", channel: "C1" }], "my-software-team")).toEqual({ map: [], removed: true });
+    expect(removeChannelMapEntry(undefined, "my-software-team")).toEqual({ map: [], removed: false });
   });
 });

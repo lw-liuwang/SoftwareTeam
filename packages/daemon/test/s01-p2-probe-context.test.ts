@@ -22,13 +22,13 @@ describe("P2 probe capture uses its entry context", () => {
         },
       } as unknown as TmuxAdapter;
       const input: Parameters<typeof probeSessionActivity>[0] = {
-        sessionName: "original@rig", runtime: "codex", attachmentType: "tmux", now: new Date(0),
+        sessionName: "original@software-team", runtime: "codex", attachmentType: "tmux", now: new Date(0),
         tmuxAdapter: originalAdapter,
         captureObserver: enabled ? { record: (r) => { observations.push(r); } } : undefined,
         binding: { nodeId: "n-original", occupant: "o-original", pane: "%7" },
       };
       const pending = probeSessionActivity(input);
-      if (mutation !== "adapter") input.sessionName = "successor@rig";
+      if (mutation !== "adapter") input.sessionName = "successor@software-team";
       if (mutation !== "target") input.tmuxAdapter = {
         capturePaneContent: async (name: string, lines: number) => {
           calls.push(["successorCapture", name, lines]);
@@ -42,13 +42,13 @@ describe("P2 probe capture uses its entry context", () => {
       }
       release(true);
       const value = await pending;
-      expect(calls).toEqual([["hasSession", "original@rig"], ["originalCapture", "original@rig", 20]]);
+      expect(calls).toEqual([["hasSession", "original@software-team"], ["originalCapture", "original@software-team", 20]]);
       expect(value).toMatchObject({ sampledAt: new Date(0).toISOString(), reason: "idle_prompt" });
       expect(successor).toHaveLength(0);
       expect(observations).toHaveLength(enabled ? 1 : 0);
       if (enabled) expect(observations[0]).toMatchObject({
-        binding: { sessionName: "original@rig", nodeId: "n-original", occupant: "o-original", pane: "%7" },
-        runtime: "codex", pre: { content: "bytes from original@rig\n❯ " },
+        binding: { sessionName: "original@software-team", nodeId: "n-original", occupant: "o-original", pane: "%7" },
+        runtime: "codex", pre: { content: "bytes from original@software-team\n❯ " },
       });
     });
   }

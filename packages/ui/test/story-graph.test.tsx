@@ -12,8 +12,8 @@ function qitem(p: Partial<StoryQitemInput> & { qitemId: string }): StoryQitemInp
   return {
     tsCreated: "2026-06-23T02:00:00.000Z",
     tsUpdated: "2026-06-23T02:00:00.000Z",
-    sourceSession: "dev1-planner@openrig-delivery",
-    destinationSession: "dev1-driver@openrig-delivery",
+    sourceSession: "dev1-planner@softwareteam-delivery",
+    destinationSession: "dev1-driver@softwareteam-delivery",
     state: "done",
     closureReason: "no-follow-on",
     tags: [],
@@ -58,12 +58,12 @@ describe("StoryGraph", () => {
 
   it("marks the human-origin lane and expands a row into the full-width bands + drawer link", () => {
     const forest = buildStoryForest([
-      qitem({ qitemId: "spine", chainOfRecord: null, sourceSession: "orch-advisor@openrig-delivery" }),
+      qitem({ qitemId: "spine", chainOfRecord: null, sourceSession: "orch-advisor@softwareteam-delivery" }),
       qitem({
         qitemId: "human",
         chainOfRecord: null,
         sourceSession: "founder",
-        destinationSession: "dev2-driver@openrig-delivery",
+        destinationSession: "dev2-driver@softwareteam-delivery",
         tags: ["human-origin", "terminal-fix"],
         body: "Founder routed a terminal fix to dev2.",
         tsCreated: "2026-06-23T04:00:00.000Z",
@@ -112,7 +112,7 @@ describe("StoryGraph", () => {
         qitemId: "full",
         chainOfRecord: ["root-q"],
         claimedAt: "2026-06-23T02:30:00.000Z",
-        targetRepo: "openrig",
+        targetRepo: "softwareteam",
         body: "agent-speak body",
       }),
     ]);
@@ -129,7 +129,7 @@ describe("StoryGraph", () => {
     expect(arg.data.fullDetail).toBe(true);
     expect(arg.data.chain).toContain("root-q");
     expect(arg.data.claimedAt).toBe("2026-06-23T02:30:00.000Z");
-    expect(arg.data.targetRepo).toBe("openrig");
+    expect(arg.data.targetRepo).toBe("softwareteam");
   });
 });
 
@@ -139,8 +139,8 @@ describe("Story Tier-3 drawer (QueueItemViewer full detail)", () => {
     const { getByTestId } = render(
       <QueueItemViewer
         qitemId="qitem-Z"
-        source="dev1-driver@openrig-delivery"
-        destination="dev1-guard@openrig-delivery"
+        source="dev1-driver@softwareteam-delivery"
+        destination="dev1-guard@softwareteam-delivery"
         state="handed-off"
         tags={["slice-19"]}
         createdAt="2026-06-23T02:00:00.000Z"
@@ -148,9 +148,9 @@ describe("Story Tier-3 drawer (QueueItemViewer full detail)", () => {
         priority="urgent"
         tier="fast"
         closureReason="handed_off_to"
-        closureTarget="dev1-guard@openrig-delivery"
+        closureTarget="dev1-guard@softwareteam-delivery"
         handedOffFrom="qitem-Y"
-        targetRepo="openrig"
+        targetRepo="softwareteam"
         chain={["qitem-W", "qitem-Y"]}
         body="full agent-speak body"
         fullDetail
@@ -158,7 +158,7 @@ describe("Story Tier-3 drawer (QueueItemViewer full detail)", () => {
     );
     expect(getByTestId("qitem-priority").textContent).toContain("urgent");
     expect(getByTestId("qitem-closure").textContent).toContain("handed_off_to");
-    expect(getByTestId("qitem-targetrepo").textContent).toContain("openrig");
+    expect(getByTestId("qitem-targetrepo").textContent).toContain("softwareteam");
     const chain = getByTestId("qitem-chain");
     expect(chain.textContent).toContain("qitem-W");
     expect(chain.textContent).toContain("qitem-Y");

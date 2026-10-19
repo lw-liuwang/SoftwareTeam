@@ -1,4 +1,4 @@
-import type { RigRepository } from "./rig-repository.js";
+import type { SoftwareTeamRepository } from "./software-team-repository.js";
 import type { SessionRegistry } from "./session-registry.js";
 import type { CmuxAdapter, CmuxResult } from "../adapters/cmux.js";
 import type { TmuxAdapter } from "../adapters/tmux.js";
@@ -16,7 +16,7 @@ export interface OpenCmuxResult {
 export class NodeCmuxService {
   private tmuxAdapter: TmuxAdapter | null;
   constructor(
-    private rigRepo: RigRepository,
+    private softwareTeamRepo: SoftwareTeamRepository,
     private sessionRegistry: SessionRegistry,
     private cmuxAdapter: CmuxAdapter,
     tmuxAdapter?: TmuxAdapter,
@@ -24,11 +24,11 @@ export class NodeCmuxService {
     this.tmuxAdapter = tmuxAdapter ?? null;
   }
 
-  async openOrFocusNodeSurface(rigId: string, logicalId: string): Promise<OpenCmuxResult> {
-    const rig = this.rigRepo.getRig(rigId);
-    if (!rig) return { ok: false, error: "rig not found", code: "not_found" };
+  async openOrFocusNodeSurface(softwareTeamId: string, logicalId: string): Promise<OpenCmuxResult> {
+    const softwareTeam = this.softwareTeamRepo.getSoftwareTeam(softwareTeamId);
+    if (!softwareTeam) return { ok: false, error: "SoftwareTeam not found", code: "not_found" };
 
-    const node = rig.nodes.find((n) => n.logicalId === logicalId);
+    const node = softwareTeam.nodes.find((n) => n.logicalId === logicalId);
     if (!node) return { ok: false, error: "node not found", code: "not_found" };
 
     const binding = node.binding;
@@ -67,7 +67,7 @@ export class NodeCmuxService {
     // Resolve a workspace anchor for the new surface. OPR.0.4.1.31 part A —
     // node open-in-cmux previously anchored ONLY on currentWorkspace(), so when
     // no cmux workspace was current EVERY unbound row failed before the
-    // node-specific attach (only rig-level Launch-in-CMUX created one). Now we
+    // node-specific attach (only software-team-level Launch-in-CMUX created one). Now we
     // resolve an anchor: current if present, else select an existing workspace,
     // else create + select one, so the surface lands in a VISIBLE workspace.
     const wsResult = await this.resolveWorkspaceAnchor();
@@ -105,9 +105,9 @@ export class NodeCmuxService {
       `# Helper console for ${sessionName}`,
       `# This node is externally attached — no direct terminal session available.`,
       `# Useful commands:`,
-      `rig capture ${sessionName}`,
-      `rig transcript ${sessionName} --tail 100`,
-      `rig send ${sessionName} "..." --verify`,
+      `SoftwareTeam capture ${sessionName}`,
+      `SoftwareTeam transcript ${sessionName} --tail 100`,
+      `SoftwareTeam send ${sessionName} "..." --verify`,
     ].join("\n");
     const sendResult = await this.cmuxAdapter.sendText(newSurfaceId, helperText, wsResult.data);
     if (!sendResult.ok) return { ok: false, error: sendResult.message, code: sendResult.code };
@@ -133,11 +133,11 @@ export class NodeCmuxService {
   // allow that RPC, so calling it would throw on the real path (dev1-guard B1).
   // The official socket API lists workspace.select, but the external docs are not
   // sufficient — the integration surface must actually expose it. If create
-  // fails, the honest error surfaces (the operator can use rig-level Launch-in-CMUX).
+  // fails, the honest error surfaces (the operator can use software-team-level Launch-in-CMUX).
   private async resolveWorkspaceAnchor(): Promise<CmuxResult<string>> {
     const current = await this.cmuxAdapter.currentWorkspace();
     if (current.ok) return current;
     if (current.code === "unavailable") return current;
-    return this.cmuxAdapter.createWorkspace("OpenRig");
+    return this.cmuxAdapter.createWorkspace("SoftwareTeam");
   }
 }

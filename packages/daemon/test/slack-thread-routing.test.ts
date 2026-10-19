@@ -40,10 +40,10 @@ const flush = () => new Promise((r) => setTimeout(r, 5));
 describe("thread↔seat map — exact-lookup semantics", () => {
   it("open → resolveByThread → close: state transitions, mapping never lost", () => {
     const map = new ThreadSeatMap(mapDb(), clock);
-    map.open({ threadTs: "T1", channel: "C1", human: "human-founder@kernel", seat: "dev-driver@v-openrig-build", conversationId: "qitem-1" });
-    expect(map.resolveByThread("T1")).toMatchObject({ seat: "dev-driver@v-openrig-build", state: "open" });
+    map.open({ threadTs: "T1", channel: "C1", human: "human-founder@kernel", seat: "dev-driver@v-softwareteam-build", conversationId: "qitem-1" });
+    expect(map.resolveByThread("T1")).toMatchObject({ seat: "dev-driver@v-softwareteam-build", state: "open" });
     map.close("T1");
-    expect(map.resolveByThread("T1")).toMatchObject({ seat: "dev-driver@v-openrig-build", state: "closed" }); // closed ≠ unmapped
+    expect(map.resolveByThread("T1")).toMatchObject({ seat: "dev-driver@v-softwareteam-build", state: "closed" }); // closed ≠ unmapped
   });
 
   it("open is idempotent on thread_ts (a replayed root keeps ONE row, the first mapping)", () => {
@@ -111,11 +111,11 @@ describe("thread↔seat map — exact-lookup semantics", () => {
     map.open({ threadTs: "T1", channel: "C1", human: "h1", seat: "s1", conversationId: "q1" });
     map.recordPart({ messageTs: "P2", channel: "C1", threadTs: "T1", seat: "s1", conversationId: "q1" }); // q1's own reply part
     map.recordPart({ messageTs: "P3", channel: "C1", threadTs: "T1", seat: "s2", conversationId: "q2" }); // q2, posted into q1's thread
-    const route = makeThreadRouteResolver({ map, unroutedDestination: "orch@rig" });
+    const route = makeThreadRouteResolver({ map, unroutedDestination: "orch@software-team" });
     expect(route({ type: "reaction_added", thread_ts: "P2", channel: "C1" } as never)).toMatchObject({ destination: "s1", correlationQitemId: "q1" });
     // Not the thread owner's: the ask the message was posted for.
     expect(route({ type: "reaction_added", thread_ts: "P3", channel: "C1" } as never)).toMatchObject({ destination: "s2", correlationQitemId: "q2" });
-    // A person's reply in the thread was not posted by OpenRig; the same ts in another channel is another message.
+    // A person's reply in the thread was not posted by SoftwareTeam; the same ts in another channel is another message.
     expect(route({ type: "reaction_added", thread_ts: "R9", channel: "C1" } as never).routeClass).toBe("unmapped-thread");
     expect(route({ type: "reaction_added", thread_ts: "P2", channel: "C-OTHER" } as never).routeClass).toBe("unmapped-thread");
     // A typed reply keeps routing by its thread root only.
@@ -151,8 +151,8 @@ describe("thread↔seat map — exact-lookup semantics", () => {
 describe("inbound routing — the four classes, wrong-seat ABSENCE pinned", () => {
   function harness() {
     const map = new ThreadSeatMap(mapDb(), clock);
-    map.open({ threadTs: "T-OPEN", channel: "C1", human: "mike@external", seat: "dev-driver@v-openrig-build", conversationId: "q-open" });
-    map.open({ threadTs: "T-CLOSED", channel: "C1", human: "mike@external", seat: "review-r1@v-openrig-build", conversationId: "q-closed" });
+    map.open({ threadTs: "T-OPEN", channel: "C1", human: "mike@external", seat: "dev-driver@v-softwareteam-build", conversationId: "q-open" });
+    map.open({ threadTs: "T-CLOSED", channel: "C1", human: "mike@external", seat: "review-r1@v-softwareteam-build", conversationId: "q-closed" });
     map.close("T-CLOSED");
     const creates: { destination: string; tags?: string[] }[] = [];
     const fs = memFs();
@@ -160,9 +160,9 @@ describe("inbound routing — the four classes, wrong-seat ABSENCE pinned", () =
       queue: { createQitem: async (i) => { creates.push({ destination: i.destination, tags: i.tags }); return `qitem-${creates.length}`; } },
       seen: new SeenStore("/s.jsonl", fs, clock),
       deadLetter: new DeadLetterStore<SlackEvent>("/d.jsonl", fs, clock),
-      destination: "orch-lead@v-openrig-build",
+      destination: "orch-lead@v-softwareteam-build",
       resolveSender: () => ({ admitted: true, source: "mike@external" }),
-      resolveRoute: makeThreadRouteResolver({ map, unroutedDestination: "orch-lead@v-openrig-build" }),
+      resolveRoute: makeThreadRouteResolver({ map, unroutedDestination: "orch-lead@v-softwareteam-build" }),
     });
     return { router, creates };
   }
@@ -172,7 +172,7 @@ describe("inbound routing — the four classes, wrong-seat ABSENCE pinned", () =
     const { router, creates } = harness();
     await router.route(ev("1.1", "T-OPEN"));
     expect(creates).toHaveLength(1);
-    expect(creates[0]!.destination).toBe("dev-driver@v-openrig-build");
+    expect(creates[0]!.destination).toBe("dev-driver@v-softwareteam-build");
     expect(creates[0]!.tags).toContain("thread");
     expect(creates[0]!.tags).toContain("reply-to:q-open");
     expect(creates[0]!.tags).not.toContain("unrouted-signal");
@@ -181,25 +181,25 @@ describe("inbound routing — the four classes, wrong-seat ABSENCE pinned", () =
   it("CLOSED thread: STILL exactly the mapped seat (closure is not a routing black hole)", async () => {
     const { router, creates } = harness();
     await router.route(ev("2.1", "T-CLOSED"));
-    expect(creates[0]!.destination).toBe("review-r1@v-openrig-build");
+    expect(creates[0]!.destination).toBe("review-r1@v-softwareteam-build");
   });
 
   it("UNMAPPED thread: the orchestrator unrouted-signal row — never dropped, never a guessed seat", async () => {
     const { router, creates } = harness();
     const r = await router.route(ev("3.1", "T-NEVER-SEEN"));
     expect(r.landed).toBe(true); // never dropped
-    expect(creates[0]!.destination).toBe("orch-lead@v-openrig-build");
+    expect(creates[0]!.destination).toBe("orch-lead@v-softwareteam-build");
     expect(creates[0]!.tags).toContain("unrouted-signal");
     // wrong-seat absence: no mapped seat received it
-    expect(creates[0]!.destination).not.toBe("dev-driver@v-openrig-build");
-    expect(creates[0]!.destination).not.toBe("review-r1@v-openrig-build");
+    expect(creates[0]!.destination).not.toBe("dev-driver@v-softwareteam-build");
+    expect(creates[0]!.destination).not.toBe("review-r1@v-softwareteam-build");
   });
 
   it("HUMAN-INITIATED (no thread_ts): unrouted-signal row, landed, never guessed", async () => {
     const { router, creates } = harness();
     const r = await router.route(ev("4.1"));
     expect(r.landed).toBe(true);
-    expect(creates[0]!.destination).toBe("orch-lead@v-openrig-build");
+    expect(creates[0]!.destination).toBe("orch-lead@v-softwareteam-build");
     expect(creates[0]!.tags).toContain("unrouted-signal");
   });
 });
@@ -240,7 +240,7 @@ describe("outbound threading through the REAL delivery path (one reply root per 
       },
     });
     const wire = buildInProcessWire({ home, ops: [OUTBOUND_OP], deliver });
-    const payload = (q: string) => ({ qitemId: q, summary: "s", body: "b", destinationSession: "mike@external", sourceSession: "dev-driver@v-openrig-build" });
+    const payload = (q: string) => ({ qitemId: q, summary: "s", body: "b", destinationSession: "mike@external", sourceSession: "dev-driver@v-softwareteam-build" });
     wire.dispatcher.dispatch(OUTBOUND_OP, "mike@external", payload("q1"));
     await flush();
     expect(bodies[0]!.thread_ts).toBeUndefined(); // class: NEW conversation — a fresh root
@@ -283,13 +283,13 @@ describe("#192 channel map — one resolved channel per post (post, reconcile sc
     const roots: string[] = [];
     const deliver = subsystemSlackDeliver({
       botToken: "xoxb-EXAMPLE-fake", channel: "C0DEFAULT", sourceLabel: "vm", fetchImpl,
-      resolveChannel: (p) => (p.sourceSession === "pr@my-rig" ? "C0EXAMPLE2" : "C0DEFAULT"),
+      resolveChannel: (p) => (p.sourceSession === "pr@my-software-team" ? "C0EXAMPLE2" : "C0DEFAULT"),
       delivered: new SeenStore("/del.jsonl", fsx, clock), attempted, outboundSeen: new SeenStore("/seen.jsonl", fsx, clock),
       readLocalImage: () => ({ bytes: new Uint8Array([1, 2, 3]), filename: "shot.png" }),
       onPostedRoot: (_p, ts, channel) => { roots.push(`${channel}:${ts}`); },
     });
     const outcome = await deliver({ decisionId: "d-1", op: OUTBOUND_OP, entityBindingRef: "mike@external",
-      payload: { qitemId: "q1", summary: "s", body: "b", destinationSession: "mike@external", sourceSession: "pr@my-rig", evidenceRef: "/tmp/shot.png" } } as never);
+      payload: { qitemId: "q1", summary: "s", body: "b", destinationSession: "mike@external", sourceSession: "pr@my-software-team", evidenceRef: "/tmp/shot.png" } } as never);
     expect(outcome).toEqual({ ok: true });
     const channelOf = (method: string) => calls.filter((c) => c.method === method).map((c) => c.body.channel ?? c.body.channel_id);
     expect(channelOf("conversations.history")).toEqual(["C0EXAMPLE2"]);

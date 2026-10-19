@@ -16,9 +16,9 @@ it.each(['return','exit','errexit'])('keeps pane environment, lifetime and histo
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'claude-isolation-'));const socket=path.join(root,'tmux');const status=path.join(root,'status');const before=path.join(root,'before');const after=path.join(root,'after');const history=path.join(root,'history');const unreachable=path.join(root,'unreachable');
  const env={HOME:root,PATH:process.env.PATH!,TMPDIR:root,TERM:'xterm-256color'};
  const tm=async(args:string[])=>(await run('tmux',['-S',socket,'-f','/dev/null',...args],{env,timeout:8000})).stdout;
- const snapshot=`printf '%s|' "$$" "$FIXTURE_MUTATION" "$OPENRIG_HOME" "$PWD" "$-" "$HISTFILE"`;
+ const snapshot=`printf '%s|' "$$" "$FIXTURE_MUTATION" "$SOFTWARETEAM_HOME" "$PWD" "$-" "$HISTFILE"`;
  const rc=path.join(root,'bashrc');fs.writeFileSync(history,'prior-history-sentinel\n');
- fs.writeFileSync(rc,`cd ${q(root)}\nexport FIXTURE_MUTATION=parent OPENRIG_HOME=parent-home HISTFILE=${q(history)}\nHISTSIZE=1000\nHISTFILESIZE=1000\nset -o history\nhistory -r\nPS1='FIXTURE> '\n${snapshot} > ${q(before)}\nPROMPT_COMMAND='echo "$?" > ${status}'\n`);
+ fs.writeFileSync(rc,`cd ${q(root)}\nexport FIXTURE_MUTATION=parent SOFTWARETEAM_HOME=parent-home HISTFILE=${q(history)}\nHISTSIZE=1000\nHISTFILESIZE=1000\nset -o history\nhistory -r\nPS1='FIXTURE> '\n${snapshot} > ${q(before)}\nPROMPT_COMMAND='echo "$?" > ${status}'\n`);
  const writes:Array<{path:string,content:string,mode:number,uid:number}>=[];
  const ops:TmuxFileOps={tmpName:()=>path.join(root,'stage-'+randomUUID()),bufferName:()=>('fixture_'+randomUUID().replaceAll('-','')),writeFile:async(p,c,o)=>{await fs.promises.writeFile(p,c,{encoding:'utf8',...o});const st=fs.statSync(p);writes.push({path:p,content:c,mode:st.mode&0o777,uid:st.uid});},unlink:p=>fs.promises.unlink(p)};
  const transport=new TmuxAdapter(async cmd=>{if(!cmd.startsWith('tmux '))throw Error('unexpected fixture command');return(await run('/bin/sh',['-c',cmd.replace(/^tmux /,`tmux -S ${q(socket)} -f /dev/null `)],{env,timeout:8000})).stdout;},ops);
@@ -46,7 +46,7 @@ it.each(['return','exit','errexit'])('keeps pane environment, lifetime and histo
   if(ordinaryFlush)expect(ordinaryHistory).toContain(ordinary);
   console.log('CLAUDE_HISTORY_CONTROL='+JSON.stringify({kind,ordinaryFlush,priorHistoryPreserved:true}));
   fs.unlinkSync(status);writes.length=0;
-  const body='#'+ 'x'.repeat(4096)+String.fromCharCode(10)+`export FIXTURE_MUTATION=child OPENRIG_HOME=child-home; cd /; `+(kind==='exit'?'exit 7':kind==='errexit'?`set -e; false; printf unexpected > ${q(unreachable)}`:':');
+  const body='#'+ 'x'.repeat(4096)+String.fromCharCode(10)+`export FIXTURE_MUTATION=child SOFTWARETEAM_HOME=child-home; cd /; `+(kind==='exit'?'exit 7':kind==='errexit'?`set -e; false; printf unexpected > ${q(unreachable)}`:':');
   expect(await transport.sendShellCommand('pane',body,undefined,{sourceInPane:true})).toEqual({ok:true});await until(()=>fs.existsSync(status));
   const exit=Number(fs.readFileSync(status,'utf8').trim());expect(exit).toBe(kind==='exit'?7:kind==='errexit'?1:0);expect(fs.existsSync(unreachable)).toBe(false);
   expect(writes).toHaveLength(2);const [script,payload]=writes;expect(Buffer.byteLength(script.content)).toBeGreaterThan(4096);expect(script.mode).toBe(0o600);expect(payload.mode).toBe(0o600);expect(script.uid).toBe(process.getuid!());expect(payload.uid).toBe(process.getuid!());

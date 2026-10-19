@@ -76,9 +76,9 @@ describe("Discover + Claim CLI", () => {
             { id: "ds-1", tmuxSession: "organic", tmuxPane: "%0", runtimeHint: "claude-code", confidence: "high", cwd: "/projects" },
           ],
         }));
-      } else if (req.url === "/api/discovery/draft-rig" && req.method === "POST") {
+      } else if (req.url === "/api/discovery/draft-software-team" && req.method === "POST") {
         res.writeHead(200, { "Content-Type": "text/yaml" });
-        res.end("# WARNING: Excluded session 'unknown': runtime could not be determined.\nname: draft-rig\n");
+        res.end("# WARNING: Excluded session 'unknown': runtime could not be determined.\nname: draft-software-team\n");
       } else if (req.url?.match(/\/api\/discovery\/ds-1\/bind/) && req.method === "POST") {
         res.writeHead(201, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: true, nodeId: "node-1", sessionId: "sess-1" }));
@@ -100,7 +100,7 @@ describe("Discover + Claim CLI", () => {
     prog.addCommand(discoverCommand(runningDeps(port)));
 
     const { logs } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "discover"]);
+      await prog.parseAsync(["node", "softwareTeam", "discover"]);
     });
 
     expect(logs.some((l) => l.includes("DISCOVERED SESSIONS"))).toBe(true);
@@ -115,7 +115,7 @@ describe("Discover + Claim CLI", () => {
     prog.addCommand(discoverCommand(runningDeps(port)));
 
     const { logs } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "discover", "--json"]);
+      await prog.parseAsync(["node", "softwareTeam", "discover", "--json"]);
     });
 
     const parsed = JSON.parse(logs.join(""));
@@ -129,13 +129,13 @@ describe("Discover + Claim CLI", () => {
     prog.addCommand(discoverCommand(runningDeps(port)));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "discover", "--draft"]);
+      await prog.parseAsync(["node", "softwareTeam", "discover", "--draft"]);
     });
 
     const output = logs.join("\n");
     expect(exitCode).toBeUndefined();
     expect(output).toContain("# WARNING: Excluded session 'unknown'");
-    expect(output).toContain("name: draft-rig");
+    expect(output).toContain("name: draft-software-team");
   });
 
   // T10: claim success
@@ -155,7 +155,7 @@ describe("Discover + Claim CLI", () => {
     prog.addCommand(discoverCommand(runningDeps(failPort)));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "discover"]);
+      await prog.parseAsync(["node", "softwareTeam", "discover"]);
     });
 
     expect(exitCode).toBe(1);
@@ -172,7 +172,7 @@ describe("Discover + Claim CLI", () => {
     prog.addCommand(bindCommand(runningDeps(port)));
 
     const { logs } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "bind", "ds-1", "--rig", "rig-1", "--node", "orch.lead"]);
+      await prog.parseAsync(["node", "softwareTeam", "bind", "ds-1", "--software-team", "software-team-1", "--node", "orch.lead"]);
     });
 
     expect(logs.some((l) => l.includes("Bound discovery"))).toBe(true);

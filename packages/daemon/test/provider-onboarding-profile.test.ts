@@ -63,9 +63,9 @@ profiles:
 describe("provider-shaped onboarding profiles", () => {
   let tmp: string;
   let app: Hono;
-  const savedWorkspace = process.env["OPENRIG_WORKSPACE_ROOT"];
-  const savedSlices = process.env["OPENRIG_WORKSPACE_SLICES_ROOT"];
-  const savedTopology = process.env["OPENRIG_TOPOLOGY_ROOT"];
+  const savedWorkspace = process.env["SOFTWARETEAM_WORKSPACE_ROOT"];
+  const savedSlices = process.env["SOFTWARETEAM_WORKSPACE_SLICES_ROOT"];
+  const savedTopology = process.env["SOFTWARETEAM_TOPOLOGY_ROOT"];
 
   beforeEach(() => {
     tmp = mkdtempSync(join(tmpdir(), "provider-onboarding-profile-"));
@@ -75,7 +75,7 @@ describe("provider-shaped onboarding profiles", () => {
     writeFileSync(join(packDir, "manifest.yaml"), MANIFEST);
     writeFileSync(join(packDir, "world.md"), [
       "## Bootstrap",
-      "This is an OpenRig environment. Context is addressable.",
+      "This is an SoftwareTeam environment. Context is addressable.",
       "## Guided Reasoning",
       "The fuller walk explains why the operating model has this shape.",
       "## Proof Source",
@@ -93,7 +93,7 @@ describe("provider-shaped onboarding profiles", () => {
     mkdirSync(sliceDir, { recursive: true });
     writeFileSync(join(workspace, "SPEC.md"), "# Project\nProject intent sentinel");
     writeFileSync(join(workspace, "context", "authority.md"), "# Authority\nProject authority sentinel");
-    writeFileSync(join(workspace, "project.yaml"), `schema: openrig.project/v0alpha1
+    writeFileSync(join(workspace, "project.yaml"), `schema: softwareteam.project/v0alpha1
 kind: project
 install:
   intent: SPEC.md
@@ -102,17 +102,17 @@ missions:
   root: missions
 `);
     writeFileSync(join(missionDir, "SPEC.md"), "# Mission\nMission intent sentinel");
-    writeFileSync(join(missionDir, "mission.yaml"), "schema: openrig.mission/v0alpha1\ncomposition: [OPR.X.8]\n");
+    writeFileSync(join(missionDir, "mission.yaml"), "schema: softwareteam.mission/v0alpha1\ncomposition: [OPR.X.8]\n");
     writeFileSync(join(missionDir, "PROGRESS.md"), "# Mission progress\nCurrent frontier sentinel");
     writeFileSync(join(sliceDir, "SPEC.md"), "# Task\nImmediate task sentinel");
     writeFileSync(join(sliceDir, "PROGRESS.md"), "# Task progress\nCurrent task state sentinel");
-    const seatDir = join(tmp, "topology", "rigs", "r1", "seats", "dev-guard");
+    const seatDir = join(tmp, "topology", "software-teams", "r1", "seats", "dev-guard");
     mkdirSync(seatDir, { recursive: true });
     writeFileSync(join(seatDir, "LEARNED.md"), "# Role\nGuard role sentinel");
 
-    process.env["OPENRIG_WORKSPACE_ROOT"] = workspace;
-    process.env["OPENRIG_WORKSPACE_SLICES_ROOT"] = join(workspace, "missions");
-    process.env["OPENRIG_TOPOLOGY_ROOT"] = join(tmp, "topology");
+    process.env["SOFTWARETEAM_WORKSPACE_ROOT"] = workspace;
+    process.env["SOFTWARETEAM_WORKSPACE_SLICES_ROOT"] = join(workspace, "missions");
+    process.env["SOFTWARETEAM_TOPOLOGY_ROOT"] = join(tmp, "topology");
 
     const lib = new ContextPackLibraryService({ roots: [{ path: libRoot, sourceType: "user_file" }] });
     lib.scan();
@@ -126,17 +126,17 @@ missions:
 
   afterEach(() => {
     rmSync(tmp, { recursive: true, force: true });
-    if (savedWorkspace === undefined) delete process.env["OPENRIG_WORKSPACE_ROOT"];
-    else process.env["OPENRIG_WORKSPACE_ROOT"] = savedWorkspace;
-    if (savedSlices === undefined) delete process.env["OPENRIG_WORKSPACE_SLICES_ROOT"];
-    else process.env["OPENRIG_WORKSPACE_SLICES_ROOT"] = savedSlices;
-    if (savedTopology === undefined) delete process.env["OPENRIG_TOPOLOGY_ROOT"];
-    else process.env["OPENRIG_TOPOLOGY_ROOT"] = savedTopology;
+    if (savedWorkspace === undefined) delete process.env["SOFTWARETEAM_WORKSPACE_ROOT"];
+    else process.env["SOFTWARETEAM_WORKSPACE_ROOT"] = savedWorkspace;
+    if (savedSlices === undefined) delete process.env["SOFTWARETEAM_WORKSPACE_SLICES_ROOT"];
+    else process.env["SOFTWARETEAM_WORKSPACE_SLICES_ROOT"] = savedSlices;
+    if (savedTopology === undefined) delete process.env["SOFTWARETEAM_TOPOLOGY_ROOT"];
+    else process.env["SOFTWARETEAM_TOPOLOGY_ROOT"] = savedTopology;
   });
 
   const profileUrl = (profile: string, runtime = "codex") =>
     `/api/context-packs/library/by-ref/profile?ref=world%2Finstall&situation=fresh&runtime=${runtime}` +
-    `&profile=${profile}&mission=release-x&slice=08-provider-onboarding&rig=r1&seat=dev-guard`;
+    `&profile=${profile}&mission=release-x&slice=08-provider-onboarding&softwareTeam=r1&seat=dev-guard`;
 
   it("inspects the Codex bootstrap -> project/mission/role/task -> coverage-map sequence before delivery", async () => {
     const res = await app.request(profileUrl("codex-coverage"));
@@ -170,7 +170,7 @@ missions:
       "# Project\nProject intent sentinel",
       "# Authority\nProject authority sentinel",
       "# Mission\nMission intent sentinel",
-      "schema: openrig.mission/v0alpha1\ncomposition: [OPR.X.8]\n",
+      "schema: softwareteam.mission/v0alpha1\ncomposition: [OPR.X.8]\n",
       "# Mission progress\nCurrent frontier sentinel",
       "# Role\nGuard role sentinel",
       "# Task\nImmediate task sentinel",

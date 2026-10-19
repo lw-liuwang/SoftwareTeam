@@ -6,10 +6,10 @@ import { createServer, type Server } from "node:http";
 import { readdirSync, readFileSync } from "node:fs";
 import { createProgram } from "../src/index.js";
 import { gatewayCommand, daemonQueueRows, type HumanRowsLookup } from "../src/commands/gateway.js";
-import { humansDir, addHumanFragment, loadHumanRegistry } from "@openrig/daemon/gateway-human-registry";
+import { humansDir, addHumanFragment, loadHumanRegistry } from "@softwareteam/daemon/gateway-human-registry";
 
-// OPR.0.5.5.12 — `rig gateway human list|show|set|remove` verb wiring. Same harness as the
-// add-verb test: temp OPENRIG_HOME, real command end-to-end, fs effects asserted at source.
+// OPR.0.5.5.12 — `softwareTeam gateway human list|show|set|remove` verb wiring. Same harness as the
+// add-verb test: temp SOFTWARETEAM_HOME, real command end-to-end, fs effects asserted at source.
 // remove's queue-row check is injected (HumanRowsLookup) so these tests never need a daemon —
 // the INDETERMINATE path is pinned with a lookup that fails like an unreachable daemon.
 
@@ -17,7 +17,7 @@ async function runAdd(name: string, extra: string[] = []): Promise<void> {
   const p = createProgram();
   p.exitOverride();
   await p.parseAsync([
-    "node", "rig", "gateway", "human", "add", name,
+    "node", "softwareTeam", "gateway", "human", "add", name,
     "--display-name", name,
     "--binding", `slack:main:vault://slack/${name}:primary`,
     "--delivery-class", "B",
@@ -59,15 +59,15 @@ function stubQueueDaemon(total: number): Promise<{ server: Server; url: string }
   });
 }
 
-describe("rig gateway human lifecycle verbs (S12)", () => {
+describe("SoftwareTeam gateway human lifecycle verbs (S12)", () => {
   let home: string;
   let prevHome: string | undefined;
   let logSpy: ReturnType<typeof vi.spyOn>;
   let errSpy: ReturnType<typeof vi.spyOn>;
   beforeEach(async () => {
     home = mkdtempSync(join(tmpdir(), "s12-verb-"));
-    prevHome = process.env.OPENRIG_HOME;
-    process.env.OPENRIG_HOME = home;
+    prevHome = process.env.SOFTWARETEAM_HOME;
+    process.env.SOFTWARETEAM_HOME = home;
     process.exitCode = undefined;
     logSpy = vi.spyOn(console, "log");
     errSpy = vi.spyOn(console, "error");
@@ -76,7 +76,7 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
   });
 
   it("records binding changes and repeats without embedding binding secrets or handles", async () => {
-    const args = ["node", "rig", "human", "set", "mike", "binding.0", "slack:backup:vault://private-marker:primary:handle=U-PRIVATE", "--reason", "change primary connector"];
+    const args = ["node", "softwareTeam", "human", "set", "mike", "binding.0", "slack:backup:vault://private-marker:primary:handle=U-PRIVATE", "--reason", "change primary connector"];
     await gatewayCommand().parseAsync(args);
     await gatewayCommand().parseAsync(args);
     const rows = readFileSync(join(home, "state", "human-channel-operations.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line)).filter((row) => row.effect !== "started");
@@ -99,7 +99,7 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
   afterEach(() => {
     logSpy.mockRestore();
     errSpy.mockRestore();
-    if (prevHome === undefined) delete process.env.OPENRIG_HOME; else process.env.OPENRIG_HOME = prevHome;
+    if (prevHome === undefined) delete process.env.SOFTWARETEAM_HOME; else process.env.SOFTWARETEAM_HOME = prevHome;
     rmSync(home, { recursive: true, force: true });
     process.exitCode = undefined;
   });
@@ -115,7 +115,7 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
   it("list --json emits the complete records", async () => {
     const p = program();
     p.exitOverride();
-    await p.parseAsync(["node", "rig", "gateway", "human", "list", "--json"]);
+    await p.parseAsync(["node", "softwareTeam", "gateway", "human", "list", "--json"]);
     expect(process.exitCode).toBeUndefined();
     const out = JSON.parse(logSpy.mock.calls.at(-1)![0] as string) as { ok: boolean; humans: Array<Record<string, unknown>> };
     expect(out.ok).toBe(true);
@@ -137,8 +137,8 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
       res.end(JSON.stringify(body));
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const previousUrl = process.env.OPENRIG_URL;
-    process.env.OPENRIG_URL = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+    const previousUrl = process.env.SOFTWARETEAM_URL;
+    process.env.SOFTWARETEAM_URL = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
     const cases = [
       { status: 503, body: { error: "human_registry_unavailable", message: "fixture projection unavailable" }, detail: /HTTP 503.*human_registry_unavailable/ },
       { status: 200, body: { ok: true }, detail: /HTTP 200.*malformed/i },
@@ -156,7 +156,7 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
             logSpy.mockClear();
             const p = createProgram(); // default helper and real DaemonClient, no readiness injection
             p.exitOverride();
-            await p.parseAsync(["node", "rig", "gateway", "human", ...command, ...(json ? ["--json"] : [])]);
+            await p.parseAsync(["node", "softwareTeam", "gateway", "human", ...command, ...(json ? ["--json"] : [])]);
             expect(process.exitCode).toBeUndefined();
             const output = logSpy.mock.calls.map((call) => String(call[0])).join("\n");
             if (json) {
@@ -164,20 +164,20 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
               const readiness = (command[0] === "list" ? result.humans[0] : result.record).deliveryReadiness;
               if (!entry.detail) expect(readiness).toEqual(valid);
               else {
-                expect(readiness).toMatchObject({ state: "indeterminate", configured: null, enabled: null, active: null, ready: false, nextAction: "rig status" });
+                expect(readiness).toMatchObject({ state: "indeterminate", configured: null, enabled: null, active: null, ready: false, nextAction: "SoftwareTeam status" });
                 expect(readiness.reason).toMatch(entry.detail);
               }
             } else if (entry.detail) {
               expect(output).toContain("indeterminate");
               expect(output).toMatch(entry.detail);
-              expect(output).toContain("next: rig status");
+              expect(output).toContain("next: SoftwareTeam status");
             } else expect(output).toMatch(/delivery(?:-readiness: |=)ready/);
           }
         }
       }
       expect(requests).toBe(cases.length * 4);
     } finally {
-      if (previousUrl === undefined) delete process.env.OPENRIG_URL; else process.env.OPENRIG_URL = previousUrl;
+      if (previousUrl === undefined) delete process.env.SOFTWARETEAM_URL; else process.env.SOFTWARETEAM_URL = previousUrl;
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     }
   });
@@ -189,7 +189,7 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
     logSpy.mockClear();
     const p = program();
     p.exitOverride();
-    await p.parseAsync(["node", "rig", "gateway", "human", "list", "--json"]);
+    await p.parseAsync(["node", "softwareTeam", "gateway", "human", "list", "--json"]);
     const out = JSON.parse(logSpy.mock.calls.at(-1)![0] as string) as { ok: boolean; humans: unknown[]; advisory?: string };
     expect(out.ok).toBe(true);
     expect(out.humans).toHaveLength(2); // honest display
@@ -199,7 +199,7 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
   it("show --json carries authored-vs-default provenance and the fragment path", async () => {
     const p = program();
     p.exitOverride();
-    await p.parseAsync(["node", "rig", "gateway", "human", "show", "mike", "--json"]);
+    await p.parseAsync(["node", "softwareTeam", "gateway", "human", "show", "mike", "--json"]);
     const out = JSON.parse(logSpy.mock.calls.at(-1)![0] as string) as { ok: boolean; record: { prefs: { away: { source: string } }; fragmentPath: string; deliveryReadiness: Record<string, unknown> } };
     expect(out.ok).toBe(true);
     expect(out.record.prefs.away.source).toBe("default");
@@ -210,7 +210,7 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
   it("set delivery-class lands in the fragment (verified at source, not from the echo)", async () => {
     const p = program();
     p.exitOverride();
-    await p.parseAsync(["node", "rig", "gateway", "human", "set", "mike", "delivery-class", "D"]);
+    await p.parseAsync(["node", "softwareTeam", "gateway", "human", "set", "mike", "delivery-class", "D"]);
     expect(process.exitCode).toBeUndefined();
     const loaded = loadHumanRegistry(home);
     expect(loaded.ok).toBe(true);
@@ -220,7 +220,7 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
   it("set with a bad enum exits 1 and names the allowed set", async () => {
     const p = program();
     p.exitOverride();
-    try { await p.parseAsync(["node", "rig", "gateway", "human", "set", "mike", "delivery-class", "Z"]); } catch { /* exitCode path */ }
+    try { await p.parseAsync(["node", "softwareTeam", "gateway", "human", "set", "mike", "delivery-class", "Z"]); } catch { /* exitCode path */ }
     expect(process.exitCode).toBe(1);
     const err = errSpy.mock.calls.map((c) => String(c[0])).join("\n");
     expect(err).toMatch(/A.*B.*C.*D/);
@@ -263,7 +263,7 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
     const p = program();
     p.exitOverride();
     try { await p.parseAsync([
-      "node", "rig", "gateway", "human", "add", "ana",
+      "node", "softwareTeam", "gateway", "human", "add", "ana",
       "--display-name", "Ana",
       "--binding", "slack:main:vault://slack/ana:primary",
       "--delivery-class", "A",
@@ -283,7 +283,7 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
     const p = createProgram();
     p.exitOverride();
     await p.parseAsync([
-      "node", "rig", "gateway", "human", "add", "mike",
+      "node", "softwareTeam", "gateway", "human", "add", "mike",
       "--display-name", "Mike Replaced",
       "--binding", "slack:main:vault://slack/mike:primary",
       "--delivery-class", "C",
@@ -307,8 +307,8 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
       res.end(body === undefined ? undefined : JSON.stringify(body));
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const previousUrl = process.env.OPENRIG_URL;
-    process.env.OPENRIG_URL = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+    const previousUrl = process.env.SOFTWARETEAM_URL;
+    process.env.SOFTWARETEAM_URL = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
     const fragment = join(humansDir(home), "mike.yaml");
     const before = readFileSync(fragment, "utf8");
     try {
@@ -322,15 +322,15 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
       if (!rows.ok) expect(rows.error).toContain(`HTTP ${status}`);
       expect(errSpy.mock.calls.map((call) => String(call[0])).join("\n")).toContain("queue could not be checked");
     } finally {
-      if (previousUrl === undefined) delete process.env.OPENRIG_URL; else process.env.OPENRIG_URL = previousUrl;
+      if (previousUrl === undefined) delete process.env.SOFTWARETEAM_URL; else process.env.SOFTWARETEAM_URL = previousUrl;
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   });
 
   it("allows human removal after HTTP 200 proves the queue is empty", async () => {
     const { server, url } = await stubQueueDaemon(0);
-    const previousUrl = process.env.OPENRIG_URL;
-    process.env.OPENRIG_URL = url;
+    const previousUrl = process.env.SOFTWARETEAM_URL;
+    process.env.SOFTWARETEAM_URL = url;
     try {
       expect(await daemonQueueRows("mike@external")).toEqual({ ok: true, rows: [] });
       const command = gatewayCommand();
@@ -339,7 +339,7 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
       expect(process.exitCode).toBeUndefined();
       expect(existsSync(join(humansDir(home), "mike.yaml"))).toBe(false);
     } finally {
-      if (previousUrl === undefined) delete process.env.OPENRIG_URL; else process.env.OPENRIG_URL = previousUrl;
+      if (previousUrl === undefined) delete process.env.SOFTWARETEAM_URL; else process.env.SOFTWARETEAM_URL = previousUrl;
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   });
@@ -348,8 +348,8 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
 
   it("F2: daemonQueueRows at cap+1 (501 active rows) returns ALL 501 or refuses — silent truncation ABSENT", async () => {
     const { server, url } = await stubQueueDaemon(501);
-    const prevUrl = process.env.OPENRIG_URL;
-    process.env.OPENRIG_URL = url;
+    const prevUrl = process.env.SOFTWARETEAM_URL;
+    process.env.SOFTWARETEAM_URL = url;
     try {
       const res = await daemonQueueRows("mike@external");
       if (res.ok) {
@@ -358,15 +358,15 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
         expect(res.error).toContain("complete"); // or an honest completeness refusal
       }
     } finally {
-      if (prevUrl === undefined) delete process.env.OPENRIG_URL; else process.env.OPENRIG_URL = prevUrl;
+      if (prevUrl === undefined) delete process.env.SOFTWARETEAM_URL; else process.env.SOFTWARETEAM_URL = prevUrl;
       server.close();
     }
   });
 
   it("F2 end-to-end: remove --force over 501 live rows records 501 orphans — reconciliation, no silent omission", async () => {
     const { server, url } = await stubQueueDaemon(501);
-    const prevUrl = process.env.OPENRIG_URL;
-    process.env.OPENRIG_URL = url;
+    const prevUrl = process.env.SOFTWARETEAM_URL;
+    process.env.SOFTWARETEAM_URL = url;
     try {
       const gw = gatewayCommand(); // REAL default lookup — the exhaustion path under test
       gw.exitOverride();
@@ -381,7 +381,7 @@ describe("rig gateway human lifecycle verbs (S12)", () => {
       expect(ids.has("qitem-load-0")).toBe(true);
       expect(ids.has("qitem-load-500")).toBe(true); // the row the 500-cap silently dropped
     } finally {
-      if (prevUrl === undefined) delete process.env.OPENRIG_URL; else process.env.OPENRIG_URL = prevUrl;
+      if (prevUrl === undefined) delete process.env.SOFTWARETEAM_URL; else process.env.SOFTWARETEAM_URL = prevUrl;
       server.close();
     }
   });

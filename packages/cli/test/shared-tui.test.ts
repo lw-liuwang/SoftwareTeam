@@ -4,15 +4,15 @@ import { sharedTuiTarget } from "../src/shared-tui.js";
 import { tuiCommand } from "../src/commands/tui.js";
 import { probeFrontDoor } from "../src/front-door.js";
 
-function client(rigs: unknown, nodes: unknown, status = 200) {
-  return { get: vi.fn(async <T>(path: string) => ({ status, data: (path === "/api/ps" ? rigs : nodes) as T })) };
+function client(softwareTeams: unknown, nodes: unknown, status = 200) {
+  return { get: vi.fn(async <T>(path: string) => ({ status, data: (path === "/api/ps" ? softwareTeams : nodes) as T })) };
 }
-const kernel = [{ rigId: "selected-instance-kernel", rigName: "kernel" }];
+const kernel = [{ softwareTeamId: "selected-instance-kernel", softwareTeamName: "kernel" }];
 const terminal = { podId: "database-pod-id", logicalId: "operator.human", runtime: "terminal", canonicalSessionName: "actual-terminal", tmuxAttachCommand: "tmux attach -t actual-terminal" };
 
 describe("shared kernel TUI", () => {
   it("permits the actual builtin terminal identity without inventing harness diagnostics", async () => {
-    const result = await probeFrontDoor({ env: { OPENRIG_NODE_ID: "terminal-id" }, client: {
+    const result = await probeFrontDoor({ env: { SOFTWARETEAM_NODE_ID: "terminal-id" }, client: {
       get: async () => ({ status: 200, data: { identity: { runtime: "terminal", agentRef: "builtin:terminal" }, permissionDrift: { enforcement: { state: "unknown" } } } }),
     } });
     expect(result).toEqual({ state: "ready" });
@@ -20,7 +20,7 @@ describe("shared kernel TUI", () => {
   it("uses the selected daemon's binding, without creating a session", async () => {
     const c = client(kernel, [terminal]);
     expect(await sharedTuiTarget(c)).toBe("actual-terminal");
-    expect(c.get.mock.calls.map(([p]) => p)).toEqual(["/api/ps", "/api/rigs/selected-instance-kernel/nodes"]);
+    expect(c.get.mock.calls.map(([p]) => p)).toEqual(["/api/ps", "/api/software-teams/selected-instance-kernel/nodes"]);
   });
   it("distinguishes no kernel, no terminal, and a failed read", async () => {
     await expect(sharedTuiTarget(client([], []))).rejects.toThrow("No kernel");
@@ -29,7 +29,7 @@ describe("shared kernel TUI", () => {
     await expect(sharedTuiTarget(client([...kernel, ...kernel], [terminal]))).rejects.toThrow("Multiple kernels");
   });
   it("does not attach a local namesake for a remote daemon", async () => {
-    const c = { ...client(kernel, [terminal]), baseUrl: "http://other-machine:7433" };
+    const c = { ...client(kernel, [terminal]), baseUrl: "http://other-machine:7434" };
     await expect(sharedTuiTarget(c)).rejects.toThrow("local tmux");
     expect(c.get).not.toHaveBeenCalled();
   });
@@ -38,7 +38,7 @@ describe("shared kernel TUI", () => {
     const launchTui = vi.fn(async () => 0);
     const exit = vi.fn();
     const cli = new Command().addCommand(tuiCommand({ stdoutIsTTY: true, stdinIsTTY: true, sharedTarget: async () => "actual-terminal", attachShared, launchTui, exit, err: () => {} }));
-    await cli.parseAsync(["node", "rig", "tui", "--shared"]);
+    await cli.parseAsync(["node", "softwareTeam", "tui", "--shared"]);
     expect(attachShared).toHaveBeenCalledWith("actual-terminal");
     expect(launchTui).not.toHaveBeenCalled();
     expect(exit).toHaveBeenCalledWith(0);
@@ -47,7 +47,7 @@ describe("shared kernel TUI", () => {
     const sharedTarget = vi.fn();
     const exit = vi.fn();
     const cli = new Command().addCommand(tuiCommand({ stdoutIsTTY: true, stdinIsTTY: false, sharedTarget, exit, err: () => {} }));
-    await cli.parseAsync(["node", "rig", "tui", "--shared"]);
+    await cli.parseAsync(["node", "softwareTeam", "tui", "--shared"]);
     expect(sharedTarget).not.toHaveBeenCalled();
     expect(exit).toHaveBeenCalledWith(1);
   });

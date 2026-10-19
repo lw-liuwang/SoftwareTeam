@@ -16,7 +16,7 @@ describe("resolveIdentityVerifiedClaudeRecord — canonical occupant identity", 
   const canonicalId = "f16594c5-179a-4be7-bf5e-fd759b2b87a3";
   const reserveId = "9e1ac0df-505a-4050-857b-a494b46dabc6";
   const bootAt = "2026-09-04T02:00:00.000Z";
-  const canonicalSession = "orch-advisor@v-openrig-build";
+  const canonicalSession = "orch-advisor@v-softwareteam-build";
   const processes: ProcessRow[] = [
     { pid: 10, ppid: 1, command: "-zsh" },
     { pid: 20, ppid: 10, command: `claude --model claude-fable-5-1 --resume ${canonicalId} --name ${canonicalSession}` },
@@ -46,7 +46,7 @@ describe("resolveIdentityVerifiedClaudeRecord — canonical occupant identity", 
   }
 
   it("the verified canonical pane wins while the retained alias reserve advances", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "openrig-current-occupant-"));
+    const dir = mkdtempSync(join(tmpdir(), "softwareteam-current-occupant-"));
     try {
       const canonicalPath = join(dir, `${canonicalId}.jsonl`);
       const reservePath = join(dir, `${reserveId}.jsonl`);
@@ -189,19 +189,19 @@ describe("resolveIdentityVerifiedClaudeRecord — occupant boot_at is a SQLite U
       const sessionId = "f16594c5-179a-4be7-bf5e-fd759b2b87a3";
       const out = await resolveIdentityVerifiedClaudeRecord(
         {
-          sessionName: "seat@rig",
+          sessionName: "seat@software-team",
           generation: "generation-current",
           occupantBootAt: "2026-09-04 02:00:00",
-          binding: { tmuxSession: "seat@rig", tmuxPane: "%1" },
+          binding: { tmuxSession: "seat@software-team", tmuxPane: "%1" },
           identity: {
             verdict: "verified",
-            sessionName: "seat@rig",
+            sessionName: "seat@software-team",
             observedAt: "2026-09-04T02:30:00.000Z",
             evidence: { registeredPane: "%1", observedPid: 10 },
           },
           sidecar: {
             session_id: sessionId,
-            session_name: "seat@rig",
+            session_name: "seat@software-team",
             transcript_path: `/transcripts/${sessionId}.jsonl`,
             sampled_at: "2026-09-04T02:31:00.000Z",
             occupant_generation: "generation-current",

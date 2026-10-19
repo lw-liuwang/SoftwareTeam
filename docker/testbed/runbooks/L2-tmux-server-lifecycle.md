@@ -7,7 +7,7 @@ capture round-trip returns the exact bytes.
 ## Setup
 
 ```bash
-GIT_SHA="$(git rev-parse HEAD)"; IMAGE="openrig-testbed:${GIT_SHA}"; EVID="dist/testbed-image/evidence/${GIT_SHA}"; mkdir -p "${EVID}"
+GIT_SHA="$(git rev-parse HEAD)"; IMAGE="softwareteam-testbed:${GIT_SHA}"; EVID="dist/testbed-image/evidence/${GIT_SHA}"; mkdir -p "${EVID}"
 NAME="orig-l2-${GIT_SHA:0:8}"; docker run -d -t --name "${NAME}" "${IMAGE}"
 ```
 

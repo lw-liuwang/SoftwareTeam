@@ -1,9 +1,9 @@
 // OPR.0.5.6.24 F-14 — the parked-owner consumer.
 //
 // A diagnosis with zero consumers is a gate beside an open door. This policy is
-// the ONE bounded consumer of the shipped parked derivation: ONE rig-level
-// supervisor job per rig (anchor `parked-owner-consumer@<rigName>`), diagnosing
-// the WHOLE rig through the same derivation `rig parked` serves and sending ONE
+// the ONE bounded consumer of the shipped parked derivation: ONE software-team-level
+// supervisor job per softwareTeam (anchor `parked-owner-consumer@<softwareTeamName>`), diagnosing
+// the WHOLE softwareTeam through the same derivation `softwareTeam parked` serves and sending ONE
 // wake to the first eligible parked owner per evaluation. The S01 ladder owns
 // retries/escalation; the watchdog engine owns scheduling.
 //
@@ -18,7 +18,7 @@
 // terminal the obligation is gone and the episode is moot.
 //
 // One-oracle law (mini-req 2): the parked verdict, held-health classification,
-// indeterminate arm, and obligation join all come from diagnoseRigParked — this
+// indeterminate arm, and obligation join all come from diagnoseSoftwareTeamParked — this
 // module re-derives nothing and never reads raw per-runtime evidence.
 
 import { createHash } from "node:crypto";
@@ -48,8 +48,8 @@ export interface RowTransitionView {
 }
 
 export interface ParkedOwnerConsumerDeps {
-  /** The shipped rig-scoped diagnosis (diagnoseRigParked), adapter-constructed. */
-  diagnoseRig: (rigName: string) => { seats: ParkedSeatDiagnosisView[] } | null;
+  /** The shipped software-team-scoped diagnosis (diagnoseSoftwareTeamParked), adapter-constructed. */
+  diagnoseSoftwareTeam: (softwareTeamName: string) => { seats: ParkedSeatDiagnosisView[] } | null;
   /** Telemetry — used ONLY to reconcile recent delivery outcomes onto rows
    *  (immediate horizon); NEVER as episode state. */
   history: {
@@ -76,12 +76,12 @@ export interface ParkedOwnerConsumerDeps {
 
 export const PARKED_OWNER_POLICY_NAME = "parked-owner-consumer";
 
-/** Stable per-rig registration anchor: member@rig shape, policy name as slug. */
-export function makeRigAnchor(rigName: string): string {
-  return `${PARKED_OWNER_POLICY_NAME}@${rigName}`;
+/** Stable per-softwareTeam registration anchor: member@software-team shape, policy name as slug. */
+export function makeSoftwareTeamAnchor(softwareTeamName: string): string {
+  return `${PARKED_OWNER_POLICY_NAME}@${softwareTeamName}`;
 }
 
-export function rigFromAnchor(targetSession: string): string {
+export function softwareTeamFromAnchor(targetSession: string): string {
   return targetSession.startsWith(`${PARKED_OWNER_POLICY_NAME}@`)
     ? targetSession.slice(PARKED_OWNER_POLICY_NAME.length + 1)
     : targetSession;
@@ -229,10 +229,10 @@ export function makeParkedOwnerConsumerPolicy(deps: ParkedOwnerConsumerDeps): Po
   return {
     name: PARKED_OWNER_POLICY_NAME,
     async evaluate(job: PolicyJob): Promise<PolicyEvaluation> {
-      const rigName = rigFromAnchor(job.target.session);
-      const d = deps.diagnoseRig(rigName);
+      const softwareTeamName = softwareTeamFromAnchor(job.target.session);
+      const d = deps.diagnoseSoftwareTeam(softwareTeamName);
       if (!d) {
-        return { action: "skip", reason: "indeterminate-not-parked", notes: { rig: rigName } };
+        return { action: "skip", reason: "indeterminate-not-parked", notes: { softwareTeam: softwareTeamName } };
       }
 
       // B2 reconciliation (bounded, immediate horizon): land recent delivery
@@ -359,7 +359,7 @@ export function makeParkedOwnerConsumerPolicy(deps: ParkedOwnerConsumerDeps): Po
           `Resume the work or update each row honestly (close, park-with-wake, or hand off). ` +
           `Once this wake is delivered, this check won't wake you again for these same rows until you update one of them or one changes state. ` +
           `After a wake that failed, was refused or has no recorded outcome, it wakes you again the next time you park. ` +
-          `Held rows stay listed in rig view show held; for a claimed in-progress row, the wake-or-escalate ladder also retries a failed wake.`;
+          `Held rows stay listed in SoftwareTeam view show held; for a claimed in-progress row, the wake-or-escalate ladder also retries a failed wake.`;
         return {
           action: "send",
           target: { session: seat.sessionName },
@@ -383,7 +383,7 @@ export function makeParkedOwnerConsumerPolicy(deps: ParkedOwnerConsumerDeps): Po
       if (skipped.length > 0) {
         return { action: "skip", reason: "all-parked-owners-deferred", notes: { skippedSeats: skipped } };
       }
-      return { action: "skip", reason: "no-parked-owner", notes: { rig: rigName } };
+      return { action: "skip", reason: "no-parked-owner", notes: { softwareTeam: softwareTeamName } };
     },
   };
 }

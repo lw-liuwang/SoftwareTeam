@@ -2,10 +2,10 @@
 //
 // REPRO-FIRST (the crash is intermittent, so reproduce + root-cause before fixing):
 // the topology TABLE view (unlike the GRID, which drops infrastructure nodes) builds
-// a row for EVERY node and does NOT default `rigName` (rig.name) or `logicalId`
+// a row for EVERY node and does NOT default `softwareTeamName` (softwareTeam.name) or `logicalId`
 // (n.logicalId) at build time. The `globalFilterFn` then calls `.toLowerCase()` on
-// `r.rigName` and `r.logicalId` UNGUARDED. With a malformed node (null logicalId) or
-// rig (null name) in the inventory JSON — a real edge data shape — typing in the
+// `r.softwareTeamName` and `r.logicalId` UNGUARDED. With a malformed node (null logicalId) or
+// softwareTeam (null name) in the inventory JSON — a real edge data shape — typing in the
 // filter throws `Cannot read properties of null (reading 'toLowerCase')` during the
 // filtered-row-model build, and with NO error boundary around the table the WHOLE
 // /topology page white-screens. That intermittence (only on filter + malformed row)
@@ -31,20 +31,20 @@ import { TopologyTableView } from "../src/components/topology/TopologyTableView.
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-// A MALFORMED inventory: rig-bad has name=null, and its single node has
+// A MALFORMED inventory: software-team-bad has name=null, and its single node has
 // logicalId=null + runtime=null (violating the declared types, as real JSON can).
-// rig-ok is well-formed so the table mounts a normal row alongside the bad one.
+// software-team-ok is well-formed so the table mounts a normal row alongside the bad one.
 beforeEach(() => {
   navigateSpy.mockClear();
   mockFetch.mockReset();
   mockFetch.mockImplementation(async (url: string) => {
-    if (url.includes("/api/rigs/summary")) {
+    if (url.includes("/api/software-teams/summary")) {
       return new Response(JSON.stringify([
-        { id: "rig-bad", name: null },
-        { id: "rig-ok", name: "ok-rig" },
+        { id: "software-team-bad", name: null },
+        { id: "software-team-ok", name: "ok-software-team" },
       ]));
     }
-    if (url.includes("/api/rigs/rig-bad/nodes")) {
+    if (url.includes("/api/software-teams/software-team-bad/nodes")) {
       return new Response(JSON.stringify([
         {
           logicalId: null, podId: "p", podNamespace: "p", canonicalSessionName: null,
@@ -53,10 +53,10 @@ beforeEach(() => {
         },
       ]));
     }
-    if (url.includes("/api/rigs/rig-ok/nodes")) {
+    if (url.includes("/api/software-teams/software-team-ok/nodes")) {
       return new Response(JSON.stringify([
         {
-          logicalId: "ok.seat", podId: "p", podNamespace: "p", canonicalSessionName: "s@ok-rig",
+          logicalId: "ok.seat", podId: "p", podNamespace: "p", canonicalSessionName: "s@ok-software-team",
           nodeKind: "agent", runtime: "claude-code", sessionStatus: "running", startupStatus: "ready",
           contextUsage: null,
         },
@@ -90,7 +90,7 @@ describe("OPR.0.4.1.13 — table-view crash repro (malformed row + filter)", () 
     }
   });
 
-  it("renders a malformed row (null rigName/logicalId) without crashing", async () => {
+  it("renders a malformed row (null softwareTeamName/logicalId) without crashing", async () => {
     withQueryClient(<TopologyTableView />);
     await waitFor(() => {
       expect(screen.getAllByTestId(/^topology-table-row-/).length).toBeGreaterThanOrEqual(2);
@@ -106,7 +106,7 @@ describe("OPR.0.4.1.13 — table-view crash repro (malformed row + filter)", () 
     });
     const search = screen.getByTestId("topology-table-search");
     // Typing runs globalFilterFn over EVERY row incl. the null-field one.
-    // Pre-fix: r.rigName.toLowerCase() / r.logicalId.toLowerCase() throws -> page crash.
+    // Pre-fix: r.softwareTeamName.toLowerCase() / r.logicalId.toLowerCase() throws -> page crash.
     expect(() => {
       fireEvent.change(search, { target: { value: "ok" } });
     }).not.toThrow();
@@ -116,15 +116,15 @@ describe("OPR.0.4.1.13 — table-view crash repro (malformed row + filter)", () 
 
   it("STRESS: many rows with mixed malformed shapes survive filter + sort (no-recur)", async () => {
     // A large, deliberately-ugly inventory: null name, null/missing logicalId,
-    // null runtime/status, missing contextUsage - across many rigs/nodes.
+    // null runtime/status, missing contextUsage - across many software-teams/nodes.
     mockFetch.mockReset();
     mockFetch.mockImplementation(async (url: string) => {
-      if (url.includes("/api/rigs/summary")) {
+      if (url.includes("/api/software-teams/summary")) {
         return new Response(JSON.stringify(
-          Array.from({ length: 6 }, (_, i) => ({ id: `rig-${i}`, name: i % 2 === 0 ? `rig-${i}` : null })),
+          Array.from({ length: 6 }, (_, i) => ({ id: `software-team-${i}`, name: i % 2 === 0 ? `software-team-${i}` : null })),
         ));
       }
-      const m = url.match(/\/api\/rigs\/rig-(\d+)\/nodes/);
+      const m = url.match(/\/api\/software-teams\/software-team-(\d+)\/nodes/);
       if (m) {
         const idx = Number(m[1]);
         return new Response(JSON.stringify(
@@ -132,7 +132,7 @@ describe("OPR.0.4.1.13 — table-view crash repro (malformed row + filter)", () 
             const bad = (idx + j) % 3 === 0;
             return bad
               ? { logicalId: null, runtime: null, sessionStatus: null, podNamespace: null, canonicalSessionName: null, contextUsage: null }
-              : { logicalId: `rig-${idx}.seat-${j}`, runtime: "codex", sessionStatus: "running", podNamespace: "p", canonicalSessionName: `s${j}@rig-${idx}`, startupStatus: "ready", contextUsage: null };
+              : { logicalId: `software-team-${idx}.seat-${j}`, runtime: "codex", sessionStatus: "running", podNamespace: "p", canonicalSessionName: `s${j}@software-team-${idx}`, startupStatus: "ready", contextUsage: null };
           }),
         ));
       }
@@ -146,7 +146,7 @@ describe("OPR.0.4.1.13 — table-view crash repro (malformed row + filter)", () 
     const search = screen.getByTestId("topology-table-search");
     // Hammer the filter with several queries (each re-runs globalFilterFn over all rows).
     expect(() => {
-      for (const q of ["seat", "rig", "codex", "running", "zzz", ""]) {
+      for (const q of ["seat", "softwareTeam", "codex", "running", "zzz", ""]) {
         fireEvent.change(search, { target: { value: q } });
       }
     }).not.toThrow();

@@ -57,7 +57,7 @@ function start(t: ReturnType<typeof fakeTmux>, names: string[]) {
 
 it("a seat that exited on its own and keeps rotating leaves its chunk-mates inside the deadline at 2.6s per exec", async () => {
   const t = fakeTmux(2600);
-  const names = Array.from({ length: 8 }, (_, i) => `gone-${i}@rig`);
+  const names = Array.from({ length: 8 }, (_, i) => `gone-${i}@software-team`);
   for (const n of names) t.sessions.set(n, `${n} 0\n`);
   const read = start(t, names);
   await sleep(6000);
@@ -78,7 +78,7 @@ it("a seat that exited on its own and keeps rotating leaves its chunk-mates insi
 
 it("an unrecognised chain error is not halved: one chain, one listing, and the chunk is left to per-target reads", async () => {
   const t = fakeTmux(5);
-  const names = Array.from({ length: 24 }, (_, i) => `mismatch-${i}@rig`);
+  const names = Array.from({ length: 24 }, (_, i) => `mismatch-${i}@software-team`);
   for (const n of names) t.sessions.set(n, `${n} text\n`);
   t.state.chainError = t.state.captureError = "protocol version mismatch (client 8, server 7)";
   const got = await t.adapter.capturePanesContent(names, 20);
@@ -89,7 +89,7 @@ it("an unrecognised chain error is not halved: one chain, one listing, and the c
 /** Rotation over 24 healthy seats whose chained capture fails with an unrecognised error, after `prepare`. */
 async function chainErrorRound(prefix: string, prepare: (t: ReturnType<typeof fakeTmux>, first: string) => void) {
   const t = fakeTmux(5);
-  const names = Array.from({ length: 24 }, (_, i) => `${prefix}-${i}@rig`);
+  const names = Array.from({ length: 24 }, (_, i) => `${prefix}-${i}@software-team`);
   for (const n of names) t.sessions.set(n, `${n} text\n`);
   t.state.chainError = "unknown command: display-message";
   prepare(t, names[0]!);
@@ -110,7 +110,7 @@ it("a chain error whose first pane captures empty still updates the other 23 tra
 
 it("a session gone between the listing and the chain is isolated, and the other 23 transcripts update", async () => {
   const t = fakeTmux(5);
-  const names = Array.from({ length: 24 }, (_, i) => `listed-gone-${i}@rig`);
+  const names = Array.from({ length: 24 }, (_, i) => `listed-gone-${i}@software-team`);
   for (const n of names) t.sessions.set(n, `${n} text\n`);
   t.sessions.delete(names[5]!);
   t.state.listedOnly.add(names[5]!);
@@ -121,7 +121,7 @@ it("a session gone between the listing and the chain is isolated, and the other 
 
 it("a chain error while the listing fails too leaves the chunk to per-target reads: 26 execs, every transcript updates", async () => {
   const t = fakeTmux(5);
-  const names = Array.from({ length: 24 }, (_, i) => `unlisted-${i}@rig`);
+  const names = Array.from({ length: 24 }, (_, i) => `unlisted-${i}@software-team`);
   for (const n of names) t.sessions.set(n, `${n} text\n`);
   t.state.chainError = "unknown command: display-message";
   t.state.listError = "list-sessions: lost server reply";
@@ -140,7 +140,7 @@ it.each([
   ["error connecting to /tmp/tmux-1000/default (No such file or directory)"],
 ])("a server gone (%s) while the listing fails takes the fast path: 2 execs, no per-target reads", async (chainError) => {
   const t = fakeTmux(5);
-  const names = Array.from({ length: 24 }, (_, i) => `dead-${i}@rig`);
+  const names = Array.from({ length: 24 }, (_, i) => `dead-${i}@software-team`);
   for (const n of names) t.sessions.set(n, `${n} text\n`);
   t.state.chainError = chainError;
   t.state.listError = chainError;
@@ -151,7 +151,7 @@ it.each([
 
 it("an error only the chained form hits leaves the chunk out: every seat gets its own capture, 24 reads plus 2 execs", async () => {
   const t = fakeTmux(5);
-  const names = Array.from({ length: 24 }, (_, i) => `chain-only-${i}@rig`);
+  const names = Array.from({ length: 24 }, (_, i) => `chain-only-${i}@software-team`);
   for (const n of names) t.sessions.set(n, `${n} text\n`);
   t.state.chainError = "unknown command: display-message";
   const read = start(t, names);

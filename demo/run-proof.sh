@@ -4,17 +4,17 @@ set -euo pipefail
 PROOF_DIR="demo/proof"
 mkdir -p "$PROOF_DIR"
 
-echo "=== Rigged North Star Proof Package ==="
+echo "=== SoftwareTeam North Star Proof Package ==="
 echo "Producing proof artifacts in $PROOF_DIR/"
 echo ""
 
 # 0. Start or reuse daemon
 echo "Step 0: Ensure daemon is running..."
-if rig daemon start; then
+if SoftwareTeam daemon start; then
   sleep 2
 else
   echo "Daemon start returned non-zero; checking for an existing healthy daemon..."
-  if rig ps --json >/dev/null 2>&1; then
+  if SoftwareTeam ps --json >/dev/null 2>&1; then
     echo "Reusing existing healthy daemon."
   else
     echo "ERROR: daemon failed to start and no healthy daemon is available." >&2
@@ -25,10 +25,10 @@ echo ""
 
 # 1. Boot
 echo "Step 1: Boot demo topology..."
-UP_OUTPUT=$(rig up demo/rig.yaml 2>&1 | tee "$PROOF_DIR/up-transcript.txt")
-RIG_ID=$(printf '%s\n' "$UP_OUTPUT" | sed -n 's/^Rig: //p' | tail -n1)
-if [ -z "$RIG_ID" ]; then
-  echo "ERROR: No rig ID found in boot output. Proof failed."
+UP_OUTPUT=$(SoftwareTeam up demo/software-team.yaml 2>&1 | tee "$PROOF_DIR/up-transcript.txt")
+SOFTWARE_TEAM_ID=$(printf '%s\n' "$UP_OUTPUT" | sed -n 's/^SoftwareTeam: //p' | tail -n1)
+if [ -z "$SOFTWARE_TEAM_ID" ]; then
+  echo "ERROR: No softwareTeam ID found in boot output. Proof failed."
   exit 1
 fi
 echo ""
@@ -36,17 +36,17 @@ echo ""
 # 2. Node status
 echo "Step 2: Node status after boot..."
 # OPR.0.4.4.21: --nodes requires an explicit target outside a managed session.
-rig ps --nodes --rig "$RIG_ID" 2>&1 | tee "$PROOF_DIR/ps-nodes.txt"
+SoftwareTeam ps --nodes --software-team "$SOFTWARE_TEAM_ID" 2>&1 | tee "$PROOF_DIR/ps-nodes.txt"
 echo ""
 
 # 3. Health check after boot
 echo "Step 3: Health check after boot..."
-npx tsx demo/scripts/check-demo-health.ts --rig "$RIG_ID" --json 2>&1 | tee "$PROOF_DIR/health-after-boot.json"
+npx tsx demo/scripts/check-demo-health.ts --software-team "$SOFTWARE_TEAM_ID" --json 2>&1 | tee "$PROOF_DIR/health-after-boot.json"
 echo ""
 
 # 4. Native resume verification immediately after boot
 echo "Step 4: Native resume verification immediately after boot..."
-if npx tsx demo/scripts/verify-native-resume.ts --rig "$RIG_ID" --output "$PROOF_DIR/native-resume-after-boot.json" 2>&1 | tee "$PROOF_DIR/native-resume-after-boot.txt"; then
+if npx tsx demo/scripts/verify-native-resume.ts --software-team "$SOFTWARE_TEAM_ID" --output "$PROOF_DIR/native-resume-after-boot.json" 2>&1 | tee "$PROOF_DIR/native-resume-after-boot.txt"; then
   echo "Native resume baseline was already ready after boot."
   cat > "$PROOF_DIR/seed-resume-baseline.txt" <<'EOF'
 Baseline seeding skipped: native resume baseline was already ready after boot.
@@ -60,22 +60,22 @@ EOF
 else
   echo ""
   echo "Step 5: Seed resume baseline..."
-  npx tsx demo/scripts/seed-resume-baseline.ts --rig "$RIG_ID" --max-rounds 1 --output "$PROOF_DIR/seed-resume-baseline.json" 2>&1 | tee "$PROOF_DIR/seed-resume-baseline.txt"
+  npx tsx demo/scripts/seed-resume-baseline.ts --software-team "$SOFTWARE_TEAM_ID" --max-rounds 1 --output "$PROOF_DIR/seed-resume-baseline.json" 2>&1 | tee "$PROOF_DIR/seed-resume-baseline.txt"
 fi
 echo ""
 
 # 5. Native resume verification before down
 echo "Step 6: Native resume verification before down..."
-npx tsx demo/scripts/verify-native-resume.ts --rig "$RIG_ID" --output "$PROOF_DIR/native-resume-before-down.json" 2>&1 | tee "$PROOF_DIR/native-resume-before-down.txt"
+npx tsx demo/scripts/verify-native-resume.ts --software-team "$SOFTWARE_TEAM_ID" --output "$PROOF_DIR/native-resume-before-down.json" 2>&1 | tee "$PROOF_DIR/native-resume-before-down.txt"
 echo ""
 
-# 6. Use captured rig ID for down/restore
-echo "Rig ID: $RIG_ID"
+# 6. Use captured softwareTeam ID for down/restore
+echo "SoftwareTeam ID: $SOFTWARE_TEAM_ID"
 
 # 7. Tear down
 echo ""
 echo "Step 7: Tear down..."
-DOWN_OUTPUT=$(rig down "$RIG_ID" 2>&1 | tee "$PROOF_DIR/down-transcript.txt")
+DOWN_OUTPUT=$(SoftwareTeam down "$SOFTWARE_TEAM_ID" 2>&1 | tee "$PROOF_DIR/down-transcript.txt")
 SNAPSHOT_ID=$(printf '%s\n' "$DOWN_OUTPUT" | sed -n 's/^Snapshot: //p' | tail -n1)
 if [ -z "$SNAPSHOT_ID" ]; then
   echo "ERROR: No snapshot ID found in teardown output. Proof failed."
@@ -89,14 +89,14 @@ echo "Step 8: Orphan session check..."
 tmux ls 2>&1 | tee "$PROOF_DIR/tmux-check.txt" || echo "No tmux server running (clean)" | tee "$PROOF_DIR/tmux-check.txt"
 echo ""
 
-# 9. Restore via explicit snapshot + rig ID
-echo "Step 9: Restore via explicit snapshot + rig ID..."
-rig restore "$SNAPSHOT_ID" --rig "$RIG_ID" 2>&1 | tee "$PROOF_DIR/restore-transcript.txt"
+# 9. Restore via explicit snapshot + softwareTeam ID
+echo "Step 9: Restore via explicit snapshot + softwareTeam ID..."
+SoftwareTeam restore "$SNAPSHOT_ID" --software-team "$SOFTWARE_TEAM_ID" 2>&1 | tee "$PROOF_DIR/restore-transcript.txt"
 echo ""
 
 # 10. Node status after restore
 echo "Step 10: Node status after restore..."
-rig ps --nodes --rig "$RIG_ID" 2>&1 | tee "$PROOF_DIR/ps-restored.txt"
+SoftwareTeam ps --nodes --software-team "$SOFTWARE_TEAM_ID" 2>&1 | tee "$PROOF_DIR/ps-restored.txt"
 echo ""
 
 echo "=== Automated proof artifacts produced ==="
@@ -106,7 +106,7 @@ echo "  1. Open http://localhost:5173 in browser"
 echo "     Screenshot Explorer + Graph + Detail Panel"
 echo "     Save to: $PROOF_DIR/browser-screenshot.png"
 echo ""
-echo "  2. Run: tmux attach -t orch-lead@demo-rig"
+echo "  2. Run: tmux attach -t orch-lead@demo-softwareTeam"
 echo "     Ask: 'What were you working on?'"
 echo "     Copy response to: $PROOF_DIR/resume-test.txt"
 echo ""

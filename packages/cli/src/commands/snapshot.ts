@@ -5,7 +5,7 @@ import { realDeps } from "./daemon.js";
 import type { StatusDeps } from "./status.js";
 
 export function snapshotCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("snapshot").description("Manage rig snapshots");
+  const cmd = new Command("snapshot").description("Manage SoftwareTeam snapshots");
   const getDeps = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   async function getClient(deps: StatusDeps): Promise<DaemonClient | null> {
@@ -14,42 +14,42 @@ export function snapshotCommand(depsOverride?: StatusDeps): Command {
     return deps.clientFactory(getDaemonUrl(status));
   }
 
-  // rig snapshot <rigId> — default action creates a snapshot
+  // SoftwareTeam snapshot <softwareTeamId> — default action creates a snapshot
   cmd
-    .argument("<rigId>", "Rig ID to snapshot")
+    .argument("<softwareTeamId>", "SoftwareTeam ID to snapshot")
     .option("--intended-seats <ids>", "Comma-separated intended topology roster stored with the snapshot")
-    .action(async (rigId: string, opts: { intendedSeats?: string }) => {
+    .action(async (softwareTeamId: string, opts: { intendedSeats?: string }) => {
       const deps = getDeps();
       const client = await getClient(deps);
       if (!client) { process.exitCode = 1; return; }
 
       const intendedSeats = opts.intendedSeats?.split(",").map((seat) => seat.trim()).filter(Boolean);
       const res = await client.post<{ id: string }>(
-        `/api/rigs/${encodeURIComponent(rigId)}/snapshots`,
+        `/api/software-teams/${encodeURIComponent(softwareTeamId)}/snapshots`,
         intendedSeats ? { intendedSeats } : undefined,
       );
       if (res.status === 404) {
-        console.error(`Rig '${rigId}' not found`);
+        console.error(`SoftwareTeam '${softwareTeamId}' not found`);
         process.exitCode = 1;
       } else if (res.status >= 400) {
         console.error(`Snapshot failed: ${(res.data as { error?: string }).error ?? "unknown error"}`);
         process.exitCode = 1;
       } else {
         console.log(`Snapshot created: ${res.data.id}`);
-        console.log(`To restore: rig restore ${res.data.id} --rig ${rigId}`);
+        console.log(`To restore: SoftwareTeam restore ${res.data.id} --software-team ${softwareTeamId}`);
       }
     });
 
-  // rig snapshot list <rigId>
+  // SoftwareTeam snapshot list <softwareTeamId>
   cmd
-    .command("list <rigId>")
-    .description("List snapshots for a rig")
-    .action(async (rigId: string) => {
+    .command("list <softwareTeamId>")
+    .description("List snapshots for a softwareTeam")
+    .action(async (softwareTeamId: string) => {
       const deps = getDeps();
       const client = await getClient(deps);
       if (!client) { process.exitCode = 1; return; }
 
-      const res = await client.get<Array<{ id: string; kind: string; status: string; createdAt: string }>>(`/api/rigs/${encodeURIComponent(rigId)}/snapshots`);
+      const res = await client.get<Array<{ id: string; kind: string; status: string; createdAt: string }>>(`/api/software-teams/${encodeURIComponent(softwareTeamId)}/snapshots`);
       if (res.status >= 400) {
         console.error(`Failed to list snapshots: ${(res.data as { error?: string }).error ?? "unknown error"}`);
         process.exitCode = 1;

@@ -1,8 +1,8 @@
-// Host-shaped synthetic seeder for the /api/ps + /api/rigs/summary event-loop
+// Host-shaped synthetic seeder for the /api/ps + /api/software-teams/summary event-loop
 // regression asset (qitem-20260721000001-ps-stall-driver, slice-04).
 //
 // Byte-scale-faithful to the copied host snapshot SHAPE — NOT the copied DB and
-// NOT enlarged-to-force: 27 rigs / 198 nodes (active 10/75 + archived 17/123) and
+// NOT enlarged-to-force: 27 softwareTeams / 198 nodes (active 10/75 + archived 17/123) and
 // EXACTLY 219,541 events, inserted in ONE transaction, in the authoritative
 // per-type distribution captured from the host snapshot's
 // `SELECT type, COUNT(*) FROM events GROUP BY type`. Fully deterministic — no
@@ -29,18 +29,18 @@ import { chatMessagesSchema } from "../../src/db/migrations/016_chat_messages.js
 import { podNamespaceSchema } from "../../src/db/migrations/017_pod_namespace.js";
 import { contextUsageSchema } from "../../src/db/migrations/018_context_usage.js";
 import { externalCliAttachmentSchema } from "../../src/db/migrations/019_external_cli_attachment.js";
-import { rigServicesSchema } from "../../src/db/migrations/020_rig_services.js";
+import { softwareTeamServicesSchema } from "../../src/db/migrations/020_software_team_services.js";
 import { seatHandoverObservabilitySchema } from "../../src/db/migrations/021_seat_handover_observability.js";
 import { nodePermissionPolicySchema } from "../../src/db/migrations/055_node_permission_policy.js";
-import { rigPermissionPolicySchema } from "../../src/db/migrations/056_rig_permission_policy.js";
+import { softwareTeamPermissionPolicySchema } from "../../src/db/migrations/056_software_team_permission_policy.js";
 import { nodePolicyProvenanceSchema } from "../../src/db/migrations/057_node_policy_provenance.js";
-import { rigPolicyProvenanceSchema } from "../../src/db/migrations/058_rig_policy_provenance.js";
+import { softwareTeamPolicyProvenanceSchema } from "../../src/db/migrations/058_software_team_policy_provenance.js";
 import { nodeCodexConfigProfileSchema } from "../../src/db/migrations/022_node_codex_config_profile.js";
 import { streamItemsSchema } from "../../src/db/migrations/023_stream_items.js";
 import { queueItemsSchema } from "../../src/db/migrations/024_queue_items.js";
 import { queueTransitionsSchema } from "../../src/db/migrations/025_queue_transitions.js";
-import { rigPolicySchema } from "../../src/db/migrations/041_rig_policy.js";
-import { rigArchiveSchema } from "../../src/db/migrations/042_rig_archive.js";
+import { softwareTeamPolicySchema } from "../../src/db/migrations/041_software_team_policy.js";
+import { softwareTeamArchiveSchema } from "../../src/db/migrations/042_software_team_archive.js";
 import { resumeProvenanceSchema } from "../../src/db/migrations/043_resume_provenance.js";
 import { resumeVerificationSchema } from "../../src/db/migrations/045_resume_verification.js";
 import { seatIdentityVerdictsSchema } from "../../src/db/migrations/046_seat_identity_verdicts.js";
@@ -60,7 +60,7 @@ import { sessionStopIntentSchema } from "../../src/db/migrations/103_session_sto
 // index-independent).
 export function createMigratedDb(): Database.Database {
   const db = createDb();
-  migrate(db, [coreSchema, bindingsSessionsSchema, eventsSchema, snapshotsSchema, checkpointsSchema, resumeMetadataSchema, nodeSpecFieldsSchema, packagesSchema, installJournalSchema, journalSeqSchema, bootstrapSchema, discoverySchema, discoveryFkFix, agentspecRebootSchema, startupContextSchema, chatMessagesSchema, podNamespaceSchema, contextUsageSchema, externalCliAttachmentSchema, rigServicesSchema, seatHandoverObservabilitySchema, nodeCodexConfigProfileSchema, nodePermissionPolicySchema, rigPermissionPolicySchema, nodePolicyProvenanceSchema, rigPolicyProvenanceSchema, streamItemsSchema, queueItemsSchema, queueTransitionsSchema, rigPolicySchema, rigArchiveSchema, resumeProvenanceSchema, resumeVerificationSchema, seatIdentityVerdictsSchema, eventsNodeTypeIndexSchema, sessionsNodeIdIndexSchema, sessionStopIntentSchema]);
+  migrate(db, [coreSchema, bindingsSessionsSchema, eventsSchema, snapshotsSchema, checkpointsSchema, resumeMetadataSchema, nodeSpecFieldsSchema, packagesSchema, installJournalSchema, journalSeqSchema, bootstrapSchema, discoverySchema, discoveryFkFix, agentspecRebootSchema, startupContextSchema, chatMessagesSchema, podNamespaceSchema, contextUsageSchema, externalCliAttachmentSchema, softwareTeamServicesSchema, seatHandoverObservabilitySchema, nodeCodexConfigProfileSchema, nodePermissionPolicySchema, softwareTeamPermissionPolicySchema, nodePolicyProvenanceSchema, softwareTeamPolicyProvenanceSchema, streamItemsSchema, queueItemsSchema, queueTransitionsSchema, softwareTeamPolicySchema, softwareTeamArchiveSchema, resumeProvenanceSchema, resumeVerificationSchema, seatIdentityVerdictsSchema, eventsNodeTypeIndexSchema, sessionsNodeIdIndexSchema, sessionStopIntentSchema]);
   return db;
 }
 
@@ -75,21 +75,21 @@ export const EVENT_TYPE_VECTOR: ReadonlyArray<readonly [string, number]> = [
   ["node.startup_ready", 420], ["chat.message", 356], ["transport.prompt_override", 314],
   ["node.startup_failed", 201], ["node.reconciled", 168], ["watchdog.job_stopped", 141],
   ["watchdog.job_registered", 140], ["bootstrap.started", 118], ["bootstrap.failed", 112],
-  ["node.held", 104], ["session.discovered", 101], ["node.added", 90], ["rig.imported", 66],
+  ["node.held", 104], ["session.discovered", 101], ["node.added", 90], ["softwareTeam.imported", 66],
   ["node.startup_proof_verified", 66], ["node.startup_challenged", 65], ["session.vanished", 64],
-  ["rig.stopped", 54], ["rig.deleted", 49], ["bootstrap.completed", 49], ["bootstrap.planned", 43],
-  ["pod.created", 42], ["session.resume_token_captured", 39], ["rig.expanded", 35],
+  ["software-team.stopped", 54], ["software-team.deleted", 49], ["bootstrap.completed", 49], ["bootstrap.planned", 43],
+  ["pod.created", 42], ["session.resume_token_captured", 39], ["softwareTeam.expanded", 35],
   ["restore.started", 35], ["restore.completed", 35], ["session.resume_token_set", 30],
-  ["node.claimed", 21], ["restore.outcome_reconciled", 19], ["rig.archived", 17],
+  ["node.claimed", 21], ["restore.outcome_reconciled", 19], ["software-team.archived", 17],
   ["restore.subset_completed", 16], ["node.removed", 14], ["workflow.instantiated", 13],
   ["stream.emitted", 11], ["bootstrap.partial", 10], ["qitem.fallback_routed", 8],
-  ["rig.created", 5], ["pod.deleted", 3], ["inbox.absorbed", 2], ["binding.updated", 2],
+  ["software-team.created", 5], ["pod.deleted", 3], ["inbox.absorbed", 2], ["binding.updated", 2],
   ["inbox.denied", 1],
 ];
 
 export const TOTAL_EVENTS = EVENT_TYPE_VECTOR.reduce((n, [, c]) => n + c, 0); // 219541
-export const ACTIVE_RIGS = 10;
-export const ARCHIVED_RIGS = 17;
+export const ACTIVE_SOFTWARE_TEAMS = 10;
+export const ARCHIVED_SOFTWARE_TEAMS = 17;
 export const ACTIVE_NODES = 75;
 export const ARCHIVED_NODES = 123;
 
@@ -110,7 +110,7 @@ function spread(total: number, bins: number): number[] {
 
 function payloadFor(type: string, nid: string, rid: string, sname: string): string {
   if (type === "agent.activity") {
-    return JSON.stringify({ activity: { state: "active", eventAt: "2026-07-01T00:00:00Z", runtime: "claude" }, sessionName: sname, nodeId: nid, rigId: rid });
+    return JSON.stringify({ activity: { state: "active", eventAt: "2026-07-01T00:00:00Z", runtime: "claude" }, sessionName: sname, nodeId: nid, softwareTeamId: rid });
   }
   if (type === "node.held") return JSON.stringify({ reason: "awaiting-decision" });
   if (type === "restore.completed" || type === "restore.subset_completed") {
@@ -124,39 +124,39 @@ function payloadFor(type: string, nid: string, rid: string, sname: string): stri
 }
 
 export interface HostShape {
-  activeRigIds: string[];
-  archivedRigIds: string[];
-  allRigIds: string[];
-  nodeByRig: Map<string, string[]>;
+  activeSoftwareTeamIds: string[];
+  archivedSoftwareTeamIds: string[];
+  allSoftwareTeamIds: string[];
+  nodeBySoftwareTeam: Map<string, string[]>;
   allNodeIds: string[];
   sessionNameByNode: Map<string, string>;
 }
 
 /** Seed the db to the host shape. Returns the id maps. One transaction for events. */
 export function seedHostShaped(db: Database.Database): HostShape {
-  const insRig = db.prepare("INSERT INTO rigs (id, name, created_at, archived_at) VALUES (?, ?, ?, ?)");
-  const insNode = db.prepare("INSERT INTO nodes (id, rig_id, logical_id, runtime, created_at) VALUES (?, ?, ?, ?, ?)");
+  const insSoftwareTeam = db.prepare("INSERT INTO software_teams (id, name, created_at, archived_at) VALUES (?, ?, ?, ?)");
+  const insNode = db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, runtime, created_at) VALUES (?, ?, ?, ?, ?)");
   const insSession = db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status, created_at) VALUES (?, ?, ?, ?, ?, ?)");
-  const insEvent = db.prepare("INSERT INTO events (rig_id, node_id, type, payload, created_at) VALUES (?, ?, ?, ?, ?)");
+  const insEvent = db.prepare("INSERT INTO events (software_team_id, node_id, type, payload, created_at) VALUES (?, ?, ?, ?, ?)");
 
-  const activeRigIds: string[] = [];
-  const archivedRigIds: string[] = [];
-  const nodeByRig = new Map<string, string[]>();
+  const activeSoftwareTeamIds: string[] = [];
+  const archivedSoftwareTeamIds: string[] = [];
+  const nodeBySoftwareTeam = new Map<string, string[]>();
   const allNodeIds: string[] = [];
   const sessionNameByNode = new Map<string, string>();
 
   const seedAll = db.transaction(() => {
-    // rigs
-    for (let i = 0; i < ACTIVE_RIGS; i++) { const id = `rig-act-${String(i).padStart(2, "0")}`; insRig.run(id, id, BASE_TS, null); activeRigIds.push(id); nodeByRig.set(id, []); }
-    for (let i = 0; i < ARCHIVED_RIGS; i++) { const id = `rig-arc-${String(i).padStart(2, "0")}`; insRig.run(id, id, BASE_TS, "2026-07-05 00:00:00"); archivedRigIds.push(id); nodeByRig.set(id, []); }
+    // softwareTeams
+    for (let i = 0; i < ACTIVE_SOFTWARE_TEAMS; i++) { const id = `software-team-act-${String(i).padStart(2, "0")}`; insSoftwareTeam.run(id, id, BASE_TS, null); activeSoftwareTeamIds.push(id); nodeBySoftwareTeam.set(id, []); }
+    for (let i = 0; i < ARCHIVED_SOFTWARE_TEAMS; i++) { const id = `software-team-arc-${String(i).padStart(2, "0")}`; insSoftwareTeam.run(id, id, BASE_TS, "2026-07-05 00:00:00"); archivedSoftwareTeamIds.push(id); nodeBySoftwareTeam.set(id, []); }
 
     // nodes + one latest session each, with a deterministic mixed lifecycle
-    const mkNodes = (rigIds: string[], perRig: number[]) => {
-      rigIds.forEach((rid, ri) => {
-        for (let k = 0; k < perRig[ri]; k++) {
+    const mkNodes = (softwareTeamIds: string[], perSoftwareTeam: number[]) => {
+      softwareTeamIds.forEach((rid, ri) => {
+        for (let k = 0; k < perSoftwareTeam[ri]; k++) {
           const nid = `node-${rid}-${k}`;
           insNode.run(nid, rid, `n${k}`, "claude", BASE_TS);
-          nodeByRig.get(rid)!.push(nid);
+          nodeBySoftwareTeam.get(rid)!.push(nid);
           allNodeIds.push(nid);
           const sname = `sess-${nid}`;
           sessionNameByNode.set(nid, sname);
@@ -168,23 +168,23 @@ export function seedHostShaped(db: Database.Database): HostShape {
         }
       });
     };
-    mkNodes(activeRigIds, spread(ACTIVE_NODES, ACTIVE_RIGS));
-    mkNodes(archivedRigIds, spread(ARCHIVED_NODES, ARCHIVED_RIGS));
+    mkNodes(activeSoftwareTeamIds, spread(ACTIVE_NODES, ACTIVE_SOFTWARE_TEAMS));
+    mkNodes(archivedSoftwareTeamIds, spread(ARCHIVED_NODES, ARCHIVED_SOFTWARE_TEAMS));
 
     // events — EXACTLY the authoritative vector, one transaction
-    const allRigIds = [...activeRigIds, ...archivedRigIds];
+    const allSoftwareTeamIds = [...activeSoftwareTeamIds, ...archivedSoftwareTeamIds];
     let ni = 0, ri = 0;
     for (const [type, count] of EVENT_TYPE_VECTOR) {
       const nodeScoped = NODE_SCOPED.has(type);
       for (let c = 0; c < count; c++) {
         if (nodeScoped) {
           const nid = allNodeIds[ni % allNodeIds.length]; ni++;
-          const rid = nid.startsWith("node-") ? nid.slice(5).replace(/-\d+$/, "") : allRigIds[0];
+          const rid = nid.startsWith("node-") ? nid.slice(5).replace(/-\d+$/, "") : allSoftwareTeamIds[0];
           insEvent.run(rid, nid, type, payloadFor(type, nid, rid, sessionNameByNode.get(nid) ?? ""), BASE_TS);
         } else {
-          const rid = allRigIds[ri % allRigIds.length]; ri++;
-          // restore.* are rig-scoped but reference a node in payload for the outcome fold
-          const anchorNode = nodeByRig.get(rid)?.[0] ?? allNodeIds[0];
+          const rid = allSoftwareTeamIds[ri % allSoftwareTeamIds.length]; ri++;
+          // restore.* are software-team-scoped but reference a node in payload for the outcome fold
+          const anchorNode = nodeBySoftwareTeam.get(rid)?.[0] ?? allNodeIds[0];
           insEvent.run(rid, null, type, payloadFor(type, anchorNode, rid, ""), BASE_TS);
         }
       }
@@ -192,5 +192,5 @@ export function seedHostShaped(db: Database.Database): HostShape {
   });
   seedAll();
 
-  return { activeRigIds, archivedRigIds, allRigIds: [...activeRigIds, ...archivedRigIds], nodeByRig, allNodeIds, sessionNameByNode };
+  return { activeSoftwareTeamIds, archivedSoftwareTeamIds, allSoftwareTeamIds: [...activeSoftwareTeamIds, ...archivedSoftwareTeamIds], nodeBySoftwareTeam, allNodeIds, sessionNameByNode };
 }

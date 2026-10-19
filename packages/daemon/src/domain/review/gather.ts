@@ -32,8 +32,8 @@ import {
   type SliceComposeInputs,
   type WorkflowExceptionInput,
 } from "./compose.js";
-import type { AgentsBand, AgentsScope, ComposedMissionReview, ComposedRigAgents, ComposedSliceReview, LockedArtifact, SettledRow, WorkflowRowRef } from "./types.js";
-import { composeAgentsBand, composeRigAgents } from "./compose.js";
+import type { AgentsBand, AgentsScope, ComposedMissionReview, ComposedSoftwareTeamAgents, ComposedSliceReview, LockedArtifact, SettledRow, WorkflowRowRef } from "./types.js";
+import { composeAgentsBand, composeSoftwareTeamAgents } from "./compose.js";
 import { runSyncSite } from "../sync-site-wrap.js";
 import { readSliceReadiness, readMissionReadiness } from "../proof/judgments.js";
 import { readProofArtifacts } from "./proof-io.js";
@@ -163,20 +163,20 @@ export class ReviewGatherer {
   }
 
   /**
-   * OPR.0.4.4.22 — the composed rig-agents read root (FR-1..FR-4): NEEDS
-   * YOU + AGENTS (health line) + SETTLED at rig scope. Pure projection over
+   * OPR.0.4.4.22 — the composed software-team-agents read root (FR-1..FR-4): NEEDS
+   * YOU + AGENTS (health line) + SETTLED at SoftwareTeam scope. Pure projection over
    * queue + hook-activity; nothing contacts an agent. The roster is
    * active-holders UNION recently-holding (transitions-on-scope-TODAY — the
    * plan-review-ruled display window, named in provenance).
    */
-  composeRig(): ComposedRigAgents {
+  composeSoftwareTeam(): ComposedSoftwareTeamAgents {
     const nowIso = this.now();
     const todayStart = `${nowIso.slice(0, 10)}T00:00:00.000Z`;
-    const agents = this.withTelemetry(this.rigRoster(todayStart), nowIso);
+    const agents = this.withTelemetry(this.softwareTeamRoster(todayStart), nowIso);
     const attention = this.attentionAll();
     const overdue = this.overdueWork(nowIso);
     const { settled, handoffsToday } = this.settledToday(todayStart);
-    return composeRigAgents({
+    return composeSoftwareTeamAgents({
       agents,
       overdue,
       attention,
@@ -192,7 +192,7 @@ export class ReviewGatherer {
   /** The scope-parameterized agents projection — ONE contract, all consumers. */
   composeAgents(scope: AgentsScope): AgentsBand | null {
     const nowIso = this.now();
-    if (scope === "rig") {
+    if (scope === "softwareTeam") {
       return composeAgentsBand(this.agentsForSlices(null), scope, [], nowIso);
     }
     if (scope.startsWith("slice:")) {
@@ -543,8 +543,8 @@ export class ReviewGatherer {
   }
 
   /** Sessions holding active work on the slices named by `sliceTags`: each slice's
-   *  directory name and frontmatter id (null = rig-wide).
-   *  Region membership derives from work-on-scope, never rig co-residency.
+   *  directory name and frontmatter id (null = software-team-wide).
+   *  Region membership derives from work-on-scope, never softwareTeam co-residency.
    *  Runtime/idle telemetry is honest-unknown at v1 (queue-derived only). */
   private agentsForSlices(
     sliceTags: string[] | null,
@@ -569,7 +569,7 @@ export class ReviewGatherer {
       // Membership (canonical): a row belongs when it carries one of the
       // named slices OR — for the mission band (C3, pm ruling i) — the
       // mission tag directly, so `mission:X`-tagged work counts even when
-      // its slice tag isn't indexed. missionName is null for rig/slice
+      // its slice tag isn't indexed. missionName is null for softwareTeam/slice
       // flows (byte-identical to pre-fix).
       if (
         sliceTags !== null &&
@@ -604,13 +604,13 @@ export class ReviewGatherer {
       });
   }
 
-  // --- OPR.0.4.4.22 rig-scope helpers (all synchronous SQLite reads) ---
+  // --- OPR.0.4.4.22 software-team-scope helpers (all synchronous SQLite reads) ---
 
   /** FR-1 roster: agents HOLDING active work on any slice-tagged item, UNION
    *  agents RECENTLY holding (their slice-tagged items transitioned today —
    *  the ruled display window). Membership derives from work-on-scope,
-   *  never rig co-residency. */
-  private rigRoster(todayStartIso: string): AgentInput[] {
+   *  never softwareTeam co-residency. */
+  private softwareTeamRoster(todayStartIso: string): AgentInput[] {
     const holders = this.agentsForSlices(null);
     if (!this.tableExists("queue_items")) return holders;
     const summaryCol = this.columnExists("queue_items", "summary") ? "summary" : "NULL AS summary";
@@ -711,7 +711,7 @@ export class ReviewGatherer {
     return out;
   }
 
-  /** Rig-scope NEEDS YOU: ALL human-routed active items (no tag filter). */
+  /** SoftwareTeam-scope NEEDS YOU: ALL human-routed active items (no tag filter). */
   private attentionAll(): AttentionInput[] {
     if (!this.tableExists("queue_items")) return [];
     const hasEvidenceRef = this.columnExists("queue_items", "evidence_ref");
@@ -780,7 +780,7 @@ export class ReviewGatherer {
     }
   }
 
-  /** FR-3/FR-4: in-progress slice work past closure_required_at, rig-wide.
+  /** FR-3/FR-4: in-progress slice work past closure_required_at, software-team-wide.
    *  Feeds both the derived NEEDS YOU exception and the health count. */
   private overdueWork(nowIso: string): AttentionInput[] {
     if (!this.tableExists("queue_items")) return [];

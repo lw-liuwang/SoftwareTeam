@@ -10,8 +10,8 @@ describe("session stop intent migration", () => {
     const db = createDb();
     try {
       migrate(db, ALL_MIGRATIONS.filter((migration) => migration.name !== sessionStopIntentSchema.name));
-      db.prepare("INSERT INTO rigs (id, name) VALUES ('rig-1', 'upgrade')").run();
-      db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES ('node-1', 'rig-1', 'dev.qa')").run();
+      db.prepare("INSERT INTO software_teams (id, name) VALUES ('software-team-1', 'upgrade')").run();
+      db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES ('node-1', 'software-team-1', 'dev.qa')").run();
       for (const status of ["exited", "detached", "running"]) {
         db.prepare(
           "INSERT INTO sessions (id, node_id, session_name, status, resume_type, resume_token) VALUES (?, 'node-1', 'dev-qa@upgrade', ?, 'claude_session_id', ?)",

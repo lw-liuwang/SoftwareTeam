@@ -4,7 +4,7 @@
 world model, not a manual. What matters is that you reach for a written answer instead of deriving
 one, because **an invented answer and a known one look identical once you have stated it.**
 
-So: here is what exists in writing on an OpenRig machine, and roughly what each kind of thing answers.
+So: here is what exists in writing on an SoftwareTeam machine, and roughly what each kind of thing answers.
 You do not need to read any of it now. You need to know it is there.
 
 ## The command surface — `docs/as-built/` in the source repo
@@ -16,7 +16,7 @@ Use the source repository's `docs/as-built/` index and documents marked
   document you want.
 - **`codemap.md` — "Navigation Index / Map of Territory."** Start here when you are about to go
   into the code and do not know which module owns the thing.
-- **`cli-reference.md` — the `rig` command reference.** Every group, subcommand, flag,
+- **`cli-reference.md` — the `SoftwareTeam` command reference.** Every group, subcommand, flag,
   JSON shape. **This is the authority on how a command works**, and the capabilities piece
   (`public-what-you-can-do.md`) is only the map to it.
 
@@ -42,11 +42,11 @@ binary wins** — and the disagreement is worth reporting, not just working arou
 
 ## The living answer — `--help`
 
-**Ask the binary you will actually run.** `rig <verb> --help` and
-`rig <verb> <subcommand> --help` are authoritative for shape, flags and defaults. This costs
+**Ask the binary you will actually run.** `SoftwareTeam <verb> --help` and
+`SoftwareTeam <verb> <subcommand> --help` are authoritative for shape, flags and defaults. This costs
 seconds and it is the single cheapest habit on this list.
 
-**And use it as a search, not just a lookup.** `rig --help` lists the installed top-level commands. If
+**And use it as a search, not just a lookup.** `SoftwareTeam --help` lists the installed top-level commands. If
 you are about to build something, read that list first — the most expensive failure here is
 building a parallel solution out of primitives that already compose into the answer.
 
@@ -84,7 +84,7 @@ So these extend your reach; they do not outrank a primary source, and *newer-loo
 
 ## The one you read rather than consult
 
-**`openrig-operating-model`** — the skill for context placement and chain walking. Everything else on this page you visit with a
+**`softwareteam-operating-model`** — the skill for context placement and chain walking. Everything else on this page you visit with a
 question already in hand. **That one you read through once**, because it is the shape the rest
 hangs on: the two trees, how context is arranged by altitude, and how a cold agent finds what it
 needs. Reading it is what stops you inventing an arrangement that already exists.

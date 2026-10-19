@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SeatSwitchClientService } from "../src/domain/seat-switch-client-service.js";
 import { TmuxAdapter, type TmuxClient, type TmuxWindow, type TmuxResult } from "../src/adapters/tmux.js";
 
 /**
  * OPR.0.4.3.26 — VIEW-ONLY switch-client retarget. The service holds only
- * rigRepo (read) + tmuxAdapter (probe + switch); it is structurally incapable of
+ * softwareTeamRepo (read) + tmuxAdapter (probe + switch); it is structurally incapable of
  * mutating routing/bindings/sessions. These tests pin the mechanism AND the
  * view-only invariant: no session/binding mutation adapter call ever fires.
  */
@@ -50,45 +50,45 @@ function client(name: string, session: string): TmuxClient {
 
 describe("SeatSwitchClientService", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
   });
 
   afterEach(() => { db.close(); });
 
-  /** Seed a live seat whose canonical session is `dev-impl@seat-rig`. */
+  /** Seed a live seat whose canonical session is `dev-impl@seat-softwareTeam`. */
   function seedLiveSeat() {
-    const rig = rigRepo.createRig("seat-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "codex", cwd: "/project" });
-    const session = sessionRegistry.registerSession(node.id, "dev-impl@seat-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("seat-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "codex", cwd: "/project" });
+    const session = sessionRegistry.registerSession(node.id, "dev-impl@seat-software-team");
     sessionRegistry.updateStatus(session.id, "running");
-    return { rig, node, session };
+    return { softwareTeam, node, session };
   }
 
   it("retargets the single attached client to <session>:0 and returns view-only success", async () => {
     seedLiveSeat();
     const { adapter, probes } = spyTmux({ clients: [client("/dev/ttys003", "wrong-view")] });
-    const service = new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter });
+    const service = new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter });
 
-    const result = await service.switchClient({ seatRef: "dev-impl@seat-rig" });
+    const result = await service.switchClient({ seatRef: "dev-impl@seat-software-team" });
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.message);
     expect(result.result).toMatchObject({
-      seat_ref: "dev-impl@seat-rig",
-      session: "dev-impl@seat-rig",
+      seat_ref: "dev-impl@seat-software-team",
+      session: "dev-impl@seat-software-team",
       window: 0,
-      target: "dev-impl@seat-rig:0",
+      target: "dev-impl@seat-software-team:0",
       client: "/dev/ttys003",
       mutated: false,
       retargeted: true,
     });
-    expect(probes.switchClient).toHaveBeenCalledWith("/dev/ttys003", "=dev-impl@seat-rig:0");
+    expect(probes.switchClient).toHaveBeenCalledWith("/dev/ttys003", "=dev-impl@seat-software-team:0");
   });
 
   it("remaining: a session disappearing before listWindows cannot supply its sibling's window", async () => {
@@ -97,12 +97,12 @@ describe("SeatSwitchClientService", () => {
     const calls: string[] = [];
     const actual = new TmuxAdapter(async (cmd) => {
       calls.push(cmd);
-      if (cmd.includes("'=dev-impl@seat-rig'")) throw new Error("can't find session: dev-impl@seat-rig");
+      if (cmd.includes("'=dev-impl@seat-software-team'")) throw new Error("can't find session: dev-impl@seat-software-team");
       return "1|sibling-window|1|1\n";
     });
     probes.listWindows.mockImplementation((target) => actual.listWindows(target));
-    const result = await new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter })
-      .switchClient({ seatRef: "dev-impl@seat-rig", toWindow: 1 });
+    const result = await new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter })
+      .switchClient({ seatRef: "dev-impl@seat-software-team", toWindow: 1 });
     expect(result).toMatchObject({ ok: false, code: "tmux_probe_failed" });
     expect(probes.switchClient).not.toHaveBeenCalled();
     expect(calls).toHaveLength(1);
@@ -113,24 +113,24 @@ describe("SeatSwitchClientService", () => {
     const { adapter, probes } = spyTmux({ clients: [client("client", "home")] });
     let movedToSibling = false;
     const actual = new TmuxAdapter(async (cmd) => {
-      if (cmd.includes("'=dev-impl@seat-rig:0'")) throw new Error("can't find session: dev-impl@seat-rig");
+      if (cmd.includes("'=dev-impl@seat-software-team:0'")) throw new Error("can't find session: dev-impl@seat-software-team");
       movedToSibling = true;
       return "";
     });
     probes.switchClient.mockImplementation((clientName, target) => actual.switchClient(clientName, target));
-    const result = await new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter })
-      .switchClient({ seatRef: "dev-impl@seat-rig" });
+    const result = await new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter })
+      .switchClient({ seatRef: "dev-impl@seat-software-team" });
     expect(result).toMatchObject({ ok: false, code: "switch_failed" });
     expect(movedToSibling).toBe(false);
   });
 
-  // THE money proof: a successful view retarget mutates NOTHING in OpenRig.
+  // THE money proof: a successful view retarget mutates NOTHING in SoftwareTeam.
   it("VIEW-ONLY invariant: never calls a session/binding mutation adapter method", async () => {
     seedLiveSeat();
     const { adapter, mutators } = spyTmux({ clients: [client("/dev/ttys003", "wrong-view")] });
-    const service = new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter });
+    const service = new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter });
 
-    const result = await service.switchClient({ seatRef: "dev-impl@seat-rig" });
+    const result = await service.switchClient({ seatRef: "dev-impl@seat-software-team" });
     expect(result.ok).toBe(true);
 
     // No session lifecycle mutation, no send, no option write.
@@ -142,7 +142,7 @@ describe("SeatSwitchClientService", () => {
 
     // And no binding/session mutation leaked into the DB: the session is still
     // the one registered, running, and no successor/handover rows appeared.
-    const rows = db.prepare("SELECT status FROM sessions WHERE session_name = ?").all("dev-impl@seat-rig") as Array<{ status: string }>;
+    const rows = db.prepare("SELECT status FROM sessions WHERE session_name = ?").all("dev-impl@seat-software-team") as Array<{ status: string }>;
     expect(rows).toHaveLength(1);
     expect(rows[0]!.status).toBe("running");
   });
@@ -156,14 +156,14 @@ describe("SeatSwitchClientService", () => {
         { index: 1, name: "logs", panes: 1, active: true },
       ],
     });
-    const service = new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter });
+    const service = new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter });
 
-    const result = await service.switchClient({ seatRef: "dev-impl@seat-rig", toWindow: 1 });
+    const result = await service.switchClient({ seatRef: "dev-impl@seat-software-team", toWindow: 1 });
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.message);
-    expect(result.result.target).toBe("dev-impl@seat-rig:1");
-    expect(probes.switchClient).toHaveBeenCalledWith("/dev/ttys003", "=dev-impl@seat-rig:1");
+    expect(result.result.target).toBe("dev-impl@seat-software-team:1");
+    expect(probes.switchClient).toHaveBeenCalledWith("/dev/ttys003", "=dev-impl@seat-software-team:1");
   });
 
   it("honest window_not_found (never a raw tmux failure) for a missing --to-window", async () => {
@@ -172,9 +172,9 @@ describe("SeatSwitchClientService", () => {
       clients: [client("/dev/ttys003", "wrong-view")],
       windows: [{ index: 0, name: "main", panes: 1, active: true }],
     });
-    const service = new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter });
+    const service = new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter });
 
-    const result = await service.switchClient({ seatRef: "dev-impl@seat-rig", toWindow: 5 });
+    const result = await service.switchClient({ seatRef: "dev-impl@seat-software-team", toWindow: 5 });
 
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected failure");
@@ -185,14 +185,14 @@ describe("SeatSwitchClientService", () => {
   it("honest no_client error (suggest attach / CMUX) when no client is attached", async () => {
     seedLiveSeat();
     const { adapter, probes } = spyTmux({ clients: [] });
-    const service = new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter });
+    const service = new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter });
 
-    const result = await service.switchClient({ seatRef: "dev-impl@seat-rig" });
+    const result = await service.switchClient({ seatRef: "dev-impl@seat-software-team" });
 
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected failure");
     expect(result.code).toBe("no_client");
-    expect(result.guidance).toContain("tmux attach -t dev-impl@seat-rig");
+    expect(result.guidance).toContain("tmux attach -t dev-impl@seat-software-team");
     expect(probes.switchClient).not.toHaveBeenCalled();
   });
 
@@ -201,9 +201,9 @@ describe("SeatSwitchClientService", () => {
     const { adapter, probes } = spyTmux({
       clients: [client("/dev/ttys003", "a"), client("/dev/ttys007", "b")],
     });
-    const service = new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter });
+    const service = new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter });
 
-    const result = await service.switchClient({ seatRef: "dev-impl@seat-rig" });
+    const result = await service.switchClient({ seatRef: "dev-impl@seat-software-team" });
 
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected failure");
@@ -220,22 +220,22 @@ describe("SeatSwitchClientService", () => {
     const { adapter, probes } = spyTmux({
       clients: [client("/dev/ttys003", "a"), client("/dev/ttys007", "b")],
     });
-    const service = new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter });
+    const service = new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter });
 
-    const result = await service.switchClient({ seatRef: "dev-impl@seat-rig", client: "/dev/ttys007" });
+    const result = await service.switchClient({ seatRef: "dev-impl@seat-software-team", client: "/dev/ttys007" });
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.message);
     expect(result.result.client).toBe("/dev/ttys007");
-    expect(probes.switchClient).toHaveBeenCalledWith("/dev/ttys007", "=dev-impl@seat-rig:0");
+    expect(probes.switchClient).toHaveBeenCalledWith("/dev/ttys007", "=dev-impl@seat-software-team:0");
   });
 
   it("client_not_found lists attached clients when --client names none of them", async () => {
     seedLiveSeat();
     const { adapter, probes } = spyTmux({ clients: [client("/dev/ttys003", "a")] });
-    const service = new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter });
+    const service = new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter });
 
-    const result = await service.switchClient({ seatRef: "dev-impl@seat-rig", client: "/dev/ttys999" });
+    const result = await service.switchClient({ seatRef: "dev-impl@seat-software-team", client: "/dev/ttys999" });
 
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected failure");
@@ -247,9 +247,9 @@ describe("SeatSwitchClientService", () => {
   it("session_not_found points to routing repair (reconcile/handover) and never switches", async () => {
     seedLiveSeat();
     const { adapter, probes } = spyTmux({ hasSession: false, clients: [client("/dev/ttys003", "a")] });
-    const service = new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter });
+    const service = new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter });
 
-    const result = await service.switchClient({ seatRef: "dev-impl@seat-rig" });
+    const result = await service.switchClient({ seatRef: "dev-impl@seat-software-team" });
 
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected failure");
@@ -260,14 +260,14 @@ describe("SeatSwitchClientService", () => {
 
   it("missing_canonical_session for a seat with no current occupant (never fresh-launch)", async () => {
     // Node exists but no running session -> current_occupant is null.
-    const rig = rigRepo.createRig("seat-rig");
-    rigRepo.addNode(rig.id, "dev.impl", { runtime: "codex" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("seat-software-team");
+    softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "codex" });
     const { adapter, probes, mutators } = spyTmux({ clients: [client("/dev/ttys003", "a")] });
-    const service = new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter });
+    const service = new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter });
 
     // No session registered -> resolve by the logical-id form (there is no
     // canonical session name to match on yet).
-    const result = await service.switchClient({ seatRef: "dev.impl@seat-rig" });
+    const result = await service.switchClient({ seatRef: "dev.impl@seat-software-team" });
 
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected failure");
@@ -278,9 +278,9 @@ describe("SeatSwitchClientService", () => {
 
   it("propagates seat_not_found for an unknown seat", async () => {
     const { adapter } = spyTmux();
-    const service = new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter });
+    const service = new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter });
 
-    const result = await service.switchClient({ seatRef: "ghost@seat-rig" });
+    const result = await service.switchClient({ seatRef: "ghost@seat-software-team" });
 
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected failure");
@@ -293,9 +293,9 @@ describe("SeatSwitchClientService", () => {
       hasSessionThrows: new Error("EACCES: permission denied"),
       clients: [client("/dev/ttys003", "a")],
     });
-    const service = new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter });
+    const service = new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter });
 
-    const result = await service.switchClient({ seatRef: "dev-impl@seat-rig" });
+    const result = await service.switchClient({ seatRef: "dev-impl@seat-software-team" });
 
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected failure");
@@ -308,9 +308,9 @@ describe("SeatSwitchClientService", () => {
     const { adapter, probes } = spyTmux({ clients: [client("/dev/ttys003", "a")] });
     // Adapter intentionally rethrows unexpected probe failures (permission/socket).
     probes.listClients.mockRejectedValueOnce(new Error("error connecting to /private/tmp/tmux-501/default (Permission denied)"));
-    const service = new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter });
+    const service = new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter });
 
-    const result = await service.switchClient({ seatRef: "dev-impl@seat-rig" });
+    const result = await service.switchClient({ seatRef: "dev-impl@seat-software-team" });
 
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected failure");
@@ -324,9 +324,9 @@ describe("SeatSwitchClientService", () => {
     seedLiveSeat();
     const { adapter, probes } = spyTmux({ clients: [client("/dev/ttys003", "a")] });
     probes.listWindows.mockRejectedValueOnce(new Error("EACCES: permission denied"));
-    const service = new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter });
+    const service = new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter });
 
-    const result = await service.switchClient({ seatRef: "dev-impl@seat-rig", toWindow: 1 });
+    const result = await service.switchClient({ seatRef: "dev-impl@seat-software-team", toWindow: 1 });
 
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected failure");
@@ -341,9 +341,9 @@ describe("SeatSwitchClientService", () => {
       clients: [client("/dev/ttys003", "a")],
       switchResult: { ok: false, code: "session_not_found", message: "can't find session" },
     });
-    const service = new SeatSwitchClientService({ rigRepo, tmuxAdapter: adapter });
+    const service = new SeatSwitchClientService({ softwareTeamRepo, tmuxAdapter: adapter });
 
-    const result = await service.switchClient({ seatRef: "dev-impl@seat-rig" });
+    const result = await service.switchClient({ seatRef: "dev-impl@seat-software-team" });
 
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected failure");

@@ -7,9 +7,9 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { RunProgramIo } from "./cli-error.js";
 
-const REEXEC_GUARD_ENV = "OPENRIG_BIN_REEXEC";
+const REEXEC_GUARD_ENV = "SOFTWARETEAM_BIN_REEXEC";
 
-// Each `rig` is a new process: Node's on-disk compile cache lets the next call skip compiling the modules
+// Each `softwareTeam` is a new process: Node's on-disk compile cache lets the next call skip compiling the modules
 // again. The cache dates from Node v22.1.0, but this JavaScript API from v22.8.0: before it, `?.()` does
 // nothing. NODE_COMPILE_CACHE and NODE_DISABLE_COMPILE_CACHE still control it.
 module.enableCompileCache?.();
@@ -150,7 +150,7 @@ export async function run(argv = process.argv, io: RunProgramIo = {}): Promise<v
     await failedToLoad(normalizedArgv, error, io);
     return;
   }
-  // Slice 17: the PUBLIC bin is the real front door — bare `rig` in a TTY
+  // Slice 17: the PUBLIC bin is the real front door — bare `softwareTeam` in a TTY
   // opens the TUI here, not only under a direct `node dist/index.js` run
   // (guard finding 1: importing the entry makes its isDirectRun false).
   // Feature-detected so the wrapper still runs an older sibling entry.

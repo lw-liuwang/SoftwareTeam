@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-// Slice-03 Atom 6 (rig walk) — the pacing primitive. "Walk the seat through it":
+// Slice-03 Atom 6 (softwareTeam walk) — the pacing primitive. "Walk the seat through it":
 // deliver a sequence of context pieces into a seat's pane, spaced by --pace so
 // the agent can absorb each before the next. Its OWN top-level verb (not an
-// extension of `rig send`); push-direction, the walker leads and does not wait
-// for replies — the spacing does the work (SPEC-rig-context-rig-walk-composition
+// extension of `SoftwareTeam send`); push-direction, the walker leads and does not wait
+// for replies — the spacing does the work (SPEC-software-team-context-software-team-walk-composition
 // §3). --through takes a context ref (a pack → its ordered member pieces) OR a
 // raw file list; each piece is one send into the pane.
 
@@ -59,18 +59,18 @@ export function walkCommand(depsOverride?: WalkDeps): Command {
   };
 
   cmd
-    .argument("<seat>", "Target session name (e.g. dev-impl@my-rig)")
+    .argument("<seat>", "Target session name (e.g. dev-impl@my-software-team)")
     .option("--through <items...>", "A context ref (a pack) OR a list of files to walk the seat through")
     // Test-A (row 782b467a) — the walk/profile join: consume the AUTHORITATIVE
     // composed profile (never a hand-authored piece list) and report delivered
     // pieces BY IDENTITY so the profile set and the delivered set are
     // exact-comparable. NO-COPY: the bytes sent are the bytes the profile served.
-    .option("--through-profile <ref>", "Walk the seat through a pack's COMPOSED PROFILE (requires --situation; the piece set comes from rig context profile, never hand-authored)")
+    .option("--through-profile <ref>", "Walk the seat through a pack's COMPOSED PROFILE (requires --situation; the piece set comes from SoftwareTeam context profile, never hand-authored)")
     .option("--situation <situation>", "With --through-profile: fresh | handover | post-compaction")
     .option("--runtime <runtime>", "With --through-profile: claude | codex (default claude)")
     .option("--profile <profile>", "With --through-profile: named install profile declared by the pack")
-    .option("--rig <rig>", "With --through-profile: the seat-tree grant (with --seat)")
-    .option("--seat-grant <seat>", "With --through-profile: the seat whose tree seat: atoms may read (with --rig)")
+    .option("--software-team <softwareTeam>", "With --through-profile: the seat-tree grant (with --seat)")
+    .option("--seat-grant <seat>", "With --through-profile: the seat whose tree seat: atoms may read (with --software-team)")
     .option("--mission <mission>", "With --through-profile: the mission-tree grant")
     .option("--slice <slice>", "With --through-profile: the slice-tree grant (with --mission)")
     .option("--budget <tokens>", "With --through-profile: situation budget (reported, never truncated)")
@@ -85,14 +85,14 @@ export function walkCommand(depsOverride?: WalkDeps): Command {
     .option("--json", "JSON output")
     .addHelpText("after", `
 Examples:
-  rig walk dev-impl@my-rig --through packs/tui-onboarding --pace 12s
-  rig walk dev-impl@my-rig --through intro.md steps.md wrapup.md --pace 10s
+  SoftwareTeam walk dev-impl@my-software-team --through packs/tui-onboarding --pace 12s
+  SoftwareTeam walk dev-impl@my-software-team --through intro.md steps.md wrapup.md --pace 10s
 
 When a generation record resolves, each complete piece and its corresponding
 Claude or Codex turn closure must appear before --pace and the next piece.
 Verification proves delivery and turn completion, not comprehension. An unavailable
 initial record is explicitly reported as unverified delivery.`)
-    .action(async (seat: string, opts: { through?: string[]; throughProfile?: string; situation?: string; runtime?: string; profile?: string; rig?: string; seatGrant?: string; mission?: string; slice?: string; budget?: string; pace?: string; consumeTimeout?: string; consumePoll?: string; turnTimeout?: string; json?: boolean }) => {
+    .action(async (seat: string, opts: { through?: string[]; throughProfile?: string; situation?: string; runtime?: string; profile?: string; softwareTeam?: string; seatGrant?: string; mission?: string; slice?: string; budget?: string; pace?: string; consumeTimeout?: string; consumePoll?: string; turnTimeout?: string; json?: boolean }) => {
       try {
         const deps = getDeps();
         const paceMs = parsePaceMs(opts.pace);
@@ -235,7 +235,7 @@ initial record is explicitly reported as unverified delivery.`)
               deliveryId: randomUUID(),
             }, { headers: terminalAuthHeaders() });
             if (res.data?.["outcome"] === "retained") {
-              failPiece(i, piece.label, `retained, not delivered (${JSON.stringify(res.data["outboxIds"])}); no further pieces sent. Inspect with rig seat held-messages ${seat}.`);
+              failPiece(i, piece.label, `retained, not delivered (${JSON.stringify(res.data["outboxIds"])}); no further pieces sent. Inspect with SoftwareTeam seat held-messages ${seat}.`);
               return;
             }
             if (res.status >= 400) {
@@ -365,12 +365,12 @@ initial record is explicitly reported as unverified delivery.`)
 
   async function resolveProfilePieces(
     deps: WalkDeps,
-    opts: { throughProfile?: string; situation?: string; runtime?: string; profile?: string; rig?: string; seatGrant?: string; mission?: string; slice?: string; budget?: string },
+    opts: { throughProfile?: string; situation?: string; runtime?: string; profile?: string; softwareTeam?: string; seatGrant?: string; mission?: string; slice?: string; budget?: string },
   ): Promise<{ pieces: WalkPiece[]; identity: Array<{ atomId: string; address: string }> }> {
     const client = await getClient(deps);
     const params = new URLSearchParams({ ref: opts.throughProfile!, situation: opts.situation!, runtime: opts.runtime ?? "claude" });
     if (opts.profile !== undefined) params.set("profile", opts.profile);
-    if (opts.rig !== undefined) params.set("rig", opts.rig);
+    if (opts.softwareTeam !== undefined) params.set("softwareTeam", opts.softwareTeam);
     if (opts.seatGrant !== undefined) params.set("seat", opts.seatGrant);
     if (opts.mission !== undefined) params.set("mission", opts.mission);
     if (opts.slice !== undefined) params.set("slice", opts.slice);
@@ -398,7 +398,7 @@ initial record is explicitly reported as unverified delivery.`)
     const client = await getClient(deps);
     const res = await client.get<RefPiecesWire>(`/api/context-packs/library/by-ref/pieces?ref=${encodeURIComponent(ref)}`);
     if (res.status === 404) {
-      throw new Error(`Context pack '${ref}' not found in library. Run 'rig context list' to see the available refs.`);
+      throw new Error(`Context pack '${ref}' not found in library. Run 'SoftwareTeam context list' to see the available refs.`);
     }
     if (res.status === 400) {
       throw new Error(res.data?.message ?? `Unsafe context ref '${ref}'.`);

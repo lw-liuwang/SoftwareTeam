@@ -39,7 +39,7 @@ describe("bundle view at the real CLI command boundary", () => {
       events.push(url);
       if (url === "/api/bundles/inspect") throw new Error("description unavailable");
       expect(url).toBe("/api/bundles/install");
-      expect(body).toMatchObject({ plan, bundlePath: "/tmp/example.rigbundle" });
+      expect(body).toMatchObject({ plan, bundlePath: "/tmp/example.softwareteambundle" });
       return { status, data: { status: status < 400 ? (plan ? "planned" : "completed") : "failed", retained: true } } as never;
     });
     const deps = runningDeps(client);
@@ -48,7 +48,7 @@ describe("bundle view at the real CLI command boundary", () => {
     const oldExit = process.exitCode;
     process.exitCode = undefined;
     try {
-      await program.parseAsync(["node", "rig", "bundle", "install", "/tmp/example.rigbundle", "--target", "/tmp/destination", "--json", ...(plan ? ["--plan"] : [])]);
+      await program.parseAsync(["node", "softwareTeam", "bundle", "install", "/tmp/example.softwareteambundle", "--target", "/tmp/destination", "--json", ...(plan ? ["--plan"] : [])]);
       expect(process.exitCode).toBe(expectedExit);
       expect(post.mock.calls.filter(([url]) => url === "/api/bundles/install")).toHaveLength(1);
       expect(events.indexOf("header")).toBeGreaterThanOrEqual(0);
@@ -75,10 +75,10 @@ describe("bundle view at the real CLI command boundary", () => {
     const oldExit = process.exitCode;
     process.exitCode = undefined;
     try {
-      await program.parseAsync(["node", "rig", "up", "/tmp/example.rigbundle", "--json", ...(plan ? ["--plan"] : [])]);
+      await program.parseAsync(["node", "softwareTeam", "up", "/tmp/example.softwareteambundle", "--json", ...(plan ? ["--plan"] : [])]);
       expect(events).toEqual(["/api/bundles/inspect", "header", "/api/up"]);
       expect(post.mock.calls[1]).toEqual([
-        "/api/up", expect.objectContaining({ sourceRef: "/tmp/example.rigbundle", plan }),
+        "/api/up", expect.objectContaining({ sourceRef: "/tmp/example.softwareteambundle", plan }),
         plan ? undefined : { timeoutMs: 120_000 },
       ]);
       expect(process.exitCode).toBe(1);
@@ -98,25 +98,25 @@ describe("bundle view at the real CLI command boundary", () => {
     });
     const deps = runningDeps(new DaemonClient("http://127.0.0.1:8123"));
     const program = new Command().exitOverride().addCommand(upCommand(deps));
-    await program.parseAsync(["node", "rig", "up", "./remote.rigbundle", "--host", "selected", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "up", "./remote.softwareteambundle", "--host", "selected", "--json"]);
     expect(events).toEqual(["/api/bundles/inspect", "header", "/api/up"]);
     expect(vi.mocked(runRemoteHttpOp).mock.calls[0]).toEqual([
-      "selected", "POST", "/api/bundles/inspect", { bundlePath: "./remote.rigbundle" }, deps, expect.anything(),
+      "selected", "POST", "/api/bundles/inspect", { bundlePath: "./remote.softwareteambundle" }, deps, expect.anything(),
     ]);
-    expect(vi.mocked(runRemoteHttpOp).mock.calls[1]?.[3]).toMatchObject({ sourceRef: "./remote.rigbundle" });
+    expect(vi.mocked(runRemoteHttpOp).mock.calls[1]?.[3]).toMatchObject({ sourceRef: "./remote.softwareteambundle" });
     expect(output).toHaveBeenCalledTimes(1);
     expect(JSON.parse(String(output.mock.calls[0]?.[0]))).toMatchObject({ ok: true, data: { retained: true } });
     expect(deps.forbidden).not.toHaveBeenCalled();
   });
 
-  it.each(["/tmp/rig.yaml", "existing-rig"])("does not inspect or print a bundle header for %s", async source => {
+  it.each(["/tmp/software-team.yaml", "existing-software-team"])("does not inspect or print a bundle header for %s", async source => {
     const output = vi.spyOn(console, "log").mockImplementation(() => {});
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const client = new DaemonClient("http://127.0.0.1:8123");
-    vi.spyOn(client, "get").mockResolvedValue({ status: 200, data: [{ id: "existing", name: "existing-rig" }] } as never);
+    vi.spyOn(client, "get").mockResolvedValue({ status: 200, data: [{ id: "existing", name: "existing-software-team" }] } as never);
     const post = vi.spyOn(client, "post").mockResolvedValue({ status: 201, data: { status: "completed" } } as never);
     const program = new Command().exitOverride().addCommand(upCommand(runningDeps(client)));
-    await program.parseAsync(["node", "rig", "up", source, "--existing", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "up", source, "--existing", "--json"]);
     expect(post.mock.calls.map(([url]) => url)).toEqual(["/api/up"]);
     expect(error).not.toHaveBeenCalled();
     expect(output).toHaveBeenCalledTimes(1);

@@ -7,7 +7,7 @@ interface BootstrapRunRow {
   source_kind: string;
   source_ref: string;
   status: string;
-  rig_id: string | null;
+  software_team_id: string | null;
   created_at: string;
   applied_at: string | null;
 }
@@ -53,10 +53,10 @@ export class BootstrapRepository {
     return rows.map((r) => this.rowToRun(r));
   }
 
-  updateRunStatus(id: string, status: BootstrapStatus, opts?: { rigId?: string; appliedAt?: string }): void {
-    if (opts?.rigId) {
-      this.db.prepare("UPDATE bootstrap_runs SET status = ?, rig_id = ?, applied_at = ? WHERE id = ?")
-        .run(status, opts.rigId, opts.appliedAt ?? new Date().toISOString(), id);
+  updateRunStatus(id: string, status: BootstrapStatus, opts?: { softwareTeamId?: string; appliedAt?: string }): void {
+    if (opts?.softwareTeamId) {
+      this.db.prepare("UPDATE bootstrap_runs SET status = ?, software_team_id = ?, applied_at = ? WHERE id = ?")
+        .run(status, opts.softwareTeamId, opts.appliedAt ?? new Date().toISOString(), id);
     } else if (status === "completed" || status === "failed" || status === "partial") {
       this.db.prepare("UPDATE bootstrap_runs SET status = ?, applied_at = ? WHERE id = ?")
         .run(status, opts?.appliedAt ?? new Date().toISOString(), id);
@@ -107,7 +107,7 @@ export class BootstrapRepository {
       sourceKind: row.source_kind,
       sourceRef: row.source_ref,
       status: row.status as BootstrapStatus,
-      rigId: row.rig_id,
+      softwareTeamId: row.software_team_id,
       createdAt: row.created_at,
       appliedAt: row.applied_at,
     };

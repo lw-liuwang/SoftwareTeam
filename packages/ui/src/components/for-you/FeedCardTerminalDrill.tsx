@@ -3,7 +3,7 @@
 //
 // Session-NAME keyed only: the drill reuses TerminalPreviewPopover which
 // mounts FocusedTerminal (a live xterm/WebSocket terminal). It performs
-// NO rigId/logicalId/agentActivity topology resolution — the card's already-
+// NO softwareTeamId/logicalId/agentActivity topology resolution — the card's already-
 // resolved source session string is the whole address.
 //
 // Honesty: when the live terminal cannot connect, FocusedTerminal surfaces
@@ -12,7 +12,7 @@
 
 import { TerminalPreviewPopover } from "../topology/TerminalPreviewPopover.js";
 
-const TERMINAL_PREVIEW_EVENT = "openrig:topology-terminal-preview";
+const TERMINAL_PREVIEW_EVENT = "softwareteam:topology-terminal-preview";
 
 interface FeedCardTerminalDrillProps {
   cardId: string;
@@ -53,7 +53,7 @@ export function FeedCardTerminalDrill({ cardId, sessionName }: FeedCardTerminalD
         live terminal
       </button>
       <TerminalPreviewPopover
-        rigId={cardId}
+        softwareTeamId={cardId}
         logicalId={sessionName}
         sessionName={sessionName}
         renderTrigger={false}

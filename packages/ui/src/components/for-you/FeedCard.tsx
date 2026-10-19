@@ -598,7 +598,7 @@ export function FeedCard({
                 (e.g. activity.needs_input.synthetic) user-visible. The kind tag +
                 human title already identify the card. */}
             {card.authorSession ? (
-              <AuthorAgentTag authorSession={card.authorSession} rigId={card.rigId} />
+              <AuthorAgentTag authorSession={card.authorSession} softwareTeamId={card.softwareTeamId} />
             ) : null}
             {qitemViewerData ? (
               <QueueItemTrigger

@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { NodeLauncher } from "../src/domain/node-launcher.js";
@@ -81,7 +81,7 @@ function eventsOfType(db: Database.Database, type: string): Array<Record<string,
 
 describe("SeatLifecycleService", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let eventBus: EventBus;
   let tmux: FakeTmux;
@@ -89,13 +89,13 @@ describe("SeatLifecycleService", () => {
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     eventBus = new EventBus(db);
     tmux = fakeTmux();
     service = new SeatLifecycleService({
       db,
-      rigRepo,
+      softwareTeamRepo,
       sessionRegistry,
       eventBus,
       tmuxAdapter: tmux.adapter,
@@ -107,10 +107,10 @@ describe("SeatLifecycleService", () => {
   });
 
   /** One live managed seat: node + running session + binding + live tmux. */
-  function seatFixture(rigName: string, logicalId: string, opts?: { model?: string; origin?: "claimed" }) {
-    const existing = rigRepo.findRigsByName(rigName)[0] ?? rigRepo.createRig(rigName);
-    const sessionName = `${logicalId.replace(".", "-")}@${rigName}`;
-    const node = rigRepo.addNode(existing.id, logicalId, {
+  function seatFixture(softwareTeamName: string, logicalId: string, opts?: { model?: string; origin?: "claimed" }) {
+    const existing = softwareTeamRepo.findSoftwareTeamsByName(softwareTeamName)[0] ?? softwareTeamRepo.createSoftwareTeam(softwareTeamName);
+    const sessionName = `${logicalId.replace(".", "-")}@${softwareTeamName}`;
+    const node = softwareTeamRepo.addNode(existing.id, logicalId, {
       runtime: "claude-code",
       cwd: "/project",
       model: opts?.model ?? "fable",
@@ -122,19 +122,19 @@ describe("SeatLifecycleService", () => {
     sessionRegistry.updateResumeToken(session.id, "claude_session_id", "resume-uuid-1234", "hook");
     sessionRegistry.updateBinding(node.id, { attachmentType: "tmux", tmuxSession: sessionName, tmuxPane: "%1" });
     tmux.setAlive(sessionName, true);
-    return { rig: existing, node, session, sessionName };
+    return { softwareTeam: existing, node, session, sessionName };
   }
 
   // ---- P1 / P2 — set-model ----
 
   it("P1: set-model persists nodes.model and emits one audited node.model_changed event", async () => {
-    const { rig, node, sessionName } = seatFixture("s5-rig", "dev.impl", { model: "fable" });
+    const { softwareTeam, node, sessionName } = seatFixture("s5-software-team", "dev.impl", { model: "fable" });
 
     const result = await service.setModel({
       seatRef: sessionName,
       model: "claude-fable-5",
       reason: "alias migration to canonical id",
-      operator: "orch-lead@s5-rig",
+      operator: "orch-lead@s5-software-team",
     });
 
     expect(result.ok).toBe(true);
@@ -143,24 +143,24 @@ describe("SeatLifecycleService", () => {
     expect(result.to).toBe("claude-fable-5");
     expect(result.changed).toBe(true);
 
-    const persisted = rigRepo.getRig(rig.id)!.nodes.find((n) => n.id === node.id)!;
+    const persisted = softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find((n) => n.id === node.id)!;
     expect(persisted.model).toBe("claude-fable-5");
 
     const events = eventsOfType(db, "node.model_changed");
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
-      rigId: rig.id,
+      softwareTeamId: softwareTeam.id,
       nodeId: node.id,
       logicalId: "dev.impl",
       from: "fable",
       to: "claude-fable-5",
       reason: "alias migration to canonical id",
-      operator: "orch-lead@s5-rig",
+      operator: "orch-lead@s5-software-team",
     });
   });
 
   it("P1: set-model with the already-persisted value is changed:false and emits nothing", async () => {
-    const { sessionName } = seatFixture("s5-rig", "dev.impl", { model: "claude-fable-5" });
+    const { sessionName } = seatFixture("s5-software-team", "dev.impl", { model: "claude-fable-5" });
 
     const result = await service.setModel({ seatRef: sessionName, model: "claude-fable-5", reason: "no-op check" });
 
@@ -171,7 +171,7 @@ describe("SeatLifecycleService", () => {
   });
 
   it("P2: set-model leaves session lineage byte-identical (sessions + occupant_tenures + resume token)", async () => {
-    const { node, sessionName } = seatFixture("s5-rig", "dev.impl", { model: "fable" });
+    const { node, sessionName } = seatFixture("s5-software-team", "dev.impl", { model: "fable" });
     const before = lineageSnapshot(db, node.id);
 
     const result = await service.setModel({ seatRef: sessionName, model: "claude-fable-5", reason: "alias migration" });
@@ -185,7 +185,7 @@ describe("SeatLifecycleService", () => {
   });
 
   it("set-model refusals are loud and mutation-free", async () => {
-    const { rig, node, sessionName } = seatFixture("s5-rig", "dev.impl", { model: "fable" });
+    const { softwareTeam, node, sessionName } = seatFixture("s5-software-team", "dev.impl", { model: "fable" });
 
     const missingModel = await service.setModel({ seatRef: sessionName, model: "   ", reason: "x" });
     expect(missingModel.ok).toBe(false);
@@ -197,13 +197,13 @@ describe("SeatLifecycleService", () => {
     if (missingReason.ok) throw new Error("expected refusal");
     expect(missingReason.code).toBe("missing_reason");
 
-    const notFound = await service.setModel({ seatRef: "ghost-seat@s5-rig", model: "claude-fable-5", reason: "x" });
+    const notFound = await service.setModel({ seatRef: "ghost-seat@s5-software-team", model: "claude-fable-5", reason: "x" });
     expect(notFound.ok).toBe(false);
     if (notFound.ok) throw new Error("expected refusal");
     expect(notFound.code).toBe("seat_not_found");
 
-    // Same logical id in two rigs, bare ref → ambiguous, with the matches listed.
-    seatFixture("s5-rig-b", "dev.impl", { model: "fable" });
+    // Same logical id in two softwareTeams, bare ref → ambiguous, with the matches listed.
+    seatFixture("s5-software-team-b", "dev.impl", { model: "fable" });
     const ambiguous = await service.setModel({ seatRef: "dev.impl", model: "claude-fable-5", reason: "x" });
     expect(ambiguous.ok).toBe(false);
     if (ambiguous.ok) throw new Error("expected refusal");
@@ -211,7 +211,7 @@ describe("SeatLifecycleService", () => {
     expect(ambiguous.matches?.length).toBe(2);
 
     // No mutation happened anywhere along the refusals.
-    const persisted = rigRepo.getRig(rig.id)!.nodes.find((n) => n.id === node.id)!;
+    const persisted = softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find((n) => n.id === node.id)!;
     expect(persisted.model).toBe("fable");
     expect(eventsOfType(db, "node.model_changed")).toHaveLength(0);
   });
@@ -219,10 +219,10 @@ describe("SeatLifecycleService", () => {
   // ---- P3 / P4 — stop ----
 
   it("P3: stop kills exactly the target seat; the sibling's session, binding and tmux survive", async () => {
-    const a = seatFixture("s5-rig", "dev.impla");
-    const b = seatFixture("s5-rig", "dev.implb");
+    const a = seatFixture("s5-software-team", "dev.impla");
+    const b = seatFixture("s5-software-team", "dev.implb");
 
-    const result = await service.stopSeat({ seatRef: a.sessionName, reason: "single-seat stop test", operator: "op@rig" });
+    const result = await service.stopSeat({ seatRef: a.sessionName, reason: "single-seat stop test", operator: "op@software-team" });
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.message);
@@ -238,31 +238,31 @@ describe("SeatLifecycleService", () => {
 
     const events = eventsOfType(db, "session.stopped");
     expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({ nodeId: a.node.id, sessionName: a.sessionName, reason: "single-seat stop test", operator: "op@rig" });
+    expect(events[0]).toMatchObject({ nodeId: a.node.id, sessionName: a.sessionName, reason: "single-seat stop test", operator: "op@software-team" });
   });
 
-  describe("intentional stop in the rig lifecycle", () => {
-    function summary(rigId: string) {
-      return new PsProjectionService({ db }).getEntries().find((entry) => entry.rigId === rigId)!;
+  describe("intentional stop in the SoftwareTeam lifecycle", () => {
+    function summary(softwareTeamId: string) {
+      return new PsProjectionService({ db }).getEntries().find((entry) => entry.softwareTeamId === softwareTeamId)!;
     }
 
-    it("keeps a rig running after stopping an on-demand seat, with truthful process counts", async () => {
+    it("keeps a SoftwareTeam running after stopping an on-demand seat, with truthful process counts", async () => {
       const stopped = seatFixture("on-demand", "dev.qa");
       seatFixture("on-demand", "dev.impl");
       const lineage = lineageSnapshot(db, stopped.node.id);
 
       expect((await service.stopSeat({ seatRef: stopped.sessionName, reason: "wait for the next review" })).ok).toBe(true);
 
-      expect(summary(stopped.rig.id)).toMatchObject({
+      expect(summary(stopped.softwareTeam.id)).toMatchObject({
         lifecycleState: "running", status: "partial", nodeCount: 2, runningCount: 1,
       });
-      expect(getNodeInventory(db, stopped.rig.id).find((entry) => entry.nodeId === stopped.node.id)).toMatchObject({
+      expect(getNodeInventory(db, stopped.softwareTeam.id).find((entry) => entry.nodeId === stopped.node.id)).toMatchObject({
         sessionStatus: "exited", intentionallyStopped: true,
       });
       expect(lineageSnapshot(db, stopped.node.id)).toEqual(lineage);
       // Reconstruct the reader after pruning audit events: intent is durable state.
       db.prepare("DELETE FROM events").run();
-      expect(summary(stopped.rig.id).lifecycleState).toBe("running");
+      expect(summary(stopped.softwareTeam.id).lifecycleState).toBe("running");
     });
 
     it("does not hide an exit between the live probe and the kill", async () => {
@@ -275,31 +275,31 @@ describe("SeatLifecycleService", () => {
 
       expect((await service.stopSeat({ seatRef: stopped.sessionName, reason: "pause review" })).ok).toBe(true);
       expect(tmux.adapter.killSession).toHaveBeenCalledWith(stopped.sessionName);
-      expect(summary(stopped.rig.id)).toMatchObject({
+      expect(summary(stopped.softwareTeam.id)).toMatchObject({
         lifecycleState: "degraded", status: "partial", nodeCount: 2, runningCount: 1,
       });
-      expect(getNodeInventory(db, stopped.rig.id).find((entry) => entry.nodeId === stopped.node.id)).toMatchObject({
+      expect(getNodeInventory(db, stopped.softwareTeam.id).find((entry) => entry.nodeId === stopped.node.id)).toMatchObject({
         sessionStatus: "exited", intentionallyStopped: false,
       });
       expect(sessionRegistry.getBindingForNode(stopped.node.id)).toBeNull();
     });
 
-    it("does not leave a stopped seat's old startup prompt in the rig lifecycle", async () => {
+    it("does not leave a stopped seat's old startup prompt in the SoftwareTeam lifecycle", async () => {
       const stopped = seatFixture("stop-prompt", "dev.qa");
       seatFixture("stop-prompt", "dev.impl");
       sessionRegistry.updateStartupStatus(stopped.session.id, "attention_required");
-      expect(summary(stopped.rig.id).lifecycleState).toBe("attention_required");
+      expect(summary(stopped.softwareTeam.id).lifecycleState).toBe("attention_required");
 
       expect((await service.stopSeat({ seatRef: stopped.sessionName, reason: "do not run this seat now" })).ok).toBe(true);
-      expect(summary(stopped.rig.id).lifecycleState).toBe("running");
+      expect(summary(stopped.softwareTeam.id).lifecycleState).toBe("running");
     });
 
-    it("keeps the whole rig stopped when every seat was intentionally stopped", async () => {
+    it("keeps the whole SoftwareTeam stopped when every seat was intentionally stopped", async () => {
       const first = seatFixture("all-stopped", "dev.qa");
       const second = seatFixture("all-stopped", "dev.impl");
       await service.stopSeat({ seatRef: first.sessionName, reason: "pause review" });
       await service.stopSeat({ seatRef: second.sessionName, reason: "pause implementation" });
-      expect(summary(first.rig.id)).toMatchObject({ lifecycleState: "stopped", status: "stopped", runningCount: 0 });
+      expect(summary(first.softwareTeam.id)).toMatchObject({ lifecycleState: "stopped", status: "stopped", runningCount: 0 });
     });
 
     it("still reports a crashed sibling and a live sibling needing attention", async () => {
@@ -310,34 +310,34 @@ describe("SeatLifecycleService", () => {
       sessionRegistry.markDetached(crashed.session.id);
       sessionRegistry.clearBinding(crashed.node.id);
 
-      expect(summary(stopped.rig.id).lifecycleState).toBe("degraded");
+      expect(summary(stopped.softwareTeam.id).lifecycleState).toBe("degraded");
       sessionRegistry.updateStartupStatus(live.session.id, "attention_required");
-      expect(summary(stopped.rig.id).lifecycleState).toBe("attention_required");
+      expect(summary(stopped.softwareTeam.id).lifecycleState).toBe("attention_required");
     });
 
     it("does not carry stop intent into a new session on the same seat", async () => {
       const stopped = seatFixture("new-occupant", "dev.qa");
       seatFixture("new-occupant", "dev.impl");
       await service.stopSeat({ seatRef: stopped.sessionName, reason: "pause review" });
-      expect(summary(stopped.rig.id).lifecycleState).toBe("running");
+      expect(summary(stopped.softwareTeam.id).lifecycleState).toBe("running");
 
       const replacement = sessionRegistry.registerSession(stopped.node.id, stopped.sessionName);
       sessionRegistry.updateStatus(replacement.id, "running");
       sessionRegistry.markDetached(replacement.id);
-      expect(summary(stopped.rig.id).lifecycleState).toBe("degraded");
-      expect(getNodeInventory(db, stopped.rig.id).find((entry) => entry.nodeId === stopped.node.id)?.intentionallyStopped).not.toBe(true);
+      expect(summary(stopped.softwareTeam.id).lifecycleState).toBe("degraded");
+      expect(getNodeInventory(db, stopped.softwareTeam.id).find((entry) => entry.nodeId === stopped.node.id)?.intentionallyStopped).not.toBe(true);
     });
 
     it("does not reuse stop intent for an ordinary exit after resuming the same session", async () => {
       const stopped = seatFixture("same-session", "dev.qa");
       seatFixture("same-session", "dev.impl");
       await service.stopSeat({ seatRef: stopped.sessionName, reason: "pause review" });
-      expect(summary(stopped.rig.id).lifecycleState).toBe("running");
+      expect(summary(stopped.softwareTeam.id).lifecycleState).toBe("running");
 
       sessionRegistry.updateStatus(stopped.session.id, "running");
       sessionRegistry.updateStatus(stopped.session.id, "exited");
-      expect(summary(stopped.rig.id).lifecycleState).toBe("degraded");
-      expect(getNodeInventory(db, stopped.rig.id).find((entry) => entry.nodeId === stopped.node.id)?.intentionallyStopped).not.toBe(true);
+      expect(summary(stopped.softwareTeam.id).lifecycleState).toBe("degraded");
+      expect(getNodeInventory(db, stopped.softwareTeam.id).find((entry) => entry.nodeId === stopped.node.id)?.intentionallyStopped).not.toBe(true);
     });
 
     it("does not exempt a stopped session after a replacement binding appears", async () => {
@@ -348,8 +348,8 @@ describe("SeatLifecycleService", () => {
         attachmentType: "tmux", tmuxSession: stopped.sessionName, tmuxPane: "%replacement",
       });
 
-      expect(summary(stopped.rig.id).lifecycleState).toBe("degraded");
-      expect(getNodeInventory(db, stopped.rig.id).find((entry) => entry.nodeId === stopped.node.id)?.intentionallyStopped).toBe(false);
+      expect(summary(stopped.softwareTeam.id).lifecycleState).toBe("degraded");
+      expect(getNodeInventory(db, stopped.softwareTeam.id).find((entry) => entry.nodeId === stopped.node.id)?.intentionallyStopped).toBe(false);
     });
 
     it("does not turn cleaning an already-dead seat into an intentional stop", async () => {
@@ -357,8 +357,8 @@ describe("SeatLifecycleService", () => {
       seatFixture("dead-clean", "dev.impl");
       tmux.setAlive(dead.sessionName, false);
       expect((await service.cleanSeat({ seatRef: dead.sessionName, reason: "clean stale binding" })).ok).toBe(true);
-      expect(summary(dead.rig.id).lifecycleState).toBe("degraded");
-      expect(getNodeInventory(db, dead.rig.id).find((entry) => entry.nodeId === dead.node.id)?.intentionallyStopped).not.toBe(true);
+      expect(summary(dead.softwareTeam.id).lifecycleState).toBe("degraded");
+      expect(getNodeInventory(db, dead.softwareTeam.id).find((entry) => entry.nodeId === dead.node.id)?.intentionallyStopped).not.toBe(true);
     });
 
     it("does not persist stop intent when the audited stop transaction fails", async () => {
@@ -367,7 +367,7 @@ describe("SeatLifecycleService", () => {
       vi.spyOn(eventBus, "persistWithinTransaction").mockImplementationOnce(() => { throw new Error("audit unavailable"); });
 
       await expect(service.stopSeat({ seatRef: stopped.sessionName, reason: "pause review" })).rejects.toThrow("audit unavailable");
-      const entry = getNodeInventory(db, stopped.rig.id).find((node) => node.nodeId === stopped.node.id)!;
+      const entry = getNodeInventory(db, stopped.softwareTeam.id).find((node) => node.nodeId === stopped.node.id)!;
       expect(entry.sessionStatus).toBe("running");
       expect(entry.intentionallyStopped).not.toBe(true);
       expect(sessionRegistry.getBindingForNode(stopped.node.id)).not.toBeNull();
@@ -375,7 +375,7 @@ describe("SeatLifecycleService", () => {
   });
 
   it("P4: stop refuses a dead seat (session_not_live → guidance names clean), no mutation", async () => {
-    const a = seatFixture("s5-rig", "dev.impl");
+    const a = seatFixture("s5-software-team", "dev.impl");
     tmux.setAlive(a.sessionName, false);
 
     const result = await service.stopSeat({ seatRef: a.sessionName, reason: "x" });
@@ -389,13 +389,13 @@ describe("SeatLifecycleService", () => {
   });
 
   it("P4: stop refuses a claimed (adopted) session, an indeterminate probe, and a no-session node", async () => {
-    const claimed = seatFixture("s5-rig", "dev.adopted", { origin: "claimed" });
+    const claimed = seatFixture("s5-software-team", "dev.adopted", { origin: "claimed" });
     const claimedResult = await service.stopSeat({ seatRef: claimed.sessionName, reason: "x" });
     expect(claimedResult.ok).toBe(false);
     if (claimedResult.ok) throw new Error("expected refusal");
     expect(claimedResult.code).toBe("claimed_session");
 
-    const probed = seatFixture("s5-rig", "dev.flaky");
+    const probed = seatFixture("s5-software-team", "dev.flaky");
     tmux.failProbeFor(probed.sessionName);
     const probeResult = await service.stopSeat({ seatRef: probed.sessionName, reason: "x" });
     expect(probeResult.ok).toBe(false);
@@ -403,8 +403,8 @@ describe("SeatLifecycleService", () => {
     expect(probeResult.code).toBe("tmux_probe_failed");
     expect(tmux.killed).toEqual([]);
 
-    const rig = rigRepo.findRigsByName("s5-rig")[0]!;
-    rigRepo.addNode(rig.id, "dev.bare", { runtime: "claude-code" });
+    const softwareTeam = softwareTeamRepo.findSoftwareTeamsByName("s5-software-team")[0]!;
+    softwareTeamRepo.addNode(softwareTeam.id, "dev.bare", { runtime: "claude-code" });
     const bare = await service.stopSeat({ seatRef: "dev.bare", reason: "x" });
     expect(bare.ok).toBe(false);
     if (bare.ok) throw new Error("expected refusal");
@@ -414,22 +414,22 @@ describe("SeatLifecycleService", () => {
   // ---- P5 / P6 — clean ----
 
   it("P5: clean returns a dead seat to launchable WITHOUT deleting owner state (the already_bound defect, pinned)", async () => {
-    const a = seatFixture("s5-rig", "dev.impl");
+    const a = seatFixture("s5-software-team", "dev.impl");
     // The seat dies outside any supported verb (clean exit): tmux gone, DB stale.
     tmux.setAlive(a.sessionName, false);
 
     const launcher = new NodeLauncher({
-      db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux.adapter,
+      db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux.adapter,
     });
 
     // The gap-3 defect at base: the binding survives death, so launch refuses forever.
-    const blocked = await launcher.launchNode(a.rig.id, "dev.impl");
+    const blocked = await launcher.launchNode(a.softwareTeam.id, "dev.impl");
     expect(blocked.ok).toBe(false);
     if (blocked.ok) throw new Error("expected already_bound");
     expect(blocked.code).toBe("already_bound");
 
     const before = lineageSnapshot(db, a.node.id);
-    const cleaned = await service.cleanSeat({ seatRef: a.sessionName, reason: "clean exit observed", operator: "op@rig" });
+    const cleaned = await service.cleanSeat({ seatRef: a.sessionName, reason: "clean exit observed", operator: "op@software-team" });
     expect(cleaned.ok).toBe(true);
     if (!cleaned.ok) throw new Error(cleaned.message);
     expect(cleaned.actions.bindingCleared).toBe(true);
@@ -448,12 +448,12 @@ describe("SeatLifecycleService", () => {
     expect(eventsOfType(db, "session.cleaned")).toHaveLength(1);
 
     // The post-condition that defines the verb: launch no longer refuses already_bound.
-    const relaunch = await launcher.launchNode(a.rig.id, "dev.impl");
+    const relaunch = await launcher.launchNode(a.softwareTeam.id, "dev.impl");
     expect(relaunch.code === "already_bound").toBe(false);
   });
 
   it("P5: clean of a reconciler-detached seat clears only the stale binding", async () => {
-    const a = seatFixture("s5-rig", "dev.impl");
+    const a = seatFixture("s5-software-team", "dev.impl");
     tmux.setAlive(a.sessionName, false);
     sessionRegistry.markDetached(a.session.id); // what the reconciler records on death
 
@@ -466,22 +466,22 @@ describe("SeatLifecycleService", () => {
   });
 
   it("P6: clean refuses a LIVE seat (session_live → guidance names stop), an indeterminate probe, and a clean seat (nothing_to_clean names both checks)", async () => {
-    const live = seatFixture("s5-rig", "dev.live");
+    const live = seatFixture("s5-software-team", "dev.live");
     const liveResult = await service.cleanSeat({ seatRef: live.sessionName, reason: "x" });
     expect(liveResult.ok).toBe(false);
     if (liveResult.ok) throw new Error("expected refusal");
     expect(liveResult.code).toBe("session_live");
-    expect(liveResult.guidance).toBe("Stop a live seat first with: rig seat stop");
+    expect(liveResult.guidance).toBe("Stop a live seat first with: SoftwareTeam seat stop");
     expect(sessionRegistry.getBindingForNode(live.node.id)).not.toBeNull();
 
-    const probed = seatFixture("s5-rig", "dev.flaky");
+    const probed = seatFixture("s5-software-team", "dev.flaky");
     tmux.failProbeFor(probed.sessionName);
     const probeResult = await service.cleanSeat({ seatRef: probed.sessionName, reason: "x" });
     expect(probeResult.ok).toBe(false);
     if (probeResult.ok) throw new Error("expected refusal");
     expect(probeResult.code).toBe("tmux_probe_failed");
 
-    const done = seatFixture("s5-rig", "dev.done");
+    const done = seatFixture("s5-software-team", "dev.done");
     tmux.setAlive(done.sessionName, false);
     sessionRegistry.markDetached(done.session.id);
     sessionRegistry.clearBinding(done.node.id);
@@ -497,8 +497,8 @@ describe("SeatLifecycleService", () => {
     // Distinct registration times make the same ordering used by stop deterministic.
     const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now() - 1000);
     let older: ReturnType<typeof seatFixture>;
-    try { older = seatFixture("s5-rig", "dev.impl"); } finally { clock.mockRestore(); }
-    const newerName = "dev-impl-v2@s5-rig";
+    try { older = seatFixture("s5-software-team", "dev.impl"); } finally { clock.mockRestore(); }
+    const newerName = "dev-impl-v2@s5-software-team";
     const newer = sessionRegistry.registerSession(older.node.id, newerName);
     sessionRegistry.updateStatus(newer.id, "running");
     sessionRegistry.updateBinding(older.node.id, { attachmentType: "tmux", tmuxSession: newerName, tmuxPane: "%2" });
@@ -528,25 +528,25 @@ describe("SeatLifecycleService", () => {
     expect(retry).toMatchObject({ ok: false, code: "session_live" });
     expect(await tmux.adapter.hasSession(older.sessionName)).toBe(true);
 
-    expect(result.guidance).toContain(`rig capture -- '${older.sessionName}'`);
+    expect(result.guidance).toContain(`SoftwareTeam capture -- '${older.sessionName}'`);
     expect(result.guidance).toContain("end it yourself if it is no longer needed");
     expect(result.guidance).toContain("retry");
-    expect(result.guidance).toContain("rig seat stop targets the seat's latest session");
+    expect(result.guidance).toContain("SoftwareTeam seat stop targets the seat's latest session");
     expect(result.guidance).not.toContain("Stop a live seat first");
   });
 
   it("clean also names a live binding target that stop cannot select", async () => {
-    const seat = seatFixture("s5-rig", "dev.impl");
+    const seat = seatFixture("s5-software-team", "dev.impl");
     sessionRegistry.updateStatus(seat.session.id, "exited");
     tmux.setAlive(seat.sessionName, false);
-    const bindingName = "dev-impl-bound@s5-rig";
+    const bindingName = "dev-impl-bound@s5-software-team";
     sessionRegistry.updateBinding(seat.node.id, { attachmentType: "tmux", tmuxSession: bindingName, tmuxPane: "%2" });
     tmux.setAlive(bindingName, true);
 
     const result = await service.cleanSeat({ seatRef: "dev.impl", reason: "inspect stale binding" });
     expect(result).toMatchObject({ ok: false, code: "session_live" });
     if (result.ok) throw new Error("expected live-binding refusal");
-    expect(result.guidance).toContain(`rig capture -- '${bindingName}'`);
+    expect(result.guidance).toContain(`SoftwareTeam capture -- '${bindingName}'`);
     expect(result.guidance).not.toContain("Stop a live seat first");
     expect(sessionRegistry.getBindingForNode(seat.node.id)?.tmuxSession).toBe(bindingName);
     expect(tmux.killed).toEqual([]);
@@ -558,7 +558,7 @@ describe("SeatLifecycleService", () => {
     ["personal'terminal", "'personal'\"'\"'terminal'"],
     ["-old", "'-old'"],
   ])("clean quotes adopted live binding %s whose latest row is terminal", async (name, quoted) => {
-    const seat = seatFixture("s5-rig", "dev.impl", { origin: "claimed" });
+    const seat = seatFixture("s5-software-team", "dev.impl", { origin: "claimed" });
     db.prepare("UPDATE sessions SET session_name = ?, status = 'exited' WHERE id = ?").run(name, seat.session.id);
     sessionRegistry.updateBinding(seat.node.id, { attachmentType: "tmux", tmuxSession: name, tmuxPane: "%1" });
     tmux.setAlive(seat.sessionName, false);
@@ -566,7 +566,7 @@ describe("SeatLifecycleService", () => {
     const result = await service.cleanSeat({ seatRef: "dev.impl", reason: "inspect adopted binding" });
     expect(result).toMatchObject({ ok: false, code: "session_live" });
     if (result.ok) throw new Error("expected live-binding refusal");
-    expect(result.guidance).toContain(`rig capture -- ${quoted}`);
+    expect(result.guidance).toContain(`SoftwareTeam capture -- ${quoted}`);
     expect(result.guidance).not.toContain("Stop a live seat first");
     expect(sessionRegistry.getBindingForNode(seat.node.id)?.tmuxSession).toBe(name);
     const stopped = await service.stopSeat({ seatRef: "dev.impl", reason: "demonstrate adopted refusal" });
@@ -587,8 +587,8 @@ describe("SeatLifecycleService", () => {
       const realTmux = new TmuxAdapter(async () => {
         throw new Error("no server running on /private/tmp/tmux-501/default");
       });
-      const svc = new SeatLifecycleService({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: realTmux });
-      const seat = seatFixture("s5-rig", "dev.impl");
+      const svc = new SeatLifecycleService({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: realTmux });
+      const seat = seatFixture("s5-software-team", "dev.impl");
       return { realTmux, svc, seat };
     }
 
@@ -622,13 +622,13 @@ describe("SeatLifecycleService", () => {
       // non-terminal rows, so its safety probe must cover every row it will
       // touch — probing only the newest fabricates safety for the others.
       const tmuxLocal = fakeTmux();
-      const svcLocal = new SeatLifecycleService({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmuxLocal.adapter });
+      const svcLocal = new SeatLifecycleService({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmuxLocal.adapter });
       // The fixture session is the OLDER row and stays LIVE in tmux.
       // (seatFixture marks liveness on the OUTER fake; mirror it on this test's own.)
-      const seat = seatFixture("s5-rig", "dev.impl");
+      const seat = seatFixture("s5-software-team", "dev.impl");
       tmuxLocal.setAlive(seat.sessionName, true);
       // A NEWER session row under a successor name, dead in tmux.
-      const newerName = "dev-impl-v2@s5-rig";
+      const newerName = "dev-impl-v2@s5-software-team";
       const newer = sessionRegistry.registerSession(seat.node.id, newerName);
       sessionRegistry.updateStatus(newer.id, "running");
       tmuxLocal.setAlive(newerName, false);
@@ -661,7 +661,7 @@ describe("SeatLifecycleService", () => {
       // The unsafe routing r1 flagged: under a blip the refusal must not point
       // at the destructive verb.
       expect(res.guidance ?? "").not.toContain("clean");
-      expect(res.message ?? "").not.toContain("rig seat clean");
+      expect(res.message ?? "").not.toContain("SoftwareTeam seat clean");
       // Session untouched.
       expect((db.prepare("SELECT status FROM sessions WHERE id = ?").get(seat.session.id) as { status: string }).status).toBe("running");
     });

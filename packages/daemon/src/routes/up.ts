@@ -6,7 +6,7 @@ import type { BootstrapOrchestrator } from "../domain/bootstrap-orchestrator.js"
 import type { BootstrapRepository } from "../domain/bootstrap-repository.js";
 import type { EventBus } from "../domain/event-bus.js";
 import type { UpCommandRouter } from "../domain/up-command-router.js";
-import type { RigRepository } from "../domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "../domain/software-team-repository.js";
 import { summarizeSnapshot, type SnapshotRepository } from "../domain/snapshot-repository.js";
 import type { SnapshotCapture } from "../domain/snapshot-capture.js";
 import type { RestoreOrchestrator } from "../domain/restore-orchestrator.js";
@@ -14,7 +14,7 @@ import { assessCurrentStateRehydrateEligibility, snapshotMatchesCurrentOccupants
 import { buildRestorePlanPreview, collectPreviewSessionRows } from "../domain/restore-plan-preview.js";
 import { readFreshOccupantRelations } from "../domain/fresh-occupant-relation.js";
 import { loadTopologyManifest } from "../domain/topology/topology-manifest.js";
-import { MultiRigLauncher } from "../domain/topology/multi-rig-launcher.js";
+import { MultiSoftwareTeamLauncher } from "../domain/topology/multi-software-team-launcher.js";
 import { remoteUpLeaf } from "../domain/topology/remote-up-leaf.js";
 import { loadHostRegistry } from "../domain/hosts/hosts-registry-reader.js";
 import type { HttpHostEntry } from "../domain/hosts/hosts-registry-reader.js";
@@ -25,7 +25,7 @@ export const upRoutes = new Hono();
 /**
  * OPR.0.3.2.CT — assemble the 3-part error response body
  * (fact / consequence / action) when a bootstrap result carries an
- * import_rig stage with status='blocked' and detail.code ===
+ * import_software_team stage with status='blocked' and detail.code ===
  * 'attention_required'. Returns null when the result is not in that
  * shape (caller falls through to the normal partial-success path).
  *
@@ -33,14 +33,14 @@ export const upRoutes = new Hono();
  * needing the full daemon harness. Pure on the result shape.
  */
 export function buildAttentionResponse(result: {
-  rigId?: string;
+  softwareTeamId?: string;
   stages: Array<{ stage: string; status: string; detail?: unknown }>;
 }): {
   error: { fact: string; consequence: string; action: string };
   attentionNodes: import("../domain/types.js").AttentionNode[];
 } | null {
   const attentionStage = result.stages.find(
-    (s) => s.stage === "import_rig"
+    (s) => s.stage === "import_software_team"
       && s.status === "blocked"
       && (s.detail as { code?: string } | undefined)?.code === "attention_required",
   );
@@ -58,12 +58,12 @@ export function buildAttentionResponse(result: {
   const remainingAttachHintCount = Math.max(0, sessionAttachHints.length - 3);
   const attachHintText = visibleAttachHints
     ? `${visibleAttachHints}${remainingAttachHintCount > 0 ? ` ; plus ${remainingAttachHintCount} more listed in attentionNodes` : ""}`
-    : "see `rig ps`";
-  const rigIdDisplay = result.rigId ?? "(rigId unavailable)";
+    : "see `SoftwareTeam ps`";
+  const softwareTeamIdDisplay = result.softwareTeamId ?? "(softwareTeamId unavailable)";
   return {
     error: {
       fact: detail.message,
-      consequence: `Rig ${rigIdDisplay} is created and listable via \`rig ps\`. Members marked attention_required have not been proven interactive; a runtime may be waiting for input or may have exited.`,
+      consequence: `SoftwareTeam ${softwareTeamIdDisplay} is created and listable via \`SoftwareTeam ps\`. Members marked attention_required have not been proven interactive; a runtime may be waiting for input or may have exited.`,
       action: nodeCount === 1
         ? `Inspect the affected session and its reported reason before choosing recovery: ${attachHintText}.`
         : `Inspect each affected session listed in attentionNodes and its reported reason before choosing recovery: ${attachHintText}.`,
@@ -78,7 +78,7 @@ function getDeps(c: { get: (key: string) => unknown }) {
     bootstrapRepo: c.get("bootstrapRepo" as never) as BootstrapRepository,
     eventBus: c.get("eventBus" as never) as EventBus,
     upRouter: c.get("upRouter" as never) as UpCommandRouter,
-    rigRepo: c.get("rigRepo" as never) as RigRepository,
+    softwareTeamRepo: c.get("softwareTeamRepo" as never) as SoftwareTeamRepository,
     snapshotRepo: c.get("snapshotRepo" as never) as SnapshotRepository,
     snapshotCapture: c.get("snapshotCapture" as never) as SnapshotCapture,
     restoreOrchestrator: c.get("restoreOrchestrator" as never) as RestoreOrchestrator | undefined,
@@ -87,7 +87,7 @@ function getDeps(c: { get: (key: string) => unknown }) {
 }
 
 /**
- * Restore a rig by ID from its latest restore-usable snapshot.
+ * Restore a softwareTeam by ID from its latest restore-usable snapshot.
  *
  * L3b: prefers `auto-pre-down` when present (existing behavior preserved as a
  * preference signal) but falls back to the latest manual snapshot whose
@@ -95,31 +95,31 @@ function getDeps(c: { get: (key: string) => unknown }) {
  * The response payload echoes `snapshotKind` so the operator/CLI can surface
  * which snapshot was used.
  *
- * Shared helper used by both /api/up (rig_name) and /api/rigs/:rigId/up (Explorer).
+ * Shared helper used by both /api/up (software_team_name) and /api/software-teams/:softwareTeamId/up (Explorer).
  */
-async function restoreByRigId(rigId: string, rigName: string | null, deps: ReturnType<typeof getDeps>, c: { json: (data: unknown, status?: number) => Response }, freshLogicalIds?: string[], plan?: boolean, nonInterruptive?: boolean) {
+async function restoreBySoftwareTeamId(softwareTeamId: string, softwareTeamName: string | null, deps: ReturnType<typeof getDeps>, c: { json: (data: unknown, status?: number) => Response }, freshLogicalIds?: string[], plan?: boolean, nonInterruptive?: boolean) {
   const { snapshotRepo, restoreOrchestrator } = deps;
 
-  const rig = deps.rigRepo.getRig(rigId);
-  if (!rig) {
-    return c.json({ error: `Rig ${rigId} not found`, code: "rig_not_found" }, 404);
+  const softwareTeam = deps.softwareTeamRepo.getSoftwareTeam(softwareTeamId);
+  if (!softwareTeam) {
+    return c.json({ error: `SoftwareTeam ${softwareTeamId} not found`, code: "software_team_not_found" }, 404);
   }
 
-  const automaticSelection = snapshotRepo.selectRestoreUsable(rigId);
+  const automaticSelection = snapshotRepo.selectRestoreUsable(softwareTeamId);
   let snapshot = automaticSelection.ok ? automaticSelection.snapshot : null;
   let snapshotSelection = automaticSelection.ok ? automaticSelection.selection : undefined;
   let staleSnapshot = false;
-  if (snapshot && !snapshotMatchesCurrentOccupants(snapshotRepo.db, rig, snapshot)) {
+  if (snapshot && !snapshotMatchesCurrentOccupants(snapshotRepo.db, softwareTeam, snapshot)) {
     snapshot = null;
     snapshotSelection = undefined;
     staleSnapshot = true;
   }
   let capturedCurrentState = false;
   if (!snapshot) {
-    const eligibility = assessCurrentStateRehydrateEligibility(snapshotRepo.db, rig);
+    const eligibility = assessCurrentStateRehydrateEligibility(snapshotRepo.db, softwareTeam);
     if (!eligibility.ok) {
       return c.json({
-        error: `Rig exists but ${staleSnapshot ? "its restore snapshots name an older occupant" : "has no restore-usable snapshot"} and current DB state is insufficient for rehydrate. Start fresh with: rig up <spec-path>`,
+        error: `SoftwareTeam exists but ${staleSnapshot ? "its restore snapshots name an older occupant" : "has no restore-usable snapshot"} and current DB state is insufficient for rehydrate. Start fresh with: SoftwareTeam up <spec-path>`,
         code: "no_snapshot",
         blockers: eligibility.blockers,
       }, 404);
@@ -127,17 +127,17 @@ async function restoreByRigId(rigId: string, rigName: string | null, deps: Retur
   }
 
   // OPR.0.3.4.4 — read-only plan gate, BEFORE any restore mutation. The
-  // rig_name path previously early-returned past the bootstrap plan gate, so
-  // `rig up --existing <rig> --plan` mutated (the outage-01 bypass). Plan
+  // software_team_name path previously early-returned past the bootstrap plan gate, so
+  // `SoftwareTeam up --existing <softwareTeam> --plan` mutated (the outage-01 bypass). Plan
   // mode never reaches restoreOrchestrator.restore(), and the auto-rehydrate
   // snapshot capture (itself a mutation) is reported as would-happen, never
   // performed.
   if (plan) {
-    return c.json(buildRestorePlanPreview(rig, snapshot ?? null, collectPreviewSessionRows(snapshotRepo.db, rig, snapshot ?? null), freshLogicalIds, Date.now(), readFreshOccupantRelations(snapshotRepo.db, rig.rig.id)), 200);
+    return c.json(buildRestorePlanPreview(softwareTeam, snapshot ?? null, collectPreviewSessionRows(snapshotRepo.db, softwareTeam, snapshot ?? null), freshLogicalIds, Date.now(), readFreshOccupantRelations(snapshotRepo.db, softwareTeam.softwareTeam.id)), 200);
   }
 
   if (!snapshot) {
-    snapshot = deps.snapshotCapture.captureSnapshot(rigId, "auto-rehydrate");
+    snapshot = deps.snapshotCapture.captureSnapshot(softwareTeamId, "auto-rehydrate");
     snapshotSelection = {
       ...summarizeSnapshot(snapshot),
       mode: "automatic",
@@ -155,7 +155,7 @@ async function restoreByRigId(rigId: string, rigName: string | null, deps: Retur
   const result = await restoreOrchestrator.restore(snapshot.id, {
     adapters: deps.runtimeAdapters ?? {},
     fsOps: { exists: (p: string) => fs.existsSync(p) },
-    // OPR.0.3.4.2 — operation B opt-in seats from `rig up --existing --fresh`.
+    // OPR.0.3.4.2 — operation B opt-in seats from `SoftwareTeam up --existing --fresh`.
     freshLogicalIds,
     nonInterruptive,
     snapshotSelection,
@@ -164,8 +164,8 @@ async function restoreByRigId(rigId: string, rigName: string | null, deps: Retur
     if (result.code === "pre_restore_validation_failed") {
       return c.json({
         status: "not_attempted",
-        rigId,
-        rigName,
+        softwareTeamId,
+        softwareTeamName,
         error: result.message,
         code: result.code,
         snapshotKind: snapshot.kind,
@@ -173,22 +173,22 @@ async function restoreByRigId(rigId: string, rigName: string | null, deps: Retur
         remediation: result.result.blockers?.map((blocker) => blocker.remediation) ?? [],
       }, 409);
     }
-    return c.json({ error: result.message, code: result.code }, result.code === "rig_not_stopped" ? 409 : 400);
+    return c.json({ error: result.message, code: result.code }, result.code === "software_team_not_stopped" ? 409 : 400);
   }
 
-  // Compute attach command from first running node (same logic as /api/rigs/:id/up)
+  // Compute attach command from first running node (same logic as /api/software-teams/:id/up)
   const { getNodeInventory } = await import("../domain/node-inventory.js");
-  const inventory = getNodeInventory(deps.snapshotRepo.db, rigId);
+  const inventory = getNodeInventory(deps.snapshotRepo.db, softwareTeamId);
   const firstRunning = inventory.find((n) => n.canonicalSessionName && n.sessionStatus === "running");
   const attachCommand = firstRunning?.tmuxAttachCommand ?? inventory.find((n) => n.canonicalSessionName)?.tmuxAttachCommand ?? null;
 
   return c.json({
     status: "restored",
-    rigId,
-    rigName,
+    softwareTeamId,
+    softwareTeamName,
     snapshotId: snapshot.id,
     snapshotKind: snapshot.kind,
-    rigResult: result.result.rigResult,
+    softwareTeamResult: result.result.softwareTeamResult,
     nodes: result.result.nodes,
     warnings: capturedCurrentState
       ? [staleSnapshot
@@ -214,7 +214,7 @@ upRoutes.post("/", async (c) => {
     return c.json({ error: "sourceRef is required" }, 400);
   }
 
-  // `rig up --env KEY=VALUE`: environment for this launch only. It is not saved with the rig.
+  // `SoftwareTeam up --env KEY=VALUE`: environment for this launch only. It is not saved with the softwareTeam.
   const envOverride = readSeatEnvOverride(body["envOverride"]);
 
   // Route source — classify raw sourceRef first, only resolve path for file-based kinds
@@ -224,22 +224,22 @@ upRoutes.post("/", async (c) => {
     const route = upRouter.route(sourceRef);
     sourceKind = route.sourceKind;
 
-    // Rig name: restore from latest auto-pre-down snapshot
-    if (sourceKind === "rig_name") {
-      const { rigRepo } = getDeps(c);
-      const activeRigs = rigRepo.findUnarchivedRigsByName(sourceRef);
-      const rigs = activeRigs.length > 0 ? activeRigs : rigRepo.findRigsByName(sourceRef);
-      if (rigs.length === 0) {
-        return c.json({ error: `No rig found named "${sourceRef}". Provide a .yaml spec path to create a new rig.`, code: "rig_not_found" }, 404);
+    // SoftwareTeam name: restore from latest auto-pre-down snapshot
+    if (sourceKind === "software_team_name") {
+      const { softwareTeamRepo } = getDeps(c);
+      const activeSoftwareTeams = softwareTeamRepo.findUnarchivedSoftwareTeamsByName(sourceRef);
+      const softwareTeams = activeSoftwareTeams.length > 0 ? activeSoftwareTeams : softwareTeamRepo.findSoftwareTeamsByName(sourceRef);
+      if (softwareTeams.length === 0) {
+        return c.json({ error: `No SoftwareTeam found named "${sourceRef}". Provide a .yaml spec path to create a new softwareTeam.`, code: "software_team_not_found" }, 404);
       }
-      if (rigs.length > 1) {
-        const ids = rigs.map((r) => r.id).join(", ");
-        return c.json({ error: `Multiple rigs named "${sourceRef}" found (IDs: ${ids}). Use rig restore --rig <rigId> with a specific rig ID.`, code: "ambiguous_name" }, 409);
+      if (softwareTeams.length > 1) {
+        const ids = softwareTeams.map((r) => r.id).join(", ");
+        return c.json({ error: `Multiple softwareTeams named "${sourceRef}" found (IDs: ${ids}). Use SoftwareTeam restore --software-team <softwareTeamId> with a specific softwareTeam ID.`, code: "ambiguous_name" }, 409);
       }
       const freshLogicalIds = Array.isArray(body["freshLogicalIds"])
         ? (body["freshLogicalIds"] as unknown[]).filter((v): v is string => typeof v === "string")
         : undefined;
-      return restoreByRigId(rigs[0]!.id, sourceRef, getDeps(c), c, freshLogicalIds, plan, nonInterruptive) as any;
+      return restoreBySoftwareTeamId(softwareTeams[0]!.id, sourceRef, getDeps(c), c, freshLogicalIds, plan, nonInterruptive) as any;
     }
 
     // File-based: resolve path now
@@ -278,12 +278,12 @@ upRoutes.post("/", async (c) => {
     // environment, same topology). Bare names pass through untouched.
     const manifestDir = nodePath.dirname(resolvedSourceRef);
     const resolveEntrySource = (source: string): string =>
-      source.includes("/") || /\.(ya?ml|rigbundle|rigtopology)$/i.test(source)
+      source.includes("/") || /\.(ya?ml|softwareteambundle|softwareteamtopology)$/i.test(source)
         ? nodePath.resolve(manifestDir, source)
         : source;
 
-    const launcher = new MultiRigLauncher({
-      // The SAME public lock pair this route uses for single-rig ups
+    const launcher = new MultiSoftwareTeamLauncher({
+      // The SAME public lock pair this route uses for single-softwareTeam ups
       // (guard G-2): the launcher participates in the route-side lock set.
       // resolveLocalRef makes the lock key IDENTICAL to the launch ref
       // (guard F1) — launchLocal receives the already-resolved ref.
@@ -302,31 +302,31 @@ upRoutes.post("/", async (c) => {
         // walk starts; these guards keep the leaf honest if a future caller
         // bypasses validation.
         if (entryKind === "topology") {
-          return { ok: false, error: `entry '${entryRef}' is itself a topology — nested topologies are not supported; entries must be single-rig spec paths` };
+          return { ok: false, error: `entry '${entryRef}' is itself a topology — nested topologies are not supported; entries must be single-software-team spec paths` };
         }
-        if (entryKind === "rig_name") {
+        if (entryKind === "software_team_name") {
           return {
             ok: false,
-            error: `entry '${entryRef}' resolves as an existing-rig name; v0 topology entries are spec paths only — restore existing rigs directly with 'rig up ${entryRef}'`,
+            error: `entry '${entryRef}' resolves as an existing-software-team name; v0 topology entries are spec paths only — restore existing softwareTeams directly with 'SoftwareTeam up ${entryRef}'`,
           };
         }
-        // The EXISTING single-rig leaf: the same public bootstrap() entry
+        // The EXISTING single-softwareTeam leaf: the same public bootstrap() entry
         // this route calls — stages/locks/provenance untouched (FR-3).
         const result = await bootstrapOrchestrator.bootstrap({
           mode: "apply",
           sourceRef: entryRef,
-          sourceKind: entryKind as "rig_spec" | "rig_bundle",
+          sourceKind: entryKind as "software_team_spec" | "software_team_bundle",
           autoApprove,
           nonInterruptive,
         });
         if (result.status === "completed") {
-          eventBus.emit({ type: "bootstrap.completed", runId: result.runId, rigId: result.rigId!, sourceRef: entryRef });
+          eventBus.emit({ type: "bootstrap.completed", runId: result.runId, softwareTeamId: result.softwareTeamId!, sourceRef: entryRef });
           return { ok: true };
         }
         eventBus.emit({ type: "bootstrap.failed", runId: result.runId, sourceRef: entryRef, error: result.errors[0] ?? result.status });
         return { ok: false, error: result.errors[0] ?? `bootstrap ${result.status}` };
       },
-      // The SHIPPED remote single-rig leaf (POST {host}/api/up). Path-form
+      // The SHIPPED remote single-softwareTeam leaf (POST {host}/api/up). Path-form
       // refs resolve on the REMOTE daemon's filesystem — the shipped
       // remote-up semantics, unchanged.
       launchRemote: (source, host) => remoteUpLeaf({ sourceRef: source, autoApprove, nonInterruptive }, host as HttpHostEntry),
@@ -339,7 +339,7 @@ upRoutes.post("/", async (c) => {
   }
 
   // Bundle apply requires targetRoot
-  if (sourceKind === "rig_bundle" && !plan && !targetRoot) {
+  if (sourceKind === "software_team_bundle" && !plan && !targetRoot) {
     return c.json({ error: "targetRoot is required for bundle apply mode" }, 400);
   }
 
@@ -388,13 +388,13 @@ upRoutes.post("/", async (c) => {
       });
 
       if (result.status === "completed") {
-        eventBus.emit({ type: "bootstrap.completed", runId: result.runId, rigId: result.rigId!, sourceRef });
+        eventBus.emit({ type: "bootstrap.completed", runId: result.runId, softwareTeamId: result.softwareTeamId!, sourceRef });
 
         // Compute attach command from first running node
         let attachCommand: string | null = null;
-        if (result.rigId) {
+        if (result.softwareTeamId) {
           const { getNodeInventory } = await import("../domain/node-inventory.js");
-          const inventory = getNodeInventory(bootstrapRepo.db, result.rigId);
+          const inventory = getNodeInventory(bootstrapRepo.db, result.softwareTeamId);
           const firstRunning = inventory.find((n) => n.canonicalSessionName && n.sessionStatus === "running");
           attachCommand = firstRunning?.tmuxAttachCommand ?? inventory.find((n) => n.canonicalSessionName)?.tmuxAttachCommand ?? null;
         }
@@ -404,24 +404,24 @@ upRoutes.post("/", async (c) => {
       if (result.status === "partial") {
         const ok = result.stages.filter((s) => s.status === "ok").length;
         const fail = result.stages.filter((s) => s.status === "failed" || s.status === "blocked").length;
-        eventBus.emit({ type: "bootstrap.partial", runId: result.runId, sourceRef, rigId: result.rigId, completed: ok, failed: fail });
+        eventBus.emit({ type: "bootstrap.partial", runId: result.runId, sourceRef, softwareTeamId: result.softwareTeamId, completed: ok, failed: fail });
 
         // Compute attach command from first running node
         let attachCommand: string | null = null;
-        if (result.rigId) {
+        if (result.softwareTeamId) {
           const { getNodeInventory } = await import("../domain/node-inventory.js");
-          const inventory = getNodeInventory(bootstrapRepo.db, result.rigId);
+          const inventory = getNodeInventory(bootstrapRepo.db, result.softwareTeamId);
           const firstRunning = inventory.find((n) => n.canonicalSessionName && n.sessionStatus === "running");
           attachCommand = firstRunning?.tmuxAttachCommand ?? inventory.find((n) => n.canonicalSessionName)?.tmuxAttachCommand ?? null;
         }
 
         // OPR.0.3.2.CT — when the partial outcome carries an
-        // attention_required import_rig stage (either the all-attention
+        // attention_required import_software_team stage (either the all-attention
         // path from the instantiator's new outcome variant OR the
         // mixed launched+attention path the orchestrator routes the
         // same way), surface a 3-part error so the operator sees the
-        // affected sessions and inspect their actual state. The rig + sessions are
-        // PRESERVED on disk; `rig ps` lists them. PRD HG-4.
+        // affected sessions and inspect their actual state. The softwareTeam + sessions are
+        // PRESERVED on disk; `SoftwareTeam ps` lists them. PRD HG-4.
         const attentionResponse = buildAttentionResponse(result);
         if (attentionResponse) {
           return c.json({ ...result, attachCommand, ...attentionResponse }, 409);

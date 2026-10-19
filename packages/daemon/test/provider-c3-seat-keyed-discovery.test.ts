@@ -25,17 +25,17 @@ function emptyCodexHomeEnv(): NodeJS.ProcessEnv {
   return { CODEX_HOME: home } as NodeJS.ProcessEnv;
 }
 
-/** Seed a live claude-code seat into node-inventory (rig + pod + node + running session/binding). */
+/** Seed a live claude-code seat into node-inventory (softwareTeam + pod + node + running session/binding). */
 function seedClaudeSeat(
   db: Database.Database,
-  sessionName = "dev-impl@test-rig",
+  sessionName = "dev-impl@test-software-team",
   sessionStatus: "running" | "exited" = "running",
 ) {
-  db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "test-rig");
-  db.prepare("INSERT INTO pods (id, rig_id, namespace, label) VALUES (?, ?, ?, ?)").run("pod-1", "rig-1", "dev", "Dev");
+  db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "test-software-team");
+  db.prepare("INSERT INTO pods (id, software_team_id, namespace, label) VALUES (?, ?, ?, ?)").run("pod-1", "software-team-1", "dev", "Dev");
   db.prepare(
-    "INSERT INTO nodes (id, rig_id, logical_id, runtime, cwd, pod_id, agent_ref, profile, resolved_spec_name, resolved_spec_version, resolved_spec_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  ).run("node-1", "rig-1", "dev.impl", "claude-code", "/project", "pod-1", "local:agents/impl", "default", "impl", "1.0.0", "abc123");
+    "INSERT INTO nodes (id, software_team_id, logical_id, runtime, cwd, pod_id, agent_ref, profile, resolved_spec_name, resolved_spec_version, resolved_spec_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  ).run("node-1", "software-team-1", "dev.impl", "claude-code", "/project", "pod-1", "local:agents/impl", "default", "impl", "1.0.0", "abc123");
   db.prepare(
     "INSERT INTO sessions (id, node_id, session_name, status, startup_status) VALUES (?, ?, ?, ?, ?)"
   ).run("sess-node-1", "node-1", sessionName, sessionStatus, "ready");
@@ -48,13 +48,13 @@ describe("Slice-04 C3 — seat-keyed Claude provider_usage discovery (production
     seedClaudeSeat(db);
     // collectClaudeSignals (the cache lane) is intentionally NOT provided — cache absent. Discovery
     // must still emit the seat-keyed unknown from node-inventory. Real getReadModel, C1 surface unchanged.
-    const svc = new ProviderServiceImpl({ db, listRigs: () => [{ id: "rig-1" }], env: emptyCodexHomeEnv(), now: () => ASOF });
+    const svc = new ProviderServiceImpl({ db, listSoftwareTeams: () => [{ id: "software-team-1" }], env: emptyCodexHomeEnv(), now: () => ASOF });
     const model = await svc.getReadModel();
 
     const claude = model.signals.filter((s) => s.provider === "claude");
     expect(claude.length, `expected exactly one seat-keyed Claude unknown row; got ${JSON.stringify(model.signals)}`).toBe(1);
     const sig = claude[0]! as Record<string, unknown>;
-    expect(sig["seatSession"], "Option A: SEAT-keyed").toBe("dev-impl@test-rig");
+    expect(sig["seatSession"], "Option A: SEAT-keyed").toBe("dev-impl@test-software-team");
     expect(sig["accountRef"], "Option A: NO fabricated account identity").toBeUndefined();
     expect(sig["sourceClass"]).toBe("unknown");
     expect(sig["authority"]).toBe("unknown");
@@ -64,7 +64,7 @@ describe("Slice-04 C3 — seat-keyed Claude provider_usage discovery (production
 
   it("no claude-code seats (empty inventory) → no Claude signals (never a fabricated row)", async () => {
     const db = createFullTestDb();
-    const svc = new ProviderServiceImpl({ db, listRigs: () => [], env: emptyCodexHomeEnv(), now: () => ASOF });
+    const svc = new ProviderServiceImpl({ db, listSoftwareTeams: () => [], env: emptyCodexHomeEnv(), now: () => ASOF });
     const model = await svc.getReadModel();
     expect(model.signals.filter((s) => s.provider === "claude")).toEqual([]);
   });
@@ -74,7 +74,7 @@ describe("Slice-04 C3 — seat-keyed Claude provider_usage discovery (production
     try {
       const contextDir = nodePath.join(root, "context");
       const usageDir = nodePath.join(root, "provider-usage");
-      const seatSession = "dev-impl@test-rig";
+      const seatSession = "dev-impl@test-software-team";
       const collectorPath = nodePath.join(import.meta.dirname, "../assets/claude-statusline-context.cjs");
       const result = spawnSync(process.execPath, [collectorPath, contextDir, usageDir], {
         encoding: "utf-8",
@@ -95,7 +95,7 @@ describe("Slice-04 C3 — seat-keyed Claude provider_usage discovery (production
       seedClaudeSeat(db, seatSession);
       const svc = new ProviderServiceImpl({
         db,
-        listRigs: () => [{ id: "rig-1" }],
+        listSoftwareTeams: () => [{ id: "software-team-1" }],
         env: emptyCodexHomeEnv(),
         now: () => ASOF,
         collectClaudeSignals: () => collectClaudeSignalsFromProviderUsageDirectory(usageDir, () => ASOF),
@@ -117,7 +117,7 @@ describe("Slice-04 C3 — seat-keyed Claude provider_usage discovery (production
     try {
       const contextDir = nodePath.join(root, "context");
       const usageDir = nodePath.join(root, "provider-usage");
-      const seatSession = "exited-impl@test-rig";
+      const seatSession = "exited-impl@test-software-team";
       const collectorPath = nodePath.join(import.meta.dirname, "../assets/claude-statusline-context.cjs");
       const result = spawnSync(process.execPath, [collectorPath, contextDir, usageDir], {
         encoding: "utf-8",
@@ -137,7 +137,7 @@ describe("Slice-04 C3 — seat-keyed Claude provider_usage discovery (production
       seedClaudeSeat(db, seatSession, "exited");
       const svc = new ProviderServiceImpl({
         db,
-        listRigs: () => [{ id: "rig-1" }],
+        listSoftwareTeams: () => [{ id: "software-team-1" }],
         env: emptyCodexHomeEnv(),
         now: () => ASOF,
         collectClaudeSignals: () => collectClaudeSignalsFromProviderUsageDirectory(usageDir, () => ASOF),

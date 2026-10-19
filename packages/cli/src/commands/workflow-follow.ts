@@ -2,8 +2,8 @@ import type { DaemonClient } from "../client.js";
 import { fetchWithTimeout } from "../fetch-with-timeout.js";
 
 /**
- * OPR.0.4.6.WF3 FR-1 — the shared follow engine behind `rig workflow
- * run` and `rig workflow watch`: two verbs, ONE renderer (the argo
+ * OPR.0.4.6.WF3 FR-1 — the shared follow engine behind `SoftwareTeam workflow
+ * run` and `SoftwareTeam workflow watch`: two verbs, ONE renderer (the argo
  * shape: same render at attach and live).
  *
  * Transport: the SHIPPED workflow SSE endpoint (`GET

@@ -105,7 +105,7 @@ describe("A6 v3 resolveSlackHandle (pins 2+3)", () => {
     expect(r.kind).toBe("unregistered");
     if (r.kind === "unregistered") {
       expect(r.error).toMatch(/not a registered human/i);
-      expect(r.error).toMatch(/rig gateway human add/);
+      expect(r.error).toMatch(/SoftwareTeam gateway human add/);
       expect(r.error).toMatch(/NOT landed as a fabricated human seat/i);
     }
   });

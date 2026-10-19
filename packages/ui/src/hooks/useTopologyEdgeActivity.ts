@@ -11,7 +11,7 @@
 //     types under the same "traffic" treatment to keep this restrained
 //
 // We track edge state by `${sourceSession}::${destinationSession}` and
-// expose a stable lookup function the RigGraph edge-mapping memo can
+// expose a stable lookup function the SoftwareTeamGraph edge-mapping memo can
 // call. Resolution to actual graph-edge-ids happens at render time
 // because the graph nodes know their canonicalSessionName.
 

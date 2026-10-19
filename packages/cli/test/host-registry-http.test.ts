@@ -10,25 +10,25 @@ import {
 describe("host-registry HTTP transport validation", () => {
   it("accepts valid http entry with bearer_env", () => {
     const r = validateHostRegistry({
-      hosts: [{ id: "host-b", transport: "http", url: "http://192.168.64.97:7433", bearer_env: "HOST_B_TOKEN" }],
+      hosts: [{ id: "host-b", transport: "http", url: "http://192.168.64.97:7434", bearer_env: "HOST_B_TOKEN" }],
     }, "test.yaml");
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.registry.hosts[0]!.transport).toBe("http");
-      expect((r.registry.hosts[0] as HttpHostEntry).url).toBe("http://192.168.64.97:7433");
+      expect((r.registry.hosts[0] as HttpHostEntry).url).toBe("http://192.168.64.97:7434");
     }
   });
 
   it("accepts valid http entry with bearer_file", () => {
     const r = validateHostRegistry({
-      hosts: [{ id: "host-b", transport: "http", url: "http://192.168.64.97:7433", bearer_file: "/tmp/token" }],
+      hosts: [{ id: "host-b", transport: "http", url: "http://192.168.64.97:7434", bearer_file: "/tmp/token" }],
     }, "test.yaml");
     expect(r.ok).toBe(true);
   });
 
   it("accepts http entry with NO bearer source (anonymous/tokenless daemon)", () => {
     const r = validateHostRegistry({
-      hosts: [{ id: "host-b", transport: "http", url: "http://192.168.64.97:7433" }],
+      hosts: [{ id: "host-b", transport: "http", url: "http://192.168.64.97:7434" }],
     }, "test.yaml");
     expect(r.ok).toBe(true);
     if (r.ok) {
@@ -40,7 +40,7 @@ describe("host-registry HTTP transport validation", () => {
 
   it("rejects http entry with both bearer sources (never both)", () => {
     const r = validateHostRegistry({
-      hosts: [{ id: "host-b", transport: "http", url: "http://192.168.64.97:7433", bearer_env: "TOK", bearer_file: "/tmp/tok" }],
+      hosts: [{ id: "host-b", transport: "http", url: "http://192.168.64.97:7434", bearer_env: "TOK", bearer_file: "/tmp/tok" }],
     }, "test.yaml");
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toContain("not both");
@@ -65,7 +65,7 @@ describe("host-registry HTTP transport validation", () => {
     const r = validateHostRegistry({
       hosts: [
         { id: "vm", transport: "ssh", target: "vm.local" },
-        { id: "host-b", transport: "http", url: "http://192.168.64.97:7433", bearer_env: "TOK" },
+        { id: "host-b", transport: "http", url: "http://192.168.64.97:7434", bearer_env: "TOK" },
       ],
     }, "test.yaml");
     expect(r.ok).toBe(true);

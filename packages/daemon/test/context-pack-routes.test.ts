@@ -1,4 +1,4 @@
-// Rig Context / Composable Context Injection v0 (PL-014) — daemon
+// SoftwareTeam Context / Composable Context Injection v0 (PL-014) — daemon
 // HTTP route tests.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -125,7 +125,7 @@ files:
     expect(body.ref).toBe("packs/qitem-brief");
     expect(body.entry.relativePath).toBe("packs/qitem-brief");
     expect(body.text).toBe("A\n\n\nB");
-    expect(body.text).not.toContain("# OpenRig Context Pack:");
+    expect(body.text).not.toContain("# SoftwareTeam Context Pack:");
     expect(body.text).not.toContain("## File:");
     expect(lib.getByRef("packs/qitem-brief")).not.toBeNull();
     expect(transport.calls).toEqual([]);
@@ -224,7 +224,7 @@ files:
     const send = await app.request(`/api/context-packs/library/${cid}/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ destinationSession: "x@rig" }),
+      body: JSON.stringify({ destinationSession: "x@software-team" }),
     });
     expect(send.status).toBe(404);
     // ref-primary resolution is intact
@@ -247,7 +247,7 @@ files:
     expect(res.status).toBe(200);
     const body = await res.json() as { id: string; bundleText: string; bundleBytes: number; missingFiles: unknown[] };
     expect(body.id).toBe("context-pack:preview-pack");
-    expect(body.bundleText).toContain("# OpenRig Context Pack: preview-pack v1");
+    expect(body.bundleText).toContain("# SoftwareTeam Context Pack: preview-pack v1");
     expect(body.bundleText).toContain("BODY-A");
     expect(body.bundleBytes).toBeGreaterThan(0);
     expect(body.missingFiles).toEqual([]);
@@ -265,7 +265,7 @@ files:
     const response = await app.request(`/api/context-packs/library/by-ref/send?ref=${encodeURIComponent("dry")}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ destinationSession: "test@rig" }),
+      body: JSON.stringify({ destinationSession: "test@software-team" }),
     });
     expect(response.status).toBe(404);
     expect(transport.calls).toEqual([]);
@@ -389,7 +389,7 @@ files:
     expect(existsSync(join(builtinRoot, "packs", "shipped"))).toBe(true);
   });
 
-  // Slice-03 Atom 6 (rig walk) — ordered per-member contents for paced delivery.
+  // Slice-03 Atom 6 (softwareTeam walk) — ordered per-member contents for paced delivery.
   it("GET /library/by-ref/pieces returns ordered member contents + reports missing members", async () => {
     writePack(libRoot, join("packs", "walkme"), `
 name: walkme

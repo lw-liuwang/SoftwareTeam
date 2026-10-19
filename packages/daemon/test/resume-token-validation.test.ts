@@ -81,7 +81,7 @@ describe("validateResumeToken", () => {
 // claude/codex id-shape rules are byte-identical before/after (the id-rule
 // tests above must keep passing unchanged).
 describe("validateResumeToken — pi_session_file (path-shaped, per-type)", () => {
-  const validPath = "/Users/someone/.openrig/state/pi/seat-a/sessions/2026-07-06T10-00-00_0197a2f0-1234-7abc-8def-0123456789ab.jsonl";
+  const validPath = "/Users/someone/.softwareteam/state/pi/seat-a/sessions/2026-07-06T10-00-00_0197a2f0-1234-7abc-8def-0123456789ab.jsonl";
 
   it("accepts a valid absolute .jsonl session-file path and returns pi_session_file", () => {
     const r = validateResumeToken("pi", validPath);
@@ -92,10 +92,10 @@ describe("validateResumeToken — pi_session_file (path-shaped, per-type)", () =
     }
   });
 
-  it("accepts '@' in the path — Pi seat state dirs key on the CANONICAL session name (pod-member@rig)", () => {
+  it("accepts '@' in the path — Pi seat state dirs key on the CANONICAL session name (pod-member@software-team)", () => {
     // VM-caught regression: the original PRD charset rejected every real Pi
     // seat's session file because the layout embeds the canonical name.
-    const seatPath = "/openrig-home/state/pi/devpi-driver1@openrig-delivery/sessions/2026-07-07T00-00-00_0197.jsonl";
+    const seatPath = "/softwareteam-home/state/pi/devpi-driver1@softwareteam-delivery/sessions/2026-07-07T00-00-00_0197.jsonl";
     const r = validateResumeToken("pi", seatPath);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.token).toBe(seatPath);

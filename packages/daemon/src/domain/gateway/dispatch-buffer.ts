@@ -10,10 +10,10 @@
 
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { getOpenRigHome } from "../../openrig-compat.js";
+import { getSoftwareTeamHome } from "../../softwareteam-compat.js";
 import type { OutboundDecision } from "./protocol.js";
 
-export function dispatchBufferPath(home: string = getOpenRigHome()): string {
+export function dispatchBufferPath(home: string = getSoftwareTeamHome()): string {
   return join(home, "gateway", "dispatch-buffer.json");
 }
 
@@ -46,7 +46,7 @@ function writeState(path: string, state: BufferState): void {
  *  Idempotent on decisionId — enqueuing the same decisionId twice keeps ONE record. */
 export class DispatchBuffer {
   private readonly path: string;
-  constructor(home: string = getOpenRigHome()) {
+  constructor(home: string = getSoftwareTeamHome()) {
     this.path = dispatchBufferPath(home);
   }
 

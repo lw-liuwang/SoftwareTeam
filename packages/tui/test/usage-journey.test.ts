@@ -41,7 +41,7 @@ const USAGE = [
     limitEvidence: null, latestFromSource: true,
     lastRefresh: { at: "2026-10-13T17:58:00.000Z", outcome: "failed", reason: "timeout", detail: "no answer within 35 s" },
     currentAvailability: "unknown",
-    savedProfiles: { names: ["work-a", "work-b"], note: "saved rig auth profiles: not read (usage unknown); this reading is only the login active in the daemon's CODEX_HOME" },
+    savedProfiles: { names: ["work-a", "work-b"], note: "saved SoftwareTeam auth profiles: not read (usage unknown); this reading is only the login active in the daemon's CODEX_HOME" },
   },
   {
     provider: "claude",
@@ -54,7 +54,7 @@ const USAGE = [
         disagreeingSeats: [{ seatSession: "dev-r1@r", usedPercent: 10, resetsAt: "2026-10-13T21:00:00.000Z", observedAt: "2026-10-13T17:59:00.000Z" }] },
     ],
     limitEvidence: null, latestFromSource: true, lastRefresh: null, currentAvailability: "unknown",
-    identityNote: "identity not read yet (rig provider status --refresh); windows: status-line readings from dev-build@r at their own times",
+    identityNote: "identity not read yet (SoftwareTeam provider status --refresh); windows: status-line readings from dev-build@r at their own times",
     unresolved: { note: "identity not read yet: not matched to, merged with or replacing any other row", keptReads: 3, droppedReads: 1 },
   },
   {
@@ -69,27 +69,27 @@ const USAGE = [
 ];
 const UNAVAILABLE = { provider: "codex", identity: null, source: { kind: "codex_app_server", host: "local" }, observedAt: null, seats: "unknown",
   windows: [], limitEvidence: null, latestFromSource: false, lastRefresh: null, currentAvailability: "unknown",
-  unavailableReason: "no reading yet: read on request with rig provider status --refresh" };
+  unavailableReason: "no reading yet: read on request with SoftwareTeam provider status --refresh" };
 
 const SEATS = [
-  { seatSession: "dev-qa@r", rigName: "r", runtime: "codex",
+  { seatSession: "dev-qa@r", softwareTeamName: "r", runtime: "codex",
     configured: { source: "registry", profileRef: "work-a", recordedAt: "2026-10-12T10:00:00Z", profileSaved: null },
-    registryNotes: ["can't tell whether profile work-a is saved on this host: the profile folder couldn't be read (EACCES)", "registry row names rig other; this seat is in rig r"],
+    registryNotes: ["can't tell whether profile work-a is saved on this host: the profile folder couldn't be read (EACCES)", "registry row names SoftwareTeam other; this seat is in SoftwareTeam r"],
     allowance: { linked: false, reason: "a registry profile name and an observed account are different kinds of fact; nothing supported links them without reading the profile's contents" },
     observed: { note: "no per-seat observation for Codex" } },
-  { seatSession: "dev-cx@r", rigName: "r", runtime: "codex",
+  { seatSession: "dev-cx@r", softwareTeamName: "r", runtime: "codex",
     configured: { source: "unknown", reason: "the seat registry exists but couldn't be read (EACCES)" },
     allowance: { linked: false, reason: "no configured account" }, observed: { note: "no per-seat observation for Codex" } },
-  { seatSession: "dev-build@r", rigName: "r", runtime: "claude-code",
+  { seatSession: "dev-build@r", softwareTeamName: "r", runtime: "claude-code",
     configured: { source: "default_login", home: "/h/.claude", homeNote: "the login in the daemon's Claude config dir, shared by every Claude seat on this daemon" },
     allowance: { linked: false, reason: "the usage read reads the login this home holds now; the seat runs the login that was active when it launched" },
     observed: { windowsSampled: true, lastSampledAt: "2026-10-13T17:59:30.000Z", differsFrom: ["dev-r1@r"],
       note: "possibly a different login: this seat's status line reports windows that differ from another seat's (a reset more than 60 s apart); not a verdict" } },
-  { seatSession: "a@r", rigName: "r", runtime: "claude-code",
+  { seatSession: "a@r", softwareTeamName: "r", runtime: "claude-code",
     configured: { source: "default_login", home: null, homeNote: "CLAUDE_CONFIG_DIR is set but empty: it resolves to each seat's working directory" },
     allowance: { linked: false, reason: "the usage read reads the login this home holds now; the seat runs the login that was active when it launched" },
     observed: { withheld: true, note: "observation withheld: 2 seats share session name a@r; status-line samples are keyed by session name and cannot be attributed to one seat" } },
-  { seatSession: "t@r", rigName: "r", runtime: "terminal",
+  { seatSession: "t@r", softwareTeamName: "r", runtime: "terminal",
     configured: { source: "unknown", reason: "no account configuration is known for runtime terminal" },
     allowance: { linked: false, reason: "no configured account" } },
 ];
@@ -169,7 +169,7 @@ describe("System → Usage in the normal TUI journey", () => {
     const out = text();
     expect(out).toContain("System · Usage windows and seat accounts");
     expect(out).toContain("this host's daemon only · not fleet-wide · not proof of the login a running session uses");
-    expect(out).toContain("This view shows what this daemon already holds and never reads the logins itself. To read them now: rig provider status --refresh [--provider codex|claude]");
+    expect(out).toContain("This view shows what this daemon already holds and never reads the logins itself. To read them now: SoftwareTeam provider status --refresh [--provider codex|claude]");
     expect(out).not.toContain("never refreshes");
     // Fresh/nearing, exhausted, stale, failed refresh beside the kept reading, unavailable, unresolved, earlier rows.
     expect(out).toContain("codex  account acct-1 · bucket codex · a@x.example · plus · seats unknown");
@@ -178,7 +178,7 @@ describe("System → Usage in the normal TUI journey", () => {
     expect(out).toContain("level: exhausted (at the limit)");
     expect(out).toContain("freshness: stale: refresh failed at 2026-10-13T17:58:00.000Z; this reading is older");
     expect(out).toContain("refresh failed at 2026-10-13T17:58:00.000Z: timeout (no answer within 35 s); last reading kept, marked old");
-    expect(out).toContain("codex  unavailable: no reading yet: read on request with rig provider status --refresh");
+    expect(out).toContain("codex  unavailable: no reading yet: read on request with SoftwareTeam provider status --refresh");
     expect(out).toContain("claude  identity unresolved · bucket all models · email not reported · seats unknown");
     expect(out).toContain("identity not read yet: not matched to, merged with or replacing any other row");
     expect(out).toContain("kept from the 3 most recent unresolved reads (1 older dropped)");
@@ -197,7 +197,7 @@ describe("System → Usage in the normal TUI journey", () => {
     expect((out.match(/allowance not linked/g) ?? []).length).toBeGreaterThanOrEqual(SEATS.length);
   });
 
-  it("shows every served reason, note and time verbatim: the same facts rig provider status prints", async () => {
+  it("shows every served reason, note and time verbatim: the same facts SoftwareTeam provider status prints", async () => {
     await openUsage();
     const out = text();
     const keys = new Set(["levelReason", "freshnessReason", "resetsAt", "observedAt", "identityNote", "unavailableReason", "note", "reason", "detail",
@@ -221,7 +221,7 @@ describe("System → Usage in the normal TUI journey", () => {
     await openUsage();
     const out = text();
     expect(out).toContain("Usage windows are off on this daemon (provider.usage_windows = false");
-    expect(out).toContain("Turn them on with: rig config set provider.usage_windows true");
+    expect(out).toContain("Turn them on with: SoftwareTeam config set provider.usage_windows true");
     expect(out).toContain("Seat accounts are served only while usage windows are.");
     expect(new Set(trace)).toEqual(new Set(["GET /api/provider/status", "GET /api/config?view=browser"]));
     expect(refreshUsage).not.toHaveBeenCalled();

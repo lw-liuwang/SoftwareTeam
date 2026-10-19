@@ -15,7 +15,7 @@ import { remoteJsonRequest } from "../src/domain/hosts/remote-daemon-http.js";
 import { DaemonClient as CliDaemonClient } from "../../cli/src/client.js";
 import { DaemonClient as TuiDaemonClient } from "../../tui/src/daemon-client.js";
 
-const SELF = "openrig-vm.taile8a08.ts.net";
+const SELF = "softwareteam-vm.taile8a08.ts.net";
 type Server = ReturnType<typeof serve>;
 
 function listen(app: Hono, hostname: string): Promise<{ server: Server; port: number }> {
@@ -79,7 +79,7 @@ describe("mirror of the server.ts order on a real listener: boundary, then termi
 
   it("actual Node headers: accepted names reach the inert handler once each; others never", async () => {
     const before = handled;
-    for (const host of [`127.0.0.1:${port}`, `localhost:${port}`, `box-1.local:${port}`, `${SELF}:${port}`, `openrig-vm:${port}`]) {
+    for (const host of [`127.0.0.1:${port}`, `localhost:${port}`, `box-1.local:${port}`, `${SELF}:${port}`, `softwareteam-vm:${port}`]) {
       expect((await raw(port, { Host: host })).status, host).toBe(200);
     }
     expect(handled - before).toBe(5);
@@ -168,7 +168,7 @@ describe("real request constructors against the real route table on a real liste
     console.log(`CLI-HOST-OVERRIDE status=${res.status} code=${(res.data as { code?: string })?.code ?? "-"}`);
     if (res.status === 403) {
       expect(res.data.code).toBe("untrusted_host");
-      expect(res.data.error).toContain("OPENRIG_ALLOWED_HOSTS");
+      expect(res.data.error).toContain("SOFTWARETEAM_ALLOWED_HOSTS");
     }
   });
 
@@ -178,7 +178,7 @@ describe("real request constructors against the real route table on a real liste
     const named = new TuiDaemonClient({ baseUrl: `http://127.0.0.1:${port}`, headers: { Host: "unlisted.example" } } as never);
     const err = await named.healthFindings(5).then(() => null, (e: Error) => e.message);
     console.log(`TUI-READ-REFUSAL ${err ?? "no refusal (Host override not honoured)"}`);
-    if (err) expect(err).toContain("OPENRIG_ALLOWED_HOSTS");
+    if (err) expect(err).toContain("SOFTWARETEAM_ALLOWED_HOSTS");
   });
 
   it("daemon-to-daemon remoteJsonRequest (no Origin) reaches the daemon by IP and localhost", async () => {

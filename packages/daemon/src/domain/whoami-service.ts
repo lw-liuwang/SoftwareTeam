@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import type { RigRepository } from "./rig-repository.js";
+import type { SoftwareTeamRepository } from "./software-team-repository.js";
 import type { SessionRegistry } from "./session-registry.js";
 import type { TranscriptStore } from "./transcript-store.js";
 import { resolveWorkspaceContext, type WhoamiWorkspaceBlock } from "./workspace/workspace-resolver.js";
@@ -7,8 +7,8 @@ import { resolveWorkspaceContext, type WhoamiWorkspaceBlock } from "./workspace/
 export interface WhoamiResult {
   resolvedBy: "node_id" | "session_name";
   identity: {
-    rigId: string;
-    rigName: string;
+    softwareTeamId: string;
+    softwareTeamName: string;
     nodeId: string;
     logicalId: string;
     attachmentType: "tmux" | "external_cli";
@@ -35,9 +35,9 @@ export interface WhoamiResult {
   }>;
   /**
    * OPR.99.0.6.1 — the peers[] roster contract, stated in-band so a fresh
-   * agent cannot misread the field. `peers[]` is the same-rig ROSTER excluding
+   * agent cannot misread the field. `peers[]` is the same-softwareTeam ROSTER excluding
    * self (no edge/status filter); `edges{}` is the directional graph;
-   * `rig ps --nodes` is the node inventory including self + live state.
+   * `SoftwareTeam ps --nodes` is the node inventory including self + live state.
    * Additive note only — `peers[]` name and shape are unchanged.
    */
   peersNote: string;
@@ -62,7 +62,7 @@ export interface WhoamiResult {
    *  + current usage from the context-usage sample. Terminal: null. */
   runtimeContext?: RuntimeContext | null;
   /** PL-007 Workspace Primitive v0 — typed workspace block when the
-   *  rig's RigSpec declares one. null when the rig has no workspace
+   *  softwareTeam's SoftwareTeamSpec declares one. null when the softwareTeam has no workspace
    *  declaration; agents fall back to cwd-only orientation. */
   workspace?: WhoamiWorkspaceBlock | null;
   /** W3 explicit current-seat diagnostic; omitted from ordinary whoami reads. */
@@ -93,7 +93,7 @@ export class WhoamiAmbiguousError extends Error {
 
 interface NodeRow {
   id: string;
-  rig_id: string;
+  software_team_id: string;
   logical_id: string;
   role: string | null;
   runtime: string | null;
@@ -133,7 +133,7 @@ interface BindingRow {
 
 interface WhoamiDeps {
   db: Database.Database;
-  rigRepo: RigRepository;
+  softwareTeamRepo: SoftwareTeamRepository;
   sessionRegistry: SessionRegistry;
   transcriptStore: TranscriptStore;
   contextUsageStore?: import("./context-usage-store.js").ContextUsageStore;
@@ -141,14 +141,14 @@ interface WhoamiDeps {
 
 export class WhoamiService {
   private db: Database.Database;
-  private rigRepo: RigRepository;
+  private softwareTeamRepo: SoftwareTeamRepository;
   private sessionRegistry: SessionRegistry;
   private transcriptStore: TranscriptStore;
   private contextUsageStore: import("./context-usage-store.js").ContextUsageStore | null;
 
   constructor(deps: WhoamiDeps) {
     this.db = deps.db;
-    this.rigRepo = deps.rigRepo;
+    this.softwareTeamRepo = deps.softwareTeamRepo;
     this.sessionRegistry = deps.sessionRegistry;
     this.transcriptStore = deps.transcriptStore;
     this.contextUsageStore = deps.contextUsageStore ?? null;
@@ -163,25 +163,25 @@ export class WhoamiService {
       nodeRow = this.db.prepare("SELECT * FROM nodes WHERE id = ?").get(query.nodeId) as NodeRow | undefined;
       if (!nodeRow) return null;
       resolvedBy = "node_id";
-      currentSessionName = this.getCurrentSessionName(nodeRow.id, nodeRow.rig_id);
+      currentSessionName = this.getCurrentSessionName(nodeRow.id, nodeRow.software_team_id);
     } else if (query.sessionName) {
-      // Find sessions matching this name — check for ambiguity across rigs
+      // Find sessions matching this name — check for ambiguity across softwareTeams
       const sessionRows = this.db
         .prepare("SELECT * FROM sessions WHERE session_name = ? ORDER BY id DESC")
         .all(query.sessionName) as SessionRow[];
 
       if (sessionRows.length === 0) return null;
 
-      // Check distinct rigs
-      const rigIds = new Set<string>();
+      // Check distinct softwareTeams
+      const softwareTeamIds = new Set<string>();
       for (const sess of sessionRows) {
-        const node = this.db.prepare("SELECT rig_id FROM nodes WHERE id = ?").get(sess.node_id) as { rig_id: string } | undefined;
-        if (node) rigIds.add(node.rig_id);
+        const node = this.db.prepare("SELECT software_team_id FROM nodes WHERE id = ?").get(sess.node_id) as { software_team_id: string } | undefined;
+        if (node) softwareTeamIds.add(node.software_team_id);
       }
 
-      if (rigIds.size > 1) {
+      if (softwareTeamIds.size > 1) {
         throw new WhoamiAmbiguousError(
-          `Session '${query.sessionName}' is ambiguous — found in ${rigIds.size} rigs. Use --node-id instead.`
+          `Session '${query.sessionName}' is ambiguous — found in ${softwareTeamIds.size} softwareTeams. Use --node-id instead.`
         );
       }
 
@@ -189,14 +189,14 @@ export class WhoamiService {
       nodeRow = this.db.prepare("SELECT * FROM nodes WHERE id = ?").get(sess.node_id) as NodeRow | undefined;
       if (!nodeRow) return null;
       resolvedBy = "session_name";
-      currentSessionName = this.getCurrentSessionName(nodeRow.id, nodeRow.rig_id);
+      currentSessionName = this.getCurrentSessionName(nodeRow.id, nodeRow.software_team_id);
     } else {
       return null;
     }
 
-    // Get rig
-    const rig = this.rigRepo.getRig(nodeRow.rig_id);
-    if (!rig) return null;
+    // Get softwareTeam
+    const softwareTeam = this.softwareTeamRepo.getSoftwareTeam(nodeRow.software_team_id);
+    if (!softwareTeam) return null;
 
     // Derive member identity
     const parts = nodeRow.logical_id.split(".");
@@ -213,7 +213,7 @@ export class WhoamiService {
 
     // If resolved by nodeId, get current session name
     if (resolvedBy === "node_id") {
-      currentSessionName = this.getCurrentSessionName(nodeRow.id, nodeRow.rig_id);
+      currentSessionName = this.getCurrentSessionName(nodeRow.id, nodeRow.software_team_id);
     }
 
     // Build identity
@@ -222,8 +222,8 @@ export class WhoamiService {
       .get(nodeRow.id) as BindingRow | undefined;
 
     const identity: WhoamiResult["identity"] = {
-      rigId: nodeRow.rig_id,
-      rigName: rig.rig.name,
+      softwareTeamId: nodeRow.software_team_id,
+      softwareTeamName: softwareTeam.softwareTeam.name,
       nodeId: nodeRow.id,
       logicalId: nodeRow.logical_id,
       attachmentType: (binding?.attachment_type as WhoamiResult["identity"]["attachmentType"]) ?? "tmux",
@@ -241,13 +241,13 @@ export class WhoamiService {
       resolvedSpecVersion: nodeRow.resolved_spec_version,
     };
 
-    // Build peers — other nodes in this rig with their current sessions
+    // Build peers — other nodes in this softwareTeam with their current sessions
     const peers: WhoamiResult["peers"] = [];
-    for (const peerNode of rig.nodes) {
+    for (const peerNode of softwareTeam.nodes) {
       if (peerNode.id === nodeRow.id) continue;
       const peerParts = peerNode.logicalId.split(".");
       const peerMemberId = peerParts.length > 1 ? peerParts.slice(1).join(".") : peerNode.logicalId;
-      const peerSessionName = this.getCurrentSessionName(peerNode.id, nodeRow.rig_id);
+      const peerSessionName = this.getCurrentSessionName(peerNode.id, nodeRow.software_team_id);
       let peerPodNamespace: string | null = null;
       if (peerNode.podId) {
         const peerPod = this.db.prepare("SELECT namespace FROM pods WHERE id = ?").get(peerNode.podId) as { namespace: string | null } | undefined;
@@ -269,15 +269,15 @@ export class WhoamiService {
     const incoming: WhoamiResult["edges"]["incoming"] = [];
 
     const edgeRows = this.db
-      .prepare("SELECT source_id, target_id, kind FROM edges WHERE rig_id = ?")
-      .all(nodeRow.rig_id) as EdgeRow[];
+      .prepare("SELECT source_id, target_id, kind FROM edges WHERE software_team_id = ?")
+      .all(nodeRow.software_team_id) as EdgeRow[];
 
     // Build node ID → logicalId + sessionName map
     const nodeMap = new Map<string, { logicalId: string; sessionName: string | null }>();
-    for (const n of rig.nodes) {
+    for (const n of softwareTeam.nodes) {
       nodeMap.set(n.id, {
         logicalId: n.logicalId,
-        sessionName: this.getCurrentSessionName(n.id, nodeRow.rig_id),
+        sessionName: this.getCurrentSessionName(n.id, nodeRow.software_team_id),
       });
     }
 
@@ -298,20 +298,20 @@ export class WhoamiService {
     // Build transcript info
     const transcriptEnabled = this.transcriptStore.enabled && currentSessionName !== null;
     const transcriptPath = currentSessionName && transcriptEnabled
-      ? this.transcriptStore.getTranscriptPath(rig.rig.name, currentSessionName)
+      ? this.transcriptStore.getTranscriptPath(softwareTeam.softwareTeam.name, currentSessionName)
       : null;
 
     const transcript: WhoamiResult["transcript"] = {
       enabled: transcriptEnabled,
       path: transcriptPath,
-      tailCommand: transcriptEnabled ? `rig transcript ${currentSessionName} --tail 100` : null,
-      grepCommand: transcriptEnabled ? `rig transcript ${currentSessionName} --grep <pattern>` : null,
+      tailCommand: transcriptEnabled ? `SoftwareTeam transcript ${currentSessionName} --tail 100` : null,
+      grepCommand: transcriptEnabled ? `SoftwareTeam transcript ${currentSessionName} --grep <pattern>` : null,
     };
 
     // Build command examples from peers
     const reachablePeers = peers.filter((p) => p.sessionName !== null);
-    const sendExamples = reachablePeers.slice(0, 3).map((p) => `rig send ${p.sessionName} 'message' --verify`);
-    const captureExamples = reachablePeers.slice(0, 3).map((p) => `rig capture ${p.sessionName}`);
+    const sendExamples = reachablePeers.slice(0, 3).map((p) => `SoftwareTeam send ${p.sessionName} 'message' --verify`);
+    const captureExamples = reachablePeers.slice(0, 3).map((p) => `SoftwareTeam capture ${p.sessionName}`);
 
     // Context usage. OPR.0.4.0.27: compact whoami SKIPS the contextUsageStore
     // lookup entirely (the every-boot token win + the daemon compute skip);
@@ -327,21 +327,21 @@ export class WhoamiService {
       ? undefined
       : this.computeRuntimeContext(nodeRow.id, identity.runtime, contextUsage);
 
-    // PL-007: workspace block resolved from RigSpec.workspace. activeRepo
-    // resolves per-rig default first; envOverride lets per-session
-    // OPENRIG_TARGET_REPO override (subject to repo-name validation).
-    const workspaceSpec = this.rigRepo.getRigWorkspace(nodeRow.rig_id);
+    // PL-007: workspace block resolved from SoftwareTeamSpec.workspace. activeRepo
+    // resolves per-softwareTeam default first; envOverride lets per-session
+    // SOFTWARETEAM_TARGET_REPO override (subject to repo-name validation).
+    const workspaceSpec = this.softwareTeamRepo.getSoftwareTeamWorkspace(nodeRow.software_team_id);
     const workspace = resolveWorkspaceContext({
       spec: workspaceSpec,
       cwd: nodeRow.cwd,
-      envOverride: query.targetRepoOverride ?? process.env["OPENRIG_TARGET_REPO"] ?? null,
+      envOverride: query.targetRepoOverride ?? process.env["SOFTWARETEAM_TARGET_REPO"] ?? null,
     });
 
     return {
       resolvedBy,
       identity,
       peers,
-      peersNote: "peers = this rig's roster excluding self (no edge filter); edges = directional relationships; use `rig ps --nodes` for node inventory including self + live state",
+      peersNote: "peers = this softwareTeam's roster excluding self (no edge filter); edges = directional relationships; use `SoftwareTeam ps --nodes` for node inventory including self + live state",
       edges: { outgoing, incoming },
       transcript,
       commands: { sendExamples, captureExamples },
@@ -415,7 +415,7 @@ export class WhoamiService {
     }
   }
 
-  private getCurrentSessionName(nodeId: string, rigId: string): string | null {
+  private getCurrentSessionName(nodeId: string, softwareTeamId: string): string | null {
     // Prefer binding's current transport/session anchor
     const binding = this.db
       .prepare("SELECT tmux_session, external_session_name FROM bindings WHERE node_id = ?")

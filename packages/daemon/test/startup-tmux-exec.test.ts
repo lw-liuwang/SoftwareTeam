@@ -22,10 +22,10 @@ describe("createDaemon tmux exec wiring", { timeout: 120000 }, () => {
   beforeAll(() => { new Database(":memory:").close(); });
   beforeEach(() => {
     // Any real tmux call during composition reaches an empty private directory, never a live server.
-    tmuxDir = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-startup-tmux-"));
+    tmuxDir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-startup-tmux-"));
     vi.stubEnv("TMUX_TMPDIR", tmuxDir);
     vi.stubEnv("TMUX", undefined);
-    vi.stubEnv("OPENRIG_NO_KERNEL", "1");
+    vi.stubEnv("SOFTWARETEAM_NO_KERNEL", "1");
   });
   afterEach(() => {
     Object.defineProperty(process, "platform", platform);
@@ -37,7 +37,7 @@ describe("createDaemon tmux exec wiring", { timeout: 120000 }, () => {
     it(`runs tmux without a shell on ${host}, a client spawned per command unless control mode is asked for`, async () => {
       Object.defineProperty(process, "platform", { ...platform, value: host });
       for (const value of [undefined, "0", "true"]) {
-        vi.stubEnv("OPENRIG_TMUX_CONTROL", value);
+        vi.stubEnv("SOFTWARETEAM_TMUX_CONTROL", value);
         const daemon = await createDaemon({ dbPath: ":memory:", cmuxFactory });
         try {
           expect(argvExecOf(daemon.deps.tmuxAdapter), String(value)).toBe(execArgvCommand);
@@ -49,8 +49,8 @@ describe("createDaemon tmux exec wiring", { timeout: 120000 }, () => {
     });
   }
 
-  it("OPENRIG_TMUX_CONTROL=1 drives tmux through its control client on linux and darwin, never on Windows", async () => {
-    vi.stubEnv("OPENRIG_TMUX_CONTROL", "1");
+  it("SOFTWARETEAM_TMUX_CONTROL=1 drives tmux through its control client on linux and darwin, never on Windows", async () => {
+    vi.stubEnv("SOFTWARETEAM_TMUX_CONTROL", "1");
     for (const host of ["linux", "darwin", "win32"] as const) {
       Object.defineProperty(process, "platform", { ...platform, value: host });
       const daemon = await createDaemon({ dbPath: ":memory:", cmuxFactory });
@@ -70,8 +70,8 @@ describe("createDaemon tmux exec wiring", { timeout: 120000 }, () => {
     }
   });
 
-  it("OPENRIG_TMUX_SHELL=1 keeps tmux on the shell path on linux, and is ignored on Windows", async () => {
-    vi.stubEnv("OPENRIG_TMUX_SHELL", "1");
+  it("SOFTWARETEAM_TMUX_SHELL=1 keeps tmux on the shell path on linux, and is ignored on Windows", async () => {
+    vi.stubEnv("SOFTWARETEAM_TMUX_SHELL", "1");
     for (const [host, expected] of [["linux", undefined], ["win32", execArgvCommand]] as const) {
       Object.defineProperty(process, "platform", { ...platform, value: host });
       const daemon = await createDaemon({ dbPath: ":memory:", cmuxFactory });

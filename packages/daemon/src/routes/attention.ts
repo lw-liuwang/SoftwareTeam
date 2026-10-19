@@ -5,7 +5,7 @@ import type { AttentionRead, AttentionItem } from "../attention-surface.js";
 import type { QueueRepository } from "../domain/queue-repository.js";
 import { isHumanSeatSessionRef } from "../domain/session-name.js";
 import type { HealthProjectionService } from "../domain/health-detectors.js";
-import type { OperatingPostureService } from "../domain/rig-mode/operating-posture.js";
+import type { OperatingPostureService } from "../domain/software-team-mode/operating-posture.js";
 import { listProjects, insideProject, projectMission, type ProjectRead } from "../domain/workspace/project-read.js";
 import { readMissionReadiness } from "../domain/proof/judgments.js";
 import { WorkflowInstanceStore } from "../domain/workflow-instance-store.js";
@@ -45,7 +45,7 @@ export function attentionRoutes(): Hono {
         const item: AttentionItem = { id: `queue:${q.qitemId}`, kind: "action", recipient: isHumanSeatSessionRef(q.destinationSession) ? q.destinationSession : q.blockedOn, summary: q.summary || q.body.trim().split(/\r?\n/).find(Boolean) || "Request summary unavailable", urgency: q.priority, unblocks, at: q.tsUpdated, scope: p ? `project ${p.id}` : "instance · project unknown", project: p ? { id: p.id, root: p.root } : null, source: `/api/queue/${encodeURIComponent(q.qitemId)}` };
         add(item, () => {
           const mode = posture?.resolve({ qitemId: q.qitemId });
-          return ["Request:", q.body, ...(q.humanDetail ? ["Supplemental detail:", q.humanDetail] : []), `State: ${q.state}`, `To: ${q.destinationSession}`, `From: ${q.sourceSession}`, `Blocked on: ${q.blockedOn ?? "none"}`, `Posture: ${mode?.posture ?? "unknown"} · ${mode?.reason ?? "posture source unavailable"}`, `Evidence reference: ${q.evidenceRef ?? "none recorded"}`, `Decision route: follow the correlated human request in Slack. Inspect: rig queue show ${q.qitemId} --full`, "Queue history (read/delivery is not approval):", ...queue.listTransitions(q.qitemId).map(t => JSON.stringify(t))];
+          return ["Request:", q.body, ...(q.humanDetail ? ["Supplemental detail:", q.humanDetail] : []), `State: ${q.state}`, `To: ${q.destinationSession}`, `From: ${q.sourceSession}`, `Blocked on: ${q.blockedOn ?? "none"}`, `Posture: ${mode?.posture ?? "unknown"} · ${mode?.reason ?? "posture source unavailable"}`, `Evidence reference: ${q.evidenceRef ?? "none recorded"}`, `Decision route: follow the correlated human request in Slack. Inspect: SoftwareTeam queue show ${q.qitemId} --full`, "Queue history (read/delivery is not approval):", ...queue.listTransitions(q.qitemId).map(t => JSON.stringify(t))];
         }, () => {
           if (!q.evidenceRef || !path.isAbsolute(q.evidenceRef) && (!p || /^[a-z][a-z\d+.-]*:/i.test(q.evidenceRef))) return [];
           const hash = q.evidenceRef.indexOf("#"), anchor = hash < 0 ? "" : q.evidenceRef.slice(hash);

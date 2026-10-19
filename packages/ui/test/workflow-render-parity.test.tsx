@@ -124,7 +124,7 @@ function renderAccordion(band: NeedsYouBand) {
   // NeedsYouAccordion calls useInvalidateReview() → useQueryClient(), so the
   // render needs a QueryClientProvider; without it the component throws and the
   // band renders empty (OPR.0.4.6.WF4 leg-8 test-only fix; pattern from
-  // rig-graph.test.tsx).
+  // software-team-graph.test.tsx).
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   return render(
     <QueryClientProvider client={qc}>

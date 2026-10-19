@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
 it("reports when every exhausted Claude window can reset through the cache and usage route", () => {
-  const home = mkdtempSync(join(tmpdir(), "openrig-blocking-reset-"));
+  const home = mkdtempSync(join(tmpdir(), "softwareteam-blocking-reset-"));
   try {
     const result = spawnSync(process.execPath, [
       fileURLToPath(new URL("./fixtures/provider-blocking-reset.mjs", import.meta.url)), home,

@@ -16,7 +16,7 @@ beforeAll(() => {
   home = mkdtempSync(join(tmpdir(), "team-permission-parser-"));
   // The shell only records argv. The real CLI parser below has inert actions;
   // neither stage contacts a daemon or performs a lifecycle operation.
-  writeFileSync(join(home, "rig"), `#!${process.execPath}\nconsole.log(JSON.stringify(process.argv.slice(2)));\n`, { mode: 0o755 });
+  writeFileSync(join(home, "SoftwareTeam"), `#!${process.execPath}\nconsole.log(JSON.stringify(process.argv.slice(2)));\n`, { mode: 0o755 });
 });
 afterAll(() => rmSync(home, { recursive: true, force: true }));
 
@@ -43,28 +43,28 @@ async function parse(command: string) {
 
 describe("team hook agrees with real CLI dispatch", () => {
   it.each([
-    "rig down example", "rig -- down example",
-    "rig -- down --help", "rig -- down -h",
-    "command rig down example", "nice -n 5 rig down example",
-    "if true; then rig down example; fi", "for s in example; do rig down $s; done",
-    "{ rig down example; }", "rig down -- --help",
-    "rig seat stop example@demo --reason --help",
+    "SoftwareTeam down example", "SoftwareTeam -- down example",
+    "SoftwareTeam -- down --help", "SoftwareTeam -- down -h",
+    "command SoftwareTeam down example", "nice -n 5 SoftwareTeam down example",
+    "if true; then SoftwareTeam down example; fi", "for s in example; do SoftwareTeam down $s; done",
+    "{ SoftwareTeam down example; }", "SoftwareTeam down -- --help",
+    "SoftwareTeam seat stop example@demo --reason --help",
   ])("asks when the action really dispatches: %s", async command => {
     const observed = await parse(command);
     expect(observed.error).toBeUndefined(); expect(observed.calls).toHaveLength(1);
     expect(observed.decision).toBe("ask");
   });
   it.each([
-    ["rig seat -- stop example@demo --reason maintenance", "commander.missingMandatoryOptionValue"],
-    ["rig -- down --help example", "commander.excessArguments"],
+    ["SoftwareTeam seat -- stop example@demo --reason maintenance", "commander.missingMandatoryOptionValue"],
+    ["SoftwareTeam -- down --help example", "commander.excessArguments"],
   ])("keeps invalid separator forms conservative: %s", async (command, error) => {
     const observed = await parse(command);
     expect(observed.error).toBe(error); expect(observed.calls).toEqual([]);
     expect(observed.decision).toBe("ask");
   });
   it.each([
-    "rig down example --help", "rig down --help example", "rig down -h example",
-    "rig seat stop --help example@demo",
+    "SoftwareTeam down example --help", "SoftwareTeam down --help example", "SoftwareTeam down -h example",
+    "SoftwareTeam seat stop --help example@demo",
   ])("allows help with no action: %s", async command => {
     const observed = await parse(command);
     expect(observed.error).toBe("commander.helpDisplayed"); expect(observed.calls).toEqual([]);

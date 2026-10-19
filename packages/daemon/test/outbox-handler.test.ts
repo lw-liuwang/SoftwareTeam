@@ -19,8 +19,8 @@ describe("OutboxHandler", () => {
 
   it("record creates entry in pending state", () => {
     const e = outbox.record({
-      senderSession: "alice@rig",
-      destinationSession: "bob@rig",
+      senderSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "fyi",
       tags: ["info"],
     });
@@ -33,14 +33,14 @@ describe("OutboxHandler", () => {
     const id = "outbox-fixed-id-0001";
     const a = outbox.record({
       outboxId: id,
-      senderSession: "alice@rig",
-      destinationSession: "bob@rig",
+      senderSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "first",
     });
     const b = outbox.record({
       outboxId: id,
-      senderSession: "alice@rig",
-      destinationSession: "bob@rig",
+      senderSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "second-ignored",
     });
     expect(a.outboxId).toBe(b.outboxId);
@@ -49,8 +49,8 @@ describe("OutboxHandler", () => {
 
   it("markDelivered updates state and timestamp", () => {
     const e = outbox.record({
-      senderSession: "alice@rig",
-      destinationSession: "bob@rig",
+      senderSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "x",
     });
     const delivered = outbox.markDelivered(e.outboxId);
@@ -60,8 +60,8 @@ describe("OutboxHandler", () => {
 
   it("markDelivered on already-delivered is a no-op (returns existing)", () => {
     const e = outbox.record({
-      senderSession: "alice@rig",
-      destinationSession: "bob@rig",
+      senderSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "x",
     });
     outbox.markDelivered(e.outboxId);
@@ -71,8 +71,8 @@ describe("OutboxHandler", () => {
 
   it("markFailed transitions pending → failed", () => {
     const e = outbox.record({
-      senderSession: "alice@rig",
-      destinationSession: "bob@rig",
+      senderSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "x",
     });
     const failed = outbox.markFailed(e.outboxId);
@@ -85,8 +85,8 @@ describe("OutboxHandler", () => {
   // `failed`. It is a holding state resolved out-of-band, not a retry state.
   it("markIndeterminate transitions pending → indeterminate (CAS from pending)", () => {
     const e = outbox.record({
-      senderSession: "alice@rig",
-      destinationSession: "bob@rig",
+      senderSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "x",
     });
     const indet = outbox.markIndeterminate(e.outboxId);
@@ -95,8 +95,8 @@ describe("OutboxHandler", () => {
 
   it("markIndeterminate NEVER clobbers a confirmed delivery (delivered stays delivered)", () => {
     const e = outbox.record({
-      senderSession: "alice@rig",
-      destinationSession: "bob@rig",
+      senderSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "x",
     });
     outbox.markDelivered(e.outboxId);
@@ -114,8 +114,8 @@ describe("OutboxHandler", () => {
   // indeterminate row is an out-of-scope follow-on, not a W1 transition.
   it("indeterminate is terminal-by-CAS: markDelivered is a no-op on it", () => {
     const e = outbox.record({
-      senderSession: "alice@rig",
-      destinationSession: "bob@rig",
+      senderSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "x",
     });
     outbox.markIndeterminate(e.outboxId);
@@ -125,8 +125,8 @@ describe("OutboxHandler", () => {
 
   it("indeterminate is terminal-by-CAS: markFailed is a no-op on it", () => {
     const e = outbox.record({
-      senderSession: "alice@rig",
-      destinationSession: "bob@rig",
+      senderSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "x",
     });
     outbox.markIndeterminate(e.outboxId);

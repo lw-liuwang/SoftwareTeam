@@ -14,7 +14,7 @@ import type { ProjectionPlan } from "../src/domain/projection-planner.js";
 import type { NodeBinding } from "../src/domain/runtime-adapter.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { StartupOrchestrator } from "../src/domain/startup-orchestrator.js";
@@ -54,13 +54,13 @@ function seat(target: (typeof TARGETS)[number], existing: string | null, fragmen
     exists: (p: string) => fs.existsSync(p), mkdirp: (p: string) => fs.mkdirSync(p, { recursive: true }), copyFile: replaceFile,
     homedir: nodePath.join(root, "home"),
   };
-  const adapter = new ClaudeCodeAdapter({ tmux: {} as TmuxAdapter, fsOps, stateDir: nodePath.join(root, "openrig"), collectorAssetPath: asset });
+  const adapter = new ClaudeCodeAdapter({ tmux: {} as TmuxAdapter, fsOps, stateDir: nodePath.join(root, "softwareteam"), collectorAssetPath: asset });
   const plan = {
     runtime: "claude-code", cwd, startup: { files: [], actions: [] }, conflicts: [], noOps: [], diagnostics: [],
     entries: [{ category: "runtime_resource", effectiveId: "spec-fragment", sourceSpec: "spec", sourcePath: fragmentPath,
       resourcePath: "fragment.json", absolutePath: fragmentPath, resourceType: target.type, classification: "safe_projection" }],
   } as unknown as ProjectionPlan;
-  const binding = { id: "b", nodeId: "n", cwd, tmuxSession: "seat@rig" } as NodeBinding;
+  const binding = { id: "b", nodeId: "n", cwd, tmuxSession: "seat@software-team" } as NodeBinding;
   const read = () => (fs.existsSync(targetPath) ? fs.readFileSync(targetPath, "utf-8") : null);
   return { adapter, plan, binding, cwd, targetPath, fragmentPath, read };
 }
@@ -143,14 +143,14 @@ describe.skipIf(process.getuid?.() === 0)("a project file that can't be read is 
       const s = seat(target, null);
       make(s.targetPath);
       const db = createFullTestDb(); dbs.push(db);
-      const rigRepo = new RigRepository(db), rig = rigRepo.createRig("preserve");
-      const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code", cwd: s.cwd });
+      const softwareTeamRepo = new SoftwareTeamRepository(db), softwareTeam = softwareTeamRepo.createSoftwareTeam("preserve");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code", cwd: s.cwd });
       const registry = new SessionRegistry(db);
       const session = registry.registerSession(node.id, "dev-impl@preserve");
       const binding = { ...s.binding, nodeId: node.id, tmuxSession: session.sessionName } as NodeBinding;
       const launchHarness = vi.spyOn(s.adapter, "launchHarness").mockResolvedValue({ ok: false, error: "inert boundary" });
       const orchestrator = new StartupOrchestrator({ db, sessionRegistry: registry, eventBus: new EventBus(db), tmuxAdapter: {} as TmuxAdapter });
-      const result = await orchestrator.startNode({ rigId: rig.id, nodeId: node.id, sessionId: session.id, binding, adapter: s.adapter,
+      const result = await orchestrator.startNode({ softwareTeamId: softwareTeam.id, nodeId: node.id, sessionId: session.id, binding, adapter: s.adapter,
         plan: s.plan, resolvedStartupFiles: [], startupActions: [], isRestore: false });
       expect(launchHarness).toHaveBeenCalledTimes(1);
       // The only error is the stubbed harness boundary: the skipped fragment didn't fail the start.

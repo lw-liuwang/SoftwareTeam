@@ -1,6 +1,6 @@
 // M1 A4b — @external entity-admission. Contract 2a57d099 (sealed): resolve a
 // <local>@external destination against the human registry (A3). Home = the daemon
-// gateway-path (topologyValidateRig / 4b, queue-side) + the A4 gateway (connector-side),
+// gateway-path (topologyValidateSoftwareTeam / 4b, queue-side) + the A4 gateway (connector-side),
 // arch-ruled 8cd30094. This module is the RESOLVER; the daemon-side registry READER
 // (loads the projection entities) + the gate wiring consume it.
 //
@@ -12,7 +12,7 @@
 //   (unresolved inbound with no target)    -> the default HUMAN slot human-operator@kernel
 //
 // proof-2 captures BOTH refusal texts: the DOMAIN-level bounce (a token NOT in the
-// closed set falls through to unknown_destination_rig, from A1/A2) AND the ENTITY-level
+// closed set falls through to unknown_destination_software_team, from A1/A2) AND the ENTITY-level
 // teaching refusal here (valid @external domain, entity absent).
 
 // The default HUMAN operator identity — re-exported from its canonical home in the
@@ -48,7 +48,7 @@ export function resolveExternal(local: string, entities: readonly RegisteredEnti
     local,
     error:
       `'${local}@external' names no registered human (no gateway/humans/${local}.yaml fragment). ` +
-      `Register the human first: rig gateway human add ${local} --display-name … --binding … --delivery-class …; ` +
+      `Register the human first: SoftwareTeam gateway human add ${local} --display-name … --binding … --delivery-class …; ` +
       `or address a human that is already registered. ` +
       `(This is a virtual-domain reference — it was NOT downgraded to an agent seat.)`,
   };

@@ -6,21 +6,21 @@ import { validateEvalCase } from "./helpers/eval-schema.js";
 
 const VALID_SELECTION = {
   id: "sel-01",
-  name: "selects core/rig-lifecycle for a fleet bring-back",
+  name: "selects core/software-team-lifecycle for a fleet bring-back",
   category: "selection",
   prompt: "the box rebooted and everything's gone — bring the whole fleet back",
-  expectedPatterns: ["rig context get\\s+core/rig-lifecycle"],
+  expectedPatterns: ["SoftwareTeam context get\\s+core/software-team-lifecycle"],
 };
 
 const VALID_LOADING = {
   id: "load-01",
-  name: "pulls core/rig-lifecycle before any bring-back action",
+  name: "pulls core/software-team-lifecycle before any bring-back action",
   category: "loading",
   prompt: "the box rebooted and everything's gone — bring the whole fleet back",
-  expectedPatterns: ["rig context get\\s+core/rig-lifecycle"],
+  expectedPatterns: ["SoftwareTeam context get\\s+core/software-team-lifecycle"],
   order: {
-    getPattern: "rig context get\\s+core/rig-lifecycle",
-    actionPattern: "rig (up|start|restore)",
+    getPattern: "SoftwareTeam context get\\s+core/software-team-lifecycle",
+    actionPattern: "softwareTeam (up|start|restore)",
   },
 };
 
@@ -43,7 +43,7 @@ describe("eval-schema — case validator", () => {
   });
 
   it("rejects a non-compilable expected pattern", () => {
-    expect(codes({ ...VALID_SELECTION, expectedPatterns: ["rig context get ("] })).toContain(
+    expect(codes({ ...VALID_SELECTION, expectedPatterns: ["SoftwareTeam context get ("] })).toContain(
       "PATTERN_NOT_REGEX",
     );
   });

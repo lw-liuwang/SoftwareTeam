@@ -46,10 +46,10 @@ const SPEC = `workflow:
   roles:
     worker:
       preferred_targets:
-        - worker@rig
+        - worker@software-team
     next:
       preferred_targets:
-        - next@rig
+        - next@software-team
   steps:
     - id: work
       actor_role: worker
@@ -86,8 +86,8 @@ describe("FR-5: waiting-replay absorption + the version guard", () => {
       workflowSpecJsonSchema,
     ]);
     const bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
@@ -107,13 +107,13 @@ describe("FR-5: waiting-replay absorption + the version guard", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "replay walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const first = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "waiting",
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       resultNote: "parked for the gate",
       blockedOn: "gate-x",
       closureEvidence: evidence,
@@ -132,7 +132,7 @@ describe("FR-5: waiting-replay absorption + the version guard", () => {
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "waiting",
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       resultNote: "parked for the gate",
       blockedOn: "gate-x",
       closureEvidence: { note: "evidence-1" },
@@ -153,19 +153,19 @@ describe("FR-5: waiting-replay absorption + the version guard", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "normalization walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "waiting",
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
     });
     const replay = await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "waiting",
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       blockedOn: "external-gate",
     });
     expect(replay.absorbedReplay).toBe(true);
@@ -188,7 +188,7 @@ describe("FR-5: waiting-replay absorption + the version guard", () => {
   }> = [
     { label: "(a) different blockedOn", mutate: () => ({ blockedOn: "gate-y" }) },
     { label: "(b) different resultNote", mutate: () => ({ resultNote: "re-parked: new reason" }) },
-    { label: "(c) different actorSession", mutate: () => ({ actorSession: "worker-replacement@rig" }) },
+    { label: "(c) different actorSession", mutate: () => ({ actorSession: "worker-replacement@software-team" }) },
     {
       label: "(d) different closureEvidence",
       mutate: () => ({ closureEvidence: { note: "evidence-2", extra: true } }),
@@ -201,7 +201,7 @@ describe("FR-5: waiting-replay absorption + the version guard", () => {
       const base = {
         resultNote: "parked for the gate",
         blockedOn: "gate-x",
-        actorSession: "worker@rig",
+        actorSession: "worker@software-team",
         closureEvidence: { note: "evidence-1" },
       };
       const changed = { ...base, ...mutate(base) };
@@ -231,20 +231,20 @@ describe("FR-5: waiting-replay absorption + the version guard", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "terminal replay",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     await runtime.project({
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "handoff",
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
     });
     await expect(
       runtime.project({
         instanceId: inst.instance.instanceId,
         currentPacketId: inst.entryQitemId,
         exit: "handoff",
-        actorSession: "worker@rig",
+        actorSession: "worker@software-team",
       }),
     ).rejects.toMatchObject({ code: "packet_not_on_frontier" });
   });
@@ -253,7 +253,7 @@ describe("FR-5: waiting-replay absorption + the version guard", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "race walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
 
     // Writer A reads the instance state...
@@ -264,7 +264,7 @@ describe("FR-5: waiting-replay absorption + the version guard", () => {
       instanceId: inst.instance.instanceId,
       currentPacketId: inst.entryQitemId,
       exit: "waiting",
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       blockedOn: "gate-x",
     });
     const afterB = runtime.instanceStore.getByIdOrThrow(inst.instance.instanceId);
@@ -297,7 +297,7 @@ describe("FR-5: waiting-replay absorption + the version guard", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "projector race walk",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
 
     // Simulate the race: project() reads the instance, then another
@@ -319,7 +319,7 @@ describe("FR-5: waiting-replay absorption + the version guard", () => {
         instanceId: inst.instance.instanceId,
         currentPacketId: inst.entryQitemId,
         exit: "handoff",
-        actorSession: "worker@rig",
+        actorSession: "worker@software-team",
       }),
     ).rejects.toMatchObject({ code: "instance_version_conflict" });
     spy.mockRestore();
@@ -337,14 +337,14 @@ describe("FR-5: waiting-replay absorption + the version guard", () => {
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "class sanity",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     await expect(
       runtime.project({
         instanceId: inst.instance.instanceId,
         currentPacketId: "not-a-real-packet",
         exit: "waiting",
-        actorSession: "worker@rig",
+        actorSession: "worker@software-team",
       }),
     ).rejects.toBeInstanceOf(WorkflowProjectorError);
   });

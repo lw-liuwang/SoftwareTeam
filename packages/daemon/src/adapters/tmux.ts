@@ -34,7 +34,7 @@ export type ArgvExecFn = (argv: string[]) => Promise<string>;
 export interface TmuxFileOps {
   writeFile(path: string, content: string, options?: { mode: number; flag: "wx" }): Promise<void>;
   unlink(path: string): Promise<void>;
-  /** Unique temp-file path per call - parallel `rig up` stands up many seats. */
+  /** Unique temp-file path per call - parallel `SoftwareTeam up` stands up many seats. */
   tmpName(): string;
   /** Unique tmux buffer name per call - a fixed name would collide under concurrency. */
   bufferName(): string;
@@ -42,7 +42,7 @@ export interface TmuxFileOps {
 
 // One source for the staged script's name: the generator (defaultTmuxFileOps) and the matcher
 // (isStagedSendScriptPath) are both built from it.
-const SEND_SCRIPT_PREFIX = "openrig-tmux-send-";
+const SEND_SCRIPT_PREFIX = "softwareteam-tmux-send-";
 const SEND_SCRIPT_SUFFIX = ".txt";
 const SEND_SCRIPT_NAME = new RegExp(
   `^${SEND_SCRIPT_PREFIX}\\d+-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}${SEND_SCRIPT_SUFFIX.replace(".", "\\.")}$`,
@@ -59,7 +59,7 @@ export function defaultTmuxFileOps(): TmuxFileOps {
     writeFile: (p, content, options) => fsWriteFile(p, content, { encoding: "utf8", ...options }),
     unlink: (p) => fsUnlink(p),
     tmpName: () => pathJoin(tmpdir(), `${SEND_SCRIPT_PREFIX}${process.pid}-${randomUUID()}${SEND_SCRIPT_SUFFIX}`),
-    bufferName: () => `openrig_${process.pid}_${randomUUID().replace(/-/g, "")}`,
+    bufferName: () => `softwareteam_${process.pid}_${randomUUID().replace(/-/g, "")}`,
   };
 }
 
@@ -249,7 +249,7 @@ function shellQuote(s: string): string {
 
 /**
  * An exact tmux target for a session name. tmux resolves a bare name by prefix when no session has that exact name,
- * so a read or pipe for a session that just ended would act on another (`dev-impl@my-rig` on `dev-impl@my-rig2`).
+ * so a read or pipe for a session that just ended would act on another (`dev-impl@my-softwareTeam` on `dev-impl@my-rig2`).
  * Pane, window and session ids (`%3`, `@1`, `$2`) and `session:window.pane` targets pass through unchanged (tmux
  * turns `:` in a session name into `_`, so a `:` always means an explicit target). A pane or window command gets
  * `=name:` (as the batched capture uses); a session command gets `=name`.
@@ -479,7 +479,7 @@ export class TmuxAdapter {
 
   /** Start an empty native terminal server, without inventing a seat/session. */
   async startServer(): Promise<TmuxResult> {
-    const probeName = `openrig-startup-${randomUUID()}`;
+    const probeName = `softwareteam-startup-${randomUUID()}`;
     try {
       if ((await this.probeSession(probeName)).state !== "transport_unavailable") return { ok: true };
       // tmux -D keeps an empty server alive. Stays on the shell-string path
@@ -580,14 +580,14 @@ export class TmuxAdapter {
   }
 
   async createSession(name: string, cwd?: string, env?: Record<string, string>): Promise<TmuxResult> {
-    if (this.deliveryGuard && (!env?.OPENRIG_NODE_ID || !this.deliveryGuard.ownsLifecycle(env.OPENRIG_NODE_ID))) {
+    if (this.deliveryGuard && (!env?.SOFTWARETEAM_NODE_ID || !this.deliveryGuard.ownsLifecycle(env.SOFTWARETEAM_NODE_ID))) {
       return { ok: false, code: "guard_lease_required", message: "Managed launch requires a lifecycle lease before terminal creation." };
     }
     const result = await this.createSessionUnchecked(name, cwd, env);
-    if (result.ok && this.deliveryGuard && env?.OPENRIG_NODE_ID) {
+    if (result.ok && this.deliveryGuard && env?.SOFTWARETEAM_NODE_ID) {
       try {
         const panes = await this.listPanes(name);
-        if (panes.length === 1) this.freshManaged.set(name, {nodeId: env.OPENRIG_NODE_ID, pane: panes[0]!.id});
+        if (panes.length === 1) this.freshManaged.set(name, {nodeId: env.SOFTWARETEAM_NODE_ID, pane: panes[0]!.id});
       } catch { /* no fresh pane proof: subsequent writes remain refused */ }
     }
     return result;
@@ -602,8 +602,8 @@ export class TmuxAdapter {
     // from pinning an old policy over config.json inside a newly launched seat.
     // Explicit seat settings remain authoritative.
     const seatEnv = {
-      OPENRIG_TRANSCRIPTS_LINES: "",
-      OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS: "",
+      SOFTWARETEAM_TRANSCRIPTS_LINES: "",
+      SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS: "",
       ...env,
     };
     const argv = ["tmux", "new-session", "-d", "-s", name];
@@ -667,7 +667,7 @@ export class TmuxAdapter {
    * Any trailing submit stays the caller's separate `sendKeys(["Enter"])`.
    * Cleanup unlinks the temp file in `finally`; if the buffer was loaded but the
    * paste failed (e.g. missing target), an explicit `delete-buffer` runs so no
-   * buffer leaks. Unique temp + buffer names per call keep parallel `rig up`
+   * buffer leaks. Unique temp + buffer names per call keep parallel `SoftwareTeam up`
    * seats from colliding.
    */
   async sendText(target: string, text: string, beforeInput?: () => void, options?: { bracketed?: boolean }): Promise<TmuxResult> {
@@ -743,7 +743,7 @@ export class TmuxAdapter {
       if (!command.includes("\\") && !path.includes("\\")) {
         // Probe fixed syntax in the pane before sourcing, not the launch's exit
         // status: even failed cleanup must not turn a later exit into a retry.
-        const sourced = `if eval 'OPENRIG_FISH_ASSIGNMENT_PROBE=1 /bin/sh -c :'; source ${quotedPath}; else; /bin/sh ${quotedPath}; end`;
+        const sourced = `if eval 'SOFTWARETEAM_FISH_ASSIGNMENT_PROBE=1 /bin/sh -c :'; source ${quotedPath}; else; /bin/sh ${quotedPath}; end`;
         // Repeating the path must not add a refusal for previously valid TMPDIRs.
         if (Buffer.byteLength(sourced, "utf8") <= 512) invocation = sourced;
       }
@@ -876,7 +876,7 @@ export class TmuxAdapter {
    *  WITHOUT -k on the already-dead pane — which preserves the history. respawn-pane refuses a still-live
    *  pane ("still active"), which is the correct guard: never respawn over a live retiree.
    *
-   *  Optional `cwd`/`env` inject the successor's start-directory + OpenRig identity env onto the reused
+   *  Optional `cwd`/`env` inject the successor's start-directory + SoftwareTeam identity env onto the reused
    *  pane via respawn-pane's `-c`/`-e` flags (tmux ≥3.0), the SAME mechanism createSession uses. Any flags
    *  precede the command, which always stays LAST.
    *
@@ -1207,7 +1207,7 @@ export class TmuxAdapter {
      *  or split it in half. */
     const captureChunk = async (chunk: string[]): Promise<void> => {
       const nonce = randomUUID().replace(/-/g, "");
-      const mark = (k: number) => `__openrig_capture_${nonce}_${k}__`;
+      const mark = (k: number) => `__softwareteam_capture_${nonce}_${k}__`;
       const argv = ["tmux", ...chunk.flatMap((t, k) => [
         ...(k > 0 ? [";"] : []),
         "display-message", "-p", "-t", `=${t}:`, mark(k), ";", "capture-pane", "-p", "-t", `=${t}:`, "-S", `-${lines}`,
@@ -1261,7 +1261,7 @@ export class TmuxAdapter {
       const outLines = output.split("\n");
       if (outLines.length && outLines[outLines.length - 1] === "") outLines.pop(); // the final newline, not a line
       for (const line of outLines) {
-        const m = line.startsWith(`__openrig_capture_${nonce}_`) ? /_(\d+)__$/.exec(line) : null;
+        const m = line.startsWith(`__softwareteam_capture_${nonce}_`) ? /_(\d+)__$/.exec(line) : null;
         if (m && line === mark(Number(m[1]))) {
           cur = Number(m[1]);
           segments[cur] = [];
@@ -1532,7 +1532,7 @@ export class TmuxAdapter {
    * OPR.0.4.3.26 — retarget an already-attached client's VIEW to `target`
    * (`<session>` or `<session>:<window>`). This is the whole point of the
    * seat-recovery slice: it changes only what a client SEES; it never creates,
-   * kills, or rebinds a session and never touches OpenRig routing/identity.
+   * kills, or rebinds a session and never touches SoftwareTeam routing/identity.
    */
   async switchClient(client: string, target: string): Promise<TmuxResult> {
     const exact = exactTarget(target, "session");

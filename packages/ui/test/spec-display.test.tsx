@@ -1,18 +1,18 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
-import { RigSpecDisplay } from "../src/components/RigSpecDisplay.js";
+import { SoftwareTeamSpecDisplay } from "../src/components/SoftwareTeamSpecDisplay.js";
 import { AgentSpecDisplay } from "../src/components/AgentSpecDisplay.js";
 import { DrawerSelectionContext, type DrawerSelection } from "../src/components/AppShell.js";
-import type { RigSpecReview, AgentSpecReview } from "../src/hooks/useSpecReview.js";
+import type { SoftwareTeamSpecReview, AgentSpecReview } from "../src/hooks/useSpecReview.js";
 
 afterEach(() => cleanup());
 
-const POD_AWARE_REVIEW: RigSpecReview = {
+const POD_AWARE_REVIEW: SoftwareTeamSpecReview = {
   sourceState: "draft",
-  kind: "rig",
-  name: "test-rig",
+  kind: "softwareTeam",
+  name: "test-software-team",
   version: "0.2",
-  summary: "A test rig",
+  summary: "A test softwareTeam",
   format: "pod_aware",
   pods: [
     {
@@ -27,13 +27,13 @@ const POD_AWARE_REVIEW: RigSpecReview = {
   ],
   edges: [{ from: "dev.impl", to: "orch.lead", kind: "reports_to" }],
   graph: { nodes: [], edges: [] },
-  raw: "name: test-rig",
+  raw: "name: test-software-team",
 };
 
-const LEGACY_REVIEW: RigSpecReview = {
+const LEGACY_REVIEW: SoftwareTeamSpecReview = {
   sourceState: "draft",
-  kind: "rig",
-  name: "legacy-rig",
+  kind: "softwareTeam",
+  name: "legacy-software-team",
   version: "0.1",
   format: "legacy",
   nodes: [
@@ -42,7 +42,7 @@ const LEGACY_REVIEW: RigSpecReview = {
   ],
   edges: [{ from: "node-1", to: "node-2", kind: "delegates_to" }],
   graph: { nodes: [], edges: [] },
-  raw: "name: legacy-rig",
+  raw: "name: legacy-software-team",
 };
 
 const AGENT_REVIEW: AgentSpecReview = {
@@ -58,7 +58,7 @@ const AGENT_REVIEW: AgentSpecReview = {
   resources: {
     skills: ["tdd", "debugging"],
     guidance: ["code-style.md"],
-    plugins: ["openrig-core"],
+    plugins: ["softwareteam-core"],
     subagents: [],
   },
   startup: {
@@ -73,9 +73,9 @@ const AGENT_REVIEW: AgentSpecReview = {
   raw: "name: test-agent",
 };
 
-describe("RigSpecDisplay", () => {
+describe("SoftwareTeamSpecDisplay", () => {
   it("renders pod member tables for pod-aware review data", () => {
-    render(<RigSpecDisplay review={POD_AWARE_REVIEW} yaml="name: test" />);
+    render(<SoftwareTeamSpecDisplay review={POD_AWARE_REVIEW} yaml="name: test" />);
 
     // Switch to configuration tab
     fireEvent.click(screen.getByTestId("tab-configuration"));
@@ -90,7 +90,7 @@ describe("RigSpecDisplay", () => {
   });
 
   it("renders legacy node tables for legacy review data", () => {
-    render(<RigSpecDisplay review={LEGACY_REVIEW} yaml="name: test" />);
+    render(<SoftwareTeamSpecDisplay review={LEGACY_REVIEW} yaml="name: test" />);
 
     fireEvent.click(screen.getByTestId("tab-configuration"));
 
@@ -103,7 +103,7 @@ describe("RigSpecDisplay", () => {
   });
 
   it("renders edge table", () => {
-    render(<RigSpecDisplay review={LEGACY_REVIEW} yaml="name: test" />);
+    render(<SoftwareTeamSpecDisplay review={LEGACY_REVIEW} yaml="name: test" />);
 
     fireEvent.click(screen.getByTestId("tab-configuration"));
 
@@ -115,7 +115,7 @@ describe("RigSpecDisplay", () => {
     const clicks: Array<{ podId: string; memberId: string }> = [];
 
     render(
-      <RigSpecDisplay
+      <SoftwareTeamSpecDisplay
         review={POD_AWARE_REVIEW}
         yaml="name: test"
         onMemberClick={(podId, member) => clicks.push({ podId, memberId: member.id })}
@@ -130,15 +130,15 @@ describe("RigSpecDisplay", () => {
   });
 
   it("renders YAML tab content", () => {
-    render(<RigSpecDisplay review={POD_AWARE_REVIEW} yaml="name: my-rig\npods: []" />);
+    render(<SoftwareTeamSpecDisplay review={POD_AWARE_REVIEW} yaml="name: my-software-team\npods: []" />);
 
     fireEvent.click(screen.getByTestId("tab-yaml"));
 
-    expect(screen.getByTestId("spec-yaml").textContent).toContain("name: my-rig");
+    expect(screen.getByTestId("spec-yaml").textContent).toContain("name: my-software-team");
   });
 
   it("renders tabs even without review data", () => {
-    render(<RigSpecDisplay yaml="name: pending" />);
+    render(<SoftwareTeamSpecDisplay yaml="name: pending" />);
 
     expect(screen.getByTestId("tab-topology")).toBeDefined();
     expect(screen.getByTestId("tab-configuration")).toBeDefined();

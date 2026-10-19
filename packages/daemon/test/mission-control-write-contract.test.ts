@@ -35,9 +35,9 @@ describe("MissionControlWriteContract (PL-005 Phase A; atomic 7-verb)", () => {
       queueItemSummarySchema,
       queueItemEvidenceRefSchema,
     ]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     bus = new EventBus(db);
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     actionLog = new MissionControlActionLog(db);
     writeContract = new MissionControlWriteContract({ db, eventBus: bus, queueRepo, actionLog });
   });
@@ -46,8 +46,8 @@ describe("MissionControlWriteContract (PL-005 Phase A; atomic 7-verb)", () => {
 
   async function seedQitem(): Promise<string> {
     const created = await queueRepo.create({
-      sourceSession: "src@rig",
-      destinationSession: "dst@rig",
+      sourceSession: "src@software-team",
+      destinationSession: "dst@software-team",
       body: "test work",
       tier: "human-gate",
       summary: "test summary (FR-4 human-routed fixture)",
@@ -218,7 +218,7 @@ describe("MissionControlWriteContract (PL-005 Phase A; atomic 7-verb)", () => {
   });
 
   it("ATOMIC ROLLBACK: handoff with invalid destination rolls back source close + audit + new qitem", async () => {
-    const failingRepo = new QueueRepository(db, bus, { validateRig: () => false });
+    const failingRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => false });
     const failingContract = new MissionControlWriteContract({
       db,
       eventBus: bus,
@@ -263,12 +263,12 @@ describe("resolve verb (OPR.0.4.4.19 FR-7)", () => {
   beforeEach(() => {
     db = createDb();
     migrate(db, [coreSchema, eventsSchema, queueItemsSchema, queueTransitionsSchema, missionControlActionsSchema]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     bus = new EventBus(db);
     sentNudges = [];
     failTransport = false;
     queueRepo = new QueueRepository(db, bus, {
-      validateRig: () => true,
+      validateSoftwareTeam: () => true,
       transport: {
         send: async (session: string, text: string) => {
           if (failTransport) throw new Error("transport down");
@@ -285,15 +285,15 @@ describe("resolve verb (OPR.0.4.4.19 FR-7)", () => {
 
   async function parkedQitem(): Promise<string> {
     const created = await queueRepo.create({
-      sourceSession: "orch@rig",
-      destinationSession: "driver@rig",
+      sourceSession: "orch@software-team",
+      destinationSession: "driver@software-team",
       body: "build the thing",
       nudge: false,
     });
-    queueRepo.claim({ qitemId: created.qitemId, destinationSession: "driver@rig" });
+    queueRepo.claim({ qitemId: created.qitemId, destinationSession: "driver@software-team" });
     queueRepo.update({
       qitemId: created.qitemId,
-      actorSession: "driver@rig",
+      actorSession: "driver@software-team",
       state: "blocked",
       blockedOn: "human-review@kernel",
       summary: "Which timing rule ships?",
@@ -318,7 +318,7 @@ describe("resolve verb (OPR.0.4.4.19 FR-7)", () => {
     const item = queueRepo.getById(qitemId)!;
     // Rail 4: back to the parked owner; no ownership change, no closure.
     expect(item.state).toBe("in-progress");
-    expect(item.destinationSession).toBe("driver@rig");
+    expect(item.destinationSession).toBe("driver@software-team");
     expect(item.closureReason).toBeNull();
     // Rail 2: decision text queryable forever in the transition log.
     const transitions = queueRepo.transitionLog.listForQitem(qitemId);
@@ -333,7 +333,7 @@ describe("resolve verb (OPR.0.4.4.19 FR-7)", () => {
     expect(events.some((e) => e.type === "mission_control.action_executed")).toBe(true);
     // Owner nudge carries the decision text.
     expect(sentNudges).toHaveLength(1);
-    expect(sentNudges[0]!.session).toBe("driver@rig");
+    expect(sentNudges[0]!.session).toBe("driver@software-team");
     expect(sentNudges[0]!.text).toContain(decision);
     expect(result.createdQitemId).toBeNull(); // never a new potato
   });
@@ -350,7 +350,7 @@ describe("resolve verb (OPR.0.4.4.19 FR-7)", () => {
 
   it("resolve against a non-parked qitem is rejected naming the expected park shape", async () => {
     const created = await queueRepo.create({
-      sourceSession: "a@rig", destinationSession: "b@rig", body: "x", nudge: false,
+      sourceSession: "a@software-team", destinationSession: "b@software-team", body: "x", nudge: false,
     });
     await expect(
       writeContract.act({ verb: "resolve", qitemId: created.qitemId, actorSession: "human@kernel", decision: "d" })
@@ -358,9 +358,9 @@ describe("resolve verb (OPR.0.4.4.19 FR-7)", () => {
   });
 
   it("resolve against a qitem blocked on ANOTHER QITEM is rejected (leg-1 shape only)", async () => {
-    const blocker = await queueRepo.create({ sourceSession: "a@rig", destinationSession: "b@rig", body: "blocker", nudge: false });
-    const item = await queueRepo.create({ sourceSession: "a@rig", destinationSession: "b@rig", body: "x", nudge: false });
-    queueRepo.update({ qitemId: item.qitemId, actorSession: "b@rig", state: "blocked", blockedOn: blocker.qitemId });
+    const blocker = await queueRepo.create({ sourceSession: "a@software-team", destinationSession: "b@software-team", body: "blocker", nudge: false });
+    const item = await queueRepo.create({ sourceSession: "a@software-team", destinationSession: "b@software-team", body: "x", nudge: false });
+    queueRepo.update({ qitemId: item.qitemId, actorSession: "b@software-team", state: "blocked", blockedOn: blocker.qitemId });
     await expect(
       writeContract.act({ verb: "resolve", qitemId: item.qitemId, actorSession: "human@kernel", decision: "d" })
     ).rejects.toMatchObject({ code: "qitem_not_leg1_parked" });

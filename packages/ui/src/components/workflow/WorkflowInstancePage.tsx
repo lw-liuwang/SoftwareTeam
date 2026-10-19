@@ -5,7 +5,7 @@
 // rows (deep-linked with the FR-3 `?step=` anchor), never from a nav rail.
 //
 // One source of truth, two projections (FR-4): everything here is the SAME read
-// `rig workflow trace` projects — GET /api/workflow/:id/trace (instance + trail,
+// `SoftwareTeam workflow trace` projects — GET /api/workflow/:id/trace (instance + trail,
 // deadline verdict attached) — plus the workflow SHAPE from the Library review
 // payload, composed client-side (no UI-side recomputation, BR-4).
 //
@@ -35,7 +35,7 @@ function fmtTime(iso: string): string {
 }
 
 // The surface identity for human web actions (matches SliceReviewTab /
-// RigAgentsPage / MissionReviewTab). Resume is a HUMAN redrive from the web.
+// SoftwareTeamAgentsPage / MissionReviewTab). Resume is a HUMAN redrive from the web.
 const SURFACE_ACTOR = "human@host";
 
 /** POST /api/workflow/:id/resume — a thin client of the shipped WF-5 redrive.
@@ -126,7 +126,7 @@ export function ExceptionBanner({
           </span>
         ) : null}
         <span className="font-mono text-[10px] text-on-surface-variant">
-          CLI: rig workflow trace {instance.instanceId}
+          CLI: SoftwareTeam workflow trace {instance.instanceId}
         </span>
       </div>
     </div>

@@ -58,7 +58,7 @@ import type { ComposedView } from "../src/domain/terminal/terminal-provider.js";
 // --- host-registry fixtures ---
 const SSH_HOST: HostEntry = { id: "vm1", transport: "ssh", target: "vm1.local", user: "admin" };
 const SSH_HOST_NO_USER: HostEntry = { id: "vm2", transport: "ssh", target: "10.0.0.9" };
-const HTTP_HOST: HostEntry = { id: "factory", transport: "http", url: "http://x:7433", bearer_env: "T" };
+const HTTP_HOST: HostEntry = { id: "factory", transport: "http", url: "http://x:7434", bearer_env: "T" };
 
 function ctxWith(hosts: HostEntry[]): ComposeContext {
   const byId = new Map(hosts.map((h) => [h.id, h]));
@@ -78,17 +78,17 @@ function member(overrides: Partial<ViewMemberInput> & { seat: string }): ViewMem
 
 describe("view-composer partition vectors", () => {
   it("local live seat → tmux attach -t (no -r)", () => {
-    const v = composeView("v", [member({ seat: "dev-a@rig" })], ctxWith([]));
+    const v = composeView("v", [member({ seat: "dev-a@software-team" })], ctxWith([]));
     expect(v.opened).toHaveLength(1);
-    expect(v.opened[0]!.paneCommand).toBe("tmux attach -t 'dev-a@rig'");
+    expect(v.opened[0]!.paneCommand).toBe("tmux attach -t 'dev-a@software-team'");
     expect(v.opened[0]!.readOnly).toBe(false);
     expect(v.absent).toHaveLength(0);
     expect(v.degraded).toHaveLength(0);
   });
 
-  it("view-only / cross-rig read-only seat → tmux attach -r -t", () => {
-    const v = composeView("v", [member({ seat: "dev-a@rig", readOnly: true })], ctxWith([]));
-    expect(v.opened[0]!.paneCommand).toBe("tmux attach -r -t 'dev-a@rig'");
+  it("view-only / cross-software-team read-only seat → tmux attach -r -t", () => {
+    const v = composeView("v", [member({ seat: "dev-a@software-team", readOnly: true })], ctxWith([]));
+    expect(v.opened[0]!.paneCommand).toBe("tmux attach -r -t 'dev-a@software-team'");
     expect(v.opened[0]!.readOnly).toBe(true);
   });
 
@@ -194,11 +194,11 @@ describe("view-composer partition vectors", () => {
 
   it("carries live Claude and Codex runtimes into Herdr tile hints but leaves terminal seats unchanged", () => {
     const members = deriveViewMembers([
-      { canonicalSessionName: "claude@rig", attachmentType: "tmux", runtime: "claude-code" },
-      { canonicalSessionName: "codex@rig", attachmentType: "tmux", runtime: "codex" },
-      { canonicalSessionName: "operator@rig", attachmentType: "tmux", runtime: "terminal" },
+      { canonicalSessionName: "claude@software-team", attachmentType: "tmux", runtime: "claude-code" },
+      { canonicalSessionName: "codex@software-team", attachmentType: "tmux", runtime: "codex" },
+      { canonicalSessionName: "operator@software-team", attachmentType: "tmux", runtime: "terminal" },
     ]);
-    const view = composeView("rig:rig", members, ctxWith([]));
+    const view = composeView("software-team:softwareTeam", members, ctxWith([]));
     const grid = buildGridRoot(view.opened).root;
     const panes: HerdrPaneNode[] = [];
     const collect = (node: HerdrLayoutNode) => {
@@ -208,9 +208,9 @@ describe("view-composer partition vectors", () => {
     collect(grid);
 
     expect(panes.filter((pane) => pane.label).map((pane) => pane.command)).toEqual([
-      ["sh", "-c", "env HERDR_AGENT=claude tmux attach -t 'claude@rig'"],
-      ["sh", "-c", "env HERDR_AGENT=codex tmux attach -t 'codex@rig'"],
-      ["sh", "-c", "tmux attach -t 'operator@rig'"],
+      ["sh", "-c", "env HERDR_AGENT=claude tmux attach -t 'claude@software-team'"],
+      ["sh", "-c", "env HERDR_AGENT=codex tmux attach -t 'codex@software-team'"],
+      ["sh", "-c", "tmux attach -t 'operator@software-team'"],
     ]);
     expect(panes.at(-1)?.command).toEqual(["sh"]);
   });
@@ -276,8 +276,8 @@ describe("terminal-views store — round-trip byte-stable + atomic write + A3", 
   it("derived views are computed live and NEVER written to disk (A3)", () => {
     const { store, file } = tmpStore();
     const rows: LiveSeatRow[] = [
-      { canonicalSessionName: "a@r", attachmentType: "tmux", logicalId: "pod.a", rigName: "r" },
-      { canonicalSessionName: "b@r", attachmentType: "external_cli", logicalId: "pod.b", rigName: "r" }, // dropped (non-tmux)
+      { canonicalSessionName: "a@r", attachmentType: "tmux", logicalId: "pod.a", softwareTeamName: "r" },
+      { canonicalSessionName: "b@r", attachmentType: "external_cli", logicalId: "pod.b", softwareTeamName: "r" }, // dropped (non-tmux)
       { canonicalSessionName: null, attachmentType: "tmux" }, // dropped (no seat)
     ];
     const derived = deriveViewMembers(rows, { labelSuffix: "s02", readOnly: true, host: "vm1" });
@@ -310,11 +310,11 @@ describe("herdr layout plan — fresh-tab-on-relaunch (BR-5) + equal auto-grid r
   it("re-launching the same view mints a DIFFERENT tab label (not-replace-idempotent)", () => {
     const first = planHerdrLayout(view, "l1");
     const second = planHerdrLayout(view, "l2");
-    expect(first.pages[0]!.tabLabel).toBe("openrig:acme-build#l1");
-    expect(second.pages[0]!.tabLabel).toBe("openrig:acme-build#l2");
+    expect(first.pages[0]!.tabLabel).toBe("softwareteam:acme-build#l1");
+    expect(second.pages[0]!.tabLabel).toBe("softwareteam:acme-build#l2");
     expect(first.pages[0]!.tabLabel).not.toBe(second.pages[0]!.tabLabel);
     // Same token → deterministic (same label). OPR.0.6.0.8: the workspace is named for
-    // people (the view id here; the rig name for a rig: view); tabs keep the token.
+    // people (the view id here; the softwareTeam name for a softwareTeam: view); tabs keep the token.
     expect(planHerdrLayout(view, "l1").pages[0]!.tabLabel).toBe(first.pages[0]!.tabLabel);
     expect(first.workspaceLabel).toBe("acme-build");
     expect(second.workspaceLabel).toBe("acme-build");
@@ -410,8 +410,8 @@ describe("herdr layout plan — fresh-tab-on-relaunch (BR-5) + equal auto-grid r
     };
     const plan = planHerdrLayout(many, "l9");
     expect(plan.pages.map((p) => p.tabLabel)).toEqual([
-      "openrig:acme-build#l9/1",
-      "openrig:acme-build#l9/2",
+      "softwareteam:acme-build#l9/1",
+      "softwareteam:acme-build#l9/2",
     ]);
   });
 
@@ -504,7 +504,7 @@ describe("herdr adapter — socket ping probe + workspace.create → layout.appl
     expect(requests[3]!.params).toEqual({ tab_id: "wG:t2" });
     expect(requests[1]!.params).toEqual({
       workspace_id: "wG",
-      tab_label: "openrig:v#tok",
+      tab_label: "softwareteam:v#tok",
       focus: true,
       root: { type: "pane", label: "pod.a · s02", command: ["sh", "-c", "tmux attach -t 'a@r'"] },
     });
@@ -741,7 +741,7 @@ describe("cmux provider — ONE gridded workspace per page (never a window per s
     });
 
     const res = await adapter.openView(multiView);
-    expect(builds.map((b) => b.name)).toEqual(["openrig:v#t1/1", "openrig:v#t1/2"]);
+    expect(builds.map((b) => b.name)).toEqual(["softwareteam:v#t1/1", "softwareteam:v#t1/2"]);
     expect(res.ok).toBe(true); // honest-partial: page 1 opened
     expect(res.opened).toEqual(["a@r", "b@r"]);
     expect(res.pages).toBe(1);

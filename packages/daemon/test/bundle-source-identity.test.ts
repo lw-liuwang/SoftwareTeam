@@ -15,7 +15,7 @@ vi.mock("../src/build-info.js", async original => ({
 }));
 
 const SHA = "a".repeat(40);
-const source = { repository: "https://github.com/example/team", folder: "rig", requestedRef: "main", resolvedCommit: SHA, canonicalUrl: `https://github.com/example/team/tree/${SHA}/rig` };
+const source = { repository: "https://github.com/example/team", folder: "softwareTeam", requestedRef: "main", resolvedCommit: SHA, canonicalUrl: `https://github.com/example/team/tree/${SHA}/softwareTeam` };
 const spec = `version: "0.2"
 name: source-identity-fixture
 docs: [{path: README.md}]
@@ -34,7 +34,7 @@ describe("bundle source and artifact identity", () => {
   let app: ReturnType<typeof createTestApp>["app"];
   beforeEach(() => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-identity-route-"));
-    fs.writeFileSync(path.join(root, "rig.yaml"), spec);
+    fs.writeFileSync(path.join(root, "software-team.yaml"), spec);
     fs.writeFileSync(path.join(root, "README.md"), "# Fixture\n");
     db = createDb(); migrate(db, ALL_MIGRATIONS); app = createTestApp(db).app;
   });
@@ -45,18 +45,18 @@ describe("bundle source and artifact identity", () => {
     return { status: res.status, data: await res.json() };
   }
   function body(name: string, extra: Record<string, unknown> = {}) {
-    return { specPath: path.join(root, "rig.yaml"), bundleName: "fixture", bundleVersion: "1.0.0", outputPath: path.join(root, `${name}.rigbundle`), provenance: { source }, ...extra };
+    return { specPath: path.join(root, "software-team.yaml"), bundleName: "fixture", bundleVersion: "1.0.0", outputPath: path.join(root, `${name}.softwareteambundle`), provenance: { source }, ...extra };
   }
 
   it("create and inspect name the same source/configuration/package/assembler; manifest changes do not change file digest", async () => {
     const first = await post("create", body("one"));
     expect(first.status, JSON.stringify(first.data)).toBe(201);
-    expect(first.data).toMatchObject({ source, configurationId: "infra.shell=terminal", assembler: { openrigVersion: "9.8.7" } });
+    expect(first.data).toMatchObject({ source, configurationId: "infra.shell=terminal", assembler: { softwareteamVersion: "9.8.7" } });
     const second = await post("create", body("two", { provenance: { source: { ...source, requestedRef: "v1" }, notes: "second metadata" } }));
     expect(second.status).toBe(201);
     expect(second.data.packageDigest).toEqual(first.data.packageDigest);
     expect(second.data.archiveHash).not.toBe(first.data.archiveHash);
-    const inspected = await post("inspect", { bundlePath: path.join(root, "one.rigbundle") });
+    const inspected = await post("inspect", { bundlePath: path.join(root, "one.softwareteambundle") });
     expect(inspected.status).toBe(200);
     for (const key of ["source", "configurationId", "packageDigest", "archiveHash", "assembler"]) expect(inspected.data[key]).toEqual(first.data[key]);
     expect(inspected.data.manifest.provenance.source).toEqual(source);
@@ -67,13 +67,13 @@ describe("bundle source and artifact identity", () => {
 
   it("checks the configuration ID against the actual spec, not a caller's label", async () => {
     const res = await post("create", body("bad", { configuration: { id: "infra.shell=codex" } }));
-    expect(res.status, JSON.stringify(res.data)).toBe(400); expect(res.data.error).toBe("Configuration ID does not match the packaged rig spec"); expect(fs.existsSync(path.join(root, "bad.rigbundle"))).toBe(false);
+    expect(res.status, JSON.stringify(res.data)).toBe(400); expect(res.data.error).toBe("Configuration ID does not match the packaged SoftwareTeam spec"); expect(fs.existsSync(path.join(root, "bad.softwareteambundle"))).toBe(false);
   });
 
   it("author minima reach the manifest and the existing install check before bootstrap", async () => {
     const created = await post("create", body("min", { compatibility: { minCliVersion: "99.0.0", minDaemonVersion: "99.0.0" } }));
     expect(created.status, JSON.stringify(created.data)).toBe(201);
-    const bundlePath = path.join(root, "min.rigbundle");
+    const bundlePath = path.join(root, "min.softwareteambundle");
     const inspected = await post("inspect", { bundlePath });
     expect(inspected.data.manifest.compatibility).toMatchObject({ minCliVersion: "99.0.0", minDaemonVersion: "99.0.0" });
     const installed = await post("install", { bundlePath, plan: true, cliVersion: "0.6.6" });

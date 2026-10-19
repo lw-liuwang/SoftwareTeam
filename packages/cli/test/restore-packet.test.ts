@@ -21,8 +21,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1234, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 import { readFileSync } from "node:fs";
@@ -49,15 +49,15 @@ import { parseClaudeTranscript } from "../src/restore-packet/claude-transcript-p
 // a time to drive the accept/reject matrix.
 function validSummary(): Record<string, unknown> {
   return {
-    source_session_id: "velocity-driver@openrig-velocity",
-    source_rig: "openrig-velocity",
+    source_session_id: "velocity-driver@softwareteam-velocity",
+    source_software_team: "softwareteam-velocity",
     source_runtime: "claude-code",
-    source_cwd: "/Users/example/code/projects/openrig-hub",
-    target_rig: "openrig-velocity",
+    source_cwd: "/Users/example/code/projects/softwareteam-hub",
+    target_software_team: "softwareteam-velocity",
     target_runtime: "claude-code",
-    target_workspace_root: "/Users/example/code/projects/openrig-hub",
+    target_workspace_root: "/Users/example/code/projects/softwareteam-hub",
     default_target_repo: null,
-    role_pointer: "rigs/openrig-velocity/state/velocity/driver-role.md",
+    role_pointer: "software-teams/softwareteam-velocity/state/velocity/driver-role.md",
     bounded_latest_transcript: {
       path: "transcript-latest.md",
       message_count: 87,
@@ -78,9 +78,9 @@ function validSummary(): Record<string, unknown> {
     caveats: [],
     authority_boundaries: "Implement M2a only; do not touch M3+ surfaces.",
     omitted_classes: ["reasoning_records"],
-    redaction_policy_id: "openrig-v0",
-    source_trust_ranking: ["rig_whoami", "bounded_latest_transcript"],
-    generator_version: "rig-restore-packet@0.1.0",
+    redaction_policy_id: "softwareteam-v0",
+    source_trust_ranking: ["software_team_whoami", "bounded_latest_transcript"],
+    generator_version: "software-team-restore-packet@0.1.0",
     generated_at: "2026-05-01T23:30:00Z",
   };
 }
@@ -220,7 +220,7 @@ describe("M2 restore-packet CLI command shell + mutual-exclusion", () => {
       });
       program.addCommand(sub);
       try {
-        program.parse(["node", "rig", ...argv]);
+        program.parse(["node", "softwareTeam", ...argv]);
       } catch (err) {
         // commander throws on exitOverride + nonzero exit. Capture the
         // thrown CommanderError message into stderr so callers can match
@@ -303,7 +303,7 @@ describe("M2 restore-packet CLI command shell + mutual-exclusion", () => {
 // device codes (Quality Lesson v9).
 // ─────────────────────────────────────────────────────────────────────
 
-describe("M2b redaction (openrig-v0 / velocity-v1 patterns)", () => {
+describe("M2b redaction (softwareteam-v0 / velocity-v1 patterns)", () => {
   it("redacts sk-* tokens", () => {
     const text = "Some leaked sk-aBcDeFgHiJkLmNoPqRsTuVwXyZ pattern here.";
     const redacted = redact(text);
@@ -484,11 +484,11 @@ describe("M2b runtime-detect", () => {
 
 describe("M2b codex-jsonl-parser", () => {
   it("parses session_meta + response_item messages into StructuredTranscript", () => {
-    const content = `{"type":"session_meta","payload":{"cwd":"/Users/example/code/projects/openrig-hub","id":"abc-123"}}
+    const content = `{"type":"session_meta","payload":{"cwd":"/Users/example/code/projects/softwareteam-hub","id":"abc-123"}}
 {"type":"response_item","timestamp":"2026-05-02T01:00:00Z","payload":{"type":"message","role":"user","content":"Hello world"}}
 {"type":"response_item","timestamp":"2026-05-02T01:00:01Z","payload":{"type":"message","role":"assistant","content":[{"type":"text","text":"Hi back"}]}}`;
     const result = parseCodexJsonl(content);
-    expect(result.sessionMeta?.cwd).toBe("/Users/example/code/projects/openrig-hub");
+    expect(result.sessionMeta?.cwd).toBe("/Users/example/code/projects/softwareteam-hub");
     expect(result.sessionMeta?.sessionId).toBe("abc-123");
     expect(result.messageCount).toBe(2);
     expect(result.messages[0]!.role).toBe("user");
@@ -538,7 +538,7 @@ not valid json garbage line
 
   it("extracts paths from message content and tool args; sorts by frequency", () => {
     const content = `{"type":"response_item","payload":{"type":"message","role":"user","content":"see packages/cli/src/index.ts and packages/cli/src/index.ts again"}}
-{"type":"response_item","payload":{"type":"function_call","arguments":"{\\"path\\":\\"/Users/example/code/projects/openrig-hub/README.md\\"}"}}`;
+{"type":"response_item","payload":{"type":"function_call","arguments":"{\\"path\\":\\"/Users/example/code/projects/softwareteam-hub/README.md\\"}"}}`;
     const result = parseCodexJsonl(content);
     expect(result.paths.length).toBeGreaterThan(0);
     const indexEntry = result.paths.find((p) => p.path === "packages/cli/src/index.ts");
@@ -670,7 +670,7 @@ describe("M2b R2 Claude parser nested-content-part handling", () => {
           {
             type: "tool_result",
             tool_use_id: "toolu_1",
-            content: "/Users/example/code/projects/openrig-hub",
+            content: "/Users/example/code/projects/softwareteam-hub",
           },
         ],
       },
@@ -685,7 +685,7 @@ describe("M2b R2 Claude parser nested-content-part handling", () => {
     // messages but the nested tool_result must STILL be counted.)
     expect(r.omittedCounts.function_call_output).toBe(1);
     expect(r.omittedCounts.raw_tool_outputs).toBe(1);
-    expect(r.paths.some((p) => p.path === "/Users/example/code/projects/openrig-hub")).toBe(true);
+    expect(r.paths.some((p) => p.path === "/Users/example/code/projects/softwareteam-hub")).toBe(true);
   });
 
   it("counts each tool_use part in a multi-tool assistant turn", () => {
@@ -799,7 +799,7 @@ describe("M2b R2 Claude parser nested-content-part handling", () => {
             type: "tool_result",
             tool_use_id: "t1",
             content: [
-              { type: "text", text: "found at /Users/example/code/projects/openrig-hub/README.md" },
+              { type: "text", text: "found at /Users/example/code/projects/softwareteam-hub/README.md" },
             ],
           },
         ],
@@ -809,7 +809,7 @@ describe("M2b R2 Claude parser nested-content-part handling", () => {
     });
     const r = parseClaudeTranscript(content);
     expect(r.omittedCounts.raw_tool_outputs).toBe(1);
-    expect(r.paths.some((p) => p.path === "/Users/example/code/projects/openrig-hub/README.md")).toBe(true);
+    expect(r.paths.some((p) => p.path === "/Users/example/code/projects/softwareteam-hub/README.md")).toBe(true);
   });
 
   it("kept text-only assistant turn (no tools): counters stay at zero", () => {
@@ -858,24 +858,24 @@ describe("M2c-CLI packet-writer atomic emission", () => {
   function buildBaselineOpts(targetDir: string): Record<string, unknown> {
     return {
       targetDir,
-      structured: parseCodexJsonl(`{"type":"session_meta","payload":{"cwd":"/Users/example/code/projects/openrig-hub","id":"src-session-id"}}
+      structured: parseCodexJsonl(`{"type":"session_meta","payload":{"cwd":"/Users/example/code/projects/softwareteam-hub","id":"src-session-id"}}
 {"type":"response_item","timestamp":"2026-05-02T01:00:00Z","payload":{"type":"message","role":"user","content":"Walk through the M1 contract"}}
 {"type":"response_item","timestamp":"2026-05-02T01:00:01Z","payload":{"type":"message","role":"assistant","content":[{"type":"text","text":"Per § 2.1 the schema requires 21 fields"}]}}`),
       sourceRuntime: "codex" as const,
-      targetRig: "openrig-velocity-claude",
+      targetSoftwareTeam: "softwareteam-velocity-claude",
       targetRuntime: "claude-code" as const,
-      targetWorkspaceRoot: "/Users/example/code/projects/openrig-hub",
-      defaultTargetRepo: "/Users/example/code/projects/openrig-hub/openrig",
-      rolePointer: "rigs/openrig-velocity-claude/state/velocity/driver-role.md",
+      targetWorkspaceRoot: "/Users/example/code/projects/softwareteam-hub",
+      defaultTargetRepo: "/Users/example/code/projects/softwareteam-hub/softwareteam",
+      rolePointer: "software-teams/softwareteam-velocity-claude/state/velocity/driver-role.md",
       currentWorkSummary: "Working on Restore-Packet vertical M2c-CLI chunk.",
       nextOwner: "self",
       caveats: ["Cross-runtime restore from Codex JSONL to Claude Code seat."],
       authorityBoundaries: "May edit packages/cli/ and packages/daemon/ within M2c boundary; no M3+ surfaces.",
-      sourceTrustRanking: ["rig_whoami", "bounded_latest_transcript"],
-      sourceSessionId: "velocity-driver@openrig-velocity",
-      sourceRig: "openrig-velocity",
-      sourceCwd: "/Users/example/code/projects/openrig-hub",
-      generatorVersion: "rig-restore-packet@0.1.0",
+      sourceTrustRanking: ["software_team_whoami", "bounded_latest_transcript"],
+      sourceSessionId: "velocity-driver@softwareteam-velocity",
+      sourceSoftwareTeam: "softwareteam-velocity",
+      sourceCwd: "/Users/example/code/projects/softwareteam-hub",
+      generatorVersion: "software-team-restore-packet@0.1.0",
       includeFullTranscript: false,
     };
   }
@@ -924,14 +924,14 @@ describe("M2c-CLI packet-writer atomic emission", () => {
     await writePacket(buildBaselineOpts(targetDir) as Parameters<typeof writePacket>[0]);
 
     const summary = JSON.parse(fs.readFileSync(path.join(targetDir, "restore-summary.json"), "utf-8"));
-    expect(summary.target_rig).toBe("openrig-velocity-claude");
+    expect(summary.target_software_team).toBe("softwareteam-velocity-claude");
     expect(summary.target_runtime).toBe("claude-code");
-    expect(summary.role_pointer).toBe("rigs/openrig-velocity-claude/state/velocity/driver-role.md");
+    expect(summary.role_pointer).toBe("software-teams/softwareteam-velocity-claude/state/velocity/driver-role.md");
     expect(summary.bounded_latest_transcript.bound).toBe(120);
-    expect(summary.redaction_policy_id).toBe("openrig-v0");
-    expect(summary.generator_version).toBe("rig-restore-packet@0.1.0");
+    expect(summary.redaction_policy_id).toBe("softwareteam-v0");
+    expect(summary.generator_version).toBe("software-team-restore-packet@0.1.0");
     expect(summary.source_runtime).toBe("codex");
-    expect(summary.source_session_id).toBe("velocity-driver@openrig-velocity");
+    expect(summary.source_session_id).toBe("velocity-driver@softwareteam-velocity");
     expect(Array.isArray(summary.touched_files.top_paths)).toBe(true);
     expect(summary.durable_pointers.queue_pointers).toBeDefined();
     expect(summary.durable_pointers.progress_pointers).toBeDefined();
@@ -1020,7 +1020,7 @@ describe("M2c-CLI Velocity-shape round-trip (synthetic 4-role fixtures)", () => 
   // + reasoning records + a credential-pattern needle for redaction.
   function syntheticCodexJsonlFor(role: string): string {
     return [
-      `{"type":"session_meta","payload":{"cwd":"/Users/example/code/projects/openrig-hub","id":"velocity-${role}@openrig-velocity-code"}}`,
+      `{"type":"session_meta","payload":{"cwd":"/Users/example/code/projects/softwareteam-hub","id":"velocity-${role}@softwareteam-velocity-code"}}`,
       `{"type":"response_item","payload":{"type":"reasoning","content":"<thinking>"}}`,
       `{"type":"response_item","payload":{"type":"function_call","arguments":"{\\"path\\":\\"packages/cli/src/index.ts\\"}"}}`,
       `{"type":"response_item","timestamp":"2026-04-23T18:08:00Z","payload":{"type":"message","role":"user","content":"${role}: please review the diff"}}`,
@@ -1048,20 +1048,20 @@ describe("M2c-CLI Velocity-shape round-trip (synthetic 4-role fixtures)", () => 
         targetDir,
         structured,
         sourceRuntime: "codex",
-        targetRig: "openrig-velocity-claude",
+        targetSoftwareTeam: "softwareteam-velocity-claude",
         targetRuntime: "claude-code",
-        targetWorkspaceRoot: "/Users/example/code/projects/openrig-hub",
-        defaultTargetRepo: "/Users/example/code/projects/openrig-hub/openrig",
-        rolePointer: `rigs/openrig-velocity-claude/state/velocity/${role}-role.md`,
+        targetWorkspaceRoot: "/Users/example/code/projects/softwareteam-hub",
+        defaultTargetRepo: "/Users/example/code/projects/softwareteam-hub/softwareteam",
+        rolePointer: `software-teams/softwareteam-velocity-claude/state/velocity/${role}-role.md`,
         currentWorkSummary: `Synthetic ${role} round-trip for Velocity-shape parity.`,
         nextOwner: "self",
         caveats: [],
         authorityBoundaries: `${role} authority for Velocity-replay context.`,
-        sourceTrustRanking: ["rig_whoami", "bounded_latest_transcript"],
-        sourceSessionId: `velocity-${role}@openrig-velocity-code`,
-        sourceRig: "openrig-velocity-code",
-        sourceCwd: "/Users/example/code/projects/openrig-hub",
-        generatorVersion: "rig-restore-packet@0.1.0",
+        sourceTrustRanking: ["software_team_whoami", "bounded_latest_transcript"],
+        sourceSessionId: `velocity-${role}@softwareteam-velocity-code`,
+        sourceSoftwareTeam: "softwareteam-velocity-code",
+        sourceCwd: "/Users/example/code/projects/softwareteam-hub",
+        generatorVersion: "software-team-restore-packet@0.1.0",
         includeFullTranscript: true,
       });
 
@@ -1069,8 +1069,8 @@ describe("M2c-CLI Velocity-shape round-trip (synthetic 4-role fixtures)", () => 
       const validation = validateRestoreSummary(summary);
       expect(validation.valid, JSON.stringify(validation.errors)).toBe(true);
       // Provenance preserved at relevant fields:
-      expect(summary.source_session_id).toBe(`velocity-${role}@openrig-velocity-code`);
-      expect(summary.source_cwd).toBe("/Users/example/code/projects/openrig-hub");
+      expect(summary.source_session_id).toBe(`velocity-${role}@softwareteam-velocity-code`);
+      expect(summary.source_cwd).toBe("/Users/example/code/projects/softwareteam-hub");
       expect(summary.bounded_latest_transcript.message_count).toBe(2);
       // Omitted-class enumeration matches what the parser counted:
       expect(summary.omitted_classes).toContain("reasoning_records");
@@ -1136,15 +1136,15 @@ describe("M2c-CLI redaction + omitted-record round-trip end-to-end", () => {
     const program = createProgram({ restorePacketDeps: deps as unknown as Parameters<typeof createProgram>[0]["restorePacketDeps"] });
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "restore-packet", "write",
+      "node", "softwareTeam", "restore-packet", "write",
       "--source-session", "src-session",
       "--target", targetDir,
-      "--target-rig", "openrig-velocity-claude",
+      "--target-software-team", "softwareteam-velocity-claude",
       "--target-runtime", "claude-code",
-      // src-session is bare (no @); operator must supply --source-rig-override
+      // src-session is bare (no @); operator must supply --source-software-team-override
       // per R2 honest-fallback policy.
-      "--source-rig-override", "openrig-test",
-      "--current-work-summary", "mock-daemon round-trip with bare session id + rig override.",
+      "--source-software-team-override", "softwareteam-test",
+      "--current-work-summary", "mock-daemon round-trip with bare session id + SoftwareTeam override.",
       "--authority-boundaries", "test-only.",
     ]);
 
@@ -1158,8 +1158,8 @@ describe("M2c-CLI redaction + omitted-record round-trip end-to-end", () => {
     const validation = validateRestoreSummary(summary);
     expect(validation.valid, JSON.stringify(validation.errors)).toBe(true);
     expect(summary.source_session_id).toBe("src-session");
-    // R2: operator-supplied --source-rig-override is honored.
-    expect(summary.source_rig).toBe("openrig-test");
+    // R2: operator-supplied --source-software-team-override is honored.
+    expect(summary.source_software_team).toBe("softwareteam-test");
   });
 
   it("M2b R2 nested Claude content fixture: round-trips with non-zero omittedCounts in summary", async () => {
@@ -1175,17 +1175,17 @@ describe("M2c-CLI redaction + omitted-record round-trip end-to-end", () => {
           { type: "text", text: "checking now" },
         ],
       },
-      cwd: "/Users/example/code/projects/openrig-hub",
+      cwd: "/Users/example/code/projects/softwareteam-hub",
       sessionId: "claude-session-id",
     }) + "\n" + JSON.stringify({
       type: "user",
       message: {
         role: "user",
         content: [
-          { type: "tool_result", tool_use_id: "toolu_1", content: "/Users/example/code/projects/openrig-hub" },
+          { type: "tool_result", tool_use_id: "toolu_1", content: "/Users/example/code/projects/softwareteam-hub" },
         ],
       },
-      cwd: "/Users/example/code/projects/openrig-hub",
+      cwd: "/Users/example/code/projects/softwareteam-hub",
       sessionId: "claude-session-id",
     });
     const structured = parseClaudeTranscript(content);
@@ -1195,20 +1195,20 @@ describe("M2c-CLI redaction + omitted-record round-trip end-to-end", () => {
       targetDir,
       structured,
       sourceRuntime: "claude-code",
-      targetRig: "openrig-velocity-claude",
+      targetSoftwareTeam: "softwareteam-velocity-claude",
       targetRuntime: "claude-code",
-      targetWorkspaceRoot: "/Users/example/code/projects/openrig-hub",
+      targetWorkspaceRoot: "/Users/example/code/projects/softwareteam-hub",
       defaultTargetRepo: null,
-      rolePointer: "rigs/openrig-velocity-claude/state/velocity/driver-role.md",
+      rolePointer: "software-teams/softwareteam-velocity-claude/state/velocity/driver-role.md",
       currentWorkSummary: "Nested-content round-trip for M2c-CLI.",
       nextOwner: "self",
       caveats: [],
       authorityBoundaries: "Velocity authority.",
-      sourceTrustRanking: ["rig_whoami"],
+      sourceTrustRanking: ["software_team_whoami"],
       sourceSessionId: "claude-session-id",
-      sourceRig: "openrig-velocity-claude",
-      sourceCwd: "/Users/example/code/projects/openrig-hub",
-      generatorVersion: "rig-restore-packet@0.1.0",
+      sourceSoftwareTeam: "softwareteam-velocity-claude",
+      sourceCwd: "/Users/example/code/projects/softwareteam-hub",
+      generatorVersion: "software-team-restore-packet@0.1.0",
       includeFullTranscript: false,
     });
 
@@ -1217,17 +1217,17 @@ describe("M2c-CLI redaction + omitted-record round-trip end-to-end", () => {
     expect(summary.omitted_classes).toContain("raw_tool_outputs");
     // Touched-files inventory captured the path from the omitted tool_result.
     expect(summary.touched_files.top_paths.some((p: { path: string }) =>
-      p.path === "/Users/example/code/projects/openrig-hub")).toBe(true);
+      p.path === "/Users/example/code/projects/softwareteam-hub")).toBe(true);
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────
 // M2c-CLI R2 — `--source-jsonl` provenance fix.
 //
-// Guard BLOCKED M2c-CLI at openrig e5de3ab because the `--source-jsonl`
+// Guard BLOCKED M2c-CLI at softwareteam e5de3ab because the `--source-jsonl`
 // adapter wrote the JSONL FILE PATH into `restore-summary.json.source_session_id`
-// and forced `source_rig: "unknown"`, EVEN WHEN the parsed Codex JSONL had
-// `session_meta.payload.id = "<seat>@<rig>"` available.
+// and forced `source_software_team: "unknown"`, EVEN WHEN the parsed Codex JSONL had
+// `session_meta.payload.id = "<seat>@<softwareTeam>"` available.
 //
 // These tests exercise the CLI command surface end-to-end (Quality Lesson
 // v12 candidate) — they parseAsync through createProgram() against synthetic
@@ -1257,8 +1257,8 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
       JSON.stringify({
         type: "session_meta",
         payload: {
-          cwd: "/Users/example/code/projects/openrig-hub",
-          id: "velocity-driver@openrig-velocity",
+          cwd: "/Users/example/code/projects/softwareteam-hub",
+          id: "velocity-driver@softwareteam-velocity",
         },
       }),
       JSON.stringify({
@@ -1286,7 +1286,7 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
   }
 
   function jsonlWithBareSessionMetaId(): string {
-    // session_meta exists but the id is a bare token, not <seat>@<rig> shape.
+    // session_meta exists but the id is a bare token, not <seat>@<softwareTeam> shape.
     return [
       JSON.stringify({
         type: "session_meta",
@@ -1299,7 +1299,7 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
     ].join("\n");
   }
 
-  it("guard reproducer: --source-jsonl with session_meta sets source_session_id from parsed id and source_rig from <seat>@<rig> split", async () => {
+  it("guard reproducer: --source-jsonl with session_meta sets source_session_id from parsed id and source_software_team from <seat>@<softwareTeam> split", async () => {
     const { createProgram } = await import("../src/index.js");
     const fs = await import("node:fs");
     const path = await import("node:path");
@@ -1310,10 +1310,10 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
     const program = createProgram();
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "restore-packet", "write",
+      "node", "softwareTeam", "restore-packet", "write",
       "--source-jsonl", src,
       "--target", target,
-      "--target-rig", "openrig-velocity-claude",
+      "--target-software-team", "softwareteam-velocity-claude",
       "--target-runtime", "claude-code",
       "--current-work-summary", "R2 guard reproducer: provenance from parsed session_meta.",
       "--authority-boundaries", "R2 provenance check only.",
@@ -1324,9 +1324,9 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
     const validation = validateRestoreSummary(summary);
     expect(validation.valid, JSON.stringify(validation.errors)).toBe(true);
     // Bug reproducer's expected values per BLOCK artifact:
-    expect(summary.source_session_id).toBe("velocity-driver@openrig-velocity");
-    expect(summary.source_rig).toBe("openrig-velocity");
-    expect(summary.source_cwd).toBe("/Users/example/code/projects/openrig-hub");
+    expect(summary.source_session_id).toBe("velocity-driver@softwareteam-velocity");
+    expect(summary.source_software_team).toBe("softwareteam-velocity");
+    expect(summary.source_cwd).toBe("/Users/example/code/projects/softwareteam-hub");
     // session_session_id MUST NOT be the file path.
     expect(summary.source_session_id).not.toContain("/source.jsonl");
     expect(summary.source_session_id).not.toContain(tmpRoot);
@@ -1334,39 +1334,39 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
     expect(fs.existsSync(path.join(target, "transcript.md"))).toBe(true);
   });
 
-  it("without --target-rig or --role-pointer, restores the seat to its own rig and points at its notes", async () => {
+  it("without --target-software-team or --role-pointer, restores the seat to its own SoftwareTeam and points at its notes", async () => {
     const { createProgram } = await import("../src/index.js");
     const fs = await import("node:fs");
     const path = await import("node:path");
-    const src = path.join(tmpRoot, "own-rig.jsonl");
+    const src = path.join(tmpRoot, "own-software-team.jsonl");
     fs.writeFileSync(src, [
       JSON.stringify({ type: "session_meta", payload: { cwd: "/work/project", id: "dev-build@starter" } }),
       JSON.stringify({ type: "response_item", payload: { type: "message", role: "user", content: "hi" } }),
     ].join("\n"), "utf8");
-    const target = path.join(tmpRoot, "own-rig-packet");
+    const target = path.join(tmpRoot, "own-software-team-packet");
 
     const program = createProgram();
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "restore-packet", "write",
+      "node", "softwareTeam", "restore-packet", "write",
       "--source-jsonl", src,
       "--target", target,
-      "--current-work-summary", "Default target rig.",
+      "--current-work-summary", "Default target softwareTeam.",
       "--authority-boundaries", "Defaults only.",
     ]);
 
     const summary = JSON.parse(fs.readFileSync(path.join(target, "restore-summary.json"), "utf-8"));
     expect(validateRestoreSummary(summary).valid).toBe(true);
-    expect(summary.target_rig).toBe("starter");
-    expect(summary.role_pointer).toBe("rigs/starter/seats/dev-build/LEARNED.md");
+    expect(summary.target_software_team).toBe("starter");
+    expect(summary.role_pointer).toBe("software-teams/starter/seats/dev-build/LEARNED.md");
   });
 
-  // OPR.0.4.6.MH1 rev1-r2 B2: the parse contract's greedy rig is the
-  // queue gate's shape (where an unknown rig fails the lookup); this site
+  // OPR.0.4.6.MH1 rev1-r2 B2: the parse contract's greedy softwareTeam is the
+  // queue gate's shape (where an unknown softwareTeam fails the lookup); this site
   // persists provenance with NO lookup, so a multi-@ session id must be
   // REJECTED with the explicit override guidance — never silently
-  // recorded as source_rig="rig@host" (BR-1: host stays out-of-band).
-  it("B2 (rev1-r2): a member@rig@host session id is rejected, never silently persisted as source_rig", async () => {
+  // recorded as source_software_team="softwareTeam@host" (BR-1: host stays out-of-band).
+  it("B2 (rev1-r2): a member@software-team@host session id is rejected, never silently persisted as source_software_team", async () => {
     // The JSONL path reaches deriveProvenance without a daemon (the
     // --source-session path fetches the transcript via the daemon first,
     // which is not what B2 is about). A parsed session_meta id carrying
@@ -1376,7 +1376,7 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
     const path = await import("node:path");
     const src = path.join(tmpRoot, "b2-multi-at.jsonl");
     fs.writeFileSync(src, [
-      JSON.stringify({ type: "session_meta", payload: { cwd: "/tmp", id: "member@rig@host" } }),
+      JSON.stringify({ type: "session_meta", payload: { cwd: "/tmp", id: "member@software-team@host" } }),
       JSON.stringify({ type: "response_item", payload: { type: "message", role: "user", content: "hi" } }),
     ].join("\n"), "utf8");
     const target = path.join(tmpRoot, "packet-b2");
@@ -1390,10 +1390,10 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
       const program = createProgram();
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "restore-packet", "write",
+        "node", "softwareTeam", "restore-packet", "write",
         "--source-jsonl", src,
         "--target", target,
-        "--target-rig", "openrig-velocity-claude",
+        "--target-software-team", "softwareteam-velocity-claude",
         "--target-runtime", "codex",
         "--current-work-summary", "B2 provenance strictness check.",
         "--authority-boundaries", "B2 check only.",
@@ -1404,8 +1404,8 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
     expect(process.exitCode).not.toBe(0);
     process.exitCode = origExitCode;
     const errStr = stderr.join("\n");
-    expect(errStr).toMatch(/source-rig-override|could not derive source_rig/);
-    // Never silently persisted: no packet written, no rig@host value.
+    expect(errStr).toMatch(/source-software-team-override|could not derive source_software_team/);
+    // Never silently persisted: no packet written, no softwareTeam@host value.
     expect(fs.existsSync(target)).toBe(false);
   });
 
@@ -1426,10 +1426,10 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
       const program = createProgram();
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "restore-packet", "write",
+        "node", "softwareTeam", "restore-packet", "write",
         "--source-jsonl", src,
         "--target", target,
-        "--target-rig", "openrig-velocity-claude",
+        "--target-software-team", "softwareteam-velocity-claude",
         "--target-runtime", "claude-code",
         "--current-work-summary", "no-session-meta error path.",
         "--authority-boundaries", "R2 provenance check only.",
@@ -1440,7 +1440,7 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
     expect(process.exitCode).not.toBe(0);
     process.exitCode = origExitCode;
     const errStr = stderr.join("\n");
-    expect(errStr).toMatch(/session.meta|--source-session-id-override|--source-rig-override|provenance/i);
+    expect(errStr).toMatch(/session.meta|--source-session-id-override|--source-software-team-override|provenance/i);
     // No partial packet written.
     expect(fs.existsSync(target)).toBe(false);
   });
@@ -1456,25 +1456,25 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
     const program = createProgram();
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "restore-packet", "write",
+      "node", "softwareTeam", "restore-packet", "write",
       "--source-jsonl", src,
       "--target", target,
-      "--target-rig", "openrig-velocity-claude",
+      "--target-software-team", "softwareteam-velocity-claude",
       "--target-runtime", "claude-code",
-      "--source-session-id-override", "manual-driver@manual-rig",
-      "--source-rig-override", "manual-rig",
+      "--source-session-id-override", "manual-driver@manual-software-team",
+      "--source-software-team-override", "manual-software-team",
       "--current-work-summary", "override path; honest provenance.",
       "--authority-boundaries", "R2 override path.",
     ]);
 
     const summary = JSON.parse(fs.readFileSync(path.join(target, "restore-summary.json"), "utf-8"));
-    expect(summary.source_session_id).toBe("manual-driver@manual-rig");
-    expect(summary.source_rig).toBe("manual-rig");
+    expect(summary.source_session_id).toBe("manual-driver@manual-software-team");
+    expect(summary.source_software_team).toBe("manual-software-team");
     const validation = validateRestoreSummary(summary);
     expect(validation.valid, JSON.stringify(validation.errors)).toBe(true);
   });
 
-  it("--source-jsonl with bare-id session_meta fails without --source-rig-override (no silent unknown)", async () => {
+  it("--source-jsonl with bare-id session_meta fails without --source-software-team-override (no silent unknown)", async () => {
     const { createProgram } = await import("../src/index.js");
     const fs = await import("node:fs");
     const path = await import("node:path");
@@ -1491,12 +1491,12 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
       const program = createProgram();
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "restore-packet", "write",
+        "node", "softwareTeam", "restore-packet", "write",
         "--source-jsonl", src,
         "--target", target,
-        "--target-rig", "openrig-velocity-claude",
+        "--target-software-team", "softwareteam-velocity-claude",
         "--target-runtime", "claude-code",
-        "--current-work-summary", "bare-id no-rig-override path.",
+        "--current-work-summary", "bare-id no-software-team-override path.",
         "--authority-boundaries", "R2 honest fallback.",
       ]);
     } finally {
@@ -1505,7 +1505,7 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
     expect(process.exitCode).not.toBe(0);
     process.exitCode = origExitCode;
     const errStr = stderr.join("\n");
-    expect(errStr).toMatch(/source.rig|--source-rig-override|<seat>@<rig>|derive/i);
+    expect(errStr).toMatch(/source.softwareTeam|--source-software-team-override|<seat>@<softwareTeam>|derive/i);
     expect(fs.existsSync(target)).toBe(false);
   });
 
@@ -1513,7 +1513,7 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
     const { createProgram } = await import("../src/index.js");
     const fs = await import("node:fs");
     const path = await import("node:path");
-    // JSONL has session_meta.id = velocity-driver@openrig-velocity
+    // JSONL has session_meta.id = velocity-driver@softwareteam-velocity
     const src = path.join(tmpRoot, "override-wins.jsonl");
     fs.writeFileSync(src, jsonlWithSessionMeta(), "utf8");
     const target = path.join(tmpRoot, "packet-override-wins");
@@ -1521,20 +1521,20 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
     const program = createProgram();
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "restore-packet", "write",
+      "node", "softwareTeam", "restore-packet", "write",
       "--source-jsonl", src,
       "--target", target,
-      "--target-rig", "openrig-velocity-claude",
+      "--target-software-team", "softwareteam-velocity-claude",
       "--target-runtime", "claude-code",
-      "--source-session-id-override", "operator-renamed@operator-rig",
-      "--source-rig-override", "operator-rig",
+      "--source-session-id-override", "operator-renamed@operator-software-team",
+      "--source-software-team-override", "operator-software-team",
       "--current-work-summary", "override-wins path.",
       "--authority-boundaries", "operator-supplied provenance.",
     ]);
 
     const summary = JSON.parse(fs.readFileSync(path.join(target, "restore-summary.json"), "utf-8"));
-    expect(summary.source_session_id).toBe("operator-renamed@operator-rig");
-    expect(summary.source_rig).toBe("operator-rig");
+    expect(summary.source_session_id).toBe("operator-renamed@operator-software-team");
+    expect(summary.source_software_team).toBe("operator-software-team");
   });
 });
 
@@ -1555,7 +1555,7 @@ describe("M2c-CLI R2 --source-jsonl provenance from parsed session_meta", () => 
 
 describe("M2c-Daemon final regression — Velocity 4-pack round-trip via CLI", () => {
   let tmpRoot: string;
-  const VELOCITY_ROOT = "/Users/example/.openrig/shared-docs/internal-docs/field-notes/2026-04-27-velocity-claude-from-codex-restore";
+  const VELOCITY_ROOT = "/Users/example/.softwareteam/shared-docs/internal-docs/field-notes/2026-04-27-velocity-claude-from-codex-restore";
 
   beforeEach(async () => {
     const fs = await import("node:fs");
@@ -1593,23 +1593,23 @@ describe("M2c-Daemon final regression — Velocity 4-pack round-trip via CLI", (
       const target = path.join(tmpRoot, `packet-${role}`);
 
       // Codex JSONL session_meta carries a UUID-shaped rollout id, not a
-      // <seat>@<rig> name. The Velocity prior-art .mjs got the canonical
+      // <seat>@<softwareTeam> name. The Velocity prior-art .mjs got the canonical
       // name from a CLI arg; for the v0 round-trip we mirror that by
-      // passing --source-session-id-override + --source-rig-override
+      // passing --source-session-id-override + --source-software-team-override
       // matching the reference packet's source_session value.
       const canonicalSessionId = refSummary.source_session ?? "";
-      const canonicalRig = canonicalSessionId.split("@")[1] ?? "openrig-velocity-code";
+      const canonicalSoftwareTeam = canonicalSessionId.split("@")[1] ?? "softwareteam-velocity-code";
 
       const program = createProgram();
       program.exitOverride();
       await program.parseAsync([
-        "node", "rig", "restore-packet", "write",
+        "node", "softwareTeam", "restore-packet", "write",
         "--source-jsonl", sourceJsonl,
         "--target", target,
-        "--target-rig", "openrig-velocity-claude",
+        "--target-software-team", "softwareteam-velocity-claude",
         "--target-runtime", "claude-code",
         "--source-session-id-override", canonicalSessionId,
-        "--source-rig-override", canonicalRig,
+        "--source-software-team-override", canonicalSoftwareTeam,
         "--current-work-summary", `Velocity ${role} round-trip via M2c-Daemon final regression.`,
         "--authority-boundaries", `Restored ${role} authority for Velocity-replay context.`,
       ]);
@@ -1622,13 +1622,13 @@ describe("M2c-Daemon final regression — Velocity 4-pack round-trip via CLI", (
 
       // Provenance fields preserved (Velocity prior-art -> v0 mapping).
       expect(summary.source_session_id).toBe(refSummary.source_session);
-      // source_rig derived from <seat>@<rig> split of source_session.
-      const expectedRig = refSummary.source_session?.split("@")[1];
-      expect(summary.source_rig).toBe(expectedRig);
+      // source_software_team derived from <seat>@<softwareTeam> split of source_session.
+      const expectedSoftwareTeam = refSummary.source_session?.split("@")[1];
+      expect(summary.source_software_team).toBe(expectedSoftwareTeam);
       expect(summary.source_cwd).toBe(refSummary.source_cwd);
 
       // Redaction policy applied.
-      expect(summary.redaction_policy_id).toBe("openrig-v0");
+      expect(summary.redaction_policy_id).toBe("softwareteam-v0");
 
       // Omitted-record counts are reasonable (Velocity packets should have
       // many reasoning_records and function_call_output records since they
@@ -1675,7 +1675,7 @@ describe("M2c-Daemon final regression — CLI-surface redaction + omitted round-
     fs.writeFileSync(src, [
       JSON.stringify({
         type: "session_meta",
-        payload: { cwd: "/x", id: "creds-driver@creds-rig" },
+        payload: { cwd: "/x", id: "creds-driver@creds-software-team" },
       }),
       JSON.stringify({
         type: "response_item",
@@ -1691,10 +1691,10 @@ describe("M2c-Daemon final regression — CLI-surface redaction + omitted round-
     const program = createProgram();
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "restore-packet", "write",
+      "node", "softwareTeam", "restore-packet", "write",
       "--source-jsonl", src,
       "--target", target,
-      "--target-rig", "openrig-velocity-claude",
+      "--target-software-team", "softwareteam-velocity-claude",
       "--target-runtime", "claude-code",
       "--current-work-summary", "redaction CLI round-trip.",
       "--authority-boundaries", "redaction proof.",
@@ -1707,7 +1707,7 @@ describe("M2c-Daemon final regression — CLI-surface redaction + omitted round-
     // Summary's omitted_classes records the redaction occurrence.
     const summary = JSON.parse(fs.readFileSync(path.join(target, "restore-summary.json"), "utf-8"));
     expect(summary.omitted_classes).toContain("redacted_secrets");
-    expect(summary.redaction_policy_id).toBe("openrig-v0");
+    expect(summary.redaction_policy_id).toBe("softwareteam-v0");
   });
 
   it("--source-jsonl with M2b R2 nested Claude content (tool_use + tool_result): omitted counts populated via CLI surface", async () => {
@@ -1728,19 +1728,19 @@ describe("M2c-Daemon final regression — CLI-surface redaction + omitted round-
             { type: "text", text: "checking now" },
           ],
         },
-        cwd: "/Users/example/code/projects/openrig-hub",
-        sessionId: "claude-final@openrig-velocity-claude",
+        cwd: "/Users/example/code/projects/softwareteam-hub",
+        sessionId: "claude-final@softwareteam-velocity-claude",
       }),
       JSON.stringify({
         type: "user",
         message: {
           role: "user",
           content: [
-            { type: "tool_result", tool_use_id: "toolu_1", content: "/Users/example/code/projects/openrig-hub" },
+            { type: "tool_result", tool_use_id: "toolu_1", content: "/Users/example/code/projects/softwareteam-hub" },
           ],
         },
-        cwd: "/Users/example/code/projects/openrig-hub",
-        sessionId: "claude-final@openrig-velocity-claude",
+        cwd: "/Users/example/code/projects/softwareteam-hub",
+        sessionId: "claude-final@softwareteam-velocity-claude",
       }),
     ].join("\n"), "utf8");
 
@@ -1748,10 +1748,10 @@ describe("M2c-Daemon final regression — CLI-surface redaction + omitted round-
     const program = createProgram();
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "restore-packet", "write",
+      "node", "softwareTeam", "restore-packet", "write",
       "--source-jsonl", src,
       "--target", target,
-      "--target-rig", "openrig-velocity-claude",
+      "--target-software-team", "softwareteam-velocity-claude",
       "--target-runtime", "claude-code",
       "--source-runtime", "claude-code",
       "--current-work-summary", "M2b R2 nested-content via CLI surface.",
@@ -1764,22 +1764,22 @@ describe("M2c-Daemon final regression — CLI-surface redaction + omitted round-
     expect(summary.omitted_classes).toContain("function_call_output");
     expect(summary.omitted_classes).toContain("raw_tool_outputs");
     // Provenance from session_meta-equivalent (Claude per-record sessionId).
-    expect(summary.source_session_id).toBe("claude-final@openrig-velocity-claude");
-    expect(summary.source_rig).toBe("openrig-velocity-claude");
-    expect(summary.source_cwd).toBe("/Users/example/code/projects/openrig-hub");
+    expect(summary.source_session_id).toBe("claude-final@softwareteam-velocity-claude");
+    expect(summary.source_software_team).toBe("softwareteam-velocity-claude");
+    expect(summary.source_cwd).toBe("/Users/example/code/projects/softwareteam-hub");
     // Touched-files inventory captured the path from the omitted tool_result.
     expect(summary.touched_files.top_paths.some((p: { path: string }) =>
-      p.path === "/Users/example/code/projects/openrig-hub")).toBe(true);
+      p.path === "/Users/example/code/projects/softwareteam-hub")).toBe(true);
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────
-// M3 — `rig restore-packet read` + `validate` actual implementations.
+// M3 — `SoftwareTeam restore-packet read` + `validate` actual implementations.
 //
 // Per dispatch qitem-20260502023319-d997e182 + IMPL § M3 line 154-191 +
 // M1 contract § 1 (packet shape) + § 4 (redaction enum-only) + § 8
 // (validate behavior + exit-code matrix). Predecessor: M2c-Daemon
-// ACCEPTED at openrig c7b74fa.
+// ACCEPTED at softwareteam c7b74fa.
 // ─────────────────────────────────────────────────────────────────────
 
 describe("M3 restore-packet read + validate", () => {
@@ -1805,7 +1805,7 @@ describe("M3 restore-packet read + validate", () => {
     fs.writeFileSync(src, [
       JSON.stringify({
         type: "session_meta",
-        payload: { cwd: "/Users/example/code/projects/openrig-hub", id: "m3-driver@m3-rig" },
+        payload: { cwd: "/Users/example/code/projects/softwareteam-hub", id: "m3-driver@m3-software-team" },
       }),
       JSON.stringify({
         type: "response_item",
@@ -1816,10 +1816,10 @@ describe("M3 restore-packet read + validate", () => {
     const program = createProgram();
     program.exitOverride();
     await program.parseAsync([
-      "node", "rig", "restore-packet", "write",
+      "node", "softwareTeam", "restore-packet", "write",
       "--source-jsonl", src,
       "--target", targetDir,
-      "--target-rig", "openrig-velocity-claude",
+      "--target-software-team", "softwareteam-velocity-claude",
       "--target-runtime", "claude-code",
       "--current-work-summary", "M3 fixture packet for read/validate tests.",
       "--authority-boundaries", "M3 test fixture only.",
@@ -1862,19 +1862,19 @@ describe("M3 restore-packet read + validate", () => {
     await buildValidPacket(target);
 
     const { exitCode, stdout } = await captureCli([
-      "node", "rig", "restore-packet", "read", target,
+      "node", "softwareTeam", "restore-packet", "read", target,
     ]);
     expect(exitCode === undefined || exitCode === 0).toBe(true);
     const out = stdout.join("\n");
     expect(out).toContain("# Restore Instructions");
     expect(out).toContain("source_session_id");
-    expect(out).toContain("m3-driver@m3-rig");
-    expect(out).toContain("source_rig");
-    expect(out).toContain("m3-rig");
-    expect(out).toContain("target_rig");
-    expect(out).toContain("openrig-velocity-claude");
+    expect(out).toContain("m3-driver@m3-software-team");
+    expect(out).toContain("source_software_team");
+    expect(out).toContain("m3-software-team");
+    expect(out).toContain("target_software_team");
+    expect(out).toContain("softwareteam-velocity-claude");
     expect(out).toContain("generator_version");
-    expect(out).toContain("rig-restore-packet@0.1.0");
+    expect(out).toContain("software-team-restore-packet@0.1.0");
     expect(out).toMatch(/transcript\.md/);
   });
 
@@ -1885,7 +1885,7 @@ describe("M3 restore-packet read + validate", () => {
     await buildValidPacket(target);
 
     const { exitCode, stdout } = await captureCli([
-      "node", "rig", "restore-packet", "read", target, "--json",
+      "node", "softwareTeam", "restore-packet", "read", target, "--json",
     ]);
     expect(exitCode === undefined || exitCode === 0).toBe(true);
     const stdoutSummary = JSON.parse(stdout.join("\n"));
@@ -1901,7 +1901,7 @@ describe("M3 restore-packet read + validate", () => {
     fs.rmSync(path.join(target, "restore-summary.json"));
 
     const { exitCode, stderr } = await captureCli([
-      "node", "rig", "restore-packet", "read", target,
+      "node", "softwareTeam", "restore-packet", "read", target,
     ]);
     expect(exitCode).not.toBe(0);
     const errText = stderr.join("\n");
@@ -1919,7 +1919,7 @@ describe("M3 restore-packet read + validate", () => {
     fs.writeFileSync(path.join(target, "restore-summary.json"), JSON.stringify(summary, null, 2));
 
     const { exitCode, stdout } = await captureCli([
-      "node", "rig", "restore-packet", "read", target,
+      "node", "softwareTeam", "restore-packet", "read", target,
     ]);
     expect(exitCode === undefined || exitCode === 0).toBe(true);
     expect(stdout.join("\n")).toMatch(/transcript\.md absent/i);
@@ -1931,7 +1931,7 @@ describe("M3 restore-packet read + validate", () => {
     await buildValidPacket(target);
 
     const { exitCode, stdout } = await captureCli([
-      "node", "rig", "restore-packet", "validate", target,
+      "node", "softwareTeam", "restore-packet", "validate", target,
     ]);
     expect(exitCode === undefined || exitCode === 0).toBe(true);
     expect(stdout.join("\n")).toMatch(/valid|ok|pass/i);
@@ -1948,7 +1948,7 @@ describe("M3 restore-packet read + validate", () => {
     fs.writeFileSync(path.join(target, "restore-summary.json"), JSON.stringify(summary, null, 2));
 
     const { exitCode } = await captureCli([
-      "node", "rig", "restore-packet", "validate", target,
+      "node", "softwareTeam", "restore-packet", "validate", target,
     ]);
     expect(exitCode === undefined || exitCode === 0).toBe(true);
   });
@@ -1961,7 +1961,7 @@ describe("M3 restore-packet read + validate", () => {
     fs.rmSync(path.join(target, "transcript.md"));
 
     const { exitCode, stdout, stderr } = await captureCli([
-      "node", "rig", "restore-packet", "validate", target,
+      "node", "softwareTeam", "restore-packet", "validate", target,
     ]);
     expect(exitCode).not.toBe(0);
     const out = stdout.concat(stderr).join("\n");
@@ -1978,7 +1978,7 @@ describe("M3 restore-packet read + validate", () => {
     fs.writeFileSync(path.join(target, "restore-summary.json"), JSON.stringify(summary, null, 2));
 
     const { exitCode, stdout, stderr } = await captureCli([
-      "node", "rig", "restore-packet", "validate", target,
+      "node", "softwareTeam", "restore-packet", "validate", target,
     ]);
     expect(exitCode).not.toBe(0);
     const out = stdout.concat(stderr).join("\n");
@@ -1995,7 +1995,7 @@ describe("M3 restore-packet read + validate", () => {
     fs.writeFileSync(path.join(target, "restore-summary.json"), JSON.stringify(summary, null, 2));
 
     const { exitCode, stdout, stderr } = await captureCli([
-      "node", "rig", "restore-packet", "validate", target,
+      "node", "softwareTeam", "restore-packet", "validate", target,
     ]);
     expect(exitCode).not.toBe(0);
     const out = stdout.concat(stderr).join("\n");
@@ -2010,7 +2010,7 @@ describe("M3 restore-packet read + validate", () => {
     fs.rmSync(path.join(target, "touched-files.md"));
 
     const { exitCode, stdout, stderr } = await captureCli([
-      "node", "rig", "restore-packet", "validate", target,
+      "node", "softwareTeam", "restore-packet", "validate", target,
     ]);
     expect(exitCode).not.toBe(0);
     const out = stdout.concat(stderr).join("\n");
@@ -2023,7 +2023,7 @@ describe("M3 restore-packet read + validate", () => {
     await buildValidPacket(target);
 
     const { exitCode, stdout } = await captureCli([
-      "node", "rig", "restore-packet", "validate", target, "--json",
+      "node", "softwareTeam", "restore-packet", "validate", target, "--json",
     ]);
     expect(exitCode === undefined || exitCode === 0).toBe(true);
     const report = JSON.parse(stdout.join("\n"));
@@ -2043,7 +2043,7 @@ describe("M3 restore-packet read + validate", () => {
     fs.writeFileSync(path.join(target, "restore-summary.json"), JSON.stringify(summary, null, 2));
 
     const { exitCode, stdout, stderr } = await captureCli([
-      "node", "rig", "restore-packet", "validate", target,
+      "node", "softwareTeam", "restore-packet", "validate", target,
     ]);
     expect(exitCode === undefined || exitCode === 0).toBe(true);
     const out = stdout.concat(stderr).join("\n");
@@ -2062,7 +2062,7 @@ describe("M3 restore-packet read + validate", () => {
     );
 
     const { exitCode } = await captureCli([
-      "node", "rig", "restore-packet", "validate", target,
+      "node", "softwareTeam", "restore-packet", "validate", target,
     ]);
     expect(exitCode === undefined || exitCode === 0).toBe(true);
   });
@@ -2080,14 +2080,14 @@ describe("M3 restore-packet read + validate", () => {
     expect(names).toContain("restore-packet");
   });
 
-  it("M4: rig --help discovers restore-packet in help output", async () => {
+  it("M4: SoftwareTeam --help discovers restore-packet in help output", async () => {
     const { createProgram } = await import("../src/index.js");
     const program = createProgram();
     const helpText = program.helpInformation();
     expect(helpText).toContain("restore-packet");
   });
 
-  it("M4: rig restore-packet --help discovers all 3 subcommands (write, read, validate)", async () => {
+  it("M4: SoftwareTeam restore-packet --help discovers all 3 subcommands (write, read, validate)", async () => {
     const { createProgram } = await import("../src/index.js");
     const program = createProgram();
     const restorePacket = program.commands.find((c) => c.name() === "restore-packet");
@@ -2108,7 +2108,7 @@ describe("M3 restore-packet read + validate", () => {
     fs.writeFileSync(path.join(target, "restore-summary.json"), JSON.stringify(summary, null, 2));
 
     const { exitCode, stdout, stderr } = await captureCli([
-      "node", "rig", "restore-packet", "validate", target,
+      "node", "softwareTeam", "restore-packet", "validate", target,
     ]);
     expect(exitCode).not.toBe(0);
     const out = stdout.concat(stderr).join("\n");

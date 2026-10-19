@@ -45,10 +45,10 @@ const SPEC = `workflow:
   roles:
     producer:
       preferred_targets:
-        - producer@rig
+        - producer@software-team
     reviewer:
       preferred_targets:
-        - reviewer@rig
+        - reviewer@software-team
   steps:
     - id: produce
       actor_role: producer
@@ -95,8 +95,8 @@ describe("WF-1 FR-2 completion fixback — deadline on the read surfaces", () =>
       workflowInstanceVersionSchema, workflowSpecJsonSchema,
     ]);
     bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
@@ -115,7 +115,7 @@ describe("WF-1 FR-2 completion fixback — deadline on the read surfaces", () =>
     const result = await writerRuntime.instantiate({
       specPath,
       rootObjective: "deadline read pins",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
     });
     return result.instance.instanceId;
   }
@@ -158,7 +158,7 @@ describe("WF-1 FR-2 completion fixback — deadline on the read surfaces", () =>
     expect(ev).not.toBeNull();
     // The ratified tuple: step, owner, deadline anchor, age.
     expect(ev?.stepId).toBe("produce");
-    expect(ev?.ownerSession).toBe("producer@rig");
+    expect(ev?.ownerSession).toBe("producer@software-team");
     expect(ev?.anchor).toBe("created_at");
     expect(typeof ev?.anchorAt).toBe("string");
     expect(ev?.overdueBySeconds).toBeGreaterThanOrEqual(0);
@@ -197,7 +197,7 @@ describe("WF-1 FR-2 completion fixback — deadline on the read surfaces", () =>
       instanceId,
       currentPacketId: packetId,
       exit: "failed",
-      actorSession: "producer@rig",
+      actorSession: "producer@software-team",
       resultNote: "fixture terminal close",
     });
     const app = readerAppAt(WORKFLOW_STEP_STUCK_THRESHOLD_SECONDS + 60);

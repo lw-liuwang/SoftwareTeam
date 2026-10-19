@@ -12,7 +12,7 @@ import { workflowStepTrailsSchema } from "../src/db/migrations/035_workflow_step
 import { workflowInstanceVersionSchema } from "../src/db/migrations/049_workflow_instance_version.js";
 import { workflowSpecJsonSchema } from "../src/db/migrations/050_workflow_spec_json.js";
 import { workflowResumeSchema } from "../src/db/migrations/051_workflow_resume.js";
-import { workflowInstanceBoundRigSchema } from "../src/db/migrations/052_workflow_instance_bound_rig.js";
+import { workflowInstanceBoundSoftwareTeamSchema } from "../src/db/migrations/052_workflow_instance_bound_software_team.js";
 import { queueItemSummarySchema } from "../src/db/migrations/044_queue_item_summary.js";
 import { queueItemEvidenceRefSchema } from "../src/db/migrations/048_queue_item_evidence_ref.js";
 import { EventBus } from "../src/domain/event-bus.js";
@@ -20,7 +20,7 @@ import { OutboxHandler } from "../src/domain/outbox-handler.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
 import { WorkflowRuntime } from "../src/domain/workflow-runtime.js";
 import { WorkflowProjectorError } from "../src/domain/workflow-projector.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { PodRepository } from "../src/domain/pod-repository.js";
 import { selectRoleSeat, type RoleSeatCandidateFacts } from "../src/domain/workflow-role-resolver.js";
 
@@ -31,7 +31,7 @@ import { selectRoleSeat, type RoleSeatCandidateFacts } from "../src/domain/workf
 //   2. the SIX owner-resolution call-site rows, each wired through a
 //      REAL db (projector next-step · human-gate owner · handler-role
 //      gate destination · entry · eager/structural · resume) + the Q3
-//      exception-routing uniformity pass + vanished-rig honesty +
+//      exception-routing uniformity pass + vanished-softwareTeam honesty +
 //      unbound byte-parity.
 
 // ---------- layer 1: the pure policy ----------
@@ -110,7 +110,7 @@ const ROLE_ONLY_SPEC = `workflow:
   version: 1
   objective: role-only two-step flow
   target:
-    rig: factory-a
+    software_team: factory-a
   entry:
     role: planner
   roles:
@@ -134,7 +134,7 @@ const HANDLER_GATE_SPEC = `workflow:
   version: 1
   objective: role-only handler gate
   target:
-    rig: factory-a
+    software_team: factory-a
   entry:
     role: planner
   roles:
@@ -159,7 +159,7 @@ const HUMAN_GATE_SPEC = `workflow:
   entry:
     role: planner
   target:
-    rig: factory-a
+    software_team: factory-a
   roles:
     planner: {}
   steps:
@@ -175,27 +175,27 @@ const HUMAN_GATE_SPEC = `workflow:
         evidence_ref: proof/x.md
 `;
 
-describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
+describe("FAC-1 C3: the six owner-resolution call sites on a bound softwareTeam", () => {
   let db: Database.Database;
   let bus: EventBus;
   let queueRepo: QueueRepository;
   let runtime: WorkflowRuntime;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let podRepo: PodRepository;
   let tmp: string;
-  let rigAId: string;
+  let softwareTeamAId: string;
   let sessionSeq = 0;
 
   function seedSeat(
-    rigId: string,
-    rigName: string,
+    softwareTeamId: string,
+    softwareTeamName: string,
     pod: string,
     member: string,
     opts: { role?: string; runtime?: string; sessionStatus?: string | null; rawName?: string },
   ): string {
     const podRec =
-      podRepo.getPodByNamespace(rigId, pod) ?? podRepo.createPod(rigId, pod, pod);
-    const node = rigRepo.addNode(rigId, `${pod}.${member}`, {
+      podRepo.getPodByNamespace(softwareTeamId, pod) ?? podRepo.createPod(softwareTeamId, pod, pod);
+    const node = softwareTeamRepo.addNode(softwareTeamId, `${pod}.${member}`, {
       role: opts.role,
       runtime: opts.runtime ?? "claude-code",
       cwd: "/tmp",
@@ -203,7 +203,7 @@ describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
       agentRef: "local:agents/x",
       profile: "default",
     });
-    const coordinate = `${pod}-${member}@${rigName}`;
+    const coordinate = `${pod}-${member}@${softwareTeamName}`;
     if (opts.sessionStatus !== null) {
       sessionSeq += 1;
       db.prepare(`INSERT INTO sessions (id, node_id, session_name, status) VALUES (?, ?, ?, ?)`).run(
@@ -224,7 +224,7 @@ describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
 
   beforeEach(() => {
     db = createFullTestDb();
-    // createFullTestDb carries the node/rig/queue set; the workflow
+    // createFullTestDb carries the node/softwareTeam/queue set; the workflow
     // tables ride the canonical migration objects on top. 044/048 are
     // load-bearing for the human-gate park path (summary/evidence_ref
     // columns — VM-caught: without them the gate item's create-carried
@@ -239,17 +239,17 @@ describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
       workflowInstanceVersionSchema,
       workflowSpecJsonSchema,
       workflowResumeSchema,
-      workflowInstanceBoundRigSchema,
+      workflowInstanceBoundSoftwareTeamSchema,
     ]);
     bus = new EventBus(db);
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     // P34: the W1 seam is fail-closed (MF2) — a nudge-intended terminal
     // close needs a SAME-DB intent store to make its wake durable.
     queueRepo.attachOutbox(new OutboxHandler(db));
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     podRepo = new PodRepository(db);
-    const rigA = rigRepo.createRig("factory-a");
-    rigAId = rigA.id;
+    const softwareTeamA = softwareTeamRepo.createSoftwareTeam("factory-a");
+    softwareTeamAId = softwareTeamA.id;
     tmp = mkdtempSync(join(tmpdir(), "wf-fac1-"));
     runtime = new WorkflowRuntime({ exceptionDial: { hostDefault: () => null, humanFallbackSeat: "human@host" }, db, eventBus: bus, queueRepo });
   });
@@ -259,9 +259,9 @@ describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
     rmSync(tmp, { recursive: true, force: true });
   });
 
-  it("ROW 3 + ROW 1: entry resolves live on the bound rig; the next step resolves-and-records at projection with owner_resolution trail evidence", async () => {
-    seedSeat(rigAId, "factory-a", "dev", "planner1", { role: "planner" });
-    const driverSeat = seedSeat(rigAId, "factory-a", "dev", "driver1", { role: "driver" });
+  it("ROW 3 + ROW 1: entry resolves live on the bound softwareTeam; the next step resolves-and-records at projection with owner_resolution trail evidence", async () => {
+    seedSeat(softwareTeamAId, "factory-a", "dev", "planner1", { role: "planner" });
+    const driverSeat = seedSeat(softwareTeamAId, "factory-a", "dev", "driver1", { role: "driver" });
     const specPath = writeSpec("role-only.yaml", ROLE_ONLY_SPEC);
 
     const inst = await runtime.instantiate({
@@ -271,7 +271,7 @@ describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
     });
     // ROW 3: entry resolved by capability (no preferred_targets anywhere).
     expect(inst.entryOwnerSession).toBe("dev-planner1@factory-a");
-    expect(inst.instance.boundRig).toBe("factory-a");
+    expect(inst.instance.boundSoftwareTeam).toBe("factory-a");
 
     // ROW 1: projector next-step resolves the driver role and RECORDS it.
     const projected = await runtime.projector.project({
@@ -283,7 +283,7 @@ describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
     expect(projected.nextOwnerSession).toBe(driverSeat);
     const packet = queueRepo.getById(projected.nextQitemId!);
     expect(packet?.destinationSession).toBe(driverSeat);
-    // owner_resolution trail evidence (mode=role, boundRig named).
+    // owner_resolution trail evidence (mode=role, boundSoftwareTeam named).
     const trail = runtime.trailLog.listForInstance(inst.instance.instanceId);
     const evidence = trail.find((t) => t.priorQitemId === inst.entryQitemId)?.closureEvidence as
       | Record<string, Record<string, unknown>>
@@ -291,18 +291,18 @@ describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
     expect(evidence?.["owner_resolution"]).toMatchObject({
       mode: "role",
       role: "driver",
-      boundRig: "factory-a",
+      boundSoftwareTeam: "factory-a",
       seat: driverSeat,
     });
   });
 
   it("ROW 1 decoys: the qualified seat wins over dead / wrong-runtime / role-less / loaded decoys", async () => {
-    seedSeat(rigAId, "factory-a", "dev", "planner1", { role: "planner" });
-    seedSeat(rigAId, "factory-a", "dev", "dead1", { role: "driver", sessionStatus: "stopped" });
-    seedSeat(rigAId, "factory-a", "dev", "wrongrt", { role: "driver", runtime: "codex" });
-    seedSeat(rigAId, "factory-a", "dev", "roleless", {});
-    const loaded = seedSeat(rigAId, "factory-a", "dev", "driver1", { role: "driver" });
-    const idle = seedSeat(rigAId, "factory-a", "dev", "driver2", { role: "driver" });
+    seedSeat(softwareTeamAId, "factory-a", "dev", "planner1", { role: "planner" });
+    seedSeat(softwareTeamAId, "factory-a", "dev", "dead1", { role: "driver", sessionStatus: "stopped" });
+    seedSeat(softwareTeamAId, "factory-a", "dev", "wrongrt", { role: "driver", runtime: "codex" });
+    seedSeat(softwareTeamAId, "factory-a", "dev", "roleless", {});
+    const loaded = seedSeat(softwareTeamAId, "factory-a", "dev", "driver1", { role: "driver" });
+    const idle = seedSeat(softwareTeamAId, "factory-a", "dev", "driver2", { role: "driver" });
     // Load the first driver with a PENDING item (claimed items rank zero).
     await queueRepo.create({ sourceSession: "orch@factory-a", destinationSession: loaded, body: "busywork" });
 
@@ -317,9 +317,9 @@ describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
     expect(projected.nextOwnerSession).toBe(idle);
   });
 
-  it("ROW 2b: a role-only HANDLER-ROLE gate resolves the handler seat by capability on the bound rig", async () => {
-    seedSeat(rigAId, "factory-a", "dev", "planner1", { role: "planner" });
-    const guardSeat = seedSeat(rigAId, "factory-a", "rev", "guard1", { role: "guard" });
+  it("ROW 2b: a role-only HANDLER-ROLE gate resolves the handler seat by capability on the bound softwareTeam", async () => {
+    seedSeat(softwareTeamAId, "factory-a", "dev", "planner1", { role: "planner" });
+    const guardSeat = seedSeat(softwareTeamAId, "factory-a", "rev", "guard1", { role: "guard" });
     const specPath = writeSpec("handler-gate.yaml", HANDLER_GATE_SPEC);
 
     const inst = await runtime.instantiate({ specPath, rootObjective: "t", createdBySession: "orch@factory-a" });
@@ -334,8 +334,8 @@ describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
     expect(projected.instance.status).toBe("waiting");
   });
 
-  it("ROW 2a: a role-only HUMAN-gated step's parked packet OWNER resolves by capability on the bound rig", async () => {
-    const plannerSeat = seedSeat(rigAId, "factory-a", "dev", "planner1", { role: "planner" });
+  it("ROW 2a: a role-only HUMAN-gated step's parked packet OWNER resolves by capability on the bound softwareTeam", async () => {
+    const plannerSeat = seedSeat(softwareTeamAId, "factory-a", "dev", "planner1", { role: "planner" });
     const specPath = writeSpec("human-gate.yaml", HUMAN_GATE_SPEC);
 
     const inst = await runtime.instantiate({ specPath, rootObjective: "t", createdBySession: "orch@factory-a" });
@@ -352,25 +352,25 @@ describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
   });
 
   it("ROW 4: instantiate hard-fails ONLY on structural zero-role coverage; a declared-but-stopped seat instantiates fine", async () => {
-    seedSeat(rigAId, "factory-a", "dev", "planner1", { role: "planner" });
+    seedSeat(softwareTeamAId, "factory-a", "dev", "planner1", { role: "planner" });
     const specPath = writeSpec("role-only.yaml", ROLE_ONLY_SPEC);
 
     // No seat declares "driver" anywhere → structural hard-fail, loud.
     await expect(
       runtime.instantiate({ specPath, rootObjective: "t", createdBySession: "orch@factory-a" }),
-    ).rejects.toMatchObject({ code: "bound_rig_role_uncovered" });
+    ).rejects.toMatchObject({ code: "bound_software_team_role_uncovered" });
 
     // A STOPPED driver seat = structural coverage (existence, not
     // liveness) → instantiate succeeds; liveness is projection's concern.
-    seedSeat(rigAId, "factory-a", "dev", "driver1", { role: "driver", sessionStatus: "stopped" });
+    seedSeat(softwareTeamAId, "factory-a", "dev", "driver1", { role: "driver", sessionStatus: "stopped" });
     const inst = await runtime.instantiate({ specPath, rootObjective: "t", createdBySession: "orch@factory-a" });
-    expect(inst.instance.boundRig).toBe("factory-a");
+    expect(inst.instance.boundSoftwareTeam).toBe("factory-a");
   });
 
   it("ROW 4 scale-out timing: the stopped role seat comes alive AFTER instantiate and resolves at projection (guard B1 pin)", async () => {
-    seedSeat(rigAId, "factory-a", "dev", "planner1", { role: "planner" });
+    seedSeat(softwareTeamAId, "factory-a", "dev", "planner1", { role: "planner" });
     // Node exists role-declared but NOT running at instantiate.
-    const nodeCoord = seedSeat(rigAId, "factory-a", "dev", "driver1", { role: "driver", sessionStatus: null });
+    const nodeCoord = seedSeat(softwareTeamAId, "factory-a", "dev", "driver1", { role: "driver", sessionStatus: null });
     const specPath = writeSpec("role-only.yaml", ROLE_ONLY_SPEC);
     const inst = await runtime.instantiate({ specPath, rootObjective: "t", createdBySession: "orch@factory-a" });
 
@@ -390,8 +390,8 @@ describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
   });
 
   it("ROW 5: resume RE-RESOLVES by capability — inventory changed between failure and resume routes the NEW seat", async () => {
-    seedSeat(rigAId, "factory-a", "dev", "planner1", { role: "planner" });
-    const firstDriver = seedSeat(rigAId, "factory-a", "dev", "driver1", { role: "driver" });
+    seedSeat(softwareTeamAId, "factory-a", "dev", "planner1", { role: "planner" });
+    const firstDriver = seedSeat(softwareTeamAId, "factory-a", "dev", "driver1", { role: "driver" });
     const specPath = writeSpec("role-only.yaml", ROLE_ONLY_SPEC);
     const inst = await runtime.instantiate({ specPath, rootObjective: "t", createdBySession: "orch@factory-a" });
     const projected = await runtime.projector.project({
@@ -411,16 +411,16 @@ describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
     });
     // Inventory changes: driver1 stops; a fresh driver0 (codepoint-earlier) comes up.
     db.prepare(`UPDATE sessions SET status = 'stopped' WHERE session_name = ?`).run(firstDriver);
-    const newDriver = seedSeat(rigAId, "factory-a", "dev", "driver0", { role: "driver" });
+    const newDriver = seedSeat(softwareTeamAId, "factory-a", "dev", "driver0", { role: "driver" });
 
     const resumed = await runtime.resume({ instanceId: inst.instance.instanceId, actorSession: "orch@factory-a" });
     expect(resumed.ownerSession).toBe(newDriver); // re-resolve, never copy
   });
 
-  it("Q3: a bound instance's unmapped-failed exception routes to the rig-local orchestrator seat by capability (dial position 3)", async () => {
-    seedSeat(rigAId, "factory-a", "dev", "planner1", { role: "planner" });
-    seedSeat(rigAId, "factory-a", "dev", "driver1", { role: "driver" });
-    const orchSeat = seedSeat(rigAId, "factory-a", "orch", "lead", { role: "orchestrator" });
+  it("Q3: a bound instance's unmapped-failed exception routes to the software-team-local orchestrator seat by capability (dial position 3)", async () => {
+    seedSeat(softwareTeamAId, "factory-a", "dev", "planner1", { role: "planner" });
+    seedSeat(softwareTeamAId, "factory-a", "dev", "driver1", { role: "driver" });
+    const orchSeat = seedSeat(softwareTeamAId, "factory-a", "orch", "lead", { role: "orchestrator" });
     // The role-only spec + the WF-5 dial: orchestrator_role declared,
     // orchestrator role with ZERO preferred_targets (the capability leg).
     const specText = ROLE_ONLY_SPEC.replace(
@@ -446,13 +446,13 @@ describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
     expect(items[0]!.destination_session).toBe(orchSeat);
   });
 
-  it("vanished rig: the bound rig torn down mid-run fails resolution loud with bound_rig_not_found", async () => {
-    seedSeat(rigAId, "factory-a", "dev", "planner1", { role: "planner" });
-    seedSeat(rigAId, "factory-a", "dev", "driver1", { role: "driver" });
+  it("vanished softwareTeam: the bound SoftwareTeam torn down mid-run fails resolution loud with bound_software_team_not_found", async () => {
+    seedSeat(softwareTeamAId, "factory-a", "dev", "planner1", { role: "planner" });
+    seedSeat(softwareTeamAId, "factory-a", "dev", "driver1", { role: "driver" });
     const specPath = writeSpec("role-only.yaml", ROLE_ONLY_SPEC);
     const inst = await runtime.instantiate({ specPath, rootObjective: "t", createdBySession: "orch@factory-a" });
-    // The rig vanishes (name no longer resolves).
-    db.prepare(`UPDATE rigs SET name = 'renamed-away' WHERE id = ?`).run(rigAId);
+    // The softwareTeam vanishes (name no longer resolves).
+    db.prepare(`UPDATE software_teams SET name = 'renamed-away' WHERE id = ?`).run(softwareTeamAId);
     await expect(
       runtime.projector.project({
         instanceId: inst.instance.instanceId,
@@ -460,12 +460,12 @@ describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
         exit: "handoff",
         actorSession: "dev-planner1@factory-a",
       }),
-    ).rejects.toMatchObject({ code: "bound_rig_not_found" });
+    ).rejects.toMatchObject({ code: "bound_software_team_not_found" });
   });
 
   it("loud-with-candidates: all role seats stopped → structured per-candidate disqualifiers; zero-declaring → the named zero-candidate message", async () => {
-    seedSeat(rigAId, "factory-a", "dev", "planner1", { role: "planner" });
-    seedSeat(rigAId, "factory-a", "dev", "driver1", { role: "driver", sessionStatus: "stopped" });
+    seedSeat(softwareTeamAId, "factory-a", "dev", "planner1", { role: "planner" });
+    seedSeat(softwareTeamAId, "factory-a", "dev", "driver1", { role: "driver", sessionStatus: "stopped" });
     const specPath = writeSpec("role-only.yaml", ROLE_ONLY_SPEC);
     const inst = await runtime.instantiate({ specPath, rootObjective: "t", createdBySession: "orch@factory-a" });
     let thrown: unknown;
@@ -485,27 +485,27 @@ describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
     const driver1 = candidates.find((c) => c.coordinate === "dev-driver1@factory-a");
     expect(driver1?.disqualifier).toMatch(/^not_live\(lifecycleState=/);
 
-    // Zero-candidate: a fresh rig where NO seat declares the entry role.
-    const rigB = rigRepo.createRig("factory-b");
-    seedSeat(rigB.id, "factory-b", "dev", "somebody", {});
+    // Zero-candidate: a fresh softwareTeam where NO seat declares the entry role.
+    const softwareTeamB = softwareTeamRepo.createSoftwareTeam("factory-b");
+    seedSeat(softwareTeamB.id, "factory-b", "dev", "somebody", {});
     // Structural check fires first at instantiate — the named zero-coverage error.
     await expect(
-      runtime.instantiate({ specPath, rootObjective: "t", createdBySession: "orch@factory-a", targetRig: "factory-b" }),
-    ).rejects.toMatchObject({ code: "bound_rig_role_uncovered" });
+      runtime.instantiate({ specPath, rootObjective: "t", createdBySession: "orch@factory-a", targetSoftwareTeam: "factory-b" }),
+    ).rejects.toMatchObject({ code: "bound_software_team_role_uncovered" });
   });
 
   it("UNBOUND byte-parity: a no-target role step on an unbound instance keeps the shipped next_owner_unresolved shape (no candidates machinery)", async () => {
-    const unboundSpec = ROLE_ONLY_SPEC.replace("  target:\n    rig: factory-a\n", "");
+    const unboundSpec = ROLE_ONLY_SPEC.replace("  target:\n    software_team: factory-a\n", "");
     const specPath = writeSpec("unbound.yaml", unboundSpec);
-    seedSeat(rigAId, "factory-a", "dev", "planner1", { role: "planner" });
-    seedSeat(rigAId, "factory-a", "dev", "driver1", { role: "driver" });
+    seedSeat(softwareTeamAId, "factory-a", "dev", "planner1", { role: "planner" });
+    seedSeat(softwareTeamAId, "factory-a", "dev", "driver1", { role: "driver" });
     const inst = await runtime.instantiate({
       specPath,
       rootObjective: "t",
       createdBySession: "orch@factory-a",
       entryOwnerSession: "dev-planner1@factory-a",
     });
-    expect(inst.instance.boundRig).toBeNull();
+    expect(inst.instance.boundSoftwareTeam).toBeNull();
     let thrown: unknown;
     try {
       await runtime.projector.project({
@@ -520,7 +520,7 @@ describe("FAC-1 C3: the six owner-resolution call sites on a bound rig", () => {
     const e = thrown as WorkflowProjectorError;
     expect(e.code).toBe("next_owner_unresolved");
     // The SHIPPED unbound message (supply nextOwnerSession / add
-    // preferred_targets) — no bound-rig candidates block.
+    // preferred_targets) — no bound-softwareTeam candidates block.
     expect(e.message).toContain("supply nextOwnerSession explicitly");
     expect(e.details?.["candidates"]).toBeUndefined();
   });

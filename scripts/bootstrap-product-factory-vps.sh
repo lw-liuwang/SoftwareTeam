@@ -4,14 +4,14 @@
 # Fresh Ubuntu -> factory-ready: the smoke-tested manual sequence, productized.
 #
 # Usage (as root on a fresh Ubuntu 22.04/24.04 VPS):
-#   ./bootstrap-product-factory-vps.sh --artifact <@openrig/cli@X.Y.Z | /path/to/openrig-cli.tgz> \
+#   ./bootstrap-product-factory-vps.sh --artifact <@softwareteam/cli@X.Y.Z | /path/to/softwareteam-cli.tgz> \
 #     --authorized-key "ssh-ed25519 AAAA... operator@home" [--ts-authkey tskey-...]
 #
 # The script is deliberately stepwise and loud; each step is safe to re-run.
-# It NEVER prints secret material. There is intentionally no `rig host
+# It NEVER prints secret material. There is intentionally no `softwareTeam host
 # bootstrap` verb (host verbs are capped at add/list/doctor) — this script +
 # the runbook ARE the bootstrap path; the contract is the observable end
-# state: home-base `rig host doctor <id>` all-green.
+# state: home-base `softwareTeam host doctor <id>` all-green.
 
 set -euo pipefail
 
@@ -28,27 +28,27 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "$ARTIFACT" ]] || { echo "--artifact is required (@openrig/cli@X.Y.Z or a packaged tarball path)" >&2; exit 1; }
+[[ -n "$ARTIFACT" ]] || { echo "--artifact is required (@softwareteam/cli@X.Y.Z or a packaged tarball path)" >&2; exit 1; }
 [[ -n "$AUTHORIZED_KEY" ]] || { echo "--authorized-key is required (the HOME-BASE public key)" >&2; exit 1; }
 [[ "$(id -u)" == "0" ]] || { echo "run as root (fresh-VPS bootstrap)" >&2; exit 1; }
 
 step() { echo; echo "==> $*"; }
 
-step "1/8 non-root openrig user (key-only)"
-if ! id -u openrig >/dev/null 2>&1; then
-  adduser --disabled-password --gecos "OpenRig factory" openrig
-  usermod -aG sudo openrig
-  echo "openrig ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-openrig
-  chmod 0440 /etc/sudoers.d/90-openrig
+step "1/8 non-root softwareteam user (key-only)"
+if ! id -u softwareteam >/dev/null 2>&1; then
+  adduser --disabled-password --gecos "SoftwareTeam factory" softwareteam
+  usermod -aG sudo softwareteam
+  echo "softwareteam ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-softwareteam
+  chmod 0440 /etc/sudoers.d/90-softwareteam
 fi
-install -d -m 0700 -o openrig -g openrig /home/openrig/.ssh
-grep -qF "$AUTHORIZED_KEY" /home/openrig/.ssh/authorized_keys 2>/dev/null \
-  || echo "$AUTHORIZED_KEY" >> /home/openrig/.ssh/authorized_keys
-chown openrig:openrig /home/openrig/.ssh/authorized_keys
-chmod 0600 /home/openrig/.ssh/authorized_keys
+install -d -m 0700 -o softwareteam -g softwareteam /home/softwareteam/.ssh
+grep -qF "$AUTHORIZED_KEY" /home/softwareteam/.ssh/authorized_keys 2>/dev/null \
+  || echo "$AUTHORIZED_KEY" >> /home/softwareteam/.ssh/authorized_keys
+chown softwareteam:softwareteam /home/softwareteam/.ssh/authorized_keys
+chmod 0600 /home/softwareteam/.ssh/authorized_keys
 
 step "2/8 sshd hardening drop-in (the smoke test's exact posture)"
-cat > /etc/ssh/sshd_config.d/99-openrig-hardening.conf <<'EOF'
+cat > /etc/ssh/sshd_config.d/99-softwareteam-hardening.conf <<'EOF'
 PermitRootLogin no
 PasswordAuthentication no
 KbdInteractiveAuthentication no
@@ -67,14 +67,14 @@ ufw allow OpenSSH >/dev/null || true
 ufw --force enable >/dev/null
 ufw status verbose
 
-step "4/8 Tailscale (tag:openrig-vps; no routes, no exit node, no ts-ssh)"
+step "4/8 Tailscale (tag:softwareteam-vps; no routes, no exit node, no ts-ssh)"
 if ! command -v tailscale >/dev/null 2>&1; then
   curl -fsSL https://tailscale.com/install.sh | sh
 fi
 if [[ -n "$TS_AUTHKEY" ]]; then
-  tailscale up --authkey "$TS_AUTHKEY" --advertise-tags=tag:openrig-vps --accept-routes=false
+  tailscale up --authkey "$TS_AUTHKEY" --advertise-tags=tag:softwareteam-vps --accept-routes=false
 else
-  echo "   (no --ts-authkey given; run 'tailscale up --advertise-tags=tag:openrig-vps --accept-routes=false' interactively)"
+  echo "   (no --ts-authkey given; run 'tailscale up --advertise-tags=tag:softwareteam-vps --accept-routes=false' interactively)"
 fi
 tailscale set --ssh=false >/dev/null 2>&1 \
   || echo "   (Tailscale SSH disable skipped; after tailscale up, run: tailscale set --ssh=false)"
@@ -91,21 +91,21 @@ fi
 node --version
 tmux -V
 
-step "6/8 OpenRig from the published artifact (no manual package patching)"
-sudo -u openrig -H bash -lc "npm install -g '$ARTIFACT' || sudo npm install -g '$ARTIFACT'"
-sudo -u openrig -H bash -lc "rig --version"
+step "6/8 SoftwareTeam from the published artifact (no manual package patching)"
+sudo -u softwareteam -H bash -lc "npm install -g '$ARTIFACT' || sudo npm install -g '$ARTIFACT'"
+sudo -u softwareteam -H bash -lc "SoftwareTeam --version"
 
 step "7/8 daemon + kernel"
-sudo -u openrig -H bash -lc "rig daemon start --no-kernel && sleep 2 && rig daemon status"
-sudo -u openrig -H bash -lc "rig up kernel || true"   # kernel spec optional on a bare factory
+sudo -u softwareteam -H bash -lc "SoftwareTeam daemon start --no-kernel && sleep 2 && SoftwareTeam daemon status"
+sudo -u softwareteam -H bash -lc "SoftwareTeam up kernel || true"   # kernel spec optional on a bare factory
 
 step "8/8 done — home-base steps"
 cat <<'EOF'
 
 VPS side complete. From the HOME BASE now:
-  1. rig host add --id <id> --transport ssh --target <tailnet-alias-or-ip> --user openrig
-  2. rig host doctor <id>                       # expect all green
-  3. rig host doctor <id> --posture product-factory-vps [--public-addr <public-ip>]
+  1. softwareTeam host add --id <id> --transport ssh --target <tailnet-alias-or-ip> --user softwareteam
+  2. softwareTeam host doctor <id>                       # expect all green
+  3. softwareTeam host doctor <id> --posture product-factory-vps [--public-addr <public-ip>]
   4. Remove the public-SSH escape hatch once the tailnet path is verified:
        sudo ufw delete allow OpenSSH            # on the VPS
 EOF

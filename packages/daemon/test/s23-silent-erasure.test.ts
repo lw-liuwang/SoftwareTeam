@@ -16,20 +16,20 @@ import { join } from "node:path";
 import { ulid } from "ulid";
 import { Hono } from "hono";
 import type Database from "better-sqlite3";
-import { RigSpecCodec } from "../src/domain/rigspec-codec.js";
-import { RigSpecSchema } from "../src/domain/rigspec-schema.js";
-import type { RigSpec, RigSpecPodMember, RigServicesSpec, SessionSourceSpec } from "../src/domain/types.js";
+import { SoftwareTeamSpecCodec } from "../src/domain/software-team-spec-codec.js";
+import { SoftwareTeamSpecSchema } from "../src/domain/software-team-spec-schema.js";
+import type { SoftwareTeamSpec, SoftwareTeamSpecPodMember, SoftwareTeamServicesSpec, SessionSourceSpec } from "../src/domain/types.js";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { agentImagesRoutes } from "../src/routes/agent-images.js";
-import type { PodRigInstantiator } from "../src/domain/pod-rigspec-instantiator.js";
+import type { PodSoftwareTeamInstantiator } from "../src/domain/pod-software-team-spec-instantiator.js";
 
-function rigWith(member: Partial<RigSpecPodMember> & { id: string }): RigSpec {
+function softwareTeamWith(member: Partial<SoftwareTeamSpecPodMember> & { id: string }): SoftwareTeamSpec {
   return {
     version: "0.2",
-    name: "s23-rig",
+    name: "s23-software-team",
     summary: "s23",
     cultureFile: "culture.md",
     pods: [{
@@ -41,19 +41,19 @@ function rigWith(member: Partial<RigSpecPodMember> & { id: string }): RigSpec {
         runtime: "claude-code",
         cwd: ".",
         ...member,
-      } as RigSpecPodMember],
+      } as SoftwareTeamSpecPodMember],
       edges: [],
     }],
     edges: [],
   };
 }
 
-function roundTripMember(member: Partial<RigSpecPodMember> & { id: string }): { yaml: string; member: RigSpecPodMember } {
-  const yaml = RigSpecCodec.serialize(rigWith(member));
-  const parsed = RigSpecCodec.parse(yaml);
-  const validation = RigSpecSchema.validate(parsed);
+function roundTripMember(member: Partial<SoftwareTeamSpecPodMember> & { id: string }): { yaml: string; member: SoftwareTeamSpecPodMember } {
+  const yaml = SoftwareTeamSpecCodec.serialize(softwareTeamWith(member));
+  const parsed = SoftwareTeamSpecCodec.parse(yaml);
+  const validation = SoftwareTeamSpecSchema.validate(parsed);
   expect(validation.errors, `round-trip must stay schema-valid: ${validation.errors?.join("; ")}`).toEqual([]);
-  const normalized = RigSpecSchema.normalize(parsed as Record<string, unknown>);
+  const normalized = SoftwareTeamSpecSchema.normalize(parsed as Record<string, unknown>);
   return { yaml, member: normalized.pods[0]!.members[0]! };
 }
 
@@ -75,7 +75,7 @@ describe("OPR.0.5.6.23 member (a) — codec round-trip preserves every optional 
     for (const input of arms) {
       const { yaml, member } = roundTripMember({ id: "impl", sessionSource: input });
       expect(member.sessionSource, `arm ${input.mode}`).toEqual(input);
-      const parsed = RigSpecCodec.parse(yaml) as { pods: Array<{ members: Array<Record<string, unknown>> }> };
+      const parsed = SoftwareTeamSpecCodec.parse(yaml) as { pods: Array<{ members: Array<Record<string, unknown>> }> };
       const rawRef = (parsed.pods[0]!.members[0]!["session_source"] as { ref: Record<string, unknown> }).ref;
       expect(Object.keys(rawRef).sort(), `arm ${input.mode}: no ref key may silently vanish`)
         .toEqual(Object.keys(input.ref).sort());
@@ -94,10 +94,10 @@ describe("OPR.0.5.6.23 member (a) — codec round-trip preserves every optional 
 
 describe("OPR.0.5.6.23 member (c) — the codec emits the optional top-level services family (desk ruling, transition 45061)", () => {
   // Same class as member (a): parse accepts+normalizes services
-  // (rigspec-schema :109/:197), serialize omits it — export-YAML -> re-import
+  // (software-team-spec-schema :109/:197), serialize omits it — export-YAML -> re-import
   // silently drops the whole block. Fixture populates EVERY optional services
   // field; the pin is explicit key/value preservation, never mere presence.
-  const servicesInput: RigServicesSpec = {
+  const servicesInput: SoftwareTeamServicesSpec = {
     kind: "compose",
     composeFile: "services/compose.yaml",
     projectName: "s23svc",
@@ -119,10 +119,10 @@ describe("OPR.0.5.6.23 member (c) — the codec emits the optional top-level ser
   };
 
   it("RT-SERVICES: a nontrivial services family survives serialize -> YAML -> parse -> normalize with every key and value intact", () => {
-    const spec: RigSpec = { ...rigWith({ id: "impl" }), services: servicesInput };
-    const yaml = RigSpecCodec.serialize(spec);
-    const parsed = RigSpecCodec.parse(yaml) as Record<string, unknown>;
-    const validation = RigSpecSchema.validate(parsed);
+    const spec: SoftwareTeamSpec = { ...softwareTeamWith({ id: "impl" }), services: servicesInput };
+    const yaml = SoftwareTeamSpecCodec.serialize(spec);
+    const parsed = SoftwareTeamSpecCodec.parse(yaml) as Record<string, unknown>;
+    const validation = SoftwareTeamSpecSchema.validate(parsed);
     expect(validation.errors, `round-trip must stay schema-valid: ${validation.errors?.join("; ")}`).toEqual([]);
     // base RED: serialize reads no spec.services — the YAML has no services key
     const rawServices = parsed["services"] as Record<string, unknown> | undefined;
@@ -130,7 +130,7 @@ describe("OPR.0.5.6.23 member (c) — the codec emits the optional top-level ser
     expect(Object.keys(rawServices ?? {}).sort(), "no services key may silently vanish").toEqual(
       ["checkpoints", "compose_file", "down_policy", "kind", "profiles", "project_name", "surfaces", "wait_for"]
     );
-    const normalized = RigSpecSchema.normalize(parsed);
+    const normalized = SoftwareTeamSpecSchema.normalize(parsed);
     // value-level pin: deep-equal, not presence — the whole family round-trips
     expect(normalized.services).toEqual(servicesInput);
   });
@@ -140,7 +140,7 @@ describe("OPR.0.5.6.23 member (b) — fork-ingress memberFragment forwards every
   let tmp: string;
   let specRoot: string;
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
 
   beforeEach(() => {
     tmp = mkdtempSync(join(tmpdir(), "s23-fork-"));
@@ -148,7 +148,7 @@ describe("OPR.0.5.6.23 member (b) — fork-ingress memberFragment forwards every
     mkdirSync(specRoot, { recursive: true });
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
   });
 
   afterEach(() => {
@@ -157,8 +157,8 @@ describe("OPR.0.5.6.23 member (b) — fork-ingress memberFragment forwards every
   });
 
   it("FORK-FRAGMENT: a source seat's model, role, restore_policy, and label ride the fork (the model pin is the 0.4.6.PI1 class)", async () => {
-    const rig = rigRepo.createRig("src-rig");
-    const node = rigRepo.addNode(rig.id, "dev.impl", {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("src-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", {
       runtime: "claude-code",
       cwd: "/work",
       agentRef: "local:agents/impl",
@@ -170,7 +170,7 @@ describe("OPR.0.5.6.23 member (b) — fork-ingress memberFragment forwards every
     });
     const sessionId = ulid();
     db.prepare("INSERT INTO sessions (id, node_id, session_name, status, created_at) VALUES (?, ?, ?, 'live', ?)")
-      .run(sessionId, node.id, "dev-impl@src-rig", new Date().toISOString());
+      .run(sessionId, node.id, "dev-impl@src-software-team", new Date().toISOString());
     db.prepare("UPDATE sessions SET resume_token = 'tok-native-1', resume_type = 'claude_id' WHERE id = ?")
       .run(sessionId);
 
@@ -179,7 +179,7 @@ describe("OPR.0.5.6.23 member (b) — fork-ingress memberFragment forwards every
       result: { podId: "p1", podNamespace: "dev", node: { logicalId: "dev.forked", nodeId: "n2", status: "launched" as const, sessionName: "forked@dst" } },
     }));
     const app = new Hono();
-    const podInstantiator = { addMemberToPod: addMember } as unknown as PodRigInstantiator;
+    const podInstantiator = { addMemberToPod: addMember } as unknown as PodSoftwareTeamInstantiator;
     app.use("*", async (c, next) => {
       c.set("db" as never, db);
       c.set("podInstantiator" as never, podInstantiator);
@@ -190,7 +190,7 @@ describe("OPR.0.5.6.23 member (b) — fork-ingress memberFragment forwards every
     const res = await app.request("/api/agent-images/fork", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sourceSession: "dev-impl@src-rig", rigId: "dst-rig", pod: "dev", member: "forked" }),
+      body: JSON.stringify({ sourceSession: "dev-impl@src-software-team", softwareTeamId: "dst-software-team", pod: "dev", member: "forked" }),
     });
     expect(res.status).toBe(201);
     expect(addMember).toHaveBeenCalledTimes(1);

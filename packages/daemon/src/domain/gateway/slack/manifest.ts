@@ -1,5 +1,5 @@
-// OPR.0.6.0.5 — the Slack app manifest OpenRig ships, so a user can create their own private
-// Socket Mode app from it. One pure constructor (no I/O) shared by `rig slack manifest` and the
+// OPR.0.6.0.5 — the Slack app manifest SoftwareTeam ships, so a user can create their own private
+// Socket Mode app from it. One pure constructor (no I/O) shared by `softwareTeam slack manifest` and the
 // daemon's read-only route, so the CLI and the TUI render the same object.
 //
 // Scopes and events are DERIVED from the connector's canonical sources, never listed here:
@@ -11,7 +11,7 @@
 import { stringify } from "yaml";
 import { ADMITTED_EVENT_TYPES, BASELINE_REQUIRED_SCOPES, EVENT_SUBSCRIPTIONS, FEATURE_SCOPES } from "./capabilities.js";
 
-export const MANIFEST_DISPLAY_NAME = "OpenRig";
+export const MANIFEST_DISPLAY_NAME = "SoftwareTeam";
 export const SLACK_CREATE_APP_URL = "https://api.slack.com/apps?new_app=1&manifest_yaml=";
 
 export interface SlackAppManifest {
@@ -69,7 +69,7 @@ export function buildSlackAppManifest(sources: ManifestSources = CANONICAL_MANIF
   const manifest: SlackAppManifest = {
     display_information: {
       name: MANIFEST_DISPLAY_NAME,
-      description: "Connects an OpenRig instance to Slack over Socket Mode.",
+      description: "Connects an SoftwareTeam instance to Slack over Socket Mode.",
     },
     features: { bot_user: { display_name: MANIFEST_DISPLAY_NAME, always_online: false } },
     oauth_config: { scopes: { bot: scopes } },

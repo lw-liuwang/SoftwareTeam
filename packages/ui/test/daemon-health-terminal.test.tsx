@@ -54,7 +54,7 @@ vi.mock("@xterm/xterm/css/xterm.css", () => ({}));
 
 beforeEach(() => {
   instances.length = 0;
-  window.localStorage.setItem("openrig.terminalBearerToken", "test-tok");
+  window.localStorage.setItem("softwareteam.terminalBearerToken", "test-tok");
   vi.useFakeTimers();
 });
 
@@ -62,7 +62,7 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
-  window.localStorage.removeItem("openrig.terminalBearerToken");
+  window.localStorage.removeItem("softwareteam.terminalBearerToken");
 });
 
 async function renderWithHealth(sessionName: string, signal: DaemonHealthSignal) {
@@ -87,41 +87,41 @@ const HEALTHY: DaemonHealthSignal = { controlPlaneUnhealthy: false, evidence: nu
 
 describe("FocusedTerminal health-aware error disambiguation", () => {
   it("overrides the GENERIC broker-unavailable message when the control plane is unhealthy", async () => {
-    const { getByTestId } = await renderWithHealth("dev@rig", UNHEALTHY);
+    const { getByTestId } = await renderWithHealth("dev@software-team", UNHEALTHY);
     await act(async () => {
       instances[0]!.onclose?.({ code: 1011, reason: "terminal broker unavailable" });
     });
-    const el = getByTestId("focused-terminal-dev@rig");
+    const el = getByTestId("focused-terminal-dev@software-team");
     expect(el.textContent).toContain("daemon control plane unhealthy");
     expect(el.textContent).not.toContain("terminal broker unavailable");
   });
 
   it("preserves the GENERIC broker-unavailable message when the control plane is healthy", async () => {
-    const { getByTestId } = await renderWithHealth("dev@rig", HEALTHY);
+    const { getByTestId } = await renderWithHealth("dev@software-team", HEALTHY);
     await act(async () => {
       instances[0]!.onclose?.({ code: 1011, reason: "terminal broker unavailable" });
     });
-    const el = getByTestId("focused-terminal-dev@rig");
+    const el = getByTestId("focused-terminal-dev@software-team");
     expect(el.textContent).toContain("terminal broker unavailable");
     expect(el.textContent).not.toContain("daemon control plane unhealthy");
   });
 
   it("preserves a SPECIFIC session-missing error even when the control plane is unhealthy", async () => {
-    const { getByTestId } = await renderWithHealth("dev@rig", UNHEALTHY);
+    const { getByTestId } = await renderWithHealth("dev@software-team", UNHEALTHY);
     await act(async () => {
-      instances[0]!.onclose?.({ code: 1008, reason: "session not found: dev@rig" });
+      instances[0]!.onclose?.({ code: 1008, reason: "session not found: dev@software-team" });
     });
-    const el = getByTestId("focused-terminal-dev@rig");
-    expect(el.textContent).toContain("session not found: dev@rig");
+    const el = getByTestId("focused-terminal-dev@software-team");
+    expect(el.textContent).toContain("session not found: dev@software-team");
     expect(el.textContent).not.toContain("daemon control plane unhealthy");
   });
 
   it("preserves a SPECIFIC pipe-pane failure even when the control plane is unhealthy", async () => {
-    const { getByTestId } = await renderWithHealth("dev@rig", UNHEALTHY);
+    const { getByTestId } = await renderWithHealth("dev@software-team", UNHEALTHY);
     await act(async () => {
       instances[0]!.onclose?.({ code: 1011, reason: "pipe-pane failed: boom" });
     });
-    const el = getByTestId("focused-terminal-dev@rig");
+    const el = getByTestId("focused-terminal-dev@software-team");
     expect(el.textContent).toContain("pipe-pane failed: boom");
     expect(el.textContent).not.toContain("daemon control plane unhealthy");
   });

@@ -42,26 +42,26 @@ describe("stub-runner restore (real-spawn observable)", () => {
 
   it("compaction THEN restore: delivers the real additionalContext directive to the pane + stamps the marker deliveredAt (one-shot)", async () => {
     dir = mkdtempSync(join(tmpdir(), "restore-e2e-"));
-    const home = join(dir, ".openrig");
-    mkdirSync(join(dir, ".openrig", "stub"), { recursive: true });
+    const home = join(dir, ".softwareteam");
+    mkdirSync(join(dir, ".softwareteam", "stub"), { recursive: true });
     // The final behavior needs a pending marker: compaction (the real precompact seam)
     // writes it, restore (the real bridge) delivers it — in one scripted turn.
     const script: StubScript = { steps: [{ kind: "emit", behavior: "compaction" }, { kind: "emit", behavior: "restore" }] };
-    writeFileSync(join(dir, ".openrig", "stub", "script.json"), JSON.stringify(script), "utf8");
+    writeFileSync(join(dir, ".softwareteam", "stub", "script.json"), JSON.stringify(script), "utf8");
 
     let pane = "";
     child = execFile("node", ["--import", "tsx", RUNNER,
       "--session-name", SEAT, "--cwd", dir, "--launch-id", "restore-1", "--posture", "floor"],
       { env: {
-        ...process.env, OPENRIG_HOME: home, OPENRIG_TEST_CLOCK_NOW: CLOCK,
+        ...process.env, SOFTWARETEAM_HOME: home, SOFTWARETEAM_TEST_CLOCK_NOW: CLOCK,
         // Keep the packet out of the production default (/tmp/claude-compaction-restore).
-        OPENRIG_COMPACTION_OUT_ROOT: join(dir, "packets"),
+        SOFTWARETEAM_COMPACTION_OUT_ROOT: join(dir, "packets"),
       } as NodeJS.ProcessEnv });
     child.stdout?.on("data", (d) => { pane += String(d); });
 
     // Wait until the injected restore directive has rendered to the pane (proves the real
     // bridge delivered the additionalContext, not a fabricated stub string).
-    await waitFor(() => pane.includes("OpenRig compaction restore packet is available for this Claude session"));
+    await waitFor(() => pane.includes("SoftwareTeam compaction restore packet is available for this Claude session"));
 
     // The marker the precompact seam wrote (seat-keyed) was stamped by the bridge:
     // deliveredAt under the injected clock, deliveryCount exactly 1 (one-shot).

@@ -1,4 +1,4 @@
-import type { RigRepository } from "./rig-repository.js";
+import type { SoftwareTeamRepository } from "./software-team-repository.js";
 import { SeatStatusService, type SeatStatus, type SeatStatusResult } from "./seat-status-service.js";
 
 export type SeatHandoverSourceMode = "fresh" | "rebuild" | "fork" | "discovered";
@@ -30,8 +30,8 @@ export interface SeatHandoverPlan {
   willMutate: false;
   seat: {
     ref: string;
-    rigId: string;
-    rigName: string;
+    softwareTeamId: string;
+    softwareTeamName: string;
     logicalId: string;
     podId: string | null;
     podNamespace: string | null;
@@ -62,8 +62,8 @@ export type SeatHandoverPlanResult =
 export class SeatHandoverPlanner {
   private statusService: SeatStatusService;
 
-  constructor(deps: { rigRepo: RigRepository }) {
-    this.statusService = new SeatStatusService({ rigRepo: deps.rigRepo });
+  constructor(deps: { softwareTeamRepo: SoftwareTeamRepository }) {
+    this.statusService = new SeatStatusService({ softwareTeamRepo: deps.softwareTeamRepo });
   }
 
   plan(input: {
@@ -194,8 +194,8 @@ function buildPlan(input: {
     willMutate: false,
     seat: {
       ref: input.seatRef,
-      rigId: status.rig_id,
-      rigName: status.rig_name,
+      softwareTeamId: status.software_team_id,
+      softwareTeamName: status.software_team_name,
       logicalId: status.logical_id,
       podId: status.pod_id,
       podNamespace: status.pod_namespace,

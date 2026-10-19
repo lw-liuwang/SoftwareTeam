@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { ContextMonitor } from "../src/domain/context-monitor.js";
 import { ContextUsageStore } from "../src/domain/context-usage-store.js";
@@ -24,9 +24,9 @@ describe("ContextMonitor readiness write reservation", () => {
     // These connections share an event loop: never wait for the fixture itself.
     db.pragma("busy_timeout = 0"); writer.pragma("busy_timeout = 0");
     db.exec("CREATE TABLE unrelated_write (value INTEGER); INSERT INTO unrelated_write VALUES (0)");
-    const repo = new RigRepository(db); const registry = new SessionRegistry(db);
-    const rig = repo.createRig("fixture");
-    const node = repo.addNode(rig.id, "agent", { runtime: "codex" });
+    const repo = new SoftwareTeamRepository(db); const registry = new SessionRegistry(db);
+    const softwareTeam = repo.createSoftwareTeam("fixture");
+    const node = repo.addNode(softwareTeam.id, "agent", { runtime: "codex" });
     const session = registry.registerSession(node.id, "dev-agent@fixture"); sessionId = session.id;
     registry.updateStatus(sessionId, "running"); registry.updateStartupStatus(sessionId, "failed");
     registry.updateBinding(node.id, { tmuxSession: session.sessionName, tmuxPane: "%11" });

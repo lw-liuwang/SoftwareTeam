@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import {
   computeContextHealthSummary,
   computeNodeHealthSummary,
@@ -16,28 +16,28 @@ import {
 
 describe("Operator Surface Reconciliation v0 — health summary", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
   });
 
   afterEach(() => db.close());
 
   describe("computeNodeHealthSummary", () => {
-    it("returns zeros when no rigs exist", () => {
-      const out = computeNodeHealthSummary({ db, rigRepo });
+    it("returns zeros when no softwareTeams exist", () => {
+      const out = computeNodeHealthSummary({ db, softwareTeamRepo });
       expect(out).toEqual({ total: 0, bySessionStatus: {}, byLifecycle: {}, attentionRequired: 0 });
     });
 
-    it("aggregates node sessionStatus across rigs", () => {
-      const rigA = rigRepo.createRig("rig-a");
-      const rigB = rigRepo.createRig("rig-b");
-      rigRepo.addNode(rigA.id, "alpha", { role: "worker" });
-      rigRepo.addNode(rigA.id, "beta", { role: "worker" });
-      rigRepo.addNode(rigB.id, "gamma", { role: "worker" });
-      const out = computeNodeHealthSummary({ db, rigRepo });
+    it("aggregates node sessionStatus across softwareTeams", () => {
+      const softwareTeamA = softwareTeamRepo.createSoftwareTeam("software-team-a");
+      const softwareTeamB = softwareTeamRepo.createSoftwareTeam("software-team-b");
+      softwareTeamRepo.addNode(softwareTeamA.id, "alpha", { role: "worker" });
+      softwareTeamRepo.addNode(softwareTeamA.id, "beta", { role: "worker" });
+      softwareTeamRepo.addNode(softwareTeamB.id, "gamma", { role: "worker" });
+      const out = computeNodeHealthSummary({ db, softwareTeamRepo });
       expect(out.total).toBe(3);
       // Without sessions seeded, sessionStatus defaults to null/unknown.
       expect(Object.values(out.bySessionStatus).reduce((a, b) => a + b, 0)).toBe(3);
@@ -47,8 +47,8 @@ describe("Operator Surface Reconciliation v0 — health summary", () => {
   describe("computeContextHealthSummary", () => {
     function insertContextUsage(nodeId: string, usedPercentage: number | null, sampledAt: string | null): void {
       // Insert a node row so the FK on context_usage(node_id) is satisfied.
-      const rig = rigRepo.createRig(`rig-${nodeId}`);
-      const node = rigRepo.addNode(rig.id, nodeId, { role: "worker" });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam(`software-team-${nodeId}`);
+      const node = softwareTeamRepo.addNode(softwareTeam.id, nodeId, { role: "worker" });
       db.prepare(
         `INSERT INTO context_usage (node_id, availability, used_percentage, sampled_at, updated_at)
          VALUES (?, 'known', ?, ?, ?)`

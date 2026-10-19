@@ -126,7 +126,7 @@ describe("cmux CLI transport — stable commands (unchanged across versions)", (
       modern: true,
       overrides: {
         "cmux list-workspaces --json":
-          "* workspace:1  qa-rig  [selected]\n  workspace:2  tmux attach -t qa-rig@openrig\n",
+          "* workspace:1  qa-software-team  [selected]\n  workspace:2  tmux attach -t qa-software-team@softwareteam\n",
       },
     });
     const transport = await createCmuxCliTransport(exec)();
@@ -135,8 +135,8 @@ describe("cmux CLI transport — stable commands (unchanged across versions)", (
 
     expect(result).toEqual({
       workspaces: [
-        { id: "workspace:1", name: "qa-rig" },
-        { id: "workspace:2", name: "tmux attach -t qa-rig@openrig" },
+        { id: "workspace:1", name: "qa-software-team" },
+        { id: "workspace:2", name: "tmux attach -t qa-software-team@softwareteam" },
       ],
     });
   });

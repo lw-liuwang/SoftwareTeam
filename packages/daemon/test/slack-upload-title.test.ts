@@ -57,7 +57,7 @@ describe("#300 Slack file-upload title", () => {
     const out = await deliver({
       kind: "outbound_decision", decisionId: "d-300", op: "post_message", entityBindingRef: "mike#slack",
       payload: { qitemId: "q-300", summary: `rotate ${SECRET} today`, body: "b", destinationSession: "mike@external",
-        sourceSession: "dev-driver@v-openrig-build", evidenceRef: "/tmp/shot.png" },
+        sourceSession: "dev-driver@v-softwareteam-build", evidenceRef: "/tmp/shot.png" },
     });
     expect(out.ok).toBe(true);
     const text = calls.find((c) => c.url.endsWith("chat.postMessage"))!.body;

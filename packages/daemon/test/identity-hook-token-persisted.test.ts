@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from "vitest";
 import { createFullTestDb, createTestApp } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 
 const cases = [
@@ -17,9 +17,9 @@ type Seed = { type: string; token: string } | null;
 async function postIdentity(runtime: string, incoming: string, seed: Seed) {
   const db = createFullTestDb();
   try {
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("protected");
-    const node = rigRepo.addNode(rig.id, "dev.worker", { runtime });
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("protected");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.worker", { runtime });
     const reg = new SessionRegistry(db);
     const sess = reg.registerSession(node.id, "dev-worker@protected");
     reg.updateStatus(sess.id, "running");
@@ -28,7 +28,7 @@ async function postIdentity(runtime: string, incoming: string, seed: Seed) {
 
     const res = await app.request("/api/activity/hooks", {
       method: "POST",
-      headers: { "content-type": "application/json", "x-openrig-activity-token": "tok" },
+      headers: { "content-type": "application/json", "x-softwareteam-activity-token": "tok" },
       body: JSON.stringify({ eventFamily: "session_identity", sessionName: "dev-worker@protected", runtime, sessionId: incoming }),
     });
     const body: unknown = await res.json();

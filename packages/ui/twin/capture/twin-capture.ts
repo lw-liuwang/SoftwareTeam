@@ -13,7 +13,7 @@
 //
 // Usage:
 //   tsx twin/capture/twin-capture.ts --slice example-slice --surface "Topology Graph" \
-//     --route /topology/rig/rig_alpha --out-root /abs/path/to/digital-twin
+//     --route /topology/softwareTeam/software_team_alpha --out-root /abs/path/to/digital-twin
 // Flags: --slice (req) --surface (req) --route (default "/") --out-root (req)
 //        --chrome (optional Chrome binary override)
 import { spawnSync } from "node:child_process";

@@ -8,8 +8,8 @@
 //
 // Scan strategy (item 1B):
 //   - Operator configures progress-scan roots via env var
-//     OPENRIG_PROGRESS_SCAN_ROOTS=root1:/abs/path,root2:/abs/path
-//     (same delimited-pair shape as OPENRIG_FILES_ALLOWLIST).
+//     SOFTWARETEAM_PROGRESS_SCAN_ROOTS=root1:/abs/path,root2:/abs/path
+//     (same delimited-pair shape as SOFTWARETEAM_FILES_ALLOWLIST).
 //   - For each configured root, recursively find PROGRESS.md files
 //     up to a small max depth (default 6) — enough to catch
 //     mission/lane/slice nesting without descending into node_modules
@@ -80,8 +80,8 @@ const STEERING_FILENAME = "STEERING.md";
 const TREE_FILENAMES = new Set([PROGRESS_FILENAME, STEERING_FILENAME]);
 const SKIP_DIRS = new Set(["node_modules", ".git", ".worktrees", "dist", "build", ".turbo", ".next"]);
 
-const ENV_VAR = "OPENRIG_PROGRESS_SCAN_ROOTS";
-const LEGACY_ENV_VAR = "RIGGED_PROGRESS_SCAN_ROOTS";
+const ENV_VAR = "SOFTWARETEAM_PROGRESS_SCAN_ROOTS";
+const LEGACY_ENV_VAR = "SOFTWARETEAM_PROGRESS_SCAN_ROOTS";
 
 /**
  * Decodes a raw `name:/abs/path,...` progress-roots string into a

@@ -17,7 +17,7 @@ last-updated: 2026-10-08
 
 This module describes source at main commit
 `e8f0ab340db773392ec8be75b072d1c0f3068a50`. Source paths below are repository-relative.
-An npm CLI artifact and a `.rigbundle` have different builders and consumers; neither
+An npm CLI artifact and a `.softwareteambundle` have different builders and consumers; neither
 source verification nor archive integrity establishes that a daemon has adopted an artifact.
 
 ## npm CLI assembly
@@ -56,8 +56,8 @@ from live state.
 
 | Source shape | Builder and output |
 |---|---|
-| Pod-aware rig spec | `packages/daemon/src/domain/pod-bundle-assembler.ts`: `PodBundleAssembler.assemble()` produces schema-version-2 metadata, vendors resolved agent trees, and rewrites agent references to local paths. |
-| Legacy rig spec | `packages/daemon/src/domain/bundle-assembler.ts`: `LegacyBundleAssembler` (imported as `BundleAssembler` by the route) collects the referenced legacy packages and produces the legacy manifest shape. |
+| Pod-aware SoftwareTeam spec | `packages/daemon/src/domain/pod-bundle-assembler.ts`: `PodBundleAssembler.assemble()` produces schema-version-2 metadata, vendors resolved agent trees, and rewrites agent references to local paths. |
+| Legacy SoftwareTeam spec | `packages/daemon/src/domain/bundle-assembler.ts`: `LegacyBundleAssembler` (imported as `BundleAssembler` by the route) collects the referenced legacy packages and produces the legacy manifest shape. |
 
 The pod builder collects culture, docs and startup material, preserves file bytes, and skips
 vendoring the terminal sentinel as an agent. A copied file keeps its source mode with owner
@@ -81,7 +81,7 @@ a 400:
 - `--context-pack <dir>` (`vendorContextPackDir()` in
   `packages/daemon/src/domain/bundle-carried-context-pack.ts`) carries a pack's
   `manifest.yaml` and its declared files to `context-packs/<manifest name>/`. The pack may
-  sit outside the rig folder.
+  sit outside the SoftwareTeam folder.
 - `--project-dir <dir>` (`vendorProjectDir()` in
   `packages/daemon/src/domain/bundle-carried-project.ts`) carries a folder with a
   `project.yaml` to `project/`.
@@ -96,11 +96,11 @@ vendored content and on the final staging tree, and refuses text containing
 ### Configurations and package identity
 
 A bundle folder may declare alternate team configurations in `configurations.yaml` beside
-`rig.yaml` (`packages/cli/src/lib/bundle-configuration.ts`). `rig bundle configurations
-<spec>` lists them. `rig bundle create --preset <name>` or `--seat <member=runtime>` resolves
-one and stages a copy of the rig folder in a temporary directory with the chosen runtimes and
-profiles, so the author's folder is never changed. With a GitHub folder link, `rig up`,
-`rig bundle create`, `inspect` and `install` take the same two options and stage a copy of the
+`software-team.yaml` (`packages/cli/src/lib/bundle-configuration.ts`). `SoftwareTeam bundle configurations
+<spec>` lists them. `SoftwareTeam bundle create --preset <name>` or `--seat <member=runtime>` resolves
+one and stages a copy of the SoftwareTeam folder in a temporary directory with the chosen runtimes and
+profiles, so the author's folder is never changed. With a GitHub folder link, `SoftwareTeam up`,
+`SoftwareTeam bundle create`, `inspect` and `install` take the same two options and stage a copy of the
 whole checkout (`importGitHubBundle()` in `packages/cli/src/lib/bundle-source.ts`).
 
 `packages/daemon/src/domain/bundle-identity.ts` defines the two identity values:
@@ -109,7 +109,7 @@ whole checkout (`importGitHubBundle()` in `packages/cli/src/lib/bundle-source.ts
   Create computes it from the normalized spec and returns a 400 if the client sent a
   different one.
 - `packageDigest()`: SHA-256 over the sorted `integrity.files` entries (coverage label
-  `openrig.package-digest/v1`). It covers every packaged file's bytes; it does not cover
+  `softwareteam.package-digest/v1`). It covers every packaged file's bytes; it does not cover
   `bundle.yaml`, the junk files the integrity walk skips, or file modes.
 
 Create and inspect responses carry the source, configuration ID, package digest, archive
@@ -120,7 +120,7 @@ hash and assembler version.
 `packages/daemon/src/domain/bundle-archive.ts` owns `pack()` and `unpack()`;
 `packages/daemon/src/domain/bundle-integrity.ts` owns the per-file integrity map.
 
-Packing requires a `.rigbundle` output path, sorts entries, uses portable tar metadata, a
+Packing requires a `.softwareteambundle` output path, sorts entries, uses portable tar metadata, a
 fixed tar timestamp and gzip level 9, and writes a sibling SHA-256 file. Unpacking checks that
 digest, rejects archive links and unsafe entry paths before extraction, requires
 `bundle.yaml` and its integrity section, and verifies the extracted file inventory. Hashes
@@ -134,74 +134,74 @@ same unsafe-entry pre-scan (`collectUnsafeArchiveEntries()`) and extraction filt
 not an inspected archive.
 
 Inspect also returns a behaviour view, `describeBundleBehaviour()` in
-`packages/daemon/src/domain/bundle-behaviour.ts` (schema `openrig.bundle-behaviour/v1`). It
+`packages/daemon/src/domain/bundle-behaviour.ts` (schema `softwareteam.bundle-behaviour/v1`). It
 reads the extracted archive only, through `bundle-behaviour-inspect.ts` (regular UTF-8 files,
 at most 1 MiB each and 8 MiB in total, opened without following links). It lists the team,
 each seat's permission posture, the files seats are told to read, what else runs, where
 content is written, literal outside addresses, needs, and what can't be known before launch.
-A schema-1 archive gets `state: not_generated`. Posture comes from the member's or rig's
+A schema-1 archive gets `state: not_generated`. Posture comes from the member's or SoftwareTeam's
 `permission_policy`: `builtin:yolo` is full bypass and `builtin:auto` is auto, both by launch
 flag; `builtin:locked`, `builtin:standard` and `builtin:open` are configuration; a policy file
-is read from the archive or marked unresolved; no policy means the product default. A rig-level
+is read from the archive or marked unresolved; no policy means the product default. A software-team-level
 `non_interruptive` boolean is reported on each full-bypass Claude Code or Codex seat as
 `nonInterruptiveDefault`, and `true` drops the Claude bypass first-run warning. The CLI prints
-the view before `rig bundle install` and `rig up` as diagnostics only; it never changes the
+the view before `SoftwareTeam bundle install` and `SoftwareTeam up` as diagnostics only; it never changes the
 request or the exit code.
 
 ## Source routing and bootstrap
 
 `packages/daemon/src/domain/up-command-router.ts` classifies a source as
-`rig_spec`, `rig_bundle`, `rig_name` or `topology`. It recognizes named rigs,
-spec paths, `.rigbundle`, `.rigtopology`, and YAML with a top-level rigs list;
+`software_team_spec`, `software_team_bundle`, `software_team_name` or `topology`. It recognizes named SoftwareTeams,
+spec paths, `.softwareteambundle`, `.softwareteamtopology`, and YAML with a top-level SoftwareTeams list;
 extensionless paths also have content detection.
 
 `packages/daemon/src/routes/up.ts` then selects the execution path:
 
 | Input | Consumer |
 |---|---|
-| Existing rig name | Existing-rig restore path; unarchived rigs of that name are preferred. |
-| Single rig spec or bundle | `BootstrapOrchestrator.bootstrap()` in `packages/daemon/src/domain/bootstrap-orchestrator.ts`. |
-| Topology manifest | `MultiRigLauncher`, with a single-rig bootstrap or remote-up leaf per entry. |
+| Existing SoftwareTeam name | Existing-SoftwareTeam restore path; unarchived SoftwareTeams of that name are preferred. |
+| Single SoftwareTeam spec or bundle | `BootstrapOrchestrator.bootstrap()` in `packages/daemon/src/domain/bootstrap-orchestrator.ts`. |
+| Topology manifest | `MultiSoftwareTeamLauncher`, with a single-SoftwareTeam bootstrap or remote-up leaf per entry. |
 
 Topology plan mode is rejected. Placement belongs on the individual topology entries; a
 top-level host flag is rejected. The selected topology parser/route also rejects nested
-topologies, existing-rig-name entries and `.rigbundle` entries: topology entries are spec
-paths only. This is narrower than the single-rig `up` surface.
+topologies, existing-software-team-name entries and `.softwareteambundle` entries: topology entries are spec
+paths only. This is narrower than the single-SoftwareTeam `up` surface.
 
 Bootstrap distinguishes pod-aware and legacy specs, and inspects a bundle manifest to choose
 `PodBundleSourceResolver` or `LegacyBundleSourceResolver` from
 `packages/daemon/src/domain/bundle-source-resolver.ts`. Thus the router's
-`rig_bundle` kind does not imply a legacy manifest.
+`software_team_bundle` kind does not imply a legacy manifest.
 
 For pod-aware specs, plan mode validates and runs preflight probes; apply delegates to
-`PodRigInstantiator`. Plan mode still records a bootstrap run/result: it is not a pure
+`PodSoftwareTeamInstantiator`. Plan mode still records a bootstrap run/result: it is not a pure
 file read. Apply reports partial completion when nodes fail or require attention, preserving
-the created rig identity rather than claiming every member launched. Apply's non-interruptive
+the created SoftwareTeam identity rather than claiming every member launched. Apply's non-interruptive
 choice is the request's, else the spec's top-level `non_interruptive`, else the
 `launch.non_interruptive` setting.
 
 ### Durable install target
 
 Bundle apply requires an explicit target root at the HTTP boundary. The CLI supplies the
-current directory as the default for `rig up <file>.rigbundle` and for a GitHub link through
-`rig up` or `rig bundle install`. `rig bundle install` with a local `.rigbundle` sends no
+current directory as the default for `SoftwareTeam up <file>.softwareteambundle` and for a GitHub link through
+`SoftwareTeam up` or `SoftwareTeam bundle install`. `SoftwareTeam bundle install` with a local `.softwareteambundle` sends no
 default, so apply without `--target` gets a 400. For a pod bundle,
 `materializePodBundle()` copies the verified extraction into that durable root before
 instantiation, so local agent references and relative working directories survive removal
 of the extraction directory. It checks destination conflicts before copying, preserves
 identical files, and refuses differing files or incompatible destination types.
 
-When an unarchived or running team already has the bundle's rig name (`bundleInstallContext()`
+When an unarchived or running team already has the bundle's SoftwareTeam name (`bundleInstallContext()`
 in `packages/daemon/src/domain/bundle-install-context.ts`), pod-bundle apply refuses before
 writing if any of them is running. If the target is that team's own install folder (its
 `bundle.yaml` names the offered schema-2 bundle, or `my-bundle` or `github-bundle`, the default
-names before 0.6.7, and it is the folder recorded in `rigs.install_root` when any of those teams
+names before 0.6.7, and it is the folder recorded in `SoftwareTeams.install_root` when any of those teams
 recorded one; `isExistingBundleTarget()`), bootstrap first
 confirms the old sessions are stopped; materialization then copies each conflicting path to a
-`bundle-backups/reinstall-*` folder under the OpenRig home, with a `RESTORE.json`, before
+`bundle-backups/reinstall-*` folder under the SoftwareTeam home, with a `RESTORE.json`, before
 replacing it, and leaves unrelated files in place. Any other target keeps the conflict refusal.
 The instantiator archives the stopped earlier generation. Pod-bundle apply records the
-target's real path as the new rig's `install_root` (migration `096`).
+target's real path as the new SoftwareTeam's `install_root` (migration `096`).
 
 Pod bundles containing service definitions are refused by bootstrap; their service path
 requires a stable spec directory. Direct spec bootstrap has separate service prelaunch
@@ -209,23 +209,23 @@ handling. See [agent-spec-and-startup.md](agent-spec-and-startup.md) for instant
 
 ## GitHub folder links and the bundle check
 
-`packages/cli/src/lib/bundle-source.ts` lets `rig up`, `rig bundle create`, `inspect` and
+`packages/cli/src/lib/bundle-source.ts` lets `SoftwareTeam up`, `SoftwareTeam bundle create`, `inspect` and
 `install` take a GitHub folder link (`isGitHubBundleLink()`). Only a credential-free
 `https://github.com/owner/repo[/tree/<ref>/<folder>]` link is accepted. The ref is resolved to
 the longest matching branch or tag, or taken as a full commit hash. The import:
 
 - needs a healthy local daemon whose `selfHostId` matches the local origin;
 - runs Git with credential helpers, hooks and non-HTTPS protocols disabled;
-- shallow-fetches the exact commit into `bundle-imports/` under the OpenRig home, requires a
-  `rig.yaml` in the folder, and refuses symlinks or agent and package references that resolve
+- shallow-fetches the exact commit into `bundle-imports/` under the SoftwareTeam home, requires a
+  `software-team.yaml` in the folder, and refuses symlinks or agent and package references that resolve
   outside the checkout;
 - posts the folder to `/api/bundles/create` with the source recorded in provenance, refuses a
   response without a package digest or with a different source commit, and writes
   `source.json` and `build.json` in the import folder.
 
-`rig bundle check <folder>` (`checkBundleFolder()` in `packages/cli/src/lib/bundle-check.ts`)
-is an advisory, file-read-only check against `openrig.bundle-standard/v1`; it makes no daemon,
-launch or provider call. Its rules are `pod_aware_rig`, `readme_in_docs`, `referenced_files`,
+`SoftwareTeam bundle check <folder>` (`checkBundleFolder()` in `packages/cli/src/lib/bundle-check.ts`)
+is an advisory, file-read-only check against `softwareteam.bundle-standard/v1`; it makes no daemon,
+launch or provider call. Its rules are `pod_aware_software_team`, `readme_in_docs`, `referenced_files`,
 `portable_agents`, `minimum_versions`, `configurations` and `credential_paths` (a filename scan
 bounded at 10,000 entries that skips `.git`, `node_modules` and symlinks). `readme_coverage`
 and `embedded_secrets` are always reported as not checked, and host-resolved resources are
@@ -234,16 +234,16 @@ reported as checked at launch (`host_resources`). Any finding sets exit code 1.
 ## Install checks and content routing
 
 The install handler in `packages/daemon/src/routes/bundles.ts` obtains a source-path
-lock, reads validated metadata, checks compatibility, and checks a declared rig name
-against same-name rigs with running sessions before bootstrap; a stopped team of that name
+lock, reads validated metadata, checks compatibility, and checks a declared SoftwareTeam name
+against same-name SoftwareTeams with running sessions before bootstrap; a stopped team of that name
 doesn't block it. A conflict returns a 400 with `status: "not_attempted"`, the installed team
 and the offered bundle, and three choices: use the existing team, stop it and retry to replace
 it, or cancel. The compatibility override `skipVersionCheck` and name-conflict override `force`
 are explicit request fields; neither skips the metadata pass, which always validates the
 manifest.
 
-`packages/daemon/src/domain/bundle-conflict-detector.ts` implements the rig-name check.
-It is not a complete agent, port or filesystem collision audit; a missing rig name supplies
+`packages/daemon/src/domain/bundle-conflict-detector.ts` implements the software-team-name check.
+It is not a complete agent, port or filesystem collision audit; a missing SoftwareTeam name supplies
 no name comparison. Target-file conflicts are handled separately by materialization.
 Skipping these prechecks does not skip archive validation in bootstrap.
 
@@ -251,20 +251,20 @@ Declared content is routed by `routeBundleContents()` in
 `packages/daemon/src/domain/bundle-content-routing.ts`, which unpacks the bundle once and
 routes each kind independently. When it runs depends on the bundle schema:
 
-- **Pod-aware (schema 2):** bootstrap runs it as `PodRigInstantiator`'s prelaunch hook, after
-  the rig record exists and before any seat launches, so every seat's first turn can see the
+- **Pod-aware (schema 2):** bootstrap runs it as `PodSoftwareTeamInstantiator`'s prelaunch hook, after
+  the SoftwareTeam record exists and before any seat launches, so every seat's first turn can see the
   content.
 - **Legacy (schema 1):** there is no hook, so the install route routes after bootstrap, and
   only when the status is `completed`.
 
 | Manifest content | Destination |
 |---|---|
-| `skills` | The OpenRig `packages` cache, stripping the legacy `packages/` prefix; this does not import a complete harness skill into the managed skill catalog. |
-| `plugins` | The OpenRig `plugins` root, through local plugin references. |
+| `skills` | The SoftwareTeam `packages` cache, stripping the legacy `packages/` prefix; this does not import a complete harness skill into the managed skill catalog. |
+| `plugins` | The SoftwareTeam `plugins` root, through local plugin references. |
 | `workflow_specs` | `workflows/` beneath the resolved `workspaceSpecsRoot`. If that setting is empty, this kind is recorded as a routing failure. |
 | `context_packs` | The configured `context.root`, matching context-library discovery. |
-| `agent_images` | The OpenRig `agent-images` root; declarations address image directories containing a manifest. |
-| `project` | Registered in the workspace catalog (`workspace.catalog_path`) with the rig associated, and its files placed under `workspace.projects_root/<id>` (`registerBundleProject()` in `packages/daemon/src/domain/workspace/project-registration.ts`). A conflict changes nothing and is a routing failure. |
+| `agent_images` | The SoftwareTeam `agent-images` root; declarations address image directories containing a manifest. |
+| `project` | Registered in the workspace catalog (`workspace.catalog_path`) with the SoftwareTeam associated, and its files placed under `workspace.projects_root/<id>` (`registerBundleProject()` in `packages/daemon/src/domain/workspace/project-registration.ts`). A conflict changes nothing and is a routing failure. |
 
 Context packs are never merged into an installed pack of the same name: an identical one is
 reported as `already_installed`, a different one is kept unchanged as `kept_existing`. After
@@ -278,7 +278,7 @@ effort in both cases: the hook always lets the launch continue, and a failure ne
 or fails the install. Failures appear in the result's `routingFailures` and `warnings`, in a
 `route_bundle_contents` stage for the hook, and in the install audit record.
 
-Install audit records are appended best effort to `bundle-audit.jsonl` under the OpenRig
+Install audit records are appended best effort to `bundle-audit.jsonl` under the SoftwareTeam
 home; the history endpoint reads that audit. Bootstrap run state and action journals are
 separate, repository-backed records.
 
@@ -301,8 +301,8 @@ then apply/verification with repository records:
 - `packages/daemon/src/domain/install-engine.ts`, `install-verifier.ts`,
   `install-repository.ts` and `package-repository.ts`.
 
-Legacy bootstrap also probes requirements and records staged outcomes before rig
-instantiation. A failed package installation prevents that path from importing the rig.
+Legacy bootstrap also probes requirements and records staged outcomes before SoftwareTeam
+instantiation. A failed package installation prevents that path from importing the SoftwareTeam.
 This compatibility implementation does not imply that pod-aware bundles use the same
 package-install stages.
 

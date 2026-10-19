@@ -8,13 +8,13 @@ UI_DIR="$REPO_ROOT/packages/ui"
 TUI_DIR="$REPO_ROOT/packages/tui"
 SUBSTANCE_SURFACE_ROOTS=()
 
-echo "=== OpenRig Package Build ==="
+echo "=== SoftwareTeam Package Build ==="
 echo "Repo root: $REPO_ROOT"
 echo ""
 
 # 1. Clean previous build artifacts
 echo "[1/6] Cleaning previous artifacts..."
-rm -rf "$CLI_DIR/daemon" "$CLI_DIR/ui" "$CLI_DIR/tui"
+rm -rf "$CLI_DIR/daemon" "$CLI_DIR/ui" "$CLI_DIR/tui" "$CLI_DIR/dist" "$DAEMON_DIR/dist" "$TUI_DIR/dist"
 
 # 2. Build daemon
 echo "[2/6] Building daemon..."
@@ -51,7 +51,7 @@ STAMP_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 # to the build inputs: anything under packages/ or scripts/, tracked or not, counts
 # (scripts/ included because build-package.sh IS the builder — if it differs from the
 # commit, the artifact is not reproducible from that commit either).
-if [ -n "$(git -C "$REPO_ROOT" status --porcelain -- packages scripts)" ]; then STAMP_DIRTY=true; else STAMP_DIRTY=false; fi
+if [ -n "$(git -C "$REPO_ROOT" status --porcelain -- packages scripts team install.sh start.sh SoftwareTeam package.json package-lock.json)" ]; then STAMP_DIRTY=true; else STAMP_DIRTY=false; fi
 STAMP_BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "Build identity: ${STAMP_SEMVER} (${STAMP_COMMIT}) dirty=${STAMP_DIRTY} at ${STAMP_BUILT_AT}"
 
@@ -107,7 +107,7 @@ fi
 # OPR.0.5.3.7 R2 — the shipped context-pack projection (generated above). The daemon
 # registers this as a `builtin` discovery root resolved RELATIVE TO THE BINARY
 # (startup.ts: import.meta.dirname/../context-packs -> <cli>/daemon/context-packs),
-# so `rig context get` serves bytes that match `rig --version` by construction.
+# so `SoftwareTeam context get` serves bytes that match `SoftwareTeam --version` by construction.
 if [ -d "$DAEMON_DIR/context-packs" ]; then
   cp -r "$DAEMON_DIR/context-packs" "$CLI_DIR/daemon/context-packs"
   SUBSTANCE_SURFACE_ROOTS+=("daemon/context-packs")
@@ -125,7 +125,7 @@ node -e '
 
 # Built-in policies (OPR.0.4.8.3): canonical source packages/daemon/policies/builtin/
 # ships with the daemon; startup materializes read-only inspection copies at
-# $OPENRIG_HOME/reference/policies/builtin/ (same chain as reference docs below).
+# $SOFTWARETEAM_HOME/reference/policies/builtin/ (same chain as reference docs below).
 if [ -d "$DAEMON_DIR/policies" ]; then
   cp -r "$DAEMON_DIR/policies" "$CLI_DIR/daemon/policies"
 fi
@@ -136,20 +136,20 @@ if [ -d "$REPO_ROOT/docs/reference" ]; then
   cp -r "$REPO_ROOT/docs/reference/"* "$CLI_DIR/daemon/docs/reference/"
 fi
 
-# Earlier builds assembled a bundled copy of the unpublished @openrig/daemon here. The package now
+# Earlier builds assembled a bundled copy of the unpublished @softwareteam/daemon here. The package now
 # imports the shipped daemon/dist directly (rewrite step below), so remove any stale copy: it would
 # otherwise shadow the development workspace link for code under packages/cli.
-rm -rf "$CLI_DIR/node_modules/@openrig/daemon"
+rm -rf "$CLI_DIR/node_modules/@softwareteam/daemon"
 
 # UI: dist
 mkdir -p "$CLI_DIR/ui/dist"
 cp -r "$UI_DIR/dist/"* "$CLI_DIR/ui/dist/"
 
-# TUI: dist (public openrig-tui bin declared by the CLI package)
+# TUI: dist (public softwareteam-tui bin declared by the CLI package)
 mkdir -p "$CLI_DIR/tui/dist"
 cp -r "$TUI_DIR/dist/"* "$CLI_DIR/tui/dist/"
 
-# The CLI and TUI import daemon code as @openrig/daemon/<subpath>. That package is not published, so
+# The CLI and TUI import daemon code as @softwareteam/daemon/<subpath>. That package is not published, so
 # rewrite those specifiers in the staged JS to the daemon/dist copy shipped above (#66). Fails the
 # build on an unmapped or unstaged subpath and on any daemon import left afterwards.
 node "$REPO_ROOT/scripts/rewrite-daemon-imports.mjs"

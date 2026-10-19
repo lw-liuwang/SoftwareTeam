@@ -4,7 +4,7 @@ import { isHumanSeatSessionRef } from "../src/domain/session-name.js";
 
 // M1 A4b — @external entity-admission resolver. Contract 2a57d099. The four ruled
 // outcomes; proof-2's ENTITY-level teaching refusal text lives here (the DOMAIN-level
-// bounce is A1/A2's unknown_destination_rig fall-through).
+// bounce is A1/A2's unknown_destination_software_team fall-through).
 
 const REG: RegisteredEntity[] = [
   { entityId: "mike", address: "mike@external" },
@@ -29,7 +29,7 @@ describe("A4b resolveExternal", () => {
     expect(r.kind).toBe("unregistered");
     if (r.kind === "unregistered") {
       expect(r.error).toMatch(/not.*registered|no registered/i);
-      expect(r.error).toMatch(/rig gateway human add/);            // teaching: how to fix
+      expect(r.error).toMatch(/SoftwareTeam gateway human add/);            // teaching: how to fix
       expect(r.error).toMatch(/NOT downgraded to an agent seat/i); // never a silent agent-class fall
     }
   });

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { getDefaultOpenRigPath } from "./openrig-compat.js";
+import { getDefaultSoftwareTeamPath } from "./softwareteam-compat.js";
 import { VIRTUAL_DOMAIN_TOKENS } from "./session-name.js";
 import type { FailedStep } from "./cross-host-types.js";
 
@@ -118,13 +118,13 @@ export type HostResolution =
 // M1 A1 — the virtual-domain tokens (VIRTUAL_DOMAIN_TOKENS, the A2 closed set = ONE
 // source of truth) join the reserved host ids: a host registered `external` would make
 // the `<local>@external` virtual-domain classification ambiguous (X@Y@external). The
-// rig-name mint gate reserves the SAME tokens for the rig namespace (rigspec-preflight).
+// software-team-name mint gate reserves the SAME tokens for the softwareTeam namespace (software-team-spec-preflight).
 export const RESERVED_HOST_IDS = new Set(["kernel", "host", "local", ...VIRTUAL_DOMAIN_TOKENS]);
 
 const KNOWN_TRANSPORTS = new Set(["ssh", "http"]);
 
 export function defaultHostRegistryPath(): string {
-  return getDefaultOpenRigPath("hosts.yaml");
+  return getDefaultSoftwareTeamPath("hosts.yaml");
 }
 
 /**
@@ -320,7 +320,7 @@ export function resolveHost(
 }
 
 // ---------------------------------------------------------------------------
-// OPR.0.4.4.13 FR-1 — the registry WRITE path (rig host add).
+// OPR.0.4.4.13 FR-1 — the registry WRITE path (softwareTeam host add).
 //
 // ONE validation source: the candidate registry (existing entries + the new
 // raw entry) is validated by the SAME validateHostRegistry the loader uses —

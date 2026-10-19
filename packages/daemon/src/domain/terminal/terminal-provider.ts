@@ -29,7 +29,7 @@ export interface ComposedPane {
   label: string;
   /** Provider-neutral shell command; a provider may wrap it using runtime metadata. */
   paneCommand: string;
-  /** True when the attach is view-only (`tmux attach -r`) — cross-rig / saved read-only. */
+  /** True when the attach is view-only (`tmux attach -r`) — cross-softwareTeam / saved read-only. */
   readOnly: boolean;
 }
 

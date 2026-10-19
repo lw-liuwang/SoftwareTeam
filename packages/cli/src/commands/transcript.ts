@@ -10,7 +10,7 @@ import { resolveCrossHostTarget } from "../cross-host-target.js";
 import { runRemoteHttpOp } from "../remote-host-ops.js";
 
 export interface TranscriptDeps extends StatusDeps {
-  /** Test seam: inject a registry loader so no real ~/.openrig is touched. */
+  /** Test seam: inject a registry loader so no real ~/.softwareteam is touched. */
   hostRegistryLoader?: () => ReturnType<typeof loadHostRegistry>;
 }
 
@@ -22,37 +22,37 @@ export function transcriptCommand(depsOverride?: TranscriptDeps): Command {
   };
 
   cmd
-    .argument("<session>", "Session name (e.g. dev-impl@my-rig)")
+    .argument("<session>", "Session name (e.g. dev-impl@my-software-team)")
     .option("--tail <lines>", "Show last N lines (default: 50)", "50")
     .option("--grep <pattern>", "Search for lines matching pattern (regex)")
-    .option("--host <id>", "Read from a remote host declared in ~/.openrig/hosts.yaml (http hosts only — CLI-direct to the remote daemon's transcript routes)")
+    .option("--host <id>", "Read from a remote host declared in ~/.softwareteam/hosts.yaml (http hosts only — CLI-direct to the remote daemon's transcript routes)")
     .option("--json", "JSON output for agents")
     .addHelpText("after", `
 Examples:
-  rig transcript dev-impl@my-rig --tail 100
-  rig transcript dev-impl@my-rig --grep "decision|architecture"
-  rig transcript dev-impl@my-rig --json
-  rig transcript --host vps-b dev-impl@my-rig --tail 100
-  rig transcript dev-impl@my-rig@vps-b --grep "handoff"
+  SoftwareTeam transcript dev-impl@my-software-team --tail 100
+  SoftwareTeam transcript dev-impl@my-software-team --grep "decision|architecture"
+  SoftwareTeam transcript dev-impl@my-software-team --json
+  SoftwareTeam transcript --host vps-b dev-impl@my-software-team --tail 100
+  SoftwareTeam transcript dev-impl@my-software-team@vps-b --grep "handoff"
 
 --host reads the transcript from a remote host declared in
-~/.openrig/hosts.yaml, CLI-direct against that daemon's shipped transcript
+~/.softwareteam/hosts.yaml, CLI-direct against that daemon's shipped transcript
 routes (http-registered hosts, e.g. pair-registered; an ssh-registered host
 fails with the structured transport-requirement error). Output shape is the
-origin's, verbatim. A session of the form agent@rig@host is sugar for --host
+origin's, verbatim. A session of the form agent@software-team@host is sugar for --host
 when the suffix is a REGISTERED host id (explicit --host > sugar > persisted
 selection).`)
     .addHelpText("after", `
 Thin output for a CLAUDE seat almost always means the seat runs Claude Code's
 fullscreen renderer, which draws to the terminal ALTERNATE screen and emits no
 scrollback — so tmux capture-pane, and therefore this command, see almost
-nothing. OpenRig launches Claude seats with CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1
+nothing. SoftwareTeam launches Claude seats with CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1
 by default (classic renderer, native scrollback). A thin transcript means the
 seat predates that default or was launched with
-OPENRIG_CLAUDE_DISABLE_ALTERNATE_SCREEN=0 — relaunch it to restore scrollback.`)
+SOFTWARETEAM_CLAUDE_DISABLE_ALTERNATE_SCREEN=0 — relaunch it to restore scrollback.`)
     .action(async (session: string, opts: { tail?: string; grep?: string; host?: string; json?: boolean }) => {
       // OPR.0.4.6.MH4 C2 — cross-host observe: explicit --host > the
-      // `agent@rig@host` target sugar > the persisted host selection
+      // `agent@software-team@host` target sugar > the persisted host selection
       // (resolveEffectiveHost). The local path below is byte-untouched.
       const explicitHost = opts.host;
       opts.host = resolveEffectiveHost(opts.host);
@@ -203,8 +203,8 @@ const THIN_TRANSCRIPT_LINES = 5;
 function emitThinTranscriptHint(printed: number): void {
   console.error(
     `note: only ${printed} line(s) captured. For a CLAUDE seat this usually means the ` +
-      `fullscreen renderer (alternate screen emits no scrollback). OpenRig launches Claude ` +
+      `fullscreen renderer (alternate screen emits no scrollback). SoftwareTeam launches Claude ` +
       `seats with CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 by default; a thin transcript means ` +
-      `the seat predates that or has OPENRIG_CLAUDE_DISABLE_ALTERNATE_SCREEN=0 — relaunch it.`,
+      `the seat predates that or has SOFTWARETEAM_CLAUDE_DISABLE_ALTERNATE_SCREEN=0 — relaunch it.`,
   );
 }

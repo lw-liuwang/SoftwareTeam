@@ -1,6 +1,6 @@
 // OPR.0.4.2.17 — topology graph "collapse to one coordinate" regression.
 //
-// Bug: on the 30s refetch the multi-rig graph collapsed every pod+agent node
+// Bug: on the 30s refetch the multi-softwareTeam graph collapsed every pod+agent node
 // onto a single coordinate. Root: hybrid-layout.ts layoutWithDagre fell back to
 // a blanket `{x:0,y:0}` for any node dagre returned missing/degenerate, so a
 // degenerate refetch tick stacked everything on the origin. Fix: never collapse
@@ -8,7 +8,7 @@
 // positions stay DISTINCT. These assert that invariant at the layout layer.
 
 import { describe, expect, it } from "vitest";
-import { __test_internals, layoutHybridRig } from "../src/lib/hybrid-layout.js";
+import { __test_internals, layoutHybridSoftwareTeam } from "../src/lib/hybrid-layout.js";
 
 const { resolveDagrePositions } = __test_internals;
 const ITEMS = [
@@ -56,22 +56,22 @@ describe("OPR.0.4.2.17 resolveDagrePositions — never collapse to one coordinat
   });
 });
 
-describe("OPR.0.4.2.17 layoutHybridRig — every pod lays at a distinct position (no collapse)", () => {
-  it("a product-team-shaped multi-pod rig keeps the 3 pods at distinct coordinates", () => {
-    const layout = layoutHybridRig({
-      rigId: "rig-pt",
+describe("OPR.0.4.2.17 layoutHybridSoftwareTeam — every pod lays at a distinct position (no collapse)", () => {
+  it("a product-team-shaped multi-pod SoftwareTeam keeps the 3 pods at distinct coordinates", () => {
+    const layout = layoutHybridSoftwareTeam({
+      softwareTeamId: "software-team-pt",
       collapsed: false,
       nodes: [
         { id: "pod-orch", type: "podGroup", position: { x: 0, y: 0 }, data: { podNamespace: "orch" } },
-        { id: "orch.lead", type: "rigNode", parentId: "pod-orch", position: { x: 0, y: 0 }, data: { logicalId: "orch.lead" } },
-        { id: "orch.peer", type: "rigNode", parentId: "pod-orch", position: { x: 0, y: 0 }, data: { logicalId: "orch.peer" } },
+        { id: "orch.lead", type: "softwareTeamNode", parentId: "pod-orch", position: { x: 0, y: 0 }, data: { logicalId: "orch.lead" } },
+        { id: "orch.peer", type: "softwareTeamNode", parentId: "pod-orch", position: { x: 0, y: 0 }, data: { logicalId: "orch.peer" } },
         { id: "pod-dev", type: "podGroup", position: { x: 0, y: 0 }, data: { podNamespace: "dev" } },
-        { id: "dev.impl", type: "rigNode", parentId: "pod-dev", position: { x: 0, y: 0 }, data: { logicalId: "dev.impl" } },
-        { id: "dev.qa", type: "rigNode", parentId: "pod-dev", position: { x: 0, y: 0 }, data: { logicalId: "dev.qa" } },
-        { id: "dev.design", type: "rigNode", parentId: "pod-dev", position: { x: 0, y: 0 }, data: { logicalId: "dev.design" } },
+        { id: "dev.impl", type: "softwareTeamNode", parentId: "pod-dev", position: { x: 0, y: 0 }, data: { logicalId: "dev.impl" } },
+        { id: "dev.qa", type: "softwareTeamNode", parentId: "pod-dev", position: { x: 0, y: 0 }, data: { logicalId: "dev.qa" } },
+        { id: "dev.design", type: "softwareTeamNode", parentId: "pod-dev", position: { x: 0, y: 0 }, data: { logicalId: "dev.design" } },
         { id: "pod-rev", type: "podGroup", position: { x: 0, y: 0 }, data: { podNamespace: "rev" } },
-        { id: "rev.r1", type: "rigNode", parentId: "pod-rev", position: { x: 0, y: 0 }, data: { logicalId: "rev.r1" } },
-        { id: "rev.r2", type: "rigNode", parentId: "pod-rev", position: { x: 0, y: 0 }, data: { logicalId: "rev.r2" } },
+        { id: "rev.r1", type: "softwareTeamNode", parentId: "pod-rev", position: { x: 0, y: 0 }, data: { logicalId: "rev.r1" } },
+        { id: "rev.r2", type: "softwareTeamNode", parentId: "pod-rev", position: { x: 0, y: 0 }, data: { logicalId: "rev.r2" } },
       ],
       edges: [],
     });

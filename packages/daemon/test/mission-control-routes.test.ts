@@ -10,13 +10,13 @@ import { queueItemsSchema } from "../src/db/migrations/024_queue_items.js";
 import { queueTransitionsSchema } from "../src/db/migrations/025_queue_transitions.js";
 import { viewsCustomSchema } from "../src/db/migrations/030_views_custom.js";
 import { missionControlActionsSchema } from "../src/db/migrations/037_mission_control_actions.js";
-import { rigArchiveSchema } from "../src/db/migrations/042_rig_archive.js";
+import { softwareTeamArchiveSchema } from "../src/db/migrations/042_software_team_archive.js";
 import { identityProvenanceSchema } from "../src/db/migrations/065_identity_provenance.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { QueueRepository } from "../src/domain/queue-repository.js";
 import { StreamStore } from "../src/domain/stream-store.js";
 import { ViewProjector } from "../src/domain/view-projector.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { MissionControlActionLog } from "../src/domain/mission-control/mission-control-action-log.js";
 import { MissionControlWriteContract } from "../src/domain/mission-control/mission-control-write-contract.js";
 import { MissionControlReadLayer } from "../src/domain/mission-control/mission-control-read-layer.js";
@@ -55,16 +55,16 @@ describe("mission-control routes (PL-005 Phase A)", () => {
     migrate(db, [
       coreSchema, eventsSchema, streamItemsSchema,
       queueItemsSchema, queueTransitionsSchema, viewsCustomSchema,
-      missionControlActionsSchema, rigArchiveSchema,
+      missionControlActionsSchema, softwareTeamArchiveSchema,
       identityProvenanceSchema,
     ]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
     bus = new EventBus(db);
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     const viewProjector = new ViewProjector(db, bus);
     const streamStore = new StreamStore(db, bus);
-    const rigRepo = new RigRepository(db);
-    const fleetCli = new MissionControlFleetCliCapability({ db, eventBus: bus, rigRepo });
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const fleetCli = new MissionControlFleetCliCapability({ db, eventBus: bus, softwareTeamRepo });
     const actionLog = new MissionControlActionLog(db);
     const writeContract = new MissionControlWriteContract({ db, eventBus: bus, queueRepo, actionLog });
     const readLayer = new MissionControlReadLayer({
@@ -102,14 +102,14 @@ describe("mission-control routes (PL-005 Phase A)", () => {
 
   it("POST /action with valid approve verb returns 200 + structured result", async () => {
     const created = await queueRepo.create({
-      sourceSession: "src@rig",
-      destinationSession: "dst@rig",
+      sourceSession: "src@software-team",
+      destinationSession: "dst@software-team",
       body: "x",
     });
     const res = await app.request("/api/mission-control/action", {
       method: "POST",
-      // P21: the actor is the transport header (X-OpenRig-Session), not a body claim.
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "human@r" },
+      // P21: the actor is the transport header (X-SoftwareTeam-Session), not a body claim.
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "human@r" },
       body: JSON.stringify({
         verb: "approve",
         qitemId: created.qitemId,
@@ -136,12 +136,12 @@ describe("mission-control routes (PL-005 Phase A)", () => {
     const created = await queueRepo.create({ sourceSession: "s@r", destinationSession: "d@r", body: "x" });
     await app.request("/api/mission-control/action", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "h@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "h@r" },
       body: JSON.stringify({ verb: "approve", qitemId: created.qitemId }),
     });
     const res = await app.request("/api/mission-control/action", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "h@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "h@r" },
       body: JSON.stringify({ verb: "approve", qitemId: created.qitemId }),
     });
     expect(res.status).toBe(409);
@@ -152,7 +152,7 @@ describe("mission-control routes (PL-005 Phase A)", () => {
   it("POST /action annotate on missing qitem returns 404 + qitem_not_found", async () => {
     const res = await app.request("/api/mission-control/action", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-OpenRig-Session": "human@r" },
+      headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "human@r" },
       body: JSON.stringify({
         verb: "annotate",
         qitemId: "qitem-missing",
@@ -187,13 +187,13 @@ describe("mission-control routes (PL-005 Phase A)", () => {
     expect(provenanceOf(qUi)).toBe("claimed:v1");
 
     // CLI path: transport header present → derived, era-stamped transport:v1.
-    const cli = await req(qCli, { "X-OpenRig-Session": "human@r" });
+    const cli = await req(qCli, { "X-SoftwareTeam-Session": "human@r" });
     expect(cli.status).toBe(200);
     expect(provenanceOf(qCli)).toBe("transport:v1");
 
     // P18 SWEEP: header present + differing body claim → the wire SUPERSEDES (200), recorded transport:v1.
     // The 409 is retired here too, so this deferral helper and its requireSenderIdentity sibling agree.
-    const mismatch = await req(qMm, { "X-OpenRig-Session": "human@r" }, { actorSession: "mallory@r" });
+    const mismatch = await req(qMm, { "X-SoftwareTeam-Session": "human@r" }, { actorSession: "mallory@r" });
     expect(mismatch.status).toBe(200);
     expect(provenanceOf(qMm)).toBe("transport:v1"); // wire wins; mallory@r superseded
   });
@@ -206,7 +206,7 @@ describe("mission-control routes (PL-005 Phase A)", () => {
     const req = (qitemId: string, headers: Record<string, string>) =>
       app.request("/api/mission-control/action", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": "origin@r", ...headers },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": "origin@r", ...headers },
         body: JSON.stringify({ verb: "annotate", qitemId, annotation: "n" }),
       });
     const provenanceOf = (qitemId: string) =>
@@ -214,17 +214,17 @@ describe("mission-control routes (PL-005 Phase A)", () => {
 
     // Relayed CLAIMED-era origin actor (marker says claimed:v1): the origin records claimed:v1, NEVER
     // transport:v1 — an unverified actor cannot be laundered into a verified one by crossing a hop.
-    await req(qClaimed, { "X-OpenRig-Relay": "host-a", "X-OpenRig-Provenance": "claimed:v1" });
+    await req(qClaimed, { "X-SoftwareTeam-Relay": "host-a", "X-SoftwareTeam-Provenance": "claimed:v1" });
     expect(provenanceOf(qClaimed)).toBe("claimed:v1");
 
     // Relayed TRANSPORT-verified actor: relay:v1 (verified one hop away — honest about distance), never
     // transport:v1 (which would falsely claim THIS hop verified it).
-    await req(qTransport, { "X-OpenRig-Relay": "host-a", "X-OpenRig-Provenance": "transport:v1" });
+    await req(qTransport, { "X-SoftwareTeam-Relay": "host-a", "X-SoftwareTeam-Provenance": "transport:v1" });
     expect(provenanceOf(qTransport)).toBe("relay:v1");
 
     // Rail 1 default-weaker: a relayed request with NO marker (old forwarder) degrades DOWN to claimed:v1,
     // never transport:v1 — a missing marker is indistinguishable from claimed-era and both are unverified.
-    await req(qMissing, { "X-OpenRig-Relay": "host-a" });
+    await req(qMissing, { "X-SoftwareTeam-Relay": "host-a" });
     expect(provenanceOf(qMissing)).toBe("claimed:v1");
   });
 
@@ -271,8 +271,8 @@ describe("mission-control routes (PL-005 Phase A)", () => {
     const fleetCli = new MissionControlFleetCliCapability({
       db,
       eventBus: bus,
-      rigRepo: new RigRepository(db),
-      probeRig: testCase.probe,
+      softwareTeamRepo: new SoftwareTeamRepository(db),
+      probeSoftwareTeam: testCase.probe,
     });
     const readLayer = new MissionControlReadLayer({
       db, queueRepo, viewProjector: new ViewProjector(db, bus),
@@ -289,7 +289,7 @@ describe("mission-control routes (PL-005 Phase A)", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
       rows: [{
-        rigName: "rig", cliVersionLabel: testCase.version,
+        softwareTeamName: "softwareTeam", cliVersionLabel: testCase.version,
         cliCapabilityStatus: testCase.status,
         cliVersionOutdated: testCase.outdated,
         cliDriftDetected: testCase.fields.length > 0,
@@ -303,8 +303,8 @@ describe("mission-control routes (PL-005 Phase A)", () => {
     const view = await viewRes.json() as { rows: Array<{ confidenceFreshness: string }>; meta: Record<string, unknown> };
     expect(view.rows[0]?.confidenceFreshness).toBe(testCase.version);
     expect(view.meta).toEqual({
-      rowCount: 1, rigsRunningStaleCli: testCase.stale,
-      rigsWithUnknownCliCapabilities: testCase.unknown,
+      rowCount: 1, softwareTeamsRunningStaleCli: testCase.stale,
+      softwareTeamsWithUnknownCliCapabilities: testCase.unknown,
       sourceFallback: "daemon-internal-projection",
       ...(testCase.fields.length > 0 ? { degradedFields: testCase.fields } : {}),
     });

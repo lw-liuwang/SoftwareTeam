@@ -11,7 +11,7 @@ import { Command } from "commander";
 import { scopeCommand } from "../src/commands/scope.js";
 
 function mktemp(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "rig-scope-intent-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "software-team-scope-intent-"));
 }
 
 function seedSubstrate(): { root: string; missionsRoot: string } {
@@ -40,7 +40,7 @@ async function run(args: string[], workspace: string): Promise<{ exitCode: numbe
   program.addCommand(scopeCommand());
   program.exitOverride();
   try {
-    await program.parseAsync(["node", "rig", "scope", ...args, "--workspace", path.dirname(workspace)]);
+    await program.parseAsync(["node", "softwareTeam", "scope", ...args, "--workspace", path.dirname(workspace)]);
   } catch {
     // Commander/process.exit paths are captured above.
   } finally {

@@ -20,7 +20,7 @@ interface RestoreNodeResult {
 }
 
 interface SnapshotPanelProps {
-  rigId: string;
+  softwareTeamId: string;
 }
 
 function formatAge(timestamp: string): string {
@@ -38,10 +38,10 @@ function formatAge(timestamp: string): string {
 
 // Uses shared restore-status-colors.ts — single source of truth for restore vocabulary
 
-export function SnapshotPanel({ rigId }: SnapshotPanelProps) {
-  const { data: snapshots = [], isPending: loading, error: fetchError } = useSnapshots(rigId);
-  const createSnapshot = useCreateSnapshot(rigId);
-  const restoreSnapshot = useRestoreSnapshot(rigId);
+export function SnapshotPanel({ softwareTeamId }: SnapshotPanelProps) {
+  const { data: snapshots = [], isPending: loading, error: fetchError } = useSnapshots(softwareTeamId);
+  const createSnapshot = useCreateSnapshot(softwareTeamId);
+  const restoreSnapshot = useRestoreSnapshot(softwareTeamId);
 
   const [confirmRestore, setConfirmRestore] = useState<string | null>(null);
   const [restoreResult, setRestoreResult] = useState<RestoreNodeResult[] | null>(null);
@@ -176,7 +176,7 @@ export function SnapshotPanel({ rigId }: SnapshotPanelProps) {
           <DialogHeader>
             <DialogTitle className="font-headline text-xl font-extrabold uppercase tracking-tighter">Restore Snapshot</DialogTitle>
             <DialogDescription className="text-body-sm text-on-surface-variant">
-              This will restore the rig from snapshot {confirmRestore?.slice(0, 12)}. Existing sessions will be restarted.
+              This will restore the softwareTeam from snapshot {confirmRestore?.slice(0, 12)}. Existing sessions will be restarted.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

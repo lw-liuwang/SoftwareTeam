@@ -20,7 +20,7 @@ interface NodeReview {
   model?: string;
 }
 
-export interface RigSpecServicesReview {
+export interface SoftwareTeamSpecServicesReview {
   kind: "compose";
   composeFile: string;
   projectName?: string;
@@ -40,14 +40,14 @@ export interface RigSpecServicesReview {
   };
 }
 
-export interface RigSpecReview {
+export interface SoftwareTeamSpecReview {
   sourceState: string;
-  kind: "rig";
+  kind: "softwareTeam";
   name: string;
   version: string;
   summary?: string;
   cultureFile?: string;
-  services?: RigSpecServicesReview;
+  services?: SoftwareTeamSpecServicesReview;
   format: "pod_aware" | "legacy";
   pods?: PodReview[];
   nodes?: NodeReview[];
@@ -76,8 +76,8 @@ export interface AgentSpecReview {
   raw: string;
 }
 
-async function fetchRigReview(yaml: string, sourceState = "draft"): Promise<RigSpecReview> {
-  const res = await fetch("/api/specs/review/rig", {
+async function fetchSoftwareTeamReview(yaml: string, sourceState = "draft"): Promise<SoftwareTeamSpecReview> {
+  const res = await fetch("/api/specs/review/softwareTeam", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ yaml, sourceState }),
@@ -111,10 +111,10 @@ function hashYaml(yaml: string): number {
   return hash;
 }
 
-export function useRigSpecReview(yaml: string | null, sourceState = "draft") {
+export function useSoftwareTeamSpecReview(yaml: string | null, sourceState = "draft") {
   return useQuery({
-    queryKey: ["spec-review", "rig", yaml ? hashYaml(yaml) : null, sourceState],
-    queryFn: () => fetchRigReview(yaml!, sourceState),
+    queryKey: ["spec-review", "softwareTeam", yaml ? hashYaml(yaml) : null, sourceState],
+    queryFn: () => fetchSoftwareTeamReview(yaml!, sourceState),
     enabled: !!yaml,
   });
 }

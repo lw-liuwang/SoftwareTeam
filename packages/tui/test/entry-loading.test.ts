@@ -28,7 +28,7 @@ describe("S01 entry and page reads", () => {
     const state = { ...view.get(), section };
     const text = renderScreen(state, emptySnapshot(), { cols: 80, rows: 24, load: { inFlight: true, settled: false } }).lines.join("\n");
     expect(text).toMatch(/loading|pending/i);
-    expect(text).not.toMatch(/Unavailable|Saved \(0\)|Derived \(0\)|0 rigs|0 agents/);
+    expect(text).not.toMatch(/Unavailable|Saved \(0\)|Derived \(0\)|0 softwareTeams|0 agents/);
   });
 });
 
@@ -38,7 +38,7 @@ describe("request identity and partial refresh", () => {
     let mode = "success"; let now = 1000;
     const client = new DaemonClient({ fetchImpl: (async () => {
       if (mode === "failure") throw new Error("fixture timeout");
-      return new Response(JSON.stringify({ saved: mode === "empty" ? [] : [{ id: "one", name: "One", members: [{ seat: "one" }] }], rigs: [] }));
+      return new Response(JSON.stringify({ saved: mode === "empty" ? [] : [{ id: "one", name: "One", members: [{ seat: "one" }] }], softwareTeams: [] }));
     }) as typeof fetch });
     const state = { ...createViewState({ instanceId: "fixture" }).get(), section: "terminals", terminalView: null };
     const live = createLiveRefresh({ hydrate: (page, signal) => hydrateSnapshot(client.forPage(page, signal), undefined, undefined, undefined, undefined, state), now: () => now, onFrame: () => {} });
@@ -103,13 +103,13 @@ describe("entry never takes navigation from the user", () => {
   });
   it.each(["stopped", "recoverable", "degraded", "attention_required", undefined])("opens ordinary views while retaining the %s observation, without effects", async lifecycleState => {
     const onWork = vi.fn(); const startDaemon = vi.fn(); const probe = vi.fn();
-    const rigs = [{ id: "r", name: "r", lifecycleState }];
-    const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(rigs));
+    const softwareTeams = [{ id: "r", name: "r", lifecycleState }];
+    const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(softwareTeams));
     const client = new DaemonClient({ fetchImpl });
     const startup = new StartupController({ client, home: "/fixture", probe, startDaemon, onWork, onChange: () => {} });
     await startup.refresh();
     expect(startup.state.open).toBe(false); expect(onWork).toHaveBeenCalledOnce(); expect(onWork).toHaveBeenCalledWith();
-    expect(startup.state.rigs).toEqual(rigs);
+    expect(startup.state.softwareTeams).toEqual(softwareTeams);
     expect(startDaemon).not.toHaveBeenCalled(); expect(probe).not.toHaveBeenCalled();
     expect(fetchImpl).toHaveBeenCalledOnce();
     expect(fetchImpl.mock.calls[0]?.[1]?.method).not.toBe("POST");
@@ -122,7 +122,7 @@ describe("entry never takes navigation from the user", () => {
     expect(startup.state.open).toBe(false); expect(onWork).toHaveBeenCalledOnce();
     await startup.open(); // The ordinary view's S key deliberately opens Start and return.
     await startup.refresh();
-    expect(startup.state).toMatchObject({ open: true, page: "rigs", connection: "up", rigs: [] });
+    expect(startup.state).toMatchObject({ open: true, page: "softwareTeams", connection: "up", softwareTeams: [] });
     expect(onWork).toHaveBeenCalledOnce(); expect(startDaemon).not.toHaveBeenCalled();
   });
 });

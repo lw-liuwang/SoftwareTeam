@@ -1,7 +1,7 @@
 // Slice 01 — System → Usage across hosts through the actual TUI path (explorer click → hydrate → render), with a real
 // DaemonClient against a loopback hub daemon that reads loopback hosts: the daemon's real provider and config routes
 // over real provider services, with scripted native readers that count their reads (usage-hosts-harness.ts). Proves
-// every state draws from the served fields verbatim, the same facts as `rig provider status --all-hosts`, and that
+// every state draws from the served fields verbatim, the same facts as `softwareTeam provider status --all-hosts`, and that
 // the view only ever GETs the served view: no refresh, no native read anywhere.
 import { afterEach, describe, expect, it } from "vitest";
 import { DaemonClient } from "../src/daemon-client.js";
@@ -127,7 +127,7 @@ describe("System → Usage across hosts", () => {
     await tui.openView();
     const text = tui.text();
     expect(USAGE_HOSTS_HEADER).toBe("registered hosts, as this daemon reads them · not proof of the login a running session uses");
-    expect(USAGE_HOSTS_HINT).toBe("This view shows what the hosts already hold. It never starts a refresh or reads the logins. To read them now: rig provider status --all-hosts --refresh [--provider codex|claude]");
+    expect(USAGE_HOSTS_HINT).toBe("This view shows what the hosts already hold. It never starts a refresh or reads the logins. To read them now: SoftwareTeam provider status --all-hosts --refresh [--provider codex|claude]");
     expect(text).toContain(`  ${USAGE_HOSTS_HEADER}`);
     expect(text).toContain(`  ${USAGE_HOSTS_HINT}`);
     expect(text.toLowerCase()).not.toContain("never refreshes");
@@ -162,7 +162,7 @@ describe("System → Usage across hosts", () => {
     const offHub = await host("hub", { usageWindows: false, registry: [] });
     const off = tuiOn(offHub);
     await off.openView();
-    expect(off.text()).toContain("  Usage across hosts needs usage windows on this daemon. Turn them on with: rig config set provider.usage_windows true");
+    expect(off.text()).toContain("  Usage across hosts needs usage windows on this daemon. Turn them on with: SoftwareTeam config set provider.usage_windows true");
     const hub = await host("hub2", { registry: [] });
     const older = tuiOn(hub, { gone: () => true });
     await older.openView();
@@ -294,7 +294,7 @@ describe("System → Usage across hosts: what #1246 serves since the plan", () =
           ...(b as Body),
           usage: rows(b).map((r) => (r["provider"] === "codex" ? { ...r, lastRefresh: { at: NOW, outcome: "failed" } } : r)),
           seatAccounts: [{
-            seatSession: "dev-qa@r", rigName: "r", runtime: "claude-code",
+            seatSession: "dev-qa@r", softwareTeamName: "r", runtime: "claude-code",
             configured: { source: "default_login", home: null, homeNote: "the daemon's home" },
             allowance: { linked: false, reason: "not linked" }, observed: { windowsSampled: true, differsFrom: ["dev-b@r"] },
           }],
@@ -321,7 +321,7 @@ describe("System → Usage across hosts: what #1246 serves since the plan", () =
     const tui = tuiOn(hub);
     await tui.openView();
     const lines = tui.draw().lines.map((l) => l.slice(l.indexOf("┃") + 2).trimEnd());
-    // Each seat's observed lines, in order, as `rig provider status --all-hosts` prints them.
+    // Each seat's observed lines, in order, as `softwareTeam provider status --all-hosts` prints them.
     const observed = (seat: string) => {
       const at = lines.findIndex((l) => l.startsWith(`  ${seat}  `));
       const end = lines.findIndex((l, i) => i > at && !l.startsWith("    "));

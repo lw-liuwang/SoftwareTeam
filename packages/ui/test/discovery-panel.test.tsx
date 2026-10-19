@@ -25,7 +25,7 @@ const SESSIONS: DiscoveredSession[] = [
     tmuxWindow: "0",
     tmuxPane: "%7",
     pid: 111,
-    cwd: "/Users/example/code/openrig",
+    cwd: "/Users/example/code/softwareteam",
     activeCommand: "codex",
     runtimeHint: "codex",
     confidence: "high",
@@ -44,8 +44,8 @@ function renderPanel(props?: {
 }) {
   return render(
     createTestRouter({
-      path: "/rigs/$rigId",
-      initialPath: "/rigs/rig-1",
+      path: "/software-teams/$softwareTeamId",
+      initialPath: "/software-teams/software-team-1",
       component: () => (
         <DiscoveryPanel
           onClose={vi.fn()}
@@ -88,7 +88,7 @@ describe("DiscoveryPanel", () => {
       selectedDiscoveredId: "ds-1",
       placementTarget: {
         kind: "pod",
-        rigId: "rig-1",
+        softwareTeamId: "software-team-1",
         podId: "intake",
         podNamespace: "intake",
         podLabel: "intake",
@@ -110,7 +110,7 @@ describe("DiscoveryPanel", () => {
       selectedDiscoveredId: "ds-1",
       placementTarget: {
         kind: "node",
-        rigId: "rig-1",
+        softwareTeamId: "software-team-1",
         logicalId: "research.mapper",
         eligible: true,
       },

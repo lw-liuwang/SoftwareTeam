@@ -277,8 +277,8 @@ source_session_id: s
 source_resume_token: t
 files: []
 `);
-    mkdirSync(join(specRoot, "rigs", "x"), { recursive: true });
-    writeFileSync(join(specRoot, "rigs", "x", "rig.yaml"), `
+    mkdirSync(join(specRoot, "software-teams", "x"), { recursive: true });
+    writeFileSync(join(specRoot, "software-teams", "x", "software-team.yaml"), `
 name: x
 pods:
   - id: dev

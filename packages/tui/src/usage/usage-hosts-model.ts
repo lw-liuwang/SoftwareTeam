@@ -3,7 +3,7 @@ import type { FleetSnapshot } from "../types.js";
 import { allowanceLines, failureText, identityLabel, seatLines, str, type Row } from "./usage-model.js";
 
 // Slice 01 — System → Usage across hosts: usage windows on the registered hosts, as this daemon reads them
-// (GET /api/provider/usage/hosts, the same body `rig provider status --all-hosts --json` prints). Each host's rows are
+// (GET /api/provider/usage/hosts, the same body `softwareTeam provider status --all-hosts --json` prints). Each host's rows are
 // drawn as that host served them, with the per-row lines of System → Usage; the grouping by allowance, the linkage,
 // the notes and every host's status come from the daemon. Nothing is grouped, summed, thresholded or re-timed here,
 // and this view never asks for a refresh.
@@ -14,7 +14,7 @@ export interface UsageHostsRead {
 }
 
 export const USAGE_HOSTS_HEADER = "registered hosts, as this daemon reads them · not proof of the login a running session uses";
-export const USAGE_HOSTS_HINT = "This view shows what the hosts already hold. It never starts a refresh or reads the logins. To read them now: rig provider status --all-hosts --refresh [--provider codex|claude]";
+export const USAGE_HOSTS_HINT = "This view shows what the hosts already hold. It never starts a refresh or reads the logins. To read them now: SoftwareTeam provider status --all-hosts --refresh [--provider codex|claude]";
 
 const indent = (lines: ContentLine[], pad: string): ContentLine[] => lines.map((l) => ({ ...l, text: pad + l.text }));
 

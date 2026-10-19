@@ -183,7 +183,7 @@ describe("GET /api/review/*", () => {
       id: "OPR.T.26",
       intent: "i",
       prd: { miniReqs: ["m"] },
-      specApprovedBy: "planner@rig",
+      specApprovedBy: "planner@software-team",
       specApprovedAt: "2026-07-03T00:00:00.000Z",
       approvedBy: "human@host",
       approvedAt: "2026-07-04T00:00:00.000Z",
@@ -197,11 +197,11 @@ describe("GET /api/review/*", () => {
     // delivered.lock UNVERIFIED — visible, never a block.
     db.prepare(
       `INSERT INTO mission_control_actions (action_id, action_verb, actor_session, acted_at, audit_notes_json)
-       VALUES ('act-1', 'approve', 'planner@rig', '2026-07-03T00:00:00.000Z', ?)`,
+       VALUES ('act-1', 'approve', 'planner@software-team', '2026-07-03T00:00:00.000Z', ?)`,
     ).run(JSON.stringify({ kind: "scope-approval", scope_tier: "slice", scope_id: "OPR.T.26", scope_path: "release-t/slices/26-locks", approval_scope: "spec", on_behalf_of: null }));
 
     const body = await (await app.request("/api/review/slice/26-locks")).json();
-    expect(body.plan.lock).toEqual({ by: "planner@rig", at: "2026-07-03T00:00:00.000Z", auditVerified: true });
+    expect(body.plan.lock).toEqual({ by: "planner@software-team", at: "2026-07-03T00:00:00.000Z", auditVerified: true });
     expect(body.delivered.lock).toEqual({ by: "human@host", at: "2026-07-04T00:00:00.000Z", auditVerified: false });
     expect(body.phase).toBe("locked");
     expect(body.plan.lockedArtifacts).toEqual([
@@ -220,7 +220,7 @@ describe("GET /api/review/*", () => {
 
   it("closed historical qitems do not make a slice look actively building", async () => {
     writeFixtureSlice(ws, "release-t", "22-closed-qitem", { intent: "i", prd: { miniReqs: ["m"] } });
-    insertQitem({ id: "q-closed", dest: "dev-a@rig", tags: ["slice:22-closed-qitem"], summary: "old handoff", state: "closed" });
+    insertQitem({ id: "q-closed", dest: "dev-a@software-team", tags: ["slice:22-closed-qitem"], summary: "old handoff", state: "closed" });
 
     const body = await (await app.request("/api/review/slice/22-closed-qitem")).json();
     expect(body.phase).toBe("spec");
@@ -244,19 +244,19 @@ describe("GET /api/review/*", () => {
     expect(body.board).toHaveLength(4);
   });
 
-  it("agents scope projection: slice-scoped membership, never rig co-residency", async () => {
+  it("agents scope projection: slice-scoped membership, never SoftwareTeam co-residency", async () => {
     writeFixtureSlice(ws, "release-t", "23-agents", { intent: "i", prd: { miniReqs: ["m"] } });
-    insertQitem({ id: "q1", dest: "dev-a@rig", tags: ["slice:23-agents"], summary: "building the thing" });
-    insertQitem({ id: "q2", dest: "dev-b@rig", tags: ["slice:other-slice"], summary: "other work" });
+    insertQitem({ id: "q1", dest: "dev-a@software-team", tags: ["slice:23-agents"], summary: "building the thing" });
+    insertQitem({ id: "q2", dest: "dev-b@software-team", tags: ["slice:other-slice"], summary: "other work" });
 
     const res = await app.request("/api/review/agents?scope=slice:23-agents");
     expect(res.status).toBe(200);
     const band = await res.json();
     expect(band.rows).toHaveLength(1);
-    expect(band.rows[0]).toMatchObject({ sessionName: "dev-a@rig", doing: "building the thing", holdsCount: 1, stateGlyph: "unknown" });
+    expect(band.rows[0]).toMatchObject({ sessionName: "dev-a@software-team", doing: "building the thing", holdsCount: 1, stateGlyph: "unknown" });
 
-    const rig = await (await app.request("/api/review/agents?scope=rig")).json();
-    expect(rig.rows.map((r: { sessionName: string }) => r.sessionName).sort()).toEqual(["dev-a@rig", "dev-b@rig"]);
+    const softwareTeam = await (await app.request("/api/review/agents?scope=softwareTeam")).json();
+    expect(softwareTeam.rows.map((r: { sessionName: string }) => r.sessionName).sort()).toEqual(["dev-a@software-team", "dev-b@software-team"]);
   });
 
   it("validates the three-valued scope parameter", async () => {
@@ -322,8 +322,8 @@ describe("GET /api/review/*", () => {
   });
 });
 
-// OPR.0.4.4.22 — GET /api/review/rig (the rig-scope standalone altitude root).
-describe("GET /api/review/rig (OPR.0.4.4.22)", () => {
+// OPR.0.4.4.22 — GET /api/review/softwareTeam (the software-team-scope standalone altitude root).
+describe("GET /api/review/softwareTeam (OPR.0.4.4.22)", () => {
   let ws: FixtureWorkspace;
   let db: Database.Database;
   let app: Hono;
@@ -395,10 +395,10 @@ describe("GET /api/review/rig (OPR.0.4.4.22)", () => {
     db.prepare("UPDATE queue_items SET blocked_on = 'human-review@kernel' WHERE qitem_id = 'q-park'").run();
     insertTransition({ qitemId: "q-done", ts: NOW, actor: "driver@r", closureReason: "handed_off_to", closureTarget: "qa@r" });
 
-    const res = await app.request("/api/review/rig");
+    const res = await app.request("/api/review/softwareTeam");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.scope).toBe("rig");
+    expect(body.scope).toBe("softwareTeam");
     const sessions = body.agents.rows.map((r: { sessionName: string }) => r.sessionName);
     expect(sessions).toContain("driver@r");
     const driverRow = body.agents.rows.find((r: { sessionName: string }) => r.sessionName === "driver@r");
@@ -418,14 +418,14 @@ describe("GET /api/review/rig (OPR.0.4.4.22)", () => {
   it("keeps human-routed qitems in NEEDS YOU without turning the human seat into an AGENTS row", async () => {
     insert({ id: "q-human", dest: "human-review@kernel", tags: ["slice:20-x"], summary: "approve the demo", tier: "human-gate", state: "pending" });
 
-    const body = await (await app.request("/api/review/rig")).json();
+    const body = await (await app.request("/api/review/softwareTeam")).json();
     expect(body.needsYou.items.some((i: { qitemId: string | null }) => i.qitemId === "q-human")).toBe(true);
     expect(body.agents.rows.some((r: { sessionName: string }) => r.sessionName === "human-review@kernel")).toBe(false);
   });
 
   it("recently-holding: an agent whose slice-tagged item closed TODAY appears with 'no tracked work item'", async () => {
     insert({ id: "q-closed", dest: "qa1@r", state: "done", tags: ["slice:20-x"], summary: "done work", tsUpdated: NOW });
-    const res = await app.request("/api/review/rig");
+    const res = await app.request("/api/review/softwareTeam");
     const body = await res.json();
     const row = body.agents.rows.find((r: { sessionName: string }) => r.sessionName === "qa1@r");
     expect(row).toBeDefined();
@@ -442,22 +442,22 @@ describe("GET /api/review/rig (OPR.0.4.4.22)", () => {
       closureRequiredAt: "2026-07-04T11:00:00.000Z",
     });
 
-    const res = await app.request("/api/review/rig");
+    const res = await app.request("/api/review/softwareTeam");
     const body = await res.json();
     expect(body.agents.coordinationHealth).toContain("1 overdue");
     const overdue = body.needsYou.items.find((i: { derived?: { kind: string } | null; qitemId: string | null }) => i.qitemId === null && i.derived?.kind === "overdue");
-    expect(overdue).toMatchObject({ summary: "late handoff is overdue", where: "rig" });
+    expect(overdue).toMatchObject({ summary: "late handoff is overdue", where: "softwareTeam" });
   });
 
   it("activity telemetry uses the composer clock + event time so idle-with-work proof is stable", async () => {
     insert({ id: "q-idle", dest: "driver@r", tags: ["slice:20-x"], summary: "holding work while idle" });
-    db.prepare("INSERT INTO rigs (id, name) VALUES ('rig-1', 'rig-one')").run();
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id, runtime) VALUES ('node-1', 'rig-1', 'driver', 'codex')").run();
+    db.prepare("INSERT INTO software_teams (id, name) VALUES ('software-team-1', 'software-team-one')").run();
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, runtime) VALUES ('node-1', 'software-team-1', 'driver', 'codex')").run();
     db.prepare("INSERT INTO sessions (id, node_id, session_name, status, created_at) VALUES ('sess-1', 'node-1', 'driver@r', 'running', ?)").run(NOW);
     const eventBus = new EventBus(db);
     eventBus.emit({
       type: "agent.activity",
-      rigId: "rig-1",
+      softwareTeamId: "software-team-1",
       nodeId: "node-1",
       sessionName: "driver@r",
       runtime: "codex",
@@ -487,16 +487,16 @@ describe("GET /api/review/rig (OPR.0.4.4.22)", () => {
     });
     activityApp.route("/api/review", reviewRoutes());
 
-    const a = await (await activityApp.request("/api/review/rig")).json();
-    const b = await (await activityApp.request("/api/review/rig")).json();
+    const a = await (await activityApp.request("/api/review/softwareTeam")).json();
+    const b = await (await activityApp.request("/api/review/softwareTeam")).json();
     const row = a.agents.rows.find((r: { sessionName: string }) => r.sessionName === "driver@r");
     expect(row).toMatchObject({ stateGlyph: "idle", runtime: "codex" });
     expect(row.exception).toMatchObject({ kind: "stuck", evidence: "idle 47m >= 30m default · holds 1" });
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
 
-  it("proven-empty rig renders provenance with the display window, never blank", async () => {
-    const res = await app.request("/api/review/rig");
+  it("proven-empty SoftwareTeam renders provenance with the display window, never blank", async () => {
+    const res = await app.request("/api/review/softwareTeam");
     const body = await res.json();
     expect(body.agents.rows).toHaveLength(0);
     expect(body.agents.provenance).toContain("window: today");
@@ -505,15 +505,15 @@ describe("GET /api/review/rig (OPR.0.4.4.22)", () => {
 
   it("idempotent: two requests over unchanged inputs return byte-identical bodies", async () => {
     insert({ id: "q-1", dest: "a@r", tags: ["slice:s"], summary: "s" });
-    const a = await (await app.request("/api/review/rig")).text();
-    const b = await (await app.request("/api/review/rig")).text();
+    const a = await (await app.request("/api/review/softwareTeam")).text();
+    const b = await (await app.request("/api/review/softwareTeam")).text();
     expect(a).toBe(b);
   });
 
   it("503 when the composer is unwired (honest error, not empty)", async () => {
     const bare = new Hono();
     bare.route("/api/review", reviewRoutes());
-    const res = await bare.request("/api/review/rig");
+    const res = await bare.request("/api/review/softwareTeam");
     expect(res.status).toBe(503);
   });
 });
@@ -574,7 +574,7 @@ describe("qitem-ccf87c0d — composeMission MEMBERSHIP-scan load contract", () =
       queueItemsSchema, queueTransitionsSchema, missionControlActionsSchema,
       queueItemSummarySchema,
     ]);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-load', 'rig')`).run();
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-load', 'softwareTeam')`).run();
     // Guard repro shape: exactly one queue row (matches no slice, so no
     // per-slice IN lookups fire — the count isolates the scan class).
     db.prepare(

@@ -8,7 +8,7 @@ import { expect, it } from "vitest";
 
 it("keeps the TUI and return prompt after a real launch-group SIGINT, then restores normal SIGINT", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "tui-sig-"));
-  const cli = path.join(root, "rig.mjs");
+  const cli = path.join(root, "softwareTeam.mjs");
   await writeFile(cli, `
 if (process.argv[2] === 'config') console.log('{"value":"UTC"}');
 else if (process.argv[2] === 'crash-cart') console.log('{"state":"up"}');
@@ -19,8 +19,8 @@ else if (process.argv[2] === 'up') {
 `);
   const server = createServer((req, res) => {
     let data: unknown = [];
-    if (req.url === "/api/specs/library") data = [{ id: "a1", kind: "rig", name: "signal-team", sourceType: "builtin" }];
-    if (req.url === "/api/specs/library/a1/review") data = { kind: "rig", name: "signal-team", graph: { nodes: [], edges: [] } };
+    if (req.url === "/api/specs/library") data = [{ id: "a1", kind: "softwareTeam", name: "signal-team", sourceType: "builtin" }];
+    if (req.url === "/api/specs/library/a1/review") data = { kind: "softwareTeam", name: "signal-team", graph: { nodes: [], edges: [] } };
     if (req.url === "/api/scopes?detail=1") data = { missions: [] };
     if (req.url === "/api/review/fleet") data = { needsYou: { items: [] }, hosts: [] };
     if (req.url === "/api/queue/attention-aggregate") data = { hosts: [] };
@@ -31,8 +31,8 @@ else if (process.argv[2] === 'up') {
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("fixture did not bind");
   const env = { ...process.env };
-  for (const key of Object.keys(env)) if (/^(OPENRIG_|RIGGED_)/.test(key)) delete env[key];
-  Object.assign(env, { HOME: root, OPENRIG_HOME: root, OPENRIG_TUI_CLI_ENTRY: cli, OPENRIG_TUI_SOCKET: path.join(root, "t.sock") });
+  for (const key of Object.keys(env)) if (/^(SOFTWARETEAM_|SOFTWARETEAM_)/.test(key)) delete env[key];
+  Object.assign(env, { HOME: root, SOFTWARETEAM_HOME: root, SOFTWARETEAM_TUI_CLI_ENTRY: cli, SOFTWARETEAM_TUI_SOCKET: path.join(root, "t.sock") });
   const child = spawn(process.execPath, [
     fileURLToPath(new URL("../../../node_modules/vite-node/vite-node.mjs", import.meta.url)), "--script",
     fileURLToPath(new URL("../src/main.ts", import.meta.url)), "--instance", "launch-signal", "--no-color",
@@ -50,7 +50,7 @@ else if (process.argv[2] === 'up') {
     }
   }
   try {
-    await until(() => output.includes("no rigs served — proven empty"));
+    await until(() => output.includes("no softwareTeams served — proven empty"));
     child.stdin.write("spec signal-team\r");
     await until(() => output.includes("authored topology, not live status"));
     child.stdin.write("launch\r");
@@ -61,10 +61,10 @@ else if (process.argv[2] === 'up') {
     child.stdin.write("\x1b[C" + "\x1b[B".repeat(4) + "\r");
     await until(() => output.includes("FIXTURE_UP_READY"));
     process.kill(-child.pid!, "SIGINT");
-    await until(() => output.includes("Press Enter to return to OpenRig."));
+    await until(() => output.includes("Press Enter to return to SoftwareTeam."));
     expect(child.exitCode).toBeNull();
     expect(child.signalCode).toBeNull();
-    expect(output).toContain("rig up ended by signal; inspect rig ps before retrying.");
+    expect(output).toContain("SoftwareTeam up ended by signal; inspect SoftwareTeam ps before retrying.");
     const beforeReturn = output.length;
     child.stdin.write("\r");
     await until(() => output.slice(beforeReturn).includes("authored topology, not live status"));

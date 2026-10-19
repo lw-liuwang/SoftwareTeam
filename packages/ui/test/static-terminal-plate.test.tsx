@@ -24,7 +24,7 @@ describe("StaticTerminalPlate (OPR.0.4.0.39 FR-1)", () => {
   it("renders a NON-interactive plate (div) carrying the smoke plate + compact preview", () => {
     render(
       <StaticTerminalPlate
-        sessionName="dev@rig"
+        sessionName="dev@software-team"
         plateTestId="x-thumb-plate"
         previewTestIdPrefix="x-thumb"
         className="min-w-0 flex-1 overflow-hidden"
@@ -37,14 +37,14 @@ describe("StaticTerminalPlate (OPR.0.4.0.39 FR-1)", () => {
     expect(plate.className).toContain("overflow-hidden"); // caller className composed in
     const pane = screen.getByTestId("x-thumb-pane");
     expect(pane.getAttribute("data-variant")).toBe("compact-terminal");
-    expect(pane.getAttribute("data-session")).toBe("dev@rig");
+    expect(pane.getAttribute("data-session")).toBe("dev@software-team");
   });
 
   it("renders an INTERACTIVE click-to-live button when onClick is provided", () => {
     const onClick = vi.fn();
     render(
       <StaticTerminalPlate
-        sessionName="dev@rig"
+        sessionName="dev@software-team"
         plateTestId="pt-static"
         previewTestIdPrefix="pt-preview"
         onClick={onClick}

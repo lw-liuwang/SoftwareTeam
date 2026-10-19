@@ -1,14 +1,14 @@
-// Rig Context / Composable Context Injection — the `rig context` CLI verb
-// family (Atom-7 renamed the retired `context-pack` grammar to `rig context`;
+// SoftwareTeam Context / Composable Context Injection — the `SoftwareTeam context` CLI verb
+// family (Atom-7 renamed the retired `context-pack` grammar to `SoftwareTeam context`;
 // the pack STORE contract — kind/id/API/on-disk dir — is unchanged).
 //
-// Delivery-free subcommands parallel to `rig specs`:
+// Delivery-free subcommands parallel to `softwareTeam specs`:
 //   list / show / preview / compose / add / rm / sync
 //
 // Each delegates to /api/context-packs/library/* against the daemon.
 // The `add` verb installs a pack from a directory at
-// $OPENRIG_HOME/context/<name>/ — host-symlink-free contract,
-// matches `rig specs add` shape (regular files only; no symlinks).
+// $SOFTWARETEAM_HOME/context/<name>/ — host-symlink-free contract,
+// matches `softwareTeam specs add` shape (regular files only; no symlinks).
 
 import { Command } from "commander";
 import {
@@ -37,10 +37,10 @@ import {
   resolveSkillLoadout,
   type ReconcileSkillLoadoutResult,
   type SkillLoadout,
-} from "@openrig/daemon/skill-loadout";
+} from "@softwareteam/daemon/skill-loadout";
 import { realDeps } from "./daemon.js";
 import { prepareDaemonAutoStart } from "../daemon-auto-start.js";
-import { readOpenRigEnv } from "../openrig-compat.js";
+import { readSoftwareTeamEnv } from "../softwareteam-compat.js";
 import type { StatusDeps } from "./status.js";
 
 const contextRuntimeArg = enumArg(["claude-code", "claude", "codex"]);
@@ -78,7 +78,7 @@ function projectRetryCommands(
   if (!candidates || (code !== "project_required" && code !== "project_not_found")) return undefined;
   const word = (value: string) => /^[A-Za-z0-9._\/-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`;
   const narrowing = `${opts.mission !== undefined ? ` --mission ${word(opts.mission)}` : ""}${opts.slice !== undefined ? ` --slice ${word(opts.slice)}` : ""}`;
-  return candidates.map((id) => `rig context work-install --project ${word(id)}${narrowing}`);
+  return candidates.map((id) => `SoftwareTeam context work-install --project ${word(id)}${narrowing}`);
 }
 
 function selectedIds(ids: string[], none: string): string {
@@ -95,7 +95,7 @@ function printWorkInstallSelectors(result: WorkInstallPlan, topologySkills: stri
     : "";
   for (const selection of world.context) console.log(`context system ${selection.ref}${profiles(selection)}`);
   for (const selection of result.worlds ?? []) console.log(`context world ${selection.ref}${profiles(selection)}`);
-  if ((result.worlds ?? []).length > 0) console.log("worlds  read each with: rig context get <ref>");
+  if ((result.worlds ?? []).length > 0) console.log("worlds  read each with: SoftwareTeam context get <ref>");
   console.log(`skills  system=${selectedIds(world.skills, "(none)")}`);
   console.log(`skills  topology=${selectedIds(topologySkills, "(none)")}`);
   console.log(`skills  project=${selectedIds(result.skills, "(none)")}`);
@@ -114,7 +114,7 @@ interface PreviewWire {
 
 const SAFE_REF_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
-function assertSafeTopologySegment(kind: "rig" | "seat", value: string): void {
+function assertSafeTopologySegment(kind: "softwareTeam" | "seat", value: string): void {
   if (value === "." || value === ".." || !SAFE_REF_SEGMENT.test(value)) {
     throw new Error(`unsafe ${kind} segment '${value}' — topology addresses require one bounded path segment`);
   }
@@ -218,7 +218,7 @@ async function resolvePack(client: DaemonClient, nameOrRef: string): Promise<Con
       `/api/context-packs/library/by-ref?ref=${encodeURIComponent(nameOrRef)}`,
     );
     if (res.status === 200) return res.data;
-    if (res.status === 404) throw new Error(`Context pack '${nameOrRef}' not found in library. Run 'rig context list' to see what's available.`);
+    if (res.status === 404) throw new Error(`Context pack '${nameOrRef}' not found in library. Run 'SoftwareTeam context list' to see what's available.`);
     if (res.status === 400) throw new Error(res.data?.message ?? `Unsafe context pack ref '${nameOrRef}'.`);
     throw new Error(`Daemon returned HTTP ${res.status} for /api/context-packs/library/by-ref`);
   }
@@ -229,7 +229,7 @@ async function resolvePack(client: DaemonClient, nameOrRef: string): Promise<Con
   if (exactRef) return exactRef;
   const matches = entries.filter((e) => e.name === nameOrRef);
   if (matches.length === 0) {
-    throw new Error(`Context pack '${nameOrRef}' not found in library. Run 'rig context list' to see what's available.`);
+    throw new Error(`Context pack '${nameOrRef}' not found in library. Run 'SoftwareTeam context list' to see what's available.`);
   }
   if (matches.length > 1) {
     const refs = matches.map((entry) => entry.relativePath).join(", ");
@@ -243,16 +243,16 @@ export function contextCommand(depsOverride?: StatusDeps & { preflightExec?: (cm
     .description("Browse, preview, compose, and manage operator-authored context packs")
     .addHelpText("after", `
 Examples:
-  rig context list
-  rig context show pl-005-phase-a-priming
-  rig context preview pl-005-phase-a-priming
-  rig context add ./my-pack
-  rig context rm packs/compaction-restore
-  rig context sync
-  rig context profile world-public --situation fresh --runtime claude-code
-  rig context work-install --runtime claude-code
-  rig context trace --rig factory --seat orch-lead --name LEARNED.md
-  rig context trace --rig factory --pod dev --seat dev-qa --name LEARNED.md
+  SoftwareTeam context list
+  SoftwareTeam context show pl-005-phase-a-priming
+  SoftwareTeam context preview pl-005-phase-a-priming
+  SoftwareTeam context add ./my-pack
+  SoftwareTeam context rm packs/compaction-restore
+  SoftwareTeam context sync
+  SoftwareTeam context profile world-public --situation fresh --runtime claude-code
+  SoftwareTeam context work-install --runtime claude-code
+  SoftwareTeam context trace --software-team factory --seat orch-lead --name LEARNED.md
+  SoftwareTeam context trace --software-team factory --pod dev --seat dev-qa --name LEARNED.md
 `);
 
   const getDeps = (): StatusDeps => depsOverride ?? {
@@ -289,7 +289,7 @@ Examples:
         systemWorldSelection: String(systemWorldSetting.value),
         systemWorldSource: systemWorldSetting.source,
         cwd: resolve(opts.cwd ?? process.cwd()),
-        ...(process.env["OPENRIG_SESSION_NAME"] ? { sessionName: process.env["OPENRIG_SESSION_NAME"] } : {}),
+        ...(process.env["SOFTWARETEAM_SESSION_NAME"] ? { sessionName: process.env["SOFTWARETEAM_SESSION_NAME"] } : {}),
         ...(opts.project !== undefined ? { project: opts.project } : {}),
         ...(opts.mission !== undefined ? { mission: opts.mission } : {}),
         ...(opts.slice !== undefined ? { slice: opts.slice } : {}),
@@ -375,9 +375,9 @@ Examples:
         return;
       }
       const selectedByLabels: Record<string, string> = {
-        rig: " (selected by this rig's catalog entry)",
+        softwareTeam: " (selected by this softwareTeam's catalog entry)",
         cwd: " (selected by the working directory)",
-        unclaimed: " (the only project no rig claims)",
+        unclaimed: " (the only project no SoftwareTeam claims)",
       };
       const selectedBy = selectedByLabels[result.position.selectedBy] ?? "";
       console.log(`project ${result.position.projectId ?? "(unmanifested)"}: ${result.position.projectRoot}${selectedBy}`);
@@ -400,7 +400,7 @@ Examples:
     const deps = getDeps();
     let status = await getDaemonStatus(deps.lifecycleDeps);
     if (autoStartLocal && (status.state === "stopped" || status.state === "stale")
-      && !readOpenRigEnv("OPENRIG_URL", "RIGGED_URL")) {
+      && !readSoftwareTeamEnv("SOFTWARETEAM_URL")) {
       // Startup uses current config. A retained endpoint must not mask an
       // explicitly selected host when deciding whether startup is local.
       const selection = new ConfigStore().resolveWithSource("daemon.host");
@@ -428,13 +428,13 @@ Examples:
   // design: the walk is a config read + filesystem reads, so it works on a
   // box whose daemon is down (orientation is exactly when that happens).
   cmd.command("trace")
-    .description("Walk the topology tree for one chain filename (instance -> rig -> optional pod -> optional seat), keyed off topology.root")
-    .requiredOption("--rig <rig>", "Rig name (the rigs/<rig> altitude)")
+    .description("Walk the topology tree for one chain filename (instance -> SoftwareTeam -> optional pod -> optional seat), keyed off topology.root")
+    .requiredOption("--software-team <softwareTeam>", "SoftwareTeam name (the software-teams/<softwareTeam> altitude)")
     .option("--pod <pod>", "Pod id (the pods/<pod> altitude); omit when no pod context is selected")
-    .option("--seat <seat>", "Seat folder name (<pod>-<member>, e.g. dev1-qa); omit for a rig-level trace")
+    .option("--seat <seat>", "Seat folder name (<pod>-<member>, e.g. dev1-qa); omit for a software-team-level trace")
     .requiredOption("--name <file>", "Chain filename, identical at every altitude (e.g. LEARNED.md, CULTURE.md)")
     .option("--json", "JSON output for agents")
-    .action(async (opts: { rig: string; pod?: string; seat?: string; name: string; json?: boolean }) => {
+    .action(async (opts: { softwareTeam: string; pod?: string; seat?: string; name: string; json?: boolean }) => {
       const { ConfigStore } = await import("../config-store.js");
       const { traceTopologyChain } = await import("../lib/topology-trace.js");
       const store = new ConfigStore();
@@ -444,7 +444,7 @@ Examples:
         result = traceTopologyChain({
           topologyRoot: String(resolved.value),
           name: opts.name,
-          rig: opts.rig,
+          softwareTeam: opts.softwareTeam,
           pod: opts.pod ?? null,
           seat: opts.seat ?? null,
         });
@@ -483,7 +483,7 @@ Examples:
       const deps = getDeps();
       const status = await getDaemonStatus(deps.lifecycleDeps);
       if (status.state !== "running" || status.healthy === false) {
-        console.error("Daemon is not running. Start it with: rig daemon start");
+        console.error("Daemon is not running. Start it with: SoftwareTeam daemon start");
         process.exitCode = 1;
         return;
       }
@@ -527,7 +527,7 @@ Examples:
           return;
         }
         if (entries.length === 0) {
-          console.log("No context packs in library. Author one under `rig config get context.root`, then run: rig context sync");
+          console.log("No context packs in library. Author one under `SoftwareTeam config get context.root`, then run: SoftwareTeam context sync");
           return;
         }
         for (const e of entries) {
@@ -609,8 +609,8 @@ Examples:
   // path (the same by-ref/preview machinery `preview` uses — never a parallel assembler).
   // `preview` is the operator's pre-send check; `get` is what a seat runs on demand to LOAD a
   // library entry. Output is the assembled bundle itself (so the agent consumes exactly those
-  // bytes), warnings to stderr; `--json` for programmatic use. Naming ruled: `rig context get`
-  // (one library, one verb — NOT `rig skills get`; "skills" is an org category in the library).
+  // bytes), warnings to stderr; `--json` for programmatic use. Naming ruled: `SoftwareTeam context get`
+  // (one library, one verb — NOT `softwareTeam skills get`; "skills" is an org category in the library).
   cmd.command("get")
     .argument("<name-or-ref>", "Context library entry name, path-like ref, or address (<pack-ref>/<file>#H2-slug/H3-slug)")
     .description("Serve the assembled bundle for an agent to load on demand (the pull verb)")
@@ -677,7 +677,7 @@ Examples:
   // OPR.0.5.3.5 Atom 4d — situation-composed delivery (the profile verb).
   // Serving only: pieces to stdout with their source labels (Q2-Amendment 1),
   // budget report + provenance warnings to stderr. Delivery-free like every
-  // library verb — nothing here sends to a seat. Naming rig/seat (or mission)
+  // library verb — nothing here sends to a seat. Naming softwareTeam/seat (or mission)
   // is the caller's explicit grant of read access to that directory subtree.
   cmd.command("profile")
     .argument("<name-or-ref>", "Context pack name or path-like ref (its manifest must declare atoms)")
@@ -687,15 +687,15 @@ Examples:
     // the rule that the runtimes compose DIFFERENT profiles). Flag beats env;
     // an unrecognized env value falls back to claude rather than erroring a
     // surface the env owner may not control.
-    .option("--runtime <runtime>", "claude-code (alias: claude) or codex (default: $OPENRIG_RUNTIME, else claude-code)", contextRuntimeArg)
+    .option("--runtime <runtime>", "claude-code (alias: claude) or codex (default: $SOFTWARETEAM_RUNTIME, else claude-code)", contextRuntimeArg)
     .option("--profile <profile>", "Named install profile declared by the pack (selection + ordered phases)")
     .option("--budget <tokens>", "Situation token budget — overage is REPORTED, never truncated")
-    .option("--rig <rig>", "With --seat: grant read access to that seat's tree (seat: atoms)")
-    .option("--seat <seat>", "With --rig: the seat whose tree seat: atoms may read")
+    .option("--software-team <softwareTeam>", "With --seat: grant read access to that seat's tree (seat: atoms)")
+    .option("--seat <seat>", "With --software-team: the seat whose tree seat: atoms may read")
     .option("--mission <mission>", "Grant read access to that mission's tree (mission: atoms)")
     .option("--slice <slice>", "With --mission: compose the legacy default project/mission/slice SPEC walk")
     .option("--json", "JSON output (the full composed profile)")
-    .action(async (nameOrRef: string, opts: { situation: string; runtime?: string; profile?: string; budget?: string; rig?: string; seat?: string; mission?: string; slice?: string; json?: boolean }) => {
+    .action(async (nameOrRef: string, opts: { situation: string; runtime?: string; profile?: string; budget?: string; softwareTeam?: string; seat?: string; mission?: string; slice?: string; json?: boolean }) => {
       try {
         const client = await getClient();
         const entry = await resolvePack(client, nameOrRef);
@@ -704,13 +704,13 @@ Examples:
         // genuinely unknown value falls back to claude WITH A VOICE: a future
         // third runtime must not silently get a claude profile (the exact
         // mini-req 3 hazard this default exists to close).
-        const envRuntime = process.env["OPENRIG_RUNTIME"];
+        const envRuntime = process.env["SOFTWARETEAM_RUNTIME"];
         let runtime = opts.runtime;
         if (runtime === undefined) {
           if (envRuntime === "codex") runtime = "codex";
           else if (envRuntime === "claude-code" || envRuntime === "claude") runtime = "claude";
           else {
-            if (envRuntime) console.error(`Warning: unrecognized OPENRIG_RUNTIME '${envRuntime}' — composing the claude profile; pass --runtime to override.`);
+            if (envRuntime) console.error(`Warning: unrecognized SOFTWARETEAM_RUNTIME '${envRuntime}' — composing the claude profile; pass --runtime to override.`);
             runtime = "claude";
           }
         }
@@ -719,7 +719,7 @@ Examples:
         const params = new URLSearchParams({ ref: entry.relativePath, situation: opts.situation, runtime });
         if (opts.profile !== undefined) params.set("profile", opts.profile);
         if (opts.budget !== undefined) params.set("budget", opts.budget);
-        if (opts.rig !== undefined) params.set("rig", opts.rig);
+        if (opts.softwareTeam !== undefined) params.set("softwareTeam", opts.softwareTeam);
         if (opts.seat !== undefined) params.set("seat", opts.seat);
         if (opts.mission !== undefined) params.set("mission", opts.mission);
         if (opts.slice !== undefined) params.set("slice", opts.slice);
@@ -784,23 +784,23 @@ Examples:
   // is never blocked on prose shape.
   cmd.command("recap-write")
     .description("Write this seat's authored RECAP (decisions-with-rationale) at the handover boundary; supersedes the previous recap into the seat's chain")
-    .requiredOption("--rig <rig>", "Rig name (the rigs/<rig> altitude)")
+    .requiredOption("--software-team <softwareTeam>", "SoftwareTeam name (the software-teams/<softwareTeam> altitude)")
     .requiredOption("--seat <seat>", "Seat id (the seats/<seat> altitude)")
     .requiredOption("--file <path>", "Markdown file containing the recap content")
-    .action(async (opts: { rig: string; seat: string; file: string }) => {
+    .action(async (opts: { softwareTeam: string; seat: string; file: string }) => {
       try {
-        const { writeSeatRecap, validateRecapContract, listRecapChain } = await import("@openrig/daemon/seat-recap-store");
+        const { writeSeatRecap, validateRecapContract, listRecapChain } = await import("@softwareteam/daemon/seat-recap-store");
         const content = readFileSync(opts.file, "utf-8");
         const store = new ConfigStore();
         const topologyRoot = String(store.resolveWithSource("topology.root").value);
-        assertSafeTopologySegment("rig", opts.rig);
+        assertSafeTopologySegment("softwareTeam", opts.softwareTeam);
         assertSafeTopologySegment("seat", opts.seat);
-        const rigDir = join(topologyRoot, "rigs", opts.rig);
-        if (!existsSync(rigDir)) {
-          throw new Error(`rig directory ${rigDir} does not exist — check --rig against the topology tree (topology.root=${topologyRoot}).`);
+        const softwareTeamDir = join(topologyRoot, "software-teams", opts.softwareTeam);
+        if (!existsSync(softwareTeamDir)) {
+          throw new Error(`SoftwareTeam directory ${softwareTeamDir} does not exist — check --software-team against the topology tree (topology.root=${topologyRoot}).`);
         }
-        const seatDir = join(topologyRoot, "rigs", opts.rig, "seats", opts.seat);
-        assertDestinationNamespaceContained(join(topologyRoot, "rigs"), `${opts.rig}/seats/${opts.seat}/RECAP.md`);
+        const seatDir = join(topologyRoot, "software-teams", opts.softwareTeam, "seats", opts.seat);
+        assertDestinationNamespaceContained(join(topologyRoot, "software-teams"), `${opts.softwareTeam}/seats/${opts.seat}/RECAP.md`);
         mkdirSync(seatDir, { recursive: true });
         for (const f of validateRecapContract(content)) {
           console.error(f.kind === "no-decisions-section"
@@ -848,13 +848,13 @@ Examples:
     .option("--name <name>", "Override the install name (defaults to the manifest name / source basename)")
     .option("--git", "Fetch a Git repository's advertised commit at depth 1 with existing credentials; select a pack snapshot")
     .option("--checkout", "With --git, select an existing checkout instead of cloning; updates may merge in it")
-    .option("--pack <path>", "With --git, select a repository-relative pack; default discovers manifest.yaml or .openrig/context-packs")
+    .option("--pack <path>", "With --git, select a repository-relative pack; default discovers manifest.yaml or .softwareteam/context-packs")
     .option("--json", "JSON output")
     .addHelpText("after", "\nGit downloads omit history and tags initially. A server that refuses shallow retrieval gets a full clone instead, with a warning on stderr (also with --json).\nExisting --checkout history is unchanged; context source update explicitly fetches and merges later revisions.\n")
     .action(async (source: string, opts: { name?: string; json?: boolean; git?: boolean; checkout?: boolean; pack?: string }) => {
       try {
         // OPR.0.5.9.5 Wave B — config-resolved context library,
-        // never a hardcoded ~/.openrig literal; the daemon resolves the same key.
+        // never a hardcoded ~/.softwareteam literal; the daemon resolves the same key.
         const targetRoot = new ConfigStore().resolve().context.root;
         let targetDir: string;
         let gitSelection: ReturnType<typeof addGitContext>["selected"] | undefined;
@@ -910,7 +910,7 @@ Examples:
         if (syncRes.status !== 200) {
           // Install succeeded; sync failed → still surface install path.
           if (opts.json) console.log(JSON.stringify({ installedAt: targetDir, syncError: `HTTP ${syncRes.status}` }, null, 2));
-          else console.log(`Installed at ${targetDir}; daemon sync failed (HTTP ${syncRes.status}). Run 'rig context sync' manually.`);
+          else console.log(`Installed at ${targetDir}; daemon sync failed (HTTP ${syncRes.status}). Run 'SoftwareTeam context sync' manually.`);
           return;
         }
         const syncError = syncRes.data.errors?.find((e) => e.source === targetDir);
@@ -924,7 +924,7 @@ Examples:
           console.log(JSON.stringify({ installedAt: targetDir, count: syncRes.data.count, ...(gitSelection ? { gitSource: gitSelection } : {}) }, null, 2));
         } else {
           console.log(`Installed at ${targetDir}. Library now has ${syncRes.data.count} context pack(s).`);
-          if (gitSelection) console.log(`Git ${gitSelection.revision} from ${gitSelection.checkout}; inspect/update with rig context source.`);
+          if (gitSelection) console.log(`Git ${gitSelection.revision} from ${gitSelection.checkout}; inspect/update with SoftwareTeam context source.`);
         }
       } catch (err) {
         console.error((err as Error).message);
@@ -934,7 +934,7 @@ Examples:
 
   const source = cmd.command("source")
     .description("Inspect Git checkout vs served context, or explicitly fetch/merge and select an update")
-    .addHelpText("after", "\nStart: rig context add <repository-path-or-URL> --git [--pack path]\nEdit/commit in the reported checkout with ordinary Git. Updates never push or reset.\nConflicts retain the old selection; resolve/commit or abort in the checkout before retrying.\nSelection does not prove agent consumption; use context get and check the actual consumer.\n");
+    .addHelpText("after", "\nStart: SoftwareTeam context add <repository-path-or-URL> --git [--pack path]\nEdit/commit in the reported checkout with ordinary Git. Updates never push or reset.\nConflicts retain the old selection; resolve/commit or abort in the checkout before retrying.\nSelection does not prove agent consumption; use context get and check the actual consumer.\n");
   for (const operation of ["inspect", "update"] as const) {
     source.command(operation)
       .argument("<ref>", "Selected Git-backed context pack ref")
@@ -953,7 +953,7 @@ Examples:
           const result = operation === "inspect" ? inspectGitContext(entry.sourcePath) : updateGitContext(entry.sourcePath);
           if (operation === "update") {
             const sync = await client.post<{ errors?: Array<{ source: string; error: string }>; entries: ContextPackEntryWire[] }>("/api/context-packs/library/sync");
-            if (sync.status !== 200) throw new Error(`Selection updated, but library sync failed (HTTP ${sync.status}); run rig context sync.`);
+            if (sync.status !== 200) throw new Error(`Selection updated, but library sync failed (HTTP ${sync.status}); run SoftwareTeam context sync.`);
             if (!sync.data.entries.some((candidate) => resolve(candidate.sourcePath) === resolve(entry.sourcePath))) throw new Error(`Selection retained, but the daemon cannot serve it: ${sync.data.errors?.map((error) => error.error).join("; ") || "check context root and ref precedence"}`);
           }
           // Structured output keeps checkout/selected bytes/consumption distinct

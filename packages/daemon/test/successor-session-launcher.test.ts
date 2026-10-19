@@ -52,7 +52,7 @@ describe("SuccessorSessionLauncher", () => {
   function launcher(tmuxOptionDefaults?: TmuxOptionDefaultsApplier): SuccessorSessionLauncher {
     const tmux = { createSession, listPanes, killSession, respawnPane, setRemainOnExit, signalPaneProcess, isPaneDead, getDefaultShell, getPaneCommand } as unknown as TmuxAdapter;
     return new SuccessorSessionLauncher(tmux, discoveryRepo, {
-      sessionEnv: { OPENRIG_HOME: "/home", HOME: "/daemon-home", CODEX_HOME: "/daemon-codex" },
+      sessionEnv: { SOFTWARETEAM_HOME: "/home", HOME: "/daemon-home", CODEX_HOME: "/daemon-codex" },
       newId: () => "01ABCDEFG",
       runtimeAdapters: { codex: fakeAdapter("codex") },
       readinessTimeoutMs: 50,
@@ -66,16 +66,16 @@ describe("SuccessorSessionLauncher", () => {
   it("the successor's respawned pane gets the seat's declared env, and the declared names are recorded", async () => {
     const res = await launcher().createSuccessor({
       node: { id: "node-1", runtime: "codex", cwd: "/w", seatEnv: { MODE: "fast", REGION: "eu" } },
-      departingSessionName: "dev-impl@rig",
+      departingSessionName: "dev-impl@software-team",
     });
     expect(res.ok).toBe(true);
     const opts = respawnPane.mock.calls[0]![2];
-    expect(opts.env).toMatchObject({ MODE: "fast", REGION: "eu", OPENRIG_SEAT_ENV_KEYS: "MODE,REGION", OPENRIG_NODE_ID: "node-1" });
+    expect(opts.env).toMatchObject({ MODE: "fast", REGION: "eu", SOFTWARETEAM_SEAT_ENV_KEYS: "MODE,REGION", SOFTWARETEAM_NODE_ID: "node-1" });
   });
 
   it("a seat that declares no env gets no env keys variable", async () => {
-    await launcher().createSuccessor({ node: { id: "node-1", runtime: "codex", cwd: "/w" }, departingSessionName: "dev-impl@rig" });
-    expect(respawnPane.mock.calls[0]![2].env).not.toHaveProperty("OPENRIG_SEAT_ENV_KEYS");
+    await launcher().createSuccessor({ node: { id: "node-1", runtime: "codex", cwd: "/w" }, departingSessionName: "dev-impl@software-team" });
+    expect(respawnPane.mock.calls[0]![2].env).not.toHaveProperty("SOFTWARETEAM_SEAT_ENV_KEYS");
   });
 
   it("never reads or writes the departing session's environment: a handover that works on main works here, whatever tmux does to those calls", async () => {
@@ -89,7 +89,7 @@ describe("SuccessorSessionLauncher", () => {
       const plain = new SuccessorSessionLauncher(tmux, discoveryRepo, {
         runtimeAdapters: { codex: fakeAdapter("codex") }, readinessTimeoutMs: 50, sleep: async () => {}, exitPollMs: 1, exitTimeoutMs: 5,
       });
-      const res = await plain.createSuccessor({ node: { id: "node-1", runtime: "codex", cwd: "/w", ...(seatEnv ? { seatEnv } : {}) }, departingSessionName: "dev-impl@rig" });
+      const res = await plain.createSuccessor({ node: { id: "node-1", runtime: "codex", cwd: "/w", ...(seatEnv ? { seatEnv } : {}) }, departingSessionName: "dev-impl@software-team" });
       expect(res.ok).toBe(true);
       expect(respawnPane).toHaveBeenCalledTimes(1);
     }
@@ -102,7 +102,7 @@ describe("SuccessorSessionLauncher", () => {
     listPanes.mockResolvedValue([{ id: "%42", index: 0, cwd: "/w", width: 80, height: 24, active: true }]);
     const res = await launcher().createSuccessor({
       node: { id: "node-1", runtime: "codex", cwd: "/w", model: "gpt-5.4-cheap" },
-      departingSessionName: "dev-impl@rig",
+      departingSessionName: "dev-impl@software-team",
     });
     expect(res.ok).toBe(true);
     expect(launchHarness).toHaveBeenCalledTimes(1);
@@ -119,11 +119,11 @@ describe("SuccessorSessionLauncher", () => {
     expect(launchHarness.mock.calls[0]![0]).toMatchObject({ kernelAuthority: true, launchPosture: "full_bypass" });
   });
 
-  it("the successor keeps the saved non-interruptive rig choice", async () => {
+  it("the successor keeps the saved non-interruptive SoftwareTeam choice", async () => {
     listPanes.mockResolvedValue([{ id: "%42", index: 0, cwd: "/w", width: 80, height: 24, active: true }]);
     const res = await launcher().createSuccessor({
       node: { id: "node-1", runtime: "codex", cwd: "/w", nonInterruptive: true, launchPosture: "full_bypass" },
-      departingSessionName: "dev-impl@rig",
+      departingSessionName: "dev-impl@software-team",
     });
     expect(res.ok).toBe(true);
     expect(launchHarness.mock.calls[0]![0]).toMatchObject({ nonInterruptive: true, launchPosture: "full_bypass" });
@@ -133,7 +133,7 @@ describe("SuccessorSessionLauncher", () => {
     listPanes.mockResolvedValue([{ id: "%42", index: 0, cwd: "/w", width: 80, height: 24, active: true }]);
     const res = await launcher().createSuccessor({
       node: { id: "node-1", runtime: "codex", cwd: "/w", effort: "high" },
-      departingSessionName: "dev-impl@rig",
+      departingSessionName: "dev-impl@software-team",
     });
     expect(res.ok).toBe(true);
     expect(launchHarness).toHaveBeenCalledTimes(1);
@@ -150,7 +150,7 @@ describe("SuccessorSessionLauncher", () => {
 
     const res = await launcher().createSuccessor({
       node: { id: "node-1", runtime: "codex", cwd: "/w" },
-      departingSessionName: "dev-impl@rig",
+      departingSessionName: "dev-impl@software-team",
     });
 
     expect(res.ok).toBe(true);
@@ -159,7 +159,7 @@ describe("SuccessorSessionLauncher", () => {
     // No fresh session — the retiree's pane is reused in place.
     expect(createSession).not.toHaveBeenCalled();
     // The DEPARTING session's pane is resolved (to take it over), then respawned in place.
-    expect(listPanes).toHaveBeenCalledWith("dev-impl@rig");
+    expect(listPanes).toHaveBeenCalledWith("dev-impl@software-team");
     expect(respawnPane).toHaveBeenCalledTimes(1);
     const [paneTarget, command, opts] = respawnPane.mock.calls[0]!;
     expect(paneTarget).toBe("%42");
@@ -170,10 +170,10 @@ describe("SuccessorSessionLauncher", () => {
     // Identity env carries the PRESERVED canonical session name (never a -h successor name) + the
     // daemon session env (self-identify + activity report like a launched seat).
     expect(opts.env).toMatchObject({
-      OPENRIG_NODE_ID: "node-1",
-      OPENRIG_SESSION_NAME: "dev-impl@rig",
-      OPENRIG_RUNTIME: "codex",
-      OPENRIG_HOME: "/home",
+      SOFTWARETEAM_NODE_ID: "node-1",
+      SOFTWARETEAM_SESSION_NAME: "dev-impl@software-team",
+      SOFTWARETEAM_RUNTIME: "codex",
+      SOFTWARETEAM_HOME: "/home",
       HOME: "/daemon-home",
       CODEX_HOME: "/daemon-codex",
     });
@@ -190,12 +190,12 @@ describe("SuccessorSessionLauncher", () => {
     // launch resume token is captured + returned (persisted at commit by the composer, never here).
     expect(launchHarness).toHaveBeenCalledTimes(1);
     const [binding, launchOpts] = launchHarness.mock.calls[0]!;
-    expect(binding).toMatchObject({ tmuxSession: "dev-impl@rig", tmuxPane: "%42", cwd: "/w" });
-    expect(launchOpts).toMatchObject({ name: "dev-impl@rig" });
+    expect(binding).toMatchObject({ tmuxSession: "dev-impl@software-team", tmuxPane: "%42", cwd: "/w" });
+    expect(launchOpts).toMatchObject({ name: "dev-impl@software-team" });
     expect(checkReady).toHaveBeenCalled();
     expect(res.resumeToken).toBe("codex-thread-xyz");
     expect(res.resumeType).toBe("codex_id");
-    expect(res.tmuxSession).toBe("dev-impl@rig");
+    expect(res.tmuxSession).toBe("dev-impl@software-team");
     expect(res.tmuxPane).toBe("%42");
     // Order: resolve departing pane → terminate → respawn in place → launch the harness into it.
     expect(respawnPane.mock.invocationCallOrder[0]!).toBeGreaterThan(listPanes.mock.invocationCallOrder[0]!);
@@ -204,7 +204,7 @@ describe("SuccessorSessionLauncher", () => {
     // Recorded as an ACTIVE, UNMANAGED discovery candidate on the PRESERVED name (commit rebinds to it);
     // no binding/session rows are created here — the commit is the sole rebind.
     const row = discoveryRepo.getDiscoveredSession(res.discoveredId);
-    expect(row).toMatchObject({ tmuxSession: "dev-impl@rig", tmuxPane: "%42", status: "active", claimedNodeId: null });
+    expect(row).toMatchObject({ tmuxSession: "dev-impl@software-team", tmuxPane: "%42", status: "active", claimedNodeId: null });
     expect(db.prepare("SELECT COUNT(*) AS n FROM bindings").get()).toEqual({ n: 0 });
     expect(db.prepare("SELECT COUNT(*) AS n FROM sessions").get()).toEqual({ n: 0 });
   });
@@ -212,7 +212,7 @@ describe("SuccessorSessionLauncher", () => {
   it("carries the supplied generation exactly and never lets ambient session env override it", async () => {
     const tmux = { createSession, listPanes, killSession, respawnPane, setRemainOnExit, signalPaneProcess, isPaneDead, getDefaultShell, getPaneCommand } as unknown as TmuxAdapter;
     const subject = new SuccessorSessionLauncher(tmux, discoveryRepo, {
-      sessionEnv: { OPENRIG_OCCUPANT_GENERATION: "stale-ambient-generation" },
+      sessionEnv: { SOFTWARETEAM_OCCUPANT_GENERATION: "stale-ambient-generation" },
       newId: () => "01ABCDEFG",
       runtimeAdapters: { codex: fakeAdapter("codex") },
       readinessTimeoutMs: 50,
@@ -223,12 +223,12 @@ describe("SuccessorSessionLauncher", () => {
 
     const result = await subject.createSuccessor({
       node: { id: "node-1", runtime: "codex", cwd: "/w" },
-      departingSessionName: "dev-impl@rig",
+      departingSessionName: "dev-impl@software-team",
       occupantGeneration: "reserved-generation",
     });
 
     expect(result.ok).toBe(true);
-    expect(respawnPane.mock.calls[0]![2]!.env.OPENRIG_OCCUPANT_GENERATION).toBe("reserved-generation");
+    expect(respawnPane.mock.calls[0]![2]!.env.SOFTWARETEAM_OCCUPANT_GENERATION).toBe("reserved-generation");
   });
 
   it("CUTOVER forced fallback: retiree survives graceful SIGTERM → bounded SIGKILL, then respawns", async () => {
@@ -238,7 +238,7 @@ describe("SuccessorSessionLauncher", () => {
     signalPaneProcess.mockImplementation(async (_p: string, sig: string) => { if (sig === "KILL") killed = true; return { ok: true }; });
     isPaneDead.mockImplementation(async () => killed);
 
-    const res = await launcher().createSuccessor({ node: { id: "n", runtime: "codex", cwd: "/w" }, departingSessionName: "dev-impl@rig" });
+    const res = await launcher().createSuccessor({ node: { id: "n", runtime: "codex", cwd: "/w" }, departingSessionName: "dev-impl@software-team" });
 
     expect(res.ok).toBe(true);
     expect(signalPaneProcess).toHaveBeenCalledWith("%42", "TERM");
@@ -307,7 +307,7 @@ describe("SuccessorSessionLauncher", () => {
 
     const res = await launcher().createSuccessor({
       node: { id: "n", runtime: "codex", cwd: "/w" },
-      departingSessionName: "dev-impl@rig",
+      departingSessionName: "dev-impl@software-team",
     });
 
     expect(res).toMatchObject({ ok: false, step: "start_agent", code: "successor_launch_failed" });
@@ -527,7 +527,7 @@ describe("SuccessorSessionLauncher", () => {
     it("respawns with an EXPLICIT default shell — never `undefined`, which re-runs the pane's creation command", async () => {
       const res = await launcher().createSuccessor({
         node: { id: "n", runtime: "codex", cwd: "/w" },
-        departingSessionName: "dev-guard@rig",
+        departingSessionName: "dev-guard@software-team",
       });
       expect(res.ok).toBe(true);
       // The whole defect: `undefined` here delegates the successor's identity to pane history.
@@ -546,7 +546,7 @@ describe("SuccessorSessionLauncher", () => {
       getPaneCommand.mockResolvedValue("node");
       const res = await launcher().createSuccessor({
         node: { id: "n", runtime: "codex", cwd: "/w" },
-        departingSessionName: "dev-guard@rig",
+        departingSessionName: "dev-guard@software-team",
       });
       expect(res).toMatchObject({ ok: false, code: "successor_pane_not_blank", step: "create_successor", replacementStarted: true });
       expect((res as { message: string }).message).toContain("node");
@@ -565,7 +565,7 @@ describe("SuccessorSessionLauncher", () => {
       getDefaultShell.mockResolvedValue("/bin/tcsh");
       const res = await launcher().createSuccessor({
         node: { id: "n", runtime: "codex", cwd: "/w" },
-        departingSessionName: "dev-guard@rig",
+        departingSessionName: "dev-guard@software-team",
       });
       expect(res.ok).toBe(true);
       const [, command] = respawnPane.mock.calls[0]!;
@@ -581,7 +581,7 @@ describe("SuccessorSessionLauncher", () => {
       getDefaultShell.mockResolvedValue("/opt/oddshells/bin/osh");
       const res = await launcher().createSuccessor({
         node: { id: "n", runtime: "codex", cwd: "/w" },
-        departingSessionName: "dev-guard@rig",
+        departingSessionName: "dev-guard@software-team",
       });
       expect(res.ok).toBe(true);
       expect(launchHarness).toHaveBeenCalledTimes(1);
@@ -591,7 +591,7 @@ describe("SuccessorSessionLauncher", () => {
       getPaneCommand.mockResolvedValue("-zsh");
       const res = await launcher().createSuccessor({
         node: { id: "n", runtime: "codex", cwd: "/w" },
-        departingSessionName: "dev-guard@rig",
+        departingSessionName: "dev-guard@software-team",
       });
       expect(res.ok).toBe(true);
       expect(launchHarness).toHaveBeenCalledTimes(1);
@@ -601,7 +601,7 @@ describe("SuccessorSessionLauncher", () => {
       getDefaultShell.mockResolvedValue(null);
       const res = await launcher().createSuccessor({
         node: { id: "n", runtime: "codex", cwd: "/w" },
-        departingSessionName: "dev-guard@rig",
+        departingSessionName: "dev-guard@software-team",
       });
       expect(res.ok).toBe(true);
       const [, command] = respawnPane.mock.calls[0]!;

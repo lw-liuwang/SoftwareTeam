@@ -6,8 +6,8 @@ import { heartbeatCommand, analyzeHeartbeat } from "../src/commands/heartbeat.js
 
 const NOW = new Date("2026-04-24T12:00:00Z");
 
-function writeQueue(root: string, rig: string, pod: string, member: string, body: string): string {
-  const dir = join(root, "rigs", rig, "state", pod);
+function writeQueue(root: string, softwareTeam: string, pod: string, member: string, body: string): string {
+  const dir = join(root, "software-teams", softwareTeam, "state", pod);
   mkdirSync(dir, { recursive: true });
   const path = join(dir, `${member}.queue.md`);
   writeFileSync(path, body, "utf8");
@@ -71,11 +71,11 @@ async function captureLogs(fn: () => Promise<void>): Promise<{ logs: string[]; e
   return { logs, errors, exitCode };
 }
 
-describe("rig heartbeat", () => {
+describe("SoftwareTeam heartbeat", () => {
   let root: string;
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), "openrig-heartbeat-"));
+    root = mkdtempSync(join(tmpdir(), "softwareteam-heartbeat-"));
   });
 
   afterEach(() => {
@@ -87,7 +87,7 @@ describe("rig heartbeat", () => {
     const content = queue([entry({ id: "waiting", state: "in-progress", title: "Authored task", body: "**State transitions:**\n- 2026-04-24T08:00:00Z - in-progress (accepted)" })]).replace(/\n/g, newline);
     const file = writeQueue(root, "alpha", "dev", "impl", content);
     const cmd = heartbeatCommand({ sharedDocsRoot: root, now: () => NOW });
-    const captured = await captureLogs(() => cmd.parseAsync(["node", "rig", "--rig", "alpha", "--json"]).then(() => {}));
+    const captured = await captureLogs(() => cmd.parseAsync(["node", "softwareTeam", "--software-team", "alpha", "--json"]).then(() => {}));
     const report = JSON.parse(captured.logs[0]!);
     expect(report.summary).toMatchObject({ total: 1, unproven: 1 });
     expect(report.items[0]).toMatchObject({ id: "waiting", title: "Authored task", owner: "dev.impl", session: "dev-impl@alpha" });
@@ -112,7 +112,7 @@ describe("rig heartbeat", () => {
         id: "proven",
         state: "in-progress",
         tsCreated: "2026-04-24T08:00:00Z",
-        body: "**State transitions:**\n- 2026-04-24T08:00:00Z - in-progress\n- 2026-04-24T11:30:00Z - in-progress; proof: wrote `openrig-work/artifact.md`",
+        body: "**State transitions:**\n- 2026-04-24T08:00:00Z - in-progress\n- 2026-04-24T11:30:00Z - in-progress; proof: wrote `softwareteam-work/artifact.md`",
       }),
       entry({
         id: "stalled",
@@ -146,7 +146,7 @@ describe("rig heartbeat", () => {
 
     const result = analyzeHeartbeat({
       sharedDocsRoot: root,
-      rig: "alpha",
+      softwareTeam: "alpha",
       now: NOW,
       includeDone: true,
     });
@@ -189,7 +189,7 @@ describe("rig heartbeat", () => {
 
     const cmd = heartbeatCommand({ sharedDocsRoot: root, now: () => NOW });
     const { logs, exitCode } = await captureLogs(async () => {
-      await cmd.parseAsync(["node", "rig", "--rig", "alpha", "--json"]);
+      await cmd.parseAsync(["node", "softwareTeam", "--software-team", "alpha", "--json"]);
     });
 
     expect(exitCode).toBeUndefined();
@@ -200,7 +200,7 @@ describe("rig heartbeat", () => {
     expect(parsed.items).toHaveLength(1);
     expect(parsed.items[0]).toMatchObject({
       id: "active",
-      rig: "alpha",
+      softwareTeam: "alpha",
       owner: "dev.impl",
       session: "dev-impl@alpha",
       executionState: "checked-out",
@@ -218,7 +218,7 @@ describe("rig heartbeat", () => {
 
     const cmd = heartbeatCommand({ sharedDocsRoot: root, now: () => NOW });
     const { logs } = await captureLogs(async () => {
-      await cmd.parseAsync(["node", "rig", "--rig", "alpha", "--json", "--include-done"]);
+      await cmd.parseAsync(["node", "softwareTeam", "--software-team", "alpha", "--json", "--include-done"]);
     });
 
     const parsed = JSON.parse(logs.join("\n"));
@@ -250,7 +250,7 @@ describe("rig heartbeat", () => {
 
     const result = analyzeHeartbeat({
       sharedDocsRoot: root,
-      rig: "alpha",
+      softwareTeam: "alpha",
       now: NOW,
     });
 
@@ -271,7 +271,7 @@ describe("rig heartbeat", () => {
 
     const result = analyzeHeartbeat({
       sharedDocsRoot: root,
-      rig: "alpha",
+      softwareTeam: "alpha",
       now: NOW,
     });
 
@@ -311,7 +311,7 @@ describe("rig heartbeat", () => {
     });
 
     const { logs } = await captureLogs(async () => {
-      await cmd.parseAsync(["node", "rig", "--rig", "alpha", "--json", "--nudge"]);
+      await cmd.parseAsync(["node", "softwareTeam", "--software-team", "alpha", "--json", "--nudge"]);
     });
 
     expect(sends.map((send) => send.session)).toEqual(["dev-impl@alpha", "dev-impl@alpha"]);

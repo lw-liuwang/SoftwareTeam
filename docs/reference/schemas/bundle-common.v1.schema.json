@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://openrig.dev/schemas/bundle-common.v1.json",
+  "$id": "https://github.com/lw-liuwang/SoftwareTeam/schemas/bundle-common.v1.json",
   "title": "Shared bundle identity definitions (v1)",
   "description": "Source identity, configuration ID, package digest and assembler, shared by every bundle format. See docs/reference/bundle-formats.md.",
   "$defs": {
@@ -20,7 +20,7 @@
         "folder": {
           "type": "string",
           "pattern": "^(\\.|(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\\\]+)$",
-          "description": "Repo-relative POSIX path of the folder holding rig.yaml; '.' is the repository root."
+          "description": "Repo-relative POSIX path of the folder holding software-team.yaml; '.' is the repository root."
         },
         "resolvedCommit": {
           "type": "string",
@@ -44,7 +44,7 @@
     "runtime": {
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9-]*$",
-      "description": "A runtime as rig.yaml spells it, for example claude-code, codex, pi."
+      "description": "A runtime as software-team.yaml spells it, for example claude-code, codex, pi."
     },
     "configurationId": {
       "type": "string",
@@ -68,7 +68,7 @@
           "pattern": "^[0-9a-f]{64}$"
         },
         "coverage": {
-          "const": "openrig.package-digest/v1"
+          "const": "softwareteam.package-digest/v1"
         }
       },
       "additionalProperties": false
@@ -76,10 +76,10 @@
     "assembler": {
       "type": "object",
       "required": [
-        "openrigVersion"
+        "softwareteamVersion"
       ],
       "properties": {
-        "openrigVersion": {
+        "softwareteamVersion": {
           "type": "string",
           "minLength": 1
         },

@@ -5,6 +5,6 @@ export const podNamespaceSchema: Migration = {
   sql: `
     ALTER TABLE pods ADD COLUMN namespace TEXT NOT NULL DEFAULT '';
     UPDATE pods SET namespace = id WHERE namespace = '';
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_pods_rig_namespace ON pods(rig_id, namespace) WHERE namespace != '';
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_pods_software_team_namespace ON pods(software_team_id, namespace) WHERE namespace != '';
   `,
 };

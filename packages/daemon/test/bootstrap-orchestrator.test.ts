@@ -25,7 +25,7 @@ import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 
 const SIMPLE_SPEC_YAML = `
 schema_version: 1
-name: test-rig
+name: test-software-team
 version: "1.0"
 nodes:
   - id: dev
@@ -35,7 +35,7 @@ edges: []
 
 const SPEC_WITH_PACKAGES_YAML = `
 schema_version: 1
-name: test-rig
+name: test-software-team
 version: "1.0"
 nodes:
   - id: dev
@@ -74,14 +74,14 @@ function createMockExec(responses: Record<string, string | Error>): ExecFn {
   }) as unknown as ExecFn;
 }
 
-// Minimal mock RigInstantiator that returns success
+// Minimal mock SoftwareTeamInstantiator that returns success
 function createMockInstantiator(db: Database.Database) {
   return {
     db,
     async instantiate() {
       return {
         ok: true as const,
-        result: { rigId: "rig-1", specName: "test-rig", specVersion: "1.0", nodes: [{ logicalId: "dev", status: "launched" as const }] },
+        result: { softwareTeamId: "software-team-1", specName: "test-software-team", specVersion: "1.0", nodes: [{ logicalId: "dev", status: "launched" as const }] },
       };
     },
   };
@@ -113,7 +113,7 @@ describe("BootstrapOrchestrator", () => {
   });
 
   function writeSpec(yaml: string): string {
-    const specPath = path.join(tmpDir, "rig.yaml");
+    const specPath = path.join(tmpDir, "software-team.yaml");
     fs.writeFileSync(specPath, yaml);
     return specPath;
   }
@@ -193,7 +193,7 @@ describe("BootstrapOrchestrator", () => {
       installPlanner,
       installExecutor,
       packageInstallService,
-      rigInstantiator: instantiator as any,
+      softwareTeamInstantiator: instantiator as any,
       fsOps: realFsOps(),
       bundleSourceResolver: null,
       podInstantiator: opts?.podInstantiator as any,
@@ -204,14 +204,14 @@ describe("BootstrapOrchestrator", () => {
     ["false", undefined, false], ["true", undefined, true],
     ["true", false, false], ["false", true, true],
   ] as const)("non-interruptive default %s / override %s reaches instantiation", async (operatorDefault, choice, expected) => {
-    vi.stubEnv("OPENRIG_LAUNCH_NON_INTERRUPTIVE", operatorDefault);
+    vi.stubEnv("SOFTWARETEAM_LAUNCH_NON_INTERRUPTIVE", operatorDefault);
     const instantiator = createMockInstantiator(db);
     const spy = vi.spyOn(instantiator, "instantiate");
     const orch = buildOrchestrator({ instantiator });
     const result = await orch.bootstrap({ mode: "apply", sourceRef: writeSpec(SIMPLE_SPEC_YAML), nonInterruptive: choice });
     expect(result.status).toBe("completed");
     expect(spy).toHaveBeenCalledWith(expect.anything(), { nonInterruptive: expected });
-    if (expected) expect(result.warnings.join("\n")).toContain("saved for this rig");
+    if (expected) expect(result.warnings.join("\n")).toContain("saved for this SoftwareTeam");
   });
 
   it.each([
@@ -219,8 +219,8 @@ describe("BootstrapOrchestrator", () => {
     ["false", true, false, false], ["true", false, true, true],
     ["true", undefined, undefined, true], ["false", undefined, undefined, false],
   ] as const)("pod authored choice: machine %s / declared %s / request %s => %s", async (machine, declared, request, expected) => {
-    vi.stubEnv("OPENRIG_LAUNCH_NON_INTERRUPTIVE", machine);
-    const instantiate = vi.fn(async () => ({ ok: true as const, result: { rigId: "choice-rig", specName: "choice", specVersion: "0.2", nodes: [] } }));
+    vi.stubEnv("SOFTWARETEAM_LAUNCH_NON_INTERRUPTIVE", machine);
+    const instantiate = vi.fn(async () => ({ ok: true as const, result: { softwareTeamId: "choice-software-team", specName: "choice", specVersion: "0.2", nodes: [] } }));
     const orch = buildOrchestrator({ podInstantiator: { db, instantiate } });
     const yaml = `version: "0.2"\nname: choice\n${declared === undefined ? "" : `non_interruptive: ${declared}\n`}pods: [{id: dev, label: Dev, members: [{id: shell, agent_ref: "builtin:terminal", runtime: terminal, profile: none, cwd: .}], edges: []}]\nedges: []\n`;
     const result = await orch.bootstrap({ mode: "apply", sourceRef: writeSpec(yaml), nonInterruptive: request });
@@ -265,19 +265,19 @@ profiles:
       path.join(tmpDir, "agents", "shared", "agent.yaml"),
       "name: shared\nversion: \"1.0.0\"\nresources:\n  skills: []\nprofiles: {}\n",
     );
-    fs.writeFileSync(path.join(catalog, "catalog.yaml"), "schema: openrig.skill-catalog/v1\nsystem: []\n");
+    fs.writeFileSync(path.join(catalog, "catalog.yaml"), "schema: softwareteam.skill-catalog/v1\nsystem: []\n");
     fs.writeFileSync(
       path.join(catalog, "topology-skill", "SKILL.md"),
       "---\nname: topology-skill\ndescription: Use when testing bootstrap plan catalog resolution.\n---\n\n# Topology skill\n",
     );
     execFileSync("git", ["-C", catalog, "init", "-q"]);
-    execFileSync("git", ["-C", catalog, "config", "user.email", "test@openrig.invalid"]);
-    execFileSync("git", ["-C", catalog, "config", "user.name", "OpenRig Test"]);
+    execFileSync("git", ["-C", catalog, "config", "user.email", "test@softwareteam.invalid"]);
+    execFileSync("git", ["-C", catalog, "config", "user.name", "SoftwareTeam Test"]);
     execFileSync("git", ["-C", catalog, "add", "."]);
     execFileSync("git", ["-C", catalog, "commit", "-qm", "fixture"]);
 
     const specPath = writeSpec(`version: "0.2"
-name: selector-plan-rig
+name: selector-plan-software-team
 pods:
   - id: dev
     label: Dev
@@ -299,7 +299,7 @@ edges: []
     };
     const orch = buildOrchestrator({ podInstantiator });
 
-    const result = await orch.bootstrap({ mode: "plan", sourceRef: specPath, sourceKind: "rig_spec" });
+    const result = await orch.bootstrap({ mode: "plan", sourceRef: specPath, sourceKind: "software_team_spec" });
 
     expect(result.status, JSON.stringify(result.errors)).toBe("planned");
     expect(result.stages.find((stage) => stage.stage === "preflight")?.status).toBe("ok");
@@ -314,9 +314,9 @@ edges: []
     const result = await orch.bootstrap({ mode: "apply", sourceRef: specPath, autoApprove: true });
 
     expect(result.status).toBe("completed");
-    expect(result.rigId).toBeTruthy();
+    expect(result.softwareTeamId).toBeTruthy();
     expect(result.stages.some((s) => s.stage === "resolve_spec")).toBe(true);
-    expect(result.stages.some((s) => s.stage === "import_rig")).toBe(true);
+    expect(result.stages.some((s) => s.stage === "import_software_team")).toBe(true);
   });
 
   // T3: Runtime not_found -> blocked
@@ -381,7 +381,7 @@ requirements:
 
     const specYaml = `
 schema_version: 1
-name: test-rig
+name: test-software-team
 version: "1.0"
 nodes:
   - id: dev
@@ -434,9 +434,9 @@ edges: []
     const result = await orch.bootstrap({ mode: "apply", sourceRef: specPath, autoApprove: true });
 
     const run = db.prepare("SELECT * FROM bootstrap_runs WHERE id = ?")
-      .get(result.runId) as { status: string; rig_id: string | null };
+      .get(result.runId) as { status: string; software_team_id: string | null };
     expect(run.status).toBe("completed");
-    expect(run.rig_id).toBeTruthy();
+    expect(run.software_team_id).toBeTruthy();
   });
 
   // T12: manual_only blocks apply
@@ -487,7 +487,7 @@ requirements:
 
     const orch = new BootstrapOrchestrator({
       db, bootstrapRepo, runtimeVerifier, probeRegistry, installPlanner, installExecutor,
-      packageInstallService, rigInstantiator: createMockInstantiator(db) as any, fsOps: realFsOps(),
+      packageInstallService, softwareTeamInstantiator: createMockInstantiator(db) as any, fsOps: realFsOps(),
     });
 
     const result = await orch.bootstrap({ mode: "apply", sourceRef: specPath, autoApprove: true });
@@ -505,7 +505,7 @@ requirements:
 
     const specYaml = `
 schema_version: 1
-name: test-rig
+name: test-software-team
 version: "1.0"
 nodes:
   - id: dev
@@ -514,7 +514,7 @@ nodes:
       - ./my-pkg
 edges: []
 `.trim();
-    const specPath = path.join(subDir, "rig.yaml");
+    const specPath = path.join(subDir, "software-team.yaml");
     fs.writeFileSync(specPath, specYaml);
 
     const orch = buildOrchestrator();
@@ -539,7 +539,7 @@ edges: []
         installPlanner: new ExternalInstallPlanner(),
         installExecutor: new ExternalInstallExecutor({ exec: vi.fn() as any, db }),
         packageInstallService: { db } as any,
-        rigInstantiator: { db } as any,
+        softwareTeamInstantiator: { db } as any,
         fsOps: realFsOps(),
       });
     }).toThrow(/same db handle/);
@@ -551,7 +551,7 @@ edges: []
   it("github: packageRef blocked with structured error", async () => {
     const specYaml = `
 schema_version: 1
-name: test-rig
+name: test-software-team
 version: "1.0"
 nodes:
   - id: dev
@@ -664,16 +664,16 @@ requirements:
     expect(actions.some((a) => a.subject_name === "rg")).toBe(true);
   });
 
-  // T7: Rig import uses instantiator
-  it("rig import uses Phase 3 instantiator and journals result", async () => {
+  // T7: SoftwareTeam import uses instantiator
+  it("SoftwareTeam import uses Phase 3 instantiator and journals result", async () => {
     const specPath = writeSpec(SIMPLE_SPEC_YAML);
     const orch = buildOrchestrator();
 
     const result = await orch.bootstrap({ mode: "apply", sourceRef: specPath, autoApprove: true });
 
-    expect(result.rigId).toBe("rig-1");
+    expect(result.softwareTeamId).toBe("software-team-1");
     const importActions = db.prepare("SELECT * FROM bootstrap_actions WHERE bootstrap_id = ? AND action_kind = ?")
-      .all(result.runId, "rig_import") as Array<{ subject_name: string; status: string }>;
+      .all(result.runId, "software_team_import") as Array<{ subject_name: string; status: string }>;
     expect(importActions).toHaveLength(1);
     expect(importActions[0]!.status).toBe("completed");
   });
@@ -713,10 +713,10 @@ requirements:
 
     const result = await orch.bootstrap({ mode: "apply", sourceRef: specPath, autoApprove: true });
 
-    // External install failure + rig import success -> partial
+    // External install failure + softwareTeam import success -> partial
     expect(result.status).toBe("partial");
-    // Rig import should still have happened
-    expect(result.stages.some((s) => s.stage === "import_rig" && s.status === "ok")).toBe(true);
+    // SoftwareTeam import should still have happened
+    expect(result.stages.some((s) => s.stage === "import_software_team" && s.status === "ok")).toBe(true);
   });
 
   // T10: All actions journaled in seq order
@@ -728,7 +728,7 @@ requirements:
 
     const actions = db.prepare("SELECT * FROM bootstrap_actions WHERE bootstrap_id = ? ORDER BY seq ASC")
       .all(result.runId) as Array<{ seq: number; action_kind: string }>;
-    // Should have at least runtime checks + rig_import
+    // Should have at least runtime checks + software_team_import
     expect(actions.length).toBeGreaterThanOrEqual(2);
     // Seq should be strictly increasing
     for (let i = 1; i < actions.length; i++) {
@@ -779,7 +779,7 @@ requirements:
   });
 
   // T16: Mixed seq ordering across orchestrator-journaled + executor-journaled rows (startSeq handoff)
-  it("mixed seq ordering across runtime_check + external_install + package_install + rig_import", async () => {
+  it("mixed seq ordering across runtime_check + external_install + package_install + software_team_import", async () => {
     const pkgDir = path.join(tmpDir, "test-pkg");
     const manifest = `
 schema_version: 1
@@ -815,22 +815,22 @@ requirements:
     const actions = db.prepare("SELECT action_kind, seq FROM bootstrap_actions WHERE bootstrap_id = ? ORDER BY seq")
       .all(result.runId) as Array<{ action_kind: string; seq: number }>;
 
-    // Should have: runtime_check(s), requirement_check(s), external_install(s), package_install, rig_import
+    // Should have: runtime_check(s), requirement_check(s), external_install(s), package_install, software_team_import
     // All with strictly increasing seq and no gaps between orchestrator and executor rows
     const kinds = actions.map((a) => a.action_kind);
     expect(kinds).toContain("runtime_check");
     expect(kinds).toContain("external_install"); // Written by executor with startSeq
-    expect(kinds).toContain("rig_import");
+    expect(kinds).toContain("software_team_import");
     // Seq strictly increasing
     for (let i = 1; i < actions.length; i++) {
       expect(actions[i]!.seq).toBeGreaterThan(actions[i - 1]!.seq);
     }
-    // Runtime checks before external_install before rig_import
+    // Runtime checks before external_install before software_team_import
     const firstRuntime = actions.findIndex((a) => a.action_kind === "runtime_check");
     const firstExternal = actions.findIndex((a) => a.action_kind === "external_install");
-    const firstRigImport = actions.findIndex((a) => a.action_kind === "rig_import");
+    const firstSoftwareTeamImport = actions.findIndex((a) => a.action_kind === "software_team_import");
     expect(firstRuntime).toBeLessThan(firstExternal);
-    expect(firstExternal).toBeLessThan(firstRigImport);
+    expect(firstExternal).toBeLessThan(firstSoftwareTeamImport);
   });
 
   // T20: selective approvedActionKeys execution
@@ -971,7 +971,7 @@ requirements:
 
     const specYaml = `
 schema_version: 1
-name: test-rig
+name: test-software-team
 version: "1.0"
 nodes:
   - id: dev1
@@ -1054,8 +1054,8 @@ requirements:
     expect(missingResult!.status).toBe("missing");
   });
 
-  // T24: Package install failure skips rig import (R1-F4.3)
-  it("package install failure skips rig import with status=failed", async () => {
+  // T24: Package install failure skips softwareTeam import (R1-F4.3)
+  it("package install failure skips SoftwareTeam import with status=failed", async () => {
     // Create a package that will fail install (incompatible runtime)
     const pkgDir = path.join(tmpDir, "test-pkg");
     const manifest = `
@@ -1080,8 +1080,8 @@ exports:
     const result = await orch.bootstrap({ mode: "apply", sourceRef: specPath, autoApprove: true });
 
     expect(result.status).toBe("failed");
-    // import_rig should be skipped
-    const importStage = result.stages.find((s) => s.stage === "import_rig");
+    // import_software_team should be skipped
+    const importStage = result.stages.find((s) => s.stage === "import_software_team");
     expect(importStage?.status).toBe("skipped");
     expect(result.errors.some((e) => e.includes("skipped"))).toBe(true);
   });
@@ -1089,7 +1089,7 @@ exports:
   // === P7-T05: Bundle source tests ===
 
   // T25: Real bundle bootstrap happy path
-  it("bootstrap from rig_bundle resolves vendored packages", async () => {
+  it("bootstrap from software_team_bundle resolves vendored packages", async () => {
     // Create a real bundle
     const { LegacyBundleAssembler: BundleAssembler } = await import("../src/domain/bundle-assembler.js"); // TODO: AS-T12
     const { computeIntegrity, writeIntegrity } = await import("../src/domain/bundle-integrity.js");
@@ -1131,7 +1131,7 @@ exports:
     writeIntegrity(staging, integrity, integrityFsOps);
 
     // Pack
-    const bundlePath = path.join(tmpDir, "test.rigbundle");
+    const bundlePath = path.join(tmpDir, "test.softwareteambundle");
     await pack(staging, bundlePath);
 
     // Bootstrap from bundle
@@ -1155,12 +1155,12 @@ exports:
     const orch = new BO({
       db, bootstrapRepo, runtimeVerifier, probeRegistry,
       installPlanner, installExecutor: installExecutor, packageInstallService,
-      rigInstantiator: createMockInstantiator(db) as any,
+      softwareTeamInstantiator: createMockInstantiator(db) as any,
       fsOps: realFsOps(),
       bundleSourceResolver: bundleResolver,
     });
 
-    const result = await orch.bootstrap({ mode: "plan", sourceRef: bundlePath, sourceKind: "rig_bundle" });
+    const result = await orch.bootstrap({ mode: "plan", sourceRef: bundlePath, sourceKind: "software_team_bundle" });
 
     expect(result.status).toBe("planned");
     expect(result.stages.some((s) => s.stage === "resolve_spec" && s.status === "ok")).toBe(true);
@@ -1169,24 +1169,24 @@ exports:
     // Verify source_kind recorded
     const run = db.prepare("SELECT source_kind FROM bootstrap_runs WHERE id = ?")
       .get(result.runId) as { source_kind: string };
-    expect(run.source_kind).toBe("rig_bundle");
+    expect(run.source_kind).toBe("software_team_bundle");
 
     // Verify temp dir was cleaned up by the orchestrator's finally block
-    // After the plan completes, no rigbundle- temp dirs should remain from this test
+    // After the plan completes, no softwareteambundle- temp dirs should remain from this test
     const tmpBase = os.tmpdir();
     const leakedDirs = fs.readdirSync(tmpBase).filter((d) =>
-      d.startsWith("rigbundle-") && fs.existsSync(path.join(tmpBase, d, "bundle.yaml"))
+      d.startsWith("softwareteambundle-") && fs.existsSync(path.join(tmpBase, d, "bundle.yaml"))
     );
     expect(leakedDirs).toHaveLength(0);
   });
 
-  // T26: rig_bundle with null resolver throws
-  it("rig_bundle with null bundleSourceResolver throws", async () => {
+  // T26: software_team_bundle with null resolver throws
+  it("software_team_bundle with null bundleSourceResolver throws", async () => {
     const specPath = writeSpec(SIMPLE_SPEC_YAML);
     const orch = buildOrchestrator();
 
     await expect(
-      orch.bootstrap({ mode: "plan", sourceRef: specPath, sourceKind: "rig_bundle" })
+      orch.bootstrap({ mode: "plan", sourceRef: specPath, sourceKind: "software_team_bundle" })
     ).rejects.toThrow(/BundleSourceResolver required/);
   });
 
@@ -1195,11 +1195,11 @@ exports:
     const specPath = writeSpec(SIMPLE_SPEC_YAML);
     const orch = buildOrchestrator();
 
-    const result = await orch.bootstrap({ mode: "plan", sourceRef: specPath, sourceKind: "rig_spec" });
+    const result = await orch.bootstrap({ mode: "plan", sourceRef: specPath, sourceKind: "software_team_spec" });
 
     const run = db.prepare("SELECT source_kind FROM bootstrap_runs WHERE id = ?")
       .get(result.runId) as { source_kind: string };
-    expect(run.source_kind).toBe("rig_spec");
+    expect(run.source_kind).toBe("software_team_spec");
   });
 
   it("rejects service-backed pod-bundle launch with honest error before instantiate", async () => {
@@ -1207,14 +1207,14 @@ exports:
     const { computeIntegrity } = await import("../src/domain/bundle-integrity.js");
     const { PodBundleSourceResolver } = await import("../src/domain/bundle-source-resolver.js");
 
-    // Build a minimal v2 pod bundle with a service-backed rig spec
+    // Build a minimal v2 pod bundle with a service-backed softwareTeam spec
     const staging = path.join(tmpDir, "svc-bundle-staging");
     fs.mkdirSync(staging, { recursive: true });
 
     const svcSpecYaml = `
 version: "0.2"
-name: svc-bundle-rig
-summary: A service-backed rig in a bundle
+name: svc-bundle-software-team
+summary: A service-backed SoftwareTeam in a bundle
 services:
   kind: compose
   compose_file: svc.compose.yaml
@@ -1232,7 +1232,7 @@ pods:
     edges: []
 edges: []
 `.trim();
-    fs.writeFileSync(path.join(staging, "rig.yaml"), svcSpecYaml);
+    fs.writeFileSync(path.join(staging, "software-team.yaml"), svcSpecYaml);
     fs.writeFileSync(path.join(staging, "svc.compose.yaml"), "version: '3.8'\nservices:\n  vault:\n    image: hashicorp/vault:1.15\n");
     // Compute integrity over content files before writing bundle.yaml
     const integrityFsOps = {
@@ -1251,13 +1251,13 @@ schema_version: 2
 name: svc-bundle
 version: "0.1.0"
 created_at: "2026-04-09T00:00:00Z"
-rig_spec: rig.yaml
+software_team_spec: software-team.yaml
 agents: []
 integrity:
 ${integrityYaml}
 `.trim());
 
-    const bundlePath = path.join(tmpDir, "svc-test.rigbundle");
+    const bundlePath = path.join(tmpDir, "svc-test.softwareteambundle");
     await pack(staging, bundlePath);
 
     // Record existing podbundle- dirs before test
@@ -1284,17 +1284,17 @@ ${integrityYaml}
           readFile: (p) => fs.readFileSync(p, "utf-8"), exists: (p) => fs.existsSync(p),
         }),
       }),
-      rigInstantiator: createMockInstantiator(db) as any,
+      softwareTeamInstantiator: createMockInstantiator(db) as any,
       fsOps: realFsOps(),
       bundleSourceResolver: legacyBundleResolver,
       podBundleSourceResolver: podBundleResolver as any,
       podInstantiator: mockPodInstantiator as any,
     });
 
-    const result = await orch.bootstrap({ mode: "apply", sourceRef: bundlePath, sourceKind: "rig_bundle" });
+    const result = await orch.bootstrap({ mode: "apply", sourceRef: bundlePath, sourceKind: "software_team_bundle" });
 
     expect(result.status).toBe("failed");
-    expect(result.errors.some((e: string) => e.includes("Service-backed rigs cannot be launched from .rigbundle"))).toBe(true);
+    expect(result.errors.some((e: string) => e.includes("Service-backed softwareTeams cannot be launched from .softwareteambundle"))).toBe(true);
     const resolveStage = result.stages.find((s) => s.stage === "resolve_spec" && s.status === "failed");
     expect(resolveStage).toBeDefined();
     expect((resolveStage!.detail as Record<string, unknown>)["code"]).toBe("services_unsupported");
@@ -1307,11 +1307,11 @@ ${integrityYaml}
     expect(postDirs).toHaveLength(0);
   });
 
-  // AS-T08b: pod-aware rig spec delegates to podInstantiator
-  it("pod-aware rig spec delegates to podInstantiator via bootstrap", async () => {
+  // AS-T08b: pod-aware softwareTeam spec delegates to podInstantiator
+  it("pod-aware SoftwareTeam spec delegates to podInstantiator via bootstrap", async () => {
     const podSpecYaml = `
 version: "0.2"
-name: pod-test-rig
+name: pod-test-software-team
 pods:
   - id: dev
     label: Dev
@@ -1332,7 +1332,7 @@ edges: []
       db,
       instantiate: vi.fn(async () => ({
         ok: true as const,
-        result: { rigId: "rig-pod-1", specName: "pod-test-rig", specVersion: "0.2", nodes: [{ logicalId: "dev.impl", status: "launched" as const }] },
+        result: { softwareTeamId: "software-team-pod-1", specName: "pod-test-software-team", specVersion: "0.2", nodes: [{ logicalId: "dev.impl", status: "launched" as const }] },
       })),
     };
 
@@ -1351,34 +1351,34 @@ edges: []
           readFile: (p) => fs.readFileSync(p, "utf-8"), exists: (p) => fs.existsSync(p),
         }),
       }),
-      rigInstantiator: createMockInstantiator(db) as any,
+      softwareTeamInstantiator: createMockInstantiator(db) as any,
       fsOps: realFsOps(),
       bundleSourceResolver: null,
       podInstantiator: mockPodInstantiator as any,
     });
 
-    const result = await orch.bootstrap({ mode: "apply", sourceRef: specPath, sourceKind: "rig_spec" });
+    const result = await orch.bootstrap({ mode: "apply", sourceRef: specPath, sourceKind: "software_team_spec" });
     expect(result.status).toBe("completed");
-    expect(result.rigId).toBe("rig-pod-1");
+    expect(result.softwareTeamId).toBe("software-team-pod-1");
     expect(mockPodInstantiator.instantiate).toHaveBeenCalledTimes(1);
 
-    // The run records the rig it produced, as the flat-spec path does, so the launch spec can be traced to the rig.
-    const run = db.prepare("SELECT status, rig_id, source_ref FROM bootstrap_runs WHERE id = ?")
-      .get(result.runId) as { status: string; rig_id: string | null; source_ref: string };
-    expect(run).toEqual({ status: "completed", rig_id: "rig-pod-1", source_ref: specPath });
+    // The run records the softwareTeam it produced, as the flat-spec path does, so the launch spec can be traced to the softwareTeam.
+    const run = db.prepare("SELECT status, software_team_id, source_ref FROM bootstrap_runs WHERE id = ?")
+      .get(result.runId) as { status: string; software_team_id: string | null; source_ref: string };
+    expect(run).toEqual({ status: "completed", software_team_id: "software-team-pod-1", source_ref: specPath });
   });
 
   // --- Conveyor-Trust Minimal Fix (OPR.0.3.2.CT) — guard verdict
   //     qitem-20260518082933 BLOCKER 1: mixed launched+attention_required
   //     must NOT be surfaced as "completed"; orchestrator must route
-  //     attention_required nodes through a partial+blocked import_rig
+  //     attention_required nodes through a partial+blocked import_software_team
   //     stage carrying attentionNodes so the route can build the
   //     3-part error.
 
-  it("OPR.0.3.2.CT BLOCKER-1: mixed launched + attention_required → status=partial, import_rig stage=blocked with attentionNodes", async () => {
+  it("OPR.0.3.2.CT BLOCKER-1: mixed launched + attention_required → status=partial, import_software_team stage=blocked with attentionNodes", async () => {
     const podSpecYaml = `
 version: "0.2"
-name: pod-mixed-rig
+name: pod-mixed-software-team
 pods:
   - id: dev
     label: Dev
@@ -1404,12 +1404,12 @@ edges: []
       instantiate: vi.fn(async () => ({
         ok: true as const,
         result: {
-          rigId: "rig-mixed-1",
-          specName: "pod-mixed-rig",
+          softwareTeamId: "software-team-mixed-1",
+          specName: "pod-mixed-software-team",
           specVersion: "0.2",
           nodes: [
-            { logicalId: "dev.impl", status: "launched" as const, sessionName: "dev-impl@pod-mixed-rig" },
-            { logicalId: "dev.qa", status: "attention_required" as const, error: "trust_gate on qa", sessionName: "dev-qa@pod-mixed-rig", evidence: "trust prompt visible" },
+            { logicalId: "dev.impl", status: "launched" as const, sessionName: "dev-impl@pod-mixed-software-team" },
+            { logicalId: "dev.qa", status: "attention_required" as const, error: "trust_gate on qa", sessionName: "dev-qa@pod-mixed-software-team", evidence: "trust prompt visible" },
           ],
         },
       })),
@@ -1430,18 +1430,18 @@ edges: []
           readFile: (p) => fs.readFileSync(p, "utf-8"), exists: (p) => fs.existsSync(p),
         }),
       }),
-      rigInstantiator: createMockInstantiator(db) as any,
+      softwareTeamInstantiator: createMockInstantiator(db) as any,
       fsOps: realFsOps(),
       bundleSourceResolver: null,
       podInstantiator: mockPodInstantiator as any,
     });
 
-    const result = await orch.bootstrap({ mode: "apply", sourceRef: specPath, sourceKind: "rig_spec" });
+    const result = await orch.bootstrap({ mode: "apply", sourceRef: specPath, sourceKind: "software_team_spec" });
 
     // BLOCKER-1: NOT "completed" when any node attention_required.
     expect(result.status).toBe("partial");
-    expect(result.rigId).toBe("rig-mixed-1");
-    const importStage = result.stages.find((s) => s.stage === "import_rig");
+    expect(result.softwareTeamId).toBe("software-team-mixed-1");
+    const importStage = result.stages.find((s) => s.stage === "import_software_team");
     expect(importStage).toBeDefined();
     expect(importStage!.status).toBe("blocked");
     const detail = importStage!.detail as { code: string; message: string; attentionNodes: Array<{ logicalId: string; sessionName: string; evidence?: string }> };
@@ -1450,17 +1450,17 @@ edges: []
     expect(detail.message).not.toMatch(/approve and resume|NOT failed/);
     expect(detail.attentionNodes.length).toBe(1);
     expect(detail.attentionNodes[0]!.logicalId).toBe("dev.qa");
-    expect(detail.attentionNodes[0]!.sessionName).toBe("dev-qa@pod-mixed-rig");
+    expect(detail.attentionNodes[0]!.sessionName).toBe("dev-qa@pod-mixed-software-team");
     expect(detail.attentionNodes[0]!.evidence).toBe("trust prompt visible");
-    const run = db.prepare("SELECT status, rig_id FROM bootstrap_runs WHERE id = ?")
-      .get(result.runId) as { status: string; rig_id: string | null };
-    expect(run).toEqual({ status: "partial", rig_id: "rig-mixed-1" });
+    const run = db.prepare("SELECT status, software_team_id FROM bootstrap_runs WHERE id = ?")
+      .get(result.runId) as { status: string; software_team_id: string | null };
+    expect(run).toEqual({ status: "partial", software_team_id: "software-team-mixed-1" });
   });
 
-  it("OPR.0.3.2.CT BLOCKER-1: all-launched (no attention, no failed) → status=completed, import_rig=ok (no regression)", async () => {
+  it("OPR.0.3.2.CT BLOCKER-1: all-launched (no attention, no failed) → status=completed, import_software_team=ok (no regression)", async () => {
     const podSpecYaml = `
 version: "0.2"
-name: pod-clean-rig
+name: pod-clean-software-team
 pods:
   - id: dev
     label: Dev
@@ -1481,10 +1481,10 @@ edges: []
       instantiate: vi.fn(async () => ({
         ok: true as const,
         result: {
-          rigId: "rig-clean-1",
-          specName: "pod-clean-rig",
+          softwareTeamId: "software-team-clean-1",
+          specName: "pod-clean-software-team",
           specVersion: "0.2",
-          nodes: [{ logicalId: "dev.impl", status: "launched" as const, sessionName: "dev-impl@pod-clean-rig" }],
+          nodes: [{ logicalId: "dev.impl", status: "launched" as const, sessionName: "dev-impl@pod-clean-software-team" }],
         },
       })),
     };
@@ -1504,22 +1504,22 @@ edges: []
           readFile: (p) => fs.readFileSync(p, "utf-8"), exists: (p) => fs.existsSync(p),
         }),
       }),
-      rigInstantiator: createMockInstantiator(db) as any,
+      softwareTeamInstantiator: createMockInstantiator(db) as any,
       fsOps: realFsOps(),
       bundleSourceResolver: null,
       podInstantiator: mockPodInstantiator as any,
     });
 
-    const result = await orch.bootstrap({ mode: "apply", sourceRef: specPath, sourceKind: "rig_spec" });
+    const result = await orch.bootstrap({ mode: "apply", sourceRef: specPath, sourceKind: "software_team_spec" });
     expect(result.status).toBe("completed");
-    const importStage = result.stages.find((s) => s.stage === "import_rig");
+    const importStage = result.stages.find((s) => s.stage === "import_software_team");
     expect(importStage!.status).toBe("ok");
   });
 
-  it("OPR.0.3.2.CT BLOCKER-1: all-attention_required outcome → status=partial, import_rig=blocked, rigId preserved", async () => {
+  it("OPR.0.3.2.CT BLOCKER-1: all-attention_required outcome → status=partial, import_software_team=blocked, softwareTeamId preserved", async () => {
     const podSpecYaml = `
 version: "0.2"
-name: pod-all-attention-rig
+name: pod-all-attention-software-team
 pods:
   - id: dev
     label: Dev
@@ -1535,16 +1535,16 @@ edges: []
     const specPath = path.join(tmpDir, "pod-all-attention-spec.yaml");
     fs.writeFileSync(specPath, podSpecYaml);
 
-    // PodRigInstantiator returns the new attention_required outcome
-    // (ok:false with rigId + attentionNodes) when ALL nodes are parked.
+    // PodSoftwareTeamInstantiator returns the new attention_required outcome
+    // (ok:false with softwareTeamId + attentionNodes) when ALL nodes are parked.
     const mockPodInstantiator = {
       db,
       instantiate: vi.fn(async () => ({
         ok: false as const,
         code: "attention_required" as const,
-        message: "1 node requires attention before becoming interactive (rig parked, NOT failed; approve and resume to proceed).",
-        rigId: "rig-all-attention-1",
-        attentionNodes: [{ logicalId: "dev.impl", sessionName: "dev-impl@pod-all-attention-rig", evidence: "trust prompt", reason: "trust_gate" }],
+        message: "1 node requires attention before becoming interactive (SoftwareTeam parked, NOT failed; approve and resume to proceed).",
+        softwareTeamId: "software-team-all-attention-1",
+        attentionNodes: [{ logicalId: "dev.impl", sessionName: "dev-impl@pod-all-attention-software-team", evidence: "trust prompt", reason: "trust_gate" }],
       })),
     };
 
@@ -1563,16 +1563,16 @@ edges: []
           readFile: (p) => fs.readFileSync(p, "utf-8"), exists: (p) => fs.existsSync(p),
         }),
       }),
-      rigInstantiator: createMockInstantiator(db) as any,
+      softwareTeamInstantiator: createMockInstantiator(db) as any,
       fsOps: realFsOps(),
       bundleSourceResolver: null,
       podInstantiator: mockPodInstantiator as any,
     });
 
-    const result = await orch.bootstrap({ mode: "apply", sourceRef: specPath, sourceKind: "rig_spec" });
+    const result = await orch.bootstrap({ mode: "apply", sourceRef: specPath, sourceKind: "software_team_spec" });
     expect(result.status).toBe("partial");
-    expect(result.rigId).toBe("rig-all-attention-1");
-    const importStage = result.stages.find((s) => s.stage === "import_rig");
+    expect(result.softwareTeamId).toBe("software-team-all-attention-1");
+    const importStage = result.stages.find((s) => s.stage === "import_software_team");
     expect(importStage!.status).toBe("blocked");
     const detail = importStage!.detail as { code: string; attentionNodes: Array<{ logicalId: string }> };
     expect(detail.code).toBe("attention_required");

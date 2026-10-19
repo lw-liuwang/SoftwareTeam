@@ -25,34 +25,34 @@ describe("collectFourBlockReadModel — getReadModel collection seam", () => {
 
   it("binds a registered codex seat to its profile with boundAt/source from the registry", () => {
     const model = collectFourBlockReadModel(deps({
-      auth: { profiles: ["work"], seats: [{ seat: "dev-driver@rig-a", rig: "rig-a", runtime: "codex", cwd: "/p", authProfile: "work", updatedTs: "2026-08-03T10:00:00Z" }] },
-      listSeats: () => [{ seatSession: "dev-driver@rig-a", rigName: "rig-a", runtime: "codex", lifecycleState: "running" }],
+      auth: { profiles: ["work"], seats: [{ seat: "dev-driver@software-team-a", softwareTeam: "software-team-a", runtime: "codex", cwd: "/p", authProfile: "work", updatedTs: "2026-08-03T10:00:00Z" }] },
+      listSeats: () => [{ seatSession: "dev-driver@software-team-a", softwareTeamName: "software-team-a", runtime: "codex", lifecycleState: "running" }],
     }));
     expect(model.bindings).toEqual([
-      { accountId: "work", seatSession: "dev-driver@rig-a", rigName: "rig-a", boundAt: "2026-08-03T10:00:00Z", bindingSource: "codex_auth_seat_registry", anomalies: [] },
+      { accountId: "work", seatSession: "dev-driver@software-team-a", softwareTeamName: "software-team-a", boundAt: "2026-08-03T10:00:00Z", bindingSource: "codex_auth_seat_registry", anomalies: [] },
     ]);
   });
 
   it("a claude (or unregistered) seat is unbound and carries seat_with_no_account", () => {
     const model = collectFourBlockReadModel(deps({
       auth: { profiles: ["work"], seats: [] },
-      listSeats: () => [{ seatSession: "pm@rig-a", rigName: "rig-a", runtime: "claude-code", lifecycleState: "running" }],
+      listSeats: () => [{ seatSession: "pm@software-team-a", softwareTeamName: "software-team-a", runtime: "claude-code", lifecycleState: "running" }],
     }));
     expect(model.bindings).toHaveLength(1);
     const b = model.bindings[0]!;
     expect(b.accountId).toBeNull();
-    expect(b.anomalies[0]).toMatchObject({ kind: "seat_with_no_account", seat: "pm@rig-a" });
+    expect(b.anomalies[0]).toMatchObject({ kind: "seat_with_no_account", seat: "pm@software-team-a" });
   });
 
   it("same profile bound on 2 distinct seats yields a same_account_on_n_seats anomaly", () => {
     const model = collectFourBlockReadModel(deps({
       auth: { profiles: ["work"], seats: [
-        { seat: "a@rig", rig: "rig", runtime: "codex", cwd: "/p", authProfile: "work", updatedTs: "t1" },
-        { seat: "b@rig", rig: "rig", runtime: "codex", cwd: "/p", authProfile: "work", updatedTs: "t2" },
+        { seat: "a@software-team", softwareTeam: "softwareTeam", runtime: "codex", cwd: "/p", authProfile: "work", updatedTs: "t1" },
+        { seat: "b@software-team", softwareTeam: "softwareTeam", runtime: "codex", cwd: "/p", authProfile: "work", updatedTs: "t2" },
       ] },
       listSeats: () => [
-        { seatSession: "a@rig", rigName: "rig", runtime: "codex", lifecycleState: "running" },
-        { seatSession: "b@rig", rigName: "rig", runtime: "codex", lifecycleState: "running" },
+        { seatSession: "a@software-team", softwareTeamName: "softwareTeam", runtime: "codex", lifecycleState: "running" },
+        { seatSession: "b@software-team", softwareTeamName: "softwareTeam", runtime: "codex", lifecycleState: "running" },
       ],
     }));
     for (const b of model.bindings) {
@@ -63,7 +63,7 @@ describe("collectFourBlockReadModel — getReadModel collection seam", () => {
   it("empty codex home → empty accounts, every seat unbound; signals default to []", () => {
     const model = collectFourBlockReadModel(deps({
       auth: { profiles: [], seats: [] },
-      listSeats: () => [{ seatSession: "s@rig", rigName: "rig", runtime: "codex", lifecycleState: "running" }],
+      listSeats: () => [{ seatSession: "s@software-team", softwareTeamName: "softwareTeam", runtime: "codex", lifecycleState: "running" }],
     }));
     expect(model.accounts).toEqual([]);
     expect(model.bindings[0]!.accountId).toBeNull();
@@ -79,38 +79,38 @@ describe("collectFourBlockReadModel — getReadModel collection seam", () => {
 
   it("a claude seat is NOT bound by a stale same-session Codex registry row (runtime-identity gate)", () => {
     const model = collectFourBlockReadModel(deps({
-      auth: { profiles: ["work"], seats: [{ seat: "shared@rig", rig: "rig", runtime: "codex", cwd: "/p", authProfile: "work", updatedTs: "t1" }] },
+      auth: { profiles: ["work"], seats: [{ seat: "shared@software-team", softwareTeam: "softwareTeam", runtime: "codex", cwd: "/p", authProfile: "work", updatedTs: "t1" }] },
       // The LIVE inventory seat with this same session name is a CLAUDE seat — the codex row is stale.
-      listSeats: () => [{ seatSession: "shared@rig", rigName: "rig", runtime: "claude-code", lifecycleState: "running" }],
+      listSeats: () => [{ seatSession: "shared@software-team", softwareTeamName: "softwareTeam", runtime: "claude-code", lifecycleState: "running" }],
     }));
     expect(model.bindings).toHaveLength(1);
     const b = model.bindings[0]!;
     expect(b.accountId).toBeNull(); // must NOT bind to the Codex account despite the stale same-session row
-    expect(b.anomalies[0]).toMatchObject({ kind: "seat_with_no_account", seat: "shared@rig" });
+    expect(b.anomalies[0]).toMatchObject({ kind: "seat_with_no_account", seat: "shared@software-team" });
   });
 
   it("drops stale seat-keyed Claude cache signals and emits the live Claude seat's honest unknown", () => {
     const model = collectFourBlockReadModel(deps({
-      listSeats: () => [{ seatSession: "live@rig", rigName: "rig", runtime: "claude-code", lifecycleState: "running" }],
+      listSeats: () => [{ seatSession: "live@software-team", softwareTeamName: "softwareTeam", runtime: "claude-code", lifecycleState: "running" }],
       collectSignals: () => [{
-        provider: "claude", seatSession: "dead@rig", sourceClass: "provider_statusline",
+        provider: "claude", seatSession: "dead@software-team", sourceClass: "provider_statusline",
         authority: "account_cross_device", window: "five_hour", usedPercent: 12, asOf: ASOF,
         automationUse: "allow_switch_decision",
       }],
     }));
 
-    expect(model.signals.some((signal) => signal.seatSession === "dead@rig")).toBe(false);
+    expect(model.signals.some((signal) => signal.seatSession === "dead@software-team")).toBe(false);
     expect(model.signals).toEqual([expect.objectContaining({
-      provider: "claude", seatSession: "live@rig", sourceClass: "unknown",
+      provider: "claude", seatSession: "live@software-team", sourceClass: "unknown",
       authority: "unknown", automationUse: "do_not_automate",
     })]);
   });
 
   it("drops a Claude cache signal when the session name is live only as a non-Claude runtime", () => {
     const model = collectFourBlockReadModel(deps({
-      listSeats: () => [{ seatSession: "reused@rig", rigName: "rig", runtime: "codex", lifecycleState: "running" }],
+      listSeats: () => [{ seatSession: "reused@software-team", softwareTeamName: "softwareTeam", runtime: "codex", lifecycleState: "running" }],
       collectSignals: () => [{
-        provider: "claude", seatSession: "reused@rig", sourceClass: "provider_statusline",
+        provider: "claude", seatSession: "reused@software-team", sourceClass: "provider_statusline",
         authority: "account_cross_device", window: "five_hour", usedPercent: 12, asOf: ASOF,
         automationUse: "allow_switch_decision",
       }],

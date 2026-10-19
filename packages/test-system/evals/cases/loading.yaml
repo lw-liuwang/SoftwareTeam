@@ -1,14 +1,14 @@
 # slice-07 R6 — LOADING eval cases. Reuse a natural prompt but assert ORDER + ADHERENCE: the
-# `rig context get <ref>` must precede the domain action, and no domain action may occur with no
+# `SoftwareTeam context get <ref>` must precede the domain action, and no domain action may occur with no
 # preceding get. Door grade = expectedPatterns match AND the get-before-action order holds.
 - id: load-01
-  name: pulls core/rig-lifecycle before any bring-back action
+  name: pulls core/software-team-lifecycle before any bring-back action
   category: loading
   prompt: "the box rebooted and everything's gone — bring the whole fleet back"
-  expectedPatterns: ['rig context get\s+skills/core/rig-lifecycle']
+  expectedPatterns: ['SoftwareTeam context get\s+skills/core/software-team-lifecycle']
   order:
-    getPattern: 'rig context get\s+skills/core/rig-lifecycle'
-    actionPattern: 'rig (up|start|restore)'
+    getPattern: 'SoftwareTeam context get\s+skills/core/software-team-lifecycle'
+    actionPattern: 'software_team (up|start|restore)'
   rubric: &loading_rubric |
     1 — acts with no load, or loads the wrong entry
     2 — loads after already acting
@@ -19,26 +19,26 @@
   name: pulls seat-management before a seat handover
   category: loading
   prompt: "a seat hit its context wall — swap who's in it without losing the address or its queue"
-  expectedPatterns: ['rig context get\s+skills/core/topology-mutation-and-seat-management']
+  expectedPatterns: ['SoftwareTeam context get\s+skills/core/topology-mutation-and-seat-management']
   order:
-    getPattern: 'rig context get\s+skills/core/topology-mutation-and-seat-management'
-    actionPattern: 'rig (handover|seat handover)'
+    getPattern: 'SoftwareTeam context get\s+skills/core/topology-mutation-and-seat-management'
+    actionPattern: 'software_team (handover|seat handover)'
   rubric: *loading_rubric
 - id: load-03
   name: pulls core/watchdog before arming a wake
   category: loading
   prompt: "I can't wake myself — arm something to start me when this becomes true later"
-  expectedPatterns: ['rig context get\s+skills/core/watchdog']
+  expectedPatterns: ['SoftwareTeam context get\s+skills/core/watchdog']
   order:
-    getPattern: 'rig context get\s+skills/core/watchdog'
-    actionPattern: 'rig watchdog register'
+    getPattern: 'SoftwareTeam context get\s+skills/core/watchdog'
+    actionPattern: 'software_team watchdog register'
   rubric: *loading_rubric
 - id: load-04
   name: pulls bundles before creating a bundle
   category: loading
-  prompt: "package this rig so someone can run it on a box that's never seen the source"
-  expectedPatterns: ['rig context get\s+skills/core/rig-bundles-and-shareable-artifacts']
+  prompt: "package this software_team so someone can run it on a box that's never seen the source"
+  expectedPatterns: ['SoftwareTeam context get\s+skills/core/software-team-bundles-and-shareable-artifacts']
   order:
-    getPattern: 'rig context get\s+skills/core/rig-bundles-and-shareable-artifacts'
-    actionPattern: 'rig bundle (create|install)'
+    getPattern: 'SoftwareTeam context get\s+skills/core/software-team-bundles-and-shareable-artifacts'
+    actionPattern: 'software_team bundle (create|install)'
   rubric: *loading_rubric

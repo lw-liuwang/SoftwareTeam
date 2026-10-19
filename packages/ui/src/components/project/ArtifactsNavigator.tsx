@@ -272,7 +272,7 @@ export function ArtifactsNavigator({ scopePath, scopeLabel, remoteGated }: { sco
   }
   // "No allowlist configured" surfaces TWO ways from /api/files/roots: a 503
   // `unavailable` sentinel, OR a 200 with { roots: [], hint } (files.ts returns
-  // the latter when OPENRIG_FILES_ALLOWLIST is unset). BOTH must render the same
+  // the latter when SOFTWARETEAM_FILES_ALLOWLIST is unset). BOTH must render the same
   // setup hint — a user with no allowlist needs the instruction, not a misleading
   // "no artifacts / out of scope" (AC-5; rev1-r2 catch).
   if (!rootsQuery.data || isUnavailable(rootsQuery.data) || rootsQuery.data.roots.length === 0) {

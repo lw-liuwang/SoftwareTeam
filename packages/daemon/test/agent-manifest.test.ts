@@ -43,10 +43,10 @@ resources:
     - id: diff-auditor
       path: subagents/diff-auditor.yaml
   plugins:
-    - id: openrig-core
+    - id: softwareteam-core
       source:
         kind: local
-        path: ~/.openrig/plugins/openrig-core
+        path: ~/.softwareteam/plugins/softwareteam-core
   runtime_resources:
     - id: codex-review-toolbar
       path: extensions/codex-review-toolbar/
@@ -71,7 +71,7 @@ profiles:
       skills: [deep-pr-review, acme-standards:repo-rules]
       guidance: [tdd-rules]
       subagents: [diff-auditor]
-      plugins: [openrig-core]
+      plugins: [softwareteam-core]
       runtime_resources: []
 `;
 
@@ -377,7 +377,7 @@ resources:
 profiles:
   default:
     uses:
-      skills: [openrig-user]
+      skills: [softwareteam-user]
       guidance: []
       subagents: []
       plugins: []
@@ -639,7 +639,7 @@ profiles:
   default: {}
 `;
 
-  it("accepts a canonical cross-rig seat address and preserves it", () => {
+  it("accepts a canonical cross-software-team seat address and preserves it", () => {
     const raw = parseAgentSpec(specWithMechanic("operator-agent@kernel"));
     expect(validateAgentSpec(raw).valid).toBe(true);
     expect(normalizeAgentSpec(raw).defaults?.lifecycle?.mechanic).toBe("operator-agent@kernel");
@@ -648,7 +648,7 @@ profiles:
   it("rejects a non-canonical mechanic address with a field-shaped error", () => {
     const result = validateAgentSpec(parseAgentSpec(specWithMechanic("operator-agent")));
     expect(result.valid).toBe(false);
-    expect(result.errors.join(" ")).toMatch(/lifecycle\.mechanic.*canonical.*seat@rig/i);
+    expect(result.errors.join(" ")).toMatch(/lifecycle\.mechanic.*canonical.*seat@software-team/i);
   });
 });
 

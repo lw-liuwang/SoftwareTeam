@@ -76,7 +76,7 @@ import { autoGridCols } from "../cmux-layout-service.js";
 const HERDR_SURFACE_HOST = "herdr";
 
 /** The degrade reason for a seat whose pane was already gone right after its page applied (#707). */
-export const HERDR_PANE_EXITED_REASON = "the pane had already exited when OpenRig checked right after herdr opened it";
+export const HERDR_PANE_EXITED_REASON = "the pane had already exited when SoftwareTeam checked right after herdr opened it";
 
 /** The note when the pane listing can't confirm a page's panes; its seats stay listed as opened. */
 export const HERDR_PANES_UNCONFIRMED_NOTE = "herdr's pane list couldn't confirm the panes after layout, so those seats are listed as opened without that check.";
@@ -266,14 +266,14 @@ export function namedTabLabel(page: ComposedPane[]): string {
 export function planHerdrLayout(
   view: ComposedView,
   launchToken: string,
-  tabPrefix: string = "openrig",
+  tabPrefix: string = "softwareteam",
 ): HerdrLayoutPlan {
   // Older callers without a preview fingerprint still get fresh, non-reusable tabs.
   const base = `${tabPrefix}:${view.id}${view.planId ? `#${view.planId.slice(0, 16)}` : ""}#${launchToken}`;
-  // The workspace is named for people: a named view's own label, the rig name for a rig view, else the view id.
+  // The workspace is named for people: a named view's own label, the softwareTeam name for a softwareTeam view, else the view id.
   // Tab labels keep the launch token, so every open is still a fresh, distinct space. A named view's
   // tabs carry their panes' names instead; the CLI confirms reuse by live attachments, not labels.
-  const workspaceLabel = view.spaceLabel ?? (view.id.startsWith("rig:") ? view.id.slice("rig:".length) : view.id);
+  const workspaceLabel = view.spaceLabel ?? (view.id.startsWith("software-team:") ? view.id.slice("software-team:".length) : view.id);
   const pages: HerdrPagePlan[] = view.pages.map((page, pageIndex) => {
     const grid = buildGridRoot(page, view.columns);
     return {
@@ -319,7 +319,7 @@ export interface HerdrAdapterDeps {
    * monotonic counter (unique within a daemon lifetime).
    */
   newLaunchToken?: () => string;
-  /** Tab-name prefix (default `openrig`). */
+  /** Tab-name prefix (default `softwareteam`). */
   tabPrefix?: string;
 }
 
@@ -358,7 +358,7 @@ export class HerdrAdapter implements TerminalProvider {
 
   constructor(private readonly deps: HerdrAdapterDeps) {
     this.transport = deps.transportFactory();
-    this.tabPrefix = deps.tabPrefix ?? "openrig";
+    this.tabPrefix = deps.tabPrefix ?? "softwareteam";
     this.newLaunchToken =
       deps.newLaunchToken ?? (() => `l${(this.launchCounter += 1)}`);
   }

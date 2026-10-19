@@ -5,7 +5,7 @@ import { lstartToMinTs } from "./codex-thread-id.js";
 /**
  * OPR.0.7.0.7 — one seat's reasoning effort, from the saved choice to what the native session runs.
  *
- * Four values stay distinct: requested (the last `rig seat set-effort`), saved (this resolution),
+ * Four values stay distinct: requested (the last `softwareTeam seat set-effort`), saved (this resolution),
  * emitted (the flag the running process was launched with) and observed (what the native session
  * records for a turn it took). Only the last one says which effort the model used.
  */
@@ -103,7 +103,7 @@ export const LATEST_WINS_EFFORT_PRECEDENCE: EffortPrecedenceRule = {
     if (held === live.choice) return { effort: live.choice };
     return {
       effort: live.choice,
-      warning: `Effort: this restore launched the seat's saved choice ${live.choice}, not ${held ?? "the snapshot's runtime default (no effort flag)"} from the snapshot; the latest explicit choice stays until it is cleared (rig seat set-effort --clear).`,
+      warning: `Effort: this restore launched the seat's saved choice ${live.choice}, not ${held ?? "the snapshot's runtime default (no effort flag)"} from the snapshot; the latest explicit choice stays until it is cleared (SoftwareTeam seat set-effort --clear).`,
     };
   },
   specRefreshChoice: () => "keep",
@@ -171,7 +171,7 @@ const TAIL_BYTES = 4_000_000;
  * so it is never reported as this launch's effort.
  */
 export function readNativeEffort(runtime: EffortRuntime, transcriptPath: string | null, processStartedAt: string | null): NativeEffortObservation {
-  if (!transcriptPath) return { state: "not_verified", detail: "The native transcript for this session isn't known to OpenRig." };
+  if (!transcriptPath) return { state: "not_verified", detail: "The native transcript for this session isn't known to SoftwareTeam." };
   const since = lstartToMinTs(processStartedAt ?? undefined);
   if (since === undefined) return { state: "not_verified", detail: "The running process's start time could not be read, so a turn can't be tied to this launch." };
   let text: string;

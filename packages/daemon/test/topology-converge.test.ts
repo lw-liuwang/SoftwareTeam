@@ -97,22 +97,22 @@ describe("topology-converge", () => {
       };
     }
 
-    async function seedRigWithPod() {
-      const rig = setup.rigRepo.createRig("test-rig");
-      const expanded = await setup.rigExpansionService.expand({ rigId: rig.id, pod: terminalPodFragment() });
+    async function seedSoftwareTeamWithPod() {
+      const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("test-software-team");
+      const expanded = await setup.softwareTeamExpansionService.expand({ softwareTeamId: softwareTeam.id, pod: terminalPodFragment() });
       expect(expanded.ok).toBe(true);
-      return rig;
+      return softwareTeam;
     }
 
     it("converges an add_member op via addMemberToPod", async () => {
-      const rig = await seedRigWithPod();
+      const softwareTeam = await seedSoftwareTeamWithPod();
       const op: TopologyOp = {
         kind: "add_member",
         pod: "infra",
         member: { id: "server2", runtime: "terminal", agent_ref: "builtin:terminal", profile: "none", cwd: "/tmp" },
       };
 
-      const result = await convergeOp({ instantiator: setup.podInstantiator }, rig.id, op, ".");
+      const result = await convergeOp({ instantiator: setup.podInstantiator }, softwareTeam.id, op, ".");
 
       expect(result.kind).toBe("add_member");
       expect(result.supported).toBe(true);
@@ -124,7 +124,7 @@ describe("topology-converge", () => {
     });
 
     it("surfaces add_member failures honestly through the converge outcome", async () => {
-      const rig = await seedRigWithPod();
+      const softwareTeam = await seedSoftwareTeamWithPod();
       // Duplicate member id -> the converge outcome carries the member_conflict.
       const op: TopologyOp = {
         kind: "add_member",
@@ -132,7 +132,7 @@ describe("topology-converge", () => {
         member: { id: "server", runtime: "terminal", agent_ref: "builtin:terminal", profile: "none", cwd: "/tmp" },
       };
 
-      const result = await convergeOp({ instantiator: setup.podInstantiator }, rig.id, op, ".");
+      const result = await convergeOp({ instantiator: setup.podInstantiator }, softwareTeam.id, op, ".");
       expect(result.kind).toBe("add_member");
       if (result.kind !== "add_member" || !result.supported) return;
       expect(result.outcome.ok).toBe(false);
@@ -141,7 +141,7 @@ describe("topology-converge", () => {
     });
 
     it("reports every unsupported op-kind as detected-not-supported (never silently skipped)", async () => {
-      const rig = await seedRigWithPod();
+      const softwareTeam = await seedSoftwareTeamWithPod();
       const unsupported: TopologyOp[] = [
         { kind: "remove_member", logicalId: "infra.server" },
         { kind: "move_member", logicalId: "infra.server", toPod: "dev" },
@@ -150,7 +150,7 @@ describe("topology-converge", () => {
       ];
 
       for (const op of unsupported) {
-        const result = await convergeOp({ instantiator: setup.podInstantiator }, rig.id, op, ".");
+        const result = await convergeOp({ instantiator: setup.podInstantiator }, softwareTeam.id, op, ".");
         expect(result.supported).toBe(false);
         if (result.supported) continue;
         expect(result.detected).toBe(true);

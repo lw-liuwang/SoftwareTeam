@@ -1,5 +1,5 @@
 // B1 ROUND 2 — the operator-owned fleet-restore lifecycle. r2 proved the prior path delegated the
-// WHOLE lifecycle to a buffered child command (`execFile rig crash-cart restore-fleet`), so the TUI
+// WHOLE lifecycle to a buffered child command (`execFile softwareTeam crash-cart restore-fleet`), so the TUI
 // held no attempt id, could not render progress mid-run (two GETs in flight, output only at exit), and
 // could not reach the cancel endpoint. This driver makes the TUI own it: kick → poll → cancel, emitting
 // a frame PER POLL so the cockpit renders progress from the rollup stream (plan R2/R4), and reaching the
@@ -24,9 +24,9 @@ export interface RestoreFrame extends RestoreFleetStatus {
   phase: "running" | "done" | "detached";
 }
 
-/** Per-rig progress row for the running view (one per rig in the rollup sequence so far). */
+/** Per-softwareTeam progress row for the running view (one per softwareTeam in the rollup sequence so far). */
 export interface RestoreProgressRow {
-  rigId: string;
+  softwareTeamId: string;
   outcome: string;
 }
 
@@ -38,7 +38,7 @@ export interface RestoreLifecycleVM {
   verdict: string;
   counts: RestoreFleetStatus["rollup"]["counts"];
   progress: RestoreProgressRow[];
-  /** The triage list (attention seats + not_attempted rigs) as shipped TriageRow[] — fed to renderTriage. */
+  /** The triage list (attention seats + not_attempted softwareTeams) as shipped TriageRow[] — fed to renderTriage. */
   triage: TriageRow[];
   /** The retained attempt id — the detached view needs it for the reattach / direct-cancel affordances. */
   attemptId: string;
@@ -46,11 +46,11 @@ export interface RestoreLifecycleVM {
 
 /** Adapt a lifecycle frame into the render VM. The triage list is the UNION of two honest sources,
  *  each carrying its EXACT need on its own row (never a clipped one-line summary): the per-seat
- *  attention rows (Claude picker / Codex auth / awaiting-decision), red; and the not_attempted rigs
+ *  attention rows (Claude picker / Codex auth / awaiting-decision), red; and the not_attempted softwareTeams
  *  that carry a remediation (no usable snapshot / cancelled), yellow (a caveat, not a failed seat). */
 export function buildRestoreLifecycleVM(frame: RestoreFrame): RestoreLifecycleVM {
   const attentionRows: TriageRow[] = frame.rollup.attention_required.map((a) => ({
-    seat: `${a.seat}@${a.rigId}`,
+    seat: `${a.seat}@${a.softwareTeamId}`,
     check: "resume",
     status: "red",
     need: a.need,
@@ -60,7 +60,7 @@ export function buildRestoreLifecycleVM(frame: RestoreFrame): RestoreLifecycleVM
   const notAttemptedRows: TriageRow[] = frame.rollup.sequence
     .filter((r) => r.outcome === "not_attempted" && (r.remediation || r.reason))
     .map((r) => ({
-      seat: r.rigId,
+      seat: r.softwareTeamId,
       check: "snapshot",
       status: "yellow",
       need: r.remediation ?? r.reason ?? "not attempted",
@@ -72,7 +72,7 @@ export function buildRestoreLifecycleVM(frame: RestoreFrame): RestoreLifecycleVM
     cancelled: frame.cancelled,
     verdict: frame.verdict,
     counts: frame.rollup.counts,
-    progress: frame.rollup.sequence.map((r) => ({ rigId: r.rigId, outcome: r.outcome })),
+    progress: frame.rollup.sequence.map((r) => ({ softwareTeamId: r.softwareTeamId, outcome: r.outcome })),
     triage: [...attentionRows, ...notAttemptedRows],
     attemptId: frame.attemptId,
   };
@@ -82,7 +82,7 @@ export interface RestoreLifecycleDeps {
   client: RestoreLifecycleClient;
   /** Called with EVERY poll (running + detached frames included) — the progress stream the TUI renders. */
   onFrame: (frame: RestoreFrame) => void;
-  /** Polled each tick; when true, the driver POSTs cancel once (stop-before-next-rig). */
+  /** Polled each tick; when true, the driver POSTs cancel once (stop-before-next-softwareTeam). */
   isCancelRequested: () => boolean;
   /** Reattach to an EXISTING attempt (skip the kick) — the detached view's `r` re-enters the loop. */
   attemptId?: string;

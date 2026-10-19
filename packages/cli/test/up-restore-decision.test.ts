@@ -1,4 +1,4 @@
-// OPR.0.3.4.2 — rig up --existing: resume-original default surface.
+// OPR.0.3.4.2 — SoftwareTeam up --existing: resume-original default surface.
 // --fresh opt-in forwarding, the awaiting-decision ASK/offer (TTY [y/N] via
 // injected prompt; headless honest machine-status + --fresh hint), and the
 // five-term distinct-naming render. NEVER an auto-substitution.
@@ -41,7 +41,7 @@ function captureLogs(fn: () => Promise<void>): Promise<{ logs: string[]; exitCod
   });
 }
 
-describe("rig up --existing — resume-original default (OPR.0.3.4.2)", () => {
+describe("SoftwareTeam up --existing — resume-original default (OPR.0.3.4.2)", () => {
   let server: http.Server;
   let port: number;
   let upBodies: Array<Record<string, unknown>> = [];
@@ -71,7 +71,7 @@ describe("rig up --existing — resume-original default (OPR.0.3.4.2)", () => {
 
   beforeEach(() => {
     upBodies = [];
-    respond = () => ({ status: "restored", rigId: "rig-1", rigName: "myrig", rigResult: "fully_restored", nodes: [], warnings: [] });
+    respond = () => ({ status: "restored", softwareTeamId: "software-team-1", softwareTeamName: "myrig", softwareTeamResult: "fully_restored", nodes: [], warnings: [] });
   });
 
   function deps(promptYesNo?: (q: string) => Promise<boolean>) {
@@ -98,7 +98,7 @@ describe("rig up --existing — resume-original default (OPR.0.3.4.2)", () => {
 
   it("--fresh seats forward as freshLogicalIds in the /api/up body (operation B)", async () => {
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "up", "myrig", "--existing", "--fresh", "dev.impl", "dev.qa"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "up", "myrig", "--existing", "--fresh", "dev.impl", "dev.qa"]);
     });
     expect(upBodies).toHaveLength(1);
     expect(upBodies[0]!.freshLogicalIds).toEqual(["dev.impl", "dev.qa"]);
@@ -106,13 +106,13 @@ describe("rig up --existing — resume-original default (OPR.0.3.4.2)", () => {
 
   it("headless awaiting-decision: honest machine status + --fresh hint, exit 1, NO auto-substitution", async () => {
     respond = () => ({
-      status: "restored", rigId: "rig-1", rigName: "myrig", rigResult: "partially_restored",
+      status: "restored", softwareTeamId: "software-team-1", softwareTeamName: "myrig", softwareTeamResult: "partially_restored",
       nodes: [{ logicalId: "dev.impl", status: "awaiting-decision", error: "Original session unresumable: resume attempted but failed." }],
       warnings: [],
     });
     // No promptYesNo injected and no TTY in vitest -> the headless path.
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "up", "myrig", "--existing"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "up", "myrig", "--existing"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("dev.impl: awaiting-decision");
@@ -125,17 +125,17 @@ describe("rig up --existing — resume-original default (OPR.0.3.4.2)", () => {
   it("TTY ASK accepted: [y/N] offer names seat + reason, then re-runs as a deliberate fresh-prime", async () => {
     respond = (body) => Array.isArray(body.freshLogicalIds) && (body.freshLogicalIds as string[]).length > 0
       ? {
-          status: "restored", rigId: "rig-1", rigName: "myrig", rigResult: "partially_restored",
+          status: "restored", softwareTeamId: "software-team-1", softwareTeamName: "myrig", softwareTeamResult: "partially_restored",
           nodes: [{ logicalId: "dev.impl", status: "fresh-primed" }], warnings: [],
         }
       : {
-          status: "restored", rigId: "rig-1", rigName: "myrig", rigResult: "partially_restored",
+          status: "restored", softwareTeamId: "software-team-1", softwareTeamName: "myrig", softwareTeamResult: "partially_restored",
           nodes: [{ logicalId: "dev.impl", status: "awaiting-decision", error: "no token available" }], warnings: [],
         };
     const prompt = vi.fn(async () => true);
 
     const { logs } = await captureLogs(async () => {
-      await makeCmd(prompt).parseAsync(["node", "rig", "up", "myrig", "--existing"]);
+      await makeCmd(prompt).parseAsync(["node", "softwareTeam", "up", "myrig", "--existing"]);
     });
 
     expect(prompt).toHaveBeenCalledTimes(1);
@@ -151,14 +151,14 @@ describe("rig up --existing — resume-original default (OPR.0.3.4.2)", () => {
 
   it("TTY ASK declined: no second POST, no session started", async () => {
     respond = () => ({
-      status: "restored", rigId: "rig-1", rigName: "myrig", rigResult: "partially_restored",
+      status: "restored", softwareTeamId: "software-team-1", softwareTeamName: "myrig", softwareTeamResult: "partially_restored",
       nodes: [{ logicalId: "dev.impl", status: "awaiting-decision", error: "no token available" }],
       warnings: [],
     });
     const prompt = vi.fn(async () => false);
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd(prompt).parseAsync(["node", "rig", "up", "myrig", "--existing"]);
+      await makeCmd(prompt).parseAsync(["node", "softwareTeam", "up", "myrig", "--existing"]);
     });
 
     expect(upBodies).toHaveLength(1);
@@ -171,8 +171,8 @@ describe("rig up --existing — resume-original default (OPR.0.3.4.2)", () => {
     respond = () => ({
       status: "plan",
       mode: "restore",
-      rigId: "rig-1",
-      rigName: "myrig",
+      softwareTeamId: "software-team-1",
+      softwareTeamName: "myrig",
       snapshot: { id: "snap-9", kind: "auto-pre-down", createdAt: "2026-06-11T00:00:00Z" },
       wouldCaptureCurrentState: false,
       nodes: [
@@ -183,10 +183,10 @@ describe("rig up --existing — resume-original default (OPR.0.3.4.2)", () => {
     });
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "up", "myrig", "--existing", "--plan"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "up", "myrig", "--existing", "--plan"]);
     });
     const output = logs.join("\n");
-    expect(output).toContain('Plan: restore rig "myrig"');
+    expect(output).toContain('Plan: restore softwareTeam "myrig"');
     expect(output).toContain("snap-9");
     expect(output).toContain("dev.impl: resume-original");
     expect(output).toContain("dev.qa: awaiting-decision");
@@ -202,8 +202,8 @@ describe("rig up --existing — resume-original default (OPR.0.3.4.2)", () => {
     respond = (body) => ({
       status: "plan",
       mode: "restore",
-      rigId: "rig-1",
-      rigName: "myrig",
+      softwareTeamId: "software-team-1",
+      softwareTeamName: "myrig",
       snapshot: { id: "snap-9", kind: "auto-pre-down", createdAt: "2026-06-11T00:00:00Z" },
       wouldCaptureCurrentState: false,
       nodes: Array.isArray(body.freshLogicalIds) && (body.freshLogicalIds as string[]).includes("dev.impl")
@@ -213,7 +213,7 @@ describe("rig up --existing — resume-original default (OPR.0.3.4.2)", () => {
     });
 
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "up", "myrig", "--existing", "--plan", "--fresh", "dev.impl"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "up", "myrig", "--existing", "--plan", "--fresh", "dev.impl"]);
     });
 
     expect(upBodies).toHaveLength(1);
@@ -235,13 +235,13 @@ describe("rig up --existing — resume-original default (OPR.0.3.4.2)", () => {
     prog.addCommand(upCommand(customDeps));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "up", "myrig", "--existing"]);
+      await prog.parseAsync(["node", "softwareTeam", "up", "myrig", "--existing"]);
     });
     const output = logs.join("\n");
     // Honest in-progress/unknown framing, not a false "failed".
     expect(output).toContain("may still be processing");
     expect(output).toContain("does not mean the operation failed");
-    expect(output).toContain("rig ps");
+    expect(output).toContain("SoftwareTeam ps");
     expect(output).not.toContain("Up failed");
     expect(exitCode).toBe(1);
   });
@@ -249,7 +249,7 @@ describe("rig up --existing — resume-original default (OPR.0.3.4.2)", () => {
   // OPR.0.3.4.6 — cross-surface regression guard: CLI exit-code + JSON.
   it("OPR.0.3.4.6 guard: attention_required/awaiting-decision -> partially_restored -> exit 1, never exit 0", async () => {
     respond = () => ({
-      status: "restored", rigId: "rig-1", rigName: "myrig", rigResult: "partially_restored",
+      status: "restored", softwareTeamId: "software-team-1", softwareTeamName: "myrig", softwareTeamResult: "partially_restored",
       nodes: [
         { logicalId: "a", status: "resumed" },
         { logicalId: "b", status: "attention_required" },
@@ -258,14 +258,14 @@ describe("rig up --existing — resume-original default (OPR.0.3.4.2)", () => {
       warnings: [],
     });
     const { exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "up", "myrig", "--existing"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "up", "myrig", "--existing"]);
     });
     expect(exitCode).toBe(1);
   });
 
   it("OPR.0.3.4.6 guard: JSON passes raw per-node status for all five terms (never collapsed)", async () => {
     respond = () => ({
-      status: "restored", rigId: "rig-1", rigName: "myrig", rigResult: "partially_restored",
+      status: "restored", softwareTeamId: "software-team-1", softwareTeamName: "myrig", softwareTeamResult: "partially_restored",
       nodes: [
         { logicalId: "a", status: "resumed" },
         { logicalId: "b", status: "fresh-primed" },
@@ -276,7 +276,7 @@ describe("rig up --existing — resume-original default (OPR.0.3.4.2)", () => {
       warnings: [],
     });
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "up", "myrig", "--existing", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "up", "myrig", "--existing", "--json"]);
     });
     const jsonLine = logs.find((l) => l.startsWith("{"));
     expect(jsonLine).toBeDefined();
@@ -291,7 +291,7 @@ describe("rig up --existing — resume-original default (OPR.0.3.4.2)", () => {
 
   it("distinct naming: all five vocabulary terms render distinctly per seat", async () => {
     respond = () => ({
-      status: "restored", rigId: "rig-1", rigName: "myrig", rigResult: "partially_restored",
+      status: "restored", softwareTeamId: "software-team-1", softwareTeamName: "myrig", softwareTeamResult: "partially_restored",
       nodes: [
         { logicalId: "a", status: "resumed" },
         { logicalId: "b", status: "fresh-primed" },
@@ -302,7 +302,7 @@ describe("rig up --existing — resume-original default (OPR.0.3.4.2)", () => {
       warnings: [],
     });
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "up", "myrig", "--existing"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "up", "myrig", "--existing"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("a: resumed");

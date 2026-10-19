@@ -10,7 +10,7 @@ export interface TelemetryRead {
     start?: string;
     limit?: string;
     nodeId?: string;
-    rigId?: string;
+    softwareTeamId?: string;
     qitemId?: string;
 }
 export const TELEMETRY_LIMITS = { rows: 128, responseBytes: 128 * 1024, recordBytes: 4096, cursorBytes: 2048 } as const;
@@ -44,7 +44,7 @@ function field(column: string, alias: string, cap = 256): string {
     CASE WHEN ${column} IS NULL THEN NULL WHEN typeof(${column}) != 'text' THEN 'invalid_type'
       WHEN octet_length(${column}) > ${cap} THEN 'oversized_field' END AS _gap_${alias}`;
 }
-const eventFields = [field("rig_id", "rigId"), field("node_id", "nodeId"), field("type", "type", 128), field("created_at", "originalTimestamp", 128)].join(",");
+const eventFields = [field("software_team_id", "softwareTeamId"), field("node_id", "nodeId"), field("type", "type", 128), field("created_at", "originalTimestamp", 128)].join(",");
 const transitionFields = [field("qitem_id", "qitemId"), field("ts", "originalTimestamp", 128), field("state", "state", 128),
     field("actor_session", "actorSession", 512), field("identity_provenance", "identityProvenance", 128),
     field("closure_reason", "closureReason", 128), field("closure_target", "closureTarget", 512)].join(",");
@@ -112,8 +112,8 @@ function bounds(db: Database.Database, table: string, key: string, nodeId?: stri
 }
 /** One read snapshot and a finite source prefix. No writes, subscription or catch-up loop. */
 export function readTelemetryPage(db: Database.Database, source: TelemetrySource, stream: TelemetryStream, input: TelemetryRead, observedAt = new Date().toISOString()) {
-    const nodeId = boundedFilter(input.nodeId), rigId = boundedFilter(input.rigId), qitemId = boundedFilter(input.qitemId);
-    if (stream === "tenures" ? (!nodeId || rigId || qitemId) : stream === "events" ? qitemId : (nodeId || rigId))
+    const nodeId = boundedFilter(input.nodeId), softwareTeamId = boundedFilter(input.softwareTeamId), qitemId = boundedFilter(input.qitemId);
+    if (stream === "tenures" ? (!nodeId || softwareTeamId || qitemId) : stream === "events" ? qitemId : (nodeId || softwareTeamId))
         throw new TelemetryInputError("Unsupported filter for telemetry stream");
     if (input.cursor !== undefined && input.start !== undefined)
         throw new TelemetryInputError("Use cursor or start, not both");
@@ -124,7 +124,7 @@ export function readTelemetryPage(db: Database.Database, source: TelemetrySource
     const limit = input.limit === undefined ? (stream === "tenures" ? 32 : 128) : Number(input.limit);
     if ((input.limit !== undefined && !/^[0-9]+$/.test(input.limit)) || !Number.isInteger(limit) || limit < 1 || limit > TELEMETRY_LIMITS.rows)
         throw new TelemetryInputError("limit must be an integer from 1 to 128");
-    const filter = createHash("sha256").update(JSON.stringify([nodeId, rigId, qitemId])).digest("hex");
+    const filter = createHash("sha256").update(JSON.stringify([nodeId, softwareTeamId, qitemId])).digest("hex");
     const previous = input.cursor === undefined ? null : decode(input.cursor);
     if (previous && (previous.stream !== stream || previous.filter !== filter))
         throw new TelemetryInputError("Cursor stream or filters do not match");
@@ -197,7 +197,7 @@ export function readTelemetryPage(db: Database.Database, source: TelemetrySource
                     if (JSON.stringify(candidates[++i]) !== JSON.stringify(raw))
                         conflict = true;
                 }
-                const matches = (!nodeId || raw.nodeId === nodeId) && (!rigId || raw.rigId === rigId) && (!qitemId || raw.qitemId === qitemId);
+                const matches = (!nodeId || raw.nodeId === nodeId) && (!softwareTeamId || raw.softwareTeamId === softwareTeamId) && (!qitemId || raw.qitemId === qitemId);
                 const record: Record<string, string | null> = { [stream === "events" ? "seq" : stream === "tenures" ? "generationOrdinal" : "transitionId"]: raw._id };
                 for (const [key, value] of Object.entries(raw))
                     if (!key.startsWith("_"))

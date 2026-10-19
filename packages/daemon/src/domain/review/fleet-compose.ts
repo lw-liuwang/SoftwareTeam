@@ -2,7 +2,7 @@
 //
 // Arch Q1 (ruled): each host's OWN composer is authoritative for its own
 // time-derived ▲/● set — this module fans out each registered host's
-// ALREADY-COMPOSED rig root (`GET /api/review/rig`, the parameterless
+// ALREADY-COMPOSED softwareTeam root (`GET /api/review/softwareTeam`, the parameterless
 // host-wide altitude root) and only UNIONS + HOST-DIMENSIONS + COUNTS.
 // It never recomputes exception truth (no clock, no thresholds, no random
 // here — cross-host clock skew can never distort a ▲).
@@ -29,7 +29,7 @@ import type {
   AgentRow,
   ComposedFleet,
   ComposedFleetRollup,
-  ComposedRigAgents,
+  ComposedSoftwareTeamAgents,
   FleetHostRollup,
   FleetNeedsYouItem,
   FleetSettledRow,
@@ -58,9 +58,9 @@ export const FLEET_FANOUT_CONCURRENCY = 4;
 // ---------------------------------------------------------------------------
 
 /** One altitude read of a host's composed needs-you rows. Production (D-1)
- *  supplies exactly one entry per reachable host — its rig root — so
- *  seenFrom renders `rig`; the union machinery is correct for any scoped
- *  set (the C5 3-altitude vector feeds slice+mission+rig). */
+ *  supplies exactly one entry per reachable host — its softwareTeam root — so
+ *  seenFrom renders `softwareTeam`; the union machinery is correct for any scoped
+ *  set (the C5 3-altitude vector feeds slice+mission+softwareTeam). */
 export interface ScopedNeedsYou {
   scope: string;
   items: NeedsYouItem[];
@@ -90,16 +90,16 @@ function compareFleetRows(a: FleetNeedsYouItem, b: FleetNeedsYouItem): number {
   return a.fleetKey < b.fleetKey ? -1 : a.fleetKey > b.fleetKey ? 1 : 0;
 }
 
-/** The BR-1 session grammar is member@rig (the @host form never exists in
- *  session strings) — distinct rig names across a host's agent rows is a
+/** The BR-1 session grammar is member@software-team (the @host form never exists in
+ *  session strings) — distinct softwareTeam names across a host's agent rows is a
  *  structured parse of that grammar, never prose. */
-function distinctRigCount(agents: AgentRow[]): number {
-  const rigs = new Set<string>();
+function distinctSoftwareTeamCount(agents: AgentRow[]): number {
+  const softwareTeams = new Set<string>();
   for (const a of agents) {
     const at = a.sessionName.lastIndexOf("@");
-    if (at > 0 && at < a.sessionName.length - 1) rigs.add(a.sessionName.slice(at + 1));
+    if (at > 0 && at < a.sessionName.length - 1) softwareTeams.add(a.sessionName.slice(at + 1));
   }
-  return rigs.size;
+  return softwareTeams.size;
 }
 
 /** The worst line for a host — spoken-aloud, derived deterministically from
@@ -184,7 +184,7 @@ export function unionFleet(
       needsYouCount: hostNeedsYou,
       exceptionsByKind: [...hostKinds.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([kind, count]) => ({ kind, count })),
       seatCount: input.agents.length,
-      rigCount: distinctRigCount(input.agents),
+      softwareTeamCount: distinctSoftwareTeamCount(input.agents),
       topLine: hostTopLine(hostRows),
     };
   });
@@ -217,7 +217,7 @@ export function unionFleet(
 
 export interface FleetComposeDeps {
   /** D-1: the LOCAL host joins in-process — zero self-transport. */
-  composeLocalRig: () => ComposedRigAgents;
+  composeLocalSoftwareTeam: () => ComposedSoftwareTeamAgents;
   /** S11's shared reader — the fleet enumerates EVERY registered host. */
   loadRegistry: () => HostRegistryLoadResult;
   /** Registry presence probe (a missing registry = a single-host operator —
@@ -241,7 +241,7 @@ interface PerHostOutcome {
 /** Minimal structural check on a remote's composed payload — a 200 carrying
  *  the wrong shape degrades to the honest per-host status, never a crash
  *  and never silently-empty "ok" data. */
-function parseComposedRig(payload: unknown): ComposedRigAgents | null {
+function parseComposedSoftwareTeam(payload: unknown): ComposedSoftwareTeamAgents | null {
   if (payload === null || typeof payload !== "object") return null;
   const p = payload as Record<string, unknown>;
   const needsYou = p["needsYou"] as Record<string, unknown> | undefined;
@@ -249,10 +249,10 @@ function parseComposedRig(payload: unknown): ComposedRigAgents | null {
   if (!needsYou || !Array.isArray(needsYou["items"])) return null;
   if (!agents || !Array.isArray(agents["rows"])) return null;
   if (!Array.isArray(p["settled"])) return null;
-  return payload as ComposedRigAgents;
+  return payload as ComposedSoftwareTeamAgents;
 }
 
-async function readHostComposedRig(hostId: string, reg: HostRegistryLoadResult, deps: FleetComposeDeps, deadline: number): Promise<PerHostOutcome> {
+async function readHostComposedSoftwareTeam(hostId: string, reg: HostRegistryLoadResult, deps: FleetComposeDeps, deadline: number): Promise<PerHostOutcome> {
   if (!reg.ok) {
     return { status: { hostId, status: "unreachable", error: reg.error }, input: null };
   }
@@ -273,7 +273,7 @@ async function readHostComposedRig(hostId: string, reg: HostRegistryLoadResult, 
       input: null,
     };
   }
-  const res = await remoteJsonRequest(resolved.host, "/api/review/rig", {
+  const res = await remoteJsonRequest(resolved.host, "/api/review/softwareTeam", {
     method: "GET",
     // Reuse the transport's abort across request AND body. Later worker
     // waves receive only time left on this same deadline, never a reset.
@@ -283,16 +283,16 @@ async function readHostComposedRig(hostId: string, reg: HostRegistryLoadResult, 
     readFile: deps.readFile,
   });
   if (res.ok) {
-    const composed = parseComposedRig(res.payload);
+    const composed = parseComposedSoftwareTeam(res.payload);
     if (!composed) {
-      return { status: { hostId, status: "unreachable", error: "remote /api/review/rig returned a malformed composed payload", failedStep: "remote-command-failed" }, input: null };
+      return { status: { hostId, status: "unreachable", error: "remote /api/review/SoftwareTeam returned a malformed composed payload", failedStep: "remote-command-failed" }, input: null };
     }
     return {
       status: { hostId, status: "ok" },
       input: {
         hostId,
         kind: "remote",
-        scopedNeedsYou: [{ scope: "rig", items: composed.needsYou.items }],
+        scopedNeedsYou: [{ scope: "softwareTeam", items: composed.needsYou.items }],
         agents: composed.agents.rows,
         settled: composed.settled,
       },
@@ -330,11 +330,11 @@ export async function composeFleet(deps: FleetComposeDeps): Promise<ComposedFlee
   // Start BEFORE synchronous local work and registry reads. A timer cannot
   // preempt those; if they consume the budget, add no further remote waits.
   const deadline = performance.now() + (deps.timeoutMs ?? FLEET_READ_TIMEOUT_MS);
-  const local = deps.composeLocalRig();
+  const local = deps.composeLocalSoftwareTeam();
   const localInput: FleetHostInput = {
     hostId: LOCAL_HOST_ID,
     kind: "local",
-    scopedNeedsYou: [{ scope: "rig", items: local.needsYou.items }],
+    scopedNeedsYou: [{ scope: "softwareTeam", items: local.needsYou.items }],
     agents: local.agents.rows,
     settled: local.settled,
   };
@@ -364,7 +364,7 @@ export async function composeFleet(deps: FleetComposeDeps): Promise<ComposedFlee
       const i = next;
       if (i >= hostIds.length) return;
       next += 1;
-      outcomes[i] = await readHostComposedRig(hostIds[i]!, reg, deps, deadline);
+      outcomes[i] = await readHostComposedSoftwareTeam(hostIds[i]!, reg, deps, deadline);
     }
   });
   await Promise.all(workers);

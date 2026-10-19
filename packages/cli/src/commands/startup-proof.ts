@@ -32,9 +32,9 @@ function first(...values: unknown[]): string | null {
 export function resolveStartupProofEndpoint(deps: StartupProofDeps = {}): Endpoint | null {
   const env = deps.env ?? process.env;
   const readFile = deps.readFile ?? ((p: string) => fs.readFileSync(p, "utf8"));
-  const home = first(env["OPENRIG_HOME"], env["RIGGED_HOME"]) ?? path.join(os.homedir(), ".openrig");
-  let baseUrl = first(env["OPENRIG_URL"], env["RIGGED_URL"]);
-  let token = first(env["OPENRIG_ACTIVITY_HOOK_TOKEN"], env["RIGGED_ACTIVITY_HOOK_TOKEN"]);
+  const home = first(env["SOFTWARETEAM_HOME"], env["SOFTWARETEAM_HOME"]) ?? path.join(os.homedir(), ".softwareteam");
+  let baseUrl = first(env["SOFTWARETEAM_URL"], env["SOFTWARETEAM_URL"]);
+  let token = first(env["SOFTWARETEAM_ACTIVITY_HOOK_TOKEN"], env["SOFTWARETEAM_ACTIVITY_HOOK_TOKEN"]);
 
   if (!baseUrl || !token) {
     try {
@@ -47,8 +47,8 @@ export function resolveStartupProofEndpoint(deps: StartupProofDeps = {}): Endpoi
   }
 
   if (!baseUrl) {
-    const port = first(env["OPENRIG_PORT"], env["RIGGED_PORT"]);
-    if (port) baseUrl = `http://${formatDaemonHostForUrl(first(env["OPENRIG_HOST"], env["RIGGED_HOST"]) ?? "127.0.0.1")}:${port}`;
+    const port = first(env["SOFTWARETEAM_PORT"], env["SOFTWARETEAM_PORT"]);
+    if (port) baseUrl = `http://${formatDaemonHostForUrl(first(env["SOFTWARETEAM_HOST"], env["SOFTWARETEAM_HOST"]) ?? "127.0.0.1")}:${port}`;
   }
 
   return baseUrl && token ? { baseUrl, token } : null;
@@ -62,7 +62,7 @@ export async function submitStartupProof(
   const fetchImpl = deps.fetchImpl ?? fetch;
   const endpoint = resolveStartupProofEndpoint(deps);
   if (!endpoint) {
-    throw new Error("OpenRig startup proof endpoint is unavailable");
+    throw new Error("SoftwareTeam startup proof endpoint is unavailable");
   }
 
   const res = await fetchImpl(new URL("/api/activity/hooks", endpoint.baseUrl).toString(), {
@@ -73,9 +73,9 @@ export async function submitStartupProof(
     },
     body: JSON.stringify({
       eventFamily: "startup_proof",
-      sessionName: first(env["OPENRIG_SESSION_NAME"], env["RIGGED_SESSION_NAME"]),
-      nodeId: first(env["OPENRIG_NODE_ID"], env["RIGGED_NODE_ID"]),
-      runtime: first(env["OPENRIG_RUNTIME"], env["RIGGED_RUNTIME"]),
+      sessionName: first(env["SOFTWARETEAM_SESSION_NAME"], env["SOFTWARETEAM_SESSION_NAME"]),
+      nodeId: first(env["SOFTWARETEAM_NODE_ID"], env["SOFTWARETEAM_NODE_ID"]),
+      runtime: first(env["SOFTWARETEAM_RUNTIME"], env["SOFTWARETEAM_RUNTIME"]),
       challengeId: input.challengeId,
       answer: input.answer,
     }),
@@ -101,7 +101,7 @@ export function startupProofCommand(depsOverride?: StartupProofDeps): Command {
     .description("Submit and inspect startup orientation proof");
 
   cmd.command("submit")
-    .description("Submit this seat's startup proof through the authenticated OpenRig activity hook")
+    .description("Submit this seat's startup proof through the authenticated SoftwareTeam activity hook")
     .requiredOption("--challenge-id <id>", "Startup challenge id from the startup prompt")
     .requiredOption("--answer <answer>", "Expected answer from the startup prompt")
     .option("--json", "Print raw JSON response")

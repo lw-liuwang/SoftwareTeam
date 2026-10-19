@@ -14,7 +14,7 @@ import { Command } from "commander";
 import { scopeCommand } from "../src/commands/scope.js";
 
 function mktemp(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "rig-scope-reapprove-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "software-team-scope-reapprove-"));
 }
 
 function writeFile(p: string, content: string): void {
@@ -56,7 +56,7 @@ async function run(args: string[], workspace: string): Promise<CaptureResult> {
   program.addCommand(scopeCommand());
   program.exitOverride();
   try {
-    await program.parseAsync(["node", "rig", "scope", ...args, "--workspace", workspace]);
+    await program.parseAsync(["node", "softwareTeam", "scope", ...args, "--workspace", workspace]);
   } catch (err) {
     if (!(err instanceof Error) || !err.message.startsWith("__EXIT__")) {
       // commander exitOverride or a CLI error path — capture continues
@@ -72,7 +72,7 @@ async function run(args: string[], workspace: string): Promise<CaptureResult> {
   return { exitCode, stdout: stdoutBuf.join(""), stderr: stderrBuf.join("") };
 }
 
-describe("rig scope slice approve — amend/re-stamp flag misuse (local, pre-daemon)", () => {
+describe("SoftwareTeam scope slice approve — amend/re-stamp flag misuse (local, pre-daemon)", () => {
   let root: string;
   let missionsRoot: string;
 
@@ -90,7 +90,7 @@ describe("rig scope slice approve — amend/re-stamp flag misuse (local, pre-dae
 
   it("--re-approve without --reason refuses loudly BEFORE any daemon contact", async () => {
     const res = await run(
-      ["slice", "approve", "18-amend-me", "--mission", "release-x", "--scope", "spec", "--actor", "pm@rig", "--re-approve"],
+      ["slice", "approve", "18-amend-me", "--mission", "release-x", "--scope", "spec", "--actor", "pm@software-team", "--re-approve"],
       root,
     );
     expect(res.exitCode).not.toBe(0);
@@ -100,7 +100,7 @@ describe("rig scope slice approve — amend/re-stamp flag misuse (local, pre-dae
 
   it("--reason without --re-approve refuses loudly (no silent drop of intent)", async () => {
     const res = await run(
-      ["slice", "approve", "18-amend-me", "--mission", "release-x", "--scope", "spec", "--actor", "pm@rig", "--reason", "oops"],
+      ["slice", "approve", "18-amend-me", "--mission", "release-x", "--scope", "spec", "--actor", "pm@software-team", "--reason", "oops"],
       root,
     );
     expect(res.exitCode).not.toBe(0);
@@ -108,7 +108,7 @@ describe("rig scope slice approve — amend/re-stamp flag misuse (local, pre-dae
   });
 });
 
-describe("rig scope audit — amendment lineage surface (OPR.0.5.0.18 mini-req 4)", () => {
+describe("SoftwareTeam scope audit — amendment lineage surface (OPR.0.5.0.18 mini-req 4)", () => {
   let root: string;
   let missionsRoot: string;
 
@@ -122,7 +122,7 @@ describe("rig scope audit — amendment lineage surface (OPR.0.5.0.18 mini-req 4
         "---",
         "id: OPR.X.1",
         "status: building",
-        "approved-spec-by: planner@rig",
+        "approved-spec-by: planner@software-team",
         "approved-spec-at: 2026-08-04T21:00:00.000Z",
         "approved-spec-priors: 2",
         "---",
@@ -133,7 +133,7 @@ describe("rig scope audit — amendment lineage surface (OPR.0.5.0.18 mini-req 4
     // A never-amended slice: no lineage output.
     writeFile(
       path.join(missionsRoot, "release-x", "slices", "02-plain", "README.md"),
-      "---\nid: OPR.X.2\nstatus: building\napproved-spec-by: pm@rig\napproved-spec-at: 2026-08-04T20:00:00.000Z\n---\n# Plain\n",
+      "---\nid: OPR.X.2\nstatus: building\napproved-spec-by: pm@software-team\napproved-spec-at: 2026-08-04T20:00:00.000Z\n---\n# Plain\n",
     );
     writeFile(path.join(missionsRoot, "release-x", "slices", "02-plain", "PROGRESS.md"), "# P\n");
   });
@@ -145,7 +145,7 @@ describe("rig scope audit — amendment lineage surface (OPR.0.5.0.18 mini-req 4
   it("text output: a re-stamped slice shows current attestation + prior-count; a plain slice shows none", async () => {
     const res = await run(["audit", "--mission", "release-x"], path.join(root, "internal-docs"));
     expect(res.stdout).toMatch(/AMENDMENT LINEAGE:/);
-    expect(res.stdout).toMatch(/01-amended \[spec\]: current planner@rig at 2026-08-04T21:00:00\.000Z — 2 prior attestation\(s\)/);
+    expect(res.stdout).toMatch(/01-amended \[spec\]: current planner@software-team at 2026-08-04T21:00:00\.000Z — 2 prior attestation\(s\)/);
     expect(res.stdout).not.toMatch(/02-plain \[spec\]/);
   });
 
@@ -153,7 +153,7 @@ describe("rig scope audit — amendment lineage surface (OPR.0.5.0.18 mini-req 4
     const res = await run(["audit", "--mission", "release-x", "--json"], path.join(root, "internal-docs"));
     const parsed = JSON.parse(res.stdout) as { slices: Array<{ name: string; attestations?: Record<string, { by: string; priors: number }> }> };
     const amended = parsed.slices.find((s) => s.name === "01-amended")!;
-    expect(amended.attestations?.spec).toMatchObject({ by: "planner@rig", priors: 2 });
+    expect(amended.attestations?.spec).toMatchObject({ by: "planner@software-team", priors: 2 });
     const plain = parsed.slices.find((s) => s.name === "02-plain")!;
     expect(plain.attestations).toBeUndefined();
   });

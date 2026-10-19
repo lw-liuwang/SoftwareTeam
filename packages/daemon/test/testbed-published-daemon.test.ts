@@ -8,7 +8,7 @@ import { resolve } from "node:path";
 import {
   BIND_ENV, BIND_VALUE, BEARER_ENV, L3_HOST_PORT, CONTAINER_PORT,
   HEALTH_PATH, GUARDED_PROBE_PATH, publishArg, publishedDaemonEnv,
-  TERMINAL_BEARER_ENV, rigReadEnv,
+  TERMINAL_BEARER_ENV, softwareTeamReadEnv,
 } from "./helpers/testbed-published-daemon.js";
 
 const RUNBOOK = readFileSync(
@@ -34,14 +34,14 @@ describe("published-daemon procedure — module/runbook parity", () => {
     expect(() => publishArg(0)).toThrow(/explicit positive integer/);
   });
 
-  it("rig READS carry the TERMINAL token env — distinct name, same value under this procedure", () => {
-    expect(TERMINAL_BEARER_ENV).toBe("OPENRIG_TERMINAL_BEARER_TOKEN");
+  it("softwareTeam READS carry the TERMINAL token env — distinct name, same value under this procedure", () => {
+    expect(TERMINAL_BEARER_ENV).toBe("SOFTWARETEAM_TERMINAL_BEARER_TOKEN");
     expect(TERMINAL_BEARER_ENV).not.toBe(BEARER_ENV); // separate concepts; coincide only via the non-trusted-bind copy
-    expect(rigReadEnv("t", "http://127.0.0.1:19433")).toEqual({
+    expect(softwareTeamReadEnv("t", "http://127.0.0.1:19433")).toEqual({
       [TERMINAL_BEARER_ENV]: "t",
-      OPENRIG_URL: "http://127.0.0.1:19433",
+      SOFTWARETEAM_URL: "http://127.0.0.1:19433",
     });
-    expect(() => rigReadEnv("", "http://x")).toThrow(/non-empty token/);
+    expect(() => softwareTeamReadEnv("", "http://x")).toThrow(/non-empty token/);
   });
 
   it("the runbook keeps the NEGATIVE CONTROL — the only assertion that the guard is armed", () => {
@@ -60,22 +60,22 @@ describe("published-daemon procedure — module/runbook parity", () => {
 describe("staging helpers — one method for runbook and adapter", () => {
   it("stage paths are in-container under the exec user's home, and reject host/escaping paths", async () => {
     const m = await import("./helpers/testbed-published-daemon.js");
-    expect(m.containerStagePath("topologies")).toBe("/home/openrig/topologies");
+    expect(m.containerStagePath("topologies")).toBe("/home/softwareteam/topologies");
     expect(() => m.containerStagePath("/abs")).toThrow(/simple relative name/);
     expect(() => m.containerStagePath("../escape")).toThrow(/simple relative name/);
   });
 
   it("delivery extracts as the DEFAULT exec user — no -u root, no chown (ownership by construction)", async () => {
     const m = await import("./helpers/testbed-published-daemon.js");
-    const argv = m.stageExtractArgv("H_A", "/home/openrig/topologies");
-    expect(argv).toEqual(["exec", "-i", "H_A", "tar", "-C", "/home/openrig/topologies", "-xf", "-"]);
+    const argv = m.stageExtractArgv("H_A", "/home/softwareteam/topologies");
+    expect(argv).toEqual(["exec", "-i", "H_A", "tar", "-C", "/home/softwareteam/topologies", "-xf", "-"]);
     expect(argv).not.toContain("-u");
     expect(argv.join(" ")).not.toMatch(/chown/);
   });
 
   it("the stage fence probes the FULL contract by DOING it (read + touch/rm), not by reading mode bits", async () => {
     const m = await import("./helpers/testbed-published-daemon.js");
-    const cmd = m.stageFenceArgv("H_A", "/home/openrig/topologies").join(" ");
+    const cmd = m.stageFenceArgv("H_A", "/home/softwareteam/topologies").join(" ");
     expect(cmd).toMatch(/test -r/);
     expect(cmd).toMatch(/touch/);
     expect(cmd).toMatch(/rm -f/);
@@ -87,7 +87,7 @@ describe("stageTopologyPlan — the ordering is the contract", () => {
   it("orders mkdir -> extract -> fence, and the fence is never first (an empty stage passes a naive read check)", async () => {
     const m = await import("./helpers/testbed-published-daemon.js");
     const plan = m.stageTopologyPlan({ container: "H_A", hostDir: "/host/topologies" });
-    expect(plan.stagePath).toBe("/home/openrig/topologies");
+    expect(plan.stagePath).toBe("/home/softwareteam/topologies");
     expect(plan.steps.map((s: { label: string }) => s.label)).toEqual(["mkdir", "extract", "fence"]);
     expect(plan.steps[1]!.stdinFrom).toEqual(["-C", "/host/topologies", "-cf", "-", "."]);
   });
@@ -96,14 +96,14 @@ describe("stageTopologyPlan — the ordering is the contract", () => {
 describe("stage fence asserts CONTENT ARRIVED, not just a directory", () => {
   it("with expectFile the fence targets the FILE (an empty stage cannot pass)", async () => {
     const m = await import("./helpers/testbed-published-daemon.js");
-    const cmd = m.stageFenceArgv("H_A", "/home/openrig/topologies", "shared.yaml").join(" ");
-    expect(cmd).toContain("test -r '/home/openrig/topologies/shared.yaml'");
-    expect(cmd).toContain("touch '/home/openrig/topologies/.fence-write'"); // writability still on the dir
+    const cmd = m.stageFenceArgv("H_A", "/home/softwareteam/topologies", "shared.yaml").join(" ");
+    expect(cmd).toContain("test -r '/home/softwareteam/topologies/shared.yaml'");
+    expect(cmd).toContain("touch '/home/softwareteam/topologies/.fence-write'"); // writability still on the dir
   });
 
   it("stageTopologyPlan threads expectFile into the fence step", async () => {
     const m = await import("./helpers/testbed-published-daemon.js");
-    const plan = m.stageTopologyPlan({ container: "H_A", hostDir: "/host/t", expectFile: "rig-a.yaml" });
-    expect(plan.steps[2]!.argv.join(" ")).toContain("/home/openrig/topologies/rig-a.yaml");
+    const plan = m.stageTopologyPlan({ container: "H_A", hostDir: "/host/t", expectFile: "software-team-a.yaml" });
+    expect(plan.steps[2]!.argv.join(" ")).toContain("/home/softwareteam/topologies/software-team-a.yaml");
   });
 });

@@ -1,5 +1,10 @@
 # Input-box frames
 
+Historical capture corpus: frames and staged text retain the upstream OpenRig
+bytes and sanitized sample-rig identifiers. They test terminal geometry, not
+the current SoftwareTeam branding. Renamed fixture filenames are references
+only; the captures have not been regenerated or relabeled as new execution.
+
 Real frames of Claude Code 2.1.296 (`claude-code-2.1.296/`) and Codex 0.160.0 (`codex-0.160.0/`), captured in a
 120x40 tmux pane in an empty git work dir, and two frames of idle Claude Code 2.1.296 seats that OpenRig launched
 (`claude-code-2.1.296/openrig-seat-*`, see below). `texts/` holds the texts that were sent.

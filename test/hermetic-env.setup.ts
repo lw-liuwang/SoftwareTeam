@@ -2,13 +2,13 @@
 //
 // The Node test suites MUST NOT inherit the seat's live-daemon connection. Two holes:
 //
-// 1. Connection-redirect env (OPENRIG_URL / OPENRIG_PORT / OPENRIG_HOST + RIGGED_*
+// 1. Connection-redirect env (SOFTWARETEAM_URL / SOFTWARETEAM_PORT / SOFTWARETEAM_HOST + SOFTWARETEAM_*
 //    aliases) — honored as a real operator override in production, but ambient inside
 //    a seat it bypasses each test's injected mock daemon (up.test.ts: 29 fails ambient
 //    vs 1 hermetic). Scrubbed below. Production behavior is untouched.
 //
-// 2. The DEFAULT STATE_FILE discovery — `OPENRIG_HOME/daemon.json` (daemon-lifecycle
-//    `OPENRIG_DIR = OPENRIG_HOME`). Scrubbing the env is NOT enough: with URL/PORT
+// 2. The DEFAULT STATE_FILE discovery — `SOFTWARETEAM_HOME/daemon.json` (daemon-lifecycle
+//    `SOFTWARETEAM_DIR = SOFTWARETEAM_HOME`). Scrubbing the env is NOT enough: with URL/PORT
 //    unset, the CLI falls back to the live daemon's state file. This is exactly how
 //    `broadcast.test.ts` emitted REAL 'System maintenance' broadcasts to 14 seats.
 //    The READ direction (results pollution) was known; the WRITE direction (emitting
@@ -17,12 +17,12 @@
 // FORCE + ASSERT (unwritable-by-omission — the guarantee lives where it cannot be
 // skipped, so a new test file inherits safety from the setup that runs first, not
 // from a runner or a per-file convention that 145/164 files already omit):
-//   FORCE  — establish a fixture-scoped OPENRIG_HOME (a fresh temp dir carrying the
-//            `.openrig-fixture` marker) BEFORE any daemon-resolving module loads and
-//            captures the eager `OPENRIG_HOME` const, so default discovery finds no
+//   FORCE  — establish a fixture-scoped SOFTWARETEAM_HOME (a fresh temp dir carrying the
+//            `.softwareteam-fixture` marker) BEFORE any daemon-resolving module loads and
+//            captures the eager `SOFTWARETEAM_HOME` const, so default discovery finds no
 //            live daemon.
 //   ASSERT — `assertFixtureScopedHome` throws LOUD if the home is NOT fixture-scoped
-//            (mkdtemp failure, or OPENRIG_HOME captured before this ran via an
+//            (mkdtemp failure, or SOFTWARETEAM_HOME captured before this ran via an
 //            import-order regression). Forcing alone silently fixes and proves
 //            nothing; the assert makes it evidence. Its known-negative lives in
 //            live-daemon-guard.test.ts.
@@ -35,12 +35,12 @@ import { writeRuntimeStubs } from "./stub-runtimes.js";
 // Tests can still set explicit overrides after setup; test/provider opt-in flags
 // are not instance selectors and remain untouched.
 for (const key of [
-  "URL", "PORT", "HOST", "BIND_HOST", "HOST_SELECTED", "DB",
+  "URL", "PORT", "HOST", "BIND_HOST", "HOST_SELECTED", "DB", "TMUX_SOCKET",
   "TRANSCRIPTS_PATH", "WORKSPACE_ROOT", "WORKSPACE_SLICES_ROOT",
   "WORKSPACE_STEERING_PATH", "WORKSPACE_SPECS_ROOT", "WORKSPACE_PROJECTS_ROOT",
   "WORKSPACE_CATALOG_PATH", "TOPOLOGY_ROOT", "CONTEXT_ROOT", "CONTEXT_PACKS_ROOT",
   "SKILLS_ROOT", "SHARED_DOCS_ROOT", "FILES_ALLOWLIST", "PROGRESS_SCAN_ROOTS",
-  "SESSION_NAME", "NODE_ID", "RIG_ID", "AUTH_BEARER_TOKEN", "TERMINAL_BEARER_TOKEN",
+  "SESSION_NAME", "NODE_ID", "SOFTWARE_TEAM_ID", "AUTH_BEARER_TOKEN", "TERMINAL_BEARER_TOKEN",
   // Slice 15: a seat with compact output on must not change what the suite prints.
   "OUTPUT_COMPACT",
   // Slice 01: a seat with usage windows on must not change what the suite reads.
@@ -48,35 +48,36 @@ for (const key of [
   // A seat with input-box verification on must not change what the transport suites verify.
   "TRANSPORT_VERIFY_INPUT_BOX",
 ]) {
+  delete process.env[`SOFTWARETEAM_${key}`];
   delete process.env[`OPENRIG_${key}`];
   delete process.env[`RIGGED_${key}`];
 }
 
-// (2) FORCE a fixture-scoped home — BEFORE importing openrig-compat (whose
-// OPENRIG_HOME const is eager). Node builtins above do not load it; the dynamic
+// (2) FORCE a fixture-scoped home — BEFORE importing softwareteam-compat (whose
+// SOFTWARETEAM_HOME const is eager). Node builtins above do not load it; the dynamic
 // imports below run only AFTER this assignment, so the const captures the fixture.
 // ONE stable fixture home per worker. setupFiles runs per test FILE, but
-// openrig-compat's OPENRIG_HOME const is captured ONCE per worker — a fresh per-file
+// softwareteam-compat's SOFTWARETEAM_HOME const is captured ONCE per worker — a fresh per-file
 // home would diverge from that captured const (env says home N, the const holds home
 // 1), which flakes any test reading one vs the other under suite ordering. So reuse a
-// fixture home already established in this worker. Named as a realistic `.openrig`-style
+// fixture home already established in this worker. Named as a realistic `.softwareteam`-style
 // home (still fixture-scoped via the marker) so path-shape assertions hold against it.
-const existingHome = process.env["OPENRIG_HOME"];
+const existingHome = process.env["SOFTWARETEAM_HOME"];
 let createdHome: string | undefined;
 let createdTmp: string | undefined;
 const fixtureHome =
-  existingHome && fs.existsSync(path.join(existingHome, ".openrig-fixture"))
+  existingHome && fs.existsSync(path.join(existingHome, ".softwareteam-fixture"))
     ? existingHome
     : (() => {
-        const h = fs.mkdtempSync(path.join(os.tmpdir(), ".openrig-test-fixture-home-"));
-        fs.writeFileSync(path.join(h, ".openrig-fixture"), "");
+        const h = fs.mkdtempSync(path.join(os.tmpdir(), ".softwareteam-test-fixture-home-"));
+        fs.writeFileSync(path.join(h, ".softwareteam-fixture"), "");
         createdHome = h;
         // The worker's own TMPDIR, so every os.tmpdir() mkdtemp a test makes lands in a directory removed with
         // the homes. The name is short on purpose: it adds 9 characters ("o-" + 6 + "/") to each such path,
         // and a Unix socket path is capped (104 bytes on macOS, where TMPDIR is already ~49 long).
         // A package whose tests are tied to the length of the temp path (the tui's Unix socket tests) opts out with
-        // test.env OPENRIG_TEST_KEEP_TMPDIR=1 in its vitest config and keeps the TMPDIR it was given.
-        if (process.env["OPENRIG_TEST_KEEP_TMPDIR"] !== "1") {
+        // test.env SOFTWARETEAM_TEST_KEEP_TMPDIR=1 in its vitest config and keeps the TMPDIR it was given.
+        if (process.env["SOFTWARETEAM_TEST_KEEP_TMPDIR"] !== "1") {
           createdTmp = fs.mkdtempSync(path.join(os.tmpdir(), "o-"));
           process.env["TMPDIR"] = createdTmp;
         }
@@ -93,7 +94,7 @@ if (createdHome) {
   const home = createdHome;
   const tmp = createdTmp;
   const remove = () => {
-    if (!fs.existsSync(path.join(home, ".openrig-fixture"))) return;
+    if (!fs.existsSync(path.join(home, ".softwareteam-fixture"))) return;
     // A failed removal (busy, permissions) must not turn a signal or a clean exit into a crash.
     for (const dir of [home, `${home}-user-home`, ...(tmp ? [tmp] : [])]) {
       try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* leave it: the worker is ending */ }
@@ -104,17 +105,18 @@ if (createdHome) {
     process.once(signal, () => { remove(); process.kill(process.pid, signal); });
   }
 }
-process.env["OPENRIG_HOME"] = fixtureHome;
+process.env["SOFTWARETEAM_HOME"] = fixtureHome;
+delete process.env["OPENRIG_HOME"];
 delete process.env["RIGGED_HOME"];
 // Compaction packets default to the shared /tmp/claude-compaction-restore that real seats use. Give every test a
 // folder under the fixture home instead (removed with it), so a test that forgets its own root can't write there
 // and a seat's value can't reach the suite. Tests that set their own root still do.
-process.env["OPENRIG_COMPACTION_OUT_ROOT"] = path.join(fixtureHome, "compaction-packets");
-// Legacy ~/.rigged discovery and ordinary home-based config must also stay local
-// to this fixture. Merely changing HOME would not override OPENRIG_HOME or DB.
+process.env["SOFTWARETEAM_COMPACTION_OUT_ROOT"] = path.join(fixtureHome, "compaction-packets");
+// Legacy ~/.softwareteam discovery and ordinary home-based config must also stay local
+// to this fixture. Merely changing HOME would not override SOFTWARETEAM_HOME or DB.
 // Keep ordinary user files outside the state root, as in a real installation.
-// Otherwise file-transfer correctly rejects every ~/ path as OpenRig state.
-if (process.env["OPENRIG_E2E_REAL_CODEX"] !== "1") {
+// Otherwise file-transfer correctly rejects every ~/ path as SoftwareTeam state.
+if (process.env["SOFTWARETEAM_E2E_REAL_CODEX"] !== "1") {
   const userHome = `${fixtureHome}-user-home`;
   fs.mkdirSync(userHome, { recursive: true });
   process.env["HOME"] = userHome;
@@ -135,13 +137,13 @@ if (process.env["OPENRIG_E2E_REAL_CODEX"] !== "1") {
 }
 
 // (3) ASSERT — capture the resolved home + fail loud if it is not fixture-scoped.
-const { OPENRIG_HOME } = await import("../packages/cli/src/openrig-compat.js");
+const { SOFTWARETEAM_HOME } = await import("../packages/cli/src/softwareteam-compat.js");
 const { assertFixtureScopedHome } = await import("../packages/cli/test/live-daemon-guard.js");
-assertFixtureScopedHome(OPENRIG_HOME);
+assertFixtureScopedHome(SOFTWARETEAM_HOME);
 
 // (4) P37 REQUEST-LAYER GUARD — the universal outbound-request chokepoint. The two
 // guards above close the DISCOVERY paths (connection env, state-file home); this closes
-// the REQUEST layer, where a hardcoded :7433 literal, a mocked URL getter with an
+// the REQUEST layer, where a hardcoded :7434 literal, a mocked URL getter with an
 // un-mocked client, or a production default constant still issues a real request that
 // no env-scrub or fixture-home can catch. Fail-closed on any unregistered target; an
 // in-process fixture registers its origin (allowFetchTarget) when it binds.

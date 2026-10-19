@@ -5,7 +5,7 @@ status: active
 topics: [observability, knowledge-and-context]
 domains: [engineering-advisor, operating-advisor]
 applies-when: |
-  Tracing slice, mission, rig, or fleet review data back to scope documents,
+  Tracing slice, mission, SoftwareTeam, or fleet review data back to scope documents,
   proof artifacts, judgments, queue state, or frozen exports.
 last-verified-against-source: e8f0ab340db773392ec8be75b072d1c0f3068a50
 last-updated: 2026-10-08
@@ -28,7 +28,7 @@ performs filesystem, database, telemetry, and optional Git reads.
 [`compose.ts`](../../../packages/daemon/src/domain/review/compose.ts) turns
 those inputs into the contracts defined in
 [`types.ts`](../../../packages/daemon/src/domain/review/types.ts), including
-`ComposedSliceReview`, `ComposedMissionReview`, and `ComposedRigAgents`.
+`ComposedSliceReview`, `ComposedMissionReview`, and `ComposedSoftwareTeamAgents`.
 
 `gatherSlice` uses `resolveNodeFileVia` to select the scope node document,
 reads `IMPLEMENTATION-PRD.md` and `PROOF.md`, and loads the `proof/` artifacts.
@@ -45,14 +45,14 @@ possible evidence was discovered follows from that read.
 
 `composeMission` batches slice-index membership reads, gathers each slice,
 and composes a mission board, completion ledger, attention union, agents,
-and brief spine. `composeRig` reads queue/activity state and reports current
+and brief spine. `composeSoftwareTeam` reads queue/activity state and reports current
 holders, recent holders, overdue work, settled work, and workflow exceptions.
 "Recent" is the current UTC day; overdue is in-progress slice-tagged work past
 `closure_required_at`; settled is today's `handed_off_to` transitions; and
 attention is any active item that is `human-gate`, addressed to a `human…`
 session, or blocked on one (`gather.ts`). Of the three review reads, the TUI
 calls only `/fleet`, from its broad hydration (`packages/tui/src/hydrate.ts`);
-its client also defines methods for `/agents` and `/rig`, which nothing in the
+its client also defines methods for `/agents` and `/SoftwareTeam`, which nothing in the
 TUI calls.
 
 ## Slice source selection and phase
@@ -122,7 +122,7 @@ Media references outside the slice's relative-path contract produce defect
 entries instead of disappearing silently.
 
 Git facts are optional. [`startup.ts`](../../../packages/daemon/src/startup.ts)
-passes `OPENRIG_REVIEW_GIT_REPO` to the gatherer. The gatherer reads that
+passes `SOFTWARETEAM_REVIEW_GIT_REPO` to the gatherer. The gatherer reads that
 repository's `HEAD`, searches merge messages keyed by scope ID, and computes
 ancestry/behind facts when possible. Each git read has a 4-second timeout; the
 merge search looks for `Merge <id>` in `HEAD` history and needs the scope's
@@ -146,8 +146,8 @@ publication or higher-level outcome decision.
 |---|---|
 | `GET /slice/:name` | Composed slice plus proof-source observation. |
 | `GET /mission/:name` | Composed mission plus proof-source observation. |
-| `GET /agents?scope=…` | Agents band; scope is `slice:<id>`, `mission:<id>`, or `rig`. |
-| `GET /rig` | Local rig review root. |
+| `GET /agents?scope=…` | Agents band; scope is `slice:<id>`, `mission:<id>`, or `SoftwareTeam`. |
+| `GET /SoftwareTeam` | Local SoftwareTeam review root. |
 | `GET /fleet` | Local and registered remote host review union. |
 | `POST /freeze` | Compose and export an approved slice; body requires `scope: slice` and `name`. |
 
@@ -188,12 +188,12 @@ allowlist and range behavior.
 ## Fleet composition
 
 [`composeFleet`](../../../packages/daemon/src/domain/review/fleet-compose.ts)
-composes local data in-process and reads registered hosts' composed rig
+composes local data in-process and reads registered hosts' composed SoftwareTeam
 payloads. Its default fan-out concurrency is **4**, with a shared
 **4-second** read budget. Synchronous local work cannot be preempted by that
 timer; elapsed local work reduces the remaining remote budget.
 
-Each remote host is read through its own `GET /api/review/rig`: SSH-only
+Each remote host is read through its own `GET /api/review/SoftwareTeam`: SSH-only
 registry entries report `unsupported-transport`, auth refusals report
 `auth-failed`, and timeouts, malformed payloads and other errors report
 `unreachable`.

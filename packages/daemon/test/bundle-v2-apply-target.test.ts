@@ -1,8 +1,8 @@
-// v2 (pod-aware) .rigbundle apply: the launch root must outlive the extraction.
+// v2 (pod-aware) .softwareteambundle apply: the launch root must outlive the extraction.
 //
 // Goes through the real BootstrapOrchestrator + real PodBundleSourceResolver
-// with real temp-filesystem effects. Only the launch itself (PodRigInstantiator)
-// is faked: it records the rigRoot / cwdOverride it was handed and resolves the
+// with real temp-filesystem effects. Only the launch itself (PodSoftwareTeamInstantiator)
+// is faked: it records the softwareTeamRoot / cwdOverride it was handed and resolves the
 // member cwd with the real resolveLaunchCwd, exactly as the real instantiator does.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
@@ -30,9 +30,9 @@ import { resolveLaunchCwd } from "../src/domain/cwd-resolution.js";
 import type { ExecFn } from "../src/adapters/tmux.js";
 import type { FsOps } from "../src/domain/package-resolver.js";
 
-const RIG_YAML = `
+const SOFTWARE_TEAM_YAML = `
 version: "0.2"
-name: lifetime-rig
+name: lifetime-software-team
 pods:
   - id: dev
     label: Dev
@@ -72,7 +72,7 @@ function realFsOps(): FsOps {
 async function buildV2Bundle(workDir: string): Promise<string> {
   const staging = path.join(workDir, "staging");
   fs.mkdirSync(path.join(staging, "agents", "impl"), { recursive: true });
-  fs.writeFileSync(path.join(staging, "rig.yaml"), RIG_YAML);
+  fs.writeFileSync(path.join(staging, "software-team.yaml"), SOFTWARE_TEAM_YAML);
   fs.writeFileSync(path.join(staging, "agents", "impl", "agent.yaml"), AGENT_YAML);
   const integrity = computeIntegrity(staging, {
     readFile: (p: string) => fs.readFileSync(p, "utf-8"),
@@ -87,7 +87,7 @@ async function buildV2Bundle(workDir: string): Promise<string> {
 name: lifetime
 version: "0.1.0"
 created_at: "2026-09-29T00:00:00Z"
-rig_spec: rig.yaml
+software_team_spec: software-team.yaml
 agents:
   - name: impl
     version: "1.0"
@@ -98,12 +98,12 @@ agents:
 integrity:
 ${integrityYaml}
 `);
-  const bundlePath = path.join(workDir, "lifetime.rigbundle");
+  const bundlePath = path.join(workDir, "lifetime.softwareteambundle");
   await pack(staging, bundlePath);
   return bundlePath;
 }
 
-interface LaunchRecord { rigRoot: string; cwd: string; agentYaml: string; agentYamlExistedAtLaunch: boolean }
+interface LaunchRecord { softwareTeamRoot: string; cwd: string; agentYaml: string; agentYamlExistedAtLaunch: boolean }
 
 describe("v2 bundle apply: launch root lifetime and --target", () => {
   let db: Database.Database;
@@ -120,15 +120,15 @@ describe("v2 bundle apply: launch root lifetime and --target", () => {
     launches = [];
     podInstantiator = {
       db,
-      instantiate: vi.fn(async (_yaml: string, rigRoot: string, opts?: { cwdOverride?: string }) => {
-        const agentYaml = path.join(rigRoot, "agents", "impl", "agent.yaml");
+      instantiate: vi.fn(async (_yaml: string, softwareTeamRoot: string, opts?: { cwdOverride?: string }) => {
+        const agentYaml = path.join(softwareTeamRoot, "agents", "impl", "agent.yaml");
         launches.push({
-          rigRoot,
-          cwd: resolveLaunchCwd(".", rigRoot, opts?.cwdOverride),
+          softwareTeamRoot,
+          cwd: resolveLaunchCwd(".", softwareTeamRoot, opts?.cwdOverride),
           agentYaml,
           agentYamlExistedAtLaunch: fs.existsSync(agentYaml),
         });
-        return { ok: true as const, result: { rigId: "rig-1", specName: "lifetime-rig", specVersion: "0.2", nodes: [{ logicalId: "dev.impl", status: "launched" as const }] } };
+        return { ok: true as const, result: { softwareTeamId: "software-team-1", specName: "lifetime-software-team", specVersion: "0.2", nodes: [{ logicalId: "dev.impl", status: "launched" as const }] } };
       }),
     };
   });
@@ -161,7 +161,7 @@ describe("v2 bundle apply: launch root lifetime and --target", () => {
           readFile: (p) => fs.readFileSync(p, "utf-8"), exists: (p) => fs.existsSync(p),
         }),
       }),
-      rigInstantiator: { db, instantiate: vi.fn() } as never,
+      softwareTeamInstantiator: { db, instantiate: vi.fn() } as never,
       fsOps: realFsOps(),
       bundleSourceResolver: new LegacyBundleSourceResolver({ fsOps: realFsOps() }),
       podBundleSourceResolver: new PodBundleSourceResolver(),
@@ -173,31 +173,31 @@ describe("v2 bundle apply: launch root lifetime and --target", () => {
     const target = path.join(workDir, "project");
     fs.mkdirSync(target);
 
-    const result = await orchestrator().bootstrap({ mode: "apply", sourceRef: bundlePath, sourceKind: "rig_bundle", targetRoot: target });
+    const result = await orchestrator().bootstrap({ mode: "apply", sourceRef: bundlePath, sourceKind: "software_team_bundle", targetRoot: target });
 
     expect(result.status).toBe("completed");
     expect(launches).toHaveLength(1);
     const launch = launches[0]!;
     console.log(`[lifetime] targetRoot=${target}`);
-    console.log(`[lifetime] rigRoot handed to instantiate=${launch.rigRoot}`);
+    console.log(`[lifetime] softwareTeamRoot handed to instantiate=${launch.softwareTeamRoot}`);
     console.log(`[lifetime] resolved member cwd (cwd: ".")=${launch.cwd} exists-after-bootstrap=${fs.existsSync(launch.cwd)}`);
     console.log(`[lifetime] agent.yaml ${launch.agentYaml} existed-at-launch=${launch.agentYamlExistedAtLaunch} exists-after-bootstrap=${fs.existsSync(launch.agentYaml)}`);
 
     expect(launch.agentYamlExistedAtLaunch).toBe(true);
     // --target is honored: the launch root is the target, not a temp extraction dir
-    expect(fs.realpathSync(launch.rigRoot)).toBe(fs.realpathSync(target));
-    // Lifetime: after bootstrap returned (extraction cleaned up), everything the rig points at still exists
+    expect(fs.realpathSync(launch.softwareTeamRoot)).toBe(fs.realpathSync(target));
+    // Lifetime: after bootstrap returned (extraction cleaned up), everything the softwareTeam points at still exists
     expect(fs.existsSync(launch.cwd)).toBe(true);
     expect(fs.existsSync(launch.agentYaml)).toBe(true);
-    expect(fs.readFileSync(path.join(target, "rig.yaml"), "utf-8")).toBe(RIG_YAML);
+    expect(fs.readFileSync(path.join(target, "software-team.yaml"), "utf-8")).toBe(SOFTWARE_TEAM_YAML);
     expect(fs.existsSync(path.join(target, "bundle.yaml"))).toBe(true);
   });
 
   it("re-applying the same bundle into the same target is allowed (identical content)", async () => {
     const target = path.join(workDir, "project");
-    const first = await orchestrator().bootstrap({ mode: "apply", sourceRef: bundlePath, sourceKind: "rig_bundle", targetRoot: target });
+    const first = await orchestrator().bootstrap({ mode: "apply", sourceRef: bundlePath, sourceKind: "software_team_bundle", targetRoot: target });
     expect(first.status).toBe("completed");
-    const second = await orchestrator().bootstrap({ mode: "apply", sourceRef: bundlePath, sourceKind: "rig_bundle", targetRoot: target });
+    const second = await orchestrator().bootstrap({ mode: "apply", sourceRef: bundlePath, sourceKind: "software_team_bundle", targetRoot: target });
     expect(second.status).toBe("completed");
     expect(fs.existsSync(path.join(target, "agents", "impl", "agent.yaml"))).toBe(true);
   });
@@ -205,14 +205,14 @@ describe("v2 bundle apply: launch root lifetime and --target", () => {
   it("refuses a target holding different content at a bundle path, writes nothing, and does not launch", async () => {
     const target = path.join(workDir, "project");
     fs.mkdirSync(target);
-    fs.writeFileSync(path.join(target, "rig.yaml"), "name: someone-elses-rig\n");
+    fs.writeFileSync(path.join(target, "software-team.yaml"), "name: someone-elses-software-team\n");
 
-    const result = await orchestrator().bootstrap({ mode: "apply", sourceRef: bundlePath, sourceKind: "rig_bundle", targetRoot: target });
+    const result = await orchestrator().bootstrap({ mode: "apply", sourceRef: bundlePath, sourceKind: "software_team_bundle", targetRoot: target });
 
     expect(result.status).toBe("failed");
-    expect(result.errors.join("\n")).toMatch(/rig\.yaml/);
+    expect(result.errors.join("\n")).toMatch(/software-team\.yaml/);
     expect(podInstantiator.instantiate).not.toHaveBeenCalled();
-    expect(fs.readFileSync(path.join(target, "rig.yaml"), "utf-8")).toBe("name: someone-elses-rig\n");
+    expect(fs.readFileSync(path.join(target, "software-team.yaml"), "utf-8")).toBe("name: someone-elses-software-team\n");
     expect(fs.existsSync(path.join(target, "agents"))).toBe(false);
     expect(fs.existsSync(path.join(target, "bundle.yaml"))).toBe(false);
   });
@@ -222,7 +222,7 @@ describe("v2 bundle apply: launch root lifetime and --target", () => {
     const explicit = path.join(workDir, "explicit-cwd");
     fs.mkdirSync(explicit);
 
-    const result = await orchestrator().bootstrap({ mode: "apply", sourceRef: bundlePath, sourceKind: "rig_bundle", targetRoot: target, cwdOverride: explicit });
+    const result = await orchestrator().bootstrap({ mode: "apply", sourceRef: bundlePath, sourceKind: "software_team_bundle", targetRoot: target, cwdOverride: explicit });
 
     expect(result.status).toBe("completed");
     expect(launches[0]!.cwd).toBe(explicit);

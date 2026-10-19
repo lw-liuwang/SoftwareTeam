@@ -4,19 +4,19 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SnapshotRepository } from "../src/domain/snapshot-repository.js";
 import { listNativeProcesses, observeClaudeDelivery } from "../src/domain/native-process-lineage.js";
 import { prepareHermeticEnv } from "./helpers/hermetic-env.js";
-import { spawnScenarioDaemon, runRig } from "./helpers/scenario-daemon.js";
+import { spawnScenarioDaemon, runSoftwareTeam } from "./helpers/scenario-daemon.js";
 
 // Real daemon, CLI, SQLite and private tmux server. The scripted process exits
 // normally on /exit; this checks pane preservation, not provider authentication.
 // process.title / foreground-process evidence here is bound to Linux.
 it.runIf(process.platform === "linux")("launch does not call an exited agent already running in its preserved shell", async () => {
   const scaffold = prepareHermeticEnv({ baseEnv: { PATH: process.env.PATH, TERM: "xterm-256color" } });
-  const rigBin = resolve(dirname(fileURLToPath(import.meta.url)), "../../cli/dist/bin-wrapper.js");
+  const softwareTeamBin = resolve(dirname(fileURLToPath(import.meta.url)), "../../cli/dist/bin-wrapper.js");
   let daemon: Awaited<ReturnType<typeof spawnScenarioDaemon>> | undefined;
   let db: Database.Database | undefined;
   let shellPid: number | undefined;
@@ -29,12 +29,12 @@ it.runIf(process.platform === "linux")("launch does not call an exited agent alr
     throw new Error("fixture did not settle");
   }
   try {
-    daemon = await spawnScenarioDaemon(scaffold, { rigBin });
+    daemon = await spawnScenarioDaemon(scaffold, { softwareTeamBin });
     db = new Database(join(scaffold.stateDir, "scenario.db"));
     db.pragma("busy_timeout = 5000");
-    const rigs = new RigRepository(db), sessions = new SessionRegistry(db);
-    const rig = rigs.createRig("launch-exit");
-    const node = rigs.addNode(rig.id, "dev.build", { role: "build", runtime: "claude-code" });
+    const softwareTeams = new SoftwareTeamRepository(db), sessions = new SessionRegistry(db);
+    const softwareTeam = softwareTeams.createSoftwareTeam("launch-exit");
+    const node = softwareTeams.addNode(softwareTeam.id, "dev.build", { role: "build", runtime: "claude-code" });
     const name = "dev-build@launch-exit";
     tmux("new-session", "-d", "-s", name, "exec /bin/bash --noprofile --norc");
     const pane = tmux("display-message", "-p", "-t", name, "#{pane_id}");
@@ -50,12 +50,12 @@ createInterface({input:process.stdin}).on('line',line=>{if(line==='/exit')proces
     const session = sessions.registerSession(node.id, name);
     sessions.updateStatus(session.id, "running");
     sessions.updateBinding(node.id, { tmuxSession: name, tmuxPane: pane });
-    const snapshot = new SnapshotRepository(db).createSnapshot(rig.id, "manual", {
-      rig: { id: rig.id, name: rig.name }, nodes: rigs.getRig(rig.id)!.nodes,
-      sessions: sessions.getSessionsForRig(rig.id), edges: [], checkpoints: {},
+    const snapshot = new SnapshotRepository(db).createSnapshot(softwareTeam.id, "manual", {
+      softwareTeam: { id: softwareTeam.id, name: softwareTeam.name }, nodes: softwareTeams.getSoftwareTeam(softwareTeam.id)!.nodes,
+      sessions: sessions.getSessionsForSoftwareTeam(softwareTeam.id), edges: [], checkpoints: {},
     } as any);
-    const args = ["launch", rig.id, "--seats", node.logicalId, "--snapshot-id", snapshot.id, "--json"];
-    const live = await runRig(args, daemon.readEnv, rigBin);
+    const args = ["launch", softwareTeam.id, "--seats", node.logicalId, "--snapshot-id", snapshot.id, "--json"];
+    const live = await runSoftwareTeam(args, daemon.readEnv, softwareTeamBin);
     expect(live.code, JSON.stringify(live)).toBe(0);
     expect(JSON.parse(live.stdout).alreadyRunning).toEqual([{ nodeId: node.id, logicalId: node.logicalId }]);
 
@@ -67,15 +67,15 @@ createInterface({input:process.stdin}).on('line',line=>{if(line==='/exit')proces
     const observed = await observeClaudeDelivery({ target: pane, tmux: { getPanePid: async (target) => Number(tmux("display-message", "-p", "-t", target, "#{pane_pid}")) } });
     const rows = await listNativeProcesses();
     const root = rows.find(row => row.pid === shellPid);
-    expect(observed.state, JSON.stringify({ observed, root, children: rows.filter(row => row.ppid === shellPid || row.pgid === root?.tpgid), binding: sessions.getBindingForNode(node.id), node: rigs.getRig(rig.id)!.nodes[0] })).toBe("idle_shell");
-    const exited = await runRig(args, daemon.readEnv, rigBin);
+    expect(observed.state, JSON.stringify({ observed, root, children: rows.filter(row => row.ppid === shellPid || row.pgid === root?.tpgid), binding: sessions.getBindingForNode(node.id), node: softwareTeams.getSoftwareTeam(softwareTeam.id)!.nodes[0] })).toBe("idle_shell");
+    const exited = await runSoftwareTeam(args, daemon.readEnv, softwareTeamBin);
     console.log("EXITED_AGENT_RECEIPT", JSON.stringify({ live, exited, pane, agentPid }));
     expect(exited.code, JSON.stringify(exited)).not.toBe(0);
     const result = JSON.parse(exited.stdout);
     expect(result.ok).toBe(false);
     expect(result.alreadyRunning ?? []).toEqual([]);
     expect(JSON.stringify(result)).toMatch(/session alive, agent not running/i);
-    const human = await runRig(args.filter(a => a !== "--json"), daemon.readEnv, rigBin);
+    const human = await runSoftwareTeam(args.filter(a => a !== "--json"), daemon.readEnv, softwareTeamBin);
     expect(human.code).not.toBe(0);
     expect(human.stderr).toMatch(/session alive, agent not running/i);
     expect(human.stderr).toContain("restart the agent");

@@ -10,14 +10,14 @@ import {
   extractQueuePreconditions,
   applyQueuePreconditions,
 } from "./helpers/scenario-pipeline.js";
-import type { RigResult } from "./helpers/scenario-daemon.js";
+import type { SoftwareTeamResult } from "./helpers/scenario-daemon.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = join(HERE, "fixtures", "scenarios");
-const okRig = (stdout = ""): RigResult => ({ code: 0, stdout, stderr: "" });
+const okSoftwareTeam = (stdout = ""): SoftwareTeamResult => ({ code: 0, stdout, stderr: "" });
 
 // Slice 51-02 — the parse→validate→resolve loader. Reads a scenario YAML, resolves
-// its `topology` rig-spec path relative to the scenario file, and validates the
+// its `topology` software-team-spec path relative to the scenario file, and validates the
 // arch shape. I/O + YAML-syntax failures throw LOUD (ScenarioLoadError); content
 // problems return the validator's error list. This is the pure front of the e2e
 // pipeline (the heavy spawn+run half is the integration path).
@@ -38,7 +38,7 @@ describe("loadScenarioFile", () => {
     const p = write("seed.yaml", "scenario: seeded\ntopology: ./unused.yaml\nsteps:\n  - seed_regression: {class: baton-drop}\n");
     const seedRegression = vi.fn(async () => ({ code: 0, stdout: "armed", stderr: "" }));
     const result = await runScenarioFile(p, {
-      rigBin: "/not-executed",
+      softwareTeamBin: "/not-executed",
       deps: { seedRegression },
       daemon: async scaffold => ({
         port: 9, baseUrl: "http://127.0.0.1:9", readEnv: scaffold.env,
@@ -122,7 +122,7 @@ describe("authored evidence scenarios (expressibility)", () => {
     const equalsStep = expects.find((e) => e.equals)!;
     expect(equalsStep.equals).toEqual({
       ps: { pluck: "name" },
-      queue: { pluck: "destinationSession", rig: true },
+      queue: { pluck: "destinationSession", softwareTeam: true },
     });
 
     // tui_socket is asserted SEPARATELY on its own coherence, deliberately not
@@ -137,35 +137,35 @@ describe("authored evidence scenarios (expressibility)", () => {
 });
 
 describe("queue-baton preconditions (post-P21 identity: env-carried, never a body flag)", () => {
-  it("carries the declared identity via OPENRIG_SESSION_NAME per call — creator=source, claimant=destination — and never passes the retired --source flag", async () => {
+  it("carries the declared identity via SOFTWARETEAM_SESSION_NAME per call — creator=source, claimant=destination — and never passes the retired --source flag", async () => {
     const calls: { args: string[]; env: Record<string, string | undefined> }[] = [];
-    const runRig = vi.fn(async (args: string[], env: Record<string, string | undefined>) => {
+    const runSoftwareTeam = vi.fn(async (args: string[], env: Record<string, string | undefined>) => {
       calls.push({ args, env });
-      return okRig();
+      return okSoftwareTeam();
     });
     await applyQueuePreconditions(
       [{ id: "baton-1", source: "harness@r", destination: "dev-worker@r", claim: true }],
-      { rigBin: "/bin/rig", readEnv: { OPENRIG_URL: "http://127.0.0.1:9" }, runRig },
+      { softwareTeamBin: "/bin/softwareTeam", readEnv: { SOFTWARETEAM_URL: "http://127.0.0.1:9" }, runSoftwareTeam },
     );
     // P21 I3 (c4fad7b39) retired --source (deprecated + IGNORED): the sender rides
-    // the transport header, derived from OPENRIG_SESSION_NAME. An ignored flag in
+    // the transport header, derived from SOFTWARETEAM_SESSION_NAME. An ignored flag in
     // the argv would be a stale claim in the harness — assert its ABSENCE.
     expect(calls[0].args.slice(0, 6)).toEqual(["queue", "create", "--id", "baton-1", "--destination", "dev-worker@r"]);
     expect(calls[0].args).not.toContain("--source");
-    expect(calls[0].env.OPENRIG_SESSION_NAME).toBe("harness@r");
-    expect(calls[0].env.OPENRIG_URL).toBe("http://127.0.0.1:9"); // daemon target preserved
+    expect(calls[0].env.SOFTWARETEAM_SESSION_NAME).toBe("harness@r");
+    expect(calls[0].env.SOFTWARETEAM_URL).toBe("http://127.0.0.1:9"); // daemon target preserved
     expect(calls[1].args).toEqual(["queue", "claim", "baton-1", "--destination", "dev-worker@r", "--json"]);
-    expect(calls[1].env.OPENRIG_SESSION_NAME).toBe("dev-worker@r");
+    expect(calls[1].env.SOFTWARETEAM_SESSION_NAME).toBe("dev-worker@r");
   });
 
   it("skips claim when claim is not set, and fails closed on a create error", async () => {
-    const noClaim = vi.fn(async () => okRig());
-    await applyQueuePreconditions([{ id: "b", source: "s@r", destination: "d@r" }], { rigBin: "/bin/rig", readEnv: {}, runRig: noClaim });
+    const noClaim = vi.fn(async () => okSoftwareTeam());
+    await applyQueuePreconditions([{ id: "b", source: "s@r", destination: "d@r" }], { softwareTeamBin: "/bin/softwareTeam", readEnv: {}, runSoftwareTeam: noClaim });
     expect(noClaim).toHaveBeenCalledOnce(); // create only
 
     const boom = vi.fn(async () => ({ code: 1, stdout: "", stderr: "dup id" }));
     await expect(
-      applyQueuePreconditions([{ id: "b", source: "s@r", destination: "d@r", claim: true }], { rigBin: "/bin/rig", readEnv: {}, runRig: boom }),
+      applyQueuePreconditions([{ id: "b", source: "s@r", destination: "d@r", claim: true }], { softwareTeamBin: "/bin/softwareTeam", readEnv: {}, runSoftwareTeam: boom }),
     ).rejects.toBeInstanceOf(ScenarioPreconditionError);
   });
 
@@ -177,16 +177,16 @@ describe("queue-baton preconditions (post-P21 identity: env-carried, never a bod
 });
 
 describe("D3 — env.scope_mission survives the WHOLE path into the shipped argv", () => {
-  it("load → env-extract → real-deps → reader produces `rig scope audit --mission <name> --json`", async () => {
+  it("load → env-extract → real-deps → reader produces `SoftwareTeam scope audit --mission <name> --json`", async () => {
     const { runScenarioFile } = await import("./helpers/scenario-pipeline.js");
     const d = mkdtempSync(join(tmpdir(), "scope-mission-"));
     try {
       const argvLog = join(d, "argv.log");
-      // A stand-in `rig` bin: records the REAL argv the pipeline invokes, so this
+      // A stand-in `softwareTeam` bin: records the REAL argv the pipeline invokes, so this
       // pins the composed path (a helper-level argv spy could pass while the
       // pipeline silently dropped the field).
-      const fakeRig = join(d, "fake-rig.mjs");
-      writeFileSync(fakeRig, [
+      const fakeSoftwareTeam = join(d, "fake-software-team.mjs");
+      writeFileSync(fakeSoftwareTeam, [
         'import { appendFileSync } from "node:fs";',
         `appendFileSync(${JSON.stringify(argvLog)}, JSON.stringify(process.argv.slice(2)) + "\\n");`,
         'process.stdout.write("{}");',
@@ -217,7 +217,7 @@ describe("D3 — env.scope_mission survives the WHOLE path into the shipped argv
         sigterm: async () => {}, restart: async () => {}, stop: async () => {},
       });
       await runScenarioFile(scenarioPath, {
-        rigBin: fakeRig,
+        softwareTeamBin: fakeSoftwareTeam,
         baseEnv: { HOME: d, PATH: process.env.PATH, TERM: "xterm" },
         daemon: fakeDaemon as never,
         deps: { defaults: { withinMs: 0, pollIntervalMs: 1 } },

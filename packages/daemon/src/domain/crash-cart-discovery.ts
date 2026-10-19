@@ -32,10 +32,10 @@ export class CrashCartReadError extends Error {
   }
 }
 
-/** The daemon's default DB basename (`$OPENRIG_HOME/openrig.sqlite`) — NOT `main.db`. */
-export const DAEMON_DB_BASENAME = "openrig.sqlite";
+/** The daemon's default DB basename (`$SOFTWARETEAM_HOME/softwareteam.sqlite`) — NOT `main.db`. */
+export const DAEMON_DB_BASENAME = "softwareteam.sqlite";
 
-/** The daemon state file shape (`$OPENRIG_HOME/daemon.json`) — the authoritative DB-path + liveness record. */
+/** The daemon state file shape (`$SOFTWARETEAM_HOME/daemon.json`) — the authoritative DB-path + liveness record. */
 export interface DaemonJson {
   pid: number;
   port: number;
@@ -46,20 +46,20 @@ export interface DaemonJson {
 }
 
 export interface AssertDaemonDownDeps {
-  /** `$OPENRIG_HOME` — where daemon.json lives. */
-  openrigHome: string;
-  /** Parse `$OPENRIG_HOME/daemon.json` → the record, or undefined if absent/unparseable (treated as down). */
-  readDaemonJson: (openrigHome: string) => DaemonJson | undefined;
+  /** `$SOFTWARETEAM_HOME` — where daemon.json lives. */
+  softwareteamHome: string;
+  /** Parse `$SOFTWARETEAM_HOME/daemon.json` → the record, or undefined if absent/unparseable (treated as down). */
+  readDaemonJson: (softwareteamHome: string) => DaemonJson | undefined;
   /** True if `pid` is a live process (e.g. `process.kill(pid, 0)` succeeds). */
   isProcessAlive: (pid: number) => boolean;
   /** GET `<url>` → true if ANY daemon answered (the control-plane is live). Never throws. */
   probeHealthz: (url: string) => Promise<boolean>;
-  /** `OPENRIG_URL` override — when set, its /healthz is probed too (bypasses the state file, like getDaemonStatus). */
-  openrigUrl?: string;
+  /** `SOFTWARETEAM_URL` override — when set, its /healthz is probed too (bypasses the state file, like getDaemonStatus). */
+  softwareteamUrl?: string;
 }
 
 const DEFAULT_HOST = "127.0.0.1";
-const DEFAULT_PORT = 7433;
+const DEFAULT_PORT = 7434;
 
 function stripTrailingSlash(u: string): string {
   return u.endsWith("/") ? u.slice(0, -1) : u;
@@ -69,19 +69,19 @@ function stripTrailingSlash(u: string): string {
  * FAIL-CLOSED guard: throw DaemonLiveError if a daemon is live, else resolve. A daemon counts as
  * live if EITHER the recorded pid is alive OR a /healthz probe answers (both must be negative to
  * proceed). Mirrors the daemon's own liveness logic (daemon.json pid + /healthz, honoring
- * OPENRIG_URL) so the crash-cart never disagrees with `getDaemonStatus` about "is it running".
+ * SOFTWARETEAM_URL) so the crash-cart never disagrees with `getDaemonStatus` about "is it running".
  */
 export async function assertDaemonDown(deps: AssertDaemonDownDeps): Promise<void> {
-  const { openrigHome, readDaemonJson, isProcessAlive, probeHealthz, openrigUrl } = deps;
+  const { softwareteamHome, readDaemonJson, isProcessAlive, probeHealthz, softwareteamUrl } = deps;
 
-  // OPENRIG_URL, when set, is a direct daemon target — probe it first (a live answer = refuse).
-  if (openrigUrl && openrigUrl.trim().length > 0) {
-    if (await probeHealthz(`${stripTrailingSlash(openrigUrl.trim())}/healthz`)) {
-      throw new DaemonLiveError(`a daemon answered OPENRIG_URL ${openrigUrl} — refusing the direct read`);
+  // SOFTWARETEAM_URL, when set, is a direct daemon target — probe it first (a live answer = refuse).
+  if (softwareteamUrl && softwareteamUrl.trim().length > 0) {
+    if (await probeHealthz(`${stripTrailingSlash(softwareteamUrl.trim())}/healthz`)) {
+      throw new DaemonLiveError(`a daemon answered SOFTWARETEAM_URL ${softwareteamUrl} — refusing the direct read`);
     }
   }
 
-  const state = readDaemonJson(openrigHome);
+  const state = readDaemonJson(softwareteamHome);
   if (state) {
     if (typeof state.pid === "number" && isProcessAlive(state.pid)) {
       throw new DaemonLiveError(`daemon.json pid ${state.pid} is still alive — refusing the direct read`);
@@ -97,7 +97,7 @@ export async function assertDaemonDown(deps: AssertDaemonDownDeps): Promise<void
 
   // With an explicit target and no local state, an unrelated default daemon
   // does not own this instance. The recorded PID/target guards above still win.
-  if (openrigUrl?.trim()) return;
+  if (softwareteamUrl?.trim()) return;
   // No explicit target or state file: probe the default address.
   if (await probeHealthz(`http://${DEFAULT_HOST}:${DEFAULT_PORT}/healthz`)) {
     throw new DaemonLiveError(
@@ -116,19 +116,19 @@ export interface ResolvedDbPath {
 
 /**
  * Resolve the daemon DB path. PREFER `daemon.json.db` (the exact path the daemon opened) over
- * recomputing; fall back to `$OPENRIG_HOME/openrig.sqlite`. A relative state-file path is flagged
+ * recomputing; fall back to `$SOFTWARETEAM_HOME/softwareteam.sqlite`. A relative state-file path is flagged
  * (it resolves against the daemon's CWD, unknown here) rather than silently mis-located.
  */
 export function resolveDaemonDbPath(
-  openrigHome: string,
-  readDaemonJson: (openrigHome: string) => DaemonJson | undefined,
+  softwareteamHome: string,
+  readDaemonJson: (softwareteamHome: string) => DaemonJson | undefined,
   configuredDbPath?: string,
 ): ResolvedDbPath {
-  const state = readDaemonJson(openrigHome);
+  const state = readDaemonJson(softwareteamHome);
   if (state?.db && state.db.trim().length > 0) {
     return { path: state.db, fromStateFile: true, relative: !isAbsolute(state.db) };
   }
-  const path = configuredDbPath ?? join(openrigHome, DAEMON_DB_BASENAME);
+  const path = configuredDbPath ?? join(softwareteamHome, DAEMON_DB_BASENAME);
   return { path, fromStateFile: false, relative: !isAbsolute(path) };
 }
 
@@ -184,15 +184,15 @@ export interface CrashCartHeader {
   priorUptimeMs: null;
 }
 
-/** One rig found on this host, with the recovery-relevant counts. */
-export interface RigFound {
-  rigId: string;
-  rigName: string;
+/** One softwareTeam found on this host, with the recovery-relevant counts. */
+export interface SoftwareTeamFound {
+  softwareTeamId: string;
+  softwareTeamName: string;
   seatCount: number;
   runningCount: number;
   /** Seats whose LATEST session was probed resumable (derived; the recoverable bucket). */
   resumableCount: number;
-  /** Newest persisted `sessions.last_seen_at` for the rig; null if none. (Live "last active" is a
+  /** Newest persisted `sessions.last_seen_at` for the softwareTeam; null if none. (Live "last active" is a
    *  tmux observation, unavailable daemon-down — this is the honest DB approximation.) */
   lastActiveAt: string | null;
 }
@@ -210,7 +210,7 @@ export interface StoppedWork {
 
 export interface CrashCartDiscovery {
   header: CrashCartHeader;
-  foundOnHost: RigFound[];
+  foundOnHost: SoftwareTeamFound[];
   whereWorkStopped: StoppedWork[];
 }
 
@@ -252,35 +252,35 @@ function readHeader(db: Database.Database): CrashCartHeader {
   };
 }
 
-function readFoundOnHost(db: Database.Database): RigFound[] {
-  // Per rig: seat count + counts folded over the LATEST session per node (max ULID id, per the
+function readFoundOnHost(db: Database.Database): SoftwareTeamFound[] {
+  // Per softwareTeam: seat count + counts folded over the LATEST session per node (max ULID id, per the
   // daemon's own latest-per-node convention) + newest persisted last_seen_at.
   const rows = db
     .prepare(
-      `SELECT r.id AS rigId, r.name AS rigName,
-         (SELECT COUNT(*) FROM nodes n WHERE n.rig_id = r.id) AS seatCount,
-         (SELECT COUNT(*) FROM nodes n WHERE n.rig_id = r.id
+      `SELECT r.id AS softwareTeamId, r.name AS softwareTeamName,
+         (SELECT COUNT(*) FROM nodes n WHERE n.software_team_id = r.id) AS seatCount,
+         (SELECT COUNT(*) FROM nodes n WHERE n.software_team_id = r.id
             AND (SELECT s.status FROM sessions s WHERE s.node_id = n.id ORDER BY s.id DESC LIMIT 1) = 'running'
          ) AS runningCount,
-         (SELECT COUNT(*) FROM nodes n WHERE n.rig_id = r.id
+         (SELECT COUNT(*) FROM nodes n WHERE n.software_team_id = r.id
             AND (SELECT s.resume_last_probe_status FROM sessions s WHERE s.node_id = n.id ORDER BY s.id DESC LIMIT 1) = 'resumable'
          ) AS resumableCount,
-         (SELECT MAX(s.last_seen_at) FROM sessions s JOIN nodes n ON s.node_id = n.id WHERE n.rig_id = r.id) AS lastActiveAt
-       FROM rigs r
+         (SELECT MAX(s.last_seen_at) FROM sessions s JOIN nodes n ON s.node_id = n.id WHERE n.software_team_id = r.id) AS lastActiveAt
+       FROM software_teams r
        WHERE r.archived_at IS NULL
        ORDER BY r.name ASC`,
     )
     .all() as Array<{
-    rigId: string;
-    rigName: string;
+    softwareTeamId: string;
+    softwareTeamName: string;
     seatCount: number;
     runningCount: number;
     resumableCount: number;
     lastActiveAt: string | null;
   }>;
   return rows.map((r) => ({
-    rigId: r.rigId,
-    rigName: r.rigName,
+    softwareTeamId: r.softwareTeamId,
+    softwareTeamName: r.softwareTeamName,
     seatCount: r.seatCount,
     runningCount: r.runningCount,
     resumableCount: r.resumableCount,
@@ -314,7 +314,7 @@ export async function loadCrashCartDiscovery(
   // Refuse before any disk work if a daemon holds the DB.
   await assertDaemonDown(deps);
 
-  const resolved = resolveDaemonDbPath(deps.openrigHome, deps.readDaemonJson, deps.configuredDbPath);
+  const resolved = resolveDaemonDbPath(deps.softwareteamHome, deps.readDaemonJson, deps.configuredDbPath);
   if (resolved.relative) {
     throw new CrashCartReadError(
       `daemon DB path '${resolved.path}' is relative — the daemon CWD is unknown, cannot locate it daemon-down`,

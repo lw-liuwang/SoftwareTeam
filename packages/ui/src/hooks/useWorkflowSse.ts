@@ -5,10 +5,10 @@
 // on reconnect). Refetch is SSE-invalidation-driven with a debounce FLOOR — no
 // fixed-rate tight polling (the FS-1 enablement constraint honored at birth).
 //
-// Q5-P1 NAMED NEGATIVE (binding): workflow.* events persist rig_id=NULL
-// (event-bus stores NULL; /api/events?rigId=X filters them OUT). So a
-// rig-SCOPED subscription silently drops the ENTIRE workflow spine. This feed
-// is therefore UNSCOPED BY CONTRACT — WORKFLOW_SSE_URL carries NO `?rigId=`,
+// Q5-P1 NAMED NEGATIVE (binding): workflow.* events persist software_team_id=NULL
+// (event-bus stores NULL; /api/events?softwareTeamId=X filters them OUT). So a
+// software-team-SCOPED subscription silently drops the ENTIRE workflow spine. This feed
+// is therefore UNSCOPED BY CONTRACT — WORKFLOW_SSE_URL carries NO `?softwareTeamId=`,
 // ever (asserted in useWorkflowSse.test.ts + the source grep-negative).
 //
 // Q5-P2: exception/gate ITEM liveness (the FR-3 attention rows) rides QUEUE
@@ -19,7 +19,7 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-/** The workflow SSE endpoint — UNSCOPED by contract (Q5-P1): never `?rigId=`. */
+/** The workflow SSE endpoint — UNSCOPED by contract (Q5-P1): never `?softwareTeamId=`. */
 export const WORKFLOW_SSE_URL = "/api/workflow/sse";
 
 /** Debounce floor for invalidation flushes (matches the global hub's 150ms). */
@@ -33,7 +33,7 @@ const listeners = new Set<() => void>();
 
 function ensureConnected(): void {
   if (eventSource || typeof EventSource === "undefined") return;
-  // NO `?rigId=` — the Q5-P1 rig-unscoped contract (see file header).
+  // NO `?softwareTeamId=` — the Q5-P1 software-team-unscoped contract (see file header).
   const es = new EventSource(WORKFLOW_SSE_URL);
   eventSource = es;
   es.addEventListener("message", (event) => {

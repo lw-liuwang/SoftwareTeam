@@ -74,8 +74,8 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
 
   it("queue.created triggers view.changed for recently-active + founder + pod-load + activity", async () => {
     await queueRepo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "test",
       nudge: false,
     });
@@ -91,16 +91,16 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
 
   it("queue.handed_off triggers view.changed for recently-active + pod-load + activity", async () => {
     const item = await queueRepo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "test",
       nudge: false,
     });
     captured.length = 0; // reset to focus on the handoff event
     await queueRepo.handoff({
       qitemId: item.qitemId,
-      fromSession: "bob@rig",
-      toSession: "carol@rig",
+      fromSession: "bob@software-team",
+      toSession: "carol@software-team",
       nudge: false,
     });
     const events = viewChangedEvents();
@@ -112,16 +112,16 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
 
   it("R2: queue.updated triggers view.changed for ALL 6 built-in views (state mutations may affect any)", async () => {
     const item = await queueRepo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "test",
       nudge: false,
     });
-    queueRepo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    queueRepo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
     captured.length = 0;
     queueRepo.update({
       qitemId: item.qitemId,
-      actorSession: "bob@rig",
+      actorSession: "bob@software-team",
       state: "done",
       closureReason: "no-follow-on",
     });
@@ -143,15 +143,15 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
 
   it("R2: queue.updated for pending → blocked transition triggers view.changed for held + activity (and others)", async () => {
     const item = await queueRepo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "test-blocked",
       nudge: false,
     });
     captured.length = 0;
     queueRepo.update({
       qitemId: item.qitemId,
-      actorSession: "bob@rig",
+      actorSession: "bob@software-team",
       state: "blocked",
       transitionNote: "blocked on dep",
     });
@@ -164,13 +164,13 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
 
   it("queue.claimed triggers view.changed for recently-active + pod-load + activity", async () => {
     const item = await queueRepo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "test",
       nudge: false,
     });
     captured.length = 0;
-    queueRepo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    queueRepo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
     const events = viewChangedEvents();
     const claimEvents = events.filter((e) => e.cause === "queue.claimed");
     expect(claimEvents.map((e) => e.viewName).sort()).toEqual(["activity", "pod-load", "recently-active"]);
@@ -178,12 +178,12 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
 
   it("qitem.closure_overdue triggers view.changed for recently-active + escalations + activity", async () => {
     const item = await queueRepo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "test-overdue",
       nudge: false,
     });
-    queueRepo.claim({ qitemId: item.qitemId, destinationSession: "bob@rig" });
+    queueRepo.claim({ qitemId: item.qitemId, destinationSession: "bob@software-team" });
     const past = new Date(Date.now() - 60_000).toISOString();
     db.prepare("UPDATE queue_items SET closure_required_at = ? WHERE qitem_id = ?").run(past, item.qitemId);
     captured.length = 0;
@@ -205,12 +205,12 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
 
   it("inbox.absorbed triggers view.changed for recently-active + pod-load + activity", async () => {
     const drop = inbox.drop({
-      destinationSession: "bob@rig",
-      senderSession: "alice@rig",
+      destinationSession: "bob@software-team",
+      senderSession: "alice@software-team",
       body: "test",
     });
     captured.length = 0;
-    await inbox.absorb(drop.inboxId, "bob@rig");
+    await inbox.absorb(drop.inboxId, "bob@software-team");
     const events = viewChangedEvents();
     const absorbEvents = events.filter((e) => e.cause === "inbox.absorbed");
     expect(absorbEvents.map((e) => e.viewName).sort()).toEqual(["activity", "pod-load", "recently-active"]);
@@ -218,24 +218,24 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
 
   it("inbox.denied triggers view.changed for activity only", () => {
     const drop = inbox.drop({
-      destinationSession: "bob@rig",
-      senderSession: "alice@rig",
+      destinationSession: "bob@software-team",
+      senderSession: "alice@software-team",
       body: "test",
     });
     captured.length = 0;
-    inbox.deny(drop.inboxId, "bob@rig", "off-topic");
+    inbox.deny(drop.inboxId, "bob@software-team", "off-topic");
     const events = viewChangedEvents();
     const denyEvents = events.filter((e) => e.cause === "inbox.denied");
     expect(denyEvents.map((e) => e.viewName)).toEqual(["activity"]);
   });
 
   it("project.classified triggers view.changed for activity only", () => {
-    streamStore.emit({ streamItemId: "stream-1", sourceSession: "discovery@rig", body: "x" });
-    leaseMgr.acquire("alice@rig");
+    streamStore.emit({ streamItemId: "stream-1", sourceSession: "discovery@software-team", body: "x" });
+    leaseMgr.acquire("alice@software-team");
     captured.length = 0;
     classifier.classify({
       streamItemId: "stream-1",
-      classifierSession: "alice@rig",
+      classifierSession: "alice@software-team",
       leaseId: leaseMgr.getActiveLease()?.leaseId ?? "none",
       classificationType: "idea",
     });
@@ -245,7 +245,7 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
   });
 
   it("classifier.lease_acquired does NOT trigger view.changed (lease lifecycle is project SSE, not view SSE)", () => {
-    leaseMgr.acquire("alice@rig");
+    leaseMgr.acquire("alice@software-team");
     const events = viewChangedEvents();
     expect(events.filter((e) => e.cause === "classifier.lease_acquired")).toHaveLength(0);
   });
@@ -267,16 +267,16 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
       register(bus.persistWithinTransaction({
         type: "queue.handed_off",
         qitemId: "q-w2b-handoff",
-        fromSession: "alice@rig",
-        toSession: "bob@rig",
+        fromSession: "alice@software-team",
+        toSession: "bob@software-team",
         closureReason: "handed_off_to",
         summary: null,
       }));
       register(bus.persistWithinTransaction({
         type: "inbox.denied",
         inboxId: "inbox-w2b-denied",
-        destinationSession: "bob@rig",
-        senderSession: "alice@rig",
+        destinationSession: "bob@software-team",
+        senderSession: "alice@software-team",
         reason: "ordering discriminator",
       }));
     });
@@ -313,8 +313,8 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
         register(bus.persistWithinTransaction({
           type: "queue.created",
           qitemId: "q-w2b-delivery-error",
-          sourceSession: "alice@rig",
-          destinationSession: "bob@rig",
+          sourceSession: "alice@software-team",
+          destinationSession: "bob@software-team",
           priority: "routine",
           tier: null,
           summary: null,
@@ -330,8 +330,8 @@ describe("view-event-bridge (PL-004 Phase B R1; BLOCKER 2 fix)", () => {
     const stop = wireViewEventBridge(bus, projector);
     stop();
     await queueRepo.create({
-      sourceSession: "alice@rig",
-      destinationSession: "bob@rig",
+      sourceSession: "alice@software-team",
+      destinationSession: "bob@software-team",
       body: "test-after-unsubscribe",
       nudge: false,
     });

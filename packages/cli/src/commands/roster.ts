@@ -72,14 +72,14 @@ export function readRosters(folder: string): { rosters: Roster[]; warnings: stri
 
 // Reuse ps's local routing and observation-only HTTP fan-out, including its partial failures.
 // Explicit fields keep native transcripts, resume tokens and fresh pane captures out of this read.
-const fields = "rigId,logicalId,canonicalSessionName,hostSelfId,runtime,model,sessionStatus,agentActivity";
+const fields = "softwareTeamId,logicalId,canonicalSessionName,hostSelfId,runtime,model,sessionStatus,agentActivity";
 export async function readRosterInventory(): Promise<RosterInventory> {
   const nodes: Row[] = [], sources: Row[] = [];
   for (const remote of [false, true]) {
     const argv = [fileURLToPath(new URL("../index.js", import.meta.url)), "ps", "--no-cleanup", "--nodes", "-A", "--json", "--fields", fields,
       ...(remote ? ["--all-hosts"] : [])];
     const result = await new Promise<{ stdout: string; stderr: string; error: Error | null }>(done => {
-      execFile(process.execPath, argv, { env: { ...process.env, OPENRIG_HOST_SELECTED: "local" },
+      execFile(process.execPath, argv, { env: { ...process.env, SOFTWARETEAM_HOST_SELECTED: "local" },
         timeout: 45_000, maxBuffer: 8 * 1024 * 1024 }, (error, stdout, stderr) => done({ error, stdout, stderr }));
     });
     const scope = remote ? "registered-hosts" : "configured-daemon";
@@ -103,7 +103,7 @@ export function enrichRosterMember(member: RosterMember, inventory: RosterInvent
   const matches = inventory.nodes.filter(n => n.hostSelfId === member.host && n.canonicalSessionName === member.seat);
   // Two aliases can query the same host. Collapse repeated identical identity/configuration,
   // but leave conflicting identities or values ambiguous rather than choosing a route's answer.
-  const identities = new Set(matches.map(n => JSON.stringify([n.rigId, n.logicalId, n.runtime, n.model, n.sessionStatus])));
+  const identities = new Set(matches.map(n => JSON.stringify([n.softwareTeamId, n.logicalId, n.runtime, n.model, n.sessionStatus])));
   const node = identities.size === 1 ? matches[0] : undefined;
   const sessionStatus = node ? text(node.sessionStatus) : null;
   const current = sessionStatus === "running";
@@ -122,8 +122,8 @@ export function enrichRosterMember(member: RosterMember, inventory: RosterInvent
 
 type Deps = { folder?: () => string; inventory?: () => Promise<RosterInventory> };
 export function rosterCommand(deps: Deps = {}): Command {
-  const cmd = new Command("roster").description("Find recommended specialists across rigs and hosts (read-only)");
-  cmd.addHelpText("after", "\nRosters are recommendations, not assignments or authority. Contact members through rig send or rig queue.\nFiles: <workspace.root>/rosters/*.json; --folder reads another folder without installing it.\nConfigured model is registry data; observed native model remains unknown.\n");
+  const cmd = new Command("roster").description("Find recommended specialists across softwareTeams and hosts (read-only)");
+  cmd.addHelpText("after", "\nRosters are recommendations, not assignments or authority. Contact members through SoftwareTeam send or SoftwareTeam queue.\nFiles: <workspace.root>/rosters/*.json; --folder reads another folder without installing it.\nConfigured model is registry data; observed native model remains unknown.\n");
   for (const verb of ["list", "show", "find"] as const) {
     const sub = cmd.command(verb === "list" ? "list" : `${verb} <${verb === "show" ? "id" : "query"}>`)
       .description(verb === "list" ? "List authored purposes and curators" : verb === "show" ? "Read a roster with current node observations" : "Find a capability or seat across all rosters")
@@ -139,7 +139,7 @@ export function rosterCommand(deps: Deps = {}): Command {
       } else {
         const selected = verb === "show" ? rosters.filter(r => r.id === query) : rosters;
         if (verb === "show" && selected.length !== 1) {
-          result = { folder, error: selected.length ? `Ambiguous roster id: ${query}` : `Roster not found: ${query}; use rig roster list`, warnings };
+          result = { folder, error: selected.length ? `Ambiguous roster id: ${query}` : `Roster not found: ${query}; use SoftwareTeam roster list`, warnings };
           process.exitCode = 1;
         } else {
           const inventory = await (deps.inventory ?? readRosterInventory)();
@@ -162,7 +162,7 @@ export function rosterCommand(deps: Deps = {}): Command {
           if (!members.length) console.log("No matching members.");
           const obs = result.observations as { sources: Row[] };
           for (const source of obs.sources) if (source.status !== "ok") console.error(`Observation gap (${source.scope}): ${source.warning ?? source.error ?? source.status}`);
-          console.log("Recommendations only; use rig send or rig queue to contact a member.");
+          console.log("Recommendations only; use SoftwareTeam send or SoftwareTeam queue to contact a member.");
         }
         for (const warning of warnings) console.error(warning);
       }

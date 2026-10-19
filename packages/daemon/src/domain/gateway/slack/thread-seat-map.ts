@@ -9,7 +9,7 @@
 // below). rebuildFromStamps() re-derives the table from those stamps, so the map is a cache of
 // queue-row truth, not a second source that can silently diverge.
 //
-// #899 — every message OpenRig posts into a thread for an ask lives in thread_part_map with its own
+// #899 — every message SoftwareTeam posts into a thread for an ask lives in thread_part_map with its own
 // ask and seat (the thread's root may belong to another ask), so a reaction on it can find its ask. Its
 // stamp names its own message_ts and the thread's thread_ts; the root queries below never see these.
 
@@ -113,7 +113,7 @@ export class ThreadSeatMap {
     return row ? project(row) : null;
   }
 
-  /** #899 — record a message OpenRig posted into a thread for an ask, with that ask and its seat (idempotent). */
+  /** #899 — record a message SoftwareTeam posted into a thread for an ask, with that ask and its seat (idempotent). */
   recordPart(m: { messageTs: string; channel: string; threadTs: string; seat: string; conversationId: string }): void {
     this.db
       .prepare(`INSERT INTO thread_part_map (message_ts, channel, thread_ts, seat, conversation_id) VALUES (?, ?, ?, ?, ?)
@@ -121,7 +121,7 @@ export class ThreadSeatMap {
       .run(m.messageTs, m.channel, m.threadTs, m.seat, m.conversationId);
   }
 
-  /** #899 — the ask and seat of a message OpenRig posted into a thread in this channel; null for any other message. */
+  /** #899 — the ask and seat of a message SoftwareTeam posted into a thread in this channel; null for any other message. */
   partOf(messageTs: string, channel: string): { threadTs: string; seat: string; conversationId: string } | null {
     const row = this.db.prepare(`SELECT thread_ts, seat, conversation_id FROM thread_part_map WHERE message_ts = ? AND channel = ?`)
       .get(messageTs, channel) as { thread_ts: string; seat: string; conversation_id: string } | undefined;

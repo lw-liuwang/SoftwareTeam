@@ -30,8 +30,8 @@ let OriginalEventSource: typeof EventSource | undefined;
 beforeEach(async () => {
   mockFetch.mockReset();
   mockFetch.mockImplementation(async (url: string) => {
-    if (url.includes("/api/rigs/summary")) return new Response(JSON.stringify([]));
-    if (url.includes("/api/rigs/ps")) return new Response(JSON.stringify([]));
+    if (url.includes("/api/software-teams/summary")) return new Response(JSON.stringify([]));
+    if (url.includes("/api/software-teams/ps")) return new Response(JSON.stringify([]));
     if (url.includes("/api/inventory")) return new Response(JSON.stringify([]));
     if (url.includes("/api/config")) return new Response("not implemented", { status: 404 });
     return new Response("[]");
@@ -150,25 +150,25 @@ describe("Topology graph degradation P5-9 (universal-shell.md L143)", () => {
     expect(await findByTestId("topology-mobile-graph-degraded")).toBeTruthy();
     // graph placeholder is NOT rendered at mobile.
     // V1 polish slice Phase 5.2: host graph placeholder REPLACED with
-    // HostMultiRigGraph; the placeholder testid no longer exists at any
+    // HostMultiSoftwareTeamGraph; the placeholder testid no longer exists at any
     // viewport, so this negative assertion remains structurally correct
-    // (mobile path renders table view, not the multi-rig canvas).
+    // (mobile path renders table view, not the multi-softwareTeam canvas).
     expect(container.querySelector("[data-testid='topology-host-graph-placeholder']")).toBeNull();
-    expect(container.querySelector("[data-testid='host-multi-rig-graph']")).toBeNull();
+    expect(container.querySelector("[data-testid='host-multi-software-team-graph']")).toBeNull();
   });
 
   it("at >= lg viewport, /topology graph view-mode renders the graph (no degradation hint)", async () => {
     const { findByTestId, container } = await renderAt("/topology", 1440);
     // Default tab is graph; placeholder visible.
-    // V1 polish slice Phase 5.2: HostMultiRigGraph replaces the prior
+    // V1 polish slice Phase 5.2: HostMultiSoftwareTeamGraph replaces the prior
     // placeholder card at host scope graph view-mode. At >= lg viewport
-    // either the canvas mounts (with rigs) or the empty-state mounts
+    // either the canvas mounts (with softwareTeams) or the empty-state mounts
     // (mock returns []). Either is acceptable proof that the desktop
     // path is NOT degraded to the table; <lg path would have rendered
     // the table degradation hint.
     const desktopMount = await waitFor(() =>
-      container.querySelector("[data-testid='host-multi-rig-graph']") ??
-      container.querySelector("[data-testid='host-multi-rig-graph-empty']"),
+      container.querySelector("[data-testid='host-multi-software-team-graph']") ??
+      container.querySelector("[data-testid='host-multi-software-team-graph-empty']"),
     );
     expect(desktopMount).toBeTruthy();
     expect(container.querySelector("[data-testid='topology-mobile-graph-degraded']")).toBeNull();

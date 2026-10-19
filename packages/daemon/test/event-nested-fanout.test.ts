@@ -21,13 +21,13 @@ describe("subscriber-generated events", () => {
     const second: number[] = [];
     bus.subscribe((event) => {
       first.push(event.seq);
-      if (event.type !== "rig.created") return;
-      const child = { type: "rig.deleted" as const, rigId: "rig-1" };
+      if (event.type !== "software-team.created") return;
+      const child = { type: "software-team.deleted" as const, softwareTeamId: "software-team-1" };
       if (writer === "emit") bus.emit(child);
       else bus.withNotifyEnvelope((register) => register(bus.persistWithinTransaction(child)));
     });
     bus.subscribe((event) => second.push(event.seq));
-    bus.emit({ type: "rig.created", rigId: "rig-1" });
+    bus.emit({ type: "software-team.created", softwareTeamId: "software-team-1" });
     const persisted = bus.replayAll(0).map((event) => event.seq);
     expect(persisted).toEqual([1, 2]);
     expect(first).toEqual(persisted);
@@ -37,7 +37,7 @@ describe("subscriber-generated events", () => {
 
   it("streams nested live events in the same order as durable replay", async () => {
     bus.subscribe((event) => {
-      if (event.type === "rig.created") bus.emit({ type: "rig.deleted", rigId: "rig-1" });
+      if (event.type === "software-team.created") bus.emit({ type: "software-team.deleted", softwareTeamId: "software-team-1" });
     });
     const app = new Hono();
     app.use("*", async (c, next) => { c.set("eventBus" as never, bus as never); await next(); });
@@ -48,7 +48,7 @@ describe("subscriber-generated events", () => {
     let pending = "";
     try {
       expect(bus.subscriberCount).toBe(2);
-      bus.emit({ type: "rig.created", rigId: "rig-1" });
+      bus.emit({ type: "software-team.created", softwareTeamId: "software-team-1" });
       bus.emit({ type: "view.changed", viewName: "end", cause: "test" });
       const decoder = new TextDecoder();
       while (!received.includes(3)) {

@@ -19,7 +19,7 @@ const AUTHORED_WAIT_SPEC = readFileSync(
 );
 
 const commandFor = (instanceId: string, packetId: string, owner: string) =>
-  `rig workflow project --instance ${instanceId} --current-packet ${packetId} --exit <handoff|waiting|done|failed> --actor-session ${owner}`;
+  `SoftwareTeam workflow project --instance ${instanceId} --current-packet ${packetId} --exit <handoff|waiting|done|failed> --actor-session ${owner}`;
 
 describe("workflow authored waiting re-presentation", () => {
   let db: Database.Database;
@@ -33,8 +33,8 @@ describe("workflow authored waiting re-presentation", () => {
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
     const bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     queueRepo.attachOutbox(new OutboxHandler(db));
     watchdogRepo = new WatchdogJobsRepository(db);
     runtime = new WorkflowRuntime({ exceptionDial: { hostDefault: () => null, humanFallbackSeat: "human@host" }, db, eventBus: bus, queueRepo, watchdogJobsRepo: watchdogRepo });
@@ -52,9 +52,9 @@ describe("workflow authored waiting re-presentation", () => {
     const created = await runtime.instantiate({
       specPath,
       rootObjective: "prove the authored context rail",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
-    const entryCommand = commandFor(created.instance.instanceId, created.entryQitemId, "worker@rig");
+    const entryCommand = commandFor(created.instance.instanceId, created.entryQitemId, "worker@software-team");
     const entryBody = queueRepo.getByIdOrThrow(created.entryQitemId).body;
     expect(entryBody).toContain(`Continuation: ${entryCommand}`);
     expect(entryBody).toContain("shortcut, not the whole story");
@@ -63,7 +63,7 @@ describe("workflow authored waiting re-presentation", () => {
       instanceId: created.instance.instanceId,
       currentPacketId: created.entryQitemId,
       exit: "waiting",
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       blockedOn: "external:receipt-review",
       resultNote: "agent is still interpreting evidence",
       closureEvidence: { receipt: { outcome: "published" } },
@@ -87,7 +87,7 @@ describe("workflow authored waiting re-presentation", () => {
     const qitemsBeforeReplay = (db.prepare(`SELECT COUNT(*) AS n FROM queue_items`).get() as { n: number }).n;
     const jobsBeforeReplay = (db.prepare(`SELECT COUNT(*) AS n FROM watchdog_jobs`).get() as { n: number }).n;
     const reconstructedBus = new EventBus(db);
-    const reconstructedQueue = new QueueRepository(db, reconstructedBus, { validateRig: () => true });
+    const reconstructedQueue = new QueueRepository(db, reconstructedBus, { validateSoftwareTeam: () => true });
     reconstructedQueue.attachOutbox(new OutboxHandler(db));
     const reconstructed = new WorkflowRuntime({
       db,
@@ -99,7 +99,7 @@ describe("workflow authored waiting re-presentation", () => {
       instanceId: created.instance.instanceId,
       currentPacketId: created.entryQitemId,
       exit: "waiting",
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
       blockedOn: "external:receipt-review",
       resultNote: "agent is still interpreting evidence",
       closureEvidence: { receipt: { outcome: "published" } },
@@ -112,9 +112,9 @@ describe("workflow authored waiting re-presentation", () => {
       instanceId: created.instance.instanceId,
       currentPacketId: created.entryQitemId,
       exit: "handoff",
-      actorSession: "worker@rig",
+      actorSession: "worker@software-team",
     });
-    const nextCommand = commandFor(created.instance.instanceId, handoff.nextQitemId!, "next@rig");
+    const nextCommand = commandFor(created.instance.instanceId, handoff.nextQitemId!, "next@software-team");
     const nextBody = queueRepo.getByIdOrThrow(handoff.nextQitemId!).body;
     expect(nextBody).toContain(`Continuation: ${nextCommand}`);
     expect(nextBody).toContain("shortcut, not the whole story");
@@ -123,7 +123,7 @@ describe("workflow authored waiting re-presentation", () => {
       instanceId: created.instance.instanceId,
       currentPacketId: handoff.nextQitemId!,
       exit: "waiting",
-      actorSession: "next@rig",
+      actorSession: "next@software-team",
       blockedOn: "external:ordinary-wait",
     });
     expect(queueRepo.getByIdOrThrow(handoff.nextQitemId!).state).toBe("blocked");
@@ -134,17 +134,17 @@ describe("workflow authored waiting re-presentation", () => {
     const created = await runtime.instantiate({
       specPath,
       rootObjective: "prove replacement packets",
-      createdBySession: "ops@rig",
+      createdBySession: "ops@software-team",
     });
     const routed = await runtime.route({
       instanceId: created.instance.instanceId,
-      toSession: "worker-2@rig",
-      actorSession: "ops@rig",
+      toSession: "worker-2@software-team",
+      actorSession: "ops@software-team",
       reason: "owner changed",
     });
     const routedBody = queueRepo.getByIdOrThrow(routed.newPacketId).body;
     expect(routedBody).toContain(
-      `Continuation: ${commandFor(created.instance.instanceId, routed.newPacketId, "worker-2@rig")}`,
+      `Continuation: ${commandFor(created.instance.instanceId, routed.newPacketId, "worker-2@software-team")}`,
     );
     expect(routedBody).not.toContain(`--current-packet ${created.entryQitemId} `);
 
@@ -152,12 +152,12 @@ describe("workflow authored waiting re-presentation", () => {
       instanceId: created.instance.instanceId,
       currentPacketId: routed.newPacketId,
       exit: "failed",
-      actorSession: "worker-2@rig",
+      actorSession: "worker-2@software-team",
       resultNote: "bounded failure",
     });
     const resumed = await runtime.resume({
       instanceId: created.instance.instanceId,
-      actorSession: "ops@rig",
+      actorSession: "ops@software-team",
       decision: "retry the authored step",
     });
     const resumedBody = queueRepo.getByIdOrThrow(resumed.newPacketId).body;

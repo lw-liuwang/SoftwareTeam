@@ -16,7 +16,7 @@ describe("F1 — blocker refusal payloads carry rejectedBlocker, never the succe
   beforeEach(() => {
     db = new Database(":memory:");
     migrate(db, ALL_MIGRATIONS);
-    repo = new QueueRepository(db, new EventBus(db), { validateRig: () => true });
+    repo = new QueueRepository(db, new EventBus(db), { validateSoftwareTeam: () => true });
   });
   afterEach(() => db.close());
 

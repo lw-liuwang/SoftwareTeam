@@ -35,17 +35,17 @@ const SSOT_POINTER = "docs/reference/sdlc-conventions.md";
 // have no repo at all. The same doc reaches them by three different paths and only two may
 // ever be taught:
 //   repo source      docs/reference/sdlc-conventions.md          — correct for repo readers
-//   installed stable $OPENRIG_HOME/reference/sdlc-conventions.md — correct for installed agents
-//                                                                  (default ~/.openrig/…)
+//   installed stable $SOFTWARETEAM_HOME/reference/sdlc-conventions.md — correct for installed agents
+//                                                                  (default ~/.softwareteam/…)
 //   packed internal  daemon/docs/reference/…                     — assembly input, NEVER taught
 //
 // Two failure modes this guards, both of which look fine in a repo checkout:
 //   1. teaching ONLY the repo path — an installed agent looks somewhere that does not exist;
 //   2. teaching the DEFAULT home as the only path — wrong for any operator with a custom
-//      OPENRIG_HOME (this rig runs one). Naming `$OPENRIG_HOME/...` is MANDATORY; mentioning
-//      `~/.openrig/...` alongside it as the default is honest and explicitly allowed, so this
+//      SOFTWARETEAM_HOME (this softwareTeam runs one). Naming `$SOFTWARETEAM_HOME/...` is MANDATORY; mentioning
+//      `~/.softwareteam/...` alongside it as the default is honest and explicitly allowed, so this
 //      does NOT ban the default — requiring the env-aware pointer already covers the risk.
-const INSTALLED_POINTER_ENV = "$OPENRIG_HOME/reference/sdlc-conventions.md";
+const INSTALLED_POINTER_ENV = "$SOFTWARETEAM_HOME/reference/sdlc-conventions.md";
 const INTERNAL_PACKED_PATH = "daemon/docs/reference/";
 
 const RENDER_OPTS = {
@@ -58,7 +58,7 @@ const RENDER_OPTS = {
 };
 
 function mktemp(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "rig-scope-conventions-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "software-team-scope-conventions-"));
 }
 
 function seedSubstrate(): { root: string; missionsRoot: string } {
@@ -73,7 +73,7 @@ function seedSubstrate(): { root: string; missionsRoot: string } {
   );
   fs.writeFileSync(
     path.join(missionsRoot, "release-0.4.4", "mission.yaml"),
-    "schema: openrig.mission/v0alpha1\nkind: mission\ncomposition:\n  mission_markdown:\n    spec: README.md\n  slices: []\n",
+    "schema: softwareteam.mission/v0alpha1\nkind: mission\ncomposition:\n  mission_markdown:\n    spec: README.md\n  slices: []\n",
     "utf8",
   );
   return { root, missionsRoot };
@@ -92,7 +92,7 @@ async function run(args: string[], missionsRoot: string): Promise<{ exitCode: nu
   program.addCommand(scopeCommand());
   program.exitOverride();
   try {
-    await program.parseAsync(["node", "rig", "scope", ...args, "--workspace", path.dirname(missionsRoot)]);
+    await program.parseAsync(["node", "softwareTeam", "scope", ...args, "--workspace", path.dirname(missionsRoot)]);
   } catch {
     // Commander/process.exit paths are captured above.
   } finally {
@@ -122,7 +122,7 @@ describe("OPR.0.4.4.23 convention scaffold — exhaustive over SliceTemplateKind
   });
 
   // aa922842 — dual-context pointer discriminator. Scaffolded output is installed-facing.
-  it("every slice template teaches BOTH contexts: the repo path AND the OPENRIG_HOME-aware installed path", () => {
+  it("every slice template teaches BOTH contexts: the repo path AND the SOFTWARETEAM_HOME-aware installed path", () => {
     for (const kind of SLICE_TEMPLATE_KINDS) {
       const rendered = renderSliceTemplate(kind, RENDER_OPTS);
       // Repo context retained — a repo reader must not be sent to an installed-only path.
@@ -205,11 +205,11 @@ describe("scope create — the mode-neutral SPEC/NOTES convention lands on disk"
       const progress = fs.readFileSync(path.join(slicePath, "PROGRESS.md"), "utf8");
       expect(progress).toContain("## Current state");
       expect(progress).toContain("## Outcomes");
-      expect(progress).toContain("rig proof show <slice>");
+      expect(progress).toContain("SoftwareTeam proof show <slice>");
       expect(progress).not.toMatch(/- \[ \] (?:Implementation complete|Tests passing|Review approved)/);
       expect(fs.readFileSync(path.join(slicePath, "PROOF.md"), "utf8")).toContain("SPEC.md");
       expect(parseYaml(fs.readFileSync(path.join(slicePath, "slice.yaml"), "utf8"))).toEqual({
-        schema: "openrig.slice/v0alpha1",
+        schema: "softwareteam.slice/v0alpha1",
         kind: "slice",
         composition: {
           mission: "../../mission.yaml",
@@ -238,7 +238,7 @@ describe("scope create — the mode-neutral SPEC/NOTES convention lands on disk"
         depends_on: [],
       });
       expect(parseYaml(fs.readFileSync(path.join(missionPath, "mission.yaml"), "utf8"))).toEqual({
-        schema: "openrig.mission/v0alpha1",
+        schema: "softwareteam.mission/v0alpha1",
         kind: "mission",
         metadata: { status: "planned" },
         composition: { mission_markdown: { spec: "SPEC.md" }, slices: [] },
@@ -506,21 +506,21 @@ describe("scope mission graph — depends_on is an advisory sibling-ordering edg
 
 // OPR.0.4.4.23 PM-acceptance fixback — the shipped teaching surfaces must
 // LEAD a naive agent to the C1 drop verb: every scaffolded artifact that
-// mentions proving names `rig proof add` and `--media` explicitly (the
-// naive-agent rerun showed generic "rig proof drops" prose produced manual
+// mentions proving names `softwareTeam proof add` and `--media` explicitly (the
+// naive-agent rerun showed generic "softwareTeam proof drops" prose produced manual
 // proof-dir curation and no C1 drops).
 describe("OPR.0.4.4.23 teaching surfaces name the drop verb", () => {
-  it("every slice template's proving guidance names rig proof add and --media", () => {
+  it("every slice template's proving guidance names SoftwareTeam proof add and --media", () => {
     for (const kind of SLICE_TEMPLATE_KINDS) {
       const rendered = renderSliceTemplate(kind, RENDER_OPTS);
-      expect(rendered, `template kind "${kind}" does not name rig proof add`).toContain("rig proof add");
+      expect(rendered, `template kind "${kind}" does not name SoftwareTeam proof add`).toContain("SoftwareTeam proof add");
       expect(rendered, `template kind "${kind}" does not name --media`).toContain("--media");
     }
   });
 
-  it("the PROOF.md template names rig proof add and --media and binds to SPEC.md", () => {
+  it("the PROOF.md template names SoftwareTeam proof add and --media and binds to SPEC.md", () => {
     const proof = renderSliceProofTemplate({ id: RENDER_OPTS.id, title: RENDER_OPTS.title });
-    expect(proof).toContain("rig proof add");
+    expect(proof).toContain("SoftwareTeam proof add");
     expect(proof).toContain("--media");
     expect(proof).toContain("SPEC.md");
     expect(proof).toContain("Hand-placing files without a drop");

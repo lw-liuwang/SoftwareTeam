@@ -24,7 +24,7 @@ import * as path from "node:path";
 import type Database from "better-sqlite3";
 import type { SliceIndexer, SliceRecord, SliceProofPacket } from "./slice-indexer.js";
 import type { WorkflowSpecCache } from "../workflow-spec-cache.js";
-import { sessionRigOf } from "../session-name.js";
+import { sessionSoftwareTeamOf } from "../session-name.js";
 import {
   findSliceWorkflowBinding,
   type SliceWorkflowBinding,
@@ -142,19 +142,19 @@ export interface ProofPacketRendered {
   passFailBadge: "pass" | "fail" | "partial" | "unknown";
 }
 
-export interface TopologyRigEntry {
-  rigId: string;
-  rigName: string;
+export interface TopologySoftwareTeamEntry {
+  softwareTeamId: string;
+  softwareTeamName: string;
   sessionNames: string[];
 }
 
 export interface TopologyPayload {
-  affectedRigs: TopologyRigEntry[];
-  /** Total unique seats touching the slice across all rigs. */
+  affectedSoftwareTeams: TopologySoftwareTeamEntry[];
+  /** Total unique seats touching the slice across all softwareTeams. */
   totalSeats: number;
   /** v1 dimension #1: workflow_spec graph (nodes + edges) when the
    *  slice is bound to a workflow_instance. Null when unbound (UI falls
-   *  back to the v0 per-rig session listing). */
+   *  back to the v0 per-softwareTeam session listing). */
   specGraph: SpecGraphPayload | null;
 }
 
@@ -236,7 +236,7 @@ export class SliceDetailProjector {
     const bindingResult = findSliceWorkflowBinding(this.db, slice.qitemIds);
     const binding = bindingResult.primary;
     const spec = binding && this.workflowSpecCache
-      ? this.tryGetSpec(binding.workflowName, binding.workflowVersion, this.boundRigOf(binding.instanceId))
+      ? this.tryGetSpec(binding.workflowName, binding.workflowVersion, this.boundSoftwareTeamOf(binding.instanceId))
       : null;
     const trailQitemToStep = binding ? this.buildTrailQitemToStepMap(binding.instanceId) : new Map<string, string>();
 
@@ -287,21 +287,21 @@ export class SliceDetailProjector {
 
   // --- v1 helpers ---
 
-  /** The rig the instance is bound to, so `member@{rig}` targets show the seat the packet went to. */
-  private boundRigOf(instanceId: string): string | null {
+  /** The softwareTeam the instance is bound to, so `member@{softwareTeam}` targets show the seat the packet went to. */
+  private boundSoftwareTeamOf(instanceId: string): string | null {
     try {
-      const row = this.db.prepare(`SELECT bound_rig FROM workflow_instances WHERE instance_id = ?`)
-        .get(instanceId) as { bound_rig: string | null } | undefined;
-      return row?.bound_rig ?? null;
+      const row = this.db.prepare(`SELECT bound_software_team FROM workflow_instances WHERE instance_id = ?`)
+        .get(instanceId) as { bound_software_team: string | null } | undefined;
+      return row?.bound_software_team ?? null;
     } catch {
       return null;
     }
   }
 
-  private tryGetSpec(name: string, version: string, boundRig: string | null) {
+  private tryGetSpec(name: string, version: string, boundSoftwareTeam: string | null) {
     if (!this.workflowSpecCache) return null;
     try {
-      const row = this.workflowSpecCache.getForInstance({ workflowName: name, workflowVersion: version, boundRig });
+      const row = this.workflowSpecCache.getForInstance({ workflowName: name, workflowVersion: version, boundSoftwareTeam });
       return row?.spec ?? null;
     } catch {
       return null;
@@ -574,7 +574,7 @@ export class SliceDetailProjector {
     // VM-006 (progress-review-done-coherence): union the done-state for
     // proof-contract rows — done = checkboxTicked OR qaVerified. Review
     // derives `verified` from the QA passing verdict while the tick-state
-    // here never moves (`rig proof add` does not tick the authored box), so
+    // here never moves (`softwareTeam proof add` does not tick the authored box), so
     // the two tabs disagreed about the same obligations.
     //
     // The join is a MULTIPLICITY-GATED 1:1 association on `textKey`, taken
@@ -826,7 +826,7 @@ export class SliceDetailProjector {
 
   private buildTopology(slice: SliceRecord): Omit<TopologyPayload, "specGraph"> {
     if (slice.qitemIds.length === 0) {
-      return { affectedRigs: [], totalSeats: 0 };
+      return { affectedSoftwareTeams: [], totalSeats: 0 };
     }
     try {
       const placeholders = slice.qitemIds.map(() => "?").join(",");
@@ -835,44 +835,44 @@ export class SliceDetailProjector {
            FROM queue_items WHERE qitem_id IN (${placeholders})`
       ).all(...slice.qitemIds) as Array<{ source_session: string; destination_session: string }>;
 
-      const sessionsByRig = new Map<string, Set<string>>();
+      const sessionsBySoftwareTeam = new Map<string, Set<string>>();
       for (const r of rows) {
         for (const s of [r.source_session, r.destination_session]) {
           if (!s) continue;
-          const rig = sessionRigKey(s);
-          const set = sessionsByRig.get(rig) ?? new Set<string>();
+          const softwareTeam = sessionSoftwareTeamKey(s);
+          const set = sessionsBySoftwareTeam.get(softwareTeam) ?? new Set<string>();
           set.add(s);
-          sessionsByRig.set(rig, set);
+          sessionsBySoftwareTeam.set(softwareTeam, set);
         }
       }
 
-      // Resolve rig display names from the rigs table when possible. If the
-      // rig isn't registered locally (e.g., session names from another host),
-      // we keep the parsed key as a placeholder rigId.
-      const rigNames = new Map<string, string>();
+      // Resolve softwareTeam display names from the softwareTeams table when possible. If the
+      // softwareTeam isn't registered locally (e.g., session names from another host),
+      // we keep the parsed key as a placeholder softwareTeamId.
+      const softwareTeamNames = new Map<string, string>();
       try {
-        const rigRows = this.db.prepare(
-          `SELECT id, name FROM rigs`
+        const softwareTeamRows = this.db.prepare(
+          `SELECT id, name FROM software_teams`
         ).all() as Array<{ id: string; name: string }>;
-        for (const r of rigRows) rigNames.set(r.name, r.id);
+        for (const r of softwareTeamRows) softwareTeamNames.set(r.name, r.id);
       } catch {
-        // rigs table unavailable — fall back to parsed key as both id and name.
+        // softwareTeams table unavailable — fall back to parsed key as both id and name.
       }
 
-      const affectedRigs: TopologyRigEntry[] = [];
-      for (const [rigKey, sessionSet] of sessionsByRig) {
-        affectedRigs.push({
-          rigId: rigNames.get(rigKey) ?? rigKey,
-          rigName: rigKey,
+      const affectedSoftwareTeams: TopologySoftwareTeamEntry[] = [];
+      for (const [softwareTeamKey, sessionSet] of sessionsBySoftwareTeam) {
+        affectedSoftwareTeams.push({
+          softwareTeamId: softwareTeamNames.get(softwareTeamKey) ?? softwareTeamKey,
+          softwareTeamName: softwareTeamKey,
           sessionNames: Array.from(sessionSet).sort(),
         });
       }
-      affectedRigs.sort((a, b) => a.rigName.localeCompare(b.rigName));
+      affectedSoftwareTeams.sort((a, b) => a.softwareTeamName.localeCompare(b.softwareTeamName));
 
-      const totalSeats = Array.from(sessionsByRig.values()).reduce((sum, set) => sum + set.size, 0);
-      return { affectedRigs, totalSeats };
+      const totalSeats = Array.from(sessionsBySoftwareTeam.values()).reduce((sum, set) => sum + set.size, 0);
+      return { affectedSoftwareTeams, totalSeats };
     } catch {
-      return { affectedRigs: [], totalSeats: 0 };
+      return { affectedSoftwareTeams: [], totalSeats: 0 };
     }
   }
 
@@ -890,11 +890,11 @@ function truncate(s: string, n: number): string {
   return `${s.slice(0, n)}…`;
 }
 
-function sessionRigKey(session: string): string {
-  // Sessions are usually "<member>@<rig>" — the rig portion is the key.
-  // Non-canonical names (no @, legacy, malformed) are their own rig key.
-  // OPR.0.4.6.MH1 FR-8: the shared parse contract (greedy first-@ rig).
-  return sessionRigOf(session) ?? session;
+function sessionSoftwareTeamKey(session: string): string {
+  // Sessions are usually "<member>@<softwareTeam>" — the softwareTeam portion is the key.
+  // Non-canonical names (no @, legacy, malformed) are their own softwareTeam key.
+  // OPR.0.4.6.MH1 FR-8: the shared parse contract (greedy first-@ softwareTeam).
+  return sessionSoftwareTeamOf(session) ?? session;
 }
 
 function inferPassFailBadge(content: string): "pass" | "fail" | "partial" | "unknown" {

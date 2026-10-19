@@ -20,15 +20,15 @@ function screenFor(...commands: string[]) {
 }
 
 const VIEWS: Array<[string, string[]]> = [
-  ["topology table", ["rig openrig-build"]],
-  ["topology overview", ["rig openrig-build", "tab overview"]],
+  ["topology table", ["SoftwareTeam softwareteam-build"]],
+  ["topology overview", ["SoftwareTeam softwareteam-build", "tab overview"]],
   ["agent detail", ["agent dev50.driver"]],
   ["specs library", [":specs"]],
-  ["rig spec", ["spec openrig-build-rig"]],
+  ["SoftwareTeam spec", ["spec softwareteam-build-software-team"]],
   ["agent spec", ["spec driver-agent"]],
   ["needs", [":needs"]],
   ["cross-nav running", ["running driver-agent"]],
-  ["filtered", ["rig openrig-build", "/dev50"]],
+  ["filtered", ["SoftwareTeam softwareteam-build", "/dev50"]],
   ["named error", ["agent nobody.here"]],
 ];
 
@@ -48,7 +48,7 @@ describe("stylize invariant: strip(styled) === plain, every view, every mode", (
   }
 
   it("none mode returns the plain lines untouched (NO_COLOR honesty)", () => {
-    const screen = screenFor("rig openrig-build");
+    const screen = screenFor("SoftwareTeam softwareteam-build");
     expect(stylizeLines(screen, createStyle("none"))).toEqual(screen.lines);
   });
 });
@@ -57,7 +57,7 @@ describe("treatment (mockup palette semantics)", () => {
   const style = createStyle("truecolor");
 
   it("colors STATUS semantically: active=ok-green, needs-attention=amber, unknown=dim", () => {
-    const styled = stylizeLines(screenFor("rig openrig-build"), style).join("\n");
+    const styled = stylizeLines(screenFor("SoftwareTeam softwareteam-build"), style).join("\n");
     expect(styled).toContain("\x1b[38;2;152;195;121mworking\x1b[0m");
     expect(styled).toContain("\x1b[38;2;244;190;92mneeds you\x1b[0m");
     expect(styled).toContain("\x1b[38;2;109;116;128munknown\x1b[0m");
@@ -71,7 +71,7 @@ describe("treatment (mockup palette semantics)", () => {
   });
 
   it("links/acts get the G2 accent (term ▸, open ▸, tabs)", () => {
-    const styled = stylizeLines(screenFor("rig openrig-build"), style).join("\n");
+    const styled = stylizeLines(screenFor("SoftwareTeam softwareteam-build"), style).join("\n");
     expect(styled).toContain("\x1b[1;38;2;111;168;255mterm ▸\x1b[0m");
     expect(styled).toContain("\x1b[1;38;2;111;168;255mOpen terminals ▸\x1b[0m");
   });
@@ -84,7 +84,7 @@ describe("treatment (mockup palette semantics)", () => {
   });
 
   it("chrome rules carry pane titles; hint bar and status line are styled", () => {
-    const styled = stylizeLines(screenFor("rig openrig-build"), style);
+    const styled = stylizeLines(screenFor("SoftwareTeam softwareteam-build"), style);
     expect(stripAnsi(styled[1]!)).toMatch(/EXPLORER.*╋.*TOPOLOGY/);
     const hint = styled.find((l) => stripAnsi(l).includes("q quit"));
     expect(hint).toBeDefined();
@@ -92,14 +92,14 @@ describe("treatment (mockup palette semantics)", () => {
   });
 
   it("16-color mode emits only basic SGR (no 38;2 / 38;5) — sane degradation", () => {
-    const styled = stylizeLines(screenFor("rig openrig-build"), createStyle("16")).join("\n");
+    const styled = stylizeLines(screenFor("SoftwareTeam softwareteam-build"), createStyle("16")).join("\n");
     expect(styled).not.toContain("38;2;");
     expect(styled).not.toContain("38;5;");
     expect(styled).toContain("\x1b[");
   });
 
   it("256 mode uses 38;5 indexed colors", () => {
-    const styled = stylizeLines(screenFor("rig openrig-build"), createStyle("256")).join("\n");
+    const styled = stylizeLines(screenFor("SoftwareTeam softwareteam-build"), createStyle("256")).join("\n");
     expect(styled).toContain("38;5;");
     expect(styled).not.toContain("38;2;");
   });

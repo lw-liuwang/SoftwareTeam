@@ -4,7 +4,7 @@ import type { Migration } from "../migrate.js";
  * OPR.0.4.1.18 — queue_items.summary column.
  *
  * Adds `summary TEXT` (NULLABLE) to queue_items: a short human-readable
- * 1–2 sentence summary of the work, authored on `rig queue create` /
+ * 1–2 sentence summary of the work, authored on `SoftwareTeam queue create` /
  * `handoff` via `--summary`. The agent-speak `body` (TEXT NOT NULL) stays the
  * source of truth and is unchanged + additive.
  *
@@ -15,7 +15,7 @@ import type { Migration } from "../migrate.js";
  * or backfill a non-degrading default.
  *
  * Base table: 024_queue_items.ts. Numbering note: the slice README named "042",
- * but at the build base (dbe6cce7) 042_rig_archive + 043_resume_provenance
+ * but at the build base (dbe6cce7) 042_software_team_archive + 043_resume_provenance
  * already exist — this is the next free number, 044.
  */
 export const queueItemSummarySchema: Migration = {

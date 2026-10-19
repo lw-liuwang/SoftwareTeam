@@ -18,7 +18,7 @@
 //
 // THE ONE STRING RULE (arch Q5 = guard B2): the seat identity used for
 // BOTH the tiebreak key AND the recorded destination is the DERIVED
-// canonical coordinate `{pod}-{member}@{rig}` — never a raw
+// canonical coordinate `{pod}-{member}@{softwareTeam}` — never a raw
 // occupant-era session name. Adopted seats (raw tmux name ≠ derived
 // coordinate) are EXCLUDED from the v1 candidate set LOUDLY with the
 // named disqualifier `adopted_seat_not_role_resolvable_v1`
@@ -27,12 +27,12 @@
 //
 // TIEBREAK (BR-1): ascending pendingWorkCount, then the coordinate by
 // PLAIN CODEPOINT comparison (`<`), never localeCompare/natural sort —
-// `driver10@rig < driver2@rig` is the pinned counterintuitive vector;
+// `driver10@software-team < driver2@software-team` is the pinned counterintuitive vector;
 // "fixing" it into natural sort is a cross-version determinism break.
 
 /** The synchronous facts a candidate seat is judged by — materialized
  *  by the caller (workflow-role-context.ts) from the shipped
- *  rig-scoped inventory projection + sync work-enrichment. */
+ *  software-team-scoped inventory projection + sync work-enrichment. */
 export interface RoleSeatCandidateFacts {
   logicalId: string;
   /** nodes.role (the commit-1 dimension). null = role-less. */
@@ -43,7 +43,7 @@ export interface RoleSeatCandidateFacts {
   /** Pending-only backlog (state='pending' items; claimed/in-progress
    *  rank zero) — "least-loaded" = "least unclaimed backlog". */
   pendingWorkCount: number;
-  /** The derived canonical coordinate `{pod}-{member}@{rig}`; null
+  /** The derived canonical coordinate `{pod}-{member}@{softwareTeam}`; null
    *  when underivable (no pod-aware logical id). */
   coordinate: string | null;
   /** The occupant-era session name (latest session row). Managed seats:
@@ -144,7 +144,7 @@ export function selectRoleSeat(input: {
   }
 
   // Capacity ordering: least unclaimed backlog first; tiebreak by the
-  // coordinate, PLAIN codepoint ascending (driver10@rig < driver2@rig).
+  // coordinate, PLAIN codepoint ascending (driver10@software-team < driver2@software-team).
   qualified.sort((a, b) => {
     if (a.pendingWorkCount !== b.pendingWorkCount) {
       return a.pendingWorkCount - b.pendingWorkCount;

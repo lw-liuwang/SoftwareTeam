@@ -1,6 +1,6 @@
 export type TopologyEvent = Record<string, unknown> & {
   type?: string;
-  rigId?: string;
+  softwareTeamId?: string;
   seq?: number;
   createdAt?: string;
 };

@@ -23,8 +23,8 @@ import { ACCOUNT_ANSWER, makeFakeCodex, rateLimitsAnswer } from "./helpers/fake-
 
 const ASOF = "2026-10-13T15:00:00.000Z";
 
-const seat = (seatSession: string, runtime: string): ProviderSeat => ({ seatSession, rigName: "r", runtime, lifecycleState: "running" });
-const reg = (seat: string, runtime: string, authProfile: string) => ({ seat, rig: "r", runtime, cwd: "/w", authProfile, updatedTs: "2026-10-12T10:00:00Z" });
+const seat = (seatSession: string, runtime: string): ProviderSeat => ({ seatSession, softwareTeamName: "r", runtime, lifecycleState: "running" });
+const reg = (seat: string, runtime: string, authProfile: string) => ({ seat, softwareTeam: "r", runtime, cwd: "/w", authProfile, updatedTs: "2026-10-12T10:00:00Z" });
 
 function input(over: Partial<SeatAccountsInput>): SeatAccountsInput {
   return { seats: [], auth: { profiles: [], seats: [] }, usage: [], claudeSamples: [], codexHome: "/h/.codex", claudeConfigDir: undefined, home: "/h", ...over };
@@ -60,7 +60,7 @@ describe("configuredSeatAccounts — each state", () => {
       auth: { profiles: ["work-a"], seats: [reg("dev-qa@r", "codex", "work-a")] },
     }));
     expect(row).toEqual({
-      seatSession: "dev-qa@r", rigName: "r", runtime: "codex",
+      seatSession: "dev-qa@r", softwareTeamName: "r", runtime: "codex",
       configured: { source: "registry", profileRef: "work-a", recordedAt: "2026-10-12T10:00:00Z", profileSaved: true },
       allowance: { linked: false, reason: expect.stringContaining("different kinds of fact") },
       observed: { note: "no per-seat observation for Codex" },
@@ -96,7 +96,7 @@ describe("configuredSeatAccounts — each state", () => {
   it("unknown: any other runtime says so, with nothing invented", () => {
     const [row] = configuredSeatAccounts(input({ seats: [seat("t@r", "terminal")] }));
     expect(row).toEqual({
-      seatSession: "t@r", rigName: "r", runtime: "terminal",
+      seatSession: "t@r", softwareTeamName: "r", runtime: "terminal",
       configured: { source: "unknown", reason: "no account configuration is known for runtime terminal" },
       allowance: { linked: false, reason: "no configured account" },
     });
@@ -144,16 +144,16 @@ describe("configuredSeatAccounts — each state", () => {
     expect(JSON.stringify(usage)).toBe(before);
   });
 
-  it("a registry row naming another rig is still applied, as bindings[] applies it, and noted", () => {
+  it("a registry row naming another SoftwareTeam is still applied, as bindings[] applies it, and noted", () => {
     const [row] = configuredSeatAccounts(input({
       seats: [seat("dev-qa@r", "codex")],
-      auth: { profiles: ["work-a"], seats: [{ ...reg("dev-qa@r", "codex", "work-a"), rig: "other" }] },
+      auth: { profiles: ["work-a"], seats: [{ ...reg("dev-qa@r", "codex", "work-a"), softwareTeam: "other" }] },
     }));
     expect(row!.configured).toEqual({ source: "registry", profileRef: "work-a", recordedAt: "2026-10-12T10:00:00Z", profileSaved: true });
-    expect(row!.registryNotes).toEqual(["registry row names rig other; this seat is in rig r"]);
+    expect(row!.registryNotes).toEqual(["registry row names SoftwareTeam other; this seat is in SoftwareTeam r"]);
   });
 
-  it("two Claude seats with the same session name and rig: observations withheld, never attributed", () => {
+  it("two Claude seats with the same session name and softwareTeam: observations withheld, never attributed", () => {
     const usage = [claudeRow([claudeWindow("a@r", "2026-10-13T18:00:00Z", ["b@r"])])];
     const rows = configuredSeatAccounts(input({ seats: [seat("a@r", "claude-code"), seat("a@r", "claude-code"), seat("b@r", "claude-code")], usage, claudeSamples: [sampleOf("a@r"), sampleOf("b@r")] }));
     const withheld = {
@@ -165,7 +165,7 @@ describe("configuredSeatAccounts — each state", () => {
     expect(rows[2]!.observed).toMatchObject({ windowsSampled: true });
   });
 
-  it("two Codex seats with the same session name and rig and a registry row: applied to both, with a note that it can't tell them apart", () => {
+  it("two Codex seats with the same session name and SoftwareTeam and a registry row: applied to both, with a note that it can't tell them apart", () => {
     const rows = configuredSeatAccounts(input({
       seats: [seat("dev-qa@r", "codex"), seat("dev-qa@r", "codex")],
       auth: { profiles: ["work-a"], seats: [reg("dev-qa@r", "codex", "work-a")] },
@@ -180,12 +180,12 @@ describe("configuredSeatAccounts — each state", () => {
   });
 });
 
-/** Seed live seats (rig + pod + node + running session) into node-inventory. */
+/** Seed live seats (softwareTeam + pod + node + running session) into node-inventory. */
 function seedSeats(db: Database.Database, seats: Array<{ id: string; session: string; runtime: string }>) {
-  db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "r");
-  db.prepare("INSERT INTO pods (id, rig_id, namespace, label) VALUES (?, ?, ?, ?)").run("pod-1", "rig-1", "dev", "Dev");
+  db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "r");
+  db.prepare("INSERT INTO pods (id, software_team_id, namespace, label) VALUES (?, ?, ?, ?)").run("pod-1", "software-team-1", "dev", "Dev");
   for (const s of seats) {
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id, runtime, cwd, pod_id) VALUES (?, ?, ?, ?, ?, ?)").run(s.id, "rig-1", `dev.${s.id}`, s.runtime, "/w", "pod-1");
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, runtime, cwd, pod_id) VALUES (?, ?, ?, ?, ?, ?)").run(s.id, "software-team-1", `dev.${s.id}`, s.runtime, "/w", "pod-1");
     db.prepare("INSERT INTO sessions (id, node_id, session_name, status, startup_status) VALUES (?, ?, ?, ?, ?)").run(`sess-${s.id}`, s.id, s.session, "running", "ready");
     db.prepare("INSERT OR REPLACE INTO bindings (id, node_id, tmux_session) VALUES (?, ?, ?)").run(`bind-${s.id}`, s.id, s.session);
   }
@@ -228,7 +228,7 @@ describe("seatAccounts through the provider service", () => {
       now: () => ASOF,
       read: codexUsageReader({ launchPath: `${fake.binDir}${path.delimiter}${process.env.PATH}`, home, codexHome: fake.codexHome, deadlineMs: 5_000, graceMs: 200, now: () => ASOF }),
     });
-    const base = { db, listRigs: () => [{ id: "rig-1" }], env, now: () => ASOF };
+    const base = { db, listSoftwareTeams: () => [{ id: "software-team-1" }], env, now: () => ASOF };
     const svc = new ProviderServiceImpl({ ...base, usageWindows: { enabled: () => enabled, windows } });
     const mainSvc = new ProviderServiceImpl(base);
     return { fake, svc, mainSvc, home };
@@ -297,7 +297,7 @@ describe("seatAccounts on the production path (samples, registry reads, config d
       listSamples: () => latestClaudeWindowSamples(db),
     });
     const windows = new CodexUsageWindows({ now: () => clock, read: async () => { throw new Error("a read never starts the Codex reader"); } });
-    const svc = new ProviderServiceImpl({ db, listRigs: () => [{ id: "rig-1" }], now: () => clock,
+    const svc = new ProviderServiceImpl({ db, listSoftwareTeams: () => [{ id: "software-team-1" }], now: () => clock,
       env: { CODEX_HOME: codexHome, HOME: home, ...opts.env } as NodeJS.ProcessEnv,
       usageWindows: { enabled: () => true, windows, claude } });
     const bySeat = async () => new Map((await svc.getReadModel()).seatAccounts!.map((row) => [row.seatSession, row]));

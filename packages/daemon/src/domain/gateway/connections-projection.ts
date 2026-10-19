@@ -80,10 +80,10 @@ export function connectionsProjection(home: string, gateway: Record<string, unkn
     : "unverified"; // Even a successful dated check is not current external reachability.
   // OPR.0.6.0.5: no Slack app yet (neither token resolves) → create one from the shipped manifest first.
   const noSlackApp = !!cfg && secretsAvailable && !bot && !app;
-  const nextAction = state !== "unavailable" && state !== "failed" && noSlackApp ? "rig slack manifest --url"
-    : state === "disabled" ? "rig slack enable" : state === "incomplete" || !cfg ? "rig slack setup --help"
-    : state === "unavailable" || state === "unapplied" || applied === "unverified" || gateway?.state === "failed" ? "rig daemon logs"
-    : "rig slack verify --json";
+  const nextAction = state !== "unavailable" && state !== "failed" && noSlackApp ? "SoftwareTeam slack manifest --url"
+    : state === "disabled" ? "SoftwareTeam slack enable" : state === "incomplete" || !cfg ? "SoftwareTeam slack setup --help"
+    : state === "unavailable" || state === "unapplied" || applied === "unverified" || gateway?.state === "failed" ? "SoftwareTeam daemon logs"
+    : "SoftwareTeam slack verify --json";
   let registry: ReturnType<typeof loadHumanRegistry>;
   try { registry = loadHumanRegistry(home, { readOnly: true }); } catch { registry = { ok: false, error: "registry unavailable" }; }
   const instance = ["host.name", "workspace.root", "workspace.operator_seat_name"] as const;

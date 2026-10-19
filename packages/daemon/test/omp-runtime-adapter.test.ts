@@ -4,10 +4,10 @@ import { OmpResumeAdapter } from "../src/adapters/omp-resume.js";
 import { piSeatPaths } from "../src/adapters/pi-runner-protocol.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
 
-const stateRoot = "/openrig/state/omp";
-const seat = "omp-worker@rig";
-const parentFile = "/openrig/state/omp/parent/sessions/parent.jsonl";
-const currentFile = `/openrig/state/omp/${seat}/sessions/current.jsonl`;
+const stateRoot = "/softwareteam/state/omp";
+const seat = "omp-worker@software-team";
+const parentFile = "/softwareteam/state/omp/parent/sessions/parent.jsonl";
+const currentFile = `/softwareteam/state/omp/${seat}/sessions/current.jsonl`;
 const paths = piSeatPaths(stateRoot, seat);
 
 function fakeSeat(files: Record<string, string>) {
@@ -40,7 +40,7 @@ describe("OMP runtime adapter exact session tokens", () => {
   });
 
   it("fails an exact resume when the runner comes up on a different session file", async () => {
-    const requested = `/openrig/state/omp/${seat}/sessions/requested.jsonl`;
+    const requested = `/softwareteam/state/omp/${seat}/sessions/requested.jsonl`;
     const { fs, tmux } = fakeSeat({ [requested]: "history", [currentFile]: "other session" });
     const adapter = new OmpRuntimeAdapter({ fsOps: fs, tmux, stateRoot, runnerEntryPath: "/daemon/pi-runner.js", sleep: async () => {} });
     const result = await adapter.launchHarness({ tmuxSession: seat, cwd: "/work", model: "openrouter/example", launchPosture: "floor" } as never, { name: seat, resumeToken: requested });

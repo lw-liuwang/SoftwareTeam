@@ -19,14 +19,14 @@ import {
 export type DiscoveryPlacementTarget =
   | {
       kind: "node";
-      rigId: string;
+      softwareTeamId: string;
       logicalId: string;
       eligible: boolean;
       reason?: string | null;
     }
   | {
       kind: "pod";
-      rigId: string;
+      softwareTeamId: string;
       podId: string;
       podNamespace: string | null;
       podLabel: string | null;
@@ -43,8 +43,8 @@ interface DiscoveryPanelProps {
   onClearPlacement: () => void;
 }
 
-function parseCurrentRigId(pathname: string): string | null {
-  const match = pathname.match(/^\/rigs\/([^/]+)/);
+function parseCurrentSoftwareTeamId(pathname: string): string | null {
+  const match = pathname.match(/^\/software-teams\/([^/]+)/);
   return match?.[1] ?? null;
 }
 
@@ -135,7 +135,7 @@ export function DiscoveryPanel({
   onClearPlacement,
 }: DiscoveryPanelProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const currentRigId = parseCurrentRigId(pathname);
+  const currentSoftwareTeamId = parseCurrentSoftwareTeamId(pathname);
   // OPR.0.4.6.MH2 rev1-r2 re-re-verdict B1: adopt is a LOCAL mutation — the
   // target/adopt flow never renders under a remote selection (the shell also
   // clears placement on any host switch; this is the panel-side brace).
@@ -165,8 +165,8 @@ export function DiscoveryPanel({
       return null;
     }
 
-    if (!currentRigId) {
-      return "Select a rig in the explorer to place the selected session.";
+    if (!currentSoftwareTeamId) {
+      return "Select a SoftwareTeam in the explorer to place the selected session.";
     }
 
     if (!placementTarget) {
@@ -182,10 +182,10 @@ export function DiscoveryPanel({
     }
 
     return `Add ${selectedSession.tmuxSession} to ${targetPodLabel(placementTarget)} pod.`;
-  }, [currentRigId, placementTarget, selectedSession]);
+  }, [currentSoftwareTeamId, placementTarget, selectedSession]);
 
   const handleConfirm = () => {
-    if (!selectedSession || !currentRigId || !placementTarget || !placementTarget.eligible) return;
+    if (!selectedSession || !currentSoftwareTeamId || !placementTarget || !placementTarget.eligible) return;
 
     let target: DiscoveryAdoptTarget;
     if (placementTarget.kind === "node") {
@@ -201,7 +201,7 @@ export function DiscoveryPanel({
     }
 
     adoptMutation.mutate(
-      { discoveredId: selectedSession.id, rigId: currentRigId, target },
+      { discoveredId: selectedSession.id, softwareTeamId: currentSoftwareTeamId, target },
       {
         onSuccess: () => {
           onSelectDiscoveredId(null);

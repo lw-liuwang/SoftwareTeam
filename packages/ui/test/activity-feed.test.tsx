@@ -34,7 +34,7 @@ function makeEvent(overrides: Partial<ActivityEvent> & { type: string }): Activi
   };
 }
 
-/** Renders ActivityFeed inside a router that has a /rigs/$rigId route */
+/** Renders ActivityFeed inside a router that has a /software-teams/$softwareTeamId route */
 function renderFeedWithRouter(props: {
   events: ActivityEvent[];
   open: boolean;
@@ -57,10 +57,10 @@ function renderFeedWithRouter(props: {
     component: () => <div data-testid="index-page">Index</div>,
   });
 
-  const rigRoute = createRoute({
+  const softwareTeamRoute = createRoute({
     getParentRoute: () => rootRoute,
-    path: "/rigs/$rigId",
-    component: () => <div data-testid="rig-page">Rig Detail</div>,
+    path: "/software-teams/$softwareTeamId",
+    component: () => <div data-testid="software-team-page">SoftwareTeam Detail</div>,
   });
 
   const bootstrapRoute = createRoute({
@@ -69,7 +69,7 @@ function renderFeedWithRouter(props: {
     component: () => <div data-testid="bootstrap-page">Bootstrap</div>,
   });
 
-  const routeTree = rootRoute.addChildren([indexRoute, rigRoute, bootstrapRoute]);
+  const routeTree = rootRoute.addChildren([indexRoute, softwareTeamRoute, bootstrapRoute]);
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: ["/"] }),
@@ -150,8 +150,8 @@ describe("Activity Feed", () => {
   it("renders events newest first", async () => {
     const events = [
       makeEvent({ type: "package.installed", seq: 3, payload: { packageName: "pkg-c", packageVersion: "1.0.0", applied: 1, deferred: 0 }, receivedAt: Date.now() }),
-      makeEvent({ type: "rig.created", seq: 2, payload: { rigId: "r2" }, receivedAt: Date.now() - 5000 }),
-      makeEvent({ type: "snapshot.created", seq: 1, payload: { rigId: "r1", kind: "manual" }, receivedAt: Date.now() - 10000 }),
+      makeEvent({ type: "software-team.created", seq: 2, payload: { softwareTeamId: "r2" }, receivedAt: Date.now() - 5000 }),
+      makeEvent({ type: "snapshot.created", seq: 1, payload: { softwareTeamId: "r1", kind: "manual" }, receivedAt: Date.now() - 10000 }),
     ];
 
     renderFeedWithRouter({ events, open: true });
@@ -185,8 +185,8 @@ describe("Activity Feed", () => {
   it("status dot uses correct color for event type", async () => {
     const events = [
       makeEvent({ type: "package.installed", payload: { packageName: "p", packageVersion: "1", applied: 0, deferred: 0 } }),
-      makeEvent({ type: "rig.created", payload: { rigId: "r1" } }),
-      makeEvent({ type: "session.detached", payload: { rigId: "r1", nodeId: "n1", sessionName: "s1" } }),
+      makeEvent({ type: "software-team.created", payload: { softwareTeamId: "r1" } }),
+      makeEvent({ type: "session.detached", payload: { softwareTeamId: "r1", nodeId: "n1", sessionName: "s1" } }),
     ];
 
     renderFeedWithRouter({ events, open: true });
@@ -195,15 +195,15 @@ describe("Activity Feed", () => {
       const dots = screen.getAllByTestId("feed-dot");
       expect(dots).toHaveLength(3);
       expect(dots[0]!.className).toContain("bg-primary"); // package.*
-      expect(dots[1]!.className).toContain("bg-accent"); // rig.*
+      expect(dots[1]!.className).toContain("bg-accent"); // softwareTeam.*
       expect(dots[2]!.className).toContain("bg-destructive"); // session.detached
     });
   });
 
-  // Test 4: Click rig.created entry navigates to /rigs/{rigId}
-  it("click rig.created navigates to /rigs/{rigId}", async () => {
+  // Test 4: Click software-team.created entry navigates to /software-teams/{softwareTeamId}
+  it("click software-team.created navigates to /software-teams/{softwareTeamId}", async () => {
     const events = [
-      makeEvent({ type: "rig.created", payload: { rigId: "rig-abc" } }),
+      makeEvent({ type: "software-team.created", payload: { softwareTeamId: "software-team-abc" } }),
     ];
 
     renderFeedWithRouter({ events, open: true });
@@ -218,7 +218,7 @@ describe("Activity Feed", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("rig-page")).toBeTruthy();
+      expect(screen.getByTestId("software-team-page")).toBeTruthy();
     });
   });
 
@@ -232,7 +232,7 @@ describe("Activity Feed", () => {
     // Send 105 events
     act(() => {
       for (let i = 0; i < 105; i++) {
-        es.simulateMessage(JSON.stringify({ type: "rig.created", rigId: `r-${i}`, seq: i, createdAt: new Date().toISOString() }));
+        es.simulateMessage(JSON.stringify({ type: "software-team.created", softwareTeamId: `r-${i}`, seq: i, createdAt: new Date().toISOString() }));
       }
     });
 
@@ -243,7 +243,7 @@ describe("Activity Feed", () => {
 
   it("shows recent-log disclosure copy and capped-history footer", async () => {
     const events = Array.from({ length: 100 }, (_, i) =>
-      makeEvent({ type: "rig.created", seq: i + 1, payload: { rigId: `r-${i}` } })
+      makeEvent({ type: "software-team.created", seq: i + 1, payload: { softwareTeamId: `r-${i}` } })
     );
 
     renderFeedWithRouter({ events, open: true });
@@ -259,7 +259,7 @@ describe("Activity Feed", () => {
   // Test 6: Collapsed state hides feed, toggle reopens
   it("collapsed hides feed, toggle reopens", async () => {
     const onClose = vi.fn();
-    const events = [makeEvent({ type: "rig.created", payload: { rigId: "r1" } })];
+    const events = [makeEvent({ type: "software-team.created", payload: { softwareTeamId: "r1" } })];
 
     // Render closed
     const { rerender } = render(
@@ -321,7 +321,7 @@ describe("Activity Feed", () => {
 
     // Send an event with a fixed local timestamp
     act(() => {
-      es.simulateMessage(JSON.stringify({ type: "rig.created", rigId: "r1", seq: 1, createdAt: "2026-04-01T16:48:20" }));
+      es.simulateMessage(JSON.stringify({ type: "software-team.created", softwareTeamId: "r1", seq: 1, createdAt: "2026-04-01T16:48:20" }));
     });
 
     await waitFor(() => {
@@ -338,7 +338,7 @@ describe("Activity Feed", () => {
     });
   });
 
-  // Test 9: Connects to /api/events without rigId
+  // Test 9: Connects to /api/events without softwareTeamId
   it("connects to /api/events (global stream)", async () => {
     renderHookHarness();
 
@@ -361,8 +361,8 @@ describe("Activity Feed", () => {
       getLastInstance().simulateMessage(JSON.stringify({
         type: "queue.created",
         qitemId: "qitem-late-feed",
-        sourceSession: "orch@rig",
-        destinationSession: "driver@rig",
+        sourceSession: "orch@software-team",
+        destinationSession: "driver@software-team",
         seq: 91,
         createdAt: "2026-05-08T00:00:00.000Z",
       }));
@@ -470,9 +470,9 @@ describe("eventRoute", () => {
     expect(eventRoute(makeEvent({ type: "package.rolledback", payload: {} }))).toBe("/bootstrap");
   });
 
-  it("returns /rigs/{rigId} for rig-scoped events", () => {
-    expect(eventRoute(makeEvent({ type: "rig.created", payload: { rigId: "r1" } }))).toBe("/rigs/r1");
-    expect(eventRoute(makeEvent({ type: "snapshot.created", payload: { rigId: "r2", kind: "manual" } }))).toBe("/rigs/r2");
+  it("returns /software-teams/{softwareTeamId} for software-team-scoped events", () => {
+    expect(eventRoute(makeEvent({ type: "software-team.created", payload: { softwareTeamId: "r1" } }))).toBe("/software-teams/r1");
+    expect(eventRoute(makeEvent({ type: "snapshot.created", payload: { softwareTeamId: "r2", kind: "manual" } }))).toBe("/software-teams/r2");
   });
 
   // T11: bootstrap event color = bg-accent
@@ -503,32 +503,32 @@ describe("eventRoute", () => {
     ).toBe("startup dev launched");
   });
 
-  it("tails rig and snapshot IDs in restore and snapshot summaries", () => {
+  it("tails SoftwareTeam and snapshot IDs in restore and snapshot summaries", () => {
     expect(
       eventSummary(
         makeEvent({
           type: "restore.completed",
           payload: {
-            rigId: "01KN5DX669Z02VTZEZK7RGT7NK",
+            softwareTeamId: "01KN5DX669Z02VTZEZK7RGT7NK",
             snapshotId: "01KN5E0BAW8SD3HQY72W58RWDP",
             result: { nodes: [{}, {}, {}] },
           },
         })
       )
-    ).toBe("restore rig#RGT7NK 3 nodes restored");
+    ).toBe("restore softwareTeam#RGT7NK 3 nodes restored");
 
     expect(
       eventSummary(
         makeEvent({
           type: "snapshot.created",
           payload: {
-            rigId: "01KN5DX669Z02VTZEZK7RGT7NK",
+            softwareTeamId: "01KN5DX669Z02VTZEZK7RGT7NK",
             snapshotId: "01KN5E0BAW8SD3HQY72W58RWDP",
             kind: "pre_restore",
           },
         })
       )
-    ).toBe("snapshot rig#RGT7NK pre_restore snap#58RWDP");
+    ).toBe("snapshot softwareTeam#RGT7NK pre_restore snap#58RWDP");
   });
 
   it("formats chat messages as compact operator log lines", () => {
@@ -566,8 +566,8 @@ describe("eventRoute", () => {
     expect(eventRoute(makeEvent({ type: "session.vanished", payload: {} }))).toBe("/discovery");
   });
 
-  it("node.claimed uses bg-primary color and routes to rig", () => {
+  it("node.claimed uses bg-primary color and routes to softwareTeam", () => {
     expect(eventColor("node.claimed")).toBe("bg-primary");
-    expect(eventRoute(makeEvent({ type: "node.claimed", payload: { rigId: "rig-1" } }))).toBe("/rigs/rig-1");
+    expect(eventRoute(makeEvent({ type: "node.claimed", payload: { softwareTeamId: "software-team-1" } }))).toBe("/software-teams/software-team-1");
   });
 });

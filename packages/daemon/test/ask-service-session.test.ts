@@ -1,21 +1,21 @@
 import { describe, it, expect, vi } from "vitest";
 import { AskService, type AskDeps } from "../src/domain/ask-service.js";
 import type { PsEntry } from "../src/domain/ps-projection.js";
-import type { Rig } from "../src/domain/types.js";
+import type { SoftwareTeam } from "../src/domain/types.js";
 import type { SearchResult, SeatSearchResult, SessionSearchResult } from "../src/domain/history-query.js";
 
 function makeDeps(sessionResult: SessionSearchResult): AskDeps {
   return {
     psProjectionService: {
       getEntries: vi.fn((): PsEntry[] => [
-        { rigId: "rig-1", name: "my-rig", nodeCount: 2, runningCount: 2, status: "running", uptime: "1h", latestSnapshot: "5m ago" },
+        { softwareTeamId: "software-team-1", name: "my-software-team", nodeCount: 2, runningCount: 2, status: "running", uptime: "1h", latestSnapshot: "5m ago" },
       ]),
     },
-    rigRepo: {
-      findRigsByName: vi.fn((_n: string): Rig[] => [
-        { id: "rig-1", name: "my-rig", createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+    softwareTeamRepo: {
+      findSoftwareTeamsByName: vi.fn((_n: string): SoftwareTeam[] => [
+        { id: "software-team-1", name: "my-software-team", createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
       ]),
-      getRig: vi.fn(() => null),
+      getSoftwareTeam: vi.fn(() => null),
     },
     historyQuery: {
       search: vi.fn(async (): Promise<SearchResult> => ({ backend: "rg", excerpts: [], insufficient: true })),
@@ -28,7 +28,7 @@ function makeDeps(sessionResult: SessionSearchResult): AskDeps {
 }
 
 describe("AskService — session-scoped (L2)", () => {
-  it("routes to searchSession (not whole-rig, not seat) and returns content excerpts", async () => {
+  it("routes to searchSession (not whole-software-team, not seat) and returns content excerpts", async () => {
     const deps = makeDeps({
       backend: "rg",
       token: "abc-123",
@@ -38,7 +38,7 @@ describe("AskService — session-scoped (L2)", () => {
       insufficient: false,
     });
     const svc = new AskService(deps);
-    const result = await svc.ask("my-rig", "SECRET_MARKER", { session: "abc-123" });
+    const result = await svc.ask("my-software-team", "SECRET_MARKER", { session: "abc-123" });
 
     expect(deps.historyQuery.searchSession).toHaveBeenCalledWith("abc-123", "SECRET_MARKER");
     expect(deps.historyQuery.search).not.toHaveBeenCalled();
@@ -60,7 +60,7 @@ describe("AskService — session-scoped (L2)", () => {
       degraded: { reason: "session_not_found", message: "No session JSONL found for token 'bogus'. Check the token." },
     });
     const svc = new AskService(deps);
-    const result = await svc.ask("my-rig", "anything", { session: "bogus" });
+    const result = await svc.ask("my-software-team", "anything", { session: "bogus" });
 
     expect(result.session!.found).toBe(false);
     expect(result.guidance).toMatch(/token/i);

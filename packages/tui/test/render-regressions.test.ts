@@ -6,23 +6,23 @@ import { computeExplorerRows, createViewState } from "../src/state.js";
 import type { FleetSnapshot } from "../src/types.js";
 
 describe("live visual regressions", () => {
-  it("renders the approved POD/SEAT identity columns without repeating the selected rig", () => {
+  it("renders the approved POD/SEAT identity columns without repeating the selected softwareTeam", () => {
     const snap = demoSnapshot();
     const view = createViewState({ instanceId: "t", getSnapshot: () => snap });
-    view.dispatch({ type: "drill", resource: "rig", name: "openrig-build" });
+    view.dispatch({ type: "drill", resource: "softwareTeam", name: "softwareteam-build" });
 
     const screen = renderScreen(view.get(), snap, { cols: 140, rows: 34 });
     const header = screen.lines.find((line) => line.includes("SEAT") && line.includes("STATE"));
     const row = screen.lines.find((line) => line.includes("┃ dev50") && line.includes("driver"));
 
     expect(header).toMatch(/POD\s+SEAT\s+RT\s+MODEL/);
-    expect(row).not.toContain("openrig-build");
+    expect(row).not.toContain("softwareteam-build");
   });
 
   it("keeps the approved operational columns at 140 columns", () => {
     const snap = demoSnapshot();
     const view = createViewState({ instanceId: "t", getSnapshot: () => snap });
-    view.dispatch({ type: "drill", resource: "rig", name: "openrig-build" });
+    view.dispatch({ type: "drill", resource: "softwareTeam", name: "softwareteam-build" });
 
     const screen = renderScreen(view.get(), snap, { cols: 140, rows: 34 });
     const header = screen.lines.find((line) => line.includes("SEAT") && line.includes("STATE"));
@@ -36,17 +36,17 @@ describe("live visual regressions", () => {
   it("keeps every raw-key content target visibly focused, including multiple actions on one row", () => {
     const snap = demoSnapshot();
     const view = createViewState({ instanceId: "t", getSnapshot: () => snap });
-    view.dispatch({ type: "drill", resource: "rig", name: "openrig-build" });
+    view.dispatch({ type: "drill", resource: "softwareTeam", name: "softwareteam-build" });
     view.dispatch({ type: "focus", pane: "content" });
     let screen = renderScreen(view.get(), snap, { cols: 140, rows: 34 });
     view.dispatch({ type: "layout", contentMaxOffset: screen.contentMaxOffset, contentTargetCount: screen.contentTargets.length });
     screen = renderScreen(view.get(), snap, { cols: 140, rows: 34 });
 
     const tabIndex = screen.contentTargets.findIndex((target) => target.action.type === "tab");
-    const rigTermIndex = screen.contentTargets.findIndex((target) => target.action.type === "act" && target.action.act === "open-terminal" && target.action.view === "rig:openrig-build");
-    const termIndex = screen.contentTargets.findIndex((target) => target.action.type === "act" && target.action.act === "open-terminal" && target.action.view !== "rig:openrig-build");
+    const softwareTeamTermIndex = screen.contentTargets.findIndex((target) => target.action.type === "act" && target.action.act === "open-terminal" && target.action.view === "software-team:softwareteam-build");
+    const termIndex = screen.contentTargets.findIndex((target) => target.action.type === "act" && target.action.act === "open-terminal" && target.action.view !== "software-team:softwareteam-build");
     const rowIndex = screen.contentTargets.findIndex((target) => target.action.type === "drill" && target.action.resource === "agent");
-    expect([tabIndex, rigTermIndex, termIndex, rowIndex].every((index) => index >= 0)).toBe(true);
+    expect([tabIndex, softwareTeamTermIndex, termIndex, rowIndex].every((index) => index >= 0)).toBe(true);
 
     view.dispatch({ type: "content-select", index: tabIndex });
     screen = renderScreen(view.get(), snap, { cols: 140, rows: 34 });
@@ -55,10 +55,10 @@ describe("live visual regressions", () => {
     // sanctioned truthful floor update; the assertion is unchanged)
     expect(screen.lines[screen.contentTargets[tabIndex]!.y - 1]!.slice(screen.explorerWidth + 1)).toMatch(/^›/);
 
-    // The rig terminal field is one whole-row action; seat rows have inline action zones.
-    view.dispatch({ type: "content-select", index: rigTermIndex });
+    // The SoftwareTeam terminal field is one whole-row action; seat rows have inline action zones.
+    view.dispatch({ type: "content-select", index: softwareTeamTermIndex });
     screen = renderScreen(view.get(), snap, { cols: 140, rows: 34 });
-    expect(screen.lines[screen.contentTargets[rigTermIndex]!.y - 1]!.slice(screen.explorerWidth + 1)).toMatch(/^›/);
+    expect(screen.lines[screen.contentTargets[softwareTeamTermIndex]!.y - 1]!.slice(screen.explorerWidth + 1)).toMatch(/^›/);
 
     view.dispatch({ type: "content-select", index: termIndex });
     screen = renderScreen(view.get(), snap, { cols: 140, rows: 34 });
@@ -132,7 +132,7 @@ describe("live visual regressions", () => {
     snap.needs = [{
       source: "derived",
       kind: "stuck",
-      target: "dev50-guard@openrig-build",
+      target: "dev50-guard@softwareteam-build",
       hostId: "remote-a",
       detail: "remote guard needs attention",
     }];
@@ -144,17 +144,17 @@ describe("live visual regressions", () => {
     expect(screen.contentTargets).toHaveLength(0);
   });
 
-  it("renders the locked rig-spec structure with clickable agent refs", () => {
+  it("renders the locked software-team-spec structure with clickable agent refs", () => {
     const base = demoSnapshot();
     const snap: FleetSnapshot = {
       ...base,
       specs: [{
         name: "adversarial-review",
-        kind: "rig",
+        kind: "softwareTeam",
         sourceState: "library_item",
         sourceType: "user_file",
-        sourcePath: "/Users/admin/code/openrig-build-source/packages/daemon/specs/rigs/focused/adversarial-review/rig.yaml",
-        relativePath: "rigs/focused/adversarial-review/rig.yaml",
+        sourcePath: "/Users/admin/code/softwareteam-build-source/packages/daemon/specs/software-teams/focused/adversarial-review/software-team.yaml",
+        relativePath: "software-teams/focused/adversarial-review/software-team.yaml",
         format: "pod_aware",
         pods: [{
           id: "review",
@@ -181,7 +181,7 @@ describe("live visual regressions", () => {
     const screen = renderScreen(view.get(), snap, { cols: 140, rows: 34 });
     const output = screen.lines.join("\n");
     expect(output).toMatch(/source:\s+…\//);
-    expect(output).toContain("adversarial-review/rig.yaml · user library");
+    expect(output).toContain("adversarial-review/software-team.yaml · user library");
     expect(output).toMatch(/format:\s+pod-aware/);
     expect(output).toMatch(/shape:\s+1 pods · 1 members · 1 edges/);
     expect(output).toMatch(/── pod review/);
@@ -216,14 +216,14 @@ describe("live visual regressions", () => {
     const snap: FleetSnapshot = {
       ...base,
       specs: [{
-        name: "long-rig",
-        kind: "rig",
+        name: "long-software-team",
+        kind: "softwareTeam",
         format: "pod_aware",
         pods: Array.from({ length: 18 }, (_, i) => ({ id: `pod-${i}`, members: [], edges: [] })),
       }],
     };
     const view = createViewState({ instanceId: "t", getSnapshot: () => snap });
-    view.dispatch({ type: "drill", resource: "spec", name: "long-rig" });
+    view.dispatch({ type: "drill", resource: "spec", name: "long-software-team" });
     view.dispatch({ type: "tab", tab: "configuration" });
     const selected = view.get().selection;
 
@@ -245,27 +245,27 @@ describe("live visual regressions", () => {
   it("shows the Topology filter affordance and N-of-M / idle frame", () => {
     const snap = demoSnapshot();
     const view = createViewState({ instanceId: "t", getSnapshot: () => snap });
-    view.dispatch({ type: "drill", resource: "rig", name: "openrig-build" });
+    view.dispatch({ type: "drill", resource: "softwareTeam", name: "softwareteam-build" });
 
     const output = renderScreen(view.get(), snap, { cols: 140, rows: 34 }).lines.join("\n");
     expect(output).toContain("/ filter agents…");
     expect(output).toMatch(/\d+ seats · \d+ working · \d+ need attention · \d+ open rows/);
   });
 
-  it("renders agent runtime/resources and makes each used-by rig a real reverse link", () => {
+  it("renders agent runtime/resources and makes each used-by SoftwareTeam a real reverse link", () => {
     const base = demoSnapshot();
     const snap: FleetSnapshot = {
       ...base,
-      specs: [{ name: "adversarial-review", kind: "rig", agentRefs: ["independent-reviewer"] }, {
+      specs: [{ name: "adversarial-review", kind: "softwareTeam", agentRefs: ["independent-reviewer"] }, {
         name: "independent-reviewer",
         kind: "agent",
         runtime: "claude-code",
-        skills: ["using-superpowers", "openrig-user", "mission-slice-sop", "review-team", "systematic-debugging", "verification-before-completion", "writing-plans", "brainstorming"],
+        skills: ["using-superpowers", "softwareteam-user", "mission-slice-sop", "review-team", "systematic-debugging", "verification-before-completion", "writing-plans", "brainstorming"],
         profiles: ["default"],
         resources: {
-          skills: ["review-team"], guidance: ["guidance/role.md"], plugins: ["openrig-core"], subagents: ["reviewer"],
+          skills: ["review-team"], guidance: ["guidance/role.md"], plugins: ["softwareteam-core"], subagents: ["reviewer"],
         },
-        usedByRigs: ["adversarial-review"],
+        usedBySoftwareTeams: ["adversarial-review"],
       }],
     };
     const view = createViewState({ instanceId: "t", getSnapshot: () => snap });
@@ -275,11 +275,11 @@ describe("live visual regressions", () => {
     const output = screen.lines.join("\n");
     expect(output).toMatch(/runtime:\s+claude-code/);
     expect(output).toContain("brainstorming");
-    expect(output).toMatch(/resources:\s+guidance guidance\/role\.md · plugins openrig-core · subagents reviewer/);
-    const usedY = screen.lines.findIndex((line) => line.includes("rig adversarial-review")) + 1;
+    expect(output).toMatch(/resources:\s+guidance guidance\/role\.md · plugins softwareteam-core · subagents reviewer/);
+    const usedY = screen.lines.findIndex((line) => line.includes("SoftwareTeam adversarial-review")) + 1;
     expect(screen.hitMap).toContainEqual(expect.objectContaining({
       y: usedY,
-      action: { type: "drill", resource: "spec", name: "adversarial-review", specKind: "rig" },
+      action: { type: "drill", resource: "spec", name: "adversarial-review", specKind: "softwareTeam" },
     }));
   });
 
@@ -307,7 +307,7 @@ describe("live visual regressions", () => {
 it("keeps a collision-selected socket path visible in status chrome", () => {
   const snap = demoSnapshot();
   const view = createViewState({ instanceId: "t", getSnapshot: () => snap });
-  const controlSocketPath = "/tmp/openrig/tui-t-123-abcdef.sock";
+  const controlSocketPath = "/tmp/softwareteam/tui-t-123-abcdef.sock";
   for (const palette of [false, true]) {
     if (palette) view.dispatch({ type: "palette-open" });
     const screen = renderScreen(view.get(), snap, { cols: 120, rows: 32, controlSocketPath });

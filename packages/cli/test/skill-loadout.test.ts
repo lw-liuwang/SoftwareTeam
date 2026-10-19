@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { skillCommand } from "../src/commands/skill.js";
 
-describe("rig skill loadout", () => {
+describe("SoftwareTeam skill loadout", () => {
   let root: string;
   let catalog: string;
   let project: string;
@@ -14,15 +14,15 @@ describe("rig skill loadout", () => {
   let errors: string[];
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), "openrig-skill-loadout-cli-"));
+    root = mkdtempSync(join(tmpdir(), "softwareteam-skill-loadout-cli-"));
     catalog = join(root, "skills");
     project = join(root, "project");
     mkdirSync(catalog);
     mkdirSync(project);
     execFileSync("git", ["-C", root, "init", "-q"]);
-    execFileSync("git", ["-C", root, "config", "user.email", "test@openrig.invalid"]);
-    execFileSync("git", ["-C", root, "config", "user.name", "OpenRig Test"]);
-    writeFileSync(join(catalog, "catalog.yaml"), "schema: openrig.skill-catalog/v1\nsystem: [system-skill]\n");
+    execFileSync("git", ["-C", root, "config", "user.email", "test@softwareteam.invalid"]);
+    execFileSync("git", ["-C", root, "config", "user.name", "SoftwareTeam Test"]);
+    writeFileSync(join(catalog, "catalog.yaml"), "schema: softwareteam.skill-catalog/v1\nsystem: [system-skill]\n");
     for (const id of ["system-skill", "topology-skill", "project-skill"]) {
       mkdirSync(join(catalog, id));
       writeFileSync(join(catalog, id, "SKILL.md"), `---\nname: ${id}\ndescription: Use when testing ${id}.\n---\n\n# ${id}\n`);
@@ -30,8 +30,8 @@ describe("rig skill loadout", () => {
     writeFileSync(join(project, "project.yaml"), "install:\n  skills: [project-skill]\n");
     execFileSync("git", ["-C", root, "add", "skills"]);
     execFileSync("git", ["-C", root, "commit", "-qm", "catalog"]);
-    previousRoot = process.env["OPENRIG_SKILLS_ROOT"];
-    process.env["OPENRIG_SKILLS_ROOT"] = catalog;
+    previousRoot = process.env["SOFTWARETEAM_SKILLS_ROOT"];
+    process.env["SOFTWARETEAM_SKILLS_ROOT"] = catalog;
     logs = [];
     errors = [];
     vi.spyOn(console, "log").mockImplementation((...args) => { logs.push(args.map(String).join(" ")); });
@@ -41,8 +41,8 @@ describe("rig skill loadout", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    if (previousRoot === undefined) delete process.env["OPENRIG_SKILLS_ROOT"];
-    else process.env["OPENRIG_SKILLS_ROOT"] = previousRoot;
+    if (previousRoot === undefined) delete process.env["SOFTWARETEAM_SKILLS_ROOT"];
+    else process.env["SOFTWARETEAM_SKILLS_ROOT"] = previousRoot;
     process.exitCode = undefined;
     rmSync(root, { recursive: true, force: true });
   });
@@ -52,7 +52,7 @@ describe("rig skill loadout", () => {
       logs.length = 0;
       const cmd = skillCommand();
       await cmd.parseAsync([
-        "node", "rig", "loadout", "--runtime", "codex", "--cwd", project,
+        "node", "softwareTeam", "loadout", "--runtime", "codex", "--cwd", project,
         "--topology", "topology-skill", "--json", ...(apply ? ["--apply"] : []),
       ]);
       return JSON.parse(logs.join("")) as {
@@ -82,7 +82,7 @@ describe("rig skill loadout", () => {
     const run = async (...topology: string[]) => {
       errors.length = 0;
       process.exitCode = undefined;
-      await skillCommand().parseAsync(["node", "rig", "loadout", "--runtime", "codex", "--cwd", project, ...topology, "--apply"]);
+      await skillCommand().parseAsync(["node", "softwareTeam", "loadout", "--runtime", "codex", "--cwd", project, ...topology, "--apply"]);
     };
 
     await run();
@@ -100,7 +100,7 @@ describe("rig skill loadout", () => {
 
   it("rejects an incompatible runtime before touching the target", async () => {
     const cmd = skillCommand();
-    await cmd.parseAsync(["node", "rig", "loadout", "--runtime", "terminal", "--cwd", project]);
+    await cmd.parseAsync(["node", "softwareTeam", "loadout", "--runtime", "terminal", "--cwd", project]);
     expect(process.exitCode).toBe(1);
     expect(errors).toEqual(["invalid_runtime: --runtime must be claude-code or codex"]);
   });

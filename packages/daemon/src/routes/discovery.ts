@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { DiscoveryCoordinator } from "../domain/discovery-coordinator.js";
 import type { DiscoveryRepository } from "../domain/discovery-repository.js";
 import type { ClaimService } from "../domain/claim-service.js";
-import { generateDraftRig } from "../domain/draft-rig-generator.js";
+import { generateDraftSoftwareTeam } from "../domain/draft-software-team-generator.js";
 
 export const discoveryRoutes = new Hono();
 
@@ -64,11 +64,11 @@ discoveryRoutes.get("/:id", (c) => {
   return c.json(session);
 });
 
-// POST /api/discovery/draft-rig — generate candidate rig spec from discovered sessions
-discoveryRoutes.post("/draft-rig", (c) => {
+// POST /api/discovery/draft-softwareTeam — generate candidate softwareTeam spec from discovered sessions
+discoveryRoutes.post("/draft-software-team", (c) => {
   const { discoveryRepo } = getDeps(c);
   const sessions = discoveryRepo.listDiscovered("active");
-  const result = generateDraftRig(sessions);
+  const result = generateDraftSoftwareTeam(sessions);
   c.header("Content-Type", "text/yaml");
   return c.body(result.yaml);
 });
@@ -78,13 +78,13 @@ discoveryRoutes.post("/:id/bind", async (c) => {
   const { claimService } = getDeps(c);
   const id = c.req.param("id")!;
   const body: Record<string, unknown> = await c.req.json().catch(() => ({}));
-  const rigId = typeof body["rigId"] === "string" ? body["rigId"] : "";
+  const softwareTeamId = typeof body["softwareTeamId"] === "string" ? body["softwareTeamId"] : "";
   const logicalId = typeof body["logicalId"] === "string" ? body["logicalId"] : "";
   const podNamespace = typeof body["podNamespace"] === "string" ? body["podNamespace"] : "";
   const memberName = typeof body["memberName"] === "string" ? body["memberName"] : "";
 
-  if (!rigId) {
-    return c.json({ error: "rigId is required" }, 400);
+  if (!softwareTeamId) {
+    return c.json({ error: "softwareTeamId is required" }, 400);
   }
 
   // XOR mode validation: logicalId OR (podNamespace + memberName), not both, not neither
@@ -100,17 +100,17 @@ discoveryRoutes.post("/:id/bind", async (c) => {
   let result;
   if (hasNode) {
     // Mode A: bind to existing node
-    result = await claimService.bind({ discoveredId: id, rigId, logicalId });
+    result = await claimService.bind({ discoveredId: id, softwareTeamId, logicalId });
   } else {
     // Mode B: create node in pod + bind
     // Resolve podNamespace -> pod row
     const { PodRepository } = await import("../domain/pod-repository.js");
     const podRepo = new PodRepository(claimService.db);
-    const pod = podRepo.getPodByNamespace(rigId, podNamespace);
+    const pod = podRepo.getPodByNamespace(softwareTeamId, podNamespace);
     if (!pod) {
-      return c.json({ ok: false, code: "pod_not_found", error: `Pod namespace '${podNamespace}' not found in rig` }, 404);
+      return c.json({ ok: false, code: "pod_not_found", error: `Pod namespace '${podNamespace}' not found in softwareTeam` }, 404);
     }
-    result = await claimService.createAndBindToPod({ discoveredId: id, rigId, podId: pod.id, podNamespace, memberName });
+    result = await claimService.createAndBindToPod({ discoveredId: id, softwareTeamId, podId: pod.id, podNamespace, memberName });
   }
 
   if (result.ok) {
@@ -119,7 +119,7 @@ discoveryRoutes.post("/:id/bind", async (c) => {
 
   switch (result.code) {
     case "not_found":
-    case "rig_not_found":
+    case "software_team_not_found":
     case "node_not_found":
     case "pod_not_found":
       return c.json(result, 404);
@@ -140,11 +140,11 @@ discoveryRoutes.post("/:id/adopt", async (c) => {
   const { claimService } = getDeps(c);
   const id = c.req.param("id")!;
   const body: Record<string, unknown> = await c.req.json().catch(() => ({}));
-  const rigId = typeof body["rigId"] === "string" ? body["rigId"] : "";
+  const softwareTeamId = typeof body["softwareTeamId"] === "string" ? body["softwareTeamId"] : "";
   const target = body["target"] && typeof body["target"] === "object" ? body["target"] as Record<string, unknown> : null;
 
-  if (!rigId) {
-    return c.json({ error: "rigId is required" }, 400);
+  if (!softwareTeamId) {
+    return c.json({ error: "softwareTeamId is required" }, 400);
   }
   if (!target) {
     return c.json({ error: "target is required" }, 400);
@@ -156,14 +156,14 @@ discoveryRoutes.post("/:id/adopt", async (c) => {
     if (!logicalId) {
       return c.json({ error: "target.logicalId is required" }, 400);
     }
-    const result = await claimService.bind({ discoveredId: id, rigId, logicalId });
+    const result = await claimService.bind({ discoveredId: id, softwareTeamId, logicalId });
     if (result.ok) {
       return c.json({ ...result, action: "bind", logicalId }, 201);
     }
 
     switch (result.code) {
       case "not_found":
-      case "rig_not_found":
+      case "software_team_not_found":
       case "node_not_found":
         return c.json(result, 404);
       case "not_active":
@@ -191,7 +191,7 @@ discoveryRoutes.post("/:id/adopt", async (c) => {
 
     const result = await claimService.createAndBindToPod({
       discoveredId: id,
-      rigId,
+      softwareTeamId,
       podId,
       podNamespace,
       memberName,
@@ -202,7 +202,7 @@ discoveryRoutes.post("/:id/adopt", async (c) => {
 
     switch (result.code) {
       case "not_found":
-      case "rig_not_found":
+      case "software_team_not_found":
       case "pod_not_found":
         return c.json(result, 404);
       case "not_active":

@@ -38,7 +38,7 @@ export class NtfyNotificationAdapter implements NotificationAdapter {
       this.disabled = true;
       this.validationError = `Invalid ntfy topic URL '${redactUrl(opts.topicUrl)}': ${validation.reason}`;
       const warn = opts.warn ?? console.warn;
-      warn(`[openrig] Notifications disabled: ${this.validationError}`);
+      warn(`[softwareteam] Notifications disabled: ${this.validationError}`);
       this.target = opts.topicUrl;
     } else {
       const parsed = new URL(validation.parsedUrl!.toString());

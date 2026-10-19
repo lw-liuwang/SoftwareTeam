@@ -10,8 +10,8 @@
 //     fork-count increment)
 //   - .pinned sentinel file pins an image from prune
 //
-// Storage filesystem-canonical at ~/.openrig/agent-images/<name>/ +
-// workspace-local .openrig/agent-images/<name>/. NO new SQLite tables.
+// Storage filesystem-canonical at ~/.softwareteam/agent-images/<name>/ +
+// workspace-local .softwareteam/agent-images/<name>/. NO new SQLite tables.
 
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, unlinkSync, rmSync } from "node:fs";
 import { join, relative, dirname } from "node:path";

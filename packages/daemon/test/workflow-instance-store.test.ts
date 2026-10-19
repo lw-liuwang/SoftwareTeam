@@ -25,7 +25,7 @@ describe("WorkflowInstanceStore (PL-004 Phase D)", () => {
     const inst = store.create({
       workflowName: "test",
       workflowVersion: "1",
-      createdBySession: "alice@rig",
+      createdBySession: "alice@software-team",
     });
     expect(inst.instanceId).toMatch(/^[0-9A-Z]{26}$/);
     expect(inst.status).toBe("active");

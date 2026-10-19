@@ -1,4 +1,4 @@
-// PL-016 hardening v0+1 — `rig agent-image create` --image-version flag
+// PL-016 hardening v0+1 — `softwareTeam agent-image create` --image-version flag
 // regression test.
 //
 // Pins:
@@ -89,7 +89,7 @@ function createMockDaemon(captured: CapturedCall[]) {
   };
 }
 
-describe("rig agent-image create — --image-version flag", () => {
+describe("SoftwareTeam agent-image create — --image-version flag", () => {
   const captured: CapturedCall[] = [];
   let srv: ReturnType<typeof createMockDaemon>;
   let port: number;
@@ -114,7 +114,7 @@ describe("rig agent-image create — --image-version flag", () => {
     console.log = () => {};
     try {
       await program.parseAsync([
-        "node", "rig", "agent-image", "create", "alice@rigA",
+        "node", "softwareTeam", "agent-image", "create", "alice@softwareTeamA",
         "--name", "test",
         "--image-version", "2",
       ]);
@@ -126,7 +126,7 @@ describe("rig agent-image create — --image-version flag", () => {
     const body = JSON.parse(captured[0]!.body);
     expect(body.version).toBe("2");
     expect(body.name).toBe("test");
-    expect(body.sourceSession).toBe("alice@rigA");
+    expect(body.sourceSession).toBe("alice@softwareTeamA");
   });
 
   it("the per-command create command does NOT register --version (avoids Commander.js global collision)", () => {

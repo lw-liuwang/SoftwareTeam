@@ -47,12 +47,12 @@ describe("Bundle archive", () => {
   function createStaging(): string {
     const staging = path.join(tmpDir, "staging");
     fs.mkdirSync(path.join(staging, "packages/pkg"), { recursive: true });
-    fs.writeFileSync(path.join(staging, "rig.yaml"), "schema_version: 1\nname: test\nversion: '1.0'\nnodes:\n  - id: dev\n    runtime: claude-code\nedges: []");
+    fs.writeFileSync(path.join(staging, "software-team.yaml"), "schema_version: 1\nname: test\nversion: '1.0'\nnodes:\n  - id: dev\n    runtime: claude-code\nedges: []");
     fs.writeFileSync(path.join(staging, "packages/pkg/SKILL.md"), "# Skill");
 
     const manifest: BundleManifest = {
       schemaVersion: 1, name: "test-bundle", version: "0.1.0",
-      createdAt: "2026-01-01T00:00:00Z", rigSpec: "rig.yaml",
+      createdAt: "2026-01-01T00:00:00Z", softwareTeamSpec: "software-team.yaml",
       packages: [{ name: "pkg", version: "1.0", path: "packages/pkg", originalSource: "local:./pkg" }],
     };
     fs.writeFileSync(path.join(staging, "bundle.yaml"), serializeBundleManifest(manifest));
@@ -66,7 +66,7 @@ describe("Bundle archive", () => {
 
   it("pack creates parent directory if it does not exist", async () => {
     const staging = createStaging();
-    const nestedOut = path.join(tmpDir, "missing", "sub", "test.rigbundle");
+    const nestedOut = path.join(tmpDir, "missing", "sub", "test.softwareteambundle");
 
     const hash = await pack(staging, nestedOut);
 
@@ -78,7 +78,7 @@ describe("Bundle archive", () => {
   // T1: Pack creates valid tar.gz
   it("pack creates valid tar.gz file", async () => {
     const staging = createStaging();
-    const outputPath = path.join(tmpDir, "test.rigbundle");
+    const outputPath = path.join(tmpDir, "test.softwareteambundle");
 
     const hash = await pack(staging, outputPath);
 
@@ -95,7 +95,7 @@ describe("Bundle archive", () => {
     fs.chmodSync(scriptPath, 0o755);
     writeIntegrity(staging, computeIntegrity(staging, realIntegrityFsOps()), realIntegrityFsOps());
 
-    const archivePath = path.join(tmpDir, "executable.rigbundle");
+    const archivePath = path.join(tmpDir, "executable.softwareteambundle");
     await pack(staging, archivePath);
     let archivedMode: number | undefined;
     await tar.list({ file: archivePath, onReadEntry: (entry) => {
@@ -111,21 +111,21 @@ describe("Bundle archive", () => {
   // T2: Unpack extracts to correct structure
   it("unpack extracts to correct directory structure", async () => {
     const staging = createStaging();
-    const archivePath = path.join(tmpDir, "test.rigbundle");
+    const archivePath = path.join(tmpDir, "test.softwareteambundle");
     await pack(staging, archivePath);
 
     const extractDir = path.join(tmpDir, "extracted");
     await unpack(archivePath, extractDir);
 
     expect(fs.existsSync(path.join(extractDir, "bundle.yaml"))).toBe(true);
-    expect(fs.existsSync(path.join(extractDir, "rig.yaml"))).toBe(true);
+    expect(fs.existsSync(path.join(extractDir, "software-team.yaml"))).toBe(true);
     expect(fs.existsSync(path.join(extractDir, "packages/pkg/SKILL.md"))).toBe(true);
   });
 
   // T3: Round-trip
   it("round-trip: pack -> unpack -> files match", async () => {
     const staging = createStaging();
-    const archivePath = path.join(tmpDir, "test.rigbundle");
+    const archivePath = path.join(tmpDir, "test.softwareteambundle");
     await pack(staging, archivePath);
 
     const extractDir = path.join(tmpDir, "extracted");
@@ -143,7 +143,7 @@ describe("Bundle archive", () => {
     fs.mkdirSync(malDir, { recursive: true });
     fs.writeFileSync(path.join(malDir, "evil.txt"), "escape!");
 
-    const malArchive = path.join(tmpDir, "mal.rigbundle");
+    const malArchive = path.join(tmpDir, "mal.softwareteambundle");
     // Use tar.create with prefix to inject ../ into entry names
     await tar.create(
       { gzip: true, file: malArchive, cwd: malDir, prefix: "../escape" },
@@ -163,7 +163,7 @@ describe("Bundle archive", () => {
     fs.mkdirSync(malDir, { recursive: true });
     fs.writeFileSync(path.join(malDir, "evil.txt"), "escape!");
 
-    const malArchive = path.join(tmpDir, "mal-win.rigbundle");
+    const malArchive = path.join(tmpDir, "mal-win.softwareteambundle");
     await tar.create(
       { gzip: true, file: malArchive, cwd: malDir, prefix: "..\\escape" },
       ["evil.txt"],
@@ -181,7 +181,7 @@ describe("Bundle archive", () => {
     fs.mkdirSync(malDir, { recursive: true });
     fs.writeFileSync(path.join(malDir, "evil.txt"), "escape!");
 
-    const malArchive = path.join(tmpDir, "mal-drive.rigbundle");
+    const malArchive = path.join(tmpDir, "mal-drive.softwareteambundle");
     await tar.create(
       { gzip: true, file: malArchive, cwd: malDir, prefix: "C:\\windows\\temp" },
       ["evil.txt"],
@@ -202,7 +202,7 @@ describe("Bundle archive", () => {
     fs.writeFileSync(path.join(symlinkDir, "real.txt"), "real content");
     fs.symlinkSync("/etc/passwd", path.join(symlinkDir, "escape-link"));
 
-    const symArchive = path.join(tmpDir, "sym.rigbundle");
+    const symArchive = path.join(tmpDir, "sym.softwareteambundle");
     await tar.create(
       { gzip: true, file: symArchive, cwd: symlinkDir, follow: false },
       ["real.txt", "escape-link"],
@@ -217,7 +217,7 @@ describe("Bundle archive", () => {
 
   // T5: Corrupted archive -> error
   it("corrupted archive throws on unpack", async () => {
-    const archivePath = path.join(tmpDir, "corrupt.rigbundle");
+    const archivePath = path.join(tmpDir, "corrupt.softwareteambundle");
     fs.writeFileSync(archivePath, "not a real tar.gz");
     fs.writeFileSync(`${archivePath}.sha256`, sha256("not a real tar.gz"));
 
@@ -228,7 +228,7 @@ describe("Bundle archive", () => {
   // T6: Content integrity verified after unpack
   it("content integrity verified after extraction", async () => {
     const staging = createStaging();
-    const archivePath = path.join(tmpDir, "test.rigbundle");
+    const archivePath = path.join(tmpDir, "test.softwareteambundle");
     await pack(staging, archivePath);
 
     // Unpack should succeed (integrity passes)
@@ -240,7 +240,7 @@ describe("Bundle archive", () => {
   // T7: Tampered file detected post-unpack
   it("tampered file in archive detected after extraction", async () => {
     const staging = createStaging();
-    const archivePath = path.join(tmpDir, "test.rigbundle");
+    const archivePath = path.join(tmpDir, "test.softwareteambundle");
     await pack(staging, archivePath);
 
     // Extract first
@@ -248,7 +248,7 @@ describe("Bundle archive", () => {
     await unpack(archivePath, extractDir);
 
     // Tamper a file
-    fs.writeFileSync(path.join(extractDir, "rig.yaml"), "tampered!");
+    fs.writeFileSync(path.join(extractDir, "software-team.yaml"), "tampered!");
 
     // Re-verification would fail (but unpack already verified — this tests the verify function)
     const { verifyIntegrity: vi2 } = await import("../src/domain/bundle-integrity.js");
@@ -258,20 +258,20 @@ describe("Bundle archive", () => {
     const manifest = normalizeBundleManifest(parseBundleManifest(manifestYaml));
     const result = vi2(extractDir, manifest, realIntegrityFsOps());
     expect(result.passed).toBe(false);
-    expect(result.mismatches).toContain("rig.yaml");
+    expect(result.mismatches).toContain("software-team.yaml");
   });
 
-  // T8: .rigbundle extension enforced
-  it(".rigbundle extension enforced on output path", async () => {
+  // T8: .softwareteambundle extension enforced
+  it(".softwareteambundle extension enforced on output path", async () => {
     const staging = createStaging();
     await expect(pack(staging, path.join(tmpDir, "test.tar.gz")))
-      .rejects.toThrow(/\.rigbundle/);
+      .rejects.toThrow(/\.softwareteambundle/);
   });
 
   // T9: .sha256 sibling written during pack
   it(".sha256 sibling file written during pack", async () => {
     const staging = createStaging();
-    const archivePath = path.join(tmpDir, "test.rigbundle");
+    const archivePath = path.join(tmpDir, "test.softwareteambundle");
     const hash = await pack(staging, archivePath);
 
     const digestPath = `${archivePath}.sha256`;
@@ -282,7 +282,7 @@ describe("Bundle archive", () => {
   // T10: Missing .sha256 -> unpack throws
   it("missing .sha256 throws on unpack", async () => {
     const staging = createStaging();
-    const archivePath = path.join(tmpDir, "test.rigbundle");
+    const archivePath = path.join(tmpDir, "test.softwareteambundle");
     await pack(staging, archivePath);
 
     // Remove the digest file
@@ -295,7 +295,7 @@ describe("Bundle archive", () => {
   // T11: Digest mismatch -> unpack throws
   it("archive digest mismatch throws on unpack", async () => {
     const staging = createStaging();
-    const archivePath = path.join(tmpDir, "test.rigbundle");
+    const archivePath = path.join(tmpDir, "test.softwareteambundle");
     await pack(staging, archivePath);
 
     // Tamper the digest
@@ -310,18 +310,18 @@ describe("Bundle archive", () => {
     // Create staging without integrity
     const staging = path.join(tmpDir, "no-integ-staging");
     fs.mkdirSync(path.join(staging, "packages/pkg"), { recursive: true });
-    fs.writeFileSync(path.join(staging, "rig.yaml"), "schema_version: 1\nname: test\nversion: '1.0'\nnodes:\n  - id: dev\n    runtime: claude-code\nedges: []");
+    fs.writeFileSync(path.join(staging, "software-team.yaml"), "schema_version: 1\nname: test\nversion: '1.0'\nnodes:\n  - id: dev\n    runtime: claude-code\nedges: []");
     fs.writeFileSync(path.join(staging, "packages/pkg/SKILL.md"), "# Skill");
 
     const manifest: BundleManifest = {
       schemaVersion: 1, name: "no-integ", version: "0.1.0",
-      createdAt: "2026-01-01T00:00:00Z", rigSpec: "rig.yaml",
+      createdAt: "2026-01-01T00:00:00Z", softwareTeamSpec: "software-team.yaml",
       packages: [{ name: "pkg", version: "1.0", path: "packages/pkg", originalSource: "" }],
       // No integrity section
     };
     fs.writeFileSync(path.join(staging, "bundle.yaml"), serializeBundleManifest(manifest));
 
-    const archivePath = path.join(tmpDir, "no-integ.rigbundle");
+    const archivePath = path.join(tmpDir, "no-integ.softwareteambundle");
     await pack(staging, archivePath);
 
     await expect(unpack(archivePath, path.join(tmpDir, "out")))
@@ -331,8 +331,8 @@ describe("Bundle archive", () => {
   // T12: Deterministic output
   it("pack same content twice produces identical archives", async () => {
     const staging = createStaging();
-    const out1 = path.join(tmpDir, "a.rigbundle");
-    const out2 = path.join(tmpDir, "b.rigbundle");
+    const out1 = path.join(tmpDir, "a.softwareteambundle");
+    const out2 = path.join(tmpDir, "b.softwareteambundle");
 
     const hash1 = await pack(staging, out1);
     const hash2 = await pack(staging, out2);
@@ -370,7 +370,7 @@ describe("Bundle archive", () => {
     const malDir = path.join(tmpDir, "mal-scan-staging");
     fs.mkdirSync(malDir, { recursive: true });
     fs.writeFileSync(path.join(malDir, "evil.txt"), "escape!");
-    const malArchive = path.join(tmpDir, "mal-scan.rigbundle");
+    const malArchive = path.join(tmpDir, "mal-scan.softwareteambundle");
     await tar.create({ gzip: true, file: malArchive, cwd: malDir, prefix: "..\\escape" }, ["evil.txt"]);
     const entries = await collectUnsafeArchiveEntries(malArchive);
     expect(entries.some((e) => /path traversal/.test(e))).toBe(true);

@@ -6,9 +6,9 @@
 // VellumSheet width="wide" (38rem); user-closable [×]; one-trigger-at-
 // a-time (clicking new trigger swaps content via setSelection).
 //
-// Phase 4 P4-5: 'rig' kind removed from DrawerSelection. RigDetailPanel
-// retired (legacy auto-open right-sidebar pattern); rig clicks now
-// navigate to /topology/rig/$rigId via URL (no drawer auto-open).
+// Phase 4 P4-5: 'softwareTeam' kind removed from DrawerSelection. SoftwareTeamDetailPanel
+// retired (legacy auto-open right-sidebar pattern); softwareTeam clicks now
+// navigate to /topology/softwareTeam/$softwareTeamId via URL (no drawer auto-open).
 
 import { SystemPanel } from "./SystemPanel.js";
 import { DiscoveryPanel, type DiscoveryPlacementTarget } from "./DiscoveryPanel.js";
@@ -20,7 +20,7 @@ import type { ActivityEvent } from "../hooks/useActivityFeed.js";
 
 // V1 polish slice Phase 5.1 P5.1-1 + DRIFT P5.1-D2: 'seat-detail' kind
 // RETIRED at V1 polish. Graph node click + tree
-// click + table row click all navigate to /topology/seat/$rigId/$logicalId
+// click + table row click all navigate to /topology/seat/$softwareTeamId/$logicalId
 // center page (canonical agent-detail surface = LiveNodeDetails).
 // SeatDetailViewer wrapper component DELETED; SeatDetailTrigger primitive
 // DELETED. Drawer remains a content-viewer surface for the other auto-

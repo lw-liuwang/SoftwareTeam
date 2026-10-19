@@ -33,7 +33,7 @@ export const DEFAULT_STRUCTURAL_STALE_MS = 5000;
  * running tmux seat per tick and classifies it STRUCTURALLY via classifyPaneActivity (spinner shapes,
  * `esc to interrupt`, idle-prompt / status-bar signatures — never a verb allowlist, so a "Drizzling"-
  * style spinner reads as motion instead of a false park). The cache is READ (capture-FREE) by
- * attachAgentActivity so the `rig ps` ACTIVITY column reflects real pane motion for hook-less / stale-
+ * attachAgentActivity so the `SoftwareTeam ps` ACTIVITY column reflects real pane motion for hook-less / stale-
  * hook / turn-boundary seats WITHOUT reintroducing the per-request capture storm the healthz-wedge
  * cheap-default removed. Two safety rules make the BACKGROUND path itself safe:
  *   (MF1) a read refuses a stale observation and a failed capture invalidates the prior row — a stale

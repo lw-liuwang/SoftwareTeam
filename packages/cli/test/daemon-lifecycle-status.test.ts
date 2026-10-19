@@ -39,7 +39,7 @@ describe("readDaemonLifecycle — crash-surviving SQLite read (real db)", () => 
 
   it("reads the lifecycle row from a real db (the row survives even when the daemon is dead)", () => {
     dir = mkdtempSync(join(tmpdir(), "p7-life-"));
-    const dbPath = join(dir, "openrig.sqlite");
+    const dbPath = join(dir, "softwareteam.sqlite");
     const db = new Database(dbPath);
     db.exec(
       `CREATE TABLE daemon_lifecycle (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), boot_epoch TEXT NOT NULL, started_at TEXT NOT NULL, last_heartbeat_at TEXT, stopped_at TEXT);
@@ -56,7 +56,7 @@ describe("readDaemonLifecycle — crash-surviving SQLite read (real db)", () => 
     expect(describeLifecycle(rec).kind).toBe("no-clean-shutdown");
   });
 
-  it("returns null (→ unknown) when the db file is absent — never crashes rig status", () => {
-    expect(readDaemonLifecycle("/nonexistent/openrig.sqlite")).toBeNull();
+  it("returns null (→ unknown) when the db file is absent — never crashes SoftwareTeam status", () => {
+    expect(readDaemonLifecycle("/nonexistent/softwareteam.sqlite")).toBeNull();
   });
 });

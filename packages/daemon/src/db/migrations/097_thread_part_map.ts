@@ -1,6 +1,6 @@
 import type { Migration } from "../migrate.js";
 
-// #899 — every message OpenRig posts into a thread for an ask (a long ask's reply parts, a later
+// #899 — every message SoftwareTeam posts into a thread for an ask (a long ask's reply parts, a later
 // notification in the ask's own thread, an ask posted into another thread), mapped to that ask and its
 // seat, so a reaction on it reaches the seat that asked. The thread root alone can't say which ask a
 // reply belongs to: an ask posted into another ask's thread shares that ask's root. Like

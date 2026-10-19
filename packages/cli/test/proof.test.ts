@@ -1,4 +1,4 @@
-// OPR.0.4.4.19 FR-8 + FR-11 — rig proof add: C1 header validation at drop
+// OPR.0.4.4.19 FR-8 + FR-11 — softwareTeam proof add: C1 header validation at drop
 // time, D2 attestation echo, contract + C8 advisories (advise-never-block).
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -85,7 +85,7 @@ describe("parseProofContract (pure)", () => {
   });
 });
 
-describe("rig proof add (fs-level, temp workspace)", () => {
+describe("SoftwareTeam proof add (fs-level, temp workspace)", () => {
   let workRoot: string;
   let sliceDir: string;
   let logs: string[];
@@ -328,7 +328,7 @@ describe("rig proof add (fs-level, temp workspace)", () => {
 
 // rev1-r2 BLOCKING regression (candidate a7dedd93 review): --name must be a
 // filename, never a path — a traversal name can never escape proof/.
-describe("rig proof add --name traversal rejection (rev1-r2 fixback)", () => {
+describe("SoftwareTeam proof add --name traversal rejection (rev1-r2 fixback)", () => {
   let workRoot: string;
   let sliceDir: string;
   let errs: string[];
@@ -464,7 +464,7 @@ describe("proof add — pristine-scaffold contract never canonical (KI-5.3-2 sec
   });
 });
 
-describe("rig proof add --replace swaps the entry and never writes through links", () => {
+describe("SoftwareTeam proof add --replace swaps the entry and never writes through links", () => {
   let workRoot: string;
   let sliceDir: string;
   let proofDir: string;

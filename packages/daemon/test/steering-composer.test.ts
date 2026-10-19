@@ -37,12 +37,12 @@ describe("Operator Surface Reconciliation v0 — steeringOptsFromEnv", () => {
     expect(steeringOptsFromEnv({})).toMatchObject({ workspaceRoot: null });
   });
 
-  it("reads OPENRIG_STEERING_WORKSPACE + per-section overrides", () => {
+  it("reads SOFTWARETEAM_STEERING_WORKSPACE + per-section overrides", () => {
     const opts = steeringOptsFromEnv({
-      OPENRIG_STEERING_WORKSPACE: "/abs/workspace",
-      OPENRIG_STEERING_PATH: "/abs/override/STEERING.md",
-      OPENRIG_ROADMAP_PATH: "/abs/override/roadmap.md",
-      OPENRIG_DELIVERY_READY_DIR: "/abs/override/delivery-ready",
+      SOFTWARETEAM_STEERING_WORKSPACE: "/abs/workspace",
+      SOFTWARETEAM_STEERING_PATH: "/abs/override/STEERING.md",
+      SOFTWARETEAM_ROADMAP_PATH: "/abs/override/roadmap.md",
+      SOFTWARETEAM_DELIVERY_READY_DIR: "/abs/override/delivery-ready",
     });
     expect(opts.workspaceRoot).toBe("/abs/workspace");
     expect(opts.steeringPath).toBe("/abs/override/STEERING.md");
@@ -50,32 +50,32 @@ describe("Operator Surface Reconciliation v0 — steeringOptsFromEnv", () => {
     expect(opts.deliveryReadyDir).toBe("/abs/override/delivery-ready");
   });
 
-  it("falls back to RIGGED_STEERING_WORKSPACE when OPENRIG var is empty (|| not ??)", () => {
-    expect(steeringOptsFromEnv({ OPENRIG_STEERING_WORKSPACE: "", RIGGED_STEERING_WORKSPACE: "/legacy" }))
-      .toMatchObject({ workspaceRoot: "/legacy" });
+  it("falls back to SOFTWARETEAM_STEERING_WORKSPACE when SOFTWARETEAM var is empty (|| not ??)", () => {
+    expect(steeringOptsFromEnv({ SOFTWARETEAM_STEERING_WORKSPACE: "", RIGGED_STEERING_WORKSPACE: "/legacy" }))
+      .toMatchObject({ workspaceRoot: null });
   });
 
   it("uses typed workspace settings as the fresh-install default, with env overrides still winning", () => {
     const opts = steeringOptsFromSettings(
       {
-        workspaceRoot: "/Users/me/.openrig/workspace",
-        workspaceSteeringPath: "/Users/me/.openrig/workspace/steering/STEERING.md",
+        workspaceRoot: "/Users/me/.softwareteam/workspace",
+        workspaceSteeringPath: "/Users/me/.softwareteam/workspace/steering/STEERING.md",
       },
       {},
     );
     expect(opts).toMatchObject({
-      workspaceRoot: "/Users/me/.openrig/workspace",
-      steeringPath: "/Users/me/.openrig/workspace/steering/STEERING.md",
+      workspaceRoot: "/Users/me/.softwareteam/workspace",
+      steeringPath: "/Users/me/.softwareteam/workspace/steering/STEERING.md",
     });
 
     const overridden = steeringOptsFromSettings(
       {
-        workspaceRoot: "/Users/me/.openrig/workspace",
-        workspaceSteeringPath: "/Users/me/.openrig/workspace/steering/STEERING.md",
+        workspaceRoot: "/Users/me/.softwareteam/workspace",
+        workspaceSteeringPath: "/Users/me/.softwareteam/workspace/steering/STEERING.md",
       },
       {
-        OPENRIG_STEERING_WORKSPACE: "/env/workspace",
-        OPENRIG_STEERING_PATH: "/env/STEERING.md",
+        SOFTWARETEAM_STEERING_WORKSPACE: "/env/workspace",
+        SOFTWARETEAM_STEERING_PATH: "/env/STEERING.md",
       },
     );
     expect(overridden).toMatchObject({

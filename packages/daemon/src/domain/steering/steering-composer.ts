@@ -17,10 +17,10 @@
 // Configuration: per the env-var-pivot pattern from UI Enhancement
 // Pack v0 (ConfigStore's strict VALID_KEYS won't admit dynamic family
 // keys cleanly), the steering composer reads a single workspace root
-// from OPENRIG_STEERING_WORKSPACE. Everything else derives relative to
+// from SOFTWARETEAM_STEERING_WORKSPACE. Everything else derives relative to
 // that root: STEERING.md, roadmap/PROGRESS.md, delivery-ready/mode-*/
-// PROGRESS.md. Operator-overridable via OPENRIG_STEERING_PATH /
-// OPENRIG_ROADMAP_PATH / OPENRIG_DELIVERY_READY_DIR for non-canonical
+// PROGRESS.md. Operator-overridable via SOFTWARETEAM_STEERING_PATH /
+// SOFTWARETEAM_ROADMAP_PATH / SOFTWARETEAM_DELIVERY_READY_DIR for non-canonical
 // layouts. Empty/unset → composer.isReady() = false → route returns
 // 503 with structured setup hint.
 
@@ -29,7 +29,7 @@ import * as path from "node:path";
 import { ProgressIndexer, type ProgressFileNode, type ProgressRow } from "../progress/progress-indexer.js";
 
 export interface SteeringComposerOpts {
-  /** Workspace root (e.g., the openrig-work substrate dir). Optional
+  /** Workspace root (e.g., the softwareteam-work substrate dir). Optional
    *  per-piece overrides (steeringPath / roadmapPath / deliveryReadyDir)
    *  trump the workspace-root-derived defaults. */
   workspaceRoot: string | null;
@@ -100,11 +100,11 @@ export interface SteeringPayload {
   unavailableSources: Array<{ section: string; reason: string; envVar?: string }>;
 }
 
-const ENV_WORKSPACE = "OPENRIG_STEERING_WORKSPACE";
-const ENV_LEGACY_WORKSPACE = "RIGGED_STEERING_WORKSPACE";
-const ENV_STEERING_PATH = "OPENRIG_STEERING_PATH";
-const ENV_ROADMAP_PATH = "OPENRIG_ROADMAP_PATH";
-const ENV_DELIVERY_READY_DIR = "OPENRIG_DELIVERY_READY_DIR";
+const ENV_WORKSPACE = "SOFTWARETEAM_STEERING_WORKSPACE";
+const ENV_LEGACY_WORKSPACE = "SOFTWARETEAM_STEERING_WORKSPACE";
+const ENV_STEERING_PATH = "SOFTWARETEAM_STEERING_PATH";
+const ENV_ROADMAP_PATH = "SOFTWARETEAM_ROADMAP_PATH";
+const ENV_DELIVERY_READY_DIR = "SOFTWARETEAM_DELIVERY_READY_DIR";
 
 export function steeringOptsFromEnv(env: NodeJS.ProcessEnv = process.env): SteeringComposerOpts {
   // Use || (not ??) so an empty-string env var falls through to the next

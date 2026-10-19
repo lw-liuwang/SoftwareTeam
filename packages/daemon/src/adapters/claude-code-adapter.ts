@@ -157,7 +157,7 @@ export class ClaudeCodeAdapter implements RuntimeAdapter {
       const atRoot = binding.cwd && isFilesystemRoot(binding.cwd)
         ? ` (cwd '${binding.cwd}' resolves to the filesystem root, not a project workspace)`
         : "";
-      console.error(`[openrig] claude activity-hook reconcile warning${atRoot}: ${(err as Error).message}`);
+      console.error(`[softwareteam] claude activity-hook reconcile warning${atRoot}: ${(err as Error).message}`);
       activityOutcome = { changed: false, delivered: false, sourceMissing: false, manifestUnavailable: false, settingsUnparseable: false };
     }
     // Never claim a resource as PROJECTED when delivery could not happen (missing
@@ -176,13 +176,13 @@ export class ClaudeCodeAdapter implements RuntimeAdapter {
 
   async deliverStartup(files: ResolvedStartupFile[], binding: NodeBinding, sendInteractiveText?: (text: string) => Promise<void>): Promise<StartupDeliveryResult> {
     try { this.ensureManagedBootstrap(binding); } catch (err) {
-      console.error(`[openrig] claude bootstrap warning: ${(err as Error).message}`);
+      console.error(`[softwareteam] claude bootstrap warning: ${(err as Error).message}`);
     }
 
     // Best-effort: provision context collector for managed Claude sessions
     try { this.ensureContextCollector(binding); } catch (err) {
       // Log but don't fail — collector provisioning is best-effort
-      console.error(`[openrig] context collector provisioning warning: ${(err as Error).message}`);
+      console.error(`[softwareteam] context collector provisioning warning: ${(err as Error).message}`);
     }
 
     const warnings: string[] = [];
@@ -198,7 +198,7 @@ export class ClaudeCodeAdapter implements RuntimeAdapter {
           case "guidance_merge": {
             const targetPath = nodePath.join(binding.cwd, binding.claudeManagedBlockFile ?? DEFAULT_CLAUDE_MANAGED_BLOCK_FILE);
             const merged = this.mergeGuidance(targetPath, file.path, content, warnings);
-            if (!merged) continue; // rig-role skip: do not count as delivered
+            if (!merged) continue; // software-team-role skip: do not count as delivered
             break;
           }
           case "skill_install": {
@@ -434,7 +434,7 @@ export class ClaudeCodeAdapter implements RuntimeAdapter {
     } catch { return probe; }
   }
 
-  /** tmux names a shell for every OpenRig launch (the launch script is `sh`), so its word alone can't say
+  /** tmux names a shell for every SoftwareTeam launch (the launch script is `sh`), so its word alone can't say
    *  Claude is gone. With a bound pane, the process tree must show the pane's shell holding the terminal with
    *  nothing under it; Claude, or a launch script about to start it, is a slow resume. */
   private async paneReturnedToShell(binding: NodeBinding, paneCommand: string | null): Promise<boolean> {
@@ -757,26 +757,26 @@ export class ClaudeCodeAdapter implements RuntimeAdapter {
   /**
    * Merge a managed block into the target guidance file. Returns `true` when
    * the merge happened, `false` when intentionally skipped (currently only the
-   * `rig-role` case — see comment). Callers propagate the skip signal so
+   * `software-team-role` case — see comment). Callers propagate the skip signal so
    * ProjectionResult and StartupDeliveryResult report honest counts instead
    * of claiming a merge that never landed.
    */
   private mergeGuidance(targetPath: string, blockId: string, content: string, warnings: string[]): boolean {
-    // The `rig-role` managed block is authored per seat but delivered through a
+    // The `software-team-role` managed block is authored per seat but delivered through a
     // projection path that pairs (target-file × spec) without seat correlation,
     // so multiple pod-mates' role bodies collide into one CLAUDE.md. The fix
     // is to route per-seat content through the `send_text` startup path
     // instead, which preserves seat identity. Here we refuse the merge loudly
     // so the collision can't land silently. See ADR-0006.
-    if (blockId === "rig-role") {
+    if (blockId === "software-team-role") {
       console.log(
-        `[openrig] skip: effectiveId is rig-role, per-seat delivery via send_text path required (target=${targetPath})`
+        `[softwareteam] skip: effectiveId is software-team-role, per-seat delivery via send_text path required (target=${targetPath})`
       );
       return false;
     }
     mergeManagedBlock(this.fs, targetPath, blockId, content, {
       warnings,
-      replaceBlockIds: blockId === "openrig-start.md" ? ["using-openrig.md"] : [],
+      replaceBlockIds: blockId === "softwareteam-start.md" ? ["using-softwareteam.md"] : [],
     });
     return true;
   }
@@ -786,7 +786,7 @@ export class ClaudeCodeAdapter implements RuntimeAdapter {
   }
 
   private provisionManagedBootstrap(binding: { nodeId?: string; cwd?: string | null; tmuxSession?: string | null; permissionMode?: NodeBinding["permissionMode"] }): void {
-    // OPR.0.4.8.2 agnostic rip-out: provisionRigPermissions (C2) removed — OpenRig no longer
+    // OPR.0.4.8.2 agnostic rip-out: provisionSoftwareTeamPermissions (C2) removed — SoftwareTeam no longer
     // authors any config-file permission policy. Trust/onboarding (C3/C4) are neutral plumbing, kept.
     const home = this.fs.homedir ?? (typeof process !== "undefined" ? process.env.HOME : undefined);
     // Match launchHarness: an explicit permission mode exports the selected home to the child, so
@@ -854,9 +854,9 @@ export class ClaudeCodeAdapter implements RuntimeAdapter {
     this.fs.writeFile(statePath, JSON.stringify(state, null, 2));
   }
 
-  // OPR.0.4.8.2 agnostic rip-out: the CONVENIENCE_BASELINE (global `Bash(rig:*)` allow) and its
-  // provisionRigPermissions writer (assessment row C2 — wrote into ~/.claude/settings.json with an
-  // `_openrig_provenance` marker) are DELETED. OpenRig no longer authors any config-file permission
+  // OPR.0.4.8.2 agnostic rip-out: the CONVENIENCE_BASELINE (global `Bash(software-team:*)` allow) and its
+  // provisionSoftwareTeamPermissions writer (assessment row C2 — wrote into ~/.claude/settings.json with an
+  // `_softwareteam_provenance` marker) are DELETED. SoftwareTeam no longer authors any config-file permission
   // policy; the harness-native permission surface is the control surface. Existing provenance-marked
   // user files are NOT retro-scrubbed — the new code simply never touches settings.json.
 
@@ -885,10 +885,10 @@ export class ClaudeCodeAdapter implements RuntimeAdapter {
       : {};
   }
 
-  // OPR.0.4.8.2 rip-out: readStringArray removed — its only caller was provisionRigPermissions (C2).
+  // OPR.0.4.8.2 rip-out: readStringArray removed — its only caller was provisionSoftwareTeamPermissions (C2).
 
   /**
-   * Best-effort: provision the OpenRig context collector for managed Claude sessions.
+   * Best-effort: provision the SoftwareTeam context collector for managed Claude sessions.
    * Writes a collector script and merges status line config into .claude/settings.local.json.
    * Idempotent: safe to call multiple times (merge preserves existing settings). A user's own
    * status line command (anything but the exact command written below), or a file that does not
@@ -910,7 +910,7 @@ export class ClaudeCodeAdapter implements RuntimeAdapter {
     this.fs.mkdirp(providerUsageDir);
 
     // 1. Copy collector script to project
-    const collectorDest = nodePath.join(binding.cwd, ".openrig", "context-collector.cjs");
+    const collectorDest = nodePath.join(binding.cwd, ".softwareteam", "context-collector.cjs");
     this.fs.mkdirp(nodePath.dirname(collectorDest));
     this.fs.copyFile(this.collectorAssetPath, collectorDest);
 
@@ -934,7 +934,7 @@ export class ClaudeCodeAdapter implements RuntimeAdapter {
     }
     const statusLine = typeof existing["statusLine"] === "object" && existing["statusLine"] !== null
       ? existing["statusLine"] as Record<string, unknown> : {};
-    // A user's own status line command wins; only OpenRig's collector command is installed or refreshed.
+    // A user's own status line command wins; only SoftwareTeam's collector command is installed or refreshed.
     // If this command's shape changes, keep the old shape recognised in isOwnedCollectorCommand, or
     // seats holding it will never be refreshed.
     const collectorCmd = `node ${shellQuote(collectorDest)} ${shellQuote(contextDir)} ${shellQuote(providerUsageDir)}`;
@@ -950,7 +950,7 @@ export class ClaudeCodeAdapter implements RuntimeAdapter {
   }
 
   /**
-   * Reconcile the OpenRig-managed activity-relay hooks in `.claude/settings.local.json`
+   * Reconcile the SoftwareTeam-managed activity-relay hooks in `.claude/settings.local.json`
    * to the desired `enabled` state, driven ONCE from the always-run `project()` seam.
    *
    * ENABLE (only when the relay SOURCE is readable): deliver `activity-relay.cjs` →
@@ -1000,7 +1000,7 @@ export class ClaudeCodeAdapter implements RuntimeAdapter {
 
     const hooks = this.readJsonObjectField(settings, "hooks");
 
-    // 1. Strip OpenRig-owned relay entries (EXACT node-command shape) from all events;
+    // 1. Strip SoftwareTeam-owned relay entries (EXACT node-command shape) from all events;
     //    prune emptied groups + events. User-authored hooks are untouched.
     let changed = false;
     for (const event of Object.keys(hooks)) {
@@ -1063,19 +1063,19 @@ interface ActivityHookOutcome {
   settingsUnparseable: boolean;
 }
 
-// OpenRig-owned relay path suffix. Ownership is the EXACT `node <arg>` command whose single
+// SoftwareTeam-owned relay path suffix. Ownership is the EXACT `node <arg>` command whose single
 // argument ends with this path — a changed prefix still matches (replace, not duplicate); a
 // user command that merely contains the path (echo, or node with extra args) does NOT.
-const LEGACY_OWNED_RELAY_SUFFIX = "/.openrig/hooks/scripts/activity-relay.cjs";
+const LEGACY_OWNED_RELAY_SUFFIX = "/.softwareteam/hooks/scripts/activity-relay.cjs";
 
 function hookCommand(hook: unknown): string | undefined {
   return isPlainObject(hook) && typeof hook["command"] === "string" ? (hook["command"] as string) : undefined;
 }
 
-// OpenRig-owned collectors use canonical POSIX-quoted paths. Recognise older unquoted
+// SoftwareTeam-owned collectors use canonical POSIX-quoted paths. Recognise older unquoted
 // three/four-token commands too, but preserve commands composed with shell operators or
 // extra arguments. Old unquoted paths containing spaces cannot be identified unambiguously.
-const OWNED_COLLECTOR_SUFFIX = nodePath.sep + nodePath.join(".openrig", "context-collector.cjs");
+const OWNED_COLLECTOR_SUFFIX = nodePath.sep + nodePath.join(".softwareteam", "context-collector.cjs");
 
 function isOwnedCollectorCommand(cmd: string): boolean {
   if (/[\r\n]/.test(cmd)) return false;
@@ -1170,7 +1170,7 @@ function stableJsonKey(value: unknown): string {
 // under <configDir>/sessions/, carrying {name: <canonical tmux session name>, status:
 // busy|idle|shell|waiting, statusUpdatedAt, ...}. Self-reported truth, SELF-DATED
 // (statusUpdatedAt) — the research doc's top rung, resolved here by the `name` field
-// (OpenRig's canonical session name; no pane-pid plumbing needed on this path).
+// (SoftwareTeam's canonical session name; no pane-pid plumbing needed on this path).
 // UNDOCUMENTED INTERNAL: any read/parse/shape failure returns null — the ladder falls
 // to the next rung, NEVER errors (SPEC mini-req 2a).
 

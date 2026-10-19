@@ -57,19 +57,19 @@ const OK_RESPONSE = {
 const CONFLICT_RESPONSE = {
   ok: false,
   code: "member_conflict",
-  message: 'Member "infra.server" already exists in rig "test". Pick a different member id, or remove the existing seat first.',
+  message: 'Member "infra.server" already exists in softwareTeam "test". Pick a different member id, or remove the existing seat first.',
 };
 
 const NOT_FOUND_RESPONSE = {
   ok: false,
   code: "pod_not_found",
-  message: 'Pod "nope" not found in rig "test". Existing pods: infra. Check the namespace, or add a new pod with `rig expand`.',
+  message: 'Pod "nope" not found in softwareTeam "test". Existing pods: infra. Check the namespace, or add a new pod with `SoftwareTeam expand`.',
 };
 
-const RIG_NOT_FOUND_RESPONSE = {
+const SOFTWARE_TEAM_NOT_FOUND_RESPONSE = {
   ok: false,
-  code: "rig_not_found",
-  message: 'Rig "ghost" not found.',
+  code: "software_team_not_found",
+  message: 'SoftwareTeam "ghost" not found.',
 };
 
 const ALPHA_ID = "01KALPHA0000000000000000AA";
@@ -77,11 +77,11 @@ const DUPE_ID_1 = "01KDUPE10000000000000000AA";
 const DUPE_ID_2 = "01KDUPE20000000000000000AA";
 const ARCHIVED_ID = "01KARCH00000000000000000AA";
 const COLLIDE_ID = "01KCOLLIDE00000000000000AA";
-const RIG_SUMMARIES = [
+const SOFTWARE_TEAM_SUMMARIES = [
   { id: ALPHA_ID, name: "alpha", nodeCount: 2, archivedAt: null },
   { id: DUPE_ID_1, name: "dupe", nodeCount: 1, archivedAt: null },
   { id: DUPE_ID_2, name: "dupe", nodeCount: 1, archivedAt: null },
-  // An archived rig, plus an ACTIVE rig whose name is that archived rig's id.
+  // An archived softwareTeam, plus an ACTIVE softwareTeam whose name is that archived softwareTeam's id.
   { id: ARCHIVED_ID, name: "old-team", nodeCount: 1, archivedAt: "2026-06-01T00:00:00Z" },
   { id: COLLIDE_ID, name: ARCHIVED_ID, nodeCount: 1, archivedAt: null },
 ];
@@ -96,7 +96,7 @@ const FAILED_LAUNCH_RESPONSE = {
   },
 };
 
-describe("rig add", () => {
+describe("SoftwareTeam add", () => {
   let server: http.Server;
   let port: number;
   let tmpDir: string;
@@ -107,12 +107,12 @@ describe("rig add", () => {
 
   beforeAll(async () => {
     server = http.createServer((req, res) => {
-      if (req.method === "GET" && req.url?.startsWith("/api/rigs/summary")) {
+      if (req.method === "GET" && req.url?.startsWith("/api/software-teams/summary")) {
         res.writeHead(summaryStatus, { "Content-Type": "application/json" });
-        // Mirrors the route: archived rigs only with ?includeArchived=true.
+        // Mirrors the route: archived softwareTeams only with ?includeArchived=true.
         const includeArchived = new URL(req.url, "http://x").searchParams.get("includeArchived") === "true";
-        const rigs = includeArchived ? RIG_SUMMARIES : RIG_SUMMARIES.filter((r) => r.archivedAt == null);
-        res.end(JSON.stringify(summaryStatus === 200 ? rigs : { error: "unavailable" }));
+        const softwareTeams = includeArchived ? SOFTWARE_TEAM_SUMMARIES : SOFTWARE_TEAM_SUMMARIES.filter((r) => r.archivedAt == null);
+        res.end(JSON.stringify(summaryStatus === 200 ? softwareTeams : { error: "unavailable" }));
       } else if (req.method === "POST" && req.url?.includes("/members")) {
         capturedUrl = req.url;
         let body = "";
@@ -121,9 +121,9 @@ describe("rig add", () => {
           const parsed = JSON.parse(body);
           capturedBody = parsed;
           const memberId = parsed.member?.id;
-          if (req.url?.startsWith("/api/rigs/ghost/")) {
+          if (req.url?.startsWith("/api/software-teams/ghost/")) {
             res.writeHead(404, { "Content-Type": "application/json" });
-            res.end(JSON.stringify(RIG_NOT_FOUND_RESPONSE));
+            res.end(JSON.stringify(SOFTWARE_TEAM_NOT_FOUND_RESPONSE));
           } else if (req.url?.includes("/nope/")) {
             res.writeHead(404, { "Content-Type": "application/json" });
             res.end(JSON.stringify(NOT_FOUND_RESPONSE));
@@ -155,9 +155,9 @@ describe("rig add", () => {
     capturedBody = null;
     capturedUrl = null;
     summaryStatus = 200;
-    // Hermetic host selection: never read the real ~/.openrig/config.json.
-    savedHostSelected = process.env["OPENRIG_HOST_SELECTED"];
-    process.env["OPENRIG_HOST_SELECTED"] = "local";
+    // Hermetic host selection: never read the real ~/.softwareteam/config.json.
+    savedHostSelected = process.env["SOFTWARETEAM_HOST_SELECTED"];
+    process.env["SOFTWARETEAM_HOST_SELECTED"] = "local";
     tmpDir = join(tmpdir(), `add-test-${Date.now()}`);
     mkdirSync(tmpDir, { recursive: true });
     fragmentPath = join(tmpDir, "member.yaml");
@@ -165,8 +165,8 @@ describe("rig add", () => {
   });
 
   afterEach(() => {
-    if (savedHostSelected === undefined) delete process.env["OPENRIG_HOST_SELECTED"];
-    else process.env["OPENRIG_HOST_SELECTED"] = savedHostSelected;
+    if (savedHostSelected === undefined) delete process.env["SOFTWARETEAM_HOST_SELECTED"];
+    else process.env["SOFTWARETEAM_HOST_SELECTED"] = savedHostSelected;
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
@@ -192,9 +192,9 @@ describe("rig add", () => {
     return prog;
   }
 
-  it("parses rig-id, pod-namespace, and member-fragment-path", async () => {
+  it("parses software-team-id, pod-namespace, and member-fragment-path", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "add", "rig-123", "infra", fragmentPath]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "add", "software-team-123", "infra", fragmentPath]);
     });
     const output = logs.join("\n");
     expect(output).toContain("infra.server2");
@@ -204,7 +204,7 @@ describe("rig add", () => {
 
   it("--json returns the raw API response", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "add", "rig-123", "infra", fragmentPath, "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "add", "software-team-123", "infra", fragmentPath, "--json"]);
     });
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed.ok).toBe(true);
@@ -213,7 +213,7 @@ describe("rig add", () => {
 
   it("human output shows the launched member with its session", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "add", "rig-123", "infra", fragmentPath]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "add", "software-team-123", "infra", fragmentPath]);
     });
     const output = logs.join("\n");
     expect(output).toContain("[OK] infra.server2");
@@ -223,7 +223,7 @@ describe("rig add", () => {
   it("duplicate member id -> exit 1 with the honest conflict message", async () => {
     writeFileSync(fragmentPath, `id: server\nruntime: terminal\nagent_ref: "builtin:terminal"\nprofile: none\ncwd: /tmp\n`);
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "add", "rig-123", "infra", fragmentPath]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "add", "software-team-123", "infra", fragmentPath]);
     });
     expect(exitCode).toBe(1);
     const output = logs.join("\n");
@@ -233,7 +233,7 @@ describe("rig add", () => {
 
   it("pod not found -> exit 1 with the honest not-found message", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "add", "rig-123", "nope", fragmentPath]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "add", "software-team-123", "nope", fragmentPath]);
     });
     expect(exitCode).toBe(1);
     const output = logs.join("\n");
@@ -244,7 +244,7 @@ describe("rig add", () => {
   it("launched-but-failed node -> exit 1 (status surfaced)", async () => {
     writeFileSync(fragmentPath, `id: failer\nruntime: terminal\nagent_ref: "builtin:terminal"\nprofile: none\ncwd: /tmp\n`);
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "add", "rig-123", "infra", fragmentPath]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "add", "software-team-123", "infra", fragmentPath]);
     });
     expect(exitCode).toBe(1);
     const output = logs.join("\n");
@@ -255,7 +255,7 @@ describe("rig add", () => {
   it("--json exits non-zero when the new node did not launch", async () => {
     writeFileSync(fragmentPath, `id: failer\nruntime: terminal\nagent_ref: "builtin:terminal"\nprofile: none\ncwd: /tmp\n`);
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "add", "rig-123", "infra", fragmentPath, "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "add", "software-team-123", "infra", fragmentPath, "--json"]);
     });
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed.result.node.status).toBe("failed");
@@ -268,13 +268,13 @@ describe("rig add", () => {
     expect(cmd).toBeDefined();
   });
 
-  // Governance FM2: rig add must NOT silently strip pod-local edges from the
+  // Governance FM2: softwareTeam add must NOT silently strip pod-local edges from the
   // fragment file - they must reach the daemon, in both wrapper and bare forms.
   it("forwards wrapper-form edges to the daemon (not stripped)", async () => {
     capturedBody = null;
     writeFileSync(fragmentPath, `member:\n  id: server2\n  runtime: terminal\n  agent_ref: "builtin:terminal"\n  profile: none\n  cwd: /tmp\nedges:\n  - from: server2\n    to: server\n    kind: delegates_to\n`);
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "add", "rig-123", "infra", fragmentPath]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "add", "software-team-123", "infra", fragmentPath]);
     });
     expect(capturedBody).not.toBeNull();
     expect((capturedBody as { member: { id: string } }).member.id).toBe("server2");
@@ -285,7 +285,7 @@ describe("rig add", () => {
     capturedBody = null;
     writeFileSync(fragmentPath, `id: server2\nruntime: terminal\nagent_ref: "builtin:terminal"\nprofile: none\ncwd: /tmp\nedges:\n  - from: server2\n    to: server\n    kind: delegates_to\n`);
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "add", "rig-123", "infra", fragmentPath]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "add", "software-team-123", "infra", fragmentPath]);
     });
     const sent = capturedBody as { member: Record<string, unknown>; edges: unknown[] };
     expect(sent.edges).toEqual([{ from: "server2", to: "server", kind: "delegates_to" }]);
@@ -298,7 +298,7 @@ describe("rig add", () => {
     capturedBody = null;
     writeFileSync(fragmentPath, `member:\n  id: server2\n  runtime: terminal\n  agent_ref: "builtin:terminal"\n  profile: none\n  cwd: /tmp\nedges: not-an-array\n`);
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "add", "rig-123", "infra", fragmentPath]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "add", "software-team-123", "infra", fragmentPath]);
     });
     expect(exitCode).toBe(1);
     expect(logs.join("\n")).toContain("edges");
@@ -306,110 +306,110 @@ describe("rig add", () => {
     expect(capturedBody).toBeNull();
   });
 
-  // Identity ergonomics: `rig whoami --json` names the rig, so `rig add` must
+  // Identity ergonomics: `SoftwareTeam whoami --json` names the softwareTeam, so `softwareTeam add` must
   // accept that exact unique name as well as the id.
-  describe("rig name or id", () => {
-    it("an exact unique name resolves to that rig's id", async () => {
+  describe("SoftwareTeam name or id", () => {
+    it("an exact unique name resolves to that softwareTeam's id", async () => {
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "add", "alpha", "infra", fragmentPath]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "add", "alpha", "infra", fragmentPath]);
       });
       expect(exitCode).toBeUndefined();
-      expect(capturedUrl).toBe(`/api/rigs/${ALPHA_ID}/pods/infra/members`);
+      expect(capturedUrl).toBe(`/api/software-teams/${ALPHA_ID}/pods/infra/members`);
       expect(logs.join("\n")).toContain("[OK] infra.server2");
     });
 
     it("an id is posted unchanged", async () => {
       await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "add", DUPE_ID_2, "infra", fragmentPath]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "add", DUPE_ID_2, "infra", fragmentPath]);
       });
-      expect(capturedUrl).toBe(`/api/rigs/${DUPE_ID_2}/pods/infra/members`);
+      expect(capturedUrl).toBe(`/api/software-teams/${DUPE_ID_2}/pods/infra/members`);
     });
 
-    it("an archived rig's exact id wins over an active rig with that name", async () => {
+    it("an archived softwareTeam's exact id wins over an active SoftwareTeam with that name", async () => {
       await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "add", ARCHIVED_ID, "infra", fragmentPath]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "add", ARCHIVED_ID, "infra", fragmentPath]);
       });
-      expect(capturedUrl).toBe(`/api/rigs/${ARCHIVED_ID}/pods/infra/members`);
+      expect(capturedUrl).toBe(`/api/software-teams/${ARCHIVED_ID}/pods/infra/members`);
     });
 
-    it("an archived rig's name does not resolve (posted as typed)", async () => {
+    it("an archived softwareTeam's name does not resolve (posted as typed)", async () => {
       await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "add", "old-team", "infra", fragmentPath]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "add", "old-team", "infra", fragmentPath]);
       });
-      expect(capturedUrl).toBe("/api/rigs/old-team/pods/infra/members");
+      expect(capturedUrl).toBe("/api/software-teams/old-team/pods/infra/members");
     });
 
-    it("a missing name keeps the daemon's rig_not_found (exit 1)", async () => {
+    it("a missing name keeps the daemon's software_team_not_found (exit 1)", async () => {
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "add", "ghost", "infra", fragmentPath]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "add", "ghost", "infra", fragmentPath]);
       });
       expect(exitCode).toBe(1);
-      expect(capturedUrl).toBe("/api/rigs/ghost/pods/infra/members");
-      expect(logs.join("\n")).toContain('Rig "ghost" not found.');
+      expect(capturedUrl).toBe("/api/software-teams/ghost/pods/infra/members");
+      expect(logs.join("\n")).toContain('SoftwareTeam "ghost" not found.');
     });
 
     it("an ambiguous name refuses without posting and lists the matching ids", async () => {
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "add", "dupe", "infra", fragmentPath]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "add", "dupe", "infra", fragmentPath]);
       });
       expect(exitCode).toBe(1);
       expect(capturedUrl).toBeNull();
       const output = logs.join("\n");
-      expect(output).toContain("'dupe' matches 2 rigs");
-      expect(output).toContain(`rig add ${DUPE_ID_1} infra ${fragmentPath}`);
-      expect(output).toContain(`rig add ${DUPE_ID_2} infra ${fragmentPath}`);
+      expect(output).toContain("'dupe' matches 2 softwareTeams");
+      expect(output).toContain(`SoftwareTeam add ${DUPE_ID_1} infra ${fragmentPath}`);
+      expect(output).toContain(`SoftwareTeam add ${DUPE_ID_2} infra ${fragmentPath}`);
     });
 
-    it("suggested re-run commands quote a fragment path with spaces and keep --rig-root", async () => {
+    it("suggested re-run commands quote a fragment path with spaces and keep --software-team-root", async () => {
       const spaced = join(tmpDir, "my member.yaml");
       writeFileSync(spaced, `id: server2\nruntime: terminal\nagent_ref: "builtin:terminal"\nprofile: none\ncwd: /tmp\n`);
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "add", "dupe", "infra", spaced, "--rig-root", "/tmp/my root"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "add", "dupe", "infra", spaced, "--software-team-root", "/tmp/my root"]);
       });
       expect(capturedUrl).toBeNull();
-      expect(logs.join("\n")).toContain(`rig add ${DUPE_ID_1} infra '${spaced}' --rig-root '/tmp/my root'`);
+      expect(logs.join("\n")).toContain(`SoftwareTeam add ${DUPE_ID_1} infra '${spaced}' --software-team-root '/tmp/my root'`);
     });
 
-    it("--json: an ambiguous name returns rig_ambiguous with the candidate ids", async () => {
+    it("--json: an ambiguous name returns software_team_ambiguous with the candidate ids", async () => {
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "add", "dupe", "infra", fragmentPath, "--json"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "add", "dupe", "infra", fragmentPath, "--json"]);
       });
       expect(exitCode).toBe(1);
       expect(capturedUrl).toBeNull();
       const parsed = JSON.parse(logs.join("\n"));
       expect(parsed.ok).toBe(false);
-      expect(parsed.code).toBe("rig_ambiguous");
+      expect(parsed.code).toBe("software_team_ambiguous");
       expect(parsed.candidates).toEqual([DUPE_ID_1, DUPE_ID_2]);
     });
 
     it("summary unavailable -> the raw handle is posted as before", async () => {
       summaryStatus = 500;
       await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "add", "alpha", "infra", fragmentPath]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "add", "alpha", "infra", fragmentPath]);
       });
-      expect(capturedUrl).toBe("/api/rigs/alpha/pods/infra/members");
+      expect(capturedUrl).toBe("/api/software-teams/alpha/pods/infra/members");
     });
 
-    it("summary unavailable + rig_not_found -> hints that a name could not be resolved", async () => {
+    it("summary unavailable + software_team_not_found -> hints that a name could not be resolved", async () => {
       summaryStatus = 500;
       const { logs, exitCode } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "add", "ghost", "infra", fragmentPath]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "add", "ghost", "infra", fragmentPath]);
       });
       expect(exitCode).toBe(1);
       const output = logs.join("\n");
-      expect(output).toContain('Rig "ghost" not found.');
-      expect(output).toContain("Could not list rigs to resolve a name");
+      expect(output).toContain('SoftwareTeam "ghost" not found.');
+      expect(output).toContain("Could not list softwareTeams to resolve a name");
     });
 
-    // A selected remote host makes whoami/ps report THAT host's rigs, but rig
+    // A selected remote host makes whoami/ps report THAT host's softwareTeams, but softwareTeam
     // add only talks to the local daemon. A copied name must not land on a
-    // same-named local rig.
+    // same-named local softwareTeam.
     describe("with a remote host selected", () => {
-      beforeEach(() => { process.env["OPENRIG_HOST_SELECTED"] = "host-b"; });
+      beforeEach(() => { process.env["SOFTWARETEAM_HOST_SELECTED"] = "host-b"; });
 
-      it("refuses a name that matches a local rig, without posting", async () => {
+      it("refuses a name that matches a local softwareTeam, without posting", async () => {
         const { logs, exitCode } = await captureLogs(async () => {
-          await makeCmd().parseAsync(["node", "rig", "add", "alpha", "infra", fragmentPath]);
+          await makeCmd().parseAsync(["node", "softwareTeam", "add", "alpha", "infra", fragmentPath]);
         });
         expect(exitCode).toBe(1);
         expect(capturedUrl).toBeNull();
@@ -421,7 +421,7 @@ describe("rig add", () => {
 
       it("--json: refuses with remote_host_selected", async () => {
         const { logs, exitCode } = await captureLogs(async () => {
-          await makeCmd().parseAsync(["node", "rig", "add", "dupe", "infra", fragmentPath, "--json"]);
+          await makeCmd().parseAsync(["node", "softwareTeam", "add", "dupe", "infra", fragmentPath, "--json"]);
         });
         expect(exitCode).toBe(1);
         expect(capturedUrl).toBeNull();
@@ -432,33 +432,33 @@ describe("rig add", () => {
 
       it("an exact local id is posted unchanged, as before", async () => {
         await captureLogs(async () => {
-          await makeCmd().parseAsync(["node", "rig", "add", ALPHA_ID, "infra", fragmentPath]);
+          await makeCmd().parseAsync(["node", "softwareTeam", "add", ALPHA_ID, "infra", fragmentPath]);
         });
-        expect(capturedUrl).toBe(`/api/rigs/${ALPHA_ID}/pods/infra/members`);
+        expect(capturedUrl).toBe(`/api/software-teams/${ALPHA_ID}/pods/infra/members`);
       });
 
-      it("an archived rig's exact id is posted unchanged, not refused as a name", async () => {
+      it("an archived softwareTeam's exact id is posted unchanged, not refused as a name", async () => {
         const { exitCode } = await captureLogs(async () => {
-          await makeCmd().parseAsync(["node", "rig", "add", ARCHIVED_ID, "infra", fragmentPath]);
+          await makeCmd().parseAsync(["node", "softwareTeam", "add", ARCHIVED_ID, "infra", fragmentPath]);
         });
         expect(exitCode).toBeUndefined();
-        expect(capturedUrl).toBe(`/api/rigs/${ARCHIVED_ID}/pods/infra/members`);
+        expect(capturedUrl).toBe(`/api/software-teams/${ARCHIVED_ID}/pods/infra/members`);
       });
 
-      it("an unknown handle keeps the daemon's rig_not_found", async () => {
+      it("an unknown handle keeps the daemon's software_team_not_found", async () => {
         const { logs, exitCode } = await captureLogs(async () => {
-          await makeCmd().parseAsync(["node", "rig", "add", "ghost", "infra", fragmentPath]);
+          await makeCmd().parseAsync(["node", "softwareTeam", "add", "ghost", "infra", fragmentPath]);
         });
         expect(exitCode).toBe(1);
-        expect(capturedUrl).toBe("/api/rigs/ghost/pods/infra/members");
-        expect(logs.join("\n")).toContain('Rig "ghost" not found.');
+        expect(capturedUrl).toBe("/api/software-teams/ghost/pods/infra/members");
+        expect(logs.join("\n")).toContain('SoftwareTeam "ghost" not found.');
       });
     });
 
     it("help names the accepted identity form", () => {
       const help = addMemberCommand(runningDeps()).helpInformation();
-      expect(help).toContain("<rig>");
-      expect(help).toContain("Rig name or ID");
+      expect(help).toContain("<softwareTeam>");
+      expect(help).toContain("SoftwareTeam name or ID");
     });
   });
 });

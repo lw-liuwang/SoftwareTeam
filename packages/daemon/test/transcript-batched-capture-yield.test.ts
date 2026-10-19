@@ -11,11 +11,11 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), "batched-yield-"));
 afterEach(() => { clearAllTranscriptRotationsForTest(); fs.rmSync(root, { recursive: true, force: true }); });
 
 it("writes one batched transcript per event-loop turn", async () => {
-  const names = Array.from({ length: 6 }, (_, i) => `y${i}@rig`);
+  const names = Array.from({ length: 6 }, (_, i) => `y${i}@software-team`);
   const adapter = new TmuxAdapter(async () => { throw new Error("shell path unused"); }, undefined, async (argv) => {
     if (argv[1] === "list-sessions") return names.join("\n") + "\n";
     // Each chained pane: its marker line, then its text.
-    return argv.filter((a) => a.startsWith("__openrig_capture_")).map((m, k) => `${m}\n${names[k]} text\n`).join("");
+    return argv.filter((a) => a.startsWith("__softwareteam_capture_")).map((m, k) => `${m}\n${names[k]} text\n`).join("");
   });
   for (const n of names) startTranscriptRotation(adapter, n, path.join(root, n), { lines: 20, pollIntervalMs: 60_000 });
   const written = () => names.filter((n) => fs.existsSync(path.join(root, n))).length;

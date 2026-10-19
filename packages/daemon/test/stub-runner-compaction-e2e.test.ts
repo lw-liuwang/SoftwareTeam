@@ -70,23 +70,23 @@ describe("stub-runner compaction behavior (real-spawn wiring, R1)", () => {
 
   it("fires the REAL precompact seam on `emit compaction`, writing a seat-keyed marker + packet", async () => {
     dir = mkdtempSync(join(tmpdir(), "stub-compaction-e2e-"));
-    const home = join(dir, ".openrig");
+    const home = join(dir, ".softwareteam");
     // Drop the scenario-resolved script the runner will load from cwd.
-    mkdirSync(join(dir, ".openrig", "stub"), { recursive: true });
+    mkdirSync(join(dir, ".softwareteam", "stub"), { recursive: true });
     const script: StubScript = {
       steps: [
         { kind: "say", text: "[stub] scripted turn before compaction" },
         { kind: "emit", behavior: "compaction" },
       ],
     };
-    writeFileSync(join(dir, ".openrig", "stub", "script.json"), JSON.stringify(script), "utf8");
+    writeFileSync(join(dir, ".softwareteam", "stub", "script.json"), JSON.stringify(script), "utf8");
 
     child = execFile("node", ["--import", "tsx", RUNNER,
       "--session-name", SEAT, "--cwd", dir, "--launch-id", "cmp-1", "--posture", "floor"],
       { env: {
-        ...process.env, OPENRIG_HOME: home, OPENRIG_TEST_CLOCK_NOW: INJECTED_ISO,
+        ...process.env, SOFTWARETEAM_HOME: home, SOFTWARETEAM_TEST_CLOCK_NOW: INJECTED_ISO,
         // Keep the packet out of the production default (/tmp/claude-compaction-restore).
-        OPENRIG_COMPACTION_OUT_ROOT: join(dir, "packets"),
+        SOFTWARETEAM_COMPACTION_OUT_ROOT: join(dir, "packets"),
       } as NodeJS.ProcessEnv });
 
     const markerPath = join(home, "compaction", "restore-pending", `${SANITIZED}.json`);
@@ -103,6 +103,6 @@ describe("stub-runner compaction behavior (real-spawn wiring, R1)", () => {
     // discovered under ~/.claude/projects (findLatestJsonl's real-HOME fallback).
     // On the discovery path input.transcript_path is unset and the marker records
     // transcriptPath:null; asserting the explicit own path kills that false green.
-    expect(marker.transcriptPath).toBe(join(dir!, ".openrig", "stub", "transcript.jsonl"));
+    expect(marker.transcriptPath).toBe(join(dir!, ".softwareteam", "stub", "transcript.jsonl"));
   }, 30_000);
 });

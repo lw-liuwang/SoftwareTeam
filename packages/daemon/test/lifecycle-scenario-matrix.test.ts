@@ -20,7 +20,7 @@ import { eventsSchema } from "../src/db/migrations/003_events.js";
 import { nodeSpecFieldsSchema } from "../src/db/migrations/007_node_spec_fields.js";
 import { checkpointsSchema } from "../src/db/migrations/005_checkpoints.js";
 import { agentspecRebootSchema } from "../src/db/migrations/014_agentspec_reboot.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { SessionTransport } from "../src/domain/session-transport.js";
 import { EventBus } from "../src/domain/event-bus.js";
@@ -42,7 +42,7 @@ import { PsProjectionService } from "../src/domain/ps-projection.js";
 
 function seedDbWithStaleSessions(
   dbPath: string,
-  rigs: { rigName: string; logicalId: string; sessionName: string }[],
+  softwareTeams: { softwareTeamName: string; logicalId: string; sessionName: string }[],
 ): void {
   const db = createDb(dbPath);
   migrate(db, [
@@ -53,11 +53,11 @@ function seedDbWithStaleSessions(
     checkpointsSchema,
     agentspecRebootSchema,
   ]);
-  const rigRepo = new RigRepository(db);
+  const softwareTeamRepo = new SoftwareTeamRepository(db);
   const sessionRegistry = new SessionRegistry(db);
-  for (const r of rigs) {
-    const rig = rigRepo.createRig(r.rigName);
-    const node = rigRepo.addNode(rig.id, r.logicalId);
+  for (const r of softwareTeams) {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam(r.softwareTeamName);
+    const node = softwareTeamRepo.addNode(softwareTeam.id, r.logicalId);
     const session = sessionRegistry.registerSession(node.id, r.sessionName);
     // Seed the old schema directly; createDaemon must apply newer migrations.
     db.prepare("UPDATE sessions SET status = 'running', last_seen_at = datetime('now') WHERE id = ?").run(session.id);
@@ -132,8 +132,8 @@ function mockCodexResumeReturning(result: ResumeResult): CodexResumeAdapter {
 // ---------------------------------------------------------------------------
 
 describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
-  describe("Scenario 1: Clean start (empty DB, no rigs)", () => {
-    it("daemon comes up; reconciliation summary line reads rigs=0 checked=0 detached=0 errors=0", async () => {
+  describe("Scenario 1: Clean start (empty DB, no softwareTeams)", () => {
+    it("daemon comes up; reconciliation summary line reads softwareTeams=0 checked=0 detached=0 errors=0", async () => {
       const tmuxExec: ExecFn = async () => "";
       const cmuxExec = unavailableCmuxExec();
 
@@ -143,7 +143,7 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
 
       const summary = lines.find((line) => line.startsWith("startup reconcile:"));
       expect(summary).toBeDefined();
-      expect(summary).toMatch(/rigs=0\b/);
+      expect(summary).toMatch(/softwareTeams=0\b/);
       expect(summary).toMatch(/checked=0\b/);
       expect(summary).toMatch(/detached=0\b/);
       expect(summary).toMatch(/errors=0\b/);
@@ -160,10 +160,10 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
 
   describe("Scenario 2: Warm resume (daemon restart, tmux still alive)", () => {
     it("live tmux session is NOT marked detached; summary shows detached=0", async () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "rigged-matrix-warm-"));
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-matrix-warm-"));
       const dbPath = path.join(tmpDir, "warm.sqlite");
       seedDbWithStaleSessions(dbPath, [
-        { rigName: "r01", logicalId: "dev1-impl", sessionName: "r01-dev1-impl" },
+        { softwareTeamName: "r01", logicalId: "dev1-impl", sessionName: "r01-dev1-impl" },
       ]);
 
       // tmux is alive; has-session returns success (stdout empty, no throw).
@@ -204,10 +204,10 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
       ["can't find session: r01-dev1-impl"],
       ["session not found"],
     ])("classifies %s as absence; session marked detached and event emitted", async (errMsg) => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "rigged-matrix-reboot-"));
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-matrix-reboot-"));
       const dbPath = path.join(tmpDir, "reboot.sqlite");
       seedDbWithStaleSessions(dbPath, [
-        { rigName: "r01", logicalId: "dev1-impl", sessionName: "r01-dev1-impl" },
+        { softwareTeamName: "r01", logicalId: "dev1-impl", sessionName: "r01-dev1-impl" },
       ]);
 
       const tmuxExec: ExecFn = async (cmd: string) => {
@@ -235,10 +235,10 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
     // absence. Session stays running (fail-closed) and the unexpected probe
     // error is recorded in the summary's errors=N count plus a warning line.
     it("permission-denied tmux probe stays NOT-detached (fail-closed) and surfaces warning", async () => {
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "rigged-matrix-permerr-"));
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-matrix-permerr-"));
       const dbPath = path.join(tmpDir, "permerr.sqlite");
       seedDbWithStaleSessions(dbPath, [
-        { rigName: "r02", logicalId: "dev2-impl", sessionName: "r02-dev2-impl" },
+        { softwareTeamName: "r02", logicalId: "dev2-impl", sessionName: "r02-dev2-impl" },
       ]);
 
       const tmuxExec: ExecFn = async (cmd: string) => {
@@ -296,27 +296,27 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
       claudeResult: ResumeResult;
     }) {
       const db = createFullTestDb();
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const sessionRegistry = new SessionRegistry(db);
       const eventBus = new EventBus(db);
       const snapshotRepo = new SnapshotRepository(db);
       const checkpointStore = new CheckpointStore(db);
       const snapshotCapture = new SnapshotCapture({
-        db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore,
+        db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore,
       });
       const tmux = mockTmuxForRestore({ hasSession: false }); // session does not exist yet
-      const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+      const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
       const orchestrator = new RestoreOrchestrator({
-        db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+        db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
         checkpointStore, nodeLauncher, tmuxAdapter: tmux,
         claudeResume: mockClaudeResumeReturning(opts.claudeResult),
         codexResume: mockCodexResumeReturning({ ok: true }),
       });
 
-      // Seed rig + node + snapshot with a resumable session.
-      const rig = rigRepo.createRig("r88");
-      const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code", cwd: "/tmp" });
-      const snap = snapshotCapture.captureSnapshot(rig.id, "manual");
+      // Seed softwareTeam + node + snapshot with a resumable session.
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("r88");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code", cwd: "/tmp" });
+      const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
       // Patch the persisted snapshot to embed a resume_token so the orchestrator
       // exercises the legacy resume path with non-pod-aware nodes.
       const fullSnap = snapshotRepo.getSnapshot(snap.id)!;
@@ -335,7 +335,7 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
       db.prepare("UPDATE snapshots SET data = ? WHERE id = ?")
         .run(JSON.stringify(data), snap.id);
 
-      return { db, rigRepo, sessionRegistry, eventBus, snapshotRepo, orchestrator, rig, node, snapshotId: snap.id };
+      return { db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, orchestrator, softwareTeam, node, snapshotId: snap.id };
     }
 
     it("Claude resume returning attention_required → node status=attention_required with prompt evidence", async () => {
@@ -359,9 +359,9 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
       expect(workerNode?.attentionEvidence).toBeDefined();
       expect(workerNode?.attentionEvidence).toContain("Choose a conversation");
 
-      // Rig-level rollup: any attention_required (with at least one
+      // SoftwareTeam-level rollup: any attention_required (with at least one
       // not-failed) yields partially_restored, NOT failed.
-      expect(outcome.result.rigResult).toBe("partially_restored");
+      expect(outcome.result.softwareTeamResult).toBe("partially_restored");
 
       ctx.db.close();
     });
@@ -435,16 +435,16 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
       // both runtimes — no further wiring needed.
       it("Codex auth-refusal → node status=attention_required with auth-refusal pane evidence", async () => {
         const db = createFullTestDb();
-        const rigRepo = new RigRepository(db);
+        const softwareTeamRepo = new SoftwareTeamRepository(db);
         const sessionRegistry = new SessionRegistry(db);
         const eventBus = new EventBus(db);
         const snapshotRepo = new SnapshotRepository(db);
         const checkpointStore = new CheckpointStore(db);
         const snapshotCapture = new SnapshotCapture({
-          db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore,
+          db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore,
         });
         const tmux = mockTmuxForRestore({ hasSession: false });
-        const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+        const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
 
         // Codex adapter stub returns the same shape the real adapter would
         // emit for auth-refusal: { ok: false, code: "attention_required",
@@ -463,15 +463,15 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
           evidence: refusalEvidence,
         };
         const orchestrator = new RestoreOrchestrator({
-          db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+          db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
           checkpointStore, nodeLauncher, tmuxAdapter: tmux,
           claudeResume: mockClaudeResumeReturning({ ok: true }),
           codexResume: mockCodexResumeReturning(codexAttentionResult),
         });
 
-        const rig = rigRepo.createRig("r97");
-        const node = rigRepo.addNode(rig.id, "codex-worker", { role: "worker", runtime: "codex", cwd: "/tmp" });
-        const snap = snapshotCapture.captureSnapshot(rig.id, "manual");
+        const softwareTeam = softwareTeamRepo.createSoftwareTeam("r97");
+        const node = softwareTeamRepo.addNode(softwareTeam.id, "codex-worker", { role: "worker", runtime: "codex", cwd: "/tmp" });
+        const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
         const fullSnap = snapshotRepo.getSnapshot(snap.id)!;
         const data = JSON.parse(JSON.stringify(fullSnap.data));
         data.sessions = [{
@@ -501,11 +501,11 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
         expect(codexNode?.attentionEvidence).toContain("access token could not be refreshed");
         expect(codexNode?.attentionEvidence).toContain("Please sign in again");
 
-        // Rig-level rollup: single attention_required node → partially_restored
+        // SoftwareTeam-level rollup: single attention_required node → partially_restored
         // (NOT failed). Aggregation at restore-orchestrator.ts:65 already
         // includes attention_required in the mixed-status set; this test
         // confirms Codex participates honestly.
-        expect(outcome.result.rigResult).toBe("partially_restored");
+        expect(outcome.result.softwareTeamResult).toBe("partially_restored");
 
         db.close();
       });
@@ -520,23 +520,23 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
       // covered the legacy CodexResumeAdapter path).
       it("pod-aware Codex auth-refusal → node status=attention_required (production path)", async () => {
         const db = createFullTestDb();
-        const rigRepo = new RigRepository(db);
+        const softwareTeamRepo = new SoftwareTeamRepository(db);
         const sessionRegistry = new SessionRegistry(db);
         const eventBus = new EventBus(db);
         const snapshotRepo = new SnapshotRepository(db);
         const checkpointStore = new CheckpointStore(db);
         const snapshotCapture = new SnapshotCapture({
-          db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore,
+          db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore,
         });
         const tmux = mockTmuxForRestore();
-        const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+        const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
 
-        const rig = rigRepo.createRig("r96");
+        const softwareTeam = softwareTeamRepo.createSoftwareTeam("r96");
         // Pod-aware setup mirrors restore-orchestrator.test.ts:1296-1362
         // pattern (pods row + node.podId + node_startup_context + snapshot).
-        db.prepare("INSERT INTO pods (id, rig_id, label) VALUES (?, ?, ?)")
-          .run("pod-codex-attention", rig.id, "Codex");
-        const node = rigRepo.addNode(rig.id, "dev.qa", {
+        db.prepare("INSERT INTO pods (id, software_team_id, label) VALUES (?, ?, ?)")
+          .run("pod-codex-attention", softwareTeam.id, "Codex");
+        const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.qa", {
           role: "worker", runtime: "codex", podId: "pod-codex-attention",
         });
         const session = sessionRegistry.registerSession(node.id, "dev-qa@r96");
@@ -545,7 +545,7 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
         db.prepare(
           "INSERT INTO node_startup_context (node_id, projection_entries_json, resolved_files_json, startup_actions_json, runtime) VALUES (?, ?, ?, ?, ?)"
         ).run(node.id, "[]", "[]", "[]", "codex");
-        const snap = snapshotCapture.captureSnapshot(rig.id, "manual");
+        const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
         // Reset to "exited" so restore actually attempts launch.
         sessionRegistry.updateStatus(session.id, "exited");
         db.prepare("DELETE FROM bindings WHERE node_id = ?").run(node.id);
@@ -575,7 +575,7 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
         };
 
         const orchestrator = new RestoreOrchestrator({
-          db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+          db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
           checkpointStore, nodeLauncher, tmuxAdapter: tmux,
           claudeResume: mockClaudeResumeReturning({ ok: true }),
           codexResume: mockCodexResumeReturning({ ok: true }),
@@ -594,8 +594,8 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
         expect(codexNode?.attentionEvidence).toContain("access token could not be refreshed");
         expect(codexNode?.attentionEvidence).toContain("Please sign in again");
 
-        // Rig-level rollup: single attention_required node → partially_restored.
-        expect(outcome.result.rigResult).toBe("partially_restored");
+        // SoftwareTeam-level rollup: single attention_required node → partially_restored.
+        expect(outcome.result.softwareTeamResult).toBe("partially_restored");
 
         // launchHarness called ONCE — fresh-fallback was NOT triggered for
         // attention_required (auth-refusal is operator-recoverable, not a
@@ -611,13 +611,13 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
   describe("Scenario 5: Partial boot", () => {
     function buildOrchestratorWithMixedNodes() {
       const db = createFullTestDb();
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const sessionRegistry = new SessionRegistry(db);
       const eventBus = new EventBus(db);
       const snapshotRepo = new SnapshotRepository(db);
       const checkpointStore = new CheckpointStore(db);
       const snapshotCapture = new SnapshotCapture({
-        db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore,
+        db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore,
       });
 
       // Mocked Claude returns attention_required for one node, success for
@@ -628,7 +628,7 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
         listPanes: vi.fn(async () => [{ id: "%1", index: 0, cwd: "/", width: 80, height: 24, active: true }]),
         getPanePid: vi.fn(async () => 1234),
       } as unknown as TmuxAdapter;
-      const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+      const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
       // Dispatch by sessionName so test doesn't depend on iteration order.
       const claudeStub = {
         canResume: vi.fn((type: string | null) => type === "claude_name" || type === "claude_id"),
@@ -652,7 +652,7 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
       } as unknown as CodexResumeAdapter;
 
       const orchestrator = new RestoreOrchestrator({
-        db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+        db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
         checkpointStore, nodeLauncher, tmuxAdapter: tmux,
         claudeResume: claudeStub, codexResume: codexStub,
         listProcesses: async () => [
@@ -661,11 +661,11 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
         ],
       });
 
-      const rig = rigRepo.createRig("r77");
-      const claudeOk = rigRepo.addNode(rig.id, "claude-ok", { role: "worker", runtime: "claude-code", cwd: "/tmp" });
-      const claudeAtt = rigRepo.addNode(rig.id, "claude-att", { role: "worker", runtime: "claude-code", cwd: "/tmp" });
-      const codexFail = rigRepo.addNode(rig.id, "codex-fail", { role: "worker", runtime: "codex", cwd: "/tmp" });
-      const snap = snapshotCapture.captureSnapshot(rig.id, "manual");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("r77");
+      const claudeOk = softwareTeamRepo.addNode(softwareTeam.id, "claude-ok", { role: "worker", runtime: "claude-code", cwd: "/tmp" });
+      const claudeAtt = softwareTeamRepo.addNode(softwareTeam.id, "claude-att", { role: "worker", runtime: "claude-code", cwd: "/tmp" });
+      const codexFail = softwareTeamRepo.addNode(softwareTeam.id, "codex-fail", { role: "worker", runtime: "codex", cwd: "/tmp" });
+      const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
       const fullSnap = snapshotRepo.getSnapshot(snap.id)!;
       const data = JSON.parse(JSON.stringify(fullSnap.data));
       data.sessions = [
@@ -692,17 +692,17 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
       db.prepare("UPDATE snapshots SET data = ? WHERE id = ?")
         .run(JSON.stringify(data), snap.id);
 
-      return { db, orchestrator, rig, snapshotId: snap.id, nodeIds: { claudeOk: claudeOk.id, claudeAtt: claudeAtt.id, codexFail: codexFail.id } };
+      return { db, orchestrator, softwareTeam, snapshotId: snap.id, nodeIds: { claudeOk: claudeOk.id, claudeAtt: claudeAtt.id, codexFail: codexFail.id } };
     }
 
-    it("mixed resumed + attention_required + failed → rigResult=partially_restored", async () => {
+    it("mixed resumed + attention_required + failed → softwareTeamResult=partially_restored", async () => {
       const ctx = buildOrchestratorWithMixedNodes();
 
       const outcome = await ctx.orchestrator.restore(ctx.snapshotId);
       expect(outcome.ok).toBe(true);
       if (!outcome.ok) throw new Error(`restore failed: ${outcome.code}`);
 
-      expect(outcome.result.rigResult).toBe("partially_restored");
+      expect(outcome.result.softwareTeamResult).toBe("partially_restored");
 
       // Per-node statuses preserved in the restore.completed payload.
       const map = Object.fromEntries(outcome.result.nodes.map((n) => [n.nodeId, n.status]));
@@ -716,36 +716,36 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
       const completedRow = ctx.db
         .prepare("SELECT payload FROM events WHERE type = 'restore.completed' ORDER BY seq DESC LIMIT 1")
         .get() as { payload: string };
-      const parsed = JSON.parse(completedRow.payload) as { result: { rigResult: string; nodes: Array<{ nodeId: string; status: string }> } };
-      expect(parsed.result.rigResult).toBe("partially_restored");
+      const parsed = JSON.parse(completedRow.payload) as { result: { softwareTeamResult: string; nodes: Array<{ nodeId: string; status: string }> } };
+      expect(parsed.result.softwareTeamResult).toBe("partially_restored");
       expect(parsed.result.nodes.find((n) => n.nodeId === ctx.nodeIds.claudeAtt)?.status).toBe("attention_required");
 
       ctx.db.close();
     });
 
-    it("all resume-failures stop-and-ask → rigResult=partially_restored (awaiting-decision is not failed)", async () => {
+    it("all resume-failures stop-and-ask → softwareTeamResult=partially_restored (awaiting-decision is not failed)", async () => {
       const db = createFullTestDb();
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const sessionRegistry = new SessionRegistry(db);
       const eventBus = new EventBus(db);
       const snapshotRepo = new SnapshotRepository(db);
       const checkpointStore = new CheckpointStore(db);
       const snapshotCapture = new SnapshotCapture({
-        db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore,
+        db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore,
       });
       const tmux = mockTmuxForRestore({ hasSession: false });
-      const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+      const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
       const orchestrator = new RestoreOrchestrator({
-        db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+        db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
         checkpointStore, nodeLauncher, tmuxAdapter: tmux,
         claudeResume: mockClaudeResumeReturning({ ok: false, code: "resume_failed", message: "boom" }),
         codexResume: mockCodexResumeReturning({ ok: true }),
       });
 
-      const rig = rigRepo.createRig("r66");
-      const a = rigRepo.addNode(rig.id, "a", { role: "worker", runtime: "claude-code", cwd: "/tmp" });
-      const b = rigRepo.addNode(rig.id, "b", { role: "worker", runtime: "claude-code", cwd: "/tmp" });
-      const snap = snapshotCapture.captureSnapshot(rig.id, "manual");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("r66");
+      const a = softwareTeamRepo.addNode(softwareTeam.id, "a", { role: "worker", runtime: "claude-code", cwd: "/tmp" });
+      const b = softwareTeamRepo.addNode(softwareTeam.id, "b", { role: "worker", runtime: "claude-code", cwd: "/tmp" });
+      const snap = snapshotCapture.captureSnapshot(softwareTeam.id, "manual");
       const fullSnap = snapshotRepo.getSnapshot(snap.id)!;
       const data = JSON.parse(JSON.stringify(fullSnap.data));
       data.sessions = [
@@ -766,10 +766,10 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
       expect(outcome.ok).toBe(true);
       if (!outcome.ok) throw new Error(`restore failed: ${outcome.code}`);
       // OPR.0.3.4.2: concluded resume failures are awaiting-decision (zero
-      // session, operator must choose) - not failed - so the rig rolls up
+      // session, operator must choose) - not failed - so the softwareTeam rolls up
       // partially_restored. Genuine all-harness-failure rollup stays covered
       // by the launch-failure tests.
-      expect(outcome.result.rigResult).toBe("partially_restored");
+      expect(outcome.result.softwareTeamResult).toBe("partially_restored");
 
       db.close();
     });
@@ -786,13 +786,13 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
       hasSession?: boolean;
     }) {
       const db = createFullTestDb();
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const sessionRegistry = new SessionRegistry(db);
       const eventBus = new EventBus(db);
       const snapshotRepo = new SnapshotRepository(db);
       const checkpointStore = new CheckpointStore(db);
       const snapshotCapture = new SnapshotCapture({
-        db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore,
+        db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore,
       });
       const tmux = mockTmuxForRestore({
         hasSession: opts.hasSession ?? true,
@@ -801,9 +801,9 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
       });
       tmux.listPanes = vi.fn(async () => [{ id: "%1", index: 0, cwd: "/", width: 80, height: 24, active: true }]);
       tmux.getPanePid = vi.fn(async () => 1234);
-      const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+      const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
       const orchestrator = new RestoreOrchestrator({
-        db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+        db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
         checkpointStore, nodeLauncher, tmuxAdapter: tmux,
         claudeResume: mockClaudeResumeReturning({ ok: true }),
         codexResume: mockCodexResumeReturning({ ok: true }),
@@ -824,10 +824,10 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
         ],
       });
 
-      const rig = rigRepo.createRig(`r${Math.floor(Math.random() * 90) + 10}`);
-      const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: opts.runtime });
-      sessionRegistry.updateBinding(node.id, { tmuxSession: `${rig.name}-worker` });
-      const sess = sessionRegistry.registerSession(node.id, `${rig.name}-worker`);
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam(`r${Math.floor(Math.random() * 90) + 10}`);
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: opts.runtime });
+      sessionRegistry.updateBinding(node.id, { tmuxSession: `${softwareTeam.name}-worker` });
+      const sess = sessionRegistry.registerSession(node.id, `${softwareTeam.name}-worker`);
       if (opts.withResumeToken ?? true) {
         db.prepare("UPDATE sessions SET resume_type = ?, resume_token = ? WHERE id = ?").run(
           opts.runtime === "codex" ? "codex_id" : "claude_id",
@@ -835,21 +835,21 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
           sess.id,
         );
       }
-      eventBus.emit({ type: "restore.started", rigId: rig.id, snapshotId: "snap-recon" });
+      eventBus.emit({ type: "restore.started", softwareTeamId: softwareTeam.id, snapshotId: "snap-recon" });
       eventBus.emit({
         type: "restore.completed",
-        rigId: rig.id,
+        softwareTeamId: softwareTeam.id,
         snapshotId: "snap-recon",
         result: {
           snapshotId: "snap-recon",
           preRestoreSnapshotId: null,
-          rigResult: "partially_restored",
+          softwareTeamResult: "partially_restored",
           nodes: [{ nodeId: node.id, logicalId: "worker", status: opts.restoreOutcome }],
           warnings: [],
         },
       });
 
-      return { db, orchestrator, rig, nodeId: node.id };
+      return { db, orchestrator, softwareTeam, nodeId: node.id };
     }
 
     it("upgrades failed → operator_recovered when ALL four preconditions hold; emits restore.outcome_reconciled", async () => {
@@ -858,7 +858,7 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
         restoreOutcome: "failed",
         paneContent: "Claude Code v2.1.89\n ❯ accept edits on",
       });
-      const result = await ctx.orchestrator.reconcileNodeRuntimeTruth(ctx.rig.id, ctx.nodeId);
+      const result = await ctx.orchestrator.reconcileNodeRuntimeTruth(ctx.softwareTeam.id, ctx.nodeId);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.from).toBe("failed");
@@ -869,14 +869,14 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
       }
 
       const reconciled = ctx.db
-        .prepare("SELECT type FROM events WHERE rig_id = ? AND type = 'restore.outcome_reconciled'")
-        .all(ctx.rig.id);
+        .prepare("SELECT type FROM events WHERE software_team_id = ? AND type = 'restore.outcome_reconciled'")
+        .all(ctx.softwareTeam.id);
       expect(reconciled).toHaveLength(1);
 
       // Original failure event NOT mutated/deleted (load-bearing invariant).
       const completed = ctx.db
-        .prepare("SELECT payload FROM events WHERE rig_id = ? AND type = 'restore.completed'")
-        .all(ctx.rig.id) as { payload: string }[];
+        .prepare("SELECT payload FROM events WHERE software_team_id = ? AND type = 'restore.completed'")
+        .all(ctx.softwareTeam.id) as { payload: string }[];
       expect(completed).toHaveLength(1);
       const parsed = JSON.parse(completed[0]!.payload) as { result: { nodes: Array<{ status: string }> } };
       expect(parsed.result.nodes[0]!.status).toBe("failed");
@@ -893,7 +893,7 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
         paneCommand: "codex",
         paneContent: "OpenAI Codex (v0.42.0)\n  ›  ready\n  gpt-5 · context",
       });
-      const result = await ctx.orchestrator.reconcileNodeRuntimeTruth(ctx.rig.id, ctx.nodeId);
+      const result = await ctx.orchestrator.reconcileNodeRuntimeTruth(ctx.softwareTeam.id, ctx.nodeId);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.evidence.fgProcess).toBe("codex");
@@ -908,7 +908,7 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
         restoreOutcome: "failed",
         paneContent: "Claude Code v2.1.89\n ❯ accept edits on",
       });
-      const result = await ctx.orchestrator.reconcileNodeRuntimeTruth(ctx.rig.id, ctx.nodeId);
+      const result = await ctx.orchestrator.reconcileNodeRuntimeTruth(ctx.softwareTeam.id, ctx.nodeId);
       if (result.ok) {
         expect(result.to).toBe("operator_recovered");
         expect((result.to as string)).not.toBe("ready");
@@ -928,7 +928,7 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
       const ctx = setupForReconcile({
         runtime: "claude-code", restoreOutcome: "failed", hasSession: false,
       });
-      const result = await ctx.orchestrator.reconcileNodeRuntimeTruth(ctx.rig.id, ctx.nodeId);
+      const result = await ctx.orchestrator.reconcileNodeRuntimeTruth(ctx.softwareTeam.id, ctx.nodeId);
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.code).toBe("tmux_session_missing");
       ctx.db.close();
@@ -940,7 +940,7 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
         paneCommand: "zsh", paneContent: "$ ", withNativeChild: false,
       });
       const original = ctx.db.prepare("SELECT payload FROM events WHERE type = 'restore.completed'").all();
-      const result = await ctx.orchestrator.reconcileNodeRuntimeTruth(ctx.rig.id, ctx.nodeId);
+      const result = await ctx.orchestrator.reconcileNodeRuntimeTruth(ctx.softwareTeam.id, ctx.nodeId);
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.code).toBe("process_lineage_mismatch");
       expect(ctx.db.prepare("SELECT verdict FROM seat_identity_verdicts WHERE node_id = ?").get(ctx.nodeId)).toEqual({ verdict: "mismatch" });
@@ -955,7 +955,7 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
         paneCommand: "zsh", paneContent: "$ ",
       });
       const original = ctx.db.prepare("SELECT payload FROM events WHERE type = 'restore.completed'").all();
-      const result = await ctx.orchestrator.reconcileNodeRuntimeTruth(ctx.rig.id, ctx.nodeId);
+      const result = await ctx.orchestrator.reconcileNodeRuntimeTruth(ctx.softwareTeam.id, ctx.nodeId);
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.code).toBe("pane_not_usable");
@@ -975,7 +975,7 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
         withResumeToken: false,
         paneContent: "Claude Code v2.1.89\n ❯ accept edits on",
       });
-      const result = await ctx.orchestrator.reconcileNodeRuntimeTruth(ctx.rig.id, ctx.nodeId);
+      const result = await ctx.orchestrator.reconcileNodeRuntimeTruth(ctx.softwareTeam.id, ctx.nodeId);
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.code).toBe("resume_token_not_used");
       ctx.db.close();
@@ -986,7 +986,7 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
         runtime: "claude-code", restoreOutcome: "attention_required",
         paneContent: "Choose a conversation to resume:\n  1. project-foo\n  2. project-bar",
       });
-      const result = await ctx.orchestrator.reconcileNodeRuntimeTruth(ctx.rig.id, ctx.nodeId);
+      const result = await ctx.orchestrator.reconcileNodeRuntimeTruth(ctx.softwareTeam.id, ctx.nodeId);
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.code).toBe("pane_not_usable");
       ctx.db.close();
@@ -994,70 +994,70 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
 
     it("refuses upgrade with code=outcome_not_upgradable for an already-resumed outcome", async () => {
       const db = createFullTestDb();
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const sessionRegistry = new SessionRegistry(db);
       const eventBus = new EventBus(db);
       const snapshotRepo = new SnapshotRepository(db);
       const checkpointStore = new CheckpointStore(db);
       const snapshotCapture = new SnapshotCapture({
-        db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore,
+        db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore,
       });
       const tmux = mockTmuxForRestore();
-      const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+      const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
       const orchestrator = new RestoreOrchestrator({
-        db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+        db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
         checkpointStore, nodeLauncher, tmuxAdapter: tmux,
         claudeResume: mockClaudeResumeReturning({ ok: true }),
         codexResume: mockCodexResumeReturning({ ok: true }),
       });
 
-      const rig = rigRepo.createRig("r55");
-      const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("r55");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
       sessionRegistry.updateBinding(node.id, { tmuxSession: "r55-worker" });
-      eventBus.emit({ type: "restore.started", rigId: rig.id, snapshotId: "snap-x" });
+      eventBus.emit({ type: "restore.started", softwareTeamId: softwareTeam.id, snapshotId: "snap-x" });
       eventBus.emit({
         type: "restore.completed",
-        rigId: rig.id,
+        softwareTeamId: softwareTeam.id,
         snapshotId: "snap-x",
         result: {
           snapshotId: "snap-x",
           preRestoreSnapshotId: null,
-          rigResult: "fully_restored",
+          softwareTeamResult: "fully_restored",
           nodes: [{ nodeId: node.id, logicalId: "worker", status: "resumed" }],
           warnings: [],
         },
       });
 
-      const result = await orchestrator.reconcileNodeRuntimeTruth(rig.id, node.id);
+      const result = await orchestrator.reconcileNodeRuntimeTruth(softwareTeam.id, node.id);
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.code).toBe("outcome_not_upgradable");
 
       db.close();
     });
 
-    it("refuses upgrade with code=no_attempt when no restore.started exists for the rig", async () => {
+    it("refuses upgrade with code=no_attempt when no restore.started exists for the softwareTeam", async () => {
       const db = createFullTestDb();
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const sessionRegistry = new SessionRegistry(db);
       const eventBus = new EventBus(db);
       const snapshotRepo = new SnapshotRepository(db);
       const checkpointStore = new CheckpointStore(db);
       const snapshotCapture = new SnapshotCapture({
-        db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore,
+        db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore,
       });
       const tmux = mockTmuxForRestore();
-      const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+      const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
       const orchestrator = new RestoreOrchestrator({
-        db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+        db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
         checkpointStore, nodeLauncher, tmuxAdapter: tmux,
         claudeResume: mockClaudeResumeReturning({ ok: true }),
         codexResume: mockCodexResumeReturning({ ok: true }),
       });
 
-      const rig = rigRepo.createRig("r44");
-      const node = rigRepo.addNode(rig.id, "worker", { role: "worker", runtime: "claude-code" });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("r44");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "worker", { role: "worker", runtime: "claude-code" });
 
-      const result = await orchestrator.reconcileNodeRuntimeTruth(rig.id, node.id);
+      const result = await orchestrator.reconcileNodeRuntimeTruth(softwareTeam.id, node.id);
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.code).toBe("no_attempt");
 
@@ -1079,9 +1079,9 @@ describe("Lifecycle reboot/recovery scenario matrix (Tier 1)", () => {
 // liveness. Outcome-level (fix-agnostic); no invented production seam.
 // ===================================================================
 describe("Slice-05 items 5+6 — real send/capture vs ps running (cross-contract regression)", () => {
-  function seedSeat(db: Database.Database, rigId: string, node: string, sessionName: string, pane: string): void {
-    db.prepare("INSERT OR IGNORE INTO rigs (id, name) VALUES (?, ?)").run(rigId, rigId);
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id, runtime, cwd) VALUES (?, ?, ?, 'claude-code', '/tmp')").run(node, rigId, `pod.${node}`);
+  function seedSeat(db: Database.Database, softwareTeamId: string, node: string, sessionName: string, pane: string): void {
+    db.prepare("INSERT OR IGNORE INTO software_teams (id, name) VALUES (?, ?)").run(softwareTeamId, softwareTeamId);
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, runtime, cwd) VALUES (?, ?, ?, 'claude-code', '/tmp')").run(node, softwareTeamId, `pod.${node}`);
     db.prepare(
       "INSERT INTO sessions (id, node_id, session_name, status, startup_status, created_at) VALUES (?, ?, ?, 'running', 'ready', '2026-07-02 12:00:00')",
     ).run(`sess-${node}`, node, sessionName);
@@ -1107,24 +1107,24 @@ describe("Slice-05 items 5+6 — real send/capture vs ps running (cross-contract
     } as unknown as TmuxAdapter;
   }
   function transportFor(db: Database.Database, tmux: TmuxAdapter): SessionTransport {
-    return new SessionTransport({ db, rigRepo: new RigRepository(db), sessionRegistry: new SessionRegistry(db), tmuxAdapter: tmux });
+    return new SessionTransport({ db, softwareTeamRepo: new SoftwareTeamRepository(db), sessionRegistry: new SessionRegistry(db), tmuxAdapter: tmux });
   }
 
   it("RED (another session remains): send+capture session_missing must not coexist with ps running", async () => {
     const db = createFullTestDb();
     try {
-      seedSeat(db, "rig-1", "n1", "s1@rig", "%1"); // dead seat
-      seedSeat(db, "rig-1", "n2", "s2@rig", "%2"); // another live seat remains
-      const transport = transportFor(db, tmuxWithLive(new Set(["s2@rig"]))); // s1 gone, s2 live
-      const send = await transport.send("s1@rig", "hi");
-      const cap = await transport.capture("s1@rig");
+      seedSeat(db, "software-team-1", "n1", "s1@software-team", "%1"); // dead seat
+      seedSeat(db, "software-team-1", "n2", "s2@software-team", "%2"); // another live seat remains
+      const transport = transportFor(db, tmuxWithLive(new Set(["s2@software-team"]))); // s1 gone, s2 live
+      const send = await transport.send("s1@software-team", "hi");
+      const cap = await transport.capture("s1@software-team");
       expect(send.ok).toBe(false);
       expect(send.reason).toBe("session_missing");
       expect(cap.ok).toBe(false);
       expect(cap.reason).toBe("session_missing");
       // INVARIANT: ps must not report running the seat send+capture just declared missing.
-      const rig = new PsProjectionService({ db }).getEntries()[0]!;
-      expect(rig.runningCount).toBe(1); // <-- RED: currently 2 (s1 fabricated running)
+      const softwareTeam = new PsProjectionService({ db }).getEntries()[0]!;
+      expect(softwareTeam.runningCount).toBe(1); // <-- RED: currently 2 (s1 fabricated running)
     } finally {
       db.close();
     }
@@ -1133,10 +1133,10 @@ describe("Slice-05 items 5+6 — real send/capture vs ps running (cross-contract
   it("RED (LOAD-BEARING last/only session): send+capture session_missing must not coexist with ps running", async () => {
     const db = createFullTestDb();
     try {
-      seedSeat(db, "rig-1", "n1", "s1@rig", "%1"); // the ONLY seat
+      seedSeat(db, "software-team-1", "n1", "s1@software-team", "%1"); // the ONLY seat
       const transport = transportFor(db, tmuxWithLive(new Set())); // no live sessions (empty census)
-      const send = await transport.send("s1@rig", "hi");
-      const cap = await transport.capture("s1@rig");
+      const send = await transport.send("s1@software-team", "hi");
+      const cap = await transport.capture("s1@software-team");
       expect(send.ok).toBe(false);
       expect(send.reason).toBe("session_missing");
       expect(cap.ok).toBe(false);

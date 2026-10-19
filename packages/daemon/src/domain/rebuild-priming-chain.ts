@@ -21,17 +21,17 @@ import { parseSessionName } from "./session-name.js";
  */
 export function buildRebuildPrimingChain(
   seatRef: string,
-  opts: { topologyRoot: string; openrigHome: string },
+  opts: { topologyRoot: string; softwareteamHome: string },
 ): { artifacts: Array<{ address: string; label: string }> } | { emptyReason: string } {
   const parsed = parseSessionName(seatRef);
   if (parsed.kind !== "canonical") {
-    return { emptyReason: `seat ref '${seatRef}' did not parse as canonical <seat>@<rig> — no durable chain resolved, never guessed` };
+    return { emptyReason: `seat ref '${seatRef}' did not parse as canonical <seat>@<softwareTeam> — no durable chain resolved, never guessed` };
   }
-  const seatDir = join(opts.topologyRoot, "rigs", parsed.rig, "seats", parsed.member);
+  const seatDir = join(opts.topologyRoot, "software-teams", parsed.softwareTeam, "seats", parsed.member);
   const artifacts = [
     { address: join(seatDir, RECAP_FILENAME), label: "authored seat recap (highest trust)" },
     { address: join(seatDir, "LEARNED.md"), label: "seat lineage lessons" },
-    ...restorePacketLeg(seatRef, opts.openrigHome),
+    ...restorePacketLeg(seatRef, opts.softwareteamHome),
     ...listRecapChain(seatDir).reverse().map((entry, index) => ({
       address: entry.path,
       label: `superseded recap (${index + 1} generation${index === 0 ? "" : "s"} back)`,
@@ -42,7 +42,7 @@ export function buildRebuildPrimingChain(
 
 /**
  * The latest restore packet, read from the compaction seam's seat-keyed
- * restore-pending marker (`$OPENRIG_HOME/compaction/restore-pending/
+ * restore-pending marker (`$SOFTWARETEAM_HOME/compaction/restore-pending/
  * <sanitized-session>.json`, written by the shipped precompact hook). The
  * marker's `outputDir` IS the packet address recorded by the production
  * writer — nothing here invents a format or guesses a path.
@@ -53,10 +53,10 @@ export function buildRebuildPrimingChain(
  *   declared with an honest invalid label — named, never fabricated;
  * - no marker → no packet leg (the rest of the chain stands alone).
  */
-function restorePacketLeg(seatRef: string, openrigHome: string): Array<{ address: string; label: string }> {
+function restorePacketLeg(seatRef: string, softwareteamHome: string): Array<{ address: string; label: string }> {
   // Same sanitization the precompact hook applies when writing the marker key.
   const key = seatRef.replace(/[^a-zA-Z0-9_.@-]/g, "_");
-  const markerPath = join(openrigHome, "compaction", "restore-pending", `${key}.json`);
+  const markerPath = join(softwareteamHome, "compaction", "restore-pending", `${key}.json`);
   if (!existsSync(markerPath)) return [];
   let marker: { outputDir?: unknown; createdAt?: unknown };
   try {

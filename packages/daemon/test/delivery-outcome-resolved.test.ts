@@ -36,7 +36,7 @@ describe("delivery outcome: a resolved notice on a closed row opens no delivery 
   const age = () => db.prepare("UPDATE queue_transitions SET ts = datetime('now', '-1 hour')").run();
   const latestKey = (id: string) => `${id}:${repo.transitionLog.latestOwnerNotificationForQitem(id)!.transitionId}`;
   async function askHuman() {
-    const item = await repo.create({ sourceSession: "lead@rig", destinationSession: "human-founder@external", body: "decide?",
+    const item = await repo.create({ sourceSession: "lead@software-team", destinationSession: "human-founder@external", body: "decide?",
       summary: "decision", priority: "routine" as never, humanIntent: "decision" as never } as never);
     const id = (item as unknown as { qitemId: string }).qitemId;
     expect(repo.transitionLog.latestOwnerNotificationForQitem(id)?.ownerNotificationKind).toBe("human-required");
@@ -83,7 +83,7 @@ describe("delivery outcome: a resolved notice on a closed row opens no delivery 
       const resolvedKey = latestKey(id);
       repo.update({ qitemId: id, actorSession: "daemon@kernel",
         transitionNote: `slack-owner-notification-${receipt} notification_key=${resolvedKey} level=NOTICE${receipt === "posted" ? " message_ts=1.3" : " detail=http-500"}` });
-      repo.update({ qitemId: id, actorSession: "lead@rig", state: "done", closureReason: "no-follow-on", transitionNote: "agent closed" } as never);
+      repo.update({ qitemId: id, actorSession: "lead@software-team", state: "done", closureReason: "no-follow-on", transitionNote: "agent closed" } as never);
       age();
       expect(latestKey(id), "the resolved notice is still the latest owner notification").toBe(resolvedKey);
       expect(repo.deliveryOutcomeFor(id)?.outcome, receipt).toBe(receipt);
@@ -91,10 +91,10 @@ describe("delivery outcome: a resolved notice on a closed row opens no delivery 
   });
 
   it("an agent's row parked on the human: ALERT posted, then the human's reply closes it -> posted, to that human", async () => {
-    const item = await repo.create({ sourceSession: "lead@rig", destinationSession: "dev@rig", body: "build it",
+    const item = await repo.create({ sourceSession: "lead@software-team", destinationSession: "dev@software-team", body: "build it",
       summary: "work", priority: "routine" as never } as never);
     const id = (item as unknown as { qitemId: string }).qitemId;
-    repo.update({ qitemId: id, actorSession: "dev@rig", state: "blocked", blockedOn: "human-founder@external",
+    repo.update({ qitemId: id, actorSession: "dev@software-team", state: "blocked", blockedOn: "human-founder@external",
       transitionNote: "needs the owner" } as never);
     expect(repo.transitionLog.latestOwnerNotificationForQitem(id)?.ownerNotificationKind).toBe("human-required");
     posted(id, latestKey(id));

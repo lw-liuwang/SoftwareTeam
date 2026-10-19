@@ -16,7 +16,7 @@ import { issueStartupChallenge, STARTUP_PROOF_INSTRUCTION_LINE } from "./startup
 import { resolveStartupProof } from "./startup-resolver.js";
 import { AppliedLaunchObservationStore } from "./applied-launch-observation-store.js";
 import { NativePermissionStore } from "./native-permission-store.js";
-import { RigRepository } from "./rig-repository.js";
+import { SoftwareTeamRepository } from "./software-team-repository.js";
 import { SessionTransport, inspectStartupStagedText } from "./session-transport.js";
 import { startupOwnCollapsedPaste, startupSubmissionEvidence, type StartupSubmissionDiagnostic } from "./startup-submission-evidence.js";
 import type { AppliedLaunchObservation } from "./permission-drift.js";
@@ -128,7 +128,7 @@ export function isRecoverableStartupFailure(db: Database.Database, nodeId: strin
 // -- Types --
 
 export interface StartupInput {
-  rigId: string;
+  softwareTeamId: string;
   nodeId: string;
   sessionId: string;
   binding: NodeBinding;
@@ -250,7 +250,7 @@ export class StartupOrchestrator {
     this.appliedLaunchStore = new AppliedLaunchObservationStore(deps.db);
     this.sessionTransport = new SessionTransport({
       db: deps.db,
-      rigRepo: new RigRepository(deps.db),
+      softwareTeamRepo: new SoftwareTeamRepository(deps.db),
       sessionRegistry: deps.sessionRegistry,
       tmuxAdapter: deps.tmuxAdapter,
       eventBus: deps.eventBus,
@@ -292,12 +292,12 @@ export class StartupOrchestrator {
       return this.fail(input, "failed", [`Permission selection: ${(error as Error).message}`], undefined, false, undefined, false, "permission_selection", true);
     }
     // #25: launch, restore replay, relaunch, continue and added members deliver
-    // guidance through here, so the rig's managed-block destination is bound once
+    // guidance through here, so the softwareTeam's managed-block destination is bound once
     // for the adapter. Handover does not come here: the successor launches directly
     // and reads the file already written in its cwd.
-    const rigRepo = new RigRepository(this.db);
-    input = { ...input, binding: { ...input.binding, nonInterruptive: rigRepo.getRigNonInterruptive(input.rigId) } };
-    const claudeManagedBlockFile = rigRepo.getRigClaudeManagedBlockFile(input.rigId);
+    const softwareTeamRepo = new SoftwareTeamRepository(this.db);
+    input = { ...input, binding: { ...input.binding, nonInterruptive: softwareTeamRepo.getSoftwareTeamNonInterruptive(input.softwareTeamId) } };
+    const claudeManagedBlockFile = softwareTeamRepo.getSoftwareTeamClaudeManagedBlockFile(input.softwareTeamId);
     if (claudeManagedBlockFile) input = { ...input, binding: { ...input.binding, claudeManagedBlockFile } };
     const deliveryInput: StartupDeliveryInput = { ...input, warnings, submissionWarnings: [], startupAttemptId: randomUUID(), sendOrder: 0, submissionDiagnostics: [] };
     const errors: string[] = [];
@@ -320,7 +320,7 @@ export class StartupOrchestrator {
     } catch (err) {
       return this.fail(input, "failed", [`Startup proof selection: ${(err as Error).message}`], undefined, false, undefined, false, "proof_selection", true);
     }
-    this.eventBus.emit({ type: "node.startup_pending", rigId: input.rigId, nodeId: input.nodeId, startupProof });
+    this.eventBus.emit({ type: "node.startup_pending", softwareTeamId: input.softwareTeamId, nodeId: input.nodeId, startupProof });
 
     // 2. Project resources. A contained Claude resume has an intentionally empty
     // replay plan, not a newly selected profile with activity hooks removed.
@@ -499,7 +499,7 @@ export class StartupOrchestrator {
       && input.adapter.runtime !== "terminal" && startupProof.mode === "authenticated";
     if (isFreshLaunch && !shouldChallenge) {
       this.eventBus.emit({
-        type: "node.startup_proof_skipped", rigId: input.rigId, nodeId: input.nodeId,
+        type: "node.startup_proof_skipped", softwareTeamId: input.softwareTeamId, nodeId: input.nodeId,
         reason: input.adapter.runtime === "terminal" ? "terminal" : "not_selected",
       });
     }
@@ -548,7 +548,7 @@ export class StartupOrchestrator {
     const identityAction = this.extractSessionIdentityAction(input.startupActions, context);
     const challenge = shouldChallenge
       ? issueStartupChallenge(this.eventBus, {
-          rigId: input.rigId,
+          softwareTeamId: input.softwareTeamId,
           nodeId: input.nodeId,
           contractSource: JSON.stringify(input.resolvedStartupFiles),
         })
@@ -697,7 +697,7 @@ export class StartupOrchestrator {
           ...(deliveryInput.submissionDiagnostics.length ? { diagnostics: deliveryInput.submissionDiagnostics } : {}),
           ...(deliveryInput.stagedSubmissionWarning ? { warning: deliveryInput.stagedSubmissionWarning } : {}) }
       : undefined;
-    this.eventBus.emit({ type: "node.startup_ready", rigId: input.rigId, nodeId: input.nodeId, ...(submission ? { submission } : {}) });
+    this.eventBus.emit({ type: "node.startup_ready", softwareTeamId: input.softwareTeamId, nodeId: input.nodeId, ...(submission ? { submission } : {}) });
 
     return { ok: true, startupStatus: "ready", continuityOutcome, ...(submission ? { submission } : {}) };
   }
@@ -756,12 +756,12 @@ export class StartupOrchestrator {
     hasPendingWork?: boolean,
   ): StartupResult {
     if (status === "attention_required" && freshContextPending && input.binding.tmuxSession) {
-      errors.push(`After resolving it in ${input.binding.tmuxSession}, run: rig seat continue ${shellQuote(input.binding.tmuxSession)}`);
+      errors.push(`After resolving it in ${input.binding.tmuxSession}, run: SoftwareTeam seat continue ${shellQuote(input.binding.tmuxSession)}`);
     }
     this.sessionRegistry.updateStartupStatus(input.sessionId, status);
     this.eventBus.emit({
       type: "node.startup_failed",
-      rigId: input.rigId,
+      softwareTeamId: input.softwareTeamId,
       nodeId: input.nodeId,
       error: errors.join("; "),
       sessionId: input.sessionId,
@@ -854,7 +854,7 @@ export class StartupOrchestrator {
       }
     }
 
-    if (includeDurableObligations) prompt += `\n\nThis is a fresh conversation. Before choosing work, derive your identity with rig whoami --json and read durable obligations with rig queue list --destination ${binding.tmuxSession} --state pending,in-progress,blocked --limit 10000 --full --json. Report truncation at the limit; a destination row is not permission to claim unrelated work.`;
+    if (includeDurableObligations) prompt += `\n\nThis is a fresh conversation. Before choosing work, derive your identity with SoftwareTeam whoami --json and read durable obligations with SoftwareTeam queue list --destination ${binding.tmuxSession} --state pending,in-progress,blocked --limit 10000 --full --json. Report truncation at the limit; a destination row is not permission to claim unrelated work.`;
 
     // OPR.0.4.3.06 — the per-launch orientation challenge rides along with the
     // identity prompt (after the contract) so no extra send is added.
@@ -1053,5 +1053,5 @@ export class StartupOrchestrator {
 
 function isSessionIdentityAction(action: StartupAction): boolean {
   if (action.builtin === "session_identity") return true;
-  return action.type === "send_text" && action.value.startsWith("OpenRig session identity:");
+  return action.type === "send_text" && action.value.startsWith("SoftwareTeam session identity:");
 }

@@ -5,7 +5,7 @@ import { RunnerCore } from "../src/adapters/pi-runner.js";
 import { AgentActivityStore } from "../src/domain/agent-activity-store.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import type { EventBus } from "../src/domain/event-bus.js";
-import type { RigEvent } from "../src/domain/types.js";
+import type { SoftwareTeamEvent } from "../src/domain/types.js";
 import { activityRoutes } from "../src/routes/activity.js";
 
 // F1: real runner -> route -> registry with only in-memory persistence and
@@ -19,22 +19,22 @@ function fixture() {
   const db = new Database(":memory:");
   databases.push(db);
   db.exec(`
-    CREATE TABLE nodes (id TEXT, rig_id TEXT, runtime TEXT);
+    CREATE TABLE nodes (id TEXT, software_team_id TEXT, runtime TEXT);
     CREATE TABLE sessions (id INTEGER, node_id TEXT, session_name TEXT, resume_type TEXT,
       resume_token TEXT, resume_provenance TEXT, resume_last_verified TEXT, resume_last_probe_status TEXT,
       resume_rotated_from TEXT, resume_rotated_process TEXT, resume_launch_token TEXT);
     CREATE TABLE events (seq INTEGER PRIMARY KEY, node_id TEXT, type TEXT, payload TEXT);
     CREATE TABLE occupant_tenures (id TEXT, node_id TEXT, generation_ordinal INTEGER,
       generation_uuid TEXT, kind TEXT, native_session_id_at_boot TEXT, boot_at TEXT);
-    INSERT INTO nodes VALUES ('pi-node', 'rig', 'pi'), ('other-node', 'rig', 'pi');
+    INSERT INTO nodes VALUES ('pi-node', 'softwareTeam', 'pi'), ('other-node', 'softwareTeam', 'pi');
     INSERT INTO sessions(id, node_id, session_name) VALUES (1, 'pi-node', 'worker@pi-test');
     INSERT INTO occupant_tenures VALUES
       ('old', 'pi-node', 1, 'pi-prior', 'initial', NULL, '2026-09-27'),
       ('current', 'pi-node', 2, 'pi-current', 'fresh', NULL, '2026-09-27'),
       ('foreign', 'other-node', 1, 'other-current', 'initial', NULL, '2026-09-27');
   `);
-  const events: RigEvent[] = [];
-  const eventBus = { emit(event: RigEvent) { events.push(event); return event; } } as EventBus;
+  const events: SoftwareTeamEvent[] = [];
+  const eventBus = { emit(event: SoftwareTeamEvent) { events.push(event); return event; } } as EventBus;
   const registry = new SessionRegistry(db);
   const store = new AgentActivityStore({ db, eventBus });
   const app = new Hono();

@@ -14,11 +14,11 @@ afterEach(async () => { await close?.(); close = undefined; vi.restoreAllMocks()
 
 async function fixture() {
   const db = createFullTestDb();
-  db.prepare("INSERT INTO rigs (id, name) VALUES ('r', 'fixture')").run();
-  db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES ('n', 'r', 'builder')").run();
+  db.prepare("INSERT INTO software_teams (id, name) VALUES ('r', 'fixture')").run();
+  db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES ('n', 'r', 'builder')").run();
   db.prepare("INSERT INTO sessions (id, node_id, session_name, status) VALUES ('s', 'n', 'fixture-builder', 'running')").run();
-  db.prepare("INSERT INTO rigs (id, name, archived_at) VALUES ('archived', 'archived-fixture', datetime('now'))").run();
-  db.prepare("INSERT INTO nodes (id, rig_id, logical_id) VALUES ('archived-n', 'archived', 'builder')").run();
+  db.prepare("INSERT INTO software_teams (id, name, archived_at) VALUES ('archived', 'archived-fixture', datetime('now'))").run();
+  db.prepare("INSERT INTO nodes (id, software_team_id, logical_id) VALUES ('archived-n', 'archived', 'builder')").run();
   db.prepare("INSERT INTO sessions (id, node_id, session_name, status) VALUES ('archived-s', 'archived-n', 'archived-builder', 'running')").run();
   const app = new Hono();
   app.use("*", async (c, next) => { c.set("psProjectionService" as never, new PsProjectionService({ db }) as never); await next(); });
@@ -54,10 +54,10 @@ it("serves running-seat/load measurements without changing the ordinary bare-arr
 it("renders both native HTTP JSON and explicit human resource semantics", async () => {
   const { command } = await fixture();
   const log = vi.spyOn(console, "log").mockImplementation(() => {});
-  await command.parseAsync(["node", "rig", "ps", "--resources", "--json"]);
+  await command.parseAsync(["node", "SoftwareTeam", "ps", "--resources", "--json"]);
   expect(JSON.parse(String(log.mock.calls[0]![0]))).toMatchObject({ runningSeats: 2 });
   log.mockClear();
-  await command.parseAsync(["node", "rig", "ps", "--resources"]);
+  await command.parseAsync(["node", "SoftwareTeam", "ps", "--resources"]);
   expect(log.mock.calls.flat().join("\n")).toContain(process.platform === "win32" ? "unavailable on this platform" : "not CPU utilization");
   expect(log.mock.calls.flat().join("\n")).toContain("not daemon CPU time");
   expect(log.mock.calls.flat().join("\n")).toContain("unavailable ms idle ceiling");
@@ -65,7 +65,7 @@ it("renders both native HTTP JSON and explicit human resource semantics", async 
 });
 
 async function remoteFixture(status: 200 | 401 | 403 | 404 | 429 | 500) {
-  vi.stubEnv("OPENRIG_RESOURCE_TEST_BEARER", "public-fixture-token");
+  vi.stubEnv("SOFTWARETEAM_RESOURCE_TEST_BEARER", "public-fixture-token");
   let authorization: string | undefined;
   const app = new Hono();
   app.get("/api/ps/resources", (c) => {
@@ -82,7 +82,7 @@ async function remoteFixture(status: 200 | 401 | 403 | 404 | 429 | 500) {
   const command = new Command().addCommand(psCommand({
     clientFactory: (url) => new DaemonClient(url),
     lifecycleDeps: { exists: () => false, readFile: () => null } as never,
-    hostRegistryLoader: () => ({ ok: true, registry: { hosts: [{ id: "fixture-host", transport: "http", url: `http://127.0.0.1:${port}`, bearer_env: "OPENRIG_RESOURCE_TEST_BEARER" }] } }),
+    hostRegistryLoader: () => ({ ok: true, registry: { hosts: [{ id: "fixture-host", transport: "http", url: `http://127.0.0.1:${port}`, bearer_env: "SOFTWARETEAM_RESOURCE_TEST_BEARER" }] } }),
   }));
   return { command, authorization: () => authorization };
 }
@@ -90,7 +90,7 @@ async function remoteFixture(status: 200 | 401 | 403 | 404 | 429 | 500) {
 it("names the registered remote host in successful human resource output", async () => {
   const { command } = await remoteFixture(200);
   const log = vi.spyOn(console, "log").mockImplementation(() => {});
-  await command.parseAsync(["node", "rig", "ps", "--host", "fixture-host", "--resources"]);
+  await command.parseAsync(["node", "SoftwareTeam", "ps", "--host", "fixture-host", "--resources"]);
   expect(log.mock.calls[0]![0]).toBe("Host: fixture-host · 4 available CPUs · 2 running seats");
   expect(log.mock.calls.flat().join("\n")).toContain("6000 ms idle ceiling");
 });
@@ -102,7 +102,7 @@ it.each([401, 403, 429, 500] as const)("preserves remote resource HTTP %s JSON c
   const previousExitCode = process.exitCode;
   process.exitCode = undefined;
   try {
-    await command.parseAsync(["node", "rig", "ps", "--host", "fixture-host", "--resources", "--json"]);
+    await command.parseAsync(["node", "SoftwareTeam", "ps", "--host", "fixture-host", "--resources", "--json"]);
     expect(authorization()).toBe("Bearer public-fixture-token");
     expect(process.exitCode).toBe(1);
     expect(error).not.toHaveBeenCalled();
@@ -122,7 +122,7 @@ it("names the remote host for a human permission failure", async () => {
   const previousExitCode = process.exitCode;
   process.exitCode = undefined;
   try {
-    await command.parseAsync(["node", "rig", "ps", "--host", "fixture-host", "--resources"]);
+    await command.parseAsync(["node", "SoftwareTeam", "ps", "--host", "fixture-host", "--resources"]);
     expect(process.exitCode).toBe(1);
     expect(log).not.toHaveBeenCalled();
     expect(error).toHaveBeenCalledWith("cross-host (host=fixture-host): HTTP 403");
@@ -136,7 +136,7 @@ it.each([false, true])("retains the older-daemon HTTP404 diagnostic and exit2 wi
   const previousExitCode = process.exitCode;
   process.exitCode = undefined;
   try {
-    await command.parseAsync(["node", "rig", "ps", "--host", "fixture-host", "--resources", ...(json ? ["--json"] : [])]);
+    await command.parseAsync(["node", "SoftwareTeam", "ps", "--host", "fixture-host", "--resources", ...(json ? ["--json"] : [])]);
     expect(process.exitCode).toBe(2);
     expect(log).not.toHaveBeenCalled();
     expect(error).toHaveBeenCalledWith("Host resource measurements unavailable (HTTP 404); this host may need a newer daemon.");

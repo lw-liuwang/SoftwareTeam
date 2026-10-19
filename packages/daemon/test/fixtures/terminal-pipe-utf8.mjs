@@ -35,7 +35,8 @@ try {
   await new Promise(resolve => setTimeout(resolve, 30));
   assert.ok(existsSync(broker.pipeOutputPath));
   writeFileSync(second, "ready");
-  await wait(() => chunks.join("").includes("UTF8_END"));
+  try { await wait(() => chunks.join("").includes("UTF8_END")); }
+  catch (error) { console.error(JSON.stringify({ chunks, closes, pipe: existsSync(broker.pipeOutputPath) ? readFileSync(broker.pipeOutputPath).toString('hex') : null, pane: await native(['capture-pane', '-p', '-t', 'unicode@fixture']), processes: await native(['list-panes', '-a', '-F', '#{pane_pid}|#{pane_current_command}|#{pane_dead}']) })); throw error; }
   const expected = "UTF8_START:🚀 café 中文 :UTF8_END";
   assert.equal(readFileSync(broker.pipeOutputPath).toString("utf8"), expected, "native pipe contains intact UTF-8");
   assert.equal(chunks.join(""), expected, "subscriber sees the same native UTF-8 bytes across separate polls");

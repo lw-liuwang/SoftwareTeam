@@ -22,7 +22,7 @@ import { dirname } from "node:path";
  */
 
 /** P3 — the one named lock: the port number IS the lock name (fixed, from config). */
-export const GATE_LANE_PORT = Number(process.env.OPENRIG_GATE_LANE_PORT ?? "40404");
+export const GATE_LANE_PORT = Number(process.env.SOFTWARETEAM_GATE_LANE_PORT ?? "40404");
 
 /**
  * @returns {Promise<{ok:true, release:()=>Promise<void>} | {ok:false, reason:"gate-holder"|"foreign-holder"|"bind-error", holder?:{pid:number,startedAt:string}, message?:string}>}

@@ -1,5 +1,5 @@
 // OPR.0.4.8.3 Seam B (R6) — full-thread discrimination pins: the permission_policy REF +
-// resolved posture survive materialize → columns → export → DB-REOPEN, with member-over-rig
+// resolved posture survive materialize → columns → export → DB-REOPEN, with member-over-softwareTeam
 // precedence and the dev-guard restart ruling (a custom surface:flag policy restores to
 // full_bypass) proven against a REOPENED database handle. Every pin here discriminates
 // against the pre-Seam-B tip (none of the columns/threading exist at 80336ff0/4694e86d).
@@ -11,11 +11,11 @@ import { tmpdir } from "node:os";
 import { createFullTestDb, createTestApp, migrationsForFullTestDb } from "./helpers/test-app.js";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { resolvePermissionPolicyAttachment } from "../src/domain/permission-policy/policy-ref.js";
 import { claudePostureFlag, codexPostureArg, piTrust } from "../src/adapters/yolo-mode.js";
 
-const RIG_ROOT = "/project/rigs/policy-rig";
+const SOFTWARE_TEAM_ROOT = "/project/software-teams/policy-software-team";
 const CUSTOM_POLICY = `---
 policy_schema_version: 1
 name: operator-full
@@ -38,7 +38,7 @@ function rawMember(id: string, over: Record<string, unknown> = {}): Record<strin
 function rawSpec(members: Record<string, unknown>[], over: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     version: "0.2",
-    name: "policy-rig",
+    name: "policy-software-team",
     pods: [{ id: "dev", label: "Dev", members, edges: [] }],
     edges: [],
     ...over,
@@ -66,53 +66,53 @@ describe("Seam B R6 — full-thread plumb (materialize → columns → export)",
   });
   afterEach(() => { db.close(); });
 
-  it("rig-level + member refs land on their rows; member OVERRIDES rig at resolution (precedence)", async () => {
+  it("software-team-level + member refs land on their rows; member OVERRIDES SoftwareTeam at resolution (precedence)", async () => {
     const spec = rawSpec(
       [rawMember("impl", { permission_policy: "builtin:locked" }), rawMember("helper")],
       { permission_policy: "builtin:yolo" },
     );
-    const outcome = await setup.podInstantiator.materializeStructured(spec, RIG_ROOT);
+    const outcome = await setup.podInstantiator.materializeStructured(spec, SOFTWARE_TEAM_ROOT);
     expect(outcome.ok).toBe(true);
-    const rigId = (outcome as { ok: true; result: { rigId: string } }).result.rigId;
+    const softwareTeamId = (outcome as { ok: true; result: { softwareTeamId: string } }).result.softwareTeamId;
 
-    // rig row carries the rig ref
-    expect(setup.rigRepo.getRigPermissionPolicy(rigId)).toBe("builtin:yolo");
-    // member's OWN ref on its node column; ref-less pod-mate NULL (rig ref lives on the rig)
+    // softwareTeam row carries the softwareTeam ref
+    expect(setup.softwareTeamRepo.getSoftwareTeamPermissionPolicy(softwareTeamId)).toBe("builtin:yolo");
+    // member's OWN ref on its node column; ref-less pod-mate NULL (softwareTeam ref lives on the softwareTeam)
     const refOf = (lid: string) => (db.prepare("SELECT permission_policy FROM nodes WHERE logical_id = ?").get(lid) as { permission_policy: string | null }).permission_policy;
     expect(refOf("dev.impl")).toBe("builtin:locked");
     expect(refOf("dev.helper")).toBeNull();
 
-    // provenance: member ref WINS over rig ref → impl floor (locked), helper full_bypass (rig yolo)
+    // provenance: member ref WINS over softwareTeam ref → impl floor (locked), helper full_bypass (softwareTeam yolo)
     const nodeId = (lid: string) => (db.prepare("SELECT id FROM nodes WHERE logical_id = ?").get(lid) as { id: string }).id;
-    expect(setup.rigRepo.getNodePolicyProvenance(nodeId("dev.impl"))).toMatchObject({ origin: "builtin", launchPosture: "floor", resolvedTarget: "policies/builtin/locked.policy.md" });
-    expect(setup.rigRepo.getNodePolicyProvenance(nodeId("dev.helper"))).toMatchObject({ origin: "builtin", launchPosture: "full_bypass", resolvedTarget: "policies/builtin/yolo.policy.md" });
+    expect(setup.softwareTeamRepo.getNodePolicyProvenance(nodeId("dev.impl"))).toMatchObject({ origin: "builtin", launchPosture: "floor", resolvedTarget: "policies/builtin/locked.policy.md" });
+    expect(setup.softwareTeamRepo.getNodePolicyProvenance(nodeId("dev.helper"))).toMatchObject({ origin: "builtin", launchPosture: "full_bypass", resolvedTarget: "policies/builtin/yolo.policy.md" });
   });
 
-  it("export round-trips BOTH levels: member ref on the pod member, rig ref at the top level", async () => {
+  it("export round-trips BOTH levels: member ref on the pod member, SoftwareTeam ref at the top level", async () => {
     const spec = rawSpec(
       [rawMember("impl", { permission_policy: "policies/operator-full.md" })],
       { permission_policy: "builtin:standard" },
     );
-    const outcome = await setup.podInstantiator.materializeStructured(spec, RIG_ROOT);
+    const outcome = await setup.podInstantiator.materializeStructured(spec, SOFTWARE_TEAM_ROOT);
     expect(outcome.ok).toBe(true);
-    const rigId = (outcome as { ok: true; result: { rigId: string } }).result.rigId;
+    const softwareTeamId = (outcome as { ok: true; result: { softwareTeamId: string } }).result.softwareTeamId;
 
-    const exported = setup.rigSpecExporter.exportRig(rigId) as import("../src/domain/types.js").RigSpec;
+    const exported = setup.softwareTeamSpecExporter.exportSoftwareTeam(softwareTeamId) as import("../src/domain/types.js").SoftwareTeamSpec;
     expect(exported.permissionPolicy).toBe("builtin:standard");
     expect(exported.pods[0]!.members[0]!.permissionPolicy).toBe("policies/operator-full.md");
   });
 
   it("a CUSTOM surface:flag policy resolves to full_bypass at materialize with restart-stable provenance", async () => {
     const spec = rawSpec([rawMember("impl", { permission_policy: "policies/operator-full.md" })]);
-    const outcome = await setup.podInstantiator.materializeStructured(spec, RIG_ROOT);
+    const outcome = await setup.podInstantiator.materializeStructured(spec, SOFTWARE_TEAM_ROOT);
     expect(outcome.ok).toBe(true);
     const nodeId = (db.prepare("SELECT id FROM nodes WHERE logical_id = 'dev.impl'").get() as { id: string }).id;
-    const prov = setup.rigRepo.getNodePolicyProvenance(nodeId);
+    const prov = setup.softwareTeamRepo.getNodePolicyProvenance(nodeId);
     expect(prov).toMatchObject({
       origin: "custom",
       launchPosture: "full_bypass", // the guard ruling's crux: custom flag CAN be full_bypass
-      declaringDir: RIG_ROOT,
-      resolvedTarget: `${RIG_ROOT}/policies/operator-full.md`,
+      declaringDir: SOFTWARE_TEAM_ROOT,
+      resolvedTarget: `${SOFTWARE_TEAM_ROOT}/policies/operator-full.md`,
       nodeRef: "policies/operator-full.md",
     });
   });
@@ -131,20 +131,20 @@ describe("Seam B R6 — DB-REOPEN restart proof (dev-guard ruling)", () => {
     const setup1 = createTestApp(db1, { podInstantiatorFsOps: fsOps() });
     const outcome = await setup1.podInstantiator.materializeStructured(
       rawSpec([rawMember("impl", { permission_policy: "policies/operator-full.md" })]),
-      RIG_ROOT,
+      SOFTWARE_TEAM_ROOT,
     );
     expect(outcome.ok).toBe(true);
     const nodeId = (db1.prepare("SELECT id FROM nodes WHERE logical_id = 'dev.impl'").get() as { id: string }).id;
     db1.close(); // ── daemon restart boundary ──
 
-    const db2 = createDb(dbFile); // REOPEN: no in-memory RigSpec exists anymore
-    const repo2 = new RigRepository(db2);
+    const db2 = createDb(dbFile); // REOPEN: no in-memory SoftwareTeamSpec exists anymore
+    const repo2 = new SoftwareTeamRepository(db2);
     const prov = repo2.getNodePolicyProvenance(nodeId);
     expect(prov).not.toBeNull();
     expect(prov!.launchPosture).toBe("full_bypass"); // persisted posture is restart-stable
     // AND the ruling's re-derivation: reopen + re-validate the policy from provenance alone
     const rederived = resolvePermissionPolicyAttachment(prov!.nodeRef!, prov!.declaringDir!, {
-      readFile: (p) => { expect(p).toBe(`${RIG_ROOT}/policies/operator-full.md`); return CUSTOM_POLICY; },
+      readFile: (p) => { expect(p).toBe(`${SOFTWARE_TEAM_ROOT}/policies/operator-full.md`); return CUSTOM_POLICY; },
     });
     expect(rederived.launchPosture).toBe("full_bypass");
     expect(rederived.surface).toBe("flag");
@@ -153,7 +153,7 @@ describe("Seam B R6 — DB-REOPEN restart proof (dev-guard ruling)", () => {
 });
 
 describe("Seam B R6 — resolved posture drives the REAL launch helpers on all three harnesses", () => {
-  const yoloOn = { OPENRIG_YOLO: "1" } as NodeJS.ProcessEnv;
+  const yoloOn = { SOFTWARETEAM_YOLO: "1" } as NodeJS.ProcessEnv;
   const yoloOff = {} as NodeJS.ProcessEnv;
 
   it("full_bypass posture lifts a seat even with YOLO OFF (custom flag policy — the ruling)", () => {

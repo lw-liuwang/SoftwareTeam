@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { ComposeServicesAdapter } from "../src/adapters/compose-services-adapter.js";
 import { ServiceOrchestrator } from "../src/domain/service-orchestrator.js";
 import { evaluateWaitTargets, deriveEnvHealth } from "../src/domain/services-readiness.js";
 import type { ExecFn } from "../src/adapters/tmux.js";
-import type { RigServicesSpec } from "../src/domain/types.js";
+import type { SoftwareTeamServicesSpec } from "../src/domain/types.js";
 
 function mockExec(responses?: Record<string, string | Error>): ExecFn {
   return async (cmd: string) => {
@@ -40,13 +40,13 @@ describe("ComposeServicesAdapter", () => {
     const exec = vi.fn<ExecFn>().mockResolvedValue("");
     const adapter = new ComposeServicesAdapter(exec);
 
-    await adapter.up({ composeFile: "/tmp/docker-compose.yml", projectName: "my-rig" });
+    await adapter.up({ composeFile: "/tmp/docker-compose.yml", projectName: "my-software-team" });
 
     expect(exec).toHaveBeenCalledOnce();
     const cmd = exec.mock.calls[0]![0] as string;
     expect(cmd).toContain("docker compose");
     expect(cmd).toContain("-f '/tmp/docker-compose.yml'");
-    expect(cmd).toContain("-p 'my-rig'");
+    expect(cmd).toContain("-p 'my-software-team'");
     expect(cmd).toContain("up -d");
     expect(cmd).not.toContain("--wait"); // readiness is separate
   });
@@ -55,7 +55,7 @@ describe("ComposeServicesAdapter", () => {
     const exec = vi.fn<ExecFn>().mockResolvedValue("");
     const adapter = new ComposeServicesAdapter(exec);
 
-    await adapter.down({ composeFile: "/tmp/dc.yml", projectName: "rig", policy: "down" });
+    await adapter.down({ composeFile: "/tmp/dc.yml", projectName: "softwareTeam", policy: "down" });
 
     const cmd = exec.mock.calls[0]![0] as string;
     expect(cmd).toContain("down");
@@ -66,7 +66,7 @@ describe("ComposeServicesAdapter", () => {
     const exec = vi.fn<ExecFn>().mockResolvedValue("");
     const adapter = new ComposeServicesAdapter(exec);
 
-    await adapter.down({ composeFile: "/tmp/dc.yml", projectName: "rig", policy: "down_and_volumes" });
+    await adapter.down({ composeFile: "/tmp/dc.yml", projectName: "softwareTeam", policy: "down_and_volumes" });
 
     const cmd = exec.mock.calls[0]![0] as string;
     expect(cmd).toContain("--volumes");
@@ -76,7 +76,7 @@ describe("ComposeServicesAdapter", () => {
     const exec = vi.fn<ExecFn>().mockResolvedValue("");
     const adapter = new ComposeServicesAdapter(exec);
 
-    const result = await adapter.down({ composeFile: "/tmp/dc.yml", projectName: "rig", policy: "leave_running" });
+    const result = await adapter.down({ composeFile: "/tmp/dc.yml", projectName: "softwareTeam", policy: "leave_running" });
 
     expect(result.ok).toBe(true);
     expect(exec).not.toHaveBeenCalled();
@@ -86,7 +86,7 @@ describe("ComposeServicesAdapter", () => {
     const exec = vi.fn<ExecFn>().mockResolvedValue(COMPOSE_PS_LINE);
     const adapter = new ComposeServicesAdapter(exec);
 
-    const result = await adapter.status({ composeFile: "/tmp/dc.yml", projectName: "rig" });
+    const result = await adapter.status({ composeFile: "/tmp/dc.yml", projectName: "softwareTeam" });
 
     expect(result.ok).toBe(true);
     expect(result.services).toHaveLength(1);
@@ -98,7 +98,7 @@ describe("ComposeServicesAdapter", () => {
     const exec = vi.fn<ExecFn>().mockResolvedValue(COMPOSE_PS_ARRAY);
     const adapter = new ComposeServicesAdapter(exec);
 
-    const result = await adapter.status({ composeFile: "/tmp/dc.yml", projectName: "rig" });
+    const result = await adapter.status({ composeFile: "/tmp/dc.yml", projectName: "softwareTeam" });
 
     expect(result.ok).toBe(true);
     expect(result.services).toHaveLength(2);
@@ -110,7 +110,7 @@ describe("ComposeServicesAdapter", () => {
     const exec = vi.fn<ExecFn>().mockResolvedValue("{not-json");
     const adapter = new ComposeServicesAdapter(exec);
 
-    const result = await adapter.status({ composeFile: "/tmp/dc.yml", projectName: "rig" });
+    const result = await adapter.status({ composeFile: "/tmp/dc.yml", projectName: "softwareTeam" });
 
     expect(result.ok).toBe(false);
     expect(result.error).toContain("unparseable");
@@ -122,7 +122,7 @@ describe("ComposeServicesAdapter", () => {
     );
     const adapter = new ComposeServicesAdapter(exec);
 
-    const result = await adapter.status({ composeFile: "/tmp/dc.yml", projectName: "rig" });
+    const result = await adapter.status({ composeFile: "/tmp/dc.yml", projectName: "softwareTeam" });
 
     expect(result.ok).toBe(true);
     expect(result.services).toEqual([]);
@@ -135,7 +135,7 @@ describe("ComposeServicesAdapter", () => {
     );
     const adapter = new ComposeServicesAdapter(exec);
 
-    const result = await adapter.status({ composeFile: "/tmp/dc.yml", projectName: "rig" });
+    const result = await adapter.status({ composeFile: "/tmp/dc.yml", projectName: "softwareTeam" });
 
     expect(result.ok).toBe(true);
     expect(result.services[0]!.name).toBe("vault");
@@ -145,7 +145,7 @@ describe("ComposeServicesAdapter", () => {
     const exec = vi.fn<ExecFn>().mockResolvedValue("vault log output");
     const adapter = new ComposeServicesAdapter(exec);
 
-    const result = await adapter.logs({ composeFile: "/tmp/dc.yml", projectName: "rig", service: "vault", tail: 50 });
+    const result = await adapter.logs({ composeFile: "/tmp/dc.yml", projectName: "softwareTeam", service: "vault", tail: 50 });
 
     expect(result.ok).toBe(true);
     expect(result.output).toBe("vault log output");
@@ -158,7 +158,7 @@ describe("ComposeServicesAdapter", () => {
   it("captureReceipt builds normalized receipt from ps output", async () => {
     const adapter = new ComposeServicesAdapter(mockExec({ "ps --format json": COMPOSE_PS_LINE }));
 
-    const result = await adapter.status({ composeFile: "/tmp/dc.yml", projectName: "rig" });
+    const result = await adapter.status({ composeFile: "/tmp/dc.yml", projectName: "softwareTeam" });
     expect(result.services[0]!.name).toBe("vault");
     expect(result.services[0]!.state).toBe("running");
     expect(result.services[0]!.health).toBe("healthy");
@@ -173,7 +173,7 @@ describe("ComposeServicesAdapter", () => {
     );
     const adapter = new ComposeServicesAdapter(exec);
 
-    const result = await adapter.up({ composeFile: "/tmp/docker-compose.yml", projectName: "my-rig" });
+    const result = await adapter.up({ composeFile: "/tmp/docker-compose.yml", projectName: "my-software-team" });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -254,34 +254,34 @@ describe("services-readiness", () => {
 
 describe("ServiceOrchestrator", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
   });
 
   afterEach(() => { db.close(); });
 
-  function seedRigWithServices(spec: RigServicesSpec) {
-    const rig = rigRepo.createRig("test-rig");
-    rigRepo.setServicesRecord(rig.id, {
+  function seedSoftwareTeamWithServices(spec: SoftwareTeamServicesSpec) {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    softwareTeamRepo.setServicesRecord(softwareTeam.id, {
       kind: "compose",
       specJson: JSON.stringify(spec),
-      rigRoot: "/tmp/test-rig",
+      softwareTeamRoot: "/tmp/test-software-team",
       composeFile: spec.composeFile,
-      projectName: "test-rig",
+      projectName: "test-software-team",
     });
-    return rig;
+    return softwareTeam;
   }
 
   it("boot — boots services, waits for health, persists receipt", async () => {
-    const spec: RigServicesSpec = {
+    const spec: SoftwareTeamServicesSpec = {
       kind: "compose",
       composeFile: "docker-compose.yml",
       waitFor: [{ url: "http://localhost:8200/v1/sys/health" }],
     };
-    const rig = seedRigWithServices(spec);
+    const softwareTeam = seedSoftwareTeamWithServices(spec);
 
     const adapter = new ComposeServicesAdapter(mockExec({
       "up -d": "",
@@ -289,8 +289,8 @@ describe("ServiceOrchestrator", () => {
       "curl": "200",
     }));
 
-    const orchestrator = new ServiceOrchestrator({ rigRepo, composeAdapter: adapter });
-    const result = await orchestrator.boot(rig.id, { waitTimeoutMs: 5000, waitPollIntervalMs: 100 });
+    const orchestrator = new ServiceOrchestrator({ softwareTeamRepo, composeAdapter: adapter });
+    const result = await orchestrator.boot(softwareTeam.id, { waitTimeoutMs: 5000, waitPollIntervalMs: 100 });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -300,17 +300,17 @@ describe("ServiceOrchestrator", () => {
     expect(result.receipt.waitFor[0]!.status).toBe("healthy");
 
     // Verify receipt persisted
-    const record = rigRepo.getServicesRecord(rig.id);
+    const record = softwareTeamRepo.getServicesRecord(softwareTeam.id);
     expect(record?.latestReceiptJson).toBeTruthy();
   });
 
   it("boot — wait target failure returns honest error with receipt", async () => {
-    const spec: RigServicesSpec = {
+    const spec: SoftwareTeamServicesSpec = {
       kind: "compose",
       composeFile: "docker-compose.yml",
       waitFor: [{ url: "http://localhost:8200/v1/sys/health" }],
     };
-    const rig = seedRigWithServices(spec);
+    const softwareTeam = seedSoftwareTeamWithServices(spec);
 
     const adapter = new ComposeServicesAdapter(mockExec({
       "up -d": "",
@@ -318,8 +318,8 @@ describe("ServiceOrchestrator", () => {
       "curl": new Error("connection refused"),
     }));
 
-    const orchestrator = new ServiceOrchestrator({ rigRepo, composeAdapter: adapter });
-    const result = await orchestrator.boot(rig.id, { waitTimeoutMs: 500, waitPollIntervalMs: 100 });
+    const orchestrator = new ServiceOrchestrator({ softwareTeamRepo, composeAdapter: adapter });
+    const result = await orchestrator.boot(softwareTeam.id, { waitTimeoutMs: 500, waitPollIntervalMs: 100 });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -330,18 +330,18 @@ describe("ServiceOrchestrator", () => {
   });
 
   it("teardown — tears down per down_policy", async () => {
-    const spec: RigServicesSpec = {
+    const spec: SoftwareTeamServicesSpec = {
       kind: "compose",
       composeFile: "docker-compose.yml",
       downPolicy: "down_and_volumes",
     };
-    const rig = seedRigWithServices(spec);
+    const softwareTeam = seedSoftwareTeamWithServices(spec);
 
     const exec = vi.fn<ExecFn>().mockResolvedValue("");
     const adapter = new ComposeServicesAdapter(exec);
 
-    const orchestrator = new ServiceOrchestrator({ rigRepo, composeAdapter: adapter });
-    const result = await orchestrator.teardown(rig.id);
+    const orchestrator = new ServiceOrchestrator({ softwareTeamRepo, composeAdapter: adapter });
+    const result = await orchestrator.teardown(softwareTeam.id);
 
     expect(result.ok).toBe(true);
     const cmd = exec.mock.calls[0]![0] as string;
@@ -349,41 +349,41 @@ describe("ServiceOrchestrator", () => {
     expect(cmd).toContain("--volumes");
 
     // Receipt cleared after teardown
-    const record = rigRepo.getServicesRecord(rig.id);
+    const record = softwareTeamRepo.getServicesRecord(softwareTeam.id);
     expect(record?.latestReceiptJson).toBeNull();
   });
 
   it("teardown — leave_running policy skips compose down", async () => {
-    const spec: RigServicesSpec = {
+    const spec: SoftwareTeamServicesSpec = {
       kind: "compose",
       composeFile: "docker-compose.yml",
       downPolicy: "leave_running",
     };
-    const rig = seedRigWithServices(spec);
+    const softwareTeam = seedSoftwareTeamWithServices(spec);
 
     const exec = vi.fn<ExecFn>().mockResolvedValue("");
     const adapter = new ComposeServicesAdapter(exec);
 
-    const orchestrator = new ServiceOrchestrator({ rigRepo, composeAdapter: adapter });
-    const result = await orchestrator.teardown(rig.id);
+    const orchestrator = new ServiceOrchestrator({ softwareTeamRepo, composeAdapter: adapter });
+    const result = await orchestrator.teardown(softwareTeam.id);
 
     expect(result.ok).toBe(true);
     expect(exec).not.toHaveBeenCalled(); // no docker compose command issued
   });
 
   it("teardown — policyOverride overrides persisted down_policy", async () => {
-    const spec: RigServicesSpec = {
+    const spec: SoftwareTeamServicesSpec = {
       kind: "compose",
       composeFile: "docker-compose.yml",
       downPolicy: "down", // persisted policy is plain "down"
     };
-    const rig = seedRigWithServices(spec);
+    const softwareTeam = seedSoftwareTeamWithServices(spec);
 
     const exec = vi.fn<ExecFn>().mockResolvedValue("");
     const adapter = new ComposeServicesAdapter(exec);
 
-    const orchestrator = new ServiceOrchestrator({ rigRepo, composeAdapter: adapter });
-    const result = await orchestrator.teardown(rig.id, { policyOverride: "down_and_volumes" });
+    const orchestrator = new ServiceOrchestrator({ softwareTeamRepo, composeAdapter: adapter });
+    const result = await orchestrator.teardown(softwareTeam.id, { policyOverride: "down_and_volumes" });
 
     expect(result.ok).toBe(true);
     const cmd = exec.mock.calls[0]![0] as string;
@@ -392,11 +392,11 @@ describe("ServiceOrchestrator", () => {
   });
 
   it("boot — no services record returns honest error", async () => {
-    const rig = rigRepo.createRig("bare-rig");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("bare-software-team");
 
     const adapter = new ComposeServicesAdapter(mockExec());
-    const orchestrator = new ServiceOrchestrator({ rigRepo, composeAdapter: adapter });
-    const result = await orchestrator.boot(rig.id);
+    const orchestrator = new ServiceOrchestrator({ softwareTeamRepo, composeAdapter: adapter });
+    const result = await orchestrator.boot(softwareTeam.id);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -404,20 +404,20 @@ describe("ServiceOrchestrator", () => {
   });
 
   it("boot — no wait targets still captures receipt", async () => {
-    const spec: RigServicesSpec = {
+    const spec: SoftwareTeamServicesSpec = {
       kind: "compose",
       composeFile: "docker-compose.yml",
       // no waitFor
     };
-    const rig = seedRigWithServices(spec);
+    const softwareTeam = seedSoftwareTeamWithServices(spec);
 
     const adapter = new ComposeServicesAdapter(mockExec({
       "up -d": "",
       "ps --format json": COMPOSE_PS_LINE,
     }));
 
-    const orchestrator = new ServiceOrchestrator({ rigRepo, composeAdapter: adapter });
-    const result = await orchestrator.boot(rig.id);
+    const orchestrator = new ServiceOrchestrator({ softwareTeamRepo, composeAdapter: adapter });
+    const result = await orchestrator.boot(softwareTeam.id);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -426,19 +426,19 @@ describe("ServiceOrchestrator", () => {
   });
 
   it("boot — no wait targets returns honest error when compose status fails", async () => {
-    const spec: RigServicesSpec = {
+    const spec: SoftwareTeamServicesSpec = {
       kind: "compose",
       composeFile: "docker-compose.yml",
     };
-    const rig = seedRigWithServices(spec);
+    const softwareTeam = seedSoftwareTeamWithServices(spec);
 
     const adapter = new ComposeServicesAdapter(mockExec({
       "up -d": "",
       "ps --format json": new Error("compose ps failed"),
     }));
 
-    const orchestrator = new ServiceOrchestrator({ rigRepo, composeAdapter: adapter });
-    const result = await orchestrator.boot(rig.id);
+    const orchestrator = new ServiceOrchestrator({ softwareTeamRepo, composeAdapter: adapter });
+    const result = await orchestrator.boot(softwareTeam.id);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -447,18 +447,18 @@ describe("ServiceOrchestrator", () => {
   });
 
   it("captureReceipt throws when compose status cannot be read", async () => {
-    const spec: RigServicesSpec = {
+    const spec: SoftwareTeamServicesSpec = {
       kind: "compose",
       composeFile: "docker-compose.yml",
     };
-    const rig = seedRigWithServices(spec);
+    const softwareTeam = seedSoftwareTeamWithServices(spec);
 
     const adapter = new ComposeServicesAdapter(mockExec({
       "ps --format json": new Error("compose ps failed"),
     }));
 
-    const orchestrator = new ServiceOrchestrator({ rigRepo, composeAdapter: adapter });
+    const orchestrator = new ServiceOrchestrator({ softwareTeamRepo, composeAdapter: adapter });
 
-    await expect(orchestrator.captureReceipt(rig.id)).rejects.toThrow("compose ps failed");
+    await expect(orchestrator.captureReceipt(softwareTeam.id)).rejects.toThrow("compose ps failed");
   });
 });

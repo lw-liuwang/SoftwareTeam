@@ -8,18 +8,18 @@ import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSyn
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative } from "node:path";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { PodRepository } from "../src/domain/pod-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { SnapshotRepository } from "../src/domain/snapshot-repository.js";
 import { CheckpointStore } from "../src/domain/checkpoint-store.js";
 import { SnapshotCapture } from "../src/domain/snapshot-capture.js";
-import { RigTeardownOrchestrator } from "../src/domain/rig-teardown.js";
+import { SoftwareTeamTeardownOrchestrator } from "../src/domain/software-team-teardown.js";
 import { NodeLauncher } from "../src/domain/node-launcher.js";
 import { StartupOrchestrator } from "../src/domain/startup-orchestrator.js";
-import { PodRigInstantiator } from "../src/domain/rigspec-instantiator.js";
-import { RigSpecCodec } from "../src/domain/rigspec-codec.js";
+import { PodSoftwareTeamInstantiator } from "../src/domain/software-team-spec-instantiator.js";
+import { SoftwareTeamSpecCodec } from "../src/domain/software-team-spec-codec.js";
 import { RestoreOrchestrator } from "../src/domain/restore-orchestrator.js";
 import { DiscoveryRepository } from "../src/domain/discovery-repository.js";
 import { SeatHandoverService } from "../src/domain/seat-handover-service.js";
@@ -36,29 +36,29 @@ import {
 } from "../src/domain/claude-core-plugin-env.js";
 import type { AgentResolverFsOps } from "../src/domain/agent-resolver.js";
 import type { RuntimeAdapter } from "../src/domain/runtime-adapter.js";
-import type { RigSpec } from "../src/domain/types.js";
+import type { SoftwareTeamSpec } from "../src/domain/types.js";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
 import { createDb } from "../src/db/connection.js";
 import type { TmuxAdapter as TmuxAdapterType } from "../src/adapters/tmux.js";
 
-// openrig-core ships hooks (refocus, the compaction-restore pair, the activity relay). Claude loads them
-// only from a plugin it was told about, and nothing told it: the plugin sat in OpenRig's state, so a
+// softwareteam-core ships hooks (refocus, the compaction-restore pair, the activity relay). Claude loads them
+// only from a plugin it was told about, and nothing told it: the plugin sat in SoftwareTeam's state, so a
 // seat's PreCompact hook never wrote the restore-pending marker the managed post-compact prompt reads.
-// A Claude seat whose resolved plugin selection includes the shipped openrig-core plugin now starts with
+// A Claude seat whose resolved plugin selection includes the shipped softwareteam-core plugin now starts with
 // CLAUDE_CODE_PLUGIN_DIRS naming the vendored copy (no launch argument, so the seat's process identity is
 // unchanged); a seat that didn't select it starts as before. A seat's own CLAUDE_CODE_PLUGIN_DIRS keeps working and the
 // vendored plugin is added to it. The plugin's own activity relay stays quiet for an event only when the seat's
-// settings.local.json carries OpenRig's copy of the relay for that event, so each event is reported once either way.
+// settings.local.json carries SoftwareTeam's copy of the relay for that event, so each event is reported once either way.
 
 const require = createRequire(import.meta.url);
 const PLUGIN_ENV = "CLAUDE_CODE_PLUGIN_DIRS";
 const OWN_LIST = "/own/plugins:/more/plugins";
 
-/** A scratch plugins folder with the openrig-core manifest in it, as the daemon's vendoring leaves it. */
+/** A scratch plugins folder with the softwareteam-core manifest in it, as the daemon's vendoring leaves it. */
 function vendoredPlugins(root: string): { pluginsDir: string; vendored: string } {
   const pluginsDir = join(root, "plugins");
-  const vendored = join(pluginsDir, "openrig-core");
+  const vendored = join(pluginsDir, "softwareteam-core");
   mkdirSync(join(vendored, ".claude-plugin"), { recursive: true });
   writeFileSync(join(vendored, ".claude-plugin", "plugin.json"), "{}");
   return { pluginsDir, vendored };
@@ -82,14 +82,14 @@ describe("which Claude seats load the vendored plugin", () => {
   it("a real daemon startup vendors the plugin and sets nothing for every Claude seat", async () => {
     // Every home the daemon touches at startup is a scratch one: the real ~/.claude and ~/.codex stay out of it.
     vi.stubEnv("HOME", join(root, "home"));
-    vi.stubEnv("OPENRIG_HOME", join(root, "openrig"));
+    vi.stubEnv("SOFTWARETEAM_HOME", join(root, "softwareteam"));
     vi.stubEnv("CODEX_HOME", join(root, "codex"));
     vi.stubEnv("CLAUDE_CONFIG_DIR", join(root, "claude"));
     const { createDaemon } = await import("../src/startup.js");
     const { db, deps } = await createDaemon({ dbPath: ":memory:" });
     try {
       // The plugin is vendored for a seat that selects it to find, and no runtime-wide entry names it.
-      expect(vendoredCorePluginDir()).toBe(join(root, "openrig", "plugins", "openrig-core"));
+      expect(vendoredCorePluginDir()).toBe(join(root, "softwareteam", "plugins", "softwareteam-core"));
       expect(vendoredCorePluginDir()).not.toContain(":");
       expect(deps.runtimeSessionEnv?.["claude-code"]).toBeUndefined();
       expect(deps.runtimeSessionEnv?.codex).toBeUndefined();
@@ -100,7 +100,7 @@ describe("which Claude seats load the vendored plugin", () => {
 
   it("is left out when the plugin is not vendored", () => {
     expect(vendoredCorePluginDir(join(root, "plugins"))).toBeUndefined();
-    mkdirSync(join(root, "plugins", "openrig-core"), { recursive: true });
+    mkdirSync(join(root, "plugins", "softwareteam-core"), { recursive: true });
     expect(vendoredCorePluginDir(join(root, "plugins"))).toBeUndefined();
     const { pluginsDir, vendored } = vendoredPlugins(root);
     expect(vendoredCorePluginDir(pluginsDir)).toBe(vendored);
@@ -140,11 +140,11 @@ describe("which Claude seats load the vendored plugin", () => {
       const claude = { id: "n", runtime: "claude-code" };
       expect(seatCorePluginDir(claude, db, [vendored], pluginsDir)).toBe(vendored);
       // A path that spells the same folder differently, and a symlink to it, are the same plugin.
-      expect(seatCorePluginDir(claude, db, [`${pluginsDir}/./openrig-core/`], pluginsDir)).toBe(vendored);
+      expect(seatCorePluginDir(claude, db, [`${pluginsDir}/./softwareteam-core/`], pluginsDir)).toBe(vendored);
       symlinkSync(vendored, join(root, "alias"));
       expect(seatCorePluginDir(claude, db, [join(root, "alias")], pluginsDir)).toBe(vendored);
-      // Another plugin, even one called openrig-core somewhere else, is not the shipped one.
-      expect(seatCorePluginDir(claude, db, [join(root, "other", "openrig-core")], pluginsDir)).toBeUndefined();
+      // Another plugin, even one called softwareteam-core somewhere else, is not the shipped one.
+      expect(seatCorePluginDir(claude, db, [join(root, "other", "softwareteam-core")], pluginsDir)).toBeUndefined();
       expect(seatCorePluginDir(claude, db, [], pluginsDir)).toBeUndefined();
       expect(seatCorePluginDir({ id: "n", runtime: "codex" }, db, [vendored], pluginsDir)).toBeUndefined();
       expect(seatCorePluginDir({ id: "n", runtime: null }, db, [vendored], pluginsDir)).toBeUndefined();
@@ -158,9 +158,9 @@ describe("which Claude seats load the vendored plugin", () => {
     const { pluginsDir, vendored } = vendoredPlugins(root);
     const db = createFullTestDb();
     try {
-      const rigRepo = new RigRepository(db);
-      const rig = rigRepo.createRig("saved");
-      const ids = ["selects", "other", "empty", "none", "garbled"].map((l) => rigRepo.addNode(rig.id, l, { runtime: "claude-code" }).id);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("saved");
+      const ids = ["selects", "other", "empty", "none", "garbled"].map((l) => softwareTeamRepo.addNode(softwareTeam.id, l, { runtime: "claude-code" }).id);
       const save = (nodeId: string, json: string) =>
         db.prepare("INSERT INTO node_startup_context (node_id, projection_entries_json, resolved_files_json, startup_actions_json, runtime) VALUES (?, ?, '[]', '[]', 'claude-code')").run(nodeId, json);
       save(ids[0]!, JSON.stringify([{ category: "skill", absolutePath: "/s" }, { category: "plugin", absolutePath: vendored }]));
@@ -181,8 +181,8 @@ describe("which Claude seats load the vendored plugin", () => {
   });
 });
 
-describe("rig up: only a Claude seat whose resolved plugin selection includes openrig-core loads it", () => {
-  const RIG_ROOT = "/project/rigs/my-rig";
+describe("SoftwareTeam up: only a Claude seat whose resolved plugin selection includes softwareteam-core loads it", () => {
+  const SOFTWARE_TEAM_ROOT = "/project/software-teams/my-software-team";
   let root: string;
   beforeEach(() => { root = mkdtempSync(join(tmpdir(), "claude-core-rigup-")); });
   afterEach(() => { rmSync(root, { recursive: true, force: true }); });
@@ -213,46 +213,46 @@ profiles:
 
   it("covers qualified, unqualified and custom selections, and not a seat that selected nothing or another plugin", async () => {
     const { pluginsDir, vendored } = vendoredPlugins(root);
-    const elsewhere = join(root, "elsewhere", "openrig-core");
+    const elsewhere = join(root, "elsewhere", "softwareteam-core");
     const plugin = (id: string, path: string) => `  plugins:\n    - id: ${id}\n      source:\n        kind: local\n        path: ${path}`;
     const files: Record<string, string> = {
-      // The shipped shared spec: openrig-core is its plugin.
-      [`${RIG_ROOT}/agents/shared/agent.yaml`]: `name: shared\nversion: "1.0"\nresources:\n  skills: []\n${plugin("openrig-core", vendored)}\n`,
-      // `shared:openrig-core`, the form the shipped starter agents use.
-      [`${RIG_ROOT}/agents/qualified/agent.yaml`]: agent("imports:\n  - ref: local:../shared", "[shared:openrig-core]", ""),
+      // The shipped shared spec: softwareteam-core is its plugin.
+      [`${SOFTWARE_TEAM_ROOT}/agents/shared/agent.yaml`]: `name: shared\nversion: "1.0"\nresources:\n  skills: []\n${plugin("softwareteam-core", vendored)}\n`,
+      // `shared:softwareteam-core`, the form the shipped starter agents use.
+      [`${SOFTWARE_TEAM_ROOT}/agents/qualified/agent.yaml`]: agent("imports:\n  - ref: local:../shared", "[shared:softwareteam-core]", ""),
       // The same plugin by its unqualified name, which a single import allows.
-      [`${RIG_ROOT}/agents/unqualified/agent.yaml`]: agent("imports:\n  - ref: local:../shared", "[openrig-core]", ""),
+      [`${SOFTWARE_TEAM_ROOT}/agents/unqualified/agent.yaml`]: agent("imports:\n  - ref: local:../shared", "[softwareteam-core]", ""),
       // A resource of another name that points at the vendored copy.
-      [`${RIG_ROOT}/agents/custom/agent.yaml`]: agent("", "[team-hooks]", plugin("team-hooks", vendored)),
+      [`${SOFTWARE_TEAM_ROOT}/agents/custom/agent.yaml`]: agent("", "[team-hooks]", plugin("team-hooks", vendored)),
       // The same name, a different plugin.
-      [`${RIG_ROOT}/agents/namesake/agent.yaml`]: agent("", "[openrig-core]", plugin("openrig-core", elsewhere)),
-      [`${RIG_ROOT}/agents/other/agent.yaml`]: agent("", "[extras]", plugin("extras", join(root, "extras"))),
+      [`${SOFTWARE_TEAM_ROOT}/agents/namesake/agent.yaml`]: agent("", "[softwareteam-core]", plugin("softwareteam-core", elsewhere)),
+      [`${SOFTWARE_TEAM_ROOT}/agents/other/agent.yaml`]: agent("", "[extras]", plugin("extras", join(root, "extras"))),
       // Imports the shared spec and selects nothing from it.
-      [`${RIG_ROOT}/agents/nothing/agent.yaml`]: agent("imports:\n  - ref: local:../shared", "[]", ""),
+      [`${SOFTWARE_TEAM_ROOT}/agents/nothing/agent.yaml`]: agent("imports:\n  - ref: local:../shared", "[]", ""),
     };
     const members = ["qualified", "unqualified", "custom", "namesake", "other", "nothing"].map((id) =>
       ({ id, agentRef: `local:agents/${id}`, profile: "default", runtime: "claude-code", cwd: "." }));
     members.push({ id: "codex", agentRef: "local:agents/qualified", profile: "default", runtime: "codex", cwd: "." });
-    const spec = { version: "0.2", name: "test-rig", pods: [{ id: "dev", label: "Dev", members, edges: [] }], edges: [] } as RigSpec;
+    const spec = { version: "0.2", name: "test-software-team", pods: [{ id: "dev", label: "Dev", members, edges: [] }], edges: [] } as SoftwareTeamSpec;
 
     const db = createFullTestDb();
     try {
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const created: Array<{ name: string; env: Record<string, string> | undefined }> = [];
       const tmux = fakeTmux(created);
       const sessionRegistry = new SessionRegistry(db);
       const eventBus = new EventBus(db);
-      const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux, pluginsDir });
-      const inst = new PodRigInstantiator({
-        db, rigRepo, podRepo: new PodRepository(db), sessionRegistry, eventBus, nodeLauncher,
+      const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux, pluginsDir });
+      const inst = new PodSoftwareTeamInstantiator({
+        db, softwareTeamRepo, podRepo: new PodRepository(db), sessionRegistry, eventBus, nodeLauncher,
         startupOrchestrator: new StartupOrchestrator({ db, sessionRegistry, eventBus, tmuxAdapter: tmux }),
         fsOps: mockFs(files),
         adapters: { "claude-code": mockAdapter("claude-code"), codex: mockAdapter("codex"), terminal: mockAdapter("terminal") },
         tmuxAdapter: tmux,
       });
-      const result = await inst.instantiate(RigSpecCodec.serialize(spec), RIG_ROOT);
+      const result = await inst.instantiate(SoftwareTeamSpecCodec.serialize(spec), SOFTWARE_TEAM_ROOT);
       expect(result.ok, JSON.stringify(result)).toBe(true);
-      const envOf = (member: string) => created.find((c) => c.name === `dev-${member}@test-rig`)?.env;
+      const envOf = (member: string) => created.find((c) => c.name === `dev-${member}@test-software-team`)?.env;
       expect(created).toHaveLength(members.length);
       for (const member of ["qualified", "unqualified", "custom"]) {
         expect(envOf(member)?.[PLUGIN_ENV], member).toBe(vendored);
@@ -277,14 +277,14 @@ describe("a Claude seat's launch env, on the launch paths that don't re-resolve 
   it("fresh launch: a seat that selected the plugin has it, and a Codex seat or one that selected nothing does not", async () => {
     const { pluginsDir, vendored } = vendoredPlugins(root);
     const db = createFullTestDb(); dbs.push(db);
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("plugin-env");
-    for (const id of ["selects", "nothing", "other", "codex"]) rigRepo.addNode(rig.id, id, { runtime: id === "codex" ? "codex" : "claude-code" });
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("plugin-env");
+    for (const id of ["selects", "nothing", "other", "codex"]) softwareTeamRepo.addNode(softwareTeam.id, id, { runtime: id === "codex" ? "codex" : "claude-code" });
     const created: Array<{ name: string; env: Record<string, string> | undefined }> = [];
-    const launcher = new NodeLauncher({ db, rigRepo, sessionRegistry: new SessionRegistry(db), eventBus: new EventBus(db),
-      tmuxAdapter: fakeTmux(created), sessionEnv: { OPENRIG_HOME: "/state" }, pluginsDir });
+    const launcher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry: new SessionRegistry(db), eventBus: new EventBus(db),
+      tmuxAdapter: fakeTmux(created), sessionEnv: { SOFTWARETEAM_HOME: "/state" }, pluginsDir });
     const sel: Record<string, string[] | undefined> = { selects: [vendored], nothing: [], other: ["/elsewhere"], codex: [vendored] };
-    for (const id of Object.keys(sel)) expect((await launcher.launchNode(rig.id, id, { pluginPaths: sel[id] })).ok).toBe(true);
+    for (const id of Object.keys(sel)) expect((await launcher.launchNode(softwareTeam.id, id, { pluginPaths: sel[id] })).ok).toBe(true);
     expect(created[0]!.env).toMatchObject({ [PLUGIN_ENV]: vendored, [SEAT_ENV_KEYS_VAR]: PLUGIN_ENV });
     for (const c of created.slice(1)) expect(c.env).not.toHaveProperty(PLUGIN_ENV);
   });
@@ -292,17 +292,17 @@ describe("a Claude seat's launch env, on the launch paths that don't re-resolve 
   it("fresh launch: a seat that loads the plugin is told its launch project, and one that doesn't is not", async () => {
     const { pluginsDir, vendored } = vendoredPlugins(root);
     const db = createFullTestDb(); dbs.push(db);
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("plugin-project");
-    rigRepo.addNode(rig.id, "selects", { runtime: "claude-code", cwd: "/work/seat" });
-    rigRepo.addNode(rig.id, "elsewhere", { runtime: "claude-code", cwd: "/work/other" });
-    rigRepo.addNode(rig.id, "nothing", { runtime: "claude-code", cwd: "/work/none" });
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("plugin-project");
+    softwareTeamRepo.addNode(softwareTeam.id, "selects", { runtime: "claude-code", cwd: "/work/seat" });
+    softwareTeamRepo.addNode(softwareTeam.id, "elsewhere", { runtime: "claude-code", cwd: "/work/other" });
+    softwareTeamRepo.addNode(softwareTeam.id, "nothing", { runtime: "claude-code", cwd: "/work/none" });
     const created: Array<{ name: string; env: Record<string, string> | undefined }> = [];
-    const launcher = new NodeLauncher({ db, rigRepo, sessionRegistry: new SessionRegistry(db), eventBus: new EventBus(db),
+    const launcher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry: new SessionRegistry(db), eventBus: new EventBus(db),
       tmuxAdapter: fakeTmux(created), pluginsDir });
-    expect((await launcher.launchNode(rig.id, "selects", { pluginPaths: [vendored] })).ok).toBe(true);
-    expect((await launcher.launchNode(rig.id, "elsewhere", { pluginPaths: [vendored], cwd: "/work/moved" })).ok).toBe(true);
-    expect((await launcher.launchNode(rig.id, "nothing", { pluginPaths: [] })).ok).toBe(true);
+    expect((await launcher.launchNode(softwareTeam.id, "selects", { pluginPaths: [vendored] })).ok).toBe(true);
+    expect((await launcher.launchNode(softwareTeam.id, "elsewhere", { pluginPaths: [vendored], cwd: "/work/moved" })).ok).toBe(true);
+    expect((await launcher.launchNode(softwareTeam.id, "nothing", { pluginPaths: [] })).ok).toBe(true);
     expect(created[0]!.env![SEAT_PROJECT_DIR_ENV]).toBe("/work/seat");
     expect(created[1]!.env![SEAT_PROJECT_DIR_ENV]).toBe("/work/moved"); // the folder the session actually starts in
     expect(created[2]!.env).not.toHaveProperty(SEAT_PROJECT_DIR_ENV);
@@ -310,30 +310,30 @@ describe("a Claude seat's launch env, on the launch paths that don't re-resolve 
 
   it("fresh launch: nothing is added when the plugin isn't vendored", async () => {
     const db = createFullTestDb(); dbs.push(db);
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("plugin-env-absent");
-    rigRepo.addNode(rig.id, "selects", { runtime: "claude-code" });
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("plugin-env-absent");
+    softwareTeamRepo.addNode(softwareTeam.id, "selects", { runtime: "claude-code" });
     const created: Array<{ name: string; env: Record<string, string> | undefined }> = [];
-    const launcher = new NodeLauncher({ db, rigRepo, sessionRegistry: new SessionRegistry(db), eventBus: new EventBus(db),
+    const launcher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry: new SessionRegistry(db), eventBus: new EventBus(db),
       tmuxAdapter: fakeTmux(created), pluginsDir: join(root, "plugins") });
-    expect((await launcher.launchNode(rig.id, "selects", { pluginPaths: [join(root, "plugins", "openrig-core")] })).ok).toBe(true);
+    expect((await launcher.launchNode(softwareTeam.id, "selects", { pluginPaths: [join(root, "plugins", "softwareteam-core")] })).ok).toBe(true);
     expect(created[0]!.env).not.toHaveProperty(PLUGIN_ENV);
   });
 
   it("a relaunch that isn't given a selection reads the one the node saved", async () => {
     const { pluginsDir, vendored } = vendoredPlugins(root);
     const db = createFullTestDb(); dbs.push(db);
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("plugin-env-saved");
-    const selects = rigRepo.addNode(rig.id, "selects", { runtime: "claude-code" });
-    rigRepo.addNode(rig.id, "unsaved", { runtime: "claude-code" });
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("plugin-env-saved");
+    const selects = softwareTeamRepo.addNode(softwareTeam.id, "selects", { runtime: "claude-code" });
+    softwareTeamRepo.addNode(softwareTeam.id, "unsaved", { runtime: "claude-code" });
     db.prepare("INSERT INTO node_startup_context (node_id, projection_entries_json, resolved_files_json, startup_actions_json, runtime) VALUES (?, ?, '[]', '[]', 'claude-code')")
       .run(selects.id, JSON.stringify([{ category: "plugin", absolutePath: vendored }]));
     const created: Array<{ name: string; env: Record<string, string> | undefined }> = [];
-    const launcher = new NodeLauncher({ db, rigRepo, sessionRegistry: new SessionRegistry(db), eventBus: new EventBus(db),
+    const launcher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry: new SessionRegistry(db), eventBus: new EventBus(db),
       tmuxAdapter: fakeTmux(created), pluginsDir });
-    expect((await launcher.launchNode(rig.id, "selects")).ok).toBe(true);
-    expect((await launcher.launchNode(rig.id, "unsaved")).ok).toBe(true);
+    expect((await launcher.launchNode(softwareTeam.id, "selects")).ok).toBe(true);
+    expect((await launcher.launchNode(softwareTeam.id, "unsaved")).ok).toBe(true);
     expect(created[0]!.env).toMatchObject({ [PLUGIN_ENV]: vendored });
     expect(created[1]!.env).not.toHaveProperty(PLUGIN_ENV);
   });
@@ -341,41 +341,41 @@ describe("a Claude seat's launch env, on the launch paths that don't re-resolve 
   it("fresh launch: a seat's own list keeps working and the vendored plugin is added to it", async () => {
     const { pluginsDir, vendored } = vendoredPlugins(root);
     const db = createFullTestDb(); dbs.push(db);
-    const rigRepo = new RigRepository(db);
-    const rig = rigRepo.createRig("plugin-env-own");
-    rigRepo.addNode(rig.id, "own", { runtime: "claude-code", env: { [PLUGIN_ENV]: OWN_LIST } });
-    rigRepo.addNode(rig.id, "has-it", { runtime: "claude-code", env: { [PLUGIN_ENV]: `/own/plugins:${vendored}` } });
-    rigRepo.addNode(rig.id, "oneoff", { runtime: "claude-code" });
-    rigRepo.addNode(rig.id, "own-not-selected", { runtime: "claude-code", env: { [PLUGIN_ENV]: OWN_LIST } });
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("plugin-env-own");
+    softwareTeamRepo.addNode(softwareTeam.id, "own", { runtime: "claude-code", env: { [PLUGIN_ENV]: OWN_LIST } });
+    softwareTeamRepo.addNode(softwareTeam.id, "has-it", { runtime: "claude-code", env: { [PLUGIN_ENV]: `/own/plugins:${vendored}` } });
+    softwareTeamRepo.addNode(softwareTeam.id, "oneoff", { runtime: "claude-code" });
+    softwareTeamRepo.addNode(softwareTeam.id, "own-not-selected", { runtime: "claude-code", env: { [PLUGIN_ENV]: OWN_LIST } });
     const created: Array<{ name: string; env: Record<string, string> | undefined }> = [];
     const sessionEnvCalls: string[] = [];
-    const launcher = new NodeLauncher({ db, rigRepo, sessionRegistry: new SessionRegistry(db), eventBus: new EventBus(db),
-      tmuxAdapter: fakeTmux(created, sessionEnvCalls), sessionEnv: { OPENRIG_HOME: "/state" }, pluginsDir });
-    for (const id of ["own", "has-it"]) expect((await launcher.launchNode(rig.id, id, { pluginPaths: [vendored] })).ok).toBe(true);
+    const launcher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry: new SessionRegistry(db), eventBus: new EventBus(db),
+      tmuxAdapter: fakeTmux(created, sessionEnvCalls), sessionEnv: { SOFTWARETEAM_HOME: "/state" }, pluginsDir });
+    for (const id of ["own", "has-it"]) expect((await launcher.launchNode(softwareTeam.id, id, { pluginPaths: [vendored] })).ok).toBe(true);
     expect(created[0]!.env![PLUGIN_ENV]).toBe(`${OWN_LIST}:${vendored}`);
     expect(created[1]!.env![PLUGIN_ENV]).toBe(`/own/plugins:${vendored}`);
-    // A one-off `rig up --env` list is composed too, and once the first pane has it the session goes back to the vendored plugin.
-    const oneOff = await launcher.launchNode(rig.id, "oneoff", { pluginPaths: [vendored], env: { [PLUGIN_ENV]: "/one/off" } });
+    // A one-off `SoftwareTeam up --env` list is composed too, and once the first pane has it the session goes back to the vendored plugin.
+    const oneOff = await launcher.launchNode(softwareTeam.id, "oneoff", { pluginPaths: [vendored], env: { [PLUGIN_ENV]: "/one/off" } });
     expect(oneOff.ok, JSON.stringify(oneOff)).toBe(true);
     expect(created[2]!.env![PLUGIN_ENV]).toBe(`/one/off:${vendored}`);
     expect(sessionEnvCalls).toContain(`set ${PLUGIN_ENV}=${vendored}`);
     // A seat that declared its own list but didn't select the plugin keeps exactly its own list.
-    expect((await launcher.launchNode(rig.id, "own-not-selected", { pluginPaths: [] })).ok).toBe(true);
+    expect((await launcher.launchNode(softwareTeam.id, "own-not-selected", { pluginPaths: [] })).ok).toBe(true);
     expect(created[3]!.env![PLUGIN_ENV]).toBe(OWN_LIST);
   });
 
   function restoreHarness(entries: unknown[], memberEnv?: Record<string, string>) {
     const { pluginsDir } = vendoredPlugins(root);
     const db = createFullTestDb(); dbs.push(db);
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const sessionRegistry = new SessionRegistry(db);
     const eventBus = new EventBus(db);
     const snapshotRepo = new SnapshotRepository(db);
     const checkpointStore = new CheckpointStore(db);
-    const snapshotCapture = new SnapshotCapture({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
-    const rig = rigRepo.createRig("restore-test");
-    db.prepare("INSERT INTO pods (id, rig_id, label) VALUES (?, ?, ?)").run("restore-pod", rig.id, "Test");
-    const node = rigRepo.addNode(rig.id, "test.c", { runtime: "claude-code", podId: "restore-pod", ...(memberEnv ? { env: memberEnv } : {}) });
+    const snapshotCapture = new SnapshotCapture({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("restore-test");
+    db.prepare("INSERT INTO pods (id, software_team_id, label) VALUES (?, ?, ?)").run("restore-pod", softwareTeam.id, "Test");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "test.c", { runtime: "claude-code", podId: "restore-pod", ...(memberEnv ? { env: memberEnv } : {}) });
     const name = "test-c@restore-test";
     const token = "00000000-0000-4000-8000-000000000006";
     const old = sessionRegistry.registerSession(node.id, name);
@@ -400,15 +400,15 @@ describe("a Claude seat's launch env, on the launch paths that don't re-resolve 
     return {
       created,
       async run() {
-        const down = await new RigTeardownOrchestrator({ db, rigRepo, sessionRegistry, eventBus, snapshotCapture, tmuxAdapter: tmux }).teardown(rig.id);
+        const down = await new SoftwareTeamTeardownOrchestrator({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotCapture, tmuxAdapter: tmux }).teardown(softwareTeam.id);
         expect(down.errors).toEqual([]);
         // The node's live context changes after the snapshot; restore follows the snapshot.
         db.prepare("DELETE FROM node_startup_context WHERE node_id = ?").run(node.id);
         const adapter = new ClaudeCodeAdapter({ tmux, listProcesses, sleep: async () => {},
           claudeManagedLaunch: { prepare: async () => ({ command: (args: readonly string[]) => `claude ${args.join(" ")}`, assertCurrent: () => {}, configDir: "/fixture", executable: "/opt/claude.exe" }) } as unknown as ClaudeManagedLaunch,
           fsOps: { exists: () => false, readFile: () => "", writeFile: () => {}, mkdirp: () => {}, copyFile: () => {} } });
-        const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux, sessionEnv: { OPENRIG_HOME: "/state" }, pluginsDir });
-        const restore = new RestoreOrchestrator({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+        const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux, sessionEnv: { SOFTWARETEAM_HOME: "/state" }, pluginsDir });
+        const restore = new RestoreOrchestrator({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
           checkpointStore, nodeLauncher, tmuxAdapter: tmux, claudeResume: new ClaudeResumeAdapter(tmux),
           codexResume: new CodexResumeAdapter(tmux), listProcesses });
         await restore.restore(down.snapshotId!, { adapters: { "claude-code": adapter } });
@@ -443,12 +443,12 @@ describe("a Claude seat's launch env, on the launch paths that don't re-resolve 
 // successor pane's shell has in its environment.
 describe("handover successor, on a real tmux server", () => {
   const pexec = promisify(execFile);
-  const SOCK = `openrig-coreplug-${process.pid}`;
+  const SOCK = `softwareteam-coreplug-${process.pid}`;
   const cleanEnv: NodeJS.ProcessEnv = { ...process.env };
   delete cleanEnv.TMUX;
   // A test run from inside a seat that loads the plugin must not hand its own plugin variables to the tmux server under test.
   delete cleanEnv.CLAUDE_CODE_PLUGIN_DIRS;
-  delete cleanEnv.OPENRIG_SEAT_PROJECT_DIR;
+  delete cleanEnv.SOFTWARETEAM_SEAT_PROJECT_DIR;
   const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
   const exec = async (cmd: string): Promise<string> => {
     const safe = cmd.startsWith("tmux ") ? `tmux -L ${SOCK} ${cmd.slice(5)}` : cmd;
@@ -478,35 +478,35 @@ describe("handover successor, on a real tmux server", () => {
     return out;
   }
 
-  async function successorEnviron(rigName: string, saved: unknown[]): Promise<Record<string, string>> {
+  async function successorEnviron(softwareTeamName: string, saved: unknown[]): Promise<Record<string, string>> {
     const { pluginsDir, vendored } = vendoredPlugins(scratch);
-    const seat = `dev-impl@${rigName}`;
+    const seat = `dev-impl@${softwareTeamName}`;
     seats.push(seat);
     const db = createDb(); db.pragma("foreign_keys = ON"); migrate(db, ALL_MIGRATIONS);
     try {
-      const rigRepo = new RigRepository(db), sessionRegistry = new SessionRegistry(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db), sessionRegistry = new SessionRegistry(db);
       const discoveryRepo = new DiscoveryRepository(db), eventBus = new EventBus(db);
-      const rig = rigRepo.createRig(rigName);
-      const node = rigRepo.addNode(rig.id, "dev.impl", { runtime: "claude-code", cwd: scratch });
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam(softwareTeamName);
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.impl", { runtime: "claude-code", cwd: scratch });
       db.prepare("INSERT INTO node_startup_context (node_id, projection_entries_json, resolved_files_json, startup_actions_json, runtime) VALUES (?, ?, '[]', '[]', 'claude-code')")
         .run(node.id, JSON.stringify(saved.map((p) => p === "vendored" ? { category: "plugin", absolutePath: vendored } : p)));
       const adapter = new TmuxAdapter(exec);
-      const launcher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: adapter, pluginsDir });
-      const launched = await launcher.launchNode(rig.id, "dev.impl", { sessionName: seat, cwd: scratch });
+      const launcher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: adapter, pluginsDir });
+      const launched = await launcher.launchNode(softwareTeam.id, "dev.impl", { sessionName: seat, cwd: scratch });
       expect(launched.ok).toBe(true);
       await sleep(300);
       const pane = (await tmux(`list-panes -t ${q(seat)} -F '#{pane_id}'`)).trim();
       await tmux(`send-keys -t ${q(pane)} -l -- ${q("trap 'exit 0' TERM")}`);
       await tmux(`send-keys -t ${q(pane)} Enter`);
       await sleep(200);
-      sessionRegistry.updateStartupStatus(sessionRegistry.getSessionsForRig(rig.id)[0]!.id, "ready", new Date("2026-08-07T09:00:00Z").toISOString());
+      sessionRegistry.updateStartupStatus(sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id)[0]!.id, "ready", new Date("2026-08-07T09:00:00Z").toISOString());
       const runtime = {
         runtime: "claude-code",
         async launchHarness() { return { ok: true, resumeToken: "tok", resumeType: "claude_id" }; },
         async checkReady() { return { ready: true }; },
       };
       const service = new SeatHandoverService({
-        db, rigRepo, sessionRegistry, discoveryRepo, eventBus,
+        db, softwareTeamRepo, sessionRegistry, discoveryRepo, eventBus,
         tmuxAdapter: adapter, runtimeAdapters: { "claude-code": runtime as never }, pluginsDir,
         predecessorRecapResolver: () => ({ recap: [], recordPath: join(scratch, "none.jsonl") }),
         readinessTimeoutMs: 3000, sleep,
@@ -514,7 +514,7 @@ describe("handover successor, on a real tmux server", () => {
       const result = await service.handover({ seatRef: seat, reason: "context ~85%", source: "fresh", operator: "orch@seat" });
       expect(result.ok).toBe(true);
       await sleep(300);
-      return await paneEnviron(seat, rigName);
+      return await paneEnviron(seat, softwareTeamName);
     } finally {
       db.close();
     }
@@ -548,20 +548,20 @@ describe.skipIf(process.platform === "win32")("the managed (env -i) Claude launc
     for (const dir of [bin, home, cwd]) mkdirSync(dir);
     writeFileSync(join(bin, "claude"), `#!/bin/sh
 if [ "$1" = --help ]; then printf '%s\\n' '--permission-mode <mode> (choices: "auto", "default")'; exit 0; fi
-printf '{"PLUGIN_DIRS":"%s","LEAKED":"%s","PROJECT":"%s"}' "\${CLAUDE_CODE_PLUGIN_DIRS-absent}" "\${LEAKED-absent}" "\${OPENRIG_SEAT_PROJECT_DIR-absent}"
+printf '{"PLUGIN_DIRS":"%s","LEAKED":"%s","PROJECT":"%s"}' "\${CLAUDE_CODE_PLUGIN_DIRS-absent}" "\${LEAKED-absent}" "\${SOFTWARETEAM_SEAT_PROJECT_DIR-absent}"
 `);
     chmodSync(join(bin, "claude"), 0o700);
     const db = new Database(":memory:"); cleanup.push(() => { db.close(); });
-    db.exec(`CREATE TABLE rigs(id TEXT, env_json TEXT);
-      CREATE TABLE nodes(id TEXT, rig_id TEXT, runtime TEXT, cwd TEXT, env_json TEXT);
+    db.exec(`CREATE TABLE software_teams(id TEXT, env_json TEXT);
+      CREATE TABLE nodes(id TEXT, software_team_id TEXT, runtime TEXT, cwd TEXT, env_json TEXT);
       CREATE TABLE bindings(id TEXT, node_id TEXT, tmux_session TEXT, tmux_pane TEXT);
       CREATE TABLE occupant_tenures(node_id TEXT, generation_uuid TEXT, generation_ordinal INTEGER);
       CREATE TABLE node_startup_context(node_id TEXT, projection_entries_json TEXT);`);
     const { pluginsDir, vendored } = vendoredPlugins(root);
     if (opts.saved) db.prepare("INSERT INTO node_startup_context VALUES ('node', ?)").run(JSON.stringify(opts.saved.map((p) => p === "vendored" ? { category: "plugin", absolutePath: vendored } : p)));
-    db.prepare("INSERT INTO rigs VALUES ('rig', NULL)").run();
-    db.prepare("INSERT INTO nodes VALUES ('node', 'rig', 'claude-code', ?, ?)").run(cwd, opts.memberEnv ? JSON.stringify(opts.memberEnv) : null);
-    db.exec("INSERT INTO bindings VALUES ('b', 'node', 'seat@rig', '%1'); INSERT INTO occupant_tenures VALUES ('node', 'gen', 1)");
+    db.prepare("INSERT INTO software_teams VALUES ('softwareTeam', NULL)").run();
+    db.prepare("INSERT INTO nodes VALUES ('node', 'softwareTeam', 'claude-code', ?, ?)").run(cwd, opts.memberEnv ? JSON.stringify(opts.memberEnv) : null);
+    db.exec("INSERT INTO bindings VALUES ('b', 'node', 'seat@software-team', '%1'); INSERT INTO occupant_tenures VALUES ('node', 'gen', 1)");
     // The tmux session variable the launch records: the names the seat's declared environment holds.
     const managed = new RealManagedLaunch(db, { PATH: `${bin}:/usr/bin:/bin`, HOME: home }, {},
       async (_session, key) => key === SEAT_ENV_KEYS_VAR ? opts.sessionKeys : undefined, pluginsDir);
@@ -571,11 +571,11 @@ printf '{"PLUGIN_DIRS":"%s","LEAKED":"%s","PROJECT":"%s"}' "\${CLAUDE_CODE_PLUGI
     };
     return { managed, run, vendored };
   }
-  const target = { nodeId: "node", session: "seat@rig", pane: "%1" };
+  const target = { nodeId: "node", session: "seat@software-team", pane: "%1" };
   const launch = async (f: ReturnType<typeof fixture>) => (await f.managed.prepare(target, "auto")).command(["--permission-mode", "auto"]);
 
   it("gives a seat that selected the plugin the vendored plugin from its pane, and nothing else the pane holds", async () => {
-    const vendored = "/v/plugins/openrig-core";
+    const vendored = "/v/plugins/softwareteam-core";
     // What NodeLauncher hands such a seat: the variable and the list naming it.
     const vars = withCorePlugin({}, vendored);
     const f = fixture({ sessionKeys: PLUGIN_ENV });
@@ -585,12 +585,12 @@ printf '{"PLUGIN_DIRS":"%s","LEAKED":"%s","PROJECT":"%s"}' "\${CLAUDE_CODE_PLUGI
 
   it("gives a seat that declared its own list the composed list, once", async () => {
     const f = fixture({ memberEnv: { [PLUGIN_ENV]: OWN_LIST }, sessionKeys: PLUGIN_ENV });
-    const seen = await f.run(await launch(f), { [PLUGIN_ENV]: `${OWN_LIST}:/v/openrig-core` });
-    expect(seen.PLUGIN_DIRS).toBe(`${OWN_LIST}:/v/openrig-core`);
+    const seen = await f.run(await launch(f), { [PLUGIN_ENV]: `${OWN_LIST}:/v/softwareteam-core` });
+    expect(seen.PLUGIN_DIRS).toBe(`${OWN_LIST}:/v/softwareteam-core`);
   });
 
   it("gives a handover successor the plugin even when its tmux session's name list predates the plugin variable", async () => {
-    // The session was created before the daemon was upgraded: its OPENRIG_SEAT_ENV_KEYS lacks the name (or is absent), while the
+    // The session was created before the daemon was upgraded: its SOFTWARETEAM_SEAT_ENV_KEYS lacks the name (or is absent), while the
     // respawned pane's shell has the variable. The seat's saved plugin selection is what says to forward it.
     for (const sessionKeys of [undefined, "FOO"]) {
       const f = fixture({ sessionKeys, saved: ["vendored"] });
@@ -615,12 +615,12 @@ printf '{"PLUGIN_DIRS":"%s","LEAKED":"%s","PROJECT":"%s"}' "\${CLAUDE_CODE_PLUGI
 });
 
 describe("the plugin's activity relay", () => {
-  const relayPath = require.resolve("../assets/plugins/openrig-core/hooks/scripts/activity-relay.cjs");
+  const relayPath = require.resolve("../assets/plugins/softwareteam-core/hooks/scripts/activity-relay.cjs");
   let server: Server;
   let posts: Array<{ url: string; body: string }>;
   let port: number;
   let project: string;
-  let settingsRelay: string; // the copy of the relay OpenRig puts in a seat's state, as settings.local.json names it
+  let settingsRelay: string; // the copy of the relay SoftwareTeam puts in a seat's state, as settings.local.json names it
 
   beforeEach(async () => {
     posts = [];
@@ -646,8 +646,8 @@ describe("the plugin's activity relay", () => {
   function run(payload: Record<string, unknown>, args: string[] = [], extraEnv: Record<string, string> = {}): Promise<void> {
     return new Promise((done, fail) => {
       const child = spawn(process.execPath, [relayPath, ...args], {
-        env: { PATH: process.env.PATH ?? "", OPENRIG_SESSION_NAME: "dev-claude@rig", OPENRIG_NODE_ID: "node-1", OPENRIG_RUNTIME: "claude-code",
-          OPENRIG_URL: `http://127.0.0.1:${port}`, OPENRIG_ACTIVITY_HOOK_TOKEN: "tok", CLAUDE_PROJECT_DIR: project, ...extraEnv },
+        env: { PATH: process.env.PATH ?? "", SOFTWARETEAM_SESSION_NAME: "dev-claude@software-team", SOFTWARETEAM_NODE_ID: "node-1", SOFTWARETEAM_RUNTIME: "claude-code",
+          SOFTWARETEAM_URL: `http://127.0.0.1:${port}`, SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: "tok", CLAUDE_PROJECT_DIR: project, ...extraEnv },
         stdio: ["pipe", "ignore", "ignore"],
       });
       child.on("error", fail);
@@ -691,7 +691,7 @@ describe("the plugin's activity relay", () => {
     expect(posts).toEqual([]);
   });
 
-  it("reports when a settings command only mentions the relay path, since it may not be OpenRig's relay", async () => {
+  it("reports when a settings command only mentions the relay path, since it may not be SoftwareTeam's relay", async () => {
     for (const command of [`node wrapper.cjs '${settingsRelay}'`, `node 'x' '${settingsRelay}'`, `bash -c 'node ${settingsRelay}'`]) {
       writeFileSync(join(project, ".claude", "settings.local.json"),
         JSON.stringify({ hooks: { UserPromptSubmit: [{ hooks: [{ type: "command", command }] }] } }));
@@ -702,7 +702,7 @@ describe("the plugin's activity relay", () => {
 
   it("reports when the settings entry names a relay script that isn't there or isn't the relay", async () => {
     writeFileSync(join(project, ".claude", "settings.local.json"), settingsWithRelay(["UserPromptSubmit"]));
-    // As OpenRig wrote it, the entry silences the plugin's run.
+    // As SoftwareTeam wrote it, the entry silences the plugin's run.
     await run({ hook_event_name: "UserPromptSubmit", session_id: "s-1" }, ["--from-plugin"]);
     expect(posts).toEqual([]);
     // The script is gone: that entry reports nothing, so the plugin must.
@@ -743,9 +743,9 @@ describe("the plugin's activity relay", () => {
 
 // A Claude started from inside a seat (its shell, its Bash tool) inherits the seat's environment and so loads the plugin.
 // The plugin's seat effects act only when Claude's fixed CLAUDE_PROJECT_DIR is the seat's launch project
-// (OPENRIG_SEAT_PROJECT_DIR); the hook's moving cwd is never compared. These run each hook script as Claude would.
+// (SOFTWARETEAM_SEAT_PROJECT_DIR); the hook's moving cwd is never compared. These run each hook script as Claude would.
 describe("the plugin's seat effects stay inside the seat's project", () => {
-  const scripts = join(import.meta.dirname, "../assets/plugins/openrig-core");
+  const scripts = join(import.meta.dirname, "../assets/plugins/softwareteam-core");
   const roots: string[] = [];
   afterEach(() => { for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true }); });
 
@@ -755,7 +755,7 @@ describe("the plugin's seat effects stay inside the seat's project", () => {
     const seat = join(root, "seat"), nested = join(root, "nested"), sub = join(seat, "sub");
     for (const d of [seat, nested, sub]) mkdirSync(d, { recursive: true });
     symlinkSync(seat, join(root, "seat-link"));
-    // The CLAUDE_PROJECT_DIR / OPENRIG_SEAT_PROJECT_DIR pairs, and whether the seat's effects should run.
+    // The CLAUDE_PROJECT_DIR / SOFTWARETEAM_SEAT_PROJECT_DIR pairs, and whether the seat's effects should run.
     const cases: Array<{ label: string; claude: string | undefined; launch: string | undefined; acts: boolean }> = [
       { label: "the same folder", claude: seat, launch: seat, acts: true },
       { label: "a trailing slash", claude: `${seat}/`, launch: seat, acts: true },
@@ -771,7 +771,7 @@ describe("the plugin's seat effects stay inside the seat's project", () => {
   const envFor = (c: { claude?: string; launch?: string }, base: Record<string, string>) => {
     const env: Record<string, string> = { PATH: process.env.PATH ?? "", ...base };
     if (c.claude !== undefined) env.CLAUDE_PROJECT_DIR = c.claude;
-    if (c.launch !== undefined) env.OPENRIG_SEAT_PROJECT_DIR = c.launch;
+    if (c.launch !== undefined) env.SOFTWARETEAM_SEAT_PROJECT_DIR = c.launch;
     return env;
   };
 
@@ -788,9 +788,9 @@ describe("the plugin's seat effects stay inside the seat's project", () => {
         mkdirSync(tmp);
         const out = await new Promise<void>((done, fail) => {
           const child = spawn(process.execPath, [join(scripts, "hooks/scripts/activity-relay.cjs")], {
-            env: envFor(c, { TMPDIR: tmp, OPENRIG_SESSION_NAME: "dev-claude@rig", OPENRIG_NODE_ID: "n1", OPENRIG_RUNTIME: "claude-code",
-              OPENRIG_OCCUPANT_GENERATION: "gen-1", OPENRIG_RESUME_LAUNCH: "resume-1",
-              OPENRIG_URL: `http://127.0.0.1:${port}`, OPENRIG_ACTIVITY_HOOK_TOKEN: "tok" }),
+            env: envFor(c, { TMPDIR: tmp, SOFTWARETEAM_SESSION_NAME: "dev-claude@software-team", SOFTWARETEAM_NODE_ID: "n1", SOFTWARETEAM_RUNTIME: "claude-code",
+              SOFTWARETEAM_OCCUPANT_GENERATION: "gen-1", SOFTWARETEAM_RESUME_LAUNCH: "resume-1",
+              SOFTWARETEAM_URL: `http://127.0.0.1:${port}`, SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: "tok" }),
             stdio: ["pipe", "ignore", "ignore"],
           });
           child.on("error", fail); child.on("close", () => done());
@@ -798,7 +798,7 @@ describe("the plugin's seat effects stay inside the seat's project", () => {
           child.stdin.end(JSON.stringify({ hook_event_name: "SessionStart", session_id: "s-1", source: "startup", cwd: w.sub }));
         });
         void out;
-        const markers = readdirSync(tmp).filter((n) => n.startsWith("openrig-resume-launch-"));
+        const markers = readdirSync(tmp).filter((n) => n.startsWith("softwareteam-resume-launch-"));
         expect(posts.length > 0, c.label).toBe(c.acts);
         expect(markers.length > 0, `${c.label}: marker`).toBe(c.acts);
       }
@@ -815,7 +815,7 @@ describe("the plugin's seat effects stay inside the seat's project", () => {
       mkdirSync(out, { recursive: true });
       const transcript = join(home, "transcript.jsonl");
       writeFileSync(transcript, `${JSON.stringify({ sessionId: "s-1", cwd: w.seat, message: { role: "user", content: "x" } })}\n`);
-      const base = { OPENRIG_HOME: home, HOME: home, OPENRIG_SESSION_NAME: "seat@rig", OPENRIG_COMPACTION_OUT_ROOT: out, OPENRIG_REFOCUS_ENABLED: "1" };
+      const base = { SOFTWARETEAM_HOME: home, HOME: home, SOFTWARETEAM_SESSION_NAME: "seat@software-team", SOFTWARETEAM_COMPACTION_OUT_ROOT: out, SOFTWARETEAM_REFOCUS_ENABLED: "1" };
       const markers = join(home, "compaction", "restore-pending");
 
       // PreCompact writes the restore-pending marker.
@@ -823,12 +823,12 @@ describe("the plugin's seat effects stay inside the seat's project", () => {
         input: JSON.stringify({ hook_event_name: "PreCompact", session_id: "s-1", cwd: w.sub, transcript_path: transcript }),
         encoding: "utf8", env: envFor(c, base), timeout: 20_000,
       });
-      expect(existsSync(join(markers, "seat@rig.json")), `${c.label}: PreCompact marker`).toBe(c.acts);
+      expect(existsSync(join(markers, "seat@software-team.json")), `${c.label}: PreCompact marker`).toBe(c.acts);
 
       // The bridge delivers a marker once. Give it one to deliver.
       mkdirSync(markers, { recursive: true });
-      const markerFile = join(markers, "seat@rig.json");
-      const planted = { sessionName: "seat@rig", outputDir: "/packet" };
+      const markerFile = join(markers, "seat@software-team.json");
+      const planted = { sessionName: "seat@software-team", outputDir: "/packet" };
       writeFileSync(markerFile, JSON.stringify(planted));
       const bridge = spawnSync(process.execPath, [join(scripts, "hooks/scripts/compaction-restore-bridge.cjs")], {
         input: JSON.stringify({ hook_event_name: "UserPromptSubmit", session_id: "s-1", cwd: w.sub }),
@@ -880,8 +880,8 @@ describe("the plugin's seat effects stay inside the seat's project", () => {
     const port = (server.address() as { port: number }).port;
     const post = (launch: string, claude: string) => new Promise<void>((done, fail) => {
       const child = spawn(process.execPath, [join(scripts, "hooks/scripts/activity-relay.cjs")], {
-        env: { PATH: process.env.PATH ?? "", OPENRIG_SESSION_NAME: "dev-claude@rig", OPENRIG_NODE_ID: "n1", OPENRIG_RUNTIME: "claude-code",
-          OPENRIG_URL: `http://127.0.0.1:${port}`, OPENRIG_ACTIVITY_HOOK_TOKEN: "tok", OPENRIG_SEAT_PROJECT_DIR: launch, CLAUDE_PROJECT_DIR: claude },
+        env: { PATH: process.env.PATH ?? "", SOFTWARETEAM_SESSION_NAME: "dev-claude@software-team", SOFTWARETEAM_NODE_ID: "n1", SOFTWARETEAM_RUNTIME: "claude-code",
+          SOFTWARETEAM_URL: `http://127.0.0.1:${port}`, SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: "tok", SOFTWARETEAM_SEAT_PROJECT_DIR: launch, CLAUDE_PROJECT_DIR: claude },
         stdio: ["pipe", "ignore", "ignore"],
       });
       child.on("error", fail); child.on("close", () => done());

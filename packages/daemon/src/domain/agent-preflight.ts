@@ -3,21 +3,21 @@ import type { PreflightResult } from "./types.js";
 
 /**
  * Agent-only preflight: resolves agent_ref and its imports.
- * Does NOT check runtime (that's member-authoritative in rig preflight).
+ * Does NOT check runtime (that's member-authoritative in SoftwareTeam preflight).
  * @param agentRef - agent_ref string
- * @param rigRoot - rig root directory
+ * @param softwareTeamRoot - softwareTeam root directory
  * @param fsOps - filesystem operations
  * @returns PreflightResult with errors/warnings
  */
 export function agentPreflight(
   agentRef: string,
-  rigRoot: string,
+  softwareTeamRoot: string,
   fsOps: AgentResolverFsOps,
 ): PreflightResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  const result = resolveAgentRef(agentRef, rigRoot, fsOps);
+  const result = resolveAgentRef(agentRef, softwareTeamRoot, fsOps);
   if (!result.ok) {
     if (result.code === "validation_failed") {
       errors.push(...(result as { errors: string[] }).errors);

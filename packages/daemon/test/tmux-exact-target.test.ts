@@ -1,7 +1,7 @@
 // Captures, the session-environment read, pipe-pane, the pane command and pid reads, the window option and
 // resize, and the unguarded kill address the exact session. tmux resolves a bare `-t name` by prefix when no session
 // has that exact name (checked against tmux 3.6a: with only `dev-impl@my-rig2` alive, `capture-pane -t
-// dev-impl@my-rig` printed its screen, `show-environment` read its environment, `pipe-pane` attached to it,
+// dev-impl@my-softwareTeam` printed its screen, `show-environment` read its environment, `pipe-pane` attached to it,
 // `display-message` reported its command and pid, `set-option -w` and `resize-window` changed its window, and
 // `kill-session` killed it). So a seat whose session just ended must read as missing and must not act on its prefix
 // sibling. The fake tmux below resolves targets the same way, in both exec modes.
@@ -77,7 +77,7 @@ function shellToArgv(cmd: string): string[] {
 }
 
 const SIBLING = "dev-impl@my-rig2";
-const GONE = "dev-impl@my-rig";
+const GONE = "dev-impl@my-software-team";
 
 describe("exact session targets for capture, session environment and pipe-pane", () => {
   for (const mode of ["shell", "argv"] as const) {
@@ -90,7 +90,7 @@ describe("exact session targets for capture, session environment and pipe-pane",
       return { a, calls };
     }
     const onlySibling = (): Sessions => ({
-      [SIBLING]: { screen: "SIBLING-SCREEN\n", env: { OPENRIG_PROBE: "yes" }, command: "cat", pid: 4242, size: "120x40" },
+      [SIBLING]: { screen: "SIBLING-SCREEN\n", env: { SOFTWARETEAM_PROBE: "yes" }, command: "cat", pid: 4242, size: "120x40" },
     });
 
     it(`${mode}: remaining: respawning an ended session does not respawn its sibling`, async () => {
@@ -223,7 +223,7 @@ describe("exact session targets for capture, session environment and pipe-pane",
 
     it(`${mode}: the session-environment read of an ended session is unknown, not its sibling's`, async () => {
       const { a } = adapter(onlySibling());
-      expect(await a.hasSessionEnv(GONE, "OPENRIG_PROBE")).toBeNull();
+      expect(await a.hasSessionEnv(GONE, "SOFTWARETEAM_PROBE")).toBeNull();
     });
 
     it(`${mode}: pipe-pane on an ended session fails and leaves the sibling unpiped; stop does not touch the sibling`, async () => {
@@ -240,7 +240,7 @@ describe("exact session targets for capture, session environment and pipe-pane",
       const { a, calls } = adapter(sessions);
       expect(await a.capturePaneContent(GONE)).toBe("OWN-SCREEN\n");
       expect(await a.capturePaneScreen(GONE)).toBe("OWN-SCREEN\n");
-      expect(await a.hasSessionEnv(GONE, "OPENRIG_PROBE")).toBe(false);
+      expect(await a.hasSessionEnv(GONE, "SOFTWARETEAM_PROBE")).toBe(false);
       expect(await a.startPipePane(GONE, "/tmp/own.log")).toEqual({ ok: true });
       expect(sessions[GONE]!.pipedTo).toBe("cat >> '/tmp/own.log'");
       expect(sessions[SIBLING]!.pipedTo).toBeUndefined();

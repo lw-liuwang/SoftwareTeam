@@ -17,14 +17,14 @@ afterEach(() => { if (root) fs.rmSync(root, { recursive: true, force: true }); r
 /** Run the real runner with a fake `<runtime>` that runs `before`, prints
  *  `stderr`, and ends with `ending`. */
 function runWithFake(runtime: "omp" | "pi", stderr: string[], ending = "exit 1", before = "") {
-  root = fs.mkdtempSync(nodePath.join(os.tmpdir(), `openrig-${runtime}-early-exit-`));
+  root = fs.mkdtempSync(nodePath.join(os.tmpdir(), `softwareteam-${runtime}-early-exit-`));
   const bin = nodePath.join(root, "bin");
   fs.mkdirSync(bin);
   const lines = stderr.map((line) => `printf '%s\\n' '${line}' >&2`).join("\n");
   fs.writeFileSync(nodePath.join(bin, runtime), `#!/bin/sh\n${before}\n${lines}\n${ending}\n`, { mode: 0o755 });
   const args = [
     "--import", "tsx", RUNNER,
-    "--session-name", "dev@rig", "--state-root", nodePath.join(root, "state", runtime), "--cwd", root,
+    "--session-name", "dev@software-team", "--state-root", nodePath.join(root, "state", runtime), "--cwd", root,
     "--launch-id", "launch-1",
   ];
   args.push(...(runtime === "omp" ? ["--runtime", "omp", "--approval-mode", "always-ask"] : ["--no-approve"]));
@@ -84,7 +84,7 @@ describe("OMP exits during startup, before its RPC transport", () => {
 
 describe("OMP exit record with a child holding OMP's stderr", () => {
   it("is still written promptly, with OMP's output in it", async () => {
-    root = fs.mkdtempSync(nodePath.join(os.tmpdir(), "openrig-omp-grandchild-"));
+    root = fs.mkdtempSync(nodePath.join(os.tmpdir(), "softwareteam-omp-grandchild-"));
     const bin = nodePath.join(root, "bin");
     fs.mkdirSync(bin);
     const pidFile = nodePath.join(root, "sleeper.pid");
@@ -93,7 +93,7 @@ describe("OMP exit record with a child holding OMP's stderr", () => {
     let output = "";
     const runner = spawn(process.execPath, [
       "--import", "tsx", RUNNER,
-      "--session-name", "dev@rig", "--state-root", nodePath.join(root, "state", "omp"), "--cwd", root,
+      "--session-name", "dev@software-team", "--state-root", nodePath.join(root, "state", "omp"), "--cwd", root,
       "--launch-id", "launch-1", "--runtime", "omp", "--approval-mode", "always-ask",
     ], { env: { PATH: `${bin}:/usr/bin:/bin`, HOME: root, TMPDIR: os.tmpdir() }, stdio: ["pipe", "pipe", "pipe"] });
     runner.stdout.on("data", (chunk) => { output += String(chunk); });

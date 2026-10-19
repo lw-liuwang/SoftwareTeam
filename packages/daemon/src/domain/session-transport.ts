@@ -18,7 +18,7 @@ import {
 export { inspectStartupStagedText } from "./startup-submission-evidence.js";
 import { OutboxHandler } from "./outbox-handler.js";
 import type Database from "better-sqlite3";
-import type { RigRepository } from "./rig-repository.js";
+import type { SoftwareTeamRepository } from "./software-team-repository.js";
 import { claudeResumeRotation, type SessionRegistry } from "./session-registry.js";
 import type { TmuxAdapter } from "../adapters/tmux.js";
 import { latestHookPermissionPending, latestHookWaitsOnPerson, type AgentActivityStore } from "./agent-activity-store.js";
@@ -778,27 +778,27 @@ function verificationTranscript(content: string | null, promptClass: string): st
 
 /** Map a resolved fan-out target + its recipient list → the EnvelopeScope (ruling 03c35295). The
  *  transport knows the target shape + resolved seats, so it builds the honest scale daemon-side:
- *  DM / multi (full list) / rig- or pod-scoped broadcast (with seat count) / topology. */
+ *  DM / multi (full list) / software-team- or pod-scoped broadcast (with seat count) / topology. */
 export function scopeForTarget(target: TargetSpec, recipients: string[]): EnvelopeScope {
   if ("session" in target) return { kind: "dm" };
   if ("sessions" in target) return { kind: "multi", recipients };
-  if ("rig" in target && !("pod" in target)) return { kind: "rig-broadcast", rig: target.rig, seats: recipients.length };
-  if ("pod" in target) return { kind: "rig-broadcast", rig: target.rig ? `${target.rig}/${target.pod}` : target.pod, seats: recipients.length };
+  if ("softwareTeam" in target && !("pod" in target)) return { kind: "software-team-broadcast", softwareTeam: target.softwareTeam, seats: recipients.length };
+  if ("pod" in target) return { kind: "software-team-broadcast", softwareTeam: target.softwareTeam ? `${target.softwareTeam}/${target.pod}` : target.pod, seats: recipients.length };
   return { kind: "topology" }; // { global: true }
 }
 
 export type TargetSpec =
   | { session: string }
-  // OPR.0.4.3.30 — explicit multi-recipient list (`rig send --to a,b`). Resolved via
+  // OPR.0.4.3.30 — explicit multi-recipient list (`SoftwareTeam send --to a,b`). Resolved via
   // resolveByList (each name through the single-name resolver, so ambiguity/not-found are
   // reported honestly against the exact seat).
   | { sessions: string[] }
-  | { rig: string }
-  | { pod: string; rig?: string }
+  | { softwareTeam: string }
+  | { pod: string; softwareTeam?: string }
   | { global: true };
 
 export type ResolveResult =
-  | { ok: true; sessions: Array<{ sessionName: string; rigName: string; nodeLogicalId: string }> }
+  | { ok: true; sessions: Array<{ sessionName: string; softwareTeamName: string; nodeLogicalId: string }> }
   | { ok: false; code: "not_found" | "ambiguous"; error: string };
 
 /** The existing submit-only identity check, also used to inspect startup's own paste.
@@ -1052,7 +1052,7 @@ function codexTurnStatusAt(box: { lines: string[]; inputAt: number }): number {
  *  Claude Code 2.1.296 draws its status row over a one-row margin whatever the box's height, or as
  *  `findClaudeComposer` reads it above a one-row box. Claude Code queues a message submitted during a turn, and it
  *  labels the queue only while a per-user hint counter is low, so an unlabelled queued message leaves the same
- *  empty box as a submit. With a statusLine configured (OpenRig installs one on every seat) and while the box holds
+ *  empty box as a submit. With a statusLine configured (SoftwareTeam installs one on every seat) and while the box holds
  *  text, the footer never draws `esc to interrupt`, so the status row is the running signal, but only while it is
  *  drawn: Claude Code hides it while streamed text is shown (SEAT_IDLE_SHAPES.claude.statusSlot). So this reading
  *  can only say a turn ran; a turn it misses is ruled out, if at all, by the seat reading before the paste. */
@@ -1134,7 +1134,7 @@ const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&
 // `<s>s` below a minute (`0.0s` below 1 ms), `<m>m <s>s`, `<h>h <m>m <s>s`, `<d>d <h>h <m>m`, without leading
 // zeros. The time is the clock of a turn that finished today in the en-US forms of the bundle's time-format
 // presets: `auto` (en-US) and `12-hour` (`5:24 PM`), `24-hour` (`17:24`, `09:05`), `24-hour-utc` (`17:24Z`); real
-// frames of OpenRig-launched seats show the 12-hour form. Anything after the time
+// frames of SoftwareTeam-launched seats show the 12-hour form. Anything after the time
 // (a still-running note, hidden-message or budget notes), a row without `· done`, another locale, a custom
 // pattern or the weekday and date of an earlier day is not on this list.
 const CLAUDE_COMPLETION_VERBS = ["Baked", "Brewed", "Churned", "Cogitated", "Cooked", "Crunched", "Saut\u00e9ed", "Worked"];
@@ -1148,8 +1148,8 @@ const CLAUDE_CLOCK = "(?:(?:[1-9]|1[0-2]):[0-5][0-9] [AP]M|(?:[01][0-9]|2[0-3]):
 const CLAUDE_COMPLETION_ROW = new RegExp(`^✻ (?:${CLAUDE_COMPLETION_VERBS.join("|")}) for ${CLAUDE_DURATION} · done ${CLAUDE_CLOCK}$`);
 
 /** The idle allow-list. Each entry comes from real Claude Code 2.1.296 and Codex 0.160.0 frames
- *  (test/fixtures/input-box, including idle seats OpenRig launched: openrig-seat-*), or, where no frame was captured,
- *  from the Claude Code 2.1.296 bundle, the Codex 0.160.0 source or OpenRig's own launch code, as each entry says; a
+ *  (test/fixtures/input-box, including idle seats SoftwareTeam launched: softwareteam-seat-*), or, where no frame was captured,
+ *  from the Claude Code 2.1.296 bundle, the Codex 0.160.0 source or SoftwareTeam's own launch code, as each entry says; a
  *  frame that matches none of them is not proven idle. */
 const SEAT_IDLE_SHAPES: {
   claude: {
@@ -1164,11 +1164,11 @@ const SEAT_IDLE_SHAPES: {
 } = {
   claude: {
     // The box's opening rule. Plain (the captured frames: a seat started without a name), or carrying this seat's
-    // own session name: OpenRig launches every Claude seat with `--name <session>` (claude-code-adapter.ts), which
+    // own session name: SoftwareTeam launches every Claude seat with `--name <session>` (claude-code-adapter.ts), which
     // Claude Code draws on the box's top border as `─…─ <name> ─`, as wide as the closing rule (2.1.296 bundle:
     // the prompt-border banner draws the rule, the name padded by one space each side, then one `─`). Real frames
-    // of OpenRig seats from earlier Claude Code versions end it with `──` (session-transport.test.ts,
-    // fixtures/walk-staged-specimen), so one or two are accepted; real 2.1.296 OpenRig seats (openrig-seat-*) draw
+    // of SoftwareTeam seats from earlier Claude Code versions end it with `──` (session-transport.test.ts,
+    // fixtures/walk-staged-specimen), so one or two are accepted; real 2.1.296 SoftwareTeam seats (softwareteam-seat-*) draw
     // one. Any other name, or a truncated one, is unknown.
     openingRules: {
       plain: /^─{10,}$/,
@@ -1176,10 +1176,10 @@ const SEAT_IDLE_SHAPES: {
     },
     // The footer under an empty box when no turn runs, one per permission posture claudePostureFlag can launch
     // (yolo-mode.ts: --dangerously-skip-permissions, or --permission-mode with any mode Claude Code 2.1.296 offers).
-    // Bypass and accept edits are real (openrig-seat-*; bypass also after-enter-15s.J, idle-fresh-suggestion). The
+    // Bypass and accept edits are real (softwareteam-seat-*; bypass also after-enter-15s.J, idle-fresh-suggestion). The
     // others are drawn by the 2.1.296 bundle's footer (the mode's symbol and indicator plus ` on`,
     // ` (shift+tab to cycle)` for every mode but default, then ` · ← for agents` while the box is empty); accept edits
-    // also matches a real 2.1.220 capture (claude-warning-footer-readiness.test.ts). OpenRig's statusLine makes the footer drop its hints
+    // also matches a real 2.1.220 capture (claude-warning-footer-readiness.test.ts). SoftwareTeam's statusLine makes the footer drop its hints
     // (`? for shortcuts`, `esc to interrupt`), so these rows are the same whether or not a turn runs: the status
     // slot above the box (`statusSlot` below) is what tells a running turn apart.
     footers: {
@@ -1190,9 +1190,9 @@ const SEAT_IDLE_SHAPES: {
       plan: "⏸ plan mode on (shift+tab to cycle) · ← for agents",
       default: "⏸ manual mode on · ← for agents",
     },
-    // The rows OpenRig's statusLine collector (provisionContextCollector, assets/claude-statusline-context.cjs) draws
+    // The rows SoftwareTeam's statusLine collector (provisionContextCollector, assets/claude-statusline-context.cjs) draws
     // between the closing rule and the footer: none. It prints nothing to stdout, and Claude Code 2.1.296 draws no
-    // row for an empty statusLine in the classic renderer OpenRig launches with (CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1).
+    // row for an empty statusLine in the classic renderer SoftwareTeam launches with (CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1).
     // A statusLine that prints anything (a person's own command) is not on this list.
     statusLineRows: [],
     // The one row between the box's two rules: empty (after-enter-15s.J), or the Try suggestion (idle-fresh-suggestion).
@@ -1203,7 +1203,7 @@ const SEAT_IDLE_SHAPES: {
       "tmux detected · scroll with PgUp/PgDn · or add 'set -g mouse on' to ~/.tmux.conf for wheel scroll",
       "tmux focus-events off · add 'set -g focus-events on' to ~/.tmux.conf and reattach for focus tracking"],
     // The status slot, the row above that, read together with the rows above it when it is blank: the first
-    // non-blank row at or above the slot must be one of these. With OpenRig's statusLine the footer shows no running
+    // non-blank row at or above the slot must be one of these. With SoftwareTeam's statusLine the footer shows no running
     // signal, so this slot is what tells a running turn apart, and the 2.1.296 bundle says what a running turn leaves
     // there. Its REPL draws the live status row (the spinner) only while
     // `isLoading && (!hasDisplayedStreamingText || tailBlank || …)`: once streamed text with a complete line is on
@@ -1214,9 +1214,9 @@ const SEAT_IDLE_SHAPES: {
     // markdown is laid out in a column with a one-row gap, and its unfinished last line is hidden), so a blank slot
     // under transcript text is not proof of an idle seat and reads unknown. A blank slot counts only where nothing
     // of a newer turn can be under the row it sits below:
-    // - finishedTurn: the completion row at column 0 (CLAUDE_COMPLETION_ROW). In the classic renderer OpenRig
+    // - finishedTurn: the completion row at column 0 (CLAUDE_COMPLETION_ROW). In the classic renderer SoftwareTeam
     //   launches Claude with, the box follows the transcript, so an idle seat that has finished a turn shows that
-    //   turn's completion row in the slot itself (openrig-seat-*: real OpenRig-launched seats); in the fullscreen
+    //   turn's completion row in the slot itself (softwareteam-seat-*: real SoftwareTeam-launched seats); in the fullscreen
     //   renderer the box is pinned to the bottom and blank rows sit between them (after-enter-15s.J). A newer turn
     //   draws its echo, its status row or its `●` rows under the completion row.
     // - freshSession: the last row of the welcome banner of Claude Code v2.1.296, before any turn (idle-fresh-
@@ -1303,7 +1303,7 @@ function namesAnotherClientVersion(pane: string, runtime: "claude-code" | "codex
 }
 
 /** The seat before the paste (see SeatReading), read from the capture the transport already takes before it.
- *  `sessionName` is the seat's own session name, which a Claude Code seat launched by OpenRig draws on its box.
+ *  `sessionName` is the seat's own session name, which a Claude Code seat launched by SoftwareTeam draws on its box.
  *  A frame that names another client version is `unknown`. */
 export function readSeatBeforePaste(pane: string | null, runtime: "claude-code" | "codex", sessionName?: string): SeatReading {
   if (!pane?.trim()) return "unknown";
@@ -1411,8 +1411,8 @@ export interface SendOpts {
 // OPR.0.4.3.30 — options for the fan-out path (`broadcast()`). Superset of SendOpts.
 // `envelopeSender`, when set, makes the fan-out wrap EACH recipient's text in its own
 // From/To pane envelope (byte-identical to single-send CLI wrapping via wrapPaneEnvelope),
-// so a multi/pod/rig `rig send` gives each seat its own `To:` header. Absent for
-// `rig broadcast` (raw-to-all, unchanged) and for the CLI --raw / --dangerously-interact paths.
+// so a multi/pod/softwareTeam `SoftwareTeam send` gives each seat its own `To:` header. Absent for
+// `softwareTeam broadcast` (raw-to-all, unchanged) and for the CLI --raw / --dangerously-interact paths.
 export interface BroadcastOpts extends SendOpts {
   envelopeSender?: string;
   // stampISO (ruling 03c35295: the transport ISO stamp, computed ONCE at send-time, injectable for
@@ -1435,7 +1435,7 @@ export interface SendResult {
    * - `rendered-unconfirmed`: text + Enter BOTH succeeded (the message landed)
    *   but the post-send capture raced a TUI redraw and could not re-confirm
    *   the snippet. Landed-but-unconfirmable, NOT a failure — confirm with
-   *   `rig capture` if it matters. (Was collapsed into `Verified: no`.)
+   *   `SoftwareTeam capture` if it matters. (Was collapsed into `Verified: no`.)
    *   For a prompt answer, `promptInteraction: "unverified"` means input was
    *   sent without added Enter; the prompt may already have consumed it.
    * - `failed`: the transport itself failed (paste or Enter did not land) —
@@ -1506,7 +1506,7 @@ export interface TransportReadinessChecker {
 
 interface SessionTransportDeps {
   db: Database.Database;
-  rigRepo: RigRepository;
+  softwareTeamRepo: SoftwareTeamRepository;
   sessionRegistry: SessionRegistry;
   tmuxAdapter: TmuxAdapter;
   agentActivityStore?: AgentActivityStore;
@@ -1529,14 +1529,14 @@ interface SessionTransportDeps {
 }
 
 interface SessionRow { node_id: string; session_name: string; }
-interface NodeRow { rig_id: string; logical_id: string; }
+interface NodeRow { software_team_id: string; logical_id: string; }
 interface SessionMetaRow { runtime: string | null; attachment_type: string | null; node_id: string | null; binding_session: string | null; pane: string | null; occupant: string | null; resume_token: string | null;
   resume_provenance: string | null; resume_rotated_from: string | null; resume_rotated_process: string | null; resume_launch_process: string | null; }
-interface ResolvedTarget { sessionName: string; rigName: string; nodeLogicalId: string; }
+interface ResolvedTarget { sessionName: string; softwareTeamName: string; nodeLogicalId: string; }
 interface AbsenceProbeTarget { session_id: string; node_id: string; session_name: string; tmux_pane: string | null; }
 interface SessionReconciliationSnapshot {
   node_id: string;
-  rig_id: string;
+  software_team_id: string;
   session_id: string;
   session_name: string;
   runtime: string;
@@ -1557,7 +1557,7 @@ interface SessionReconciliationSnapshot {
 
 export class SessionTransport {
   readonly db: Database.Database;
-  private rigRepo: RigRepository;
+  private softwareTeamRepo: SoftwareTeamRepository;
   private sessionRegistry: SessionRegistry;
   private tmuxAdapter: TmuxAdapter;
   private agentActivityStore?: AgentActivityStore;
@@ -1576,7 +1576,7 @@ export class SessionTransport {
 
   constructor(deps: SessionTransportDeps) {
     this.db = deps.db;
-    this.rigRepo = deps.rigRepo;
+    this.softwareTeamRepo = deps.softwareTeamRepo;
     this.sessionRegistry = deps.sessionRegistry;
     this.tmuxAdapter = deps.tmuxAdapter;
     this.agentActivityStore = deps.agentActivityStore;
@@ -1678,28 +1678,28 @@ export class SessionTransport {
       return this.resolveByList(target.sessions);
     }
     if ("pod" in target) {
-      return this.resolveByPod(target.pod, target.rig);
+      return this.resolveByPod(target.pod, target.softwareTeam);
     }
     if ("global" in target) {
       return this.resolveGlobal();
     }
-    return this.resolveByRig(target.rig);
+    return this.resolveBySoftwareTeam(target.softwareTeam);
   }
 
   private resolveGlobal(): ResolveResult {
-    const allRigs = this.rigRepo.listRigs();
-    if (allRigs.length === 0) {
-      return { ok: false, code: "not_found", error: "No rigs found. Check status with: rig ps" };
+    const allSoftwareTeams = this.softwareTeamRepo.listSoftwareTeams();
+    if (allSoftwareTeams.length === 0) {
+      return { ok: false, code: "not_found", error: "No softwareTeams found. Check status with: SoftwareTeam ps" };
     }
     const sessions: ResolvedTarget[] = [];
-    const seenRigIds = new Set<string>();
-    for (const rig of allRigs) {
-      if (seenRigIds.has(rig.id)) continue;
-      seenRigIds.add(rig.id);
-      sessions.push(...this.collectTransportTargetsForRig(rig.id, rig.name));
+    const seenSoftwareTeamIds = new Set<string>();
+    for (const softwareTeam of allSoftwareTeams) {
+      if (seenSoftwareTeamIds.has(softwareTeam.id)) continue;
+      seenSoftwareTeamIds.add(softwareTeam.id);
+      sessions.push(...this.collectTransportTargetsForSoftwareTeam(softwareTeam.id, softwareTeam.name));
     }
     if (sessions.length === 0) {
-      return { ok: false, code: "not_found", error: "No running sessions found. Check status with: rig ps" };
+      return { ok: false, code: "not_found", error: "No running sessions found. Check status with: SoftwareTeam ps" };
     }
     return { ok: true, sessions };
   }
@@ -1713,49 +1713,49 @@ export class SessionTransport {
       return {
         ok: false,
         code: "not_found",
-        error: `Session '${sessionName}' not found. Check session names with: rig ps --nodes`,
+        error: `Session '${sessionName}' not found. Check session names with: SoftwareTeam ps --nodes`,
       };
     }
 
-    // Check for ambiguity: same session name across different rigs
-    const rigNames = new Map<string, { nodeLogicalId: string }>();
+    // Check for ambiguity: same session name across different softwareTeams
+    const softwareTeamNames = new Map<string, { nodeLogicalId: string }>();
     for (const row of sessionRows) {
       const nodeRow = this.db
-        .prepare("SELECT rig_id, logical_id FROM nodes WHERE id = ?")
+        .prepare("SELECT software_team_id, logical_id FROM nodes WHERE id = ?")
         .get(row.node_id) as NodeRow | undefined;
       if (nodeRow) {
-        const rig = this.rigRepo.getRig(nodeRow.rig_id);
-        if (rig) {
-          rigNames.set(rig.rig.name, { nodeLogicalId: nodeRow.logical_id });
+        const softwareTeam = this.softwareTeamRepo.getSoftwareTeam(nodeRow.software_team_id);
+        if (softwareTeam) {
+          softwareTeamNames.set(softwareTeam.softwareTeam.name, { nodeLogicalId: nodeRow.logical_id });
         }
       }
     }
 
-    if (rigNames.size === 0) {
+    if (softwareTeamNames.size === 0) {
       return {
         ok: false,
         code: "not_found",
-        error: `Session '${sessionName}' not found. Check session names with: rig ps --nodes`,
+        error: `Session '${sessionName}' not found. Check session names with: SoftwareTeam ps --nodes`,
       };
     }
 
-    if (rigNames.size > 1) {
-      const names = Array.from(rigNames.keys()).join(", ");
+    if (softwareTeamNames.size > 1) {
+      const names = Array.from(softwareTeamNames.keys()).join(", ");
       return {
         ok: false,
         code: "ambiguous",
-        error: `Session '${sessionName}' is ambiguous — found in rigs: ${names}. Specify the rig explicitly.`,
+        error: `Session '${sessionName}' is ambiguous — found in softwareTeams: ${names}. Specify the SoftwareTeam explicitly.`,
       };
     }
 
-    const [rigName, meta] = Array.from(rigNames.entries())[0]!;
+    const [softwareTeamName, meta] = Array.from(softwareTeamNames.entries())[0]!;
     return {
       ok: true,
-      sessions: [{ sessionName, rigName, nodeLogicalId: meta.nodeLogicalId }],
+      sessions: [{ sessionName, softwareTeamName, nodeLogicalId: meta.nodeLogicalId }],
     };
   }
 
-  // OPR.0.4.3.30 — resolve an explicit list of named seats for a multi-recipient `rig send`.
+  // OPR.0.4.3.30 — resolve an explicit list of named seats for a multi-recipient `SoftwareTeam send`.
   // Each name goes through the single-name resolver so a not-found / ambiguous seat is reported
   // honestly against that exact name (matching single-send semantics), and the whole command is
   // rejected rather than silently dropping a mistyped seat. Duplicate names are de-duplicated so
@@ -1777,56 +1777,56 @@ export class SessionTransport {
     return { ok: true, sessions };
   }
 
-  private resolveByRig(rigName: string): ResolveResult {
-    const rigs = this.rigRepo.findRigsByName(rigName);
-    if (rigs.length === 0) {
+  private resolveBySoftwareTeam(softwareTeamName: string): ResolveResult {
+    const softwareTeams = this.softwareTeamRepo.findSoftwareTeamsByName(softwareTeamName);
+    if (softwareTeams.length === 0) {
       return {
         ok: false,
         code: "not_found",
-        error: `No rig named '${rigName}' found. Check available rigs with: rig ps`,
+        error: `No SoftwareTeam named '${softwareTeamName}' found. Check available softwareTeams with: SoftwareTeam ps`,
       };
     }
 
     const sessions: ResolvedTarget[] = [];
-    for (const rig of rigs) {
-      sessions.push(...this.collectTransportTargetsForRig(rig.id, rig.name));
+    for (const softwareTeam of softwareTeams) {
+      sessions.push(...this.collectTransportTargetsForSoftwareTeam(softwareTeam.id, softwareTeam.name));
     }
 
     if (sessions.length === 0) {
       return {
         ok: false,
         code: "not_found",
-        error: `No running sessions found for rig '${rigName}'. Check rig status with: rig ps`,
+        error: `No running sessions found for softwareTeam '${softwareTeamName}'. Check SoftwareTeam status with: SoftwareTeam ps`,
       };
     }
 
     return { ok: true, sessions };
   }
 
-  private resolveByPod(podName: string, rigName?: string): ResolveResult {
-    // Get rigs to search
-    const rigs = rigName
-      ? this.rigRepo.findRigsByName(rigName)
-      : this.rigRepo.listRigs();
+  private resolveByPod(podName: string, softwareTeamName?: string): ResolveResult {
+    // Get softwareTeams to search
+    const softwareTeams = softwareTeamName
+      ? this.softwareTeamRepo.findSoftwareTeamsByName(softwareTeamName)
+      : this.softwareTeamRepo.listSoftwareTeams();
 
-    if (rigs.length === 0) {
+    if (softwareTeams.length === 0) {
       return {
         ok: false,
         code: "not_found",
-        error: rigName
-          ? `No rig named '${rigName}' found. Check available rigs with: rig ps`
-          : `No rigs found. Check status with: rig ps`,
+        error: softwareTeamName
+          ? `No SoftwareTeam named '${softwareTeamName}' found. Check available softwareTeams with: SoftwareTeam ps`
+          : `No softwareTeams found. Check status with: SoftwareTeam ps`,
       };
     }
 
-    // Collect running sessions across all matching rigs, deduplicated by rig ID
+    // Collect running sessions across all matching softwareTeams, deduplicated by softwareTeam ID
     const sessions: ResolvedTarget[] = [];
-    const seenRigIds = new Set<string>();
-    for (const rig of rigs) {
-      if (seenRigIds.has(rig.id)) continue;
-      seenRigIds.add(rig.id);
+    const seenSoftwareTeamIds = new Set<string>();
+    for (const softwareTeam of softwareTeams) {
+      if (seenSoftwareTeamIds.has(softwareTeam.id)) continue;
+      seenSoftwareTeamIds.add(softwareTeam.id);
 
-      for (const target of this.collectTransportTargetsForRig(rig.id, rig.name)) {
+      for (const target of this.collectTransportTargetsForSoftwareTeam(softwareTeam.id, softwareTeam.name)) {
         const podPart = target.nodeLogicalId.split(".")[0];
         if (podPart === podName) {
           sessions.push(target);
@@ -1838,35 +1838,35 @@ export class SessionTransport {
       return {
         ok: false,
         code: "not_found",
-        error: `No running sessions found for pod '${podName}'${rigName ? ` in rig '${rigName}'` : ""}. Check available pods with: rig ps --nodes`,
+        error: `No running sessions found for pod '${podName}'${softwareTeamName ? ` in softwareTeam '${softwareTeamName}'` : ""}. Check available pods with: SoftwareTeam ps --nodes`,
       };
     }
 
     return { ok: true, sessions };
   }
 
-  private collectTransportTargetsForRig(rigId: string, rigName: string): ResolvedTarget[] {
-    const rigSessions = this.sessionRegistry.getSessionsForRig(rigId);
-    const latestByNode = new Map<string, typeof rigSessions[0]>();
-    for (const session of rigSessions) {
+  private collectTransportTargetsForSoftwareTeam(softwareTeamId: string, softwareTeamName: string): ResolvedTarget[] {
+    const softwareTeamSessions = this.sessionRegistry.getSessionsForSoftwareTeam(softwareTeamId);
+    const latestByNode = new Map<string, typeof softwareTeamSessions[0]>();
+    for (const session of softwareTeamSessions) {
       const existing = latestByNode.get(session.nodeId);
       if (!existing || session.id > existing.id) {
         latestByNode.set(session.nodeId, session);
       }
     }
 
-    const rig = this.rigRepo.getRig(rigId);
-    if (!rig) return [];
+    const softwareTeam = this.softwareTeamRepo.getSoftwareTeam(softwareTeamId);
+    if (!softwareTeam) return [];
 
     const targets: ResolvedTarget[] = [];
-    for (const node of rig.nodes) {
+    for (const node of softwareTeam.nodes) {
       const binding = this.sessionRegistry.getBindingForNode(node.id);
       const latestSession = latestByNode.get(node.id);
 
       if (binding?.attachmentType === "external_cli" && binding.externalSessionName) {
         targets.push({
           sessionName: binding.externalSessionName,
-          rigName,
+          softwareTeamName,
           nodeLogicalId: node.logicalId,
         });
         continue;
@@ -1875,7 +1875,7 @@ export class SessionTransport {
       if (latestSession?.status === "running" && binding?.tmuxSession) {
         targets.push({
           sessionName: binding.tmuxSession,
-          rigName,
+          softwareTeamName,
           nodeLogicalId: node.logicalId,
         });
       }
@@ -1911,7 +1911,7 @@ export class SessionTransport {
     const outbox = new OutboxHandler(this.db);
     const ids = opts?.committedOutboxIds ?? [opts?.deliveryId ?? `guard-send-${randomUUID()}`];
     const retainedResult = (): SendResult => ({ ok: true, sessionName, outcome: "retained", sent: false, verified: false,
-      outboxIds: ids, reason: "typing_guard_enabled", warning: `Retained, not delivered. Inspect with rig seat held-messages ${sessionName}; disabling does not replay held messages.` });
+      outboxIds: ids, reason: "typing_guard_enabled", warning: `Retained, not delivered. Inspect with SoftwareTeam seat held-messages ${sessionName}; disabling does not replay held messages.` });
     try {
       if (opts?.committedOutboxIds) {
         const target = guard.target(sessionName);
@@ -2063,7 +2063,7 @@ export class SessionTransport {
           sessionName,
           sent: false,
           reason: "target_runtime_unverified",
-          error: `Refused: '${sessionName}' reports ${unverified} as the foreground command, but OpenRig could not verify its expected ${runtime} agent in the bound pane. The agent may still be running behind a wrapper. No text was sent.`,
+          error: `Refused: '${sessionName}' reports ${unverified} as the foreground command, but SoftwareTeam could not verify its expected ${runtime} agent in the bound pane. The agent may still be running behind a wrapper. No text was sent.`,
         } };
       }
     }
@@ -2095,7 +2095,7 @@ export class SessionTransport {
           ok: false,
           sessionName,
           reason: "session_missing",
-          error: `Session '${sessionName}' not found: tmux reports no session with this name. No text was sent. Check available sessions with: rig ps --nodes`,
+          error: `Session '${sessionName}' not found: tmux reports no session with this name. No text was sent. Check available sessions with: SoftwareTeam ps --nodes`,
         } };
       }
       if (probe.state === "transport_unavailable") {
@@ -2225,7 +2225,7 @@ export class SessionTransport {
         sessionName,
         sent: false,
         reason: "target_runtime_unverified",
-        error: `Refused: '${sessionName}' reports ${unverifiedShell} as the foreground command, but OpenRig could not verify its expected ${runtime} agent in the bound pane. The agent may still be running behind a wrapper. No text was sent.`,
+        error: `Refused: '${sessionName}' reports ${unverifiedShell} as the foreground command, but SoftwareTeam could not verify its expected ${runtime} agent in the bound pane. The agent may still be running behind a wrapper. No text was sent.`,
       });
     }
 
@@ -2263,7 +2263,7 @@ export class SessionTransport {
           ok: false,
           sessionName,
           reason: "session_missing",
-          error: `Session '${sessionName}' not found: tmux reports no session with this name. No text was sent. Check available sessions with: rig ps --nodes`,
+          error: `Session '${sessionName}' not found: tmux reports no session with this name. No text was sent. Check available sessions with: SoftwareTeam ps --nodes`,
         };
       }
       if (probe.state === "transport_unavailable") {
@@ -2434,7 +2434,7 @@ export class SessionTransport {
             recheck.state === "needs_input"
               ? {
                   reason: "target_needs_input",
-                  error: `Refused: '${sessionName}' is at an interactive prompt (${recheck.reason}). A message must not select or approve it. To deliberately drive the prompt: rig send ${sessionName} "<text>" --dangerously-interact --reason "<why>". No text was sent.`,
+                  error: `Refused: '${sessionName}' is at an interactive prompt (${recheck.reason}). A message must not select or approve it. To deliberately drive the prompt: SoftwareTeam send ${sessionName} "<text>" --dangerously-interact --reason "<why>". No text was sent.`,
                 }
               : recheck.state === "unknown"
                 ? {
@@ -2466,7 +2466,7 @@ export class SessionTransport {
 
     // 2. OPR.0.4.1.10 — robust prompt/permission + mid-work guard on the DEFAULT path.
     // Runs the same detector previously reachable only via --wait-for-idle: fresh runtime-hook primary
-    // (within the send-readiness window) + hardened capture-pane fallback. This closes the rig-send
+    // (within the send-readiness window) + hardened capture-pane fallback. This closes the software-team-send
     // prompt-injection footgun — a message can never select/submit/approve another agent's prompt by
     // default. OPR.0.4.3.28 correction + fast-follow: only POSITIVE picker/approval evidence
     // (needs_input) FAILS CLOSED (refuse, or an audited --dangerously-interact override). Every other
@@ -2520,7 +2520,7 @@ export class SessionTransport {
             sessionName,
             reason: "target_needs_input",
             activity: readiness,
-            error: `Refused: '${sessionName}' is at an interactive prompt (${readiness.reason}). A message must not select or approve it. To deliberately drive the prompt: rig send ${sessionName} "<text>" --dangerously-interact --reason "<why>". No text was sent.`,
+            error: `Refused: '${sessionName}' is at an interactive prompt (${readiness.reason}). A message must not select or approve it. To deliberately drive the prompt: SoftwareTeam send ${sessionName} "<text>" --dangerously-interact --reason "<why>". No text was sent.`,
           };
         }
       } else if (readiness.state === "unknown") {
@@ -3041,7 +3041,7 @@ export class SessionTransport {
   // presence-only, and the store carries no token.
   private async diagnoseProducerLink(sessionName: string): Promise<string> {
     // Link 1 — the relay's prerequisites: the daemon URL, the activity token, and the runtime
-    // (without OPENRIG_RUNTIME the relay builds no payload and posts nothing). Only the tmux SESSION
+    // (without SOFTWARETEAM_RUNTIME the relay builds no payload and posts nothing). Only the tmux SESSION
     // environment is inspected; the agent process's own environment is not read, and an env-prefixed
     // launch carries these without the session environment showing them. So a name absent from the
     // session environment is reported as UNPROVEN absent from the agent: UNKNOWN, never DOWN.
@@ -3062,9 +3062,9 @@ export class SessionTransport {
         }
         return unknown ? null : false;
       };
-      hasUrl = await anyPresent(["OPENRIG_URL", "RIGGED_URL", "OPENRIG_PORT", "RIGGED_PORT"]);
-      hasToken = await anyPresent(["OPENRIG_ACTIVITY_HOOK_TOKEN", "RIGGED_ACTIVITY_HOOK_TOKEN"]);
-      hasRuntime = await anyPresent(["OPENRIG_RUNTIME", "RIGGED_RUNTIME"]);
+      hasUrl = await anyPresent(["SOFTWARETEAM_URL", "SOFTWARETEAM_URL", "SOFTWARETEAM_PORT", "SOFTWARETEAM_PORT"]);
+      hasToken = await anyPresent(["SOFTWARETEAM_ACTIVITY_HOOK_TOKEN", "SOFTWARETEAM_ACTIVITY_HOOK_TOKEN"]);
+      hasRuntime = await anyPresent(["SOFTWARETEAM_RUNTIME", "SOFTWARETEAM_RUNTIME"]);
     }
     let fileEndpoint: { baseUrl: string; token: string } | null = null;
     try {
@@ -3074,7 +3074,7 @@ export class SessionTransport {
     const prerequisites = [
       { label: "relay URL", present: fileEndpoint ? true : hasUrl },
       { label: "activity token", present: fileEndpoint ? true : hasToken },
-      { label: "OPENRIG_RUNTIME", present: hasRuntime },
+      { label: "SOFTWARETEAM_RUNTIME", present: hasRuntime },
     ];
     const absent = prerequisites.filter((p) => p.present === false).map((p) => p.label);
     const unread = typeof this.tmuxAdapter?.hasSessionEnv === "function"
@@ -3094,7 +3094,7 @@ export class SessionTransport {
     }
     const latest = store.getLatestForNode({ sessionName, now: this.now() });
     if (!latest || latest.evidenceSource !== "runtime_hook") {
-      return withEnv(`no activity hook is stored for this seat — which link failed is not identified: the relay may never have posted (it needs OPENRIG_RUNTIME, the relay URL and the token in the agent process), Codex hook-trust may be uncleared, or ingest may have rejected posts (401 token mismatch, 503 unconfigured)`);
+      return withEnv(`no activity hook is stored for this seat — which link failed is not identified: the relay may never have posted (it needs SOFTWARETEAM_RUNTIME, the relay URL and the token in the agent process), Codex hook-trust may be uncleared, or ingest may have rejected posts (401 token mismatch, 503 unconfigured)`);
     }
     const ageMs = latest.eventAt ? this.now().getTime() - Date.parse(latest.eventAt) : NaN;
     const ageText = Number.isFinite(ageMs) ? `${Math.round(ageMs / 1000)}s ago` : "at an unknown time";
@@ -3150,7 +3150,7 @@ export class SessionTransport {
     try {
       this.eventBus.emit({
         type: "transport.prompt_override",
-        rigId: resolved.rigId,
+        softwareTeamId: resolved.softwareTeamId,
         nodeId: resolved.nodeId,
         sessionName: resolved.sessionName,
         actorSession: input.actorSession,
@@ -3188,7 +3188,7 @@ export class SessionTransport {
           ok: false,
           sessionName,
           reason: "session_missing",
-          error: `Session '${sessionName}' not found: tmux reports no session with this name. Nothing was captured. Check available sessions with: rig ps --nodes`,
+          error: `Session '${sessionName}' not found: tmux reports no session with this name. Nothing was captured. Check available sessions with: SoftwareTeam ps --nodes`,
         };
       }
       if (probe.state === "transport_unavailable") {
@@ -3255,9 +3255,9 @@ export class SessionTransport {
 
     const results: SendResult[] = [];
     for (const session of resolved.sessions) {
-      // OPR.0.4.3.30 — per-recipient From/To envelope for `rig send` fan-out, rendered daemon-side (the
+      // OPR.0.4.3.30 — per-recipient From/To envelope for `SoftwareTeam send` fan-out, rendered daemon-side (the
       // CLI can't wrap per recipient because it doesn't know each resolved seat). Ruling 03c35295: the
-      // To line now projects the SCALE (multi = full list; rig/pod/topology = the broadcast scale) + a
+      // To line now projects the SCALE (multi = full list; softwareTeam/pod/topology = the broadcast scale) + a
       // Sent stamp, so a recipient tells DM from broadcast header-alone (anti-storm). Raw paths
       // (--raw / --dangerously-interact, absent envelopeSender) still deliver unwrapped.
       const perRecipientText = opts?.envelopeSender
@@ -3281,7 +3281,7 @@ export class SessionTransport {
 
   private getReconciliationSnapshot(sessionName: string): SessionReconciliationSnapshot | undefined {
     return this.db.prepare(`
-      SELECT n.id as node_id, r.id as rig_id, s.id as session_id, s.session_name, n.runtime, n.cwd,
+      SELECT n.id as node_id, r.id as software_team_id, s.id as session_id, s.session_name, n.runtime, n.cwd,
              s.startup_status, s.status as session_status, s.startup_completed_at,
              s.resume_type, s.resume_token,
              b.tmux_session as binding_session, b.tmux_window as binding_window, b.tmux_pane as binding_pane,
@@ -3291,7 +3291,7 @@ export class SessionTransport {
              (SELECT MAX(seq) FROM events e WHERE e.node_id = n.id AND e.type IN ('node.startup_pending', 'node.startup_ready', 'node.startup_failed')) as startup_event_seq
       FROM sessions s
       JOIN nodes n ON n.id = s.node_id
-      JOIN rigs r ON r.id = n.rig_id
+      JOIN software_teams r ON r.id = n.software_team_id
       LEFT JOIN bindings b ON b.node_id = n.id
       WHERE s.session_name = ?
       ORDER BY s.id DESC LIMIT 1
@@ -3422,7 +3422,7 @@ export class SessionTransport {
     if (emittedReady && this.eventBus) {
       this.eventBus.emit({
         type: "node.startup_ready",
-        rigId: snapshot.rig_id,
+        softwareTeamId: snapshot.software_team_id,
         nodeId: snapshot.node_id,
         previousStatus: snapshot.startup_status as "failed" | "attention_required",
       });

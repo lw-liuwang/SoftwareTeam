@@ -1,6 +1,6 @@
-// Fork Primitive + Starter Agent Images v0 (PL-016) — `rig agent-image`
-// CLI verb family. Parallel to `rig context` (the context-pack library,
-// shipped in PL-014; grammar renamed from `rig context-pack` in Atom-7).
+// Fork Primitive + Starter Agent Images v0 (PL-016) — `softwareTeam agent-image`
+// CLI verb family. Parallel to `SoftwareTeam context` (the context-pack library,
+// shipped in PL-014; grammar renamed from `SoftwareTeam context-pack` in Atom-7).
 //
 // Subcommands:
 //   create   <source-session> --name <name>     — capture image from a live seat
@@ -77,14 +77,14 @@ async function resolveImage(client: DaemonClient, nameOrId: string): Promise<Age
   if (nameOrId.startsWith("agent-image:")) {
     const res = await client.get<AgentImageEntryWire>(`/api/agent-images/library/${encodeURIComponent(nameOrId)}`);
     if (res.status === 200) return res.data;
-    if (res.status === 404) throw new Error(`Agent image '${nameOrId}' not found in library. Run 'rig agent-image list' to see what's installed.`);
+    if (res.status === 404) throw new Error(`Agent image '${nameOrId}' not found in library. Run 'SoftwareTeam agent-image list' to see what's installed.`);
     throw new Error(`Daemon returned HTTP ${res.status} for /api/agent-images/library/${nameOrId}`);
   }
   const res = await client.get<AgentImageEntryWire[]>("/api/agent-images/library");
   if (res.status !== 200) throw new Error(`Daemon returned HTTP ${res.status} for /api/agent-images/library`);
   const matches = (res.data ?? []).filter((e) => e.name === nameOrId);
   if (matches.length === 0) {
-    throw new Error(`Agent image '${nameOrId}' not found in library. Run 'rig agent-image list' to see what's installed.`);
+    throw new Error(`Agent image '${nameOrId}' not found in library. Run 'SoftwareTeam agent-image list' to see what's installed.`);
   }
   if (matches.length > 1) {
     const versions = matches.map((m) => m.version).join(", ");
@@ -98,13 +98,13 @@ export function agentImageCommand(depsOverride?: StatusDeps): Command {
     .description("Browse, snapshot, and manage agent images (PL-016)")
     .addHelpText("after", `
 Examples:
-  rig agent-image list
-  rig agent-image show driver-release-primed
-  rig agent-image create dev-build@starter --name driver-release-primed --notes "after review"
-  rig agent-image preview driver-release-primed
-  rig agent-image pin driver-release-primed
-  rig agent-image prune --dry-run
-  rig agent-image delete driver-release-primed --force
+  SoftwareTeam agent-image list
+  SoftwareTeam agent-image show driver-release-primed
+  SoftwareTeam agent-image create dev-build@starter --name driver-release-primed --notes "after review"
+  SoftwareTeam agent-image preview driver-release-primed
+  SoftwareTeam agent-image pin driver-release-primed
+  SoftwareTeam agent-image prune --dry-run
+  SoftwareTeam agent-image delete driver-release-primed --force
 `);
 
   const getDeps = (): StatusDeps => depsOverride ?? {
@@ -138,7 +138,7 @@ Examples:
           return;
         }
         if (entries.length === 0) {
-          console.log("No agent images. Capture one with: rig agent-image create <source-session> --name <name>");
+          console.log("No agent images. Capture one with: SoftwareTeam agent-image create <source-session> --name <name>");
           return;
         }
         for (const e of entries) {

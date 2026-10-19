@@ -170,11 +170,11 @@ export interface NeedsInputSeat {
   source: "hook" | "pane_heuristic" | string;
   eventAt?: string | null;
   sampledAt?: string;
-  rigId?: string;
+  softwareTeamId?: string;
 }
 
 export function needsInputSeatToFeedCard(seat: NeedsInputSeat): FeedCard {
-  const id = `activity-needs-input-${seat.rigId ?? "unknown"}-${seat.logicalId}`;
+  const id = `activity-needs-input-${seat.softwareTeamId ?? "unknown"}-${seat.logicalId}`;
   const createdAt = seat.eventAt ?? seat.sampledAt ?? new Date().toISOString();
   const receivedAt = Date.parse(createdAt) || Date.now();
   const syntheticEvent: ActivityEvent = {
@@ -184,7 +184,7 @@ export function needsInputSeatToFeedCard(seat: NeedsInputSeat): FeedCard {
       logicalId: seat.logicalId,
       sessionName: seat.sessionName,
       source: seat.source,
-      rigId: seat.rigId,
+      softwareTeamId: seat.softwareTeamId,
     },
     createdAt,
     receivedAt,
@@ -194,7 +194,7 @@ export function needsInputSeatToFeedCard(seat: NeedsInputSeat): FeedCard {
     kind: "action-required",
     title: `${seat.logicalId} needs input${seat.source !== "hook" ? " (activity-grade)" : ""}`,
     body: seat.sessionName ?? undefined,
-    rigId: seat.rigId,
+    softwareTeamId: seat.softwareTeamId,
     source: syntheticEvent,
     receivedAt,
     createdAt,

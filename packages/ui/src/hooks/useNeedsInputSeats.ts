@@ -8,7 +8,7 @@ export interface NeedsInputSeatEntry {
   source: string;
   eventAt?: string | null;
   sampledAt?: string;
-  rigId?: string;
+  softwareTeamId?: string;
 }
 
 export function useNeedsInputSeats() {
@@ -17,16 +17,16 @@ export function useNeedsInputSeats() {
     queryFn: async () => {
       const psRes = await fetch("/api/ps");
       if (!psRes.ok) return [];
-      const rigs = (await psRes.json()) as Array<{ rigId: string }>;
+      const softwareTeams = (await psRes.json()) as Array<{ softwareTeamId: string }>;
       const allSeats: NeedsInputSeatEntry[] = [];
-      for (const rig of rigs) {
+      for (const softwareTeam of softwareTeams) {
         let nodes: NodeInventoryEntry[];
         try {
           // OPR.0.4.3 healthz-wedge fix: this is the one consumer that needs
           // pane-heuristic needs_input for hook-less seats (precedence #3), so it
           // opts into the per-node tmux capture with ?full=true. All other node
           // consumers (topology graph/table) stay on the cheap snapshot default.
-          const nodesRes = await fetch(`/api/rigs/${encodeURIComponent(rig.rigId)}/nodes?full=true`);
+          const nodesRes = await fetch(`/api/software-teams/${encodeURIComponent(softwareTeam.softwareTeamId)}/nodes?full=true`);
           if (!nodesRes.ok) continue;
           nodes = (await nodesRes.json()) as NodeInventoryEntry[];
         } catch {
@@ -41,7 +41,7 @@ export function useNeedsInputSeats() {
               source,
               eventAt: node.agentActivity?.eventAt,
               sampledAt: node.agentActivity?.sampledAt,
-              rigId: rig.rigId,
+              softwareTeamId: softwareTeam.softwareTeamId,
             });
           }
         }

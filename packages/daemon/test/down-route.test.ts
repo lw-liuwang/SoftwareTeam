@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { createFullTestDb, createTestApp, mockTmuxAdapter } from "./helpers/test-app.js";
-import { RigTeardownOrchestrator } from "../src/domain/rig-teardown.js";
+import { SoftwareTeamTeardownOrchestrator } from "../src/domain/software-team-teardown.js";
 import { createApp } from "../src/server.js";
 
 describe("POST /api/down route", () => {
-  // R1: missing rigId -> 400
-  it("returns 400 when rigId is missing", async () => {
+  // R1: missing softwareTeamId -> 400
+  it("returns 400 when softwareTeamId is missing", async () => {
     const { app } = createTestApp(createFullTestDb());
     const res = await app.request("/api/down", {
       method: "POST",
@@ -14,16 +14,16 @@ describe("POST /api/down route", () => {
     });
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toMatch(/rigId/);
+    expect(body.error).toMatch(/softwareTeamId/);
   });
 
-  // R2: nonexistent rig -> 404
-  it("returns 404 for nonexistent rig", async () => {
+  // R2: nonexistent softwareTeam -> 404
+  it("returns 404 for nonexistent softwareTeam", async () => {
     const { app } = createTestApp(createFullTestDb());
     const res = await app.request("/api/down", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: "nonexistent-rig" }),
+      body: JSON.stringify({ softwareTeamId: "nonexistent-software-team" }),
     });
     expect(res.status).toBe(404);
     const body = await res.json();
@@ -35,17 +35,17 @@ describe("POST /api/down route", () => {
     const tmux = mockTmuxAdapter();
     (tmux.killSession as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: false, message: "kill failed" });
     const db = createFullTestDb();
-    const { app, rigRepo, sessionRegistry } = createTestApp(db, { tmux });
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db, { tmux });
 
-    const rig = rigRepo.createRig("test-rig");
-    const node = rigRepo.addNode(rig.id, "n1");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "n1");
     const session = sessionRegistry.registerSession(node.id, "r01-dev1");
     sessionRegistry.updateStatus(session.id, "running");
 
     const res = await app.request("/api/down", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: rig.id, delete: true }),
+      body: JSON.stringify({ softwareTeamId: softwareTeam.id, delete: true }),
     });
     expect(res.status).toBe(409);
     const body = await res.json();
@@ -58,7 +58,7 @@ describe("POST /api/down route", () => {
     const db1 = createFullTestDb();
     const { app: _ignore, ...testApp1 } = createTestApp(db1);
 
-    // Build a valid RigTeardownOrchestrator on a separate db
+    // Build a valid SoftwareTeamTeardownOrchestrator on a separate db
     const db2 = createFullTestDb();
     const { teardownOrchestrator: foreignTeardown } = createTestApp(db2);
 
@@ -74,21 +74,21 @@ describe("POST /api/down route", () => {
   it("returns 500 for internal delete failure (not 409)", async () => {
     const tmux = mockTmuxAdapter();
     const db = createFullTestDb();
-    const { app, rigRepo, sessionRegistry } = createTestApp(db, { tmux });
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db, { tmux });
 
-    const rig = rigRepo.createRig("test-rig-2");
-    const node = rigRepo.addNode(rig.id, "n1");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team-2");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "n1");
     const session = sessionRegistry.registerSession(node.id, "r01-dev1");
     sessionRegistry.updateStatus(session.id, "running");
 
-    // Kill succeeds but deleteRig throws (internal failure during atomicDelete)
-    const origDelete = rigRepo.deleteRig.bind(rigRepo);
-    rigRepo.deleteRig = () => { throw new Error("disk full"); };
+    // Kill succeeds but deleteSoftwareTeam throws (internal failure during atomicDelete)
+    const origDelete = softwareTeamRepo.deleteSoftwareTeam.bind(softwareTeamRepo);
+    softwareTeamRepo.deleteSoftwareTeam = () => { throw new Error("disk full"); };
 
     const res = await app.request("/api/down", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: rig.id, delete: true }),
+      body: JSON.stringify({ softwareTeamId: softwareTeam.id, delete: true }),
     });
     expect(res.status).toBe(500);
     const body = await res.json();
@@ -97,17 +97,17 @@ describe("POST /api/down route", () => {
     expect(body.deleted).toBe(false);
     expect(body.deleteBlocked).toBe(false);
 
-    rigRepo.deleteRig = origDelete;
+    softwareTeamRepo.deleteSoftwareTeam = origDelete;
   });
 
   // R6: --delete + snapshot failure + successful delete -> 200
   it("returns 200 when delete succeeds despite snapshot warnings", async () => {
     const tmux = mockTmuxAdapter();
     const db = createFullTestDb();
-    const { app, rigRepo, sessionRegistry, snapshotCapture } = createTestApp(db, { tmux });
+    const { app, softwareTeamRepo, sessionRegistry, snapshotCapture } = createTestApp(db, { tmux });
 
-    const rig = rigRepo.createRig("test-rig-3");
-    const node = rigRepo.addNode(rig.id, "n1");
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("test-software-team-3");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "n1");
     const session = sessionRegistry.registerSession(node.id, "r01-dev1");
     sessionRegistry.updateStatus(session.id, "running");
 
@@ -118,7 +118,7 @@ describe("POST /api/down route", () => {
     const res = await app.request("/api/down", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: rig.id, delete: true, snapshot: true }),
+      body: JSON.stringify({ softwareTeamId: softwareTeam.id, delete: true, snapshot: true }),
     });
     // Snapshot failure → errors[], but delete still succeeds → 200
     expect(res.status).toBe(200);
@@ -132,16 +132,16 @@ describe("POST /api/down route", () => {
   // NS-T06: auto-snapshot on down
   it("auto-snapshots before teardown (auto-pre-down)", async () => {
     const db = createFullTestDb();
-    const { app, rigRepo, sessionRegistry } = createTestApp(db);
-    const rig = rigRepo.createRig("auto-snap-rig");
-    const node = rigRepo.addNode(rig.id, "impl", { runtime: "claude-code" });
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("auto-snap-software-team");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "impl", { runtime: "claude-code" });
     const session = sessionRegistry.registerSession(node.id, "r01-impl");
     sessionRegistry.updateStatus(session.id, "running");
 
     const res = await app.request("/api/down", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: rig.id }),
+      body: JSON.stringify({ softwareTeamId: softwareTeam.id }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -153,22 +153,22 @@ describe("POST /api/down route", () => {
     db.close();
   });
 
-  // NS-T06: down response includes rig name for handoff
-  it("response includes rigName for post-command handoff", async () => {
+  // NS-T06: down response includes softwareTeam name for handoff
+  it("response includes softwareTeamName for post-command handoff", async () => {
     const db = createFullTestDb();
-    const { app, rigRepo, sessionRegistry } = createTestApp(db);
-    const rig = rigRepo.createRig("handoff-test");
-    const node = rigRepo.addNode(rig.id, "impl");
+    const { app, softwareTeamRepo, sessionRegistry } = createTestApp(db);
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("handoff-test");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "impl");
     const session = sessionRegistry.registerSession(node.id, "r01-impl");
     sessionRegistry.updateStatus(session.id, "running");
 
     const res = await app.request("/api/down", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rigId: rig.id }),
+      body: JSON.stringify({ softwareTeamId: softwareTeam.id }),
     });
     const body = await res.json();
-    expect(body.rigName).toBe("handoff-test");
+    expect(body.softwareTeamName).toBe("handoff-test");
     db.close();
   });
 });

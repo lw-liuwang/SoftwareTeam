@@ -33,7 +33,7 @@ function fixture(options: {
     setup: { ...common, writeFile: vi.fn(), mkdirp: vi.fn() },
     doctor: {
       ...common, baseDir: "/fixture/cli/dist", checkPort: async () => true,
-      configStore: { resolve: () => ({ daemon: { host: "127.0.0.1", port: 7433 }, db: { path: "/fixture/openrig.sqlite" }, transcripts: { enabled: true, path: "/fixture/transcripts" } }) },
+      configStore: { resolve: () => ({ daemon: { host: "127.0.0.1", port: 7434 }, db: { path: "/fixture/softwareteam.sqlite" }, transcripts: { enabled: true, path: "/fixture/transcripts" } }) },
       mkdirp: vi.fn(), checkWritable: vi.fn(), fetch: async () => ({ ok: false }),
     },
   };
@@ -99,7 +99,7 @@ describe("setup and doctor provider facts", () => {
     const logs: string[] = [];
     vi.spyOn(console, "log").mockImplementation((...args) => { logs.push(args.join(" ")); });
     process.exitCode = undefined;
-    await new Command().addCommand(doctorCommand(doctor)).parseAsync(["node", "rig", "doctor", ...(json ? ["--json"] : [])]);
+    await new Command().addCommand(doctorCommand(doctor)).parseAsync(["node", "softwareTeam", "doctor", ...(json ? ["--json"] : [])]);
     expect(process.exitCode).toBe(1);
     const output = logs.join("\n");
     if (json) {

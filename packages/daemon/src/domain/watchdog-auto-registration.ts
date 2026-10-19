@@ -23,14 +23,14 @@ export class WatchdogAutoRegistrationError extends Error {
 
 interface TopologyRow {
   node_id: string;
-  rig_id: string;
-  rig_name: string;
+  software_team_id: string;
+  software_team_name: string;
 }
 
 interface RawTopologyRow {
   node_id: string;
-  rig_id: string;
-  rig_name: string | null;
+  software_team_id: string;
+  software_team_name: string | null;
 }
 
 interface LatestSessionRow {
@@ -79,22 +79,22 @@ export class WatchdogAutoRegistration {
    */
   reconcileHandover(nodeId: string, sessionName: string): WatchdogJob | null {
     const row = this.deps.db.prepare(
-      `SELECT n.id AS node_id, n.rig_id AS rig_id, r.name AS rig_name
-         FROM nodes n LEFT JOIN rigs r ON r.id = n.rig_id
+      `SELECT n.id AS node_id, n.software_team_id AS software_team_id, r.name AS software_team_name
+         FROM nodes n LEFT JOIN software_teams r ON r.id = n.software_team_id
         WHERE n.id = ?`,
     ).get(nodeId) as RawTopologyRow | undefined;
-    if (!row || row.rig_name === null) {
+    if (!row || row.software_team_name === null) {
       throw new WatchdogAutoRegistrationError(
         "target_mismatch",
         `watchdog handover topology missing for node_id="${nodeId}" session="${sessionName}"`,
-        { nodeId, sessionName, actualRig: row?.rig_name ?? null },
+        { nodeId, sessionName, actualSoftwareTeam: row?.software_team_name ?? null },
       );
     }
     const job = this.deps.jobsRepo.findAutoRegistration(
       POLICY,
       sessionName,
       null,
-      this.canonicalAliases(nodeId, row.rig_name, sessionName),
+      this.canonicalAliases(nodeId, row.software_team_name, sessionName),
     );
     if (!job || job.state === "stopped") return job;
     this.deps.jobsRepo.markTerminal(job.jobId, "handover_noncanonical_successor");
@@ -125,7 +125,7 @@ export class WatchdogAutoRegistration {
         POLICY,
         sessionName,
         null,
-        this.canonicalAliases(nodeId, topology.rig_name, sessionName),
+        this.canonicalAliases(nodeId, topology.software_team_name, sessionName),
       );
       if (!existing) return null; // fresh seat, not opted in — no job, by ruling
     }
@@ -141,7 +141,7 @@ export class WatchdogAutoRegistration {
         registeredBySession: REGISTRAR,
         targetGenerationUuid: null,
       },
-      this.canonicalAliases(nodeId, topology.rig_name, sessionName),
+      this.canonicalAliases(nodeId, topology.software_team_name, sessionName),
     );
   }
 
@@ -152,7 +152,7 @@ export class WatchdogAutoRegistration {
       POLICY,
       sessionName,
       null,
-      this.canonicalAliases(nodeId, topology.rig_name, sessionName),
+      this.canonicalAliases(nodeId, topology.software_team_name, sessionName),
     );
     if (!job || job.targetSession !== sessionName) {
       // B6 — no job on a seat that is not opted in is the RULED default, not a
@@ -205,28 +205,28 @@ export class WatchdogAutoRegistration {
     const parsed = parseSessionName(sessionName);
     if (parsed.kind !== "canonical") return null;
     const row = this.deps.db.prepare(
-      `SELECT n.id AS node_id, n.rig_id AS rig_id, r.name AS rig_name
-         FROM nodes n LEFT JOIN rigs r ON r.id = n.rig_id
+      `SELECT n.id AS node_id, n.software_team_id AS software_team_id, r.name AS software_team_name
+         FROM nodes n LEFT JOIN software_teams r ON r.id = n.software_team_id
         WHERE n.id = ?`,
     ).get(nodeId) as RawTopologyRow | undefined;
-    if (!row || row.rig_name === null || row.rig_name !== parsed.rig) {
+    if (!row || row.software_team_name === null || row.software_team_name !== parsed.softwareTeam) {
       throw new WatchdogAutoRegistrationError(
         "target_mismatch",
         `canonical seat topology mismatch for node_id="${nodeId}" session="${sessionName}"`,
-        { nodeId, sessionName, parsedRig: parsed.rig, actualRig: row?.rig_name ?? null },
+        { nodeId, sessionName, parsedSoftwareTeam: parsed.softwareTeam, actualSoftwareTeam: row?.software_team_name ?? null },
       );
     }
     return row as TopologyRow;
   }
 
-  private canonicalAliases(nodeId: string, rigName: string, currentSession: string): string[] {
+  private canonicalAliases(nodeId: string, softwareTeamName: string, currentSession: string): string[] {
     const rows = this.deps.db.prepare(
       `SELECT session_name FROM sessions WHERE node_id = ? ORDER BY created_at ASC, id ASC`,
     ).all(nodeId) as Array<{ session_name: string }>;
     return [...new Set([...rows.map((row) => row.session_name), currentSession])].filter((candidate) => {
       if (!validateSessionName(candidate)) return false;
       const parsed = parseSessionName(candidate);
-      return parsed.kind === "canonical" && parsed.rig === rigName;
+      return parsed.kind === "canonical" && parsed.softwareTeam === softwareTeamName;
     });
   }
 
@@ -239,7 +239,7 @@ export class WatchdogAutoRegistration {
 
   private generatedSpec(sessionName: string, scan: number, activeWake: number): string {
     return `policy: ${POLICY}\n` +
-      `generated_by: openrig-daemon\n` +
+      `generated_by: softwareteam-daemon\n` +
       `target:\n  session: ${sessionName}\n` +
       `interval_seconds: ${scan}\n` +
       `scan_interval_seconds: ${scan}\n` +

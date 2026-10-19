@@ -3,8 +3,8 @@ import { RunnerCore, parseRunnerArgs, resolveRuntimeExecutable, type ExecutableR
 import { buildPiChildArgs, buildPiChildEnv, buildPiRunnerCommand, OMP_PROVIDER_ENV_VARS, OMP_PROVIDER_EXTRA_ENV_VARS, type PiRunnerState } from "../src/adapters/pi-runner-protocol.js";
 import { collectAllowlistedProviderAuthEnv } from "../src/startup.js";
 
-const sessionName = "omp-worker@rig";
-const sessionFile = "/openrig/state/omp/omp-worker@rig/sessions/2026_0197.jsonl";
+const sessionName = "omp-worker@software-team";
+const sessionFile = "/softwareteam/state/omp/omp-worker@software-team/sessions/2026_0197.jsonl";
 
 function runner() {
   const rpc: Record<string, unknown>[] = [];
@@ -39,35 +39,35 @@ describe("OMP runner command and child isolation", () => {
       .toEqual({ ...absent, USER: "fixture-user", LOGNAME: "fixture-login" });
   });
   it("launches exact session/fork with OMP approval flags, never Pi-only flags", () => {
-    const common = { runnerEntryPath: "/daemon/pi-runner.js", sessionName, stateRoot: "/openrig/state/omp", cwd: "/work", model: "anthropic/claude-sonnet", runtime: "omp" as const, launchId: "attempt-1" };
+    const common = { runnerEntryPath: "/daemon/pi-runner.js", sessionName, stateRoot: "/softwareteam/state/omp", cwd: "/work", model: "anthropic/claude-sonnet", runtime: "omp" as const, launchId: "attempt-1" };
     for (const [trust, mode] of [["approve", "yolo"], ["no-approve", "always-ask"]] as const) {
       const cmd = buildPiRunnerCommand({ ...common, trust, sessionFile });
       expect(cmd).toContain(`--runtime omp --approval-mode ${mode}`);
       expect(cmd).toContain(`--session '${sessionFile}'`);
       expect(cmd).not.toMatch(/--no-approve|--approve|--name|--resume/);
       const parsed = parseRunnerArgs(cmd.match(/(?:'[^']*'|[^\s]+)/g)!.slice(2).map((arg) => arg.replace(/^'|'$/g, "")));
-      const child = buildPiChildArgs({ ...parsed, sessionName, sessionsDir: "/openrig/state/omp/omp-worker@rig/sessions", runtime: "omp" });
-      expect(child).toEqual(["--mode", "rpc", "--session-dir", "/openrig/state/omp/omp-worker@rig/sessions", "--approval-mode", mode, "--model", "anthropic/claude-sonnet", "--session", sessionFile]);
+      const child = buildPiChildArgs({ ...parsed, sessionName, sessionsDir: "/softwareteam/state/omp/omp-worker@software-team/sessions", runtime: "omp" });
+      expect(child).toEqual(["--mode", "rpc", "--session-dir", "/softwareteam/state/omp/omp-worker@software-team/sessions", "--approval-mode", mode, "--model", "anthropic/claude-sonnet", "--session", sessionFile]);
       expect(buildPiChildArgs({ ...parsed, sessionsDir: "/sessions", runtime: "omp", sessionFile: undefined, forkRef: sessionFile })).toContain("--fork");
     }
     expect(() => parseRunnerArgs(["--runtime", "omp", "--session-name", sessionName, "--state-root", "/state", "--cwd", "/work", "--launch-id", "x", "--approve"])).toThrow(/requires --approval-mode/);
   });
 
   it("passes only declared provider key and managed identity, not daemon activity credentials", () => {
-    const env = buildPiChildEnv({ PATH: "/usr/bin", HOME: "/operator", ANTHROPIC_API_KEY: "seat-key", OPENAI_API_KEY: "other-key", OPENRIG_ACTIVITY_HOOK_TOKEN: "private-token", OPENRIG_OCCUPANT_GENERATION: "occupant-42", AWS_SECRET_ACCESS_KEY: "other-secret" }, { runtime: "omp", agentDir: "/openrig/state/omp/seat/agent", sessionsDir: "/openrig/state/omp/seat/sessions", model: "anthropic/claude-sonnet", sessionName, nodeId: "node-1", openrigHome: "/openrig", openrigUrl: "http://127.0.0.1:3000" });
+    const env = buildPiChildEnv({ PATH: "/usr/bin", HOME: "/operator", ANTHROPIC_API_KEY: "seat-key", OPENAI_API_KEY: "other-key", SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: "private-token", SOFTWARETEAM_OCCUPANT_GENERATION: "occupant-42", AWS_SECRET_ACCESS_KEY: "other-secret" }, { runtime: "omp", agentDir: "/softwareteam/state/omp/seat/agent", sessionsDir: "/softwareteam/state/omp/seat/sessions", model: "anthropic/claude-sonnet", sessionName, nodeId: "node-1", softwareteamHome: "/softwareteam", softwareteamUrl: "http://127.0.0.1:3000" });
     // OMP children get the same accepted identity allowlist as Pi (including
     // the occupant generation), plus the seat HOME and pinned identity.
-    expect(env).toMatchObject({ HOME: "/openrig/state/omp/seat", PI_CODING_AGENT_DIR: "/openrig/state/omp/seat/agent", PI_CODING_AGENT_SESSION_DIR: "/openrig/state/omp/seat/sessions", ANTHROPIC_API_KEY: "seat-key", OPENRIG_SESSION_NAME: sessionName, OPENRIG_NODE_ID: "node-1", OPENRIG_RUNTIME: "omp", OPENRIG_HOME: "/openrig", OPENRIG_URL: "http://127.0.0.1:3000", OPENRIG_OCCUPANT_GENERATION: "occupant-42" });
+    expect(env).toMatchObject({ HOME: "/softwareteam/state/omp/seat", PI_CODING_AGENT_DIR: "/softwareteam/state/omp/seat/agent", PI_CODING_AGENT_SESSION_DIR: "/softwareteam/state/omp/seat/sessions", ANTHROPIC_API_KEY: "seat-key", SOFTWARETEAM_SESSION_NAME: sessionName, SOFTWARETEAM_NODE_ID: "node-1", SOFTWARETEAM_RUNTIME: "omp", SOFTWARETEAM_HOME: "/softwareteam", SOFTWARETEAM_URL: "http://127.0.0.1:3000", SOFTWARETEAM_OCCUPANT_GENERATION: "occupant-42" });
     expect(env).not.toHaveProperty("OPENAI_API_KEY");
     expect(env).not.toHaveProperty("AWS_SECRET_ACCESS_KEY");
-    expect(env).not.toHaveProperty("OPENRIG_ACTIVITY_HOOK_TOKEN");
+    expect(env).not.toHaveProperty("SOFTWARETEAM_ACTIVITY_HOOK_TOKEN");
   });
 
-  it("forwards the accepted OPENRIG_* identity to Pi children without OMP's seat HOME", () => {
-    const env = buildPiChildEnv({ PATH: "/usr/bin", HOME: "/operator", OPENRIG_SESSION_NAME: sessionName, OPENRIG_NODE_ID: "node-1", OPENRIG_OCCUPANT_GENERATION: "occupant-42", OPENRIG_ACTIVITY_HOOK_TOKEN: "private-token" }, { runtime: "pi", agentDir: "/s/agent", sessionsDir: "/s/sessions", sessionName, nodeId: "node-1", openrigHome: "/openrig", openrigUrl: "http://127.0.0.1:3000" });
-    expect(env).toMatchObject({ OPENRIG_SESSION_NAME: sessionName, OPENRIG_NODE_ID: "node-1", OPENRIG_OCCUPANT_GENERATION: "occupant-42" });
-    expect(env).not.toHaveProperty("OPENRIG_ACTIVITY_HOOK_TOKEN");
-    expect(env).not.toHaveProperty("OPENRIG_RUNTIME");
+  it("forwards the accepted SOFTWARETEAM_* identity to Pi children without OMP's seat HOME", () => {
+    const env = buildPiChildEnv({ PATH: "/usr/bin", HOME: "/operator", SOFTWARETEAM_SESSION_NAME: sessionName, SOFTWARETEAM_NODE_ID: "node-1", SOFTWARETEAM_OCCUPANT_GENERATION: "occupant-42", SOFTWARETEAM_ACTIVITY_HOOK_TOKEN: "private-token" }, { runtime: "pi", agentDir: "/s/agent", sessionsDir: "/s/sessions", sessionName, nodeId: "node-1", softwareteamHome: "/softwareteam", softwareteamUrl: "http://127.0.0.1:3000" });
+    expect(env).toMatchObject({ SOFTWARETEAM_SESSION_NAME: sessionName, SOFTWARETEAM_NODE_ID: "node-1", SOFTWARETEAM_OCCUPANT_GENERATION: "occupant-42" });
+    expect(env).not.toHaveProperty("SOFTWARETEAM_ACTIVITY_HOOK_TOKEN");
+    expect(env).not.toHaveProperty("SOFTWARETEAM_RUNTIME");
     expect(env.HOME).toBe("/operator");
   });
 
@@ -95,7 +95,7 @@ describe("OMP runner command and child isolation", () => {
       LITELLM_API_KEY: "proxy-key",
       LITELLM_BASE_URL: "https://llm.internal/v1",
     };
-    const opts = { agentDir: "/openrig/state/omp/seat/agent", sessionsDir: "/openrig/state/omp/seat/sessions", sessionName };
+    const opts = { agentDir: "/softwareteam/state/omp/seat/agent", sessionsDir: "/softwareteam/state/omp/seat/sessions", sessionName };
     expect(buildPiChildEnv(source, { ...opts, runtime: "omp", model: "litellm/gpt-oss:120b" })).toMatchObject({
       LITELLM_API_KEY: "proxy-key",
       LITELLM_BASE_URL: "https://llm.internal/v1",

@@ -1,5 +1,5 @@
-// S10 — the narrow @openrig/daemon/gateway-slack surface: exactly what the CLI's surviving
-// config verbs (`rig slack setup/status/verify/channel-map`) consume after the relay cutover re-homed the
+// S10 — the narrow @softwareteam/daemon/gateway-slack surface: exactly what the CLI's surviving
+// config verbs (`softwareTeam slack setup/status/verify/channel-map`) consume after the relay cutover re-homed the
 // slack modules into the daemon. Same dep-rail pattern as gateway-protocol / human-registry:
 // the CLI lazy-imports this at invocation; nothing else is exported.
 

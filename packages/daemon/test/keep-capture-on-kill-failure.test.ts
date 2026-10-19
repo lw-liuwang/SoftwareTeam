@@ -3,14 +3,14 @@ import type Database from "better-sqlite3";
 import { createDb } from "../src/db/connection.js";
 import { migrate } from "../src/db/migrate.js";
 import { ALL_MIGRATIONS } from "../src/db/all-migrations.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { SnapshotRepository } from "../src/domain/snapshot-repository.js";
 import { CheckpointStore } from "../src/domain/checkpoint-store.js";
 import { SnapshotCapture } from "../src/domain/snapshot-capture.js";
 import { TmuxAdapter } from "../src/adapters/tmux.js";
-import { RigTeardownOrchestrator } from "../src/domain/rig-teardown.js";
+import { SoftwareTeamTeardownOrchestrator } from "../src/domain/software-team-teardown.js";
 
 import fs from "node:fs";
 import os from "node:os";
@@ -39,25 +39,25 @@ describe.skipIf(process.platform === "win32")("native failed-kill transcript con
         return (await run(`tmux -S ${shellQuote(socket)} ${command.slice(5)}`, { env })).stdout;
       });
       expect(await tmuxAdapter.createSession(sessionName, temp)).toEqual({ ok: true });
-      const rigRepo = new RigRepository(db);
+      const softwareTeamRepo = new SoftwareTeamRepository(db);
       const sessionRegistry = new SessionRegistry(db);
       const eventBus = new EventBus(db);
-      const rig = rigRepo.createRig("kill-fixture");
-      const node = rigRepo.addNode(rig.id, "worker");
+      const softwareTeam = softwareTeamRepo.createSoftwareTeam("kill-fixture");
+      const node = softwareTeamRepo.addNode(softwareTeam.id, "worker");
       const session = sessionRegistry.registerSession(node.id, sessionName);
       sessionRegistry.updateStatus(session.id, "running");
-      const snapshotCapture = new SnapshotCapture({ db, rigRepo, sessionRegistry, eventBus,
+      const snapshotCapture = new SnapshotCapture({ db, softwareTeamRepo, sessionRegistry, eventBus,
         snapshotRepo: new SnapshotRepository(db), checkpointStore: new CheckpointStore(db) });
-      const orchestrator = new RigTeardownOrchestrator({ db, rigRepo, sessionRegistry, eventBus, snapshotCapture, tmuxAdapter });
+      const orchestrator = new SoftwareTeamTeardownOrchestrator({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotCapture, tmuxAdapter });
       const outputPath = path.join(temp, "transcript.log");
       startTranscriptRotation(tmuxAdapter, sessionName, outputPath, { lines: 20, pollIntervalMs: 30 });
       const deadline = Date.now() + 2000;
       while (getLastCaptureAt(sessionName) === undefined && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
       expect(fs.existsSync(outputPath)).toBe(true);
       const before = getLastCaptureAt(sessionName)!;
-      const result = await orchestrator.teardown(rig.id);
+      const result = await orchestrator.teardown(softwareTeam.id);
       expect(await tmuxAdapter.hasSession(sessionName)).toBe(failure);
-      expect(sessionRegistry.getSessionsForRig(rig.id).find((entry) => entry.id === session.id)?.status).toBe(failure ? "running" : "exited");
+      expect(sessionRegistry.getSessionsForSoftwareTeam(softwareTeam.id).find((entry) => entry.id === session.id)?.status).toBe(failure ? "running" : "exited");
       expect(result.sessionsKilled).toBe(failure ? 0 : 1);
       expect(getActiveRotationCount()).toBe(failure ? 1 : 0);
       if (failure) {

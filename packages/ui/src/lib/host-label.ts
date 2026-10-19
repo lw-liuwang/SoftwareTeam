@@ -4,6 +4,6 @@
 // localhost; multi-host envelope is V2 deferred.
 
 export function formatHostLabel(): string {
-  if (typeof window === "undefined") return "openrig @ localhost";
-  return `openrig @ ${window.location.hostname || "localhost"}`;
+  if (typeof window === "undefined") return "softwareteam @ localhost";
+  return `softwareteam @ ${window.location.hostname || "localhost"}`;
 }

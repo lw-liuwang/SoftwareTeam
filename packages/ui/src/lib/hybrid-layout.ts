@@ -9,15 +9,15 @@ export const HYBRID_POD_HEADER_HEIGHT = 38;
 export const HYBRID_POD_PADDING_X = 28;
 export const HYBRID_POD_PADDING_BOTTOM = 22;
 export const HYBRID_POD_MIN_WIDTH = 188;
-export const HYBRID_RIG_HEADER_HEIGHT = 78;
-export const HYBRID_RIG_PADDING_X = 42;
-export const HYBRID_RIG_PADDING_BOTTOM = 40;
-export const HYBRID_RIG_MIN_WIDTH = 320;
-export const HYBRID_COLLAPSED_RIG_WIDTH = 280;
-export const HYBRID_COLLAPSED_RIG_HEIGHT = 118;
+export const HYBRID_SOFTWARE_TEAM_HEADER_HEIGHT = 78;
+export const HYBRID_SOFTWARE_TEAM_PADDING_X = 42;
+export const HYBRID_SOFTWARE_TEAM_PADDING_BOTTOM = 40;
+export const HYBRID_SOFTWARE_TEAM_MIN_WIDTH = 320;
+export const HYBRID_COLLAPSED_SOFTWARE_TEAM_WIDTH = 280;
+export const HYBRID_COLLAPSED_SOFTWARE_TEAM_HEIGHT = 118;
 export const HYBRID_OUTER_MARGIN = 96;
 export const HYBRID_OUTER_LANE_COUNT = 3;
-export const HYBRID_CROSS_RIG_STROKE_DASH = "6 7";
+export const HYBRID_CROSS_SOFTWARE_TEAM_STROKE_DASH = "6 7";
 
 interface LayoutItem {
   id: string;
@@ -56,15 +56,15 @@ interface StandaloneLayout {
   position: { x: number; y: number };
 }
 
-export interface HybridRigLayoutInput {
-  rigId: string;
-  rigName?: string | null;
+export interface HybridSoftwareTeamLayoutInput {
+  softwareTeamId: string;
+  softwareTeamName?: string | null;
   nodes: HybridRawNode[];
   edges: HybridRawEdge[];
   collapsed: boolean;
 }
 
-export interface HybridRigLayoutResult {
+export interface HybridSoftwareTeamLayoutResult {
   nodes: Node[];
   edges: Edge[];
   width: number;
@@ -72,25 +72,25 @@ export interface HybridRigLayoutResult {
   podCount: number;
 }
 
-export interface HybridOuterRigInput {
-  rigId: string;
+export interface HybridOuterSoftwareTeamInput {
+  softwareTeamId: string;
   width: number;
   height: number;
 }
 
-export interface HybridOuterRigPosition extends HybridOuterRigInput {
+export interface HybridOuterSoftwareTeamPosition extends HybridOuterSoftwareTeamInput {
   position: { x: number; y: number };
 }
 
-export function prefixedHybridNodeId(rigId: string, nodeId: string): string {
-  return `${rigId}${PREFIX_DELIMITER}${nodeId}`;
+export function prefixedHybridNodeId(softwareTeamId: string, nodeId: string): string {
+  return `${softwareTeamId}${PREFIX_DELIMITER}${nodeId}`;
 }
 
-export function unprefixedHybridNodeId(nodeId: string): { rigId: string | null; localId: string } {
+export function unprefixedHybridNodeId(nodeId: string): { softwareTeamId: string | null; localId: string } {
   const index = nodeId.indexOf(PREFIX_DELIMITER);
-  if (index < 0) return { rigId: null, localId: nodeId };
+  if (index < 0) return { softwareTeamId: null, localId: nodeId };
   return {
-    rigId: nodeId.slice(0, index),
+    softwareTeamId: nodeId.slice(0, index),
     localId: nodeId.slice(index + PREFIX_DELIMITER.length),
   };
 }
@@ -99,12 +99,12 @@ export function isHybridPodNode(node: Pick<Node, "type">): boolean {
   return node.type === "podGroup" || node.type === "group";
 }
 
-export function getHybridEdgeStyle(kind: string | null | undefined, crossRig = false): Edge["style"] {
-  if (crossRig) {
+export function getHybridEdgeStyle(kind: string | null | undefined, crossSoftwareTeam = false): Edge["style"] {
+  if (crossSoftwareTeam) {
     return {
       stroke: "#a8a29e",
       strokeWidth: 1,
-      strokeDasharray: HYBRID_CROSS_RIG_STROKE_DASH,
+      strokeDasharray: HYBRID_CROSS_SOFTWARE_TEAM_STROKE_DASH,
     };
   }
   if (kind === "pod-internal" || kind === "contains" || kind === "member") {
@@ -119,13 +119,13 @@ export function getHybridEdgeStyle(kind: string | null | undefined, crossRig = f
   };
 }
 
-export function layoutHybridRig(input: HybridRigLayoutInput): HybridRigLayoutResult {
+export function layoutHybridSoftwareTeam(input: HybridSoftwareTeamLayoutInput): HybridSoftwareTeamLayoutResult {
   if (input.collapsed) {
     return {
       nodes: [],
       edges: [],
-      width: HYBRID_COLLAPSED_RIG_WIDTH,
-      height: HYBRID_COLLAPSED_RIG_HEIGHT,
+      width: HYBRID_COLLAPSED_SOFTWARE_TEAM_WIDTH,
+      height: HYBRID_COLLAPSED_SOFTWARE_TEAM_HEIGHT,
       podCount: 0,
     };
   }
@@ -174,41 +174,41 @@ export function layoutHybridRig(input: HybridRigLayoutInput): HybridRigLayoutRes
     ranksep: 34,
   });
   const normalized = normalizeLayout(entityItems, entityCenters, {
-    x: HYBRID_RIG_PADDING_X,
-    y: HYBRID_RIG_HEADER_HEIGHT,
+    x: HYBRID_SOFTWARE_TEAM_PADDING_X,
+    y: HYBRID_SOFTWARE_TEAM_HEADER_HEIGHT,
   });
 
   for (const pod of podLayouts) {
     pod.position = normalized.positions.get(pod.node.id) ?? {
-      x: HYBRID_RIG_PADDING_X,
-      y: HYBRID_RIG_HEADER_HEIGHT,
+      x: HYBRID_SOFTWARE_TEAM_PADDING_X,
+      y: HYBRID_SOFTWARE_TEAM_HEADER_HEIGHT,
     };
   }
   for (const layout of standaloneLayouts) {
     layout.position = normalized.positions.get(layout.node.id) ?? {
-      x: HYBRID_RIG_PADDING_X,
-      y: HYBRID_RIG_HEADER_HEIGHT,
+      x: HYBRID_SOFTWARE_TEAM_PADDING_X,
+      y: HYBRID_SOFTWARE_TEAM_HEADER_HEIGHT,
     };
   }
 
-  const width = Math.max(HYBRID_RIG_MIN_WIDTH, normalized.width + HYBRID_RIG_PADDING_X * 2);
+  const width = Math.max(HYBRID_SOFTWARE_TEAM_MIN_WIDTH, normalized.width + HYBRID_SOFTWARE_TEAM_PADDING_X * 2);
   const height = Math.max(
-    HYBRID_COLLAPSED_RIG_HEIGHT,
-    normalized.height + HYBRID_RIG_HEADER_HEIGHT + HYBRID_RIG_PADDING_BOTTOM,
+    HYBRID_COLLAPSED_SOFTWARE_TEAM_HEIGHT,
+    normalized.height + HYBRID_SOFTWARE_TEAM_HEADER_HEIGHT + HYBRID_SOFTWARE_TEAM_PADDING_BOTTOM,
   );
-  const rigParentId = `rig-${input.rigId}`;
+  const softwareTeamParentId = `software-team-${input.softwareTeamId}`;
   const flowNodes: Node[] = [];
 
   for (const pod of podLayouts) {
-    const podId = prefixedHybridNodeId(input.rigId, pod.node.id);
+    const podId = prefixedHybridNodeId(input.softwareTeamId, pod.node.id);
     flowNodes.push({
       ...pod.node,
       id: podId,
       type: "podGroup",
-      parentId: rigParentId,
+      parentId: softwareTeamParentId,
       extent: "parent",
       position: pod.position,
-      data: { ...(pod.node.data ?? {}), rigId: input.rigId, rigName: input.rigName ?? null, agentCount: pod.members.length },
+      data: { ...(pod.node.data ?? {}), softwareTeamId: input.softwareTeamId, softwareTeamName: input.softwareTeamName ?? null, agentCount: pod.members.length },
       style: { ...(pod.node.style ?? {}), width: pod.width, height: pod.height },
       draggable: false,
       zIndex: 1,
@@ -217,12 +217,12 @@ export function layoutHybridRig(input: HybridRigLayoutInput): HybridRigLayoutRes
     for (const member of pod.members) {
       flowNodes.push({
         ...member.node,
-        id: prefixedHybridNodeId(input.rigId, member.node.id),
-        type: "rigNode",
+        id: prefixedHybridNodeId(input.softwareTeamId, member.node.id),
+        type: "softwareTeamNode",
         parentId: podId,
         extent: "parent",
         position: member.position,
-        data: { ...(member.node.data ?? {}), rigId: input.rigId, rigName: input.rigName ?? null },
+        data: { ...(member.node.data ?? {}), softwareTeamId: input.softwareTeamId, softwareTeamName: input.softwareTeamName ?? null },
         style: { ...(member.node.style ?? {}), width: HYBRID_AGENT_WIDTH, height: HYBRID_AGENT_HEIGHT },
         initialWidth: HYBRID_AGENT_WIDTH,
         initialHeight: HYBRID_AGENT_HEIGHT,
@@ -237,12 +237,12 @@ export function layoutHybridRig(input: HybridRigLayoutInput): HybridRigLayoutRes
   for (const standalone of standaloneLayouts) {
     flowNodes.push({
       ...standalone.node,
-      id: prefixedHybridNodeId(input.rigId, standalone.node.id),
-      type: "rigNode",
-      parentId: rigParentId,
+      id: prefixedHybridNodeId(input.softwareTeamId, standalone.node.id),
+      type: "softwareTeamNode",
+      parentId: softwareTeamParentId,
       extent: "parent",
       position: standalone.position,
-      data: { ...(standalone.node.data ?? {}), rigId: input.rigId, rigName: input.rigName ?? null },
+      data: { ...(standalone.node.data ?? {}), softwareTeamId: input.softwareTeamId, softwareTeamName: input.softwareTeamName ?? null },
       style: { ...(standalone.node.style ?? {}), width: HYBRID_AGENT_WIDTH, height: HYBRID_AGENT_HEIGHT },
       initialWidth: HYBRID_AGENT_WIDTH,
       initialHeight: HYBRID_AGENT_HEIGHT,
@@ -254,8 +254,8 @@ export function layoutHybridRig(input: HybridRigLayoutInput): HybridRigLayoutRes
   }
 
   const flowEdges = input.edges.map((edge) => {
-    const sourceRig = input.rigId;
-    const targetRig = input.rigId;
+    const sourceSoftwareTeam = input.softwareTeamId;
+    const targetSoftwareTeam = input.softwareTeamId;
     const edgeId = edge.id || `${edge.source}->${edge.target}`;
     const kind = typeof edge.data?.["kind"] === "string"
       ? edge.data["kind"]
@@ -265,9 +265,9 @@ export function layoutHybridRig(input: HybridRigLayoutInput): HybridRigLayoutRes
     const { label: rawLabel, ...edgeWithoutLabel } = edge;
     return {
       ...edgeWithoutLabel,
-      id: prefixedHybridNodeId(input.rigId, edgeId),
-      source: prefixedHybridNodeId(sourceRig, edge.source),
-      target: prefixedHybridNodeId(targetRig, edge.target),
+      id: prefixedHybridNodeId(input.softwareTeamId, edgeId),
+      source: prefixedHybridNodeId(sourceSoftwareTeam, edge.source),
+      target: prefixedHybridNodeId(targetSoftwareTeam, edge.target),
       label: typeof rawLabel === "string" ? rawLabel : undefined,
       type: edge.type ?? "default",
       selectable: false,
@@ -290,11 +290,11 @@ export function layoutHybridRig(input: HybridRigLayoutInput): HybridRigLayoutRes
   };
 }
 
-export function layoutHybridOuterRigs(rigs: readonly HybridOuterRigInput[]): HybridOuterRigPosition[] {
-  const items = rigs.map((rig) => ({ id: rig.rigId, width: rig.width, height: rig.height }));
+export function layoutHybridOuterSoftwareTeams(softwareTeams: readonly HybridOuterSoftwareTeamInput[]): HybridOuterSoftwareTeamPosition[] {
+  const items = softwareTeams.map((softwareTeam) => ({ id: softwareTeam.softwareTeamId, width: softwareTeam.width, height: softwareTeam.height }));
   const lanes: string[][] = Array.from({ length: HYBRID_OUTER_LANE_COUNT }, () => []);
-  rigs.forEach((rig, index) => {
-    lanes[index % lanes.length]!.push(rig.rigId);
+  softwareTeams.forEach((softwareTeam, index) => {
+    lanes[index % lanes.length]!.push(softwareTeam.softwareTeamId);
   });
   const guideEdges: LayoutEdge[] = [];
   for (const lane of lanes) {
@@ -312,9 +312,9 @@ export function layoutHybridOuterRigs(rigs: readonly HybridOuterRigInput[]): Hyb
     y: HYBRID_OUTER_MARGIN,
   });
 
-  return rigs.map((rig) => ({
-    ...rig,
-    position: normalized.positions.get(rig.rigId) ?? {
+  return softwareTeams.map((softwareTeam) => ({
+    ...softwareTeam,
+    position: normalized.positions.get(softwareTeam.softwareTeamId) ?? {
       x: HYBRID_OUTER_MARGIN,
       y: HYBRID_OUTER_MARGIN,
     },

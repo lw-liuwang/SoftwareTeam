@@ -104,9 +104,9 @@ function DateChip({ label }: { label: string }) {
 function FlowStrip() {
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-      <ActorChip kind="agent" label="orch-lead@my-rig" />
+      <ActorChip kind="agent" label="orch-lead@my-software-team" />
       <ArrowRight className="h-3.5 w-3.5 text-on-surface-variant" strokeWidth={1.4} />
-      <ActorChip kind="agent" label="driver@my-rig" />
+      <ActorChip kind="agent" label="driver@my-software-team" />
       <ArrowRight className="h-3.5 w-3.5 text-on-surface-variant" strokeWidth={1.4} />
       <ActorChip kind="human" label="human@host" />
     </div>
@@ -211,8 +211,8 @@ function QueueTreatment() {
     <div className="divide-y divide-outline-variant border border-outline-variant bg-surface-lowest/55 backdrop-blur-sm">
       {[
         { token: eventTokens[4]!, title: "Approval needed", body: "Review proof screenshots and approve release-readiness.", actor: "human@host" },
-        { token: eventTokens[2]!, title: "Claimed by QA", body: "VM verification is in progress with current worktree source.", actor: "qa@my-rig" },
-        { token: eventTokens[1]!, title: "Route to guard", body: "Run narrow advisory on UI-only diff and source scans.", actor: "guard@my-rig" },
+        { token: eventTokens[2]!, title: "Claimed by QA", body: "VM verification is in progress with current worktree source.", actor: "qa@my-software-team" },
+        { token: eventTokens[1]!, title: "Route to guard", body: "Run narrow advisory on UI-only diff and source scans.", actor: "guard@my-software-team" },
       ].map((item) => (
         <div key={item.title} className="grid gap-3 p-3 sm:grid-cols-[auto_1fr_auto]">
           <Pill token={item.token} compact />
@@ -303,8 +303,8 @@ export function ProjectGraphicsPreview() {
                 <div className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-on-surface-variant">Actors</div>
                 <div className="flex flex-wrap gap-1.5">
                   <ActorChip kind="human" label="human@host" />
-                  <ActorChip kind="agent" label="driver@my-rig" />
-                  <ActorChip kind="agent" label="guard@my-rig" muted />
+                  <ActorChip kind="agent" label="driver@my-software-team" />
+                  <ActorChip kind="agent" label="guard@my-software-team" muted />
                 </div>
               </div>
               <div>

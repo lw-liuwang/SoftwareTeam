@@ -3,15 +3,15 @@ import type {
   RestoreExcludedNode,
   RestoreNodeResult,
   RestoreResult,
-  RestoreRigResult,
+  RestoreSoftwareTeamResult,
   RestoreSnapshotSelection,
 } from "./types.js";
-import { rollupRestoreRigResult } from "./restore-orchestrator.js";
+import { rollupRestoreSoftwareTeamResult } from "./restore-orchestrator.js";
 
 export interface RestoreAttemptReceipt {
   ok: true;
   attemptId: number;
-  rigId: string;
+  softwareTeamId: string;
   snapshotSelection: RestoreSnapshotSelection | null;
   intendedRoster: Array<{ nodeId: string; logicalId: string }>;
   excludedNodes: RestoreExcludedNode[];
@@ -26,39 +26,39 @@ export interface RestoreAttemptReceipt {
   }>;
   currentNodes: RestoreNodeResult[];
   unresolvedIntendedSeats: RestoreNodeResult[];
-  currentIntendedSetVerdict: RestoreRigResult;
+  currentIntendedSetVerdict: RestoreSoftwareTeamResult;
 }
 
 export type RestoreAttemptReceiptOutcome = RestoreAttemptReceipt | {
   ok: false;
-  code: "attempt_not_found" | "attempt_wrong_rig" | "attempt_incomplete" | "attempt_corrupt";
+  code: "attempt_not_found" | "attempt_wrong_software_team" | "attempt_incomplete" | "attempt_corrupt";
   message: string;
 };
 
-interface EventRow { seq: number; rig_id: string | null; type: string; payload: string; created_at: string }
+interface EventRow { seq: number; software_team_id: string | null; type: string; payload: string; created_at: string }
 
 /** Fold append-only restore events into the current attempt view. No row is
  * written and the original restore.completed payload is returned untouched. */
 export function deriveRestoreAttemptReceipt(
   db: Database.Database,
-  rigId: string,
+  softwareTeamId: string,
   attemptId: number,
 ): RestoreAttemptReceiptOutcome {
   const startedRow = db.prepare(
-    "SELECT seq, rig_id, type, payload, created_at FROM events WHERE seq = ? AND type = 'restore.started'",
+    "SELECT seq, software_team_id, type, payload, created_at FROM events WHERE seq = ? AND type = 'restore.started'",
   ).get(attemptId) as EventRow | undefined;
   if (!startedRow) return { ok: false, code: "attempt_not_found", message: `Restore attempt ${attemptId} not found` };
-  if (startedRow.rig_id !== rigId) {
-    return { ok: false, code: "attempt_wrong_rig", message: `Restore attempt ${attemptId} belongs to rig ${startedRow.rig_id}, not ${rigId}` };
+  if (startedRow.software_team_id !== softwareTeamId) {
+    return { ok: false, code: "attempt_wrong_software_team", message: `Restore attempt ${attemptId} belongs to softwareTeam ${startedRow.software_team_id}, not ${softwareTeamId}` };
   }
   const next = db.prepare(
-    "SELECT seq FROM events WHERE rig_id = ? AND type = 'restore.started' AND seq > ? ORDER BY seq LIMIT 1",
-  ).get(rigId, attemptId) as { seq: number } | undefined;
+    "SELECT seq FROM events WHERE software_team_id = ? AND type = 'restore.started' AND seq > ? ORDER BY seq LIMIT 1",
+  ).get(softwareTeamId, attemptId) as { seq: number } | undefined;
   const completedRow = db.prepare(
-    `SELECT seq, rig_id, type, payload, created_at FROM events
-       WHERE rig_id = ? AND type = 'restore.completed' AND seq > ?${next ? " AND seq < ?" : ""}
+    `SELECT seq, software_team_id, type, payload, created_at FROM events
+       WHERE software_team_id = ? AND type = 'restore.completed' AND seq > ?${next ? " AND seq < ?" : ""}
        ORDER BY seq LIMIT 1`,
-  ).get(...(next ? [rigId, attemptId, next.seq] : [rigId, attemptId])) as EventRow | undefined;
+  ).get(...(next ? [softwareTeamId, attemptId, next.seq] : [softwareTeamId, attemptId])) as EventRow | undefined;
   if (!completedRow) {
     return { ok: false, code: "attempt_incomplete", message: `Restore attempt ${attemptId} has no terminal completion event` };
   }
@@ -74,8 +74,8 @@ export function deriveRestoreAttemptReceipt(
     const intendedRoster = started.intendedRoster ?? originalResult.intendedRoster ?? originalResult.nodes.map((node) => ({ nodeId: node.nodeId, logicalId: node.logicalId }));
     const intendedIds = new Set(intendedRoster.map((node) => node.nodeId));
     const reconciliationRows = db.prepare(
-      "SELECT seq, rig_id, type, payload, created_at FROM events WHERE rig_id = ? AND type = 'restore.outcome_reconciled' AND json_extract(payload, '$.attemptId') = ? ORDER BY seq",
-    ).all(rigId, attemptId) as EventRow[];
+      "SELECT seq, software_team_id, type, payload, created_at FROM events WHERE software_team_id = ? AND type = 'restore.outcome_reconciled' AND json_extract(payload, '$.attemptId') = ? ORDER BY seq",
+    ).all(softwareTeamId, attemptId) as EventRow[];
     const reconciliations = reconciliationRows.flatMap((row) => {
       const event = JSON.parse(row.payload) as { nodeId: string; from: "failed" | "attention_required"; to: "operator_recovered"; evidence: unknown };
       return intendedIds.has(event.nodeId) ? [{ ...event, seq: row.seq, createdAt: row.created_at }] : [];
@@ -97,7 +97,7 @@ export function deriveRestoreAttemptReceipt(
     return {
       ok: true,
       attemptId,
-      rigId,
+      softwareTeamId,
       snapshotSelection: started.snapshotSelection ?? originalResult.snapshotSelection ?? null,
       intendedRoster,
       excludedNodes: started.excludedNodes ?? originalResult.excludedNodes ?? [],
@@ -105,7 +105,7 @@ export function deriveRestoreAttemptReceipt(
       reconciliations,
       currentNodes,
       unresolvedIntendedSeats,
-      currentIntendedSetVerdict: rollupRestoreRigResult(currentNodes),
+      currentIntendedSetVerdict: rollupRestoreSoftwareTeamResult(currentNodes),
     };
   } catch (error) {
     return { ok: false, code: "attempt_corrupt", message: `Restore attempt ${attemptId} could not be decoded: ${(error as Error).message}` };

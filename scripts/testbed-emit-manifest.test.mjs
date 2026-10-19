@@ -9,7 +9,7 @@ import { TestbedManifestError } from "./testbed-manifest.mjs";
 
 // 51-04 testbed image — the build verb's VM-testable heart. `docker build` runs HOST-side (locus
 // ruling); this orchestrator gathers the manifest identity from the tree — the host-resolved base
-// digest (docker/testbed/base-image), the stub-assets census, git/openrig sha, node version — and
+// digest (docker/testbed/base-image), the stub-assets census, git/softwareteam sha, node version — and
 // emits the reproducible manifest + census receipt into the build artifact dir. REBUILD CONTRACT:
 // same inputs => byte-identical manifest.json + receipt. A missing/unresolved input fails loudly.
 
@@ -34,7 +34,7 @@ function makeRepo() {
 function baseArgs(root, stubRoot, outDir) {
   return {
     gitSha: "9cf781060000000000000000000000000000000",
-    openrigSha: "9cf781060000000000000000000000000000000",
+    softwareteamSha: "9cf781060000000000000000000000000000000",
     nodeVersion: "22.22.1",
     baseImagePath: join(root, "base-image"),
     stubAssetsRoot: stubRoot,
@@ -50,10 +50,10 @@ test("emits a manifest.json wiring the host-resolved base digest + stub census +
     const { manifest, manifestPath } = emitTestbedManifest(baseArgs(root, stubRoot, outDir));
     const onDisk = JSON.parse(readFileSync(manifestPath, "utf8"));
     assert.deepEqual(onDisk, manifest);
-    assert.equal(manifest.image, "openrig-testbed:9cf781060000000000000000000000000000000");
+    assert.equal(manifest.image, "softwareteam-testbed:9cf781060000000000000000000000000000000");
     assert.equal(manifest.baseDigest, DIGEST); // from the base-image slot, not fabricated
     assert.equal(manifest.nodeVersion, "22.22.1");
-    assert.equal(manifest.openrigSha, "9cf781060000000000000000000000000000000");
+    assert.equal(manifest.softwareteamSha, "9cf781060000000000000000000000000000000");
     // stubAssetsHash matches the standalone census over the SAME staged set.
     assert.equal(manifest.stubAssetsHash, deriveStubAssetsHash(stubRoot, Object.keys(STUB_FILES)).hash);
     assert.match(manifest.manifestDigest, /^[0-9a-f]{64}$/);
@@ -103,7 +103,7 @@ test("loud-fail on a missing required identity input (delegated to the manifest 
   try {
     const args = baseArgs(root, stubRoot, join(root, "out"));
     delete args.gitSha;
-    // gitSha/openrigSha/nodeVersion are validated by computeTestbedManifest (single source) —
+    // gitSha/softwareteamSha/nodeVersion are validated by computeTestbedManifest (single source) —
     // a missing one is a loud TestbedManifestError, not a silent partial manifest.
     assert.throws(() => emitTestbedManifest(args), TestbedManifestError);
   } finally {
@@ -124,7 +124,7 @@ test("CLI shim emits the manifest from an inputs.json + outDir (exit 0)", () => 
   try {
     const inputs = {
       gitSha: "9cf781060000000000000000000000000000000",
-      openrigSha: "9cf781060000000000000000000000000000000",
+      softwareteamSha: "9cf781060000000000000000000000000000000",
       nodeVersion: "22.22.1",
       baseImagePath: join(root, "base-image"),
       stubAssetsRoot: stubRoot,
@@ -135,7 +135,7 @@ test("CLI shim emits the manifest from an inputs.json + outDir (exit 0)", () => 
     const res = spawnSync(process.execPath, [SHIM, inputsPath, outDir], { encoding: "utf8" });
     assert.equal(res.status, 0, res.stderr);
     const manifest = JSON.parse(readFileSync(join(outDir, "manifest.json"), "utf8"));
-    assert.equal(manifest.image, "openrig-testbed:9cf781060000000000000000000000000000000");
+    assert.equal(manifest.image, "softwareteam-testbed:9cf781060000000000000000000000000000000");
     assert.equal(manifest.baseDigest, DIGEST);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -147,7 +147,7 @@ test("CLI shim fails LOUDLY (non-zero + stderr) on an unresolved base-image slot
   try {
     writeFileSync(join(root, "base-image"), "# unresolved\n");
     const inputs = {
-      gitSha: "a".repeat(40), openrigSha: "a".repeat(40), nodeVersion: "22.22.1",
+      gitSha: "a".repeat(40), softwareteamSha: "a".repeat(40), nodeVersion: "22.22.1",
       baseImagePath: join(root, "base-image"), stubAssetsRoot: stubRoot,
       stubAssetFiles: Object.keys(STUB_FILES),
     };

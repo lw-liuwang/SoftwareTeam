@@ -36,21 +36,21 @@ function stoppedDeps(): StatusDeps {
 const WHOAMI_RESPONSE = {
   resolvedBy: "node_id",
   identity: {
-    rigId: "rig-1", rigName: "my-rig", nodeId: "node-1", logicalId: "dev.impl",
+    softwareTeamId: "software-team-1", softwareTeamName: "my-software-team", nodeId: "node-1", logicalId: "dev.impl",
     attachmentType: "tmux",
     podId: "pod-dev-123", podNamespace: "dev", podLabel: "Development", memberId: "impl", memberLabel: "Implementer",
-    sessionName: "dev-impl@my-rig", runtime: "claude-code", cwd: "/tmp",
+    sessionName: "dev-impl@my-software-team", runtime: "claude-code", cwd: "/tmp",
     agentRef: "local:agents/impl", profile: "default",
     resolvedSpecName: "impl", resolvedSpecVersion: "1.0",
   },
-  peers: [{ logicalId: "dev.qa", sessionName: "dev-qa@my-rig", runtime: "codex", podId: "pod-dev-123", podNamespace: "dev", memberId: "qa" }],
-  peersNote: "peers = this rig's roster excluding self (no edge filter); edges = directional relationships; use `rig ps --nodes` for node inventory including self + live state",
+  peers: [{ logicalId: "dev.qa", sessionName: "dev-qa@my-software-team", runtime: "codex", podId: "pod-dev-123", podNamespace: "dev", memberId: "qa" }],
+  peersNote: "peers = this softwareTeam's roster excluding self (no edge filter); edges = directional relationships; use `SoftwareTeam ps --nodes` for node inventory including self + live state",
   edges: {
-    outgoing: [{ kind: "delegates_to", to: { logicalId: "dev.qa", sessionName: "dev-qa@my-rig" } }],
+    outgoing: [{ kind: "delegates_to", to: { logicalId: "dev.qa", sessionName: "dev-qa@my-software-team" } }],
     incoming: [],
   },
-  transcript: { enabled: true, path: "/tmp/transcripts/my-rig/dev-impl@my-rig.log", tailCommand: "rig transcript dev-impl@my-rig --tail 100", grepCommand: null },
-  commands: { sendExamples: ["rig send dev-qa@my-rig 'message' --verify"], captureExamples: ["rig capture dev-qa@my-rig"] },
+  transcript: { enabled: true, path: "/tmp/transcripts/my-software-team/dev-impl@my-software-team.log", tailCommand: "SoftwareTeam transcript dev-impl@my-software-team --tail 100", grepCommand: null },
+  commands: { sendExamples: ["SoftwareTeam send dev-qa@my-software-team 'message' --verify"], captureExamples: ["SoftwareTeam capture dev-qa@my-software-team"] },
 };
 
 const UNBOUND_WHOAMI_RESPONSE = {
@@ -82,10 +82,10 @@ describe("Whoami CLI", () => {
         res.end(JSON.stringify({ ...WHOAMI_RESPONSE, resolvedBy: "session_name" }));
       } else if (url.includes("/api/whoami") && url.includes("sessionName=unknown")) {
         res.writeHead(404, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Session not found in any managed rig. Check: rig ps --nodes" }));
+        res.end(JSON.stringify({ error: "Session not found in any managed softwareTeam. Check: SoftwareTeam ps --nodes" }));
       } else if (url.includes("/api/whoami") && url.includes("sessionName=ambiguous")) {
         res.writeHead(409, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Session 'ambiguous' is ambiguous — found in 2 rigs." }));
+        res.end(JSON.stringify({ error: "Session 'ambiguous' is ambiguous — found in 2 softwareTeams." }));
       } else {
         res.writeHead(404, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "not found" }));
@@ -99,12 +99,12 @@ describe("Whoami CLI", () => {
 
   beforeEach(() => {
     savedEnv = {
-      OPENRIG_NODE_ID: process.env["OPENRIG_NODE_ID"],
-      OPENRIG_SESSION_NAME: process.env["OPENRIG_SESSION_NAME"],
+      SOFTWARETEAM_NODE_ID: process.env["SOFTWARETEAM_NODE_ID"],
+      SOFTWARETEAM_SESSION_NAME: process.env["SOFTWARETEAM_SESSION_NAME"],
       TMUX_PANE: process.env["TMUX_PANE"],
     };
-    delete process.env["OPENRIG_NODE_ID"];
-    delete process.env["OPENRIG_SESSION_NAME"];
+    delete process.env["SOFTWARETEAM_NODE_ID"];
+    delete process.env["SOFTWARETEAM_SESSION_NAME"];
     delete process.env["TMUX_PANE"];
   });
 
@@ -124,34 +124,34 @@ describe("Whoami CLI", () => {
 
   it("--node-id flag resolves and prints identity", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "whoami", "--node-id", "node-1"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "whoami", "--node-id", "node-1"]);
     });
     const output = logs.join("\n");
-    expect(output).toContain("my-rig");
-    expect(output).toContain("dev-impl@my-rig");
+    expect(output).toContain("my-software-team");
+    expect(output).toContain("dev-impl@my-software-team");
   });
 
   it("--session flag resolves and prints identity", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "whoami", "--session", "dev-impl@my-rig"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "whoami", "--session", "dev-impl@my-software-team"]);
     });
-    expect(logs.join("\n")).toContain("my-rig");
+    expect(logs.join("\n")).toContain("my-software-team");
   });
 
-  it("OPENRIG_NODE_ID env var resolves when no flags given", async () => {
-    process.env["OPENRIG_NODE_ID"] = "node-1";
+  it("SOFTWARETEAM_NODE_ID env var resolves when no flags given", async () => {
+    process.env["SOFTWARETEAM_NODE_ID"] = "node-1";
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "whoami"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "whoami"]);
     });
-    expect(logs.join("\n")).toContain("my-rig");
+    expect(logs.join("\n")).toContain("my-software-team");
   });
 
-  it("OPENRIG_SESSION_NAME env var resolves when no node-id env", async () => {
-    process.env["OPENRIG_SESSION_NAME"] = "dev-impl@my-rig";
+  it("SOFTWARETEAM_SESSION_NAME env var resolves when no node-id env", async () => {
+    process.env["SOFTWARETEAM_SESSION_NAME"] = "dev-impl@my-software-team";
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "whoami"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "whoami"]);
     });
-    expect(logs.join("\n")).toContain("my-rig");
+    expect(logs.join("\n")).toContain("my-software-team");
   });
 
   it("TMUX_PANE resolves via tmux display-message to exact session name (no metadata set)", () => {
@@ -159,7 +159,7 @@ describe("Whoami CLI", () => {
     process.env["TMUX_PANE"] = "%42";
     const mockTmuxExec = vi.fn((cmd: string) => {
       if (cmd.includes("show-option")) throw new Error("unknown option");
-      return "dev-impl@my-rig";
+      return "dev-impl@my-software-team";
     });
 
     const result = resolveIdentitySource({}, mockTmuxExec);
@@ -167,13 +167,13 @@ describe("Whoami CLI", () => {
     const displayCalls = mockTmuxExec.mock.calls.filter((c) => (c[0] as string).includes("display-message"));
     expect(displayCalls).toHaveLength(1);
     expect(displayCalls[0]![0]).toContain("%42");
-    expect(result).toEqual({ sessionName: "dev-impl@my-rig" });
+    expect(result).toEqual({ sessionName: "dev-impl@my-software-team" });
   });
 
   it("--json prints raw daemon JSON response", async () => {
-    process.env["OPENRIG_NODE_ID"] = "node-1";
+    process.env["SOFTWARETEAM_NODE_ID"] = "node-1";
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "whoami", "--json"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "whoami", "--json"]);
     });
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed.resolvedBy).toBe("node_id");
@@ -184,7 +184,7 @@ describe("Whoami CLI", () => {
 
   it("no resolution source → exit 1 with guidance", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "whoami"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "whoami"]);
     });
     expect(exitCode).toBe(1);
     expect(logs.join("\n")).toContain("Cannot determine identity");
@@ -192,7 +192,7 @@ describe("Whoami CLI", () => {
 
   it("daemon 404 → exit 1 with not-found guidance", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "whoami", "--session", "unknown"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "whoami", "--session", "unknown"]);
     });
     expect(exitCode).toBe(1);
     expect(logs.join("\n")).toContain("not found");
@@ -200,18 +200,18 @@ describe("Whoami CLI", () => {
 
   it("daemon 409 → exit 1 with ambiguity message", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "whoami", "--session", "ambiguous"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "whoami", "--session", "ambiguous"]);
     });
     expect(exitCode).toBe(1);
     expect(logs.join("\n")).toContain("ambiguous");
   });
 
   // Adopted-session parity: tmux metadata resolution
-  it("TMUX_PANE with @rigged_node_id metadata resolves nodeId (takes precedence over display-message)", () => {
+  it("TMUX_PANE with @softwareteam_node_id metadata resolves nodeId (takes precedence over display-message)", () => {
     process.env["TMUX_PANE"] = "%42";
-    // Mock: @rigged_node_id returns a value, display-message would return a DIFFERENT session name
+    // Mock: @softwareteam_node_id returns a value, display-message would return a DIFFERENT session name
     const mockTmuxExec = vi.fn((cmd: string) => {
-      if (cmd.includes("show-option") && cmd.includes("@rigged_node_id")) return "node-claimed-123";
+      if (cmd.includes("show-option") && cmd.includes("@softwareteam_node_id")) return "node-claimed-123";
       if (cmd.includes("display-message")) return "fallback-session-name";
       throw new Error("unexpected tmux call");
     });
@@ -224,18 +224,18 @@ describe("Whoami CLI", () => {
     expect(displayCalls).toHaveLength(0);
   });
 
-  it("TMUX_PANE with @rigged_session_name (no node_id) resolves sessionName (takes precedence over display-message)", () => {
+  it("TMUX_PANE with @softwareteam_session_name (no node_id) resolves sessionName (takes precedence over display-message)", () => {
     process.env["TMUX_PANE"] = "%42";
     const mockTmuxExec = vi.fn((cmd: string) => {
-      if (cmd.includes("show-option") && cmd.includes("@rigged_node_id")) throw new Error("unknown option");
-      if (cmd.includes("show-option") && cmd.includes("@rigged_session_name")) return "claimed-session@rig";
+      if (cmd.includes("show-option") && cmd.includes("@softwareteam_node_id")) throw new Error("unknown option");
+      if (cmd.includes("show-option") && cmd.includes("@softwareteam_session_name")) return "claimed-session@software-team";
       if (cmd.includes("display-message")) return "different-raw-session";
       throw new Error("unexpected tmux call");
     });
 
     const result = resolveIdentitySource({}, mockTmuxExec);
 
-    expect(result).toEqual({ sessionName: "claimed-session@rig" });
+    expect(result).toEqual({ sessionName: "claimed-session@software-team" });
     const displayCalls = mockTmuxExec.mock.calls.filter((c) => (c[0] as string).includes("display-message"));
     expect(displayCalls).toHaveLength(0);
   });
@@ -268,21 +268,21 @@ describe("Whoami CLI", () => {
     expect(result).toEqual({ sessionName: "fallback-session" });
   });
 
-  it("human output includes rig, pod, session, peers, edges, transcript", async () => {
-    process.env["OPENRIG_NODE_ID"] = "node-1";
+  it("human output includes softwareTeam, pod, session, peers, edges, transcript", async () => {
+    process.env["SOFTWARETEAM_NODE_ID"] = "node-1";
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "whoami"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "whoami"]);
     });
     const output = logs.join("\n");
-    expect(output).toContain("Rig:");
-    expect(output).toContain("my-rig");
+    expect(output).toContain("SoftwareTeam:");
+    expect(output).toContain("my-software-team");
     expect(output).toContain("Pod:        dev / impl");
     expect(output).toContain("Logical ID:");
     expect(output).toContain("Transport:");
     expect(output).toContain("dev.impl");
     expect(output).toContain("Pod:");
     expect(output).toContain("Session:");
-    expect(output).toContain("dev-impl@my-rig");
+    expect(output).toContain("dev-impl@my-software-team");
     expect(output).toContain("Peers:");
     expect(output).toContain("dev.qa");
     expect(output).toContain("Edges:");
@@ -291,20 +291,20 @@ describe("Whoami CLI", () => {
   });
 
   // OPR.99.0.6.1 — the clarified Peers header (the roster contract, in-band).
-  it("human Peers header names the roster contract and points at edges + rig ps --nodes", async () => {
-    process.env["OPENRIG_NODE_ID"] = "node-1";
+  it("human Peers header names the roster contract and points at edges + SoftwareTeam ps --nodes", async () => {
+    process.env["SOFTWARETEAM_NODE_ID"] = "node-1";
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "whoami"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "whoami"]);
     });
     const output = logs.join("\n");
     // Legacy grep target preserved verbatim.
     expect(output).toContain("Peers:");
     // The discriminator: a fresh reader cannot misread peers[] as the
     // edge-subset (pointed to edges below) or as host inventory (pointed to
-    // rig ps --nodes for inventory incl. self).
+    // SoftwareTeam ps --nodes for inventory incl. self).
     expect(output).toContain("roster, excluding self");
     expect(output).toContain("directional edges below");
-    expect(output).toContain("rig ps --nodes");
+    expect(output).toContain("SoftwareTeam ps --nodes");
     // Peers + edges still render normally under the clarified header.
     expect(output).toContain("dev.qa");
     expect(output).toContain("delegates_to");
@@ -313,9 +313,9 @@ describe("Whoami CLI", () => {
   it("--full --json carries the additive peersNote; peers[] name/shape unchanged; no roster field", async () => {
     // OPR.0.4.0.27: the FULL peer shape now lives behind --full (bare --json is
     // the compact recovery projection).
-    process.env["OPENRIG_NODE_ID"] = "node-1";
+    process.env["SOFTWARETEAM_NODE_ID"] = "node-1";
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "whoami", "--full", "--json"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "whoami", "--full", "--json"]);
     });
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed.peersNote).toContain("roster excluding self");
@@ -329,21 +329,21 @@ describe("Whoami CLI", () => {
 
   it("human output shows missing session honestly and omits transcript section for unbound nodes", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "whoami", "--node-id", "node-2"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "whoami", "--node-id", "node-2"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("Session:    —");
     expect(output).not.toContain("Transcript:");
   });
 
-  it("daemon down with OPENRIG_NODE_ID env returns partial JSON instead of hard-failing", async () => {
-    process.env["OPENRIG_NODE_ID"] = "node-1";
+  it("daemon down with SOFTWARETEAM_NODE_ID env returns partial JSON instead of hard-failing", async () => {
+    process.env["SOFTWARETEAM_NODE_ID"] = "node-1";
     const program = new Command();
     program.exitOverride();
     program.addCommand(whoamiCommand(stoppedDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "whoami", "--json"]);
+      await program.parseAsync(["node", "SoftwareTeam", "whoami", "--json"]);
     });
 
     const parsed = JSON.parse(logs.join("\n"));
@@ -353,37 +353,37 @@ describe("Whoami CLI", () => {
     expect(exitCode).toBeUndefined();
   });
 
-  it("daemon down preserves OPENRIG_SESSION_NAME alongside OPENRIG_NODE_ID in partial JSON", async () => {
-    process.env["OPENRIG_NODE_ID"] = "node-1";
-    process.env["OPENRIG_SESSION_NAME"] = "dev-impl@my-rig";
+  it("daemon down preserves SOFTWARETEAM_SESSION_NAME alongside SOFTWARETEAM_NODE_ID in partial JSON", async () => {
+    process.env["SOFTWARETEAM_NODE_ID"] = "node-1";
+    process.env["SOFTWARETEAM_SESSION_NAME"] = "dev-impl@my-software-team";
     const program = new Command();
     program.exitOverride();
     program.addCommand(whoamiCommand(stoppedDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "whoami", "--json"]);
+      await program.parseAsync(["node", "SoftwareTeam", "whoami", "--json"]);
     });
 
     const parsed = JSON.parse(logs.join("\n"));
     expect(parsed.partial).toBe(true);
     expect(parsed.identity.nodeId).toBe("node-1");
-    expect(parsed.identity.sessionName).toBe("dev-impl@my-rig");
+    expect(parsed.identity.sessionName).toBe("dev-impl@my-software-team");
     expect(exitCode).toBeUndefined();
   });
 
-  it("daemon down with OPENRIG_SESSION_NAME env prints partial human output", async () => {
-    process.env["OPENRIG_SESSION_NAME"] = "dev-impl@my-rig";
+  it("daemon down with SOFTWARETEAM_SESSION_NAME env prints partial human output", async () => {
+    process.env["SOFTWARETEAM_SESSION_NAME"] = "dev-impl@my-software-team";
     const program = new Command();
     program.exitOverride();
     program.addCommand(whoamiCommand(stoppedDeps()));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await program.parseAsync(["node", "rig", "whoami"]);
+      await program.parseAsync(["node", "SoftwareTeam", "whoami"]);
     });
 
     const output = logs.join("\n");
     expect(output).toContain("daemon unreachable — topology and peer info unavailable.");
-    expect(output).toContain("dev-impl@my-rig");
+    expect(output).toContain("dev-impl@my-software-team");
     expect(exitCode).toBeUndefined();
   });
 
@@ -391,22 +391,22 @@ describe("Whoami CLI", () => {
 
   it("AC-1/AC-3: --json default is the compact recovery allowlist (exact keys), omitting heavy fields", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "whoami", "--node-id", "node-1", "--json"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "whoami", "--node-id", "node-1", "--json"]);
     });
     const json = JSON.parse(logs.join("")) as Record<string, any>;
     // identity = EXACTLY the 8 recovery keys.
     expect(Object.keys(json.identity).sort()).toEqual(
-      ["logicalId", "memberId", "nodeId", "podId", "podNamespace", "rigName", "runtime", "sessionName"],
+      ["logicalId", "memberId", "nodeId", "podId", "podNamespace", "softwareTeamName", "runtime", "sessionName"].sort(),
     );
     // recovery essentials present.
     expect(json.resolvedBy).toBe("node_id");
-    expect(json.identity.rigName).toBe("my-rig");
+    expect(json.identity.softwareTeamName).toBe("my-software-team");
     expect(json.identity.nodeId).toBe("node-1");
-    expect(json.identity.sessionName).toBe("dev-impl@my-rig");
-    expect(json.peers[0].sessionName).toBe("dev-qa@my-rig");
+    expect(json.identity.sessionName).toBe("dev-impl@my-software-team");
+    expect(json.peers[0].sessionName).toBe("dev-qa@my-software-team");
     expect(json.peersNote).toBeTruthy();
-    expect(json.edges.outgoing[0].to.sessionName).toBe("dev-qa@my-rig");
-    expect(json.transcript.path).toContain("dev-impl@my-rig");
+    expect(json.edges.outgoing[0].to.sessionName).toBe("dev-qa@my-software-team");
+    expect(json.transcript.path).toContain("dev-impl@my-software-team");
     // heavy/verbose fields OMITTED.
     expect(json.contextUsage).toBeUndefined();
     expect(json.commands).toBeUndefined();
@@ -414,7 +414,7 @@ describe("Whoami CLI", () => {
     expect(json.runtimeContext).toBeUndefined();
     expect(json.identity.cwd).toBeUndefined();
     expect(json.identity.agentRef).toBeUndefined();
-    expect(json.identity.rigId).toBeUndefined();
+    expect(json.identity.softwareTeamId).toBeUndefined();
     // peers dropped their verbose sub-fields.
     expect(json.peers[0].podId).toBeUndefined();
     expect(json.peers[0].memberId).toBeUndefined();
@@ -422,25 +422,25 @@ describe("Whoami CLI", () => {
 
   it("AC-2: --full --json reproduces the complete payload", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "whoami", "--node-id", "node-1", "--json", "--full"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "whoami", "--node-id", "node-1", "--json", "--full"]);
     });
     const json = JSON.parse(logs.join("")) as Record<string, any>;
     expect(json.commands).toBeDefined();
     expect(json.identity.cwd).toBe("/tmp");
     expect(json.identity.agentRef).toBe("local:agents/impl");
-    expect(json.identity.rigId).toBe("rig-1");
+    expect(json.identity.softwareTeamId).toBe("software-team-1");
     expect(json.peers[0].podId).toBe("pod-dev-123");
   });
 
   it("compact human output omits the Context line; --full keeps it", async () => {
     const compact = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "whoami", "--node-id", "node-1"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "whoami", "--node-id", "node-1"]);
     });
     expect(compact.logs.join("\n")).not.toContain("Context:");
-    expect(compact.logs.join("\n")).toContain("my-rig"); // identity still rendered
+    expect(compact.logs.join("\n")).toContain("my-software-team"); // identity still rendered
 
     const full = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "whoami", "--node-id", "node-1", "--full"]);
+      await makeCmd().parseAsync(["node", "SoftwareTeam", "whoami", "--node-id", "node-1", "--full"]);
     });
     expect(full.logs.join("\n")).toContain("Context:");
   });

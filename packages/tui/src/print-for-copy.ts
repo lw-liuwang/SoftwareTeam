@@ -7,7 +7,7 @@
 // that returns.
 import { ALT_SCREEN_OFF, ALT_SCREEN_ON, MOUSE_DISABLE, MOUSE_ENABLE, PASTE_DISABLE, PASTE_ENABLE } from "./input.js";
 
-export const PRINT_FOR_COPY_RETURN_HINT = "Select the line above to copy it. Press Enter to return to OpenRig.";
+export const PRINT_FOR_COPY_RETURN_HINT = "Select the line above to copy it. Press Enter to return to SoftwareTeam.";
 const LEAVE = PASTE_DISABLE + MOUSE_DISABLE + ALT_SCREEN_OFF;
 const RESTORE = ALT_SCREEN_ON + MOUSE_ENABLE + PASTE_ENABLE;
 
@@ -90,7 +90,7 @@ export async function runCopySession(d: CopySessionDeps): Promise<CopyWaitEnd | 
     if (outcome !== "enter") d.notice(`Returned from the printed link: terminal input ${outcome === "error" ? "failed" : "ended"}.`);
   } catch (err) {
     outcome = "failed";
-    d.notice(`Could not print the link (${err instanceof Error ? err.message : String(err)}). Run: rig slack manifest --url`);
+    d.notice(`Could not print the link (${err instanceof Error ? err.message : String(err)}). Run: SoftwareTeam slack manifest --url`);
   }
   d.setSuspended(false);
   if (!d.isShuttingDown()) { try { d.draw(); } catch { /* the next input or resize redraws */ } }

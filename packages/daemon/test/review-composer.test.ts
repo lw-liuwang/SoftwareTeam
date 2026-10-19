@@ -213,7 +213,7 @@ describe("FR-2 — pass-mapping + recorded verdicts", () => {
       "Closed by: OPEN — build handed to QA   Date: 2026-07-04   Verdict: PENDING",
       "",
       "- walk the claimed-PASS fixture",
-      "- rig scope audit PASS",
+      "- SoftwareTeam scope audit PASS",
     ].join("\n");
     expect(proofClaimsPass(pending)).toBe(false);
     const r = composeSliceReview(baseInputs({ proofMd: pending }));
@@ -221,7 +221,7 @@ describe("FR-2 — pass-mapping + recorded verdicts", () => {
   });
 
   it("explicit Closed by Verdict: PASS counts as a PROOF.md self-claim", () => {
-    expect(proofClaimsPass("Closed by: qa@rig   Date: 2026-07-04   Verdict: PASS")).toBe(true);
+    expect(proofClaimsPass("Closed by: qa@software-team   Date: 2026-07-04   Verdict: PASS")).toBe(true);
   });
 
   it("an adjudication CLEAR clears confirm-faithful on recompose (regime 2)", () => {
@@ -246,14 +246,14 @@ describe("FR-2 — pass-mapping + recorded verdicts", () => {
 describe("§4 — the two locks (the SHIPPED staged-approval stamps)", () => {
   it("plan.lock = the spec-scope stamp; delivered.lock = the delivery-scope stamp; independent", () => {
     const specOnly = composeSliceReview(
-      baseInputs({ approval: { spec: { by: "planner@rig", at: "2026-07-03T00:00:00.000Z", auditRowPresent: true }, delivery: null } }),
+      baseInputs({ approval: { spec: { by: "planner@software-team", at: "2026-07-03T00:00:00.000Z", auditRowPresent: true }, delivery: null } }),
     );
-    expect(specOnly.plan.lock).toEqual({ by: "planner@rig", at: "2026-07-03T00:00:00.000Z", auditVerified: true });
+    expect(specOnly.plan.lock).toEqual({ by: "planner@software-team", at: "2026-07-03T00:00:00.000Z", auditVerified: true });
     expect(specOnly.delivered.lock).toBeNull();
     expect(specOnly.phase).not.toBe("locked"); // only the delivery stamp locks
 
     const both = composeSliceReview(
-      baseInputs({ approval: { spec: { by: "planner@rig", at: "2026-07-03T00:00:00.000Z", auditRowPresent: true }, delivery: DELIVERY_STAMP } }),
+      baseInputs({ approval: { spec: { by: "planner@software-team", at: "2026-07-03T00:00:00.000Z", auditRowPresent: true }, delivery: DELIVERY_STAMP } }),
     );
     expect(both.delivered.lock).toEqual({ by: "human@host", at: NOW, auditVerified: true });
     expect(both.phase).toBe("locked");
@@ -566,7 +566,7 @@ describe("candidate derivation", () => {
 //
 // Fixtures are TEMPLATE-DERIVED: rendered with the REAL CLI renderers
 // (dynamic-imported exactly like scope-audit-parity.test.ts does) so a
-// template drift breaks these tests honestly. A pristine `rig scope slice
+// template drift breaks these tests honestly. A pristine `SoftwareTeam scope slice
 // create` output is the canonical intent-stage fixture.
 // ---------------------------------------------------------------------------
 
@@ -659,7 +659,7 @@ describe("T3 — regime matrix (multi-regime preserved, don't-collapse)", () => 
 
   it("row 5: verdict-bearing PROOF.md → REVIEW (tier logic untouched — the non-goal held)", () => {
     const r = composeSliceReview(
-      pristineInputs({ proofMd: "Closed by: qa@rig   Date: 2026-07-11   Verdict: PASS\n\nProven.\n" }),
+      pristineInputs({ proofMd: "Closed by: qa@software-team   Date: 2026-07-11   Verdict: PASS\n\nProven.\n" }),
     );
     expect(r.phase).toBe("review");
   });

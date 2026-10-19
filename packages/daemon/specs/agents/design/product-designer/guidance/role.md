@@ -4,10 +4,10 @@ You are the design side of the product team. Your job is to turn rough product i
 
 ## Task-triggered capabilities
 
-Run `rig whoami --json`, resolve the assigned outcome and selected procedure,
+Run `SoftwareTeam whoami --json`, resolve the assigned outcome and selected procedure,
 and look for the first ambiguity the development pod should not have to guess through.
 Load skills when the work calls for them:
-- `openrig-user` for command syntax.
+- `softwareteam-user` for command syntax.
 - `mission-slice-sop` for mission/slice operations.
 - `development-team` for coordination under the selected development path.
 - `frontend-design` for interface design.

@@ -36,19 +36,19 @@ function fixture(failed: boolean): SetupDeps {
 }
 
 function expectConversationRoute(text: string): void {
-  expect(text).toContain("Show the person OpenRig: open the OpenRig TUI and operator for them now");
+  expect(text).toContain("Show the person SoftwareTeam: open the SoftwareTeam TUI and operator for them now");
   expect(text).toContain("On a Mac, offer Ghostty once");
-  expect(text).toContain("rig setup --ghostty");
+  expect(text).toContain("SoftwareTeam setup --ghostty");
   expect(text).toContain("--no-ghostty");
   expect(text).toContain("preserve earlier choices such as --no-herdr");
-  expect(text).toContain("rig terminal open saved:kernel");
-  expect(text).toContain("rig terminal open saved:kernel --window --json");
+  expect(text).toContain("SoftwareTeam terminal open saved:kernel");
+  expect(text).toContain("SoftwareTeam terminal open saved:kernel --window --json");
   expect(text).toContain("On a desktop, no copying or typing for the person; check the result notes, not just CLI success");
   expect(text).toContain("Over headless SSH: ask the person to open a new terminal/tab and give the exact connection/attach command");
   expect(text).toContain("then hand them to the ready operator");
   expect(text).toContain("Do not implement the person's project yourself");
   expect(text).toContain("Started is not ready");
-  expect(text).toContain("rig context get reference/getting-started.md#incomplete-setup-and-restart");
+  expect(text).toContain("SoftwareTeam context get reference/getting-started.md#incomplete-setup-and-restart");
 }
 
 describe("setup conversation handoff output", () => {
@@ -61,7 +61,7 @@ describe("setup conversation handoff output", () => {
         vi.spyOn(console, "log").mockImplementation((...args) => { logs.push(args.map(String).join(" ")); });
         const deps = fixture(mode === "failed");
         const program = new Command().addCommand(setupCommand(deps));
-        await program.parseAsync(["node", "rig", "setup", ...(mode === "dry-run" ? ["--dry-run"] : []), ...(json ? ["--json"] : [])]);
+        await program.parseAsync(["node", "softwareTeam", "setup", ...(mode === "dry-run" ? ["--dry-run"] : []), ...(json ? ["--json"] : [])]);
 
         const output = logs.join("\n");
         expect(process.exitCode).toBe(mode === "failed" ? 1 : undefined);
@@ -109,7 +109,7 @@ it.each([
   const logs: string[] = [];
   vi.spyOn(console, "log").mockImplementation((...args) => logs.push(args.map(String).join(" ")));
   const program = new Command().exitOverride().addCommand(setupCommand(fixture(false)));
-  await program.parseAsync(["node", "rig", "setup", "--dry-run", "--json", ...flags]);
+  await program.parseAsync(["node", "softwareTeam", "setup", "--dry-run", "--json", ...flags]);
   const result = JSON.parse(logs[0]!) as SetupResult;
   expect(result.steps.find(step => step.id === "ghostty_install")?.message).toContain(expected);
 });

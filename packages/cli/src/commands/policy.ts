@@ -1,22 +1,22 @@
-// B7 (0.5.2, RULING-rig-mode-rig-policy-naming) — `rig policy`: the top-level PERMISSION-POLICY
-// verb, introduced after the context-mode verb took its natural name (`rig mode`).
+// B7 (0.5.2, RULING-software-team-mode-software-team-policy-naming) — `softwareTeam policy`: the top-level PERMISSION-POLICY
+// verb, introduced after the context-mode verb took its natural name (`softwareTeam mode`).
 //
 // BINDING HONESTY PIN (carried VERBATIM from setup.ts, per the ruling; 0.6.7 states the per-launch team and
 // kernel defaults from #820/#893): those defaults pass allow/ask lists per launch and save none; a selected
 // Claude settings fragment can merge native settings, rules included; harness-native permissions are the control surface.
-// `rig policy` TEACHES and RECORDS into RigSpec (`permission_policy: builtin:<name> | none`); it
-// never enforces at runtime. OpenRig records posture into RigSpec, harness-native permissions
+// `softwareTeam policy` TEACHES and RECORDS into SoftwareTeamSpec (`permission_policy: builtin:<name> | none`); it
+// never enforces at runtime. SoftwareTeam records posture into SoftwareTeamSpec, harness-native permissions
 // enforce — never runtime enforcement.
 //
 // v1 scope per the ruling (read-heavy + one write path):
-//   rig policy list [--spec]              — built-ins + the reserved deliberate-none + CUSTOM
+//   softwareTeam policy list [--spec]              — built-ins + the reserved deliberate-none + CUSTOM
 //                                           policies visible in the given spec context
-//   rig policy show <name-or-ref> [--spec]— one built-in OR a custom policy spec (validated)
-//   rig policy current --spec <path>      — the effective recorded policy + WHAT WOULD APPLY,
+//   softwareTeam policy show <name-or-ref> [--spec]— one built-in OR a custom policy spec (validated)
+//   softwareTeam policy current --spec <path>      — the effective recorded policy + WHAT WOULD APPLY,
 //                                           through the AUTHORITATIVE validator/resolver
-//   rig policy apply <name> --spec <path> — record the choice (same flow as `rig setup --policy`,
+//   softwareTeam policy apply <name> --spec <path> — record the choice (same flow as `SoftwareTeam setup --policy`,
 //                                           which STAYS as the setup-flow composition, not an alias)
-//   rig policy apply <name> --seat <seat> — store the choice on an EXISTING seat (restore, resume and
+//   softwareTeam policy apply <name> --seat <seat> — store the choice on an EXISTING seat (restore, resume and
 //                                           launches that read the seat's stored state use it)
 //
 // AUTHORITATIVE SEMANTICS, NOT A PRIVATE CLASSIFIER (r2 HIGH-2): every ref this verb reports runs
@@ -50,7 +50,7 @@ import type { StatusDeps } from "./status.js";
 
 const HONESTY_PIN =
   "The team and kernel launch defaults pass allow/ask lists per launch and save none; a selected Claude settings fragment can merge native settings, rules included; the harness-native permissions are the control surface. " +
-  "OpenRig records posture into RigSpec; harness-native permissions enforce — never runtime enforcement.";
+  "SoftwareTeam records posture into SoftwareTeamSpec; harness-native permissions enforce — never runtime enforcement.";
 
 const BUILTIN_DESCRIPTIONS: Record<string, string> = {
   locked: "the most restrictive packaged posture — for seats that must not touch anything unattended",
@@ -68,18 +68,18 @@ function refFor(name: string): string {
 const readFileDep = { readFile: (p: string) => fs.readFileSync(p, "utf-8") };
 
 interface SpecRefSite {
-  site: string; // "rig" | "pods[i].members[j] (<logical id>)"
+  site: string; // "softwareTeam" | "pods[i].members[j] (<logical id>)"
   /** The RAW declared value: undefined = the key is truly absent; anything else (including a
    *  non-string YAML value) is PRESENT and goes to the authoritative validator — a present
    *  non-string must surface as INVALID, never quietly become "absent → floor" (r2 round 3). */
   ref: unknown;
 }
 
-/** Collect every permission_policy declaration site in a parsed rig spec (rig level + members).
+/** Collect every permission_policy declaration site in a parsed softwareTeam spec (softwareTeam level + members).
  *  Presence is keyed on the KEY existing, not on the value being a string. */
 function collectRefSites(doc: Record<string, unknown>): SpecRefSite[] {
   const sites: SpecRefSite[] = [{
-    site: "rig",
+    site: "softwareTeam",
     ref: Object.prototype.hasOwnProperty.call(doc, "permission_policy") ? doc["permission_policy"] : undefined,
   }];
   const pods = Array.isArray(doc["pods"]) ? (doc["pods"] as Array<Record<string, unknown>>) : [];
@@ -98,7 +98,7 @@ function collectRefSites(doc: Record<string, unknown>): SpecRefSite[] {
 function loadSpec(specPath: string): { resolved: string; doc: Record<string, unknown> } | { error: string } {
   const resolved = resolveExistingSpecPath(defaultDeps(), specPath);
   if (!resolved) {
-    return { error: `No rig spec found at ${specPath} (looked for a file, then rig.yaml/rig.yml/agent.yaml/agent.yml inside it).` };
+    return { error: `No SoftwareTeam spec found at ${specPath} (looked for a file, then software-team.yaml/softwareTeam.yml/agent.yaml/agent.yml inside it).` };
   }
   try {
     const doc = (parseYaml(fs.readFileSync(resolved, "utf-8")) ?? {}) as Record<string, unknown>;
@@ -126,7 +126,7 @@ function describeAttachment(a: ResolvedPolicyAttachment): string {
 
 export function policyCommand(depsOverride?: StatusDeps): Command {
   const cmd = new Command("policy").description(
-    `Teach and record the rig-level permission policy. ${HONESTY_PIN} (The context-mode verb formerly at this name is now: rig mode.)`,
+    `Teach and record the software-team-level permission policy. ${HONESTY_PIN} (The context-mode verb formerly at this name is now: SoftwareTeam mode.)`,
   );
   const getDeps = (): StatusDeps => depsOverride ?? {
     lifecycleDeps: realDeps(),
@@ -172,7 +172,7 @@ async function applyToSeat(
     const unchanged = res.data["changed"] === false ? " (unchanged)" : "";
     const posture = `launch_posture=${String(res.data["launchPosture"])}`;
     console.log(name === "none"
-      ? `Recorded permission_policy: none on seat ${opts.seat}: an explicit floor for this seat, not "no policy"; it does not inherit the rig's policy (${posture})${unchanged}.`
+      ? `Recorded permission_policy: none on seat ${opts.seat}: an explicit floor for this seat, not "no policy"; it does not inherit the softwareTeam's policy (${posture})${unchanged}.`
       : `Recorded permission_policy: ${ref} on seat ${opts.seat} (${posture})${unchanged}.`);
     console.log(String(res.data["effect"]));
   }
@@ -184,7 +184,7 @@ function registerPermissionCommands(cmd: Command, getDeps: () => StatusDeps): vo
   cmd
     .command("list")
     .description(`List the built-in permission-policy templates, plus the custom policies visible in a spec context. ${HONESTY_PIN}`)
-    .option("--spec <path>", "Rig spec (file or directory) defining the custom-policy context")
+    .option("--spec <path>", "SoftwareTeam spec (file or directory) defining the custom-policy context")
     .option("--json", "Machine-readable output")
     .action((opts: { spec?: string; json?: boolean }) => {
       const builtins = POLICY_CHOICES.map((name) => ({ name, ref: refFor(name), origin: name === "none" ? "deliberate_none" : "builtin", description: BUILTIN_DESCRIPTIONS[name] ?? "" }));
@@ -230,7 +230,7 @@ function registerPermissionCommands(cmd: Command, getDeps: () => StatusDeps): vo
   cmd
     .command("show <nameOrRef>")
     .description("Show one built-in policy choice, or validate + open a CUSTOM policy spec by ref (relative to --spec's directory, else cwd).")
-    .option("--spec <path>", "Rig spec (file or directory) whose directory anchors a custom ref")
+    .option("--spec <path>", "SoftwareTeam spec (file or directory) whose directory anchors a custom ref")
     .option("--json", "Machine-readable output")
     .action((nameOrRef: string, opts: { spec?: string; json?: boolean }) => {
       if ((POLICY_CHOICES as readonly string[]).includes(nameOrRef)) {
@@ -313,8 +313,8 @@ function registerPermissionCommands(cmd: Command, getDeps: () => StatusDeps): vo
 
   cmd
     .command("current")
-    .description("Show the EFFECTIVE permission policy for a rig spec and what would apply, per site (rig + member overrides), through the authoritative validator/resolver.")
-    .requiredOption("--spec <path>", "Rig spec file, or a directory containing rig.yaml/agent.yaml")
+    .description("Show the EFFECTIVE permission policy for a SoftwareTeam spec and what would apply, per site (softwareTeam + member overrides), through the authoritative validator/resolver.")
+    .requiredOption("--spec <path>", "SoftwareTeam spec file, or a directory containing software-team.yaml/agent.yaml")
     .option("--json", "Machine-readable output")
     .action((opts: { spec: string; json?: boolean }) => {
       const loaded = loadSpec(opts.spec);
@@ -325,12 +325,12 @@ function registerPermissionCommands(cmd: Command, getDeps: () => StatusDeps): vo
       }
       const declaringDir = path.dirname(loaded.resolved);
       const sites = collectRefSites(loaded.doc);
-      const rigRef = sites[0]!.ref;
+      const softwareTeamRef = sites[0]!.ref;
       let anyInvalid = false;
       const report = sites.map(({ site, ref }) => {
-        // member > rig precedence on PRESENCE (a present member value overrides, even an invalid one —
-        // it must surface as ITS OWN defect, never silently disappear behind the rig ref).
-        const effective = site === "rig" ? ref : (ref !== undefined ? ref : rigRef);
+        // member > softwareTeam precedence on PRESENCE (a present member value overrides, even an invalid one —
+        // it must surface as ITS OWN defect, never silently disappear behind the softwareTeam ref).
+        const effective = site === "softwareTeam" ? ref : (ref !== undefined ? ref : softwareTeamRef);
         if (effective === undefined) {
           return { site, ref: null, effective: null, applies: "absent — nothing recorded: eligible Claude Code and Codex seats get the team launch default (the kernel's own seats the kernel default) unless an explicit seat choice or a named Codex profile takes precedence; other seats the floor" };
         }
@@ -358,15 +358,15 @@ function registerPermissionCommands(cmd: Command, getDeps: () => StatusDeps): vo
 
   cmd
     .command("apply <name>")
-    .description(`Record a policy choice into an EXISTING rig spec (the same recording flow as \`rig setup --policy\`, which stays as the setup-step composition), or with --seat store it on an existing seat. Restore, resume and launches that read the seat's stored state use the stored policy, unless an explicit native selection (rig seat set-permissions) takes precedence; \`rig up <rig name>\` uses it, while a launch from a spec that declares a policy replaces it with the spec's policy, which later restores then use. ${HONESTY_PIN}`)
-    .option("--spec <path>", "Rig spec file, or a directory containing rig.yaml/agent.yaml")
-    .option("--seat <seat>", "An existing seat (canonical session name or logical seat ref). `none` is an explicit floor for that seat and does not inherit the rig's policy. The running process and the spec file are unchanged. Afterwards a `rig launch --retry-startup-from` file has to carry the new policy")
+    .description(`Record a policy choice into an EXISTING SoftwareTeam spec (the same recording flow as \`SoftwareTeam setup --policy\`, which stays as the setup-step composition), or with --seat store it on an existing seat. Restore, resume and launches that read the seat's stored state use the stored policy, unless an explicit native selection (SoftwareTeam seat set-permissions) takes precedence; \`SoftwareTeam up <SoftwareTeam name>\` uses it, while a launch from a spec that declares a policy replaces it with the spec's policy, which later restores then use. ${HONESTY_PIN}`)
+    .option("--spec <path>", "SoftwareTeam spec file, or a directory containing software-team.yaml/agent.yaml")
+    .option("--seat <seat>", "An existing seat (canonical session name or logical seat ref). `none` is an explicit floor for that seat and does not inherit the softwareTeam's policy. The running process and the spec file are unchanged. Afterwards a `SoftwareTeam launch --retry-startup-from` file has to carry the new policy")
     .option("--reason <text>", "With --seat: the audit reason (required)")
     .option("--operator <address>", "With --seat: operator recorded on the audit event when no session identity is present")
     .option("--json", "Machine-readable output")
     .action(async (name: string, opts: { spec?: string; seat?: string; reason?: string; operator?: string; json?: boolean }) => {
       if ((opts.spec === undefined) === (opts.seat === undefined)) {
-        console.error("Pass exactly one of --spec <path> (record into a rig spec) or --seat <seat> (record on an existing seat).");
+        console.error("Pass exactly one of --spec <path> (record into a SoftwareTeam spec) or --seat <seat> (record on an existing seat).");
         process.exitCode = 1;
         return;
       }

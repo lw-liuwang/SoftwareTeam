@@ -1,5 +1,5 @@
 // slice-04 — one process-local cooperative projection lane shared by /api/ps and
-// /api/rigs/summary.
+// /api/software-teams/summary.
 //
 // Both routes' whole synchronous response construction (projection + c.json) runs
 // as ONE job here. The lane serializes jobs FIFO and yields to the event loop

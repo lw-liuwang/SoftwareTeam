@@ -32,9 +32,9 @@ const PIPELINE = `workflow:
   objective: scope fixture
   entry: { role: producer }
   roles:
-    producer: { preferred_targets: [producer@rig] }
-    reviewer: { preferred_targets: [reviewer@rig] }
-    orch: { preferred_targets: [orch-lead@rig] }
+    producer: { preferred_targets: [producer@software-team] }
+    reviewer: { preferred_targets: [reviewer@software-team] }
+    orch: { preferred_targets: [orch-lead@software-team] }
   steps:
     - { id: produce, actor_role: producer, allowed_exits: [handoff, done, failed] }
     - { id: review, actor_role: reviewer, allowed_exits: [done, failed] }
@@ -52,9 +52,9 @@ const PARALLEL = `workflow:
   entry: { role: root }
   exception_routing: { default: orchestrator, orchestrator_role: root }
   roles:
-    root: { preferred_targets: [root@rig] }
-    left: { preferred_targets: [left@rig] }
-    right: { preferred_targets: [right@rig] }
+    root: { preferred_targets: [root@software-team] }
+    left: { preferred_targets: [left@software-team] }
+    right: { preferred_targets: [right@software-team] }
   steps:
     - { id: root, actor_role: root, allowed_exits: [done, failed] }
     - { id: left, actor_role: left, depends_on: [root], allowed_exits: [done, failed] }
@@ -72,8 +72,8 @@ describe("workflow scope tags", () => {
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
     bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    queueRepo = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    queueRepo = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     queueRepo.attachOutbox(new OutboxHandler(db));
     runtime = new WorkflowRuntime({
       db,
@@ -99,15 +99,15 @@ describe("workflow scope tags", () => {
   const allTags = (): string[][] =>
     (db.prepare(`SELECT tags FROM queue_items ORDER BY ts_created, qitem_id`).all() as Array<{ tags: string }>).map((r) => JSON.parse(r.tags));
   const instantiate = (path: string, scope?: Parameters<typeof normalizeWorkflowScope>[0]) =>
-    runtime.instantiate({ specPath: path, rootObjective: "scope", createdBySession: "ops@rig", ...(scope ? { scope } : {}) });
+    runtime.instantiate({ specPath: path, rootObjective: "scope", createdBySession: "ops@software-team", ...(scope ? { scope } : {}) });
 
   // The slice tag on the packet each step of a lifecycle chain produces, in order.
   const sliceTagsAlong = async (missionDir: string, key: string, length: number) => {
-    const created = await runtime.instantiateLifecycle({ missionPath: missionDir, operationKey: key, rootObjective: "lifecycle", createdBySession: "ops@rig" });
+    const created = await runtime.instantiateLifecycle({ missionPath: missionDir, operationKey: key, rootObjective: "lifecycle", createdBySession: "ops@software-team" });
     const out = [tagsOf(created.entryQitemId).filter((t) => t.startsWith("slice:"))];
     let current = created.entryQitemId;
     for (let i = 1; i < length; i++) {
-      const next = await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: current, exit: "handoff", actorSession: "builder@rig" });
+      const next = await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: current, exit: "handoff", actorSession: "builder@software-team" });
       current = next.nextQitemId!;
       out.push(tagsOf(current).filter((t) => t.startsWith("slice:")));
     }
@@ -236,7 +236,7 @@ describe("workflow scope tags", () => {
     it("stamps hand-off packets", async () => {
       const inst = await instantiate(spec(PIPELINE), SCOPE);
       const result = await runtime.project({
-        instanceId: inst.instance.instanceId, currentPacketId: inst.entryQitemId, exit: "handoff", actorSession: "producer@rig",
+        instanceId: inst.instance.instanceId, currentPacketId: inst.entryQitemId, exit: "handoff", actorSession: "producer@software-team",
       });
       expect(tagsOf(result.nextQitemId!)).toEqual([
         "workflow", "handoff", "workflow:scope-pipeline", `instance:${inst.instance.instanceId}`, ...SCOPE_TAGS,
@@ -245,7 +245,7 @@ describe("workflow scope tags", () => {
 
     it("stamps parallel hand-off packets after their step: tag", async () => {
       const inst = await instantiate(spec(PARALLEL), SCOPE);
-      await runtime.project({ instanceId: inst.instance.instanceId, currentPacketId: inst.entryQitemId, exit: "done", actorSession: "root@rig" });
+      await runtime.project({ instanceId: inst.instance.instanceId, currentPacketId: inst.entryQitemId, exit: "done", actorSession: "root@software-team" });
       const branches = runtime.inspect(inst.instance.instanceId).frontier;
       expect(branches).toHaveLength(2);
       for (const branch of branches) {
@@ -258,7 +258,7 @@ describe("workflow scope tags", () => {
     it("stamps a gate packet, after its exception identity tags", async () => {
       const inst = await instantiate(spec(GATED), { ...SCOPE, tags: ["ticket-7"] });
       const result = await runtime.project({
-        instanceId: inst.instance.instanceId, currentPacketId: inst.entryQitemId, exit: "handoff", actorSession: "producer@rig",
+        instanceId: inst.instance.instanceId, currentPacketId: inst.entryQitemId, exit: "handoff", actorSession: "producer@software-team",
       });
       const tags = tagsOf(result.nextQitemId!);
       expect(tags.slice(0, 2)).toEqual(["workflow", "gate"]);
@@ -269,7 +269,7 @@ describe("workflow scope tags", () => {
     it("stamps an exception packet", async () => {
       const inst = await instantiate(spec(PIPELINE), SCOPE);
       await runtime.project({
-        instanceId: inst.instance.instanceId, currentPacketId: inst.entryQitemId, exit: "failed", actorSession: "producer@rig",
+        instanceId: inst.instance.instanceId, currentPacketId: inst.entryQitemId, exit: "failed", actorSession: "producer@software-team",
       });
       const rows = db.prepare(`SELECT qitem_id FROM queue_items WHERE tags LIKE '%workflow-exception%'`).all() as Array<{ qitem_id: string }>;
       expect(rows).toHaveLength(1);
@@ -310,9 +310,9 @@ describe("workflow scope tags", () => {
     it("stamps the resume packet after a failure is resumed", async () => {
       const inst = await instantiate(spec(PIPELINE), SCOPE);
       await runtime.project({
-        instanceId: inst.instance.instanceId, currentPacketId: inst.entryQitemId, exit: "failed", actorSession: "producer@rig",
+        instanceId: inst.instance.instanceId, currentPacketId: inst.entryQitemId, exit: "failed", actorSession: "producer@software-team",
       });
-      const resumed = await runtime.resume({ instanceId: inst.instance.instanceId, actorSession: "orch-lead@rig" });
+      const resumed = await runtime.resume({ instanceId: inst.instance.instanceId, actorSession: "orch-lead@software-team" });
       const packetId = (resumed as { redrivePacketId?: string; packetId?: string }).redrivePacketId
         ?? (resumed as { packetId?: string }).packetId
         ?? runtime.inspect(inst.instance.instanceId).frontier[0]!.packetId;
@@ -323,7 +323,7 @@ describe("workflow scope tags", () => {
     it("leaves an unscoped instance's packets exactly as before", async () => {
       const inst = await instantiate(spec(PIPELINE));
       const result = await runtime.project({
-        instanceId: inst.instance.instanceId, currentPacketId: inst.entryQitemId, exit: "handoff", actorSession: "producer@rig",
+        instanceId: inst.instance.instanceId, currentPacketId: inst.entryQitemId, exit: "handoff", actorSession: "producer@software-team",
       });
       expect(inst.instance.scope).toBeNull();
       expect(tagsOf(inst.entryQitemId)).toEqual(["workflow", "entry", "workflow:scope-pipeline", `instance:${inst.instance.instanceId}`]);
@@ -344,10 +344,10 @@ describe("workflow scope tags", () => {
       mkdirSync(join(missionDir, "slices", "02-ship"), { recursive: true });
       writeFileSync(join(tmp, "project.yaml"), `kind: project\nmetadata: { id: demo }\nlifecycle: { profile: release }\n`);
       writeFileSync(join(missionDir, "mission.yaml"), `kind: mission\nmetadata: { name: release-1.0.0 }\ncomposition:\n  slices:\n    - { ref: slices/01-build/slice.yaml, order: 10 }\n    - { ref: slices/02-ship/slice.yaml, order: 20 }\n`);
-      writeFileSync(join(missionDir, "slices", "01-build", "slice.yaml"), `kind: slice\nmetadata: { id: build }\ncomposition: { mission: ../../mission.yaml }\nexecution:\n  actor_role: builder\n  preferred_targets: [builder@rig]\n  allowed_exits: [handoff, done, failed]\n`);
-      writeFileSync(join(missionDir, "slices", "02-ship", "slice.yaml"), `kind: slice\nmetadata: { id: ship }\ncomposition: { mission: ../../mission.yaml }\nexecution:\n  actor_role: shipper\n  preferred_targets: [shipper@rig]\n  depends_on: [build]\n  allowed_exits: [done, failed]\n`);
+      writeFileSync(join(missionDir, "slices", "01-build", "slice.yaml"), `kind: slice\nmetadata: { id: build }\ncomposition: { mission: ../../mission.yaml }\nexecution:\n  actor_role: builder\n  preferred_targets: [builder@software-team]\n  allowed_exits: [handoff, done, failed]\n`);
+      writeFileSync(join(missionDir, "slices", "02-ship", "slice.yaml"), `kind: slice\nmetadata: { id: ship }\ncomposition: { mission: ../../mission.yaml }\nexecution:\n  actor_role: shipper\n  preferred_targets: [shipper@software-team]\n  depends_on: [build]\n  allowed_exits: [done, failed]\n`);
       const created = await runtime.instantiateLifecycle({
-        missionPath: missionDir, operationKey: "scope-op-1", rootObjective: "lifecycle", createdBySession: "ops@rig",
+        missionPath: missionDir, operationKey: "scope-op-1", rootObjective: "lifecycle", createdBySession: "ops@software-team",
       });
       expect(created.instance.scope).toEqual({
         project: "demo", mission: "release-1.0.0",
@@ -357,7 +357,7 @@ describe("workflow scope tags", () => {
       // and the Queue tab keys on the directory.
       expect(tagsOf(created.entryQitemId).slice(-3)).toEqual(["project:demo", "mission:release-1.0.0", "slice:01-build"]);
       const next = await runtime.project({
-        instanceId: created.instance.instanceId, currentPacketId: created.entryQitemId, exit: "handoff", actorSession: "builder@rig",
+        instanceId: created.instance.instanceId, currentPacketId: created.entryQitemId, exit: "handoff", actorSession: "builder@software-team",
       });
       expect(tagsOf(next.nextQitemId!).slice(-3)).toEqual(["project:demo", "mission:release-1.0.0", "slice:02-ship"]);
       const indexer = new SliceIndexer({ db, slicesRoot: join(tmp, "missions"), dogfoodEvidenceRoot: null, projectId: "demo" });
@@ -381,7 +381,7 @@ describe("workflow scope tags", () => {
         `kind: mission`, `metadata: { name: ${name} }`, `composition:`, `  slices:`,
         ...slices.map(({ dir }, i) => `    - { ref: slices/${dir}/slice.yaml, order: ${(i + 1) * 10} }`),
         `lifecycle:`, `  profile: authored-v0`, `  workflow:`, `    entry: { role: builder }`, `    roles:`,
-        `      builder: { preferred_targets: [builder@rig] }`, `    steps:`, ...graph, ``,
+        `      builder: { preferred_targets: [builder@software-team] }`, `    steps:`, ...graph, ``,
       ].join("\n"));
       return missionDir;
     };
@@ -418,7 +418,7 @@ describe("workflow scope tags", () => {
   describe("lifecycle inputs main already accepts", () => {
     type Slice = { dir: string; yaml: string; active?: boolean };
     const exec = (dependsOn: string[] = []) =>
-      `execution:\n  actor_role: builder\n  preferred_targets: [builder@rig]\n${dependsOn.length ? `  depends_on: [${dependsOn.join(", ")}]\n` : ""}  allowed_exits: [handoff, done, failed]\n`;
+      `execution:\n  actor_role: builder\n  preferred_targets: [builder@software-team]\n${dependsOn.length ? `  depends_on: [${dependsOn.join(", ")}]\n` : ""}  allowed_exits: [handoff, done, failed]\n`;
     const slice = (metadata: string, execution = "") => `kind: slice\nmetadata: ${metadata}\ncomposition: { mission: ../../mission.yaml }\n${execution}`;
     const mission = (name: string, slices: Slice[], opts: { project?: string; missionName?: string; steps?: string[] } = {}) => {
       const missionDir = join(tmp, "missions", name);
@@ -428,7 +428,7 @@ describe("workflow scope tags", () => {
       }
       writeFileSync(join(tmp, "project.yaml"), `kind: project\nmetadata: { id: ${opts.project ?? "demo"} }\nmissions: { root: missions }\nlifecycle: { profile: authored-v0 }\n`);
       const lifecycle = opts.steps
-        ? [`lifecycle:`, `  profile: authored-v0`, `  workflow:`, `    entry: { role: builder }`, `    roles:`, `      builder: { preferred_targets: [builder@rig] }`, `    steps:`,
+        ? [`lifecycle:`, `  profile: authored-v0`, `  workflow:`, `    entry: { role: builder }`, `    roles:`, `      builder: { preferred_targets: [builder@software-team] }`, `    steps:`,
             ...opts.steps.map((id, i) => `      - { id: "${id}", actor_role: builder${i > 0 ? `, depends_on: ["${opts.steps![i - 1]}"]` : ""}, allowed_exits: [handoff, done, failed] }`)]
         : [];
       writeFileSync(join(missionDir, "mission.yaml"), [
@@ -483,7 +483,7 @@ describe("workflow scope tags", () => {
       const compiled = runtime.compileLifecycle(missionDir, "identity-op");
       expect(compiled.eligible).toBe(true);
       expect(compiled.advisories.join("\n")).toMatch(advisory);
-      const created = await runtime.instantiateLifecycle({ missionPath: missionDir, operationKey: "identity-op", rootObjective: "x", createdBySession: "ops@rig" });
+      const created = await runtime.instantiateLifecycle({ missionPath: missionDir, operationKey: "identity-op", rootObjective: "x", createdBySession: "ops@software-team" });
       const tags = tagsOf(created.entryQitemId);
       expect(tags.some((t) => t.startsWith(omitted))).toBe(false);
       // the other half of the identity, and the slice, are still stamped
@@ -544,7 +544,7 @@ describe("workflow scope tags", () => {
       writeFileSync(join(slices, "01-s1", "README.md"), "# s1\n");
       const inst = await instantiate(spec(PIPELINE), SCOPE);
       const result = await runtime.project({
-        instanceId: inst.instance.instanceId, currentPacketId: inst.entryQitemId, exit: "handoff", actorSession: "producer@rig",
+        instanceId: inst.instance.instanceId, currentPacketId: inst.entryQitemId, exit: "handoff", actorSession: "producer@software-team",
       });
       const indexerFor = (projectId: string) => new SliceIndexer({ db, slicesRoot: slices, dogfoodEvidenceRoot: null, projectId });
       const own = indexerFor("p1").get("01-s1");
@@ -588,7 +588,7 @@ describe("workflow scope tags", () => {
     it("accepts a scope with a catalogued project and stamps it, with tags", async () => {
       catalog();
       const response = await post(appFor(tmp), {
-        specPath: spec(PIPELINE), rootObjective: "x", createdBySession: "ops@rig", scope: { project: "p1", slice: "01-s1", tags: ["ticket-7"] },
+        specPath: spec(PIPELINE), rootObjective: "x", createdBySession: "ops@software-team", scope: { project: "p1", slice: "01-s1", tags: ["ticket-7"] },
       });
       expect(response.status).toBe(201);
       const body = await response.json() as Created;
@@ -599,7 +599,7 @@ describe("workflow scope tags", () => {
     });
 
     it("an instantiate with no scope fields has no note and no advisory", async () => {
-      const response = await post(appFor(tmp), { specPath: spec(PIPELINE), rootObjective: "x", createdBySession: "ops@rig" });
+      const response = await post(appFor(tmp), { specPath: spec(PIPELINE), rootObjective: "x", createdBySession: "ops@software-team" });
       expect(response.status).toBe(201);
       const body = await response.json() as Created;
       expect(body).not.toHaveProperty("scopeIgnored");
@@ -609,7 +609,7 @@ describe("workflow scope tags", () => {
     });
 
     // A nested scope the route cannot apply: main accepted these requests, ignoring the key and creating one unscoped
-    // instance and packet, so the route does too, and says in the advisories (the output `rig workflow run` prints) that
+    // instance and packet, so the route does too, and says in the advisories (the output `SoftwareTeam workflow run` prints) that
     // the scope was not applied. Nothing the scope named is recorded, and no routing tag reaches the packet.
     it.each([
       ["a project the catalog does not declare", { project: "nope" }, /project_not_found/],
@@ -626,7 +626,7 @@ describe("workflow scope tags", () => {
       ["a string scope", "p1", /scope_invalid/],
     ])("creates one unscoped instance, and says the scope was not applied, for a scope with %s", async (_label, scope, reason) => {
       catalog();
-      const response = await post(appFor(tmp), { specPath: spec(PIPELINE), rootObjective: "x", createdBySession: "ops@rig", scope });
+      const response = await post(appFor(tmp), { specPath: spec(PIPELINE), rootObjective: "x", createdBySession: "ops@software-team", scope });
       expect(response.status).toBe(201);
       const body = await response.json() as Created;
       expect(instanceCount()).toBe(1);
@@ -634,7 +634,7 @@ describe("workflow scope tags", () => {
       // main's tags exactly: no scope tag, and no tag from the rejected scope
       expect(tagsOf(body.entryQitemId)).toEqual(["workflow", "entry", "workflow:scope-pipeline", `instance:${body.instance.instanceId}`]);
       expect(runtimeScope(body.instance.instanceId)).toBeNull();
-      // the advisory (what `rig workflow run` prints) names the instance and the reason, and does not read as a scoped success
+      // the advisory (what `SoftwareTeam workflow run` prints) names the instance and the reason, and does not read as a scoped success
       const [note, ...rest] = scopeNotes(body);
       expect(rest).toEqual([]);
       expect(note).toMatch(/^Scope not applied \(/);
@@ -646,7 +646,7 @@ describe("workflow scope tags", () => {
 
     it("does not turn an unrelated instantiate failure into a success when the scope also cannot be applied", async () => {
       const response = await post(appFor(tmp), {
-        specPath: join(tmp, "no-such-spec.yaml"), rootObjective: "x", createdBySession: "ops@rig", scope: { project: "nope" },
+        specPath: join(tmp, "no-such-spec.yaml"), rootObjective: "x", createdBySession: "ops@software-team", scope: { project: "nope" },
       });
       expect(response.status).toBeGreaterThanOrEqual(400);
       expect(instanceCount()).toBe(0);
@@ -667,7 +667,7 @@ describe("workflow scope tags", () => {
       writeFileSync(join(tmp, "workspace.yaml"), "projects:\n  - id: p1\n    root: p1\n");
       mkdirSync(join(tmp, "p1", "missions"), { recursive: true });
       const response = await post(appFor(tmp), {
-        specPath: spec(PIPELINE), rootObjective: "x", createdBySession: "ops@rig", ...fields,
+        specPath: spec(PIPELINE), rootObjective: "x", createdBySession: "ops@software-team", ...fields,
       });
       expect(response.status).toBe(201);
       const body = await response.json() as { entryQitemId: string; instance: { instanceId: string; scope?: unknown }; advisories: string[]; scopeIgnored: { fields: string[]; message: string } };
@@ -675,14 +675,14 @@ describe("workflow scope tags", () => {
       expect(runtime.instanceStore.getByIdOrThrow(body.instance.instanceId).scope ?? null).toBeNull();
       expect(body.scopeIgnored.fields).toEqual(Object.keys(fields));
       expect(body.scopeIgnored.message).toBe(`Ignored request body fields: ${Object.keys(fields).join(", ")}. Send scope as an object ({ project, mission, slice, tags }) to apply it. The instance was created unscoped.`);
-      // `rig workflow run` prints advisories, not the response body, so the note rides there too
+      // `SoftwareTeam workflow run` prints advisories, not the response body, so the note rides there too
       expect(scopeNotes(body)).toEqual([body.scopeIgnored.message]);
     });
 
     it("when the body carries bare fields and a scope that cannot be applied, both are said once", async () => {
       catalog();
       const response = await post(appFor(tmp), {
-        specPath: spec(PIPELINE), rootObjective: "x", createdBySession: "ops@rig", tags: ["x"], scope: { project: "nope" },
+        specPath: spec(PIPELINE), rootObjective: "x", createdBySession: "ops@software-team", tags: ["x"], scope: { project: "nope" },
       });
       expect(response.status).toBe(201);
       const body = await response.json() as Created;
@@ -698,7 +698,7 @@ describe("workflow scope tags", () => {
       writeFileSync(join(tmp, "workspace.yaml"), "projects:\n  - id: p1\n    root: p1\n");
       mkdirSync(join(tmp, "p1", "missions"), { recursive: true });
       const response = await post(appFor(tmp), {
-        specPath: spec(PIPELINE), rootObjective: "x", createdBySession: "ops@rig", scope: { project: "p1" }, slice: "01-s1",
+        specPath: spec(PIPELINE), rootObjective: "x", createdBySession: "ops@software-team", scope: { project: "p1" }, slice: "01-s1",
       });
       expect(response.status).toBe(201);
       const body = await response.json() as { entryQitemId: string; scopeIgnored: { fields: string[]; message: string } };

@@ -21,7 +21,7 @@ import { RegistrationMarks } from "../../ui/registration-marks.js";
 // OPR.0.4.1.20 — Workspace Workflow tab visualizer.
 //
 // Re-skins the slice's bound workflow-spec graph into the topology
-// visual grammar (matches the approved creative-rig mockup
+// visual grammar (matches the approved creative-softwareTeam mockup
 // digital-twin/opr-0.4.1.20/workflow-project-tab.intent): dotted-grid
 // canvas, dark-header step cards (role header + state dot + step name +
 // bound seat), curved topology-style edges, and the amber

@@ -22,7 +22,7 @@ import { chatMessagesSchema } from "./migrations/016_chat_messages.js";
 import { podNamespaceSchema } from "./migrations/017_pod_namespace.js";
 import { contextUsageSchema } from "./migrations/018_context_usage.js";
 import { externalCliAttachmentSchema } from "./migrations/019_external_cli_attachment.js";
-import { rigServicesSchema } from "./migrations/020_rig_services.js";
+import { softwareTeamServicesSchema } from "./migrations/020_software_team_services.js";
 import { seatHandoverObservabilitySchema } from "./migrations/021_seat_handover_observability.js";
 import { nodeCodexConfigProfileSchema } from "./migrations/022_node_codex_config_profile.js";
 import { streamItemsSchema } from "./migrations/023_stream_items.js";
@@ -43,8 +43,8 @@ import { missionControlActionsSchema } from "./migrations/037_mission_control_ac
 import { workspacePrimitiveSchema } from "./migrations/038_workspace_primitive.js";
 import { queueTargetRepoSchema } from "./migrations/039_queue_target_repo.js";
 import { workflowSpecsDiagnosticSchema } from "./migrations/040_workflow_specs_diagnostic.js";
-import { rigPolicySchema } from "./migrations/041_rig_policy.js";
-import { rigArchiveSchema } from "./migrations/042_rig_archive.js";
+import { softwareTeamPolicySchema } from "./migrations/041_software_team_policy.js";
+import { softwareTeamArchiveSchema } from "./migrations/042_software_team_archive.js";
 import { resumeProvenanceSchema } from "./migrations/043_resume_provenance.js";
 import { queueItemSummarySchema } from "./migrations/044_queue_item_summary.js";
 import { resumeVerificationSchema } from "./migrations/045_resume_verification.js";
@@ -54,14 +54,14 @@ import { queueItemEvidenceRefSchema } from "./migrations/048_queue_item_evidence
 import { workflowInstanceVersionSchema } from "./migrations/049_workflow_instance_version.js";
 import { workflowSpecJsonSchema } from "./migrations/050_workflow_spec_json.js";
 import { workflowResumeSchema } from "./migrations/051_workflow_resume.js";
-import { workflowInstanceBoundRigSchema } from "./migrations/052_workflow_instance_bound_rig.js";
+import { workflowInstanceBoundSoftwareTeamSchema } from "./migrations/052_workflow_instance_bound_software_team.js";
 import { sessionsNodeIdIndexSchema } from "./migrations/053_sessions_node_id_index.js";
 import { queueTransitionsArchiveSchema } from "./migrations/054_queue_transitions_archive.js";
 import { seatEnvSchema } from "./migrations/111_seat_env.js";
 import { nodePermissionPolicySchema } from "./migrations/055_node_permission_policy.js";
-import { rigPermissionPolicySchema } from "./migrations/056_rig_permission_policy.js";
+import { softwareTeamPermissionPolicySchema } from "./migrations/056_software_team_permission_policy.js";
 import { nodePolicyProvenanceSchema } from "./migrations/057_node_policy_provenance.js";
-import { rigPolicyProvenanceSchema } from "./migrations/058_rig_policy_provenance.js";
+import { softwareTeamPolicyProvenanceSchema } from "./migrations/058_software_team_policy_provenance.js";
 import { selfHostIdentitySchema } from "./migrations/059_self_host_identity.js";
 import { occupantTenuresSchema } from "./migrations/060_occupant_tenures.js";
 import { daemonLifecycleSchema } from "./migrations/061_daemon_lifecycle.js";
@@ -87,7 +87,7 @@ import { humanNotificationIntentSchema } from "./migrations/081_human_notificati
 import { archiveIdentityProvenanceSchema } from "./migrations/082_archive_identity_provenance.js";
 import { reviewReadIndexesSchema } from "./migrations/083_review_read_indexes.js";
 import { inventoryEventIndexesSchema } from "./migrations/084_inventory_event_indexes.js";
-import { rigClaudeManagedBlockFileSchema } from "./migrations/085_rig_claude_managed_block_file.js";
+import { softwareTeamClaudeManagedBlockFileSchema } from "./migrations/085_software_team_claude_managed_block_file.js";
 import { classificationFieldsAndAttemptsSchema } from "./migrations/086_classification_fields_and_attempts.js";
 import { scopedOperatingPostureSchema } from "./migrations/080_scoped_operating_posture.js";
 import { seatDeliveryGuardSchema } from "./migrations/087_seat_delivery_guard.js";
@@ -100,8 +100,8 @@ import { nodeEffortChoiceSchema } from "./migrations/104_node_effort_choice.js";
 import { usageSamplesLatestIndexesSchema } from "./migrations/094_usage_samples_latest_indexes.js";
 import type { Migration } from "./migrate.js";
 
-import { rigNonInterruptiveSchema } from "./migrations/095_rig_non_interruptive.js";
-import { rigInstallRootSchema } from "./migrations/096_rig_install_root.js";
+import { softwareTeamNonInterruptiveSchema } from "./migrations/095_software_team_non_interruptive.js";
+import { softwareTeamInstallRootSchema } from "./migrations/096_software_team_install_root.js";
 import { threadPartMapSchema } from "./migrations/097_thread_part_map.js";
 import { queueTransitionsQitemIdOrderSchema } from "./migrations/098_queue_transitions_qitem_id_order.js";
 import { queueItemsRecoveryTagsSchema } from "./migrations/099_queue_items_recovery_tags.js";
@@ -138,7 +138,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   podNamespaceSchema,
   contextUsageSchema,
   externalCliAttachmentSchema,
-  rigServicesSchema,
+  softwareTeamServicesSchema,
   seatHandoverObservabilitySchema,
   nodeCodexConfigProfileSchema,
   streamItemsSchema,
@@ -159,8 +159,8 @@ export const ALL_MIGRATIONS: Migration[] = [
   workspacePrimitiveSchema,
   queueTargetRepoSchema,
   workflowSpecsDiagnosticSchema,
-  rigPolicySchema,
-  rigArchiveSchema,
+  softwareTeamPolicySchema,
+  softwareTeamArchiveSchema,
   resumeProvenanceSchema,
   queueItemSummarySchema,
   resumeVerificationSchema,
@@ -170,13 +170,13 @@ export const ALL_MIGRATIONS: Migration[] = [
   workflowInstanceVersionSchema,
   workflowSpecJsonSchema,
   workflowResumeSchema,
-  workflowInstanceBoundRigSchema,
+  workflowInstanceBoundSoftwareTeamSchema,
   sessionsNodeIdIndexSchema,
   queueTransitionsArchiveSchema,
   nodePermissionPolicySchema,
-  rigPermissionPolicySchema,
+  softwareTeamPermissionPolicySchema,
   nodePolicyProvenanceSchema,
-  rigPolicyProvenanceSchema,
+  softwareTeamPolicyProvenanceSchema,
   selfHostIdentitySchema,
   occupantTenuresSchema,
   daemonLifecycleSchema,
@@ -203,7 +203,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   archiveIdentityProvenanceSchema,
   reviewReadIndexesSchema,
   inventoryEventIndexesSchema,
-  rigClaudeManagedBlockFileSchema,
+  softwareTeamClaudeManagedBlockFileSchema,
   classificationFieldsAndAttemptsSchema,
   seatDeliveryGuardSchema,
   nodePermissionSelectionsSchema,
@@ -212,8 +212,8 @@ export const ALL_MIGRATIONS: Migration[] = [
   humanQuestionsSchema,
   nodeEffortSchema,
   usageSamplesLatestIndexesSchema,
-  rigNonInterruptiveSchema,
-  rigInstallRootSchema,
+  softwareTeamNonInterruptiveSchema,
+  softwareTeamInstallRootSchema,
   threadPartMapSchema,
   queueTransitionsQitemIdOrderSchema,
   queueItemsRecoveryTagsSchema,

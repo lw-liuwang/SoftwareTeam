@@ -28,10 +28,10 @@ node -e 'import("./scripts/testbed-build-inputs.mjs").then(m=>console.log(m.read
 
 ## L0.2 — finalize the stub-assets census list
 
-The zero-token stub payload (plan §1 layer 4) is the container-local stub `rig.yaml` + its agent
+The zero-token stub payload (plan §1 layer 4) is the container-local stub `software-team.yaml` + its agent
 fixture + `culture.md` that L3 boots. Add each repo-relative path, one per line, to
 `docker/testbed/stub-assets.list` (comments/blanks ignored). Ground the exact set against L3 (the
-`rig up` stub topology it settles) — do not guess; the list IS the census scope the manifest hashes.
+`SoftwareTeam up` stub topology it settles) — do not guess; the list IS the census scope the manifest hashes.
 
 ```bash
 # After populating the list, prove the census resolves over the staged set the build will stage:

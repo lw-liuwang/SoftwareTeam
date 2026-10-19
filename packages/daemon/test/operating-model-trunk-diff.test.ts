@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const helper = fileURLToPath(new URL(
-  "../assets/plugins/openrig-core/skills/openrig-operating-model/scripts/trunk-diff.sh",
+  "../assets/plugins/softwareteam-core/skills/softwareteam-operating-model/scripts/trunk-diff.sh",
   import.meta.url,
 ));
 const fixtures: string[] = [];

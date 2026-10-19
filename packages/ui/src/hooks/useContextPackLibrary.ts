@@ -1,4 +1,4 @@
-// Rig Context / Composable Context Injection v0 (PL-014) — UI hooks
+// SoftwareTeam Context / Composable Context Injection v0 (PL-014) — UI hooks
 // for the context_packs library + review + send.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

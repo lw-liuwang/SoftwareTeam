@@ -3,19 +3,19 @@ import { excludeNewGeneratedFiles } from "./generated-file-hygiene.js";
 
 // Pre-release: projection markers that land in user-managed files
 // (CLAUDE.md / AGENTS.md) carry the canonical product name. New writes
-// emit the OpenRig form; legacy "RIGGED" markers from prior installs
+// emit the SoftwareTeam form; legacy "SOFTWARETEAM" markers from prior installs
 // are still recognized by stripManagedBlocks below for clean uninstall.
-export const MANAGED_BLOCK_START = (id: string) => `<!-- BEGIN OpenRig MANAGED BLOCK: ${id} -->`;
-export const MANAGED_BLOCK_END = (id: string) => `<!-- END OpenRig MANAGED BLOCK: ${id} -->`;
-const LEGACY_BLOCK_START = (id: string) => `<!-- BEGIN RIGGED MANAGED BLOCK: ${id} -->`;
+export const MANAGED_BLOCK_START = (id: string) => `<!-- BEGIN SoftwareTeam MANAGED BLOCK: ${id} -->`;
+export const MANAGED_BLOCK_END = (id: string) => `<!-- END SoftwareTeam MANAGED BLOCK: ${id} -->`;
+const LEGACY_BLOCK_START = (id: string) => `<!-- BEGIN SOFTWARETEAM MANAGED BLOCK: ${id} -->`;
 
-// #25 — the file a rig's Claude Code seats receive managed blocks in
+// #25 — the file a softwareTeam's Claude Code seats receive managed blocks in
 // (`managed_blocks: { claude-code: <file> }`). This is the set supported in
 // this release, not every file Claude Code can load.
 export const CLAUDE_MANAGED_BLOCK_FILES = ["CLAUDE.md", "CLAUDE.local.md"] as const;
 export type ClaudeManagedBlockFile = (typeof CLAUDE_MANAGED_BLOCK_FILES)[number];
 export const DEFAULT_CLAUDE_MANAGED_BLOCK_FILE: ClaudeManagedBlockFile = "CLAUDE.md";
-const LEGACY_BLOCK_END = (id: string) => `<!-- END RIGGED MANAGED BLOCK: ${id} -->`;
+const LEGACY_BLOCK_END = (id: string) => `<!-- END SOFTWARETEAM MANAGED BLOCK: ${id} -->`;
 
 export interface ManagedBlockMergeFsOps {
   exists(path: string): boolean;
@@ -76,7 +76,7 @@ export function mergeManagedBlock(
       const replacement = id === blockId ? block : "";
       updated = updated.replace(regex, () => replacement);
       // Legacy marker variant from prior installs — replace with the
-      // OpenRig form (or strip when not the active block id).
+      // SoftwareTeam form (or strip when not the active block id).
       const legacyBegin = LEGACY_BLOCK_START(id);
       const legacyEnd = LEGACY_BLOCK_END(id);
       const legacyRegex = new RegExp(`${escapeRegex(legacyBegin)}[\\s\\S]*?${escapeRegex(legacyEnd)}`, "g");
@@ -113,12 +113,12 @@ export function removeManagedBlocksFromFile(fs: ManagedBlockCleanupFsOps, target
 }
 
 export function stripManagedBlocks(content: string): string {
-  // Recognize both the OpenRig form (current writes) and the legacy
-  // RIGGED form (existing user files written by prior installs) so
+  // Recognize both the SoftwareTeam form (current writes) and the legacy
+  // SOFTWARETEAM form (existing user files written by prior installs) so
   // uninstall + cleanup paths handle both transitional states.
   return content
-    .replace(/(?:\n|^)\s*<!-- BEGIN OpenRig MANAGED BLOCK: [\s\S]*?<!-- END OpenRig MANAGED BLOCK: [^>]+ -->\s*(?=\n|$)/g, "\n")
-    .replace(/(?:\n|^)\s*<!-- BEGIN RIGGED MANAGED BLOCK: [\s\S]*?<!-- END RIGGED MANAGED BLOCK: [^>]+ -->\s*(?=\n|$)/g, "\n")
+    .replace(/(?:\n|^)\s*<!-- BEGIN SoftwareTeam MANAGED BLOCK: [\s\S]*?<!-- END SoftwareTeam MANAGED BLOCK: [^>]+ -->\s*(?=\n|$)/g, "\n")
+    .replace(/(?:\n|^)\s*<!-- BEGIN SOFTWARETEAM MANAGED BLOCK: [\s\S]*?<!-- END SOFTWARETEAM MANAGED BLOCK: [^>]+ -->\s*(?=\n|$)/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }

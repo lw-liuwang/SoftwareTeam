@@ -13,21 +13,21 @@ import { computeIntegrity, writeIntegrity, verifyIntegrity, type IntegrityFsOps 
 import { pack, unpack, verifyArchiveDigest, collectUnsafeArchiveEntries, unsafeArchiveEntryReason } from "../domain/bundle-archive.js";
 import { resolvePackage } from "../domain/package-resolve-helper.js";
 import {
-  compareSpecToLive, topologyFromRigSpec, topologyFromLiveLogicalIds, bundleExportWarning,
-  topologyFromLegacyRigSpec, topologyFromLiveNodeIds, type ConformanceResult,
+  compareSpecToLive, topologyFromSoftwareTeamSpec, topologyFromLiveLogicalIds, bundleExportWarning,
+  topologyFromLegacySoftwareTeamSpec, topologyFromLiveNodeIds, type ConformanceResult,
 } from "../domain/spec-live-conformance.js";
-import { LegacyRigSpecCodec } from "../domain/rigspec-codec.js";
-import { LegacyRigSpecSchema } from "../domain/rigspec-schema.js";
-import { RigSpecCodec } from "../domain/rigspec-codec.js";
-import { RigSpecSchema } from "../domain/rigspec-schema.js";
+import { LegacySoftwareTeamSpecCodec } from "../domain/software-team-spec-codec.js";
+import { LegacySoftwareTeamSpecSchema } from "../domain/software-team-spec-schema.js";
+import { SoftwareTeamSpecCodec } from "../domain/software-team-spec-codec.js";
+import { SoftwareTeamSpecSchema } from "../domain/software-team-spec-schema.js";
 import { parseLegacyBundleManifest as parseBundleManifest, normalizeLegacyBundleManifest as normalizeBundleManifest, serializePodBundleManifest, parsePodBundleManifest, validatePodBundleManifest, validateLegacyBundleManifest, normalizeProvenanceBlock, normalizeBundleSource, normalizeCompatibilityBlock, isRelativeSafePath } from "../domain/bundle-types.js";
 import type { PodBundleManifest, BundleProvenance, BundleCompatibility, BundlePluginReference } from "../domain/bundle-types.js";
 import { detectBundleConflicts, type BundleConflict } from "../domain/bundle-conflict-detector.js";
 import { bundleInstallContext, bundleInstallContextLines } from "../domain/bundle-install-context.js";
-import type { RigRepository } from "../domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "../domain/software-team-repository.js";
 import { BundleAuditReader, BundleAuditWriter, type BundleAuditFsOps, type BundleAuditRecord } from "../domain/bundle-audit.js";
 import { timeBoundAdvisory } from "../domain/time-bound-advisory.js";
-import { getDefaultOpenRigPath } from "../openrig-compat.js";
+import { getDefaultSoftwareTeamPath } from "../softwareteam-compat.js";
 import { routingFailureWarnings, type BundleContentRouting } from "../domain/bundle-content-routing.js";
 import { configurationId, packageDigest } from "../domain/bundle-identity.js";
 import { vendorContextPackDir } from "../domain/bundle-carried-context-pack.js";
@@ -98,7 +98,7 @@ function checkBundleCompatibility(
 }
 
 /**
- * Extract bundle.yaml manifest from a .rigbundle archive via the canonical
+ * Extract bundle.yaml manifest from a .softwareteambundle archive via the canonical
  * safe-extraction path (unpack from domain/bundle-archive). unpack performs
  * verifyArchiveDigest, then tar.list pre-scan rejecting symlinks / hardlinks
  * / absolute paths / dot-dot traversal, then extracts, then verifies content
@@ -113,14 +113,14 @@ async function extractManifestForCompatCheck(bundlePath: string): Promise<Record
 }
 
 /**
- * Extract both the bundle.yaml manifest AND the rig name from the bundle's
- * rig.yaml in one safe pass (Item 3 / slice-05 Checkpoint 4.2). The /install
- * handler uses bundleManifest for the compat check (Item 2) and rigName for
+ * Extract both the bundle.yaml manifest AND the softwareTeam name from the bundle's
+ * software-team.yaml in one safe pass (Item 3 / slice-05 Checkpoint 4.2). The /install
+ * handler uses bundleManifest for the compat check (Item 2) and softwareTeamName for
  * the conflict check (Item 3). Reuses unpack — single trust boundary.
  */
 async function extractInstallTimeMetadata(bundlePath: string): Promise<{
   bundleManifest: Record<string, unknown>;
-  rigName: string | undefined;
+  softwareTeamName: string | undefined;
 }> {
   const tmpDir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "bundle-meta-"));
   try {
@@ -132,7 +132,7 @@ async function extractInstallTimeMetadata(bundlePath: string): Promise<{
 
     // B1 safety repair (slice-05 Checkpoint 4.2 / qitem-20260518204906): validate
     // the parsed manifest BEFORE trusting any of its fields. The validators
-    // reject unsafe rig_spec values (isRelativeSafePath: no absolute, no ../,
+    // reject unsafe software_team_spec values (isRelativeSafePath: no absolute, no ../,
     // no backslash, no empty segments). Schema-version-aware: v2 uses pod-aware
     // validator; everything else falls back to the v1 legacy validator. This is
     // the same trust-boundary reuse as the unpack/B1 fix in Item 2.
@@ -149,34 +149,34 @@ async function extractInstallTimeMetadata(bundlePath: string): Promise<{
       }
     }
 
-    // Rig name lives in the bundle's rig.yaml (path referenced by bundle.yaml's
-    // rig_spec field; defaults to rig.yaml for legacy bundles). Read + parse;
-    // missing-or-malformed rig name leaves rigName undefined which the detector
-    // fail-opens on (no rig name to compare).
+    // SoftwareTeam name lives in the bundle's software-team.yaml (path referenced by bundle.yaml's
+    // software_team_spec field; defaults to software-team.yaml for legacy bundles). Read + parse;
+    // missing-or-malformed softwareTeam name leaves softwareTeamName undefined which the detector
+    // fail-opens on (no softwareTeam name to compare).
     //
     // B1 safety repair (defense-in-depth alongside the validator above): resolve
-    // rig_spec inside tmpDir and require the result to stay inside tmpDir
+    // software_team_spec inside tmpDir and require the result to stay inside tmpDir
     // before reading, mirroring bundle-source-resolver.ts:60-63. The validator
-    // should have already rejected unsafe rig_spec; this is the second line.
-    let rigName: string | undefined;
-    const rigSpecRel = typeof bundleManifest["rig_spec"] === "string" ? bundleManifest["rig_spec"] : "rig.yaml";
-    const rigSpecPath = nodePath.resolve(tmpDir, rigSpecRel);
+    // should have already rejected unsafe software_team_spec; this is the second line.
+    let softwareTeamName: string | undefined;
+    const softwareTeamSpecRel = typeof bundleManifest["software_team_spec"] === "string" ? bundleManifest["software_team_spec"] : "software-team.yaml";
+    const softwareTeamSpecPath = nodePath.resolve(tmpDir, softwareTeamSpecRel);
     const tmpDirResolved = nodePath.resolve(tmpDir);
-    if (rigSpecPath !== tmpDirResolved && !rigSpecPath.startsWith(tmpDirResolved + nodePath.sep)) {
-      throw new Error(`Rig spec path '${rigSpecRel}' escapes bundle workspace`);
+    if (softwareTeamSpecPath !== tmpDirResolved && !softwareTeamSpecPath.startsWith(tmpDirResolved + nodePath.sep)) {
+      throw new Error(`SoftwareTeam spec path '${softwareTeamSpecRel}' escapes bundle workspace`);
     }
-    if (fs.existsSync(rigSpecPath)) {
+    if (fs.existsSync(softwareTeamSpecPath)) {
       try {
-        const rigYaml = fs.readFileSync(rigSpecPath, "utf-8");
-        const rigParsed = parsePodBundleManifest(rigYaml) as Record<string, unknown>;
-        if (typeof rigParsed["name"] === "string" && rigParsed["name"].length > 0) {
-          rigName = rigParsed["name"];
+        const softwareTeamYaml = fs.readFileSync(softwareTeamSpecPath, "utf-8");
+        const softwareTeamParsed = parsePodBundleManifest(softwareTeamYaml) as Record<string, unknown>;
+        if (typeof softwareTeamParsed["name"] === "string" && softwareTeamParsed["name"].length > 0) {
+          softwareTeamName = softwareTeamParsed["name"];
         }
       } catch {
-        // rig.yaml malformed — leave rigName undefined; conflict check skips
+        // software-team.yaml malformed — leave softwareTeamName undefined; conflict check skips
       }
     }
-    return { bundleManifest, rigName };
+    return { bundleManifest, softwareTeamName };
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -211,8 +211,8 @@ function provenanceFromRequestBody(raw: unknown): BundleProvenance | undefined {
   if (source) result.source = source;
   if (typeof p["sourceHost"] === "string") result.sourceHost = p["sourceHost"];
   if (typeof p["authorSession"] === "string") result.authorSession = p["authorSession"];
-  if (typeof p["sourceRigId"] === "string") result.sourceRigId = p["sourceRigId"];
-  if (typeof p["sourceRigName"] === "string") result.sourceRigName = p["sourceRigName"];
+  if (typeof p["sourceSoftwareTeamId"] === "string") result.sourceSoftwareTeamId = p["sourceSoftwareTeamId"];
+  if (typeof p["sourceSoftwareTeamName"] === "string") result.sourceSoftwareTeamName = p["sourceSoftwareTeamName"];
   if (typeof p["cliVersion"] === "string") result.cliVersion = p["cliVersion"];
   if (typeof p["notes"] === "string") result.notes = p["notes"];
   return Object.keys(result).length > 0 ? result : undefined;
@@ -226,7 +226,7 @@ function getDeps(c: { get: (key: string) => unknown }) {
     eventBus: c.get("eventBus" as never) as EventBus,
     bootstrapOrchestrator: c.get("bootstrapOrchestrator" as never) as BootstrapOrchestrator,
     bootstrapRepo: c.get("bootstrapRepo" as never) as BootstrapRepository,
-    rigRepo: c.get("rigRepo" as never) as RigRepository | undefined,
+    softwareTeamRepo: c.get("softwareTeamRepo" as never) as SoftwareTeamRepository | undefined,
   };
 }
 
@@ -249,19 +249,19 @@ function realFsOps(): FsOps {
 }
 
 /**
- * Build B — compare the spec about to be exported against the RUNNING rig of the same name.
+ * Build B — compare the spec about to be exported against the RUNNING softwareTeam of the same name.
  *
- * The assembler copies the spec text VERBATIM into the bundle and never reads the live DB, so a rig
+ * The assembler copies the spec text VERBATIM into the bundle and never reads the live DB, so a softwareTeam
  * expanded at runtime (nothing writes the spec back) exports as the smaller, stale topology in
  * complete silence. This says the delta out loud.
  *
  * Returns null — and the caller then says nothing at all — when there is genuinely nothing to
- * report: no repo, a spec whose rig is not running (authoring a NEW rig is not drift), or agreement.
+ * report: no repo, a spec whose softwareTeam is not running (authoring a NEW softwareTeam is not drift), or agreement.
  * Reporting only: never mutates, never blocks, never throws into the export path.
  */
-export function describeSpecLiveDrift(rawParsed: unknown, rigRepo: RigRepository | undefined): string | null {
+export function describeSpecLiveDrift(rawParsed: unknown, softwareTeamRepo: SoftwareTeamRepository | undefined): string | null {
   try {
-    const result = assessSpecLiveDrift(rawParsed, rigRepo);
+    const result = assessSpecLiveDrift(rawParsed, softwareTeamRepo);
     return result ? bundleExportWarning(result) : null;
   } catch {
     // REPORTING contract, deliberately different from the enforcement one below: a banner must never
@@ -274,7 +274,7 @@ export function describeSpecLiveDrift(rawParsed: unknown, rigRepo: RigRepository
  * The same comparison as `describeSpecLiveDrift`, returned STRUCTURED rather than as a sentence.
  *
  * Null means there is genuinely nothing to compare: no repository, a spec with no `name:`, a shape
- * that is neither pod-aware nor legacy, or no rig of that name on record. Those are all honest
+ * that is neither pod-aware nor legacy, or no softwareTeam of that name on record. Those are all honest
  * absences of a comparison.
  *
  * A REPOSITORY OR QUERY FAILURE IS NOT ONE OF THEM AND PROPAGATES. The reporting helper above may
@@ -282,35 +282,35 @@ export function describeSpecLiveDrift(rawParsed: unknown, rigRepo: RigRepository
  * failed DB read into "no drift" would let the export proceed on the strength of a comparison that
  * never happened, which is the fail-open this guard exists to remove. Callers fail closed.
  */
-export function assessSpecLiveDrift(rawParsed: unknown, rigRepo: RigRepository | undefined): ConformanceResult | null {
-  if (!rigRepo) return null;
+export function assessSpecLiveDrift(rawParsed: unknown, softwareTeamRepo: SoftwareTeamRepository | undefined): ConformanceResult | null {
+  if (!softwareTeamRepo) return null;
   const spec = rawParsed as { name?: unknown; pods?: unknown; nodes?: unknown } | null;
-  const rigName = typeof spec?.name === "string" ? spec.name : "";
-  if (!rigName) return null;
+  const softwareTeamName = typeof spec?.name === "string" ? spec.name : "";
+  if (!softwareTeamName) return null;
   // Pod-aware and legacy specs both reach this endpoint and both ship the same wrong artifact.
   // One comparator, two readers — the format only decides how ids are read, never what "drift"
   // means.
   const isPodAware = Array.isArray(spec?.pods);
   const isLegacy = !isPodAware && Array.isArray(spec?.nodes);
   if (!isPodAware && !isLegacy) return null;
-  const rig = rigRepo.listRigs().find((r) => r.name === rigName);
-  if (!rig) return null;
-  const rows = rigRepo.db
-    .prepare("SELECT logical_id FROM nodes WHERE rig_id = ?")
-    .all(rig.id) as Array<{ logical_id: string | null }>;
+  const softwareTeam = softwareTeamRepo.listSoftwareTeams().find((r) => r.name === softwareTeamName);
+  if (!softwareTeam) return null;
+  const rows = softwareTeamRepo.db
+    .prepare("SELECT logical_id FROM nodes WHERE software_team_id = ?")
+    .all(softwareTeam.id) as Array<{ logical_id: string | null }>;
   const liveIds = rows.map((r) => r.logical_id);
   return isPodAware
-    ? compareSpecToLive(topologyFromRigSpec(spec as never), topologyFromLiveLogicalIds(liveIds))
-    : compareSpecToLive(topologyFromLegacyRigSpec(spec as never), topologyFromLiveNodeIds(liveIds));
+    ? compareSpecToLive(topologyFromSoftwareTeamSpec(spec as never), topologyFromLiveLogicalIds(liveIds))
+    : compareSpecToLive(topologyFromLegacySoftwareTeamSpec(spec as never), topologyFromLiveNodeIds(liveIds));
 }
 
 /**
- * Does this spec describe a different rig than the one on record — in EITHER direction?
+ * Does this spec describe a different softwareTeam than the one on record — in EITHER direction?
  *
  * An earlier revision refused only the drop direction, on the reasoning that a spec declaring MORE
  * than is live is a bundle whose job is to bring the rest up. That was wrong, and the reason is what
- * the DB rows actually are: `nodes` is the rig's PERSISTED topology, not a list of currently-running
- * sessions. A restore that brings up seats the spec never declared produces a different rig just as
+ * the DB rows actually are: `nodes` is the softwareTeam's PERSISTED topology, not a list of currently-running
+ * sessions. A restore that brings up seats the spec never declared produces a different softwareTeam just as
  * surely as one that drops them. Direction is not the test; disagreement is. `--allow-drift` is the
  * honest way through for an operator who means it.
  */
@@ -321,9 +321,9 @@ export function specDivergesFromLive(result: ConformanceResult | null): boolean 
 /** The refusal an operator can act on: what disagrees, and the way through. */
 export function bundleExportRefusal(result: ConformanceResult): string {
   return [
-    `Refusing to bundle: this spec does not describe the rig it names — ${result.message}.`,
+    `Refusing to bundle: this spec does not describe the SoftwareTeam it names — ${result.message}.`,
     `The bundle would instantiate ${result.spec.pods} pods/${result.spec.seats} seats, which is not`,
-    `the topology on record for this rig.`,
+    `the topology on record for this softwareTeam.`,
     `Update the spec to match, or pass --allow-drift to bundle it as-is (the divergence is then`,
     `stamped into the bundle's provenance so the artifact carries its own caveat).`,
   ].join(" ");
@@ -390,12 +390,12 @@ function auditFsOps(): BundleAuditFsOps {
 }
 
 /**
- * Audit file path resolved at call time via getDefaultOpenRigPath
+ * Audit file path resolved at call time via getDefaultSoftwareTeamPath
  * ("bundle-audit.jsonl"). Function-level read (no module-level constant)
- * so OPENRIG_HOME env changes between requests / tests are honored.
+ * so SOFTWARETEAM_HOME env changes between requests / tests are honored.
  */
 function bundleAuditPath(): string {
-  return getDefaultOpenRigPath("bundle-audit.jsonl");
+  return getDefaultSoftwareTeamPath("bundle-audit.jsonl");
 }
 
 /**
@@ -408,8 +408,8 @@ function bundleAuditPath(): string {
 function writeInstallAudit(opts: {
   bundlePath: string;
   outcome: "success" | "failed" | "partial";
-  targetRigId?: string;
-  targetRigName?: string;
+  targetSoftwareTeamId?: string;
+  targetSoftwareTeamName?: string;
   cliVersion?: string;
   bundleManifest?: Record<string, unknown>;
   routingFailures?: Array<{ kind: string; error: string }>;
@@ -425,8 +425,8 @@ function writeInstallAudit(opts: {
       bundlePath: opts.bundlePath,
       outcome: opts.outcome,
     };
-    if (opts.targetRigId) record.targetRigId = opts.targetRigId;
-    if (opts.targetRigName) record.targetRigName = opts.targetRigName;
+    if (opts.targetSoftwareTeamId) record.targetSoftwareTeamId = opts.targetSoftwareTeamId;
+    if (opts.targetSoftwareTeamName) record.targetSoftwareTeamName = opts.targetSoftwareTeamName;
     if (opts.cliVersion) record.cliVersion = opts.cliVersion;
     record.daemonVersion = getDaemonVersion();
     if (provenance?.sourceHost) record.sourceHost = provenance.sourceHost;
@@ -442,7 +442,7 @@ function writeInstallAudit(opts: {
  * Item 6 / slice-05 Checkpoint 7.5 (QA-20260601 A2 repair): consume an
  * author-supplied bundle.yaml at the source root and vendor the
  * declared cross-primitive content into the staging tree. Runs AFTER
- * the assembler has built staging (rig.yaml + agents/) and BEFORE
+ * the assembler has built staging (software-team.yaml + agents/) and BEFORE
  * computeIntegrity so the vendored content lands in the integrity
  * manifest.
  *
@@ -712,7 +712,7 @@ function assertShippableStagingTree(staging: string): void {
 }
 
 /** Describe this artifact; inspecting an older archive never substitutes the current daemon's version. */
-function bundleBuildIdentity(manifest: { provenance?: BundleProvenance; configuration?: { id: string }; integrity?: { files: Record<string, string> }; assembler?: { openrigVersion: string; commit?: string } }, archiveHash: string | null) {
+function bundleBuildIdentity(manifest: { provenance?: BundleProvenance; configuration?: { id: string }; integrity?: { files: Record<string, string> }; assembler?: { softwareteamVersion: string; commit?: string } }, archiveHash: string | null) {
   return {
     source: manifest.provenance?.source ?? null,
     configurationId: manifest.configuration?.id ?? null,
@@ -730,15 +730,15 @@ bundleRoutes.post("/create", async (c) => {
   const bundleName = typeof body["bundleName"] === "string" ? body["bundleName"] : "";
   const bundleVersion = typeof body["bundleVersion"] === "string" ? body["bundleVersion"] : "";
   const outputPath = typeof body["outputPath"] === "string" ? body["outputPath"] : "";
-  const rigRoot = typeof body["rigRoot"] === "string" ? body["rigRoot"] : undefined;
+  const softwareTeamRoot = typeof body["softwareTeamRoot"] === "string" ? body["softwareTeamRoot"] : undefined;
   const includePackages = Array.isArray(body["includePackages"]) ? body["includePackages"] as string[] : undefined;
-  // `rig bundle create --context-pack <dir>`: packs to carry from anywhere the author names, by manifest name
+  // `softwareTeam bundle create --context-pack <dir>`: packs to carry from anywhere the author names, by manifest name
   const contextPackDirs = Array.isArray(body["contextPackDirs"])
     ? (body["contextPackDirs"] as unknown[]).filter((d): d is string => typeof d === "string" && d.length > 0)
     : [];
-  // `rig bundle create --project-dir <dir>`: the project this rig works in (project.yaml and its files)
+  // `softwareTeam bundle create --project-dir <dir>`: the project this softwareTeam works in (project.yaml and its files)
   const projectDir = typeof body["projectDir"] === "string" && body["projectDir"] ? body["projectDir"] : undefined;
-  // `rig bundle create --preset/--seat`: the configuration the CLI staged, recorded in the manifest (outside the package digest)
+  // `softwareTeam bundle create --preset/--seat`: the configuration the CLI staged, recorded in the manifest (outside the package digest)
   const rawConfiguration = body["configuration"] as { id?: unknown; preset?: unknown } | undefined;
   const configuration = rawConfiguration && typeof rawConfiguration.id === "string"
     ? { id: rawConfiguration.id, ...(typeof rawConfiguration.preset === "string" ? { preset: rawConfiguration.preset } : {}) }
@@ -764,31 +764,31 @@ bundleRoutes.post("/create", async (c) => {
   try {
     // Read spec and detect format
     const specYaml = fs.readFileSync(nodePath.resolve(specPath), "utf-8");
-    const rawParsed = RigSpecCodec.parse(specYaml);
+    const rawParsed = SoftwareTeamSpecCodec.parse(specYaml);
     const isPodAware = rawParsed && typeof rawParsed === "object" && Array.isArray((rawParsed as Record<string, unknown>).pods);
 
     // VALIDATE BEFORE ASSESSING. A malformed spec has no trustworthy topology to compare, and a
-    // drift 409 raised on one would blame the rig for what is actually a broken file — sending the
+    // drift 409 raised on one would blame the softwareTeam for what is actually a broken file — sending the
     // operator to reconcile a topology when the real answer is "this spec does not parse". Schema
     // errors keep their existing 400 and return before the guard ever runs.
     if (isPodAware) {
-      const podValidation = RigSpecSchema.validate(rawParsed);
-      if (!podValidation.valid) return c.json({ error: "Invalid pod-aware rig spec", errors: podValidation.errors }, 400);
+      const podValidation = SoftwareTeamSpecSchema.validate(rawParsed);
+      if (!podValidation.valid) return c.json({ error: "Invalid pod-aware SoftwareTeam spec", errors: podValidation.errors }, 400);
     } else {
-      const legacyValidation = LegacyRigSpecSchema.validate(rawParsed);
-      if (!legacyValidation.valid) return c.json({ error: "Invalid rig spec", errors: legacyValidation.errors }, 400);
+      const legacyValidation = LegacySoftwareTeamSpecSchema.validate(rawParsed);
+      if (!legacyValidation.valid) return c.json({ error: "Invalid SoftwareTeam spec", errors: legacyValidation.errors }, 400);
     }
 
-    // The bundle carries the SPEC verbatim and never consults the live DB, so when a rig's persisted
-    // topology has moved (no code path writes the spec back) an export ships a DIFFERENT rig than the
-    // one on record. Build B made that delta sayable; saying it on a 201 was not enough. A .rigbundle
+    // The bundle carries the SPEC verbatim and never consults the live DB, so when a softwareTeam's persisted
+    // topology has moved (no code path writes the spec back) an export ships a DIFFERENT softwareTeam than the
+    // one on record. Build B made that delta sayable; saying it on a 201 was not enough. A .softwareteambundle
     // is a recovery artifact, and a warning stapled to a success is read at the one moment it is
     // least affordable — so any non-conforming topology refuses here.
     //
     // This throws rather than returning null when the repository read itself fails, and that is the
     // point: an enforcement path that swallows a DB error would report "no drift" and export, which
     // is the fail-OPEN this guard exists to remove. It fails closed through the 500 below.
-    const drift = assessSpecLiveDrift(rawParsed, getDeps(c).rigRepo);
+    const drift = assessSpecLiveDrift(rawParsed, getDeps(c).softwareTeamRepo);
     const driftWarning = drift ? bundleExportWarning(drift) : null;
     if (driftWarning) console.warn(`[bundle-create] ${driftWarning}`);
 
@@ -798,7 +798,7 @@ bundleRoutes.post("/create", async (c) => {
 
     // Overridden: the operator says they mean it, so the divergence rides INTO the artifact. An HTTP
     // warning dies with the terminal that printed it; whoever restores this bundle months from now
-    // reads the manifest, and it must not present as a faithful snapshot of the rig.
+    // reads the manifest, and it must not present as a faithful snapshot of the softwareTeam.
     if (driftWarning && allowDrift) {
       const stamp = `EXPORTED WITH --allow-drift: ${driftWarning}`;
       provenance = {
@@ -810,17 +810,17 @@ bundleRoutes.post("/create", async (c) => {
     if (isPodAware) {
       // Pod-aware bundle creation
       // Validated above, before the drift guard ran.
-      const effectiveRigRoot = rigRoot ? nodePath.resolve(rigRoot) : nodePath.dirname(nodePath.resolve(specPath));
+      const effectiveSoftwareTeamRoot = softwareTeamRoot ? nodePath.resolve(softwareTeamRoot) : nodePath.dirname(nodePath.resolve(specPath));
       const tmpStaging = fs.mkdtempSync(nodePath.join(os.tmpdir(), "pod-bundle-create-"));
       try {
         const assembler = new PodBundleAssembler({ fsOps: podAssemblerFsOps() });
-        const result = assembler.assemble({ rigRoot: effectiveRigRoot, rigSpecPath: nodePath.resolve(specPath), outputDir: tmpStaging, bundleName, bundleVersion, provenance, compatibility });
+        const result = assembler.assemble({ softwareTeamRoot: effectiveSoftwareTeamRoot, softwareTeamSpecPath: nodePath.resolve(specPath), outputDir: tmpStaging, bundleName, bundleVersion, provenance, compatibility });
 
         // Item 6 / Checkpoint 7.5 (QA-20260601 A2 repair): auto-detect
-        // author bundle.yaml at the rig source root; vendor declared
+        // author bundle.yaml at the softwareTeam source root; vendor declared
         // cross-primitive content into staging + carry the fields onto
         // the manifest. computeIntegrity below covers the vendored content.
-        const authorPrimitives = consumeAuthorBundleYaml(effectiveRigRoot, tmpStaging);
+        const authorPrimitives = consumeAuthorBundleYaml(effectiveSoftwareTeamRoot, tmpStaging);
         if (authorPrimitives.preconditions) result.manifest.preconditions = authorPrimitives.preconditions;
         if (authorPrimitives.skills) result.manifest.skills = authorPrimitives.skills;
         if (authorPrimitives.plugins) result.manifest.plugins = authorPrimitives.plugins;
@@ -828,13 +828,13 @@ bundleRoutes.post("/create", async (c) => {
         if (authorPrimitives.contextPacks) result.manifest.contextPacks = authorPrimitives.contextPacks;
         if (authorPrimitives.agentImages) result.manifest.agentImages = authorPrimitives.agentImages;
         const actualMapping: Record<string, string> = {};
-        for (const pod of RigSpecSchema.normalize(rawParsed as Record<string, unknown>).pods) {
+        for (const pod of SoftwareTeamSpecSchema.normalize(rawParsed as Record<string, unknown>).pods) {
           for (const member of pod.members) actualMapping[`${pod.id}.${member.id}`] = member.runtime;
         }
         const actualConfigurationId = configurationId(actualMapping);
-        if (configuration && configuration.id !== actualConfigurationId) return c.json({ error: "Configuration ID does not match the packaged rig spec" }, 400);
+        if (configuration && configuration.id !== actualConfigurationId) return c.json({ error: "Configuration ID does not match the packaged SoftwareTeam spec" }, 400);
         result.manifest.configuration = { id: actualConfigurationId, ...(configuration?.preset ? { preset: configuration.preset } : {}) };
-        result.manifest.assembler = { openrigVersion: getDaemonVersion() };
+        result.manifest.assembler = { softwareteamVersion: getDaemonVersion() };
         const carriedPacks = contextPackDirs.map((dir) => vendorContextPackDir(nodePath.resolve(dir), tmpStaging));
         if (carriedPacks.length > 0) result.manifest.contextPacks = [...(result.manifest.contextPacks ?? []), ...carriedPacks];
         if (projectDir) result.manifest.project = vendorProjectDir(nodePath.resolve(projectDir), tmpStaging);
@@ -856,12 +856,12 @@ bundleRoutes.post("/create", async (c) => {
     // Legacy bundle creation
     // Validated above, before the drift guard ran.
     if (contextPackDirs.length > 0) {
-      return c.json({ error: "--context-pack needs a pod-aware rig spec (one with pods:)" }, 400);
+      return c.json({ error: "--context-pack needs a pod-aware SoftwareTeam spec (one with pods:)" }, 400);
     }
     if (projectDir) {
-      return c.json({ error: "--project-dir needs a pod-aware rig spec (one with pods:)" }, 400);
+      return c.json({ error: "--project-dir needs a pod-aware SoftwareTeam spec (one with pods:)" }, 400);
     }
-    const spec = LegacyRigSpecSchema.normalize(rawParsed);
+    const spec = LegacySoftwareTeamSpecSchema.normalize(rawParsed);
 
     const specDir = nodePath.dirname(nodePath.resolve(specPath));
     const allRefs = new Set<string>();
@@ -875,7 +875,7 @@ bundleRoutes.post("/create", async (c) => {
       const includedSet = new Set(includePackages);
       const missing = [...allRefs].filter((r) => !includedSet.has(r));
       if (missing.length > 0) {
-        return c.json({ error: "Provided packages do not cover all rig spec package_refs", missing }, 400);
+        return c.json({ error: "Provided packages do not cover all SoftwareTeam spec package_refs", missing }, 400);
       }
     }
 
@@ -904,7 +904,7 @@ bundleRoutes.post("/create", async (c) => {
         specPath: nodePath.resolve(specPath), packages, outputDir: tmpStaging, bundleName, bundleVersion, provenance, compatibility,
       });
 
-      manifest.assembler = { openrigVersion: getDaemonVersion() };
+      manifest.assembler = { softwareteamVersion: getDaemonVersion() };
       // Item 6 / Checkpoint 7.5 (QA-20260601 A2 repair, legacy path mirror):
       // auto-detect author bundle.yaml in source dir; vendor + carry
       // cross-primitive fields before integrity. Re-serialize bundle.yaml
@@ -988,15 +988,15 @@ bundleRoutes.post("/inspect", async (c) => {
     const manifestYaml = fs.readFileSync(manifestPath, "utf-8");
     const rawParsed = parsePodBundleManifest(manifestYaml) as Record<string, unknown>;
     const describeBehaviour = (identity: ReturnType<typeof bundleBuildIdentity>, filesVerified: boolean): BundleBehaviour => {
-      const generator = { openrigVersion: getDaemonVersion() };
+      const generator = { softwareteamVersion: getDaemonVersion() };
       const source = identity.source ? { ...identity.source } : null;
       try {
         return inspectBundleBehaviour(tmpDir, { manifest: rawParsed, ...identity, source, generator, digestValid, filesVerified });
       } catch {
         return {
-          schema: "openrig.bundle-behaviour/v1", state: "not_generated",
+          schema: "softwareteam.bundle-behaviour/v1", state: "not_generated",
           identity: { source, configurationId: identity.configurationId, packageDigest: identity.packageDigest, assembler: identity.assembler, generator, integrity: { digestValid, filesVerified } },
-          reason: "The archive's behaviour could not be described.", localInspectCommand: "rig bundle inspect <archive> --json",
+          reason: "The archive's behaviour could not be described.", localInspectCommand: "SoftwareTeam bundle inspect <archive> --json",
         };
       }
     };
@@ -1019,7 +1019,7 @@ bundleRoutes.post("/inspect", async (c) => {
         name: rawParsed["name"] as string,
         version: rawParsed["version"] as string,
         createdAt: rawParsed["created_at"] as string,
-        rigSpec: rawParsed["rig_spec"] as string,
+        softwareTeamSpec: rawParsed["software_team_spec"] as string,
         agents,
         integrity: integritySection ? {
           algorithm: integritySection.algorithm ?? "sha256",
@@ -1032,8 +1032,8 @@ bundleRoutes.post("/inspect", async (c) => {
         provenance: normalizeProvenanceBlock(rawParsed["provenance"]),
         configuration: typeof (rawParsed["configuration"] as { id?: unknown } | undefined)?.id === "string"
           ? rawParsed["configuration"] as { id: string; preset?: string } : undefined,
-        assembler: typeof (rawParsed["assembler"] as { openrigVersion?: unknown } | undefined)?.openrigVersion === "string"
-          ? rawParsed["assembler"] as { openrigVersion: string; commit?: string } : undefined,
+        assembler: typeof (rawParsed["assembler"] as { softwareteamVersion?: unknown } | undefined)?.softwareteamVersion === "string"
+          ? rawParsed["assembler"] as { softwareteamVersion: string; commit?: string } : undefined,
         // Item 2 / slice-05: surface compatibility normalized to camelCase
         // (same single-contract reason as provenance above). v1 already
         // surfaces via the normalizer at the end of this handler.
@@ -1068,7 +1068,7 @@ bundleRoutes.post("/inspect", async (c) => {
         name: podManifest.name,
         version: podManifest.version,
         createdAt: podManifest.createdAt,
-        rigSpec: podManifest.rigSpec,
+        softwareTeamSpec: podManifest.softwareTeamSpec,
         packages: [],
         integrity: { algorithm: "sha256" as const, files: integritySection.files ?? {} },
       } : undefined;
@@ -1095,19 +1095,19 @@ bundleRoutes.post("/inspect", async (c) => {
 });
 
 // GET /api/bundles/history — Item 4 / slice-05 Checkpoint 5.2
-// Returns the install audit JSONL records (optionally filtered by rig name
+// Returns the install audit JSONL records (optionally filtered by softwareTeam name
 // and / or since timestamp). Read-only — no audit-write side effects.
 // Empty audit file returns []. Reader fails-open on malformed JSONL lines
 // (forward-compat with future record-shape evolutions).
 bundleRoutes.get("/history", async (c) => {
-  const rig = c.req.query("rig");
+  const softwareTeam = c.req.query("softwareTeam");
   const since = c.req.query("since");
   const reader = new BundleAuditReader({
     opts: { auditPath: bundleAuditPath() },
     fsOps: auditFsOps(),
   });
   const records = reader.list({
-    rig: typeof rig === "string" && rig.length > 0 ? rig : undefined,
+    softwareTeam: typeof softwareTeam === "string" && softwareTeam.length > 0 ? softwareTeam : undefined,
     since: typeof since === "string" && since.length > 0 ? since : undefined,
   });
   // since is compared as text against installedAt; say so when it doesn't read as a date or time.
@@ -1117,7 +1117,7 @@ bundleRoutes.get("/history", async (c) => {
 
 // POST /api/bundles/install — reuses full bootstrap lifecycle
 bundleRoutes.post("/install", async (c) => {
-  const { bootstrapOrchestrator, bootstrapRepo, eventBus, rigRepo } = getDeps(c);
+  const { bootstrapOrchestrator, bootstrapRepo, eventBus, softwareTeamRepo } = getDeps(c);
   const body: Record<string, unknown> = await c.req.json().catch(() => ({}));
   const bundlePath = typeof body["bundlePath"] === "string" ? body["bundlePath"] : "";
   const plan = body["plan"] === true;
@@ -1143,13 +1143,13 @@ bundleRoutes.post("/install", async (c) => {
 
   try {
   // Item 2 + Item 3 / slice-05: single safe extract pass yields both the
-  // bundle manifest (for compat check) and the rig name (for conflict check).
+  // bundle manifest (for compat check) and the softwareTeam name (for conflict check).
   // This pass also runs the manifest SAFETY validation — the first place
-  // rig_spec/project fields are validated on the install path; the bundle
+  // software_team_spec/project fields are validated on the install path; the bundle
   // source resolver validates them again later — so it runs unconditionally:
   // --skip-version-check and --force override the Item-2 compat check and
   // the Item-3 conflict check, not the safety validation.
-  let installMeta: { bundleManifest: Record<string, unknown>; rigName: string | undefined };
+  let installMeta: { bundleManifest: Record<string, unknown>; softwareTeamName: string | undefined };
   try {
     installMeta = await extractInstallTimeMetadata(bundlePath);
   } catch (err) {
@@ -1184,17 +1184,17 @@ bundleRoutes.post("/install", async (c) => {
   // returns a 400 with the 3-part error shape (error + conflicts[] +
   // resolutions[]). Operator override via --force (request body force=true).
   // The check fails CLOSED on extraction failure (handled above) and
-  // fail-OPEN on missing rig name in the bundle (no rig name to compare).
-  if (!force && installMeta && rigRepo) {
-    const context = bundleInstallContext(rigRepo.db, installMeta.rigName ?? "", {
-      name: String(installMeta.bundleManifest.name ?? installMeta.rigName ?? ""),
+  // fail-OPEN on missing softwareTeam name in the bundle (no softwareTeam name to compare).
+  if (!force && installMeta && softwareTeamRepo) {
+    const context = bundleInstallContext(softwareTeamRepo.db, installMeta.softwareTeamName ?? "", {
+      name: String(installMeta.bundleManifest.name ?? installMeta.softwareTeamName ?? ""),
       version: typeof installMeta.bundleManifest.version === "string" ? installMeta.bundleManifest.version : null,
       source: bundlePath,
     });
-    const runningRigs = context.existing.filter(rig => rig.state === "running");
+    const runningSoftwareTeams = context.existing.filter(softwareTeam => softwareTeam.state === "running");
     const report = detectBundleConflicts({
-      bundleRigName: installMeta.rigName ?? "",
-      runningRigs,
+      bundleSoftwareTeamName: installMeta.softwareTeamName ?? "",
+      runningSoftwareTeams,
     });
     if (report.hasConflicts) {
       return c.json({
@@ -1212,7 +1212,7 @@ bundleRoutes.post("/install", async (c) => {
     // Plan mode: no run lifecycle
     try {
       const result = await bootstrapOrchestrator.bootstrap({
-        mode: "plan", sourceRef: bundlePath, sourceKind: "rig_bundle", cwdOverride,
+        mode: "plan", sourceRef: bundlePath, sourceKind: "software_team_bundle", cwdOverride,
       });
       if (result.status === "planned") {
         eventBus.emit({ type: "bootstrap.planned", runId: result.runId, sourceRef: bundlePath, stages: result.stages.length });
@@ -1228,13 +1228,13 @@ bundleRoutes.post("/install", async (c) => {
   }
 
   // Apply mode: full run lifecycle with bootstrap.started
-  const run = bootstrapRepo.createRun("rig_bundle", bundlePath);
+  const run = bootstrapRepo.createRun("software_team_bundle", bundlePath);
   bootstrapRepo.updateRunStatus(run.id, "running");
   eventBus.emit({ type: "bootstrap.started", runId: run.id, sourceRef: bundlePath });
 
   try {
     const result = await bootstrapOrchestrator.bootstrap({
-      mode: "apply", sourceRef: bundlePath, sourceKind: "rig_bundle",
+      mode: "apply", sourceRef: bundlePath, sourceKind: "software_team_bundle",
       autoApprove, nonInterruptive, targetRoot, cwdOverride, envOverride, runId: run.id,
     });
 
@@ -1252,15 +1252,15 @@ bundleRoutes.post("/install", async (c) => {
       const warnings = bundleRouting ? (result.warnings ?? []) : [...(result.warnings ?? []), ...routingFailureWarnings(routing)];
       const responseBody = routing ? { ...bootstrapResult, ...routing, warnings } : { ...bootstrapResult, warnings };
       if (result.status === "completed") {
-        eventBus.emit({ type: "bootstrap.completed", runId: result.runId, rigId: result.rigId!, sourceRef: bundlePath });
+        eventBus.emit({ type: "bootstrap.completed", runId: result.runId, softwareTeamId: result.softwareTeamId!, sourceRef: bundlePath });
       } else {
         const ok = result.stages.filter((s: { status: string }) => s.status === "ok").length;
         const fail = result.stages.filter((s: { status: string }) => s.status === "failed" || s.status === "blocked").length;
-        eventBus.emit({ type: "bootstrap.partial", runId: result.runId, sourceRef: bundlePath, rigId: result.rigId, completed: ok, failed: fail });
+        eventBus.emit({ type: "bootstrap.partial", runId: result.runId, sourceRef: bundlePath, softwareTeamId: result.softwareTeamId, completed: ok, failed: fail });
       }
       writeInstallAudit({
-        bundlePath, outcome: result.status === "completed" ? "success" : "partial", targetRigId: result.rigId,
-        targetRigName: installMeta?.rigName, cliVersion: clientCliVersion,
+        bundlePath, outcome: result.status === "completed" ? "success" : "partial", targetSoftwareTeamId: result.softwareTeamId,
+        targetSoftwareTeamName: installMeta?.softwareTeamName, cliVersion: clientCliVersion,
         bundleManifest: installMeta?.bundleManifest,
         routingFailures: routing?.routingFailures,
       });
@@ -1270,7 +1270,7 @@ bundleRoutes.post("/install", async (c) => {
     // The pre-launch hook may have routed contents before a later failure; the result carries what it did.
     writeInstallAudit({
       bundlePath, outcome: "failed",
-      targetRigName: installMeta?.rigName, cliVersion: clientCliVersion,
+      targetSoftwareTeamName: installMeta?.softwareTeamName, cliVersion: clientCliVersion,
       bundleManifest: installMeta?.bundleManifest,
       routingFailures: result.bundleRouting?.routingFailures,
     });
@@ -1281,7 +1281,7 @@ bundleRoutes.post("/install", async (c) => {
     eventBus.emit({ type: "bootstrap.failed", runId: run.id, sourceRef: bundlePath, error: (err as Error).message });
     writeInstallAudit({
       bundlePath, outcome: "failed",
-      targetRigName: installMeta?.rigName, cliVersion: clientCliVersion,
+      targetSoftwareTeamName: installMeta?.softwareTeamName, cliVersion: clientCliVersion,
       bundleManifest: installMeta?.bundleManifest,
     });
     return c.json({ runId: run.id, status: "failed", error: (err as Error).message }, 500);

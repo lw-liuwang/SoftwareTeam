@@ -2,15 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { rigPreflight } from "../src/domain/rigspec-preflight.js";
-import { RigSpecSchema as PodRigSpecSchema } from "../src/domain/rigspec-schema.js";
+import { softwareTeamPreflight } from "../src/domain/software-team-spec-preflight.js";
+import { SoftwareTeamSpecSchema as PodSoftwareTeamSpecSchema } from "../src/domain/software-team-spec-schema.js";
 import type { AgentResolverFsOps } from "../src/domain/agent-resolver.js";
 import type { NodeBinding, RuntimeAdapter } from "../src/domain/runtime-adapter.js";
 import { createFullTestDb, createTestApp as createBaseTestApp } from "./helpers/test-app.js";
 import { SystemPreflight } from "../../cli/src/system-preflight.js";
 
-const RIG_ROOT = "/project/rigs/policy-discovery";
-const ORIGINAL_RIG_ROOT = "/original/rig";
+const SOFTWARE_TEAM_ROOT = "/project/software-teams/policy-discovery";
+const ORIGINAL_SOFTWARE_TEAM_ROOT = "/original/softwareTeam";
 const OTHER_OPERATION_ROOT = "/different/operation-root";
 const CUSTOM_POLICY_REF = "policies/operator-full.md";
 const AGENT_YAML = `name: impl
@@ -76,12 +76,12 @@ function collisionFsOps(): AgentResolverFsOps {
   };
 }
 
-function rigYaml(opts: { name?: string; rigPolicy?: string; memberPolicy?: string } = {}): string {
-  const rigPolicy = opts.rigPolicy ? `permission_policy: ${opts.rigPolicy}\n` : "";
+function softwareTeamYaml(opts: { name?: string; softwareTeamPolicy?: string; memberPolicy?: string } = {}): string {
+  const softwareTeamPolicy = opts.softwareTeamPolicy ? `permission_policy: ${opts.softwareTeamPolicy}\n` : "";
   const memberPolicy = opts.memberPolicy ? `        permission_policy: ${opts.memberPolicy}\n` : "";
   return `version: "0.2"
 name: ${opts.name ?? "policy-discovery"}
-${rigPolicy}pods:
+${softwareTeamPolicy}pods:
   - id: dev
     label: Dev
     members:
@@ -114,9 +114,9 @@ describe("Seam C permission-policy discovery", () => {
   });
 
   it("surfaces an attached builtin ref with honest origin and bound posture", async () => {
-    const result = await rigPreflight({
-      rigSpecYaml: rigYaml({ rigPolicy: "builtin:yolo" }),
-      rigRoot: RIG_ROOT,
+    const result = await softwareTeamPreflight({
+      softwareTeamSpecYaml: softwareTeamYaml({ softwareTeamPolicy: "builtin:yolo" }),
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT,
       fsOps: fsOps(),
     });
 
@@ -127,10 +127,10 @@ describe("Seam C permission-policy discovery", () => {
     ]);
   });
 
-  it("surfaces the per-member custom override instead of the rig-level policy", async () => {
-    const result = await rigPreflight({
-      rigSpecYaml: rigYaml({ rigPolicy: "builtin:standard", memberPolicy: "policies/operator-full.md" }),
-      rigRoot: RIG_ROOT,
+  it("surfaces the per-member custom override instead of the software-team-level policy", async () => {
+    const result = await softwareTeamPreflight({
+      softwareTeamSpecYaml: softwareTeamYaml({ softwareTeamPolicy: "builtin:standard", memberPolicy: "policies/operator-full.md" }),
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT,
       fsOps: fsOps(),
     });
 
@@ -142,7 +142,7 @@ describe("Seam C permission-policy discovery", () => {
   });
 
   it("surfaces honest absence as the floor without errors or blocking", async () => {
-    const result = await rigPreflight({ rigSpecYaml: rigYaml(), rigRoot: RIG_ROOT, fsOps: fsOps() });
+    const result = await softwareTeamPreflight({ softwareTeamSpecYaml: softwareTeamYaml(), softwareTeamRoot: SOFTWARE_TEAM_ROOT, fsOps: fsOps() });
 
     expect(result.ready).toBe(true);
     expect(result.errors).toEqual([]);
@@ -156,8 +156,8 @@ describe("Seam C permission-policy discovery", () => {
     try {
       const setup = createTestApp(db, { podInstantiatorFsOps: collisionFsOps() });
       const outcome = await setup.podInstantiator.materialize(
-        rigYaml({ name: "policy-materialize-warnings", rigPolicy: "builtin:yolo" }),
-        RIG_ROOT,
+        softwareTeamYaml({ name: "policy-materialize-warnings", softwareTeamPolicy: "builtin:yolo" }),
+        SOFTWARE_TEAM_ROOT,
       );
 
       expect(outcome.ok).toBe(true);
@@ -190,8 +190,8 @@ describe("Seam C permission-policy discovery", () => {
         podInstantiatorFsOps: collisionFsOps(),
       });
       const outcome = await setup.podInstantiator.instantiate(
-        rigYaml({ name: "policy-instantiate-warnings", rigPolicy: "builtin:yolo" }),
-        RIG_ROOT,
+        softwareTeamYaml({ name: "policy-instantiate-warnings", softwareTeamPolicy: "builtin:yolo" }),
+        SOFTWARE_TEAM_ROOT,
       );
 
       expect(outcome.ok).toBe(true);
@@ -212,12 +212,12 @@ describe("Seam C permission-policy discovery", () => {
     const db = createFullTestDb();
     try {
       const setup = createTestApp(db, { podInstantiatorFsOps: collisionFsOps() });
-      const rig = setup.rigRepo.createRig("policy-expand-warnings");
-      const response = await setup.app.request(`/api/rigs/${rig.id}/expand`, {
+      const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("policy-expand-warnings");
+      const response = await setup.app.request(`/api/software-teams/${softwareTeam.id}/expand`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          rigRoot: RIG_ROOT,
+          softwareTeamRoot: SOFTWARE_TEAM_ROOT,
           pod: {
             id: "dev",
             label: "Dev",
@@ -248,7 +248,7 @@ describe("Seam C permission-policy discovery", () => {
     }
   });
 
-  it("discovers persisted target-rig policy provenance and matches the launch binding", async () => {
+  it("discovers persisted target-software-team policy provenance and matches the launch binding", async () => {
     const bindings: NodeBinding[] = [];
     const adapter: RuntimeAdapter = {
       runtime: "claude-code",
@@ -271,17 +271,17 @@ describe("Seam C permission-policy discovery", () => {
         adapters: { "claude-code": adapter },
         podInstantiatorFsOps: agentOnlyFsOps,
       });
-      const rig = setup.rigRepo.createRig("persisted-policy-target");
-      setup.rigRepo.setRigPermissionPolicy(rig.id, "policies/operator-full.md");
-      setup.rigRepo.setRigPolicyProvenance(rig.id, {
+      const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("persisted-policy-target");
+      setup.softwareTeamRepo.setSoftwareTeamPermissionPolicy(softwareTeam.id, "policies/operator-full.md");
+      setup.softwareTeamRepo.setSoftwareTeamPolicyProvenance(softwareTeam.id, {
         origin: "custom",
-        resolvedTarget: "/original/rig/policies/operator-full.md",
-        declaringDir: "/original/rig",
+        resolvedTarget: "/original/softwareTeam/policies/operator-full.md",
+        declaringDir: "/original/softwareTeam",
         launchPosture: "full_bypass",
       });
       const specObject = {
         version: "0.2",
-        name: rig.name,
+        name: softwareTeam.name,
         pods: [{
           id: "dev",
           label: "Dev",
@@ -307,7 +307,7 @@ describe("Seam C permission-policy discovery", () => {
       const materialized = await setup.podInstantiator.materializeStructured(
         specObject,
         "/different/operation-root",
-        { targetRigId: rig.id },
+        { targetSoftwareTeamId: softwareTeam.id },
       );
       expect(materialized.ok).toBe(true);
       if (!materialized.ok) return;
@@ -317,9 +317,9 @@ describe("Seam C permission-policy discovery", () => {
       ]);
 
       const launched = await setup.podInstantiator.launchValidatedSpec(
-        PodRigSpecSchema.normalize(specObject),
+        PodSoftwareTeamSpecSchema.normalize(specObject),
         "/different/operation-root",
-        rig.id,
+        softwareTeam.id,
       );
       expect(launched.ok).toBe(true);
       expect(bindings.map((binding) => binding.launchPosture)).toEqual(["full_bypass", "floor"]);
@@ -341,32 +341,32 @@ describe("Seam C permission-policy discovery", () => {
     const db = createFullTestDb();
     try {
       const setup = createTestApp(db, { podInstantiatorFsOps: agentOnlyFsOps });
-      const rig = setup.rigRepo.createRig("persisted-yaml-target");
-      setup.rigRepo.setRigPermissionPolicy(rig.id, CUSTOM_POLICY_REF);
-      setup.rigRepo.setRigPolicyProvenance(rig.id, {
+      const softwareTeam = setup.softwareTeamRepo.createSoftwareTeam("persisted-yaml-target");
+      setup.softwareTeamRepo.setSoftwareTeamPermissionPolicy(softwareTeam.id, CUSTOM_POLICY_REF);
+      setup.softwareTeamRepo.setSoftwareTeamPolicyProvenance(softwareTeam.id, {
         origin: "custom",
-        resolvedTarget: `${ORIGINAL_RIG_ROOT}/${CUSTOM_POLICY_REF}`,
-        declaringDir: ORIGINAL_RIG_ROOT,
+        resolvedTarget: `${ORIGINAL_SOFTWARE_TEAM_ROOT}/${CUSTOM_POLICY_REF}`,
+        declaringDir: ORIGINAL_SOFTWARE_TEAM_ROOT,
         launchPosture: "full_bypass",
       });
 
-      const response = await setup.app.request("/api/rigs/import/materialize", {
+      const response = await setup.app.request("/api/software-teams/import/materialize", {
         method: "POST",
         headers: {
           "Content-Type": "text/yaml",
-          "X-Rig-Root": OTHER_OPERATION_ROOT,
-          "X-Target-Rig-Id": rig.id,
+          "X-Software-Team-Root": OTHER_OPERATION_ROOT,
+          "X-Target-software-team-Id": softwareTeam.id,
         },
-        body: rigYaml({ name: rig.name }),
+        body: softwareTeamYaml({ name: softwareTeam.name }),
       });
 
       expect(response.status).toBe(201);
       const body = await response.json() as { warnings?: string[] };
-      const node = setup.rigRepo.getRig(rig.id)!.nodes.find((candidate) => candidate.logicalId === "dev.impl")!;
-      expect(setup.rigRepo.getNodePolicyProvenance(node.id)).toEqual({
+      const node = setup.softwareTeamRepo.getSoftwareTeam(softwareTeam.id)!.nodes.find((candidate) => candidate.logicalId === "dev.impl")!;
+      expect(setup.softwareTeamRepo.getNodePolicyProvenance(node.id)).toEqual({
         origin: "custom",
-        resolvedTarget: `${ORIGINAL_RIG_ROOT}/${CUSTOM_POLICY_REF}`,
-        declaringDir: ORIGINAL_RIG_ROOT,
+        resolvedTarget: `${ORIGINAL_SOFTWARE_TEAM_ROOT}/${CUSTOM_POLICY_REF}`,
+        declaringDir: ORIGINAL_SOFTWARE_TEAM_ROOT,
         launchPosture: "full_bypass",
         nodeRef: null,
       });
@@ -419,14 +419,14 @@ describe("Seam C permission-policy discovery", () => {
           edges: [],
         }],
         edges: [],
-      }, ORIGINAL_RIG_ROOT);
+      }, ORIGINAL_SOFTWARE_TEAM_ROOT);
       expect(seeded.ok).toBe(true);
       if (!seeded.ok) return;
-      setup.rigRepo.setRigPermissionPolicy(seeded.result.rigId, CUSTOM_POLICY_REF);
-      setup.rigRepo.setRigPolicyProvenance(seeded.result.rigId, {
+      setup.softwareTeamRepo.setSoftwareTeamPermissionPolicy(seeded.result.softwareTeamId, CUSTOM_POLICY_REF);
+      setup.softwareTeamRepo.setSoftwareTeamPolicyProvenance(seeded.result.softwareTeamId, {
         origin: "custom",
-        resolvedTarget: `${ORIGINAL_RIG_ROOT}/${CUSTOM_POLICY_REF}`,
-        declaringDir: ORIGINAL_RIG_ROOT,
+        resolvedTarget: `${ORIGINAL_SOFTWARE_TEAM_ROOT}/${CUSTOM_POLICY_REF}`,
+        declaringDir: ORIGINAL_SOFTWARE_TEAM_ROOT,
         launchPosture: "full_bypass",
       });
       const originalLaunch = setup.nodeLauncher.launchNode.bind(setup.nodeLauncher);
@@ -437,11 +437,11 @@ describe("Seam C permission-policy discovery", () => {
           : outcome;
       });
 
-      const inheritedResponse = await setup.app.request(`/api/rigs/${seeded.result.rigId}/pods/dev/members`, {
+      const inheritedResponse = await setup.app.request(`/api/software-teams/${seeded.result.softwareTeamId}/pods/dev/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          rigRoot: OTHER_OPERATION_ROOT,
+          softwareTeamRoot: OTHER_OPERATION_ROOT,
           member: {
             id: "late",
             runtime: "claude-code",
@@ -460,11 +460,11 @@ describe("Seam C permission-policy discovery", () => {
       ]);
       expect(bindings[0]?.launchPosture).toBe("full_bypass");
 
-      const overrideResponse = await setup.app.request(`/api/rigs/${seeded.result.rigId}/pods/dev/members`, {
+      const overrideResponse = await setup.app.request(`/api/software-teams/${seeded.result.softwareTeamId}/pods/dev/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          rigRoot: OTHER_OPERATION_ROOT,
+          softwareTeamRoot: OTHER_OPERATION_ROOT,
           member: {
             id: "override",
             runtime: "claude-code",
@@ -488,7 +488,7 @@ describe("Seam C permission-policy discovery", () => {
     }
   });
 
-  it("keeps launch outcomes identical while carrying discovery on the rig-up result", async () => {
+  it("keeps launch outcomes identical while carrying discovery on the software-team-up result", async () => {
     const bindings: NodeBinding[] = [];
     const adapter: RuntimeAdapter = {
       runtime: "claude-code",
@@ -504,10 +504,10 @@ describe("Seam C permission-policy discovery", () => {
         adapters: { "claude-code": adapter },
         podInstantiatorFsOps: fsOps(),
       });
-      const absent = await setup.podInstantiator.instantiate(rigYaml({ name: "policy-absent" }), RIG_ROOT);
+      const absent = await setup.podInstantiator.instantiate(softwareTeamYaml({ name: "policy-absent" }), SOFTWARE_TEAM_ROOT);
       const attached = await setup.podInstantiator.instantiate(
-        rigYaml({ name: "policy-attached", rigPolicy: "builtin:locked" }),
-        RIG_ROOT,
+        softwareTeamYaml({ name: "policy-attached", softwareTeamPolicy: "builtin:locked" }),
+        SOFTWARE_TEAM_ROOT,
       );
 
       expect(absent.ok).toBe(true);
@@ -527,7 +527,7 @@ describe("Seam C permission-policy discovery", () => {
     }
   });
 
-  it("keeps SYSTEM setup preflight policy-blind while rig lifecycle preflight discovers policy", async () => {
+  it("keeps SYSTEM setup preflight policy-blind while SoftwareTeam lifecycle preflight discovers policy", async () => {
     const home = mkdtempSync(join(tmpdir(), "seam-c-system-preflight-"));
     tempDirs.push(home);
     const system = new SystemPreflight({
@@ -535,29 +535,29 @@ describe("Seam C permission-policy discovery", () => {
       configStore: {
         resolve: () => ({
           daemon: { host: "127.0.0.1", port: 0 },
-          db: { path: join(home, "openrig.db") },
+          db: { path: join(home, "softwareteam.db") },
           transcripts: { path: join(home, "transcripts") },
         }),
       } as never,
       getDaemonStatus: async () => ({ state: "stopped" }),
-      openrigHome: home,
+      softwareteamHome: home,
     });
 
     const systemResult = await system.run({ port: 0 });
     expect(JSON.stringify(systemResult)).not.toContain("permission_policy");
 
-    const lifecycleResult = await rigPreflight({
-      rigSpecYaml: rigYaml({ rigPolicy: "builtin:standard" }),
-      rigRoot: RIG_ROOT,
+    const lifecycleResult = await softwareTeamPreflight({
+      softwareTeamSpecYaml: softwareTeamYaml({ softwareTeamPolicy: "builtin:standard" }),
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT,
       fsOps: fsOps(),
     });
     expect(policyLines(lifecycleResult.warnings)).toHaveLength(1);
   });
 
   it("rejects an invalid ref upstream and never misreports it as floor discovery", async () => {
-    const invalid = await rigPreflight({
-      rigSpecYaml: rigYaml({ rigPolicy: "builtin:missing" }),
-      rigRoot: RIG_ROOT,
+    const invalid = await softwareTeamPreflight({
+      softwareTeamSpecYaml: softwareTeamYaml({ softwareTeamPolicy: "builtin:missing" }),
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT,
       fsOps: fsOps(),
     });
 
@@ -565,9 +565,9 @@ describe("Seam C permission-policy discovery", () => {
     expect(invalid.errors.join("\n")).toContain("unknown built-in policy 'missing'");
     expect(policyLines(invalid.warnings)).toEqual([]);
 
-    const valid = await rigPreflight({
-      rigSpecYaml: rigYaml({ rigPolicy: "builtin:standard" }),
-      rigRoot: RIG_ROOT,
+    const valid = await softwareTeamPreflight({
+      softwareTeamSpecYaml: softwareTeamYaml({ softwareTeamPolicy: "builtin:standard" }),
+      softwareTeamRoot: SOFTWARE_TEAM_ROOT,
       fsOps: fsOps(),
     });
     expect(valid.ready).toBe(true);

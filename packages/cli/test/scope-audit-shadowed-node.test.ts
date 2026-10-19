@@ -34,7 +34,7 @@ async function audit(mission: string): Promise<{ stdout: string; exitCode: numbe
   program.addCommand(scopeCommand());
   program.exitOverride();
   try {
-    await program.parseAsync(["node", "rig", "scope", "audit", "--mission", mission, "--json", "--workspace", workspace]);
+    await program.parseAsync(["node", "softwareTeam", "scope", "audit", "--mission", mission, "--json", "--workspace", workspace]);
   } catch (err) {
     const msg = (err as Error).message ?? "";
     if (!msg.startsWith("__EXIT__")) buf.push(msg);
@@ -50,7 +50,7 @@ function node(dir: string, files: Record<string, string>): void {
   for (const [f, c] of Object.entries(files)) fs.writeFileSync(path.join(dir, f), c, "utf8");
 }
 
-describe("rig scope audit — shadowed node file advisory (CLI twin)", () => {
+describe("SoftwareTeam scope audit — shadowed node file advisory (CLI twin)", () => {
   it("advises on a mission and a slice that each carry both SPEC.md and README.md", async () => {
     const missionDir = path.join(missionsRoot, "both-mission");
     node(missionDir, {

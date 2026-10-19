@@ -10,7 +10,7 @@
 //
 // What it does (DESIGN.md §5.4 — auto-discovery library = derived view):
 //   - Scans 3 filesystem roots for plugin manifests:
-//       * ~/.openrig/plugins/<id>/                         (vendored)
+//       * ~/.softwareteam/plugins/<id>/                         (vendored)
 //       * ~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/   (claude cache)
 //       * ~/.codex/plugins/cache/<marketplace>/<plugin>/<version>/    (codex cache)
 //   - Returns aggregated list with provenance labels per source root.
@@ -34,13 +34,13 @@ import { join, basename } from "node:path";
 import { parse as parseYaml } from "yaml";
 
 export type PluginRuntime = "claude" | "codex";
-// Slice 3.3 fix-C — `rig-cwd` source per DESIGN §5.4 union (4th category):
-// rig-bundled `<cwd>/.claude/plugins/*` + `<cwd>/.codex/plugins/*` (the
+// Slice 3.3 fix-C — `software-team-cwd` source per DESIGN §5.4 union (4th category):
+// software-team-bundled `<cwd>/.claude/plugins/*` + `<cwd>/.codex/plugins/*` (the
 // projection target from IMPL-PRD §1.2). velocity-qa VM verify failure #3.
-export type PluginSourceKind = "vendored" | "claude-cache" | "codex-cache" | "rig-cwd";
+export type PluginSourceKind = "vendored" | "claude-cache" | "codex-cache" | "software-team-cwd";
 
 export interface PluginEntry {
-  /** Stable id for routing (`openrig-core`, `<marketplace>:<plugin>:<version>`). */
+  /** Stable id for routing (`softwareteam-core`, `<marketplace>:<plugin>:<version>`). */
   id: string;
   /** Plugin's declared name from manifest. */
   name: string;
@@ -111,7 +111,7 @@ export interface PluginHookSummary {
 
 // Slice 3.3 fix-A — MCP server discovery (DESIGN §5.7 + IMPL-PRD §3.2).
 // MCP servers shipped via plugins are handled by the runtime's plugin
-// loader; OpenRig only surfaces what the manifest declares so the UI
+// loader; SoftwareTeam only surfaces what the manifest declares so the UI
 // viewer can list "this plugin ships these MCP servers." Implementation:
 // read manifest.mcpServers (Claude/Codex spec key) and emit one summary
 // per declared server. Best-effort: when the field is missing or shaped
@@ -157,8 +157,8 @@ export interface AgentReference {
 }
 
 export interface PluginDiscoveryServiceOpts {
-  /** Root directory for vendored OpenRig plugins (typically ~/.openrig/plugins). */
-  openrigPluginsDir: string;
+  /** Root directory for vendored SoftwareTeam plugins (typically ~/.softwareteam/plugins). */
+  softwareteamPluginsDir: string;
   /** Root directory for Claude Code plugin cache (typically ~/.claude/plugins/cache). */
   claudeCacheDir: string;
   /** Root directory for Codex plugin cache (typically ~/.codex/plugins/cache). */
@@ -168,12 +168,12 @@ export interface PluginDiscoveryServiceOpts {
   /** Additional spec roots visible in the library, including built-in and legacy user specs. */
   additionalSpecLibraryDirs?: string[];
   /**
-   * Slice 3.3 fix-C — optional rig cwd roots whose `.claude/plugins/*` +
-   * `.codex/plugins/*` subdirectories get scanned for rig-bundled
+   * Slice 3.3 fix-C — optional softwareTeam cwd roots whose `.claude/plugins/*` +
+   * `.codex/plugins/*` subdirectories get scanned for software-team-bundled
    * plugins (the projection target from IMPL-PRD §1.2). Default empty.
    * Population at v0 is per-call via listPlugins({ cwdScanRoots }) from
    * the API layer (?cwd=<path>); future slices may add automatic
-   * enumeration from running-rig state.
+   * enumeration from running-softwareTeam state.
    */
   cwdScanRoots?: string[];
 }
@@ -184,9 +184,9 @@ export interface ListPluginsOpts {
   /** Filter to plugins from a specific source root. */
   sourceFilter?: PluginSourceKind;
   /**
-   * Slice 3.3 fix-C — per-call rig cwd roots; overrides constructor option.
+   * Slice 3.3 fix-C — per-call softwareTeam cwd roots; overrides constructor option.
    * Each cwd contributes `<cwd>/.claude/plugins/*` + `<cwd>/.codex/plugins/*`
-   * discoveries labeled `rig-cwd:<plugin>`. The API layer passes a single
+   * discoveries labeled `software-team-cwd:<plugin>`. The API layer passes a single
    * `?cwd=<path>` query param down here.
    */
   cwdScanRoots?: string[];
@@ -194,7 +194,7 @@ export interface ListPluginsOpts {
 
 const CLAUDE_MANIFEST_REL = ".claude-plugin/plugin.json";
 const CODEX_MANIFEST_REL = ".codex-plugin/plugin.json";
-const OBSOLETE_LAB_PLUGIN_ID = "openrig-lab";
+const OBSOLETE_LAB_PLUGIN_ID = "softwareteam-lab";
 
 export class PluginDiscoveryService {
   private readonly opts: PluginDiscoveryServiceOpts;
@@ -208,10 +208,10 @@ export class PluginDiscoveryService {
   listPlugins(filterOpts: ListPluginsOpts = {}): PluginEntry[] {
     const out: PluginEntry[] = [];
 
-    // 1. Vendored OpenRig plugins.
-    if (existsSync(this.opts.openrigPluginsDir)) {
-      for (const entry of safeReaddir(this.opts.openrigPluginsDir)) {
-        const pluginPath = join(this.opts.openrigPluginsDir, entry);
+    // 1. Vendored SoftwareTeam plugins.
+    if (existsSync(this.opts.softwareteamPluginsDir)) {
+      for (const entry of safeReaddir(this.opts.softwareteamPluginsDir)) {
+        const pluginPath = join(this.opts.softwareteamPluginsDir, entry);
         if (!isDir(pluginPath)) continue;
         const detected = this.detectPlugin(pluginPath, "vendored", entry);
         if (detected) out.push(detected);
@@ -258,11 +258,11 @@ export class PluginDiscoveryService {
       }
     }
 
-    // 4. Slice 3.3 fix-C — rig-bundled cwd plugin roots.
+    // 4. Slice 3.3 fix-C — software-team-bundled cwd plugin roots.
     // Per-call opts override constructor opts; effective cwd set is the
     // union when both are present (per-call wins by replacement, NOT
     // append-to-constructor, because the API layer's ?cwd=<path> intent
-    // is "ALL plugins this specific rig sees" — predictable + cacheable).
+    // is "ALL plugins this specific softwareTeam sees" — predictable + cacheable).
     const effectiveCwds = filterOpts.cwdScanRoots ?? this.opts.cwdScanRoots ?? [];
     for (const cwd of effectiveCwds) {
       this.scanCwdBundledPlugins(cwd, out);
@@ -278,7 +278,7 @@ export class PluginDiscoveryService {
     return filtered;
   }
 
-  // Slice 3.3 fix-C — scan a single rig cwd for `.claude/plugins/*` +
+  // Slice 3.3 fix-C — scan a single softwareTeam cwd for `.claude/plugins/*` +
   // `.codex/plugins/*` bundles. Emits one PluginEntry per discovered
   // plugin manifest (matches the same detection rule as the other
   // source roots: presence of `.claude-plugin/plugin.json` and/or
@@ -290,9 +290,9 @@ export class PluginDiscoveryService {
       for (const entry of safeReaddir(claudePluginsDir)) {
         const pluginPath = join(claudePluginsDir, entry);
         if (!isDir(pluginPath)) continue;
-        const id = `rig-cwd:${cwd}/.claude/plugins/${entry}`;
-        const sourceLabel = `rig-cwd:${basename(cwd)}/${entry}`;
-        const detected = this.detectPlugin(pluginPath, "rig-cwd", id, sourceLabel);
+        const id = `software-team-cwd:${cwd}/.claude/plugins/${entry}`;
+        const sourceLabel = `software-team-cwd:${basename(cwd)}/${entry}`;
+        const detected = this.detectPlugin(pluginPath, "software-team-cwd", id, sourceLabel);
         if (detected) out.push(detected);
       }
     }
@@ -301,26 +301,26 @@ export class PluginDiscoveryService {
       for (const entry of safeReaddir(codexPluginsDir)) {
         const pluginPath = join(codexPluginsDir, entry);
         if (!isDir(pluginPath)) continue;
-        const id = `rig-cwd:${cwd}/.codex/plugins/${entry}`;
-        const sourceLabel = `rig-cwd:${basename(cwd)}/${entry}`;
-        const detected = this.detectPlugin(pluginPath, "rig-cwd", id, sourceLabel);
+        const id = `software-team-cwd:${cwd}/.codex/plugins/${entry}`;
+        const sourceLabel = `software-team-cwd:${basename(cwd)}/${entry}`;
+        const detected = this.detectPlugin(pluginPath, "software-team-cwd", id, sourceLabel);
         if (detected) out.push(detected);
       }
     }
   }
 
   getPlugin(id: string): PluginDetail | null {
-    // Slice 3.3 fix-iteration — rig-cwd: IDs are self-resolvable.
+    // Slice 3.3 fix-iteration — software-team-cwd: IDs are self-resolvable.
     // Pre-fix, getPlugin called this.listPlugins() (no opts), which
-    // excluded rig-cwd entries because cwdScanRoots is empty by default.
-    // Result: /api/plugins?cwd= returned a rig-cwd id, /api/plugins/:id
+    // excluded software-team-cwd entries because cwdScanRoots is empty by default.
+    // Result: /api/plugins?cwd= returned a software-team-cwd id, /api/plugins/:id
     // 404'd on the same id (redo-guard-2 BLOCK item 1). Fix: parse the
-    // cwd out of the rig-cwd: prefix and pass it as cwdScanRoots so
+    // cwd out of the software-team-cwd: prefix and pass it as cwdScanRoots so
     // the entry is in the list. ID format constructed in
     // scanCwdBundledPlugins:
-    //   rig-cwd:<cwd>/.claude/plugins/<plugin>
-    //   rig-cwd:<cwd>/.codex/plugins/<plugin>
-    const cwdScanRoots = extractCwdFromRigCwdId(id);
+    //   software-team-cwd:<cwd>/.claude/plugins/<plugin>
+    //   software-team-cwd:<cwd>/.codex/plugins/<plugin>
+    const cwdScanRoots = extractCwdFromSoftwareTeamCwdId(id);
     const entry = this.listPlugins(cwdScanRoots ? { cwdScanRoots } : {}).find((p) => p.id === id);
     if (!entry) return null;
 
@@ -397,7 +397,7 @@ export class PluginDiscoveryService {
   // -- helpers --
 
   /**
-   * Before openrig-core became the sole refocus provider, openrig-lab shipped
+   * Before softwareteam-core became the sole refocus provider, softwareteam-lab shipped
    * the same registrations. Upgrade installs can retain that old lab plugin,
    * so remove only its refocus commands before validating unknown conflicts.
    * The hook registry is written first: an interrupted migration therefore
@@ -405,7 +405,7 @@ export class PluginDiscoveryService {
    * at the now-empty registry.
    */
   private retireObsoleteLabRefocusHooks(): void {
-    const pluginPath = join(this.opts.openrigPluginsDir, OBSOLETE_LAB_PLUGIN_ID);
+    const pluginPath = join(this.opts.softwareteamPluginsDir, OBSOLETE_LAB_PLUGIN_ID);
     if (!isDir(pluginPath)) return;
 
     for (const manifestRel of [CLAUDE_MANIFEST_REL, CODEX_MANIFEST_REL]) {
@@ -435,11 +435,11 @@ export class PluginDiscoveryService {
    * multiple cached versions are inventory, not simultaneous providers.
    */
   private assertNoDuplicateVendoredHooks(): void {
-    if (!existsSync(this.opts.openrigPluginsDir)) return;
+    if (!existsSync(this.opts.softwareteamPluginsDir)) return;
 
     const seen = new Map<string, { pluginPath: string; hooksPath: string }>();
-    for (const entry of safeReaddir(this.opts.openrigPluginsDir).sort()) {
-      const pluginPath = join(this.opts.openrigPluginsDir, entry);
+    for (const entry of safeReaddir(this.opts.softwareteamPluginsDir).sort()) {
+      const pluginPath = join(this.opts.softwareteamPluginsDir, entry);
       if (!isDir(pluginPath)) continue;
 
       for (const [runtime, manifestRel] of [
@@ -528,19 +528,19 @@ export class PluginDiscoveryService {
   }
 }
 
-// Slice 3.3 fix-iteration — parse cwd from a rig-cwd: id so getPlugin
+// Slice 3.3 fix-iteration — parse cwd from a software-team-cwd: id so getPlugin
 // can re-scan that cwd before the lookup. Returns the cwd in a
 // single-element array (caller passes as cwdScanRoots) or null when
-// the id is not a rig-cwd: id, can't be parsed, or both manifest dir
+// the id is not a software-team-cwd: id, can't be parsed, or both manifest dir
 // markers are absent. Tolerant of both `/.claude/plugins/` and
 // `/.codex/plugins/` markers (whichever appears first wins; in the
 // canonical id one of them is always present).
-const RIG_CWD_PREFIX = "rig-cwd:";
+const SOFTWARE_TEAM_CWD_PREFIX = "software-team-cwd:";
 const CLAUDE_MARKER = "/.claude/plugins/";
 const CODEX_MARKER = "/.codex/plugins/";
-function extractCwdFromRigCwdId(id: string): string[] | null {
-  if (!id.startsWith(RIG_CWD_PREFIX)) return null;
-  const rest = id.slice(RIG_CWD_PREFIX.length);
+function extractCwdFromSoftwareTeamCwdId(id: string): string[] | null {
+  if (!id.startsWith(SOFTWARE_TEAM_CWD_PREFIX)) return null;
+  const rest = id.slice(SOFTWARE_TEAM_CWD_PREFIX.length);
   const claudeIdx = rest.indexOf(CLAUDE_MARKER);
   const codexIdx = rest.indexOf(CODEX_MARKER);
   let cwd: string | null = null;
@@ -691,7 +691,7 @@ function hasHookRegistrations(registry: Record<string, unknown>): boolean {
 }
 
 function writeJsonAtomically(path: string, value: Record<string, unknown>): void {
-  const tempPath = `${path}.openrig-migration-${process.pid}-${Date.now()}.tmp`;
+  const tempPath = `${path}.softwareteam-migration-${process.pid}-${Date.now()}.tmp`;
   const mode = statSync(path).mode & 0o777;
   writeFileSync(tempPath, `${JSON.stringify(value, null, 2)}\n`, { mode });
   renameSync(tempPath, path);

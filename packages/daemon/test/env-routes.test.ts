@@ -3,13 +3,13 @@ import { Hono } from "hono";
 import { envRoutes } from "../src/routes/env.js";
 
 function createApp(deps: {
-  getServicesRecord: (rigId: string) => unknown;
-  captureReceipt?: (rigId: string) => unknown;
-  teardown?: (rigId: string, opts?: unknown) => unknown;
+  getServicesRecord: (softwareTeamId: string) => unknown;
+  captureReceipt?: (softwareTeamId: string) => unknown;
+  teardown?: (softwareTeamId: string, opts?: unknown) => unknown;
 }): Hono {
   const app = new Hono();
   app.use("*", async (c, next) => {
-    c.set("rigRepo" as never, { getServicesRecord: deps.getServicesRecord });
+    c.set("softwareTeamRepo" as never, { getServicesRecord: deps.getServicesRecord });
     const orchestrator = (deps.captureReceipt || deps.teardown)
       ? { captureReceipt: deps.captureReceipt, teardown: deps.teardown }
       : undefined;
@@ -17,14 +17,14 @@ function createApp(deps: {
     c.set("composeAdapter" as never, undefined);
     await next();
   });
-  app.route("/api/rigs/:rigId/env", envRoutes());
+  app.route("/api/software-teams/:softwareTeamId/env", envRoutes());
   return app;
 }
 
 describe("env routes", () => {
-  it("GET /api/rigs/:rigId/env returns hasServices false when no record", async () => {
+  it("GET /api/software-teams/:softwareTeamId/env returns hasServices false when no record", async () => {
     const app = createApp({ getServicesRecord: () => null });
-    const res = await app.request("/api/rigs/rig-1/env");
+    const res = await app.request("/api/software-teams/software-team-1/env");
     expect(res.status).toBe(200);
     const body = await res.json() as Record<string, unknown>;
     expect(body["ok"]).toBe(true);
@@ -32,7 +32,7 @@ describe("env routes", () => {
     expect(body["surfaces"]).toBeUndefined();
   });
 
-  it("GET /api/rigs/:rigId/env returns surfaces from specJson for service-backed rigs", async () => {
+  it("GET /api/software-teams/:softwareTeamId/env returns surfaces from specJson for service-backed softwareTeams", async () => {
     const specJson = JSON.stringify({
       kind: "compose",
       compose_file: "svc.compose.yaml",
@@ -52,10 +52,10 @@ describe("env routes", () => {
 
     const app = createApp({
       getServicesRecord: () => ({
-        rigId: "rig-1",
+        softwareTeamId: "software-team-1",
         kind: "compose",
         specJson,
-        rigRoot: "/tmp",
+        softwareTeamRoot: "/tmp",
         composeFile: "/tmp/svc.compose.yaml",
         projectName: "test-svc",
         latestReceiptJson: null,
@@ -64,7 +64,7 @@ describe("env routes", () => {
       }),
     });
 
-    const res = await app.request("/api/rigs/rig-1/env");
+    const res = await app.request("/api/software-teams/software-team-1/env");
     expect(res.status).toBe(200);
     const body = await res.json() as Record<string, unknown>;
     expect(body["ok"]).toBe(true);
@@ -83,10 +83,10 @@ describe("env routes", () => {
   });
 
   const SERVICE_RECORD = {
-    rigId: "rig-1",
+    softwareTeamId: "software-team-1",
     kind: "compose",
     specJson: JSON.stringify({ kind: "compose", compose_file: "svc.yaml" }),
-    rigRoot: "/tmp",
+    softwareTeamRoot: "/tmp",
     composeFile: "/tmp/svc.yaml",
     projectName: "test-svc",
     latestReceiptJson: JSON.stringify({ kind: "compose", services: [{ name: "vault", status: "running", health: "healthy" }], capturedAt: "2026-04-09T11:00:00Z" }),
@@ -100,7 +100,7 @@ describe("env routes", () => {
       captureReceipt: () => { throw new Error("compose ps failed: connection refused"); },
     });
 
-    const res = await app.request("/api/rigs/rig-1/env");
+    const res = await app.request("/api/software-teams/software-team-1/env");
     expect(res.status).toBe(200);
     const body = await res.json() as Record<string, unknown>;
     expect(body["ok"]).toBe(true);
@@ -123,7 +123,7 @@ describe("env routes", () => {
         return fresh;
       },
     });
-    const res = await app.request("/api/rigs/rig-1/env");
+    const res = await app.request("/api/software-teams/software-team-1/env");
     expect(res.status).toBe(200);
     expect(probes).toBe(1);
     expect(await res.json()).toMatchObject({ receipt: fresh, probeStatus: "fresh" });
@@ -133,7 +133,7 @@ describe("env routes", () => {
     const app = createApp({
       getServicesRecord: () => ({ ...SERVICE_RECORD, latestReceiptJson: "{torn" }),
     });
-    const res = await app.request("/api/rigs/rig-1/env");
+    const res = await app.request("/api/software-teams/software-team-1/env");
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
       hasServices: true,
@@ -150,7 +150,7 @@ describe("env routes", () => {
       captureReceipt: () => freshReceipt,
     });
 
-    const res = await app.request("/api/rigs/rig-1/env");
+    const res = await app.request("/api/software-teams/software-team-1/env");
     expect(res.status).toBe(200);
     const body = await res.json() as Record<string, unknown>;
     expect(body["ok"]).toBe(true);
@@ -166,7 +166,7 @@ describe("env routes", () => {
       // no captureReceipt → serviceOrchestrator is undefined
     });
 
-    const res = await app.request("/api/rigs/rig-1/env");
+    const res = await app.request("/api/software-teams/software-team-1/env");
     expect(res.status).toBe(200);
     const body = await res.json() as Record<string, unknown>;
     expect(body["ok"]).toBe(true);
@@ -184,7 +184,7 @@ describe("env routes", () => {
       captureReceipt: () => null,
     });
 
-    const res = await app.request("/api/rigs/rig-1/env");
+    const res = await app.request("/api/software-teams/software-team-1/env");
     expect(res.status).toBe(200);
     const body = await res.json() as Record<string, unknown>;
     expect(body["ok"]).toBe(true);
@@ -202,12 +202,12 @@ describe("env routes", () => {
     let capturedOpts: unknown = "not called";
     const app = createApp({
       getServicesRecord: () => SERVICE_RECORD,
-      teardown: (_rigId: string, opts?: unknown) => {
+      teardown: (_softwareTeamId: string, opts?: unknown) => {
         capturedOpts = opts;
         return { ok: true };
       },
     });
-    const res = await app.request("/api/rigs/rig-1/env/down", {
+    const res = await app.request("/api/software-teams/software-team-1/env/down", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ volumes }),
@@ -220,12 +220,12 @@ describe("env routes", () => {
     let capturedOpts: unknown = "not called";
     const app = createApp({
       getServicesRecord: () => SERVICE_RECORD,
-      teardown: (_rigId: string, opts?: unknown) => {
+      teardown: (_softwareTeamId: string, opts?: unknown) => {
         capturedOpts = opts;
         return { ok: true };
       },
     });
-    const res = await app.request("/api/rigs/rig-1/env/down", {
+    const res = await app.request("/api/software-teams/software-team-1/env/down", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body,
@@ -238,13 +238,13 @@ describe("env routes", () => {
     let capturedOpts: unknown = undefined;
     const app = createApp({
       getServicesRecord: () => SERVICE_RECORD,
-      teardown: (_rigId: string, opts?: unknown) => {
+      teardown: (_softwareTeamId: string, opts?: unknown) => {
         capturedOpts = opts;
         return Promise.resolve({ ok: true });
       },
     });
 
-    const res = await app.request("/api/rigs/rig-1/env/down", {
+    const res = await app.request("/api/software-teams/software-team-1/env/down", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ volumes: true }),
@@ -260,13 +260,13 @@ describe("env routes", () => {
     let capturedOpts: unknown = undefined;
     const app = createApp({
       getServicesRecord: () => SERVICE_RECORD,
-      teardown: (_rigId: string, opts?: unknown) => {
+      teardown: (_softwareTeamId: string, opts?: unknown) => {
         capturedOpts = opts;
         return Promise.resolve({ ok: true });
       },
     });
 
-    const res = await app.request("/api/rigs/rig-1/env/down", {
+    const res = await app.request("/api/software-teams/software-team-1/env/down", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
@@ -276,16 +276,16 @@ describe("env routes", () => {
   });
 
   it("POST /env/down carries the archived project's retention reason", async () => {
-    const kept = "kept project shared: still used by rig successor (rig-2)";
+    const kept = "kept project shared: still used by SoftwareTeam successor (software-team-2)";
     const app = createApp({ getServicesRecord: () => SERVICE_RECORD, teardown: async () => ({ ok: true, kept }) });
-    const res = await app.request("/api/rigs/rig-1/env/down", { method: "POST" });
+    const res = await app.request("/api/software-teams/software-team-1/env/down", { method: "POST" });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, kept });
   });
 
   it("GET /env does not include probeStatus when hasServices is false", async () => {
     const app = createApp({ getServicesRecord: () => null });
-    const res = await app.request("/api/rigs/rig-1/env");
+    const res = await app.request("/api/software-teams/software-team-1/env");
     const body = await res.json() as Record<string, unknown>;
     expect(body["hasServices"]).toBe(false);
     expect(body["probeStatus"]).toBeUndefined();

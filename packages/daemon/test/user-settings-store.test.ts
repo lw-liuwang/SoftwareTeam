@@ -25,40 +25,40 @@ const DEFAULT_EXTRA_INSTRUCTION_FILE_SUFFIX = "compaction/post-compact-extra.md"
 
 function clearEnv(): () => void {
   const keys = [
-    "OPENRIG_PORT", "OPENRIG_HOST", "OPENRIG_DB",
-    "OPENRIG_TRANSCRIPTS_ENABLED", "OPENRIG_TRANSCRIPTS_PATH",
-    "OPENRIG_TRANSCRIPTS_LINES", "OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS",
-    "OPENRIG_WORKSPACE_ROOT", "OPENRIG_WORKSPACE_SLICES_ROOT",
-    "OPENRIG_WORKSPACE_STEERING_PATH", "OPENRIG_WORKSPACE_FIELD_NOTES_ROOT",
-    "OPENRIG_WORKSPACE_SPECS_ROOT", "OPENRIG_DOGFOOD_EVIDENCE_ROOT",
-    "OPENRIG_WORKSPACE_PROJECTS_ROOT", "OPENRIG_WORKSPACE_CATALOG_PATH",
-    "OPENRIG_CONTEXT_ROOT", "OPENRIG_CONTEXT_SYSTEM_WORLD", "OPENRIG_CONTEXT_PACKS_ROOT",
-    "OPENRIG_HEALTH_CONTEXT_PRESSURE_WARNING_PERCENT",
-    "OPENRIG_HEALTH_CONTEXT_PRESSURE_CRITICAL_PERCENT",
-    "OPENRIG_SKILLS_ROOT",
-    "OPENRIG_FILES_ALLOWLIST", "OPENRIG_PROGRESS_SCAN_ROOTS",
-    "OPENRIG_UI_PREVIEW_REFRESH_INTERVAL_SECONDS",
-    "OPENRIG_UI_PREVIEW_MAX_PINS", "OPENRIG_UI_PREVIEW_DEFAULT_LINES",
-    "OPENRIG_RECOVERY_AUTO_DRIVE_PROVIDER_PROMPTS",
-    "OPENRIG_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST",
-    "OPENRIG_AGENTS_ADVISOR_SESSION", "OPENRIG_AGENTS_OPERATOR_SESSION",
-    "OPENRIG_FEED_SUBSCRIPTIONS_ACTION_REQUIRED", "OPENRIG_FEED_SUBSCRIPTIONS_APPROVALS",
-    "OPENRIG_FEED_SUBSCRIPTIONS_SHIPPED", "OPENRIG_FEED_SUBSCRIPTIONS_PROGRESS",
-    "OPENRIG_FEED_SUBSCRIPTIONS_AUDIT_LOG",
-    "OPENRIG_RUNTIME_CODEX_HOOKS_ENABLED",
-    "OPENRIG_RUNTIME_READINESS_TIMEOUT_SECONDS",
+    "SOFTWARETEAM_PORT", "SOFTWARETEAM_HOST", "SOFTWARETEAM_DB",
+    "SOFTWARETEAM_TRANSCRIPTS_ENABLED", "SOFTWARETEAM_TRANSCRIPTS_PATH",
+    "SOFTWARETEAM_TRANSCRIPTS_LINES", "SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS",
+    "SOFTWARETEAM_WORKSPACE_ROOT", "SOFTWARETEAM_WORKSPACE_SLICES_ROOT",
+    "SOFTWARETEAM_WORKSPACE_STEERING_PATH", "SOFTWARETEAM_WORKSPACE_FIELD_NOTES_ROOT",
+    "SOFTWARETEAM_WORKSPACE_SPECS_ROOT", "SOFTWARETEAM_DOGFOOD_EVIDENCE_ROOT",
+    "SOFTWARETEAM_WORKSPACE_PROJECTS_ROOT", "SOFTWARETEAM_WORKSPACE_CATALOG_PATH",
+    "SOFTWARETEAM_CONTEXT_ROOT", "SOFTWARETEAM_CONTEXT_SYSTEM_WORLD", "SOFTWARETEAM_CONTEXT_PACKS_ROOT",
+    "SOFTWARETEAM_HEALTH_CONTEXT_PRESSURE_WARNING_PERCENT",
+    "SOFTWARETEAM_HEALTH_CONTEXT_PRESSURE_CRITICAL_PERCENT",
+    "SOFTWARETEAM_SKILLS_ROOT",
+    "SOFTWARETEAM_FILES_ALLOWLIST", "SOFTWARETEAM_PROGRESS_SCAN_ROOTS",
+    "SOFTWARETEAM_UI_PREVIEW_REFRESH_INTERVAL_SECONDS",
+    "SOFTWARETEAM_UI_PREVIEW_MAX_PINS", "SOFTWARETEAM_UI_PREVIEW_DEFAULT_LINES",
+    "SOFTWARETEAM_RECOVERY_AUTO_DRIVE_PROVIDER_PROMPTS",
+    "SOFTWARETEAM_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST",
+    "SOFTWARETEAM_AGENTS_ADVISOR_SESSION", "SOFTWARETEAM_AGENTS_OPERATOR_SESSION",
+    "SOFTWARETEAM_FEED_SUBSCRIPTIONS_ACTION_REQUIRED", "SOFTWARETEAM_FEED_SUBSCRIPTIONS_APPROVALS",
+    "SOFTWARETEAM_FEED_SUBSCRIPTIONS_SHIPPED", "SOFTWARETEAM_FEED_SUBSCRIPTIONS_PROGRESS",
+    "SOFTWARETEAM_FEED_SUBSCRIPTIONS_AUDIT_LOG",
+    "SOFTWARETEAM_RUNTIME_CODEX_HOOKS_ENABLED",
+    "SOFTWARETEAM_RUNTIME_READINESS_TIMEOUT_SECONDS",
     // Slice 27 — Claude auto-compaction policy env-map.
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_ENABLED",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_PRE_COMPACT_INSTRUCTION",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_COMPACT_INSTRUCTION",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_MESSAGE_INLINE",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_MESSAGE_FILE_PATH",
-    "OPENRIG_POLICIES_CLAUDE_COMPACTION_POST_RESTORE_AUDIT_INSTRUCTION",
-    "OPENRIG_POLICIES_IDLE_GATE_QITEM_SCAN_INTERVAL_SECONDS",
-    "OPENRIG_POLICIES_IDLE_GATE_QITEM_ACTIVE_WAKE_INTERVAL_SECONDS",
-    "RIGGED_PORT", "RIGGED_HOST", "RIGGED_DB",
-    "RIGGED_TRANSCRIPTS_ENABLED", "RIGGED_TRANSCRIPTS_PATH",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_ENABLED",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_PRE_COMPACT_INSTRUCTION",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_COMPACT_INSTRUCTION",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_MESSAGE_INLINE",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_MESSAGE_FILE_PATH",
+    "SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_POST_RESTORE_AUDIT_INSTRUCTION",
+    "SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_SCAN_INTERVAL_SECONDS",
+    "SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_ACTIVE_WAKE_INTERVAL_SECONDS",
+    "SOFTWARETEAM_PORT", "SOFTWARETEAM_HOST", "SOFTWARETEAM_DB",
+    "SOFTWARETEAM_TRANSCRIPTS_ENABLED", "SOFTWARETEAM_TRANSCRIPTS_PATH",
   ];
   const saved: Record<string, string | undefined> = {};
   for (const k of keys) {
@@ -121,7 +121,7 @@ describe("SettingsStore (User Settings v0)", () => {
       "recovery.provider_auth_env_allowlist",
       // V1 attempt-3 Phase 4 — Advisor/Operator placeholders.
       "agents.advisor_session", "agents.operator_session",
-      // V0.3.1 slice 05 kernel-rig-as-default — operator seat name read
+      // V0.3.1 slice 05 kernel-software-team-as-default — operator seat name read
       // by mission-control read layer + 2 UI sites; default
       // `operator-${USER}@kernel`.
       "workspace.operator_seat_name",
@@ -189,16 +189,16 @@ describe("SettingsStore (User Settings v0)", () => {
       source: "default",
     });
 
-    process.env["OPENRIG_CONTEXT_ROOT"] = join(tmpDir, "context-library");
+    process.env["SOFTWARETEAM_CONTEXT_ROOT"] = join(tmpDir, "context-library");
     expect(store.resolveOne("context.root")).toMatchObject({ value: join(tmpDir, "context-library"), source: "env" });
-    delete process.env["OPENRIG_CONTEXT_ROOT"];
+    delete process.env["SOFTWARETEAM_CONTEXT_ROOT"];
 
     expect(() => store.set("context.packs_root", "/legacy")).toThrow(/removed.*context\.root/i);
     writeFileSync(configPath, JSON.stringify({ context: { packsRoot: "/legacy" } }));
     expect(() => store.resolveConfig()).toThrow(/context\.packs_root.*context\.root/i);
     writeFileSync(configPath, "{}\n");
-    process.env["OPENRIG_CONTEXT_PACKS_ROOT"] = "/legacy-env";
-    expect(() => store.resolveOne("context.root")).toThrow(/OPENRIG_CONTEXT_PACKS_ROOT.*OPENRIG_CONTEXT_ROOT/i);
+    process.env["SOFTWARETEAM_CONTEXT_PACKS_ROOT"] = "/legacy-env";
+    expect(() => store.resolveOne("context.root")).toThrow(/SOFTWARETEAM_CONTEXT_PACKS_ROOT.*SOFTWARETEAM_CONTEXT_ROOT/i);
   });
 
   it("defaults the advisor session to the kernel's advisor seat", () => {
@@ -252,7 +252,7 @@ describe("SettingsStore (User Settings v0)", () => {
     expect(store.resolveOne("context.system_world")).toMatchObject({ value: "default", source: "default" });
     store.set("context.system_world", "operator/system-world.yaml");
     expect(store.resolveOne("context.system_world")).toMatchObject({ value: "operator/system-world.yaml", source: "file" });
-    process.env["OPENRIG_CONTEXT_SYSTEM_WORLD"] = "disabled";
+    process.env["SOFTWARETEAM_CONTEXT_SYSTEM_WORLD"] = "disabled";
     expect(store.resolveConfig().systemWorld).toBe("disabled");
   });
 
@@ -273,7 +273,7 @@ describe("SettingsStore (User Settings v0)", () => {
     expect(store.resolveOne("runtime.readiness_timeout_seconds")).toMatchObject({ value: 30, source: "default" });
     store.set("runtime.readiness_timeout_seconds", "45");
     expect(store.resolveOne("runtime.readiness_timeout_seconds")).toMatchObject({ value: 45, source: "file" });
-    process.env["OPENRIG_RUNTIME_READINESS_TIMEOUT_SECONDS"] = "60";
+    process.env["SOFTWARETEAM_RUNTIME_READINESS_TIMEOUT_SECONDS"] = "60";
     expect(store.resolveOne("runtime.readiness_timeout_seconds")).toMatchObject({ value: 60, source: "env" });
     for (const value of ["0", "601", "2.5", "45junk"]) {
       expect(() => store.set("runtime.readiness_timeout_seconds", value)).toThrow(/integer in \[1, 600\]/);
@@ -284,7 +284,7 @@ describe("SettingsStore (User Settings v0)", () => {
     const store = new SettingsStore(configPath);
     const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     try {
-      process.env["OPENRIG_RUNTIME_READINESS_TIMEOUT_SECONDS"] = "0";
+      process.env["SOFTWARETEAM_RUNTIME_READINESS_TIMEOUT_SECONDS"] = "0";
       expect(store.resolveOne("runtime.readiness_timeout_seconds")).toMatchObject({ value: 30, source: "default" });
       store.set("runtime.readiness_timeout_seconds", "45");
       expect(store.resolveOne("runtime.readiness_timeout_seconds")).toMatchObject({ value: 45, source: "file" });
@@ -317,8 +317,8 @@ describe("SettingsStore (User Settings v0)", () => {
     expect(store.resolveOne("policies.idle_gate_qitem.active_wake_interval_seconds"))
       .toMatchObject({ value: 1800, source: "file" });
 
-    process.env.OPENRIG_POLICIES_IDLE_GATE_QITEM_SCAN_INTERVAL_SECONDS = "30";
-    process.env.OPENRIG_POLICIES_IDLE_GATE_QITEM_ACTIVE_WAKE_INTERVAL_SECONDS = "450";
+    process.env.SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_SCAN_INTERVAL_SECONDS = "30";
+    process.env.SOFTWARETEAM_POLICIES_IDLE_GATE_QITEM_ACTIVE_WAKE_INTERVAL_SECONDS = "450";
     expect(store.resolveOne("policies.idle_gate_qitem.scan_interval_seconds"))
       .toMatchObject({ value: 30, source: "env" });
     expect(store.resolveOne("policies.idle_gate_qitem.active_wake_interval_seconds"))
@@ -356,7 +356,7 @@ describe("SettingsStore (User Settings v0)", () => {
     expect(store.resolveOne("onboarding.default_pack.enabled"))
       .toMatchObject({ value: false, source: "file", defaultValue: true });
 
-    process.env.OPENRIG_ONBOARDING_DEFAULT_PACK_ENABLED = "true";
+    process.env.SOFTWARETEAM_ONBOARDING_DEFAULT_PACK_ENABLED = "true";
     expect(store.resolveOne("onboarding.default_pack.enabled"))
       .toMatchObject({ value: true, source: "env", defaultValue: true });
   });
@@ -371,10 +371,10 @@ describe("SettingsStore (User Settings v0)", () => {
     expect(JSON.parse(readFileSync(configPath, "utf-8")).transport).toEqual({ verifyInputBox: true });
 
     try {
-      process.env.OPENRIG_TRANSPORT_VERIFY_INPUT_BOX = "0";
+      process.env.SOFTWARETEAM_TRANSPORT_VERIFY_INPUT_BOX = "0";
       expect(store.resolveOne("transport.verify_input_box")).toMatchObject({ value: false, source: "env" });
     } finally {
-      delete process.env.OPENRIG_TRANSPORT_VERIFY_INPUT_BOX;
+      delete process.env.SOFTWARETEAM_TRANSPORT_VERIFY_INPUT_BOX;
     }
   });
 
@@ -382,7 +382,7 @@ describe("SettingsStore (User Settings v0)", () => {
     const store = new SettingsStore(configPath);
     // No file → default
     expect(store.resolveOne("daemon.port").source).toBe("default");
-    expect(store.resolveOne("daemon.port").value).toBe(7433);
+    expect(store.resolveOne("daemon.port").value).toBe(7434);
 
     // File → file
     store.set("daemon.port", "9999");
@@ -390,21 +390,21 @@ describe("SettingsStore (User Settings v0)", () => {
     expect(store.resolveOne("daemon.port").source).toBe("file");
 
     // Env wins
-    process.env["OPENRIG_PORT"] = "8888";
+    process.env["SOFTWARETEAM_PORT"] = "8888";
     try {
       expect(store.resolveOne("daemon.port").value).toBe(8888);
       expect(store.resolveOne("daemon.port").source).toBe("env");
     } finally {
-      delete process.env["OPENRIG_PORT"];
+      delete process.env["SOFTWARETEAM_PORT"];
     }
   });
 
   // Constraint gap (Slice 27 residue, lockstep twin of the CLI store):
-  // daemon.port had no KEY_CONSTRAINTS entry, so `rig config set
+  // daemon.port had no KEY_CONSTRAINTS entry, so `SoftwareTeam config set
   // daemon.port 99999` stored 99999 and the next daemon start died with a
   // raw ERR_SOCKET_BAD_PORT from serve(). The contract: refuse only ports
   // that cannot be bound, checked on the value the runtime consumes (the
-  // same parseInt the boot path runs on OPENRIG_PORT), never against a
+  // same parseInt the boot path runs on SOFTWARETEAM_PORT), never against a
   // stricter input format than today's.
   it("daemon.port refuses ports that cannot be bound; 0 and 65535 stay legal", () => {
     const store = new SettingsStore(configPath);
@@ -421,9 +421,9 @@ describe("SettingsStore (User Settings v0)", () => {
   it("daemon.port keeps resolving every input form that resolves today", () => {
     const store = new SettingsStore(configPath);
     for (const [raw, expected] of [
-      ["7433abc", 7433],
-      ["7433.5", 7433],
-      ["+7433", 7433],
+      ["7434abc", 7434],
+      ["7434.5", 7434],
+      ["+7434", 7434],
       ["1e4", 1],
       ["0x1D11", 0],
     ] as const) {
@@ -437,7 +437,7 @@ describe("SettingsStore (User Settings v0)", () => {
     const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     try {
       const store = new SettingsStore(configPath);
-      expect(store.resolveOne("daemon.port").value).toBe(7433);
+      expect(store.resolveOne("daemon.port").value).toBe(7434);
       expect(store.resolveOne("daemon.port").source).toBe("default");
       const warns = stderrSpy.mock.calls.map((c) => String(c[0]));
       expect(warns.some((w) => w.includes("file value for daemon.port rejected"))).toBe(true);
@@ -508,14 +508,14 @@ describe("SettingsStore (User Settings v0)", () => {
     expect(store.resolveOne("workspace.projects_root")).toMatchObject({ value: "/configured/projects", source: "file" });
     expect(store.resolveOne("workspace.catalog_path")).toMatchObject({ value: "/configured/workspace.yaml", source: "file" });
 
-    process.env["OPENRIG_WORKSPACE_PROJECTS_ROOT"] = "/project/worlds";
-    process.env["OPENRIG_WORKSPACE_CATALOG_PATH"] = "/catalog/workspace.yaml";
+    process.env["SOFTWARETEAM_WORKSPACE_PROJECTS_ROOT"] = "/project/worlds";
+    process.env["SOFTWARETEAM_WORKSPACE_CATALOG_PATH"] = "/catalog/workspace.yaml";
     try {
       expect(store.resolveOne("workspace.projects_root")).toMatchObject({ value: "/project/worlds", source: "env" });
       expect(store.resolveOne("workspace.catalog_path")).toMatchObject({ value: "/catalog/workspace.yaml", source: "env" });
     } finally {
-      delete process.env["OPENRIG_WORKSPACE_PROJECTS_ROOT"];
-      delete process.env["OPENRIG_WORKSPACE_CATALOG_PATH"];
+      delete process.env["SOFTWARETEAM_WORKSPACE_PROJECTS_ROOT"];
+      delete process.env["SOFTWARETEAM_WORKSPACE_CATALOG_PATH"];
     }
   });
 
@@ -534,14 +534,14 @@ describe("SettingsStore (User Settings v0)", () => {
     expect(steering).toMatchObject({ value: "/ws/STEERING.md", source: "default" });
   });
 
-  it("UEP env-var graduation: OPENRIG_FILES_ALLOWLIST resolves files.allowlist", () => {
+  it("UEP env-var graduation: SOFTWARETEAM_FILES_ALLOWLIST resolves files.allowlist", () => {
     const store = new SettingsStore(configPath);
-    process.env["OPENRIG_FILES_ALLOWLIST"] = "ws:/Users/me";
+    process.env["SOFTWARETEAM_FILES_ALLOWLIST"] = "ws:/Users/me";
     try {
       expect(store.resolveOne("files.allowlist").value).toBe("ws:/Users/me");
       expect(store.resolveOne("files.allowlist").source).toBe("env");
     } finally {
-      delete process.env["OPENRIG_FILES_ALLOWLIST"];
+      delete process.env["SOFTWARETEAM_FILES_ALLOWLIST"];
     }
   });
 
@@ -624,16 +624,16 @@ describe("SettingsStore (User Settings v0)", () => {
   });
 
   it("Slice 27: ensureDefaultClaudeCompactionFiles creates the user-owned extra instruction placeholder without overwriting edits", () => {
-    const openrigHome = join(tmpDir, ".openrig-placeholder");
-    const filePath = ensureDefaultClaudeCompactionFiles(openrigHome);
-    expect(filePath).toBe(defaultClaudeCompactionExtraInstructionFilePath(openrigHome));
+    const softwareteamHome = join(tmpDir, ".softwareteam-placeholder");
+    const filePath = ensureDefaultClaudeCompactionFiles(softwareteamHome);
+    expect(filePath).toBe(defaultClaudeCompactionExtraInstructionFilePath(softwareteamHome));
     expect(existsSync(filePath)).toBe(true);
     expect(require("node:fs").readFileSync(filePath, "utf-8")).toBe(
       DEFAULT_CLAUDE_COMPACTION_EXTRA_INSTRUCTION_FILE_CONTENT,
     );
 
     writeFileSync(filePath, "operator edits\n", "utf-8");
-    ensureDefaultClaudeCompactionFiles(openrigHome);
+    ensureDefaultClaudeCompactionFiles(softwareteamHome);
     expect(require("node:fs").readFileSync(filePath, "utf-8")).toBe("operator edits\n");
   });
 
@@ -673,7 +673,7 @@ describe("SettingsStore (User Settings v0)", () => {
 
   // Slice 27 BLOCKING-FIX-2 — env + file source resolution must also
   // reject invalid threshold values. Without this, an env override
-  // (OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT=80abc) or a
+  // (SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT=80abc) or a
   // hand-edited config.json poisons the trigger contract because the
   // write-path validators are bypassed entirely.
   //
@@ -684,7 +684,7 @@ describe("SettingsStore (User Settings v0)", () => {
 
     for (const raw of reject) {
       it(`env=${JSON.stringify(raw)} → resolveOne returns default 80 (env rejected, NOT coerced)`, () => {
-        process.env["OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"] = raw;
+        process.env["SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"] = raw;
         const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
         try {
           const store = new SettingsStore(configPath);
@@ -697,14 +697,14 @@ describe("SettingsStore (User Settings v0)", () => {
           expect(calls.some((c) => c.includes("env override for policies.claude_compaction.threshold_percent rejected"))).toBe(true);
         } finally {
           stderrSpy.mockRestore();
-          delete process.env["OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"];
+          delete process.env["SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"];
         }
       });
     }
 
     it("discriminator: env=80abc (rejected → source=default, warning emitted) vs env=80 (accepted → source=env, no warning)", () => {
       // Case A: rejected env
-      process.env["OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"] = "80abc";
+      process.env["SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"] = "80abc";
       let stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
       try {
         const a = new SettingsStore(configPath).resolveOne("policies.claude_compaction.threshold_percent");
@@ -717,12 +717,12 @@ describe("SettingsStore (User Settings v0)", () => {
         expect(warnCount).toBe(1);
       } finally {
         stderrSpy.mockRestore();
-        delete process.env["OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"];
+        delete process.env["SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"];
       }
 
       // Case B: accepted env — same RESOLVED VALUE (80) but DIFFERENT
       // observable: source=env, no warning. This is the discriminator.
-      process.env["OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"] = "80";
+      process.env["SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"] = "80";
       stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
       try {
         const b = new SettingsStore(configPath).resolveOne("policies.claude_compaction.threshold_percent");
@@ -735,7 +735,7 @@ describe("SettingsStore (User Settings v0)", () => {
         expect(warnCount).toBe(0);
       } finally {
         stderrSpy.mockRestore();
-        delete process.env["OPENRIG_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"];
+        delete process.env["SOFTWARETEAM_POLICIES_CLAUDE_COMPACTION_THRESHOLD_PERCENT"];
       }
     });
 

@@ -18,10 +18,10 @@ function deps(client: DaemonClient): StatusDeps {
   };
 }
 
-/** The launch resolves the rig handle with one summary read first; answer it at once with no rigs, so the handle
+/** The launch resolves the softwareTeam handle with one summary read first; answer it at once with no softwareTeams, so the handle
  *  goes on as an id and only the launch request itself is slow. */
-function answerRigLookup(req: http.IncomingMessage, res: http.ServerResponse): boolean {
-  if (req.method !== "GET" || !req.url?.startsWith("/api/rigs/summary")) return false;
+function answerSoftwareTeamLookup(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  if (req.method !== "GET" || !req.url?.startsWith("/api/software-teams/summary")) return false;
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end("[]");
   return true;
@@ -29,7 +29,7 @@ function answerRigLookup(req: http.IncomingMessage, res: http.ServerResponse): b
 
 let server: http.Server | undefined;
 beforeEach(() => {
-  vi.stubEnv("OPENRIG_HOST_SELECTED", "local");
+  vi.stubEnv("SOFTWARETEAM_HOST_SELECTED", "local");
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
   process.exitCode = undefined;
@@ -51,7 +51,7 @@ describe("local launch request deadlines", () => {
     let requests = 0;
     let requestBody = "";
     server = http.createServer(async (req, res) => {
-      if (answerRigLookup(req, res)) return;
+      if (answerSoftwareTeamLookup(req, res)) return;
       for await (const chunk of req) requestBody += chunk.toString();
       requests++;
       res.writeHead(201, { "Content-Type": "application/json" });
@@ -61,7 +61,7 @@ describe("local launch request deadlines", () => {
     });
     await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
     const client = new DaemonClient(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);
-    await launchCommand(deps(client)).parseAsync(["node", "rig", "rig-1", "--seats", "dev.driver", "--json"]);
+    await launchCommand(deps(client)).parseAsync(["node", "softwareTeam", "software-team-1", "--seats", "dev.driver", "--json"]);
     expect(process.exitCode).toBeUndefined();
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining('"status": "fresh"'));
     expect(requests).toBe(1);
@@ -71,7 +71,7 @@ describe("local launch request deadlines", () => {
   it("waits for a single-node launch response beyond the default five seconds without retrying", async () => {
     let requests = 0;
     server = http.createServer(async (req, res) => {
-      if (answerRigLookup(req, res)) return;
+      if (answerSoftwareTeamLookup(req, res)) return;
       for await (const _chunk of req) { /* drain */ }
       requests++;
       res.writeHead(201, { "Content-Type": "application/json" });
@@ -81,7 +81,7 @@ describe("local launch request deadlines", () => {
     });
     await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
     const client = new DaemonClient(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);
-    await launchCommand(deps(client)).parseAsync(["node", "rig", "rig-1", "dev.driver", "--json"]);
+    await launchCommand(deps(client)).parseAsync(["node", "softwareTeam", "software-team-1", "dev.driver", "--json"]);
     expect(process.exitCode).toBeUndefined();
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining('"status": "launched"'));
     expect(requests).toBe(1);
@@ -104,7 +104,7 @@ describe("local launch request deadlines", () => {
     };
     const client = new DaemonClient("http://127.0.0.1:3000", { fetchImpl });
     let settled = false;
-    const result = launchCommand(deps(client)).parseAsync(["node", "rig", "rig-1", ...args])
+    const result = launchCommand(deps(client)).parseAsync(["node", "softwareTeam", "software-team-1", ...args])
       .then(() => { settled = true; return null; }, (error: unknown) => { settled = true; return error; });
     await vi.advanceTimersByTimeAsync(deadline - 1);
     expect(writes).toBe(1);

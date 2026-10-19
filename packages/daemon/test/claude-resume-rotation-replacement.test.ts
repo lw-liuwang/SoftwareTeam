@@ -6,13 +6,13 @@ import { SeatAttentionReconciler } from "../src/domain/seat-attention-reconciler
 import { sessionAdminRoutes } from "../src/routes/sessions.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { SnapshotRepository } from "../src/domain/snapshot-repository.js";
 import { CheckpointStore } from "../src/domain/checkpoint-store.js";
 import { SnapshotCapture } from "../src/domain/snapshot-capture.js";
-import { RigTeardownOrchestrator } from "../src/domain/rig-teardown.js";
+import { SoftwareTeamTeardownOrchestrator } from "../src/domain/software-team-teardown.js";
 import { NodeLauncher } from "../src/domain/node-launcher.js";
 import { RestoreOrchestrator } from "../src/domain/restore-orchestrator.js";
 import { SeatIdentityReconciler } from "../src/domain/seat-identity-reconciler.js";
@@ -66,15 +66,15 @@ describe("a recorded Claude resume rotation after the qualifying process", () =>
     ["late-hook", "replaced-during-readiness"],
   ] as const)("%s, then %s process", async (hookTiming, after) => {
     const db = createFullTestDb(); dbs.push(db);
-    const rigRepo = new RigRepository(db);
+    const softwareTeamRepo = new SoftwareTeamRepository(db);
     const sessionRegistry = new SessionRegistry(db);
     const eventBus = new EventBus(db);
     const snapshotRepo = new SnapshotRepository(db);
     const checkpointStore = new CheckpointStore(db);
-    const snapshotCapture = new SnapshotCapture({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
-    const rig = rigRepo.createRig("restore-test");
-    db.prepare("INSERT INTO pods (id, rig_id, label) VALUES (?, ?, ?)").run("restore-pod", rig.id, "Test");
-    const node = rigRepo.addNode(rig.id, "test.c", { runtime: "claude-code", podId: "restore-pod" });
+    const snapshotCapture = new SnapshotCapture({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, checkpointStore });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("restore-test");
+    db.prepare("INSERT INTO pods (id, software_team_id, label) VALUES (?, ?, ?)").run("restore-pod", softwareTeam.id, "Test");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "test.c", { runtime: "claude-code", podId: "restore-pod" });
     new NativePermissionStore(db).write(node.id, { runtime: "claude-code", mode: "auto" }, "fixture", "retained Fleet posture");
     const name = "test-c@restore-test";
     const old = sessionRegistry.registerSession(node.id, name);
@@ -98,7 +98,7 @@ describe("a recorded Claude resume rotation after the qualifying process", () =>
     const row = () => db.prepare("SELECT id, resume_token, resume_provenance, resume_rotated_from, startup_status FROM sessions WHERE node_id = ? ORDER BY id DESC LIMIT 1").get(node.id) as Record<string, unknown>;
     const hook = async () => {
       const response = await hooks.request("/api/activity/hooks", { method: "POST",
-        headers: { "content-type": "application/json", "x-openrig-activity-token": "fixture" },
+        headers: { "content-type": "application/json", "x-softwareteam-activity-token": "fixture" },
         body: JSON.stringify({ eventFamily: "session_identity", hookEvent: "SessionStart", sessionName: name, nodeId: node.id,
           runtime: "claude-code", generation: sessionRegistry.currentOccupantTenure(node.id)!.generationUuid,
           source: "resume", resumeLaunch: launchMarker, resumeLaunchFirst: true, hookPid: 111, sessionId: rotated }) });
@@ -106,7 +106,7 @@ describe("a recorded Claude resume rotation after the qualifying process", () =>
       expect(await response.json()).toMatchObject({ tokenPersisted: true });
     };
     let launchMarker: string | undefined;
-    const launched = (cmd: string) => { launchMarker = /OPENRIG_RESUME_LAUNCH='?([^' ]+)/.exec(cmd)?.[1]; };
+    const launched = (cmd: string) => { launchMarker = /SOFTWARETEAM_RESUME_LAUNCH='?([^' ]+)/.exec(cmd)?.[1]; };
     let live = true;
     const tmux = {
       hasSession: vi.fn(async () => live),
@@ -151,7 +151,7 @@ describe("a recorded Claude resume rotation after the qualifying process", () =>
     const hookProcesses = async () => [...paneRows(),
       { pid: 110, ppid: replaced() ? 202 : 102, pgid: 110, tpgid: 101, executableName: "sh", command: "/bin/sh -c node relay.cjs", startedAt },
       { pid: 111, ppid: 110, pgid: 110, tpgid: 101, executableName: "node", command: "node relay.cjs", startedAt }];
-    const down = await new RigTeardownOrchestrator({ db, rigRepo, sessionRegistry, eventBus, snapshotCapture, tmuxAdapter: tmux }).teardown(rig.id);
+    const down = await new SoftwareTeamTeardownOrchestrator({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotCapture, tmuxAdapter: tmux }).teardown(softwareTeam.id);
     expect(down.errors).toEqual([]);
     const managed = { prepare: async () => ({ command: (args: readonly string[], env: Record<string, string> = {}) => [...Object.entries(env).map(([k, v]) => `${k}=${v}`), "claude", ...args].join(" "), assertCurrent: () => {}, configDir: "/fixture", executable: "/opt/claude.exe" }) } as unknown as ClaudeManagedLaunch;
     const readiness = async () => {
@@ -161,8 +161,8 @@ describe("a recorded Claude resume rotation after the qualifying process", () =>
     };
     const adapter = new ClaudeCodeAdapter({ tmux, listProcesses: readiness, sleep: async () => {}, claudeManagedLaunch: managed,
       fsOps: { exists: () => false, readFile: () => "", writeFile: () => {}, mkdirp: () => {}, copyFile: () => {} } });
-    const nodeLauncher = new NodeLauncher({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
-    const restore = new RestoreOrchestrator({ db, rigRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
+    const nodeLauncher = new NodeLauncher({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux });
+    const restore = new RestoreOrchestrator({ db, softwareTeamRepo, sessionRegistry, eventBus, snapshotRepo, snapshotCapture,
       checkpointStore, nodeLauncher, tmuxAdapter: tmux, claudeResume: new ClaudeResumeAdapter(tmux, { listProcesses, maxWaitMs: 0, sleep: async () => {}, claudeManagedLaunch: managed }),
       codexResume: new CodexResumeAdapter(tmux), listProcesses });
     const up = await restore.restore(down.snapshotId!, { adapters: { "claude-code": adapter } });
@@ -180,7 +180,7 @@ describe("a recorded Claude resume rotation after the qualifying process", () =>
     await new SeatIdentityReconciler({ db, tmux, listProcesses }).reconcileAll();
     const identity = new SeatIdentityStore(db).getForNode(node.id);
     const clear = new SeatAttentionReconciler({ db, sessionRegistry, eventBus, agentActivityStore: activity, tmux, listProcesses,
-      reconcileRestoreOutcome: (rigId, nodeId) => restore.reconcileNodeRuntimeTruth(rigId, nodeId),
+      reconcileRestoreOutcome: (softwareTeamId, nodeId) => restore.reconcileNodeRuntimeTruth(softwareTeamId, nodeId),
       sendVerify: async () => { throw new Error("unexpected input from clear-attention"); } });
     const admin = new Hono();
     admin.use("*", async (c, next) => {
@@ -191,8 +191,8 @@ describe("a recorded Claude resume rotation after the qualifying process", () =>
     const cleared = await admin.request(`/api/sessions/${encodeURIComponent(name)}/clear-attention`, {
       method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer fixture" }, body: "{}" });
     const clearBody = await cleared.json();
-    const strict = await restore.reconcileNodeRuntimeTruth(rig.id, node.id);
-    const transport = new SessionTransport({ db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux, listProcesses, sleep: async () => {} });
+    const strict = await restore.reconcileNodeRuntimeTruth(softwareTeam.id, node.id);
+    const transport = new SessionTransport({ db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux, listProcesses, sleep: async () => {} });
     const sent = await transport.send(name, "isolated QA restore message");
     const warning = String((sent as { warning?: string }).warning ?? "");
     const same = after === "same";

@@ -31,10 +31,10 @@ const BASE = `workflow:
   roles:
     worker:
       preferred_targets:
-        - worker@rig
+        - worker@software-team
     next:
       preferred_targets:
-        - next@rig
+        - next@software-team
   steps:
     - id: work
       actor_role: worker
@@ -73,8 +73,8 @@ describe("FR-7 parse strictness: unknown keys fail loud at every level", () => {
     {
       label: "role-level",
       yaml: BASE.replace(
-        "      preferred_targets:\n        - worker@rig",
-        "      fallback: none\n      preferred_targets:\n        - worker@rig",
+        "      preferred_targets:\n        - worker@software-team",
+        "      fallback: none\n      preferred_targets:\n        - worker@software-team",
       ),
       key: "fallback",
       path: "workflow.roles.worker",
@@ -137,8 +137,8 @@ describe("FR-7 graph validation over the REAL resolution semantics", () => {
 
     const noStep = validateYaml(
       BASE.replace(
-        "    next:\n      preferred_targets:\n        - next@rig",
-        "    next:\n      preferred_targets:\n        - next@rig\n    ghost:\n      preferred_targets:\n        - ghost@rig",
+        "    next:\n      preferred_targets:\n        - next@software-team",
+        "    next:\n      preferred_targets:\n        - next@software-team\n    ghost:\n      preferred_targets:\n        - ghost@software-team",
       ).replace("          - next", "          - ghost"),
     );
     expect(noStep.ok).toBe(false);
@@ -154,10 +154,10 @@ describe("FR-7 graph validation over the REAL resolution semantics", () => {
   roles:
     worker:
       preferred_targets:
-        - worker@rig
+        - worker@software-team
     next:
       preferred_targets:
-        - next@rig
+        - next@software-team
   steps:
     - id: work
       actor_role: worker
@@ -195,10 +195,10 @@ describe("FR-7 graph validation over the REAL resolution semantics", () => {
   roles:
     ping:
       preferred_targets:
-        - ping@rig
+        - ping@software-team
     pong:
       preferred_targets:
-        - pong@rig
+        - pong@software-team
   steps:
     - id: ping-step
       actor_role: ping
@@ -236,7 +236,7 @@ describe("FR-7 graph validation over the REAL resolution semantics", () => {
   roles:
     worker:
       preferred_targets:
-        - worker@rig
+        - worker@software-team
   steps:
     - id: a
       actor_role: worker
@@ -278,10 +278,10 @@ describe("guard blocker 2: loop_guards SHAPE validation — an unenforceable gua
   roles:
     ping:
       preferred_targets:
-        - ping@rig
+        - ping@software-team
     pong:
       preferred_targets:
-        - pong@rig
+        - pong@software-team
   steps:
     - id: ping-step
       actor_role: ping

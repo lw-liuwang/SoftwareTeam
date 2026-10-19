@@ -38,7 +38,7 @@ interface InstanceRow {
   hops_baseline?: number;
   /** OPR.0.4.6.FAC1 (migration 052) — optional at the row layer like
    *  version: legacy fixtures map to null (unbound). */
-  bound_rig?: string | null;
+  bound_software_team?: string | null;
   lifecycle_operation_key?: string | null;
   compiled_input_digest?: string | null;
   lifecycle_binding_json?: string | null;
@@ -71,11 +71,11 @@ export interface CreateWorkflowInstanceInput {
   /** R2: durable current-step binding set at instantiate time. */
   currentStepId?: string;
   /**
-   * OPR.0.4.6.FAC1: the rig NAME this instance binds to (already
-   * resolved by the runtime: targetRig override ?? spec.target.rig).
+   * OPR.0.4.6.FAC1: the softwareTeam NAME this instance binds to (already
+   * resolved by the runtime: targetSoftwareTeam override ?? spec.target.software_team).
    * null/absent = unbound (today's behavior byte-identical).
    */
-  boundRig?: string | null;
+  boundSoftwareTeam?: string | null;
   /** Already-normalized scope (workflow-scope.ts); null/absent = unscoped. */
   scope?: WorkflowScope | null;
   lifecycle?: {
@@ -99,7 +99,7 @@ export class WorkflowInstanceError extends Error {
 export class WorkflowInstanceStore {
   private readonly hasVersionColumn: boolean;
   private readonly hasResumeColumns: boolean;
-  private readonly hasBoundRigColumn: boolean;
+  private readonly hasBoundSoftwareTeamColumn: boolean;
   private readonly hasLifecycleColumns: boolean;
   private readonly hasScopeColumn: boolean;
   private readonly hasFrontierBindingsTable: boolean;
@@ -111,7 +111,7 @@ export class WorkflowInstanceStore {
   ) {
     this.hasVersionColumn = detectInstanceColumn(db, "version");
     this.hasResumeColumns = detectInstanceColumn(db, "resume_count");
-    this.hasBoundRigColumn = detectInstanceColumn(db, "bound_rig");
+    this.hasBoundSoftwareTeamColumn = detectInstanceColumn(db, "bound_software_team");
     this.hasLifecycleColumns = detectInstanceColumn(db, "lifecycle_operation_key");
     this.hasScopeColumn = detectInstanceColumn(db, "scope_json");
     this.hasFrontierBindingsTable = tableExists(db, "workflow_frontier_bindings");
@@ -122,11 +122,11 @@ export class WorkflowInstanceStore {
     const instanceId = ulid();
     const createdAt = this.now().toISOString();
     const frontier = input.initialFrontier ?? [];
-    // OPR.0.4.6.FAC1: bound_rig rides the same defensive column probe
+    // OPR.0.4.6.FAC1: bound_software_team rides the same defensive column probe
     // as version/resume (legacy fixtures without migration 052 keep the
     // legacy INSERT; production always migrates).
-    const boundRigCol = this.hasBoundRigColumn ? ", bound_rig" : "";
-    const boundRigVal = this.hasBoundRigColumn ? ", ?" : "";
+    const boundSoftwareTeamCol = this.hasBoundSoftwareTeamColumn ? ", bound_software_team" : "";
+    const boundSoftwareTeamVal = this.hasBoundSoftwareTeamColumn ? ", ?" : "";
     const lifecycleCols = this.hasLifecycleColumns
       ? ", lifecycle_operation_key, compiled_input_digest, lifecycle_binding_json"
       : "";
@@ -145,7 +145,7 @@ export class WorkflowInstanceStore {
       JSON.stringify(frontier),
       input.currentStepId ?? null,
     ];
-    if (this.hasBoundRigColumn) params.push(input.boundRig ?? null);
+    if (this.hasBoundSoftwareTeamColumn) params.push(input.boundSoftwareTeam ?? null);
     if (this.hasLifecycleColumns) {
       params.push(
         input.lifecycle?.operationKey ?? null,
@@ -158,8 +158,8 @@ export class WorkflowInstanceStore {
       .prepare(
         `INSERT INTO workflow_instances (
            instance_id, workflow_name, workflow_version, created_by_session,
-           created_at, status, current_frontier_json, current_step_id, hop_count${boundRigCol}${lifecycleCols}${scopeCol}
-         ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, 0${boundRigVal}${lifecycleVals}${scopeVal})`,
+           created_at, status, current_frontier_json, current_step_id, hop_count${boundSoftwareTeamCol}${lifecycleCols}${scopeCol}
+         ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, 0${boundSoftwareTeamVal}${lifecycleVals}${scopeVal})`,
       )
       .run(...(params as never[]));
     return this.getByIdOrThrow(instanceId);
@@ -442,7 +442,7 @@ function rowToInstance(row: InstanceRow): WorkflowInstance {
     version: row.version ?? 0,
     resumeCount: row.resume_count ?? 0,
     hopsBaseline: row.hops_baseline ?? 0,
-    boundRig: row.bound_rig ?? null,
+    boundSoftwareTeam: row.bound_software_team ?? null,
     lifecycleOperationKey: row.lifecycle_operation_key ?? null,
     compiledInputDigest: row.compiled_input_digest ?? null,
     lifecycleBinding: row.lifecycle_binding_json

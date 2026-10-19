@@ -24,7 +24,7 @@ function frame(over: Partial<RestoreFrame> & { rows?: number }): RestoreFrame {
     verdict: over.verdict ?? "none_attempted",
     rollup: over.rollup ?? {
       counts: { fully_restored: rows, partially_restored: 0, failed: 0, not_attempted: 0 },
-      sequence: Array.from({ length: rows }, (_, i) => ({ rigId: `rig${i}`, outcome: "fully_restored" })),
+      sequence: Array.from({ length: rows }, (_, i) => ({ softwareTeamId: `softwareTeam${i}`, outcome: "fully_restored" })),
       attention_required: [],
     },
   };

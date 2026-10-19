@@ -54,14 +54,14 @@ function runningDeps(port: number): StatusDeps {
 
 const EVIDENCE_RESULT = {
   question: "what about deployment?",
-  rig: { name: "my-rig", status: "running", nodeCount: 2, runningCount: 2, uptime: "1h 30m" },
+  softwareTeam: { name: "my-software-team", status: "running", nodeCount: 2, runningCount: 2, uptime: "1h 30m" },
   evidence: { backend: "rg", excerpts: ["deployment started", "deployment finished"] },
   insufficient: false,
 };
 
 const INSUFFICIENT_RESULT = {
   question: "what is the",
-  rig: { name: "my-rig", status: "running", nodeCount: 2, runningCount: 2, uptime: "1h 30m" },
+  softwareTeam: { name: "my-software-team", status: "running", nodeCount: 2, runningCount: 2, uptime: "1h 30m" },
   evidence: { backend: "rg", excerpts: [] },
   insufficient: true,
   guidance: "No useful keywords could be extracted from the question. Try a more specific question.",
@@ -69,19 +69,19 @@ const INSUFFICIENT_RESULT = {
 
 const CHAT_ONLY_RESULT = {
   question: "what did chat say about deployment?",
-  rig: { name: "my-rig", status: "running", nodeCount: 2, runningCount: 2, uptime: "1h 30m" },
+  softwareTeam: { name: "my-software-team", status: "running", nodeCount: 2, runningCount: 2, uptime: "1h 30m" },
   evidence: { backend: "rg", excerpts: [], chatExcerpts: ["[cli] deployment checkpoint shared in chat"] },
   insufficient: false,
 };
 
 const STRUCTURED_PEERS_RESULT = {
   question: "who are my peers?",
-  rig: { name: "my-rig", status: "running", nodeCount: 2, runningCount: 2, uptime: "1h 30m" },
+  softwareTeam: { name: "my-software-team", status: "running", nodeCount: 2, runningCount: 2, uptime: "1h 30m" },
   evidence: {
     backend: "structured",
     excerpts: [
-      "dev.qa  session=dev-qa@my-rig  runtime=codex  pod=dev",
-      "rev1.r1  session=rev1-r1@my-rig  runtime=claude-code  pod=rev1",
+      "dev.qa  session=dev-qa@my-software-team  runtime=codex  pod=dev",
+      "rev1.r1  session=rev1-r1@my-software-team  runtime=claude-code  pod=rev1",
     ],
   },
   insufficient: false,
@@ -105,26 +105,26 @@ describe("Ask CLI", () => {
         }
         const parsed = JSON.parse(body);
         lastBody = parsed;
-        if (parsed.rig === "my-rig" && parsed.question === "what did chat say about deployment?") {
+        if (parsed.softwareTeam === "my-software-team" && parsed.question === "what did chat say about deployment?") {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify(CHAT_ONLY_RESULT));
-        } else if (parsed.rig === "my-rig" && parsed.question === "who are my peers?") {
+        } else if (parsed.softwareTeam === "my-software-team" && parsed.question === "who are my peers?") {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify(STRUCTURED_PEERS_RESULT));
-        } else if (parsed.rig === "my-rig" && parsed.question.includes("deployment")) {
+        } else if (parsed.softwareTeam === "my-software-team" && parsed.question.includes("deployment")) {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify(EVIDENCE_RESULT));
-        } else if (parsed.rig === "my-rig" && parsed.question === "what is the") {
+        } else if (parsed.softwareTeam === "my-software-team" && parsed.question === "what is the") {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify(INSUFFICIENT_RESULT));
         } else {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({
             question: parsed.question,
-            rig: null,
+            softwareTeam: null,
             evidence: { backend: "rg", excerpts: [] },
             insufficient: true,
-            guidance: `Rig '${parsed.rig}' not found. List rigs with: rig ps`,
+            guidance: `SoftwareTeam '${parsed.softwareTeam}' not found. List softwareTeams with: SoftwareTeam ps`,
           }));
         }
       });
@@ -142,13 +142,13 @@ describe("Ask CLI", () => {
     return prog;
   }
 
-  it("human output shows question, rig status, and excerpts", async () => {
+  it("human output shows question, SoftwareTeam status, and excerpts", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ask", "my-rig", "what about deployment?"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "ask", "my-software-team", "what about deployment?"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("what about deployment?");
-    expect(output).toContain("my-rig");
+    expect(output).toContain("my-software-team");
     expect(output).toContain("running");
     expect(output).toContain("deployment started");
     expect(output).toContain("deployment finished");
@@ -156,36 +156,36 @@ describe("Ask CLI", () => {
 
   it("--json prints raw structured result", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ask", "my-rig", "what about deployment?", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "ask", "my-software-team", "what about deployment?", "--json"]);
     });
     const output = logs.join("\n");
     const parsed = JSON.parse(output);
     expect(parsed.question).toBe("what about deployment?");
-    expect(parsed.rig.name).toBe("my-rig");
+    expect(parsed.softwareTeam.name).toBe("my-software-team");
     expect(parsed.evidence.excerpts).toContain("deployment started");
   });
 
   it("shows guidance when no data available", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ask", "nonexistent-rig", "some question"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "ask", "nonexistent-software-team", "some question"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("not found");
-    expect(output).toContain("rig ps");
+    expect(output).toContain("SoftwareTeam ps");
     expect(exitCode).toBe(1);
   });
 
-  it("--json for an unknown rig still prints the result and exits 1", async () => {
+  it("--json for an unknown SoftwareTeam still prints the result and exits 1", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ask", "nonexistent-rig", "some question", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "ask", "nonexistent-software-team", "some question", "--json"]);
     });
-    expect(JSON.parse(logs.join("\n")).rig).toBeNull();
+    expect(JSON.parse(logs.join("\n")).softwareTeam).toBeNull();
     expect(exitCode).toBe(1);
   });
 
   it("shows insufficient message when keywords empty", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ask", "my-rig", "what is the"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "ask", "my-software-team", "what is the"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("No useful keywords");
@@ -194,7 +194,7 @@ describe("Ask CLI", () => {
 
   it("human output shows chat evidence when transcript excerpts are empty", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "ask", "my-rig", "what did chat say about deployment?"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "ask", "my-software-team", "what did chat say about deployment?"]);
     });
     const output = logs.join("\n");
     expect(output).toContain("Chat Evidence");
@@ -203,52 +203,52 @@ describe("Ask CLI", () => {
   });
 
   it("passes node identity context and prints structured peer answers cleanly", async () => {
-    const prevNodeId = process.env.OPENRIG_NODE_ID;
-    const prevSessionName = process.env.OPENRIG_SESSION_NAME;
-    process.env.OPENRIG_NODE_ID = "node-123";
-    process.env.OPENRIG_SESSION_NAME = "dev-impl@my-rig";
+    const prevNodeId = process.env.SOFTWARETEAM_NODE_ID;
+    const prevSessionName = process.env.SOFTWARETEAM_SESSION_NAME;
+    process.env.SOFTWARETEAM_NODE_ID = "node-123";
+    process.env.SOFTWARETEAM_SESSION_NAME = "dev-impl@my-software-team";
     try {
       const { logs } = await captureLogs(async () => {
-        await makeCmd().parseAsync(["node", "rig", "ask", "my-rig", "who are my peers?"]);
+        await makeCmd().parseAsync(["node", "softwareTeam", "ask", "my-software-team", "who are my peers?"]);
       });
       const output = logs.join("\n");
       expect(output).toContain("Structured Answer");
       expect(output).toContain("dev.qa");
       expect(output).toContain("rev1.r1");
       expect(lastBody?.nodeId).toBe("node-123");
-      expect(lastBody?.sessionName).toBe("dev-impl@my-rig");
+      expect(lastBody?.sessionName).toBe("dev-impl@my-software-team");
     } finally {
-      if (prevNodeId === undefined) delete process.env.OPENRIG_NODE_ID;
-      else process.env.OPENRIG_NODE_ID = prevNodeId;
-      if (prevSessionName === undefined) delete process.env.OPENRIG_SESSION_NAME;
-      else process.env.OPENRIG_SESSION_NAME = prevSessionName;
+      if (prevNodeId === undefined) delete process.env.SOFTWARETEAM_NODE_ID;
+      else process.env.SOFTWARETEAM_NODE_ID = prevNodeId;
+      if (prevSessionName === undefined) delete process.env.SOFTWARETEAM_SESSION_NAME;
+      else process.env.SOFTWARETEAM_SESSION_NAME = prevSessionName;
     }
   });
 
-  it("falls back to tmux-derived identity when OPENRIG env is absent", async () => {
+  it("falls back to tmux-derived identity when SOFTWARETEAM env is absent", async () => {
     const deps = runningDeps(port) as StatusDeps & {
       identityResolver: () => { sessionName: string };
     };
-    deps.identityResolver = () => ({ sessionName: "dev-impl@my-rig" });
+    deps.identityResolver = () => ({ sessionName: "dev-impl@my-software-team" });
     const prog = new Command();
     prog.exitOverride();
     prog.addCommand(askCommand(deps));
 
-    const prevNodeId = process.env.OPENRIG_NODE_ID;
-    const prevSessionName = process.env.OPENRIG_SESSION_NAME;
-    delete process.env.OPENRIG_NODE_ID;
-    delete process.env.OPENRIG_SESSION_NAME;
+    const prevNodeId = process.env.SOFTWARETEAM_NODE_ID;
+    const prevSessionName = process.env.SOFTWARETEAM_SESSION_NAME;
+    delete process.env.SOFTWARETEAM_NODE_ID;
+    delete process.env.SOFTWARETEAM_SESSION_NAME;
     try {
       await captureLogs(async () => {
-        await prog.parseAsync(["node", "rig", "ask", "my-rig", "who are my peers?"]);
+        await prog.parseAsync(["node", "softwareTeam", "ask", "my-software-team", "who are my peers?"]);
       });
       expect(lastBody?.nodeId).toBeUndefined();
-      expect(lastBody?.sessionName).toBe("dev-impl@my-rig");
+      expect(lastBody?.sessionName).toBe("dev-impl@my-software-team");
     } finally {
-      if (prevNodeId === undefined) delete process.env.OPENRIG_NODE_ID;
-      else process.env.OPENRIG_NODE_ID = prevNodeId;
-      if (prevSessionName === undefined) delete process.env.OPENRIG_SESSION_NAME;
-      else process.env.OPENRIG_SESSION_NAME = prevSessionName;
+      if (prevNodeId === undefined) delete process.env.SOFTWARETEAM_NODE_ID;
+      else process.env.SOFTWARETEAM_NODE_ID = prevNodeId;
+      if (prevSessionName === undefined) delete process.env.SOFTWARETEAM_SESSION_NAME;
+      else process.env.SOFTWARETEAM_SESSION_NAME = prevSessionName;
     }
   });
 });

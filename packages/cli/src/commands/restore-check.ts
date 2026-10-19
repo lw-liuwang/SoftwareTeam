@@ -3,17 +3,17 @@ import { join } from "node:path";
 import { Command } from "commander";
 import { DaemonClient } from "../client.js";
 import { getDaemonStatus, getDaemonUrl, type LifecycleDeps } from "../daemon-lifecycle.js";
-import { getOpenRigHome, isFixtureScopedHome, readOpenRigEnv } from "../openrig-compat.js";
+import { getSoftwareTeamHome, isFixtureScopedHome, readSoftwareTeamEnv } from "../softwareteam-compat.js";
 import { ConfigStore } from "../config-store.js";
 import { realDeps } from "./daemon.js";
 
 // The daemon.port default (DEFAULT_CONFIG in config-store.ts). A fixture
 // target "diverges" when it is resolved from file/env AND is not this value.
-const DEFAULT_DAEMON_PORT = 7433;
+const DEFAULT_DAEMON_PORT = 7434;
 
 interface FixtureLeak {
   fixtureHome: string;
-  /** The divergent daemon target (port number, or the leaked OPENRIG_URL). */
+  /** The divergent daemon target (port number, or the leaked SOFTWARETEAM_URL). */
   target: string | number;
   source: string;
 }
@@ -21,23 +21,23 @@ interface FixtureLeak {
 /**
  * OPR.0.4.3.12 — Detect a leaked fixture-scoped home with a divergent daemon
  * target. Composes the PATH-ONLY `isFixtureScopedHome` predicate (from
- * openrig-compat, no ConfigStore dependency) with a ConfigStore
+ * softwareteam-compat, no ConfigStore dependency) with a ConfigStore
  * divergent-target confirmation HERE (restore-check is downstream of both, so
  * no import cycle). Returns null unless BOTH hold, so a legit non-default port
  * under the real home never trips the guard.
  */
 function detectFixtureLeak(): FixtureLeak | null {
-  const fixtureHome = getOpenRigHome();
+  const fixtureHome = getSoftwareTeamHome();
   if (!isFixtureScopedHome(fixtureHome)) return null;
 
-  // A leaked OPENRIG_URL points the status probe at the fixture directly.
-  const leakedUrl = readOpenRigEnv("OPENRIG_URL", "RIGGED_URL");
+  // A leaked SOFTWARETEAM_URL points the status probe at the fixture directly.
+  const leakedUrl = readSoftwareTeamEnv("SOFTWARETEAM_URL");
   if (leakedUrl) {
-    return { fixtureHome, target: leakedUrl, source: "env (OPENRIG_URL)" };
+    return { fixtureHome, target: leakedUrl, source: "env (SOFTWARETEAM_URL)" };
   }
 
   // Otherwise confirm a divergent daemon.port resolved from the fixture's
-  // config.json / OPENRIG_PORT (source !== "default" AND value !== 7433).
+  // config.json / SOFTWARETEAM_PORT (source !== "default" AND value !== 7434).
   let resolved: { value: string | number | boolean; source: string } | undefined;
   try {
     resolved = new ConfigStore().resolveWithSource("daemon.port");
@@ -52,27 +52,27 @@ function detectFixtureLeak(): FixtureLeak | null {
 
 /**
  * Build the honest, NON-MUTATING both-homes result for a detected fixture
- * leak — instead of the blocking `rig daemon start` / `scope:"host"` packet.
+ * leak — instead of the blocking `SoftwareTeam daemon start` / `scope:"host"` packet.
  * Names both the fixture home (+ its divergent target/source) and the real
  * default home (+ default port), with a non-mutating remediation.
  */
 function fixtureLeakResult(leak: FixtureLeak): RestoreCheckResult {
-  const realHome = join(homedir(), ".openrig");
+  const realHome = join(homedir(), ".softwareteam");
   const evidence =
-    `restore-check ran under a fixture-scoped OPENRIG_HOME (${leak.fixtureHome}) whose daemon ` +
+    `restore-check ran under a fixture-scoped SOFTWARETEAM_HOME (${leak.fixtureHome}) whose daemon ` +
     `target diverges (${leak.source} = ${leak.target}). The real default home is ${realHome} ` +
     `(daemon.port ${DEFAULT_DAEMON_PORT}). The real kernel was NOT probed — this is a leaked ` +
     `test fixture, not a host-down condition.`;
   const remediation =
-    `Unset the leaked OPENRIG_HOME / OPENRIG_PORT / OPENRIG_URL (or re-target to ${realHome}), ` +
-    `then re-run: rig restore-check`;
+    `Unset the leaked SOFTWARETEAM_HOME / SOFTWARETEAM_PORT / SOFTWARETEAM_URL (or re-target to ${realHome}), ` +
+    `then re-run: SoftwareTeam restore-check`;
   return localRestoreResult({
     verdict: "unknown",
     checks: [{ check: "home.fixture-scoped", status: "yellow", evidence, remediation }],
     repairPacket: [{
       step: 1,
       command: remediation,
-      rationale: "Fixture-scoped OPENRIG_HOME leaked into a real-kernel recovery command",
+      rationale: "Fixture-scoped SOFTWARETEAM_HOME leaked into a real-kernel recovery command",
       safe: true,      // non-mutating: unsetting env / re-targeting, not starting a daemon
       blocking: false,
     }],
@@ -81,7 +81,7 @@ function fixtureLeakResult(leak: FixtureLeak): RestoreCheckResult {
       summary:
         `Recovery state was not inspected: this invocation used a fixture-scoped home ` +
         `(${leak.fixtureHome}), not the real default home (${realHome}). Clear the leaked ` +
-        `OpenRig home/target env and re-run to inspect the real kernel.`,
+        `SoftwareTeam home/target env and re-run to inspect the real kernel.`,
       actions: [],
       blocked: [],
       unknown: [],
@@ -112,9 +112,9 @@ interface RepairStep {
 interface ReadinessAssertion {
   status: "ready" | "ready_with_caveats" | "not_ready" | "unknown";
   reason: string;
-  blockingRigCount: number;
-  caveatRigCount: number;
-  unknownRigCount: number;
+  blockingSoftwareTeamCount: number;
+  caveatSoftwareTeamCount: number;
+  unknownSoftwareTeamCount: number;
 }
 
 interface ContinuityAssertion {
@@ -124,9 +124,9 @@ interface ContinuityAssertion {
   unprovenCapabilities: string[];
 }
 
-interface RigRestoreRollup {
-  rigId: string;
-  rigName: string;
+interface SoftwareTeamRestoreRollup {
+  softwareTeamId: string;
+  softwareTeamName: string;
   status: "ready" | "ready_with_caveats" | "not_ready" | "unknown";
   verdict: "restorable" | "restorable_with_caveats" | "not_restorable" | "unknown";
   expectedNodes: number;
@@ -143,9 +143,9 @@ interface HostInfraAssertion {
 }
 
 interface RecoveryAction {
-  scope: "rig";
-  rigId: string;
-  rigName: string;
+  scope: "softwareTeam";
+  softwareTeamId: string;
+  softwareTeamName: string;
   action: "restore_from_latest_snapshot";
   command: string;
   reason: string;
@@ -154,9 +154,9 @@ interface RecoveryAction {
 }
 
 interface RecoveryIssue {
-  scope: "host" | "rig";
-  rigId?: string;
-  rigName?: string;
+  scope: "host" | "softwareTeam";
+  softwareTeamId?: string;
+  softwareTeamName?: string;
   reason: string;
 }
 
@@ -172,7 +172,7 @@ interface RestoreCheckResult {
   verdict: "restorable" | "restorable_with_caveats" | "not_restorable" | "unknown";
   readiness: ReadinessAssertion;
   continuity: ContinuityAssertion;
-  rigs: RigRestoreRollup[];
+  softwareTeams: SoftwareTeamRestoreRollup[];
   hostInfra: HostInfraAssertion;
   recovery: RecoveryPlan;
   counts: { red: number; yellow: number; green: number };
@@ -202,14 +202,14 @@ const STATUS_COLORS: Record<string, string> = {
 
 export function restoreCheckCommand(depsOverride?: RestoreCheckDeps): Command {
   const cmd = new Command("restore-check")
-    .description("Check restore readiness across running rigs")
+    .description("Check restore readiness across running softwareTeams")
     .addHelpText("after", `
 Examples:
-  rig restore-check                    Check all rigs
-  rig restore-check --rig openrig-pm   Check one rig
-  rig restore-check --no-queue         Skip queue file checks
-  rig restore-check --no-hooks         Skip hook checks
-  rig restore-check --json             JSON output for agents
+  SoftwareTeam restore-check                    Check all softwareTeams
+  SoftwareTeam restore-check --software-team softwareteam-pm   Check one softwareTeam
+  SoftwareTeam restore-check --no-queue         Skip queue file checks
+  SoftwareTeam restore-check --no-hooks         Skip hook checks
+  SoftwareTeam restore-check --json             JSON output for agents
 
 Exit codes:
   0  Restorable (or restorable with caveats)
@@ -222,11 +222,11 @@ Exit codes:
     .option("--json", "JSON output (compact summary by default; use --full --json for complete detail)")
     .option("--full", "Show complete per-seat detail (today's default)")
     .option("--ready", "Show ready-seat detail in addition to not-ready")
-    .option("--rig <name>", "Check one rig only")
+    .option("--software-team <name>", "Check one SoftwareTeam only")
     .option("--no-queue", "Skip queue file checks")
     .option("--no-hooks", "Skip hook checks")
     .addHelpText("after", `
-Default: compact summary with per-rig readiness counts and NOT-READY seats only.
+Default: compact summary with per-software-team readiness counts and NOT-READY seats only.
 Ready seats are counted but their detail is omitted to save tokens.
 
 Use --full for today's complete per-seat detail (all checks, repair packet, etc.).
@@ -236,22 +236,22 @@ Use --full --json for the complete JSON firehose.
 Readiness classes: ready, ready_with_caveats, not_ready, attention_required, unknown.
 
 Examples:
-  rig restore-check                       Compact summary (counts + not-ready)
-  rig restore-check --json                Compact JSON summary
-  rig restore-check --full                Complete per-seat detail
-  rig restore-check --full --json         Complete JSON (the firehose)
-  rig restore-check --ready               Include ready seats in output
-  rig restore-check --rig my-rig          Check one rig only`)
-    .action(async (opts: { json?: boolean; full?: boolean; ready?: boolean; rig?: string; queue?: boolean; hooks?: boolean }) => {
+  SoftwareTeam restore-check                       Compact summary (counts + not-ready)
+  SoftwareTeam restore-check --json                Compact JSON summary
+  SoftwareTeam restore-check --full                Complete per-seat detail
+  SoftwareTeam restore-check --full --json         Complete JSON (the firehose)
+  SoftwareTeam restore-check --ready               Include ready seats in output
+  SoftwareTeam restore-check --software-team my-software-team          Check one SoftwareTeam only`)
+    .action(async (opts: { json?: boolean; full?: boolean; ready?: boolean; softwareTeam?: string; queue?: boolean; hooks?: boolean }) => {
       const deps = getDepsF();
       const status = await getDaemonStatus(deps.lifecycleDeps);
       if (status.state !== "running" || status.healthy === false) {
         // OPR.0.4.3.12 — fixture-home isolation guard. A leaked fixture
-        // OPENRIG_HOME with a divergent daemon target makes getDaemonStatus
+        // SOFTWARETEAM_HOME with a divergent daemon target makes getDaemonStatus
         // probe the WRONG port (connection-refused) and report the real
         // kernel as down. Detect that precise leak and respond honestly
         // (both homes named, non-mutating) instead of the blocking
-        // `rig daemon start` / `scope:"host"` host-repair packet. Fires ONLY
+        // `SoftwareTeam daemon start` / `scope:"host"` host-repair packet. Fires ONLY
         // under a detected fixture-scoped home + divergent target, so the
         // genuine daemon-down contract below is preserved for real homes.
         const leak = detectFixtureLeak();
@@ -273,22 +273,22 @@ Examples:
             check: "daemon.reachable",
             status: "red",
             evidence: "Daemon is not running",
-            remediation: "Start the daemon with: rig daemon start",
+            remediation: "Start the daemon with: SoftwareTeam daemon start",
           }],
           repairPacket: [{
             step: 1,
-            command: "Start the daemon with: rig daemon start",
+            command: "Start the daemon with: SoftwareTeam daemon start",
             rationale: "Daemon is not running",
             safe: false,  // mutating: starts a daemon process
             blocking: true,
           }],
           recovery: {
             status: "blocked",
-            summary: "No exact rig recovery action is known until the daemon is running.",
+            summary: "No exact SoftwareTeam recovery action is known until the daemon is running.",
             actions: [],
             blocked: [{
               scope: "host",
-              reason: "Daemon is not running; rig state could not be inspected for recovery planning.",
+              reason: "Daemon is not running; SoftwareTeam state could not be inspected for recovery planning.",
             }],
             unknown: [],
           },
@@ -312,7 +312,7 @@ Examples:
         // NOT the full firehose (OPR.0.4.0.29 FR-2 / forward-fix corrective).
         if (!opts.full) params.set("compact", "1");
         if (opts.ready) params.set("ready", "1");
-        if (opts.rig) params.set("rig", opts.rig);
+        if (opts.softwareTeam) params.set("softwareTeam", opts.softwareTeam);
         if (opts.queue === false) params.set("noQueue", "true");
         if (opts.hooks === false) params.set("noHooks", "true");
         const query = params.toString();
@@ -327,11 +327,11 @@ Examples:
               check: "probe.error",
               status: "red",
               evidence: `Daemon returned HTTP ${response.status}`,
-              remediation: "Check daemon logs with: rig daemon logs",
+              remediation: "Check daemon logs with: SoftwareTeam daemon logs",
             }],
             repairPacket: [{
               step: 1,
-              command: "Check daemon logs with: rig daemon logs",
+              command: "Check daemon logs with: SoftwareTeam daemon logs",
               rationale: `Daemon returned HTTP ${response.status}`,
               safe: true,
               blocking: true,
@@ -374,7 +374,7 @@ Examples:
         }
       } catch (err) {
         console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
-        console.error("Fix: check daemon status with: rig daemon status");
+        console.error("Fix: check daemon status with: SoftwareTeam daemon status");
         process.exitCode = 2;
       }
     });
@@ -403,14 +403,14 @@ function printHuman(result: RestoreCheckResult): void {
   for (const issue of result.recovery.unknown) {
     console.log(`  Unknown: ${issue.reason}`);
   }
-  if (result.rigs && result.rigs.length > 0) {
+  if (result.softwareTeams && result.softwareTeams.length > 0) {
     console.log();
-    console.log("Per-rig summary:");
-    console.log(`${"rig".padEnd(24)} ${"status".padEnd(16)} ${"ready".padEnd(9)} ${"blocked".padEnd(8)} caveats`);
-    for (const rig of result.rigs) {
+    console.log("Per-software-team summary:");
+    console.log(`${"softwareTeam".padEnd(24)} ${"status".padEnd(16)} ${"ready".padEnd(9)} ${"blocked".padEnd(8)} caveats`);
+    for (const softwareTeam of result.softwareTeams) {
       console.log(
-        `${rig.rigName.slice(0, 24).padEnd(24)} ${rig.status.padEnd(16)} ` +
-        `${`${rig.runningReadyNodes}/${rig.expectedNodes}`.padEnd(9)} ${String(rig.blockedNodes).padEnd(8)} ${rig.caveatNodes}`
+        `${softwareTeam.softwareTeamName.slice(0, 24).padEnd(24)} ${softwareTeam.status.padEnd(16)} ` +
+        `${`${softwareTeam.runningReadyNodes}/${softwareTeam.expectedNodes}`.padEnd(9)} ${String(softwareTeam.blockedNodes).padEnd(8)} ${softwareTeam.caveatNodes}`
       );
     }
   }
@@ -456,13 +456,13 @@ function printCompact(result: RestoreCheckResult): void {
     );
   }
 
-  if (result.rigs && result.rigs.length > 0) {
+  if (result.softwareTeams && result.softwareTeams.length > 0) {
     console.log();
-    console.log(`${"RIG".padEnd(24)} ${"STATUS".padEnd(18)} ${"READY".padEnd(9)} ${"BLOCKED".padEnd(8)} CAVEATS`);
-    for (const rig of result.rigs) {
+    console.log(`${"SOFTWARE_TEAM".padEnd(24)} ${"STATUS".padEnd(18)} ${"READY".padEnd(9)} ${"BLOCKED".padEnd(8)} CAVEATS`);
+    for (const softwareTeam of result.softwareTeams) {
       console.log(
-        `${rig.rigName.slice(0, 24).padEnd(24)} ${rig.status.padEnd(18)} ` +
-        `${`${rig.runningReadyNodes}/${rig.expectedNodes}`.padEnd(9)} ${String(rig.blockedNodes).padEnd(8)} ${rig.caveatNodes}`
+        `${softwareTeam.softwareTeamName.slice(0, 24).padEnd(24)} ${softwareTeam.status.padEnd(18)} ` +
+        `${`${softwareTeam.runningReadyNodes}/${softwareTeam.expectedNodes}`.padEnd(9)} ${String(softwareTeam.blockedNodes).padEnd(8)} ${softwareTeam.caveatNodes}`
       );
     }
   }
@@ -515,9 +515,9 @@ function localRestoreResult(input: {
     readiness: {
       status: unknown ? "unknown" : "not_ready",
       reason: unknown ? "unknown_probe_state" : "blockers_present",
-      blockingRigCount: 0,
-      caveatRigCount: 0,
-      unknownRigCount: 0,
+      blockingSoftwareTeamCount: 0,
+      caveatSoftwareTeamCount: 0,
+      unknownSoftwareTeamCount: 0,
     },
     continuity: {
       status: "not_proven",
@@ -525,7 +525,7 @@ function localRestoreResult(input: {
       provenCapabilities: [],
       unprovenCapabilities: ["provider_session_resume", "context_window_preservation", "interrupted_work_functional_resume"],
     },
-    rigs: [],
+    softwareTeams: [],
     hostInfra: {
       status: "unknown",
       evidence: "Host bootstrap/autostart source could not be inspected because restore-check did not receive daemon route evidence",

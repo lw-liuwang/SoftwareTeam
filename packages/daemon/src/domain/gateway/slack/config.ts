@@ -4,10 +4,10 @@
 // watched channel, OWNER thresholds, source label, required scopes, and POINTERS to
 // secrets (never secret VALUES — those live in the 0600 env file / env vars).
 // An unset/partial config yields an HONEST unconfigured state (no throw, no
-// silent nothing) so `rig slack status` can tell the operator exactly what's left.
+// silent nothing) so `softwareTeam slack status` can tell the operator exactly what's left.
 import fs from "node:fs";
 import path from "node:path";
-import { getOpenRigHome } from "../../../openrig-compat.js";
+import { getSoftwareTeamHome } from "../../../softwareteam-compat.js";
 import { OWNER_NOTIFICATION_LEVELS, type OwnerNotificationLevel } from "../../queue-transition-log.js";
 import { BASELINE_REQUIRED_SCOPES } from "./capabilities.js";
 import { unsupportedChannelMapFields, validateChannelMap, type ChannelMapEntry } from "./channel-map.js";
@@ -27,7 +27,7 @@ export interface SlackConnectorConfig {
   /** Path to the 0600 env file holding secrets (webhook URL, bot/app tokens). */
   secretsEnvFile: string | null;
   /**
-   * S10: VESTIGIAL — the relay's remote-queue targeting (OPENRIG_URL for a connector host
+   * S10: VESTIGIAL — the relay's remote-queue targeting (SOFTWARETEAM_URL for a connector host
    * that differed from the queue host). The in-daemon subsystem reads its own QueueRepository
    * directly, so this is never consulted; the field stays so existing config files load
    * unchanged. Remove at the next config-schema rev.
@@ -36,7 +36,7 @@ export interface SlackConnectorConfig {
   minimumLevelThatPosts: OwnerNotificationLevel;
   minimumLevelThatInterrupts: OwnerNotificationLevel;
   /**
-   * #192: optional per-rig / per-seat outbound channels (channel-map.ts). Absent or empty = every
+   * #192: optional per-softwareTeam / per-seat outbound channels (channel-map.ts). Absent or empty = every
    * item posts to `channel`, as before. Deliberately not in DEFAULT_CONFIG, so a config without
    * it saves and digests unchanged.
    */
@@ -47,7 +47,7 @@ export const DEFAULT_CONFIG: SlackConnectorConfig = {
   enabled: false,
   inboundDestination: "operator-agent@kernel",
   outboundDestinations: [],
-  sourceLabel: "openrig",
+  sourceLabel: "softwareteam",
   channel: null,
   requiredScopes: [...BASELINE_REQUIRED_SCOPES],
   secretsEnvFile: null,
@@ -62,7 +62,7 @@ function validateLevel(field: string, value: unknown): asserts value is OwnerNot
   }
 }
 
-/** `reading`: a channel-map entry field written by a newer OpenRig is ignored (and reported by
+/** `reading`: a channel-map entry field written by a newer SoftwareTeam is ignored (and reported by
  *  staticReadiness and the gateway log) rather than failing the connector after a downgrade. */
 function validateConfig(cfg: SlackConnectorConfig, opts: { reading?: boolean } = {}): void {
   validateLevel("minimumLevelThatPosts", cfg.minimumLevelThatPosts);
@@ -71,7 +71,7 @@ function validateConfig(cfg: SlackConnectorConfig, opts: { reading?: boolean } =
 }
 
 export function configPathFor(home?: string): string {
-  return path.join(home ?? getOpenRigHome(), "slack-connector.json");
+  return path.join(home ?? getSoftwareTeamHome(), "slack-connector.json");
 }
 
 export function loadConfig(home?: string): SlackConnectorConfig {
@@ -109,7 +109,7 @@ export interface ReadinessItem {
 /**
  * HONEST unconfigured state (item 5): a static (no-network) readiness checklist
  * from config + secret RESOLVABILITY (not values). Live scope/membership checks
- * are `rig slack verify`. Never throws; reports what's missing.
+ * are `softwareTeam slack verify`. Never throws; reports what's missing.
  *
  * S10: outbound posts via the Web API (`chat.postMessage`) on the in-daemon subsystem — the
  * bot token + channel are the outbound gate now; the incoming webhook retired with the relay.
@@ -121,7 +121,7 @@ export function staticReadiness(cfg: SlackConnectorConfig, hasBotToken: boolean,
     { ok: hasAppToken, label: "app-token (Socket Mode)", detail: hasAppToken ? "resolved" : "unset (inbound cannot connect)" },
     { ok: cfg.channel !== null, label: "channel", detail: cfg.channel ?? "unset (outbound cannot post)" },
     { ok: Boolean(cfg.inboundDestination), label: "inbound-destination", detail: cfg.inboundDestination },
-    { ok: cfg.enabled, label: "enabled", detail: cfg.enabled ? "yes" : "no (run `rig slack enable`)" },
+    { ok: cfg.enabled, label: "enabled", detail: cfg.enabled ? "yes" : "no (run `SoftwareTeam slack enable`)" },
     ...channelMapReadiness(cfg),
   ];
 }
@@ -131,9 +131,9 @@ export function staticReadiness(cfg: SlackConnectorConfig, hasBotToken: boolean,
 function channelMapReadiness(cfg: SlackConnectorConfig): ReadinessItem[] {
   if (!cfg.channelMap?.length) return [];
   const channels = new Set(cfg.channelMap.map((e) => e.channel)).size;
-  const summary = `${cfg.channelMap.length} entr${cfg.channelMap.length === 1 ? "y" : "ies"} over ${channels} channel(s); \`rig slack verify\` checks membership in each`;
+  const summary = `${cfg.channelMap.length} entr${cfg.channelMap.length === 1 ? "y" : "ies"} over ${channels} channel(s); \`SoftwareTeam slack verify\` checks membership in each`;
   const unsupported = unsupportedChannelMapFields(cfg);
   return [unsupported.length
-    ? { ok: false, label: "channel-map", detail: `${summary}; IGNORED unsupported field(s) ${unsupported.join(", ")} (written by a newer OpenRig?); remove them before saving the config` }
+    ? { ok: false, label: "channel-map", detail: `${summary}; IGNORED unsupported field(s) ${unsupported.join(", ")} (written by a newer SoftwareTeam?); remove them before saving the config` }
     : { ok: true, label: "channel-map", detail: summary }];
 }

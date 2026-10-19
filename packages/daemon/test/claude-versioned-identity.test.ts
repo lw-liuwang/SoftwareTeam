@@ -16,7 +16,7 @@ it("#273 joins versioned OS name with rewritten Claude argv using the OS path", 
   expect(await verifyClaudePaneProcess({ ...input(rows), selectedExecutable: "/elsewhere/2.1.289" })).toBeNull();
 });
 it("#273 tokenless runtime identity is not exact conversation proof", async () => {
-  const fresh = () => rows().map(r => r.pid === 12 ? { ...r, command: "claude --name worker@rig" } : r);
+  const fresh = () => rows().map(r => r.pid === 12 ? { ...r, command: "claude --name worker@software-team" } : r);
   expect((await verifyClaudePaneRuntime(input(fresh)))?.process.pid).toBe(12);
   expect(await verifyClaudePaneProcess(input(fresh))).toBeNull();
 });

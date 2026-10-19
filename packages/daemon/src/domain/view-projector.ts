@@ -16,8 +16,8 @@ import { buildExecutionView, type ExecutionViewDeps } from "./execution-view.js"
  *   or queue_transitions from this module.
  * - Sub-100 ms latency target (per PRD § Acceptance Criteria); achieved by
  *   leaning on Phase A's existing indexes.
- * - Fixture rig exclusion default: rig names matching `^test-` or `^fixture-`
- *   are excluded; opt-in via OPENRIG_VIEW_INCLUDE_FIXTURES=1.
+ * - Fixture softwareTeam exclusion default: softwareTeam names matching `^test-` or `^fixture-`
+ *   are excluded; opt-in via SOFTWARETEAM_VIEW_INCLUDE_FIXTURES=1.
  *
  * Custom views in views_custom store a SQL string (`definition`) that the
  * projector executes verbatim. Operator-defined; no taxonomy enforced.
@@ -49,7 +49,7 @@ export interface ViewQueryResult {
 }
 
 interface ViewShowOptions {
-  rig?: string;
+  softwareTeam?: string;
   limit?: number;
   mission?: string;
   project?: ProjectRead | null;
@@ -86,13 +86,13 @@ export class ViewProjectorError extends Error {
 }
 
 /**
- * Detect fixture rigs by session name suffix `@<rig>` where <rig> starts
+ * Detect fixture softwareTeams by session name suffix `@<softwareTeam>` where <softwareTeam> starts
  * with `test-` or `fixture-`. Used to filter views by default; opt-in via
- * OPENRIG_VIEW_INCLUDE_FIXTURES=1.
+ * SOFTWARETEAM_VIEW_INCLUDE_FIXTURES=1.
  */
 function fixtureExclusionClause(): string {
-  if (process.env.OPENRIG_VIEW_INCLUDE_FIXTURES === "1") return "1=1";
-  // Exclude qitems whose source_session OR destination_session has a rig
+  if (process.env.SOFTWARETEAM_VIEW_INCLUDE_FIXTURES === "1") return "1=1";
+  // Exclude qitems whose source_session OR destination_session has a softwareTeam
   // name starting with test- or fixture-.
   return `(
     destination_session NOT LIKE '%@test-%' AND
@@ -144,11 +144,11 @@ export class ViewProjector {
           "execution view deps are not wired on this daemon (setExecutionDeps was never called)",
         );
       }
-      return buildExecutionView(opts?.project ? { ...this.executionDeps, slicesRoot: () => opts.project!.missionsRoot } : this.executionDeps, { mission: opts?.mission, rig: opts?.rig, project: opts?.project?.id })
+      return buildExecutionView(opts?.project ? { ...this.executionDeps, slicesRoot: () => opts.project!.missionsRoot } : this.executionDeps, { mission: opts?.mission, softwareTeam: opts?.softwareTeam, project: opts?.project?.id })
         .then(doc => ({ viewName: "execution", generatedAt: this.now().toISOString(), rows: [doc], rowCount: 1 }));
     }
     if ((BUILT_IN_VIEW_NAMES as readonly string[]).includes(viewName)) {
-      return this.runBuiltIn(viewName as BuiltInViewName, opts?.rig, limit);
+      return this.runBuiltIn(viewName as BuiltInViewName, opts?.softwareTeam, limit);
     }
     const custom = this.getCustomView(viewName);
     if (!custom) {
@@ -171,11 +171,11 @@ export class ViewProjector {
     return { builtIn: [...BUILT_IN_VIEW_NAMES], custom: this.listCustomViews() };
   }
 
-  private runBuiltIn(name: BuiltInViewName, rig: string | undefined, limit: number): ViewQueryResult {
+  private runBuiltIn(name: BuiltInViewName, softwareTeam: string | undefined, limit: number): ViewQueryResult {
     const fixtureClause = fixtureExclusionClause();
-    const rigClause = rig ? `AND (destination_session LIKE ? ESCAPE '\\' OR source_session LIKE ? ESCAPE '\\')` : "";
-    const rigPattern = rig ? `%@${rig.replace(/[\\%_]/g, "\\$&")}` : undefined;
-    const rigParams: unknown[] = rigPattern ? [rigPattern, rigPattern] : [];
+    const softwareTeamClause = softwareTeam ? `AND (destination_session LIKE ? ESCAPE '\\' OR source_session LIKE ? ESCAPE '\\')` : "";
+    const softwareTeamPattern = softwareTeam ? `%@${softwareTeam.replace(/[\\%_]/g, "\\$&")}` : undefined;
+    const softwareTeamParams: unknown[] = softwareTeamPattern ? [softwareTeamPattern, softwareTeamPattern] : [];
 
     // S04 — the pickup lens post-processes through the ONE shared derivation rule
     // (derivePickup), never a second SQL copy of it: claimed live rows, oldest claim first,
@@ -192,11 +192,11 @@ export class ViewProjector {
             WHERE claimed_at IS NOT NULL
               AND state IN ('in-progress', 'blocked')
               AND ${fixtureClause}
-              ${rigClause}
+              ${softwareTeamClause}
             ORDER BY claimed_at ASC
             LIMIT ?`,
         )
-        .all(...rigParams, limit) as Record<string, unknown>[];
+        .all(...softwareTeamParams, limit) as Record<string, unknown>[];
       const projected = rows.map((r) => {
         const activity = this.executionDeps?.seatActivity?.getSeatStateBySession(String(r.destination_session));
         const receipt = derivePickup({
@@ -226,11 +226,11 @@ export class ViewProjector {
           FROM queue_items
           WHERE state IN ('pending', 'in-progress', 'blocked')
             AND ${fixtureClause}
-            ${rigClause}
+            ${softwareTeamClause}
           ORDER BY ts_updated DESC
           LIMIT ?
         `;
-        params = [...rigParams, limit];
+        params = [...softwareTeamParams, limit];
         break;
       case "founder":
         // priority='critical' OR tier='critical' OR tier='fast'.
@@ -240,16 +240,16 @@ export class ViewProjector {
           WHERE (priority = 'critical' OR tier IN ('critical', 'fast'))
             AND state IN ('pending', 'in-progress', 'blocked')
             AND ${fixtureClause}
-            ${rigClause}
+            ${softwareTeamClause}
           ORDER BY ts_updated DESC
           LIMIT ?
         `;
-        params = [...rigParams, limit];
+        params = [...softwareTeamParams, limit];
         break;
       case "pod-load":
         // R1 NOTE 4: PRD § L5 names this view "per-pod queue-item counts",
         // but Phase A's queue_items table does not carry pod metadata —
-        // destination_session is `<member>@<rig>` shape and there is no
+        // destination_session is `<member>@<softwareTeam>` shape and there is no
         // pod_id column. v0 interpretation: group by destination_session
         // (i.e., per-seat counts). When pod metadata becomes available
         // (Phase D workflow runtime or later), this view should be
@@ -261,12 +261,12 @@ export class ViewProjector {
           FROM queue_items
           WHERE state IN ('pending', 'in-progress', 'blocked')
             AND ${fixtureClause}
-            ${rigClause}
+            ${softwareTeamClause}
           GROUP BY destination_session
           ORDER BY active_count DESC
           LIMIT ?
         `;
-        params = [...rigParams, limit];
+        params = [...softwareTeamParams, limit];
         break;
       case "escalations":
         // closure_reason = 'escalation' OR an OPEN S01 wake-escalation aggregate — the
@@ -278,11 +278,11 @@ export class ViewProjector {
           WHERE (closure_reason = 'escalation'
                  OR (state IN ('pending', 'in-progress', 'blocked') AND tags LIKE '%"wake-escalation"%'))
             AND ${fixtureClause}
-            ${rigClause}
+            ${softwareTeamClause}
           ORDER BY ts_updated DESC
           LIMIT ?
         `;
-        params = [...rigParams, limit];
+        params = [...softwareTeamParams, limit];
         break;
       case "held":
         // state = 'blocked' OR blocked_on is non-null.
@@ -291,11 +291,11 @@ export class ViewProjector {
           FROM queue_items
           WHERE (state = 'blocked' OR blocked_on IS NOT NULL)
             AND ${fixtureClause}
-            ${rigClause}
+            ${softwareTeamClause}
           ORDER BY ts_updated DESC
           LIMIT ?
         `;
-        params = [...rigParams, limit];
+        params = [...softwareTeamParams, limit];
         break;
       case "activity": {
         // Recent transitions joined with qitem state. Fixture-clause must
@@ -308,7 +308,7 @@ export class ViewProjector {
               q.source_session NOT LIKE '%@test-%' AND
               q.source_session NOT LIKE '%@fixture-%'
             )`;
-        const rigClauseQI = rig
+        const softwareTeamClauseQI = softwareTeam
           ? `AND (q.destination_session LIKE ? ESCAPE '\\' OR q.source_session LIKE ? ESCAPE '\\')`
           : "";
         sql = `
@@ -317,11 +317,11 @@ export class ViewProjector {
           FROM queue_transitions t
           JOIN queue_items q ON t.qitem_id = q.qitem_id
           WHERE ${fixtureClauseQI}
-            ${rigClauseQI}
+            ${softwareTeamClauseQI}
           ORDER BY t.ts DESC
           LIMIT ?
         `;
-        params = [...rigParams, limit];
+        params = [...softwareTeamParams, limit];
         break;
       }
       default:

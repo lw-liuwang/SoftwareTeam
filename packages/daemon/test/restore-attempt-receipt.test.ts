@@ -18,7 +18,7 @@ describe("deriveRestoreAttemptReceipt", () => {
   it("preserves the original partial result while deriving operator-completed intended-set truth", () => {
     const started = events.emit({
       type: "restore.started",
-      rigId: "rig-1",
+      softwareTeamId: "software-team-1",
       snapshotId: "snap-manual",
       snapshotSelection: {
         snapshotId: "snap-manual",
@@ -37,12 +37,12 @@ describe("deriveRestoreAttemptReceipt", () => {
     });
     events.emit({
       type: "restore.completed",
-      rigId: "rig-1",
+      softwareTeamId: "software-team-1",
       snapshotId: "snap-manual",
       result: {
         snapshotId: "snap-manual",
         preRestoreSnapshotId: "pre",
-        rigResult: "partially_restored",
+        softwareTeamResult: "partially_restored",
         nodes: [
           { nodeId: "n1", logicalId: "lead", status: "resumed" },
           { nodeId: "n2", logicalId: "worker", status: "attention_required" },
@@ -52,7 +52,7 @@ describe("deriveRestoreAttemptReceipt", () => {
     });
     events.emit({
       type: "restore.outcome_reconciled",
-      rigId: "rig-1",
+      softwareTeamId: "software-team-1",
       nodeId: "n2",
       attemptId: started.seq,
       from: "attention_required",
@@ -60,12 +60,12 @@ describe("deriveRestoreAttemptReceipt", () => {
       evidence: { tmux: true, fgProcess: "codex", resumeTokenUsed: true, paneState: "usable" },
     });
 
-    const receipt = deriveRestoreAttemptReceipt(db, "rig-1", started.seq);
+    const receipt = deriveRestoreAttemptReceipt(db, "software-team-1", started.seq);
 
     expect(receipt.ok).toBe(true);
     if (!receipt.ok) return;
     expect(receipt.originalResult.warnings).toEqual(["Startup submission unverified in lead@fixture: capture unavailable"]);
-    expect(receipt.originalResult.rigResult).toBe("partially_restored");
+    expect(receipt.originalResult.softwareTeamResult).toBe("partially_restored");
     expect(receipt.originalResult.nodes[1]!.status).toBe("attention_required");
     expect(receipt.reconciliations).toHaveLength(1);
     expect(receipt.currentNodes[1]!.status).toBe("operator_recovered");
@@ -75,33 +75,33 @@ describe("deriveRestoreAttemptReceipt", () => {
   });
 
   it("does not let a later attempt supply this attempt's completion", () => {
-    const first = events.emit({ type: "restore.started", rigId: "rig-1", snapshotId: "s1" });
-    events.emit({ type: "restore.started", rigId: "rig-1", snapshotId: "s2" });
+    const first = events.emit({ type: "restore.started", softwareTeamId: "software-team-1", snapshotId: "s1" });
+    events.emit({ type: "restore.started", softwareTeamId: "software-team-1", snapshotId: "s2" });
     events.emit({
       type: "restore.completed",
-      rigId: "rig-1",
+      softwareTeamId: "software-team-1",
       snapshotId: "s2",
-      result: { snapshotId: "s2", preRestoreSnapshotId: null, rigResult: "fully_restored", nodes: [], warnings: [] },
+      result: { snapshotId: "s2", preRestoreSnapshotId: null, softwareTeamResult: "fully_restored", nodes: [], warnings: [] },
     });
 
-    expect(deriveRestoreAttemptReceipt(db, "rig-1", first.seq)).toMatchObject({ ok: false, code: "attempt_incomplete" });
+    expect(deriveRestoreAttemptReceipt(db, "software-team-1", first.seq)).toMatchObject({ ok: false, code: "attempt_incomplete" });
   });
 
   it("keeps an intended seat with no node result visible as unresolved", () => {
     const started = events.emit({
       type: "restore.started",
-      rigId: "rig-1",
+      softwareTeamId: "software-team-1",
       snapshotId: "s1",
       intendedRoster: [{ nodeId: "n1", logicalId: "lead" }],
     });
     events.emit({
       type: "restore.completed",
-      rigId: "rig-1",
+      softwareTeamId: "software-team-1",
       snapshotId: "s1",
-      result: { snapshotId: "s1", preRestoreSnapshotId: null, rigResult: "fully_restored", nodes: [], warnings: [] },
+      result: { snapshotId: "s1", preRestoreSnapshotId: null, softwareTeamResult: "fully_restored", nodes: [], warnings: [] },
     });
 
-    const receipt = deriveRestoreAttemptReceipt(db, "rig-1", started.seq);
+    const receipt = deriveRestoreAttemptReceipt(db, "software-team-1", started.seq);
 
     expect(receipt.ok).toBe(true);
     if (!receipt.ok) return;

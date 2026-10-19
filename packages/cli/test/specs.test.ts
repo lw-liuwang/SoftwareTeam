@@ -24,15 +24,15 @@ function runningDeps(port: number): StatusDeps {
 }
 
 const LIBRARY_ENTRIES = [
-  { id: "abc123", kind: "rig", name: "review-rig", version: "0.2", sourceType: "builtin", sourcePath: "/builtin/review-rig.yaml", relativePath: "review-rig.yaml", updatedAt: "2026-04-01T00:00:00Z", summary: "A review rig" },
-  { id: "def456", kind: "agent", name: "impl-agent", version: "1.0", sourceType: "user_file", sourcePath: "/home/user/.openrig/specs/impl-agent.yaml", relativePath: "impl-agent.yaml", updatedAt: "2026-04-01T00:00:00Z" },
+  { id: "abc123", kind: "softwareTeam", name: "review-software-team", version: "0.2", sourceType: "builtin", sourcePath: "/builtin/review-software-team.yaml", relativePath: "review-software-team.yaml", updatedAt: "2026-04-01T00:00:00Z", summary: "A review softwareTeam" },
+  { id: "def456", kind: "agent", name: "impl-agent", version: "1.0", sourceType: "user_file", sourcePath: "/home/user/.softwareteam/specs/impl-agent.yaml", relativePath: "impl-agent.yaml", updatedAt: "2026-04-01T00:00:00Z" },
 ];
 
-const RIG_REVIEW = {
-  sourceState: "library_item", kind: "rig", name: "review-rig", version: "0.2", format: "pod_aware",
-  libraryEntryId: "abc123", sourcePath: "/builtin/review-rig.yaml",
+const SOFTWARE_TEAM_REVIEW = {
+  sourceState: "library_item", kind: "softwareTeam", name: "review-software-team", version: "0.2", format: "pod_aware",
+  libraryEntryId: "abc123", sourcePath: "/builtin/review-software-team.yaml",
   pods: [{ id: "dev", label: "Dev", members: [{ id: "impl", agentRef: "local:agents/impl", runtime: "claude-code", profile: "default" }], edges: [] }],
-  edges: [], graph: { nodes: [], edges: [] }, raw: "name: review-rig\n",
+  edges: [], graph: { nodes: [], edges: [] }, raw: "name: review-software-team\n",
 };
 
 describe("Specs CLI", () => {
@@ -49,18 +49,18 @@ describe("Specs CLI", () => {
         res.end(JSON.stringify(filtered));
       } else if (url === "/api/specs/library/abc123") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ entry: LIBRARY_ENTRIES[0], yaml: "name: review-rig\n" }));
+        res.end(JSON.stringify({ entry: LIBRARY_ENTRIES[0], yaml: "name: review-software-team\n" }));
       } else if (url === "/api/specs/library/abc123/review") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(RIG_REVIEW));
+        res.end(JSON.stringify(SOFTWARE_TEAM_REVIEW));
       } else if (url === "/api/specs/library/abc123" && req.method === "DELETE") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true, id: "abc123", name: "review-rig" }));
+        res.end(JSON.stringify({ ok: true, id: "abc123", name: "review-software-team" }));
       } else if (url === "/api/specs/library/abc123/rename" && req.method === "POST") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
           ok: true,
-          entry: { ...LIBRARY_ENTRIES[0], id: "renamed123", name: "renamed-rig", sourcePath: "/builtin/renamed-rig.yaml" },
+          entry: { ...LIBRARY_ENTRIES[0], id: "renamed123", name: "renamed-software-team", sourcePath: "/builtin/renamed-software-team.yaml" },
         }));
       } else if (url === "/api/specs/library/sync" && req.method === "POST") {
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -89,23 +89,23 @@ describe("Specs CLI", () => {
     cmd.outputHelp();
     const help = logs.join("");
     expect(help).toContain("Browse, preview, and manage the spec library, including managed apps");
-    expect(help).toContain("rig specs ls");
-    expect(help).toContain("rig specs preview secrets-manager");
+    expect(help).toContain("SoftwareTeam specs ls");
+    expect(help).toContain("SoftwareTeam specs preview secrets-manager");
     expect(help).toContain("Add a spec file or full spec directory to the user library");
   });
 
   it("specs ls prints library entries", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "specs", "ls"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "specs", "ls"]);
     });
     const output = logs.join("\n");
-    expect(output).toContain("review-rig");
+    expect(output).toContain("review-software-team");
     expect(output).toContain("impl-agent");
   });
 
   it("specs ls --json prints raw JSON array", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "specs", "ls", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "specs", "ls", "--json"]);
     });
     const parsed = JSON.parse(logs.join("\n"));
     expect(Array.isArray(parsed)).toBe(true);
@@ -114,11 +114,11 @@ describe("Specs CLI", () => {
 
   it("specs show resolves by name and prints metadata", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "specs", "show", "review-rig"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "specs", "show", "review-software-team"]);
     });
     const output = logs.join("\n");
-    expect(output).toContain("review-rig");
-    expect(output).toContain("/builtin/review-rig.yaml");
+    expect(output).toContain("review-software-team");
+    expect(output).toContain("/builtin/review-software-team.yaml");
   });
 
   it("specs show with ambiguous name errors with candidates", async () => {
@@ -127,7 +127,7 @@ describe("Specs CLI", () => {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify([
         { ...LIBRARY_ENTRIES[0], id: "aaa" },
-        { ...LIBRARY_ENTRIES[0], id: "bbb", sourcePath: "/other/review-rig.yaml" },
+        { ...LIBRARY_ENTRIES[0], id: "bbb", sourcePath: "/other/review-software-team.yaml" },
       ]));
     });
     await new Promise<void>((resolve) => { dupServer.listen(0, resolve); });
@@ -138,7 +138,7 @@ describe("Specs CLI", () => {
     prog.addCommand(specsCommand(runningDeps(dupPort)));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "specs", "show", "review-rig"]);
+      await prog.parseAsync(["node", "softwareTeam", "specs", "show", "review-software-team"]);
     });
     dupServer.close();
 
@@ -146,12 +146,12 @@ describe("Specs CLI", () => {
     expect(exitCode).toBe(1);
   });
 
-  it("specs show --kind resolves same-name rig/workflow entries", async () => {
+  it("specs show --kind resolves same-name softwareTeam/workflow entries", async () => {
     const dupServer = http.createServer((req, res) => {
       const url = decodeURIComponent(req.url ?? "");
-      if (url === "/api/specs/library?kind=rig") {
+      if (url === "/api/specs/library?kind=softwareTeam") {
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify([{ ...LIBRARY_ENTRIES[0], id: "rig-same", kind: "rig", name: "conveyor" }]));
+        res.end(JSON.stringify([{ ...LIBRARY_ENTRIES[0], id: "software-team-same", kind: "softwareTeam", name: "conveyor" }]));
       } else {
         res.writeHead(404).end();
       }
@@ -164,44 +164,44 @@ describe("Specs CLI", () => {
     prog.addCommand(specsCommand(runningDeps(dupPort)));
 
     const { logs, exitCode } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "specs", "show", "conveyor", "--kind", "rig"]);
+      await prog.parseAsync(["node", "softwareTeam", "specs", "show", "conveyor", "--kind", "softwareTeam"]);
     });
     dupServer.close();
 
     const output = logs.join("\n");
-    expect(output).toContain("Kind:     rig");
-    expect(output).toContain("/builtin/review-rig.yaml");
+    expect(output).toContain("Kind:     softwareTeam");
+    expect(output).toContain("/builtin/review-software-team.yaml");
     expect(exitCode).toBeUndefined();
   });
 
   it("specs show not-found error points people back to managed apps in the library", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "specs", "show", "missing-app"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "specs", "show", "missing-app"]);
     });
 
-    expect(logs.join("\n")).toContain("Run 'rig specs ls' to see available rigs, agents, workflows, and managed apps.");
+    expect(logs.join("\n")).toContain("Run 'SoftwareTeam specs ls' to see available softwareTeams, agents, workflows, and managed apps.");
     expect(exitCode).toBe(1);
   });
 
   it("specs preview --json returns structured review", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "specs", "preview", "review-rig", "--kind", "rig", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "specs", "preview", "review-software-team", "--kind", "softwareTeam", "--json"]);
     });
     const parsed = JSON.parse(logs.join("\n"));
-    expect(parsed.kind).toBe("rig");
+    expect(parsed.kind).toBe("softwareTeam");
     expect(parsed.sourceState).toBe("library_item");
     expect(parsed.libraryEntryId).toBe("abc123");
   });
 
   it.each([
-    ["starter", "builtin", "rig", true],
-    ["factory", "builtin", "rig", true],
-    ["starter", "user_file", "rig", false],
-    ["research", "builtin", "rig", false],
+    ["starter", "builtin", "softwareTeam", true],
+    ["factory", "builtin", "softwareTeam", true],
+    ["starter", "user_file", "softwareTeam", false],
+    ["research", "builtin", "softwareTeam", false],
     ["starter", "builtin", "agent", false],
   ])("preview %s/%s/%s keeps the review and scopes first-team guidance", async (name, sourceType, kind, guided) => {
     const entry = { ...LIBRARY_ENTRIES[0], name, sourceType, kind };
-    const review = { ...RIG_REVIEW, name, kind };
+    const review = { ...SOFTWARE_TEAM_REVIEW, name, kind };
     const previewServer = http.createServer((req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(req.url?.endsWith("/review") ? review : [entry]));
@@ -211,7 +211,7 @@ describe("Specs CLI", () => {
       for (const json of [false, true]) {
         const program = new Command().addCommand(specsCommand(runningDeps((previewServer.address() as { port: number }).port)));
         const { logs, exitCode } = await captureLogs(() => program.parseAsync([
-          "node", "rig", "specs", "preview", entry.id, "--kind", String(kind), ...(json ? ["--json"] : []),
+          "node", "softwareTeam", "specs", "preview", entry.id, "--kind", String(kind), ...(json ? ["--json"] : []),
         ]).then(() => {}));
         expect(exitCode).toBeUndefined();
         const output = logs.join("\n");
@@ -238,7 +238,7 @@ describe("Specs CLI", () => {
 
   it("specs sync reports updated count", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "specs", "sync"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "specs", "sync"]);
     });
     expect(logs.join("\n")).toContain("2");
   });
@@ -248,26 +248,26 @@ describe("Specs CLI", () => {
     const { join } = await import("node:path");
     const { tmpdir } = await import("node:os");
 
-    // Use temp OpenRig home to avoid polluting real ~/.openrig/specs/
+    // Use temp SoftwareTeam home to avoid polluting real ~/.softwareteam/specs/
     const tmpDir = mkdtempSync(join(tmpdir(), "specs-add-"));
     const specPath = join(tmpDir, "test-spec.yaml");
     writeFileSync(specPath, 'name: test-spec\nversion: "0.2"\npods: []\nedges: []\n');
     const savedHome = process.env["HOME"];
-    const savedOpenRigHome = process.env["OPENRIG_HOME"];
+    const savedSoftwareTeamHome = process.env["SOFTWARETEAM_HOME"];
     process.env["HOME"] = tmpDir;
-    process.env["OPENRIG_HOME"] = join(tmpDir, ".openrig");
+    process.env["SOFTWARETEAM_HOME"] = join(tmpDir, ".softwareteam");
 
     const addServer = http.createServer((req, res) => {
       const url = decodeURIComponent(req.url ?? "");
       let body = "";
       req.on("data", (chunk: Buffer) => { body += chunk; });
       req.on("end", () => {
-        if (url.startsWith("/api/specs/review/rig") && req.method === "POST") {
+        if (url.startsWith("/api/specs/review/softwareTeam") && req.method === "POST") {
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ kind: "rig", name: "test-spec" }));
+          res.end(JSON.stringify({ kind: "softwareTeam", name: "test-spec" }));
         } else if (url === "/api/specs/library/sync" && req.method === "POST") {
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify([{ id: "new-id", kind: "rig", name: "test-spec", sourcePath: join(tmpDir, ".openrig", "specs", "test-spec.yaml") }]));
+          res.end(JSON.stringify([{ id: "new-id", kind: "softwareTeam", name: "test-spec", sourcePath: join(tmpDir, ".softwareteam", "specs", "test-spec.yaml") }]));
         } else if (url === "/api/specs/library") {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify([]));
@@ -284,17 +284,17 @@ describe("Specs CLI", () => {
     prog.addCommand(specsCommand(runningDeps(addPort)));
 
     const { logs } = await captureLogs(async () => {
-      await prog.parseAsync(["node", "rig", "specs", "add", specPath]);
+      await prog.parseAsync(["node", "softwareTeam", "specs", "add", specPath]);
     });
 
     addServer.close();
 
     // Verify it copied to temp HOME, not real HOME
-    expect(existsSync(join(tmpDir, ".openrig", "specs", "test-spec.yaml"))).toBe(true);
+    expect(existsSync(join(tmpDir, ".softwareteam", "specs", "test-spec.yaml"))).toBe(true);
 
     process.env["HOME"] = savedHome;
-    if (savedOpenRigHome !== undefined) process.env["OPENRIG_HOME"] = savedOpenRigHome;
-    else delete process.env["OPENRIG_HOME"];
+    if (savedSoftwareTeamHome !== undefined) process.env["SOFTWARETEAM_HOME"] = savedSoftwareTeamHome;
+    else delete process.env["SOFTWARETEAM_HOME"];
     rmSync(tmpDir, { recursive: true, force: true });
 
     const output = logs.join("\n");
@@ -303,13 +303,13 @@ describe("Specs CLI", () => {
     expect(output).toContain("ID:");
   });
 
-  it("specs add installs a full rig directory with adjacent resources", async () => {
+  it("specs add installs a full SoftwareTeam directory with adjacent resources", async () => {
     const { mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync } = await import("node:fs");
     const { join } = await import("node:path");
     const { tmpdir } = await import("node:os");
 
     const tmpDir = mkdtempSync(join(tmpdir(), "specs-add-dir-"));
-    const specDir = join(tmpDir, "building-openrig");
+    const specDir = join(tmpDir, "building-softwareteam");
     mkdirSync(join(specDir, "guidance"), { recursive: true });
     mkdirSync(join(specDir, "agents", "lead", "guidance"), { recursive: true });
     writeFileSync(join(specDir, "guidance", "builder.md"), "# Builder Context\n");
@@ -327,9 +327,9 @@ describe("Specs CLI", () => {
       '      runtime_resources: []',
       '',
     ].join("\n"));
-    writeFileSync(join(specDir, "rig.yaml"), [
+    writeFileSync(join(specDir, "software-team.yaml"), [
       'version: "0.2"',
-      'name: building-openrig',
+      'name: building-softwareteam',
       'startup:',
       '  files:',
       '    - path: guidance/builder.md',
@@ -350,24 +350,24 @@ describe("Specs CLI", () => {
     ].join("\n"));
 
     const savedHome = process.env["HOME"];
-    const savedOpenRigHome = process.env["OPENRIG_HOME"];
+    const savedSoftwareTeamHome = process.env["SOFTWARETEAM_HOME"];
     process.env["HOME"] = tmpDir;
-    process.env["OPENRIG_HOME"] = join(tmpDir, ".openrig");
+    process.env["SOFTWARETEAM_HOME"] = join(tmpDir, ".softwareteam");
 
     const addServer = http.createServer((req, res) => {
       const url = decodeURIComponent(req.url ?? "");
       req.resume();
       req.on("end", () => {
-        if (url.startsWith("/api/specs/review/rig") && req.method === "POST") {
+        if (url.startsWith("/api/specs/review/softwareTeam") && req.method === "POST") {
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ kind: "rig", name: "building-openrig" }));
+          res.end(JSON.stringify({ kind: "softwareTeam", name: "building-softwareteam" }));
         } else if (url === "/api/specs/library/sync" && req.method === "POST") {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify([{
             id: "dir-id",
-            kind: "rig",
-            name: "building-openrig",
-            sourcePath: join(tmpDir, ".openrig", "specs", "building-openrig", "rig.yaml"),
+            kind: "softwareTeam",
+            name: "building-softwareteam",
+            sourcePath: join(tmpDir, ".softwareteam", "specs", "building-softwareteam", "software-team.yaml"),
           }]));
         } else if (url === "/api/specs/library") {
           res.writeHead(200, { "Content-Type": "application/json" });
@@ -386,40 +386,40 @@ describe("Specs CLI", () => {
 
     try {
       const { logs } = await captureLogs(async () => {
-        await prog.parseAsync(["node", "rig", "specs", "add", specDir]);
+        await prog.parseAsync(["node", "softwareTeam", "specs", "add", specDir]);
       });
 
-      expect(existsSync(join(tmpDir, ".openrig", "specs", "building-openrig", "rig.yaml"))).toBe(true);
-      expect(existsSync(join(tmpDir, ".openrig", "specs", "building-openrig", "guidance", "builder.md"))).toBe(true);
-      expect(existsSync(join(tmpDir, ".openrig", "specs", "building-openrig", "agents", "lead", "agent.yaml"))).toBe(true);
-      expect(logs.join("\n")).toContain("building-openrig");
+      expect(existsSync(join(tmpDir, ".softwareteam", "specs", "building-softwareteam", "software-team.yaml"))).toBe(true);
+      expect(existsSync(join(tmpDir, ".softwareteam", "specs", "building-softwareteam", "guidance", "builder.md"))).toBe(true);
+      expect(existsSync(join(tmpDir, ".softwareteam", "specs", "building-softwareteam", "agents", "lead", "agent.yaml"))).toBe(true);
+      expect(logs.join("\n")).toContain("building-softwareteam");
       expect(logs.join("\n")).toContain("ID:");
     } finally {
       addServer.close();
       process.env["HOME"] = savedHome;
-      if (savedOpenRigHome !== undefined) process.env["OPENRIG_HOME"] = savedOpenRigHome;
-      else delete process.env["OPENRIG_HOME"];
+      if (savedSoftwareTeamHome !== undefined) process.env["SOFTWARETEAM_HOME"] = savedSoftwareTeamHome;
+      else delete process.env["SOFTWARETEAM_HOME"];
       rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 
   it("specs remove resolves by name and reports deletion", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "specs", "remove", "review-rig"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "specs", "remove", "review-software-team"]);
     });
 
     expect(exitCode).toBeUndefined();
     expect(logs.join("\n")).toContain("Removed");
-    expect(logs.join("\n")).toContain("review-rig");
+    expect(logs.join("\n")).toContain("review-software-team");
   });
 
   it("specs rename resolves by name and reports the new entry", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "specs", "rename", "review-rig", "renamed-rig"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "specs", "rename", "review-software-team", "renamed-software-team"]);
     });
 
     expect(exitCode).toBeUndefined();
     expect(logs.join("\n")).toContain("Renamed");
-    expect(logs.join("\n")).toContain("renamed-rig");
+    expect(logs.join("\n")).toContain("renamed-software-team");
   });
 });

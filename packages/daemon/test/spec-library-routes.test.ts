@@ -7,10 +7,10 @@ import { SpecLibraryService } from "../src/domain/spec-library-service.js";
 import { SpecReviewService } from "../src/domain/spec-review-service.js";
 import { specLibraryRoutes } from "../src/routes/spec-library.js";
 
-const VALID_RIG_YAML = `
+const VALID_SOFTWARE_TEAM_YAML = `
 version: "0.2"
-name: lib-rig
-summary: A library rig
+name: lib-software-team
+summary: A library softwareTeam
 pods:
   - id: dev
     label: Dev
@@ -30,7 +30,7 @@ describe("spec library routes", () => {
 
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), "spec-lib-routes-"));
-    writeFileSync(join(tmpDir, "rig.yaml"), VALID_RIG_YAML);
+    writeFileSync(join(tmpDir, "software-team.yaml"), VALID_SOFTWARE_TEAM_YAML);
     const svc = new SpecReviewService();
     lib = new SpecLibraryService({
       roots: [{ path: tmpDir, sourceType: "user_file" }],
@@ -57,8 +57,8 @@ describe("spec library routes", () => {
   it("keeps source provenance and serves canonical source identity for file-root mapping", async () => {
     const res = await createApp().request("/api/specs/library");
     const entries = await res.json() as Array<{ sourcePath: string; resolvedSourcePath: string }>;
-    expect(entries[0]!.sourcePath).toBe(join(tmpDir, "rig.yaml"));
-    expect(entries[0]!.resolvedSourcePath).toBe(realpathSync(join(tmpDir, "rig.yaml")));
+    expect(entries[0]!.sourcePath).toBe(join(tmpDir, "software-team.yaml"));
+    expect(entries[0]!.resolvedSourcePath).toBe(realpathSync(join(tmpDir, "software-team.yaml")));
   });
 
   it("GET /api/specs/library returns library entries", async () => {
@@ -67,8 +67,8 @@ describe("spec library routes", () => {
     expect(res.status).toBe(200);
     const body = await res.json() as Array<{ kind: string; name: string }>;
     expect(body).toHaveLength(1);
-    expect(body[0]!.kind).toBe("rig");
-    expect(body[0]!.name).toBe("lib-rig");
+    expect(body[0]!.kind).toBe("softwareTeam");
+    expect(body[0]!.name).toBe("lib-software-team");
   });
 
   it("GET /api/specs/library/:id returns entry + YAML content", async () => {
@@ -78,8 +78,8 @@ describe("spec library routes", () => {
     const res = await app.request(`/api/specs/library/${id}`);
     expect(res.status).toBe(200);
     const body = await res.json() as { entry: { name: string }; yaml: string };
-    expect(body.entry.name).toBe("lib-rig");
-    expect(body.yaml).toContain("lib-rig");
+    expect(body.entry.name).toBe("lib-software-team");
+    expect(body.yaml).toContain("lib-software-team");
   });
 
   it("GET /api/specs/library/:id/review returns review with library provenance", async () => {
@@ -91,14 +91,14 @@ describe("spec library routes", () => {
     const body = await res.json() as { sourceState: string; libraryEntryId: string; sourcePath: string; name: string };
     expect(body.sourceState).toBe("library_item");
     expect(body.libraryEntryId).toBe(id);
-    expect(body.sourcePath).toContain("rig.yaml");
-    expect(body.name).toBe("lib-rig");
+    expect(body.sourcePath).toContain("software-team.yaml");
+    expect(body.name).toBe("lib-software-team");
   });
 
   it("POST /api/specs/library/sync rescans and returns updated list", async () => {
     const app = createApp();
     // Write a new file
-    writeFileSync(join(tmpDir, "new-rig.yaml"), VALID_RIG_YAML.replace("lib-rig", "new-rig"));
+    writeFileSync(join(tmpDir, "new-software-team.yaml"), VALID_SOFTWARE_TEAM_YAML.replace("lib-software-team", "new-software-team"));
     const res = await app.request("/api/specs/library/sync", { method: "POST" });
     expect(res.status).toBe(200);
     const body = await res.json() as Array<{ name: string }>;
@@ -114,7 +114,7 @@ describe("spec library routes", () => {
     expect(res.status).toBe(200);
     const body = await res.json() as { ok: boolean; name: string };
     expect(body.ok).toBe(true);
-    expect(body.name).toBe("lib-rig");
+    expect(body.name).toBe("lib-software-team");
 
     const listRes = await app.request("/api/specs/library");
     const entries = await listRes.json() as Array<{ id: string }>;
@@ -128,30 +128,30 @@ describe("spec library routes", () => {
     const res = await app.request(`/api/specs/library/${id}/rename`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "renamed-rig" }),
+      body: JSON.stringify({ name: "renamed-software-team" }),
     });
 
     expect(res.status).toBe(200);
     const body = await res.json() as { ok: boolean; entry: { name: string; sourcePath: string } };
     expect(body.ok).toBe(true);
-    expect(body.entry.name).toBe("renamed-rig");
+    expect(body.entry.name).toBe("renamed-software-team");
 
     const listRes = await app.request("/api/specs/library");
     const entries = await listRes.json() as Array<{ name: string; sourcePath: string }>;
-    expect(entries[0]!.name).toBe("renamed-rig");
-    expect(entries[0]!.sourcePath).toContain("renamed-rig");
+    expect(entries[0]!.name).toBe("renamed-software-team");
+    expect(entries[0]!.sourcePath).toContain("renamed-software-team");
 
     const yaml = readFileSync(entries[0]!.sourcePath, "utf-8");
-    expect(yaml).toContain("name: renamed-rig");
+    expect(yaml).toContain("name: renamed-software-team");
   });
 
-  it("GET /api/specs/library/:id/review returns composePreview for service-backed rigs", async () => {
-    const svcDir = join(tmpDir, "rigs", "launch", "svc-rig");
+  it("GET /api/specs/library/:id/review returns composePreview for service-backed softwareTeams", async () => {
+    const svcDir = join(tmpDir, "software-teams", "launch", "svc-software-team");
     mkdirSync(svcDir, { recursive: true });
-    writeFileSync(join(svcDir, "rig.yaml"), `
+    writeFileSync(join(svcDir, "software-team.yaml"), `
 version: "0.2"
-name: svc-rig
-summary: A service rig
+name: svc-software-team
+summary: A service softwareTeam
 
 services:
   kind: compose
@@ -201,14 +201,14 @@ services:
     });
     app.route("/api/specs/library", specLibraryRoutes());
 
-    const entries = svcLib.list({ kind: "rig" });
-    const svcEntry = entries.find((e) => e.name === "svc-rig");
+    const entries = svcLib.list({ kind: "softwareTeam" });
+    const svcEntry = entries.find((e) => e.name === "svc-software-team");
     expect(svcEntry).toBeDefined();
 
     const res = await app.request(`/api/specs/library/${svcEntry!.id}/review`);
     expect(res.status).toBe(200);
     const body = await res.json() as Record<string, unknown>;
-    expect(body["name"]).toBe("svc-rig");
+    expect(body["name"]).toBe("svc-software-team");
 
     const services = body["services"] as Record<string, unknown>;
     expect(services).toBeDefined();

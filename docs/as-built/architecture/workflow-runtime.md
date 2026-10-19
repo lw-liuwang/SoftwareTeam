@@ -50,7 +50,7 @@ roles, `require`, and then the next array element.
 The language includes `harness`, `host`, singular `gate`, `depends_on`, typed
 `acceptance`, and waiting re-presentation settings. At this pin,
 `WORKFLOW_AGENT_HARNESSES` contains only `claude-code` and `codex`; support for
-another runtime elsewhere in OpenRig does not add it to this pin's workflow
+another runtime elsewhere in SoftwareTeam does not add it to this pin's workflow
 harness grammar. Nonlocal host pins can validate as registered names but
 `instantiate` still rejects execution with `host_pin_remote_unsupported`.
 This is a workflow-step restriction, not a claim that all queue traffic is
@@ -93,7 +93,7 @@ all database migrations:
 |---|---|
 | [`033`](../../../packages/daemon/src/db/migrations/033_workflow_specs.ts), [`034`](../../../packages/daemon/src/db/migrations/034_workflow_instances.ts), [`035`](../../../packages/daemon/src/db/migrations/035_workflow_step_trails.ts) | Spec cache, instances/frontier/current step, and append-only trail API. |
 | [`040`](../../../packages/daemon/src/db/migrations/040_workflow_specs_diagnostic.ts), [`050`](../../../packages/daemon/src/db/migrations/050_workflow_spec_json.ts) | Cache diagnostics and complete parsed spec JSON. |
-| [`049`](../../../packages/daemon/src/db/migrations/049_workflow_instance_version.ts), [`051`](../../../packages/daemon/src/db/migrations/051_workflow_resume.ts), [`052`](../../../packages/daemon/src/db/migrations/052_workflow_instance_bound_rig.ts) | Optimistic version guard, resume/hop baseline, and bound rig. |
+| [`049`](../../../packages/daemon/src/db/migrations/049_workflow_instance_version.ts), [`051`](../../../packages/daemon/src/db/migrations/051_workflow_resume.ts), [`052`](../../../packages/daemon/src/db/migrations/052_workflow_instance_bound_software_team.ts) | Optimistic version guard, resume/hop baseline, and bound SoftwareTeam. |
 | [`079`](../../../packages/daemon/src/db/migrations/079_workflow_lifecycle_parallel.ts) | Lifecycle operation key/digest/binding, packet-to-step frontier bindings, and failure occurrences. |
 
 Current instance states include `active`, `waiting`, `completed`, `failed`,
@@ -103,18 +103,18 @@ single `current_step_id` cannot describe all parallel work.
 ## Instantiation and owner selection
 
 `WorkflowRuntime.instantiate` resolves a cached spec name or explicit path,
-validates it, resolves the rig and the entry owner, then creates the instance
+validates it, resolves the SoftwareTeam and the entry owner, then creates the instance
 and its single entry packet (for `steps[0]`) through the transactional
 event/queue path (`workflow-runtime.ts:433`, `:757`). The entry packet gets a
 best-effort post-commit nudge with no staged wake intent (`:843`–`845`); its
 keepalive, armed in the same transaction, and the boot sweep cover a lost
 entry nudge. An explicit
-unknown `targetRig` fails; an unknown spec-default rig produces an advisory
-and falls back to unbound operation. A bound rig without a required declared
+unknown `targetSoftwareTeam` fails; an unknown spec-default SoftwareTeam produces an advisory
+and falls back to unbound operation. A bound SoftwareTeam without a required declared
 role is a different error.
 
 `resolveDefaultOwner` uses declared `preferred_targets` first, applying a
-harness match when pinned. With no preferred targets and a bound rig, it uses
+harness match when pinned. With no preferred targets and a bound SoftwareTeam, it uses
 [`selectRoleSeat`](../../../packages/daemon/src/domain/workflow-role-resolver.ts):
 a running managed agent with the declared role and required runtime, ordered
 by pending-only backlog and then canonical coordinate. Infrastructure and
@@ -129,27 +129,27 @@ parked `blocked_on` that human seat in the same transaction (summary and
 for a declared role, an ordinary packet goes to that handler role's seat
 (`workflow-projector.ts:1659`–`1778`).
 
-A `preferred_targets` entry may end in `@{rig}`, for example `watcher@{rig}`.
-When the instance is bound to a rig (`--rig`, or the spec's `target.rig`
-default), the trailing `{rig}` becomes that rig, so one reusable spec addresses
-that rig's member, including a `builtin:terminal` member. Only a trailing
-`@{rig}` is the form: braces in the member part or a partial rig name
-(`ops-{rig}@rig-a`, `ops-watcher@prefix-{rig}`) stay literal. Literal
-`member@rig` entries are unchanged. With no bound rig the entry stays literal
+A `preferred_targets` entry may end in `@{SoftwareTeam}`, for example `watcher@{SoftwareTeam}`.
+When the instance is bound to a SoftwareTeam (`--software-team`, or the spec's `target.SoftwareTeam`
+default), the trailing `{SoftwareTeam}` becomes that SoftwareTeam, so one reusable spec addresses
+that SoftwareTeam's member, including a `builtin:terminal` member. Only a trailing
+`@{SoftwareTeam}` is the form: braces in the member part or a partial SoftwareTeam name
+(`ops-{SoftwareTeam}@software-team-a`, `ops-watcher@prefix-{SoftwareTeam}`) stay literal. Literal
+`member@software-team` entries are unchanged. With no bound SoftwareTeam the entry stays literal
 and is handled like any other destination, at the step that selects it: a
-selected `member@{rig}` is refused as an unknown destination rig
-(`unknown_destination_rig`), and `rig workflow validate` reports such an
-exception target as `unregistered`. A `{rig}` in a role that is never selected,
+selected `member@{SoftwareTeam}` is refused as an unknown destination SoftwareTeam
+(`unknown_destination_software_team`), and `SoftwareTeam workflow validate` reports such an
+exception target as `unregistered`. A `{SoftwareTeam}` in a role that is never selected,
 or in a preferred target that is not selected, does not stop an instantiate.
-The cached spec keeps the literal `{rig}`; the expansion is computed from the
-instance's stored `bound_rig` each time its spec is read, so later hand-offs,
+The cached spec keeps the literal `{SoftwareTeam}`; the expansion is computed from the
+instance's stored `bound_software_team` each time its spec is read, so later hand-offs,
 resume and exception routing use the same target
-(`workflow-rig-placeholder.ts`, `WorkflowSpecCache.getForInstance`). A
+(`workflow-software-team-placeholder.ts`, `WorkflowSpecCache.getForInstance`). A
 terminal member cannot act on a nudge, so it must poll its own queue for the
 packet.
 
 Instantiation also emits advisories for missing members in otherwise
-registered target rigs. That member check is advisory and does not imply
+registered target SoftwareTeams. That member check is advisory and does not imply
 all preferred targets received a live-readiness test.
 
 ## Projection, waiting, and concurrency
@@ -232,8 +232,8 @@ packets that were never nudged, and surfaces overdue instances
 There are three exception classes: `unmapped_failed`, `stuck_overdue` and
 `human_gate_trip` (`workflow-exception.ts:34`–`38`). An unrouted `failed`
 exit creates one urgent `workflow-exception` queue item in the same
-transaction, with evidence `rig workflow trace <instance>` and a body naming
-the `rig workflow resume` command; a human gate's own parked packet carries the
+transaction, with evidence `SoftwareTeam workflow trace <instance>` and a body naming
+the `SoftwareTeam workflow resume` command; a human gate's own parked packet carries the
 `human_gate_trip` identity, so no second item is created.
 
 [`resolveExceptionRoute`](../../../packages/daemon/src/domain/workflow-exception-router.ts)
@@ -293,7 +293,7 @@ good or ready to publish.
 ## CLI and HTTP surface
 
 The [CLI inventory](../cli-reference.md#workflow) lists every registered
-`rig workflow` subcommand and option. The implementation is
+`SoftwareTeam workflow` subcommand and option. The implementation is
 [`packages/cli/src/commands/workflow.ts`](../../../packages/cli/src/commands/workflow.ts).
 The [`workflow` routes](../../../packages/daemon/src/routes/workflow.ts)
 are mounted under `/api/workflow`:

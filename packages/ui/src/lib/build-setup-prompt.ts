@@ -6,7 +6,7 @@ export interface SetupPromptInput {
 
 export function buildSetupPrompt(input: SetupPromptInput): string {
   const lines: string[] = [
-    `Install and launch the "${input.name}" managed app using OpenRig.`,
+    `Install and launch the "${input.name}" managed app using SoftwareTeam.`,
     "",
   ];
 
@@ -18,9 +18,9 @@ export function buildSetupPrompt(input: SetupPromptInput): string {
     `Source: ${input.sourcePath}`,
     "",
     "Steps:",
-    `1. Run: rig up ${input.name}`,
-    `2. Monitor: rig ps --nodes --rig ${input.name}`,
-    "3. Check env: rig env status <rig-name>",
+    `1. Run: SoftwareTeam up ${input.name}`,
+    `2. Monitor: SoftwareTeam ps --nodes --software-team ${input.name}`,
+    "3. Check env: SoftwareTeam env status <software-team-name>",
   );
 
   return lines.join("\n");

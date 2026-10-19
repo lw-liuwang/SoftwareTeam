@@ -23,13 +23,13 @@ function fixture(manualPrepWaitMs=1000){
  const tmux={probeSession:vi.fn(async()=>({state:'present'})),sendText:vi.fn(async(_:string,text:string)=>{writes.push(text);return{ok:true};}),sendKeys:vi.fn(async(_:string,k:string[])=>{keys.push(k);return{ok:true};})};
  const guard=new SeatDeliveryGuard(db,()=>({nodeId:'node-one',session:seat,pane:'%1',occupant:generation}));
  Object.assign(tmux,{deliveryGuard:guard});
- const transport=new SessionTransport({db,rigRepo:{} as any,sessionRegistry:{} as any,tmuxAdapter:tmux as any,sleep:async(ms)=>{clock+=ms;},now:()=>new Date(clock),waitForIdlePollMs:5});
+ const transport=new SessionTransport({db,softwareTeamRepo:{} as any,sessionRegistry:{} as any,tmuxAdapter:tmux as any,sleep:async(ms)=>{clock+=ms;},now:()=>new Date(clock),waitForIdlePollMs:5});
  (transport as any).getSessionMeta=()=>({runtime:'claude-code',attachmentType:'tmux',nodeId:'node-one',pane:'%1',occupant:generation,resumeToken:'native-one'});
  (transport as any).claudeDeliveryObservation=async()=>({state:'unknown',detail:'injected process observation'});
  (transport as any).classifySendReadiness=async()=>({state:activity,reason:'fixture',evidenceSource:'fixture'});
  (transport as any).diagnoseProducerLink=async()=> 'fixture';
  const settings={resolveClaudeCompactionPolicy:()=>policy};
- const e=new ClaudeCompactionEnforcer(settings as any,transport,{openrigHome:home,manualPrepWaitMs,now:()=>clock,sleep:async(ms)=>{clock+=ms;await onSleep?.();},resolveOccupantGeneration:()=>generation});
+ const e=new ClaudeCompactionEnforcer(settings as any,transport,{softwareteamHome:home,manualPrepWaitMs,now:()=>clock,sleep:async(ms)=>{clock+=ms;await onSleep?.();},resolveOccupantGeneration:()=>generation});
  return{e,transport,tmux,guard,settings,onSleep:(fn:()=>Promise<void>)=>{onSleep=fn;},writes,keys,policy,home,clock:()=>clock,advance:(ms:number)=>{clock+=ms;},generation:(g:string)=>{generation=g;},activity:(s:string)=>{activity=s;}};
 }
 function stageMap(f:ReturnType<typeof fixture>,suffix=''){
@@ -219,7 +219,7 @@ it('manual preparation names the request and its existing UTC deadline, includin
  f.onSleep(async()=>{stageMap(f);});
  expect((await f.e.triggerManualCompact({...input,usedPercentage:4},{operatorInitiated:true})).triggered).toBe(true);
  const prompt=f.writes[0]!;
- expect(prompt).toContain('OpenRig manual compaction was requested');
+ expect(prompt).toContain('SoftwareTeam manual compaction was requested');
  expect(prompt).not.toMatch(/automatic/i);
  expect(prompt).not.toContain('configured compaction threshold');
  expect(prompt).toContain('does not depend on the context threshold');
@@ -236,14 +236,14 @@ it('automatic preparation gives the post-delivery ceiling without a fabricated p
  f.tmux.sendKeys.mockImplementationOnce(async(...args)=>{f.advance(60_000);return keys(...args);});
  await f.e.maybeAutoCompact(input);
  const prompt=f.writes[0]!;
- expect(prompt).toContain('OpenRig automatic compaction preparation is now required');
+ expect(prompt).toContain('SoftwareTeam automatic compaction preparation is now required');
  expect(prompt).toContain('Current context usage is 90%; configured compaction threshold is 80%');
  expect(prompt).toContain('25-minute ceiling starts after preparation delivery returns');
  expect(prompt).not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/);
  expect(f.e.getPreparationState(seat)?.deadlineAt).toBe(f.clock()+AUTO_PREP_WAIT_MS_DEFAULT);
  expect(prompt).toContain('Keep the normal ranked restore-map content');
  expect(prompt).toContain('ordinary file-edit tool');
- expect(prompt).toContain('OpenRig will atomically publish');
+ expect(prompt).toContain('SoftwareTeam will atomically publish');
  expect(prompt).not.toContain('then atomically rename it');
  expect(prompt).toContain(f.e.getPreparationState(seat)!.marker);
 });
@@ -314,8 +314,8 @@ it('registered cwd: manual route selects a self-ignoring map inside the launch w
  f.onSleep(async()=>{stageMap(f);});
  expect((await routeFixture(f,cwd)()).status).toBe(200);
  const a=f.e.getPreparationState(seat)!;
- expect(a.mapPath).toBe(join(cwd,'.openrig','compaction','preparation',seat,a.attemptId,'RESTORE-MAP.md'));
- expect(readFileSync(join(cwd,'.openrig','compaction','.gitignore'),'utf8')).toBe('*\n');
+ expect(a.mapPath).toBe(join(cwd,'.softwareteam','compaction','preparation',seat,a.attemptId,'RESTORE-MAP.md'));
+ expect(readFileSync(join(cwd,'.softwareteam','compaction','.gitignore'),'utf8')).toBe('*\n');
  expect(f.writes[0]).toContain(JSON.stringify(a.mapPath));expect(compacts(f)).toHaveLength(1);
  // The map and the ignore file itself stay out of an ordinary git add -A.
  execFileSync('git',['-C',cwd,'add','-A']);
@@ -329,7 +329,7 @@ it('registered cwd: automatic monitor forwards the launch workspace and isolates
  const monitor=new ContextMonitor(db as any,store as any,undefined,f.e);
  await monitor.pollOnce();
  const a=f.e.getPreparationState(seat)!;
- expect(a.mapPath).toBe(join(cwd,'.openrig','compaction','preparation',seat,a.attemptId,'RESTORE-MAP.md'));
+ expect(a.mapPath).toBe(join(cwd,'.softwareteam','compaction','preparation',seat,a.attemptId,'RESTORE-MAP.md'));
  await f.e.maybeAutoCompact({...input,sessionName:'sibling@demo',cwd} as any);
  const b=f.e.getPreparationState('sibling@demo')!;
  expect(b.mapPath).not.toBe(a.mapPath);expect(compacts(f)).toHaveLength(0);
@@ -345,8 +345,8 @@ it('registered cwd: absent, relative or unwritable cwd preserves the legacy map 
 it('preparation contract: prompt qualifies later refusal and the shipped skill follows its named map',async()=>{
  const f=fixture();await f.e.maybeAutoCompact(input);
  expect(f.writes[0]).toContain('This preparation turn does not guarantee /compact');
- const skill=readFileSync(new URL('../assets/plugins/openrig-core/skills/claude-compaction-restore/SKILL.md',import.meta.url),'utf8');
- expect(skill).toContain('exact path named in OpenRig');
+ const skill=readFileSync(new URL('../assets/plugins/softwareteam-core/skills/claude-compaction-restore/SKILL.md',import.meta.url),'utf8');
+ expect(skill).toContain('exact path named in SoftwareTeam');
  expect(skill).toContain('Do not substitute the seat folder');
  expect(skill).toContain('Only when none names a path');
 });
@@ -364,7 +364,7 @@ it('preparation receipt: unknown activity at the final short send is not an unse
 });
 
 for(const kind of ['regular','symlink'])it(`workspace setup: preserves an existing ${kind} ignore file and falls back`,async()=>{
- const f=fixture(),cwd=join(f.home,'repo'),root=join(cwd,'.openrig','compaction');mkdirSync(root,{recursive:true});
+ const f=fixture(),cwd=join(f.home,'repo'),root=join(cwd,'.softwareteam','compaction');mkdirSync(root,{recursive:true});
  const ignore=join(root,'.gitignore'),outside=join(f.home,'unrelated.txt'),original='# user policy\nlogs/\n!shared.txt\n';
  if(kind==='symlink'){writeFileSync(outside,original);symlinkSync(outside,ignore);}else writeFileSync(ignore,original);
  await f.e.maybeAutoCompact({...input,cwd});
@@ -375,7 +375,7 @@ for(const kind of ['regular','symlink'])it(`workspace setup: preserves an existi
  expect(f.writes[0]).toContain(JSON.stringify(a.mapPath));
 });
 it('workspace setup: reuses an owned equivalent regular ignore without rewriting it',async()=>{
- const f=fixture(),cwd=join(f.home,'repo'),root=join(cwd,'.openrig','compaction');mkdirSync(root,{recursive:true});
+ const f=fixture(),cwd=join(f.home,'repo'),root=join(cwd,'.softwareteam','compaction');mkdirSync(root,{recursive:true});
  const ignore=join(root,'.gitignore');writeFileSync(ignore,'*\n');utimesSync(ignore,100,100);
  const before=statSync(ignore);
  await f.e.maybeAutoCompact({...input,cwd});
@@ -384,7 +384,7 @@ it('workspace setup: reuses an owned equivalent regular ignore without rewriting
  expect(a.mapPath).toBe(join(root,'preparation',seat,a.attemptId,'RESTORE-MAP.md'));
 });
 it('workspace setup: a preparation file preserves its bytes and selects the home fallback',async()=>{
- const f=fixture(),cwd=join(f.home,'repo'),root=join(cwd,'.openrig','compaction');mkdirSync(root,{recursive:true});
+ const f=fixture(),cwd=join(f.home,'repo'),root=join(cwd,'.softwareteam','compaction');mkdirSync(root,{recursive:true});
  const blocker=join(root,'preparation');writeFileSync(blocker,'keep descendant');
  await f.e.maybeAutoCompact({...input,cwd});
  const a=f.e.getPreparationState(seat)!;
@@ -396,11 +396,11 @@ it('workspace setup: publishes only after creating the actual attempt parent',as
  await f.e.maybeAutoCompact({...input,cwd});
  const a=f.e.getPreparationState(seat)!;
  expect(statSync(dirname(a.mapPath)).isDirectory()).toBe(true);
- expect(a.mapPath).toBe(join(cwd,'.openrig','compaction','preparation',seat,a.attemptId,'RESTORE-MAP.md'));
+ expect(a.mapPath).toBe(join(cwd,'.softwareteam','compaction','preparation',seat,a.attemptId,'RESTORE-MAP.md'));
  stageMap(f);await f.e.maybeAutoCompact({...input,cwd});expect(compacts(f)).toHaveLength(1);
 });
 it.skipIf(process.getuid?.()===0)('workspace setup: an unwritable descendant selects the home fallback',async()=>{
- const f=fixture(),cwd=join(f.home,'repo'),parent=join(cwd,'.openrig','compaction','preparation');mkdirSync(parent,{recursive:true});chmodSync(parent,0o500);
+ const f=fixture(),cwd=join(f.home,'repo'),parent=join(cwd,'.softwareteam','compaction','preparation');mkdirSync(parent,{recursive:true});chmodSync(parent,0o500);
  try{
   await f.e.maybeAutoCompact({...input,cwd});const a=f.e.getPreparationState(seat)!;
   expect(a.mapPath).toBe(join(f.home,'compaction','preparation',seat,a.attemptId,'RESTORE-MAP.md'));

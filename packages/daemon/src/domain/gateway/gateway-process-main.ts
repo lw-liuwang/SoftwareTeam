@@ -16,8 +16,8 @@
 import { pathToFileURL } from "node:url";
 import { runGatewayProcess, type GatewayProcessHandle } from "./gateway-process.js";
 
-export const GATEWAY_SOCKET_ENV = "OPENRIG_GATEWAY_SOCKET";
-export const GATEWAY_RECONNECT_MS_ENV = "OPENRIG_GATEWAY_RECONNECT_MS";
+export const GATEWAY_SOCKET_ENV = "SOFTWARETEAM_GATEWAY_SOCKET";
+export const GATEWAY_RECONNECT_MS_ENV = "SOFTWARETEAM_GATEWAY_RECONNECT_MS";
 
 /** Start the gateway process from environment config. Returns the handle (undefined if the
  *  required socket path is missing — the entry sets a non-zero exit code and returns). */
@@ -33,7 +33,7 @@ export function mainFromEnv(env: NodeJS.ProcessEnv = process.env): GatewayProces
     ? Number(reconnectRaw) : undefined;
   const handle = runGatewayProcess({
     socketPath,
-    home: env.OPENRIG_HOME,
+    home: env.SOFTWARETEAM_HOME,
     reconnectMs,
     onError: (e) => process.stderr.write(`[gateway] socket error: ${e.message}\n`),
     onProtocolError: (m) => process.stderr.write(`[gateway] protocol refuse: ${m}\n`),

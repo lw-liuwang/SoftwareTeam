@@ -8,9 +8,9 @@
 //   DELETE /api/config/:key             → reset one key (revert to default)
 //   POST   /api/config/init-workspace   → scaffold default workspace dirs
 //
-// The CLI (`rig config get/set/reset/init-workspace`) is the canonical
+// The CLI (`SoftwareTeam config get/set/reset/init-workspace`) is the canonical
 // edit surface for operators + agents. This route exists for the UI;
-// agents stay on CLI-shell-out per the shipped openrig-user-settings skill.
+// agents stay on CLI-shell-out per the shipped softwareteam-user-settings skill.
 
 import { Hono } from "hono";
 import { settingsBrowser } from "../domain/user-settings/settings-browser.js";

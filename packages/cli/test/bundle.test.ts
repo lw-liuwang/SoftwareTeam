@@ -87,7 +87,7 @@ describe("Bundle CLI", () => {
         // operator passed --allow-drift, in which case it succeeds and returns the warning.
         if (String(parsed.specPath ?? "").includes("drifted") && parsed.allowDrift !== true) {
           res.writeHead(409, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Refusing to bundle: spec declares 1 pods/1 seats; live rig has 2/3" }));
+          res.end(JSON.stringify({ error: "Refusing to bundle: spec declares 1 pods/1 seats; live SoftwareTeam has 2/3" }));
           return;
         }
         res.writeHead(201, { "Content-Type": "application/json" });
@@ -97,7 +97,7 @@ describe("Bundle CLI", () => {
           archiveHash: "abc123",
           packages: 1,
           ...(String(parsed.specPath ?? "").includes("drifted")
-            ? { warning: "WARNING: this bundle describes the SPEC, not the live rig — spec declares 1 pods/1 seats; live rig has 2/3" }
+            ? { warning: "WARNING: this bundle describes the SPEC, not the live softwareTeam — spec declares 1 pods/1 seats; live SoftwareTeam has 2/3" }
             : {}),
         }));
       } else if (req.url === "/api/bundles/inspect" && req.method === "POST") {
@@ -116,9 +116,9 @@ describe("Bundle CLI", () => {
         if (String(parsed.bundlePath ?? "").includes("reinstall")) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "Bundle install conflict check failed", status: "not_attempted",
-            detail: "Installed team workshop (rig-old): running; offered version 99.0.0.",
+            detail: "Installed team workshop (software-team-old): running; offered version 99.0.0.",
             conflicts: [{ description: "workshop already has a running team" }],
-            resolutions: ["Use the existing team: rig ps --rig workshop --nodes", "Stop with rig down workshop, then retry; the stopped generation is archived", "Cancel this install"],
+            resolutions: ["Use the existing team: SoftwareTeam ps --software-team workshop --nodes", "Stop with SoftwareTeam down workshop, then retry; the stopped generation is archived", "Cancel this install"],
           }));
           return;
         }
@@ -133,34 +133,34 @@ describe("Bundle CLI", () => {
         } else if (String(parsed.bundlePath ?? "").includes("routed")) {
           res.writeHead(201, { "Content-Type": "application/json" });
           res.end(JSON.stringify({
-            status: "completed", runId: "run-3", rigId: "rig-3",
+            status: "completed", runId: "run-3", softwareTeamId: "software-team-3",
             contextPacksRouting: {
               routedCount: 1, rejectedCount: 1,
               records: [
                 { declaredPath: "context-packs/world/manifest.yaml", status: "routed" },
                 { declaredPath: "context-packs/gone/manifest.yaml", status: "missing" },
-                { declaredPath: "context-packs/openrig-world/manifest.yaml", status: "kept_existing", detail: "a different 'openrig-world' pack is already installed; kept it unchanged. To use the bundle's copy instead, run 'rig context rm openrig-world' and install the bundle again" },
+                { declaredPath: "context-packs/softwareteam-world/manifest.yaml", status: "kept_existing", detail: "a different 'softwareteam-world' pack is already installed; kept it unchanged. To use the bundle's copy instead, run 'SoftwareTeam context rm softwareteam-world' and install the bundle again" },
               ],
             },
             routingFailures: [{ kind: "skills", error: "boom" }],
-            projectRegistration: { status: "registered", projectId: "openrig", projectRoot: "/ws/projects/openrig", rigName: "openrig-dev", catalogPath: "/ws/workspace.yaml" },
+            projectRegistration: { status: "registered", projectId: "softwareteam", projectRoot: "/ws/projects/softwareteam", softwareTeamName: "softwareteam-dev", catalogPath: "/ws/workspace.yaml" },
             warnings: ["Bundle skills routing failed: boom", "Startup submission unverified in worker@fixture"],
           }));
         } else {
           res.writeHead(201, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ status: "completed", runId: "run-2", rigId: "rig-1" }));
+          res.end(JSON.stringify({ status: "completed", runId: "run-2", softwareTeamId: "software-team-1" }));
         }
       } else if (req.url?.startsWith("/api/bundles/history") && req.method === "GET") {
         // Capture query for assertion if needed; for now return a static fixture
         const url = new URL(req.url, "http://x");
-        const rigFilter = url.searchParams.get("rig");
+        const softwareTeamFilter = url.searchParams.get("softwareTeam");
         const since = url.searchParams.get("since");
         const allRecs = [
-          { installedAt: "2026-05-18T10:00:00Z", bundlePath: "/tmp/a.rigbundle", targetRigName: "alpha", outcome: "success" },
-          { installedAt: "2026-05-18T11:00:00Z", bundlePath: "/tmp/b.rigbundle", targetRigName: "beta", outcome: "failed" },
+          { installedAt: "2026-05-18T10:00:00Z", bundlePath: "/tmp/a.softwareteambundle", targetSoftwareTeamName: "alpha", outcome: "success" },
+          { installedAt: "2026-05-18T11:00:00Z", bundlePath: "/tmp/b.softwareteambundle", targetSoftwareTeamName: "beta", outcome: "failed" },
         ];
         // Like the daemon: since is compared as text, with an advisory for the values it doesn't read as a date or time.
-        const recs = allRecs.filter((r) => (!rigFilter || r.targetRigName === rigFilter) && (!since || r.installedAt >= since));
+        const recs = allRecs.filter((r) => (!softwareTeamFilter || r.targetSoftwareTeamName === softwareTeamFilter) && (!since || r.installedAt >= since));
         const advised = since === "garbage" || since === "2026-13-45";
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ records: recs, total: recs.length,
@@ -184,19 +184,19 @@ describe("Bundle CLI", () => {
   }
 
   it("reinstall renders daemon facts and all actionable choices, retaining the error exit", async () => {
-    const { logs, exitCode } = await captureLogs(() => makeCmd().parseAsync(["node", "rig", "bundle", "install", "reinstall.rigbundle", "--target", "/tmp/project"]).then(() => {}));
+    const { logs, exitCode } = await captureLogs(() => makeCmd().parseAsync(["node", "softwareTeam", "bundle", "install", "reinstall.softwareteambundle", "--target", "/tmp/project"]).then(() => {}));
     const text = logs.join("\n");
     expect(exitCode).toBe(2);
     expect(text).toContain("running; offered version 99.0.0");
-    expect(text).toContain("rig ps --rig workshop --nodes");
-    expect(text).toContain("rig down workshop");
+    expect(text).toContain("SoftwareTeam ps --software-team workshop --nodes");
+    expect(text).toContain("SoftwareTeam down workshop");
     expect(text).toContain("Cancel this install");
   });
 
   // T11: create produces output
   it("bundle create prints confirmation", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "create", "/tmp/rig.yaml", "-o", "/tmp/test.rigbundle"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "create", "/tmp/software-team.yaml", "-o", "/tmp/test.softwareteambundle"]);
     });
     expect(logs.some((l) => l.includes("Bundle created"))).toBe(true);
     expect(logs.some((l) => l.includes("abc123"))).toBe(true);
@@ -207,10 +207,10 @@ describe("Bundle CLI", () => {
   // from never-detected for the operator holding the artifact.
   it("bundle create surfaces the daemon's drift warning on the human success path", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "create", "/tmp/drifted.yaml", "-o", "/tmp/d.rigbundle", "--allow-drift"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "create", "/tmp/drifted.yaml", "-o", "/tmp/d.softwareteambundle", "--allow-drift"]);
     });
     expect(logs.some((l) => l.includes("Bundle created"))).toBe(true);
-    expect(logs.some((l) => l.includes("live rig has 2/3"))).toBe(true);
+    expect(logs.some((l) => l.includes("live SoftwareTeam has 2/3"))).toBe(true);
     expect(exitCode).toBeUndefined();
   });
 
@@ -218,16 +218,16 @@ describe("Bundle CLI", () => {
   // repair must not change what a script parsing this output receives.
   it("bundle create --json still prints the entire response including the warning", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "create", "/tmp/drifted.yaml", "-o", "/tmp/d.rigbundle", "--allow-drift", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "create", "/tmp/drifted.yaml", "-o", "/tmp/d.softwareteambundle", "--allow-drift", "--json"]);
     });
     const parsed = JSON.parse(logs.find((l) => l.trim().startsWith("{"))!);
-    expect(parsed.warning).toContain("live rig has 2/3");
+    expect(parsed.warning).toContain("live SoftwareTeam has 2/3");
     expect(parsed.archiveHash).toBe("abc123");
   });
 
   it("bundle create refuses drift by default and shows the operator why", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "create", "/tmp/drifted.yaml", "-o", "/tmp/d.rigbundle"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "create", "/tmp/drifted.yaml", "-o", "/tmp/d.softwareteambundle"]);
     });
     expect(logs.some((l) => l.includes("Refusing to bundle"))).toBe(true);
     expect(logs.some((l) => l.includes("Bundle created"))).toBe(false);
@@ -237,14 +237,14 @@ describe("Bundle CLI", () => {
   it("bundle create --allow-drift wires allowDrift into the request body", async () => {
     capturedCreateBodies = [];
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "create", "/tmp/drifted.yaml", "-o", "/tmp/d.rigbundle", "--allow-drift"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "create", "/tmp/drifted.yaml", "-o", "/tmp/d.softwareteambundle", "--allow-drift"]);
     });
     expect(capturedCreateBodies[0]!.allowDrift).toBe(true);
 
     // Absent by default — an override must be asked for, never defaulted on.
     capturedCreateBodies = [];
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "create", "/tmp/rig.yaml", "-o", "/tmp/t.rigbundle"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "create", "/tmp/software-team.yaml", "-o", "/tmp/t.softwareteambundle"]);
     });
     expect(capturedCreateBodies[0]!.allowDrift).toBeUndefined();
   });
@@ -253,12 +253,12 @@ describe("Bundle CLI", () => {
     const { logs } = await captureLogs(async () => {
       await makeCmd().parseAsync([
         "node",
-        "rig",
+        "softwareTeam",
         "bundle",
         "create",
-        "/tmp/rig.yaml",
+        "/tmp/software-team.yaml",
         "-o",
-        "/tmp/test.rigbundle",
+        "/tmp/test.softwareteambundle",
         "--bundle-version",
         "2.0.0",
       ]);
@@ -269,7 +269,7 @@ describe("Bundle CLI", () => {
   // T12: inspect prints summary
   it("bundle inspect prints summary", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "inspect", "/tmp/test.rigbundle"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "inspect", "/tmp/test.softwareteambundle"]);
     });
     expect(logs.some((l) => l.includes("Bundle:"))).toBe(true);
     expect(logs.some((l) => l.includes("Integrity: PASS"))).toBe(true);
@@ -278,16 +278,16 @@ describe("Bundle CLI", () => {
   // T13: install runs bootstrap
   it("bundle install prints status", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "install", "/tmp/test.rigbundle", "--yes", "--target", "/tmp/target"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "install", "/tmp/test.softwareteambundle", "--yes", "--target", "/tmp/target"]);
     });
     expect(logs.some((l) => l.includes("completed"))).toBe(true);
-    expect(logs.some((l) => l.includes("rig-1"))).toBe(true);
+    expect(logs.some((l) => l.includes("software-team-1"))).toBe(true);
   });
 
   // T14: --json output
   it("bundle inspect --json outputs parseable JSON", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "inspect", "/tmp/test.rigbundle", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "inspect", "/tmp/test.softwareteambundle", "--json"]);
     });
     const parsed = JSON.parse(logs.join(""));
     expect(parsed.manifest.name).toBe("test");
@@ -296,14 +296,14 @@ describe("Bundle CLI", () => {
   // T15: --plan shows plan
   it("bundle install --plan shows planned status", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "install", "/tmp/test.rigbundle", "--plan"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "install", "/tmp/test.softwareteambundle", "--plan"]);
     });
     expect(logs.some((l) => l.includes("planned"))).toBe(true);
   });
 
   it("bundle create --json preserves failure exit code", async () => {
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "create", "/tmp/missing.rig.yaml", "-o", "/tmp/test.rigbundle", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "create", "/tmp/missing.software-team.yaml", "-o", "/tmp/test.softwareteambundle", "--json"]);
     });
     expect(JSON.parse(logs.join("")).error).toBe("Missing package");
     expect(exitCode).toBe(2);
@@ -311,7 +311,7 @@ describe("Bundle CLI", () => {
 
   it("bundle install --json preserves blocked exit code", async () => {
     const { stdout, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "install", "/tmp/blocked.rigbundle", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "install", "/tmp/blocked.softwareteambundle", "--json"]);
     });
     expect(stdout).toHaveLength(1);
     expect(JSON.parse(stdout[0]!).error).toBe("blocked");
@@ -325,9 +325,9 @@ describe("Bundle CLI", () => {
     capturedInspectBodies = [];
     capturedInstallBodies = [];
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "create", "rel/rig.yaml", "-o", "out/rel.rigbundle"]);
-      await makeCmd().parseAsync(["node", "rig", "bundle", "inspect", "out/rel.rigbundle"]);
-      await makeCmd().parseAsync(["node", "rig", "bundle", "install", "out/rel.rigbundle", "--yes", "--target", "proj"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "create", "rel/software-team.yaml", "-o", "out/rel.softwareteambundle"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "inspect", "out/rel.softwareteambundle"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "install", "out/rel.softwareteambundle", "--yes", "--target", "proj"]);
     });
     const sent = {
       specPath: capturedCreateBodies.at(-1)?.["specPath"],
@@ -338,10 +338,10 @@ describe("Bundle CLI", () => {
     };
     console.log(`[client-paths] cwd=${process.cwd()} sent=${JSON.stringify(sent)}`);
     expect(sent).toEqual({
-      specPath: nodePath.resolve("rel/rig.yaml"),
-      outputPath: nodePath.resolve("out/rel.rigbundle"),
-      inspectBundlePath: nodePath.resolve("out/rel.rigbundle"),
-      installBundlePath: nodePath.resolve("out/rel.rigbundle"),
+      specPath: nodePath.resolve("rel/software-team.yaml"),
+      outputPath: nodePath.resolve("out/rel.softwareteambundle"),
+      inspectBundlePath: nodePath.resolve("out/rel.softwareteambundle"),
+      installBundlePath: nodePath.resolve("out/rel.softwareteambundle"),
       targetRoot: nodePath.resolve("proj"),
     });
   });
@@ -349,7 +349,7 @@ describe("Bundle CLI", () => {
   it("bundle create --context-pack (repeatable) sends client-absolute pack directories", async () => {
     capturedCreateBodies = [];
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "create", "rigs/dev/rig.yaml", "-o", "out.rigbundle", "--context-pack", ".", "--context-pack", "packs/extra"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "create", "software-teams/dev/software-team.yaml", "-o", "out.softwareteambundle", "--context-pack", ".", "--context-pack", "packs/extra"]);
     });
     expect(capturedCreateBodies.at(-1)?.["contextPackDirs"]).toEqual([nodePath.resolve("."), nodePath.resolve("packs/extra")]);
   });
@@ -357,7 +357,7 @@ describe("Bundle CLI", () => {
   it("control: bundle create without --context-pack sends no contextPackDirs", async () => {
     capturedCreateBodies = [];
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "create", "rigs/dev/rig.yaml", "-o", "out.rigbundle"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "create", "software-teams/dev/software-team.yaml", "-o", "out.softwareteambundle"]);
     });
     expect(capturedCreateBodies.at(-1)?.["contextPackDirs"]).toBeUndefined();
   });
@@ -365,7 +365,7 @@ describe("Bundle CLI", () => {
   it("bundle create --project-dir sends a client-absolute project directory", async () => {
     capturedCreateBodies = [];
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "create", "rigs/dev/rig.yaml", "-o", "out.rigbundle", "--project-dir", "project"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "create", "software-teams/dev/software-team.yaml", "-o", "out.softwareteambundle", "--project-dir", "project"]);
     });
     expect(capturedCreateBodies.at(-1)?.["projectDir"]).toBe(nodePath.resolve("project"));
   });
@@ -373,46 +373,46 @@ describe("Bundle CLI", () => {
   it("bundle install --cwd sends a client-absolute cwdOverride", async () => {
     capturedInstallBodies = [];
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "install", "/tmp/test.rigbundle", "--yes", "--target", "/tmp/t", "--cwd", "rel/repo"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "install", "/tmp/test.softwareteambundle", "--yes", "--target", "/tmp/t", "--cwd", "rel/repo"]);
     });
     expect(capturedInstallBodies.at(-1)?.["cwdOverride"]).toBe(nodePath.resolve("rel/repo"));
   });
 
   it("bundle install prints what each declared kind routed, and the routing warnings", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "install", "/tmp/routed.rigbundle", "--yes", "--target", "/tmp/t"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "install", "/tmp/routed.softwareteambundle", "--yes", "--target", "/tmp/t"]);
     });
-    expect(logs).toContain("Context packs: 1 routed; not routed: context-packs/gone/manifest.yaml (missing), context-packs/openrig-world/manifest.yaml (kept_existing)");
-    expect(logs).toContain("  context-packs/openrig-world/manifest.yaml: a different 'openrig-world' pack is already installed; kept it unchanged. To use the bundle's copy instead, run 'rig context rm openrig-world' and install the bundle again");
+    expect(logs).toContain("Context packs: 1 routed; not routed: context-packs/gone/manifest.yaml (missing), context-packs/softwareteam-world/manifest.yaml (kept_existing)");
+    expect(logs).toContain("  context-packs/softwareteam-world/manifest.yaml: a different 'softwareteam-world' pack is already installed; kept it unchanged. To use the bundle's copy instead, run 'SoftwareTeam context rm softwareteam-world' and install the bundle again");
     expect(logs).toContain("Warning: Bundle skills routing failed: boom");
     expect(logs).toContain("Warning: Startup submission unverified in worker@fixture");
-    expect(logs).toContain("Project: openrig (registered) at /ws/projects/openrig; rig openrig-dev is associated with it in /ws/workspace.yaml");
+    expect(logs).toContain("Project: softwareteam (registered) at /ws/projects/softwareteam; SoftwareTeam softwareteam-dev is associated with it in /ws/workspace.yaml");
   });
 
   it("bundle create --preset builds a staged copy and sends the configuration; the author's folder is unchanged", async () => {
     const dir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "cli-preset-"));
-    const rig = 'version: "0.2"\nname: r\npods:\n  - id: build\n    members:\n      - { id: lead, agent_ref: "local:a", profile: lead, runtime: claude-code }\n';
-    fs.writeFileSync(nodePath.join(dir, "rig.yaml"), rig);
-    fs.writeFileSync(nodePath.join(dir, "configurations.yaml"), "schema: openrig.bundle-configurations/v1\nrecommended: recommended\nseats:\n  build.lead: { runtimes: { claude-code: lead, pi: lead-pi } }\npresets:\n  recommended: { build.lead: claude-code }\n  all-pi: { build.lead: pi }\n");
+    const softwareTeam = 'version: "0.2"\nname: r\npods:\n  - id: build\n    members:\n      - { id: lead, agent_ref: "local:a", profile: lead, runtime: claude-code }\n';
+    fs.writeFileSync(nodePath.join(dir, "software-team.yaml"), softwareTeam);
+    fs.writeFileSync(nodePath.join(dir, "configurations.yaml"), "schema: softwareteam.bundle-configurations/v1\nrecommended: recommended\nseats:\n  build.lead: { runtimes: { claude-code: lead, pi: lead-pi } }\npresets:\n  recommended: { build.lead: claude-code }\n  all-pi: { build.lead: pi }\n");
     capturedCreateBodies = [];
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "create", nodePath.join(dir, "rig.yaml"), "-o", nodePath.join(dir, "out.rigbundle"), "--preset", "all-pi"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "create", nodePath.join(dir, "software-team.yaml"), "-o", nodePath.join(dir, "out.softwareteambundle"), "--preset", "all-pi"]);
     });
     const body = capturedCreateBodies.at(-1)!;
     expect(body["configuration"]).toEqual({ id: "build.lead=pi", preset: "all-pi" });
-    expect(String(body["specPath"])).toContain("rig-configuration-");
+    expect(String(body["specPath"])).toContain("software-team-configuration-");
     expect(body["bundleName"]).toBe("r");
-    expect(fs.readFileSync(nodePath.join(dir, "rig.yaml"), "utf-8")).toBe(rig);
+    expect(fs.readFileSync(nodePath.join(dir, "software-team.yaml"), "utf-8")).toBe(softwareTeam);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  it("bundle create names the bundle after the rig unless --name says otherwise", async () => {
+  it("bundle create names the bundle after the SoftwareTeam unless --name says otherwise", async () => {
     const dir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "cli-name-"));
-    fs.writeFileSync(nodePath.join(dir, "rig.yaml"), 'version: "0.2"\nname: tipjar-team\npods: []\n');
+    fs.writeFileSync(nodePath.join(dir, "software-team.yaml"), 'version: "0.2"\nname: tipjar-team\npods: []\n');
     capturedCreateBodies = [];
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "create", nodePath.join(dir, "rig.yaml"), "-o", nodePath.join(dir, "a.rigbundle")]);
-      await makeCmd().parseAsync(["node", "rig", "bundle", "create", nodePath.join(dir, "rig.yaml"), "-o", nodePath.join(dir, "b.rigbundle"), "--name", "chosen"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "create", nodePath.join(dir, "software-team.yaml"), "-o", nodePath.join(dir, "a.softwareteambundle")]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "create", nodePath.join(dir, "software-team.yaml"), "-o", nodePath.join(dir, "b.softwareteambundle"), "--name", "chosen"]);
     });
     expect(capturedCreateBodies.map((b) => b["bundleName"])).toEqual(["tipjar-team", "chosen"]);
     expect(logs).toContain("  Name: tipjar-team v0.1.0");
@@ -421,53 +421,53 @@ describe("Bundle CLI", () => {
 
   it("bundle create --seat with an undeclared runtime sends nothing and names the allowed set", async () => {
     const dir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "cli-seat-"));
-    fs.writeFileSync(nodePath.join(dir, "rig.yaml"), 'version: "0.2"\nname: r\npods:\n  - id: build\n    members:\n      - { id: lead, agent_ref: "local:a", profile: lead, runtime: claude-code }\n');
-    fs.writeFileSync(nodePath.join(dir, "configurations.yaml"), "schema: openrig.bundle-configurations/v1\nrecommended: recommended\nseats:\n  build.lead: { runtimes: { claude-code: lead } }\npresets:\n  recommended: { build.lead: claude-code }\n");
+    fs.writeFileSync(nodePath.join(dir, "software-team.yaml"), 'version: "0.2"\nname: r\npods:\n  - id: build\n    members:\n      - { id: lead, agent_ref: "local:a", profile: lead, runtime: claude-code }\n');
+    fs.writeFileSync(nodePath.join(dir, "configurations.yaml"), "schema: softwareteam.bundle-configurations/v1\nrecommended: recommended\nseats:\n  build.lead: { runtimes: { claude-code: lead } }\npresets:\n  recommended: { build.lead: claude-code }\n");
     capturedCreateBodies = [];
     const { exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "create", nodePath.join(dir, "rig.yaml"), "-o", nodePath.join(dir, "o.rigbundle"), "--seat", "build.lead=codex"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "create", nodePath.join(dir, "software-team.yaml"), "-o", nodePath.join(dir, "o.softwareteambundle"), "--seat", "build.lead=codex"]);
     });
     expect(capturedCreateBodies).toHaveLength(0);
     expect(exitCode).toBe(2);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  it("bundle configurations refuses a recommended preset that isn't rig.yaml as written", async () => {
+  it("bundle configurations refuses a recommended preset that isn't software-team.yaml as written", async () => {
     const dir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "cli-configs-"));
-    fs.writeFileSync(nodePath.join(dir, "rig.yaml"), 'version: "0.2"\nname: r\npods:\n  - id: build\n    members:\n      - { id: lead, agent_ref: "local:a", profile: lead, runtime: claude-code }\n');
-    fs.writeFileSync(nodePath.join(dir, "configurations.yaml"), "schema: openrig.bundle-configurations/v1\nrecommended: all-pi\nseats:\n  build.lead: { runtimes: { claude-code: lead, pi: lead-pi } }\npresets:\n  recommended: { build.lead: claude-code }\n  all-pi: { build.lead: pi }\n");
+    fs.writeFileSync(nodePath.join(dir, "software-team.yaml"), 'version: "0.2"\nname: r\npods:\n  - id: build\n    members:\n      - { id: lead, agent_ref: "local:a", profile: lead, runtime: claude-code }\n');
+    fs.writeFileSync(nodePath.join(dir, "configurations.yaml"), "schema: softwareteam.bundle-configurations/v1\nrecommended: all-pi\nseats:\n  build.lead: { runtimes: { claude-code: lead, pi: lead-pi } }\npresets:\n  recommended: { build.lead: claude-code }\n  all-pi: { build.lead: pi }\n");
     const { logs, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "configurations", nodePath.join(dir, "rig.yaml")]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "configurations", nodePath.join(dir, "software-team.yaml")]);
     });
     expect(exitCode).toBe(2);
-    expect(logs.join("\n")).toMatch(/the recommended preset 'all-pi' must be rig.yaml as written \(build\.lead=claude-code\)/);
+    expect(logs.join("\n")).toMatch(/the recommended preset 'all-pi' must be software-team.yaml as written \(build\.lead=claude-code\)/);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
   it("control: bundle install --plan without --target still sends no targetRoot", async () => {
     capturedInstallBodies = [];
     await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "install", "/tmp/test.rigbundle", "--plan"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "install", "/tmp/test.softwareteambundle", "--plan"]);
     });
     const body = capturedInstallBodies.at(-1)!;
     expect(body["plan"]).toBe(true);
     expect(body["targetRoot"]).toBeUndefined();
-    expect(body["bundlePath"]).toBe("/tmp/test.rigbundle");
+    expect(body["bundlePath"]).toBe("/tmp/test.softwareteambundle");
   });
 
-  // T6: bundle create --rig-root passes rigRoot in request body
-  it("bundle create --rig-root passes rigRoot in request body", async () => {
+  // T6: bundle create --software-team-root passes softwareTeamRoot in request body
+  it("bundle create --software-team-root passes softwareTeamRoot in request body", async () => {
     capturedCreateBodies = [];
     await captureLogs(async () => {
       await makeCmd().parseAsync([
-        "node", "rig", "bundle", "create", "/tmp/rig.yaml",
-        "-o", "/tmp/test.rigbundle",
-        "--rig-root", "/my/project",
+        "node", "softwareTeam", "bundle", "create", "/tmp/software-team.yaml",
+        "-o", "/tmp/test.softwareteambundle",
+        "--software-team-root", "/my/project",
       ]);
     });
     const createBody = capturedCreateBodies[capturedCreateBodies.length - 1];
     expect(createBody).toBeTruthy();
-    expect(createBody!["rigRoot"]).toMatch(/\/my\/project/);
+    expect(createBody!["softwareTeamRoot"]).toMatch(/\/my\/project/);
   });
 
   // Item 1 / slice-05: --notes flag is captured into provenance in the request body
@@ -475,8 +475,8 @@ describe("Bundle CLI", () => {
     capturedCreateBodies = [];
     await captureLogs(async () => {
       await makeCmd().parseAsync([
-        "node", "rig", "bundle", "create", "/tmp/rig.yaml",
-        "-o", "/tmp/test.rigbundle",
+        "node", "softwareTeam", "bundle", "create", "/tmp/software-team.yaml",
+        "-o", "/tmp/test.softwareteambundle",
         "--notes", "checkpoint-2-part-3 fixture",
       ]);
     });
@@ -492,8 +492,8 @@ describe("Bundle CLI", () => {
     capturedCreateBodies = [];
     await captureLogs(async () => {
       await makeCmd().parseAsync([
-        "node", "rig", "bundle", "create", "/tmp/rig.yaml",
-        "-o", "/tmp/test.rigbundle",
+        "node", "softwareTeam", "bundle", "create", "/tmp/software-team.yaml",
+        "-o", "/tmp/test.softwareteambundle",
       ]);
     });
     const createBody = capturedCreateBodies[capturedCreateBodies.length - 1];
@@ -514,8 +514,8 @@ describe("Bundle CLI", () => {
     capturedCreateBodies = [];
     await captureLogs(async () => {
       await makeCmd().parseAsync([
-        "node", "rig", "bundle", "create", "/tmp/rig.yaml",
-        "-o", "/tmp/test.rigbundle",
+        "node", "softwareTeam", "bundle", "create", "/tmp/software-team.yaml",
+        "-o", "/tmp/test.softwareteambundle",
         "--min-daemon-version", "0.3.2",
         "--min-cli-version", "0.3.2",
       ]);
@@ -533,8 +533,8 @@ describe("Bundle CLI", () => {
     capturedCreateBodies = [];
     await captureLogs(async () => {
       await makeCmd().parseAsync([
-        "node", "rig", "bundle", "create", "/tmp/rig.yaml",
-        "-o", "/tmp/test.rigbundle",
+        "node", "softwareTeam", "bundle", "create", "/tmp/software-team.yaml",
+        "-o", "/tmp/test.softwareteambundle",
         "--min-daemon-version", "0.3.2",
       ]);
     });
@@ -551,7 +551,7 @@ describe("Bundle CLI", () => {
     capturedInstallBodies = [];
     await captureLogs(async () => {
       await makeCmd().parseAsync([
-        "node", "rig", "bundle", "install", "/tmp/test.rigbundle",
+        "node", "softwareTeam", "bundle", "install", "/tmp/test.softwareteambundle",
         "--yes", "--target", "/tmp/target",
         "--skip-version-check",
       ]);
@@ -568,7 +568,7 @@ describe("Bundle CLI", () => {
     capturedInstallBodies = [];
     await captureLogs(async () => {
       await makeCmd().parseAsync([
-        "node", "rig", "bundle", "install", "/tmp/test.rigbundle",
+        "node", "softwareTeam", "bundle", "install", "/tmp/test.softwareteambundle",
         "--yes", "--target", "/tmp/target",
       ]);
     });
@@ -583,7 +583,7 @@ describe("Bundle CLI", () => {
     capturedInstallBodies = [];
     await captureLogs(async () => {
       await makeCmd().parseAsync([
-        "node", "rig", "bundle", "install", "/tmp/test.rigbundle",
+        "node", "softwareTeam", "bundle", "install", "/tmp/test.softwareteambundle",
         "--yes", "--target", "/tmp/target",
         "--force",
       ]);
@@ -597,7 +597,7 @@ describe("Bundle CLI", () => {
     capturedInstallBodies = [];
     await captureLogs(async () => {
       await makeCmd().parseAsync([
-        "node", "rig", "bundle", "install", "/tmp/test.rigbundle",
+        "node", "softwareTeam", "bundle", "install", "/tmp/test.softwareteambundle",
         "--yes", "--target", "/tmp/target",
       ]);
     });
@@ -606,10 +606,10 @@ describe("Bundle CLI", () => {
     expect(installBody!["force"]).toBe(false);
   });
 
-  // Item 4 / slice-05 Checkpoint 5.2: rig bundle history subcommand
+  // Item 4 / slice-05 Checkpoint 5.2: softwareTeam bundle history subcommand
   it("bundle history renders records as text by default", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "history"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "history"]);
     });
     expect(logs.some((l) => l.includes("Bundle install history"))).toBe(true);
     expect(logs.some((l) => l.includes("alpha"))).toBe(true);
@@ -619,7 +619,7 @@ describe("Bundle CLI", () => {
 
   it("bundle history --json outputs parseable JSON with records array", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "history", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "history", "--json"]);
     });
     const parsed = JSON.parse(logs.join(""));
     expect(Array.isArray(parsed.records)).toBe(true);
@@ -627,18 +627,18 @@ describe("Bundle CLI", () => {
     expect(parsed.total).toBe(2);
   });
 
-  it("bundle history --rig filter passes through to the query string", async () => {
+  it("bundle history --software-team filter passes through to the query string", async () => {
     const { logs } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "history", "--rig", "alpha", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "history", "--software-team", "alpha", "--json"]);
     });
     const parsed = JSON.parse(logs.join(""));
     expect(parsed.records).toHaveLength(1);
-    expect(parsed.records[0].targetRigName).toBe("alpha");
+    expect(parsed.records[0].targetSoftwareTeamName).toBe("alpha");
   });
 
   it.each(["garbage", "2026-13-45"])("bundle history --since %s prints the advisory on stderr and keeps the empty result", async (since) => {
     const { logs, stdout, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "history", "--since", since]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "history", "--since", since]);
     });
     const note = `Note: since "${since}" was not recognised as a date or time; the existing text comparison against installedAt was used`;
     expect(logs).toContain(note);
@@ -649,7 +649,7 @@ describe("Bundle CLI", () => {
 
   it("bundle history --since garbage --json stays one parseable payload carrying the advisory", async () => {
     const { logs, stdout, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "history", "--since", "garbage", "--json"]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "history", "--since", "garbage", "--json"]);
     });
     expect(logs).toEqual(stdout);
     expect(stdout).toHaveLength(1);
@@ -665,7 +665,7 @@ describe("Bundle CLI", () => {
     ["2026-05-18T11:00:00Z", 1],
   ])("bundle history --since %s lists as before with no advisory", async (since, count) => {
     const { logs, stdout, exitCode } = await captureLogs(async () => {
-      await makeCmd().parseAsync(["node", "rig", "bundle", "history", "--since", since]);
+      await makeCmd().parseAsync(["node", "softwareTeam", "bundle", "history", "--since", since]);
     });
     expect(logs).toEqual(stdout);
     expect(stdout[0]).toBe(`Bundle install history (${count} record${count === 1 ? "" : "s"}):`);
@@ -677,8 +677,8 @@ describe("Bundle CLI", () => {
     capturedCreateBodies = [];
     await captureLogs(async () => {
       await makeCmd().parseAsync([
-        "node", "rig", "bundle", "create", "/tmp/rig.yaml",
-        "-o", "/tmp/test.rigbundle",
+        "node", "softwareTeam", "bundle", "create", "/tmp/software-team.yaml",
+        "-o", "/tmp/test.softwareteambundle",
       ]);
     });
     const createBody = capturedCreateBodies[capturedCreateBodies.length - 1];
@@ -686,26 +686,26 @@ describe("Bundle CLI", () => {
     expect(createBody!["compatibility"]).toBeUndefined();
   });
 
-  // Item 1 / slice-05: authorSession populates when OPENRIG_SESSION_NAME env is set
-  it("bundle create includes authorSession when OPENRIG_SESSION_NAME env is set", async () => {
+  // Item 1 / slice-05: authorSession populates when SOFTWARETEAM_SESSION_NAME env is set
+  it("bundle create includes authorSession when SOFTWARETEAM_SESSION_NAME env is set", async () => {
     capturedCreateBodies = [];
-    const origEnv = process.env.OPENRIG_SESSION_NAME;
-    process.env.OPENRIG_SESSION_NAME = "velocity-driver@openrig-velocity";
+    const origEnv = process.env.SOFTWARETEAM_SESSION_NAME;
+    process.env.SOFTWARETEAM_SESSION_NAME = "velocity-driver@softwareteam-velocity";
     try {
       await captureLogs(async () => {
         await makeCmd().parseAsync([
-          "node", "rig", "bundle", "create", "/tmp/rig.yaml",
-          "-o", "/tmp/test.rigbundle",
+          "node", "softwareTeam", "bundle", "create", "/tmp/software-team.yaml",
+          "-o", "/tmp/test.softwareteambundle",
         ]);
       });
     } finally {
-      if (origEnv === undefined) delete process.env.OPENRIG_SESSION_NAME;
-      else process.env.OPENRIG_SESSION_NAME = origEnv;
+      if (origEnv === undefined) delete process.env.SOFTWARETEAM_SESSION_NAME;
+      else process.env.SOFTWARETEAM_SESSION_NAME = origEnv;
     }
     const createBody = capturedCreateBodies[capturedCreateBodies.length - 1];
     expect(createBody).toBeTruthy();
     const provenance = createBody!["provenance"] as Record<string, unknown> | undefined;
     expect(provenance).toBeTruthy();
-    expect(provenance!["authorSession"]).toBe("velocity-driver@openrig-velocity");
+    expect(provenance!["authorSession"]).toBe("velocity-driver@softwareteam-velocity");
   });
 });

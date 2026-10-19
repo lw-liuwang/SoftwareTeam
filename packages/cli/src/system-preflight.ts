@@ -2,7 +2,7 @@ import net from "node:net";
 import { execSync } from "node:child_process";
 import { accessSync, mkdirSync, constants } from "node:fs";
 import { dirname } from "node:path";
-import type { ConfigStore, RiggedConfig } from "./config-store.js";
+import type { ConfigStore, SoftwareTeamConfig } from "./config-store.js";
 import type { DaemonStatus } from "./daemon-lifecycle.js";
 import { buildTmuxControlFailure, probeTmuxControlAsync } from "./tmux-health.js";
 import { classifyNodeVersion } from "./node-support.js";
@@ -23,7 +23,7 @@ export interface PreflightResult {
 }
 
 /** Run a preflight probe with its stderr captured, not echoed. Without `stdio`, `execSync` also copies the child's
- *  stderr to the terminal, so a first `rig daemon start` printed tmux's "error connecting to … (No such file or
+ *  stderr to the terminal, so a first `SoftwareTeam daemon start` printed tmux's "error connecting to … (No such file or
  *  directory)" for the ordinary no-server case. The text still reaches the probe in the thrown error, so a real tmux
  *  failure is still classified and reported. */
 export async function quietPreflightExec(cmd: string): Promise<string> {
@@ -34,8 +34,7 @@ interface PreflightDeps {
   exec: (cmd: string) => Promise<string>;
   configStore: ConfigStore;
   getDaemonStatus: () => Promise<DaemonStatus>;
-  openrigHome?: string;
-  riggedHome?: string;
+  softwareteamHome?: string;
 }
 
 interface RunOverrides {
@@ -71,22 +70,22 @@ function checkPort(host: string, port: number): Promise<boolean> {
 }
 
 export function buildWritableHomeCheck(
-  config: RiggedConfig,
-  openrigHome: string,
+  config: SoftwareTeamConfig,
+  softwareteamHome: string,
   deps: WritableHomeCheckDeps = {},
 ): PreflightCheck {
   const mkdirp = deps.mkdirp ?? ((dirPath: string) => mkdirSync(dirPath, { recursive: true }));
   const checkWritable = deps.checkWritable ?? ((dirPath: string) => accessSync(dirPath, constants.W_OK));
 
   const pathsToCheck = [
-    { path: openrigHome, label: "OpenRig home" },
+    { path: softwareteamHome, label: "SoftwareTeam home" },
   ];
   const dbDir = dirname(config.db.path);
-  if (dbDir && dbDir !== openrigHome && !dbDir.startsWith(openrigHome + "/")) {
+  if (dbDir && dbDir !== softwareteamHome && !dbDir.startsWith(softwareteamHome + "/")) {
     pathsToCheck.push({ path: dbDir, label: "Database directory" });
   }
   const transcriptPath = config.transcripts.path;
-  if (transcriptPath && transcriptPath !== openrigHome && !transcriptPath.startsWith(openrigHome + "/")) {
+  if (transcriptPath && transcriptPath !== softwareteamHome && !transcriptPath.startsWith(softwareteamHome + "/")) {
     pathsToCheck.push({ path: transcriptPath, label: "Transcript directory" });
   }
 
@@ -108,8 +107,8 @@ export function buildWritableHomeCheck(
     name: "writable_home",
     ok: false,
     error: writableErrors.join(" "),
-    reason: "OpenRig stores database, config, and transcripts in these directories.",
-    fix: "Fix directory permissions, or change paths with rig config set db.path / transcripts.path.",
+    reason: "SoftwareTeam stores database, config, and transcripts in these directories.",
+    fix: "Fix directory permissions, or change paths with SoftwareTeam config set db.path / transcripts.path.",
   };
 }
 
@@ -125,7 +124,7 @@ export class SystemPreflight {
     const config = this.deps.configStore.resolve();
     const effectivePort = overrides?.port ?? config.daemon.port;
     const effectiveHost = overrides?.host ?? config.daemon.host;
-    const openrigHome = this.deps.openrigHome ?? this.deps.riggedHome ?? "";
+    const softwareteamHome = this.deps.softwareteamHome ?? this.deps.softwareteamHome ?? "";
 
     // 1. Node version
     const nodeSupport = classifyNodeVersion(process.version);
@@ -150,7 +149,7 @@ export class SystemPreflight {
         name: "tmux",
         ok: false,
         error: "tmux was not found in PATH.",
-        reason: "OpenRig uses tmux to create and control agent sessions.",
+        reason: "SoftwareTeam uses tmux to create and control agent sessions.",
         fix: "Install tmux (brew install tmux on macOS, apt install tmux on Debian/Ubuntu).",
       });
     } else if (tmuxProbe.available) {
@@ -166,8 +165,8 @@ export class SystemPreflight {
       });
     }
 
-    // 3. Writable OpenRig home + transcript path
-    checks.push(buildWritableHomeCheck(config, openrigHome));
+    // 3. Writable SoftwareTeam home + transcript path
+    checks.push(buildWritableHomeCheck(config, softwareteamHome));
 
     // 4. Daemon port availability
     const status = await this.deps.getDaemonStatus();
@@ -189,7 +188,7 @@ export class SystemPreflight {
           ok: false,
           error: `Port ${effectivePort} is already in use on ${effectiveHost}.`,
           reason: "The daemon cannot bind to a port that is already occupied.",
-          fix: `Run rig config set daemon.port ${effectivePort + 1} and retry, or find the existing process with lsof -nP -iTCP:${effectivePort} -sTCP:LISTEN.`,
+          fix: `Run SoftwareTeam config set daemon.port ${effectivePort + 1} and retry, or find the existing process with lsof -nP -iTCP:${effectivePort} -sTCP:LISTEN.`,
         });
       }
     }

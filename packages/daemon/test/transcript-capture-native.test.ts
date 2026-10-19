@@ -13,7 +13,7 @@ try { execFileSync("tmux", ["-V"], { timeout: 2000, stdio: "ignore" }); } catch 
 
 it.skipIf(!nativeAvailable)("preserves the exact native trailing buffer and recovers idle panes on output", async () => {
   const root = mkdtempSync(join(tmpdir(), "capture-native-"));
-  const socket = `openrig-capture-test-${process.pid}-${Date.now()}`;
+  const socket = `softwareteam-capture-test-${process.pid}-${Date.now()}`;
   const exec = promisify(execFile);
   const run = async (...args: string[]) => (await exec("tmux", ["-L", socket, "-f", "/dev/null", ...args], { timeout: 5000 })).stdout;
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -49,7 +49,7 @@ it.skipIf(!nativeAvailable)("preserves the exact native trailing buffer and reco
 
 it.skipIf(!nativeAvailable)("retains active native output before a normal stop despite capture latency", async () => {
   const root = mkdtempSync(join(tmpdir(), "capture-cadence-native-"));
-  const socket = `openrig-cadence-test-${process.pid}-${Date.now()}`;
+  const socket = `softwareteam-cadence-test-${process.pid}-${Date.now()}`;
   const exec = promisify(execFile);
   const run = async (...args: string[]) => (await exec("tmux", ["-L", socket, "-f", "/dev/null", ...args], { timeout: 5000 })).stdout;
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -80,7 +80,7 @@ it.skipIf(!nativeAvailable)("retains active native output before a normal stop d
 
 it.skipIf(!nativeAvailable)("keeps real idle transcript health fresh across a variable 4.2s capture", async () => {
   const root = mkdtempSync(join(tmpdir(), "capture-fresh-native-"));
-  const socket = `openrig-fresh-test-${process.pid}-${Date.now()}`;
+  const socket = `softwareteam-fresh-test-${process.pid}-${Date.now()}`;
   const exec = promisify(execFile);
   const run = async (...args: string[]) => (await exec("tmux", ["-L", socket, "-f", "/dev/null", ...args], { timeout: 5000 })).stdout;
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -95,7 +95,7 @@ it.skipIf(!nativeAvailable)("keeps real idle transcript health fresh across a va
     return result;
   });
   const store = new TranscriptStore({ transcriptsRoot: root });
-  const file = store.getTranscriptPath("rig", "seat");
+  const file = store.getTranscriptPath("softwareTeam", "seat");
   try {
     await run("new-session", "-d", "-s", "seat", "-x", "100", "-y", "30", "cat");
     await run("send-keys", "-t", "seat", "-l", "idle seed αβ"); await run("send-keys", "-t", "seat", "Enter");
@@ -104,17 +104,17 @@ it.skipIf(!nativeAvailable)("keeps real idle transcript health fresh across a va
     // The first capture runs two real tmux execs and a write before the transcript exists (until then health reads
     // capture_missing). Wait for that condition, not a fixed time: a loaded runner can take well over 200 ms.
     const firstBy = Date.now() + 10_000;
-    let first = store.getIngestHealth("rig", "seat");
+    let first = store.getIngestHealth("softwareTeam", "seat");
     while (first.reason !== "capture_fresh" && Date.now() < firstBy) {
       await wait(50);
-      first = store.getIngestHealth("rig", "seat");
+      first = store.getIngestHealth("softwareTeam", "seat");
     }
     expect(first, "the first capture landed within 10 s").toMatchObject({ state: "live", reason: "capture_fresh" });
     const until = Date.now() + 25_000;
     let lastWrite = 0;
     while (Date.now() < until) {
       // Once the ticks stop, skipped ticks keep ingest live while the capture time stays the last capture.
-      expect(store.getIngestHealth("rig", "seat").state).toBe("live");
+      expect(store.getIngestHealth("softwareTeam", "seat").state).toBe("live");
       // A line every 3s keeps the seat capturing, so the slow fifth capture happens.
       if (!slowCompleted && Date.now() - lastWrite > 3000) {
         lastWrite = Date.now();

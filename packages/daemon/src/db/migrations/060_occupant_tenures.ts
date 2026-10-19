@@ -12,7 +12,7 @@ import type { Migration } from "../migrate.js";
 // stale-generation state (the ghost-stage defect): a CHANGED generation is the dead-tenure signal.
 // node_id is the identity that IS stable across handover/swap/repair — the cross-handover key.
 //
-// HONEST BOUNDARY: node_id does NOT survive a `rig` teardown-recreate of the node — out of scope for
+// HONEST BOUNDARY: node_id does NOT survive a `softwareTeam` teardown-recreate of the node — out of scope for
 // this ledger (a recreated node is a genuinely new identity), and labelled here so no consumer assumes
 // cross-teardown continuity.
 export const occupantTenuresSchema: Migration = {

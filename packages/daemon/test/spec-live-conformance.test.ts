@@ -1,10 +1,10 @@
 // Build B — make spec-vs-live topology drift VISIBLE. RED-first.
 //
-// WHY THIS EXISTS: nothing writes a rig spec back after a runtime mutation. `rig expand` adds a pod
-// to a RUNNING rig via the daemon and the rigRoot spec is never touched, so drift is not an accident
+// WHY THIS EXISTS: nothing writes a softwareTeam spec back after a runtime mutation. `softwareTeam expand` adds a pod
+// to a RUNNING softwareTeam via the daemon and the softwareTeamRoot spec is never touched, so drift is not an accident
 // — it is the guaranteed outcome of the shipped verbs. The spec is still read as authoritative by
-// everything that RECREATES the rig, and `bundle-assembler` copies it VERBATIM into a bundle without
-// ever consulting the live DB. On this host that means a bundle export produces an 8-seat rig while
+// everything that RECREATES the softwareTeam, and `bundle-assembler` copies it VERBATIM into a bundle without
+// ever consulting the live DB. On this host that means a bundle export produces an 8-seat softwareTeam while
 // 14 seats are running, silently, because the spec is internally consistent and validates clean.
 //
 // This module does not fix the drift. It makes the drift SAYABLE at the two moments it does damage.
@@ -16,7 +16,7 @@
 import { describe, it, expect } from "vitest";
 import {
   compareSpecToLive,
-  topologyFromRigSpec,
+  topologyFromSoftwareTeamSpec,
   topologyFromLiveLogicalIds,
   type Topology,
 } from "../src/domain/spec-live-conformance.js";
@@ -36,7 +36,7 @@ const LIVE_5_14: Topology = {
 };
 
 describe("spec-vs-live conformance", () => {
-  it("NEGATIVE CONTROL — a rig with no drift conforms and says NOTHING", () => {
+  it("NEGATIVE CONTROL — a SoftwareTeam with no drift conforms and says NOTHING", () => {
     const r = compareSpecToLive(SPEC_3_8, { ...SPEC_3_8 });
     expect(r.conforms).toBe(true);
     expect(r.message).toBeNull();
@@ -117,14 +117,14 @@ describe("spec-vs-live conformance", () => {
 });
 
 describe("topology extraction", () => {
-  it("reads pods and seats off a parsed RigSpec", () => {
+  it("reads pods and seats off a parsed SoftwareTeamSpec", () => {
     const spec = {
       pods: [
         { id: "orch", members: [{ id: "lead" }, { id: "advisor" }] },
         { id: "dev", members: [{ id: "driver" }] },
       ],
     };
-    expect(topologyFromRigSpec(spec as never)).toEqual({
+    expect(topologyFromSoftwareTeamSpec(spec as never)).toEqual({
       pods: ["orch", "dev"],
       seats: ["orch.lead", "orch.advisor", "dev.driver"],
     });

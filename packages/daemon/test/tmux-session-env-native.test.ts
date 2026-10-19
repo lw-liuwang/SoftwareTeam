@@ -19,7 +19,7 @@ async function withServer(mode: "shell" | "argv", check: (adapter: TmuxAdapter, 
   delete env.TMUX_TMPDIR;
   const tmux = async (args: string[]) => (await runFile("tmux", ["-S", socket, ...args], { env })).stdout;
   try {
-    await tmux(["-f", "/dev/null", "new-session", "-d", "-s", "worker-long", "-e", "OPENRIG_NODE_ID=neighbor-node", "-e", "OPENRIG_SESSION_NAME=worker-long", "-e", "OPENRIG_RUNTIME=terminal", "sleep 60"]);
+    await tmux(["-f", "/dev/null", "new-session", "-d", "-s", "worker-long", "-e", "SOFTWARETEAM_NODE_ID=neighbor-node", "-e", "SOFTWARETEAM_SESSION_NAME=worker-long", "-e", "SOFTWARETEAM_RUNTIME=terminal", "sleep 60"]);
     const shellExec = async (cmd: string) => {
       expect(cmd).toMatch(/^tmux /);
       return (await run(`tmux -S ${shellQuote(socket)} ${cmd.slice(5)}`, { env })).stdout;
@@ -39,16 +39,16 @@ describe.skipIf(process.platform === "win32")("native tmux session launch enviro
   for (const mode of ["shell", "argv"] as const) {
     it(`${mode}: rejects an absent prefix rather than reading its neighbor`, async () => {
       await withServer(mode, async adapter => {
-        await expect(adapter.getSessionEnv("worker", "OPENRIG_NODE_ID")).rejects.toThrow("Cannot read the session's launch environment.");
-        expect(await adapter.getSessionEnv("worker-long", "OPENRIG_NODE_ID")).toBe("neighbor-node");
+        await expect(adapter.getSessionEnv("worker", "SOFTWARETEAM_NODE_ID")).rejects.toThrow("Cannot read the session's launch environment.");
+        expect(await adapter.getSessionEnv("worker-long", "SOFTWARETEAM_NODE_ID")).toBe("neighbor-node");
       });
     });
 
     it(`${mode}: launch correction does not reassert a stale target's neighbor identity`, async () => {
       await withServer(mode, async (adapter, home) => {
-        const cli = path.join(home, "rig-fixture");
+        const cli = path.join(home, "software-team-fixture");
         fs.writeFileSync(cli, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
-        const launch = new SeatLaunchEnvironment(adapter, { OPENRIG_HOME: home }, home, cli);
+        const launch = new SeatLaunchEnvironment(adapter, { SOFTWARETEAM_HOME: home }, home, cli);
         const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
         try {
           // The ordinary launch caller must retain its previous command when
@@ -60,11 +60,11 @@ describe.skipIf(process.platform === "win32")("native tmux session launch enviro
 
     it(`${mode}: preserves exact literal names and session-id reads`, async () => {
       await withServer(mode, async (adapter, _home, tmux) => {
-        const id = (await tmux(["new-session", "-d", "-P", "-F", "#{session_id}", "-s", "worker", "-e", "OPENRIG_NODE_ID=own-node", "sleep 60"])).trim();
-        await tmux(["new-session", "-d", "-s", "=worker", "-e", "OPENRIG_NODE_ID=literal-node", "sleep 60"]);
-        expect(await adapter.getSessionEnv("worker", "OPENRIG_NODE_ID")).toBe("own-node");
-        expect(await adapter.getSessionEnv("=worker", "OPENRIG_NODE_ID")).toBe("literal-node");
-        expect(await adapter.getSessionEnv(id, "OPENRIG_NODE_ID")).toBe("own-node");
+        const id = (await tmux(["new-session", "-d", "-P", "-F", "#{session_id}", "-s", "worker", "-e", "SOFTWARETEAM_NODE_ID=own-node", "sleep 60"])).trim();
+        await tmux(["new-session", "-d", "-s", "=worker", "-e", "SOFTWARETEAM_NODE_ID=literal-node", "sleep 60"]);
+        expect(await adapter.getSessionEnv("worker", "SOFTWARETEAM_NODE_ID")).toBe("own-node");
+        expect(await adapter.getSessionEnv("=worker", "SOFTWARETEAM_NODE_ID")).toBe("literal-node");
+        expect(await adapter.getSessionEnv(id, "SOFTWARETEAM_NODE_ID")).toBe("own-node");
       });
     });
 
@@ -103,9 +103,9 @@ describe.skipIf(process.platform === "win32")("native tmux session launch enviro
 
     it(`${mode}: preserves absent/unset variables and invalid-key rejection`, async () => {
       await withServer(mode, async (adapter, _home, tmux) => {
-        expect(await adapter.getSessionEnv("worker-long", "OPENRIG_UNSET_FIXTURE")).toBeUndefined();
-        await tmux(["set-environment", "-r", "-t", "=worker-long", "OPENRIG_NODE_ID"]);
-        expect(await adapter.getSessionEnv("worker-long", "OPENRIG_NODE_ID")).toBeUndefined();
+        expect(await adapter.getSessionEnv("worker-long", "SOFTWARETEAM_UNSET_FIXTURE")).toBeUndefined();
+        await tmux(["set-environment", "-r", "-t", "=worker-long", "SOFTWARETEAM_NODE_ID"]);
+        expect(await adapter.getSessionEnv("worker-long", "SOFTWARETEAM_NODE_ID")).toBeUndefined();
         await expect(adapter.getSessionEnv("worker-long", "not-a-key")).rejects.toThrow("Invalid session environment key.");
       });
     });

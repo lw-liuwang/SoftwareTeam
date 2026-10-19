@@ -5,7 +5,7 @@ import { realDeps } from "./daemon.js";
 import type { StatusDeps } from "./status.js";
 
 export function removeCommand(depsOverride?: StatusDeps): Command {
-  const cmd = new Command("remove").description("Remove a node from a running rig");
+  const cmd = new Command("remove").description("Remove a node from a running softwareTeam");
   const getDeps = () => depsOverride ?? { lifecycleDeps: realDeps(), clientFactory: (url: string) => new DaemonClient(url) };
 
   async function getClient(deps: StatusDeps): Promise<DaemonClient | null> {
@@ -15,11 +15,11 @@ export function removeCommand(depsOverride?: StatusDeps): Command {
   }
 
   cmd
-    .argument("<rigId>", "Target rig ID")
+    .argument("<softwareTeamId>", "Target softwareTeam ID")
     .argument("<nodeRef>", "Node logical ID or node ID")
     .option("--fallback <live-seat>", "Reroute active qitems to this running seat before removal")
     .option("--json", "JSON output")
-    .action(async (rigId: string, nodeRef: string, opts: { fallback?: string; json?: boolean }) => {
+    .action(async (softwareTeamId: string, nodeRef: string, opts: { fallback?: string; json?: boolean }) => {
       const deps = getDeps();
       const client = await getClient(deps);
       if (!client) {
@@ -29,7 +29,7 @@ export function removeCommand(depsOverride?: StatusDeps): Command {
 
       const fallbackQuery = opts.fallback ? `?fallback=${encodeURIComponent(opts.fallback)}` : "";
       const res = await client.delete<Record<string, unknown>>(
-        `/api/rigs/${encodeURIComponent(rigId)}/nodes/${encodeURIComponent(nodeRef)}${fallbackQuery}`,
+        `/api/software-teams/${encodeURIComponent(softwareTeamId)}/nodes/${encodeURIComponent(nodeRef)}${fallbackQuery}`,
       );
       if (opts.json) {
         console.log(JSON.stringify(res.data, null, 2));
@@ -50,7 +50,7 @@ export function removeCommand(depsOverride?: StatusDeps): Command {
         return;
       }
 
-      console.log(`Removed node ${res.data["logicalId"]} from rig ${res.data["rigId"]} (${res.data["sessionsKilled"]} session killed)`);
+      console.log(`Removed node ${res.data["logicalId"]} from SoftwareTeam ${res.data["softwareTeamId"]} (${res.data["sessionsKilled"]} session killed)`);
       if (typeof res.data["sessionKeptFor"] === "string") {
         console.log(`Session kept: owned by ${res.data["sessionKeptFor"]}`);
       }

@@ -23,22 +23,22 @@ describe("advisory bundle check", () => {
   let root: string;
   beforeEach(() => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-check-test-"));
-    fs.writeFileSync(path.join(root, "rig.yaml"), SPEC); fs.writeFileSync(path.join(root, "README.md"), "# Test team\n");
+    fs.writeFileSync(path.join(root, "software-team.yaml"), SPEC); fs.writeFileSync(path.join(root, "README.md"), "# Test team\n");
   });
   afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
   it("checks mechanical rules while leaving prose and arbitrary secrets explicitly unverified", async () => {
     const result = await checkBundleFolder(root);
-    expect(result.standardVersion).toBe("openrig.bundle-standard/v1");
+    expect(result.standardVersion).toBe("softwareteam.bundle-standard/v1");
     expect(result.checks.filter(c => c.status === "finding")).toEqual([]);
     expect(result.checks.filter(c => c.status === "not_checked").map(c => c.ruleId)).toEqual(["readme_coverage", "embedded_secrets"]);
-    expect(fs.readFileSync(path.join(root, "rig.yaml"), "utf8")).toBe(SPEC);
+    expect(fs.readFileSync(path.join(root, "software-team.yaml"), "utf8")).toBe(SPEC);
   });
 
   it.each([
-    ["pod_aware_rig", () => fs.writeFileSync(path.join(root, "rig.yaml"), "not: a rig\n")],
+    ["pod_aware_software_team", () => fs.writeFileSync(path.join(root, "software-team.yaml"), "not: a softwareTeam\n")],
     ["readme_in_docs", () => fs.rmSync(path.join(root, "README.md"))],
-    ["portable_agents", () => fs.writeFileSync(path.join(root, "rig.yaml"), SPEC.replace("builtin:terminal", "path:/outside/agent").replace("runtime: terminal", "runtime: codex").replace("profile: none", "profile: default"))],
+    ["portable_agents", () => fs.writeFileSync(path.join(root, "software-team.yaml"), SPEC.replace("builtin:terminal", "path:/outside/agent").replace("runtime: terminal", "runtime: codex").replace("profile: none", "profile: default"))],
     ["minimum_versions", () => fs.writeFileSync(path.join(root, "bundle.yaml"), "compatibility:\n  min_cli_version: false\n")],
     ["configurations", () => fs.writeFileSync(path.join(root, "configurations.yaml"), "schema: wrong\n")],
     ["credential_paths", () => fs.writeFileSync(path.join(root, ".env"), "FAKE_TEST_ONLY=placeholder\n")],
@@ -50,7 +50,7 @@ describe("advisory bundle check", () => {
 
   it("checks startup paths relative to the declaring local agent", async () => {
     const dir = path.join(root, "agent"); fs.mkdirSync(dir);
-    fs.writeFileSync(path.join(root, "rig.yaml"), SPEC.replace("builtin:terminal", "local:agent").replace("runtime: terminal", "runtime: codex").replace("profile: none", "profile: default"));
+    fs.writeFileSync(path.join(root, "software-team.yaml"), SPEC.replace("builtin:terminal", "local:agent").replace("runtime: terminal", "runtime: codex").replace("profile: none", "profile: default"));
     fs.writeFileSync(path.join(dir, "agent.yaml"), 'name: fixture\nversion: "1.0"\nstartup:\n  files:\n    - path: context.md\nprofiles:\n  default: {}\n');
     fs.writeFileSync(path.join(dir, "context.md"), "Context");
     expect((await checkBundleFolder(root)).checks.filter(c => c.status === "finding")).toEqual([]);
@@ -65,12 +65,12 @@ describe("advisory bundle check", () => {
       const deps = { clientFactory: factory, lifecycleDeps: new Proxy({}, { get() { throw new Error("lifecycle must not be used"); } }) } as StatusDeps;
       await new Command().addCommand(bundleCommand(deps)).parseAsync(["bundle", "check", root, "--json"], { from: "user" });
       expect(factory).not.toHaveBeenCalled(); expect(log).toHaveBeenCalledTimes(1);
-      expect(JSON.parse(String(log.mock.calls[0]![0])).standardVersion).toBe("openrig.bundle-standard/v1");
+      expect(JSON.parse(String(log.mock.calls[0]![0])).standardVersion).toBe("softwareteam.bundle-standard/v1");
     } finally { log.mockRestore(); }
   });
 
   it("human output names the file a finding is about", async () => {
-    fs.writeFileSync(path.join(root, "rig.yaml"), SPEC.replace("docs: [{path: README.md}]", "docs: [{path: README.md}, {path: docs/missing.md}]"));
+    fs.writeFileSync(path.join(root, "software-team.yaml"), SPEC.replace("docs: [{path: README.md}]", "docs: [{path: README.md}, {path: docs/missing.md}]"));
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const exitCode = process.exitCode;
     try {
@@ -82,7 +82,7 @@ describe("advisory bundle check", () => {
   });
 
   it("checks that the recommended configuration is the authored team", async () => {
-    const config = `schema: openrig.bundle-configurations/v1
+    const config = `schema: softwareteam.bundle-configurations/v1
 recommended: authored
 seats:
   infra.observer: { runtimes: { terminal: none, codex: default } }

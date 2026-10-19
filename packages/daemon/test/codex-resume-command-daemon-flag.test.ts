@@ -1,4 +1,4 @@
-// The Codex resume command OpenRig prints for a person recovering a seat (`rig ps --nodes` resumeCommand and the
+// The Codex resume command SoftwareTeam prints for a person recovering a seat (`SoftwareTeam ps --nodes` resumeCommand and the
 // node detail's recovery guidance) keeps the --no-daemon choice the seat's last managed launch positively made.
 // That choice rides the existing launch-fact record. A choice that was never recorded stays unknown: the old
 // command, plus a note saying so. A legacy choice (no --no-daemon) prints the old command unchanged.
@@ -54,9 +54,9 @@ describe("the launch-fact record keeps a Codex launch's daemon choice", () => {
 
   beforeEach(() => {
     db = createFullTestDb();
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-1", "r1");
-    db.prepare("INSERT INTO nodes (id, rig_id, logical_id, role, runtime, cwd) VALUES (?, ?, ?, ?, ?, ?)")
-      .run("node-1", "rig-1", "dev.qa", "worker", "codex", "/tmp/project");
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-1", "r1");
+    db.prepare("INSERT INTO nodes (id, software_team_id, logical_id, role, runtime, cwd) VALUES (?, ?, ?, ?, ?, ?)")
+      .run("node-1", "software-team-1", "dev.qa", "worker", "codex", "/tmp/project");
     registry = new SessionRegistry(db);
     store = new AppliedLaunchObservationStore(db);
   });
@@ -74,7 +74,7 @@ describe("the launch-fact record keeps a Codex launch's daemon choice", () => {
   });
 });
 
-describe("rig ps resumeCommand and the node detail's recovery guidance", () => {
+describe("SoftwareTeam ps resumeCommand and the node detail's recovery guidance", () => {
   let db: Database.Database;
   let registry: SessionRegistry;
   let store: AppliedLaunchObservationStore;
@@ -82,22 +82,22 @@ describe("rig ps resumeCommand and the node detail's recovery guidance", () => {
 
   beforeEach(() => {
     db = createFullTestDb();
-    db.prepare("INSERT INTO rigs (id, name) VALUES (?, ?)").run("rig-2", "test-rig");
-    db.prepare("INSERT INTO pods (id, rig_id, namespace, label) VALUES (?, ?, ?, ?)").run("pod-2", "rig-2", "dev", "Dev");
+    db.prepare("INSERT INTO software_teams (id, name) VALUES (?, ?)").run("software-team-2", "test-software-team");
+    db.prepare("INSERT INTO pods (id, software_team_id, namespace, label) VALUES (?, ?, ?, ?)").run("pod-2", "software-team-2", "dev", "Dev");
     db.prepare(
-      "INSERT INTO nodes (id, rig_id, logical_id, runtime, cwd, pod_id, agent_ref, profile, resolved_spec_name, resolved_spec_version, resolved_spec_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    ).run("node-codex", "rig-2", "dev.qa", "codex", "/workspace/app", "pod-2", "local:agents/qa", "default", "qa", "1.0.0", "hash");
+      "INSERT INTO nodes (id, software_team_id, logical_id, runtime, cwd, pod_id, agent_ref, profile, resolved_spec_name, resolved_spec_version, resolved_spec_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run("node-codex", "software-team-2", "dev.qa", "codex", "/workspace/app", "pod-2", "local:agents/qa", "default", "qa", "1.0.0", "hash");
     registry = new SessionRegistry(db);
     store = new AppliedLaunchObservationStore(db);
-    sessionId = registry.registerSession("node-codex", "dev-qa@test-rig").id;
+    sessionId = registry.registerSession("node-codex", "dev-qa@test-software-team").id;
   });
   afterEach(() => db.close());
 
   const record = (observation: AppliedLaunchObservation) =>
     expect(store.recordGeneration(registry.currentOccupantTenure("node-codex")!.generationUuid, observation)).toBe(true);
   const printed = () => {
-    const entry = getNodeInventory(db, "rig-2").find((e) => e.logicalId === "dev.qa")!;
-    const detail = getNodeDetail(db, "rig-2", "dev.qa")!;
+    const entry = getNodeInventory(db, "software-team-2").find((e) => e.logicalId === "dev.qa")!;
+    const detail = getNodeDetail(db, "software-team-2", "dev.qa")!;
     return { resumeCommand: entry.resumeCommand, guidance: detail.recoveryGuidance! };
   };
 
@@ -186,8 +186,8 @@ describe("Codex managed launches return the daemon choice with their launch fact
       const run = async (support: CodexDaemonSupport | undefined) => {
         const adapter = new CodexRuntimeAdapter({ tmux: mockTmux(), fsOps: fsOps(), listProcesses: () => [], sleep: async () => {}, ...detector(support) });
         const result = await adapter.launchHarness(binding(), kind === "fork"
-          ? { name: "dev-qa@test-rig", forkSource: { kind: "native_id" as const, value: "parent", pendingIdAllowed: true } }
-          : { name: "dev-qa@test-rig" });
+          ? { name: "dev-qa@test-software-team", forkSource: { kind: "native_id" as const, value: "parent", pendingIdAllowed: true } }
+          : { name: "dev-qa@test-software-team" });
         expect(result.ok).toBe(true);
         return (result as { appliedLaunch?: AppliedLaunchObservation }).appliedLaunch!;
       };

@@ -4,7 +4,7 @@ import { defaultTmuxFileOps, isStagedSendScriptPath } from "../src/adapters/tmux
 import { describe, it, expect, afterEach } from "vitest";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import { SeatLifecycleService } from "../src/domain/seat-lifecycle-service.js";
@@ -27,9 +27,9 @@ interface WorldOptions {
   shape?: Shape;
   runningArgs?: string;
   savedModel?: string | null;
-  /** nodes.effort (authored) and nodes.effort_choice (rig seat set-effort). */
+  /** nodes.effort (authored) and nodes.effort_choice (softwareTeam seat set-effort). */
   savedEffort?: { authored?: string; choice?: string };
-  /** Shell-backed only: the command line of a process between the pane shell and Codex (OpenRig's
+  /** Shell-backed only: the command line of a process between the pane shell and Codex (SoftwareTeam's
    *  staged launch script, or something else). */
   between?: string;
   /** The OS's name for that process (ps ucomm); defaults to argv[0]'s basename. */
@@ -76,13 +76,13 @@ function world(options: WorldOptions = {}) {
   const shape = options.shape ?? "shell_backed";
   const db = createFullTestDb();
   dbs.push(db);
-  const rigRepo = new RigRepository(db);
+  const softwareTeamRepo = new SoftwareTeamRepository(db);
   const sessionRegistry = new SessionRegistry(db);
   const eventBus = new EventBus(db);
-  const rig = rigRepo.createRig("r");
-  const node = rigRepo.addNode(rig.id, "dev.codex", { runtime: "codex", cwd: "/work", ...(options.savedModel !== null ? { model: options.savedModel ?? "gpt-5.5" } : {}) });
-  if (options.savedEffort?.authored) rigRepo.setNodeEffort(node.id, options.savedEffort.authored);
-  if (options.savedEffort?.choice) rigRepo.setNodeEffortChoice(node.id, options.savedEffort.choice);
+  const softwareTeam = softwareTeamRepo.createSoftwareTeam("r");
+  const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.codex", { runtime: "codex", cwd: "/work", ...(options.savedModel !== null ? { model: options.savedModel ?? "gpt-5.5" } : {}) });
+  if (options.savedEffort?.authored) softwareTeamRepo.setNodeEffort(node.id, options.savedEffort.authored);
+  if (options.savedEffort?.choice) softwareTeamRepo.setNodeEffortChoice(node.id, options.savedEffort.choice);
   const session = sessionRegistry.registerSession(node.id, SEAT);
   sessionRegistry.updateStatus(session.id, "running");
   sessionRegistry.updateBinding(node.id, { attachmentType: "tmux", tmuxSession: SEAT, tmuxPane: "%1" });
@@ -197,7 +197,7 @@ function world(options: WorldOptions = {}) {
   };
 
   const service = new SeatLifecycleService({
-    db, rigRepo, sessionRegistry, eventBus, tmuxAdapter: tmux,
+    db, softwareTeamRepo, sessionRegistry, eventBus, tmuxAdapter: tmux,
     runtimeAdapters: { codex: codex as never },
     listProcesses: () => {
       if (relaunched) {
@@ -229,7 +229,7 @@ function state(activity: string, needs = 0): ArbitratedSeatState {
     needsInputEvidence: null, decidedBy: "hook" as never, seq: 1, changedAt: LSTART, rungs: [], lastSwap: null };
 }
 
-describe("rig seat restart --keep-conversation: gates before any signal", () => {
+describe("SoftwareTeam seat restart --keep-conversation: gates before any signal", () => {
   it("plan reports activity, child processes, billing and settings, and changes nothing", async () => {
     const w = world({ activity: state("working"), facts: { 200: facts({ apiKeyEnvNames: ["OPENAI_API_KEY"] }), 100: facts() } });
     w.setRows([shellRow(100, 200), codexRow(200, 100, `-m gpt-5.5 -s workspace-write resume ${TOKEN}`),
@@ -306,12 +306,12 @@ describe("rig seat restart --keep-conversation: gates before any signal", () => 
     expect(await cwd.service.restartInPlace({ seatRef: SEAT, plan: true })).toMatchObject({ code: "settings_drift", detail: { differs: ["cwd"] } });
   });
 
-  it("accepts a Codex launched through OpenRig's staged launch script, and only that script, between shell and Codex", async () => {
-    const staged = "/bin/sh /tmp/openrig-tmux-send-1128548-5b249a92-40d6-40c4-b424-57b3b6980529.txt";
+  it("accepts a Codex launched through SoftwareTeam's staged launch script, and only that script, between shell and Codex", async () => {
+    const staged = "/bin/sh /tmp/softwareteam-tmux-send-1128548-5b249a92-40d6-40c4-b424-57b3b6980529.txt";
     const w = world({ between: staged });
     expect(await w.service.restartInPlace({ seatRef: SEAT, plan: true })).toMatchObject({ ok: true, paneShape: "shell_backed" });
     // macOS (measured on Build): /bin/sh is a shim that runs bash, so ps names the process bash.
-    const mac = world({ between: "/bin/sh /var/folders/7x/abc123/T/openrig-tmux-send-4242-5b249a92-40d6-40c4-b424-57b3b6980529.txt", betweenName: "bash" });
+    const mac = world({ between: "/bin/sh /var/folders/7x/abc123/T/softwareteam-tmux-send-4242-5b249a92-40d6-40c4-b424-57b3b6980529.txt", betweenName: "bash" });
     expect(await mac.service.restartInPlace({ seatRef: SEAT, plan: true })).toMatchObject({ ok: true, paneShape: "shell_backed" });
     // The real generator's names are what the matcher accepts.
     const generated = defaultTmuxFileOps().tmpName();
@@ -321,12 +321,12 @@ describe("rig seat restart --keep-conversation: gates before any signal", () => 
     expect(w.calls).toContain("signalPid 200 TERM");
     for (const other of [
       "/bin/sh /home/u/run-codex.sh",
-      "/bin/sh /tmp/openrig-tmux-send-1.txt",
-      "/bin/sh -c /tmp/openrig-tmux-send-1128548-5b249a92-40d6-40c4-b424-57b3b6980529.txt",
-      "/usr/bin/script -q /tmp/openrig-tmux-send-1128548-5b249a92-40d6-40c4-b424-57b3b6980529.txt",
-      "/bin/sh tmp/openrig-tmux-send-1128548-5b249a92-40d6-40c4-b424-57b3b6980529.txt",
-      "/bin/sh /tmp/openrig-tmux-send-1128548-5b249a92-40d6-40c4-b424-57b3b6980529.txt extra",
-      "/bin/bash /tmp/openrig-tmux-send-1128548-5b249a92-40d6-40c4-b424-57b3b6980529.txt",
+      "/bin/sh /tmp/softwareteam-tmux-send-1.txt",
+      "/bin/sh -c /tmp/softwareteam-tmux-send-1128548-5b249a92-40d6-40c4-b424-57b3b6980529.txt",
+      "/usr/bin/script -q /tmp/softwareteam-tmux-send-1128548-5b249a92-40d6-40c4-b424-57b3b6980529.txt",
+      "/bin/sh tmp/softwareteam-tmux-send-1128548-5b249a92-40d6-40c4-b424-57b3b6980529.txt",
+      "/bin/sh /tmp/softwareteam-tmux-send-1128548-5b249a92-40d6-40c4-b424-57b3b6980529.txt extra",
+      "/bin/bash /tmp/softwareteam-tmux-send-1128548-5b249a92-40d6-40c4-b424-57b3b6980529.txt",
     ]) {
       const refused = world({ between: other });
       expect(await refused.service.restartInPlace({ seatRef: SEAT, plan: true }), other).toMatchObject({ ok: false, code: "pane_shape_unknown" });
@@ -354,7 +354,7 @@ describe("rig seat restart --keep-conversation: gates before any signal", () => 
 
   it("refuses while an earlier restart has no recorded result, and a request that waited behind another", async () => {
     const w = world();
-    w.db.prepare("INSERT INTO events (rig_id, node_id, type, payload) VALUES (?, ?, 'seat.restart_in_place_started', '{}')").run("r", w.node.id);
+    w.db.prepare("INSERT INTO events (software_team_id, node_id, type, payload) VALUES (?, ?, 'seat.restart_in_place_started', '{}')").run("r", w.node.id);
     expect(await w.service.restartInPlace({ seatRef: SEAT, reason: "again" })).toMatchObject({ ok: false, code: "restart_in_progress" });
   });
 
@@ -374,7 +374,7 @@ describe("rig seat restart --keep-conversation: gates before any signal", () => 
   });
 });
 
-describe("rig seat restart --keep-conversation: outcomes", () => {
+describe("SoftwareTeam seat restart --keep-conversation: outcomes", () => {
   it("shell-backed: TERMs Codex (not the shell), resumes the same conversation once, records started and finished", async () => {
     const w = world();
     const result = await w.service.restartInPlace({ seatRef: SEAT, reason: "take the home's account", operator: "op@r" });
@@ -434,14 +434,14 @@ describe("rig seat restart --keep-conversation: outcomes", () => {
 
   it("peers sharing the Codex home are reported, not restarted", async () => {
     const w = world();
-    const rigRepo = new RigRepository(w.db);
-    rigRepo.addNode(rigRepo.findRigsByName("r")[0]!.id, "dev.peer", { runtime: "codex", cwd: "/work" });
+    const softwareTeamRepo = new SoftwareTeamRepository(w.db);
+    softwareTeamRepo.addNode(softwareTeamRepo.findSoftwareTeamsByName("r")[0]!.id, "dev.peer", { runtime: "codex", cwd: "/work" });
     const result = await w.service.restartInPlace({ seatRef: SEAT, plan: true });
     expect(result).toMatchObject({ peers: [{ logicalId: "dev.peer", home: "unknown", effect: expect.stringContaining("Not restarted; account unverified") }] });
   });
 });
 
-describe("rig seat restart --keep-conversation --verify", () => {
+describe("SoftwareTeam seat restart --keep-conversation --verify", () => {
   const turn = (type: string, payload: string, at = "2099-01-01T00:00:00Z") => JSON.stringify({ timestamp: at, type, payload: { type: payload } });
 
   async function restarted(options: WorldOptions) {
@@ -513,7 +513,7 @@ describe("#1196 round 1: every exit after started records a result; stale starts
   });
 
   function startedAt(w: ReturnType<typeof world>, createdAt: string) {
-    w.db.prepare("INSERT INTO events (rig_id, node_id, type, payload, created_at) VALUES (?, ?, 'seat.restart_in_place_started', ?, ?)")
+    w.db.prepare("INSERT INTO events (software_team_id, node_id, type, payload, created_at) VALUES (?, ?, 'seat.restart_in_place_started', ?, ?)")
       .run("r", w.node.id, JSON.stringify({ oldPid: 77, pane: "%1" }), createdAt);
   }
 
@@ -698,7 +698,7 @@ describe("post-relaunch identity observation window", () => {
     const root = shape === "shell_backed" ? 100 : 300;
     return [shellRow(root, 350),
       { pid: 350, ppid: root, pgid: 350, tpgid: 350, executableName: "sh", startedAt: LATER,
-        command: "/bin/sh /tmp/openrig-tmux-send-fixture.txt" },
+        command: "/bin/sh /tmp/softwareteam-tmux-send-fixture.txt" },
       { pid: 351, ppid: 350, pgid: 350, tpgid: 350, executableName: "node", startedAt: LATER,
         command: `/usr/bin/node /opt/codex/bin/codex.js resume ${token}` },
       codexRow(400, 351, `-m gpt-5.5 -s workspace-write resume ${token}`, LATER, 350)];

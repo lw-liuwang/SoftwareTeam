@@ -48,7 +48,7 @@ describe("bootstrap error statuses cannot certify readiness", () => {
       vi.spyOn(console, "error").mockImplementation((...args) => errors.push(args.join(" ")));
       const program = new Command().exitOverride();
       program.addCommand(command === "requirements" ? requirementsCommand(deps) : bootstrapCommand(deps));
-      await program.parseAsync(["node", "rig", command, "/missing/spec.yaml", ...(json ? ["--json"] : [])]);
+      await program.parseAsync(["node", "softwareTeam", command, "/missing/spec.yaml", ...(json ? ["--json"] : [])]);
       expect(process.exitCode).toBe(command === "bootstrap" ? (status === 409 ? 1 : 2) : (status >= 500 ? 2 : 1));
       expect(output.join("\n")).not.toContain("No requirements declared");
       if (json) expect(JSON.parse(output.join(""))).toEqual(body);

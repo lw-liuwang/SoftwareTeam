@@ -1,8 +1,8 @@
-// V0.3.1 slice 05 kernel-rig-as-default — kernel auto-boot tests.
+// V0.3.1 slice 05 kernel-software-team-as-default — kernel auto-boot tests.
 //
 // Covers HG-2 (variant selection), HG-3 (auth-block 3-part error),
 // HG-4 (already-managed short-circuit), HG-6 (--no-kernel flag via
-// OPENRIG_NO_KERNEL env). Forward-fix #3 architectural amendment:
+// SOFTWARETEAM_NO_KERNEL env). Forward-fix #3 architectural amendment:
 // bootKernelIfNeeded now returns a KernelBootTracker; the bootstrap
 // runs in the background. Tests await microtasks to observe the
 // post-bootstrap tracker state.
@@ -23,23 +23,23 @@ import {
   type KernelBootDeps,
   type RuntimeAuthStatus,
 } from "../src/domain/kernel-boot.js";
-import type { RigRepository } from "../src/domain/rig-repository.js";
+import type { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import type { BootstrapOrchestrator } from "../src/domain/bootstrap-orchestrator.js";
 import type { SessionRegistry } from "../src/domain/session-registry.js";
 import type { EventBus } from "../src/domain/event-bus.js";
 
-function makeRigRepo(existingRigs: Array<{ id?: string; name: string }>): RigRepository {
+function makeSoftwareTeamRepo(existingSoftwareTeams: Array<{ id?: string; name: string }>): SoftwareTeamRepository {
   return {
-    listRigs: () => existingRigs,
-    findRigsByName: (name: string) => existingRigs.filter((r) => r.name === name),
-    findUnarchivedRigsByName: (name: string) => existingRigs.filter((r) => r.name === name),
-    getRig: () => null,
-  } as unknown as RigRepository;
+    listSoftwareTeams: () => existingSoftwareTeams,
+    findSoftwareTeamsByName: (name: string) => existingSoftwareTeams.filter((r) => r.name === name),
+    findUnarchivedSoftwareTeamsByName: (name: string) => existingSoftwareTeams.filter((r) => r.name === name),
+    getSoftwareTeam: () => null,
+  } as unknown as SoftwareTeamRepository;
 }
 
-function makeSessionRegistry(sessionsByRig: Record<string, Array<{ sessionName: string; runtime?: string; startupStatus: string }>> = {}): SessionRegistry {
+function makeSessionRegistry(sessionsBySoftwareTeam: Record<string, Array<{ sessionName: string; runtime?: string; startupStatus: string }>> = {}): SessionRegistry {
   return {
-    getSessionsForRig: (rigId: string) => sessionsByRig[rigId] ?? [],
+    getSessionsForSoftwareTeam: (softwareTeamId: string) => sessionsBySoftwareTeam[softwareTeamId] ?? [],
   } as unknown as SessionRegistry;
 }
 
@@ -81,7 +81,7 @@ function makeBaseDeps(
   specsDir: string,
 ): KernelBootDeps {
   return {
-    rigRepo: makeRigRepo([]),
+    softwareTeamRepo: makeSoftwareTeamRepo([]),
     sessionRegistry: makeSessionRegistry(),
     eventBus: makeEventBus().bus,
     bootstrapOrchestrator: makeBootstrapMock(),
@@ -98,39 +98,39 @@ let tmpSpecsDir: string;
 
 beforeEach(() => {
   tmpSpecsDir = mkdtempSync(join(tmpdir(), "kernel-boot-"));
-  const kernelDir = join(tmpSpecsDir, "rigs/launch/kernel");
+  const kernelDir = join(tmpSpecsDir, "software-teams/launch/kernel");
   mkdirSync(kernelDir, { recursive: true });
-  writeFileSync(join(kernelDir, "rig.yaml"), "name: kernel\n");
-  writeFileSync(join(kernelDir, "rig-claude-only.yaml"), "name: kernel\n");
-  writeFileSync(join(kernelDir, "rig-codex-only.yaml"), "name: kernel\n");
+  writeFileSync(join(kernelDir, "software-team.yaml"), "name: kernel\n");
+  writeFileSync(join(kernelDir, "software-team-claude-only.yaml"), "name: kernel\n");
+  writeFileSync(join(kernelDir, "software-team-codex-only.yaml"), "name: kernel\n");
 });
 
 afterEach(() => {
-  delete process.env.OPENRIG_NO_KERNEL;
+  delete process.env.SOFTWARETEAM_NO_KERNEL;
   if (tmpSpecsDir) rmSync(tmpSpecsDir, { recursive: true, force: true });
 });
 
 describe("selectVariant — auth-state → variant mapping", () => {
-  it("picks rig.yaml when both runtimes available", () => {
-    expect(selectVariant({ claudeCode: "ok", codex: "ok" })).toBe("rig.yaml");
+  it("picks software-team.yaml when both runtimes available", () => {
+    expect(selectVariant({ claudeCode: "ok", codex: "ok" })).toBe("software-team.yaml");
   });
-  it("picks rig-claude-only.yaml when only Claude available", () => {
-    expect(selectVariant({ claudeCode: "ok", codex: "unavailable" })).toBe("rig-claude-only.yaml");
+  it("picks software-team-claude-only.yaml when only Claude available", () => {
+    expect(selectVariant({ claudeCode: "ok", codex: "unavailable" })).toBe("software-team-claude-only.yaml");
   });
-  it("picks rig-codex-only.yaml when only Codex available", () => {
-    expect(selectVariant({ claudeCode: "unavailable", codex: "ok" })).toBe("rig-codex-only.yaml");
+  it("picks software-team-codex-only.yaml when only Codex available", () => {
+    expect(selectVariant({ claudeCode: "unavailable", codex: "ok" })).toBe("software-team-codex-only.yaml");
   });
 });
 
 describe("kernelAlreadyManaged — short-circuit predicate", () => {
-  it("returns true when a rig named 'kernel' exists", () => {
-    expect(kernelAlreadyManaged(makeRigRepo([{ name: "kernel" }, { name: "other" }]))).toBe(true);
+  it("returns true when a SoftwareTeam named 'kernel' exists", () => {
+    expect(kernelAlreadyManaged(makeSoftwareTeamRepo([{ name: "kernel" }, { name: "other" }]))).toBe(true);
   });
-  it("returns false when no rig is named 'kernel' (case-sensitive)", () => {
-    expect(kernelAlreadyManaged(makeRigRepo([{ name: "Kernel" }, { name: "other" }]))).toBe(false);
+  it("returns false when no SoftwareTeam is named 'kernel' (case-sensitive)", () => {
+    expect(kernelAlreadyManaged(makeSoftwareTeamRepo([{ name: "Kernel" }, { name: "other" }]))).toBe(false);
   });
-  it("returns false on an empty rig list", () => {
-    expect(kernelAlreadyManaged(makeRigRepo([]))).toBe(false);
+  it("returns false on an empty SoftwareTeam list", () => {
+    expect(kernelAlreadyManaged(makeSoftwareTeamRepo([]))).toBe(false);
   });
 });
 
@@ -146,19 +146,19 @@ describe("authBlockMessage — 3-part error contract", () => {
 });
 
 describe("bootKernelIfNeeded — short-circuit branches", () => {
-  it("returns skipped tracker when OPENRIG_NO_KERNEL=1", async () => {
-    process.env.OPENRIG_NO_KERNEL = "1";
+  it("returns skipped tracker when SOFTWARETEAM_NO_KERNEL=1", async () => {
+    process.env.SOFTWARETEAM_NO_KERNEL = "1";
     const bootstrap = makeBootstrapMock();
     const tracker = await bootKernelIfNeeded(makeBaseDeps({ bootstrapOrchestrator: bootstrap }, tmpSpecsDir));
     expect(tracker.getStatus().kernelState).toBe("skipped");
-    expect(tracker.getStatus().detail).toBe("OPENRIG_NO_KERNEL=1");
+    expect(tracker.getStatus().detail).toBe("SOFTWARETEAM_NO_KERNEL=1");
     expect((bootstrap as unknown as { bootstrap: ReturnType<typeof vi.fn> }).bootstrap).not.toHaveBeenCalled();
   });
 
-  it("returns skipped tracker when a kernel rig is already managed", async () => {
+  it("returns skipped tracker when a kernel SoftwareTeam is already managed", async () => {
     const bootstrap = makeBootstrapMock();
     const tracker = await bootKernelIfNeeded(makeBaseDeps({
-      rigRepo: makeRigRepo([{ name: "kernel" }]),
+      softwareTeamRepo: makeSoftwareTeamRepo([{ name: "kernel" }]),
       bootstrapOrchestrator: bootstrap,
     }, tmpSpecsDir));
     expect(tracker.getStatus().kernelState).toBe("skipped");
@@ -174,12 +174,12 @@ describe("bootKernelIfNeeded — short-circuit branches", () => {
     }, tmpSpecsDir));
     const status = tracker.getStatus();
     expect(status.kernelState).toBe("auth_blocked");
-    expect(status.detail).toMatch(/^Error: Kernel rig cannot boot/);
+    expect(status.detail).toMatch(/^Error: Kernel SoftwareTeam cannot boot/);
     expect((bootstrap as unknown as { bootstrap: ReturnType<typeof vi.fn> }).bootstrap).not.toHaveBeenCalled();
   });
 
   it("returns spec_missing tracker when the chosen variant file doesn't exist", async () => {
-    rmSync(join(tmpSpecsDir, "rigs/launch/kernel/rig.yaml"));
+    rmSync(join(tmpSpecsDir, "software-teams/launch/kernel/software-team.yaml"));
     const bootstrap = makeBootstrapMock();
     const tracker = await bootKernelIfNeeded(makeBaseDeps({ bootstrapOrchestrator: bootstrap }, tmpSpecsDir));
     expect(tracker.getStatus().kernelState).toBe("spec_missing");
@@ -201,12 +201,12 @@ describe("bootKernelIfNeeded — fire-and-forget bootstrap", () => {
     } as unknown as BootstrapOrchestrator;
     const tracker = await bootKernelIfNeeded(makeBaseDeps({ bootstrapOrchestrator: bootstrap }, tmpSpecsDir));
     expect(tracker.getStatus().kernelState).toBe("booting");
-    expect(tracker.getStatus().variant).toBe("rig.yaml");
+    expect(tracker.getStatus().variant).toBe("software-team.yaml");
     expect((bootstrap as unknown as { bootstrap: ReturnType<typeof vi.fn> }).bootstrap).toHaveBeenCalledOnce();
     const opts = (bootstrap as unknown as { bootstrap: ReturnType<typeof vi.fn> }).bootstrap.mock.calls[0]![0];
     expect(opts.mode).toBe("apply");
-    expect(opts.sourceRef).toBe(join(tmpSpecsDir, "rigs/launch/kernel", "rig.yaml"));
-    expect(opts.sourceKind).toBe("rig_spec");
+    expect(opts.sourceRef).toBe(join(tmpSpecsDir, "software-teams/launch/kernel", "software-team.yaml"));
+    expect(opts.sourceKind).toBe("software_team_spec");
     expect(opts.autoApprove).toBe(true);
     expect(opts.cwdOverride).toBe(tmpSpecsDir);
     release();
@@ -239,7 +239,7 @@ describe("bootKernelIfNeeded — fire-and-forget bootstrap", () => {
     const tracker = await bootKernelIfNeeded(makeBaseDeps({
       probeRuntimes: async () => ({ claudeCode: "ok", codex: "unavailable" }),
     }, tmpSpecsDir));
-    expect(tracker.getStatus().variant).toBe("rig-claude-only.yaml");
+    expect(tracker.getStatus().variant).toBe("software-team-claude-only.yaml");
     tracker.stop();
   });
 
@@ -247,7 +247,7 @@ describe("bootKernelIfNeeded — fire-and-forget bootstrap", () => {
     const tracker = await bootKernelIfNeeded(makeBaseDeps({
       probeRuntimes: async () => ({ claudeCode: "unavailable", codex: "ok" }),
     }, tmpSpecsDir));
-    expect(tracker.getStatus().variant).toBe("rig-codex-only.yaml");
+    expect(tracker.getStatus().variant).toBe("software-team-codex-only.yaml");
     tracker.stop();
   });
 });
@@ -330,15 +330,15 @@ describe("probeCodexReadiness — the kernel's Codex probe (#194)", () => {
     const tracker = await bootKernelIfNeeded(makeBaseDeps({
       probeRuntimes: async () => ({ claudeCode: "unavailable", codex: await probeCodexReadiness(probe.deps) }),
     }, tmpSpecsDir));
-    expect(tracker.getStatus().variant).toBe("rig-codex-only.yaml");
+    expect(tracker.getStatus().variant).toBe("software-team-codex-only.yaml");
     tracker.stop();
   });
 });
 
 describe("expectedKernelSeats — the roster a boot failure must recover (#1042)", () => {
   it("reads each pod member of the shipped kernel variants as pod.member", () => {
-    const kernelDir = fileURLToPath(new URL("../specs/rigs/launch/kernel/", import.meta.url));
-    for (const variant of ["rig.yaml", "rig-claude-only.yaml", "rig-codex-only.yaml"]) {
+    const kernelDir = fileURLToPath(new URL("../specs/software-teams/launch/kernel/", import.meta.url));
+    for (const variant of ["software-team.yaml", "software-team-claude-only.yaml", "software-team-codex-only.yaml"]) {
       expect(expectedKernelSeats(join(kernelDir, variant))).toEqual(["advisor.lead", "operator.human", "operator.agent", "queue.worker"]);
     }
   });

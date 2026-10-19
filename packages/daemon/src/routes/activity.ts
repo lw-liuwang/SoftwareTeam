@@ -77,7 +77,7 @@ async function piUsageRequest(c: Context, what: string, needs: (db: SessionRegis
   }
   const authHeader = c.req.header("authorization");
   const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length).trim() : null;
-  if (bearerToken !== expectedToken && (c.req.header("x-openrig-activity-token") ?? null) !== expectedToken) {
+  if (bearerToken !== expectedToken && (c.req.header("x-softwareteam-activity-token") ?? null) !== expectedToken) {
     return { error: c.json({ ok: false, code: "activity_hook_unauthorized", error: `${what} require the configured local hook token.` }, 401) };
   }
   let body: Record<string, unknown>;
@@ -153,7 +153,7 @@ activityRoutes.post("/hooks", async (c) => {
 
   const authHeader = c.req.header("authorization");
   const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length).trim() : null;
-  const headerToken = c.req.header("x-openrig-activity-token") ?? null;
+  const headerToken = c.req.header("x-softwareteam-activity-token") ?? null;
   if (bearerToken !== expectedToken && headerToken !== expectedToken) {
     return c.json({
       ok: false,
@@ -233,7 +233,7 @@ activityRoutes.post("/hooks", async (c) => {
         : false;
       eventBus.emit({
         type: "agent.session_identity",
-        rigId: resolved.rigId,
+        softwareTeamId: resolved.softwareTeamId,
         nodeId: resolved.nodeId,
         sessionName: resolved.sessionName,
         runtime: "omp",
@@ -278,7 +278,7 @@ activityRoutes.post("/hooks", async (c) => {
       }
       eventBus.emit({
         type: "agent.session_identity",
-        rigId: resolved.rigId,
+        softwareTeamId: resolved.softwareTeamId,
         nodeId: resolved.nodeId,
         sessionName: resolved.sessionName,
         runtime: "pi",
@@ -307,7 +307,7 @@ activityRoutes.post("/hooks", async (c) => {
     const resumeLaunch = stringOrNull(body.resumeLaunch);
     // Only for a hook that could name the armed launch: was it the launch's first SessionStart (the
     // relay records that locally, so a first hook lost in delivery still counts), and was it sent
-    // by the process OpenRig launched?
+    // by the process SoftwareTeam launched?
     let launchedProcess: ClaudeLaunchedProcess | null = null;
     const armed = runtime === "claude-code" && currentGeneration && source === "resume" && resumeLaunch
       && body.resumeLaunchFirst === true ? sessionRegistry.armedResumeLaunch(resolved.sessionId) : null;
@@ -331,7 +331,7 @@ activityRoutes.post("/hooks", async (c) => {
         || sessionRegistry.resumeTokenMatches(resolved.sessionId, validation.resumeType, validation.token));
     eventBus.emit({
       type: "agent.session_identity",
-      rigId: resolved.rigId,
+      softwareTeamId: resolved.softwareTeamId,
       nodeId: resolved.nodeId,
       sessionName: resolved.sessionName,
       runtime: runtime ?? "codex",
@@ -485,16 +485,16 @@ activityRoutes.get("/parked", (c) => {
         parkWakeServedByOwnReminder?: (qitemId: string) => boolean;
       }
     | undefined;
-  const rigRepo = c.get("rigRepo" as never) as { db: import("better-sqlite3").Database } | undefined;
-  if (!oracle || !queueRepo || !rigRepo) {
+  const softwareTeamRepo = c.get("softwareTeamRepo" as never) as { db: import("better-sqlite3").Database } | undefined;
+  if (!oracle || !queueRepo || !softwareTeamRepo) {
     return c.json({
       ok: false,
       code: "parked_query_unconfigured",
-      error: "The parked query needs the activity oracle, queue repository and rig repository — one is not configured on this daemon.",
+      error: "The parked query needs the activity oracle, queue repository and SoftwareTeam repository — one is not configured on this daemon.",
     }, 503);
   }
 
-  const { diagnoseSeatParked, diagnoseRigParked, PARKED_OBLIGATION_LIMIT } = parkedQuery;
+  const { diagnoseSeatParked, diagnoseSoftwareTeamParked, PARKED_OBLIGATION_LIMIT } = parkedQuery;
   const deps = {
     getSeatState: (id: string) => oracle.getSeatState(id),
     listOpenObligations: (destination: string, limit: number) => ({
@@ -507,48 +507,48 @@ activityRoutes.get("/parked", (c) => {
     servedByOwnReminder: (qitemId: string) => queueRepo.parkWakeServedByOwnReminder?.(qitemId) === true,
   };
 
-  // WAVE-O B2 (R2 508e383d): the diagnosis is RIG-SCOPED, never fleet-wide. Resolve ONE
-  // declared scope — an explicit seat coordinate carrying its @rig, the explicit ?rig=
+  // WAVE-O B2 (R2 508e383d): the diagnosis is SOFTWARE_TEAM-SCOPED, never fleet-wide. Resolve ONE
+  // declared scope — an explicit seat coordinate carrying its @software-team, the explicit ?softwareTeam=
   // parameter, or the caller's own session identity — and NAME it in the response
   // (AM-3: the scope that ran is part of the answer). No resolvable scope is an honest
-  // refusal, never a silent fold of every rig on the daemon.
+  // refusal, never a silent fold of every softwareTeam on the daemon.
   const seatParam = c.req.query("seat") || undefined;
-  const rigParam = c.req.query("rig") || undefined;
+  const softwareTeamParam = c.req.query("softwareTeam") || undefined;
   const callerSession = transportSenderSession(c);
-  let scope: { rig: string; resolvedFrom: "seat-coordinate" | "query-param" | "caller-session" } | null = null;
+  let scope: { softwareTeam: string; resolvedFrom: "seat-coordinate" | "query-param" | "caller-session" } | null = null;
   if (seatParam?.includes("@")) {
-    scope = { rig: seatParam.split("@")[1]!, resolvedFrom: "seat-coordinate" };
-  } else if (rigParam) {
-    scope = { rig: rigParam, resolvedFrom: "query-param" };
+    scope = { softwareTeam: seatParam.split("@")[1]!, resolvedFrom: "seat-coordinate" };
+  } else if (softwareTeamParam) {
+    scope = { softwareTeam: softwareTeamParam, resolvedFrom: "query-param" };
   } else if (callerSession?.includes("@")) {
-    // Canonical local form name@rig; a cross-host stamp name@rig@host parses the same.
-    scope = { rig: callerSession.split("@")[1]!, resolvedFrom: "caller-session" };
+    // Canonical local form name@software-team; a cross-host stamp name@software-team@host parses the same.
+    scope = { softwareTeam: callerSession.split("@")[1]!, resolvedFrom: "caller-session" };
   }
   if (!scope) {
     return c.json({
       ok: false,
-      code: "rig_scope_unresolvable",
-      error: "The parked diagnosis is rig-scoped and no rig coordinate could be resolved — pass ?rig=<name> (CLI: --rig), target a seat by its canonical session name (?seat=name@rig), or call from a seat shell so the session identity carries the rig.",
+      code: "software_team_scope_unresolvable",
+      error: "The parked diagnosis is software-team-scoped and no SoftwareTeam coordinate could be resolved — pass ?softwareTeam=<name> (CLI: --software-team), target a seat by its canonical session name (?seat=name@software-team), or call from a seat shell so the session identity carries the softwareTeam.",
     }, 400);
   }
-  const rigRow = rigRepo.db.prepare("SELECT id, name FROM rigs WHERE name = ?").get(scope.rig) as { id: string; name: string } | undefined;
-  if (!rigRow) {
-    const known = (rigRepo.db.prepare("SELECT name FROM rigs ORDER BY name").all() as Array<{ name: string }>).map((r) => r.name);
+  const softwareTeamRow = softwareTeamRepo.db.prepare("SELECT id, name FROM software_teams WHERE name = ?").get(scope.softwareTeam) as { id: string; name: string } | undefined;
+  if (!softwareTeamRow) {
+    const known = (softwareTeamRepo.db.prepare("SELECT name FROM software_teams ORDER BY name").all() as Array<{ name: string }>).map((r) => r.name);
     return c.json({
       ok: false,
-      code: "rig_not_found",
-      error: `No rig named "${scope.rig}" on this daemon — known rigs: ${known.join(", ") || "(none)"}.`,
+      code: "software_team_not_found",
+      error: `No SoftwareTeam named "${scope.softwareTeam}" on this daemon — known softwareTeams: ${known.join(", ") || "(none)"}.`,
     }, 404);
   }
 
-  const seats = rigRepo.db.prepare(`
+  const seats = softwareTeamRepo.db.prepare(`
     SELECT n.id AS node_id, s.session_name AS session_name
     FROM nodes n
-    JOIN rigs r ON r.id = n.rig_id
+    JOIN software_teams r ON r.id = n.software_team_id
     JOIN sessions s ON s.node_id = n.id
       AND s.id = (SELECT s2.id FROM sessions s2 WHERE s2.node_id = n.id ORDER BY s2.id DESC LIMIT 1)
     WHERE s.status = 'running' AND s.session_name IS NOT NULL AND r.name = ?
-  `).all(scope.rig) as Array<{ node_id: string; session_name: string }>;
+  `).all(scope.softwareTeam) as Array<{ node_id: string; session_name: string }>;
 
   if (seatParam) {
     const match = seats.find((s) => s.node_id === seatParam || s.session_name === seatParam);
@@ -556,7 +556,7 @@ activityRoutes.get("/parked", (c) => {
       return c.json({
         ok: false,
         code: "seat_not_found",
-        error: `No running seat in rig "${scope.rig}" matches "${seatParam}" — pass a node id or canonical session name (known in scope: ${seats.map((s) => s.session_name).join(", ") || "(none running)"}).`,
+        error: `No running seat in softwareTeam "${scope.softwareTeam}" matches "${seatParam}" — pass a node id or canonical session name (known in scope: ${seats.map((s) => s.session_name).join(", ") || "(none running)"}).`,
       }, 404);
     }
     return c.json({
@@ -568,8 +568,8 @@ activityRoutes.get("/parked", (c) => {
   }
   return c.json({
     ok: true,
-    rig: {
-      ...diagnoseRigParked(deps, seats.map((s) => ({ seatNodeId: s.node_id, sessionName: s.session_name }))),
+    softwareTeam: {
+      ...diagnoseSoftwareTeamParked(deps, seats.map((s) => ({ seatNodeId: s.node_id, sessionName: s.session_name }))),
       scope,
     },
   });

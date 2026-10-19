@@ -56,13 +56,13 @@ test("authoring apply uses product policy and in-repo sources despite legacy YAM
     write(script, `import { spawnSync } from "node:child_process";\nconst r = spawnSync(process.execPath, [${JSON.stringify(GENERATOR)}, ...process.argv.slice(2)], { stdio: "inherit" });\nprocess.exitCode = r.status ?? 1;\n`);
     write(join(root, "canon/alpha/SKILL.md"), "# Alpha from an outside canon\n");
     const result = run(MIRROR, root, [], {
-      OPENRIG_SKILL_CANON_ROOT: join(root, "canon"),
-      OPENRIG_PRODUCT_PUBLIC_SKILLS_YAML: legacy.membership,
-      OPENRIG_INTERNAL_TOKENS_YAML: legacy.denylist,
-      OPENRIG_SKILL_EDGE_LAYOUT_YAML: legacy.layout,
+      SOFTWARETEAM_SKILL_CANON_ROOT: join(root, "canon"),
+      SOFTWARETEAM_PRODUCT_PUBLIC_SKILLS_YAML: legacy.membership,
+      SOFTWARETEAM_INTERNAL_TOKENS_YAML: legacy.denylist,
+      SOFTWARETEAM_SKILL_EDGE_LAYOUT_YAML: legacy.layout,
     });
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stderr, /OPENRIG_SKILL_CANON_ROOT is ignored/);
+    assert.match(result.stderr, /SOFTWARETEAM_SKILL_CANON_ROOT is ignored/);
     for (const name of NAMES) {
       assert.deepEqual(readFileSync(join(root, "scripts", `${name}.generated.json`)), policyBytes[name]);
     }
@@ -76,10 +76,10 @@ test("authoring apply regenerates from in-repo sources with no external authorin
     mkdirSync(dirname(script), { recursive: true });
     write(script, `import { spawnSync } from "node:child_process";\nconst r = spawnSync(process.execPath, [${JSON.stringify(GENERATOR)}, ...process.argv.slice(2)], { stdio: "inherit" });\nprocess.exitCode = r.status ?? 1;\n`);
     const env = { ...process.env };
-    delete env.OPENRIG_SKILL_CANON_ROOT;
+    delete env.SOFTWARETEAM_SKILL_CANON_ROOT;
     const result = spawnSync(process.execPath, [MIRROR], { cwd: root, encoding: "utf8", env });
     assert.equal(result.status, 0, result.stderr);
-    assert.doesNotMatch(result.stderr, /OPENRIG_SKILL_CANON_ROOT/);
+    assert.doesNotMatch(result.stderr, /SOFTWARETEAM_SKILL_CANON_ROOT/);
     assert.equal(readFileSync(join(root, "plugin/alpha/SKILL.md"), "utf8"), "# Original alpha\n");
     const check = spawnSync(process.execPath, [MIRROR, "--check"], { cwd: root, encoding: "utf8", env });
     assert.equal(check.status, 0, check.stderr);
@@ -87,13 +87,13 @@ test("authoring apply regenerates from in-repo sources with no external authorin
 });
 
 function withFixture(check) {
-  const root = mkdtempSync(join(tmpdir(), "openrig-product-control-"));
+  const root = mkdtempSync(join(tmpdir(), "softwareteam-product-control-"));
   const membership = {
     product_public: { clean: ["alpha"], ship_after_fix: [], ship_misses_add: [], sanitize_borderlines_ship: [] },
     vendored_ship_with_provenance: [], not_public: {}, pending_author_public: [],
   };
   const rules = {
-    path_prefixes: ["private/"], seat_and_rig_patterns: ["private-seat@"],
+    path_prefixes: ["private/"], seat_and_software_team_patterns: ["private-seat@"],
     host_patterns: ["private-host"], charged_terms: ["private-term"],
     frontmatter_drop_keys: [], internal_path_globs: ["**/internal/**"],
     section_fence: { begin: "<!-- internal:begin -->", end: "<!-- internal:end -->" },

@@ -37,7 +37,7 @@ describe("precheckSwitch — §1 switch-safety gate", () => {
     expect(r.safe).toBe(true);
   });
 
-  it("a claude target is rebind_unsupported_for_runtime (rig auth is codex-only)", () => {
+  it("a claude target is rebind_unsupported_for_runtime (SoftwareTeam auth is codex-only)", () => {
     const r = precheckSwitch({ targetProvider: "claude", targetAuthState: "active", seatHasLiveConversation: false });
     expect(r.safe).toBe(false);
     if (!r.safe) expect(r.reasons).toContain("rebind_unsupported_for_runtime");

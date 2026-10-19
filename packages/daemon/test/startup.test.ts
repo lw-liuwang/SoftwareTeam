@@ -13,13 +13,13 @@ import { eventsSchema } from "../src/db/migrations/003_events.js";
 import { nodeSpecFieldsSchema } from "../src/db/migrations/007_node_spec_fields.js";
 import { checkpointsSchema } from "../src/db/migrations/005_checkpoints.js";
 import { agentspecRebootSchema } from "../src/db/migrations/014_agentspec_reboot.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { StreamStore } from "../src/domain/stream-store.js";
 import type { CmuxTransportFactory } from "../src/adapters/cmux.js";
 import type { ExecFn } from "../src/adapters/tmux.js";
 import type { RuntimeAdapter } from "../src/domain/runtime-adapter.js";
-import { RigSpecCodec } from "../src/domain/rigspec-codec.js";
+import { SoftwareTeamSpecCodec } from "../src/domain/software-team-spec-codec.js";
 import { DEFAULT_SYSTEM_WORLD_MANIFEST } from "../src/domain/system-world.js";
 
 function saveEnv(...names: string[]): Record<string, string | undefined> {
@@ -33,15 +33,15 @@ function restoreEnv(saved: Record<string, string | undefined>): void {
   }
 }
 
-function seedDbWithStaleSessions(dbPath: string, rigs: { rigName: string; logicalId: string; sessionName: string }[]) {
+function seedDbWithStaleSessions(dbPath: string, softwareTeams: { softwareTeamName: string; logicalId: string; sessionName: string }[]) {
   const db = createDb(dbPath);
   migrate(db, [coreSchema, bindingsSessionsSchema, eventsSchema, nodeSpecFieldsSchema, checkpointsSchema, agentspecRebootSchema]);
-  const rigRepo = new RigRepository(db);
+  const softwareTeamRepo = new SoftwareTeamRepository(db);
   const sessionRegistry = new SessionRegistry(db);
 
-  for (const r of rigs) {
-    const rig = rigRepo.createRig(r.rigName);
-    const node = rigRepo.addNode(rig.id, r.logicalId);
+  for (const r of softwareTeams) {
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam(r.softwareTeamName);
+    const node = softwareTeamRepo.addNode(softwareTeam.id, r.logicalId);
     const session = sessionRegistry.registerSession(node.id, r.sessionName);
     // Seed the old schema directly; createDaemon must apply newer migrations.
     db.prepare("UPDATE sessions SET status = 'running', last_seen_at = datetime('now') WHERE id = ?").run(session.id);
@@ -51,18 +51,18 @@ function seedDbWithStaleSessions(dbPath: string, rigs: { rigName: string; logica
 }
 
 describe("createDaemon startup composition", () => {
-  // V0.3.1 slice 05 kernel-rig-as-default — startup tests construct
-  // the daemon without booting the kernel rig. The kernel-boot path
+  // V0.3.1 slice 05 kernel-software-team-as-default — startup tests construct
+  // the daemon without booting the kernel softwareTeam. The kernel-boot path
   // is exercised separately in kernel-boot.test.ts (unit) +
-  // kernel-rig-spec-validate.test.ts (variant gate); these tests
+  // kernel-software-team-spec-validate.test.ts (variant gate); these tests
   // assert the surrounding daemon-composition contract, so the
-  // OPENRIG_NO_KERNEL=1 escape hatch keeps them fast + deterministic
+  // SOFTWARETEAM_NO_KERNEL=1 escape hatch keeps them fast + deterministic
   // regardless of the host's runtime-auth state.
   beforeAll(() => {
-    process.env.OPENRIG_NO_KERNEL = "1";
+    process.env.SOFTWARETEAM_NO_KERNEL = "1";
   });
   afterAll(() => {
-    delete process.env.OPENRIG_NO_KERNEL;
+    delete process.env.SOFTWARETEAM_NO_KERNEL;
   });
 
   it("calls cmuxAdapter.connect() during startup", async () => {
@@ -114,7 +114,7 @@ describe("createDaemon startup composition", () => {
       const adapter = deps.runtimeAdapters!["claude-code"] as ClaudeCodeAdapter;
       adapter.ensureContextCollector({ cwd });
       adapter.ensureContextCollector({ cwd });
-      const dest = path.join(cwd, ".openrig/context-collector.cjs");
+      const dest = path.join(cwd, ".softwareteam/context-collector.cjs");
       expect(rename).toHaveBeenCalledTimes(2);
       expect(rename).toHaveBeenCalledWith(expect.any(String), dest);
       expect(copy).toHaveBeenCalledTimes(2);
@@ -145,12 +145,12 @@ describe("createDaemon startup composition", () => {
   }, 30000);
 
   // Slice 51-01 stub-runtime — STEP 3 (first PRODUCTION dispatch proof, RED-first): the assembled
-  // PodRigInstantiator's PRIVATE adapters map (startup.ts:710 — a SEPARATE literal from the :898
+  // PodSoftwareTeamInstantiator's PRIVATE adapters map (startup.ts:710 — a SEPARATE literal from the :898
   // runtimeAdapters map STEP2 checks) must DISPATCH a runtime:stub seat to the stub adapter so its
   // project() lifecycle method is REACHED. Drives the REAL createDaemon composition + the production
   // instantiate() entry (NOT a test-injected adapters map; NOT error-string absence). RED now:
   // adapters[:710] = {claude-code,codex,pi,terminal}, no stub → instantiate hits "No adapter for
-  // runtime stub" (rigspec-instantiator.ts:1669) and startNode/project (:130) are never reached.
+  // runtime stub" (software-team-spec-instantiator.ts:1669) and startNode/project (:130) are never reached.
   // GREEN when step 4 registers the stub adapter at :710. The 30s timeout is HARNESS BUDGET (cold
   // createDaemon compose), not product readiness.
   it("STEP3: the assembled instantiator dispatches runtime:stub → the stub adapter's project() is REACHED [RED until startup.ts:710 adds stub]", async () => {
@@ -160,20 +160,20 @@ describe("createDaemon startup composition", () => {
     const tmuxExec: ExecFn = async () => "";
 
     // REAL fs: the assembled instantiator uses fs.readFileSync (startup.ts:709), so agent_ref must
-    // resolve to a real file at <rigRoot>/agents/impl/agent.yaml.
-    const rigRoot = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-stub-dispatch-"));
-    fs.mkdirSync(path.join(rigRoot, "agents", "impl"), { recursive: true });
+    // resolve to a real file at <softwareTeamRoot>/agents/impl/agent.yaml.
+    const softwareTeamRoot = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-stub-dispatch-"));
+    fs.mkdirSync(path.join(softwareTeamRoot, "agents", "impl"), { recursive: true });
     fs.writeFileSync(
-      path.join(rigRoot, "agents", "impl", "agent.yaml"),
+      path.join(softwareTeamRoot, "agents", "impl", "agent.yaml"),
       `name: impl\nversion: "1.0.0"\nresources:\n  skills: []\nprofiles:\n  default:\n    uses:\n      skills: []`,
     );
 
     // A real selected World is required before dispatch. Supply the shipped
     // selector privately instead of relying on the operator's installation.
-    const worldPath = path.join(rigRoot, "world.yaml");
+    const worldPath = path.join(softwareTeamRoot, "world.yaml");
     fs.writeFileSync(worldPath, DEFAULT_SYSTEM_WORLD_MANIFEST);
-    const saved = saveEnv("OPENRIG_CONTEXT_SYSTEM_WORLD");
-    process.env.OPENRIG_CONTEXT_SYSTEM_WORLD = worldPath;
+    const saved = saveEnv("SOFTWARETEAM_CONTEXT_SYSTEM_WORLD");
+    process.env.SOFTWARETEAM_CONTEXT_SYSTEM_WORLD = worldPath;
     let db: ReturnType<typeof createDb> | undefined;
     try {
       const daemon = await createDaemon({ cmuxFactory, tmuxExec });
@@ -191,9 +191,9 @@ describe("createDaemon startup composition", () => {
       // Observe the NAMED lifecycle method on the REAL production adapter (spy calls through).
       const projectSpy = vi.spyOn(stub!, "project");
 
-      const specYaml = RigSpecCodec.serialize({
+      const specYaml = SoftwareTeamSpecCodec.serialize({
         version: "0.2",
-        name: "stub-dispatch-rig",
+        name: "stub-dispatch-software-team",
         pods: [{
           id: "dev",
           label: "Dev",
@@ -203,23 +203,23 @@ describe("createDaemon startup composition", () => {
         edges: [],
       });
 
-      const result = await deps.podInstantiator.instantiate(specYaml, rigRoot);
+      const result = await deps.podInstantiator.instantiate(specYaml, softwareTeamRoot);
 
       // Load-bearing assertion: dispatch reached the stub adapter's project() (startup-orchestrator.ts:130).
       expect(projectSpy, `instantiate must dispatch project() to the production stub adapter: ${JSON.stringify(result)}`).toHaveBeenCalled();
     } finally {
       restoreEnv(saved);
       db?.close();
-      fs.rmSync(rigRoot, { recursive: true, force: true });
+      fs.rmSync(softwareTeamRoot, { recursive: true, force: true });
     }
   }, 30000); // harness budget (cold createDaemon compose), not product readiness
 
   it("defaults terminal auth to local-trusted mode without minting a token file", async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-terminal-auth-"));
-    const priorHome = process.env.OPENRIG_HOME;
-    const priorToken = process.env.OPENRIG_TERMINAL_BEARER_TOKEN;
-    process.env.OPENRIG_HOME = tmpDir;
-    delete process.env.OPENRIG_TERMINAL_BEARER_TOKEN;
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-terminal-auth-"));
+    const priorHome = process.env.SOFTWARETEAM_HOME;
+    const priorToken = process.env.SOFTWARETEAM_TERMINAL_BEARER_TOKEN;
+    process.env.SOFTWARETEAM_HOME = tmpDir;
+    delete process.env.SOFTWARETEAM_TERMINAL_BEARER_TOKEN;
     const cmuxFactory: CmuxTransportFactory = async () => {
       throw Object.assign(new Error(""), { code: "ENOENT" });
     };
@@ -233,15 +233,15 @@ describe("createDaemon startup composition", () => {
 
       db.close();
     } finally {
-      if (priorHome === undefined) delete process.env.OPENRIG_HOME;
-      else process.env.OPENRIG_HOME = priorHome;
-      if (priorToken === undefined) delete process.env.OPENRIG_TERMINAL_BEARER_TOKEN;
-      else process.env.OPENRIG_TERMINAL_BEARER_TOKEN = priorToken;
+      if (priorHome === undefined) delete process.env.SOFTWARETEAM_HOME;
+      else process.env.SOFTWARETEAM_HOME = priorHome;
+      if (priorToken === undefined) delete process.env.SOFTWARETEAM_TERMINAL_BEARER_TOKEN;
+      else process.env.SOFTWARETEAM_TERMINAL_BEARER_TOKEN = priorToken;
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 
-  it("createDaemon app: GET /api/rigs/:rigId/sessions returns 200 (session routes mounted)", async () => {
+  it("createDaemon app: GET /api/software-teams/:softwareTeamId/sessions returns 200 (session routes mounted)", async () => {
     const cmuxFactory: CmuxTransportFactory = async () => {
       throw Object.assign(new Error(""), { code: "ENOENT" });
     };
@@ -249,10 +249,10 @@ describe("createDaemon startup composition", () => {
 
     const { app, db, deps } = await createDaemon({ cmuxFactory, tmuxExec });
 
-    // Seed a rig so the sessions endpoint has something to query
-    const rig = deps.rigRepo.createRig("r01");
+    // Seed a softwareTeam so the sessions endpoint has something to query
+    const softwareTeam = deps.softwareTeamRepo.createSoftwareTeam("r01");
 
-    const res = await app.request(`/api/rigs/${rig.id}/sessions`);
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/sessions`);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(Array.isArray(body)).toBe(true);
@@ -260,7 +260,7 @@ describe("createDaemon startup composition", () => {
     db.close();
   });
 
-  it("createDaemon queue validation accepts first-class human seats without a materialized kernel rig", async () => {
+  it("createDaemon queue validation accepts first-class human seats without a materialized kernel softwareTeam", async () => {
     const cmuxFactory: CmuxTransportFactory = async () => {
       throw Object.assign(new Error(""), { code: "ENOENT" });
     };
@@ -292,11 +292,11 @@ describe("createDaemon startup composition", () => {
     await expect(
       deps.queueRepo.create({
         sourceSession: "dev-qa@implementation-pair",
-        destinationSession: "driver@phantom-rig",
-        body: "must still reject phantom rigs",
+        destinationSession: "driver@phantom-software-team",
+        body: "must still reject phantom softwareTeams",
         nudge: false,
       }),
-    ).rejects.toThrow(/unknown rig/);
+    ).rejects.toThrow(/unknown softwareTeam/);
 
     db.close();
   });
@@ -308,21 +308,21 @@ describe("createDaemon startup composition", () => {
     const daemon = await createDaemon({ cmuxFactory, tmuxExec: async () => "" });
     const { app, db, deps } = daemon;
     try {
-      const source = deps.rigRepo.createRig("membership-source");
-      deps.rigRepo.addNode(source.id, "sender.ba", { runtime: null });
-      const target = deps.rigRepo.createRig("membership-target");
-      deps.rigRepo.addNode(target.id, "product.ba", { runtime: null });
-      const stopped = deps.rigRepo.addNode(target.id, "product.stopped", { runtime: null });
+      const source = deps.softwareTeamRepo.createSoftwareTeam("membership-source");
+      deps.softwareTeamRepo.addNode(source.id, "sender.ba", { runtime: null });
+      const target = deps.softwareTeamRepo.createSoftwareTeam("membership-target");
+      deps.softwareTeamRepo.addNode(target.id, "product.ba", { runtime: null });
+      const stopped = deps.softwareTeamRepo.addNode(target.id, "product.stopped", { runtime: null });
       const session = deps.sessionRegistry.registerSession(stopped.id, "product-stopped@membership-target");
       deps.sessionRegistry.updateStatus(session.id, "exited");
-      deps.rigRepo.addNode(target.id, "product.member.dot", { runtime: null });
-      deps.rigRepo.addNode(target.id, "flat", { runtime: null });
-      const adopted = deps.rigRepo.addNode(target.id, "product.adopted", { runtime: null });
+      deps.softwareTeamRepo.addNode(target.id, "product.member.dot", { runtime: null });
+      deps.softwareTeamRepo.addNode(target.id, "flat", { runtime: null });
+      const adopted = deps.softwareTeamRepo.addNode(target.id, "product.adopted", { runtime: null });
       deps.sessionRegistry.registerSession(adopted.id, "adopted-alias@membership-target");
       const sender = "sender-ba@membership-source";
       const post = (url: string, body: Record<string, unknown>) => app.request(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-OpenRig-Session": sender },
+        headers: { "Content-Type": "application/json", "X-SoftwareTeam-Session": sender },
         body: JSON.stringify({ nudge: false, ...body }),
       });
       const create = (destinationSession: string) => post("/api/queue/create", {
@@ -337,7 +337,7 @@ describe("createDaemon startup composition", () => {
         const before = counts();
         const response = await create(destination);
         expect(response.status).toBe(400);
-        expect((await response.json()).error).toBe("unknown_destination_rig");
+        expect((await response.json()).error).toBe("unknown_destination_software_team");
         expect(counts()).toEqual(before);
       }
       for (const destination of ["product-ba@membership-target", "product-stopped@membership-target",
@@ -355,7 +355,7 @@ describe("createDaemon startup composition", () => {
       membershipReads.mockRestore();
       expect(membershipSql).not.toMatch(/\b(?:snapshots|events|node_startup_context)\b/);
       expect(membershipSql).not.toContain("SELECT n.logical_id, s.session_name");
-      db.prepare("INSERT INTO snapshots (id, rig_id, kind, status, data) VALUES (?, ?, ?, ?, ?)")
+      db.prepare("INSERT INTO snapshots (id, software_team_id, kind, status, data) VALUES (?, ?, ?, ?, ?)")
         .run("advisory-unrelated-snapshot", target.id, "manual", "complete", JSON.stringify({ sessions: { unexpected: true } }));
       const withSnapshot = await create("product-ba@membership-target");
       expect(withSnapshot.status).toBe(201);
@@ -370,7 +370,7 @@ describe("createDaemon startup composition", () => {
       expect(dottedResult.advisories[0].availableDestinations).toContain("product-ba@membership-target");
       expect(dottedResult.advisories[0].message).toContain("matches no session address");
       expect(deps.queueRepo.getById(dottedResult.qitemId)?.destinationSession).toBe(dotted);
-      const dottedAlias = deps.rigRepo.addNode(target.id, "pod.adopted-dot", { runtime: null });
+      const dottedAlias = deps.softwareTeamRepo.addNode(target.id, "pod.adopted-dot", { runtime: null });
       deps.sessionRegistry.registerSession(dottedAlias.id, "adopted.dot@membership-target");
       const aliasResponse = await create("adopted.dot@membership-target");
       expect(aliasResponse.status).toBe(201);
@@ -428,9 +428,9 @@ describe("createDaemon startup composition", () => {
   });
 
   it("passes daemon CLI reachability env and PATH into launched tmux sessions", async () => {
-    vi.stubEnv("PATH", "/proof/openrig/bin:/usr/bin:/bin");
-    vi.stubEnv("OPENRIG_PORT", "17433");
-    vi.stubEnv("OPENRIG_HOST", "127.0.0.1");
+    vi.stubEnv("PATH", "/proof/softwareteam/bin:/usr/bin:/bin");
+    vi.stubEnv("SOFTWARETEAM_PORT", "17433");
+    vi.stubEnv("SOFTWARETEAM_HOST", "127.0.0.1");
     const cmuxFactory: CmuxTransportFactory = async () => {
       throw Object.assign(new Error(""), { code: "ENOENT" });
     };
@@ -438,19 +438,19 @@ describe("createDaemon startup composition", () => {
 
     try {
       const { db, deps } = await createDaemon({ cmuxFactory, tmuxExec });
-      const rig = deps.rigRepo.createRig("path-env-rig");
-      deps.rigRepo.addNode(rig.id, "worker", { runtime: "codex" });
+      const softwareTeam = deps.softwareTeamRepo.createSoftwareTeam("path-env-software-team");
+      deps.softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "codex" });
 
-      const result = await deps.nodeLauncher.launchNode(rig.id, "worker");
+      const result = await deps.nodeLauncher.launchNode(softwareTeam.id, "worker");
 
       expect(result.ok).toBe(true);
       const newSessionCmd = tmuxExec.mock.calls
         .map((call) => call[0])
         .find((cmd) => cmd.includes("tmux new-session"));
       expect(newSessionCmd).toBeDefined();
-      expect(newSessionCmd).toContain("-e 'PATH=/proof/openrig/bin:/usr/bin:/bin'");
-      expect(newSessionCmd).toContain("-e 'OPENRIG_PORT=17433'");
-      expect(newSessionCmd).toContain("-e 'OPENRIG_HOST=127.0.0.1'");
+      expect(newSessionCmd).toContain("-e 'PATH=/proof/softwareteam/bin:/usr/bin:/bin'");
+      expect(newSessionCmd).toContain("-e 'SOFTWARETEAM_PORT=17433'");
+      expect(newSessionCmd).toContain("-e 'SOFTWARETEAM_HOST=127.0.0.1'");
 
       db.close();
     } finally {
@@ -459,14 +459,14 @@ describe("createDaemon startup composition", () => {
   });
 
   it("GAP-7 projects the daemon HOME and default absolute CODEX_HOME into the production launch env", async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-gap7-default-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-gap7-default-"));
     const daemonHome = path.join(root, "daemon-home");
     fs.mkdirSync(daemonHome, { recursive: true });
-    const saved = saveEnv("HOME", "CODEX_HOME", "PATH", "OPENRIG_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST", "OPENAI_API_KEY");
+    const saved = saveEnv("HOME", "CODEX_HOME", "PATH", "SOFTWARETEAM_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST", "OPENAI_API_KEY");
     process.env.HOME = daemonHome;
     delete process.env.CODEX_HOME;
-    process.env.PATH = "/proof/openrig/bin:/usr/bin:/bin";
-    process.env.OPENRIG_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST = "OPENAI_API_KEY";
+    process.env.PATH = "/proof/softwareteam/bin:/usr/bin:/bin";
+    process.env.SOFTWARETEAM_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST = "OPENAI_API_KEY";
     process.env.OPENAI_API_KEY = "gap7-openai-key";
     const tmuxExec = vi.fn<ExecFn>(async () => "");
     let result: Awaited<ReturnType<typeof createDaemon>> | undefined;
@@ -479,17 +479,17 @@ describe("createDaemon startup composition", () => {
       expect(result.deps.sessionEnv).toMatchObject({
         HOME: daemonHome,
         CODEX_HOME: path.join(daemonHome, ".codex"),
-        PATH: "/proof/openrig/bin:/usr/bin:/bin",
+        PATH: "/proof/softwareteam/bin:/usr/bin:/bin",
         OPENAI_API_KEY: "gap7-openai-key",
       });
 
-      const rig = result.deps.rigRepo.createRig("gap7-default");
-      result.deps.rigRepo.addNode(rig.id, "worker", { runtime: "codex" });
-      expect((await result.deps.nodeLauncher.launchNode(rig.id, "worker")).ok).toBe(true);
+      const softwareTeam = result.deps.softwareTeamRepo.createSoftwareTeam("gap7-default");
+      result.deps.softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "codex" });
+      expect((await result.deps.nodeLauncher.launchNode(softwareTeam.id, "worker")).ok).toBe(true);
       const command = tmuxExec.mock.calls.map((call) => call[0]).find((line) => line.includes("tmux new-session"));
       expect(command).toContain(`-e 'HOME=${daemonHome}'`);
       expect(command).toContain(`-e 'CODEX_HOME=${path.join(daemonHome, ".codex")}'`);
-      expect(command).toContain("-e 'PATH=/proof/openrig/bin:/usr/bin:/bin'");
+      expect(command).toContain("-e 'PATH=/proof/softwareteam/bin:/usr/bin:/bin'");
       expect(command).toContain("-e 'OPENAI_API_KEY=gap7-openai-key'");
     } finally {
       result?.db.close();
@@ -499,7 +499,7 @@ describe("createDaemon startup composition", () => {
   });
 
   it("GAP-7 shares one custom absolute CODEX_HOME between production session env and adapter config writes", async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-gap7-custom-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-gap7-custom-"));
     const daemonHome = path.join(root, "daemon-home");
     const codexHome = path.join(root, "daemon-codex");
     const workspace = path.join(root, "workspace");
@@ -533,7 +533,7 @@ describe("createDaemon startup composition", () => {
   });
 
   it("GAP-7 rejects relative CODEX_HOME during composition before any tmux session launch", async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "openrig-gap7-relative-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-gap7-relative-"));
     const saved = saveEnv("HOME", "CODEX_HOME");
     process.env.HOME = path.join(root, "daemon-home");
     process.env.CODEX_HOME = "relative-codex-home";
@@ -560,29 +560,29 @@ describe("createDaemon startup composition", () => {
     }
   });
 
-  // OPR.0.4.3.28 Blocker 2 — the self-provisioned OPENRIG_URL must honor an
+  // OPR.0.4.3.28 Blocker 2 — the self-provisioned SOFTWARETEAM_URL must honor an
   // explicit daemon bind host (the daemon binds only that host), not a hardcoded
   // loopback that a tailnet/hostname-bound daemon is not listening on.
-  it("self-provisions OPENRIG_URL from an explicit bind host into launched tmux sessions", async () => {
-    vi.stubEnv("OPENRIG_PORT", "17433");
-    vi.stubEnv("OPENRIG_HOST", "100.64.0.5");
-    vi.stubEnv("OPENRIG_URL", ""); // NOT operator-supplied → daemon derives it
-    vi.stubEnv("OPENRIG_ACTIVITY_HOOK_TOKEN", "");
+  it("self-provisions SOFTWARETEAM_URL from an explicit bind host into launched tmux sessions", async () => {
+    vi.stubEnv("SOFTWARETEAM_PORT", "17433");
+    vi.stubEnv("SOFTWARETEAM_HOST", "100.64.0.5");
+    vi.stubEnv("SOFTWARETEAM_URL", ""); // NOT operator-supplied → daemon derives it
+    vi.stubEnv("SOFTWARETEAM_ACTIVITY_HOOK_TOKEN", "");
     const cmuxFactory: CmuxTransportFactory = async () => {
       throw Object.assign(new Error(""), { code: "ENOENT" });
     };
     const tmuxExec = vi.fn<ExecFn>(async () => "");
     try {
       const { db, deps } = await createDaemon({ cmuxFactory, tmuxExec });
-      const rig = deps.rigRepo.createRig("url-derive-rig");
-      deps.rigRepo.addNode(rig.id, "worker", { runtime: "codex" });
-      const result = await deps.nodeLauncher.launchNode(rig.id, "worker");
+      const softwareTeam = deps.softwareTeamRepo.createSoftwareTeam("url-derive-software-team");
+      deps.softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "codex" });
+      const result = await deps.nodeLauncher.launchNode(softwareTeam.id, "worker");
       expect(result.ok).toBe(true);
       const newSessionCmd = tmuxExec.mock.calls
         .map((call) => call[0])
         .find((cmd) => cmd.includes("tmux new-session"));
       expect(newSessionCmd).toBeDefined();
-      expect(newSessionCmd).toContain("-e 'OPENRIG_URL=http://100.64.0.5:17433'");
+      expect(newSessionCmd).toContain("-e 'SOFTWARETEAM_URL=http://100.64.0.5:17433'");
       db.close();
     } finally {
       vi.unstubAllEnvs();
@@ -590,7 +590,7 @@ describe("createDaemon startup composition", () => {
   });
 
   it("passes only explicitly allowlisted provider auth env into launched tmux sessions", async () => {
-    vi.stubEnv("OPENRIG_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST", "ANTHROPIC_API_KEY,CLAUDE_CODE_OAUTH_TOKEN,OPENAI_API_KEY,BOGUS_TOKEN");
+    vi.stubEnv("SOFTWARETEAM_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST", "ANTHROPIC_API_KEY,CLAUDE_CODE_OAUTH_TOKEN,OPENAI_API_KEY,BOGUS_TOKEN");
     vi.stubEnv("ANTHROPIC_API_KEY", "anthropic-test-key");
     vi.stubEnv("CLAUDE_CODE_OAUTH_TOKEN", "claude-oauth-test-token");
     vi.stubEnv("OPENAI_API_KEY", "openai-test-key");
@@ -602,10 +602,10 @@ describe("createDaemon startup composition", () => {
 
     try {
       const { db, deps } = await createDaemon({ cmuxFactory, tmuxExec });
-      const rig = deps.rigRepo.createRig("provider-auth-env-rig");
-      deps.rigRepo.addNode(rig.id, "worker", { runtime: "claude-code" });
+      const softwareTeam = deps.softwareTeamRepo.createSoftwareTeam("provider-auth-env-software-team");
+      deps.softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "claude-code" });
 
-      const result = await deps.nodeLauncher.launchNode(rig.id, "worker");
+      const result = await deps.nodeLauncher.launchNode(softwareTeam.id, "worker");
 
       expect(result.ok).toBe(true);
       const newSessionCmd = tmuxExec.mock.calls
@@ -625,7 +625,7 @@ describe("createDaemon startup composition", () => {
 
   it("forwards the Codex Bedrock bearer token into a launched session only when the operator names it (#194)", async () => {
     const launchCommand = async (allowlist: string) => {
-      vi.stubEnv("OPENRIG_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST", allowlist);
+      vi.stubEnv("SOFTWARETEAM_RECOVERY_PROVIDER_AUTH_ENV_ALLOWLIST", allowlist);
       vi.stubEnv("AWS_BEARER_TOKEN_BEDROCK", "synthetic-bedrock-token");
       vi.stubEnv("AWS_SECRET_ACCESS_KEY", "synthetic-unrelated-secret");
       const cmuxFactory: CmuxTransportFactory = async () => {
@@ -634,9 +634,9 @@ describe("createDaemon startup composition", () => {
       const tmuxExec = vi.fn<ExecFn>(async () => "");
       const { db, deps } = await createDaemon({ cmuxFactory, tmuxExec });
       try {
-        const rig = deps.rigRepo.createRig("bedrock-forwarding-rig");
-        deps.rigRepo.addNode(rig.id, "worker", { runtime: "codex" });
-        expect((await deps.nodeLauncher.launchNode(rig.id, "worker")).ok).toBe(true);
+        const softwareTeam = deps.softwareTeamRepo.createSoftwareTeam("bedrock-forwarding-software-team");
+        deps.softwareTeamRepo.addNode(softwareTeam.id, "worker", { runtime: "codex" });
+        expect((await deps.nodeLauncher.launchNode(softwareTeam.id, "worker")).ok).toBe(true);
         return tmuxExec.mock.calls.map((call) => call[0]).find((cmd) => cmd.includes("tmux new-session")) ?? "";
       } finally {
         db.close();
@@ -685,7 +685,7 @@ describe("createDaemon startup composition", () => {
     });
   });
 
-  it("createDaemon wires node cmux service for POST /api/rigs/:rigId/nodes/:logicalId/open-cmux", async () => {
+  it("createDaemon wires node cmux service for POST /api/software-teams/:softwareTeamId/nodes/:logicalId/open-cmux", async () => {
     const cmuxFactory: CmuxTransportFactory = async () => ({
       request: async (method: string) => {
         if (method === "capabilities") return { capabilities: ["workspace.current", "surface.create", "surface.focus"] };
@@ -698,15 +698,15 @@ describe("createDaemon startup composition", () => {
     const tmuxExec: ExecFn = async () => "";
 
     const { app, db, deps } = await createDaemon({ cmuxFactory, tmuxExec });
-    const rig = deps.rigRepo.createRig("r01");
-    const node = deps.rigRepo.addNode(rig.id, "dev1-impl");
+    const softwareTeam = deps.softwareTeamRepo.createSoftwareTeam("r01");
+    const node = deps.softwareTeamRepo.addNode(softwareTeam.id, "dev1-impl");
     deps.sessionRegistry.registerSession(node.id, "r01-dev1-impl");
     deps.sessionRegistry.updateBinding(node.id, {
       attachmentType: "tmux",
       tmuxSession: "r01-dev1-impl",
     });
 
-    const res = await app.request(`/api/rigs/${rig.id}/nodes/dev1-impl/open-cmux`, { method: "POST" });
+    const res = await app.request(`/api/software-teams/${softwareTeam.id}/nodes/dev1-impl/open-cmux`, { method: "POST" });
     expect(res.status).toBe(200);
     const body = await res.json() as Record<string, unknown>;
     expect(body["ok"]).toBe(true);
@@ -756,11 +756,11 @@ describe("createDaemon startup composition", () => {
   });
 
   it("startup reconciles stale session: status=detached + event row in DB", async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "rigged-test-"));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-test-"));
     const dbPath = path.join(tmpDir, "test.sqlite");
 
     seedDbWithStaleSessions(dbPath, [
-      { rigName: "r01", logicalId: "dev1-impl", sessionName: "r01-dev1-impl" },
+      { softwareTeamName: "r01", logicalId: "dev1-impl", sessionName: "r01-dev1-impl" },
     ]);
 
     // tmux reports no sessions (session is gone):
@@ -786,13 +786,13 @@ describe("createDaemon startup composition", () => {
     fs.rmSync(tmpDir, { recursive: true });
   });
 
-  it("startup reconciles multiple rigs: all stale sessions detached", async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "rigged-test-"));
+  it("startup reconciles multiple softwareTeams: all stale sessions detached", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-test-"));
     const dbPath = path.join(tmpDir, "test.sqlite");
 
     seedDbWithStaleSessions(dbPath, [
-      { rigName: "r01", logicalId: "dev1-impl", sessionName: "r01-dev1-impl" },
-      { rigName: "r02", logicalId: "dev2-impl", sessionName: "r02-dev2-impl" },
+      { softwareTeamName: "r01", logicalId: "dev1-impl", sessionName: "r01-dev1-impl" },
+      { softwareTeamName: "r02", logicalId: "dev2-impl", sessionName: "r02-dev2-impl" },
     ]);
 
     const tmuxExec: ExecFn = async (cmd: string) => {
@@ -833,11 +833,11 @@ describe("createDaemon startup composition", () => {
   // L1 cold-start tmux truth repair: startup must surface a compact reconcile
   // summary so silent reconciliation drift is visible in daemon output.
   it("startup logs compact reconcile summary line", async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "rigged-test-"));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "softwareteam-test-"));
     const dbPath = path.join(tmpDir, "test.sqlite");
 
     seedDbWithStaleSessions(dbPath, [
-      { rigName: "r01", logicalId: "dev1-impl", sessionName: "r01-dev1-impl" },
+      { softwareTeamName: "r01", logicalId: "dev1-impl", sessionName: "r01-dev1-impl" },
     ]);
 
     const tmuxExec: ExecFn = async (cmd: string) => {
@@ -853,7 +853,7 @@ describe("createDaemon startup composition", () => {
       const calls = logSpy.mock.calls.map((c: unknown[]) => String(c[0]));
       const summary = calls.find((line) => line.startsWith("startup reconcile:"));
       expect(summary).toBeDefined();
-      expect(summary).toMatch(/rigs=1\b/);
+      expect(summary).toMatch(/softwareTeams=1\b/);
       expect(summary).toMatch(/checked=1\b/);
       expect(summary).toMatch(/detached=1\b/);
       expect(summary).toMatch(/errors=0\b/);

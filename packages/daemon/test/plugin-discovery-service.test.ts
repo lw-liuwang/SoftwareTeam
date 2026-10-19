@@ -11,7 +11,7 @@
 // Discovery service contract:
 //   - listPlugins({ runtimeFilter?, sourceFilter?, agentRefFilter? })
 //     → PluginEntry[] union of:
-//       * ~/.openrig/plugins/* (vendored)
+//       * ~/.softwareteam/plugins/* (vendored)
 //       * ~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/ (claude-cache)
 //       * ~/.codex/plugins/cache/<marketplace>/<plugin>/<version>/ (codex-cache)
 //       * agent-ref discoveries (plugins referenced inline in agent.yaml resources.plugins[])
@@ -31,7 +31,7 @@ import { PluginDiscoveryService } from "../src/domain/plugin-discovery-service.j
 
 interface TempDirs {
   root: string;
-  openrigPluginsDir: string;
+  softwareteamPluginsDir: string;
   claudeCacheDir: string;
   codexCacheDir: string;
   specLibraryDir: string;
@@ -39,15 +39,15 @@ interface TempDirs {
 
 function setupTempDirs(): TempDirs {
   const root = mkdtempSync(join(tmpdir(), "plugin-discovery-test-"));
-  const openrigPluginsDir = join(root, "openrig-plugins");
+  const softwareteamPluginsDir = join(root, "softwareteam-plugins");
   const claudeCacheDir = join(root, "claude-cache");
   const codexCacheDir = join(root, "codex-cache");
   const specLibraryDir = join(root, "specs", "agents");
-  mkdirSync(openrigPluginsDir, { recursive: true });
+  mkdirSync(softwareteamPluginsDir, { recursive: true });
   mkdirSync(claudeCacheDir, { recursive: true });
   mkdirSync(codexCacheDir, { recursive: true });
   mkdirSync(specLibraryDir, { recursive: true });
-  return { root, openrigPluginsDir, claudeCacheDir, codexCacheDir, specLibraryDir };
+  return { root, softwareteamPluginsDir, claudeCacheDir, codexCacheDir, specLibraryDir };
 }
 
 function writeClaudePluginManifest(pluginDir: string, manifest: Record<string, unknown>): void {
@@ -98,7 +98,7 @@ describe("PluginDiscoveryService", () => {
   describe("listPlugins", () => {
     it("returns empty list when no plugin sources contain plugins", () => {
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
@@ -106,13 +106,13 @@ describe("PluginDiscoveryService", () => {
       expect(service.listPlugins()).toEqual([]);
     });
 
-    it("retires historical openrig-lab refocus registrations before duplicate validation", () => {
-      const core = join(dirs.openrigPluginsDir, "openrig-core");
-      const lab = join(dirs.openrigPluginsDir, "openrig-lab");
-      writeClaudePluginManifest(core, { name: "openrig-core", version: "0.1.0", hooks: "./hooks/claude.json" });
-      writeCodexPluginManifest(core, { name: "openrig-core", version: "0.1.0", hooks: "./hooks/codex.json" });
-      writeClaudePluginManifest(lab, { name: "openrig-lab", version: "0.1.0", hooks: "./hooks/claude.json" });
-      writeCodexPluginManifest(lab, { name: "openrig-lab", version: "0.1.0", hooks: "./hooks/codex.json" });
+    it("retires historical softwareteam-lab refocus registrations before duplicate validation", () => {
+      const core = join(dirs.softwareteamPluginsDir, "softwareteam-core");
+      const lab = join(dirs.softwareteamPluginsDir, "softwareteam-lab");
+      writeClaudePluginManifest(core, { name: "softwareteam-core", version: "0.1.0", hooks: "./hooks/claude.json" });
+      writeCodexPluginManifest(core, { name: "softwareteam-core", version: "0.1.0", hooks: "./hooks/codex.json" });
+      writeClaudePluginManifest(lab, { name: "softwareteam-lab", version: "0.1.0", hooks: "./hooks/claude.json" });
+      writeCodexPluginManifest(lab, { name: "softwareteam-lab", version: "0.1.0", hooks: "./hooks/codex.json" });
       writeHookRegistry(core, "claude", Object.fromEntries(
         ["SessionStart", "UserPromptSubmit", "PostCompact", "Stop"].map((event) => [
           event,
@@ -140,13 +140,13 @@ describe("PluginDiscoveryService", () => {
       ));
 
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
       });
 
-      expect(service.listPlugins().map((plugin) => plugin.id).sort()).toEqual(["openrig-core", "openrig-lab"]);
+      expect(service.listPlugins().map((plugin) => plugin.id).sort()).toEqual(["softwareteam-core", "softwareteam-lab"]);
       expect(readJson(join(lab, ".claude-plugin", "plugin.json"))).not.toHaveProperty("hooks");
       expect(readJson(join(lab, ".codex-plugin", "plugin.json"))).not.toHaveProperty("hooks");
       expect(readJson(join(lab, "hooks", "claude.json"))).toEqual({ hooks: {} });
@@ -155,11 +155,11 @@ describe("PluginDiscoveryService", () => {
       expect(readJson(join(core, ".codex-plugin", "plugin.json"))).toHaveProperty("hooks", "./hooks/codex.json");
     });
 
-    it("removes only obsolete refocus commands from openrig-lab", () => {
-      const core = join(dirs.openrigPluginsDir, "openrig-core");
-      const lab = join(dirs.openrigPluginsDir, "openrig-lab");
-      writeClaudePluginManifest(core, { name: "openrig-core", version: "0.1.0", hooks: "./hooks/claude.json" });
-      writeClaudePluginManifest(lab, { name: "openrig-lab", version: "0.1.0", hooks: "./hooks/claude.json" });
+    it("removes only obsolete refocus commands from softwareteam-lab", () => {
+      const core = join(dirs.softwareteamPluginsDir, "softwareteam-core");
+      const lab = join(dirs.softwareteamPluginsDir, "softwareteam-lab");
+      writeClaudePluginManifest(core, { name: "softwareteam-core", version: "0.1.0", hooks: "./hooks/claude.json" });
+      writeClaudePluginManifest(lab, { name: "softwareteam-lab", version: "0.1.0", hooks: "./hooks/claude.json" });
       writeHookManifest(core, "claude", "Stop", 'node "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/refocus.cjs"');
       writeHookRegistry(lab, "claude", {
         Stop: [{ hooks: [
@@ -169,7 +169,7 @@ describe("PluginDiscoveryService", () => {
       });
 
       expect(() => new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
@@ -186,15 +186,15 @@ describe("PluginDiscoveryService", () => {
     });
 
     it("fails loud with both Claude manifest paths when unknown vendored plugins duplicate a hook identity", () => {
-      const core = join(dirs.openrigPluginsDir, "openrig-core");
-      const rogue = join(dirs.openrigPluginsDir, "openrig-rogue");
-      writeClaudePluginManifest(core, { name: "openrig-core", version: "0.1.0", hooks: "./hooks/claude.json" });
-      writeClaudePluginManifest(rogue, { name: "openrig-rogue", version: "0.1.0", hooks: "./hooks/claude.json" });
+      const core = join(dirs.softwareteamPluginsDir, "softwareteam-core");
+      const rogue = join(dirs.softwareteamPluginsDir, "softwareteam-rogue");
+      writeClaudePluginManifest(core, { name: "softwareteam-core", version: "0.1.0", hooks: "./hooks/claude.json" });
+      writeClaudePluginManifest(rogue, { name: "softwareteam-rogue", version: "0.1.0", hooks: "./hooks/claude.json" });
       writeHookManifest(core, "claude", "Stop", 'node "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/refocus.cjs"');
       writeHookManifest(rogue, "claude", "Stop", 'node "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/refocus.cjs"');
 
       expect(() => new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
@@ -202,36 +202,36 @@ describe("PluginDiscoveryService", () => {
     });
 
     it("fails loud with both Codex manifest paths when unknown vendored plugins duplicate a hook identity", () => {
-      const core = join(dirs.openrigPluginsDir, "openrig-core");
-      const rogue = join(dirs.openrigPluginsDir, "openrig-rogue");
-      writeCodexPluginManifest(core, { name: "openrig-core", version: "0.1.0", hooks: "./hooks/codex.json" });
-      writeCodexPluginManifest(rogue, { name: "openrig-rogue", version: "0.1.0", hooks: "./hooks/codex.json" });
+      const core = join(dirs.softwareteamPluginsDir, "softwareteam-core");
+      const rogue = join(dirs.softwareteamPluginsDir, "softwareteam-rogue");
+      writeCodexPluginManifest(core, { name: "softwareteam-core", version: "0.1.0", hooks: "./hooks/codex.json" });
+      writeCodexPluginManifest(rogue, { name: "softwareteam-rogue", version: "0.1.0", hooks: "./hooks/codex.json" });
       writeHookManifest(core, "codex", "Stop", 'node "${PLUGIN_ROOT}/hooks/scripts/refocus.cjs"');
       writeHookManifest(rogue, "codex", "Stop", 'node "${PLUGIN_ROOT}/hooks/scripts/refocus.cjs"');
 
       expect(() => new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
       })).toThrow(new RegExp(`${core}/hooks/codex\\.json.*${rogue}/hooks/codex\\.json`));
     });
 
-    it("discovers a vendored OpenRig plugin (dual-manifest)", () => {
-      const corePluginDir = join(dirs.openrigPluginsDir, "openrig-core");
+    it("discovers a vendored SoftwareTeam plugin (dual-manifest)", () => {
+      const corePluginDir = join(dirs.softwareteamPluginsDir, "softwareteam-core");
       writeClaudePluginManifest(corePluginDir, {
-        name: "openrig-core",
+        name: "softwareteam-core",
         version: "0.1.0",
-        description: "OpenRig canonical skills and hooks",
+        description: "SoftwareTeam canonical skills and hooks",
       });
       writeCodexPluginManifest(corePluginDir, {
-        name: "openrig-core",
+        name: "softwareteam-core",
         version: "0.1.0",
-        description: "OpenRig canonical skills and hooks",
+        description: "SoftwareTeam canonical skills and hooks",
       });
 
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
@@ -239,11 +239,11 @@ describe("PluginDiscoveryService", () => {
       const plugins = service.listPlugins();
       expect(plugins).toHaveLength(1);
       expect(plugins[0]).toMatchObject({
-        id: "openrig-core",
-        name: "openrig-core",
+        id: "softwareteam-core",
+        name: "softwareteam-core",
         version: "0.1.0",
         source: "vendored",
-        sourceLabel: "vendored:openrig-core",
+        sourceLabel: "vendored:softwareteam-core",
         runtimes: ["claude", "codex"],
       });
     });
@@ -257,7 +257,7 @@ describe("PluginDiscoveryService", () => {
       });
 
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
@@ -282,7 +282,7 @@ describe("PluginDiscoveryService", () => {
       });
 
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
@@ -302,8 +302,8 @@ describe("PluginDiscoveryService", () => {
       // Drift-discriminator regression check per banked feedback_poc_regression_must_discriminate.
       // Three sources × distinct values per source so layer discrimination is
       // observable.
-      writeClaudePluginManifest(join(dirs.openrigPluginsDir, "openrig-core"), {
-        name: "openrig-core",
+      writeClaudePluginManifest(join(dirs.softwareteamPluginsDir, "softwareteam-core"), {
+        name: "softwareteam-core",
         version: "0.1.0",
         description: "vendored",
       });
@@ -319,7 +319,7 @@ describe("PluginDiscoveryService", () => {
       });
 
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
@@ -332,14 +332,14 @@ describe("PluginDiscoveryService", () => {
     });
 
     it("ignores directories without plugin manifests", () => {
-      mkdirSync(join(dirs.openrigPluginsDir, "not-a-plugin"), { recursive: true });
+      mkdirSync(join(dirs.softwareteamPluginsDir, "not-a-plugin"), { recursive: true });
       writeFileSync(
-        join(dirs.openrigPluginsDir, "not-a-plugin", "README.md"),
+        join(dirs.softwareteamPluginsDir, "not-a-plugin", "README.md"),
         "Not a plugin",
       );
 
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
@@ -347,54 +347,54 @@ describe("PluginDiscoveryService", () => {
       expect(service.listPlugins()).toEqual([]);
     });
 
-    it("slice 3.3 fix-C — scans rig-bundled cwd plugin roots when cwdScanRoots provided", () => {
+    it("slice 3.3 fix-C — scans software-team-bundled cwd plugin roots when cwdScanRoots provided", () => {
       // velocity-qa VM verify failure #3 — DESIGN §5.4 union-of-sources
-      // must include rig-bundled <cwd>/.claude/plugins/* and
+      // must include software-team-bundled <cwd>/.claude/plugins/* and
       // <cwd>/.codex/plugins/* (the projection target from IMPL-PRD §1.2).
       // Implementation: PluginDiscoveryService accepts optional
       // cwdScanRoots (constructor + per-call); each scanned cwd contributes
-      // discoveries with `rig-cwd:` source label.
-      const rigCwd = join(dirs.root, "rig-cwd-1");
-      const claudeBundleDir = join(rigCwd, ".claude", "plugins");
-      const codexBundleDir = join(rigCwd, ".codex", "plugins");
+      // discoveries with `software-team-cwd:` source label.
+      const softwareTeamCwd = join(dirs.root, "software-team-cwd-1");
+      const claudeBundleDir = join(softwareTeamCwd, ".claude", "plugins");
+      const codexBundleDir = join(softwareTeamCwd, ".codex", "plugins");
       mkdirSync(claudeBundleDir, { recursive: true });
       mkdirSync(codexBundleDir, { recursive: true });
-      writeClaudePluginManifest(join(claudeBundleDir, "rig-tool"), {
-        name: "rig-tool",
+      writeClaudePluginManifest(join(claudeBundleDir, "software-team-tool"), {
+        name: "software-team-tool",
         version: "1.0.0",
-        description: "Rig-bundled tool",
+        description: "SoftwareTeam-bundled tool",
       });
-      writeCodexPluginManifest(join(codexBundleDir, "rig-codex-tool"), {
-        name: "rig-codex-tool",
+      writeCodexPluginManifest(join(codexBundleDir, "software-team-codex-tool"), {
+        name: "software-team-codex-tool",
         version: "1.0.0",
-        description: "Rig-bundled codex tool",
+        description: "SoftwareTeam-bundled codex tool",
       });
 
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
-        cwdScanRoots: [rigCwd],
+        cwdScanRoots: [softwareTeamCwd],
       });
       const plugins = service.listPlugins();
-      // Two plugins: one claude-side, one codex-side; both labeled rig-cwd.
-      const cwdPlugins = plugins.filter((p) => p.source === "rig-cwd");
+      // Two plugins: one claude-side, one codex-side; both labeled software-team-cwd.
+      const cwdPlugins = plugins.filter((p) => p.source === "software-team-cwd");
       expect(cwdPlugins).toHaveLength(2);
       const names = cwdPlugins.map((p) => p.name).sort();
-      expect(names).toEqual(["rig-codex-tool", "rig-tool"]);
-      // Source labels embed the rig cwd tail for disambiguation;
+      expect(names).toEqual(["software-team-codex-tool", "software-team-tool"]);
+      // Source labels embed the softwareTeam cwd tail for disambiguation;
       // each plugin's label contains its name (order-independent).
       const labels = cwdPlugins.map((p) => p.sourceLabel);
-      expect(labels.some((l) => /^rig-cwd:.*rig-tool$/.test(l))).toBe(true);
-      expect(labels.some((l) => /^rig-cwd:.*rig-codex-tool$/.test(l))).toBe(true);
+      expect(labels.some((l) => /^software-team-cwd:.*software-team-tool$/.test(l))).toBe(true);
+      expect(labels.some((l) => /^software-team-cwd:.*software-team-codex-tool$/.test(l))).toBe(true);
     });
 
     it("slice 3.3 fix-C — per-call cwdScanRoots overrides constructor option", () => {
       // Allows the API layer to pass ?cwd=<path> dynamically without
       // mutating the service singleton.
-      const rigCwd = join(dirs.root, "rig-cwd-dyn");
-      const claudeBundleDir = join(rigCwd, ".claude", "plugins");
+      const softwareTeamCwd = join(dirs.root, "software-team-cwd-dyn");
+      const claudeBundleDir = join(softwareTeamCwd, ".claude", "plugins");
       mkdirSync(claudeBundleDir, { recursive: true });
       writeClaudePluginManifest(join(claudeBundleDir, "ephemeral-tool"), {
         name: "ephemeral-tool",
@@ -403,33 +403,33 @@ describe("PluginDiscoveryService", () => {
       });
 
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
       });
       // No cwds at construction.
-      expect(service.listPlugins().filter((p) => p.source === "rig-cwd")).toEqual([]);
+      expect(service.listPlugins().filter((p) => p.source === "software-team-cwd")).toEqual([]);
       // Per-call cwd surfaces the bundled plugin.
-      const withCwd = service.listPlugins({ cwdScanRoots: [rigCwd] });
-      expect(withCwd.filter((p) => p.source === "rig-cwd")).toHaveLength(1);
+      const withCwd = service.listPlugins({ cwdScanRoots: [softwareTeamCwd] });
+      expect(withCwd.filter((p) => p.source === "software-team-cwd")).toHaveLength(1);
       expect(withCwd.find((p) => p.name === "ephemeral-tool")).toBeDefined();
     });
 
     it("filters by runtime when requested", () => {
-      writeClaudePluginManifest(join(dirs.openrigPluginsDir, "claude-only"), {
+      writeClaudePluginManifest(join(dirs.softwareteamPluginsDir, "claude-only"), {
         name: "claude-only",
         version: "1.0.0",
         description: "x",
       });
-      writeCodexPluginManifest(join(dirs.openrigPluginsDir, "codex-only"), {
+      writeCodexPluginManifest(join(dirs.softwareteamPluginsDir, "codex-only"), {
         name: "codex-only",
         version: "1.0.0",
         description: "x",
       });
 
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
@@ -446,7 +446,7 @@ describe("PluginDiscoveryService", () => {
   describe("getPlugin", () => {
     it("returns null when plugin not found", () => {
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
@@ -460,9 +460,9 @@ describe("PluginDiscoveryService", () => {
       // an object keyed by server-name → server-config. Discovery returns
       // one PluginMcpServerSummary per key (best-effort; we surface name +
       // declared command/transport metadata if present).
-      const corePluginDir = join(dirs.openrigPluginsDir, "openrig-mcp");
+      const corePluginDir = join(dirs.softwareteamPluginsDir, "softwareteam-mcp");
       writeClaudePluginManifest(corePluginDir, {
-        name: "openrig-mcp",
+        name: "softwareteam-mcp",
         version: "0.1.0",
         description: "MCP-bearing plugin",
         mcpServers: {
@@ -471,12 +471,12 @@ describe("PluginDiscoveryService", () => {
         },
       });
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
       });
-      const result = service.getPlugin("openrig-mcp");
+      const result = service.getPlugin("softwareteam-mcp");
       expect(result).not.toBeNull();
       expect(result?.mcpServers).toHaveLength(2);
       const serverNames = result?.mcpServers.map((s) => s.name).sort();
@@ -485,70 +485,70 @@ describe("PluginDiscoveryService", () => {
     });
 
     it("returns empty mcpServers when manifest has no mcpServers field", () => {
-      const corePluginDir = join(dirs.openrigPluginsDir, "openrig-no-mcp");
+      const corePluginDir = join(dirs.softwareteamPluginsDir, "softwareteam-no-mcp");
       writeClaudePluginManifest(corePluginDir, {
-        name: "openrig-no-mcp",
+        name: "softwareteam-no-mcp",
         version: "0.1.0",
         description: "no mcp",
       });
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
       });
-      expect(service.getPlugin("openrig-no-mcp")?.mcpServers).toEqual([]);
+      expect(service.getPlugin("softwareteam-no-mcp")?.mcpServers).toEqual([]);
     });
 
-    it("slice 3.3 fix-iteration — getPlugin self-resolves rig-cwd: IDs (claude side) without external cwd state", () => {
-      // redo-guard-2 BLOCK item 1: /api/plugins?cwd=... lists rig-cwd
+    it("slice 3.3 fix-iteration — getPlugin self-resolves software-team-cwd: IDs (claude side) without external cwd state", () => {
+      // redo-guard-2 BLOCK item 1: /api/plugins?cwd=... lists software-team-cwd
       // plugins but /api/plugins/:id detail call 404s because listPlugins()
       // without cwdScanRoots doesn't re-scan the cwd, so getPlugin can't
-      // find the entry by id. Fix: parse the cwd out of the rig-cwd: id
+      // find the entry by id. Fix: parse the cwd out of the software-team-cwd: id
       // prefix, re-scan that cwd, resolve the entry. ID format:
-      //   rig-cwd:<cwd>/.claude/plugins/<plugin>
-      //   rig-cwd:<cwd>/.codex/plugins/<plugin>
-      const rigCwd = join(dirs.root, "rig-cwd-self-resolve");
-      const claudeBundleDir = join(rigCwd, ".claude", "plugins");
+      //   software-team-cwd:<cwd>/.claude/plugins/<plugin>
+      //   software-team-cwd:<cwd>/.codex/plugins/<plugin>
+      const softwareTeamCwd = join(dirs.root, "software-team-cwd-self-resolve");
+      const claudeBundleDir = join(softwareTeamCwd, ".claude", "plugins");
       mkdirSync(claudeBundleDir, { recursive: true });
-      writeClaudePluginManifest(join(claudeBundleDir, "rig-tool"), {
-        name: "rig-tool",
+      writeClaudePluginManifest(join(claudeBundleDir, "software-team-tool"), {
+        name: "software-team-tool",
         version: "1.0.0",
-        description: "rig-bundled tool",
+        description: "software-team-bundled tool",
       });
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
       });
-      const listed = service.listPlugins({ cwdScanRoots: [rigCwd] });
-      const rigToolEntry = listed.find((p) => p.source === "rig-cwd");
-      expect(rigToolEntry).toBeDefined();
-      const rigToolId = rigToolEntry!.id;
+      const listed = service.listPlugins({ cwdScanRoots: [softwareTeamCwd] });
+      const softwareTeamToolEntry = listed.find((p) => p.source === "software-team-cwd");
+      expect(softwareTeamToolEntry).toBeDefined();
+      const softwareTeamToolId = softwareTeamToolEntry!.id;
       // Call getPlugin with that id directly (no cwd opts) — must resolve.
-      const detail = service.getPlugin(rigToolId);
+      const detail = service.getPlugin(softwareTeamToolId);
       expect(detail).not.toBeNull();
-      expect(detail?.entry.name).toBe("rig-tool");
-      expect(detail?.entry.source).toBe("rig-cwd");
+      expect(detail?.entry.name).toBe("software-team-tool");
+      expect(detail?.entry.source).toBe("software-team-cwd");
     });
 
-    it("slice 3.3 fix-iteration — getPlugin self-resolves rig-cwd: codex IDs too", () => {
-      const rigCwd = join(dirs.root, "rig-cwd-self-resolve-codex");
-      const codexBundleDir = join(rigCwd, ".codex", "plugins");
+    it("slice 3.3 fix-iteration — getPlugin self-resolves software-team-cwd: codex IDs too", () => {
+      const softwareTeamCwd = join(dirs.root, "software-team-cwd-self-resolve-codex");
+      const codexBundleDir = join(softwareTeamCwd, ".codex", "plugins");
       mkdirSync(codexBundleDir, { recursive: true });
       writeCodexPluginManifest(join(codexBundleDir, "codex-tool"), {
         name: "codex-tool",
         version: "2.0.0",
-        description: "rig-bundled codex tool",
+        description: "software-team-bundled codex tool",
       });
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
       });
-      const listed = service.listPlugins({ cwdScanRoots: [rigCwd] });
+      const listed = service.listPlugins({ cwdScanRoots: [softwareTeamCwd] });
       const codexToolEntry = listed.find((p) => p.name === "codex-tool");
       expect(codexToolEntry).toBeDefined();
       const detail = service.getPlugin(codexToolEntry!.id);
@@ -556,33 +556,33 @@ describe("PluginDiscoveryService", () => {
       expect(detail?.entry.name).toBe("codex-tool");
     });
 
-    it("slice 3.3 fix-iteration — getPlugin returns null for malformed rig-cwd: ids", () => {
+    it("slice 3.3 fix-iteration — getPlugin returns null for malformed software-team-cwd: ids", () => {
       // Negative: garbled prefix or unresolvable cwd → null (not throw).
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
       });
-      expect(service.getPlugin("rig-cwd:notapath")).toBeNull();
-      expect(service.getPlugin("rig-cwd:/nonexistent/.claude/plugins/x")).toBeNull();
+      expect(service.getPlugin("software-team-cwd:notapath")).toBeNull();
+      expect(service.getPlugin("software-team-cwd:/nonexistent/.claude/plugins/x")).toBeNull();
     });
 
     it("returns full manifest + tree summary for a discovered plugin", () => {
-      const corePluginDir = join(dirs.openrigPluginsDir, "openrig-core");
+      const corePluginDir = join(dirs.softwareteamPluginsDir, "softwareteam-core");
       writeClaudePluginManifest(corePluginDir, {
-        name: "openrig-core",
+        name: "softwareteam-core",
         version: "0.1.0",
-        description: "Canonical OpenRig content",
-        author: { name: "OpenRig" },
+        description: "Canonical SoftwareTeam content",
+        author: { name: "SoftwareTeam" },
         skills: "./skills",
         hooks: "./hooks/claude.json",
       });
       // Add a skill folder + hook config so tree summary has content.
-      mkdirSync(join(corePluginDir, "skills", "openrig-user"), { recursive: true });
+      mkdirSync(join(corePluginDir, "skills", "softwareteam-user"), { recursive: true });
       writeFileSync(
-        join(corePluginDir, "skills", "openrig-user", "SKILL.md"),
-        "---\nname: openrig-user\ndescription: User skill\n---\n",
+        join(corePluginDir, "skills", "softwareteam-user", "SKILL.md"),
+        "---\nname: softwareteam-user\ndescription: User skill\n---\n",
       );
       mkdirSync(join(corePluginDir, "hooks"), { recursive: true });
       writeFileSync(join(corePluginDir, "hooks", "claude.json"), JSON.stringify({
@@ -590,21 +590,21 @@ describe("PluginDiscoveryService", () => {
       }));
 
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
       });
-      const result = service.getPlugin("openrig-core");
+      const result = service.getPlugin("softwareteam-core");
       expect(result).not.toBeNull();
-      expect(result?.entry.name).toBe("openrig-core");
+      expect(result?.entry.name).toBe("softwareteam-core");
       expect(result?.claudeManifest).toMatchObject({
-        name: "openrig-core",
+        name: "softwareteam-core",
         version: "0.1.0",
-        description: "Canonical OpenRig content",
+        description: "Canonical SoftwareTeam content",
       });
       expect(result?.skills).toContainEqual(
-        expect.objectContaining({ name: "openrig-user" }),
+        expect.objectContaining({ name: "softwareteam-user" }),
       );
       expect(result?.hooks).toContainEqual(
         expect.objectContaining({ runtime: "claude" }),
@@ -615,12 +615,12 @@ describe("PluginDiscoveryService", () => {
   describe("findUsedBy", () => {
     it("returns empty list when no agent specs reference the plugin", () => {
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
       });
-      expect(service.findUsedBy("openrig-core")).toEqual([]);
+      expect(service.findUsedBy("softwareteam-core")).toEqual([]);
     });
 
     it("finds agents whose resources.plugins[] references the plugin id", () => {
@@ -636,14 +636,14 @@ profiles:
   default:
     uses:
       plugins:
-        - openrig-core
+        - softwareteam-core
         - superpowers
 resources:
   plugins:
-    - id: openrig-core
+    - id: softwareteam-core
       source:
         kind: local
-        path: ~/.openrig/plugins/openrig-core
+        path: ~/.softwareteam/plugins/softwareteam-core
     - id: superpowers
       source:
         kind: local
@@ -666,13 +666,13 @@ profiles:
   default:
     uses:
       plugins:
-        - openrig-core
+        - softwareteam-core
 resources:
   plugins:
-    - id: openrig-core
+    - id: softwareteam-core
       source:
         kind: local
-        path: ~/.openrig/plugins/openrig-core
+        path: ~/.softwareteam/plugins/softwareteam-core
   skills: []
 startup:
   files: []
@@ -681,12 +681,12 @@ startup:
       );
 
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
       });
-      const usedBy = service.findUsedBy("openrig-core");
+      const usedBy = service.findUsedBy("softwareteam-core");
       expect(usedBy).toHaveLength(2);
       expect(usedBy.map((u) => u.agentName).sort()).toEqual(["advisor-lead", "velocity-driver"]);
       const superpowersUsedBy = service.findUsedBy("superpowers");
@@ -703,7 +703,7 @@ startup:
 version: "1.0"
 defaults:
   runtime: claude-code
-# Note: this agent does NOT use openrig-core (just a comment mention).
+# Note: this agent does NOT use softwareteam-core (just a comment mention).
 profiles:
   default:
     uses:
@@ -712,7 +712,7 @@ resources:
   plugins: []
   skills:
     - id: my-skill
-      # related to openrig-core skill set but not using the plugin
+      # related to softwareteam-core skill set but not using the plugin
       path: ./skills/my-skill.md
 startup:
   files: []
@@ -721,15 +721,15 @@ startup:
       );
 
       const service = new PluginDiscoveryService({
-        openrigPluginsDir: dirs.openrigPluginsDir,
+        softwareteamPluginsDir: dirs.softwareteamPluginsDir,
         claudeCacheDir: dirs.claudeCacheDir,
         codexCacheDir: dirs.codexCacheDir,
         specLibraryDir: dirs.specLibraryDir,
       });
-      // Comment + skill description mention openrig-core but resources.plugins is empty.
+      // Comment + skill description mention softwareteam-core but resources.plugins is empty.
       // The implementation parses YAML and walks resources.plugins[].id — comments
       // and unrelated string positions are ignored.
-      expect(service.findUsedBy("openrig-core")).toEqual([]);
+      expect(service.findUsedBy("softwareteam-core")).toEqual([]);
     });
   });
 });

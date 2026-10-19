@@ -1,6 +1,6 @@
-// release-0.3.2 slice 12 — `rig scope` CLI primitive.
+// release-0.3.2 slice 12 — `SoftwareTeam scope` CLI primitive.
 //
-// Command grammar: rig scope <tier> <verb>. v0 ships `mission` +
+// Command grammar: SoftwareTeam scope <tier> <verb>. v0 ships `mission` +
 // `slice` tiers; `project` and `sub-slice` are reserved per the
 // substrate convention `conventions/scope-and-versioning/README.md`
 // (stage: provisional). The CLI mints stable dot-IDs into created
@@ -99,7 +99,7 @@ function makeStdout(): Stdout {
   return { write: (text: string) => process.stdout.write(text) };
 }
 
-const MISSION_MANIFEST = `schema: openrig.mission/v0alpha1
+const MISSION_MANIFEST = `schema: softwareteam.mission/v0alpha1
 kind: mission
 # The project proof rollup counts only missions whose status is active or
 # release-candidate. A new mission is planned, so it stays outside the rollup
@@ -113,7 +113,7 @@ composition:
 # Optional team and SDLC sections are added here.
 `;
 
-const SLICE_MANIFEST = `schema: openrig.slice/v0alpha1
+const SLICE_MANIFEST = `schema: softwareteam.slice/v0alpha1
 kind: slice
 composition:
   mission: ../../mission.yaml
@@ -200,7 +200,7 @@ function formatTrustLine(trust: ReturnType<typeof deriveScopeTrust>): string {
 }
 
 // ---------------------------------------------------------------------
-// rig scope slice ls
+// SoftwareTeam scope slice ls
 // ---------------------------------------------------------------------
 
 function buildSliceLsCommand(): Command {
@@ -251,7 +251,7 @@ function buildSliceLsCommand(): Command {
 }
 
 // ---------------------------------------------------------------------
-// rig scope slice show
+// SoftwareTeam scope slice show
 // ---------------------------------------------------------------------
 
 function buildSliceShowCommand(): Command {
@@ -307,12 +307,12 @@ function buildSliceShowCommand(): Command {
 }
 
 // ---------------------------------------------------------------------
-// rig scope slice create
+// SoftwareTeam scope slice create
 // ---------------------------------------------------------------------
 
 function buildSliceCreateCommand(): Command {
   return new Command("create")
-    .description("Create a new slice with SPEC.md, slice.yaml, PROGRESS.md, PROOF.md, and proof/. Conventions SSOT: docs/reference/sdlc-conventions.md (installed: $OPENRIG_HOME/reference/sdlc-conventions.md).")
+    .description("Create a new slice with SPEC.md, slice.yaml, PROGRESS.md, PROOF.md, and proof/. Conventions SSOT: docs/reference/sdlc-conventions.md (installed: $SOFTWARETEAM_HOME/reference/sdlc-conventions.md).")
     .argument("<mission>", "Mission name")
     .argument("<slug>", "Short slug (becomes the folder name's suffix)")
     .option("--template <kind>", `Template: ${SLICE_TEMPLATE_KINDS.join(" | ")}`, "placeholder")
@@ -424,7 +424,7 @@ function buildSliceCreateCommand(): Command {
           }
           fs.writeFileSync(path.join(sliceAbs, "slice.yaml"), SLICE_MANIFEST, "utf8");
           // Publish the completion sentinel only after its entire contents exist.
-          const proofTemporary = `${proofPath}.openrig-${process.pid}.tmp`;
+          const proofTemporary = `${proofPath}.softwareteam-${process.pid}.tmp`;
           fs.writeFileSync(proofTemporary, proofBody, { encoding: "utf8", flag: "wx" });
           fs.renameSync(proofTemporary, proofPath);
           scaffoldCompleted = true;
@@ -463,7 +463,7 @@ function buildSliceCreateCommand(): Command {
 }
 
 // ---------------------------------------------------------------------
-// rig scope slice ship
+// SoftwareTeam scope slice ship
 // ---------------------------------------------------------------------
 
 function buildSliceShipCommand(): Command {
@@ -538,7 +538,7 @@ function buildSliceShipCommand(): Command {
 }
 
 // ---------------------------------------------------------------------
-// rig scope slice close
+// SoftwareTeam scope slice close
 // ---------------------------------------------------------------------
 
 function buildSliceCloseCommand(): Command {
@@ -621,7 +621,7 @@ function buildSliceCloseCommand(): Command {
 }
 
 // ---------------------------------------------------------------------
-// rig scope slice move
+// SoftwareTeam scope slice move
 // ---------------------------------------------------------------------
 
 function buildSliceMoveCommand(): Command {
@@ -703,7 +703,7 @@ function buildSliceMoveCommand(): Command {
 }
 
 // ---------------------------------------------------------------------
-// rig scope mission ls / show / create
+// SoftwareTeam scope mission ls / show / create
 // ---------------------------------------------------------------------
 
 function buildMissionLsCommand(): Command {
@@ -787,7 +787,7 @@ function buildMissionShowCommand(): Command {
 }
 
 function resolveMissionCreateRoot(override: string | null | undefined, advisories: string[]): string {
-  const selected = override ?? process.env.OPENRIG_WORK_ROOT;
+  const selected = override ?? process.env.SOFTWARETEAM_WORK_ROOT;
   if (!selected) return resolveMissionsRoot();
 
   const candidate = path.isAbsolute(selected) ? selected : path.resolve(process.cwd(), selected);
@@ -849,7 +849,7 @@ function buildMissionCreateCommand(): Command {
           throw new ScopeCliError({
             fact: `Mission folder ${absPath} already exists.`,
             consequence: "Refusing to overwrite.",
-            action: "Pick a different name, or use `rig scope mission show <name>` to inspect the existing mission.",
+            action: "Pick a different name, or use `SoftwareTeam scope mission show <name>` to inspect the existing mission.",
           });
         }
         // Resolve template kind: explicit > release-pattern auto > placeholder.
@@ -974,7 +974,7 @@ function buildMissionCreateCommand(): Command {
         const advisories = [
           ...rootAdvisories,
           ...(notesRendered?.resolvedFrom === "legacy-env"
-            ? ["OPENRIG_MISSION_NOTES_TEMPLATE_PATH is deprecated; use OPENRIG_NOTES_TEMPLATE_PATH"]
+            ? ["SOFTWARETEAM_MISSION_NOTES_TEMPLATE_PATH is deprecated; use SOFTWARETEAM_NOTES_TEMPLATE_PATH"]
             : []),
         ];
         for (const advisory of advisories) humanLines.push(`  advisory: ${advisory}`);
@@ -1345,7 +1345,7 @@ function hasProofPacketForSlice(dogfoodEvidenceRoot: string, sliceName: string):
 }
 
 // ---------------------------------------------------------------------
-// rig scope <tier> progress  (OPR.0.4.0.33 FR-3 — deterministic update)
+// SoftwareTeam scope <tier> progress  (OPR.0.4.0.33 FR-3 — deterministic update)
 // ---------------------------------------------------------------------
 
 /** Resolve which file a progress update edits for a scope dir: the
@@ -1368,7 +1368,7 @@ function resolveProgressTarget(scopeDir: string, level: "mission" | "slice"): {
   throw new ScopeCliError({
     fact: `${level} at ${scopeDir} has no progress surface (no PROGRESS.md and no readme-only rail).`,
     consequence: "The progress verb updates an existing surface; it does not scaffold.",
-    action: `Backfill it with: rig scope ${level} repair <target> (creates PROGRESS.md), or rig scope ${level} create.`,
+    action: `Backfill it with: SoftwareTeam scope ${level} repair <target> (creates PROGRESS.md), or SoftwareTeam scope ${level} create.`,
   });
 }
 
@@ -1478,7 +1478,7 @@ function buildMissionProgressCommand(): Command {
 }
 
 // ---------------------------------------------------------------------
-// rig scope <tier> repair  (OPR.0.4.0.33 FR-6 — idempotent backfill)
+// SoftwareTeam scope <tier> repair  (OPR.0.4.0.33 FR-6 — idempotent backfill)
 // ---------------------------------------------------------------------
 
 interface BackfillResult {
@@ -1598,7 +1598,7 @@ function buildSliceStageCommand(): Command {
           throw new ScopeCliError({
             fact: `Slice ${slice.name} has no SPEC.md or legacy README.md.`,
             consequence: "Stage is a work-node frontmatter field; nothing to write.",
-            action: "Create the slice with `rig scope slice create` before setting its stage.",
+            action: "Create the slice with `SoftwareTeam scope slice create` before setting its stage.",
           });
         }
         applyStage(slice.readmePath, stage, opts.successor);
@@ -1632,7 +1632,7 @@ function buildMissionStageCommand(): Command {
           throw new ScopeCliError({
             fact: `Mission ${mission.name} has no SPEC.md or legacy README.md.`,
             consequence: "Stage is a work-node frontmatter field; nothing to write.",
-            action: "Create the mission with `rig scope mission create` before setting its stage.",
+            action: "Create the mission with `SoftwareTeam scope mission create` before setting its stage.",
           });
         }
         applyStage(mission.readmePath, stage, opts.successor);
@@ -1666,7 +1666,7 @@ function buildSliceVerifiedCommand(): Command {
           throw new ScopeCliError({
             fact: `Slice ${slice.name} has no SPEC.md or legacy README.md.`,
             consequence: "verified is a work-node frontmatter field; nothing to write.",
-            action: "Create the slice with `rig scope slice create` before stamping verified.",
+            action: "Create the slice with `SoftwareTeam scope slice create` before stamping verified.",
           });
         }
         const verified = `${todayDateISO()} against ${source}`;
@@ -1697,7 +1697,7 @@ function buildMissionVerifiedCommand(): Command {
           throw new ScopeCliError({
             fact: `Mission ${mission.name} has no SPEC.md or legacy README.md.`,
             consequence: "verified is a work-node frontmatter field; nothing to write.",
-            action: "Create the mission with `rig scope mission create` before stamping verified.",
+            action: "Create the mission with `SoftwareTeam scope mission create` before stamping verified.",
           });
         }
         const verified = `${todayDateISO()} against ${source}`;
@@ -1788,7 +1788,7 @@ function conformReadmeFrontmatter(readmePath: string, mintId: () => string | nul
   const hasVerified = typeof fm.verified === "string" && fm.verified.trim().length > 0;
   if (!hasVerified) {
     preserveMalformedFrontmatterValue(fm, updates, "verified");
-    verifiedAdded = `${todayDateISO()} against backfill (rig scope repair)`;
+    verifiedAdded = `${todayDateISO()} against backfill (SoftwareTeam scope repair)`;
     updates.verified = verifiedAdded;
   }
 
@@ -1965,7 +1965,7 @@ function ensureSliceProofSurface(dir: string, rawId: unknown, fallbackName: stri
 // Approve (OPR.0.4.4.19 FR-9)
 // ---------------------------------------------------------------------
 
-// `rig scope slice|mission approve` — a THIN client of the daemon's ONE
+// `SoftwareTeam scope slice|mission approve` — a THIN client of the daemon's ONE
 // write path (POST /api/scope/approve): frontmatter stamp + append-only
 // audit row land together daemon-side (no half-stamp by construction).
 // STAGED: --scope spec ("the PRD matches my intent") | delivery (the
@@ -1977,13 +1977,13 @@ function buildApproveCommand(tier: "slice" | "mission"): Command {
   return new Command("approve")
     .description(
       tier === "slice"
-        ? "Approve a slice: writes the frontmatter stamp + an append-only audit row (daemon-side, one operation). --scope spec = the PLAN-LOCK (PRD-matches-intent; this artifact set gets built); delivery (default) = the PROOF-LOCK (terminal sign-off). Approval is freeze/sign-off, never proven-green. Conventions SSOT: docs/reference/sdlc-conventions.md (installed: $OPENRIG_HOME/reference/sdlc-conventions.md)."
+        ? "Approve a slice: writes the frontmatter stamp + an append-only audit row (daemon-side, one operation). --scope spec = the PLAN-LOCK (PRD-matches-intent; this artifact set gets built); delivery (default) = the PROOF-LOCK (terminal sign-off). Approval is freeze/sign-off, never proven-green. Conventions SSOT: docs/reference/sdlc-conventions.md (installed: $SOFTWARETEAM_HOME/reference/sdlc-conventions.md)."
         : "Approve a mission: same staged/delegated semantics as slice approve, at mission tier."
     )
     .argument(tier === "slice" ? "<slice-path>" : "<mission>", tier === "slice" ? "Slice path (absolute, relative, or NN-slug)" : "Mission name")
     .option("--mission <name>", tier === "slice" ? "Hint mission when slice-path is just NN-slug" : "(unused at mission tier)")
     .option("--scope <scope>", "Approval scope: spec | delivery (default delivery)")
-    .option("--actor <session>", "(deprecated, ignored) approver is derived from the seat env (X-OpenRig-Session)")
+    .option("--actor <session>", "(deprecated, ignored) approver is derived from the seat env (X-SoftwareTeam-Session)")
     .option("--on-behalf-of <human>", "Record the delegation: whose decision this stamp records (actor stays the real invoking session)")
     .option("--re-approve", "OPR.0.5.0.18 amend/re-stamp: supersede an existing stamp with a new reasoned attestation (prior preserved in the append-only audit log). Requires --reason.")
     .option("--reason <why>", "Why the stamp is being amended (required with --re-approve; recorded on the audit row)")
@@ -2037,15 +2037,15 @@ function buildApproveCommand(tier: "slice" | "mission"): Command {
             action: "Re-run with --scope spec, or drop the flag for a delivery/mission approval.",
           });
         }
-        // P21: the approver is DERIVED from the seat env (X-OpenRig-Session, stamped by DaemonClient
-        // from OPENRIG_SESSION_NAME) — never a flag/body claim. --actor is deprecated + ignored. Fail
+        // P21: the approver is DERIVED from the seat env (X-SoftwareTeam-Session, stamped by DaemonClient
+        // from SOFTWARETEAM_SESSION_NAME) — never a flag/body claim. --actor is deprecated + ignored. Fail
         // early with a friendly message if the env is unset (else the daemon returns 400 actor_required —
         // no seat identity to attribute the write to; P18 retired the 401 refusal).
-        if (!process.env.OPENRIG_SESSION_NAME) {
+        if (!process.env.SOFTWARETEAM_SESSION_NAME) {
           throw new ScopeCliError({
-            fact: "No seat identity: OPENRIG_SESSION_NAME is unset (the approver is derived from the seat env, not a flag).",
+            fact: "No seat identity: SOFTWARETEAM_SESSION_NAME is unset (the approver is derived from the seat env, not a flag).",
             consequence: "The daemon has no seat identity to attribute the approval write to (400 actor_required — a missing parameter, not a distrust refusal).",
-            action: "Run from a managed seat (OPENRIG_SESSION_NAME set).",
+            action: "Run from a managed seat (SOFTWARETEAM_SESSION_NAME set).",
           });
         }
         // Resolve the scope target LOCALLY (rich NN-slug resolution), then
@@ -2075,7 +2075,7 @@ function buildApproveCommand(tier: "slice" | "mission"): Command {
           throw new ScopeCliError({
             fact: statusGuardMessage(status).fact, // B8-1b: down ≠ busy
             consequence: "scope approve writes the stamp + audit row through the daemon (one operation).",
-            action: "Start it with: rig daemon start",
+            action: "Start it with: SoftwareTeam daemon start",
           });
         }
         const client = new DaemonClient(getDaemonUrl(status));
@@ -2141,7 +2141,7 @@ function shadowedNodeFileFinding(dir: string, level: "mission" | "slice"): {
 export function scopeCommand(): Command {
   const cmd = new Command("scope")
     .description("Scope tree primitive: missions, slices, sub-slices (per conventions/scope-and-versioning)")
-    .option("--workspace <path>", "Workspace root; its missions are in project.yaml's missions.root, else missions/ (otherwise $OPENRIG_WORK_ROOT, then workspace.slices_root)");
+    .option("--workspace <path>", "Workspace root; its missions are in project.yaml's missions.root, else missions/ (otherwise $SOFTWARETEAM_WORK_ROOT, then workspace.slices_root)");
 
   const slice = new Command("slice").description("Slice-tier commands");
   slice.addCommand(buildSliceLsCommand());

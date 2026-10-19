@@ -219,8 +219,8 @@ export interface QueueItem {
   lastHeartbeat: string | null;
   resolution: string | null;
   /** PL-007 Workspace Primitive — typed repo scope for the qitem. Validated
-   *  by the route layer against the source rig's RigSpec.workspace.repos[].
-   *  Null when the task is unambiguously the rig's default_repo or
+   *  by the route layer against the source softwareTeam's SoftwareTeamSpec.workspace.repos[].
+   *  Null when the task is unambiguously the softwareTeam's default_repo or
    *  ambiguity is absent. Stored as a dedicated TEXT column (migration 038). */
   targetRepo: string | null;
 }
@@ -297,7 +297,7 @@ export interface QueueCreateInput {
    *  now reachable from the raw create path so a supersession is not an unlinked orphan pair. */
   handedOffFrom?: string | null;
   /** PL-007 — typed repo scope for this qitem. Route validates against
-   *  source rig's workspace.repos[]; unknown names rejected upstream. */
+   *  source softwareTeam's workspace.repos[]; unknown names rejected upstream. */
   targetRepo?: string | null;
   /** Explicit human delivery intent; omission preserves legacy decisions. */
   humanIntent?: "decision" | "update" | null;
@@ -307,7 +307,7 @@ export interface QueueCreateInput {
    *  that thread can't be used (e.g. a live human gate, see hasLiveHumanGate), it posts
    *  top-level and the row records why. */
   replyTo?: string | null;
-  /** #822 — Slack inbound only: the item whose OpenRig thread a person's reply was typed in.
+  /** #822 — Slack inbound only: the item whose SoftwareTeam thread a person's reply was typed in.
    *  Stored as this row's replyTo, so an update that answers this row (--reply-to it) walks on
    *  to that thread. It never steers this row's own posts: delivery reads replyTo on updates
    *  only. An item that does not exist is dropped, never a reason to lose the message. */
@@ -377,7 +377,7 @@ export interface QueueUpdateInput {
   /**
    * OPR.0.4.4.19 FR-6 — park-time inputs. summary + evidence_ref are
    * updatable AT THE PARK MOMENT (state=blocked with a human-seat blocker),
-   * not create-only: `rig queue block --summary --evidence-ref` persists
+   * not create-only: `SoftwareTeam queue block --summary --evidence-ref` persists
    * them onto the EXISTING item so the attention query + Packet 2 read
    * them. OPR.0.5.1 slice-51-06 D2: supplying them on a NON-park transition
    * is REJECTED (QueueRepositoryError "summary_evidence_not_persistable")
@@ -447,7 +447,7 @@ export interface QueueListOptions {
   limit?: number;
   asSession?: string;
   compact?: boolean;
-  rig?: string;
+  softwareTeam?: string;
   activeOnly?: boolean;
 }
 
@@ -527,7 +527,7 @@ export function matchesRecordedHandoffTarget(
 ): boolean {
   if (!handedOffTo || !closureTarget) return false;
   if (closureTarget === handedOffTo) return true;
-  // Cross-host re-drives preserve the pre-convention member@rig@host target.
+  // Cross-host re-drives preserve the pre-convention member@software-team@host target.
   const legacy = /^(.+)@([A-Za-z0-9][A-Za-z0-9._-]*)$/.exec(closureTarget);
   if (legacy?.[1] === handedOffTo) return true;
   const foreign = /^(qitem-[^@]+)@([^@]+)$/.exec(closureTarget);
@@ -565,7 +565,7 @@ export function hasLinkedSuccessor(
 
 /** PL-007 — defensive column probe. Older test fixtures bypass the
  *  canonical migration list, so target_repo may be absent. Mirrors
- *  the `hasNodeColumn` pattern in rig-repository.ts. */
+ *  the `hasNodeColumn` pattern in software-team-repository.ts. */
 function detectQueueColumn(db: Database.Database, columnName: string): boolean {
   try {
     return db.prepare("PRAGMA table_info(queue_items)").all()
@@ -588,9 +588,9 @@ function detectTable(db: Database.Database, tableName: string): boolean {
  * append-only transition log and hot-potato strict-rejection contract.
  *
  * Pattern mirrors `chat-repository.ts` (single class, atomic transactions,
- * persist-event-then-notify). Cross-rig validation hook is `validateRig` —
- * Phase A wires no-op; Phase B can plug in the rig registry to reject
- * phantom-rig destinations. POC compatibility: `qitem_id` shape preserved.
+ * persist-event-then-notify). Cross-softwareTeam validation hook is `validateSoftwareTeam` —
+ * Phase A wires no-op; Phase B can plug in the softwareTeam registry to reject
+ * phantom-softwareTeam destinations. POC compatibility: `qitem_id` shape preserved.
  */
 // Reduced column set for compact rows. `list`, `findOverdue` and `findUndelivered` all select it
 // (plus summary, through QueueRepository.compactColumns) and pass each row through compactRow, so
@@ -605,8 +605,8 @@ export type CompactQueueItem = Omit<QueueItem, (typeof COMPACT_ELIDED_FIELDS)[nu
   fieldsElided: Array<(typeof COMPACT_ELIDED_FIELDS)[number]>;
 };
 
-type FindOverdueOptions = { now?: string; rig?: string; limit?: number; compact?: boolean };
-type FindUndeliveredOptions = { rig?: string; limit?: number; compact?: boolean };
+type FindOverdueOptions = { now?: string; softwareTeam?: string; limit?: number; compact?: boolean };
+type FindUndeliveredOptions = { softwareTeam?: string; limit?: number; compact?: boolean };
 
 function compactRow(item: QueueItem): CompactQueueItem {
   const row: Record<string, unknown> = { ...item, fieldsElided: [...COMPACT_ELIDED_FIELDS] };
@@ -629,11 +629,11 @@ type LedgerRow = Pick<QueueItemRow, Extract<(typeof COMPACT_QUEUE_COLUMN_NAMES)[
 /**
  * Stamp-at-FORWARD only (founder root invariant 2026-08-27, superseding 51-09 incr 4
  * stamp-at-write): a LOCAL write never calls this — local rows store the bare
- * member@rig. The cross-host forwarding routes (routes/queue.ts) call it so the
+ * member@software-team. The cross-host forwarding routes (routes/queue.ts) call it so the
  * forwarding daemon stamps ITS OWN id as the origin before the remote create; the
  * remote's not-bare guard then stores the received triple verbatim (origin never
  * forged). FAIL-OPEN: no reconciled self-id, or a value that is not a bare
- * member@rig (already a triple / malformed), passes through unchanged.
+ * member@software-team (already a triple / malformed), passes through unchanged.
  */
 export function stampSelfHostSuffix(session: string): string;
 export function stampSelfHostSuffix(session: undefined): undefined;
@@ -642,15 +642,15 @@ export function stampSelfHostSuffix(session: string | undefined): string | undef
   if (session === undefined) return undefined;
   const selfId = getSelfHostId();
   if (!selfId) return session;
-  if (session.split("@").length !== 2) return session; // not a bare member@rig — untouched
+  if (session.split("@").length !== 2) return session; // not a bare member@software-team — untouched
   return `${session}@${selfId}`;
 }
 
 /**
- * 51-09 increment 4b — additive TEACHING for the unknown_destination_rig refusal
+ * 51-09 increment 4b — additive TEACHING for the unknown_destination_software_team refusal
  * (arch ruling c9964404, mechanism ii). 3-part destinations ALREADY refuse (BR-1:
- * member@rig@host greedy-folds to rig "rig@host", misses, rejects) — the code is
- * UNCHANGED (C1). When the rejected destination's greedy-parsed rig token CONTAINS
+ * member@software-team@host greedy-folds to softwareTeam "softwareTeam@host", misses, rejects) — the code is
+ * UNCHANGED (C1). When the rejected destination's greedy-parsed softwareTeam token CONTAINS
  * '@', return ADDITIVE structured fields (FR-7 precedent) teaching the out-of-band
  * path: the split echo + a hint naming `--host`. C4: a SELF-suffixed destination
  * names the self case and is NEVER auto-stripped/routed home (self-strip is option
@@ -658,17 +658,17 @@ export function stampSelfHostSuffix(session: string | undefined): string | undef
  * refusal is byte-unchanged there). One helper, all four refusal sites (C2). Reads
  * the FR-8 parse contract; the parse family stays byte-identical (C3).
  */
-export function destinationRigTeaching(session: string): Record<string, unknown> | undefined {
+export function destinationSoftwareTeamTeaching(session: string): Record<string, unknown> | undefined {
   const parsed = parseSessionName(session);
-  if (parsed.kind !== "canonical" || !parsed.rig.includes("@")) return undefined;
-  const at = parsed.rig.lastIndexOf("@");
-  const rig = parsed.rig.slice(0, at);
-  const host = parsed.rig.slice(at + 1);
-  const bare = `${parsed.member}@${rig}`;
+  if (parsed.kind !== "canonical" || !parsed.softwareTeam.includes("@")) return undefined;
+  const at = parsed.softwareTeam.lastIndexOf("@");
+  const softwareTeam = parsed.softwareTeam.slice(0, at);
+  const host = parsed.softwareTeam.slice(at + 1);
+  const bare = `${parsed.member}@${softwareTeam}`;
   const selfId = getSelfHostId();
   const selfHost = !!selfId && host === selfId;
   return {
-    destinationSplit: { member: parsed.member, rig, host },
+    destinationSplit: { member: parsed.member, softwareTeam, host },
     selfHost,
     hint: selfHost
       ? `the host suffix '@${host}' is THIS host — the host never rides in the session string; resend the destination as ${bare}`
@@ -679,7 +679,7 @@ export function destinationRigTeaching(session: string): Record<string, unknown>
 /**
  * M1 A4b — entity-level teaching for an UNREGISTERED <local>@external destination (the
  * ENTITY half of proof-2; the DOMAIN half is the closed-set fall-through to
- * unknown_destination_rig, A1/A2). A row addressed to a valid @external domain whose
+ * unknown_destination_software_team, A1/A2). A row addressed to a valid @external domain whose
  * entity is not in the registry refuses LOUDLY with the structured teaching from the
  * gateway resolver (how to register + "not an agent seat"). Loads the registry only for
  * the (rare) @external refusal path. Undefined for non-@external / registered / scheme.
@@ -704,7 +704,7 @@ export function externalAdmissionTeaching(
       registryError: reg.error,
       hint:
         `human registry admission is unavailable because no human is registered yet: ${reg.error}. ` +
-        "Register the person with rig gateway human add; do not downgrade the destination to an agent seat.",
+        "Register the person with SoftwareTeam gateway human add; do not downgrade the destination to an agent seat.",
     };
     NOBODY_REGISTERED_TEACHINGS.add(teaching);
     return teaching;
@@ -732,7 +732,7 @@ export function destinationRefusalTeaching(
   session: string,
   loadRegistry: () => LoadResult = loadHumanRegistry,
 ): Record<string, unknown> | undefined {
-  return externalAdmissionTeaching(session, loadRegistry) ?? destinationRigTeaching(session);
+  return externalAdmissionTeaching(session, loadRegistry) ?? destinationSoftwareTeamTeaching(session);
 }
 
 function destinationValidationError(
@@ -751,8 +751,8 @@ function destinationValidationError(
     );
   }
   return new QueueRepositoryError(
-    "unknown_destination_rig",
-    `${field} ${session} references an unknown rig`,
+    "unknown_destination_software_team",
+    `${field} ${session} references an unknown softwareTeam`,
     teaching,
   );
 }
@@ -778,7 +778,7 @@ export class QueueRepository {
   readonly transitionLog: QueueTransitionLog;
   private readonly eventBus: EventBus;
   readonly destinationAdvisory: (sessionRef: string) => QueueDestinationAdvisory | null;
-  private readonly validateRig: (sessionRef: string) => boolean;
+  private readonly validateSoftwareTeam: (sessionRef: string) => boolean;
   private transport: QueueNudgeTransport | undefined;
   /** W1 (transactional closure): the durable wake-intent store. A terminal act
    *  (handoff / handoff-and-complete) stages an outbox intent row INSIDE its
@@ -826,7 +826,7 @@ export class QueueRepository {
     db: Database.Database,
     eventBus: EventBus,
     opts?: {
-      validateRig?: (sessionRef: string) => boolean;
+      validateSoftwareTeam?: (sessionRef: string) => boolean;
       destinationAdvisory?: (sessionRef: string) => QueueDestinationAdvisory | null;
       /**
        * R1 fix (PL-004 Phase A revision): durable+waking-by-default transport
@@ -839,7 +839,7 @@ export class QueueRepository {
       transport?: QueueNudgeTransport;
       /**
        * OPR.0.4.6.WF3 FR-6 — the frontier close-path guard's INJECTED
-       * predicate (the validateRig injection precedent: the queue is
+       * predicate (the validateSoftwareTeam injection precedent: the queue is
        * the lower primitive and NEVER imports the workflow domain;
        * startup wires the workflow domain's exported predicate in).
        * Absent (tests, bootstrap, pre-workflow schemas) = zero new
@@ -861,7 +861,7 @@ export class QueueRepository {
     this.eventBus = eventBus;
     this.transitionLog = new QueueTransitionLog(db);
     this.wakeRepo = new QueueWakeRepository(db);
-    this.validateRig = opts?.validateRig ?? (() => true);
+    this.validateSoftwareTeam = opts?.validateSoftwareTeam ?? (() => true);
     this.destinationAdvisory = opts?.destinationAdvisory ?? (() => null);
     this.transport = opts?.transport;
     this.workflowFrontierPredicate = opts?.workflowFrontierPredicate;
@@ -1367,7 +1367,7 @@ export class QueueRepository {
    *
    * V0.3.1 slice 23 queue-handoff-envelope: the nudge body
    * is now wrapped with the same From/To/---/body/---/↩ Reply envelope
-   * that `rig send` uses. `sourceSession` is the seat that triggered
+   * that `SoftwareTeam send` uses. `sourceSession` is the seat that triggered
    * the create/handoff so the recipient pane shows where the nudge
    * came from + a reply hint. A queue nudge is the ONE non-refusable
    * sender — it has no seat to send an error back to — so when
@@ -1453,7 +1453,7 @@ export class QueueRepository {
       // decision text to the parked owner; default stays the handoff nudge.
       const bareBody = bodyOverride ?? renderQueueHandoffNudge(qitemId, null);
       // GHOST-STAGE (h): the single HG-5 baseline change deferred from g — the handoff nudge now carries
-      // a Sent: stamp (so it renders byte-parically with a rig send) plus the SOURCE seat's occupant
+      // a Sent: stamp (so it renders byte-parically with a SoftwareTeam send) plus the SOURCE seat's occupant
       // generation (g's already-wired render, resolved here; absent=UNKNOWN=omit, never forged). The
       // stampISO also feeds the transport's delivered-latency flag so a nudge that waited on a busy /
       // mid-handover successor shows ' · delivered +Ns' for free.
@@ -1511,7 +1511,7 @@ export class QueueRepository {
     // instance. Host identity is added only at the cross-host forwarding boundary
     // (routes/queue.ts stamp-at-FORWARD), and a genuine origin triple arriving from a
     // forward is stored verbatim (never re-stamped, never stripped).
-    if (!this.validateRig(input.destinationSession)) {
+    if (!this.validateSoftwareTeam(input.destinationSession)) {
       throw destinationValidationError("destination_session", input.destinationSession, this.loadHumanRegistryFn);
     }
 
@@ -1619,7 +1619,7 @@ export class QueueRepository {
     destinationSession: string;
     nudge: boolean | undefined;
   } {
-    if (!this.validateRig(input.destinationSession)) {
+    if (!this.validateSoftwareTeam(input.destinationSession)) {
       throw destinationValidationError("destination_session", input.destinationSession, this.loadHumanRegistryFn);
     }
     const result = this.createInTransactionalContext(input);
@@ -1783,7 +1783,7 @@ export class QueueRepository {
         `qitem ${input.qitemId} is already in terminal state ${source.state}`
       );
     }
-    if (!this.validateRig(input.toSession)) {
+    if (!this.validateSoftwareTeam(input.toSession)) {
       throw destinationValidationError("to_session", input.toSession, this.loadHumanRegistryFn);
     }
 
@@ -1811,7 +1811,7 @@ export class QueueRepository {
       });
     }
 
-    const events: Array<{ name: string; payload: import("./types.js").RigEvent }> = [];
+    const events: Array<{ name: string; payload: import("./types.js").SoftwareTeamEvent }> = [];
 
     const txn = this.db.transaction(() => {
       this.db
@@ -1960,7 +1960,7 @@ export class QueueRepository {
         `qitem ${input.qitemId} is already in terminal state ${source.state}`
       );
     }
-    if (!this.validateRig(input.toSession)) {
+    if (!this.validateSoftwareTeam(input.toSession)) {
       throw destinationValidationError("to_session", input.toSession, this.loadHumanRegistryFn);
     }
 
@@ -1986,7 +1986,7 @@ export class QueueRepository {
       });
     }
 
-    const events: Array<{ name: string; payload: import("./types.js").RigEvent }> = [];
+    const events: Array<{ name: string; payload: import("./types.js").SoftwareTeamEvent }> = [];
 
     const txn = this.db.transaction(() => {
       this.db
@@ -2131,13 +2131,13 @@ export class QueueRepository {
    *     `closure_reason=handed_off_to`; `closure_target` carries the
    *     host-qualified successor key `<qitem-id>@<host>` (custody metadata,
    *     never a local lookup key); `handed_off_to`
-   *     stays the two-part `member@rig` (BR-1 — session-string carriers
+   *     stays the two-part `member@software-team` (BR-1 — session-string carriers
    *     never gain `@host`).
    */
   closeCrossHostHandoffSource(input: {
     qitemId: string;
     fromSession: string;
-    /** Two-part `member@rig` destination — the session-string carrier (BR-1). */
+    /** Two-part `member@software-team` destination — the session-string carrier (BR-1). */
     toSession: string;
     /** Host-qualified successor `<qitem-id>@<host>` closure target. */
     closureTarget: string;
@@ -2170,7 +2170,7 @@ export class QueueRepository {
     }
 
     const ts = new Date().toISOString();
-    const events: Array<import("./types.js").RigEvent> = [];
+    const events: Array<import("./types.js").SoftwareTeamEvent> = [];
 
     const txn = this.db.transaction(() => {
       this.db
@@ -2676,7 +2676,7 @@ export class QueueRepository {
       if (binding) {
         throw new QueueRepositoryError(
           "workflow_frontier_packet",
-          `qitem ${input.qitemId} is the LIVE frontier packet of workflow instance ${binding.instanceId} (${binding.workflowName}). Closing it out-of-band would strand the workflow. Use the workflow verbs instead: rig workflow project (advance) | rig workflow route (re-target the owner).`,
+          `qitem ${input.qitemId} is the LIVE frontier packet of workflow instance ${binding.instanceId} (${binding.workflowName}). Closing it out-of-band would strand the workflow. Use the workflow verbs instead: SoftwareTeam workflow project (advance) | SoftwareTeam workflow route (re-target the owner).`,
           { instanceId: binding.instanceId, workflowName: binding.workflowName, qitemId: input.qitemId },
         );
       }
@@ -2686,7 +2686,7 @@ export class QueueRepository {
     // enforce summary + evidence_ref at the park moment, evaluated on the
     // EFFECTIVE values (provided on this call, else already on the item) so
     // an item that carried them from create parks without re-entry. The
-    // enforcement is here at the write path — the `rig queue block` verb and
+    // enforcement is here at the write path — the `SoftwareTeam queue block` verb and
     // raw `update --state blocked` hit the same validator (no verb-only
     // enforcement). Blocking on another qitem requires nothing new (BR-1).
     // A claimed item has no current gate, but re-parking without --blocked-on
@@ -2717,7 +2717,7 @@ export class QueueRepository {
         const flags = invalidFields.map((f) => (f === "summary" ? "--summary" : "--evidence-ref")).join(" / ");
         throw new QueueRepositoryError(
           "summary_evidence_not_persistable",
-          `${invalidFields.join(" + ")} persist only on a human-seat park (state=blocked on a human seat); the '${input.state}' transition cannot store them. Remove ${flags}, or park the item (rig queue block --on <human-seat> --summary … --evidence-ref …).`,
+          `${invalidFields.join(" + ")} persist only on a human-seat park (state=blocked on a human seat); the '${input.state}' transition cannot store them. Remove ${flags}, or park the item (SoftwareTeam queue block --on <human-seat> --summary … --evidence-ref …).`,
           { invalidFields },
         );
       }
@@ -2757,7 +2757,7 @@ export class QueueRepository {
     if (input.blockedOn != null && input.state !== "blocked") {
       throw new QueueRepositoryError(
         "blocked_on_not_admitted",
-        `blocked_on persists only on state=blocked; the '${input.state}' transition cannot store it. Park the item (rig queue block --on …) or drop --blocked-on.`,
+        `blocked_on persists only on state=blocked; the '${input.state}' transition cannot store it. Park the item (SoftwareTeam queue block --on …) or drop --blocked-on.`,
         {},
       );
     }
@@ -3189,7 +3189,7 @@ export class QueueRepository {
    * live with the append-only transition log; the repository owns the public
    * queue-domain door. */
   listRecentTransitions(scope: RecentQueueTransitionScope | string, limit = 20): ReturnType<QueueTransitionLog["listRecent"]> {
-    return this.transitionLog.listRecent(typeof scope === "string" ? { kind: "rig", rig: scope } : scope, limit);
+    return this.transitionLog.listRecent(typeof scope === "string" ? { kind: "softwareTeam", softwareTeam: scope } : scope, limit);
   }
 
   /** Called by the watchdog engine after the delivery attempt is durably
@@ -3429,8 +3429,8 @@ export class QueueRepository {
       params.push(opts.tag);
     }
 
-    if (opts?.rig) {
-      const escaped = opts.rig.replace(/%/g, "\\%").replace(/_/g, "\\_");
+    if (opts?.softwareTeam) {
+      const escaped = opts.softwareTeam.replace(/%/g, "\\%").replace(/_/g, "\\_");
       conditions.push("(destination_session LIKE ? ESCAPE '\\' OR source_session LIKE ? ESCAPE '\\')");
       params.push(`%@${escaped}`, `%@${escaped}`);
     }
@@ -3462,7 +3462,7 @@ export class QueueRepository {
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
     const columns = opts?.compact ? this.compactColumns() : "*";
-    const useActiveFirst = !!(opts?.rig || opts?.asSession || opts?.activeOnly);
+    const useActiveFirst = !!(opts?.softwareTeam || opts?.asSession || opts?.activeOnly);
     const orderBy = useActiveFirst
       ? "CASE WHEN state IN ('pending', 'in-progress', 'blocked') THEN 0 ELSE 1 END, ts_created DESC"
       : "ts_created DESC";
@@ -3604,9 +3604,9 @@ export class QueueRepository {
    * Find qitems whose `closure_required_at` is past now. Used by watchdog;
    * does NOT itself emit events — callers decide whether to nudge or escalate.
    *
-   * Slice 15 (finding 2): optionally rig-scoped, limited, and compact — mirroring
-   * `list` — so `rig queue overdue` is bounded and body-free by default instead of
-   * dumping every rig's full qitem bodies to a single caller. No args = the prior
+   * Slice 15 (finding 2): optionally software-team-scoped, limited, and compact — mirroring
+   * `list` — so `SoftwareTeam queue overdue` is bounded and body-free by default instead of
+   * dumping every softwareTeam's full qitem bodies to a single caller. No args = the prior
    * behavior (all overdue, full rows) for the watchdog.
    */
   findOverdue(opts: FindOverdueOptions & { compact: true }): CompactQueueItem[];
@@ -3616,8 +3616,8 @@ export class QueueRepository {
     const cutoff = opts?.now ?? new Date().toISOString();
     const conditions = ["state = 'in-progress'", "closure_required_at IS NOT NULL", "closure_required_at <= ?"];
     const params: unknown[] = [cutoff];
-    if (opts?.rig) {
-      const escaped = opts.rig.replace(/%/g, "\\%").replace(/_/g, "\\_");
+    if (opts?.softwareTeam) {
+      const escaped = opts.softwareTeam.replace(/%/g, "\\%").replace(/_/g, "\\_");
       conditions.push("(destination_session LIKE ? ESCAPE '\\' OR source_session LIKE ? ESCAPE '\\')");
       params.push(`%@${escaped}`, `%@${escaped}`);
     }
@@ -3718,8 +3718,8 @@ export class QueueRepository {
                           OR receipt.transition_note LIKE 'slack-owner-notification-transport-failed %')))`,
     ];
     const params: unknown[] = [];
-    if (opts?.rig) {
-      const escaped = opts.rig.replace(/%/g, "\\%").replace(/_/g, "\\_");
+    if (opts?.softwareTeam) {
+      const escaped = opts.softwareTeam.replace(/%/g, "\\%").replace(/_/g, "\\_");
       conditions.push("(destination_session LIKE ? ESCAPE '\\' OR source_session LIKE ? ESCAPE '\\')");
       params.push(`%@${escaped}`, `%@${escaped}`);
     }
@@ -3790,15 +3790,15 @@ export class QueueRepository {
       const at = dest.lastIndexOf("@");
       if (at <= 0) return true; // non-canonical shapes stay on the legacy path
       const seat = dest.slice(0, at);
-      const rig = dest.slice(at + 1);
+      const softwareTeam = dest.slice(at + 1);
       const composed = this.db.prepare(
         `SELECT 1 FROM nodes n
-          JOIN rigs r ON r.id = n.rig_id
+          JOIN software_teams r ON r.id = n.software_team_id
           JOIN bindings b ON b.node_id = n.id
           WHERE r.name = ? AND REPLACE(n.logical_id, '.', '-') = ?
             AND COALESCE(b.attachment_type, 'tmux') = 'tmux'
             AND b.tmux_session IS NOT NULL LIMIT 1`,
-      ).get(rig, seat);
+      ).get(softwareTeam, seat);
       return !!composed;
     } catch {
       return true; // schema-partial fixture DB: never discriminate without evidence
@@ -4216,8 +4216,8 @@ export class QueueRepository {
       target,
       reason: "no-live-local-successor",
       message: foreignTarget
-        ? `Successor custody for '${target}' is unverified on this daemon: the successor is named on that host, and this daemon cannot read its custody. This closure records a handoff claim, not proof of transfer or pickup. Use 'rig queue handoff' or 'handoff-and-complete': a local handoff is atomic, across hosts the successor is created first and the source closed after, and an uncertain result is reconciled by its exact id, since re-running the same handoff is idempotent.`
-        : `Successor custody for '${target}' is unverified on this daemon: no local row with this source's lineage was found. A successor may exist on another host. This closure records a handoff claim, not proof of transfer or pickup; reconcile the successor by ID. Use 'rig queue handoff' or 'handoff-and-complete': a local handoff is atomic, across hosts the successor is created first and the source closed after, and an uncertain result is reconciled by its exact id, since re-running the same handoff is idempotent.`,
+        ? `Successor custody for '${target}' is unverified on this daemon: the successor is named on that host, and this daemon cannot read its custody. This closure records a handoff claim, not proof of transfer or pickup. Use 'SoftwareTeam queue handoff' or 'handoff-and-complete': a local handoff is atomic, across hosts the successor is created first and the source closed after, and an uncertain result is reconciled by its exact id, since re-running the same handoff is idempotent.`
+        : `Successor custody for '${target}' is unverified on this daemon: no local row with this source's lineage was found. A successor may exist on another host. This closure records a handoff claim, not proof of transfer or pickup; reconcile the successor by ID. Use 'SoftwareTeam queue handoff' or 'handoff-and-complete': a local handoff is atomic, across hosts the successor is created first and the source closed after, and an uncertain result is reconciled by its exact id, since re-running the same handoff is idempotent.`,
     };
   }
 

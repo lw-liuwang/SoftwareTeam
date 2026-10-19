@@ -166,10 +166,10 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   }
 
   /**
-   * Bring the Codex config.toml to the state OpenRig-managed seats need: feature flag,
+   * Bring the Codex config.toml to the state SoftwareTeam-managed seats need: feature flag,
    * activity hooks and their trust, or the stripped block when hooks are disabled. Runs when
    * a daemon has Codex seats (boot) or is about to launch one, never for a daemon without
-   * them: a rig with no Codex seat leaves the user's config alone. A failure warns and does
+   * them: a softwareTeam with no Codex seat leaves the user's config alone. A failure warns and does
    * not block the launch.
    */
   async ensureManagedConfig(): Promise<void> {
@@ -180,15 +180,15 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
       if (enabled) this.ensureCodexActivityHooks();
       else this.removeCodexActivityHooks();
     } catch (err) {
-      console.error(`[openrig] runtime setup warning: ${(err as Error).message}`);
+      console.error(`[softwareteam] runtime setup warning: ${(err as Error).message}`);
     }
   }
 
   /**
    * Boot step for a daemon without Codex seats: when runtime.codex.hooks_enabled is false,
-   * strip OpenRig's managed hooks block, as every boot did before. Removal writes only when
+   * strip SoftwareTeam's managed hooks block, as every boot did before. Removal writes only when
    * the block is present, so a config without it stays byte-identical, and with hooks enabled
-   * nothing is touched. Without this an operator with no Codex seat has no OpenRig way to
+   * nothing is touched. Without this an operator with no Codex seat has no SoftwareTeam way to
    * remove a stale block. A failure warns.
    */
   async stripManagedHooksIfDisabled(): Promise<void> {
@@ -196,7 +196,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     try {
       if (!(await this.resolveHooksEnabled())) this.removeCodexActivityHooks();
     } catch (err) {
-      console.error(`[openrig] runtime setup warning: ${(err as Error).message}`);
+      console.error(`[softwareteam] runtime setup warning: ${(err as Error).message}`);
     }
   }
 
@@ -226,8 +226,8 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   }
 
   /**
-   * OPR.0.4.1.10 FR-A — write the OpenRig activity hooks into Codex's config layer
-   * (`~/.codex/config.toml` inline `[hooks]`) so an OpenRig-launched Codex seat is
+   * OPR.0.4.1.10 FR-A — write the SoftwareTeam activity hooks into Codex's config layer
+   * (`~/.codex/config.toml` inline `[hooks]`) so an SoftwareTeam-launched Codex seat is
    * hook-PRIMARY from clean shipped config. Idempotent managed-block upsert for the
    * four events SessionStart / UserPromptSubmit / Stop / PermissionRequest; each
    * command is `node "<activityRelayPath>"` (the daemon's OWN shipped relay, FR-B —
@@ -235,22 +235,22 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
    * pins `[features].hooks = true` (canonical key; the deprecated `codex_hooks` alias
    * is intentionally NOT used here). Trust is scoped to the exact authored hook
    * hashes below; remaining native review prompts require an operator decision.
-   * The relay inherits the seat's OPENRIG_* env from the tmux session.
+   * The relay inherits the seat's SOFTWARETEAM_* env from the tmux session.
    *
    * Fail-safe: skips + warns when the relay asset is missing — never writes a hook that
    * points at a nonexistent script. Verified-firsthand (Codex 0.139, dev1-qa AC-2 proof):
-   * on the OpenRig-managed launch path — managed inline hooks + trusted + the relay env
-   * delivered into the seat (OPENRIG_URL + OPENRIG_ACTIVITY_HOOK_TOKEN + session/node/runtime)
+   * on the SoftwareTeam-managed launch path — managed inline hooks + trusted + the relay env
+   * delivered into the seat (SOFTWARETEAM_URL + SOFTWARETEAM_ACTIVITY_HOOK_TOKEN + session/node/runtime)
    * — all four events, SessionStart included, deliver as runtime_hook activity. Without the
    * relay env the hooks are still trusted/visible but no activity rows land. (A bare/manual
-   * codex TUI launch lacks that context and may not deliver SessionStart — not how OpenRig
+   * codex TUI launch lacks that context and may not deliver SessionStart — not how SoftwareTeam
    * launches seats.)
    */
   ensureCodexActivityHooks(): void {
     const relay = this.activityRelayPath;
     if (!relay || !this.fs.exists(relay)) {
       if (relay) {
-        console.error(`[openrig] codex activity hooks skipped: relay asset not found at ${relay}`);
+        console.error(`[softwareteam] codex activity hooks skipped: relay asset not found at ${relay}`);
       }
       return;
     }
@@ -295,7 +295,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
     }
     const command = `node "${relay}"`;
     let next = content;
-    for (const event of OPENRIG_ACTIVITY_HOOK_EVENTS) {
+    for (const event of SOFTWARETEAM_ACTIVITY_HOOK_EVENTS) {
       const { key, hash } = computeCodexHookTrust(event, { keySource, command, timeoutSec: 5 });
       next = upsertCodexHookTrust(next, key, hash);
     }
@@ -304,7 +304,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
 
   /**
    * OPR.0.4.1.10 B3 — durable disable. When runtime.codex.hooks_enabled is false, strip the
-   * OpenRig-managed activity-hooks sentinel block from ~/.codex/config.toml so a seat that was
+   * SoftwareTeam-managed activity-hooks sentinel block from ~/.codex/config.toml so a seat that was
    * previously provisioned with hooks does not keep firing them after the operator disables.
    * Removes ONLY the managed block — preserves any user-owned hooks and leaves [features].hooks
    * (the Codex 0.139 default) intact. Idempotent; no-op when the config or the block is absent.
@@ -359,7 +359,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
 
   async deliverStartup(files: ResolvedStartupFile[], binding: NodeBinding): Promise<StartupDeliveryResult> {
     try { this.ensureManagedBootstrap(binding); } catch (err) {
-      console.error(`[openrig] codex bootstrap warning: ${(err as Error).message}`);
+      console.error(`[softwareteam] codex bootstrap warning: ${(err as Error).message}`);
     }
 
     const warnings: string[] = [];
@@ -375,7 +375,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
           case "guidance_merge": {
             const targetPath = nodePath.join(binding.cwd, "AGENTS.md");
             const merged = this.mergeGuidance(targetPath, file.path, content, warnings);
-            if (!merged) continue; // rig-role skip: do not count as delivered
+            if (!merged) continue; // software-team-role skip: do not count as delivered
             break;
           }
           case "skill_install": {
@@ -438,7 +438,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
         return { ok: false, error: "codex fork: forkSource.value is required (parent native_id)" };
       }
       // OPR.0.4.8.2: the FORK path uses the SAME posture decision (codexPostureArg) — YOLO forces
-      // -s danger-full-access on every seat; otherwise the named profile, or OpenRig's explicit
+      // -s danger-full-access on every seat; otherwise the named profile, or SoftwareTeam's explicit
       // -s workspace-write floor flag.
       // 0.5.2-07 A2-3: the FORK path threads the SPEC model too (fork-instantiate reverted it before).
       const cmd = `codex${daemonArg}${postureArg}${networkArg}${modelArg}${effortArg} fork${queueStateDirArg} ${shellQuote(parentId)}`;
@@ -462,7 +462,7 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
 
     // OPR.0.4.8.2: one posture decision (codexPostureArg) for the fresh launch too — YOLO forces
     // -s danger-full-access (overrides even a named profile); otherwise the named profile, or
-    // OpenRig's explicit -s workspace-write floor flag.
+    // SoftwareTeam's explicit -s workspace-write floor flag.
     // Issue #121: only the fresh launch adds git metadata dirs; resume and fork never did.
     const gitDirArg = opts.resumeToken
       ? ""
@@ -593,8 +593,8 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
   }
 
   private buildQueueStateAddDirArg(sessionName: string): string {
-    const sharedDocsRoot = process.env.OPENRIG_SHARED_DOCS_ROOT?.trim()
-      || nodePath.join(this.fs.homedir ?? os.homedir(), ".openrig", "shared-docs");
+    const sharedDocsRoot = process.env.SOFTWARETEAM_SHARED_DOCS_ROOT?.trim()
+      || nodePath.join(this.fs.homedir ?? os.homedir(), ".softwareteam", "shared-docs");
     const root = codexQueueStateRoot(sessionName, sharedDocsRoot);
     return root ? ` --add-dir ${shellQuote(root)}` : "";
   }
@@ -835,25 +835,25 @@ export class CodexRuntimeAdapter implements RuntimeAdapter {
 
   /**
    * Merge a managed block into the target guidance file. Returns `true` when
-   * the merge happened, `false` when intentionally skipped (rig-role). Callers
+   * the merge happened, `false` when intentionally skipped (software-team-role). Callers
    * propagate the skip signal so ProjectionResult and StartupDeliveryResult
    * report honest counts.
    */
   private mergeGuidance(targetPath: string, blockId: string, content: string, warnings: string[]): boolean {
-    // Mirrors Claude Code adapter: the `rig-role` managed block collides across
+    // Mirrors Claude Code adapter: the `software-team-role` managed block collides across
     // pod-mates because the regenerator pairs (target-file × spec) without
     // seat correlation. Per-seat role content is delivered through `send_text`
     // startup instead. Refuse the merge loudly; silent skip would mask the
     // collision. See ADR-0006.
-    if (blockId === "rig-role") {
+    if (blockId === "software-team-role") {
       console.log(
-        `[openrig] skip: effectiveId is rig-role, per-seat delivery via send_text path required (target=${targetPath})`
+        `[softwareteam] skip: effectiveId is software-team-role, per-seat delivery via send_text path required (target=${targetPath})`
       );
       return false;
     }
     mergeManagedBlock(this.fs, targetPath, blockId, content, {
       warnings,
-      replaceBlockIds: blockId === "openrig-start.md" ? ["using-openrig.md"] : [],
+      replaceBlockIds: blockId === "softwareteam-start.md" ? ["using-softwareteam.md"] : [],
     });
     return true;
   }
@@ -1160,7 +1160,7 @@ function canonicalizeJsonValue(value: unknown): unknown {
   return value;
 }
 
-const CODEX_HOOK_EVENT_KEY_LABEL: Record<(typeof OPENRIG_ACTIVITY_HOOK_EVENTS)[number], string> = {
+const CODEX_HOOK_EVENT_KEY_LABEL: Record<(typeof SOFTWARETEAM_ACTIVITY_HOOK_EVENTS)[number], string> = {
   SessionStart: "session_start",
   UserPromptSubmit: "user_prompt_submit",
   Stop: "stop",
@@ -1190,7 +1190,7 @@ export interface CodexHookTrustInput {
  * PROVISIONAL-until-VM-read-back caveat.
  */
 export function computeCodexHookTrust(
-  event: (typeof OPENRIG_ACTIVITY_HOOK_EVENTS)[number],
+  event: (typeof SOFTWARETEAM_ACTIVITY_HOOK_EVENTS)[number],
   input: CodexHookTrustInput,
 ): { key: string; hash: string } {
   const label = CODEX_HOOK_EVENT_KEY_LABEL[event];
@@ -1318,12 +1318,12 @@ function upsertCodexHooksFeature(content: string): string {
 }
 
 // OPR.0.4.1.10 FR-A — config-layer activity-hook projection.
-const OPENRIG_ACTIVITY_HOOKS_BEGIN = "# BEGIN OPENRIG MANAGED ACTIVITY HOOKS";
-const OPENRIG_ACTIVITY_HOOKS_END = "# END OPENRIG MANAGED ACTIVITY HOOKS";
-const OPENRIG_ACTIVITY_HOOK_EVENTS = ["SessionStart", "UserPromptSubmit", "Stop", "PermissionRequest"] as const;
+const SOFTWARETEAM_ACTIVITY_HOOKS_BEGIN = "# BEGIN SOFTWARETEAM MANAGED ACTIVITY HOOKS";
+const SOFTWARETEAM_ACTIVITY_HOOKS_END = "# END SOFTWARETEAM MANAGED ACTIVITY HOOKS";
+const SOFTWARETEAM_ACTIVITY_HOOK_EVENTS = ["SessionStart", "UserPromptSubmit", "Stop", "PermissionRequest"] as const;
 
 /**
- * Idempotently write the OpenRig activity hooks into a Codex config.toml: pin
+ * Idempotently write the SoftwareTeam activity hooks into a Codex config.toml: pin
  * `[features].hooks = true` (canonical key) and a sentinel-wrapped managed block of
  * inline `[[hooks.<Event>]]` stanzas (one representation per layer — never a sibling
  * hooks.json). Re-running with the same relay path is a no-op; a changed daemon path
@@ -1334,15 +1334,15 @@ const OPENRIG_ACTIVITY_HOOK_EVENTS = ["SessionStart", "UserPromptSubmit", "Stop"
  */
 function upsertCodexActivityHooks(content: string, relayPath: string): string {
   const command = `'node "${relayPath}"'`;
-  const stanzas = OPENRIG_ACTIVITY_HOOK_EVENTS
+  const stanzas = SOFTWARETEAM_ACTIVITY_HOOK_EVENTS
     .map((ev) => `[[hooks.${ev}]]\n[[hooks.${ev}.hooks]]\ntype = "command"\ncommand = ${command}\ntimeout = 5`)
     .join("\n\n");
-  const block = `${OPENRIG_ACTIVITY_HOOKS_BEGIN}\n${stanzas}\n${OPENRIG_ACTIVITY_HOOKS_END}\n`;
+  const block = `${SOFTWARETEAM_ACTIVITY_HOOKS_BEGIN}\n${stanzas}\n${SOFTWARETEAM_ACTIVITY_HOOKS_END}\n`;
 
   let next = upsertCodexFeaturesHooksEnabled(content);
 
   const pattern = new RegExp(
-    `${escapeRegExp(OPENRIG_ACTIVITY_HOOKS_BEGIN)}[\\s\\S]*?${escapeRegExp(OPENRIG_ACTIVITY_HOOKS_END)}\\n?`,
+    `${escapeRegExp(SOFTWARETEAM_ACTIVITY_HOOKS_BEGIN)}[\\s\\S]*?${escapeRegExp(SOFTWARETEAM_ACTIVITY_HOOKS_END)}\\n?`,
     "m"
   );
   if (pattern.test(next)) {
@@ -1353,14 +1353,14 @@ function upsertCodexActivityHooks(content: string, relayPath: string): string {
 }
 
 /**
- * OPR.0.4.1.10 B3 — remove the OpenRig-managed activity-hooks sentinel block (durable disable).
+ * OPR.0.4.1.10 B3 — remove the SoftwareTeam-managed activity-hooks sentinel block (durable disable).
  * Strips ONLY the BEGIN..END block (plus the leading blank-line separator it was appended with);
  * leaves all other content — user-owned hooks, [features], project trust — untouched. Returns the
  * input unchanged when the block is absent.
  */
 function stripCodexActivityHooks(content: string): string {
   const pattern = new RegExp(
-    `\\n*${escapeRegExp(OPENRIG_ACTIVITY_HOOKS_BEGIN)}[\\s\\S]*?${escapeRegExp(OPENRIG_ACTIVITY_HOOKS_END)}[ \\t]*\\n?`,
+    `\\n*${escapeRegExp(SOFTWARETEAM_ACTIVITY_HOOKS_BEGIN)}[\\s\\S]*?${escapeRegExp(SOFTWARETEAM_ACTIVITY_HOOKS_END)}[ \\t]*\\n?`,
     "m"
   );
   if (!pattern.test(content)) return content;
@@ -1581,8 +1581,8 @@ function dropCollidingFragmentTables(
 }
 
 function upsertManagedCodexConfigFragment(content: string, id: string, fragment: string): string {
-  const start = `# BEGIN OPENRIG MANAGED CODEX CONFIG FRAGMENT: ${id}`;
-  const end = `# END OPENRIG MANAGED CODEX CONFIG FRAGMENT: ${id}`;
+  const start = `# BEGIN SOFTWARETEAM MANAGED CODEX CONFIG FRAGMENT: ${id}`;
+  const end = `# END SOFTWARETEAM MANAGED CODEX CONFIG FRAGMENT: ${id}`;
   const pattern = new RegExp(`${escapeRegExp(start)}[\\s\\S]*?${escapeRegExp(end)}\\n?`, "m");
 
   // Everything outside THIS block is what the fragment must not collide with.

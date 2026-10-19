@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type Database from "better-sqlite3";
 import { createFullTestDb } from "./helpers/test-app.js";
-import { RigRepository } from "../src/domain/rig-repository.js";
+import { SoftwareTeamRepository } from "../src/domain/software-team-repository.js";
 import { SessionRegistry } from "../src/domain/session-registry.js";
 import { EventBus } from "../src/domain/event-bus.js";
 import type { TmuxAdapter } from "../src/adapters/tmux.js";
@@ -41,8 +41,8 @@ describe("resolveSeatEffort: the one resolver for managed continuations", () => 
 
   it("reads a node row, and an older database without the choice column from nodes.effort alone", () => {
     const db = createFullTestDb();
-    const repo = new RigRepository(db);
-    const node = repo.addNode(repo.createRig("r").id, "dev.a", { runtime: "codex", effort: "low" });
+    const repo = new SoftwareTeamRepository(db);
+    const node = repo.addNode(repo.createSoftwareTeam("r").id, "dev.a", { runtime: "codex", effort: "low" });
     repo.setNodeEffortChoice(node.id, "high");
     expect(readSeatEffort(db, node.id)).toMatchObject({ effective: "high", source: "seat_choice" });
     expect(readSeatEffort(db, "missing")).toBeNull();
@@ -178,7 +178,7 @@ describe("Effort precedence: the decided rule, latest wins (OPR.0.7.0.7)", () =>
 
 describe("SeatLifecycleService.effortReport: four values, each from its own source", () => {
   let db: Database.Database;
-  let rigRepo: RigRepository;
+  let softwareTeamRepo: SoftwareTeamRepository;
   let sessionRegistry: SessionRegistry;
   let service: SeatLifecycleService;
   let rows: NativeProcessRow[];
@@ -188,7 +188,7 @@ describe("SeatLifecycleService.effortReport: four values, each from its own sour
 
   beforeEach(() => {
     db = createFullTestDb();
-    rigRepo = new RigRepository(db);
+    softwareTeamRepo = new SoftwareTeamRepository(db);
     sessionRegistry = new SessionRegistry(db);
     rows = [];
     transcript = null;
@@ -196,7 +196,7 @@ describe("SeatLifecycleService.effortReport: four values, each from its own sour
     logsThread = undefined;
     const tmux = { getPanePid: async () => 100 } as unknown as TmuxAdapter;
     service = new SeatLifecycleService({
-      db, rigRepo, sessionRegistry, eventBus: new EventBus(db), tmuxAdapter: tmux, listProcesses: () => rows,
+      db, softwareTeamRepo, sessionRegistry, eventBus: new EventBus(db), tmuxAdapter: tmux, listProcesses: () => rows,
       transcripts: {
         readSidecar: () => (transcript ? { ok: true as const, data: { transcript_path: transcript, session_id: sidecarSession } } : { ok: false as const }),
         readCodexTranscriptPath: () => transcript,
@@ -210,8 +210,8 @@ describe("SeatLifecycleService.effortReport: four values, each from its own sour
   afterEach(() => db.close());
 
   function codexSeat(opts: { authored?: string; running?: boolean } = {}) {
-    const rig = rigRepo.createRig("eff");
-    const node = rigRepo.addNode(rig.id, "dev.codex", { runtime: "codex", cwd: "/w", ...(opts.authored ? { effort: opts.authored } : {}) });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("eff");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.codex", { runtime: "codex", cwd: "/w", ...(opts.authored ? { effort: opts.authored } : {}) });
     const session = sessionRegistry.registerSession(node.id, "dev-codex@eff");
     sessionRegistry.updateStatus(session.id, opts.running === false ? "exited" : "running");
     sessionRegistry.updateBinding(node.id, { attachmentType: "tmux", tmuxSession: "dev-codex@eff", tmuxPane: "%1" });
@@ -280,8 +280,8 @@ describe("SeatLifecycleService.effortReport: four values, each from its own sour
   });
 
   it("joins a Claude process to its sidecar session by argv, or by a recorded resume rotation", async () => {
-    const rig = rigRepo.createRig("effc");
-    const node = rigRepo.addNode(rig.id, "dev.claude", { runtime: "claude-code", cwd: "/w", effort: "high" });
+    const softwareTeam = softwareTeamRepo.createSoftwareTeam("effc");
+    const node = softwareTeamRepo.addNode(softwareTeam.id, "dev.claude", { runtime: "claude-code", cwd: "/w", effort: "high" });
     const session = sessionRegistry.registerSession(node.id, "dev-claude@effc");
     sessionRegistry.updateStatus(session.id, "running");
     sessionRegistry.updateBinding(node.id, { attachmentType: "tmux", tmuxSession: "dev-claude@effc", tmuxPane: "%1" });
@@ -306,7 +306,7 @@ describe("SeatLifecycleService.effortReport: four values, each from its own sour
     expect(await service.effortReport("dev-codex@eff")).toMatchObject({
       ok: true, requested: null, saved: { source: "runtime_default" }, emitted: { state: "unknown" }, observed: { state: "not_verified" },
     });
-    rigRepo.addNode(rigRepo.createRig("pi").id, "dev.pi", { runtime: "pi" });
+    softwareTeamRepo.addNode(softwareTeamRepo.createSoftwareTeam("pi").id, "dev.pi", { runtime: "pi" });
     expect(await service.effortReport("dev.pi")).toMatchObject({ ok: false, code: "effort_unsupported_runtime" });
   });
 });

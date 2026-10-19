@@ -20,9 +20,9 @@ const PARALLEL_SPEC = `workflow:
   entry: { role: root }
   exception_routing: { default: orchestrator, orchestrator_role: root }
   roles:
-    root: { preferred_targets: [root@rig] }
-    left: { preferred_targets: [left@rig] }
-    right: { preferred_targets: [right@rig] }
+    root: { preferred_targets: [root@software-team] }
+    left: { preferred_targets: [left@software-team] }
+    right: { preferred_targets: [right@software-team] }
   steps:
     - { id: root, actor_role: root, allowed_exits: [done, failed] }
     - { id: left, actor_role: left, depends_on: [root], allowed_exits: [done, failed] }
@@ -40,8 +40,8 @@ describe("S06 lifecycle HTTP surface", () => {
     db = createDb();
     migrate(db, ALL_MIGRATIONS);
     const bus = new EventBus(db);
-    db.prepare(`INSERT INTO rigs (id, name) VALUES ('r-1', 'rig')`).run();
-    const queue = new QueueRepository(db, bus, { validateRig: () => true });
+    db.prepare(`INSERT INTO software_teams (id, name) VALUES ('r-1', 'softwareTeam')`).run();
+    const queue = new QueueRepository(db, bus, { validateSoftwareTeam: () => true });
     queue.attachOutbox(new OutboxHandler(db));
     runtime = new WorkflowRuntime({ db, eventBus: bus, queueRepo: queue });
     app = new Hono();
@@ -57,7 +57,7 @@ describe("S06 lifecycle HTTP surface", () => {
     mkdirSync(join(missionDir, "slices", "01-build"), { recursive: true });
     writeFileSync(join(root, "project.yaml"), `kind: project\nmetadata: { id: demo }\nlifecycle: { profile: release }\n`);
     writeFileSync(join(missionDir, "mission.yaml"), `kind: mission\nmetadata: { name: release-1.0.0 }\ncomposition:\n  slices:\n    - { ref: slices/01-build/slice.yaml, order: 10 }\n`);
-    writeFileSync(join(missionDir, "slices", "01-build", "slice.yaml"), `kind: slice\nmetadata: { id: build }\ncomposition: { mission: ../../mission.yaml }\nexecution:\n  actor_role: builder\n  preferred_targets: [builder@rig]\n  allowed_exits: [done, failed]\n`);
+    writeFileSync(join(missionDir, "slices", "01-build", "slice.yaml"), `kind: slice\nmetadata: { id: build }\ncomposition: { mission: ../../mission.yaml }\nexecution:\n  actor_role: builder\n  preferred_targets: [builder@software-team]\n  allowed_exits: [done, failed]\n`);
   });
 
   afterEach(() => {
@@ -75,9 +75,9 @@ describe("S06 lifecycle HTTP surface", () => {
   async function failedBranches(count = 1) {
     const specPath = join(root, "occurrence-selection.yaml");
     writeFileSync(specPath, PARALLEL_SPEC);
-    const created = await runtime.instantiate({ specPath, rootObjective: "owned branch recovery", createdBySession: "orch@rig" });
+    const created = await runtime.instantiate({ specPath, rootObjective: "owned branch recovery", createdBySession: "orch@software-team" });
     await runtime.project({ instanceId: created.instance.instanceId, currentPacketId: created.entryQitemId,
-      exit: "done", actorSession: "root@rig" });
+      exit: "done", actorSession: "root@software-team" });
     const branches = runtime.inspect(created.instance.instanceId).frontier;
     for (const branch of branches.slice(0, count)) await runtime.project({
       instanceId: created.instance.instanceId, currentPacketId: branch.packetId,
@@ -96,7 +96,7 @@ describe("S06 lifecycle HTTP surface", () => {
     const before = recoveryRows();
     const response = await app.request(`/api/workflow/${failed.instanceId}/resume`, {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ occurrenceId: "owned-occurrence-does-not-exist", actorSession: "orch@rig" }),
+      body: JSON.stringify({ occurrenceId: "owned-occurrence-does-not-exist", actorSession: "orch@software-team" }),
     });
     const result = await response.json();
     expect(response.status, JSON.stringify({ result, failures: runtime.inspect(failed.instanceId).failures })).toBe(409);
@@ -111,7 +111,7 @@ describe("S06 lifecycle HTTP surface", () => {
     const before = recoveryRows();
     const response = await app.request(`/api/workflow/${target.instanceId}/resume`, {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ occurrenceId: other.occurrences[0], actorSession: "orch@rig" }),
+      body: JSON.stringify({ occurrenceId: other.occurrences[0], actorSession: "orch@software-team" }),
     });
     const result = await response.json();
     expect(response.status, JSON.stringify({ result, failures: runtime.inspect(target.instanceId).failures })).toBe(409);
@@ -123,7 +123,7 @@ describe("S06 lifecycle HTTP surface", () => {
     const failed = await failedBranches();
     const response = await app.request(`/api/workflow/${failed.instanceId}/resume`, {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ actorSession: "orch@rig", decision: "retry the sole failed branch" }),
+      body: JSON.stringify({ actorSession: "orch@software-team", decision: "retry the sole failed branch" }),
     });
     expect(response.status).toBe(200);
     const resumed = await response.json() as { newPacketId: string };
@@ -133,7 +133,7 @@ describe("S06 lifecycle HTTP surface", () => {
     const before = recoveryRows();
     const replay = await app.request(`/api/workflow/${failed.instanceId}/resume`, {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ occurrenceId: failed.occurrences[0], actorSession: "orch@rig", decision: "retry the sole failed branch" }),
+      body: JSON.stringify({ occurrenceId: failed.occurrences[0], actorSession: "orch@software-team", decision: "retry the sole failed branch" }),
     });
     expect(replay.status).toBe(200);
     expect(await replay.json()).toMatchObject({ newPacketId: resumed.newPacketId, absorbedReplay: true });
@@ -155,7 +155,7 @@ describe("S06 lifecycle HTTP surface", () => {
       missionPath: missionDir,
       operationKey: "release-op",
       rootObjective: "ship",
-      createdBySession: "orch@rig",
+      createdBySession: "orch@software-team",
     };
     const first = await app.request("/api/workflow/instantiate-lifecycle", {
       method: "POST",
@@ -167,14 +167,14 @@ describe("S06 lifecycle HTTP surface", () => {
     const execution = await buildExecutionView({
       db,
       slicesRoot: () => join(root, "missions"),
-      rigsRoot: () => join(root, "rigs"),
+      softwareTeamsRoot: () => join(root, "software-teams"),
       buildInfo: { semver: null, commit: null, dirty: null, builtAt: null },
     }, { mission: "release-1.0.0" }) as { lifecycle_instances: Array<Record<string, unknown>> };
     expect(execution.lifecycle_instances).toMatchObject([{
       instance_id: firstBody.instance.instanceId,
       status: "active",
       operation_key: "release-op",
-      frontier_packets: [{ packet_id: firstBody.entryQitemId, step_id: "build", owner: "builder@rig", queue_state: "pending" }],
+      frontier_packets: [{ packet_id: firstBody.entryQitemId, step_id: "build", owner: "builder@software-team", queue_state: "pending" }],
       failure_occurrences: [],
       unknowns: [],
     }]);
@@ -188,7 +188,7 @@ describe("S06 lifecycle HTTP surface", () => {
     expect(await replay.json()).toMatchObject({ replayed: true, instance: { instanceId: firstBody.instance.instanceId }, entryQitemId: firstBody.entryQitemId });
     expect(counts()).toEqual(beforeReplay);
 
-    writeFileSync(join(missionDir, "slices", "01-build", "slice.yaml"), `kind: slice\nmetadata: { id: build }\ncomposition: { mission: ../../mission.yaml }\nexecution:\n  actor_role: builder\n  preferred_targets: [builder@rig]\n  allowed_exits: [done, failed]\n  objective: changed bytes\n`);
+    writeFileSync(join(missionDir, "slices", "01-build", "slice.yaml"), `kind: slice\nmetadata: { id: build }\ncomposition: { mission: ../../mission.yaml }\nexecution:\n  actor_role: builder\n  preferred_targets: [builder@software-team]\n  allowed_exits: [done, failed]\n  objective: changed bytes\n`);
     const conflict = await app.request("/api/workflow/instantiate-lifecycle", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -216,14 +216,14 @@ describe("S06 lifecycle HTTP surface", () => {
     const create = await app.request("/api/workflow/instantiate", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ specPath, rootObjective: "parallel", createdBySession: "orch@rig" }),
+      body: JSON.stringify({ specPath, rootObjective: "parallel", createdBySession: "orch@software-team" }),
     });
     const created = await create.json() as { instance: { instanceId: string }; entryQitemId: string };
     expect(create.status, JSON.stringify(created)).toBe(201);
     const initialProjection = await app.request("/api/workflow/project", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ instanceId: created.instance.instanceId, currentPacketId: created.entryQitemId, exit: "done", actorSession: "root@rig" }),
+      body: JSON.stringify({ instanceId: created.instance.instanceId, currentPacketId: created.entryQitemId, exit: "done", actorSession: "root@software-team" }),
     });
     expect(initialProjection.status, JSON.stringify(await initialProjection.json())).toBe(200);
     const show = await app.request(`/api/workflow/${created.instance.instanceId}`);
@@ -234,7 +234,7 @@ describe("S06 lifecycle HTTP surface", () => {
     const ambiguousRoute = await app.request(`/api/workflow/${created.instance.instanceId}/route`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ toSession: "left2@rig", actorSession: "orch@rig" }),
+      body: JSON.stringify({ toSession: "left2@software-team", actorSession: "orch@software-team" }),
     });
     expect(ambiguousRoute.status).toBe(409);
     expect(await ambiguousRoute.json()).toMatchObject({ error: "frontier_packet_required", candidates: expect.any(Array) });
@@ -245,7 +245,7 @@ describe("S06 lifecycle HTTP surface", () => {
     const routed = await app.request(`/api/workflow/${created.instance.instanceId}/route`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ packetId: left.packetId, toSession: "left2@rig", actorSession: "orch@rig" }),
+      body: JSON.stringify({ packetId: left.packetId, toSession: "left2@software-team", actorSession: "orch@software-team" }),
     });
     expect(routed.status).toBe(200);
     const routedBody = await routed.json() as { newPacketId: string };
@@ -268,7 +268,7 @@ describe("S06 lifecycle HTTP surface", () => {
     const ambiguousResume = await app.request(`/api/workflow/${created.instance.instanceId}/resume`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ actorSession: "orch@rig" }),
+      body: JSON.stringify({ actorSession: "orch@software-team" }),
     });
     expect(ambiguousResume.status).toBe(409);
     expect(await ambiguousResume.json()).toMatchObject({ error: "failure_occurrence_required", candidates: expect.any(Array) });
@@ -276,20 +276,20 @@ describe("S06 lifecycle HTTP surface", () => {
     const resumed = await app.request(`/api/workflow/${created.instance.instanceId}/resume`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ actorSession: "orch@rig", occurrenceId: failed.failureOccurrences[0]!.occurrenceId, decision: "retry left" }),
+      body: JSON.stringify({ actorSession: "orch@software-team", occurrenceId: failed.failureOccurrences[0]!.occurrenceId, decision: "retry left" }),
     });
     expect(resumed.status).toBe(200);
     const replayConflict = await app.request(`/api/workflow/${created.instance.instanceId}/resume`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ actorSession: "orch@rig", occurrenceId: failed.failureOccurrences[0]!.occurrenceId, decision: "different retry" }),
+      body: JSON.stringify({ actorSession: "orch@software-team", occurrenceId: failed.failureOccurrences[0]!.occurrenceId, decision: "different retry" }),
     });
     expect(replayConflict.status).toBe(409);
     expect(await replayConflict.json()).toMatchObject({ error: "failure_occurrence_replay_conflict" });
     const aborted = await app.request(`/api/workflow/${created.instance.instanceId}/abort`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ actorSession: "orch@rig", reason: "operator stopped" }),
+      body: JSON.stringify({ actorSession: "orch@software-team", reason: "operator stopped" }),
     });
     expect(aborted.status).toBe(200);
     expect(await aborted.json()).toMatchObject({ status: "aborted", closedPacketIds: expect.any(Array) });

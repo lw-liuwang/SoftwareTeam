@@ -33,7 +33,7 @@ describe("tmux argv exec path", () => {
     expect(seen).toEqual([[
       "tmux", "new-session", "-d", "-s", "r01-dev1-impl",
       "-c", "/home/user/my project/code",
-      "-e", "OPENRIG_TRANSCRIPTS_LINES=", "-e", "OPENRIG_TRANSCRIPTS_POLL_INTERVAL_SECONDS=",
+      "-e", "SOFTWARETEAM_TRANSCRIPTS_LINES=", "-e", "SOFTWARETEAM_TRANSCRIPTS_POLL_INTERVAL_SECONDS=",
       "-e", "PATH=/a b:/c", "-e", "EMPTY=",
       "-P", "-F", "#{pane_id}",
     ], ["tmux", "show-environment", "-g"]]);
@@ -42,15 +42,15 @@ describe("tmux argv exec path", () => {
   it("sendKeys passes key names as separate verbatim units", async () => {
     const seen: string[][] = [];
     const { adapter } = argvAdapter(seen);
-    await adapter.sendKeys("dev'qa@rig", ["Enter; rm -rf /", "C-c"]);
-    expect(seen).toEqual([["tmux", "send-keys", "-t", "dev'qa@rig", "Enter; rm -rf /", "C-c"]]);
+    await adapter.sendKeys("dev'qa@software-team", ["Enter; rm -rf /", "C-c"]);
+    expect(seen).toEqual([["tmux", "send-keys", "-t", "dev'qa@software-team", "Enter; rm -rf /", "C-c"]]);
   });
 
   it("pipe-pane sink travels as ONE unit with inner quoting intact", async () => {
     const seen: string[][] = [];
     const { adapter } = argvAdapter(seen);
-    await adapter.startPipePane("seat@rig", "/tmp/out dir/x.log");
-    expect(seen).toEqual([["tmux", "pipe-pane", "-t", "=seat@rig:", "cat >> '/tmp/out dir/x.log'"]]);
+    await adapter.startPipePane("seat@software-team", "/tmp/out dir/x.log");
+    expect(seen).toEqual([["tmux", "pipe-pane", "-t", "=seat@software-team:", "cat >> '/tmp/out dir/x.log'"]]);
   });
 
   it("respawn keeps the command as ONE trailing unit", async () => {

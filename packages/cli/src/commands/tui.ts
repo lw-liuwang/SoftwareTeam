@@ -1,4 +1,4 @@
-// Standalone entry shares the bare-rig front door. Shared entry attaches a client
+// Standalone entry shares the bare-softwareTeam front door. Shared entry attaches a client
 // to the kernel's existing terminal without launching a second TUI.
 import { Command } from "commander";
 import * as path from "node:path";
@@ -7,7 +7,7 @@ import { existsSync } from "node:fs";
 import { openMissionControl, USAGE_LINES, type FrontDoorIo } from "../front-door.js";
 import { sharedTuiTarget, attachSharedTui } from "../shared-tui.js";
 
-/** The registry-entry shape `rig tui commands` serializes (REGISTRY I2, ruling 64f1dbdf).
+/** The registry-entry shape `SoftwareTeam tui commands` serializes (REGISTRY I2, ruling 64f1dbdf).
  *  Structural mirror of the TUI's CommandEntry data fields (functions are not serialized). */
 export interface TuiCommandEntry {
   name: string;
@@ -42,9 +42,9 @@ export function tuiCommand(io: FrontDoorIo & {
   attachShared?: (target: string) => Promise<number>;
 } = {}): Command {
   const cmd = new Command("tui")
-    .description("open the status dashboard, not agent chat (--shared is the OpenRig view fallback)")
-    .option("--shared", "dashboard-only fallback if the OpenRig view window cannot open; detach with Ctrl-b d")
-    .addHelpText("after", "\nThe dashboard shows status and navigation; it is not the operator's or advisor's conversation.\nTo show the person the OpenRig TUI and operator (after install, or whenever they want their agents): rig terminal open saved:kernel --window. The agent runs it on the daemon desktop; it opens a new terminal tab/window with herdr, otherwise plain tmux. Herdr needs a terminal the person can see; changing this dashboard to :terminals does not open one. Over headless SSH, give the exact connection/attach command for a new terminal/tab, as in the getting-started guide. Check the result and visible content, or say what cannot be verified; on a desktop, do not finish by printing a command for the person to type. Only if the window cannot open, rig tui --shared is the dashboard-only fallback. Explain the failure; not every failure prints an operator attach command. Use the getting-started guide to derive the current operator binding if the person chooses manual attachment. Existing herdr/cmux workspaces can still use --provider without --window.\nThe shared dashboard keeps its view when you detach. On an older kernel, or after quitting the TUI, run rig tui in that terminal once. No agent or terminal is started by --shared.");
+    .description("open the status dashboard, not agent chat (--shared is the SoftwareTeam view fallback)")
+    .option("--shared", "dashboard-only fallback if the SoftwareTeam view window cannot open; detach with Ctrl-b d")
+    .addHelpText("after", "\nThe dashboard shows status and navigation; it is not the operator's or advisor's conversation.\nTo show the person the SoftwareTeam TUI and operator (after install, or whenever they want their agents): SoftwareTeam terminal open saved:kernel --window. The agent runs it on the daemon desktop; it opens a new terminal tab/window with herdr, otherwise plain tmux. Herdr needs a terminal the person can see; changing this dashboard to :terminals does not open one. Over headless SSH, give the exact connection/attach command for a new terminal/tab, as in the getting-started guide. Check the result and visible content, or say what cannot be verified; on a desktop, do not finish by printing a command for the person to type. Only if the window cannot open, SoftwareTeam tui --shared is the dashboard-only fallback. Explain the failure; not every failure prints an operator attach command. Use the getting-started guide to derive the current operator binding if the person chooses manual attachment. Existing herdr/cmux workspaces can still use --provider without --window.\nThe shared dashboard keeps its view when you detach. On an older kernel, or after quitting the TUI, run SoftwareTeam tui in that terminal once. No agent or terminal is started by --shared.");
 
   cmd
     .command("commands")
@@ -73,7 +73,7 @@ export function tuiCommand(io: FrontDoorIo & {
     .action(async (opts: { shared?: boolean }) => {
       const stdoutIsTTY = io.stdoutIsTTY ?? process.stdout.isTTY === true;
       if (!stdoutIsTTY || (opts.shared && !(io.stdinIsTTY ?? process.stdin.isTTY === true))) {
-        // Same TTY-awareness on stdout as the bare-`rig` front door — degrade, never
+        // Same TTY-awareness on stdout as the bare-`softwareTeam` front door — degrade, never
         // launch the interactive TUI into a redirected/piped stdout.
         const err = io.err ?? ((l: string) => process.stderr.write(l + "\n"));
         const exit = io.exit ?? ((c: number) => process.exit(c));
@@ -88,9 +88,9 @@ export function tuiCommand(io: FrontDoorIo & {
         const exit = io.exit ?? ((code: number) => process.exit(code));
         try {
           const target = await (io.sharedTarget ?? sharedTuiTarget)();
-          err("Joining the shared dashboard, not the operator conversation. For the OpenRig view: rig terminal open saved:kernel --window. This shared dashboard is the fallback if that window cannot open. Ctrl-b d detaches and preserves the view; if a shell is shown, run rig tui once.");
+          err("Joining the shared dashboard, not the operator conversation. For the SoftwareTeam view: SoftwareTeam terminal open saved:kernel --window. This shared dashboard is the fallback if that window cannot open. Ctrl-b d detaches and preserves the view; if a shell is shown, run SoftwareTeam tui once.");
           const code = await (io.attachShared ?? attachSharedTui)(target);
-          if (code !== 0) err("Could not attach the kernel terminal. Inspect rig ps --nodes --rig kernel and rig status; standalone: rig tui.");
+          if (code !== 0) err("Could not attach the kernel terminal. Inspect SoftwareTeam ps --nodes --software-team kernel and SoftwareTeam status; standalone: SoftwareTeam tui.");
           exit(code);
         } catch (error) {
           err(error instanceof Error ? error.message : String(error));

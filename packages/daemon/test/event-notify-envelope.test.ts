@@ -118,8 +118,8 @@ describe("W2b exact-set notify envelope", () => {
   it("preserves the current miss as a rollback-producing validation failure", async () => {
     const queueRepo = new QueueRepository(db, bus);
     const item = await queueRepo.create({
-      sourceSession: "source@w2b-rig",
-      destinationSession: "owner@w2b-rig",
+      sourceSession: "source@w2b-software-team",
+      destinationSession: "owner@w2b-software-team",
       body: "current miss",
       nudge: false,
     });
@@ -128,7 +128,7 @@ describe("W2b exact-set notify envelope", () => {
       bus.withNotifyEnvelope(() => {
         queueRepo.updateWithinTransaction({
           qitemId: item.qitemId,
-          actorSession: "owner@w2b-rig",
+          actorSession: "owner@w2b-software-team",
           state: "in-progress",
           transitionNote: "intentionally omitted registration",
         });
@@ -164,7 +164,7 @@ describe("W2b exact-set notify envelope", () => {
 
     bus.withNotifyEnvelope(() => {
       malformedSeq = Number(
-        db.prepare("INSERT INTO events (rig_id, node_id, type, payload) VALUES (?, ?, ?, ?)")
+        db.prepare("INSERT INTO events (software_team_id, node_id, type, payload) VALUES (?, ?, ?, ?)")
           .run(null, null, "malformed.fixture", "{not-json")
           .lastInsertRowid,
       );
@@ -199,7 +199,7 @@ describe("W2b exact-set notify envelope", () => {
     bus.subscribe((event) => received.push(event));
 
     bus.withNotifyEnvelope(() => {
-      db.prepare("INSERT INTO events (rig_id, node_id, type, payload) VALUES (?, ?, ?, ?)")
+      db.prepare("INSERT INTO events (software_team_id, node_id, type, payload) VALUES (?, ?, ?, ?)")
         .run(null, null, "malformed.fixture", payload);
     });
 
@@ -212,7 +212,7 @@ describe("W2b exact-set notify envelope", () => {
   });
 
   it("starts at MAX(seq) so legacy malformed rows remain replay-only", () => {
-    db.prepare("INSERT INTO events (rig_id, node_id, type, payload) VALUES (?, ?, ?, ?)")
+    db.prepare("INSERT INTO events (software_team_id, node_id, type, payload) VALUES (?, ?, ?, ?)")
       .run(null, null, "legacy.malformed", "{not-json");
     const freshBus = new EventBus(db);
     const received: PersistedEvent[] = [];
@@ -254,13 +254,13 @@ describe("W2b exact-set notify envelope", () => {
     bus.withNotifyEnvelope((register) => {
       register(
         bus.persistWithinTransaction({
-          type: "rig.deleted",
-          rigId: "rig-that-does-not-exist",
+          type: "software-team.deleted",
+          softwareTeamId: "software-team-that-does-not-exist",
         }),
       );
     });
 
     expect(received).toHaveLength(1);
-    expect(received[0]).toMatchObject({ type: "rig.deleted", rigId: "rig-that-does-not-exist" });
+    expect(received[0]).toMatchObject({ type: "software-team.deleted", softwareTeamId: "software-team-that-does-not-exist" });
   });
 });

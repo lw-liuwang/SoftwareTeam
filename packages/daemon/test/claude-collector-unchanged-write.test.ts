@@ -16,7 +16,7 @@ afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursiv
 function seat() {
   const root = fs.mkdtempSync(nodePath.join(os.tmpdir(), "collector-unchanged-"));
   roots.push(root);
-  const cwd = nodePath.join(root, "seat"), state = nodePath.join(root, "openrig");
+  const cwd = nodePath.join(root, "seat"), state = nodePath.join(root, "softwareteam");
   fs.mkdirSync(nodePath.join(cwd, ".claude"), { recursive: true });
   const asset = nodePath.join(root, "collector.cjs");
   fs.writeFileSync(asset, "// collector\n");
@@ -31,9 +31,9 @@ function seat() {
   };
   const adapter = new ClaudeCodeAdapter({ tmux: {} as TmuxAdapter, fsOps, stateDir: state, collectorAssetPath: asset });
   const settings = nodePath.join(cwd, ".claude", "settings.local.json");
-  const command = `node ${shellQuote(nodePath.join(cwd, ".openrig", "context-collector.cjs"))} `
+  const command = `node ${shellQuote(nodePath.join(cwd, ".softwareteam", "context-collector.cjs"))} `
     + `${shellQuote(nodePath.join(state, "state", "context-usage"))} ${shellQuote(nodePath.join(state, "state", "provider-usage"))}`;
-  const poll = () => adapter.ensureContextCollector({ cwd, tmuxSession: "seat@rig" });
+  const poll = () => adapter.ensureContextCollector({ cwd, tmuxSession: "seat@software-team" });
   return { cwd, settings, command, writes, poll };
 }
 
@@ -75,9 +75,9 @@ describe("the context collector writes the seat's settings only when its status 
       (sl, _f, c) => expect(sl).toEqual({ padding: 3, type: "command", command: c })],
     ["the collector's own command with another type", (c) => JSON.stringify({ statusLine: { type: "static", command: c } }), "written",
       (sl, _f, c) => expect(sl).toEqual({ type: "command", command: c })],
-    ["the collector's older three-token command", () => JSON.stringify({ statusLine: { type: "command", command: "node /seat/.openrig/context-collector.cjs /old/state/context", padding: 2 } }), "written",
+    ["the collector's older three-token command", () => JSON.stringify({ statusLine: { type: "command", command: "node /seat/.softwareteam/context-collector.cjs /old/state/context", padding: 2 } }), "written",
       (sl, _f, c) => expect(sl).toEqual({ type: "command", command: c, padding: 2 })],
-    ["a stale collector command from another state directory", () => JSON.stringify({ statusLine: { type: "command", command: "node /old/.openrig/context-collector.cjs /old/ctx /old/prov" } }), "written",
+    ["a stale collector command from another state directory", () => JSON.stringify({ statusLine: { type: "command", command: "node /old/.softwareteam/context-collector.cjs /old/ctx /old/prov" } }), "written",
       (sl, _f, c) => expect(sl).toEqual({ type: "command", command: c })],
     ["a JSON value that isn't an object", () => "[]", "untouched", () => {}],
     ["a user's own status line", () => JSON.stringify(user, null, 2), "untouched", () => {}],

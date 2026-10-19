@@ -13,8 +13,8 @@ vi.mock("../src/daemon-lifecycle.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../src/daemon-lifecycle.js");
   return {
     ...actual,
-    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1, port: 7433 })),
-    getDaemonUrl: vi.fn(() => "http://localhost:7433"),
+    getDaemonStatus: vi.fn(async () => ({ state: "running", healthy: true, pid: 1, port: 7434 })),
+    getDaemonUrl: vi.fn(() => "http://localhost:7434"),
   };
 });
 
@@ -47,7 +47,7 @@ const STUCK = {
   status: "active",
   deadline: {
     state: "overdue-unclaimed",
-    evidence: { stepId: "review", ownerSession: "rev@rig", overdueBySeconds: 7200 },
+    evidence: { stepId: "review", ownerSession: "rev@software-team", overdueBySeconds: 7200 },
   },
 };
 
@@ -67,7 +67,7 @@ const WAITING_AND_STUCK = {
   status: "waiting",
   deadline: {
     state: "overdue-unclaimed",
-    evidence: { stepId: "gate", ownerSession: "human@rig", overdueBySeconds: 60 },
+    evidence: { stepId: "gate", ownerSession: "human@software-team", overdueBySeconds: 60 },
   },
   lastContinuationDecision: { blockedOn: "external-gate" },
 };
@@ -85,11 +85,11 @@ describe("composeAttentionRollup (WF3 FR-3b)", () => {
     expect(ids).not.toContain("WF-C");
     const stuck = rollup.attention.find((r) => r.instanceId === "WF-S");
     expect(stuck?.classes).toEqual(["stuck"]);
-    expect(stuck?.reasons[0]).toContain("overdue-unclaimed at step review (owner rev@rig)");
+    expect(stuck?.reasons[0]).toContain("overdue-unclaimed at step review (owner rev@software-team)");
     expect(stuck?.reasons[0]).toContain("120m"); // 7200s consumed, not computed
-    expect(stuck?.affordance).toContain("rig workflow route WF-S");
+    expect(stuck?.affordance).toContain("SoftwareTeam workflow route WF-S");
     const failed = rollup.attention.find((r) => r.instanceId === "WF-F");
-    expect(failed?.affordance).toContain("rig workflow trace WF-F");
+    expect(failed?.affordance).toContain("SoftwareTeam workflow trace WF-F");
     const waiting = rollup.attention.find((r) => r.instanceId === "WF-W");
     expect(waiting?.reasons[0]).toBe("waiting on founder-gate-2");
   });
@@ -191,7 +191,7 @@ describe("status verb wire behavior", () => {
       workflowDeps: makeDeps({ "GET /api/workflow/list": { status: 200, data: [FAILED, HEALTHY] } }),
     });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "workflow", "status", "--json"]);
+    await program.parseAsync(["node", "softwareTeam", "workflow", "status", "--json"]);
     const out = JSON.parse(String(logSpy.mock.calls.at(-1)?.[0]));
     expect(out.counts.failed).toBe(1);
     expect(out.attention).toHaveLength(1);
@@ -214,7 +214,7 @@ describe("status verb wire behavior", () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const program = createProgram({ workflowDeps: deps });
     program.exitOverride();
-    await program.parseAsync(["node", "rig", "workflow", "status"]);
+    await program.parseAsync(["node", "softwareTeam", "workflow", "status"]);
     logSpy.mockRestore();
     expect(calls).toEqual(["/api/workflow/list"]);
   });
